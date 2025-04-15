@@ -41,14 +41,14 @@ impl frame_election_provider_support::ScoreProvider<AccountId> for StakingMock {
 		*NextVoteWeightMap::get().get(id).unwrap_or(&NextVoteWeight::get())
 	}
 
-	frame_election_provider_support::runtime_benchmarks_fuzz_or_std_enabled! {
+	frame_election_provider_support::runtime_benchmarks_or_std_enabled! {
 		fn set_score_of(id: &AccountId, weight: Self::Score) {
 			NEXT_VOTE_WEIGHT_MAP.with(|m| m.borrow_mut().insert(*id, weight));
 		}
 	}
 }
 
-#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Runtime {
 	type Block = Block;
 	type AccountData = pallet_balances::AccountData<Balance>;

@@ -1,0 +1,20 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Remove redundant XCMs from dry run's forwarded xcms
+
+doc:
+  - audience: Runtime User
+    description: |
+      The DryRunApi was returning the same message repeated multiple times in the
+      `forwarded_xcms` field. This is no longer the case.
+
+crates:
+  - name: pallet-xcm-bridge-hub-router
+    bump: patch
+  - name: cumulus-pallet-parachain-system
+    bump: patch
+  - name: staging-xcm-builder
+    bump: patch
+  - name: emulated-integration-tests-common
+    bump: minor

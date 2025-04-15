@@ -20,6 +20,9 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+extern crate core;
+
 #[cfg(test)]
 mod tests;
 
@@ -30,15 +33,19 @@ mod asset_conversion;
 #[allow(deprecated)]
 pub use asset_conversion::ConvertedConcreteAssetId;
 pub use asset_conversion::{
-	AsPrefixedGeneralIndex, ConvertedConcreteId, MatchedConvertedConcreteId, V4V3LocationConverter,
+	AsPrefixedGeneralIndex, ConvertedConcreteId, MatchedConvertedConcreteId,
 };
+
+mod asset_exchange;
+pub use asset_exchange::SingleAssetExchangeAdapter;
 
 mod barriers;
 pub use barriers::{
-	AllowExplicitUnpaidExecutionFrom, AllowKnownQueryResponses, AllowSubscriptionsFrom,
-	AllowTopLevelPaidExecutionFrom, AllowUnpaidExecutionFrom, DenyReserveTransferToRelayChain,
-	DenyThenTry, IsChildSystemParachain, RespectSuspension, TakeWeightCredit, TrailingSetTopicAsId,
-	WithComputedOrigin,
+	AllowExplicitUnpaidExecutionFrom, AllowHrmpNotificationsFromRelayChain,
+	AllowKnownQueryResponses, AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom,
+	AllowUnpaidExecutionFrom, DenyRecursively, DenyReserveTransferToRelayChain, DenyThenTry,
+	IsChildSystemParachain, IsParentsOnly, IsSiblingSystemParachain, RespectSuspension,
+	TakeWeightCredit, TrailingSetTopicAsId, WithComputedOrigin,
 };
 
 mod controller;
@@ -53,7 +60,7 @@ pub use currency_adapter::CurrencyAdapter;
 
 mod fee_handling;
 pub use fee_handling::{
-	deposit_or_burn_fee, HandleFee, XcmFeeManagerFromComponents, XcmFeeToAccount,
+	deposit_or_burn_fee, HandleFee, SendXcmFeeToAccount, XcmFeeManagerFromComponents,
 };
 
 mod filter_asset_location;
@@ -76,12 +83,15 @@ pub use location_conversion::{
 	ChildParachainConvertsVia, DescribeAccountId32Terminal, DescribeAccountIdTerminal,
 	DescribeAccountKey20Terminal, DescribeAllTerminal, DescribeBodyTerminal, DescribeFamily,
 	DescribeLocation, DescribePalletTerminal, DescribeTerminus, DescribeTreasuryVoiceTerminal,
-	GlobalConsensusConvertsFor, GlobalConsensusParachainConvertsFor, HashedDescription,
-	LocalTreasuryVoiceConvertsVia, ParentIsPreset, SiblingParachainConvertsVia,
+	ExternalConsensusLocationsConverterFor, GlobalConsensusConvertsFor,
+	GlobalConsensusParachainConvertsFor, HashedDescription, LocalTreasuryVoiceConvertsVia,
+	ParentIsPreset, SiblingParachainConvertsVia,
 };
 
 mod matches_location;
-pub use matches_location::{StartsWith, StartsWithExplicitGlobalConsensus};
+pub use matches_location::{
+	StartsWith, StartsWithExplicitGlobalConsensus, WithLatestLocationConverter,
+};
 
 mod matches_token;
 pub use matches_token::IsConcrete;
@@ -100,14 +110,14 @@ pub use nonfungible_adapter::{
 };
 
 mod origin_aliases;
-pub use origin_aliases::AliasForeignAccountId32;
+pub use origin_aliases::*;
 
 mod origin_conversion;
 pub use origin_conversion::{
 	BackingToPlurality, ChildParachainAsNative, ChildSystemParachainAsSuperuser, EnsureXcmOrigin,
-	OriginToPluralityVoice, ParentAsSuperuser, RelayChainAsNative, SiblingParachainAsNative,
-	SiblingSystemParachainAsSuperuser, SignedAccountId32AsNative, SignedAccountKey20AsNative,
-	SignedToAccountId32, SovereignSignedViaLocation,
+	LocationAsSuperuser, OriginToPluralityVoice, ParentAsSuperuser, RelayChainAsNative,
+	SiblingParachainAsNative, SiblingSystemParachainAsSuperuser, SignedAccountId32AsNative,
+	SignedAccountKey20AsNative, SignedToAccountId32, SovereignSignedViaLocation,
 };
 
 mod pay;
@@ -117,16 +127,20 @@ mod process_xcm_message;
 pub use process_xcm_message::ProcessXcmMessage;
 
 mod routing;
-pub use routing::{WithTopicSource, WithUniqueTopic};
+pub use routing::{
+	EnsureDecodableXcm, EnsureDelivery, InspectMessageQueues, WithTopicSource, WithUniqueTopic,
+};
 
 mod transactional;
 pub use transactional::FrameTransactionalProcessor;
 
+#[allow(deprecated)]
+pub use universal_exports::UnpaidLocalExporter;
 mod universal_exports;
 pub use universal_exports::{
 	ensure_is_remote, BridgeBlobDispatcher, BridgeMessage, DispatchBlob, DispatchBlobError,
-	ExporterFor, HaulBlob, HaulBlobError, HaulBlobExporter, NetworkExportTable,
-	NetworkExportTableItem, SovereignPaidRemoteExporter, UnpaidLocalExporter, UnpaidRemoteExporter,
+	ExporterFor, HaulBlob, HaulBlobError, HaulBlobExporter, LocalExporter, NetworkExportTable,
+	NetworkExportTableItem, SovereignPaidRemoteExporter, UnpaidRemoteExporter,
 };
 
 mod weight;

@@ -19,15 +19,18 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
+use alloc::vec::Vec;
 use codec::{Decode, Encode};
-use sp_std::vec::Vec;
+use scale_info::TypeInfo;
 
 sp_api::decl_runtime_apis! {
 	pub trait NftsApi<AccountId, CollectionId, ItemId>
 	where
-		AccountId: Encode + Decode,
-		CollectionId: Encode,
-		ItemId: Encode,
+		AccountId: Encode + Decode + TypeInfo,
+		CollectionId: Encode + TypeInfo,
+		ItemId: Encode + TypeInfo,
 	{
 		fn owner(collection: CollectionId, item: ItemId) -> Option<AccountId>;
 

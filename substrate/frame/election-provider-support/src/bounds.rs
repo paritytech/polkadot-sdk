@@ -54,6 +54,7 @@
 //! A default or `None` bound means that no bounds are enforced (i.e. unlimited result size). In
 //! general, be careful when using unbounded election bounds in production.
 
+use codec::Encode;
 use core::ops::Add;
 use sp_runtime::traits::Zero;
 
@@ -62,7 +63,7 @@ use sp_runtime::traits::Zero;
 /// Encapsulates the counting of things that can be bounded in an election, such as voters,
 /// targets or anything else.
 ///
-/// This struct is defined mostly to prevent callers from mistankingly using `CountBound` instead of
+/// This struct is defined mostly to prevent callers from mistakenly using `CountBound` instead of
 /// `SizeBound` and vice-versa.
 #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub struct CountBound(pub u32);
@@ -96,7 +97,7 @@ impl Zero for CountBound {
 /// logic and implementation, but it most likely will represent bytes in SCALE encoding in this
 /// context.
 ///
-/// This struct is defined mostly to prevent callers from mistankingly using `CountBound` instead of
+/// This struct is defined mostly to prevent callers from mistakenly using `CountBound` instead of
 /// `SizeBound` and vice-versa.
 #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub struct SizeBound(pub u32);
@@ -152,6 +153,15 @@ impl DataProviderBounds {
 	pub fn exhausted(self, given_size: Option<SizeBound>, given_count: Option<CountBound>) -> bool {
 		self.count_exhausted(given_count.unwrap_or(CountBound::zero())) ||
 			self.size_exhausted(given_size.unwrap_or(SizeBound::zero()))
+	}
+
+	/// Ensures the given encode-able slice meets both the length and count bounds.
+	///
+	/// Same as `exhausted` but a better syntax.
+	pub fn slice_exhausted<T: Encode>(self, input: &[T]) -> bool {
+		let size = Some((input.encoded_size() as u32).into());
+		let count = Some((input.len() as u32).into());
+		self.exhausted(size, count)
 	}
 
 	/// Returns an instance of `Self` that is constructed by capping both the `count` and `size`

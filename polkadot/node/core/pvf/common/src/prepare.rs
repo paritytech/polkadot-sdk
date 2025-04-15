@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use parity_scale_codec::{Decode, Encode};
+use codec::{Decode, Encode};
 use std::path::PathBuf;
 
 /// Result from prepare worker if successful.
@@ -31,6 +31,8 @@ pub struct PrepareWorkerSuccess {
 pub struct PrepareSuccess {
 	/// Canonical path to the compiled artifact.
 	pub path: PathBuf,
+	/// Size in bytes
+	pub size: u64,
 	/// Stats of the current preparation run.
 	pub stats: PrepareStats,
 }
@@ -42,6 +44,8 @@ pub struct PrepareStats {
 	pub cpu_time_elapsed: std::time::Duration,
 	/// The observed memory statistics for the preparation job.
 	pub memory_stats: MemoryStats,
+	/// The decompressed Wasm code length observed during the preparation.
+	pub observed_wasm_code_len: u32,
 }
 
 /// Helper struct to contain all the memory stats, including `MemoryAllocationStats` and, if

@@ -107,7 +107,7 @@ fn implement_common_api_traits(
 				_: Block::Hash,
 				_: &mut #crate_::Extensions,
 			) -> std::result::Result<(), #crate_::ApiError> {
-				unimplemented!("`initialize_extensions` not implemented for mocks")
+				unimplemented!("`Core::initialize_extensions` not implemented for mocks")
 			}
 		}
 	})

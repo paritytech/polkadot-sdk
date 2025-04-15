@@ -1,0 +1,10 @@
+title: im-online pallet offcain storage cleanup
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Adds a function `clear_offchain_storage` to `pallet-im-online`. This function can be used 
+      after the pallet was removed to clear its offchain storage.
+
+crates:
+  - name: pallet-im-online

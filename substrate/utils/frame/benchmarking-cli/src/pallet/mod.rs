@@ -16,9 +16,12 @@
 // limitations under the License.
 
 mod command;
+mod types;
 mod writer;
 
 use crate::shared::HostInfoParams;
+use clap::ValueEnum;
+use frame_support::Serialize;
 use sc_cli::{
 	WasmExecutionMethod, WasmtimeInstantiationStrategy, DEFAULT_WASMTIME_INSTANTIATION_STRATEGY,
 	DEFAULT_WASM_EXECUTION_METHOD,
@@ -31,16 +34,35 @@ fn parse_pallet_name(pallet: &str) -> std::result::Result<String, String> {
 	Ok(pallet.replace("-", "_"))
 }
 
+/// List options for available benchmarks.
+#[derive(Debug, Clone, Copy, ValueEnum)]
+pub enum ListOutput {
+	/// List all available pallets and extrinsics.
+	All,
+	/// List all available pallets only.
+	Pallets,
+}
+
 /// Benchmark the extrinsic weight of FRAME Pallets.
 #[derive(Debug, clap::Parser)]
 pub struct PalletCmd {
 	/// Select a FRAME Pallet to benchmark, or `*` for all (in which case `extrinsic` must be `*`).
-	#[arg(short, long, value_parser = parse_pallet_name, required_unless_present_any = ["list", "json_input"])]
+	#[arg(short, long, value_parser = parse_pallet_name, required_unless_present_any = ["list", "json_input", "all"], default_value_if("all", "true", Some("*".into())))]
 	pub pallet: Option<String>,
 
-	/// Select an extrinsic inside the pallet to benchmark, or `*` for all.
-	#[arg(short, long, required_unless_present_any = ["list", "json_input"])]
+	/// Select an extrinsic inside the pallet to benchmark, or `*` or 'all' for all.
+	#[arg(short, long, required_unless_present_any = ["list", "json_input", "all"], default_value_if("all", "true", Some("*".into())))]
 	pub extrinsic: Option<String>,
+
+	/// Comma separated list of pallets that should be excluded from the benchmark.
+	#[arg(long, value_parser, num_args = 1.., value_delimiter = ',')]
+	pub exclude_pallets: Vec<String>,
+
+	/// Run benchmarks for all pallets and extrinsics.
+	///
+	/// This is equivalent to running `--pallet * --extrinsic *`.
+	#[arg(long)]
+	pub all: bool,
 
 	/// Select how many samples we should take across the variable components.
 	#[arg(short, long, default_value_t = 50)]
@@ -150,6 +172,27 @@ pub struct PalletCmd {
 	)]
 	pub wasmtime_instantiation_strategy: WasmtimeInstantiationStrategy,
 
+	/// Optional runtime blob to use instead of the one from the genesis config.
+	#[arg(long, conflicts_with = "chain", required_if_eq("genesis_builder", "runtime"))]
+	pub runtime: Option<PathBuf>,
+
+	/// Do not fail if there are unknown but also unused host functions in the runtime.
+	#[arg(long)]
+	pub allow_missing_host_functions: bool,
+
+	/// How to construct the genesis state.
+	///
+	/// Uses `GenesisBuilderPolicy::Spec` by default.
+	#[arg(long, value_enum, alias = "genesis-builder-policy")]
+	pub genesis_builder: Option<GenesisBuilderPolicy>,
+
+	/// The preset that we expect to find in the GenesisBuilder runtime API.
+	///
+	/// This can be useful when a runtime has a dedicated benchmarking preset instead of using the
+	/// default one.
+	#[arg(long, default_value = sp_genesis_builder::DEV_RUNTIME_PRESET)]
+	pub genesis_builder_preset: String,
+
 	/// DEPRECATED: This argument has no effect.
 	#[arg(long = "execution")]
 	pub execution: Option<String>,
@@ -158,11 +201,15 @@ pub struct PalletCmd {
 	#[arg(long = "db-cache", value_name = "MiB", default_value_t = 1024)]
 	pub database_cache_size: u32,
 
-	/// List the benchmarks that match your query rather than running them.
+	/// List and print available benchmarks in a csv-friendly format.
 	///
-	/// When nothing is provided, we list all benchmarks.
-	#[arg(long)]
-	pub list: bool,
+	/// NOTE: `num_args` and `require_equals` are required to allow `--list`
+	#[arg(long, value_enum, ignore_case = true, num_args = 0..=1, require_equals = true, default_missing_value("All"))]
+	pub list: Option<ListOutput>,
+
+	/// Don't include csv header when listing benchmarks.
+	#[arg(long, requires("list"))]
+	pub no_csv_header: bool,
 
 	/// If enabled, the storage info is not displayed in the output next to the analysis.
 	///
@@ -201,4 +248,39 @@ pub struct PalletCmd {
 	/// This exists only to restore legacy behaviour. It should never actually be needed.
 	#[arg(long)]
 	pub unsafe_overwrite_results: bool,
+
+	/// Do not print a summary at the end of the run.
+	///
+	/// These summaries can be very long when benchmarking multiple pallets at once. For CI
+	/// use-cases, this option reduces the noise.
+	#[arg(long)]
+	quiet: bool,
+
+	/// Do not enable proof recording during time benchmarking.
+	///
+	/// By default, proof recording is enabled during benchmark execution. This can slightly
+	/// inflate the resulting time weights. For parachains using PoV-reclaim, this is typically the
+	/// correct setting. Chains that ignore the proof size dimension of weight (e.g. relay chain,
+	/// solo-chains) can disable proof recording to get more accurate results.
+	#[arg(long)]
+	disable_proof_recording: bool,
+}
+
+/// How the genesis state for benchmarking should be built.
+#[derive(clap::ValueEnum, Debug, Eq, PartialEq, Clone, Copy, Serialize)]
+#[clap(rename_all = "kebab-case")]
+pub enum GenesisBuilderPolicy {
+	/// Do not provide any genesis state.
+	///
+	/// Benchmarks are advised to function with this, since they should setup their own required
+	/// state. However, to keep backwards compatibility, this is not the default.
+	None,
+	/// Let the runtime build the genesis state through its `BuildGenesisConfig` runtime API.
+	/// This will use the `development` preset by default.
+	Runtime,
+	/// Use the runtime from the Spec file to build the genesis state.
+	SpecRuntime,
+	/// Use the spec file to build the genesis state. This fails when there is no spec.
+	#[value(alias = "spec")]
+	SpecGenesis,
 }

@@ -19,17 +19,16 @@
 use codec::{Decode, Encode};
 use frame_support::{
 	construct_runtime, derive_impl, parameter_types,
-	traits::{Everything, Nothing},
+	traits::{Disabled, Everything, Nothing},
 	weights::{constants::WEIGHT_REF_TIME_PER_SECOND, Weight},
 };
 
 use frame_system::EnsureRoot;
-use sp_core::{ConstU32, H256};
 use sp_runtime::{
-	traits::{Hash, IdentityLookup},
-	AccountId32,
+	generic,
+	traits::{AccountIdLookup, BlakeTwo256, Hash, IdentifyAccount, Verify},
+	MultiAddress, MultiSignature,
 };
-use sp_std::prelude::*;
 
 use pallet_xcm::XcmPassthrough;
 use polkadot_core_primitives::BlockNumber as RelayBlockNumber;
@@ -37,70 +36,48 @@ use polkadot_parachain_primitives::primitives::{
 	DmpMessageHandler, Id as ParaId, Sibling, XcmpMessageFormat, XcmpMessageHandler,
 };
 use xcm::{latest::prelude::*, VersionedXcm};
-#[allow(deprecated)]
-use xcm_builder::CurrencyAdapter as XcmCurrencyAdapter;
 use xcm_builder::{
 	AccountId32Aliases, AllowUnpaidExecutionFrom, EnsureXcmOrigin, FixedRateOfFungible,
-	FixedWeightBounds, FrameTransactionalProcessor, IsConcrete, NativeAsset, ParentIsPreset,
-	SiblingParachainConvertsVia, SignedAccountId32AsNative, SignedToAccountId32,
+	FixedWeightBounds, FrameTransactionalProcessor, FungibleAdapter, IsConcrete, NativeAsset,
+	ParentIsPreset, SiblingParachainConvertsVia, SignedAccountId32AsNative, SignedToAccountId32,
 	SovereignSignedViaLocation,
 };
 use xcm_executor::{Config, XcmExecutor};
 
-pub type AccountId = AccountId32;
+pub type TxExtension = (frame_system::CheckNonZeroSender<Runtime>,);
+
+pub type BlockNumber = u64;
+pub type Address = MultiAddress<AccountId, ()>;
+pub type Header = generic::Header<BlockNumber, BlakeTwo256>;
+pub type UncheckedExtrinsic =
+	generic::UncheckedExtrinsic<Address, RuntimeCall, Signature, TxExtension>;
+pub type Block = generic::Block<Header, UncheckedExtrinsic>;
+
+pub type Signature = MultiSignature;
+pub type AccountId = <<Signature as Verify>::Signer as IdentifyAccount>::AccountId;
 pub type Balance = u128;
 
 parameter_types! {
-	pub const BlockHashCount: u64 = 250;
+	pub const BlockHashCount: u32 = 250;
 }
 
-#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Runtime {
-	type RuntimeOrigin = RuntimeOrigin;
-	type RuntimeCall = RuntimeCall;
-	type Nonce = u64;
-	type Hash = H256;
-	type Hashing = ::sp_runtime::traits::BlakeTwo256;
 	type AccountId = AccountId;
-	type Lookup = IdentityLookup<Self::AccountId>;
+	type Lookup = AccountIdLookup<AccountId, ()>;
 	type Block = Block;
-	type RuntimeEvent = RuntimeEvent;
-	type BlockHashCount = BlockHashCount;
-	type BlockWeights = ();
-	type BlockLength = ();
-	type Version = ();
-	type PalletInfo = PalletInfo;
 	type AccountData = pallet_balances::AccountData<Balance>;
-	type OnNewAccount = ();
-	type OnKilledAccount = ();
-	type DbWeight = ();
-	type BaseCallFilter = Everything;
-	type SystemWeightInfo = ();
-	type SS58Prefix = ();
-	type OnSetCode = ();
-	type MaxConsumers = frame_support::traits::ConstU32<16>;
 }
 
 parameter_types! {
 	pub ExistentialDeposit: Balance = 1;
-	pub const MaxLocks: u32 = 50;
-	pub const MaxReserves: u32 = 50;
 }
 
+#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for Runtime {
-	type MaxLocks = MaxLocks;
 	type Balance = Balance;
-	type RuntimeEvent = RuntimeEvent;
-	type DustRemoval = ();
 	type ExistentialDeposit = ExistentialDeposit;
 	type AccountStore = System;
-	type WeightInfo = ();
-	type MaxReserves = MaxReserves;
-	type ReserveIdentifier = [u8; 8];
-	type RuntimeHoldReason = RuntimeHoldReason;
-	type RuntimeFreezeReason = RuntimeFreezeReason;
-	type FreezeIdentifier = ();
-	type MaxFreezes = ConstU32<0>;
 }
 
 parameter_types! {
@@ -111,7 +88,7 @@ parameter_types! {
 parameter_types! {
 	pub const KsmLocation: Location = Location::parent();
 	pub const RelayNetwork: NetworkId = NetworkId::Kusama;
-	pub UniversalLocation: InteriorLocation = Parachain(MsgQueue::parachain_id().into()).into();
+	pub UniversalLocation: InteriorLocation = [GlobalConsensus(RelayNetwork::get()), Parachain(MsgQueue::parachain_id().into())].into();
 }
 
 pub type LocationToAccountId = (
@@ -133,9 +110,8 @@ parameter_types! {
 	pub const MaxAssetsIntoHolding: u32 = 64;
 }
 
-#[allow(deprecated)]
 pub type LocalAssetTransactor =
-	XcmCurrencyAdapter<Balances, IsConcrete<KsmLocation>, LocationToAccountId, AccountId, ()>;
+	FungibleAdapter<Balances, IsConcrete<KsmLocation>, LocationToAccountId, AccountId, ()>;
 
 pub type XcmRouter = super::ParachainXcmRouter<MsgQueue>;
 pub type Barrier = AllowUnpaidExecutionFrom<Everything>;
@@ -144,6 +120,7 @@ pub struct XcmConfig;
 impl Config for XcmConfig {
 	type RuntimeCall = RuntimeCall;
 	type XcmSender = XcmRouter;
+	type XcmEventEmitter = ();
 	type AssetTransactor = LocalAssetTransactor;
 	type OriginConverter = XcmOriginToCallOrigin;
 	type IsReserve = NativeAsset;
@@ -167,6 +144,10 @@ impl Config for XcmConfig {
 	type SafeCallFilter = Everything;
 	type Aliasers = Nothing;
 	type TransactionalProcessor = FrameTransactionalProcessor;
+	type HrmpNewChannelOpenRequestHandler = ();
+	type HrmpChannelAcceptedHandler = ();
+	type HrmpChannelClosingHandler = ();
+	type XcmRecorder = ();
 }
 
 #[frame_support::pallet]
@@ -180,19 +161,17 @@ pub mod mock_msg_queue {
 		type XcmExecutor: ExecuteXcm<Self::RuntimeCall>;
 	}
 
-	#[pallet::call]
-	impl<T: Config> Pallet<T> {}
-
 	#[pallet::pallet]
 	#[pallet::without_storage_info]
 	pub struct Pallet<T>(_);
 
+	#[pallet::call]
+	impl<T: Config> Pallet<T> {}
+
 	#[pallet::storage]
-	#[pallet::getter(fn parachain_id)]
 	pub(super) type ParachainId<T: Config> = StorageValue<_, ParaId, ValueQuery>;
 
 	#[pallet::storage]
-	#[pallet::getter(fn received_dmp)]
 	/// A queue of received DMP messages
 	pub(super) type ReceivedDmp<T: Config> = StorageValue<_, Vec<Xcm<T::RuntimeCall>>, ValueQuery>;
 
@@ -227,6 +206,14 @@ pub mod mock_msg_queue {
 	}
 
 	impl<T: Config> Pallet<T> {
+		pub fn parachain_id() -> ParaId {
+			ParachainId::<T>::get()
+		}
+
+		pub fn received_dmp() -> Vec<Xcm<T::RuntimeCall>> {
+			ReceivedDmp::<T>::get()
+		}
+
 		pub fn set_para_id(para_id: ParaId) {
 			ParachainId::<T>::put(para_id);
 		}
@@ -354,9 +341,8 @@ impl pallet_xcm::Config for Runtime {
 	type RemoteLockConsumerIdentifier = ();
 	type WeightInfo = pallet_xcm::TestWeightInfo;
 	type AdminOrigin = EnsureRoot<AccountId>;
+	type AuthorizedAliasConsideration = Disabled;
 }
-
-type Block = frame_system::mocking::MockBlock<Runtime>;
 
 construct_runtime!(
 	pub enum Runtime

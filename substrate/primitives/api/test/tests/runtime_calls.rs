@@ -90,8 +90,8 @@ fn record_proof_works() {
 	let transaction = Transfer {
 		amount: 1000,
 		nonce: 0,
-		from: AccountKeyring::Alice.into(),
-		to: AccountKeyring::Bob.into(),
+		from: Sr25519Keyring::Alice.into(),
+		to: Sr25519Keyring::Bob.into(),
 	}
 	.into_unchecked_extrinsic();
 
@@ -110,9 +110,7 @@ fn record_proof_works() {
 
 	// Use the proof backend to execute `execute_block`.
 	let mut overlay = Default::default();
-	let executor = NativeElseWasmExecutor::<LocalExecutorDispatch>::new_with_wasm_executor(
-		WasmExecutor::builder().build(),
-	);
+	let executor: WasmExecutor = WasmExecutor::builder().build();
 	execution_proof_check_on_trie_backend(
 		&backend,
 		&mut overlay,

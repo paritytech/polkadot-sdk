@@ -1,0 +1,142 @@
+[package]
+name = "solochain-template-runtime"
+description = "A solochain runtime template built with Substrate, part of Polkadot Sdk."
+version = "0.0.0"
+license = "Unlicense"
+authors.workspace = true
+homepage.workspace = true
+repository.workspace = true
+edition.workspace = true
+publish = false
+
+[package.metadata.docs.rs]
+targets = ["x86_64-unknown-linux-gnu"]
+
+[dependencies]
+codec = { features = ["derive"], workspace = true }
+scale-info = { features = ["derive", "serde"], workspace = true }
+serde_json = { workspace = true, default-features = false, features = ["alloc"] }
+
+# frame
+frame-executive = { workspace = true }
+frame-metadata-hash-extension = { workspace = true }
+frame-support = { features = ["experimental"], workspace = true }
+frame-system = { workspace = true }
+frame-try-runtime = { optional = true, workspace = true }
+
+# frame pallets
+pallet-aura = { workspace = true }
+pallet-balances = { workspace = true }
+pallet-grandpa = { workspace = true }
+pallet-sudo = { workspace = true }
+pallet-timestamp = { workspace = true }
+pallet-transaction-payment = { workspace = true }
+
+# primitives
+sp-api = { workspace = true }
+sp-block-builder = { workspace = true }
+sp-consensus-aura = { features = ["serde"], workspace = true }
+sp-consensus-grandpa = { features = ["serde"], workspace = true }
+sp-core = { features = ["serde"], workspace = true }
+sp-genesis-builder = { workspace = true }
+sp-inherents = { workspace = true }
+sp-keyring = { workspace = true }
+sp-offchain = { workspace = true }
+sp-runtime = { features = ["serde"], workspace = true }
+sp-session = { workspace = true }
+sp-storage = { workspace = true }
+sp-transaction-pool = { workspace = true }
+sp-version = { features = ["serde"], workspace = true }
+
+# RPC related
+frame-system-rpc-runtime-api = { workspace = true }
+pallet-transaction-payment-rpc-runtime-api = { workspace = true }
+
+# Used for runtime benchmarking
+frame-benchmarking = { optional = true, workspace = true }
+frame-system-benchmarking = { optional = true, workspace = true }
+
+# The pallet in this template.
+pallet-template = { workspace = true }
+
+[build-dependencies]
+substrate-wasm-builder = { optional = true, workspace = true, default-features = true }
+
+[features]
+default = ["std"]
+std = [
+	"codec/std",
+	"frame-benchmarking?/std",
+	"frame-executive/std",
+	"frame-metadata-hash-extension/std",
+	"frame-support/std",
+	"frame-system-benchmarking?/std",
+	"frame-system-rpc-runtime-api/std",
+	"frame-system/std",
+	"frame-try-runtime?/std",
+	"pallet-aura/std",
+	"pallet-balances/std",
+	"pallet-grandpa/std",
+	"pallet-sudo/std",
+	"pallet-template/std",
+	"pallet-timestamp/std",
+	"pallet-transaction-payment-rpc-runtime-api/std",
+	"pallet-transaction-payment/std",
+	"scale-info/std",
+	"serde_json/std",
+	"sp-api/std",
+	"sp-block-builder/std",
+	"sp-consensus-aura/std",
+	"sp-consensus-grandpa/std",
+	"sp-core/std",
+	"sp-genesis-builder/std",
+	"sp-inherents/std",
+	"sp-keyring/std",
+	"sp-offchain/std",
+	"sp-runtime/std",
+	"sp-session/std",
+	"sp-storage/std",
+	"sp-transaction-pool/std",
+	"sp-version/std",
+	"substrate-wasm-builder",
+]
+runtime-benchmarks = [
+	"frame-benchmarking/runtime-benchmarks",
+	"frame-support/runtime-benchmarks",
+	"frame-system-benchmarking/runtime-benchmarks",
+	"frame-system/runtime-benchmarks",
+	"pallet-balances/runtime-benchmarks",
+	"pallet-grandpa/runtime-benchmarks",
+	"pallet-sudo/runtime-benchmarks",
+	"pallet-template/runtime-benchmarks",
+	"pallet-timestamp/runtime-benchmarks",
+	"pallet-transaction-payment/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+]
+try-runtime = [
+	"frame-executive/try-runtime",
+	"frame-support/try-runtime",
+	"frame-system/try-runtime",
+	"frame-try-runtime/try-runtime",
+	"pallet-aura/try-runtime",
+	"pallet-balances/try-runtime",
+	"pallet-grandpa/try-runtime",
+	"pallet-sudo/try-runtime",
+	"pallet-template/try-runtime",
+	"pallet-timestamp/try-runtime",
+	"pallet-transaction-payment/try-runtime",
+	"sp-runtime/try-runtime",
+]
+
+# Enable the metadata hash generation.
+#
+# This is hidden behind a feature because it increases the compile time.
+# The wasm binary needs to be compiled twice, once to fetch the metadata,
+# generate the metadata hash and then a second time with the
+# `RUNTIME_METADATA_HASH` environment variable set for the `CheckMetadataHash`
+# extension.
+metadata-hash = ["substrate-wasm-builder/metadata-hash"]
+
+# A convenience feature for enabling things when doing a build
+# for an on-chain release.
+on-chain-release-build = ["metadata-hash", "sp-api/disable-logging"]

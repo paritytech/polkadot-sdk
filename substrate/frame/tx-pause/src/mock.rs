@@ -21,66 +21,18 @@
 
 use super::*;
 use crate as pallet_tx_pause;
+use frame::testing_prelude::*;
 
-use frame_support::{
-	derive_impl, parameter_types,
-	traits::{ConstU64, Everything, InsideBoth, InstanceFilter},
-};
-use frame_system::EnsureSignedBy;
-use sp_core::H256;
-use sp_runtime::{
-	traits::{BlakeTwo256, IdentityLookup},
-	BuildStorage,
-};
-
-parameter_types! {
-	pub const BlockHashCount: u64 = 250;
-}
-#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
 	type BaseCallFilter = InsideBoth<Everything, TxPause>;
-	type BlockWeights = ();
-	type BlockLength = ();
-	type RuntimeOrigin = RuntimeOrigin;
-	type RuntimeCall = RuntimeCall;
-	type Nonce = u64;
-	type Hash = H256;
-	type Hashing = BlakeTwo256;
-	type AccountId = u64;
-	type Lookup = IdentityLookup<Self::AccountId>;
-	type RuntimeEvent = RuntimeEvent;
 	type Block = Block;
-	type BlockHashCount = BlockHashCount;
-	type DbWeight = ();
-	type Version = ();
-	type PalletInfo = PalletInfo;
 	type AccountData = pallet_balances::AccountData<u64>;
-	type OnNewAccount = ();
-	type OnKilledAccount = ();
-	type SystemWeightInfo = ();
-	type SS58Prefix = ();
-	type OnSetCode = ();
-	type MaxConsumers = frame_support::traits::ConstU32<16>;
 }
 
-parameter_types! {
-	pub const ExistentialDeposit: u64 = 1;
-	pub const MaxLocks: u32 = 10;
-}
+#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for Test {
-	type Balance = u64;
-	type DustRemoval = ();
-	type RuntimeEvent = RuntimeEvent;
-	type ExistentialDeposit = ExistentialDeposit;
 	type AccountStore = System;
-	type WeightInfo = ();
-	type MaxLocks = MaxLocks;
-	type MaxReserves = ();
-	type ReserveIdentifier = [u8; 8];
-	type FreezeIdentifier = ();
-	type RuntimeHoldReason = RuntimeHoldReason;
-	type RuntimeFreezeReason = RuntimeFreezeReason;
-	type MaxFreezes = ConstU32<0>;
 }
 
 impl pallet_utility::Config for Test {
@@ -100,6 +52,7 @@ impl pallet_utility::Config for Test {
 	PartialOrd,
 	Encode,
 	Decode,
+	DecodeWithMemTracking,
 	RuntimeDebug,
 	MaxEncodedLen,
 	scale_info::TypeInfo,
@@ -147,13 +100,14 @@ impl pallet_proxy::Config for Test {
 	type MaxPending = ConstU32<2>;
 	type AnnouncementDepositBase = ConstU64<1>;
 	type AnnouncementDepositFactor = ConstU64<1>;
+	type BlockNumberProvider = frame_system::Pallet<Test>;
 }
 
 parameter_types! {
 	pub const MaxNameLen: u32 = 50;
 }
 
-frame_support::ord_parameter_types! {
+ord_parameter_types! {
 	pub const PauseOrigin: u64 = 1;
 	pub const UnpauseOrigin: u64 = 2;
 }
@@ -181,7 +135,7 @@ impl Config for Test {
 
 type Block = frame_system::mocking::MockBlock<Test>;
 
-frame_support::construct_runtime!(
+construct_runtime!(
 	pub enum Test
 	{
 		System: frame_system,
@@ -192,12 +146,13 @@ frame_support::construct_runtime!(
 	}
 );
 
-pub fn new_test_ext() -> sp_io::TestExternalities {
+pub fn new_test_ext() -> TestExternalities {
 	let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 
 	pallet_balances::GenesisConfig::<Test> {
 		// The 0 account is NOT a special origin. The rest may be:
 		balances: vec![(0, 1234), (1, 5678), (2, 5678), (3, 5678), (4, 5678)],
+		..Default::default()
 	}
 	.assimilate_storage(&mut t)
 	.unwrap();
@@ -206,7 +161,7 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 		.assimilate_storage(&mut t)
 		.unwrap();
 
-	let mut ext = sp_io::TestExternalities::new(t);
+	let mut ext = TestExternalities::new(t);
 	ext.execute_with(|| {
 		System::set_block_number(1);
 	});

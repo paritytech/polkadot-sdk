@@ -1,0 +1,66 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: XCMv5 InitiateTransfer can preserve original origin across chains.
+
+doc:
+  - audience: Runtime User
+    description: |
+      The new InitiateTransfer instruction can preserve the original origin across chains by
+      setting `preserve_origin: true` in the instruction itself.
+      When it's set to true, it will append after the inner XCM, an `AliasOrigin` instruction
+      instead of the usual `ClearOrigin`.
+      This instruction will try to alias to the original origin, thus preserving it.
+      This only works if the chain receiving the transfer supports the aliasing operation.
+      If not, `preserve_origin: false` works as before and will never fail because of this.
+  - audience: Runtime Dev
+    description: |
+      The new InitiateTransfer instruction can preserve the original origin across chains by
+      setting `preserve_origin: true` in the instruction itself.
+      When it's set to true, it will append after the inner XCM, an `AliasOrigin` instruction
+      instead of the usual `ClearOrigin`.
+      This instruction will try to alias to the original origin, thus preserving it.
+
+      Beware: This only works if the following two rules are followed by the chain receiving such
+      a message.
+      - Alias to interior locations is valid (the exact same behaviour as DescendOrigin)
+      - AssetHub can alias everything (most importantly sibling accounts and ethereum).
+      These can be set with the `Aliasers` configuration item, with the following adapters:
+      - AliasChildLocation
+      - AliasOriginRootUsingFilter with AssetHub and Everything
+      An example of the first one can be seen in `asset-hub-westend` and of the second one in
+      `penpal-runtime`.
+
+crates:
+  - name: staging-xcm
+    bump: minor
+  - name: staging-xcm-builder
+    bump: minor
+  - name: staging-xcm-executor
+    bump: minor
+  - name: pallet-xcm-benchmarks
+    bump: minor
+  - name: snowbridge-router-primitives
+    bump: minor
+  - name: asset-hub-rococo-runtime
+    bump: minor
+  - name: asset-hub-westend-runtime
+    bump: minor
+  - name: bridge-hub-rococo-runtime
+    bump: minor
+  - name: bridge-hub-westend-runtime
+    bump: minor
+  - name: coretime-rococo-runtime
+    bump: minor
+  - name: coretime-westend-runtime
+    bump: minor
+  - name: people-rococo-runtime
+    bump: minor
+  - name: people-westend-runtime
+    bump: minor
+  - name: penpal-runtime
+    bump: minor
+  - name: rococo-runtime
+    bump: minor
+  - name: westend-runtime
+    bump: minor

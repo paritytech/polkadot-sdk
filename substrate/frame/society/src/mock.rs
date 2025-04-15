@@ -54,7 +54,7 @@ ord_parameter_types! {
 	pub const MaxBids: u32 = 10;
 }
 
-#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
 	type AccountId = u128;
 	type Block = Block;
@@ -62,7 +62,7 @@ impl frame_system::Config for Test {
 	type Lookup = IdentityLookup<Self::AccountId>;
 }
 
-#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig as pallet_balances::DefaultConfig)]
+#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for Test {
 	type ReserveIdentifier = [u8; 8];
 	type AccountStore = System;
@@ -83,6 +83,7 @@ impl Config for Test {
 	type MaxPayouts = MaxPayouts;
 	type MaxBids = MaxBids;
 	type WeightInfo = ();
+	type BlockNumberProvider = System;
 }
 
 pub struct EnvBuilder {
@@ -115,7 +116,7 @@ impl EnvBuilder {
 	pub fn execute<R, F: FnOnce() -> R>(mut self, f: F) -> R {
 		let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 		self.balances.push((Society::account_id(), self.balance.max(self.pot)));
-		pallet_balances::GenesisConfig::<Test> { balances: self.balances }
+		pallet_balances::GenesisConfig::<Test> { balances: self.balances, ..Default::default() }
 			.assimilate_storage(&mut t)
 			.unwrap();
 		pallet_society::GenesisConfig::<Test> { pot: self.pot }
@@ -123,6 +124,8 @@ impl EnvBuilder {
 			.unwrap();
 		let mut ext: sp_io::TestExternalities = t.into();
 		ext.execute_with(|| {
+			// Initialize the block number to 1 for event registration
+			System::set_block_number(1);
 			if self.founded {
 				let r = b"be cool".to_vec();
 				assert!(Society::found_society(Origin::signed(1), 10, 10, 8, 2, 25, r).is_ok());
@@ -135,18 +138,6 @@ impl EnvBuilder {
 	pub fn founded(mut self, f: bool) -> Self {
 		self.founded = f;
 		self
-	}
-}
-
-/// Run until a particular block.
-pub fn run_to_block(n: u64) {
-	while System::block_number() < n {
-		if System::block_number() > 1 {
-			System::on_finalize(System::block_number());
-		}
-		System::set_block_number(System::block_number() + 1);
-		System::on_initialize(System::block_number());
-		Society::on_initialize(System::block_number());
 	}
 }
 
@@ -173,12 +164,12 @@ pub fn candidacy<AccountId, Balance>(
 pub fn next_challenge() {
 	let challenge_period: u64 = <Test as Config>::ChallengePeriod::get();
 	let now = System::block_number();
-	run_to_block(now + challenge_period - now % challenge_period);
+	System::run_to_block::<AllPalletsWithSystem>(now + challenge_period - now % challenge_period);
 }
 
 pub fn next_voting() {
 	if let Period::Voting { more, .. } = Society::period() {
-		run_to_block(System::block_number() + more);
+		System::run_to_block::<AllPalletsWithSystem>(System::block_number() + more);
 	}
 }
 
@@ -235,8 +226,11 @@ pub fn conclude_intake(allow_resignation: bool, judge_intake: Option<bool>) {
 pub fn next_intake() {
 	let claim_period: u64 = <Test as Config>::ClaimPeriod::get();
 	match Society::period() {
-		Period::Voting { more, .. } => run_to_block(System::block_number() + more + claim_period),
-		Period::Claim { more, .. } => run_to_block(System::block_number() + more),
+		Period::Voting { more, .. } => System::run_to_block::<AllPalletsWithSystem>(
+			System::block_number() + more + claim_period,
+		),
+		Period::Claim { more, .. } =>
+			System::run_to_block::<AllPalletsWithSystem>(System::block_number() + more),
 	}
 }
 

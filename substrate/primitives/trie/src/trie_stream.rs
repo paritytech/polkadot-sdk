@@ -21,9 +21,9 @@ use crate::{
 	node_header::{size_and_prefix_iterator, NodeKind},
 	trie_constants,
 };
+use alloc::vec::Vec;
 use codec::{Compact, Encode};
 use hash_db::Hasher;
-use sp_std::vec::Vec;
 use trie_root;
 
 /// Codec-flavored TrieStream.
@@ -68,7 +68,7 @@ fn fuse_nibbles_node(nibbles: &[u8], kind: NodeKind) -> impl Iterator<Item = u8>
 	};
 	iter_start
 		.chain(if nibbles.len() % 2 == 1 { Some(nibbles[0]) } else { None })
-		.chain(nibbles[nibbles.len() % 2..].chunks(2).map(|ch| ch[0] << 4 | ch[1]))
+		.chain(nibbles[nibbles.len() % 2..].chunks(2).map(|ch| (ch[0] << 4) | ch[1]))
 }
 
 use trie_root::Value as TrieStreamValue;

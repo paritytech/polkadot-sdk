@@ -1,0 +1,19 @@
+title: Prevents staking controllers from becoming stashes of different ledgers; Ensures that no ledger in bad state is mutated.
+
+doc:
+  - audience: Runtime User
+    description: |
+      This PR introduces a fix to the staking logic which prevents an existing controller from bonding as a stash of another ledger, which
+      lead to staking ledger inconsistencies down the line. In addition, it adds a few (temporary) gates to prevent ledgers that are already
+      in a bad state from mutating its state.
+
+      In summary:
+      * Checks if stash is already a controller when calling `Call::bond` and fails if that's the case;
+      * Ensures that all fetching ledgers from storage are done through the `StakingLedger` API;
+      * Ensures that a `Error::BadState` is returned if the ledger bonding is in a bad state. This prevents bad ledgers from mutating (e.g.
+        `bond_extra`, `set_controller`, etc) its state and avoid further data inconsistencies.
+      * Prevents stashes which are controllers or another ledger from calling `set_controller`, since that may lead to a bad state.
+      * Adds further try-state runtime checks that check if there are ledgers in a bad state based on their bonded metadata.
+
+crates:
+- name: pallet-staking

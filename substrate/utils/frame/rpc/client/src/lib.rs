@@ -44,9 +44,9 @@ use std::collections::VecDeque;
 
 pub use jsonrpsee::{
 	core::{
-		client::{ClientT, Subscription, SubscriptionClientT},
+		client::{ClientT, Error, Subscription, SubscriptionClientT},
 		params::BatchRequestBuilder,
-		Error, RpcResult,
+		RpcResult,
 	},
 	rpc_params,
 	ws_client::{WsClient, WsClientBuilder},
@@ -199,11 +199,12 @@ where
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use sp_runtime::testing::{Block as TBlock, ExtrinsicWrapper, Header, H256};
+	use sp_runtime::testing::{Block as TBlock, Header, MockCallU64, TestXt, H256};
 	use std::sync::Arc;
 	use tokio::sync::Mutex;
 
-	type Block = TBlock<ExtrinsicWrapper<()>>;
+	type UncheckedXt = TestXt<MockCallU64, ()>;
+	type Block = TBlock<UncheckedXt>;
 	type BlockNumber = u64;
 	type Hash = H256;
 

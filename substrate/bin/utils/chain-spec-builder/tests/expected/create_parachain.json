@@ -1,0 +1,40 @@
+{
+  "name": "test_chain",
+  "id": "100",
+  "chainType": "Live",
+  "bootNodes": [],
+  "telemetryEndpoints": null,
+  "protocolId": null,
+  "properties": {
+    "tokenDecimals": 12,
+    "tokenSymbol": "UNIT"
+  },
+  "relay_chain": "rococo-local",
+  "para_id": 10101,
+  "codeSubstitutes": {},
+  "genesis": {
+    "runtimeGenesis": {
+      "code": "0x010203",
+      "config": {
+        "babe": {
+          "authorities": [],
+          "epochConfig": {
+            "allowed_slots": "PrimaryAndSecondaryVRFSlots",
+            "c": [
+              1,
+              4
+            ]
+          }
+        },
+        "balances": {
+          "balances": [],
+          "devAccounts": null
+        },
+        "substrateTest": {
+          "authorities": []
+        },
+        "system": {}
+      }
+    }
+  }
+}

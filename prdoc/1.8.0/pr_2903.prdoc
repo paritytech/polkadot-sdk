@@ -1,0 +1,15 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: "Implement `ConversionToAssetBalance` in asset-rate"
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Implements the `ConversionToAssetBalance` trait to the asset-rate pallet.
+
+      Previously only the `ConversionFromAssetBalance` trait was implemented, which would allow to convert an asset balance into the corresponding native balance.
+
+      The `ConversionToAssetBalance` allows to use pallet-asset-rate, e.g., as a mechanism to charge XCM fees in an asset that is not the native.
+crates: [ ]
+

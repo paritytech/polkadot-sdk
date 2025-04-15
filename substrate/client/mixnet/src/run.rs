@@ -44,8 +44,8 @@ use mixnet::{
 };
 use sc_client_api::{BlockchainEvents, HeaderBackend};
 use sc_network::{
-	service::traits::{NotificationEvent, ValidationResult},
-	NetworkNotification, NetworkPeers, NetworkStateInfo, NotificationService, ProtocolName,
+	service::traits::{NetworkService, NotificationEvent, ValidationResult},
+	NetworkPeers, NetworkStateInfo, NotificationService, ProtocolName,
 };
 use sc_transaction_pool_api::{
 	LocalTransactionPool, OffchainTransactionPoolFactory, TransactionPool,
@@ -146,12 +146,12 @@ fn time_until(instant: Instant) -> Duration {
 
 /// Run the mixnet service. If `keystore` is `None`, the service will not attempt to register the
 /// local node as a mixnode, even if `config.register` is `true`.
-pub async fn run<B, C, S, N, P>(
+pub async fn run<B, C, S, P>(
 	config: Config,
 	mut api_backend: ApiBackend,
 	client: Arc<C>,
 	sync: Arc<S>,
-	network: Arc<N>,
+	network: Arc<dyn NetworkService>,
 	protocol_name: ProtocolName,
 	transaction_pool: Arc<P>,
 	keystore: Option<KeystorePtr>,
@@ -160,7 +160,6 @@ pub async fn run<B, C, S, N, P>(
 	B: Block,
 	C: BlockchainEvents<B> + HeaderBackend<B> + CallApiAt<B>,
 	S: SyncOracle,
-	N: NetworkStateInfo + NetworkNotification + NetworkPeers,
 	P: TransactionPool<Block = B> + LocalTransactionPool<Block = B> + 'static,
 {
 	let local_peer_id = network.local_peer_id();

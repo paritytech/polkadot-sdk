@@ -20,13 +20,14 @@
 
 //! A crate which contains statement-store primitives.
 
-use codec::{Decode, Encode};
+extern crate alloc;
+
+use alloc::vec::Vec;
+use codec::{Decode, DecodeWithMemTracking, Encode};
 use scale_info::TypeInfo;
 use sp_application_crypto::RuntimeAppPublic;
 #[cfg(feature = "std")]
 use sp_core::Pair;
-use sp_runtime_interface::pass_by::PassByCodec;
-use sp_std::vec::Vec;
 
 /// Statement topic.
 pub type Topic = [u8; 32];
@@ -91,7 +92,9 @@ pub fn hash_encoded(data: &[u8]) -> [u8; 32] {
 }
 
 /// Statement proof.
-#[derive(Encode, Decode, TypeInfo, sp_core::RuntimeDebug, Clone, PartialEq, Eq)]
+#[derive(
+	Encode, Decode, DecodeWithMemTracking, TypeInfo, sp_core::RuntimeDebug, Clone, PartialEq, Eq,
+)]
 pub enum Proof {
 	/// Sr25519 Signature.
 	Sr25519 {
@@ -172,7 +175,7 @@ impl Field {
 }
 
 /// Statement structure.
-#[derive(TypeInfo, sp_core::RuntimeDebug, PassByCodec, Clone, PartialEq, Eq, Default)]
+#[derive(DecodeWithMemTracking, TypeInfo, sp_core::RuntimeDebug, Clone, PartialEq, Eq, Default)]
 pub struct Statement {
 	proof: Option<Proof>,
 	decryption_key: Option<DecryptionKey>,
@@ -338,8 +341,8 @@ impl Statement {
 			Some(Proof::OnChain { .. }) | None => SignatureVerificationResult::NoSignature,
 			Some(Proof::Sr25519 { signature, signer }) => {
 				let to_sign = self.signature_material();
-				let signature = sp_core::sr25519::Signature(*signature);
-				let public = sp_core::sr25519::Public(*signer);
+				let signature = sp_core::sr25519::Signature::from(*signature);
+				let public = sp_core::sr25519::Public::from(*signer);
 				if signature.verify(to_sign.as_slice(), &public) {
 					SignatureVerificationResult::Valid(*signer)
 				} else {
@@ -348,8 +351,8 @@ impl Statement {
 			},
 			Some(Proof::Ed25519 { signature, signer }) => {
 				let to_sign = self.signature_material();
-				let signature = sp_core::ed25519::Signature(*signature);
-				let public = sp_core::ed25519::Public(*signer);
+				let signature = sp_core::ed25519::Signature::from(*signature);
+				let public = sp_core::ed25519::Public::from(*signer);
 				if signature.verify(to_sign.as_slice(), &public) {
 					SignatureVerificationResult::Valid(*signer)
 				} else {
@@ -358,8 +361,8 @@ impl Statement {
 			},
 			Some(Proof::Secp256k1Ecdsa { signature, signer }) => {
 				let to_sign = self.signature_material();
-				let signature = sp_core::ecdsa::Signature(*signature);
-				let public = sp_core::ecdsa::Public(*signer);
+				let signature = sp_core::ecdsa::Signature::from(*signature);
+				let public = sp_core::ecdsa::Public::from(*signer);
 				if signature.verify(to_sign.as_slice(), &public) {
 					let sender_hash =
 						<sp_runtime::traits::BlakeTwo256 as sp_core::Hasher>::hash(signer);

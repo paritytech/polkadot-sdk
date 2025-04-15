@@ -1,0 +1,35 @@
+[package]
+name = "snowbridge-pallet-ethereum-client-fixtures"
+description = "Snowbridge Ethereum Client Test Fixtures"
+version = "0.9.0"
+authors = ["Snowfork <contact@snowfork.com>"]
+edition.workspace = true
+repository.workspace = true
+license = "Apache-2.0"
+categories = ["cryptography::cryptocurrencies"]
+
+[lints]
+workspace = true
+
+[package.metadata.docs.rs]
+targets = ["x86_64-unknown-linux-gnu"]
+
+[package.metadata.polkadot-sdk]
+exclude-from-umbrella = true
+
+[dependencies]
+hex-literal = { workspace = true, default-features = true }
+snowbridge-beacon-primitives = { workspace = true }
+snowbridge-verification-primitives = { workspace = true }
+sp-core = { workspace = true }
+sp-std = { workspace = true }
+
+[features]
+default = ["std"]
+std = [
+	"snowbridge-beacon-primitives/std",
+	"snowbridge-verification-primitives/std",
+	"sp-core/std",
+	"sp-std/std",
+]
+runtime-benchmarks = []

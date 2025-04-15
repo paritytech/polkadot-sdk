@@ -40,7 +40,7 @@ pub use sp_inherents::InherentData;
 pub use sp_state_machine::Backend as StateBackend;
 
 /// Block status.
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub enum BlockStatus {
 	/// Added to the import queue.
 	Queued,
@@ -116,7 +116,7 @@ pub trait Proposer<B: BlockT> {
 		+ Send
 		+ Unpin
 		+ 'static;
-	/// The supported proof recording by the implementator of this trait. See [`ProofRecording`]
+	/// The supported proof recording by the implementor of this trait. See [`ProofRecording`]
 	/// for more information.
 	type ProofRecording: sp_api::ProofRecording<B> + Send + Sync + 'static;
 

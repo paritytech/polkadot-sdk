@@ -38,7 +38,10 @@ use finality::{EncodedFinalityProof, RpcFinalityProofProvider};
 use notification::JustificationNotification;
 use report::{ReportAuthoritySet, ReportVoterState, ReportedRoundStates};
 use sc_consensus_grandpa::GrandpaJustificationStream;
-use sc_rpc::{utils::pipe_from_stream, SubscriptionTaskExecutor};
+use sc_rpc::{
+	utils::{BoundedVecDeque, PendingSubscription},
+	SubscriptionTaskExecutor,
+};
 use sp_runtime::traits::{Block as BlockT, NumberFor};
 
 /// Provides RPC methods for interacting with GRANDPA.
@@ -108,7 +111,10 @@ where
 			},
 		);
 
-		sc_rpc::utils::spawn_subscription_task(&self.executor, pipe_from_stream(pending, stream));
+		sc_rpc::utils::spawn_subscription_task(
+			&self.executor,
+			PendingSubscription::from(pending).pipe_from_stream(stream, BoundedVecDeque::default()),
+		);
 	}
 
 	async fn prove_finality(
@@ -125,10 +131,10 @@ where
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use std::{collections::HashSet, convert::TryInto, sync::Arc};
+	use std::{collections::HashSet, sync::Arc};
 
+	use codec::{Decode, Encode};
 	use jsonrpsee::{core::EmptyServerParams as EmptyParams, types::SubscriptionId, RpcModule};
-	use parity_scale_codec::{Decode, Encode};
 	use sc_block_builder::BlockBuilderBuilder;
 	use sc_consensus_grandpa::{
 		report, AuthorityId, FinalityProof, GrandpaJustification, GrandpaJustificationSender,
@@ -269,17 +275,17 @@ mod tests {
 	#[tokio::test]
 	async fn uninitialized_rpc_handler() {
 		let (rpc, _) = setup_io_handler(EmptyVoterState);
-		let expected_response = r#"{"jsonrpc":"2.0","error":{"code":1,"message":"GRANDPA RPC endpoint not ready"},"id":0}"#.to_string();
+		let expected_response = r#"{"jsonrpc":"2.0","id":0,"error":{"code":1,"message":"GRANDPA RPC endpoint not ready"}}"#.to_string();
 		let request = r#"{"jsonrpc":"2.0","method":"grandpa_roundState","params":[],"id":0}"#;
 		let (response, _) = rpc.raw_json_request(&request, 1).await.unwrap();
 
-		assert_eq!(expected_response, response.result);
+		assert_eq!(expected_response, response);
 	}
 
 	#[tokio::test]
 	async fn working_rpc_handler() {
 		let (rpc, _) = setup_io_handler(TestVoterState);
-		let expected_response = "{\"jsonrpc\":\"2.0\",\"result\":{\
+		let expected_response = "{\"jsonrpc\":\"2.0\",\"id\":0,\"result\":{\
 			\"setId\":1,\
 			\"best\":{\
 				\"round\":2,\"totalWeight\":100,\"thresholdWeight\":67,\
@@ -291,11 +297,11 @@ mod tests {
 				\"prevotes\":{\"currentWeight\":100,\"missing\":[]},\
 				\"precommits\":{\"currentWeight\":100,\"missing\":[]}\
 			}]\
-		},\"id\":0}".to_string();
+		}}".to_string();
 
 		let request = r#"{"jsonrpc":"2.0","method":"grandpa_roundState","params":[],"id":0}"#;
 		let (response, _) = rpc.raw_json_request(&request, 1).await.unwrap();
-		assert_eq!(expected_response, response.result);
+		assert_eq!(expected_response, response);
 	}
 
 	#[tokio::test]
@@ -315,9 +321,9 @@ mod tests {
 			)
 			.await
 			.unwrap();
-		let expected = r#"{"jsonrpc":"2.0","result":false,"id":1}"#;
+		let expected = r#"{"jsonrpc":"2.0","id":1,"result":false}"#;
 
-		assert_eq!(response.result, expected);
+		assert_eq!(response, expected);
 	}
 
 	fn create_justification() -> GrandpaJustification<Block> {

@@ -297,6 +297,10 @@ pub fn create_wasm_runtime_with_code<H>(
 where
 	H: HostFunctions,
 {
+	if let Some(blob) = blob.as_polkavm_blob() {
+		return sc_executor_polkavm::create_runtime::<H>(blob);
+	}
+
 	match wasm_method {
 		WasmExecutionMethod::Compiled { instantiation_strategy } =>
 			sc_executor_wasmtime::create_runtime::<H>(
@@ -437,18 +441,20 @@ where
 
 #[cfg(test)]
 mod tests {
+	extern crate alloc;
+
 	use super::*;
+	use alloc::borrow::Cow;
 	use codec::Encode;
 	use sp_api::{Core, RuntimeApiInfo};
-	use sp_runtime::RuntimeString;
 	use sp_version::{create_apis_vec, RuntimeVersion};
 	use sp_wasm_interface::HostFunctions;
 	use substrate_test_runtime::Block;
 
 	#[derive(Encode)]
 	pub struct OldRuntimeVersion {
-		pub spec_name: RuntimeString,
-		pub impl_name: RuntimeString,
+		pub spec_name: Cow<'static, str>,
+		pub impl_name: Cow<'static, str>,
 		pub authoring_version: u32,
 		pub spec_version: u32,
 		pub impl_version: u32,
@@ -476,7 +482,7 @@ mod tests {
 
 		let version = decode_version(&old_runtime_version.encode()).unwrap();
 		assert_eq!(1, version.transaction_version);
-		assert_eq!(0, version.state_version);
+		assert_eq!(0, version.system_version);
 	}
 
 	#[test]
@@ -503,12 +509,12 @@ mod tests {
 			impl_version: 1,
 			apis: create_apis_vec!([(<dyn Core::<Block>>::ID, 3)]),
 			transaction_version: 3,
-			state_version: 4,
+			system_version: 4,
 		};
 
 		let version = decode_version(&old_runtime_version.encode()).unwrap();
 		assert_eq!(3, version.transaction_version);
-		assert_eq!(0, version.state_version);
+		assert_eq!(0, version.system_version);
 
 		let old_runtime_version = RuntimeVersion {
 			spec_name: "test".into(),
@@ -518,12 +524,12 @@ mod tests {
 			impl_version: 1,
 			apis: create_apis_vec!([(<dyn Core::<Block>>::ID, 4)]),
 			transaction_version: 3,
-			state_version: 4,
+			system_version: 4,
 		};
 
 		let version = decode_version(&old_runtime_version.encode()).unwrap();
 		assert_eq!(3, version.transaction_version);
-		assert_eq!(4, version.state_version);
+		assert_eq!(4, version.system_version);
 	}
 
 	#[test]
@@ -541,7 +547,7 @@ mod tests {
 			impl_version: 100,
 			apis: create_apis_vec!([(<dyn Core::<Block>>::ID, 4)]),
 			transaction_version: 100,
-			state_version: 1,
+			system_version: 1,
 		};
 
 		let embedded = sp_version::embed::embed_runtime_version(&wasm, runtime_version.clone())

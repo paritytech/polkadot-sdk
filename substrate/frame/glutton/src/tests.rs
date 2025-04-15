@@ -124,6 +124,43 @@ fn setting_compute_respects_limit() {
 }
 
 #[test]
+fn setting_block_length_works() {
+	new_test_ext().execute_with(|| {
+		assert_eq!(Compute::<Test>::get(), Zero::zero());
+
+		assert_ok!(Glutton::set_block_length(RuntimeOrigin::root(), FixedU64::from_float(0.3)));
+		assert_eq!(Length::<Test>::get(), FixedU64::from_float(0.3));
+		System::assert_last_event(
+			Event::BlockLengthLimitSet { block_length: FixedU64::from_float(0.3) }.into(),
+		);
+
+		assert_noop!(
+			Glutton::set_block_length(RuntimeOrigin::signed(1), FixedU64::from_float(0.5)),
+			DispatchError::BadOrigin
+		);
+		assert_noop!(
+			Glutton::set_block_length(RuntimeOrigin::none(), FixedU64::from_float(0.5)),
+			DispatchError::BadOrigin
+		);
+	});
+}
+
+#[test]
+fn setting_block_length_respects_limit() {
+	new_test_ext().execute_with(|| {
+		// < 1000% is fine
+		assert_ok!(Glutton::set_block_length(RuntimeOrigin::root(), FixedU64::from_float(9.99)),);
+		// == 1000% is fine
+		assert_ok!(Glutton::set_block_length(RuntimeOrigin::root(), FixedU64::from_u32(10)),);
+		// > 1000% is not
+		assert_noop!(
+			Glutton::set_block_length(RuntimeOrigin::root(), FixedU64::from_float(10.01)),
+			Error::<Test>::InsaneLimit
+		);
+	});
+}
+
+#[test]
 fn setting_storage_works() {
 	new_test_ext().execute_with(|| {
 		assert!(Storage::<Test>::get().is_zero());
@@ -163,7 +200,7 @@ fn setting_storage_respects_limit() {
 #[test]
 fn on_idle_works() {
 	new_test_ext().execute_with(|| {
-		set_limits(One::one(), One::one());
+		set_limits(One::one(), One::one(), One::one());
 
 		Glutton::on_idle(1, Weight::from_parts(20_000_000, 0));
 	});
@@ -173,7 +210,7 @@ fn on_idle_works() {
 #[test]
 fn on_idle_weight_high_proof_is_close_enough_works() {
 	new_test_ext().execute_with(|| {
-		set_limits(One::one(), One::one());
+		set_limits(One::one(), One::one(), One::one());
 
 		let should = Weight::from_parts(WEIGHT_REF_TIME_PER_SECOND, WEIGHT_PROOF_SIZE_PER_MB * 5);
 		let got = Glutton::on_idle(1, should);
@@ -196,7 +233,7 @@ fn on_idle_weight_high_proof_is_close_enough_works() {
 #[test]
 fn on_idle_weight_low_proof_is_close_enough_works() {
 	new_test_ext().execute_with(|| {
-		set_limits(One::one(), One::one());
+		set_limits(One::one(), One::one(), One::one());
 
 		let should = Weight::from_parts(WEIGHT_REF_TIME_PER_SECOND, WEIGHT_PROOF_SIZE_PER_KB * 20);
 		let got = Glutton::on_idle(1, should);
@@ -224,7 +261,7 @@ fn on_idle_weight_over_unity_is_close_enough_works() {
 		let max_block =
 			Weight::from_parts(500 * WEIGHT_REF_TIME_PER_MILLIS, 5 * WEIGHT_PROOF_SIZE_PER_MB);
 		// But now we tell it to consume more than that.
-		set_limits(1.75, 1.5);
+		set_limits(1.75, 1.5, 0.0);
 		let want = Weight::from_parts(
 			(1.75 * max_block.ref_time() as f64) as u64,
 			(1.5 * max_block.proof_size() as f64) as u64,

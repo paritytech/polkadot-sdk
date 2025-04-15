@@ -31,12 +31,13 @@ pub extern "C" fn deploy() {}
 #[polkavm_derive::polkavm_export]
 pub extern "C" fn call() {
 	input!(
+		256,
 		callee_addr: [u8; 32],
 		ref_time: u64,
 		proof_size: u64,
+		forwarded_input: [u8],
 	);
 
-	#[allow(deprecated)]
 	api::call_v2(
 		uapi::CallFlags::empty(),
 		callee_addr,
@@ -44,7 +45,7 @@ pub extern "C" fn call() {
 		proof_size,
 		None,                // No deposit limit.
 		&0u64.to_le_bytes(), // value transferred to the contract.
-		&[0u8; 0],           // input data.
+		forwarded_input,
 		None,
 	)
 	.unwrap();

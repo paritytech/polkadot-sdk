@@ -88,16 +88,44 @@ impl<N: Network, AD: AuthorityDiscovery> Service<N, AD> {
 		{
 			gum::warn!(target: LOG_TARGET, err = ?e, "AuthorityDiscoveryService returned an invalid multiaddress");
 		}
-		// the addresses are known to be valid
+
+		network_service
+	}
+
+	/// Connect to already resolved addresses.
+	pub async fn on_add_to_resolved_request(
+		&mut self,
+		newly_requested: HashSet<Multiaddr>,
+		peer_set: PeerSet,
+		mut network_service: N,
+	) -> N {
+		let state = &mut self.state[peer_set];
+		let new_peer_ids: HashSet<PeerId> = extract_peer_ids(newly_requested.iter().cloned());
+		let num_peers = new_peer_ids.len();
+
+		state.previously_requested.extend(new_peer_ids);
+
+		gum::debug!(
+			target: LOG_TARGET,
+			?peer_set,
+			?num_peers,
+			"New add to resolved validators request",
+		);
+
+		// ask the network to connect to these nodes and not disconnect
+		// from them until they are removed from the set.
 		//
 		// for peer-set management, the main protocol name should be used regardless of
 		// the negotiated version.
-		let _ = network_service
-			.remove_from_peers_set(
+		if let Err(e) = network_service
+			.add_peers_to_reserved_set(
 				self.peerset_protocol_names.get_main_name(peer_set),
-				peers_to_remove,
+				newly_requested,
 			)
-			.await;
+			.await
+		{
+			gum::warn!(target: LOG_TARGET, err = ?e, "AuthorityDiscoveryService returned an invalid multiaddress");
+		}
 
 		network_service
 	}
@@ -229,6 +257,15 @@ mod tests {
 			multiaddresses: HashSet<Multiaddr>,
 		) -> Result<(), String> {
 			self.peers_set = extract_peer_ids(multiaddresses.into_iter());
+			Ok(())
+		}
+
+		async fn add_peers_to_reserved_set(
+			&mut self,
+			_protocol: ProtocolName,
+			multiaddresses: HashSet<Multiaddr>,
+		) -> Result<(), String> {
+			self.peers_set.extend(extract_peer_ids(multiaddresses.into_iter()));
 			Ok(())
 		}
 

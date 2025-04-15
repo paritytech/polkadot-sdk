@@ -1,0 +1,14 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Allow privileged virtual bond into pallet Staking
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Introduces a new low level API to allow privileged virtual bond into pallet Staking. This allows other pallets
+      to stake funds into staking pallet while managing the fund lock and unlocking process themselves.
+
+crates:
+  - name: pallet-staking
+

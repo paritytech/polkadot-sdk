@@ -29,22 +29,17 @@
 
 use crate::{
 	mock::{
-		build_and_execute, gen_seed, Callback, CountingMessageProcessor, IntoWeight,
+		build_and_execute, gen_seed, set_weight, Callback, CountingMessageProcessor, IntoWeight,
 		MessagesProcessed, MockedWeightInfo, NumMessagesProcessed, YieldingQueues,
 	},
-	mock_helpers::MessageOrigin,
+	mock_helpers::{MessageOrigin, MessageOrigin::Everywhere},
 	*,
 };
 
 use crate as pallet_message_queue;
-use frame_support::{
-	derive_impl, parameter_types,
-	traits::{ConstU32, ConstU64},
-};
+use frame_support::{derive_impl, parameter_types};
 use rand::{rngs::StdRng, Rng, SeedableRng};
 use rand_distr::Pareto;
-use sp_core::H256;
-use sp_runtime::traits::{BlakeTwo256, IdentityLookup};
 use std::collections::{BTreeMap, BTreeSet};
 
 type Block = frame_system::mocking::MockBlock<Test>;
@@ -57,31 +52,9 @@ frame_support::construct_runtime!(
 	}
 );
 
-#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
-	type BaseCallFilter = frame_support::traits::Everything;
-	type BlockWeights = ();
-	type BlockLength = ();
-	type DbWeight = ();
-	type RuntimeOrigin = RuntimeOrigin;
-	type Nonce = u64;
-	type Hash = H256;
-	type RuntimeCall = RuntimeCall;
-	type Hashing = BlakeTwo256;
-	type AccountId = u64;
-	type Lookup = IdentityLookup<Self::AccountId>;
 	type Block = Block;
-	type RuntimeEvent = RuntimeEvent;
-	type BlockHashCount = ConstU64<250>;
-	type Version = ();
-	type PalletInfo = PalletInfo;
-	type AccountData = ();
-	type OnNewAccount = ();
-	type OnKilledAccount = ();
-	type SystemWeightInfo = ();
-	type SS58Prefix = ();
-	type OnSetCode = ();
-	type MaxConsumers = ConstU32<16>;
 }
 
 parameter_types! {
@@ -95,11 +68,89 @@ impl Config for Test {
 	type WeightInfo = MockedWeightInfo;
 	type MessageProcessor = CountingMessageProcessor;
 	type Size = u32;
-	type QueueChangeHandler = ();
+	type QueueChangeHandler = AhmPrioritizer;
 	type QueuePausedQuery = ();
 	type HeapSize = HeapSize;
 	type MaxStale = MaxStale;
 	type ServiceWeight = ServiceWeight;
+	type IdleMaxServiceWeight = ();
+}
+
+/// The object that does the AHM message prioritization for us.
+#[derive(Debug, Default, codec::Encode, codec::Decode)]
+pub struct AhmPrioritizer {
+	streak_until: Option<u64>,
+	prioritized_queue: Option<MessageOriginOf<Test>>,
+	favorite_queue_num_messages: Option<u64>,
+}
+
+// The whole `AhmPrioritizer` could be part of the AHM controller pallet.
+parameter_types! {
+	pub storage AhmPrioritizerStorage: AhmPrioritizer = AhmPrioritizer::default();
+}
+
+/// Instead of giving our prioritized queue only one block, we give it a streak of blocks.
+const STREAK_LEN: u64 = 3;
+
+impl OnQueueChanged<MessageOrigin> for AhmPrioritizer {
+	fn on_queue_changed(origin: MessageOrigin, f: QueueFootprint) {
+		let mut this = AhmPrioritizerStorage::get();
+
+		if this.prioritized_queue != Some(origin) {
+			return;
+		}
+
+		// Return early if this was an enqueue instead of a dequeue.
+		if this.favorite_queue_num_messages.map_or(false, |n| n <= f.storage.count) {
+			return;
+		}
+		this.favorite_queue_num_messages = Some(f.storage.count);
+
+		// only update when we are not already in a streak
+		if this.streak_until.map_or(false, |s| s < System::block_number()) {
+			this.streak_until = Some(System::block_number().saturating_add(STREAK_LEN));
+		}
+	}
+}
+
+impl AhmPrioritizer {
+	// This will need to be called by the migration controller.
+	fn on_initialize(now: u64) -> Weight {
+		let mut meter = WeightMeter::new();
+		let mut this = AhmPrioritizerStorage::get();
+
+		let Some(q) = this.prioritized_queue else {
+			return meter.consumed();
+		};
+		// init
+		if this.streak_until.is_none() {
+			this.streak_until = Some(0);
+		}
+		if this.favorite_queue_num_messages.is_none() {
+			this.favorite_queue_num_messages = Some(0);
+		}
+
+		// Our queue did not get a streak since 10 blocks. It must either be empty or starved:
+		if Pallet::<Test>::footprint(q).pages == 0 {
+			return meter.consumed();
+		}
+		if this.streak_until.map_or(false, |until| until < now.saturating_sub(10)) {
+			log::warn!("Queue is being starved, scheduling streak of {} blocks", STREAK_LEN);
+			this.streak_until = Some(now.saturating_add(STREAK_LEN));
+		}
+
+		if this.streak_until.map_or(false, |until| until > now) {
+			let _ = Pallet::<Test>::force_set_head(&mut meter, &q).defensive();
+		}
+
+		meter.consumed()
+	}
+}
+
+impl Drop for AhmPrioritizer {
+	fn drop(&mut self) {
+		AhmPrioritizerStorage::set(self);
+	}
 }
 
 /// Simulates heavy usage by enqueueing and processing large amounts of messages.
@@ -148,6 +199,87 @@ fn stress_test_enqueue_and_service() {
 	});
 }
 
+/// Simulate heavy usage while calling `force_set_head` on random queues.
+#[test]
+#[ignore] // Only run in the CI, otherwise its too slow.
+fn stress_test_force_set_head() {
+	let blocks = 20;
+	let max_queues = 10_000;
+	let max_messages_per_queue = 10_000;
+	let max_msg_len = MaxMessageLenOf::<Test>::get();
+	let mut rng = StdRng::seed_from_u64(gen_seed());
+
+	build_and_execute::<Test>(|| {
+		let mut msgs_remaining = 0;
+		for _ in 0..blocks {
+			// Start by enqueuing a large number of messages.
+			let enqueued =
+				enqueue_messages(max_queues, max_messages_per_queue, max_msg_len, &mut rng);
+			msgs_remaining += enqueued;
+
+			for _ in 0..10 {
+				let random_queue = rng.gen_range(0..=max_queues);
+				MessageQueue::force_set_head(&mut WeightMeter::new(), &Everywhere(random_queue))
+					.unwrap();
+			}
+
+			// Pick a fraction of all messages currently in queue and process them.
+			let processed = rng.gen_range(1..=msgs_remaining);
+			log::info!("Processing {} of all messages {}", processed, msgs_remaining);
+			process_some_messages(processed); // This also advances the block.
+			msgs_remaining -= processed;
+		}
+		log::info!("Processing all remaining {} messages", msgs_remaining);
+		process_all_messages(msgs_remaining);
+		post_conditions();
+	});
+}
+
+/// Check that our AHM prioritization does not affect liveness. This does not really check the AHM
+/// prioritization works itself, but rather that it does not break things. The actual test is in
+/// another test below.
+#[test]
+#[ignore] // Only run in the CI, otherwise its too slow.
+fn stress_test_prioritize_queue() {
+	let blocks = 20;
+	let max_queues = 10_000;
+	let favorite_queue = Everywhere(9000);
+	let max_messages_per_queue = 1_000;
+	let max_msg_len = MaxMessageLenOf::<Test>::get();
+	let mut rng = StdRng::seed_from_u64(gen_seed());
+
+	build_and_execute::<Test>(|| {
+		let mut prio = AhmPrioritizerStorage::get();
+		prio.prioritized_queue = Some(favorite_queue);
+		drop(prio);
+
+		let mut msgs_remaining = 0;
+		for _ in 0..blocks {
+			// Start by enqueuing a large number of messages.
+			let enqueued =
+				enqueue_messages(max_queues, max_messages_per_queue, max_msg_len, &mut rng);
+			msgs_remaining += enqueued;
+			// ensure that our favorite queue always has some more messages
+			for _ in 0..200 {
+				MessageQueue::enqueue_message(
+					BoundedSlice::defensive_truncate_from("favorite".as_bytes()),
+					favorite_queue,
+				);
+				msgs_remaining += 1;
+			}
+
+			// Pick a fraction of all messages currently in queue and process them.
+			let processed = rng.gen_range(1..=100);
+			log::info!("Processing {} of all messages {}", processed, msgs_remaining);
+			process_some_messages(processed); // This also advances the block.
+			msgs_remaining -= processed;
+		}
+		log::info!("Processing all remaining {} messages", msgs_remaining);
+		process_all_messages(msgs_remaining);
+		post_conditions();
+	});
+}
+
 /// Very similar to `stress_test_enqueue_and_service`, but enqueues messages while processing them.
 #[test]
 #[ignore] // Only run in the CI, otherwise its too slow.
@@ -177,6 +309,7 @@ fn stress_test_recursive() {
 		TotalEnqueued::set(TotalEnqueued::get() + enqueued);
 		Enqueued::set(Enqueued::get() + enqueued);
 		Called::set(Called::get() + 1);
+		Ok(())
 	}));
 
 	build_and_execute::<Test>(|| {
@@ -300,6 +433,55 @@ fn stress_test_queue_suspension() {
 	});
 }
 
+/// Test that our AHM prioritizer will ensure that our favorite queue always gets some dedicated
+/// weight.
+#[test]
+#[ignore]
+fn stress_test_ahm_despair_mode_works() {
+	build_and_execute::<Test>(|| {
+		let blocks = 200;
+		let queues = 200;
+
+		for o in 0..queues {
+			for i in 0..100 {
+				MessageQueue::enqueue_message(
+					BoundedSlice::defensive_truncate_from(format!("{}:{}", o, i).as_bytes()),
+					Everywhere(o),
+				);
+			}
+		}
+		set_weight("bump_head", Weight::from_parts(1, 1));
+
+		// Prioritize the last queue.
+		let mut prio = AhmPrioritizerStorage::get();
+		prio.prioritized_queue = Some(Everywhere(199));
+		drop(prio);
+
+		ServiceWeight::set(Some(Weight::from_parts(10, 10)));
+		for _ in 0..blocks {
+			next_block();
+		}
+
+		// Check that our favorite queue has processed the most messages.
+		let mut min = u64::MAX;
+		let mut min_origin = 0;
+
+		for o in 0..queues {
+			let fp = MessageQueue::footprint(Everywhere(o));
+			if fp.storage.count < min {
+				min = fp.storage.count;
+				min_origin = o;
+			}
+		}
+		assert_eq!(min_origin, 199);
+
+		// Process all remaining messages.
+		ServiceWeight::set(Some(Weight::MAX));
+		next_block();
+		post_conditions();
+	});
+}
+
 /// How many messages are in each queue.
 fn msgs_per_queue() -> BTreeMap<u32, u32> {
 	let mut per_queue = BTreeMap::new();
@@ -357,6 +539,11 @@ fn process_some_messages(num_msgs: u32) {
 	ServiceWeight::set(Some(weight));
 	let consumed = next_block();
 
+	for origin in BookStateFor::<Test>::iter_keys() {
+		let fp = MessageQueue::footprint(origin);
+		assert_eq!(fp.pages, fp.ready_pages);
+	}
+
 	assert_eq!(consumed, weight, "\n{}", MessageQueue::debug_info());
 	assert_eq!(NumMessagesProcessed::take(), num_msgs as usize);
 }
@@ -373,10 +560,12 @@ fn process_all_messages(expected: u32) {
 
 /// Returns the weight consumed by `MessageQueue::on_initialize()`.
 fn next_block() -> Weight {
+	log::info!("Next block: {}", System::block_number() + 1);
 	MessageQueue::on_finalize(System::block_number());
 	System::on_finalize(System::block_number());
 	System::set_block_number(System::block_number() + 1);
 	System::on_initialize(System::block_number());
+	AhmPrioritizer::on_initialize(System::block_number());
 	MessageQueue::on_initialize(System::block_number())
 }
 

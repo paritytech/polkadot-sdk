@@ -1,12 +1,12 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
-// Substrate is free software: you can redistribute it and/or modify
+// Polkadot is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
 
-// Substrate is distributed in the hope that it will be useful,
+// Polkadot is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
@@ -27,18 +27,22 @@
 //!   holding account.
 
 use super::{InteriorLocation, Location, Reanchorable};
-use crate::v3::{
-	AssetId as OldAssetId, AssetInstance as OldAssetInstance, Fungibility as OldFungibility,
-	MultiAsset as OldAsset, MultiAssetFilter as OldAssetFilter, MultiAssets as OldAssets,
-	WildFungibility as OldWildFungibility, WildMultiAsset as OldWildAsset,
+use crate::{
+	v3::{
+		AssetId as OldAssetId, AssetInstance as OldAssetInstance, Fungibility as OldFungibility,
+		MultiAsset as OldAsset, MultiAssetFilter as OldAssetFilter, MultiAssets as OldAssets,
+		WildFungibility as OldWildFungibility, WildMultiAsset as OldWildAsset,
+	},
+	v5::{
+		Asset as NewAsset, AssetFilter as NewAssetFilter, AssetId as NewAssetId,
+		AssetInstance as NewAssetInstance, Assets as NewAssets, Fungibility as NewFungibility,
+		WildAsset as NewWildAsset, WildFungibility as NewWildFungibility,
+	},
 };
 use alloc::{vec, vec::Vec};
 use bounded_collections::{BoundedVec, ConstU32};
-use core::{
-	cmp::Ordering,
-	convert::{TryFrom, TryInto},
-};
-use parity_scale_codec::{self as codec, Decode, Encode, MaxEncodedLen};
+use codec::{self as codec, Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
+use core::cmp::Ordering;
 use scale_info::TypeInfo;
 
 /// A general identifier for an instance of a non-fungible asset class.
@@ -51,6 +55,7 @@ use scale_info::TypeInfo;
 	PartialOrd,
 	Encode,
 	Decode,
+	DecodeWithMemTracking,
 	Debug,
 	TypeInfo,
 	MaxEncodedLen,
@@ -82,6 +87,21 @@ impl TryFrom<OldAssetInstance> for AssetInstance {
 	type Error = ();
 	fn try_from(value: OldAssetInstance) -> Result<Self, Self::Error> {
 		use OldAssetInstance::*;
+		Ok(match value {
+			Undefined => Self::Undefined,
+			Index(n) => Self::Index(n),
+			Array4(n) => Self::Array4(n),
+			Array8(n) => Self::Array8(n),
+			Array16(n) => Self::Array16(n),
+			Array32(n) => Self::Array32(n),
+		})
+	}
+}
+
+impl TryFrom<NewAssetInstance> for AssetInstance {
+	type Error = ();
+	fn try_from(value: NewAssetInstance) -> Result<Self, Self::Error> {
+		use NewAssetInstance::*;
 		Ok(match value {
 			Undefined => Self::Undefined,
 			Index(n) => Self::Index(n),
@@ -247,6 +267,17 @@ impl TryFrom<AssetInstance> for u128 {
 	}
 }
 
+impl TryFrom<NewFungibility> for Fungibility {
+	type Error = ();
+	fn try_from(value: NewFungibility) -> Result<Self, Self::Error> {
+		use NewFungibility::*;
+		Ok(match value {
+			Fungible(n) => Self::Fungible(n),
+			NonFungible(i) => Self::NonFungible(i.try_into()?),
+		})
+	}
+}
+
 /// Classification of whether an asset is fungible or not, along with a mandatory amount or
 /// instance.
 #[derive(
@@ -257,6 +288,7 @@ impl TryFrom<AssetInstance> for u128 {
 	PartialOrd,
 	Debug,
 	Encode,
+	DecodeWithMemTracking,
 	TypeInfo,
 	MaxEncodedLen,
 	serde::Serialize,
@@ -277,7 +309,7 @@ enum UncheckedFungibility {
 }
 
 impl Decode for Fungibility {
-	fn decode<I: codec::Input>(input: &mut I) -> Result<Self, parity_scale_codec::Error> {
+	fn decode<I: codec::Input>(input: &mut I) -> Result<Self, codec::Error> {
 		match UncheckedFungibility::decode(input)? {
 			UncheckedFungibility::Fungible(a) if a != 0 => Ok(Self::Fungible(a)),
 			UncheckedFungibility::NonFungible(i) => Ok(Self::NonFungible(i)),
@@ -337,6 +369,7 @@ impl TryFrom<OldFungibility> for Fungibility {
 	Debug,
 	Encode,
 	Decode,
+	DecodeWithMemTracking,
 	TypeInfo,
 	MaxEncodedLen,
 	serde::Serialize,
@@ -360,6 +393,17 @@ impl TryFrom<OldWildFungibility> for WildFungibility {
 	}
 }
 
+impl TryFrom<NewWildFungibility> for WildFungibility {
+	type Error = ();
+	fn try_from(value: NewWildFungibility) -> Result<Self, Self::Error> {
+		use NewWildFungibility::*;
+		Ok(match value {
+			Fungible => Self::Fungible,
+			NonFungible => Self::NonFungible,
+		})
+	}
+}
+
 /// Location to identify an asset.
 #[derive(
 	Clone,
@@ -370,6 +414,7 @@ impl TryFrom<OldWildFungibility> for WildFungibility {
 	Debug,
 	Encode,
 	Decode,
+	DecodeWithMemTracking,
 	TypeInfo,
 	MaxEncodedLen,
 	serde::Serialize,
@@ -391,6 +436,13 @@ impl TryFrom<OldAssetId> for AssetId {
 			Concrete(l) => Self(l.try_into()?),
 			Abstract(_) => return Err(()),
 		})
+	}
+}
+
+impl TryFrom<NewAssetId> for AssetId {
+	type Error = ();
+	fn try_from(new: NewAssetId) -> Result<Self, Self::Error> {
+		Ok(Self(new.0.try_into()?))
 	}
 }
 
@@ -440,6 +492,7 @@ impl Reanchorable for AssetId {
 	Debug,
 	Encode,
 	Decode,
+	DecodeWithMemTracking,
 	TypeInfo,
 	MaxEncodedLen,
 	serde::Serialize,
@@ -529,6 +582,13 @@ impl TryFrom<OldAsset> for Asset {
 	}
 }
 
+impl TryFrom<NewAsset> for Asset {
+	type Error = ();
+	fn try_from(new: NewAsset) -> Result<Self, Self::Error> {
+		Ok(Self { id: new.id.try_into()?, fun: new.fun.try_into()? })
+	}
+}
+
 /// A `Vec` of `Asset`s.
 ///
 /// There are a number of invariants which the construction and mutation functions must ensure are
@@ -544,6 +604,7 @@ impl TryFrom<OldAsset> for Asset {
 	PartialOrd,
 	Debug,
 	Encode,
+	DecodeWithMemTracking,
 	TypeInfo,
 	Default,
 	serde::Serialize,
@@ -551,8 +612,8 @@ impl TryFrom<OldAsset> for Asset {
 )]
 pub struct Assets(Vec<Asset>);
 
-/// Maximum number of items we expect in a single `Assets` value. Note this is not (yet)
-/// enforced, and just serves to provide a sensible `max_encoded_len` for `Assets`.
+/// Maximum number of items we expect in a single `Assets` value.
+/// This is enforced when decoding and provides a sensible `max_encoded_len` for `Assets`.
 pub const MAX_ITEMS_IN_ASSETS: usize = 20;
 
 impl MaxEncodedLen for Assets {
@@ -562,7 +623,7 @@ impl MaxEncodedLen for Assets {
 }
 
 impl Decode for Assets {
-	fn decode<I: codec::Input>(input: &mut I) -> Result<Self, parity_scale_codec::Error> {
+	fn decode<I: codec::Input>(input: &mut I) -> Result<Self, codec::Error> {
 		let bounded_instructions =
 			BoundedVec::<Asset, ConstU32<{ MAX_ITEMS_IN_ASSETS as u32 }>>::decode(input)?;
 		Self::from_sorted_and_deduplicated(bounded_instructions.into_inner())
@@ -574,6 +635,18 @@ impl TryFrom<OldAssets> for Assets {
 	type Error = ();
 	fn try_from(old: OldAssets) -> Result<Self, ()> {
 		let v = old
+			.into_inner()
+			.into_iter()
+			.map(Asset::try_from)
+			.collect::<Result<Vec<_>, ()>>()?;
+		Ok(Assets(v))
+	}
+}
+
+impl TryFrom<NewAssets> for Assets {
+	type Error = ();
+	fn try_from(new: NewAssets) -> Result<Self, Self::Error> {
+		let v = new
 			.into_inner()
 			.into_iter()
 			.map(Asset::try_from)
@@ -723,7 +796,9 @@ impl Assets {
 
 	/// Prepend a `Location` to any concrete asset items, giving it a new root location.
 	pub fn prepend_with(&mut self, prefix: &Location) -> Result<(), ()> {
-		self.0.iter_mut().try_for_each(|i| i.prepend_with(prefix))
+		self.0.iter_mut().try_for_each(|i| i.prepend_with(prefix))?;
+		self.0.sort();
+		Ok(())
 	}
 
 	/// Return a reference to an item at a specific index or `None` if it doesn't exist.
@@ -759,6 +834,7 @@ impl Reanchorable for Assets {
 	Debug,
 	Encode,
 	Decode,
+	DecodeWithMemTracking,
 	TypeInfo,
 	MaxEncodedLen,
 	serde::Serialize,
@@ -791,6 +867,20 @@ impl TryFrom<OldWildAsset> for WildAsset {
 			All => Self::All,
 			AllOfCounted { id, fun, count } =>
 				Self::AllOfCounted { id: id.try_into()?, fun: fun.try_into()?, count },
+			AllCounted(count) => Self::AllCounted(count),
+		})
+	}
+}
+
+impl TryFrom<NewWildAsset> for WildAsset {
+	type Error = ();
+	fn try_from(new: NewWildAsset) -> Result<Self, ()> {
+		use NewWildAsset::*;
+		Ok(match new {
+			AllOf { id, fun } => Self::AllOf { id: id.try_into()?, fun: fun.try_into()? },
+			AllOfCounted { id, fun, count } =>
+				Self::AllOfCounted { id: id.try_into()?, fun: fun.try_into()?, count },
+			All => Self::All,
 			AllCounted(count) => Self::AllCounted(count),
 		})
 	}
@@ -869,6 +959,7 @@ impl<A: Into<AssetId>, B: Into<WildFungibility>> From<(A, B)> for WildAsset {
 	Debug,
 	Encode,
 	Decode,
+	DecodeWithMemTracking,
 	TypeInfo,
 	MaxEncodedLen,
 	serde::Serialize,
@@ -942,6 +1033,17 @@ impl AssetFilter {
 			Definite(_) => None,
 			Wild(x) => x.limit(),
 		}
+	}
+}
+
+impl TryFrom<NewAssetFilter> for AssetFilter {
+	type Error = ();
+	fn try_from(new: NewAssetFilter) -> Result<AssetFilter, Self::Error> {
+		use NewAssetFilter::*;
+		Ok(match new {
+			Definite(x) => Self::Definite(x.try_into()?),
+			Wild(x) => Self::Wild(x.try_into()?),
+		})
 	}
 }
 
@@ -1035,8 +1137,61 @@ mod tests {
 		let mut assets: Assets = vec![asset_1.clone(), asset_2.clone(), asset_3.clone()].into();
 		assert_eq!(assets.clone(), vec![asset_1.clone(), asset_2.clone(), asset_3.clone()].into());
 
+		// decoding respects limits and sorting
+		assert!(assets.using_encoded(|mut enc| Assets::decode(&mut enc).map(|_| ())).is_ok());
+
 		assert!(assets.reanchor(&dest, &reanchor_context).is_ok());
-		assert_eq!(assets, vec![asset_2_reanchored, asset_3_reanchored, asset_1_reanchored].into());
+		assert_eq!(assets.0, vec![asset_2_reanchored, asset_3_reanchored, asset_1_reanchored]);
+
+		// decoding respects limits and sorting
+		assert!(assets.using_encoded(|mut enc| Assets::decode(&mut enc).map(|_| ())).is_ok());
+	}
+
+	#[test]
+	fn prepend_preserves_sorting() {
+		use super::*;
+		use alloc::vec;
+
+		let prefix = Location::new(0, [Parachain(1000)]);
+
+		let asset_1: Asset = (Location::new(0, [PalletInstance(50), GeneralIndex(1)]), 10).into();
+		let mut asset_1_prepended = asset_1.clone();
+		assert!(asset_1_prepended.prepend_with(&prefix).is_ok());
+		// changes interior X2->X3
+		assert_eq!(
+			asset_1_prepended,
+			(Location::new(0, [Parachain(1000), PalletInstance(50), GeneralIndex(1)]), 10).into()
+		);
+
+		let asset_2: Asset = (Location::new(1, [PalletInstance(50), GeneralIndex(1)]), 10).into();
+		let mut asset_2_prepended = asset_2.clone();
+		assert!(asset_2_prepended.prepend_with(&prefix).is_ok());
+		// changes parent
+		assert_eq!(
+			asset_2_prepended,
+			(Location::new(0, [PalletInstance(50), GeneralIndex(1)]), 10).into()
+		);
+
+		let asset_3: Asset = (Location::new(2, [PalletInstance(50), GeneralIndex(1)]), 10).into();
+		let mut asset_3_prepended = asset_3.clone();
+		assert!(asset_3_prepended.prepend_with(&prefix).is_ok());
+		// changes parent
+		assert_eq!(
+			asset_3_prepended,
+			(Location::new(1, [PalletInstance(50), GeneralIndex(1)]), 10).into()
+		);
+
+		// `From` impl does sorting.
+		let mut assets: Assets = vec![asset_1, asset_2, asset_3].into();
+		// decoding respects limits and sorting
+		assert!(assets.using_encoded(|mut enc| Assets::decode(&mut enc).map(|_| ())).is_ok());
+
+		// let's do `prepend_with`
+		assert!(assets.prepend_with(&prefix).is_ok());
+		assert_eq!(assets.0, vec![asset_2_prepended, asset_1_prepended, asset_3_prepended]);
+
+		// decoding respects limits and sorting
+		assert!(assets.using_encoded(|mut enc| Assets::decode(&mut enc).map(|_| ())).is_ok());
 	}
 
 	#[test]

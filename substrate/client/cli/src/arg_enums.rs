@@ -168,6 +168,19 @@ pub enum RpcMethods {
 	Unsafe,
 }
 
+impl FromStr for RpcMethods {
+	type Err = String;
+
+	fn from_str(s: &str) -> Result<Self, Self::Err> {
+		match s {
+			"safe" => Ok(RpcMethods::Safe),
+			"unsafe" => Ok(RpcMethods::Unsafe),
+			"auto" => Ok(RpcMethods::Auto),
+			invalid => Err(format!("Invalid rpc methods {invalid}")),
+		}
+	}
+}
+
 impl Into<sc_service::config::RpcMethods> for RpcMethods {
 	fn into(self) -> sc_service::config::RpcMethods {
 		match self {
@@ -293,6 +306,26 @@ impl Into<sc_network::config::SyncMode> for SyncMode {
 				storage_chain_mode: false,
 			},
 			SyncMode::Warp => sc_network::config::SyncMode::Warp,
+		}
+	}
+}
+
+/// Network backend type.
+#[derive(Debug, Clone, Copy, ValueEnum, PartialEq)]
+#[value(rename_all = "lower")]
+pub enum NetworkBackendType {
+	/// Use libp2p for P2P networking.
+	Libp2p,
+
+	/// Use litep2p for P2P networking.
+	Litep2p,
+}
+
+impl Into<sc_network::config::NetworkBackendType> for NetworkBackendType {
+	fn into(self) -> sc_network::config::NetworkBackendType {
+		match self {
+			Self::Libp2p => sc_network::config::NetworkBackendType::Libp2p,
+			Self::Litep2p => sc_network::config::NetworkBackendType::Litep2p,
 		}
 	}
 }

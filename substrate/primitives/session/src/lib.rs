@@ -19,14 +19,16 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use codec::{Decode, Encode};
+extern crate alloc;
+
+use codec::{Decode, DecodeWithMemTracking, Encode};
 
 #[cfg(feature = "std")]
 use sp_runtime::traits::Block as BlockT;
 
+use alloc::vec::Vec;
 use sp_core::RuntimeDebug;
 use sp_staking::SessionIndex;
-use sp_std::vec::Vec;
 
 pub mod runtime_api;
 pub use runtime_api::*;
@@ -35,7 +37,17 @@ pub use runtime_api::*;
 pub type ValidatorCount = u32;
 
 /// Proof of membership of a specific key in a given session.
-#[derive(Encode, Decode, Clone, Eq, PartialEq, Default, RuntimeDebug, scale_info::TypeInfo)]
+#[derive(
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	Clone,
+	Eq,
+	PartialEq,
+	Default,
+	RuntimeDebug,
+	scale_info::TypeInfo,
+)]
 pub struct MembershipProof {
 	/// The session index on which the specific key is a member.
 	pub session: SessionIndex,

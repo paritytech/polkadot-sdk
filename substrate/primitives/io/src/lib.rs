@@ -77,19 +77,21 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![cfg_attr(enable_alloc_error_handler, feature(alloc_error_handler))]
 
-use sp_std::vec::Vec;
+extern crate alloc;
 
-#[cfg(feature = "std")]
+use alloc::vec::Vec;
+
+#[cfg(not(substrate_runtime))]
 use tracing;
 
-#[cfg(feature = "std")]
+#[cfg(not(substrate_runtime))]
 use sp_core::{
 	crypto::Pair,
 	hexdisplay::HexDisplay,
 	offchain::{OffchainDbExt, OffchainWorkerExt, TransactionPoolExt},
 	storage::ChildInfo,
 };
-#[cfg(feature = "std")]
+#[cfg(not(substrate_runtime))]
 use sp_keystore::KeystoreExt;
 
 #[cfg(feature = "bandersnatch-experimental")]
@@ -106,30 +108,44 @@ use sp_core::{
 };
 
 #[cfg(feature = "bls-experimental")]
-use sp_core::{bls377, ecdsa_bls377};
+use sp_core::{bls381, ecdsa_bls381};
 
-#[cfg(feature = "std")]
+#[cfg(not(substrate_runtime))]
 use sp_trie::{LayoutV0, LayoutV1, TrieConfiguration};
 
 use sp_runtime_interface::{
-	pass_by::{PassBy, PassByCodec},
+	pass_by::{
+		AllocateAndReturnByCodec, AllocateAndReturnFatPointer, AllocateAndReturnPointer, PassAs,
+		PassFatPointerAndDecode, PassFatPointerAndDecodeSlice, PassFatPointerAndRead,
+		PassFatPointerAndReadWrite, PassPointerAndRead, PassPointerAndReadCopy, ReturnAs,
+	},
 	runtime_interface, Pointer,
 };
 
 use codec::{Decode, Encode};
 
-#[cfg(feature = "std")]
+#[cfg(not(substrate_runtime))]
 use secp256k1::{
 	ecdsa::{RecoverableSignature, RecoveryId},
-	Message, SECP256K1,
+	Message,
 };
 
-#[cfg(feature = "std")]
+#[cfg(not(substrate_runtime))]
 use sp_externalities::{Externalities, ExternalitiesExt};
 
 pub use sp_externalities::MultiRemovalResults;
 
-#[cfg(feature = "std")]
+#[cfg(all(not(feature = "disable_allocator"), substrate_runtime, target_family = "wasm"))]
+mod global_alloc_wasm;
+
+#[cfg(all(
+	not(feature = "disable_allocator"),
+	substrate_runtime,
+	any(target_arch = "riscv32", target_arch = "riscv64")
+))]
+mod global_alloc_riscv;
+
+#[cfg(not(substrate_runtime))]
 const LOG_TARGET: &str = "runtime::io";
 
 /// Error verifying ECDSA signature
@@ -145,7 +161,7 @@ pub enum EcdsaVerifyError {
 
 /// The outcome of calling `storage_kill`. Returned value is the number of storage items
 /// removed from the backend from making the `storage_kill` call.
-#[derive(PassByCodec, Encode, Decode)]
+#[derive(Encode, Decode)]
 pub enum KillStorageResult {
 	/// All keys to remove were removed, return number of iterations performed during the
 	/// operation.
@@ -171,7 +187,10 @@ impl From<MultiRemovalResults> for KillStorageResult {
 #[runtime_interface]
 pub trait Storage {
 	/// Returns the data for `key` in the storage or `None` if the key can not be found.
-	fn get(&self, key: &[u8]) -> Option<bytes::Bytes> {
+	fn get(
+		&mut self,
+		key: PassFatPointerAndRead<&[u8]>,
+	) -> AllocateAndReturnByCodec<Option<bytes::Bytes>> {
 		self.storage(key).map(|s| bytes::Bytes::from(s.to_vec()))
 	}
 
@@ -180,33 +199,38 @@ pub trait Storage {
 	/// doesn't exist at all.
 	/// If `value_out` length is smaller than the returned length, only `value_out` length bytes
 	/// are copied into `value_out`.
-	fn read(&self, key: &[u8], value_out: &mut [u8], value_offset: u32) -> Option<u32> {
+	fn read(
+		&mut self,
+		key: PassFatPointerAndRead<&[u8]>,
+		value_out: PassFatPointerAndReadWrite<&mut [u8]>,
+		value_offset: u32,
+	) -> AllocateAndReturnByCodec<Option<u32>> {
 		self.storage(key).map(|value| {
 			let value_offset = value_offset as usize;
 			let data = &value[value_offset.min(value.len())..];
-			let written = std::cmp::min(data.len(), value_out.len());
+			let written = core::cmp::min(data.len(), value_out.len());
 			value_out[..written].copy_from_slice(&data[..written]);
 			data.len() as u32
 		})
 	}
 
 	/// Set `key` to `value` in the storage.
-	fn set(&mut self, key: &[u8], value: &[u8]) {
+	fn set(&mut self, key: PassFatPointerAndRead<&[u8]>, value: PassFatPointerAndRead<&[u8]>) {
 		self.set_storage(key.to_vec(), value.to_vec());
 	}
 
 	/// Clear the storage of the given `key` and its value.
-	fn clear(&mut self, key: &[u8]) {
+	fn clear(&mut self, key: PassFatPointerAndRead<&[u8]>) {
 		self.clear_storage(key)
 	}
 
 	/// Check whether the given `key` exists in storage.
-	fn exists(&self, key: &[u8]) -> bool {
+	fn exists(&mut self, key: PassFatPointerAndRead<&[u8]>) -> bool {
 		self.exists_storage(key)
 	}
 
 	/// Clear the storage of each key-value pair where the key starts with the given `prefix`.
-	fn clear_prefix(&mut self, prefix: &[u8]) {
+	fn clear_prefix(&mut self, prefix: PassFatPointerAndRead<&[u8]>) {
 		let _ = Externalities::clear_prefix(*self, prefix, None, None);
 	}
 
@@ -236,7 +260,11 @@ pub trait Storage {
 	/// because the keys in the overlay are not taken into account when deleting keys in the
 	/// backend.
 	#[version(2)]
-	fn clear_prefix(&mut self, prefix: &[u8], limit: Option<u32>) -> KillStorageResult {
+	fn clear_prefix(
+		&mut self,
+		prefix: PassFatPointerAndRead<&[u8]>,
+		limit: PassFatPointerAndDecode<Option<u32>>,
+	) -> AllocateAndReturnByCodec<KillStorageResult> {
 		Externalities::clear_prefix(*self, prefix, limit, None).into()
 	}
 
@@ -274,10 +302,11 @@ pub trait Storage {
 	#[version(3, register_only)]
 	fn clear_prefix(
 		&mut self,
-		maybe_prefix: &[u8],
-		maybe_limit: Option<u32>,
-		maybe_cursor: Option<Vec<u8>>, //< TODO Make work or just Option<Vec<u8>>?
-	) -> MultiRemovalResults {
+		maybe_prefix: PassFatPointerAndRead<&[u8]>,
+		maybe_limit: PassFatPointerAndDecode<Option<u32>>,
+		maybe_cursor: PassFatPointerAndDecode<Option<Vec<u8>>>, /* TODO Make work or just
+		                                                         * Option<Vec<u8>>? */
+	) -> AllocateAndReturnByCodec<MultiRemovalResults> {
 		Externalities::clear_prefix(
 			*self,
 			maybe_prefix,
@@ -295,7 +324,7 @@ pub trait Storage {
 	///
 	/// If the storage item does not support [`EncodeAppend`](codec::EncodeAppend) or
 	/// something else fails at appending, the storage item will be set to `[value]`.
-	fn append(&mut self, key: &[u8], value: Vec<u8>) {
+	fn append(&mut self, key: PassFatPointerAndRead<&[u8]>, value: PassFatPointerAndRead<Vec<u8>>) {
 		self.storage_append(key.to_vec(), value);
 	}
 
@@ -304,7 +333,7 @@ pub trait Storage {
 	/// The hashing algorithm is defined by the `Block`.
 	///
 	/// Returns a `Vec<u8>` that holds the SCALE encoded hash.
-	fn root(&mut self) -> Vec<u8> {
+	fn root(&mut self) -> AllocateAndReturnFatPointer<Vec<u8>> {
 		self.storage_root(StateVersion::V0)
 	}
 
@@ -314,17 +343,23 @@ pub trait Storage {
 	///
 	/// Returns a `Vec<u8>` that holds the SCALE encoded hash.
 	#[version(2)]
-	fn root(&mut self, version: StateVersion) -> Vec<u8> {
+	fn root(&mut self, version: PassAs<StateVersion, u8>) -> AllocateAndReturnFatPointer<Vec<u8>> {
 		self.storage_root(version)
 	}
 
 	/// Always returns `None`. This function exists for compatibility reasons.
-	fn changes_root(&mut self, _parent_hash: &[u8]) -> Option<Vec<u8>> {
+	fn changes_root(
+		&mut self,
+		_parent_hash: PassFatPointerAndRead<&[u8]>,
+	) -> AllocateAndReturnByCodec<Option<Vec<u8>>> {
 		None
 	}
 
 	/// Get the next key in storage after the given one in lexicographic order.
-	fn next_key(&mut self, key: &[u8]) -> Option<Vec<u8>> {
+	fn next_key(
+		&mut self,
+		key: PassFatPointerAndRead<&[u8]>,
+	) -> AllocateAndReturnByCodec<Option<Vec<u8>>> {
 		self.next_storage_key(key)
 	}
 
@@ -377,7 +412,11 @@ pub trait DefaultChildStorage {
 	///
 	/// Parameter `storage_key` is the unprefixed location of the root of the child trie in the
 	/// parent trie. Result is `None` if the value for `key` in the child storage can not be found.
-	fn get(&self, storage_key: &[u8], key: &[u8]) -> Option<Vec<u8>> {
+	fn get(
+		&mut self,
+		storage_key: PassFatPointerAndRead<&[u8]>,
+		key: PassFatPointerAndRead<&[u8]>,
+	) -> AllocateAndReturnByCodec<Option<Vec<u8>>> {
 		let child_info = ChildInfo::new_default(storage_key);
 		self.child_storage(&child_info, key).map(|s| s.to_vec())
 	}
@@ -390,17 +429,17 @@ pub trait DefaultChildStorage {
 	/// If `value_out` length is smaller than the returned length, only `value_out` length bytes
 	/// are copied into `value_out`.
 	fn read(
-		&self,
-		storage_key: &[u8],
-		key: &[u8],
-		value_out: &mut [u8],
+		&mut self,
+		storage_key: PassFatPointerAndRead<&[u8]>,
+		key: PassFatPointerAndRead<&[u8]>,
+		value_out: PassFatPointerAndReadWrite<&mut [u8]>,
 		value_offset: u32,
-	) -> Option<u32> {
+	) -> AllocateAndReturnByCodec<Option<u32>> {
 		let child_info = ChildInfo::new_default(storage_key);
 		self.child_storage(&child_info, key).map(|value| {
 			let value_offset = value_offset as usize;
 			let data = &value[value_offset.min(value.len())..];
-			let written = std::cmp::min(data.len(), value_out.len());
+			let written = core::cmp::min(data.len(), value_out.len());
 			value_out[..written].copy_from_slice(&data[..written]);
 			data.len() as u32
 		})
@@ -409,7 +448,12 @@ pub trait DefaultChildStorage {
 	/// Set a child storage value.
 	///
 	/// Set `key` to `value` in the child storage denoted by `storage_key`.
-	fn set(&mut self, storage_key: &[u8], key: &[u8], value: &[u8]) {
+	fn set(
+		&mut self,
+		storage_key: PassFatPointerAndRead<&[u8]>,
+		key: PassFatPointerAndRead<&[u8]>,
+		value: PassFatPointerAndRead<&[u8]>,
+	) {
 		let child_info = ChildInfo::new_default(storage_key);
 		self.set_child_storage(&child_info, key.to_vec(), value.to_vec());
 	}
@@ -417,7 +461,11 @@ pub trait DefaultChildStorage {
 	/// Clear a child storage key.
 	///
 	/// For the default child storage at `storage_key`, clear value at `key`.
-	fn clear(&mut self, storage_key: &[u8], key: &[u8]) {
+	fn clear(
+		&mut self,
+		storage_key: PassFatPointerAndRead<&[u8]>,
+		key: PassFatPointerAndRead<&[u8]>,
+	) {
 		let child_info = ChildInfo::new_default(storage_key);
 		self.clear_child_storage(&child_info, key);
 	}
@@ -426,7 +474,7 @@ pub trait DefaultChildStorage {
 	///
 	/// If it exists, the child storage for `storage_key`
 	/// is removed.
-	fn storage_kill(&mut self, storage_key: &[u8]) {
+	fn storage_kill(&mut self, storage_key: PassFatPointerAndRead<&[u8]>) {
 		let child_info = ChildInfo::new_default(storage_key);
 		let _ = self.kill_child_storage(&child_info, None, None);
 	}
@@ -435,7 +483,11 @@ pub trait DefaultChildStorage {
 	///
 	/// See `Storage` module `clear_prefix` documentation for `limit` usage.
 	#[version(2)]
-	fn storage_kill(&mut self, storage_key: &[u8], limit: Option<u32>) -> bool {
+	fn storage_kill(
+		&mut self,
+		storage_key: PassFatPointerAndRead<&[u8]>,
+		limit: PassFatPointerAndDecode<Option<u32>>,
+	) -> bool {
 		let child_info = ChildInfo::new_default(storage_key);
 		let r = self.kill_child_storage(&child_info, limit, None);
 		r.maybe_cursor.is_none()
@@ -445,7 +497,11 @@ pub trait DefaultChildStorage {
 	///
 	/// See `Storage` module `clear_prefix` documentation for `limit` usage.
 	#[version(3)]
-	fn storage_kill(&mut self, storage_key: &[u8], limit: Option<u32>) -> KillStorageResult {
+	fn storage_kill(
+		&mut self,
+		storage_key: PassFatPointerAndRead<&[u8]>,
+		limit: PassFatPointerAndDecode<Option<u32>>,
+	) -> AllocateAndReturnByCodec<KillStorageResult> {
 		let child_info = ChildInfo::new_default(storage_key);
 		self.kill_child_storage(&child_info, limit, None).into()
 	}
@@ -456,10 +512,10 @@ pub trait DefaultChildStorage {
 	#[version(4, register_only)]
 	fn storage_kill(
 		&mut self,
-		storage_key: &[u8],
-		maybe_limit: Option<u32>,
-		maybe_cursor: Option<Vec<u8>>,
-	) -> MultiRemovalResults {
+		storage_key: PassFatPointerAndRead<&[u8]>,
+		maybe_limit: PassFatPointerAndDecode<Option<u32>>,
+		maybe_cursor: PassFatPointerAndDecode<Option<Vec<u8>>>,
+	) -> AllocateAndReturnByCodec<MultiRemovalResults> {
 		let child_info = ChildInfo::new_default(storage_key);
 		self.kill_child_storage(&child_info, maybe_limit, maybe_cursor.as_ref().map(|x| &x[..]))
 			.into()
@@ -468,7 +524,11 @@ pub trait DefaultChildStorage {
 	/// Check a child storage key.
 	///
 	/// Check whether the given `key` exists in default child defined at `storage_key`.
-	fn exists(&self, storage_key: &[u8], key: &[u8]) -> bool {
+	fn exists(
+		&mut self,
+		storage_key: PassFatPointerAndRead<&[u8]>,
+		key: PassFatPointerAndRead<&[u8]>,
+	) -> bool {
 		let child_info = ChildInfo::new_default(storage_key);
 		self.exists_child_storage(&child_info, key)
 	}
@@ -476,7 +536,11 @@ pub trait DefaultChildStorage {
 	/// Clear child default key by prefix.
 	///
 	/// Clear the child storage of each key-value pair where the key starts with the given `prefix`.
-	fn clear_prefix(&mut self, storage_key: &[u8], prefix: &[u8]) {
+	fn clear_prefix(
+		&mut self,
+		storage_key: PassFatPointerAndRead<&[u8]>,
+		prefix: PassFatPointerAndRead<&[u8]>,
+	) {
 		let child_info = ChildInfo::new_default(storage_key);
 		let _ = self.clear_child_prefix(&child_info, prefix, None, None);
 	}
@@ -487,10 +551,10 @@ pub trait DefaultChildStorage {
 	#[version(2)]
 	fn clear_prefix(
 		&mut self,
-		storage_key: &[u8],
-		prefix: &[u8],
-		limit: Option<u32>,
-	) -> KillStorageResult {
+		storage_key: PassFatPointerAndRead<&[u8]>,
+		prefix: PassFatPointerAndRead<&[u8]>,
+		limit: PassFatPointerAndDecode<Option<u32>>,
+	) -> AllocateAndReturnByCodec<KillStorageResult> {
 		let child_info = ChildInfo::new_default(storage_key);
 		self.clear_child_prefix(&child_info, prefix, limit, None).into()
 	}
@@ -501,11 +565,11 @@ pub trait DefaultChildStorage {
 	#[version(3, register_only)]
 	fn clear_prefix(
 		&mut self,
-		storage_key: &[u8],
-		prefix: &[u8],
-		maybe_limit: Option<u32>,
-		maybe_cursor: Option<Vec<u8>>,
-	) -> MultiRemovalResults {
+		storage_key: PassFatPointerAndRead<&[u8]>,
+		prefix: PassFatPointerAndRead<&[u8]>,
+		maybe_limit: PassFatPointerAndDecode<Option<u32>>,
+		maybe_cursor: PassFatPointerAndDecode<Option<Vec<u8>>>,
+	) -> AllocateAndReturnByCodec<MultiRemovalResults> {
 		let child_info = ChildInfo::new_default(storage_key);
 		self.clear_child_prefix(
 			&child_info,
@@ -522,7 +586,10 @@ pub trait DefaultChildStorage {
 	/// The hashing algorithm is defined by the `Block`.
 	///
 	/// Returns a `Vec<u8>` that holds the SCALE encoded hash.
-	fn root(&mut self, storage_key: &[u8]) -> Vec<u8> {
+	fn root(
+		&mut self,
+		storage_key: PassFatPointerAndRead<&[u8]>,
+	) -> AllocateAndReturnFatPointer<Vec<u8>> {
 		let child_info = ChildInfo::new_default(storage_key);
 		self.child_storage_root(&child_info, StateVersion::V0)
 	}
@@ -534,7 +601,11 @@ pub trait DefaultChildStorage {
 	///
 	/// Returns a `Vec<u8>` that holds the SCALE encoded hash.
 	#[version(2)]
-	fn root(&mut self, storage_key: &[u8], version: StateVersion) -> Vec<u8> {
+	fn root(
+		&mut self,
+		storage_key: PassFatPointerAndRead<&[u8]>,
+		version: PassAs<StateVersion, u8>,
+	) -> AllocateAndReturnFatPointer<Vec<u8>> {
 		let child_info = ChildInfo::new_default(storage_key);
 		self.child_storage_root(&child_info, version)
 	}
@@ -542,7 +613,11 @@ pub trait DefaultChildStorage {
 	/// Child storage key iteration.
 	///
 	/// Get the next key in storage after the given one in lexicographic order in child storage.
-	fn next_key(&mut self, storage_key: &[u8], key: &[u8]) -> Option<Vec<u8>> {
+	fn next_key(
+		&mut self,
+		storage_key: PassFatPointerAndRead<&[u8]>,
+		key: PassFatPointerAndRead<&[u8]>,
+	) -> AllocateAndReturnByCodec<Option<Vec<u8>>> {
 		let child_info = ChildInfo::new_default(storage_key);
 		self.next_child_storage_key(&child_info, key)
 	}
@@ -552,13 +627,18 @@ pub trait DefaultChildStorage {
 #[runtime_interface]
 pub trait Trie {
 	/// A trie root formed from the iterated items.
-	fn blake2_256_root(input: Vec<(Vec<u8>, Vec<u8>)>) -> H256 {
+	fn blake2_256_root(
+		input: PassFatPointerAndDecode<Vec<(Vec<u8>, Vec<u8>)>>,
+	) -> AllocateAndReturnPointer<H256, 32> {
 		LayoutV0::<sp_core::Blake2Hasher>::trie_root(input)
 	}
 
 	/// A trie root formed from the iterated items.
 	#[version(2)]
-	fn blake2_256_root(input: Vec<(Vec<u8>, Vec<u8>)>, version: StateVersion) -> H256 {
+	fn blake2_256_root(
+		input: PassFatPointerAndDecode<Vec<(Vec<u8>, Vec<u8>)>>,
+		version: PassAs<StateVersion, u8>,
+	) -> AllocateAndReturnPointer<H256, 32> {
 		match version {
 			StateVersion::V0 => LayoutV0::<sp_core::Blake2Hasher>::trie_root(input),
 			StateVersion::V1 => LayoutV1::<sp_core::Blake2Hasher>::trie_root(input),
@@ -566,13 +646,18 @@ pub trait Trie {
 	}
 
 	/// A trie root formed from the enumerated items.
-	fn blake2_256_ordered_root(input: Vec<Vec<u8>>) -> H256 {
+	fn blake2_256_ordered_root(
+		input: PassFatPointerAndDecode<Vec<Vec<u8>>>,
+	) -> AllocateAndReturnPointer<H256, 32> {
 		LayoutV0::<sp_core::Blake2Hasher>::ordered_trie_root(input)
 	}
 
 	/// A trie root formed from the enumerated items.
 	#[version(2)]
-	fn blake2_256_ordered_root(input: Vec<Vec<u8>>, version: StateVersion) -> H256 {
+	fn blake2_256_ordered_root(
+		input: PassFatPointerAndDecode<Vec<Vec<u8>>>,
+		version: PassAs<StateVersion, u8>,
+	) -> AllocateAndReturnPointer<H256, 32> {
 		match version {
 			StateVersion::V0 => LayoutV0::<sp_core::Blake2Hasher>::ordered_trie_root(input),
 			StateVersion::V1 => LayoutV1::<sp_core::Blake2Hasher>::ordered_trie_root(input),
@@ -580,13 +665,18 @@ pub trait Trie {
 	}
 
 	/// A trie root formed from the iterated items.
-	fn keccak_256_root(input: Vec<(Vec<u8>, Vec<u8>)>) -> H256 {
+	fn keccak_256_root(
+		input: PassFatPointerAndDecode<Vec<(Vec<u8>, Vec<u8>)>>,
+	) -> AllocateAndReturnPointer<H256, 32> {
 		LayoutV0::<sp_core::KeccakHasher>::trie_root(input)
 	}
 
 	/// A trie root formed from the iterated items.
 	#[version(2)]
-	fn keccak_256_root(input: Vec<(Vec<u8>, Vec<u8>)>, version: StateVersion) -> H256 {
+	fn keccak_256_root(
+		input: PassFatPointerAndDecode<Vec<(Vec<u8>, Vec<u8>)>>,
+		version: PassAs<StateVersion, u8>,
+	) -> AllocateAndReturnPointer<H256, 32> {
 		match version {
 			StateVersion::V0 => LayoutV0::<sp_core::KeccakHasher>::trie_root(input),
 			StateVersion::V1 => LayoutV1::<sp_core::KeccakHasher>::trie_root(input),
@@ -594,13 +684,18 @@ pub trait Trie {
 	}
 
 	/// A trie root formed from the enumerated items.
-	fn keccak_256_ordered_root(input: Vec<Vec<u8>>) -> H256 {
+	fn keccak_256_ordered_root(
+		input: PassFatPointerAndDecode<Vec<Vec<u8>>>,
+	) -> AllocateAndReturnPointer<H256, 32> {
 		LayoutV0::<sp_core::KeccakHasher>::ordered_trie_root(input)
 	}
 
 	/// A trie root formed from the enumerated items.
 	#[version(2)]
-	fn keccak_256_ordered_root(input: Vec<Vec<u8>>, version: StateVersion) -> H256 {
+	fn keccak_256_ordered_root(
+		input: PassFatPointerAndDecode<Vec<Vec<u8>>>,
+		version: PassAs<StateVersion, u8>,
+	) -> AllocateAndReturnPointer<H256, 32> {
 		match version {
 			StateVersion::V0 => LayoutV0::<sp_core::KeccakHasher>::ordered_trie_root(input),
 			StateVersion::V1 => LayoutV1::<sp_core::KeccakHasher>::ordered_trie_root(input),
@@ -608,7 +703,12 @@ pub trait Trie {
 	}
 
 	/// Verify trie proof
-	fn blake2_256_verify_proof(root: H256, proof: &[Vec<u8>], key: &[u8], value: &[u8]) -> bool {
+	fn blake2_256_verify_proof(
+		root: PassPointerAndReadCopy<H256, 32>,
+		proof: PassFatPointerAndDecodeSlice<&[Vec<u8>]>,
+		key: PassFatPointerAndRead<&[u8]>,
+		value: PassFatPointerAndRead<&[u8]>,
+	) -> bool {
 		sp_trie::verify_trie_proof::<LayoutV0<sp_core::Blake2Hasher>, _, _, _>(
 			&root,
 			proof,
@@ -620,11 +720,11 @@ pub trait Trie {
 	/// Verify trie proof
 	#[version(2)]
 	fn blake2_256_verify_proof(
-		root: H256,
-		proof: &[Vec<u8>],
-		key: &[u8],
-		value: &[u8],
-		version: StateVersion,
+		root: PassPointerAndReadCopy<H256, 32>,
+		proof: PassFatPointerAndDecodeSlice<&[Vec<u8>]>,
+		key: PassFatPointerAndRead<&[u8]>,
+		value: PassFatPointerAndRead<&[u8]>,
+		version: PassAs<StateVersion, u8>,
 	) -> bool {
 		match version {
 			StateVersion::V0 => sp_trie::verify_trie_proof::<
@@ -645,7 +745,12 @@ pub trait Trie {
 	}
 
 	/// Verify trie proof
-	fn keccak_256_verify_proof(root: H256, proof: &[Vec<u8>], key: &[u8], value: &[u8]) -> bool {
+	fn keccak_256_verify_proof(
+		root: PassPointerAndReadCopy<H256, 32>,
+		proof: PassFatPointerAndDecodeSlice<&[Vec<u8>]>,
+		key: PassFatPointerAndRead<&[u8]>,
+		value: PassFatPointerAndRead<&[u8]>,
+	) -> bool {
 		sp_trie::verify_trie_proof::<LayoutV0<sp_core::KeccakHasher>, _, _, _>(
 			&root,
 			proof,
@@ -657,11 +762,11 @@ pub trait Trie {
 	/// Verify trie proof
 	#[version(2)]
 	fn keccak_256_verify_proof(
-		root: H256,
-		proof: &[Vec<u8>],
-		key: &[u8],
-		value: &[u8],
-		version: StateVersion,
+		root: PassPointerAndReadCopy<H256, 32>,
+		proof: PassFatPointerAndDecodeSlice<&[Vec<u8>]>,
+		key: PassFatPointerAndRead<&[u8]>,
+		value: PassFatPointerAndRead<&[u8]>,
+		version: PassAs<StateVersion, u8>,
 	) -> bool {
 		match version {
 			StateVersion::V0 => sp_trie::verify_trie_proof::<
@@ -695,14 +800,14 @@ pub trait Misc {
 	}
 
 	/// Print any valid `utf8` buffer.
-	fn print_utf8(utf8: &[u8]) {
-		if let Ok(data) = std::str::from_utf8(utf8) {
+	fn print_utf8(utf8: PassFatPointerAndRead<&[u8]>) {
+		if let Ok(data) = core::str::from_utf8(utf8) {
 			log::debug!(target: "runtime", "{}", data)
 		}
 	}
 
 	/// Print any `u8` slice as hex.
-	fn print_hex(data: &[u8]) {
+	fn print_hex(data: PassFatPointerAndRead<&[u8]>) {
 		log::debug!(target: "runtime", "{}", HexDisplay::from(&data));
 	}
 
@@ -721,7 +826,10 @@ pub trait Misc {
 	/// may be involved. This means that a runtime call will be performed to query the version.
 	///
 	/// Calling into the runtime may be incredible expensive and should be approached with care.
-	fn runtime_version(&mut self, wasm: &[u8]) -> Option<Vec<u8>> {
+	fn runtime_version(
+		&mut self,
+		wasm: PassFatPointerAndRead<&[u8]>,
+	) -> AllocateAndReturnByCodec<Option<Vec<u8>>> {
 		use sp_core::traits::ReadRuntimeVersionExt;
 
 		let mut ext = sp_state_machine::BasicExternalities::default();
@@ -744,7 +852,7 @@ pub trait Misc {
 	}
 }
 
-#[cfg(feature = "std")]
+#[cfg(not(substrate_runtime))]
 sp_externalities::decl_extension! {
 	/// Extension to signal to [`crypt::ed25519_verify`] to use the dalek crate.
 	///
@@ -765,7 +873,7 @@ sp_externalities::decl_extension! {
 	pub struct UseDalekExt;
 }
 
-#[cfg(feature = "std")]
+#[cfg(not(substrate_runtime))]
 impl Default for UseDalekExt {
 	fn default() -> Self {
 		Self
@@ -776,7 +884,10 @@ impl Default for UseDalekExt {
 #[runtime_interface]
 pub trait Crypto {
 	/// Returns all `ed25519` public keys for the given key id from the keystore.
-	fn ed25519_public_keys(&mut self, id: KeyTypeId) -> Vec<ed25519::Public> {
+	fn ed25519_public_keys(
+		&mut self,
+		id: PassPointerAndReadCopy<KeyTypeId, 4>,
+	) -> AllocateAndReturnByCodec<Vec<ed25519::Public>> {
 		self.extension::<KeystoreExt>()
 			.expect("No `keystore` associated for the current context!")
 			.ed25519_public_keys(id)
@@ -788,8 +899,12 @@ pub trait Crypto {
 	/// The `seed` needs to be a valid utf8.
 	///
 	/// Returns the public key.
-	fn ed25519_generate(&mut self, id: KeyTypeId, seed: Option<Vec<u8>>) -> ed25519::Public {
-		let seed = seed.as_ref().map(|s| std::str::from_utf8(s).expect("Seed is valid utf8!"));
+	fn ed25519_generate(
+		&mut self,
+		id: PassPointerAndReadCopy<KeyTypeId, 4>,
+		seed: PassFatPointerAndDecode<Option<Vec<u8>>>,
+	) -> AllocateAndReturnPointer<ed25519::Public, 32> {
+		let seed = seed.as_ref().map(|s| core::str::from_utf8(s).expect("Seed is valid utf8!"));
 		self.extension::<KeystoreExt>()
 			.expect("No `keystore` associated for the current context!")
 			.ed25519_generate_new(id, seed)
@@ -802,10 +917,10 @@ pub trait Crypto {
 	/// Returns the signature.
 	fn ed25519_sign(
 		&mut self,
-		id: KeyTypeId,
-		pub_key: &ed25519::Public,
-		msg: &[u8],
-	) -> Option<ed25519::Signature> {
+		id: PassPointerAndReadCopy<KeyTypeId, 4>,
+		pub_key: PassPointerAndRead<&ed25519::Public, 32>,
+		msg: PassFatPointerAndRead<&[u8]>,
+	) -> AllocateAndReturnByCodec<Option<ed25519::Signature>> {
 		self.extension::<KeystoreExt>()
 			.expect("No `keystore` associated for the current context!")
 			.ed25519_sign(id, pub_key, msg)
@@ -816,7 +931,11 @@ pub trait Crypto {
 	/// Verify `ed25519` signature.
 	///
 	/// Returns `true` when the verification was successful.
-	fn ed25519_verify(sig: &ed25519::Signature, msg: &[u8], pub_key: &ed25519::Public) -> bool {
+	fn ed25519_verify(
+		sig: PassPointerAndRead<&ed25519::Signature, 64>,
+		msg: PassFatPointerAndRead<&[u8]>,
+		pub_key: PassPointerAndRead<&ed25519::Public, 32>,
+	) -> bool {
 		// We don't want to force everyone needing to call the function in an externalities context.
 		// So, we assume that we should not use dalek when we are not in externalities context.
 		// Otherwise, we check if the extension is present.
@@ -853,9 +972,9 @@ pub trait Crypto {
 	#[version(1, register_only)]
 	fn ed25519_batch_verify(
 		&mut self,
-		sig: &ed25519::Signature,
-		msg: &[u8],
-		pub_key: &ed25519::Public,
+		sig: PassPointerAndRead<&ed25519::Signature, 64>,
+		msg: PassFatPointerAndRead<&[u8]>,
+		pub_key: PassPointerAndRead<&ed25519::Public, 32>,
 	) -> bool {
 		let res = ed25519_verify(sig, msg, pub_key);
 
@@ -870,7 +989,11 @@ pub trait Crypto {
 	///
 	/// Returns `true` when the verification was successful.
 	#[version(2)]
-	fn sr25519_verify(sig: &sr25519::Signature, msg: &[u8], pub_key: &sr25519::Public) -> bool {
+	fn sr25519_verify(
+		sig: PassPointerAndRead<&sr25519::Signature, 64>,
+		msg: PassFatPointerAndRead<&[u8]>,
+		pub_key: PassPointerAndRead<&sr25519::Public, 32>,
+	) -> bool {
 		sr25519::Pair::verify(sig, msg, pub_key)
 	}
 
@@ -890,9 +1013,9 @@ pub trait Crypto {
 	#[version(1, register_only)]
 	fn sr25519_batch_verify(
 		&mut self,
-		sig: &sr25519::Signature,
-		msg: &[u8],
-		pub_key: &sr25519::Public,
+		sig: PassPointerAndRead<&sr25519::Signature, 64>,
+		msg: PassFatPointerAndRead<&[u8]>,
+		pub_key: PassPointerAndRead<&sr25519::Public, 32>,
 	) -> bool {
 		let res = sr25519_verify(sig, msg, pub_key);
 
@@ -940,7 +1063,10 @@ pub trait Crypto {
 	}
 
 	/// Returns all `sr25519` public keys for the given key id from the keystore.
-	fn sr25519_public_keys(&mut self, id: KeyTypeId) -> Vec<sr25519::Public> {
+	fn sr25519_public_keys(
+		&mut self,
+		id: PassPointerAndReadCopy<KeyTypeId, 4>,
+	) -> AllocateAndReturnByCodec<Vec<sr25519::Public>> {
 		self.extension::<KeystoreExt>()
 			.expect("No `keystore` associated for the current context!")
 			.sr25519_public_keys(id)
@@ -952,8 +1078,12 @@ pub trait Crypto {
 	/// The `seed` needs to be a valid utf8.
 	///
 	/// Returns the public key.
-	fn sr25519_generate(&mut self, id: KeyTypeId, seed: Option<Vec<u8>>) -> sr25519::Public {
-		let seed = seed.as_ref().map(|s| std::str::from_utf8(s).expect("Seed is valid utf8!"));
+	fn sr25519_generate(
+		&mut self,
+		id: PassPointerAndReadCopy<KeyTypeId, 4>,
+		seed: PassFatPointerAndDecode<Option<Vec<u8>>>,
+	) -> AllocateAndReturnPointer<sr25519::Public, 32> {
+		let seed = seed.as_ref().map(|s| core::str::from_utf8(s).expect("Seed is valid utf8!"));
 		self.extension::<KeystoreExt>()
 			.expect("No `keystore` associated for the current context!")
 			.sr25519_generate_new(id, seed)
@@ -966,10 +1096,10 @@ pub trait Crypto {
 	/// Returns the signature.
 	fn sr25519_sign(
 		&mut self,
-		id: KeyTypeId,
-		pub_key: &sr25519::Public,
-		msg: &[u8],
-	) -> Option<sr25519::Signature> {
+		id: PassPointerAndReadCopy<KeyTypeId, 4>,
+		pub_key: PassPointerAndRead<&sr25519::Public, 32>,
+		msg: PassFatPointerAndRead<&[u8]>,
+	) -> AllocateAndReturnByCodec<Option<sr25519::Signature>> {
 		self.extension::<KeystoreExt>()
 			.expect("No `keystore` associated for the current context!")
 			.sr25519_sign(id, pub_key, msg)
@@ -981,12 +1111,19 @@ pub trait Crypto {
 	///
 	/// Returns `true` when the verification in successful regardless of
 	/// signature version.
-	fn sr25519_verify(sig: &sr25519::Signature, msg: &[u8], pubkey: &sr25519::Public) -> bool {
+	fn sr25519_verify(
+		sig: PassPointerAndRead<&sr25519::Signature, 64>,
+		msg: PassFatPointerAndRead<&[u8]>,
+		pubkey: PassPointerAndRead<&sr25519::Public, 32>,
+	) -> bool {
 		sr25519::Pair::verify_deprecated(sig, msg, pubkey)
 	}
 
 	/// Returns all `ecdsa` public keys for the given key id from the keystore.
-	fn ecdsa_public_keys(&mut self, id: KeyTypeId) -> Vec<ecdsa::Public> {
+	fn ecdsa_public_keys(
+		&mut self,
+		id: PassPointerAndReadCopy<KeyTypeId, 4>,
+	) -> AllocateAndReturnByCodec<Vec<ecdsa::Public>> {
 		self.extension::<KeystoreExt>()
 			.expect("No `keystore` associated for the current context!")
 			.ecdsa_public_keys(id)
@@ -998,8 +1135,12 @@ pub trait Crypto {
 	/// The `seed` needs to be a valid utf8.
 	///
 	/// Returns the public key.
-	fn ecdsa_generate(&mut self, id: KeyTypeId, seed: Option<Vec<u8>>) -> ecdsa::Public {
-		let seed = seed.as_ref().map(|s| std::str::from_utf8(s).expect("Seed is valid utf8!"));
+	fn ecdsa_generate(
+		&mut self,
+		id: PassPointerAndReadCopy<KeyTypeId, 4>,
+		seed: PassFatPointerAndDecode<Option<Vec<u8>>>,
+	) -> AllocateAndReturnPointer<ecdsa::Public, 33> {
+		let seed = seed.as_ref().map(|s| core::str::from_utf8(s).expect("Seed is valid utf8!"));
 		self.extension::<KeystoreExt>()
 			.expect("No `keystore` associated for the current context!")
 			.ecdsa_generate_new(id, seed)
@@ -1012,10 +1153,10 @@ pub trait Crypto {
 	/// Returns the signature.
 	fn ecdsa_sign(
 		&mut self,
-		id: KeyTypeId,
-		pub_key: &ecdsa::Public,
-		msg: &[u8],
-	) -> Option<ecdsa::Signature> {
+		id: PassPointerAndReadCopy<KeyTypeId, 4>,
+		pub_key: PassPointerAndRead<&ecdsa::Public, 33>,
+		msg: PassFatPointerAndRead<&[u8]>,
+	) -> AllocateAndReturnByCodec<Option<ecdsa::Signature>> {
 		self.extension::<KeystoreExt>()
 			.expect("No `keystore` associated for the current context!")
 			.ecdsa_sign(id, pub_key, msg)
@@ -1029,10 +1170,10 @@ pub trait Crypto {
 	/// Returns the signature.
 	fn ecdsa_sign_prehashed(
 		&mut self,
-		id: KeyTypeId,
-		pub_key: &ecdsa::Public,
-		msg: &[u8; 32],
-	) -> Option<ecdsa::Signature> {
+		id: PassPointerAndReadCopy<KeyTypeId, 4>,
+		pub_key: PassPointerAndRead<&ecdsa::Public, 33>,
+		msg: PassPointerAndRead<&[u8; 32], 32>,
+	) -> AllocateAndReturnByCodec<Option<ecdsa::Signature>> {
 		self.extension::<KeystoreExt>()
 			.expect("No `keystore` associated for the current context!")
 			.ecdsa_sign_prehashed(id, pub_key, msg)
@@ -1044,7 +1185,11 @@ pub trait Crypto {
 	///
 	/// Returns `true` when the verification was successful.
 	/// This version is able to handle, non-standard, overflowing signatures.
-	fn ecdsa_verify(sig: &ecdsa::Signature, msg: &[u8], pub_key: &ecdsa::Public) -> bool {
+	fn ecdsa_verify(
+		sig: PassPointerAndRead<&ecdsa::Signature, 65>,
+		msg: PassFatPointerAndRead<&[u8]>,
+		pub_key: PassPointerAndRead<&ecdsa::Public, 33>,
+	) -> bool {
 		#[allow(deprecated)]
 		ecdsa::Pair::verify_deprecated(sig, msg, pub_key)
 	}
@@ -1053,7 +1198,11 @@ pub trait Crypto {
 	///
 	/// Returns `true` when the verification was successful.
 	#[version(2)]
-	fn ecdsa_verify(sig: &ecdsa::Signature, msg: &[u8], pub_key: &ecdsa::Public) -> bool {
+	fn ecdsa_verify(
+		sig: PassPointerAndRead<&ecdsa::Signature, 65>,
+		msg: PassFatPointerAndRead<&[u8]>,
+		pub_key: PassPointerAndRead<&ecdsa::Public, 33>,
+	) -> bool {
 		ecdsa::Pair::verify(sig, msg, pub_key)
 	}
 
@@ -1061,9 +1210,9 @@ pub trait Crypto {
 	///
 	/// Returns `true` when the verification was successful.
 	fn ecdsa_verify_prehashed(
-		sig: &ecdsa::Signature,
-		msg: &[u8; 32],
-		pub_key: &ecdsa::Public,
+		sig: PassPointerAndRead<&ecdsa::Signature, 65>,
+		msg: PassPointerAndRead<&[u8; 32], 32>,
+		pub_key: PassPointerAndRead<&ecdsa::Public, 33>,
 	) -> bool {
 		ecdsa::Pair::verify_prehashed(sig, msg, pub_key)
 	}
@@ -1071,7 +1220,7 @@ pub trait Crypto {
 	/// Register a `ecdsa` signature for batch verification.
 	///
 	/// Batch verification must be enabled by calling [`start_batch_verify`].
-	/// If batch verification is not enabled, the signature will be verified immediatley.
+	/// If batch verification is not enabled, the signature will be verified immediately.
 	/// To get the result of the batch verification, [`finish_batch_verify`]
 	/// needs to be called.
 	///
@@ -1084,9 +1233,9 @@ pub trait Crypto {
 	#[version(1, register_only)]
 	fn ecdsa_batch_verify(
 		&mut self,
-		sig: &ecdsa::Signature,
-		msg: &[u8],
-		pub_key: &ecdsa::Public,
+		sig: PassPointerAndRead<&ecdsa::Signature, 65>,
+		msg: PassFatPointerAndRead<&[u8]>,
+		pub_key: PassPointerAndRead<&ecdsa::Public, 33>,
 	) -> bool {
 		let res = ecdsa_verify(sig, msg, pub_key);
 
@@ -1106,9 +1255,9 @@ pub trait Crypto {
 	/// (doesn't include the 0x04 prefix).
 	/// This version is able to handle, non-standard, overflowing signatures.
 	fn secp256k1_ecdsa_recover(
-		sig: &[u8; 65],
-		msg: &[u8; 32],
-	) -> Result<[u8; 64], EcdsaVerifyError> {
+		sig: PassPointerAndRead<&[u8; 65], 65>,
+		msg: PassPointerAndRead<&[u8; 32], 32>,
+	) -> AllocateAndReturnByCodec<Result<[u8; 64], EcdsaVerifyError>> {
 		let rid = libsecp256k1::RecoveryId::parse(
 			if sig[64] > 26 { sig[64] - 27 } else { sig[64] } as u8,
 		)
@@ -1132,17 +1281,19 @@ pub trait Crypto {
 	/// (doesn't include the 0x04 prefix).
 	#[version(2)]
 	fn secp256k1_ecdsa_recover(
-		sig: &[u8; 65],
-		msg: &[u8; 32],
-	) -> Result<[u8; 64], EcdsaVerifyError> {
+		sig: PassPointerAndRead<&[u8; 65], 65>,
+		msg: PassPointerAndRead<&[u8; 32], 32>,
+	) -> AllocateAndReturnByCodec<Result<[u8; 64], EcdsaVerifyError>> {
 		let rid = RecoveryId::from_i32(if sig[64] > 26 { sig[64] - 27 } else { sig[64] } as i32)
 			.map_err(|_| EcdsaVerifyError::BadV)?;
 		let sig = RecoverableSignature::from_compact(&sig[..64], rid)
 			.map_err(|_| EcdsaVerifyError::BadRS)?;
 		let msg = Message::from_digest_slice(msg).expect("Message is 32 bytes; qed");
-		let pubkey = SECP256K1
-			.recover_ecdsa(&msg, &sig)
-			.map_err(|_| EcdsaVerifyError::BadSignature)?;
+		#[cfg(feature = "std")]
+		let ctx = secp256k1::SECP256K1;
+		#[cfg(not(feature = "std"))]
+		let ctx = secp256k1::Secp256k1::<secp256k1::VerifyOnly>::gen_new();
+		let pubkey = ctx.recover_ecdsa(&msg, &sig).map_err(|_| EcdsaVerifyError::BadSignature)?;
 		let mut res = [0u8; 64];
 		res.copy_from_slice(&pubkey.serialize_uncompressed()[1..]);
 		Ok(res)
@@ -1155,9 +1306,9 @@ pub trait Crypto {
 	///
 	/// Returns `Err` if the signature is bad, otherwise the 33-byte compressed pubkey.
 	fn secp256k1_ecdsa_recover_compressed(
-		sig: &[u8; 65],
-		msg: &[u8; 32],
-	) -> Result<[u8; 33], EcdsaVerifyError> {
+		sig: PassPointerAndRead<&[u8; 65], 65>,
+		msg: PassPointerAndRead<&[u8; 32], 32>,
+	) -> AllocateAndReturnByCodec<Result<[u8; 33], EcdsaVerifyError>> {
 		let rid = libsecp256k1::RecoveryId::parse(
 			if sig[64] > 26 { sig[64] - 27 } else { sig[64] } as u8,
 		)
@@ -1178,52 +1329,58 @@ pub trait Crypto {
 	/// Returns `Err` if the signature is bad, otherwise the 33-byte compressed pubkey.
 	#[version(2)]
 	fn secp256k1_ecdsa_recover_compressed(
-		sig: &[u8; 65],
-		msg: &[u8; 32],
-	) -> Result<[u8; 33], EcdsaVerifyError> {
+		sig: PassPointerAndRead<&[u8; 65], 65>,
+		msg: PassPointerAndRead<&[u8; 32], 32>,
+	) -> AllocateAndReturnByCodec<Result<[u8; 33], EcdsaVerifyError>> {
 		let rid = RecoveryId::from_i32(if sig[64] > 26 { sig[64] - 27 } else { sig[64] } as i32)
 			.map_err(|_| EcdsaVerifyError::BadV)?;
 		let sig = RecoverableSignature::from_compact(&sig[..64], rid)
 			.map_err(|_| EcdsaVerifyError::BadRS)?;
 		let msg = Message::from_digest_slice(msg).expect("Message is 32 bytes; qed");
-		let pubkey = SECP256K1
-			.recover_ecdsa(&msg, &sig)
-			.map_err(|_| EcdsaVerifyError::BadSignature)?;
+		#[cfg(feature = "std")]
+		let ctx = secp256k1::SECP256K1;
+		#[cfg(not(feature = "std"))]
+		let ctx = secp256k1::Secp256k1::<secp256k1::VerifyOnly>::gen_new();
+		let pubkey = ctx.recover_ecdsa(&msg, &sig).map_err(|_| EcdsaVerifyError::BadSignature)?;
 		Ok(pubkey.serialize())
 	}
 
-	/// Generate an `bls12-377` key for the given key type using an optional `seed` and
+	/// Generate an `bls12-381` key for the given key type using an optional `seed` and
 	/// store it in the keystore.
 	///
 	/// The `seed` needs to be a valid utf8.
 	///
 	/// Returns the public key.
 	#[cfg(feature = "bls-experimental")]
-	fn bls377_generate(&mut self, id: KeyTypeId, seed: Option<Vec<u8>>) -> bls377::Public {
-		let seed = seed.as_ref().map(|s| std::str::from_utf8(s).expect("Seed is valid utf8!"));
+	fn bls381_generate(
+		&mut self,
+		id: PassPointerAndReadCopy<KeyTypeId, 4>,
+		seed: PassFatPointerAndDecode<Option<Vec<u8>>>,
+	) -> AllocateAndReturnPointer<bls381::Public, 144> {
+		let seed = seed.as_ref().map(|s| core::str::from_utf8(s).expect("Seed is valid utf8!"));
 		self.extension::<KeystoreExt>()
 			.expect("No `keystore` associated for the current context!")
-			.bls377_generate_new(id, seed)
-			.expect("`bls377_generate` failed")
+			.bls381_generate_new(id, seed)
+			.expect("`bls381_generate` failed")
 	}
 
-	/// Generate an `(ecdsa,bls12-377)` key for the given key type using an optional `seed` and
+	/// Generate an `(ecdsa,bls12-381)` key for the given key type using an optional `seed` and
 	/// store it in the keystore.
 	///
 	/// The `seed` needs to be a valid utf8.
 	///
 	/// Returns the public key.
 	#[cfg(feature = "bls-experimental")]
-	fn ecdsa_bls377_generate(
+	fn ecdsa_bls381_generate(
 		&mut self,
-		id: KeyTypeId,
-		seed: Option<Vec<u8>>,
-	) -> ecdsa_bls377::Public {
-		let seed = seed.as_ref().map(|s| std::str::from_utf8(s).expect("Seed is valid utf8!"));
+		id: PassPointerAndReadCopy<KeyTypeId, 4>,
+		seed: PassFatPointerAndDecode<Option<Vec<u8>>>,
+	) -> AllocateAndReturnPointer<ecdsa_bls381::Public, { 144 + 33 }> {
+		let seed = seed.as_ref().map(|s| core::str::from_utf8(s).expect("Seed is valid utf8!"));
 		self.extension::<KeystoreExt>()
 			.expect("No `keystore` associated for the current context!")
-			.ecdsa_bls377_generate_new(id, seed)
-			.expect("`ecdsa_bls377_generate` failed")
+			.ecdsa_bls381_generate_new(id, seed)
+			.expect("`ecdsa_bls381_generate` failed")
 	}
 
 	/// Generate a `bandersnatch` key pair for the given key type using an optional
@@ -1235,10 +1392,10 @@ pub trait Crypto {
 	#[cfg(feature = "bandersnatch-experimental")]
 	fn bandersnatch_generate(
 		&mut self,
-		id: KeyTypeId,
-		seed: Option<Vec<u8>>,
-	) -> bandersnatch::Public {
-		let seed = seed.as_ref().map(|s| std::str::from_utf8(s).expect("Seed is valid utf8!"));
+		id: PassPointerAndReadCopy<KeyTypeId, 4>,
+		seed: PassFatPointerAndDecode<Option<Vec<u8>>>,
+	) -> AllocateAndReturnPointer<bandersnatch::Public, 32> {
+		let seed = seed.as_ref().map(|s| core::str::from_utf8(s).expect("Seed is valid utf8!"));
 		self.extension::<KeystoreExt>()
 			.expect("No `keystore` associated for the current context!")
 			.bandersnatch_generate_new(id, seed)
@@ -1250,42 +1407,42 @@ pub trait Crypto {
 #[runtime_interface]
 pub trait Hashing {
 	/// Conduct a 256-bit Keccak hash.
-	fn keccak_256(data: &[u8]) -> [u8; 32] {
+	fn keccak_256(data: PassFatPointerAndRead<&[u8]>) -> AllocateAndReturnPointer<[u8; 32], 32> {
 		sp_crypto_hashing::keccak_256(data)
 	}
 
 	/// Conduct a 512-bit Keccak hash.
-	fn keccak_512(data: &[u8]) -> [u8; 64] {
+	fn keccak_512(data: PassFatPointerAndRead<&[u8]>) -> AllocateAndReturnPointer<[u8; 64], 64> {
 		sp_crypto_hashing::keccak_512(data)
 	}
 
 	/// Conduct a 256-bit Sha2 hash.
-	fn sha2_256(data: &[u8]) -> [u8; 32] {
+	fn sha2_256(data: PassFatPointerAndRead<&[u8]>) -> AllocateAndReturnPointer<[u8; 32], 32> {
 		sp_crypto_hashing::sha2_256(data)
 	}
 
 	/// Conduct a 128-bit Blake2 hash.
-	fn blake2_128(data: &[u8]) -> [u8; 16] {
+	fn blake2_128(data: PassFatPointerAndRead<&[u8]>) -> AllocateAndReturnPointer<[u8; 16], 16> {
 		sp_crypto_hashing::blake2_128(data)
 	}
 
 	/// Conduct a 256-bit Blake2 hash.
-	fn blake2_256(data: &[u8]) -> [u8; 32] {
+	fn blake2_256(data: PassFatPointerAndRead<&[u8]>) -> AllocateAndReturnPointer<[u8; 32], 32> {
 		sp_crypto_hashing::blake2_256(data)
 	}
 
 	/// Conduct four XX hashes to give a 256-bit result.
-	fn twox_256(data: &[u8]) -> [u8; 32] {
+	fn twox_256(data: PassFatPointerAndRead<&[u8]>) -> AllocateAndReturnPointer<[u8; 32], 32> {
 		sp_crypto_hashing::twox_256(data)
 	}
 
 	/// Conduct two XX hashes to give a 128-bit result.
-	fn twox_128(data: &[u8]) -> [u8; 16] {
+	fn twox_128(data: PassFatPointerAndRead<&[u8]>) -> AllocateAndReturnPointer<[u8; 16], 16> {
 		sp_crypto_hashing::twox_128(data)
 	}
 
 	/// Conduct two XX hashes to give a 64-bit result.
-	fn twox_64(data: &[u8]) -> [u8; 8] {
+	fn twox_64(data: PassFatPointerAndRead<&[u8]>) -> AllocateAndReturnPointer<[u8; 8], 8> {
 		sp_crypto_hashing::twox_64(data)
 	}
 }
@@ -1294,12 +1451,17 @@ pub trait Hashing {
 #[runtime_interface]
 pub trait TransactionIndex {
 	/// Add transaction index. Returns indexed content hash.
-	fn index(&mut self, extrinsic: u32, size: u32, context_hash: [u8; 32]) {
+	fn index(
+		&mut self,
+		extrinsic: u32,
+		size: u32,
+		context_hash: PassPointerAndReadCopy<[u8; 32], 32>,
+	) {
 		self.storage_index_transaction(extrinsic, &context_hash, size);
 	}
 
 	/// Conduct a 512-bit Keccak hash.
-	fn renew(&mut self, extrinsic: u32, context_hash: [u8; 32]) {
+	fn renew(&mut self, extrinsic: u32, context_hash: PassPointerAndReadCopy<[u8; 32], 32>) {
 		self.storage_renew_transaction_index(extrinsic, &context_hash);
 	}
 }
@@ -1308,17 +1470,17 @@ pub trait TransactionIndex {
 #[runtime_interface]
 pub trait OffchainIndex {
 	/// Write a key value pair to the Offchain DB database in a buffered fashion.
-	fn set(&mut self, key: &[u8], value: &[u8]) {
+	fn set(&mut self, key: PassFatPointerAndRead<&[u8]>, value: PassFatPointerAndRead<&[u8]>) {
 		self.set_offchain_storage(key, Some(value));
 	}
 
 	/// Remove a key and its associated value from the Offchain DB.
-	fn clear(&mut self, key: &[u8]) {
+	fn clear(&mut self, key: PassFatPointerAndRead<&[u8]>) {
 		self.set_offchain_storage(key, None);
 	}
 }
 
-#[cfg(feature = "std")]
+#[cfg(not(substrate_runtime))]
 sp_externalities::decl_extension! {
 	/// Deprecated verification context.
 	///
@@ -1344,7 +1506,10 @@ pub trait Offchain {
 	/// Submit an encoded transaction to the pool.
 	///
 	/// The transaction will end up in the pool.
-	fn submit_transaction(&mut self, data: Vec<u8>) -> Result<(), ()> {
+	fn submit_transaction(
+		&mut self,
+		data: PassFatPointerAndRead<Vec<u8>>,
+	) -> AllocateAndReturnByCodec<Result<(), ()>> {
 		self.extension::<TransactionPoolExt>()
 			.expect(
 				"submit_transaction can be called only in the offchain call context with
@@ -1354,21 +1519,21 @@ pub trait Offchain {
 	}
 
 	/// Returns information about the local node's network state.
-	fn network_state(&mut self) -> Result<OpaqueNetworkState, ()> {
+	fn network_state(&mut self) -> AllocateAndReturnByCodec<Result<OpaqueNetworkState, ()>> {
 		self.extension::<OffchainWorkerExt>()
 			.expect("network_state can be called only in the offchain worker context")
 			.network_state()
 	}
 
 	/// Returns current UNIX timestamp (in millis)
-	fn timestamp(&mut self) -> Timestamp {
+	fn timestamp(&mut self) -> ReturnAs<Timestamp, u64> {
 		self.extension::<OffchainWorkerExt>()
 			.expect("timestamp can be called only in the offchain worker context")
 			.timestamp()
 	}
 
 	/// Pause the execution until `deadline` is reached.
-	fn sleep_until(&mut self, deadline: Timestamp) {
+	fn sleep_until(&mut self, deadline: PassAs<Timestamp, u64>) {
 		self.extension::<OffchainWorkerExt>()
 			.expect("sleep_until can be called only in the offchain worker context")
 			.sleep_until(deadline)
@@ -1378,7 +1543,7 @@ pub trait Offchain {
 	///
 	/// This is a truly random, non-deterministic seed generated by host environment.
 	/// Obviously fine in the off-chain worker context.
-	fn random_seed(&mut self) -> [u8; 32] {
+	fn random_seed(&mut self) -> AllocateAndReturnPointer<[u8; 32], 32> {
 		self.extension::<OffchainWorkerExt>()
 			.expect("random_seed can be called only in the offchain worker context")
 			.random_seed()
@@ -1388,7 +1553,12 @@ pub trait Offchain {
 	///
 	/// Note this storage is not part of the consensus, it's only accessible by
 	/// offchain worker tasks running on the same machine. It IS persisted between runs.
-	fn local_storage_set(&mut self, kind: StorageKind, key: &[u8], value: &[u8]) {
+	fn local_storage_set(
+		&mut self,
+		kind: PassAs<StorageKind, u32>,
+		key: PassFatPointerAndRead<&[u8]>,
+		value: PassFatPointerAndRead<&[u8]>,
+	) {
 		self.extension::<OffchainDbExt>()
 			.expect(
 				"local_storage_set can be called only in the offchain call context with
@@ -1401,7 +1571,11 @@ pub trait Offchain {
 	///
 	/// Note this storage is not part of the consensus, it's only accessible by
 	/// offchain worker tasks running on the same machine. It IS persisted between runs.
-	fn local_storage_clear(&mut self, kind: StorageKind, key: &[u8]) {
+	fn local_storage_clear(
+		&mut self,
+		kind: PassAs<StorageKind, u32>,
+		key: PassFatPointerAndRead<&[u8]>,
+	) {
 		self.extension::<OffchainDbExt>()
 			.expect(
 				"local_storage_clear can be called only in the offchain call context with
@@ -1421,10 +1595,10 @@ pub trait Offchain {
 	/// offchain worker tasks running on the same machine. It IS persisted between runs.
 	fn local_storage_compare_and_set(
 		&mut self,
-		kind: StorageKind,
-		key: &[u8],
-		old_value: Option<Vec<u8>>,
-		new_value: &[u8],
+		kind: PassAs<StorageKind, u32>,
+		key: PassFatPointerAndRead<&[u8]>,
+		old_value: PassFatPointerAndDecode<Option<Vec<u8>>>,
+		new_value: PassFatPointerAndRead<&[u8]>,
 	) -> bool {
 		self.extension::<OffchainDbExt>()
 			.expect(
@@ -1439,7 +1613,11 @@ pub trait Offchain {
 	/// If the value does not exist in the storage `None` will be returned.
 	/// Note this storage is not part of the consensus, it's only accessible by
 	/// offchain worker tasks running on the same machine. It IS persisted between runs.
-	fn local_storage_get(&mut self, kind: StorageKind, key: &[u8]) -> Option<Vec<u8>> {
+	fn local_storage_get(
+		&mut self,
+		kind: PassAs<StorageKind, u32>,
+		key: PassFatPointerAndRead<&[u8]>,
+	) -> AllocateAndReturnByCodec<Option<Vec<u8>>> {
 		self.extension::<OffchainDbExt>()
 			.expect(
 				"local_storage_get can be called only in the offchain call context with
@@ -1454,10 +1632,10 @@ pub trait Offchain {
 	/// parameters. Returns the id of newly started request.
 	fn http_request_start(
 		&mut self,
-		method: &str,
-		uri: &str,
-		meta: &[u8],
-	) -> Result<HttpRequestId, ()> {
+		method: PassFatPointerAndRead<&str>,
+		uri: PassFatPointerAndRead<&str>,
+		meta: PassFatPointerAndRead<&[u8]>,
+	) -> AllocateAndReturnByCodec<Result<HttpRequestId, ()>> {
 		self.extension::<OffchainWorkerExt>()
 			.expect("http_request_start can be called only in the offchain worker context")
 			.http_request_start(method, uri, meta)
@@ -1466,10 +1644,10 @@ pub trait Offchain {
 	/// Append header to the request.
 	fn http_request_add_header(
 		&mut self,
-		request_id: HttpRequestId,
-		name: &str,
-		value: &str,
-	) -> Result<(), ()> {
+		request_id: PassAs<HttpRequestId, u16>,
+		name: PassFatPointerAndRead<&str>,
+		value: PassFatPointerAndRead<&str>,
+	) -> AllocateAndReturnByCodec<Result<(), ()>> {
 		self.extension::<OffchainWorkerExt>()
 			.expect("http_request_add_header can be called only in the offchain worker context")
 			.http_request_add_header(request_id, name, value)
@@ -1483,10 +1661,10 @@ pub trait Offchain {
 	/// Returns an error in case deadline is reached or the chunk couldn't be written.
 	fn http_request_write_body(
 		&mut self,
-		request_id: HttpRequestId,
-		chunk: &[u8],
-		deadline: Option<Timestamp>,
-	) -> Result<(), HttpError> {
+		request_id: PassAs<HttpRequestId, u16>,
+		chunk: PassFatPointerAndRead<&[u8]>,
+		deadline: PassFatPointerAndDecode<Option<Timestamp>>,
+	) -> AllocateAndReturnByCodec<Result<(), HttpError>> {
 		self.extension::<OffchainWorkerExt>()
 			.expect("http_request_write_body can be called only in the offchain worker context")
 			.http_request_write_body(request_id, chunk, deadline)
@@ -1501,9 +1679,9 @@ pub trait Offchain {
 	/// Passing `None` as deadline blocks forever.
 	fn http_response_wait(
 		&mut self,
-		ids: &[HttpRequestId],
-		deadline: Option<Timestamp>,
-	) -> Vec<HttpRequestStatus> {
+		ids: PassFatPointerAndDecodeSlice<&[HttpRequestId]>,
+		deadline: PassFatPointerAndDecode<Option<Timestamp>>,
+	) -> AllocateAndReturnByCodec<Vec<HttpRequestStatus>> {
 		self.extension::<OffchainWorkerExt>()
 			.expect("http_response_wait can be called only in the offchain worker context")
 			.http_response_wait(ids, deadline)
@@ -1513,7 +1691,10 @@ pub trait Offchain {
 	///
 	/// Returns a vector of pairs `(HeaderKey, HeaderValue)`.
 	/// NOTE: response headers have to be read before response body.
-	fn http_response_headers(&mut self, request_id: HttpRequestId) -> Vec<(Vec<u8>, Vec<u8>)> {
+	fn http_response_headers(
+		&mut self,
+		request_id: PassAs<HttpRequestId, u16>,
+	) -> AllocateAndReturnByCodec<Vec<(Vec<u8>, Vec<u8>)>> {
 		self.extension::<OffchainWorkerExt>()
 			.expect("http_response_headers can be called only in the offchain worker context")
 			.http_response_headers(request_id)
@@ -1529,10 +1710,10 @@ pub trait Offchain {
 	/// Passing `None` as a deadline blocks forever.
 	fn http_response_read_body(
 		&mut self,
-		request_id: HttpRequestId,
-		buffer: &mut [u8],
-		deadline: Option<Timestamp>,
-	) -> Result<u32, HttpError> {
+		request_id: PassAs<HttpRequestId, u16>,
+		buffer: PassFatPointerAndReadWrite<&mut [u8]>,
+		deadline: PassFatPointerAndDecode<Option<Timestamp>>,
+	) -> AllocateAndReturnByCodec<Result<u32, HttpError>> {
 		self.extension::<OffchainWorkerExt>()
 			.expect("http_response_read_body can be called only in the offchain worker context")
 			.http_response_read_body(request_id, buffer, deadline)
@@ -1540,7 +1721,11 @@ pub trait Offchain {
 	}
 
 	/// Set the authorized nodes and authorized_only flag.
-	fn set_authorized_nodes(&mut self, nodes: Vec<OpaquePeerId>, authorized_only: bool) {
+	fn set_authorized_nodes(
+		&mut self,
+		nodes: PassFatPointerAndDecode<Vec<OpaquePeerId>>,
+		authorized_only: bool,
+	) {
 		self.extension::<OffchainWorkerExt>()
 			.expect("set_authorized_nodes can be called only in the offchain worker context")
 			.set_authorized_nodes(nodes, authorized_only)
@@ -1567,7 +1752,7 @@ pub trait Allocator {
 pub trait PanicHandler {
 	/// Aborts the current execution with the given error message.
 	#[trap_on_return]
-	fn abort_on_panic(&mut self, message: &str) {
+	fn abort_on_panic(&mut self, message: PassFatPointerAndRead<&str>) {
 		self.register_panic_error_message(message);
 	}
 }
@@ -1581,41 +1766,19 @@ pub trait Logging {
 	/// given level and target.
 	///
 	/// Instead of using directly, prefer setting up `RuntimeLogger` and using `log` macros.
-	fn log(level: LogLevel, target: &str, message: &[u8]) {
-		if let Ok(message) = std::str::from_utf8(message) {
+	fn log(
+		level: PassAs<LogLevel, u8>,
+		target: PassFatPointerAndRead<&str>,
+		message: PassFatPointerAndRead<&[u8]>,
+	) {
+		if let Ok(message) = core::str::from_utf8(message) {
 			log::log!(target: target, log::Level::from(level), "{}", message)
 		}
 	}
 
 	/// Returns the max log level used by the host.
-	fn max_level() -> LogLevelFilter {
+	fn max_level() -> ReturnAs<LogLevelFilter, u8> {
 		log::max_level().into()
-	}
-}
-
-#[derive(Encode, Decode)]
-/// Crossing is a helper wrapping any Encode-Decodeable type
-/// for transferring over the wasm barrier.
-pub struct Crossing<T: Encode + Decode>(T);
-
-impl<T: Encode + Decode> PassBy for Crossing<T> {
-	type PassBy = sp_runtime_interface::pass_by::Codec<Self>;
-}
-
-impl<T: Encode + Decode> Crossing<T> {
-	/// Convert into the inner type
-	pub fn into_inner(self) -> T {
-		self.0
-	}
-}
-
-// useful for testing
-impl<T> core::default::Default for Crossing<T>
-where
-	T: core::default::Default + Encode + Decode,
-{
-	fn default() -> Self {
-		Self(Default::default())
 	}
 }
 
@@ -1632,8 +1795,8 @@ pub trait WasmTracing {
 	/// checked more than once per metadata. This exists for optimisation purposes but is still not
 	/// cheap as it will jump the wasm-native-barrier every time it is called. So an implementation
 	/// might chose to cache the result for the execution of the entire block.
-	fn enabled(&mut self, metadata: Crossing<sp_tracing::WasmMetadata>) -> bool {
-		let metadata: &tracing_core::metadata::Metadata<'static> = (&metadata.into_inner()).into();
+	fn enabled(&mut self, metadata: PassFatPointerAndDecode<sp_tracing::WasmMetadata>) -> bool {
+		let metadata: &tracing_core::metadata::Metadata<'static> = (&metadata).into();
 		tracing::dispatcher::get_default(|d| d.enabled(metadata))
 	}
 
@@ -1643,8 +1806,11 @@ pub trait WasmTracing {
 	/// and then calls `clone_span` with the ID to signal that we are keeping it around on the wasm-
 	/// side even after the local span is dropped. The resulting ID is then handed over to the wasm-
 	/// side.
-	fn enter_span(&mut self, span: Crossing<sp_tracing::WasmEntryAttributes>) -> u64 {
-		let span: tracing::Span = span.into_inner().into();
+	fn enter_span(
+		&mut self,
+		span: PassFatPointerAndDecode<sp_tracing::WasmEntryAttributes>,
+	) -> u64 {
+		let span: tracing::Span = span.into();
 		match span.id() {
 			Some(id) => tracing::dispatcher::get_default(|d| {
 				// inform dispatch that we'll keep the ID around
@@ -1658,8 +1824,8 @@ pub trait WasmTracing {
 	}
 
 	/// Emit the given event to the global tracer on the native side
-	fn event(&mut self, event: Crossing<sp_tracing::WasmEntryAttributes>) {
-		event.into_inner().emit();
+	fn event(&mut self, event: PassFatPointerAndDecode<sp_tracing::WasmEntryAttributes>) {
+		event.emit();
 	}
 
 	/// Signal that a given span-id has been exited. On native, this directly
@@ -1672,9 +1838,9 @@ pub trait WasmTracing {
 	}
 }
 
-#[cfg(all(not(feature = "std"), feature = "with-tracing"))]
+#[cfg(all(substrate_runtime, feature = "with-tracing"))]
 mod tracing_setup {
-	use super::{wasm_tracing, Crossing};
+	use super::wasm_tracing;
 	use core::sync::atomic::{AtomicBool, Ordering};
 	use tracing_core::{
 		dispatcher::{set_global_default, Dispatch},
@@ -1686,14 +1852,14 @@ mod tracing_setup {
 
 	/// The PassingTracingSubscriber implements `tracing_core::Subscriber`
 	/// and pushes the information across the runtime interface to the host
-	struct PassingTracingSubsciber;
+	struct PassingTracingSubscriber;
 
-	impl tracing_core::Subscriber for PassingTracingSubsciber {
+	impl tracing_core::Subscriber for PassingTracingSubscriber {
 		fn enabled(&self, metadata: &Metadata<'_>) -> bool {
-			wasm_tracing::enabled(Crossing(metadata.into()))
+			wasm_tracing::enabled(metadata.into())
 		}
 		fn new_span(&self, attrs: &Attributes<'_>) -> Id {
-			Id::from_u64(wasm_tracing::enter_span(Crossing(attrs.into())))
+			Id::from_u64(wasm_tracing::enter_span(attrs.into()))
 		}
 		fn enter(&self, _: &Id) {
 			// Do nothing, we already entered the span previously
@@ -1709,7 +1875,7 @@ mod tracing_setup {
 			unimplemented! {} // this usage is not supported
 		}
 		fn event(&self, event: &Event<'_>) {
-			wasm_tracing::event(Crossing(event.into()))
+			wasm_tracing::event(event.into())
 		}
 		fn exit(&self, span: &Id) {
 			wasm_tracing::exit(span.into_u64())
@@ -1721,52 +1887,46 @@ mod tracing_setup {
 	/// set the global bridging subscriber once.
 	pub fn init_tracing() {
 		if TRACING_SET.load(Ordering::Relaxed) == false {
-			set_global_default(Dispatch::new(PassingTracingSubsciber {}))
+			set_global_default(Dispatch::new(PassingTracingSubscriber {}))
 				.expect("We only ever call this once");
 			TRACING_SET.store(true, Ordering::Relaxed);
 		}
 	}
 }
 
-#[cfg(not(all(not(feature = "std"), feature = "with-tracing")))]
+#[cfg(not(all(substrate_runtime, feature = "with-tracing")))]
 mod tracing_setup {
 	/// Initialize tracing of sp_tracing not necessary – noop. To enable build
-	/// without std and with the `with-tracing`-feature.
+	/// when not both `substrate_runtime` and `with-tracing`-feature.
 	pub fn init_tracing() {}
 }
 
 pub use tracing_setup::init_tracing;
 
-/// Allocator used by Substrate when executing the Wasm runtime.
-#[cfg(all(target_arch = "wasm32", not(feature = "std")))]
-struct WasmAllocator;
-
-#[cfg(all(target_arch = "wasm32", not(feature = "disable_allocator"), not(feature = "std")))]
-#[global_allocator]
-static ALLOCATOR: WasmAllocator = WasmAllocator;
-
-#[cfg(all(target_arch = "wasm32", not(feature = "std")))]
-mod allocator_impl {
-	use super::*;
-	use core::alloc::{GlobalAlloc, Layout};
-
-	unsafe impl GlobalAlloc for WasmAllocator {
-		unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
-			allocator::malloc(layout.size() as u32)
-		}
-
-		unsafe fn dealloc(&self, ptr: *mut u8, _: Layout) {
-			allocator::free(ptr)
-		}
+/// Crashes the execution of the program.
+///
+/// Equivalent to the WASM `unreachable` instruction, RISC-V `unimp` instruction,
+/// or just the `unreachable!()` macro everywhere else.
+pub fn unreachable() -> ! {
+	#[cfg(target_family = "wasm")]
+	{
+		core::arch::wasm32::unreachable();
 	}
+
+	#[cfg(any(target_arch = "riscv32", target_arch = "riscv64"))]
+	unsafe {
+		core::arch::asm!("unimp", options(noreturn));
+	}
+
+	#[cfg(not(any(target_arch = "riscv32", target_arch = "riscv64", target_family = "wasm")))]
+	unreachable!();
 }
 
-/// A default panic handler for WASM environment.
-#[cfg(all(not(feature = "disable_panic_handler"), not(feature = "std")))]
+/// A default panic handler for the runtime environment.
+#[cfg(all(not(feature = "disable_panic_handler"), substrate_runtime))]
 #[panic_handler]
-#[no_mangle]
 pub fn panic(info: &core::panic::PanicInfo) -> ! {
-	let message = sp_std::alloc::format!("{}", info);
+	let message = alloc::format!("{}", info);
 	#[cfg(feature = "improved_panic_error_reporting")]
 	{
 		panic_handler::abort_on_panic(&message);
@@ -1774,11 +1934,11 @@ pub fn panic(info: &core::panic::PanicInfo) -> ! {
 	#[cfg(not(feature = "improved_panic_error_reporting"))]
 	{
 		logging::log(LogLevel::Error, "runtime", message.as_bytes());
-		core::arch::wasm32::unreachable();
+		unreachable();
 	}
 }
 
-/// A default OOM handler for WASM environment.
+/// A default OOM handler for the runtime environment.
 #[cfg(all(not(feature = "disable_oom"), enable_alloc_error_handler))]
 #[alloc_error_handler]
 pub fn oom(_: core::alloc::Layout) -> ! {
@@ -1789,18 +1949,19 @@ pub fn oom(_: core::alloc::Layout) -> ! {
 	#[cfg(not(feature = "improved_panic_error_reporting"))]
 	{
 		logging::log(LogLevel::Error, "runtime", b"Runtime memory exhausted. Aborting");
-		core::arch::wasm32::unreachable();
+		unreachable();
 	}
 }
 
 /// Type alias for Externalities implementation used in tests.
-#[cfg(feature = "std")]
+#[cfg(feature = "std")] // NOTE: Deliberately isn't `not(substrate_runtime)`.
 pub type TestExternalities = sp_state_machine::TestExternalities<sp_core::Blake2Hasher>;
 
 /// The host functions Substrate provides for the Wasm runtime environment.
 ///
 /// All these host functions will be callable from inside the Wasm environment.
-#[cfg(feature = "std")]
+#[docify::export]
+#[cfg(not(substrate_runtime))]
 pub type SubstrateHostFunctions = (
 	storage::HostFunctions,
 	default_child_storage::HostFunctions,

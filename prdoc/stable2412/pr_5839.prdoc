@@ -1,0 +1,21 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Remove internal workaround for compiler bug
+
+doc:
+  - audience:
+    - Runtime Dev
+    - Node Dev
+    description: |
+      Remove a workaround we had in the `impl_runtime_apis` macro for a compiler bug that has been long fixed.
+      No impact on downstream users is expected, except relaxed trait bounds in a few places where the compiler
+      is now able to deduce more type info itself.
+
+crates:
+    - name: sp-api-proc-macro
+      bump: patch
+    - name: frame-support-procedural
+      bump: patch
+    - name: polkadot-parachain-lib
+      bump: patch

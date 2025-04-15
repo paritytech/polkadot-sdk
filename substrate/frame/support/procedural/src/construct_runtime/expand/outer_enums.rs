@@ -18,7 +18,6 @@
 use crate::construct_runtime::Pallet;
 use proc_macro2::{Span, TokenStream};
 use quote::{quote, ToTokens};
-use std::str::FromStr;
 use syn::{Generics, Ident};
 
 /// Represents the types supported for creating an outer enum.
@@ -134,7 +133,6 @@ pub fn expand_outer_enum(
 			enum_ty,
 		));
 		enum_conversions.extend(expand_enum_conversion(
-			scrate,
 			pallet_decl,
 			&pallet_enum,
 			&enum_name_ident,
@@ -161,8 +159,9 @@ pub fn expand_outer_enum(
 			#event_custom_derives
 			#scrate::__private::codec::Encode,
 			#scrate::__private::codec::Decode,
+			#scrate::__private::codec::DecodeWithMemTracking,
 			#scrate::__private::scale_info::TypeInfo,
-			#scrate::__private::RuntimeDebug,
+			#scrate::__private::Debug,
 		)]
 		#[allow(non_camel_case_types)]
 		pub enum #enum_name_ident {
@@ -186,14 +185,7 @@ fn expand_enum_variant(
 	let path = &pallet.path;
 	let variant_name = &pallet.name;
 	let part_is_generic = !generics.params.is_empty();
-	let attr = pallet.cfg_pattern.iter().fold(TokenStream::new(), |acc, pattern| {
-		let attr = TokenStream::from_str(&format!("#[cfg({})]", pattern.original()))
-			.expect("was successfully parsed before; qed");
-		quote! {
-			#acc
-			#attr
-		}
-	});
+	let attr = pallet.get_attributes();
 
 	match instance {
 		Some(inst) if part_is_generic => quote! {
@@ -220,23 +212,16 @@ fn expand_enum_variant(
 }
 
 fn expand_enum_conversion(
-	scrate: &TokenStream,
 	pallet: &Pallet,
 	pallet_enum: &TokenStream,
 	enum_name_ident: &Ident,
 ) -> TokenStream {
 	let variant_name = &pallet.name;
-	let attr = pallet.cfg_pattern.iter().fold(TokenStream::new(), |acc, pattern| {
-		let attr = TokenStream::from_str(&format!("#[cfg({})]", pattern.original()))
-			.expect("was successfully parsed before; qed");
-		quote! {
-			#acc
-			#attr
-		}
-	});
+	let attr = pallet.get_attributes();
 
 	quote! {
 		#attr
+		#[allow(deprecated)]
 		impl From<#pallet_enum> for #enum_name_ident {
 			fn from(x: #pallet_enum) -> Self {
 				#enum_name_ident
@@ -244,10 +229,11 @@ fn expand_enum_conversion(
 			}
 		}
 		#attr
+		#[allow(deprecated)]
 		impl TryInto<#pallet_enum> for #enum_name_ident {
 			type Error = ();
 
-			fn try_into(self) -> #scrate::__private::sp_std::result::Result<#pallet_enum, Self::Error> {
+			fn try_into(self) -> ::core::result::Result<#pallet_enum, Self::Error> {
 				match self {
 					Self::#variant_name(evt) => Ok(evt),
 					_ => Err(()),

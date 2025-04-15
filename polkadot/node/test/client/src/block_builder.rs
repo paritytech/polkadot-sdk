@@ -15,8 +15,8 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use crate::Client;
-use parity_scale_codec::{Decode, Encode};
-use polkadot_primitives::{Block, InherentData as ParachainsInherentData};
+use codec::{Decode, Encode};
+use polkadot_primitives::{vstaging::InherentData as ParachainsInherentData, Block};
 use polkadot_test_runtime::{GetLastTimestamp, UncheckedExtrinsic};
 use sc_block_builder::{BlockBuilder, BlockBuilderBuilder};
 use sp_api::{DisableProofRecording, RuntimeInstance};

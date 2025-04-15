@@ -25,12 +25,11 @@ use futures::{
 	channel::oneshot,
 	future,
 	future::{Future, FutureExt},
-	select,
 };
 use log::{debug, error, info, trace, warn};
 use sc_block_builder::BlockBuilderBuilder;
 use sc_telemetry::{telemetry, TelemetryHandle, CONSENSUS_INFO};
-use sc_transaction_pool_api::{InPoolTransaction, TransactionPool};
+use sc_transaction_pool_api::{InPoolTransaction, TransactionPool, TxInvalidityReportMap};
 use sp_api::CallApiAt;
 use sp_blockchain::{ApplyExtrinsicFailed::Validity, Error::ApplyExtrinsicFailed, HeaderBackend};
 use sp_consensus::{DisableProofRecording, EnableProofRecording, ProofRecording, Proposal};
@@ -38,7 +37,7 @@ use sp_core::traits::SpawnNamed;
 use sp_inherents::InherentData;
 use sp_runtime::{
 	traits::{BlakeTwo256, Block as BlockT, Hash as HashT, Header as HeaderT},
-	Digest, Percent, SaturatedConversion,
+	Digest, ExtrinsicInclusionMode, Percent, SaturatedConversion,
 };
 use std::{marker::PhantomData, pin::Pin, sync::Arc, time};
 
@@ -85,6 +84,22 @@ pub struct ProposerFactory<A, C, PR> {
 	include_proof_in_block_size_estimation: bool,
 	/// phantom member to pin the `ProofRecording` type.
 	_phantom: PhantomData<PR>,
+}
+
+impl<A, C, PR> Clone for ProposerFactory<A, C, PR> {
+	fn clone(&self) -> Self {
+		Self {
+			spawn_handle: self.spawn_handle.clone(),
+			client: self.client.clone(),
+			transaction_pool: self.transaction_pool.clone(),
+			metrics: self.metrics.clone(),
+			default_block_size_limit: self.default_block_size_limit,
+			soft_deadline_percent: self.soft_deadline_percent,
+			telemetry: self.telemetry.clone(),
+			include_proof_in_block_size_estimation: self.include_proof_in_block_size_estimation,
+			_phantom: self._phantom,
+		}
+	}
 }
 
 impl<A, C> ProposerFactory<A, C, DisableProofRecording> {
@@ -167,7 +182,7 @@ impl<A, C, PR> ProposerFactory<A, C, PR> {
 	/// The soft deadline indicates where we should stop attempting to add transactions
 	/// to the block, which exhaust resources. After soft deadline is reached,
 	/// we switch to a fixed-amount mode, in which after we see `MAX_SKIPPED_TRANSACTIONS`
-	/// transactions which exhaust resrouces, we will conclude that the block is full.
+	/// transactions which exhaust resources, we will conclude that the block is full.
 	///
 	/// Setting the value too low will significantly limit the amount of transactions
 	/// we try in case they exhaust resources. Setting the value too high can
@@ -191,7 +206,11 @@ where
 	) -> Proposer<Block, C, A, PR> {
 		let parent_hash = parent_header.hash();
 
-		info!("🙌 Starting consensus session on top of parent {:?}", parent_hash);
+		info!(
+			"🙌 Starting consensus session on top of parent {:?} (#{})",
+			parent_hash,
+			parent_header.number()
+		);
 
 		let proposer = Proposer::<_, _, _, PR> {
 			spawn_handle: self.spawn_handle.clone(),
@@ -317,11 +336,12 @@ where
 
 		self.apply_inherents(&mut block_builder, inherent_data)?;
 
-		// TODO call `after_inherents` and check if we should apply extrinsincs here
-		// <https://github.com/paritytech/substrate/pull/14275/>
-
-		let end_reason =
-			self.apply_extrinsics(&mut block_builder, deadline, block_size_limit).await?;
+		let mode = block_builder.extrinsic_inclusion_mode();
+		let end_reason = match mode {
+			ExtrinsicInclusionMode::AllExtrinsics =>
+				self.apply_extrinsics(&mut block_builder, deadline, block_size_limit).await?,
+			ExtrinsicInclusionMode::OnlyInherents => EndProposingReason::TransactionForbidden,
+		};
 		let (block, storage_changes, proof) = block_builder.build()?.into_inner();
 		let block_took = block_timer.elapsed();
 
@@ -389,28 +409,15 @@ where
 		let soft_deadline =
 			now + time::Duration::from_micros(self.soft_deadline_percent.mul_floor(left_micros));
 		let mut skipped = 0;
-		let mut unqueue_invalid = Vec::new();
+		let mut unqueue_invalid = TxInvalidityReportMap::new();
 
-		let mut t1 = self.transaction_pool.ready_at(self.parent_number).fuse();
-		let mut t2 =
-			futures_timer::Delay::new(deadline.saturating_duration_since((self.now)()) / 8).fuse();
-
-		let mut pending_iterator = select! {
-			res = t1 => res,
-			_ = t2 => {
-				warn!(target: LOG_TARGET,
-					"Timeout fired waiting for transaction pool at block #{}. \
-					Proceeding with production.",
-					self.parent_number,
-				);
-				self.transaction_pool.ready()
-			},
-		};
+		let delay = deadline.saturating_duration_since((self.now)()) / 8;
+		let mut pending_iterator =
+			self.transaction_pool.ready_at_with_timeout(self.parent_hash, delay).await;
 
 		let block_size_limit = block_size_limit.unwrap_or(self.default_block_size_limit);
 
-		debug!(target: LOG_TARGET, "Attempting to push transactions from the pool.");
-		debug!(target: LOG_TARGET, "Pool status: {:?}", self.transaction_pool.status());
+		debug!(target: LOG_TARGET, "Attempting to push transactions from the pool at {:?}.", self.parent_hash);
 		let mut transaction_pushed = false;
 
 		let end_reason = loop {
@@ -435,7 +442,7 @@ where
 				break EndProposingReason::HitDeadline
 			}
 
-			let pending_tx_data = pending_tx.data().clone();
+			let pending_tx_data = (**pending_tx.data()).clone();
 			let pending_tx_hash = pending_tx.hash().clone();
 
 			let block_size =
@@ -472,7 +479,7 @@ where
 			match sc_block_builder::BlockBuilder::push(block_builder, pending_tx_data) {
 				Ok(()) => {
 					transaction_pushed = true;
-					debug!(target: LOG_TARGET, "[{:?}] Pushed to the block.", pending_tx_hash);
+					trace!(target: LOG_TARGET, "[{:?}] Pushed to the block.", pending_tx_hash);
 				},
 				Err(ApplyExtrinsicFailed(Validity(e))) if e.exhausted_resources() => {
 					pending_iterator.report_invalid(&pending_tx);
@@ -499,9 +506,15 @@ where
 					pending_iterator.report_invalid(&pending_tx);
 					debug!(
 						target: LOG_TARGET,
-						"[{:?}] Invalid transaction: {}", pending_tx_hash, e
+						"[{:?}] Invalid transaction: {} at: {}", pending_tx_hash, e, self.parent_hash
 					);
-					unqueue_invalid.push(pending_tx_hash);
+
+					let error_to_report = match e {
+						ApplyExtrinsicFailed(Validity(e)) => Some(e),
+						_ => None,
+					};
+
+					unqueue_invalid.insert(pending_tx_hash, error_to_report);
 				},
 			}
 		};
@@ -513,7 +526,7 @@ where
 			);
 		}
 
-		self.transaction_pool.remove_invalid(&unqueue_invalid);
+		self.transaction_pool.report_invalid(Some(self.parent_hash), unqueue_invalid);
 		Ok(end_reason)
 	}
 
@@ -552,13 +565,27 @@ where
 			)
 		};
 
-		info!(
-			"🎁 Prepared block for proposing at {} ({} ms) [hash: {:?}; parent_hash: {}; {extrinsics_summary}",
-			block.header().number(),
-			block_took.as_millis(),
-			<Block as BlockT>::Hash::from(block.header().hash()),
-			block.header().parent_hash(),
-		);
+		if log::log_enabled!(log::Level::Info) {
+			info!(
+				"🎁 Prepared block for proposing at {} ({} ms) hash: {:?}; parent_hash: {}; end: {:?}; extrinsics_count: {}",
+				block.header().number(),
+				block_took.as_millis(),
+				<Block as BlockT>::Hash::from(block.header().hash()),
+				block.header().parent_hash(),
+				end_reason,
+				extrinsics.len()
+			)
+		} else if log::log_enabled!(log::Level::Trace) {
+			trace!(
+				"🎁 Prepared block for proposing at {} ({} ms) hash: {:?}; parent_hash: {}; end: {:?}; {extrinsics_summary}",
+				block.header().number(),
+				block_took.as_millis(),
+				<Block as BlockT>::Hash::from(block.header().hash()),
+				block.header().parent_hash(),
+				end_reason
+			);
+		}
+
 		telemetry!(
 			self.telemetry;
 			CONSENSUS_INFO;
@@ -617,22 +644,20 @@ mod tests {
 		// given
 		let client = Arc::new(substrate_test_runtime_client::new());
 		let spawner = sp_core::testing::TaskExecutor::new();
-		let txpool = BasicPool::new_full(
+		let txpool = Arc::from(BasicPool::new_full(
 			Default::default(),
 			true.into(),
 			None,
 			spawner.clone(),
 			client.clone(),
-		);
+		));
 
 		let hashof0 = client.info().genesis_hash;
 		block_on(txpool.submit_at(hashof0, SOURCE, vec![extrinsic(0), extrinsic(1)])).unwrap();
 
 		block_on(
 			txpool.maintain(chain_event(
-				client
-					.expect_header(client.info().genesis_hash)
-					.expect("there should be header"),
+				client.expect_header(hashof0).expect("there should be header"),
 			)),
 		);
 
@@ -672,13 +697,13 @@ mod tests {
 	fn should_not_panic_when_deadline_is_reached() {
 		let client = Arc::new(substrate_test_runtime_client::new());
 		let spawner = sp_core::testing::TaskExecutor::new();
-		let txpool = BasicPool::new_full(
+		let txpool = Arc::from(BasicPool::new_full(
 			Default::default(),
 			true.into(),
 			None,
 			spawner.clone(),
 			client.clone(),
-		);
+		));
 
 		let mut proposer_factory =
 			ProposerFactory::new(spawner.clone(), client.clone(), txpool.clone(), None, None);
@@ -709,13 +734,13 @@ mod tests {
 		let client = TestClientBuilder::new().build();
 		let client = Arc::new(client);
 		let spawner = sp_core::testing::TaskExecutor::new();
-		let txpool = BasicPool::new_full(
+		let txpool = Arc::from(BasicPool::new_full(
 			Default::default(),
 			true.into(),
 			None,
 			spawner.clone(),
 			client.clone(),
-		);
+		));
 
 		let genesis_hash = client.info().best_hash;
 
@@ -763,13 +788,13 @@ mod tests {
 		// given
 		let client = Arc::new(substrate_test_runtime_client::new());
 		let spawner = sp_core::testing::TaskExecutor::new();
-		let txpool = BasicPool::new_full(
+		let txpool = Arc::from(BasicPool::new_full(
 			Default::default(),
 			true.into(),
 			None,
 			spawner.clone(),
 			client.clone(),
-		);
+		));
 
 		let medium = |nonce| {
 			ExtrinsicBuilder::new_fill_block(Perbill::from_parts(MEDIUM))
@@ -824,7 +849,7 @@ mod tests {
 			block
 		};
 
-		let import_and_maintain = |mut client: Arc<TestClient>, block: TestBlock| {
+		let import_and_maintain = |client: Arc<TestClient>, block: TestBlock| {
 			let hash = block.hash();
 			block_on(client.import(BlockOrigin::Own, block)).unwrap();
 			block_on(txpool.maintain(chain_event(
@@ -843,27 +868,27 @@ mod tests {
 
 		// let's create one block and import it
 		let block = propose_block(&client, 0, 2, 7);
-		import_and_maintain(client.clone(), block);
+		import_and_maintain(client.clone(), block.clone());
 		assert_eq!(txpool.ready().count(), 5);
 
 		// now let's make sure that we can still make some progress
 		let block = propose_block(&client, 1, 1, 5);
-		import_and_maintain(client.clone(), block);
+		import_and_maintain(client.clone(), block.clone());
 		assert_eq!(txpool.ready().count(), 4);
 
 		// again let's make sure that we can still make some progress
 		let block = propose_block(&client, 2, 1, 4);
-		import_and_maintain(client.clone(), block);
+		import_and_maintain(client.clone(), block.clone());
 		assert_eq!(txpool.ready().count(), 3);
 
 		// again let's make sure that we can still make some progress
 		let block = propose_block(&client, 3, 1, 3);
-		import_and_maintain(client.clone(), block);
+		import_and_maintain(client.clone(), block.clone());
 		assert_eq!(txpool.ready().count(), 2);
 
 		// again let's make sure that we can still make some progress
 		let block = propose_block(&client, 4, 2, 2);
-		import_and_maintain(client.clone(), block);
+		import_and_maintain(client.clone(), block.clone());
 		assert_eq!(txpool.ready().count(), 0);
 	}
 
@@ -871,21 +896,21 @@ mod tests {
 	fn should_cease_building_block_when_block_limit_is_reached() {
 		let client = Arc::new(substrate_test_runtime_client::new());
 		let spawner = sp_core::testing::TaskExecutor::new();
-		let txpool = BasicPool::new_full(
+		let txpool = Arc::from(BasicPool::new_full(
 			Default::default(),
 			true.into(),
 			None,
 			spawner.clone(),
 			client.clone(),
-		);
+		));
 		let genesis_hash = client.info().genesis_hash;
 		let genesis_header = client.expect_header(genesis_hash).expect("there should be header");
 
 		let extrinsics_num = 5;
 		let extrinsics = std::iter::once(
 			Transfer {
-				from: AccountKeyring::Alice.into(),
-				to: AccountKeyring::Bob.into(),
+				from: Sr25519Keyring::Alice.into(),
+				to: Sr25519Keyring::Bob.into(),
 				amount: 100,
 				nonce: 0,
 			}
@@ -976,13 +1001,13 @@ mod tests {
 		// given
 		let client = Arc::new(substrate_test_runtime_client::new());
 		let spawner = sp_core::testing::TaskExecutor::new();
-		let txpool = BasicPool::new_full(
+		let txpool = Arc::from(BasicPool::new_full(
 			Default::default(),
 			true.into(),
 			None,
 			spawner.clone(),
 			client.clone(),
-		);
+		));
 		let genesis_hash = client.info().genesis_hash;
 
 		let tiny = |nonce| {
@@ -990,7 +1015,7 @@ mod tests {
 		};
 		let huge = |who| {
 			ExtrinsicBuilder::new_fill_block(Perbill::from_parts(HUGE))
-				.signer(AccountKeyring::numeric(who))
+				.signer(Sr25519Keyring::numeric(who))
 				.build()
 		};
 
@@ -1045,24 +1070,24 @@ mod tests {
 		// given
 		let client = Arc::new(substrate_test_runtime_client::new());
 		let spawner = sp_core::testing::TaskExecutor::new();
-		let txpool = BasicPool::new_full(
+		let txpool = Arc::from(BasicPool::new_full(
 			Default::default(),
 			true.into(),
 			None,
 			spawner.clone(),
 			client.clone(),
-		);
+		));
 		let genesis_hash = client.info().genesis_hash;
 
 		let tiny = |who| {
 			ExtrinsicBuilder::new_fill_block(Perbill::from_parts(TINY))
-				.signer(AccountKeyring::numeric(who))
+				.signer(Sr25519Keyring::numeric(who))
 				.nonce(1)
 				.build()
 		};
 		let huge = |who| {
 			ExtrinsicBuilder::new_fill_block(Perbill::from_parts(HUGE))
-				.signer(AccountKeyring::numeric(who))
+				.signer(Sr25519Keyring::numeric(who))
 				.build()
 		};
 

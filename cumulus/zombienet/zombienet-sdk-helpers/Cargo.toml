@@ -1,0 +1,17 @@
+[package]
+name = "cumulus-zombienet-sdk-helpers"
+version = "0.1.0"
+description = "Zomebienet-sdk helpers for parachain related tests."
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+publish = false
+
+[dependencies]
+anyhow = { workspace = true, default-features = true }
+codec = { workspace = true, features = ["derive"] }
+log = { workspace = true }
+polkadot-primitives = { workspace = true, default-features = true }
+subxt = { workspace = true, features = ["native"] }
+tokio = { workspace = true, features = ["rt-multi-thread", "macros", "time"] }
+

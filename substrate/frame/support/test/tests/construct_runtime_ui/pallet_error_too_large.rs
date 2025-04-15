@@ -33,22 +33,46 @@ mod pallet {
 	}
 }
 
-#[derive(scale_info::TypeInfo, frame_support::PalletError, codec::Encode, codec::Decode)]
+#[derive(
+	scale_info::TypeInfo,
+	frame_support::PalletError,
+	codec::Encode,
+	codec::Decode,
+	codec::DecodeWithMemTracking,
+)]
 pub enum Nested1 {
 	Nested2(Nested2),
 }
 
-#[derive(scale_info::TypeInfo, frame_support::PalletError, codec::Encode, codec::Decode)]
+#[derive(
+	scale_info::TypeInfo,
+	frame_support::PalletError,
+	codec::Encode,
+	codec::Decode,
+	codec::DecodeWithMemTracking,
+)]
 pub enum Nested2 {
 	Nested3(Nested3),
 }
 
-#[derive(scale_info::TypeInfo, frame_support::PalletError, codec::Encode, codec::Decode)]
+#[derive(
+	scale_info::TypeInfo,
+	frame_support::PalletError,
+	codec::Encode,
+	codec::Decode,
+	codec::DecodeWithMemTracking,
+)]
 pub enum Nested3 {
 	Nested4(Nested4),
 }
 
-#[derive(scale_info::TypeInfo, frame_support::PalletError, codec::Encode, codec::Decode)]
+#[derive(
+	scale_info::TypeInfo,
+	frame_support::PalletError,
+	codec::Encode,
+	codec::Decode,
+	codec::DecodeWithMemTracking,
+)]
 pub enum Nested4 {
 	Num(u8),
 }
@@ -61,7 +85,7 @@ pub type UncheckedExtrinsic = generic::UncheckedExtrinsic<u32, RuntimeCall, Sign
 
 impl pallet::Config for Runtime {}
 
-#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Runtime {
 	type BaseCallFilter = frame_support::traits::Everything;
 	type RuntimeOrigin = RuntimeOrigin;

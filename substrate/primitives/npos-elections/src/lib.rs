@@ -74,15 +74,16 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use codec::{Decode, Encode, MaxEncodedLen};
+extern crate alloc;
+
+use alloc::{collections::btree_map::BTreeMap, rc::Rc, vec, vec::Vec};
+use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
+use core::{cell::RefCell, cmp::Ordering};
 use scale_info::TypeInfo;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 use sp_arithmetic::{traits::Zero, Normalizable, PerThing, Rational128, ThresholdOrd};
 use sp_core::{bounded::BoundedVec, RuntimeDebug};
-use sp_std::{
-	cell::RefCell, cmp::Ordering, collections::btree_map::BTreeMap, prelude::*, rc::Rc, vec,
-};
 
 #[cfg(test)]
 mod mock;
@@ -142,7 +143,19 @@ pub type ExtendedBalance = u128;
 /// 1. `minimal_stake`.
 /// 2. `sum_stake`.
 /// 3. `sum_stake_squared`.
-#[derive(Clone, Copy, PartialEq, Eq, Encode, Decode, MaxEncodedLen, TypeInfo, Debug, Default)]
+#[derive(
+	Clone,
+	Copy,
+	PartialEq,
+	Eq,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	MaxEncodedLen,
+	TypeInfo,
+	Debug,
+	Default,
+)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct ElectionScore {
 	/// The minimal winner, in terms of total backing stake.
@@ -198,7 +211,7 @@ impl ElectionScore {
 	}
 }
 
-impl sp_std::cmp::Ord for ElectionScore {
+impl core::cmp::Ord for ElectionScore {
 	fn cmp(&self, other: &Self) -> Ordering {
 		// we delegate this to the lexicographic cmp of slices`, and to incorporate that we want the
 		// third element to be minimized, we swap them.
@@ -210,7 +223,7 @@ impl sp_std::cmp::Ord for ElectionScore {
 	}
 }
 
-impl sp_std::cmp::PartialOrd for ElectionScore {
+impl core::cmp::PartialOrd for ElectionScore {
 	fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
 		Some(self.cmp(other))
 	}
@@ -278,8 +291,8 @@ impl<AccountId: Clone> Edge<AccountId> {
 }
 
 #[cfg(feature = "std")]
-impl<A: IdentifierT> sp_std::fmt::Debug for Edge<A> {
-	fn fmt(&self, f: &mut sp_std::fmt::Formatter<'_>) -> sp_std::fmt::Result {
+impl<A: IdentifierT> core::fmt::Debug for Edge<A> {
+	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
 		write!(f, "Edge({:?}, weight = {:?})", self.who, self.weight)
 	}
 }
@@ -299,7 +312,7 @@ pub struct Voter<AccountId> {
 
 #[cfg(feature = "std")]
 impl<A: IdentifierT> std::fmt::Debug for Voter<A> {
-	fn fmt(&self, f: &mut sp_std::fmt::Formatter<'_>) -> sp_std::fmt::Result {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
 		write!(f, "Voter({:?}, budget = {}, edges = {:?})", self.who, self.budget, self.edges)
 	}
 }
@@ -428,7 +441,7 @@ pub struct ElectionResult<AccountId, P: PerThing> {
 ///
 /// This, at the current version, resembles the `Exposure` defined in the Staking pallet, yet they
 /// do not necessarily have to be the same.
-#[derive(RuntimeDebug, Encode, Decode, Clone, Eq, PartialEq, TypeInfo)]
+#[derive(RuntimeDebug, Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, TypeInfo)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct Support<AccountId> {
 	/// Total support.

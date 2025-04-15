@@ -1,18 +1,18 @@
-// Copyright Parity Technologies (UK) Ltd.
-// This file is part of Polkadot.
+// Copyright (C) Parity Technologies (UK) Ltd.
+// This file is part of Substrate.
 
-// Polkadot is free software: you can redistribute it and/or modify
+// Substrate is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
 
-// Polkadot is distributed in the hope that it will be useful,
+// Substrate is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
 
 // You should have received a copy of the GNU General Public License
-// along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
+// along with Substrate.  If not, see <http://www.gnu.org/licenses/>.
 
 //! Parachain runtime mock.
 
@@ -24,7 +24,9 @@ use crate::{
 use core::marker::PhantomData;
 use frame_support::{
 	construct_runtime, derive_impl, parameter_types,
-	traits::{AsEnsureOriginWithArg, Contains, ContainsPair, Everything, EverythingBut, Nothing},
+	traits::{
+		AsEnsureOriginWithArg, Contains, ContainsPair, Disabled, Everything, EverythingBut, Nothing,
+	},
 	weights::{
 		constants::{WEIGHT_PROOF_SIZE_PER_MB, WEIGHT_REF_TIME_PER_SECOND},
 		Weight,
@@ -35,15 +37,12 @@ use pallet_xcm::XcmPassthrough;
 use sp_core::{ConstU32, ConstU64, H256};
 use sp_runtime::traits::{Get, IdentityLookup, MaybeEquivalence};
 
-use sp_std::prelude::*;
 use xcm::latest::prelude::*;
-#[allow(deprecated)]
-use xcm_builder::CurrencyAdapter as XcmCurrencyAdapter;
 use xcm_builder::{
 	AccountId32Aliases, AllowExplicitUnpaidExecutionFrom, AllowTopLevelPaidExecutionFrom,
 	ConvertedConcreteId, EnsureXcmOrigin, FixedRateOfFungible, FixedWeightBounds,
-	FrameTransactionalProcessor, FungiblesAdapter, IsConcrete, NativeAsset, NoChecking,
-	ParentAsSuperuser, ParentIsPreset, SignedAccountId32AsNative, SignedToAccountId32,
+	FrameTransactionalProcessor, FungibleAdapter, FungiblesAdapter, IsConcrete, NativeAsset,
+	NoChecking, ParentAsSuperuser, ParentIsPreset, SignedAccountId32AsNative, SignedToAccountId32,
 	SovereignSignedViaLocation, WithComputedOrigin,
 };
 use xcm_executor::{traits::JustTry, Config, XcmExecutor};
@@ -51,11 +50,7 @@ use xcm_executor::{traits::JustTry, Config, XcmExecutor};
 pub type SovereignAccountOf =
 	(AccountId32Aliases<RelayNetwork, AccountId>, ParentIsPreset<AccountId>);
 
-parameter_types! {
-	pub const BlockHashCount: u64 = 250;
-}
-
-#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Runtime {
 	type RuntimeOrigin = RuntimeOrigin;
 	type RuntimeCall = RuntimeCall;
@@ -66,7 +61,6 @@ impl frame_system::Config for Runtime {
 	type AccountId = AccountId;
 	type Lookup = IdentityLookup<Self::AccountId>;
 	type RuntimeEvent = RuntimeEvent;
-	type BlockHashCount = BlockHashCount;
 	type BlockWeights = ();
 	type BlockLength = ();
 	type Version = ();
@@ -102,6 +96,7 @@ impl pallet_balances::Config for Runtime {
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type RuntimeFreezeReason = RuntimeFreezeReason;
 	type WeightInfo = ();
+	type DoneSlashHandler = ();
 }
 
 parameter_types! {
@@ -127,6 +122,7 @@ impl pallet_assets::Config for Runtime {
 	type AssetAccountDeposit = AssetAccountDeposit;
 	type ApprovalDeposit = ApprovalDeposit;
 	type StringLimit = AssetsStringLimit;
+	type Holder = ();
 	type Freezer = ();
 	type Extra = ();
 	type WeightInfo = ();
@@ -146,7 +142,7 @@ parameter_types! {
 	pub const KsmLocation: Location = Location::parent();
 	pub const TokenLocation: Location = Here.into_location();
 	pub const RelayNetwork: NetworkId = ByGenesis([0; 32]);
-	pub UniversalLocation: InteriorLocation = Parachain(MsgQueue::parachain_id().into()).into();
+	pub UniversalLocation: InteriorLocation = [GlobalConsensus(RelayNetwork::get()), Parachain(MsgQueue::parachain_id().into())].into();
 }
 
 pub type XcmOriginToCallOrigin = (
@@ -184,9 +180,8 @@ pub fn estimate_fee_for_weight(weight: Weight) -> u128 {
 		units_per_mb * (weight.proof_size() as u128) / (WEIGHT_PROOF_SIZE_PER_MB as u128)
 }
 
-#[allow(deprecated)]
 pub type LocalBalancesTransactor =
-	XcmCurrencyAdapter<Balances, IsConcrete<TokenLocation>, SovereignAccountOf, AccountId, ()>;
+	FungibleAdapter<Balances, IsConcrete<TokenLocation>, SovereignAccountOf, AccountId, ()>;
 
 pub struct FromLocationToAsset<Location, AssetId>(PhantomData<(Location, AssetId)>);
 impl MaybeEquivalence<Location, AssetIdForAssets>
@@ -262,6 +257,7 @@ pub struct XcmConfig;
 impl Config for XcmConfig {
 	type RuntimeCall = RuntimeCall;
 	type XcmSender = XcmRouter;
+	type XcmEventEmitter = PolkadotXcm;
 	type AssetTransactor = AssetTransactors;
 	type OriginConverter = XcmOriginToCallOrigin;
 	type IsReserve = (NativeAsset, TrustedReserves);
@@ -285,6 +281,10 @@ impl Config for XcmConfig {
 	type SafeCallFilter = Everything;
 	type Aliasers = Nothing;
 	type TransactionalProcessor = FrameTransactionalProcessor;
+	type HrmpNewChannelOpenRequestHandler = ();
+	type HrmpChannelAcceptedHandler = ();
+	type HrmpChannelClosingHandler = ();
+	type XcmRecorder = PolkadotXcm;
 }
 
 impl mock_msg_queue::Config for Runtime {
@@ -326,6 +326,8 @@ impl pallet_xcm::Config for Runtime {
 	type RemoteLockConsumerIdentifier = ();
 	type WeightInfo = pallet_xcm::TestWeightInfo;
 	type AdminOrigin = EnsureRoot<AccountId>;
+	// Aliasing is disabled: xcm_executor::Config::Aliasers is set to `Nothing`.
+	type AuthorizedAliasConsideration = Disabled;
 }
 
 type Block = frame_system::mocking::MockBlock<Runtime>;

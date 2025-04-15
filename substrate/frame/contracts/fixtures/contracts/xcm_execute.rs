@@ -30,10 +30,11 @@ pub extern "C" fn deploy() {}
 pub extern "C" fn call() {
 	input!(512, msg: [u8],);
 
-	let mut outcome = [0u8; 512];
-	let outcome = &mut &mut outcome[..];
-
 	#[allow(deprecated)]
-	api::xcm_execute(msg, outcome).unwrap();
-	api::return_value(uapi::ReturnFlags::empty(), outcome);
+	let err_code = match api::xcm_execute(msg) {
+		Ok(_) => 0u32,
+		Err(code) => code as u32,
+	};
+
+	api::return_value(uapi::ReturnFlags::empty(), &err_code.to_le_bytes());
 }

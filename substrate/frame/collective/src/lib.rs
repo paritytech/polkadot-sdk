@@ -40,25 +40,27 @@
 //! If there are not, or if no prime is set, then the motion is dropped without being executed.
 
 #![cfg_attr(not(feature = "std"), no_std)]
-#![recursion_limit = "128"]
 
-use codec::{Decode, Encode, MaxEncodedLen};
+extern crate alloc;
+
+use alloc::{boxed::Box, vec, vec::Vec};
+use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
+use core::{marker::PhantomData, result};
 use scale_info::TypeInfo;
 use sp_io::storage;
 use sp_runtime::{
 	traits::{Dispatchable, Hash},
 	DispatchError, RuntimeDebug,
 };
-use sp_std::{marker::PhantomData, prelude::*, result};
 
 use frame_support::{
 	dispatch::{
 		DispatchResult, DispatchResultWithPostInfo, GetDispatchInfo, Pays, PostDispatchInfo,
 	},
-	ensure, impl_ensure_origin_with_arg_ignoring_arg,
+	ensure,
 	traits::{
-		Backing, ChangeMembers, EnsureOrigin, EnsureOriginWithArg, Get, GetBacking,
-		InitializeMembers, StorageVersion,
+		Backing, ChangeMembers, Consideration, EnsureOrigin, EnsureOriginWithArg, Get, GetBacking,
+		InitializeMembers, MaybeConsideration, OriginTrait, StorageVersion,
 	},
 	weights::Weight,
 };
@@ -135,7 +137,17 @@ impl DefaultVote for MoreThanMajorityThenPrimeDefaultVote {
 }
 
 /// Origin for the collective module.
-#[derive(PartialEq, Eq, Clone, RuntimeDebug, Encode, Decode, TypeInfo, MaxEncodedLen)]
+#[derive(
+	PartialEq,
+	Eq,
+	Clone,
+	RuntimeDebug,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	TypeInfo,
+	MaxEncodedLen,
+)]
 #[scale_info(skip_type_params(I))]
 #[codec(mel_bound(AccountId: MaxEncodedLen))]
 pub enum RawOrigin<AccountId, I> {
@@ -171,13 +183,150 @@ pub struct Votes<AccountId, BlockNumber> {
 	end: BlockNumber,
 }
 
+/// Types implementing various cost strategies for a given proposal count.
+///
+/// These types implement [Convert](sp_runtime::traits::Convert) trait and can be used with types
+/// like [HoldConsideration](`frame_support::traits::fungible::HoldConsideration`) implementing
+/// [Consideration](`frame_support::traits::Consideration`) trait.
+///
+/// ### Example:
+///
+/// 1. Linear increasing with helper types.
+#[doc = docify::embed!("src/tests.rs", deposit_types_with_linear_work)]
+///
+/// 2. Geometrically increasing with helper types.
+#[doc = docify::embed!("src/tests.rs", deposit_types_with_geometric_work)]
+///
+/// 3. Geometrically increasing with rounding.
+#[doc = docify::embed!("src/tests.rs", deposit_round_with_geometric_work)]
+pub mod deposit {
+	use core::marker::PhantomData;
+	use sp_core::Get;
+	use sp_runtime::{traits::Convert, FixedPointNumber, FixedU128, Saturating};
+
+	/// Constant deposit amount regardless of current proposal count.
+	/// Returns `None` if configured with zero deposit.
+	pub struct Constant<Deposit>(PhantomData<Deposit>);
+	impl<Deposit, Balance> Convert<u32, Balance> for Constant<Deposit>
+	where
+		Deposit: Get<Balance>,
+		Balance: frame_support::traits::tokens::Balance,
+	{
+		fn convert(_: u32) -> Balance {
+			Deposit::get()
+		}
+	}
+
+	/// Linear increasing with some offset.
+	/// f(x) = ax + b, a = `Slope`, x = `proposal_count`, b = `Offset`.
+	pub struct Linear<Slope, Offset>(PhantomData<(Slope, Offset)>);
+	impl<Slope, Offset, Balance> Convert<u32, Balance> for Linear<Slope, Offset>
+	where
+		Slope: Get<u32>,
+		Offset: Get<Balance>,
+		Balance: frame_support::traits::tokens::Balance,
+	{
+		fn convert(proposal_count: u32) -> Balance {
+			let base: Balance = Slope::get().saturating_mul(proposal_count).into();
+			Offset::get().saturating_add(base)
+		}
+	}
+
+	/// Geometrically increasing.
+	/// f(x) = a * r^x, a = `Base`, x = `proposal_count`, r = `Ratio`.
+	pub struct Geometric<Ratio, Base>(PhantomData<(Ratio, Base)>);
+	impl<Ratio, Base, Balance> Convert<u32, Balance> for Geometric<Ratio, Base>
+	where
+		Ratio: Get<FixedU128>,
+		Base: Get<Balance>,
+		Balance: frame_support::traits::tokens::Balance,
+	{
+		fn convert(proposal_count: u32) -> Balance {
+			Ratio::get()
+				.saturating_pow(proposal_count as usize)
+				.saturating_mul_int(Base::get())
+		}
+	}
+
+	/// Rounds a `Deposit` result with `Precision`.
+	/// Particularly useful for types like [`Geometric`] that might produce deposits with high
+	/// precision.
+	pub struct Round<Precision, Deposit>(PhantomData<(Precision, Deposit)>);
+	impl<Precision, Deposit, Balance> Convert<u32, Balance> for Round<Precision, Deposit>
+	where
+		Precision: Get<u32>,
+		Deposit: Convert<u32, Balance>,
+		Balance: frame_support::traits::tokens::Balance,
+	{
+		fn convert(proposal_count: u32) -> Balance {
+			let deposit = Deposit::convert(proposal_count);
+			if !deposit.is_zero() {
+				let factor: Balance =
+					Balance::from(10u32).saturating_pow(Precision::get() as usize);
+				if factor > deposit {
+					deposit
+				} else {
+					(deposit / factor) * factor
+				}
+			} else {
+				deposit
+			}
+		}
+	}
+
+	/// Defines `Period` for supplied `Step` implementing [`Convert`] trait.
+	pub struct Stepped<Period, Step>(PhantomData<(Period, Step)>);
+	impl<Period, Step, Balance> Convert<u32, Balance> for Stepped<Period, Step>
+	where
+		Period: Get<u32>,
+		Step: Convert<u32, Balance>,
+		Balance: frame_support::traits::tokens::Balance,
+	{
+		fn convert(proposal_count: u32) -> Balance {
+			let step_num = proposal_count / Period::get();
+			Step::convert(step_num)
+		}
+	}
+
+	/// Defines `Delay` for supplied `Step` implementing [`Convert`] trait.
+	pub struct Delayed<Delay, Deposit>(PhantomData<(Delay, Deposit)>);
+	impl<Delay, Deposit, Balance> Convert<u32, Balance> for Delayed<Delay, Deposit>
+	where
+		Delay: Get<u32>,
+		Deposit: Convert<u32, Balance>,
+		Balance: frame_support::traits::tokens::Balance,
+	{
+		fn convert(proposal_count: u32) -> Balance {
+			let delay = Delay::get();
+			if delay > proposal_count {
+				return Balance::zero();
+			}
+			let pos = proposal_count.saturating_sub(delay);
+			Deposit::convert(pos)
+		}
+	}
+
+	/// Defines `Ceil` for supplied `Step` implementing [`Convert`] trait.
+	pub struct WithCeil<Ceil, Deposit>(PhantomData<(Ceil, Deposit)>);
+	impl<Ceil, Deposit, Balance> Convert<u32, Balance> for WithCeil<Ceil, Deposit>
+	where
+		Ceil: Get<Balance>,
+		Deposit: Convert<u32, Balance>,
+		Balance: frame_support::traits::tokens::Balance,
+	{
+		fn convert(proposal_count: u32) -> Balance {
+			Deposit::convert(proposal_count).min(Ceil::get())
+		}
+	}
+}
+
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
 
-	/// The current storage version.
+	/// The in-code storage version.
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(4);
 
 	#[pallet::pallet]
@@ -227,6 +376,27 @@ pub mod pallet {
 		/// The maximum weight of a dispatch call that can be proposed and executed.
 		#[pallet::constant]
 		type MaxProposalWeight: Get<Weight>;
+
+		/// Origin from which a proposal in any status may be disapproved without associated cost
+		/// for a proposer.
+		type DisapproveOrigin: EnsureOrigin<<Self as frame_system::Config>::RuntimeOrigin>;
+
+		/// Origin from which any malicious proposal may be killed with associated cost for a
+		/// proposer.
+		///
+		/// The associated cost is set by [`Config::Consideration`] and can be none.
+		type KillOrigin: EnsureOrigin<<Self as frame_system::Config>::RuntimeOrigin>;
+
+		/// Mechanism to assess the necessity of some cost for publishing and storing a proposal.
+		///
+		/// The footprint is defined as `proposal_count`, which reflects the total number of active
+		/// proposals in the system, excluding the one currently being proposed. The cost may vary
+		/// based on this count.
+		///
+		/// Note: If the resulting deposits are excessively high and cause benchmark failures,
+		/// consider using a constant cost (e.g., [`crate::deposit::Constant`]) equal to the minimum
+		/// balance under the `runtime-benchmarks` feature.
+		type Consideration: MaybeConsideration<Self::AccountId, u32>;
 	}
 
 	#[pallet::genesis_config]
@@ -240,7 +410,7 @@ pub mod pallet {
 	#[pallet::genesis_build]
 	impl<T: Config<I>, I: 'static> BuildGenesisConfig for GenesisConfig<T, I> {
 		fn build(&self) {
-			use sp_std::collections::btree_set::BTreeSet;
+			use alloc::collections::btree_set::BTreeSet;
 			let members_set: BTreeSet<_> = self.members.iter().collect();
 			assert_eq!(
 				members_set.len(),
@@ -262,36 +432,38 @@ pub mod pallet {
 
 	/// The hashes of the active proposals.
 	#[pallet::storage]
-	#[pallet::getter(fn proposals)]
 	pub type Proposals<T: Config<I>, I: 'static = ()> =
 		StorageValue<_, BoundedVec<T::Hash, T::MaxProposals>, ValueQuery>;
 
 	/// Actual proposal for a given hash, if it's current.
 	#[pallet::storage]
-	#[pallet::getter(fn proposal_of)]
 	pub type ProposalOf<T: Config<I>, I: 'static = ()> =
 		StorageMap<_, Identity, T::Hash, <T as Config<I>>::Proposal, OptionQuery>;
 
+	/// Consideration cost created for publishing and storing a proposal.
+	///
+	/// Determined by [Config::Consideration] and may be not present for certain proposals (e.g. if
+	/// the proposal count at the time of creation was below threshold N).
+	#[pallet::storage]
+	pub type CostOf<T: Config<I>, I: 'static = ()> =
+		StorageMap<_, Identity, T::Hash, (T::AccountId, T::Consideration), OptionQuery>;
+
 	/// Votes on a given proposal, if it is ongoing.
 	#[pallet::storage]
-	#[pallet::getter(fn voting)]
 	pub type Voting<T: Config<I>, I: 'static = ()> =
 		StorageMap<_, Identity, T::Hash, Votes<T::AccountId, BlockNumberFor<T>>, OptionQuery>;
 
 	/// Proposals so far.
 	#[pallet::storage]
-	#[pallet::getter(fn proposal_count)]
 	pub type ProposalCount<T: Config<I>, I: 'static = ()> = StorageValue<_, u32, ValueQuery>;
 
 	/// The current members of the collective. This is stored sorted (just by value).
 	#[pallet::storage]
-	#[pallet::getter(fn members)]
 	pub type Members<T: Config<I>, I: 'static = ()> =
 		StorageValue<_, Vec<T::AccountId>, ValueQuery>;
 
-	/// The prime member that helps determine the default vote behavior in case of absentations.
+	/// The prime member that helps determine the default vote behavior in case of abstentions.
 	#[pallet::storage]
-	#[pallet::getter(fn prime)]
 	pub type Prime<T: Config<I>, I: 'static = ()> = StorageValue<_, T::AccountId, OptionQuery>;
 
 	#[pallet::event]
@@ -324,6 +496,12 @@ pub mod pallet {
 		MemberExecuted { proposal_hash: T::Hash, result: DispatchResult },
 		/// A proposal was closed because its threshold was reached or after its duration was up.
 		Closed { proposal_hash: T::Hash, yes: MemberCount, no: MemberCount },
+		/// A proposal was killed.
+		Killed { proposal_hash: T::Hash },
+		/// Some cost for storing a proposal was burned.
+		ProposalCostBurned { proposal_hash: T::Hash, who: T::AccountId },
+		/// Some cost for storing a proposal was released.
+		ProposalCostReleased { proposal_hash: T::Hash, who: T::AccountId },
 	}
 
 	#[pallet::error]
@@ -350,6 +528,8 @@ pub mod pallet {
 		WrongProposalLength,
 		/// Prime account is not a member
 		PrimeAccountNotMember,
+		/// Proposal is still active.
+		ProposalActive,
 	}
 
 	#[pallet::hooks]
@@ -358,6 +538,14 @@ pub mod pallet {
 		fn try_state(_n: BlockNumberFor<T>) -> Result<(), TryRuntimeError> {
 			Self::do_try_state()
 		}
+	}
+
+	/// A reason for the pallet placing a hold on funds.
+	#[pallet::composite_enum]
+	pub enum HoldReason<I: 'static = ()> {
+		/// Funds are held for submitting and storing a proposal.
+		#[codec(index = 0)]
+		ProposalSubmission,
 	}
 
 	// Note that councillor operations are assigned to the operational class.
@@ -451,7 +639,7 @@ pub mod pallet {
 			T::WeightInfo::execute(
 				*length_bound, // B
 				T::MaxMembers::get(), // M
-			).saturating_add(proposal.get_dispatch_info().weight), // P
+			).saturating_add(proposal.get_dispatch_info().call_weight), // P
 			DispatchClass::Operational
 		))]
 		pub fn execute(
@@ -460,7 +648,7 @@ pub mod pallet {
 			#[pallet::compact] length_bound: u32,
 		) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
-			let members = Self::members();
+			let members = Members::<T, I>::get();
 			ensure!(members.contains(&who), Error::<T, I>::NotMember);
 			let proposal_len = proposal.encoded_size();
 			ensure!(proposal_len <= length_bound as usize, Error::<T, I>::WrongProposalLength);
@@ -503,7 +691,7 @@ pub mod pallet {
 				T::WeightInfo::propose_execute(
 					*length_bound, // B
 					T::MaxMembers::get(), // M
-				).saturating_add(proposal.get_dispatch_info().weight) // P1
+				).saturating_add(proposal.get_dispatch_info().call_weight) // P1
 			} else {
 				T::WeightInfo::propose_proposed(
 					*length_bound, // B
@@ -520,7 +708,7 @@ pub mod pallet {
 			#[pallet::compact] length_bound: u32,
 		) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
-			let members = Self::members();
+			let members = Members::<T, I>::get();
 			ensure!(members.contains(&who), Error::<T, I>::NotMember);
 
 			if threshold < 2 {
@@ -566,7 +754,7 @@ pub mod pallet {
 			approve: bool,
 		) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
-			let members = Self::members();
+			let members = Members::<T, I>::get();
 			ensure!(members.contains(&who), Error::<T, I>::NotMember);
 
 			// Detects first vote of the member in the motion
@@ -597,7 +785,7 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			proposal_hash: T::Hash,
 		) -> DispatchResultWithPostInfo {
-			ensure_root(origin)?;
+			T::DisapproveOrigin::ensure_origin(origin)?;
 			let proposal_count = Self::do_disapprove_proposal(proposal_hash);
 			Ok(Some(T::WeightInfo::disapprove_proposal(proposal_count)).into())
 		}
@@ -652,6 +840,63 @@ pub mod pallet {
 
 			Self::do_close(proposal_hash, index, proposal_weight_bound, length_bound)
 		}
+
+		/// Disapprove the proposal and burn the cost held for storing this proposal.
+		///
+		/// Parameters:
+		/// - `origin`: must be the `KillOrigin`.
+		/// - `proposal_hash`: The hash of the proposal that should be killed.
+		///
+		/// Emits `Killed` and `ProposalCostBurned` if any cost was held for a given proposal.
+		#[pallet::call_index(7)]
+		#[pallet::weight(T::WeightInfo::kill(1, T::MaxProposals::get()))]
+		pub fn kill(origin: OriginFor<T>, proposal_hash: T::Hash) -> DispatchResultWithPostInfo {
+			T::KillOrigin::ensure_origin(origin)?;
+			ensure!(
+				ProposalOf::<T, I>::get(&proposal_hash).is_some(),
+				Error::<T, I>::ProposalMissing
+			);
+			let burned = if let Some((who, cost)) = <CostOf<T, I>>::take(proposal_hash) {
+				cost.burn(&who);
+				Self::deposit_event(Event::ProposalCostBurned { proposal_hash, who });
+				true
+			} else {
+				false
+			};
+			let proposal_count = Self::remove_proposal(proposal_hash);
+
+			Self::deposit_event(Event::Killed { proposal_hash });
+
+			Ok(Some(T::WeightInfo::kill(burned as u32, proposal_count)).into())
+		}
+
+		/// Release the cost held for storing a proposal once the given proposal is completed.
+		///
+		/// If there is no associated cost for the given proposal, this call will have no effect.
+		///
+		/// Parameters:
+		/// - `origin`: must be `Signed` or `Root`.
+		/// - `proposal_hash`: The hash of the proposal.
+		///
+		/// Emits `ProposalCostReleased` if any cost held for a given proposal.
+		#[pallet::call_index(8)]
+		#[pallet::weight(T::WeightInfo::release_proposal_cost())]
+		pub fn release_proposal_cost(
+			origin: OriginFor<T>,
+			proposal_hash: T::Hash,
+		) -> DispatchResult {
+			let _ = ensure_signed_or_root(origin)?;
+			ensure!(
+				ProposalOf::<T, I>::get(&proposal_hash).is_none(),
+				Error::<T, I>::ProposalActive
+			);
+			if let Some((who, cost)) = <CostOf<T, I>>::take(proposal_hash) {
+				let _ = cost.drop(&who)?;
+				Self::deposit_event(Event::ProposalCostReleased { proposal_hash, who });
+			}
+
+			Ok(())
+		}
 	}
 }
 
@@ -670,7 +915,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	pub fn is_member(who: &T::AccountId) -> bool {
 		// Note: The dispatchables *do not* use this to check membership so make sure
 		// to update those if this is changed.
-		Self::members().contains(who)
+		Members::<T, I>::get().contains(who)
 	}
 
 	/// Execute immediately when adding a new proposal.
@@ -680,7 +925,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	) -> Result<(u32, DispatchResultWithPostInfo), DispatchError> {
 		let proposal_len = proposal.encoded_size();
 		ensure!(proposal_len <= length_bound as usize, Error::<T, I>::WrongProposalLength);
-		let proposal_weight = proposal.get_dispatch_info().weight;
+		let proposal_weight = proposal.get_dispatch_info().call_weight;
 		ensure!(
 			proposal_weight.all_lte(T::MaxProposalWeight::get()),
 			Error::<T, I>::WrongProposalWeight
@@ -689,7 +934,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		let proposal_hash = T::Hashing::hash_of(&proposal);
 		ensure!(!<ProposalOf<T, I>>::contains_key(proposal_hash), Error::<T, I>::DuplicateProposal);
 
-		let seats = Self::members().len() as MemberCount;
+		let seats = Members::<T, I>::get().len() as MemberCount;
 		let result = proposal.dispatch(RawOrigin::Members(1, seats).into());
 		Self::deposit_event(Event::Executed {
 			proposal_hash,
@@ -707,7 +952,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	) -> Result<(u32, u32), DispatchError> {
 		let proposal_len = proposal.encoded_size();
 		ensure!(proposal_len <= length_bound as usize, Error::<T, I>::WrongProposalLength);
-		let proposal_weight = proposal.get_dispatch_info().weight;
+		let proposal_weight = proposal.get_dispatch_info().call_weight;
 		ensure!(
 			proposal_weight.all_lte(T::MaxProposalWeight::get()),
 			Error::<T, I>::WrongProposalWeight
@@ -722,7 +967,13 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				Ok(proposals.len())
 			})?;
 
-		let index = Self::proposal_count();
+		let cost = T::Consideration::new(&who, active_proposals as u32 - 1)?;
+		if !cost.is_none() {
+			<CostOf<T, I>>::insert(proposal_hash, (who.clone(), cost));
+		}
+
+		let index = ProposalCount::<T, I>::get();
+
 		<ProposalCount<T, I>>::mutate(|i| *i += 1);
 		<ProposalOf<T, I>>::insert(proposal_hash, proposal);
 		let votes = {
@@ -748,7 +999,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		index: ProposalIndex,
 		approve: bool,
 	) -> Result<bool, DispatchError> {
-		let mut voting = Self::voting(&proposal).ok_or(Error::<T, I>::ProposalMissing)?;
+		let mut voting = Voting::<T, I>::get(&proposal).ok_or(Error::<T, I>::ProposalMissing)?;
 		ensure!(voting.index == index, Error::<T, I>::WrongIndex);
 
 		let position_yes = voting.ayes.iter().position(|a| a == &who);
@@ -799,12 +1050,12 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		proposal_weight_bound: Weight,
 		length_bound: u32,
 	) -> DispatchResultWithPostInfo {
-		let voting = Self::voting(&proposal_hash).ok_or(Error::<T, I>::ProposalMissing)?;
+		let voting = Voting::<T, I>::get(&proposal_hash).ok_or(Error::<T, I>::ProposalMissing)?;
 		ensure!(voting.index == index, Error::<T, I>::WrongIndex);
 
 		let mut no_votes = voting.nays.len() as MemberCount;
 		let mut yes_votes = voting.ayes.len() as MemberCount;
-		let seats = Self::members().len() as MemberCount;
+		let seats = Members::<T, I>::get().len() as MemberCount;
 		let approved = yes_votes >= voting.threshold;
 		let disapproved = seats.saturating_sub(no_votes) < voting.threshold;
 		// Allow (dis-)approving the proposal as soon as there are enough votes.
@@ -838,7 +1089,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		// Only allow actual closing of the proposal after the voting period has ended.
 		ensure!(frame_system::Pallet::<T>::block_number() >= voting.end, Error::<T, I>::TooEarly);
 
-		let prime_vote = Self::prime().map(|who| voting.ayes.iter().any(|a| a == &who));
+		let prime_vote = Prime::<T, I>::get().map(|who| voting.ayes.iter().any(|a| a == &who));
 
 		// default voting strategy.
 		let default = T::DefaultVote::default_vote(prime_vote, yes_votes, no_votes, seats);
@@ -889,7 +1140,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			storage::read(&key, &mut [0; 0], 0).ok_or(Error::<T, I>::ProposalMissing)?;
 		ensure!(proposal_len <= length_bound, Error::<T, I>::WrongProposalLength);
 		let proposal = ProposalOf::<T, I>::get(hash).ok_or(Error::<T, I>::ProposalMissing)?;
-		let proposal_weight = proposal.get_dispatch_info().weight;
+		let proposal_weight = proposal.get_dispatch_info().call_weight;
 		ensure!(proposal_weight.all_lte(weight_bound), Error::<T, I>::WrongProposalWeight);
 		Ok((proposal, proposal_len as usize))
 	}
@@ -916,7 +1167,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	) -> (Weight, u32) {
 		Self::deposit_event(Event::Approved { proposal_hash });
 
-		let dispatch_weight = proposal.get_dispatch_info().weight;
+		let dispatch_weight = proposal.get_dispatch_info().call_weight;
 		let origin = RawOrigin::Members(yes_votes, seats).into();
 		let result = proposal.dispatch(origin);
 		Self::deposit_event(Event::Executed {
@@ -979,29 +1230,28 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	/// * The prime account must be a member of the collective.
 	#[cfg(any(feature = "try-runtime", test))]
 	fn do_try_state() -> Result<(), TryRuntimeError> {
-		Self::proposals()
-			.into_iter()
-			.try_for_each(|proposal| -> Result<(), TryRuntimeError> {
+		Proposals::<T, I>::get().into_iter().try_for_each(
+			|proposal| -> Result<(), TryRuntimeError> {
 				ensure!(
-					Self::proposal_of(proposal).is_some(),
+					ProposalOf::<T, I>::get(proposal).is_some(),
 					"Proposal hash from `Proposals` is not found inside the `ProposalOf` mapping."
 				);
 				Ok(())
-			})?;
+			},
+		)?;
 
 		ensure!(
-			Self::proposals().into_iter().count() <= Self::proposal_count() as usize,
+			Proposals::<T, I>::get().into_iter().count() <= ProposalCount::<T, I>::get() as usize,
 			"The actual number of proposals is greater than `ProposalCount`"
 		);
 		ensure!(
-			Self::proposals().into_iter().count() == <ProposalOf<T, I>>::iter_keys().count(),
+			Proposals::<T, I>::get().into_iter().count() == <ProposalOf<T, I>>::iter_keys().count(),
 			"Proposal count inside `Proposals` is not equal to the proposal count in `ProposalOf`"
 		);
 
-		Self::proposals()
-			.into_iter()
-			.try_for_each(|proposal| -> Result<(), TryRuntimeError> {
-				if let Some(votes) = Self::voting(proposal) {
+		Proposals::<T, I>::get().into_iter().try_for_each(
+			|proposal| -> Result<(), TryRuntimeError> {
+				if let Some(votes) = Voting::<T, I>::get(proposal) {
 					let ayes = votes.ayes.len();
 					let nays = votes.nays.len();
 
@@ -1011,13 +1261,13 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 					);
 				}
 				Ok(())
-			})?;
+			},
+		)?;
 
 		let mut proposal_indices = vec![];
-		Self::proposals()
-			.into_iter()
-			.try_for_each(|proposal| -> Result<(), TryRuntimeError> {
-				if let Some(votes) = Self::voting(proposal) {
+		Proposals::<T, I>::get().into_iter().try_for_each(
+			|proposal| -> Result<(), TryRuntimeError> {
+				if let Some(votes) = Voting::<T, I>::get(proposal) {
 					let proposal_index = votes.index;
 					ensure!(
 						!proposal_indices.contains(&proposal_index),
@@ -1026,12 +1276,13 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 					proposal_indices.push(proposal_index);
 				}
 				Ok(())
-			})?;
+			},
+		)?;
 
 		<Voting<T, I>>::iter_keys().try_for_each(
 			|proposal_hash| -> Result<(), TryRuntimeError> {
 				ensure!(
-					Self::proposals().contains(&proposal_hash),
+					Proposals::<T, I>::get().contains(&proposal_hash),
 					"`Proposals` doesn't contain the proposal hash from the `Voting` storage map."
 				);
 				Ok(())
@@ -1039,17 +1290,17 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		)?;
 
 		ensure!(
-			Self::members().len() <= T::MaxMembers::get() as usize,
+			Members::<T, I>::get().len() <= T::MaxMembers::get() as usize,
 			"The member count is greater than `MaxMembers`."
 		);
 
 		ensure!(
-			Self::members().windows(2).all(|members| members[0] <= members[1]),
+			Members::<T, I>::get().windows(2).all(|members| members[0] <= members[1]),
 			"The members are not sorted by value."
 		);
 
-		if let Some(prime) = Self::prime() {
-			ensure!(Self::members().contains(&prime), "Prime account is not a member.");
+		if let Some(prime) = Prime::<T, I>::get() {
+			ensure!(Members::<T, I>::get().contains(&prime), "Prime account is not a member.");
 		}
 
 		Ok(())
@@ -1083,7 +1334,7 @@ impl<T: Config<I>, I: 'static> ChangeMembers<T::AccountId> for Pallet<T, I> {
 		// remove accounts from all current voting in motions.
 		let mut outgoing = outgoing.to_vec();
 		outgoing.sort();
-		for h in Self::proposals().into_iter() {
+		for h in Proposals::<T, I>::get().into_iter() {
 			<Voting<T, I>>::mutate(h, |v| {
 				if let Some(mut votes) = v.take() {
 					votes.ayes = votes
@@ -1140,18 +1391,19 @@ where
 }
 
 pub struct EnsureMember<AccountId, I: 'static>(PhantomData<(AccountId, I)>);
-impl<
-		O: Into<Result<RawOrigin<AccountId, I>, O>> + From<RawOrigin<AccountId, I>>,
-		I,
-		AccountId: Decode,
-	> EnsureOrigin<O> for EnsureMember<AccountId, I>
+impl<O: OriginTrait + From<RawOrigin<AccountId, I>>, I, AccountId: Decode + Clone> EnsureOrigin<O>
+	for EnsureMember<AccountId, I>
+where
+	for<'a> &'a O::PalletsOrigin: TryInto<&'a RawOrigin<AccountId, I>>,
 {
 	type Success = AccountId;
 	fn try_origin(o: O) -> Result<Self::Success, O> {
-		o.into().and_then(|o| match o {
-			RawOrigin::Member(id) => Ok(id),
-			r => Err(O::from(r)),
-		})
+		match o.caller().try_into() {
+			Ok(RawOrigin::Member(id)) => return Ok(id.clone()),
+			_ => (),
+		}
+
+		Err(o)
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
@@ -1163,26 +1415,35 @@ impl<
 	}
 }
 
-impl_ensure_origin_with_arg_ignoring_arg! {
-	impl< { O: .., I: 'static, AccountId: Decode, T } >
-		EnsureOriginWithArg<O, T> for EnsureMember<AccountId, I>
-	{}
+impl<O: OriginTrait + From<RawOrigin<AccountId, I>>, I, AccountId: Decode + Clone, T>
+	EnsureOriginWithArg<O, T> for EnsureMember<AccountId, I>
+where
+	for<'a> &'a O::PalletsOrigin: TryInto<&'a RawOrigin<AccountId, I>>,
+{
+	type Success = <Self as EnsureOrigin<O>>::Success;
+	fn try_origin(o: O, _: &T) -> Result<Self::Success, O> {
+		<Self as EnsureOrigin<O>>::try_origin(o)
+	}
+	#[cfg(feature = "runtime-benchmarks")]
+	fn try_successful_origin(_: &T) -> Result<O, ()> {
+		<Self as EnsureOrigin<O>>::try_successful_origin()
+	}
 }
 
 pub struct EnsureMembers<AccountId, I: 'static, const N: u32>(PhantomData<(AccountId, I)>);
-impl<
-		O: Into<Result<RawOrigin<AccountId, I>, O>> + From<RawOrigin<AccountId, I>>,
-		AccountId,
-		I,
-		const N: u32,
-	> EnsureOrigin<O> for EnsureMembers<AccountId, I, N>
+impl<O: OriginTrait + From<RawOrigin<AccountId, I>>, AccountId, I, const N: u32> EnsureOrigin<O>
+	for EnsureMembers<AccountId, I, N>
+where
+	for<'a> &'a O::PalletsOrigin: TryInto<&'a RawOrigin<AccountId, I>>,
 {
 	type Success = (MemberCount, MemberCount);
 	fn try_origin(o: O) -> Result<Self::Success, O> {
-		o.into().and_then(|o| match o {
-			RawOrigin::Members(n, m) if n >= N => Ok((n, m)),
-			r => Err(O::from(r)),
-		})
+		match o.caller().try_into() {
+			Ok(RawOrigin::Members(n, m)) if *n >= N => return Ok((*n, *m)),
+			_ => (),
+		}
+
+		Err(o)
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
@@ -1191,29 +1452,37 @@ impl<
 	}
 }
 
-impl_ensure_origin_with_arg_ignoring_arg! {
-	impl< { O: .., I: 'static, const N: u32, AccountId, T } >
-		EnsureOriginWithArg<O, T> for EnsureMembers<AccountId, I, N>
-	{}
+impl<O: OriginTrait + From<RawOrigin<AccountId, I>>, AccountId, I, const N: u32, T>
+	EnsureOriginWithArg<O, T> for EnsureMembers<AccountId, I, N>
+where
+	for<'a> &'a O::PalletsOrigin: TryInto<&'a RawOrigin<AccountId, I>>,
+{
+	type Success = <Self as EnsureOrigin<O>>::Success;
+	fn try_origin(o: O, _: &T) -> Result<Self::Success, O> {
+		<Self as EnsureOrigin<O>>::try_origin(o)
+	}
+	#[cfg(feature = "runtime-benchmarks")]
+	fn try_successful_origin(_: &T) -> Result<O, ()> {
+		<Self as EnsureOrigin<O>>::try_successful_origin()
+	}
 }
 
 pub struct EnsureProportionMoreThan<AccountId, I: 'static, const N: u32, const D: u32>(
 	PhantomData<(AccountId, I)>,
 );
-impl<
-		O: Into<Result<RawOrigin<AccountId, I>, O>> + From<RawOrigin<AccountId, I>>,
-		AccountId,
-		I,
-		const N: u32,
-		const D: u32,
-	> EnsureOrigin<O> for EnsureProportionMoreThan<AccountId, I, N, D>
+impl<O: OriginTrait + From<RawOrigin<AccountId, I>>, AccountId, I, const N: u32, const D: u32>
+	EnsureOrigin<O> for EnsureProportionMoreThan<AccountId, I, N, D>
+where
+	for<'a> &'a O::PalletsOrigin: TryInto<&'a RawOrigin<AccountId, I>>,
 {
 	type Success = ();
 	fn try_origin(o: O) -> Result<Self::Success, O> {
-		o.into().and_then(|o| match o {
-			RawOrigin::Members(n, m) if n * D > N * m => Ok(()),
-			r => Err(O::from(r)),
-		})
+		match o.caller().try_into() {
+			Ok(RawOrigin::Members(n, m)) if n * D > N * m => return Ok(()),
+			_ => (),
+		}
+
+		Err(o)
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
@@ -1222,29 +1491,43 @@ impl<
 	}
 }
 
-impl_ensure_origin_with_arg_ignoring_arg! {
-	impl< { O: .., I: 'static, const N: u32, const D: u32, AccountId, T } >
-		EnsureOriginWithArg<O, T> for EnsureProportionMoreThan<AccountId, I, N, D>
-	{}
+impl<
+		O: OriginTrait + From<RawOrigin<AccountId, I>>,
+		AccountId,
+		I,
+		const N: u32,
+		const D: u32,
+		T,
+	> EnsureOriginWithArg<O, T> for EnsureProportionMoreThan<AccountId, I, N, D>
+where
+	for<'a> &'a O::PalletsOrigin: TryInto<&'a RawOrigin<AccountId, I>>,
+{
+	type Success = <Self as EnsureOrigin<O>>::Success;
+	fn try_origin(o: O, _: &T) -> Result<Self::Success, O> {
+		<Self as EnsureOrigin<O>>::try_origin(o)
+	}
+	#[cfg(feature = "runtime-benchmarks")]
+	fn try_successful_origin(_: &T) -> Result<O, ()> {
+		<Self as EnsureOrigin<O>>::try_successful_origin()
+	}
 }
 
 pub struct EnsureProportionAtLeast<AccountId, I: 'static, const N: u32, const D: u32>(
 	PhantomData<(AccountId, I)>,
 );
-impl<
-		O: Into<Result<RawOrigin<AccountId, I>, O>> + From<RawOrigin<AccountId, I>>,
-		AccountId,
-		I,
-		const N: u32,
-		const D: u32,
-	> EnsureOrigin<O> for EnsureProportionAtLeast<AccountId, I, N, D>
+impl<O: OriginTrait + From<RawOrigin<AccountId, I>>, AccountId, I, const N: u32, const D: u32>
+	EnsureOrigin<O> for EnsureProportionAtLeast<AccountId, I, N, D>
+where
+	for<'a> &'a O::PalletsOrigin: TryInto<&'a RawOrigin<AccountId, I>>,
 {
 	type Success = ();
 	fn try_origin(o: O) -> Result<Self::Success, O> {
-		o.into().and_then(|o| match o {
-			RawOrigin::Members(n, m) if n * D >= N * m => Ok(()),
-			r => Err(O::from(r)),
-		})
+		match o.caller().try_into() {
+			Ok(RawOrigin::Members(n, m)) if n * D >= N * m => return Ok(()),
+			_ => (),
+		};
+
+		Err(o)
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
@@ -1253,8 +1536,23 @@ impl<
 	}
 }
 
-impl_ensure_origin_with_arg_ignoring_arg! {
-	impl< { O: .., I: 'static, const N: u32, const D: u32, AccountId, T } >
-		EnsureOriginWithArg<O, T> for EnsureProportionAtLeast<AccountId, I, N, D>
-	{}
+impl<
+		O: OriginTrait + From<RawOrigin<AccountId, I>>,
+		AccountId,
+		I,
+		const N: u32,
+		const D: u32,
+		T,
+	> EnsureOriginWithArg<O, T> for EnsureProportionAtLeast<AccountId, I, N, D>
+where
+	for<'a> &'a O::PalletsOrigin: TryInto<&'a RawOrigin<AccountId, I>>,
+{
+	type Success = <Self as EnsureOrigin<O>>::Success;
+	fn try_origin(o: O, _: &T) -> Result<Self::Success, O> {
+		<Self as EnsureOrigin<O>>::try_origin(o)
+	}
+	#[cfg(feature = "runtime-benchmarks")]
+	fn try_successful_origin(_: &T) -> Result<O, ()> {
+		<Self as EnsureOrigin<O>>::try_successful_origin()
+	}
 }

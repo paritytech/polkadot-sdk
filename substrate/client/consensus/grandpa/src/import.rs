@@ -18,8 +18,9 @@
 
 use std::{collections::HashMap, marker::PhantomData, sync::Arc};
 
+use codec::Decode;
 use log::debug;
-use parity_scale_codec::Decode;
+use parking_lot::Mutex;
 
 use sc_client_api::{backend::Backend, utils::is_descendent_of};
 use sc_consensus::{
@@ -62,7 +63,8 @@ pub struct GrandpaBlockImport<Backend, Block: BlockT, Client, SC> {
 	select_chain: SC,
 	authority_set: SharedAuthoritySet<Block::Hash, NumberFor<Block>>,
 	send_voter_commands: TracingUnboundedSender<VoterCommand<Block::Hash, NumberFor<Block>>>,
-	authority_set_hard_forks: HashMap<Block::Hash, PendingChange<Block::Hash, NumberFor<Block>>>,
+	authority_set_hard_forks:
+		Mutex<HashMap<Block::Hash, PendingChange<Block::Hash, NumberFor<Block>>>>,
 	justification_sender: GrandpaJustificationSender<Block>,
 	telemetry: Option<TelemetryHandle>,
 	_phantom: PhantomData<Backend>,
@@ -78,7 +80,7 @@ impl<Backend, Block: BlockT, Client, SC: Clone> Clone
 			select_chain: self.select_chain.clone(),
 			authority_set: self.authority_set.clone(),
 			send_voter_commands: self.send_voter_commands.clone(),
-			authority_set_hard_forks: self.authority_set_hard_forks.clone(),
+			authority_set_hard_forks: Mutex::new(self.authority_set_hard_forks.lock().clone()),
 			justification_sender: self.justification_sender.clone(),
 			telemetry: self.telemetry.clone(),
 			_phantom: PhantomData,
@@ -241,7 +243,7 @@ where
 		hash: Block::Hash,
 	) -> Option<PendingChange<Block::Hash, NumberFor<Block>>> {
 		// check for forced authority set hard forks
-		if let Some(change) = self.authority_set_hard_forks.get(&hash) {
+		if let Some(change) = self.authority_set_hard_forks.lock().get(&hash) {
 			return Some(change.clone())
 		}
 
@@ -422,92 +424,92 @@ where
 
 	/// Read current set id form a given state.
 	fn current_set_id(&self, hash: Block::Hash) -> Result<SetId, ConsensusError> {
-		let mut runtime_api =
-			RuntimeInstance::builder(&*self.inner, hash).off_chain_context().build();
+	let mut runtime_api =
+		RuntimeInstance::builder(&*self.inner, hash).off_chain_context().build();
 
-		if runtime_api
-			.api_version::<dyn GrandpaApi<Block>>()
-			.map_err(|e| {
-				ConsensusError::ClientImport(format!(
-					"Unable to retrieve `GrandpaApi` version. {}",
-					e
-				))
-			})?
-			.map_or(false, |v| v < 3)
-		{
-			// The new API is not supported in this runtime. Try reading directly from storage.
-			// This code may be removed once warp sync to an old runtime is no longer needed.
-			for prefix in ["GrandpaFinality", "Grandpa"] {
-				let k = [
-					sp_crypto_hashing::twox_128(prefix.as_bytes()),
-					sp_crypto_hashing::twox_128(b"CurrentSetId"),
-				]
-				.concat();
-				if let Ok(Some(id)) =
-					self.inner.storage(hash, &sc_client_api::StorageKey(k.to_vec()))
-				{
-					if let Ok(id) = SetId::decode(&mut id.0.as_ref()) {
-						return Ok(id)
-					}
+	if runtime_api
+		.api_version::<dyn GrandpaApi<Block>>()
+		.map_err(|e| {
+			ConsensusError::ClientImport(format!(
+				"Unable to retrieve `GrandpaApi` version. {}",
+				e
+			))
+		})?
+		.map_or(false, |v| v < 3)
+	{
+		// The new API is not supported in this runtime. Try reading directly from storage.
+		// This code may be removed once warp sync to an old runtime is no longer needed.
+		for prefix in ["GrandpaFinality", "Grandpa"] {
+			let k = [
+				sp_crypto_hashing::twox_128(prefix.as_bytes()),
+				sp_crypto_hashing::twox_128(b"CurrentSetId"),
+			]
+			.concat();
+			if let Ok(Some(id)) =
+				self.inner.storage(hash, &sc_client_api::StorageKey(k.to_vec()))
+			{
+				if let Ok(id) = SetId::decode(&mut id.0.as_ref()) {
+					return Ok(id)
 				}
 			}
-			Err(ConsensusError::ClientImport("Unable to retrieve current set id.".into()))
-		} else {
-			GrandpaApi::<Block>::current_set_id(&mut runtime_api)
-				.map_err(|e| ConsensusError::ClientImport(e.to_string()))
 		}
+		Err(ConsensusError::ClientImport("Unable to retrieve current set id.".into()))
+	} else {
+		GrandpaApi::<Block>::current_set_id(&mut runtime_api)
+			.map_err(|e| ConsensusError::ClientImport(e.to_string()))
 	}
+}
 
 	/// Import whole new state and reset authority set.
 	async fn import_state(
-		&mut self,
-		mut block: BlockImportParams<Block>,
-	) -> Result<ImportResult, ConsensusError> {
-		let hash = block.post_hash();
-		let number = *block.header.number();
-		// Force imported state finality.
-		block.finalized = true;
-		let import_result = (&*self.inner).import_block(block).await;
-		match import_result {
-			Ok(ImportResult::Imported(aux)) => {
-				// We've just imported a new state. We trust the sync module has verified
-				// finality proofs and that the state is correct and final.
-				// So we can read the authority list and set id from the state.
-				self.authority_set_hard_forks.clear();
+	&self,
+	mut block: BlockImportParams<Block>,
+) -> Result<ImportResult, ConsensusError> {
+	let hash = block.post_hash();
+	let number = *block.header.number();
+	// Force imported state finality.
+	block.finalized = true;
+	let import_result = (&*self.inner).import_block(block).await;
+	match import_result {
+		Ok(ImportResult::Imported(aux)) => {
+			// We've just imported a new state. We trust the sync module has verified
+			// finality proofs and that the state is correct and final.
+			// So we can read the authority list and set id from the state.
+			self.authority_set_hard_forks.lock().clear();
 
-				let mut runtime_api =
-					RuntimeInstance::builder(&*self.inner, hash).off_chain_context().build();
+			let mut runtime_api =
+				RuntimeInstance::builder(&*self.inner, hash).off_chain_context().build();
 
-				let authorities = GrandpaApi::<Block>::grandpa_authorities(&mut runtime_api)
-					.map_err(|e| ConsensusError::ClientImport(e.to_string()))?;
-				let set_id = self.current_set_id(hash)?;
-				let authority_set = AuthoritySet::new(
-					authorities.clone(),
-					set_id,
-					fork_tree::ForkTree::new(),
-					Vec::new(),
-					AuthoritySetChanges::empty(),
-				)
-				.ok_or_else(|| ConsensusError::ClientImport("Invalid authority list".into()))?;
-				*self.authority_set.inner_locked() = authority_set.clone();
-
-				crate::aux_schema::update_authority_set::<Block, _, _>(
-					&authority_set,
-					None,
-					|insert| self.inner.insert_aux(insert, []),
-				)
+			let authorities = GrandpaApi::<Block>::grandpa_authorities(&mut runtime_api)
 				.map_err(|e| ConsensusError::ClientImport(e.to_string()))?;
-				let new_set =
-					NewAuthoritySet { canon_number: number, canon_hash: hash, set_id, authorities };
-				let _ = self
-					.send_voter_commands
-					.unbounded_send(VoterCommand::ChangeAuthorities(new_set));
-				Ok(ImportResult::Imported(aux))
-			},
-			Ok(r) => Ok(r),
-			Err(e) => Err(ConsensusError::ClientImport(e.to_string())),
-		}
+			let set_id = self.current_set_id(hash)?;
+			let authority_set = AuthoritySet::new(
+				authorities.clone(),
+				set_id,
+				fork_tree::ForkTree::new(),
+				Vec::new(),
+				AuthoritySetChanges::empty(),
+			)
+			.ok_or_else(|| ConsensusError::ClientImport("Invalid authority list".into()))?;
+			*self.authority_set.inner_locked() = authority_set.clone();
+
+			crate::aux_schema::update_authority_set::<Block, _, _>(
+				&authority_set,
+				None,
+				|insert| self.inner.insert_aux(insert, []),
+			)
+			.map_err(|e| ConsensusError::ClientImport(e.to_string()))?;
+			let new_set =
+				NewAuthoritySet { canon_number: number, canon_hash: hash, set_id, authorities };
+			let _ = self
+				.send_voter_commands
+				.unbounded_send(VoterCommand::ChangeAuthorities(new_set));
+			Ok(ImportResult::Imported(aux))
+		},
+		Ok(r) => Ok(r),
+		Err(e) => Err(ConsensusError::ClientImport(e.to_string())),
 	}
+}
 }
 
 #[async_trait::async_trait]
@@ -517,12 +519,12 @@ where
 	BE: Backend<Block>,
 	Client: ClientForGrandpa<Block, BE>,
 	for<'a> &'a Client: BlockImport<Block, Error = ConsensusError>,
-	SC: Send,
+	SC: Send + Sync,
 {
 	type Error = ConsensusError;
 
 	async fn import_block(
-		&mut self,
+		&self,
 		mut block: BlockImportParams<Block>,
 	) -> Result<ImportResult, Self::Error> {
 		let hash = block.post_hash();
@@ -696,7 +698,7 @@ where
 	}
 
 	async fn check_block(
-		&mut self,
+		&self,
 		block: BlockCheckParams<Block>,
 	) -> Result<ImportResult, Self::Error> {
 		self.inner.check_block(block).await
@@ -749,7 +751,7 @@ impl<Backend, Block: BlockT, Client, SC> GrandpaBlockImport<Backend, Block, Clie
 			select_chain,
 			authority_set,
 			send_voter_commands,
-			authority_set_hard_forks,
+			authority_set_hard_forks: Mutex::new(authority_set_hard_forks),
 			justification_sender,
 			telemetry,
 			_phantom: PhantomData,
@@ -768,7 +770,7 @@ where
 	/// If `enacts_change` is set to true, then finalizing this block *must*
 	/// enact an authority set change, the function will panic otherwise.
 	fn import_justification(
-		&mut self,
+		&self,
 		hash: Block::Hash,
 		number: NumberFor<Block>,
 		justification: Justification,

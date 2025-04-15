@@ -1,0 +1,29 @@
+[compression]
+type = "zstd"
+
+[compression.zstd]
+compressionLevel = 3
+
+[general]
+jobNameVariable = "CI_JOB_NAME"
+jobsBlackList = []
+logLevel = "warn"
+threadsCount = 6
+
+[cache]
+extraEnv = ["RUNTIME_METADATA_HASH"]
+
+[metrics]
+enabled = true
+pushEndpoint = "placeholder"
+
+[metrics.extraLabels]
+environment = "production"
+job_name = "$CI_JOB_NAME"
+project_name = "$CI_PROJECT_PATH"
+
+[storage]
+type = "gcs"
+
+[storage.gcs]
+bucketName = "parity-ci-forklift-regional"

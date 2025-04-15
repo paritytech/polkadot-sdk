@@ -50,7 +50,13 @@ use frame_support::{
 };
 use frame_system::pallet_prelude::BlockNumberFor;
 
-use primitives::{
+use alloc::{
+	boxed::Box,
+	collections::{btree_map::Entry, btree_set::BTreeSet},
+	vec,
+	vec::Vec,
+};
+use polkadot_primitives::{
 	slashing::{DisputeProof, DisputesTimeSlot, PendingSlashes, SlashingOffenceKind},
 	CandidateHash, SessionIndex, ValidatorId, ValidatorIndex,
 };
@@ -64,11 +70,7 @@ use sp_runtime::{
 	KeyTypeId, Perbill,
 };
 use sp_session::{GetSessionNumber, GetValidatorCount};
-use sp_staking::offence::{DisableStrategy, Kind, Offence, OffenceError, ReportOffence};
-use sp_std::{
-	collections::{btree_map::Entry, btree_set::BTreeSet},
-	prelude::*,
-};
+use sp_staking::offence::{Kind, Offence, OffenceError, ReportOffence};
 
 const LOG_TARGET: &str = "runtime::parachains::slashing";
 
@@ -134,15 +136,6 @@ where
 		self.time_slot.clone()
 	}
 
-	fn disable_strategy(&self) -> DisableStrategy {
-		match self.kind {
-			SlashingOffenceKind::ForInvalid => DisableStrategy::Always,
-			// in the future we might change it based on number of disputes initiated:
-			// <https://github.com/paritytech/polkadot/issues/5946>
-			SlashingOffenceKind::AgainstValid => DisableStrategy::Never,
-		}
-	}
-
 	fn slash_fraction(&self, _offenders: u32) -> Perbill {
 		self.slash_fraction
 	}
@@ -167,7 +160,7 @@ impl<KeyOwnerIdentification> SlashingOffence<KeyOwnerIdentification> {
 
 /// This type implements `SlashingHandler`.
 pub struct SlashValidatorsForDisputes<C> {
-	_phantom: sp_std::marker::PhantomData<C>,
+	_phantom: core::marker::PhantomData<C>,
 }
 
 impl<C> Default for SlashValidatorsForDisputes<C> {
@@ -187,13 +180,13 @@ where
 		validators: impl IntoIterator<Item = ValidatorIndex>,
 	) -> Option<Vec<IdentificationTuple<T>>> {
 		// We use `ValidatorSet::session_index` and not
-		// `shared::Pallet<T>::session_index()` because at the first block of a new era,
+		// `shared::CurrentSessionIndex::<T>::get()` because at the first block of a new era,
 		// the `IdentificationOf` of a validator in the previous session might be
 		// missing, while `shared` pallet would return the same session index as being
 		// updated at the end of the block.
 		let current_session = T::ValidatorSet::session_index();
 		if session_index == current_session {
-			let account_keys = crate::session_info::Pallet::<T>::account_keys(session_index);
+			let account_keys = crate::session_info::AccountKeys::<T>::get(session_index);
 			let account_ids = account_keys.defensive_unwrap_or_default();
 
 			let fully_identified = validators
@@ -232,7 +225,7 @@ where
 			return
 		}
 
-		let session_info = crate::session_info::Pallet::<T>::session_info(session_index);
+		let session_info = crate::session_info::Sessions::<T>::get(session_index);
 		let session_info = match session_info.defensive_proof(DEFENSIVE_PROOF) {
 			Some(info) => info,
 			None => return,
@@ -362,12 +355,12 @@ impl<T: Config> HandleReports<T> for () {
 }
 
 pub trait WeightInfo {
-	fn report_dispute_lost(validator_count: ValidatorSetCount) -> Weight;
+	fn report_dispute_lost_unsigned(validator_count: ValidatorSetCount) -> Weight;
 }
 
 pub struct TestWeightInfo;
 impl WeightInfo for TestWeightInfo {
-	fn report_dispute_lost(_validator_count: ValidatorSetCount) -> Weight {
+	fn report_dispute_lost_unsigned(_validator_count: ValidatorSetCount) -> Weight {
 		Weight::zero()
 	}
 }
@@ -452,7 +445,7 @@ pub mod pallet {
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
 		#[pallet::call_index(0)]
-		#[pallet::weight(<T as Config>::WeightInfo::report_dispute_lost(
+		#[pallet::weight(<T as Config>::WeightInfo::report_dispute_lost_unsigned(
 			key_owner_proof.validator_count()
 		))]
 		pub fn report_dispute_lost_unsigned(
@@ -465,7 +458,8 @@ pub mod pallet {
 
 			let validator_set_count = key_owner_proof.validator_count() as ValidatorSetCount;
 			// check the membership proof to extract the offender's id
-			let key = (primitives::PARACHAIN_KEY_TYPE_ID, dispute_proof.validator_id.clone());
+			let key =
+				(polkadot_primitives::PARACHAIN_KEY_TYPE_ID, dispute_proof.validator_id.clone());
 			let offender = T::KeyOwnerProofSystem::check_proof(key, key_owner_proof)
 				.ok_or(Error::<T>::InvalidKeyOwnershipProof)?;
 
@@ -544,7 +538,7 @@ impl<T: Config> Pallet<T> {
 		// fine.
 		const REMOVE_LIMIT: u32 = u32::MAX;
 
-		let config = <crate::configuration::Pallet<T>>::config();
+		let config = crate::configuration::ActiveConfig::<T>::get();
 		if session_index <= config.dispute_period + 1 {
 			return
 		}
@@ -624,7 +618,7 @@ fn is_known_offence<T: Config>(
 	key_owner_proof: &T::KeyOwnerProof,
 ) -> Result<(), TransactionValidityError> {
 	// check the membership proof to extract the offender's id
-	let key = (primitives::PARACHAIN_KEY_TYPE_ID, dispute_proof.validator_id.clone());
+	let key = (polkadot_primitives::PARACHAIN_KEY_TYPE_ID, dispute_proof.validator_id.clone());
 
 	let offender = T::KeyOwnerProofSystem::check_proof(key, key_owner_proof.clone())
 		.ok_or(InvalidTransaction::BadProof)?;
@@ -643,12 +637,12 @@ fn is_known_offence<T: Config>(
 	}
 }
 
-/// Actual `HandleReports` implemention.
+/// Actual `HandleReports` implementation.
 ///
 /// When configured properly, should be instantiated with
 /// `T::KeyOwnerIdentification, Offences, ReportLongevity` parameters.
 pub struct SlashingReportHandler<I, R, L> {
-	_phantom: sp_std::marker::PhantomData<(I, R, L)>,
+	_phantom: core::marker::PhantomData<(I, R, L)>,
 }
 
 impl<I, R, L> Default for SlashingReportHandler<I, R, L> {
@@ -659,7 +653,7 @@ impl<I, R, L> Default for SlashingReportHandler<I, R, L> {
 
 impl<T, R, L> HandleReports<T> for SlashingReportHandler<T::KeyOwnerIdentification, R, L>
 where
-	T: Config + frame_system::offchain::SendTransactionTypes<Call<T>>,
+	T: Config + frame_system::offchain::CreateInherent<Call<T>>,
 	R: ReportOffence<
 		T::AccountId,
 		T::KeyOwnerIdentification,
@@ -691,7 +685,7 @@ where
 		dispute_proof: DisputeProof,
 		key_owner_proof: <T as Config>::KeyOwnerProof,
 	) -> Result<(), sp_runtime::TryRuntimeError> {
-		use frame_system::offchain::SubmitTransaction;
+		use frame_system::offchain::{CreateInherent, SubmitTransaction};
 
 		let session_index = dispute_proof.time_slot.session_index;
 		let validator_index = dispute_proof.validator_index.0;
@@ -702,7 +696,8 @@ where
 			key_owner_proof,
 		};
 
-		match SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into()) {
+		let xt = <T as CreateInherent<Call<T>>>::create_inherent(call.into());
+		match SubmitTransaction::<T, Call<T>>::submit_transaction(xt) {
 			Ok(()) => {
 				log::info!(
 					target: LOG_TARGET,

@@ -35,12 +35,14 @@ mod mock;
 mod tests;
 pub mod weights;
 
+extern crate alloc;
+
+use alloc::{vec, vec::Vec};
 use blake2::{Blake2b512, Digest};
 use frame_support::{pallet_prelude::*, weights::WeightMeter, DefaultNoBound};
 use frame_system::pallet_prelude::*;
 use sp_io::hashing::twox_256;
 use sp_runtime::{traits::Zero, FixedPointNumber, FixedU64};
-use sp_std::{vec, vec::Vec};
 
 pub use pallet::*;
 pub use weights::WeightInfo;
@@ -89,6 +91,11 @@ pub mod pallet {
 			/// The storage limit.
 			storage: FixedU64,
 		},
+		/// The block length limit has been updated.
+		BlockLengthLimitSet {
+			/// The block length limit.
+			block_length: FixedU64,
+		},
 	}
 
 	#[pallet::error]
@@ -115,6 +122,13 @@ pub mod pallet {
 	/// over `1.0` could stall the chain.
 	#[pallet::storage]
 	pub(crate) type Storage<T: Config> = StorageValue<_, FixedU64, ValueQuery>;
+
+	/// The proportion of the `block length` to consume on each block.
+	///
+	/// `1.0` is mapped to `100%`. Must be at most [`crate::RESOURCE_HARD_LIMIT`]. Setting this to
+	/// over `1.0` could stall the chain.
+	#[pallet::storage]
+	pub(crate) type Length<T: Config> = StorageValue<_, FixedU64, ValueQuery>;
 
 	/// Storage map used for wasting proof size.
 	///
@@ -146,9 +160,11 @@ pub mod pallet {
 		pub storage: FixedU64,
 		/// The amount of trash data for wasting proof size.
 		pub trash_data_count: u32,
+		/// The block length limit.
+		pub block_length: FixedU64,
 		#[serde(skip)]
 		/// The required configuration field.
-		pub _config: sp_std::marker::PhantomData<T>,
+		pub _config: core::marker::PhantomData<T>,
 	}
 
 	#[pallet::genesis_build]
@@ -170,6 +186,9 @@ pub mod pallet {
 
 			assert!(self.storage <= RESOURCE_HARD_LIMIT, "Storage limit is insane");
 			<Storage<T>>::put(self.storage);
+
+			assert!(self.block_length <= RESOURCE_HARD_LIMIT, "Block length limit is insane");
+			<Length<T>>::put(self.block_length);
 		}
 	}
 
@@ -205,6 +224,40 @@ pub mod pallet {
 			Self::waste_at_most_ref_time(&mut meter);
 
 			meter.consumed()
+		}
+	}
+
+	#[pallet::inherent]
+	impl<T: Config> ProvideInherent for Pallet<T> {
+		type Call = Call<T>;
+		type Error = sp_inherents::MakeFatalError<()>;
+
+		const INHERENT_IDENTIFIER: InherentIdentifier = *b"bloated0";
+
+		fn create_inherent(_data: &InherentData) -> Option<Self::Call> {
+			let max_block_length = *T::BlockLength::get().max.get(DispatchClass::Mandatory);
+			let bloat_size = Length::<T>::get().saturating_mul_int(max_block_length) as usize;
+			let amount_trash = bloat_size / VALUE_SIZE;
+			let garbage = TrashData::<T>::iter()
+				.map(|(_k, v)| v)
+				.collect::<Vec<_>>()
+				.into_iter()
+				.cycle()
+				.take(amount_trash)
+				.collect::<Vec<_>>();
+
+			Some(Call::bloat { garbage })
+		}
+
+		fn is_inherent(call: &Self::Call) -> bool {
+			matches!(call, Call::bloat { .. })
+		}
+
+		fn check_inherent(call: &Self::Call, _: &InherentData) -> Result<(), Self::Error> {
+			match call {
+				Call::bloat { .. } => Ok(()),
+				_ => unreachable!("other calls are not inherents"),
+			}
 		}
 	}
 
@@ -275,6 +328,31 @@ pub mod pallet {
 			Storage::<T>::set(storage);
 
 			Self::deposit_event(Event::StorageLimitSet { storage });
+			Ok(())
+		}
+
+		/// Increase the block size by including the specified garbage bytes.
+		#[pallet::call_index(3)]
+		#[pallet::weight((0, DispatchClass::Mandatory))]
+		pub fn bloat(_origin: OriginFor<T>, _garbage: Vec<[u8; VALUE_SIZE]>) -> DispatchResult {
+			Ok(())
+		}
+
+		/// Set how much of the block length should be filled with trash data on each block.
+		///
+		/// `1.0` means that all block should be filled. If set to `1.0`, storage proof size will
+		///  be close to zero.
+		///
+		/// Only callable by Root or `AdminOrigin`.
+		#[pallet::call_index(4)]
+		#[pallet::weight({1})]
+		pub fn set_block_length(origin: OriginFor<T>, block_length: FixedU64) -> DispatchResult {
+			T::AdminOrigin::ensure_origin_or_root(origin)?;
+
+			ensure!(block_length <= RESOURCE_HARD_LIMIT, Error::<T>::InsaneLimit);
+			Length::<T>::set(block_length);
+
+			Self::deposit_event(Event::BlockLengthLimitSet { block_length });
 			Ok(())
 		}
 	}

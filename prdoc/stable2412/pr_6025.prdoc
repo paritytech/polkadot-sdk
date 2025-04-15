@@ -1,0 +1,13 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Refactor staking pallet benchmarks to `v2`
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Update benchmarks in staking pallet to the second version of the `frame_benchmarking` runtime benchmarking framework.
+
+crates:
+  - name: pallet-staking
+    bump: patch

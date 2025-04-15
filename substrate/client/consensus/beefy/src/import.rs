@@ -22,7 +22,7 @@ use log::debug;
 
 use sp_api::{CallApiAt, RuntimeInstance};
 use sp_consensus::Error as ConsensusError;
-use sp_consensus_beefy::{ecdsa_crypto::AuthorityId, BeefyApi, BEEFY_ENGINE_ID};
+use sp_consensus_beefy::{AuthorityIdBound, BeefyApi, BEEFY_ENGINE_ID};
 use sp_runtime::{
 	traits::{Block as BlockT, Header as HeaderT, NumberFor},
 	EncodedJustification,
@@ -45,15 +45,17 @@ use crate::{
 /// Wraps a `inner: BlockImport` and ultimately defers to it.
 ///
 /// When using BEEFY, the block import worker should be using this block import object.
-pub struct BeefyBlockImport<Block: BlockT, Backend, RuntimeApi, I> {
+pub struct BeefyBlockImport<Block: BlockT, Backend, RuntimeApi, I, AuthorityId: AuthorityIdBound> {
 	backend: Arc<Backend>,
 	runtime: Arc<RuntimeApi>,
 	inner: I,
-	justification_sender: BeefyVersionedFinalityProofSender<Block>,
+	justification_sender: BeefyVersionedFinalityProofSender<Block, AuthorityId>,
 	metrics: Option<BlockImportMetrics>,
 }
 
-impl<Block: BlockT, BE, Runtime, I: Clone> Clone for BeefyBlockImport<Block, BE, Runtime, I> {
+impl<Block: BlockT, BE, Runtime, I: Clone, AuthorityId: AuthorityIdBound> Clone
+	for BeefyBlockImport<Block, BE, Runtime, I, AuthorityId>
+{
 	fn clone(&self) -> Self {
 		BeefyBlockImport {
 			backend: self.backend.clone(),
@@ -65,31 +67,34 @@ impl<Block: BlockT, BE, Runtime, I: Clone> Clone for BeefyBlockImport<Block, BE,
 	}
 }
 
-impl<Block: BlockT, BE, Runtime, I> BeefyBlockImport<Block, BE, Runtime, I> {
+impl<Block: BlockT, BE, Runtime, I, AuthorityId: AuthorityIdBound>
+	BeefyBlockImport<Block, BE, Runtime, I, AuthorityId>
+{
 	/// Create a new BeefyBlockImport.
 	pub fn new(
 		backend: Arc<BE>,
 		runtime: Arc<Runtime>,
 		inner: I,
-		justification_sender: BeefyVersionedFinalityProofSender<Block>,
+		justification_sender: BeefyVersionedFinalityProofSender<Block, AuthorityId>,
 		metrics: Option<BlockImportMetrics>,
-	) -> BeefyBlockImport<Block, BE, Runtime, I> {
+	) -> BeefyBlockImport<Block, BE, Runtime, I, AuthorityId> {
 		BeefyBlockImport { backend, runtime, inner, justification_sender, metrics }
 	}
 }
 
-impl<Block, BE, Runtime, I> BeefyBlockImport<Block, BE, Runtime, I>
+impl<Block, BE, Runtime, I, AuthorityId> BeefyBlockImport<Block, BE, Runtime, I, AuthorityId>
 where
 	Block: BlockT,
 	BE: Backend<Block>,
 	Runtime: CallApiAt<Block>,
+	AuthorityId: AuthorityIdBound,
 {
 	fn decode_and_verify(
 		&self,
 		encoded: &EncodedJustification,
 		number: NumberFor<Block>,
 		hash: <Block as BlockT>::Hash,
-	) -> Result<BeefyVersionedFinalityProof<Block>, ConsensusError> {
+	) -> Result<BeefyVersionedFinalityProof<Block, AuthorityId>, ConsensusError> {
 		use ConsensusError::ClientImport as ImportError;
 
 		let mut api = RuntimeInstance::builder(&*self.runtime, hash).off_chain_context().build();
@@ -99,30 +104,32 @@ where
 			.ok_or_else(|| ImportError("Unknown BEEFY genesis".to_string()))?;
 
 		if number < beefy_genesis {
-			return Err(ImportError("BEEFY genesis is set for future block".to_string()))
+			return Err(ImportError("BEEFY genesis is set for future block".to_string()));
 		}
 
 		let validator_set = BeefyApi::<Block, AuthorityId>::validator_set(&mut api)
 			.map_err(|e| ImportError(e.to_string()))?
 			.ok_or_else(|| ImportError("Unknown validator set".to_string()))?;
 
-		decode_and_verify_finality_proof::<Block>(&encoded[..], number, &validator_set)
+		decode_and_verify_finality_proof::<Block, AuthorityId>(&encoded[..], number, &validator_set)
 			.map_err(|(err, _)| err)
 	}
 }
 
 #[async_trait::async_trait]
-impl<Block, BE, Runtime, I> BlockImport<Block> for BeefyBlockImport<Block, BE, Runtime, I>
+impl<Block, BE, Runtime, I, AuthorityId> BlockImport<Block>
+	for BeefyBlockImport<Block, BE, Runtime, I, AuthorityId>
 where
 	Block: BlockT,
 	BE: Backend<Block>,
 	I: BlockImport<Block, Error = ConsensusError> + Send + Sync,
 	Runtime: CallApiAt<Block> + Send + Sync,
+	AuthorityId: AuthorityIdBound,
 {
 	type Error = ConsensusError;
 
 	async fn import_block(
-		&mut self,
+		&self,
 		mut block: BlockImportParams<Block>,
 	) -> Result<ImportResult, Self::Error> {
 		let hash = block.post_hash();
@@ -145,7 +152,7 @@ where
 				// The block is imported as part of some chain sync.
 				// The voter doesn't need to process it now.
 				// It will be detected and processed as part of the voter state init.
-				return Ok(inner_import_result)
+				return Ok(inner_import_result);
 			},
 		}
 
@@ -156,13 +163,13 @@ where
 						// The proof is valid and the block is imported and final, we can import.
 						debug!(
 							target: LOG_TARGET,
-							"🥩 import justif {:?} for block number {:?}.", proof, number
+							"🥩 import justif {} for block number {:?}.", proof, number
 						);
 						// Send the justification to the BEEFY voter for processing.
 						self.justification_sender
 							.notify(|| Ok::<_, ()>(proof))
 							.expect("the closure always returns Ok; qed.");
-						metric_inc!(self, beefy_good_justification_imports);
+						metric_inc!(self.metrics, beefy_good_justification_imports);
 					},
 					Err(err) => {
 						debug!(
@@ -171,7 +178,7 @@ where
 							number,
 							err,
 						);
-						metric_inc!(self, beefy_bad_justification_imports);
+						metric_inc!(self.metrics, beefy_bad_justification_imports);
 					},
 				}
 			},
@@ -182,7 +189,7 @@ where
 	}
 
 	async fn check_block(
-		&mut self,
+		&self,
 		block: BlockCheckParams<Block>,
 	) -> Result<ImportResult, Self::Error> {
 		self.inner.check_block(block).await

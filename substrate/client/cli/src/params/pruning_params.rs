@@ -29,11 +29,18 @@ pub struct PruningParams {
 	/// should be pruned (ie, removed) from the database.
 	/// This setting can only be set on the first creation of the database. Every subsequent run
 	/// will load the pruning mode from the database and will error if the stored mode doesn't
-	/// match this CLI value. It is fine to drop this CLI flag for subsequent runs.
+	/// match this CLI value. It is fine to drop this CLI flag for subsequent runs. The only
+	/// exception is that `NUMBER` can change between subsequent runs (increasing it will not
+	/// lead to restoring pruned state).
+	///
 	/// Possible values:
-	///  - archive: Keep the state of all blocks.
-	///  - 'archive-canonical' Keep only the state of finalized blocks.
-	///  - number Keep the state of the last number of finalized blocks.
+	///
+	/// - archive: Keep the data of all blocks.
+	///
+	/// - archive-canonical: Keep only the data of finalized blocks.
+	///
+	/// - NUMBER: Keep the data of the last NUMBER of finalized blocks.
+	///
 	/// [default: 256]
 	#[arg(alias = "pruning", long, value_name = "PRUNING_MODE")]
 	pub state_pruning: Option<DatabasePruningMode>,
@@ -42,11 +49,14 @@ pub struct PruningParams {
 	///
 	/// This mode specifies when the block's body (including justifications)
 	/// should be pruned (ie, removed) from the database.
+	///
 	/// Possible values:
-	///  - 'archive' Keep all blocks.
-	///  - 'archive-canonical' Keep only finalized blocks.
-	///  - number
-	///  Keep the last `number` of finalized blocks.
+	///
+	/// - archive: Keep the data of all blocks.
+	///
+	/// - archive-canonical: Keep only the data of finalized blocks.
+	///
+	/// - NUMBER: Keep the data of the last NUMBER of finalized blocks.
 	#[arg(
 		alias = "keep-blocks",
 		long,
@@ -115,5 +125,41 @@ impl Into<BlocksPruning> for DatabasePruningMode {
 			DatabasePruningMode::ArchiveCanonical => BlocksPruning::KeepFinalized,
 			DatabasePruningMode::Custom(n) => BlocksPruning::Some(n),
 		}
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use clap::Parser;
+
+	#[derive(Parser)]
+	struct Cli {
+		#[clap(flatten)]
+		pruning: PruningParams,
+	}
+
+	#[test]
+	fn pruning_params_parse_works() {
+		let Cli { pruning } =
+			Cli::parse_from(["", "--state-pruning=1000", "--blocks-pruning=1000"]);
+
+		assert!(matches!(pruning.state_pruning, Some(DatabasePruningMode::Custom(1000))));
+		assert!(matches!(pruning.blocks_pruning, DatabasePruningMode::Custom(1000)));
+
+		let Cli { pruning } =
+			Cli::parse_from(["", "--state-pruning=archive", "--blocks-pruning=archive"]);
+
+		assert!(matches!(dbg!(pruning.state_pruning), Some(DatabasePruningMode::Archive)));
+		assert!(matches!(pruning.blocks_pruning, DatabasePruningMode::Archive));
+
+		let Cli { pruning } = Cli::parse_from([
+			"",
+			"--state-pruning=archive-canonical",
+			"--blocks-pruning=archive-canonical",
+		]);
+
+		assert!(matches!(dbg!(pruning.state_pruning), Some(DatabasePruningMode::ArchiveCanonical)));
+		assert!(matches!(pruning.blocks_pruning, DatabasePruningMode::ArchiveCanonical));
 	}
 }

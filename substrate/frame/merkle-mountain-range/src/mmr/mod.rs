@@ -18,10 +18,9 @@
 mod mmr;
 pub mod storage;
 
-use sp_mmr_primitives::{mmr_lib, DataOrHash, FullLeaf};
-use sp_runtime::traits;
-
-pub use self::mmr::{verify_leaves_proof, Mmr};
+pub use self::mmr::{is_ancestry_proof_optimal, verify_ancestry_proof, verify_leaves_proof, Mmr};
+use crate::primitives::{mmr_lib, DataOrHash, FullLeaf};
+use frame::traits;
 
 /// Node type for runtime `T`.
 pub type NodeOf<T, I, L> = Node<<T as crate::Config<I>>::Hashing, L>;
@@ -30,7 +29,7 @@ pub type NodeOf<T, I, L> = Node<<T as crate::Config<I>>::Hashing, L>;
 pub type Node<H, L> = DataOrHash<H, L>;
 
 /// Default Merging & Hashing behavior for MMR.
-pub struct Hasher<H, L>(sp_std::marker::PhantomData<(H, L)>);
+pub struct Hasher<H, L>(core::marker::PhantomData<(H, L)>);
 
 impl<H: traits::Hash, L: FullLeaf> mmr_lib::Merge for Hasher<H, L> {
 	type Item = Node<H, L>;

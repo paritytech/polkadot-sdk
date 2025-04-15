@@ -19,20 +19,30 @@
 //! votes.
 
 use crate::dispatch::Parameter;
+use alloc::{vec, vec::Vec};
 use codec::{HasCompact, MaxEncodedLen};
 use sp_arithmetic::Perbill;
 use sp_runtime::{traits::Member, DispatchError};
-use sp_std::prelude::*;
 
 pub trait VoteTally<Votes, Class> {
+	/// Initializes a new tally.
 	fn new(_: Class) -> Self;
+	/// Returns the number of positive votes for the tally.
 	fn ayes(&self, class: Class) -> Votes;
+	/// Returns the approval ratio (positive to total votes) for the tally, without multipliers
+	/// (e.g. conviction, ranks, etc.).
 	fn support(&self, class: Class) -> Perbill;
+	/// Returns the approval ratio (positive to total votes) for the tally.
 	fn approval(&self, class: Class) -> Perbill;
+	/// Returns an instance of the tally representing a unanimous approval, for benchmarking
+	/// purposes.
 	#[cfg(feature = "runtime-benchmarks")]
 	fn unanimity(class: Class) -> Self;
+	/// Returns an instance of the tally representing a rejecting state, for benchmarking purposes.
 	#[cfg(feature = "runtime-benchmarks")]
 	fn rejection(class: Class) -> Self;
+	/// Returns an instance of the tally given some `approval` and `support`, for benchmarking
+	/// purposes.
 	#[cfg(feature = "runtime-benchmarks")]
 	fn from_requirements(support: Perbill, approval: Perbill, class: Class) -> Self;
 	#[cfg(feature = "runtime-benchmarks")]
@@ -64,7 +74,7 @@ impl<Tally, Moment, Class> PollStatus<Tally, Moment, Class> {
 	}
 }
 
-pub struct ClassCountOf<P, T>(sp_std::marker::PhantomData<(P, T)>);
+pub struct ClassCountOf<P, T>(core::marker::PhantomData<(P, T)>);
 impl<T, P: Polling<T>> sp_runtime::traits::Get<u32> for ClassCountOf<P, T> {
 	fn get() -> u32 {
 		P::classes().len() as u32
@@ -114,5 +124,51 @@ pub trait Polling<Tally> {
 	#[cfg(feature = "runtime-benchmarks")]
 	fn max_ongoing() -> (Self::Class, u32) {
 		(Self::classes().into_iter().next().expect("Always one class"), u32::max_value())
+	}
+}
+
+/// NoOp polling is required if pallet-referenda functionality not needed.
+pub struct NoOpPoll;
+impl<Tally> Polling<Tally> for NoOpPoll {
+	type Index = u8;
+	type Votes = u32;
+	type Class = u16;
+	type Moment = u64;
+
+	fn classes() -> Vec<Self::Class> {
+		vec![]
+	}
+
+	fn as_ongoing(_index: Self::Index) -> Option<(Tally, Self::Class)> {
+		None
+	}
+
+	fn access_poll<R>(
+		_index: Self::Index,
+		f: impl FnOnce(PollStatus<&mut Tally, Self::Moment, Self::Class>) -> R,
+	) -> R {
+		f(PollStatus::None)
+	}
+
+	fn try_access_poll<R>(
+		_index: Self::Index,
+		f: impl FnOnce(PollStatus<&mut Tally, Self::Moment, Self::Class>) -> Result<R, DispatchError>,
+	) -> Result<R, DispatchError> {
+		f(PollStatus::None)
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn create_ongoing(_class: Self::Class) -> Result<Self::Index, ()> {
+		Err(())
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn end_ongoing(_index: Self::Index, _approved: bool) -> Result<(), ()> {
+		Err(())
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn max_ongoing() -> (Self::Class, u32) {
+		(0, 0)
 	}
 }

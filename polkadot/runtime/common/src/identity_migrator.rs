@@ -31,7 +31,7 @@ use pallet_identity;
 use sp_core::Get;
 
 #[cfg(feature = "runtime-benchmarks")]
-use frame_benchmarking::{account, impl_benchmark_test_suite, v2::*, BenchmarkError};
+use frame_benchmarking::{account, v2::*, BenchmarkError};
 
 pub trait WeightInfo {
 	fn reap_identity(r: u32, s: u32) -> Weight;
@@ -160,27 +160,37 @@ pub trait OnReapIdentity<AccountId> {
 	/// - `bytes`: The byte size of `IdentityInfo`.
 	/// - `subs`: The number of sub-accounts they had.
 	fn on_reap_identity(who: &AccountId, bytes: u32, subs: u32) -> DispatchResult;
+
+	/// Ensure that identity reaping will be succesful in benchmarking.
+	///
+	/// Should setup the state in a way that the same call ot `[Self::on_reap_identity]` will be
+	/// successful.
+	#[cfg(feature = "runtime-benchmarks")]
+	fn ensure_successful_identity_reaping(who: &AccountId, bytes: u32, subs: u32);
 }
 
 impl<AccountId> OnReapIdentity<AccountId> for () {
 	fn on_reap_identity(_who: &AccountId, _bytes: u32, _subs: u32) -> DispatchResult {
 		Ok(())
 	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn ensure_successful_identity_reaping(_: &AccountId, _: u32, _: u32) {}
 }
 
 #[cfg(feature = "runtime-benchmarks")]
 #[benchmarks]
 mod benchmarks {
 	use super::*;
+	use alloc::{boxed::Box, vec, vec::Vec};
+	use codec::Encode;
 	use frame_support::traits::EnsureOrigin;
 	use frame_system::RawOrigin;
 	use pallet_identity::{Data, IdentityInformationProvider, Judgement, Pallet as Identity};
-	use parity_scale_codec::Encode;
 	use sp_runtime::{
 		traits::{Bounded, Hash, StaticLookup},
 		Saturating,
 	};
-	use sp_std::{boxed::Box, vec::Vec, *};
 
 	const SEED: u32 = 0;
 
@@ -218,6 +228,12 @@ mod benchmarks {
 			subs.push((sub_account, data.clone()));
 		}
 		Identity::<T>::set_subs(target_origin.clone(), subs.clone())?;
+
+		T::ReapIdentityHandler::ensure_successful_identity_reaping(
+			&target,
+			info.encoded_size() as u32,
+			subs.len() as u32,
+		);
 
 		// add registrars and provide judgements
 		let registrar_origin = T::RegistrarOrigin::try_successful_origin()

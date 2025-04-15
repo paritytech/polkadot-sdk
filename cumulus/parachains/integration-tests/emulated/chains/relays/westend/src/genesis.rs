@@ -14,10 +14,10 @@
 // limitations under the License.
 
 // Substrate
-use beefy_primitives::ecdsa_crypto::AuthorityId as BeefyId;
-use grandpa::AuthorityId as GrandpaId;
+use sc_consensus_grandpa::AuthorityId as GrandpaId;
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_consensus_babe::AuthorityId as BabeId;
+use sp_consensus_beefy::ecdsa_crypto::AuthorityId as BeefyId;
 use sp_core::storage::Storage;
 use sp_runtime::Perbill;
 
@@ -26,7 +26,7 @@ use polkadot_primitives::{AssignmentId, ValidatorId};
 
 // Cumulus
 use emulated_integration_tests_common::{
-	accounts, build_genesis_storage, get_from_seed, get_host_config, validators,
+	accounts, build_genesis_storage, get_host_config, validators,
 };
 use parachains_common::Balance;
 use westend_runtime_constants::currency::UNITS as WND;
@@ -58,6 +58,7 @@ pub fn genesis() -> Storage {
 		system: westend_runtime::SystemConfig::default(),
 		balances: westend_runtime::BalancesConfig {
 			balances: accounts::init_balances().iter().cloned().map(|k| (k, ENDOWMENT)).collect(),
+			..Default::default()
 		},
 		session: westend_runtime::SessionConfig {
 			keys: validators::initial_authorities()
@@ -72,20 +73,19 @@ pub fn genesis() -> Storage {
 							x.4.clone(),
 							x.5.clone(),
 							x.6.clone(),
-							get_from_seed::<BeefyId>("Alice"),
+							x.7.clone(),
 						),
 					)
 				})
 				.collect::<Vec<_>>(),
+			..Default::default()
 		},
 		staking: westend_runtime::StakingConfig {
 			validator_count: validators::initial_authorities().len() as u32,
 			minimum_validator_count: 1,
 			stakers: validators::initial_authorities()
 				.iter()
-				.map(|x| {
-					(x.0.clone(), x.1.clone(), STASH, westend_runtime::StakerStatus::Validator)
-				})
+				.map(|x| (x.0.clone(), x.1.clone(), STASH, pallet_staking::StakerStatus::Validator))
 				.collect(),
 			invulnerables: validators::initial_authorities().iter().map(|x| x.0.clone()).collect(),
 			force_era: pallet_staking::Forcing::ForceNone,
@@ -94,7 +94,7 @@ pub fn genesis() -> Storage {
 		},
 		babe: westend_runtime::BabeConfig {
 			authorities: Default::default(),
-			epoch_config: Some(westend_runtime::BABE_GENESIS_EPOCH_CONFIG),
+			epoch_config: westend_runtime::BABE_GENESIS_EPOCH_CONFIG,
 			..Default::default()
 		},
 		configuration: westend_runtime::ConfigurationConfig { config: get_host_config() },

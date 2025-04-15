@@ -1,0 +1,16 @@
+title: "Treat XCM ExceedsStackLimit errors as transient in the MQ pallet"
+
+doc:
+  - audience: Runtime User
+    description: |
+      Fixes an issue where the MessageQueue can incorrectly assume that a message will permanently fail to process and disallow retrial of it.
+
+crates:
+  - name: frame-support
+    bump: major
+  - name: pallet-message-queue
+    bump: patch
+  - name: staging-xcm-builder
+    bump: patch
+  - name: staging-xcm-executor
+    bump: patch    

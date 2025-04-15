@@ -22,17 +22,10 @@ use super::*;
 use crate as scheduler;
 use frame_support::{
 	derive_impl, ord_parameter_types, parameter_types,
-	traits::{
-		ConstU32, ConstU64, Contains, EitherOfDiverse, EqualPrivilegeOnly, OnFinalize, OnInitialize,
-	},
-	weights::constants::RocksDbWeight,
+	traits::{ConstU32, Contains, EitherOfDiverse, EqualPrivilegeOnly},
 };
 use frame_system::{EnsureRoot, EnsureSignedBy};
-use sp_core::H256;
-use sp_runtime::{
-	traits::{BlakeTwo256, IdentityLookup},
-	BuildStorage, Perbill,
-};
+use sp_runtime::{BuildStorage, Perbill};
 
 // Logger module to track execution.
 #[frame_support::pallet]
@@ -50,6 +43,17 @@ pub mod logger {
 
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
+
+	#[pallet::storage]
+	pub type Threshold<T: Config> = StorageValue<_, (BlockNumberFor<T>, BlockNumberFor<T>)>;
+
+	#[pallet::error]
+	pub enum Error<T> {
+		/// Under the threshold.
+		TooEarly,
+		/// Over the threshold.
+		TooLate,
+	}
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {}
@@ -89,6 +93,20 @@ pub mod logger {
 			});
 			Ok(())
 		}
+
+		#[pallet::call_index(2)]
+		#[pallet::weight(*weight)]
+		pub fn timed_log(origin: OriginFor<T>, i: u32, weight: Weight) -> DispatchResult {
+			let now = frame_system::Pallet::<T>::block_number();
+			let (start, end) = Threshold::<T>::get().unwrap_or((0u32.into(), u32::MAX.into()));
+			ensure!(now >= start, Error::<T>::TooEarly);
+			ensure!(now <= end, Error::<T>::TooLate);
+			Self::deposit_event(Event::Logged(i, weight));
+			Log::mutate(|log| {
+				log.push((origin.caller().clone(), i));
+			});
+			Ok(())
+		}
 	}
 }
 
@@ -119,31 +137,10 @@ parameter_types! {
 		);
 }
 
-#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl system::Config for Test {
 	type BaseCallFilter = BaseFilter;
-	type BlockWeights = BlockWeights;
-	type BlockLength = ();
-	type DbWeight = RocksDbWeight;
-	type RuntimeOrigin = RuntimeOrigin;
-	type RuntimeCall = RuntimeCall;
-	type Nonce = u64;
-	type Hash = H256;
-	type Hashing = BlakeTwo256;
-	type AccountId = u64;
-	type Lookup = IdentityLookup<Self::AccountId>;
 	type Block = Block;
-	type RuntimeEvent = RuntimeEvent;
-	type BlockHashCount = ConstU64<250>;
-	type Version = ();
-	type PalletInfo = PalletInfo;
-	type AccountData = ();
-	type OnNewAccount = ();
-	type OnKilledAccount = ();
-	type SystemWeightInfo = ();
-	type SS58Prefix = ();
-	type OnSetCode = ();
-	type MaxConsumers = ConstU32<16>;
 }
 impl logger::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
@@ -198,9 +195,24 @@ impl WeightInfo for TestWeightInfo {
 	fn cancel_named(_s: u32) -> Weight {
 		Weight::from_parts(50, 0)
 	}
+	fn schedule_retry(_s: u32) -> Weight {
+		Weight::from_parts(100000, 0)
+	}
+	fn set_retry() -> Weight {
+		Weight::from_parts(50, 0)
+	}
+	fn set_retry_named() -> Weight {
+		Weight::from_parts(50, 0)
+	}
+	fn cancel_retry() -> Weight {
+		Weight::from_parts(50, 0)
+	}
+	fn cancel_retry_named() -> Weight {
+		Weight::from_parts(50, 0)
+	}
 }
 parameter_types! {
-	pub MaximumSchedulerWeight: Weight = Perbill::from_percent(80) *
+	pub storage MaximumSchedulerWeight: Weight = Perbill::from_percent(80) *
 		BlockWeights::get().max_block;
 }
 
@@ -211,10 +223,11 @@ impl Config for Test {
 	type RuntimeCall = RuntimeCall;
 	type MaximumWeight = MaximumSchedulerWeight;
 	type ScheduleOrigin = EitherOfDiverse<EnsureRoot<u64>, EnsureSignedBy<One, u64>>;
+	type OriginPrivilegeCmp = EqualPrivilegeOnly;
 	type MaxScheduledPerBlock = ConstU32<10>;
 	type WeightInfo = TestWeightInfo;
-	type OriginPrivilegeCmp = EqualPrivilegeOnly;
 	type Preimages = Preimage;
+	type BlockNumberProvider = frame_system::Pallet<Self>;
 }
 
 pub type LoggerCall = logger::Call<Test>;
@@ -222,14 +235,6 @@ pub type LoggerCall = logger::Call<Test>;
 pub fn new_test_ext() -> sp_io::TestExternalities {
 	let t = system::GenesisConfig::<Test>::default().build_storage().unwrap();
 	t.into()
-}
-
-pub fn run_to_block(n: u64) {
-	while System::block_number() < n {
-		Scheduler::on_finalize(System::block_number());
-		System::set_block_number(System::block_number() + 1);
-		Scheduler::on_initialize(System::block_number());
-	}
 }
 
 pub fn root() -> OriginCaller {

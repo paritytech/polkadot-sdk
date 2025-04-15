@@ -131,12 +131,67 @@ pub mod fee {
 
 /// Consensus-related.
 pub mod consensus {
+	use frame_support::weights::{constants::WEIGHT_REF_TIME_PER_SECOND, Weight};
+
 	/// Maximum number of blocks simultaneously accepted by the Runtime, not yet included into the
 	/// relay chain.
-	pub const UNINCLUDED_SEGMENT_CAPACITY: u32 = 1;
+	pub const UNINCLUDED_SEGMENT_CAPACITY: u32 = 3;
 	/// How many parachain blocks are processed by the relay chain per parent. Limits the number of
 	/// blocks authored per slot.
 	pub const BLOCK_PROCESSING_VELOCITY: u32 = 1;
 	/// Relay chain slot duration, in milliseconds.
 	pub const RELAY_CHAIN_SLOT_DURATION_MILLIS: u32 = 6000;
+
+	/// We allow for 2 seconds of compute with a 6 second average block.
+	pub const MAXIMUM_BLOCK_WEIGHT: Weight = Weight::from_parts(
+		WEIGHT_REF_TIME_PER_SECOND.saturating_mul(2),
+		cumulus_primitives_core::relay_chain::MAX_POV_SIZE as u64,
+	);
+
+	/// This determines the average expected block time that we are targeting.
+	/// Blocks will be produced at a minimum duration defined by `SLOT_DURATION`.
+	/// `SLOT_DURATION` is picked up by `pallet_timestamp` which is in turn picked
+	/// up by `pallet_aura` to implement `fn slot_duration()`.
+	///
+	/// Change this to adjust the block time.
+	pub const MILLISECS_PER_BLOCK: u64 = 6000;
+	pub const SLOT_DURATION: u64 = MILLISECS_PER_BLOCK;
+}
+
+/// Time-related
+pub mod time {
+	use polkadot_core_primitives::BlockNumber;
+
+	// Time is measured by number of blocks.
+	pub const MINUTES: BlockNumber =
+		60_000 / (super::consensus::MILLISECS_PER_BLOCK as BlockNumber);
+	pub const HOURS: BlockNumber = MINUTES * 60;
+	pub const DAYS: BlockNumber = HOURS * 24;
+}
+
+pub mod snowbridge {
+	use cumulus_primitives_core::ParaId;
+	use frame_support::parameter_types;
+	use xcm::prelude::{Location, NetworkId};
+
+	/// The pallet index of the Ethereum inbound queue pallet in the bridge hub runtime.
+	pub const INBOUND_QUEUE_PALLET_INDEX_V1: u8 = 80;
+	pub const INBOUND_QUEUE_PALLET_INDEX_V2: u8 = 91;
+
+	pub const FRONTEND_PALLET_INDEX: u8 = 36;
+
+	parameter_types! {
+		/// Network and location for the Ethereum chain. On Westend, the Ethereum chain bridged
+		/// to is the Sepolia Ethereum testnet, with chain ID 11155111.
+		/// <https://chainlist.org/chain/11155111>
+		/// <https://ethereum.org/en/developers/docs/apis/json-rpc/#net_version>
+		pub EthereumNetwork: NetworkId = NetworkId::Ethereum { chain_id: 11155111 };
+		pub EthereumLocation: Location = Location::new(2, EthereumNetwork::get());
+		pub AssetHubParaId: ParaId = ParaId::from(westend_runtime_constants::system_parachain::ASSET_HUB_ID);
+	}
+}
+
+pub mod xcm_version {
+	/// The default XCM version to set in genesis config.
+	pub const SAFE_XCM_VERSION: u32 = xcm::prelude::XCM_VERSION;
 }

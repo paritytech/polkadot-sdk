@@ -19,11 +19,19 @@
 use crate::{
 	barriers::{AllowSubscriptionsFrom, RespectSuspension, TrailingSetTopicAsId},
 	test_utils::*,
+	EnsureDecodableXcm,
 };
 pub use crate::{
-	AliasForeignAccountId32, AllowExplicitUnpaidExecutionFrom, AllowKnownQueryResponses,
-	AllowTopLevelPaidExecutionFrom, AllowUnpaidExecutionFrom, FixedRateOfFungible,
-	FixedWeightBounds, TakeWeightCredit,
+	AliasChildLocation, AliasForeignAccountId32, AllowExplicitUnpaidExecutionFrom,
+	AllowKnownQueryResponses, AllowTopLevelPaidExecutionFrom, AllowUnpaidExecutionFrom,
+	FixedRateOfFungible, FixedWeightBounds, TakeWeightCredit,
+};
+pub use alloc::collections::{btree_map::BTreeMap, btree_set::BTreeSet};
+pub use codec::{Decode, DecodeWithMemTracking, Encode};
+pub use core::{
+	cell::{Cell, RefCell},
+	fmt::Debug,
+	ops::ControlFlow,
 };
 use frame_support::traits::{ContainsPair, Everything};
 pub use frame_support::{
@@ -32,18 +40,12 @@ pub use frame_support::{
 	sp_runtime::{traits::Dispatchable, DispatchError, DispatchErrorWithPostInfo},
 	traits::{Contains, Get, IsInVec},
 };
-pub use parity_scale_codec::{Decode, Encode};
-pub use sp_std::{
-	cell::{Cell, RefCell},
-	collections::{btree_map::BTreeMap, btree_set::BTreeSet},
-	fmt::Debug,
-};
-pub use xcm::latest::{prelude::*, Weight};
-use xcm_executor::traits::{Properties, QueryHandler, QueryResponseStatus};
+pub use xcm::latest::{prelude::*, QueryId, Weight};
 pub use xcm_executor::{
 	traits::{
-		AssetExchange, AssetLock, CheckSuspension, ConvertOrigin, Enact, ExportXcm, FeeManager,
-		FeeReason, LockError, OnResponse, TransactAsset,
+		AssetExchange, AssetLock, CheckSuspension, ConvertOrigin, DenyExecution, Enact, ExportXcm,
+		FeeManager, FeeReason, LockError, OnResponse, Properties, QueryHandler,
+		QueryResponseStatus, TransactAsset,
 	},
 	AssetsInHolding, Config,
 };
@@ -60,7 +62,9 @@ pub enum TestOrigin {
 ///
 /// Each item contains the amount of weight that it *wants* to consume as the first item, and the
 /// actual amount (if different from the former) in the second option.
-#[derive(Debug, Encode, Decode, Eq, PartialEq, Clone, Copy, scale_info::TypeInfo)]
+#[derive(
+	Debug, Encode, Decode, DecodeWithMemTracking, Eq, PartialEq, Clone, Copy, scale_info::TypeInfo,
+)]
 pub enum TestCall {
 	OnlyRoot(Weight, Option<Weight>),
 	OnlyParachain(Weight, Option<Weight>, Option<u32>),
@@ -99,13 +103,13 @@ impl Dispatchable for TestCall {
 
 impl GetDispatchInfo for TestCall {
 	fn get_dispatch_info(&self) -> DispatchInfo {
-		let weight = *match self {
+		let call_weight = *match self {
 			TestCall::OnlyRoot(estimate, ..) |
 			TestCall::OnlyParachain(estimate, ..) |
 			TestCall::OnlySigned(estimate, ..) |
 			TestCall::Any(estimate, ..) => estimate,
 		};
-		DispatchInfo { weight, ..Default::default() }
+		DispatchInfo { call_weight, ..Default::default() }
 	}
 }
 
@@ -165,8 +169,8 @@ pub fn set_exporter_override(
 pub fn clear_exporter_override() {
 	EXPORTER_OVERRIDE.with(|x| x.replace(None));
 }
-pub struct TestMessageSender;
-impl SendXcm for TestMessageSender {
+pub struct TestMessageSenderImpl;
+impl SendXcm for TestMessageSenderImpl {
 	type Ticket = (Location, Xcm<()>, XcmHash);
 	fn validate(
 		dest: &mut Option<Location>,
@@ -183,6 +187,8 @@ impl SendXcm for TestMessageSender {
 		Ok(hash)
 	}
 }
+pub type TestMessageSender = EnsureDecodableXcm<TestMessageSenderImpl>;
+
 pub struct TestMessageExporter;
 impl ExportXcm for TestMessageExporter {
 	type Ticket = (NetworkId, u32, InteriorLocation, InteriorLocation, Xcm<()>, XcmHash);
@@ -414,7 +420,6 @@ pub struct TestQueryHandler<T, BlockNumber>(core::marker::PhantomData<(T, BlockN
 impl<T: Config, BlockNumber: sp_runtime::traits::Zero + Encode> QueryHandler
 	for TestQueryHandler<T, BlockNumber>
 {
-	type QueryId = u64;
 	type BlockNumber = BlockNumber;
 	type Error = XcmError;
 	type UniversalLocation = T::UniversalLocation;
@@ -423,7 +428,7 @@ impl<T: Config, BlockNumber: sp_runtime::traits::Zero + Encode> QueryHandler
 		responder: impl Into<Location>,
 		_timeout: Self::BlockNumber,
 		_match_querier: impl Into<Location>,
-	) -> Self::QueryId {
+	) -> QueryId {
 		let query_id = 1;
 		expect_response(query_id, responder.into());
 		query_id
@@ -433,7 +438,7 @@ impl<T: Config, BlockNumber: sp_runtime::traits::Zero + Encode> QueryHandler
 		message: &mut Xcm<()>,
 		responder: impl Into<Location>,
 		timeout: Self::BlockNumber,
-	) -> Result<Self::QueryId, Self::Error> {
+	) -> Result<QueryId, Self::Error> {
 		let responder = responder.into();
 		let destination = Self::UniversalLocation::get()
 			.invert_target(&responder)
@@ -445,7 +450,7 @@ impl<T: Config, BlockNumber: sp_runtime::traits::Zero + Encode> QueryHandler
 		Ok(query_id)
 	}
 
-	fn take_response(query_id: Self::QueryId) -> QueryResponseStatus<Self::BlockNumber> {
+	fn take_response(query_id: QueryId) -> QueryResponseStatus<Self::BlockNumber> {
 		QUERIES
 			.with(|q| {
 				q.borrow().get(&query_id).and_then(|v| match v {
@@ -460,7 +465,7 @@ impl<T: Config, BlockNumber: sp_runtime::traits::Zero + Encode> QueryHandler
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
-	fn expect_response(_id: Self::QueryId, _response: xcm::latest::Response) {
+	fn expect_response(_id: QueryId, _response: xcm::latest::Response) {
 		// Unnecessary since it's only a test implementation
 	}
 }
@@ -693,6 +698,20 @@ impl AssetExchange for TestAssetExchange {
 		EXCHANGE_ASSETS.with(|l| l.replace(have));
 		Ok(get)
 	}
+
+	fn quote_exchange_price(give: &Assets, want: &Assets, maximal: bool) -> Option<Assets> {
+		let mut have = EXCHANGE_ASSETS.with(|l| l.borrow().clone());
+		if !have.contains_assets(want) {
+			return None;
+		}
+		let get = if maximal {
+			have.saturating_take(give.clone().into())
+		} else {
+			have.saturating_take(want.clone().into())
+		};
+		let result: Vec<Asset> = get.fungible_assets_iter().collect();
+		Some(result.into())
+	}
 }
 
 pub struct SiblingPrefix;
@@ -716,10 +735,14 @@ impl Contains<Location> for ParentPrefix {
 	}
 }
 
+/// Pairs (location1, location2) where location1 can alias as location2.
+pub type Aliasers = (AliasForeignAccountId32<SiblingPrefix>, AliasChildLocation);
+
 pub struct TestConfig;
 impl Config for TestConfig {
 	type RuntimeCall = TestCall;
 	type XcmSender = TestMessageSender;
+	type XcmEventEmitter = ();
 	type AssetTransactor = TestAssetTransactor;
 	type OriginConverter = TestOriginConverter;
 	type IsReserve = TestIsReserve;
@@ -741,8 +764,12 @@ impl Config for TestConfig {
 	type MessageExporter = TestMessageExporter;
 	type CallDispatcher = TestCall;
 	type SafeCallFilter = Everything;
-	type Aliasers = AliasForeignAccountId32<SiblingPrefix>;
+	type Aliasers = Aliasers;
 	type TransactionalProcessor = ();
+	type HrmpNewChannelOpenRequestHandler = ();
+	type HrmpChannelAcceptedHandler = ();
+	type HrmpChannelClosingHandler = ();
+	type XcmRecorder = ();
 }
 
 pub fn fungible_multi_asset(location: Location, amount: u128) -> Asset {

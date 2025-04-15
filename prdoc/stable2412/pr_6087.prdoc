@@ -1,0 +1,12 @@
+title: Expose private structs in pallet_nfts and pallet_uniques.
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      PR changes certain structs in pallet_nfts and pallet_uniques into public. It also changes 2 storages (collection & asset metadata) into public in pallet_uniques.
+
+crates:
+  - name: pallet-nfts
+    bump: patch
+  - name: pallet-uniques
+    bump: patch

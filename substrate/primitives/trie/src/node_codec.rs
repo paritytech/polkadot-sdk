@@ -19,9 +19,10 @@
 
 use super::node_header::{NodeHeader, NodeKind};
 use crate::{error::Error, trie_constants};
+use alloc::{borrow::Borrow, vec::Vec};
 use codec::{Compact, Decode, Encode, Input};
+use core::{marker::PhantomData, ops::Range};
 use hash_db::Hasher;
-use sp_std::{borrow::Borrow, marker::PhantomData, ops::Range, vec::Vec};
 use trie_db::{
 	nibble_ops,
 	node::{NibbleSlicePlan, NodeHandlePlan, NodePlan, Value, ValuePlan},
@@ -30,7 +31,7 @@ use trie_db::{
 
 /// Helper struct for trie node decoder. This implements `codec::Input` on a byte slice, while
 /// tracking the absolute position. This is similar to `std::io::Cursor` but does not implement
-/// `Read` and `io` is not in `sp-std`.
+/// `Read` and `io` are not in `core` or `alloc`.
 struct ByteSliceInput<'a> {
 	data: &'a [u8],
 	offset: usize,
@@ -109,14 +110,15 @@ where
 			NodeHeader::Null => Ok(NodePlan::Empty),
 			NodeHeader::HashedValueBranch(nibble_count) | NodeHeader::Branch(_, nibble_count) => {
 				let padding = nibble_count % nibble_ops::NIBBLE_PER_BYTE != 0;
+				// data should be at least of size offset + 1
+				if data.len() < input.offset + 1 {
+					return Err(Error::BadFormat)
+				}
 				// check that the padding is valid (if any)
 				if padding && nibble_ops::pad_left(data[input.offset]) != 0 {
 					return Err(Error::BadFormat)
 				}
-				let partial = input.take(
-					(nibble_count + (nibble_ops::NIBBLE_PER_BYTE - 1)) /
-						nibble_ops::NIBBLE_PER_BYTE,
-				)?;
+				let partial = input.take(nibble_count.div_ceil(nibble_ops::NIBBLE_PER_BYTE))?;
 				let partial_padding = nibble_ops::number_padding(nibble_count);
 				let bitmap_range = input.take(BITMAP_LENGTH)?;
 				let bitmap = Bitmap::decode(&data[bitmap_range])?;
@@ -153,14 +155,15 @@ where
 			},
 			NodeHeader::HashedValueLeaf(nibble_count) | NodeHeader::Leaf(nibble_count) => {
 				let padding = nibble_count % nibble_ops::NIBBLE_PER_BYTE != 0;
+				// data should be at least of size offset + 1
+				if data.len() < input.offset + 1 {
+					return Err(Error::BadFormat)
+				}
 				// check that the padding is valid (if any)
 				if padding && nibble_ops::pad_left(data[input.offset]) != 0 {
 					return Err(Error::BadFormat)
 				}
-				let partial = input.take(
-					(nibble_count + (nibble_ops::NIBBLE_PER_BYTE - 1)) /
-						nibble_ops::NIBBLE_PER_BYTE,
-				)?;
+				let partial = input.take(nibble_count.div_ceil(nibble_ops::NIBBLE_PER_BYTE))?;
 				let partial_padding = nibble_ops::number_padding(nibble_count);
 				let value = if contains_hash {
 					ValuePlan::Node(input.take(H::LENGTH)?)

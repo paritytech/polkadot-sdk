@@ -1,0 +1,20 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: "Broker: sale price runtime api"
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Defines a runtime api for `pallet-broker` for getting the current price 
+      of a core in the ongoing sale.
+
+  - audience: Runtime User
+    description: |
+      Defines a runtime api for `pallet-broker` for getting the current price 
+      of a core in the ongoing sale.
+
+crates:
+  - name: pallet-broker
+  - name: coretime-rococo-runtime
+  - name: coretime-westend-runtime

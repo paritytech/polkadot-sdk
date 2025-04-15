@@ -1,5 +1,6 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
+// SPDX-License-Identifier: GPL-3.0-or-later WITH Classpath-exception-2.0
 
 // Cumulus is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -8,11 +9,11 @@
 
 // Cumulus is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 // GNU General Public License for more details.
 
 // You should have received a copy of the GNU General Public License
-// along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
+// along with Cumulus. If not, see <https://www.gnu.org/licenses/>.
 
 //! The AuRa consensus algorithm for parachains.
 //!
@@ -22,13 +23,15 @@
 //!
 //! For more information about AuRa, the Substrate crate should be checked.
 
-use codec::Codec;
+use codec::{Codec, Encode};
 use cumulus_client_consensus_common::{
 	ParachainBlockImportMarker, ParachainCandidate, ParachainConsensus,
 };
 use cumulus_primitives_core::{relay_chain::Hash as PHash, PersistedValidationData};
 
+use cumulus_primitives_core::relay_chain::HeadData;
 use futures::lock::Mutex;
+use polkadot_primitives::{BlockNumber as RBlockNumber, Hash as RHash};
 use sc_client_api::{backend::AuxStore, BlockOf};
 use sc_consensus::BlockImport;
 use sc_consensus_slots::{BackoffAuthoringBlocksStrategy, SimpleSlotWorker, SlotInfo};
@@ -42,12 +45,26 @@ use sp_core::crypto::Pair;
 use sp_inherents::CreateInherentDataProviders;
 use sp_keystore::KeystorePtr;
 use sp_runtime::traits::{Block as BlockT, Header as HeaderT, Member, NumberFor};
-use std::{convert::TryFrom, marker::PhantomData, sync::Arc};
+use std::{
+	convert::TryFrom,
+	fs,
+	fs::File,
+	marker::PhantomData,
+	path::PathBuf,
+	sync::{
+		atomic::{AtomicU64, Ordering},
+		Arc,
+	},
+};
 
 mod import_queue;
 
 pub use import_queue::{build_verifier, import_queue, BuildVerifierParams, ImportQueueParams};
-pub use sc_consensus_aura::{slot_duration, AuraVerifier, BuildAuraWorkerParams, SlotProportion};
+use polkadot_node_primitives::PoV;
+pub use sc_consensus_aura::{
+	slot_duration, standalone::slot_duration_at, AuraVerifier, BuildAuraWorkerParams,
+	SlotProportion,
+};
 pub use sc_consensus_slots::InherentDataProviderExt;
 
 pub mod collator;
@@ -61,6 +78,7 @@ pub struct AuraConsensus<B, CIDP, W> {
 	create_inherent_data_providers: Arc<CIDP>,
 	aura_worker: Arc<Mutex<W>>,
 	slot_duration: SlotDuration,
+	last_slot_processed: Arc<AtomicU64>,
 	_phantom: PhantomData<B>,
 }
 
@@ -70,6 +88,7 @@ impl<B, CIDP, W> Clone for AuraConsensus<B, CIDP, W> {
 			create_inherent_data_providers: self.create_inherent_data_providers.clone(),
 			aura_worker: self.aura_worker.clone(),
 			slot_duration: self.slot_duration,
+			last_slot_processed: self.last_slot_processed.clone(),
 			_phantom: PhantomData,
 		}
 	}
@@ -149,6 +168,7 @@ where
 		Box::new(AuraConsensus {
 			create_inherent_data_providers: Arc::new(create_inherent_data_providers),
 			aura_worker: Arc::new(Mutex::new(worker)),
+			last_slot_processed: Default::default(),
 			slot_duration,
 			_phantom: PhantomData,
 		})
@@ -214,8 +234,59 @@ where
 			Some((validation_data.max_pov_size / 2) as usize),
 		);
 
+		// With async backing this function will be called every relay chain block.
+		//
+		// Most parachains currently run with 12 seconds slots and thus, they would try to produce
+		// multiple blocks per slot which very likely would fail on chain. Thus, we have this "hack"
+		// to only produce on block per slot.
+		//
+		// With https://github.com/paritytech/polkadot-sdk/issues/3168 this implementation will be
+		// obsolete and also the underlying issue will be fixed.
+		if self.last_slot_processed.fetch_max(*info.slot, Ordering::Relaxed) >= *info.slot {
+			return None
+		}
+
 		let res = self.aura_worker.lock().await.on_slot(info).await?;
 
 		Some(ParachainCandidate { block: res.block, proof: res.storage_proof })
 	}
+}
+
+/// Export the given `pov` to the file system at `path`.
+///
+/// The file will be named `block_hash_block_number.pov`.
+///
+/// The `parent_header`, `relay_parent_storage_root` and `relay_parent_number` will also be
+/// stored in the file alongside the `pov`. This enables stateless validation of the `pov`.
+pub(crate) fn export_pov_to_path<Block: BlockT>(
+	path: PathBuf,
+	pov: PoV,
+	block_hash: Block::Hash,
+	block_number: NumberFor<Block>,
+	parent_header: Block::Header,
+	relay_parent_storage_root: RHash,
+	relay_parent_number: RBlockNumber,
+	max_pov_size: u32,
+) {
+	if let Err(error) = fs::create_dir_all(&path) {
+		tracing::error!(target: LOG_TARGET, %error, path = %path.display(), "Failed to create PoV export directory");
+		return
+	}
+
+	let mut file = match File::create(path.join(format!("{block_hash:?}_{block_number}.pov"))) {
+		Ok(f) => f,
+		Err(error) => {
+			tracing::error!(target: LOG_TARGET, %error, "Failed to export PoV.");
+			return
+		},
+	};
+
+	pov.encode_to(&mut file);
+	PersistedValidationData {
+		parent_head: HeadData(parent_header.encode()),
+		relay_parent_number,
+		relay_parent_storage_root,
+		max_pov_size,
+	}
+	.encode_to(&mut file);
 }

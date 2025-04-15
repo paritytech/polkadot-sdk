@@ -23,16 +23,9 @@ pub use super::mock_helpers::*;
 use super::*;
 
 use crate as pallet_message_queue;
-use frame_support::{
-	derive_impl, parameter_types,
-	traits::{ConstU32, ConstU64},
-};
-use sp_core::H256;
-use sp_runtime::{
-	traits::{BlakeTwo256, IdentityLookup},
-	BuildStorage,
-};
-use sp_std::collections::btree_map::BTreeMap;
+use alloc::collections::btree_map::BTreeMap;
+use frame_support::{derive_impl, parameter_types};
+use sp_runtime::BuildStorage;
 
 type Block = frame_system::mocking::MockBlock<Test>;
 
@@ -44,37 +37,16 @@ frame_support::construct_runtime!(
 	}
 );
 
-#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
-	type BaseCallFilter = frame_support::traits::Everything;
-	type BlockWeights = ();
-	type BlockLength = ();
-	type DbWeight = ();
-	type RuntimeOrigin = RuntimeOrigin;
-	type Nonce = u64;
-	type Hash = H256;
-	type RuntimeCall = RuntimeCall;
-	type Hashing = BlakeTwo256;
-	type AccountId = u64;
-	type Lookup = IdentityLookup<Self::AccountId>;
 	type Block = Block;
-	type RuntimeEvent = RuntimeEvent;
-	type BlockHashCount = ConstU64<250>;
-	type Version = ();
-	type PalletInfo = PalletInfo;
-	type AccountData = ();
-	type OnNewAccount = ();
-	type OnKilledAccount = ();
-	type SystemWeightInfo = ();
-	type SS58Prefix = ();
-	type OnSetCode = ();
-	type MaxConsumers = ConstU32<16>;
 }
 parameter_types! {
-	pub const HeapSize: u32 = 24;
+	pub const HeapSize: u32 = 40;
 	pub const MaxStale: u32 = 2;
 	pub const ServiceWeight: Option<Weight> = Some(Weight::from_parts(100, 100));
 }
+
 impl Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = MockedWeightInfo;
@@ -85,6 +57,7 @@ impl Config for Test {
 	type HeapSize = HeapSize;
 	type MaxStale = MaxStale;
 	type ServiceWeight = ServiceWeight;
+	type IdleMaxServiceWeight = ServiceWeight;
 }
 
 /// Mocked `WeightInfo` impl with allows to set the weight per call.
@@ -146,6 +119,12 @@ impl crate::weights::WeightInfo for MockedWeightInfo {
 	fn bump_service_head() -> Weight {
 		WeightForCall::get()
 			.get("bump_service_head")
+			.copied()
+			.unwrap_or(DefaultWeightForCall::get())
+	}
+	fn set_service_head() -> Weight {
+		WeightForCall::get()
+			.get("set_service_head")
 			.copied()
 			.unwrap_or(DefaultWeightForCall::get())
 	}
@@ -212,8 +191,15 @@ impl ProcessMessage for RecordingMessageProcessor {
 		if meter.try_consume(required).is_ok() {
 			if let Some(p) = message.strip_prefix(&b"callback="[..]) {
 				let s = String::from_utf8(p.to_vec()).expect("Need valid UTF8");
-				Callback::get()(&origin, s.parse().expect("Expected an u32"));
+				if let Err(()) = Callback::get()(&origin, s.parse().expect("Expected an u32")) {
+					return Err(ProcessMessageError::Corrupt)
+				}
+
+				if s.contains("000") {
+					return Ok(false)
+				}
 			}
+
 			let mut m = MessagesProcessed::get();
 			m.push((message.to_vec(), origin));
 			MessagesProcessed::set(m);
@@ -225,7 +211,8 @@ impl ProcessMessage for RecordingMessageProcessor {
 }
 
 parameter_types! {
-	pub static Callback: Box<fn (&MessageOrigin, u32)> = Box::new(|_, _| {});
+	pub static Callback: Box<fn (&MessageOrigin, u32) -> Result<(), ()>> = Box::new(|_, _| { Ok(()) });
+	pub static IgnoreStackOvError: bool = false;
 }
 
 /// Processed a mocked message. Messages that end with `badformat`, `corrupt`, `unsupported` or
@@ -244,6 +231,8 @@ fn processing_message(msg: &[u8], origin: &MessageOrigin) -> Result<(), ProcessM
 		Err(ProcessMessageError::Unsupported)
 	} else if msg.ends_with("yield") {
 		Err(ProcessMessageError::Yield)
+	} else if msg.ends_with("stacklimitreached") && !IgnoreStackOvError::get() {
+		Err(ProcessMessageError::StackLimitReached)
 	} else {
 		Ok(())
 	}
@@ -277,8 +266,11 @@ impl ProcessMessage for CountingMessageProcessor {
 		if meter.try_consume(required).is_ok() {
 			if let Some(p) = message.strip_prefix(&b"callback="[..]) {
 				let s = String::from_utf8(p.to_vec()).expect("Need valid UTF8");
-				Callback::get()(&origin, s.parse().expect("Expected an u32"));
+				if let Err(()) = Callback::get()(&origin, s.parse().expect("Expected an u32")) {
+					return Err(ProcessMessageError::Corrupt)
+				}
 			}
+
 			NumMessagesProcessed::set(NumMessagesProcessed::get() + 1);
 			Ok(true)
 		} else {
@@ -335,7 +327,8 @@ where
 {
 	new_test_ext::<T>().execute_with(|| {
 		test();
-		MessageQueue::do_try_state().expect("All invariants must hold after a test");
+		pallet_message_queue::Pallet::<T>::do_try_state()
+			.expect("All invariants must hold after a test");
 	});
 }
 
@@ -384,8 +377,8 @@ pub fn num_overweight_enqueued_events() -> u32 {
 		.count() as u32
 }
 
-pub fn fp(pages: u32, count: u64, size: u64) -> QueueFootprint {
-	QueueFootprint { storage: Footprint { count, size }, pages }
+pub fn fp(pages: u32, ready_pages: u32, count: u64, size: u64) -> QueueFootprint {
+	QueueFootprint { storage: Footprint { count, size }, pages, ready_pages }
 }
 
 /// A random seed that can be overwritten with `MQ_SEED`.

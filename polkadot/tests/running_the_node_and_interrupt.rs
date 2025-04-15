@@ -1,18 +1,18 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
-// This file is part of Substrate.
+// This file is part of Polkadot.
 
-// Substrate is free software: you can redistribute it and/or modify
+// Polkadot is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
 
-// Substrate is distributed in the hope that it will be useful,
+// Polkadot is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
 
 // You should have received a copy of the GNU General Public License
-// along with Substrate.  If not, see <http://www.gnu.org/licenses/>.
+// along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use assert_cmd::cargo::cargo_bin;
 use std::process::{self, Command};
@@ -32,7 +32,7 @@ async fn running_the_node_works_and_can_be_interrupted() {
 	};
 
 	async fn run_command_and_kill(signal: Signal) {
-		let tmpdir = tempdir().expect("coult not create temp dir");
+		let tmpdir = tempdir().expect("could not create temp dir");
 
 		let mut cmd = Command::new(cargo_bin("polkadot"))
 			.stdout(process::Stdio::piped())

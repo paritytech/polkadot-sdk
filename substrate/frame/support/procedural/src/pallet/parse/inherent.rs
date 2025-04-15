@@ -20,14 +20,12 @@ use syn::spanned::Spanned;
 
 /// The definition of the pallet inherent implementation.
 pub struct InherentDef {
-	/// The index of inherent item in pallet module.
-	pub index: usize,
 	/// A set of usage of instance, must be check for consistency with trait.
 	pub instances: Vec<helper::InstanceUsage>,
 }
 
 impl InherentDef {
-	pub fn try_from(index: usize, item: &mut syn::Item) -> syn::Result<Self> {
+	pub fn try_from(item: &mut syn::Item) -> syn::Result<Self> {
 		let item = if let syn::Item::Impl(item) = item {
 			item
 		} else {
@@ -55,6 +53,6 @@ impl InherentDef {
 			helper::check_impl_gen(&item.generics, item.impl_token.span())?,
 		];
 
-		Ok(InherentDef { index, instances })
+		Ok(InherentDef { instances })
 	}
 }

@@ -19,9 +19,12 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
+use alloc::vec::Vec;
 use codec::{Codec, Decode, Encode};
+use scale_info::TypeInfo;
 use sp_runtime::ConsensusEngineId;
-use sp_std::vec::Vec;
 
 pub mod digests;
 pub mod inherents;
@@ -83,7 +86,7 @@ pub enum ConsensusLog<AuthorityId: Codec> {
 
 sp_api::decl_runtime_apis! {
 	/// API necessary for block authorship with aura.
-	pub trait AuraApi<AuthorityId: Codec> {
+	pub trait AuraApi<AuthorityId: Codec + TypeInfo + 'static> {
 		/// Returns the slot duration for Aura.
 		///
 		/// Currently, only the value provided by this type at genesis will be used.

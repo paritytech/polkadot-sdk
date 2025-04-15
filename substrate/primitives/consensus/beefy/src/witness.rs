@@ -23,9 +23,8 @@
 //! verification. This allows lowering the data and computation cost of verifying the
 //! signed commitment.
 
-use sp_std::prelude::*;
-
 use crate::commitment::{Commitment, SignedCommitment};
+use alloc::vec::Vec;
 
 /// A light form of [SignedCommitment].
 ///
@@ -91,7 +90,7 @@ mod tests {
 	#[cfg(feature = "bls-experimental")]
 	use w3f_bls::{
 		single_pop_aggregator::SignatureAggregatorAssumingPoP, Message, SerializableToBytes,
-		Signed, TinyBLS377,
+		Signed, TinyBLS381,
 	};
 
 	type TestCommitment = Commitment<u128>;
@@ -199,7 +198,7 @@ mod tests {
 			// from signed take a function as the aggregator 
 			TestBlsSignedCommitmentWitness::from_signed::<_, _>(signed, |sigs| {
 				// we are going to aggregate the signatures here
-				let mut aggregatedsigs: SignatureAggregatorAssumingPoP<TinyBLS377> =
+				let mut aggregatedsigs: SignatureAggregatorAssumingPoP<TinyBLS381> =
 					SignatureAggregatorAssumingPoP::new(Message::new(b"", b"mock payload"));
 
 				for sig in sigs {
@@ -207,7 +206,7 @@ mod tests {
 						Some(sig) => {
 							let serialized_sig : Vec<u8> = (*sig.1).to_vec();
 							aggregatedsigs.add_signature(
-								&w3f_bls::Signature::<TinyBLS377>::from_bytes(
+								&w3f_bls::Signature::<TinyBLS381>::from_bytes(
 									serialized_sig.as_slice()
 								).unwrap()
 							);
@@ -220,7 +219,7 @@ mod tests {
 
 		// We can't use BlsSignature::try_from because it expected 112Bytes (CP (64) + BLS 48)
 		// single signature while we are having a BLS aggregated signature corresponding to no CP.
-		w3f_bls::Signature::<TinyBLS377>::from_bytes(witness.signature_accumulator.as_slice())
+		w3f_bls::Signature::<TinyBLS381>::from_bytes(witness.signature_accumulator.as_slice())
 			.unwrap();
 	}
 

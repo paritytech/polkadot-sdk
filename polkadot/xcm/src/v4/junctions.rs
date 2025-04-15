@@ -18,8 +18,8 @@
 
 use super::{Junction, Location, NetworkId};
 use alloc::sync::Arc;
-use core::{convert::TryFrom, mem, ops::Range, result};
-use parity_scale_codec::{Decode, Encode, MaxEncodedLen};
+use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
+use core::{mem, ops::Range, result};
 use scale_info::TypeInfo;
 
 /// Maximum number of `Junction`s that a `Junctions` can contain.
@@ -38,6 +38,7 @@ pub(crate) const MAX_JUNCTIONS: usize = 8;
 	PartialOrd,
 	Encode,
 	Decode,
+	DecodeWithMemTracking,
 	Debug,
 	TypeInfo,
 	MaxEncodedLen,

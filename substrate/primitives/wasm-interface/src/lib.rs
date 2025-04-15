@@ -19,7 +19,10 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use sp_std::{borrow::Cow, iter::Iterator, marker::PhantomData, mem, result, vec, vec::Vec};
+extern crate alloc;
+
+use alloc::{borrow::Cow, string::String, vec, vec::Vec};
+use core::{iter::Iterator, marker::PhantomData, mem};
 
 #[cfg(not(all(feature = "std", feature = "wasmtime")))]
 #[macro_export]
@@ -44,10 +47,7 @@ if_wasmtime_is_enabled! {
 }
 
 /// Result type used by traits in this crate.
-#[cfg(feature = "std")]
-pub type Result<T> = result::Result<T, String>;
-#[cfg(not(feature = "std"))]
-pub type Result<T> = result::Result<T, &'static str>;
+pub type Result<T> = core::result::Result<T, String>;
 
 /// Value types supported by Substrate on the boundary between host/Wasm.
 #[derive(Copy, Clone, PartialEq, Debug, Eq)]
@@ -76,7 +76,7 @@ impl From<ValueType> for u8 {
 impl TryFrom<u8> for ValueType {
 	type Error = ();
 
-	fn try_from(val: u8) -> sp_std::result::Result<ValueType, ()> {
+	fn try_from(val: u8) -> core::result::Result<ValueType, ()> {
 		match val {
 			0 => Ok(Self::I32),
 			1 => Ok(Self::I64),
@@ -152,10 +152,17 @@ impl PointerType for u32 {}
 impl PointerType for u64 {}
 
 /// Type to represent a pointer in wasm at the host.
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
-pub struct Pointer<T: PointerType> {
+#[derive(Debug, PartialEq, Eq)]
+pub struct Pointer<T> {
 	ptr: u32,
 	_marker: PhantomData<T>,
+}
+
+impl<T> Copy for Pointer<T> {}
+impl<T> Clone for Pointer<T> {
+	fn clone(&self) -> Self {
+		Pointer { ptr: self.ptr, _marker: PhantomData }
+	}
 }
 
 impl<T: PointerType> Pointer<T> {

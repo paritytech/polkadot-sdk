@@ -18,7 +18,7 @@
 //! Traits and associated utilities for dealing with abstract constraint filters.
 
 pub use super::members::Contains;
-use sp_std::marker::PhantomData;
+use core::marker::PhantomData;
 
 /// Trait to add a constraint onto the filter.
 pub trait FilterStack<T>: Contains<T> {
@@ -103,7 +103,7 @@ macro_rules! impl_filter_stack {
 		mod $module {
 			#[allow(unused_imports)]
 			use super::*;
-			use $crate::__private::sp_std::{boxed::Box, cell::RefCell, mem::{swap, take}, vec::Vec};
+			use std::{boxed::Box, cell::RefCell, mem::{swap, take}, vec::Vec};
 			use $crate::traits::filter::{Contains, FilterStack};
 
 			thread_local! {

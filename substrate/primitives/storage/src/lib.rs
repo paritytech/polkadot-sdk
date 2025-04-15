@@ -19,25 +19,23 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use core::fmt::Display;
+extern crate alloc;
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 use sp_debug_derive::RuntimeDebug;
 
+use alloc::vec::Vec;
 use codec::{Decode, Encode};
-use ref_cast::RefCast;
-use sp_std::{
+use core::{
+	fmt::Display,
 	ops::{Deref, DerefMut},
-	vec::Vec,
 };
+use ref_cast::RefCast;
 
 /// Storage key.
-#[derive(PartialEq, Eq, RuntimeDebug)]
-#[cfg_attr(
-	feature = "serde",
-	derive(Serialize, Deserialize, Hash, PartialOrd, Ord, Clone, Encode, Decode)
-)]
+#[derive(PartialEq, Eq, RuntimeDebug, Hash, PartialOrd, Ord, Clone, Encode, Decode)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct StorageKey(
 	#[cfg_attr(feature = "serde", serde(with = "impl_serde::serialize"))] pub Vec<u8>,
 );
@@ -49,9 +47,7 @@ impl AsRef<[u8]> for StorageKey {
 }
 
 /// Storage key with read/write tracking information.
-#[derive(
-	PartialEq, Eq, Ord, PartialOrd, sp_std::hash::Hash, RuntimeDebug, Clone, Encode, Decode,
-)]
+#[derive(PartialEq, Eq, Ord, PartialOrd, core::hash::Hash, RuntimeDebug, Clone, Encode, Decode)]
 pub struct TrackedStorageKey {
 	pub key: Vec<u8>,
 	pub reads: u32,
@@ -99,8 +95,8 @@ impl From<Vec<u8>> for TrackedStorageKey {
 }
 
 /// Storage key of a child trie, it contains the prefix to the key.
-#[derive(PartialEq, Eq, RuntimeDebug)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize, Hash, PartialOrd, Ord, Clone))]
+#[derive(PartialEq, Eq, RuntimeDebug, Hash, PartialOrd, Ord, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[repr(transparent)]
 #[derive(RefCast)]
 pub struct PrefixedStorageKey(
@@ -140,22 +136,24 @@ impl PrefixedStorageKey {
 }
 
 /// Storage data associated to a [`StorageKey`].
-#[derive(PartialEq, Eq, RuntimeDebug)]
-#[cfg_attr(
-	feature = "serde",
-	derive(Serialize, Deserialize, Hash, PartialOrd, Ord, Clone, Encode, Decode, Default)
-)]
+#[derive(PartialEq, Eq, RuntimeDebug, Hash, PartialOrd, Ord, Clone, Encode, Decode, Default)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct StorageData(
 	#[cfg_attr(feature = "serde", serde(with = "impl_serde::serialize"))] pub Vec<u8>,
 );
 
 /// Map of data to use in a storage, it is a collection of
 /// byte key and values.
+pub type StorageMap = alloc::collections::BTreeMap<Vec<u8>, Vec<u8>>;
+
+/// Map of storage children.
 #[cfg(feature = "std")]
-pub type StorageMap = std::collections::BTreeMap<Vec<u8>, Vec<u8>>;
+pub type ChildrenMap = std::collections::HashMap<Vec<u8>, StorageChild>;
+
+#[cfg(not(feature = "std"))]
+pub type ChildrenMap = alloc::collections::BTreeMap<Vec<u8>, StorageChild>;
 
 /// Child trie storage data.
-#[cfg(feature = "std")]
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct StorageChild {
 	/// Child data for storage.
@@ -166,19 +164,18 @@ pub struct StorageChild {
 }
 
 /// Struct containing data needed for a storage.
-#[cfg(feature = "std")]
 #[derive(Default, Debug, Clone)]
 pub struct Storage {
 	/// Top trie storage data.
 	pub top: StorageMap,
 	/// Children trie storage data. Key does not include prefix, only for the `default` trie kind,
 	/// of `ChildType::ParentKeyId` type.
-	pub children_default: std::collections::HashMap<Vec<u8>, StorageChild>,
+	pub children_default: ChildrenMap,
 }
 
 /// Storage change set
-#[derive(RuntimeDebug)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize, PartialEq, Eq, Clone))]
+#[derive(RuntimeDebug, PartialEq, Eq, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 pub struct StorageChangeSet<Hash> {
 	/// Block hash
@@ -192,11 +189,15 @@ pub mod well_known_keys {
 	/// Wasm code of the runtime.
 	///
 	/// Stored as a raw byte vector. Required by substrate.
+	///
+	/// Encodes to `0x3A636F6465`.
 	pub const CODE: &[u8] = b":code";
 
 	/// Number of wasm linear memory pages required for execution of the runtime.
 	///
 	/// The type of this value is encoded `u64`.
+	///
+	/// Encodes to `0x307833413633364636343635`
 	pub const HEAP_PAGES: &[u8] = b":heappages";
 
 	/// Current extrinsic index (u32) is stored under this key.
@@ -246,8 +247,7 @@ pub mod well_known_keys {
 pub const TRIE_VALUE_NODE_THRESHOLD: u32 = 33;
 
 /// Information related to a child state.
-#[derive(Debug, Clone)]
-#[cfg_attr(feature = "serde", derive(PartialEq, Eq, Hash, PartialOrd, Ord, Encode, Decode))]
+#[derive(PartialEq, Eq, Hash, PartialOrd, Ord, Encode, Decode, Debug, Clone)]
 pub enum ChildInfo {
 	/// This is the one used by default.
 	ParentKeyId(ChildTrieParentKeyId),
@@ -294,7 +294,7 @@ impl ChildInfo {
 		}
 	}
 
-	/// Return a the full location in the direct parent of
+	/// Return the full location in the direct parent of
 	/// this trie.
 	pub fn prefixed_storage_key(&self) -> PrefixedStorageKey {
 		match self {
@@ -303,7 +303,7 @@ impl ChildInfo {
 		}
 	}
 
-	/// Returns a the full location in the direct parent of
+	/// Returns the full location in the direct parent of
 	/// this trie.
 	pub fn into_prefixed_storage_key(self) -> PrefixedStorageKey {
 		match self {
@@ -393,8 +393,7 @@ impl ChildType {
 /// It shares its trie nodes backend storage with every other child trie, so its storage key needs
 /// to be a unique id that will be use only once. Those unique id also required to be long enough to
 /// avoid any unique id to be prefixed by an other unique id.
-#[derive(Debug, Clone)]
-#[cfg_attr(feature = "serde", derive(PartialEq, Eq, Hash, PartialOrd, Ord, Encode, Decode))]
+#[derive(PartialEq, Eq, Hash, PartialOrd, Ord, Encode, Decode, Debug, Clone)]
 pub struct ChildTrieParentKeyId {
 	/// Data is the storage key without prefix.
 	data: Vec<u8>,
@@ -441,10 +440,11 @@ impl From<StateVersion> for u8 {
 
 impl TryFrom<u8> for StateVersion {
 	type Error = ();
-	fn try_from(val: u8) -> sp_std::result::Result<StateVersion, ()> {
+	fn try_from(val: u8) -> core::result::Result<StateVersion, ()> {
 		match val {
 			0 => Ok(StateVersion::V0),
 			1 => Ok(StateVersion::V1),
+			2 => Ok(StateVersion::V1),
 			_ => Err(()),
 		}
 	}
@@ -453,7 +453,7 @@ impl TryFrom<u8> for StateVersion {
 impl StateVersion {
 	/// If defined, values in state of size bigger or equal
 	/// to this threshold will use a separate trie node.
-	/// Otherwhise, value will be inlined in branch or leaf
+	/// Otherwise, value will be inlined in branch or leaf
 	/// node.
 	pub fn state_value_threshold(&self) -> Option<u32> {
 		match self {

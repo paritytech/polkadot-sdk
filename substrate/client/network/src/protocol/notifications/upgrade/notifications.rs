@@ -39,17 +39,22 @@ use crate::types::ProtocolName;
 use asynchronous_codec::Framed;
 use bytes::BytesMut;
 use futures::prelude::*;
-use libp2p::core::{upgrade, InboundUpgrade, OutboundUpgrade, UpgradeInfo};
-use log::{error, warn};
+use libp2p::{
+	core::{InboundUpgrade, OutboundUpgrade, UpgradeInfo},
+	PeerId,
+};
+use log::{debug, error, warn};
 use unsigned_varint::codec::UviBytes;
 
 use std::{
-	convert::Infallible,
-	io, mem,
+	fmt, io, mem,
 	pin::Pin,
 	task::{Context, Poll},
 	vec,
 };
+
+/// Logging target for the file.
+const LOG_TARGET: &str = "sub-libp2p::notification::upgrade";
 
 /// Maximum allowed size of the two handshake messages, in bytes.
 const MAX_HANDSHAKE_SIZE: usize = 1024;
@@ -76,6 +81,8 @@ pub struct NotificationsOut {
 	initial_message: Vec<u8>,
 	/// Maximum allowed size for a single notification.
 	max_notification_size: u64,
+	/// The peerID of the remote.
+	peer_id: PeerId,
 }
 
 /// A substream for incoming notification messages.
@@ -112,12 +119,15 @@ pub struct NotificationsOutSubstream<TSubstream> {
 	/// Substream where to send messages.
 	#[pin]
 	socket: Framed<TSubstream, UviBytes<io::Cursor<Vec<u8>>>>,
+
+	/// The remote peer.
+	peer_id: PeerId,
 }
 
 #[cfg(test)]
 impl<TSubstream> NotificationsOutSubstream<TSubstream> {
 	pub fn new(socket: Framed<TSubstream, UviBytes<io::Cursor<Vec<u8>>>>) -> Self {
-		Self { socket }
+		Self { socket, peer_id: PeerId::random() }
 	}
 }
 
@@ -152,7 +162,7 @@ where
 	type Future = Pin<Box<dyn Future<Output = Result<Self::Output, Self::Error>> + Send>>;
 	type Error = NotificationsHandshakeError;
 
-	fn upgrade_inbound(self, mut socket: TSubstream, negotiated_name: Self::Info) -> Self::Future {
+	fn upgrade_inbound(self, mut socket: TSubstream, _negotiated_name: Self::Info) -> Self::Future {
 		Box::pin(async move {
 			let handshake_len = unsigned_varint::aio::read_usize(&mut socket).await?;
 			if handshake_len > MAX_HANDSHAKE_SIZE {
@@ -175,28 +185,25 @@ where
 				handshake: NotificationsInSubstreamHandshake::NotSent,
 			};
 
-			Ok(NotificationsInOpen {
-				handshake,
-				negotiated_fallback: if negotiated_name == self.protocol_names[0] {
-					None
-				} else {
-					Some(negotiated_name)
-				},
-				substream,
-			})
+			Ok(NotificationsInOpen { handshake, substream })
 		})
 	}
 }
 
-/// Yielded by the [`NotificationsIn`] after a successfuly upgrade.
+/// Yielded by the [`NotificationsIn`] after a successfully upgrade.
 pub struct NotificationsInOpen<TSubstream> {
 	/// Handshake sent by the remote.
 	pub handshake: Vec<u8>,
-	/// If the negotiated name is not the "main" protocol name but a fallback, contains the
-	/// name of the negotiated fallback.
-	pub negotiated_fallback: Option<ProtocolName>,
 	/// Implementation of `Stream` that allows receives messages from the substream.
 	pub substream: NotificationsInSubstream<TSubstream>,
+}
+
+impl<TSubstream> fmt::Debug for NotificationsInOpen<TSubstream> {
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+		f.debug_struct("NotificationsInOpen")
+			.field("handshake", &self.handshake)
+			.finish_non_exhaustive()
+	}
 }
 
 impl<TSubstream> NotificationsInSubstream<TSubstream>
@@ -214,7 +221,7 @@ where
 	/// Sends the handshake in order to inform the remote that we accept the substream.
 	pub fn send_handshake(&mut self, message: impl Into<Vec<u8>>) {
 		if !matches!(self.handshake, NotificationsInSubstreamHandshake::NotSent) {
-			error!(target: "sub-libp2p", "Tried to send handshake twice");
+			error!(target: LOG_TARGET, "Tried to send handshake twice");
 			return
 		}
 
@@ -223,10 +230,7 @@ where
 
 	/// Equivalent to `Stream::poll_next`, except that it only drives the handshake and is
 	/// guaranteed to not generate any notification.
-	pub fn poll_process(
-		self: Pin<&mut Self>,
-		cx: &mut Context,
-	) -> Poll<Result<Infallible, io::Error>> {
+	pub fn poll_process(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Result<(), io::Error>> {
 		let mut this = self.project();
 
 		loop {
@@ -248,8 +252,10 @@ where
 				},
 				NotificationsInSubstreamHandshake::Flush => {
 					match Sink::poll_flush(this.socket.as_mut(), cx)? {
-						Poll::Ready(()) =>
-							*this.handshake = NotificationsInSubstreamHandshake::Sent,
+						Poll::Ready(()) => {
+							*this.handshake = NotificationsInSubstreamHandshake::Sent;
+							return Poll::Ready(Ok(()));
+						},
 						Poll::Pending => {
 							*this.handshake = NotificationsInSubstreamHandshake::Flush;
 							return Poll::Pending
@@ -262,7 +268,7 @@ where
 				st @ NotificationsInSubstreamHandshake::ClosingInResponseToRemote |
 				st @ NotificationsInSubstreamHandshake::BothSidesClosed => {
 					*this.handshake = st;
-					return Poll::Pending
+					return Poll::Ready(Ok(()));
 				},
 			}
 		}
@@ -351,16 +357,17 @@ impl NotificationsOut {
 		fallback_names: Vec<ProtocolName>,
 		initial_message: impl Into<Vec<u8>>,
 		max_notification_size: u64,
+		peer_id: PeerId,
 	) -> Self {
 		let initial_message = initial_message.into();
 		if initial_message.len() > MAX_HANDSHAKE_SIZE {
-			error!(target: "sub-libp2p", "Outbound networking handshake is above allowed protocol limit");
+			error!(target: LOG_TARGET, "Outbound networking handshake is above allowed protocol limit");
 		}
 
 		let mut protocol_names = fallback_names;
 		protocol_names.insert(0, main_protocol_name.into());
 
-		Self { protocol_names, initial_message, max_notification_size }
+		Self { protocol_names, initial_message, max_notification_size, peer_id }
 	}
 }
 
@@ -383,7 +390,14 @@ where
 
 	fn upgrade_outbound(self, mut socket: TSubstream, negotiated_name: Self::Info) -> Self::Future {
 		Box::pin(async move {
-			upgrade::write_length_prefixed(&mut socket, &self.initial_message).await?;
+			{
+				let mut len_data = unsigned_varint::encode::usize_buffer();
+				let encoded_len =
+					unsigned_varint::encode::usize(self.initial_message.len(), &mut len_data).len();
+				socket.write_all(&len_data[..encoded_len]).await?;
+			}
+			socket.write_all(&self.initial_message).await?;
+			socket.flush().await?;
 
 			// Reading handshake.
 			let handshake_len = unsigned_varint::aio::read_usize(&mut socket).await?;
@@ -409,13 +423,16 @@ where
 				} else {
 					Some(negotiated_name)
 				},
-				substream: NotificationsOutSubstream { socket: Framed::new(socket, codec) },
+				substream: NotificationsOutSubstream {
+					socket: Framed::new(socket, codec),
+					peer_id: self.peer_id,
+				},
 			})
 		})
 	}
 }
 
-/// Yielded by the [`NotificationsOut`] after a successfuly upgrade.
+/// Yielded by the [`NotificationsOut`] after a successfully upgrade.
 pub struct NotificationsOutOpen<TSubstream> {
 	/// Handshake returned by the remote.
 	pub handshake: Vec<u8>,
@@ -424,6 +441,15 @@ pub struct NotificationsOutOpen<TSubstream> {
 	pub negotiated_fallback: Option<ProtocolName>,
 	/// Implementation of `Sink` that allows sending messages on the substream.
 	pub substream: NotificationsOutSubstream<TSubstream>,
+}
+
+impl<TSubstream> fmt::Debug for NotificationsOutOpen<TSubstream> {
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+		f.debug_struct("NotificationsOutOpen")
+			.field("handshake", &self.handshake)
+			.field("negotiated_fallback", &self.negotiated_fallback)
+			.finish_non_exhaustive()
+	}
 }
 
 impl<TSubstream> Sink<Vec<u8>> for NotificationsOutSubstream<TSubstream>
@@ -445,6 +471,36 @@ where
 
 	fn poll_flush(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Result<(), Self::Error>> {
 		let mut this = self.project();
+
+		// `Sink::poll_flush` does not expose stream closed error until we write something into
+		// the stream, so the code below makes sure we detect that the substream was closed
+		// even if we don't write anything into it.
+		match Stream::poll_next(this.socket.as_mut(), cx) {
+			Poll::Pending => {},
+			Poll::Ready(Some(result)) => match result {
+				Ok(_) => {
+					debug!(
+						target: "sub-libp2p",
+						"Unexpected incoming data in `NotificationsOutSubstream` peer={:?}",
+						this.peer_id
+					);
+
+					return Poll::Ready(Err(NotificationsOutError::UnexpectedData));
+				},
+				Err(error) => {
+					debug!(
+						target: "sub-libp2p",
+						"Error while reading from `NotificationsOutSubstream` peer={:?} error={error:?}",
+						this.peer_id
+					);
+
+					// The expectation is that the remote has closed the substream.
+					return Poll::Ready(Err(NotificationsOutError::Closed));
+				},
+			},
+			Poll::Ready(None) => return Poll::Ready(Err(NotificationsOutError::Closed)),
+		}
+
 		Sink::poll_flush(this.socket.as_mut(), cx).map_err(NotificationsOutError::Io)
 	}
 
@@ -494,45 +550,122 @@ pub enum NotificationsOutError {
 	/// I/O error on the substream.
 	#[error(transparent)]
 	Io(#[from] io::Error),
+
+	/// The substream was closed.
+	#[error("substream was closed/reset")]
+	Closed,
+
+	/// The remote peer did not comply with the notification spec.
+	///
+	/// This is a terminal error and the peer should be banned immediately.
+	#[error("unexpected data received from the remote peer")]
+	UnexpectedData,
 }
 
 #[cfg(test)]
 mod tests {
-	use super::{NotificationsIn, NotificationsInOpen, NotificationsOut, NotificationsOutOpen};
-	use futures::{channel::oneshot, prelude::*};
-	use libp2p::core::upgrade;
+	use crate::ProtocolName;
+
+	use super::{
+		NotificationsHandshakeError, NotificationsIn, NotificationsInOpen,
+		NotificationsInSubstream, NotificationsOut, NotificationsOutError, NotificationsOutOpen,
+		NotificationsOutSubstream,
+	};
+	use futures::{channel::oneshot, future, prelude::*, SinkExt, StreamExt};
+	use libp2p::{
+		core::{upgrade, InboundUpgrade, OutboundUpgrade, UpgradeInfo},
+		PeerId,
+	};
+	use std::{pin::Pin, task::Poll};
 	use tokio::net::{TcpListener, TcpStream};
 	use tokio_util::compat::TokioAsyncReadCompatExt;
 
+	/// Opens a substream to the given address, negotiates the protocol, and returns the substream
+	/// along with the handshake message.
+	async fn dial(
+		addr: std::net::SocketAddr,
+		handshake: impl Into<Vec<u8>>,
+	) -> Result<
+		(
+			Vec<u8>,
+			NotificationsOutSubstream<
+				multistream_select::Negotiated<tokio_util::compat::Compat<TcpStream>>,
+			>,
+		),
+		NotificationsHandshakeError,
+	> {
+		let socket = TcpStream::connect(addr).await.unwrap();
+		let notifs_out = NotificationsOut::new(
+			"/test/proto/1",
+			Vec::new(),
+			handshake,
+			1024 * 1024,
+			PeerId::random(),
+		);
+		let (_, substream) = multistream_select::dialer_select_proto(
+			socket.compat(),
+			notifs_out.protocol_info(),
+			upgrade::Version::V1,
+		)
+		.await
+		.unwrap();
+		let NotificationsOutOpen { handshake, substream, .. } =
+			<NotificationsOut as OutboundUpgrade<_>>::upgrade_outbound(
+				notifs_out,
+				substream,
+				"/test/proto/1".into(),
+			)
+			.await?;
+		Ok((handshake, substream))
+	}
+
+	/// Listens on a localhost, negotiates the protocol, and returns the substream along with the
+	/// handshake message.
+	///
+	/// Also sends the listener address through the given channel.
+	async fn listen_on_localhost(
+		listener_addr_tx: oneshot::Sender<std::net::SocketAddr>,
+	) -> Result<
+		(
+			Vec<u8>,
+			NotificationsInSubstream<
+				multistream_select::Negotiated<tokio_util::compat::Compat<TcpStream>>,
+			>,
+		),
+		NotificationsHandshakeError,
+	> {
+		let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+		listener_addr_tx.send(listener.local_addr().unwrap()).unwrap();
+
+		let (socket, _) = listener.accept().await.unwrap();
+		let notifs_in = NotificationsIn::new("/test/proto/1", Vec::new(), 1024 * 1024);
+		let (_, substream) =
+			multistream_select::listener_select_proto(socket.compat(), notifs_in.protocol_info())
+				.await
+				.unwrap();
+		let NotificationsInOpen { handshake, substream, .. } =
+			<NotificationsIn as InboundUpgrade<_>>::upgrade_inbound(
+				notifs_in,
+				substream,
+				"/test/proto/1".into(),
+			)
+			.await?;
+		Ok((handshake, substream))
+	}
+
 	#[tokio::test]
 	async fn basic_works() {
-		const PROTO_NAME: &str = "/test/proto/1";
 		let (listener_addr_tx, listener_addr_rx) = oneshot::channel();
 
 		let client = tokio::spawn(async move {
-			let socket = TcpStream::connect(listener_addr_rx.await.unwrap()).await.unwrap();
-			let NotificationsOutOpen { handshake, mut substream, .. } = upgrade::apply_outbound(
-				socket.compat(),
-				NotificationsOut::new(PROTO_NAME, Vec::new(), &b"initial message"[..], 1024 * 1024),
-				upgrade::Version::V1,
-			)
-			.await
-			.unwrap();
+			let (handshake, mut substream) =
+				dial(listener_addr_rx.await.unwrap(), &b"initial message"[..]).await.unwrap();
 
 			assert_eq!(handshake, b"hello world");
 			substream.send(b"test message".to_vec()).await.unwrap();
 		});
 
-		let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
-		listener_addr_tx.send(listener.local_addr().unwrap()).unwrap();
-
-		let (socket, _) = listener.accept().await.unwrap();
-		let NotificationsInOpen { handshake, mut substream, .. } = upgrade::apply_inbound(
-			socket.compat(),
-			NotificationsIn::new(PROTO_NAME, Vec::new(), 1024 * 1024),
-		)
-		.await
-		.unwrap();
+		let (handshake, mut substream) = listen_on_localhost(listener_addr_tx).await.unwrap();
 
 		assert_eq!(handshake, b"initial message");
 		substream.send_handshake(&b"hello world"[..]);
@@ -547,33 +680,17 @@ mod tests {
 	async fn empty_handshake() {
 		// Check that everything still works when the handshake messages are empty.
 
-		const PROTO_NAME: &str = "/test/proto/1";
 		let (listener_addr_tx, listener_addr_rx) = oneshot::channel();
 
 		let client = tokio::spawn(async move {
-			let socket = TcpStream::connect(listener_addr_rx.await.unwrap()).await.unwrap();
-			let NotificationsOutOpen { handshake, mut substream, .. } = upgrade::apply_outbound(
-				socket.compat(),
-				NotificationsOut::new(PROTO_NAME, Vec::new(), vec![], 1024 * 1024),
-				upgrade::Version::V1,
-			)
-			.await
-			.unwrap();
+			let (handshake, mut substream) =
+				dial(listener_addr_rx.await.unwrap(), vec![]).await.unwrap();
 
 			assert!(handshake.is_empty());
 			substream.send(Default::default()).await.unwrap();
 		});
 
-		let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
-		listener_addr_tx.send(listener.local_addr().unwrap()).unwrap();
-
-		let (socket, _) = listener.accept().await.unwrap();
-		let NotificationsInOpen { handshake, mut substream, .. } = upgrade::apply_inbound(
-			socket.compat(),
-			NotificationsIn::new(PROTO_NAME, Vec::new(), 1024 * 1024),
-		)
-		.await
-		.unwrap();
+		let (handshake, mut substream) = listen_on_localhost(listener_addr_tx).await.unwrap();
 
 		assert!(handshake.is_empty());
 		substream.send_handshake(vec![]);
@@ -586,17 +703,10 @@ mod tests {
 
 	#[tokio::test]
 	async fn refused() {
-		const PROTO_NAME: &str = "/test/proto/1";
 		let (listener_addr_tx, listener_addr_rx) = oneshot::channel();
 
 		let client = tokio::spawn(async move {
-			let socket = TcpStream::connect(listener_addr_rx.await.unwrap()).await.unwrap();
-			let outcome = upgrade::apply_outbound(
-				socket.compat(),
-				NotificationsOut::new(PROTO_NAME, Vec::new(), &b"hello"[..], 1024 * 1024),
-				upgrade::Version::V1,
-			)
-			.await;
+			let outcome = dial(listener_addr_rx.await.unwrap(), &b"hello"[..]).await;
 
 			// Despite the protocol negotiation being successfully conducted on the listener
 			// side, we have to receive an error here because the listener didn't send the
@@ -604,17 +714,7 @@ mod tests {
 			assert!(outcome.is_err());
 		});
 
-		let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
-		listener_addr_tx.send(listener.local_addr().unwrap()).unwrap();
-
-		let (socket, _) = listener.accept().await.unwrap();
-		let NotificationsInOpen { handshake, substream, .. } = upgrade::apply_inbound(
-			socket.compat(),
-			NotificationsIn::new(PROTO_NAME, Vec::new(), 1024 * 1024),
-		)
-		.await
-		.unwrap();
-
+		let (handshake, substream) = listen_on_localhost(listener_addr_tx).await.unwrap();
 		assert_eq!(handshake, b"hello");
 
 		// We successfully upgrade to the protocol, but then close the substream.
@@ -625,71 +725,140 @@ mod tests {
 
 	#[tokio::test]
 	async fn large_initial_message_refused() {
-		const PROTO_NAME: &str = "/test/proto/1";
 		let (listener_addr_tx, listener_addr_rx) = oneshot::channel();
 
 		let client = tokio::spawn(async move {
-			let socket = TcpStream::connect(listener_addr_rx.await.unwrap()).await.unwrap();
-			let ret = upgrade::apply_outbound(
-				socket.compat(),
-				// We check that an initial message that is too large gets refused.
-				NotificationsOut::new(
-					PROTO_NAME,
-					Vec::new(),
-					(0..32768).map(|_| 0).collect::<Vec<_>>(),
-					1024 * 1024,
-				),
-				upgrade::Version::V1,
-			)
-			.await;
+			let ret =
+				dial(listener_addr_rx.await.unwrap(), (0..32768).map(|_| 0).collect::<Vec<_>>())
+					.await;
 			assert!(ret.is_err());
 		});
 
-		let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
-		listener_addr_tx.send(listener.local_addr().unwrap()).unwrap();
-
-		let (socket, _) = listener.accept().await.unwrap();
-		let ret = upgrade::apply_inbound(
-			socket.compat(),
-			NotificationsIn::new(PROTO_NAME, Vec::new(), 1024 * 1024),
-		)
-		.await;
-		assert!(ret.is_err());
-
+		let _ret = listen_on_localhost(listener_addr_tx).await;
 		client.await.unwrap();
 	}
 
 	#[tokio::test]
 	async fn large_handshake_refused() {
+		let (listener_addr_tx, listener_addr_rx) = oneshot::channel();
+
+		let client = tokio::spawn(async move {
+			let ret = dial(listener_addr_rx.await.unwrap(), &b"initial message"[..]).await;
+			assert!(ret.is_err());
+		});
+
+		let (handshake, mut substream) = listen_on_localhost(listener_addr_tx).await.unwrap();
+		assert_eq!(handshake, b"initial message");
+
+		// We check that a handshake that is too large gets refused.
+		substream.send_handshake((0..32768).map(|_| 0).collect::<Vec<_>>());
+		let _ = substream.next().await;
+
+		client.await.unwrap();
+	}
+
+	#[tokio::test]
+	async fn send_handshake_without_polling_for_incoming_data() {
 		const PROTO_NAME: &str = "/test/proto/1";
 		let (listener_addr_tx, listener_addr_rx) = oneshot::channel();
 
 		let client = tokio::spawn(async move {
 			let socket = TcpStream::connect(listener_addr_rx.await.unwrap()).await.unwrap();
-			let ret = upgrade::apply_outbound(
+			let NotificationsOutOpen { handshake, .. } = OutboundUpgrade::upgrade_outbound(
+				NotificationsOut::new(
+					PROTO_NAME,
+					Vec::new(),
+					&b"initial message"[..],
+					1024 * 1024,
+					PeerId::random(),
+				),
 				socket.compat(),
-				NotificationsOut::new(PROTO_NAME, Vec::new(), &b"initial message"[..], 1024 * 1024),
-				upgrade::Version::V1,
+				ProtocolName::Static(PROTO_NAME),
 			)
-			.await;
-			assert!(ret.is_err());
+			.await
+			.unwrap();
+
+			assert_eq!(handshake, b"hello world");
 		});
 
 		let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
 		listener_addr_tx.send(listener.local_addr().unwrap()).unwrap();
 
 		let (socket, _) = listener.accept().await.unwrap();
-		let NotificationsInOpen { handshake, mut substream, .. } = upgrade::apply_inbound(
-			socket.compat(),
+		let NotificationsInOpen { handshake, mut substream, .. } = InboundUpgrade::upgrade_inbound(
 			NotificationsIn::new(PROTO_NAME, Vec::new(), 1024 * 1024),
+			socket.compat(),
+			ProtocolName::Static(PROTO_NAME),
 		)
 		.await
 		.unwrap();
+
+		assert_eq!(handshake, b"initial message");
+		substream.send_handshake(&b"hello world"[..]);
+
+		// Actually send the handshake.
+		future::poll_fn(|cx| Pin::new(&mut substream).poll_process(cx)).await.unwrap();
+
+		client.await.unwrap();
+	}
+
+	#[tokio::test]
+	async fn can_detect_dropped_out_substream_without_writing_data() {
+		const PROTO_NAME: &str = "/test/proto/1";
+		let (listener_addr_tx, listener_addr_rx) = oneshot::channel();
+
+		let client = tokio::spawn(async move {
+			let socket = TcpStream::connect(listener_addr_rx.await.unwrap()).await.unwrap();
+			let NotificationsOutOpen { handshake, mut substream, .. } =
+				OutboundUpgrade::upgrade_outbound(
+					NotificationsOut::new(
+						PROTO_NAME,
+						Vec::new(),
+						&b"initial message"[..],
+						1024 * 1024,
+						PeerId::random(),
+					),
+					socket.compat(),
+					ProtocolName::Static(PROTO_NAME),
+				)
+				.await
+				.unwrap();
+
+			assert_eq!(handshake, b"hello world");
+
+			future::poll_fn(|cx| match Pin::new(&mut substream).poll_flush(cx) {
+				Poll::Pending => Poll::Pending,
+				Poll::Ready(Ok(())) => {
+					cx.waker().wake_by_ref();
+					Poll::Pending
+				},
+				Poll::Ready(Err(e)) => {
+					assert!(matches!(e, NotificationsOutError::Closed));
+					Poll::Ready(())
+				},
+			})
+			.await;
+		});
+
+		let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+		listener_addr_tx.send(listener.local_addr().unwrap()).unwrap();
+
+		let (socket, _) = listener.accept().await.unwrap();
+		let NotificationsInOpen { handshake, mut substream, .. } = InboundUpgrade::upgrade_inbound(
+			NotificationsIn::new(PROTO_NAME, Vec::new(), 1024 * 1024),
+			socket.compat(),
+			ProtocolName::Static(PROTO_NAME),
+		)
+		.await
+		.unwrap();
+
 		assert_eq!(handshake, b"initial message");
 
-		// We check that a handshake that is too large gets refused.
-		substream.send_handshake((0..32768).map(|_| 0).collect::<Vec<_>>());
-		let _ = substream.next().await;
+		// Send the handhsake.
+		substream.send_handshake(&b"hello world"[..]);
+		future::poll_fn(|cx| Pin::new(&mut substream).poll_process(cx)).await.unwrap();
+
+		drop(substream);
 
 		client.await.unwrap();
 	}

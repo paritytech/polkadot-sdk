@@ -42,25 +42,22 @@ pub trait ClientExt<Block: BlockT>: Sized {
 #[async_trait::async_trait]
 pub trait ClientBlockImportExt<Block: BlockT>: Sized {
 	/// Import block to the chain. No finality.
-	async fn import(&mut self, origin: BlockOrigin, block: Block) -> Result<(), ConsensusError>;
+	async fn import(&self, origin: BlockOrigin, block: Block) -> Result<(), ConsensusError>;
 
 	/// Import a block and make it our best block if possible.
-	async fn import_as_best(
-		&mut self,
-		origin: BlockOrigin,
-		block: Block,
-	) -> Result<(), ConsensusError>;
+	async fn import_as_best(&self, origin: BlockOrigin, block: Block)
+		-> Result<(), ConsensusError>;
 
 	/// Import a block and finalize it.
 	async fn import_as_final(
-		&mut self,
+		&self,
 		origin: BlockOrigin,
 		block: Block,
 	) -> Result<(), ConsensusError>;
 
 	/// Import block with justification(s), finalizes block.
 	async fn import_justified(
-		&mut self,
+		&self,
 		origin: BlockOrigin,
 		block: Block,
 		justifications: Justifications,
@@ -94,7 +91,7 @@ where
 	for<'r> &'r T: BlockImport<Block, Error = ConsensusError>,
 	T: Send + Sync,
 {
-	async fn import(&mut self, origin: BlockOrigin, block: Block) -> Result<(), ConsensusError> {
+	async fn import(&self, origin: BlockOrigin, block: Block) -> Result<(), ConsensusError> {
 		let (header, extrinsics) = block.deconstruct();
 		let mut import = BlockImportParams::new(origin, header);
 		import.body = Some(extrinsics);
@@ -104,7 +101,7 @@ where
 	}
 
 	async fn import_as_best(
-		&mut self,
+		&self,
 		origin: BlockOrigin,
 		block: Block,
 	) -> Result<(), ConsensusError> {
@@ -117,7 +114,7 @@ where
 	}
 
 	async fn import_as_final(
-		&mut self,
+		&self,
 		origin: BlockOrigin,
 		block: Block,
 	) -> Result<(), ConsensusError> {
@@ -131,7 +128,7 @@ where
 	}
 
 	async fn import_justified(
-		&mut self,
+		&self,
 		origin: BlockOrigin,
 		block: Block,
 		justifications: Justifications,
@@ -151,10 +148,16 @@ where
 impl<B, E, Block: BlockT> ClientBlockImportExt<Block> for Client<B, E, Block>
 where
 	Self: BlockImport<Block, Error = ConsensusError>,
+<<<<<<< HEAD
+||||||| 07e55006ad0
+	RA: Send,
+=======
+	RA: Send + Sync,
+>>>>>>> origin/master
 	B: Send + Sync,
-	E: Send,
+	E: Send + Sync,
 {
-	async fn import(&mut self, origin: BlockOrigin, block: Block) -> Result<(), ConsensusError> {
+	async fn import(&self, origin: BlockOrigin, block: Block) -> Result<(), ConsensusError> {
 		let (header, extrinsics) = block.deconstruct();
 		let mut import = BlockImportParams::new(origin, header);
 		import.body = Some(extrinsics);
@@ -164,7 +167,7 @@ where
 	}
 
 	async fn import_as_best(
-		&mut self,
+		&self,
 		origin: BlockOrigin,
 		block: Block,
 	) -> Result<(), ConsensusError> {
@@ -177,7 +180,7 @@ where
 	}
 
 	async fn import_as_final(
-		&mut self,
+		&self,
 		origin: BlockOrigin,
 		block: Block,
 	) -> Result<(), ConsensusError> {
@@ -191,7 +194,7 @@ where
 	}
 
 	async fn import_justified(
-		&mut self,
+		&self,
 		origin: BlockOrigin,
 		block: Block,
 		justifications: Justifications,

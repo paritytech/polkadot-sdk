@@ -21,6 +21,7 @@
 //! Errors are interpreted as transaction events for subscriptions.
 
 use crate::transaction::event::{TransactionError, TransactionEvent};
+use jsonrpsee::types::error::ErrorObject;
 use sc_transaction_pool_api::error::Error as PoolError;
 use sp_runtime::transaction_validity::InvalidTransaction;
 
@@ -95,6 +96,32 @@ impl<Hash> From<Error> for TransactionEvent<Hash> {
 				TransactionEvent::Invalid(TransactionError {
 					error: "The pool is not accepting future transactions".into(),
 				}),
+		}
+	}
+}
+
+/// TransactionBroadcast error.
+#[derive(Debug, thiserror::Error)]
+pub enum ErrorBroadcast {
+	/// The provided operation ID is invalid.
+	#[error("Invalid operation id")]
+	InvalidOperationID,
+}
+
+/// General purpose errors, as defined in
+/// <https://www.jsonrpc.org/specification#error_object>.
+pub mod json_rpc_spec {
+	/// Invalid parameter error.
+	pub const INVALID_PARAM_ERROR: i32 = -32602;
+}
+
+impl From<ErrorBroadcast> for ErrorObject<'static> {
+	fn from(e: ErrorBroadcast) -> Self {
+		let msg = e.to_string();
+
+		match e {
+			ErrorBroadcast::InvalidOperationID =>
+				ErrorObject::owned(json_rpc_spec::INVALID_PARAM_ERROR, msg, None::<()>),
 		}
 	}
 }

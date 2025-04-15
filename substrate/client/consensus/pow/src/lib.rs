@@ -64,7 +64,6 @@ use sp_inherents::{CreateInherentDataProviders, InherentDataProvider};
 use sp_runtime::{
 	generic::{BlockId, Digest, DigestItem},
 	traits::{Block as BlockT, Header as HeaderT},
-	RuntimeString,
 };
 use std::{cmp::Ordering, marker::PhantomData, sync::Arc, time::Duration};
 
@@ -112,7 +111,7 @@ pub enum Error<B: BlockT> {
 	#[error("{0}")]
 	Environment(String),
 	#[error("{0}")]
-	Runtime(RuntimeString),
+	Runtime(String),
 	#[error("{0}")]
 	Other(String),
 }
@@ -313,15 +312,12 @@ where
 {
 	type Error = ConsensusError;
 
-	async fn check_block(
-		&mut self,
-		block: BlockCheckParams<B>,
-	) -> Result<ImportResult, Self::Error> {
+	async fn check_block(&self, block: BlockCheckParams<B>) -> Result<ImportResult, Self::Error> {
 		self.inner.check_block(block).await.map_err(Into::into)
 	}
 
 	async fn import_block(
-		&mut self,
+		&self,
 		mut block: BlockImportParams<B>,
 	) -> Result<ImportResult, Self::Error> {
 		let best_header = self
@@ -443,7 +439,7 @@ where
 	Algorithm::Difficulty: 'static + Send,
 {
 	async fn verify(
-		&mut self,
+		&self,
 		mut block: BlockImportParams<B>,
 	) -> Result<BlockImportParams<B>, String> {
 		let hash = block.header.hash();

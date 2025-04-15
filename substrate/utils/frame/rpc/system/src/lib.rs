@@ -24,9 +24,9 @@ use jsonrpsee::{
 	core::{async_trait, RpcResult},
 	proc_macros::rpc,
 	types::error::ErrorObject,
+	Extensions,
 };
 
-use sc_rpc_api::DenyUnsafe;
 use sc_transaction_pool_api::{InPoolTransaction, TransactionPool};
 use sp_api::{CallApiAt, RuntimeInstance};
 use sp_block_builder::BlockBuilder;
@@ -37,6 +37,7 @@ use sp_runtime::{legacy, traits};
 pub use frame_system_rpc_runtime_api::AccountNonceApi;
 
 /// System RPC methods.
+#[docify::export]
 #[rpc(client, server)]
 pub trait SystemApi<BlockHash, AccountId, Nonce> {
 	/// Returns the next valid index (aka nonce) for given account.
@@ -48,7 +49,7 @@ pub trait SystemApi<BlockHash, AccountId, Nonce> {
 	async fn nonce(&self, account: AccountId) -> RpcResult<Nonce>;
 
 	/// Dry run an extrinsic at a given block. Return SCALE encoded ApplyExtrinsicResult.
-	#[method(name = "system_dryRun", aliases = ["system_dryRunAt"])]
+	#[method(name = "system_dryRun", aliases = ["system_dryRunAt"], with_extensions)]
 	async fn dry_run(&self, extrinsic: Bytes, at: Option<BlockHash>) -> RpcResult<Bytes>;
 }
 
@@ -73,14 +74,13 @@ impl From<Error> for i32 {
 pub struct System<P: TransactionPool, C, Block, Nonce, AccountId> {
 	client: Arc<C>,
 	pool: Arc<P>,
-	deny_unsafe: DenyUnsafe,
 	_marker: std::marker::PhantomData<(Block, Nonce, AccountId)>,
 }
 
 impl<P: TransactionPool, C, Block, Nonce, AccountId> System<P, C, Block, Nonce, AccountId> {
 	/// Create new `FullSystem` given client and transaction pool.
-	pub fn new(client: Arc<C>, pool: Arc<P>, deny_unsafe: DenyUnsafe) -> Self {
-		Self { client, pool, deny_unsafe, _marker: Default::default() }
+	pub fn new(client: Arc<C>, pool: Arc<P>) -> Self {
+		Self { client, pool, _marker: Default::default() }
 	}
 }
 
@@ -109,8 +109,9 @@ where
 		Ok(adjust_nonce(&*self.pool, account, nonce))
 	}
 
-	async fn dry_run(&self, extrinsic: Bytes, at: Option<Block::Hash>) -> RpcResult<Bytes> {
-		self.deny_unsafe.check_if_safe()?;
+	async fn dry_run(&self,
+		ext: &Extensions, extrinsic: Bytes, at: Option<Block::Hash>) -> RpcResult<Bytes> {
+		sc_rpc_api::check_if_safe(ext)?;
 
 		let best_hash = at.unwrap_or_else(||
 			// If the block hash is not supplied assume the best block.
@@ -212,6 +213,7 @@ mod tests {
 
 	use assert_matches::assert_matches;
 	use futures::executor::block_on;
+	use sc_rpc_api::DenyUnsafe;
 	use sc_transaction_pool::BasicPool;
 	use sp_runtime::{
 		transaction_validity::{InvalidTransaction, TransactionValidityError},
@@ -219,8 +221,26 @@ mod tests {
 	};
 	use substrate_test_runtime_client::{
 		runtime::{AccountId, Block, Nonce, Transfer},
-		AccountKeyring,
+	Sr25519Keyring,
 	};
+
+	fn deny_unsafe() -> Extensions {
+		let mut ext = Extensions::new();
+		ext.insert(DenyUnsafe::Yes);
+		ext
+	}
+
+	fn allow_unsafe() -> Extensions {
+		let mut ext = Extensions::new();
+<<<<<<< HEAD
+		 System::<_, _, Block, Nonce, AccountId>::new(client, pool, DenyUnsafe::No);
+||||||| 07e55006ad0
+		 System::new(client, pool, DenyUnsafe::No);
+=======
+		 ext.insert(DenyUnsafe::No);
+>>>>>>> origin/master
+		ext
+	}
 
 	#[tokio::test]
 	async fn should_return_next_nonce_for_some_account() {
@@ -229,14 +249,19 @@ mod tests {
 		// given
 		let client = Arc::new(substrate_test_runtime_client::new());
 		let spawner = sp_core::testing::TaskExecutor::new();
-		let pool =
-			BasicPool::new_full(Default::default(), true.into(), None, spawner, client.clone());
+		let pool = Arc::from(BasicPool::new_full(
+			Default::default(),
+			true.into(),
+			None,
+			spawner,
+			client.clone(),
+		));
 
 		let source = sp_runtime::transaction_validity::TransactionSource::External;
 		let new_transaction = |nonce: u64| {
 			let t = Transfer {
-				from: AccountKeyring::Alice.into(),
-				to: AccountKeyring::Bob.into(),
+				from: Sr25519Keyring::Alice.into(),
+				to: Sr25519Keyring::Bob.into(),
 				amount: 5,
 				nonce,
 			};
@@ -249,10 +274,10 @@ mod tests {
 		let ext1 = new_transaction(1);
 		block_on(pool.submit_one(hash_of_block0, source, ext1)).unwrap();
 
-		let accounts = System::<_, _, Block, Nonce, AccountId>::new(client, pool, DenyUnsafe::Yes);
+		let accounts = System::<_, _, Block, Nonce, AccountId>::new(client, pool);
 
 		// when
-		let nonce: Nonce = accounts.nonce(AccountId::from(AccountKeyring::Alice)).await.unwrap();
+		let nonce: Nonce =  accounts.nonce(AccountId::from(Sr25519Keyring::Alice)).await.unwrap();
 
 		// then
 		assert_eq!(nonce, 2);
@@ -265,14 +290,25 @@ mod tests {
 		// given
 		let client = Arc::new(substrate_test_runtime_client::new());
 		let spawner = sp_core::testing::TaskExecutor::new();
-		let pool =
-			BasicPool::new_full(Default::default(), true.into(), None, spawner, client.clone());
+		let pool = Arc::from(BasicPool::new_full(
+			Default::default(),
+			true.into(),
+			None,
+			spawner,
+			client.clone(),
+		));
 
-		let accounts = System::<_, _, Block, Nonce, AccountId>::new(client, pool, DenyUnsafe::Yes);
+		let accounts = System::<_, _, Block, Nonce, AccountId>::new(client, pool);
 
 		// when
 		let res =
-			SystemApiServer::<_, AccountId, Nonce>::dry_run(&accounts, vec![].into(), None).await;
+<<<<<<< HEAD
+			SystemApiServer::<_, AccountId, Nonce>::dry_run(&accounts,vec![].into(), None).await;
+||||||| 07e55006ad0
+			SystemApiServer::<_, AccountId, Nonce>::dry_run(vec![].into(), None).await;
+=======
+			SystemApiServer::<_, AccountId, Nonce>::dry_run(&deny_unsafe(),vec![].into(), None).await;
+>>>>>>> origin/master
 		assert_matches!(res, Err(e) => {
 			assert!(e.message().contains("RPC call is unsafe to be called externally"));
 		});
@@ -285,14 +321,19 @@ mod tests {
 		// given
 		let client = Arc::new(substrate_test_runtime_client::new());
 		let spawner = sp_core::testing::TaskExecutor::new();
-		let pool =
-			BasicPool::new_full(Default::default(), true.into(), None, spawner, client.clone());
+		let pool = Arc::from(BasicPool::new_full(
+			Default::default(),
+			true.into(),
+			None,
+			spawner,
+			client.clone(),
+		));
 
-		let accounts = System::<_, _, Block, Nonce, AccountId>::new(client, pool, DenyUnsafe::No);
+		let accounts = System::new(client, pool);
 
 		let tx = Transfer {
-			from: AccountKeyring::Alice.into(),
-			to: AccountKeyring::Bob.into(),
+			from: Sr25519Keyring::Alice.into(),
+			to: Sr25519Keyring::Bob.into(),
 			amount: 5,
 			nonce: 0,
 		}
@@ -300,7 +341,13 @@ mod tests {
 
 		// when
 		let bytes =
-			SystemApiServer::<_, AccountId, Nonce>::dry_run(&accounts, tx.encode().into(), None)
+<<<<<<< HEAD
+			SystemApiServer::<_, AccountId, Nonce>::dry_run(&accounts,tx.encode().into(), None)
+||||||| 07e55006ad0
+			SystemApiServer::<_, AccountId, Nonce>::dry_run(tx.encode().into(), None)
+=======
+			SystemApiServer::<_, AccountId, Nonce>::dry_run(&allow_unsafe(),tx.encode().into(), None)
+>>>>>>> origin/master
 				.await
 				.expect("Call is successful");
 
@@ -316,14 +363,19 @@ mod tests {
 		// given
 		let client = Arc::new(substrate_test_runtime_client::new());
 		let spawner = sp_core::testing::TaskExecutor::new();
-		let pool =
-			BasicPool::new_full(Default::default(), true.into(), None, spawner, client.clone());
+		let pool = Arc::from(BasicPool::new_full(
+			Default::default(),
+			true.into(),
+			None,
+			spawner,
+			client.clone(),
+		));
 
-		let accounts = System::new(client, pool, DenyUnsafe::No);
+		let accounts = System::new(client, pool);
 
 		let tx = Transfer {
-			from: AccountKeyring::Alice.into(),
-			to: AccountKeyring::Bob.into(),
+			from: Sr25519Keyring::Alice.into(),
+			to: Sr25519Keyring::Bob.into(),
 			amount: 5,
 			nonce: 100,
 		}
@@ -331,7 +383,13 @@ mod tests {
 
 		// when
 		let bytes =
-			SystemApiServer::<_, AccountId, Nonce>::dry_run(&accounts, tx.encode().into(), None)
+<<<<<<< HEAD
+			SystemApiServer::<_, AccountId, Nonce>::dry_run(&accounts,tx.encode().into(), None)
+||||||| 07e55006ad0
+			SystemApiServer::<_, AccountId, Nonce>::dry_run(tx.encode().into(), None)
+=======
+			SystemApiServer::<_, AccountId, Nonce>::dry_run(&allow_unsafe(),tx.encode().into(), None)
+>>>>>>> origin/master
 				.await
 				.expect("Call is successful");
 

@@ -17,18 +17,21 @@
 
 //! Integration test together with the ranked-collective pallet.
 
+#![allow(deprecated)]
+
 use frame_support::{
-	assert_noop, assert_ok, derive_impl, hypothetically, ord_parameter_types,
+	assert_noop, assert_ok, derive_impl, hypothetically, hypothetically_ok, ord_parameter_types,
 	pallet_prelude::Weight,
 	parameter_types,
-	traits::{ConstU16, EitherOf, IsInVec, MapSuccess, PollStatus, Polling, TryMapSuccess},
+	traits::{ConstU16, EitherOf, IsInVec, MapSuccess, NoOpPoll, TryMapSuccess},
 };
 use frame_system::EnsureSignedBy;
-use pallet_ranked_collective::{EnsureRanked, Geometric, Rank, TallyOf, Votes};
-use sp_core::Get;
+use pallet_ranked_collective::{EnsureRanked, Geometric, Rank};
+use sp_core::{ConstU32, Get};
 use sp_runtime::{
-	traits::{Convert, ReduceBy, TryMorphInto},
-	BuildStorage, DispatchError,
+	bounded_vec,
+	traits::{Convert, ReduceBy, ReplaceWithDefault, TryMorphInto},
+	BuildStorage,
 };
 type Class = Rank;
 
@@ -51,7 +54,7 @@ parameter_types! {
 		frame_system::limits::BlockWeights::simple_max(Weight::from_parts(1_000_000, u64::max_value()));
 }
 
-#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
 	type Block = Block;
 }
@@ -77,46 +80,9 @@ impl Config for Test {
 	type InductOrigin = EnsureInducted<Test, (), 1>;
 	type ApproveOrigin = TryMapSuccess<EnsureSignedBy<IsInVec<ZeroToNine>, u64>, TryMorphInto<u16>>;
 	type PromoteOrigin = TryMapSuccess<EnsureSignedBy<IsInVec<ZeroToNine>, u64>, TryMorphInto<u16>>;
+	type FastPromoteOrigin = Self::PromoteOrigin;
 	type EvidenceSize = EvidenceSize;
-}
-
-pub struct TestPolls;
-impl Polling<TallyOf<Test>> for TestPolls {
-	type Index = u8;
-	type Votes = Votes;
-	type Moment = u64;
-	type Class = Class;
-
-	fn classes() -> Vec<Self::Class> {
-		unimplemented!()
-	}
-	fn as_ongoing(_: u8) -> Option<(TallyOf<Test>, Self::Class)> {
-		unimplemented!()
-	}
-	fn access_poll<R>(
-		_: Self::Index,
-		_: impl FnOnce(PollStatus<&mut TallyOf<Test>, Self::Moment, Self::Class>) -> R,
-	) -> R {
-		unimplemented!()
-	}
-	fn try_access_poll<R>(
-		_: Self::Index,
-		_: impl FnOnce(
-			PollStatus<&mut TallyOf<Test>, Self::Moment, Self::Class>,
-		) -> Result<R, DispatchError>,
-	) -> Result<R, DispatchError> {
-		unimplemented!()
-	}
-
-	#[cfg(feature = "runtime-benchmarks")]
-	fn create_ongoing(_: Self::Class) -> Result<Self::Index, ()> {
-		unimplemented!()
-	}
-
-	#[cfg(feature = "runtime-benchmarks")]
-	fn end_ongoing(_: Self::Index, _: bool) -> Result<(), ()> {
-		unimplemented!()
-	}
+	type MaxRank = ConstU32<9>;
 }
 
 /// Convert the tally class into the minimum rank required to vote on the poll.
@@ -137,22 +103,25 @@ impl pallet_ranked_collective::Config for Test {
 		// Members can promote up to the rank of 2 below them.
 		MapSuccess<EnsureRanked<Test, (), 2>, ReduceBy<ConstU16<2>>>,
 	>;
+	type AddOrigin = MapSuccess<Self::PromoteOrigin, ReplaceWithDefault<()>>;
 	type DemoteOrigin = EitherOf<
 		// Root can demote arbitrarily.
 		frame_system::EnsureRootWithSuccess<Self::AccountId, ConstU16<65535>>,
 		// Members can demote up to the rank of 3 below them.
 		MapSuccess<EnsureRanked<Test, (), 3>, ReduceBy<ConstU16<3>>>,
 	>;
+	type RemoveOrigin = Self::DemoteOrigin;
 	type ExchangeOrigin = EitherOf<
 		// Root can exchange arbitrarily.
 		frame_system::EnsureRootWithSuccess<Self::AccountId, ConstU16<65535>>,
 		// Members can exchange up to the rank of 2 below them.
 		MapSuccess<EnsureRanked<Test, (), 2>, ReduceBy<ConstU16<2>>>,
 	>;
-	type Polls = TestPolls;
+	type Polls = NoOpPoll;
 	type MinRankOfClass = MinRankOfClass<MinRankOfClassDelta>;
 	type MemberSwappedHandler = CoreFellowship;
 	type VoteWeight = Geometric;
+	type MaxMemberCount = ();
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkSetup = CoreFellowship;
 }
@@ -161,11 +130,13 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 	let t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 	let mut ext = sp_io::TestExternalities::new(t);
 	ext.execute_with(|| {
+		assert_ok!(Club::add_member(RuntimeOrigin::root(), 100));
+		promote_n_times(100, 9);
 		let params = ParamsType {
-			active_salary: [10, 20, 30, 40, 50, 60, 70, 80, 90],
-			passive_salary: [1, 2, 3, 4, 5, 6, 7, 8, 9],
-			demotion_period: [2, 4, 6, 8, 10, 12, 14, 16, 18],
-			min_promotion_period: [3, 6, 9, 12, 15, 18, 21, 24, 27],
+			active_salary: bounded_vec![10, 20, 30, 40, 50, 60, 70, 80, 90],
+			passive_salary: bounded_vec![1, 2, 3, 4, 5, 6, 7, 8, 9],
+			demotion_period: bounded_vec![2, 4, 6, 8, 10, 12, 14, 16, 18],
+			min_promotion_period: bounded_vec![3, 6, 9, 12, 15, 18, 21, 24, 27],
 			offboard_timeout: 1,
 		};
 		assert_ok!(CoreFellowship::set_params(signed(1), Box::new(params)));
@@ -202,6 +173,37 @@ fn evidence(e: u32) -> Evidence<Test, ()> {
 }
 
 #[test]
+fn import_simple_works() {
+	new_test_ext().execute_with(|| {
+		for i in 0u16..9 {
+			let acc = i as u64;
+
+			// Does not work yet
+			assert_noop!(CoreFellowship::import(signed(acc)), Error::<Test>::Unranked);
+			assert_noop!(
+				CoreFellowship::import_member(signed(acc + 1), acc),
+				Error::<Test>::Unranked
+			);
+
+			assert_ok!(Club::add_member(RuntimeOrigin::root(), acc));
+			promote_n_times(acc, i);
+
+			hypothetically_ok!(CoreFellowship::import(signed(acc)));
+			hypothetically_ok!(CoreFellowship::import_member(signed(acc), acc));
+			// Works from other accounts
+			assert_ok!(CoreFellowship::import_member(signed(acc + 1), acc));
+
+			// Does not work again
+			assert_noop!(CoreFellowship::import(signed(acc)), Error::<Test>::AlreadyInducted);
+			assert_noop!(
+				CoreFellowship::import_member(signed(acc + 1), acc),
+				Error::<Test>::AlreadyInducted
+			);
+		}
+	});
+}
+
+#[test]
 fn swap_simple_works() {
 	new_test_ext().execute_with(|| {
 		for i in 0u16..9 {
@@ -209,7 +211,8 @@ fn swap_simple_works() {
 
 			assert_ok!(Club::add_member(RuntimeOrigin::root(), acc));
 			promote_n_times(acc, i);
-			assert_ok!(CoreFellowship::import(signed(acc)));
+			hypothetically_ok!(CoreFellowship::import(signed(acc)));
+			assert_ok!(CoreFellowship::import_member(signed(acc), acc));
 
 			// Swapping normally works:
 			assert_ok!(Club::exchange_member(RuntimeOrigin::root(), acc, acc + 10));
@@ -249,7 +252,7 @@ fn swap_exhaustive_works() {
 		});
 
 		assert_eq!(root_add, root_swap);
-		// Ensure that we dont compare trivial stuff like `()` from a type error above.
+		// Ensure that we don't compare trivial stuff like `()` from a type error above.
 		assert_eq!(root_add.len(), 32);
 	});
 }

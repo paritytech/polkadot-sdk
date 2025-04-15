@@ -17,9 +17,10 @@
 
 //! Infinite precision unsigned integer for substrate runtime.
 
+use alloc::{vec, vec::Vec};
 use codec::{Decode, Encode};
+use core::{cell::RefCell, cmp::Ordering, ops};
 use num_traits::{One, Zero};
-use sp_std::{cell::RefCell, cmp::Ordering, ops, prelude::*, vec};
 
 // A sensible value for this would be half of the dword size of the host machine. Since the
 // runtime is compiled to 32bit webassembly, using 32 and 64 for single and double respectively
@@ -35,7 +36,7 @@ const SHIFT: usize = 32;
 const B: Double = Single::max_value() as Double + 1;
 
 static_assertions::const_assert!(
-	sp_std::mem::size_of::<Double>() - sp_std::mem::size_of::<Single>() == SHIFT / 8
+	core::mem::size_of::<Double>() - core::mem::size_of::<Single>() == SHIFT / 8
 );
 
 /// Splits a [`Double`] limb number into a tuple of two [`Single`] limb numbers.
@@ -425,7 +426,8 @@ impl BigUint {
 				let s = SHIFT as u32;
 				let nb = normalizer_bits;
 				for d in 0..n - 1 {
-					let v = self_norm.get(d) >> nb | self_norm.get(d + 1).overflowing_shl(s - nb).0;
+					let v =
+						(self_norm.get(d) >> nb) | self_norm.get(d + 1).overflowing_shl(s - nb).0;
 					r.set(d, v);
 				}
 				r.set(n - 1, self_norm.get(n - 1) >> normalizer_bits);
@@ -438,9 +440,9 @@ impl BigUint {
 	}
 }
 
-impl sp_std::fmt::Debug for BigUint {
+impl core::fmt::Debug for BigUint {
 	#[cfg(feature = "std")]
-	fn fmt(&self, f: &mut sp_std::fmt::Formatter<'_>) -> sp_std::fmt::Result {
+	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
 		write!(
 			f,
 			"BigUint {{ {:?} ({:?})}}",
@@ -450,7 +452,7 @@ impl sp_std::fmt::Debug for BigUint {
 	}
 
 	#[cfg(not(feature = "std"))]
-	fn fmt(&self, _: &mut sp_std::fmt::Formatter<'_>) -> sp_std::fmt::Result {
+	fn fmt(&self, _: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
 		Ok(())
 	}
 }
@@ -592,13 +594,13 @@ pub mod tests {
 	fn split_works() {
 		let a = SHIFT / 2;
 		let b = SHIFT * 3 / 2;
-		let num: Double = 1 << a | 1 << b;
+		let num: Double = (1 << a) | (1 << b);
 		assert_eq!(num, 0x_0001_0000_0001_0000);
 		assert_eq!(split(num), (1 << a, 1 << a));
 
 		let a = SHIFT / 2 + 4;
 		let b = SHIFT / 2 - 4;
-		let num: Double = 1 << (SHIFT + a) | 1 << b;
+		let num: Double = (1 << (SHIFT + a)) | (1 << b);
 		assert_eq!(num, 0x_0010_0000_0000_1000);
 		assert_eq!(split(num), (1 << a, 1 << b));
 	}

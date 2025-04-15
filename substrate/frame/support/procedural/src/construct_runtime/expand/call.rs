@@ -18,7 +18,6 @@
 use crate::construct_runtime::Pallet;
 use proc_macro2::TokenStream;
 use quote::quote;
-use std::str::FromStr;
 use syn::Ident;
 
 pub fn expand_outer_dispatch(
@@ -40,15 +39,7 @@ pub fn expand_outer_dispatch(
 		let name = &pallet_declaration.name;
 		let path = &pallet_declaration.path;
 		let index = pallet_declaration.index;
-		let attr =
-			pallet_declaration.cfg_pattern.iter().fold(TokenStream::new(), |acc, pattern| {
-				let attr = TokenStream::from_str(&format!("#[cfg({})]", pattern.original()))
-					.expect("was successfully parsed before; qed");
-				quote! {
-					#acc
-					#attr
-				}
-			});
+		let attr = pallet_declaration.get_attributes();
 
 		variant_defs.extend(quote! {
 			#attr
@@ -66,10 +57,12 @@ pub fn expand_outer_dispatch(
 	quote! {
 		#( #query_call_part_macros )*
 
+		/// The aggregated runtime call type.
 		#[derive(
 			Clone, PartialEq, Eq,
 			#scrate::__private::codec::Encode,
 			#scrate::__private::codec::Decode,
+			#scrate::__private::codec::DecodeWithMemTracking,
 			#scrate::__private::scale_info::TypeInfo,
 			#scrate::__private::RuntimeDebug,
 		)]
@@ -178,7 +171,7 @@ pub fn expand_outer_dispatch(
 			type PostInfo = #scrate::dispatch::PostDispatchInfo;
 			fn dispatch(self, origin: RuntimeOrigin) -> #scrate::dispatch::DispatchResultWithPostInfo {
 				if !<Self::RuntimeOrigin as #scrate::traits::OriginTrait>::filter_call(&origin, &self) {
-					return #scrate::__private::sp_std::result::Result::Err(
+					return ::core::result::Result::Err(
 						#system_path::Error::<#runtime>::CallFiltered.into()
 					);
 				}

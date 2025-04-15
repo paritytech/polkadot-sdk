@@ -32,9 +32,9 @@ use futures::{
 	channel::mpsc::{channel, Receiver, Sender},
 	prelude::*,
 };
-use libp2p::PeerId;
 use log::trace;
 use prometheus_endpoint::Registry;
+use sc_network_types::PeerId;
 use sp_runtime::traits::Block as BlockT;
 use std::{
 	collections::{HashMap, VecDeque},
@@ -220,18 +220,16 @@ impl<B: BlockT> Future for GossipEngine<B> {
 							},
 							NotificationEvent::NotificationStreamOpened {
 								peer, handshake, ..
-							} => {
-								let Some(role) = this.network.peer_role(peer, handshake) else {
+							} =>
+								if let Some(role) = this.network.peer_role(peer, handshake) {
+									this.state_machine.new_peer(
+										&mut this.notification_service,
+										peer,
+										role,
+									);
+								} else {
 									log::debug!(target: "gossip", "role for {peer} couldn't be determined");
-									continue
-								};
-
-								this.state_machine.new_peer(
-									&mut this.notification_service,
-									peer,
-									role,
-								);
-							},
+								},
 							NotificationEvent::NotificationStreamClosed { peer } => {
 								this.state_machine
 									.peer_disconnected(&mut this.notification_service, peer);
@@ -348,7 +346,7 @@ impl<B: BlockT> futures::future::FusedFuture for GossipEngine<B> {
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use crate::{multiaddr::Multiaddr, ValidationResult, ValidatorContext};
+	use crate::{ValidationResult, ValidatorContext};
 	use codec::{DecodeAll, Encode};
 	use futures::{
 		channel::mpsc::{unbounded, UnboundedReceiver, UnboundedSender},
@@ -359,12 +357,11 @@ mod tests {
 	use sc_network::{
 		config::MultiaddrWithPeerId,
 		service::traits::{Direction, MessageSink, NotificationEvent},
-		Event, NetworkBlock, NetworkEventStream, NetworkNotification, NetworkPeers,
-		NotificationSenderError, NotificationSenderT as NotificationSender, NotificationService,
-		Roles,
+		Event, NetworkBlock, NetworkEventStream, NetworkPeers, NotificationService, Roles,
 	};
 	use sc_network_common::role::ObservedRole;
 	use sc_network_sync::SyncEventStream;
+	use sc_network_types::multiaddr::Multiaddr;
 	use sp_runtime::{
 		testing::H256,
 		traits::{Block as BlockT, NumberFor},
@@ -378,9 +375,7 @@ mod tests {
 	#[derive(Clone, Default)]
 	struct TestNetwork {}
 
-	#[derive(Clone, Default)]
-	struct TestNetworkInner {}
-
+	#[async_trait::async_trait]
 	impl NetworkPeers for TestNetwork {
 		fn set_authorized_peers(&self, _peers: HashSet<PeerId>) {
 			unimplemented!();
@@ -453,28 +448,14 @@ mod tests {
 				.ok()
 				.and_then(|role| Some(ObservedRole::from(role)))
 		}
+
+		async fn reserved_peers(&self) -> Result<Vec<PeerId>, ()> {
+			unimplemented!();
+		}
 	}
 
 	impl NetworkEventStream for TestNetwork {
 		fn event_stream(&self, _name: &'static str) -> Pin<Box<dyn Stream<Item = Event> + Send>> {
-			unimplemented!();
-		}
-	}
-
-	impl NetworkNotification for TestNetwork {
-		fn write_notification(&self, _target: PeerId, _protocol: ProtocolName, _message: Vec<u8>) {
-			unimplemented!();
-		}
-
-		fn notification_sender(
-			&self,
-			_target: PeerId,
-			_protocol: ProtocolName,
-		) -> Result<Box<dyn NotificationSender>, NotificationSenderError> {
-			unimplemented!();
-		}
-
-		fn set_notification_handshake(&self, _protocol: ProtocolName, _handshake: Vec<u8>) {
 			unimplemented!();
 		}
 	}
@@ -544,12 +525,12 @@ mod tests {
 			unimplemented!();
 		}
 
-		fn send_sync_notification(&self, _peer: &PeerId, _notification: Vec<u8>) {
+		fn send_sync_notification(&mut self, _peer: &PeerId, _notification: Vec<u8>) {
 			unimplemented!();
 		}
 
 		async fn send_async_notification(
-			&self,
+			&mut self,
 			_peer: &PeerId,
 			_notification: Vec<u8>,
 		) -> Result<(), sc_network::error::Error> {

@@ -82,7 +82,10 @@ mod mock;
 mod tests;
 pub mod weights;
 
-use codec::{Decode, Encode, MaxEncodedLen};
+extern crate alloc;
+
+use alloc::{vec, vec::Vec};
+use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use frame_support::{
 	pallet_prelude::*,
 	traits::{
@@ -92,7 +95,7 @@ use frame_support::{
 	BoundedSlice, WeakBoundedVec,
 };
 use frame_system::{
-	offchain::{SendTransactionTypes, SubmitTransaction},
+	offchain::{CreateInherent, SubmitTransaction},
 	pallet_prelude::*,
 };
 pub use pallet::*;
@@ -104,10 +107,9 @@ use sp_runtime::{
 	PerThing, Perbill, Permill, RuntimeDebug, SaturatedConversion,
 };
 use sp_staking::{
-	offence::{DisableStrategy, Kind, Offence, ReportOffence},
+	offence::{Kind, Offence, ReportOffence},
 	SessionIndex,
 };
-use sp_std::prelude::*;
 pub use weights::WeightInfo;
 
 pub mod sr25519 {
@@ -196,8 +198,8 @@ enum OffchainErr<BlockNumber> {
 	SubmitTransaction,
 }
 
-impl<BlockNumber: sp_std::fmt::Debug> sp_std::fmt::Debug for OffchainErr<BlockNumber> {
-	fn fmt(&self, fmt: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
+impl<BlockNumber: core::fmt::Debug> core::fmt::Debug for OffchainErr<BlockNumber> {
+	fn fmt(&self, fmt: &mut core::fmt::Formatter) -> core::fmt::Result {
 		match *self {
 			OffchainErr::TooEarly => write!(fmt, "Too early to send heartbeat."),
 			OffchainErr::WaitingForInclusion(ref block) => {
@@ -216,7 +218,7 @@ impl<BlockNumber: sp_std::fmt::Debug> sp_std::fmt::Debug for OffchainErr<BlockNu
 pub type AuthIndex = u32;
 
 /// Heartbeat which is sent/received.
-#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo)]
+#[derive(Encode, Decode, DecodeWithMemTracking, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo)]
 pub struct Heartbeat<BlockNumber>
 where
 	BlockNumber: PartialEq + Eq + Decode + Encode,
@@ -251,7 +253,7 @@ type OffchainResult<T, A> = Result<A, OffchainErr<BlockNumberFor<T>>>;
 pub mod pallet {
 	use super::*;
 
-	/// The current storage version.
+	/// The in-code storage version.
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
 
 	#[pallet::pallet]
@@ -259,7 +261,7 @@ pub mod pallet {
 	pub struct Pallet<T>(_);
 
 	#[pallet::config]
-	pub trait Config: SendTransactionTypes<Call<Self>> + frame_system::Config {
+	pub trait Config: CreateInherent<Call<Self>> + frame_system::Config {
 		/// The identifier type for an authority.
 		type AuthorityId: Member
 			+ Parameter
@@ -338,26 +340,22 @@ pub mod pallet {
 	/// progress estimate from `NextSessionRotation`, as those estimates should be
 	/// more accurate then the value we calculate for `HeartbeatAfter`.
 	#[pallet::storage]
-	#[pallet::getter(fn heartbeat_after)]
-	pub(super) type HeartbeatAfter<T: Config> = StorageValue<_, BlockNumberFor<T>, ValueQuery>;
+	pub type HeartbeatAfter<T: Config> = StorageValue<_, BlockNumberFor<T>, ValueQuery>;
 
 	/// The current set of keys that may issue a heartbeat.
 	#[pallet::storage]
-	#[pallet::getter(fn keys)]
-	pub(super) type Keys<T: Config> =
+	pub type Keys<T: Config> =
 		StorageValue<_, WeakBoundedVec<T::AuthorityId, T::MaxKeys>, ValueQuery>;
 
 	/// For each session index, we keep a mapping of `SessionIndex` and `AuthIndex`.
 	#[pallet::storage]
-	#[pallet::getter(fn received_heartbeats)]
-	pub(super) type ReceivedHeartbeats<T: Config> =
+	pub type ReceivedHeartbeats<T: Config> =
 		StorageDoubleMap<_, Twox64Concat, SessionIndex, Twox64Concat, AuthIndex, bool>;
 
 	/// For each session index, we keep a mapping of `ValidatorId<T>` to the
 	/// number of blocks authored by the given authority.
 	#[pallet::storage]
-	#[pallet::getter(fn authored_blocks)]
-	pub(super) type AuthoredBlocks<T: Config> = StorageDoubleMap<
+	pub type AuthoredBlocks<T: Config> = StorageDoubleMap<
 		_,
 		Twox64Concat,
 		SessionIndex,
@@ -644,7 +642,8 @@ impl<T: Config> Pallet<T> {
 				call,
 			);
 
-			SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into())
+			let xt = T::create_inherent(call.into());
+			SubmitTransaction::<T, Call<T>>::submit_transaction(xt)
 				.map_err(|_| OffchainErr::SubmitTransaction)?;
 
 			Ok(())
@@ -849,10 +848,6 @@ impl<Offender: Clone> Offence<Offender> for UnresponsivenessOffence<Offender> {
 
 	fn time_slot(&self) -> Self::TimeSlot {
 		self.session_index
-	}
-
-	fn disable_strategy(&self) -> DisableStrategy {
-		DisableStrategy::Never
 	}
 
 	fn slash_fraction(&self, offenders: u32) -> Perbill {

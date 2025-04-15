@@ -24,13 +24,12 @@
 
 use polkadot_cli::{
 	service::{
-		AuxStore, Block, Error, ExtendedOverseerGenArgs, HeaderBackend, Overseer,
-		OverseerConnector, OverseerGen, OverseerGenArgs, OverseerHandle,
+		AuxStore, Error, ExtendedOverseerGenArgs, Overseer, OverseerConnector, OverseerGen, OverseerGenArgs, OverseerHandle,
 	},
 	validator_overseer_builder, Cli,
 };
 use polkadot_node_subsystem::SpawnGlue;
-use polkadot_node_subsystem_types::DefaultSubsystemClient;
+use polkadot_node_subsystem_types::{ChainApiBackend, RuntimeApiSubsystemClient};
 use sp_api::CallApiAt;
 use sp_core::traits::SpawnNamed;
 
@@ -80,20 +79,15 @@ impl OverseerGen for DisputeValidCandidates {
 		connector: OverseerConnector,
 		args: OverseerGenArgs<'_, Spawner, RuntimeClient>,
 		ext_args: Option<ExtendedOverseerGenArgs>,
-	) -> Result<
-		(Overseer<SpawnGlue<Spawner>, Arc<DefaultSubsystemClient<RuntimeClient>>>, OverseerHandle),
-		Error,
-	>
+	) -> Result<(Overseer<SpawnGlue<Spawner>, Arc<RuntimeClient>>, OverseerHandle), Error>
 	where
-		RuntimeClient: 'static + HeaderBackend<Block> + AuxStore + CallApiAt<Block>,
+		RuntimeClient: CallApiAt<Block> + RuntimeApiSubsystemClient + ChainApiBackend + AuxStore + 'static,
 		Spawner: 'static + SpawnNamed + Clone + Unpin,
 	{
-		let spawner = args.spawner.clone();
 		let validation_filter = ReplaceValidationResult::new(
 			self.fake_validation,
 			self.fake_validation_error,
 			f64::from(self.percentage),
-			SpawnGlue(spawner.clone()),
 		);
 
 		validator_overseer_builder(

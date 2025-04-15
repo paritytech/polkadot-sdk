@@ -15,21 +15,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use frame_support::{derive_impl, traits::ConstU32};
+use frame_support::derive_impl;
 
 mod common;
-
-use common::outer_enums::{pallet, pallet2};
 
 pub type Header = sp_runtime::generic::Header<u32, sp_runtime::traits::BlakeTwo256>;
 pub type Block = sp_runtime::generic::Block<Header, UncheckedExtrinsic>;
 pub type UncheckedExtrinsic = sp_runtime::generic::UncheckedExtrinsic<u32, RuntimeCall, (), ()>;
 
-#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Runtime {
 	type BaseCallFilter = frame_support::traits::Everything;
 	type Block = Block;
-	type BlockHashCount = ConstU32<10>;
 	type RuntimeOrigin = RuntimeOrigin;
 	type RuntimeCall = RuntimeCall;
 	type RuntimeEvent = RuntimeEvent;
@@ -76,13 +73,15 @@ frame_support::construct_runtime!(
 	}
 );
 
+#[cfg(feature = "experimental")]
 #[test]
 fn module_error_outer_enum_expand_explicit() {
+	use common::outer_enums::{pallet, pallet2};
 	// The Runtime has *all* parts explicitly defined.
 
 	// Check that all error types are propagated
 	match RuntimeError::Example(pallet::Error::InsufficientProposersBalance) {
-		// Error passed implicitely to the pallet system.
+		// Error passed implicitly to the pallet system.
 		RuntimeError::System(system) => match system {
 			frame_system::Error::InvalidSpecName => (),
 			frame_system::Error::SpecVersionNeedsToIncrease => (),
@@ -90,9 +89,8 @@ fn module_error_outer_enum_expand_explicit() {
 			frame_system::Error::NonDefaultComposite => (),
 			frame_system::Error::NonZeroRefCount => (),
 			frame_system::Error::CallFiltered => (),
-			#[cfg(feature = "experimental")]
+			frame_system::Error::MultiBlockMigrationsOngoing => (),
 			frame_system::Error::InvalidTask => (),
-			#[cfg(feature = "experimental")]
 			frame_system::Error::FailedTask => (),
 			frame_system::Error::NothingAuthorized => (),
 			frame_system::Error::Unauthorized => (),
