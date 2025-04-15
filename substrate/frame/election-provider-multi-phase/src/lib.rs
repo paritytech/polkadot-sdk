@@ -1663,6 +1663,10 @@ impl<T: Config> Pallet<T> {
 			.ok_or(ElectionError::<T>::NothingQueued)
 			.or_else(|_| {
 				log!(warn, "No solution queued, falling back to instant fallback.",);
+
+				#[cfg(feature = "runtime-benchmarks")]
+				Self::asap();
+
 				let (voters, targets, desired_targets) = if T::Fallback::bother() {
 					let RoundSnapshot { voters, targets } = Snapshot::<T>::get().ok_or(
 						ElectionError::<T>::Feasibility(FeasibilityError::SnapshotUnavailable),
@@ -1847,11 +1851,13 @@ impl<T: Config> ElectionProvider for Pallet<T> {
 	#[cfg(feature = "runtime-benchmarks")]
 	fn asap() {
 		// prepare our snapshot so we can "hopefully" run a fallback.
-		Self::create_snapshot()
-			.inspect_err(|e| {
-				crate::log!(error, "failed to create snapshot while asap-preparing: {:?}", e)
-			})
-			.unwrap()
+		if !Snapshot::<T>::exists() {
+			Self::create_snapshot()
+				.inspect_err(|e| {
+					crate::log!(error, "failed to create snapshot while asap-preparing: {:?}", e)
+				})
+				.unwrap()
+		}
 	}
 }
 

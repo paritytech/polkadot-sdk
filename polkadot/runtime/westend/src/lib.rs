@@ -331,8 +331,9 @@ impl EnsureOriginWithArg<RuntimeOrigin, RuntimeParametersKey> for DynamicParamet
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
-	fn try_successful_origin(_: &RuntimeParametersKey) -> Result<RuntimeOrigin, ()> {
-		unreachable!()
+	fn try_successful_origin(_key: &RuntimeParametersKey) -> Result<RuntimeOrigin, ()> {
+		// Provide the origin for the parameter returned by `Default`:
+		Ok(RuntimeOrigin::root())
 	}
 }
 
