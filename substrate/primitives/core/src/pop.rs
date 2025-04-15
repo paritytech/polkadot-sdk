@@ -18,6 +18,7 @@
 //! Utilities for proving possession of a particular public key
 
 use crate::crypto::{CryptoType, Pair};
+use sp_std::vec::Vec;
 
 /// Pair which is able to generate proof of possession.
 ///
@@ -44,7 +45,7 @@ where
 /// Pair which is able to generate proof of possession.
 ///
 /// While you don't need a keypair to verify a proof of possession (you only need a public key)
-/// we constrain on Pair to use the Public and Signature types associated to Pair. 
+/// we constrain on Pair to use the Public and Signature types associated to Pair.
 /// This is implemented in different trait (than Public Key) to provide default behavior.
 pub trait ProofOfPossessionVerifier: Pair
 where
@@ -114,6 +115,7 @@ where
 	/// While we enforce hash context separation at the library level in aggregatable schemes,
 	/// it remains as an advisory for the default implementation using signature API used for
 	/// non-aggregatable schemes
+	#[cfg(feature = "full_crypto")]
 	fn generate_proof_of_possession(&mut self) -> Self::Signature {
 		let pop_statement = Self::pop_statement(&self.public());
 		self.sign(pop_statement.as_slice())

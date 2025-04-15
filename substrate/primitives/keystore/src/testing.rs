@@ -22,7 +22,7 @@ use crate::{Error, Keystore, KeystorePtr};
 #[cfg(feature = "bandersnatch-experimental")]
 use sp_core::bandersnatch;
 #[cfg(feature = "bls-experimental")]
-use sp_core::{bls381, ecdsa_bls381, KeccakHasher, pop::ProofOfPossessionGenerator};
+use sp_core::{bls381, ecdsa_bls381, pop::ProofOfPossessionGenerator, KeccakHasher};
 use sp_core::{
 	crypto::{ByteArray, KeyTypeId, Pair, VrfSecret},
 	ecdsa, ed25519, sr25519,
@@ -332,16 +332,20 @@ impl Keystore for MemoryKeystore {
 	) -> Result<ecdsa_bls381::Public, Error> {
 		let pubkey = self.generate_new::<ecdsa_bls381::Pair>(key_type, seed)?;
 
-		let s: String = self.keys
+		let s: String = self
+			.keys
 			.read()
 			.get(&key_type)
 			.and_then(|inner| inner.get(pubkey.as_slice()).map(|s| s.to_string()))
 			.expect("Can Retrieve Seed");
 
-		// This is done to give the keystore access to individual keys, this is necessary to avoid redundant host
-		// functions for paired keys and re-use host functions implemented for each element of the pair.
-		self.generate_new::<ecdsa::Pair>(sp_core::testing::ECDSA, Some(&s)).expect("seed slice is valid");
-		self.generate_new::<bls381::Pair>(sp_core::testing::BLS381, Some(&s)).expect("seed slice is valid");
+		// This is done to give the keystore access to individual keys, this is necessary to avoid
+		// redundant host functions for paired keys and re-use host functions implemented for each
+		// element of the pair.
+		self.generate_new::<ecdsa::Pair>(sp_core::testing::ECDSA, Some(&s))
+			.expect("seed slice is valid");
+		self.generate_new::<bls381::Pair>(sp_core::testing::BLS381, Some(&s))
+			.expect("seed slice is valid");
 
 		Ok(pubkey)
 	}
@@ -560,55 +564,58 @@ mod tests {
 	#[test]
 	#[cfg(feature = "bls-experimental")]
 	fn ecdsa_bls381_generate_with_none_works() {
-		use sp_core::testing::{ECDSA, BLS381, ECDSA_BLS381};
+		use sp_core::testing::{BLS381, ECDSA, ECDSA_BLS381};
 
-			let store = MemoryKeystore::new();
-			let ecdsa_bls381_key = store.ecdsa_bls381_generate_new(ECDSA_BLS381, None).expect("Can generate key..");
+		let store = MemoryKeystore::new();
+		let ecdsa_bls381_key =
+			store.ecdsa_bls381_generate_new(ECDSA_BLS381, None).expect("Can generate key..");
 
-			let ecdsa_keys = store.ecdsa_public_keys(ECDSA);
-			let bls381_keys = store.bls381_public_keys(BLS381);
-			let ecdsa_bls381_keys = store.ecdsa_bls381_public_keys(ECDSA_BLS381);
+		let ecdsa_keys = store.ecdsa_public_keys(ECDSA);
+		let bls381_keys = store.bls381_public_keys(BLS381);
+		let ecdsa_bls381_keys = store.ecdsa_bls381_public_keys(ECDSA_BLS381);
 
-			assert_eq!(ecdsa_keys.len(), 1);
-			assert_eq!(bls381_keys.len(), 1);
-			assert_eq!(ecdsa_bls381_keys.len(), 1);
+		assert_eq!(ecdsa_keys.len(), 1);
+		assert_eq!(bls381_keys.len(), 1);
+		assert_eq!(ecdsa_bls381_keys.len(), 1);
 
-			let ecdsa_key = ecdsa_keys[0];
-			let bls381_key = bls381_keys[0];
+		let ecdsa_key = ecdsa_keys[0];
+		let bls381_key = bls381_keys[0];
 
-			let mut combined_key_raw = [0u8; ecdsa_bls381::PUBLIC_KEY_LEN];
-			combined_key_raw[..ecdsa::PUBLIC_KEY_SERIALIZED_SIZE].copy_from_slice(ecdsa_key.as_ref());
-			combined_key_raw[ecdsa::PUBLIC_KEY_SERIALIZED_SIZE..].copy_from_slice(bls381_key.as_ref());
-			let combined_key = ecdsa_bls381::Public::from_raw(combined_key_raw);
+		let mut combined_key_raw = [0u8; ecdsa_bls381::PUBLIC_KEY_LEN];
+		combined_key_raw[..ecdsa::PUBLIC_KEY_SERIALIZED_SIZE].copy_from_slice(ecdsa_key.as_ref());
+		combined_key_raw[ecdsa::PUBLIC_KEY_SERIALIZED_SIZE..].copy_from_slice(bls381_key.as_ref());
+		let combined_key = ecdsa_bls381::Public::from_raw(combined_key_raw);
 
-			assert_eq!(combined_key, ecdsa_bls381_key);
+		assert_eq!(combined_key, ecdsa_bls381_key);
 	}
 
 	#[test]
 	#[cfg(feature = "bls-experimental")]
 	fn ecdsa_bls381_generate_with_seed_works() {
-		use sp_core::testing::{ECDSA, BLS381, ECDSA_BLS381};
+		use sp_core::testing::{BLS381, ECDSA, ECDSA_BLS381};
 
-			let store = MemoryKeystore::new();
-			let ecdsa_bls381_key = store.ecdsa_bls381_generate_new(ECDSA_BLS381, Some("//Alice")).expect("Can generate key..");
+		let store = MemoryKeystore::new();
+		let ecdsa_bls381_key = store
+			.ecdsa_bls381_generate_new(ECDSA_BLS381, Some("//Alice"))
+			.expect("Can generate key..");
 
-			let ecdsa_keys = store.ecdsa_public_keys(ECDSA);
-			let bls381_keys = store.bls381_public_keys(BLS381);
-			let ecdsa_bls381_keys = store.ecdsa_bls381_public_keys(ECDSA_BLS381);
+		let ecdsa_keys = store.ecdsa_public_keys(ECDSA);
+		let bls381_keys = store.bls381_public_keys(BLS381);
+		let ecdsa_bls381_keys = store.ecdsa_bls381_public_keys(ECDSA_BLS381);
 
-			assert_eq!(ecdsa_keys.len(), 1);
-			assert_eq!(bls381_keys.len(), 1);
-			assert_eq!(ecdsa_bls381_keys.len(), 1);
+		assert_eq!(ecdsa_keys.len(), 1);
+		assert_eq!(bls381_keys.len(), 1);
+		assert_eq!(ecdsa_bls381_keys.len(), 1);
 
-			let ecdsa_key = ecdsa_keys[0];
-			let bls381_key = bls381_keys[0];
+		let ecdsa_key = ecdsa_keys[0];
+		let bls381_key = bls381_keys[0];
 
-			let mut combined_key_raw = [0u8; ecdsa_bls381::PUBLIC_KEY_LEN];
-			combined_key_raw[..ecdsa::PUBLIC_KEY_SERIALIZED_SIZE].copy_from_slice(ecdsa_key.as_ref());
-			combined_key_raw[ecdsa::PUBLIC_KEY_SERIALIZED_SIZE..].copy_from_slice(bls381_key.as_ref());
-			let combined_key = ecdsa_bls381::Public::from_raw(combined_key_raw);
+		let mut combined_key_raw = [0u8; ecdsa_bls381::PUBLIC_KEY_LEN];
+		combined_key_raw[..ecdsa::PUBLIC_KEY_SERIALIZED_SIZE].copy_from_slice(ecdsa_key.as_ref());
+		combined_key_raw[ecdsa::PUBLIC_KEY_SERIALIZED_SIZE..].copy_from_slice(bls381_key.as_ref());
+		let combined_key = ecdsa_bls381::Public::from_raw(combined_key_raw);
 
-			assert_eq!(combined_key, ecdsa_bls381_key);
+		assert_eq!(combined_key, ecdsa_bls381_key);
 	}
 
 	#[test]

@@ -191,16 +191,16 @@ pub type Balance = u64;
 #[cfg(feature = "bls-experimental")]
 mod bls {
 	use sp_application_crypto::{bls381, ecdsa_bls381};
-    pub type Bls381Public = bls381::AppPublic;
+	pub type Bls381Public = bls381::AppPublic;
 	pub type Bls381Pop = bls381::AppSignature;
-    pub type EcdsaBls381Public = ecdsa_bls381::AppPublic;
+	pub type EcdsaBls381Public = ecdsa_bls381::AppPublic;
 	pub type EcdsaBls381Pop = ecdsa_bls381::AppSignature;
 }
 #[cfg(not(feature = "bls-experimental"))]
 mod bls {
-    pub type Bls381Public = ();
+	pub type Bls381Public = ();
 	pub type Bls381Pop = ();
-    pub type EcdsaBls381Public = ();
+	pub type EcdsaBls381Public = ();
 	pub type EcdsaBls381Pop = ();
 }
 pub use bls::*;
