@@ -1734,7 +1734,10 @@ pub mod helpers {
 			TRACKED_TOPIC_IDS.with(|b| b.borrow_mut().insert(id));
 		}
 		pub fn assert_unique() {
-			TRACKED_TOPIC_IDS.with(|b| assert_eq!(b.borrow().len(), 1));
+			TRACKED_TOPIC_IDS.with(|b| {
+				let ids = b.borrow();
+				assert_eq!(ids.len(), 1, "More than one: {:?}", ids)
+			});
 		}
 		pub fn reset() {
 			TRACKED_TOPIC_IDS.with(|b| b.borrow_mut().clear());

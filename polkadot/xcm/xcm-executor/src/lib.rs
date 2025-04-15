@@ -247,6 +247,7 @@ impl<Config: config::Config> ExecuteXcm<Config::RuntimeCall> for XcmExecutor<Con
 			target: "xcm::execute",
 			?origin,
 			?message,
+			?id,
 			?weight_credit,
 			"Executing message",
 		);
@@ -808,16 +809,20 @@ impl<Config: config::Config> XcmExecutor<Config> {
 	/// Preserves the original message ID as a topic if none exists and origin is cleared.
 	fn preserve_message_topic<T>(&self, msg: &mut Xcm<T>) {
 		if let Some(SetTopic(topic_id)) = msg.last() {
-			tracing::trace!(target: "xcm::send", ?topic_id, "Message already ends with `SetTopic`");
+			let id_h256: sp_core::H256 = topic_id.into();
+			tracing::trace!(target: "xcm::send", ?topic_id, ?id_h256, "Message already ends with `SetTopic`");
 		} else if let Some(topic_id) = self.context.topic {
-			tracing::trace!(target: "xcm::send", ?topic_id, "Message already set");
+			let id_h256: sp_core::H256 = topic_id.into();
+			tracing::trace!(target: "xcm::send", ?topic_id, ?id_h256, "`SetTopic` not required (context has topic)");
 		} else if self.context.origin.is_none() {
 			let topic_id = self.context.message_id;
+			let id_h256: sp_core::H256 = topic_id.into();
 			msg.inner_mut().push(SetTopic(topic_id));
-			tracing::trace!(target: "xcm::send", ?topic_id, "`SetTopic` appended to message");
+			tracing::trace!(target: "xcm::send", ?topic_id, ?id_h256, "`SetTopic` appended to message (origin cleared)");
 		} else {
 			let message_id = self.context.message_id;
-			tracing::trace!(target: "xcm::send", ?message_id, "`SetTopic` neither found nor appended at the end of message");
+			let id_h256: sp_core::H256 = message_id.into();
+			tracing::trace!(target: "xcm::send", ?message_id, ?id_h256, "`SetTopic` neither found nor appended at the end of message");
 		}
 	}
 
@@ -1588,6 +1593,8 @@ impl<Config: config::Config> XcmExecutor<Config> {
 					.map_err(|()| XcmError::Unanchored)?;
 				let hash = (self.origin_ref(), &destination).using_encoded(blake2_128);
 				let channel = u32::decode(&mut hash.as_ref()).unwrap_or(0);
+				// let mut xcm = xcm;
+				// self.preserve_message_topic(&mut xcm);
 				// Hash identifies the lane on the exporter which we use. We use the pairwise
 				// combination of the origin and destination to ensure origin/destination pairs
 				// will generally have their own lanes.

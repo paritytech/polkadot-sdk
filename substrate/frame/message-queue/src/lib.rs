@@ -1541,6 +1541,8 @@ impl<T: Config> Pallet<T> {
 		overweight_limit: Weight,
 	) -> MessageExecutionStatus {
 		let mut id = sp_io::hashing::blake2_256(message);
+		let id_h256: H256 = id.into();
+		frame_support::__private::sp_tracing::info!(target: "mq::process-message", ?id, ?id_h256, "Processing message payload");
 		use ProcessMessageError::*;
 		let prev_consumed = meter.consumed();
 

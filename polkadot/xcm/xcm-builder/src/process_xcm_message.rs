@@ -60,6 +60,7 @@ impl<
 
 			ProcessMessageError::Corrupt
 		})?;
+		tracing::trace!(target: LOG_TARGET, ?versioned_message, "Before `Xcm::<Call>::try_from`");
 		let message = Xcm::<Call>::try_from(versioned_message).map_err(|_| {
 			tracing::trace!(
 				target: LOG_TARGET,
@@ -68,6 +69,11 @@ impl<
 
 			ProcessMessageError::Unsupported
 		})?;
+		tracing::trace!(target: LOG_TARGET, ?message, "Before `XcmExecutor::prepare`");
+		if let Some(SetTopic(topic_id)) = message.last() {
+			let id_h256: sp_core::H256 = topic_id.into();
+			tracing::trace!(target: LOG_TARGET, ?topic_id, ?id_h256, "Before `XcmExecutor::prepare` from the last XCM instruction");
+		}
 		let pre = XcmExecutor::prepare(message).map_err(|_| {
 			tracing::trace!(
 				target: LOG_TARGET,
@@ -88,6 +94,7 @@ impl<
 			return Err(ProcessMessageError::Overweight(required))
 		}
 
+		tracing::trace!(target: LOG_TARGET, ?id, "Before `XcmExecutor::execute`");
 		let (consumed, result) = match XcmExecutor::execute(origin.into(), pre, id, Weight::zero())
 		{
 			Outcome::Complete { used } => {

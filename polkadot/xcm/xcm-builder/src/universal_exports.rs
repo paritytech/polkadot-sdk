@@ -234,7 +234,9 @@ impl<T: Get<Vec<NetworkExportTableItem>>> ExporterFor for NetworkExportTable<T> 
 }
 
 pub fn forward_id_for(original_id: &XcmHash) -> XcmHash {
-	(b"forward_id_for", original_id).using_encoded(sp_io::hashing::blake2_256)
+	let forward_id = (b"forward_id_for", original_id).using_encoded(sp_io::hashing::blake2_256);
+	tracing::trace!(target: "xcm::exports", ?original_id, ?forward_id, "Topic ID mapped");
+	forward_id
 }
 
 /// Implementation of `SendXcm` which wraps the message inside an `ExportMessage` instruction
@@ -401,6 +403,7 @@ impl<Bridges: ExporterFor, Router: SendXcm, UniversalLocation: Get<InteriorLocat
 			vec![export_instruction]
 		});
 		if let Some(forward_id) = maybe_forward_id {
+			tracing::trace!(target: "xcm::exports", ?forward_id, "`SetTopic` appended");
 			message.0.push(SetTopic(forward_id));
 		}
 
