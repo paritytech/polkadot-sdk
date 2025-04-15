@@ -193,7 +193,7 @@ impl<T: frame_system::Config> pallet_core_fellowship::WeightInfo for WeightInfo<
 	/// Proof: `AmbassadorCollective::IdToIndex` (`max_values`: None, `max_size`: Some(54), added: 2529, mode: `MaxEncodedLen`)
 	/// The range of component `r` is `[1, 9]`.
 	/// The range of component `r` is `[1, 9]`.
-	fn promote_fast(r: u32, ) -> Weight {
+	fn promote_fast(r: u16, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `65968`
 		//  Estimated: `69046 + r * (2489 ±0)`
