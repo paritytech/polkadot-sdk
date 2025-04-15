@@ -12,7 +12,7 @@ echo "✅ removing any old chain-spec file"
 rm ./parachain.json
 rm ./rc.json
 
-echo "✅ creating ah-next chain specs"
+echo "✅ creating parachain chain specs"
 RUST_LOG=${LOG} ../../../../../target/release/chain-spec-builder \
     create \
     -t development \
@@ -22,7 +22,7 @@ RUST_LOG=${LOG} ../../../../../target/release/chain-spec-builder \
     named-preset development
 mv ./chain_spec.json ./parachain.json
 
-echo "✅ creating westend-next chain specs"
+echo "✅ creating rc chain specs"
 RUST_LOG=${LOG} ../../../../../target/release/chain-spec-builder \
     create \
     -t development \

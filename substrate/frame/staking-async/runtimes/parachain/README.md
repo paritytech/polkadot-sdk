@@ -1,87 +1,54 @@
-# Asset Hub Next
+# Staking Async Parachain
 
-## Local Development
+## Overview
 
-In any case, prepare a chain-spec.
+This parachain runtime is a fake fork of the asset-hub next (created original by Donál). It is here
+to test the async-staking pallet in a real environment.
 
-### Custom Polkadot Node
+This parachain contains:
 
-Until https://github.com/paritytech/polkadot-sdk/issues/7664#issuecomment-2678983053 is resolved, we
-have to create a custom `polkadot`+`polkadot-execution-worker`+`polkadot-prepare-worker`. You can
-use this branch: https://github.com/paritytech/polkadot-sdk/pull/new/kiz-larger-PVF
+- `pallet-staking-async`
+- `pallet-staking-async-rc-client`
+- `pallet-election-provider-multi-block` and family
+- aux staking pallets `pallet-nomination-pools`, `pallet-fast-unstake`, `pallet-bags-list`, and
+  `pallet-delegated-staking`.
 
-Build/install binaries from above.
+All of the above are means to stake and select validators for the RELAY-CHAIN, which is eventually
+communicated to it via the `pallet-staking-async-rc-client` pallet.
 
-Then:
+A lot more is in the runtime, and can be eventually removed.
 
-From the `polkadot-sdk` project root dir:
+Note that the parachain runtime also contains a `pallet-session` that works with
+`pallet-collator-selection` for the PARACHAIN block author selection.
 
-```bash
-cargo build --release -p asset-hub-next-westend-runtime -p staging-chain-spec-builder
-./target/release/chain-spec-builder \
-  create \
-  --runtime ./target/release/wbuild/asset-hub-next-westend-runtime/asset_hub_next_westend_runtime.compact.compressed.wasm \
-  --relay-chain westend-local \
-  --para-id 1100 \
-  named-preset development
-./target/release/chain-spec-builder convert-to-raw ./chain_spec.json
-```
+The counterpart `rc` runtime is a relay chain that is meant to host the parachain. It contains:
 
-Note that the para-id is set in the chain-spec too and must be 1100 to match.
+- `pallet-staking-async-ah-client`
+- `pallet-session`
+- `pallet-authorship`
+- And all of the consensus pallets that feed the authority set from the session, such as
+  aura/babe/grandpa/beefy and so on.
 
-If errors like
+## Run
 
-```bash
-$ npx @acala-network/chopsticks@latest -c ./cumulus/parachains/runtimes/assets/asset-hub-next-westend/ah-next-chopsticks.yml --genesis chain_spec.json
-
-ZodError: [
-  {
-    "code": "invalid_type",
-    "expected": "object",
-    "received": "undefined",
-    "path": [
-      "genesis",
-      "raw"
-    ],
-    "message": "Required"
-  }
-]
-```
-
-it is likely that the third step above `chain-spec-builder convert-to-raw` was forgotten.
-
-### Chopsticks quickstart
-```bash
-npx @acala-network/chopsticks@latest -c ./cumulus/parachains/runtimes/assets/asset-hub-next-westend/ah-next-chopsticks.yml --genesis chain_spec.json
-```
-Access it via localhost:8000 in [pjs apps](https://polkadot.js.org/apps/?rpc=ws://127.0.0.1:8000) or
-programatically with PAPI etc.
-
-### Real setup with Zombienet
+To run this, a one-click script is provided:
 
 ```
-zombienet --provider native spawn zombienet-omni-node.toml
+bash build-and-run-zn.sh
 ```
 
-> Or just use `build-and-run-zn.sh` .
+This script will generate chain-specs for both runtimes, and run them with zombie-net.
 
-Single-node, single dev mode. This doesn't check things like PoV limits at all, be careful!
+> Make sure you have all polkadot binaries (`polkadot`, `polkadot-execution-worker` and
+> `polkadot-prepare-worker`) and `polkadot-parachain` installed in your PATH. You can usually
+> download them from the polkadot-sdk release page.
 
-```
-polkadot-omni-node --chain ./chain_spec.json --dev-block-time 12000 --tmp
-```
+You also need `chain-spec-builder`, but the script builds that and uses a fresh one.
 
+## Configuration
 
-### Starting the Election
+TODO
 
-As it stands now, the election process is dormant. In the future, it will be kickstarted by the
-rc-client pallet. For local testing, do the following:
+## Running Benchmarks
 
-Start the chain. When ready, submit the following extrinsic:
-
-```
-Multiblock::manage(ForceSetPhase(Phase::Snapshot(64)))
-```
-
-This extrinsic is gated by Sudo, or `EnsureSigned`. See `impl multiblock::Config for Runtime { type
-AdminOrigin = .. }` in `staking.rs`.
+TODO

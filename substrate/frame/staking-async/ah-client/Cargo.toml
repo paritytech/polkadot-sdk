@@ -11,6 +11,7 @@ repository.workspace = true
 codec = { workspace = true, features = ["derive"] }
 log = { workspace = true }
 scale-info = { workspace = true, features = ["derive"] }
+serde = { features = ["alloc", "derive"], workspace = true }
 
 sp-core = { workspace = true }
 sp-runtime = { workspace = true }
@@ -30,6 +31,7 @@ std = [
 	"frame-support/std",
 	"frame-system/std",
 	"log/std",
+	"serde/std",
 	"pallet-authorship/std",
 	"pallet-session/std",
 	"pallet-staking-async-rc-client/std",

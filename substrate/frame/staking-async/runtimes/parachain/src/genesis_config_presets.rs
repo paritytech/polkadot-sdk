@@ -1,3 +1,5 @@
+// This file is part of Substrate.
+
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -33,6 +35,8 @@ struct GenesisParams {
 	endowed_accounts: Vec<AccountId>,
 	endowment: Balance,
 	dev_stakers: Option<(u32, u32)>,
+	pages: u32,
+	max_electing_voters: u32,
 	validator_count: u32,
 	root: AccountId,
 	id: ParaId,
@@ -46,6 +50,9 @@ fn staking_async_parachain_genesis(params: GenesisParams) -> serde_json::Value {
 		dev_stakers,
 		validator_count,
 		root,
+		// TODO: find a way to set these here, but for now we will set them directly in the runtime.
+		pages: _pages,
+		max_electing_voters: _max_electing_voters,
 		id,
 	} = params;
 	build_struct_json_patch!(RuntimeGenesisConfig {
@@ -88,18 +95,20 @@ pub fn get_preset(id: &PresetId) -> Option<Vec<u8>> {
 		validator_count: 10,
 		root: Sr25519Keyring::Alice.to_account_id(),
 		id: 1100.into(),
+		max_electing_voters: 2000,
+		pages: 4,
 	};
 	let patch = match id.as_ref() {
 		sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET =>
 			staking_async_parachain_genesis(dev_and_testnet_params),
 		sp_genesis_builder::DEV_RUNTIME_PRESET =>
 			staking_async_parachain_genesis(dev_and_testnet_params),
-		"bench_ksm" => {
+		"ksm_size" => {
 			dev_and_testnet_params.validator_count = 1_000;
 			dev_and_testnet_params.dev_stakers = Some((4_000, 20_000));
 			staking_async_parachain_genesis(dev_and_testnet_params)
 		},
-		"bench_dot" => {
+		"dot_size" => {
 			dev_and_testnet_params.validator_count = 500;
 			dev_and_testnet_params.dev_stakers = Some((2_000, 25_000));
 			staking_async_parachain_genesis(dev_and_testnet_params)
@@ -119,7 +128,7 @@ pub fn preset_names() -> Vec<PresetId> {
 	vec![
 		PresetId::from(sp_genesis_builder::DEV_RUNTIME_PRESET),
 		PresetId::from(sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET),
-		PresetId::from("bench_ksm"),
-		PresetId::from("bench_dot"),
+		PresetId::from("ksm_size"),
+		PresetId::from("dot_size"),
 	]
 }

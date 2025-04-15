@@ -405,7 +405,7 @@ pub mod pallet {
 		#[pallet::weight(
 			// `LastSessionReportEndingIndex`: rw
 			// `IncompleteSessionReport`: rw
-			// TODO: since this is in a parachain, we need better benchmarking
+			// NOTE: what happens inside `AHStakingInterface` is benchmarked and registered in `pallet-staking-async`
 			T::DbWeight::get().reads_writes(2, 2)
 		)]
 		pub fn relay_session_report(

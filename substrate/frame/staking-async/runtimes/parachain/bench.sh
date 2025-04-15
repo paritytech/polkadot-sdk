@@ -28,4 +28,4 @@ WASMTIME_BACKTRACE_DETAILS=1 RUST_LOG=${LOG}  \
   --genesis-builder-preset $2 \
   --template ../../../../../substrate/.maintain/frame-weight-template.hbs \
   --heap-pages 65000 \
-  --output ./$1_$2.json \
+  --output ./$1_$2.rs \

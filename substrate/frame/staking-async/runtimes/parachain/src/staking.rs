@@ -1,3 +1,5 @@
+// This file is part of Substrate.
+
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -30,21 +32,21 @@ use sp_runtime::{
 };
 
 parameter_types! {
-	pub SignedPhase: u32 = 1 * MINUTES;
-	pub UnsignedPhase: u32 = 1 * MINUTES;
-	pub const SignedValidationPhase: u32 = Pages::get() + 1;
+	pub storage SignedPhase: u32 = 1 * MINUTES;
+	pub storage UnsignedPhase: u32 = 1 * MINUTES;
+	pub storage SignedValidationPhase: u32 = Pages::get() + 1;
 
 	/// Compatible with Polkadot, we allow up to 22_500 nominators to be considered for election
-	pub const MaxElectingVoters: u32 = 22_500;
+	pub storage MaxElectingVoters: u32 = 2000;
 
 	/// Maximum number of validators that we may want to elect. 1000 is the end target.
 	pub const MaxValidatorSet: u32 = 1000;
 
 	/// Number of election pages that we operate upon.
-	pub const Pages: u32 = 8;
+	pub storage Pages: u32 = 4;
 
 	/// Number of nominators per page of the snapshot, and consequently number of backers in the solution.
-	pub const VoterSnapshotPerBlock: u32 = MaxElectingVoters::get() / Pages::get();
+	pub VoterSnapshotPerBlock: u32 = MaxElectingVoters::get() / Pages::get();
 
 	/// Number of validators per page of the snapshot.
 	pub const TargetSnapshotPerBlock: u32 = MaxValidatorSet::get();
@@ -53,16 +55,16 @@ parameter_types! {
 	pub const MaxWinnersPerPage: u32 = MaxValidatorSet::get();
 
 	/// In each page of the election, we allow up to all of the nominators of that page to be present.
-	pub const MaxBackersPerWinner: u32 = VoterSnapshotPerBlock::get();
+	pub MaxBackersPerWinner: u32 = VoterSnapshotPerBlock::get();
 
 	/// Total number of backers per winner across all pages. This is not used in the code yet.
-	pub const MaxBackersPerWinnerFinal: u32 = MaxBackersPerWinner::get();
+	pub MaxBackersPerWinnerFinal: u32 = MaxBackersPerWinner::get();
 
 	/// Size of the exposures. This should be small enough to make the reward payouts feasible.
 	pub const MaxExposurePageSize: u32 = 64;
 
 	/// Each solution is considered "better" if it is 0.01% better.
-	pub SolutionImprovementThreshold: Perbill = Perbill::from_rational(1u32, 10_000);
+	pub storage SolutionImprovementThreshold: Perbill = Perbill::from_rational(1u32, 10_000);
 }
 
 frame_election_provider_support::generate_solution_type!(

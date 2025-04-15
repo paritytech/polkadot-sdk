@@ -1,3 +1,5 @@
+// This file is part of Substrate.
+
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -32,7 +34,7 @@
 // --output
 // cumulus/parachains/runtimes/assets/asset-hub-next-westend/src/weights/cumulus_pallet_xcmp_queue.rs
 // --extrinsic
-// 
+//
 
 #![cfg_attr(rustfmt, rustfmt_skip)]
 #![allow(unused_parens)]

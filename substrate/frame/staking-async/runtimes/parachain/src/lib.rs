@@ -1,3 +1,5 @@
+// This file is part of Substrate.
+
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -2141,7 +2143,31 @@ impl_runtime_apis! {
 
 	impl sp_genesis_builder::GenesisBuilder<Block> for Runtime {
 		fn build_state(config: Vec<u8>) -> sp_genesis_builder::Result {
-			build_state::<RuntimeGenesisConfig>(config)
+			let res = build_state::<RuntimeGenesisConfig>(config);
+			// tweak some of our parameter-types as well..
+			match pallet_staking_async::ValidatorCount::<Runtime>::get() {
+				1000 => {
+					log::info!(target: "runtime", "detected a polkadot-like chain during `build_state`");
+					// this is a polkadot-like chain
+					crate::staking::MaxElectingVoters::set(&22_500);
+					crate::staking::Pages::set(&32);
+				},
+				500 => {
+					log::info!(target: "runtime", "detected a kusama-like chain during `build_state`");
+					// this is a kusama-like chain
+					crate::staking::MaxElectingVoters::set(&12_500);
+					crate::staking::Pages::set(&16);
+				}
+				10 => {
+					log::info!(target: "runtime", "detected a dev chain during `build_state`");
+					// this is a dev-chain -- no change needed
+				},
+				_ => {
+					panic!("Unrecognized validator count -- genesis-config and this block should match");
+				}
+			}
+
+			res
 		}
 
 		fn get_preset(id: &Option<sp_genesis_builder::PresetId>) -> Option<Vec<u8>> {
