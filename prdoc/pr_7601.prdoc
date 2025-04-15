@@ -1,6 +1,6 @@
 title: '[AHM] Multi-block election patches'
 doc:
-- audience: Todo
+- audience: Runtime Dev
   description: |-
     - [x] Finalize weights
     - [x] Lock voter list when snapshot being taken
