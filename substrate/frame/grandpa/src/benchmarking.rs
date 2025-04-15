@@ -16,9 +16,10 @@
 // limitations under the License.
 
 //! Benchmarks for the GRANDPA pallet.
+#![cfg(feature = "runtime-benchmarks")]
 
 use super::{Pallet as Grandpa, *};
-use frame_benchmarking::v1::benchmarks;
+use frame::benchmarking::prelude::*;
 use frame_system::RawOrigin;
 use sp_core::H256;
 

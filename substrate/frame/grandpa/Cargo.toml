@@ -19,21 +19,18 @@ targets = ["x86_64-unknown-linux-gnu"]
 codec = { features = ["derive"], workspace = true }
 log = { workspace = true }
 scale-info = { features = ["derive", "serde"], workspace = true }
-frame-benchmarking = { optional = true, workspace = true }
-frame-support = { workspace = true }
-frame-system = { workspace = true }
+frame = { workspace = true, features = ["experimental", "runtime"] }
 pallet-authorship = { workspace = true }
 pallet-session = { workspace = true }
 sp-application-crypto = { features = ["serde"], workspace = true }
 sp-consensus-grandpa = { features = ["serde"], workspace = true }
-sp-core = { features = ["serde"], workspace = true }
-sp-io = { workspace = true }
-sp-runtime = { features = ["serde"], workspace = true }
 sp-session = { workspace = true }
 sp-staking = { features = ["serde"], workspace = true }
 
 [dev-dependencies]
-finality-grandpa = { features = ["derive-codec"], workspace = true, default-features = true }
+finality-grandpa = { features = [
+	"derive-codec",
+], workspace = true, default-features = true }
 frame-benchmarking = { workspace = true, default-features = true }
 frame-election-provider-support = { workspace = true, default-features = true }
 pallet-balances = { workspace = true, default-features = true }
@@ -47,47 +44,33 @@ sp-keyring = { workspace = true, default-features = true }
 default = ["std"]
 std = [
 	"codec/std",
-	"frame-benchmarking?/std",
-	"frame-election-provider-support/std",
-	"frame-support/std",
-	"frame-system/std",
+	"frame/std",
 	"log/std",
 	"pallet-authorship/std",
-	"pallet-balances/std",
-	"pallet-offences/std",
 	"pallet-session/std",
-	"pallet-staking/std",
 	"pallet-timestamp/std",
 	"scale-info/std",
 	"sp-application-crypto/std",
 	"sp-consensus-grandpa/std",
-	"sp-core/std",
-	"sp-io/std",
-	"sp-runtime/std",
 	"sp-session/std",
 	"sp-staking/std",
 ]
 runtime-benchmarks = [
-	"frame-benchmarking/runtime-benchmarks",
+	"frame/runtime-benchmarks",
 	"frame-election-provider-support/runtime-benchmarks",
-	"frame-support/runtime-benchmarks",
-	"frame-system/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
 	"pallet-offences/runtime-benchmarks",
 	"pallet-staking/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
-	"sp-runtime/runtime-benchmarks",
 	"sp-staking/runtime-benchmarks",
 ]
 try-runtime = [
 	"frame-election-provider-support/try-runtime",
-	"frame-support/try-runtime",
-	"frame-system/try-runtime",
+	"frame/try-runtime",
 	"pallet-authorship/try-runtime",
 	"pallet-balances/try-runtime",
 	"pallet-offences/try-runtime",
 	"pallet-session/try-runtime",
 	"pallet-staking/try-runtime",
 	"pallet-timestamp/try-runtime",
-	"sp-runtime/try-runtime",
 ]
