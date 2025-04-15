@@ -156,6 +156,14 @@ fn provider_ref_handover_to_self_sufficient_ref_works() {
 }
 
 #[test]
+fn dec_sufficients_does_not_undeflow() {
+	new_test_ext().execute_with(|| {
+		assert_eq!(System::inc_providers(&0), IncRefStatus::Created);
+		assert_eq!(System::dec_sufficients(&0), DecRefStatus::Exists);
+	});
+}
+
+#[test]
 fn self_sufficient_ref_handover_to_provider_ref_works() {
 	new_test_ext().execute_with(|| {
 		assert_eq!(System::inc_sufficients(&0), IncRefStatus::Created);
