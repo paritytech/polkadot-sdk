@@ -23,9 +23,13 @@ jobs:
   check-synchronization:
     uses: paritytech-release/sync-workflows/.github/workflows/check-syncronization.yml@main
 
-  validate-inputs:
+  sync-forks:
     needs: [check-synchronization]
     if: ${{ needs.check-synchronization.outputs.checks_passed }} == 'true'
+    uses: paritytech-release/sync-workflows/.github/workflows/sync-with-upstream.yml@main
+
+  validate-inputs:
+    needs: [sync-forks]
     runs-on: ubuntu-latest
     outputs:
         release_tag: ${{ steps.validate_inputs.outputs.release_tag }}
