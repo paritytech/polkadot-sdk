@@ -1,6 +1,6 @@
 title: '[WIP] [AHM] Async Staking module across AH and RC'
 doc:
-- audience: Todo
+- audience: Runtime Dev
   description: |-
     Moved from: #7601.
     Follow ups to: https://github.com/paritytech/polkadot-sdk/pull/7282.

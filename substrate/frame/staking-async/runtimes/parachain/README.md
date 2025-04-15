@@ -39,9 +39,9 @@ bash build-and-run-zn.sh
 
 This script will generate chain-specs for both runtimes, and run them with zombie-net.
 
-> Make sure you have all polkadot binaries (`polkadot`, `polkadot-execution-worker` and
+> Make sure you have all Polkadot binaries (`polkadot`, `polkadot-execution-worker` and
 > `polkadot-prepare-worker`) and `polkadot-parachain` installed in your PATH. You can usually
-> download them from the polkadot-sdk release page.
+> download them from the Polkadot-sdk release page.
 
 You also need `chain-spec-builder`, but the script builds that and uses a fresh one.
 
