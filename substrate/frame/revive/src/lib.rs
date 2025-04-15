@@ -559,7 +559,9 @@ pub mod pallet {
 	impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
 		fn build(&self) {
 			for id in &self.mapped_accounts {
-				T::AddressMapper::map(id).expect("Account not already mapped; qed");
+				if let Err(err) = T::AddressMapper::map(id) {
+					log::error!(target: LOG_TARGET, "Failed to map account {id}: {err:?}");
+				}
 			}
 		}
 	}
