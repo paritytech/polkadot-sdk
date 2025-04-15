@@ -539,19 +539,23 @@ fn instapool_partial_core_payouts_work() {
 			Broker::do_interlace(region, None, CoreMask::from_chunk(0, 20)).unwrap();
 		assert_ok!(Broker::do_pool(region1, None, 2, Final));
 		assert_ok!(Broker::do_pool(region2, None, 3, Final));
+		// Buy and spend 40 credits to make the interlaced region payouts a nice round number.
 		assert_ok!(Broker::do_purchase_credit(1, 40, 1));
-		// This adds to the pot - TODO improve mock to not double count this and also add e2e for
-		// runtime-level.
 		assert_eq!(pot(), 0);
+		assert_eq!(revenue(), 100);
 		advance_to(8);
 		assert_ok!(TestCoretimeProvider::spend_instantaneous(1, 40));
 		advance_to(11);
+		// Half the revenue goes to the private pot which can then be claimed.
+		assert_eq!(pot(), 20);
 		assert_ok!(Broker::do_claim_revenue(region1, 100));
 		assert_ok!(Broker::do_claim_revenue(region2, 100));
-		assert_eq!(revenue(), 120);
+		// Then the private pot is split 20:60 due to the interlacing pattern.
 		assert_eq!(balance(2), 5);
 		assert_eq!(balance(3), 15);
+		// And the bookkeeping is correct.
 		assert_eq!(pot(), 0);
+		assert_eq!(revenue(), 120);
 	});
 }
 

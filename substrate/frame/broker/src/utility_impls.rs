@@ -152,8 +152,7 @@ impl<T: Config> Pallet<T> {
 		// account for the case where a region is pooled provisionally and redispatched.
 		if InstaPoolContribution::<T>::take(region_id).is_some() {
 			// `InstaPoolHistory` is calculated from the `InstaPoolIo` one timeslice in advance.
-			// Therefore we need to schedule this for the timeslice after that or it won't be be
-			// accounted for.
+			// Therefore we need to schedule this for the timeslice after that.
 			let end_timeslice = status.last_committed_timeslice + 1;
 
 			// InstaPoolIo has already accounted for regions that have already ended. Regions ending
