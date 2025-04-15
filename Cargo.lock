@@ -15718,6 +15718,7 @@ dependencies = [
  "bitflags 1.3.2",
  "bitvec",
  "frame-benchmarking",
+ "frame-election-provider-support",
  "frame-support",
  "frame-support-test",
  "frame-system",

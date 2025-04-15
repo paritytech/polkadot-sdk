@@ -1843,6 +1843,16 @@ impl<T: Config> ElectionProvider for Pallet<T> {
 			_ => Ok(false),
 		}
 	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn asap() {
+		// prepare our snapshot so we can "hopefully" run a fallback.
+		Self::create_snapshot()
+			.inspect_err(|e| {
+				crate::log!(error, "failed to create snapshot while asap-preparing: {:?}", e)
+			})
+			.unwrap()
+	}
 }
 
 /// convert a DispatchError to a custom InvalidTransaction with the inner code being the error

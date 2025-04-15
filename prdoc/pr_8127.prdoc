@@ -1,52 +1,12 @@
-title: '[WIP] [AHM] Async Staking module across AH and RC'
+title: '[AHM] Async Staking module across AH and RC'
 doc:
 - audience: Runtime Dev
   description: |-
-    Moved from: #7601.
-    Follow ups to: https://github.com/paritytech/polkadot-sdk/pull/7282.
-    Closes: https://github.com/paritytech/polkadot-sdk/issues/8146
+    This PR is the final outcome of a multi-month development period, with a lot of background work since 2022. Its main aim is to make pallet-staking, alongside its `type ElectionProvider` compatible to be used in a parachain, and report back the validator set to a relay-chain.
 
-    _This should go into master after https://github.com/paritytech/polkadot-sdk/pull/7936._
+    This setup is intended to be used for Polkadot, Kusama and Westend relay-chains, with the corresponding AssetHubs hosting the staking system.
 
-    ## TODO
-    - [x] Finalize weights
-    - [x] Lock voter list when snapshot being taken
-    - [x] push based election
-    - [x] OffchainWorker miner can now run on multiple pages
-    - [x] Trimming is improved, all bounds are respected.
-    - [x] clients pallets: add ID
-    - [x] make election prolonged
-    - [x] bring westend-next and ah-next to staking-next
-    - [x] Test pre-migration to post-migration state in ahm-test.
-    - [x] Offence reporting works without exposure info on RC (done but recheck).
-    - [ ] staking-async fix tests
-    - [ ] root offence testing (minimally done in migration test)
-    - [ ] Run benchmarking
-    - [x] ~~Add custom decoder for OffenceDetails~~.
-
-    ## TODO before finalising PR
-    - [x] Go over again and ensure no interaction with staking-classic except by AhClient (and pallets that are going away) in Westend. Make any non used apis private.
-    - [ ] Create diff with changes from staking-classic.
-
-    ## Notes
-    - At the start of the AHM migration, trigger: `RC::pallet_staking_async_ah_client::on_migration_start()`
-    - At the start of the AHM migration, trigger the following:
-      - RC: set `staking::Forcing` to `ForceNone`.
-    - At the end of the AHM migration, trigger the following
-      - `RC::pallet_staking_async_ah_client::on_migration_end()`
-      - Set `AH::pallet_staking_async::ForceEra` to `Forcing::NotForcing`.
-      - Set RC staking and pool min bond to be u32::max.
-    - OffenceDetails fails to decode with the new `Existence` variant if `ExistenceOrLegacyExposure` is wrapped inside a composite type and additional bytes follow it. We will need to write a custom decoder for
-    `OffenceDetails<A, ExistenceOrLegacyExposure<A, B>>`. Might have to revert https://github.com/paritytech/polkadot-sdk/pull/7936.
-
-    ## Followup
-    - [ ] Investigate https://github.com/paritytech/polkadot-sdk/pull/8246
-    - [ ] Offence generation e2e test (zombienet)
-    - [ ] Take deposit for storing session keys.
-    - [ ] Try restrict usage of following pallets post migration:
-      - [ ] fast-unstake
-      - [ ] nom pool
-      - [ ] staking
+    TODO: complete this once the CI is green, and a round of self-review is done so I have a fresh perspective on the changes.
 crates:
 - name: pallet-bags-list
   bump: major
