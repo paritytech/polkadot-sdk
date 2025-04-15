@@ -1,0 +1,8 @@
+title: Safer conversions in polkadot-runtime-parachains
+doc:
+- audience: Runtime Dev
+  description: |-
+    Use TryFrom impls instead of `as` operator for conversions.
+crates:
+- name: polkadot-runtime-parachains
+  bump: patch 

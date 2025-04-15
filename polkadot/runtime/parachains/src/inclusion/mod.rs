@@ -1319,19 +1319,23 @@ impl<T: Config> CandidateCheckContext<T> {
 		hrmp_watermark: BlockNumberFor<T>,
 		horizontal_messages: &[polkadot_primitives::OutboundHrmpMessage<ParaId>],
 	) -> Result<(), AcceptanceCheckErr> {
-		ensure!(
-			head_data.0.len() <= self.config.max_head_data_size as _,
-			AcceptanceCheckErr::HeadDataTooLarge,
-		);
+		// Safe convertions when `self.config.max_head_data_size` is in bounds of `usize` type.
+		let max_head_data_size = usize::try_from(self.config.max_head_data_size)
+			.map_err(|_| AcceptanceCheckErr::HeadDataTooLarge)?;
+		ensure!(head_data.0.len() <= max_head_data_size, AcceptanceCheckErr::HeadDataTooLarge);
 
 		// if any, the code upgrade attempt is allowed.
 		if let Some(new_validation_code) = new_validation_code {
+			// Safe convertions when `self.config.max_code_size` is in bounds of `usize` type.
+			let max_code_size = usize::try_from(self.config.max_code_size)
+				.map_err(|_| AcceptanceCheckErr::NewCodeTooLarge)?;
+
 			ensure!(
 				paras::Pallet::<T>::can_upgrade_validation_code(para_id),
 				AcceptanceCheckErr::PrematureCodeUpgrade,
 			);
 			ensure!(
-				new_validation_code.0.len() <= self.config.max_code_size as _,
+				new_validation_code.0.len() <= max_code_size,
 				AcceptanceCheckErr::NewCodeTooLarge,
 			);
 		}
