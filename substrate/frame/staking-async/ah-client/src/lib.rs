@@ -162,7 +162,7 @@ impl<T: Config + pallet_session::Config + pallet_session::historical::Config> Se
 	Eq,
 	RuntimeDebug,
 	serde::Serialize,
-	serde::Deserialize
+	serde::Deserialize,
 )]
 pub enum OperatingMode {
 	/// Fully delegated mode.
@@ -350,13 +350,12 @@ pub mod pallet {
 	pub type BufferedOffences<T: Config> =
 		StorageValue<_, Vec<(SessionIndex, Vec<rc_client::Offence<T::AccountId>>)>, ValueQuery>;
 
-
 	#[pallet::genesis_config]
 	#[derive(frame_support::DefaultNoBound, frame_support::DebugNoBound)]
 	pub struct GenesisConfig<T: Config> {
 		/// The initial operating mode of the pallet.
 		pub operating_mode: OperatingMode,
-		pub _marker: core::marker::PhantomData<T>
+		pub _marker: core::marker::PhantomData<T>,
 	}
 
 	#[pallet::genesis_build]
