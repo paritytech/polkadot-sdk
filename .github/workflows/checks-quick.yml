@@ -140,12 +140,12 @@ jobs:
           # Test the version detection logic
           echo "=== Testing version detection logic ==="
 
-          # Create test function for branch-based fallback
-          test_version_detection() {
+          # Create test function for branch pattern detection
+          test_branch_version() {
             local test_branch=$1
             local expected_pattern=$2
             
-            echo "Testing branch: $test_branch"
+            echo -e "\nTesting branch pattern: $test_branch"
             
             # Mock current branch
             git_rev_parse_original=$(which git)
@@ -196,9 +196,11 @@ jobs:
             local mock_toml_exists=$3
             local mock_toml_version=$4
             local mock_branch=$5
-            local expected_pattern=$6
+            local expected_version=$6
             
-            echo "Testing scenario: $test_scenario"
+            echo -e "\nScenario: $test_scenario"
+            echo "  - Branch: $mock_branch"
+            echo "  - Expected version: $expected_version"
             
             # Set up mocks
             git_original=$(which git)
@@ -231,16 +233,18 @@ jobs:
             }
             export -f command
             
-            jq_original=$(which jq)
+            # Dynamically extract version from mock cargo output using jq
             function jq() {
               if [[ "$*" == "-r '.packages[] | select(.name == \"polkadot-sdk\") | .version'" ]]; then
                 if [[ "$mock_cargo_output" == *"\"name\":\"polkadot-sdk\""* ]]; then
-                  echo "1.2.3" # Version extracted from mock cargo output
+                  # Extract the version dynamically from the mock JSON
+                  local polkadot_sdk_version=$(echo "$mock_cargo_output" | grep -o '"name":"polkadot-sdk","version":"[^"]*"' | sed 's/.*version":"\([^"]*\)".*/\1/')
+                  echo "$polkadot_sdk_version"
                 else
                   echo "" # Empty if no sdk package found
                 fi
               else
-                $jq_original "$@"
+                echo "Mock jq called with: $*"
               fi
             }
             export -f jq
@@ -265,17 +269,23 @@ jobs:
             }
             export -f grep
             
-            # Run version detection logic
+            # Run the version detection logic - identical to the actual implementation
             local detected_version=""
             
             # First attempt: get version from cargo metadata
             if [[ "$mock_cargo_output" == *"\"name\":\"polkadot-sdk\""* ]]; then
-              detected_version="1.2.3"
+              detected_version=$(jq -r '.packages[] | select(.name == "polkadot-sdk") | .version')
+              echo "  Step 1: Found version from cargo metadata: $detected_version"
+            else
+              echo "  Step 1: No polkadot-sdk package found in metadata"
             fi
             
             # Second attempt: check Cargo.toml if exists
             if [ -z "$detected_version" ] && [ "$mock_toml_exists" == "true" ]; then
               detected_version="$mock_toml_version"
+              echo "  Step 2: Found version from Cargo.toml: $detected_version"
+            elif [ -z "$detected_version" ]; then
+              echo "  Step 2: No Cargo.toml available or no version found"
             fi
             
             # Last resort: fallback to branch-based version or 0.1.0
@@ -284,20 +294,22 @@ jobs:
                 # For stable branches, use the branch version with .0 suffix
                 BRANCH_VERSION=$(echo "$mock_branch" | grep -oE 'v[0-9]+\.[0-9]+' | sed 's/v//')
                 detected_version="${BRANCH_VERSION}.0"
+                echo "  Step 3: Using branch-derived version: $detected_version"
               else
                 # Default fallback for master and other branches
                 detected_version="0.1.0"
+                echo "  Step 3: Using default version: $detected_version"
               fi
             fi
             
-            echo "Detected version: $detected_version"
+            echo "  Detected version: $detected_version"
             
-            # Check if version matches expected pattern
-            if [[ "$detected_version" =~ $expected_pattern ]]; then
-              echo "✓ Test passed: Version $detected_version matches pattern $expected_pattern"
+            # Check if detected version matches expected version
+            if [[ "$detected_version" == "$expected_version" ]]; then
+              echo "  ✓ Test passed: Version matches expected value"
               return 0
             else
-              echo "✗ Test failed: Version $detected_version does not match pattern $expected_pattern"
+              echo "  ✗ Test failed: Version $detected_version does not match expected $expected_version"
               return 1
             fi
             
@@ -312,23 +324,36 @@ jobs:
 
           # Run tests for different branch scenarios
           echo "=== Testing branch fallback logic ==="
-          test_version_detection "master" "^0\.1\.0$" && \
-          test_version_detection "polkadot-v1.2" "^1\.2\.[0-9]+" && \
-          test_version_detection "release-v2.3" "^2\.3\.[0-9]+" && \
-          test_version_detection "feature/something" "^0\.1\.0$"
+          test_branch_version "master" "^0\.1\.0$" && \
+          test_branch_version "polkadot-v1.2" "^1\.2\.0$" && \
+          test_branch_version "release-v2.3" "^2\.3\.0$" && \
+          test_branch_version "feature/something" "^0\.1\.0$"
 
           branch_test_result=$?
 
-          # Run full pipeline tests
+          # Run full pipeline tests with comprehensive scenarios
           echo -e "\n=== Testing full version detection pipeline ==="
-          # Scenario 1: Version from cargo metadata
-          test_full_pipeline "Cargo metadata exists" '{"packages":[{"name":"polkadot-sdk","version":"1.2.3"}]}' "false" "" "master" "^1\.2\.3$" && \
-          # Scenario 2: Version from Cargo.toml
-          test_full_pipeline "Cargo.toml exists" '{}' "true" "3.4.5" "master" "^3\.4\.5$" && \
-          # Scenario 3: Fallback to branch version
-          test_full_pipeline "Fallback to branch version" '{}' "false" "" "polkadot-v2.5" "^2\.5\.[0-9]+" && \
-          # Scenario 4: Fallback to 0.1.0
-          test_full_pipeline "Fallback to 0.1.0" '{}' "false" "" "master" "^0\.1\.0$"
+
+          # Stable branch scenarios
+          test_full_pipeline "Stable branch with metadata" '{"packages":[{"name":"polkadot-sdk","version":"1.2.3"}]}' "false" "" "polkadot-v1.2" "1.2.3" && \
+          test_full_pipeline "Stable branch fallback" '{"packages":[{"name":"other-pkg","version":"9.9.9"}]}' "false" "" "release-v2.3" "2.3.0" && \
+
+          # Master branch scenarios
+          test_full_pipeline "Master with metadata" '{"packages":[{"name":"polkadot-sdk","version":"0.1.0"}]}' "false" "" "master" "0.1.0" && \
+          test_full_pipeline "Master fallback" '{}' "false" "" "master" "0.1.0" && \
+
+          # Cargo.toml scenarios
+          test_full_pipeline "Cargo.toml on stable branch" '{}' "true" "3.4.5" "polkadot-v3.4" "3.4.5" && \
+
+          # Complex version formats
+          test_full_pipeline "Complex version format" '{"packages":[{"name":"polkadot-sdk","version":"4.0.0-rc1"}]}' "false" "" "polkadot-v4.0" "4.0.0-rc1" && \
+
+          # Feature branch scenarios  
+          test_full_pipeline "Feature branch with metadata" '{"packages":[{"name":"polkadot-sdk","version":"9.9.9"}]}' "false" "" "feature/something" "9.9.9" && \
+          test_full_pipeline "Feature branch fallback" '{}' "false" "" "wolfenheimm/check-umbrella-crate" "0.1.0" && \
+
+          # Multiple packages in metadata
+          test_full_pipeline "Multiple packages" '{"packages":[{"name":"other-pkg","version":"1.0.0"},{"name":"polkadot-sdk","version":"3.0.7"}]}' "false" "" "polkadot-v3.0" "3.0.7"
 
           full_test_result=$?
 
