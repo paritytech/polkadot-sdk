@@ -463,7 +463,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 					self.original_origin.clone(),
 					dest,
 					error.clone(),
-					self.context.message_id,
+					self.context.topic_or_message_id(),
 				);
 				Err(error.into())
 			},
@@ -807,14 +807,17 @@ impl<Config: config::Config> XcmExecutor<Config> {
 
 	/// Preserves the original message ID as a topic if none exists and origin is cleared.
 	fn preserve_message_topic<T>(&self, msg: &mut Xcm<T>) {
-		let topic_id = self.context.message_id;
 		if let Some(SetTopic(topic_id)) = msg.last() {
 			tracing::trace!(target: "xcm::send", ?topic_id, "Message already ends with `SetTopic`");
-		} else if self.context.origin.is_none() && self.context.topic.is_none() {
+		} else if let Some(topic_id) = self.context.topic {
+			tracing::trace!(target: "xcm::send", ?topic_id, "Message already set");
+		} else if self.context.origin.is_none() {
+			let topic_id = self.context.message_id;
 			msg.inner_mut().push(SetTopic(topic_id));
 			tracing::trace!(target: "xcm::send", ?topic_id, "`SetTopic` appended to message");
 		} else {
-			tracing::trace!(target: "xcm::send", ?topic_id, "`SetTopic` neither found nor append at the end of message");
+			let message_id = self.context.message_id;
+			tracing::trace!(target: "xcm::send", ?message_id, "`SetTopic` neither found nor appended at the end of message");
 		}
 	}
 
@@ -871,7 +874,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 						Config::XcmEventEmitter::emit_process_failure_event(
 							self.original_origin.clone(),
 							error,
-							self.context.message_id,
+							self.context.topic_or_message_id(),
 						);
 						*r = Err(ExecutorError {
 							index: i as u32,

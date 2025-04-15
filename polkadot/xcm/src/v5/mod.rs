@@ -357,6 +357,14 @@ impl XcmContext {
 	pub fn with_message_id(message_id: XcmHash) -> XcmContext {
 		XcmContext { origin: None, message_id, topic: None }
 	}
+
+	pub fn topic_or_message_id(&self) -> XcmHash {
+		if let Some(id) = self.topic {
+			id.into()
+		} else {
+			self.message_id
+		}
+	}
 }
 
 /// Cross-Consensus Message: A message from one consensus system to another.
