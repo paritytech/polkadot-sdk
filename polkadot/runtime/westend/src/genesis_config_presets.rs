@@ -205,6 +205,12 @@ fn westend_testnet_genesis(
 			invulnerables: initial_authorities.iter().map(|x| x.0.clone()).collect::<Vec<_>>(),
 			force_era: Forcing::NotForcing,
 			slash_reward_fraction: Perbill::from_percent(10),
+			unbonding_queue_config: Some(pallet_staking::UnbondingQueueConfig {
+				min_slashable_share: Perbill::from_percent(50),
+				lowest_ratio: Perbill::from_percent(34),
+				unbond_period_lower_bound: 2,
+				back_of_unbonding_queue_era: 0,
+			})
 		},
 		babe: BabeConfig { epoch_config: BABE_GENESIS_EPOCH_CONFIG },
 		sudo: SudoConfig { key: Some(root_key) },
@@ -376,6 +382,12 @@ fn westend_staging_testnet_config_genesis() -> serde_json::Value {
 			invulnerables: initial_authorities.iter().map(|x| x.0.clone()).collect::<Vec<_>>(),
 			force_era: Forcing::ForceNone,
 			slash_reward_fraction: Perbill::from_percent(10),
+			unbonding_queue_config: Some(pallet_staking::UnbondingQueueConfig {
+				min_slashable_share: Perbill::from_percent(50),
+				lowest_ratio: Perbill::from_percent(34),
+				unbond_period_lower_bound: 2,
+				back_of_unbonding_queue_era: 0,
+			})
 		},
 		babe: BabeConfig { epoch_config: BABE_GENESIS_EPOCH_CONFIG },
 		sudo: SudoConfig { key: Some(endowed_accounts[0].clone()) },

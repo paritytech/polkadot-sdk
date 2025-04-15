@@ -66,6 +66,7 @@ pub fn config_endowed(extra_endowed: Vec<AccountId>) -> RuntimeGenesisConfig {
 			minimum_validator_count: 0,
 			slash_reward_fraction: Perbill::from_percent(10),
 			invulnerables: vec![alice(), bob(), charlie()],
+			unbonding_queue_config: None,
 			..Default::default()
 		},
 		society: SocietyConfig { pot: 0 },

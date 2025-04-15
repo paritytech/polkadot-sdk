@@ -88,6 +88,12 @@ pub fn kitchensink_genesis(
 				.expect("Too many invulnerable validators: upper limit is MaxInvulnerables from pallet staking config"),
 			slash_reward_fraction: Perbill::from_percent(10),
 			stakers,
+			unbonding_queue_config: Some(pallet_staking::UnbondingQueueConfig {
+				min_slashable_share: Perbill::from_percent(50),
+				lowest_ratio: Perbill::from_percent(34),
+				unbond_period_lower_bound: 2,
+				back_of_unbonding_queue_era: 0,
+			})
 		},
 		elections: ElectionsConfig {
 			members: collective.iter().cloned().map(|member| (member, STASH)).collect(),

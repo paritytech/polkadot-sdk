@@ -769,6 +769,7 @@ pub mod pallet {
 		pub min_validator_bond: BalanceOf<T>,
 		pub max_validator_count: Option<u32>,
 		pub max_nominator_count: Option<u32>,
+		pub unbonding_queue_config: Option<UnbondingQueueConfig>,
 	}
 
 	#[pallet::genesis_build]
@@ -787,6 +788,9 @@ pub mod pallet {
 			}
 			if let Some(x) = self.max_nominator_count {
 				MaxNominatorsCount::<T>::put(x);
+			}
+			if let Some(x) = self.unbonding_queue_config {
+				UnbondingQueueParams::<T>::put(x);
 			}
 
 			for &(ref stash, _, balance, ref status) in &self.stakers {

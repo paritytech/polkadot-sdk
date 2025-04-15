@@ -395,6 +395,8 @@ pub struct ActiveEraInfo {
 	TypeInfo,
 	MaxEncodedLen,
 	Default,
+	serde::Serialize,
+	serde::Deserialize,
 )]
 pub struct UnbondingQueueConfig {
 	/// The share of stake backing the lowest portion of validators that is slashable at any point
