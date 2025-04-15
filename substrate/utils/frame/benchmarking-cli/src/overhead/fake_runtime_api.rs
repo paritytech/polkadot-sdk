@@ -81,6 +81,10 @@ sp_api::impl_runtime_apis! {
 		fn check_inherents(_: Block, _: sp_inherents::InherentData) -> sp_inherents::CheckInherentsResult {
 			unimplemented!()
 		}
+
+		fn block_rate() -> sp_block_builder::BlockRate {
+			unimplemented!()
+		}
 	}
 
 	impl sp_transaction_pool::runtime_api::TaggedTransactionQueue<Block> for Runtime {

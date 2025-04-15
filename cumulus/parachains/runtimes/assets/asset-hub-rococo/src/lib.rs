@@ -1404,6 +1404,13 @@ impl_runtime_apis! {
 		) -> sp_inherents::CheckInherentsResult {
 			data.check_extrinsics(&block)
 		}
+
+		fn block_rate() -> sp_block_builder::BlockRate {
+			sp_block_builder::BlockRate {
+				block_time: core::time::Duration::from_millis(500),
+				block_building_time: core::time::Duration::from_millis(500),
+			}
+		}
 	}
 
 	impl sp_transaction_pool::runtime_api::TaggedTransactionQueue<Block> for Runtime {

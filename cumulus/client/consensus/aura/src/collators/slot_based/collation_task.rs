@@ -122,20 +122,19 @@ async fn handle_collation_message<Block: BlockT, RClient: RelayChainInterface + 
 ) {
 	let CollatorMessage {
 		parent_header,
-		parachain_candidate,
+		blocks,
+		proof,
 		validation_code_hash,
 		relay_parent,
 		core_index,
 		max_pov_size,
 	} = message;
 
-	let hash = parachain_candidate.block.header().hash();
-	let number = *parachain_candidate.block.header().number();
 	let (collation, block_data) =
-		match collator_service.build_collation(&parent_header, hash, parachain_candidate) {
+		match collator_service.build_multi_block_collation(&parent_header, blocks, proof) {
 			Some(collation) => collation,
 			None => {
-				tracing::warn!(target: LOG_TARGET, %hash, ?number, ?core_index, "Unable to build collation.");
+				tracing::warn!(target: LOG_TARGET, ?core_index, "Unable to build collation.");
 				return;
 			},
 		};
@@ -171,7 +170,7 @@ async fn handle_collation_message<Block: BlockT, RClient: RelayChainInterface + 
 		);
 	}
 
-	tracing::debug!(target: LOG_TARGET, ?core_index, %hash, %number, "Submitting collation for core.");
+	tracing::debug!(target: LOG_TARGET, ?core_index, "Submitting collation for core.");
 	overseer_handle
 		.send_msg(
 			CollationGenerationMessage::SubmitCollation(SubmitCollationParams {

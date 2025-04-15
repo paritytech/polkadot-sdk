@@ -15,19 +15,6 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus. If not, see <https://www.gnu.org/licenses/>.
 
-use codec::{Codec, Encode};
-
-use cumulus_client_collator::service::ServiceInterface as CollatorServiceInterface;
-use cumulus_client_consensus_common::{self as consensus_common, ParachainBlockImportMarker};
-use cumulus_client_consensus_proposer::ProposerInterface;
-use cumulus_primitives_aura::AuraUnincludedSegmentApi;
-use cumulus_primitives_core::{GetCoreSelectorApi, PersistedValidationData};
-use cumulus_relay_chain_interface::RelayChainInterface;
-
-use polkadot_primitives::{Block as RelayBlock, Id as ParaId};
-use sp_block_builder::BlockBuilder;
-use sp_trie::recorder::IgnoredNodes;
-
 use super::CollatorMessage;
 use crate::{
 	collator::{self as collator_util},
@@ -41,18 +28,31 @@ use crate::{
 	},
 	LOG_TARGET,
 };
+use codec::{Codec, Encode};
+use cumulus_client_collator::service::ServiceInterface as CollatorServiceInterface;
+use cumulus_client_consensus_common::{self as consensus_common, ParachainBlockImportMarker};
+use cumulus_client_consensus_proposer::ProposerInterface;
+use cumulus_primitives_aura::AuraUnincludedSegmentApi;
+use cumulus_primitives_core::{GetCoreSelectorApi, PersistedValidationData};
+use cumulus_relay_chain_interface::RelayChainInterface;
 use futures::prelude::*;
+use polkadot_primitives::{Block as RelayBlock, Id as ParaId};
 use sc_client_api::{backend::AuxStore, BlockBackend, BlockOf, UsageProvider};
 use sc_consensus::BlockImport;
-use sp_api::ProvideRuntimeApi;
+use sp_api::{ProvideRuntimeApi, StorageProof};
 use sp_application_crypto::AppPublic;
+use sp_block_builder::BlockBuilder;
 use sp_blockchain::HeaderBackend;
 use sp_consensus_aura::AuraApi;
 use sp_core::crypto::Pair;
 use sp_inherents::CreateInherentDataProviders;
 use sp_keystore::KeystorePtr;
-use sp_runtime::traits::{Block as BlockT, Header as HeaderT, Member};
-use std::{sync::Arc, time::Duration};
+use sp_runtime::traits::{Block as BlockT, HashingFor, Header as HeaderT, Member};
+use sp_trie::recorder::IgnoredNodes;
+use std::{
+	sync::Arc,
+	time::{Duration, Instant},
+};
 
 /// Parameters for [`run_block_builder`].
 pub struct BuilderTaskParams<
@@ -256,11 +256,11 @@ where
 				continue
 			}
 
-			let parent_header = parent.header;
+			let pov_parent_header = parent.header;
 
 			// We mainly call this to inform users at genesis if there is a mismatch with the
 			// on-chain data.
-			collator.collator_service().check_block_status(parent_hash, &parent_header);
+			collator.collator_service().check_block_status(parent_hash, &pov_parent_header);
 
 			let Ok(relay_slot) =
 				sc_consensus_babe::find_pre_digest::<RelayBlock>(relay_parent_header)
@@ -309,26 +309,10 @@ where
 			);
 
 			let validation_data = PersistedValidationData {
-				parent_head: parent_header.encode().into(),
+				parent_head: pov_parent_header.encode().into(),
 				relay_parent_number: *relay_parent_header.number(),
 				relay_parent_storage_root: *relay_parent_header.state_root(),
 				max_pov_size: *max_pov_size,
-			};
-
-			let (parachain_inherent_data, other_inherent_data) = match collator
-				.create_inherent_data(
-					relay_parent,
-					&validation_data,
-					parent_hash,
-					slot_claim.timestamp(),
-				)
-				.await
-			{
-				Err(err) => {
-					tracing::error!(target: crate::LOG_TARGET, ?err);
-					break
-				},
-				Ok(x) => x,
 			};
 
 			let validation_code_hash = match code_hash_provider.code_hash_at(parent_hash) {
@@ -366,7 +350,7 @@ where
 			};
 
 			// TODO: Do not use relay chain slot duration, should also be `block_time`.
-			let blocks_per_core = if block_rate.block_time < relay_chain_slot_duration {
+			let blocks_per_core = if dbg!(block_rate.block_time) < dbg!(relay_chain_slot_duration) {
 				relay_chain_slot_duration.as_millis() / block_rate.block_time.as_millis()
 			} else {
 				1
@@ -375,8 +359,29 @@ where
 			let mut blocks = Vec::new();
 			let mut proofs = Vec::new();
 			let mut ignored_nodes = IgnoredNodes::default();
+			// We redefine it as mutable here, because above this value should not change.
+			let mut parent_hash = parent_hash;
+			let mut parent_header = pov_parent_header.clone();
 
 			for _ in 0..blocks_per_core {
+				let expected_block_end = Instant::now() + block_rate.block_time;
+
+				let (parachain_inherent_data, other_inherent_data) = match collator
+					.create_inherent_data(
+						relay_parent,
+						&validation_data,
+						parent_hash,
+						slot_claim.timestamp(),
+					)
+					.await
+				{
+					Err(err) => {
+						tracing::error!(target: crate::LOG_TARGET, ?err, "Failed to create inherent data.");
+						return
+					},
+					Ok(x) => x,
+				};
+
 				let Ok(Some(res)) = collator
 					.build_block_and_import(
 						&parent_header,
@@ -392,24 +397,31 @@ where
 					continue;
 				};
 
-				let new_block_hash = res.block.header().hash();
+				parent_hash = res.block.header().hash();
+				parent_header = res.block.header().clone();
 
 				// Announce the newly built block to our peers.
-				collator.collator_service().announce_block(new_block_hash, None);
+				collator.collator_service().announce_block(parent_hash, None);
 
-				ignored_nodes.extend(IgnoredNodes::from_storage_proof(&res.proof));
+				ignored_nodes
+					.extend(IgnoredNodes::from_storage_proof::<HashingFor<Block>>(&res.proof));
 				ignored_nodes.extend(IgnoredNodes::from_memory_db(res.backend_transaction));
 
 				blocks.push(res.block);
 				proofs.push(res.proof);
+
+				if let Some(sleep) = expected_block_end.checked_duration_since(Instant::now()) {
+					tokio::time::sleep(sleep).await;
+				}
 			}
 
 			let proof = StorageProof::merge(proofs);
 
 			if let Err(err) = collator_sender.unbounded_send(CollatorMessage {
 				relay_parent,
-				parent_header,
-				parachain_candidate: Parachain,
+				parent_header: pov_parent_header,
+				blocks,
+				proof,
 				validation_code_hash,
 				core_index: *core_index,
 				max_pov_size: validation_data.max_pov_size,

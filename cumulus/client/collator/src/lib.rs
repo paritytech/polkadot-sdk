@@ -22,6 +22,7 @@ use cumulus_primitives_core::{
 };
 
 use sc_client_api::BlockBackend;
+use service::ServiceInterface;
 use sp_api::ProvideRuntimeApi;
 use sp_core::traits::SpawnNamed;
 use sp_runtime::traits::{Block as BlockT, Header as HeaderT};

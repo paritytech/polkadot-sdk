@@ -68,7 +68,6 @@
 
 use self::{block_builder_task::run_block_builder, collation_task::run_collation_task};
 use codec::Codec;
-use consensus_common::ParachainCandidate;
 use cumulus_client_collator::service::ServiceInterface as CollatorServiceInterface;
 use cumulus_client_consensus_common::{self as consensus_common, ParachainBlockImportMarker};
 use cumulus_client_consensus_proposer::ProposerInterface;
@@ -85,6 +84,7 @@ use sc_consensus::BlockImport;
 use sc_utils::mpsc::tracing_unbounded;
 use sp_api::{ApiExt, ProvideRuntimeApi, StorageProof};
 use sp_application_crypto::AppPublic;
+use sp_block_builder::BlockBuilder;
 use sp_blockchain::HeaderBackend;
 use sp_consensus_aura::AuraApi;
 use sp_core::{crypto::Pair, traits::SpawnNamed, U256};
@@ -162,8 +162,10 @@ pub fn run<Block, P, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, Spaw
 		+ Send
 		+ Sync
 		+ 'static,
-	Client::Api:
-		AuraApi<Block, P::Public> + GetCoreSelectorApi<Block> + AuraUnincludedSegmentApi<Block>,
+	Client::Api: AuraApi<Block, P::Public>
+		+ GetCoreSelectorApi<Block>
+		+ AuraUnincludedSegmentApi<Block>
+		+ BlockBuilder<Block>,
 	Backend: sc_client_api::Backend<Block> + 'static,
 	RClient: RelayChainInterface + Clone + 'static,
 	CIDP: CreateInherentDataProviders<Block, ()> + 'static,
