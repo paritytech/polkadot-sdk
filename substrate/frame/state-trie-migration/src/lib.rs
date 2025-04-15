@@ -836,7 +836,7 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			limits: MigrationLimits,
 		) -> DispatchResult {
-			let _ = T::ControlOrigin::ensure_origin(origin)?;
+			T::ControlOrigin::ensure_origin(origin)?;
 			SignedMigrationMaxLimits::<T>::put(limits);
 			Ok(())
 		}
@@ -857,7 +857,7 @@ pub mod pallet {
 			progress_top: ProgressOf<T>,
 			progress_child: ProgressOf<T>,
 		) -> DispatchResult {
-			let _ = T::ControlOrigin::ensure_origin(origin)?;
+			T::ControlOrigin::ensure_origin(origin)?;
 			MigrationProcess::<T>::mutate(|task| {
 				task.progress_top = progress_top;
 				task.progress_child = progress_child;

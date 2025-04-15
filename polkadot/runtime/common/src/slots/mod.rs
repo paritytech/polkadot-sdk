@@ -209,7 +209,7 @@ pub mod pallet {
 		#[pallet::call_index(2)]
 		#[pallet::weight(T::WeightInfo::trigger_onboard())]
 		pub fn trigger_onboard(origin: OriginFor<T>, para: ParaId) -> DispatchResult {
-			let _ = ensure_signed(origin)?;
+			ensure_signed(origin)?;
 			let leases = Leases::<T>::get(para);
 			match leases.first() {
 				// If the first element in leases is present, then it has a lease!

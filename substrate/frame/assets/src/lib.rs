@@ -843,7 +843,7 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			id: T::AssetIdParameter,
 		) -> DispatchResultWithPostInfo {
-			let _ = ensure_signed(origin)?;
+			ensure_signed(origin)?;
 			let id: T::AssetId = id.into();
 			let removed_accounts = Self::do_destroy_accounts(id, T::RemoveItemsLimit::get())?;
 			Ok(Some(T::WeightInfo::destroy_accounts(removed_accounts)).into())
@@ -867,7 +867,7 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			id: T::AssetIdParameter,
 		) -> DispatchResultWithPostInfo {
-			let _ = ensure_signed(origin)?;
+			ensure_signed(origin)?;
 			let id: T::AssetId = id.into();
 			let removed_approvals = Self::do_destroy_approvals(id, T::RemoveItemsLimit::get())?;
 			Ok(Some(T::WeightInfo::destroy_approvals(removed_approvals)).into())
@@ -885,7 +885,7 @@ pub mod pallet {
 		/// Each successful call emits the `Event::Destroyed` event.
 		#[pallet::call_index(5)]
 		pub fn finish_destroy(origin: OriginFor<T>, id: T::AssetIdParameter) -> DispatchResult {
-			let _ = ensure_signed(origin)?;
+			ensure_signed(origin)?;
 			let id: T::AssetId = id.into();
 			Self::do_finish_destroy(id)
 		}
@@ -943,7 +943,7 @@ pub mod pallet {
 			let id: T::AssetId = id.into();
 
 			let f = DebitFlags { keep_alive: false, best_effort: true };
-			let _ = Self::do_burn(id, &who, amount, Some(origin), f)?;
+			Self::do_burn(id, &who, amount, Some(origin), f)?;
 			Ok(())
 		}
 

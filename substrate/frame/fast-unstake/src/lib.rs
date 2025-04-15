@@ -408,7 +408,7 @@ pub mod pallet {
 		#[pallet::call_index(2)]
 		#[pallet::weight(<T as Config>::WeightInfo::control())]
 		pub fn control(origin: OriginFor<T>, eras_to_check: EraIndex) -> DispatchResult {
-			let _ = T::ControlOrigin::ensure_origin(origin)?;
+			T::ControlOrigin::ensure_origin(origin)?;
 			ensure!(eras_to_check <= T::MaxErasToCheckPerBlock::get(), Error::<T>::CallNotAllowed);
 			ErasToCheckPerBlock::<T>::put(eras_to_check);
 			Ok(())

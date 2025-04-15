@@ -687,7 +687,7 @@ pub mod pallet {
 			#[pallet::compact] parent_bounty_id: BountyIndex,
 			#[pallet::compact] child_bounty_id: BountyIndex,
 		) -> DispatchResult {
-			let _ = ensure_signed(origin)?;
+			ensure_signed(origin)?;
 
 			// Ensure child-bounty is in expected state.
 			ChildBounties::<T>::try_mutate_exists(

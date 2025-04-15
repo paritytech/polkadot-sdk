@@ -166,7 +166,7 @@ pub mod pallet {
 			bridge_id: H256,
 			is_congested: bool,
 		) -> DispatchResult {
-			let _ = T::BridgeHubOrigin::ensure_origin(origin)?;
+			T::BridgeHubOrigin::ensure_origin(origin)?;
 
 			log::info!(
 				target: LOG_TARGET,
@@ -404,7 +404,7 @@ impl<T: Config<I>, I: 'static> SendXcm for Pallet<T, I> {
 				// to avoid losing funds).
 				let destination_version = T::DestinationVersion::get_version_for(&dest_clone)
 					.ok_or(SendError::DestinationUnsupported)?;
-				let _ = VersionedXcm::from(xcm_to_dest_clone)
+				VersionedXcm::from(xcm_to_dest_clone)
 					.into_version(destination_version)
 					.map_err(|()| SendError::DestinationUnsupported)?;
 
