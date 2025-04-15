@@ -431,7 +431,6 @@ members = [
 	"substrate/frame/staking-async/ah-client",
 	"substrate/frame/staking-async/ahm-test",
 	"substrate/frame/staking-async/rc-client",
-	"substrate/frame/staking-async/rc-client",
 	"substrate/frame/staking-async/reward-curve",
 	"substrate/frame/staking-async/reward-fn",
 	"substrate/frame/staking-async/runtime-api",
