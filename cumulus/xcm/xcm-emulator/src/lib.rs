@@ -1294,17 +1294,15 @@ macro_rules! __impl_check_assertion {
 #[macro_export]
 macro_rules! assert_expected_events {
     ( $chain:ident, vec![$( $event_pat:pat => { $($attr:ident : $condition:expr, )* }, )*] ) => {
-		let mut message: Vec<String> = Vec::new();
+		let mut messages: Vec<String> = Vec::new();
 		let mut events = <$chain as $crate::Chain>::events();
 
+		// For each event pattern, we try to find a matching event.
 		$(
-			// For each event pattern, we try to find a matching event.
-			let mut perfect_match_index: Option<usize> = None;
-			let mut failure_messages: Option<Vec<String>> = None;
 			// We'll store a string representation of the first partially matching event.
-			let mut partial_event_str: Option<String> = None;
-
-			for (index, event) in events.iter().enumerate() {
+			let mut failure_message: Option<String> = None;
+			for index in 0..events.len() {
+				let event = &events[index];
 				match event {
 					$event_pat => {
 						let mut event_meets_conditions = true;
@@ -1324,39 +1322,33 @@ macro_rules! assert_expected_events {
 							event_meets_conditions &= $condition;
 						)*
 
+						if failure_message.is_none() && !conditions_message.is_empty() {
+							// Record the failure message.
+							failure_message = Some(format!(
+								"\n\n{}::\x1b[31m{}\x1b[0m was received but some of its attributes did not meet the conditions.\n\
+								 Actual event:\n{:#?}\n\
+								 Failures:\n{}",
+								stringify!($chain),
+								stringify!($event_pat),
+								event,
+								conditions_message.concat()
+							));
+						}
+
 						if event_meets_conditions {
 							// Found an event where all conditions hold.
-							perfect_match_index = Some(index);
+							failure_message = None;
+							events.remove(index);
 							break;
-						} else if failure_messages.is_none() {
-							// Record the failure messages and capture the event string.
-							failure_messages = Some(conditions_message);
-							partial_event_str = Some(format!("{:#?}", event));
 						}
 					},
 					_ => {}
 				}
 			}
 
-			if let Some(index) = perfect_match_index {
-				// Remove the matching event so it's not checked again.
-				events.remove(index);
-			} else if let Some(failure) = failure_messages {
-				// A matching event was found but it failed some conditions.
-				message.push(
-					format!(
-						"\n\n{}::\x1b[31m{}\x1b[0m was received but some of its attributes did not meet the conditions.\n\
-						 Actual event:\n{}\n\
-						 Failures:\n{}",
-						stringify!($chain),
-						stringify!($event_pat),
-						partial_event_str.unwrap_or_else(|| "Event not captured".to_string()),
-						failure.concat()
-					)
-				);
-			} else {
+			if failure_message.is_some() {
 				// No event matching the pattern was found.
-				message.push(
+				messages.push(
 					format!(
 						"\n\n{}::\x1b[31m{}\x1b[0m was never received. All events:\n{:#?}",
 						stringify!($chain),
@@ -1367,12 +1359,12 @@ macro_rules! assert_expected_events {
 			}
 		)*
 
-		if !message.is_empty() {
+		if !messages.is_empty() {
 			// Log all events (since they won't be logged after the panic).
 			<$chain as $crate::Chain>::events().iter().for_each(|event| {
 				$crate::log::info!(target: concat!("events::", stringify!($chain)), "{:?}", event);
 			});
-			panic!("{}", message.concat())
+			panic!("{}", messages.concat())
 		}
 	}
 }
