@@ -66,7 +66,7 @@ Consequently, a runtime that wants to include this pallet must implement this tr
 			let supertrait_with_event_bound = syn::parse2::<syn::TypeParamBound>(
 				quote! { #frame_system::Config<RuntimeEvent: From<Event<#event_use_gen>>> },
 			)
-			.expect("Parsing super trait doesn't fail; qedt");
+			.expect("Parsing super trait doesn't fail; qed");
 
 			config_item.supertraits.push(supertrait_with_event_bound.into());
 		}
