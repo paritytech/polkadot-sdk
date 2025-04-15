@@ -560,7 +560,7 @@ pub mod pallet {
 		fn build(&self) {
 			for id in &self.mapped_accounts {
 				if let Err(err) = T::AddressMapper::map(id) {
-					log::error!(target: LOG_TARGET, "Failed to map account {id}: {err:?}");
+					log::error!(target: LOG_TARGET, "Failed to map account {id:?}: {err:?}");
 				}
 			}
 		}
