@@ -22,32 +22,34 @@
 use crate::{self as pallet_grandpa, AuthorityId, AuthorityList, Config, ConsensusLog};
 use codec::Encode;
 use finality_grandpa;
+use frame::{
+	deps::{
+		sp_io,
+		sp_runtime::{
+			curve::PiecewiseLinear,
+			impl_opaque_keys,
+			testing::{DigestItem, TestXt, UintAuthorityId},
+			BuildStorage, Perbill,
+		},
+	},
+	testing_prelude::*,
+	traits::{Header as _, OpaqueKeys},
+};
 use frame_election_provider_support::{
 	bounds::{ElectionBounds, ElectionBoundsBuilder},
 	onchain, SequentialPhragmen,
 };
-use frame_support::{
-	derive_impl, parameter_types,
-	traits::{ConstU128, ConstU32, ConstU64, KeyOwnerProofSystem, OnFinalize, OnInitialize},
-};
+
 use pallet_session::historical as pallet_session_historical;
+use sp_application_crypto::sp_core::{crypto::KeyTypeId, H256};
 use sp_consensus_grandpa::{RoundNumber, SetId, GRANDPA_ENGINE_ID};
-use sp_core::{crypto::KeyTypeId, H256};
 use sp_keyring::Ed25519Keyring;
-use sp_runtime::{
-	curve::PiecewiseLinear,
-	impl_opaque_keys,
-	testing::{TestXt, UintAuthorityId},
-	traits::OpaqueKeys,
-	BuildStorage, DigestItem, Perbill,
-};
 use sp_staking::{EraIndex, SessionIndex};
 
 type Block = frame_system::mocking::MockBlock<Test>;
 
-frame_support::construct_runtime!(
-	pub enum Test
-	{
+construct_runtime!(
+	pub enum Test {
 		System: frame_system,
 		Authorship: pallet_authorship,
 		Timestamp: pallet_timestamp,

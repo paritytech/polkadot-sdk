@@ -37,20 +37,21 @@ pub use sp_consensus_grandpa::{
 
 use alloc::{boxed::Box, vec::Vec};
 use codec::{Decode, Encode, MaxEncodedLen};
-use frame_support::{
-	dispatch::{DispatchResultWithPostInfo, Pays},
-	pallet_prelude::Get,
+use frame::{
+	deps::{
+		sp_runtime,
+		sp_runtime::{generic::DigestItem, traits::Zero, DispatchResult},
+	},
+	prelude::*,
 	traits::OneSessionHandler,
-	weights::Weight,
-	WeakBoundedVec,
 };
-use frame_system::pallet_prelude::BlockNumberFor;
+
 use scale_info::TypeInfo;
 use sp_consensus_grandpa::{
 	ConsensusLog, EquivocationProof, ScheduledChange, SetId, GRANDPA_ENGINE_ID,
 	RUNTIME_LOG_TARGET as LOG_TARGET,
 };
-use sp_runtime::{generic::DigestItem, traits::Zero, DispatchResult};
+
 use sp_session::{GetSessionNumber, GetValidatorCount};
 use sp_staking::{offence::OffenceReportSystem, SessionIndex};
 
@@ -69,11 +70,9 @@ pub use equivocation::{EquivocationOffence, EquivocationReportSystem, TimeSlot};
 
 pub use pallet::*;
 
-#[frame_support::pallet]
+#[frame::pallet]
 pub mod pallet {
 	use super::*;
-	use frame_support::{dispatch::DispatchResult, pallet_prelude::*};
-	use frame_system::pallet_prelude::*;
 
 	/// The in-code storage version.
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(5);
@@ -348,7 +347,7 @@ pub mod pallet {
 	pub(crate) type Authorities<T: Config> =
 		StorageValue<_, BoundedAuthorityList<T::MaxAuthorities>, ValueQuery>;
 
-	#[derive(frame_support::DefaultNoBound)]
+	#[derive(frame::prelude::DefaultNoBound)]
 	#[pallet::genesis_config]
 	pub struct GenesisConfig<T: Config> {
 		pub authorities: AuthorityList,
