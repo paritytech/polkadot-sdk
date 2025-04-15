@@ -21,10 +21,10 @@ use crate::{
 		*,
 	},
 	tests::{
-		penpal_emulated_chain::penpal_runtime,
 		assert_bridge_hub_rococo_message_received, assert_bridge_hub_westend_message_accepted,
 		asset_hub_rococo_location, asset_hub_westend_location, bridged_wnd_at_ah_rococo,
-		create_foreign_on_ah_rococo, penpal_emulated_chain::penpal_runtime,
+		create_foreign_on_ah_rococo,
+		penpal_emulated_chain::penpal_runtime,
 		snowbridge_common::{
 			bridged_roc_at_ah_westend, ethereum, register_roc_on_bh, snowbridge_sovereign,
 		},
@@ -41,7 +41,6 @@ use bridge_hub_westend_runtime::{
 use codec::{Decode, Encode};
 use emulated_integration_tests_common::{PENPAL_B_ID, RESERVABLE_ASSET_ID, WETH};
 use frame_support::{pallet_prelude::TypeInfo, traits::fungibles::Mutate};
-use frame_support::pallet_prelude::TypeInfo;
 use hex_literal::hex;
 use rococo_westend_system_emulated_network::{
 	asset_hub_westend_emulated_chain::genesis::AssetHubWestendAssetOwner,
