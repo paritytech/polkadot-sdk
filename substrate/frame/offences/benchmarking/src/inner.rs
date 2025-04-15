@@ -49,7 +49,7 @@ const MAX_NOMINATORS: u32 = 100;
 pub struct Pallet<T: Config>(Offences<T>);
 
 pub trait Config:
-	SessionConfig
+	SessionConfig<ValidatorId = <Self as frame_system::Config>::AccountId>
 	+ StakingConfig
 	+ OffencesConfig
 	+ HistoricalConfig
@@ -153,18 +153,11 @@ fn make_offenders<T: Config>(
 	let mut offenders = vec![];
 	for i in 0..num_offenders {
 		let offender = create_offender::<T>(i + 1, num_nominators)?;
+		// add them to the session validators -- this is needed since `FullIdentificationOf` usually
+		// checks this.
+		pallet_session::Validators::<T>::mutate(|v| v.push(offender.controller.clone()));
 		offenders.push(offender);
 	}
-
-	// such that the election selects them all.
-	pallet_staking::ValidatorCount::<T>::put(num_offenders);
-	pallet_staking::BondedEras::<T>::mutate(|bonded_eras| {
-		bonded_eras.push((0, 0));
-	});
-
-	// rotate two sessions -- in one we get the new validator set, in next we activate it.
-	Session::<T>::rotate_session();
-	Session::<T>::rotate_session();
 
 	let id_tuples = offenders
 		.iter()
