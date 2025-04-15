@@ -1593,8 +1593,6 @@ impl<Config: config::Config> XcmExecutor<Config> {
 					.map_err(|()| XcmError::Unanchored)?;
 				let hash = (self.origin_ref(), &destination).using_encoded(blake2_128);
 				let channel = u32::decode(&mut hash.as_ref()).unwrap_or(0);
-				// let mut xcm = xcm;
-				// self.preserve_message_topic(&mut xcm);
 				// Hash identifies the lane on the exporter which we use. We use the pairwise
 				// combination of the origin and destination to ensure origin/destination pairs
 				// will generally have their own lanes.
