@@ -667,7 +667,6 @@ runtime-full = [
 	"pallet-staking-async",
 	"pallet-staking-async-ah-client",
 	"pallet-staking-async-rc-client",
-	"pallet-staking-async-rc-client",
 	"pallet-staking-async-reward-curve",
 	"pallet-staking-async-reward-fn",
 	"pallet-staking-async-runtime-api",
