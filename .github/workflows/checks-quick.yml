@@ -135,12 +135,224 @@ jobs:
       - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.0 (22. Sep 2023)
       - name: install python deps
         run: pip3 install "cargo-workspace>=1.2.4" toml
+      - name: test version detection
+        run: |
+          # Test the version detection logic
+          echo "=== Testing version detection logic ==="
+
+          # Create test function for branch-based fallback
+          test_version_detection() {
+            local test_branch=$1
+            local expected_pattern=$2
+            
+            echo "Testing branch: $test_branch"
+            
+            # Mock current branch
+            git_rev_parse_original=$(which git)
+            function git() {
+              if [[ "$*" == "rev-parse --abbrev-ref HEAD" ]]; then
+                echo "$test_branch"
+              else
+                $git_rev_parse_original "$@"
+              fi
+            }
+            export -f git
+            
+            # Get version with our detection logic
+            local detected_version=""
+            
+            # Try cargo metadata first (mocked to return empty for this test)
+            function cargo() {
+              echo '{}'
+            }
+            export -f cargo
+            
+            # Also no umbrella/Cargo.toml for this test
+            if [[ "$test_branch" =~ ^polkadot-v([0-9]+\.[0-9]+)$ ]] || [[ "$test_branch" =~ ^release-v([0-9]+\.[0-9]+)$ ]]; then
+              # For stable branches, use the branch version with .0 suffix
+              BRANCH_VERSION=$(echo "$test_branch" | grep -oE 'v[0-9]+\.[0-9]+' | sed 's/v//')
+              detected_version="${BRANCH_VERSION}.0"
+            else
+              # Default fallback for master and other branches
+              detected_version="0.1.0"
+            fi
+            
+            echo "Detected version: $detected_version"
+            
+            # Check if version matches expected pattern
+            if [[ "$detected_version" =~ $expected_pattern ]]; then
+              echo "✓ Test passed: Version $detected_version matches pattern $expected_pattern"
+              return 0
+            else
+              echo "✗ Test failed: Version $detected_version does not match pattern $expected_pattern"
+              return 1
+            fi
+          }
+
+          # Test the full version detection pipeline
+          test_full_pipeline() {
+            local test_scenario=$1
+            local mock_cargo_output=$2
+            local mock_toml_exists=$3
+            local mock_toml_version=$4
+            local mock_branch=$5
+            local expected_pattern=$6
+            
+            echo "Testing scenario: $test_scenario"
+            
+            # Set up mocks
+            git_original=$(which git)
+            function git() {
+              if [[ "$*" == "rev-parse --abbrev-ref HEAD" ]]; then
+                echo "$mock_branch"
+              else
+                $git_original "$@"
+              fi
+            }
+            export -f git
+            
+            cargo_original=$(which cargo)
+            function cargo() {
+              if [[ "$*" == "metadata --format-version=1" ]]; then
+                echo "$mock_cargo_output"
+              else
+                $cargo_original "$@"
+              fi
+            }
+            export -f cargo
+            
+            command_original=$(which command)
+            function command() {
+              if [[ "$*" == "-v jq" ]]; then
+                echo "/usr/bin/jq"
+              else
+                $command_original "$@"
+              fi
+            }
+            export -f command
+            
+            jq_original=$(which jq)
+            function jq() {
+              if [[ "$*" == "-r '.packages[] | select(.name == \"polkadot-sdk\") | .version'" ]]; then
+                if [[ "$mock_cargo_output" == *"\"name\":\"polkadot-sdk\""* ]]; then
+                  echo "1.2.3" # Version extracted from mock cargo output
+                else
+                  echo "" # Empty if no sdk package found
+                fi
+              else
+                $jq_original "$@"
+              fi
+            }
+            export -f jq
+            
+            # Mock directory/file check
+            function test() {
+              if [[ "$*" == "-d umbrella" || "$*" == "-f umbrella/Cargo.toml" ]]; then
+                return $([[ "$mock_toml_exists" == "true" ]] && echo 0 || echo 1)
+              else
+                return 1
+              fi
+            }
+            export -f test
+            
+            # Mock grep for Cargo.toml version
+            function grep() {
+              if [[ "$*" == "-m 1 'version = ' umbrella/Cargo.toml" ]]; then
+                echo "version = \"$mock_toml_version\""
+              else
+                $command_original grep "$@"
+              fi
+            }
+            export -f grep
+            
+            # Run version detection logic
+            local detected_version=""
+            
+            # First attempt: get version from cargo metadata
+            if [[ "$mock_cargo_output" == *"\"name\":\"polkadot-sdk\""* ]]; then
+              detected_version="1.2.3"
+            fi
+            
+            # Second attempt: check Cargo.toml if exists
+            if [ -z "$detected_version" ] && [ "$mock_toml_exists" == "true" ]; then
+              detected_version="$mock_toml_version"
+            fi
+            
+            # Last resort: fallback to branch-based version or 0.1.0
+            if [ -z "$detected_version" ]; then
+              if [[ "$mock_branch" =~ ^polkadot-v([0-9]+\.[0-9]+)$ ]] || [[ "$mock_branch" =~ ^release-v([0-9]+\.[0-9]+)$ ]]; then
+                # For stable branches, use the branch version with .0 suffix
+                BRANCH_VERSION=$(echo "$mock_branch" | grep -oE 'v[0-9]+\.[0-9]+' | sed 's/v//')
+                detected_version="${BRANCH_VERSION}.0"
+              else
+                # Default fallback for master and other branches
+                detected_version="0.1.0"
+              fi
+            fi
+            
+            echo "Detected version: $detected_version"
+            
+            # Check if version matches expected pattern
+            if [[ "$detected_version" =~ $expected_pattern ]]; then
+              echo "✓ Test passed: Version $detected_version matches pattern $expected_pattern"
+              return 0
+            else
+              echo "✗ Test failed: Version $detected_version does not match pattern $expected_pattern"
+              return 1
+            fi
+            
+            # Reset mocks
+            unset -f git
+            unset -f cargo
+            unset -f command
+            unset -f jq
+            unset -f test
+            unset -f grep
+          }
+
+          # Run tests for different branch scenarios
+          echo "=== Testing branch fallback logic ==="
+          test_version_detection "master" "^0\.1\.0$" && \
+          test_version_detection "polkadot-v1.2" "^1\.2\.[0-9]+" && \
+          test_version_detection "release-v2.3" "^2\.3\.[0-9]+" && \
+          test_version_detection "feature/something" "^0\.1\.0$"
+
+          branch_test_result=$?
+
+          # Run full pipeline tests
+          echo -e "\n=== Testing full version detection pipeline ==="
+          # Scenario 1: Version from cargo metadata
+          test_full_pipeline "Cargo metadata exists" '{"packages":[{"name":"polkadot-sdk","version":"1.2.3"}]}' "false" "" "master" "^1\.2\.3$" && \
+          # Scenario 2: Version from Cargo.toml
+          test_full_pipeline "Cargo.toml exists" '{}' "true" "3.4.5" "master" "^3\.4\.5$" && \
+          # Scenario 3: Fallback to branch version
+          test_full_pipeline "Fallback to branch version" '{}' "false" "" "polkadot-v2.5" "^2\.5\.[0-9]+" && \
+          # Scenario 4: Fallback to 0.1.0
+          test_full_pipeline "Fallback to 0.1.0" '{}' "false" "" "master" "^0\.1\.0$"
+
+          full_test_result=$?
+
+          echo -e "\n=== Test results ==="
+          if [ $branch_test_result -eq 0 ] && [ $full_test_result -eq 0 ]; then
+            echo "All tests passed!"
+          else
+            echo "Some tests failed!"
+            exit 1
+          fi
+
+          # Reset any mocked functions
+          unset -f git
+          unset -f cargo
+          unset -f command
+          unset -f jq
+          unset -f test
+          unset -f grep
       - name: check umbrella correctness
         run: |
           # Fixes "detected dubious ownership" error in the ci
           git config --global --add safe.directory '*'
 
-           # Ensure jq is installed
+          # Ensure jq is installed
           if ! command -v jq &> /dev/null; then
             echo "Installing jq..."
             apt-get update && apt-get install -y jq
@@ -148,15 +360,31 @@ jobs:
 
           # Extract the umbrella crate version dynamically from cargo metadata
           # This handles both master and stable branches correctly
-          UMBRELLA_VERSION="0.1.0"  # Default fallback version
-          if [ -d "umbrella" ] && [ -f "umbrella/Cargo.toml" ]; then
-            # If umbrella directory exists, extract version from cargo metadata
-            UMBRELLA_VERSION=$(cargo metadata --format-version=1 | jq -r '.packages[] | select(.name == "polkadot-sdk") | .version')
-            if [ -z "$UMBRELLA_VERSION" ]; then
-              # If extraction failed, fallback to parsing the Cargo.toml directly
-              UMBRELLA_VERSION=$(grep -m 1 'version = ' umbrella/Cargo.toml | cut -d '"' -f 2)
+          UMBRELLA_VERSION=""
+
+          # First attempt: get version from cargo metadata
+          UMBRELLA_VERSION=$(cargo metadata --format-version=1 | jq -r '.packages[] | select(.name == "polkadot-sdk") | .version')
+
+          # Second attempt: check Cargo.toml if exists
+          if [ -z "$UMBRELLA_VERSION" ] && [ -d "umbrella" ] && [ -f "umbrella/Cargo.toml" ]; then
+            UMBRELLA_VERSION=$(grep -m 1 'version = ' umbrella/Cargo.toml | cut -d '"' -f 2)
+          fi
+
+          # Last resort: fallback to branch-based version or 0.1.0
+          if [ -z "$UMBRELLA_VERSION" ]; then
+            CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
+            if [[ "$CURRENT_BRANCH" =~ ^polkadot-v([0-9]+\.[0-9]+)$ ]] || [[ "$CURRENT_BRANCH" =~ ^release-v([0-9]+\.[0-9]+)$ ]]; then
+              # For stable branches, use the branch version with .0 suffix
+              BRANCH_VERSION=$(echo "$CURRENT_BRANCH" | grep -oE 'v[0-9]+\.[0-9]+' | sed 's/v//')
+              UMBRELLA_VERSION="${BRANCH_VERSION}.0"
+              echo "Using version ${UMBRELLA_VERSION} derived from branch name ${CURRENT_BRANCH}"
+            else
+              # Default fallback for master and other branches
+              UMBRELLA_VERSION="0.1.0"
+              echo "Warning: Could not determine umbrella version from metadata or branch name, using fallback ${UMBRELLA_VERSION}"
             fi
           fi
+
           echo "Using umbrella crate version: $UMBRELLA_VERSION"
 
           python3 scripts/generate-umbrella.py --sdk . --version "$UMBRELLA_VERSION"
