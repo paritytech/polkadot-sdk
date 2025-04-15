@@ -24,6 +24,7 @@ use frame_support::{
 	traits::{
 		fungible::{Balanced, Credit, Inspect, ItemOf, Mutate},
 		nonfungible::Inspect as NftInspect,
+		tokens::{Fortitude, Precision, Preservation},
 		EitherOfDiverse, Hooks, OnUnbalanced,
 	},
 	PalletId,
@@ -100,11 +101,16 @@ impl CoretimeInterface for TestCoretimeProvider {
 				}
 			})
 		});
+		// When the credit is spent, we mint this amount back into the pot (on a real network this
+		// will be a teleport).
 		mint_to_pot(total);
 		RevenueInbox::<Test>::put(OnDemandRevenueRecord { until: when, amount: total });
 	}
 	fn credit_account(who: Self::AccountId, amount: Self::Balance) {
+		// When the account is credited, we burn the associated funds in their account (on a real
+		// network this will be a teleport).
 		CoretimeCredit::mutate(|c| c.entry(who).or_default().saturating_accrue(amount));
+		burn_from_pot(amount);
 	}
 	fn assign_core(
 		core: CoreIndex,
@@ -133,7 +139,7 @@ impl TestCoretimeProvider {
 		c.insert(
 			who,
 			c.get(&who)
-				.ok_or("account not there")?
+				.ok_or("Account not there")?
 				.checked_sub(price)
 				.ok_or("Checked sub failed")?,
 		);
@@ -237,6 +243,17 @@ pub fn pot() -> u64 {
 pub fn mint_to_pot(amount: u64) {
 	let imb = <Test as crate::Config>::Currency::issue(amount);
 	let _ = <Test as crate::Config>::Currency::resolve(&Broker::account_id(), imb);
+}
+
+pub fn burn_from_pot(amount: u64) {
+	let _ = <Test as crate::Config>::Currency::burn_from(
+		&Broker::account_id(),
+		amount,
+		Preservation::Expendable,
+		Precision::Exact,
+		Fortitude::Polite,
+	)
+	.expect("Broker pot should have sufficient balance to burn.");
 }
 
 pub fn revenue() -> u64 {

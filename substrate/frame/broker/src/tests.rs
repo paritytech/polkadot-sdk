@@ -497,25 +497,23 @@ fn renewals_affect_price() {
 
 #[test]
 fn instapool_payouts_work() {
-	// Commented out code is from the reference test implementation and should be uncommented as
-	// soon as we have the credit system implemented
 	TestExt::new().endow(1, 1000).execute_with(|| {
 		let item = ScheduleItem { assignment: Pool, mask: CoreMask::complete() };
 		assert_ok!(Broker::do_reserve(Schedule::truncate_from(vec![item])));
 		assert_ok!(Broker::do_start_sales(100, 2));
 		advance_to(2);
 		let region = Broker::do_purchase(1, u64::max_value()).unwrap();
+		assert_eq!(revenue(), 100);
 		assert_ok!(Broker::do_pool(region, None, 2, Final));
 		assert_ok!(Broker::do_purchase_credit(1, 20, 1));
-		// This adds to the pot - TODO improve mock to not double count this and also add e2e for
-		// runtime-level.
-		assert_eq!(pot(), 20);
+		assert_eq!(pot(), 0);
+		assert_eq!(revenue(), 100);
 		advance_to(8);
 		assert_ok!(TestCoretimeProvider::spend_instantaneous(1, 10));
 		advance_to(11);
 		// Should get revenue amount 10 from RC, from which 6 is system payout (goes to account0
 		// instantly) and the rest is private (kept in the pot until claimed)
-		assert_eq!(pot(), 24);
+		assert_eq!(pot(), 4);
 		assert_eq!(revenue(), 106);
 
 		// Cannot claim for 0 timeslices.
@@ -523,15 +521,14 @@ fn instapool_payouts_work() {
 
 		// Revenue can be claimed.
 		assert_ok!(Broker::do_claim_revenue(region, 100));
-		assert_eq!(pot(), 20);
+		assert_eq!(pot(), 0);
+		assert_eq!(revenue(), 106);
 		assert_eq!(balance(2), 4);
 	});
 }
 
 #[test]
 fn instapool_partial_core_payouts_work() {
-	// Commented out code is from the reference test implementation and should be uncommented as
-	// soon as we have the credit system implemented
 	TestExt::new().endow(1, 1000).execute_with(|| {
 		let item = ScheduleItem { assignment: Pool, mask: CoreMask::complete() };
 		assert_ok!(Broker::do_reserve(Schedule::truncate_from(vec![item])));
@@ -545,7 +542,7 @@ fn instapool_partial_core_payouts_work() {
 		assert_ok!(Broker::do_purchase_credit(1, 40, 1));
 		// This adds to the pot - TODO improve mock to not double count this and also add e2e for
 		// runtime-level.
-		assert_eq!(pot(), 40);
+		assert_eq!(pot(), 0);
 		advance_to(8);
 		assert_ok!(TestCoretimeProvider::spend_instantaneous(1, 40));
 		advance_to(11);
@@ -554,18 +551,17 @@ fn instapool_partial_core_payouts_work() {
 		assert_eq!(revenue(), 120);
 		assert_eq!(balance(2), 5);
 		assert_eq!(balance(3), 15);
-		assert_eq!(pot(), 40);
+		assert_eq!(pot(), 0);
 	});
 }
 
 #[test]
 fn instapool_core_payouts_work_with_partitioned_region() {
-	// Commented out code is from the reference test implementation and should be uncommented as
-	// soon as we have the credit system implemented
 	TestExt::new().endow(1, 1000).execute_with(|| {
 		assert_ok!(Broker::do_start_sales(100, 1));
 		advance_to(2);
 		let region = Broker::do_purchase(1, u64::max_value()).unwrap();
+		assert_eq!(revenue(), 100);
 		let (region1, region2) = Broker::do_partition(region, None, 2).unwrap();
 		// `region1` duration is from rcblock 8 to rcblock 12. This means that the
 		// coretime purchased during this time period will be purchased from `region1`
@@ -575,23 +571,22 @@ fn instapool_core_payouts_work_with_partitioned_region() {
 		assert_ok!(Broker::do_pool(region1, None, 2, Final));
 		assert_ok!(Broker::do_pool(region2, None, 3, Final));
 		assert_ok!(Broker::do_purchase_credit(1, 20, 1));
-		// This adds to the pot - TODO improve mock to not double count this and also add e2e for
-		// runtime-level.
-		assert_eq!(pot(), 20);
+		assert_eq!(pot(), 0);
+		assert_eq!(revenue(), 100);
 		advance_to(8);
 		assert_ok!(TestCoretimeProvider::spend_instantaneous(1, 10));
 		advance_to(11);
-		assert_eq!(pot(), 30);
+		assert_eq!(pot(), 10);
 		assert_eq!(revenue(), 100);
 		assert_ok!(Broker::do_claim_revenue(region1, 100));
-		assert_eq!(pot(), 20);
+		assert_eq!(pot(), 0);
 		assert_eq!(balance(2), 10);
 		advance_to(12);
 		assert_ok!(TestCoretimeProvider::spend_instantaneous(1, 10));
 		advance_to(15);
-		assert_eq!(pot(), 30);
+		assert_eq!(pot(), 10);
 		assert_ok!(Broker::do_claim_revenue(region2, 100));
-		assert_eq!(pot(), 20);
+		assert_eq!(pot(), 0);
 		// The balance of account `2` remains unchanged.
 		assert_eq!(balance(2), 10);
 		assert_eq!(balance(3), 10);
@@ -648,19 +643,17 @@ fn instapool_payouts_cannot_be_duplicated_through_partition() {
 
 		// Add some revenue.
 		assert_ok!(Broker::do_purchase_credit(1, 20, 1));
-		// This adds to the pot - TODO improve mock to not double count this and also add e2e for
-		// runtime-level.
-		assert_eq!(pot(), 20);
-		assert_eq!(pot(), 20);
+		assert_eq!(pot(), 0);
+		assert_eq!(revenue(), 100);
 		advance_to(8);
 		assert_ok!(TestCoretimeProvider::spend_instantaneous(1, 10));
 		advance_to(11);
-		assert_eq!(pot(), 20);
+		assert_eq!(pot(), 0);
 		assert_eq!(revenue(), 110);
 
 		// Revenue cannot be claimed for the old region.
 		assert_noop!(Broker::do_claim_revenue(region_id, 100), Error::<Test>::UnknownContribution);
-		assert_eq!(pot(), 20);
+		assert_eq!(pot(), 0);
 		assert_eq!(revenue(), 110);
 		assert_eq!(balance(2), 0);
 	});
@@ -881,19 +874,18 @@ fn instapool_payouts_cannot_be_duplicated_through_interlacing() {
 
 		// Add some revenue.
 		assert_ok!(Broker::do_purchase_credit(1, 20, 1));
-		// This adds to the pot - TODO improve mock to not double count this and also add e2e for
-		// runtime-level.
-		assert_eq!(pot(), 20);
-		assert_eq!(pot(), 20);
+		assert_eq!(pot(), 0);
+		assert_eq!(revenue(), 100);
 		advance_to(8);
 		assert_ok!(TestCoretimeProvider::spend_instantaneous(1, 10));
+		// Pot is still zero and the 10 is all system revenue.
 		advance_to(11);
-		assert_eq!(pot(), 20);
+		assert_eq!(pot(), 0);
 		assert_eq!(revenue(), 110);
 
 		// Revenue cannot be claimed for the old region.
 		assert_noop!(Broker::do_claim_revenue(region_id, 100), Error::<Test>::UnknownContribution);
-		assert_eq!(pot(), 20);
+		assert_eq!(pot(), 0);
 		assert_eq!(revenue(), 110);
 		assert_eq!(balance(2), 0);
 	});
@@ -949,19 +941,18 @@ fn instapool_payouts_cannot_be_duplicated_through_reassignment() {
 
 		// Add some revenue.
 		assert_ok!(Broker::do_purchase_credit(1, 20, 1));
-		// This adds to the pot - TODO improve mock to not double count this and also add e2e for
-		// runtime-level.
-		assert_eq!(pot(), 20);
-		assert_eq!(pot(), 20);
+		assert_eq!(pot(), 0);
+		assert_eq!(revenue(), 100);
 		advance_to(8);
 		assert_ok!(TestCoretimeProvider::spend_instantaneous(1, 10));
+		// Pot is still zero and the 10 is all system revenue.
 		advance_to(11);
-		assert_eq!(pot(), 20);
+		assert_eq!(pot(), 0);
 		assert_eq!(revenue(), 110);
 
 		// Revenue cannot be claimed for the reassigned region.
 		assert_noop!(Broker::do_claim_revenue(region_id, 100), Error::<Test>::UnknownContribution);
-		assert_eq!(pot(), 20);
+		assert_eq!(pot(), 0);
 		assert_eq!(revenue(), 110);
 		assert_eq!(balance(2), 0);
 	});
