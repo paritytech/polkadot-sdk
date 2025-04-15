@@ -385,118 +385,118 @@ pub mod pallet {
 	#[pallet::error]
 	pub enum Error<T> {
 		/// Invalid schedule supplied, e.g. with zero weight of a basic operation.
-		InvalidSchedule, // 0x00
+		InvalidSchedule,
 		/// Invalid combination of flags supplied to `seal_call` or `seal_delegate_call`.
-		InvalidCallFlags, // 0x01
+		InvalidCallFlags,
 		/// The executed contract exhausted its gas limit.
-		OutOfGas, // 0x02
+		OutOfGas,
 		/// Performing the requested transfer failed. Probably because there isn't enough
 		/// free balance in the sender's account.
-		TransferFailed, // 0x03
+		TransferFailed,
 		/// Performing a call was denied because the calling depth reached the limit
 		/// of what is specified in the schedule.
-		MaxCallDepthReached, // 0x04
+		MaxCallDepthReached,
 		/// No contract was found at the specified address.
-		ContractNotFound, // 0x05
+		ContractNotFound,
 		/// No code could be found at the supplied code hash.
-		CodeNotFound, // 0x06
+		CodeNotFound,
 		/// No code info could be found at the supplied code hash.
-		CodeInfoNotFound, // 0x07
+		CodeInfoNotFound,
 		/// A buffer outside of sandbox memory was passed to a contract API function.
-		OutOfBounds, // 0x08
+		OutOfBounds,
 		/// Input passed to a contract API function failed to decode as expected type.
-		DecodingFailed, // 0x09
+		DecodingFailed,
 		/// Contract trapped during execution.
-		ContractTrapped, // 0x0A
+		ContractTrapped,
 		/// The size defined in `T::MaxValueSize` was exceeded.
-		ValueTooLarge, // 0x0B
+		ValueTooLarge,
 		/// Termination of a contract is not allowed while the contract is already
 		/// on the call stack. Can be triggered by `seal_terminate`.
-		TerminatedWhileReentrant, // 0x0C
+		TerminatedWhileReentrant,
 		/// `seal_call` forwarded this contracts input. It therefore is no longer available.
-		InputForwarded, // 0x0D
+		InputForwarded,
 		/// The amount of topics passed to `seal_deposit_events` exceeds the limit.
-		TooManyTopics, // 0x0E
+		TooManyTopics,
 		/// The chain does not provide a chain extension. Calling the chain extension results
 		/// in this error. Note that this usually  shouldn't happen as deploying such contracts
 		/// is rejected.
-		NoChainExtension, // 0x0F
+		NoChainExtension,
 		/// Failed to decode the XCM program.
-		XCMDecodeFailed, // 0x10
+		XCMDecodeFailed,
 		/// A contract with the same AccountId already exists.
-		DuplicateContract, // 0x11
+		DuplicateContract,
 		/// A contract self destructed in its constructor.
 		///
 		/// This can be triggered by a call to `seal_terminate`.
-		TerminatedInConstructor, // 0x12
+		TerminatedInConstructor,
 		/// A call tried to invoke a contract that is flagged as non-reentrant.
-		ReentranceDenied, // 0x13
+		ReentranceDenied,
 		/// A contract called into the runtime which then called back into this pallet.
-		ReenteredPallet, // 0x14
+		ReenteredPallet,
 		/// A contract attempted to invoke a state modifying API while being in read-only mode.
-		StateChangeDenied, // 0x15
+		StateChangeDenied,
 		/// Origin doesn't have enough balance to pay the required storage deposits.
-		StorageDepositNotEnoughFunds, // 0x16
+		StorageDepositNotEnoughFunds,
 		/// More storage was created than allowed by the storage deposit limit.
-		StorageDepositLimitExhausted, // 0x17
+		StorageDepositLimitExhausted,
 		/// Code removal was denied because the code is still in use by at least one contract.
-		CodeInUse, // 0x18
+		CodeInUse,
 		/// The contract ran to completion but decided to revert its storage changes.
 		/// Please note that this error is only returned from extrinsics. When called directly
 		/// or via RPC an `Ok` will be returned. In this case the caller needs to inspect the flags
 		/// to determine whether a reversion has taken place.
-		ContractReverted, // 0x19
+		ContractReverted,
 		/// The contract failed to compile or is missing the correct entry points.
 		///
 		/// A more detailed error can be found on the node console if debug messages are enabled
 		/// by supplying `-lruntime::revive=debug`.
-		CodeRejected, // 0x1A
+		CodeRejected,
 		/// The code blob supplied is larger than [`limits::code::BLOB_BYTES`].
-		BlobTooLarge, // 0x1B
+		BlobTooLarge,
 		/// The static memory consumption of the blob will be larger than
 		/// [`limits::code::STATIC_MEMORY_BYTES`].
-		StaticMemoryTooLarge, // 0x1C
+		StaticMemoryTooLarge,
 		/// The program contains a basic block that is larger than allowed.
-		BasicBlockTooLarge, // 0x1D
+		BasicBlockTooLarge,
 		/// The program contains an invalid instruction.
-		InvalidInstruction, // 0x1E
+		InvalidInstruction,
 		/// The contract has reached its maximum number of delegate dependencies.
-		MaxDelegateDependenciesReached, // 0x1F
+		MaxDelegateDependenciesReached,
 		/// The dependency was not found in the contract's delegate dependencies.
-		DelegateDependencyNotFound, // 0x20
+		DelegateDependencyNotFound,
 		/// The contract already depends on the given delegate dependency.
-		DelegateDependencyAlreadyExists, // 0x21
+		DelegateDependencyAlreadyExists,
 		/// Can not add a delegate dependency to the code hash of the contract itself.
-		CannotAddSelfAsDelegateDependency, // 0x22
+		CannotAddSelfAsDelegateDependency,
 		/// Can not add more data to transient storage.
-		OutOfTransientStorage, // 0x23
+		OutOfTransientStorage,
 		/// The contract tried to call a syscall which does not exist (at its current api level).
-		InvalidSyscall, // 0x24
+		InvalidSyscall,
 		/// Invalid storage flags were passed to one of the storage syscalls.
-		InvalidStorageFlags, // 0x25
+		InvalidStorageFlags,
 		/// PolkaVM failed during code execution. Probably due to a malformed program.
-		ExecutionFailed, // 0x26
+		ExecutionFailed,
 		/// Failed to convert a U256 to a Balance.
-		BalanceConversionFailed, // 0x27
+		BalanceConversionFailed,
 		/// Failed to convert an EVM balance to a native balance.
-		DecimalPrecisionLoss, // 0x28
+		DecimalPrecisionLoss,
 		/// Immutable data can only be set during deploys and only be read during calls.
 		/// Additionally, it is only valid to set the data once and it must not be empty.
-		InvalidImmutableAccess, // 0x29
+		InvalidImmutableAccess,
 		/// An `AccountID32` account tried to interact with the pallet without having a mapping.
 		///
 		/// Call [`Pallet::map_account`] in order to create a mapping for the account.
-		AccountUnmapped, // 0x2A
+		AccountUnmapped,
 		/// Tried to map an account that is already mapped.
-		AccountAlreadyMapped, // 0x2B
+		AccountAlreadyMapped,
 		/// The transaction used to dry-run a contract is invalid.
-		InvalidGenericTransaction, // 0x2C
+		InvalidGenericTransaction,
 		/// The refcount of a code either over or underflowed.
-		RefcountOverOrUnderflow, // 0x2D
+		RefcountOverOrUnderflow,
 		/// Unsupported precompile address
-		UnsupportedPrecompileAddress, // 0x2E
+		UnsupportedPrecompileAddress,
 		/// Precompile Error
-		PrecompileFailure, // 0x2F
+		PrecompileFailure,
 	}
 
 	/// A reason for the pallet contracts placing a hold on funds.
