@@ -2,7 +2,6 @@ title: '[pallet-revive] Add genesis config'
 doc:
 - audience: Runtime Dev
   description: |-
-    - Add enum hex error code
     - Add genesis config
     - Mapped dev accounts in kitchensink genesis
 
