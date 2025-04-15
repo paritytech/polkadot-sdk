@@ -44,6 +44,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
       - name: build
+        id: required
         run: |
           forklift cargo build --locked --profile testnet --features pyroscope,fast-runtime --bin polkadot --bin polkadot-prepare-worker --bin polkadot-execute-worker
           ROCOCO_EPOCH_DURATION=10 ./polkadot/scripts/build-only-wasm.sh rococo-runtime $(pwd)/runtimes/rococo-runtime-10/
@@ -81,7 +82,12 @@ jobs:
           name: ${{ github.job }}-${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
           path: artifacts.tar
           retention-days: 1
-
+      - name: Stop all workflows if failed
+        if: ${{ failure() && steps.required.conclusion == 'failure' && !github.event.pull_request.head.repo.fork }}
+        uses: ./.github/actions/workflow-stopper
+        with:
+          app-id: ${{ secrets.WORKFLOW_STOPPER_RUNNER_APP_ID }}
+          app-key: ${{ secrets.WORKFLOW_STOPPER_RUNNER_APP_KEY }}
   #
   #
   #
@@ -97,6 +103,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
       - name: build
+        id: required
         run: |
           echo "___Building a binary, please refrain from using it in production since it goes with the debug assertions.___"
           forklift cargo build --release --locked -p polkadot-parachain-bin --bin polkadot-parachain
@@ -115,7 +122,12 @@ jobs:
           name: ${{ github.job }}-${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
           path: artifacts.tar
           retention-days: 1
-
+      - name: Stop all workflows if failed
+        if: ${{ failure() && steps.required.conclusion == 'failure' && !github.event.pull_request.head.repo.fork }}
+        uses: ./.github/actions/workflow-stopper
+        with:
+          app-id: ${{ secrets.WORKFLOW_STOPPER_RUNNER_APP_ID }}
+          app-key: ${{ secrets.WORKFLOW_STOPPER_RUNNER_APP_KEY }}
   #
   #
   #
@@ -131,6 +143,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
       - name: build
+        id: required
         run: |
           echo "___Building a binary, please refrain from using it in production since it goes with the debug assertions.___"
           forklift cargo build --release --locked -p cumulus-test-service --bin test-parachain
@@ -151,7 +164,12 @@ jobs:
           name: ${{ github.job }}-${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
           path: artifacts.tar
           retention-days: 1
-
+      - name: Stop all workflows if failed
+        if: ${{ failure() && steps.required.conclusion == 'failure' && !github.event.pull_request.head.repo.fork }}
+        uses: ./.github/actions/workflow-stopper
+        with:
+          app-id: ${{ secrets.WORKFLOW_STOPPER_RUNNER_APP_ID }}
+          app-key: ${{ secrets.WORKFLOW_STOPPER_RUNNER_APP_KEY }}
   #
   #
   #
@@ -165,6 +183,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
       - name: build
+        id: required
         run: |
           forklift cargo build --locked --profile testnet -p test-parachain-adder-collator
           forklift cargo build --locked --profile testnet -p test-parachain-undying-collator
@@ -188,7 +207,12 @@ jobs:
           name: ${{ github.job }}-${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
           path: artifacts.tar
           retention-days: 1
-
+      - name: Stop all workflows if failed
+        if: ${{ failure() && steps.required.conclusion == 'failure' && !github.event.pull_request.head.repo.fork }}
+        uses: ./.github/actions/workflow-stopper
+        with:
+          app-id: ${{ secrets.WORKFLOW_STOPPER_RUNNER_APP_ID }}
+          app-key: ${{ secrets.WORKFLOW_STOPPER_RUNNER_APP_KEY }}
   #
   #
   #
@@ -202,6 +226,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
       - name: build
+        id: required
         run: |
           forklift cargo build --locked --profile testnet -p polkadot-test-malus --bin malus --bin polkadot-prepare-worker --bin polkadot-execute-worker
       - name: pack artifacts
@@ -224,7 +249,12 @@ jobs:
           name: ${{ github.job }}-${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
           path: artifacts.tar
           retention-days: 1
-
+      - name: Stop all workflows if failed
+        if: ${{ failure() && steps.required.conclusion == 'failure' && !github.event.pull_request.head.repo.fork }}
+        uses: ./.github/actions/workflow-stopper
+        with:
+          app-id: ${{ secrets.WORKFLOW_STOPPER_RUNNER_APP_ID }}
+          app-key: ${{ secrets.WORKFLOW_STOPPER_RUNNER_APP_KEY }}
   #
   #
   #
@@ -238,6 +268,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
       - name: build
+        id: required
         run: |
           mkdir -p ./artifacts/substrate/
           WASM_BUILD_NO_COLOR=1 forklift cargo build --locked --release -p staging-node-cli
@@ -265,8 +296,12 @@ jobs:
           name: ${{ github.job }}-${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
           path: artifacts.tar
           retention-days: 1
-
-
+      - name: Stop all workflows if failed
+        if: ${{ failure() && steps.required.conclusion == 'failure' && !github.event.pull_request.head.repo.fork }}
+        uses: ./.github/actions/workflow-stopper
+        with:
+          app-id: ${{ secrets.WORKFLOW_STOPPER_RUNNER_APP_ID }}
+          app-key: ${{ secrets.WORKFLOW_STOPPER_RUNNER_APP_KEY }}
   ### Build zombienet test artifacts ########################
 
   #
@@ -553,3 +588,26 @@ jobs:
         with:
           image-name: "europe-docker.pkg.dev/parity-ci-2024/temp-images/polkadot-parachain-debug"
           dockerfile: "docker/dockerfiles/polkadot-parachain/polkadot-parachain-debug_unsigned_injected.Dockerfile"
+
+  confirm-required-build-jobs-passed:
+    runs-on: ubuntu-latest
+    name: All builds passed
+    # If any new job gets added, be sure to add it to this array
+    needs:
+      - build-linux-stable
+      - build-linux-stable-cumulus
+      - build-test-parachain
+      - build-test-collators
+      - build-malus
+      - build-linux-substrate
+    if: always() && !cancelled()
+    steps:
+      - run: |
+          tee resultfile <<< '${{ toJSON(needs) }}'
+          FAILURES=$(cat resultfile | grep '"result": "failure"' | wc -l)
+          if [ $FAILURES -gt 0 ]; then
+            echo "### At least one required job failed ❌" >> $GITHUB_STEP_SUMMARY
+            exit 1
+          else
+            echo '### Good job! All the required jobs passed 🚀' >> $GITHUB_STEP_SUMMARY
+          fi
