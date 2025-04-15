@@ -22,3 +22,12 @@ error: use of deprecated constant `pallet::RuntimeEvent::_w`:
    |
    = note: `-D deprecated` implied by `-D warnings`
    = help: to override `-D warnings` add `#[allow(deprecated)]`
+
+error: associated function `error_metadata` is never used
+  --> tests/pallet_ui/event_deprecated_runtime_event.rs:29:12
+   |
+29 |     #[pallet::pallet]
+   |               ^^^^^^ associated function in this implementation
+   |
+   = note: `-D dead-code` implied by `-D warnings`
+   = help: to override `-D warnings` add `#[allow(dead_code)]`
