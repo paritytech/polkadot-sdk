@@ -1429,18 +1429,7 @@ where
             .map(|ext| self.hash_of(&ext))
 			.collect::<Vec<_>>();
 
-		// Get retracted blocks hashes corresponding to inactive views.
-		let inactive_views = tree_route
-			.retracted()
-			.iter()
-			// Skip the tip of the fork, since its view is active, and it will be checked
-			// later when we'll prune the enacted block txs, reported to the active view,
-			// which is cloned from the tip of the retracted fork.
-			.skip(1)
-			.chain(std::iter::once(tree_route.common_block()))
-			.map(|h| h.hash)
-			.collect::<Vec<_>>();
-		self.view_store.provides_tags_from_views(xts_hashes, inactive_views)
+		self.view_store.provides_tags_from_inactive_views(xts_hashes)
 	}
 
 	/// Updates the view with the transactions from the given tree route.
@@ -1466,7 +1455,7 @@ where
 		let mut pruned_log = HashSet::<ExtrinsicHash<ChainApi>>::new();
 
 		// Create a map from enacted blocks' extrinsics to their `provides`
-		// tags.
+		// tags based on inactive views.
 		let known_provides_tags = self.provides_tags_from_inactive_views(tree_route).await;
 		info!(target: LOG_TARGET, "update_view_with_fork: txs to tags map: {}", known_provides_tags.len());
 		future::join_all(tree_route.enacted().iter().map(|hn| {

@@ -318,12 +318,16 @@ impl<B: ChainApi, L: EventHandler<B>> Pool<B, L> {
 			extrinsics.iter().map(|extrinsic| self.hash_of(extrinsic)).collect::<Vec<_>>();
 		let in_pool_tags = self.validated_pool.extrinsics_tags(&in_pool_hashes);
 		// Fill unknown tags based on the known tags from inactive views.
-		let unknown_txs_tags = in_pool_tags.iter().filter(|x| x.is_none()).count();
-		let mut found_txs_tags = 0u64;
+		let unknown_txs_count = in_pool_tags.iter().filter(|x| x.is_none()).count();
+		let mut reused_txs_count = 0u64;
 		let tags = in_pool_hashes.iter().zip(in_pool_tags).map(|(tx_hash, tags)| {
 			tags.or_else(|| {
-				found_txs_tags += 1;
-				known_provides_tags.as_ref().and_then(|inner| inner.get(&tx_hash).cloned())
+				known_provides_tags.as_ref().and_then(|inner| {
+					inner.get(&tx_hash).map(|hash| {
+						reused_txs_count += 1;
+						hash.clone()
+					})
+				})
 			})
 		});
 
@@ -369,7 +373,8 @@ impl<B: ChainApi, L: EventHandler<B>> Pool<B, L> {
 			}
 		}
 
-		log::debug!(target: LOG_TARGET,"prune: validated_counter:{validated_counter}, unknown_txs_tags: {unknown_txs_tags}, found_txs_tags: {found_txs_tags} took:{:?}", now.elapsed());
+		let known_txs_count = known_provides_tags.map(|inner| inner.len()).unwrap_or(0);
+		log::debug!(target: LOG_TARGET,"prune: validated_counter:{validated_counter}, known_txs_count: {known_txs_count}, unknown_txs_count: {unknown_txs_count}, reused_txs_count: {reused_txs_count}, took:{:?}", now.elapsed());
 
 		self.prune_tags(at, future_tags, in_pool_hashes).await
 	}
