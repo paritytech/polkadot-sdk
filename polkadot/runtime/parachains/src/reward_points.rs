@@ -32,10 +32,7 @@ pub const BACKING_POINTS: u32 = 20;
 pub const DISPUTE_STATEMENT_POINTS: u32 = 20;
 
 /// Rewards validators for participating in parachains with era points in pallet-staking.
-pub struct RewardValidatorsWithEraPoints<C, R>(
-	core::marker::PhantomData<C>,
-	core::marker::PhantomData<R>,
-);
+pub struct RewardValidatorsWithEraPoints<C, R>(core::marker::PhantomData<(C, R)>);
 
 impl<C, R> RewardValidatorsWithEraPoints<C, R>
 where

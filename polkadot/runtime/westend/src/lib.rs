@@ -742,8 +742,6 @@ parameter_types! {
 	pub const MaxNominators: u32 = 64;
 	pub const MaxNominations: u32 = <NposCompactSolution16 as frame_election_provider_support::NposSolution>::LIMIT as u32;
 	pub const MaxControllersInDeprecationBatch: u32 = 751;
-	pub const MinimumElectedValidatorSetSize: u32 = 28;	// atm there are 14 cores on Westend, minBackingVotes=2
-	pub const RewardPointsPerBlock: u32 = 20;
 }
 
 impl pallet_staking::Config for Runtime {
@@ -780,6 +778,7 @@ impl pallet_staking::Config for Runtime {
 	// TODO: Set this to everything once AHM migration starts.
 	type Filter = Nothing;
 }
+
 #[derive(Encode, Decode)]
 enum AssetHubRuntimePallets<AccountId> {
 	// TODO - AHM: check index
@@ -869,7 +868,8 @@ impl frame_support::traits::EnsureOrigin<RuntimeOrigin> for EnsureAssetHub {
 }
 
 // TODO - AHM: this pallet is currently in place, but does nothing. Upon AHM, it should become
-// activated.
+// activated. Note that it is used as `SessionManager`, but since its mode is `Passive`, it will
+// delegate all of its tasks to `Fallback`, which is again `Staking`.
 impl ah_client::Config for Runtime {
 	type CurrencyBalance = Balance;
 	type RuntimeEvent = RuntimeEvent;
@@ -1270,8 +1270,7 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
 				matches!(
 					c,
 					RuntimeCall::Staking(..) |
-						RuntimeCall::Session(..) |
-						RuntimeCall::Utility(..) |
+						RuntimeCall::Session(..) | RuntimeCall::Utility(..) |
 						RuntimeCall::FastUnstake(..) |
 						RuntimeCall::VoterList(..) |
 						RuntimeCall::NominationPools(..)
@@ -1466,7 +1465,6 @@ impl parachains_scheduler::Config for Runtime {
 parameter_types! {
 	pub const BrokerId: u32 = BROKER_ID;
 	pub const BrokerPalletId: PalletId = PalletId(*b"py/broke");
-	pub const AssetHubId: u32 = ASSET_HUB_ID;	// TODO: replace with ASSET_HUB_NEXT_ID
 	pub MaxXcmTransactWeight: Weight = Weight::from_parts(200_000_000, 20_000);
 }
 

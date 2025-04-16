@@ -17,25 +17,30 @@
 
 //! The signed phase of the multi-block election system.
 //!
-//! Signed submissions work on the basis of keeping a queue of submissions from random signed
-//! accounts, and sorting them based on the best claimed score to the worse.
+//! Signed submissions work on the basis of keeping a queue of submissions from unknown signed
+//! accounts, and sorting them based on the best claimed score to the worst.
+//!
+//! Each submission must put a deposit down. This is parameterize-able by the runtime, and might be
+//! a constant, linear or exponential value. See [`CalculatePageDeposit`] and
+//! [`CalculateBaseDeposit`].
 //!
 //! During the queuing time, if the queue is full, and a better solution comes in, the weakest
 //! deposit is said to be **Ejected**. Ejected solutions get [`signed::Config::EjectGraceRatio`] of
-//! their deposit back. This is because we have to delete any submitted pages from them on the fly.
-//! They always pay their transaction fee as well.
+//! their deposit back. This is because we have to delete any submitted pages from them on the spot.
+//! They don't get any refund of whatever tx-fee they have paid.
 //!
 //! Once the time to evaluate the signed phase comes (`Phase::SignedValidation`), the solutions are
-//! checked from best-to-worse claim, and they end up in either of the 3 buckets:
+//! checked from best-to-worst claim, and they end up in either of the 3 buckets:
 //!
-//! 1. **Rewarded**: If they are the first, correct solution (and consequently the best one, since
-//!    we start evaluating from the best claim), they are rewarded. Rewarded solutions always get
-//!    both their deposit and transaction fee back.
-//! 3. **Slashed**: Any invalid solution that wasted valuable blockchain time gets slashed for their
+//! 1. **Rewarded**: If they are the first correct solution (and consequently the best one, since we
+//!    start evaluating from the best claim), they are rewarded. Rewarded solutions always get both
+//!    their deposit and transaction fee back.
+//! 2. **Slashed**: Any invalid solution that wasted valuable blockchain time gets slashed for their
 //!    deposit.
-//! 2. **Discarded**: Any solution after the first correct solution is eligible to be peacefully
+//! 3. **Discarded**: Any solution after the first correct solution is eligible to be peacefully
 //!    discarded. But, to delete their data, they have to call
-//!    [`signed::Call::clear_old_round_data`]. Once done, they get their full deposit back.
+//!    [`signed::Call::clear_old_round_data`]. Once done, they get their full deposit back. Their
+//!    tx-fee is not refunded.
 //!
 //! ## Future Plans:
 //!
@@ -47,17 +52,9 @@
 //!    for more or less free by the submitter itself, and by anyone else as well, in which case they
 //!    get a share of the the sum deposit. The share increases as times goes on.
 //! **Metadata update**: imagine you mis-computed your score.
-
-// TODO: we should delete this async and once the round is passed.
-// Registration would consequently be as follows:
-// - If you get ejected, and you are lazy removed, a percentage of your deposit is burned. If we set
-//   this to 100%, we will not have bad submissions after the queue is full. The queue can be made
-//   full by purely an attacker, in which case the sum of deposits should be large enough to cover
-//   the fact that we will have a bad election.
-// - whitelisted accounts who will not pay deposits are needed. They can still be ejected, but for
+//! **whitelisted accounts**: who will not pay deposits are needed. They can still be ejected, but
+//! for
 //   free.
-// - Deposit should exponentially increase, and in general we should not allow for more than say 8
-//   signed submissions.
 
 use crate::{
 	types::SolutionOf,

@@ -15,6 +15,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//! The overarching mock crate for all EPMB pallets.
+
 mod signed;
 mod staking;
 

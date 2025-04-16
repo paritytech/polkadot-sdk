@@ -45,10 +45,19 @@ This script will generate chain-specs for both runtimes, and run them with zombi
 
 You also need `chain-spec-builder`, but the script builds that and uses a fresh one.
 
-## Configuration
+## Chain-spec presets
 
-TODO
+We have tried to move as much of the configuration as possible to different chain-specifications, so
+that manually tweaking the code is not needed.
 
-## Running Benchmarks
+The parachain comes with 3 main chain-spec presets.
 
-TODO
+- `development`: 100 validator, 2000 nominators, all 2000 nominators in the snapshot, 10 validator
+  to be elected, 4 pages
+- `dot_size`: 2000 validator, 25_000 nominators, 22_500 nominators in the snapshot, 500 validator to
+  be elected, 32 pages
+- `ksm_size`: 4000 validator, 20_000 nominators, 12_500 nominators in the snapshot, 1000 validator
+  to be elected, 16 pages
+
+Both when running the benchmarks (`bench.sh`) and the chain (`build-and-run-zn.sh`), you can specify
+the chain-spec preset. See each file for more info as to how.

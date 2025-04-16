@@ -264,6 +264,9 @@ pub mod pallet {
 		StorageMap<_, Twox64Concat, T::Score, list::Bag<T, I>>;
 
 	/// Lock all updates to this pallet.
+	///
+	/// If any nodes needs updating, removal or addition due to a temporary lock, the
+	/// [`Call::rebag`] can be used.
 	#[pallet::storage]
 	pub type Lock<T: Config<I>, I: 'static = ()> = StorageValue<_, (), OptionQuery>;
 
@@ -312,17 +315,17 @@ pub mod pallet {
 			let existed = ListNodes::<T, I>::contains_key(&dislocated);
 			match (existed, T::ScoreProvider::score(&dislocated)) {
 				(true, Some(current_score)) => {
-					// existed and score is updated, rebag to a new bag.
+					// existed and score is updated, maybe rebag.
 					let _ = Pallet::<T, I>::do_rebag(&dislocated, current_score)
 						.map_err::<Error<T, I>, _>(Into::into)?;
 				},
 				(false, Some(current_score)) => {
-					// did not exists, and has a score now, put in the new bag.
+					// did not exists, and has a score now, insert!
 					Self::on_insert(dislocated.clone(), current_score)
 						.map_err::<Error<T, I>, _>(Into::into)?;
 				},
 				(true, None) => {
-					// existed, but has no new score now, remove.
+					// existed, but has no new score now, remove!
 					Self::on_remove(&dislocated).map_err::<Error<T, I>, _>(Into::into)?;
 				},
 				(false, None) => {
