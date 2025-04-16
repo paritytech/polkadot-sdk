@@ -79,7 +79,7 @@ use sp_runtime::{
 };
 
 pub use crate::{
-	address::{create1, create2, AccountId32Mapper, AddressMapper},
+	address::{create1, create2, is_eth_derived, AccountId32Mapper, AddressMapper},
 	exec::{MomentOf, Origin},
 	pallet::*,
 };
@@ -548,6 +548,24 @@ pub mod pallet {
 	/// use it with this pallet.
 	#[pallet::storage]
 	pub(crate) type OriginalAccount<T: Config> = StorageMap<_, Identity, H160, AccountId32>;
+
+	#[pallet::genesis_config]
+	#[derive(frame_support::DefaultNoBound)]
+	pub struct GenesisConfig<T: Config> {
+		/// Genesis mapped accounts
+		pub mapped_accounts: Vec<T::AccountId>,
+	}
+
+	#[pallet::genesis_build]
+	impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
+		fn build(&self) {
+			for id in &self.mapped_accounts {
+				if let Err(err) = T::AddressMapper::map(id) {
+					log::error!(target: LOG_TARGET, "Failed to map account {id:?}: {err:?}");
+				}
+			}
+		}
+	}
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
