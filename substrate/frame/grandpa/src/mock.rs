@@ -33,7 +33,7 @@ use frame::{
 		},
 	},
 	testing_prelude::*,
-	traits::{Header as _, OpaqueKeys},
+	traits::{KeyOwnerProofSystem, OpaqueKeys},
 };
 use frame_election_provider_support::{
 	bounds::{ElectionBounds, ElectionBoundsBuilder},

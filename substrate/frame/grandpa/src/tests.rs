@@ -22,15 +22,14 @@
 use super::{Call, Event, *};
 use crate::mock::*;
 use fg_primitives::ScheduledChange;
-use frame_support::{
-	assert_err, assert_noop, assert_ok,
-	dispatch::{GetDispatchInfo, Pays},
+use frame::{
+	deps::sp_runtime::{generic::Phase, testing::Digest},
+	primitives::H256,
+	testing_prelude::*,
 	traits::{Currency, KeyOwnerProofSystem, OnFinalize, OneSessionHandler},
 };
-use frame_system::{EventRecord, Phase};
-use sp_core::H256;
+use frame_system::EventRecord;
 use sp_keyring::Ed25519Keyring;
-use sp_runtime::testing::Digest;
 
 #[test]
 fn authorities_change_logged() {
