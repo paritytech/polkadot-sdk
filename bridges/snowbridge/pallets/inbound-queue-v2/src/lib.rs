@@ -239,6 +239,10 @@ pub mod pallet {
 
 			// Forward XCM to AH
 			let dest = Location::new(1, [Parachain(T::AssetHubParaId::get())]);
+
+			// Mark message as received
+			Nonce::<T>::set(nonce.into());
+
 			let message_id =
 				Self::send_xcm(dest.clone(), &relayer, xcm.clone()).map_err(|error| {
 					tracing::error!(target: LOG_TARGET, ?error, ?dest, ?xcm, "XCM send failed with error");
@@ -253,9 +257,6 @@ pub mod pallet {
 					relayer_fee,
 				);
 			}
-
-			// Mark message as received
-			Nonce::<T>::set(nonce.into());
 
 			Self::deposit_event(Event::MessageReceived { nonce, message_id });
 
