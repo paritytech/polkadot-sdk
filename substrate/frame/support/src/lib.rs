@@ -2147,8 +2147,9 @@ pub mod pallet_macros {
 	/// correct function.
 	///
 	/// The macro also ensures that the extrinsic when invoked will be wrapped via
-	/// [`frame_support::storage::with_storage_layer`] to make it transactional. Thus if the extrinsic
-	/// returns with an error any state changes that had already occurred will be rolled back.
+	/// [`frame_support::storage::with_storage_layer`] to make it transactional. Thus if the
+	/// extrinsic returns with an error any state changes that had already occurred will be
+	/// rolled back.
 	///
 	/// ```
 	/// #[frame_support::pallet(dev_mode)]
