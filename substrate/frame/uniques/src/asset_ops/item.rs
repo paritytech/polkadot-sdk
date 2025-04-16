@@ -9,8 +9,8 @@ use frame_support::{
 	ensure,
 	traits::tokens::asset_ops::{
 		common_strategies::{
-			Bytes, CheckOrigin, CheckState, ConfigValue, IfOwnedBy, NoParams, Owner,
-			PredefinedId, WithConfig, CanUpdate,
+			Bytes, CanUpdate, CheckOrigin, CheckState, ConfigValue, IfOwnedBy, NoParams, Owner,
+			PredefinedId, WithConfig,
 		},
 		AssetDefinition, Create, Inspect, Restore, Stash, Update,
 	},

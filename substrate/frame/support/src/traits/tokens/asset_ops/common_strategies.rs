@@ -217,7 +217,6 @@ pub type IfOwnedBy<AccountId, Inner = NoParams> = CheckState<Owner<AccountId>, I
 /// to the `Update::update` function.
 pub type ChangeOwnerFrom<AccountId> = CheckState<Owner<AccountId>, Owner<AccountId>>;
 
-
 /// The operation implementation must check
 /// if the given witness represents the correct state of the asset.
 /// If so, the operation must act according to the inner strategy.
@@ -247,7 +246,6 @@ impl<Condition> UpdateStrategy for CanCreate<Condition> {
 	type Update<'u> = bool;
 	type Success = ();
 }
-
 
 /// The `CanDestroy` strategy represents the ability to destroy an asset.
 /// It is both an [inspect](InspectStrategy) and [update](UpdateStrategy)
@@ -357,19 +355,22 @@ impl<Params, ReportedId> IdAssignment for DeriveAndReportId<Params, ReportedId> 
 	type ReportedId = ReportedId;
 }
 
-/// Represents the value of an [InspectStrategy] to be used as a configuration value in the [WithConfig] strategy.
+/// Represents the value of an [InspectStrategy] to be used as a configuration value in the
+/// [WithConfig] strategy.
 #[derive(Debug, PartialEq, Eq, Clone, Encode, Decode, MaxEncodedLen, TypeInfo)]
 pub struct ConfigValue<Inspect: InspectStrategy>(pub Inspect::Value);
 
 /// This trait marks a config value to be used in the [WithConfig] strategy.
-/// It is used to make compiler error messages clearer if invalid type is supplied into the [WithConfig].
+/// It is used to make compiler error messages clearer if invalid type is supplied into the
+/// [WithConfig].
 pub trait IsConfigValue {}
 impl<Inspect: InspectStrategy> IsConfigValue for ConfigValue<Inspect> {}
 
 #[impl_trait_for_tuples::impl_for_tuples(1, 8)]
 impl IsConfigValue for Tuple {}
 
-/// This trait converts the given [InspectStrategy] into the config value to be used in the [WithConfig] strategy.
+/// This trait converts the given [InspectStrategy] into the config value to be used in the
+/// [WithConfig] strategy.
 pub trait WithConfigValue: Sized + InspectStrategy {
 	fn with_config_value(value: Self::Value) -> ConfigValue<Self>;
 }
@@ -380,17 +381,18 @@ impl<T: InspectStrategy> WithConfigValue for T {
 }
 
 /// The `WithConfig` is a [create](CreateStrategy) and [restore](RestoreStrategy) strategy.
-/// It facilitates setting the asset's properties that can be later inspected via the corresponding [inspect strategies](InspectStrategy).
-/// The provided asset's properties are considered its config. Every inspect strategy can be used to create a config value.
+/// It facilitates setting the asset's properties that can be later inspected via the corresponding
+/// [inspect strategies](InspectStrategy). The provided asset's properties are considered its
+/// config. Every inspect strategy can be used to create a config value.
 ///
-/// For instance, one can use `WithConfig` to restore an asset to the given owner using the [Owner] inspect strategy:
-/// ```rust,ignore
+/// For instance, one can use `WithConfig` to restore an asset to the given owner using the [Owner]
+/// inspect strategy: ```rust,ignore
 /// NftEngine::restore(WithConfig::from(Owner::with_config_value(OWNER_ACCOUNT)))
 /// ```
 ///
 /// The extra parameters can be supplied to provide additional context to the operation.
-/// They're required for creation operation as they provide the [id assignment approach](IdAssignment),
-/// but they're optional for the restoring operation.
+/// They're required for creation operation as they provide the [id assignment
+/// approach](IdAssignment), but they're optional for the restoring operation.
 ///
 /// For instance, one can use `WithConfig` to create an asset with a predefined id this way:
 /// ```rust,ignore
