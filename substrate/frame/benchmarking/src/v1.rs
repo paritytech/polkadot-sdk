@@ -1118,7 +1118,6 @@ macro_rules! impl_benchmark {
 
 					// Commit the changes to get proper write count
 					$crate::benchmarking::commit_db();
-
 					$crate::__private::log::trace!(
 						target: "benchmark",
 						"End Benchmark: {} ns", elapsed_extrinsic

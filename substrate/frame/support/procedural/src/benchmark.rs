@@ -790,7 +790,16 @@ pub fn benchmarks(
 
 					// Always do at least one internal repeat...
 					for _ in 0 .. internal_repeats.max(1) {
+						// Always reset the state after the benchmark.
 						#krate::__private::defer!(#krate::benchmarking::wipe_db());
+
+						// Time the extrinsic logic.
+						#krate::__private::log::trace!(
+							target: "benchmark",
+							"Start Benchmark: {} ({:?})",
+							extrinsic,
+							c
+						);
 
 						let mut recording = #krate::BenchmarkRecording::new(&on_before_start);
 						<SelectedBenchmark as #krate::BenchmarkingSetup<#type_use_generics>>::instance(&selected_benchmark, &mut recording, c, verify)?;

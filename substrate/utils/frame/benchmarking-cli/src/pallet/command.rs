@@ -570,7 +570,7 @@ impl PalletCmd {
 			}
 		}
 
-		assert!(batches_db.len() == batches.len() / self.external_repeat as usize, "{} vs {}", batches_db.len(), batches.len() / self.external_repeat as usize);
+		assert!(batches_db.len() == batches.len() / self.external_repeat as usize);
 
 		if !failed.is_empty() {
 			failed.sort();
@@ -648,6 +648,7 @@ impl PalletCmd {
 		included && !excluded
 	}
 
+	/// Whether this extrinsic should be run.
 	fn extrinsic_selected(&self, pallet: &Vec<u8>, extrinsic: &Vec<u8>) -> bool {
 		if !self.pallet_selected(pallet) {
 			return false;
