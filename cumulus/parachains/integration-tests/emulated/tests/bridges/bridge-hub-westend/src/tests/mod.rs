@@ -16,6 +16,7 @@
 use crate::imports::*;
 use emulated_integration_tests_common::snowbridge::{CHAIN_ID, WETH};
 
+mod aliases;
 mod asset_transfers;
 mod claim_assets;
 mod register_bridged_assets;

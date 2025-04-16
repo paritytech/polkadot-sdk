@@ -628,7 +628,6 @@ impl<T: Config> Pallet<T> {
 		allowed_relay_parents: &AllowedRelayParentsTracker<T::Hash, BlockNumberFor<T>>,
 		candidates: &BTreeMap<ParaId, Vec<(BackedCandidate<T::Hash>, CoreIndex)>>,
 		group_validators: GV,
-		core_index_enabled: bool,
 	) -> Result<
 		Vec<(CandidateReceipt<T::Hash>, Vec<(ValidatorIndex, ValidityAttestation)>)>,
 		DispatchError,
@@ -688,12 +687,8 @@ impl<T: Config> Pallet<T> {
 					group_validators(group_idx).ok_or_else(|| Error::<T>::InvalidGroupIndex)?;
 
 				// Check backing vote count and validity.
-				let (backers, backer_idx_and_attestation) = Self::check_backing_votes(
-					candidate,
-					&validators,
-					group_vals,
-					core_index_enabled,
-				)?;
+				let (backers, backer_idx_and_attestation) =
+					Self::check_backing_votes(candidate, &validators, group_vals)?;
 
 				// Found a valid candidate.
 				latest_head_data = candidate.candidate().commitments.head_data.clone();
@@ -760,7 +755,6 @@ impl<T: Config> Pallet<T> {
 		backed_candidate: &BackedCandidate<T::Hash>,
 		validators: &[ValidatorId],
 		group_vals: Vec<ValidatorIndex>,
-		core_index_enabled: bool,
 	) -> Result<(BitVec<u8, BitOrderLsb0>, Vec<(ValidatorIndex, ValidityAttestation)>), Error<T>> {
 		let minimum_backing_votes = configuration::ActiveConfig::<T>::get().minimum_backing_votes;
 
@@ -770,8 +764,7 @@ impl<T: Config> Pallet<T> {
 			session_index: shared::CurrentSessionIndex::<T>::get(),
 		};
 
-		let (validator_indices, _) =
-			backed_candidate.validator_indices_and_core_index(core_index_enabled);
+		let (validator_indices, _) = backed_candidate.validator_indices_and_core_index();
 
 		// check the signatures in the backing and that it is a majority.
 		let maybe_amount_validated = polkadot_primitives::check_candidate_backing(
@@ -1326,19 +1319,23 @@ impl<T: Config> CandidateCheckContext<T> {
 		hrmp_watermark: BlockNumberFor<T>,
 		horizontal_messages: &[polkadot_primitives::OutboundHrmpMessage<ParaId>],
 	) -> Result<(), AcceptanceCheckErr> {
-		ensure!(
-			head_data.0.len() <= self.config.max_head_data_size as _,
-			AcceptanceCheckErr::HeadDataTooLarge,
-		);
+		// Safe convertions when `self.config.max_head_data_size` is in bounds of `usize` type.
+		let max_head_data_size = usize::try_from(self.config.max_head_data_size)
+			.map_err(|_| AcceptanceCheckErr::HeadDataTooLarge)?;
+		ensure!(head_data.0.len() <= max_head_data_size, AcceptanceCheckErr::HeadDataTooLarge);
 
 		// if any, the code upgrade attempt is allowed.
 		if let Some(new_validation_code) = new_validation_code {
+			// Safe convertions when `self.config.max_code_size` is in bounds of `usize` type.
+			let max_code_size = usize::try_from(self.config.max_code_size)
+				.map_err(|_| AcceptanceCheckErr::NewCodeTooLarge)?;
+
 			ensure!(
 				paras::Pallet::<T>::can_upgrade_validation_code(para_id),
 				AcceptanceCheckErr::PrematureCodeUpgrade,
 			);
 			ensure!(
-				new_validation_code.0.len() <= self.config.max_code_size as _,
+				new_validation_code.0.len() <= max_code_size,
 				AcceptanceCheckErr::NewCodeTooLarge,
 			);
 		}
