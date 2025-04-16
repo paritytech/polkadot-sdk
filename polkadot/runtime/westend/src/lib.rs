@@ -1998,7 +1998,7 @@ mod benches {
 
 frame_support::parameter_types! {
 	// Change here if you modified the Genesis config or added a pallet etc:
-	pub WestendStorageRoot: Option<Vec<u8>> = hex::decode("f65f5c9c119153651988cfda6c284d2f14cbb6545560bb7ab697bf7253cca5cd").unwrap().into();
+	pub WestendStorageRoot: Option<Vec<u8>> = None;
 }
 
 impl frame_benchmarking_pallet_pov::Config for Runtime {
