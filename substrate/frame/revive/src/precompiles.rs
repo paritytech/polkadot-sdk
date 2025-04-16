@@ -522,19 +522,21 @@ impl BuiltinAddressMatcher {
 #[cfg(feature = "runtime-benchmarks")]
 pub mod run {
 	use super::*;
-	use crate::{call_builder::CallSetup, BalanceOf, MomentOf, H256, U256};
+	use crate::{BalanceOf, MomentOf, H256, U256};
 
 	/// Convenience function to run builtin pre-compiles from benchmarks.
-	pub(crate) fn builtin<T: Config>(address: &[u8; 20], input: Vec<u8>) -> ExecResult
+	pub(crate) fn builtin<E: ExtWithInfo>(
+		ext: &mut E,
+		address: &[u8; 20],
+		input: Vec<u8>,
+	) -> ExecResult
 	where
-		BalanceOf<T>: Into<U256> + TryFrom<U256>,
-		MomentOf<T>: Into<U256>,
-		T::Hash: frame_support::traits::IsType<H256>,
+		BalanceOf<E::T>: Into<U256> + TryFrom<U256>,
+		MomentOf<E::T>: Into<U256>,
+		<<E as Ext>::T as frame_system::Config>::Hash: frame_support::traits::IsType<H256>,
 	{
-		let mut call_setup = CallSetup::<T>::default();
-		let (mut ext, _) = call_setup.ext();
-		let precompile =
-			<Builtin<T>>::get(address).ok_or(DispatchError::from("No pre-compile at address"))?;
-		precompile.call(input, &mut ext)
+		let precompile = <Builtin<E::T>>::get(address)
+			.ok_or(DispatchError::from("No pre-compile at address"))?;
+		precompile.call(input, ext)
 	}
 }

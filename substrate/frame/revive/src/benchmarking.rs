@@ -1755,11 +1755,14 @@ mod benchmarks {
 	#[benchmark(pov_mode = Measured)]
 	fn sha2_256(n: Linear<0, { limits::code::BLOB_BYTES }>) {
 		let input = vec![0u8; n as usize];
+		let mut call_setup = CallSetup::<T>::default();
+		let (mut ext, _) = call_setup.ext();
 
 		let result;
 		#[block]
 		{
-			result = run_builtin_precompile::<T>(
+			result = run_builtin_precompile(
+				&mut ext,
 				H160::from_low_u64_be(2).as_fixed_bytes(),
 				input.clone(),
 			);
@@ -1770,11 +1773,14 @@ mod benchmarks {
 	#[benchmark(pov_mode = Measured)]
 	fn identity(n: Linear<0, { limits::code::BLOB_BYTES }>) {
 		let input = vec![0u8; n as usize];
+		let mut call_setup = CallSetup::<T>::default();
+		let (mut ext, _) = call_setup.ext();
 
 		let result;
 		#[block]
 		{
-			result = run_builtin_precompile::<T>(
+			result = run_builtin_precompile(
+				&mut ext,
 				H160::from_low_u64_be(4).as_fixed_bytes(),
 				input.clone(),
 			);
@@ -1787,11 +1793,14 @@ mod benchmarks {
 	fn ripemd_160(n: Linear<0, { limits::code::BLOB_BYTES }>) {
 		use ripemd::Digest;
 		let input = vec![0u8; n as usize];
+		let mut call_setup = CallSetup::<T>::default();
+		let (mut ext, _) = call_setup.ext();
 
 		let result;
 		#[block]
 		{
-			result = run_builtin_precompile::<T>(
+			result = run_builtin_precompile(
+				&mut ext,
 				H160::from_low_u64_be(3).as_fixed_bytes(),
 				input.clone(),
 			);
@@ -1880,12 +1889,15 @@ mod benchmarks {
 		use hex_literal::hex;
 		let input = hex!("18c547e4f7b0f325ad1e56f57e26c745b09a3e503d86e00e5255ff7f715d3d1c000000000000000000000000000000000000000000000000000000000000001c73b1693892219d736caba55bdb67216e485557ea6b6af75f37096c9aa6a5a75feeb940b1d03b21e36b0e47e79769f095fe2ab855bd91e3a38756b7d75a9c4549").to_vec();
 		let expected = hex!("000000000000000000000000a94f5374fce5edbc8e2a8697c15331677e6ebf0b");
+		let mut call_setup = CallSetup::<T>::default();
+		let (mut ext, _) = call_setup.ext();
 
 		let result;
 
 		#[block]
 		{
-			result = run_builtin_precompile::<T>(H160::from_low_u64_be(1).as_fixed_bytes(), input);
+			result =
+				run_builtin_precompile(&mut ext, H160::from_low_u64_be(1).as_fixed_bytes(), input);
 		}
 
 		assert_eq!(result.unwrap().data, expected);
@@ -1896,11 +1908,14 @@ mod benchmarks {
 		use hex_literal::hex;
 		let input = hex!("089142debb13c461f61523586a60732d8b69c5b38a3380a74da7b2961d867dbf2d5fc7bbc013c16d7945f190b232eacc25da675c0eb093fe6b9f1b4b4e107b3625f8c89ea3437f44f8fc8b6bfbb6312074dc6f983809a5e809ff4e1d076dd5850b38c7ced6e4daef9c4347f370d6d8b58f4b1d8dc61a3c59d651a0644a2a27cf").to_vec();
 		let expected = hex!("0a6678fd675aa4d8f0d03a1feb921a27f38ebdcb860cc083653519655acd6d79172fd5b3b2bfdd44e43bcec3eace9347608f9f0a16f1e184cb3f52e6f259cbeb");
+		let mut call_setup = CallSetup::<T>::default();
+		let (mut ext, _) = call_setup.ext();
 
 		let result;
 		#[block]
 		{
-			result = run_builtin_precompile::<T>(H160::from_low_u64_be(6).as_fixed_bytes(), input);
+			result =
+				run_builtin_precompile(&mut ext, H160::from_low_u64_be(6).as_fixed_bytes(), input);
 		}
 
 		assert_eq!(result.unwrap().data, expected);
@@ -1911,11 +1926,14 @@ mod benchmarks {
 		use hex_literal::hex;
 		let input = hex!("089142debb13c461f61523586a60732d8b69c5b38a3380a74da7b2961d867dbf2d5fc7bbc013c16d7945f190b232eacc25da675c0eb093fe6b9f1b4b4e107b36ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff").to_vec();
 		let expected = hex!("0bf982b98a2757878c051bfe7eee228b12bc69274b918f08d9fcb21e9184ddc10b17c77cbf3c19d5d27e18cbd4a8c336afb488d0e92c18d56e64dd4ea5c437e6");
+		let mut call_setup = CallSetup::<T>::default();
+		let (mut ext, _) = call_setup.ext();
 
 		let result;
 		#[block]
 		{
-			result = run_builtin_precompile::<T>(H160::from_low_u64_be(7).as_fixed_bytes(), input);
+			result =
+				run_builtin_precompile(&mut ext, H160::from_low_u64_be(7).as_fixed_bytes(), input);
 		}
 
 		assert_eq!(result.unwrap().data, expected);
@@ -1958,11 +1976,14 @@ mod benchmarks {
 		}
 
 		let input = generate_random_ecpairs(n as usize);
+		let mut call_setup = CallSetup::<T>::default();
+		let (mut ext, _) = call_setup.ext();
 
 		let result;
 		#[block]
 		{
-			result = run_builtin_precompile::<T>(H160::from_low_u64_be(8).as_fixed_bytes(), input);
+			result =
+				run_builtin_precompile(&mut ext, H160::from_low_u64_be(8).as_fixed_bytes(), input);
 		}
 		assert_ok!(result);
 	}
@@ -1973,11 +1994,14 @@ mod benchmarks {
 		use hex_literal::hex;
 		let input = hex!("48c9bdf267e6096a3ba7ca8485ae67bb2bf894fe72f36e3cf1361d5f3af54fa5d182e6ad7f520e511f6c3e2b8c68059b6bbd41fbabd9831f79217e1319cde05b61626300000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000300000000000000000000000000000001");
 		let input = n.to_be_bytes().to_vec().into_iter().chain(input.to_vec()).collect::<Vec<_>>();
+		let mut call_setup = CallSetup::<T>::default();
+		let (mut ext, _) = call_setup.ext();
 
 		let result;
 		#[block]
 		{
-			result = run_builtin_precompile::<T>(H160::from_low_u64_be(9).as_fixed_bytes(), input);
+			result =
+				run_builtin_precompile(&mut ext, H160::from_low_u64_be(9).as_fixed_bytes(), input);
 		}
 		assert_ok!(result);
 	}
