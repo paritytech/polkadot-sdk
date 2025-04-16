@@ -30,6 +30,8 @@ use super::{fungible, fungibles, Balance, Preservation::Expendable};
 pub trait Pay {
 	/// The type by which we measure units of the currency in which we make payments.
 	type Balance: Balance;
+	/// The type by which we identify the sources from which a payment may be made.
+	type Source;
 	/// The type by which we identify the beneficiaries to whom a payment may be made.
 	type Beneficiary;
 	/// The type for the kinds of asset that are going to be paid.
@@ -44,7 +46,8 @@ pub trait Pay {
 	/// Make a payment and return an identifier for later evaluation of success in some off-chain
 	/// mechanism (likely an event, but possibly not on this chain).
 	fn pay(
-		who: &Self::Beneficiary,
+		source: &Self::Source,
+		beneficiary: &Self::Beneficiary,
 		asset_kind: Self::AssetKind,
 		amount: Self::Balance,
 	) -> Result<Self::Id, Self::Error>;
@@ -57,7 +60,8 @@ pub trait Pay {
 	/// after this call. Used in benchmarking code.
 	#[cfg(feature = "runtime-benchmarks")]
 	fn ensure_successful(
-		who: &Self::Beneficiary,
+		source: &Self::Source,
+		beneficiary: &Self::Beneficiary,
 		asset_kind: Self::AssetKind,
 		amount: Self::Balance,
 	);
@@ -90,11 +94,13 @@ where
 	A::Type: Eq,
 {
 	type Balance = F::Balance;
+	type Source = A::Type;
 	type Beneficiary = A::Type;
 	type AssetKind = ();
 	type Id = ();
 	type Error = DispatchError;
 	fn pay(
+		_: &Self::Source,
 		who: &Self::Beneficiary,
 		_: Self::AssetKind,
 		amount: Self::Balance,
@@ -106,42 +112,90 @@ where
 		PaymentStatus::Success
 	}
 	#[cfg(feature = "runtime-benchmarks")]
-	fn ensure_successful(_: &Self::Beneficiary, _: Self::AssetKind, amount: Self::Balance) {
+	fn ensure_successful(
+		_: &Self::Source,
+		_: &Self::Beneficiary,
+		_: Self::AssetKind,
+		amount: Self::Balance,
+	) {
 		<F as fungible::Mutate<_>>::mint_into(&A::get(), amount).unwrap();
 	}
 	#[cfg(feature = "runtime-benchmarks")]
 	fn ensure_concluded(_: Self::Id) {}
 }
 
-/// Simple implementation of `Pay` for assets which makes a payment from a "pot" - i.e. a single
-/// account.
-pub struct PayAssetFromAccount<F, A>(core::marker::PhantomData<(F, A)>);
-impl<A, F> frame_support::traits::tokens::Pay for PayAssetFromAccount<F, A>
+/// Implementation of the `Pay` trait using a single fungible token (e.g., the native currency)
+pub struct PayWithFungible<F, A>(core::marker::PhantomData<(F, A)>);
+impl<A, F> Pay for PayWithFungible<F, A>
 where
-	A: TypedGet,
-	F: fungibles::Mutate<A::Type> + fungibles::Create<A::Type>,
-	A::Type: Eq,
+	F: fungible::Mutate<A>,
+	A: Eq,
 {
 	type Balance = F::Balance;
-	type Beneficiary = A::Type;
-	type AssetKind = F::AssetId;
+	type Source = A;
+	type Beneficiary = A;
+	type AssetKind = ();
 	type Id = ();
 	type Error = DispatchError;
 	fn pay(
-		who: &Self::Beneficiary,
-		asset: Self::AssetKind,
+		source: &Self::Source,
+		beneficiary: &Self::Beneficiary,
+		_: Self::AssetKind,
 		amount: Self::Balance,
 	) -> Result<Self::Id, Self::Error> {
-		<F as fungibles::Mutate<_>>::transfer(asset, &A::get(), who, amount, Expendable)?;
+		<F as fungible::Mutate<_>>::transfer(source, beneficiary, amount, Expendable)?;
 		Ok(())
 	}
 	fn check_payment(_: ()) -> PaymentStatus {
 		PaymentStatus::Success
 	}
 	#[cfg(feature = "runtime-benchmarks")]
-	fn ensure_successful(_: &Self::Beneficiary, asset: Self::AssetKind, amount: Self::Balance) {
-		<F as fungibles::Create<_>>::create(asset.clone(), A::get(), true, amount).unwrap();
-		<F as fungibles::Mutate<_>>::mint_into(asset, &A::get(), amount).unwrap();
+	fn ensure_successful(
+		source: &Self::Source,
+		_: &Self::Beneficiary,
+		_: Self::AssetKind,
+		amount: Self::Balance,
+	) {
+		<F as fungible::Mutate<_>>::mint_into(&source, amount).unwrap();
+	}
+	#[cfg(feature = "runtime-benchmarks")]
+	fn ensure_concluded(_: Self::Id) {}
+}
+
+/// Implementation of the `Pay` trait using multiple fungible asset classes (e.g., `pallet_assets`)
+pub struct PayWithFungibles<F, A>(core::marker::PhantomData<(F, A)>);
+impl<A, F> frame_support::traits::tokens::Pay for PayWithFungibles<F, A>
+where
+	A: Eq + Clone,
+	F: fungibles::Mutate<A> + fungibles::Create<A>,
+{
+	type Balance = F::Balance;
+	type Source = A;
+	type Beneficiary = A;
+	type AssetKind = F::AssetId;
+	type Id = ();
+	type Error = DispatchError;
+	fn pay(
+		source: &Self::Source,
+		beneficiary: &Self::Beneficiary,
+		asset: Self::AssetKind,
+		amount: Self::Balance,
+	) -> Result<Self::Id, Self::Error> {
+		<F as fungibles::Mutate<_>>::transfer(asset, source, beneficiary, amount, Expendable)?;
+		Ok(())
+	}
+	fn check_payment(_: ()) -> PaymentStatus {
+		PaymentStatus::Success
+	}
+	#[cfg(feature = "runtime-benchmarks")]
+	fn ensure_successful(
+		source: &Self::Source,
+		_: &Self::Beneficiary,
+		asset: Self::AssetKind,
+		amount: Self::Balance,
+	) {
+		<F as fungibles::Create<_>>::create(asset.clone(), source.clone(), true, amount).unwrap();
+		<F as fungibles::Mutate<_>>::mint_into(asset, &source, amount).unwrap();
 	}
 	#[cfg(feature = "runtime-benchmarks")]
 	fn ensure_concluded(_: Self::Id) {}

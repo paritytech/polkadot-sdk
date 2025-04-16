@@ -113,7 +113,6 @@ pub use weights::WeightInfo;
 
 pub type BalanceOf<T, I = ()> =
 	<<T as Config<I>>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
-pub type AssetBalanceOf<T, I> = <<T as Config<I>>::Paymaster as Pay>::Balance;
 pub type PositiveImbalanceOf<T, I = ()> = <<T as Config<I>>::Currency as Currency<
 	<T as frame_system::Config>::AccountId,
 >>::PositiveImbalance;
@@ -121,7 +120,8 @@ pub type NegativeImbalanceOf<T, I = ()> = <<T as Config<I>>::Currency as Currenc
 	<T as frame_system::Config>::AccountId,
 >>::NegativeImbalance;
 type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup>::Source;
-type BeneficiaryLookupOf<T, I> = <<T as Config<I>>::BeneficiaryLookup as StaticLookup>::Source;
+pub type BeneficiaryLookupOf<T, I = ()> =
+	<<T as Config<I>>::BeneficiaryLookup as StaticLookup>::Source;
 pub type BlockNumberFor<T, I = ()> =
 	<<T as Config<I>>::BlockNumberProvider as BlockNumberProvider>::BlockNumber;
 
@@ -265,10 +265,19 @@ pub mod pallet {
 		/// Converting trait to take a source type and convert to [`Self::Beneficiary`].
 		type BeneficiaryLookup: StaticLookup<Target = Self::Beneficiary>;
 
-		/// Type for processing spends of [Self::AssetKind] in favor of [`Self::Beneficiary`].
-		type Paymaster: Pay<Beneficiary = Self::Beneficiary, AssetKind = Self::AssetKind>;
+		/// Type for processing spends of [`Self::AssetKind`] in favor of [`Self::Beneficiary`].
+		///
+		/// The source account is determined by the `Pay` implementation. For example, it
+		/// could use `Pallet::account_id()` or dynamically choose a source based on the
+		/// `AssetKind`.
+		type Paymaster: Pay<
+			Balance = BalanceOf<Self, I>,
+			Source = (),
+			Beneficiary = Self::Beneficiary,
+			AssetKind = Self::AssetKind,
+		>;
 
-		/// Type for converting the balance of an [Self::AssetKind] to the balance of the native
+		/// Type for converting the balance of an [`Self::AssetKind`] to the balance of the native
 		/// asset, solely for the purpose of asserting the result against the maximum allowed spend
 		/// amount of the [`Self::SpendOrigin`].
 		type BalanceConverter: ConversionFromAssetBalance<
@@ -343,7 +352,7 @@ pub mod pallet {
 		SpendIndex,
 		SpendStatus<
 			T::AssetKind,
-			AssetBalanceOf<T, I>,
+			BalanceOf<T, I>,
 			T::Beneficiary,
 			BlockNumberFor<T, I>,
 			<T::Paymaster as Pay>::Id,
@@ -399,7 +408,7 @@ pub mod pallet {
 		AssetSpendApproved {
 			index: SpendIndex,
 			asset_kind: T::AssetKind,
-			amount: AssetBalanceOf<T, I>,
+			amount: BalanceOf<T, I>,
 			beneficiary: T::Beneficiary,
 			valid_from: BlockNumberFor<T, I>,
 			expire_at: BlockNumberFor<T, I>,
@@ -490,6 +499,7 @@ pub mod pallet {
 		}
 	}
 
+	/// Temporarily tracks spending limits within the current block to prevent overspending.
 	#[derive(Default)]
 	struct SpendContext<Balance> {
 		spend_in_context: BTreeMap<Balance, Balance>,
@@ -646,7 +656,7 @@ pub mod pallet {
 		pub fn spend(
 			origin: OriginFor<T>,
 			asset_kind: Box<T::AssetKind>,
-			#[pallet::compact] amount: AssetBalanceOf<T, I>,
+			#[pallet::compact] amount: BalanceOf<T, I>,
 			beneficiary: Box<BeneficiaryLookupOf<T, I>>,
 			valid_from: Option<BlockNumberFor<T, I>>,
 		) -> DispatchResult {
@@ -739,8 +749,9 @@ pub mod pallet {
 				Error::<T, I>::AlreadyAttempted
 			);
 
-			let id = T::Paymaster::pay(&spend.beneficiary, spend.asset_kind.clone(), spend.amount)
-				.map_err(|_| Error::<T, I>::PayoutError)?;
+			let id =
+				T::Paymaster::pay(&(), &spend.beneficiary, spend.asset_kind.clone(), spend.amount)
+					.map_err(|_| Error::<T, I>::PayoutError)?;
 
 			spend.status = PaymentState::Attempted { id };
 			spend.expire_at = now.saturating_add(T::PayoutPeriod::get());
