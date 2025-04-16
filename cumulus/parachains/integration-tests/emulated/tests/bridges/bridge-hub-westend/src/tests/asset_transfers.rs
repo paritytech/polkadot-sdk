@@ -1439,39 +1439,32 @@ fn send_pens_and_wnds_from_penpal_westend_via_ahw_to_ahr() {
 	// reset topic tracker
 	TopicIdTracker::reset();
 
-	AssetHubRococo::execute_with(|| {
-		type RuntimeEvent = <AssetHubRococo as Chain>::RuntimeEvent;
+	// transfer assets
+	do_send_pens_and_wnds_from_penpal_westend_via_ahw_to_asset_hub_rococo(
+		(wnd_at_westend_parachains.clone(), wnds_to_send),
+		(pens_location_on_penpal.try_into().unwrap(), pens_to_send),
+	);
 
-		let topic_ids = find_all_xcm_topic_ids!(AssetHubRococo);
-		println!("[Before Transfer Assets] AssetHubRococo->topic_ids: {:?}", topic_ids);
+	PenpalB::execute_with(|| {
+		type RuntimeEvent = <PenpalB as Chain>::RuntimeEvent;
+
+		let topic_ids = find_all_xcm_topic_ids!(PenpalB);
+		println!("[After Transfer Assets] PenpalB->topic_ids: {:?}", topic_ids);
 	});
 
 	AssetHubWestend::execute_with(|| {
 		type RuntimeEvent = <AssetHubWestend as Chain>::RuntimeEvent;
 
 		let topic_ids = find_all_xcm_topic_ids!(AssetHubWestend);
-		println!("[Before Transfer Assets] AssetHubWestend->topic_ids: {:?}", topic_ids);
+		println!("[After Transfer Assets] AssetHubWestend->topic_ids: {:?}", topic_ids);
 	});
 
 	BridgeHubWestend::execute_with(|| {
 		type RuntimeEvent = <BridgeHubWestend as Chain>::RuntimeEvent;
 
 		let topic_ids = find_all_xcm_topic_ids!(BridgeHubWestend);
-		println!("[Before Transfer Assets] BridgeHubWestend->topic_ids: {:?}", topic_ids);
+		println!("[After Transfer Assets] BridgeHubWestend->topic_ids: {:?}", topic_ids);
 	});
-
-	PenpalB::execute_with(|| {
-		type RuntimeEvent = <PenpalB as Chain>::RuntimeEvent;
-
-		let topic_ids = find_all_xcm_topic_ids!(PenpalB);
-		println!("[Before Transfer Assets] PenpalB->topic_ids: {:?}", topic_ids);
-	});
-
-	// transfer assets
-	do_send_pens_and_wnds_from_penpal_westend_via_ahw_to_asset_hub_rococo(
-		(wnd_at_westend_parachains.clone(), wnds_to_send),
-		(pens_location_on_penpal.try_into().unwrap(), pens_to_send),
-	);
 
 	let wnd = Location::new(2, [GlobalConsensus(ByGenesis(WESTEND_GENESIS_HASH))]);
 	AssetHubRococo::execute_with(|| {
@@ -1493,27 +1486,6 @@ fn send_pens_and_wnds_from_penpal_westend_via_ahw_to_ahr() {
 
 		let topic_ids = find_all_xcm_topic_ids!(AssetHubRococo);
 		println!("[After Transfer Assets] AssetHubRococo->topic_ids: {:?}", topic_ids);
-	});
-
-	AssetHubWestend::execute_with(|| {
-		type RuntimeEvent = <AssetHubWestend as Chain>::RuntimeEvent;
-
-		let topic_ids = find_all_xcm_topic_ids!(AssetHubWestend);
-		println!("[After Transfer Assets] AssetHubWestend->topic_ids: {:?}", topic_ids);
-	});
-
-	BridgeHubWestend::execute_with(|| {
-		type RuntimeEvent = <BridgeHubWestend as Chain>::RuntimeEvent;
-
-		let topic_ids = find_all_xcm_topic_ids!(BridgeHubWestend);
-		println!("[After Transfer Assets] BridgeHubWestend->topic_ids: {:?}", topic_ids);
-	});
-
-	PenpalB::execute_with(|| {
-		type RuntimeEvent = <PenpalB as Chain>::RuntimeEvent;
-
-		let topic_ids = find_all_xcm_topic_ids!(PenpalB);
-		println!("[After Transfer Assets] PenpalB->topic_ids: {:?}", topic_ids);
 	});
 
 	// account balances after
@@ -1560,32 +1532,4 @@ fn send_pens_and_wnds_from_penpal_westend_via_ahw_to_ahr() {
 	assert_eq!(pens_in_reserve_on_ahw_after, pens_in_reserve_on_ahw_before + pens_to_send);
 	// Receiver's balance is increased by sent amount
 	assert_eq!(receiver_pens_after, receiver_pens_before + pens_to_send);
-
-	AssetHubRococo::execute_with(|| {
-		type RuntimeEvent = <AssetHubRococo as Chain>::RuntimeEvent;
-
-		let topic_ids = find_all_xcm_topic_ids!(AssetHubRococo);
-		println!("[End of Test] AssetHubRococo->topic_ids: {:?}", topic_ids);
-	});
-
-	AssetHubWestend::execute_with(|| {
-		type RuntimeEvent = <AssetHubWestend as Chain>::RuntimeEvent;
-
-		let topic_ids = find_all_xcm_topic_ids!(AssetHubWestend);
-		println!("[End of Test] AssetHubWestend->topic_ids: {:?}", topic_ids);
-	});
-
-	BridgeHubWestend::execute_with(|| {
-		type RuntimeEvent = <BridgeHubWestend as Chain>::RuntimeEvent;
-
-		let topic_ids = find_all_xcm_topic_ids!(BridgeHubWestend);
-		println!("[End of Test] BridgeHubWestend->topic_ids: {:?}", topic_ids);
-	});
-
-	PenpalB::execute_with(|| {
-		type RuntimeEvent = <PenpalB as Chain>::RuntimeEvent;
-
-		let topic_ids = find_all_xcm_topic_ids!(PenpalB);
-		println!("[End of Test] PenpalB->topic_ids: {:?}", topic_ids);
-	});
 }

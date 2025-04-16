@@ -1374,18 +1374,21 @@ macro_rules! assert_expected_events {
 #[macro_export]
 macro_rules! find_all_xcm_topic_ids {
 	( $chain:ident ) => {{
+		use sp_core::H256;
 		let events = <$chain as $crate::Chain>::events();
 		let mut topic_ids = Vec::new();
 
 		for event in events.iter() {
 			match event {
-				RuntimeEvent::MessageQueue(pallet_message_queue::Event::Processed {
-					id, ..
-				}) => {
+				RuntimeEvent::MessageQueue(
+					pallet_message_queue::Event::Processed { id, .. }
+				) => {
 					topic_ids.push(*id);
 				},
-				RuntimeEvent::PolkadotXcm(pallet_xcm::Event::Sent { message_id, .. }) => {
-					topic_ids.push(sp_core::H256::from(*message_id));
+				RuntimeEvent::PolkadotXcm(
+					pallet_xcm::Event::Sent { message_id, .. }
+				) => {
+					topic_ids.push(H256::from(*message_id));
 				},
 				_ => continue,
 			}
