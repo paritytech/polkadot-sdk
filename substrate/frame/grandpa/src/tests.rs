@@ -109,7 +109,7 @@ fn cannot_schedule_change_when_one_pending() {
 	new_test_ext(vec![(1, 1), (2, 1), (3, 1)]).execute_with(|| {
 		initialize_block(1, Default::default());
 		Grandpa::schedule_change(to_authorities(vec![(4, 1), (5, 1), (6, 1)]), 1, None).unwrap();
-		assert!(<PendingChange<Test>>::exists());
+		assert!(PendingChange::<Test>::exists());
 		assert_noop!(
 			Grandpa::schedule_change(to_authorities(vec![(5, 1)]), 1, None),
 			Error::<Test>::ChangePending
@@ -119,7 +119,7 @@ fn cannot_schedule_change_when_one_pending() {
 		let header = System::finalize();
 
 		initialize_block(2, header.hash());
-		assert!(<PendingChange<Test>>::exists());
+		assert!(PendingChange::<Test>::exists());
 		assert_noop!(
 			Grandpa::schedule_change(to_authorities(vec![(5, 1)]), 1, None),
 			Error::<Test>::ChangePending
@@ -129,7 +129,7 @@ fn cannot_schedule_change_when_one_pending() {
 		let header = System::finalize();
 
 		initialize_block(3, header.hash());
-		assert!(!<PendingChange<Test>>::exists());
+		assert!(!PendingChange::<Test>::exists());
 		assert_ok!(Grandpa::schedule_change(to_authorities(vec![(5, 1)]), 1, None));
 
 		<Grandpa as OnFinalize<_>>::on_finalize(3);
@@ -143,7 +143,7 @@ fn dispatch_forced_change() {
 		initialize_block(1, Default::default());
 		Grandpa::schedule_change(to_authorities(vec![(4, 1), (5, 1), (6, 1)]), 5, Some(0)).unwrap();
 
-		assert!(<PendingChange<Test>>::exists());
+		assert!(PendingChange::<Test>::exists());
 		assert_noop!(
 			Grandpa::schedule_change(to_authorities(vec![(5, 1)]), 1, Some(0)),
 			Error::<Test>::ChangePending
@@ -154,8 +154,8 @@ fn dispatch_forced_change() {
 
 		for i in 2..7 {
 			initialize_block(i, header.hash());
-			assert!(<PendingChange<Test>>::get().unwrap().forced.is_some());
-			assert_eq!(Grandpa::next_forced(), Some(11));
+			assert!(PendingChange::<Test>::get().unwrap().forced.is_some());
+			assert_eq!(NextForced::<Test>::get(), Some(11));
 			assert_noop!(
 				Grandpa::schedule_change(to_authorities(vec![(5, 1)]), 1, None),
 				Error::<Test>::ChangePending
@@ -173,7 +173,7 @@ fn dispatch_forced_change() {
 		// add a normal change.
 		{
 			initialize_block(7, header.hash());
-			assert!(!<PendingChange<Test>>::exists());
+			assert!(!PendingChange::<Test>::exists());
 			assert_eq!(
 				Grandpa::grandpa_authorities(),
 				to_authorities(vec![(4, 1), (5, 1), (6, 1)])
@@ -186,7 +186,7 @@ fn dispatch_forced_change() {
 		// run the normal change.
 		{
 			initialize_block(8, header.hash());
-			assert!(<PendingChange<Test>>::exists());
+			assert!(PendingChange::<Test>::exists());
 			assert_eq!(
 				Grandpa::grandpa_authorities(),
 				to_authorities(vec![(4, 1), (5, 1), (6, 1)])
@@ -203,9 +203,9 @@ fn dispatch_forced_change() {
 		// time.
 		for i in 9..11 {
 			initialize_block(i, header.hash());
-			assert!(!<PendingChange<Test>>::exists());
+			assert!(!PendingChange::<Test>::exists());
 			assert_eq!(Grandpa::grandpa_authorities(), to_authorities(vec![(5, 1)]));
-			assert_eq!(Grandpa::next_forced(), Some(11));
+			assert_eq!(NextForced::<Test>::get(), Some(11));
 			assert_noop!(
 				Grandpa::schedule_change(to_authorities(vec![(5, 1), (6, 1)]), 5, Some(0)),
 				Error::<Test>::TooSoon
@@ -216,7 +216,7 @@ fn dispatch_forced_change() {
 
 		{
 			initialize_block(11, header.hash());
-			assert!(!<PendingChange<Test>>::exists());
+			assert!(!PendingChange::<Test>::exists());
 			assert_ok!(Grandpa::schedule_change(
 				to_authorities(vec![(5, 1), (6, 1), (7, 1)]),
 				5,
@@ -238,7 +238,10 @@ fn schedule_pause_only_when_live() {
 		Grandpa::schedule_pause(1).unwrap();
 
 		// we've switched to the pending pause state
-		assert_eq!(Grandpa::state(), StoredState::PendingPause { scheduled_at: 1u64, delay: 1 });
+		assert_eq!(
+			State::<Test>::get(),
+			StoredState::PendingPause { scheduled_at: 1u64, delay: 1 }
+		);
 
 		<Grandpa as OnFinalize<_>>::on_finalize(1);
 		let _ = System::finalize();
@@ -252,7 +255,7 @@ fn schedule_pause_only_when_live() {
 		let _ = System::finalize();
 
 		// after finalizing block 2 the set should have switched to paused state
-		assert_eq!(Grandpa::state(), StoredState::Paused);
+		assert_eq!(State::<Test>::get(), StoredState::Paused);
 	});
 }
 
@@ -264,14 +267,14 @@ fn schedule_resume_only_when_paused() {
 		// the set is currently live, resuming it is an error
 		assert_noop!(Grandpa::schedule_resume(1), Error::<Test>::ResumeFailed);
 
-		assert_eq!(Grandpa::state(), StoredState::Live);
+		assert_eq!(State::<Test>::get(), StoredState::Live);
 
 		// we schedule a pause to be applied instantly
 		Grandpa::schedule_pause(0).unwrap();
 		<Grandpa as OnFinalize<_>>::on_finalize(1);
 		let _ = System::finalize();
 
-		assert_eq!(Grandpa::state(), StoredState::Paused);
+		assert_eq!(State::<Test>::get(), StoredState::Paused);
 
 		// we schedule the set to go back live in 2 blocks
 		initialize_block(2, Default::default());
@@ -288,7 +291,7 @@ fn schedule_resume_only_when_paused() {
 		let _ = System::finalize();
 
 		// it should be live at block 4
-		assert_eq!(Grandpa::state(), StoredState::Live);
+		assert_eq!(State::<Test>::get(), StoredState::Live);
 	});
 }
 
@@ -318,7 +321,7 @@ fn report_equivocation_current_set_works() {
 	let authorities = test_authorities();
 
 	new_test_ext_raw_authorities(authorities).execute_with(|| {
-		assert_eq!(Staking::current_era(), Some(0));
+		assert_eq!(pallet_staking::CurrentEra::<Test>::get(), Some(0));
 		assert_eq!(Session::current_index(), 0);
 
 		start_era(1);
@@ -341,7 +344,7 @@ fn report_equivocation_current_set_works() {
 		let equivocation_key = &authorities[equivocation_authority_index].0;
 		let equivocation_keyring = extract_keyring(equivocation_key);
 
-		let set_id = Grandpa::current_set_id();
+		let set_id = CurrentSetId::<Test>::get();
 
 		// generate an equivocation proof, with two votes in the same round for
 		// different block hashes signed by the same key
@@ -423,7 +426,7 @@ fn report_equivocation_old_set_works() {
 
 		let equivocation_keyring = extract_keyring(equivocation_key);
 
-		let set_id = Grandpa::current_set_id();
+		let set_id = CurrentSetId::<Test>::get();
 
 		// generate an equivocation proof for the old set,
 		let equivocation_proof = generate_equivocation_proof(
@@ -486,7 +489,7 @@ fn report_equivocation_invalid_set_id() {
 		let key_owner_proof =
 			Historical::prove((sp_consensus_grandpa::KEY_TYPE, &equivocation_key)).unwrap();
 
-		let set_id = Grandpa::current_set_id();
+		let set_id = CurrentSetId::<Test>::get();
 
 		// generate an equivocation for a future set
 		let equivocation_proof = generate_equivocation_proof(
@@ -526,7 +529,7 @@ fn report_equivocation_invalid_session() {
 
 		start_era(2);
 
-		let set_id = Grandpa::current_set_id();
+		let set_id = CurrentSetId::<Test>::get();
 
 		// generate an equivocation proof at set id = 2
 		let equivocation_proof = generate_equivocation_proof(
@@ -567,7 +570,7 @@ fn report_equivocation_invalid_key_owner_proof() {
 		let equivocation_key = &authorities[equivocation_authority_index].0;
 		let equivocation_keyring = extract_keyring(equivocation_key);
 
-		let set_id = Grandpa::current_set_id();
+		let set_id = CurrentSetId::<Test>::get();
 
 		// generate an equivocation proof for the authority at index 0
 		let equivocation_proof = generate_equivocation_proof(
@@ -610,7 +613,7 @@ fn report_equivocation_invalid_equivocation_proof() {
 		let key_owner_proof =
 			Historical::prove((sp_consensus_grandpa::KEY_TYPE, &equivocation_key)).unwrap();
 
-		let set_id = Grandpa::current_set_id();
+		let set_id = CurrentSetId::<Test>::get();
 
 		let assert_invalid_equivocation_proof = |equivocation_proof| {
 			assert_err!(
@@ -674,7 +677,7 @@ fn report_equivocation_validate_unsigned_prevents_duplicates() {
 		let equivocation_authority_index = 0;
 		let equivocation_key = &authorities[equivocation_authority_index].0;
 		let equivocation_keyring = extract_keyring(equivocation_key);
-		let set_id = Grandpa::current_set_id();
+		let set_id = CurrentSetId::<Test>::get();
 
 		let equivocation_proof = generate_equivocation_proof(
 			set_id,
@@ -747,12 +750,12 @@ fn report_equivocation_validate_unsigned_prevents_duplicates() {
 #[test]
 fn on_new_session_doesnt_start_new_set_if_schedule_change_failed() {
 	new_test_ext(vec![(1, 1), (2, 1), (3, 1)]).execute_with(|| {
-		assert_eq!(Grandpa::current_set_id(), 0);
+		assert_eq!(CurrentSetId::<Test>::get(), 0);
 
 		// starting a new era should lead to a change in the session
 		// validators and trigger a new set
 		start_era(1);
-		assert_eq!(Grandpa::current_set_id(), 1);
+		assert_eq!(CurrentSetId::<Test>::get(), 1);
 
 		// we schedule a change delayed by 2 blocks, this should make it so that
 		// when we try to rotate the session at the beginning of the era we will
@@ -760,22 +763,22 @@ fn on_new_session_doesnt_start_new_set_if_schedule_change_failed() {
 		// not increment the set id.
 		Grandpa::schedule_change(to_authorities(vec![(1, 1)]), 2, None).unwrap();
 		start_era(2);
-		assert_eq!(Grandpa::current_set_id(), 1);
+		assert_eq!(CurrentSetId::<Test>::get(), 1);
 
 		// everything should go back to normal after.
 		start_era(3);
-		assert_eq!(Grandpa::current_set_id(), 2);
+		assert_eq!(CurrentSetId::<Test>::get(), 2);
 
 		// session rotation might also fail to schedule a change if it's for a
 		// forced change (i.e. grandpa is stalled) and it is too soon.
-		<NextForced<Test>>::put(1000);
-		<Stalled<Test>>::put((30, 1));
+		NextForced::<Test>::put(1000);
+		Stalled::<Test>::put((30, 1));
 
 		// NOTE: we cannot go through normal era rotation since having `Stalled`
 		// defined will also trigger a new set (regardless of whether the
 		// session validators changed)
 		Grandpa::on_new_session(true, std::iter::empty(), std::iter::empty());
-		assert_eq!(Grandpa::current_set_id(), 2);
+		assert_eq!(CurrentSetId::<Test>::get(), 2);
 	});
 }
 
@@ -789,19 +792,19 @@ fn cleans_up_old_set_id_session_mappings() {
 		// we should have a session id mapping for all the set ids from
 		// `max_set_id_session_entries` eras we have observed
 		for i in 1..=max_set_id_session_entries {
-			assert!(Grandpa::session_for_set(i as u64).is_some());
+			assert!(SetIdSession::<Test>::get(i as u64).is_some());
 		}
 
 		start_era(max_set_id_session_entries * 2);
 
 		// we should keep tracking the new mappings for new eras
 		for i in max_set_id_session_entries + 1..=max_set_id_session_entries * 2 {
-			assert!(Grandpa::session_for_set(i as u64).is_some());
+			assert!(SetIdSession::<Test>::get(i as u64).is_some());
 		}
 
 		// but the old ones should have been pruned by now
 		for i in 1..=max_set_id_session_entries {
-			assert!(Grandpa::session_for_set(i as u64).is_none());
+			assert!(SetIdSession::<Test>::get(i as u64).is_none());
 		}
 	});
 }
@@ -811,24 +814,24 @@ fn always_schedules_a_change_on_new_session_when_stalled() {
 	new_test_ext(vec![(1, 1), (2, 1), (3, 1)]).execute_with(|| {
 		start_era(1);
 
-		assert!(Grandpa::pending_change().is_none());
-		assert_eq!(Grandpa::current_set_id(), 1);
+		assert!(PendingChange::<Test>::get().is_none());
+		assert_eq!(CurrentSetId::<Test>::get(), 1);
 
 		// if the session handler reports no change then we should not schedule
 		// any pending change
 		Grandpa::on_new_session(false, std::iter::empty(), std::iter::empty());
 
-		assert!(Grandpa::pending_change().is_none());
-		assert_eq!(Grandpa::current_set_id(), 1);
+		assert!(PendingChange::<Test>::get().is_none());
+		assert_eq!(CurrentSetId::<Test>::get(), 1);
 
 		// if grandpa is stalled then we should **always** schedule a forced
 		// change on a new session
-		<Stalled<Test>>::put((10, 1));
+		Stalled::<Test>::put((10, 1));
 		Grandpa::on_new_session(false, std::iter::empty(), std::iter::empty());
 
-		assert!(Grandpa::pending_change().is_some());
-		assert!(Grandpa::pending_change().unwrap().forced.is_some());
-		assert_eq!(Grandpa::current_set_id(), 2);
+		assert!(PendingChange::<Test>::get().is_some());
+		assert!(PendingChange::<Test>::get().unwrap().forced.is_some());
+		assert_eq!(CurrentSetId::<Test>::get(), 2);
 	});
 }
 
@@ -860,7 +863,7 @@ fn valid_equivocation_reports_dont_pay_fees() {
 
 		let equivocation_key = &Grandpa::grandpa_authorities()[0].0;
 		let equivocation_keyring = extract_keyring(equivocation_key);
-		let set_id = Grandpa::current_set_id();
+		let set_id = CurrentSetId::<Test>::get();
 
 		// generate an equivocation proof.
 		let equivocation_proof = generate_equivocation_proof(
@@ -881,7 +884,7 @@ fn valid_equivocation_reports_dont_pay_fees() {
 		.get_dispatch_info();
 
 		// it should have non-zero weight and the fee has to be paid.
-		assert!(info.weight.any_gt(Weight::zero()));
+		assert!(info.call_weight.any_gt(Weight::zero()));
 		assert_eq!(info.pays_fee, Pays::Yes);
 
 		// report the equivocation.

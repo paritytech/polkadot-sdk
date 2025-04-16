@@ -1,0 +1,16 @@
+title: 'pallet-revive: Adjust error handling of sub calls'
+doc:
+- audience: Runtime Dev
+  description: |-
+    We were trapping the host context in case a sub call was exhausting the storage deposit limit set for this sub call. This prevents the caller from handling this error. In this PR we added a new error code that is returned when either gas or storage deposit limit is exhausted by the sub call.
+
+    We also remove the longer used `NotCallable` error. No longer used because this is no longer an error: It will just be a balance transfer.
+
+    We also make `set_code_hash` infallible to be consistent with other host functions which just trap on any error condition.
+crates:
+- name: pallet-revive
+  bump: major
+- name: pallet-revive-uapi
+  bump: major
+- name: pallet-revive-fixtures
+  bump: major

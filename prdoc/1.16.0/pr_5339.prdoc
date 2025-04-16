@@ -1,0 +1,45 @@
+title: Replace unnecessary `&mut self` with `&self` in `BlockImport::import_block()`
+
+doc:
+  - audience: Node Dev
+    description: |
+      Simplifies block import API to match intended design where independent blocks can technically be imported
+      concurrently and in practice was called through `Arc` anyway
+
+crates:
+  - name: cumulus-client-consensus-common
+    bump: major
+  - name: cumulus-client-network
+    bump: none
+  - name: cumulus-relay-chain-inprocess-interface
+    bump: none
+  - name: cumulus-pallet-parachain-system
+    bump: none
+  - name: sc-basic-authorship
+    bump: patch
+  - name: sc-consensus-babe
+    bump: major
+  - name: sc-consensus-beefy
+    bump: major
+  - name: sc-consensus
+    bump: major
+  - name: sc-consensus-grandpa
+    bump: major
+  - name: sc-consensus-pow
+    bump: major
+  - name: mmr-gadget
+    bump: none
+  - name: sc-network
+    bump: none
+  - name: sc-network-sync
+    bump: none
+  - name: sc-offchain
+    bump: none
+  - name: sc-rpc-spec-v2
+    bump: none
+  - name: sc-rpc
+    bump: none
+  - name: sc-service
+    bump: major
+  - name: sc-transaction-pool
+    bump: none

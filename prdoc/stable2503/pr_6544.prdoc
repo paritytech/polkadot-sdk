@@ -1,0 +1,14 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Add and test events to conviction voting pallet
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Add event for the unlocking of an expired conviction vote's funds, and test recently added
+      voting events.
+
+crates:
+  - name: pallet-conviction-voting
+    bump: major

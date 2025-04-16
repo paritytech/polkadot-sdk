@@ -67,7 +67,7 @@ pub mod pallet {
 	use frame_system::pallet_prelude::*;
 	use sp_runtime::traits::{Convert, ConvertBack, MaybeConvert};
 
-	const STORAGE_VERSION: StorageVersion = StorageVersion::new(3);
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(4);
 
 	#[pallet::pallet]
 	#[pallet::storage_version(STORAGE_VERSION)]
@@ -121,8 +121,15 @@ pub mod pallet {
 		#[pallet::constant]
 		type MaxReservedCores: Get<u32>;
 
+		/// Given that we are performing all auto-renewals in a single block, it has to be limited.
 		#[pallet::constant]
 		type MaxAutoRenewals: Get<u32>;
+
+		/// The smallest amount of credits a user can purchase.
+		///
+		/// Needed to prevent spam attacks.
+		#[pallet::constant]
+		type MinimumCreditPurchase: Get<BalanceOf<Self>>;
 	}
 
 	/// The current configuration of this pallet.
@@ -272,6 +279,11 @@ pub mod pallet {
 			/// The task to which the Region was assigned.
 			task: TaskId,
 		},
+		/// An assignment has been removed from the workplan.
+		AssignmentRemoved {
+			/// The Region which was removed from the workplan.
+			region_id: RegionId,
+		},
 		/// A Region has been added to the Instantaneous Coretime Pool.
 		Pooled {
 			/// The Region which was added to the Instantaneous Coretime Pool.
@@ -305,10 +317,11 @@ pub mod pallet {
 		},
 		/// A new sale has been initialized.
 		SaleInitialized {
-			/// The local block number at which the sale will/did start.
-			sale_start: BlockNumberFor<T>,
-			/// The length in blocks of the Leadin Period (where the price is decreasing).
-			leadin_length: BlockNumberFor<T>,
+			/// The relay block number at which the sale will/did start.
+			sale_start: RelayBlockNumberOf<T>,
+			/// The length in relay chain blocks of the Leadin Period (where the price is
+			/// decreasing).
+			leadin_length: RelayBlockNumberOf<T>,
 			/// The price of Bulk Coretime at the beginning of the Leadin Period.
 			start_price: BalanceOf<T>,
 			/// The price of Bulk Coretime after the Leadin Period.
@@ -331,6 +344,11 @@ pub mod pallet {
 			/// self-terminate (and therefore the earliest timeslice at which the lease may no
 			/// longer apply).
 			until: Timeslice,
+		},
+		/// A lease has been removed.
+		LeaseRemoved {
+			/// The task to which a core was assigned.
+			task: TaskId,
 		},
 		/// A lease is about to end.
 		LeaseEnding {
@@ -511,6 +529,8 @@ pub mod pallet {
 		TooManyReservations,
 		/// The maximum amount of leases has already been reached.
 		TooManyLeases,
+		/// The lease does not exist.
+		LeaseNotFound,
 		/// The revenue for the Instantaneous Core Sales of this period is not (yet) known and thus
 		/// this operation cannot proceed.
 		UnknownRevenue,
@@ -543,6 +563,11 @@ pub mod pallet {
 		SovereignAccountNotFound,
 		/// Attempted to disable auto-renewal for a core that didn't have it enabled.
 		AutoRenewalNotEnabled,
+		/// Attempted to force remove an assignment that doesn't exist.
+		AssignmentNotFound,
+		/// Needed to prevent spam attacks.The amount of credits the user attempted to purchase is
+		/// below `T::MinimumCreditPurchase`.
+		CreditPurchaseTooSmall,
 	}
 
 	#[derive(frame_support::DefaultNoBound)]
@@ -583,6 +608,9 @@ pub mod pallet {
 		}
 
 		/// Reserve a core for a workload.
+		///
+		/// The workload will be given a reservation, but two sale period boundaries must pass
+		/// before the core is actually assigned.
 		///
 		/// - `origin`: Must be Root or pass `AdminOrigin`.
 		/// - `workload`: The workload which should be permanently placed on a core.
@@ -940,6 +968,49 @@ pub mod pallet {
 			Self::do_disable_auto_renew(core, task)?;
 
 			Ok(())
+		}
+
+		/// Reserve a core for a workload immediately.
+		///
+		/// - `origin`: Must be Root or pass `AdminOrigin`.
+		/// - `workload`: The workload which should be permanently placed on a core starting
+		///   immediately.
+		/// - `core`: The core to which the assignment should be made until the reservation takes
+		///   effect. It is left to the caller to either add this new core or reassign any other
+		///   tasks to this existing core.
+		///
+		/// This reserves the workload and then injects the workload into the Workplan for the next
+		/// two sale periods. This overwrites any existing assignments for this core at the start of
+		/// the next sale period.
+		#[pallet::call_index(23)]
+		pub fn force_reserve(
+			origin: OriginFor<T>,
+			workload: Schedule,
+			core: CoreIndex,
+		) -> DispatchResultWithPostInfo {
+			T::AdminOrigin::ensure_origin_or_root(origin)?;
+			Self::do_force_reserve(workload, core)?;
+			Ok(Pays::No.into())
+		}
+
+		/// Remove a lease.
+		///
+		/// - `origin`: Must be Root or pass `AdminOrigin`.
+		/// - `task`: The task id of the lease which should be removed.
+		#[pallet::call_index(24)]
+		pub fn remove_lease(origin: OriginFor<T>, task: TaskId) -> DispatchResult {
+			T::AdminOrigin::ensure_origin_or_root(origin)?;
+			Self::do_remove_lease(task)
+		}
+
+		/// Remove an assignment from the Workplan.
+		///
+		/// - `origin`: Must be Root or pass `AdminOrigin`.
+		/// - `region_id`: The Region to be removed from the workplan.
+		#[pallet::call_index(26)]
+		pub fn remove_assignment(origin: OriginFor<T>, region_id: RegionId) -> DispatchResult {
+			T::AdminOrigin::ensure_origin_or_root(origin)?;
+			Self::do_remove_assignment(region_id)
 		}
 
 		#[pallet::call_index(99)]

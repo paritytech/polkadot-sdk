@@ -1,4 +1,5 @@
-// Copyright Parity Technologies (UK) Ltd.
+// Copyright (C) Parity Technologies (UK) Ltd.
+// SPDX-License-Identifier: GPL-3.0-or-later WITH Classpath-exception-2.0
 // This file is part of Polkadot.
 
 // Polkadot is free software: you can redistribute it and/or modify
@@ -23,7 +24,7 @@ use frame::{
 	traits::{IdentityLookup, ProcessMessage, ProcessMessageError},
 };
 use polkadot_runtime_parachains::inclusion::{AggregateMessageOrigin, UmpQueueId};
-use xcm::v4::prelude::*;
+use xcm::latest::prelude::*;
 
 mod xcm_config;
 pub use xcm_config::LocationToAccountId;

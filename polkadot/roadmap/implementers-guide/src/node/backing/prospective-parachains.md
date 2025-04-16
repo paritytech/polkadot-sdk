@@ -126,6 +126,9 @@ prospective validation data. This is unlikely to change.
 - `RuntimeApiRequest::ParaBackingState`
   - Gets the backing state of the given para (the constraints of the para and
     candidates pending availability).
+- `RuntimeApiRequest::BackingConstraints`
+  - Gets the constraints on the actions that can be taken by a new parachain
+    block.
 - `RuntimeApiRequest::AvailabilityCores`
   - Gets information on all availability cores.
 - `ChainApiMessage::Ancestors`

@@ -23,13 +23,13 @@
 **/node_modules
 **/target/
 **/wip/*.stderr
+**/__pycache__/
 /.cargo/config
 /.envrc
 artifacts
 bin/node-template/Cargo.lock
 nohup.out
 polkadot_argument_parsing
-polkadot.*
 !docs/sdk/src/polkadot_sdk/polkadot.rs
 pwasm-alloc/Cargo.lock
 pwasm-libc/Cargo.lock
@@ -39,3 +39,6 @@ rls*.log
 runtime/wasm/target/
 substrate.code-workspace
 target/
+*.scale
+justfile
+rustc-ice-*

@@ -11,26 +11,28 @@ description = "FRAME signed extension for verifying the metadata hash"
 [dependencies]
 array-bytes = { workspace = true, default-features = true }
 codec = { features = ["derive"], workspace = true }
-scale-info = { features = ["derive", "serde"], workspace = true }
-sp-runtime = { features = ["serde"], workspace = true }
+const-hex = { workspace = true }
+docify = { workspace = true }
 frame-support = { workspace = true }
 frame-system = { workspace = true }
 log = { workspace = true }
-docify = { workspace = true }
+scale-info = { features = ["derive", "serde"], workspace = true }
+sp-runtime = { features = ["serde"], workspace = true }
 
 [dev-dependencies]
-substrate-wasm-builder = { features = ["metadata-hash"], workspace = true, default-features = true }
-substrate-test-runtime-client = { workspace = true }
-sp-api = { workspace = true, default-features = true }
-sp-transaction-pool = { workspace = true, default-features = true }
+frame-metadata = { features = ["current", "unstable"], workspace = true, default-features = true }
 merkleized-metadata = { workspace = true }
-frame-metadata = { features = ["current"], workspace = true, default-features = true }
+sp-api = { workspace = true, default-features = true }
 sp-tracing = { workspace = true, default-features = true }
+sp-transaction-pool = { workspace = true, default-features = true }
+substrate-test-runtime-client = { workspace = true }
+substrate-wasm-builder = { features = ["metadata-hash"], workspace = true, default-features = true }
 
 [features]
 default = ["std"]
 std = [
 	"codec/std",
+	"const-hex/std",
 	"frame-support/std",
 	"frame-system/std",
 	"log/std",

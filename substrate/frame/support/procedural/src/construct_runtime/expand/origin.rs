@@ -18,7 +18,6 @@
 use crate::construct_runtime::{Pallet, SYSTEM_PALLET_NAME};
 use proc_macro2::TokenStream;
 use quote::quote;
-use std::str::FromStr;
 use syn::{Generics, Ident};
 
 pub fn expand_outer_origin(
@@ -153,6 +152,10 @@ pub fn expand_outer_origin(
 				self.filter = #scrate::__private::Rc::new(#scrate::__private::Box::new(filter));
 			}
 
+			fn set_caller(&mut self, caller: OriginCaller) {
+				self.caller = caller;
+			}
+
 			fn set_caller_from(&mut self, other: impl Into<Self>) {
 				self.caller = other.into().caller;
 			}
@@ -197,8 +200,13 @@ pub fn expand_outer_origin(
 		}
 
 		#[derive(
-			Clone, PartialEq, Eq, #scrate::__private::RuntimeDebug, #scrate::__private::codec::Encode,
-			#scrate::__private::codec::Decode, #scrate::__private::scale_info::TypeInfo, #scrate::__private::codec::MaxEncodedLen,
+			Clone, PartialEq, Eq,
+			#scrate::__private::RuntimeDebug,
+			#scrate::__private::codec::Encode,
+			#scrate::__private::codec::Decode,
+			#scrate::__private::codec::DecodeWithMemTracking,
+			#scrate::__private::scale_info::TypeInfo,
+			#scrate::__private::codec::MaxEncodedLen,
 		)]
 		#[allow(non_camel_case_types)]
 		pub enum OriginCaller {
@@ -206,6 +214,7 @@ pub fn expand_outer_origin(
 			system(#system_path::Origin<#runtime>),
 			#caller_variants
 			#[allow(dead_code)]
+			#[codec(skip)]
 			Void(#scrate::__private::Void)
 		}
 
@@ -301,6 +310,22 @@ pub fn expand_outer_origin(
 			}
 		}
 
+		impl #scrate::__private::AsSystemOriginSigner<<#runtime as #system_path::Config>::AccountId> for RuntimeOrigin {
+			fn as_system_origin_signer(&self) -> Option<&<#runtime as #system_path::Config>::AccountId> {
+				if let OriginCaller::system(#system_path::Origin::<#runtime>::Signed(ref signed)) = &self.caller {
+					Some(signed)
+				} else {
+					None
+				}
+			}
+		}
+
+		impl #scrate::__private::AsTransactionAuthorizedOrigin for RuntimeOrigin {
+			fn is_transaction_authorized(&self) -> bool {
+				!matches!(&self.caller, OriginCaller::system(#system_path::Origin::<#runtime>::None))
+			}
+		}
+
 		#pallet_conversions
 	})
 }
@@ -315,14 +340,7 @@ fn expand_origin_caller_variant(
 	let part_is_generic = !generics.params.is_empty();
 	let variant_name = &pallet.name;
 	let path = &pallet.path;
-	let attr = pallet.cfg_pattern.iter().fold(TokenStream::new(), |acc, pattern| {
-		let attr = TokenStream::from_str(&format!("#[cfg({})]", pattern.original()))
-			.expect("was successfully parsed before; qed");
-		quote! {
-			#acc
-			#attr
-		}
-	});
+	let attr = pallet.get_attributes();
 
 	match instance {
 		Some(inst) if part_is_generic => quote! {
@@ -367,14 +385,7 @@ fn expand_origin_pallet_conversions(
 	};
 
 	let doc_string = get_intra_doc_string(" Convert to runtime origin using", &path.module_name());
-	let attr = pallet.cfg_pattern.iter().fold(TokenStream::new(), |acc, pattern| {
-		let attr = TokenStream::from_str(&format!("#[cfg({})]", pattern.original()))
-			.expect("was successfully parsed before; qed");
-		quote! {
-			#acc
-			#attr
-		}
-	});
+	let attr = pallet.get_attributes();
 
 	quote! {
 		#attr

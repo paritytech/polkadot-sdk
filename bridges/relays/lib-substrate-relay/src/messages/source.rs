@@ -34,11 +34,11 @@ use async_trait::async_trait;
 use bp_messages::{
 	storage_keys::{operating_mode_key, outbound_lane_data_key},
 	target_chain::FromBridgedChainMessagesProof,
-	ChainWithMessages as _, InboundMessageDetails, LaneId, MessageNonce, MessagePayload,
-	MessagesOperatingMode, OutboundLaneData, OutboundMessageDetails,
+	ChainWithMessages as _, InboundMessageDetails, MessageNonce, MessagePayload,
+	MessagesOperatingMode, OutboundMessageDetails,
 };
 use bp_runtime::{BasicOperatingMode, HeaderIdProvider, RangeInclusiveExt};
-use codec::Encode;
+use codec::{Decode, Encode};
 use frame_support::weights::Weight;
 use messages_relay::{
 	message_lane::{MessageLane, SourceHeaderIdOf, TargetHeaderIdOf},
@@ -60,14 +60,26 @@ use std::ops::RangeInclusive;
 /// Intermediate message proof returned by the source Substrate node. Includes everything
 /// required to submit to the target node: cumulative dispatch weight of bundled messages and
 /// the proof itself.
-pub type SubstrateMessagesProof<C> = (Weight, FromBridgedChainMessagesProof<HashOf<C>>);
+pub type SubstrateMessagesProof<C, L> = (Weight, FromBridgedChainMessagesProof<HashOf<C>, L>);
 type MessagesToRefine<'a> = Vec<(MessagePayload, &'a mut OutboundMessageDetails)>;
+
+/// Outbound lane data - for backwards compatibility with `bp_messages::OutboundLaneData` which has
+/// additional `lane_state` attribute.
+///
+/// TODO: remove - https://github.com/paritytech/polkadot-sdk/issues/5923
+#[derive(Decode)]
+struct LegacyOutboundLaneData {
+	#[allow(unused)]
+	oldest_unpruned_nonce: MessageNonce,
+	latest_received_nonce: MessageNonce,
+	latest_generated_nonce: MessageNonce,
+}
 
 /// Substrate client as Substrate messages source.
 pub struct SubstrateMessagesSource<P: SubstrateMessageLane, SourceClnt, TargetClnt> {
 	source_client: SourceClnt,
 	target_client: TargetClnt,
-	lane_id: LaneId,
+	lane_id: P::LaneId,
 	transaction_params: TransactionParams<AccountKeyPairOf<P::SourceChain>>,
 	target_to_source_headers_relay: Option<Arc<dyn OnDemandRelay<P::TargetChain, P::SourceChain>>>,
 }
@@ -79,7 +91,7 @@ impl<P: SubstrateMessageLane, SourceClnt: Client<P::SourceChain>, TargetClnt>
 	pub fn new(
 		source_client: SourceClnt,
 		target_client: TargetClnt,
-		lane_id: LaneId,
+		lane_id: P::LaneId,
 		transaction_params: TransactionParams<AccountKeyPairOf<P::SourceChain>>,
 		target_to_source_headers_relay: Option<
 			Arc<dyn OnDemandRelay<P::TargetChain, P::SourceChain>>,
@@ -98,7 +110,7 @@ impl<P: SubstrateMessageLane, SourceClnt: Client<P::SourceChain>, TargetClnt>
 	async fn outbound_lane_data(
 		&self,
 		id: SourceHeaderIdOf<MessageLaneAdapter<P>>,
-	) -> Result<Option<OutboundLaneData>, SubstrateError> {
+	) -> Result<Option<LegacyOutboundLaneData>, SubstrateError> {
 		self.source_client
 			.storage_value(
 				id.hash(),
@@ -256,8 +268,11 @@ where
 		}
 
 		let best_target_header_hash = self.target_client.best_header_hash().await?;
-		for mut msgs_to_refine_batch in
-			split_msgs_to_refine::<P::SourceChain, P::TargetChain>(self.lane_id, msgs_to_refine)?
+		for mut msgs_to_refine_batch in split_msgs_to_refine::<
+			P::SourceChain,
+			P::TargetChain,
+			P::LaneId,
+		>(self.lane_id, msgs_to_refine)?
 		{
 			let in_msgs_details = self
 				.target_client
@@ -542,7 +557,7 @@ fn validate_out_msgs_details<C: Chain>(
 	Ok(())
 }
 
-fn split_msgs_to_refine<Source: Chain + ChainWithMessages, Target: Chain>(
+fn split_msgs_to_refine<Source: Chain + ChainWithMessages, Target: Chain, LaneId: Encode + Copy>(
 	lane_id: LaneId,
 	msgs_to_refine: MessagesToRefine,
 ) -> Result<Vec<MessagesToRefine>, SubstrateError> {
@@ -578,7 +593,11 @@ fn split_msgs_to_refine<Source: Chain + ChainWithMessages, Target: Chain>(
 #[cfg(test)]
 mod tests {
 	use super::*;
+	use bp_messages::{HashedLaneId, LaneIdType};
 	use relay_substrate_client::test_chain::TestChain;
+
+	/// Lane identifier type used for tests.
+	type TestLaneIdType = HashedLaneId;
 
 	fn message_details_from_rpc(
 		nonces: RangeInclusive<MessageNonce>,
@@ -660,8 +679,10 @@ mod tests {
 			msgs_to_refine.push((payload, out_msg_details));
 		}
 
-		let maybe_batches =
-			split_msgs_to_refine::<TestChain, TestChain>(Default::default(), msgs_to_refine);
+		let maybe_batches = split_msgs_to_refine::<TestChain, TestChain, TestLaneIdType>(
+			TestLaneIdType::try_new(1, 2).unwrap(),
+			msgs_to_refine,
+		);
 		match expected_batches {
 			Ok(expected_batches) => {
 				let batches = maybe_batches.unwrap();
@@ -733,5 +754,39 @@ mod tests {
 			],
 			Ok(vec![2, 4, 3]),
 		);
+	}
+
+	#[test]
+	fn outbound_lane_data_wrapper_is_compatible() {
+		let bytes_without_state =
+			vec![1, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 0, 0, 0, 0];
+		let bytes_with_state = {
+			// add state byte `bp_messages::LaneState::Opened`
+			let mut b = bytes_without_state.clone();
+			b.push(0);
+			b
+		};
+
+		let full = bp_messages::OutboundLaneData {
+			oldest_unpruned_nonce: 1,
+			latest_received_nonce: 2,
+			latest_generated_nonce: 3,
+			state: bp_messages::LaneState::Opened,
+		};
+		assert_eq!(full.encode(), bytes_with_state);
+		assert_ne!(full.encode(), bytes_without_state);
+
+		// decode from `bytes_with_state`
+		let decoded: LegacyOutboundLaneData = Decode::decode(&mut &bytes_with_state[..]).unwrap();
+		assert_eq!(full.oldest_unpruned_nonce, decoded.oldest_unpruned_nonce);
+		assert_eq!(full.latest_received_nonce, decoded.latest_received_nonce);
+		assert_eq!(full.latest_generated_nonce, decoded.latest_generated_nonce);
+
+		// decode from `bytes_without_state`
+		let decoded: LegacyOutboundLaneData =
+			Decode::decode(&mut &bytes_without_state[..]).unwrap();
+		assert_eq!(full.oldest_unpruned_nonce, decoded.oldest_unpruned_nonce);
+		assert_eq!(full.latest_received_nonce, decoded.latest_received_nonce);
+		assert_eq!(full.latest_generated_nonce, decoded.latest_generated_nonce);
 	}
 }

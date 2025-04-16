@@ -21,6 +21,8 @@
 //! [`v0::MyMap`](`crate::migrations::v1::v0::MyMap`) storage map, transforms them,
 //! and inserts them into the [`MyMap`](`crate::pallet::MyMap`) storage map.
 
+extern crate alloc;
+
 use super::PALLET_MIGRATIONS_ID;
 use crate::pallet::{Config, MyMap};
 use frame_support::{
@@ -28,6 +30,12 @@ use frame_support::{
 	pallet_prelude::PhantomData,
 	weights::WeightMeter,
 };
+
+#[cfg(feature = "try-runtime")]
+use alloc::collections::btree_map::BTreeMap;
+
+#[cfg(feature = "try-runtime")]
+use alloc::vec::Vec;
 
 mod benchmarks;
 mod tests;
@@ -114,5 +122,40 @@ impl<T: Config, W: weights::WeightInfo> SteppedMigration for LazyMigrationV1<T, 
 			}
 		}
 		Ok(cursor)
+	}
+
+	#[cfg(feature = "try-runtime")]
+	fn pre_upgrade() -> Result<Vec<u8>, frame_support::sp_runtime::TryRuntimeError> {
+		use codec::Encode;
+
+		// Return the state of the storage before the migration.
+		Ok(v0::MyMap::<T>::iter().collect::<BTreeMap<_, _>>().encode())
+	}
+
+	#[cfg(feature = "try-runtime")]
+	fn post_upgrade(prev: Vec<u8>) -> Result<(), frame_support::sp_runtime::TryRuntimeError> {
+		use codec::Decode;
+
+		// Check the state of the storage after the migration.
+		let prev_map = BTreeMap::<u32, u32>::decode(&mut &prev[..])
+			.expect("Failed to decode the previous storage state");
+
+		// Check the len of prev and post are the same.
+		assert_eq!(
+			MyMap::<T>::iter().count(),
+			prev_map.len(),
+			"Migration failed: the number of items in the storage after the migration is not the same as before"
+		);
+
+		for (key, value) in prev_map {
+			let new_value =
+				MyMap::<T>::get(key).expect("Failed to get the value after the migration");
+			assert_eq!(
+				value as u64, new_value,
+				"Migration failed: the value after the migration is not the same as before"
+			);
+		}
+
+		Ok(())
 	}
 }

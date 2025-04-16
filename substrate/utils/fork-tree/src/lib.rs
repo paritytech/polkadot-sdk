@@ -810,12 +810,11 @@ impl<'a, H, N, V> Iterator for ForkTreeIterator<'a, H, N, V> {
 	type Item = &'a Node<H, N, V>;
 
 	fn next(&mut self) -> Option<Self::Item> {
-		self.stack.pop().map(|node| {
+		self.stack.pop().inspect(|node| {
 			// child nodes are stored ordered by max branch height (decreasing),
 			// we want to keep this ordering while iterating but since we're
 			// using a stack for iterator state we need to reverse it.
 			self.stack.extend(node.children.iter().rev());
-			node
 		})
 	}
 }

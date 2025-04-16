@@ -1,0 +1,288 @@
+# Reusable workflow to set various useful variables
+# and to perform checks and generate conditions for other workflows.
+# Currently it checks if any Rust (build-related) file is changed
+# and if the current (caller) workflow file is changed.
+# Example:
+#
+# jobs:
+#   preflight:
+#     uses: ./.github/workflows/reusable-preflight.yml
+#   some-job:
+#     needs: changes
+#     if: ${{ needs.preflight.outputs.changes_rust }}
+#  .......
+
+name: Zombienet Preflight
+
+on:
+  workflow_call:
+    # Map the workflow outputs to job outputs
+    outputs:
+      changes_substrate:
+        value: ${{ jobs.preflight.outputs.changes_substrate }}
+        description: |
+          True iff there are changes in substrate directory or the current workflow
+
+      changes_cumulus:
+        value: ${{ jobs.preflight.outputs.changes_cumulus }}
+        description: |
+          True iff there are changes in cumulus directory or the current workflow
+
+      changes_polkadot:
+        value: ${{ jobs.preflight.outputs.changes_polkadot }}
+        description: |
+          True iff there are changes in polkadot directory or the current workflow
+
+      changes_bridges:
+        value: ${{ jobs.preflight.outputs.changes_bridges }}
+        description: |
+          True iff there are changes in bridges directory or the current workflow
+
+      changes_templates:
+        value: ${{ jobs.preflight.outputs.changes_templates }}
+        description: |
+          True iff there are changes in templates directory or the current workflow
+
+      ZOMBIENET_IMAGE:
+        value: ${{ jobs.preflight.outputs.ZOMBIENET_IMAGE }}
+        description: "ZOMBIENET CI image"
+
+      ZOMBIENET_RUNNER:
+        value: ${{ jobs.preflight.outputs.ZOMBIENET_RUNNER }}
+        description: |
+          Main runner for zombienet tests.
+
+      TEMP_IMAGES_BASE:
+        value: ${{ jobs.preflight.outputs.TEMP_IMAGES_BASE }}
+        description: |
+          Base location for 'temp' images used in tests.
+
+      DOCKER_IMAGES_VERSION:
+        value: ${{ jobs.preflight.outputs.DOCKER_IMAGES_VERSION }}
+        description: |
+          Version for temp docker images.
+
+      SOURCE_REF_SLUG:
+        value: ${{ jobs.preflight.outputs.SOURCE_REF_SLUG }}
+
+      BUILD_RUN_ID:
+        value: ${{ jobs.wait_build_images.outputs.BUILD_RUN_ID }}
+        description: |
+          Id of the build run, needed to download the artifacts.
+
+      POLKADOT_PR_ARTIFACTS_URL:
+        value: ${{ jobs.wait_build_images.outputs.POLKADOT_PR_ARTIFACTS_URL }}
+        description: |
+          url for download polkadot built artifacts (in zip format).
+
+      FLAKY_TESTS:
+        value: ${{ jobs.preflight.outputs.FLAKY_TESTS }}
+        description: |
+          comma separated list of flaky tests to skip.
+
+      # Zombie vars
+      PUSHGATEWAY_URL:
+        value: ${{ jobs.preflight.outputs.PUSHGATEWAY_URL }}
+        description: "Gateway (url) to push metrics related to test."
+      DEBUG:
+        value: ${{ jobs.preflight.outputs.DEBUG }}
+        description: "Debug value to zombienet v1 tests."
+      ZOMBIE_PROVIDER:
+        value: ${{ jobs.preflight.outputs.ZOMBIE_PROVIDER }}
+        description: "Provider to use in zombienet-sdk tests."
+      RUST_LOG:
+        value: ${{ jobs.preflight.outputs.RUST_LOG }}
+        description: "Log value to use in zombinet-sdk tests."
+      RUN_IN_CI:
+        value: ${{ jobs.preflight.outputs.RUN_IN_CI }}
+        description: "Internal flag to make zombienet aware of the env."
+
+      KUBERNETES_CPU_REQUEST:
+        value: ${{ jobs.preflight.outputs.KUBERNETES_CPU_REQUEST }}
+        description: "Base cpu (request) for pod runner."
+
+      KUBERNETES_MEMORY_REQUEST:
+        value: ${{ jobs.preflight.outputs.KUBERNETES_MEMORY_REQUEST }}
+        description: "Base memory (request) for pod runner."
+
+jobs:
+  #
+  #
+  #
+  preflight:
+    runs-on: ubuntu-latest
+    outputs:
+      changes_substrate: true
+      changes_cumulus: true
+      changes_polkadot: true
+      changes_bridges: true
+      changes_templates: true
+
+      ZOMBIENET_IMAGE: ${{ steps.set_vars.outputs.ZOMBIENET_IMAGE }}
+      ZOMBIENET_RUNNER: ${{ steps.set_vars.outputs.ZOMBIENET_RUNNER }}
+
+      TEMP_IMAGES_BASE: ${{ steps.set_vars.outputs.TEMP_IMAGES_BASE }}
+
+      # images versions
+      DOCKER_IMAGES_VERSION: ${{ steps.set_images_version.outputs.DOCKER_IMAGES_VERSION }}
+
+      # common vars
+      PUSHGATEWAY_URL: ${{ steps.set_vars.outputs.PUSHGATEWAY_URL }}
+      SOURCE_REF_SLUG: ${{ steps.set_vars.outputs.SOURCE_REF_SLUG }}
+      DEBUG: ${{ steps.set_vars.outputs.DEBUG }}
+      ZOMBIE_PROVIDER: ${{ steps.set_vars.outputs.ZOMBIE_PROVIDER }}
+      RUST_LOG: ${{ steps.set_vars.outputs.RUST_LOG }}
+      RUN_IN_CI: ${{ steps.set_vars.outputs.RUN_IN_CI }}
+      KUBERNETES_CPU_REQUEST: ${{ steps.set_vars.outputs.KUBERNETES_CPU_REQUEST }}
+      KUBERNETES_MEMORY_REQUEST: ${{ steps.set_vars.outputs.KUBERNETES_MEMORY_REQUEST }}
+      FLAKY_TESTS: ${{ steps.set_vars.outputs.FLAKY_TESTS }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      #
+      # Set changes
+      #
+      - name: Current file
+        id: current_file
+        shell: bash
+        run: |
+          echo "currentWorkflowFile=$(echo ${{ github.workflow_ref }} | sed -nE "s/.*(\.github\/workflows\/[a-zA-Z0-9_-]*\.y[a]?ml)@refs.*/\1/p")" >> $GITHUB_OUTPUT
+          echo "currentActionDir=$(echo ${{ github.action_path }} | sed -nE "s/.*(\.github\/actions\/[a-zA-Z0-9_-]*)/\1/p")" >> $GITHUB_OUTPUT
+
+      # removed due to https://news.ycombinator.com/item?id=43368870
+      #- name: Set changes
+      #  id: set_changes
+      #  uses: tj-actions/changed-files@v45
+      #  with:
+      #    files_yaml: |
+      #      substrate:
+      #        - 'substrate/**/*'
+      #      cumulus:
+      #        - 'cumulus/**/*'
+      #      polkadot:
+      #        - 'polkadot/**/*'
+      #      bridges:
+      #        - 'bridges/**/*'
+      #      templates:
+      #        - 'templates/**/*'
+      #      currentWorkflow:
+      #        - '${{ steps.current_file.outputs.currentWorkflowFile }}'
+      #        - '.github/workflows/zombienet-reusable-preflight.yml'
+      #        - '.github/zombienet-env'
+
+      #
+      # Set environment vars (including runner/image)
+      #
+      - name: Set vars
+        id: set_vars
+        shell: bash
+        run: |
+          export SOURCE_REF_NAME=${{ github.head_ref || github.ref_name }}
+          echo "SOURCE_REF_SLUG=${SOURCE_REF_NAME//\//_}" >> $GITHUB_OUTPUT
+          #
+          cat .github/zombienet-env >> $GITHUB_OUTPUT
+          cat .github/zombienet-env
+
+      #
+      #
+      #
+      - name: Set docker images version
+        id: set_images_version
+        shell: bash
+        run: |
+          export DOCKER_IMAGES_VERSION=${{ github.event.pull_request.head.sha }}
+          if [[ ${{ github.event_name }} == "merge_group" ]]; then export DOCKER_IMAGES_VERSION="${GITHUB_SHA::8}"; fi
+          echo "DOCKER_IMAGES_VERSION=${DOCKER_IMAGES_VERSION}" >> $GITHUB_OUTPUT
+
+      - name: log
+        shell: bash
+        run: |
+          echo "workflow file: ${{ steps.current_file.outputs.currentWorkflowFile }}"
+          echo "ZOMBIENET_IMAGE: ${{ steps.set_vars.outputs.ZOMBIENET_IMAGE }}"
+
+  #
+  #
+  #
+  ci-env:
+    needs: [preflight]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Info vars
+        run: |
+          echo "ZOMBIENET_IMAGE: ${{ needs.preflight.outputs.ZOMBIENET_IMAGE }}"
+          echo "ZOMBIENET_RUNNER: ${{ needs.preflight.outputs.ZOMBIENET_RUNNER }}"
+          echo "DOCKER_IMAGES_VERSION: ${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"
+          echo "SOURCE_REF_SLUG: ${{ needs.preflight.outputs.SOURCE_REF_SLUG }}"
+          echo "PUSHGATEWAY_URL: ${{ needs.preflight.outputs.PUSHGATEWAY_URL }}"
+          echo "DEBUG: ${{ needs.preflight.outputs.DEBUG }}"
+          echo "ZOMBIE_PROVIDER: ${{ needs.preflight.outputs.ZOMBIE_PROVIDER }}"
+          echo "RUST_LOG: ${{ needs.preflight.outputs.RUST_LOG }}"
+          echo "RUN_IN_CI: ${{ needs.preflight.outputs.RUN_IN_CI }}"
+          echo "KUBERNETES_CPU_REQUEST: ${{ needs.preflight.outputs.KUBERNETES_CPU_REQUEST }}"
+          echo "KUBERNETES_MEMORY_REQUEST: ${{ needs.preflight.outputs.KUBERNETES_MEMORY_REQUEST }}"
+          echo "FLAKY_TESTS: ${{ needs.preflight.outputs.FLAKY_TESTS }}"
+          #
+          echo "github.ref: ${{ github.ref }}"
+          echo "github.ref_name: ${{ github.ref_name }}"
+          echo "github.sha: ${{ github.sha }}"
+  #
+  #
+  # Wait until the 'build and push' image workflow success
+  wait_build_images:
+    needs: [preflight, ci-env]
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    outputs:
+      BUILD_RUN_ID: ${{ steps.wait_build.outputs.BUILD_RUN_ID }}
+      POLKADOT_PR_ARTIFACTS_URL: ${{ steps.get_artifacts_url.outputs.POLKADOT_PR_ARTIFACTS_URL }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Wait until "Build and push images" workflow is done
+        id: wait_build
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh --version
+          export SHA=${{ github.event.pull_request.head.sha }}
+          if [[ ${{ github.event_name }} == "merge_group" ]]; then export SHA="${GITHUB_SHA::8}"; fi
+          DELAYER=10
+          while true; do
+            STATUS=$(gh run ls -c $SHA -w "Build and push images" --json name,status --jq '.[] | select(.name == "Build and push images") | .status')
+            echo "CI workflow status: $STATUS"
+            if [[ $STATUS == "completed" ]]; then
+              echo "CI workflow is done."
+              break
+            fi
+            if [[ -z "$STATUS" ]]; then
+              echo "::warning::No CI workflow runs found for this commit"
+              exit 1
+            fi
+            sleep $((60 * DELAYER))
+            DELAYER=1
+          done
+
+          #check if the build succeeded
+          RUN_INFO=($(gh run ls -c $SHA -w "Build and push images" --json name,conclusion,databaseId --jq '.[] | select(.name == "Build and push images") | .conclusion, .databaseId'))
+          CONCLUSION=${RUN_INFO[@]:0:1}
+          BUILD_RUN_ID=${RUN_INFO[@]:1:1}
+          if [[ $CONCLUSION == "success" ]]; then
+            echo "CI workflow succeeded. (build run_id: ${BUILD_RUN_ID})"
+            echo "BUILD_RUN_ID=${BUILD_RUN_ID}" >> $GITHUB_OUTPUT
+          else
+            echo "::warning:: CI workflow ('Build and push images') fails with conclusion: $CONCLUSION"
+            exit 1
+          fi;
+
+      # - name: Get artifacts url for pr
+      #   id: get_artifacts_url
+      #   env:
+      #     GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      #   run: |
+      #     gh --version
+      #     export SHA=${{ github.event.pull_request.head.sha }}
+      #     if [[ ${{ github.event_name }} == "merge_group" ]]; then export SHA="${GITHUB_SHA::8}"; fi
+      #     POLKADOT_PR_ARTIFACTS_URL=$(curl "https://api.github.com/repos/paritytech/polkadot-sdk/actions/runs/${{steps.wait_build.outputs.BUILD_RUN_ID}}/artifacts?name=build-linux-stable-${{ needs.preflight.outputs.SOURCE_REF_SLUG }}" | jq -r ".artifacts[0].archive_download_url")
+      #     echo "POLKADOT_PR_ARTIFACTS_URL=${POLKADOT_PR_ARTIFACTS_URL}" >> $GITHUB_OUTPUT
+

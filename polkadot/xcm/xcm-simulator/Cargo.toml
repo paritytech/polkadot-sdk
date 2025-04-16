@@ -5,25 +5,26 @@ version = "7.0.0"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
+homepage.workspace = true
+repository.workspace = true
 
 [lints]
 workspace = true
 
 [dependencies]
 codec = { workspace = true, default-features = true }
-scale-info = { workspace = true }
 paste = { workspace = true, default-features = true }
+scale-info = { workspace = true }
 
 frame-support = { workspace = true, default-features = true }
 frame-system = { workspace = true, default-features = true }
 sp-io = { workspace = true, default-features = true }
-sp-std = { workspace = true, default-features = true }
 sp-runtime = { workspace = true, default-features = true }
 
-xcm = { workspace = true, default-features = true }
-xcm-executor = { workspace = true, default-features = true }
-xcm-builder = { workspace = true, default-features = true }
-polkadot-primitives = { workspace = true, default-features = true }
 polkadot-core-primitives = { workspace = true, default-features = true }
 polkadot-parachain-primitives = { workspace = true, default-features = true }
+polkadot-primitives = { workspace = true, default-features = true }
 polkadot-runtime-parachains = { workspace = true, default-features = true }
+xcm = { workspace = true, default-features = true }
+xcm-builder = { workspace = true, default-features = true }
+xcm-executor = { workspace = true, default-features = true }

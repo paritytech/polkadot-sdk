@@ -28,6 +28,7 @@ use frame_support::{
 use mock::{new_test_ext, ParachainSystem, RuntimeOrigin as Origin, Test, XcmpQueue};
 use sp_runtime::traits::{BadOrigin, Zero};
 use std::iter::{once, repeat};
+use xcm::{MAX_INSTRUCTIONS_TO_DECODE, MAX_XCM_DECODE_DEPTH};
 use xcm_builder::InspectMessageQueues;
 
 #[test]
@@ -103,10 +104,16 @@ fn xcm_enqueueing_multiple_times_works() {
 #[cfg_attr(debug_assertions, should_panic = "Could not enqueue XCMP messages.")]
 fn xcm_enqueueing_starts_dropping_on_overflow() {
 	new_test_ext().execute_with(|| {
-		let xcm = VersionedXcm::<Test>::from(Xcm::<Test>(vec![ClearOrigin]));
+		let xcm = VersionedXcm::<Test>::from(Xcm::<Test>(vec![
+			ClearOrigin;
+			MAX_INSTRUCTIONS_TO_DECODE as usize
+		]));
 		let data = (ConcatenatedVersionedXcm, xcm).encode();
-		// Its possible to enqueue 256 messages at most:
-		let limit = 256;
+		// It's possible to enqueue at most `limit` messages:
+		let max_message_len: u32 =
+			<<Test as Config>::XcmpQueue as EnqueueMessage<ParaId>>::MaxMessageLen::get();
+		let drop_threshold = <QueueConfig<Test>>::get().drop_threshold;
+		let limit = max_message_len as usize / data.len() * drop_threshold as usize;
 
 		XcmpQueue::handle_xcmp_messages(
 			repeat((1000.into(), 1, data.as_slice())).take(limit * 2),
@@ -254,36 +261,52 @@ fn suspend_and_resume_xcm_execution_work() {
 }
 
 #[test]
-#[cfg(not(debug_assertions))]
 fn xcm_enqueueing_backpressure_works() {
+	let max_message_size =
+		<<<Test as Config>::XcmpQueue as EnqueueMessage<_>>::MaxMessageLen as Get<u32>>::get()
+			as usize;
 	let para: ParaId = 1000.into();
 	new_test_ext().execute_with(|| {
+		assert_ok!(XcmpQueue::update_resume_threshold(Origin::root(), 1));
+		assert_ok!(XcmpQueue::update_suspend_threshold(Origin::root(), 2));
+		assert_ok!(XcmpQueue::update_drop_threshold(Origin::root(), 3));
 		let xcm = VersionedXcm::<Test>::from(Xcm::<Test>(vec![ClearOrigin]));
-		let data = (ConcatenatedVersionedXcm, xcm).encode();
+		let data = (ConcatenatedVersionedXcm, &xcm).encode();
 
-		XcmpQueue::handle_xcmp_messages(repeat((para, 1, data.as_slice())).take(170), Weight::MAX);
+		XcmpQueue::handle_xcmp_messages(
+			repeat((para, 1, data.as_slice())).take(max_message_size / xcm.encoded_size()),
+			Weight::MAX,
+		);
 
-		assert_eq!(EnqueuedMessages::get().len(), 170,);
+		assert_eq!(EnqueuedMessages::get().len(), max_message_size / xcm.encoded_size());
 		// Not yet suspended:
 		assert!(InboundXcmpSuspended::<Test>::get().is_empty());
-		// Enqueueing one more will suspend it:
-		let xcm = VersionedXcm::<Test>::from(Xcm::<Test>(vec![ClearOrigin])).encode();
-		let small = [ConcatenatedVersionedXcm.encode(), xcm].concat();
 
-		XcmpQueue::handle_xcmp_messages(once((para, 1, small.as_slice())), Weight::MAX);
+		XcmpQueue::handle_xcmp_messages(once((para, 1, data.as_slice())), Weight::MAX);
 		// Suspended:
 		assert_eq!(InboundXcmpSuspended::<Test>::get().iter().collect::<Vec<_>>(), vec![&para]);
 
-		// Now enqueueing many more will only work until the drop threshold:
-		XcmpQueue::handle_xcmp_messages(repeat((para, 1, data.as_slice())).take(100), Weight::MAX);
-		assert_eq!(mock::EnqueuedMessages::get().len(), 256);
+		// We want to ignore the defensive panic :)
+		let _ = std::panic::catch_unwind(|| {
+			// Now enqueueing many more will only work until the drop threshold:
+			XcmpQueue::handle_xcmp_messages(
+				repeat((para, 1, data.as_slice()))
+					.take((3 * max_message_size) / xcm.encoded_size()),
+				Weight::MAX,
+			)
+		});
+
+		assert_eq!(
+			mock::EnqueuedMessages::get().len(),
+			(2 * max_message_size) / xcm.encoded_size() + 1
+		);
 
 		crate::mock::EnqueueToLocalStorage::<Pallet<Test>>::sweep_queue(para);
-		XcmpQueue::handle_xcmp_messages(once((para, 1, small.as_slice())), Weight::MAX);
+		XcmpQueue::handle_xcmp_messages(once((para, 1, data.as_slice())), Weight::MAX);
 		// Got resumed:
 		assert!(InboundXcmpSuspended::<Test>::get().is_empty());
 		// Still resumed:
-		XcmpQueue::handle_xcmp_messages(once((para, 1, small.as_slice())), Weight::MAX);
+		XcmpQueue::handle_xcmp_messages(once((para, 1, data.as_slice())), Weight::MAX);
 		assert!(InboundXcmpSuspended::<Test>::get().is_empty());
 	});
 }
@@ -456,7 +479,7 @@ fn send_xcm_nested_works() {
 			XcmpQueue::take_outbound_messages(usize::MAX),
 			vec![(
 				HRMP_PARA_ID.into(),
-				(XcmpMessageFormat::ConcatenatedVersionedXcm, VersionedXcm::V4(good.clone()))
+				(XcmpMessageFormat::ConcatenatedVersionedXcm, VersionedXcm::from(good.clone()))
 					.encode(),
 			)]
 		);
@@ -512,7 +535,7 @@ fn hrmp_signals_are_prioritized() {
 		// Without a signal we get the messages in order:
 		let mut expected_msg = XcmpMessageFormat::ConcatenatedVersionedXcm.encode();
 		for _ in 0..31 {
-			expected_msg.extend(VersionedXcm::V4(message.clone()).encode());
+			expected_msg.extend(VersionedXcm::from(message.clone()).encode());
 		}
 
 		hypothetically!({
@@ -539,6 +562,7 @@ fn maybe_double_encoded_versioned_xcm_works() {
 	// pre conditions
 	assert_eq!(VersionedXcm::<()>::V3(Default::default()).encode(), &[3, 0]);
 	assert_eq!(VersionedXcm::<()>::V4(Default::default()).encode(), &[4, 0]);
+	assert_eq!(VersionedXcm::<()>::V5(Default::default()).encode(), &[5, 0]);
 }
 
 // Now also testing a page instead of just concat messages.
@@ -597,7 +621,7 @@ fn take_first_concatenated_xcm_good_recursion_depth_works() {
 	for _ in 0..MAX_XCM_DECODE_DEPTH - 1 {
 		good = Xcm(vec![SetAppendix(good)]);
 	}
-	let good = VersionedXcm::V4(good);
+	let good = VersionedXcm::from(good);
 
 	let page = good.encode();
 	assert_ok!(XcmpQueue::take_first_concatenated_xcm(&mut &page[..], &mut WeightMeter::new()));
@@ -610,7 +634,7 @@ fn take_first_concatenated_xcm_good_bad_depth_errors() {
 	for _ in 0..MAX_XCM_DECODE_DEPTH {
 		bad = Xcm(vec![SetAppendix(bad)]);
 	}
-	let bad = VersionedXcm::V4(bad);
+	let bad = VersionedXcm::from(bad);
 
 	let page = bad.encode();
 	assert_err!(
@@ -872,18 +896,18 @@ fn get_messages_works() {
 			queued_messages,
 			vec![
 				(
-					VersionedLocation::V4(other_destination),
+					VersionedLocation::from(other_destination),
 					vec![
-						VersionedXcm::V4(Xcm(vec![ClearOrigin])),
-						VersionedXcm::V4(Xcm(vec![ClearOrigin])),
+						VersionedXcm::from(Xcm(vec![ClearOrigin])),
+						VersionedXcm::from(Xcm(vec![ClearOrigin])),
 					],
 				),
 				(
-					VersionedLocation::V4(destination),
+					VersionedLocation::from(destination),
 					vec![
-						VersionedXcm::V4(Xcm(vec![ClearOrigin])),
-						VersionedXcm::V4(Xcm(vec![ClearOrigin])),
-						VersionedXcm::V4(Xcm(vec![ClearOrigin])),
+						VersionedXcm::from(Xcm(vec![ClearOrigin])),
+						VersionedXcm::from(Xcm(vec![ClearOrigin])),
+						VersionedXcm::from(Xcm(vec![ClearOrigin])),
 					],
 				),
 			],
@@ -900,7 +924,7 @@ fn page_not_modified_when_fragment_does_not_fit() {
 		ParachainSystem::open_outbound_hrmp_channel_for_benchmarks_or_tests(sibling);
 
 		let destination: Location = (Parent, Parachain(sibling.into())).into();
-		let message = Xcm(vec![ClearOrigin; 600]);
+		let message = Xcm(vec![ClearOrigin; MAX_INSTRUCTIONS_TO_DECODE as usize]);
 
 		loop {
 			let old_page_zero = OutboundXcmpMessages::<Test>::get(sibling, 0);

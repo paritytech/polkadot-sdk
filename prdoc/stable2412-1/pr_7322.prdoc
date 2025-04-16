@@ -1,0 +1,8 @@
+title: 'Bridges: emulated tests small nits/improvements'
+doc:
+- audience: Runtime Dev
+  description: |-
+    This PR removes the use of `open_bridge_between_asset_hub_rococo_and_asset_hub_westend`. This function was used in the generic `test_dry_run_transfer_across_pk_bridge` macro, which could cause compilation issues when used in other contexts (e.g. fellows repo).
+crates:
+- name: emulated-integration-tests-common
+  bump: patch
