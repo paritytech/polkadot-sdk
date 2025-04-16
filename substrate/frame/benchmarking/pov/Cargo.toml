@@ -22,6 +22,7 @@ frame-system = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 sp-io = { workspace = true }
 sp-runtime = { workspace = true }
+hex = { workspace = true, optional = true }
 
 [features]
 default = ["std"]
@@ -35,6 +36,7 @@ std = [
 	"sp-runtime/std",
 ]
 runtime-benchmarks = [
+	"hex",
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",

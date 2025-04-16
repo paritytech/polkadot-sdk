@@ -20,6 +20,7 @@ scale-info = { features = ["derive"], workspace = true }
 serde = { workspace = true }
 serde_derive = { optional = true, workspace = true }
 serde_json = { features = ["alloc"], workspace = true }
+hex = { workspace = true }
 
 binary-merkle-tree = { workspace = true }
 sp-api = { workspace = true }
@@ -96,6 +97,7 @@ pallet-whitelist = { workspace = true }
 pallet-xcm = { workspace = true }
 pallet-xcm-benchmarks = { optional = true, workspace = true }
 westend-runtime-constants = { workspace = true }
+frame-benchmarking-pallet-pov = { workspace = true }
 
 frame-benchmarking = { optional = true, workspace = true }
 frame-system-benchmarking = { optional = true, workspace = true }
@@ -228,6 +230,7 @@ std = [
 	"xcm-executor/std",
 	"xcm-runtime-apis/std",
 	"xcm/std",
+	"frame-benchmarking-pallet-pov/std"
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
@@ -285,6 +288,7 @@ runtime-benchmarks = [
 	"xcm-executor/runtime-benchmarks",
 	"xcm-runtime-apis/runtime-benchmarks",
 	"xcm/runtime-benchmarks",
+	"frame-benchmarking-pallet-pov/runtime-benchmarks"
 ]
 try-runtime = [
 	"frame-election-provider-support/try-runtime",
@@ -336,6 +340,7 @@ try-runtime = [
 	"polkadot-runtime-common/try-runtime",
 	"polkadot-runtime-parachains/try-runtime",
 	"sp-runtime/try-runtime",
+	"frame-benchmarking-pallet-pov/try-runtime"
 ]
 
 # Enable the metadata hash generation in the wasm builder.
