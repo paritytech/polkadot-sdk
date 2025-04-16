@@ -498,9 +498,11 @@ pub trait StorageProvider<Block: BlockT, B: Backend<Block>> {
 /// This is used to determine the size of the local trie cache.
 #[derive(Debug, Clone, Copy)]
 pub enum TrieCacheContext {
-	/// This is used when calling state_at in the context of building a block or importing it.
-	/// In this case the local trie cache can grow to contain everything that is needed and
-	/// everything will be propagated back to the shared trie cache.
+	/// This is used when calling [`Backend::state_at`] in a trusted context.
+	///
+	/// A trusted context is for example the building or importing of a block.
+	/// In this case the local trie cache can grow unlimited and all the cached data
+	/// will be propagated back to the shared trie cache.
 	Trusted,
 	/// This is used when calling state_at in from untrusted paths, and the local cache is bounded
 	/// by its preconfigured size.
