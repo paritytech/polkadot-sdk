@@ -1,0 +1,30 @@
+title: '`fatxpool`: optimize txs prunning based on inactive views provides tags '
+doc:
+- audience: Todo
+  description: |-
+    # Description
+
+    Iterate through inactive views of the retracted fork for each enacted fork block txs, get the txs -> provides tag map, and use it when prunning txs from the enacted fork tip's active view based on tags, if needed in case the txs tags can not be found in the active view, instead of revalidating the tx to get its 'provides' tag.
+
+    Closes #7399
+
+    ## Integration
+
+    N/A
+
+    ## Review Notes
+
+    A txs -> provides_tags map is created and shared in async context by the prunning logic, when the provides tags of certain txs part of the imported blocks are needed, that aren't known by the view's pool, and which involves txs revalidation, which is costly. We're relying on pre-validated provide tags for txs that we assume might be part of the inactive views built for the retracted fork, and part of the imported blocks of the enacted fork. This assumes tags on the enacted fork for the same txs are mostly the same as the ones known for the retracted fork.
+
+    The data points represent a sorted list of `prune` timings and revalidations with each `prune` function call, obtained from the merged logs of two validators of a relaychain node (where txs were sent to a single validator as 20k ready and 20k future, scenario run 10 times for both optimized/unoptimized versions).
+
+    **The approach was to exercise `prune` function for a few times during a scenario run, but also collect such invocations across scenario runs and for both validators, and sort all `prune` invocation based on its end timestamp. The sum of revalidations in total across `prune` invocations is halved and the sum of timings are reduced by ~4x. Also, in practice I ran the optimized version for an eleventh time, and still the sum of timings + revalidations is kept smaller than those 10 iterations for the unoptimized version.**
+
+    1. With optimizations:
+    ![prune](https://github.com/user-attachments/assets/550679e7-2d67-4add-8013-c16c8db54ede)
+
+    2. Without:
+    ![prune_unopt](https://github.com/user-attachments/assets/fe6563b3-5f76-4153-9e07-47f84ad2a8d5)
+crates:
+- name: sc-transaction-pool
+  bump: major
