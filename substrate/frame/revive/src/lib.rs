@@ -406,7 +406,7 @@ pub mod pallet {
 		/// A buffer outside of sandbox memory was passed to a contract API function.
 		OutOfBounds = 0x09,
 		/// Input passed to a contract API function failed to decode as expected type.
-		DecodingFailed = 0x0a,
+		DecodingFailed = 0x0A,
 		/// Contract trapped during execution.
 		ContractTrapped = 0x0B,
 		/// The size defined in `T::MaxValueSize` was exceeded.
@@ -446,7 +446,7 @@ pub mod pallet {
 		/// Please note that this error is only returned from extrinsics. When called directly
 		/// or via RPC an `Ok` will be returned. In this case the caller needs to inspect the flags
 		/// to determine whether a reversion has taken place.
-		ContractReverted = 0x1a,
+		ContractReverted = 0x1A,
 		/// The contract failed to compile or is missing the correct entry points.
 		///
 		/// A more detailed error can be found on the node console if debug messages are enabled
@@ -483,7 +483,7 @@ pub mod pallet {
 		DecimalPrecisionLoss = 0x29,
 		/// Immutable data can only be set during deploys and only be read during calls.
 		/// Additionally, it is only valid to set the data once and it must not be empty.
-		InvalidImmutableAccess = 0x2a,
+		InvalidImmutableAccess = 0x2A,
 		/// An `AccountID32` account tried to interact with the pallet without having a mapping.
 		///
 		/// Call [`Pallet::map_account`] in order to create a mapping for the account.
