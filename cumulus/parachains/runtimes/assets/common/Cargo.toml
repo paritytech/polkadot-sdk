@@ -35,9 +35,6 @@ xcm-executor = { workspace = true }
 cumulus-primitives-core = { workspace = true }
 parachains-common = { workspace = true }
 
-[build-dependencies]
-substrate-wasm-builder = { workspace = true, default-features = true }
-
 [features]
 default = ["std"]
 std = [
@@ -56,7 +53,6 @@ std = [
 	"xcm-executor/std",
 	"xcm/std",
 ]
-
 runtime-benchmarks = [
 	"cumulus-primitives-core/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",

@@ -130,13 +130,18 @@ where
             DepositLimit::Unchecked,
             data
         );
-        let is_success = bool::abi_decode(&result.unwrap().data, true).expect("Failed to ABI decode");
-        if is_success {
-            // TODO: Should return the balance left in `who`.
-            Ok(0)
+        log::trace!(target: "whatiwant", "Result: {:?}", &result);
+        if let Ok(return_value) = result {
+	        let is_success = bool::abi_decode(&return_value.data, false).expect("Failed to ABI decode");
+	        if is_success {
+	            // TODO: Should return the balance left in `who`.
+	            Ok(0)
+	        } else {
+	            // TODO: Can actually match errors from contract call
+	            // to provide better errors here.
+	            Err(DispatchError::Unavailable)
+	        }
         } else {
-            // TODO: Can actually match errors from contract call
-            // to provide better errors here.
             Err(DispatchError::Unavailable)
         }
     }
@@ -148,8 +153,6 @@ where
     ) -> Result<Self::Balance, DispatchError> {
         let eth_address = T::AddressMapper::to_address(who);
         let address = Address::from(Into::<[u8; 20]>::into(eth_address));
-        let checking_account_eth = T::AddressMapper::to_address(&T::CheckingAccount::get());
-        let checking_address = Address::from(Into::<[u8; 20]>::into(checking_account_eth));
         let data = transferCall { to: address, value: EU256::from(amount) }.abi_encode();
         let ContractResult { result, .. } = Self::bare_call(
             T::RuntimeOrigin::signed(T::CheckingAccount::get()),
@@ -159,14 +162,19 @@ where
             DepositLimit::Unchecked,
             data
         );
-        let is_success = bool::abi_decode(&result.unwrap().data, true).expect("Failed to ABI decode");
-        if is_success {
-            // TODO: Should return the balance left in `who`.
-            Ok(0)
+        if let Ok(return_value) = result {
+	        let is_success = bool::abi_decode(&return_value.data, false).expect("Failed to ABI decode");
+	        log::trace!(target: "whatiwant", "Is success: {:?}", &is_success);
+	        if is_success {
+	            // TODO: Should return the balance left in `who`.
+	            Ok(0)
+	        } else {
+	            // TODO: Can actually match errors from contract call
+	            // to provide better errors here.
+	            Err(DispatchError::Unavailable)
+	        }
         } else {
-            // TODO: Can actually match errors from contract call
-            // to provide better errors here.
-            Err(DispatchError::Unavailable)
+        	Err(DispatchError::Unavailable)
         }
     }
 }

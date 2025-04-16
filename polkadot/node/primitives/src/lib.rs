@@ -30,10 +30,13 @@ use futures::Future;
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 
 use polkadot_primitives::{
-	vstaging::CommittedCandidateReceiptV2 as CommittedCandidateReceipt, BlakeTwo256, BlockNumber,
-	CandidateCommitments, CandidateHash, ChunkIndex, CollatorPair, CompactStatement, CoreIndex,
-	EncodeAs, Hash, HashT, HeadData, Id as ParaId, PersistedValidationData, SessionIndex, Signed,
-	UncheckedSigned, ValidationCode, ValidationCodeHash, MAX_CODE_SIZE, MAX_POV_SIZE,
+	vstaging::{
+		CommittedCandidateReceiptError, CommittedCandidateReceiptV2 as CommittedCandidateReceipt,
+	},
+	BlakeTwo256, BlockNumber, CandidateCommitments, CandidateHash, ChunkIndex, CollatorPair,
+	CompactStatement, CoreIndex, EncodeAs, Hash, HashT, HeadData, Id as ParaId,
+	PersistedValidationData, SessionIndex, Signed, UncheckedSigned, ValidationCode,
+	ValidationCodeHash, MAX_CODE_SIZE, MAX_POV_SIZE,
 };
 pub use sp_consensus_babe::{
 	AllowedSlots as BabeAllowedSlots, BabeEpochConfiguration, Epoch as BabeEpoch,
@@ -59,7 +62,7 @@ pub use disputes::{
 /// relatively rare.
 ///
 /// The associated worker binaries should use the same version as the node that spawns them.
-pub const NODE_VERSION: &'static str = "1.17.2";
+pub const NODE_VERSION: &'static str = "1.18.0";
 
 // For a 16-ary Merkle Prefix Trie, we can expect at most 16 32-byte hashes per node
 // plus some overhead:
@@ -354,8 +357,8 @@ pub enum InvalidCandidate {
 	CommitmentsHashMismatch,
 	/// The candidate receipt contains an invalid session index.
 	InvalidSessionIndex,
-	/// The candidate receipt contains an invalid core index.
-	InvalidCoreIndex,
+	/// The candidate receipt invalid UMP signals.
+	InvalidUMPSignals(CommittedCandidateReceiptError),
 }
 
 /// Result of the validation of the candidate.

@@ -14,6 +14,8 @@
 // limitations under the License.
 
 use crate::{create_pool_with_wnd_on, foreign_balance_on, imports::*};
+use pallet_revive::{Code, DepositLimit, InstantiateReturnValue};
+use pallet_revive_fixtures::compile_module;
 use sp_core::{crypto::get_public_from_string_or_panic, sr25519};
 use westend_system_emulated_network::westend_emulated_chain::westend_runtime::Dmp;
 
@@ -1436,31 +1438,47 @@ fn reserve_withdraw_from_untrusted_reserve_fails() {
 #[test]
 fn can_withdraw_and_deposit_erc20() {
 	let sender = AssetHubWestendSender::get();
-	// let message = Xcm::builder()
-	// 	.withdraw_asset((Parent, 10u128))
-	// 	.pay_fees((Parent, 10u128))
-	// 	.withdraw_asset(())
-	// 	.deposit_asset()
-	// 	.build();
+	let checking_account = asset_hub_westend_runtime::xcm_config::CheckingAccount::get();
+
+	AssetHubWestend::fund_accounts(vec![
+		(sender.clone(), 10_000_000_000_000),
+		(checking_account.clone(), 10_000_000_000_000),
+	]);
+
 	AssetHubWestend::execute_with(|| {
+		type RuntimeCall = <AssetHubWestend as Chain>::RuntimeCall;
 		type RuntimeOrigin = <AssetHubWestend as Chain>::RuntimeOrigin;
 		type PolkadotXcm = <AssetHubWestend as AssetHubWestendPallet>::PolkadotXcm;
 		type Contracts = <AssetHubWestend as AssetHubWestendPallet>::Contracts;
 
-		assert_ok!(Contracts::bare_instantiate(
-			RuntimeOrigin::signed(AssetHubWestendAssetOwner::get()),
+		assert_ok!(Contracts::map_account(RuntimeOrigin::signed(checking_account.clone())));
+		assert_ok!(Contracts::map_account(RuntimeOrigin::signed(sender.clone())));
+
+		let (code, _) = compile_module("erc20").unwrap();
+
+		let result = Contracts::bare_instantiate(
+			RuntimeOrigin::signed(sender.clone()),
 			0,
 			Weight::from_parts(1_000_000_000, 100_000),
 			DepositLimit::Unchecked,
-			Code::Upload(),
+			Code::Upload(code),
 			Vec::new(),
 			None,
-		));
+		);
 
-		// assert_ok!(PolkadotXcm::execute(
-		// 	RuntimeOrigin::signed(sender),
-		// 	VersionedXcm::V5(message),
-		// 	Weight::from_parts(1_000_000_000, 100_000),
-		// ));
+		let Ok(InstantiateReturnValue { addr: erc20_address, .. }) = result.result else { unreachable!("contract should initialize") };
+
+		let message = Xcm::<RuntimeCall>::builder()
+			.withdraw_asset((Parent, 1_000_000_000_000u128))
+			.pay_fees((Parent, 1_000_000_000_000u128))
+			.withdraw_asset((AccountKey20 { key: erc20_address.into(), network: None }, 100u128))
+			.deposit_asset(AllCounted(1), AssetHubWestendReceiver::get())
+			.build();
+
+		assert_ok!(PolkadotXcm::execute(
+			RuntimeOrigin::signed(sender),
+			Box::new(VersionedXcm::V5(message)),
+			Weight::from_parts(2_000_000_000, 100_000),
+		));
 	});
 }
