@@ -813,16 +813,17 @@ impl<Config: config::Config> XcmExecutor<Config> {
 			tracing::trace!(target: "xcm::send", ?topic_id, ?id_h256, "Message already ends with `SetTopic`");
 		} else if let Some(topic_id) = self.context.topic {
 			let id_h256: sp_core::H256 = topic_id.into();
-			tracing::trace!(target: "xcm::send", ?topic_id, ?id_h256, "`SetTopic` not required (context has topic)");
-		} else if self.context.origin.is_none() {
+			tracing::trace!(target: "xcm::send", ?topic_id, ?id_h256, "`SetTopic` not appended (context already has topic)");
+		} else {
 			let topic_id = self.context.message_id;
 			let id_h256: sp_core::H256 = topic_id.into();
-			msg.inner_mut().push(SetTopic(topic_id));
-			tracing::trace!(target: "xcm::send", ?topic_id, ?id_h256, "`SetTopic` appended to message (origin cleared)");
-		} else {
-			let message_id = self.context.message_id;
-			let id_h256: sp_core::H256 = message_id.into();
-			tracing::trace!(target: "xcm::send", ?message_id, ?id_h256, "`SetTopic` neither found nor appended at the end of message");
+
+			if self.context.origin.is_none() {
+				msg.inner_mut().push(SetTopic(topic_id));
+				tracing::trace!(target: "xcm::send", ?topic_id, ?id_h256, "`SetTopic` appended to message (origin cleared and no context topic)");
+			} else {
+				tracing::trace!(target: "xcm::send", ?topic_id, ?id_h256, "`SetTopic` neither found nor appended (origin not cleared)");
+			}
 		}
 	}
 
