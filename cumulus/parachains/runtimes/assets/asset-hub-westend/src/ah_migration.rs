@@ -22,7 +22,17 @@ use sp_runtime::traits::{Convert, TryConvert};
 use xcm::latest::prelude::*;
 
 /// Relay Chain Hold Reason
-#[derive(Encode, Decode, DecodeWithMemTracking, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	Clone,
+	PartialEq,
+	Eq,
+	RuntimeDebug,
+	TypeInfo,
+	MaxEncodedLen,
+)]
 pub enum RcHoldReason {
 	#[codec(index = 28u8)]
 	Preimage(pallet_preimage::HoldReason),
@@ -35,7 +45,17 @@ impl Default for RcHoldReason {
 }
 
 /// Relay Chain Freeze Reason
-#[derive(Encode, Decode, DecodeWithMemTracking, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	Clone,
+	PartialEq,
+	Eq,
+	RuntimeDebug,
+	TypeInfo,
+	MaxEncodedLen,
+)]
 pub enum RcFreezeReason {
 	#[codec(index = 29u8)]
 	NominationPools(pallet_nomination_pools::FreezeReason),
