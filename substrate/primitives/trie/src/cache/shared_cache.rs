@@ -738,8 +738,7 @@ impl<H: Hasher> SharedTrieCache<H> {
 		}
 	}
 
-	/// Creates a TrieCache that allows the local_caches to grow to fit the needs,
-	/// also everything is promoted to the shared cache.
+	/// Creates a TrieCache that allows the local_caches to grow to indefinitely. 
 	///
 	/// This is safe to be used only for trusted paths because it removes all limits on cache
 	/// growth and promotion, which could lead to excessive memory usage if used in untrusted or
