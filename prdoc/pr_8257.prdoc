@@ -1,0 +1,9 @@
+title: Adds `--exclude-extrinsics` support for frame-omni-bencher
+doc:
+- audience: Runtime Dev
+  description: null
+crates:
+- name: frame-benchmarking-cli
+  bump: patch
+- name: frame-support-procedural
+  bump: patch
