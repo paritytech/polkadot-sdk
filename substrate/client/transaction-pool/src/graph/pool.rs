@@ -342,6 +342,8 @@ impl<B: ChainApi, L: EventHandler<B>> Pool<B, L> {
 				// reuse the tags for extrinsics that were found in the pool or in the inactive
 				// views
 				Some(tags) => future_tags.extend(tags),
+				// if it's not found in the pool query the runtime at parent block
+				// to get validity info and tags that the extrinsic provides.
 				None => {
 					// Avoid validating block txs if the pool is empty
 					if !self.validated_pool.status().is_empty() {
