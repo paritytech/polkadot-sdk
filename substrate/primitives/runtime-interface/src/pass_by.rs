@@ -491,8 +491,8 @@ where
 	}
 }
 
-/// Pass `T` through the FFI boundary by first converting it to `U` and then converting it to `V` in the runtime, and then
-/// converting it back to `U` and then `T` on the host's side.
+/// Pass `T` through the FFI boundary by first converting it to `U` and then converting it to `V` in
+/// the runtime, and then converting it back to `U` and then `T` on the host's side.
 pub struct ConvertAndPassAs<T, U, V>(PhantomData<(T, U, V)>);
 
 impl<T, U, V> RIType for ConvertAndPassAs<T, U, V>
