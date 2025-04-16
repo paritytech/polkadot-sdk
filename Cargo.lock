@@ -10809,7 +10809,6 @@ name = "pallet-grandpa"
 version = "28.0.0"
 dependencies = [
  "finality-grandpa",
- "frame-benchmarking",
  "frame-election-provider-support",
  "log",
  "pallet-authorship",
@@ -10827,6 +10826,7 @@ dependencies = [
  "sp-keyring",
  "sp-session",
  "sp-staking",
+ "sp-weights",
 ]
 
 [[package]]

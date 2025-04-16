@@ -20,8 +20,9 @@
 
 use super::{Pallet as Grandpa, *};
 use frame::benchmarking::prelude::*;
-use frame_system::RawOrigin;
-use sp_core::H256;
+
+// use frame_system::RawOrigin;
+// use sp_core::H256;
 
 benchmarks! {
 	check_equivocation_proof {

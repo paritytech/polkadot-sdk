@@ -26,13 +26,13 @@ sp-application-crypto = { features = ["serde"], workspace = true }
 sp-consensus-grandpa = { features = ["serde"], workspace = true }
 sp-session = { workspace = true }
 sp-staking = { features = ["serde"], workspace = true }
+sp-weights = { workspace = true }
 
 [dev-dependencies]
 frame = { workspace = true, features = ["experimental", "runtime"] }
 finality-grandpa = { features = [
 	"derive-codec",
 ], workspace = true, default-features = true }
-frame-benchmarking = { workspace = true, default-features = true }
 frame-election-provider-support = { workspace = true, default-features = true }
 pallet-balances = { workspace = true, default-features = true }
 pallet-offences = { workspace = true, default-features = true }

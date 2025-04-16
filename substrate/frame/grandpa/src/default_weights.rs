@@ -18,9 +18,10 @@
 //! Default weights for the GRANDPA Pallet
 //! This file was not auto-generated.
 
-use frame_support::weights::{
-	constants::{RocksDbWeight as DbWeight, WEIGHT_REF_TIME_PER_MICROS, WEIGHT_REF_TIME_PER_NANOS},
-	Weight,
+use frame::prelude::*;
+use sp_weights::{
+	constants::{WEIGHT_REF_TIME_PER_MICROS, WEIGHT_REF_TIME_PER_NANOS},
+	RuntimeDbWeight as DbWeight, Weight,
 };
 
 impl crate::WeightInfo for () {
