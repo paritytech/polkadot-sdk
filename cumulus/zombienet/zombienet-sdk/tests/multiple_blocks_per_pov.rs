@@ -1,19 +1,5 @@
-// This file is part of Cumulus.
-
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
-
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-// 	http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
 
 use anyhow::anyhow;
 
@@ -29,12 +15,8 @@ use zombienet_sdk::{NetworkConfig, NetworkConfigBuilder};
 const PARA_ID: u32 = 2400;
 
 /// This test spawns a parachain network.
-/// Initially, one core is assigned. We expect the parachain to produce 1 block per relay.
-/// As we increase the number of cores via `assign_core`, we expect the block pace to increase too.
-/// **Note:** The runtime in use here has 6s slot duration, so multiple blocks will be produced per
-/// slot.
 #[tokio::test(flavor = "multi_thread")]
-async fn elastic_scaling_multiple_block_per_slot() -> Result<(), anyhow::Error> {
+async fn multiple_blocks_per_pov() -> Result<(), anyhow::Error> {
 	let _ = env_logger::try_init_from_env(
 		env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
 	);
@@ -57,42 +39,6 @@ async fn elastic_scaling_multiple_block_per_slot() -> Result<(), anyhow::Error> 
 	.await?;
 	assert_finality_lag(&para_node_elastic.wait_client().await?, 5).await?;
 
-	let assign_cores_call = create_assign_core_call(&[(2, PARA_ID), (3, PARA_ID)]);
-
-	relay_client
-		.tx()
-		.sign_and_submit_then_watch_default(&assign_cores_call, &alice)
-		.await
-		.inspect(|_| log::info!("Tx send, waiting for finalization"))?
-		.wait_for_finalized_success()
-		.await?;
-	log::info!("2 more cores assigned to each parachain");
-
-	assert_para_throughput(
-		&relay_client,
-		15,
-		[(ParaId::from(PARA_ID), 39..46)].into_iter().collect(),
-	)
-	.await?;
-	assert_finality_lag(&para_node_elastic.wait_client().await?, 20).await?;
-
-	let assign_cores_call = create_assign_core_call(&[(4, PARA_ID), (5, PARA_ID), (6, PARA_ID)]);
-	// Assign two extra cores to each parachain.
-	relay_client
-		.tx()
-		.sign_and_submit_then_watch_default(&assign_cores_call, &alice)
-		.await?
-		.wait_for_finalized_success()
-		.await?;
-	log::info!("3 more cores assigned to each parachain");
-
-	assert_para_throughput(
-		&relay_client,
-		10,
-		[(ParaId::from(PARA_ID), 52..61)].into_iter().collect(),
-	)
-	.await?;
-	assert_finality_lag(&para_node_elastic.wait_client().await?, 30).await?;
 	log::info!("Test finished successfully");
 	Ok(())
 }
@@ -127,9 +73,9 @@ async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 		})
 		.with_parachain(|p| {
 			p.with_id(PARA_ID)
-				.with_default_command("test-parachain")
+				.with_default_command("polkadot-parachain")
 				.with_default_image(images.cumulus.as_str())
-				.with_chain("elastic-scaling-multi-block-slot")
+				.with_chain("asset-hub-rococo")
 				.with_default_args(vec![
 					("--authoring").into(),
 					("slot-based").into(),

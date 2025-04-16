@@ -128,9 +128,13 @@ pub async fn assert_finalized_para_throughput(
 
 	Ok(())
 }
-// Helper function for asserting the throughput of parachains (total number of backed candidates in
-// a window of relay chain blocks), after the first session change.
-// Blocks with session changes are generally ignores.
+
+// Helper function for asserting the throughput of parachains.
+//
+// The troughput is measured as total number of backed candidates in a window of relay chain blocks,
+// after the first session change. Blocks with session changes are generally ignored.
+//
+// `stop_after`: Number of relay chain blocks after which the recording should be stopped.
 pub async fn assert_para_throughput(
 	relay_client: &OnlineClient<PolkadotConfig>,
 	stop_after: u32,
