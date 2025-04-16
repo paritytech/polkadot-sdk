@@ -504,8 +504,9 @@ pub enum TrieCacheContext {
 	/// In this case the local trie cache can grow unlimited and all the cached data
 	/// will be propagated back to the shared trie cache.
 	Trusted,
-	/// This is used when calling state_at in from untrusted paths, and the local cache is bounded
-	/// by its preconfigured size.
+	/// This is used when calling [`Backend::state_at`] in from untrusted context.
+	///
+	/// The local trie cache will be bounded by its preconfigured size.
 	Untrusted,
 }
 
