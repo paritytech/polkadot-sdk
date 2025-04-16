@@ -1,5 +1,3 @@
-// This file is part of Substrate.
-
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -15,12 +13,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use sp_runtime_interface::pass_by::PassByInner;
-
-#[derive(PassByInner)]
-struct Test {
-	data: u32,
-	data2: u32,
+#[cfg(feature = "std")]
+fn main() {
+	substrate_wasm_builder::WasmBuilder::build_using_defaults();
 }
 
+#[cfg(not(feature = "std"))]
 fn main() {}

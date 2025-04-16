@@ -71,6 +71,11 @@ w3f-bls = { optional = true, workspace = true }
 # bandersnatch crypto
 ark-vrf = { optional = true, workspace = true, features = ["bandersnatch", "ring"] }
 
+[target.'cfg(not(substrate_runtime))'.dependencies]
+sp-externalities = { workspace = true, default-features = false }
+futures = { version = "0.3.30", default-features = false, features = ["alloc"] }
+dyn-clone = "1.0.17"
+
 [dev-dependencies]
 criterion = { workspace = true, default-features = true }
 regex = { workspace = true }
@@ -86,10 +91,9 @@ std = [
 	"bounded-collections/std",
 	"bs58/std",
 	"codec/std",
-	"dyn-clonable",
 	"ed25519-zebra/std",
 	"full_crypto",
-	"futures",
+	"futures/std",
 	"futures/thread-pool",
 	"hash-db/std",
 	"hash256-std-hasher/std",
