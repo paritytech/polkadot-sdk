@@ -12048,7 +12048,7 @@ dependencies = [
  "sp-keyring",
  "sp-session",
  "sp-staking",
- "sp-weights",
+ "sp-weights 27.0.0",
 ]
 
 [[package]]

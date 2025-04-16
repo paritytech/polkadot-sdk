@@ -24,7 +24,7 @@ use codec::Encode;
 use finality_grandpa;
 use frame::{
 	deps::{
-    sp_core::H256,
+		sp_core::{crypto::KeyTypeId, H256},
 		sp_io,
 		sp_runtime::{
 			curve::PiecewiseLinear,
@@ -41,7 +41,6 @@ use frame_election_provider_support::{
 	onchain, SequentialPhragmen,
 };
 use pallet_session::historical as pallet_session_historical;
-use sp_application_crypto::sp_core::{crypto::KeyTypeId};
 use sp_consensus_grandpa::{RoundNumber, SetId, GRANDPA_ENGINE_ID};
 use sp_keyring::Ed25519Keyring;
 use sp_staking::{EraIndex, SessionIndex};
