@@ -639,10 +639,10 @@ impl PalletCmd {
 	fn pallet_selected(&self, pallet: &Vec<u8>) -> bool {
 		let include = self.pallets.clone();
 
-		let included = include.is_empty()
-			|| include.iter().any(|p| p.as_bytes() == pallet)
-			|| include.iter().any(|p| p == "*");
-			|| include.iter().any(|p| p == "all");
+		let included = include.is_empty() ||
+			include.iter().any(|p| p.as_bytes() == pallet) ||
+			include.iter().any(|p| p == "*");
+		|| include.iter().any(|p| p == "all");
 		let excluded = self.exclude_pallets.iter().any(|p| p.as_bytes() == pallet);
 
 		included && !excluded
@@ -658,7 +658,8 @@ impl PalletCmd {
 		let extrinsic_split: Vec<&str> = extrinsic_filter.split(',').collect();
 		let extrinsics: Vec<_> = extrinsic_split.iter().map(|x| x.trim().as_bytes()).collect();
 
-		let included = extrinsic_filter.is_empty() || extrinsic_filter == "*" || 
+		let included = extrinsic_filter.is_empty() ||
+			extrinsic_filter == "*" ||
 			extrinsics.contains(&&extrinsic[..]);
 		let excluded = self.exclude_extrinsics.iter().any(|e| {
 			let splits = e.split("::").collect::<Vec<_>>();
