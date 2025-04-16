@@ -841,7 +841,7 @@ impl<T: Config> Pallet<T> {
 		let max_unstake: u128 =
 			(params.min_slashable_share * Self::get_min_lowest_stake()).saturated_into();
 
-		if !max_unstake.is_zero() {
+		if max_unstake > unbond_stake {
 			upper_bound
 				.saturating_mul(unbond_stake)
 				.saturating_div(max_unstake)

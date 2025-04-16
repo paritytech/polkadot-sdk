@@ -8993,8 +8993,8 @@ mod unbonding_queue {
 			assert_eq!(Staking::get_unbond_eras_delta(max_unstake / 2, config), 1);
 			// 0 / 500 * 3 = 0
 			assert_eq!(Staking::get_unbond_eras_delta(0, config), 0);
-			// 1000 / 500 * 3 = 6
-			assert_eq!(Staking::get_unbond_eras_delta(max_unstake * 2, config), 6);
+			// 1000 / 500 * 3 = 6, but the upper bound is 3
+			assert_eq!(Staking::get_unbond_eras_delta(max_unstake * 2, config), 3);
 		});
 	}
 
