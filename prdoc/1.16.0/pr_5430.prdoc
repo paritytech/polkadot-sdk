@@ -1,0 +1,13 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: "pallet-collator-selection: correctly register weight in `new_session`"
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      - Fixes an incorrect usage of the `WeightInfo` trait for `new_session`.
+
+crates:
+  - name: pallet-collator-selection
+    bump: patch

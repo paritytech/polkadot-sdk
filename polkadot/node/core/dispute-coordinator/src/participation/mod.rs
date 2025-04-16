@@ -27,12 +27,13 @@ use futures_timer::Delay;
 
 use polkadot_node_primitives::ValidationResult;
 use polkadot_node_subsystem::{
-	messages::{AvailabilityRecoveryMessage, CandidateValidationMessage},
+	messages::{AvailabilityRecoveryMessage, CandidateValidationMessage, PvfExecKind},
 	overseer, ActiveLeavesUpdate, RecoveryError,
 };
 use polkadot_node_subsystem_util::runtime::get_validation_code_by_hash;
 use polkadot_primitives::{
-	BlockNumber, CandidateHash, CandidateReceipt, Hash, PvfExecKind, SessionIndex,
+	vstaging::CandidateReceiptV2 as CandidateReceipt, BlockNumber, CandidateHash, Hash,
+	SessionIndex,
 };
 
 use crate::LOG_TARGET;
@@ -350,7 +351,7 @@ async fn participate(
 	let validation_code = match get_validation_code_by_hash(
 		&mut sender,
 		block_hash,
-		req.candidate_receipt().descriptor.validation_code_hash,
+		req.candidate_receipt().descriptor.validation_code_hash(),
 	)
 	.await
 	{
@@ -359,7 +360,7 @@ async fn participate(
 			gum::warn!(
 				target: LOG_TARGET,
 				"Validation code unavailable for code hash {:?} in the state of block {:?}",
-				req.candidate_receipt().descriptor.validation_code_hash,
+				req.candidate_receipt().descriptor.validation_code_hash(),
 				block_hash,
 			);
 
@@ -387,7 +388,7 @@ async fn participate(
 			candidate_receipt: req.candidate_receipt().clone(),
 			pov: available_data.pov,
 			executor_params: req.executor_params(),
-			exec_kind: PvfExecKind::Approval,
+			exec_kind: PvfExecKind::Dispute,
 			response_sender: validation_tx,
 		})
 		.await;

@@ -25,21 +25,24 @@ pub use polkadot_parachain_primitives::primitives::{
 	BlockData, HeadData, ValidationParams, ValidationResult,
 };
 use runtime::{
-	Balance, Block, BlockHashCount, Runtime, RuntimeCall, Signature, SignedExtra, SignedPayload,
+	Balance, Block, BlockHashCount, Runtime, RuntimeCall, Signature, SignedPayload, TxExtension,
 	UncheckedExtrinsic, VERSION,
 };
-use sc_consensus_aura::standalone::{seal, slot_author};
+use sc_consensus_aura::{
+	find_pre_digest,
+	standalone::{seal, slot_author},
+};
 pub use sc_executor::error::Result as ExecutorResult;
 use sc_executor::HeapAllocStrategy;
 use sc_executor_common::runtime_blob::RuntimeBlob;
 use sp_api::ProvideRuntimeApi;
 use sp_application_crypto::AppCrypto;
 use sp_blockchain::HeaderBackend;
-use sp_consensus_aura::{AuraApi, Slot};
+use sp_consensus_aura::AuraApi;
 use sp_core::Pair;
 use sp_io::TestExternalities;
 use sp_keystore::testing::MemoryKeystore;
-use sp_runtime::{generic::Era, traits::Header, BuildStorage, SaturatedConversion};
+use sp_runtime::{generic::Era, traits::Header, BuildStorage, MultiAddress, SaturatedConversion};
 use std::sync::Arc;
 pub use substrate_test_client::*;
 
@@ -72,6 +75,7 @@ pub type Client = client::Client<Backend, Executor, Block, runtime::RuntimeApi>;
 #[derive(Default)]
 pub struct GenesisParameters {
 	pub endowed_accounts: Vec<cumulus_test_runtime::AccountId>,
+	pub wasm: Option<Vec<u8>>,
 }
 
 impl substrate_test_client::GenesisInit for GenesisParameters {
@@ -79,7 +83,9 @@ impl substrate_test_client::GenesisInit for GenesisParameters {
 		cumulus_test_service::chain_spec::get_chain_spec_with_extra_endowed(
 			None,
 			self.endowed_accounts.clone(),
-			cumulus_test_runtime::WASM_BINARY.expect("WASM binary not compiled!"),
+			self.wasm.as_deref().unwrap_or_else(|| {
+				cumulus_test_runtime::WASM_BINARY.expect("WASM binary not compiled!")
+			}),
 		)
 		.build_storage()
 		.expect("Builds test runtime genesis storage")
@@ -117,7 +123,7 @@ impl DefaultTestClientBuilderExt for TestClientBuilder {
 
 /// Create an unsigned extrinsic from a runtime call.
 pub fn generate_unsigned(function: impl Into<RuntimeCall>) -> UncheckedExtrinsic {
-	UncheckedExtrinsic::new_unsigned(function.into())
+	UncheckedExtrinsic::new_bare(function.into())
 }
 
 /// Create a signed extrinsic from a runtime call and sign
@@ -135,7 +141,7 @@ pub fn generate_extrinsic_with_pair(
 	let period =
 		BlockHashCount::get().checked_next_power_of_two().map(|c| c / 2).unwrap_or(2) as u64;
 	let tip = 0;
-	let extra: SignedExtra = (
+	let tx_ext: TxExtension = (
 		frame_system::CheckNonZeroSender::<Runtime>::new(),
 		frame_system::CheckSpecVersion::<Runtime>::new(),
 		frame_system::CheckGenesis::<Runtime>::new(),
@@ -143,30 +149,30 @@ pub fn generate_extrinsic_with_pair(
 		frame_system::CheckNonce::<Runtime>::from(nonce),
 		frame_system::CheckWeight::<Runtime>::new(),
 		pallet_transaction_payment::ChargeTransactionPayment::<Runtime>::from(tip),
-		cumulus_primitives_storage_weight_reclaim::StorageWeightReclaim::<Runtime>::new(),
-	);
+	)
+		.into();
 
 	let function = function.into();
 
 	let raw_payload = SignedPayload::from_raw(
 		function.clone(),
-		extra.clone(),
-		((), VERSION.spec_version, genesis_block, current_block_hash, (), (), (), ()),
+		tx_ext.clone(),
+		((), VERSION.spec_version, genesis_block, current_block_hash, (), (), ()),
 	);
 	let signature = raw_payload.using_encoded(|e| origin.sign(e));
 
 	UncheckedExtrinsic::new_signed(
 		function,
-		origin.public().into(),
+		MultiAddress::Id(origin.public().into()),
 		Signature::Sr25519(signature),
-		extra,
+		tx_ext,
 	)
 }
 
 /// Generate an extrinsic from the provided function call, origin and [`Client`].
 pub fn generate_extrinsic(
 	client: &Client,
-	origin: sp_keyring::AccountKeyring,
+	origin: sp_keyring::Sr25519Keyring,
 	function: impl Into<RuntimeCall>,
 ) -> UncheckedExtrinsic {
 	generate_extrinsic_with_pair(client, origin.into(), function, None)
@@ -175,12 +181,12 @@ pub fn generate_extrinsic(
 /// Transfer some token from one account to another using a provided test [`Client`].
 pub fn transfer(
 	client: &Client,
-	origin: sp_keyring::AccountKeyring,
-	dest: sp_keyring::AccountKeyring,
+	origin: sp_keyring::Sr25519Keyring,
+	dest: sp_keyring::Sr25519Keyring,
 	value: Balance,
 ) -> UncheckedExtrinsic {
 	let function = RuntimeCall::Balances(pallet_balances::Call::transfer_allow_death {
-		dest: dest.public().into(),
+		dest: MultiAddress::Id(dest.public().into()),
 		value,
 	});
 
@@ -233,24 +239,34 @@ fn get_keystore() -> sp_keystore::KeystorePtr {
 
 /// Given parachain block data and a slot, seal the block with an aura seal. Assumes that the
 /// authorities of the test runtime are present in the keyring.
-pub fn seal_block(
-	block: ParachainBlockData,
-	parachain_slot: Slot,
-	client: &Client,
-) -> ParachainBlockData {
-	let parent_hash = block.header().parent_hash;
-	let authorities = client.runtime_api().authorities(parent_hash).unwrap();
-	let expected_author = slot_author::<<AuraId as AppCrypto>::Pair>(parachain_slot, &authorities)
-		.expect("Should be able to find author");
+pub fn seal_block(block: ParachainBlockData, client: &Client) -> ParachainBlockData {
+	let (blocks, proof) = block.into_inner();
 
-	let (mut header, extrinsics, proof) = block.deconstruct();
-	let keystore = get_keystore();
-	let seal_digest = seal::<_, sp_consensus_aura::sr25519::AuthorityPair>(
-		&header.hash(),
-		expected_author,
-		&keystore,
+	ParachainBlockData::new(
+		blocks
+			.into_iter()
+			.map(|mut block| {
+				let parachain_slot =
+					find_pre_digest::<Block, <AuraId as AppCrypto>::Signature>(&block.header)
+						.unwrap();
+				let parent_hash = block.header.parent_hash;
+				let authorities = client.runtime_api().authorities(parent_hash).unwrap();
+				let expected_author =
+					slot_author::<<AuraId as AppCrypto>::Pair>(parachain_slot, &authorities)
+						.expect("Should be able to find author");
+
+				let keystore = get_keystore();
+				let seal_digest = seal::<_, sp_consensus_aura::sr25519::AuthorityPair>(
+					&block.header.hash(),
+					expected_author,
+					&keystore,
+				)
+				.expect("Should be able to create seal");
+				block.header.digest_mut().push(seal_digest);
+
+				block
+			})
+			.collect::<Vec<_>>(),
+		proof,
 	)
-	.expect("Should be able to create seal");
-	header.digest_mut().push(seal_digest);
-	ParachainBlockData::new(header, extrinsics, proof)
 }

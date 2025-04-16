@@ -1,12 +1,12 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
-// Substrate is free software: you can redistribute it and/or modify
+// Polkadot is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
 
-// Substrate is distributed in the hope that it will be useful,
+// Polkadot is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
@@ -289,13 +289,13 @@ impl SendXcm for Tuple {
 }
 
 /// Convenience function for using a `SendXcm` implementation. Just interprets the `dest` and wraps
-/// both in `Some` before passing them as as mutable references into `T::send_xcm`.
+/// both in `Some` before passing them as mutable references into `T::send_xcm`.
 pub fn validate_send<T: SendXcm>(dest: Location, msg: Xcm<()>) -> SendResult<T::Ticket> {
 	T::validate(&mut Some(dest), &mut Some(msg))
 }
 
 /// Convenience function for using a `SendXcm` implementation. Just interprets the `dest` and wraps
-/// both in `Some` before passing them as as mutable references into `T::send_xcm`.
+/// both in `Some` before passing them as mutable references into `T::send_xcm`.
 ///
 /// Returns either `Ok` with the price of the delivery, or `Err` with the reason why the message
 /// could not be sent.

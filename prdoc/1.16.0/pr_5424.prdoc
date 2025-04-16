@@ -1,0 +1,13 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Suppress the log output for transaction propagation when no transactions are present
+
+doc:
+  - audience: Node Dev
+    description: |
+      Previously, the log message `Propagating transactions` would always be printed, even when there were no transactions to propagate. This patch optimizes the logging by returning early when no transactions are present, resulting in cleaner and more relevant log output.
+
+crates:
+- name: sc-network-transactions
+  bump: none

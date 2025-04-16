@@ -21,7 +21,7 @@ use frame_support::{
 	traits::{fungible::Mutate, tokens::Preservation::Expendable, DefensiveResult},
 };
 use sp_arithmetic::traits::{CheckedDiv, Saturating, Zero};
-use sp_runtime::traits::Convert;
+use sp_runtime::traits::{BlockNumberProvider, Convert};
 use CompletionStatus::{Complete, Partial};
 
 impl<T: Config> Pallet<T> {
@@ -60,6 +60,27 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
+	pub(crate) fn do_force_reserve(workload: Schedule, core: CoreIndex) -> DispatchResult {
+		// Sales must have started, otherwise reserve is equivalent.
+		let sale = SaleInfo::<T>::get().ok_or(Error::<T>::NoSales)?;
+
+		// Reserve - starts at second sale period boundary from now.
+		Self::do_reserve(workload.clone())?;
+
+		// Add to workload - grants one region from the next sale boundary.
+		Workplan::<T>::insert((sale.region_begin, core), &workload);
+
+		// Assign now until the next sale boundary unless the next timeslice is already the sale
+		// boundary.
+		let status = Status::<T>::get().ok_or(Error::<T>::Uninitialized)?;
+		let timeslice = status.last_committed_timeslice.saturating_add(1);
+		if timeslice < sale.region_begin {
+			Workplan::<T>::insert((timeslice, core), &workload);
+		}
+
+		Ok(())
+	}
+
 	pub(crate) fn do_set_lease(task: TaskId, until: Timeslice) -> DispatchResult {
 		let mut r = Leases::<T>::get();
 		ensure!(until > Self::current_timeslice(), Error::<T>::AlreadyExpired);
@@ -67,6 +88,15 @@ impl<T: Config> Pallet<T> {
 			.map_err(|_| Error::<T>::TooManyLeases)?;
 		Leases::<T>::put(r);
 		Self::deposit_event(Event::<T>::Leased { until, task });
+		Ok(())
+	}
+
+	pub(crate) fn do_remove_lease(task: TaskId) -> DispatchResult {
+		let mut r = Leases::<T>::get();
+		let i = r.iter().position(|lease| lease.task == task).ok_or(Error::<T>::LeaseNotFound)?;
+		r.remove(i);
+		Leases::<T>::put(r);
+		Self::deposit_event(Event::<T>::LeaseRemoved { task });
 		Ok(())
 	}
 
@@ -91,7 +121,7 @@ impl<T: Config> Pallet<T> {
 			last_committed_timeslice: commit_timeslice.saturating_sub(1),
 			last_timeslice: Self::current_timeslice(),
 		};
-		let now = frame_system::Pallet::<T>::block_number();
+		let now = RCBlockNumberProviderOf::<T::Coretime>::current_block_number();
 		// Imaginary old sale for bootstrapping the first actual sale:
 		let old_sale = SaleInfoRecord {
 			sale_start: now,
@@ -119,7 +149,7 @@ impl<T: Config> Pallet<T> {
 		let mut sale = SaleInfo::<T>::get().ok_or(Error::<T>::NoSales)?;
 		Self::ensure_cores_for_sale(&status, &sale)?;
 
-		let now = frame_system::Pallet::<T>::block_number();
+		let now = RCBlockNumberProviderOf::<T::Coretime>::current_block_number();
 		ensure!(now > sale.sale_start, Error::<T>::TooEarly);
 		let price = Self::sale_price(&sale, now);
 		ensure!(price_limit >= price, Error::<T>::Overpriced);
@@ -171,7 +201,7 @@ impl<T: Config> Pallet<T> {
 
 		let begin = sale.region_end;
 		let price_cap = record.price + config.renewal_bump * record.price;
-		let now = frame_system::Pallet::<T>::block_number();
+		let now = RCBlockNumberProviderOf::<T::Coretime>::current_block_number();
 		let price = Self::sale_price(&sale, now).min(price_cap);
 		log::debug!(
 			"Renew with: sale price: {:?}, price cap: {:?}, old price: {:?}",
@@ -320,6 +350,14 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
+	pub(crate) fn do_remove_assignment(region_id: RegionId) -> DispatchResult {
+		let workplan_key = (region_id.begin, region_id.core);
+		ensure!(Workplan::<T>::contains_key(&workplan_key), Error::<T>::AssignmentNotFound);
+		Workplan::<T>::remove(&workplan_key);
+		Self::deposit_event(Event::<T>::AssignmentRemoved { region_id });
+		Ok(())
+	}
+
 	pub(crate) fn do_pool(
 		region_id: RegionId,
 		maybe_check_owner: Option<T::AccountId>,
@@ -405,6 +443,7 @@ impl<T: Config> Pallet<T> {
 		amount: BalanceOf<T>,
 		beneficiary: RelayAccountIdOf<T>,
 	) -> DispatchResult {
+		ensure!(amount >= T::MinimumCreditPurchase::get(), Error::<T>::CreditPurchaseTooSmall);
 		T::Currency::transfer(&who, &Self::account_id(), amount, Expendable)?;
 		let rc_amount = T::ConvertBalance::convert(amount);
 		T::Coretime::credit_account(beneficiary.clone(), rc_amount);
@@ -569,7 +608,7 @@ impl<T: Config> Pallet<T> {
 
 		Self::ensure_cores_for_sale(&status, &sale)?;
 
-		let now = frame_system::Pallet::<T>::block_number();
+		let now = RCBlockNumberProviderOf::<T::Coretime>::current_block_number();
 		Ok(Self::sale_price(&sale, now))
 	}
 }

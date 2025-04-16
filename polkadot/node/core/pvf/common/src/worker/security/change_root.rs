@@ -124,7 +124,8 @@ fn try_restrict(worker_info: &WorkerInfo) -> Result<()> {
 				libc::MS_BIND |
 					libc::MS_REC | libc::MS_NOEXEC |
 					libc::MS_NODEV | libc::MS_NOSUID |
-					libc::MS_NOATIME | additional_flags,
+					libc::MS_NOATIME |
+					additional_flags,
 				ptr::null(), // ignored when MS_BIND is used
 			) < 0
 			{

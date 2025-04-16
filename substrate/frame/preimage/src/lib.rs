@@ -88,12 +88,12 @@ pub enum RequestStatus<AccountId, Ticket> {
 	Requested { maybe_ticket: Option<(AccountId, Ticket)>, count: u32, maybe_len: Option<u32> },
 }
 
-type BalanceOf<T> =
+pub type BalanceOf<T> =
 	<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
-type TicketOf<T> = <T as Config>::Consideration;
+pub type TicketOf<T> = <T as Config>::Consideration;
 
 /// Maximum size of preimage we can store is 4mb.
-const MAX_SIZE: u32 = 4 * 1024 * 1024;
+pub const MAX_SIZE: u32 = 4 * 1024 * 1024;
 /// Hard-limit on the number of hashes that can be passed to `ensure_updated`.
 ///
 /// Exists only for benchmarking purposes.
@@ -124,8 +124,6 @@ pub mod pallet {
 		type ManagerOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
 		/// A means of providing some cost while data is stored on-chain.
-		///
-		/// Should never return a `None`, implying no cost for a non-empty preimage.
 		type Consideration: Consideration<Self::AccountId, Footprint>;
 	}
 
@@ -134,7 +132,7 @@ pub mod pallet {
 	pub struct Pallet<T>(_);
 
 	#[pallet::event]
-	#[pallet::generate_deposit(pub(super) fn deposit_event)]
+	#[pallet::generate_deposit(pub fn deposit_event)]
 	pub enum Event<T: Config> {
 		/// A preimage has been noted.
 		Noted { hash: T::Hash },
@@ -162,8 +160,6 @@ pub mod pallet {
 		TooMany,
 		/// Too few hashes were requested to be upgraded (i.e. zero).
 		TooFew,
-		/// No ticket with a cost was returned by [`Config::Consideration`] to store the preimage.
-		NoCost,
 	}
 
 	/// A reason for this pallet placing a hold on funds.
@@ -176,16 +172,16 @@ pub mod pallet {
 	/// The request status of a given hash.
 	#[deprecated = "RequestStatusFor"]
 	#[pallet::storage]
-	pub(super) type StatusFor<T: Config> =
+	pub type StatusFor<T: Config> =
 		StorageMap<_, Identity, T::Hash, OldRequestStatus<T::AccountId, BalanceOf<T>>>;
 
 	/// The request status of a given hash.
 	#[pallet::storage]
-	pub(super) type RequestStatusFor<T: Config> =
+	pub type RequestStatusFor<T: Config> =
 		StorageMap<_, Identity, T::Hash, RequestStatus<T::AccountId, TicketOf<T>>>;
 
 	#[pallet::storage]
-	pub(super) type PreimageFor<T: Config> =
+	pub type PreimageFor<T: Config> =
 		StorageMap<_, Identity, (T::Hash, u32), BoundedVec<u8, ConstU32<MAX_SIZE>>>;
 
 	#[pallet::call(weight = T::WeightInfo)]
@@ -240,7 +236,7 @@ pub mod pallet {
 			Self::do_unrequest_preimage(&hash)
 		}
 
-		/// Ensure that the a bulk of pre-images is upgraded.
+		/// Ensure that the bulk of pre-images is upgraded.
 		///
 		/// The caller pays no fee if at least 90% of pre-images were successfully updated.
 		#[pallet::call_index(4)]
@@ -274,10 +270,10 @@ impl<T: Config> Pallet<T> {
 				// unreserve deposit
 				T::Currency::unreserve(&who, amount);
 				// take consideration
-				let Ok(Some(ticket)) =
+				let Ok(ticket) =
 					T::Consideration::new(&who, Footprint::from_parts(1, len as usize))
+						.defensive_proof("Unexpected inability to take deposit after unreserved")
 				else {
-					defensive!("None ticket or inability to take deposit after unreserved");
 					return true
 				};
 				RequestStatus::Unrequested { ticket: (who, ticket), len }
@@ -288,10 +284,12 @@ impl<T: Config> Pallet<T> {
 					T::Currency::unreserve(&who, deposit);
 					// take consideration
 					if let Some(len) = maybe_len {
-						let Ok(Some(ticket)) =
+						let Ok(ticket) =
 							T::Consideration::new(&who, Footprint::from_parts(1, len as usize))
+								.defensive_proof(
+									"Unexpected inability to take deposit after unreserved",
+								)
 						else {
-							defensive!("None ticket or inability to take deposit after unreserved");
 							return true
 						};
 						Some((who, ticket))
@@ -351,8 +349,7 @@ impl<T: Config> Pallet<T> {
 				RequestStatus::Requested { maybe_ticket: None, count: 1, maybe_len: Some(len) },
 			(None, Some(depositor)) => {
 				let ticket =
-					T::Consideration::new(depositor, Footprint::from_parts(1, len as usize))?
-						.ok_or(Error::<T>::NoCost)?;
+					T::Consideration::new(depositor, Footprint::from_parts(1, len as usize))?;
 				RequestStatus::Unrequested { ticket: (depositor.clone(), ticket), len }
 			},
 		};

@@ -13,32 +13,29 @@ workspace = true
 codec = { features = ["derive"], workspace = true }
 
 # Polkadot dependencies
+polkadot-primitives = { workspace = true, default-features = true }
 polkadot-test-runtime = { workspace = true }
 polkadot-test-service = { workspace = true }
-polkadot-primitives = { workspace = true, default-features = true }
-polkadot-node-subsystem = { workspace = true, default-features = true }
 
 # Substrate dependencies
-substrate-test-client = { workspace = true }
-sc-service = { workspace = true, default-features = true }
+frame-benchmarking = { workspace = true, default-features = true }
 sc-block-builder = { workspace = true, default-features = true }
 sc-consensus = { workspace = true, default-features = true }
-sc-offchain = { workspace = true, default-features = true }
-sp-blockchain = { workspace = true, default-features = true }
-sp-runtime = { workspace = true, default-features = true }
-sp-inherents = { workspace = true, default-features = true }
-sp-core = { workspace = true, default-features = true }
+sc-service = { workspace = true, default-features = true }
 sp-api = { workspace = true, default-features = true }
-sp-timestamp = { workspace = true, default-features = true }
+sp-blockchain = { workspace = true, default-features = true }
 sp-consensus = { workspace = true, default-features = true }
 sp-consensus-babe = { workspace = true, default-features = true }
-sp-state-machine = { workspace = true, default-features = true }
+sp-inherents = { workspace = true, default-features = true }
 sp-io = { workspace = true, default-features = true }
-frame-benchmarking = { workspace = true, default-features = true }
+sp-runtime = { workspace = true, default-features = true }
+sp-state-machine = { workspace = true, default-features = true }
+sp-timestamp = { workspace = true, default-features = true }
+substrate-test-client = { workspace = true }
 
 [dev-dependencies]
-sp-keyring = { workspace = true, default-features = true }
 futures = { workspace = true }
+sp-keyring = { workspace = true, default-features = true }
 
 [features]
 runtime-benchmarks = [

@@ -117,7 +117,7 @@ pub mod pallet {
 		///
 		/// However, if the bridged chain gets compromised, its validators may generate as many
 		/// "free" headers as they want. And they may fill the whole block (at this chain) for
-		/// free. This constants limits number of calls that we may refund in a single block.
+		/// free. This constant limits number of calls that we may refund in a single block.
 		/// All calls above this limit are accepted, but are not refunded.
 		#[pallet::constant]
 		type MaxFreeHeadersPerBlock: Get<u32>;
@@ -418,7 +418,6 @@ pub mod pallet {
 
 	/// Hash of the best finalized header.
 	#[pallet::storage]
-	#[pallet::getter(fn best_finalized)]
 	pub type BestFinalized<T: Config<I>, I: 'static = ()> =
 		StorageValue<_, BridgedBlockId<T, I>, OptionQuery>;
 
@@ -728,15 +727,13 @@ pub mod pallet {
 			init_params;
 		let authority_set_length = authority_list.len();
 		let authority_set = StoredAuthoritySet::<T, I>::try_new(authority_list, set_id)
-			.map_err(|e| {
+			.inspect_err(|_| {
 				log::error!(
 					target: LOG_TARGET,
 					"Failed to initialize bridge. Number of authorities in the set {} is larger than the configured value {}",
 					authority_set_length,
 					T::BridgedChain::MAX_AUTHORITIES_COUNT,
 				);
-
-				e
 			})?;
 		let initial_hash = header.hash();
 
@@ -791,12 +788,9 @@ where
 	pub fn synced_headers_grandpa_info() -> Vec<StoredHeaderGrandpaInfo<BridgedHeader<T, I>>> {
 		frame_system::Pallet::<T>::read_events_no_consensus()
 			.filter_map(|event| {
-				if let Event::<T, I>::UpdatedBestFinalizedHeader { grandpa_info, .. } =
-					event.event.try_into().ok()?
-				{
-					return Some(grandpa_info)
-				}
-				None
+				let Event::<T, I>::UpdatedBestFinalizedHeader { grandpa_info, .. } =
+					event.event.try_into().ok()?;
+				Some(grandpa_info)
 			})
 			.collect()
 	}
@@ -824,6 +818,13 @@ pub fn initialize_for_benchmarks<T: Config<I>, I: 'static>(header: BridgedHeader
 		operating_mode: bp_runtime::BasicOperatingMode::Normal,
 	})
 	.expect("only used from benchmarks; benchmarks are correct; qed");
+}
+
+impl<T: Config<I>, I: 'static> Pallet<T, I> {
+	/// Returns the hash of the best finalized header.
+	pub fn best_finalized() -> Option<BridgedBlockId<T, I>> {
+		BestFinalized::<T, I>::get()
+	}
 }
 
 #[cfg(test)]

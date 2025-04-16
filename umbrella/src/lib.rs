@@ -35,10 +35,6 @@ pub use bp_messages;
 #[cfg(feature = "bp-parachains")]
 pub use bp_parachains;
 
-/// Primitives of Polkadot runtime.
-#[cfg(feature = "bp-polkadot")]
-pub use bp_polkadot;
-
 /// Primitives of Polkadot-like runtime.
 #[cfg(feature = "bp-polkadot-core")]
 pub use bp_polkadot_core;
@@ -109,7 +105,7 @@ pub use cumulus_client_network;
 #[cfg(feature = "cumulus-client-parachain-inherent")]
 pub use cumulus_client_parachain_inherent;
 
-/// Cumulus-specific networking protocol.
+/// Parachain PoV recovery.
 #[cfg(feature = "cumulus-client-pov-recovery")]
 pub use cumulus_client_pov_recovery;
 
@@ -140,6 +136,10 @@ pub use cumulus_pallet_session_benchmarking;
 /// Adds functionality to migrate from a Solo to a Parachain.
 #[cfg(feature = "cumulus-pallet-solo-to-para")]
 pub use cumulus_pallet_solo_to_para;
+
+/// pallet and transaction extensions for accurate proof size reclaim.
+#[cfg(feature = "cumulus-pallet-weight-reclaim")]
+pub use cumulus_pallet_weight_reclaim;
 
 /// Pallet for stuff specific to parachains' usage of XCM.
 #[cfg(feature = "cumulus-pallet-xcm")]
@@ -272,7 +272,7 @@ pub use frame_system_benchmarking;
 #[cfg(feature = "frame-system-rpc-runtime-api")]
 pub use frame_system_rpc_runtime_api;
 
-/// FRAME pallet for democracy.
+/// Supporting types for try-runtime, testing and dry-running commands.
 #[cfg(feature = "frame-try-runtime")]
 pub use frame_try_runtime;
 
@@ -308,6 +308,10 @@ pub use pallet_asset_conversion_tx_payment;
 #[cfg(feature = "pallet-asset-rate")]
 pub use pallet_asset_rate;
 
+/// FRAME asset rewards pallet.
+#[cfg(feature = "pallet-asset-rewards")]
+pub use pallet_asset_rewards;
+
 /// pallet to manage transaction payments in assets.
 #[cfg(feature = "pallet-asset-tx-payment")]
 pub use pallet_asset_tx_payment;
@@ -319,6 +323,10 @@ pub use pallet_assets;
 /// Provides freezing features to `pallet-assets`.
 #[cfg(feature = "pallet-assets-freezer")]
 pub use pallet_assets_freezer;
+
+/// Provides holding features to `pallet-assets`.
+#[cfg(feature = "pallet-assets-holder")]
+pub use pallet_assets_holder;
 
 /// FRAME atomic swap pallet.
 #[cfg(feature = "pallet-atomic-swap")]
@@ -487,6 +495,10 @@ pub use pallet_membership;
 #[cfg(feature = "pallet-message-queue")]
 pub use pallet_message_queue;
 
+/// FRAME pallet enabling meta transactions.
+#[cfg(feature = "pallet-meta-tx")]
+pub use pallet_meta_tx;
+
 /// FRAME pallet to execute multi-block migrations.
 #[cfg(feature = "pallet-migrations")]
 pub use pallet_migrations;
@@ -575,6 +587,26 @@ pub use pallet_referenda;
 /// Remark storage pallet.
 #[cfg(feature = "pallet-remark")]
 pub use pallet_remark;
+
+/// FRAME pallet for PolkaVM contracts.
+#[cfg(feature = "pallet-revive")]
+pub use pallet_revive;
+
+/// An Ethereum JSON-RPC server for pallet-revive.
+#[cfg(feature = "pallet-revive-eth-rpc")]
+pub use pallet_revive_eth_rpc;
+
+/// A mock network for testing pallet-revive.
+#[cfg(feature = "pallet-revive-mock-network")]
+pub use pallet_revive_mock_network;
+
+/// Procedural macros used in pallet_revive.
+#[cfg(feature = "pallet-revive-proc-macro")]
+pub use pallet_revive_proc_macro;
+
+/// Exposes all the host functions that a contract can import.
+#[cfg(feature = "pallet-revive-uapi")]
+pub use pallet_revive_uapi;
 
 /// FRAME root offences pallet.
 #[cfg(feature = "pallet-root-offences")]
@@ -685,11 +717,15 @@ pub use pallet_uniques;
 #[cfg(feature = "pallet-utility")]
 pub use pallet_utility;
 
+/// FRAME verify signature pallet.
+#[cfg(feature = "pallet-verify-signature")]
+pub use pallet_verify_signature;
+
 /// FRAME pallet for manage vesting.
 #[cfg(feature = "pallet-vesting")]
 pub use pallet_vesting;
 
-/// FRAME pallet for whitelisting call, and dispatch from specific origin.
+/// FRAME pallet for whitelisting calls, and dispatching from a specific origin.
 #[cfg(feature = "pallet-whitelist")]
 pub use pallet_whitelist;
 
@@ -776,6 +812,10 @@ pub use polkadot_node_collation_generation;
 #[cfg(feature = "polkadot-node-core-approval-voting")]
 pub use polkadot_node_core_approval_voting;
 
+/// Approval Voting Subsystem running approval work in parallel.
+#[cfg(feature = "polkadot-node-core-approval-voting-parallel")]
+pub use polkadot_node_core_approval_voting_parallel;
+
 /// The Availability Store subsystem. Wrapper over the DB that stores availability data and
 /// chunks.
 #[cfg(feature = "polkadot-node-core-av-store")]
@@ -850,10 +890,6 @@ pub use polkadot_node_core_pvf_prepare_worker;
 #[cfg(feature = "polkadot-node-core-runtime-api")]
 pub use polkadot_node_core_runtime_api;
 
-/// Polkadot Jaeger primitives, but equally useful for Grafana/Tempo.
-#[cfg(feature = "polkadot-node-jaeger")]
-pub use polkadot_node_jaeger;
-
 /// Subsystem metric helpers.
 #[cfg(feature = "polkadot-node-metrics")]
 pub use polkadot_node_metrics;
@@ -877,6 +913,10 @@ pub use polkadot_node_subsystem_types;
 /// Subsystem traits and message definitions.
 #[cfg(feature = "polkadot-node-subsystem-util")]
 pub use polkadot_node_subsystem_util;
+
+/// Helper library that can be used to build a parachain node.
+#[cfg(feature = "polkadot-omni-node-lib")]
+pub use polkadot_omni_node_lib;
 
 /// System overseer of the Polkadot node.
 #[cfg(feature = "polkadot-overseer")]
@@ -1091,6 +1131,10 @@ pub use sc_rpc_server;
 #[cfg(feature = "sc-rpc-spec-v2")]
 pub use sc_rpc_spec_v2;
 
+/// Substrate client utilities for frame runtime functions calls.
+#[cfg(feature = "sc-runtime-utilities")]
+pub use sc_runtime_utilities;
+
 /// Substrate service. Starts a thread that spins up the network, client, and extrinsic pool.
 /// Manages communication between them.
 #[cfg(feature = "sc-service")]
@@ -1143,66 +1187,6 @@ pub use sc_utils;
 /// Helper crate for generating slot ranges for the Polkadot runtime.
 #[cfg(feature = "slot-range-helper")]
 pub use slot_range_helper;
-
-/// Snowbridge Beacon Primitives.
-#[cfg(feature = "snowbridge-beacon-primitives")]
-pub use snowbridge_beacon_primitives;
-
-/// Snowbridge Core.
-#[cfg(feature = "snowbridge-core")]
-pub use snowbridge_core;
-
-/// Snowbridge Ethereum.
-#[cfg(feature = "snowbridge-ethereum")]
-pub use snowbridge_ethereum;
-
-/// Snowbridge Outbound Queue Merkle Tree.
-#[cfg(feature = "snowbridge-outbound-queue-merkle-tree")]
-pub use snowbridge_outbound_queue_merkle_tree;
-
-/// Snowbridge Outbound Queue Runtime API.
-#[cfg(feature = "snowbridge-outbound-queue-runtime-api")]
-pub use snowbridge_outbound_queue_runtime_api;
-
-/// Snowbridge Ethereum Client Pallet.
-#[cfg(feature = "snowbridge-pallet-ethereum-client")]
-pub use snowbridge_pallet_ethereum_client;
-
-/// Snowbridge Ethereum Client Test Fixtures.
-#[cfg(feature = "snowbridge-pallet-ethereum-client-fixtures")]
-pub use snowbridge_pallet_ethereum_client_fixtures;
-
-/// Snowbridge Inbound Queue Pallet.
-#[cfg(feature = "snowbridge-pallet-inbound-queue")]
-pub use snowbridge_pallet_inbound_queue;
-
-/// Snowbridge Inbound Queue Test Fixtures.
-#[cfg(feature = "snowbridge-pallet-inbound-queue-fixtures")]
-pub use snowbridge_pallet_inbound_queue_fixtures;
-
-/// Snowbridge Outbound Queue Pallet.
-#[cfg(feature = "snowbridge-pallet-outbound-queue")]
-pub use snowbridge_pallet_outbound_queue;
-
-/// Snowbridge System Pallet.
-#[cfg(feature = "snowbridge-pallet-system")]
-pub use snowbridge_pallet_system;
-
-/// Snowbridge Router Primitives.
-#[cfg(feature = "snowbridge-router-primitives")]
-pub use snowbridge_router_primitives;
-
-/// Snowbridge Runtime Common.
-#[cfg(feature = "snowbridge-runtime-common")]
-pub use snowbridge_runtime_common;
-
-/// Snowbridge Runtime Tests.
-#[cfg(feature = "snowbridge-runtime-test-common")]
-pub use snowbridge_runtime_test_common;
-
-/// Snowbridge System Runtime API.
-#[cfg(feature = "snowbridge-system-runtime-api")]
-pub use snowbridge_system_runtime_api;
 
 /// Substrate runtime api primitives.
 #[cfg(feature = "sp-api")]

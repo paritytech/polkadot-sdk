@@ -49,7 +49,7 @@ pub(crate) mod metrics;
 mod tests;
 
 /// Logging target for the file.
-const LOG_TARGET: &str = "sub-libp2p";
+const LOG_TARGET: &str = "sub-libp2p::notification::service";
 
 /// Default command queue size.
 const COMMAND_QUEUE_SIZE: usize = 64;
@@ -89,9 +89,8 @@ impl MessageSink for NotificationSink {
 			.await
 			.map_err(|_| error::Error::ConnectionClosed)?;
 
-		permit.send(notification).map_err(|_| error::Error::ChannelClosed).map(|res| {
+		permit.send(notification).map_err(|_| error::Error::ChannelClosed).inspect(|_| {
 			metrics::register_notification_sent(sink.0.metrics(), &sink.1, notification_len);
-			res
 		})
 	}
 }
@@ -263,13 +262,12 @@ impl NotificationService for NotificationHandle {
 			.map_err(|_| error::Error::ConnectionClosed)?
 			.send(notification)
 			.map_err(|_| error::Error::ChannelClosed)
-			.map(|res| {
+			.inspect(|_| {
 				metrics::register_notification_sent(
 					sink.metrics(),
 					&self.protocol,
 					notification_len,
 				);
-				res
 			})
 	}
 

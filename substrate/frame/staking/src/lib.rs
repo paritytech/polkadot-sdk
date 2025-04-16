@@ -295,6 +295,7 @@ pub(crate) mod mock;
 #[cfg(test)]
 mod tests;
 
+pub mod asset;
 pub mod election_size_tracker;
 pub mod inflation;
 pub mod ledger;
@@ -307,11 +308,14 @@ mod pallet;
 extern crate alloc;
 
 use alloc::{collections::btree_map::BTreeMap, vec, vec::Vec};
-use codec::{Decode, Encode, HasCompact, MaxEncodedLen};
+use codec::{
+	Decode, DecodeWithMemTracking, Encode, EncodeLike, HasCompact, Input, MaxEncodedLen, Output,
+};
 use frame_support::{
 	defensive, defensive_assert,
 	traits::{
-		ConstU32, Currency, Defensive, DefensiveMax, DefensiveSaturating, Get, LockIdentifier,
+		tokens::fungible::{Credit, Debt},
+		ConstU32, Contains, Defensive, DefensiveMax, DefensiveSaturating, Get, LockIdentifier,
 	},
 	weights::Weight,
 	BoundedVec, CloneNoBound, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound,
@@ -323,7 +327,7 @@ use sp_runtime::{
 	Perbill, Perquintill, Rounding, RuntimeDebug, Saturating,
 };
 use sp_staking::{
-	offence::{Offence, OffenceError, ReportOffence},
+	offence::{Offence, OffenceError, OffenceSeverity, ReportOffence},
 	EraIndex, ExposurePage, OnStakingUpdate, Page, PagedExposureMetadata, SessionIndex,
 	StakingAccount,
 };
@@ -360,12 +364,9 @@ pub type RewardPoint = u32;
 /// The balance type of this pallet.
 pub type BalanceOf<T> = <T as Config>::CurrencyBalance;
 
-type PositiveImbalanceOf<T> = <<T as Config>::Currency as Currency<
-	<T as frame_system::Config>::AccountId,
->>::PositiveImbalance;
-pub type NegativeImbalanceOf<T> = <<T as Config>::Currency as Currency<
-	<T as frame_system::Config>::AccountId,
->>::NegativeImbalance;
+type PositiveImbalanceOf<T> = Debt<<T as frame_system::Config>::AccountId, <T as Config>::Currency>;
+pub type NegativeImbalanceOf<T> =
+	Credit<<T as frame_system::Config>::AccountId, <T as Config>::Currency>;
 
 type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup>::Source;
 
@@ -399,7 +400,18 @@ impl<AccountId: Ord> Default for EraRewardPoints<AccountId> {
 }
 
 /// A destination account for payment.
-#[derive(PartialEq, Eq, Copy, Clone, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(
+	PartialEq,
+	Eq,
+	Copy,
+	Clone,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	RuntimeDebug,
+	TypeInfo,
+	MaxEncodedLen,
+)]
 pub enum RewardDestination<AccountId> {
 	/// Pay into the stash account, increasing the amount at stake accordingly.
 	Staked,
@@ -416,7 +428,18 @@ pub enum RewardDestination<AccountId> {
 }
 
 /// Preference of what happens regarding validation.
-#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, TypeInfo, Default, MaxEncodedLen)]
+#[derive(
+	PartialEq,
+	Eq,
+	Clone,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	RuntimeDebug,
+	TypeInfo,
+	Default,
+	MaxEncodedLen,
+)]
 pub struct ValidatorPrefs {
 	/// Reward that validator takes up-front; only the rest is split between themselves and
 	/// nominators.
@@ -429,7 +452,17 @@ pub struct ValidatorPrefs {
 }
 
 /// Just a Balance/BlockNumber tuple to encode when a chunk of funds will be unlocked.
-#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(
+	PartialEq,
+	Eq,
+	Clone,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	RuntimeDebug,
+	TypeInfo,
+	MaxEncodedLen,
+)]
 pub struct UnlockChunk<Balance: HasCompact + MaxEncodedLen> {
 	/// Amount of funds to be unlocked.
 	#[codec(compact)]
@@ -537,6 +570,52 @@ impl<T: Config> StakingLedger<T> {
 			legacy_claimed_rewards: self.legacy_claimed_rewards,
 			controller: self.controller,
 		}
+	}
+
+	/// Sets ledger total to the `new_total`.
+	///
+	/// Removes entries from `unlocking` upto `amount` starting from the oldest first.
+	fn update_total_stake(mut self, new_total: BalanceOf<T>) -> Self {
+		let old_total = self.total;
+		self.total = new_total;
+		debug_assert!(
+			new_total <= old_total,
+			"new_total {:?} must be <= old_total {:?}",
+			new_total,
+			old_total
+		);
+
+		let to_withdraw = old_total.defensive_saturating_sub(new_total);
+		// accumulator to keep track of how much is withdrawn.
+		// First we take out from active.
+		let mut withdrawn = BalanceOf::<T>::zero();
+
+		// first we try to remove stake from active
+		if self.active >= to_withdraw {
+			self.active -= to_withdraw;
+			return self
+		} else {
+			withdrawn += self.active;
+			self.active = BalanceOf::<T>::zero();
+		}
+
+		// start removing from the oldest chunk.
+		while let Some(last) = self.unlocking.last_mut() {
+			if withdrawn.defensive_saturating_add(last.value) <= to_withdraw {
+				withdrawn += last.value;
+				self.unlocking.pop();
+			} else {
+				let diff = to_withdraw.defensive_saturating_sub(withdrawn);
+				withdrawn += diff;
+				last.value -= diff;
+			}
+
+			if withdrawn >= to_withdraw {
+				break
+			}
+		}
+
+		self
 	}
 
 	/// Re-bond funds that were scheduled for unlocking.
@@ -845,9 +924,8 @@ impl<Balance, const MAX: u32> NominationsQuota<Balance> for FixedNominationsQuot
 ///
 /// This is needed because `Staking` sets the `ValidatorIdOf` of the `pallet_session::Config`
 pub trait SessionInterface<AccountId> {
-	/// Disable the validator at the given index, returns `false` if the validator was already
-	/// disabled or the index is out of bounds.
-	fn disable_validator(validator_index: u32) -> bool;
+	/// Report an offending validator.
+	fn report_offence(validator: AccountId, severity: OffenceSeverity);
 	/// Get the validators from session.
 	fn validators() -> Vec<AccountId>;
 	/// Prune historical session tries up to but not including the given index.
@@ -857,10 +935,7 @@ pub trait SessionInterface<AccountId> {
 impl<T: Config> SessionInterface<<T as frame_system::Config>::AccountId> for T
 where
 	T: pallet_session::Config<ValidatorId = <T as frame_system::Config>::AccountId>,
-	T: pallet_session::historical::Config<
-		FullIdentification = Exposure<<T as frame_system::Config>::AccountId, BalanceOf<T>>,
-		FullIdentificationOf = ExposureOf<T>,
-	>,
+	T: pallet_session::historical::Config,
 	T::SessionHandler: pallet_session::SessionHandler<<T as frame_system::Config>::AccountId>,
 	T::SessionManager: pallet_session::SessionManager<<T as frame_system::Config>::AccountId>,
 	T::ValidatorIdOf: Convert<
@@ -868,8 +943,11 @@ where
 		Option<<T as frame_system::Config>::AccountId>,
 	>,
 {
-	fn disable_validator(validator_index: u32) -> bool {
-		<pallet_session::Pallet<T>>::disable_index(validator_index)
+	fn report_offence(
+		validator: <T as frame_system::Config>::AccountId,
+		severity: OffenceSeverity,
+	) {
+		<pallet_session::Pallet<T>>::report_offence(validator, severity)
 	}
 
 	fn validators() -> Vec<<T as frame_system::Config>::AccountId> {
@@ -882,8 +960,8 @@ where
 }
 
 impl<AccountId> SessionInterface<AccountId> for () {
-	fn disable_validator(_: u32) -> bool {
-		true
+	fn report_offence(_validator: AccountId, _severity: OffenceSeverity) {
+		()
 	}
 	fn validators() -> Vec<AccountId> {
 		Vec::new()
@@ -949,6 +1027,7 @@ where
 	Eq,
 	Encode,
 	Decode,
+	DecodeWithMemTracking,
 	RuntimeDebug,
 	TypeInfo,
 	MaxEncodedLen,
@@ -989,14 +1068,82 @@ impl<T: Config> Convert<T::AccountId, Option<T::AccountId>> for StashOf<T> {
 ///
 /// Active exposure is the exposure of the validator set currently validating, i.e. in
 /// `active_era`. It can differ from the latest planned exposure in `current_era`.
+#[deprecated(note = "Use `ExistenceOf` or `ExistenceOrLegacyExposureOf` instead")]
 pub struct ExposureOf<T>(core::marker::PhantomData<T>);
 
+#[allow(deprecated)]
 impl<T: Config> Convert<T::AccountId, Option<Exposure<T::AccountId, BalanceOf<T>>>>
 	for ExposureOf<T>
 {
 	fn convert(validator: T::AccountId) -> Option<Exposure<T::AccountId, BalanceOf<T>>> {
-		<Pallet<T>>::active_era()
+		ActiveEra::<T>::get()
 			.map(|active_era| <Pallet<T>>::eras_stakers(active_era.index, &validator))
+	}
+}
+
+/// A type representing the presence of a validator. Encodes as a unit type.
+pub type Existence = ();
+
+/// A converter type that returns `Some(())` if the validator exists in the current active era,
+/// otherwise `None`. This serves as a lightweight presence check for validators.
+pub struct ExistenceOf<T>(core::marker::PhantomData<T>);
+impl<T: Config> Convert<T::AccountId, Option<Existence>> for ExistenceOf<T> {
+	fn convert(validator: T::AccountId) -> Option<Existence> {
+		Validators::<T>::contains_key(&validator).then_some(())
+	}
+}
+
+/// A compatibility wrapper type used to represent the presence of a validator in the current era.
+/// Encodes as type [`Existence`] but can decode from legacy [`Exposure`] values for backward
+/// compatibility.
+#[derive(PartialEq, Eq, PartialOrd, Ord, Clone, RuntimeDebug, TypeInfo, DecodeWithMemTracking)]
+pub enum ExistenceOrLegacyExposure<A, B: HasCompact> {
+	/// Validator exists in the current era.
+	Exists,
+	/// Legacy `Exposure` data, retained for decoding compatibility.
+	Exposure(Exposure<A, B>),
+}
+
+/// Converts a validator account ID to a Some([`ExistenceOrLegacyExposure::Exists`]) if the
+/// validator exists in the current era, otherwise `None`.
+pub struct ExistenceOrLegacyExposureOf<T>(core::marker::PhantomData<T>);
+
+impl<T: Config> Convert<T::AccountId, Option<ExistenceOrLegacyExposure<T::AccountId, BalanceOf<T>>>>
+	for ExistenceOrLegacyExposureOf<T>
+{
+	fn convert(
+		validator: T::AccountId,
+	) -> Option<ExistenceOrLegacyExposure<T::AccountId, BalanceOf<T>>> {
+		ActiveEra::<T>::get()
+			.map(|active_era| ErasStakersOverview::<T>::contains_key(active_era.index, &validator))
+			.unwrap_or(false)
+			.then_some(ExistenceOrLegacyExposure::Exists)
+	}
+}
+
+impl<A, B: HasCompact> Encode for ExistenceOrLegacyExposure<A, B>
+where
+	Exposure<A, B>: Encode,
+{
+	fn encode_to<T: Output + ?Sized>(&self, dest: &mut T) {
+		match self {
+			ExistenceOrLegacyExposure::Exists => (),
+			ExistenceOrLegacyExposure::Exposure(exposure) => exposure.encode_to(dest),
+		}
+	}
+}
+
+impl<A, B: HasCompact> EncodeLike for ExistenceOrLegacyExposure<A, B> where Exposure<A, B>: Encode {}
+
+impl<A, B: HasCompact> Decode for ExistenceOrLegacyExposure<A, B>
+where
+	Exposure<A, B>: Decode,
+{
+	fn decode<I: Input>(input: &mut I) -> Result<Self, codec::Error> {
+		match input.remaining_len() {
+			Ok(Some(x)) if x > 0 => Ok(ExistenceOrLegacyExposure::Exposure(Decode::decode(input)?)),
+			_ => Ok(ExistenceOrLegacyExposure::Exists),
+		}
 	}
 }
 
@@ -1248,6 +1395,24 @@ impl<T: Config> EraInfo<T> {
 	}
 }
 
+/// A utility struct that provides a way to check if a given account is a staker.
+///
+/// This struct implements the `Contains` trait, allowing it to determine whether
+/// a particular account is currently staking by checking if the account exists in
+/// the staking ledger.
+pub struct AllStakers<T: Config>(core::marker::PhantomData<T>);
+
+impl<T: Config> Contains<T::AccountId> for AllStakers<T> {
+	/// Checks if the given account ID corresponds to a staker.
+	///
+	/// # Returns
+	/// - `true` if the account has an entry in the staking ledger (indicating it is staking).
+	/// - `false` otherwise.
+	fn contains(account: &T::AccountId) -> bool {
+		Ledger::<T>::contains_key(account)
+	}
+}
+
 /// Configurations of the benchmarking of the pallet.
 pub trait BenchmarkingConfig {
 	/// The maximum number of validators to use.
@@ -1268,78 +1433,51 @@ impl BenchmarkingConfig for TestBenchmarkingConfig {
 	type MaxNominators = frame_support::traits::ConstU32<100>;
 }
 
-/// Controls validator disabling
-pub trait DisablingStrategy<T: Config> {
-	/// Make a disabling decision. Returns the index of the validator to disable or `None` if no new
-	/// validator should be disabled.
-	fn decision(
-		offender_stash: &T::AccountId,
-		slash_era: EraIndex,
-		currently_disabled: &Vec<u32>,
-	) -> Option<u32>;
-}
+#[cfg(test)]
+mod test {
+	use crate::ExistenceOrLegacyExposure;
+	use codec::{Decode, Encode};
+	use sp_staking::{Exposure, IndividualExposure};
 
-/// Implementation of [`DisablingStrategy`] which disables validators from the active set up to a
-/// threshold. `DISABLING_LIMIT_FACTOR` is the factor of the maximum disabled validators in the
-/// active set. E.g. setting this value to `3` means no more than 1/3 of the validators in the
-/// active set can be disabled in an era.
-/// By default a factor of 3 is used which is the byzantine threshold.
-pub struct UpToLimitDisablingStrategy<const DISABLING_LIMIT_FACTOR: usize = 3>;
+	#[test]
+	fn existence_encodes_decodes_correctly() {
+		let encoded_existence = ExistenceOrLegacyExposure::<u32, u32>::Exists.encode();
+		assert!(encoded_existence.is_empty());
 
-impl<const DISABLING_LIMIT_FACTOR: usize> UpToLimitDisablingStrategy<DISABLING_LIMIT_FACTOR> {
-	/// Disabling limit calculated from the total number of validators in the active set. When
-	/// reached no more validators will be disabled.
-	pub fn disable_limit(validators_len: usize) -> usize {
-		validators_len
-			.saturating_sub(1)
-			.checked_div(DISABLING_LIMIT_FACTOR)
-			.unwrap_or_else(|| {
-				defensive!("DISABLING_LIMIT_FACTOR should not be 0");
-				0
-			})
+		// try decoding the existence
+		let decoded_existence =
+			ExistenceOrLegacyExposure::<u32, u32>::decode(&mut encoded_existence.as_slice())
+				.unwrap();
+		assert!(matches!(decoded_existence, ExistenceOrLegacyExposure::Exists));
+
+		// check that round-trip encoding works
+		assert_eq!(encoded_existence, decoded_existence.encode());
 	}
-}
 
-impl<T: Config, const DISABLING_LIMIT_FACTOR: usize> DisablingStrategy<T>
-	for UpToLimitDisablingStrategy<DISABLING_LIMIT_FACTOR>
-{
-	fn decision(
-		offender_stash: &T::AccountId,
-		slash_era: EraIndex,
-		currently_disabled: &Vec<u32>,
-	) -> Option<u32> {
-		let active_set = T::SessionInterface::validators();
-
-		// We don't disable more than the limit
-		if currently_disabled.len() >= Self::disable_limit(active_set.len()) {
-			log!(
-				debug,
-				"Won't disable: reached disabling limit {:?}",
-				Self::disable_limit(active_set.len())
-			);
-			return None
-		}
-
-		// We don't disable for offences in previous eras
-		if ActiveEra::<T>::get().map(|e| e.index).unwrap_or_default() > slash_era {
-			log!(
-				debug,
-				"Won't disable: current_era {:?} > slash_era {:?}",
-				Pallet::<T>::current_era().unwrap_or_default(),
-				slash_era
-			);
-			return None
-		}
-
-		let offender_idx = if let Some(idx) = active_set.iter().position(|i| i == offender_stash) {
-			idx as u32
-		} else {
-			log!(debug, "Won't disable: offender not in active set",);
-			return None
+	#[test]
+	fn legacy_existence_encodes_decodes_correctly() {
+		let legacy_exposure = Exposure::<u32, u32> {
+			total: 1,
+			own: 2,
+			others: vec![IndividualExposure { who: 3, value: 4 }],
 		};
 
-		log!(debug, "Will disable {:?}", offender_idx);
+		let encoded_legacy_exposure = legacy_exposure.encode();
 
-		Some(offender_idx)
+		// try decoding the legacy exposure
+		let decoded_legacy_exposure =
+			ExistenceOrLegacyExposure::<u32, u32>::decode(&mut encoded_legacy_exposure.as_slice())
+				.unwrap();
+		assert_eq!(
+			decoded_legacy_exposure,
+			ExistenceOrLegacyExposure::Exposure(Exposure {
+				total: 1,
+				own: 2,
+				others: vec![IndividualExposure { who: 3, value: 4 }]
+			})
+		);
+
+		// round trip encoding works
+		assert_eq!(encoded_legacy_exposure, decoded_legacy_exposure.encode());
 	}
 }

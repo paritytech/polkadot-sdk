@@ -1,0 +1,7 @@
+title: '[pallet-revive] Add pallet to AH westend'
+doc:
+  - audience: Runtime Dev
+    description: 'Add pallet-revive to Westend runtime, and configure the runtime to accept Ethereum signed transaction'
+crates:
+- name: asset-hub-westend-runtime
+  bump: major

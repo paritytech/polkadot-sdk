@@ -213,6 +213,7 @@ pub mod pallet {
 		OrdNoBound,
 		Encode,
 		Decode,
+		DecodeWithMemTracking,
 		scale_info::TypeInfo,
 		MaxEncodedLen,
 	)]
@@ -360,7 +361,8 @@ fn call_expand() {
 	assert_eq!(
 		call_foo.get_dispatch_info(),
 		DispatchInfo {
-			weight: Weight::from_parts(3, 0),
+			call_weight: Weight::from_parts(3, 0),
+			extension_weight: Default::default(),
 			class: DispatchClass::Normal,
 			pays_fee: Pays::Yes
 		}
@@ -372,7 +374,8 @@ fn call_expand() {
 	assert_eq!(
 		call_foo.get_dispatch_info(),
 		DispatchInfo {
-			weight: Weight::from_parts(3, 0),
+			call_weight: Weight::from_parts(3, 0),
+			extension_weight: Default::default(),
 			class: DispatchClass::Normal,
 			pays_fee: Pays::Yes
 		}
@@ -940,9 +943,9 @@ fn metadata() {
 
 	let extrinsic = ExtrinsicMetadata {
 		ty: scale_info::meta_type::<UncheckedExtrinsic>(),
-		version: 4,
+		version: 5,
 		signed_extensions: vec![SignedExtensionMetadata {
-			identifier: "UnitSignedExtension",
+			identifier: "UnitTransactionExtension",
 			ty: scale_info::meta_type::<()>(),
 			additional_signed: scale_info::meta_type::<()>(),
 		}],

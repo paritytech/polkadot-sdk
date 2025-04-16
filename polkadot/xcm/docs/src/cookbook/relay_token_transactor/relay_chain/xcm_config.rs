@@ -1,4 +1,5 @@
-// Copyright Parity Technologies (UK) Ltd.
+// Copyright (C) Parity Technologies (UK) Ltd.
+// SPDX-License-Identifier: GPL-3.0-or-later WITH Classpath-exception-2.0
 // This file is part of Polkadot.
 
 // Polkadot is free software: you can redistribute it and/or modify
@@ -19,9 +20,9 @@
 use frame::{
 	deps::frame_system,
 	runtime::prelude::*,
-	traits::{Everything, Nothing},
+	traits::{Disabled, Everything, Nothing},
 };
-use xcm::v4::prelude::*;
+use xcm::latest::prelude::*;
 use xcm_builder::{
 	AccountId32Aliases, DescribeAllTerminal, DescribeFamily, EnsureXcmOrigin,
 	FrameTransactionalProcessor, FungibleAdapter, HashedDescription, IsConcrete,
@@ -87,6 +88,7 @@ pub struct XcmConfig;
 impl xcm_executor::Config for XcmConfig {
 	type RuntimeCall = RuntimeCall;
 	type XcmSender = ();
+	type XcmEventEmitter = ();
 	type AssetTransactor = asset_transactor::AssetTransactor;
 	type OriginConverter = ();
 	// We don't need to recognize anyone as a reserve
@@ -119,13 +121,15 @@ impl xcm_executor::Config for XcmConfig {
 	type XcmRecorder = ();
 }
 
+/// Converts a local signed origin into an XCM location. Forms the basis for local origins
+/// sending/executing XCMs.
 pub type LocalOriginToLocation = SignedToAccountId32<RuntimeOrigin, AccountId, ThisNetwork>;
 
 impl pallet_xcm::Config for Runtime {
 	// No one can call `send`
 	type SendXcmOrigin = EnsureXcmOrigin<RuntimeOrigin, ()>;
 	type XcmRouter = super::super::network::RelayChainXcmRouter; // Provided by xcm-simulator
-															 // Anyone can execute XCM programs
+															  // Anyone can execute XCM programs
 	type ExecuteXcmOrigin = EnsureXcmOrigin<RuntimeOrigin, LocalOriginToLocation>;
 	// We execute any type of program
 	type XcmExecuteFilter = Everything;
@@ -142,7 +146,7 @@ impl pallet_xcm::Config for Runtime {
 	type UniversalLocation = UniversalLocation;
 	// No version discovery needed
 	const VERSION_DISCOVERY_QUEUE_SIZE: u32 = 0;
-	type AdvertisedXcmVersion = frame::traits::ConstU32<3>;
+	type AdvertisedXcmVersion = pallet_xcm::CurrentXcmVersion;
 	type AdminOrigin = frame_system::EnsureRoot<AccountId>;
 	// No locking
 	type TrustedLockers = ();
@@ -160,4 +164,6 @@ impl pallet_xcm::Config for Runtime {
 	type RuntimeOrigin = RuntimeOrigin;
 	type RuntimeCall = RuntimeCall;
 	type RuntimeEvent = RuntimeEvent;
+	// Aliasing is disabled: xcm_executor::Config::Aliasers is set to `Nothing`.
+	type AuthorizedAliasConsideration = Disabled;
 }

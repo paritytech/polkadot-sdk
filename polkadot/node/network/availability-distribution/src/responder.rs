@@ -27,7 +27,7 @@ use polkadot_node_network_protocol::{
 	UnifiedReputationChange as Rep,
 };
 use polkadot_node_primitives::{AvailableData, ErasureChunk};
-use polkadot_node_subsystem::{jaeger, messages::AvailabilityStoreMessage, SubsystemSender};
+use polkadot_node_subsystem::{messages::AvailabilityStoreMessage, SubsystemSender};
 use polkadot_primitives::{CandidateHash, ValidatorIndex};
 
 use crate::{
@@ -193,8 +193,6 @@ pub async fn answer_pov_request<Sender>(
 where
 	Sender: SubsystemSender<AvailabilityStoreMessage>,
 {
-	let _span = jaeger::Span::new(req.payload.candidate_hash, "answer-pov-request");
-
 	let av_data = query_available_data(sender, req.payload.candidate_hash).await?;
 
 	let result = av_data.is_some();
@@ -228,12 +226,6 @@ where
 	// V1 and V2 requests have the same payload, so decoding into either one will work. It's the
 	// responses that differ, hence the `MakeResp` generic.
 	let payload: v1::ChunkFetchingRequest = req.payload.into();
-	let span = jaeger::Span::new(payload.candidate_hash, "answer-chunk-request");
-
-	let _child_span = span
-		.child("answer-chunk-request")
-		.with_trace_id(payload.candidate_hash)
-		.with_validator_index(payload.index);
 
 	let chunk = query_chunk(sender, payload.candidate_hash, payload.index).await?;
 

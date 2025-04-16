@@ -20,8 +20,7 @@ use crate::{
 	cli::{Cli, Subcommand},
 	service,
 };
-use sc_cli::SubstrateCli;
-use sc_service::PartialComponents;
+use polkadot_sdk::{sc_cli::SubstrateCli, sc_service::PartialComponents, *};
 
 impl SubstrateCli for Cli {
 	fn impl_name() -> String {
@@ -50,7 +49,7 @@ impl SubstrateCli for Cli {
 
 	fn load_spec(&self, id: &str) -> Result<Box<dyn sc_service::ChainSpec>, String> {
 		Ok(match id {
-			"dev" => Box::new(chain_spec::development_config()?),
+			"dev" => Box::new(chain_spec::development_chain_spec()?),
 			path =>
 				Box::new(chain_spec::ChainSpec::from_json_file(std::path::PathBuf::from(path))?),
 		})
@@ -118,7 +117,7 @@ pub fn run() -> sc_cli::Result<()> {
 		None => {
 			let runner = cli.create_runner(&cli.run)?;
 			runner.run_node_until_exit(|config| async move {
-				match config.network.network_backend {
+				match config.network.network_backend.unwrap_or_default() {
 					sc_network::config::NetworkBackendType::Libp2p =>
 						service::new_full::<sc_network::NetworkWorker<_, _>>(config, cli.consensus)
 							.map_err(sc_cli::Error::Service),
