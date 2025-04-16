@@ -42,6 +42,9 @@ pub mod __private {
 	pub use frame_support::{storage, traits};
 	pub use log;
 	pub use paste;
+	pub use hex;
+	pub use sp_runtime;
+	pub use sp_io;
 	pub use sp_core::defer;
 	pub use sp_io::storage::root as storage_root;
 	pub use sp_runtime::{traits::Zero, StateVersion};

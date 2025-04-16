@@ -1807,6 +1807,9 @@ mod runtime {
 	#[runtime::pallet_index(66)]
 	pub type Coretime = coretime;
 
+	#[runtime::pallet_index(123)]
+	pub type Pov = frame_benchmarking_pallet_pov;
+
 	// Migrations pallet
 	#[runtime::pallet_index(98)]
 	pub type MultiBlockMigrations = pallet_migrations;
@@ -1984,12 +1987,23 @@ mod benches {
 		[pallet_asset_rate, AssetRate]
 		[pallet_meta_tx, MetaTx]
 		[pallet_verify_signature, VerifySignature]
+		[frame_benchmarking_pallet_pov, Pov]
 		// XCM
 		[pallet_xcm, PalletXcmExtrinsicsBenchmark::<Runtime>]
 		// NOTE: Make sure you point to the individual modules below.
 		[pallet_xcm_benchmarks::fungible, XcmBalances]
 		[pallet_xcm_benchmarks::generic, XcmGeneric]
 	);
+}
+
+frame_support::parameter_types! {
+	// Change here if you modified the Genesis config or added a pallet etc:
+	pub WestendStorageRoot: Option<Vec<u8>> = hex::decode("f65f5c9c119153651988cfda6c284d2f14cbb6545560bb7ab697bf7253cca5cd").unwrap().into();
+}
+
+impl frame_benchmarking_pallet_pov::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type StorageRoot = WestendStorageRoot;
 }
 
 sp_api::impl_runtime_apis! {

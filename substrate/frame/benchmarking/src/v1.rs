@@ -1039,6 +1039,7 @@ macro_rules! impl_benchmark {
 				internal_repeats: u32,
 			) -> Result<$crate::__private::Vec<$crate::BenchmarkResult>, $crate::BenchmarkError> {
 				// Map the input to the selected benchmark.
+				$crate::benchmarking::wipe_db();
 				let extrinsic = $crate::__private::str::from_utf8(extrinsic)
 					.map_err(|_| "`extrinsic` is not a valid utf8 string!")?;
 				let selected_benchmark = match extrinsic {
@@ -1116,7 +1117,16 @@ macro_rules! impl_benchmark {
 					let diff_pov = recording.diff_pov().unwrap_or_default();
 
 					// Commit the changes to get proper write count
+
+					let root = $crate::__private::sp_io::storage::root($crate::__private::sp_runtime::StateVersion::V1);
+					$crate::__private::log::error!(
+						target: "benchmark",
+						"Root: {:?}, internal_repeats: {}",
+						$crate::__private::hex::encode(root),
+						internal_repeats
+					);
 					$crate::benchmarking::commit_db();
+
 					$crate::__private::log::trace!(
 						target: "benchmark",
 						"End Benchmark: {} ns", elapsed_extrinsic

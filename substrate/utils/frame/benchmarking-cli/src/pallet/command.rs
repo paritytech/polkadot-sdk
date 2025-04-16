@@ -490,11 +490,11 @@ impl PalletCmd {
 						_,
 					>(
 						StateMachine::new(
-							state, // todo remove tracking
+							state,
 							&mut Default::default(),
 							&executor,
 							"Benchmark_dispatch_benchmark",
-							&params(false, self.repeat),
+							&params(false, 1), // No repeats since DB tracking is deterministic
 							&mut Self::build_extensions(executor.clone(), state.recorder()),
 							&runtime_code,
 							CallContext::Offchain,
@@ -514,7 +514,7 @@ impl PalletCmd {
 						Ok(Ok(b)) => b,
 					};
 
-					batches_db.extend(batch);
+					batches_db.extend(batch.clone());
 				}
 				// Finally run a bunch of loops to get extrinsic timing information.
 				for r in 0..self.external_repeat {
@@ -570,7 +570,7 @@ impl PalletCmd {
 			}
 		}
 
-		assert!(batches_db.len() == batches.len() / self.external_repeat as usize);
+		assert!(batches_db.len() == batches.len() / self.external_repeat as usize, "{} vs {}", batches_db.len(), batches.len() / self.external_repeat as usize);
 
 		if !failed.is_empty() {
 			failed.sort();

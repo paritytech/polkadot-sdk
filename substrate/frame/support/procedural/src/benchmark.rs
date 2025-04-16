@@ -736,6 +736,7 @@ pub fn benchmarks(
 					verify: bool,
 					internal_repeats: u32,
 				) -> Result<#krate::__private::Vec<#krate::BenchmarkResult>, #krate::BenchmarkError> {
+					#krate::benchmarking::wipe_db();
 					let extrinsic = #krate::__private::str::from_utf8(extrinsic).map_err(|_| "`extrinsic` is not a valid utf-8 string!")?;
 					let selected_benchmark = match extrinsic {
 						#(#selected_benchmark_mappings),
@@ -787,15 +788,10 @@ pub fn benchmarks(
 						#krate::benchmarking::reset_read_write_count();
 					};
 
-					let root = #krate::__private::sp_io::storage::root(#krate::__private::sp_runtime::StateVersion::V1);
-					#krate::__private::log::trace!(
-						target: "benchmark",
-						"Root: {:?}",
-						root
-					);
-
 					// Always do at least one internal repeat...
 					for _ in 0 .. internal_repeats.max(1) {
+						#krate::__private::defer!(#krate::benchmarking::wipe_db());
+
 						let mut recording = #krate::BenchmarkRecording::new(&on_before_start);
 						<SelectedBenchmark as #krate::BenchmarkingSetup<#type_use_generics>>::instance(&selected_benchmark, &mut recording, c, verify)?;
 
