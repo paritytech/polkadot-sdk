@@ -337,21 +337,6 @@ pub trait Keystore: Send + Sync {
 		public: &bls381::Public,
 	) -> Result<Option<bls381::Signature>, Error>;
 
-	/// Generate a (ecdsa, bls381) Proof of Possession for a given public key
-	///
-	/// Receives ['KeyTypeId'] and a ['ecdsa_bls381::Public'] key to be able to map
-	/// them to a private key that exists in the keystore
-	///
-	/// Returns an ['ecdsa_bls381::Signature'] or 'None' in case the given 'key_type'
-	/// and 'public' combination doesn't exist in the keystore.
-	/// An 'Err' will be returned if generating the proof of possession itself failed.
-	#[cfg(feature = "bls-experimental")]
-	fn ecdsa_bls381_generate_pop(
-		&self,
-		key_type: KeyTypeId,
-		public: &ecdsa_bls381::Public,
-	) -> Result<Option<ecdsa_bls381::Signature>, Error>;
-
 	/// Generate a (ecdsa,bls381) signature pair for a given message.
 	///
 	/// Receives [`KeyTypeId`] and a [`ecdsa_bls381::Public`] key to be able to map
@@ -638,15 +623,6 @@ impl<T: Keystore + ?Sized> Keystore for Arc<T> {
 		seed: Option<&str>,
 	) -> Result<ecdsa_bls381::Public, Error> {
 		(**self).ecdsa_bls381_generate_new(key_type, seed)
-	}
-
-	#[cfg(feature = "bls-experimental")]
-	fn ecdsa_bls381_generate_pop(
-		&self,
-		key_type: KeyTypeId,
-		public: &ecdsa_bls381::Public,
-	) -> Result<Option<ecdsa_bls381::Signature>, Error> {
-		(**self).ecdsa_bls381_generate_pop(key_type, public)
 	}
 
 	#[cfg(feature = "bls-experimental")]

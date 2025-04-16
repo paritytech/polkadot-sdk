@@ -361,15 +361,6 @@ impl Keystore for MemoryKeystore {
 	}
 
 	#[cfg(feature = "bls-experimental")]
-	fn ecdsa_bls381_generate_pop(
-		&self,
-		key_type: KeyTypeId,
-		public: &ecdsa_bls381::Public,
-	) -> Result<Option<ecdsa_bls381::Signature>, Error> {
-		self.generate_pop::<ecdsa_bls381::Pair>(key_type, public)
-	}
-
-	#[cfg(feature = "bls-experimental")]
 	fn ecdsa_bls381_sign_with_keccak256(
 		&self,
 		key_type: KeyTypeId,

@@ -385,14 +385,6 @@ impl Keystore for LocalKeystore {
 				self.public_keys::<ecdsa_bls381::Pair>(key_type)
 			}
 
-			fn ecdsa_bls381_generate_pop(
-				&self,
-				key_type: KeyTypeId,
-				public: &ecdsa_bls381::Public
-			) -> std::result::Result<Option<ecdsa_bls381::Signature>, TraitError> {
-				self.generate_pop::<ecdsa_bls381::Pair>(key_type, public)
-			}
-
 			/// Generate a new pair of paired-keys compatible with the '(ecdsa,bls381)' signature scheme.
 			///
 			/// If `[seed]` is `Some` then the key will be ephemeral and stored in memory.
