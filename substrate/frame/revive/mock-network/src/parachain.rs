@@ -19,7 +19,7 @@
 mod contracts_config;
 use crate::{
 	mocks::msg_queue::pallet as mock_msg_queue,
-	primitives::{AccountId, AssetIdForAssets, Balance},
+	primitives::{AccountId, AssetIdForAssets, Balance}, weight_info::ReviveTestWeightInfo,
 };
 use core::marker::PhantomData;
 use frame_support::{
@@ -174,8 +174,8 @@ pub fn estimate_weight(number_of_instructions: u64) -> Weight {
 pub fn estimate_fee_for_weight(weight: Weight) -> u128 {
 	let (_, units_per_second, units_per_mb) = TokensPerSecondPerMegabyte::get();
 
-	units_per_second * (weight.ref_time() as u128) / (WEIGHT_REF_TIME_PER_SECOND as u128) +
-		units_per_mb * (weight.proof_size() as u128) / (WEIGHT_PROOF_SIZE_PER_MB as u128)
+	units_per_second * (weight.ref_time() as u128) / (WEIGHT_REF_TIME_PER_SECOND as u128)
+		+ units_per_mb * (weight.proof_size() as u128) / (WEIGHT_PROOF_SIZE_PER_MB as u128)
 }
 
 pub type LocalBalancesTransactor =
@@ -322,7 +322,7 @@ impl pallet_xcm::Config for Runtime {
 	type MaxLockers = ConstU32<8>;
 	type MaxRemoteLockConsumers = ConstU32<0>;
 	type RemoteLockConsumerIdentifier = ();
-	type WeightInfo = pallet_xcm::TestWeightInfo;
+	type WeightInfo = ReviveTestWeightInfo;
 	type AdminOrigin = EnsureRoot<AccountId>;
 }
 

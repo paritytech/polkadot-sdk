@@ -211,7 +211,6 @@ fn test_xcm_execute_precompile() {
 	MockNet::reset();
 	let Contract { addr, .. } = instantiate_test_contract("call_and_return");
 	let amount: u128 = 10 * CENTS;
- 
 	ParaA::execute_with(|| {
 		let initial_bob_balance = ParachainBalances::free_balance(BOB);
 		let assets: Asset = (Here, amount).into();

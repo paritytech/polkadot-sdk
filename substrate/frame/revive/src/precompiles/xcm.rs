@@ -113,7 +113,6 @@ impl<T: Config> MutatingPrecompile<T> for XcmPrecompile {
 	///   - For xcmExecute: The execution results i.e Weight
 	/// * `Err(&'static str)` - On failure, returns an error message describing the issue
 	fn execute(input: &[u8], origin: &Origin<T>) -> Result<ExecReturnValue, &'static str> {
-		// Ensure input contains at least a function selector (4 bytes)
 		if input.len() < 4 {
 			return Err("Input must be at least 4 bytes");
 		}
