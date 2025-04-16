@@ -173,7 +173,10 @@ fn make_offenders<T: Config>(
 		.collect::<Vec<IdentificationTuple<T>>>();
 
 	if pallet_staking::ActiveEra::<T>::get().is_none() {
-		pallet_staking::ActiveEra::<T>::put(pallet_staking::ActiveEraInfo { index: 0, start: Some(0) });
+		pallet_staking::ActiveEra::<T>::put(pallet_staking::ActiveEraInfo {
+			index: 0,
+			start: Some(0),
+		});
 	}
 
 	Ok(id_tuples)
