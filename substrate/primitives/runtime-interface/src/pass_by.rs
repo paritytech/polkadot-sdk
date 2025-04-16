@@ -465,7 +465,7 @@ where
 		<U as FromFFIValue>::from_ffi_value(context, arg).and_then(|value| value.try_into()
 			.map_err(|_| format!(
 				"failed to convert '{}' (passed as '{}') into '{}' when marshalling hostcall's arguments through the FFI boundary",
-				type_name::<T>(),
+				type_name::<U>(),
 				type_name::<Self::FFIType>(),
 				type_name::<Self::Owned>()
 			)))
@@ -491,10 +491,8 @@ where
 	}
 }
 
-/// Pass `T` through the FFI boundary by first converting it to `U` in the runtime, and then
-/// converting it back to `T` on the host's side.
-///
-/// Raw FFI type: same as `U`'s FFI type
+/// Pass `T` through the FFI boundary by first converting it to `U` and then converting it to `V` in the runtime, and then
+/// converting it back to `U` and then `T` on the host's side.
 pub struct ConvertAndPassAs<T, U, V>(PhantomData<(T, U, V)>);
 
 impl<T, U, V> RIType for ConvertAndPassAs<T, U, V>
