@@ -23,6 +23,7 @@ use crate::{
 	exec::{ExecError, ExecResult, Ext, Key},
 	gas::{ChargedAmount, Token},
 	limits,
+	precompiles::{All as AllPrecompiles, Precompiles},
 	primitives::ExecReturnValue,
 	weights::WeightInfo,
 	Config, Error, LOG_TARGET, SENTINEL,
@@ -367,6 +368,12 @@ pub enum RuntimeCosts {
 	CallBase,
 	/// Weight of calling `seal_delegate_call` for the given input size.
 	DelegateCallBase,
+	/// Weight of calling a precompile.
+	PrecompileBase,
+	/// Weight of calling a precompile that has a contract info.
+	PrecompileWithInfoBase,
+	/// Weight of reading and decoding the input to a precompile.
+	PrecompileDecode(u32),
 	/// Weight of the transfer performed during a call.
 	CallTransferSurcharge,
 	/// Weight per byte that is cloned by supplying the `CLONE_INPUT` flag.
@@ -525,6 +532,9 @@ impl<T: Config> Token<T> for RuntimeCosts {
 			},
 			CallBase => T::WeightInfo::seal_call(0, 0),
 			DelegateCallBase => T::WeightInfo::seal_delegate_call(),
+			PrecompileBase => T::WeightInfo::seal_call_precompile(0, 0),
+			PrecompileWithInfoBase => T::WeightInfo::seal_call_precompile(1, 0),
+			PrecompileDecode(len) => cost_args!(seal_call_precompile, 0, len),
 			CallTransferSurcharge => cost_args!(seal_call, 1, 0),
 			CallInputCloned(len) => cost_args!(seal_call, 0, len),
 			Instantiate { input_data_len } => T::WeightInfo::seal_instantiate(input_data_len),
@@ -1035,15 +1045,13 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 		output_ptr: u32,
 		output_len_ptr: u32,
 	) -> Result<ReturnErrorCode, TrapReason> {
-		let callee = match memory.read_h160(callee_ptr) {
-			Ok(callee) => {
-				self.charge_gas(call_type.cost())?;
-				callee
-			},
-			Err(err) => {
-				self.charge_gas(call_type.cost())?;
-				return Err(err.into());
-			},
+		let callee = memory.read_h160(callee_ptr)?;
+		let precompile = <AllPrecompiles<E::T>>::get::<E>(&callee.as_fixed_bytes());
+		match &precompile {
+			Some(precompile) if precompile.has_contract_info() =>
+				self.charge_gas(RuntimeCosts::PrecompileWithInfoBase)?,
+			Some(_) => self.charge_gas(RuntimeCosts::PrecompileBase)?,
+			None => self.charge_gas(call_type.cost())?,
 		};
 
 		let deposit_limit = memory.read_u256(deposit_ptr)?;
@@ -1055,7 +1063,11 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 		} else if flags.contains(CallFlags::FORWARD_INPUT) {
 			self.input_data.take().ok_or(Error::<E::T>::InputForwarded)?
 		} else {
-			self.charge_gas(RuntimeCosts::CopyFromContract(input_data_len))?;
+			if precompile.is_some() {
+				self.charge_gas(RuntimeCosts::PrecompileDecode(input_data_len))?;
+			} else {
+				self.charge_gas(RuntimeCosts::CopyFromContract(input_data_len))?;
+			}
 			memory.read(input_data_ptr, input_data_len)?
 		};
 
