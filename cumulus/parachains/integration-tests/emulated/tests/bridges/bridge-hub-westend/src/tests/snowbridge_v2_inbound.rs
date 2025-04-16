@@ -29,11 +29,12 @@ use codec::Encode;
 use emulated_integration_tests_common::{RESERVABLE_ASSET_ID, WETH};
 use hex_literal::hex;
 use rococo_westend_system_emulated_network::penpal_emulated_chain::PARA_ID_B;
-use snowbridge_core::{AssetMetadata, TokenIdOf};
+use snowbridge_core::{reward::MessageId, AssetMetadata, TokenIdOf};
 use snowbridge_inbound_queue_primitives::v2::{
 	EthereumAsset::{ForeignTokenERC20, NativeTokenERC20},
 	Message, Network, XcmPayload,
 };
+use snowbridge_pallet_system_v2::LostTips;
 use sp_core::{H160, H256};
 use sp_io::hashing::blake2_256;
 use sp_runtime::MultiAddress;
@@ -1037,4 +1038,41 @@ fn create_foreign_asset_deposit_is_equal_to_asset_hub_foreign_asset_pallet_depos
 		asset_hub_deposit,
 		"The BridgeHub asset creation deposit must be equal to or larger than the asset creation deposit configured on BridgeHub"
 	);
+}
+
+#[test]
+pub fn add_tip_from_asset_hub_user_origin() {
+	fund_on_bh();
+	register_assets_on_ah();
+	fund_on_ah();
+	set_up_eth_and_dot_pool();
+	let relayer = AssetHubWestendSender::get();
+
+	// Add the tip to a nonce that has not been processed.
+	let tip_message_id = MessageId::Inbound(2);
+
+	let dot = Location::new(1, Here);
+	AssetHubWestend::execute_with(|| {
+		type RuntimeOrigin = <AssetHubWestend as Chain>::RuntimeOrigin;
+
+		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::SnowbridgeSystemFrontend::add_tip(
+			RuntimeOrigin::signed(relayer.clone()),
+			tip_message_id.clone(),
+			xcm::prelude::Asset::from((dot, 1_000_000_000u128)),
+		));
+	});
+
+	BridgeHubWestend::execute_with(|| {
+		type RuntimeEvent = <BridgeHubWestend as Chain>::RuntimeEvent;
+
+		let events = BridgeHubWestend::events();
+		assert!(
+			events.iter().any(|event| matches!(
+				event,
+				RuntimeEvent::EthereumSystemV2(snowbridge_pallet_system_v2::Event::TipProcessed { sender, message_id, success, ..})
+					if *sender == relayer &&*message_id == tip_message_id.clone() && *success == true, // expect success
+			)),
+			"tip added event found"
+		);
+	});
 }

@@ -348,3 +348,30 @@ fn zero_reward_does_not_register_reward() {
 		);
 	});
 }
+
+#[test]
+fn test_add_tip_cumulative() {
+	new_tester().execute_with(|| {
+		let nonce: u64 = 10;
+		let amount1: u128 = 500;
+		let amount2: u128 = 300;
+
+		assert_eq!(Tips::<Test>::get(nonce), None);
+		assert_ok!(InboundQueue::add_tip(nonce, amount1));
+		assert_eq!(Tips::<Test>::get(nonce), Some(amount1));
+		assert_ok!(InboundQueue::add_tip(nonce, amount2));
+		assert_eq!(Tips::<Test>::get(nonce), Some(amount1 + amount2));
+	});
+}
+
+#[test]
+fn test_add_tip_nonce_consumed() {
+	new_tester().execute_with(|| {
+		let nonce: u64 = 20;
+		let amount: u128 = 400;
+		Nonce::<Test>::set(nonce.into());
+
+		assert_noop!(InboundQueue::add_tip(nonce, amount), AddTipError::NonceConsumed);
+		assert_eq!(Tips::<Test>::get(nonce), None);
+	});
+}

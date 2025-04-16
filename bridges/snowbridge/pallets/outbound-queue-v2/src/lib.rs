@@ -79,7 +79,10 @@ use frame_support::{
 	traits::{tokens::Balance, EnqueueMessage, Get, ProcessMessageError},
 	weights::{Weight, WeightToFee},
 };
-use snowbridge_core::BasicOperatingMode;
+use snowbridge_core::{
+	reward::{AddTip, AddTipError},
+	BasicOperatingMode,
+};
 use snowbridge_merkle_tree::merkle_root;
 use snowbridge_outbound_queue_primitives::{
 	v2::{
@@ -438,6 +441,20 @@ pub mod pallet {
 			Self::deposit_event(Event::MessageDelivered { nonce });
 
 			Ok(())
+		}
+	}
+
+	impl<T: Config> AddTip for Pallet<T> {
+		fn add_tip(nonce: u64, amount: u128) -> Result<(), AddTipError> {
+			PendingOrders::<T>::try_mutate_exists(nonce, |maybe_order| -> Result<(), AddTipError> {
+				match maybe_order {
+					Some(order) => {
+						order.fee = order.fee.saturating_add(amount);
+						Ok(())
+					},
+					None => Err(AddTipError::UnknownMessage),
+				}
+			})
 		}
 	}
 }

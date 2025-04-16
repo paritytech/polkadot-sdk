@@ -20,6 +20,8 @@ use sp_runtime::{
 use sp_std::{convert::From, default::Default, marker::PhantomData};
 use xcm::{opaque::latest::WESTEND_GENESIS_HASH, prelude::*};
 type Block = frame_system::mocking::MockBlock<Test>;
+use bp_relayers::RewardsAccountParams;
+use snowbridge_test_utils::mock_rewards::{BridgeReward, MockPaymentProcedure};
 pub use snowbridge_test_utils::mock_xcm::{MockXcmExecutor, MockXcmSender};
 
 frame_support::construct_runtime!(

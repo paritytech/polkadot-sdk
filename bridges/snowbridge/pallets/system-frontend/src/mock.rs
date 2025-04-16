@@ -83,7 +83,9 @@ impl crate::Config for Test {
 	type UniversalLocation = UniversalLocation;
 	type PalletLocation = PalletLocation;
 	type BackendWeightInfo = ();
+	type Swap = SwapExecutor;
 	type WeightInfo = ();
+	type AccountToLocation = MockAccountLocationConverter<AccountId>;
 	#[cfg(feature = "runtime-benchmarks")]
 	type Helper = ();
 }
