@@ -912,8 +912,7 @@ where
 
 	/// Searches in the store transactions provides tags.
 	///
-	/// Will use the set of block hashes to get associated views where the transactions provides
-	/// tags are searched.
+	/// Searches through the entire set of inactive views.
 	pub(crate) fn provides_tags_from_inactive_views(
 		&self,
 		mut xts_hashes: Vec<ExtrinsicHash<ChainApi>>,

@@ -345,8 +345,6 @@ impl<B: ChainApi, L: EventHandler<B>> Pool<B, L> {
 				None => {
 					// Avoid validating block txs if the pool is empty
 					if !self.validated_pool.status().is_empty() {
-						// query the runtime at parent block to get validity info and tags that the
-						// extrinsic provides.
 						validated_counter = validated_counter + 1;
 						let validity = self
 							.validated_pool
