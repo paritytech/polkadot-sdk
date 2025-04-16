@@ -2078,3 +2078,13 @@ cumulus_pallet_parachain_system::register_validate_block! {
 	Runtime = Runtime,
 	BlockExecutor = cumulus_pallet_aura_ext::BlockExecutor::<Runtime, Executive>,
 }
+
+#[cfg(feature = "std")]
+#[test]
+fn check_xcmp_weight_info_accuracy() {
+	use cumulus_pallet_xcmp_queue::{MaxXcmpMessageLenOf, WeightInfoExt};
+
+	<weights::cumulus_pallet_xcmp_queue::WeightInfo<Runtime> as WeightInfoExt>::check_accuracy::<
+		MaxXcmpMessageLenOf<Runtime>,
+	>(5);
+}
