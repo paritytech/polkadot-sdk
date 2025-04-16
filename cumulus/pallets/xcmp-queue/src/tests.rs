@@ -28,6 +28,7 @@ use frame_support::{
 use mock::{new_test_ext, ParachainSystem, RuntimeOrigin as Origin, Test, XcmpQueue};
 use sp_runtime::traits::{BadOrigin, Zero};
 use std::iter::{once, repeat};
+use xcm::{MAX_INSTRUCTIONS_TO_DECODE, MAX_XCM_DECODE_DEPTH};
 use xcm_builder::InspectMessageQueues;
 
 #[test]
@@ -900,7 +901,7 @@ fn page_not_modified_when_fragment_does_not_fit() {
 		ParachainSystem::open_outbound_hrmp_channel_for_benchmarks_or_tests(sibling);
 
 		let destination: Location = (Parent, Parachain(sibling.into())).into();
-		let message = Xcm(vec![ClearOrigin; 600]);
+		let message = Xcm(vec![ClearOrigin; MAX_INSTRUCTIONS_TO_DECODE as usize]);
 
 		loop {
 			let old_page_zero = OutboundXcmpMessages::<Test>::get(sibling, 0);

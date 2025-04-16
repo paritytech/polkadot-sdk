@@ -48,11 +48,17 @@ pub mod latest {
 mod double_encoded;
 pub use double_encoded::DoubleEncoded;
 
+mod utils;
+
 #[cfg(test)]
 mod tests;
 
 /// Maximum nesting level for XCM decoding.
 pub const MAX_XCM_DECODE_DEPTH: u32 = 8;
+/// The maximal number of instructions in an XCM before decoding fails.
+///
+/// This is a deliberate limit - not a technical one.
+pub const MAX_INSTRUCTIONS_TO_DECODE: u8 = 100;
 
 /// A version of XCM.
 pub type Version = u32;
@@ -460,9 +466,8 @@ impl<C> IdentifyVersion for VersionedXcm<C> {
 }
 
 impl<C> VersionedXcm<C> {
-	/// Checks that the XCM is decodable with `MAX_XCM_DECODE_DEPTH`. Consequently, it also checks
-	/// all decode implementations and limits, such as MAX_ITEMS_IN_ASSETS or
-	/// MAX_INSTRUCTIONS_TO_DECODE.
+	/// Checks if the XCM is decodable. Consequently, it checks all decoding constraints,
+	/// such as `MAX_XCM_DECODE_DEPTH`, `MAX_ITEMS_IN_ASSETS` or `MAX_INSTRUCTIONS_TO_DECODE`.
 	///
 	/// Note that this uses the limit of the sender - not the receiver. It is a best effort.
 	pub fn validate_xcm_nesting(&self) -> Result<(), ()> {
@@ -730,9 +735,12 @@ fn size_limits() {
 
 #[test]
 fn validate_xcm_nesting_works() {
-	use crate::latest::{
-		prelude::{GeneralIndex, ReserveAssetDeposited, SetAppendix},
-		Assets, Xcm, MAX_INSTRUCTIONS_TO_DECODE, MAX_ITEMS_IN_ASSETS,
+	use crate::{
+		latest::{
+			prelude::{GeneralIndex, ReserveAssetDeposited, SetAppendix},
+			Assets, Xcm, MAX_ITEMS_IN_ASSETS,
+		},
+		MAX_INSTRUCTIONS_TO_DECODE,
 	};
 
 	// closure generates assets of `count`

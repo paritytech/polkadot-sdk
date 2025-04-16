@@ -843,7 +843,7 @@ impl<
 		dest: &Location,
 		fee_reason: xcm_executor::traits::FeeReason,
 	) -> (Option<xcm_executor::FeesMode>, Option<Assets>) {
-		use xcm::latest::{MAX_INSTRUCTIONS_TO_DECODE, MAX_ITEMS_IN_ASSETS};
+		use xcm::{latest::MAX_ITEMS_IN_ASSETS, MAX_INSTRUCTIONS_TO_DECODE};
 		use xcm_executor::{traits::FeeManager, FeesMode};
 
 		// check if the destination is relay/parent

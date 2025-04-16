@@ -675,11 +675,7 @@ impl<HrmpChannelSource: cumulus_primitives_core::XcmpMessageSource, AllPalletsWi
 			[(para_id, ref mut xcm_message_data)] if para_id.eq(&sent_to_para_id.into()) => {
 				let mut xcm_message_data = &xcm_message_data[..];
 				// decode
-				let _ = XcmpMessageFormat::decode_with_depth_limit(
-					MAX_XCM_DECODE_DEPTH,
-					&mut xcm_message_data,
-				)
-				.expect("valid format");
+				let _ = XcmpMessageFormat::decode(&mut xcm_message_data).expect("valid format");
 				VersionedXcm::<()>::decode_with_depth_limit(
 					MAX_XCM_DECODE_DEPTH,
 					&mut xcm_message_data,
