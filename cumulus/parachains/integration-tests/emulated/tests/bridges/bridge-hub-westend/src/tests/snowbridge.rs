@@ -32,7 +32,10 @@ use bridge_hub_westend_runtime::{
 	bridge_to_ethereum_config::EthereumGatewayAddress, EthereumBeaconClient, EthereumInboundQueue,
 };
 use codec::{Decode, Encode};
-use emulated_integration_tests_common::{snowbridge::{CHAIN_ID, WETH}, PENPAL_B_ID, RESERVABLE_ASSET_ID};
+use emulated_integration_tests_common::{
+	snowbridge::{CHAIN_ID, WETH},
+	PENPAL_B_ID, RESERVABLE_ASSET_ID,
+};
 use frame_support::{pallet_prelude::TypeInfo, traits::fungibles::Mutate};
 use hex_literal::hex;
 use rococo_westend_system_emulated_network::{
