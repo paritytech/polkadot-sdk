@@ -564,7 +564,9 @@ macro_rules! implement_fixed {
 				}
 			}
 
-			#[deprecated(note = "`try_sqrt` will be removed after October 2025. Use `checked_sqrt` instead.")]
+			#[deprecated(
+				note = "`try_sqrt` will be removed after October 2025. Use `checked_sqrt` instead."
+			)]
 			pub const fn try_sqrt(self) -> Option<Self> {
 				self.checked_sqrt()
 			}
