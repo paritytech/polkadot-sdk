@@ -19,7 +19,7 @@ if [ ! -z "$1" ]; then
   if ! command -v rustup &> /dev/null
   then
     echo "rustup needs to be installed"
-    exit
+    exit 1
   fi
 
   rustup install $RUST_VERSION
