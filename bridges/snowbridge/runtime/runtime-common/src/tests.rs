@@ -99,6 +99,7 @@ fn handle_fee_success() {
 		origin: Some(Location::new(1, Parachain(1000))),
 		message_id: XcmHash::default(),
 		topic: None,
+		original_topic: None,
 	};
 	let reason = FeeReason::Export { network: EthereumNetwork::get(), destination: Here };
 	let result = XcmExportFeeToSibling::<
@@ -117,7 +118,7 @@ fn handle_fee_success() {
 #[test]
 fn handle_fee_success_but_not_for_ethereum() {
 	let fee: Assets = Asset::from((Location::parent(), 10_u128)).into();
-	let ctx = XcmContext { origin: None, message_id: XcmHash::default(), topic: None };
+	let ctx = XcmContext::with_message_id(XcmHash::default());
 	// invalid network not for ethereum
 	let reason = FeeReason::Export { network: Kusama, destination: Here };
 	let result = XcmExportFeeToSibling::<
@@ -136,7 +137,7 @@ fn handle_fee_success_but_not_for_ethereum() {
 fn handle_fee_success_even_from_an_invalid_none_origin_location() {
 	let fee: Assets = Asset::from((Location::parent(), 10_u128)).into();
 	// invalid origin None here not from a sibling chain
-	let ctx = XcmContext { origin: None, message_id: XcmHash::default(), topic: None };
+	let ctx = XcmContext::with_message_id(XcmHash::default());
 	let reason = FeeReason::Export { network: EthereumNetwork::get(), destination: Here };
 	let result = XcmExportFeeToSibling::<
 		u128,
@@ -157,6 +158,7 @@ fn handle_fee_success_even_when_fee_insufficient() {
 		origin: Some(Location::new(1, Parachain(1000))),
 		message_id: XcmHash::default(),
 		topic: None,
+		original_topic: None,
 	};
 	let reason = FeeReason::Export { network: EthereumNetwork::get(), destination: Here };
 	let result = XcmExportFeeToSibling::<

@@ -2412,8 +2412,7 @@ impl<T: Config> Pallet<T> {
 			})?;
 
 		// XcmContext irrelevant in teleports checks
-		let dummy_context =
-			XcmContext { origin: None, message_id: Default::default(), topic: None };
+		let dummy_context = XcmContext::with_message_id(Default::default());
 		// We should check that the asset can actually be teleported out (for this to
 		// be in error, there would need to be an accounting violation by ourselves,
 		// so it's unlikely, but we don't want to allow that kind of bug to leak into
@@ -2483,8 +2482,7 @@ impl<T: Config> Pallet<T> {
 			})?;
 
 		// XcmContext irrelevant in teleports checks
-		let dummy_context =
-			XcmContext { origin: None, message_id: Default::default(), topic: None };
+		let dummy_context = XcmContext::with_message_id(Default::default());
 		for asset in assets.inner() {
 			// We should check that the asset can actually be teleported out (for this to
 			// be in error, there would need to be an accounting violation by ourselves,

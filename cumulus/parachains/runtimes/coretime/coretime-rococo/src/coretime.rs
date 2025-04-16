@@ -54,7 +54,7 @@ fn burn_at_relay(stash: &AccountId, value: Balance) -> Result<(), XcmError> {
 	let stash_location =
 		Junction::AccountId32 { network: None, id: stash.clone().into() }.into_location();
 	let asset = Asset { id: AssetId(Location::parent()), fun: Fungible(value) };
-	let dummy_xcm_context = XcmContext { origin: None, message_id: [0; 32], topic: None };
+	let dummy_xcm_context = XcmContext::with_message_id([0; 32]);
 
 	let withdrawn = AssetTransactor::withdraw_asset(&asset, &stash_location, None)?;
 

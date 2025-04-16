@@ -348,7 +348,7 @@ fn do_notify_revenue<T: Config>(when: BlockNumber, raw_revenue: Balance) -> Resu
 		check_origin: None,
 	}];
 	let asset = Asset { id: Location::here().into(), fun: Fungible(raw_revenue) };
-	let dummy_xcm_context = XcmContext { origin: None, message_id: [0; 32], topic: None };
+	let dummy_xcm_context = XcmContext::with_message_id([0; 32]);
 
 	if raw_revenue > 0 {
 		let on_demand_pot =
