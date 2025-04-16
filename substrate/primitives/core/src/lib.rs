@@ -197,6 +197,36 @@ pub trait TypeId {
 	const TYPE_ID: [u8; 4];
 }
 
+/// A log level as it is represented in the runtime.
+///
+/// Used for marshalling log levels through the FFI boundary.
+#[derive(Encode, Decode, Copy, Clone)]
+pub enum RuntimeInterfaceLogLevel {
+	/// `Error` log level.
+	Error = 0_isize,
+	/// `Warn` log level.
+	Warn = 1_isize,
+	/// `Info` log level.
+	Info = 2_isize,
+	/// `Debug` log level.
+	Debug = 3_isize,
+	/// `Trace` log level.
+	Trace = 4_isize,
+}
+
+impl TryFrom<RuntimeInterfaceLogLevel> for LogLevel {
+	type Error = ();
+	fn try_from(value: RuntimeInterfaceLogLevel) -> Result<Self, ()> {
+		match value {
+			RuntimeInterfaceLogLevel::Error => Ok(LogLevel::Error),
+			RuntimeInterfaceLogLevel::Warn => Ok(LogLevel::Warn),
+			RuntimeInterfaceLogLevel::Info => Ok(LogLevel::Info),
+			RuntimeInterfaceLogLevel::Debug => Ok(LogLevel::Debug),
+			RuntimeInterfaceLogLevel::Trace => Ok(LogLevel::Trace),
+		}
+	}
+}
+
 /// A log level matching the one from `log` crate.
 ///
 /// Used internally by `sp_io::logging::log` method.
@@ -214,37 +244,49 @@ pub enum LogLevel {
 	Trace = 5_isize,
 }
 
-impl TryFrom<u8> for LogLevel {
+impl TryFrom<u8> for RuntimeInterfaceLogLevel {
 	type Error = ();
 	fn try_from(value: u8) -> Result<Self, ()> {
 		match value {
-			1 => Ok(Self::Error),
-			2 => Ok(Self::Warn),
-			3 => Ok(Self::Info),
-			4 => Ok(Self::Debug),
-			5 => Ok(Self::Trace),
+			0 => Ok(Self::Error),
+			1 => Ok(Self::Warn),
+			2 => Ok(Self::Info),
+			3 => Ok(Self::Debug),
+			4 => Ok(Self::Trace),
 			_ => Err(()),
 		}
 	}
 }
 
-impl From<LogLevel> for u8 {
-	fn from(value: LogLevel) -> Self {
+impl From<RuntimeInterfaceLogLevel> for u8 {
+	fn from(value: RuntimeInterfaceLogLevel) -> Self {
 		value as Self
 	}
 }
 
-impl From<u32> for LogLevel {
-	fn from(val: u32) -> Self {
-		match val {
-			x if x == LogLevel::Warn as u32 => LogLevel::Warn,
-			x if x == LogLevel::Info as u32 => LogLevel::Info,
-			x if x == LogLevel::Debug as u32 => LogLevel::Debug,
-			x if x == LogLevel::Trace as u32 => LogLevel::Trace,
-			_ => LogLevel::Error,
+impl From<LogLevel> for RuntimeInterfaceLogLevel {
+	fn from(value: LogLevel) -> Self {
+		match value {
+			LogLevel::Error => RuntimeInterfaceLogLevel::Error,
+			LogLevel::Warn => RuntimeInterfaceLogLevel::Warn,
+			LogLevel::Info => RuntimeInterfaceLogLevel::Info,
+			LogLevel::Debug => RuntimeInterfaceLogLevel::Debug,
+			LogLevel::Trace => RuntimeInterfaceLogLevel::Trace,
 		}
 	}
 }
+
+// impl From<u32> for LogLevel {
+// 	fn from(val: u32) -> Self {
+// 		match val {
+// 			x if x == LogLevel::Warn as u32 => LogLevel::Warn,
+// 			x if x == LogLevel::Info as u32 => LogLevel::Info,
+// 			x if x == LogLevel::Debug as u32 => LogLevel::Debug,
+// 			x if x == LogLevel::Trace as u32 => LogLevel::Trace,
+// 			_ => LogLevel::Error,
+// 		}
+// 	}
+// }
 
 impl From<log::Level> for LogLevel {
 	fn from(l: log::Level) -> Self {
