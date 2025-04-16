@@ -144,7 +144,7 @@ impl<T> ScaleContainerStreamIter<T> {
 					// TODO #3700: error should be handleable.
 					log::error!(
 						target: "runtime::storage",
-						"ScaleContainerStreamIter: Corrupted state at `{:?}`: failed to decode element count: {:?}",
+						"Corrupted state at `{:?}`: failed to decode element count: {:?}",
 						input.key,
 						e,
 					);
@@ -188,7 +188,7 @@ impl<T: codec::Decode> core::iter::Iterator for ScaleContainerStreamIter<T> {
 			Err(e) => {
 				log::error!(
 					target: "runtime::storage",
-					"ScaleContainerStreamIter: Corrupted state at `{:?}`: failed to decode element {} (out of {} in total): {:?}",
+					"Corrupted state at `{:?}`: failed to decode element {} (out of {} in total): {:?}",
 					self.input.key,
 					self.read,
 					self.length,

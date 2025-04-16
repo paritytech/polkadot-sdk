@@ -19,7 +19,7 @@
 //! that use staking.
 
 use alloc::vec::Vec;
-use codec::{Decode, Encode, Input, MaxEncodedLen};
+use codec::{Decode, Encode, MaxEncodedLen};
 use sp_core::Get;
 use sp_runtime::{transaction_validity::TransactionValidityError, DispatchError, Perbill};
 
@@ -169,25 +169,13 @@ impl<Reporter, Offender, Res: Default> OnOffenceHandler<Reporter, Offender, Res>
 }
 
 /// A details about an offending authority for a particular kind of offence.
-#[derive(Clone, PartialEq, Eq, Encode, sp_runtime::RuntimeDebug, scale_info::TypeInfo)]
+#[derive(Clone, PartialEq, Eq, Encode, Decode, sp_runtime::RuntimeDebug, scale_info::TypeInfo)]
 pub struct OffenceDetails<Reporter, Offender> {
 	/// The offending authority id
 	pub offender: Offender,
 	/// A list of reporters of offences of this authority ID. Possibly empty where there are no
 	/// particular reporters.
 	pub reporters: Vec<Reporter>,
-}
-
-impl<Reporter, Offender> Decode for OffenceDetails<Reporter, Offender>
-where
-	Reporter: Decode,
-	Offender: Decode,
-{
-	fn decode<I: Input>(input: &mut I) -> Result<Self, codec::Error> {
-		let offender = Offender::decode(input)?;
-		let reporters = Vec::<Reporter>::decode(input)?;
-		Ok(Self { offender, reporters })
-	}
 }
 
 /// An abstract system to publish, check and process offence evidences.

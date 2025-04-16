@@ -27,7 +27,7 @@ pub fn get<T: Decode + Sized>(key: &[u8]) -> Option<T> {
 			// TODO #3700: error should be handleable.
 			log::error!(
 				target: "runtime::storage",
-				"unhashed::Corrupted state at `{}`: {:?}",
+				"Corrupted state at `{}`: {:?}",
 				array_bytes::bytes2hex("0x", key),
 				e,
 			);

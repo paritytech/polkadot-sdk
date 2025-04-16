@@ -783,7 +783,6 @@ pub mod pallet {
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn on_initialize(now: BlockNumberFor<T>) -> Weight {
-			#[allow(deprecated)]
 			let next_election = T::DataProvider::next_election_prediction(now).max(now);
 
 			let signed_deadline = T::SignedPhase::get() + T::UnsignedPhase::get();
@@ -1876,6 +1875,7 @@ mod feasibility_check {
 	//! All of the tests here should be dedicated to only testing the feasibility check and nothing
 	//! more. The best way to audit and review these tests is to try and come up with a solution
 	//! that is invalid, but gets through the system as valid.
+
 	use super::*;
 	use crate::mock::{
 		raw_solution, roll_to, EpochLength, ExtBuilder, MultiPhase, Runtime, SignedPhase,

@@ -23358,7 +23358,6 @@ name = "sp-staking"
 version = "26.0.0"
 dependencies = [
  "impl-trait-for-tuples",
- "log",
  "parity-scale-codec",
  "scale-info",
  "serde",

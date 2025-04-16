@@ -252,9 +252,6 @@ pub mod pallet {
 		type MaxExposurePageSize: Get<u32>;
 
 		/// The absolute maximum of winner validators this pallet should return.
-		///
-		/// As this pallet supports multi-block election, the set of winner validators *per
-		/// election* is bounded by this type.
 		#[pallet::constant]
 		type MaxValidatorSet: Get<u32>;
 
