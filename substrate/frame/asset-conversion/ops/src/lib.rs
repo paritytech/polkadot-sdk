@@ -73,6 +73,7 @@ pub mod pallet {
 		> + frame_system::Config
 	{
 		/// Overarching event type.
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		/// Type previously used to derive the account ID for a pool. Indicates that the pool's
