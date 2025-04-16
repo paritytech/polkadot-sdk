@@ -292,9 +292,12 @@ pub mod benchmarking {
 	}
 
 	pub mod prelude {
-		pub use super::shared::*;
 		pub use crate::prelude::*;
-		pub use frame_benchmarking::v2::*;
+		pub use frame_benchmarking::{
+			add_benchmark, benchmarking::add_to_whitelist, v1::account, v2::*, whitelist,
+			whitelisted_caller,
+		};
+		pub use frame_system::{Pallet as System, RawOrigin};
 	}
 }
 

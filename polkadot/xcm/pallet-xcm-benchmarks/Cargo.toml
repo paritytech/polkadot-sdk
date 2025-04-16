@@ -27,7 +27,6 @@ xcm-builder = { workspace = true }
 xcm-executor = { workspace = true }
 
 [dev-dependencies]
-pallet-assets = { workspace = true, default-features = true }
 pallet-balances = { workspace = true, default-features = true }
 sp-tracing = { workspace = true, default-features = true }
 xcm = { workspace = true, default-features = true }
@@ -49,7 +48,6 @@ runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
-	"pallet-assets/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",
