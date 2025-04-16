@@ -326,7 +326,7 @@ macro_rules! test_chain_can_claim_assets {
 				<$sender_para as [<$sender_para Pallet>]>::PolkadotXcm::drop_assets(
 					&beneficiary,
 					$assets.clone().into(),
-					&XcmContext { origin: None, message_id: [0u8; 32], topic: None },
+					&XcmContext::with_message_id([0u8; 32]),
 				);
 
 				type RuntimeEvent = <$sender_para as $crate::macros::Chain>::RuntimeEvent;
@@ -389,7 +389,7 @@ macro_rules! test_chain_can_claim_assets {
 				<$sender_para as [<$sender_para Pallet>]>::PolkadotXcm::drop_assets(
 					&beneficiary,
 					$assets.clone().into(),
-					&XcmContext { origin: None, message_id: [0u8; 32], topic: None },
+					&XcmContext::with_message_id([0u8; 32]),
 				);
 				let receiver = [<$sender_para Receiver>]::get();
 				let other_beneficiary: Location =
