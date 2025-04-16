@@ -556,19 +556,11 @@ impl PalletCmd {
 	}
 
 	fn select_benchmarks_to_run(&self, list: Vec<BenchmarkList>) -> Result<Vec<SelectedBenchmark>> {
-		let extrinsic = self.extrinsic.clone().unwrap_or_default();
-		let extrinsic_split: Vec<&str> = extrinsic.split(',').collect();
-		let extrinsics: Vec<_> = extrinsic_split.iter().map(|x| x.trim().as_bytes()).collect();
-
 		// Use the benchmark list and the user input to determine the set of benchmarks to run.
 		let mut benchmarks_to_run = Vec::new();
 		list.iter().filter(|item| self.pallet_selected(&item.pallet)).for_each(|item| {
 			for benchmark in &item.benchmarks {
-				let benchmark_name = &benchmark.name;
-				if extrinsic.is_empty() ||
-					extrinsic.as_bytes() == &b"*"[..] ||
-					extrinsics.contains(&&benchmark_name[..])
-				{
+				if self.extrinsic_selected(&item.pallet, &benchmark.name) {
 					benchmarks_to_run.push((
 						item.pallet.clone(),
 						benchmark.name.clone(),
@@ -615,6 +607,29 @@ impl PalletCmd {
 			|| include.iter().any(|p| p.as_bytes() == pallet)
 			|| include.iter().any(|p| p == "*");
 		let excluded = self.exclude_pallets.iter().any(|p| p.as_bytes() == pallet);
+
+		included && !excluded
+	}
+
+	fn extrinsic_selected(&self, pallet: &Vec<u8>, extrinsic: &Vec<u8>) -> bool {
+		if !self.pallet_selected(pallet) {
+			return false;
+		}
+
+		let extrinsic_filter = self.extrinsic.clone().unwrap_or_default();
+		let extrinsic_split: Vec<&str> = extrinsic_filter.split(',').collect();
+		let extrinsics: Vec<_> = extrinsic_split.iter().map(|x| x.trim().as_bytes()).collect();
+
+		let included = extrinsic_filter.is_empty() || extrinsic_filter == "*" || 
+			extrinsics.contains(&&extrinsic[..]);
+		let excluded = self.exclude_extrinsics.iter().any(|e| {
+			let splits = e.split("::").collect::<Vec<_>>();
+			if splits.len() != 2 {
+				panic!("Invalid argument for '--exclude-extrinsic'. Expected format: 'Pallet::Extrinsic' but got '{}'", e);
+			}
+			let (p, e) = (splits[0], splits[1]);
+			p.as_bytes() == pallet && e.as_bytes() == extrinsic
+		});
 
 		included && !excluded
 	}

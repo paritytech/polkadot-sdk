@@ -58,6 +58,12 @@ pub struct PalletCmd {
 	#[arg(long, value_parser, num_args = 1.., value_delimiter = ',')]
 	pub exclude_pallets: Vec<String>,
 
+	/// Comma separated list of `pallet::extrinsic` combinations that should not be run.
+	///
+	/// Example: `frame_system::remark,pallet_balances::transfer_keep_alive`
+	#[arg(long, value_parser, num_args = 1.., value_delimiter = ',')]
+	pub exclude_extrinsics: Vec<String>,
+
 	/// Run benchmarks for all pallets and extrinsics.
 	///
 	/// This is equivalent to running `--pallet * --extrinsic *`.
