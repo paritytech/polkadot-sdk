@@ -386,7 +386,9 @@ impl<T: InspectStrategy> WithConfigValue for T {
 /// config. Every inspect strategy can be used to create a config value.
 ///
 /// For instance, one can use `WithConfig` to restore an asset to the given owner using the [Owner]
-/// inspect strategy: ```rust,ignore
+/// inspect strategy:
+///
+/// ```rust,ignore
 /// NftEngine::restore(WithConfig::from(Owner::with_config_value(OWNER_ACCOUNT)))
 /// ```
 ///
@@ -395,6 +397,7 @@ impl<T: InspectStrategy> WithConfigValue for T {
 /// approach](IdAssignment), but they're optional for the restoring operation.
 ///
 /// For instance, one can use `WithConfig` to create an asset with a predefined id this way:
+///
 /// ```rust,ignore
 /// NftEngine::create(WithConfig::new(
 ///     Owner::with_config_value(OWNER_ACCOUNT),
@@ -403,6 +406,7 @@ impl<T: InspectStrategy> WithConfigValue for T {
 /// ```
 ///
 /// Note: you can use several config values by providing a tuple of them:
+///
 /// ```rust,ignore
 /// NftEngine::create(WithConfig::new(
 ///     (
