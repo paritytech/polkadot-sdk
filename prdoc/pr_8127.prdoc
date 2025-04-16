@@ -160,8 +160,6 @@ crates:
   bump: major
 - name: pallet-staking-async-rc-client
   bump: major
-- name: pallet-staking-async-reward-curve
-  bump: major
 - name: pallet-staking-async-reward-fn
   bump: major
 - name: pallet-staking-async-runtime-api

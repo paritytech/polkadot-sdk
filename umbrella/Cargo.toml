@@ -667,7 +667,6 @@ runtime-full = [
 	"pallet-staking-async",
 	"pallet-staking-async-ah-client",
 	"pallet-staking-async-rc-client",
-	"pallet-staking-async-reward-curve",
 	"pallet-staking-async-reward-fn",
 	"pallet-staking-async-runtime-api",
 	"pallet-staking-reward-curve",
@@ -1657,11 +1656,6 @@ path = "../substrate/frame/staking-async/ah-client"
 default-features = false
 optional = true
 path = "../substrate/frame/staking-async/rc-client"
-
-[dependencies.pallet-staking-async-reward-curve]
-default-features = false
-optional = true
-path = "../substrate/frame/staking-async/reward-curve"
 
 [dependencies.pallet-staking-async-reward-fn]
 default-features = false

@@ -13032,7 +13032,6 @@ dependencies = [
  "pallet-bags-list",
  "pallet-balances",
  "pallet-staking-async-rc-client",
- "pallet-staking-async-reward-curve",
  "parity-scale-codec",
  "rand 0.8.5",
  "rand_chacha 0.3.1",
@@ -13317,17 +13316,6 @@ dependencies = [
  "sp-weights 27.0.0",
  "staging-xcm",
  "staging-xcm-builder",
-]
-
-[[package]]
-name = "pallet-staking-async-reward-curve"
-version = "11.0.0"
-dependencies = [
- "proc-macro-crate 3.1.0",
- "proc-macro2 1.0.93",
- "quote 1.0.38",
- "sp-runtime 31.0.1",
- "syn 2.0.98",
 ]
 
 [[package]]
@@ -15934,7 +15922,6 @@ dependencies = [
  "pallet-staking-async",
  "pallet-staking-async-ah-client",
  "pallet-staking-async-rc-client",
- "pallet-staking-async-reward-curve",
  "pallet-staking-async-reward-fn",
  "pallet-staking-async-runtime-api",
  "pallet-staking-reward-curve",

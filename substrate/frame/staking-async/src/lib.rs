@@ -36,7 +36,6 @@ mod tests;
 
 pub mod asset;
 pub mod election_size_tracker;
-pub mod inflation;
 pub mod ledger;
 pub mod slashing;
 pub mod weights;
@@ -58,7 +57,6 @@ use frame_support::{
 pub use pallet::{pallet::*, UseNominatorsAndValidatorsMap, UseValidatorsMap};
 use scale_info::TypeInfo;
 use sp_runtime::{
-	curve::PiecewiseLinear,
 	traits::{AtLeast32BitUnsigned, Convert, StaticLookup, Zero},
 	Perbill, Perquintill, Rounding, RuntimeDebug, Saturating,
 };
@@ -632,31 +630,6 @@ impl<Balance: Default> EraPayout<Balance> for () {
 		_era_duration_millis: u64,
 	) -> (Balance, Balance) {
 		(Default::default(), Default::default())
-	}
-}
-
-/// Adaptor to turn a `PiecewiseLinear` curve definition into an `EraPayout` impl, used for
-/// backwards compatibility.
-pub struct ConvertCurve<T>(core::marker::PhantomData<T>);
-impl<Balance, T> EraPayout<Balance> for ConvertCurve<T>
-where
-	Balance: AtLeast32BitUnsigned + Clone + Copy,
-	T: Get<&'static PiecewiseLinear<'static>>,
-{
-	fn era_payout(
-		total_staked: Balance,
-		total_issuance: Balance,
-		era_duration_millis: u64,
-	) -> (Balance, Balance) {
-		let (validator_payout, max_payout) = inflation::compute_total_payout(
-			T::get(),
-			total_staked,
-			total_issuance,
-			// Duration of era; more than u64::MAX is rewarded as u64::MAX.
-			era_duration_millis,
-		);
-		let rest = max_payout.saturating_sub(validator_payout);
-		(validator_payout, rest)
 	}
 }
 

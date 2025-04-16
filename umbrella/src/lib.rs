@@ -671,10 +671,6 @@ pub use pallet_staking_async_ah_client;
 #[cfg(feature = "pallet-staking-async-rc-client")]
 pub use pallet_staking_async_rc_client;
 
-/// Reward Curve for FRAME staking pallet.
-#[cfg(feature = "pallet-staking-async-reward-curve")]
-pub use pallet_staking_async_reward_curve;
-
 /// Reward function for FRAME staking pallet.
 #[cfg(feature = "pallet-staking-async-reward-fn")]
 pub use pallet_staking_async_reward_fn;
