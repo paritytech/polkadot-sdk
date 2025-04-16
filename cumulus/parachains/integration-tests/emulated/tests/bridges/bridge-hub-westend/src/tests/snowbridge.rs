@@ -1285,8 +1285,6 @@ fn transfer_ah_token() {
 		);
 	});
 }
-<<<<<<< HEAD
-=======
 
 #[test]
 fn transfer_penpal_native_asset() {
@@ -2021,4 +2019,3 @@ fn transfer_roc_from_ah_with_transfer_and_then() {
 		);
 	});
 }
->>>>>>> 13cb4a31 (Update transfer token gas and fee (#7947))
