@@ -129,23 +129,23 @@ std = [
 
 # Serde support without relying on std features.
 serde = [
-    "blake2",
-    "bounded-collections/serde",
-    "bs58/alloc",
-    "dep:serde",
-    "impl-serde",
-    "k256/serde",
-    "primitive-types/serde_no_std",
-    "scale-info/serde",
-    "sp-storage/serde",
+	"blake2",
+	"bounded-collections/serde",
+	"bs58/alloc",
+	"dep:serde",
+	"impl-serde",
+	"k256/serde",
+	"primitive-types/serde_no_std",
+	"scale-info/serde",
+	"sp-storage/serde",
 ]
 
 # This feature enables all crypto primitives for `no_std` builds like microcontrollers
 # or Intel SGX.
 # For the regular wasm runtime builds this should not be used.
 full_crypto = [
-    "blake2",
-    "sp-runtime-interface/disable_target_static_assertions",
+	"blake2",
+	"sp-runtime-interface/disable_target_static_assertions",
 ]
 
 # This feature adds BLS crypto primitives.
