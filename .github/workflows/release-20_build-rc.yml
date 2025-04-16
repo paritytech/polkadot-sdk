@@ -25,7 +25,7 @@ jobs:
 
   sync-forks:
     needs: [check-synchronization]
-    if: ${{ needs.check-synchronization.outputs.checks_passed }} == 'false'
+    if: ${{ needs.check-synchronization.outputs.checks_passed  == 'false' }}
     uses: paritytech-release/sync-workflows/.github/workflows/sync-with-upstream.yml@ep-add-sync-confirmation
     with:
       fork_writer_app_id: ${{ vars.UPSTREAM_CONTENT_SYNC_APP_ID }}
@@ -35,7 +35,7 @@ jobs:
 
   validate-inputs:
     needs: [check-synchronization, sync-forks]
-    if: ${{ needs.check-synchronization.outputs.checks_passed }} == 'true' || ${{ needs.sync-forks.outputs.branches_synced }} == 'true'
+    if: ${{ needs.check-synchronization.outputs.checks_passed  == 'true' }} || ${{ needs.sync-forks.outputs.branches_synced == 'true' }}
     runs-on: ubuntu-latest
     outputs:
         release_tag: ${{ steps.validate_inputs.outputs.release_tag }}
