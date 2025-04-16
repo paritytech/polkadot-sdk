@@ -99,7 +99,6 @@ fn handle_fee_success() {
 		origin: Some(Location::new(1, Parachain(1000))),
 		message_id: XcmHash::default(),
 		topic: None,
-		original_topic: None,
 	};
 	let reason = FeeReason::Export { network: EthereumNetwork::get(), destination: Here };
 	let result = XcmExportFeeToSibling::<
@@ -158,7 +157,6 @@ fn handle_fee_success_even_when_fee_insufficient() {
 		origin: Some(Location::new(1, Parachain(1000))),
 		message_id: XcmHash::default(),
 		topic: None,
-		original_topic: None,
 	};
 	let reason = FeeReason::Export { network: EthereumNetwork::get(), destination: Here };
 	let result = XcmExportFeeToSibling::<

@@ -199,9 +199,6 @@ impl<Config: config::Config> XcmExecutor<Config> {
 		&self.context.topic
 	}
 	pub fn set_topic(&mut self, v: Option<[u8; 32]>) {
-		if self.context.original_topic.is_none() {
-			self.context.original_topic = v;
-		}
 		self.context.topic = v;
 	}
 	pub fn asset_claimer(&self) -> Option<Location> {
@@ -358,7 +355,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 		Self {
 			holding: AssetsInHolding::new(),
 			holding_limit: Config::MaxAssetsIntoHolding::get() as usize,
-			context: XcmContext { origin: Some(origin.clone()), message_id, topic: None, original_topic: None },
+			context: XcmContext { origin: Some(origin.clone()), message_id, topic: None },
 			original_origin: origin,
 			trader: Config::Trader::new(),
 			error: None,
@@ -817,10 +814,11 @@ impl<Config: config::Config> XcmExecutor<Config> {
 		} else if let Some(topic_id) = self.context.topic {
 			let id_h256: sp_core::H256 = topic_id.into();
 			tracing::trace!(target: "xcm::send", ?topic_id, ?id_h256, "`SetTopic` not required (context has topic)");
-		} else if let Some(topic_id) = self.context.original_topic {
+		} else if self.context.origin.is_none() {
+			let topic_id = self.context.message_id;
 			let id_h256: sp_core::H256 = topic_id.into();
 			msg.inner_mut().push(SetTopic(topic_id));
-			tracing::trace!(target: "xcm::send", ?topic_id, ?id_h256, "`SetTopic` appended to message (from original_topic)");
+			tracing::trace!(target: "xcm::send", ?topic_id, ?id_h256, "`SetTopic` appended to message (origin cleared)");
 		} else {
 			let message_id = self.context.message_id;
 			let id_h256: sp_core::H256 = message_id.into();

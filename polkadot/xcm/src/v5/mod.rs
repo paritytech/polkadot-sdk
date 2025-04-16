@@ -349,15 +349,13 @@ pub struct XcmContext {
 	pub message_id: XcmHash,
 	/// The current value of the Topic register of the `XCVM`.
 	pub topic: Option<[u8; 32]>,
-	/// Preserves the original topic for message traceability across network hops.
-	pub original_topic: Option<[u8; 32]>,
 }
 
 impl XcmContext {
 	/// Constructor which sets the message ID to the supplied parameter and leaves the origin and
 	/// topic unset.
 	pub fn with_message_id(message_id: XcmHash) -> XcmContext {
-		XcmContext { origin: None, message_id, topic: None, original_topic: None }
+		XcmContext { origin: None, message_id, topic: None }
 	}
 
 	/// Returns the topic if set, otherwise the original_topic if set, otherwise the message_id.
