@@ -22,7 +22,7 @@ use sp_runtime::traits::{Convert, TryConvert};
 use xcm::latest::prelude::*;
 
 /// Relay Chain Hold Reason
-#[derive(Encode, Decode, DecodeWithMemTracking, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo)]
+#[derive(Encode, Decode, DecodeWithMemTracking, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 pub enum RcHoldReason {
 	#[codec(index = 28u8)]
 	Preimage(pallet_preimage::HoldReason),
@@ -35,7 +35,7 @@ impl Default for RcHoldReason {
 }
 
 /// Relay Chain Freeze Reason
-#[derive(Encode, Decode, DecodeWithMemTracking, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo)]
+#[derive(Encode, Decode, DecodeWithMemTracking, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 pub enum RcFreezeReason {
 	#[codec(index = 29u8)]
 	NominationPools(pallet_nomination_pools::FreezeReason),
@@ -119,6 +119,12 @@ pub enum RcPalletsOrigin {
 	Origins(pallet_custom_origins::Origin),
 }
 
+impl Default for RcPalletsOrigin {
+	fn default() -> Self {
+		RcPalletsOrigin::system(frame_system::Origin::<Runtime>::Root)
+	}
+}
+
 /// Convert a Relay Chain origin to an Asset Hub one.
 pub struct RcToAhPalletsOrigin;
 impl TryConvert<RcPalletsOrigin, OriginCaller> for RcToAhPalletsOrigin {
@@ -136,6 +142,8 @@ pub enum RcRuntimeCall {
 	// TODO: variant set code for Relay Chain
 	// TODO: variant set code for Parachains
 	// TODO: whitelisted caller
+	#[codec(index = 0u8)]
+	System(frame_system::Call<Runtime>),
 	#[codec(index = 19u8)]
 	Treasury(RcTreasuryCall),
 	#[codec(index = 21u8)]
@@ -217,6 +225,17 @@ impl<'a> TryConvert<&'a [u8], RuntimeCall> for RcToAhCall {
 impl RcToAhCall {
 	fn map(rc_call: RcRuntimeCall) -> Result<RuntimeCall, ()> {
 		match rc_call {
+			RcRuntimeCall::System(inner_call) => {
+				let call =
+					inner_call.using_encoded(|mut e| Decode::decode(&mut e)).map_err(|err| {
+						log::error!(
+							target: LOG_TARGET,
+							"Failed to decode RC Bounties call to AH System call: {:?}",
+							err
+						);
+					})?;
+				Ok(RuntimeCall::System(call))
+			},
 			RcRuntimeCall::Utility(RcUtilityCall::dispatch_as { as_origin, call }) => {
 				let origin = RcToAhPalletsOrigin::try_convert(*as_origin).map_err(|err| {
 					log::error!("Failed to decode RC dispatch_as origin: {:?}", err);
