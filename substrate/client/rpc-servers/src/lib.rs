@@ -26,11 +26,10 @@ pub mod utils;
 use std::{error::Error as StdError, net::SocketAddr, time::Duration};
 
 use jsonrpsee::{
-	core::BoxError,
 	server::{
-		serve_with_graceful_shutdown, stop_channel, ws, PingConfig, ServerHandle, StopHandle,
+		serve_with_graceful_shutdown, stop_channel, ws, PingConfig, ServerHandle, StopHandle, ServerConfig
 	},
-	Methods, RpcModule,
+	Methods, RpcModule
 };
 use tower::Service;
 use utils::{
@@ -166,7 +165,7 @@ where
 			.layer(NodeHealthProxyLayer::default())
 			.layer(cors);
 
-		let mut builder = jsonrpsee::server::Server::builder()
+		let mut server_cfg = ServerConfig::builder()
 			.max_request_body_size(max_payload_in_mb.saturating_mul(MEGABYTE))
 			.max_response_body_size(max_payload_out_mb.saturating_mul(MEGABYTE))
 			.max_connections(max_connections)
@@ -177,18 +176,21 @@ where
 					.inactive_limit(Duration::from_secs(60))
 					.max_failures(3),
 			)
-			.set_http_middleware(http_middleware)
 			.set_message_buffer_capacity(max_buffer_capacity_per_connection)
 			.set_batch_request_config(batch_config)
 			.custom_tokio_runtime(cfg.tokio_handle.clone());
 
 		if let Some(provider) = id_provider.clone() {
-			builder = builder.set_id_provider(provider);
+			server_cfg = server_cfg.set_id_provider(provider);
 		} else {
-			builder = builder.set_id_provider(RandomStringIdProvider::new(16));
+			server_cfg = server_cfg.set_id_provider(RandomStringIdProvider::new(16));
 		};
 
-		let service_builder = builder.to_service_builder();
+		let service_builder = jsonrpsee::server::Server::builder()
+			.set_config(server_cfg.build())
+			.set_http_middleware(http_middleware)
+			.to_service_builder();
+
 		let deny_unsafe = deny_unsafe(&local_addr, &rpc_methods);
 
 		tokio_handle.spawn(async move {
@@ -238,7 +240,7 @@ where
 						let is_websocket = ws::is_upgrade_request(&req);
 						let transport_label = if is_websocket { "ws" } else { "http" };
 
-						let middleware_layer = match (metrics, rate_limit_cfg) {
+						let middleware_layer: Option<MiddlewareLayer> = match (metrics, rate_limit_cfg) {
 							(None, None) => None,
 							(Some(metrics), None) => Some(
 								MiddlewareLayer::new()
@@ -273,10 +275,7 @@ where
 								});
 							}
 
-							// https://github.com/rust-lang/rust/issues/102211 the error type can't be inferred
-							// to be `Box<dyn std::error::Error + Send + Sync>` so we need to
-							// convert it to a concrete type as workaround.
-							svc.call(req).await.map_err(|e| BoxError::from(e))
+							svc.call(req).await
 						}
 					});
 

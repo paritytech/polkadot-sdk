@@ -21,14 +21,14 @@
 use std::{
 	num::NonZeroU32,
 	time::{Duration, Instant},
+	future::Future,
+	convert::Infallible,
 };
 
-use futures::future::{BoxFuture, FutureExt};
 use governor::{clock::Clock, Jitter};
 use jsonrpsee::{
-	server::middleware::rpc::RpcServiceT,
-	types::{ErrorObject, Id, Request},
-	MethodResponse,
+	server::middleware::rpc::{RpcServiceT, Batch, Notification, Request, MethodResponse},
+	types::{ErrorObject, Id},
 };
 
 mod metrics;
@@ -91,19 +91,22 @@ impl<S> tower::Layer<S> for MiddlewareLayer {
 /// because the metrics needs to know whether
 /// a call was rate-limited or not because
 /// it will impact the roundtrip for a call.
+#[derive(Debug, Clone)]
 pub struct Middleware<S> {
 	service: S,
 	rate_limit: Option<RateLimit>,
 	metrics: Option<Metrics>,
 }
 
-impl<'a, S> RpcServiceT<'a> for Middleware<S>
+impl<S> RpcServiceT for Middleware<S>
 where
-	S: Send + Sync + RpcServiceT<'a> + Clone + 'static,
+	S: RpcServiceT<MethodResponse = MethodResponse> + Send + Sync + Clone + 'static,
 {
-	type Future = BoxFuture<'a, MethodResponse>;
+	type MethodResponse = MethodResponse;
+	type BatchResponse = S::BatchResponse;
+	type NotificationResponse = S::NotificationResponse;
 
-	fn call(&self, req: Request<'a>) -> Self::Future {
+	fn call<'a>(&self, req: Request<'a>) -> impl Future<Output = Self::MethodResponse> + Send + 'a {
 		let now = Instant::now();
 
 		self.metrics.as_ref().map(|m| m.on_call(&req));
@@ -136,12 +139,20 @@ where
 				}
 			}
 
-			let rp = service.call(req.clone()).await;
-			metrics.as_ref().map(|m| m.on_response(&req, &rp, is_rate_limited, now));
-
-			rp
+			service.call(req).await
 		}
-		.boxed()
+	}
+
+	fn batch<'a>(&self, batch: Batch<'a>) -> impl Future<Output = Self::BatchResponse> + Send + 'a {
+		self.service.batch(batch)
+	}
+
+
+	fn notification<'a>(
+		&self,
+		n: Notification<'a>,
+	) -> impl Future<Output = Self::NotificationResponse> + Send + 'a {
+		self.service.notification(n)
 	}
 }
 
