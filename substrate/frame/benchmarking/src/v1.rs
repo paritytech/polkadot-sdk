@@ -1117,14 +1117,6 @@ macro_rules! impl_benchmark {
 					let diff_pov = recording.diff_pov().unwrap_or_default();
 
 					// Commit the changes to get proper write count
-
-					let root = $crate::__private::sp_io::storage::root($crate::__private::sp_runtime::StateVersion::V1);
-					$crate::__private::log::error!(
-						target: "benchmark",
-						"Root: {:?}, internal_repeats: {}",
-						$crate::__private::hex::encode(root),
-						internal_repeats
-					);
 					$crate::benchmarking::commit_db();
 
 					$crate::__private::log::trace!(
