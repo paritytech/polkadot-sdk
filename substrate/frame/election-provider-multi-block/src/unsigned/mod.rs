@@ -17,25 +17,25 @@
 
 //! ## The unsigned phase, and its miner.
 //!
-//! This pallet deals with unsigned submissions. These are backup, single page submissions from
-//! validators.
+//! This pallet deals with unsigned submissions. These are backup, "possibly" multi-page submissions
+//! from validators.
 //!
-//! This pallet has two miners:
+//! This pallet has two miners, described in [`unsigned::miner`].
 //!
-//! * [`unsigned::miner::BaseMiner`], which is the basis of how the mining works. It can be used by
-//!   a separate crate by providing an implementation of [`unsigned::miner::MinerConfig`]. And, it
-//!   is used in:
-//! * `Miner::OffchainWorkerMiner`, which is a specialized miner for the single page mining by
-//!   validators in the `offchain_worker` hook.
+//! As it stands, a validator can, during the unsigned phase, submit up to
+//! [`unsigned::Config::MinerPages`] pages. While this can be more than 1, it can likely not be a
+//! full, high quality solution. This is because unsigned validator solutions are verified on the
+//! fly, all within a single block. The exact value of this parameter should be determined by the
+//! benchmarks of a runtime.
+//!
+//! We could implement a protocol to allow multi-block, multi-page collaborative submissions from
+//! different validators, but it is not trivial. Moreover, recall that the unsigned phase is merely
+//! a backup and we should primarily rely on offchain staking miners to fulfill this role during
+//! `Phase::Signed`.
 //!
 //! ## Future Idea: Multi-Page unsigned submission
 //!
 //! the following is the idea of how to implement multi-page unsigned, which we don't have.
-//!
-//! ## Multi-block unsigned submission
-//!
-//! The process of allowing validators to coordinate to submit a multi-page solution is new to this
-//! pallet, and non-existent in the multi-phase pallet. The process is as follows:
 //!
 //! All validators will run their miners and compute the full paginated solution. They submit all
 //! pages as individual unsigned transactions to their local tx-pool.
@@ -55,9 +55,9 @@
 //! These checks might still fail. If they do, the solution is dropped. At this point, we don't know
 //! which validator may have submitted a slightly-faulty solution.
 //!
-//! In order to prevent this, the validation process always includes a check to ensure all of the
-//! previous pages that have been submitted match what the local validator has computed. If they
-//! match, the validator knows that they are putting skin in a game that is valid.
+//! In order to prevent this, the transaction validation process always includes a check to ensure
+//! all of the previous pages that have been submitted match what the local validator has computed.
+//! If they match, the validator knows that they are putting skin in a game that is valid.
 //!
 //! If any bad paged are detected, the next validator can bail. This process means:
 //!
@@ -66,7 +66,7 @@
 //! * As little as one malicious validator can stall the process, but no one is accidentally
 //!   slashed, and no panic happens.
 //!
-//! A future improvement should keep track of submitters, and report a slash if it occurs. Or, if
+//! Alternatively, we can keep track of submitters, and report a slash if it occurs. Or, if
 //! the signed process is bullet-proof, we can be okay with the status quo.
 
 /// Export weights

@@ -25,6 +25,7 @@ use frame_election_provider_support::ElectionProvider;
 use frame_support::{assert_ok, pallet_prelude::*};
 use frame_system::RawOrigin;
 use sp_std::boxed::Box;
+
 #[benchmarks(where T: crate::Config + crate::signed::Config + crate::verifier::Config)]
 mod benchmarks {
 	use super::*;

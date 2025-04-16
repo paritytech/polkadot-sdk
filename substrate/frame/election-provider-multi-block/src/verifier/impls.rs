@@ -15,6 +15,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//! The implementation of the verifier pallet, and an implementation of [`crate::Verifier`] and
+//! [`crate::AsynchronousVerifier`] for [`Pallet`].
+
 use super::*;
 use crate::{
 	helpers,
@@ -108,6 +111,7 @@ impl sp_npos_elections::Backings for PartialBackings {
 #[frame_support::pallet]
 pub(crate) mod pallet {
 	use super::*;
+
 	#[pallet::config]
 	#[pallet::disable_frame_system_supertrait_check]
 	pub trait Config: crate::Config {
@@ -369,8 +373,6 @@ pub(crate) mod pallet {
 		/// should never become `valid`.
 		pub(crate) fn compute_invalid_score() -> Result<(ElectionScore, u32), FeasibilityError> {
 			// ensure that this is only called when all pages are verified individually.
-			// TODO: this is a very EXPENSIVE, and perhaps unreasonable check. A partial solution
-			// could very well be valid.
 			if QueuedSolutionBackings::<T>::iter_keys().count() != T::Pages::get() as usize {
 				return Err(FeasibilityError::Incomplete)
 			}
@@ -509,14 +511,17 @@ pub(crate) mod pallet {
 	#[pallet::storage]
 	type QueuedSolutionX<T: Config> =
 		StorageMap<_, Twox64Concat, PageIndex, SupportsOfVerifier<Pallet<T>>>;
-	#[pallet::storage]
+
 	/// The `Y` variant of the current queued solution. Might be the valid one or not.
+	#[pallet::storage]
 	type QueuedSolutionY<T: Config> =
 		StorageMap<_, Twox64Concat, PageIndex, SupportsOfVerifier<Pallet<T>>>;
 	/// Pointer to the variant of [`QueuedSolutionX`] or [`QueuedSolutionY`] that is currently
 	/// valid.
+
 	#[pallet::storage]
 	type QueuedValidVariant<T: Config> = StorageValue<_, ValidSolution, ValueQuery>;
+
 	/// The `(amount, count)` of backings, divided per page.
 	///
 	/// This is stored because in the last block of verification we need them to compute the score,
@@ -532,11 +537,13 @@ pub(crate) mod pallet {
 		PageIndex,
 		BoundedVec<(T::AccountId, PartialBackings), T::MaxWinnersPerPage>,
 	>;
+
 	/// The score of the valid variant of [`QueuedSolution`].
 	///
 	/// This only ever lives for the `valid` variant.
 	#[pallet::storage]
 	type QueuedSolutionScore<T: Config> = StorageValue<_, ElectionScore>;
+
 	// -- ^^ private storage items, managed by `QueuedSolution`.
 
 	/// The minimum score that each solution must attain in order to be considered feasible.

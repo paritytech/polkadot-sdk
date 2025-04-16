@@ -17,6 +17,9 @@
 
 //! # Multi-phase, multi-block, election provider pallet.
 //!
+//! > This pallet is sometimes abbreviated as `EPMB`, and `pallet_election_provider_multi_phase` as
+//! > `EPM`.
+//!
 //! ## Overall idea
 //!
 //! `pallet_election_provider_multi_phase` provides the basic ability for NPoS solutions to be
@@ -25,22 +28,18 @@
 //! Nonetheless, it has a limited capacity in terms of number of voters it can process in a **single
 //! block**.
 //!
-//! This pallet takes `pallet_election_provider_multi_phase`, keeps most of its ideas and core
-//! premises, and extends it to support paginated, multi-block operations. The final goal of this
-//! pallet is scale linearly with the number of blocks allocated to the elections. Moreover, the
-//! amount of work that it does in one block should be bounded and measurable, making it suitable
-//! for a parachain. In principle, with large enough blocks (in a dedicated parachain), the number
-//! of voters included in the NPoS system can grow significantly (yet, obviously not indefinitely).
+//! This pallet takes `EPM` system, keeps most of its ideas and core premises, and extends it to
+//! support paginated, multi-block operations. The final goal of this pallet is to scale linearly
+//! with the number of blocks allocated to the elections. Moreover, the amount of work that it does
+//! in one block should be bounded and measurable, making it suitable for a parachain. In principle,
+//! with large enough blocks (in a dedicated parachain), the number of voters included in the NPoS
+//! system can grow significantly (yet, obviously not indefinitely).
 //!
 //! Note that this pallet does not consider how the recipient is processing the results. To ensure
-//! scalability, of course, the recipient of this pallet's data (i.e. `pallet-staking`) must also be
-//! capable of pagination and multi-block processing.
+//! scalability, the recipient of this pallet's data (i.e. `pallet-staking`) must also be capable of
+//! pagination and multi-block processing.
 //!
 //! ## Companion pallets
-//!
-//! This pallet is essentially hierarchical. This particular one is the top level one. It contains
-//! the shared information that all child pallets use. All child pallets depend on the top level
-//! pallet ONLY, but not the other way around. For those cases, traits are used.
 //!
 //! This pallet will only function in a sensible way if it is peered with its companion pallets.
 //!
@@ -52,6 +51,14 @@
 //!   this pallet is included, the combined [`Config::SignedPhase`] and
 //!   [`Config::SignedValidationPhase`] will determine its duration
 //!
+//! These pallets are in fact hierarchical. This particular one is the top level one. It contains
+//! the shared information that all child pallets use. All child pallets depend on the top level
+//! pallet ONLY, but not the other way around. For those cases, traits are used.
+//!
+//! As in, notice that [`crate::verifier::Config`] relies on [`crate::Config`], but for the
+//! reverse, we rely on [`crate::verifier::Verifier`] trait, which is indeed part of
+//! [`crate::Config`]. This is merely an implementation opinion.
+//!
 //! ### Pallet Ordering:
 //!
 //! The ordering of these pallets in a runtime should be:
@@ -62,7 +69,7 @@
 //!
 //! This is critical for the phase transition to work.
 //!
-//! This should be manually checked, there is not automated way to test it.
+//! > This should be manually checked, there is not automated way to test it.
 //!
 //! ## Pagination
 //!
@@ -72,25 +79,47 @@
 //! `elect(2) -> elect(1) -> elect(0)`. In essence, calling a paginated function with index 0 is
 //! always a signal of termination, meaning that no further calls will follow.
 //!
+//! The snapshot creation for voters (Nominators in staking), submission of signed pages, validation
+//! of signed solutions and exporting of pages are all paginated. Note that this pallet is yet to
+//! support paginated target (Validators in staking) snapshotting.
+//!
+//! ### Terminology Note: `msp` and `lsp`
+//!
+//! Stand for _most significant page_ (n-1) and _least significant page_ (0).
+//!
+//! See [`ElectionProvider::msp`] and [`ElectionProvider::lsp`], and their usage.
+//!
 //! ## Phases
+//!
+//! The operations in this pallet are divided intor rounds, a `u32` number stored in [`Round`].
+//! This value helps this pallet organize itself, and leaves the door open for lazy deletion of any
+//! stale data. A round, under the happy path, start by receiving the call to
+//! [`ElectionProvider::start`], and is terminated by receiving a call to
+//! [`ElectionProvider::elect`] with value 0.
 //!
 //! The timeline of pallet is overall as follows:
 //!
 //! ```ignore
 //!  <  Off  >
-//! 0 ------- 12 13 14 15 ----------- 20 ---------25 ------- 30
+//! 0 ------------ 12 13 14 15 ----------- 20 ---------25 ------- 30
 //! 	           |       |              |            |          |
 //! 	     Snapshot      Signed   SignedValidation  Unsigned   Elect
 //! ```
 //!
-//! * Duration of `Snapshot` is determined by [`Config::Pages`].
+//! * Duration of `Snapshot` is determined by [`Config::Pages`] + 1.
+//! 	* Whereby in the first page we take the "Targets" snapshot, and in the subsequent pages we take
+//!    the voter snapshot.
+//! 	* For example, with `Pages = 4`:
+//! 		* `Snapshot(4)` -> `Targets(all)`
+//! 		* `Snapshot(3)` -> `Voters(3)`
+//! 		* `Snapshot(2)` -> `Voters(2)`
+//! 		* `Snapshot(1)` -> `Voters(1)`
+//! 		* `Snapshot(0)` -> `Voters(0)`
 //! * Duration of `Signed`, `SignedValidation` and `Unsigned` are determined by
 //!   [`Config::SignedPhase`], [`Config::SignedValidationPhase`] and [`Config::UnsignedPhase`]
 //!   respectively.
 //! * [`Config::Pages`] calls to elect are expected, but all in all the pallet will close a round
 //!   once `elect(0)` is called.
-//! * The pallet strives to be ready for the first call to `elect`, for example `elect(2)` if 3
-//!   pages.
 //!
 //! > Given this, it is rather important for the user of this pallet to ensure it always terminates
 //! > election via `elect` before requesting a new one.
@@ -106,14 +135,20 @@
 //! 2. any assignment is checked to match with `PagedVoterSnapshot`.
 //! 3. the claimed score is valid, based on the fixed point arithmetic accuracy.
 //!
-//! ### Emergency Phase and Fallback
+//! More about this in [`verifier`], who is responsible for doing all of the above.
 //!
-//! * [`Config::Fallback`] is called on each page. It typically may decide to:
+//! ### Fallback and Emergency
 //!
-//! 1. Do nothing,
-//! 2. Force us into the emergency phase
-//! 3. computer an onchain from the give page of snapshot. Note that this will be sub-optimal,
-//!    because the proper pagination size of snapshot and fallback will likely differ a lot.
+//! If at any page, [`ElectionProvider::elect`] fails, a call with the same page-index is dispatched
+//! to [`Config::Fallback`]. [`Config::Fallback`] is itself (yet) another implementation of
+//! [`ElectionProvider`], and can decide to do anything, but a few reasonable options are provided
+//! here:
+//!
+//! 1. Do nothing: [`Continue`]
+//! 2. Force us into the emergency phase: [`crate::InitiateEmergencyPhase`]. This initiates
+//!    [`Phase::Emergency`], which will halt almost all operations of this pallet, and it can only
+//!    be recovered by [`AdminOperation`], dispatched via [`Call::manage`].
+//! 3. compute an onchain from the give page of snapshot.
 //!
 //! Note that configuring the fallback to be onchain computation is not recommended, unless for
 //! test-nets for a number of reasons:

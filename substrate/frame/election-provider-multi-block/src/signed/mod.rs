@@ -21,8 +21,8 @@
 //! accounts, and sorting them based on the best claimed score to the worst.
 //!
 //! Each submission must put a deposit down. This is parameterize-able by the runtime, and might be
-//! a constant, linear or exponential value. See [`CalculatePageDeposit`] and
-//! [`CalculateBaseDeposit`].
+//! a constant, linear or exponential value. See [`signed::Config::DepositPerPage`] and
+//! [`signed::Config::DepositBase`].
 //!
 //! During the queuing time, if the queue is full, and a better solution comes in, the weakest
 //! deposit is said to be **Ejected**. Ejected solutions get [`signed::Config::EjectGraceRatio`] of

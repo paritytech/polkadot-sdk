@@ -17,6 +17,9 @@
 
 //! # The Verifier Pallet
 //!
+//! This pallet has no end-user functionality, and is only used internally by other pallets in the
+//! EPMB machinery to verify solutions.
+//!
 //! ### *Feasibility* Check
 //!
 //! Before explaining the pallet itself, it should be explained what a *verification* even means.
@@ -25,17 +28,19 @@
 //! that are presented in a solution page must have actually voted for the winner that they are
 //! backing, based on the snapshot kept in the parent pallet.
 //!
-//! After checking all of the edges, a handful of other checks are performed:
+//! Such checks are bound to each page of the solution, and happen per-page. After checking all of
+//! the edges in each page, a handful of other checks are performed. These checks cannot happen
+//! per-page, and in order to do them we need to have the entire solution checked and verified.
 //!
 //! 1. Check that the total number of winners is sufficient (`DesiredTargets`).
 //! 2. Check that the claimed score ([`sp_npos_elections::ElectionScore`]) is correct,
-//!   3. and more than the minimum score that can be specified via [`Verifier::set_minimum_score`].
-//! 4. Check that all of the bounds of the solution are respected, namely
+//!   * and more than the minimum score that can be specified via [`Verifier::set_minimum_score`].
+//! 3. Check that all of the bounds of the solution are respected, namely
 //!    [`Verifier::MaxBackersPerWinner`], [`Verifier::MaxWinnersPerPage`] and
 //!    [`Verifier::MaxBackersPerWinnerFinal`].
 //!
-//! Note that the common factor of all of these checks is that they can ONLY be checked after all
-//! pages are already verified. So, In the case of a multi-page verification, these checks are
+//! Note that the common factor of all of the above checks is that they can ONLY be checked after
+//! all pages are already verified. So, in the case of a multi-page verification, these checks are
 //! performed at the last page.
 //!
 //! The errors that can arise while performing the feasibility check are encapsulated in
@@ -45,13 +50,14 @@
 //!
 //! The verifier pallet provide two modes of functionality:
 //!
-//! 1. Single-page, synchronous verification. This is useful in the context of single-page,
+//! 1. Single or multi-page, synchronous verification. This is useful in the context of single-page,
 //!    emergency, or unsigned solutions that need to be verified on the fly. This is similar to how
-//!    the old school `multi-phase` pallet works.
+//!    the old school `multi-phase` pallet works. See [`Verifier::verify_synchronous`] and
+//!    [`Verifier::verify_synchronous_multi`].
 //! 2. Multi-page, asynchronous verification. This is useful in the context of multi-page, signed
-//!    solutions.
+//!    solutions. See [`verifier::AsynchronousVerifier`] and [`verifier::SolutionDataProvider`].
 //!
-//! Both of this, plus some helper functions, is exposed via the [`Verifier`] trait.
+//! Both of this, plus some helper functions, is exposed via the [`verifier::Verifier`] trait.
 //!
 //! ## Queued Solution
 //!
@@ -69,6 +75,7 @@ mod tests;
 
 // internal imports
 pub use crate::weights::measured::pallet_election_provider_multi_block_verifier::*;
+
 use frame_election_provider_support::PageIndex;
 use impls::SupportsOfVerifier;
 pub use impls::{feasibility_check_page_inner_with_snapshot, pallet::*, Status};

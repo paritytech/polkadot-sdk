@@ -15,6 +15,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//! Weights for the election provider multi-block pallet.
+
 #![allow(unused)]
 pub mod measured;
 pub mod zero;

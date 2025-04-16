@@ -15,6 +15,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//! The miner code for the EPMB pallet.
+//!
+//! It is broadly consisted of two main types:
+//!
+//! * [`crate::unsigned::miner::BaseMiner`], which is more generic, needs parameterization via
+//!   [`crate::unsigned::miner::MinerConfig`], and can be used by an external implementation.
+//! * [`crate::unsigned::miner::OffchainWorkerMiner`], which is more opinionated, and is used by
+//!   this pallet via the `offchain_worker` hook to also mine solutions during the
+//!   `Phase::Unsigned`.
+
 use super::{Call, Config, Pallet};
 use crate::{
 	helpers,
@@ -99,7 +109,7 @@ impl<T: MinerConfig> From<CommonError> for MinerError<T> {
 #[derive(
 	frame_support::DebugNoBound, frame_support::EqNoBound, frame_support::PartialEqNoBound,
 )]
-pub(crate) enum OffchainMinerError<T: Config> {
+pub enum OffchainMinerError<T: Config> {
 	/// An error in the base miner.
 	BaseMiner(MinerError<T::MinerConfig>),
 	/// The base, common errors from the pallet.
@@ -655,7 +665,7 @@ impl<T: MinerConfig> BaseMiner<T> {
 /// A miner that is suited to work inside offchain worker environment.
 ///
 /// This is parameterized by [`Config`], rather than [`MinerConfig`].
-pub(crate) struct OffchainWorkerMiner<T: Config>(sp_std::marker::PhantomData<T>);
+pub struct OffchainWorkerMiner<T: Config>(sp_std::marker::PhantomData<T>);
 
 impl<T: Config> OffchainWorkerMiner<T> {
 	/// Storage key used to store the offchain worker running status.
