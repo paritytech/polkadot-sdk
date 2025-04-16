@@ -731,6 +731,8 @@ mod tests {
 		type NextSessionRotation = crate::mock::TestNextSessionRotation;
 		type OnNewHead = ();
 		type AssignCoretime = ();
+		type Fungible = Balances;
+		type CooldownRemovalMultiplier = ConstUint<1>;
 	}
 
 	impl parachains_shared::Config for Test {

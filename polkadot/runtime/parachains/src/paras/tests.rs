@@ -15,17 +15,22 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use super::*;
-use frame_support::{assert_err, assert_ok, assert_storage_noop};
+use frame_support::{
+	assert_err, assert_noop, assert_ok, assert_storage_noop, traits::UnfilteredDispatchable,
+};
 use polkadot_primitives::{BlockNumber, SchedulerParams, PARACHAIN_KEY_TYPE_ID};
 use polkadot_primitives_test_helpers::{dummy_head_data, dummy_validation_code, validator_pubkeys};
 use sc_keystore::LocalKeystore;
 use sp_keyring::Sr25519Keyring;
 use sp_keystore::{Keystore, KeystorePtr};
+use sp_runtime::TokenError;
 use std::sync::Arc;
 
 use crate::{
 	configuration::HostConfiguration,
-	mock::{new_test_ext, MockGenesisConfig, Paras, ParasShared, RuntimeOrigin, System, Test},
+	mock::{
+		new_test_ext, Balances, MockGenesisConfig, Paras, ParasShared, RuntimeOrigin, System, Test,
+	},
 	paras,
 };
 
@@ -2011,5 +2016,109 @@ fn parachains_cache_preserves_order() {
 
 		// In order after removal
 		assert_eq!(Parachains::<Test>::get(), vec![a, c]);
+	});
+}
+
+#[test]
+fn remove_upgrade_cooldown_works() {
+	let code_retention_period = 10;
+	let validation_upgrade_delay = 5;
+	let validation_upgrade_cooldown = 10;
+
+	let original_code = test_validation_code_1();
+	let paras = vec![(
+		0u32.into(),
+		ParaGenesisArgs {
+			para_kind: ParaKind::Parachain,
+			genesis_head: dummy_head_data(),
+			validation_code: original_code.clone(),
+		},
+	)];
+
+	let genesis_config = MockGenesisConfig {
+		paras: GenesisConfig { paras, ..Default::default() },
+		configuration: crate::configuration::GenesisConfig {
+			config: HostConfiguration {
+				code_retention_period,
+				validation_upgrade_delay,
+				validation_upgrade_cooldown,
+				..Default::default()
+			},
+		},
+		..Default::default()
+	};
+
+	new_test_ext(genesis_config).execute_with(|| {
+		check_code_is_stored(&original_code);
+
+		let para_id = ParaId::from(0);
+		let new_code = test_validation_code_2();
+
+		// Wait for at least one session change to set active validators.
+		const EXPECTED_SESSION: SessionIndex = 1;
+		run_to_block(2, Some(vec![1]));
+		assert_eq!(Paras::current_code(&para_id), Some(original_code.clone()));
+
+		// this parablock is in the context of block 1.
+		let expected_at = 1 + validation_upgrade_delay;
+		let next_possible_upgrade_at = 1 + validation_upgrade_cooldown;
+		// `set_go_ahead` parameter set to `false` which prevents signaling the parachain
+		// with the `GoAhead` signal.
+		Paras::schedule_code_upgrade(
+			para_id,
+			new_code.clone(),
+			1,
+			&configuration::ActiveConfig::<Test>::get(),
+			UpgradeStrategy::ApplyAtExpectedBlock,
+		);
+		// Include votes for super-majority.
+		submit_super_majority_pvf_votes(&new_code, EXPECTED_SESSION, true);
+		assert!(FutureCodeUpgradesAt::<Test>::get().iter().any(|(id, _)| *id == para_id));
+
+		// Going to the expected block triggers the upgrade directly.
+		run_to_block(expected_at, None);
+
+		// Reporting a head doesn't change anything.
+		Paras::note_new_head(para_id, Default::default(), expected_at - 1);
+
+		assert_eq!(
+			paras::PastCodeMeta::<Test>::get(&para_id).most_recent_change(),
+			Some(expected_at)
+		);
+		assert_eq!(PastCodeHash::<Test>::get(&(para_id, expected_at)), Some(original_code.hash()));
+		assert!(FutureCodeUpgrades::<Test>::get(&para_id).is_none());
+		assert!(FutureCodeUpgradesAt::<Test>::get().iter().all(|(id, _)| *id != para_id));
+		assert!(FutureCodeHash::<Test>::get(&para_id).is_none());
+		assert!(UpgradeGoAheadSignal::<Test>::get(&para_id).is_none());
+		assert_eq!(Paras::current_code(&para_id), Some(new_code.clone()));
+		assert_eq!(
+			UpgradeRestrictionSignal::<Test>::get(&para_id),
+			Some(UpgradeRestriction::Present),
+		);
+		assert_eq!(UpgradeCooldowns::<Test>::get(), vec![(para_id, next_possible_upgrade_at)]);
+		check_code_is_stored(&original_code);
+		check_code_is_stored(&new_code);
+
+		assert_noop!(
+			Call::<Test>::remove_upgrade_cooldown { para: para_id }
+				.dispatch_bypass_filter(RuntimeOrigin::signed(1)),
+			DispatchError::Token(TokenError::FundsUnavailable)
+		);
+
+		Balances::force_set_balance(RuntimeOrigin::root(), 1, 10000).unwrap();
+		let issuance = Balances::total_issuance();
+
+		assert_ok!(Call::<Test>::remove_upgrade_cooldown { para: para_id }
+			.dispatch_bypass_filter(RuntimeOrigin::signed(1)));
+
+		let expected_issuance = issuance -
+			Pallet::<Test>::calculate_remove_upgrade_cooldown_cost(next_possible_upgrade_at);
+		// Check that we burned the funds
+		assert_eq!(expected_issuance, Balances::total_issuance());
+
+		{
+			assert!(UpgradeRestrictionSignal::<Test>::get(&para_id).is_none());
+			assert!(UpgradeCooldowns::<Test>::get().is_empty());
+		}
 	});
 }
