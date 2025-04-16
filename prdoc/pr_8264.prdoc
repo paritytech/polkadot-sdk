@@ -1,0 +1,11 @@
+title: Migrate pallet-grandpa to FRAME umbrella crate
+
+doc:
+  - audience: Runtime & Pallet Dev
+    description: |
+      Migrates `pallet-grandpa` to use the `polkadot-sdk-frame` (FRAME umbrella crate) as per [#6504](https://github.com/paritytech/polkadot-sdk/issues/6504).
+      All imports are now routed through the umbrella crate, and any missing items have been re-exported as needed. No direct imports from `frame_support`, `sp_runtime`, or similar remain. Tests and benchmarks are updated to use only the `frame` crate. No logic changes are introduced.
+
+crates:
+- name: pallet-grandpa
+  bump: none
