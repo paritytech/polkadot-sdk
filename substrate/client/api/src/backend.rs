@@ -493,7 +493,8 @@ pub trait StorageProvider<Block: BlockT, B: Backend<Block>> {
 	) -> sp_blockchain::Result<Option<MerkleValue<Block::Hash>>>;
 }
 
-/// Specify the desired trie cache context.
+/// Specify the desired trie cache context when calling [`Backend::state_at`].
+///
 /// This is used to determine the size of the local trie cache.
 #[derive(Debug, Clone, Copy)]
 pub enum TrieCacheContext {
