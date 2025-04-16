@@ -666,12 +666,12 @@ pub mod pallet {
 		/// Multiplier to determine the cost of removing upgrade cooldown.
 		///
 		/// After a parachain upgrades their runtime, an upgrade cooldown is applied
-		/// ([`HostConfiguration::validation_upgrade_cooldown`]). This cooldown exists to prevent
-		/// spamming the relay chain with runtime upgrades. But as life is going on, mistakes can
-		/// happen and a consequent may be required. The cooldown period can be removed by using
-		/// [`Pallet::remove_upgrade_cooldown`]. This dispatchable will use this multiplier to
-		/// determine the cost for removing the upgrade cooldown. Time left for the cooldown
-		/// multiplied with this multiplier determines the cost.
+		/// ([`configuration::HostConfiguration::validation_upgrade_cooldown`]). This cooldown
+		/// exists to prevent spamming the relay chain with runtime upgrades. But as life is going
+		/// on, mistakes can happen and a consequent may be required. The cooldown period can be
+		/// removed by using [`Pallet::remove_upgrade_cooldown`]. This dispatchable will use this
+		/// multiplier to determine the cost for removing the upgrade cooldown. Time left for the
+		/// cooldown multiplied with this multiplier determines the cost.
 		type CooldownRemovalMultiplier: Get<BalanceOf<Self>>;
 	}
 
