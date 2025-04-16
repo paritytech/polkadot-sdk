@@ -8,8 +8,8 @@ license = "Apache-2.0"
 homepage.workspace = true
 repository.workspace = true
 
-[build-dependencies]
-substrate-wasm-builder = { optional = true, workspace = true, default-features = true }
+[lints]
+workspace = true
 
 [dependencies]
 codec = { features = ["derive"], workspace = true }
@@ -83,6 +83,9 @@ testnet-parachains-constants = { features = ["rococo"], workspace = true }
 [dev-dependencies]
 parachains-runtimes-test-utils = { workspace = true, default-features = true }
 
+[build-dependencies]
+substrate-wasm-builder = { optional = true, workspace = true, default-features = true }
+
 [features]
 default = ["std"]
 std = [
@@ -149,7 +152,6 @@ std = [
 	"xcm-runtime-apis/std",
 	"xcm/std",
 ]
-
 runtime-benchmarks = [
 	"cumulus-pallet-parachain-system/runtime-benchmarks",
 	"cumulus-pallet-session-benchmarking/runtime-benchmarks",
@@ -182,7 +184,6 @@ runtime-benchmarks = [
 	"xcm-runtime-apis/runtime-benchmarks",
 	"xcm/runtime-benchmarks",
 ]
-
 try-runtime = [
 	"cumulus-pallet-aura-ext/try-runtime",
 	"cumulus-pallet-parachain-system/try-runtime",

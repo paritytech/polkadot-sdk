@@ -30,7 +30,6 @@ sp-io = { workspace = true }
 sp-runtime = { workspace = true }
 sp-std = { workspace = true }
 
-pallet-xcm = { workspace = true }
 xcm = { workspace = true }
 xcm-executor = { workspace = true }
 
@@ -41,8 +40,6 @@ snowbridge-pallet-system = { workspace = true }
 [dev-dependencies]
 hex-literal = { workspace = true, default-features = true }
 pallet-balances = { workspace = true, default-features = true }
-polkadot-primitives = { workspace = true, default-features = true }
-snowbridge-pallet-outbound-queue-v2 = { workspace = true, default-features = true }
 snowbridge-test-utils = { workspace = true }
 sp-keyring = { workspace = true, default-features = true }
 
@@ -54,7 +51,6 @@ std = [
 	"frame-support/std",
 	"frame-system/std",
 	"log/std",
-	"pallet-xcm/std",
 	"scale-info/std",
 	"snowbridge-core/std",
 	"snowbridge-outbound-queue-primitives/std",
@@ -71,10 +67,7 @@ runtime-benchmarks = [
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
-	"pallet-xcm/runtime-benchmarks",
-	"polkadot-primitives/runtime-benchmarks",
 	"snowbridge-core/runtime-benchmarks",
-	"snowbridge-pallet-outbound-queue-v2/runtime-benchmarks",
 	"snowbridge-pallet-system/runtime-benchmarks",
 	"snowbridge-test-utils/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
@@ -85,8 +78,6 @@ try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
 	"pallet-balances/try-runtime",
-	"pallet-xcm/try-runtime",
-	"snowbridge-pallet-outbound-queue-v2/try-runtime",
 	"snowbridge-pallet-system/try-runtime",
 	"sp-runtime/try-runtime",
 ]
