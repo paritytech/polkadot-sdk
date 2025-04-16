@@ -609,9 +609,11 @@ impl PalletCmd {
 
 	/// Whether this pallet should be run.
 	fn pallet_selected(&self, pallet: &Vec<u8>) -> bool {
-		let include = self.pallet.clone().unwrap_or_default();
+		let include = self.pallets.clone();
 
-		let included = include.is_empty() || include == "*" || include.as_bytes() == pallet;
+		let included = include.is_empty()
+			|| include.iter().any(|p| p.as_bytes() == pallet)
+			|| include.iter().any(|p| p == "*");
 		let excluded = self.exclude_pallets.iter().any(|p| p.as_bytes() == pallet);
 
 		included && !excluded
