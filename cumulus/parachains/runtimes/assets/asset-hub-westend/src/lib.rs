@@ -1297,8 +1297,6 @@ impl pallet_ah_migrator::Config for Runtime {
 	type Preimage = Preimage;
 	type SendXcm = xcm_config::XcmRouter;
 	type AhWeightInfo = (); // TODO: weights::pallet_ah_migrator::WeightInfo;
-	#[cfg(feature = "runtime-benchmarks")]
-	type BenchmarkHelper = pallet_ah_migrator::benchmarking::BenchmarkFactory<Runtime>;
 }
 
 // Create the runtime by composing the FRAME pallets that were previously configured.
