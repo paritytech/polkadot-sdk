@@ -93,6 +93,34 @@ spec.loader.exec_module(generate_prdoc)
 parser_prdoc = subparsers.add_parser('prdoc', help='Generates PR documentation')
 generate_prdoc.setup_parser(parser_prdoc, pr_required=False)
 
+"""
+FIX-TOML
+"""
+fix_toml_example = '''**Examples**:
+ Formats all TOML files in the repository:
+ %(prog)s fix-toml
+
+ Formats TOML files for specific packages:
+ %(prog)s fix-toml --package module1 module2
+'''
+
+parser_fix_toml = subparsers.add_parser(
+    'fix-toml',
+    help='Formats TOML files using taplo and zepter',
+    epilog=fix_toml_example,
+    formatter_class=argparse.RawDescriptionHelpFormatter
+)
+
+parser_fix_toml.add_argument(
+    '--package', '-p',
+    help='Specify package(s) to format (space-separated)',
+    nargs='*',
+    default=[]
+)
+
+for arg, config in common_args.items():
+    parser_fix_toml.add_argument(arg, **config)
+
 def main():
     global args, unknown, runtimesMatrix
     args, unknown = parser.parse_known_args()
@@ -283,6 +311,23 @@ def main():
         if exit_code != 0:
             print_and_log('❌ Failed to generate prdoc')
             sys.exit(exit_code)
+
+    elif args.command == 'fix-toml':
+        packages = args.package
+        if packages:
+            print(f'Formatting TOML files for packages: {packages}')
+            for package in packages:
+                taplo_status = os.system(f'taplo format --config .config/taplo.toml {package}')
+                zepter_status = os.system(f'zepter format {package}')
+                if taplo_status != 0 or zepter_status != 0:
+                    print_and_log(f'❌ Failed to format TOML files for package: {package}')
+                    sys.exit(1)
+        else:
+            print('Formatting all TOML files in the repository')
+            taplo_status = os.system('taplo format --config .config/taplo.toml')
+            zepter_status = os.system('zepter format')
+            if taplo_status != 0 or zepter_status != 0:
+                print_and_log('❌ Failed to format TOML files')
 
     print('🚀 Done')
 
