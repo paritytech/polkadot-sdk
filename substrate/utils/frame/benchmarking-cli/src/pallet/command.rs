@@ -641,8 +641,7 @@ impl PalletCmd {
 
 		let included = include.is_empty() ||
 			include.iter().any(|p| p.as_bytes() == pallet) ||
-			include.iter().any(|p| p == "*");
-		|| include.iter().any(|p| p == "all");
+			|| include.iter().any(|p| p == "*") || include.iter().any(|p| p == "all");
 		let excluded = self.exclude_pallets.iter().any(|p| p.as_bytes() == pallet);
 
 		included && !excluded
