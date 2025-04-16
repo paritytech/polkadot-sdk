@@ -357,6 +357,8 @@ pub trait ElectionDataProvider {
 	) -> data_provider::Result<Vec<VoterOf<Self>>>;
 
 	/// A state-less version of [`Self::electing_voters`].
+	///
+	/// An election-provider that only uses 1 page should use this.
 	fn electing_voters_stateless(
 		bounds: DataProviderBounds,
 	) -> data_provider::Result<Vec<VoterOf<Self>>> {
@@ -393,6 +395,9 @@ pub trait ElectionDataProvider {
 	) {
 	}
 
+	/// Instruct the data provider to fetch a page of the solution.
+	///
+	/// This can be useful to measure the export process in benchmarking.
 	#[cfg(any(feature = "runtime-benchmarks", test))]
 	fn fetch_page(_page: PageIndex) {}
 
@@ -419,6 +424,7 @@ pub trait ElectionDataProvider {
 	#[cfg(any(feature = "runtime-benchmarks", test))]
 	fn clear() {}
 
+	/// Force set the desired targets in the snapshot.
 	#[cfg(any(feature = "runtime-benchmarks", test))]
 	fn set_desired_targets(_count: u32) {}
 }
@@ -463,9 +469,6 @@ pub trait ElectionProvider {
 	/// [`ElectionProvider::Pages`] is higher than one.
 	///
 	/// The result is returned in a target major format, namely as vector of supports.
-	///
-	/// This should be implemented as a self-weighing function. The implementor should register its
-	/// appropriate weight at the end of execution with the system pallet directly.
 	fn elect(page: PageIndex) -> Result<BoundedSupportsOf<Self>, Self::Error>;
 
 	/// The index of the *most* significant page that this election provider supports.
@@ -944,6 +947,10 @@ impl<AccountId, Bound: Get<u32>> TryFrom<sp_npos_elections::Support<AccountId>>
 }
 
 impl<AccountId: Clone, Bound: Get<u32>> BoundedSupport<AccountId, Bound> {
+	/// Try and construct a `BoundedSupport` from an unbounded version, and reside to sorting and
+	/// truncating if needed.
+	///
+	/// Returns the number of backers removed.
 	pub fn sorted_truncate_from(mut support: sp_npos_elections::Support<AccountId>) -> (Self, u32) {
 		// If bounds meet, then short circuit.
 		if let Ok(bounded) = support.clone().try_into() {
@@ -1004,7 +1011,8 @@ impl<
 		other: BoundedSupports<AccountId, BOtherOuter, BOuterInner>,
 	) -> Result<Self, crate::Error> {
 		// NOTE: we might as well do this with unsafe rust and do it faster.
-		if BOtherOuter::get() <= BOuter::get() && BInner::get() <= BOuterInner::get() {
+		if BOtherOuter::get() <= BOuter::get() && BOuterInner::get() <= BInner::get() {
+			// Both ouf our bounds are larger than the input's bound, can convert.
 			let supports = other
 				.into_iter()
 				.map(|(acc, b_support)| {
@@ -1025,6 +1033,9 @@ impl<
 impl<AccountId: Clone, BOuter: Get<u32>, BInner: Get<u32>>
 	BoundedSupports<AccountId, BOuter, BInner>
 {
+	/// Try and construct a `BoundedSupports` from an unbounded version, and reside to sorting and
+	/// truncating if need ne.
+	///
 	/// Two u32s returned are number of winners and backers removed respectively.
 	pub fn sorted_truncate_from(supports: Supports<AccountId>) -> (Self, u32, u32) {
 		// if bounds, meet, short circuit
@@ -1057,6 +1068,8 @@ impl<AccountId: Clone, BOuter: Get<u32>, BInner: Get<u32>>
 		(bounded, (pre_winners - post_winners) as u32, backers_removed)
 	}
 }
+
+/// Helper trait for conversion of a vector of unbounded supports into a vector of bounded ones.
 pub trait TryFromUnboundedPagedSupports<AccountId, BOuter: Get<u32>, BInner: Get<u32>> {
 	fn try_from_unbounded_paged(
 		self,
