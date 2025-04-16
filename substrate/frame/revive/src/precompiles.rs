@@ -401,7 +401,7 @@ impl<T: Config> Precompiles<T> for Tuple {
 				}
 			)*
 		);
-		function.map(|function| Instance { has_contract_info, address: address.clone(), function })
+		function.map(|function| Instance { has_contract_info, address: *address, function })
 	}
 }
 
