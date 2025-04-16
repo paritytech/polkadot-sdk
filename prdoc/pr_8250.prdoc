@@ -1,0 +1,13 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: "Simplify umbrella version detection in CI"
+
+doc:
+  - audience: CI/CD
+    description: |
+      Simplified the umbrella crate version detection in checks-quick.yml to use cargo metadata 
+      with a simple fallback.
+
+crates:
+  # No crates are affected as this only modifies CI workflow files
