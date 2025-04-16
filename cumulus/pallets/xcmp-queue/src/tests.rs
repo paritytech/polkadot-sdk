@@ -211,6 +211,7 @@ fn xcm_enqueueing_starts_dropping_on_out_of_weight() {
 			total_size += xcm.len();
 			let required_weight = <<Test as Config>::WeightInfo>::enqueue_xcmp_messages(
 				idx as u32 + 1,
+				0,
 				idx + 1,
 				total_size,
 			);

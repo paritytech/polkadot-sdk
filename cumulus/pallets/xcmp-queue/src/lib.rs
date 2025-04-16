@@ -51,8 +51,6 @@ pub mod weights;
 pub mod weights_ext;
 
 pub use weights::WeightInfo;
-#[cfg(feature = "std")]
-pub use weights_ext::check_weight_info_ext_accuracy;
 pub use weights_ext::WeightInfoExt;
 
 extern crate alloc;
@@ -79,7 +77,7 @@ use polkadot_runtime_common::xcm_sender::PriceForMessageDelivery;
 use polkadot_runtime_parachains::FeeTracker;
 use scale_info::TypeInfo;
 use sp_core::MAX_POSSIBLE_ALLOCATION;
-use sp_runtime::{FixedU128, RuntimeDebug, Saturating, WeakBoundedVec};
+use sp_runtime::{FixedU128, RuntimeDebug, SaturatedConversion, Saturating, WeakBoundedVec};
 use xcm::{latest::prelude::*, VersionedLocation, VersionedXcm, WrapVersion, MAX_XCM_DECODE_DEPTH};
 use xcm_builder::InspectMessageQueues;
 use xcm_executor::traits::ConvertOrigin;
@@ -661,6 +659,7 @@ impl<T: Config> Pallet<T> {
 		let best_batch_footprint = batches_footprints.search_best_by(|batch_info| {
 			let required_weight = T::WeightInfo::enqueue_xcmp_messages(
 				batch_info.new_pages_count,
+				batches_footprints.first_page_pos.saturated_into(),
 				batch_info.msgs_count,
 				batch_info.size_in_bytes,
 			);
@@ -673,6 +672,7 @@ impl<T: Config> Pallet<T> {
 
 		meter.consume(T::WeightInfo::enqueue_xcmp_messages(
 			best_batch_footprint.new_pages_count,
+			batches_footprints.first_page_pos.saturated_into(),
 			best_batch_footprint.msgs_count,
 			best_batch_footprint.size_in_bytes,
 		));
