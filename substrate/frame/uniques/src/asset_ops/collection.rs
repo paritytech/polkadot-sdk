@@ -1,12 +1,15 @@
 use core::marker::PhantomData;
 
-use crate::{asset_strategies::Attribute, Collection as CollectionStorage, *};
+use crate::{
+	asset_strategies::{Attribute, WithCollectionConfig},
+	Collection as CollectionStorage, *,
+};
 use frame_support::{
 	ensure,
 	traits::{
 		tokens::asset_ops::{
 			common_strategies::{
-				Bytes, CheckOrigin, CheckState, IfOwnedBy, Ownership, PredefinedId, WithAdmin,
+				Bytes, CheckOrigin, CheckState, ConfigValue, IfOwnedBy, Owner, WithConfig,
 				WithWitness,
 			},
 			AssetDefinition, Create, Destroy, Inspect,
@@ -16,7 +19,7 @@ use frame_support::{
 	BoundedSlice,
 };
 use frame_system::ensure_signed;
-use sp_runtime::DispatchError;
+use sp_runtime::{DispatchError, DispatchResult};
 
 pub struct Collection<PalletInstance>(PhantomData<PalletInstance>);
 
@@ -24,10 +27,10 @@ impl<T: Config<I>, I: 'static> AssetDefinition for Collection<Pallet<T, I>> {
 	type Id = T::CollectionId;
 }
 
-impl<T: Config<I>, I: 'static> Inspect<Ownership<T::AccountId>> for Collection<Pallet<T, I>> {
+impl<T: Config<I>, I: 'static> Inspect<Owner<T::AccountId>> for Collection<Pallet<T, I>> {
 	fn inspect(
 		collection: &Self::Id,
-		_ownership: Ownership<T::AccountId>,
+		_ownership: Owner<T::AccountId>,
 	) -> Result<T::AccountId, DispatchError> {
 		CollectionStorage::<T, I>::get(collection)
 			.map(|a| a.owner)
@@ -58,14 +61,11 @@ impl<'a, T: Config<I>, I: 'static> Inspect<Bytes<Attribute<'a>>> for Collection<
 	}
 }
 
-impl<T: Config<I>, I: 'static> Create<WithAdmin<T::AccountId, PredefinedId<T::CollectionId>>>
-	for Collection<Pallet<T, I>>
-{
-	fn create(
-		strategy: WithAdmin<T::AccountId, PredefinedId<T::CollectionId>>,
-	) -> Result<T::CollectionId, DispatchError> {
-		let WithAdmin { owner, admin, id_assignment, .. } = strategy;
+impl<T: Config<I>, I: 'static> Create<WithCollectionConfig<T, I>> for Collection<Pallet<T, I>> {
+	fn create(strategy: WithCollectionConfig<T, I>) -> Result<T::CollectionId, DispatchError> {
+		let WithConfig { config, extra: id_assignment } = strategy;
 		let collection = id_assignment.params;
+		let (ConfigValue(owner), ConfigValue(admin)) = config;
 
 		<Pallet<T, I>>::do_create_collection(
 			collection.clone(),
@@ -80,20 +80,17 @@ impl<T: Config<I>, I: 'static> Create<WithAdmin<T::AccountId, PredefinedId<T::Co
 	}
 }
 
-impl<T: Config<I>, I: 'static>
-	Create<CheckOrigin<T::RuntimeOrigin, WithAdmin<T::AccountId, PredefinedId<T::CollectionId>>>>
+impl<T: Config<I>, I: 'static> Create<CheckOrigin<T::RuntimeOrigin, WithCollectionConfig<T, I>>>
 	for Collection<Pallet<T, I>>
 {
 	fn create(
-		strategy: CheckOrigin<
-			T::RuntimeOrigin,
-			WithAdmin<T::AccountId, PredefinedId<T::CollectionId>>,
-		>,
+		strategy: CheckOrigin<T::RuntimeOrigin, WithCollectionConfig<T, I>>,
 	) -> Result<T::CollectionId, DispatchError> {
 		let CheckOrigin(origin, creation) = strategy;
 
-		let WithAdmin { owner, id_assignment, .. } = &creation;
+		let WithConfig { config, extra: id_assignment } = &creation;
 		let collection = &id_assignment.params;
+		let (ConfigValue(owner), ..) = config;
 
 		let maybe_check_signer =
 			T::ForceOrigin::try_origin(origin).map(|_| None).or_else(|origin| {
@@ -111,13 +108,10 @@ impl<T: Config<I>, I: 'static>
 }
 
 impl<T: Config<I>, I: 'static> Destroy<WithWitness<DestroyWitness>> for Collection<Pallet<T, I>> {
-	fn destroy(
-		collection: &Self::Id,
-		strategy: WithWitness<DestroyWitness>,
-	) -> Result<DestroyWitness, DispatchError> {
-		let WithWitness(witness) = strategy;
+	fn destroy(collection: &Self::Id, strategy: WithWitness<DestroyWitness>) -> DispatchResult {
+		let CheckState(witness, _) = strategy;
 
-		<Pallet<T, I>>::do_destroy_collection(collection.clone(), witness, None)
+		<Pallet<T, I>>::do_destroy_collection(collection.clone(), witness, None).map(|_witness| ())
 	}
 }
 
@@ -127,10 +121,11 @@ impl<T: Config<I>, I: 'static> Destroy<IfOwnedBy<T::AccountId, WithWitness<Destr
 	fn destroy(
 		collection: &Self::Id,
 		strategy: IfOwnedBy<T::AccountId, WithWitness<DestroyWitness>>,
-	) -> Result<DestroyWitness, DispatchError> {
-		let CheckState(owner, WithWitness(witness)) = strategy;
+	) -> DispatchResult {
+		let CheckState(owner, CheckState(witness, _)) = strategy;
 
 		<Pallet<T, I>>::do_destroy_collection(collection.clone(), witness, Some(owner))
+			.map(|_witness| ())
 	}
 }
 
@@ -140,13 +135,15 @@ impl<T: Config<I>, I: 'static> Destroy<CheckOrigin<T::RuntimeOrigin, WithWitness
 	fn destroy(
 		collection: &Self::Id,
 		strategy: CheckOrigin<T::RuntimeOrigin, WithWitness<DestroyWitness>>,
-	) -> Result<DestroyWitness, DispatchError> {
-		let CheckOrigin(origin, WithWitness(witness)) = strategy;
+	) -> DispatchResult {
+		let CheckOrigin(origin, CheckState(witness, _)) = strategy;
+
 		let maybe_check_owner = match T::ForceOrigin::try_origin(origin) {
 			Ok(_) => None,
 			Err(origin) => Some(ensure_signed(origin)?),
 		};
 
 		<Pallet<T, I>>::do_destroy_collection(collection.clone(), witness, maybe_check_owner)
+			.map(|_witness| ())
 	}
 }

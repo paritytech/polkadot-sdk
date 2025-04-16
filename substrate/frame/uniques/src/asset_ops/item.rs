@@ -1,15 +1,18 @@
 use core::marker::PhantomData;
 
-use crate::{asset_strategies::Attribute, Item as ItemStorage, *};
+use crate::{
+	asset_strategies::{Attribute, WithItemConfig},
+	Item as ItemStorage, *,
+};
 use frame_support::{
 	dispatch::DispatchResult,
 	ensure,
 	traits::tokens::asset_ops::{
 		common_strategies::{
-			Bytes, CanTransfer, CheckOrigin, CheckState, IfOwnedBy, Owned, Ownership, PredefinedId,
-			To, Unchecked,
+			Bytes, CheckOrigin, CheckState, ConfigValue, IfOwnedBy, NoParams, Owner,
+			PredefinedId, WithConfig, CanUpdate,
 		},
-		AssetDefinition, Create, Inspect, Restore, Stash, Transfer,
+		AssetDefinition, Create, Inspect, Restore, Stash, Update,
 	},
 	BoundedSlice,
 };
@@ -22,10 +25,10 @@ impl<T: Config<I>, I: 'static> AssetDefinition for Item<Pallet<T, I>> {
 	type Id = (T::CollectionId, T::ItemId);
 }
 
-impl<T: Config<I>, I: 'static> Inspect<Ownership<T::AccountId>> for Item<Pallet<T, I>> {
+impl<T: Config<I>, I: 'static> Inspect<Owner<T::AccountId>> for Item<Pallet<T, I>> {
 	fn inspect(
 		(collection, item): &Self::Id,
-		_ownership: Ownership<T::AccountId>,
+		_ownership: Owner<T::AccountId>,
 	) -> Result<T::AccountId, DispatchError> {
 		ItemStorage::<T, I>::get(collection, item)
 			.map(|a| a.owner)
@@ -56,10 +59,10 @@ impl<'a, T: Config<I>, I: 'static> Inspect<Bytes<Attribute<'a>>> for Item<Pallet
 	}
 }
 
-impl<T: Config<I>, I: 'static> Inspect<CanTransfer> for Item<Pallet<T, I>> {
+impl<T: Config<I>, I: 'static> Inspect<CanUpdate<Owner<T::AccountId>>> for Item<Pallet<T, I>> {
 	fn inspect(
 		(collection, item): &Self::Id,
-		_can_transfer: CanTransfer,
+		_can_update: CanUpdate<Owner<T::AccountId>>,
 	) -> Result<bool, DispatchError> {
 		match (Collection::<T, I>::get(collection), ItemStorage::<T, I>::get(collection, item)) {
 			(Some(cd), Some(id)) => Ok(!cd.is_frozen && !id.is_frozen),
@@ -68,13 +71,11 @@ impl<T: Config<I>, I: 'static> Inspect<CanTransfer> for Item<Pallet<T, I>> {
 	}
 }
 
-impl<T: Config<I>, I: 'static>
-	Create<Owned<T::AccountId, PredefinedId<(T::CollectionId, T::ItemId)>>> for Item<Pallet<T, I>>
-{
+impl<T: Config<I>, I: 'static> Create<WithItemConfig<T, I>> for Item<Pallet<T, I>> {
 	fn create(
-		strategy: Owned<T::AccountId, PredefinedId<(T::CollectionId, T::ItemId)>>,
+		strategy: WithItemConfig<T, I>,
 	) -> Result<(T::CollectionId, T::ItemId), DispatchError> {
-		let Owned { owner, id_assignment, .. } = strategy;
+		let WithConfig { config: ConfigValue::<_>(owner), extra: id_assignment } = strategy;
 		let (collection, item) = id_assignment.params;
 
 		<Pallet<T, I>>::do_mint(collection.clone(), item, owner, |_| Ok(()))?;
@@ -83,21 +84,16 @@ impl<T: Config<I>, I: 'static>
 	}
 }
 
-impl<T: Config<I>, I: 'static>
-	Create<
-		CheckOrigin<
-			T::RuntimeOrigin,
-			Owned<T::AccountId, PredefinedId<(T::CollectionId, T::ItemId)>>,
-		>,
-	> for Item<Pallet<T, I>>
+impl<T: Config<I>, I: 'static> Create<CheckOrigin<T::RuntimeOrigin, WithItemConfig<T, I>>>
+	for Item<Pallet<T, I>>
 {
 	fn create(
-		strategy: CheckOrigin<
-			T::RuntimeOrigin,
-			Owned<T::AccountId, PredefinedId<(T::CollectionId, T::ItemId)>>,
-		>,
+		strategy: CheckOrigin<T::RuntimeOrigin, WithItemConfig<T, I>>,
 	) -> Result<(T::CollectionId, T::ItemId), DispatchError> {
-		let CheckOrigin(origin, Owned { owner, id_assignment, .. }) = strategy;
+		let CheckOrigin(
+			origin,
+			WithConfig { config: ConfigValue::<_>(owner), extra: id_assignment },
+		) = strategy;
 		let (collection, item) = id_assignment.params;
 
 		let signer = ensure_signed(origin)?;
@@ -111,22 +107,25 @@ impl<T: Config<I>, I: 'static>
 	}
 }
 
-impl<T: Config<I>, I: 'static> Transfer<To<T::AccountId>> for Item<Pallet<T, I>> {
-	fn transfer((collection, item): &Self::Id, strategy: To<T::AccountId>) -> DispatchResult {
-		let To(dest) = strategy;
-
-		<Pallet<T, I>>::do_transfer(collection.clone(), *item, dest, |_, _| Ok(()))
+impl<T: Config<I>, I: 'static> Update<Owner<T::AccountId>> for Item<Pallet<T, I>> {
+	fn update(
+		(collection, item): &Self::Id,
+		_strategy: Owner<T::AccountId>,
+		dest: &T::AccountId,
+	) -> DispatchResult {
+		<Pallet<T, I>>::do_transfer(collection.clone(), *item, dest.clone(), |_, _| Ok(()))
 	}
 }
 
-impl<T: Config<I>, I: 'static> Transfer<CheckOrigin<T::RuntimeOrigin, To<T::AccountId>>>
+impl<T: Config<I>, I: 'static> Update<CheckOrigin<T::RuntimeOrigin, Owner<T::AccountId>>>
 	for Item<Pallet<T, I>>
 {
-	fn transfer(
+	fn update(
 		(collection, item): &Self::Id,
-		strategy: CheckOrigin<T::RuntimeOrigin, To<T::AccountId>>,
+		strategy: CheckOrigin<T::RuntimeOrigin, Owner<T::AccountId>>,
+		dest: &T::AccountId,
 	) -> DispatchResult {
-		let CheckOrigin(origin, To(dest)) = strategy;
+		let CheckOrigin(origin, ..) = strategy;
 
 		let signer = ensure_signed(origin)?;
 
@@ -145,24 +144,25 @@ impl<T: Config<I>, I: 'static> Transfer<CheckOrigin<T::RuntimeOrigin, To<T::Acco
 	}
 }
 
-impl<T: Config<I>, I: 'static> Transfer<IfOwnedBy<T::AccountId, To<T::AccountId>>>
+impl<T: Config<I>, I: 'static> Update<IfOwnedBy<T::AccountId, Owner<T::AccountId>>>
 	for Item<Pallet<T, I>>
 {
-	fn transfer(
+	fn update(
 		(collection, item): &Self::Id,
-		strategy: IfOwnedBy<T::AccountId, To<T::AccountId>>,
+		strategy: IfOwnedBy<T::AccountId, Owner<T::AccountId>>,
+		dest: &T::AccountId,
 	) -> DispatchResult {
-		let CheckState(from, To(to)) = strategy;
+		let CheckState(from, ..) = strategy;
 
-		<Pallet<T, I>>::do_transfer(collection.clone(), *item, to.clone(), |_, details| {
+		<Pallet<T, I>>::do_transfer(collection.clone(), *item, dest.clone(), |_, details| {
 			ensure!(details.owner == from, Error::<T, I>::WrongOwner);
 			Ok(())
 		})
 	}
 }
 
-impl<T: Config<I>, I: 'static> Stash<Unchecked> for Item<Pallet<T, I>> {
-	fn stash((collection, item): &Self::Id, _strategy: Unchecked) -> DispatchResult {
+impl<T: Config<I>, I: 'static> Stash<NoParams> for Item<Pallet<T, I>> {
+	fn stash((collection, item): &Self::Id, _strategy: NoParams) -> DispatchResult {
 		<Pallet<T, I>>::do_burn(collection.clone(), *item, |_, _| Ok(()))
 	}
 }
@@ -194,19 +194,26 @@ impl<T: Config<I>, I: 'static> Stash<IfOwnedBy<T::AccountId>> for Item<Pallet<T,
 		})
 	}
 }
+
 // NOTE: pallet-uniques create and restore operations are equivalent.
 // If an NFT was burned, it can be "re-created" (equivalently, "restored").
 // It will be "re-created" with all the data still bound to it.
 // If an NFT is minted for the first time, it can be regarded as "restored" with an empty data
 // because it is indistinguishable from a burned empty NFT from the chain's perspective.
-impl<T: Config<I>, I: 'static> Restore<To<T::AccountId>> for Item<Pallet<T, I>> {
-	fn restore((collection, item): &Self::Id, strategy: To<T::AccountId>) -> DispatchResult {
-		let To(owner) = strategy;
-
+impl<T: Config<I>, I: 'static> Restore<WithConfig<ConfigValue<Owner<T::AccountId>>>>
+	for Item<Pallet<T, I>>
+{
+	fn restore(
+		(collection, item): &Self::Id,
+		strategy: WithConfig<ConfigValue<Owner<T::AccountId>>>,
+	) -> DispatchResult {
 		let item_exists = ItemStorage::<T, I>::contains_key(collection, item);
 		ensure!(!item_exists, Error::<T, I>::InUse);
 
-		Self::create(Owned::new(owner, PredefinedId::from((collection.clone(), item.clone()))))?;
+		Self::create(WithConfig::new(
+			strategy.config,
+			PredefinedId::from((collection.clone(), *item)),
+		))?;
 
 		Ok(())
 	}

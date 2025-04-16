@@ -4,7 +4,6 @@
 //! * [`Inspect`]
 //! * [`Update`]
 //! * [`Create`]
-//! * [`Transfer`]
 //! * [`Destroy`]
 //! * [`Stash`]
 //! * [`Restore`]
@@ -39,9 +38,8 @@ pub type AssetIdOf<T> = <T as AssetDefinition>::Id;
 ///
 /// The common inspect strategies are:
 /// * [`Bytes`](common_strategies::Bytes)
-/// * [`Ownership`](common_strategies::Ownership)
+/// * [`Owner`](common_strategies::Owner)
 /// * [`CanCreate`](common_strategies::CanCreate)
-/// * [`CanTransfer`](common_strategies::CanTransfer)
 /// * [`CanDestroy`](common_strategies::CanDestroy)
 /// * [`CanUpdate`](common_strategies::CanUpdate)
 pub trait InspectStrategy {
@@ -70,7 +68,6 @@ pub trait Inspect<Strategy: InspectStrategy>: AssetDefinition {
 /// The common update strategies are:
 /// * [`Bytes`](common_strategies::Bytes)
 /// * [`CanCreate`](common_strategies::CanCreate)
-/// * [`CanTransfer`](common_strategies::CanTransfer)
 /// * [`CanDestroy`](common_strategies::CanDestroy)
 /// * [`CanUpdate`](common_strategies::CanUpdate)
 pub trait UpdateStrategy {
@@ -103,9 +100,7 @@ pub trait Update<Strategy: UpdateStrategy>: AssetDefinition {
 
 /// A strategy for use in the [`Create`] implementations.
 ///
-/// The common "create" strategies are:
-/// * [`Owned`](common_strategies::Owned)
-/// * [`WithAdmin`](common_strategies::WithAdmin)
+/// The common "create" strategy is [`WithConfig`](common_strategies::WithConfig).
 pub trait CreateStrategy {
 	/// This type represents a successful asset creation.
 	/// It will be in the [`Result`] type of the [`Create::create`] function.
@@ -141,34 +136,10 @@ pub trait Create<Strategy: CreateStrategy> {
 	fn create(strategy: Strategy) -> Result<Strategy::Success, DispatchError>;
 }
 
-/// A strategy for use in the [`Transfer`] implementations.
-///
-/// The common transfer strategies are:
-/// * [`To`](common_strategies::To)
-/// * [`IfOwnedBy`](common_strategies::IfOwnedBy)
-pub trait TransferStrategy {
-	/// This type represents a successful asset transfer.
-	/// It will be in the [`Result`] type of the [`Transfer::transfer`] function.
-	type Success;
-}
-
-/// A trait representing the ability of a certain asset to be transferred.
-///
-/// This trait can be implemented multiple times using different
-/// [`transfer strategies`](TransferStrategy).
-///
-/// A transfer strategy defines transfer parameters.
-pub trait Transfer<Strategy: TransferStrategy>: AssetDefinition {
-	/// Transfer the asset identified by the given `id` using the provided `strategy`.
-	///
-	/// The ID type is retrieved from the [`AssetDefinition`].
-	fn transfer(id: &Self::Id, strategy: Strategy) -> Result<Strategy::Success, DispatchError>;
-}
-
 /// A strategy for use in the [`Destroy`] implementations.
 ///
 /// The common destroy strategies are:
-/// * [`Unchecked`](common_strategies::Unchecked)
+/// * [`NoParams`](common_strategies::NoParams)
 /// * [`IfOwnedBy`](common_strategies::IfOwnedBy)
 /// * [`WithWitness`](common_strategies::WithWitness)
 pub trait DestroyStrategy {
@@ -193,7 +164,7 @@ pub trait Destroy<Strategy: DestroyStrategy>: AssetDefinition {
 /// A strategy for use in the [`Stash`] implementations.
 ///
 /// The common stash strategies are:
-/// * [`Unchecked`](common_strategies::Unchecked)
+/// * [`NoParams`](common_strategies::NoParams)
 /// * [`IfOwnedBy`](common_strategies::IfOwnedBy)
 pub trait StashStrategy {
 	/// This type represents a successful asset stashing.
@@ -216,8 +187,8 @@ pub trait Stash<Strategy: StashStrategy>: AssetDefinition {
 
 /// A strategy for use in the [`Restore`] implementations.
 /// The common restore strategies are:
-/// * [`Unchecked`](common_strategies::Unchecked)
-/// * [`To`](common_strategies::To)
+/// * [`NoParams`](common_strategies::NoParams)
+/// * [`WithConfig`](common_strategies::WithConfig)
 pub trait RestoreStrategy {
 	/// This type represents a successful asset restoration.
 	/// It will be in the [`Result`] type of the [`Restore::restore`] function.
