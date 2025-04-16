@@ -1892,7 +1892,7 @@ impl<T: Config> Pallet<T> {
 
 	/// Log the entire resouce usage report up until this point.
 	///
-	/// Uses [`crate::LOG_TARGET`], level `debug` and prints the weight and block length usage.
+	/// Uses `crate::LOG_TARGET`, level `debug` and prints the weight and block length usage.
 	pub fn resource_usage_report() {
 		log::debug!(
 			target: LOG_TARGET,
