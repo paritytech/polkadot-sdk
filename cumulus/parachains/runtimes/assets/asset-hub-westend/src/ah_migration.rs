@@ -229,7 +229,6 @@ impl RcToAhCall {
 				let call =
 					inner_call.using_encoded(|mut e| Decode::decode(&mut e)).map_err(|err| {
 						log::error!(
-							target: LOG_TARGET,
 							"Failed to decode RC Bounties call to AH System call: {:?}",
 							err
 						);
