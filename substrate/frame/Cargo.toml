@@ -18,12 +18,8 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 # external deps
-codec = { features = [
-	"derive",
-], workspace = true }
-scale-info = { features = [
-	"derive",
-], workspace = true }
+codec = { features = ["derive"], workspace = true }
+scale-info = { features = ["derive"], workspace = true }
 
 # primitive deps, used for developing FRAME pallets.
 sp-runtime = { workspace = true }
@@ -51,7 +47,7 @@ frame-executive = { optional = true, workspace = true }
 frame-system-rpc-runtime-api = { optional = true, workspace = true }
 
 # Used for runtime benchmarking
-frame-benchmarking = { optional = true, workspace = true }
+frame-benchmarking = { workspace = true, optional = true }
 frame-system-benchmarking = { optional = true, workspace = true }
 
 # Used for try-runtime

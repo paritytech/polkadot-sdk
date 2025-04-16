@@ -399,3 +399,22 @@ pub mod deps {
 	#[cfg(feature = "frame-try-runtime")]
 	pub use frame_try_runtime;
 }
+
+pub use frame_support::VersionedMigration;
+#[cfg(feature = "runtime-benchmarks")]
+pub mod benchmarking {
+	pub use frame_benchmarking::*;
+}
+
+pub use frame_support::{RocksDbWeight, WEIGHT_REF_TIME_PER_MICROS, WEIGHT_REF_TIME_PER_NANOS};
+
+pub use frame_support::{
+	assert_err, assert_noop, assert_ok,
+	dispatch::{GetDispatchInfo, Pays},
+	traits::{Currency, KeyOwnerProofSystem, OnFinalize, OneSessionHandler},
+};
+pub use frame_system::{EventRecord, Phase};
+
+pub use frame_support::storage;
+
+pub use frame_system::RawOrigin;

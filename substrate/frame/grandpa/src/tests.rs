@@ -23,12 +23,12 @@ use super::{Call, Event, *};
 use crate::mock::*;
 use fg_primitives::ScheduledChange;
 use frame::{
-	deps::sp_runtime::{generic::Phase, testing::Digest},
+	deps::sp_runtime::testing::Digest,
 	primitives::H256,
 	testing_prelude::*,
 	traits::{Currency, KeyOwnerProofSystem, OnFinalize, OneSessionHandler},
+	EventRecord, GetDispatchInfo, Phase,
 };
-use frame_system::EventRecord;
 use sp_keyring::Ed25519Keyring;
 
 #[test]
@@ -38,7 +38,7 @@ fn authorities_change_logged() {
 		Grandpa::schedule_change(to_authorities(vec![(4, 1), (5, 1), (6, 1)]), 0, None).unwrap();
 
 		System::note_finished_extrinsics();
-		Grandpa::on_finalize(1);
+		<Grandpa as OnFinalize<_>>::on_finalize(1);
 
 		let header = System::finalize();
 		assert_eq!(
@@ -70,7 +70,7 @@ fn authorities_change_logged_after_delay() {
 	new_test_ext(vec![(1, 1), (2, 1), (3, 1)]).execute_with(|| {
 		initialize_block(1, Default::default());
 		Grandpa::schedule_change(to_authorities(vec![(4, 1), (5, 1), (6, 1)]), 1, None).unwrap();
-		Grandpa::on_finalize(1);
+		<Grandpa as OnFinalize<_>>::on_finalize(1);
 		let header = System::finalize();
 		assert_eq!(
 			header.digest,
@@ -87,7 +87,7 @@ fn authorities_change_logged_after_delay() {
 
 		initialize_block(2, header.hash());
 		System::note_finished_extrinsics();
-		Grandpa::on_finalize(2);
+		<Grandpa as OnFinalize<_>>::on_finalize(2);
 
 		let _header = System::finalize();
 		assert_eq!(
@@ -115,7 +115,7 @@ fn cannot_schedule_change_when_one_pending() {
 			Error::<Test>::ChangePending
 		);
 
-		Grandpa::on_finalize(1);
+		<Grandpa as OnFinalize<_>>::on_finalize(1);
 		let header = System::finalize();
 
 		initialize_block(2, header.hash());
@@ -125,14 +125,14 @@ fn cannot_schedule_change_when_one_pending() {
 			Error::<Test>::ChangePending
 		);
 
-		Grandpa::on_finalize(2);
+		<Grandpa as OnFinalize<_>>::on_finalize(2);
 		let header = System::finalize();
 
 		initialize_block(3, header.hash());
 		assert!(!<PendingChange<Test>>::exists());
 		assert_ok!(Grandpa::schedule_change(to_authorities(vec![(5, 1)]), 1, None));
 
-		Grandpa::on_finalize(3);
+		<Grandpa as OnFinalize<_>>::on_finalize(3);
 		let _header = System::finalize();
 	});
 }
@@ -149,7 +149,7 @@ fn dispatch_forced_change() {
 			Error::<Test>::ChangePending
 		);
 
-		Grandpa::on_finalize(1);
+		<Grandpa as OnFinalize<_>>::on_finalize(1);
 		let mut header = System::finalize();
 
 		for i in 2..7 {
@@ -165,7 +165,7 @@ fn dispatch_forced_change() {
 				Error::<Test>::ChangePending
 			);
 
-			Grandpa::on_finalize(i);
+			<Grandpa as OnFinalize<_>>::on_finalize(i);
 			header = System::finalize();
 		}
 
@@ -179,7 +179,7 @@ fn dispatch_forced_change() {
 				to_authorities(vec![(4, 1), (5, 1), (6, 1)])
 			);
 			assert_ok!(Grandpa::schedule_change(to_authorities(vec![(5, 1)]), 1, None));
-			Grandpa::on_finalize(7);
+			<Grandpa as OnFinalize<_>>::on_finalize(7);
 			header = System::finalize();
 		}
 
@@ -195,7 +195,7 @@ fn dispatch_forced_change() {
 				Grandpa::schedule_change(to_authorities(vec![(5, 1)]), 1, None),
 				Error::<Test>::ChangePending
 			);
-			Grandpa::on_finalize(8);
+			<Grandpa as OnFinalize<_>>::on_finalize(8);
 			header = System::finalize();
 		}
 
@@ -210,7 +210,7 @@ fn dispatch_forced_change() {
 				Grandpa::schedule_change(to_authorities(vec![(5, 1), (6, 1)]), 5, Some(0)),
 				Error::<Test>::TooSoon
 			);
-			Grandpa::on_finalize(i);
+			<Grandpa as OnFinalize<_>>::on_finalize(i);
 			header = System::finalize();
 		}
 
@@ -223,7 +223,7 @@ fn dispatch_forced_change() {
 				Some(0)
 			));
 			assert_eq!(Grandpa::next_forced(), Some(21));
-			Grandpa::on_finalize(11);
+			<Grandpa as OnFinalize<_>>::on_finalize(11);
 			header = System::finalize();
 		}
 		let _ = header;
@@ -240,7 +240,7 @@ fn schedule_pause_only_when_live() {
 		// we've switched to the pending pause state
 		assert_eq!(Grandpa::state(), StoredState::PendingPause { scheduled_at: 1u64, delay: 1 });
 
-		Grandpa::on_finalize(1);
+		<Grandpa as OnFinalize<_>>::on_finalize(1);
 		let _ = System::finalize();
 
 		initialize_block(2, Default::default());
@@ -248,7 +248,7 @@ fn schedule_pause_only_when_live() {
 		// signaling a pause now should fail
 		assert_noop!(Grandpa::schedule_pause(1), Error::<Test>::PauseFailed);
 
-		Grandpa::on_finalize(2);
+		<Grandpa as OnFinalize<_>>::on_finalize(2);
 		let _ = System::finalize();
 
 		// after finalizing block 2 the set should have switched to paused state
@@ -268,7 +268,7 @@ fn schedule_resume_only_when_paused() {
 
 		// we schedule a pause to be applied instantly
 		Grandpa::schedule_pause(0).unwrap();
-		Grandpa::on_finalize(1);
+		<Grandpa as OnFinalize<_>>::on_finalize(1);
 		let _ = System::finalize();
 
 		assert_eq!(Grandpa::state(), StoredState::Paused);
@@ -276,15 +276,15 @@ fn schedule_resume_only_when_paused() {
 		// we schedule the set to go back live in 2 blocks
 		initialize_block(2, Default::default());
 		Grandpa::schedule_resume(2).unwrap();
-		Grandpa::on_finalize(2);
+		<Grandpa as OnFinalize<_>>::on_finalize(2);
 		let _ = System::finalize();
 
 		initialize_block(3, Default::default());
-		Grandpa::on_finalize(3);
+		<Grandpa as OnFinalize<_>>::on_finalize(3);
 		let _ = System::finalize();
 
 		initialize_block(4, Default::default());
-		Grandpa::on_finalize(4);
+		<Grandpa as OnFinalize<_>>::on_finalize(4);
 		let _ = System::finalize();
 
 		// it should be live at block 4

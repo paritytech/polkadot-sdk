@@ -16,13 +16,9 @@
 // limitations under the License.
 
 //! Benchmarks for the GRANDPA pallet.
-#![cfg(feature = "runtime-benchmarks")]
 
 use super::{Pallet as Grandpa, *};
-use frame::benchmarking::prelude::*;
-
-// use frame_system::RawOrigin;
-// use sp_core::H256;
+use frame::{benchmarking::benchmarks, deps::sp_core::H256, RawOrigin};
 
 benchmarks! {
 	check_equivocation_proof {
@@ -72,7 +68,7 @@ benchmarks! {
 	}
 
 	impl_benchmark_test_suite!(
-		Pallet,
+		Grandpa,
 		crate::mock::new_test_ext(vec![(1, 1), (2, 1), (3, 1)]),
 		crate::mock::Test,
 	);

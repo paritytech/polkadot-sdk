@@ -2579,3 +2579,9 @@ mod test {
 		});
 	}
 }
+
+pub use crate::migrations::VersionedMigration;
+
+pub use crate::weights::constants::{
+	RocksDbWeight, WEIGHT_REF_TIME_PER_MICROS, WEIGHT_REF_TIME_PER_NANOS,
+};
