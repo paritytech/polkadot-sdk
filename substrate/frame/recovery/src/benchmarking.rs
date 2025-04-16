@@ -30,6 +30,10 @@ fn assert_last_event<T: Config>(generic_event: <T as Config>::RuntimeEvent) {
 	frame_system::Pallet::<T>::assert_last_event(generic_event.into());
 }
 
+fn assert_has_event<T: Config>(generic_event: <T as Config>::RuntimeEvent) {
+	frame_system::Pallet::<T>::assert_has_event(generic_event.into());
+}
+
 fn get_total_deposit<T: Config>(
 	bounded_friends: &FriendsOf<T>,
 ) -> Option<<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance>
@@ -430,13 +434,34 @@ mod benchmarks {
 		);
 
 		#[extrinsic_call]
-		_(RawOrigin::Signed(caller.clone()));
+		_(RawOrigin::Signed(caller.clone()), Some(T::Lookup::unlookup(lost_account.clone())));
 
 		// 6. Assert final state
 		assert_eq!(
 			T::Currency::reserved_balance(&caller),
 			initial_config_deposit.saturating_add(initial_recovery_deposit)
 		);
+
+		// 7. Check events were emitted
+		assert_has_event::<T>(
+			Event::DepositPoked {
+				who: caller.clone(),
+				kind: DepositKind::RecoveryConfig,
+				old_deposit: increased_config_deposit,
+				new_deposit: initial_config_deposit,
+			}
+			.into(),
+		);
+		assert_has_event::<T>(
+			Event::DepositPoked {
+				who: caller,
+				kind: DepositKind::ActiveRecoveryFor(lost_account),
+				old_deposit: increased_recovery_deposit,
+				new_deposit: initial_recovery_deposit,
+			}
+			.into(),
+		);
+
 		Ok(())
 	}
 
