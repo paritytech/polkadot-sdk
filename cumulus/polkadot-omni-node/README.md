@@ -19,7 +19,7 @@ Compile & install via `cargo`:
 
 ```bash
 # Assuming ~/.cargo/bin is on the PATH
-cargo install polkadot-omni-node
+cargo install polkadot-omni-node --locked
 ```
 
 ## Usage
@@ -34,7 +34,7 @@ The interface mandates the runtime to expose a [`named-preset`](https://docs.rs/
 Install it with `cargo` like bellow :
 
 ```bash
-cargo install staging-chain-spec-builder
+cargo install staging-chain-spec-builder --locked
 ```
 
 ### 2. Generate a chain spec
