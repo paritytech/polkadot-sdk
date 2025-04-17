@@ -711,8 +711,8 @@ impl<H: Hasher> SharedTrieCache<H> {
 
 	/// Create a new [`LocalTrieCache`](super::LocalTrieCache) instance from this shared cache.
 	pub fn local_cache_untrusted(&self) -> super::LocalTrieCache<H> {
-		let local_value_cache_config = LocalValueCacheConfig::default();
-		let local_node_cache_config = LocalNodeCacheConfig::default();
+		let local_value_cache_config = LocalValueCacheConfig::untrusted();
+		let local_node_cache_config = LocalNodeCacheConfig::untrusted();
 		tracing::debug!(
 			target: super::LOG_TARGET,
 			"Configuring a local un-trusted cache"
@@ -720,9 +720,11 @@ impl<H: Hasher> SharedTrieCache<H> {
 
 		super::LocalTrieCache {
 			shared: self.clone(),
-			node_cache: Mutex::new(LruMap::new(LocalNodeCacheLimiter::new(Default::default()))),
+			node_cache: Mutex::new(LruMap::new(LocalNodeCacheLimiter::new(
+				local_node_cache_config,
+			))),
 			value_cache: Mutex::new(LruMap::with_hasher(
-				LocalValueCacheLimiter::new(Default::default()),
+				LocalValueCacheLimiter::new(local_value_cache_config),
 				Default::default(),
 			)),
 			shared_value_cache_access: Mutex::new(super::ValueAccessSet::with_hasher(

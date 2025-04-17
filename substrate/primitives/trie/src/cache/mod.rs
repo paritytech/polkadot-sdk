@@ -440,17 +440,6 @@ pub struct LocalNodeCacheConfig {
 	shared_node_cache_max_replace_percent: usize,
 }
 
-impl Default for LocalNodeCacheConfig {
-	fn default() -> Self {
-		LocalNodeCacheConfig {
-			local_node_cache_max_inline_size: LOCAL_NODE_CACHE_MAX_INLINE_SIZE,
-			local_node_cache_max_heap_size: LOCAL_NODE_CACHE_MAX_HEAP_SIZE,
-			shared_node_cache_max_promoted_keys: SHARED_NODE_CACHE_MAX_PROMOTED_KEYS,
-			shared_node_cache_max_replace_percent: SHARED_NODE_CACHE_MAX_REPLACE_PERCENT,
-		}
-	}
-}
-
 impl LocalNodeCacheConfig {
 	/// Creates a configuration that can be called from a trusted path and allows the local_cache
 	/// to grow to fit the needs, also everything is promoted to the shared cache.
@@ -467,15 +456,17 @@ impl LocalNodeCacheConfig {
 			shared_node_cache_max_replace_percent: 100,
 		}
 	}
-}
 
-impl Default for LocalValueCacheConfig {
-	fn default() -> Self {
-		LocalValueCacheConfig {
-			local_value_cache_max_inline_size: LOCAL_VALUE_CACHE_MAX_INLINE_SIZE,
-			local_value_cache_max_heap_size: LOCAL_VALUE_CACHE_MAX_HEAP_SIZE,
-			shared_value_cache_max_promoted_keys: SHARED_VALUE_CACHE_MAX_PROMOTED_KEYS,
-			shared_value_cache_max_replace_percent: SHARED_VALUE_CACHE_MAX_REPLACE_PERCENT,
+	/// Creates a configuration that can be called from an untrusted path.
+	///
+	/// It limits the local size of the cache and the amount of keys that can be promoted to the
+	/// shared cache.
+	fn untrusted() -> Self {
+		LocalNodeCacheConfig {
+			local_node_cache_max_inline_size: LOCAL_NODE_CACHE_MAX_INLINE_SIZE,
+			local_node_cache_max_heap_size: LOCAL_NODE_CACHE_MAX_HEAP_SIZE,
+			shared_node_cache_max_promoted_keys: SHARED_NODE_CACHE_MAX_PROMOTED_KEYS,
+			shared_node_cache_max_replace_percent: SHARED_NODE_CACHE_MAX_REPLACE_PERCENT,
 		}
 	}
 }
@@ -494,6 +485,19 @@ impl LocalValueCacheConfig {
 			shared_value_cache_max_replace_percent: 100,
 			local_value_cache_max_inline_size: usize::MAX,
 			local_value_cache_max_heap_size: usize::MAX,
+		}
+	}
+
+	/// Creates a configuration that can be called from an untrusted path.
+	///
+	/// It limits the local size of the cache and the amount of keys that can be promoted to the
+	/// shared cache.
+	fn untrusted() -> Self {
+		LocalValueCacheConfig {
+			local_value_cache_max_inline_size: LOCAL_VALUE_CACHE_MAX_INLINE_SIZE,
+			local_value_cache_max_heap_size: LOCAL_VALUE_CACHE_MAX_HEAP_SIZE,
+			shared_value_cache_max_promoted_keys: SHARED_VALUE_CACHE_MAX_PROMOTED_KEYS,
+			shared_value_cache_max_replace_percent: SHARED_VALUE_CACHE_MAX_REPLACE_PERCENT,
 		}
 	}
 }
