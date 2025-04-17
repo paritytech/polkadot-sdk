@@ -21,6 +21,7 @@ use crate::{
 	},
 	AccountId, Assets, ForeignAssets, Runtime, RuntimeEvent,
 };
+use crate::AssetConversion;
 use assets_common::{matching::FromSiblingParachain, AssetIdForTrustBackedAssetsConvert};
 use frame_support::{parameter_types, traits::EitherOf};
 use frame_system::EnsureRootWithSuccess;

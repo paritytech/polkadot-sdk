@@ -35,6 +35,7 @@ pub trait WeightInfo {
 	fn register_token() -> Weight;
 	fn upgrade() -> Weight;
 	fn set_operating_mode() -> Weight;
+	fn add_tip() -> Weight;
 }
 
 // For backwards compatibility and tests.

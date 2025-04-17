@@ -7,6 +7,14 @@ use crate::Pallet as SnowbridgeControlFrontend;
 use frame_benchmarking::v2::*;
 use frame_system::RawOrigin;
 use xcm::prelude::{Location, *};
+use sp_runtime::AccountId32;
+
+impl From<AccountId32> for Location {
+	fn from(_account_id: AccountId32) -> Self {
+		// Use a dummy parachain + account key, suitable for benchmarking
+		Location::new(1, [Parachain(1000), AccountKey20 { network: None, key: [0u8; 20] }])
+	}
+}
 
 #[benchmarks]
 mod benchmarks {

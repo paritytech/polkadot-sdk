@@ -28,6 +28,7 @@ use snowbridge_outbound_queue_primitives::v2::{ContractCall, DeliveryReceipt};
 use snowbridge_pallet_outbound_queue_v2::Error;
 use snowbridge_pallet_system_v2::LostTips;
 use xcm::v5::AssetTransferFilter;
+use sp_core::H256;
 
 #[derive(Encode, Decode, Debug, PartialEq, Clone, TypeInfo)]
 pub enum EthereumSystemFrontendCall {

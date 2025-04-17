@@ -40,6 +40,9 @@ use sp_io::hashing::blake2_256;
 use sp_runtime::MultiAddress;
 use xcm::opaque::latest::AssetTransferFilter::ReserveDeposit;
 use xcm_executor::traits::ConvertLocation;
+use crate::tests::snowbridge_common::fund_on_bh;
+use crate::tests::snowbridge_common::register_assets_on_ah;
+use crate::tests::snowbridge_common::fund_on_ah;
 
 const TOKEN_AMOUNT: u128 = 100_000_000_000;
 
