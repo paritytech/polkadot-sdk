@@ -15154,6 +15154,7 @@ dependencies = [
  "color-eyre",
  "coretime-rococo-runtime",
  "coretime-westend-runtime",
+ "cumulus-client-consensus-aura",
  "cumulus-primitives-core",
  "glutton-westend-runtime",
  "hex-literal",
@@ -15174,6 +15175,7 @@ dependencies = [
  "sp-keyring",
  "staging-xcm",
  "substrate-build-script-utils",
+ "yet-another-parachain-runtime",
 ]
 
 [[package]]
@@ -27724,6 +27726,60 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e17bb3549cc1321ae1296b9cdc2698e2b6cb1992adfa19a8c72e5b7a738f44cd"
 dependencies = [
  "time",
+]
+
+[[package]]
+name = "yet-another-parachain-runtime"
+version = "0.6.0"
+dependencies = [
+ "cumulus-pallet-aura-ext",
+ "cumulus-pallet-parachain-system",
+ "cumulus-pallet-weight-reclaim",
+ "cumulus-pallet-xcm",
+ "cumulus-pallet-xcmp-queue",
+ "cumulus-primitives-aura",
+ "cumulus-primitives-core",
+ "cumulus-primitives-utility",
+ "frame-benchmarking",
+ "frame-executive",
+ "frame-support",
+ "frame-system",
+ "frame-system-rpc-runtime-api",
+ "pallet-assets",
+ "pallet-aura",
+ "pallet-authorship",
+ "pallet-balances",
+ "pallet-message-queue",
+ "pallet-sudo",
+ "pallet-timestamp",
+ "pallet-transaction-payment",
+ "pallet-transaction-payment-rpc-runtime-api",
+ "pallet-utility",
+ "pallet-verify-signature",
+ "pallet-xcm",
+ "parachains-common",
+ "parity-scale-codec",
+ "polkadot-parachain-primitives",
+ "polkadot-runtime-common",
+ "scale-info",
+ "sp-api 26.0.0",
+ "sp-block-builder",
+ "sp-consensus-aura",
+ "sp-core 28.0.0",
+ "sp-genesis-builder",
+ "sp-inherents",
+ "sp-io 30.0.0",
+ "sp-offchain",
+ "sp-runtime 31.0.1",
+ "sp-session",
+ "sp-transaction-pool",
+ "sp-version 29.0.0",
+ "staging-parachain-info",
+ "staging-xcm",
+ "staging-xcm-builder",
+ "staging-xcm-executor",
+ "substrate-wasm-builder",
+ "testnet-parachains-constants",
 ]
 
 [[package]]

@@ -658,6 +658,11 @@ fn send_token_to_penpal_v2() {
 		);
 	});
 
+	let penpal_sov_on_ah = AssetHubWestend::sovereign_account_id_of(Location::new(
+		1,
+		[Parachain(PenpalB::para_id().into())],
+	));
+
 	AssetHubWestend::execute_with(|| {
 		type RuntimeEvent = <AssetHubWestend as Chain>::RuntimeEvent;
 		// Check that the assets were issued on AssetHub
@@ -668,10 +673,15 @@ fn send_token_to_penpal_v2() {
 				RuntimeEvent::MessageQueue(
 					pallet_message_queue::Event::Processed { success: true, .. }
 				) => {},
+				// Ether was issued to beneficiary
+				RuntimeEvent::ForeignAssets(pallet_assets::Event::Issued { asset_id, owner, .. }) => {
+					asset_id: *asset_id == eth_location(),
+					owner: *owner == penpal_sov_on_ah,
+				},
 				// Token was issued to beneficiary
 				RuntimeEvent::ForeignAssets(pallet_assets::Event::Issued { asset_id, owner, .. }) => {
 					asset_id: *asset_id == token_location,
-					owner: *owner == beneficiary_acc_bytes.into(),
+					owner: *owner == penpal_sov_on_ah,
 				},
 				RuntimeEvent::XcmpQueue(cumulus_pallet_xcmp_queue::Event::XcmpMessageSent { .. }) => {},
 			]

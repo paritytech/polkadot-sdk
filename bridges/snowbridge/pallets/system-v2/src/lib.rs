@@ -74,6 +74,7 @@ pub mod pallet {
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config + snowbridge_pallet_system::Config {
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		/// Send messages to Ethereum and add additional relayer rewards if deposited
 		type OutboundQueue: SendMessage + AddTip;
