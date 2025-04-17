@@ -121,10 +121,4 @@ impl CliConfiguration for BenchmarkCmd {
 			self, cmd, cmd.chain_id(is_dev)
 		}
 	}
-
-	fn use_trusted_local_cache(&self) -> Result<bool> {
-		unwrap_cmd! {
-			self, cmd, cmd.use_trusted_local_cache()
-		}
-	}
 }

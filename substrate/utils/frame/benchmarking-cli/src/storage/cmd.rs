@@ -118,10 +118,6 @@ pub struct StorageParams {
 	#[arg(long)]
 	pub include_child_trees: bool,
 
-	// Enables the usage of a trie local cache similar with importing or building blocks.
-	#[arg(long)]
-	pub use_trusted_local_cache: bool,
-
 	/// Disable PoV recorder.
 	///
 	/// The recorder has impact on performance when benchmarking with the TrieCache enabled.
@@ -277,9 +273,5 @@ impl CliConfiguration for StorageCmd {
 		} else {
 			Ok(None)
 		}
-	}
-
-	fn use_trusted_local_cache(&self) -> Result<bool> {
-		Ok(self.params.use_trusted_local_cache)
 	}
 }

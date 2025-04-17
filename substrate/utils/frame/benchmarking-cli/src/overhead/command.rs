@@ -487,7 +487,6 @@ impl OverheadCmd {
 
 		let backend = new_db_backend(DatabaseSettings {
 			trie_cache_maximum_size: self.trie_cache_maximum_size()?,
-			use_trusted_local_cache: self.use_trusted_local_cache()?,
 			state_pruning: None,
 			blocks_pruning: BlocksPruning::KeepAll,
 			source: database_source,
@@ -678,10 +677,6 @@ impl CliConfiguration for OverheadCmd {
 		} else {
 			Ok(None)
 		}
-	}
-
-	fn use_trusted_local_cache(&self) -> Result<bool> {
-		Ok(self.import_params().map(|x| x.use_trusted_local_cache()).unwrap_or_default())
 	}
 }
 

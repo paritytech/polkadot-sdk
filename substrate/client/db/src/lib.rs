@@ -314,9 +314,6 @@ pub struct DatabaseSettings {
 	/// NOTE: only finalized blocks are subject for removal!
 	pub blocks_pruning: BlocksPruning,
 
-	/// Specify if we should use a trusted local cache for block authoring and import.
-	pub use_trusted_local_cache: bool,
-
 	/// Prometheus metrics registry.
 	pub metrics_registry: Option<Registry>,
 }
@@ -1122,7 +1119,6 @@ pub struct Backend<Block: BlockT> {
 	state_usage: Arc<StateUsageStats>,
 	genesis_state: RwLock<Option<Arc<DbGenesisStorage<Block>>>>,
 	shared_trie_cache: Option<sp_trie::cache::SharedTrieCache<HashingFor<Block>>>,
-	use_trusted_local_cache: bool,
 }
 
 impl<Block: BlockT> Backend<Block> {
@@ -1261,7 +1257,6 @@ impl<Block: BlockT> Backend<Block> {
 					config.metrics_registry.as_ref(),
 				)
 			}),
-			use_trusted_local_cache: config.use_trusted_local_cache,
 		};
 
 		// Older DB versions have no last state key. Check if the state is available and set it.
@@ -2523,9 +2518,7 @@ impl<Block: BlockT> sc_client_api::backend::Backend<Block> for Backend<Block> {
 					let db_state =
 						DbStateBuilder::<HashingFor<Block>>::new(self.storage.clone(), root)
 							.with_optional_cache(self.shared_trie_cache.as_ref().map(|c| {
-								if self.use_trusted_local_cache &&
-									matches!(trie_cache_context, TrieCacheContext::Trusted)
-								{
+								if matches!(trie_cache_context, TrieCacheContext::Trusted) {
 									c.local_cache_trusted()
 								} else {
 									c.local_cache_untrusted()
