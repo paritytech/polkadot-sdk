@@ -1541,7 +1541,7 @@ pub mod pallet {
 				Error::<T>::ControllerDeprecated
 			);
 
-			let _ = ledger
+			ledger
 				.set_payee(payee)
 				.defensive_proof("ledger was retrieved from storage, thus it's bonded; qed.")?;
 
@@ -1577,7 +1577,7 @@ pub mod pallet {
 					return Err(Error::<T>::AlreadyPaired.into())
 				}
 
-				let _ = ledger.set_controller_to_stash()?;
+				ledger.set_controller_to_stash()?;
 				Ok(())
 			})?
 		}
@@ -1876,7 +1876,7 @@ pub mod pallet {
 			stash: T::AccountId,
 			num_slashing_spans: u32,
 		) -> DispatchResultWithPostInfo {
-			let _ = ensure_signed(origin)?;
+			ensure_signed(origin)?;
 
 			// virtual stakers should not be allowed to be reaped.
 			ensure!(!Self::is_virtual_staker(&stash), Error::<T>::VirtualStakerNotAllowed);
@@ -2159,7 +2159,7 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			controller: T::AccountId,
 		) -> DispatchResultWithPostInfo {
-			let _ = ensure_signed(origin)?;
+			ensure_signed(origin)?;
 			let ledger = Self::ledger(StakingAccount::Controller(controller.clone()))?;
 
 			ensure!(
@@ -2170,7 +2170,7 @@ pub mod pallet {
 				Error::<T>::NotController
 			);
 
-			let _ = ledger
+			ledger
 				.set_payee(RewardDestination::Account(controller))
 				.defensive_proof("ledger should have been previously retrieved from storage.")?;
 
@@ -2332,7 +2332,7 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			stash: T::AccountId,
 		) -> DispatchResultWithPostInfo {
-			let _ = ensure_signed(origin)?;
+			ensure_signed(origin)?;
 			Self::do_migrate_currency(&stash)?;
 
 			// Refund the transaction fee if successful.
