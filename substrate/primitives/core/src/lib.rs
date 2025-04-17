@@ -203,26 +203,26 @@ pub trait TypeId {
 #[derive(Copy, Clone)]
 pub enum RuntimeInterfaceLogLevel {
 	/// `Error` log level.
-	Error,
+	Error = 0_isize,
 	/// `Warn` log level.
-	Warn,
+	Warn = 1_isize,
 	/// `Info` log level.
-	Info,
+	Info = 2_isize,
 	/// `Debug` log level.
-	Debug,
+	Debug = 3_isize,
 	/// `Trace` log level.
-	Trace,
+	Trace = 4_isize,
 }
 
 impl TryFrom<u8> for RuntimeInterfaceLogLevel {
 	type Error = ();
 	fn try_from(value: u8) -> Result<Self, ()> {
 		match value {
-			1 => Ok(Self::Error),
-			2 => Ok(Self::Warn),
-			3 => Ok(Self::Info),
-			4 => Ok(Self::Debug),
-			5 => Ok(Self::Trace),
+			0 => Ok(Self::Error),
+			1 => Ok(Self::Warn),
+			2 => Ok(Self::Info),
+			3 => Ok(Self::Debug),
+			4 => Ok(Self::Trace),
 			_ => Err(()),
 		}
 	}

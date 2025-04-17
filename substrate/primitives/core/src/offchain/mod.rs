@@ -66,12 +66,12 @@ pub enum RuntimeInterfaceStorageKind {
 	/// that is re-run at block `N(hash2)`.
 	/// This storage can be used by offchain workers to handle forks
 	/// and coordinate offchain workers running on different forks.
-	PERSISTENT,
+	PERSISTENT = 0_isize,
 	/// Local storage is revertible and fork-aware. It means that any value
 	/// set by the offchain worker triggered at block `N(hash1)` is reverted
 	/// if that block is reverted as non-canonical and is NOT available for the worker
 	/// that is re-run at block `N(hash2)`.
-	LOCAL,
+	LOCAL = 1_isize,
 }
 
 impl TryFrom<u32> for RuntimeInterfaceStorageKind {
@@ -123,13 +123,13 @@ impl From<HttpRequestId> for u32 {
 pub enum RuntimeInterfaceHttpError {
 	/// The requested action couldn't been completed within a deadline.
 	#[codec(index = 1)]
-	DeadlineReached,
+	DeadlineReached = 0_isize,
 	/// There was an IO Error while processing the request.
 	#[codec(index = 2)]
-	IoError,
+	IoError = 1_isize,
 	/// The ID of the request is invalid in this context.
 	#[codec(index = 3)]
-	Invalid,
+	Invalid = 2_isize,
 }
 
 impl TryFrom<u32> for RuntimeInterfaceHttpError {
