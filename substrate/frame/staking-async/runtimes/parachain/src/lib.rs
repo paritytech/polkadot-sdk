@@ -1843,6 +1843,10 @@ impl_runtime_apis! {
 			// add a few custom keys to benchmarks.
 			frame_benchmarking::benchmarking::add_to_whitelist(crate::staking::MaxElectingVoters::key().to_vec().into());
 			frame_benchmarking::benchmarking::add_to_whitelist(crate::staking::Pages::key().to_vec().into());
+			frame_benchmarking::benchmarking::add_to_whitelist(crate::staking::SolutionImprovementThreshold::key().to_vec().into());
+			frame_benchmarking::benchmarking::add_to_whitelist(crate::staking::SignedPhase::key().to_vec().into());
+			frame_benchmarking::benchmarking::add_to_whitelist(crate::staking::UnsignedPhase::key().to_vec().into());
+			frame_benchmarking::benchmarking::add_to_whitelist(crate::staking::SignedValidationPhase::key().to_vec().into());
 
 			impl frame_system_benchmarking::Config for Runtime {
 				fn setup_set_code_requirements(code: &alloc::vec::Vec<u8>) -> Result<(), BenchmarkError> {
