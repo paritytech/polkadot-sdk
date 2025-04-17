@@ -150,11 +150,7 @@ jobs:
           fi
 
           # Extract the umbrella crate version dynamically from cargo metadata
-          # This handles both master and stable branches correctly
-          UMBRELLA_VERSION=""
-
-          # Use cargo metadata to get the version
-          UMBRELLA_VERSION=$(cargo metadata --format-version=1 | jq -r '.packages[] | select(.name == "polkadot-sdk") | .version')
+          UMBRELLA_VERSION=$(cargo metadata --format-version=1 | jq -r '.packages[] | select(.manifest_path | endswith("umbrella/Cargo.toml")) | .version')
 
           if [ -z "$UMBRELLA_VERSION" ]; then
             echo "Warning: Could not determine umbrella version from cargo metadata, using fallback version 0.1.0"
