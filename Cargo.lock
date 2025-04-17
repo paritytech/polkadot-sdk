@@ -805,7 +805,7 @@ dependencies = [
 
 [[package]]
 name = "asset-hub-rococo-runtime"
-version = "0.24.1"
+version = "0.24.2"
 dependencies = [
  "asset-test-utils",
  "assets-common",
@@ -857,6 +857,7 @@ dependencies = [
  "pallet-xcm-benchmarks",
  "pallet-xcm-bridge-hub-router",
  "parachains-common",
+ "parachains-runtimes-test-utils",
  "parity-scale-codec",
  "polkadot-parachain-primitives",
  "polkadot-runtime-common",
@@ -940,7 +941,7 @@ dependencies = [
 
 [[package]]
 name = "asset-hub-westend-runtime"
-version = "0.27.1"
+version = "0.27.2"
 dependencies = [
  "asset-test-utils",
  "assets-common",
@@ -993,6 +994,7 @@ dependencies = [
  "pallet-xcm-benchmarks",
  "pallet-xcm-bridge-hub-router",
  "parachains-common",
+ "parachains-runtimes-test-utils",
  "parity-scale-codec",
  "polkadot-parachain-primitives",
  "polkadot-runtime-common",
@@ -1026,7 +1028,7 @@ dependencies = [
 
 [[package]]
 name = "asset-test-utils"
-version = "21.0.1"
+version = "21.0.2"
 dependencies = [
  "cumulus-pallet-parachain-system",
  "cumulus-pallet-xcmp-queue",
@@ -1034,6 +1036,7 @@ dependencies = [
  "frame-support",
  "frame-system",
  "hex-literal",
+ "pallet-asset-conversion",
  "pallet-assets",
  "pallet-balances",
  "pallet-collator-selection",
@@ -1051,11 +1054,12 @@ dependencies = [
  "staging-xcm-builder",
  "staging-xcm-executor",
  "substrate-wasm-builder",
+ "xcm-runtime-apis",
 ]
 
 [[package]]
 name = "assets-common"
-version = "0.19.0"
+version = "0.19.1"
 dependencies = [
  "cumulus-primitives-core",
  "frame-support",
@@ -2051,7 +2055,7 @@ dependencies = [
 
 [[package]]
 name = "bp-runtime"
-version = "0.19.0"
+version = "0.19.1"
 dependencies = [
  "frame-support",
  "frame-system",
@@ -2196,7 +2200,7 @@ dependencies = [
 
 [[package]]
 name = "bridge-hub-rococo-runtime"
-version = "0.18.2"
+version = "0.18.3"
 dependencies = [
  "bp-asset-hub-rococo",
  "bp-asset-hub-westend",
@@ -2253,6 +2257,7 @@ dependencies = [
  "pallet-xcm-benchmarks",
  "pallet-xcm-bridge-hub",
  "parachains-common",
+ "parachains-runtimes-test-utils",
  "parity-scale-codec",
  "polkadot-parachain-primitives",
  "polkadot-runtime-common",
@@ -2389,7 +2394,7 @@ dependencies = [
 
 [[package]]
 name = "bridge-hub-westend-runtime"
-version = "0.15.2"
+version = "0.15.3"
 dependencies = [
  "bp-asset-hub-rococo",
  "bp-asset-hub-westend",
@@ -2445,6 +2450,7 @@ dependencies = [
  "pallet-xcm-benchmarks",
  "pallet-xcm-bridge-hub",
  "parachains-common",
+ "parachains-runtimes-test-utils",
  "parity-scale-codec",
  "polkadot-parachain-primitives",
  "polkadot-runtime-common",
@@ -3107,7 +3113,7 @@ dependencies = [
 
 [[package]]
 name = "collectives-westend-runtime"
-version = "17.1.0"
+version = "17.1.1"
 dependencies = [
  "cumulus-pallet-aura-ext",
  "cumulus-pallet-parachain-system",
@@ -3153,6 +3159,7 @@ dependencies = [
  "pallet-utility",
  "pallet-xcm",
  "parachains-common",
+ "parachains-runtimes-test-utils",
  "parity-scale-codec",
  "polkadot-parachain-primitives",
  "polkadot-runtime-common",
@@ -3540,7 +3547,7 @@ dependencies = [
 
 [[package]]
 name = "coretime-rococo-runtime"
-version = "0.13.1"
+version = "0.13.2"
 dependencies = [
  "cumulus-pallet-aura-ext",
  "cumulus-pallet-parachain-system",
@@ -3578,6 +3585,7 @@ dependencies = [
  "pallet-xcm",
  "pallet-xcm-benchmarks",
  "parachains-common",
+ "parachains-runtimes-test-utils",
  "parity-scale-codec",
  "polkadot-parachain-primitives",
  "polkadot-runtime-common",
@@ -3640,7 +3648,7 @@ dependencies = [
 
 [[package]]
 name = "coretime-westend-runtime"
-version = "0.13.1"
+version = "0.13.2"
 dependencies = [
  "cumulus-pallet-aura-ext",
  "cumulus-pallet-parachain-system",
@@ -3677,6 +3685,7 @@ dependencies = [
  "pallet-xcm",
  "pallet-xcm-benchmarks",
  "parachains-common",
+ "parachains-runtimes-test-utils",
  "parity-scale-codec",
  "polkadot-parachain-primitives",
  "polkadot-runtime-common",
@@ -13411,7 +13420,7 @@ dependencies = [
 
 [[package]]
 name = "parachains-runtimes-test-utils"
-version = "20.0.1"
+version = "20.0.2"
 dependencies = [
  "cumulus-pallet-parachain-system",
  "cumulus-pallet-xcmp-queue",
@@ -13426,6 +13435,7 @@ dependencies = [
  "pallet-session",
  "pallet-timestamp",
  "pallet-xcm",
+ "parachains-common",
  "parity-scale-codec",
  "polkadot-parachain-primitives",
  "sp-consensus-aura",
@@ -13437,6 +13447,7 @@ dependencies = [
  "staging-xcm",
  "staging-xcm-executor",
  "substrate-wasm-builder",
+ "xcm-runtime-apis",
 ]
 
 [[package]]
@@ -13736,7 +13747,7 @@ dependencies = [
 
 [[package]]
 name = "people-rococo-runtime"
-version = "0.13.1"
+version = "0.13.2"
 dependencies = [
  "cumulus-pallet-aura-ext",
  "cumulus-pallet-parachain-system",
@@ -13774,6 +13785,7 @@ dependencies = [
  "pallet-xcm",
  "pallet-xcm-benchmarks",
  "parachains-common",
+ "parachains-runtimes-test-utils",
  "parity-scale-codec",
  "polkadot-parachain-primitives",
  "polkadot-runtime-common",
@@ -13837,7 +13849,7 @@ dependencies = [
 
 [[package]]
 name = "people-westend-runtime"
-version = "0.13.1"
+version = "0.13.2"
 dependencies = [
  "cumulus-pallet-aura-ext",
  "cumulus-pallet-parachain-system",
@@ -13875,6 +13887,7 @@ dependencies = [
  "pallet-xcm",
  "pallet-xcm-benchmarks",
  "parachains-common",
+ "parachains-runtimes-test-utils",
  "parity-scale-codec",
  "polkadot-parachain-primitives",
  "polkadot-runtime-common",
@@ -23524,7 +23537,7 @@ version = "2.0.0"
 
 [[package]]
 name = "staging-xcm"
-version = "15.0.2"
+version = "15.0.3"
 dependencies = [
  "array-bytes",
  "bounded-collections",
@@ -27243,7 +27256,7 @@ dependencies = [
 
 [[package]]
 name = "xcm-runtime-apis"
-version = "0.5.1"
+version = "0.5.2"
 dependencies = [
  "frame-executive",
  "frame-support",

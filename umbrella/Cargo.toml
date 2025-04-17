@@ -988,7 +988,7 @@ workspace = true
 path = "../cumulus/parachains/runtimes/assets/common"
 default-features = false
 optional = true
-version = "0.19.0"
+version = "0.19.1"
 
 [dependencies.binary-merkle-tree]
 path = "../substrate/utils/binary-merkle-tree"
@@ -1036,7 +1036,7 @@ version = "0.19.0"
 path = "../bridges/primitives/runtime"
 default-features = false
 optional = true
-version = "0.19.0"
+version = "0.19.1"
 
 [dependencies.bp-test-utils]
 path = "../bridges/primitives/test-utils"
@@ -2296,7 +2296,7 @@ version = "0.18.0"
 path = "../polkadot/xcm"
 default-features = false
 optional = true
-version = "15.0.2"
+version = "15.0.3"
 
 [dependencies.staging-xcm-builder]
 path = "../polkadot/xcm/xcm-builder"
@@ -2338,13 +2338,13 @@ version = "11.0.1"
 path = "../polkadot/xcm/xcm-runtime-apis"
 default-features = false
 optional = true
-version = "0.5.1"
+version = "0.5.2"
 
 [dependencies.asset-test-utils]
 path = "../cumulus/parachains/runtimes/assets/test-utils"
 default-features = false
 optional = true
-version = "21.0.1"
+version = "21.0.2"
 
 [dependencies.bridge-hub-test-utils]
 path = "../cumulus/parachains/runtimes/bridge-hubs/test-utils"
@@ -2506,7 +2506,7 @@ version = "42.0.0"
 path = "../cumulus/parachains/runtimes/test-utils"
 default-features = false
 optional = true
-version = "20.0.1"
+version = "20.0.2"
 
 [dependencies.polkadot-approval-distribution]
 path = "../polkadot/node/network/approval-distribution"
