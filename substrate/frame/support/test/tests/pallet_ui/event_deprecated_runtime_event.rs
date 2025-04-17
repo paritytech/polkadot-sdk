@@ -22,8 +22,8 @@ mod pallet {
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
-		type Bar;
-		type RuntimeEvent: IsType<<Self as frame_system::Config>::RuntimeEvent>;
+		type Bar: Clone + PartialEq + std::fmt::Debug;
+		type RuntimeEvent: IsType<<Self as frame_system::Config>::RuntimeEvent> + From<Event<Self>>;
 	}
 
 	#[pallet::pallet]
@@ -41,5 +41,4 @@ mod pallet {
 	}
 }
 
-fn main() {
-}
+fn main() {}
