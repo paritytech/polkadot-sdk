@@ -2166,13 +2166,13 @@ impl_runtime_apis! {
 			let res = build_state::<RuntimeGenesisConfig>(config);
 			// tweak some of our parameter-types as well..
 			match pallet_staking_async::ValidatorCount::<Runtime>::get() {
-				1000 => {
+				500 => {
 					log::info!(target: "runtime", "detected a polkadot-like chain during `build_state`");
 					// this is a polkadot-like chain
 					crate::staking::MaxElectingVoters::set(&22_500);
 					crate::staking::Pages::set(&32);
 				},
-				500 => {
+				1000 => {
 					log::info!(target: "runtime", "detected a kusama-like chain during `build_state`");
 					// this is a kusama-like chain
 					crate::staking::MaxElectingVoters::set(&12_500);

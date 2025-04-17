@@ -93,7 +93,7 @@
 //!
 //! The operations in this pallet are divided intor rounds, a `u32` number stored in [`Round`].
 //! This value helps this pallet organize itself, and leaves the door open for lazy deletion of any
-//! stale data. A round, under the happy path, start by receiving the call to
+//! stale data. A round, under the happy path, starts by receiving the call to
 //! [`ElectionProvider::start`], and is terminated by receiving a call to
 //! [`ElectionProvider::elect`] with value 0.
 //!
@@ -126,7 +126,7 @@
 //!
 //! ## Feasible Solution (correct solution)
 //!
-//! All submissions must undergo a feasibility check. Signed solutions are checked on by one at the
+//! All submissions must undergo a feasibility check. Signed solutions are checked one by one at the
 //! end of the signed phase, and the unsigned solutions are checked on the spot. A feasible solution
 //! is as follows:
 //!
@@ -153,7 +153,7 @@
 //! Note that configuring the fallback to be onchain computation is not recommended, unless for
 //! test-nets for a number of reasons:
 //!
-//! 1. The solution score of fallback is never checked to be match the "minimum" score. That being
+//! 1. The solution score of fallback is never checked to match the "minimum" score. That being
 //!    said, the computation happens onchain so we can trust it.
 //! 2. The onchain fallback runs on the same number of voters and targets that reside on a single
 //!    page of a snapshot, which will very likely be too much for actual onchain computation. Yet,
