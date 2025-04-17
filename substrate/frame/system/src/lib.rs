@@ -125,6 +125,8 @@ use sp_version::RuntimeVersion;
 use codec::{Decode, DecodeWithMemTracking, Encode, EncodeLike, FullCodec, MaxEncodedLen};
 #[cfg(feature = "std")]
 use frame_support::traits::BuildGenesisConfig;
+#[allow(deprecated)]
+use frame_support::traits::HandleLifetime;
 use frame_support::{
 	dispatch::{
 		extract_actual_pays_fee, extract_actual_weight, DispatchClass, DispatchInfo,
@@ -136,9 +138,8 @@ use frame_support::{
 	pallet_prelude::Pays,
 	storage::{self, StorageStreamIter},
 	traits::{
-		ConstU32, Contains, EnsureOrigin, EnsureOriginWithArg, Get, HandleLifetime,
-		OnKilledAccount, OnNewAccount, OnRuntimeUpgrade, OriginTrait, PalletInfo, SortedMembers,
-		StoredMap, TypedGet,
+		ConstU32, Contains, EnsureOrigin, EnsureOriginWithArg, Get, OnKilledAccount, OnNewAccount,
+		OnRuntimeUpgrade, OriginTrait, PalletInfo, SortedMembers, StoredMap, TypedGet,
 	},
 	Parameter,
 };
@@ -2349,6 +2350,8 @@ pub fn unique(entropy: impl Encode) -> [u8; 32] {
 }
 
 /// Event handler which registers a provider when created.
+#[deprecated(note = r"This will be removed by July 2025. \ 
+	Use `inc_providers` & `dec_providers` methods directly.")]
 pub struct Provider<T>(PhantomData<T>);
 impl<T: Config> HandleLifetime<T::AccountId> for Provider<T> {
 	fn created(t: &T::AccountId) -> Result<(), DispatchError> {
@@ -2361,6 +2364,8 @@ impl<T: Config> HandleLifetime<T::AccountId> for Provider<T> {
 }
 
 /// Event handler which registers a self-sufficient when created.
+#[deprecated(note = r"This wil be removed by July 2025. \
+	Use `inc_sufficients` & `dec_sufficients` methods directly.")]
 pub struct SelfSufficient<T>(PhantomData<T>);
 impl<T: Config> HandleLifetime<T::AccountId> for SelfSufficient<T> {
 	fn created(t: &T::AccountId) -> Result<(), DispatchError> {
@@ -2374,6 +2379,8 @@ impl<T: Config> HandleLifetime<T::AccountId> for SelfSufficient<T> {
 }
 
 /// Event handler which registers a consumer when created.
+#[deprecated(note = r"This will be removed by July 2025. \
+	Use `inc_consumers` & `dec_consumers` methods directly.")]
 pub struct Consumer<T>(PhantomData<T>);
 impl<T: Config> HandleLifetime<T::AccountId> for Consumer<T> {
 	fn created(t: &T::AccountId) -> Result<(), DispatchError> {
