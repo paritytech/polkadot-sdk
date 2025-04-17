@@ -96,7 +96,7 @@ pub mod v1 {
 		T: Config,
 	{
 		/// Calculate the fee required to pay for gas on Ethereum.
-		fn calculate_remote_fee_v1(params: &PricingParametersOf<T>) -> U256 {
+		fn calculate_remote_fee(params: &PricingParametersOf<T>) -> U256 {
 			use snowbridge_outbound_queue_primitives::v1::{
 				AgentExecuteCommand, Command, ConstantGasMeter, GasMeter,
 			};
@@ -109,21 +109,6 @@ pub mod v1 {
 				},
 			};
 			let gas_used_at_most = ConstantGasMeter::maximum_gas_used_at_most(&command);
-			params
-				.fee_per_gas
-				.saturating_mul(gas_used_at_most.into())
-				.saturating_add(params.rewards.remote)
-		}
-
-		/// Calculate the fee required to pay for gas on Ethereum.
-		fn calculate_remote_fee_v2(params: &PricingParametersOf<T>) -> U256 {
-			use snowbridge_outbound_queue_primitives::v2::{Command, ConstantGasMeter, GasMeter};
-			let command = Command::UnlockNativeToken {
-				token: H160::zero(),
-				recipient: H160::zero(),
-				amount: 0,
-			};
-			let gas_used_at_most = ConstantGasMeter::maximum_dispatch_gas_used_at_most(&command);
 			params
 				.fee_per_gas
 				.saturating_mul(gas_used_at_most.into())
@@ -162,25 +147,21 @@ pub mod v1 {
 			use codec::Encode;
 
 			let params = Pallet::<T>::parameters();
-			let remote_fee_v1 = Self::calculate_remote_fee_v1(&params);
-			let remote_fee_v2 = Self::calculate_remote_fee_v2(&params);
+			let remote_fee = Self::calculate_remote_fee(&params);
 
 			log::info!(
 				target: LOG_TARGET,
-				"Pre fee per gas migration: pricing parameters = {params:?}, remote_fee_v1 = {remote_fee_v1:?}, remote_fee_v2 = {remote_fee_v2:?}"
+				"Pre fee per gas migration: pricing parameters = {params:?}, remote_fee = {remote_fee:?}"
 			);
-			Ok((params, remote_fee_v1, remote_fee_v2).encode())
+			Ok((params, remote_fee).encode())
 		}
 
 		#[cfg(feature = "try-runtime")]
 		fn post_upgrade(state: Vec<u8>) -> Result<(), TryRuntimeError> {
 			use codec::Decode;
 
-			let (old_params, old_remote_fee_v1, old_remote_fee_v2): (
-				PricingParametersOf<T>,
-				U256,
-				U256,
-			) = Decode::decode(&mut &state[..]).unwrap();
+			let (old_params, old_remote_fee): (PricingParametersOf<T>, U256) =
+				Decode::decode(&mut &state[..]).unwrap();
 
 			let params = Pallet::<T>::parameters();
 			ensure!(old_params.exchange_rate == params.exchange_rate, "Exchange rate unchanged.");
@@ -191,20 +172,15 @@ pub mod v1 {
 			);
 			ensure!(old_params.multiplier == params.multiplier, "Multiplier unchanged.");
 
-			let remote_fee_v1 = Self::calculate_remote_fee_v1(&params);
-			let remote_fee_v2 = Self::calculate_remote_fee_v2(&params);
+			let remote_fee = Self::calculate_remote_fee(&params);
 			ensure!(
-				remote_fee_v1 <= old_remote_fee_v1,
-				"The v1 remote fee can cover the cost of the previous fee."
-			);
-			ensure!(
-				remote_fee_v2 <= old_remote_fee_v2,
-				"The v2 remote fee can cover the cost of the previous fee."
+				remote_fee <= old_remote_fee,
+				"The remote fee can cover the cost of the previous fee."
 			);
 
 			log::info!(
 				target: LOG_TARGET,
-				"Post fee per gas migration: pricing parameters = {params:?} remote_fee_v1 = {remote_fee_v1:?} remote_fee_v2 = {remote_fee_v2:?}"
+				"Post fee per gas migration: pricing parameters = {params:?} remote_fee = {remote_fee:?}"
 			);
 			Ok(())
 		}
