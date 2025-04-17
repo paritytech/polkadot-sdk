@@ -214,7 +214,7 @@ where
 
 		info!("Running {} warmups...", self.params.warmup);
 		for _ in 0..self.params.warmup {
-			let _ = measure_block()?;
+			measure_block()?;
 		}
 
 		info!("Executing block {} times", self.params.repeat);

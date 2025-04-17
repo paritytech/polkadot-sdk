@@ -254,6 +254,7 @@ pub mod pallet {
 		type DataDepositPerByte: Get<BalanceOf<Self, I>>;
 
 		/// The overarching event type.
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self, I>>
 			+ IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
@@ -662,7 +663,7 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			#[pallet::compact] bounty_id: BountyIndex,
 		) -> DispatchResult {
-			let _ = ensure_signed(origin)?; // anyone can trigger claim
+			ensure_signed(origin)?; // anyone can trigger claim
 
 			Bounties::<T, I>::try_mutate_exists(bounty_id, |maybe_bounty| -> DispatchResult {
 				let bounty = maybe_bounty.take().ok_or(Error::<T, I>::InvalidIndex)?;

@@ -1377,8 +1377,7 @@ pub mod pallet_macros {
 	/// 	pub struct Pallet<T>(_);
 	/// #
 	/// # 	#[pallet::config]
-	/// # 	pub trait Config: frame_system::Config {
-	/// # 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
+	/// # 	pub trait Config: frame_system::Config<RuntimeEvent: From<Event<Self>>> {
 	/// # 	}
 	/// }
 	/// ```
@@ -1515,12 +1514,6 @@ pub mod pallet_macros {
 	/// optionally other supertraits and a where clause. (Specifying other supertraits here is
 	/// known as [tight coupling](https://docs.substrate.io/reference/how-to-guides/pallet-design/use-tight-coupling/))
 	///
-	/// The associated type `RuntimeEvent` is reserved. If defined, it must have the bounds
-	/// `From<Event>` and `IsType<<Self as frame_system::Config>::RuntimeEvent>`.
-	///
-	/// [`#[pallet::event]`](`event`) must be present if `RuntimeEvent`
-	/// exists as a config item in your `#[pallet::config]`.
-	///
 	/// ## Optional: `with_default`
 	///
 	/// An optional `with_default` argument may also be specified. Doing so will automatically
@@ -1543,10 +1536,6 @@ pub mod pallet_macros {
 	///
 	/// 	#[pallet::config(with_default)] // <- with_default is optional
 	/// 	pub trait Config: frame_system::Config {
-	/// 		/// The overarching event type.
-	/// 		#[pallet::no_default_bounds] // Default with bounds is not supported for RuntimeEvent
-	/// 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
-	///
 	/// 		/// A more complex type.
 	/// 		#[pallet::no_default] // Example of type where no default should be provided
 	/// 		type MoreComplexType: SomeMoreComplexBound;
@@ -1615,14 +1604,13 @@ pub mod pallet_macros {
 	/// Furthermore, the `without_automatic_metadata` argument can be used in combination with
 	/// the [`#[pallet::include_metadata]`](`include_metadata`) attribute to selectively
 	/// include only certain associated types in the metadata collection.
-	///
 	/// ```
 	/// #[frame_support::pallet]
 	/// mod pallet {
 	/// # 	use frame_support::pallet_prelude::*;
 	/// # 	use frame_system::pallet_prelude::*;
 	/// # 	use core::fmt::Debug;
-	/// # 	use frame_support::traits::Contains;
+	/// # 	use frame_support::traits::{Contains, VariantCount};
 	/// #
 	/// # 	pub trait SomeMoreComplexBound {}
 	/// #
@@ -1631,10 +1619,9 @@ pub mod pallet_macros {
 	///
 	/// 	#[pallet::config(with_default, without_automatic_metadata)] // <- with_default and without_automatic_metadata are optional
 	/// 	pub trait Config: frame_system::Config {
-	/// 		/// The overarching event type.
-	/// 		#[pallet::no_default_bounds] // Default with bounds is not supported for RuntimeEvent
-	/// 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
-	///
+	/// 		/// The overarching freeze reason.
+	/// 		#[pallet::no_default_bounds] // Default with bounds is not supported for RuntimeFreezeReason
+	/// 		type RuntimeFreezeReason: Parameter + Member + MaxEncodedLen + Copy + VariantCount;
 	/// 		/// A simple type.
 	/// 		// Type that would have been included in metadata, but is now excluded.
 	/// 		type SimpleType: From<u32> + TypeInfo;
@@ -1751,7 +1738,7 @@ pub mod pallet_macros {
 	///
 	/// ## Syntax
 	/// View functions methods must be read-only and always return some output. A
-	/// `view_functions_experimental` impl block only allows methods to be defined inside of
+	/// `view_functions` impl block only allows methods to be defined inside of
 	/// it.
 	///
 	/// ## Example
@@ -1769,7 +1756,7 @@ pub mod pallet_macros {
 	///     #[pallet::storage]
 	/// 	pub type SomeMap<T: Config> = StorageMap<_, Twox64Concat, u32, u32, OptionQuery>;
 	///
-	///     #[pallet::view_functions_experimental]
+	///     #[pallet::view_functions]
 	///     impl<T: Config> Pallet<T> {
 	/// 		/// Retrieve a map storage value by key.
 	///         pub fn get_value_with_arg(key: u32) -> Option<u32> {
@@ -1795,7 +1782,7 @@ pub mod pallet_macros {
 	/// functions should expose a _stable_ interface and changes to the method signature are
 	/// strongly discouraged. For more details on the dispatching mechanism, see the
 	/// [`DispatchViewFunction`](frame_support::view_functions::DispatchViewFunction) trait.
-	pub use frame_support_procedural::view_functions_experimental;
+	pub use frame_support_procedural::view_functions;
 
 	/// Allows defining a struct implementing the [`Get`](frame_support::traits::Get) trait to
 	/// ease the use of storage types.
@@ -2076,18 +2063,14 @@ pub mod pallet_macros {
 	/// 	#[pallet::pallet]
 	/// 	pub struct Pallet<T>(_);
 	///
+	/// 	#[pallet::config]
+	/// 	pub trait Config: frame_system::Config {}
+	///
 	/// 	#[pallet::event]
 	/// 	#[pallet::generate_deposit(fn deposit_event)] // Optional
 	/// 	pub enum Event<T> {
 	/// 		/// SomeEvent doc
 	/// 		SomeEvent(u16, u32), // SomeEvent with two fields
-	/// 	}
-	///
-	/// 	#[pallet::config]
-	/// 	pub trait Config: frame_system::Config {
-	/// 		/// The overarching runtime event type.
-	/// 		type RuntimeEvent: From<Event<Self>>
-	/// 			+ IsType<<Self as frame_system::Config>::RuntimeEvent>;
 	/// 	}
 	/// }
 	/// ```
@@ -2095,7 +2078,13 @@ pub mod pallet_macros {
 	/// I.e. an enum (with named or unnamed fields variant), named `Event`, with generic: none
 	/// or `T` or `T: Config`, and optional w here clause.
 	///
-	/// `RuntimeEvent` must be defined in the `Config`, as shown in the example.
+	/// Macro expansion automatically appends `From<Event<Self>>` bound to
+	/// system supertrait's `RuntimeEvent `associated type, i.e:
+	///
+	/// ```rs
+	/// 	#[pallet::config]
+	/// 	pub trait Config: frame_system::Config<RuntimeEvent: From<Event<Self>>> {}
+	/// ```
 	///
 	/// Each field must implement [`Clone`], [`Eq`], [`PartialEq`], [`codec::Encode`],
 	/// [`codec::Decode`], and [`Debug`] (on std only). For ease of use, bound by the trait
@@ -2145,6 +2134,11 @@ pub mod pallet_macros {
 	/// generation of a `enum Call`. This enum contains only the encoding of the function
 	/// arguments of the dispatchable, alongside the information needed to route it to the
 	/// correct function.
+	///
+	/// The macro also ensures that the extrinsic when invoked will be wrapped via
+	/// [`frame_support::storage::with_storage_layer`] to make it transactional. Thus if the
+	/// extrinsic returns with an error any state changes that had already occurred will be
+	/// rolled back.
 	///
 	/// ```
 	/// #[frame_support::pallet(dev_mode)]
