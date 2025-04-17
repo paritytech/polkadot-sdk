@@ -27,8 +27,8 @@ use snowbridge_core::{reward::MessageId, AssetMetadata, BasicOperatingMode};
 use snowbridge_outbound_queue_primitives::v2::{ContractCall, DeliveryReceipt};
 use snowbridge_pallet_outbound_queue_v2::Error;
 use snowbridge_pallet_system_v2::LostTips;
-use xcm::v5::AssetTransferFilter;
 use sp_core::H256;
+use xcm::v5::AssetTransferFilter;
 
 #[derive(Encode, Decode, Debug, PartialEq, Clone, TypeInfo)]
 pub enum EthereumSystemFrontendCall {
@@ -207,9 +207,9 @@ pub fn add_tip_from_asset_hub_user_origin() {
 					remote_fee_asset.clone().into(),
 				))),
 				preserve_origin: true,
-				assets: vec![AssetTransferFilter::ReserveWithdraw(Definite(
-					reserve_asset.clone().into(),
-				))],
+				assets: BoundedVec::truncate_from(vec![AssetTransferFilter::ReserveWithdraw(
+					Definite(reserve_asset.clone().into()),
+				)]),
 				remote_xcm: Xcm(vec![DepositAsset {
 					assets: Wild(AllCounted(2)),
 					beneficiary: beneficiary(),
