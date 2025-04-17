@@ -5,4 +5,4 @@ doc:
    Optimize the transaction pruning on a new best block event, on a new enacted block. It removes transactions based on the provides tags present in the view store's inactive views if not found in the active view of this new best block that was just notified, instead of revalidating the transactions in the runtime, to obtain the provides tags, which is a costly operation.
 crates:
 - name: sc-transaction-pool
-  bump: minor
+  bump: major
