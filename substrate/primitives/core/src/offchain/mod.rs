@@ -59,7 +59,7 @@ pub trait OffchainStorage: Clone + Send + Sync {
 #[derive(Clone, Copy, PartialEq, Eq, RuntimeDebug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[repr(C)]
-pub enum RuntimeInterfaceStorageKind {
+pub enum StorageKind {
 	/// Persistent storage is non-revertible and not fork-aware. It means that any value
 	/// set by the offchain worker triggered at block `N(hash1)` is persisted even
 	/// if that block is reverted as non-canonical and is available for the worker
@@ -74,22 +74,20 @@ pub enum RuntimeInterfaceStorageKind {
 	LOCAL = 1_isize,
 }
 
-impl TryFrom<u32> for RuntimeInterfaceStorageKind {
+impl TryFrom<u32> for StorageKind {
 	type Error = ();
 
 	fn try_from(kind: u32) -> Result<Self, Self::Error> {
 		match kind {
-			e if e == u32::from(RuntimeInterfaceStorageKind::PERSISTENT as u8) =>
-				Ok(RuntimeInterfaceStorageKind::PERSISTENT),
-			e if e == u32::from(RuntimeInterfaceStorageKind::LOCAL as u8) =>
-				Ok(RuntimeInterfaceStorageKind::LOCAL),
+			e if e == u32::from(StorageKind::PERSISTENT as u8) => Ok(StorageKind::PERSISTENT),
+			e if e == u32::from(StorageKind::LOCAL as u8) => Ok(StorageKind::LOCAL),
 			_ => Err(()),
 		}
 	}
 }
 
-impl From<RuntimeInterfaceStorageKind> for u32 {
-	fn from(c: RuntimeInterfaceStorageKind) -> Self {
+impl From<StorageKind> for u32 {
+	fn from(c: StorageKind) -> Self {
 		c as u32
 	}
 }
@@ -120,7 +118,7 @@ impl From<HttpRequestId> for u32 {
 /// An error enum returned by some http methods.
 #[derive(Clone, Copy, PartialEq, Eq, RuntimeDebug, Encode, Decode)]
 #[repr(C)]
-pub enum RuntimeInterfaceHttpError {
+pub enum HttpError {
 	/// The requested action couldn't been completed within a deadline.
 	#[codec(index = 1)]
 	DeadlineReached = 0_isize,
@@ -132,24 +130,21 @@ pub enum RuntimeInterfaceHttpError {
 	Invalid = 2_isize,
 }
 
-impl TryFrom<u32> for RuntimeInterfaceHttpError {
+impl TryFrom<u32> for HttpError {
 	type Error = ();
 
 	fn try_from(error: u32) -> Result<Self, Self::Error> {
 		match error {
-			e if e == RuntimeInterfaceHttpError::DeadlineReached as u8 as u32 =>
-				Ok(RuntimeInterfaceHttpError::DeadlineReached),
-			e if e == RuntimeInterfaceHttpError::IoError as u8 as u32 =>
-				Ok(RuntimeInterfaceHttpError::IoError),
-			e if e == RuntimeInterfaceHttpError::Invalid as u8 as u32 =>
-				Ok(RuntimeInterfaceHttpError::Invalid),
+			e if e == HttpError::DeadlineReached as u8 as u32 => Ok(HttpError::DeadlineReached),
+			e if e == HttpError::IoError as u8 as u32 => Ok(HttpError::IoError),
+			e if e == HttpError::Invalid as u8 as u32 => Ok(HttpError::Invalid),
 			_ => Err(()),
 		}
 	}
 }
 
-impl From<RuntimeInterfaceHttpError> for u32 {
-	fn from(c: RuntimeInterfaceHttpError) -> Self {
+impl From<HttpError> for u32 {
+	fn from(c: HttpError) -> Self {
 		c as u8 as u32
 	}
 }
@@ -380,7 +375,7 @@ pub trait Externalities: Send {
 		request_id: HttpRequestId,
 		chunk: &[u8],
 		deadline: Option<Timestamp>,
-	) -> Result<(), RuntimeInterfaceHttpError>;
+	) -> Result<(), HttpError>;
 
 	/// Block and wait for the responses for given requests.
 	///
@@ -432,7 +427,7 @@ pub trait Externalities: Send {
 		request_id: HttpRequestId,
 		buffer: &mut [u8],
 		deadline: Option<Timestamp>,
-	) -> Result<usize, RuntimeInterfaceHttpError>;
+	) -> Result<usize, HttpError>;
 
 	/// Set the authorized nodes from runtime.
 	///
@@ -491,7 +486,7 @@ impl<T: Externalities + ?Sized> Externalities for Box<T> {
 		request_id: HttpRequestId,
 		chunk: &[u8],
 		deadline: Option<Timestamp>,
-	) -> Result<(), RuntimeInterfaceHttpError> {
+	) -> Result<(), HttpError> {
 		(&mut **self).http_request_write_body(request_id, chunk, deadline)
 	}
 
@@ -512,7 +507,7 @@ impl<T: Externalities + ?Sized> Externalities for Box<T> {
 		request_id: HttpRequestId,
 		buffer: &mut [u8],
 		deadline: Option<Timestamp>,
-	) -> Result<usize, RuntimeInterfaceHttpError> {
+	) -> Result<usize, HttpError> {
 		(&mut **self).http_response_read_body(request_id, buffer, deadline)
 	}
 
@@ -594,7 +589,7 @@ impl<T: Externalities> Externalities for LimitedExternalities<T> {
 		request_id: HttpRequestId,
 		chunk: &[u8],
 		deadline: Option<Timestamp>,
-	) -> Result<(), RuntimeInterfaceHttpError> {
+	) -> Result<(), HttpError> {
 		self.check(Capabilities::HTTP, "http_request_write_body");
 		self.externalities.http_request_write_body(request_id, chunk, deadline)
 	}
@@ -618,7 +613,7 @@ impl<T: Externalities> Externalities for LimitedExternalities<T> {
 		request_id: HttpRequestId,
 		buffer: &mut [u8],
 		deadline: Option<Timestamp>,
-	) -> Result<usize, RuntimeInterfaceHttpError> {
+	) -> Result<usize, HttpError> {
 		self.check(Capabilities::HTTP, "http_response_read_body");
 		self.externalities.http_response_read_body(request_id, buffer, deadline)
 	}
@@ -649,13 +644,13 @@ pub trait DbExternalities: Send {
 	///
 	/// Note this storage is not part of the consensus, it's only accessible by
 	/// offchain worker tasks running on the same machine. It _is_ persisted between runs.
-	fn local_storage_set(&mut self, kind: RuntimeInterfaceStorageKind, key: &[u8], value: &[u8]);
+	fn local_storage_set(&mut self, kind: StorageKind, key: &[u8], value: &[u8]);
 
 	/// Removes a value in the local storage.
 	///
 	/// Note this storage is not part of the consensus, it's only accessible by
 	/// offchain worker tasks running on the same machine. It _is_ persisted between runs.
-	fn local_storage_clear(&mut self, kind: RuntimeInterfaceStorageKind, key: &[u8]);
+	fn local_storage_clear(&mut self, kind: StorageKind, key: &[u8]);
 
 	/// Sets a value in the local storage if it matches current value.
 	///
@@ -668,7 +663,7 @@ pub trait DbExternalities: Send {
 	/// offchain worker tasks running on the same machine. It _is_ persisted between runs.
 	fn local_storage_compare_and_set(
 		&mut self,
-		kind: RuntimeInterfaceStorageKind,
+		kind: StorageKind,
 		key: &[u8],
 		old_value: Option<&[u8]>,
 		new_value: &[u8],
@@ -679,25 +674,21 @@ pub trait DbExternalities: Send {
 	/// If the value does not exist in the storage `None` will be returned.
 	/// Note this storage is not part of the consensus, it's only accessible by
 	/// offchain worker tasks running on the same machine. It _is_ persisted between runs.
-	fn local_storage_get(
-		&mut self,
-		kind: RuntimeInterfaceStorageKind,
-		key: &[u8],
-	) -> Option<Vec<u8>>;
+	fn local_storage_get(&mut self, kind: StorageKind, key: &[u8]) -> Option<Vec<u8>>;
 }
 
 impl<T: DbExternalities + ?Sized> DbExternalities for Box<T> {
-	fn local_storage_set(&mut self, kind: RuntimeInterfaceStorageKind, key: &[u8], value: &[u8]) {
+	fn local_storage_set(&mut self, kind: StorageKind, key: &[u8], value: &[u8]) {
 		(&mut **self).local_storage_set(kind, key, value)
 	}
 
-	fn local_storage_clear(&mut self, kind: RuntimeInterfaceStorageKind, key: &[u8]) {
+	fn local_storage_clear(&mut self, kind: StorageKind, key: &[u8]) {
 		(&mut **self).local_storage_clear(kind, key)
 	}
 
 	fn local_storage_compare_and_set(
 		&mut self,
-		kind: RuntimeInterfaceStorageKind,
+		kind: StorageKind,
 		key: &[u8],
 		old_value: Option<&[u8]>,
 		new_value: &[u8],
@@ -705,29 +696,25 @@ impl<T: DbExternalities + ?Sized> DbExternalities for Box<T> {
 		(&mut **self).local_storage_compare_and_set(kind, key, old_value, new_value)
 	}
 
-	fn local_storage_get(
-		&mut self,
-		kind: RuntimeInterfaceStorageKind,
-		key: &[u8],
-	) -> Option<Vec<u8>> {
+	fn local_storage_get(&mut self, kind: StorageKind, key: &[u8]) -> Option<Vec<u8>> {
 		(&mut **self).local_storage_get(kind, key)
 	}
 }
 
 impl<T: DbExternalities> DbExternalities for LimitedExternalities<T> {
-	fn local_storage_set(&mut self, kind: RuntimeInterfaceStorageKind, key: &[u8], value: &[u8]) {
+	fn local_storage_set(&mut self, kind: StorageKind, key: &[u8], value: &[u8]) {
 		self.check(Capabilities::OFFCHAIN_DB_WRITE, "local_storage_set");
 		self.externalities.local_storage_set(kind, key, value)
 	}
 
-	fn local_storage_clear(&mut self, kind: RuntimeInterfaceStorageKind, key: &[u8]) {
+	fn local_storage_clear(&mut self, kind: StorageKind, key: &[u8]) {
 		self.check(Capabilities::OFFCHAIN_DB_WRITE, "local_storage_clear");
 		self.externalities.local_storage_clear(kind, key)
 	}
 
 	fn local_storage_compare_and_set(
 		&mut self,
-		kind: RuntimeInterfaceStorageKind,
+		kind: StorageKind,
 		key: &[u8],
 		old_value: Option<&[u8]>,
 		new_value: &[u8],
@@ -737,11 +724,7 @@ impl<T: DbExternalities> DbExternalities for LimitedExternalities<T> {
 			.local_storage_compare_and_set(kind, key, old_value, new_value)
 	}
 
-	fn local_storage_get(
-		&mut self,
-		kind: RuntimeInterfaceStorageKind,
-		key: &[u8],
-	) -> Option<Vec<u8>> {
+	fn local_storage_get(&mut self, kind: StorageKind, key: &[u8]) -> Option<Vec<u8>> {
 		self.check(Capabilities::OFFCHAIN_DB_READ, "local_storage_get");
 		self.externalities.local_storage_get(kind, key)
 	}

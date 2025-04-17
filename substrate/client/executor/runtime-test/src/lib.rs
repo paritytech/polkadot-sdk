@@ -214,7 +214,7 @@ sp_core::wasm_export_functions! {
 	}
 
 	fn test_offchain_local_storage() -> bool {
-		let kind = sp_core::offchain::RuntimeInterfaceStorageKind::PERSISTENT;
+		let kind = sp_core::offchain::StorageKind::PERSISTENT;
 		assert_eq!(sp_io::offchain::local_storage_get(kind, b"test"), None);
 		sp_io::offchain::local_storage_set(kind, b"test", b"asd");
 		assert_eq!(sp_io::offchain::local_storage_get(kind, b"test"), Some(b"asd".to_vec()));
@@ -230,7 +230,7 @@ sp_core::wasm_export_functions! {
 	}
 
 	fn test_offchain_local_storage_with_none() {
-		let kind = sp_core::offchain::RuntimeInterfaceStorageKind::PERSISTENT;
+		let kind = sp_core::offchain::StorageKind::PERSISTENT;
 		assert_eq!(sp_io::offchain::local_storage_get(kind, b"test"), None);
 
 		let res = sp_io::offchain::local_storage_compare_and_set(kind, b"test", None, b"value");

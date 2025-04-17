@@ -26,8 +26,8 @@ use sc_network::Multiaddr;
 use sc_network_types::PeerId;
 use sp_core::{
 	offchain::{
-		self, HttpRequestId, HttpRequestStatus, OpaqueMultiaddr, OpaqueNetworkState,
-		RuntimeInterfaceHttpError, Timestamp,
+		self, HttpError, HttpRequestId, HttpRequestStatus, OpaqueMultiaddr, OpaqueNetworkState,
+		Timestamp,
 	},
 	OpaquePeerId,
 };
@@ -96,7 +96,7 @@ impl offchain::Externalities for Api {
 		request_id: HttpRequestId,
 		chunk: &[u8],
 		deadline: Option<Timestamp>,
-	) -> Result<(), RuntimeInterfaceHttpError> {
+	) -> Result<(), HttpError> {
 		self.http.request_write_body(request_id, chunk, deadline)
 	}
 
@@ -117,7 +117,7 @@ impl offchain::Externalities for Api {
 		request_id: HttpRequestId,
 		buffer: &mut [u8],
 		deadline: Option<Timestamp>,
-	) -> Result<usize, RuntimeInterfaceHttpError> {
+	) -> Result<usize, HttpError> {
 		self.http.response_read_body(request_id, buffer, deadline)
 	}
 
@@ -225,9 +225,7 @@ mod tests {
 		config::MultiaddrWithPeerId, types::ProtocolName, NetworkPeers, NetworkStateInfo,
 		ObservedRole, ReputationChange,
 	};
-	use sp_core::offchain::{
-		storage::OffchainDb, DbExternalities, Externalities, RuntimeInterfaceStorageKind,
-	};
+	use sp_core::offchain::{storage::OffchainDb, DbExternalities, Externalities, StorageKind};
 	use std::time::SystemTime;
 
 	pub(super) struct TestNetwork();
@@ -379,7 +377,7 @@ mod tests {
 	#[test]
 	fn should_set_get_and_clear_local_storage() {
 		// given
-		let kind = RuntimeInterfaceStorageKind::PERSISTENT;
+		let kind = StorageKind::PERSISTENT;
 		let mut api = offchain_db();
 		let key = b"test";
 
@@ -400,7 +398,7 @@ mod tests {
 	#[test]
 	fn should_compare_and_set_local_storage() {
 		// given
-		let kind = RuntimeInterfaceStorageKind::PERSISTENT;
+		let kind = StorageKind::PERSISTENT;
 		let mut api = offchain_db();
 		let key = b"test";
 		api.local_storage_set(kind, key, b"value");
@@ -417,7 +415,7 @@ mod tests {
 	#[test]
 	fn should_compare_and_set_local_storage_with_none() {
 		// given
-		let kind = RuntimeInterfaceStorageKind::PERSISTENT;
+		let kind = StorageKind::PERSISTENT;
 		let mut api = offchain_db();
 		let key = b"test";
 

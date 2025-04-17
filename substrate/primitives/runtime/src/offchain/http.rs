@@ -51,8 +51,7 @@
 use alloc::{str, vec, vec::Vec};
 use sp_core::{
 	offchain::{
-		HttpRequestId as RequestId, HttpRequestStatus as RequestStatus, RuntimeInterfaceHttpError,
-		Timestamp,
+		HttpError, HttpRequestId as RequestId, HttpRequestStatus as RequestStatus, Timestamp,
 	},
 	RuntimeDebug,
 };
@@ -206,17 +205,17 @@ impl<'a, I: AsRef<[u8]>, T: IntoIterator<Item = I>> Request<'a, T> {
 	///
 	/// Err is returned in case the deadline is reached
 	/// or the request timeouts.
-	pub fn send(self) -> Result<PendingRequest, RuntimeInterfaceHttpError> {
+	pub fn send(self) -> Result<PendingRequest, HttpError> {
 		let meta = &[];
 
 		// start an http request.
 		let id = sp_io::offchain::http_request_start(self.method.as_ref(), self.url, meta)
-			.map_err(|_| RuntimeInterfaceHttpError::IoError)?;
+			.map_err(|_| HttpError::IoError)?;
 
 		// add custom headers
 		for header in &self.headers {
 			sp_io::offchain::http_request_add_header(id, header.name(), header.value())
-				.map_err(|_| RuntimeInterfaceHttpError::IoError)?
+				.map_err(|_| HttpError::IoError)?
 		}
 
 		// write body
@@ -350,7 +349,7 @@ impl Response {
 #[derive(Clone)]
 pub struct ResponseBody {
 	id: RequestId,
-	error: Option<RuntimeInterfaceHttpError>,
+	error: Option<HttpError>,
 	buffer: [u8; 4096],
 	filled_up_to: Option<usize>,
 	position: usize,
@@ -393,7 +392,7 @@ impl ResponseBody {
 	///
 	/// If the error is `DeadlineReached` you can resume the iterator by setting
 	/// a new deadline.
-	pub fn error(&self) -> &Option<RuntimeInterfaceHttpError> {
+	pub fn error(&self) -> &Option<HttpError> {
 		&self.error
 	}
 }

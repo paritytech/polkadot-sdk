@@ -100,8 +100,7 @@ use sp_core::{
 	crypto::KeyTypeId,
 	ecdsa, ed25519,
 	offchain::{
-		HttpRequestId, HttpRequestStatus, OpaqueNetworkState, RuntimeInterfaceHttpError,
-		RuntimeInterfaceStorageKind, Timestamp,
+		HttpError, HttpRequestId, HttpRequestStatus, OpaqueNetworkState, StorageKind, Timestamp,
 	},
 	sr25519,
 	storage::StateVersion,
@@ -1556,7 +1555,7 @@ pub trait Offchain {
 	/// offchain worker tasks running on the same machine. It IS persisted between runs.
 	fn local_storage_set(
 		&mut self,
-		kind: PassAs<RuntimeInterfaceStorageKind, u32>,
+		kind: PassAs<StorageKind, u32>,
 		key: PassFatPointerAndRead<&[u8]>,
 		value: PassFatPointerAndRead<&[u8]>,
 	) {
@@ -1574,7 +1573,7 @@ pub trait Offchain {
 	/// offchain worker tasks running on the same machine. It IS persisted between runs.
 	fn local_storage_clear(
 		&mut self,
-		kind: PassAs<RuntimeInterfaceStorageKind, u32>,
+		kind: PassAs<StorageKind, u32>,
 		key: PassFatPointerAndRead<&[u8]>,
 	) {
 		self.extension::<OffchainDbExt>()
@@ -1596,7 +1595,7 @@ pub trait Offchain {
 	/// offchain worker tasks running on the same machine. It IS persisted between runs.
 	fn local_storage_compare_and_set(
 		&mut self,
-		kind: PassAs<RuntimeInterfaceStorageKind, u32>,
+		kind: PassAs<StorageKind, u32>,
 		key: PassFatPointerAndRead<&[u8]>,
 		old_value: PassFatPointerAndDecode<Option<Vec<u8>>>,
 		new_value: PassFatPointerAndRead<&[u8]>,
@@ -1616,7 +1615,7 @@ pub trait Offchain {
 	/// offchain worker tasks running on the same machine. It IS persisted between runs.
 	fn local_storage_get(
 		&mut self,
-		kind: PassAs<RuntimeInterfaceStorageKind, u32>,
+		kind: PassAs<StorageKind, u32>,
 		key: PassFatPointerAndRead<&[u8]>,
 	) -> AllocateAndReturnByCodec<Option<Vec<u8>>> {
 		self.extension::<OffchainDbExt>()
@@ -1665,7 +1664,7 @@ pub trait Offchain {
 		request_id: PassAs<HttpRequestId, u16>,
 		chunk: PassFatPointerAndRead<&[u8]>,
 		deadline: PassFatPointerAndDecode<Option<Timestamp>>,
-	) -> AllocateAndReturnByCodec<Result<(), RuntimeInterfaceHttpError>> {
+	) -> AllocateAndReturnByCodec<Result<(), HttpError>> {
 		self.extension::<OffchainWorkerExt>()
 			.expect("http_request_write_body can be called only in the offchain worker context")
 			.http_request_write_body(request_id, chunk, deadline)
@@ -1714,7 +1713,7 @@ pub trait Offchain {
 		request_id: PassAs<HttpRequestId, u16>,
 		buffer: PassFatPointerAndReadWrite<&mut [u8]>,
 		deadline: PassFatPointerAndDecode<Option<Timestamp>>,
-	) -> AllocateAndReturnByCodec<Result<u32, RuntimeInterfaceHttpError>> {
+	) -> AllocateAndReturnByCodec<Result<u32, HttpError>> {
 		self.extension::<OffchainWorkerExt>()
 			.expect("http_response_read_body can be called only in the offchain worker context")
 			.http_response_read_body(request_id, buffer, deadline)

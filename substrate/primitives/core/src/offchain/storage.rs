@@ -17,9 +17,7 @@
 
 //! In-memory implementation of offchain workers database.
 
-use crate::offchain::{
-	DbExternalities, OffchainStorage, RuntimeInterfaceStorageKind, STORAGE_PREFIX,
-};
+use crate::offchain::{DbExternalities, OffchainStorage, StorageKind, STORAGE_PREFIX};
 use std::{
 	collections::hash_map::{Entry, HashMap},
 	iter::Iterator,
@@ -120,7 +118,7 @@ impl<Storage> OffchainDb<Storage> {
 }
 
 impl<Storage: OffchainStorage> DbExternalities for OffchainDb<Storage> {
-	fn local_storage_set(&mut self, kind: RuntimeInterfaceStorageKind, key: &[u8], value: &[u8]) {
+	fn local_storage_set(&mut self, kind: StorageKind, key: &[u8], value: &[u8]) {
 		tracing::debug!(
 			target: LOG_TARGET,
 			?kind,
@@ -129,13 +127,12 @@ impl<Storage: OffchainStorage> DbExternalities for OffchainDb<Storage> {
 			"Write",
 		);
 		match kind {
-			RuntimeInterfaceStorageKind::PERSISTENT =>
-				self.persistent.set(STORAGE_PREFIX, key, value),
-			RuntimeInterfaceStorageKind::LOCAL => unavailable_yet(LOCAL_DB),
+			StorageKind::PERSISTENT => self.persistent.set(STORAGE_PREFIX, key, value),
+			StorageKind::LOCAL => unavailable_yet(LOCAL_DB),
 		}
 	}
 
-	fn local_storage_clear(&mut self, kind: RuntimeInterfaceStorageKind, key: &[u8]) {
+	fn local_storage_clear(&mut self, kind: StorageKind, key: &[u8]) {
 		tracing::debug!(
 			target: LOG_TARGET,
 			?kind,
@@ -143,14 +140,14 @@ impl<Storage: OffchainStorage> DbExternalities for OffchainDb<Storage> {
 			"Clear",
 		);
 		match kind {
-			RuntimeInterfaceStorageKind::PERSISTENT => self.persistent.remove(STORAGE_PREFIX, key),
-			RuntimeInterfaceStorageKind::LOCAL => unavailable_yet(LOCAL_DB),
+			StorageKind::PERSISTENT => self.persistent.remove(STORAGE_PREFIX, key),
+			StorageKind::LOCAL => unavailable_yet(LOCAL_DB),
 		}
 	}
 
 	fn local_storage_compare_and_set(
 		&mut self,
-		kind: RuntimeInterfaceStorageKind,
+		kind: StorageKind,
 		key: &[u8],
 		old_value: Option<&[u8]>,
 		new_value: &[u8],
@@ -164,20 +161,16 @@ impl<Storage: OffchainStorage> DbExternalities for OffchainDb<Storage> {
 			"CAS",
 		);
 		match kind {
-			RuntimeInterfaceStorageKind::PERSISTENT =>
+			StorageKind::PERSISTENT =>
 				self.persistent.compare_and_set(STORAGE_PREFIX, key, old_value, new_value),
-			RuntimeInterfaceStorageKind::LOCAL => unavailable_yet(LOCAL_DB),
+			StorageKind::LOCAL => unavailable_yet(LOCAL_DB),
 		}
 	}
 
-	fn local_storage_get(
-		&mut self,
-		kind: RuntimeInterfaceStorageKind,
-		key: &[u8],
-	) -> Option<Vec<u8>> {
+	fn local_storage_get(&mut self, kind: StorageKind, key: &[u8]) -> Option<Vec<u8>> {
 		let result = match kind {
-			RuntimeInterfaceStorageKind::PERSISTENT => self.persistent.get(STORAGE_PREFIX, key),
-			RuntimeInterfaceStorageKind::LOCAL => unavailable_yet(LOCAL_DB),
+			StorageKind::PERSISTENT => self.persistent.get(STORAGE_PREFIX, key),
+			StorageKind::LOCAL => unavailable_yet(LOCAL_DB),
 		};
 		tracing::debug!(
 			target: LOG_TARGET,

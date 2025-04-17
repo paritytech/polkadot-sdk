@@ -27,7 +27,7 @@ use sc_client_api::{Backend, FinalityNotification};
 use sc_offchain::OffchainDb;
 use sp_blockchain::{CachedHeaderMetadata, ForkBackend};
 use sp_consensus_beefy::MmrRootHash;
-use sp_core::offchain::{DbExternalities, RuntimeInterfaceStorageKind};
+use sp_core::offchain::{DbExternalities, StorageKind};
 use sp_mmr_primitives::{utils, utils::NodesUtils, MmrApi, NodeIndex};
 use sp_runtime::{
 	traits::{Block, Header, NumberFor, One},
@@ -155,8 +155,7 @@ where
 
 		for pos in stale_nodes {
 			let temp_key = self.node_temp_offchain_key(pos, header.parent);
-			self.offchain_db
-				.local_storage_clear(RuntimeInterfaceStorageKind::PERSISTENT, &temp_key);
+			self.offchain_db.local_storage_clear(StorageKind::PERSISTENT, &temp_key);
 			debug!(target: LOG_TARGET, "Pruned elem at pos {} with temp key {:?}", pos, temp_key);
 		}
 	}
@@ -188,18 +187,12 @@ where
 
 		for pos in to_canon_nodes {
 			let temp_key = self.node_temp_offchain_key(pos, header.parent);
-			if let Some(elem) = self
-				.offchain_db
-				.local_storage_get(RuntimeInterfaceStorageKind::PERSISTENT, &temp_key)
+			if let Some(elem) =
+				self.offchain_db.local_storage_get(StorageKind::PERSISTENT, &temp_key)
 			{
 				let canon_key = self.node_canon_offchain_key(pos);
-				self.offchain_db.local_storage_set(
-					RuntimeInterfaceStorageKind::PERSISTENT,
-					&canon_key,
-					&elem,
-				);
-				self.offchain_db
-					.local_storage_clear(RuntimeInterfaceStorageKind::PERSISTENT, &temp_key);
+				self.offchain_db.local_storage_set(StorageKind::PERSISTENT, &canon_key, &elem);
+				self.offchain_db.local_storage_clear(StorageKind::PERSISTENT, &temp_key);
 				debug!(
 					target: LOG_TARGET,
 					"Moved elem at pos {} from temp key {:?} to canon key {:?}",

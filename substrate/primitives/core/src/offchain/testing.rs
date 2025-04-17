@@ -22,10 +22,9 @@
 
 use crate::{
 	offchain::{
-		self, storage::InMemOffchainStorage, HttpRequestId as RequestId,
+		self, storage::InMemOffchainStorage, HttpError, HttpRequestId as RequestId,
 		HttpRequestStatus as RequestStatus, OffchainOverlayedChange, OffchainStorage,
-		OpaqueNetworkState, RuntimeInterfaceHttpError, RuntimeInterfaceStorageKind, Timestamp,
-		TransactionPool,
+		OpaqueNetworkState, StorageKind, Timestamp, TransactionPool,
 	},
 	OpaquePeerId,
 };
@@ -273,12 +272,11 @@ impl offchain::Externalities for TestOffchainExt {
 		request_id: RequestId,
 		chunk: &[u8],
 		_deadline: Option<Timestamp>,
-	) -> Result<(), RuntimeInterfaceHttpError> {
+	) -> Result<(), HttpError> {
 		let mut state = self.0.write();
 
 		let sent = {
-			let req =
-				state.requests.get_mut(&request_id).ok_or(RuntimeInterfaceHttpError::IoError)?;
+			let req = state.requests.get_mut(&request_id).ok_or(HttpError::IoError)?;
 			req.body.extend(chunk);
 			if chunk.is_empty() {
 				req.sent = true;
@@ -329,7 +327,7 @@ impl offchain::Externalities for TestOffchainExt {
 		request_id: RequestId,
 		buffer: &mut [u8],
 		_deadline: Option<Timestamp>,
-	) -> Result<usize, RuntimeInterfaceHttpError> {
+	) -> Result<usize, HttpError> {
 		let mut state = self.0.write();
 		if let Some(req) = state.requests.get_mut(&request_id) {
 			let response = req
@@ -348,7 +346,7 @@ impl offchain::Externalities for TestOffchainExt {
 				Ok(read)
 			}
 		} else {
-			Err(RuntimeInterfaceHttpError::IoError)
+			Err(HttpError::IoError)
 		}
 	}
 
@@ -358,49 +356,43 @@ impl offchain::Externalities for TestOffchainExt {
 }
 
 impl offchain::DbExternalities for TestOffchainExt {
-	fn local_storage_set(&mut self, kind: RuntimeInterfaceStorageKind, key: &[u8], value: &[u8]) {
+	fn local_storage_set(&mut self, kind: StorageKind, key: &[u8], value: &[u8]) {
 		let mut state = self.0.write();
 		match kind {
-			RuntimeInterfaceStorageKind::LOCAL => state.local_storage.set(b"", key, value),
-			RuntimeInterfaceStorageKind::PERSISTENT =>
-				state.persistent_storage.set(b"", key, value),
+			StorageKind::LOCAL => state.local_storage.set(b"", key, value),
+			StorageKind::PERSISTENT => state.persistent_storage.set(b"", key, value),
 		};
 	}
 
-	fn local_storage_clear(&mut self, kind: RuntimeInterfaceStorageKind, key: &[u8]) {
+	fn local_storage_clear(&mut self, kind: StorageKind, key: &[u8]) {
 		let mut state = self.0.write();
 		match kind {
-			RuntimeInterfaceStorageKind::LOCAL => state.local_storage.remove(b"", key),
-			RuntimeInterfaceStorageKind::PERSISTENT => state.persistent_storage.remove(b"", key),
+			StorageKind::LOCAL => state.local_storage.remove(b"", key),
+			StorageKind::PERSISTENT => state.persistent_storage.remove(b"", key),
 		};
 	}
 
 	fn local_storage_compare_and_set(
 		&mut self,
-		kind: RuntimeInterfaceStorageKind,
+		kind: StorageKind,
 		key: &[u8],
 		old_value: Option<&[u8]>,
 		new_value: &[u8],
 	) -> bool {
 		let mut state = self.0.write();
 		match kind {
-			RuntimeInterfaceStorageKind::LOCAL =>
+			StorageKind::LOCAL =>
 				state.local_storage.compare_and_set(b"", key, old_value, new_value),
-			RuntimeInterfaceStorageKind::PERSISTENT =>
+			StorageKind::PERSISTENT =>
 				state.persistent_storage.compare_and_set(b"", key, old_value, new_value),
 		}
 	}
 
-	fn local_storage_get(
-		&mut self,
-		kind: RuntimeInterfaceStorageKind,
-		key: &[u8],
-	) -> Option<Vec<u8>> {
+	fn local_storage_get(&mut self, kind: StorageKind, key: &[u8]) -> Option<Vec<u8>> {
 		let state = self.0.read();
 		match kind {
-			RuntimeInterfaceStorageKind::LOCAL =>
-				state.local_storage.get(TestPersistentOffchainDB::PREFIX, key),
-			RuntimeInterfaceStorageKind::PERSISTENT => state.persistent_storage.get(key),
+			StorageKind::LOCAL => state.local_storage.get(TestPersistentOffchainDB::PREFIX, key),
+			StorageKind::PERSISTENT => state.persistent_storage.get(key),
 		}
 	}
 }
