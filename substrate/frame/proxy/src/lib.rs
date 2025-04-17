@@ -363,7 +363,7 @@ pub mod pallet {
 		/// `pure` with corresponding parameters.
 		///
 		/// - `spawner`: The account that originally called `pure` to create this account.
-		/// - `index`: The disambiguation index originally passed to `pure`. Probably `0`.
+		/// - `index`: The disambiguation index originally passed to `create_pure`. Probably `0`.
 		/// - `proxy_type`: The proxy type originally passed to `pure`.
 		/// - `height`: The height of the chain when the call to `pure` was processed.
 		/// - `ext_index`: The extrinsic index in which the call to `pure` was processed.
@@ -667,10 +667,13 @@ pub mod pallet {
 			proxy_type: T::ProxyType,
 			disambiguation_index: u16,
 		},
+		/// A pure proxy was killed.
 		PureKilled {
 			pure: T::AccountId,
 			who: T::AccountId,
 			proxy_type: T::ProxyType,
+			// The index originally passed to `create_pure` when this pure proxy was created.
+			disambiguation_index: u16,
 		},
 		/// An announcement was placed to make a call in the future.
 		Announced {
