@@ -15,8 +15,9 @@
 use crate::{
 	imports::*,
 	tests::snowbridge_common::{
-		erc20_token_location, eth_location, register_foreign_asset, set_up_eth_and_dot_pool,
-		set_up_eth_and_dot_pool_on_penpal, snowbridge_sovereign, weth_location,
+		erc20_token_location, eth_location, fund_on_ah, fund_on_bh, register_assets_on_ah,
+		register_foreign_asset, set_up_eth_and_dot_pool, set_up_eth_and_dot_pool_on_penpal,
+		snowbridge_sovereign, weth_location,
 	},
 };
 use asset_hub_westend_runtime::ForeignAssets;
@@ -34,15 +35,11 @@ use snowbridge_inbound_queue_primitives::v2::{
 	EthereumAsset::{ForeignTokenERC20, NativeTokenERC20},
 	Message, Network, XcmPayload,
 };
-use snowbridge_pallet_system_v2::LostTips;
 use sp_core::{H160, H256};
 use sp_io::hashing::blake2_256;
 use sp_runtime::MultiAddress;
 use xcm::opaque::latest::AssetTransferFilter::ReserveDeposit;
 use xcm_executor::traits::ConvertLocation;
-use crate::tests::snowbridge_common::fund_on_bh;
-use crate::tests::snowbridge_common::register_assets_on_ah;
-use crate::tests::snowbridge_common::fund_on_ah;
 
 const TOKEN_AMOUNT: u128 = 100_000_000_000;
 
