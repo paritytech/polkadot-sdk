@@ -97,7 +97,7 @@ pub mod v1 {
 	{
 		/// Calculate the fee required to pay for gas on Ethereum.
 		fn calculate_remote_fee(params: &PricingParametersOf<T>) -> U256 {
-			use snowbridge_outbound_queue_primitives::v1::{
+			use snowbridge_core::outbound::{
 				AgentExecuteCommand, Command, ConstantGasMeter, GasMeter,
 			};
 			let command = Command::AgentExecute {
