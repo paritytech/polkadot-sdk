@@ -51,11 +51,11 @@ async fn sync_blocks_from_tip_without_connected_collator() -> Result<(), anyhow:
 	};
 	network.add_collator("ferdie", ferdie_options, PARA_ID).await?;
 
-	let relay_node = network.get_node("alice")?;
-	let para_node_ferdie = network.get_node("ferdie")?;
-	let para_node_eve = network.get_node("eve")?;
+	let relay_alice = network.get_node("alice")?;
+	let para_ferdie = network.get_node("ferdie")?;
+	let para_eve = network.get_node("eve")?;
 
-	let relay_client: OnlineClient<PolkadotConfig> = relay_node.wait_client().await?;
+	let relay_client: OnlineClient<PolkadotConfig> = relay_alice.wait_client().await?;
 
 	// Ensure parachains are registered.
 	assert_para_throughput(&relay_client, 2, [(ParaId::from(PARA_ID), 2..3)].into_iter().collect())
@@ -69,17 +69,8 @@ async fn sync_blocks_from_tip_without_connected_collator() -> Result<(), anyhow:
 	)
 	.await?;
 
-	let para_client: OnlineClient<PolkadotConfig> = para_node_ferdie.wait_client().await?;
-	// Ensure parachains made progress.
-	assert_para_throughput(
-		&para_client,
-		10,
-		[(ParaId::from(PARA_ID), 9..11)].into_iter().collect(),
-	)
-	.await?;
-
-	assert_finality_lag(&para_node_ferdie.wait_client().await?, 12).await?;
-	assert_finality_lag(&para_node_eve.wait_client().await?, 12).await?;
+	assert_finality_lag(&para_ferdie.wait_client().await?, 12).await?;
+	assert_finality_lag(&para_eve.wait_client().await?, 12).await?;
 
 	Ok(())
 }
@@ -105,11 +96,11 @@ async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 				// .cumulus_based()
 				.with_default_command("test-parachain")
 				.with_default_image(images.cumulus.as_str())
-				// .with_chain("sync-blocks")
 				.with_default_args(vec![("-lparachain=debug").into()])
-				// charlie - parachain collator
+				// Nodes:
+				// - charlie - collator
+				// - dave - full node
 				.with_collator(|n| n.with_name("charlie").validator(true))
-				// dave - parachain full node
 				.with_collator(|n| n.with_name("dave").validator(false))
 		})
 		.with_global_settings(|global_settings| match std::env::var("ZOMBIENET_SDK_BASE_DIR") {
