@@ -24,25 +24,18 @@ use frame_election_provider_support::{ElectionProvider, NposSolution};
 use frame_support::pallet_prelude::*;
 use sp_std::prelude::*;
 
-#[benchmarks(where T: crate::Config + crate::signed::Config + crate::unsigned::Config)]
+#[benchmarks(where
+	T: crate::Config + crate::signed::Config + crate::unsigned::Config,
+	<T as frame_system::Config>::RuntimeEvent: TryInto<crate::verifier::Event<T>>
+)]
 mod benchmarks {
 	use super::*;
 
-	fn events_for<T: Config>() -> Vec<Event<T>> {
-		frame_system::Pallet::<T>::events()
-			.into_iter()
-			.map(|e| e.event) // convert to inner event
-			.filter_map(|e| {
-				let e = <T as Config>::RuntimeEvent::from_ref(&e);
-				if let Ok(ev) =
-					<<T as Config>::RuntimeEvent as TryInto<Event<T>>>::try_into((*e).clone())
-				{
-					Some(ev)
-				} else {
-					None
-				}
-			})
-			.collect()
+	fn events_for<T: Config>() -> Vec<Event<T>>
+	where
+		<T as frame_system::Config>::RuntimeEvent: TryInto<Event<T>>,
+	{
+		frame_system::Pallet::<T>::read_events_for_pallet::<Event<T>>()
 	}
 
 	#[benchmark(pov_mode = Measured)]
