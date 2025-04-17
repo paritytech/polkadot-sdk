@@ -145,7 +145,9 @@ mod tests {
 	use codec::Encode;
 	use sp_core::{
 		crypto::key_types::DUMMY,
-		offchain::{testing::TestOffchainExt, OffchainDbExt, OffchainWorkerExt, StorageKind},
+		offchain::{
+			testing::TestOffchainExt, OffchainDbExt, OffchainWorkerExt, RuntimeInterfaceStorageKind,
+		},
 	};
 	use sp_runtime::{testing::UintAuthorityId, BuildStorage};
 	use sp_state_machine::BasicExternalities;
@@ -217,7 +219,7 @@ mod tests {
 
 		ext.execute_with(|| {
 			let data = b"alphaomega"[..].using_encoded(|key| {
-				sp_io::offchain::local_storage_get(StorageKind::PERSISTENT, key)
+				sp_io::offchain::local_storage_get(RuntimeInterfaceStorageKind::PERSISTENT, key)
 			});
 			assert_eq!(data, Some(DATA.to_vec()));
 		});

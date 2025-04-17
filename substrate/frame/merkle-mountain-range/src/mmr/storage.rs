@@ -27,7 +27,7 @@ use codec::Encode;
 use core::iter::Peekable;
 use frame::{
 	deps::{
-		sp_core::offchain::StorageKind,
+		sp_core::offchain::RuntimeInterfaceStorageKind,
 		sp_io::{offchain, offchain_index},
 	},
 	prelude::*,
@@ -52,7 +52,7 @@ pub struct OffchainStorage;
 
 impl OffchainStorage {
 	fn get(key: &[u8]) -> Option<Vec<u8>> {
-		offchain::local_storage_get(StorageKind::PERSISTENT, &key)
+		offchain::local_storage_get(RuntimeInterfaceStorageKind::PERSISTENT, &key)
 	}
 
 	#[cfg(not(feature = "runtime-benchmarks"))]
@@ -63,7 +63,7 @@ impl OffchainStorage {
 	#[cfg(feature = "runtime-benchmarks")]
 	fn set<T: Config<I>, I: 'static>(key: &[u8], value: &[u8]) {
 		if crate::pallet::UseLocalStorage::<T, I>::get() {
-			offchain::local_storage_set(StorageKind::PERSISTENT, key, value);
+			offchain::local_storage_set(RuntimeInterfaceStorageKind::PERSISTENT, key, value);
 		} else {
 			offchain_index::set(key, value);
 		}

@@ -100,11 +100,12 @@ use sp_core::{
 	crypto::KeyTypeId,
 	ecdsa, ed25519,
 	offchain::{
-		HttpError, HttpRequestId, HttpRequestStatus, OpaqueNetworkState, StorageKind, Timestamp,
+		HttpRequestId, HttpRequestStatus, OpaqueNetworkState, RuntimeInterfaceHttpError,
+		RuntimeInterfaceStorageKind, Timestamp,
 	},
 	sr25519,
 	storage::StateVersion,
-	LogLevel, LogLevelFilter, OpaquePeerId, H256,
+	LogLevelFilter, OpaquePeerId, RuntimeInterfaceLogLevel, H256,
 };
 
 #[cfg(feature = "bls-experimental")]
@@ -1555,7 +1556,7 @@ pub trait Offchain {
 	/// offchain worker tasks running on the same machine. It IS persisted between runs.
 	fn local_storage_set(
 		&mut self,
-		kind: PassAs<StorageKind, u32>,
+		kind: PassAs<RuntimeInterfaceStorageKind, u32>,
 		key: PassFatPointerAndRead<&[u8]>,
 		value: PassFatPointerAndRead<&[u8]>,
 	) {
@@ -1573,7 +1574,7 @@ pub trait Offchain {
 	/// offchain worker tasks running on the same machine. It IS persisted between runs.
 	fn local_storage_clear(
 		&mut self,
-		kind: PassAs<StorageKind, u32>,
+		kind: PassAs<RuntimeInterfaceStorageKind, u32>,
 		key: PassFatPointerAndRead<&[u8]>,
 	) {
 		self.extension::<OffchainDbExt>()
@@ -1595,7 +1596,7 @@ pub trait Offchain {
 	/// offchain worker tasks running on the same machine. It IS persisted between runs.
 	fn local_storage_compare_and_set(
 		&mut self,
-		kind: PassAs<StorageKind, u32>,
+		kind: PassAs<RuntimeInterfaceStorageKind, u32>,
 		key: PassFatPointerAndRead<&[u8]>,
 		old_value: PassFatPointerAndDecode<Option<Vec<u8>>>,
 		new_value: PassFatPointerAndRead<&[u8]>,
@@ -1615,7 +1616,7 @@ pub trait Offchain {
 	/// offchain worker tasks running on the same machine. It IS persisted between runs.
 	fn local_storage_get(
 		&mut self,
-		kind: PassAs<StorageKind, u32>,
+		kind: PassAs<RuntimeInterfaceStorageKind, u32>,
 		key: PassFatPointerAndRead<&[u8]>,
 	) -> AllocateAndReturnByCodec<Option<Vec<u8>>> {
 		self.extension::<OffchainDbExt>()
@@ -1664,7 +1665,7 @@ pub trait Offchain {
 		request_id: PassAs<HttpRequestId, u16>,
 		chunk: PassFatPointerAndRead<&[u8]>,
 		deadline: PassFatPointerAndDecode<Option<Timestamp>>,
-	) -> AllocateAndReturnByCodec<Result<(), HttpError>> {
+	) -> AllocateAndReturnByCodec<Result<(), RuntimeInterfaceHttpError>> {
 		self.extension::<OffchainWorkerExt>()
 			.expect("http_request_write_body can be called only in the offchain worker context")
 			.http_request_write_body(request_id, chunk, deadline)
@@ -1713,7 +1714,7 @@ pub trait Offchain {
 		request_id: PassAs<HttpRequestId, u16>,
 		buffer: PassFatPointerAndReadWrite<&mut [u8]>,
 		deadline: PassFatPointerAndDecode<Option<Timestamp>>,
-	) -> AllocateAndReturnByCodec<Result<u32, HttpError>> {
+	) -> AllocateAndReturnByCodec<Result<u32, RuntimeInterfaceHttpError>> {
 		self.extension::<OffchainWorkerExt>()
 			.expect("http_response_read_body can be called only in the offchain worker context")
 			.http_response_read_body(request_id, buffer, deadline)
@@ -1767,7 +1768,7 @@ pub trait Logging {
 	///
 	/// Instead of using directly, prefer setting up `RuntimeLogger` and using `log` macros.
 	fn log(
-		level: PassAs<LogLevel, u8>,
+		level: PassAs<RuntimeInterfaceLogLevel, u8>,
 		target: PassFatPointerAndRead<&str>,
 		message: PassFatPointerAndRead<&[u8]>,
 	) {
@@ -1933,7 +1934,7 @@ pub fn panic(info: &core::panic::PanicInfo) -> ! {
 	}
 	#[cfg(not(feature = "improved_panic_error_reporting"))]
 	{
-		logging::log(LogLevel::Error, "runtime", message.as_bytes());
+		logging::log(RuntimeInterfaceLogLevel::Error, "runtime", message.as_bytes());
 		unreachable();
 	}
 }
@@ -1948,7 +1949,11 @@ pub fn oom(_: core::alloc::Layout) -> ! {
 	}
 	#[cfg(not(feature = "improved_panic_error_reporting"))]
 	{
-		logging::log(LogLevel::Error, "runtime", b"Runtime memory exhausted. Aborting");
+		logging::log(
+			RuntimeInterfaceLogLevel::Error,
+			"runtime",
+			b"Runtime memory exhausted. Aborting",
+		);
 		unreachable();
 	}
 }

@@ -17,7 +17,7 @@
 
 //! A set of storage helpers for offchain workers.
 
-use sp_core::offchain::StorageKind;
+use sp_core::offchain::RuntimeInterfaceStorageKind;
 
 /// A storage value with a static key.
 pub type StorageValue = StorageValueRef<'static>;
@@ -25,7 +25,7 @@ pub type StorageValue = StorageValueRef<'static>;
 /// An abstraction over local storage value.
 pub struct StorageValueRef<'a> {
 	key: &'a [u8],
-	kind: StorageKind,
+	kind: RuntimeInterfaceStorageKind,
 }
 
 /// Reason for not being able to provide the stored value
@@ -50,12 +50,12 @@ pub enum MutateStorageError<T, E> {
 impl<'a> StorageValueRef<'a> {
 	/// Create a new reference to a value in the persistent local storage.
 	pub fn persistent(key: &'a [u8]) -> Self {
-		Self { key, kind: StorageKind::PERSISTENT }
+		Self { key, kind: RuntimeInterfaceStorageKind::PERSISTENT }
 	}
 
 	/// Create a new reference to a value in the fork-aware local storage.
 	pub fn local(key: &'a [u8]) -> Self {
-		Self { key, kind: StorageKind::LOCAL }
+		Self { key, kind: RuntimeInterfaceStorageKind::LOCAL }
 	}
 
 	/// Set the value of the storage to encoding of given parameter.

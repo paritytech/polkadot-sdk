@@ -30,7 +30,7 @@ use sp_api::{ApiRef, ProvideRuntimeApi};
 use sp_blockchain::{BlockStatus, CachedHeaderMetadata, HeaderBackend, HeaderMetadata, Info};
 use sp_consensus::BlockOrigin;
 use sp_core::{
-	offchain::{DbExternalities, StorageKind},
+	offchain::{DbExternalities, RuntimeInterfaceStorageKind},
 	H256,
 };
 use sp_mmr_primitives as mmr;
@@ -154,7 +154,7 @@ impl MockClient {
 					parent_hash,
 				);
 				offchain_db.local_storage_set(
-					StorageKind::PERSISTENT,
+					RuntimeInterfaceStorageKind::PERSISTENT,
 					&temp_key,
 					parent_hash.as_ref(),
 				)
@@ -177,11 +177,13 @@ impl MockClient {
 		let mut offchain_db = self.offchain_db();
 		for node in NodesUtils::right_branch_ending_in_leaf(mmr_block.leaf_idx.unwrap()) {
 			let canon_key = mmr_block.get_offchain_key(node, OffchainKeyType::Canon);
-			let val = offchain_db.local_storage_get(StorageKind::PERSISTENT, &canon_key).unwrap();
-			offchain_db.local_storage_clear(StorageKind::PERSISTENT, &canon_key);
+			let val = offchain_db
+				.local_storage_get(RuntimeInterfaceStorageKind::PERSISTENT, &canon_key)
+				.unwrap();
+			offchain_db.local_storage_clear(RuntimeInterfaceStorageKind::PERSISTENT, &canon_key);
 
 			let temp_key = mmr_block.get_offchain_key(node, OffchainKeyType::Temp);
-			offchain_db.local_storage_set(StorageKind::PERSISTENT, &temp_key, &val);
+			offchain_db.local_storage_set(RuntimeInterfaceStorageKind::PERSISTENT, &temp_key, &val);
 		}
 	}
 
@@ -197,7 +199,8 @@ impl MockClient {
 		for mmr_block in blocks {
 			for node in NodesUtils::right_branch_ending_in_leaf(mmr_block.leaf_idx.unwrap()) {
 				let temp_key = mmr_block.get_offchain_key(node, key_type);
-				let val = offchain_db.local_storage_get(StorageKind::PERSISTENT, &temp_key);
+				let val = offchain_db
+					.local_storage_get(RuntimeInterfaceStorageKind::PERSISTENT, &temp_key);
 				f(val, mmr_block);
 			}
 		}

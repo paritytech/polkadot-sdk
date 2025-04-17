@@ -37,7 +37,7 @@ use hyper_rustls::{HttpsConnector, HttpsConnectorBuilder};
 use hyper_util::{client::legacy as client, rt::TokioExecutor};
 use once_cell::sync::Lazy;
 use sc_utils::mpsc::{tracing_unbounded, TracingUnboundedReceiver, TracingUnboundedSender};
-use sp_core::offchain::{HttpError, HttpRequestId, HttpRequestStatus, Timestamp};
+use sp_core::offchain::{HttpRequestId, HttpRequestStatus, RuntimeInterfaceHttpError, Timestamp};
 use std::{
 	fmt,
 	io::Read as _,
@@ -211,24 +211,25 @@ impl HttpApi {
 		request_id: HttpRequestId,
 		chunk: &[u8],
 		deadline: Option<Timestamp>,
-	) -> Result<(), HttpError> {
+	) -> Result<(), RuntimeInterfaceHttpError> {
 		// Extract the request from the list.
 		// Don't forget to add it back if necessary when returning.
-		let mut request = self.requests.remove(&request_id).ok_or(HttpError::Invalid)?;
+		let mut request =
+			self.requests.remove(&request_id).ok_or(RuntimeInterfaceHttpError::Invalid)?;
 
 		let mut deadline = timestamp::deadline_to_future(deadline);
 		// Closure that writes data to a sender, taking the deadline into account. Can return `Ok`
 		// (if the body has been written), or `DeadlineReached`, or `IoError`.
 		// If `IoError` is returned, don't forget to remove the request from the list.
-		let mut poll_sender = move |sender: &mut Sender| -> Result<(), HttpError> {
+		let mut poll_sender = move |sender: &mut Sender| -> Result<(), RuntimeInterfaceHttpError> {
 			let mut when_ready = future::maybe_done(future::poll_fn(|cx| sender.poll_ready(cx)));
 			futures::executor::block_on(future::select(&mut when_ready, &mut deadline));
 			match when_ready {
 				future::MaybeDone::Done(Ok(())) => {},
-				future::MaybeDone::Done(Err(_)) => return Err(HttpError::IoError),
+				future::MaybeDone::Done(Err(_)) => return Err(RuntimeInterfaceHttpError::IoError),
 				future::MaybeDone::Future(_) | future::MaybeDone::Gone => {
 					debug_assert!(matches!(deadline, future::MaybeDone::Done(..)));
-					return Err(HttpError::DeadlineReached);
+					return Err(RuntimeInterfaceHttpError::DeadlineReached);
 				},
 			};
 
@@ -240,7 +241,7 @@ impl HttpApi {
 			)
 			.map_err(|_| {
 				tracing::error!(target: "offchain-worker::http", "HTTP sender refused data despite being ready");
-				HttpError::IoError
+				RuntimeInterfaceHttpError::IoError
 			})
 		};
 
@@ -258,9 +259,9 @@ impl HttpApi {
 				HttpApiRequest::Dispatched(Some(mut sender)) => {
 					if !chunk.is_empty() {
 						match poll_sender(&mut sender) {
-							Err(HttpError::IoError) => {
+							Err(RuntimeInterfaceHttpError::IoError) => {
 								tracing::debug!(target: LOG_TARGET, id = %request_id.0, "Encountered io error while trying to add new chunk to body");
-								return Err(HttpError::IoError);
+								return Err(RuntimeInterfaceHttpError::IoError);
 							},
 							other => {
 								tracing::debug!(target: LOG_TARGET, id = %request_id.0, res = ?other, "Added chunk to body");
@@ -289,9 +290,9 @@ impl HttpApi {
 								.as_mut()
 								.expect("Can only enter this match branch if Some; qed"),
 						) {
-							Err(HttpError::IoError) => {
+							Err(RuntimeInterfaceHttpError::IoError) => {
 								tracing::debug!(target: LOG_TARGET, id = %request_id.0, "Encountered io error while trying to add new chunk to body");
-								return Err(HttpError::IoError);
+								return Err(RuntimeInterfaceHttpError::IoError);
 							},
 							other => {
 								tracing::debug!(target: LOG_TARGET, id = %request_id.0, res = ?other, "Added chunk to body");
@@ -321,7 +322,7 @@ impl HttpApi {
 
 					// If the request has already failed, return without putting back the request
 					// in the list.
-					return Err(HttpError::IoError);
+					return Err(RuntimeInterfaceHttpError::IoError);
 				},
 
 				v @ HttpApiRequest::Dispatched(None) |
@@ -330,7 +331,7 @@ impl HttpApi {
 
 					// We have already finished sending this body.
 					self.requests.insert(request_id, v);
-					return Err(HttpError::Invalid);
+					return Err(RuntimeInterfaceHttpError::Invalid);
 				},
 			}
 		}
@@ -496,7 +497,7 @@ impl HttpApi {
 		request_id: HttpRequestId,
 		buffer: &mut [u8],
 		deadline: Option<Timestamp>,
-	) -> Result<usize, HttpError> {
+	) -> Result<usize, RuntimeInterfaceHttpError> {
 		// Do an implicit wait on the request.
 		let _ = self.response_wait(&[request_id], deadline);
 
@@ -508,16 +509,16 @@ impl HttpApi {
 			// and we still haven't received a response.
 			Some(rq @ HttpApiRequest::Dispatched(_)) => {
 				self.requests.insert(request_id, rq);
-				return Err(HttpError::DeadlineReached);
+				return Err(RuntimeInterfaceHttpError::DeadlineReached);
 			},
 			// The request has failed.
-			Some(HttpApiRequest::Fail { .. }) => return Err(HttpError::IoError),
+			Some(HttpApiRequest::Fail { .. }) => return Err(RuntimeInterfaceHttpError::IoError),
 			// Request hasn't been dispatched yet; reading the body is invalid.
 			Some(rq @ HttpApiRequest::NotDispatched(_, _)) => {
 				self.requests.insert(request_id, rq);
-				return Err(HttpError::Invalid);
+				return Err(RuntimeInterfaceHttpError::Invalid);
 			},
-			None => return Err(HttpError::Invalid),
+			None => return Err(RuntimeInterfaceHttpError::Invalid),
 		};
 
 		// Convert the deadline into a `Future` that resolves when the deadline is reached.
@@ -541,7 +542,7 @@ impl HttpApi {
 					Err(err) => {
 						// This code should never be reached unless there's a logic error somewhere.
 						tracing::error!(target: "offchain-worker::http", "Failed to read from current read chunk: {:?}", err);
-						return Err(HttpError::IoError);
+						return Err(RuntimeInterfaceHttpError::IoError);
 					},
 				}
 			}
@@ -558,14 +559,14 @@ impl HttpApi {
 						if let Ok(chunk) = chunk.into_data() {
 							response.current_read_chunk = Some(chunk.reader());
 						},
-					Some(Err(_)) => return Err(HttpError::IoError),
+					Some(Err(_)) => return Err(RuntimeInterfaceHttpError::IoError),
 					None => return Ok(0), // eof
 				}
 			}
 
 			if let future::MaybeDone::Done(_) = deadline {
 				self.requests.insert(request_id, HttpApiRequest::Response(response));
-				return Err(HttpError::DeadlineReached);
+				return Err(RuntimeInterfaceHttpError::DeadlineReached);
 			}
 		}
 	}
@@ -779,7 +780,9 @@ mod tests {
 	use core::convert::Infallible;
 	use futures::future;
 	use http_body_util::BodyExt;
-	use sp_core::offchain::{Duration, Externalities, HttpError, HttpRequestId, HttpRequestStatus};
+	use sp_core::offchain::{
+		Duration, Externalities, HttpRequestId, HttpRequestStatus, RuntimeInterfaceHttpError,
+	};
 	use std::sync::LazyLock;
 
 	// Using LazyLock to avoid spawning lots of different SharedClients,
@@ -951,12 +954,12 @@ mod tests {
 		let (mut api, addr) = build_api_server!();
 
 		match api.request_write_body(HttpRequestId(0xdead), &[1, 2, 3], None) {
-			Err(HttpError::Invalid) => {},
+			Err(RuntimeInterfaceHttpError::Invalid) => {},
 			_ => panic!(),
 		};
 
 		match api.request_write_body(HttpRequestId(0xdead), &[], None) {
-			Err(HttpError::Invalid) => {},
+			Err(RuntimeInterfaceHttpError::Invalid) => {},
 			_ => panic!(),
 		};
 
@@ -965,7 +968,7 @@ mod tests {
 		api.request_write_body(id, &[1, 2, 3, 4], None).unwrap();
 		api.request_write_body(id, &[], None).unwrap();
 		match api.request_write_body(id, &[], None) {
-			Err(HttpError::Invalid) => {},
+			Err(RuntimeInterfaceHttpError::Invalid) => {},
 			_ => panic!(),
 		};
 
@@ -974,7 +977,7 @@ mod tests {
 		api.request_write_body(id, &[1, 2, 3, 4], None).unwrap();
 		api.request_write_body(id, &[], None).unwrap();
 		match api.request_write_body(id, &[1, 2, 3, 4], None) {
-			Err(HttpError::Invalid) => {},
+			Err(RuntimeInterfaceHttpError::Invalid) => {},
 			_ => panic!(),
 		};
 
@@ -982,7 +985,7 @@ mod tests {
 		api.request_write_body(id, &[1, 2, 3, 4], None).unwrap();
 		api.response_wait(&[id], None);
 		match api.request_write_body(id, &[], None) {
-			Err(HttpError::Invalid) => {},
+			Err(RuntimeInterfaceHttpError::Invalid) => {},
 			_ => panic!(),
 		};
 
@@ -990,35 +993,35 @@ mod tests {
 		api.request_write_body(id, &[1, 2, 3, 4], None).unwrap();
 		api.response_wait(&[id], None);
 		match api.request_write_body(id, &[1, 2, 3, 4], None) {
-			Err(HttpError::Invalid) => {},
+			Err(RuntimeInterfaceHttpError::Invalid) => {},
 			_ => panic!(),
 		};
 
 		let id = api.request_start("POST", &format!("http://{}", addr)).unwrap();
 		api.response_headers(id);
 		match api.request_write_body(id, &[1, 2, 3, 4], None) {
-			Err(HttpError::Invalid) => {},
+			Err(RuntimeInterfaceHttpError::Invalid) => {},
 			_ => panic!(),
 		};
 
 		let id = api.request_start("GET", &format!("http://{}", addr)).unwrap();
 		api.response_headers(id);
 		match api.request_write_body(id, &[], None) {
-			Err(HttpError::Invalid) => {},
+			Err(RuntimeInterfaceHttpError::Invalid) => {},
 			_ => panic!(),
 		};
 
 		let id = api.request_start("POST", &format!("http://{}", addr)).unwrap();
 		api.response_read_body(id, &mut [], None).unwrap();
 		match api.request_write_body(id, &[1, 2, 3, 4], None) {
-			Err(HttpError::Invalid) => {},
+			Err(RuntimeInterfaceHttpError::Invalid) => {},
 			_ => panic!(),
 		};
 
 		let id = api.request_start("POST", &format!("http://{}", addr)).unwrap();
 		api.response_read_body(id, &mut [], None).unwrap();
 		match api.request_write_body(id, &[], None) {
-			Err(HttpError::Invalid) => {},
+			Err(RuntimeInterfaceHttpError::Invalid) => {},
 			_ => panic!(),
 		};
 	}
@@ -1074,14 +1077,14 @@ mod tests {
 		let mut buf = [0; 512];
 
 		match api.response_read_body(HttpRequestId(0xdead), &mut buf, None) {
-			Err(HttpError::Invalid) => {},
+			Err(RuntimeInterfaceHttpError::Invalid) => {},
 			_ => panic!(),
 		}
 
 		let id = api.request_start("GET", &format!("http://{}", addr)).unwrap();
 		while api.response_read_body(id, &mut buf, None).unwrap() != 0 {}
 		match api.response_read_body(id, &mut buf, None) {
-			Err(HttpError::Invalid) => {},
+			Err(RuntimeInterfaceHttpError::Invalid) => {},
 			_ => panic!(),
 		}
 	}
