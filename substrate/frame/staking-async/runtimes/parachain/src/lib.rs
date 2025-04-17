@@ -1837,9 +1837,13 @@ impl_runtime_apis! {
 		) -> Result<Vec<frame_benchmarking::BenchmarkBatch>, alloc::string::String> {
 			use frame_benchmarking::{BenchmarkBatch, BenchmarkError};
 			use sp_storage::TrackedStorageKey;
-
 			use frame_system_benchmarking::Pallet as SystemBench;
 			use frame_system_benchmarking::extensions::Pallet as SystemExtensionsBench;
+
+			// add a few custom keys to benchmarks.
+			frame_benchmarking::benchmarking::add_to_whitelist(crate::staking::MaxElectingVoters::key().to_vec().into());
+			frame_benchmarking::benchmarking::add_to_whitelist(crate::staking::Pages::key().to_vec().into());
+
 			impl frame_system_benchmarking::Config for Runtime {
 				fn setup_set_code_requirements(code: &alloc::vec::Vec<u8>) -> Result<(), BenchmarkError> {
 					ParachainSystem::initialize_for_set_code_benchmark(code.len() as u32);
