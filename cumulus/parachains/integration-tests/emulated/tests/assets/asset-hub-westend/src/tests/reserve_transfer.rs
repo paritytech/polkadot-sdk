@@ -438,7 +438,7 @@ pub fn para_to_para_through_hop_sender_assertions<Hop: Clone>(t: Test<PenpalA, P
 		);
 	}
 
-	let msg_id_sent = find_xcm_sent_message_id!(PenpalA);
+	let msg_id_sent = find_xcm_sent_message_id!(PenpalA, RuntimeEvent::PolkadotXcm);
 	if let Some(msg_id) = msg_id_sent {
 		TopicIdTracker::insert(msg_id.into());
 		TopicIdTracker::assert_unique();

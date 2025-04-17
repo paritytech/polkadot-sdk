@@ -1380,14 +1380,12 @@ macro_rules! find_all_xcm_topic_ids {
 
 		for event in events.iter() {
 			match event {
-				RuntimeEvent::MessageQueue(
-					pallet_message_queue::Event::Processed { id, .. }
-				) => {
+				RuntimeEvent::MessageQueue(pallet_message_queue::Event::Processed {
+					id, ..
+				}) => {
 					topic_ids.push(*id);
 				},
-				RuntimeEvent::PolkadotXcm(
-					pallet_xcm::Event::Sent { message_id, .. }
-				) => {
+				RuntimeEvent::PolkadotXcm(pallet_xcm::Event::Sent { message_id, .. }) => {
 					topic_ids.push(H256::from(*message_id));
 				},
 				_ => continue,
@@ -1417,10 +1415,10 @@ macro_rules! find_mq_processed_id {
 
 #[macro_export]
 macro_rules! find_xcm_sent_message_id {
-	( $chain:ident ) => {{
+	( $chain:ident, $runtime_pallet:path ) => {{
 		let events = <$chain as $crate::Chain>::events();
 		events.iter().find_map(|event| {
-			if let RuntimeEvent::PolkadotXcm(pallet_xcm::Event::Sent { message_id, .. }) = event {
+			if let $runtime_pallet(pallet_xcm::Event::Sent { message_id, .. }) = event {
 				Some(*message_id)
 			} else {
 				None
@@ -1734,10 +1732,7 @@ pub mod helpers {
 		/// Asserts that the first tracked topic ID exists in the given list.
 		pub fn assert_first_id_in(topic_ids: &[H256]) {
 			let tracked_ids = Self::get();
-			assert!(
-				!tracked_ids.is_empty(),
-				"No topic IDs were tracked; expected at least one."
-			);
+			assert!(!tracked_ids.is_empty(), "No topic IDs were tracked; expected at least one.");
 
 			let tracked_id = &tracked_ids[0];
 			assert!(
@@ -1764,9 +1759,7 @@ pub mod helpers {
 
 		/// Retrieves all tracked topic IDs.
 		pub fn get() -> Vec<H256> {
-			TRACKED_TOPIC_IDS.with(|b| {
-				b.borrow().iter().cloned().collect()
-			})
+			TRACKED_TOPIC_IDS.with(|b| b.borrow().iter().cloned().collect())
 		}
 
 		/// Inserts a single topic ID into the tracker.
