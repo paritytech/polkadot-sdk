@@ -629,11 +629,11 @@ impl<H: Hasher> SharedTrieCacheInner<H> {
 	/// Returns a mutable reference to the [`TrieHitStats`].
 	pub(super) fn stats_add_snapshot(&mut self, snapshot: &TrieHitStatsSnapshot) {
 		self.stats.add_snapshot(&snapshot);
-		// Print trie cache every 60 seconds.
+		// Print trie cache stats every 60 seconds.
 		if self.previous_stats_dump.elapsed() > Duration::from_secs(60) {
 			self.previous_stats_dump = Instant::now();
 			let snapshot = self.stats.snapshot();
-			tracing::debug!(target: LOG_TARGET, "Shared trie cache stats node_cache {:} value_cache {:}", snapshot.node_cache, snapshot.value_cache);
+			tracing::trace!(target: LOG_TARGET, node_cache = %snapshot.node_cache, value_cache = %snapshot.value_cache, "Shared trie cache stats");
 		}
 	}
 }
