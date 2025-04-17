@@ -74,7 +74,6 @@ parameter_types! {
 }
 
 impl crate::signed::Config for Runtime {
-	type RuntimeEvent = RuntimeEvent;
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type Currency = Balances;
 	type DepositBase = SignedDepositBase;

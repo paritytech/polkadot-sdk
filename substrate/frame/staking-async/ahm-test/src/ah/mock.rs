@@ -174,8 +174,6 @@ impl frame_election_provider_support::onchain::Config for OnChainConfig {
 }
 
 impl multi_block::Config for Runtime {
-	type RuntimeEvent = RuntimeEvent;
-
 	type AdminOrigin = EnsureRoot<AccountId>;
 	type DataProvider = Staking;
 	type Fallback = frame_election_provider_support::onchain::OnChainExecution<OnChainConfig>;
@@ -193,8 +191,6 @@ impl multi_block::Config for Runtime {
 }
 
 impl multi_block::verifier::Config for Runtime {
-	type RuntimeEvent = RuntimeEvent;
-
 	type MaxBackersPerWinner = MaxBackersPerWinner;
 	type MaxBackersPerWinnerFinal = MaxBackersPerWinnerFinal;
 	type MaxWinnersPerPage = MaxWinnersPerPage;
@@ -220,7 +216,6 @@ parameter_types! {
 }
 
 impl multi_block::signed::Config for Runtime {
-	type RuntimeEvent = RuntimeEvent;
 	type RuntimeHoldReason = RuntimeHoldReason;
 
 	type Currency = Balances;
@@ -244,7 +239,6 @@ parameter_types! {
 
 impl pallet_staking_async::Config for Runtime {
 	type Filter = ();
-	type RuntimeEvent = RuntimeEvent;
 	type RuntimeHoldReason = RuntimeHoldReason;
 
 	type AdminOrigin = EnsureRoot<AccountId>;

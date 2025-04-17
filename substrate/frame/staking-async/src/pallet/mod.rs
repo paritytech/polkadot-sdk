@@ -174,11 +174,6 @@ pub mod pallet {
 		#[pallet::no_default_bounds]
 		type RewardRemainder: OnUnbalanced<NegativeImbalanceOf<Self>>;
 
-		/// The overarching event type.
-		#[pallet::no_default_bounds]
-		#[allow(deprecated)]
-		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
-
 		/// Handler for the unbalanced reduction when slashing a staker.
 		#[pallet::no_default_bounds]
 		type Slash: OnUnbalanced<NegativeImbalanceOf<Self>>;
@@ -363,8 +358,6 @@ pub mod pallet {
 
 		#[frame_support::register_default_impl(TestDefaultConfig)]
 		impl DefaultConfig for TestDefaultConfig {
-			#[inject_runtime_type]
-			type RuntimeEvent = ();
 			#[inject_runtime_type]
 			type RuntimeHoldReason = ();
 			type CurrencyBalance = u128;
