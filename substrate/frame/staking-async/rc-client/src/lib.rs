@@ -336,8 +336,10 @@ pub mod pallet {
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
 
 	/// An incomplete incoming session report that we have not acted upon yet.
+	// Note: this can remain unbounded, as the internals of `AHStakingInterface` is benchmarked, and
+	// is worst case.
 	#[pallet::storage]
-	#[pallet::unbounded] // TODO: use `AHStakingInterface::MaxValidatorSet` to bound this.
+	#[pallet::unbounded]
 	pub type IncompleteSessionReport<T: Config> =
 		StorageValue<_, SessionReport<T::AccountId>, OptionQuery>;
 
