@@ -49,6 +49,46 @@ mod imports {
 		ASSETS_PALLET_ID, RESERVABLE_ASSET_ID, USDT_ID, XCM_V3,
 	};
 	pub use parachains_common::{AccountId, Balance};
+	pub use rococo_system_emulated_network::{
+		asset_hub_rococo_emulated_chain::{
+			asset_hub_rococo_runtime::{
+				self,
+				xcm_config::{
+					self as ahr_xcm_config, TokenLocation, XcmConfig as AssetHubRococoXcmConfig,
+				},
+				AssetConversionOrigin as AssetHubRococoAssetConversionOrigin,
+				ExistentialDeposit as AssetHubRococoExistentialDeposit,
+			},
+			genesis::{AssetHubRococoAssetOwner, ED as ASSET_HUB_ROCOCO_ED},
+			AssetHubRococoParaPallet as AssetHubRococoPallet,
+		},
+		penpal_emulated_chain::{
+			penpal_runtime::xcm_config::{
+				CustomizableAssetFromSystemAssetHub as PenpalCustomizableAssetFromSystemAssetHub,
+				LocalReservableFromAssetHub as PenpalLocalReservableFromAssetHub,
+				LocalTeleportableToAssetHub as PenpalLocalTeleportableToAssetHub,
+				UsdtFromAssetHub as PenpalUsdtFromAssetHub,
+			},
+			PenpalAParaPallet as PenpalAPallet, PenpalAssetOwner,
+			PenpalBParaPallet as PenpalBPallet, ED as PENPAL_ED,
+		},
+		rococo_emulated_chain::{
+			genesis::ED as ROCOCO_ED,
+			rococo_runtime::{
+				governance as rococo_governance,
+				governance::pallet_custom_origins::Origin::Treasurer,
+				xcm_config::{
+					UniversalLocation as RococoUniversalLocation, XcmConfig as RococoXcmConfig,
+				},
+				Dmp, OriginCaller as RococoOriginCaller,
+			},
+			RococoRelayPallet as RococoPallet,
+		},
+		AssetHubRococoPara as AssetHubRococo, AssetHubRococoParaReceiver as AssetHubRococoReceiver,
+		AssetHubRococoParaSender as AssetHubRococoSender, BridgeHubRococoPara as BridgeHubRococo,
+		BridgeHubRococoParaReceiver as BridgeHubRococoReceiver, RococoRelay as Rococo,
+		RococoRelayReceiver as RococoReceiver, RococoRelaySender as RococoSender,
+	};
 	pub use westend_system_emulated_network::{
 		asset_hub_westend_emulated_chain::{
 			asset_hub_westend_runtime::{
@@ -69,26 +109,12 @@ mod imports {
 		},
 		collectives_westend_emulated_chain::CollectivesWestendParaPallet as CollectivesWestendPallet,
 		coretime_westend_emulated_chain::CoretimeWestendParaPallet as CoretimeWestendPallet,
-		penpal_emulated_chain::{
-			penpal_runtime::xcm_config::{
-				CustomizableAssetFromSystemAssetHub as PenpalCustomizableAssetFromSystemAssetHub,
-				LocalReservableFromAssetHub as PenpalLocalReservableFromAssetHub,
-				LocalTeleportableToAssetHub as PenpalLocalTeleportableToAssetHub,
-				UniversalLocation as PenpalUniversalLocation,
-				UsdtFromAssetHub as PenpalUsdtFromAssetHub,
-			},
-			PenpalAParaPallet as PenpalAPallet, PenpalAssetOwner,
-			PenpalBParaPallet as PenpalBPallet,
-		},
+		penpal_emulated_chain::penpal_runtime::xcm_config::UniversalLocation as PenpalUniversalLocation,
 		people_westend_emulated_chain::PeopleWestendParaPallet as PeopleWestendPallet,
 		westend_emulated_chain::{
 			genesis::ED as WESTEND_ED,
-			westend_runtime::{
-				governance::pallet_custom_origins::Origin::Treasurer,
-				xcm_config::{
-					UniversalLocation as WestendUniversalLocation, XcmConfig as WestendXcmConfig,
-				},
-				Dmp,
+			westend_runtime::xcm_config::{
+				UniversalLocation as WestendUniversalLocation, XcmConfig as WestendXcmConfig,
 			},
 			WestendRelayPallet as WestendPallet,
 		},

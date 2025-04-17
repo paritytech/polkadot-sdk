@@ -29,6 +29,8 @@ use emulated_integration_tests_common::{
 };
 use rococo_emulated_chain::Rococo;
 
+use pallet_xcm_bridge;
+
 // AssetHubRococo Parachain declaration
 decl_test_parachains! {
 	pub struct AssetHubRococo {
@@ -51,6 +53,7 @@ decl_test_parachains! {
 			PoolAssets: asset_hub_rococo_runtime::PoolAssets,
 			AssetConversion: asset_hub_rococo_runtime::AssetConversion,
 			Balances: asset_hub_rococo_runtime::Balances,
+			XcmOverAssetHubWestend: pallet_xcm_bridge::Instance1,
 		}
 	},
 }

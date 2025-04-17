@@ -29,6 +29,8 @@ use emulated_integration_tests_common::{
 };
 use westend_emulated_chain::Westend;
 
+use pallet_xcm_bridge;
+
 // AssetHubWestend Parachain declaration
 decl_test_parachains! {
 	pub struct AssetHubWestend {
@@ -52,6 +54,7 @@ decl_test_parachains! {
 			PoolAssets: asset_hub_westend_runtime::PoolAssets,
 			AssetConversion: asset_hub_westend_runtime::AssetConversion,
 			SnowbridgeSystemFrontend: asset_hub_westend_runtime::SnowbridgeSystemFrontend,
+			XcmOverAssetHubRococo: pallet_xcm_bridge::Instance1,
 		}
 	},
 }
