@@ -8,7 +8,7 @@ use frame_benchmarking::v2::*;
 use frame_system::RawOrigin;
 use xcm::prelude::{Location, *};
 
-#[benchmarks]
+#[benchmarks(where <T as frame_system::Config>::AccountId: Into<Location>)]
 mod benchmarks {
 	use super::*;
 	#[benchmark]
