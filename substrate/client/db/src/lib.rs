@@ -1175,7 +1175,6 @@ impl<Block: BlockT> Backend<Block> {
 			state_pruning: Some(state_pruning),
 			source: DatabaseSource::Custom { db, require_create_flag: true },
 			blocks_pruning,
-			use_trusted_local_cache: false,
 			metrics_registry: None,
 		};
 
@@ -2799,7 +2798,6 @@ pub(crate) mod tests {
 				state_pruning: Some(PruningMode::blocks_pruning(1)),
 				source: DatabaseSource::Custom { db: backing, require_create_flag: false },
 				blocks_pruning: BlocksPruning::KeepFinalized,
-				use_trusted_local_cache: false,
 				metrics_registry: None,
 			},
 			0,

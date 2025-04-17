@@ -909,7 +909,6 @@ pub fn node_config(
 		data_path: root,
 		base_path,
 		wasm_runtime_overrides: None,
-		use_trusted_local_cache: false,
 	})
 }
 

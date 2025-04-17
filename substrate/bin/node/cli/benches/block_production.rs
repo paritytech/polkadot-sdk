@@ -109,7 +109,6 @@ fn new_node(tokio_handle: Handle) -> node_cli::service::NewFullBase {
 		data_path: base_path.path().into(),
 		base_path,
 		wasm_runtime_overrides: None,
-		use_trusted_local_cache: false,
 	};
 
 	node_cli::service::new_full_base::<sc_network::NetworkWorker<_, _>>(

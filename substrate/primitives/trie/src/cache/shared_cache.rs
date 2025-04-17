@@ -869,7 +869,7 @@ mod tests {
 				(ValueCacheKey::new_value(&key[..], root1), CachedValue::NonExisting),
 			],
 			vec![],
-			&LocalValueCacheConfig::default(),
+			&LocalValueCacheConfig::untrusted(),
 			&None,
 		);
 
@@ -892,7 +892,7 @@ mod tests {
 		cache.update(
 			vec![],
 			vec![ValueCacheKey::hash_data(&key[..], &root0)],
-			&LocalValueCacheConfig::default(),
+			&LocalValueCacheConfig::untrusted(),
 			&None,
 		);
 		assert_eq!(1, cache.lru.limiter_mut().known_storage_keys.len());
@@ -916,7 +916,7 @@ mod tests {
 				(ValueCacheKey::new_value(&key[..], root0), CachedValue::NonExisting),
 			],
 			vec![],
-			&LocalValueCacheConfig::default(),
+			&LocalValueCacheConfig::untrusted(),
 			&None,
 		);
 		assert_eq!(1, cache.lru.limiter_mut().known_storage_keys.len());
@@ -940,7 +940,7 @@ mod tests {
 				.map(|i| vec![i; 10])
 				.map(|key| (ValueCacheKey::new_value(&key[..], root0), CachedValue::NonExisting)),
 			vec![],
-			&LocalValueCacheConfig::default(),
+			&LocalValueCacheConfig::untrusted(),
 			&None,
 		);
 
@@ -966,7 +966,7 @@ mod tests {
 		cache.update(
 			vec![(ValueCacheKey::new_value(vec![10; 10], root0), CachedValue::NonExisting)],
 			vec![],
-			&LocalValueCacheConfig::default(),
+			&LocalValueCacheConfig::untrusted(),
 			&None,
 		);
 

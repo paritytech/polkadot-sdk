@@ -294,7 +294,6 @@ mod tests {
 				announce_block: true,
 				base_path: sc_service::BasePath::new(root.clone()),
 				data_path: root,
-				use_trusted_local_cache: false,
 			},
 			runtime,
 			Signals::dummy(),

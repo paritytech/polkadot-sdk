@@ -624,7 +624,7 @@ pub mod tests {
 						recorder.is_some()
 					);
 
-					let cache = cache.as_ref().map(|c| c.local_cache());
+					let cache = cache.as_ref().map(|c| c.local_cache_untrusted());
 
 					$internal_name(version, cache, recorder.clone());
 				}
@@ -1491,7 +1491,8 @@ pub mod tests {
 		];
 
 		let new_root = {
-			let trie = test_trie(StateVersion::V1, Some(shared_cache.local_cache_untrusted()), None);
+			let trie =
+				test_trie(StateVersion::V1, Some(shared_cache.local_cache_untrusted()), None);
 			trie.storage_root(new_data.clone().into_iter(), StateVersion::V1).0
 		};
 
