@@ -118,6 +118,7 @@ pub mod pallet {
 	pub trait Config: frame_system::Config + assigner_coretime::Config + on_demand::Config {
 		type RuntimeOrigin: From<<Self as frame_system::Config>::RuntimeOrigin>
 			+ Into<result::Result<Origin, <Self as Config>::RuntimeOrigin>>;
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		/// The ParaId of the coretime chain.
 		#[pallet::constant]
