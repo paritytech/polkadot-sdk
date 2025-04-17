@@ -739,7 +739,7 @@ pub mod pallet {
 		ValueQuery,
 	>;
 
-	#[pallet::view_functions_experimental]
+	#[pallet::view_functions]
 	impl<T: Config> Pallet<T> {
 		/// Check if a `RuntimeCall` is allowed for a given `ProxyType`.
 		pub fn check_permissions(

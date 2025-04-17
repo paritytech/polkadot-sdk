@@ -556,7 +556,7 @@ mod keyword {
 	syn::custom_keyword!(pallet);
 	syn::custom_keyword!(extra_constants);
 	syn::custom_keyword!(composite_enum);
-	syn::custom_keyword!(view_functions_experimental);
+	syn::custom_keyword!(view_functions);
 }
 
 /// The possible values for the `#[pallet::config]` attribute.
@@ -795,10 +795,8 @@ impl syn::parse::Parse for PalletAttr {
 			Ok(PalletAttr::ExtraConstants(content.parse::<keyword::extra_constants>()?.span()))
 		} else if lookahead.peek(keyword::composite_enum) {
 			Ok(PalletAttr::Composite(content.parse::<keyword::composite_enum>()?.span()))
-		} else if lookahead.peek(keyword::view_functions_experimental) {
-			Ok(PalletAttr::ViewFunctions(
-				content.parse::<keyword::view_functions_experimental>()?.span(),
-			))
+		} else if lookahead.peek(keyword::view_functions) {
+			Ok(PalletAttr::ViewFunctions(content.parse::<keyword::view_functions>()?.span()))
 		} else {
 			Err(lookahead.error())
 		}

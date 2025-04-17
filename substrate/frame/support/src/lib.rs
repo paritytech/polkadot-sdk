@@ -1738,7 +1738,7 @@ pub mod pallet_macros {
 	///
 	/// ## Syntax
 	/// View functions methods must be read-only and always return some output. A
-	/// `view_functions_experimental` impl block only allows methods to be defined inside of
+	/// `view_functions` impl block only allows methods to be defined inside of
 	/// it.
 	///
 	/// ## Example
@@ -1756,7 +1756,7 @@ pub mod pallet_macros {
 	///     #[pallet::storage]
 	/// 	pub type SomeMap<T: Config> = StorageMap<_, Twox64Concat, u32, u32, OptionQuery>;
 	///
-	///     #[pallet::view_functions_experimental]
+	///     #[pallet::view_functions]
 	///     impl<T: Config> Pallet<T> {
 	/// 		/// Retrieve a map storage value by key.
 	///         pub fn get_value_with_arg(key: u32) -> Option<u32> {
@@ -1782,7 +1782,7 @@ pub mod pallet_macros {
 	/// functions should expose a _stable_ interface and changes to the method signature are
 	/// strongly discouraged. For more details on the dispatching mechanism, see the
 	/// [`DispatchViewFunction`](frame_support::view_functions::DispatchViewFunction) trait.
-	pub use frame_support_procedural::view_functions_experimental;
+	pub use frame_support_procedural::view_functions;
 
 	/// Allows defining a struct implementing the [`Get`](frame_support::traits::Get) trait to
 	/// ease the use of storage types.
