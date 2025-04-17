@@ -18,6 +18,7 @@ use super::*;
 use crate::configuration::HostConfiguration;
 use alloc::vec;
 use frame_benchmarking::v2::*;
+use frame_support::traits::fungible::Mutate;
 use frame_system::{pallet_prelude::BlockNumberFor, RawOrigin};
 use polkadot_primitives::{
 	HeadData, Id as ParaId, ValidationCode, MAX_CODE_SIZE, MAX_HEAD_DATA_SIZE,
@@ -140,6 +141,7 @@ mod benchmarks {
 		let new_head = HeadData(vec![0; s as usize]);
 		let old_code_hash = ValidationCode(vec![0]).hash();
 		CurrentCodeHash::<T>::insert(&para_id, old_code_hash);
+		frame_system::Pallet::<T>::set_block_number(10u32.into());
 		// schedule an expired code upgrade for this `para_id` so that force_note_new_head would use
 		// the worst possible code path
 		let expired = frame_system::Pallet::<T>::block_number().saturating_sub(One::one());
@@ -250,8 +252,34 @@ mod benchmarks {
 	}
 
 	#[benchmark]
-	fn remove_upgrade_cooldown() {
+	fn remove_upgrade_cooldown() -> Result<(), BenchmarkError> {
+		let para_id = ParaId::from(1000);
+		let old_code_hash = ValidationCode(vec![0]).hash();
+		CurrentCodeHash::<T>::insert(&para_id, old_code_hash);
+		frame_system::Pallet::<T>::set_block_number(10u32.into());
+		let inclusion = frame_system::Pallet::<T>::block_number().saturating_add(10u32.into());
+		let config = HostConfiguration::<BlockNumberFor<T>>::default();
+		Pallet::<T>::schedule_code_upgrade(
+			para_id,
+			ValidationCode(vec![0u8; MIN_CODE_SIZE as usize]),
+			inclusion,
+			&config,
+			UpgradeStrategy::SetGoAheadSignal,
+		);
 
+		let who: T::AccountId = whitelisted_caller();
+
+		T::Fungible::mint_into(
+			&who,
+			T::CooldownRemovalMultiplier::get().saturating_mul(1_000_000u32.into()),
+		)?;
+
+		#[extrinsic_call]
+		_(RawOrigin::Signed(who), para_id);
+
+		assert_last_event::<T>(Event::UpgradeCooldownRemoved { para_id }.into());
+
+		Ok(())
 	}
 
 	impl_benchmark_test_suite!(

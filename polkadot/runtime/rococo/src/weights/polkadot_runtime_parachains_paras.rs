@@ -294,4 +294,12 @@ impl<T: frame_system::Config> polkadot_runtime_parachains::paras::WeightInfo for
 			.saturating_add(T::DbWeight::get().reads(3))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
+
+	fn remove_upgrade_cooldown() -> Weight {
+		// JUST COPIED AND WILL BE UPDATED NEXT TIME
+		Weight::from_parts(107_759_000, 0)
+			.saturating_add(Weight::from_parts(0, 30171))
+			.saturating_add(T::DbWeight::get().reads(3))
+			.saturating_add(T::DbWeight::get().writes(1))
+	}
 }
