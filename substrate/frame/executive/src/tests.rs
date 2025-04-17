@@ -32,7 +32,7 @@ use sp_runtime::{
 };
 
 use frame_support::{
-	assert_err, derive_impl,
+	assert_err, assert_ok, derive_impl,
 	migrations::MultiStepMigrator,
 	pallet_prelude::*,
 	parameter_types,
@@ -1320,6 +1320,82 @@ fn try_execute_tx_forbidden_errors() {
 			frame_try_runtime::TryStateSelect::All,
 		)
 		.unwrap();
+	});
+}
+
+/// Test if `apply_extrinsics` validates if the inherents are first.
+#[test]
+fn apply_extrinsics_checks_inherents_are_first() {
+	let in1 = UncheckedXt::new_bare(RuntimeCall::Custom(custom::Call::inherent {}));
+	let in2 = UncheckedXt::new_bare(RuntimeCall::Custom2(custom2::Call::inherent {}));
+	let xt2 = UncheckedXt::new_signed(call_transfer(33, 0), 1, 1.into(), tx_ext(0, 0));
+
+	new_test_ext(1).execute_with(|| {
+		assert_ok!(
+			Executive::apply_extrinsics(
+				ExtrinsicInclusionMode::AllExtrinsics,
+				[].into_iter(),
+				|_, _| Ok(Ok(()))
+			),
+			()
+		);
+		assert_ok!(
+			Executive::apply_extrinsics(
+				ExtrinsicInclusionMode::AllExtrinsics,
+				[xt2.clone()].into_iter(),
+				|_, _| Ok(Ok(()))
+			),
+			()
+		);
+		assert_ok!(
+			Executive::apply_extrinsics(
+				ExtrinsicInclusionMode::AllExtrinsics,
+				[in1.clone()].into_iter(),
+				|_, _| Ok(Ok(()))
+			),
+			()
+		);
+		assert_ok!(
+			Executive::apply_extrinsics(
+				ExtrinsicInclusionMode::AllExtrinsics,
+				[in1.clone(), xt2.clone()].into_iter(),
+				|_, _| Ok(Ok(()))
+			),
+			()
+		);
+		assert_ok!(
+			Executive::apply_extrinsics(
+				ExtrinsicInclusionMode::AllExtrinsics,
+				[in2.clone(), in1.clone(), xt2.clone()].into_iter(),
+				|_, _| Ok(Ok(()))
+			),
+			()
+		);
+
+		assert_err!(
+			Executive::apply_extrinsics(
+				ExtrinsicInclusionMode::AllExtrinsics,
+				[xt2.clone(), in1.clone()].into_iter(),
+				|_, _| Ok(Ok(()))
+			),
+			ExecutiveError::InvalidInherentPosition(1)
+		);
+		assert_err!(
+			Executive::apply_extrinsics(
+				ExtrinsicInclusionMode::AllExtrinsics,
+				[xt2.clone(), xt2.clone(), in1.clone()].into_iter(),
+				|_, _| Ok(Ok(()))
+			),
+			ExecutiveError::InvalidInherentPosition(2)
+		);
+		assert_err!(
+			Executive::apply_extrinsics(
+				ExtrinsicInclusionMode::AllExtrinsics,
+				[xt2.clone(), xt2.clone(), xt2.clone(), in2.clone()].into_iter(),
+				|_, _| Ok(Ok(()))
+			),
+			ExecutiveError::InvalidInherentPosition(3)
+		);
 	});
 }
 

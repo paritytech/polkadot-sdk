@@ -123,12 +123,14 @@ pub fn expand_outer_inherent(
 						break
 					}
 
+					let mut is_inherent = false;
 					let call = ExtrinsicCall::call(xt);
 					#(
 						#pallet_attrs
 						{
 							if let Some(call) = IsSubType::<_>::is_sub_type(call) {
 								if #pallet_names::is_inherent(call) {
+									is_inherent = true;
 									pallet_has_inherent[#pallet_positions] = true;
 									if let Err(e) = #pallet_names::check_inherent(call, self) {
 										handle_put_error_result(result.put_error(
@@ -138,16 +140,16 @@ pub fn expand_outer_inherent(
 											return result;
 										}
 									}
-									continue
 								}
 							}
 						}
 					)*
 
 					// Inherents are before any other extrinsics.
-					// No module marked it as inherent (it didn't reach a `continue` statement),
-					// thus it is not.
-					break
+					// No module marked it as inherent, thus it is not.
+					if !is_inherent {
+						break
+					}
 				}
 
 				#(
