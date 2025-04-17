@@ -104,7 +104,7 @@ use sp_core::{
 	},
 	sr25519,
 	storage::StateVersion,
-	LogLevel, LogLevelFilter, OpaquePeerId, RuntimeInterfaceLogLevel, H256,
+	LogLevel, LogLevelFilter, OpaquePeerId, H256,
 };
 
 #[cfg(feature = "bls-experimental")]
@@ -115,10 +115,9 @@ use sp_trie::{LayoutV0, LayoutV1, TrieConfiguration};
 
 use sp_runtime_interface::{
 	pass_by::{
-		AllocateAndReturnByCodec, AllocateAndReturnFatPointer, AllocateAndReturnPointer,
-		ConvertAndPassAs, PassAs, PassFatPointerAndDecode, PassFatPointerAndDecodeSlice,
-		PassFatPointerAndRead, PassFatPointerAndReadWrite, PassPointerAndRead,
-		PassPointerAndReadCopy, ReturnAs,
+		AllocateAndReturnByCodec, AllocateAndReturnFatPointer, AllocateAndReturnPointer, PassAs,
+		PassFatPointerAndDecode, PassFatPointerAndDecodeSlice, PassFatPointerAndRead,
+		PassFatPointerAndReadWrite, PassPointerAndRead, PassPointerAndReadCopy, ReturnAs,
 	},
 	runtime_interface, Pointer,
 };
@@ -1768,7 +1767,7 @@ pub trait Logging {
 	///
 	/// Instead of using directly, prefer setting up `RuntimeLogger` and using `log` macros.
 	fn log(
-		level: ConvertAndPassAs<LogLevel, RuntimeInterfaceLogLevel, u8>,
+		level: PassAs<LogLevel, u8>,
 		target: PassFatPointerAndRead<&str>,
 		message: PassFatPointerAndRead<&[u8]>,
 	) {

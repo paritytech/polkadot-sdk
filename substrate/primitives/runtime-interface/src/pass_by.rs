@@ -491,68 +491,6 @@ where
 	}
 }
 
-/// Pass `T` through the FFI boundary by first converting it to `U` and then converting it to `V` in
-/// the runtime, and then converting it back to `U` and then `T` on the host's side.
-pub struct ConvertAndPassAs<T, U, V>(PhantomData<(T, U, V)>);
-
-impl<T, U, V> RIType for ConvertAndPassAs<T, U, V>
-where
-	V: RIType,
-{
-	type FFIType = <V as RIType>::FFIType;
-	type Inner = T;
-}
-
-#[cfg(not(substrate_runtime))]
-impl<'a, T, U, V> FromFFIValue<'a> for ConvertAndPassAs<T, U, V>
-where
-	V: RIType + FromFFIValue<'a> + Primitive,
-	U: TryFrom<<V as FromFFIValue<'a>>::Owned>,
-	T: TryFrom<U> + Copy,
-{
-	type Owned = T;
-
-	fn from_ffi_value(
-		context: &mut dyn FunctionContext,
-		arg: Self::FFIType,
-	) -> Result<Self::Owned> {
-		<V as FromFFIValue>::from_ffi_value(context, arg).and_then(|value| TryInto::<U>::try_into(value)
-			.map_err(|_| format!(
-				"failed to convert '{}' (passed as '{}') into transient type '{}' when marshalling hostcall's arguments through the FFI boundary",
-				type_name::<V>(),
-				type_name::<Self::FFIType>(),
-				type_name::<U>()
-			)))?
-			.try_into()
-			.map_err(|_| format!(
-				"failed to convert from transient type '{}' into '{}' when marshalling hostcall's arguments through the FFI boundary",
-				type_name::<U>(),
-				type_name::<Self::Owned>()
-			))
-	}
-
-	fn take_from_owned(owned: &'a mut Self::Owned) -> Self::Inner {
-		*owned
-	}
-}
-
-#[cfg(substrate_runtime)]
-impl<T, U, V> IntoFFIValue for ConvertAndPassAs<T, U, V>
-where
-	V: RIType + IntoFFIValue + Primitive,
-	V::Inner: From<U>,
-	U: From<T>,
-	T: Copy,
-{
-	type Destructor = <V as IntoFFIValue>::Destructor;
-
-	fn into_ffi_value(value: &mut Self::Inner) -> (Self::FFIType, Self::Destructor) {
-		let conv_value = U::from(*value);
-		let mut value = V::Inner::from(conv_value);
-		<V as IntoFFIValue>::into_ffi_value(&mut value)
-	}
-}
-
 /// Return `T` through the FFI boundary by first converting it to `U` on the host's side, and then
 /// converting it back to `T` in the runtime.
 ///
