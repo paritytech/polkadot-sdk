@@ -32,16 +32,7 @@ impl FeeHistoryProvider {
 		// This means we cache 200 percentile points.
 		// Later in request handling we will approximate by rounding percentiles that
 		// fall in between with `(round(n*2)/2)`.
-		let reward_percentiles: Vec<f64> = {
-			let mut percentile: f64 = 0.0;
-			(0..201)
-				.map(|_| {
-					let val = percentile;
-					percentile += 0.5;
-					val
-				})
-				.collect()
-		};
+		let reward_percentiles: Vec<f64> = (0..=200).map(|i| i as f64 * 0.5).collect();
 		let block_number: SubstrateBlockNumber =
 			block.number.try_into().expect("Block number is always valid");
 
@@ -138,7 +129,6 @@ impl FeeHistoryProvider {
 					}
 					// Push block rewards.
 					if !block_rewards.is_empty() {
-						// Push block rewards.
 						rewards.push(block_rewards);
 					}
 				}
