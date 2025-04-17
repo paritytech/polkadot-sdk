@@ -13,6 +13,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use emulated_integration_tests_common::xcm_emulator::{
+	find_mq_processed_id, find_xcm_sent_message_id, helpers::TopicIdTracker,
+};
 use rococo_westend_system_emulated_network::westend_emulated_chain::westend_runtime::Dmp;
 
 use crate::tests::*;
@@ -148,21 +151,23 @@ fn send_xcm_through_opened_lane_with_different_xcm_version_on_hops_works() {
 #[test]
 fn xcm_persists_set_topic_across_hops() {
 	for test_topic_id in [Some([42; 32]), None] {
-		// Init test variables
+		// Reset tracked topic state before each run
+		TopicIdTracker::reset();
+
+		// Prepare test input
 		let sudo_origin = <Westend as Chain>::RuntimeOrigin::root();
 		let destination = Westend::child_location_of(BridgeHubWestend::para_id()).into();
 		let weight_limit = Unlimited;
 		let check_origin = None;
-		let mut actual_topic_id = None;
 
-		// Initial XCM with SetTopic
+		// Construct XCM with optional SetTopic
 		let mut message = vec![UnpaidExecution { weight_limit, check_origin }, ClearOrigin];
-		if let Some(expected_topic_id) = test_topic_id {
-			message.push(SetTopic(expected_topic_id)); // Fixed topic ID for traceability
+		if let Some(topic_id) = test_topic_id {
+			message.push(SetTopic(topic_id));
 		}
 		let xcm = VersionedXcm::from(Xcm(message));
 
-		// Step 1: Send XCM from Westend Relay to BridgeHubWestend
+		// Send XCM from Westend Relay to BridgeHubWestend
 		Westend::execute_with(|| {
 			Dmp::make_parachain_reachable(BridgeHubWestend::para_id());
 			assert_ok!(<Westend as WestendPallet>::XcmPallet::send(
@@ -171,42 +176,27 @@ fn xcm_persists_set_topic_across_hops() {
 				bx!(xcm),
 			));
 
+			// Track expected topic ID if provided
+			if let Some(expected) = test_topic_id {
+				TopicIdTracker::insert(expected.into());
+			}
+
+			// Track actual emitted XCM message ID
 			type RuntimeEvent = <Westend as Chain>::RuntimeEvent;
-			if let Some(expected_topic_id) = test_topic_id {
-				assert_expected_events!(
-					Westend,
-					vec![
-						RuntimeEvent::XcmPallet(pallet_xcm::Event::Sent { message_id, .. }) => {
-							message_id: *message_id == expected_topic_id,
-						},
-					]
-				);
-			} else {
-				// No SetTopic initially
-				let events = <Westend as Chain>::events();
-				assert_eq!(events.len(), 1);
-				if let Some(event) = events.last() {
-					if let RuntimeEvent::XcmPallet(pallet_xcm::Event::Sent { message_id, .. }) =
-						event
-					{
-						actual_topic_id = Some(*message_id);
-					}
-				}
-				assert!(actual_topic_id.is_some());
+			if let Some(emitted_id) = find_xcm_sent_message_id!(Westend, RuntimeEvent::XcmPallet) {
+				TopicIdTracker::insert(emitted_id.into());
 			}
 		});
 
-		// Step 2: Process on BridgeHubWestend and assert topic persistence
+		// Track processed topic ID on BridgeHubWestend
 		BridgeHubWestend::execute_with(|| {
 			type RuntimeEvent = <BridgeHubWestend as Chain>::RuntimeEvent;
-			assert_expected_events!(
-				BridgeHubWestend,
-				vec![
-					RuntimeEvent::MessageQueue(pallet_message_queue::Event::Processed { id, success: true, .. }) => {
-						id: *id == actual_topic_id.unwrap().into(),
-					},
-				]
-			);
+			if let Some(processed_id) = find_mq_processed_id!(BridgeHubWestend) {
+				TopicIdTracker::insert(processed_id);
+			}
 		});
+
+		// Assert exactly one consistent topic ID observed across hops
+		TopicIdTracker::assert_unique();
 	}
 }

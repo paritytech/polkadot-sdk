@@ -56,9 +56,7 @@ fn para_to_para_assethub_hop_assertions(t: ParaToParaThroughAHTest) {
 	);
 
 	let topic_ids = find_all_xcm_topic_ids!(AssetHubWestend);
-	for id in topic_ids.iter() {
-		TopicIdTracker::insert(*id);
-	}
+	TopicIdTracker::insert_many(topic_ids);
 	TopicIdTracker::assert_unique();
 }
 
@@ -121,7 +119,7 @@ fn para_to_para_transfer_assets_through_ah(t: ParaToParaThroughAHTest) -> Dispat
 		t.args.weight_limit,
 	);
 
-	let msg_id_sent = find_xcm_sent_message_id!(PenpalA);
+	let msg_id_sent = find_xcm_sent_message_id!(PenpalA, RuntimeEvent::PolkadotXcm);
 	if let Some(msg_id) = msg_id_sent {
 		TopicIdTracker::insert(msg_id.into());
 		TopicIdTracker::assert_unique();

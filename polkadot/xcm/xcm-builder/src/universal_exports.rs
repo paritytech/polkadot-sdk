@@ -233,12 +233,12 @@ impl<T: Get<Vec<NetworkExportTableItem>>> ExporterFor for NetworkExportTable<T> 
 	}
 }
 
+/// Preserves the original topic ID for XCM forwarding to ensure consistent message tracking
+/// across chains. Returning the unchanged ID allows bridges and routers to recognise the
+/// same `SetTopic` identifier, avoiding confusion in message delivery and processing.
 pub fn forward_id_for(original_id: &XcmHash) -> XcmHash {
-	let forward_id = (b"forward_id_for", original_id).using_encoded(sp_io::hashing::blake2_256);
-	let fid_h256: sp_core::H256 = forward_id.into();
-	let oid_h256: sp_core::H256 = original_id.into();
-	tracing::trace!(target: "xcm::exports", ?original_id, ?oid_h256, ?forward_id, ?fid_h256, "Topic ID mapped");
-	forward_id
+	tracing::trace!(target: "xcm::exports", ?original_id, "Extracted topic ID from `SetTopic` for XCM forwarding");
+	*original_id
 }
 
 /// Implementation of `SendXcm` which wraps the message inside an `ExportMessage` instruction
