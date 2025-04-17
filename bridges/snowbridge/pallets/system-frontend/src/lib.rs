@@ -26,8 +26,10 @@ pub use backend_weights::*;
 
 use frame_support::{pallet_prelude::*, traits::EnsureOriginWithArg};
 use frame_system::pallet_prelude::*;
+use pallet_asset_conversion::Swap;
 use snowbridge_core::{
-	operating_mode::ExportPausedQuery, AssetMetadata, BasicOperatingMode as OperatingMode,
+	burn_for_teleport, operating_mode::ExportPausedQuery, reward::MessageId, AssetMetadata,
+	BasicOperatingMode as OperatingMode,
 };
 use sp_std::prelude::*;
 use xcm::{
@@ -40,20 +42,21 @@ use xcm_executor::traits::{FeeManager, FeeReason, TransactAsset};
 use frame_support::traits::OriginTrait;
 
 pub use pallet::*;
+pub type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
 
 pub const LOG_TARGET: &str = "snowbridge-system-frontend";
 
 /// Call indices within BridgeHub runtime for dispatchables within `snowbridge-pallet-system-v2`
 #[allow(clippy::large_enum_variant)]
 #[derive(Encode, Decode, Debug, PartialEq, Clone, TypeInfo)]
-pub enum BridgeHubRuntime {
+pub enum BridgeHubRuntime<T: frame_system::Config> {
 	#[codec(index = 90)]
-	EthereumSystem(EthereumSystemCall),
+	EthereumSystem(EthereumSystemCall<T>),
 }
 
 /// Call indices for dispatchables within `snowbridge-pallet-system-v2`
 #[derive(Encode, Decode, Debug, PartialEq, Clone, TypeInfo)]
-pub enum EthereumSystemCall {
+pub enum EthereumSystemCall<T: frame_system::Config> {
 	#[codec(index = 0)]
 	RegisterToken {
 		sender: Box<VersionedLocation>,
@@ -183,7 +186,10 @@ pub mod pallet {
 	pub type ExportOperatingMode<T: Config> = StorageValue<_, OperatingMode, ValueQuery>;
 
 	#[pallet::call]
-	impl<T: Config> Pallet<T> {
+	impl<T: Config> Pallet<T>
+	where
+		<T as frame_system::Config>::AccountId: Into<Location>,
+	{
 		/// Set the operating mode for exporting messages to Ethereum.
 		#[pallet::call_index(0)]
 		#[pallet::weight((T::DbWeight::get().reads_writes(1, 1), DispatchClass::Operational))]
@@ -241,11 +247,10 @@ pub mod pallet {
 			T::WeightInfo::add_tip()
 				.saturating_add(T::BackendWeightInfo::transact_add_tip())
 		)]
-		pub fn add_tip(
-			origin: OriginFor<T>,
-			message_id: MessageId,
-			asset: Asset,
-		) -> DispatchResult {
+		pub fn add_tip(origin: OriginFor<T>, message_id: MessageId, asset: Asset) -> DispatchResult
+		where
+			<T as frame_system::Config>::AccountId: Into<Location>,
+		{
 			let who = ensure_signed(origin)?;
 
 			let ether_location = T::EthereumLocation::get();
@@ -271,12 +276,10 @@ pub mod pallet {
 			let dest = T::BridgeHubLocation::get();
 			let call = Self::build_add_tip_call(who.clone(), message_id.clone(), ether_gained);
 			let remote_xcm = Self::build_remote_xcm(&call);
-			let who_location =
-				T::AccountToLocation::try_convert(&who).map_err(|_| Error::<T>::InvalidAccount)?;
+			let who_location: Location = who.into();
 
-			let xcm_message_id =
-				Self::send_xcm(who_location, dest.clone(), remote_xcm.clone())
-					.map_err(|error| Error::<T>::from(error))?;
+			let xcm_message_id = Self::send_xcm(who_location, dest.clone(), remote_xcm.clone())
+				.map_err(|error| Error::<T>::from(error))?;
 
 			Self::deposit_event(Event::<T>::MessageSent {
 				origin: T::PalletLocation::get().into(),
@@ -308,11 +311,13 @@ pub mod pallet {
 			tip_asset_location: Location,
 			ether_location: Location,
 			tip_amount: u128,
-		) -> Result<u128, DispatchError> {
+		) -> Result<u128, DispatchError>
+		where
+			<T as frame_system::Config>::AccountId: Into<Location>,
+		{
 			// Swap tip asset to ether
 			let swap_path = vec![tip_asset_location.clone(), ether_location.clone()];
-			let who_location =
-				T::AccountToLocation::try_convert(&who).map_err(|_| Error::<T>::InvalidAccount)?;
+			let who_location: Location = who.clone().into();
 
 			let ether_gained = T::Swap::swap_exact_tokens_for_tokens(
 				who.clone(),
@@ -341,7 +346,7 @@ pub mod pallet {
 			sender: Location,
 			asset: Location,
 			metadata: AssetMetadata,
-		) -> Result<BridgeHubRuntime, Error<T>> {
+		) -> Result<BridgeHubRuntime<T>, Error<T>> {
 			// reanchor locations relative to BH
 			let sender = Self::reanchored(sender)?;
 			let asset = Self::reanchored(asset)?;

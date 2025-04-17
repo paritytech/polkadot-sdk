@@ -7,6 +7,7 @@ use frame_support::{
 	derive_impl, parameter_types,
 	traits::{AsEnsureOriginWithArg, Everything},
 };
+use snowbridge_test_utils::mock_swap_executor::SwapExecutor;
 pub use snowbridge_test_utils::{mock_origin::pallet_xcm_origin, mock_xcm::*};
 use sp_core::H256;
 use sp_runtime::{
@@ -16,7 +17,7 @@ use sp_runtime::{
 use xcm::prelude::*;
 
 type Block = frame_system::mocking::MockBlock<Test>;
-type AccountId = AccountId32;
+pub type AccountId = AccountId32;
 
 // Configure a mock runtime to test the pallet.
 frame_support::construct_runtime!(
@@ -85,7 +86,6 @@ impl crate::Config for Test {
 	type BackendWeightInfo = ();
 	type Swap = SwapExecutor;
 	type WeightInfo = ();
-	type AccountToLocation = MockAccountLocationConverter<AccountId>;
 	#[cfg(feature = "runtime-benchmarks")]
 	type Helper = ();
 }

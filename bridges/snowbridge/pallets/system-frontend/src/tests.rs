@@ -145,13 +145,12 @@ fn add_tip_ether_asset_succeeds() {
 		));
 
 		let events = System::events();
-		let event_record = events
-			.last()
-			.expect("Expected at least one event")
-			.event
-			.clone();
+		let event_record = events.last().expect("Expected at least one event").event.clone();
 
-		if !matches!(event_record, RuntimeEvent::EthereumSystemFrontend(crate::Event::MessageSent { .. })) {
+		if !matches!(
+			event_record,
+			RuntimeEvent::EthereumSystemFrontend(crate::Event::MessageSent { .. })
+		) {
 			panic!("Expected MessageSent event, got: {:?}", event_record);
 		}
 	});
@@ -173,13 +172,12 @@ fn add_tip_non_ether_asset_succeeds() {
 		));
 
 		let events = System::events();
-		let event_record = events
-			.last()
-			.expect("Expected at least one event")
-			.event
-			.clone();
+		let event_record = events.last().expect("Expected at least one event").event.clone();
 
-		if !matches!(event_record, RuntimeEvent::EthereumSystemFrontend(crate::Event::MessageSent { .. })) {
+		if !matches!(
+			event_record,
+			RuntimeEvent::EthereumSystemFrontend(crate::Event::MessageSent { .. })
+		) {
 			panic!("Expected MessageSent event, got: {:?}", event_record);
 		}
 	});

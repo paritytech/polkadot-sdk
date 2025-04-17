@@ -37,6 +37,7 @@ xcm-executor = { workspace = true }
 [dev-dependencies]
 pallet-balances = { workspace = true, default-features = true }
 snowbridge-test-utils = { workspace = true }
+sp-keyring = { workspace = true }
 
 [features]
 default = ["std"]
@@ -51,6 +52,7 @@ std = [
 	"snowbridge-core/std",
 	"sp-core/std",
 	"sp-io/std",
+	"sp-keyring/std",
 	"sp-runtime/std",
 	"sp-std/std",
 	"tracing/std",
