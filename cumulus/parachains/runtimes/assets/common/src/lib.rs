@@ -126,6 +126,8 @@ pub type ForeignAssetsConvertedConcreteId<
 	BalanceConverter,
 >;
 
+/// `Contains<Location>` implementation that matches locations with no parents
+/// and only an `AccountKey20` junction.
 pub struct IsAccountKey20;
 impl Contains<Location> for IsAccountKey20 {
 	fn contains(location: &Location) -> bool {
@@ -133,6 +135,8 @@ impl Contains<Location> for IsAccountKey20 {
 	}
 }
 
+/// Fallible converter from a location to a `H160` that matches only if
+/// the location has no parents and only an `AccountKey20` junction.
 pub struct AccountKey20ToH160;
 impl MaybeEquivalence<Location, H160> for AccountKey20ToH160 {
 	fn convert(location: &Location) -> Option<H160> {
@@ -147,6 +151,8 @@ impl MaybeEquivalence<Location, H160> for AccountKey20ToH160 {
 	}
 }
 
+/// [`xcm_executor::MatchesFungibles`] implementation that matches
+/// ERC20 tokens.
 pub type ERC20Matcher = MatchedConvertedConcreteId<
 	H160,
 	u128, // TODO: Do we do u128 for ERC20s?
