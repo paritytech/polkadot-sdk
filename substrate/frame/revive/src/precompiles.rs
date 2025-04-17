@@ -63,7 +63,7 @@ pub enum AddressMatcher {
 	/// The pre-compile will only be called for a single address.
 	///
 	/// This means the precompile will only be invoked for:
-	/// ```
+	/// ```ignore
 	/// 00000000000000000000000000000000pppp0000
 	/// ```
 	///
@@ -74,7 +74,7 @@ pub enum AddressMatcher {
 	/// This is useful when some information should be encoded into the address.
 	///
 	/// This means the precompile will be invoked for all `x`:
-	/// ```
+	/// ```ignore
 	/// xxxxxxxx0000000000000000000000000000pppp
 	/// ```
 	///
