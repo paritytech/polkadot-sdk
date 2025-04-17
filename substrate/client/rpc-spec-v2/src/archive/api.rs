@@ -19,12 +19,15 @@
 //! API trait of the archive methods.
 
 use crate::{
+	archive::{
+		error::{Error, Infallible},
+		types::MethodResult,
+	},
 	common::events::{
 		ArchiveStorageDiffEvent, ArchiveStorageDiffItem, ArchiveStorageEvent, StorageQuery,
 	},
-	MethodResult,
 };
-use jsonrpsee::{core::RpcResult, proc_macros::rpc};
+use jsonrpsee::proc_macros::rpc;
 
 #[rpc(client, server)]
 pub trait ArchiveApi<Hash> {
@@ -37,7 +40,7 @@ pub trait ArchiveApi<Hash> {
 	///
 	/// This method is unstable and subject to change in the future.
 	#[method(name = "archive_v1_body")]
-	fn archive_v1_body(&self, hash: Hash) -> RpcResult<Option<Vec<String>>>;
+	fn archive_v1_body(&self, hash: Hash) -> Result<Option<Vec<String>>, Infallible>;
 
 	/// Get the chain's genesis hash.
 	///
@@ -47,7 +50,7 @@ pub trait ArchiveApi<Hash> {
 	///
 	/// This method is unstable and subject to change in the future.
 	#[method(name = "archive_v1_genesisHash")]
-	fn archive_v1_genesis_hash(&self) -> RpcResult<String>;
+	fn archive_v1_genesis_hash(&self) -> Result<String, Infallible>;
 
 	/// Get the block's header.
 	///
@@ -58,7 +61,7 @@ pub trait ArchiveApi<Hash> {
 	///
 	/// This method is unstable and subject to change in the future.
 	#[method(name = "archive_v1_header")]
-	fn archive_v1_header(&self, hash: Hash) -> RpcResult<Option<String>>;
+	fn archive_v1_header(&self, hash: Hash) -> Result<Option<String>, Infallible>;
 
 	/// Get the height of the current finalized block.
 	///
@@ -68,7 +71,7 @@ pub trait ArchiveApi<Hash> {
 	///
 	/// This method is unstable and subject to change in the future.
 	#[method(name = "archive_v1_finalizedHeight")]
-	fn archive_v1_finalized_height(&self) -> RpcResult<u64>;
+	fn archive_v1_finalized_height(&self) -> Result<u64, Infallible>;
 
 	/// Get the hashes of blocks from the given height.
 	///
@@ -79,7 +82,7 @@ pub trait ArchiveApi<Hash> {
 	///
 	/// This method is unstable and subject to change in the future.
 	#[method(name = "archive_v1_hashByHeight")]
-	fn archive_v1_hash_by_height(&self, height: u64) -> RpcResult<Vec<String>>;
+	fn archive_v1_hash_by_height(&self, height: u64) -> Result<Vec<String>, Error>;
 
 	/// Call into the Runtime API at a specified block's state.
 	///
@@ -92,7 +95,7 @@ pub trait ArchiveApi<Hash> {
 		hash: Hash,
 		function: String,
 		call_parameters: String,
-	) -> RpcResult<MethodResult>;
+	) -> Result<MethodResult, Error>;
 
 	/// Returns storage entries at a specific block's state.
 	///

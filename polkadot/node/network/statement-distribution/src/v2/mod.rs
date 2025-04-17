@@ -28,8 +28,8 @@ use polkadot_node_network_protocol::{
 		IncomingRequest, IncomingRequestReceiver, Requests,
 		MAX_PARALLEL_ATTESTED_CANDIDATE_REQUESTS,
 	},
-	v2::{self as protocol_v2, StatementFilter},
-	v3 as protocol_v3, IfDisconnected, PeerId, UnifiedReputationChange as Rep, Versioned, View,
+	v3::{self as protocol_v3, StatementFilter},
+	IfDisconnected, PeerId, UnifiedReputationChange as Rep, ValidationProtocols, View,
 };
 use polkadot_node_primitives::{
 	SignedFullStatementWithPVD, StatementWithPVD as FullStatementWithPVD,
@@ -138,8 +138,8 @@ const COST_INACCURATE_ADVERTISEMENT: Rep =
 	Rep::CostMajor("Peer advertised a candidate inaccurately");
 const COST_UNSUPPORTED_DESCRIPTOR_VERSION: Rep =
 	Rep::CostMajor("Candidate Descriptor version is not supported");
-const COST_INVALID_CORE_INDEX: Rep =
-	Rep::CostMajor("Candidate Descriptor contains an invalid core index");
+const COST_INVALID_UMP_SIGNALS: Rep =
+	Rep::CostMajor("Candidate Descriptor contains invalid ump signals");
 const COST_INVALID_SESSION_INDEX: Rep =
 	Rep::CostMajor("Candidate Descriptor contains an invalid session index");
 
@@ -514,13 +514,6 @@ pub(crate) async fn handle_network_update<Context>(
 			) =>
 				handle_incoming_acknowledgement(ctx, state, peer_id, inner, reputation, metrics)
 					.await,
-			_ => {
-				gum::warn!(
-					target: LOG_TARGET,
-					peer_id = %peer_id,
-					"Received statement distribution message with unsupported protocol version",
-				);
-			},
 		},
 		NetworkBridgeEvent::PeerViewChange(peer_id, view) =>
 			handle_peer_view_update(ctx, state, peer_id, view, metrics).await,
@@ -924,7 +917,7 @@ fn pending_statement_network_message(
 			.map(|signed| {
 				protocol_v3::StatementDistributionMessage::Statement(relay_parent, signed)
 			})
-			.map(|msg| (vec![peer.0], Versioned::V3(msg).into())),
+			.map(|msg| (vec![peer.0], ValidationProtocols::V3(msg).into())),
 	}
 }
 
@@ -1021,7 +1014,7 @@ async fn send_pending_grid_messages<Context>(
 
 		match kind {
 			grid::ManifestKind::Full => {
-				let manifest = protocol_v2::BackedCandidateManifest {
+				let manifest = protocol_v3::BackedCandidateManifest {
 					relay_parent,
 					candidate_hash,
 					group_index,
@@ -1045,7 +1038,7 @@ async fn send_pending_grid_messages<Context>(
 				match peer_id.1 {
 					ValidationVersion::V3 => messages.push((
 						vec![peer_id.0],
-						Versioned::V3(
+						ValidationProtocols::V3(
 							protocol_v3::StatementDistributionMessage::BackedCandidateManifest(
 								manifest,
 							),
@@ -1421,7 +1414,7 @@ async fn circulate_statement<Context>(
 
 		ctx.send_message(NetworkBridgeTxMessage::SendValidationMessage(
 			statement_to_v3_peers,
-			Versioned::V3(protocol_v3::StatementDistributionMessage::Statement(
+			ValidationProtocols::V3(protocol_v3::StatementDistributionMessage::Statement(
 				relay_parent,
 				statement.as_unchecked().clone(),
 			))
@@ -1963,7 +1956,7 @@ async fn provide_candidate_to_grid<Context>(
 		filter.clone(),
 	);
 
-	let manifest = protocol_v2::BackedCandidateManifest {
+	let manifest = protocol_v3::BackedCandidateManifest {
 		relay_parent,
 		candidate_hash,
 		group_index,
@@ -1971,7 +1964,7 @@ async fn provide_candidate_to_grid<Context>(
 		parent_head_data_hash: confirmed_candidate.parent_head_data_hash(),
 		statement_knowledge: filter.clone(),
 	};
-	let acknowledgement = protocol_v2::BackedCandidateAcknowledgement {
+	let acknowledgement = protocol_v3::BackedCandidateAcknowledgement {
 		candidate_hash,
 		statement_knowledge: filter.clone(),
 	};
@@ -2030,9 +2023,9 @@ async fn provide_candidate_to_grid<Context>(
 
 		ctx.send_message(NetworkBridgeTxMessage::SendValidationMessage(
 			manifest_peers_v3,
-			Versioned::V3(protocol_v3::StatementDistributionMessage::BackedCandidateManifest(
-				manifest,
-			))
+			ValidationProtocols::V3(
+				protocol_v3::StatementDistributionMessage::BackedCandidateManifest(manifest),
+			)
 			.into(),
 		))
 		.await;
@@ -2050,9 +2043,9 @@ async fn provide_candidate_to_grid<Context>(
 
 		ctx.send_message(NetworkBridgeTxMessage::SendValidationMessage(
 			ack_peers_v3,
-			Versioned::V3(protocol_v3::StatementDistributionMessage::BackedCandidateKnown(
-				acknowledgement,
-			))
+			ValidationProtocols::V3(
+				protocol_v3::StatementDistributionMessage::BackedCandidateKnown(acknowledgement),
+			)
 			.into(),
 		))
 		.await;
@@ -2409,7 +2402,7 @@ fn post_acknowledgement_statement_messages(
 			false,
 		);
 		match peer.1.into() {
-			ValidationVersion::V3 => messages.push(Versioned::V3(
+			ValidationVersion::V3 => messages.push(ValidationProtocols::V3(
 				protocol_v3::StatementDistributionMessage::Statement(
 					relay_parent,
 					statement.as_unchecked().clone(),
@@ -2427,7 +2420,7 @@ async fn handle_incoming_manifest<Context>(
 	ctx: &mut Context,
 	state: &mut State,
 	peer: PeerId,
-	manifest: net_protocol::v2::BackedCandidateManifest,
+	manifest: net_protocol::v3::BackedCandidateManifest,
 	reputation: &mut ReputationAggregator,
 	metrics: &Metrics,
 ) {
@@ -2541,7 +2534,7 @@ fn acknowledgement_and_statement_messages(
 		Some(l) => l,
 	};
 
-	let acknowledgement = protocol_v2::BackedCandidateAcknowledgement {
+	let acknowledgement = protocol_v3::BackedCandidateAcknowledgement {
 		candidate_hash,
 		statement_knowledge: local_knowledge.clone(),
 	};
@@ -2549,9 +2542,9 @@ fn acknowledgement_and_statement_messages(
 	let mut messages = match peer.1 {
 		ValidationVersion::V3 => vec![(
 			vec![peer.0],
-			Versioned::V3(protocol_v3::StatementDistributionMessage::BackedCandidateKnown(
-				acknowledgement,
-			))
+			ValidationProtocols::V3(
+				protocol_v3::StatementDistributionMessage::BackedCandidateKnown(acknowledgement),
+			)
 			.into(),
 		)],
 	};
@@ -2585,7 +2578,7 @@ async fn handle_incoming_acknowledgement<Context>(
 	ctx: &mut Context,
 	state: &mut State,
 	peer: PeerId,
-	acknowledgement: net_protocol::v2::BackedCandidateAcknowledgement,
+	acknowledgement: net_protocol::v3::BackedCandidateAcknowledgement,
 	reputation: &mut ReputationAggregator,
 	metrics: &Metrics,
 ) {

@@ -44,6 +44,7 @@ use frame_support::{
 		fungibles::{
 			Create, Inspect as FungiblesInspect, InspectEnumerable, Mutate as FungiblesMutate,
 		},
+		ContainsPair,
 	},
 	weights::{Weight, WeightToFee as WeightToFeeT},
 };
@@ -142,6 +143,7 @@ fn setup_pool_for_paying_fees_with_foreign_assets(
 #[test]
 fn test_buy_and_refund_weight_in_native() {
 	ExtBuilder::<Runtime>::default()
+		.with_tracing()
 		.with_collators(vec![AccountId::from(ALICE)])
 		.with_session_keys(vec![(
 			AccountId::from(ALICE),
@@ -200,6 +202,7 @@ fn test_buy_and_refund_weight_in_native() {
 #[test]
 fn test_buy_and_refund_weight_with_swap_local_asset_xcm_trader() {
 	ExtBuilder::<Runtime>::default()
+		.with_tracing()
 		.with_collators(vec![AccountId::from(ALICE)])
 		.with_session_keys(vec![(
 			AccountId::from(ALICE),
@@ -309,6 +312,7 @@ fn test_buy_and_refund_weight_with_swap_local_asset_xcm_trader() {
 #[test]
 fn test_buy_and_refund_weight_with_swap_foreign_asset_xcm_trader() {
 	ExtBuilder::<Runtime>::default()
+		.with_tracing()
 		.with_collators(vec![AccountId::from(ALICE)])
 		.with_session_keys(vec![(
 			AccountId::from(ALICE),
@@ -419,6 +423,7 @@ fn test_buy_and_refund_weight_with_swap_foreign_asset_xcm_trader() {
 #[test]
 fn test_asset_xcm_take_first_trader() {
 	ExtBuilder::<Runtime>::default()
+		.with_tracing()
 		.with_collators(vec![AccountId::from(ALICE)])
 		.with_session_keys(vec![(
 			AccountId::from(ALICE),
@@ -497,6 +502,7 @@ fn test_asset_xcm_take_first_trader() {
 #[test]
 fn test_foreign_asset_xcm_take_first_trader() {
 	ExtBuilder::<Runtime>::default()
+		.with_tracing()
 		.with_collators(vec![AccountId::from(ALICE)])
 		.with_session_keys(vec![(
 			AccountId::from(ALICE),
@@ -578,6 +584,7 @@ fn test_foreign_asset_xcm_take_first_trader() {
 #[test]
 fn test_asset_xcm_take_first_trader_with_refund() {
 	ExtBuilder::<Runtime>::default()
+		.with_tracing()
 		.with_collators(vec![AccountId::from(ALICE)])
 		.with_session_keys(vec![(
 			AccountId::from(ALICE),
@@ -657,6 +664,7 @@ fn test_asset_xcm_take_first_trader_with_refund() {
 #[test]
 fn test_asset_xcm_take_first_trader_refund_not_possible_since_amount_less_than_ed() {
 	ExtBuilder::<Runtime>::default()
+		.with_tracing()
 		.with_collators(vec![AccountId::from(ALICE)])
 		.with_session_keys(vec![(
 			AccountId::from(ALICE),
@@ -709,6 +717,7 @@ fn test_asset_xcm_take_first_trader_refund_not_possible_since_amount_less_than_e
 #[test]
 fn test_that_buying_ed_refund_does_not_refund_for_take_first_trader() {
 	ExtBuilder::<Runtime>::default()
+		.with_tracing()
 		.with_collators(vec![AccountId::from(ALICE)])
 		.with_session_keys(vec![(
 			AccountId::from(ALICE),
@@ -773,6 +782,7 @@ fn test_that_buying_ed_refund_does_not_refund_for_take_first_trader() {
 #[test]
 fn test_asset_xcm_take_first_trader_not_possible_for_non_sufficient_assets() {
 	ExtBuilder::<Runtime>::default()
+		.with_tracing()
 		.with_collators(vec![AccountId::from(ALICE)])
 		.with_session_keys(vec![(
 			AccountId::from(ALICE),
@@ -834,6 +844,7 @@ fn test_assets_balances_api_works() {
 	use assets_common::runtime_api::runtime_decl_for_fungibles_api::FungiblesApi;
 
 	ExtBuilder::<Runtime>::default()
+		.with_tracing()
 		.with_collators(vec![AccountId::from(ALICE)])
 		.with_session_keys(vec![(
 			AccountId::from(ALICE),
@@ -946,6 +957,91 @@ fn test_assets_balances_api_works() {
 			)
 				.into())));
 		});
+}
+
+#[test]
+fn authorized_aliases_work() {
+	ExtBuilder::<Runtime>::default()
+		.with_tracing()
+		.with_collators(vec![AccountId::from(ALICE)])
+		.with_session_keys(vec![(
+			AccountId::from(ALICE),
+			AccountId::from(ALICE),
+			SessionKeys { aura: AuraId::from(sp_core::sr25519::Public::from_raw(ALICE)) },
+		)])
+		.build()
+		.execute_with(|| {
+			let alice: AccountId = ALICE.into();
+			let local_alice = Location::new(0, AccountId32 { network: None, id: ALICE });
+			let alice_on_sibling_para =
+				Location::new(1, [Parachain(42), AccountId32 { network: None, id: ALICE }]);
+			let alice_on_relay = Location::new(1, AccountId32 { network: None, id: ALICE });
+			let bob_on_relay = Location::new(1, AccountId32 { network: None, id: [42_u8; 32] });
+
+			assert_ok!(Balances::mint_into(&alice, 2 * UNITS));
+
+			// neither `alice_on_sibling_para`, `alice_on_relay`, `bob_on_relay` are allowed to
+			// alias into `local_alice`
+			for aliaser in [&alice_on_sibling_para, &alice_on_relay, &bob_on_relay] {
+				assert!(!<XcmConfig as xcm_executor::Config>::Aliasers::contains(
+					aliaser,
+					&local_alice
+				));
+			}
+
+			// Alice explicitly authorizes `alice_on_sibling_para` to alias her local account
+			assert_ok!(PolkadotXcm::add_authorized_alias(
+				RuntimeHelper::origin_of(alice.clone()),
+				Box::new(alice_on_sibling_para.clone().into()),
+				None
+			));
+
+			// `alice_on_sibling_para` now explicitly allowed to alias into `local_alice`
+			assert!(<XcmConfig as xcm_executor::Config>::Aliasers::contains(
+				&alice_on_sibling_para,
+				&local_alice
+			));
+			// as expected, `alice_on_relay` and `bob_on_relay` still can't alias into `local_alice`
+			for aliaser in [&alice_on_relay, &bob_on_relay] {
+				assert!(!<XcmConfig as xcm_executor::Config>::Aliasers::contains(
+					aliaser,
+					&local_alice
+				));
+			}
+
+			// Alice explicitly authorizes `alice_on_relay` to alias her local account
+			assert_ok!(PolkadotXcm::add_authorized_alias(
+				RuntimeHelper::origin_of(alice.clone()),
+				Box::new(alice_on_relay.clone().into()),
+				None
+			));
+			// Now both `alice_on_relay` and `alice_on_sibling_para` can alias into her local
+			// account
+			for aliaser in [&alice_on_relay, &alice_on_sibling_para] {
+				assert!(<XcmConfig as xcm_executor::Config>::Aliasers::contains(
+					aliaser,
+					&local_alice
+				));
+			}
+
+			// Alice removes authorization for `alice_on_relay` to alias her local account
+			assert_ok!(PolkadotXcm::remove_authorized_alias(
+				RuntimeHelper::origin_of(alice.clone()),
+				Box::new(alice_on_relay.clone().into())
+			));
+
+			// `alice_on_relay` no longer allowed to alias into `local_alice`
+			assert!(!<XcmConfig as xcm_executor::Config>::Aliasers::contains(
+				&alice_on_relay,
+				&local_alice
+			));
+
+			// `alice_on_sibling_para` still allowed to alias into `local_alice`
+			assert!(<XcmConfig as xcm_executor::Config>::Aliasers::contains(
+				&alice_on_sibling_para,
+				&local_alice
+			));
+		})
 }
 
 asset_test_utils::include_teleports_for_native_asset_works!(
