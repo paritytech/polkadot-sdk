@@ -788,7 +788,7 @@ pub mod pallet {
 				(config.hrmp_sender_deposit, config.hrmp_recipient_deposit)
 			};
 
-			let _ = HrmpChannels::<T>::mutate(&channel_id, |channel| -> DispatchResult {
+			HrmpChannels::<T>::mutate(&channel_id, |channel| -> DispatchResult {
 				if let Some(ref mut channel) = channel {
 					let current_sender_deposit = channel.sender_deposit;
 					let current_recipient_deposit = channel.recipient_deposit;
