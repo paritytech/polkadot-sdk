@@ -1240,7 +1240,7 @@ pub mod pallet {
 		}
 	}
 
-	#[pallet::view_functions_experimental]
+	#[pallet::view_functions]
 	impl<T: Config> Pallet<T> {
 		/// Returns the cost for removing an upgrade cooldown for the given `para`.
 		pub fn remove_upgrade_cooldown_cost(para: ParaId) -> BalanceOf<T> {
