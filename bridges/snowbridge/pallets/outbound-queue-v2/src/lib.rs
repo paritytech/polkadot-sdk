@@ -275,13 +275,19 @@ pub mod pallet {
 	}
 
 	#[pallet::call]
-	impl<T: Config> Pallet<T> {
+	impl<T: Config> Pallet<T>
+	where
+		<T as frame_system::Config>::AccountId: From<[u8; 32]>,
+	{
 		#[pallet::call_index(1)]
 		#[pallet::weight(T::WeightInfo::submit_delivery_receipt())]
 		pub fn submit_delivery_receipt(
 			origin: OriginFor<T>,
 			event: Box<EventProof>,
-		) -> DispatchResult {
+		) -> DispatchResult
+		where
+			<T as frame_system::Config>::AccountId: From<[u8; 32]>,
+		{
 			let relayer = ensure_signed(origin)?;
 
 			// submit message to verifier for verification
@@ -420,9 +426,18 @@ pub mod pallet {
 		pub fn process_delivery_receipt(
 			relayer: <T as frame_system::Config>::AccountId,
 			receipt: DeliveryReceipt,
-		) -> DispatchResult {
+		) -> DispatchResult
+		where
+			<T as frame_system::Config>::AccountId: From<[u8; 32]>,
+		{
 			// Verify that the message was submitted from the known Gateway contract
 			ensure!(T::GatewayAddress::get() == receipt.gateway, Error::<T>::InvalidGateway);
+
+			let reward_account = if receipt.reward_address == [0u8; 32] {
+				relayer
+			} else {
+				receipt.reward_address.into()
+			};
 
 			let nonce = receipt.nonce;
 
@@ -430,7 +445,11 @@ pub mod pallet {
 
 			if order.fee > 0 {
 				// Pay relayer reward
-				T::RewardPayment::register_reward(&relayer, T::DefaultRewardKind::get(), order.fee);
+				T::RewardPayment::register_reward(
+					&reward_account,
+					T::DefaultRewardKind::get(),
+					order.fee,
+				);
 			}
 
 			<PendingOrders<T>>::remove(nonce);
