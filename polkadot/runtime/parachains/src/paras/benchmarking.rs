@@ -249,6 +249,11 @@ mod benchmarks {
 		}
 	}
 
+	#[benchmark]
+	fn remove_upgrade_cooldown() {
+
+	}
+
 	impl_benchmark_test_suite!(
 		Pallet,
 		crate::mock::new_test_ext(Default::default()),

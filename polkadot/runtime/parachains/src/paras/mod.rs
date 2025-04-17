@@ -556,6 +556,7 @@ pub trait WeightInfo {
 	fn force_queue_action() -> Weight;
 	fn add_trusted_validation_code(c: u32) -> Weight;
 	fn poke_unused_validation_code() -> Weight;
+	fn remove_upgrade_cooldown() -> Weight;
 
 	fn include_pvf_check_statement_finalize_upgrade_accept() -> Weight;
 	fn include_pvf_check_statement_finalize_upgrade_reject() -> Weight;
@@ -606,6 +607,9 @@ impl WeightInfo for TestWeightInfo {
 	fn include_pvf_check_statement() -> Weight {
 		// This special value is to distinguish from the finalizing variants above in tests.
 		Weight::MAX - Weight::from_parts(1, 1)
+	}
+	fn remove_upgrade_cooldown() -> Weight {
+		Weight::MAX
 	}
 }
 
@@ -1191,7 +1195,7 @@ pub mod pallet {
 		/// The cost for removing the cooldown earlier depends on the time left for the cooldown
 		/// multiplied by [`Config::CooldownRemovalMultiplier`]. The paid tokens are burned.
 		#[pallet::call_index(9)]
-		#[pallet::weight(<T as Config>::WeightInfo::force_set_most_recent_context())]
+		#[pallet::weight(<T as Config>::WeightInfo::remove_upgrade_cooldown())]
 		pub fn remove_upgrade_cooldown(origin: OriginFor<T>, para: ParaId) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 
