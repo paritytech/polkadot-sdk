@@ -67,6 +67,16 @@ pub fn non_fee_asset(assets: &Assets, fee_idx: usize) -> Option<(Location, u128)
 	Some((asset.id.0, asset_amount))
 }
 
+/// Helper method to get the fee asset used in multiple assets transfer
+pub fn fee_asset(assets: &Assets, fee_idx: usize) -> Option<(Location, u128)> {
+	let asset = assets.get(fee_idx)?;
+	let asset_amount = match asset.fun {
+		Fungible(amount) => amount,
+		_ => return None,
+	};
+	Some((asset.id.0.clone(), asset_amount))
+}
+
 pub fn get_amount_from_versioned_assets(assets: VersionedAssets) -> u128 {
 	let latest_assets: Assets = assets.try_into().unwrap();
 	let Fungible(amount) = latest_assets.inner()[0].fun else {
