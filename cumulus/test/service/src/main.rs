@@ -18,9 +18,10 @@ mod cli;
 
 use std::sync::Arc;
 
-use cli::{RelayChainCli, Subcommand, TestCollatorCli};
+use cli::{AuthoringPolicy, RelayChainCli, Subcommand, TestCollatorCli};
 use cumulus_primitives_core::relay_chain::CollatorPair;
 use cumulus_test_service::{chain_spec, new_partial, AnnounceBlockFn};
+use polkadot_service::IdentifyNetworkBackend;
 use sc_cli::{CliConfiguration, SubstrateCli};
 use sp_core::Pair;
 
@@ -55,42 +56,45 @@ fn main() -> Result<(), sc_cli::Error> {
 		None => {
 			let log_filters = cli.run.normalize().log_filters();
 			let mut builder = sc_cli::LoggerBuilder::new(log_filters.unwrap_or_default());
-			builder.with_colors(true);
+			builder.with_colors(false);
 			let _ = builder.init();
 
 			let collator_options = cli.run.collator_options();
 			let tokio_runtime = sc_cli::build_runtime()?;
 			let tokio_handle = tokio_runtime.handle();
-			let config = cli
+			let parachain_config = cli
 				.run
 				.normalize()
 				.create_configuration(&cli, tokio_handle.clone())
 				.expect("Should be able to generate config");
 
-			let polkadot_cli = RelayChainCli::new(
-				&config,
+			let relay_chain_cli = RelayChainCli::new(
+				&parachain_config,
 				[RelayChainCli::executable_name()].iter().chain(cli.relaychain_args.iter()),
 			);
+			let tokio_handle = parachain_config.tokio_handle.clone();
+			let relay_chain_config = SubstrateCli::create_configuration(
+				&relay_chain_cli,
+				&relay_chain_cli,
+				tokio_handle,
+			)
+			.map_err(|err| format!("Relay chain argument error: {}", err))?;
 
-			let tokio_handle = config.tokio_handle.clone();
-			let polkadot_config =
-				SubstrateCli::create_configuration(&polkadot_cli, &polkadot_cli, tokio_handle)
-					.map_err(|err| format!("Relay chain argument error: {}", err))?;
-
-			let parachain_id = chain_spec::Extensions::try_get(&*config.chain_spec)
+			let parachain_id = chain_spec::Extensions::try_get(&*parachain_config.chain_spec)
 				.map(|e| e.para_id)
 				.ok_or("Could not find parachain extension in chain-spec.")?;
 
 			tracing::info!("Parachain id: {:?}", parachain_id);
 			tracing::info!(
 				"Is collating: {}",
-				if config.role.is_authority() { "yes" } else { "no" }
+				if parachain_config.role.is_authority() { "yes" } else { "no" }
 			);
 			if cli.fail_pov_recovery {
 				tracing::info!("PoV recovery failure enabled");
 			}
 
-			let collator_key = config.role.is_authority().then(|| CollatorPair::generate().0);
+			let collator_key =
+				parachain_config.role.is_authority().then(|| CollatorPair::generate().0);
 
 			let consensus = cli
 				.use_null_consensus
@@ -100,17 +104,22 @@ fn main() -> Result<(), sc_cli::Error> {
 				})
 				.unwrap_or(cumulus_test_service::Consensus::Aura);
 
+			// If the network backend is unspecified, use the default for the given chain.
+			let default_backend = relay_chain_config.chain_spec.network_backend();
+			let network_backend =
+				relay_chain_config.network.network_backend.unwrap_or(default_backend);
+			let use_slot_based_collator = cli.authoring == AuthoringPolicy::SlotBased;
 			let (mut task_manager, _, _, _, _, _) = tokio_runtime
 				.block_on(async move {
-					match polkadot_config.network.network_backend {
+					match network_backend {
 						sc_network::config::NetworkBackendType::Libp2p =>
 							cumulus_test_service::start_node_impl::<
 								_,
 								sc_network::NetworkWorker<_, _>,
 							>(
-								config,
+								parachain_config,
 								collator_key,
-								polkadot_config,
+								relay_chain_config,
 								parachain_id.into(),
 								cli.disable_block_announcements.then(wrap_announce_block),
 								cli.fail_pov_recovery,
@@ -118,7 +127,7 @@ fn main() -> Result<(), sc_cli::Error> {
 								consensus,
 								collator_options,
 								true,
-								cli.experimental_use_slot_based,
+								use_slot_based_collator,
 							)
 							.await,
 						sc_network::config::NetworkBackendType::Litep2p =>
@@ -126,9 +135,9 @@ fn main() -> Result<(), sc_cli::Error> {
 								_,
 								sc_network::Litep2pNetworkBackend,
 							>(
-								config,
+								parachain_config,
 								collator_key,
-								polkadot_config,
+								relay_chain_config,
 								parachain_id.into(),
 								cli.disable_block_announcements.then(wrap_announce_block),
 								cli.fail_pov_recovery,
@@ -136,7 +145,7 @@ fn main() -> Result<(), sc_cli::Error> {
 								consensus,
 								collator_options,
 								true,
-								cli.experimental_use_slot_based,
+								use_slot_based_collator,
 							)
 							.await,
 					}

@@ -15,18 +15,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use codec::{Decode, Encode};
+use codec::{Decode, DecodeWithMemTracking, Encode};
 use scale_info::TypeInfo;
 use std::vec;
 
 use frame_election_provider_support::{
 	bounds::{ElectionBounds, ElectionBoundsBuilder},
-	onchain, SequentialPhragmen,
+	onchain, SequentialPhragmen, Weight,
 };
 use frame_support::{
 	construct_runtime, derive_impl, parameter_types,
 	traits::{ConstU32, ConstU64, KeyOwnerProofSystem, OnFinalize, OnInitialize},
 };
+use frame_system::pallet_prelude::HeaderFor;
 use pallet_session::historical as pallet_session_historical;
 use sp_core::{crypto::KeyTypeId, ConstU128};
 use sp_runtime::{
@@ -43,7 +44,7 @@ use sp_state_machine::BasicExternalities;
 use crate as pallet_beefy;
 
 pub use sp_consensus_beefy::{ecdsa_crypto::AuthorityId as BeefyId, ConsensusLog, BEEFY_ENGINE_ID};
-use sp_consensus_beefy::{AncestryHelper, Commitment};
+use sp_consensus_beefy::{AncestryHelper, AncestryHelperWeightInfo, Commitment};
 
 impl_opaque_keys! {
 	pub struct MockSessionKeys {
@@ -74,12 +75,21 @@ impl frame_system::Config for Test {
 	type AccountData = pallet_balances::AccountData<u128>;
 }
 
-impl<C> frame_system::offchain::SendTransactionTypes<C> for Test
+impl<C> frame_system::offchain::CreateTransactionBase<C> for Test
 where
 	RuntimeCall: From<C>,
 {
-	type OverarchingCall = RuntimeCall;
+	type RuntimeCall = RuntimeCall;
 	type Extrinsic = TestXt<RuntimeCall, ()>;
+}
+
+impl<C> frame_system::offchain::CreateInherent<C> for Test
+where
+	RuntimeCall: From<C>,
+{
+	fn create_inherent(call: Self::RuntimeCall) -> Self::Extrinsic {
+		TestXt::new_bare(call)
+	}
 }
 
 #[derive(Clone, Debug, Decode, Encode, PartialEq, TypeInfo)]
@@ -87,8 +97,9 @@ pub struct MockAncestryProofContext {
 	pub is_valid: bool,
 }
 
-#[derive(Clone, Debug, Decode, Encode, PartialEq, TypeInfo)]
+#[derive(Clone, Debug, Decode, DecodeWithMemTracking, Encode, PartialEq, TypeInfo)]
 pub struct MockAncestryProof {
+	pub is_optimal: bool,
 	pub is_non_canonical: bool,
 }
 
@@ -118,6 +129,10 @@ impl<Header: HeaderT> AncestryHelper<Header> for MockAncestryHelper {
 		unimplemented!()
 	}
 
+	fn is_proof_optimal(proof: &Self::Proof) -> bool {
+		proof.is_optimal
+	}
+
 	fn extract_validation_context(_header: Header) -> Option<Self::ValidationContext> {
 		AncestryProofContext::get()
 	}
@@ -128,6 +143,20 @@ impl<Header: HeaderT> AncestryHelper<Header> for MockAncestryHelper {
 		context: Self::ValidationContext,
 	) -> bool {
 		context.is_valid && proof.is_non_canonical
+	}
+}
+
+impl<Header: HeaderT> AncestryHelperWeightInfo<Header> for MockAncestryHelper {
+	fn is_proof_optimal(_proof: &<Self as AncestryHelper<HeaderFor<Test>>>::Proof) -> Weight {
+		unimplemented!()
+	}
+
+	fn extract_validation_context() -> Weight {
+		unimplemented!()
+	}
+
+	fn is_non_canonical(_proof: &<Self as AncestryHelper<HeaderFor<Test>>>::Proof) -> Weight {
+		unimplemented!()
 	}
 }
 
@@ -157,12 +186,13 @@ impl pallet_session::Config for Test {
 	type SessionManager = pallet_session::historical::NoteHistoricalRoot<Self, Staking>;
 	type SessionHandler = <MockSessionKeys as OpaqueKeys>::KeyTypeIdProviders;
 	type Keys = MockSessionKeys;
+	type DisablingStrategy = ();
 	type WeightInfo = ();
 }
 
 impl pallet_session::historical::Config for Test {
-	type FullIdentification = pallet_staking::Exposure<u64, u128>;
-	type FullIdentificationOf = pallet_staking::ExposureOf<Self>;
+	type FullIdentification = pallet_staking::Existence;
+	type FullIdentificationOf = pallet_staking::ExistenceOf<Test>;
 }
 
 impl pallet_authorship::Config for Test {
@@ -215,6 +245,7 @@ impl onchain::Config for OnChainSeqPhragmen {
 #[derive_impl(pallet_staking::config_preludes::TestDefaultConfig)]
 impl pallet_staking::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
+	type OldCurrency = Balances;
 	type Currency = Balances;
 	type AdminOrigin = frame_system::EnsureRoot<Self::AccountId>;
 	type SessionInterface = Self;
@@ -252,7 +283,7 @@ impl ExtBuilder {
 		let balances: Vec<_> =
 			(0..self.authorities.len()).map(|i| (i as u64, 10_000_000)).collect();
 
-		pallet_balances::GenesisConfig::<Test> { balances }
+		pallet_balances::GenesisConfig::<Test> { balances, ..Default::default() }
 			.assimilate_storage(&mut t)
 			.unwrap();
 
@@ -346,5 +377,5 @@ pub fn start_session(session_index: SessionIndex) {
 
 pub fn start_era(era_index: EraIndex) {
 	start_session((era_index * 3).into());
-	assert_eq!(Staking::current_era(), Some(era_index));
+	assert_eq!(pallet_staking::CurrentEra::<Test>::get(), Some(era_index));
 }

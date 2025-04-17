@@ -19,8 +19,8 @@ pub use core::cell::RefCell;
 use frame_support::{
 	construct_runtime, derive_impl, parameter_types,
 	traits::{
-		AsEnsureOriginWithArg, ConstU128, ConstU32, Contains, Equals, Everything, EverythingBut,
-		Nothing,
+		fungible::HoldConsideration, AsEnsureOriginWithArg, ConstU128, ConstU32, Contains, Equals,
+		Everything, EverythingBut, Footprint, Nothing,
 	},
 	weights::Weight,
 };
@@ -28,7 +28,10 @@ use frame_system::EnsureRoot;
 use polkadot_parachain_primitives::primitives::Id as ParaId;
 use polkadot_runtime_parachains::origin;
 use sp_core::H256;
-use sp_runtime::{traits::IdentityLookup, AccountId32, BuildStorage};
+use sp_runtime::{
+	traits::{Convert, IdentityLookup},
+	AccountId32, BuildStorage,
+};
 use xcm::prelude::*;
 use xcm_builder::{
 	AccountId32Aliases, AllowKnownQueryResponses, AllowSubscriptionsFrom,
@@ -179,7 +182,14 @@ impl SendXcm for TestSendXcm {
 		Ok((pair, Assets::new()))
 	}
 	fn deliver(pair: (Location, Xcm<()>)) -> Result<XcmHash, SendError> {
-		let hash = fake_message_hash(&pair.1);
+		let message = pair.1.clone();
+		if message
+			.iter()
+			.any(|instr| matches!(instr, ExpectError(Some((1, XcmError::Unimplemented)))))
+		{
+			return Err(SendError::Transport("Intentional deliver failure used in tests".into()));
+		}
+		let hash = fake_message_hash(&message);
 		SENT_XCM.with(|q| q.borrow_mut().push(pair));
 		Ok(hash)
 	}
@@ -299,6 +309,7 @@ impl pallet_assets::Config for Test {
 	type MetadataDepositPerByte = ConstU128<1>;
 	type ApprovalDeposit = ConstU128<1>;
 	type StringLimit = ConstU32<50>;
+	type Holder = ();
 	type Freezer = ();
 	type WeightInfo = ();
 	type CallbackHandle = ();
@@ -480,6 +491,7 @@ pub struct XcmConfig;
 impl xcm_executor::Config for XcmConfig {
 	type RuntimeCall = RuntimeCall;
 	type XcmSender = XcmRouter;
+	type XcmEventEmitter = XcmPallet;
 	type AssetTransactor = AssetTransactors;
 	type OriginConverter = LocalOriginConverter;
 	type IsReserve = (Case<TrustedForeign>, Case<TrustedUsdc>, Case<TrustedPaidParaForeign>);
@@ -518,10 +530,20 @@ impl xcm_executor::Config for XcmConfig {
 	type XcmRecorder = XcmPallet;
 }
 
+/// Converts a local signed origin into an XCM location. Forms the basis for local origins
+/// sending/executing XCMs.
 pub type LocalOriginToLocation = SignedToAccountId32<RuntimeOrigin, AccountId, AnyNetwork>;
 
 parameter_types! {
 	pub static AdvertisedXcmVersion: pallet_xcm::XcmVersion = 4;
+	pub const AuthorizeAliasHoldReason: RuntimeHoldReason = RuntimeHoldReason::XcmPallet(pallet_xcm::HoldReason::AuthorizeAlias);
+}
+
+pub struct ConvertDeposit;
+impl Convert<Footprint, u128> for ConvertDeposit {
+	fn convert(a: Footprint) -> u128 {
+		(a.count * 2 + a.size) as u128
+	}
 }
 
 pub struct XcmTeleportFiltered;
@@ -556,6 +578,8 @@ impl pallet_xcm::Config for Test {
 	type MaxRemoteLockConsumers = frame_support::traits::ConstU32<0>;
 	type RemoteLockConsumerIdentifier = ();
 	type WeightInfo = TestWeightInfo;
+	type AuthorizedAliasConsideration =
+		HoldConsideration<AccountId, Balances, AuthorizeAliasHoldReason, ConvertDeposit>;
 }
 
 impl origin::Config for Test {}
@@ -700,7 +724,7 @@ pub(crate) fn new_test_ext_with_balances_and_xcm_version(
 ) -> sp_io::TestExternalities {
 	let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 
-	pallet_balances::GenesisConfig::<Test> { balances }
+	pallet_balances::GenesisConfig::<Test> { balances, ..Default::default() }
 		.assimilate_storage(&mut t)
 		.unwrap();
 

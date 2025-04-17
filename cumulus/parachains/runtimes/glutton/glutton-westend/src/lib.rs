@@ -44,6 +44,7 @@
 #[cfg(feature = "std")]
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
+pub mod genesis_config_presets;
 pub mod weights;
 pub mod xcm_config;
 
@@ -55,7 +56,7 @@ use sp_api::impl_runtime_apis;
 pub use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
 use sp_runtime::{
-	create_runtime_str, generic, impl_opaque_keys,
+	generic, impl_opaque_keys,
 	traits::{BlakeTwo256, Block as BlockT},
 	transaction_validity::{TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult,
@@ -64,7 +65,7 @@ use sp_runtime::{
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 
-use cumulus_primitives_core::AggregateMessageOrigin;
+use cumulus_primitives_core::{AggregateMessageOrigin, ClaimQueueOffset, CoreSelector};
 pub use frame_support::{
 	construct_runtime, derive_impl,
 	dispatch::DispatchClass,
@@ -99,14 +100,14 @@ impl_opaque_keys! {
 
 #[sp_version::runtime_version]
 pub const VERSION: RuntimeVersion = RuntimeVersion {
-	spec_name: create_runtime_str!("glutton-westend"),
-	impl_name: create_runtime_str!("glutton-westend"),
+	spec_name: alloc::borrow::Cow::Borrowed("glutton-westend"),
+	impl_name: alloc::borrow::Cow::Borrowed("glutton-westend"),
 	authoring_version: 1,
-	spec_version: 1_015_000,
+	spec_version: 1_018_001,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 1,
-	state_version: 1,
+	system_version: 1,
 };
 
 /// The version information used to identify this runtime when compiled natively.
@@ -172,8 +173,8 @@ parameter_types! {
 type ConsensusHook = cumulus_pallet_aura_ext::FixedVelocityConsensusHook<
 	Runtime,
 	RELAY_CHAIN_SLOT_DURATION_MILLIS,
-	BLOCK_PROCESSING_VELOCITY,
-	UNINCLUDED_SEGMENT_CAPACITY,
+	3,
+	9,
 >;
 
 impl cumulus_pallet_parachain_system::Config for Runtime {
@@ -188,6 +189,7 @@ impl cumulus_pallet_parachain_system::Config for Runtime {
 	type CheckAssociatedRelayNumber = RelayNumberMonotonicallyIncreases;
 	type ConsensusHook = ConsensusHook;
 	type WeightInfo = weights::cumulus_pallet_parachain_system::WeightInfo<Runtime>;
+	type SelectCore = cumulus_pallet_parachain_system::DefaultCoreSelector<Runtime>;
 }
 
 parameter_types! {
@@ -234,7 +236,7 @@ impl pallet_aura::Config for Runtime {
 	type DisabledValidators = ();
 	type MaxAuthorities = ConstU32<100_000>;
 	type AllowMultipleBlocksPerSlot = ConstBool<true>;
-	type SlotDuration = ConstU64<SLOT_DURATION>;
+	type SlotDuration = ConstU64<2000>;
 }
 
 impl pallet_glutton::Config for Runtime {
@@ -289,20 +291,20 @@ pub type Block = generic::Block<Header, UncheckedExtrinsic>;
 pub type SignedBlock = generic::SignedBlock<Block>;
 /// BlockId type as expected by this runtime.
 pub type BlockId = generic::BlockId<Block>;
-/// The SignedExtension to the basic transaction logic.
-pub type SignedExtra = (
+/// The extension to the basic transaction logic.
+pub type TxExtension = (
 	pallet_sudo::CheckOnlySudoAccount<Runtime>,
 	frame_system::CheckNonZeroSender<Runtime>,
 	frame_system::CheckSpecVersion<Runtime>,
 	frame_system::CheckTxVersion<Runtime>,
 	frame_system::CheckGenesis<Runtime>,
 	frame_system::CheckEra<Runtime>,
-	frame_system::CheckNonce<Runtime>,
 	frame_system::CheckWeight<Runtime>,
+	frame_system::WeightReclaim<Runtime>,
 );
 /// Unchecked extrinsic type as expected by this runtime.
 pub type UncheckedExtrinsic =
-	generic::UncheckedExtrinsic<Address, RuntimeCall, Signature, SignedExtra>;
+	generic::UncheckedExtrinsic<Address, RuntimeCall, Signature, TxExtension>;
 /// Executive: handles dispatch to the various modules.
 pub type Executive = frame_executive::Executive<
 	Runtime,
@@ -317,6 +319,7 @@ mod benches {
 	frame_benchmarking::define_benchmarks!(
 		[cumulus_pallet_parachain_system, ParachainSystem]
 		[frame_system, SystemBench::<Runtime>]
+		[frame_system_extensions, SystemExtensionsBench::<Runtime>]
 		[pallet_glutton, Glutton]
 		[pallet_message_queue, MessageQueue]
 		[pallet_timestamp, Timestamp]
@@ -425,7 +428,13 @@ impl_runtime_apis! {
 		}
 	}
 
-  impl frame_system_rpc_runtime_api::AccountNonceApi<Block, AccountId, Nonce> for Runtime {
+	impl cumulus_primitives_core::GetCoreSelectorApi<Block> for Runtime {
+		fn core_selector() -> (CoreSelector, ClaimQueueOffset) {
+			ParachainSystem::core_selector()
+		}
+	}
+
+	impl frame_system_rpc_runtime_api::AccountNonceApi<Block, AccountId, Nonce> for Runtime {
 		fn account_nonce(account: AccountId) -> Nonce {
 			System::account_nonce(account)
 		}
@@ -437,9 +446,10 @@ impl_runtime_apis! {
 			Vec<frame_benchmarking::BenchmarkList>,
 			Vec<frame_support::traits::StorageInfo>,
 		) {
-			use frame_benchmarking::{Benchmarking, BenchmarkList};
+			use frame_benchmarking::BenchmarkList;
 			use frame_support::traits::StorageInfoTrait;
 			use frame_system_benchmarking::Pallet as SystemBench;
+			use frame_system_benchmarking::extensions::Pallet as SystemExtensionsBench;
 
 			let mut list = Vec::<BenchmarkList>::new();
 			list_benchmarks!(list, extra);
@@ -449,13 +459,15 @@ impl_runtime_apis! {
 			(list, storage_info)
 		}
 
+		#[allow(non_local_definitions)]
 		fn dispatch_benchmark(
 			config: frame_benchmarking::BenchmarkConfig
-		) -> Result<Vec<frame_benchmarking::BenchmarkBatch>, sp_runtime::RuntimeString> {
-			use frame_benchmarking::{Benchmarking, BenchmarkBatch,  BenchmarkError};
+		) -> Result<Vec<frame_benchmarking::BenchmarkBatch>, alloc::string::String> {
+			use frame_benchmarking::{BenchmarkBatch,  BenchmarkError};
 			use sp_storage::TrackedStorageKey;
 
 			use frame_system_benchmarking::Pallet as SystemBench;
+			use frame_system_benchmarking::extensions::Pallet as SystemExtensionsBench;
 			impl frame_system_benchmarking::Config for Runtime {
 				fn setup_set_code_requirements(code: &alloc::vec::Vec<u8>) -> Result<(), BenchmarkError> {
 					ParachainSystem::initialize_for_set_code_benchmark(code.len() as u32);
@@ -483,11 +495,11 @@ impl_runtime_apis! {
 		}
 
 		fn get_preset(id: &Option<sp_genesis_builder::PresetId>) -> Option<Vec<u8>> {
-			get_preset::<RuntimeGenesisConfig>(id, |_| None)
+			get_preset::<RuntimeGenesisConfig>(id, &genesis_config_presets::get_preset)
 		}
 
 		fn preset_names() -> Vec<sp_genesis_builder::PresetId> {
-			vec![]
+			genesis_config_presets::preset_names()
 		}
 	}
 }

@@ -232,7 +232,7 @@
 extern crate alloc;
 
 use alloc::{boxed::Box, vec::Vec};
-use codec::{Decode, Encode};
+use codec::{Decode, DecodeWithMemTracking, Encode};
 use frame_election_provider_support::{
 	bounds::{CountBound, ElectionBounds, ElectionBoundsBuilder, SizeBound},
 	BoundedSupportsOf, DataProviderBounds, ElectionDataProvider, ElectionProvider,
@@ -245,7 +245,7 @@ use frame_support::{
 	weights::Weight,
 	DefaultNoBound, EqNoBound, PartialEqNoBound,
 };
-use frame_system::{ensure_none, offchain::SendTransactionTypes, pallet_prelude::BlockNumberFor};
+use frame_system::{ensure_none, offchain::CreateInherent, pallet_prelude::BlockNumberFor};
 use scale_info::TypeInfo;
 use sp_arithmetic::{
 	traits::{CheckedAdd, Zero},
@@ -317,7 +317,7 @@ pub trait BenchmarkingConfig {
 }
 
 /// Current phase of the pallet.
-#[derive(PartialEq, Eq, Clone, Copy, Encode, Decode, Debug, TypeInfo)]
+#[derive(PartialEq, Eq, Clone, Copy, Encode, Decode, DecodeWithMemTracking, Debug, TypeInfo)]
 pub enum Phase<Bn> {
 	/// Nothing, the election is not happening.
 	Off,
@@ -379,7 +379,7 @@ impl<Bn: PartialEq + Eq> Phase<Bn> {
 }
 
 /// The type of `Computation` that provided this election data.
-#[derive(PartialEq, Eq, Clone, Copy, Encode, Decode, Debug, TypeInfo)]
+#[derive(PartialEq, Eq, Clone, Copy, Encode, Decode, DecodeWithMemTracking, Debug, TypeInfo)]
 pub enum ElectionCompute {
 	/// Election was computed on-chain.
 	OnChain,
@@ -405,7 +405,18 @@ impl Default for ElectionCompute {
 ///
 /// Such a solution should never become effective in anyway before being checked by the
 /// `Pallet::feasibility_check`.
-#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, PartialOrd, Ord, TypeInfo)]
+#[derive(
+	PartialEq,
+	Eq,
+	Clone,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	RuntimeDebug,
+	PartialOrd,
+	Ord,
+	TypeInfo,
+)]
 pub struct RawSolution<S> {
 	/// the solution itself.
 	pub solution: S,
@@ -470,7 +481,9 @@ pub struct RoundSnapshot<AccountId, DataProvider> {
 /// This is stored automatically on-chain, and it contains the **size of the entire snapshot**.
 /// This is also used in dispatchables as weight witness data and should **only contain the size of
 /// the presented solution**, not the entire snapshot.
-#[derive(PartialEq, Eq, Clone, Copy, Encode, Decode, Debug, Default, TypeInfo)]
+#[derive(
+	PartialEq, Eq, Clone, Copy, Encode, Decode, DecodeWithMemTracking, Debug, Default, TypeInfo,
+)]
 pub struct SolutionOrSnapshotSize {
 	/// The length of voters.
 	#[codec(compact)]
@@ -576,7 +589,7 @@ pub mod pallet {
 	use sp_runtime::traits::Convert;
 
 	#[pallet::config]
-	pub trait Config: frame_system::Config + SendTransactionTypes<Call<Self>> {
+	pub trait Config: frame_system::Config + CreateInherent<Call<Self>> {
 		type RuntimeEvent: From<Event<Self>>
 			+ IsType<<Self as frame_system::Config>::RuntimeEvent>
 			+ TryInto<Event<Self>>;
@@ -1208,9 +1221,8 @@ pub mod pallet {
 				}
 
 				let _ = Self::unsigned_pre_dispatch_checks(raw_solution)
-					.map_err(|err| {
+					.inspect_err(|err| {
 						log!(debug, "unsigned transaction validation failed due to {:?}", err);
-						err
 					})
 					.map_err(dispatch_error_to_invalid)?;
 

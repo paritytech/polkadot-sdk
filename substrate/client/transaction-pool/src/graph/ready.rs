@@ -24,7 +24,7 @@ use std::{
 };
 
 use crate::LOG_TARGET;
-use log::{debug, trace};
+use log::trace;
 use sc_transaction_pool_api::error;
 use serde::Serialize;
 use sp_runtime::{traits::Member, transaction_validity::TransactionTag as Tag};
@@ -84,7 +84,7 @@ pub struct ReadyTx<Hash, Ex> {
 	/// How many required tags are provided inherently
 	///
 	/// Some transactions might be already pruned from the queue,
-	/// so when we compute ready set we may consider this transactions ready earlier.
+	/// so when we compute ready set we may consider these transactions ready earlier.
 	pub requires_offset: usize,
 }
 
@@ -106,7 +106,7 @@ qed
 "#;
 
 /// Validated transactions that are block ready with all their dependencies met.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct ReadyTransactions<Hash: hash::Hash + Eq, Ex> {
 	/// Next free insertion id (used to indicate when a transaction was inserted into the pool).
 	insertion_id: u64,
@@ -232,12 +232,10 @@ impl<Hash: hash::Hash + Member + Serialize, Ex> ReadyTransactions<Hash, Ex> {
 		Ok(replaced)
 	}
 
-	/// Fold a list of ready transactions to compute a single value.
-	pub fn fold<R, F: FnMut(Option<R>, &ReadyTx<Hash, Ex>) -> Option<R>>(
-		&mut self,
-		f: F,
-	) -> Option<R> {
-		self.ready.read().values().fold(None, f)
+	/// Fold a list of ready transactions to compute a single value using initial value of
+	/// accumulator.
+	pub fn fold<R, F: FnMut(R, &ReadyTx<Hash, Ex>) -> R>(&self, init: R, f: F) -> R {
+		self.ready.read().values().fold(init, f)
 	}
 
 	/// Returns true if given transaction is part of the queue.
@@ -521,9 +519,9 @@ impl<Hash: hash::Hash + Member, Ex> BestIterator<Hash, Ex> {
 	/// When invoked on a fully drained iterator it has no effect either.
 	pub fn report_invalid(&mut self, tx: &Arc<Transaction<Hash, Ex>>) {
 		if let Some(to_report) = self.all.get(&tx.hash) {
-			debug!(
+			trace!(
 				target: LOG_TARGET,
-				"[{:?}] Reported as invalid. Will skip sub-chains while iterating.",
+				"[{:?}] best-iterator: Reported as invalid. Will skip sub-chains while iterating.",
 				to_report.transaction.transaction.hash
 			);
 			for hash in &to_report.unlocks {
@@ -544,7 +542,7 @@ impl<Hash: hash::Hash + Member, Ex> Iterator for BestIterator<Hash, Ex> {
 
 			// Check if the transaction was marked invalid.
 			if self.invalid.contains(hash) {
-				debug!(
+				trace!(
 					target: LOG_TARGET,
 					"[{:?}] Skipping invalid child transaction while iterating.", hash,
 				);
@@ -589,7 +587,6 @@ fn remove_item<T: PartialEq>(vec: &mut Vec<T>, item: &T) {
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use sp_runtime::transaction_validity::TransactionSource as Source;
 
 	fn tx(id: u8) -> Transaction<u64, Vec<u8>> {
 		Transaction {
@@ -601,7 +598,7 @@ mod tests {
 			requires: vec![vec![1], vec![2]],
 			provides: vec![vec![3], vec![4]],
 			propagate: true,
-			source: Source::External,
+			source: crate::TimedTransactionSource::new_external(false),
 		}
 	}
 
@@ -703,7 +700,7 @@ mod tests {
 		tx6.requires = vec![tx5.provides[0].clone()];
 		tx6.provides = vec![];
 		let tx7 = Transaction {
-			data: vec![7],
+			data: vec![7].into(),
 			bytes: 1,
 			hash: 7,
 			priority: 1,
@@ -711,7 +708,7 @@ mod tests {
 			requires: vec![tx1.provides[0].clone()],
 			provides: vec![],
 			propagate: true,
-			source: Source::External,
+			source: crate::TimedTransactionSource::new_external(false),
 		};
 
 		// when

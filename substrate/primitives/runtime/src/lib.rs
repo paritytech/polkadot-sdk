@@ -26,7 +26,7 @@
 //! communication between the client and the runtime. This includes:
 //!
 //! - A set of traits to declare what any block/header/extrinsic type should provide.
-//! 	- [`traits::Block`], [`traits::Header`], [`traits::Extrinsic`]
+//! 	- [`traits::Block`], [`traits::Header`], [`traits::ExtrinsicLike`]
 //! - A set of types that implement these traits, whilst still providing a high degree of
 //!   configurability via generics.
 //! 	- [`generic::Block`], [`generic::Header`], [`generic::UncheckedExtrinsic`] and
@@ -79,10 +79,8 @@ use sp_core::{
 	sr25519,
 };
 
-#[cfg(all(not(feature = "std"), feature = "serde"))]
-use alloc::format;
 use alloc::vec;
-use codec::{Decode, Encode, MaxEncodedLen};
+use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 
 pub mod curve;
@@ -90,18 +88,18 @@ pub mod generic;
 pub mod legacy;
 mod multiaddress;
 pub mod offchain;
+pub mod proving_trie;
 pub mod runtime_logger;
-mod runtime_string;
 #[cfg(feature = "std")]
 pub mod testing;
 pub mod traits;
 pub mod transaction_validity;
 pub mod type_with_default;
 
-pub use crate::runtime_string::*;
-
 // Re-export Multiaddress
 pub use multiaddress::MultiAddress;
+
+use proving_trie::TrieError;
 
 /// Re-export these since they're only "kind of" generic.
 pub use generic::{Digest, DigestItem};
@@ -130,6 +128,8 @@ pub use sp_arithmetic::{
 	FixedPointOperand, FixedU128, FixedU64, InnerOf, PerThing, PerU16, Perbill, Percent, Permill,
 	Perquintill, Rational128, Rounding, UpperOf,
 };
+/// Re-export this since it's part of the API of this crate.
+pub use sp_weights::Weight;
 
 pub use either::Either;
 
@@ -272,7 +272,17 @@ pub type ConsensusEngineId = [u8; 4];
 
 /// Signature verify that can work with any known signature types.
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[derive(Eq, PartialEq, Clone, Encode, Decode, MaxEncodedLen, RuntimeDebug, TypeInfo)]
+#[derive(
+	Eq,
+	PartialEq,
+	Clone,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	MaxEncodedLen,
+	RuntimeDebug,
+	TypeInfo,
+)]
 pub enum MultiSignature {
 	/// An Ed25519 signature.
 	Ed25519(ed25519::Signature),
@@ -334,7 +344,18 @@ impl TryFrom<MultiSignature> for ecdsa::Signature {
 }
 
 /// Public key for any known crypto algorithm.
-#[derive(Eq, PartialEq, Ord, PartialOrd, Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
+#[derive(
+	Eq,
+	PartialEq,
+	Ord,
+	PartialOrd,
+	Clone,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	RuntimeDebug,
+	TypeInfo,
+)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub enum MultiSigner {
 	/// An Ed25519 identity.
@@ -438,10 +459,10 @@ impl TryFrom<MultiSigner> for ecdsa::Public {
 #[cfg(feature = "std")]
 impl std::fmt::Display for MultiSigner {
 	fn fmt(&self, fmt: &mut std::fmt::Formatter) -> std::fmt::Result {
-		match *self {
-			Self::Ed25519(ref who) => write!(fmt, "ed25519: {}", who),
-			Self::Sr25519(ref who) => write!(fmt, "sr25519: {}", who),
-			Self::Ecdsa(ref who) => write!(fmt, "ecdsa: {}", who),
+		match self {
+			Self::Ed25519(who) => write!(fmt, "ed25519: {}", who),
+			Self::Sr25519(who) => write!(fmt, "sr25519: {}", who),
+			Self::Ecdsa(who) => write!(fmt, "ecdsa: {}", who),
 		}
 	}
 }
@@ -449,23 +470,14 @@ impl std::fmt::Display for MultiSigner {
 impl Verify for MultiSignature {
 	type Signer = MultiSigner;
 	fn verify<L: Lazy<[u8]>>(&self, mut msg: L, signer: &AccountId32) -> bool {
-		match (self, signer) {
-			(Self::Ed25519(ref sig), who) => match ed25519::Public::from_slice(who.as_ref()) {
-				Ok(signer) => sig.verify(msg, &signer),
-				Err(()) => false,
-			},
-			(Self::Sr25519(ref sig), who) => match sr25519::Public::from_slice(who.as_ref()) {
-				Ok(signer) => sig.verify(msg, &signer),
-				Err(()) => false,
-			},
-			(Self::Ecdsa(ref sig), who) => {
+		let who: [u8; 32] = *signer.as_ref();
+		match self {
+			Self::Ed25519(sig) => sig.verify(msg, &who.into()),
+			Self::Sr25519(sig) => sig.verify(msg, &who.into()),
+			Self::Ecdsa(sig) => {
 				let m = sp_io::hashing::blake2_256(msg.get());
-				match sp_io::crypto::secp256k1_ecdsa_recover_compressed(sig.as_ref(), &m) {
-					Ok(pubkey) =>
-						&sp_io::hashing::blake2_256(pubkey.as_ref()) ==
-							<dyn AsRef<[u8; 32]>>::as_ref(who),
-					_ => false,
-				}
+				sp_io::crypto::secp256k1_ecdsa_recover_compressed(sig.as_ref(), &m)
+					.map_or(false, |pubkey| sp_io::hashing::blake2_256(&pubkey) == who)
 			},
 		}
 	}
@@ -520,7 +532,9 @@ pub type DispatchResult = core::result::Result<(), DispatchError>;
 pub type DispatchResultWithInfo<T> = core::result::Result<T, DispatchErrorWithPostInfo<T>>;
 
 /// Reason why a pallet call failed.
-#[derive(Eq, Clone, Copy, Encode, Decode, Debug, TypeInfo, MaxEncodedLen)]
+#[derive(
+	Eq, Clone, Copy, Encode, Decode, DecodeWithMemTracking, Debug, TypeInfo, MaxEncodedLen,
+)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct ModuleError {
 	/// Module index, matching the metadata module index.
@@ -540,7 +554,18 @@ impl PartialEq for ModuleError {
 }
 
 /// Errors related to transactional storage layers.
-#[derive(Eq, PartialEq, Clone, Copy, Encode, Decode, Debug, TypeInfo, MaxEncodedLen)]
+#[derive(
+	Eq,
+	PartialEq,
+	Clone,
+	Copy,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	Debug,
+	TypeInfo,
+	MaxEncodedLen,
+)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub enum TransactionalError {
 	/// Too many transactional layers have been spawned.
@@ -565,7 +590,18 @@ impl From<TransactionalError> for DispatchError {
 }
 
 /// Reason why a dispatch call failed.
-#[derive(Eq, Clone, Copy, Encode, Decode, Debug, TypeInfo, PartialEq, MaxEncodedLen)]
+#[derive(
+	Eq,
+	Clone,
+	Copy,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	Debug,
+	TypeInfo,
+	PartialEq,
+	MaxEncodedLen,
+)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub enum DispatchError {
 	/// Some error occurred.
@@ -601,11 +637,15 @@ pub enum DispatchError {
 	Unavailable,
 	/// Root origin is not allowed.
 	RootNotAllowed,
+	/// An error with tries.
+	Trie(TrieError),
 }
 
 /// Result of a `Dispatchable` which contains the `DispatchResult` and additional information about
 /// the `Dispatchable` that is only known post dispatch.
-#[derive(Eq, PartialEq, Clone, Copy, Encode, Decode, RuntimeDebug, TypeInfo)]
+#[derive(
+	Eq, PartialEq, Clone, Copy, Encode, Decode, DecodeWithMemTracking, RuntimeDebug, TypeInfo,
+)]
 pub struct DispatchErrorWithPostInfo<Info>
 where
 	Info: Eq + PartialEq + Clone + Copy + Encode + Decode + traits::Printable,
@@ -650,7 +690,18 @@ impl From<crate::traits::BadOrigin> for DispatchError {
 }
 
 /// Description of what went wrong when trying to complete an operation on a token.
-#[derive(Eq, PartialEq, Clone, Copy, Encode, Decode, Debug, TypeInfo, MaxEncodedLen)]
+#[derive(
+	Eq,
+	PartialEq,
+	Clone,
+	Copy,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	Debug,
+	TypeInfo,
+	MaxEncodedLen,
+)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub enum TokenError {
 	/// Funds are unavailable.
@@ -706,6 +757,12 @@ impl From<ArithmeticError> for DispatchError {
 	}
 }
 
+impl From<TrieError> for DispatchError {
+	fn from(e: TrieError) -> DispatchError {
+		Self::Trie(e)
+	}
+}
+
 impl From<&'static str> for DispatchError {
 	fn from(err: &'static str) -> DispatchError {
 		Self::Other(err)
@@ -730,6 +787,7 @@ impl From<DispatchError> for &'static str {
 			Corruption => "State corrupt",
 			Unavailable => "Resource unavailable",
 			RootNotAllowed => "Root not allowed",
+			Trie(e) => e.into(),
 		}
 	}
 }
@@ -777,6 +835,10 @@ impl traits::Printable for DispatchError {
 			Corruption => "State corrupt".print(),
 			Unavailable => "Resource unavailable".print(),
 			RootNotAllowed => "Root not allowed".print(),
+			Trie(e) => {
+				"Trie error: ".print();
+				<&'static str>::from(*e).print();
+			},
 		}
 	}
 }
@@ -906,7 +968,7 @@ macro_rules! assert_eq_error_rate_float {
 
 /// Simple blob to hold an extrinsic without committing to its format and ensure it is serialized
 /// correctly.
-#[derive(PartialEq, Eq, Clone, Default, Encode, Decode, TypeInfo)]
+#[derive(PartialEq, Eq, Clone, Default, Encode, Decode, DecodeWithMemTracking, TypeInfo)]
 pub struct OpaqueExtrinsic(Vec<u8>);
 
 impl OpaqueExtrinsic {
@@ -946,13 +1008,14 @@ impl<'a> ::serde::Deserialize<'a> for OpaqueExtrinsic {
 	{
 		let r = ::sp_core::bytes::deserialize(de)?;
 		Decode::decode(&mut &r[..])
-			.map_err(|e| ::serde::de::Error::custom(format!("Decode error: {}", e)))
+			.map_err(|e| ::serde::de::Error::custom(alloc::format!("Decode error: {}", e)))
 	}
 }
 
-impl traits::Extrinsic for OpaqueExtrinsic {
-	type Call = ();
-	type SignaturePayload = ();
+impl traits::ExtrinsicLike for OpaqueExtrinsic {
+	fn is_bare(&self) -> bool {
+		false
+	}
 }
 
 /// Print something that implements `Printable` from the runtime.
@@ -1028,6 +1091,23 @@ impl OpaqueValue {
 		Decode::decode(&mut &self.0[..]).ok()
 	}
 }
+
+// TODO: Remove in future versions and clean up `parse_str_literal` in `sp-version-proc-macro`
+/// Deprecated `Cow::Borrowed()` wrapper.
+#[macro_export]
+#[deprecated = "Use Cow::Borrowed() instead of create_runtime_str!()"]
+macro_rules! create_runtime_str {
+	( $y:expr ) => {{
+		$crate::Cow::Borrowed($y)
+	}};
+}
+// TODO: Re-export for ^ macro `create_runtime_str`, should be removed once macro is gone
+#[doc(hidden)]
+pub use alloc::borrow::Cow;
+// TODO: Remove in future versions
+/// Deprecated alias to improve upgrade experience
+#[deprecated = "Use String or Cow<'static, str> instead"]
+pub type RuntimeString = alloc::string::String;
 
 #[cfg(test)]
 mod tests {
@@ -1168,16 +1248,17 @@ mod tests {
 mod sp_core_tests {
 	use super::*;
 
+	sp_core::generate_feature_enabled_macro!(if_test, test, $);
+	sp_core::generate_feature_enabled_macro!(if_not_test, not(test), $);
+
 	#[test]
 	#[should_panic]
 	fn generate_feature_enabled_macro_panics() {
-		sp_core::generate_feature_enabled_macro!(if_test, test, $);
 		if_test!(panic!("This should panic"));
 	}
 
 	#[test]
 	fn generate_feature_enabled_macro_works() {
-		sp_core::generate_feature_enabled_macro!(if_not_test, not(test), $);
 		if_not_test!(panic!("This should not panic"));
 	}
 }

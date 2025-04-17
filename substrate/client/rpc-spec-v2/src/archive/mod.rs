@@ -26,10 +26,12 @@
 mod tests;
 
 mod archive_storage;
+mod types;
 
 pub mod api;
 pub mod archive;
 pub mod error;
 
 pub use api::ArchiveApiServer;
-pub use archive::{Archive, ArchiveConfig};
+pub use archive::Archive;
+pub use types::{MethodResult, MethodResultErr, MethodResultOk};

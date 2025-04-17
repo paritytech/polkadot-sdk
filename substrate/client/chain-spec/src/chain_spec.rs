@@ -782,7 +782,7 @@ mod tests {
 	use serde_json::{from_str, json, Value};
 	use sp_application_crypto::Ss58Codec;
 	use sp_core::storage::well_known_keys;
-	use sp_keyring::AccountKeyring;
+	use sp_keyring::Sr25519Keyring;
 
 	type TestSpec = ChainSpec;
 
@@ -924,8 +924,8 @@ mod tests {
 			},
 			"substrateTest": {
 				"authorities": [
-					AccountKeyring::Ferdie.public().to_ss58check(),
-					AccountKeyring::Alice.public().to_ss58check()
+					Sr25519Keyring::Ferdie.public().to_ss58check(),
+					Sr25519Keyring::Alice.public().to_ss58check()
 				],
 			}
 		}))
@@ -980,8 +980,8 @@ mod tests {
 			},
 			"substrateTest": {
 				"authorities": [
-					AccountKeyring::Ferdie.public().to_ss58check(),
-					AccountKeyring::Alice.public().to_ss58check()
+					Sr25519Keyring::Ferdie.public().to_ss58check(),
+					Sr25519Keyring::Alice.public().to_ss58check()
 				],
 			}
 		}))
@@ -1083,8 +1083,8 @@ mod tests {
 			"invalid_pallet": {},
 			"substrateTest": {
 				"authorities": [
-					AccountKeyring::Ferdie.public().to_ss58check(),
-					AccountKeyring::Alice.public().to_ss58check()
+					Sr25519Keyring::Ferdie.public().to_ss58check(),
+					Sr25519Keyring::Alice.public().to_ss58check()
 				],
 			}
 		}))

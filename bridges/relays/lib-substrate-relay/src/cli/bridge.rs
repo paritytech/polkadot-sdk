@@ -22,7 +22,7 @@ use crate::{
 	messages::{MessagesRelayLimits, SubstrateMessageLane},
 	parachains::SubstrateParachainsPipeline,
 };
-use pallet_bridge_parachains::{RelayBlockHash, RelayBlockHasher, RelayBlockNumber};
+use bp_parachains::{RelayBlockHash, RelayBlockHasher, RelayBlockNumber};
 use relay_substrate_client::{
 	Chain, ChainWithRuntimeVersion, ChainWithTransactions, Parachain, RelayChain,
 };
@@ -108,3 +108,7 @@ pub trait MessagesCliBridge: CliBridgeBase {
 		None
 	}
 }
+
+/// An alias for lane identifier type.
+pub type MessagesLaneIdOf<B> =
+	<<B as MessagesCliBridge>::MessagesLane as SubstrateMessageLane>::LaneId;

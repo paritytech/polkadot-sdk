@@ -1,0 +1,22 @@
+title: "backing: improve session buffering for runtime information"
+
+doc:
+  - audience: Node Dev
+    description: |
+      This PR implements caching within the backing module for session-stable information,
+      reducing redundant runtime API calls.
+
+      Specifically, it introduces a local cache for the:
+        - validators list;
+        - node features;
+        - executor parameters;
+        - minimum backing votes threshold;
+        - validator-to-group mapping.
+
+      Previously, this data was fetched or computed repeatedly each time `PerRelayParentState`
+      was built. With this update, the cached information is fetched once and reused throughout
+      the session.
+
+crates:
+  - name: polkadot-node-core-backing
+    bump: patch

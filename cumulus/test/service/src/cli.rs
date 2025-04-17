@@ -14,15 +14,18 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
-use std::{net::SocketAddr, path::PathBuf};
-
+use clap::ValueEnum;
 use cumulus_client_cli::{ExportGenesisHeadCommand, ExportGenesisWasmCommand};
 use polkadot_service::{ChainSpec, ParaId, PrometheusConfig};
 use sc_cli::{
 	CliConfiguration, DefaultConfigurationValues, ImportParams, KeystoreParams, NetworkParams,
-	Result as CliResult, SharedParams, SubstrateCli,
+	Result as CliResult, RpcEndpoint, SharedParams, SubstrateCli,
 };
 use sc_service::BasePath;
+use std::{
+	fmt::{Display, Formatter},
+	path::PathBuf,
+};
 
 #[derive(Debug, clap::Parser)]
 #[command(
@@ -51,11 +54,29 @@ pub struct TestCollatorCli {
 	#[arg(long)]
 	pub fail_pov_recovery: bool,
 
-	/// EXPERIMENTAL: Use slot-based collator which can handle elastic scaling.
-	///
-	/// Use with care, this flag is unstable and subject to change.
-	#[arg(long)]
-	pub experimental_use_slot_based: bool,
+	/// Authoring style to use.
+	#[arg(long, default_value_t = AuthoringPolicy::Lookahead)]
+	pub authoring: AuthoringPolicy,
+}
+
+/// Collator implementation to use.
+#[derive(PartialEq, Debug, ValueEnum, Clone, Copy)]
+pub enum AuthoringPolicy {
+	/// Use the lookahead collator. Builds blocks once per relay chain block,
+	/// builds on relay chain forks.
+	Lookahead,
+	/// Use the slot-based collator which can handle elastic-scaling. Builds blocks based on time
+	/// and can utilize multiple cores, always builds on the best relay chain block available.
+	SlotBased,
+}
+
+impl Display for AuthoringPolicy {
+	fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+		match self {
+			AuthoringPolicy::Lookahead => write!(f, "lookahead"),
+			AuthoringPolicy::SlotBased => write!(f, "slot-based"),
+		}
+	}
 }
 
 #[derive(Debug, clap::Subcommand)]
@@ -122,7 +143,7 @@ impl CliConfiguration<Self> for RelayChainCli {
 			.or_else(|| self.base_path.clone().map(Into::into)))
 	}
 
-	fn rpc_addr(&self, default_listen_port: u16) -> CliResult<Option<SocketAddr>> {
+	fn rpc_addr(&self, default_listen_port: u16) -> CliResult<Option<Vec<RpcEndpoint>>> {
 		self.base.base.rpc_addr(default_listen_port)
 	}
 
@@ -139,10 +160,9 @@ impl CliConfiguration<Self> for RelayChainCli {
 		_support_url: &String,
 		_impl_version: &String,
 		_logger_hook: F,
-		_config: &sc_service::Configuration,
 	) -> CliResult<()>
 	where
-		F: FnOnce(&mut sc_cli::LoggerBuilder, &sc_service::Configuration),
+		F: FnOnce(&mut sc_cli::LoggerBuilder),
 	{
 		unreachable!("PolkadotCli is never initialized; qed");
 	}
@@ -263,15 +283,32 @@ impl SubstrateCli for TestCollatorCli {
 				tracing::info!("Using default test service chain spec.");
 				Box::new(cumulus_test_service::get_chain_spec(Some(ParaId::from(2000)))) as Box<_>
 			},
+			"elastic-scaling-mvp" => {
+				tracing::info!("Using elastic-scaling mvp chain spec.");
+				Box::new(cumulus_test_service::get_elastic_scaling_mvp_chain_spec(Some(
+					ParaId::from(2100),
+				))) as Box<_>
+			},
 			"elastic-scaling" => {
 				tracing::info!("Using elastic-scaling chain spec.");
 				Box::new(cumulus_test_service::get_elastic_scaling_chain_spec(Some(ParaId::from(
-					2100,
+					2200,
 				)))) as Box<_>
 			},
+			"elastic-scaling-500ms" => {
+				tracing::info!("Using elastic-scaling 500ms chain spec.");
+				Box::new(cumulus_test_service::get_elastic_scaling_500ms_chain_spec(Some(
+					ParaId::from(2300),
+				))) as Box<_>
+			},
+			"elastic-scaling-multi-block-slot" => {
+				tracing::info!("Using elastic-scaling multi-block-slot chain spec.");
+				Box::new(cumulus_test_service::get_elastic_scaling_multi_block_slot_chain_spec(
+					Some(ParaId::from(2400)),
+				)) as Box<_>
+			},
 			path => {
-				let chain_spec =
-					cumulus_test_service::chain_spec::ChainSpec::from_json_file(path.into())?;
+				let chain_spec = cumulus_test_service::ChainSpec::from_json_file(path.into())?;
 				Box::new(chain_spec)
 			},
 		})

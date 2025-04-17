@@ -1,4 +1,4 @@
-// This file is part of Substrate.
+// This file is part of Cumulus.
 
 // Copyright (C) 2023 Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0

@@ -1,18 +1,19 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
+// SPDX-License-Identifier: GPL-3.0-or-later WITH Classpath-exception-2.0
 
 // Cumulus is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
 
-// Polkadot is distributed in the hope that it will be useful,
+// Cumulus is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 // GNU General Public License for more details.
 
 // You should have received a copy of the GNU General Public License
-// along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
+// along with Cumulus. If not, see <https://www.gnu.org/licenses/>.
 
 //! Parachain PoV recovery
 //!
@@ -56,13 +57,17 @@ use polkadot_node_primitives::{PoV, POV_BOMB_LIMIT};
 use polkadot_node_subsystem::messages::{AvailabilityRecoveryMessage, RuntimeApiRequest};
 use polkadot_overseer::Handle as OverseerHandle;
 use polkadot_primitives::{
-	CandidateReceipt, CommittedCandidateReceipt, Id as ParaId, SessionIndex,
+	vstaging::{
+		CandidateReceiptV2 as CandidateReceipt,
+		CommittedCandidateReceiptV2 as CommittedCandidateReceipt,
+	},
+	Id as ParaId, SessionIndex,
 };
 
 use cumulus_primitives_core::ParachainBlockData;
 use cumulus_relay_chain_interface::{RelayChainInterface, RelayChainResult};
 
-use codec::Decode;
+use codec::{Decode, DecodeAll};
 use futures::{
 	channel::mpsc::Receiver, select, stream::FuturesUnordered, Future, FutureExt, Stream, StreamExt,
 };
@@ -349,6 +354,38 @@ where
 		self.clear_waiting_recovery(&hash);
 	}
 
+	/// Try to decode [`ParachainBlockData`] from `data`.
+	///
+	/// Internally it will handle the decoding of the different versions.
+	fn decode_parachain_block_data(
+		data: &[u8],
+		expected_block_hash: Block::Hash,
+	) -> Option<ParachainBlockData<Block>> {
+		match ParachainBlockData::<Block>::decode_all(&mut &data[..]) {
+			Ok(block_data) => {
+				if block_data.blocks().last().map_or(false, |b| b.hash() == expected_block_hash) {
+					return Some(block_data)
+				}
+
+				tracing::debug!(
+					target: LOG_TARGET,
+					?expected_block_hash,
+					"Could not find the expected block hash as latest block in `ParachainBlockData`"
+				);
+			},
+			Err(error) => {
+				tracing::debug!(
+					target: LOG_TARGET,
+					?expected_block_hash,
+					?error,
+					"Could not decode `ParachainBlockData` from recovered PoV",
+				);
+			},
+		}
+
+		None
+	}
+
 	/// Handle a recovered candidate.
 	async fn handle_candidate_recovered(&mut self, block_hash: Block::Hash, pov: Option<&PoV>) {
 		let pov = match pov {
@@ -384,23 +421,24 @@ where
 				},
 			};
 
-		let block_data = match ParachainBlockData::<Block>::decode(&mut &raw_block_data[..]) {
-			Ok(d) => d,
-			Err(error) => {
-				tracing::warn!(
-					target: LOG_TARGET,
-					?error,
-					"Failed to decode parachain block data from recovered PoV",
-				);
-
-				self.reset_candidate(block_hash);
-				return
-			},
+		let Some(block_data) = Self::decode_parachain_block_data(&raw_block_data, block_hash)
+		else {
+			self.reset_candidate(block_hash);
+			return
 		};
 
-		let block = block_data.into_block();
+		let blocks = block_data.into_blocks();
 
-		let parent = *block.header().parent_hash();
+		let Some(parent) = blocks.first().map(|b| *b.header().parent_hash()) else {
+			tracing::debug!(
+				target: LOG_TARGET,
+				?block_hash,
+				"Recovered candidate doesn't contain any blocks.",
+			);
+
+			self.reset_candidate(block_hash);
+			return;
+		};
 
 		match self.parachain_client.block_status(parent) {
 			Ok(BlockStatus::Unknown) => {
@@ -418,7 +456,12 @@ where
 						"Waiting for recovery of parent.",
 					);
 
-					self.waiting_for_parent.entry(parent).or_default().push(block);
+					blocks.into_iter().for_each(|b| {
+						self.waiting_for_parent
+							.entry(*b.header().parent_hash())
+							.or_default()
+							.push(b);
+					});
 					return
 				} else {
 					tracing::debug!(
@@ -447,17 +490,20 @@ where
 			_ => (),
 		}
 
-		self.import_block(block);
+		self.import_blocks(blocks.into_iter());
 	}
 
-	/// Import the given `block`.
+	/// Import the given `blocks`.
 	///
 	/// This will also recursively drain `waiting_for_parent` and import them as well.
-	fn import_block(&mut self, block: Block) {
-		let mut blocks = VecDeque::new();
+	fn import_blocks(&mut self, blocks: impl Iterator<Item = Block>) {
+		let mut blocks = VecDeque::from_iter(blocks);
 
-		tracing::debug!(target: LOG_TARGET, block_hash = ?block.hash(), "Importing block retrieved using pov_recovery");
-		blocks.push_back(block);
+		tracing::debug!(
+			target: LOG_TARGET,
+			blocks = ?blocks.iter().map(|b| b.hash()),
+			"Importing blocks retrieved using pov_recovery",
+		);
 
 		let mut incoming_blocks = Vec::new();
 
@@ -586,7 +632,7 @@ where
 						if let Some(waiting_blocks) = self.waiting_for_parent.remove(&imported.hash) {
 							for block in waiting_blocks {
 								tracing::debug!(target: LOG_TARGET, block_hash = ?block.hash(), resolved_parent = ?imported.hash, "Found new waiting child block during import, queuing.");
-								self.import_block(block);
+								self.import_blocks(std::iter::once(block));
 							}
 						};
 

@@ -11,6 +11,7 @@ permissions:
 
 jobs:
   update-wishlist-leaderboard:
+    if: github.repository == 'paritytech/polkadot-sdk'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

@@ -119,6 +119,7 @@ impl pallet_treasury::Config for Test {
 	type Paymaster = PayFromAccount<Balances, TreasuryAccount>;
 	type BalanceConverter = UnityAssetBalanceConversion;
 	type PayoutPeriod = ConstU64<10>;
+	type BlockNumberProvider = System;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = ();
 }
@@ -141,6 +142,7 @@ impl pallet_treasury::Config<Instance1> for Test {
 	type Paymaster = PayFromAccount<Balances, TreasuryInstance1Account>;
 	type BalanceConverter = UnityAssetBalanceConversion;
 	type PayoutPeriod = ConstU64<10>;
+	type BlockNumberProvider = System;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = ();
 }
@@ -178,7 +180,10 @@ impl Config<Instance1> for Test {
 pub fn new_test_ext() -> sp_io::TestExternalities {
 	let mut ext: sp_io::TestExternalities = RuntimeGenesisConfig {
 		system: frame_system::GenesisConfig::default(),
-		balances: pallet_balances::GenesisConfig { balances: vec![(0, 100), (1, 98), (2, 1)] },
+		balances: pallet_balances::GenesisConfig {
+			balances: vec![(0, 100), (1, 98), (2, 1)],
+			..Default::default()
+		},
 		treasury: Default::default(),
 		treasury_1: Default::default(),
 	}
@@ -207,6 +212,7 @@ fn last_event() -> TipEvent<Test> {
 }
 
 #[test]
+#[allow(deprecated)]
 fn genesis_config_works() {
 	build_and_execute(|| {
 		assert_eq!(Treasury::pot(), 0);
@@ -580,6 +586,7 @@ fn genesis_funding_works() {
 	pallet_balances::GenesisConfig::<Test> {
 		// Total issuance will be 200 with treasury account initialized with 100.
 		balances: vec![(0, 100), (Treasury::account_id(), initial_funding)],
+		..Default::default()
 	}
 	.assimilate_storage(&mut t)
 	.unwrap();

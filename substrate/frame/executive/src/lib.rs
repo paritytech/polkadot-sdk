@@ -382,9 +382,8 @@ where
 		<AllPalletsWithSystem as frame_support::traits::TryState<
 			BlockNumberFor<System>,
 		>>::try_state(*header.number(), select.clone())
-		.map_err(|e| {
+		.inspect_err(|e| {
 			log::error!(target: LOG_TARGET, "failure: {:?}", e);
-			e
 		})?;
 		if select.any() {
 			let res = AllPalletsWithSystem::try_decode_entire_state();

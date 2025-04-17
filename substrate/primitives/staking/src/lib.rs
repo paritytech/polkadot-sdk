@@ -24,7 +24,7 @@ extern crate alloc;
 
 use crate::currency_to_vote::CurrencyToVote;
 use alloc::{collections::btree_map::BTreeMap, vec, vec::Vec};
-use codec::{Decode, Encode, FullCodec, HasCompact, MaxEncodedLen};
+use codec::{Decode, DecodeWithMemTracking, Encode, FullCodec, HasCompact, MaxEncodedLen};
 use core::ops::Sub;
 use scale_info::TypeInfo;
 use sp_runtime::{
@@ -325,7 +325,7 @@ pub trait StakingUnchecked: StakingInterface {
 	/// Migrate an existing staker to a virtual staker.
 	///
 	/// It would release all funds held by the implementation pallet.
-	fn migrate_to_virtual_staker(who: &Self::AccountId);
+	fn migrate_to_virtual_staker(who: &Self::AccountId) -> DispatchResult;
 
 	/// Book-keep a new bond for `keyless_who` without applying any locks (hence virtual).
 	///
@@ -346,7 +346,19 @@ pub trait StakingUnchecked: StakingInterface {
 }
 
 /// The amount of exposure for an era that an individual nominator has (susceptible to slashing).
-#[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
+#[derive(
+	PartialEq,
+	Eq,
+	PartialOrd,
+	Ord,
+	Clone,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	RuntimeDebug,
+	TypeInfo,
+	Copy,
+)]
 pub struct IndividualExposure<AccountId, Balance: HasCompact> {
 	/// The stash account of the nominator in question.
 	pub who: AccountId,
@@ -356,7 +368,18 @@ pub struct IndividualExposure<AccountId, Balance: HasCompact> {
 }
 
 /// A snapshot of the stake backing a single validator in the system.
-#[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
+#[derive(
+	PartialEq,
+	Eq,
+	PartialOrd,
+	Ord,
+	Clone,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	RuntimeDebug,
+	TypeInfo,
+)]
 pub struct Exposure<AccountId, Balance: HasCompact> {
 	/// The total balance backing this validator.
 	#[codec(compact)]
@@ -525,23 +548,26 @@ pub trait DelegationInterface {
 	/// This takes into account any pending slashes to `Agent` against the delegated balance.
 	fn agent_balance(agent: Agent<Self::AccountId>) -> Option<Self::Balance>;
 
+	/// Returns the total amount of funds that is unbonded and can be withdrawn from the `Agent`
+	/// account. `None` if not an `Agent`.
+	fn agent_transferable_balance(agent: Agent<Self::AccountId>) -> Option<Self::Balance>;
+
 	/// Returns the total amount of funds delegated. `None` if not a `Delegator`.
 	fn delegator_balance(delegator: Delegator<Self::AccountId>) -> Option<Self::Balance>;
 
-	/// Delegate funds to `Agent`.
-	///
-	/// Only used for the initial delegation. Use [`Self::delegate_extra`] to add more delegation.
-	fn delegate(
-		delegator: Delegator<Self::AccountId>,
+	/// Register `Agent` such that it can accept delegation.
+	fn register_agent(
 		agent: Agent<Self::AccountId>,
 		reward_account: &Self::AccountId,
-		amount: Self::Balance,
 	) -> DispatchResult;
 
-	/// Add more delegation to the `Agent`.
+	/// Removes `Agent` registration.
 	///
-	/// If this is the first delegation, use [`Self::delegate`] instead.
-	fn delegate_extra(
+	/// This should only be allowed if the agent has no staked funds.
+	fn remove_agent(agent: Agent<Self::AccountId>) -> DispatchResult;
+
+	/// Add delegation to the `Agent`.
+	fn delegate(
 		delegator: Delegator<Self::AccountId>,
 		agent: Agent<Self::AccountId>,
 		amount: Self::Balance,
@@ -616,7 +642,7 @@ pub trait DelegationMigrator {
 	///
 	/// Also removed from [`StakingUnchecked`] as a Virtual Staker. Useful for testing.
 	#[cfg(feature = "runtime-benchmarks")]
-	fn drop_agent(agent: Agent<Self::AccountId>);
+	fn force_kill_agent(agent: Agent<Self::AccountId>);
 }
 
 sp_core::generate_feature_enabled_macro!(runtime_benchmarks_enabled, feature = "runtime-benchmarks", $);

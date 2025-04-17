@@ -1,18 +1,18 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
+// SPDX-License-Identifier: Apache-2.0
 
-// Cumulus is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-
-// Cumulus is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License for more details.
-
-// You should have received a copy of the GNU General Public License
-// along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// 	http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -30,18 +30,22 @@
 extern crate alloc;
 
 use alloc::{collections::btree_map::BTreeMap, vec, vec::Vec};
-use codec::{Decode, Encode};
-use core::cmp;
+use codec::{Decode, DecodeLimit, Encode};
+use core::{cmp, marker::PhantomData};
 use cumulus_primitives_core::{
-	relay_chain, AbridgedHostConfiguration, ChannelInfo, ChannelStatus, CollationInfo,
-	GetChannelInfo, InboundDownwardMessage, InboundHrmpMessage, ListChannelInfos, MessageSendError,
+	relay_chain::{
+		self,
+		vstaging::{ClaimQueueOffset, CoreSelector, DEFAULT_CLAIM_QUEUE_OFFSET},
+	},
+	AbridgedHostConfiguration, ChannelInfo, ChannelStatus, CollationInfo, GetChannelInfo,
+	InboundDownwardMessage, InboundHrmpMessage, ListChannelInfos, MessageSendError,
 	OutboundHrmpMessage, ParaId, PersistedValidationData, UpwardMessage, UpwardMessageSender,
 	XcmpMessageHandler, XcmpMessageSource,
 };
 use cumulus_primitives_parachain_inherent::{MessageQueueChain, ParachainInherentData};
 use frame_support::{
 	defensive,
-	dispatch::{DispatchResult, Pays, PostDispatchInfo},
+	dispatch::DispatchResult,
 	ensure,
 	inherent::{InherentData, InherentIdentifier, ProvideInherent},
 	traits::{Get, HandleMessage},
@@ -52,13 +56,10 @@ use polkadot_parachain_primitives::primitives::RelayChainBlockNumber;
 use polkadot_runtime_parachains::FeeTracker;
 use scale_info::TypeInfo;
 use sp_runtime::{
-	traits::{Block as BlockT, BlockNumberProvider, Hash},
-	transaction_validity::{
-		InvalidTransaction, TransactionSource, TransactionValidity, ValidTransaction,
-	},
+	traits::{Block as BlockT, BlockNumberProvider, Hash, One},
 	BoundedSlice, FixedU128, RuntimeDebug, Saturating,
 };
-use xcm::{latest::XcmHash, VersionedLocation, VersionedXcm};
+use xcm::{latest::XcmHash, VersionedLocation, VersionedXcm, MAX_XCM_DECODE_DEPTH};
 use xcm_builder::InspectMessageQueues;
 
 mod benchmarking;
@@ -78,8 +79,7 @@ pub mod relay_state_snapshot;
 pub mod validate_block;
 
 use unincluded_segment::{
-	Ancestor, HrmpChannelUpdate, HrmpWatermarkUpdate, OutboundBandwidthLimits, SegmentTracker,
-	UsedBandwidth,
+	HrmpChannelUpdate, HrmpWatermarkUpdate, OutboundBandwidthLimits, SegmentTracker,
 };
 
 pub use consensus_hook::{ConsensusHook, ExpectParentIncluded};
@@ -107,6 +107,7 @@ pub use consensus_hook::{ConsensusHook, ExpectParentIncluded};
 /// ```
 pub use cumulus_pallet_parachain_system_proc_macro::register_validate_block;
 pub use relay_state_snapshot::{MessagingStateSnapshot, RelayChainStateProof};
+pub use unincluded_segment::{Ancestor, UsedBandwidth};
 
 pub use pallet::*;
 
@@ -189,11 +190,55 @@ pub mod ump_constants {
 	pub const MESSAGE_SIZE_FEE_BASE: FixedU128 = FixedU128::from_rational(1, 1000); // 0.001
 }
 
+/// Trait for selecting the next core to build the candidate for.
+pub trait SelectCore {
+	/// Core selector information for the current block.
+	fn selected_core() -> (CoreSelector, ClaimQueueOffset);
+	/// Core selector information for the next block.
+	fn select_next_core() -> (CoreSelector, ClaimQueueOffset);
+}
+
+/// The default core selection policy.
+pub struct DefaultCoreSelector<T>(PhantomData<T>);
+
+impl<T: frame_system::Config> SelectCore for DefaultCoreSelector<T> {
+	fn selected_core() -> (CoreSelector, ClaimQueueOffset) {
+		let core_selector = frame_system::Pallet::<T>::block_number().using_encoded(|b| b[0]);
+
+		(CoreSelector(core_selector), ClaimQueueOffset(DEFAULT_CLAIM_QUEUE_OFFSET))
+	}
+
+	fn select_next_core() -> (CoreSelector, ClaimQueueOffset) {
+		let core_selector =
+			(frame_system::Pallet::<T>::block_number() + One::one()).using_encoded(|b| b[0]);
+
+		(CoreSelector(core_selector), ClaimQueueOffset(DEFAULT_CLAIM_QUEUE_OFFSET))
+	}
+}
+
+/// Core selection policy that builds on claim queue offset 1.
+pub struct LookaheadCoreSelector<T>(PhantomData<T>);
+
+impl<T: frame_system::Config> SelectCore for LookaheadCoreSelector<T> {
+	fn selected_core() -> (CoreSelector, ClaimQueueOffset) {
+		let core_selector = frame_system::Pallet::<T>::block_number().using_encoded(|b| b[0]);
+
+		(CoreSelector(core_selector), ClaimQueueOffset(1))
+	}
+
+	fn select_next_core() -> (CoreSelector, ClaimQueueOffset) {
+		let core_selector =
+			(frame_system::Pallet::<T>::block_number() + One::one()).using_encoded(|b| b[0]);
+
+		(CoreSelector(core_selector), ClaimQueueOffset(1))
+	}
+}
+
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
 	use frame_support::pallet_prelude::*;
-	use frame_system::{pallet_prelude::*, WeightInfo as SystemWeightInfo};
+	use frame_system::pallet_prelude::*;
 
 	#[pallet::pallet]
 	#[pallet::storage_version(migration::STORAGE_VERSION)]
@@ -249,6 +294,9 @@ pub mod pallet {
 		/// that collators aren't expected to have node versions that supply the included block
 		/// in the relay-chain state proof.
 		type ConsensusHook: ConsensusHook;
+
+		/// Select core.
+		type SelectCore: SelectCore;
 	}
 
 	#[pallet::hooks]
@@ -262,8 +310,12 @@ pub mod pallet {
 			<UpgradeRestrictionSignal<T>>::kill();
 			let relay_upgrade_go_ahead = <UpgradeGoAhead<T>>::take();
 
-			let vfp = <ValidationData<T>>::get()
-				.expect("set_validation_data inherent needs to be present in every block!");
+			let vfp = <ValidationData<T>>::get().expect(
+				r"Missing required set_validation_data inherent. This inherent must be
+				present in every block. This error typically occurs when the set_validation_data
+				execution failed and was rejected by the block builder. Check earlier log entries
+				for the specific cause of the failure.",
+			);
 
 			LastRelayChainBlockNumber::<T>::put(vfp.relay_parent_number);
 
@@ -344,6 +396,11 @@ pub mod pallet {
 				UpwardMessages::<T>::put(&up[..num as usize]);
 				*up = up.split_off(num as usize);
 
+				// Send the core selector UMP signal. This is experimental until relay chain
+				// validators are upgraded to handle ump signals.
+				#[cfg(feature = "experimental-ump-signals")]
+				Self::send_ump_signal();
+
 				// If the total size of the pending messages is less than the threshold,
 				// we decrease the fee factor, since the queue is less congested.
 				// This makes delivery of new messages cheaper.
@@ -369,7 +426,8 @@ pub mod pallet {
 
 			let maximum_channels = host_config
 				.hrmp_max_message_num_per_candidate
-				.min(<AnnouncedHrmpMessagesPerCandidate<T>>::take()) as usize;
+				.min(<AnnouncedHrmpMessagesPerCandidate<T>>::take())
+				as usize;
 
 			// Note: this internally calls the `GetChannelInfo` implementation for this
 			// pallet, which draws on the `RelevantMessagingState`. That in turn has
@@ -428,6 +486,9 @@ pub mod pallet {
 			// like for example from scheduler, we only kill the storage entry if it was not yet
 			// updated in the current block.
 			if !<DidSetValidationCode<T>>::get() {
+				// NOTE: Killing here is required to at least include the trie nodes down to the key
+				// in the proof. Because this value will be read in `validate_block` and thus,
+				// needs to be reachable by the proof.
 				NewValidationCode::<T>::kill();
 				weight += T::DbWeight::get().writes(1);
 			}
@@ -450,10 +511,25 @@ pub mod pallet {
 
 			// Remove the validation from the old block.
 			ValidationData::<T>::kill();
+			// NOTE: Killing here is required to at least include the trie nodes down to the key in
+			// the proof. Because this value will be read in `validate_block` and thus, needs to
+			// be reachable by the proof.
 			ProcessedDownwardMessages::<T>::kill();
+			// NOTE: Killing here is required to at least include the trie nodes down to the key in
+			// the proof. Because this value will be read in `validate_block` and thus, needs to
+			// be reachable by the proof.
 			HrmpWatermark::<T>::kill();
+			// NOTE: Killing here is required to at least include the trie nodes down to the key in
+			// the proof. Because this value will be read in `validate_block` and thus, needs to
+			// be reachable by the proof.
 			UpwardMessages::<T>::kill();
+			// NOTE: Killing here is required to at least include the trie nodes down to the key in
+			// the proof. Because this value will be read in `validate_block` and thus, needs to
+			// be reachable by the proof.
 			HrmpOutboundMessages::<T>::kill();
+			// NOTE: Killing here is required to at least include the trie nodes down to the key in
+			// the proof. Because this value will be read in `validate_block` and thus, needs to
+			// be reachable by the proof.
 			CustomValidationHeadData::<T>::kill();
 
 			weight += T::DbWeight::get().writes(6);
@@ -497,6 +573,16 @@ pub mod pallet {
 			// Always try to read `UpgradeGoAhead` in `on_finalize`.
 			weight += T::DbWeight::get().reads(1);
 
+			// Post a digest that contains the information for selecting a core.
+			let selected_core = T::SelectCore::selected_core();
+			frame_system::Pallet::<T>::deposit_log(
+				cumulus_primitives_core::CumulusDigestItem::SelectCore {
+					selector: selected_core.0,
+					claim_queue_offset: selected_core.1,
+				}
+				.to_digest_item(),
+			);
+
 			weight
 		}
 	}
@@ -514,11 +600,12 @@ pub mod pallet {
 		/// if the appropriate time has come.
 		#[pallet::call_index(0)]
 		#[pallet::weight((0, DispatchClass::Mandatory))]
-		// TODO: This weight should be corrected.
+		// TODO: This weight should be corrected. Currently the weight is registered manually in the
+		// call with `register_extra_weight_unchecked`.
 		pub fn set_validation_data(
 			origin: OriginFor<T>,
 			data: ParachainInherentData,
-		) -> DispatchResultWithPostInfo {
+		) -> DispatchResult {
 			ensure_none(origin)?;
 			assert!(
 				!<ValidationData<T>>::exists(),
@@ -639,7 +726,12 @@ pub mod pallet {
 				vfp.relay_parent_number,
 			));
 
-			Ok(PostDispatchInfo { actual_weight: Some(total_weight), pays_fee: Pays::No })
+			frame_system::Pallet::<T>::register_extra_weight_unchecked(
+				total_weight,
+				DispatchClass::Mandatory,
+			);
+
+			Ok(())
 		}
 
 		#[pallet::call_index(1)]
@@ -653,52 +745,8 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// Authorize an upgrade to a given `code_hash` for the runtime. The runtime can be supplied
-		/// later.
-		///
-		/// The `check_version` parameter sets a boolean flag for whether or not the runtime's spec
-		/// version and name should be verified on upgrade. Since the authorization only has a hash,
-		/// it cannot actually perform the verification.
-		///
-		/// This call requires Root origin.
-		#[pallet::call_index(2)]
-		#[pallet::weight(<T as frame_system::Config>::SystemWeightInfo::authorize_upgrade())]
-		#[allow(deprecated)]
-		#[deprecated(
-			note = "To be removed after June 2024. Migrate to `frame_system::authorize_upgrade`."
-		)]
-		pub fn authorize_upgrade(
-			origin: OriginFor<T>,
-			code_hash: T::Hash,
-			check_version: bool,
-		) -> DispatchResult {
-			ensure_root(origin)?;
-			frame_system::Pallet::<T>::do_authorize_upgrade(code_hash, check_version);
-			Ok(())
-		}
-
-		/// Provide the preimage (runtime binary) `code` for an upgrade that has been authorized.
-		///
-		/// If the authorization required a version check, this call will ensure the spec name
-		/// remains unchanged and that the spec version has increased.
-		///
-		/// Note that this function will not apply the new `code`, but only attempt to schedule the
-		/// upgrade with the Relay Chain.
-		///
-		/// All origins are allowed.
-		#[pallet::call_index(3)]
-		#[pallet::weight(<T as frame_system::Config>::SystemWeightInfo::apply_authorized_upgrade())]
-		#[allow(deprecated)]
-		#[deprecated(
-			note = "To be removed after June 2024. Migrate to `frame_system::apply_authorized_upgrade`."
-		)]
-		pub fn enact_authorized_upgrade(
-			_: OriginFor<T>,
-			code: Vec<u8>,
-		) -> DispatchResultWithPostInfo {
-			let post = frame_system::Pallet::<T>::do_apply_authorize_upgrade(code)?;
-			Ok(post)
-		}
+		// WARNING: call indices 2 and 3 were used in a former version of this pallet. Using them
+		// again will require to bump the transaction version of runtimes using this pallet.
 	}
 
 	#[pallet::event]
@@ -733,10 +781,6 @@ pub mod pallet {
 		HostConfigurationNotAvailable,
 		/// No validation function upgrade is currently scheduled.
 		NotScheduled,
-		/// No code upgrade has been authorized.
-		NothingAuthorized,
-		/// The given code upgrade has not been authorized.
-		Unauthorized,
 	}
 
 	/// Latest included block descendants the runtime accepted. In other words, these are
@@ -949,30 +993,6 @@ pub mod pallet {
 		fn build(&self) {
 			// TODO: Remove after https://github.com/paritytech/cumulus/issues/479
 			sp_io::storage::set(b":c", &[]);
-		}
-	}
-
-	#[pallet::validate_unsigned]
-	impl<T: Config> sp_runtime::traits::ValidateUnsigned for Pallet<T> {
-		type Call = Call<T>;
-
-		fn validate_unsigned(_source: TransactionSource, call: &Self::Call) -> TransactionValidity {
-			if let Call::enact_authorized_upgrade { ref code } = call {
-				if let Ok(hash) = frame_system::Pallet::<T>::validate_authorized_upgrade(&code[..])
-				{
-					return Ok(ValidTransaction {
-						priority: 100,
-						requires: Vec::new(),
-						provides: vec![hash.as_ref().to_vec()],
-						longevity: TransactionLongevity::max_value(),
-						propagate: true,
-					})
-				}
-			}
-			if let Call::set_validation_data { .. } = call {
-				return Ok(Default::default())
-			}
-			Err(InvalidTransaction::Call.into())
 		}
 	}
 }
@@ -1443,6 +1463,11 @@ impl<T: Config> Pallet<T> {
 		}
 	}
 
+	/// Returns the core selector for the next block.
+	pub fn core_selector() -> (CoreSelector, ClaimQueueOffset) {
+		T::SelectCore::select_next_core()
+	}
+
 	/// Set a custom head data that should be returned as result of `validate_block`.
 	///
 	/// This will overwrite the head data that is returned as result of `validate_block` while
@@ -1457,6 +1482,20 @@ impl<T: Config> Pallet<T> {
 	/// your Parachain.
 	pub fn set_custom_validation_head_data(head_data: Vec<u8>) {
 		CustomValidationHeadData::<T>::put(head_data);
+	}
+
+	/// Send the ump signals
+	#[cfg(feature = "experimental-ump-signals")]
+	fn send_ump_signal() {
+		use cumulus_primitives_core::relay_chain::vstaging::{UMPSignal, UMP_SEPARATOR};
+
+		UpwardMessages::<T>::mutate(|up| {
+			up.push(UMP_SEPARATOR);
+
+			// Send the core selector signal.
+			let core_selector = T::SelectCore::selected_core();
+			up.push(UMPSignal::SelectCore(core_selector.0, core_selector.1).encode());
+		});
 	}
 
 	/// Open HRMP channel for using it in benchmarks or tests.
@@ -1611,20 +1650,34 @@ impl<T: Config> UpwardMessageSender for Pallet<T> {
 }
 
 impl<T: Config> InspectMessageQueues for Pallet<T> {
+	fn clear_messages() {
+		PendingUpwardMessages::<T>::kill();
+	}
+
 	fn get_messages() -> Vec<(VersionedLocation, Vec<VersionedXcm<()>>)> {
 		use xcm::prelude::*;
 
 		let messages: Vec<VersionedXcm<()>> = PendingUpwardMessages::<T>::get()
 			.iter()
-			.map(|encoded_message| VersionedXcm::<()>::decode(&mut &encoded_message[..]).unwrap())
+			.map(|encoded_message| {
+				VersionedXcm::<()>::decode_all_with_depth_limit(
+					MAX_XCM_DECODE_DEPTH,
+					&mut &encoded_message[..],
+				)
+				.unwrap()
+			})
 			.collect();
 
-		vec![(VersionedLocation::V4(Parent.into()), messages)]
+		if messages.is_empty() {
+			vec![]
+		} else {
+			vec![(VersionedLocation::from(Location::parent()), messages)]
+		}
 	}
 }
 
 #[cfg(feature = "runtime-benchmarks")]
-impl<T: Config> polkadot_runtime_common::xcm_sender::EnsureForParachain for Pallet<T> {
+impl<T: Config> polkadot_runtime_parachains::EnsureForParachain for Pallet<T> {
 	fn ensure(para_id: ParaId) {
 		if let ChannelStatus::Closed = Self::get_channel_status(para_id) {
 			Self::open_outbound_hrmp_channel_for_benchmarks_or_tests(para_id)

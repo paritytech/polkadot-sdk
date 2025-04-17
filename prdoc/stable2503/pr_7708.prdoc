@@ -1,0 +1,10 @@
+title: Support adding extra request-response protocols to the node
+doc:
+- audience: Node Dev
+  description: Allow adding extra request-response protocols during polkadot service
+    initialization. This is required to add a request-response protocol described
+    in [RFC-0008](https://polkadot-fellows.github.io/RFCs/approved/0008-parachain-bootnodes-dht.html)
+    to the relay chain side of the parachain node.
+crates:
+- name: polkadot-service
+  bump: minor
