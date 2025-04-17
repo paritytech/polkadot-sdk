@@ -1161,7 +1161,7 @@ pub mod tests {
 
 				let proving = TrieBackendBuilder::wrap(&trie)
 					.with_recorder(Recorder::default())
-					.with_optional_cache(cache.as_ref().map(|c| c.local_cache()))
+					.with_optional_cache(cache.as_ref().map(|c| c.local_cache_untrusted()))
 					.build();
 				assert_eq!(proving.storage(&[42]).unwrap().unwrap(), vec![42; size_content]);
 
@@ -1206,7 +1206,7 @@ pub mod tests {
 
 				let proving = TrieBackendBuilder::wrap(&trie)
 					.with_recorder(Recorder::default())
-					.with_optional_cache(cache.as_ref().map(|c| c.local_cache()))
+					.with_optional_cache(cache.as_ref().map(|c| c.local_cache_untrusted()))
 					.build();
 
 				(0..63).for_each(|i| {
@@ -1278,7 +1278,7 @@ pub mod tests {
 
 				let proving = TrieBackendBuilder::wrap(&trie)
 					.with_recorder(Recorder::default())
-					.with_optional_cache(cache.as_ref().map(|c| c.local_cache()))
+					.with_optional_cache(cache.as_ref().map(|c| c.local_cache_untrusted()))
 					.build();
 				assert_eq!(proving.storage(&[42]).unwrap().unwrap(), vec![42]);
 
@@ -1295,7 +1295,7 @@ pub mod tests {
 
 				let proving = TrieBackendBuilder::wrap(&trie)
 					.with_recorder(Recorder::default())
-					.with_optional_cache(cache.as_ref().map(|c| c.local_cache()))
+					.with_optional_cache(cache.as_ref().map(|c| c.local_cache_untrusted()))
 					.build();
 				assert_eq!(proving.child_storage(child_info_1, &[64]), Ok(Some(vec![64])));
 				assert_eq!(proving.child_storage(child_info_1, &[25]), Ok(None));
@@ -1392,7 +1392,7 @@ pub mod tests {
 
 		let cache = SharedTrieCache::<BlakeTwo256>::new(CacheSize::unlimited(), None);
 		{
-			let local_cache = cache.local_cache();
+			let local_cache = cache.local_cache_untrusted();
 			let mut trie_cache = local_cache.as_trie_db_cache(child_1_root);
 
 			// Put the value/node into the cache.
@@ -1409,7 +1409,7 @@ pub mod tests {
 			// Record the access
 			let proving = TrieBackendBuilder::wrap(&trie)
 				.with_recorder(Recorder::default())
-				.with_cache(cache.local_cache())
+				.with_cache(cache.local_cache_untrusted())
 				.build();
 			assert_eq!(proving.child_storage(child_info_1, &[65]), Ok(Some(vec![65; 128])));
 
@@ -1491,11 +1491,11 @@ pub mod tests {
 		];
 
 		let new_root = {
-			let trie = test_trie(StateVersion::V1, Some(shared_cache.local_cache()), None);
+			let trie = test_trie(StateVersion::V1, Some(shared_cache.local_cache_untrusted()), None);
 			trie.storage_root(new_data.clone().into_iter(), StateVersion::V1).0
 		};
 
-		let local_cache = shared_cache.local_cache();
+		let local_cache = shared_cache.local_cache_untrusted();
 		let mut cache = local_cache.as_trie_db_cache(new_root);
 		// All the data should be cached now
 		for (key, value) in new_data {
@@ -1566,7 +1566,7 @@ pub mod tests {
 
 				let proving = TrieBackendBuilder::wrap(&trie)
 					.with_recorder(Recorder::default())
-					.with_optional_cache(cache.as_ref().map(|c| c.local_cache()))
+					.with_optional_cache(cache.as_ref().map(|c| c.local_cache_untrusted()))
 					.build();
 				assert_eq!(proving.storage(&key).unwrap().unwrap(), top_trie_val);
 				assert_eq!(

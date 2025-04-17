@@ -67,7 +67,7 @@ impl StorageCmd {
 				let pov_recorder = enable_pov_recorder.then(|| Default::default());
 
 				DbStateBuilder::<HashingFor<Block>>::new(storage.clone(), original_root)
-					.with_optional_cache(shared_trie_cache.as_ref().map(|c| c.local_cache()))
+					.with_optional_cache(shared_trie_cache.as_ref().map(|c| c.local_cache_untrusted()))
 					.with_optional_recorder(pov_recorder)
 					.build()
 			};

@@ -2002,7 +2002,7 @@ impl<Block: BlockT> Backend<Block> {
 	fn empty_state(&self) -> RecordStatsState<RefTrackingState<Block>, Block> {
 		let root = EmptyStorage::<Block>::new().0; // Empty trie
 		let db_state = DbStateBuilder::<HashingFor<Block>>::new(self.storage.clone(), root)
-			.with_optional_cache(self.shared_trie_cache.as_ref().map(|c| c.local_cache()))
+			.with_optional_cache(self.shared_trie_cache.as_ref().map(|c| c.local_cache_untrusted()))
 			.build();
 		let state = RefTrackingState::new(db_state, self.storage.clone(), None);
 		RecordStatsState::new(state, None, self.state_usage.clone())
@@ -2499,7 +2499,7 @@ impl<Block: BlockT> sc_client_api::backend::Backend<Block> for Backend<Block> {
 				let db_state =
 					DbStateBuilder::<HashingFor<Block>>::new(genesis_state.clone(), root)
 						.with_optional_cache(
-							self.shared_trie_cache.as_ref().map(|c| c.local_cache()),
+							self.shared_trie_cache.as_ref().map(|c| c.local_cache_untrusted()),
 						)
 						.build();
 
@@ -2528,7 +2528,7 @@ impl<Block: BlockT> sc_client_api::backend::Backend<Block> for Backend<Block> {
 								{
 									c.local_cache_trusted()
 								} else {
-									c.local_cache()
+									c.local_cache_untrusted()
 								}
 							}))
 							.build();

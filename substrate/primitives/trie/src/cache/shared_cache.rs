@@ -710,7 +710,7 @@ impl<H: Hasher> SharedTrieCache<H> {
 	}
 
 	/// Create a new [`LocalTrieCache`](super::LocalTrieCache) instance from this shared cache.
-	pub fn local_cache(&self) -> super::LocalTrieCache<H> {
+	pub fn local_cache_untrusted(&self) -> super::LocalTrieCache<H> {
 		let local_value_cache_config = LocalValueCacheConfig::default();
 		let local_node_cache_config = LocalNodeCacheConfig::default();
 		tracing::debug!(
@@ -738,7 +738,7 @@ impl<H: Hasher> SharedTrieCache<H> {
 		}
 	}
 
-	/// Creates a TrieCache that allows the local_caches to grow to indefinitely. 
+	/// Creates a TrieCache that allows the local_caches to grow to indefinitely.
 	///
 	/// This is safe to be used only for trusted paths because it removes all limits on cache
 	/// growth and promotion, which could lead to excessive memory usage if used in untrusted or

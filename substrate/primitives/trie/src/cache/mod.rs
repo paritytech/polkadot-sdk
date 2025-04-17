@@ -906,7 +906,7 @@ mod tests {
 		let (db, root) = create_trie();
 
 		let shared_cache = Cache::new(CACHE_SIZE, None);
-		let local_cache = shared_cache.local_cache();
+		let local_cache = shared_cache.local_cache_untrusted();
 
 		{
 			let mut cache = local_cache.as_trie_db_cache(root);
@@ -933,7 +933,7 @@ mod tests {
 
 		let fake_data = Bytes::from(&b"fake_data"[..]);
 
-		let local_cache = shared_cache.local_cache();
+		let local_cache = shared_cache.local_cache_untrusted();
 		shared_cache.write_lock_inner().unwrap().value_cache_mut().lru.insert(
 			ValueCacheKey::new_value(TEST_DATA[1].0, root),
 			(fake_data.clone(), Default::default()).into(),
@@ -960,7 +960,7 @@ mod tests {
 		let mut new_root = root;
 
 		{
-			let local_cache = shared_cache.local_cache();
+			let local_cache = shared_cache.local_cache_untrusted();
 
 			let mut cache = local_cache.as_trie_db_mut_cache();
 
@@ -1001,7 +1001,7 @@ mod tests {
 				shared_cache.reset_value_cache();
 			}
 
-			let local_cache = shared_cache.local_cache();
+			let local_cache = shared_cache.local_cache_untrusted();
 			let recorder = Recorder::default();
 
 			{
@@ -1048,7 +1048,7 @@ mod tests {
 			}
 
 			let recorder = Recorder::default();
-			let local_cache = shared_cache.local_cache();
+			let local_cache = shared_cache.local_cache_untrusted();
 			let mut new_root = root;
 
 			{
@@ -1090,7 +1090,7 @@ mod tests {
 		let shared_cache = Cache::new(CACHE_SIZE, None);
 
 		{
-			let local_cache = shared_cache.local_cache();
+			let local_cache = shared_cache.local_cache_untrusted();
 
 			let mut cache = local_cache.as_trie_db_cache(root);
 			let trie = TrieDBBuilder::<Layout>::new(&db, &root).with_cache(&mut cache).build();
@@ -1114,7 +1114,7 @@ mod tests {
 		// The second run is using an empty value cache to ensure that we access the nodes.
 		for _ in 0..2 {
 			{
-				let local_cache = shared_cache.local_cache();
+				let local_cache = shared_cache.local_cache_untrusted();
 
 				let mut cache = local_cache.as_trie_db_cache(root);
 				let trie = TrieDBBuilder::<Layout>::new(&db, &root).with_cache(&mut cache).build();
@@ -1148,7 +1148,7 @@ mod tests {
 			.collect::<Vec<_>>();
 
 		{
-			let local_cache = shared_cache.local_cache();
+			let local_cache = shared_cache.local_cache_untrusted();
 
 			let mut cache = local_cache.as_trie_db_cache(root);
 			let trie = TrieDBBuilder::<Layout>::new(&db, &root).with_cache(&mut cache).build();
@@ -1177,7 +1177,7 @@ mod tests {
 
 		let shared_cache = Cache::new(CACHE_SIZE, None);
 		{
-			let local_cache = shared_cache.local_cache();
+			let local_cache = shared_cache.local_cache_untrusted();
 
 			let mut new_root = root;
 
@@ -1221,7 +1221,7 @@ mod tests {
 		// Populate the trie cache with, use a local untrusted cache and confirm not everything ends
 		// up in the shared trie cache.
 		let root = {
-			let local_cache = shared_cache.local_cache();
+			let local_cache = shared_cache.local_cache_untrusted();
 
 			let mut new_root = root;
 
@@ -1308,7 +1308,7 @@ mod tests {
 		keys: &Vec<Vec<u8>>,
 		expected_value: Vec<u8>,
 	) -> TrieHitStatsSnapshot {
-		let local_cache = shared_cache.local_cache();
+		let local_cache = shared_cache.local_cache_untrusted();
 		let mut cache = local_cache.as_trie_db_cache(root);
 		let trie = TrieDBBuilder::<Layout>::new(db, &root).with_cache(&mut cache).build();
 
