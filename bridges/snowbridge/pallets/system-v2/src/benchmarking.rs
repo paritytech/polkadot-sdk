@@ -61,7 +61,7 @@ mod benchmarks {
 
 	#[benchmark]
 	fn add_tip() -> Result<(), BenchmarkError> {
-		let origin_location = Location::new(1, [Parachain(1000)]);
+		let origin_location = Location::new(1, [Parachain(1000), PalletInstance(36)]);
 		let origin = <T as Config>::Helper::make_xcm_origin(origin_location.clone());
 		let sender: T::AccountId = whitelisted_caller();
 		let message_id = MessageId::Inbound(1);

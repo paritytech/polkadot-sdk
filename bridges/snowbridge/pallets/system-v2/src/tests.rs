@@ -175,7 +175,7 @@ fn register_ethereum_native_token_fails() {
 #[test]
 fn add_tip_inbound_succeeds() {
 	new_test_ext(true).execute_with(|| {
-		let origin = make_xcm_origin(Location::new(1, [Parachain(1000)]));
+		let origin = make_xcm_origin(FrontendLocation::get());
 		let sender: AccountId = Keyring::Alice.into();
 		let message_id = MessageId::Inbound(1);
 		let amount = 1000;
@@ -197,7 +197,7 @@ fn add_tip_inbound_succeeds() {
 #[test]
 fn add_tip_inbound_fails_when_nonce_is_consumed() {
 	new_test_ext(true).execute_with(|| {
-		let origin = make_xcm_origin(Location::new(1, [Parachain(1000)]));
+		let origin = make_xcm_origin(FrontendLocation::get());
 		let sender: AccountId = Keyring::Alice.into();
 		// In `MockOkInboundQueue`, the mocked implementation returns an error when the nonce is
 		// equal to 3, to simulate an error condition.
@@ -221,7 +221,7 @@ fn add_tip_inbound_fails_when_nonce_is_consumed() {
 #[test]
 fn add_tip_outbound_succeeds() {
 	new_test_ext(true).execute_with(|| {
-		let origin = make_xcm_origin(Location::new(1, [Parachain(1000)]));
+		let origin = make_xcm_origin(FrontendLocation::get());
 		let sender: AccountId = Keyring::Alice.into();
 		let message_id = MessageId::Outbound(1);
 		let amount = 500;
@@ -243,7 +243,7 @@ fn add_tip_outbound_succeeds() {
 #[test]
 fn add_tip_outbound_fails_when_pending_order_not_found() {
 	new_test_ext(false).execute_with(|| {
-		let origin = make_xcm_origin(Location::new(1, [Parachain(1000)]));
+		let origin = make_xcm_origin(FrontendLocation::get());
 		let sender: AccountId = Keyring::Alice.into();
 		// In `MockOkOutboundQueue`, the mocked implementation returns an error when the nonce is
 		// equal to 3, to simulate an error condition.
