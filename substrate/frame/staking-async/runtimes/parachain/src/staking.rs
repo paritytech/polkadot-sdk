@@ -103,7 +103,6 @@ impl frame_election_provider_support::onchain::Config for OnChainConfig {
 
 impl multi_block::Config for Runtime {
 	type AreWeDone = multi_block::RevertToSignedIfNotQueuedOf<Self>;
-	type RuntimeEvent = RuntimeEvent;
 	type Pages = Pages;
 	type UnsignedPhase = UnsignedPhase;
 	type SignedPhase = SignedPhase;
@@ -122,7 +121,6 @@ impl multi_block::Config for Runtime {
 }
 
 impl multi_block::verifier::Config for Runtime {
-	type RuntimeEvent = RuntimeEvent;
 	type MaxWinnersPerPage = MaxWinnersPerPage;
 	type MaxBackersPerWinner = MaxBackersPerWinner;
 	type MaxBackersPerWinnerFinal = MaxBackersPerWinnerFinal;
@@ -142,7 +140,6 @@ parameter_types! {
 }
 
 impl multi_block::signed::Config for Runtime {
-	type RuntimeEvent = RuntimeEvent;
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type Currency = Balances;
 	type BailoutGraceRatio = BailoutGraceRatio;
