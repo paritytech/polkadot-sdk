@@ -244,7 +244,6 @@ parameter_types! {
 
 impl pallet_staking_async::Config for Runtime {
 	type Filter = ();
-	type RuntimeEvent = RuntimeEvent;
 	type RuntimeHoldReason = RuntimeHoldReason;
 
 	type AdminOrigin = EnsureRoot<AccountId>;
@@ -285,7 +284,6 @@ impl pallet_staking_async::Config for Runtime {
 }
 
 impl pallet_staking_async_rc_client::Config for Runtime {
-	type RuntimeEvent = RuntimeEvent;
 	type AHStakingInterface = Staking;
 	type SendToRelayChain = DeliverToRelay;
 	type RelayChainOrigin = EnsureRoot<AccountId>;

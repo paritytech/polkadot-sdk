@@ -334,10 +334,6 @@ pub mod pallet {
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
-		/// Overarching runtime event type.
-		#[allow(deprecated)]
-		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
-
 		/// An origin type that allows us to be sure a call is being dispatched by the relay chain.
 		///
 		/// It be can be configured to something like `Root` or relay chain or similar.

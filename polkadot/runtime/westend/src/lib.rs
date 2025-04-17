@@ -872,7 +872,6 @@ impl frame_support::traits::EnsureOrigin<RuntimeOrigin> for EnsureAssetHub {
 // delegate all of its tasks to `Fallback`, which is again `Staking`.
 impl ah_client::Config for Runtime {
 	type CurrencyBalance = Balance;
-	type RuntimeEvent = RuntimeEvent;
 	type AssetHubOrigin =
 		frame_support::traits::EitherOfDiverse<EnsureRoot<AccountId>, EnsureAssetHub>;
 	type AdminOrigin = EnsureRoot<AccountId>;

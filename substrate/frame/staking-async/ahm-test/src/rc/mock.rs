@@ -264,7 +264,6 @@ impl LocalQueue {
 }
 
 impl ah_client::Config for Runtime {
-	type RuntimeEvent = RuntimeEvent;
 	type CurrencyBalance = Balance;
 	type AdminOrigin = EnsureRoot<AccountId>;
 	type SendToAssetHub = DeliverToAH;

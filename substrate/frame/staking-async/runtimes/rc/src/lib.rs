@@ -670,7 +670,6 @@ impl frame_support::traits::EnsureOrigin<RuntimeOrigin> for EnsureAssetHub {
 }
 
 impl pallet_staking_async_ah_client::Config for Runtime {
-	type RuntimeEvent = RuntimeEvent;
 	type CurrencyBalance = Balance;
 	type AssetHubOrigin =
 		frame_support::traits::EitherOfDiverse<EnsureRoot<AccountId>, EnsureAssetHub>;

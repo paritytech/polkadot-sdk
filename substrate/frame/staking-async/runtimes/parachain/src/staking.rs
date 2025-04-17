@@ -258,7 +258,6 @@ impl pallet_staking_async::Config for Runtime {
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type CurrencyToVote = sp_staking::currency_to_vote::SaturatingCurrencyToVote;
 	type RewardRemainder = ();
-	type RuntimeEvent = RuntimeEvent;
 	type Slash = ();
 	type Reward = ();
 	type SessionsPerEra = SessionsPerEra;
@@ -284,7 +283,6 @@ impl pallet_staking_async::Config for Runtime {
 }
 
 impl pallet_staking_async_rc_client::Config for Runtime {
-	type RuntimeEvent = RuntimeEvent;
 	type RelayChainOrigin = EnsureRoot<AccountId>;
 	type AHStakingInterface = Staking;
 	type SendToRelayChain = XcmToRelayChain<xcm_config::XcmRouter>;
