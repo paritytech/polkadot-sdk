@@ -6,7 +6,10 @@ use crate::{mock::*, Error};
 use codec::Encode;
 use frame_support::{assert_noop, assert_ok};
 use snowbridge_inbound_queue_primitives::{v2::XcmPayload, EventProof, Proof};
-use snowbridge_test_utils::mock_xcm::{set_charge_fees_override, set_sender_override};
+use snowbridge_test_utils::{
+	mock_rewards::RegisteredRewardsCount,
+	mock_xcm::{set_charge_fees_override, set_sender_override},
+};
 use sp_keyring::sr25519::Keyring;
 use sp_runtime::DispatchError;
 

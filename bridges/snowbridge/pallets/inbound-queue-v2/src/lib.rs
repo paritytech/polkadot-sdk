@@ -36,6 +36,7 @@ mod mock;
 mod test;
 
 pub use crate::weights::WeightInfo;
+use bp_relayers::RewardLedger;
 use frame_system::ensure_signed;
 use snowbridge_core::{
 	reward::{AddTip, AddTipError},
@@ -50,7 +51,6 @@ use sp_core::H160;
 use sp_runtime::traits::TryConvert;
 use sp_std::prelude::*;
 use xcm::prelude::{ExecuteXcm, Junction::*, Location, SendXcm, *};
-use bp_relayers::RewardLedger;
 #[cfg(feature = "runtime-benchmarks")]
 use {snowbridge_beacon_primitives::BeaconHeader, sp_core::H256};
 

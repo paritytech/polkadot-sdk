@@ -4,7 +4,7 @@ use crate::{mock::*, *};
 use alloy_core::primitives::FixedBytes;
 use codec::Encode;
 use frame_support::{
-	assert_err, assert_ok,
+	assert_err, assert_noop, assert_ok,
 	traits::{Hooks, ProcessMessage, ProcessMessageError},
 	weights::WeightMeter,
 	BoundedVec,

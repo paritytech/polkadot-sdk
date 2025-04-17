@@ -49,6 +49,7 @@ xcm-executor = { workspace = true }
 
 [dev-dependencies]
 pallet-message-queue = { workspace = true }
+snowbridge-test-utils = { workspace = true }
 
 [features]
 default = ["std"]
