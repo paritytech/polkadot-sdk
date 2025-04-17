@@ -86,7 +86,7 @@ fn insert_blocks(db: &Backend<Block>, storage: Vec<(Vec<u8>, Vec<u8>)>) -> H256 
 			.collect::<Vec<_>>();
 
 		let (state_root, tx) =
-			db.state_at(parent_hash, TrieCacheContext::Untrusted).unwrap().storage_root(
+			db.state_at(parent_hash, TrieCacheContext::Trusted).unwrap().storage_root(
 				changes.iter().map(|(k, v)| (k.as_slice(), v.as_deref())),
 				StateVersion::V1,
 			);
@@ -180,11 +180,7 @@ fn state_access_benchmarks(c: &mut Criterion) {
 
 		group.bench_function(desc, |b| {
 			b.iter_batched(
-				|| {
-					backend
-						.state_at(block_hash, TrieCacheContext::Untrusted)
-						.expect("Creates state")
-				},
+				|| backend.state_at(block_hash, TrieCacheContext::Trusted).expect("Creates state"),
 				|state| {
 					for key in keys.iter().cycle().take(keys.len() * multiplier) {
 						let _ = state.storage(&key).expect("Doesn't fail").unwrap();
@@ -222,11 +218,7 @@ fn state_access_benchmarks(c: &mut Criterion) {
 
 		group.bench_function(desc, |b| {
 			b.iter_batched(
-				|| {
-					backend
-						.state_at(block_hash, TrieCacheContext::Untrusted)
-						.expect("Creates state")
-				},
+				|| backend.state_at(block_hash, TrieCacheContext::Trusted).expect("Creates state"),
 				|state| {
 					for key in keys.iter().take(1).cycle().take(multiplier) {
 						let _ = state.storage(&key).expect("Doesn't fail").unwrap();
@@ -264,11 +256,7 @@ fn state_access_benchmarks(c: &mut Criterion) {
 
 		group.bench_function(desc, |b| {
 			b.iter_batched(
-				|| {
-					backend
-						.state_at(block_hash, TrieCacheContext::Untrusted)
-						.expect("Creates state")
-				},
+				|| backend.state_at(block_hash, TrieCacheContext::Trusted).expect("Creates state"),
 				|state| {
 					for key in keys.iter().take(1).cycle().take(multiplier) {
 						let _ = state.storage_hash(&key).expect("Doesn't fail").unwrap();
@@ -306,11 +294,7 @@ fn state_access_benchmarks(c: &mut Criterion) {
 
 		group.bench_function(desc, |b| {
 			b.iter_batched(
-				|| {
-					backend
-						.state_at(block_hash, TrieCacheContext::Untrusted)
-						.expect("Creates state")
-				},
+				|| backend.state_at(block_hash, TrieCacheContext::Trusted).expect("Creates state"),
 				|state| {
 					let _ = state
 						.storage_hash(sp_core::storage::well_known_keys::CODE)
