@@ -1304,14 +1304,25 @@ fn do_send_pens_and_wnds_from_penpal_westend_via_ahw_to_asset_hub_rococo(
 				},
 			]);
 
-			<PenpalB as PenpalBPallet>::PolkadotXcm::execute(
+			let result = <PenpalB as PenpalBPallet>::PolkadotXcm::execute(
 				signed_origin,
 				bx!(xcm::VersionedXcm::V5(xcm.into())),
 				Weight::MAX,
-			)
+			);
+
+			type RuntimeEvent = <PenpalB as Chain>::RuntimeEvent;
+			let topic_ids = find_all_xcm_topic_ids!(PenpalB);
+			TopicIdTracker::insert_many(topic_ids);
+			TopicIdTracker::assert_unique();
+
+			result
 		}));
+
 		AssetHubWestend::execute_with(|| {
 			type RuntimeEvent = <AssetHubWestend as Chain>::RuntimeEvent;
+			let topic_ids = find_all_xcm_topic_ids!(AssetHubWestend);
+			TopicIdTracker::insert_many(topic_ids);
+			TopicIdTracker::assert_unique();
 			assert_expected_events!(
 				AssetHubWestend,
 				vec![
@@ -1331,6 +1342,12 @@ fn do_send_pens_and_wnds_from_penpal_westend_via_ahw_to_asset_hub_rococo(
 					) => {},
 				]
 			);
+		});
+
+		BridgeHubWestend::execute_with(|| {
+			type RuntimeEvent = <BridgeHubWestend as Chain>::RuntimeEvent;
+			let topic_ids = find_all_xcm_topic_ids!(BridgeHubWestend);
+			TopicIdTracker::assert_first_id_in(&topic_ids);
 		});
 	});
 }
@@ -1445,30 +1462,11 @@ fn send_pens_and_wnds_from_penpal_westend_via_ahw_to_ahr() {
 		(pens_location_on_penpal.try_into().unwrap(), pens_to_send),
 	);
 
-	PenpalB::execute_with(|| {
-		type RuntimeEvent = <PenpalB as Chain>::RuntimeEvent;
-
-		let topic_ids = find_all_xcm_topic_ids!(PenpalB);
-		println!("[After Transfer Assets] PenpalB->topic_ids: {:?}", topic_ids);
-	});
-
-	AssetHubWestend::execute_with(|| {
-		type RuntimeEvent = <AssetHubWestend as Chain>::RuntimeEvent;
-
-		let topic_ids = find_all_xcm_topic_ids!(AssetHubWestend);
-		println!("[After Transfer Assets] AssetHubWestend->topic_ids: {:?}", topic_ids);
-	});
-
-	BridgeHubWestend::execute_with(|| {
-		type RuntimeEvent = <BridgeHubWestend as Chain>::RuntimeEvent;
-
-		let topic_ids = find_all_xcm_topic_ids!(BridgeHubWestend);
-		println!("[After Transfer Assets] BridgeHubWestend->topic_ids: {:?}", topic_ids);
-	});
-
 	let wnd = Location::new(2, [GlobalConsensus(ByGenesis(WESTEND_GENESIS_HASH))]);
 	AssetHubRococo::execute_with(|| {
 		type RuntimeEvent = <AssetHubRococo as Chain>::RuntimeEvent;
+		let topic_ids = find_all_xcm_topic_ids!(AssetHubRococo);
+		TopicIdTracker::assert_first_id_in(&topic_ids);
 		assert_expected_events!(
 			AssetHubRococo,
 			vec![
@@ -1483,9 +1481,6 @@ fn send_pens_and_wnds_from_penpal_westend_via_ahw_to_ahr() {
 				) => {},
 			]
 		);
-
-		let topic_ids = find_all_xcm_topic_ids!(AssetHubRococo);
-		println!("[After Transfer Assets] AssetHubRococo->topic_ids: {:?}", topic_ids);
 	});
 
 	// account balances after

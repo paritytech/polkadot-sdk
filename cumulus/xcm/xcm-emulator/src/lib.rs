@@ -1705,6 +1705,7 @@ where
 
 pub mod helpers {
 	use super::*;
+	use sp_core::H256;
 
 	pub fn within_threshold(threshold: u64, expected_value: u64, current_value: u64) -> bool {
 		let margin = (current_value * threshold) / 100;
@@ -1727,17 +1728,60 @@ pub mod helpers {
 		ref_time_within && proof_size_within
 	}
 
+	/// A test utility for tracking XCM topic IDs
 	pub struct TopicIdTracker;
 	impl TopicIdTracker {
-		pub fn insert(id: sp_core::H256) {
-			TRACKED_TOPIC_IDS.with(|b| b.borrow_mut().insert(id));
+		/// Asserts that the first tracked topic ID exists in the given list.
+		pub fn assert_first_id_in(topic_ids: &[H256]) {
+			let tracked_ids = Self::get();
+			assert!(
+				!tracked_ids.is_empty(),
+				"No topic IDs were tracked; expected at least one."
+			);
+
+			let tracked_id = &tracked_ids[0];
+			assert!(
+				topic_ids.contains(tracked_id),
+				"Tracked topic ID {:?} was not found in emitted events: {:?}",
+				tracked_id,
+				topic_ids
+			);
 		}
+
+		/// Asserts that exactly one topic ID is tracked.
 		pub fn assert_unique() {
 			TRACKED_TOPIC_IDS.with(|b| {
 				let ids = b.borrow();
-				assert_eq!(ids.len(), 1, "Tracked Topic IDs: {:?}", ids)
+				assert_eq!(
+					ids.len(),
+					1,
+					"Expected exactly one topic ID, found {}: {:?}",
+					ids.len(),
+					ids
+				);
 			});
 		}
+
+		/// Retrieves all tracked topic IDs.
+		pub fn get() -> Vec<H256> {
+			TRACKED_TOPIC_IDS.with(|b| {
+				b.borrow().iter().cloned().collect()
+			})
+		}
+
+		/// Inserts a single topic ID into the tracker.
+		pub fn insert(id: H256) {
+			TRACKED_TOPIC_IDS.with(|b| b.borrow_mut().insert(id));
+		}
+
+		/// Inserts multiple topic IDs into the tracker.
+		pub fn insert_many(ids: Vec<H256>) {
+			for id in ids {
+				Self::insert(id);
+			}
+		}
+
+		/// Clears all tracked topic IDs, resetting the tracker for a new test.
 		pub fn reset() {
 			TRACKED_TOPIC_IDS.with(|b| b.borrow_mut().clear());
 		}

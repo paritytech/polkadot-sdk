@@ -56,9 +56,7 @@ fn para_to_para_assethub_hop_assertions(t: ParaToParaThroughAHTest) {
 	);
 
 	let topic_ids = find_all_xcm_topic_ids!(AssetHubWestend);
-	for id in topic_ids.iter() {
-		TopicIdTracker::insert(*id);
-	}
+	TopicIdTracker::insert_many(topic_ids);
 	TopicIdTracker::assert_unique();
 }
 
