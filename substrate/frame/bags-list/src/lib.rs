@@ -371,7 +371,7 @@ pub mod pallet {
 			heavier: AccountIdLookupOf<T>,
 			lighter: AccountIdLookupOf<T>,
 		) -> DispatchResult {
-			let _ = ensure_signed(origin)?;
+			ensure_signed(origin)?;
 			let lighter = T::Lookup::lookup(lighter)?;
 			let heavier = T::Lookup::lookup(heavier)?;
 			Self::ensure_unlocked().map_err(|_| Error::<T, I>::Locked)?;
