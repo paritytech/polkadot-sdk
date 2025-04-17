@@ -72,7 +72,7 @@ pub mod pallet {
 	use crate::{BenchmarkingConfig, PagedExposureMetadata};
 
 	/// The in-code storage version.
-	const STORAGE_VERSION: StorageVersion = StorageVersion::new(17);
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(16);
 
 	#[pallet::pallet]
 	#[pallet::storage_version(STORAGE_VERSION)]
@@ -193,6 +193,7 @@ pub mod pallet {
 
 		/// The overarching event type.
 		#[pallet::no_default_bounds]
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		/// Handler for the unbalanced reduction when slashing a staker.
@@ -1540,7 +1541,7 @@ pub mod pallet {
 				Error::<T>::ControllerDeprecated
 			);
 
-			let _ = ledger
+			ledger
 				.set_payee(payee)
 				.defensive_proof("ledger was retrieved from storage, thus it's bonded; qed.")?;
 
@@ -1576,7 +1577,7 @@ pub mod pallet {
 					return Err(Error::<T>::AlreadyPaired.into())
 				}
 
-				let _ = ledger.set_controller_to_stash()?;
+				ledger.set_controller_to_stash()?;
 				Ok(())
 			})?
 		}
@@ -1754,6 +1755,7 @@ pub mod pallet {
 		/// Can be called by the `T::AdminOrigin`.
 		///
 		/// Parameters: era and indices of the slashes for that era to kill.
+		/// They **must** be sorted in ascending order, *and* unique.
 		#[pallet::call_index(17)]
 		#[pallet::weight(T::WeightInfo::cancel_deferred_slash(slash_indices.len() as u32))]
 		pub fn cancel_deferred_slash(
@@ -1875,7 +1877,7 @@ pub mod pallet {
 			stash: T::AccountId,
 			num_slashing_spans: u32,
 		) -> DispatchResultWithPostInfo {
-			let _ = ensure_signed(origin)?;
+			ensure_signed(origin)?;
 
 			// virtual stakers should not be allowed to be reaped.
 			ensure!(!Self::is_virtual_staker(&stash), Error::<T>::VirtualStakerNotAllowed);
@@ -2158,7 +2160,7 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			controller: T::AccountId,
 		) -> DispatchResultWithPostInfo {
-			let _ = ensure_signed(origin)?;
+			ensure_signed(origin)?;
 			let ledger = Self::ledger(StakingAccount::Controller(controller.clone()))?;
 
 			ensure!(
@@ -2169,7 +2171,7 @@ pub mod pallet {
 				Error::<T>::NotController
 			);
 
-			let _ = ledger
+			ledger
 				.set_payee(RewardDestination::Account(controller))
 				.defensive_proof("ledger should have been previously retrieved from storage.")?;
 
@@ -2318,11 +2320,11 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// Migrates permissionlessly a stash from locks to holds.
+		/// Removes the legacy Staking locks if they exist.
 		///
-		/// This removes the old lock on the stake and creates a hold on it atomically. If all
-		/// stake cannot be held, the best effort is made to hold as much as possible. The remaining
-		/// stake is removed from the ledger.
+		/// This removes the legacy lock on the stake with [`Config::OldCurrency`] and creates a
+		/// hold on it if needed. If all stake cannot be held, the best effort is made to hold as
+		/// much as possible. The remaining stake is forced withdrawn from the ledger.
 		///
 		/// The fee is waived if the migration is successful.
 		#[pallet::call_index(30)]
@@ -2331,7 +2333,7 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			stash: T::AccountId,
 		) -> DispatchResultWithPostInfo {
-			let _ = ensure_signed(origin)?;
+			ensure_signed(origin)?;
 			Self::do_migrate_currency(&stash)?;
 
 			// Refund the transaction fee if successful.

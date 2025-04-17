@@ -238,15 +238,7 @@ where
 					.await
 			);
 
-			let allowed_pov_size = if cfg!(feature = "full-pov-size") {
-				validation_data.max_pov_size
-			} else {
-				// Set the block limit to 50% of the maximum PoV size.
-				//
-				// TODO: If we got benchmarking that includes the proof size,
-				// we should be able to use the maximum pov size.
-				validation_data.max_pov_size / 2
-			} as usize;
+			let allowed_pov_size = (validation_data.max_pov_size / 2) as usize;
 
 			let maybe_collation = try_request!(
 				collator
@@ -261,9 +253,12 @@ where
 					.await
 			);
 
-			if let Some((collation, _, post_hash)) = maybe_collation {
+			if let Some((collation, block_data)) = maybe_collation {
+				let Some(block_hash) = block_data.blocks().first().map(|b| b.hash()) else {
+					continue
+				};
 				let result_sender =
-					Some(collator.collator_service().announce_with_barrier(post_hash));
+					Some(collator.collator_service().announce_with_barrier(block_hash));
 				request.complete(Some(CollationResult { collation, result_sender }));
 			} else {
 				request.complete(None);

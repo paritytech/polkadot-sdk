@@ -590,6 +590,7 @@ pub mod pallet {
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config + CreateInherent<Call<Self>> {
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self>>
 			+ IsType<<Self as frame_system::Config>::RuntimeEvent>
 			+ TryInto<Event<Self>>;
@@ -1220,7 +1221,7 @@ pub mod pallet {
 					_ => return InvalidTransaction::Call.into(),
 				}
 
-				let _ = Self::unsigned_pre_dispatch_checks(raw_solution)
+				Self::unsigned_pre_dispatch_checks(raw_solution)
 					.inspect_err(|err| {
 						log!(debug, "unsigned transaction validation failed due to {:?}", err);
 					})

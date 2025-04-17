@@ -50,9 +50,10 @@ use sp_staking::{
 
 use crate::{
 	asset, election_size_tracker::StaticTracker, log, slashing, weights::WeightInfo, ActiveEraInfo,
-	BalanceOf, EraInfo, EraPayout, Exposure, Forcing, IndividualExposure, LedgerIntegrityState,
-	MaxNominationsOf, MaxWinnersOf, Nominations, NominationsQuota, PositiveImbalanceOf,
-	RewardDestination, SessionInterface, StakingLedger, ValidatorPrefs, STAKING_ID,
+	BalanceOf, EraInfo, EraPayout, Existence, ExistenceOrLegacyExposure, Exposure, Forcing,
+	IndividualExposure, LedgerIntegrityState, MaxNominationsOf, MaxWinnersOf, Nominations,
+	NominationsQuota, PositiveImbalanceOf, RewardDestination, SessionInterface, StakingLedger,
+	ValidatorPrefs, STAKING_ID,
 };
 use alloc::{boxed::Box, vec, vec::Vec};
 
@@ -1160,24 +1161,29 @@ impl<T: Config> Pallet<T> {
 			return Self::do_migrate_virtual_staker(stash);
 		}
 
-		let ledger = Self::ledger(Stash(stash.clone()))?;
-		let staked: BalanceOf<T> = T::OldCurrency::balance_locked(STAKING_ID, stash).into();
-		ensure!(!staked.is_zero(), Error::<T>::AlreadyMigrated);
-		ensure!(ledger.total == staked, Error::<T>::BadState);
+		let locked: BalanceOf<T> = T::OldCurrency::balance_locked(STAKING_ID, stash).into();
+		ensure!(!locked.is_zero(), Error::<T>::AlreadyMigrated);
 
 		// remove old staking lock
 		T::OldCurrency::remove_lock(STAKING_ID, &stash);
 
-		// check if we can hold all stake.
-		let max_hold = asset::free_to_stake::<T>(&stash);
-		let force_withdraw = if max_hold >= staked {
+		// Get rid of the extra consumer we used to have with OldCurrency.
+		frame_system::Pallet::<T>::dec_consumers(&stash);
+
+		let Ok(ledger) = Self::ledger(Stash(stash.clone())) else {
+			// User is no longer bonded. Removing the lock is enough.
+			return Ok(());
+		};
+
+		// Ensure we can hold all stake.
+		let max_hold = asset::stakeable_balance::<T>(&stash);
+		let force_withdraw = if max_hold >= ledger.total {
 			// this means we can hold all stake. yay!
-			asset::update_stake::<T>(&stash, staked)?;
+			asset::update_stake::<T>(&stash, ledger.total)?;
 			Zero::zero()
 		} else {
 			// if we are here, it means we cannot hold all user stake. We will do a force withdraw
 			// from ledger, but that's okay since anyways user do not have funds for it.
-
 			let old_total = ledger.total;
 			// update ledger with total stake as max_hold.
 			let updated_ledger = ledger.update_total_stake(max_hold);
@@ -1192,9 +1198,6 @@ impl<T: Config> Pallet<T> {
 			// return the diff
 			old_total.defensive_saturating_sub(new_total)
 		};
-
-		// Get rid of the extra consumer we used to have with OldCurrency.
-		frame_system::Pallet::<T>::dec_consumers(&stash);
 
 		Self::deposit_event(Event::<T>::CurrencyMigrated { stash: stash.clone(), force_withdraw });
 		Ok(())
@@ -1237,7 +1240,7 @@ impl<T: Config> Pallet<T> {
 		// if actual provider is less than expected, it is already migrated.
 		ensure!(actual_providers == expected_providers, Error::<T>::AlreadyMigrated);
 
-		let _ = frame_system::Pallet::<T>::dec_providers(&stash)?;
+		frame_system::Pallet::<T>::dec_providers(&stash)?;
 
 		Ok(())
 	}
@@ -1426,7 +1429,7 @@ impl<T: Config> ElectionDataProvider for Pallet<T> {
 
 		// We can't handle this case yet -- return an error. WIP to improve handling this case in
 		// <https://github.com/paritytech/substrate/pull/13195>.
-		if bounds.exhausted(None, CountBound(T::TargetList::count() as u32).into()) {
+		if bounds.exhausted(None, CountBound(T::TargetList::count()).into()) {
 			return Err("Target snapshot too big")
 		}
 
@@ -1569,42 +1572,23 @@ impl<T: Config> pallet_session::SessionManager<T::AccountId> for Pallet<T> {
 	}
 }
 
-impl<T: Config> historical::SessionManager<T::AccountId, Exposure<T::AccountId, BalanceOf<T>>>
+impl<T: Config>
+	historical::SessionManager<T::AccountId, ExistenceOrLegacyExposure<T::AccountId, BalanceOf<T>>>
 	for Pallet<T>
 {
 	fn new_session(
 		new_index: SessionIndex,
-	) -> Option<Vec<(T::AccountId, Exposure<T::AccountId, BalanceOf<T>>)>> {
+	) -> Option<Vec<(T::AccountId, ExistenceOrLegacyExposure<T::AccountId, BalanceOf<T>>)>> {
 		<Self as pallet_session::SessionManager<_>>::new_session(new_index).map(|validators| {
-			let current_era = CurrentEra::<T>::get()
-				// Must be some as a new era has been created.
-				.unwrap_or(0);
-
-			validators
-				.into_iter()
-				.map(|v| {
-					let exposure = Self::eras_stakers(current_era, &v);
-					(v, exposure)
-				})
-				.collect()
+			validators.into_iter().map(|v| (v, ExistenceOrLegacyExposure::Exists)).collect()
 		})
 	}
 	fn new_session_genesis(
 		new_index: SessionIndex,
-	) -> Option<Vec<(T::AccountId, Exposure<T::AccountId, BalanceOf<T>>)>> {
+	) -> Option<Vec<(T::AccountId, ExistenceOrLegacyExposure<T::AccountId, BalanceOf<T>>)>> {
 		<Self as pallet_session::SessionManager<_>>::new_session_genesis(new_index).map(
 			|validators| {
-				let current_era = CurrentEra::<T>::get()
-					// Must be some as a new era has been created.
-					.unwrap_or(0);
-
-				validators
-					.into_iter()
-					.map(|v| {
-						let exposure = Self::eras_stakers(current_era, &v);
-						(v, exposure)
-					})
-					.collect()
+				validators.into_iter().map(|v| (v, ExistenceOrLegacyExposure::Exists)).collect()
 			},
 		)
 	}
@@ -1616,12 +1600,12 @@ impl<T: Config> historical::SessionManager<T::AccountId, Exposure<T::AccountId, 
 	}
 }
 
-impl<T: Config> historical::SessionManager<T::AccountId, ()> for Pallet<T> {
-	fn new_session(new_index: SessionIndex) -> Option<Vec<(T::AccountId, ())>> {
+impl<T: Config> historical::SessionManager<T::AccountId, Existence> for Pallet<T> {
+	fn new_session(new_index: SessionIndex) -> Option<Vec<(T::AccountId, Existence)>> {
 		<Self as pallet_session::SessionManager<_>>::new_session(new_index)
 			.map(|validators| validators.into_iter().map(|v| (v, ())).collect())
 	}
-	fn new_session_genesis(new_index: SessionIndex) -> Option<Vec<(T::AccountId, ())>> {
+	fn new_session_genesis(new_index: SessionIndex) -> Option<Vec<(T::AccountId, Existence)>> {
 		<Self as pallet_session::SessionManager<_>>::new_session_genesis(new_index)
 			.map(|validators| validators.into_iter().map(|v| (v, ())).collect())
 	}
@@ -1916,7 +1900,7 @@ impl<T: Config> StakingInterface for Pallet<T> {
 		);
 
 		let ledger = Self::ledger(Stash(stash.clone()))?;
-		let _ = ledger
+		ledger
 			.set_payee(RewardDestination::Account(reward_acc.clone()))
 			.defensive_proof("ledger was retrieved from storage, thus its bonded; qed.")?;
 
@@ -2432,16 +2416,4 @@ impl<T: Config> Pallet<T> {
 
 		Ok(())
 	}
-
-	/* todo(ank4n): move to session try runtime
-	// Sorted by index
-	fn ensure_disabled_validators_sorted() -> Result<(), TryRuntimeError> {
-		ensure!(
-			DisabledValidators::<T>::get().windows(2).all(|pair| pair[0].0 <= pair[1].0),
-			"DisabledValidators is not sorted"
-		);
-		Ok(())
-	}
-
-	 */
 }
