@@ -21,12 +21,13 @@ use polkadot_sdk::*;
 
 use crate::{
 	constants::currency::*, frame_support::build_struct_json_patch, AccountId, AssetsConfig,
-	BabeConfig, Balance, BalancesConfig, ElectionsConfig, NominationPoolsConfig,
+	BabeConfig, Balance, BalancesConfig, ElectionsConfig, NominationPoolsConfig, ReviveConfig,
 	RuntimeGenesisConfig, SessionConfig, SessionKeys, SocietyConfig, StakerStatus, StakingConfig,
 	SudoConfig, TechnicalCommitteeConfig, BABE_GENESIS_EPOCH_CONFIG,
 };
 use alloc::{vec, vec::Vec};
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
+use pallet_revive::is_eth_derived;
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_consensus_babe::AuthorityId as BabeId;
 use sp_consensus_beefy::ecdsa_crypto::AuthorityId as BeefyId;
@@ -111,6 +112,7 @@ pub fn kitchensink_genesis(
 			min_create_bond: 10 * DOLLARS,
 			min_join_bond: 1 * DOLLARS,
 		},
+		revive: ReviveConfig { mapped_accounts: endowed_accounts.iter().filter(|x| ! is_eth_derived(x)).cloned().collect() },
 	})
 }
 

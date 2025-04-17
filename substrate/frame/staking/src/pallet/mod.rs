@@ -196,6 +196,7 @@ pub mod pallet {
 
 		/// The overarching event type.
 		#[pallet::no_default_bounds]
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		/// Handler for the unbalanced reduction when slashing a staker.
