@@ -11,6 +11,7 @@ publish = false
 workspace = true
 
 [dependencies]
+alloy-core = { workspace = true, features = ["sol-types"] }
 assert_matches = { workspace = true }
 codec = { workspace = true }
 

@@ -33,6 +33,7 @@ use frame_support::{
     },
 };
 use sp_core::U256;
+use pallet_revive_uapi::ReturnFlags;
 
 use super::*;
 
@@ -113,12 +114,10 @@ where
         asset: Self::AssetId,
         who: &T::AccountId,
         amount: Self::Balance,
-        preservation: Preservation,
-        precision: Precision,
-        force: Fortitude,
+        _: Preservation,
+        _: Precision,
+        _: Fortitude,
     ) -> Result<Self::Balance, DispatchError> {
-        let eth_address = T::AddressMapper::to_address(who);
-        let address = Address::from(Into::<[u8; 20]>::into(eth_address));
         let checking_account_eth = T::AddressMapper::to_address(&T::CheckingAccount::get());
         let checking_address = Address::from(Into::<[u8; 20]>::into(checking_account_eth));
         let data = transferCall { to: checking_address, value: EU256::from(amount) }.abi_encode();
@@ -130,16 +129,22 @@ where
             DepositLimit::Unchecked,
             data
         );
-        log::trace!(target: "whatiwant", "Result: {:?}", &result);
         if let Ok(return_value) = result {
-	        let is_success = bool::abi_decode(&return_value.data, false).expect("Failed to ABI decode");
-	        if is_success {
-	            // TODO: Should return the balance left in `who`.
-	            Ok(0)
-	        } else {
+        	let has_reverted = return_value.flags.contains(ReturnFlags::REVERT);
+	        if has_reverted {
 	            // TODO: Can actually match errors from contract call
 	            // to provide better errors here.
 	            Err(DispatchError::Unavailable)
+	        } else {
+		        let is_success = bool::abi_decode(&return_value.data, true).expect("Failed to ABI decode");
+		        if is_success {
+		            // TODO: Should return the balance left in `who`.
+		            Ok(0)
+		        } else {
+		            // TODO: Can actually match errors from contract call
+		            // to provide better errors here.
+		            Err(DispatchError::Unavailable)
+		        }
 	        }
         } else {
             Err(DispatchError::Unavailable)
@@ -163,8 +168,8 @@ where
             data
         );
         if let Ok(return_value) = result {
+        	// Ok(0)
 	        let is_success = bool::abi_decode(&return_value.data, false).expect("Failed to ABI decode");
-	        log::trace!(target: "whatiwant", "Is success: {:?}", &is_success);
 	        if is_success {
 	            // TODO: Should return the balance left in `who`.
 	            Ok(0)
@@ -203,20 +208,20 @@ where
     }
 
     fn decrease_balance(
-        asset: Self::AssetId,
-        who: &T::AccountId,
-        amount: Self::Balance,
-        precision: Precision,
-        preservation: Preservation,
+        _: Self::AssetId,
+        _: &T::AccountId,
+        _: Self::Balance,
+        _: Precision,
+        _: Preservation,
         _: Fortitude,
     ) -> Result<Self::Balance, DispatchError> {
         Err(DispatchError::Unavailable)
     }
 
     fn increase_balance(
-        asset: Self::AssetId,
-        who: &T::AccountId,
-        amount: Self::Balance,
+        _: Self::AssetId,
+        _: &T::AccountId,
+        _: Self::Balance,
         _: Precision,
     ) -> Result<Self::Balance, DispatchError> {
         Err(DispatchError::Unavailable)

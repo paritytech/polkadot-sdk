@@ -14,6 +14,9 @@
 // limitations under the License.
 
 use crate::{create_pool_with_wnd_on, foreign_balance_on, imports::*};
+
+use alloy_core::{primitives::U256, sol_types::{sol_data, SolType}};
+use frame_support::traits::fungibles;
 use pallet_revive::{Code, DepositLimit, InstantiateReturnValue};
 use pallet_revive_fixtures::compile_module;
 use sp_core::{crypto::get_public_from_string_or_panic, sr25519};
@@ -1460,11 +1463,16 @@ fn reserve_withdraw_from_untrusted_reserve_fails() {
 #[test]
 fn can_withdraw_and_deposit_erc20() {
 	let sender = AssetHubWestendSender::get();
+	let beneficiary = AssetHubWestendReceiver::get();
 	let checking_account = asset_hub_westend_runtime::xcm_config::CheckingAccount::get();
 
+	// We need to give enough funds for every account involved so they
+	// can call `Contracts::map_account`.
+	let initial_wnd_amount = 10_000_000_000_000u128;
 	AssetHubWestend::fund_accounts(vec![
-		(sender.clone(), 10_000_000_000_000),
-		(checking_account.clone(), 10_000_000_000_000),
+		(sender.clone(), initial_wnd_amount),
+		(beneficiary.clone(), initial_wnd_amount),
+		(checking_account.clone(), initial_wnd_amount),
 	]);
 
 	AssetHubWestend::execute_with(|| {
@@ -1473,34 +1481,42 @@ fn can_withdraw_and_deposit_erc20() {
 		type PolkadotXcm = <AssetHubWestend as AssetHubWestendPallet>::PolkadotXcm;
 		type Contracts = <AssetHubWestend as AssetHubWestendPallet>::Contracts;
 
+		// We need to map all accounts.
 		assert_ok!(Contracts::map_account(RuntimeOrigin::signed(checking_account.clone())));
 		assert_ok!(Contracts::map_account(RuntimeOrigin::signed(sender.clone())));
+		assert_ok!(Contracts::map_account(RuntimeOrigin::signed(beneficiary.clone())));
 
 		let (code, _) = compile_module("erc20").unwrap();
 
+		let initial_amount_u256 = U256::from(1_000_000_000_000u128);
+		let constructor_data = sol_data::Uint::<256>::abi_encode(&initial_amount_u256);
 		let result = Contracts::bare_instantiate(
 			RuntimeOrigin::signed(sender.clone()),
 			0,
-			Weight::from_parts(1_000_000_000, 100_000),
-			DepositLimit::Unchecked,
+			Weight::from_parts(2_000_000_000, 200_000),
+			DepositLimit::Unchecked, // TODO: This shouldn't be unchecked.
 			Code::Upload(code),
-			Vec::new(),
+			constructor_data,
 			None,
 		);
-
 		let Ok(InstantiateReturnValue { addr: erc20_address, .. }) = result.result else { unreachable!("contract should initialize") };
 
+		let erc20_transfer_amount = 100u128;
+		let wnd_amount_for_fees = 1_000_000_000_000u128;
 		let message = Xcm::<RuntimeCall>::builder()
-			.withdraw_asset((Parent, 1_000_000_000_000u128))
-			.pay_fees((Parent, 1_000_000_000_000u128))
-			.withdraw_asset((AccountKey20 { key: erc20_address.into(), network: None }, 100u128))
-			.deposit_asset(AllCounted(1), AssetHubWestendReceiver::get())
+			.withdraw_asset((Parent, wnd_amount_for_fees))
+			.pay_fees((Parent, wnd_amount_for_fees))
+			.withdraw_asset((AccountKey20 { key: erc20_address.into(), network: None }, erc20_transfer_amount))
+			.deposit_asset(AllCounted(1), beneficiary.clone())
 			.build();
-
 		assert_ok!(PolkadotXcm::execute(
 			RuntimeOrigin::signed(sender),
 			Box::new(VersionedXcm::V5(message)),
-			Weight::from_parts(2_000_000_000, 100_000),
+			Weight::from_parts(2_000_000_000, 200_000),
 		));
+
+		// Beneficiary receives the ERC20.
+		let beneficiary_amount = <Contracts as fungibles::Inspect<_>>::balance(erc20_address, &beneficiary);
+		assert_eq!(beneficiary_amount, erc20_transfer_amount);
 	});
 }

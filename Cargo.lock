@@ -1162,6 +1162,7 @@ dependencies = [
 name = "asset-hub-westend-integration-tests"
 version = "1.0.0"
 dependencies = [
+ "alloy-core",
  "assert_matches",
  "asset-test-utils",
  "cumulus-pallet-parachain-system",
