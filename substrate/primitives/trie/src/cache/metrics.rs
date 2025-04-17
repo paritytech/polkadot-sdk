@@ -23,8 +23,6 @@ use prometheus_endpoint::{
 	CounterVec, GaugeVec, HistogramOpts, HistogramVec, Opts, PrometheusError, Registry, U64,
 };
 
-use super::TrieHitStatsSnapshot;
-
 // Register a metric with the given registry.
 fn register<T: Clone + Collector + 'static>(
 	metric: T,
@@ -226,4 +224,46 @@ impl Metrics {
 			.with_label_values(&["value"])
 			.inc_by(stats.value_cache.local_fetch_attempts);
 	}
+}
+
+/// A snapshot of the hit/miss stats.
+#[derive(Default, Copy, Clone, Debug)]
+pub(crate) struct HitStatsSnapshot {
+	pub(crate) shared_hits: u64,
+	pub(crate) shared_fetch_attempts: u64,
+	pub(crate) local_hits: u64,
+	pub(crate) local_fetch_attempts: u64,
+}
+
+impl std::fmt::Display for HitStatsSnapshot {
+	fn fmt(&self, fmt: &mut std::fmt::Formatter) -> std::fmt::Result {
+		let shared_hits = self.shared_hits;
+		let shared_fetch_attempts = self.shared_fetch_attempts;
+		let local_hits = self.local_hits;
+		let local_fetch_attempts = self.local_fetch_attempts;
+
+		if shared_fetch_attempts == 0 && local_hits == 0 {
+			write!(fmt, "empty")
+		} else {
+			let percent_local = (local_hits as f32 / local_fetch_attempts as f32) * 100.0;
+			let percent_shared = (shared_hits as f32 / shared_fetch_attempts as f32) * 100.0;
+			write!(
+				fmt,
+				"local hit rate = {}% [{}/{}], shared hit rate = {}% [{}/{}]",
+				percent_local as u32,
+				local_hits,
+				local_fetch_attempts,
+				percent_shared as u32,
+				shared_hits,
+				shared_fetch_attempts
+			)
+		}
+	}
+}
+
+/// Snapshot of the hit/miss stats for the node cache and the value cache.
+#[derive(Default, Debug, Clone, Copy)]
+pub(crate) struct TrieHitStatsSnapshot {
+	pub(crate) node_cache: HitStatsSnapshot,
+	pub(crate) value_cache: HitStatsSnapshot,
 }

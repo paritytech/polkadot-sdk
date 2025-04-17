@@ -36,6 +36,7 @@
 
 use crate::{Error, NodeCodec};
 use hash_db::Hasher;
+use metrics::{HitStatsSnapshot, TrieHitStatsSnapshot};
 use nohash_hasher::BuildNoHashHasher;
 use parking_lot::{Mutex, MutexGuard, RwLockWriteGuard};
 use schnellru::LruMap;
@@ -275,15 +276,6 @@ struct HitStats {
 	local_fetch_attempts: AtomicU64,
 }
 
-/// A snapshot of the hit/miss stats.
-#[derive(Default, Copy, Clone, Debug)]
-struct HitStatsSnapshot {
-	shared_hits: u64,
-	shared_fetch_attempts: u64,
-	local_hits: u64,
-	local_fetch_attempts: u64,
-}
-
 impl HitStats {
 	/// Returns a snapshot of the hit/miss stats.
 	fn snapshot(&self) -> HitStatsSnapshot {
@@ -303,44 +295,11 @@ impl std::fmt::Display for HitStats {
 	}
 }
 
-impl std::fmt::Display for HitStatsSnapshot {
-	fn fmt(&self, fmt: &mut std::fmt::Formatter) -> std::fmt::Result {
-		let shared_hits = self.shared_hits;
-		let shared_fetch_attempts = self.shared_fetch_attempts;
-		let local_hits = self.local_hits;
-		let local_fetch_attempts = self.local_fetch_attempts;
-
-		if shared_fetch_attempts == 0 && local_hits == 0 {
-			write!(fmt, "empty")
-		} else {
-			let percent_local = (local_hits as f32 / local_fetch_attempts as f32) * 100.0;
-			let percent_shared = (shared_hits as f32 / shared_fetch_attempts as f32) * 100.0;
-			write!(
-				fmt,
-				"local hit rate = {}% [{}/{}], shared hit rate = {}% [{}/{}]",
-				percent_local as u32,
-				local_hits,
-				local_fetch_attempts,
-				percent_shared as u32,
-				shared_hits,
-				shared_fetch_attempts
-			)
-		}
-	}
-}
-
 /// A struct to gather hit/miss stats for the node cache and the value cache.
 #[derive(Default)]
 struct TrieHitStats {
 	node_cache: HitStats,
 	value_cache: HitStats,
-}
-
-/// Snapshot of the hit/miss stats for the node cache and the value cache.
-#[derive(Default, Debug, Clone, Copy)]
-struct TrieHitStatsSnapshot {
-	node_cache: HitStatsSnapshot,
-	value_cache: HitStatsSnapshot,
 }
 
 impl TrieHitStats {
