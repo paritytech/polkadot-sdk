@@ -478,12 +478,12 @@ fn expand_functions(def: &EnvDef) -> TokenStream2 {
 				.map(|s| format!("{s}: {{:?}}"))
 				.collect::<Vec<_>>()
 				.join(", ");
-			let trace_fmt_str = format!("{}({}) = {{:?}}\n", name, params_fmt_str);
+			let trace_fmt_str = format!("{}({}) = {{:?}} gas_consumed: {{:?}}", name, params_fmt_str);
 
 			quote! {
 				// wrap body in closure to make sure the tracing is always executed
 				let result = (|| #body)();
-				::log::trace!(target: "runtime::revive::strace", #trace_fmt_str, #( #trace_fmt_args, )* result);
+				::log::trace!(target: "runtime::revive::strace", #trace_fmt_str, #( #trace_fmt_args, )* result, self.ext.gas_meter().gas_consumed());
 				result
 			}
 		};

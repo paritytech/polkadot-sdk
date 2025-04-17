@@ -48,7 +48,7 @@ pub mod pallet {
 		+ pallet_session::Config<ValidatorId = <Self as frame_system::Config>::AccountId>
 		+ pallet_session::historical::Config
 	{
-		/// The overarching runtime event type
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		/// The offence handler provided by the runtime.
 		type OffenceHandler: OnOffenceHandler<Self::AccountId, IdentificationTuple<Self>, Weight>;

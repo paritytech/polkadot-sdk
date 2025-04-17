@@ -73,6 +73,7 @@ pub mod pallet {
 	#[pallet::config]
 	pub trait Config: pallet_session::Config + frame_system::Config {
 		/// The overarching event type.
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		/// Full identification of the validator.
