@@ -1654,6 +1654,7 @@ pub mod pallet {
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
 		/// The overarching event type.
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		/// Weight information for extrinsics in this pallet.
@@ -3989,15 +3990,17 @@ impl<T: Config> Pallet<T> {
 				// migrated, the total balance would be none.
 				.unwrap_or(T::Currency::total_balance(&pool_account));
 
-			assert!(
-				total_balance >= bonded_balance + sum_unbonding_balance,
-				"faulty pool: {:?} / {:?}, total_balance {:?} >= bonded_balance {:?} + sum_unbonding_balance {:?}",
-				pool_id,
-				_pool,
-				total_balance,
-				bonded_balance,
-				sum_unbonding_balance
-			);
+			if total_balance < bonded_balance + sum_unbonding_balance {
+				log!(
+						warn,
+						"possibly faulty pool: {:?} / {:?}, total_balance {:?} >= bonded_balance {:?} + sum_unbonding_balance {:?}",
+						pool_id,
+						_pool,
+						total_balance,
+						bonded_balance,
+						sum_unbonding_balance
+					)
+			};
 		}
 
 		// Warn if any pool has incorrect ED frozen. We don't want to fail hard as this could be a

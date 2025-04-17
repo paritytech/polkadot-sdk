@@ -32,7 +32,6 @@ xcm-builder = { workspace = true }
 
 [dev-dependencies]
 sp-io = { workspace = true, default-features = true }
-sp-std = { workspace = true, default-features = true }
 
 [features]
 default = ["std"]
