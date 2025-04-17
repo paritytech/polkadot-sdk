@@ -163,6 +163,10 @@ pub trait EthRpc {
 	#[method(name = "eth_syncing")]
 	async fn syncing(&self) -> RpcResult<SyncingStatus>;
 
+	/// Returns true when the client is actively listening for network connections, otherwise false
+	#[method(name = "net_listening")]
+	async fn net_listening(&self) -> RpcResult<bool>;
+
 	/// The string value of current network id
 	#[method(name = "net_version")]
 	async fn net_version(&self) -> RpcResult<String>;
