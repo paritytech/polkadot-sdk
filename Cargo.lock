@@ -15418,7 +15418,6 @@ dependencies = [
  "assert_cmd",
  "async-trait",
  "clap 4.5.13",
- "color-eyre",
  "color-print",
  "cumulus-client-cli",
  "cumulus-client-collator",
@@ -15450,6 +15449,7 @@ dependencies = [
  "parity-scale-codec",
  "polkadot-cli",
  "polkadot-primitives",
+ "predicates 3.0.3",
  "sc-basic-authorship",
  "sc-chain-spec",
  "sc-cli",
@@ -15531,7 +15531,6 @@ dependencies = [
  "asset-hub-westend-runtime",
  "bridge-hub-rococo-runtime",
  "bridge-hub-westend-runtime",
- "clap 4.5.13",
  "collectives-westend-runtime",
  "color-eyre",
  "coretime-rococo-runtime",
@@ -17148,8 +17147,11 @@ checksum = "09963355b9f467184c04017ced4a2ba2d75cbcb4e7462690d388233253d4b1a9"
 dependencies = [
  "anstyle",
  "difflib",
+ "float-cmp",
  "itertools 0.10.5",
+ "normalize-line-endings",
  "predicates-core",
+ "regex",
 ]
 
 [[package]]

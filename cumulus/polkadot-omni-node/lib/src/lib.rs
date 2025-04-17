@@ -25,6 +25,6 @@ mod nodes;
 pub mod extra_commands;
 
 pub use cli::CliConfig;
-pub use command::{run, RunConfig};
+pub use command::{run, RunConfig, run_with_custom_cli};
 pub use common::{chain_spec, runtime};
 pub use nodes::NODE_VERSION;

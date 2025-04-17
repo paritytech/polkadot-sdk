@@ -14,9 +14,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Optional/Additional CLI options of the omni-node-lib to be used by other binaries. See
-//! [`ExtraSubcommands`].
-use clap::{ArgMatches, Command, CommandFactory, FromArgMatches, Parser};
+//! Optional / additional CLI options for binaries built with
+//! `polkadot‑omni‑node‑lib`.
+//!
+/// * Binaries that need extra utilities (e.g. `export-chain-spec`)
+///   should pass [`DefaultExtraSubcommands`] to
+///   `run_with_custom_cli`, which injects that one command.
+/// * Binaries that should stay minimal pass [`NoExtraSubcommand`], which
+///   requests no extras at all.
+
+use clap::{FromArgMatches, Parser};
 use sc_cli::{ExportChainSpecCmd, Result};
 
 use crate::RunConfig;
@@ -33,7 +40,7 @@ use crate::RunConfig;
 ///
 /// 1. Define the subcommand using [`clap::Parser`].
 /// 2. Implement this trait for it.
-/// 3. Use it when running the node via `run::<CliConfig, YourExtraCommand>(run_config)`
+/// 3. Use it when running the node via `run_with_custom_cli::<CliConfig, YourExtraCommand>(run_config)`
 ///
 /// ### Minimal Example:
 ///
@@ -51,10 +58,9 @@ use crate::RunConfig;
 /// pub struct FooCommand;
 ///
 /// impl ExtraSubcommand for FooCommand {
-///     type P = FooCmd;
 ///
-///     fn handle(cmd: FooCmd, _config: &RunConfig) -> sc_cli::Result<()> {
-///         println!("Hello from Foo! {:?}", cmd.foo);
+///   fn handle(cmd: FooCmd, _config: &RunConfig) -> sc_cli::Result<()> {
+///         println!("Hello from Foo! {:?}", cmd.Foo);
 ///         Ok(())
 ///     }
 /// }
@@ -64,7 +70,7 @@ use crate::RunConfig;
 ///
 ///
 /// let config = RunConfig::new(...);
-/// run::<CliConfig, FooCommand>(config)?;
+/// run_with_custom_cli::<CliConfig, FooCommand>(config)?;
 ///
 ///
 /// Running it:
@@ -87,9 +93,8 @@ use crate::RunConfig;
 /// }
 ///
 /// impl ExtraSubcommand for MyExtras {
-///     type P = Self;
 ///
-///     fn handle(cmd: Self, config: &RunConfig) -> sc_cli::Result<()> {
+///   fn handle(cmd: Self, config: &RunConfig) -> sc_cli::Result<()> {
 ///         match cmd {
 ///             MyExtras::Foo(foo) => { ... }
 ///             MyExtras::Bar(bar) => { ... }
@@ -100,40 +105,20 @@ use crate::RunConfig;
 ///
 
 
-/// A trait for CLI subcommands that can be optionally added by downstream consumers.
-pub trait ExtraSubcommand {
-	/// The clap [`Parser`] type representing this extra command (usually a struct or enum).
-	type P: Parser;
-
-	/// Optionally override the subcommand metadata (name, version, help).
-	///
-	/// Defaults to [`Parser::command`] on `Self::P`.
-	fn command() -> Option<Command> {
-		Some(Self::P::command())
-	}
-
-	/// Parse and handle this extra subcommand, if recognized.
-	///
-	/// Returns `Ok(true)` if this subcommand matches and is handled.
-	/// Returns `Ok(false)` if this subcommand is unrelated to the extra handler.
-	/// Returns `Err(_)` if the extra command failed at runtime or parsing.
-	fn handle_with_matches(matches: &ArgMatches, config: &RunConfig) -> Result<bool> {
-		match Self::P::from_arg_matches(matches) {
-			Ok(res) => Self::handle(res, config).map(|_| true),
-			Err(_) => Ok(false),
-		}
-	}
-
+/// Trait implemented by a set of optional sub‑commands**.
+///
+pub trait ExtraSubcommand : Parser{
 	/// Handle the command once it's been parsed.
-	fn handle(p: Self::P, config: &RunConfig) -> Result<()>;
+	fn handle(self, cfg: &RunConfig) -> Result<()>;
 }
 
 /// Built-in extra subcommands provided by `polkadot-omni-node-lib`.
 ///
-/// Currently includes:
+/// Currently, includes:
 /// - `export-chain-spec`
 ///
-/// You can use this by passing [`ExtraSubcommands`] to `run::<CliConfig, ExtraSubcommands>()`.
+/// You can use this by passing [`DefaultExtraSubcommands`] to `run_with_custom_cli::<CliConfig, DefaultExtraSubcommands>()`.
+/// or just calling run::<CliConfig>(config) as this is the default
 /// This enables default support for utilities like:
 ///
 /// ```bash
@@ -142,35 +127,71 @@ pub trait ExtraSubcommand {
 ///
 /// Downstream crates may use this enum directly or extend it with their own subcommands.
 #[derive(Debug, Parser)]
-pub enum ExtraSubcommands {
+pub enum DefaultExtraSubcommands {
 	/// Export the chain spec to JSON.
 	ExportChainSpec(ExportChainSpecCmd),
 }
 
 /// No-op subcommand handler. Use this when a binary does not expose any extra subcommands.
 ///
-/// Acts as the default `ExtraSubcommand` implementation when no extras are provided.
-#[derive(Parser)]
+/// You can use this by passing [`NoExtraSubcommand`] to `run_with_custom_cli::<CliConfig, NoExtraSubcommand>()`.
+#[derive(Debug, Parser)]
 pub struct NoExtraSubcommand;
 
 impl ExtraSubcommand for NoExtraSubcommand {
-	type P = Self;
-	fn handle(_p: NoExtraSubcommand, _config: &RunConfig) -> Result<()> {
+
+	fn handle(self, _cfg: &RunConfig) -> Result<()> {
 		Ok(())
 	}
 }
 
-impl ExtraSubcommand for ExtraSubcommands {
-	type P = Self;
+impl ExtraSubcommand for DefaultExtraSubcommands {
 
-	fn handle(p: ExtraSubcommands, config: &RunConfig) -> Result<()> {
-		match p {
-			ExtraSubcommands::ExportChainSpec(cmd) => {
-				let spec = config.chain_spec_loader.load_spec(&cmd.chain)?;
+	fn handle(self, cfg: &RunConfig) -> Result<()> {
+		match self {
+			DefaultExtraSubcommands::ExportChainSpec(cmd) => {
+				let spec = cfg.chain_spec_loader.load_spec(&cmd.chain)?;
 				cmd.run(spec)?;
-			},
+			}
 		}
-
 		Ok(())
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use assert_cmd::Command;
+	use predicates::str::contains;
+	#[test]
+	fn polkadot_omni_node_help_excludes_export_chain_spec() {
+		// `omni-node --help` should not list "export-chain-spec"
+		let output = Command::cargo_bin("polkadot-omni-node").unwrap()
+			.arg("--help")
+			.assert()
+			.success()
+			.get_output()
+			.stdout.clone();
+		let help_text = String::from_utf8_lossy(&output);
+		assert!(!help_text.contains("export-chain-spec"), "polkadot-omni-node help should NOT list the export-chain-spec subcommand");
+	}
+
+	#[test]
+	fn polkadot_parachain_help_includes_export_chain_spec_and_command_runs() {
+		// `polkadot-parachain --help` should list "export-chain-spec"
+		let help_output = Command::cargo_bin("polkadot-parachain").unwrap()
+			.arg("--help")
+			.assert()
+			.success()
+			.get_output()
+			.stdout.clone();
+		let help_text = String::from_utf8_lossy(&help_output);
+		assert!(help_text.contains("export-chain-spec"), "polkadot-parachain help should list the export-chain-spec subcommand");
+
+		// `polkadot-parachain export-chain-spec --help` should execute without error
+		Command::cargo_bin("polkadot-parachain").unwrap()
+			.args(&["export-chain-spec", "--help"])
+			.assert()
+			.success();
 	}
 }

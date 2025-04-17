@@ -25,12 +25,13 @@ use crate::{
 		types::Block,
 		NodeBlock, NodeExtraArgs,
 	},
-	extra_commands::{ExtraSubcommand, ExtraSubcommands, NoExtraSubcommand},
+	extra_commands::{ExtraSubcommand, NoExtraSubcommand},
 	fake_runtime_api,
 	nodes::DynNodeSpecExt,
 	runtime::BlockNumber,
 };
-use clap::{Args, CommandFactory, FromArgMatches};
+use clap::{command, Args, Command, CommandFactory, FromArgMatches};
+use futures::TryFutureExt;
 #[cfg(feature = "runtime-benchmarks")]
 use cumulus_client_service::storage_proof_size::HostFunctions as ReclaimHostFunctions;
 use cumulus_primitives_core::ParaId;
@@ -40,6 +41,7 @@ use sc_cli::{CliConfiguration, Result, SubstrateCli};
 use sp_runtime::traits::AccountIdConversion;
 #[cfg(feature = "runtime-benchmarks")]
 use sp_runtime::traits::HashingFor;
+use crate::extra_commands::DefaultExtraSubcommands;
 
 const DEFAULT_DEV_BLOCK_TIME_MS: u64 = 3000;
 
@@ -110,34 +112,55 @@ fn new_node_spec(
 }
 
 /// Parse command line arguments into service configuration.
-/// Entrypoint to run the CLI with optional extra subcommands.
+pub fn run<CliConfig: crate::cli::CliConfig>(cmd_config: RunConfig) -> Result<()> {
+	run_with_custom_cli::<CliConfig, DefaultExtraSubcommands>(cmd_config)
+}
+
+/// Parse command‑line arguments into service configuration and inject an
+/// optional extra sub‑command**.
 ///
-/// This function wraps the parsing of arguments and dispatching to either:
-/// - A built-in subcommand (e.g., `key`, `export-genesis-head`)
-/// - A user-defined extra subcommand via the `ExtraSubcommand` trait
+/// `run_with_custom_cli` builds the base CLI for the node binary, then asks the
+/// `Extra` type for an optional extra sub‑command via
+/// `Extra::extra_command()`.
+///
+/// * If `Extra::extra_command()` returns `Some(cmd)` the command is bolted onto
+///   the CLI (it shows up in `--help` and can be invoked).
+/// * If it returns `None` the binary exposes only the core Substrate / Cumulus
+///   commands.
+///
+/// When the user actually invokes that extra sub‑command,
+/// `Extra::from_arg_matches` returns a parsed value which is immediately passed
+/// to `extra.handle(&cfg)` and the process exits.  Otherwise control falls
+/// through to the normal node‑startup / utility sub‑command match.
 ///
 /// # Type Parameters
-/// - `CliConfig`: Customization trait for user facing information of the node binary CLI
-/// - `Extra`: Type referencing an optional set of subcommands to be handled by the node
-pub fn run<CliConfig, Extra: ExtraSubcommand = NoExtraSubcommand>(cmd_config: RunConfig) -> Result<()>
+/// * `CliConfig` – customization trait supplying user‑facing info (name,
+///   description, version) for the binary.
+/// * `Extra` – an implementation of [`ExtraSubcommand`].  Use
+///   *[`DefaultExtraSubcommands`]* in binaries that want some extra subcommands such as `export‑chain-spec`;
+///   use *[`NoExtraSubcommand`]* when the binary should expose no extra subcommands.
+pub fn run_with_custom_cli<CliConfig, Extra: ExtraSubcommand>(cmd_config: RunConfig) -> Result<()>
 where
 	CliConfig: crate::cli::CliConfig,
-	Extra: ExtraSubcommand,
-{
-	let cli_command = if let Some(extra_cli) = Extra::command() {
+	Extra: ExtraSubcommand{
+
+	let cli_command = if let Some(extra_cli) = Some(<Extra as CommandFactory>::command()) {
 		Cli::<CliConfig>::augment_args(extra_cli)
 	} else {
 		Cli::<CliConfig>::command()
 	};
 	let matches = cli_command.get_matches();
 
-	if ExtraSubcommands::handle_with_matches(&matches, &cmd_config)? {
-		return Ok(())
+
+	// if user invoked the extra sub‑command, run it and exit
+	if let Ok(extra) = Extra::from_arg_matches(&matches) {
+		extra.handle(&cmd_config)?;
+		return Ok(());
 	}
 
-	// No extra subcommand, parse base CLI and proceed normally
-	let mut cli =
-		Cli::<CliConfig>::from_arg_matches(&matches).map_err(|e| sc_cli::Error::Cli(e.into()))?;
+
+	// If no extra subcommand matched, fall back to handling base subcommands
+	let mut cli = Cli::<CliConfig>::from_arg_matches(&matches).map_err(|e| sc_cli::Error::Cli(e.into()))?;
 	cli.chain_spec_loader = Some(cmd_config.chain_spec_loader);
 
 	#[allow(deprecated)]

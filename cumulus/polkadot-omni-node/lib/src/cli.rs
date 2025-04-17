@@ -36,6 +36,8 @@ use std::{
 	marker::PhantomData,
 	path::PathBuf,
 };
+use clap::builder::Str;
+
 /// Trait that can be used to customize some of the customer-facing info related to the node binary
 /// that is being built using this library.
 ///
@@ -137,6 +139,7 @@ pub enum Subcommand {
 /// CLI Options shipped with `polkadot-omni-node`.
 #[derive(clap::Parser)]
 #[command(
+	version = env!("CARGO_PKG_VERSION"),
 	propagate_version = true,
 	args_conflicts_with_subcommands = true,
 	subcommand_negates_reqs = true
