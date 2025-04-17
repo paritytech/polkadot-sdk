@@ -14,7 +14,6 @@
 // limitations under the License.
 
 use crate::imports::*;
-use rococo_system_emulated_network::asset_hub_rococo_emulated_chain::AssetHubRococo;
 
 /// Relay Chain should be able to open and close lane in System Parachain
 /// when `OriginKind::Superuser`.

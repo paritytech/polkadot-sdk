@@ -62,25 +62,14 @@ mod imports {
 			genesis::{AssetHubRococoAssetOwner, ED as ASSET_HUB_ROCOCO_ED},
 			AssetHubRococoParaPallet as AssetHubRococoPallet,
 		},
-		penpal_emulated_chain::{
-			penpal_runtime::xcm_config::{
-				CustomizableAssetFromSystemAssetHub as PenpalCustomizableAssetFromSystemAssetHub,
-				LocalReservableFromAssetHub as PenpalLocalReservableFromAssetHub,
-				LocalTeleportableToAssetHub as PenpalLocalTeleportableToAssetHub,
-				UsdtFromAssetHub as PenpalUsdtFromAssetHub,
-			},
-			PenpalAParaPallet as PenpalAPallet, PenpalAssetOwner,
-			PenpalBParaPallet as PenpalBPallet, ED as PENPAL_ED,
-		},
 		rococo_emulated_chain::{
 			genesis::ED as ROCOCO_ED,
 			rococo_runtime::{
 				governance as rococo_governance,
-				governance::pallet_custom_origins::Origin::Treasurer,
 				xcm_config::{
 					UniversalLocation as RococoUniversalLocation, XcmConfig as RococoXcmConfig,
 				},
-				Dmp, OriginCaller as RococoOriginCaller,
+				OriginCaller as RococoOriginCaller,
 			},
 			RococoRelayPallet as RococoPallet,
 		},
@@ -109,12 +98,26 @@ mod imports {
 		},
 		collectives_westend_emulated_chain::CollectivesWestendParaPallet as CollectivesWestendPallet,
 		coretime_westend_emulated_chain::CoretimeWestendParaPallet as CoretimeWestendPallet,
-		penpal_emulated_chain::penpal_runtime::xcm_config::UniversalLocation as PenpalUniversalLocation,
+		penpal_emulated_chain::{
+			penpal_runtime::xcm_config::{
+				CustomizableAssetFromSystemAssetHub as PenpalCustomizableAssetFromSystemAssetHub,
+				LocalReservableFromAssetHub as PenpalLocalReservableFromAssetHub,
+				LocalTeleportableToAssetHub as PenpalLocalTeleportableToAssetHub,
+				UniversalLocation as PenpalUniversalLocation,
+				UsdtFromAssetHub as PenpalUsdtFromAssetHub,
+			},
+			PenpalAParaPallet as PenpalAPallet, PenpalAssetOwner,
+			PenpalBParaPallet as PenpalBPallet,
+		},
 		people_westend_emulated_chain::PeopleWestendParaPallet as PeopleWestendPallet,
 		westend_emulated_chain::{
 			genesis::ED as WESTEND_ED,
-			westend_runtime::xcm_config::{
-				UniversalLocation as WestendUniversalLocation, XcmConfig as WestendXcmConfig,
+			westend_runtime::{
+				governance::pallet_custom_origins::Origin::Treasurer,
+				xcm_config::{
+					UniversalLocation as WestendUniversalLocation, XcmConfig as WestendXcmConfig,
+				},
+				Dmp,
 			},
 			WestendRelayPallet as WestendPallet,
 		},
