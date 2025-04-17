@@ -20,11 +20,11 @@
 pub mod cli;
 mod command;
 mod common;
+pub mod extra_commands;
 mod fake_runtime_api;
 mod nodes;
-pub mod extra_commands;
 
 pub use cli::CliConfig;
-pub use command::{run, RunConfig, run_with_custom_cli};
+pub use command::{run, run_with_custom_cli, RunConfig};
 pub use common::{chain_spec, runtime};
 pub use nodes::NODE_VERSION;

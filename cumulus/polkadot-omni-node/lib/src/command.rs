@@ -25,23 +25,22 @@ use crate::{
 		types::Block,
 		NodeBlock, NodeExtraArgs,
 	},
-	extra_commands::{ExtraSubcommand, NoExtraSubcommand},
+	extra_commands::{DefaultExtraSubcommands, ExtraSubcommand, NoExtraSubcommand},
 	fake_runtime_api,
 	nodes::DynNodeSpecExt,
 	runtime::BlockNumber,
 };
 use clap::{command, Args, Command, CommandFactory, FromArgMatches};
-use futures::TryFutureExt;
 #[cfg(feature = "runtime-benchmarks")]
 use cumulus_client_service::storage_proof_size::HostFunctions as ReclaimHostFunctions;
 use cumulus_primitives_core::ParaId;
 use frame_benchmarking_cli::{BenchmarkCmd, SUBSTRATE_REFERENCE_HARDWARE};
+use futures::TryFutureExt;
 use log::info;
 use sc_cli::{CliConfiguration, Result, SubstrateCli};
 use sp_runtime::traits::AccountIdConversion;
 #[cfg(feature = "runtime-benchmarks")]
 use sp_runtime::traits::HashingFor;
-use crate::extra_commands::DefaultExtraSubcommands;
 
 const DEFAULT_DEV_BLOCK_TIME_MS: u64 = 3000;
 
@@ -123,10 +122,9 @@ pub fn run<CliConfig: crate::cli::CliConfig>(cmd_config: RunConfig) -> Result<()
 /// `Extra` type for an optional extra sub‑command via
 /// `Extra::extra_command()`.
 ///
-/// * If `Extra::extra_command()` returns `Some(cmd)` the command is bolted onto
-///   the CLI (it shows up in `--help` and can be invoked).
-/// * If it returns `None` the binary exposes only the core Substrate / Cumulus
-///   commands.
+/// * If `Extra::extra_command()` returns `Some(cmd)` the command is bolted onto the CLI (it shows
+///   up in `--help` and can be invoked).
+/// * If it returns `None` the binary exposes only the core Substrate / Cumulus commands.
 ///
 /// When the user actually invokes that extra sub‑command,
 /// `Extra::from_arg_matches` returns a parsed value which is immediately passed
@@ -134,16 +132,16 @@ pub fn run<CliConfig: crate::cli::CliConfig>(cmd_config: RunConfig) -> Result<()
 /// through to the normal node‑startup / utility sub‑command match.
 ///
 /// # Type Parameters
-/// * `CliConfig` – customization trait supplying user‑facing info (name,
-///   description, version) for the binary.
-/// * `Extra` – an implementation of [`ExtraSubcommand`].  Use
-///   *[`DefaultExtraSubcommands`]* in binaries that want some extra subcommands such as `export‑chain-spec`;
-///   use *[`NoExtraSubcommand`]* when the binary should expose no extra subcommands.
+/// * `CliConfig` – customization trait supplying user‑facing info (name, description, version) for
+///   the binary.
+/// * `Extra` – an implementation of [`ExtraSubcommand`].  Use *[`DefaultExtraSubcommands`]* in
+///   binaries that want some extra subcommands such as `export‑chain-spec`; use
+///   *[`NoExtraSubcommand`]* when the binary should expose no extra subcommands.
 pub fn run_with_custom_cli<CliConfig, Extra: ExtraSubcommand>(cmd_config: RunConfig) -> Result<()>
 where
 	CliConfig: crate::cli::CliConfig,
-	Extra: ExtraSubcommand{
-
+	Extra: ExtraSubcommand,
+{
 	let cli_command = if let Some(extra_cli) = Some(<Extra as CommandFactory>::command()) {
 		Cli::<CliConfig>::augment_args(extra_cli)
 	} else {
@@ -151,16 +149,15 @@ where
 	};
 	let matches = cli_command.get_matches();
 
-
 	// if user invoked the extra sub‑command, run it and exit
 	if let Ok(extra) = Extra::from_arg_matches(&matches) {
 		extra.handle(&cmd_config)?;
 		return Ok(());
 	}
 
-
 	// If no extra subcommand matched, fall back to handling base subcommands
-	let mut cli = Cli::<CliConfig>::from_arg_matches(&matches).map_err(|e| sc_cli::Error::Cli(e.into()))?;
+	let mut cli =
+		Cli::<CliConfig>::from_arg_matches(&matches).map_err(|e| sc_cli::Error::Cli(e.into()))?;
 	cli.chain_spec_loader = Some(cmd_config.chain_spec_loader);
 
 	#[allow(deprecated)]

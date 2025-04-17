@@ -21,9 +21,7 @@
 
 mod chain_spec;
 
-use polkadot_omni_node_lib::{
-	run, CliConfig as CliConfigT, RunConfig, NODE_VERSION,
-};
+use polkadot_omni_node_lib::{run, CliConfig as CliConfigT, RunConfig, NODE_VERSION};
 
 struct CliConfig;
 
@@ -54,6 +52,7 @@ fn main() -> color_eyre::eyre::Result<()> {
 	);
 	// This enables polkadot-parachain to support additional subcommands like `export-chain-spec`.
 	// To add more, extend the `ExtraSubcommands` enum in
-	// `cumulus/polkadot-omni-node/lib/src/extra_commands.rs` and handle them in `ExtraSubcommands::handle`.
+	// `cumulus/polkadot-omni-node/lib/src/extra_commands.rs` and handle them in
+	// `ExtraSubcommands::handle`.
 	Ok(run::<CliConfig>(config)?)
 }

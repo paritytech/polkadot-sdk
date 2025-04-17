@@ -24,7 +24,7 @@ use crate::{
 	},
 };
 use chain_spec_builder::ChainSpecBuilder;
-use clap::{Command, CommandFactory, FromArgMatches, ValueEnum};
+use clap::{builder::Str, Command, CommandFactory, FromArgMatches, ValueEnum};
 use sc_chain_spec::ChainSpec;
 use sc_cli::{
 	CliConfiguration, DefaultConfigurationValues, ImportParams, KeystoreParams, NetworkParams,
@@ -36,7 +36,6 @@ use std::{
 	marker::PhantomData,
 	path::PathBuf,
 };
-use clap::builder::Str;
 
 /// Trait that can be used to customize some of the customer-facing info related to the node binary
 /// that is being built using this library.
