@@ -285,7 +285,6 @@ impl pallet_staking_async::Config for Runtime {
 }
 
 impl pallet_staking_async_rc_client::Config for Runtime {
-	type RuntimeEvent = RuntimeEvent;
 	type AHStakingInterface = Staking;
 	type SendToRelayChain = DeliverToRelay;
 	type RelayChainOrigin = EnsureRoot<AccountId>;

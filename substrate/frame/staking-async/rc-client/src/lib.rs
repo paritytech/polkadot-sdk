@@ -27,18 +27,20 @@
 //!
 //! ## Incoming Messages
 //!
-//! All incoming messages are handled via `Call`. They are all gated to be dispatched only by the
+//! All incoming messages are handled via [`Call`]. They are all gated to be dispatched only by the
 //! relay chain origin, as per [`Config::RelayChainOrigin`].
 //!
-//! After queuing, they are passed to pallet-staking-async via [`AHStakingInterface`].
+//! After potential queuing, they are passed to pallet-staking-async via [`AHStakingInterface`].
 //!
 //! The calls are:
 //!
 //! * [`Call::relay_session_report`]: A report from the relay chain, indicating the end of a
-//!   session. We allow ourselves to know an implementation detail:
+//!   session. We allow ourselves to know an implementation detail: **The ending of session `x`
+//!   always implies start of session `x+1` and planning of session `x+2`.** This allows us to have
+//!   just one message per session.
 //!
-//! **The ending of session `x` always implies start of session `x+1` and planning of session
-//! `x+2`.** This allows us to have just one message per session.
+//! > Note that in the code, due to historical reasons, planning of a new session is called
+//! > `new_session`.
 //!
 //! * [`Call::relay_new_offence`]: A report of one or more offences on the relay chain.
 //!
@@ -48,13 +50,21 @@
 //!
 //! ## Local Interfaces
 //!
-//! Within this pallet, we need to talk to the staking pallet in AH. This is done via
+//! Within this pallet, we need to talk to the staking-async pallet in AH. This is done via
 //! [`AHStakingInterface`] trait.
 //!
 //! The staking pallet in AH has no communication with session pallet whatsoever, therefore its
 //! implementation of `SessionManager`, and it associated type `SessionInterface` no longer exists.
 //! Moreover, pallet-staking-async no longer has a notion of timestamp locally, and only relies in
 //! the timestamp passed in in the `SessionReport`.
+//!
+//! ## Shared Types
+//!
+//! Note that a number of types need to be shared between this crate and `ah-client`. For now, as a
+//! convention, they are kept in this crate. This can later be decoupled into a shared crate, or
+//! `sp-staking`.
+//!
+//! TODO: the rest should go to staking-async docs.
 //!
 //! ## Session Change
 //!
@@ -68,7 +78,7 @@
 //!
 //! The session pallet issues the following events:
 //!
-//! end_session / start_session / new_session
+//! end_session / start_session / new_session (plan session)
 //!
 //! * end 0, start 1, plan 2
 //! * end 1, start 2, plan 3 (new validator set returned)
@@ -80,10 +90,11 @@
 //!
 //! * once a request to plan session 3 comes in, it must return a validator set. This is queued
 //!   internally in the session pallet, and is enacted later.
-//! * at the same time, staking increases its notion of `current_era` to 1. Yet, `active_era` is
-//!   still 0. This is because the validator elected for era 1 are not yet active in the session
+//! * at the same time, staking increases its notion of `current_era` by 1. Yet, `active_era` is
+//!   intact. This is because the validator elected for era n+1 are not yet active in the session
 //!   pallet.
-//! * once a request to start session 3 comes in, staking will rotate its `active_era` to also be 1.
+//! * once a request to _start_ session 3 comes in, staking will rotate its `active_era` to also be
+//!   incremented to n+1.
 //!
 //! ### Asynchronous Model
 //!
@@ -131,8 +142,8 @@ macro_rules! log {
 /// This trait should only encapsulate our _outgoing_ communication to the RC. Any incoming
 /// communication comes it directly via our calls.
 ///
-/// In a real runtime, this is implemented via XCM calls, much like how the coretime pallet works.
-/// In a test runtime, it can be wired to direct function call.
+/// In a real runtime, this is implemented via XCM calls, much like how the core-time pallet works.
+/// In a test runtime, it can be wired to direct function calls.
 pub trait SendToRelayChain {
 	/// The validator account ids.
 	type AccountId;
@@ -150,8 +161,11 @@ pub struct ValidatorSetReport<AccountId> {
 	///
 	/// Is an always incrementing identifier for this validator set, the activation of which can be
 	/// later pointed to in a `SessionReport`.
+	///
+	/// Implementation detail: within `pallet-staking-async`, this is always set to the
+	/// `planning-era` (aka. `CurrentEra`).
 	pub id: u32,
-	/// Signal the relay chain that it can prune up to this session, ans enough eras have passed.
+	/// Signal the relay chain that it can prune up to this session, and enough eras have passed.
 	///
 	/// This can always have a safety buffer. For example, whatever is a sane value, it can be
 	/// `value - 5`.
@@ -216,6 +230,9 @@ pub struct SessionReport<AccountId> {
 	///
 	/// If `Some((timestamp, id))`, it means that the new validator set was activated at the given
 	/// timestamp, and the id of the validator set is `id`.
+	///
+	/// This `id` is what was previously communicated to the RC as a part of
+	/// [`ValidatorSetReport::id`].
 	pub activation_timestamp: Option<(u64, u32)>,
 	/// If this session report is self-contained, then it is false.
 	///
@@ -325,6 +342,13 @@ pub mod pallet {
 		StorageValue<_, SessionReport<T::AccountId>, OptionQuery>;
 
 	/// The last session report's `end_index` that we have acted upon.
+	///
+	/// This allows this pallet to ensure a sequentially increasing sequence of session reports
+	/// passed to staking.
+	///
+	/// Note that with the XCM being the backbone of communication, we have a guarantee on the
+	/// ordering of messages. As long as the RC sends session reports in order, we _eventually_
+	/// receive them in the same correct order as well.
 	#[pallet::storage]
 	pub type LastSessionReportEndingIndex<T: Config> = StorageValue<_, SessionIndex, OptionQuery>;
 
@@ -334,10 +358,6 @@ pub mod pallet {
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
-		/// Overarching runtime event type.
-		#[allow(deprecated)]
-		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
-
 		/// An origin type that allows us to be sure a call is being dispatched by the relay chain.
 		///
 		/// It be can be configured to something like `Root` or relay chain or similar.
@@ -417,8 +437,12 @@ pub mod pallet {
 			T::RelayChainOrigin::ensure_origin_or_root(origin)?;
 
 			match LastSessionReportEndingIndex::<T>::get() {
-				None => {},
-				Some(last) if report.end_index == last + 1 => {},
+				None => {
+					// first session report post genesis, okay.
+				},
+				Some(last) if report.end_index == last + 1 => {
+					// incremental -- good
+				},
 				Some(incorrect) => {
 					log!(
 						error,
@@ -469,7 +493,9 @@ pub mod pallet {
 		/// Called to report one or more new offenses on the relay chain.
 		#[pallet::call_index(2)]
 		#[pallet::weight(
-			// TODO: since this is in a parachain, we need better benchmarking
+			// `on_new_offences` is benchmarked by `pallet-staking-async`
+			// events are free
+			// origin check is negligible.
 			Weight::default()
 		)]
 		pub fn relay_new_offence(

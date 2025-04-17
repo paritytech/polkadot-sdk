@@ -31,8 +31,6 @@ pub mod testing_utils;
 pub(crate) mod mock;
 #[cfg(test)]
 mod tests;
-// #[cfg(test)]
-// mod tests_paged_election;
 
 pub mod asset;
 pub mod election_size_tracker;
@@ -60,10 +58,7 @@ use sp_runtime::{
 	traits::{AtLeast32BitUnsigned, Convert, StaticLookup, Zero},
 	Perbill, Perquintill, Rounding, RuntimeDebug, Saturating,
 };
-use sp_staking::{
-	offence::{Offence, OffenceError, ReportOffence},
-	EraIndex, ExposurePage, OnStakingUpdate, PagedExposureMetadata,
-};
+use sp_staking::{EraIndex, ExposurePage, OnStakingUpdate, PagedExposureMetadata};
 pub use sp_staking::{Exposure, IndividualExposure, StakerStatus};
 pub use weights::WeightInfo;
 
@@ -683,43 +678,13 @@ impl<T: Config> Convert<T::AccountId, Option<Exposure<T::AccountId, BalanceOf<T>
 	}
 }
 
-/// Filter historical offences out and only allow those from the bonding period.
-pub struct FilterHistoricalOffences<T, R> {
-	_inner: core::marker::PhantomData<(T, R)>,
-}
-
-impl<T, Reporter, Offender, R, O> ReportOffence<Reporter, Offender, O>
-	for FilterHistoricalOffences<Pallet<T>, R>
-where
-	T: Config,
-	R: ReportOffence<Reporter, Offender, O>,
-	O: Offence<Offender>,
-{
-	fn report_offence(reporters: Vec<Reporter>, offence: O) -> Result<(), OffenceError> {
-		// Disallow any slashing from before the current bonding period.
-		let offence_session = offence.session_index();
-		let bonded_eras = BondedEras::<T>::get();
-
-		if bonded_eras.first().filter(|(_, start)| offence_session >= *start).is_some() {
-			R::report_offence(reporters, offence)
-		} else {
-			<Pallet<T>>::deposit_event(Event::<T>::OldSlashingReportDiscarded {
-				session_index: offence_session,
-			});
-			Ok(())
-		}
-	}
-
-	fn is_known_offence(offenders: &[Offender], time_slot: &O::TimeSlot) -> bool {
-		R::is_known_offence(offenders, time_slot)
-	}
-}
-
 /// A utility struct that provides a way to check if a given account is a staker.
 ///
 /// This struct implements the `Contains` trait, allowing it to determine whether
 /// a particular account is currently staking by checking if the account exists in
 /// the staking ledger.
+///
+/// Intended to be used in [`crate::Config::Filter`].
 pub struct AllStakers<T: Config>(core::marker::PhantomData<T>);
 
 impl<T: Config> Contains<T::AccountId> for AllStakers<T> {

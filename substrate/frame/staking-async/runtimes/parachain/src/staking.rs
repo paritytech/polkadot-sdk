@@ -284,7 +284,6 @@ impl pallet_staking_async::Config for Runtime {
 }
 
 impl pallet_staking_async_rc_client::Config for Runtime {
-	type RuntimeEvent = RuntimeEvent;
 	type RelayChainOrigin = EnsureRoot<AccountId>;
 	type AHStakingInterface = Staking;
 	type SendToRelayChain = XcmToRelayChain<xcm_config::XcmRouter>;

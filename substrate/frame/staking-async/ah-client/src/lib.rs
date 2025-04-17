@@ -41,13 +41,14 @@
 //!
 //! Living on the relay chain, this pallet must:
 //!
-//! * Implement `SessionManager` (and historical variant thereof).
-//! * Implement `OnOffenceHandler`.
-//! * Implement reward related APIs.
-//! * If further communication is needed to the session pallet, either a custom trait (`trait
-//!   SessionInterface`) or tightly coupling the session-pallet should work.
+//! * Implement [`pallet_session::SessionManager`] (and historical variant thereof) to _give_
+//!   information to the session pallet.
+//! * Implements [`SessionInterface`] to _receive_ information from the session pallet
+//! * Implement [`sp_staking::offence::OnOffenceHandler`].
+//! * Implement reward related APIs ([`frame_support::traits::RewardsReporter`]).
 //!
-//! TODO:
+//! ## Future Plans
+//!
 //! * Governance functions to force set validators.
 
 #![cfg_attr(not(feature = "std"), no_std)]
@@ -63,8 +64,7 @@ use sp_staking::{
 	SessionIndex,
 };
 
-/// Re-export the `FullIdentification` type from pallet-staking that should be used as in a rc
-/// runtime.
+/// The balance type seen from this pallet's PoV.
 pub type BalanceOf<T> = <T as Config>::CurrencyBalance;
 
 const LOG_TARGET: &str = "runtime::staking::ah-client";
@@ -129,6 +129,8 @@ pub trait SessionInterface {
 	fn prune_up_to(index: SessionIndex);
 
 	/// Report an offence.
+	///
+	/// This is used to disable validators directly on the RC, until the next validator set.
 	fn report_offence(offender: Self::ValidatorId, severity: OffenceSeverity);
 }
 
@@ -235,10 +237,6 @@ pub mod pallet {
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
-		/// Overarching runtime event type.
-		#[allow(deprecated)]
-		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
-
 		/// The balance type of the runtime's currency interface.
 		type CurrencyBalance: sp_runtime::traits::AtLeast32BitUnsigned
 			+ codec::FullCodec
@@ -276,7 +274,7 @@ pub mod pallet {
 		type SessionInterface: SessionInterface<ValidatorId = Self::AccountId>;
 
 		/// A fallback implementation to delegate logic to when the pallet is in
-		/// `OperatingMode::Passive`.
+		/// [`OperatingMode::Passive`].
 		///
 		/// This type must implement the `historical::SessionManager` and `OnOffenceHandler`
 		/// interface and is expected to behave as a stand-in for this pallet’s core logic when
@@ -334,6 +332,9 @@ pub mod pallet {
 	pub type NextSessionChangesValidators<T: Config> = StorageValue<_, u32, OptionQuery>;
 
 	/// The session index at which the latest elected validator set was applied.
+	///
+	/// This is used to determine if an offence, given a session index, is in the current active era
+	/// or not.
 	#[pallet::storage]
 	pub type ValidatorSetAppliedAt<T: Config> = StorageValue<_, SessionIndex, OptionQuery>;
 
@@ -391,8 +392,8 @@ pub mod pallet {
 		/// The validator set received is way too small, as per
 		/// [`Config::MinimumValidatorSetSize`].
 		SetTooSmallAndDropped,
-		/// Something occurred that should never happen under normal operation.
-		/// Logged as an event for fail-safe observability.
+		/// Something occurred that should never happen under normal operation. Logged as an event
+		/// for fail-safe observability.
 		Unexpected(UnexpectedKind),
 	}
 
@@ -435,16 +436,6 @@ pub mod pallet {
 			// Check the operating mode.
 			let mode = Mode::<T>::get();
 			ensure!(mode.can_accept_validator_set(), Error::<T>::Blocked);
-
-			/*
-			if !mode.can_accept_validator_set() {
-				log!(warn, "Validator set received while in {:?} mode", mode);
-				Self::deposit_event(Event::Unexpected(
-					UnexpectedKind::ReceivedValidatorSetWhilePassive,
-				));
-				return Ok(());
-			}
-			*/
 
 			let maybe_merged_report = match IncompleteValidatorSetReport::<T>::take() {
 				Some(old) => old.merge(report.clone()),
