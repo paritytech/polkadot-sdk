@@ -1512,7 +1512,7 @@ impl<T: Config> ElectionProvider for Pallet<T> {
 	fn asap() {
 		// prepare our snapshot so we can "hopefully" run a fallback.
 		Self::create_targets_snapshot().unwrap();
-		for p in Self::lsp()..=Self::msp() {
+		for p in (Self::lsp()..=Self::msp()).rev() {
 			Self::create_voters_snapshot_paged(p).unwrap()
 		}
 	}
