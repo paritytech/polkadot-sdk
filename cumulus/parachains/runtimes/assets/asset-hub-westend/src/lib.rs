@@ -31,7 +31,6 @@ pub mod ah_migration;
 mod bag_thresholds;
 pub mod governance;
 mod staking;
-pub mod ah_migration;
 
 extern crate alloc;
 
