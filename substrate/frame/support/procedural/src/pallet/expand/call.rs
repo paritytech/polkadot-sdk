@@ -272,6 +272,17 @@ pub fn expand_call(def: &mut Def) -> proc_macro2::TokenStream {
 		Err(e) => return e.into_compile_error(),
 	};
 
+	// Add deprecation warning for empty call enums
+	let empty_enum_deprecation = if methods.is_empty() {
+		quote::quote! {
+			#[deprecated(
+				note = "Empty Call enum creates confusing pallet variants within RuntimeCall. Consider adding at least one dispatchable call to your pallet."
+			)]
+		}
+	} else {
+		quote::quote! {}
+	};
+
 	quote::quote_spanned!(span =>
 		#[doc(hidden)]
 		mod warnings {
@@ -316,6 +327,7 @@ pub fn expand_call(def: &mut Def) -> proc_macro2::TokenStream {
 		pub enum #call_ident<#type_decl_bounded_gen> #where_clause {
 			#[doc(hidden)]
 			#[codec(skip)]
+			#empty_enum_deprecation
 			__Ignore(
 				::core::marker::PhantomData<(#type_use_gen,)>,
 				#frame_support::Never,
