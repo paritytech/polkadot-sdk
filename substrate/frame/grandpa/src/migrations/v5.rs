@@ -20,12 +20,6 @@ use alloc::vec::Vec;
 use codec::Decode;
 use core::marker::PhantomData;
 use frame::{prelude::*, traits::UncheckedOnRuntimeUpgrade, VersionedMigration};
-// use frame_support::{
-// 	migrations::VersionedMigration,
-// 	storage,
-// 	traits::{Get, UncheckedOnRuntimeUpgrade},
-// 	weights::Weight,
-// };
 use sp_consensus_grandpa::AuthorityList;
 
 const GRANDPA_AUTHORITIES_KEY: &[u8] = b":grandpa_authorities";
