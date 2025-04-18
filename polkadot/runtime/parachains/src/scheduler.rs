@@ -36,28 +36,35 @@
 //! number of groups as availability cores. Validator groups will be assigned to different
 //! availability cores over time.
 
-use crate::{assigner_coretime, configuration, initializer::SessionChangeNotification};
+
+use crate::{configuration, initializer::SessionChangeNotification, paras::AssignCoretime};
 use alloc::{
 	collections::{btree_map::BTreeMap, vec_deque::VecDeque},
 	vec::Vec,
 };
 use frame_support::{pallet_prelude::*, traits::Defensive};
 use frame_system::pallet_prelude::BlockNumberFor;
-pub use polkadot_core_primitives::v2::BlockNumber;
 use polkadot_primitives::{CoreIndex, GroupIndex, GroupRotationInfo, Id as ParaId, ValidatorIndex};
-use sp_runtime::traits::One;
+use sp_runtime::traits::{One, Saturating};
 
+pub use polkadot_core_primitives::v2::BlockNumber;
+pub use assigner_coretime::{PartsOf57600, CoreAssignment};
 pub use pallet::*;
 
 #[cfg(test)]
 mod tests;
 
-// TODO: Add back + fix.
-// pub mod migration;
+/// Implements core assignments as coming from the Coretime chain.
+///
+/// Depends on the ondemand pallet to assign pool cores.
+mod assigner_coretime;
 
 #[frame_support::pallet]
 pub mod pallet {
-	use super::*;
+
+	use crate::on_demand;
+
+use super::*;
 
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(3);
 
@@ -68,8 +75,25 @@ pub mod pallet {
 
 	#[pallet::config]
 	pub trait Config:
-		frame_system::Config + configuration::Config + assigner_coretime::Config
+		frame_system::Config + configuration::Config + on_demand::Config
 	{
+	}
+
+	#[pallet::error]
+	pub enum Error<T> {
+		/// assign_core was called with no assignments.
+		AssignmentsEmpty,
+		/// assign_core with non allowed insertion.
+		DisallowedInsert,
+	}
+
+	impl<T> From<assigner_coretime::Error> for Error<T> {
+		fn from(e: assigner_coretime::Error) -> Self {
+			match e {
+				assigner_coretime::Error::AssignmentsEmpty => Error::AssignmentsEmpty,
+				assigner_coretime::Error::DisallowedInsert => Error::DisallowedInsert,
+			}
+		}
 	}
 
 	/// All the validator groups. One for each core. Indices are into `ActiveValidators` - not the
@@ -92,6 +116,14 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type SessionStartBlock<T: Config> = StorageValue<_, BlockNumberFor<T>, ValueQuery>;
 
+	/// Additional storage implemented as alias in assigner_coretime submodule.
+	///
+	/// Alias needed because pallet macro does not support nested modules.
+	type _CoreSchedules = ();
+
+	/// Additional sotrage implemented as alias in assigner_coretime submodule
+	type _CoreDescriptors = ();
+
 	/// Availability timeout status of a core.
 	pub(crate) struct AvailabilityTimeoutStatus<BlockNumber> {
 		/// Is the core already timed out?
@@ -107,7 +139,40 @@ pub mod pallet {
 	}
 }
 
+impl<T: Config> AssignCoretime for Pallet<T> {
+	// Only for testing purposes.
+	fn assign_coretime(id: ParaId) -> DispatchResult {
+		let current_block = frame_system::Pallet::<T>::block_number();
+
+		// Add a new core and assign the para to it.
+		let mut config = configuration::ActiveConfig::<T>::get();
+		let core = config.scheduler_params.num_cores;
+		config.scheduler_params.num_cores.saturating_inc();
+
+		// `assign_coretime` is only called at genesis or by root, so setting the active
+		// config here is fine.
+		configuration::Pallet::<T>::force_set_active_config(config);
+
+		let begin = current_block + One::one();
+		let assignment = vec![(pallet_broker::CoreAssignment::Task(id.into()), PartsOf57600::FULL)];
+		assigner_coretime::assign_core::<T>(CoreIndex(core), begin, assignment, None).map_err(Error::<T>::from)?;
+		Ok(())
+	}
+}
+
 impl<T: Config> Pallet<T> {
+	/// Assign a particular core ala Coretime.
+	pub(crate) fn assign_core(
+		core: CoreIndex,
+		begin: BlockNumberFor<T>,
+		assignment: Vec<(CoreAssignment, PartsOf57600)>,
+		end_hint: Option<BlockNumberFor<T>>,
+	) -> DispatchResult {
+		// assigner_coretime::assign_core::<T>(core, begin, assignment, end_hint).map_err(Error::from)?;
+		assigner_coretime::assign_core::<T>(core, begin, assignment, end_hint).map_err(Error::<T>::from)?;
+		Ok(())
+	}
+
 	/// Advance claim queue.
 	///
 	/// Parameters:
@@ -118,7 +183,7 @@ impl<T: Config> Pallet<T> {
 	pub(crate) fn advance_claim_queue<F: Fn(CoreIndex) -> bool>(
 		is_blocked: F,
 	) -> BTreeMap<CoreIndex, ParaId> {
-		let mut assignments = assigner_coretime::Pallet::<T>::advance_assignments(is_blocked);
+		let mut assignments = assigner_coretime::advance_assignments::<T, F>(is_blocked);
 		assignments.split_off(&CoreIndex(Self::num_availability_cores() as _));
 		assignments
 	}
@@ -129,7 +194,7 @@ impl<T: Config> Pallet<T> {
 	pub(crate) fn claim_queue() -> BTreeMap<CoreIndex, VecDeque<ParaId>> {
 		let config = configuration::ActiveConfig::<T>::get();
 		let lookahead = config.scheduler_params.lookahead;
-		let mut queue = assigner_coretime::Pallet::<T>::peek_next_block(lookahead);
+		let mut queue = assigner_coretime::peek_next_block::<T>(lookahead);
 		queue.split_off(&CoreIndex(Self::num_availability_cores() as _));
 		queue
 	}

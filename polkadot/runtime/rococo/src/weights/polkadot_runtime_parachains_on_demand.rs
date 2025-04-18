@@ -70,10 +70,8 @@ impl<T: frame_system::Config> polkadot_runtime_parachains::on_demand::WeightInfo
 		Weight::from_parts(32_540_668, 0)
 			.saturating_add(Weight::from_parts(0, 3733))
 			// Standard Error: 161
-			.saturating_add(Weight::from_parts(28_039, 0).saturating_mul(s.into()))
 			.saturating_add(T::DbWeight::get().reads(5))
 			.saturating_add(T::DbWeight::get().writes(4))
-			.saturating_add(Weight::from_parts(0, 8).saturating_mul(s.into()))
 	}
 	/// Storage: `OnDemandAssignmentProvider::QueueStatus` (r:1 w:1)
 	/// Proof: `OnDemandAssignmentProvider::QueueStatus` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)

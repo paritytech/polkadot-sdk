@@ -26,7 +26,7 @@ use pallet_broker::CoreIndex as BrokerCoreIndex;
 #[benchmarks]
 mod benchmarks {
 	use super::*;
-	use assigner_coretime::PartsOf57600;
+	use scheduler::PartsOf57600;
 
 	#[benchmark]
 	fn request_revenue_at() {
