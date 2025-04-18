@@ -2954,6 +2954,53 @@ impl<T: Config> Pallet<T> {
 		})
 	}
 
+	/// Computes the weight cost using the provided `WeightTrader`.
+	/// This function is supposed to be used ONLY in `XcmPaymentApi::query_weight_to_asset_fee`
+	/// Runtime API implementation, as it can introduce a massive change to the total issuance.
+	///
+	/// The provided `WeightTrader` must be the same as the one used in the XcmExecutor to ensure
+	/// uniformity in the weight cost calculation.
+	///
+	/// NOTE: Currently this function uses a workaround that should be good enough for all practical
+	/// uses: passes `u128::MAX / 2 == 2^127` of the specified asset to the `WeightTrader` as
+	/// payment and computes the weight cost as the difference between this and the unspent amount.
+	///
+	/// Some weight traders could add the provided payment to some account's balance. However,
+	/// it should practically never result in overflow because even currencies with a lot of decimal
+	/// digits (say 18) usually have the total issuance of billions (`x * 10^9`) or trillions (`x *
+	/// 10^12`) at max, much less than `2^127 / 10^18 =~ 1.7 * 10^20` (170 billion billion). Thus,
+	/// any account's balance most likely holds less than `2^127`, so adding `2^127` won't result in
+	/// `u128` overflow.
+	pub fn query_weight_to_asset_fee<Trader: xcm_executor::traits::WeightTrader>(
+		weight: Weight,
+		asset: VersionedAssetId,
+	) -> Result<u128, XcmPaymentApiError> {
+		let asset: AssetId = asset.clone().try_into()
+			.map_err(|e| {
+				tracing::error!(target: "xcm::pallet::query_weight_to_asset_fee", ?e, ?asset, "Failed to convert versioned asset");
+				XcmPaymentApiError::VersionedConversionFailed
+			})?;
+
+		let max_amount = u128::MAX / 2;
+		let max_payment: Asset = (asset.clone(), max_amount).into();
+		let context = XcmContext::with_message_id(XcmHash::default());
+
+		let mut trader = Trader::new();
+
+		let unspent = trader.buy_weight(weight, max_payment.into(), &context)
+			.map_err(|e| {
+				tracing::error!(target: "xcm::pallet::query_weight_to_asset_fee", ?e, ?asset, "Failed to buy weight");
+				XcmPaymentApiError::AssetNotFound
+			})?;
+		let Some(unspent) = unspent.fungible.get(&asset) else {
+			tracing::error!(target: "xcm::pallet::query_weight_to_asset_fee", ?asset, "The trader didn't return the needed fungible asset");
+			return Err(XcmPaymentApiError::AssetNotFound);
+		};
+
+		let paid = max_amount - unspent;
+		Ok(paid)
+	}
+
 	/// Given a `destination` and XCM `message`, return assets to be charged as XCM delivery fees.
 	pub fn query_delivery_fees(
 		destination: VersionedLocation,
