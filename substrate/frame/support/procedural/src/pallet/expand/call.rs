@@ -279,6 +279,8 @@ pub fn expand_call(def: &mut Def) -> proc_macro2::TokenStream {
 				note = "Empty call enums are aggregated into the RuntimeCall enum, consider adding at least one dispatchable call."
 			)]
 		}
+	} else {
+		quote::quote! {}
 	};
 
 	quote::quote_spanned!(span =>
