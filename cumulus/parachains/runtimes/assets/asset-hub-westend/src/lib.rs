@@ -27,18 +27,17 @@ include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 mod genesis_config_presets;
 mod weights;
 pub mod xcm_config;
-
-// Configurations for next functionality.
+pub mod ah_migration;
 mod bag_thresholds;
 pub mod governance;
 mod staking;
-use governance::{
-	pallet_custom_origins, FellowsBodyId, FellowshipAdmin, GeneralAdmin, StakingAdmin, Treasurer,
-};
 pub mod ah_migration;
 
 extern crate alloc;
 
+use governance::{
+	pallet_custom_origins, FellowsBodyId, FellowshipAdmin, GeneralAdmin, StakingAdmin, Treasurer,
+};
 use alloc::{vec, vec::Vec};
 use assets_common::{
 	local_and_foreign_assets::{LocalFromLeft, TargetFromLeft},
@@ -1296,6 +1295,8 @@ impl pallet_ah_migrator::Config for Runtime {
 	type RcToAhPalletsOrigin = ah_migration::RcToAhPalletsOrigin;
 	type Preimage = Preimage;
 	type SendXcm = xcm_config::XcmRouter;
+	type AhIntraMigrationCalls = ah_migration::call_filter::CallsEnabledDuringMigration;
+	type AhPostMigrationCalls = ah_migration::call_filter::CallsEnabledAfterMigration;
 	type AhWeightInfo = (); // TODO: weights::pallet_ah_migrator::WeightInfo;
 }
 
