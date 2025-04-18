@@ -43,8 +43,7 @@ use frame_support::{
 	BoundedVec, CloneNoBound, DebugNoBound, EqNoBound, PartialEqNoBound,
 };
 use scale_info::TypeInfo;
-use sp_runtime::traits::Zero;
-use sp_runtime::{DispatchResult, Perquintill, Rounding, Saturating};
+use sp_runtime::{traits::Zero, DispatchResult, Perquintill, Rounding, Saturating};
 use sp_staking::{EraIndex, OnStakingUpdate, StakingAccount, StakingInterface};
 
 /// Just a Balance/BlockNumber tuple to encode when a chunk of funds will be unlocked.
