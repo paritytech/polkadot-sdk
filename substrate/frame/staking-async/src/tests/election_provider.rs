@@ -417,7 +417,7 @@ mod paged_on_initialize_era_election_planner {
 			.validator_count(3)
 			.build_and_execute(|| {
 				// single page.
-				let pages: BlockNumber = Staking::election_pages().into();
+				let pages: BlockNumber = EraElectionPlanner::<T>::election_pages().into();
 				assert_eq!(pages, 1);
 
 				// we will start the next election at the start of block 20

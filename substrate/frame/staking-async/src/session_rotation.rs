@@ -489,7 +489,7 @@ impl<T: Config> Rotator<T> {
 			EraElectionPlanner::<T>::do_elect_paged(p);
 		}
 
-		crate::ElectableStashes::<T>::get().into_iter().collect()
+		crate::ElectableStashes::<T>::take().into_iter().collect()
 	}
 
 	#[cfg(any(feature = "try-runtime", test))]
@@ -720,7 +720,7 @@ impl<T: Config> Rotator<T> {
 	}
 
 	fn cleanup_old_era(starting_era: EraIndex) {
-		Pallet::<T>::clear_election_metadata();
+		EraElectionPlanner::<T>::cleanup();
 
 		// discard the ancient era info.
 		if let Some(old_era) = starting_era.checked_sub(T::HistoryDepth::get() + 1) {
@@ -733,17 +733,42 @@ impl<T: Config> Rotator<T> {
 /// Manager type which collects the election results from [`Config::ElectionProvider`] and
 /// finalizes the planning of a new era.
 ///
+/// This type managed 3 storage items:
+///
+/// * [`crate::VoterSnapshotStatus`]
+/// * [`crate::NextElectionPage`]
+/// * [`crate::ElectableStashes`]
+///
 /// A new election is fetched over multiple pages, and finalized upon fetching the last page.
 ///
 /// * The intermediate state of fetching the election result is kept in [`NextElectionPage`]. If
 ///   `Some(_)` something is ongoing, otherwise not.
 /// * We fully trust [`Config::ElectionProvider`] to give us a full set of validators, with enough
-///   backing. Note that older versions of this pallet had a `MinimumValidatorCount` to double-check
-///   this, but we don't check it anymore.
-/// * This function returns no weight. Its weight should be taken account in the e2e benchmarking of
-///   the [`Config::ElectionProvider`].
+///   backing after all calls to `maybe_fetch_election_results` are done. Note that older versions
+///   of this pallet had a `MinimumValidatorCount` to double-check this, but we don't check it
+///   anymore.
+/// * `maybe_fetch_election_results` returns no weight. Its weight should be taken account in the
+///   e2e benchmarking of the [`Config::ElectionProvider`].
+///
+/// TODOs:
+///
+/// * Add a try-state check based on the 3 storage items
+/// * Move snapshot creation functions here as well.
 pub(crate) struct EraElectionPlanner<T: Config>(PhantomData<T>);
 impl<T: Config> EraElectionPlanner<T> {
+	/// Cleanup all associated storage items.
+	pub(crate) fn cleanup() {
+		VoterSnapshotStatus::<T>::kill();
+		NextElectionPage::<T>::kill();
+		ElectableStashes::<T>::kill();
+		Pallet::<T>::register_weight(T::DbWeight::get().writes(3));
+	}
+
+	/// Fetches the number of pages configured by the election provider.
+	pub(crate) fn election_pages() -> u32 {
+		<<T as Config>::ElectionProvider as ElectionProvider>::Pages::get()
+	}
+
 	/// Plan a new election
 	pub(crate) fn plan_new_election() -> Result<(), <T::ElectionProvider as ElectionProvider>::Error>
 	{
@@ -751,6 +776,7 @@ impl<T: Config> EraElectionPlanner<T> {
 			.inspect_err(|e| log!(warn, "Election provider failed to start: {:?}", e))
 	}
 
+	/// Hook to be used in the pallet's on-initialize.
 	pub(crate) fn maybe_fetch_election_results() {
 		if let Ok(true) = T::ElectionProvider::status() {
 			crate::log!(
@@ -766,7 +792,7 @@ impl<T: Config> EraElectionPlanner<T> {
 			);
 
 			let current_page = NextElectionPage::<T>::get()
-				.unwrap_or(Pallet::<T>::election_pages().defensive_saturating_sub(1));
+				.unwrap_or(Self::election_pages().defensive_saturating_sub(1));
 			let maybe_next_page = current_page.checked_sub(1);
 			crate::log!(debug, "fetching page {:?}, next {:?}", current_page, maybe_next_page);
 

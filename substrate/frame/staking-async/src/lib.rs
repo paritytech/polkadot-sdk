@@ -82,7 +82,7 @@ use frame_support::{
 use ledger::LedgerIntegrityState;
 use scale_info::TypeInfo;
 use sp_runtime::{
-	traits::{AtLeast32BitUnsigned, Convert, StaticLookup},
+	traits::{AtLeast32BitUnsigned, StaticLookup},
 	Perbill, RuntimeDebug,
 };
 use sp_staking::{EraIndex, ExposurePage, PagedExposureMetadata};
@@ -401,22 +401,6 @@ pub enum Forcing {
 impl Default for Forcing {
 	fn default() -> Self {
 		Forcing::NotForcing
-	}
-}
-
-/// A typed conversion from stash account ID to the active exposure of nominators
-/// on that account.
-///
-/// Active exposure is the exposure of the validator set currently validating, i.e. in
-/// `active_era`. It can differ from the latest planned exposure in `current_era`.
-pub struct ExposureOf<T>(core::marker::PhantomData<T>);
-
-impl<T: Config> Convert<T::AccountId, Option<Exposure<T::AccountId, BalanceOf<T>>>>
-	for ExposureOf<T>
-{
-	fn convert(validator: T::AccountId) -> Option<Exposure<T::AccountId, BalanceOf<T>>> {
-		ActiveEra::<T>::get()
-			.map(|active_era| <Pallet<T>>::eras_stakers(active_era.index, &validator))
 	}
 }
 

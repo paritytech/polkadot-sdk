@@ -32,13 +32,11 @@
 //! state consistency.
 
 use crate::{
-	asset, log, BalanceOf, Bonded, Config, Error, Ledger, Pallet, Payee, RewardDestination,
-	VirtualStakers, DecodeWithMemTracking,
+	asset, log, BalanceOf, Bonded, Config, DecodeWithMemTracking, Error, Ledger, Pallet, Payee,
+	RewardDestination, VirtualStakers,
 };
-use codec::{Decode, Encode, HasCompact, MaxEncodedLen};
-use sp_runtime::Perquintill;
-use sp_runtime::Rounding;
 use alloc::collections::BTreeMap;
+use codec::{Decode, Encode, HasCompact, MaxEncodedLen};
 use frame_support::{
 	defensive, ensure,
 	traits::{Defensive, DefensiveSaturating, Get},
@@ -47,7 +45,7 @@ use frame_support::{
 use scale_info::TypeInfo;
 #[cfg(any(feature = "runtime-benchmarks", test))]
 use sp_runtime::traits::Zero;
-use sp_runtime::{DispatchResult, Saturating};
+use sp_runtime::{DispatchResult, Perquintill, Rounding, Saturating};
 use sp_staking::{EraIndex, OnStakingUpdate, StakingAccount, StakingInterface};
 
 /// Just a Balance/BlockNumber tuple to encode when a chunk of funds will be unlocked.

@@ -15,8 +15,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Staking FRAME Pallet.
+//! `pallet-staking-async`'s main `pallet` module.
 
+use crate::{
+	asset, slashing, weights::WeightInfo, AccountIdLookupOf, ActiveEraInfo, BalanceOf, EraPayout,
+	EraRewardPoints, ExposurePage, Forcing, LedgerIntegrityState, MaxNominationsOf,
+	NegativeImbalanceOf, Nominations, NominationsQuota, PositiveImbalanceOf, RewardDestination,
+	StakingLedger, UnappliedSlash, UnlockChunk, ValidatorPrefs,
+};
 use alloc::{format, vec::Vec};
 use codec::Codec;
 use frame_election_provider_support::{ElectionProvider, SortedListProvider, VoteWeight};
@@ -35,6 +41,7 @@ use frame_support::{
 	BoundedBTreeSet, BoundedVec,
 };
 use frame_system::{ensure_root, ensure_signed, pallet_prelude::*};
+pub use impls::*;
 use rand::seq::SliceRandom;
 use rand_chacha::{
 	rand_core::{RngCore, SeedableRng},
@@ -52,15 +59,6 @@ use sp_staking::{
 };
 
 mod impls;
-
-pub use impls::*;
-
-use crate::{
-	asset, slashing, weights::WeightInfo, AccountIdLookupOf, ActiveEraInfo, BalanceOf, EraPayout,
-	EraRewardPoints, ExposurePage, Forcing, LedgerIntegrityState, MaxNominationsOf,
-	NegativeImbalanceOf, Nominations, NominationsQuota, PositiveImbalanceOf, RewardDestination,
-	StakingLedger, UnappliedSlash, UnlockChunk, ValidatorPrefs,
-};
 
 // The speculative number of spans are used as an input of the weight annotation of
 // [`Call::unbond`], as the post dispatch weight may depend on the number of slashing span on the
@@ -1208,10 +1206,6 @@ pub mod pallet {
 		/// The dispatch origin for this call must be _Signed_ by the stash account.
 		///
 		/// Emits `Bonded`.
-		/// ## Complexity
-		/// - Independent of the arguments. Moderate complexity.
-		/// - O(1).
-		/// - Three extra DB entries.
 		///
 		/// NOTE: Two of the storage writes (`Self::bonded`, `Self::payee`) are _never_ cleaned
 		/// unless the `origin` falls below _existential deposit_ (or equal to 0) and gets removed
@@ -1263,10 +1257,6 @@ pub mod pallet {
 		/// any limitation on the amount that can be added.
 		///
 		/// Emits `Bonded`.
-		///
-		/// ## Complexity
-		/// - Independent of the arguments. Insignificant complexity.
-		/// - O(1).
 		#[pallet::call_index(1)]
 		#[pallet::weight(T::WeightInfo::bond_extra())]
 		pub fn bond_extra(
@@ -1407,10 +1397,6 @@ pub mod pallet {
 		/// slashing spans associated with the stash account in the [`SlashingSpans`] storage type,
 		/// otherwise the call will fail. The call weight is directly proportional to
 		/// `num_slashing_spans`.
-		///
-		/// ## Complexity
-		/// O(S) where S is the number of slashing spans to remove
-		/// NOTE: Weight annotation is the kill scenario, we refund otherwise.
 		#[pallet::call_index(3)]
 		#[pallet::weight(T::WeightInfo::withdraw_unbonded_kill(*num_slashing_spans))]
 		pub fn withdraw_unbonded(
@@ -1466,11 +1452,6 @@ pub mod pallet {
 		/// Effects will be felt at the beginning of the next era.
 		///
 		/// The dispatch origin for this call must be _Signed_ by the controller, not the stash.
-		///
-		/// ## Complexity
-		/// - The transaction's complexity is proportional to the size of `targets` (N)
-		/// which is capped at CompactAssignments::LIMIT (T::MaxNominations).
-		/// - Both the reads and writes follow a similar pattern.
 		#[pallet::call_index(5)]
 		#[pallet::weight(T::WeightInfo::nominate(targets.len() as u32))]
 		pub fn nominate(
@@ -1564,13 +1545,6 @@ pub mod pallet {
 		/// Effects will be felt instantly (as soon as this function is completed successfully).
 		///
 		/// The dispatch origin for this call must be _Signed_ by the controller, not the stash.
-		///
-		/// ## Complexity
-		/// - O(1)
-		/// - Independent of the arguments. Insignificant complexity.
-		/// - Contains a limited number of reads.
-		/// - Writes are limited to the `origin` account key.
-		/// ---------
 		#[pallet::call_index(7)]
 		#[pallet::weight(T::WeightInfo::set_payee())]
 		pub fn set_payee(
@@ -1603,12 +1577,6 @@ pub mod pallet {
 		/// Effects will be felt instantly (as soon as this function is completed successfully).
 		///
 		/// The dispatch origin for this call must be _Signed_ by the stash, not the controller.
-		///
-		/// ## Complexity
-		/// O(1)
-		/// - Independent of the arguments. Insignificant complexity.
-		/// - Contains a limited number of reads.
-		/// - Writes are limited to the `origin` account key.
 		#[pallet::call_index(8)]
 		#[pallet::weight(T::WeightInfo::set_controller())]
 		pub fn set_controller(origin: OriginFor<T>) -> DispatchResult {
@@ -1632,9 +1600,6 @@ pub mod pallet {
 		/// Sets the ideal number of validators.
 		///
 		/// The dispatch origin must be Root.
-		///
-		/// ## Complexity
-		/// O(1)
 		#[pallet::call_index(9)]
 		#[pallet::weight(T::WeightInfo::set_validator_count())]
 		pub fn set_validator_count(
@@ -1653,9 +1618,6 @@ pub mod pallet {
 		/// `T::MaxValidatorSet`.
 		///
 		/// The dispatch origin must be Root.
-		///
-		/// ## Complexity
-		/// Same as [`Self::set_validator_count`].
 		#[pallet::call_index(10)]
 		#[pallet::weight(T::WeightInfo::set_validator_count())]
 		pub fn increase_validator_count(
@@ -1676,9 +1638,6 @@ pub mod pallet {
 		/// `T::MaxValidatorSet`.
 		///
 		/// The dispatch origin must be Root.
-		///
-		/// ## Complexity
-		/// Same as [`Self::set_validator_count`].
 		#[pallet::call_index(11)]
 		#[pallet::weight(T::WeightInfo::set_validator_count())]
 		pub fn scale_validator_count(origin: OriginFor<T>, factor: Percent) -> DispatchResult {
@@ -1701,10 +1660,6 @@ pub mod pallet {
 		/// The election process starts multiple blocks before the end of the era.
 		/// Thus the election process may be ongoing when this is called. In this case the
 		/// election will continue until the next era is triggered.
-		///
-		/// ## Complexity
-		/// - No arguments.
-		/// - Weight: O(1)
 		#[pallet::call_index(12)]
 		#[pallet::weight(T::WeightInfo::force_no_eras())]
 		pub fn force_no_eras(origin: OriginFor<T>) -> DispatchResult {
@@ -1723,10 +1678,6 @@ pub mod pallet {
 		/// The election process starts multiple blocks before the end of the era.
 		/// If this is called just before a new era is triggered, the election process may not
 		/// have enough blocks to get a result.
-		///
-		/// ## Complexity
-		/// - No arguments.
-		/// - Weight: O(1)
 		#[pallet::call_index(13)]
 		#[pallet::weight(T::WeightInfo::force_new_era())]
 		pub fn force_new_era(origin: OriginFor<T>) -> DispatchResult {
@@ -1851,10 +1802,6 @@ pub mod pallet {
 		/// Rebond a portion of the stash scheduled to be unlocked.
 		///
 		/// The dispatch origin must be signed by the controller.
-		///
-		/// ## Complexity
-		/// - Time complexity: O(L), where L is unlocking chunks
-		/// - Bounded by `MaxUnlockingChunks`.
 		#[pallet::call_index(19)]
 		#[pallet::weight(T::WeightInfo::rebond(T::MaxUnlockingChunks::get() as u32))]
 		pub fn rebond(

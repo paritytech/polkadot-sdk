@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Implementations for the Staking FRAME Pallet.
+//! `pallet-staking-async`'s main `impl` blocks.
 
 use crate::{
 	asset,
@@ -44,6 +44,7 @@ use frame_support::{
 	weights::Weight,
 };
 use frame_system::{pallet_prelude::BlockNumberFor, RawOrigin};
+use pallet_staking_async_rc_client::{self as rc_client};
 use sp_runtime::{
 	traits::{CheckedAdd, Saturating, StaticLookup, Zero},
 	ArithmeticError, DispatchResult, Perbill,
@@ -72,19 +73,6 @@ use sp_runtime::TryRuntimeError;
 const NPOS_MAX_ITERATIONS_COEFFICIENT: u32 = 2;
 
 impl<T: Config> Pallet<T> {
-	/// Fetches the number of pages configured by the election provider.
-	pub fn election_pages() -> u32 {
-		<<T as Config>::ElectionProvider as ElectionProvider>::Pages::get()
-	}
-
-	/// Clears up all election preparation metadata in storage.
-	pub(crate) fn clear_election_metadata() {
-		VoterSnapshotStatus::<T>::kill();
-		NextElectionPage::<T>::kill();
-		ElectableStashes::<T>::kill();
-		Self::register_weight(T::DbWeight::get().writes(3));
-	}
-
 	/// Fetches the ledger associated with a controller or stash account, if any.
 	pub fn ledger(account: StakingAccount<T::AccountId>) -> Result<StakingLedger<T>, Error<T>> {
 		StakingLedger::<T>::get(account)
@@ -756,7 +744,7 @@ impl<T: Config> Pallet<T> {
 	/// Register some amount of weight directly with the system pallet.
 	///
 	/// This is always mandatory weight.
-	fn register_weight(weight: Weight) {
+	pub(crate) fn register_weight(weight: Weight) {
 		<frame_system::Pallet<T>>::register_extra_weight_unchecked(
 			weight,
 			DispatchClass::Mandatory,
@@ -1062,7 +1050,6 @@ impl<T: Config> ElectionDataProvider for Pallet<T> {
 	}
 }
 
-use pallet_staking_async_rc_client::{self as rc_client};
 impl<T: Config> rc_client::AHStakingInterface for Pallet<T> {
 	type AccountId = T::AccountId;
 	type MaxValidatorSet = T::MaxValidatorSet;
