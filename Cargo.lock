@@ -27864,9 +27864,8 @@ dependencies = [
 
 [[package]]
 name = "zombienet-configuration"
-version = "0.2.29"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f4e0e7e93b56f7fdea2e732399caff7f773a1ef4c19a98a24514b390f832504e"
+version = "0.2.30"
+source = "git+https://github.com/paritytech/zombienet-sdk.git?rev=f686bf95cbfd61430cb83c9e15683193498be3fe#f686bf95cbfd61430cb83c9e15683193498be3fe"
 dependencies = [
  "anyhow",
  "lazy_static",
@@ -27885,9 +27884,8 @@ dependencies = [
 
 [[package]]
 name = "zombienet-orchestrator"
-version = "0.2.29"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4a36a3983d7c06e30f585ba99e983c5d28b9622b44d8e5ba11a9718d2712c418"
+version = "0.2.30"
+source = "git+https://github.com/paritytech/zombienet-sdk.git?rev=f686bf95cbfd61430cb83c9e15683193498be3fe#f686bf95cbfd61430cb83c9e15683193498be3fe"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -27918,9 +27916,8 @@ dependencies = [
 
 [[package]]
 name = "zombienet-prom-metrics-parser"
-version = "0.2.29"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "70f596e81ddcd8c6d70abcd8f6b336dac6bfdd7a94f1fce3696b8889231084b0"
+version = "0.2.30"
+source = "git+https://github.com/paritytech/zombienet-sdk.git?rev=f686bf95cbfd61430cb83c9e15683193498be3fe#f686bf95cbfd61430cb83c9e15683193498be3fe"
 dependencies = [
  "pest",
  "pest_derive",
@@ -27929,9 +27926,8 @@ dependencies = [
 
 [[package]]
 name = "zombienet-provider"
-version = "0.2.29"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0431363423a2a378a24d4148056e80cdf45911f238a2e597d4eb2b8a3b2ae334"
+version = "0.2.30"
+source = "git+https://github.com/paritytech/zombienet-sdk.git?rev=f686bf95cbfd61430cb83c9e15683193498be3fe#f686bf95cbfd61430cb83c9e15683193498be3fe"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -27960,9 +27956,8 @@ dependencies = [
 
 [[package]]
 name = "zombienet-sdk"
-version = "0.2.29"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f725d029b34acea1e5de4df09835de70594d828db57338c528dea52753be9343"
+version = "0.2.30"
+source = "git+https://github.com/paritytech/zombienet-sdk.git?rev=f686bf95cbfd61430cb83c9e15683193498be3fe#f686bf95cbfd61430cb83c9e15683193498be3fe"
 dependencies = [
  "async-trait",
  "futures",
@@ -27978,9 +27973,8 @@ dependencies = [
 
 [[package]]
 name = "zombienet-support"
-version = "0.2.29"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e3cfa5555e6725c65e1dfbec6fcd49ef2799ac1a89d4fe56255ed21882275cee"
+version = "0.2.30"
+source = "git+https://github.com/paritytech/zombienet-sdk.git?rev=f686bf95cbfd61430cb83c9e15683193498be3fe#f686bf95cbfd61430cb83c9e15683193498be3fe"
 dependencies = [
  "anyhow",
  "async-trait",
