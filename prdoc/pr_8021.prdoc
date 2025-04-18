@@ -39,3 +39,5 @@ crates:
   bump: none
 - name: polkadot-runtime-parachains
   bump: patch
+- name: yet-another-parachain-runtime
+  bump: patch
