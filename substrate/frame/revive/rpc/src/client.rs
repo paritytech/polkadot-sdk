@@ -751,7 +751,7 @@ impl Client {
 		Result::<CallTrace, EthTransactError>::decode(&mut &bytes[..])?
 			.map_err(ClientError::TransactError)
 	}
-	/// Get the EVM block for for the given Substrate block.
+	/// Get the EVM block for the given Substrate block.
 	pub async fn evm_block(
 		&self,
 		block: Arc<SubstrateBlock>,
