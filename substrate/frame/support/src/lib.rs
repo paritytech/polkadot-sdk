@@ -122,9 +122,9 @@ pub use sp_runtime::{
 	self, print, traits::Printable, ConsensusEngineId, MAX_MODULE_ERROR_ENCODED_SIZE,
 };
 
-pub use crate::migrations::VersionedMigration;
+pub use self::migrations::VersionedMigration;
 
-pub use crate::weights::constants::{
+pub use self::weights::constants::{
 	RocksDbWeight, WEIGHT_REF_TIME_PER_MICROS, WEIGHT_REF_TIME_PER_NANOS,
 };
 
