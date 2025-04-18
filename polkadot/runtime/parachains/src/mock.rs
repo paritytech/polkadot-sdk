@@ -21,8 +21,7 @@ use crate::{
 	inclusion::{self, AggregateMessageOrigin, UmpQueueId},
 	initializer, on_demand, origin, paras,
 	paras::ParaKind,
-	paras_inherent, scheduler,
-	session_info, shared, ParaId,
+	paras_inherent, scheduler, session_info, shared, ParaId,
 };
 use frame_support::pallet_prelude::*;
 
@@ -341,7 +340,7 @@ impl crate::disputes::SlashingHandler<BlockNumber> for Test {
 	fn initializer_on_new_session(_: SessionIndex) {}
 }
 
-impl crate::scheduler::Config for Test { }
+impl crate::scheduler::Config for Test {}
 
 pub struct TestMessageQueueWeight;
 impl pallet_message_queue::WeightInfo for TestMessageQueueWeight {

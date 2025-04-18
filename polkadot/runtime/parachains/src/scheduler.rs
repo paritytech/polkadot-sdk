@@ -36,7 +36,6 @@
 //! number of groups as availability cores. Validator groups will be assigned to different
 //! availability cores over time.
 
-
 use crate::{configuration, initializer::SessionChangeNotification, paras::AssignCoretime};
 use alloc::{
 	collections::{btree_map::BTreeMap, vec_deque::VecDeque},
@@ -47,9 +46,9 @@ use frame_system::pallet_prelude::BlockNumberFor;
 use polkadot_primitives::{CoreIndex, GroupIndex, GroupRotationInfo, Id as ParaId, ValidatorIndex};
 use sp_runtime::traits::{One, Saturating};
 
-pub use polkadot_core_primitives::v2::BlockNumber;
-pub use assigner_coretime::{PartsOf57600, CoreAssignment};
+pub use assigner_coretime::{CoreAssignment, PartsOf57600};
 pub use pallet::*;
+pub use polkadot_core_primitives::v2::BlockNumber;
 
 #[cfg(test)]
 mod tests;
@@ -64,7 +63,7 @@ pub mod pallet {
 
 	use crate::on_demand;
 
-use super::*;
+	use super::*;
 
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(3);
 
@@ -74,10 +73,7 @@ use super::*;
 	pub struct Pallet<T>(_);
 
 	#[pallet::config]
-	pub trait Config:
-		frame_system::Config + configuration::Config + on_demand::Config
-	{
-	}
+	pub trait Config: frame_system::Config + configuration::Config + on_demand::Config {}
 
 	#[pallet::error]
 	pub enum Error<T> {
@@ -155,7 +151,8 @@ impl<T: Config> AssignCoretime for Pallet<T> {
 
 		let begin = current_block + One::one();
 		let assignment = vec![(pallet_broker::CoreAssignment::Task(id.into()), PartsOf57600::FULL)];
-		assigner_coretime::assign_core::<T>(CoreIndex(core), begin, assignment, None).map_err(Error::<T>::from)?;
+		assigner_coretime::assign_core::<T>(CoreIndex(core), begin, assignment, None)
+			.map_err(Error::<T>::from)?;
 		Ok(())
 	}
 }
@@ -168,8 +165,10 @@ impl<T: Config> Pallet<T> {
 		assignment: Vec<(CoreAssignment, PartsOf57600)>,
 		end_hint: Option<BlockNumberFor<T>>,
 	) -> DispatchResult {
-		// assigner_coretime::assign_core::<T>(core, begin, assignment, end_hint).map_err(Error::from)?;
-		assigner_coretime::assign_core::<T>(core, begin, assignment, end_hint).map_err(Error::<T>::from)?;
+		// assigner_coretime::assign_core::<T>(core, begin, assignment,
+		// end_hint).map_err(Error::from)?;
+		assigner_coretime::assign_core::<T>(core, begin, assignment, end_hint)
+			.map_err(Error::<T>::from)?;
 		Ok(())
 	}
 

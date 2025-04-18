@@ -26,9 +26,15 @@ use polkadot_primitives::{
 use sp_keyring::Sr25519Keyring;
 
 use crate::{
-	configuration::HostConfiguration, initializer::SessionChangeNotification, mock::{
-		new_test_ext, Configuration, CoretimeAssigner, MockGenesisConfig, Paras, ParasShared, RuntimeOrigin, Scheduler, System, Test
-	}, on_demand, paras::{ParaGenesisArgs, ParaKind}, scheduler::{self}
+	configuration::HostConfiguration,
+	initializer::SessionChangeNotification,
+	mock::{
+		new_test_ext, Configuration, CoretimeAssigner, MockGenesisConfig, Paras, ParasShared,
+		RuntimeOrigin, Scheduler, System, Test,
+	},
+	on_demand,
+	paras::{ParaGenesisArgs, ParaKind},
+	scheduler::{self},
 };
 
 fn register_para(id: ParaId) {
@@ -232,8 +238,20 @@ fn advance_claim_queue_doubles_assignment_only_if_empty() {
 		});
 
 		// add some para assignments.
-		CoretimeAssigner::assign_core(CoreIndex(0), 0, vec![(CoreAssignment::Pool, PartsOf57600::FULL)], None).unwrap();
-		CoretimeAssigner::assign_core(CoreIndex(1), 0, vec![(CoreAssignment::Pool, PartsOf57600::FULL)], None).unwrap();
+		CoretimeAssigner::assign_core(
+			CoreIndex(0),
+			0,
+			vec![(CoreAssignment::Pool, PartsOf57600::FULL)],
+			None,
+		)
+		.unwrap();
+		CoretimeAssigner::assign_core(
+			CoreIndex(1),
+			0,
+			vec![(CoreAssignment::Pool, PartsOf57600::FULL)],
+			None,
+		)
+		.unwrap();
 
 		// This will call advance_claim_queue
 		run_to_block(2, |_| None);
@@ -249,9 +267,7 @@ fn advance_claim_queue_doubles_assignment_only_if_empty() {
 			// core so that the first para gets a fair shot at backing something.
 			assert_eq!(
 				claim_queue.remove(&CoreIndex(0)).unwrap(),
-				[para_a, para_a, para_b]
-					.into_iter()
-					.collect::<VecDeque<_>>()
+				[para_a, para_a, para_b].into_iter().collect::<VecDeque<_>>()
 			);
 			assert_eq!(
 				claim_queue.remove(&CoreIndex(1)).unwrap(),
@@ -288,8 +304,20 @@ fn advance_claim_queue_no_entry_if_empty() {
 			_ => None,
 		});
 
-		CoretimeAssigner::assign_core(CoreIndex(0), 0, vec![(CoreAssignment::Pool, PartsOf57600::FULL)], None).unwrap();
-		CoretimeAssigner::assign_core(CoreIndex(1), 0, vec![(CoreAssignment::Pool, PartsOf57600::FULL)], None).unwrap();
+		CoretimeAssigner::assign_core(
+			CoreIndex(0),
+			0,
+			vec![(CoreAssignment::Pool, PartsOf57600::FULL)],
+			None,
+		)
+		.unwrap();
+		CoretimeAssigner::assign_core(
+			CoreIndex(1),
+			0,
+			vec![(CoreAssignment::Pool, PartsOf57600::FULL)],
+			None,
+		)
+		.unwrap();
 		on_demand::Pallet::<Test>::push_back_order(para_a);
 
 		// This will call advance_claim_queue
@@ -328,7 +356,13 @@ fn advance_claim_queue_except_for() {
 	let para_d = ParaId::from(4_u32);
 	let para_e = ParaId::from(5_u32);
 
-	CoretimeAssigner::assign_core(CoreIndex(0), 0, vec![(CoreAssignment::Pool, PartsOf57600::FULL)], None).unwrap();
+	CoretimeAssigner::assign_core(
+		CoreIndex(0),
+		0,
+		vec![(CoreAssignment::Pool, PartsOf57600::FULL)],
+		None,
+	)
+	.unwrap();
 
 	new_test_ext(genesis_config).execute_with(|| {
 		// add 5 paras
@@ -504,7 +538,6 @@ fn availability_predicate_works() {
 	});
 }
 
-
 #[test]
 fn session_change_increasing_number_of_cores() {
 	let mut config = default_config();
@@ -532,8 +565,20 @@ fn session_change_increasing_number_of_cores() {
 			_ => None,
 		});
 
-		CoretimeAssigner::assign_core(CoreIndex(0), 0, vec![(CoreAssignment::Pool, PartsOf57600::FULL)], None).unwrap();
-		CoretimeAssigner::assign_core(CoreIndex(1), 0, vec![(CoreAssignment::Pool, PartsOf57600::FULL)], None).unwrap();
+		CoretimeAssigner::assign_core(
+			CoreIndex(0),
+			0,
+			vec![(CoreAssignment::Pool, PartsOf57600::FULL)],
+			None,
+		)
+		.unwrap();
+		CoretimeAssigner::assign_core(
+			CoreIndex(1),
+			0,
+			vec![(CoreAssignment::Pool, PartsOf57600::FULL)],
+			None,
+		)
+		.unwrap();
 
 		// This will call advance_claim_queue
 		run_to_block(2, |_| None);
@@ -546,15 +591,11 @@ fn session_change_increasing_number_of_cores() {
 
 			assert_eq!(
 				claim_queue.remove(&CoreIndex(0)).unwrap(),
-				[para_a.clone(), para_a.clone()]
-					.into_iter()
-					.collect::<VecDeque<_>>()
+				[para_a.clone(), para_a.clone()].into_iter().collect::<VecDeque<_>>()
 			);
 			assert_eq!(
 				claim_queue.remove(&CoreIndex(1)).unwrap(),
-				[para_b.clone(), para_b.clone()]
-					.into_iter()
-					.collect::<VecDeque<_>>()
+				[para_b.clone(), para_b.clone()].into_iter().collect::<VecDeque<_>>()
 			);
 		}
 
@@ -566,8 +607,20 @@ fn session_change_increasing_number_of_cores() {
 		// add another assignment for para b.
 		on_demand::Pallet::<Test>::push_back_order(para_b);
 
-		CoretimeAssigner::assign_core(CoreIndex(2), 0, vec![(CoreAssignment::Pool, PartsOf57600::FULL)], None).unwrap();
-		CoretimeAssigner::assign_core(CoreIndex(3), 0, vec![(CoreAssignment::Pool, PartsOf57600::FULL)], None).unwrap();
+		CoretimeAssigner::assign_core(
+			CoreIndex(2),
+			0,
+			vec![(CoreAssignment::Pool, PartsOf57600::FULL)],
+			None,
+		)
+		.unwrap();
+		CoretimeAssigner::assign_core(
+			CoreIndex(3),
+			0,
+			vec![(CoreAssignment::Pool, PartsOf57600::FULL)],
+			None,
+		)
+		.unwrap();
 
 		run_to_block(3, |number| match number {
 			3 => Some(SessionChangeNotification {
@@ -723,7 +776,13 @@ fn session_change_increasing_lookahead() {
 			_ => None,
 		});
 
-		CoretimeAssigner::assign_core(CoreIndex(0), 0, vec![(CoreAssignment::Pool, PartsOf57600::FULL)], None).unwrap();
+		CoretimeAssigner::assign_core(
+			CoreIndex(0),
+			0,
+			vec![(CoreAssignment::Pool, PartsOf57600::FULL)],
+			None,
+		)
+		.unwrap();
 		on_demand::Pallet::<Test>::push_back_order(para_a);
 		on_demand::Pallet::<Test>::push_back_order(para_a);
 		on_demand::Pallet::<Test>::push_back_order(para_a);
@@ -741,15 +800,11 @@ fn session_change_increasing_lookahead() {
 
 			assert_eq!(
 				claim_queue.remove(&CoreIndex(0)).unwrap(),
-				[para_a, para_a]
-					.into_iter()
-					.collect::<VecDeque<_>>()
+				[para_a, para_a].into_iter().collect::<VecDeque<_>>()
 			);
 			assert_eq!(
 				claim_queue.remove(&CoreIndex(1)).unwrap(),
-				[para_a, para_a]
-					.into_iter()
-					.collect::<VecDeque<_>>()
+				[para_a, para_a].into_iter().collect::<VecDeque<_>>()
 			);
 		}
 
@@ -777,15 +832,11 @@ fn session_change_increasing_lookahead() {
 
 			assert_eq!(
 				claim_queue.remove(&CoreIndex(0)).unwrap(),
-				[para_a, para_a, para_b]
-					.into_iter()
-					.collect::<VecDeque<_>>()
+				[para_a, para_a, para_b].into_iter().collect::<VecDeque<_>>()
 			);
 			assert_eq!(
 				claim_queue.remove(&CoreIndex(1)).unwrap(),
-				[para_a, para_b, para_b]
-					.into_iter()
-					.collect::<VecDeque<_>>()
+				[para_a, para_b, para_b].into_iter().collect::<VecDeque<_>>()
 			);
 		}
 	});

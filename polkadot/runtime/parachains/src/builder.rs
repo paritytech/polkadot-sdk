@@ -20,7 +20,7 @@ use crate::{
 	configuration, inclusion, initializer, paras,
 	paras::ParaKind,
 	paras_inherent,
-	scheduler::{PartsOf57600, CoreAssignment, self},
+	scheduler::{self, CoreAssignment, PartsOf57600},
 	session_info, shared,
 };
 use alloc::{
@@ -956,13 +956,20 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 		// We need entries in the claim queue for those:
 		all_paras.append(&mut builder.backed_in_inherent_paras.clone());
 
-		let core_paras = all_paras
-			.keys()
-			.flat_map(|para_id| repeat(ParaId::from(*para_id)).take(elastic_paras.get(&para_id).cloned().unwrap_or(1).into()));
+		let core_paras = all_paras.keys().flat_map(|para_id| {
+			repeat(ParaId::from(*para_id))
+				.take(elastic_paras.get(&para_id).cloned().unwrap_or(1).into())
+		});
 		let cores = (0..).map(CoreIndex).zip(core_paras).collect::<BTreeMap<CoreIndex, ParaId>>();
 
 		for (core_idx, para) in cores {
-			scheduler::Pallet::<T>::assign_core(core_idx, now, vec![(CoreAssignment::Task(para.into()), PartsOf57600::FULL)], None).unwrap();
+			scheduler::Pallet::<T>::assign_core(
+				core_idx,
+				now,
+				vec![(CoreAssignment::Task(para.into()), PartsOf57600::FULL)],
+				None,
+			)
+			.unwrap();
 		}
 
 		Bench::<T> {

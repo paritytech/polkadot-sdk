@@ -22,18 +22,12 @@ use crate::{
 		new_test_ext, Balances, OnDemand, Paras, ParasShared, RuntimeOrigin, Scheduler, System,
 		Test,
 	},
-	on_demand::{
-		self,
-		mock_helpers::GenesisConfigBuilder,
-		Error,
-	},
+	on_demand::{self, mock_helpers::GenesisConfigBuilder, Error},
 	paras::{ParaGenesisArgs, ParaKind},
 };
 use frame_support::{assert_noop, assert_ok};
 use pallet_balances::Error as BalancesError;
-use polkadot_primitives::{
-	BlockNumber, SessionIndex, ValidationCode,
-};
+use polkadot_primitives::{BlockNumber, SessionIndex, ValidationCode};
 use sp_runtime::traits::BadOrigin;
 
 fn schedule_blank_para(id: ParaId, parakind: ParaKind) {
@@ -361,7 +355,13 @@ fn place_order_with_credits() {
 
 		assert!(!Paras::is_parathread(para_id));
 		let current_block = 100;
-		run_to_block(current_block, |n| if n == current_block { Some(Default::default()) } else { None });
+		run_to_block(current_block, |n| {
+			if n == current_block {
+				Some(Default::default())
+			} else {
+				None
+			}
+		});
 		assert!(Paras::is_parathread(para_id));
 
 		let queue_status = OnDemand::get_order_status();
@@ -376,7 +376,12 @@ fn place_order_with_credits() {
 			para_id
 		));
 		assert_eq!(Credits::<Test>::get(alice), initial_credit.saturating_sub(spot_price));
-		assert_eq!(OnDemand::peek_order_queue().pop_assignment_for_cores::<Test>(current_block, 1).next(), Some(para_id));
+		assert_eq!(
+			OnDemand::peek_order_queue()
+				.pop_assignment_for_cores::<Test>(current_block, 1)
+				.next(),
+			Some(para_id)
+		);
 
 		// Insufficient credits:
 		Credits::<Test>::insert(alice, 1u128);
@@ -444,7 +449,10 @@ fn affinity_prohibits_parallel_scheduling() {
 		place_order_run_to_101(para_b);
 
 		// Behaviour with just one core:
-		for (assignment, expected) in (0..4).map(|_| OnDemand::pop_assignment_for_cores(block_num, 1).next()).zip([Some(para_a), Some(para_a), Some(para_b), None].into_iter()) {
+		for (assignment, expected) in (0..4)
+			.map(|_| OnDemand::pop_assignment_for_cores(block_num, 1).next())
+			.zip([Some(para_a), Some(para_a), Some(para_b), None].into_iter())
+		{
 			assert_eq!(assignment, expected);
 		}
 
