@@ -24,7 +24,7 @@ use codec::Encode;
 use finality_grandpa;
 use frame::{
 	deps::{
-		sp_core::{crypto::KeyTypeId, H256},
+		sp_core::H256,
 		sp_io,
 		sp_runtime::{
 			curve::PiecewiseLinear,
@@ -34,7 +34,7 @@ use frame::{
 		},
 	},
 	testing_prelude::*,
-	traits::{KeyOwnerProofSystem, OpaqueKeys},
+	traits::{OnFinalize, OnInitialize, OpaqueKeys},
 };
 use frame_election_provider_support::{
 	bounds::{ElectionBounds, ElectionBoundsBuilder},
@@ -46,6 +46,7 @@ use sp_keyring::Ed25519Keyring;
 use sp_staking::{EraIndex, SessionIndex};
 
 type Block = frame_system::mocking::MockBlock<Test>;
+type BlockNumber = u64;
 
 construct_runtime!(
 	pub enum Test {
@@ -272,10 +273,10 @@ pub fn new_test_ext_raw_authorities(authorities: AuthorityList) -> sp_io::TestEx
 
 pub fn start_session(session_index: SessionIndex) {
 	for i in Session::current_index()..session_index {
-		System::on_finalize(System::block_number());
-		Session::on_finalize(System::block_number());
-		Staking::on_finalize(System::block_number());
-		Grandpa::on_finalize(System::block_number());
+		<System as OnFinalize<BlockNumber>>::on_finalize(System::block_number());
+		<Session as OnFinalize<BlockNumber>>::on_finalize(System::block_number());
+		<Staking as OnFinalize<BlockNumber>>::on_finalize(System::block_number());
+		<Grandpa as OnFinalize<BlockNumber>>::on_finalize(System::block_number());
 
 		let parent_hash = if System::block_number() > 1 {
 			let hdr = System::finalize();
@@ -289,10 +290,10 @@ pub fn start_session(session_index: SessionIndex) {
 		System::set_block_number((i + 1).into());
 		Timestamp::set_timestamp(System::block_number() * 6000);
 
-		System::on_initialize(System::block_number());
-		Session::on_initialize(System::block_number());
-		Staking::on_initialize(System::block_number());
-		Grandpa::on_initialize(System::block_number());
+		<System as OnInitialize<BlockNumber>>::on_initialize(System::block_number());
+		<Session as OnInitialize<BlockNumber>>::on_initialize(System::block_number());
+		<Staking as OnInitialize<BlockNumber>>::on_initialize(System::block_number());
+		<Grandpa as OnInitialize<BlockNumber>>::on_initialize(System::block_number());
 	}
 
 	assert_eq!(Session::current_index(), session_index);
