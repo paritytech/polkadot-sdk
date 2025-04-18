@@ -174,6 +174,7 @@ pub mod pallet {
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
 		/// The overarching event type.
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self>>
 			+ IsType<<Self as frame_system::Config>::RuntimeEvent>
 			+ TryInto<Event<Self>>;
@@ -408,7 +409,7 @@ pub mod pallet {
 		#[pallet::call_index(2)]
 		#[pallet::weight(<T as Config>::WeightInfo::control())]
 		pub fn control(origin: OriginFor<T>, eras_to_check: EraIndex) -> DispatchResult {
-			let _ = T::ControlOrigin::ensure_origin(origin)?;
+			T::ControlOrigin::ensure_origin(origin)?;
 			ensure!(eras_to_check <= T::MaxErasToCheckPerBlock::get(), Error::<T>::CallNotAllowed);
 			ErasToCheckPerBlock::<T>::put(eras_to_check);
 			Ok(())
