@@ -17,9 +17,9 @@
 
 #![no_std]
 #![no_main]
+include!("../panic_handler.rs");
 
-use common::u256_bytes;
-use uapi::{HostFn, HostFnImpl as api};
+use uapi::{u256_bytes, HostFn, HostFnImpl as api};
 
 #[no_mangle]
 #[polkavm_derive::polkavm_export]
@@ -33,7 +33,7 @@ pub extern "C" fn call() {
 		&[0u8; 20],
 		0,
 		0,
-		None,
+		&[u8::MAX; 32],
 		&u256_bytes(100u64),
 		&[],
 		None,

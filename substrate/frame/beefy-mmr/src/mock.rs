@@ -72,6 +72,7 @@ impl pallet_session::Config for Test {
 	type SessionManager = MockSessionManager;
 	type SessionHandler = <MockSessionKeys as OpaqueKeys>::KeyTypeIdProviders;
 	type Keys = MockSessionKeys;
+	type DisablingStrategy = ();
 	type WeightInfo = ();
 }
 

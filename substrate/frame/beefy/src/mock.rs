@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use codec::{Decode, Encode};
+use codec::{Decode, DecodeWithMemTracking, Encode};
 use scale_info::TypeInfo;
 use std::vec;
 
@@ -97,8 +97,9 @@ pub struct MockAncestryProofContext {
 	pub is_valid: bool,
 }
 
-#[derive(Clone, Debug, Decode, Encode, PartialEq, TypeInfo)]
+#[derive(Clone, Debug, Decode, DecodeWithMemTracking, Encode, PartialEq, TypeInfo)]
 pub struct MockAncestryProof {
+	pub is_optimal: bool,
 	pub is_non_canonical: bool,
 }
 
@@ -128,6 +129,10 @@ impl<Header: HeaderT> AncestryHelper<Header> for MockAncestryHelper {
 		unimplemented!()
 	}
 
+	fn is_proof_optimal(proof: &Self::Proof) -> bool {
+		proof.is_optimal
+	}
+
 	fn extract_validation_context(_header: Header) -> Option<Self::ValidationContext> {
 		AncestryProofContext::get()
 	}
@@ -142,6 +147,10 @@ impl<Header: HeaderT> AncestryHelper<Header> for MockAncestryHelper {
 }
 
 impl<Header: HeaderT> AncestryHelperWeightInfo<Header> for MockAncestryHelper {
+	fn is_proof_optimal(_proof: &<Self as AncestryHelper<HeaderFor<Test>>>::Proof) -> Weight {
+		unimplemented!()
+	}
+
 	fn extract_validation_context() -> Weight {
 		unimplemented!()
 	}
@@ -177,12 +186,13 @@ impl pallet_session::Config for Test {
 	type SessionManager = pallet_session::historical::NoteHistoricalRoot<Self, Staking>;
 	type SessionHandler = <MockSessionKeys as OpaqueKeys>::KeyTypeIdProviders;
 	type Keys = MockSessionKeys;
+	type DisablingStrategy = ();
 	type WeightInfo = ();
 }
 
 impl pallet_session::historical::Config for Test {
-	type FullIdentification = pallet_staking::Exposure<u64, u128>;
-	type FullIdentificationOf = pallet_staking::ExposureOf<Self>;
+	type FullIdentification = pallet_staking::Existence;
+	type FullIdentificationOf = pallet_staking::ExistenceOf<Test>;
 }
 
 impl pallet_authorship::Config for Test {
@@ -235,6 +245,7 @@ impl onchain::Config for OnChainSeqPhragmen {
 #[derive_impl(pallet_staking::config_preludes::TestDefaultConfig)]
 impl pallet_staking::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
+	type OldCurrency = Balances;
 	type Currency = Balances;
 	type AdminOrigin = frame_system::EnsureRoot<Self::AccountId>;
 	type SessionInterface = Self;
@@ -272,7 +283,7 @@ impl ExtBuilder {
 		let balances: Vec<_> =
 			(0..self.authorities.len()).map(|i| (i as u64, 10_000_000)).collect();
 
-		pallet_balances::GenesisConfig::<Test> { balances }
+		pallet_balances::GenesisConfig::<Test> { balances, ..Default::default() }
 			.assimilate_storage(&mut t)
 			.unwrap();
 

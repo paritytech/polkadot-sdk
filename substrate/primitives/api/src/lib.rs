@@ -666,7 +666,7 @@ pub struct CallApiAtParams<'a, Block: BlockT> {
 	pub extensions: &'a RefCell<Extensions>,
 }
 
-/// Something that can call into the an api at a given block.
+/// Something that can call into an api at a given block.
 #[cfg(feature = "std")]
 pub trait CallApiAt<Block: BlockT> {
 	/// The state backend that is used to store the block states.

@@ -25,6 +25,7 @@ mod imports {
 		latest::{ParentThen, ROCOCO_GENESIS_HASH, WESTEND_GENESIS_HASH},
 		prelude::{AccountId32 as AccountId32Junction, *},
 	};
+	pub use xcm_builder::ExternalConsensusLocationsConverterFor;
 	pub use xcm_executor::traits::TransferType;
 
 	// Cumulus
@@ -42,14 +43,16 @@ mod imports {
 	pub use parachains_common::AccountId;
 	pub use rococo_westend_system_emulated_network::{
 		asset_hub_rococo_emulated_chain::{
-			asset_hub_rococo_runtime::xcm_config as ahr_xcm_config,
-			genesis::ED as ASSET_HUB_ROCOCO_ED, AssetHubRococoParaPallet as AssetHubRococoPallet,
+			asset_hub_rococo_runtime::xcm_config::{self as ahr_xcm_config, TreasuryAccount},
+			genesis::ED as ASSET_HUB_ROCOCO_ED,
+			AssetHubRococoParaPallet as AssetHubRococoPallet,
 		},
 		asset_hub_westend_emulated_chain::{
 			genesis::{AssetHubWestendAssetOwner, ED as ASSET_HUB_WESTEND_ED},
 			AssetHubWestendParaPallet as AssetHubWestendPallet,
 		},
 		bridge_hub_rococo_emulated_chain::{
+			bridge_hub_rococo_runtime::bridge_to_ethereum_config::EthereumGatewayAddress,
 			genesis::ED as BRIDGE_HUB_ROCOCO_ED, BridgeHubRococoExistentialDeposit,
 			BridgeHubRococoParaPallet as BridgeHubRococoPallet, BridgeHubRococoRuntimeOrigin,
 			BridgeHubRococoXcmConfig, EthereumBeaconClient, EthereumInboundQueue,

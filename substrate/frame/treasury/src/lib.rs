@@ -218,6 +218,7 @@ pub mod pallet {
 		type RejectOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
 		/// The overarching event type.
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self, I>>
 			+ IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
@@ -289,6 +290,14 @@ pub mod pallet {
 		type BlockNumberProvider: BlockNumberProvider;
 	}
 
+	#[pallet::extra_constants]
+	impl<T: Config<I>, I: 'static> Pallet<T, I> {
+		/// Gets this pallet's derived pot account.
+		fn pot_account() -> T::AccountId {
+			Self::account_id()
+		}
+	}
+
 	/// DEPRECATED: associated with `spend_local` call and will be removed in May 2025.
 	/// Refer to <https://github.com/paritytech/polkadot-sdk/pull/5961> for migration to `spend`.
 	///
@@ -324,7 +333,7 @@ pub mod pallet {
 
 	/// The count of spends that have been made.
 	#[pallet::storage]
-	pub(crate) type SpendCount<T, I = ()> = StorageValue<_, SpendIndex, ValueQuery>;
+	pub type SpendCount<T, I = ()> = StorageValue<_, SpendIndex, ValueQuery>;
 
 	/// Spends that have been approved and being processed.
 	// Hasher: Twox safe since `SpendIndex` is an internal count based index.
@@ -345,7 +354,7 @@ pub mod pallet {
 
 	/// The blocknumber for the last triggered spend period.
 	#[pallet::storage]
-	pub(crate) type LastSpendPeriod<T, I = ()> = StorageValue<_, BlockNumberFor<T, I>, OptionQuery>;
+	pub type LastSpendPeriod<T, I = ()> = StorageValue<_, BlockNumberFor<T, I>, OptionQuery>;
 
 	#[pallet::genesis_config]
 	#[derive(frame_support::DefaultNoBound)]
@@ -735,6 +744,7 @@ pub mod pallet {
 				.map_err(|_| Error::<T, I>::PayoutError)?;
 
 			spend.status = PaymentState::Attempted { id };
+			spend.expire_at = now.saturating_add(T::PayoutPeriod::get());
 			Spends::<T, I>::insert(index, spend);
 
 			Self::deposit_event(Event::<T, I>::Paid { index, payment_id: id });

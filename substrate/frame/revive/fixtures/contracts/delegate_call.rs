@@ -17,9 +17,9 @@
 
 #![no_std]
 #![no_main]
+include!("../panic_handler.rs");
 
-use common::input;
-use uapi::{HostFn, HostFnImpl as api, StorageFlags};
+use uapi::{input, HostFn, HostFnImpl as api, StorageFlags};
 
 #[no_mangle]
 #[polkavm_derive::polkavm_export]
@@ -46,7 +46,16 @@ pub extern "C" fn call() {
 	assert!(value[0] == 2u8);
 
 	let input = [0u8; 0];
-	api::delegate_call(uapi::CallFlags::empty(), address, ref_time, proof_size, None, &input, None).unwrap();
+	api::delegate_call(
+		uapi::CallFlags::empty(),
+		address,
+		ref_time,
+		proof_size,
+		&[u8::MAX; 32],
+		&input,
+		None,
+	)
+	.unwrap();
 
 	api::get_storage(StorageFlags::empty(), &key, value).unwrap();
 	assert!(value[0] == 1u8);

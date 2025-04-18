@@ -29,7 +29,7 @@ use crate::{
 		error,
 		log_xt::log_xt_trace,
 	},
-	graph::{self, base_pool::TimedTransactionSource, ExtrinsicHash, IsValidator},
+	graph::{self, base_pool::TimedTransactionSource, EventHandler, ExtrinsicHash, IsValidator},
 	ReadyIteratorFor, LOG_TARGET,
 };
 use async_trait::async_trait;
@@ -39,13 +39,16 @@ use prometheus_endpoint::Registry as PrometheusRegistry;
 use sc_transaction_pool_api::{
 	error::Error as TxPoolError, ChainEvent, ImportNotificationStream, MaintainedTransactionPool,
 	PoolStatus, TransactionFor, TransactionPool, TransactionSource, TransactionStatusStreamFor,
-	TxHash,
+	TxHash, TxInvalidityReportMap,
 };
 use sp_blockchain::{HashAndNumber, TreeRoute};
 use sp_core::traits::SpawnEssentialNamed;
 use sp_runtime::{
 	generic::BlockId,
-	traits::{AtLeast32Bit, Block as BlockT, Header as HeaderT, NumberFor, Zero},
+	traits::{
+		AtLeast32Bit, Block as BlockT, Header as HeaderT, NumberFor, SaturatedConversion, Zero,
+	},
+	transaction_validity::TransactionValidityError,
 };
 use std::{
 	collections::{HashMap, HashSet},
@@ -61,7 +64,7 @@ where
 	Block: BlockT,
 	PoolApi: graph::ChainApi<Block = Block>,
 {
-	pool: Arc<graph::Pool<PoolApi>>,
+	pool: Arc<graph::Pool<PoolApi, ()>>,
 	api: Arc<PoolApi>,
 	revalidation_strategy: Arc<Mutex<RevalidationStrategy<NumberFor<Block>>>>,
 	revalidation_queue: Arc<revalidation::RevalidationQueue<PoolApi>>,
@@ -141,7 +144,11 @@ where
 		finalized_hash: Block::Hash,
 		options: graph::Options,
 	) -> (Self, Pin<Box<dyn Future<Output = ()> + Send>>) {
-		let pool = Arc::new(graph::Pool::new(options, true.into(), pool_api.clone()));
+		let pool = Arc::new(graph::Pool::new_with_staticly_sized_rotator(
+			options,
+			true.into(),
+			pool_api.clone(),
+		));
 		let (revalidation_queue, background_task) = revalidation::RevalidationQueue::new_background(
 			pool_api.clone(),
 			pool.clone(),
@@ -177,7 +184,11 @@ where
 		best_block_hash: Block::Hash,
 		finalized_hash: Block::Hash,
 	) -> Self {
-		let pool = Arc::new(graph::Pool::new(options, is_validator, pool_api.clone()));
+		let pool = Arc::new(graph::Pool::new_with_staticly_sized_rotator(
+			options,
+			is_validator,
+			pool_api.clone(),
+		));
 		let (revalidation_queue, background_task) = match revalidation_type {
 			RevalidationType::Light =>
 				(revalidation::RevalidationQueue::new(pool_api.clone(), pool.clone()), None),
@@ -214,7 +225,7 @@ where
 	}
 
 	/// Gets shared reference to the underlying pool.
-	pub fn pool(&self) -> &Arc<graph::Pool<PoolApi>> {
+	pub fn pool(&self) -> &Arc<graph::Pool<PoolApi, ()>> {
 		&self.pool
 	}
 
@@ -266,7 +277,12 @@ where
 
 		let number = self.api.resolve_block_number(at);
 		let at = HashAndNumber { hash: at, number: number? };
-		Ok(pool.submit_at(&at, xts).await)
+		Ok(pool
+			.submit_at(&at, xts)
+			.await
+			.into_iter()
+			.map(|result| result.map(|outcome| outcome.hash()))
+			.collect())
 	}
 
 	async fn submit_one(
@@ -284,6 +300,7 @@ where
 		let at = HashAndNumber { hash: at, number: number? };
 		pool.submit_one(&at, TimedTransactionSource::from_transaction_source(source, false), xt)
 			.await
+			.map(|outcome| outcome.hash())
 	}
 
 	async fn submit_and_watch(
@@ -300,19 +317,22 @@ where
 		let number = self.api.resolve_block_number(at);
 
 		let at = HashAndNumber { hash: at, number: number? };
-		let watcher = pool
-			.submit_and_watch(
-				&at,
-				TimedTransactionSource::from_transaction_source(source, false),
-				xt,
-			)
-			.await?;
-
-		Ok(watcher.into_stream().boxed())
+		pool.submit_and_watch(
+			&at,
+			TimedTransactionSource::from_transaction_source(source, false),
+			xt,
+		)
+		.await
+		.map(|mut outcome| outcome.expect_watcher().into_stream().boxed())
 	}
 
-	fn remove_invalid(&self, hashes: &[TxHash<Self>]) -> Vec<Arc<Self::InPoolTransaction>> {
-		let removed = self.pool.validated_pool().remove_invalid(hashes);
+	fn report_invalid(
+		&self,
+		_at: Option<<Self::Block as BlockT>::Hash>,
+		invalid_tx_errors: TxInvalidityReportMap<TxHash<Self>>,
+	) -> Vec<Arc<Self::InPoolTransaction>> {
+		let hashes = invalid_tx_errors.keys().map(|h| *h).collect::<Vec<_>>();
+		let removed = self.pool.validated_pool().remove_invalid(&hashes);
 		self.metrics
 			.report(|metrics| metrics.validations_invalid.inc_by(removed.len() as u64));
 		removed
@@ -447,10 +467,6 @@ where
 		at: Block::Hash,
 		xt: sc_transaction_pool_api::LocalTransactionFor<Self>,
 	) -> Result<Self::Hash, Self::Error> {
-		use sp_runtime::{
-			traits::SaturatedConversion, transaction_validity::TransactionValidityError,
-		};
-
 		let validity = self
 			.api
 			.validate_transaction_blocking(at, TransactionSource::Local, Arc::from(xt.clone()))?
@@ -476,7 +492,11 @@ where
 			validity,
 		);
 
-		self.pool.validated_pool().submit(vec![validated]).remove(0)
+		self.pool
+			.validated_pool()
+			.submit(vec![validated])
+			.remove(0)
+			.map(|outcome| outcome.hash())
 	}
 }
 
@@ -563,10 +583,16 @@ impl<N: Clone + Copy + AtLeast32Bit> RevalidationStatus<N> {
 }
 
 /// Prune the known txs for the given block.
-pub async fn prune_known_txs_for_block<Block: BlockT, Api: graph::ChainApi<Block = Block>>(
+///
+/// Returns the hashes of all transactions included in given block.
+pub async fn prune_known_txs_for_block<
+	Block: BlockT,
+	Api: graph::ChainApi<Block = Block>,
+	L: EventHandler<Api>,
+>(
 	at: &HashAndNumber<Block>,
 	api: &Api,
-	pool: &graph::Pool<Api>,
+	pool: &graph::Pool<Api, L>,
 ) -> Vec<ExtrinsicHash<Api>> {
 	let extrinsics = api
 		.block_body(at.hash)

@@ -36,7 +36,7 @@
 //! curator's deposit.
 //!
 //! This pallet may opt into using a [`ChildBountyManager`] that enables bounties to be split into
-//! sub-bounties, as children of anh established bounty (called the parent in the context of it's
+//! sub-bounties, as children of an established bounty (called the parent in the context of it's
 //! children).
 //!
 //! > NOTE: The parent bounty cannot be closed if it has a non-zero number of it has active child
@@ -84,6 +84,7 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+#[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
 pub mod migrations;
 mod tests;
@@ -220,7 +221,12 @@ pub mod pallet {
 		#[pallet::constant]
 		type BountyDepositPayoutDelay: Get<BlockNumberFor<Self, I>>;
 
-		/// Bounty duration in blocks.
+		/// The time limit for a curator to act before a bounty expires.
+		///
+		/// The period that starts when a curator is approved, during which they must execute or
+		/// update the bounty via `extend_bounty_expiry`. If missed, the bounty expires, and the
+		/// curator may be slashed. If `BlockNumberFor::MAX`, bounties stay active indefinitely,
+		/// removing the need for `extend_bounty_expiry`.
 		#[pallet::constant]
 		type BountyUpdatePeriod: Get<BlockNumberFor<Self, I>>;
 
@@ -248,6 +254,7 @@ pub mod pallet {
 		type DataDepositPerByte: Get<BalanceOf<Self, I>>;
 
 		/// The overarching event type.
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self, I>>
 			+ IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
@@ -577,8 +584,8 @@ pub mod pallet {
 						T::Currency::reserve(curator, deposit)?;
 						bounty.curator_deposit = deposit;
 
-						let update_due =
-							Self::treasury_block_number() + T::BountyUpdatePeriod::get();
+						let update_due = Self::treasury_block_number()
+							.saturating_add(T::BountyUpdatePeriod::get());
 						bounty.status =
 							BountyStatus::Active { curator: curator.clone(), update_due };
 
@@ -656,7 +663,7 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			#[pallet::compact] bounty_id: BountyIndex,
 		) -> DispatchResult {
-			let _ = ensure_signed(origin)?; // anyone can trigger claim
+			ensure_signed(origin)?; // anyone can trigger claim
 
 			Bounties::<T, I>::try_mutate_exists(bounty_id, |maybe_bounty| -> DispatchResult {
 				let bounty = maybe_bounty.take().ok_or(Error::<T, I>::InvalidIndex)?;
@@ -819,9 +826,9 @@ pub mod pallet {
 				match bounty.status {
 					BountyStatus::Active { ref curator, ref mut update_due } => {
 						ensure!(*curator == signer, Error::<T, I>::RequireCurator);
-						*update_due = (Self::treasury_block_number() +
-							T::BountyUpdatePeriod::get())
-						.max(*update_due);
+						*update_due = Self::treasury_block_number()
+							.saturating_add(T::BountyUpdatePeriod::get())
+							.max(*update_due);
 					},
 					_ => return Err(Error::<T, I>::UnexpectedStatus.into()),
 				}

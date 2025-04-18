@@ -61,6 +61,12 @@ fn queue_downward_message(
 	Dmp::queue_downward_message(&configuration::ActiveConfig::<Test>::get(), para_id, msg)
 }
 
+fn register_paras(paras: &[ParaId]) {
+	paras.iter().for_each(|p| {
+		Dmp::make_parachain_reachable(*p);
+	});
+}
+
 #[test]
 fn clean_dmp_works() {
 	let a = ParaId::from(1312);
@@ -68,6 +74,8 @@ fn clean_dmp_works() {
 	let c = ParaId::from(123);
 
 	new_test_ext(default_genesis_config()).execute_with(|| {
+		register_paras(&[a, b, c]);
+
 		// enqueue downward messages to A, B and C.
 		queue_downward_message(a, vec![1, 2, 3]).unwrap();
 		queue_downward_message(b, vec![4, 5, 6]).unwrap();
@@ -89,6 +97,8 @@ fn dmq_length_and_head_updated_properly() {
 	let b = ParaId::from(228);
 
 	new_test_ext(default_genesis_config()).execute_with(|| {
+		register_paras(&[a, b]);
+
 		assert_eq!(Dmp::dmq_length(a), 0);
 		assert_eq!(Dmp::dmq_length(b), 0);
 
@@ -102,10 +112,29 @@ fn dmq_length_and_head_updated_properly() {
 }
 
 #[test]
+fn dmq_fail_if_para_does_not_exist() {
+	let a = ParaId::from(1312);
+
+	new_test_ext(default_genesis_config()).execute_with(|| {
+		assert_eq!(Dmp::dmq_length(a), 0);
+
+		assert!(matches!(
+			queue_downward_message(a, vec![1, 2, 3]),
+			Err(QueueDownwardMessageError::Unroutable)
+		));
+
+		assert_eq!(Dmp::dmq_length(a), 0);
+		assert!(Dmp::dmq_mqc_head(a).is_zero());
+	});
+}
+
+#[test]
 fn dmp_mqc_head_fixture() {
 	let a = ParaId::from(2000);
 
 	new_test_ext(default_genesis_config()).execute_with(|| {
+		register_paras(&[a]);
+
 		run_to_block(2, None);
 		assert!(Dmp::dmq_mqc_head(a).is_zero());
 		queue_downward_message(a, vec![1, 2, 3]).unwrap();
@@ -125,6 +154,8 @@ fn check_processed_downward_messages() {
 	let a = ParaId::from(1312);
 
 	new_test_ext(default_genesis_config()).execute_with(|| {
+		register_paras(&[a]);
+
 		let block_number = System::block_number();
 
 		// processed_downward_messages=0 is allowed when the DMQ is empty.
@@ -150,6 +181,8 @@ fn check_processed_downward_messages_advancement_rule() {
 	let a = ParaId::from(1312);
 
 	new_test_ext(default_genesis_config()).execute_with(|| {
+		register_paras(&[a]);
+
 		let block_number = System::block_number();
 
 		run_to_block(block_number + 1, None);
@@ -170,6 +203,8 @@ fn dmq_pruning() {
 	let a = ParaId::from(1312);
 
 	new_test_ext(default_genesis_config()).execute_with(|| {
+		register_paras(&[a]);
+
 		assert_eq!(Dmp::dmq_length(a), 0);
 
 		queue_downward_message(a, vec![1, 2, 3]).unwrap();
@@ -194,6 +229,8 @@ fn queue_downward_message_critical() {
 	genesis.configuration.config.max_downward_message_size = 7;
 
 	new_test_ext(genesis).execute_with(|| {
+		register_paras(&[a]);
+
 		let smol = [0; 3].to_vec();
 		let big = [0; 8].to_vec();
 
@@ -215,6 +252,8 @@ fn verify_dmq_mqc_head_is_externally_accessible() {
 	let a = ParaId::from(2020);
 
 	new_test_ext(default_genesis_config()).execute_with(|| {
+		register_paras(&[a]);
+
 		let head = sp_io::storage::get(&well_known_keys::dmq_mqc_head(a));
 		assert_eq!(head, None);
 
@@ -235,9 +274,12 @@ fn verify_dmq_mqc_head_is_externally_accessible() {
 #[test]
 fn verify_fee_increase_and_decrease() {
 	let a = ParaId::from(123);
+
 	let mut genesis = default_genesis_config();
 	genesis.configuration.config.max_downward_message_size = 16777216;
 	new_test_ext(genesis).execute_with(|| {
+		register_paras(&[a]);
+
 		let initial = InitialFactor::get();
 		assert_eq!(DeliveryFeeFactor::<Test>::get(a), initial);
 
@@ -287,6 +329,8 @@ fn verify_fee_factor_reaches_high_value() {
 	let mut genesis = default_genesis_config();
 	genesis.configuration.config.max_downward_message_size = 51200;
 	new_test_ext(genesis).execute_with(|| {
+		register_paras(&[a]);
+
 		let max_messages =
 			Dmp::dmq_max_length(ActiveConfig::<Test>::get().max_downward_message_size);
 		let mut total_fee_factor = FixedU128::from_float(1.0);
