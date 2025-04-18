@@ -9,4 +9,4 @@ doc:
 
 crates:
 - name: sp-arithmetic
-  bump: minor
+  bump: major
