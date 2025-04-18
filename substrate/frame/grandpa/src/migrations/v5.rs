@@ -19,6 +19,7 @@ use crate::{BoundedAuthorityList, Pallet};
 use alloc::vec::Vec;
 use codec::Decode;
 use core::marker::PhantomData;
+
 use frame::{
 	deps::sp_runtime,
 	prelude::{VersionedMigration, *},
