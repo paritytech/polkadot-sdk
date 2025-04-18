@@ -32,7 +32,7 @@
 //! ### Example
 //!
 //! ```ignore
-//! use pallet_staking_async::election_size_tracker::*;
+//! use pallet_staking::election_size_tracker::*;
 //!
 //! // instantiates a new tracker.
 //! let mut size_tracker = StaticTracker::<Staking>::default();

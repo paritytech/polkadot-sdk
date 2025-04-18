@@ -18,33 +18,37 @@
 //! Staking pallet benchmarking.
 
 use super::*;
-use crate::{
-	asset,
-	session_rotation::{Eras, Rotator},
-	ConfigOp, Pallet as Staking,
-};
+use crate::{asset, ConfigOp, Pallet as Staking};
+use testing_utils::*;
+
 use codec::Decode;
-pub use frame_benchmarking::{
-	impl_benchmark_test_suite, v2::*, whitelist_account, whitelisted_caller, BenchmarkError,
+use frame_election_provider_support::{bounds::DataProviderBounds, SortedListProvider};
+use frame_support::{
+	pallet_prelude::*,
+	storage::bounded_vec::BoundedVec,
+	traits::{Get, Imbalance, UnfilteredDispatchable},
 };
-use frame_election_provider_support::SortedListProvider;
-use frame_support::{pallet_prelude::*, storage::bounded_vec::BoundedVec, traits::Get};
-use frame_system::RawOrigin;
-use pallet_staking_async_rc_client as rc_client;
 use sp_runtime::{
 	traits::{Bounded, One, StaticLookup, TrailingZeroInput, Zero},
 	Perbill, Percent, Saturating,
 };
-use sp_staking::currency_to_vote::CurrencyToVote;
-use testing_utils::*;
+use sp_staking::{currency_to_vote::CurrencyToVote, SessionIndex};
+
+pub use frame_benchmarking::{
+	impl_benchmark_test_suite, v2::*, whitelist_account, whitelisted_caller, BenchmarkError,
+};
+use frame_system::RawOrigin;
 
 const SEED: u32 = 0;
 const MAX_SPANS: u32 = 100;
 const MAX_SLASHES: u32 = 1000;
 
+type MaxValidators<T> = <<T as Config>::BenchmarkingConfig as BenchmarkingConfig>::MaxValidators;
+type MaxNominators<T> = <<T as Config>::BenchmarkingConfig as BenchmarkingConfig>::MaxNominators;
+
 // Add slashing spans to a user account. Not relevant for actual use, only to benchmark
 // read and write operations.
-pub(crate) fn add_slashing_spans<T: Config>(who: &T::AccountId, spans: u32) {
+pub fn add_slashing_spans<T: Config>(who: &T::AccountId, spans: u32) {
 	if spans == 0 {
 		return
 	}
@@ -62,16 +66,14 @@ pub(crate) fn add_slashing_spans<T: Config>(who: &T::AccountId, spans: u32) {
 
 // This function clears all existing validators and nominators from the set, and generates one new
 // validator being nominated by n nominators, and returns the validator stash account and the
-// nominators' stash and controller. It also starts plans a new era with this new stakers, and
-// returns the planned era index.
-pub(crate) fn create_validator_with_nominators<T: Config>(
+// nominators' stash and controller. It also starts an era and creates pending payouts.
+pub fn create_validator_with_nominators<T: Config>(
 	n: u32,
 	upper_bound: u32,
 	dead_controller: bool,
 	unique_controller: bool,
 	destination: RewardDestination<T::AccountId>,
-) -> Result<(T::AccountId, Vec<(T::AccountId, T::AccountId)>, EraIndex), &'static str> {
-	// TODO: this can be replaced with `testing_utils` version?
+) -> Result<(T::AccountId, Vec<(T::AccountId, T::AccountId)>), &'static str> {
 	// Clean up any existing state.
 	clear_validators_and_nominators::<T>();
 	let mut points_total = 0;
@@ -113,17 +115,12 @@ pub(crate) fn create_validator_with_nominators<T: Config>(
 	ValidatorCount::<T>::put(1);
 
 	// Start a new Era
-	let new_validators = Rotator::<T>::legacy_insta_plan_era();
-	let planned_era = CurrentEra::<T>::get().unwrap_or_default();
+	let new_validators = Staking::<T>::try_trigger_new_era(SessionIndex::one(), true).unwrap();
 
-	assert_eq!(new_validators.len(), 1, "New validators is not 1");
-	assert_eq!(new_validators[0], v_stash, "Our validator was not selected");
-	assert_ne!(Validators::<T>::count(), 0, "New validators count wrong");
-	assert_eq!(
-		Nominators::<T>::count(),
-		original_nominator_count + nominators.len() as u32,
-		"New nominators count wrong"
-	);
+	assert_eq!(new_validators.len(), 1);
+	assert_eq!(new_validators[0], v_stash, "Our validator was not selected!");
+	assert_ne!(Validators::<T>::count(), 0);
+	assert_eq!(Nominators::<T>::count(), original_nominator_count + nominators.len() as u32);
 
 	// Give Era Points
 	let reward = EraRewardPoints::<T::AccountId> {
@@ -131,15 +128,16 @@ pub(crate) fn create_validator_with_nominators<T: Config>(
 		individual: points_individual.into_iter().collect(),
 	};
 
-	ErasRewardPoints::<T>::insert(planned_era, reward);
+	let current_era = CurrentEra::<T>::get().unwrap();
+	ErasRewardPoints::<T>::insert(current_era, reward);
 
 	// Create reward pool
 	let total_payout = asset::existential_deposit::<T>()
 		.saturating_mul(upper_bound.into())
 		.saturating_mul(1000u32.into());
-	<ErasValidatorReward<T>>::insert(planned_era, total_payout);
+	<ErasValidatorReward<T>>::insert(current_era, total_payout);
 
-	Ok((v_stash, nominators, planned_era))
+	Ok((v_stash, nominators))
 }
 
 struct ListScenario<T: Config> {
@@ -571,7 +569,7 @@ mod benchmarks {
 
 	#[benchmark]
 	fn set_validator_count() {
-		let validator_count = T::MaxValidatorSet::get() - 1;
+		let validator_count = MaxValidators::<T>::get();
 
 		#[extrinsic_call]
 		_(RawOrigin::Root, validator_count);
@@ -605,7 +603,7 @@ mod benchmarks {
 
 	#[benchmark]
 	// Worst case scenario, the list of invulnerables is very long.
-	fn set_invulnerables(v: Linear<0, { T::MaxInvulnerables::get() }>) {
+	fn set_invulnerables(v: Linear<0, { MaxValidators::<T>::get() }>) {
 		let mut invulnerables = Vec::new();
 		for i in 0..v {
 			invulnerables.push(account("invulnerable", i, SEED));
@@ -680,40 +678,28 @@ mod benchmarks {
 
 	#[benchmark]
 	fn cancel_deferred_slash(s: Linear<1, MAX_SLASHES>) {
+		let mut unapplied_slashes = Vec::new();
 		let era = EraIndex::one();
-		let dummy_account = || T::AccountId::decode(&mut TrailingZeroInput::zeroes()).unwrap();
-
-		// Insert `s` unapplied slashes with the new key structure
-		for i in 0..s {
-			let slash_key = (dummy_account(), Perbill::from_percent(i as u32 % 100), i);
-			let unapplied_slash = UnappliedSlash::<T> {
-				validator: slash_key.0.clone(),
-				own: Zero::zero(),
-				others: WeakBoundedVec::default(),
-				reporter: Default::default(),
-				payout: Zero::zero(),
-			};
-			UnappliedSlashes::<T>::insert(era, slash_key.clone(), unapplied_slash);
+		let dummy = || T::AccountId::decode(&mut TrailingZeroInput::zeroes()).unwrap();
+		for _ in 0..MAX_SLASHES {
+			unapplied_slashes
+				.push(UnappliedSlash::<T::AccountId, BalanceOf<T>>::default_from(dummy()));
 		}
+		UnappliedSlashes::<T>::insert(era, &unapplied_slashes);
 
-		let slash_keys: Vec<_> = (0..s)
-			.map(|i| (dummy_account(), Perbill::from_percent(i as u32 % 100), i))
-			.collect();
+		let slash_indices: Vec<u32> = (0..s).collect();
 
 		#[extrinsic_call]
-		_(RawOrigin::Root, era, slash_keys.clone());
+		_(RawOrigin::Root, era, slash_indices);
 
-		// Ensure all `s` slashes are removed
-		for key in &slash_keys {
-			assert!(UnappliedSlashes::<T>::get(era, key).is_none());
-		}
+		assert_eq!(UnappliedSlashes::<T>::get(&era).len(), (MAX_SLASHES - s) as usize);
 	}
 
 	#[benchmark]
 	fn payout_stakers_alive_staked(
 		n: Linear<0, { T::MaxExposurePageSize::get() as u32 }>,
 	) -> Result<(), BenchmarkError> {
-		let (validator, nominators, current_era) = create_validator_with_nominators::<T>(
+		let (validator, nominators) = create_validator_with_nominators::<T>(
 			n,
 			T::MaxExposurePageSize::get() as u32,
 			false,
@@ -721,6 +707,7 @@ mod benchmarks {
 			RewardDestination::Staked,
 		)?;
 
+		let current_era = CurrentEra::<T>::get().unwrap();
 		// set the commission for this particular era as well.
 		<ErasValidatorPrefs<T>>::insert(
 			current_era,
@@ -831,6 +818,184 @@ mod benchmarks {
 
 		assert!(!Bonded::<T>::contains_key(&stash));
 		assert!(!T::VoterList::contains(&stash));
+
+		Ok(())
+	}
+
+	#[benchmark]
+	fn new_era(v: Linear<1, 10>, n: Linear<0, 100>) -> Result<(), BenchmarkError> {
+		create_validators_with_nominators_for_era::<T>(
+			v,
+			n,
+			MaxNominationsOf::<T>::get() as usize,
+			false,
+			None,
+		)?;
+		let session_index = SessionIndex::one();
+
+		let validators;
+		#[block]
+		{
+			validators =
+				Staking::<T>::try_trigger_new_era(session_index, true).ok_or("`new_era` failed")?;
+		}
+
+		assert!(validators.len() == v as usize);
+
+		Ok(())
+	}
+
+	#[benchmark(extra)]
+	fn payout_all(v: Linear<1, 10>, n: Linear<0, 100>) -> Result<(), BenchmarkError> {
+		create_validators_with_nominators_for_era::<T>(
+			v,
+			n,
+			MaxNominationsOf::<T>::get() as usize,
+			false,
+			None,
+		)?;
+		// Start a new Era
+		let new_validators = Staking::<T>::try_trigger_new_era(SessionIndex::one(), true).unwrap();
+		assert!(new_validators.len() == v as usize);
+
+		let current_era = CurrentEra::<T>::get().unwrap();
+		let mut points_total = 0;
+		let mut points_individual = Vec::new();
+		let mut payout_calls_arg = Vec::new();
+
+		for validator in new_validators.iter() {
+			points_total += 10;
+			points_individual.push((validator.clone(), 10));
+			payout_calls_arg.push((validator.clone(), current_era));
+		}
+
+		// Give Era Points
+		let reward = EraRewardPoints::<T::AccountId> {
+			total: points_total,
+			individual: points_individual.into_iter().collect(),
+		};
+
+		ErasRewardPoints::<T>::insert(current_era, reward);
+
+		// Create reward pool
+		let total_payout = asset::existential_deposit::<T>() * 1000u32.into();
+		<ErasValidatorReward<T>>::insert(current_era, total_payout);
+
+		let caller: T::AccountId = whitelisted_caller();
+		let origin = RawOrigin::Signed(caller);
+		let calls: Vec<_> = payout_calls_arg
+			.iter()
+			.map(|arg| {
+				Call::<T>::payout_stakers_by_page {
+					validator_stash: arg.0.clone(),
+					era: arg.1,
+					page: 0,
+				}
+				.encode()
+			})
+			.collect();
+
+		#[block]
+		{
+			for call in calls {
+				<Call<T> as Decode>::decode(&mut &*call)
+					.expect("call is encoded above, encoding must be correct")
+					.dispatch_bypass_filter(origin.clone().into())?;
+			}
+		}
+
+		Ok(())
+	}
+
+	#[benchmark(extra)]
+	fn do_slash(
+		l: Linear<1, { T::MaxUnlockingChunks::get() as u32 }>,
+	) -> Result<(), BenchmarkError> {
+		let (stash, controller) = create_stash_controller::<T>(0, 100, RewardDestination::Staked)?;
+		let mut staking_ledger = Ledger::<T>::get(controller.clone()).unwrap();
+		let unlock_chunk =
+			UnlockChunk::<BalanceOf<T>> { value: 1u32.into(), era: EraIndex::zero() };
+		for _ in 0..l {
+			staking_ledger.unlocking.try_push(unlock_chunk.clone()).unwrap();
+		}
+		Ledger::<T>::insert(controller, staking_ledger);
+		let slash_amount = asset::existential_deposit::<T>() * 10u32.into();
+		let balance_before = asset::stakeable_balance::<T>(&stash);
+
+		#[block]
+		{
+			crate::slashing::do_slash::<T>(
+				&stash,
+				slash_amount,
+				&mut BalanceOf::<T>::zero(),
+				&mut NegativeImbalanceOf::<T>::zero(),
+				EraIndex::zero(),
+			);
+		}
+
+		let balance_after = asset::stakeable_balance::<T>(&stash);
+		assert!(balance_before > balance_after);
+
+		Ok(())
+	}
+
+	#[benchmark]
+	fn get_npos_voters(
+		// number of validator intention. we will iterate all of them.
+		v: Linear<{ MaxValidators::<T>::get() / 2 }, { MaxValidators::<T>::get() }>,
+
+		// number of nominator intention. we will iterate all of them.
+		n: Linear<{ MaxNominators::<T>::get() / 2 }, { MaxNominators::<T>::get() }>,
+	) -> Result<(), BenchmarkError> {
+		create_validators_with_nominators_for_era::<T>(
+			v,
+			n,
+			MaxNominationsOf::<T>::get() as usize,
+			false,
+			None,
+		)?;
+
+		assert_eq!(Validators::<T>::count(), v);
+		assert_eq!(Nominators::<T>::count(), n);
+
+		let num_voters = (v + n) as usize;
+
+		// default bounds are unbounded.
+		let voters;
+		#[block]
+		{
+			voters = <Staking<T>>::get_npos_voters(DataProviderBounds::default());
+		}
+
+		assert_eq!(voters.len(), num_voters);
+
+		Ok(())
+	}
+
+	#[benchmark]
+	fn get_npos_targets(
+		// number of validator intention.
+		v: Linear<{ MaxValidators::<T>::get() / 2 }, { MaxValidators::<T>::get() }>,
+	) -> Result<(), BenchmarkError> {
+		// number of nominator intention.
+		let n = MaxNominators::<T>::get();
+		create_validators_with_nominators_for_era::<T>(
+			v,
+			n,
+			MaxNominationsOf::<T>::get() as usize,
+			false,
+			None,
+		)?;
+
+		let targets;
+
+		#[block]
+		{
+			// default bounds are unbounded.
+			targets = <Staking<T>>::get_npos_targets(DataProviderBounds::default());
+		}
+
+		assert_eq!(targets.len() as u32, v);
 
 		Ok(())
 	}
@@ -990,216 +1155,26 @@ mod benchmarks {
 	}
 
 	#[benchmark]
-	fn apply_slash() -> Result<(), BenchmarkError> {
-		let era = EraIndex::one();
-		ActiveEra::<T>::put(ActiveEraInfo { index: era, start: None });
-		let (validator, nominators, _current_era) = create_validator_with_nominators::<T>(
+	fn manual_slash() -> Result<(), BenchmarkError> {
+		// Create a validator with nominators
+		// This will add exposure for our validator in the current era.
+		let (validator_stash, _nominators) = create_validator_with_nominators::<T>(
 			T::MaxExposurePageSize::get() as u32,
 			T::MaxExposurePageSize::get() as u32,
 			false,
 			true,
 			RewardDestination::Staked,
 		)?;
+
+		let era = CurrentEra::<T>::get().unwrap();
+		ActiveEra::<T>::put(ActiveEraInfo { index: era, start: None });
 		let slash_fraction = Perbill::from_percent(10);
-		let page_index = 0;
-		let slashed_balance = BalanceOf::<T>::from(10u32);
-
-		let slash_key = (validator.clone(), slash_fraction, page_index);
-		let slashed_nominators =
-			nominators.iter().map(|(n, _)| (n.clone(), slashed_balance)).collect::<Vec<_>>();
-
-		let unapplied_slash = UnappliedSlash::<T> {
-			validator: validator.clone(),
-			own: slashed_balance,
-			others: WeakBoundedVec::force_from(slashed_nominators, None),
-			reporter: Default::default(),
-			payout: Zero::zero(),
-		};
-
-		// Insert an unapplied slash to be processed.
-		UnappliedSlashes::<T>::insert(era, slash_key.clone(), unapplied_slash);
 
 		#[extrinsic_call]
-		_(RawOrigin::Signed(validator.clone()), era, slash_key.clone());
+		_(RawOrigin::Root, validator_stash.clone(), era, slash_fraction);
 
-		// Ensure the slash has been applied and removed.
-		assert!(UnappliedSlashes::<T>::get(era, &slash_key).is_none());
+		assert!(ValidatorSlashInEra::<T>::get(era, &validator_stash).is_some());
 
-		Ok(())
-	}
-
-	#[benchmark]
-	fn process_offence_queue() -> Result<(), BenchmarkError> {
-		// in tests, it is likely that `SlashDeferDuration` is zero and this will also insta-apply
-		// the slash. Remove this just in case.
-		#[cfg(test)]
-		crate::mock::SlashDeferDuration::set(77);
-
-		// create at least one validator with a full page of exposure, as per `MaxExposurePageSize`.
-		let all_validators = crate::testing_utils::create_validators_with_nominators_for_era::<T>(
-			// we create more validators, but all of the nominators will back the first one
-			ValidatorCount::<T>::get(),
-			// create two full exposure pages
-			2 * T::MaxExposurePageSize::get(),
-			16,
-			false,
-			Some(1),
-		)?;
-		let offender =
-			T::Lookup::lookup(all_validators.first().cloned().expect("must exist")).unwrap();
-
-		// plan an era with this set
-		let _new_validators = Rotator::<T>::legacy_insta_plan_era();
-		// activate the previous one
-		Rotator::<T>::start_era(
-			&crate::ActiveEraInfo { index: Rotator::<T>::planning_era() - 1, start: Some(1) },
-			42, // start session index doesn't really matter,
-			2,  // timestamp doesn't really matter
-		);
-
-		// ensure our offender has at least a full exposure page
-		let offender_exposure =
-			Eras::<T>::get_full_exposure(Rotator::<T>::planning_era(), &offender);
-		ensure!(
-			offender_exposure.others.len() as u32 == 2 * T::MaxExposurePageSize::get(),
-			"exposure not created"
-		);
-
-		// create an offence for this validator
-		let slash_session = 42;
-		let offences = vec![rc_client::Offence {
-			offender: offender.clone(),
-			reporters: Default::default(),
-			slash_fraction: Perbill::from_percent(50),
-		}];
-		<crate::Pallet<T> as rc_client::AHStakingInterface>::on_new_offences(
-			slash_session,
-			offences,
-		);
-
-		// ensure offence is submitted
-		ensure!(
-			ValidatorSlashInEra::<T>::contains_key(Rotator::<T>::active_era(), offender),
-			"offence not submitted"
-		);
-		ensure!(
-			OffenceQueueEras::<T>::get().unwrap_or_default() == vec![Rotator::<T>::active_era()],
-			"offence should be queued"
-		);
-
-		#[block]
-		{
-			slashing::process_offence::<T>();
-		}
-
-		ensure!(OffenceQueueEras::<T>::get().is_none(), "offence should not be queued");
-
-		Ok(())
-	}
-
-	#[benchmark]
-	fn rc_on_offence(
-		v: Linear<2, { T::MaxValidatorSet::get() / 2 }>,
-	) -> Result<(), BenchmarkError> {
-		let initial_era = Rotator::<T>::planning_era();
-		let _ = crate::testing_utils::create_validators_with_nominators_for_era::<T>(
-			2 * v,
-			// number of nominators is irrelevant here, so we hardcode these
-			1000,
-			16,
-			false,
-			None,
-		)?;
-
-		// plan new era
-		let new_validators = Rotator::<T>::legacy_insta_plan_era();
-		ensure!(Rotator::<T>::planning_era() == initial_era + 1, "era should be incremented");
-		// activate the previous one
-		Rotator::<T>::start_era(
-			&crate::ActiveEraInfo { index: initial_era, start: Some(1) },
-			42, // start session index doesn't really matter,
-			2,  // timestamp doesn't really matter
-		);
-
-		// this is needed in the slashing code, and is a sign that `initial_era + 1` is planned!
-		ensure!(
-			ErasStartSessionIndex::<T>::get(initial_era + 1).unwrap() == 42,
-			"EraStartSessionIndex not set"
-		);
-
-		// slash the first half of the validators
-		let to_slash_count = new_validators.len() / 2;
-		let to_slash = new_validators.into_iter().take(to_slash_count).collect::<Vec<_>>();
-		let one_slashed = to_slash.first().cloned().unwrap();
-		let offences = to_slash
-			.into_iter()
-			.map(|offender| rc_client::Offence {
-				offender,
-				reporters: Default::default(),
-				slash_fraction: Perbill::from_percent(50),
-			})
-			.collect::<Vec<_>>();
-		let slash_session = 42;
-
-		// has not pending slash for these guys now
-		ensure!(
-			!ValidatorSlashInEra::<T>::contains_key(initial_era + 1, &one_slashed),
-			"offence submitted???"
-		);
-
-		#[block]
-		{
-			<crate::Pallet<T> as rc_client::AHStakingInterface>::on_new_offences(
-				slash_session,
-				offences,
-			);
-		}
-
-		// ensure offence is recorded
-		ensure!(
-			ValidatorSlashInEra::<T>::contains_key(initial_era + 1, one_slashed),
-			"offence not submitted"
-		);
-
-		Ok(())
-	}
-
-	#[benchmark]
-	fn rc_on_session_report() -> Result<(), BenchmarkError> {
-		let initial_planned_era = Rotator::<T>::planning_era();
-		let initial_active_era = Rotator::<T>::active_era();
-
-		// create a small, arbitrary number of stakers. This is just for sanity of the era planning,
-		// numbers don't matter.
-		crate::testing_utils::create_validators_with_nominators_for_era::<T>(
-			10, 50, 2, false, None,
-		)?;
-
-		// plan new era
-		let _new_validators = Rotator::<T>::legacy_insta_plan_era();
-		ensure!(
-			CurrentEra::<T>::get().unwrap() == initial_planned_era + 1,
-			"era should be incremented"
-		);
-
-		//  receive a session report with timestamp that actives the previous one.
-		let validator_points = (0..T::MaxValidatorSet::get())
-			.map(|v| (account::<T::AccountId>("random", v, SEED), v))
-			.collect::<Vec<_>>();
-		let activation_timestamp = Some((1u64, initial_planned_era + 1));
-		let report = rc_client::SessionReport {
-			end_index: 42,
-			leftover: false,
-			validator_points,
-			activation_timestamp,
-		};
-
-		#[block]
-		{
-			<crate::Pallet<T> as rc_client::AHStakingInterface>::on_relay_session_report(report);
-		}
-
-		ensure!(Rotator::<T>::active_era() == initial_active_era + 1, "active era not bumped");
 		Ok(())
 	}
 
@@ -1248,17 +1223,18 @@ mod tests {
 		ExtBuilder::default().build_and_execute(|| {
 			let n = 10;
 
-			let (validator_stash, nominators, current_era) =
-				create_validator_with_nominators::<Test>(
-					n,
-					<<Test as Config>::MaxExposurePageSize as Get<_>>::get(),
-					false,
-					false,
-					RewardDestination::Staked,
-				)
-				.unwrap();
+			let (validator_stash, nominators) = create_validator_with_nominators::<Test>(
+				n,
+				<<Test as Config>::MaxExposurePageSize as Get<_>>::get(),
+				false,
+				false,
+				RewardDestination::Staked,
+			)
+			.unwrap();
 
 			assert_eq!(nominators.len() as u32, n);
+
+			let current_era = CurrentEra::<Test>::get().unwrap();
 
 			let original_stakeable_balance = asset::stakeable_balance::<Test>(&validator_stash);
 			assert_ok!(Staking::payout_stakers_by_page(
@@ -1279,7 +1255,7 @@ mod tests {
 		ExtBuilder::default().build_and_execute(|| {
 			let n = 10;
 
-			let (validator_stash, _nominators, _) = create_validator_with_nominators::<Test>(
+			let (validator_stash, _nominators) = create_validator_with_nominators::<Test>(
 				n,
 				<<Test as Config>::MaxExposurePageSize as Get<_>>::get(),
 				false,

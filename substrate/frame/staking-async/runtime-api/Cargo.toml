@@ -1,5 +1,5 @@
 [package]
-name = "pallet-staking-async-runtime-api"
+name = "pallet-staking-runtime-api"
 version = "14.0.0"
 authors.workspace = true
 edition.workspace = true

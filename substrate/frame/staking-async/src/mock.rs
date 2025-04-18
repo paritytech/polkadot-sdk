@@ -17,87 +17,176 @@
 
 //! Test utilities
 
-use crate::{
-	self as pallet_staking_async,
-	session_rotation::{Eras, Rotator},
-	*,
-};
-
+use crate::{self as pallet_staking, *};
 use frame_election_provider_support::{
 	bounds::{ElectionBounds, ElectionBoundsBuilder},
-	onchain, BoundedSupports, BoundedSupportsOf, ElectionProvider, PageIndex, SequentialPhragmen,
-	Support, VoteWeight,
+	onchain, SequentialPhragmen, VoteWeight,
 };
 use frame_support::{
 	assert_ok, derive_impl, ord_parameter_types, parameter_types,
-	traits::{EitherOfDiverse, Get, Imbalance, OnUnbalanced},
+	traits::{
+		ConstU64, EitherOfDiverse, FindAuthor, Get, Imbalance, OnUnbalanced, OneSessionHandler,
+	},
 	weights::constants::RocksDbWeight,
 };
-use frame_system::{pallet_prelude::BlockNumberFor, EnsureRoot, EnsureSignedBy};
-use pallet_staking_async_rc_client as rc_client;
-use sp_core::ConstBool;
+use frame_system::{EnsureRoot, EnsureSignedBy};
 use sp_io;
-use sp_npos_elections::BalancingConfig;
-use sp_runtime::{traits::Zero, BuildStorage};
+use sp_runtime::{curve::PiecewiseLinear, testing::UintAuthorityId, traits::Zero, BuildStorage};
 use sp_staking::{
-	currency_to_vote::SaturatingCurrencyToVote, OnStakingUpdate, SessionIndex, StakingAccount,
+	offence::{OffenceDetails, OnOffenceHandler},
+	OnStakingUpdate,
 };
 
-pub(crate) const INIT_TIMESTAMP: u64 = 30_000;
-pub(crate) const BLOCK_TIME: u64 = 1000;
+pub const INIT_TIMESTAMP: u64 = 30_000;
+pub const BLOCK_TIME: u64 = 1000;
+
+/// The AccountId alias in this test module.
+pub(crate) type AccountId = u64;
+pub(crate) type BlockNumber = u64;
+pub(crate) type Balance = u128;
+
+/// Another session handler struct to test on_disabled.
+pub struct OtherSessionHandler;
+impl OneSessionHandler<AccountId> for OtherSessionHandler {
+	type Key = UintAuthorityId;
+
+	fn on_genesis_session<'a, I: 'a>(_: I)
+	where
+		I: Iterator<Item = (&'a AccountId, Self::Key)>,
+		AccountId: 'a,
+	{
+	}
+
+	fn on_new_session<'a, I: 'a>(_: bool, _: I, _: I)
+	where
+		I: Iterator<Item = (&'a AccountId, Self::Key)>,
+		AccountId: 'a,
+	{
+	}
+
+	fn on_disabled(_validator_index: u32) {}
+}
+
+impl sp_runtime::BoundToRuntimeAppPublic for OtherSessionHandler {
+	type Public = UintAuthorityId;
+}
+
+pub fn is_disabled(controller: AccountId) -> bool {
+	let stash = Ledger::<Test>::get(&controller).unwrap().stash;
+	let validator_index = match Session::validators().iter().position(|v| *v == stash) {
+		Some(index) => index as u32,
+		None => return false,
+	};
+
+	Session::disabled_validators().contains(&validator_index)
+}
+
+type Block = frame_system::mocking::MockBlock<Test>;
 
 frame_support::construct_runtime!(
-	pub enum Test {
+	pub enum Test
+	{
 		System: frame_system,
+		Authorship: pallet_authorship,
+		Timestamp: pallet_timestamp,
 		Balances: pallet_balances,
-		Staking: pallet_staking_async,
+		Staking: pallet_staking,
+		Session: pallet_session,
+		Historical: pallet_session::historical,
 		VoterBagsList: pallet_bags_list::<Instance1>,
 	}
 );
 
-pub(crate) type T = Test;
-pub(crate) type Runtime = Test;
-pub(crate) type AccountId = <Runtime as frame_system::Config>::AccountId;
-pub(crate) type BlockNumber = BlockNumberFor<Runtime>;
-pub(crate) type Balance = <Runtime as pallet_balances::Config>::Balance;
+/// Author of block is always 11
+pub struct Author11;
+impl FindAuthor<AccountId> for Author11 {
+	fn find_author<'a, I>(_digests: I) -> Option<AccountId>
+	where
+		I: 'a + IntoIterator<Item = (frame_support::ConsensusEngineId, &'a [u8])>,
+	{
+		Some(11)
+	}
+}
 
 parameter_types! {
+	pub static SessionsPerEra: SessionIndex = 3;
 	pub static ExistentialDeposit: Balance = 1;
 	pub static SlashDeferDuration: EraIndex = 0;
-	pub static MaxControllersInDeprecationBatch: u32 = 5900;
-	pub static BondingDuration: EraIndex = 3;
-	pub static HistoryDepth: u32 = 80;
-	pub static MaxExposurePageSize: u32 = 64;
-	pub static MaxUnlockingChunks: u32 = 32;
-	pub static RewardOnUnbalanceWasCalled: bool = false;
-	pub static MaxValidatorSet: u32 = 100;
-	pub static ElectionsBounds: ElectionBounds = ElectionBoundsBuilder::default().build();
-	pub static AbsoluteMaxNominations: u32 = 16;
-	pub static PlanningEraOffset: u32 = 1;
-	// Session configs
-	pub static SessionsPerEra: SessionIndex = 3;
 	pub static Period: BlockNumber = 5;
 	pub static Offset: BlockNumber = 0;
+	pub static MaxControllersInDeprecationBatch: u32 = 5900;
 }
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
 	type DbWeight = RocksDbWeight;
-	type Block = frame_system::mocking::MockBlock<Test>;
+	type Block = Block;
 	type AccountData = pallet_balances::AccountData<Balance>;
 }
 #[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for Test {
 	type MaxLocks = frame_support::traits::ConstU32<1024>;
-	type Balance = u128;
+	type Balance = Balance;
 	type ExistentialDeposit = ExistentialDeposit;
 	type AccountStore = System;
+}
+
+sp_runtime::impl_opaque_keys! {
+	pub struct SessionKeys {
+		pub other: OtherSessionHandler,
+	}
+}
+impl pallet_session::Config for Test {
+	type SessionManager = pallet_session::historical::NoteHistoricalRoot<Test, Staking>;
+	type Keys = SessionKeys;
+	type ShouldEndSession = pallet_session::PeriodicSessions<Period, Offset>;
+	type SessionHandler = (OtherSessionHandler,);
+	type RuntimeEvent = RuntimeEvent;
+	type ValidatorId = AccountId;
+	type ValidatorIdOf = crate::StashOf<Test>;
+	type NextSessionRotation = pallet_session::PeriodicSessions<Period, Offset>;
+	type DisablingStrategy =
+		pallet_session::disabling::UpToLimitWithReEnablingDisablingStrategy<DISABLING_LIMIT_FACTOR>;
+	type WeightInfo = ();
+}
+
+impl pallet_session::historical::Config for Test {
+	type FullIdentification = Existence;
+	type FullIdentificationOf = ExistenceOf<Test>;
+}
+impl pallet_authorship::Config for Test {
+	type FindAuthor = Author11;
+	type EventHandler = ();
+}
+
+impl pallet_timestamp::Config for Test {
+	type Moment = u64;
+	type OnTimestampSet = ();
+	type MinimumPeriod = ConstU64<5>;
+	type WeightInfo = ();
+}
+
+pallet_staking_reward_curve::build! {
+	const I_NPOS: PiecewiseLinear<'static> = curve!(
+		min_inflation: 0_025_000,
+		max_inflation: 0_100_000,
+		ideal_stake: 0_500_000,
+		falloff: 0_050_000,
+		max_piece_count: 40,
+		test_precision: 0_005_000,
+	);
+}
+parameter_types! {
+	pub const BondingDuration: EraIndex = 3;
+	pub const RewardCurve: &'static PiecewiseLinear<'static> = &I_NPOS;
 }
 
 parameter_types! {
 	pub static RewardRemainderUnbalanced: u128 = 0;
 }
+
 pub struct RewardRemainderMock;
+
 impl OnUnbalanced<NegativeImbalanceOf<Test>> for RewardRemainderMock {
 	fn on_nonzero_unbalanced(amount: NegativeImbalanceOf<Test>) {
 		RewardRemainderUnbalanced::mutate(|v| {
@@ -107,14 +196,21 @@ impl OnUnbalanced<NegativeImbalanceOf<Test>> for RewardRemainderMock {
 	}
 }
 
-pub(crate) const THRESHOLDS: [sp_npos_elections::VoteWeight; 9] =
+const THRESHOLDS: [sp_npos_elections::VoteWeight; 9] =
 	[10, 20, 30, 40, 50, 60, 1_000, 2_000, 10_000];
 
 parameter_types! {
 	pub static BagThresholds: &'static [sp_npos_elections::VoteWeight] = &THRESHOLDS;
+	pub static HistoryDepth: u32 = 80;
+	pub static MaxExposurePageSize: u32 = 64;
+	pub static MaxUnlockingChunks: u32 = 32;
+	pub static RewardOnUnbalanceWasCalled: bool = false;
+	pub static MaxWinners: u32 = 100;
+	pub static ElectionsBounds: ElectionBounds = ElectionBoundsBuilder::default().build();
+	pub static AbsoluteMaxNominations: u32 = 16;
 }
 
-pub type VoterBagsListInstance = pallet_bags_list::Instance1;
+type VoterBagsListInstance = pallet_bags_list::Instance1;
 impl pallet_bags_list::Config<VoterBagsListInstance> for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = ();
@@ -124,65 +220,16 @@ impl pallet_bags_list::Config<VoterBagsListInstance> for Test {
 	type Score = VoteWeight;
 }
 
-// multi-page types and controller.
-parameter_types! {
-	pub static Pages: PageIndex = 1;
-	pub static MaxBackersPerWinner: u32 = 256;
-	pub static MaxWinnersPerPage: u32 = MaxValidatorSet::get();
-	pub static StartReceived: bool = false;
-}
-
-pub type InnerElection = onchain::OnChainExecution<OnChainSeqPhragmen>;
-pub struct Balancing;
-impl Get<Option<BalancingConfig>> for Balancing {
-	fn get() -> Option<BalancingConfig> {
-		Some(BalancingConfig { iterations: 5, tolerance: 0 })
-	}
-}
-
 pub struct OnChainSeqPhragmen;
 impl onchain::Config for OnChainSeqPhragmen {
 	type System = Test;
-	type Solver = SequentialPhragmen<AccountId, Perbill, Balancing>;
+	type Solver = SequentialPhragmen<AccountId, Perbill>;
 	type DataProvider = Staking;
 	type WeightInfo = ();
+	type MaxWinners = MaxWinners;
 	type Bounds = ElectionsBounds;
-	type Sort = ConstBool<true>;
-	type MaxBackersPerWinner = MaxBackersPerWinner;
-	type MaxWinnersPerPage = MaxWinnersPerPage;
 }
 
-pub struct TestElectionProvider;
-impl ElectionProvider for TestElectionProvider {
-	type AccountId = AccountId;
-	type BlockNumber = BlockNumber;
-	type MaxWinnersPerPage = MaxWinnersPerPage;
-	type MaxBackersPerWinner = MaxBackersPerWinner;
-	type Pages = Pages;
-	type DataProvider = Staking;
-	type Error = onchain::Error;
-
-	fn elect(page: PageIndex) -> Result<BoundedSupportsOf<Self>, Self::Error> {
-		if page == 0 {
-			StartReceived::set(false);
-		}
-		InnerElection::elect(page)
-	}
-	fn start() -> Result<(), Self::Error> {
-		StartReceived::set(true);
-		Ok(())
-	}
-	fn duration() -> Self::BlockNumber {
-		InnerElection::duration()
-	}
-	fn status() -> Result<bool, ()> {
-		if StartReceived::get() {
-			Ok(true)
-		} else {
-			Err(())
-		}
-	}
-}
 pub struct MockReward {}
 impl OnUnbalanced<PositiveImbalanceOf<Test>> for MockReward {
 	fn on_unbalanced(_: PositiveImbalanceOf<Test>) {
@@ -220,191 +267,35 @@ impl Contains<AccountId> for MockedRestrictList {
 	}
 }
 
-/// A representation of the session pallet that lives on the relay chain.
-pub mod session_mock {
-	use super::*;
-	use pallet_staking_async_rc_client::ValidatorSetReport;
+// Disabling threshold for `UpToLimitDisablingStrategy` and
+// `UpToLimitWithReEnablingDisablingStrategy``
+pub(crate) const DISABLING_LIMIT_FACTOR: usize = 3;
 
-	pub struct Session;
-
-	impl Session {
-		pub fn queued_validators() -> Option<Vec<AccountId>> {
-			Queued::get()
-		}
-
-		pub fn validators() -> Vec<AccountId> {
-			Active::get()
-		}
-
-		pub fn current_index() -> SessionIndex {
-			CurrentIndex::get()
-		}
-
-		pub fn roll_until(block: BlockNumber) {
-			while System::block_number() < block {
-				Self::roll_next();
-			}
-		}
-
-		pub fn roll_next() {
-			let now = System::block_number();
-			Timestamp::mutate(|ts| *ts += BLOCK_TIME);
-			System::run_to_block::<AllPalletsWithSystem>(now + 1);
-			Self::maybe_rotate_session_now();
-		}
-
-		pub fn roll_to_next_session() {
-			let current = Self::current_index();
-			while Self::current_index() != (current + 1) {
-				Self::roll_next();
-			}
-		}
-
-		pub fn roll_until_session(session: SessionIndex) {
-			while Self::current_index() != session {
-				Self::roll_next();
-			}
-		}
-
-		pub fn roll_until_active_era(era: EraIndex) {
-			while active_era() != era {
-				Self::roll_next();
-			}
-		}
-
-		fn maybe_rotate_session_now() {
-			let now = System::block_number();
-			let period = Period::get();
-			if now % period == 0 {
-				Self::advance_session();
-			}
-		}
-
-		fn advance_session() {
-			let ending = Self::current_index();
-			if let Some((q, id)) = Queued::get().zip(QueuedId::get()) {
-				// we have something queued
-				if QueuedBufferSessions::get() == 0 {
-					// buffer time has passed
-					Active::set(q);
-					Rotator::<Test>::end_session(ending, Some((Timestamp::get(), id)));
-					Queued::reset();
-					QueuedId::reset();
-				} else {
-					QueuedBufferSessions::mutate(|s| *s -= 1);
-					Rotator::<Test>::end_session(ending, None);
-				}
-			} else {
-				// just end the session.
-				Rotator::<Test>::end_session(ending, None);
-			}
-			CurrentIndex::set(ending + 1);
-		}
-	}
-
-	parameter_types! {
-		pub static ReceivedValidatorSets
-			: BTreeMap<BlockNumber, ValidatorSetReport<AccountId>>
-			= BTreeMap::new();
-		pub static Queued: Option<Vec<AccountId>> = None;
-		pub static QueuedId: Option<u32> = None;
-		pub static QueuedBufferSessions: BlockNumber = 1;
-		pub static Active: Vec<AccountId> = Vec::new();
-		pub static CurrentIndex: u32 = 0;
-		pub static Timestamp: u64 = INIT_TIMESTAMP;
-	}
-
-	impl ReceivedValidatorSets {
-		pub fn get_last() -> ValidatorSetReport<AccountId> {
-			let mut data = Self::get();
-			data.pop_last().unwrap().1
-		}
-	}
-
-	impl pallet_staking_async_rc_client::RcClientInterface for Session {
-		type AccountId = AccountId;
-
-		fn validator_set(
-			new_validator_set: Vec<Self::AccountId>,
-			id: u32,
-			prune_up_to: Option<u32>,
-		) {
-			log::debug!(target: "runtime::session_mock", "Received validator set: {:?}", new_validator_set);
-			let now = System::block_number();
-			// store the report for further inspection.
-			ReceivedValidatorSets::mutate(|reports| {
-				reports.insert(
-					now,
-					ValidatorSetReport {
-						id,
-						new_validator_set: new_validator_set.clone(),
-						prune_up_to,
-						leftover: false,
-					},
-				);
-			});
-
-			// queue the validator set.
-			Queued::set(Some(new_validator_set));
-			QueuedId::set(Some(id));
-			QueuedBufferSessions::set(1);
-		}
-	}
-}
-
-pub use session_mock::Session;
-
-ord_parameter_types! {
-	pub const One: u64 = 1;
-}
-
-parameter_types! {
-	pub static RemainderRatio: Perbill = Perbill::from_percent(50);
-}
-pub struct OneTokenPerMillisecond;
-impl EraPayout<Balance> for OneTokenPerMillisecond {
-	fn era_payout(
-		_total_staked: Balance,
-		_total_issuance: Balance,
-		era_duration_millis: u64,
-	) -> (Balance, Balance) {
-		let total = era_duration_millis as Balance;
-		let remainder = RemainderRatio::get() * total;
-		let stakers = total - remainder;
-		(stakers, remainder)
-	}
-}
-
+#[derive_impl(crate::config_preludes::TestDefaultConfig)]
 impl crate::pallet::pallet::Config for Test {
-	type RuntimeHoldReason = RuntimeHoldReason;
 	type OldCurrency = Balances;
 	type Currency = Balances;
+	type UnixTime = Timestamp;
 	type RewardRemainder = RewardRemainderMock;
 	type Reward = MockReward;
 	type SessionsPerEra = SessionsPerEra;
 	type SlashDeferDuration = SlashDeferDuration;
-	type AdminOrigin = EitherOfDiverse<EnsureRoot<AccountId>, EnsureSignedBy<One, AccountId>>;
-	type EraPayout = OneTokenPerMillisecond;
+	type AdminOrigin = EnsureOneOrRoot;
+	type SessionInterface = Self;
+	type EraPayout = ConvertCurve<RewardCurve>;
+	type NextNewSession = Session;
 	type MaxExposurePageSize = MaxExposurePageSize;
-	type MaxValidatorSet = MaxValidatorSet;
-	type ElectionProvider = TestElectionProvider;
+	type ElectionProvider = onchain::OnChainExecution<OnChainSeqPhragmen>;
+	type GenesisElectionProvider = Self::ElectionProvider;
+	// NOTE: consider a macro and use `UseNominatorsAndValidatorsMap<Self>` as well.
 	type VoterList = VoterBagsList;
 	type TargetList = UseValidatorsMap<Self>;
 	type NominationsQuota = WeightedNominationsQuota<16>;
 	type MaxUnlockingChunks = MaxUnlockingChunks;
 	type HistoryDepth = HistoryDepth;
-	type BondingDuration = BondingDuration;
 	type MaxControllersInDeprecationBatch = MaxControllersInDeprecationBatch;
 	type EventListeners = EventListenerMock;
-	type MaxInvulnerables = ConstU32<20>;
-	type MaxDisabledValidators = ConstU32<100>;
-	type PlanningEraOffset = PlanningEraOffset;
 	type Filter = MockedRestrictList;
-	type RcClientInterface = session_mock::Session;
-	type CurrencyBalance = Balance;
-	type CurrencyToVote = SaturatingCurrencyToVote;
-	type Slash = ();
-	type WeightInfo = ();
 }
 
 pub struct WeightedNominationsQuota<const MAX: u32>;
@@ -426,6 +317,9 @@ where
 	}
 }
 
+pub(crate) type StakingCall = crate::Call<Test>;
+pub(crate) type TestCall = <Test as frame_system::Config>::RuntimeCall;
+
 parameter_types! {
 	// if true, skips the try-state for the test running.
 	pub static SkipTryStateCheck: bool = false;
@@ -434,15 +328,16 @@ parameter_types! {
 pub struct ExtBuilder {
 	nominate: bool,
 	validator_count: u32,
-	invulnerables: BoundedVec<AccountId, <Test as Config>::MaxInvulnerables>,
+	minimum_validator_count: u32,
+	invulnerables: Vec<AccountId>,
 	has_stakers: bool,
+	initialize_first_session: bool,
 	pub min_nominator_bond: Balance,
 	min_validator_bond: Balance,
 	balance_factor: Balance,
 	status: BTreeMap<AccountId, StakerStatus<AccountId>>,
 	stakes: BTreeMap<AccountId, Balance>,
-	stakers: Vec<(AccountId, Balance, StakerStatus<AccountId>)>,
-	flush_events: bool,
+	stakers: Vec<(AccountId, AccountId, Balance, StakerStatus<AccountId>)>,
 }
 
 impl Default for ExtBuilder {
@@ -450,124 +345,96 @@ impl Default for ExtBuilder {
 		Self {
 			nominate: true,
 			validator_count: 2,
+			minimum_validator_count: 0,
 			balance_factor: 1,
-			invulnerables: BoundedVec::new(),
+			invulnerables: vec![],
 			has_stakers: true,
+			initialize_first_session: true,
 			min_nominator_bond: ExistentialDeposit::get(),
 			min_validator_bond: ExistentialDeposit::get(),
 			status: Default::default(),
 			stakes: Default::default(),
 			stakers: Default::default(),
-			flush_events: true,
 		}
 	}
 }
 
-#[allow(unused)]
 impl ExtBuilder {
-	pub(crate) fn existential_deposit(self, existential_deposit: Balance) -> Self {
+	pub fn existential_deposit(self, existential_deposit: Balance) -> Self {
 		EXISTENTIAL_DEPOSIT.with(|v| *v.borrow_mut() = existential_deposit);
 		self
 	}
-	pub(crate) fn max_unlock_chunks(self, max: u32) -> Self {
-		MaxUnlockingChunks::set(max);
-		self
-	}
-	pub(crate) fn bonding_duration(self, bonding_duration: EraIndex) -> Self {
-		BondingDuration::set(bonding_duration);
-		self
-	}
-	pub(crate) fn planning_era_offset(self, offset: SessionIndex) -> Self {
-		PlanningEraOffset::set(offset);
-		self
-	}
-	pub(crate) fn nominate(mut self, nominate: bool) -> Self {
+	pub fn nominate(mut self, nominate: bool) -> Self {
 		self.nominate = nominate;
 		self
 	}
-	pub(crate) fn no_flush_events(mut self) -> Self {
-		self.flush_events = false;
-		self
-	}
-	pub(crate) fn validator_count(mut self, count: u32) -> Self {
+	pub fn validator_count(mut self, count: u32) -> Self {
 		self.validator_count = count;
 		self
 	}
-	pub(crate) fn slash_defer_duration(self, eras: EraIndex) -> Self {
-		SlashDeferDuration::set(eras);
+	pub fn minimum_validator_count(mut self, count: u32) -> Self {
+		self.minimum_validator_count = count;
 		self
 	}
-	pub(crate) fn invulnerables(mut self, invulnerables: Vec<AccountId>) -> Self {
-		self.invulnerables = BoundedVec::try_from(invulnerables)
-			.expect("Too many invulnerable validators: upper limit is MaxInvulnerables");
+	pub fn slash_defer_duration(self, eras: EraIndex) -> Self {
+		SLASH_DEFER_DURATION.with(|v| *v.borrow_mut() = eras);
 		self
 	}
-	pub(crate) fn session_per_era(self, length: SessionIndex) -> Self {
-		SessionsPerEra::set(length);
+	pub fn invulnerables(mut self, invulnerables: Vec<AccountId>) -> Self {
+		self.invulnerables = invulnerables;
 		self
 	}
-	pub(crate) fn period(self, length: BlockNumber) -> Self {
-		Period::set(length);
+	pub fn session_per_era(self, length: SessionIndex) -> Self {
+		SESSIONS_PER_ERA.with(|v| *v.borrow_mut() = length);
 		self
 	}
-	pub(crate) fn has_stakers(mut self, has: bool) -> Self {
+	pub fn period(self, length: BlockNumber) -> Self {
+		PERIOD.with(|v| *v.borrow_mut() = length);
+		self
+	}
+	pub fn has_stakers(mut self, has: bool) -> Self {
 		self.has_stakers = has;
 		self
 	}
-	pub(crate) fn offset(self, offset: BlockNumber) -> Self {
+	pub fn initialize_first_session(mut self, init: bool) -> Self {
+		self.initialize_first_session = init;
+		self
+	}
+	pub fn offset(self, offset: BlockNumber) -> Self {
 		OFFSET.with(|v| *v.borrow_mut() = offset);
 		self
 	}
-	pub(crate) fn min_nominator_bond(mut self, amount: Balance) -> Self {
+	pub fn min_nominator_bond(mut self, amount: Balance) -> Self {
 		self.min_nominator_bond = amount;
 		self
 	}
-	pub(crate) fn min_validator_bond(mut self, amount: Balance) -> Self {
+	pub fn min_validator_bond(mut self, amount: Balance) -> Self {
 		self.min_validator_bond = amount;
 		self
 	}
-	pub(crate) fn set_status(mut self, who: AccountId, status: StakerStatus<AccountId>) -> Self {
+	pub fn set_status(mut self, who: AccountId, status: StakerStatus<AccountId>) -> Self {
 		self.status.insert(who, status);
 		self
 	}
-	pub(crate) fn set_stake(mut self, who: AccountId, stake: Balance) -> Self {
+	pub fn set_stake(mut self, who: AccountId, stake: Balance) -> Self {
 		self.stakes.insert(who, stake);
 		self
 	}
-	pub(crate) fn add_staker(
+	pub fn add_staker(
 		mut self,
 		stash: AccountId,
+		ctrl: AccountId,
 		stake: Balance,
 		status: StakerStatus<AccountId>,
 	) -> Self {
-		self.stakers.push((stash, stake, status));
+		self.stakers.push((stash, ctrl, stake, status));
 		self
 	}
-	pub(crate) fn exposures_page_size(self, max: u32) -> Self {
-		MaxExposurePageSize::set(max);
-		self
-	}
-	pub(crate) fn balance_factor(mut self, factor: Balance) -> Self {
+	pub fn balance_factor(mut self, factor: Balance) -> Self {
 		self.balance_factor = factor;
 		self
 	}
-	pub(crate) fn multi_page_election_provider(self, pages: PageIndex) -> Self {
-		Pages::set(pages);
-		self
-	}
-	pub(crate) fn election_bounds(self, voter_count: u32, target_count: u32) -> Self {
-		let bounds = ElectionBoundsBuilder::default()
-			.voters_count(voter_count.into())
-			.targets_count(target_count.into())
-			.build();
-		ElectionsBounds::set(bounds);
-		self
-	}
-	pub(crate) fn max_winners_per_page(self, max: u32) -> Self {
-		MaxWinnersPerPage::set(max);
-		self
-	}
-	pub(crate) fn try_state(self, enable: bool) -> Self {
+	pub fn try_state(self, enable: bool) -> Self {
 		SkipTryStateCheck::set(!enable);
 		self
 	}
@@ -576,21 +443,65 @@ impl ExtBuilder {
 		let mut storage = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 		let ed = ExistentialDeposit::get();
 
-		let mut maybe_stakers = vec![];
+		let _ = pallet_balances::GenesisConfig::<Test> {
+			balances: vec![
+				(1, 10 * self.balance_factor),
+				(2, 20 * self.balance_factor),
+				(3, 300 * self.balance_factor),
+				(4, 400 * self.balance_factor),
+				// controllers (still used in some tests. Soon to be deprecated).
+				(10, self.balance_factor),
+				(20, self.balance_factor),
+				(30, self.balance_factor),
+				(40, self.balance_factor),
+				(50, self.balance_factor),
+				// stashes
+				// Note: Previously this pallet used locks and stakers could stake all their
+				// balance including ED. Now with holds, stakers are required to maintain
+				// (non-staked) ED in their accounts. Therefore, we drop an additional existential
+				// deposit to genesis stakers.
+				(11, self.balance_factor * 1000 + ed),
+				(21, self.balance_factor * 2000 + ed),
+				(31, self.balance_factor * 2000 + ed),
+				(41, self.balance_factor * 2000 + ed),
+				(51, self.balance_factor * 2000 + ed),
+				(201, self.balance_factor * 2000 + ed),
+				(202, self.balance_factor * 2000 + ed),
+				// optional nominator
+				(100, self.balance_factor * 2000 + ed),
+				(101, self.balance_factor * 2000 + ed),
+				// aux accounts
+				(60, self.balance_factor),
+				(61, self.balance_factor * 2000 + ed),
+				(70, self.balance_factor),
+				(71, self.balance_factor * 2000),
+				(80, self.balance_factor),
+				(81, self.balance_factor * 2000),
+				// This allows us to have a total_payout different from 0.
+				(999, 1_000_000_000_000),
+			],
+			..Default::default()
+		}
+		.assimilate_storage(&mut storage);
+
+		let mut stakers = vec![];
 		if self.has_stakers {
-			maybe_stakers = vec![
-				// (stash, stake, status)
+			stakers = vec![
+				// (stash, ctrl, stake, status)
 				// these two will be elected in the default test where we elect 2.
-				(11, self.balance_factor * 1000, StakerStatus::<AccountId>::Validator),
-				(21, self.balance_factor * 1000, StakerStatus::<AccountId>::Validator),
+				(11, 11, self.balance_factor * 1000, StakerStatus::<AccountId>::Validator),
+				(21, 21, self.balance_factor * 1000, StakerStatus::<AccountId>::Validator),
 				// a loser validator
-				(31, self.balance_factor * 500, StakerStatus::<AccountId>::Validator),
-				// idle stakers
-				(41, self.balance_factor * 4000, StakerStatus::<AccountId>::Idle),
-				(51, self.balance_factor * 5000, StakerStatus::<AccountId>::Idle),
+				(31, 31, self.balance_factor * 500, StakerStatus::<AccountId>::Validator),
+				// an idle validator
+				(41, 41, self.balance_factor * 1000, StakerStatus::<AccountId>::Idle),
+				(51, 51, self.balance_factor * 1000, StakerStatus::<AccountId>::Idle),
+				(201, 201, self.balance_factor * 1000, StakerStatus::<AccountId>::Idle),
+				(202, 202, self.balance_factor * 1000, StakerStatus::<AccountId>::Idle),
 			]; // optionally add a nominator
 			if self.nominate {
-				maybe_stakers.push((
+				stakers.push((
+					101,
 					101,
 					self.balance_factor * 500,
 					StakerStatus::<AccountId>::Nominator(vec![11, 21]),
@@ -598,7 +509,7 @@ impl ExtBuilder {
 			}
 			// replace any of the status if needed.
 			self.status.into_iter().for_each(|(stash, status)| {
-				let (_, _, ref mut prev_status) = maybe_stakers
+				let (_, _, _, ref mut prev_status) = stakers
 					.iter_mut()
 					.find(|s| s.0 == stash)
 					.expect("set_status staker should exist; qed");
@@ -606,38 +517,21 @@ impl ExtBuilder {
 			});
 			// replaced any of the stakes if needed.
 			self.stakes.into_iter().for_each(|(stash, stake)| {
-				let (_, ref mut prev_stake, _) = maybe_stakers
+				let (_, _, ref mut prev_stake, _) = stakers
 					.iter_mut()
 					.find(|s| s.0 == stash)
 					.expect("set_stake staker should exits; qed.");
 				*prev_stake = stake;
 			});
 			// extend stakers if needed.
-			maybe_stakers.extend(self.stakers)
+			stakers.extend(self.stakers)
 		}
 
-		let aux_balances = vec![
-			// aux accounts
-			(1, ed + 10 * self.balance_factor),
-			(2, ed + 20 * self.balance_factor),
-			(3, ed + 300 * self.balance_factor),
-			(4, ed + 400 * self.balance_factor),
-			// This allows us to have a total_payout different from 0.
-			(999, 1_000_000_000_000),
-		];
-		// given each stakers their stake + ed as balance.
-		let stakers_balances =
-			maybe_stakers.clone().into_iter().map(|(who, stake, _)| (who, stake + ed));
-		let balances = aux_balances.into_iter().chain(stakers_balances).collect::<Vec<_>>();
-
-		let _ = pallet_balances::GenesisConfig::<Test> { balances, ..Default::default() }
-			.assimilate_storage(&mut storage);
-
-		let _ = pallet_staking_async::GenesisConfig::<Test> {
-			stakers: maybe_stakers,
+		let _ = pallet_staking::GenesisConfig::<Test> {
+			stakers: stakers.clone(),
 			validator_count: self.validator_count,
+			minimum_validator_count: self.minimum_validator_count,
 			invulnerables: self.invulnerables,
-			active_era: (0, 0, INIT_TIMESTAMP),
 			slash_reward_fraction: Perbill::from_percent(10),
 			min_nominator_bond: self.min_nominator_bond,
 			min_validator_bond: self.min_validator_bond,
@@ -645,15 +539,33 @@ impl ExtBuilder {
 		}
 		.assimilate_storage(&mut storage);
 
+		let _ = pallet_session::GenesisConfig::<Test> {
+			keys: if self.has_stakers {
+				// set the keys for the first session.
+				stakers
+					.into_iter()
+					.map(|(id, ..)| (id, id, SessionKeys { other: id.into() }))
+					.collect()
+			} else {
+				// set some dummy validators in genesis.
+				(0..self.validator_count as u64)
+					.map(|id| (id, id, SessionKeys { other: id.into() }))
+					.collect()
+			},
+			..Default::default()
+		}
+		.assimilate_storage(&mut storage);
+
 		let mut ext = sp_io::TestExternalities::from(storage);
 
-		ext.execute_with(|| {
-			session_mock::Session::roll_until_active_era(1);
-			RewardRemainderUnbalanced::set(0);
-			if self.flush_events {
-				let _ = staking_events_since_last_call();
-			}
-		});
+		if self.initialize_first_session {
+			ext.execute_with(|| {
+				run_to_block(1);
+
+				// Force reset the timestamp to the initial timestamp for easy testing.
+				Timestamp::set_timestamp(INIT_TIMESTAMP);
+			});
+		}
 
 		ext
 	}
@@ -670,11 +582,11 @@ impl ExtBuilder {
 }
 
 pub(crate) fn active_era() -> EraIndex {
-	pallet_staking_async::ActiveEra::<Test>::get().unwrap().index
+	pallet_staking::ActiveEra::<Test>::get().unwrap().index
 }
 
 pub(crate) fn current_era() -> EraIndex {
-	pallet_staking_async::CurrentEra::<Test>::get().unwrap()
+	pallet_staking::CurrentEra::<Test>::get().unwrap()
 }
 
 pub(crate) fn bond(who: AccountId, val: Balance) {
@@ -685,6 +597,11 @@ pub(crate) fn bond(who: AccountId, val: Balance) {
 pub(crate) fn bond_validator(who: AccountId, val: Balance) {
 	bond(who, val);
 	assert_ok!(Staking::validate(RuntimeOrigin::signed(who), ValidatorPrefs::default()));
+	assert_ok!(Session::set_keys(
+		RuntimeOrigin::signed(who),
+		SessionKeys { other: who.into() },
+		vec![]
+	));
 }
 
 pub(crate) fn bond_nominator(who: AccountId, val: Balance, target: Vec<AccountId>) {
@@ -703,9 +620,58 @@ pub(crate) fn bond_virtual_nominator(
 	assert_ok!(Staking::nominate(RuntimeOrigin::signed(who), target));
 }
 
-pub(crate) fn validator_payout_for(duration: u64) -> Balance {
+/// Progress to the given block, triggering session and era changes as we progress.
+///
+/// This will finalize the previous block, initialize up to the given block, essentially simulating
+/// a block import/propose process where we first initialize the block, then execute some stuff (not
+/// in the function), and then finalize the block.
+pub(crate) fn run_to_block(n: BlockNumber) {
+	System::run_to_block_with::<AllPalletsWithSystem>(
+		n,
+		frame_system::RunToBlockHooks::default().after_initialize(|bn| {
+			Timestamp::set_timestamp(bn * BLOCK_TIME + INIT_TIMESTAMP);
+		}),
+	);
+}
+
+/// Progresses from the current block number (whatever that may be) to the `P * session_index + 1`.
+pub(crate) fn start_session(end_session_idx: SessionIndex) {
+	let period = Period::get();
+	let end: u64 = if Offset::get().is_zero() {
+		(end_session_idx as u64) * period
+	} else {
+		Offset::get() + (end_session_idx.saturating_sub(1) as u64) * period
+	};
+
+	run_to_block(end);
+
+	let curr_session_idx = Session::current_index();
+
+	// session must have progressed properly.
+	assert_eq!(
+		curr_session_idx, end_session_idx,
+		"current session index = {curr_session_idx}, expected = {end_session_idx}",
+	);
+}
+
+/// Go one session forward.
+pub(crate) fn advance_session() {
+	let current_index = Session::current_index();
+	start_session(current_index + 1);
+}
+
+/// Progress until the given era.
+pub(crate) fn start_active_era(era_index: EraIndex) {
+	start_session((era_index * <SessionsPerEra as Get<u32>>::get()).into());
+	assert_eq!(active_era(), era_index);
+	// One way or another, current_era must have changed before the active era, so they must match
+	// at this point.
+	assert_eq!(current_era(), active_era());
+}
+
+pub(crate) fn current_total_payout_for_duration(duration: u64) -> Balance {
 	let (payout, _rest) = <Test as Config>::EraPayout::era_payout(
-		pallet_staking_async::ErasTotalStake::<Test>::get(active_era()),
+		pallet_staking::ErasTotalStake::<Test>::get(active_era()),
 		pallet_balances::TotalIssuance::<Test>::get(),
 		duration,
 	);
@@ -713,9 +679,9 @@ pub(crate) fn validator_payout_for(duration: u64) -> Balance {
 	payout
 }
 
-pub(crate) fn total_payout_for(duration: u64) -> Balance {
+pub(crate) fn maximum_payout_for_duration(duration: u64) -> Balance {
 	let (payout, rest) = <Test as Config>::EraPayout::era_payout(
-		pallet_staking_async::ErasTotalStake::<Test>::get(active_era()),
+		pallet_staking::ErasTotalStake::<Test>::get(active_era()),
 		pallet_balances::TotalIssuance::<Test>::get(),
 		duration,
 	);
@@ -731,64 +697,84 @@ pub(crate) fn time_per_session() -> u64 {
 }
 
 /// Time it takes to finish an era.
+///
+/// Note, if you see `time_per_era() - BLOCK_TIME`, it is fine. This is because we set the
+/// timestamp after on_initialize, so the timestamp is always one block old.
 pub(crate) fn time_per_era() -> u64 {
 	time_per_session() * SessionsPerEra::get() as u64
 }
 
+/// Time that will be calculated for the reward per era.
+pub(crate) fn reward_time_per_era() -> u64 {
+	time_per_era() - BLOCK_TIME
+}
+
 pub(crate) fn reward_all_elected() {
-	let rewards = session_mock::Session::validators().into_iter().map(|v| (v, 1));
+	let rewards = <Test as Config>::SessionInterface::validators().into_iter().map(|v| (v, 1));
+
 	<Pallet<Test>>::reward_by_ids(rewards)
 }
 
-pub(crate) fn era_exposures(era: u32) -> Vec<(AccountId, Exposure<AccountId, Balance>)> {
-	ErasStakersOverview::<T>::iter_prefix(era)
-		.map(|(v, _overview)| (v, Staking::eras_stakers(era, &v)))
-		.collect::<Vec<_>>()
-}
-
-pub(crate) fn session_validators() -> Vec<AccountId> {
+pub(crate) fn validator_controllers() -> Vec<AccountId> {
 	Session::validators()
+		.into_iter()
+		.map(|s| Staking::bonded(&s).expect("no controller for validator"))
+		.collect()
 }
 
-/// Add a slash for who
-pub(crate) fn add_slash(who: AccountId) {
-	let _ = <Staking as rc_client::AHStakingInterface>::on_new_offences(
-		session_mock::Session::current_index(),
-		vec![rc_client::Offence {
-			offender: who,
-			reporters: vec![],
-			slash_fraction: Perbill::from_percent(10),
-		}],
-	);
+pub(crate) fn on_offence_in_era(
+	offenders: &[OffenceDetails<
+		AccountId,
+		pallet_session::historical::IdentificationTuple<Test>,
+	>],
+	slash_fraction: &[Perbill],
+	era: EraIndex,
+) {
+	let bonded_eras = crate::BondedEras::<Test>::get();
+	for &(bonded_era, start_session) in bonded_eras.iter() {
+		if bonded_era == era {
+			let _ = <Staking as OnOffenceHandler<_, _, _>>::on_offence(
+				offenders,
+				slash_fraction,
+				start_session,
+			);
+			return
+		} else if bonded_era > era {
+			break
+		}
+	}
+
+	if pallet_staking::ActiveEra::<Test>::get().unwrap().index == era {
+		let _ = <Staking as OnOffenceHandler<_, _, _>>::on_offence(
+			offenders,
+			slash_fraction,
+			pallet_staking::ErasStartSessionIndex::<Test>::get(era).unwrap(),
+		);
+	} else {
+		panic!("cannot slash in era {}", era);
+	}
 }
 
-pub(crate) fn add_slash_in_era(who: AccountId, era: EraIndex) {
-	let _ = <Staking as rc_client::AHStakingInterface>::on_new_offences(
-		ErasStartSessionIndex::<T>::get(era).unwrap(),
-		vec![rc_client::Offence {
-			offender: who,
-			reporters: vec![],
-			slash_fraction: Perbill::from_percent(10),
-		}],
-	);
+pub(crate) fn on_offence_now(
+	offenders: &[OffenceDetails<
+		AccountId,
+		pallet_session::historical::IdentificationTuple<Test>,
+	>],
+	slash_fraction: &[Perbill],
+) {
+	let now = pallet_staking::ActiveEra::<Test>::get().unwrap().index;
+	on_offence_in_era(offenders, slash_fraction, now)
 }
 
-pub(crate) fn add_slash_in_era_with_value(who: AccountId, era: EraIndex, p: Perbill) {
-	let _ = <Staking as rc_client::AHStakingInterface>::on_new_offences(
-		ErasStartSessionIndex::<T>::get(era).unwrap(),
-		vec![rc_client::Offence { offender: who, reporters: vec![], slash_fraction: p }],
-	);
+pub(crate) fn offence_from(
+	offender: AccountId,
+	reporter: Option<Vec<AccountId>>,
+) -> OffenceDetails<AccountId, pallet_session::historical::IdentificationTuple<Test>> {
+	OffenceDetails { offender: (offender, ()), reporters: reporter.unwrap_or_default() }
 }
 
-pub(crate) fn add_slash_with_percent(who: AccountId, percent: u32) {
-	let _ = <Staking as rc_client::AHStakingInterface>::on_new_offences(
-		session_mock::Session::current_index(),
-		vec![rc_client::Offence {
-			offender: who,
-			reporters: vec![],
-			slash_fraction: Perbill::from_percent(percent),
-		}],
-	);
+pub(crate) fn add_slash(who: &AccountId) {
+	on_offence_now(&[offence_from(*who, None)], &[Perbill::from_percent(10)]);
 }
 
 /// Make all validator and nominator request their payment
@@ -802,7 +788,7 @@ pub(crate) fn make_all_reward_payment(era: EraIndex) {
 	// reward validators
 	for validator_controller in validators_with_reward.iter().filter_map(Staking::bonded) {
 		let ledger = <Ledger<Test>>::get(&validator_controller).unwrap();
-		for page in 0..Eras::<Test>::exposure_page_count(era, &ledger.stash) {
+		for page in 0..EraInfo::<Test>::get_page_count(era, &ledger.stash) {
 			assert_ok!(Staking::payout_stakers_by_page(
 				RuntimeOrigin::signed(1337),
 				ledger.stash,
@@ -819,7 +805,6 @@ pub(crate) fn bond_controller_stash(controller: AccountId, stash: AccountId) -> 
 
 	<Bonded<Test>>::insert(stash, controller);
 	<Ledger<Test>>::insert(controller, StakingLedger::<Test>::default_from(stash));
-	<Payee<Test>>::insert(stash, RewardDestination::Staked);
 
 	Ok(())
 }
@@ -910,10 +895,10 @@ pub(crate) fn setup_double_bonded_ledgers() {
 macro_rules! assert_session_era {
 	($session:expr, $era:expr) => {
 		assert_eq!(
-			session_mock::Session::current_index(),
+			Session::current_index(),
 			$session,
 			"wrong session {} != {}",
-			session_mock::Session::current_index(),
+			Session::current_index(),
 			$session,
 		);
 		assert_eq!(
@@ -934,9 +919,22 @@ pub(crate) fn staking_events() -> Vec<crate::Event<Test>> {
 		.collect()
 }
 
+pub(crate) fn session_events() -> Vec<pallet_session::Event<Test>> {
+	System::events()
+		.into_iter()
+		.map(|r| r.event)
+		.filter_map(|e| if let RuntimeEvent::Session(inner) = e { Some(inner) } else { None })
+		.collect()
+}
+
 parameter_types! {
 	static StakingEventsIndex: usize = 0;
 }
+ord_parameter_types! {
+	pub const One: u64 = 1;
+}
+
+type EnsureOneOrRoot = EitherOfDiverse<EnsureRoot<AccountId>, EnsureSignedBy<One, AccountId>>;
 
 pub(crate) fn staking_events_since_last_call() -> Vec<crate::Event<Test>> {
 	let all: Vec<_> = System::events()
@@ -948,14 +946,8 @@ pub(crate) fn staking_events_since_last_call() -> Vec<crate::Event<Test>> {
 	all.into_iter().skip(seen).collect()
 }
 
-pub(crate) fn to_bounded_supports(
-	supports: Vec<(AccountId, Support<AccountId>)>,
-) -> BoundedSupports<
-	AccountId,
-	<<Test as Config>::ElectionProvider as ElectionProvider>::MaxWinnersPerPage,
-	<<Test as Config>::ElectionProvider as ElectionProvider>::MaxBackersPerWinner,
-> {
-	supports.try_into().unwrap()
+pub(crate) fn balances(who: &AccountId) -> (Balance, Balance) {
+	(asset::stakeable_balance::<Test>(who), Balances::reserved_balance(who))
 }
 
 pub(crate) fn restrict(who: &AccountId) {
