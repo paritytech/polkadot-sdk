@@ -19,20 +19,18 @@
 
 #![allow(deprecated)]
 
-use std::collections::BTreeMap;
-use frame::runtime::prelude::EnsureSignedBy;
-use frame::traits::TryMapSuccess;
-use frame::traits::IsInVec;
-use core::cell::RefCell;
-use frame::traits::TryMorphInto;
-use frame::testing_prelude::*;
-use frame::traits::ConstU16;
-use frame::traits::ConstU32;
-use crate::tests::unit::sp_api_hidden_includes_construct_runtime::hidden_include::testing_prelude::bounded_vec;
-use crate::DispatchError;
-use frame::traits::tokens::GetSalary;
 use crate as pallet_core_fellowship;
-use crate::*;
+use crate::{
+	tests::unit::sp_api_hidden_includes_construct_runtime::hidden_include::testing_prelude::bounded_vec,
+	DispatchError, *,
+};
+use core::cell::RefCell;
+use frame::{
+	runtime::prelude::EnsureSignedBy,
+	testing_prelude::*,
+	traits::{tokens::GetSalary, ConstU16, ConstU32, IsInVec, TryMapSuccess, TryMorphInto},
+};
+use std::collections::BTreeMap;
 
 type Block = frame_system::mocking::MockBlock<Test>;
 

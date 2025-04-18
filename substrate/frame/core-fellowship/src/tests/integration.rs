@@ -19,14 +19,12 @@
 
 #![allow(deprecated)]
 
-use frame::prelude::*;
-use frame::traits::TryMapSuccess;
-use frame::runtime::prelude::EnsureSignedBy;
-use frame::traits::IsInVec;
-use frame::traits::TryMorphInto;
-use frame::traits::ConstU16;
-use frame::testing_prelude::TestExternalities;
-use frame::testing_prelude::*;
+use frame::{
+	prelude::*,
+	runtime::prelude::EnsureSignedBy,
+	testing_prelude::{TestExternalities, *},
+	traits::{ConstU16, IsInVec, TryMapSuccess, TryMorphInto},
+};
 use pallet_ranked_collective::{EnsureRanked, Geometric, Rank};
 type Class = Rank;
 

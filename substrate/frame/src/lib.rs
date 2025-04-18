@@ -351,7 +351,7 @@ pub mod testing_prelude {
 	pub use sp_io::TestExternalities as TestState;
 
 	/// Commonly used runtime traits for testing.
-	pub use sp_runtime::{traits::BadOrigin, StateVersion, bounded_vec};
+	pub use sp_runtime::{bounded_vec, traits::BadOrigin, StateVersion};
 }
 
 /// All of the types and tools needed to build FRAME-based runtimes.

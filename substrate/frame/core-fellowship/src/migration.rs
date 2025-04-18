@@ -17,9 +17,10 @@
 
 //! Storage migrations for the core-fellowship pallet.
 use super::*;
-use frame::traits::UncheckedOnRuntimeUpgrade;
-use frame::traits::DefensiveTruncateFrom;
-use frame::deps::frame_support::migrations::VersionedMigration;
+use frame::{
+	deps::frame_support::migrations::VersionedMigration,
+	traits::{DefensiveTruncateFrom, UncheckedOnRuntimeUpgrade},
+};
 
 #[cfg(feature = "try-runtime")]
 use alloc::vec::Vec;
@@ -27,8 +28,7 @@ use alloc::vec::Vec;
 use frame::runtime::prelude::TryRuntimeError;
 
 mod v0 {
-	use frame::runtime::prelude::*;
-	use frame::storage_alias;
+	use frame::{runtime::prelude::*, storage_alias};
 
 	use super::*;
 

@@ -64,11 +64,12 @@ extern crate alloc;
 use alloc::boxed::Box;
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use core::{fmt::Debug, marker::PhantomData};
+use frame::{
+	deps::frame_support::impl_ensure_origin_with_arg_ignoring_arg,
+	prelude::*,
+	traits::{tokens::Balance as BalanceTrait, EnsureOriginWithArg},
+};
 use scale_info::TypeInfo;
-use frame::deps::frame_support::impl_ensure_origin_with_arg_ignoring_arg;
-use frame::traits::tokens::Balance as BalanceTrait;
-use frame::traits::EnsureOriginWithArg;
-use frame::prelude::*;
 
 #[cfg(test)]
 mod tests;
@@ -175,8 +176,7 @@ pub struct MemberStatus<BlockNumber> {
 #[frame::pallet]
 pub mod pallet {
 	use super::*;
-	use frame::traits::EnsureOrigin;
-	use frame::traits::tokens::GetSalary;
+	use frame::traits::{tokens::GetSalary, EnsureOrigin};
 	// use frame_support::{
 	// 	dispatch::Pays,
 	// 	pallet_prelude::*,
@@ -761,7 +761,8 @@ impl<T: Config<I>, I: 'static, const MIN_RANK: u16> EnsureOrigin<T::RuntimeOrigi
 	fn try_origin(o: T::RuntimeOrigin) -> Result<Self::Success, T::RuntimeOrigin> {
 		let who = <frame_system::EnsureSigned<_> as EnsureOrigin<_>>::try_origin(o)?;
 		match T::Members::rank_of(&who) {
-			Some(rank) if rank >= MIN_RANK && crate::pallet::Member::<T, I>::contains_key(&who) => Ok(who),
+			Some(rank) if rank >= MIN_RANK && crate::pallet::Member::<T, I>::contains_key(&who) =>
+				Ok(who),
 			_ => Err(frame_system::RawOrigin::Signed(who).into()),
 		}
 	}
@@ -809,7 +810,10 @@ impl<T: Config<I>, I: 'static> RankedMembersSwapHandler<T::AccountId, u16> for P
 			crate::pallet::MemberEvidence::<T, I>::insert(new, we);
 		}
 
-		Self::deposit_event(crate::pallet::Event::<T, I>::Swapped { who: old.clone(), new_who: new.clone() });
+		Self::deposit_event(crate::pallet::Event::<T, I>::Swapped {
+			who: old.clone(),
+			new_who: new.clone(),
+		});
 	}
 }
 
