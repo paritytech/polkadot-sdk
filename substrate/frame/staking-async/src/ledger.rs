@@ -51,7 +51,6 @@ impl<T: Config> StakingLedger<T> {
 			total: Zero::zero(),
 			active: Zero::zero(),
 			unlocking: Default::default(),
-			legacy_claimed_rewards: Default::default(),
 			controller: Some(stash),
 		}
 	}
@@ -69,7 +68,6 @@ impl<T: Config> StakingLedger<T> {
 			active: stake,
 			total: stake,
 			unlocking: Default::default(),
-			legacy_claimed_rewards: Default::default(),
 			// controllers are deprecated and mapped 1-1 to stashes.
 			controller: Some(stash),
 		}
@@ -265,9 +263,19 @@ impl<T: Config> StakingLedger<T> {
 				// if not virtual staker, clear locks.
 				asset::kill_stake::<T>(&ledger.stash)?;
 			}
-
+			Pallet::<T>::deposit_event(crate::Event::<T>::StakerRemoved {
+				stash: ledger.stash.clone(),
+			});
 			Ok(())
 		})?
+	}
+
+	#[cfg(test)]
+	pub(crate) fn assert_stash_killed(stash: T::AccountId) {
+		assert!(!Ledger::<T>::contains_key(&stash));
+		assert!(!Bonded::<T>::contains_key(&stash));
+		assert!(!Payee::<T>::contains_key(&stash));
+		assert!(!VirtualStakers::<T>::contains_key(&stash));
 	}
 }
 
@@ -289,7 +297,6 @@ pub struct StakingLedgerInspect<T: Config> {
 	#[codec(compact)]
 	pub active: BalanceOf<T>,
 	pub unlocking: frame_support::BoundedVec<UnlockChunk<BalanceOf<T>>, T::MaxUnlockingChunks>,
-	pub legacy_claimed_rewards: frame_support::BoundedVec<sp_staking::EraIndex, T::HistoryDepth>,
 }
 
 #[cfg(test)]
@@ -298,8 +305,7 @@ impl<T: Config> PartialEq<StakingLedgerInspect<T>> for StakingLedger<T> {
 		self.stash == other.stash &&
 			self.total == other.total &&
 			self.active == other.active &&
-			self.unlocking == other.unlocking &&
-			self.legacy_claimed_rewards == other.legacy_claimed_rewards
+			self.unlocking == other.unlocking
 	}
 }
 
