@@ -769,7 +769,7 @@ impl Client {
 			.await
 	}
 
-	/// Get the EVM block for for the given block and receipts.
+	/// Get the EVM block for the given block and receipts.
 	pub async fn evm_block_from_receipts(
 		&self,
 		block: &SubstrateBlock,
