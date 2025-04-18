@@ -2246,6 +2246,7 @@ impl pallet_alliance::Config for Runtime {
 
 impl frame_benchmarking_pallet_pov::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
+	type StorageRoot = ();
 }
 
 parameter_types! {
