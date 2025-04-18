@@ -493,7 +493,7 @@ pub mod pallet {
 		}
 
 		/// Called to report one or more new offenses on the relay chain.
-		#[pallet::call_index(2)]
+		#[pallet::call_index(1)]
 		#[pallet::weight(
 			// `on_new_offences` is benchmarked by `pallet-staking-async`
 			// events are free

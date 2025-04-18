@@ -2112,7 +2112,7 @@ impl<T: Config> sp_staking::StakingUnchecked for Pallet<T> {
 	}
 }
 
-impl<T: Config> frame_support::traits::RewardsReporter<T::AccountId> for Pallet<T> {
+impl<T: Config> RewardsReporter<T::AccountId> for Pallet<T> {
 	fn reward_by_ids(validators_points: impl IntoIterator<Item = (T::AccountId, u32)>) {
 		Self::reward_by_ids(validators_points)
 	}
