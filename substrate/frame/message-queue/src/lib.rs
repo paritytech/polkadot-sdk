@@ -264,7 +264,7 @@ pub struct Page<Size: Into<u32> + Debug + Clone + Default, HeapSize: Get<Size>> 
 	first: Size,
 	/// The heap-offset of the header of the last message item in this page.
 	last: Size,
-	/// The heap. If `self.offset == self.heap.len()` then the page is empty and should be deleted.
+	/// The heap.
 	heap: BoundedVec<u8, IntoU32<HeapSize, Size>>,
 }
 
@@ -294,17 +294,19 @@ impl<
 		}
 	}
 
-	fn pos(&self) -> usize {
+	/// The heap position where a new message can be appended to the current page.
+	fn heap_pos(&self) -> usize {
+		// The heap is actually a `Vec`, so the place where we can append data
+		// is the end of the `Vec`.
 		self.heap.len()
 	}
 
-	/// Check if a message can be appended to a page at the provided position.
+	/// Check if a message can be appended to the current page at the provided heap position.
 	///
 	/// On success, returns the resulting position in the page where new messages can be appended.
-	fn check_can_append_message(pos: usize, message_len: usize) -> Result<usize, ()> {
-		let payload_len = message_len;
+	fn check_can_append_message_at(pos: usize, message_len: usize) -> Result<usize, ()> {
 		let header_size = ItemHeader::<Size>::max_encoded_len();
-		let data_len = header_size.saturating_add(payload_len);
+		let data_len = header_size.saturating_add(message_len);
 		let heap_size = HeapSize::get().into() as usize;
 		let new_pos = pos.saturating_add(data_len);
 		if new_pos <= heap_size {
@@ -319,10 +321,9 @@ impl<
 		&mut self,
 		message: BoundedSlice<u8, MaxMessageLenOf<T>>,
 	) -> Result<(), ()> {
-		let pos = self.pos();
-		let payload_len = message.len();
-		Self::check_can_append_message(pos, payload_len)?;
-		let payload_len = payload_len.saturated_into();
+		let pos = self.heap_pos();
+		Self::check_can_append_message_at(pos, message.len())?;
+		let payload_len = message.len().saturated_into();
 		let header = ItemHeader::<Size> { payload_len, is_processed: false };
 
 		let mut heap = core::mem::take(&mut self.heap).into_inner();
@@ -1833,7 +1834,7 @@ impl<T: Config> QueueFootprintQuery<MessageOriginOf<T>> for Pallet<T> {
 		if book.end > book.begin {
 			total_pages_count = book.end - book.begin;
 			if let Some(page) = Pages::<T>::get(origin, book.end - 1) {
-				current_page_pos = page.pos();
+				current_page_pos = page.heap_pos();
 			}
 		}
 
@@ -1844,7 +1845,7 @@ impl<T: Config> QueueFootprintQuery<MessageOriginOf<T>> for Pallet<T> {
 				return batches_footprints;
 			}
 
-			match Page::<T::Size, T::HeapSize>::check_can_append_message(
+			match Page::<T::Size, T::HeapSize>::check_can_append_message_at(
 				current_page_pos,
 				msg.len(),
 			) {
