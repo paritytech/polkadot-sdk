@@ -176,12 +176,6 @@ pub struct MemberStatus<BlockNumber> {
 pub mod pallet {
 	use super::*;
 	use frame::traits::{tokens::GetSalary, EnsureOrigin};
-	// use frame_support::{
-	// 	dispatch::Pays,
-	// 	pallet_prelude::*,
-	// 	traits::{tokens::GetSalary, EnsureOrigin},
-	// };
-	// use frame_system::{ensure_root, pallet_prelude::*};
 	/// The in-code storage version.
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
 
