@@ -391,7 +391,12 @@ pub mod pallet {
 			let (_, deposit) = Proxies::<T>::take(&who);
 			T::Currency::unreserve(&spawner, deposit);
 
-			Self::deposit_event(Event::PureKilled { pure: who, who: spawner, proxy_type });
+			Self::deposit_event(Event::PureKilled {
+				pure: who,
+				who: spawner,
+				proxy_type,
+				disambiguation_index: index,
+			});
 
 			Ok(())
 		}
