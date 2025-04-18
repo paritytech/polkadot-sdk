@@ -18,8 +18,7 @@
 use crate::LOG_TARGET;
 use frame::{
 	deps::{sp_core, sp_io, sp_io::hashing::twox_128},
-	prelude::*,
-	storage::migration,
+	prelude::{storage::migration, *},
 	traits::{Get, StorageVersion},
 };
 

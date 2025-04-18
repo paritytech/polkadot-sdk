@@ -201,16 +201,18 @@ pub mod prelude {
 
 	/// Dispatch types from `frame-support`, other fundamental traits.
 	#[doc(no_inline)]
-	pub use frame_support::dispatch::{GetDispatchInfo, PostDispatchInfo};
+	pub use frame_support::dispatch::{GetDispatchInfo, Pays, PostDispatchInfo};
 	pub use frame_support::{
-		defensive, defensive_assert,
+		assert_err, assert_noop, assert_ok, defensive, defensive_assert, storage,
 		traits::{
-			Contains, Defensive, DefensiveSaturating, EitherOf, EstimateNextSessionRotation,
-			Everything, InsideBoth, InstanceFilter, IsSubType, MapSuccess, NoOpPoll,
-			OnRuntimeUpgrade, OneSessionHandler, RankedMembers, RankedMembersSwapHandler,
-			VariantCount, VariantCountOf,
+			Contains, Currency, Defensive, DefensiveSaturating, EitherOf,
+			EstimateNextSessionRotation, Everything, InsideBoth, InstanceFilter, IsSubType,
+			KeyOwnerProofSystem, MapSuccess, NoOpPoll, OnFinalize, OnRuntimeUpgrade,
+			OneSessionHandler, RankedMembers, RankedMembersSwapHandler, VariantCount,
+			VariantCountOf,
 		},
-		PalletId,
+		PalletId, RocksDbWeight, VersionedMigration, WEIGHT_REF_TIME_PER_MICROS,
+		WEIGHT_REF_TIME_PER_NANOS,
 	};
 
 	/// Pallet prelude of `frame-system`.
@@ -220,6 +222,8 @@ pub mod prelude {
 	/// Transaction related helpers to submit transactions.
 	#[doc(no_inline)]
 	pub use frame_system::offchain::*;
+
+	pub use frame_system::{EventRecord, Phase, RawOrigin};
 
 	/// All FRAME-relevant derive macros.
 	#[doc(no_inline)]
@@ -669,22 +673,3 @@ pub mod deps {
 	#[cfg(feature = "frame-try-runtime")]
 	pub use frame_try_runtime;
 }
-
-pub use frame_support::VersionedMigration;
-#[cfg(feature = "runtime-benchmarks")]
-pub mod benchmarking {
-	pub use frame_benchmarking::*;
-}
-
-pub use frame_support::{RocksDbWeight, WEIGHT_REF_TIME_PER_MICROS, WEIGHT_REF_TIME_PER_NANOS};
-
-pub use frame_support::{
-	assert_err, assert_noop, assert_ok,
-	dispatch::{GetDispatchInfo, Pays},
-	traits::{Currency, KeyOwnerProofSystem, OnFinalize, OneSessionHandler},
-};
-pub use frame_system::{EventRecord, Phase};
-
-pub use frame_support::storage;
-
-pub use frame_system::RawOrigin;
