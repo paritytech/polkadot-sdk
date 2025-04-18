@@ -164,12 +164,18 @@ async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 				.with_collator(|n| {
                     n.with_name("eve")
                     .validator(true)
-                    // .with_args(vec![
-                    //     "--lparachain=trace,blockchain-rpc-client=debug".into(),
-                    //     "--relay-chain-rpc-urls {{'one'|zombie('wsUri')}} {{'two'|zombie('wsUri')}} {{'three'|zombie('wsUri')}}".into(),
-                    //     "--".into(),
-                    //     "--bootnodes {{'one'|zombie('multiAddress')}} {{'two'|zombie('multiAddress')}} {{'three'|zombie('multiAddress')}}".into(),
-                    // ])
+                    .with_args(vec![
+                        "-lparachain=trace,blockchain-rpc-client=debug".into(),
+                        // "--relay-chain-rpc-urls".into(),
+                        // "{{'one'|zombie('wsUri')}}".into(),
+                        // "{{'two'|zombie('wsUri')}}".into(),
+                        // "{{'three'|zombie('wsUri')}}".into(),
+                        // "--".into(),
+                        // "--bootnodes".into(),
+                        // "{{'one'|zombie('multiAddress')}}".into(),
+                        // "{{'two'|zombie('multiAddress')}}".into(),
+                        // "{{'three'|zombie('multiAddress')}}".into(),
+                    ])
                 })
         })
         .with_global_settings(|global_settings| match std::env::var("ZOMBIENET_SDK_BASE_DIR") {
