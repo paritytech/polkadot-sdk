@@ -33,7 +33,7 @@
 
 use crate::{
 	asset, log, BalanceOf, Bonded, Config, DecodeWithMemTracking, Error, Ledger, Pallet, Payee,
-	RewardDestination, VirtualStakers,
+	RewardDestination, Vec, VirtualStakers,
 };
 use alloc::collections::BTreeMap;
 use codec::{Decode, Encode, HasCompact, MaxEncodedLen};
