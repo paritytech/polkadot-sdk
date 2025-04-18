@@ -25,7 +25,7 @@ use finality_grandpa;
 use frame::{
 	deps::{
 		sp_core::H256,
-		sp_io,
+		sp_io::TestExternalities,
 		sp_runtime::{
 			curve::PiecewiseLinear,
 			impl_opaque_keys,
@@ -220,11 +220,11 @@ pub fn extract_keyring(id: &AuthorityId) -> Ed25519Keyring {
 	Ed25519Keyring::from_raw_public(raw_public).unwrap()
 }
 
-pub fn new_test_ext(vec: Vec<(u64, u64)>) -> sp_io::TestExternalities {
+pub fn new_test_ext(vec: Vec<(u64, u64)>) -> TestExternalities {
 	new_test_ext_raw_authorities(to_authorities(vec))
 }
 
-pub fn new_test_ext_raw_authorities(authorities: AuthorityList) -> sp_io::TestExternalities {
+pub fn new_test_ext_raw_authorities(authorities: AuthorityList) -> TestExternalities {
 	let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 
 	let balances: Vec<_> = (0..authorities.len()).map(|i| (i as u64, 10_000_000)).collect();
