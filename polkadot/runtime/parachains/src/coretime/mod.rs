@@ -16,7 +16,8 @@
 
 //! This pallet exposes the relay chain coretime functionality to the broker/coretime chain.
 //!
-//! It depends on the assigner-coretime pallet, which does the actual ground work of handling received core assignments.
+//! It depends on the assigner-coretime pallet, which does the actual ground work of handling
+//! received core assignments.
 //!
 //! <https://github.com/polkadot-fellows/RFCs/blob/main/text/0005-coretime-interface.md>
 
@@ -36,10 +37,10 @@ use xcm::prelude::*;
 use xcm_executor::traits::TransactAsset;
 
 use crate::{
-	scheduler::{self, PartsOf57600},
 	initializer::{OnNewSession, SessionChangeNotification},
 	on_demand,
 	origin::{ensure_parachain, Origin},
+	scheduler::{self, PartsOf57600},
 };
 
 mod benchmarking;

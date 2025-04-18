@@ -642,8 +642,7 @@ impl parachains_on_demand::Config for Runtime {
 
 impl parachains_assigner_coretime::Config for Runtime {}
 
-impl parachains_scheduler::Config for Runtime {
-}
+impl parachains_scheduler::Config for Runtime {}
 
 pub struct DummyXcmSender;
 impl SendXcm for DummyXcmSender {

@@ -2453,11 +2453,14 @@ mod sanitizers {
 
 	mod candidates {
 		use crate::{
-			assigner_coretime::{self, PartsOf57600}, mock::{set_disabled_validators, RuntimeOrigin}, on_demand, util::{make_persisted_validation_data, make_persisted_validation_data_with_parent}
+			assigner_coretime::{self, PartsOf57600},
+			mock::{set_disabled_validators, RuntimeOrigin},
+			on_demand,
+			util::{make_persisted_validation_data, make_persisted_validation_data_with_parent},
 		};
 		use alloc::collections::vec_deque::VecDeque;
 		use pallet_broker::CoreAssignment;
-use polkadot_primitives::ValidationCode;
+		use polkadot_primitives::ValidationCode;
 
 		use super::*;
 
@@ -2531,9 +2534,21 @@ use polkadot_primitives::ValidationCode;
 			]);
 
 			// Update scheduler's claimqueue with the parachains
-			assigner_coretime::Pallet::<Test>::assign_core(CoreIndex(0), 0, vec![(CoreAssignment::Pool, PartsOf57600::FULL)], None).unwrap();
+			assigner_coretime::Pallet::<Test>::assign_core(
+				CoreIndex(0),
+				0,
+				vec![(CoreAssignment::Pool, PartsOf57600::FULL)],
+				None,
+			)
+			.unwrap();
 			on_demand::Pallet::<Test>::push_back_order(1.into());
-		assigner_coretime::Pallet::<Test>::assign_core(CoreIndex(1), 0, vec![(CoreAssignment::Pool, PartsOf57600::FULL)], None).unwrap();
+			assigner_coretime::Pallet::<Test>::assign_core(
+				CoreIndex(1),
+				0,
+				vec![(CoreAssignment::Pool, PartsOf57600::FULL)],
+				None,
+			)
+			.unwrap();
 			on_demand::Pallet::<Test>::push_back_order(2.into());
 
 			// Set the on-chain included head data for paras.

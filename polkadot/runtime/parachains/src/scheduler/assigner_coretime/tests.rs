@@ -112,14 +112,21 @@ fn assign_core_works_with_no_prior_schedule() {
 
 		// Check QueueDescriptor
 		assert_eq!(
-			CoreDescriptors::<Test>::get().entry(core_idx).or_default()
+			CoreDescriptors::<Test>::get()
+				.entry(core_idx)
+				.or_default()
 				.queue
 				.as_ref()
 				.and_then(|q| Some(q.first)),
 			Some(BlockNumberFor::<Test>::from(11u32))
 		);
 		assert_eq!(
-			CoreDescriptors::<Test>::get().entry(core_idx).or_default().queue.as_ref().and_then(|q| Some(q.last)),
+			CoreDescriptors::<Test>::get()
+				.entry(core_idx)
+				.or_default()
+				.queue
+				.as_ref()
+				.and_then(|q| Some(q.last)),
 			Some(BlockNumberFor::<Test>::from(11u32))
 		);
 	});
@@ -220,14 +227,21 @@ fn assign_core_works_with_prior_schedule() {
 
 		// Check QueueDescriptor
 		assert_eq!(
-			CoreDescriptors::<Test>::get().entry(core_idx).or_default()
+			CoreDescriptors::<Test>::get()
+				.entry(core_idx)
+				.or_default()
 				.queue
 				.as_ref()
 				.and_then(|q| Some(q.first)),
 			Some(BlockNumberFor::<Test>::from(11u32))
 		);
 		assert_eq!(
-			CoreDescriptors::<Test>::get().entry(core_idx).or_default().queue.as_ref().and_then(|q| Some(q.last)),
+			CoreDescriptors::<Test>::get()
+				.entry(core_idx)
+				.or_default()
+				.queue
+				.as_ref()
+				.and_then(|q| Some(q.last)),
 			Some(BlockNumberFor::<Test>::from(15u32))
 		);
 	});
@@ -404,14 +418,21 @@ fn next_schedule_always_points_to_next_work_plan_item() {
 
 		// Check QueueDescriptor
 		assert_eq!(
-			CoreDescriptors::<Test>::get().entry(core_idx).or_default()
+			CoreDescriptors::<Test>::get()
+				.entry(core_idx)
+				.or_default()
 				.queue
 				.as_ref()
 				.and_then(|q| Some(q.first)),
 			Some(start_3)
 		);
 		assert_eq!(
-			CoreDescriptors::<Test>::get().entry(core_idx).or_default().queue.as_ref().and_then(|q| Some(q.last)),
+			CoreDescriptors::<Test>::get()
+				.entry(core_idx)
+				.or_default()
+				.queue
+				.as_ref()
+				.and_then(|q| Some(q.last)),
 			Some(start_5)
 		);
 	});
@@ -519,10 +540,7 @@ fn pop_assignment_for_core_works() {
 
 		run_to_block(21, |n| if n == 21 { Some(Default::default()) } else { None });
 
-		assert_eq!(
-			CoretimeAssigner::advance_assignments(|_| false).get(&core_idx),
-			Some(&para_id)
-		);
+		assert_eq!(CoretimeAssigner::advance_assignments(|_| false).get(&core_idx), Some(&para_id));
 
 		// Case 3: Assignment task
 		assert_ok!(CoretimeAssigner::assign_core(
@@ -534,10 +552,7 @@ fn pop_assignment_for_core_works() {
 
 		run_to_block(31, |n| if n == 31 { Some(Default::default()) } else { None });
 
-		assert_eq!(
-			CoretimeAssigner::advance_assignments(|_| false).get(&core_idx),
-			Some(&para_id)
-		);
+		assert_eq!(CoretimeAssigner::advance_assignments(|_| false).get(&core_idx), Some(&para_id));
 	});
 }
 
@@ -573,7 +588,9 @@ fn assignment_proportions_in_core_state_work() {
 			);
 
 			assert_eq!(
-				CoreDescriptors::<Test>::get().entry(core_idx).or_default()
+				CoreDescriptors::<Test>::get()
+					.entry(core_idx)
+					.or_default()
 					.current_work
 					.as_ref()
 					.and_then(|w| Some(w.pos)),
@@ -581,7 +598,9 @@ fn assignment_proportions_in_core_state_work() {
 			);
 			// Consumed step should be 1/3 of core parts, leaving 1/3 remaining
 			assert_eq!(
-				CoreDescriptors::<Test>::get().entry(core_idx).or_default()
+				CoreDescriptors::<Test>::get()
+					.entry(core_idx)
+					.or_default()
 					.current_work
 					.as_ref()
 					.and_then(|w| Some(w.assignments[0].1.remaining)),
@@ -597,7 +616,9 @@ fn assignment_proportions_in_core_state_work() {
 			);
 			// Pos should have incremented, as assignment had remaining < step
 			assert_eq!(
-				CoreDescriptors::<Test>::get().entry(core_idx).or_default()
+				CoreDescriptors::<Test>::get()
+					.entry(core_idx)
+					.or_default()
 					.current_work
 					.as_ref()
 					.and_then(|w| Some(w.pos)),
@@ -606,7 +627,9 @@ fn assignment_proportions_in_core_state_work() {
 			// Remaining should have started at 1/3 of core work parts. We then subtract
 			// step (1/3) and add back ratio (2/3), leaving us with 2/3 of core work parts.
 			assert_eq!(
-				CoreDescriptors::<Test>::get().entry(core_idx).or_default()
+				CoreDescriptors::<Test>::get()
+					.entry(core_idx)
+					.or_default()
 					.current_work
 					.as_ref()
 					.and_then(|w| Some(w.assignments[0].1.remaining)),
@@ -736,14 +759,18 @@ fn assignment_proportions_indivisible_by_step_work() {
 
 		// Remaining should equal ratio for both assignments.
 		assert_eq!(
-			CoreDescriptors::<Test>::get().entry(core_idx).or_default()
+			CoreDescriptors::<Test>::get()
+				.entry(core_idx)
+				.or_default()
 				.current_work
 				.as_ref()
 				.and_then(|w| Some(w.assignments[0].1.remaining)),
 			Some(ratio_1)
 		);
 		assert_eq!(
-			CoreDescriptors::<Test>::get().entry(core_idx).or_default()
+			CoreDescriptors::<Test>::get()
+				.entry(core_idx)
+				.or_default()
 				.current_work
 				.as_ref()
 				.and_then(|w| Some(w.assignments[1].1.remaining)),

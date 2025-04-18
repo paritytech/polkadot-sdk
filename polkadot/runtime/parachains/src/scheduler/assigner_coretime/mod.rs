@@ -305,7 +305,6 @@ pub enum Error {
 	DisallowedInsert,
 }
 
-
 /// Peek `num_entries` into the future.
 ///
 /// First element for each `CoreIndex` will tell what would be retrieved when
@@ -323,7 +322,9 @@ pub enum Error {
 /// exactly once for the prediction offered by `peek_next_block` to stay accurate.
 /// - This function is meant to be called from a runtime API and thus uses the state of the
 /// block after the current one to show an accurate prediction of upcoming schedules.
-pub(super) fn peek_next_block<T: super::Config>(num_entries: u32) -> BTreeMap<CoreIndex, VecDeque<ParaId>> {
+pub(super) fn peek_next_block<T: super::Config>(
+	num_entries: u32,
+) -> BTreeMap<CoreIndex, VecDeque<ParaId>> {
 	let now = frame_system::Pallet::<T>::block_number().saturating_plus_one();
 	peek_impl::<T>(now, num_entries)
 }
@@ -360,7 +361,7 @@ pub(super) fn advance_assignments<T: Config, F: Fn(CoreIndex) -> bool>(
 	}
 
 	let mut assignments: BTreeMap<CoreIndex, ParaId> =
-	assignments.into_iter().filter(|(core_idx, _)| !is_blocked(*core_idx)).collect();
+		assignments.into_iter().filter(|(core_idx, _)| !is_blocked(*core_idx)).collect();
 
 	// Try to fill missing assignments from the next position (duplication to allow asynchronous
 	// backing even for first assignment coming in on a previously empty core):
@@ -372,10 +373,10 @@ pub(super) fn advance_assignments<T: Config, F: Fn(CoreIndex) -> bool>(
 		&mut core_states,
 		AccessMode::<T>::peek(&mut on_demand_orders),
 	)
-		.into_iter();
+	.into_iter();
 
 	for (core_idx, next_assignment) in
-	next_assignments.filter(|(core_idx, _)| !is_blocked(*core_idx))
+		next_assignments.filter(|(core_idx, _)| !is_blocked(*core_idx))
 	{
 		assignments.entry(core_idx).or_insert_with(|| next_assignment);
 	}
@@ -469,7 +470,7 @@ fn peek_impl<T: Config>(
 			&mut core_states,
 			AccessMode::<T>::peek(&mut on_demand_orders),
 		)
-			.into_iter();
+		.into_iter();
 		for (core_idx, para_id) in assignments {
 			let claim_queue: &mut VecDeque<ParaId> = result.entry(core_idx).or_default();
 			// Stop filling on holes, otherwise we get claims at the wrong positions.
@@ -588,5 +589,3 @@ fn ensure_workload<T: Config>(
 		}
 	});
 }
-
-
