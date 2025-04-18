@@ -77,9 +77,6 @@ pub fn call_allowed_status(call: &<Runtime as frame_system::Config>::RuntimeCall
 		AssetRate(..) => OFF,
 		Assets(..) => OFF,
 		Balances(..) => OFF,
-		Bounties(..) => OFF,
-		ChildBounties(..) => OFF,
-		Claims(..) => OFF,
 		CollatorSelection(..) => OFF, // TODO maybe disable them since staking is also disabled?
 		ConvictionVoting(..) => OFF,
 		CumulusXcm(..) => OFF, /* Empty call enum, see https://github.com/paritytech/polkadot-sdk/issues/8222 */
@@ -102,7 +99,6 @@ pub fn call_allowed_status(call: &<Runtime as frame_system::Config>::RuntimeCall
 		StateTrieMigration(..) => OFF, // Deprecated
 		System(..) => ON,
 		Timestamp(..) => ON,
-		ToKusamaXcmRouter(..) => ON, // Allow to report bridge congestion
 		Treasury(..) => OFF,
 		Uniques(..) => OFF,
 		Utility(..) => OFF,
