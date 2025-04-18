@@ -29,7 +29,7 @@ sp-staking = { features = ["serde"], workspace = true }
 sp-weights = { workspace = true }
 
 [dev-dependencies]
-frame = { workspace = true, features = ["experimental", "runtime"] }
+frame = { workspace = true, features = ["runtime"] }
 finality-grandpa = { features = [
 	"derive-codec",
 ], workspace = true, default-features = true }
