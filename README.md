@@ -41,6 +41,7 @@ Messages from either of these channels are bridged to the other, so you can use 
   * [Telegram](https://t.me/substratedevs)
   * [Matrix](https://matrix.to/#/#substratedevs:matrix.org)
   * [Discord](https://discord.com/channels/722223075629727774/997505821955076196)
+  * [Polkadot and Substrate StackExchange](https://substrate.stackexchange.com/)
 
 ## 🚀 Releases
 
