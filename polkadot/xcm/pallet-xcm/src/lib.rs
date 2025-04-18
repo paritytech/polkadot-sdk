@@ -2984,11 +2984,10 @@ impl<T: Config> Pallet<T> {
 		let max_payment: Asset = (asset.clone(), max_amount).into();
 		let context = XcmContext::with_message_id(XcmHash::default());
 
-		let mut trader = Trader::new();
-
 		// We return the unspent amount without affecting the state
 		// as we used a big amount of the asset without any check.
 		let unspent = with_transaction(|| {
+			let mut trader = Trader::new();
 			let result = trader.buy_weight(weight, max_payment.into(), &context)
 				.map_err(|e| {
 					tracing::error!(target: "xcm::pallet::query_weight_to_asset_fee", ?e, ?asset, "Failed to buy weight");
