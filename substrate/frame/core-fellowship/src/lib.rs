@@ -762,7 +762,7 @@ impl<T: Config<I>, I: 'static, const MIN_RANK: u16> EnsureOrigin<T::RuntimeOrigi
 
 	#[cfg(feature = "runtime-benchmarks")]
 	fn try_successful_origin() -> Result<T::RuntimeOrigin, ()> {
-		let who = frame_benchmarking::account::<T::AccountId>("successful_origin", 0, 0);
+		let who = frame::benchmarking::prelude::account::<T::AccountId>("successful_origin", 0, 0);
 		if T::Members::rank_of(&who).is_none() {
 			T::Members::induct(&who).map_err(|_| ())?;
 		}
