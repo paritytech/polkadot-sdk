@@ -13,8 +13,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 use crate::{
-	imports::*,
-	tests::{penpal_emulated_chain::penpal_runtime, snowbridge_common::snowbridge_sovereign},
+	imports::{
+		penpal_emulated_chain::penpal_runtime::xcm_config::{
+			CheckingAccount, TELEPORTABLE_ASSET_ID,
+		},
+		*,
+	},
+	tests::{
+		penpal_emulated_chain::penpal_runtime,
+		snowbridge_common::{
+			bridged_roc_at_ah_westend, ethereum, register_roc_on_bh, snowbridge_sovereign,
+		},
+		snowbridge_v2_outbound_from_rococo::create_foreign_on_ah_westend,
+	},
 };
 use asset_hub_westend_runtime::xcm_config::bridging::to_ethereum::DefaultBridgeHubEthereumBaseFee;
 use bridge_hub_westend_runtime::{
@@ -22,11 +33,11 @@ use bridge_hub_westend_runtime::{
 };
 use codec::{Decode, Encode};
 use emulated_integration_tests_common::{PENPAL_B_ID, RESERVABLE_ASSET_ID};
-use frame_support::pallet_prelude::TypeInfo;
+use frame_support::{pallet_prelude::TypeInfo, traits::fungibles::Mutate};
 use hex_literal::hex;
 use rococo_westend_system_emulated_network::{
 	asset_hub_westend_emulated_chain::genesis::AssetHubWestendAssetOwner,
-	penpal_emulated_chain::PARA_ID_B,
+	penpal_emulated_chain::PARA_ID_B, westend_emulated_chain::westend_runtime::Dmp,
 };
 use snowbridge_core::{AssetMetadata, TokenIdOf};
 use snowbridge_inbound_queue_primitives::{
@@ -212,6 +223,10 @@ fn send_weth_from_ethereum_to_penpal() {
 	);
 
 	PenpalB::execute_with(|| {
+		let key = PenpalCustomizableAssetFromSystemAssetHub::key().to_vec();
+		let value = Location::new(2, [GlobalConsensus(Ethereum { chain_id: CHAIN_ID })]).encode();
+		assert_eq!(key, hex!("770800eb78be69c327d8334d09276072"));
+		assert_eq!(value, hex!("020109079edaa802"));
 		assert_ok!(<PenpalB as Chain>::System::set_storage(
 			<PenpalB as Chain>::RuntimeOrigin::root(),
 			vec![(
@@ -1182,7 +1197,7 @@ fn transfer_ah_token() {
 			[AccountKey20 { network: None, key: ETHEREUM_DESTINATION_ADDRESS.into() }],
 		));
 
-		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::PolkadotXcm::limited_reserve_transfer_assets(
+		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::PolkadotXcm::transfer_assets(
 			RuntimeOrigin::signed(AssetHubWestendSender::get()),
 			Box::new(VersionedLocation::from(ethereum_destination)),
 			Box::new(beneficiary),
@@ -1270,8 +1285,6 @@ fn transfer_ah_token() {
 		);
 	});
 }
-<<<<<<< HEAD
-=======
 
 #[test]
 fn transfer_penpal_native_asset() {
@@ -2006,4 +2019,3 @@ fn transfer_roc_from_ah_with_transfer_and_then() {
 		);
 	});
 }
->>>>>>> 13cb4a31 (Update transfer token gas and fee (#7947))
