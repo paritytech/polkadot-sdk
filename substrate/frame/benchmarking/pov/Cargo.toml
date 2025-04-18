@@ -19,10 +19,10 @@ codec = { workspace = true }
 frame-benchmarking = { workspace = true }
 frame-support = { workspace = true }
 frame-system = { workspace = true }
+hex = { workspace = true, optional = true }
 scale-info = { features = ["derive"], workspace = true }
 sp-io = { workspace = true }
 sp-runtime = { workspace = true }
-hex = { workspace = true, optional = true }
 
 [features]
 default = ["std"]
@@ -31,15 +31,16 @@ std = [
 	"frame-benchmarking/std",
 	"frame-support/std",
 	"frame-system/std",
+	"hex?/std",
 	"scale-info/std",
 	"sp-io/std",
 	"sp-runtime/std",
 ]
 runtime-benchmarks = [
-	"hex",
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
+	"hex",
 	"sp-runtime/runtime-benchmarks",
 ]
 try-runtime = [

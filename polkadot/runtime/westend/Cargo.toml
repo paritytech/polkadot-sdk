@@ -15,12 +15,12 @@ workspace = true
 [dependencies]
 bitvec = { features = ["alloc"], workspace = true }
 codec = { features = ["derive", "max-encoded-len"], workspace = true }
+hex = { workspace = true }
 log = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 serde = { workspace = true }
 serde_derive = { optional = true, workspace = true }
 serde_json = { features = ["alloc"], workspace = true }
-hex = { workspace = true }
 
 binary-merkle-tree = { workspace = true }
 sp-api = { workspace = true }
@@ -46,6 +46,7 @@ sp-storage = { workspace = true }
 sp-transaction-pool = { workspace = true }
 sp-version = { workspace = true }
 
+frame-benchmarking-pallet-pov = { workspace = true }
 frame-election-provider-support = { workspace = true }
 frame-executive = { workspace = true }
 frame-metadata-hash-extension = { workspace = true }
@@ -97,7 +98,6 @@ pallet-whitelist = { workspace = true }
 pallet-xcm = { workspace = true }
 pallet-xcm-benchmarks = { optional = true, workspace = true }
 westend-runtime-constants = { workspace = true }
-frame-benchmarking-pallet-pov = { workspace = true }
 
 frame-benchmarking = { optional = true, workspace = true }
 frame-system-benchmarking = { optional = true, workspace = true }
@@ -137,6 +137,7 @@ std = [
 	"binary-merkle-tree/std",
 	"bitvec/std",
 	"codec/std",
+	"frame-benchmarking-pallet-pov/std",
 	"frame-benchmarking?/std",
 	"frame-election-provider-support/std",
 	"frame-executive/std",
@@ -146,6 +147,7 @@ std = [
 	"frame-system-rpc-runtime-api/std",
 	"frame-system/std",
 	"frame-try-runtime/std",
+	"hex/std",
 	"log/std",
 	"pallet-asset-rate/std",
 	"pallet-authority-discovery/std",
@@ -230,9 +232,9 @@ std = [
 	"xcm-executor/std",
 	"xcm-runtime-apis/std",
 	"xcm/std",
-	"frame-benchmarking-pallet-pov/std"
 ]
 runtime-benchmarks = [
+	"frame-benchmarking-pallet-pov/runtime-benchmarks",
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-election-provider-support/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
@@ -288,9 +290,9 @@ runtime-benchmarks = [
 	"xcm-executor/runtime-benchmarks",
 	"xcm-runtime-apis/runtime-benchmarks",
 	"xcm/runtime-benchmarks",
-	"frame-benchmarking-pallet-pov/runtime-benchmarks"
 ]
 try-runtime = [
+	"frame-benchmarking-pallet-pov/try-runtime",
 	"frame-election-provider-support/try-runtime",
 	"frame-executive/try-runtime",
 	"frame-support/try-runtime",
@@ -340,7 +342,6 @@ try-runtime = [
 	"polkadot-runtime-common/try-runtime",
 	"polkadot-runtime-parachains/try-runtime",
 	"sp-runtime/try-runtime",
-	"frame-benchmarking-pallet-pov/try-runtime"
 ]
 
 # Enable the metadata hash generation in the wasm builder.
