@@ -19,7 +19,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 codec = { features = ["derive"], workspace = true }
 log = { workspace = true }
 scale-info = { features = ["derive", "serde"], workspace = true }
-frame = { workspace = true, features = ["experimental", "runtime"] }
+frame = { workspace = true, features = ["runtime"] }
 pallet-authorship = { workspace = true }
 pallet-session = { workspace = true }
 sp-application-crypto = { features = ["serde"], workspace = true }
