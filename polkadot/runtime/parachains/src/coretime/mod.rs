@@ -16,7 +16,7 @@
 
 //! This pallet exposes the relay chain coretime functionality to the broker/coretime chain.
 //!
-//! It depends on the assigner-coretime pallet, which does the actual ground work of handling
+//! It depends on the scheduler pallet, which does the actual ground work of handling
 //! received core assignments.
 //!
 //! <https://github.com/polkadot-fellows/RFCs/blob/main/text/0005-coretime-interface.md>
