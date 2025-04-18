@@ -20,9 +20,8 @@ use crate::{
 	configuration, inclusion, initializer, paras,
 	paras::ParaKind,
 	paras_inherent,
-	scheduler,
+	scheduler::{PartsOf57600, CoreAssignment, self},
 	session_info, shared,
-	assigner_coretime::{PartsOf57600, CoreAssignment, self},
 };
 use alloc::{
 	collections::{btree_map::BTreeMap, btree_set::BTreeSet, vec_deque::VecDeque},
@@ -963,7 +962,7 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 		let cores = (0..).map(CoreIndex).zip(core_paras).collect::<BTreeMap<CoreIndex, ParaId>>();
 
 		for (core_idx, para) in cores {
-			assigner_coretime::Pallet::<T>::assign_core(core_idx, now, vec![(CoreAssignment::Task(para.into()), PartsOf57600::FULL)], None).unwrap();
+			scheduler::Pallet::<T>::assign_core(core_idx, now, vec![(CoreAssignment::Task(para.into()), PartsOf57600::FULL)], None).unwrap();
 		}
 
 		Bench::<T> {

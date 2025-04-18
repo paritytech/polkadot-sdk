@@ -20,7 +20,7 @@ pub use v_coretime::{GetLegacyLease, MigrateToCoretime};
 
 mod v_coretime {
 	use crate::{
-		assigner_coretime, configuration,
+		configuration,
 		coretime::{mk_coretime_call, Config, PartsOf57600, WeightInfo},
 	};
 	use alloc::{vec, vec::Vec};
