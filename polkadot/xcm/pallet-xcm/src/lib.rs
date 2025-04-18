@@ -54,6 +54,7 @@ use sp_runtime::{
 	},
 	Either, RuntimeDebug, SaturatedConversion,
 };
+use storage::{with_transaction, TransactionOutcome};
 use xcm::{latest::QueryResponseInfo, prelude::*};
 use xcm_builder::{
 	ExecuteController, ExecuteControllerWeightInfo, InspectMessageQueues, QueryController,
@@ -2955,8 +2956,6 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Computes the weight cost using the provided `WeightTrader`.
-	/// This function is supposed to be used ONLY in `XcmPaymentApi::query_weight_to_asset_fee`
-	/// Runtime API implementation, as it can introduce a massive change to the total issuance.
 	///
 	/// The provided `WeightTrader` must be the same as the one used in the XcmExecutor to ensure
 	/// uniformity in the weight cost calculation.
@@ -2987,11 +2986,20 @@ impl<T: Config> Pallet<T> {
 
 		let mut trader = Trader::new();
 
-		let unspent = trader.buy_weight(weight, max_payment.into(), &context)
-			.map_err(|e| {
-				tracing::error!(target: "xcm::pallet::query_weight_to_asset_fee", ?e, ?asset, "Failed to buy weight");
-				XcmPaymentApiError::AssetNotFound
-			})?;
+		// We return the unspent amount without affecting the state
+		// as we used a big amount of the asset without any check.
+		let unspent = with_transaction(|| {
+			let result = trader.buy_weight(weight, max_payment.into(), &context)
+				.map_err(|e| {
+					tracing::error!(target: "xcm::pallet::query_weight_to_asset_fee", ?e, ?asset, "Failed to buy weight");
+
+					// Return something convertible to `DispatchError` as required by the `with_transaction` fn.
+					DispatchError::Other("Failed to buy weight")
+				});
+
+			TransactionOutcome::Rollback(result)
+		}).map_err(|_| XcmPaymentApiError::AssetNotFound)?;
+
 		let Some(unspent) = unspent.fungible.get(&asset) else {
 			tracing::error!(target: "xcm::pallet::query_weight_to_asset_fee", ?asset, "The trader didn't return the needed fungible asset");
 			return Err(XcmPaymentApiError::AssetNotFound);
