@@ -17,20 +17,26 @@
 
 //! Storage migrations for the core-fellowship pallet.
 use super::*;
-use frame_support::{
-	pallet_prelude::*,
-	storage_alias,
-	traits::{DefensiveTruncateFrom, UncheckedOnRuntimeUpgrade},
-	BoundedVec,
-};
+use frame::traits::UncheckedOnRuntimeUpgrade;
+use frame::traits::DefensiveTruncateFrom;
+use frame::deps::frame_support::migrations::VersionedMigration;
+
+// use frame_support::{
+// 	pallet_prelude::*,
+// 	storage_alias,
+// 	traits::{DefensiveTruncateFrom, UncheckedOnRuntimeUpgrade},
+// 	BoundedVec,
+// };
 
 #[cfg(feature = "try-runtime")]
 use alloc::vec::Vec;
-#[cfg(feature = "try-runtime")]
-use sp_runtime::TryRuntimeError;
+// #[cfg(feature = "try-runtime")]
+// use sp_runtime::TryRuntimeError;
 
 mod v0 {
-	use frame_system::pallet_prelude::BlockNumberFor;
+	use frame::runtime::prelude::*;
+	//use frame_system::pallet_prelude::BlockNumberFor;
+	use frame::storage_alias;
 
 	use super::*;
 
@@ -79,7 +85,7 @@ impl<T: Config<I>, I: 'static> UncheckedOnRuntimeUpgrade for MigrateToV1<T, I> {
 		Ok(Default::default())
 	}
 
-	fn on_runtime_upgrade() -> frame_support::weights::Weight {
+	fn on_runtime_upgrade() -> Weight {
 		// Read the old value from storage
 		let old_value = v0::Params::<T, I>::take();
 		// Write the new value to storage
@@ -104,7 +110,7 @@ impl<T: Config<I>, I: 'static> UncheckedOnRuntimeUpgrade for MigrateToV1<T, I> {
 /// - The migration only runs once when the on-chain storage version is 0
 /// - The on-chain storage version is updated to `1` after the migration executes
 /// - Reads/Writes from checking/settings the on-chain storage version are accounted for
-pub type MigrateV0ToV1<T, I> = frame_support::migrations::VersionedMigration<
+pub type MigrateV0ToV1<T, I> = VersionedMigration<
 	0, // The migration will only execute when the on-chain storage version is 0
 	1, // The on-chain storage version will be set to 1 after the migration is complete
 	MigrateToV1<T, I>,

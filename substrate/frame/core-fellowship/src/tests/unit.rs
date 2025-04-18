@@ -20,23 +20,31 @@
 #![allow(deprecated)]
 
 use std::collections::BTreeMap;
-
+use frame::runtime::prelude::EnsureSignedBy;
+use frame::traits::TryMapSuccess;
+use frame::traits::IsInVec;
 use core::cell::RefCell;
-use frame_support::{
-	assert_noop, assert_ok, derive_impl, hypothetically, ord_parameter_types,
-	pallet_prelude::Weight,
-	parameter_types,
-	traits::{tokens::GetSalary, ConstU16, ConstU32, IsInVec, TryMapSuccess},
-};
-use frame_system::EnsureSignedBy;
-use sp_runtime::{bounded_vec, traits::TryMorphInto, BuildStorage, DispatchError, DispatchResult};
-
+use frame::traits::TryMorphInto;
+use frame::testing_prelude::*;
+use frame::traits::ConstU16;
+use frame::traits::ConstU32;
+use crate::tests::unit::sp_api_hidden_includes_construct_runtime::hidden_include::testing_prelude::bounded_vec;
+use crate::DispatchError;
+use frame::traits::tokens::GetSalary;
+// use frame_support::{
+// 	assert_noop, assert_ok, derive_impl, hypothetically, ord_parameter_types,
+// 	pallet_prelude::Weight,
+// 	parameter_types,
+// 	traits::{tokens::GetSalary, ConstU16, ConstU32, IsInVec, TryMapSuccess},
+// };
+// use frame_system::EnsureSignedBy;
+// use sp_runtime::{bounded_vec, traits::TryMorphInto, BuildStorage, DispatchError, DispatchResult};
 use crate as pallet_core_fellowship;
 use crate::*;
 
 type Block = frame_system::mocking::MockBlock<Test>;
 
-frame_support::construct_runtime!(
+construct_runtime!(
 	pub enum Test
 	{
 		System: frame_system,
@@ -80,7 +88,7 @@ impl RankedMembers for TestClub {
 	}
 	fn demote(who: &Self::AccountId) -> DispatchResult {
 		CLUB.with(|club| match Self::rank_of(who) {
-			None => Err(sp_runtime::DispatchError::Unavailable),
+			None => Err(DispatchError::Unavailable),
 			Some(0) => {
 				club.borrow_mut().remove(&who);
 				Ok(())
@@ -122,9 +130,9 @@ impl Config for Test {
 	type MaxRank = ConstU16<9>;
 }
 
-pub fn new_test_ext() -> sp_io::TestExternalities {
+pub fn new_test_ext() -> TestExternalities {
 	let t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
-	let mut ext = sp_io::TestExternalities::new(t);
+	let mut ext = TestExternalities::new(t);
 	ext.execute_with(|| {
 		set_rank(100, 9);
 		let params = ParamsType {
@@ -156,7 +164,7 @@ fn signed(who: u64) -> RuntimeOrigin {
 }
 
 fn next_demotion(who: u64) -> u64 {
-	let member = Member::<Test>::get(who).unwrap();
+	let member = crate::pallet::Member::<Test>::get(who).unwrap();
 	let demotion_period = Params::<Test>::get().demotion_period;
 	member.last_proof + demotion_period[TestClub::rank_of(&who).unwrap() as usize - 1]
 }
@@ -232,12 +240,12 @@ fn import_member_works() {
 
 		// Make induction work:
 		set_rank(0, 1);
-		assert!(!Member::<Test>::contains_key(0), "not yet imported");
+		assert!(!crate::pallet::Member::<Test>::contains_key(0), "not yet imported");
 
 		// `import_member` can be used to induct ourselves:
 		hypothetically!({
 			assert_ok!(CoreFellowship::import_member(signed(0), 0));
-			assert!(Member::<Test>::contains_key(0), "got imported");
+			assert!(crate::pallet::Member::<Test>::contains_key(0), "got imported");
 
 			// Twice does not work:
 			assert_noop!(
@@ -250,7 +258,7 @@ fn import_member_works() {
 		// But we could have also used `import`:
 		hypothetically!({
 			assert_ok!(CoreFellowship::import(signed(0)));
-			assert!(Member::<Test>::contains_key(0), "got imported");
+			assert!(crate::pallet::Member::<Test>::contains_key(0), "got imported");
 
 			// Twice does not work:
 			assert_noop!(
@@ -270,12 +278,12 @@ fn import_member_same_as_import() {
 
 			let import_root = hypothetically!({
 				assert_ok!(CoreFellowship::import(signed(0)));
-				sp_io::storage::root(sp_runtime::StateVersion::V1)
+				frame::deps::sp_io::storage::root(frame::deps::sp_runtime::StateVersion::V1)
 			});
 
 			let import_member_root = hypothetically!({
 				assert_ok!(CoreFellowship::import_member(signed(1), 0));
-				sp_io::storage::root(sp_runtime::StateVersion::V1)
+				frame::deps::sp_io::storage::root(frame::deps::sp_runtime::StateVersion::V1)
 			});
 
 			// `import` and `import_member` do exactly the same thing.
@@ -394,7 +402,7 @@ fn promote_fast_identical_to_promote() {
 		let root_promote = hypothetically!({
 			assert_ok!(CoreFellowship::promote(signed(alice), alice, 1));
 			// Don't clean the events since they should emit the same events:
-			sp_io::storage::root(sp_runtime::StateVersion::V1)
+			frame::deps::sp_io::storage::root(frame::deps::sp_runtime::StateVersion::V1)
 		});
 
 		// This is using thread locals instead of storage...
@@ -403,7 +411,7 @@ fn promote_fast_identical_to_promote() {
 		let root_promote_fast = hypothetically!({
 			assert_ok!(CoreFellowship::promote_fast(signed(alice), alice, 1));
 
-			sp_io::storage::root(sp_runtime::StateVersion::V1)
+			frame::deps::sp_io::storage::root(frame::deps::sp_runtime::StateVersion::V1)
 		});
 
 		assert_eq!(root_promote, root_promote_fast);
@@ -419,7 +427,7 @@ fn sync_works() {
 		assert_noop!(CoreFellowship::approve(signed(4), 10, 5), Error::<Test>::NoPermission);
 		assert_noop!(CoreFellowship::approve(signed(6), 10, 6), Error::<Test>::UnexpectedRank);
 		assert_ok!(CoreFellowship::import(signed(10)));
-		assert!(Member::<Test>::contains_key(10));
+		assert!(crate::pallet::Member::<Test>::contains_key(10));
 		assert_eq!(next_demotion(10), 11);
 	});
 }

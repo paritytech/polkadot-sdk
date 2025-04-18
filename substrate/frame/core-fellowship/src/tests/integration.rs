@@ -19,28 +19,36 @@
 
 #![allow(deprecated)]
 
-use frame_support::{
-	assert_noop, assert_ok, derive_impl, hypothetically, hypothetically_ok, ord_parameter_types,
-	pallet_prelude::Weight,
-	parameter_types,
-	traits::{ConstU16, EitherOf, IsInVec, MapSuccess, NoOpPoll, TryMapSuccess},
-};
-use frame_system::EnsureSignedBy;
+use frame::prelude::*;
+use frame::traits::TryMapSuccess;
+use frame::runtime::prelude::EnsureSignedBy;
+use frame::traits::IsInVec;
+use frame::traits::TryMorphInto;
+use frame::traits::ConstU16;
+use frame::testing_prelude::TestExternalities;
+use frame::testing_prelude::*;
+// use frame_support::{
+// 	assert_noop, assert_ok, derive_impl, hypothetically, hypothetically_ok, ord_parameter_types,
+// 	pallet_prelude::Weight,
+// 	parameter_types,
+// 	traits::{ConstU16, EitherOf, IsInVec, MapSuccess, NoOpPoll, TryMapSuccess},
+// };
+// use frame_system::EnsureSignedBy;
 use pallet_ranked_collective::{EnsureRanked, Geometric, Rank};
-use sp_core::Get;
-use sp_runtime::{
-	bounded_vec,
-	traits::{Convert, ReduceBy, ReplaceWithDefault, TryMorphInto},
-	BuildStorage,
-};
+// use sp_core::Get;
+// use sp_runtime::{
+// 	bounded_vec,
+// 	traits::{Convert, ReduceBy, ReplaceWithDefault, TryMorphInto},
+// 	BuildStorage,
+// };
 type Class = Rank;
 
 use crate as pallet_core_fellowship;
 use crate::*;
 
-type Block = frame_system::mocking::MockBlock<Test>;
+type Block = MockBlock<Test>;
 
-frame_support::construct_runtime!(
+construct_runtime!(
 	pub enum Test
 	{
 		System: frame_system,
@@ -126,9 +134,9 @@ impl pallet_ranked_collective::Config for Test {
 	type BenchmarkSetup = CoreFellowship;
 }
 
-pub fn new_test_ext() -> sp_io::TestExternalities {
+pub fn new_test_ext() -> TestExternalities {
 	let t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
-	let mut ext = sp_io::TestExternalities::new(t);
+	let mut ext = TestExternalities::new(t);
 	ext.execute_with(|| {
 		assert_ok!(Club::add_member(RuntimeOrigin::root(), 100));
 		promote_n_times(100, 9);
@@ -188,8 +196,8 @@ fn import_simple_works() {
 			assert_ok!(Club::add_member(RuntimeOrigin::root(), acc));
 			promote_n_times(acc, i);
 
-			hypothetically_ok!(CoreFellowship::import(signed(acc)));
-			hypothetically_ok!(CoreFellowship::import_member(signed(acc), acc));
+			assert_ok!(hypothetically! { CoreFellowship::import(signed(acc)) });
+			assert_ok!(hypothetically! { CoreFellowship::import_member(signed(acc), acc) });
 			// Works from other accounts
 			assert_ok!(CoreFellowship::import_member(signed(acc + 1), acc));
 
@@ -211,7 +219,7 @@ fn swap_simple_works() {
 
 			assert_ok!(Club::add_member(RuntimeOrigin::root(), acc));
 			promote_n_times(acc, i);
-			hypothetically_ok!(CoreFellowship::import(signed(acc)));
+			assert_ok!(hypothetically!(CoreFellowship::import(signed(acc))));
 			assert_ok!(CoreFellowship::import_member(signed(acc), acc));
 
 			// Swapping normally works:
@@ -235,7 +243,7 @@ fn swap_exhaustive_works() {
 
 			// The events mess up the storage root:
 			System::reset_events();
-			sp_io::storage::root(sp_runtime::StateVersion::V1)
+			frame::deps::sp_io::storage::root(frame::deps::sp_runtime::StateVersion::V1)
 		});
 
 		let root_swap = hypothetically!({
@@ -248,7 +256,7 @@ fn swap_exhaustive_works() {
 			assert_ok!(Club::exchange_member(RuntimeOrigin::root(), 0, 1));
 
 			System::reset_events();
-			sp_io::storage::root(sp_runtime::StateVersion::V1)
+			frame::deps::sp_io::storage::root(frame::deps::sp_runtime::StateVersion::V1)
 		});
 
 		assert_eq!(root_add, root_swap);

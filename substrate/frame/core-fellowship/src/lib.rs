@@ -65,19 +65,24 @@ use alloc::boxed::Box;
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use core::{fmt::Debug, marker::PhantomData};
 use scale_info::TypeInfo;
-use sp_arithmetic::traits::{Saturating, Zero};
-use sp_runtime::RuntimeDebug;
+use frame::deps::frame_support::impl_ensure_origin_with_arg_ignoring_arg;
+use frame::traits::tokens::Balance as BalanceTrait;
+use frame::traits::EnsureOriginWithArg;
+// use sp_arithmetic::traits::{Saturating, Zero};
+// use sp_runtime::RuntimeDebug;
 
-use frame_support::{
-	defensive,
-	dispatch::DispatchResultWithPostInfo,
-	ensure, impl_ensure_origin_with_arg_ignoring_arg,
-	traits::{
-		tokens::Balance as BalanceTrait, EnsureOrigin, EnsureOriginWithArg, Get, RankedMembers,
-		RankedMembersSwapHandler,
-	},
-	BoundedVec, CloneNoBound, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound,
-};
+use frame::prelude::*;
+
+// use frame_support::{
+// 	defensive,
+// 	dispatch::DispatchResultWithPostInfo,
+// 	ensure, impl_ensure_origin_with_arg_ignoring_arg,
+// 	traits::{
+// 		tokens::Balance as BalanceTrait, EnsureOrigin, EnsureOriginWithArg, Get, RankedMembers,
+// 		RankedMembersSwapHandler,
+// 	},
+// 	BoundedVec, CloneNoBound, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound,
+// };
 
 #[cfg(test)]
 mod tests;
@@ -181,15 +186,17 @@ pub struct MemberStatus<BlockNumber> {
 	last_proof: BlockNumber,
 }
 
-#[frame_support::pallet]
+#[frame::pallet]
 pub mod pallet {
 	use super::*;
-	use frame_support::{
-		dispatch::Pays,
-		pallet_prelude::*,
-		traits::{tokens::GetSalary, EnsureOrigin},
-	};
-	use frame_system::{ensure_root, pallet_prelude::*};
+	use frame::traits::EnsureOrigin;
+	use frame::traits::tokens::GetSalary;
+	// use frame_support::{
+	// 	dispatch::Pays,
+	// 	pallet_prelude::*,
+	// 	traits::{tokens::GetSalary, EnsureOrigin},
+	// };
+	// use frame_system::{ensure_root, pallet_prelude::*};
 	/// The in-code storage version.
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
 
@@ -768,7 +775,7 @@ impl<T: Config<I>, I: 'static, const MIN_RANK: u16> EnsureOrigin<T::RuntimeOrigi
 	fn try_origin(o: T::RuntimeOrigin) -> Result<Self::Success, T::RuntimeOrigin> {
 		let who = <frame_system::EnsureSigned<_> as EnsureOrigin<_>>::try_origin(o)?;
 		match T::Members::rank_of(&who) {
-			Some(rank) if rank >= MIN_RANK && Member::<T, I>::contains_key(&who) => Ok(who),
+			Some(rank) if rank >= MIN_RANK && crate::pallet::Member::<T, I>::contains_key(&who) => Ok(who),
 			_ => Err(frame_system::RawOrigin::Signed(who).into()),
 		}
 	}
@@ -800,23 +807,23 @@ impl<T: Config<I>, I: 'static> RankedMembersSwapHandler<T::AccountId, u16> for P
 			defensive!("Should not try to swap with self");
 			return
 		}
-		if !Member::<T, I>::contains_key(old) {
+		if !crate::pallet::Member::<T, I>::contains_key(old) {
 			defensive!("Should not try to swap non-member");
 			return
 		}
-		if Member::<T, I>::contains_key(new) {
+		if crate::pallet::Member::<T, I>::contains_key(new) {
 			defensive!("Should not try to overwrite existing member");
 			return
 		}
 
-		if let Some(member) = Member::<T, I>::take(old) {
-			Member::<T, I>::insert(new, member);
+		if let Some(member) = crate::pallet::Member::<T, I>::take(old) {
+			crate::pallet::Member::<T, I>::insert(new, member);
 		}
-		if let Some(we) = MemberEvidence::<T, I>::take(old) {
-			MemberEvidence::<T, I>::insert(new, we);
+		if let Some(we) = crate::pallet::MemberEvidence::<T, I>::take(old) {
+			crate::pallet::MemberEvidence::<T, I>::insert(new, we);
 		}
 
-		Self::deposit_event(Event::<T, I>::Swapped { who: old.clone(), new_who: new.clone() });
+		Self::deposit_event(crate::pallet::Event::<T, I>::Swapped { who: old.clone(), new_who: new.clone() });
 	}
 }
 
