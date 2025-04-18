@@ -1240,7 +1240,7 @@ impl<T: Config> Pallet<T> {
 		// if actual provider is less than expected, it is already migrated.
 		ensure!(actual_providers == expected_providers, Error::<T>::AlreadyMigrated);
 
-		let _ = frame_system::Pallet::<T>::dec_providers(&stash)?;
+		frame_system::Pallet::<T>::dec_providers(&stash)?;
 
 		Ok(())
 	}
@@ -1900,7 +1900,7 @@ impl<T: Config> StakingInterface for Pallet<T> {
 		);
 
 		let ledger = Self::ledger(Stash(stash.clone()))?;
-		let _ = ledger
+		ledger
 			.set_payee(RewardDestination::Account(reward_acc.clone()))
 			.defensive_proof("ledger was retrieved from storage, thus its bonded; qed.")?;
 
