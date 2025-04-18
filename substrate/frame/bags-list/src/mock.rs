@@ -29,6 +29,7 @@ pub type Balance = u32;
 
 parameter_types! {
 	// Set the vote weight for any id who's weight has _not_ been set with `set_score_of`.
+	pub static NextVoteWeight: VoteWeight = 0;
 	pub static NextVoteWeightMap: HashMap<AccountId, VoteWeight> = Default::default();
 }
 
@@ -36,8 +37,8 @@ pub struct StakingMock;
 impl frame_election_provider_support::ScoreProvider<AccountId> for StakingMock {
 	type Score = VoteWeight;
 
-	fn score(id: &AccountId) -> Option<Self::Score> {
-		NextVoteWeightMap::get().get(id).cloned()
+	fn score(id: &AccountId) -> Self::Score {
+		*NextVoteWeightMap::get().get(id).unwrap_or(&NextVoteWeight::get())
 	}
 
 	frame_election_provider_support::runtime_benchmarks_or_std_enabled! {

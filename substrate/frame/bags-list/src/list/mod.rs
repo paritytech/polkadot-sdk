@@ -71,8 +71,6 @@ pub enum ListError {
 	NotInSameBag,
 	/// Given node id was not found.
 	NodeNotFound,
-	/// The List is locked, therefore updates cannot happen now.
-	Locked,
 }
 
 #[cfg(test)]
@@ -132,7 +130,7 @@ impl<T: Config<I>, I: 'static> List<T, I> {
 	/// Returns the number of ids migrated.
 	pub fn unsafe_regenerate(
 		all: impl IntoIterator<Item = T::AccountId>,
-		score_of: Box<dyn Fn(&T::AccountId) -> Option<T::Score>>,
+		score_of: Box<dyn Fn(&T::AccountId) -> T::Score>,
 	) -> u32 {
 		// NOTE: This call is unsafe for the same reason as SortedListProvider::unsafe_regenerate.
 		// I.e. because it can lead to many storage accesses.
@@ -320,16 +318,13 @@ impl<T: Config<I>, I: 'static> List<T, I> {
 	/// Returns the final count of number of ids inserted.
 	fn insert_many(
 		ids: impl IntoIterator<Item = T::AccountId>,
-		score_of: impl Fn(&T::AccountId) -> Option<T::Score>,
+		score_of: impl Fn(&T::AccountId) -> T::Score,
 	) -> u32 {
 		let mut count = 0;
 		ids.into_iter().for_each(|v| {
-			if let Some(score) = score_of(&v) {
-				if Self::insert(v, score).is_ok() {
-					count += 1;
-				}
-			} else {
-				// nada
+			let score = score_of(&v);
+			if Self::insert(v, score).is_ok() {
+				count += 1;
 			}
 		});
 
@@ -574,7 +569,7 @@ impl<T: Config<I>, I: 'static> List<T, I> {
 		// build map of bags and the corresponding nodes to avoid multiple lookups
 		let mut bags_map = BTreeMap::<T::Score, Vec<T::AccountId>>::new();
 
-		active_bags.clone().try_for_each(|b| {
+		let _ = active_bags.clone().try_for_each(|b| {
 			bags_map.insert(
 				b.bag_upper,
 				b.iter().map(|n: Node<T, I>| n.id().clone()).collect::<Vec<_>>(),

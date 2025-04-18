@@ -160,14 +160,12 @@
 //!
 //! ```
 //! use pallet_staking::{self as staking};
-//! use frame_support::traits::RewardsReporter;
 //!
 //! #[frame_support::pallet(dev_mode)]
 //! pub mod pallet {
 //!   use super::*;
 //!   use frame_support::pallet_prelude::*;
 //!   use frame_system::pallet_prelude::*;
-//!   # use frame_support::traits::RewardsReporter;
 //!
 //!   #[pallet::pallet]
 //!   pub struct Pallet<T>(_);
@@ -221,8 +219,8 @@
 //! [here](https://research.web3.foundation/en/latest/polkadot/Token%20Economics.html#inflation-model).
 //!
 //! Total reward is split among validators and their nominators depending on the number of points
-//! they received during the era. Points are added to a validator using the method
-//! [`frame_support::traits::RewardsReporter::reward_by_ids`] implemented by the [`Pallet`].
+//! they received during the era. Points are added to a validator using
+//! [`reward_by_ids`](Pallet::reward_by_ids).
 //!
 //! [`Pallet`] implements [`pallet_authorship::EventHandler`] to add reward points to block producer
 //! and block producer of referenced uncles.
@@ -310,8 +308,9 @@ mod pallet;
 extern crate alloc;
 
 use alloc::{collections::btree_map::BTreeMap, vec, vec::Vec};
-use codec::{Decode, DecodeWithMemTracking, Encode, HasCompact, MaxEncodedLen};
-use frame_election_provider_support::ElectionProvider;
+use codec::{
+	Decode, DecodeWithMemTracking, Encode, EncodeLike, HasCompact, Input, MaxEncodedLen, Output,
+};
 use frame_support::{
 	defensive, defensive_assert,
 	traits::{
@@ -330,6 +329,7 @@ use sp_runtime::{
 use sp_staking::{
 	offence::{Offence, OffenceError, OffenceSeverity, ReportOffence},
 	EraIndex, ExposurePage, OnStakingUpdate, Page, PagedExposureMetadata, SessionIndex,
+	StakingAccount,
 };
 pub use sp_staking::{Exposure, IndividualExposure, StakerStatus};
 pub use weights::WeightInfo;
@@ -350,12 +350,9 @@ macro_rules! log {
 	};
 }
 
-/// Alias for the maximum number of winners (aka. active validators), as defined in by this pallet's
-/// config.
-pub type MaxWinnersOf<T> = <T as Config>::MaxValidatorSet;
-
-/// Alias for the maximum number of winners per page, as expected by the election provider.
-pub type MaxWinnersPerPageOf<P> = <P as ElectionProvider>::MaxWinnersPerPage;
+/// Maximum number of winners (aka. active validators), as defined in the election provider of this
+/// pallet.
+pub type MaxWinnersOf<T> = <<T as Config>::ElectionProvider as frame_election_provider_support::ElectionProviderBase>::MaxWinners;
 
 /// Maximum number of nominations per nominator.
 pub type MaxNominationsOf<T> =
@@ -374,7 +371,7 @@ pub type NegativeImbalanceOf<T> =
 type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup>::Source;
 
 /// Information regarding the active era (era in used in session).
-#[derive(Encode, Decode, Clone, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 pub struct ActiveEraInfo {
 	/// Index of era.
 	pub index: EraIndex,
@@ -1056,6 +1053,16 @@ impl Default for Forcing {
 	}
 }
 
+/// A `Convert` implementation that finds the stash of the given controller account,
+/// if any.
+pub struct StashOf<T>(core::marker::PhantomData<T>);
+
+impl<T: Config> Convert<T::AccountId, Option<T::AccountId>> for StashOf<T> {
+	fn convert(controller: T::AccountId) -> Option<T::AccountId> {
+		StakingLedger::<T>::paired_account(StakingAccount::Controller(controller))
+	}
+}
+
 /// A typed conversion from stash account ID to the active exposure of nominators
 /// on that account.
 ///
@@ -1074,54 +1081,69 @@ impl<T: Config> Convert<T::AccountId, Option<Exposure<T::AccountId, BalanceOf<T>
 	}
 }
 
-/// Identify a validator with their default exposure.
-///
-/// This type should not be used in a fresh runtime, instead use [`UnitIdentificationOf`].
-///
-/// In the past, a type called [`ExposureOf`] used to return the full exposure of a validator to
-/// identify their exposure. This type is kept, marked as deprecated, for backwards compatibility of
-/// external SDK users, but is no longer used in this repo.
-///
-/// In the new model, we don't need to identify a validator with their full exposure anymore, and
-/// therefore [`UnitIdentificationOf`] is perfectly fine. Yet, for runtimes that used to work with
-/// [`ExposureOf`], we need to be able to decode old identification data, possibly stored in the
-/// historical session pallet in older blocks. Therefore, this type is a good compromise, allowing
-/// old exposure identifications to be decoded, and returning a few zero bytes
-/// (`Exposure::default`) for any new identification request.
-///
-/// A typical usage of this type is:
-///
-/// ```ignore
-/// impl pallet_session::historical::Config for Runtime {
-///     type FullIdentification = sp_staking::Exposure<AccountId, Balance>;
-///     type IdentificationOf = pallet_staking::DefaultExposureOf<Self>
-/// }
-/// ```
-pub struct DefaultExposureOf<T>(core::marker::PhantomData<T>);
+/// A type representing the presence of a validator. Encodes as a unit type.
+pub type Existence = ();
 
-impl<T: Config> Convert<T::AccountId, Option<Exposure<T::AccountId, BalanceOf<T>>>>
-	for DefaultExposureOf<T>
-{
-	fn convert(validator: T::AccountId) -> Option<Exposure<T::AccountId, BalanceOf<T>>> {
-		T::SessionInterface::validators()
-			.contains(&validator)
-			.then_some(Default::default())
+/// A converter type that returns `Some(())` if the validator exists in the current active era,
+/// otherwise `None`. This serves as a lightweight presence check for validators.
+pub struct ExistenceOf<T>(core::marker::PhantomData<T>);
+impl<T: Config> Convert<T::AccountId, Option<Existence>> for ExistenceOf<T> {
+	fn convert(validator: T::AccountId) -> Option<Existence> {
+		Validators::<T>::contains_key(&validator).then_some(())
 	}
 }
 
-/// An identification type that signifies the existence of a validator by returning `Some(())`, and
-/// `None` otherwise. Also see the documentation of [`DefaultExposureOf`] for more info.
-///
-/// ```ignore
-/// impl pallet_session::historical::Config for Runtime {
-///     type FullIdentification = ();
-///     type IdentificationOf = pallet_staking::UnitIdentificationOf<Self>
-/// }
-/// ```
-pub struct UnitIdentificationOf<T>(core::marker::PhantomData<T>);
-impl<T: Config> Convert<T::AccountId, Option<()>> for UnitIdentificationOf<T> {
-	fn convert(validator: T::AccountId) -> Option<()> {
-		DefaultExposureOf::<T>::convert(validator).map(|_default_exposure| ())
+/// A compatibility wrapper type used to represent the presence of a validator in the current era.
+/// Encodes as type [`Existence`] but can decode from legacy [`Exposure`] values for backward
+/// compatibility.
+#[derive(PartialEq, Eq, PartialOrd, Ord, Clone, RuntimeDebug, TypeInfo, DecodeWithMemTracking)]
+pub enum ExistenceOrLegacyExposure<A, B: HasCompact> {
+	/// Validator exists in the current era.
+	Exists,
+	/// Legacy `Exposure` data, retained for decoding compatibility.
+	Exposure(Exposure<A, B>),
+}
+
+/// Converts a validator account ID to a Some([`ExistenceOrLegacyExposure::Exists`]) if the
+/// validator exists in the current era, otherwise `None`.
+pub struct ExistenceOrLegacyExposureOf<T>(core::marker::PhantomData<T>);
+
+impl<T: Config> Convert<T::AccountId, Option<ExistenceOrLegacyExposure<T::AccountId, BalanceOf<T>>>>
+	for ExistenceOrLegacyExposureOf<T>
+{
+	fn convert(
+		validator: T::AccountId,
+	) -> Option<ExistenceOrLegacyExposure<T::AccountId, BalanceOf<T>>> {
+		ActiveEra::<T>::get()
+			.map(|active_era| ErasStakersOverview::<T>::contains_key(active_era.index, &validator))
+			.unwrap_or(false)
+			.then_some(ExistenceOrLegacyExposure::Exists)
+	}
+}
+
+impl<A, B: HasCompact> Encode for ExistenceOrLegacyExposure<A, B>
+where
+	Exposure<A, B>: Encode,
+{
+	fn encode_to<T: Output + ?Sized>(&self, dest: &mut T) {
+		match self {
+			ExistenceOrLegacyExposure::Exists => (),
+			ExistenceOrLegacyExposure::Exposure(exposure) => exposure.encode_to(dest),
+		}
+	}
+}
+
+impl<A, B: HasCompact> EncodeLike for ExistenceOrLegacyExposure<A, B> where Exposure<A, B>: Encode {}
+
+impl<A, B: HasCompact> Decode for ExistenceOrLegacyExposure<A, B>
+where
+	Exposure<A, B>: Decode,
+{
+	fn decode<I: Input>(input: &mut I) -> Result<Self, codec::Error> {
+		match input.remaining_len() {
+			Ok(Some(x)) if x > 0 => Ok(ExistenceOrLegacyExposure::Exposure(Decode::decode(input)?)),
+			_ => Ok(ExistenceOrLegacyExposure::Exists),
+		}
 	}
 }
 
@@ -1409,4 +1431,53 @@ pub struct TestBenchmarkingConfig;
 impl BenchmarkingConfig for TestBenchmarkingConfig {
 	type MaxValidators = frame_support::traits::ConstU32<100>;
 	type MaxNominators = frame_support::traits::ConstU32<100>;
+}
+
+#[cfg(test)]
+mod test {
+	use crate::ExistenceOrLegacyExposure;
+	use codec::{Decode, Encode};
+	use sp_staking::{Exposure, IndividualExposure};
+
+	#[test]
+	fn existence_encodes_decodes_correctly() {
+		let encoded_existence = ExistenceOrLegacyExposure::<u32, u32>::Exists.encode();
+		assert!(encoded_existence.is_empty());
+
+		// try decoding the existence
+		let decoded_existence =
+			ExistenceOrLegacyExposure::<u32, u32>::decode(&mut encoded_existence.as_slice())
+				.unwrap();
+		assert!(matches!(decoded_existence, ExistenceOrLegacyExposure::Exists));
+
+		// check that round-trip encoding works
+		assert_eq!(encoded_existence, decoded_existence.encode());
+	}
+
+	#[test]
+	fn legacy_existence_encodes_decodes_correctly() {
+		let legacy_exposure = Exposure::<u32, u32> {
+			total: 1,
+			own: 2,
+			others: vec![IndividualExposure { who: 3, value: 4 }],
+		};
+
+		let encoded_legacy_exposure = legacy_exposure.encode();
+
+		// try decoding the legacy exposure
+		let decoded_legacy_exposure =
+			ExistenceOrLegacyExposure::<u32, u32>::decode(&mut encoded_legacy_exposure.as_slice())
+				.unwrap();
+		assert_eq!(
+			decoded_legacy_exposure,
+			ExistenceOrLegacyExposure::Exposure(Exposure {
+				total: 1,
+				own: 2,
+				others: vec![IndividualExposure { who: 3, value: 4 }]
+			})
+		);
+
+		// round trip encoding works
+		assert_eq!(encoded_legacy_exposure, decoded_legacy_exposure.encode());
+	}
 }

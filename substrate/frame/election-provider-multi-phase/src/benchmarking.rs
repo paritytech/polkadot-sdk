@@ -288,11 +288,9 @@ mod benchmarks {
 	) -> Result<(), BenchmarkError> {
 		// We don't directly need the data-provider to be populated, but it is just easy to use it.
 		set_up_data_provider::<T>(v, t);
-		// default bounds are unbounded.
-		let targets =
-			T::DataProvider::electable_targets(DataProviderBounds::default(), Zero::zero())?;
-		let voters = T::DataProvider::electing_voters(DataProviderBounds::default(), Zero::zero())?;
-
+		// Default bounds are unbounded.
+		let targets = T::DataProvider::electable_targets(DataProviderBounds::default())?;
+		let voters = T::DataProvider::electing_voters(DataProviderBounds::default())?;
 		let desired_targets = T::DataProvider::desired_targets()?;
 		assert!(Snapshot::<T>::get().is_none());
 
@@ -345,7 +343,7 @@ mod benchmarks {
 
 		#[block]
 		{
-			result = <Pallet<T> as ElectionProvider>::elect(Zero::zero());
+			result = <Pallet<T> as ElectionProvider>::elect();
 		}
 
 		assert!(result.is_ok());
