@@ -17,8 +17,8 @@
 
 //! Benchmarks for the GRANDPA pallet.
 
-use super::{Pallet as Grandpa, *};
-use frame::{benchmarking::benchmarks, deps::sp_core::H256, RawOrigin};
+use super::*;
+use frame::{benchmarking::prelude::*, deps::sp_core::H256, prelude::RawOrigin};
 
 #[benchmarks]
 mod benchmarks {
@@ -71,7 +71,7 @@ mod benchmarks {
 	}
 
 	impl_benchmark_test_suite!(
-		Grandpa,
+		Pallet,
 		crate::mock::new_test_ext(vec![(1, 1), (2, 1), (3, 1)]),
 		crate::mock::Test,
 	);

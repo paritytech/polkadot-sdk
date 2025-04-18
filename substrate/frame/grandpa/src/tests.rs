@@ -23,11 +23,9 @@ use super::{Call, Event, *};
 use crate::mock::*;
 use fg_primitives::ScheduledChange;
 use frame::{
-	deps::sp_runtime::testing::Digest,
-	primitives::H256,
-	testing_prelude::*,
+	deps::{sp_core::H256, sp_runtime::testing::Digest},
+	prelude::{EventRecord, GetDispatchInfo, Phase},
 	traits::{Currency, KeyOwnerProofSystem, OnFinalize, OneSessionHandler},
-	EventRecord, GetDispatchInfo, Phase,
 };
 use sp_keyring::Ed25519Keyring;
 
