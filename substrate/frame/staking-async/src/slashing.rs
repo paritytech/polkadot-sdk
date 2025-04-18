@@ -53,7 +53,7 @@ use crate::{
 	asset, log, session_rotation::Eras, BalanceOf, Config, Error, NegativeImbalanceOf,
 	NominatorSlashInEra, OffenceQueue, OffenceQueueEras, PagedExposure, Pallet, Perbill,
 	ProcessingOffence, SlashRewardFraction, SpanSlash, UnappliedSlash, UnappliedSlashes,
-	ValidatorSlashInEra,
+	ValidatorSlashInEra, WeightInfo,
 };
 use alloc::vec::Vec;
 use codec::{Decode, Encode, MaxEncodedLen};
@@ -329,15 +329,15 @@ fn next_offence<T: Config>() -> Option<(EraIndex, T::AccountId, OffenceRecord<T:
 
 /// Infallible function to process an offence.
 pub(crate) fn process_offence<T: Config>() -> Weight {
-	// todo: this needs to be properly benched.
-	let mut consumed_weight = Weight::from_parts(0, 0);
+	// We do manual weight racking for early-returns, and use benchmarks for the final two branches.
+	let mut incomplete_consumed_weight = Weight::from_parts(0, 0);
 	let mut add_db_reads_writes = |reads, writes| {
-		consumed_weight += T::DbWeight::get().reads_writes(reads, writes);
+		incomplete_consumed_weight += T::DbWeight::get().reads_writes(reads, writes);
 	};
 
 	add_db_reads_writes(1, 1);
 	let Some((offence_era, offender, offence_record)) = next_offence::<T>() else {
-		return consumed_weight
+		return incomplete_consumed_weight
 	};
 
 	log!(
@@ -357,7 +357,7 @@ pub(crate) fn process_offence<T: Config>() -> Weight {
 	else {
 		// this can only happen if the offence was valid at the time of reporting but became too old
 		// at the time of computing and should be discarded.
-		return consumed_weight
+		return incomplete_consumed_weight
 	};
 
 	let slash_page = offence_record.exposure_page;
@@ -384,7 +384,7 @@ pub(crate) fn process_offence<T: Config>() -> Weight {
 			offence_record.reported_era,
 		);
 		// No slash to apply. Discard.
-		return consumed_weight
+		return incomplete_consumed_weight
 	};
 
 	<Pallet<T>>::deposit_event(super::Event::<T>::SlashComputed {
@@ -416,9 +416,8 @@ pub(crate) fn process_offence<T: Config>() -> Weight {
 			offender,
 		);
 
-		let accounts_slashed = unapplied.others.len() as u64 + 1;
-		add_db_reads_writes(3 * accounts_slashed, 3 * accounts_slashed);
 		apply_slash::<T>(unapplied, offence_era);
+		T::WeightInfo::apply_slash().saturating_add(T::WeightInfo::process_offence_queue())
 	} else {
 		// Historical Note: Previously, with BondingDuration = 28 and SlashDeferDuration = 27,
 		// slashes were applied at the start of the 28th era from `offence_era`.
@@ -433,16 +432,13 @@ pub(crate) fn process_offence<T: Config>() -> Weight {
 			offence_record.reported_era,
 			slash_era,
 		);
-
-		add_db_reads_writes(0, 1);
 		UnappliedSlashes::<T>::insert(
 			slash_era,
 			(offender, offence_record.slash_fraction, slash_page),
 			unapplied,
 		);
+		T::WeightInfo::process_offence_queue()
 	}
-
-	consumed_weight
 }
 
 /// Computes a slash of a validator and nominators. It returns an unapplied
