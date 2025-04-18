@@ -15,12 +15,30 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use sp_runtime_interface::pass_by::PassByInner;
+#[frame_support::pallet]
+mod pallet {
+	use frame_support::pallet_prelude::{Hooks, IsType};
+	use frame_system::pallet_prelude::BlockNumberFor;
 
-#[derive(PassByInner)]
-struct Test {
-	data: u32,
-	data2: u32,
+	#[pallet::config]
+	pub trait Config: frame_system::Config {
+		type Bar: Clone + PartialEq + std::fmt::Debug;
+		type RuntimeEvent: IsType<<Self as frame_system::Config>::RuntimeEvent> + From<Event<Self>>;
+	}
+
+	#[pallet::pallet]
+	pub struct Pallet<T>(core::marker::PhantomData<T>);
+
+	#[pallet::hooks]
+	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {}
+
+	#[pallet::call]
+	impl<T: Config> Pallet<T> {}
+
+	#[pallet::event]
+	pub enum Event<T: Config> {
+		B { b: T::Bar },
+	}
 }
 
 fn main() {}

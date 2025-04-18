@@ -15,30 +15,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#[frame_support::pallet]
-mod pallet {
-	use frame_support::pallet_prelude::Hooks;
-	use frame_system::pallet_prelude::BlockNumberFor;
+mod test {
+	#![allow(unexpected_cfgs)]
 
-	#[pallet::config]
-	pub trait Config: frame_system::Config {
-		type Bar;
-		type RuntimeEvent;
-	}
+    use sp_runtime_interface::runtime_interface;
 
-	#[pallet::pallet]
-	pub struct Pallet<T>(core::marker::PhantomData<T>);
-
-	#[pallet::hooks]
-	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {}
-
-	#[pallet::call]
-	impl<T: Config> Pallet<T> {}
-
-	#[pallet::event]
-	pub enum Event<T: Config> {
-		B { b: T::Bar },
-	}
+	#[runtime_interface]
+    trait Test {
+        fn test(&self, a: Option<u8>) -> Option<u8> {}
+    }
 }
 
 fn main() {}

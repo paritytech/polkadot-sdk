@@ -569,7 +569,7 @@ impl<T: Config<I>, I: 'static> List<T, I> {
 		// build map of bags and the corresponding nodes to avoid multiple lookups
 		let mut bags_map = BTreeMap::<T::Score, Vec<T::AccountId>>::new();
 
-		let _ = active_bags.clone().try_for_each(|b| {
+		active_bags.clone().try_for_each(|b| {
 			bags_map.insert(
 				b.bag_upper,
 				b.iter().map(|n: Node<T, I>| n.id().clone()).collect::<Vec<_>>(),
