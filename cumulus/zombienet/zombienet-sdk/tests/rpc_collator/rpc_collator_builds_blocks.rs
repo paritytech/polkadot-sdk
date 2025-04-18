@@ -36,15 +36,14 @@ async fn rpc_collator_builds_blocks() -> Result<(), anyhow::Error> {
     let alice_client: OnlineClient<PolkadotConfig> = alice.wait_client().await?;
     
     // 1. Check if parachain 2000 is registered within 225 seconds
-    log::info!("Checking if parachain {} is registered", PARA_ID);
-
     let start_time = std::time::Instant::now();
     let timeout = std::time::Duration::from_secs(225);
     let mut is_registered = false;
-    
+    log::info!("Checking if parachain {} is registered within {} seconds", PARA_ID, timeout.as_secs());
+
     while start_time.elapsed() < timeout && !is_registered {
         match network.parachain(PARA_ID) {
-            Some(parachain) => {
+            Some(_) => {
                 log::info!("Parachain {} is registered", PARA_ID);
                 is_registered = true;
                 break;
@@ -56,7 +55,7 @@ async fn rpc_collator_builds_blocks() -> Result<(), anyhow::Error> {
         }
     }
     if !is_registered {
-        return Err(anyhow!("Parachain {} did not register within 225 seconds", PARA_ID));
+        return Err(anyhow!("Parachain {} did not register within {:?}", PARA_ID, timeout));
     }
 
     // 2. Check that parachain 2000 reaches block height 10 within 250 seconds
@@ -152,27 +151,25 @@ async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
                 .cumulus_based(true)
                 .with_default_command("test-parachain")
                 .with_default_image(images.cumulus.as_str())
-                // dave - parachain collator connecting via RPC
                 .with_collator(|n| {
                     n.with_name("dave")
-                        .validator(true)
-                        .with_args(vec![
-                            "--lparachain=trace,blockchain-rpc-client=debug".into(),
-                            "--relay-chain-rpc-urls {{'one'|zombie('wsUri')}} {{'two'|zombie('wsUri')}} {{'three'|zombie('wsUri')}}".into(),
-                            "--".into(),
-                            "--bootnodes {{'one'|zombie('multiAddress')}} {{'two'|zombie('multiAddress')}} {{'three'|zombie('multiAddress')}}".into(),
-                        ])
+                    .validator(true)
+                    // .with_args(vec![
+                    //     "--lparachain=trace,blockchain-rpc-client=debug".into(),
+                    //     "--relay-chain-rpc-urls {{'one'|zombie('wsUri')}} {{'two'|zombie('wsUri')}} {{'three'|zombie('wsUri')}}".into(),
+                    //     "--".into(),
+                    //     "--bootnodes {{'one'|zombie('multiAddress')}} {{'two'|zombie('multiAddress')}} {{'three'|zombie('multiAddress')}}".into(),
+                    // ])
                 })
-                // eve - parachain collator connecting via RPC
-                .with_collator(|n| {
+				.with_collator(|n| {
                     n.with_name("eve")
-                        .validator(true)
-                        .with_args(vec![
-                            "--lparachain=trace,blockchain-rpc-client=debug".into(),
-                            "--relay-chain-rpc-urls {{'one'|zombie('wsUri')}} {{'two'|zombie('wsUri')}} {{'three'|zombie('wsUri')}}".into(),
-                            "--".into(),
-                            "--bootnodes {{'one'|zombie('multiAddress')}} {{'two'|zombie('multiAddress')}} {{'three'|zombie('multiAddress')}}".into(),
-                        ])
+                    .validator(true)
+                    // .with_args(vec![
+                    //     "--lparachain=trace,blockchain-rpc-client=debug".into(),
+                    //     "--relay-chain-rpc-urls {{'one'|zombie('wsUri')}} {{'two'|zombie('wsUri')}} {{'three'|zombie('wsUri')}}".into(),
+                    //     "--".into(),
+                    //     "--bootnodes {{'one'|zombie('multiAddress')}} {{'two'|zombie('multiAddress')}} {{'three'|zombie('multiAddress')}}".into(),
+                    // ])
                 })
         })
         .with_global_settings(|global_settings| match std::env::var("ZOMBIENET_SDK_BASE_DIR") {
