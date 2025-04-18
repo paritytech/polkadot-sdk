@@ -101,112 +101,14 @@ use sp_staking::{
 /// [`ErasRewardPoints`]
 /// [`ErasTotalStake`]
 /// [`ErasStartSessionIndex`]
-///
-/// All of the invariants are expressed in [`Eras::sanity_check`].
 pub struct Eras<T: Config>(core::marker::PhantomData<T>);
 
 impl<T: Config> Eras<T> {
-	#[cfg(any(test, feature = "try-runtime"))]
-	pub(crate) fn era_present(era: EraIndex) -> Result<(), sp_runtime::TryRuntimeError> {
-		// these two are only set if we have some validators in an era.
-		let e0 = ErasValidatorPrefs::<T>::iter_prefix_values(era).count() != 0;
-		// note: we don't check `ErasStakersPaged` as a validator can have no backers.
-		let e1 = ErasStakersOverview::<T>::iter_prefix_values(era).count() != 0;
-		assert_eq!(e0, e1, "ErasValidatorPrefs and ErasStakersOverview should be consistent");
-
-		// these two must always be set
-		let e2 = ErasTotalStake::<T>::contains_key(era);
-		let e3 = ErasStartSessionIndex::<T>::contains_key(era);
-
-		let active_era = Rotator::<T>::active_era();
-		let e4 = if era.saturating_sub(1) > 0 &&
-			era.saturating_sub(1) > active_era.saturating_sub(T::HistoryDepth::get() + 1)
-		{
-			// `ErasValidatorReward` is set at active era n for era n-1, and is not set for era 0 in
-			// our tests. Moreover, it cannot be checked for presence in the oldest present era
-			// (`active_era.saturating_sub(1)`)
-			ErasValidatorReward::<T>::contains_key(era.saturating_sub(1))
-		} else {
-			// ignore
-			e3
-		};
-
-		assert!(
-			vec![e2, e3, e4].windows(2).all(|w| w[0] == w[1]),
-			"era info presence not consistent for era {}: {}, {}, {}",
-			era,
-			e2,
-			e3,
-			e4,
-		);
-
-		if e2 {
-			Ok(())
-		} else {
-			Err("era presence mismatch".into())
-		}
-	}
-
-	#[cfg(any(test, feature = "try-runtime"))]
-	pub(crate) fn era_absent(era: EraIndex) -> Result<(), sp_runtime::TryRuntimeError> {
-		// check double+ maps
-		let e0 = ErasValidatorPrefs::<T>::iter_prefix_values(era).count() != 0;
-		let e1 = ErasStakersPaged::<T>::iter_prefix_values((era,)).count() != 0;
-		let e2 = ErasStakersOverview::<T>::iter_prefix_values(era).count() != 0;
-
-		// check maps
-		// `ErasValidatorReward` is set at active era n for era n-1
-		let e3 = ErasValidatorReward::<T>::contains_key(era);
-		let e4 = ErasTotalStake::<T>::contains_key(era);
-		let e5 = ErasStartSessionIndex::<T>::contains_key(era);
-
-		// these two are only populated conditionally, so we only check them for lack of existence
-		let e6 = ErasClaimedRewards::<T>::iter_prefix_values(era).count() != 0;
-		let e7 = ErasRewardPoints::<T>::contains_key(era);
-
-		assert!(
-			vec![e0, e1, e2, e3, e4, e5, e6, e7].windows(2).all(|w| w[0] == w[1]),
-			"era info absence not consistent for era {}: {}, {}, {}, {}, {}, {}, {}, {}",
-			era,
-			e0,
-			e1,
-			e2,
-			e3,
-			e4,
-			e5,
-			e6,
-			e7
-		);
-
-		if !e0 {
-			Ok(())
-		} else {
-			Err("era absence mismatch".into())
-		}
-	}
-
-	#[cfg(any(test, feature = "try-runtime"))]
-	pub(crate) fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
-		// pruning window works.
-		let active_era = Rotator::<T>::active_era();
-		// we max with 1 as in active era 0 we don't do an election and therefore we don't have some
-		// of the maps populated.
-		let oldest_present_era = active_era.saturating_sub(T::HistoryDepth::get()).max(1);
-		let maybe_first_pruned_era =
-			active_era.saturating_sub(T::HistoryDepth::get()).checked_sub(One::one());
-
-		for e in oldest_present_era..=active_era {
-			Self::era_present(e)?
-		}
-		if let Some(first_pruned_era) = maybe_first_pruned_era {
-			Self::era_absent(first_pruned_era)?;
-		}
-		Ok(())
-	}
-
+	/// Prune all associated information with the given era.
+	///
+	/// Implementation note: ATM this is deleting all the information in one go, yet it can very
+	/// well be done lazily.
 	pub(crate) fn prune_era(era: EraIndex) {
-		// TODO: lazy deletion -- after an era is marked is delete-able, all of the info associated
-		// with it can be removed.
 		crate::log!(debug, "Pruning era {:?}", era);
 		let mut cursor = <ErasValidatorPrefs<T>>::clear_prefix(era, u32::MAX, None);
 		debug_assert!(cursor.maybe_cursor.is_none());
@@ -461,6 +363,106 @@ impl<T: Config> Eras<T> {
 	}
 }
 
+#[cfg(any(feature = "try-runtime", test))]
+impl<T: Config> Eras<T> {
+	/// Ensure the given era is present, i.e. has not been pruned yet.
+	pub(crate) fn era_present(era: EraIndex) -> Result<(), sp_runtime::TryRuntimeError> {
+		// these two are only set if we have some validators in an era.
+		let e0 = ErasValidatorPrefs::<T>::iter_prefix_values(era).count() != 0;
+		// note: we don't check `ErasStakersPaged` as a validator can have no backers.
+		let e1 = ErasStakersOverview::<T>::iter_prefix_values(era).count() != 0;
+		assert_eq!(e0, e1, "ErasValidatorPrefs and ErasStakersOverview should be consistent");
+
+		// these two must always be set
+		let e2 = ErasTotalStake::<T>::contains_key(era);
+		let e3 = ErasStartSessionIndex::<T>::contains_key(era);
+
+		let active_era = Rotator::<T>::active_era();
+		let e4 = if era.saturating_sub(1) > 0 &&
+			era.saturating_sub(1) > active_era.saturating_sub(T::HistoryDepth::get() + 1)
+		{
+			// `ErasValidatorReward` is set at active era n for era n-1, and is not set for era 0 in
+			// our tests. Moreover, it cannot be checked for presence in the oldest present era
+			// (`active_era.saturating_sub(1)`)
+			ErasValidatorReward::<T>::contains_key(era.saturating_sub(1))
+		} else {
+			// ignore
+			e3
+		};
+
+		assert!(
+			vec![e2, e3, e4].windows(2).all(|w| w[0] == w[1]),
+			"era info presence not consistent for era {}: {}, {}, {}",
+			era,
+			e2,
+			e3,
+			e4,
+		);
+
+		if e2 {
+			Ok(())
+		} else {
+			Err("era presence mismatch".into())
+		}
+	}
+
+	/// Ensure the given era has indeed been already pruned.
+	pub(crate) fn era_absent(era: EraIndex) -> Result<(), sp_runtime::TryRuntimeError> {
+		// check double+ maps
+		let e0 = ErasValidatorPrefs::<T>::iter_prefix_values(era).count() != 0;
+		let e1 = ErasStakersPaged::<T>::iter_prefix_values((era,)).count() != 0;
+		let e2 = ErasStakersOverview::<T>::iter_prefix_values(era).count() != 0;
+
+		// check maps
+		// `ErasValidatorReward` is set at active era n for era n-1
+		let e3 = ErasValidatorReward::<T>::contains_key(era);
+		let e4 = ErasTotalStake::<T>::contains_key(era);
+		let e5 = ErasStartSessionIndex::<T>::contains_key(era);
+
+		// these two are only populated conditionally, so we only check them for lack of existence
+		let e6 = ErasClaimedRewards::<T>::iter_prefix_values(era).count() != 0;
+		let e7 = ErasRewardPoints::<T>::contains_key(era);
+
+		assert!(
+			vec![e0, e1, e2, e3, e4, e5, e6, e7].windows(2).all(|w| w[0] == w[1]),
+			"era info absence not consistent for era {}: {}, {}, {}, {}, {}, {}, {}, {}",
+			era,
+			e0,
+			e1,
+			e2,
+			e3,
+			e4,
+			e5,
+			e6,
+			e7
+		);
+
+		if !e0 {
+			Ok(())
+		} else {
+			Err("era absence mismatch".into())
+		}
+	}
+
+	pub(crate) fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
+		// pruning window works.
+		let active_era = Rotator::<T>::active_era();
+		// we max with 1 as in active era 0 we don't do an election and therefore we don't have some
+		// of the maps populated.
+		let oldest_present_era = active_era.saturating_sub(T::HistoryDepth::get()).max(1);
+		let maybe_first_pruned_era =
+			active_era.saturating_sub(T::HistoryDepth::get()).checked_sub(One::one());
+
+		for e in oldest_present_era..=active_era {
+			Self::era_present(e)?
+		}
+		if let Some(first_pruned_era) = maybe_first_pruned_era {
+			Self::era_absent(first_pruned_era)?;
+		}
+		Ok(())
+	}
+}
+
 /// Manages session rotation logic.
 ///
 /// This controls the following storage items in FULL, meaning that they should not be accessed
@@ -689,11 +691,12 @@ impl<T: Config> Rotator<T> {
 	///
 	/// The newly planned era is targeted to activate in the next session.
 	fn plan_new_era() {
-		CurrentEra::<T>::mutate(|x| {
+		let _ = CurrentEra::<T>::try_mutate(|x| {
+			log!(debug, "Planning new era: {:?}, sending election start signal", x.unwrap_or(0));
+			let could_start_election = EraElectionPlanner::<T>::plan_new_election();
 			*x = Some(x.unwrap_or(0) + 1);
-			log!(debug, "Planning new era: {:?}, sending election start signal", x.unwrap());
-			let _ = T::ElectionProvider::start();
-		})
+			could_start_election
+		});
 	}
 
 	/// Returns whether we are at the session where we should plan the new era.
@@ -741,6 +744,13 @@ impl<T: Config> Rotator<T> {
 ///   the [`Config::ElectionProvider`].
 pub(crate) struct EraElectionPlanner<T: Config>(PhantomData<T>);
 impl<T: Config> EraElectionPlanner<T> {
+	/// Plan a new election
+	pub(crate) fn plan_new_election() -> Result<(), <T::ElectionProvider as ElectionProvider>::Error>
+	{
+		T::ElectionProvider::start()
+			.inspect_err(|e| log!(warn, "Election provider failed to start: {:?}", e))
+	}
+
 	pub(crate) fn maybe_fetch_election_results() {
 		if let Ok(true) = T::ElectionProvider::status() {
 			crate::log!(

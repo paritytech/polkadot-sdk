@@ -116,40 +116,6 @@ mod tests {
 	}
 
 	#[test]
-	fn election_result_on_ah_reported_to_rc() {
-		// when election result is complete
-		// staking stores all exposures
-		// validators reported to rc
-		// validators enacted for next session
-	}
-
-	#[test]
-	fn rc_continues_with_same_validators_if_ah_is_late() {
-		// A test where ah is late to give us election result.
-	}
-
-	#[test]
-	fn authoring_points_reported_to_ah_per_session() {}
-
-	#[test]
-	fn rc_is_late_to_report_session_change() {}
-
-	#[test]
-	fn pruning_is_at_least_bonding_duration() {}
-
-	#[test]
-	fn ah_eras_are_delayed() {
-		// rc will trigger new sessions,
-		// ah cannot start a new era (election fail)
-		// we don't prune anything, because era should not be increased.
-	}
-
-	#[test]
-	fn ah_know_good_era_duration() {
-		// era duration and rewards work.
-	}
-
-	#[test]
 	fn ah_takes_over_staking_post_migration() {
 		// SCENE (1): Pre AHM Migration
 		shared::put_rc_state(
@@ -456,5 +422,56 @@ mod tests {
 			ah::roll_until_matches(|| shared::CounterRCAHSessionReport::get() == 3, true);
 			assert_eq!(pallet_staking_async::ActiveEra::<ah::Runtime>::get().unwrap().index, 2);
 		});
+	}
+
+	#[test]
+	fn election_result_on_ah_reported_to_rc() {
+		// when election result is complete
+		// staking stores all exposures
+		// validators reported to rc
+		// validators enacted for next session
+	}
+
+	#[test]
+	fn rc_continues_with_same_validators_if_ah_is_late() {
+		// A test where ah is late to give us election result.
+	}
+
+	#[test]
+	fn authoring_points_reported_to_ah_per_session() {}
+
+	#[test]
+	fn rc_is_late_to_report_session_change() {}
+
+	#[test]
+	fn pruning_is_at_least_bonding_duration() {}
+
+	#[test]
+	fn ah_eras_are_delayed() {
+		// rc will trigger new sessions,
+		// ah cannot start a new era (election fail)
+		// we don't prune anything, because era should not be increased.
+	}
+
+	#[test]
+	fn ah_know_good_era_duration() {
+		// era duration and rewards work.
+	}
+
+	#[test]
+	fn election_provider_fails_to_start() {
+		// call to ElectionProvider::start fails because it is already ongoing. What do we do?
+	}
+
+	#[test]
+	fn overlapping_election() {
+		// while one election is ongoing, enough sessions pass that we think we should plan yet
+		// another era.
+	}
+
+	#[test]
+	fn session_report_burst() {
+		// AH is offline for a while, and it suddenly receives 3 eras worth of session reports. What
+		// do we do?
 	}
 }

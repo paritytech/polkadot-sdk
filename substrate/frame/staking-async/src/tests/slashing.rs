@@ -18,6 +18,7 @@
 use super::*;
 use crate::{session_rotation::Eras, slashing};
 use pallet_staking_async_rc_client as rc_client;
+use sp_runtime::{Perquintill, Rounding};
 use sp_staking::StakingInterface;
 
 #[test]
