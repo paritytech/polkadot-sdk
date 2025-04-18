@@ -21,21 +21,13 @@ use frame::traits::UncheckedOnRuntimeUpgrade;
 use frame::traits::DefensiveTruncateFrom;
 use frame::deps::frame_support::migrations::VersionedMigration;
 
-// use frame_support::{
-// 	pallet_prelude::*,
-// 	storage_alias,
-// 	traits::{DefensiveTruncateFrom, UncheckedOnRuntimeUpgrade},
-// 	BoundedVec,
-// };
-
 #[cfg(feature = "try-runtime")]
 use alloc::vec::Vec;
-// #[cfg(feature = "try-runtime")]
-// use sp_runtime::TryRuntimeError;
+#[cfg(feature = "try-runtime")]
+use frame::runtime::prelude::TryRuntimeError;
 
 mod v0 {
 	use frame::runtime::prelude::*;
-	//use frame_system::pallet_prelude::BlockNumberFor;
 	use frame::storage_alias;
 
 	use super::*;

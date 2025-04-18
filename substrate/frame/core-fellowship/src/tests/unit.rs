@@ -31,14 +31,6 @@ use frame::traits::ConstU32;
 use crate::tests::unit::sp_api_hidden_includes_construct_runtime::hidden_include::testing_prelude::bounded_vec;
 use crate::DispatchError;
 use frame::traits::tokens::GetSalary;
-// use frame_support::{
-// 	assert_noop, assert_ok, derive_impl, hypothetically, ord_parameter_types,
-// 	pallet_prelude::Weight,
-// 	parameter_types,
-// 	traits::{tokens::GetSalary, ConstU16, ConstU32, IsInVec, TryMapSuccess},
-// };
-// use frame_system::EnsureSignedBy;
-// use sp_runtime::{bounded_vec, traits::TryMorphInto, BuildStorage, DispatchError, DispatchResult};
 use crate as pallet_core_fellowship;
 use crate::*;
 

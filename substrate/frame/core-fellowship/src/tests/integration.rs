@@ -27,20 +27,7 @@ use frame::traits::TryMorphInto;
 use frame::traits::ConstU16;
 use frame::testing_prelude::TestExternalities;
 use frame::testing_prelude::*;
-// use frame_support::{
-// 	assert_noop, assert_ok, derive_impl, hypothetically, hypothetically_ok, ord_parameter_types,
-// 	pallet_prelude::Weight,
-// 	parameter_types,
-// 	traits::{ConstU16, EitherOf, IsInVec, MapSuccess, NoOpPoll, TryMapSuccess},
-// };
-// use frame_system::EnsureSignedBy;
 use pallet_ranked_collective::{EnsureRanked, Geometric, Rank};
-// use sp_core::Get;
-// use sp_runtime::{
-// 	bounded_vec,
-// 	traits::{Convert, ReduceBy, ReplaceWithDefault, TryMorphInto},
-// 	BuildStorage,
-// };
 type Class = Rank;
 
 use crate as pallet_core_fellowship;

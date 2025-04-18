@@ -68,21 +68,7 @@ use scale_info::TypeInfo;
 use frame::deps::frame_support::impl_ensure_origin_with_arg_ignoring_arg;
 use frame::traits::tokens::Balance as BalanceTrait;
 use frame::traits::EnsureOriginWithArg;
-// use sp_arithmetic::traits::{Saturating, Zero};
-// use sp_runtime::RuntimeDebug;
-
 use frame::prelude::*;
-
-// use frame_support::{
-// 	defensive,
-// 	dispatch::DispatchResultWithPostInfo,
-// 	ensure, impl_ensure_origin_with_arg_ignoring_arg,
-// 	traits::{
-// 		tokens::Balance as BalanceTrait, EnsureOrigin, EnsureOriginWithArg, Get, RankedMembers,
-// 		RankedMembersSwapHandler,
-// 	},
-// 	BoundedVec, CloneNoBound, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound,
-// };
 
 #[cfg(test)]
 mod tests;

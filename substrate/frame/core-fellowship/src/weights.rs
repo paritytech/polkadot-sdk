@@ -68,7 +68,6 @@
 #![allow(dead_code)]
 
 use frame::prelude::*;
-//use frame_support::{traits::Get, weights::{Weight, constants::RocksDbWeight}};
 use core::marker::PhantomData;
 use frame::runtime::prelude::weights::constants::RocksDbWeight;
 
