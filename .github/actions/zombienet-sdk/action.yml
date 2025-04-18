@@ -1,0 +1,71 @@
+name: "Zombienet-sdk test"
+inputs:
+  build-id:
+    description: ""
+    required: true
+  ref-slug:
+    description:
+    required: true
+  test:
+    description: "test filter to pass to nextest (e.g: functional::spam_statement_distribution_requests::spam_statement_distribution_requests_test)"
+    required: true
+  prefix:
+    description: "Archive prefix for tests files (e.g polkadot, cumulus or substrate)"
+    required: true
+  gh-token:
+    description: "GITHUB_TOKEN to use for downloading artifacts"
+    required: true
+
+
+
+runs:
+  using: "composite"
+  steps:
+    - name: k8s_auth
+      shell: bash
+      run: |
+        . /home/nonroot/zombie-net/scripts/ci/run-test-local-env-manager.sh
+        k8s_auth
+
+    - name: common_vars
+      shell: bash
+      env:
+        TEST_NAME: ${{ inputs.test }}
+        PREFIX: ${{ inputs.prefix }}
+      run: |
+        echo "Vars"
+        echo "ZOMBIENET_INTEGRATION_TEST_IMAGE: $ZOMBIENET_INTEGRATION_TEST_IMAGE"
+        echo "COL_IMAGE: $COL_IMAGE"
+        echo "POLKADOT_IMAGE: $POLKADOT_IMAGE"
+        echo "MALUS_IMAGE: $MALUS_IMAGE"
+        echo "Inputs"
+        echo "test: $TEST_NAME"
+        echo "prefix: $PREFIX"
+
+    - uses: actions/download-artifact@v4.1.8
+      with:
+        name: prepare-${{ inputs.prefix }}-zombienet-artifacts-${{ inputs.ref-slug }}
+        github-token: ${{ inputs.gh-token }}
+        run-id: ${{ inputs.build-id }}
+
+    - name: tar
+      shell: bash
+      run: tar -xvf artifacts.tar
+
+    - name: zombie_test
+      shell: bash
+      env:
+        TEST_NAME: ${{ inputs.test }}
+        PREFIX: ${{ inputs.prefix }}
+      run: |
+          ls -ltr ./artifacts
+          cargo nextest run --archive-file ./artifacts/${PREFIX}-zombienet-tests.tar.zst --no-capture -- ${TEST_NAME}
+
+    - name: upload_logs
+      uses: actions/upload-artifact@v4
+      if: ${{ ! cancelled() }}
+      with:
+        name: zombienet-logs-${{ github.job }}-${{ github.sha }}
+        path: |
+          /tmp/zombie*/logs/*
+

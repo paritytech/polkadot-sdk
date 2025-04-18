@@ -15,419 +15,698 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Provides the [`PassBy`] trait to simplify the implementation of the
-//! runtime interface traits for custom types.
-//!
-//! [`Codec`], [`Inner`] and [`Enum`] are the provided strategy implementations.
+//! Provides host <-> runtime FFI marshalling strategy newtype wrappers
+//! for defining runtime interfaces.
 
 use crate::{
 	util::{pack_ptr_and_len, unpack_ptr_and_len},
 	RIType,
 };
 
-#[cfg(feature = "std")]
+#[cfg(not(substrate_runtime))]
 use crate::host::*;
-#[cfg(not(feature = "std"))]
+
+#[cfg(substrate_runtime)]
 use crate::wasm::*;
 
-#[cfg(feature = "std")]
+#[cfg(not(substrate_runtime))]
 use sp_wasm_interface::{FunctionContext, Pointer, Result};
 
-use core::marker::PhantomData;
+#[cfg(not(substrate_runtime))]
+use alloc::{format, string::String};
 
-#[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
+use core::{any::type_name, marker::PhantomData};
 
-/// Derive macro for implementing [`PassBy`] with the [`Codec`] strategy.
+/// Pass a value into the host by a thin pointer.
 ///
-/// This requires that the type implements [`Encode`](codec::Encode) and
-/// [`Decode`](codec::Decode) from `parity-scale-codec`.
+/// This casts the value into a `&[u8]` using `AsRef<[u8]>` and passes a pointer to that byte blob
+/// to the host. Then the host reads `N` bytes from that address into an `[u8; N]`, converts it
+/// into target type using `From<[u8; N]>` and passes it into the host function by a copy.
 ///
-/// # Example
+/// Use [`PassPointerAndRead`] if you want to have the host function accept a reference type
+/// on the host side or if you'd like to avoid the extra copy.
 ///
-/// ```
-/// # use sp_runtime_interface::pass_by::PassByCodec;
-/// # use codec::{Encode, Decode};
-/// #[derive(PassByCodec, Encode, Decode)]
-/// struct EncodableType {
-///     name: Vec<u8>,
-///     param: u32,
-/// }
-/// ```
-pub use sp_runtime_interface_proc_macro::PassByCodec;
+/// Raw FFI type: `u32` (a pointer)
+pub struct PassPointerAndReadCopy<T, const N: usize>(PhantomData<(T, [u8; N])>);
 
-/// Derive macro for implementing [`PassBy`] with the [`Inner`] strategy.
-///
-/// Besides implementing [`PassBy`], this derive also implements the helper trait
-/// [`PassByInner`].
-///
-/// The type is required to be a struct with just one field. The field type needs to implement
-/// the required traits to pass it between the wasm and the native side. (See the runtime
-/// interface crate for more information about these traits.)
-///
-/// # Example
-///
-/// ```
-/// # use sp_runtime_interface::pass_by::PassByInner;
-/// #[derive(PassByInner)]
-/// struct Data([u8; 32]);
-/// ```
-///
-/// ```
-/// # use sp_runtime_interface::pass_by::PassByInner;
-/// #[derive(PassByInner)]
-/// struct Data {
-///     data: [u8; 32],
-/// }
-/// ```
-pub use sp_runtime_interface_proc_macro::PassByInner;
-
-/// Derive macro for implementing [`PassBy`] with the [`Enum`] strategy.
-///
-/// Besides implementing [`PassBy`], this derive also implements `TryFrom<u8>` and
-/// `From<Self> for u8` for the type.
-///
-/// The type is required to be an enum with only unit variants and at maximum `256` variants.
-/// Also it is required that the type implements `Copy`.
-///
-/// # Example
-///
-/// ```
-/// # use sp_runtime_interface::pass_by::PassByEnum;
-/// #[derive(PassByEnum, Copy, Clone)]
-/// enum Data {
-///     Okay,
-///     NotOkay,
-///     // This will not work with the derive.
-///     //Why(u32),
-/// }
-/// ```
-pub use sp_runtime_interface_proc_macro::PassByEnum;
-
-/// Something that should be passed between wasm and the host using the given strategy.
-///
-/// See [`Codec`], [`Inner`] or [`Enum`] for more information about the provided strategies.
-pub trait PassBy: Sized {
-	/// The strategy that should be used to pass the type.
-	type PassBy: PassByImpl<Self>;
+impl<T, const N: usize> RIType for PassPointerAndReadCopy<T, N> {
+	type FFIType = u32;
+	type Inner = T;
 }
 
-/// Something that provides a strategy for passing a type between wasm and the host.
-///
-/// This trait exposes the same functionality as [`crate::host::IntoFFIValue`] and
-/// [`crate::host::FromFFIValue`] to delegate the implementation for a type to a different type.
-///
-/// This trait is used for the host implementation.
-#[cfg(feature = "std")]
-pub trait PassByImpl<T>: RIType {
-	/// Convert the given instance to the ffi value.
-	///
-	/// For more information see: [`crate::host::IntoFFIValue::into_ffi_value`]
-	fn into_ffi_value(instance: T, context: &mut dyn FunctionContext) -> Result<Self::FFIType>;
-
-	/// Create `T` from the given ffi value.
-	///
-	/// For more information see: [`crate::host::FromFFIValue::from_ffi_value`]
-	fn from_ffi_value(context: &mut dyn FunctionContext, arg: Self::FFIType) -> Result<T>;
-}
-
-/// Something that provides a strategy for passing a type between wasm and the host.
-///
-/// This trait exposes the same functionality as [`crate::wasm::IntoFFIValue`] and
-/// [`crate::wasm::FromFFIValue`] to delegate the implementation for a type to a different type.
-///
-/// This trait is used for the wasm implementation.
-#[cfg(not(feature = "std"))]
-pub trait PassByImpl<T>: RIType {
-	/// The owned rust type that is stored with the ffi value in [`crate::wasm::WrappedFFIValue`].
-	type Owned;
-
-	/// Convert the given `instance` into [`crate::wasm::WrappedFFIValue`].
-	///
-	/// For more information see: [`crate::wasm::IntoFFIValue::into_ffi_value`]
-	fn into_ffi_value(instance: &T) -> WrappedFFIValue<Self::FFIType, Self::Owned>;
-
-	/// Create `T` from the given ffi value.
-	///
-	/// For more information see: [`crate::wasm::FromFFIValue::from_ffi_value`]
-	fn from_ffi_value(arg: Self::FFIType) -> T;
-}
-
-impl<T: PassBy> RIType for T {
-	type FFIType = <T::PassBy as RIType>::FFIType;
-}
-
-#[cfg(feature = "std")]
-impl<T: PassBy> IntoFFIValue for T {
-	fn into_ffi_value(
-		self,
-		context: &mut dyn FunctionContext,
-	) -> Result<<T::PassBy as RIType>::FFIType> {
-		T::PassBy::into_ffi_value(self, context)
-	}
-}
-
-#[cfg(feature = "std")]
-impl<T: PassBy> FromFFIValue for T {
-	type SelfInstance = Self;
+#[cfg(not(substrate_runtime))]
+impl<'a, T, const N: usize> FromFFIValue<'a> for PassPointerAndReadCopy<T, N>
+where
+	T: From<[u8; N]> + Copy,
+{
+	type Owned = T;
 
 	fn from_ffi_value(
 		context: &mut dyn FunctionContext,
-		arg: <T::PassBy as RIType>::FFIType,
-	) -> Result<Self> {
-		T::PassBy::from_ffi_value(context, arg)
+		arg: Self::FFIType,
+	) -> Result<Self::Owned> {
+		let mut out = [0; N];
+		context.read_memory_into(Pointer::new(arg), &mut out)?;
+		Ok(T::from(out))
+	}
+
+	#[inline]
+	fn take_from_owned(owned: &'a mut Self::Owned) -> Self::Inner {
+		*owned
 	}
 }
 
-#[cfg(not(feature = "std"))]
-impl<T: PassBy> IntoFFIValue for T {
-	type Owned = <T::PassBy as PassByImpl<T>>::Owned;
+#[cfg(substrate_runtime)]
+impl<T, const N: usize> IntoFFIValue for PassPointerAndReadCopy<T, N>
+where
+	T: AsRef<[u8]>,
+{
+	type Destructor = ();
 
-	fn into_ffi_value(&self) -> WrappedFFIValue<<T::PassBy as RIType>::FFIType, Self::Owned> {
-		T::PassBy::into_ffi_value(self)
+	fn into_ffi_value(value: &mut Self::Inner) -> (Self::FFIType, Self::Destructor) {
+		// Using an 'assert' instead of a 'T: AsRef<[u8; N]>` bound since a '[u8; N]' *doesn't*
+		// implement it.
+		assert_eq!(value.as_ref().len(), N);
+		(value.as_ref().as_ptr() as u32, ())
 	}
 }
 
-#[cfg(not(feature = "std"))]
-impl<T: PassBy> FromFFIValue for T {
-	fn from_ffi_value(arg: <T::PassBy as RIType>::FFIType) -> Self {
-		T::PassBy::from_ffi_value(arg)
+/// Pass a value into the host by a thin pointer.
+///
+/// This casts the value into a `&[u8]` using `AsRef<[u8]>` and passes a pointer to that byte blob
+/// to the host. Then the host reads `N` bytes from that address into an `[u8; N]`, converts it
+/// into target type using `From<[u8; N]>` and passes it into the host function by a reference.
+///
+/// This can only be used with reference types (e.g. `&[u8; 32]`). Use [`PassPointerAndReadCopy`]
+/// if you want to have the host function accept a non-reference type on the host side.
+///
+/// Raw FFI type: `u32` (a pointer)
+pub struct PassPointerAndRead<T, const N: usize>(PhantomData<(T, [u8; N])>);
+
+impl<'a, T, const N: usize> RIType for PassPointerAndRead<&'a T, N> {
+	type FFIType = u32;
+	type Inner = &'a T;
+}
+
+#[cfg(not(substrate_runtime))]
+impl<'a, T, const N: usize> FromFFIValue<'a> for PassPointerAndRead<&'a T, N>
+where
+	T: From<[u8; N]>,
+{
+	type Owned = T;
+
+	fn from_ffi_value(
+		context: &mut dyn FunctionContext,
+		arg: Self::FFIType,
+	) -> Result<Self::Owned> {
+		let mut out = [0; N];
+		context.read_memory_into(Pointer::new(arg), &mut out)?;
+		Ok(T::from(out))
+	}
+
+	#[inline]
+	fn take_from_owned(owned: &'a mut Self::Owned) -> Self::Inner {
+		&*owned
 	}
 }
 
-/// The implementation of the pass by codec strategy. This strategy uses a SCALE encoded
-/// representation of the type between wasm and the host.
-///
-/// Use this type as associated type for [`PassBy`] to implement this strategy for a type.
-///
-/// This type expects the type that wants to implement this strategy as generic parameter.
-///
-/// [`PassByCodec`](derive.PassByCodec.html) is a derive macro to implement this strategy.
-///
-/// # Example
-/// ```
-/// # use sp_runtime_interface::pass_by::{PassBy, Codec};
-/// #[derive(codec::Encode, codec::Decode)]
-/// struct Test;
-///
-/// impl PassBy for Test {
-///     type PassBy = Codec<Self>;
-/// }
-/// ```
-pub struct Codec<T: codec::Codec>(PhantomData<T>);
+#[cfg(substrate_runtime)]
+impl<'a, T, const N: usize> IntoFFIValue for PassPointerAndRead<&'a T, N>
+where
+	T: AsRef<[u8]>,
+{
+	type Destructor = ();
 
-#[cfg(feature = "std")]
-impl<T: codec::Codec> PassByImpl<T> for Codec<T> {
-	fn into_ffi_value(instance: T, context: &mut dyn FunctionContext) -> Result<Self::FFIType> {
-		let vec = instance.encode();
-		let ptr = context.allocate_memory(vec.len() as u32)?;
-		context.write_memory(ptr, &vec)?;
-
-		Ok(pack_ptr_and_len(ptr.into(), vec.len() as u32))
-	}
-
-	fn from_ffi_value(context: &mut dyn FunctionContext, arg: Self::FFIType) -> Result<T> {
-		let (ptr, len) = unpack_ptr_and_len(arg);
-		let vec = context.read_memory(Pointer::new(ptr), len)?;
-		T::decode(&mut &vec[..]).map_err(|e| format!("Could not decode value from wasm: {}", e))
+	fn into_ffi_value(value: &mut Self::Inner) -> (Self::FFIType, Self::Destructor) {
+		assert_eq!(value.as_ref().len(), N);
+		(value.as_ref().as_ptr() as u32, ())
 	}
 }
 
-#[cfg(not(feature = "std"))]
-impl<T: codec::Codec> PassByImpl<T> for Codec<T> {
+/// Pass a value into the host by a fat pointer.
+///
+/// This casts the value into a `&[u8]` and passes a pointer to that byte blob and its length
+/// to the host. Then the host reads that blob and converts it into an owned type and passes it
+/// (either as an owned type or as a reference) to the host function.
+///
+/// Raw FFI type: `u64` (a fat pointer; upper 32 bits is the size, lower 32 bits is the pointer)
+pub struct PassFatPointerAndRead<T>(PhantomData<T>);
+
+impl<T> RIType for PassFatPointerAndRead<T> {
+	type FFIType = u64;
+	type Inner = T;
+}
+
+#[cfg(not(substrate_runtime))]
+impl<'a> FromFFIValue<'a> for PassFatPointerAndRead<&'a [u8]> {
 	type Owned = Vec<u8>;
 
-	fn into_ffi_value(instance: &T) -> WrappedFFIValue<Self::FFIType, Self::Owned> {
-		let data = instance.encode();
-		let ffi_value = pack_ptr_and_len(data.as_ptr() as u32, data.len() as u32);
-		(ffi_value, data).into()
+	fn from_ffi_value(
+		context: &mut dyn FunctionContext,
+		arg: Self::FFIType,
+	) -> Result<Self::Owned> {
+		let (ptr, len) = unpack_ptr_and_len(arg);
+		context.read_memory(Pointer::new(ptr), len)
 	}
 
-	fn from_ffi_value(arg: Self::FFIType) -> T {
+	fn take_from_owned(owned: &'a mut Self::Owned) -> Self::Inner {
+		&*owned
+	}
+}
+
+#[cfg(not(substrate_runtime))]
+impl<'a> FromFFIValue<'a> for PassFatPointerAndRead<&'a str> {
+	type Owned = String;
+
+	fn from_ffi_value(
+		context: &mut dyn FunctionContext,
+		arg: Self::FFIType,
+	) -> Result<Self::Owned> {
+		let (ptr, len) = unpack_ptr_and_len(arg);
+		let vec = context.read_memory(Pointer::new(ptr), len)?;
+		String::from_utf8(vec).map_err(|_| "could not parse '&str' when marshalling hostcall's arguments through the FFI boundary: the string is not valid UTF-8".into())
+	}
+
+	fn take_from_owned(owned: &'a mut Self::Owned) -> Self::Inner {
+		&*owned
+	}
+}
+
+#[cfg(not(substrate_runtime))]
+impl<'a> FromFFIValue<'a> for PassFatPointerAndRead<Vec<u8>> {
+	type Owned = Vec<u8>;
+
+	fn from_ffi_value(
+		context: &mut dyn FunctionContext,
+		arg: Self::FFIType,
+	) -> Result<Self::Owned> {
+		<PassFatPointerAndRead<&[u8]> as FromFFIValue>::from_ffi_value(context, arg)
+	}
+
+	fn take_from_owned(owned: &'a mut Self::Owned) -> Self::Inner {
+		core::mem::take(owned)
+	}
+}
+
+#[cfg(substrate_runtime)]
+impl<T> IntoFFIValue for PassFatPointerAndRead<T>
+where
+	T: AsRef<[u8]>,
+{
+	type Destructor = ();
+
+	fn into_ffi_value(value: &mut Self::Inner) -> (Self::FFIType, Self::Destructor) {
+		let value = value.as_ref();
+		(pack_ptr_and_len(value.as_ptr() as u32, value.len() as u32), ())
+	}
+}
+
+/// Pass a value into the host by a fat pointer, writing it back after the host call ends.
+///
+/// This casts the value into a `&mut [u8]` and passes a pointer to that byte blob and its length
+/// to the host. Then the host reads that blob and converts it into an owned type and passes it
+/// as a mutable reference to the host function. After the host function finishes the byte blob
+/// is written back into the guest memory.
+///
+/// Raw FFI type: `u64` (a fat pointer; upper 32 bits is the size, lower 32 bits is the pointer)
+pub struct PassFatPointerAndReadWrite<T>(PhantomData<T>);
+
+impl<T> RIType for PassFatPointerAndReadWrite<T> {
+	type FFIType = u64;
+	type Inner = T;
+}
+
+#[cfg(not(substrate_runtime))]
+impl<'a> FromFFIValue<'a> for PassFatPointerAndReadWrite<&'a mut [u8]> {
+	type Owned = Vec<u8>;
+
+	fn from_ffi_value(
+		context: &mut dyn FunctionContext,
+		arg: Self::FFIType,
+	) -> Result<Self::Owned> {
+		let (ptr, len) = unpack_ptr_and_len(arg);
+		context.read_memory(Pointer::new(ptr), len)
+	}
+
+	fn take_from_owned(owned: &'a mut Self::Owned) -> Self::Inner {
+		&mut *owned
+	}
+
+	fn write_back_into_runtime(
+		value: Self::Owned,
+		context: &mut dyn FunctionContext,
+		arg: Self::FFIType,
+	) -> Result<()> {
+		let (ptr, len) = unpack_ptr_and_len(arg);
+		assert_eq!(len as usize, value.len());
+		context.write_memory(Pointer::new(ptr), &value)
+	}
+}
+
+#[cfg(substrate_runtime)]
+impl<'a> IntoFFIValue for PassFatPointerAndReadWrite<&'a mut [u8]> {
+	type Destructor = ();
+
+	fn into_ffi_value(value: &mut Self::Inner) -> (Self::FFIType, Self::Destructor) {
+		(pack_ptr_and_len(value.as_ptr() as u32, value.len() as u32), ())
+	}
+}
+
+/// Pass a pointer into the host and write to it after the host call ends.
+///
+/// This casts a given type into `&mut [u8]` using `AsMut<[u8]>` and passes a pointer to
+/// that byte slice into the host. The host *doesn't* read from this and instead creates
+/// a default instance of type `T` and passes it as a `&mut T` into the host function
+/// implementation. After the host function finishes this value is then cast into a `&[u8]` using
+/// `AsRef<[u8]>` and written back into the guest memory.
+///
+/// Raw FFI type: `u32` (a pointer)
+pub struct PassPointerAndWrite<T, const N: usize>(PhantomData<(T, [u8; N])>);
+
+impl<T, const N: usize> RIType for PassPointerAndWrite<T, N> {
+	type FFIType = u32;
+	type Inner = T;
+}
+
+#[cfg(not(substrate_runtime))]
+impl<'a, T, const N: usize> FromFFIValue<'a> for PassPointerAndWrite<&'a mut T, N>
+where
+	T: Default + AsRef<[u8]>,
+{
+	type Owned = T;
+
+	fn from_ffi_value(
+		_context: &mut dyn FunctionContext,
+		_arg: Self::FFIType,
+	) -> Result<Self::Owned> {
+		Ok(T::default())
+	}
+
+	fn take_from_owned(owned: &'a mut Self::Owned) -> Self::Inner {
+		&mut *owned
+	}
+
+	fn write_back_into_runtime(
+		value: Self::Owned,
+		context: &mut dyn FunctionContext,
+		arg: Self::FFIType,
+	) -> Result<()> {
+		let value = value.as_ref();
+		assert_eq!(value.len(), N);
+		context.write_memory(Pointer::new(arg), value)
+	}
+}
+
+#[cfg(substrate_runtime)]
+impl<'a, T, const N: usize> IntoFFIValue for PassPointerAndWrite<&'a mut T, N>
+where
+	T: AsMut<[u8]>,
+{
+	type Destructor = ();
+
+	fn into_ffi_value(value: &mut Self::Inner) -> (Self::FFIType, Self::Destructor) {
+		let value = value.as_mut();
+		assert_eq!(value.len(), N);
+		(value.as_ptr() as u32, ())
+	}
+}
+
+/// Pass a `T` into the host using the SCALE codec.
+///
+/// This encodes a `T` into a `Vec<u8>` using the SCALE codec and then
+/// passes a pointer to that byte blob and its length to the host,
+/// which then reads it and decodes back into `T`.
+///
+/// Raw FFI type: `u64` (a fat pointer; upper 32 bits is the size, lower 32 bits is the pointer)
+pub struct PassFatPointerAndDecode<T>(PhantomData<T>);
+
+impl<T> RIType for PassFatPointerAndDecode<T> {
+	type FFIType = u64;
+	type Inner = T;
+}
+
+#[cfg(not(substrate_runtime))]
+impl<'a, T: codec::Decode> FromFFIValue<'a> for PassFatPointerAndDecode<T> {
+	type Owned = Option<T>;
+
+	fn from_ffi_value(
+		context: &mut dyn FunctionContext,
+		arg: Self::FFIType,
+	) -> Result<Self::Owned> {
+		let (ptr, len) = unpack_ptr_and_len(arg);
+		let vec = context.read_memory(Pointer::new(ptr), len)?;
+		T::decode(&mut &vec[..]).map_err(|error| format!(
+			"could not SCALE-decode '{}' when marshalling hostcall's arguments through the FFI boundary: {error}",
+			type_name::<T>())
+		).map(Some)
+	}
+
+	fn take_from_owned(owned: &'a mut Self::Owned) -> Self::Inner {
+		owned.take().expect("this is called only once and is never 'None'")
+	}
+}
+
+#[cfg(substrate_runtime)]
+impl<T: codec::Encode> IntoFFIValue for PassFatPointerAndDecode<T> {
+	type Destructor = Vec<u8>;
+
+	fn into_ffi_value(value: &mut Self::Inner) -> (Self::FFIType, Self::Destructor) {
+		let data = value.encode();
+		(pack_ptr_and_len(data.as_ptr() as u32, data.len() as u32), data)
+	}
+}
+
+/// Pass a `&[T]` into the host using the SCALE codec.
+///
+/// This encodes a `&[T]` into a `Vec<u8>` using the SCALE codec and then
+/// passes a pointer to that byte blob and its length to the host,
+/// which then reads it and decodes back into `Vec<T>` and passes
+/// a reference to that (as `&[T]`) into the host function.
+///
+/// Raw FFI type: `u64` (a fat pointer; upper 32 bits is the size, lower 32 bits is the pointer)
+pub struct PassFatPointerAndDecodeSlice<T>(PhantomData<T>);
+
+impl<T> RIType for PassFatPointerAndDecodeSlice<T> {
+	type FFIType = u64;
+	type Inner = T;
+}
+
+#[cfg(not(substrate_runtime))]
+impl<'a, T: codec::Decode> FromFFIValue<'a> for PassFatPointerAndDecodeSlice<&'a [T]> {
+	type Owned = Vec<T>;
+
+	fn from_ffi_value(
+		context: &mut dyn FunctionContext,
+		arg: Self::FFIType,
+	) -> Result<Self::Owned> {
+		let (ptr, len) = unpack_ptr_and_len(arg);
+		let vec = context.read_memory(Pointer::new(ptr), len)?;
+		<Vec::<T> as codec::Decode>::decode(&mut &vec[..]).map_err(|error| format!(
+			"could not SCALE-decode '{}' when marshalling hostcall's arguments through the FFI boundary: {error}",
+			type_name::<Vec<T>>()
+		))
+	}
+
+	fn take_from_owned(owned: &'a mut Self::Owned) -> Self::Inner {
+		&*owned
+	}
+}
+
+#[cfg(substrate_runtime)]
+impl<'a, T: codec::Encode> IntoFFIValue for PassFatPointerAndDecodeSlice<&'a [T]> {
+	type Destructor = Vec<u8>;
+
+	fn into_ffi_value(value: &mut Self::Inner) -> (Self::FFIType, Self::Destructor) {
+		let data = codec::Encode::encode(value);
+		(pack_ptr_and_len(data.as_ptr() as u32, data.len() as u32), data)
+	}
+}
+
+/// A trait signifying a primitive type.
+trait Primitive: Copy {}
+
+impl Primitive for u8 {}
+impl Primitive for u16 {}
+impl Primitive for u32 {}
+impl Primitive for u64 {}
+
+impl Primitive for i8 {}
+impl Primitive for i16 {}
+impl Primitive for i32 {}
+impl Primitive for i64 {}
+
+/// Pass `T` through the FFI boundary by first converting it to `U` in the runtime, and then
+/// converting it back to `T` on the host's side.
+///
+/// Raw FFI type: same as `U`'s FFI type
+pub struct PassAs<T, U>(PhantomData<(T, U)>);
+
+impl<T, U> RIType for PassAs<T, U>
+where
+	U: RIType,
+{
+	type FFIType = <U as RIType>::FFIType;
+	type Inner = T;
+}
+
+#[cfg(not(substrate_runtime))]
+impl<'a, T, U> FromFFIValue<'a> for PassAs<T, U>
+where
+	U: RIType + FromFFIValue<'a> + Primitive,
+	T: TryFrom<<U as FromFFIValue<'a>>::Owned> + Copy,
+{
+	type Owned = T;
+
+	fn from_ffi_value(
+		context: &mut dyn FunctionContext,
+		arg: Self::FFIType,
+	) -> Result<Self::Owned> {
+		<U as FromFFIValue>::from_ffi_value(context, arg).and_then(|value| value.try_into()
+			.map_err(|_| format!(
+				"failed to convert '{}' (passed as '{}') into '{}' when marshalling hostcall's arguments through the FFI boundary",
+				type_name::<T>(),
+				type_name::<Self::FFIType>(),
+				type_name::<Self::Owned>()
+			)))
+	}
+
+	fn take_from_owned(owned: &'a mut Self::Owned) -> Self::Inner {
+		*owned
+	}
+}
+
+#[cfg(substrate_runtime)]
+impl<T, U> IntoFFIValue for PassAs<T, U>
+where
+	U: RIType + IntoFFIValue + Primitive,
+	U::Inner: From<T>,
+	T: Copy,
+{
+	type Destructor = <U as IntoFFIValue>::Destructor;
+
+	fn into_ffi_value(value: &mut Self::Inner) -> (Self::FFIType, Self::Destructor) {
+		let mut value = U::Inner::from(*value);
+		<U as IntoFFIValue>::into_ffi_value(&mut value)
+	}
+}
+
+/// Return `T` through the FFI boundary by first converting it to `U` on the host's side, and then
+/// converting it back to `T` in the runtime.
+///
+/// Raw FFI type: same as `U`'s FFI type
+pub struct ReturnAs<T, U>(PhantomData<(T, U)>);
+
+impl<T, U> RIType for ReturnAs<T, U>
+where
+	U: RIType,
+{
+	type FFIType = <U as RIType>::FFIType;
+	type Inner = T;
+}
+
+#[cfg(not(substrate_runtime))]
+impl<T, U> IntoFFIValue for ReturnAs<T, U>
+where
+	U: RIType + IntoFFIValue + Primitive,
+	<U as RIType>::Inner: From<Self::Inner>,
+{
+	fn into_ffi_value(
+		value: Self::Inner,
+		context: &mut dyn FunctionContext,
+	) -> Result<Self::FFIType> {
+		let value: <U as RIType>::Inner = value.into();
+		<U as IntoFFIValue>::into_ffi_value(value, context)
+	}
+}
+
+#[cfg(substrate_runtime)]
+impl<T, U> FromFFIValue for ReturnAs<T, U>
+where
+	U: RIType + FromFFIValue + Primitive,
+	Self::Inner: TryFrom<U::Inner>,
+{
+	fn from_ffi_value(arg: Self::FFIType) -> Self::Inner {
+		let value = <U as FromFFIValue>::from_ffi_value(arg);
+		match Self::Inner::try_from(value) {
+			Ok(value) => value,
+			Err(_) => {
+				panic!(
+					"failed to convert '{}' (passed as '{}') into a '{}' when marshalling a hostcall's return value through the FFI boundary",
+					type_name::<U::Inner>(),
+					type_name::<Self::FFIType>(),
+					type_name::<Self::Inner>()
+				);
+			},
+		}
+	}
+}
+
+/// (DEPRECATED) Return `T` as a blob of bytes into the runtime.
+///
+/// Uses `T::AsRef<[u8]>` to cast `T` into a `&[u8]`, allocates runtime memory
+/// using the legacy allocator, copies the slice into the runtime memory, and
+/// returns a pointer to it.
+///
+/// THIS STRATEGY IS DEPRECATED; DO NOT USE FOR NEW HOST FUNCTIONS!
+///
+/// Ideally use a mutable slice to return data to the guest, for example using
+/// the [`PassPointerAndWrite`] strategy.
+///
+/// Raw FFI type: `u32` (a pointer to the byte blob)
+pub struct AllocateAndReturnPointer<T, const N: usize>(PhantomData<(T, [u8; N])>);
+
+impl<T, const N: usize> RIType for AllocateAndReturnPointer<T, N> {
+	type FFIType = u32;
+	type Inner = T;
+}
+
+#[cfg(not(substrate_runtime))]
+impl<T, const N: usize> IntoFFIValue for AllocateAndReturnPointer<T, N>
+where
+	T: AsRef<[u8]>,
+{
+	fn into_ffi_value(
+		value: Self::Inner,
+		context: &mut dyn FunctionContext,
+	) -> Result<Self::FFIType> {
+		let value = value.as_ref();
+		assert_eq!(
+			value.len(),
+			N,
+			"expected the byte blob to be {N} bytes long, is {} bytes when returning '{}' from a host function",
+			value.len(),
+			type_name::<T>()
+		);
+
+		let addr = context.allocate_memory(value.len() as u32)?;
+		context.write_memory(addr, value)?;
+		Ok(addr.into())
+	}
+}
+
+#[cfg(substrate_runtime)]
+impl<T: codec::Decode, const N: usize> FromFFIValue for AllocateAndReturnPointer<T, N>
+where
+	T: From<[u8; N]>,
+{
+	fn from_ffi_value(arg: Self::FFIType) -> Self::Inner {
+		// SAFETY: This memory was allocated by the host allocator with the exact
+		// capacity needed, so it's safe to make a `Vec` out of it.
+		let value = unsafe { Vec::from_raw_parts(arg as *mut u8, N, N) };
+
+		// SAFETY: Reading a `[u8; N]` from a `&[u8]` which is at least `N` elements long is safe.
+		let array = unsafe { *(value.as_ptr() as *const [u8; N]) };
+		T::from(array)
+	}
+}
+
+/// (DEPRECATED) Return `T` as a blob of bytes into the runtime.
+///
+/// Uses `T::AsRef<[u8]>` to cast `T` into a `&[u8]`, allocates runtime memory
+/// using the legacy allocator, copies the slice into the runtime memory, and
+/// returns a pointer to it.
+///
+/// THIS STRATEGY IS DEPRECATED; DO NOT USE FOR NEW HOST FUNCTIONS!
+///
+/// Ideally use a mutable slice to return data to the guest, for example using
+/// the [`PassPointerAndWrite`] strategy.
+///
+/// Raw FFI type: `u64` (a fat pointer; upper 32 bits is the size, lower 32 bits is the pointer)
+pub struct AllocateAndReturnFatPointer<T>(PhantomData<T>);
+
+impl<T> RIType for AllocateAndReturnFatPointer<T> {
+	type FFIType = u64;
+	type Inner = T;
+}
+
+#[cfg(not(substrate_runtime))]
+impl<T> IntoFFIValue for AllocateAndReturnFatPointer<T>
+where
+	T: AsRef<[u8]>,
+{
+	fn into_ffi_value(
+		value: Self::Inner,
+		context: &mut dyn FunctionContext,
+	) -> Result<Self::FFIType> {
+		let value = value.as_ref();
+		let ptr = context.allocate_memory(value.len() as u32)?;
+		context.write_memory(ptr, &value)?;
+		Ok(pack_ptr_and_len(ptr.into(), value.len() as u32))
+	}
+}
+
+#[cfg(substrate_runtime)]
+impl<T> FromFFIValue for AllocateAndReturnFatPointer<T>
+where
+	T: From<Vec<u8>>,
+{
+	fn from_ffi_value(arg: Self::FFIType) -> Self::Inner {
+		let (ptr, len) = unpack_ptr_and_len(arg);
+		let len = len as usize;
+		let vec = if len == 0 {
+			Vec::new()
+		} else {
+			// SAFETY: This memory was allocated by the host allocator with the exact
+			// capacity needed, so it's safe to make a `Vec` out of it.
+			unsafe { Vec::from_raw_parts(ptr as *mut u8, len, len) }
+		};
+
+		T::from(vec)
+	}
+}
+
+/// (DEPRECATED) Return `T` into the runtime using the SCALE codec.
+///
+/// Encodes `T` using the SCALE codec, allocates runtime memory using the legacy
+/// allocator, copies the encoded payload into the runtime memory, and returns
+/// a fat pointer to it.
+///
+/// THIS STRATEGY IS DEPRECATED; DO NOT USE FOR NEW HOST FUNCTIONS!
+///
+/// Ideally use a mutable slice to return data to the guest, for example using
+/// the [`PassPointerAndWrite`] strategy.
+///
+/// Raw FFI type: `u64` (a fat pointer; upper 32 bits is the size, lower 32 bits is the pointer)
+pub struct AllocateAndReturnByCodec<T>(PhantomData<T>);
+
+impl<T> RIType for AllocateAndReturnByCodec<T> {
+	type FFIType = u64;
+	type Inner = T;
+}
+
+#[cfg(not(substrate_runtime))]
+impl<T: codec::Encode> IntoFFIValue for AllocateAndReturnByCodec<T> {
+	fn into_ffi_value(value: T, context: &mut dyn FunctionContext) -> Result<Self::FFIType> {
+		let vec = value.encode();
+		let ptr = context.allocate_memory(vec.len() as u32)?;
+		context.write_memory(ptr, &vec)?;
+		Ok(pack_ptr_and_len(ptr.into(), vec.len() as u32))
+	}
+}
+
+#[cfg(substrate_runtime)]
+impl<T: codec::Decode> FromFFIValue for AllocateAndReturnByCodec<T> {
+	fn from_ffi_value(arg: Self::FFIType) -> Self::Inner {
 		let (ptr, len) = unpack_ptr_and_len(arg);
 		let len = len as usize;
 
 		let encoded = if len == 0 {
 			bytes::Bytes::new()
 		} else {
+			// SAFETY: This memory was allocated by the host allocator with the exact
+			// capacity needed, so it's safe to make a `Vec` out of it.
 			bytes::Bytes::from(unsafe { Vec::from_raw_parts(ptr as *mut u8, len, len) })
 		};
 
-		codec::decode_from_bytes(encoded).expect("Host to wasm values are encoded correctly; qed")
+		match codec::decode_from_bytes(encoded) {
+			Ok(value) => value,
+			Err(error) => {
+				panic!(
+					"failed to decode '{}' when marshalling a hostcall's return value through the FFI boundary: {error}",
+					type_name::<T>(),
+				);
+			},
+		}
 	}
-}
-
-/// The type is passed as `u64`.
-///
-/// The `u64` value is build by `length 32bit << 32 | pointer 32bit`
-///
-/// `Self` is encoded and the length and the pointer are taken from the encoded vector.
-impl<T: codec::Codec> RIType for Codec<T> {
-	type FFIType = u64;
-}
-
-/// Trait that needs to be implemented by a type that should be passed between wasm and the host,
-/// by using the inner type. See [`Inner`] for more information.
-pub trait PassByInner: Sized {
-	/// The inner type that is wrapped by `Self`.
-	type Inner: RIType;
-
-	/// Consumes `self` and returns the inner type.
-	fn into_inner(self) -> Self::Inner;
-
-	/// Returns the reference to the inner type.
-	fn inner(&self) -> &Self::Inner;
-
-	/// Construct `Self` from the given `inner`.
-	fn from_inner(inner: Self::Inner) -> Self;
-}
-
-/// The implementation of the pass by inner type strategy. The type that uses this strategy will be
-/// passed between wasm and the host by using the wrapped inner type. So, this strategy is only
-/// usable by newtype structs.
-///
-/// Use this type as associated type for [`PassBy`] to implement this strategy for a type. Besides
-/// that the `PassByInner` trait need to be implemented as well.
-///
-/// This type expects the type that wants to use this strategy as generic parameter `T` and the
-/// inner type as generic parameter `I`.
-///
-/// [`PassByInner`](derive.PassByInner.html) is a derive macro to implement this strategy.
-///
-/// # Example
-/// ```
-/// # use sp_runtime_interface::pass_by::{PassBy, Inner, PassByInner};
-/// struct Test([u8; 32]);
-///
-/// impl PassBy for Test {
-///     type PassBy = Inner<Self, [u8; 32]>;
-/// }
-///
-/// impl PassByInner for Test {
-///     type Inner = [u8; 32];
-///
-///     fn into_inner(self) -> [u8; 32] {
-///         self.0
-///     }
-///     fn inner(&self) -> &[u8; 32] {
-///         &self.0
-///     }
-///     fn from_inner(inner: [u8; 32]) -> Self {
-///         Self(inner)
-///     }
-/// }
-/// ```
-pub struct Inner<T: PassByInner<Inner = I>, I: RIType>(PhantomData<(T, I)>);
-
-#[cfg(feature = "std")]
-impl<T: PassByInner<Inner = I>, I: RIType> PassByImpl<T> for Inner<T, I>
-where
-	I: IntoFFIValue + FromFFIValue<SelfInstance = I>,
-{
-	fn into_ffi_value(instance: T, context: &mut dyn FunctionContext) -> Result<Self::FFIType> {
-		instance.into_inner().into_ffi_value(context)
-	}
-
-	fn from_ffi_value(context: &mut dyn FunctionContext, arg: Self::FFIType) -> Result<T> {
-		I::from_ffi_value(context, arg).map(T::from_inner)
-	}
-}
-
-#[cfg(not(feature = "std"))]
-impl<T: PassByInner<Inner = I>, I: RIType> PassByImpl<T> for Inner<T, I>
-where
-	I: IntoFFIValue + FromFFIValue,
-{
-	type Owned = I::Owned;
-
-	fn into_ffi_value(instance: &T) -> WrappedFFIValue<Self::FFIType, Self::Owned> {
-		instance.inner().into_ffi_value()
-	}
-
-	fn from_ffi_value(arg: Self::FFIType) -> T {
-		T::from_inner(I::from_ffi_value(arg))
-	}
-}
-
-/// The type is passed as the inner type.
-impl<T: PassByInner<Inner = I>, I: RIType> RIType for Inner<T, I> {
-	type FFIType = I::FFIType;
-}
-
-/// The implementation of the pass by enum strategy. This strategy uses an `u8` internally to pass
-/// the enum between wasm and the host. So, this strategy only supports enums with unit variants.
-///
-/// Use this type as associated type for [`PassBy`] to implement this strategy for a type.
-///
-/// This type expects the type that wants to implement this strategy as generic parameter. Besides
-/// that the type needs to implement `TryFrom<u8>` and `From<Self> for u8`.
-///
-/// [`PassByEnum`](derive.PassByEnum.html) is a derive macro to implement this strategy.
-///
-/// # Example
-/// ```
-/// # use sp_runtime_interface::pass_by::{PassBy, Enum};
-/// #[derive(Clone, Copy)]
-/// enum Test {
-///     Test1,
-///     Test2,
-/// }
-///
-/// impl From<Test> for u8 {
-///     fn from(val: Test) -> u8 {
-///         match val {
-///             Test::Test1 => 0,
-///             Test::Test2 => 1,
-///         }
-///     }
-/// }
-///
-/// impl TryFrom<u8> for Test {
-///     type Error = ();
-///
-///     fn try_from(val: u8) -> Result<Test, ()> {
-///         match val {
-///             0 => Ok(Test::Test1),
-///             1 => Ok(Test::Test2),
-///             _ => Err(()),
-///         }
-///     }
-/// }
-///
-/// impl PassBy for Test {
-///     type PassBy = Enum<Self>;
-/// }
-/// ```
-pub struct Enum<T: Copy + Into<u8> + TryFrom<u8>>(PhantomData<T>);
-
-#[cfg(feature = "std")]
-impl<T: Copy + Into<u8> + TryFrom<u8>> PassByImpl<T> for Enum<T> {
-	fn into_ffi_value(instance: T, _: &mut dyn FunctionContext) -> Result<Self::FFIType> {
-		Ok(instance.into() as u32)
-	}
-
-	fn from_ffi_value(_: &mut dyn FunctionContext, arg: Self::FFIType) -> Result<T> {
-		T::try_from(arg as u8).map_err(|_| format!("Invalid enum discriminant: {}", arg))
-	}
-}
-
-#[cfg(not(feature = "std"))]
-impl<T: Copy + Into<u8> + TryFrom<u8, Error = ()>> PassByImpl<T> for Enum<T> {
-	type Owned = ();
-
-	fn into_ffi_value(instance: &T) -> WrappedFFIValue<Self::FFIType, Self::Owned> {
-		let value: u8 = (*instance).into();
-		(value as u32).into()
-	}
-
-	fn from_ffi_value(arg: Self::FFIType) -> T {
-		T::try_from(arg as u8).expect("Host to wasm provides a valid enum discriminant; qed")
-	}
-}
-
-/// The type is passed as `u32`.
-///
-/// The value is corresponds to the discriminant of the variant.
-impl<T: Copy + Into<u8> + TryFrom<u8>> RIType for Enum<T> {
-	type FFIType = u32;
 }
