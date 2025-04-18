@@ -1,4 +1,4 @@
-name: Zombienet Polkadot
+name: Zombienet Parachain Templates
 
 on:
   push:
