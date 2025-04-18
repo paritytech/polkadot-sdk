@@ -50,7 +50,7 @@ frame-executive = { optional = true, workspace = true }
 frame-system-rpc-runtime-api = { optional = true, workspace = true }
 
 # Used for runtime benchmarking
-frame-benchmarking = { workspace = true, optional = true }
+frame-benchmarking = { optional = true, workspace = true }
 frame-system-benchmarking = { optional = true, workspace = true }
 
 # Used for try-runtime
