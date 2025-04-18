@@ -65,7 +65,6 @@ use alloc::boxed::Box;
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use core::{fmt::Debug, marker::PhantomData};
 use frame::{
-	deps::frame_support::impl_ensure_origin_with_arg_ignoring_arg,
 	prelude::*,
 	traits::{tokens::Balance as BalanceTrait, EnsureOriginWithArg},
 };

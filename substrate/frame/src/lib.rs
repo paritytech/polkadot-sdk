@@ -203,7 +203,7 @@ pub mod prelude {
 	#[doc(no_inline)]
 	pub use frame_support::dispatch::{GetDispatchInfo, PostDispatchInfo};
 	pub use frame_support::{
-		defensive, defensive_assert,
+		defensive, defensive_assert, impl_ensure_origin_with_arg_ignoring_arg,
 		traits::{
 			Contains, Defensive, DefensiveSaturating, EitherOf, EstimateNextSessionRotation,
 			Everything, InsideBoth, InstanceFilter, IsSubType, MapSuccess, NoOpPoll,
@@ -348,7 +348,7 @@ pub mod testing_prelude {
 	#[deprecated(note = "Use `frame::testing_prelude::TestState` instead.")]
 	pub use sp_io::TestExternalities;
 
-	pub use sp_io::TestExternalities as TestState;
+	pub use sp_io::{storage, TestExternalities as TestState};
 
 	/// Commonly used runtime traits for testing.
 	pub use sp_runtime::{bounded_vec, traits::BadOrigin, StateVersion};

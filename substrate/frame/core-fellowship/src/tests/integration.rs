@@ -22,7 +22,7 @@
 use frame::{
 	prelude::*,
 	runtime::prelude::EnsureSignedBy,
-	testing_prelude::{TestExternalities, *},
+	testing_prelude::{storage::root as storage_root, TestExternalities, *},
 	traits::{ConstU16, IsInVec, TryMapSuccess, TryMorphInto},
 };
 use pallet_ranked_collective::{EnsureRanked, Geometric, Rank};
@@ -228,7 +228,7 @@ fn swap_exhaustive_works() {
 
 			// The events mess up the storage root:
 			System::reset_events();
-			frame::deps::sp_io::storage::root(frame::deps::sp_runtime::StateVersion::V1)
+			storage_root(StateVersion::V1)
 		});
 
 		let root_swap = hypothetically!({
@@ -241,7 +241,7 @@ fn swap_exhaustive_works() {
 			assert_ok!(Club::exchange_member(RuntimeOrigin::root(), 0, 1));
 
 			System::reset_events();
-			frame::deps::sp_io::storage::root(frame::deps::sp_runtime::StateVersion::V1)
+			storage_root(StateVersion::V1)
 		});
 
 		assert_eq!(root_add, root_swap);

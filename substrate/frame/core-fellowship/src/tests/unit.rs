@@ -27,9 +27,10 @@ use crate::{
 use core::cell::RefCell;
 use frame::{
 	runtime::prelude::EnsureSignedBy,
-	testing_prelude::*,
+	testing_prelude::{storage::root as storage_root, *},
 	traits::{tokens::GetSalary, ConstU16, ConstU32, IsInVec, TryMapSuccess, TryMorphInto},
 };
+
 use std::collections::BTreeMap;
 
 type Block = frame_system::mocking::MockBlock<Test>;
@@ -268,12 +269,12 @@ fn import_member_same_as_import() {
 
 			let import_root = hypothetically!({
 				assert_ok!(CoreFellowship::import(signed(0)));
-				frame::deps::sp_io::storage::root(frame::deps::sp_runtime::StateVersion::V1)
+				storage_root(StateVersion::V1)
 			});
 
 			let import_member_root = hypothetically!({
 				assert_ok!(CoreFellowship::import_member(signed(1), 0));
-				frame::deps::sp_io::storage::root(frame::deps::sp_runtime::StateVersion::V1)
+				storage_root(StateVersion::V1)
 			});
 
 			// `import` and `import_member` do exactly the same thing.
@@ -392,7 +393,7 @@ fn promote_fast_identical_to_promote() {
 		let root_promote = hypothetically!({
 			assert_ok!(CoreFellowship::promote(signed(alice), alice, 1));
 			// Don't clean the events since they should emit the same events:
-			frame::deps::sp_io::storage::root(frame::deps::sp_runtime::StateVersion::V1)
+			storage_root(StateVersion::V1)
 		});
 
 		// This is using thread locals instead of storage...
@@ -401,7 +402,7 @@ fn promote_fast_identical_to_promote() {
 		let root_promote_fast = hypothetically!({
 			assert_ok!(CoreFellowship::promote_fast(signed(alice), alice, 1));
 
-			frame::deps::sp_io::storage::root(frame::deps::sp_runtime::StateVersion::V1)
+			storage_root(StateVersion::V1)
 		});
 
 		assert_eq!(root_promote, root_promote_fast);
