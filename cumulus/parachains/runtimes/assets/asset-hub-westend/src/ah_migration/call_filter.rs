@@ -71,8 +71,8 @@ pub fn call_allowed_status(call: &<Runtime as frame_system::Config>::RuntimeCall
 	const OFF: bool = false;
 
 	let during_migration = match call {
-		AhOps(..) => OFF,
 		AhMigrator(..) => ON,
+		AhOps(..) => OFF,
 		AssetConversion(..) => OFF,
 		AssetRate(..) => OFF,
 		Assets(..) => OFF,
@@ -84,9 +84,11 @@ pub fn call_allowed_status(call: &<Runtime as frame_system::Config>::RuntimeCall
 		ForeignAssets(..) => OFF,
 		Indices(..) => OFF,
 		MessageQueue(..) => ON, // TODO think about this
+		MultiBlockMigrations(..) => ON,
 		Multisig(..) => OFF,
-		NominationPools(..) => OFF,
+		NftFractionalization(..) => OFF,
 		Nfts(..) => OFF,
+		NominationPools(..) => OFF,
 		ParachainInfo(..) => OFF, /* Empty call enum, see https://github.com/paritytech/polkadot-sdk/issues/8222 */
 		ParachainSystem(..) => ON, // Only inherent and root calls
 		PolkadotXcm(..) => OFF,
@@ -99,14 +101,19 @@ pub fn call_allowed_status(call: &<Runtime as frame_system::Config>::RuntimeCall
 		StateTrieMigration(..) => OFF, // Deprecated
 		System(..) => ON,
 		Timestamp(..) => ON,
+		ToRococoXcmRouter(..) => OFF,
 		Treasury(..) => OFF,
+		Revive(..) => OFF,
+		AssetRewards(..) => OFF,
 		Uniques(..) => OFF,
 		Utility(..) => OFF,
 		Vesting(..) => OFF,
 		VoterList(..) => OFF,
 		Whitelist(..) => OFF,
-		XcmpQueue(..) => ON, /* Allow updating XCM settings. Only by Fellowship and root.
-		                      * Exhaustive match. Compiler ensures that we did not miss any. */
+		XcmpQueue(..) => ON, /* Allow updating XCM settings. Only by Fellowship and root. */
+		        
+		
+		/* Exhaustive match. Compiler ensures that we did not miss any. */
 	};
 
 	// All pallets are enabled on Asset Hub after the migration :)
