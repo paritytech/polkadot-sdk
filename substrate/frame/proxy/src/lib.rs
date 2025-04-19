@@ -393,7 +393,7 @@ pub mod pallet {
 
 			Self::deposit_event(Event::PureKilled {
 				pure: who,
-				who: spawner,
+				spawner,
 				proxy_type,
 				disambiguation_index: index,
 			});
@@ -671,10 +671,13 @@ pub mod pallet {
 			proxy_type: T::ProxyType,
 			disambiguation_index: u16,
 		},
-		/// A pure proxy was killed.
+		/// A pure proxy was killed by its spawner.
 		PureKilled {
+			// The pure proxy account that was destroyed.
 			pure: T::AccountId,
-			who: T::AccountId,
+			// The account that created the pure proxy.
+			spawner: T::AccountId,
+			// The proxy type of the pure proxy that was destroyed.
 			proxy_type: T::ProxyType,
 			// The index originally passed to `create_pure` when this pure proxy was created.
 			disambiguation_index: u16,

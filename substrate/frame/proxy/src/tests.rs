@@ -599,7 +599,7 @@ fn pure_works() {
 		System::assert_last_event(
 			ProxyEvent::PureKilled {
 				pure: anon,
-				who: 1,
+				spawner: 1,
 				proxy_type: ProxyType::Any,
 				disambiguation_index: 0,
 			}
