@@ -78,7 +78,7 @@ pub(crate) fn weth_at_asset_hubs() -> Location {
 	Location::new(
 		2,
 		[
-			GlobalConsensus(Ethereum { chain_id: snowbridge::CHAIN_ID }),
+			GlobalConsensus(Ethereum { chain_id: snowbridge::SEPOLIA_ID }),
 			AccountKey20 { network: None, key: WETH },
 		],
 	)

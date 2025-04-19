@@ -14,7 +14,7 @@
 // limitations under the License.
 
 use crate::imports::*;
-use emulated_integration_tests_common::snowbridge::{CHAIN_ID, WETH};
+use emulated_integration_tests_common::snowbridge::{SEPOLIA_ID, WETH};
 
 mod aliases;
 mod asset_transfers;
@@ -88,7 +88,7 @@ pub(crate) fn weth_at_asset_hubs() -> Location {
 	Location::new(
 		2,
 		[
-			GlobalConsensus(Ethereum { chain_id: CHAIN_ID }),
+			GlobalConsensus(Ethereum { chain_id: SEPOLIA_ID }),
 			AccountKey20 { network: None, key: WETH },
 		],
 	)

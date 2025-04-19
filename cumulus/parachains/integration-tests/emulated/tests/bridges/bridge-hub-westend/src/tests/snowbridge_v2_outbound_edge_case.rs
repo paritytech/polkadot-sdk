@@ -21,7 +21,7 @@ use crate::{
 		usdt_at_ah_westend,
 	},
 };
-use emulated_integration_tests_common::snowbridge::{CHAIN_ID, WETH};
+use emulated_integration_tests_common::snowbridge::{SEPOLIA_ID, WETH};
 use frame_support::assert_noop;
 use snowbridge_core::AssetMetadata;
 use sp_runtime::DispatchError::BadOrigin;
@@ -146,7 +146,7 @@ fn export_from_non_system_parachain_will_fail() {
 				WithdrawAsset(relay_fee_asset.clone().into()),
 				BuyExecution { fees: relay_fee_asset.clone(), weight_limit: Unlimited },
 				ExportMessage {
-					network: Ethereum { chain_id: CHAIN_ID },
+					network: Ethereum { chain_id: SEPOLIA_ID },
 					destination: Here,
 					xcm: Xcm(vec![
 						AliasOrigin(penpal_location),

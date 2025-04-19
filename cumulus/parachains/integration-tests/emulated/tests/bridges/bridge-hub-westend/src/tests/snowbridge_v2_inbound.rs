@@ -27,7 +27,7 @@ use bridge_hub_westend_runtime::{
 };
 use codec::Encode;
 use emulated_integration_tests_common::{
-	snowbridge::{CHAIN_ID, WETH},
+	snowbridge::{SEPOLIA_ID, WETH},
 	RESERVABLE_ASSET_ID,
 };
 use hex_literal::hex;
@@ -581,7 +581,7 @@ fn send_token_to_penpal_v2() {
 			<PenpalB as Chain>::RuntimeOrigin::root(),
 			vec![(
 				PenpalCustomizableAssetFromSystemAssetHub::key().to_vec(),
-				Location::new(2, [GlobalConsensus(Ethereum { chain_id: CHAIN_ID })]).encode(),
+				Location::new(2, [GlobalConsensus(Ethereum { chain_id: SEPOLIA_ID })]).encode(),
 			)],
 		));
 	});

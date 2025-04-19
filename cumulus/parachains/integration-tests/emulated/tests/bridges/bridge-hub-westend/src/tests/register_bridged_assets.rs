@@ -41,7 +41,7 @@ fn register_ethereum_asset_on_rah_from_wah() {
 	let bridged_asset_at_rah = Location::new(
 		2,
 		[
-			GlobalConsensus(Ethereum { chain_id: CHAIN_ID }),
+			GlobalConsensus(Ethereum { chain_id: SEPOLIA_ID }),
 			AccountKey20 { network: None, key: WETH },
 		],
 	);

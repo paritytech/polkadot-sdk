@@ -16,7 +16,7 @@
 use crate::{create_pool_with_native_on, imports::*};
 use asset_hub_westend_runtime::xcm_config::LocationToAccountId;
 use emulated_integration_tests_common::{
-	snowbridge::{CHAIN_ID, WETH},
+	snowbridge::{SEPOLIA_ID, WETH},
 	PenpalBTeleportableAssetLocation,
 };
 use frame_support::traits::fungibles::Mutate;
@@ -243,7 +243,7 @@ pub fn set_trust_reserve_on_penpal() {
 			<PenpalB as Chain>::RuntimeOrigin::root(),
 			vec![(
 				PenpalCustomizableAssetFromSystemAssetHub::key().to_vec(),
-				Location::new(2, [GlobalConsensus(Ethereum { chain_id: CHAIN_ID })]).encode(),
+				Location::new(2, [GlobalConsensus(Ethereum { chain_id: SEPOLIA_ID })]).encode(),
 			)],
 		));
 	});
@@ -393,7 +393,7 @@ pub fn weth_location() -> Location {
 }
 
 pub fn eth_location() -> Location {
-	Location::new(2, [GlobalConsensus(Ethereum { chain_id: CHAIN_ID })])
+	Location::new(2, [GlobalConsensus(Ethereum { chain_id: SEPOLIA_ID })])
 }
 
 pub fn ethereum() -> Location {

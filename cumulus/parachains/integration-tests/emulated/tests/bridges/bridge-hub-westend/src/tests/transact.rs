@@ -61,7 +61,7 @@ fn transfer_and_transact_in_same_xcm(
 	let xcm_to_ah = Xcm::<()>(vec![
 		UnpaidExecution { check_origin: None, weight_limit: Unlimited },
 		DescendOrigin([PalletInstance(80)].into()), // snowbridge pallet
-		UniversalOrigin(GlobalConsensus(Ethereum { chain_id: CHAIN_ID })),
+		UniversalOrigin(GlobalConsensus(Ethereum { chain_id: SEPOLIA_ID })),
 		ReserveAssetDeposited(weth.clone().into()),
 		AliasOrigin(sender),
 		PayFees { asset: fees_for_ah },
@@ -97,7 +97,7 @@ fn transact_from_ethereum_to_penpalb_through_asset_hub() {
 	let sender = Location::new(
 		2,
 		[
-			GlobalConsensus(Ethereum { chain_id: CHAIN_ID }),
+			GlobalConsensus(Ethereum { chain_id: SEPOLIA_ID }),
 			AccountKey20 { network: None, key: ETHEREUM_BOB },
 		],
 	);
@@ -123,7 +123,7 @@ fn transact_from_ethereum_to_penpalb_through_asset_hub() {
 
 	let fee_amount_to_send: parachains_common::Balance = ASSET_HUB_WESTEND_ED * 10000;
 	let sender_chain_as_seen_by_asset_hub =
-		Location::new(2, [GlobalConsensus(Ethereum { chain_id: CHAIN_ID })]);
+		Location::new(2, [GlobalConsensus(Ethereum { chain_id: SEPOLIA_ID })]);
 
 	let sov_of_sender_on_asset_hub = AssetHubWestend::execute_with(|| {
 		AssetHubWestend::sovereign_account_id_of(sender_chain_as_seen_by_asset_hub)
@@ -162,7 +162,7 @@ fn transact_from_ethereum_to_penpalb_through_asset_hub() {
 	let foreign_asset_at_penpal_b = Location::new(
 		2,
 		[
-			GlobalConsensus(Ethereum { chain_id: CHAIN_ID }),
+			GlobalConsensus(Ethereum { chain_id: SEPOLIA_ID }),
 			AccountKey20 { network: None, key: ETHEREUM_BOB },
 		],
 	);
