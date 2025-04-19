@@ -674,6 +674,7 @@ impl pallet_election_provider_multi_phase::Config for Runtime {
 	type WeightInfo = weights::pallet_election_provider_multi_phase::WeightInfo<Self>;
 	type MaxWinners = MaxActiveValidators;
 	type ElectionBounds = ElectionBounds;
+	type BlockNumberProvider = System;
 }
 
 parameter_types! {

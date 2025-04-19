@@ -86,6 +86,14 @@ pub(crate) fn multi_phase_events() -> Vec<super::Event<Runtime>> {
 pub fn roll_to(n: BlockNumber) {
 	let now = System::block_number();
 	for i in now + 1..=n {
+		dbg!(i);
+		System::set_block_number(i);
+		MultiPhase::on_initialize(i);
+	}
+}
+
+pub fn roll_to_block_without_current_block_number(n: BlockNumber) {
+	for i in 1..=n {
 		System::set_block_number(i);
 		MultiPhase::on_initialize(i);
 	}
@@ -407,6 +415,7 @@ impl crate::Config for Runtime {
 	type MinerConfig = Self;
 	type Solver = SequentialPhragmen<AccountId, SolutionAccuracyOf<Runtime>, Balancing>;
 	type ElectionBounds = ElectionsBounds;
+	type BlockNumberProvider = System;
 }
 
 impl Convert<usize, BalanceOf<Runtime>> for Runtime {

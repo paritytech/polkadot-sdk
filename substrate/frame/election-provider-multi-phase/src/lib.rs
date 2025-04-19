@@ -245,7 +245,7 @@ use frame_support::{
 	weights::Weight,
 	DefaultNoBound, EqNoBound, PartialEqNoBound,
 };
-use frame_system::{ensure_none, offchain::CreateInherent, pallet_prelude::BlockNumberFor};
+use frame_system::{ensure_none, offchain::CreateInherent};
 use scale_info::TypeInfo;
 use sp_arithmetic::{
 	traits::{CheckedAdd, Zero},
@@ -253,6 +253,7 @@ use sp_arithmetic::{
 };
 use sp_npos_elections::{BoundedSupports, ElectionScore, IdentifierT, Supports, VoteWeight};
 use sp_runtime::{
+	traits::BlockNumberProvider,
 	transaction_validity::{
 		InvalidTransaction, TransactionPriority, TransactionSource, TransactionValidity,
 		TransactionValidityError, ValidTransaction,
@@ -297,6 +298,13 @@ pub type SolutionAccuracyOf<T> =
 	<SolutionOf<<T as crate::Config>::MinerConfig> as NposSolution>::Accuracy;
 /// The fallback election type.
 pub type FallbackErrorOf<T> = <<T as crate::Config>::Fallback as ElectionProviderBase>::Error;
+/// The block number type used within this pallet.
+///
+/// This derives the block number from the configured `BlockNumberProvider`,
+/// allowing flexibility in whether block numbers come from the local chain
+/// (`frame_system::Pallet<T>`) or an external source like the Relay Chain.
+pub type BlockNumberFor<T> =
+	<<T as crate::Config>::BlockNumberProvider as BlockNumberProvider>::BlockNumber;
 
 /// Configuration for the benchmarks of the pallet.
 pub trait BenchmarkingConfig {
@@ -585,7 +593,9 @@ pub mod pallet {
 	use super::*;
 	use frame_election_provider_support::{InstantElectionProvider, NposSolver};
 	use frame_support::{pallet_prelude::*, traits::EstimateCallFee};
-	use frame_system::pallet_prelude::*;
+	use frame_system::pallet_prelude::{
+		ensure_signed, BlockNumberFor as SystemBlockNumberFor, OriginFor,
+	};
 	use sp_runtime::traits::Convert;
 
 	#[pallet::config]
@@ -723,6 +733,27 @@ pub mod pallet {
 		/// The configuration of benchmarking.
 		type BenchmarkingConfig: BenchmarkingConfig;
 
+		/// A configurable provider for the block number used by this pallet.
+		///
+		/// By default, this should be set to `frame_system::Pallet<T>` to maintain the previous
+		/// behavior, where block numbers are sourced from the local chain.
+		///
+		/// However, developers can configure this to derive block numbers from an external source,
+		/// such as the Relay Chain in a parachain setup. This is particularly important for
+		/// features that rely on consistent block progression across chains.
+		///
+		/// **Usage Considerations:**
+		/// - If using the local parachain’s block number, set this to `frame_system::Pallet<T>`.
+		/// - If requiring Relay Chain synchronization, use a provider that fetches the Relay Chain
+		///   block number.
+		///
+		/// Clients should **not assume** the block number always refers to the local chain.
+		/// Instead, they must verify the configured `BlockNumberProvider` to understand the source
+		/// of block numbers.
+		///
+		/// Default: `frame_system::Pallet<T>`
+		type BlockNumberProvider: BlockNumberProvider;
+
 		/// The weight of the pallet.
 		type WeightInfo: WeightInfo;
 	}
@@ -752,8 +783,9 @@ pub mod pallet {
 	}
 
 	#[pallet::hooks]
-	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-		fn on_initialize(now: BlockNumberFor<T>) -> Weight {
+	impl<T: Config> Hooks<SystemBlockNumberFor<T>> for Pallet<T> {
+		fn on_initialize(_now: SystemBlockNumberFor<T>) -> Weight {
+			let now = T::BlockNumberProvider::current_block_number();
 			let next_election = T::DataProvider::next_election_prediction(now).max(now);
 
 			let signed_deadline = T::SignedPhase::get() + T::UnsignedPhase::get();
@@ -830,9 +862,8 @@ pub mod pallet {
 			}
 		}
 
-		fn offchain_worker(now: BlockNumberFor<T>) {
+		fn offchain_worker(_now: SystemBlockNumberFor<T>) {
 			use sp_runtime::offchain::storage_lock::{BlockAndTime, StorageLock};
-
 			// Create a lock with the maximum deadline of number of blocks in the unsigned phase.
 			// This should only come useful in an **abrupt** termination of execution, otherwise the
 			// guard will be dropped upon successful execution.
@@ -844,6 +875,7 @@ pub mod pallet {
 
 			match lock.try_lock() {
 				Ok(_guard) => {
+					let now = T::BlockNumberProvider::current_block_number();
 					Self::do_synchronized_offchain_worker(now);
 				},
 				Err(deadline) => {
@@ -892,7 +924,7 @@ pub mod pallet {
 		}
 
 		#[cfg(feature = "try-runtime")]
-		fn try_state(_n: BlockNumberFor<T>) -> Result<(), TryRuntimeError> {
+		fn try_state(_n: SystemBlockNumberFor<T>) -> Result<(), TryRuntimeError> {
 			Self::do_try_state()
 		}
 	}
