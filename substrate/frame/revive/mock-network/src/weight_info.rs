@@ -16,6 +16,7 @@
 
 use frame_support::weights::Weight;
 use pallet_xcm::WeightInfo;
+
 pub struct ReviveTestWeightInfo;
 impl WeightInfo for ReviveTestWeightInfo {
 	fn send() -> Weight {

@@ -30,7 +30,6 @@ use crate::{Config, ExecReturnValue, Origin};
 use alloy_sol_types::{sol, SolCall, SolType};
 use codec::{DecodeAll, Encode};
 use pallet_revive_uapi::ReturnFlags;
-use sp_runtime::Weight;
 use xcm_builder::{ExecuteController, ExecuteControllerWeightInfo, SendController};
 
 /// The XcmPrecompile provides EVM precompile functions for interacting with the XCM.
@@ -54,18 +53,14 @@ pub enum XcmFunctionSelector {
 	UnsupportedXcmSelector,
 }
 
-/// Solidity function interfaces for the XCM precompile.
-///
-/// These definitions are used to automatically generate the correct function selectors
-/// and parameter encoding/decoding logic based on the Solidity function signatures.
 sol! {
-	/// Execute an XCM message locally with the caller's origin
-	/// @param message The XCM message to execute, encoded according to the XCM format
+	// Execute an XCM message locally with the caller's origin
+	// @param message The XCM message to execute, encoded according to the XCM format
 	function xcmExecute(bytes);
-
-	/// Send an XCM message to a destination chain
-	/// @param destination The destination location, encoded according to the XCM format
-	/// @param message The XCM message to send, encoded according to the XCM format
+	
+	// Send an XCM message to a destination chain
+	// @param destination The destination location, encoded according to the XCM format
+	// @param message The XCM message to send, encoded according to the XCM format
 	function xcmSend(bytes,bytes);
 }
 
@@ -151,7 +146,6 @@ impl<T: Config> MutatingPrecompile<T> for XcmPrecompile {
 
 				let weight_limit =
 					<<T as Config>::Xcm as ExecuteController<_, _>>::WeightInfo::execute();
-
 				<<T as Config>::Xcm>::execute(xcm_origin, message.into(), weight_limit)
 					.map(|results| ExecReturnValue {
 						flags: ReturnFlags::empty(),
@@ -166,7 +160,9 @@ impl<T: Config> MutatingPrecompile<T> for XcmPrecompile {
 	}
 }
 
+
 mod tests {
+	#[warn(unused_imports)]
 	use super::*;
 	use hex_literal::hex;
 

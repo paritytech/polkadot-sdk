@@ -15,6 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+
 use crate::{
 	parachain, parachain_account_sovereign_account_id, primitives::CENTS, relay_chain, MockNet,
 	ParaA, ParachainBalances, Relay, ALICE, BOB, INITIAL_BALANCE,
@@ -24,10 +25,10 @@ use frame_support::traits::{fungibles::Mutate, Currency};
 use frame_system::RawOrigin;
 use pallet_revive::{
 	test_utils::{self, builder::*},
-	Code, DepositLimit,
+	Code, DepositLimit, ExecReturnValue,
 };
 use pallet_revive_fixtures::compile_module;
-use pallet_revive_uapi::ReturnErrorCode;
+use pallet_revive_uapi::{ReturnErrorCode, ReturnFlags};
 use sp_core::H160;
 use xcm::{v4::prelude::*, VersionedLocation, VersionedXcm};
 use xcm_simulator::TestExt;
@@ -223,7 +224,7 @@ fn test_xcm_execute_precompile() {
 
 		type DecodedType = sol!((bytes4, bytes));
 		// xcm_execute selector
-		let selector: [u8; 4] = hex!("afceee62"); 
+		let selector: [u8; 4] = hex!("afceee62");
 		let versioned_message = VersionedXcm::V4(message);
 		let encoded_message = DecodedType::abi_encode(&(selector, versioned_message.encode()));
 		bare_call(addr)
@@ -246,6 +247,98 @@ fn test_xcm_execute_precompile() {
 }
 
 #[test]
+fn test_xcm_execute_reentrant_call_via_precompile() {
+	use alloy_sol_types::{sol, SolType};
+	use hex_literal::hex;
+
+	MockNet::reset();
+	let Contract { addr, .. } = instantiate_test_contract("call_and_return");
+	ParaA::execute_with(|| {
+		let transact_call = parachain::RuntimeCall::Contracts(pallet_revive::Call::call {
+			dest: addr,
+			gas_limit: 1_000_000.into(),
+			storage_deposit_limit: test_utils::deposit_limit::<parachain::Runtime>(),
+			data: vec![],
+			value: 0u128,
+		});
+		let message: Xcm<parachain::RuntimeCall> = Xcm::builder_unsafe()
+			.transact(OriginKind::Native, 1_000_000_000, transact_call.encode())
+			.expect_transact_status(MaybeErrorCode::Success)
+			.build();
+
+		type DecodedType = sol!((bytes4, bytes));
+		// xcm_execute selector
+		let selector: [u8; 4] = hex!("afceee62");
+		let versioned_message = VersionedXcm::V4(message);
+		let encoded_message = DecodedType::abi_encode(&(selector, versioned_message.encode()));
+		let results = bare_call(addr)
+			.data(
+				(H160::from_low_u64_be(10), 1u64)
+					.encode()
+					.into_iter()
+					.chain(encoded_message)
+					.collect::<Vec<_>>(),
+			)
+			.build();
+		let result = match results.result {
+			Ok(value) => value,
+			Err(_) => ExecReturnValue { flags: ReturnFlags::REVERT, data: Vec::new() },
+		};
+		// We expect the call to revert anyways hence why we checking for revert
+		assert_eq!(result.flags, ReturnFlags::REVERT);
+		assert_eq!(ParachainBalances::free_balance(BOB), INITIAL_BALANCE);
+	});
+}
+
+#[test]
+fn test_xcm_execute_incomplete_call_via_precompile() {
+	use alloy_sol_types::{sol, SolType};
+	use hex_literal::hex;
+
+	MockNet::reset();
+	let Contract { addr, account_id } = instantiate_test_contract("call_and_return");
+	let amount = 10 * CENTS;
+	ParaA::execute_with(|| {
+		let assets: Asset = (Here, amount).into();
+		let beneficiary = AccountId32 { network: None, id: BOB.clone().into() };
+
+		// The XCM used to transfer funds to Bob.
+		let message: Xcm<()> = Xcm::builder_unsafe()
+			.withdraw_asset(assets.clone())
+			// This will fail as the contract does not have enough balance to complete both
+			// withdrawals.
+			.withdraw_asset((Here, INITIAL_BALANCE))
+			.buy_execution(assets.clone(), Unlimited)
+			.deposit_asset(assets, beneficiary)
+			.build();
+
+		type DecodedType = sol!((bytes4, bytes));
+		// xcm_execute selector
+		let selector: [u8; 4] = hex!("afceee62");
+		let versioned_message = VersionedXcm::V4(message);
+		let encoded_message = DecodedType::abi_encode(&(selector, versioned_message.encode()));
+		let results = bare_call(addr)
+			.data(
+				(H160::from_low_u64_be(10), 1u64)
+					.encode()
+					.into_iter()
+					.chain(encoded_message)
+					.collect::<Vec<_>>(),
+			)
+			.build();
+		let result = match results.result {
+			Ok(value) => value,
+			Err(_) => ExecReturnValue { flags: ReturnFlags::REVERT, data: Vec::new() },
+		};
+		assert_eq!(results.gas_consumed, results.gas_required);
+		// We expect the call to revert anyways hence why we checking for revert
+		assert_eq!(result.flags, ReturnFlags::REVERT);
+		assert_eq!(ParachainBalances::free_balance(&account_id), INITIAL_BALANCE);
+		assert_eq!(ParachainBalances::free_balance(BOB), INITIAL_BALANCE);
+	});
+}
+
+#[test]
 fn test_xcm_send_precompile() {
 	use alloy_sol_types::{sol, SolType};
 	use hex_literal::hex;
@@ -260,14 +353,14 @@ fn test_xcm_send_precompile() {
 		let beneficiary = AccountId32 { network: None, id: ALICE.clone().into() };
 
 		let message: Xcm<()> = Xcm::builder()
-		.withdraw_asset(assets.clone())
-		.buy_execution((Here, fee), Unlimited)
-		.deposit_asset(assets, beneficiary)
-		.build();
+			.withdraw_asset(assets.clone())
+			.buy_execution((Here, fee), Unlimited)
+			.deposit_asset(assets, beneficiary)
+			.build();
 
 		type DecodedType = sol!((bytes4, bytes, bytes));
 		// xcm_send selector
-		let selector: [u8; 4] = hex!("c0addb55"); 
+		let selector: [u8; 4] = hex!("c0addb55");
 		let encoded_message =
 			DecodedType::abi_encode(&(selector, dest.encode(), VersionedXcm::V4(message).encode()));
 
