@@ -1005,7 +1005,8 @@ fn transfer_ah_token() {
 	);
 	BridgeHubWestend::fund_accounts(vec![(assethub_sovereign.clone(), INITIAL_FUND)]);
 
-	let ethereum_destination = Location::new(2, [GlobalConsensus(Ethereum { chain_id: SEPOLIA_ID })]);
+	let ethereum_destination =
+		Location::new(2, [GlobalConsensus(Ethereum { chain_id: SEPOLIA_ID })]);
 
 	let ethereum_sovereign: AccountId = snowbridge_sovereign();
 	AssetHubWestend::fund_accounts(vec![(ethereum_sovereign.clone(), INITIAL_FUND)]);
@@ -1705,7 +1706,8 @@ fn transfer_roc_from_ah_with_legacy_api_will_fail() {
 	);
 	BridgeHubWestend::fund_accounts(vec![(assethub_sovereign.clone(), INITIAL_FUND)]);
 
-	let ethereum_destination = Location::new(2, [GlobalConsensus(Ethereum { chain_id: SEPOLIA_ID })]);
+	let ethereum_destination =
+		Location::new(2, [GlobalConsensus(Ethereum { chain_id: SEPOLIA_ID })]);
 
 	let ethereum_sovereign: AccountId = snowbridge_sovereign();
 	AssetHubWestend::fund_accounts(vec![(ethereum_sovereign.clone(), INITIAL_FUND)]);
@@ -1769,7 +1771,8 @@ fn transfer_roc_from_ah_with_transfer_and_then() {
 	);
 	BridgeHubWestend::fund_accounts(vec![(assethub_sovereign.clone(), INITIAL_FUND)]);
 
-	let ethereum_destination = Location::new(2, [GlobalConsensus(Ethereum { chain_id: SEPOLIA_ID })]);
+	let ethereum_destination =
+		Location::new(2, [GlobalConsensus(Ethereum { chain_id: SEPOLIA_ID })]);
 
 	let ethereum_sovereign: AccountId = snowbridge_sovereign();
 	AssetHubWestend::fund_accounts(vec![(ethereum_sovereign.clone(), INITIAL_FUND)]);
