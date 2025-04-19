@@ -17,7 +17,7 @@
 //! Mocks for all the traits.
 
 use crate::{
-	assigner_coretime, configuration, coretime, disputes, dmp, hrmp,
+	configuration, coretime, disputes, dmp, hrmp,
 	inclusion::{self, AggregateMessageOrigin, UmpQueueId},
 	initializer, on_demand, origin, paras,
 	paras::ParaKind,
@@ -75,7 +75,6 @@ frame_support::construct_runtime!(
 		ParaInherent: paras_inherent,
 		Scheduler: scheduler,
 		OnDemand: on_demand,
-		CoretimeAssigner: assigner_coretime,
 		Coretime: coretime,
 		Initializer: initializer,
 		Dmp: dmp,
@@ -264,7 +263,7 @@ impl WrapVersion for TestUsesOnlyStoredVersionWrapper {
 	) -> Result<VersionedXcm<RuntimeCall>, ()> {
 		match VERSION_WRAPPER.with(|r| r.borrow().get(dest).map_or(None, |v| *v)) {
 			Some(v) => xcm.into().into_version(v),
-			None => return Err(()),
+			None => Err(()),
 		}
 	}
 }
@@ -413,8 +412,6 @@ impl on_demand::Config for Test {
 	type MaxHistoricalRevenue = MaxHistoricalRevenue;
 	type PalletId = OnDemandPalletId;
 }
-
-impl assigner_coretime::Config for Test {}
 
 parameter_types! {
 	pub const BrokerId: u32 = 10u32;
