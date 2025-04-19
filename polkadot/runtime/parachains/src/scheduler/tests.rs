@@ -29,7 +29,7 @@ use crate::{
 	configuration::HostConfiguration,
 	initializer::SessionChangeNotification,
 	mock::{
-		new_test_ext, Configuration, CoretimeAssigner, MockGenesisConfig, Paras, ParasShared,
+		new_test_ext, Configuration, MockGenesisConfig, Paras, ParasShared,
 		RuntimeOrigin, Scheduler, System, Test,
 	},
 	on_demand,
@@ -238,14 +238,14 @@ fn advance_claim_queue_doubles_assignment_only_if_empty() {
 		});
 
 		// add some para assignments.
-		CoretimeAssigner::assign_core(
+		Pallet::<Test>::assign_core(
 			CoreIndex(0),
 			0,
 			vec![(CoreAssignment::Pool, PartsOf57600::FULL)],
 			None,
 		)
 		.unwrap();
-		CoretimeAssigner::assign_core(
+		Pallet::<Test>::assign_core(
 			CoreIndex(1),
 			0,
 			vec![(CoreAssignment::Pool, PartsOf57600::FULL)],
@@ -304,14 +304,14 @@ fn advance_claim_queue_no_entry_if_empty() {
 			_ => None,
 		});
 
-		CoretimeAssigner::assign_core(
+		Pallet::<Test>::assign_core(
 			CoreIndex(0),
 			0,
 			vec![(CoreAssignment::Pool, PartsOf57600::FULL)],
 			None,
 		)
 		.unwrap();
-		CoretimeAssigner::assign_core(
+		Pallet::<Test>::assign_core(
 			CoreIndex(1),
 			0,
 			vec![(CoreAssignment::Pool, PartsOf57600::FULL)],
@@ -356,7 +356,7 @@ fn advance_claim_queue_except_for() {
 	let para_d = ParaId::from(4_u32);
 	let para_e = ParaId::from(5_u32);
 
-	CoretimeAssigner::assign_core(
+	Pallet::<Test>::assign_core(
 		CoreIndex(0),
 		0,
 		vec![(CoreAssignment::Pool, PartsOf57600::FULL)],
@@ -409,9 +409,9 @@ fn advance_claim_queue_except_for() {
 			let scheduled: BTreeMap<_, _> = next_assignments().collect();
 
 			assert_eq!(scheduled.len(), 3);
-			assert_eq!(scheduled.get(&CoreIndex(0)).unwrap(), para_a);
-			assert_eq!(scheduled.get(&CoreIndex(1)).unwrap(), para_c);
-			assert_eq!(scheduled.get(&CoreIndex(2)).unwrap(), para_b);
+			assert_eq!(*scheduled.get(&CoreIndex(0)).unwrap(), para_a);
+			assert_eq!(*scheduled.get(&CoreIndex(1)).unwrap(), para_c);
+			assert_eq!(*scheduled.get(&CoreIndex(2)).unwrap(), para_b);
 		}
 
 		// now note that cores 0 and 1 were freed.
@@ -422,9 +422,9 @@ fn advance_claim_queue_except_for() {
 
 			// 1 thing scheduled before, + 2 cores freed.
 			assert_eq!(scheduled.len(), 3);
-			assert_eq!(scheduled.get(&CoreIndex(0)).unwrap(), para_d);
-			assert_eq!(scheduled.get(&CoreIndex(1)).unwrap(), para_e);
-			assert_eq!(scheduled.get(&CoreIndex(2)).unwrap(), para_b);
+			assert_eq!(*scheduled.get(&CoreIndex(0)).unwrap(), para_d);
+			assert_eq!(*scheduled.get(&CoreIndex(1)).unwrap(), para_e);
+			assert_eq!(*scheduled.get(&CoreIndex(2)).unwrap(), para_b);
 		}
 	});
 }
@@ -565,14 +565,14 @@ fn session_change_increasing_number_of_cores() {
 			_ => None,
 		});
 
-		CoretimeAssigner::assign_core(
+		Pallet::<Test>::assign_core(
 			CoreIndex(0),
 			0,
 			vec![(CoreAssignment::Pool, PartsOf57600::FULL)],
 			None,
 		)
 		.unwrap();
-		CoretimeAssigner::assign_core(
+		Pallet::<Test>::assign_core(
 			CoreIndex(1),
 			0,
 			vec![(CoreAssignment::Pool, PartsOf57600::FULL)],
@@ -607,14 +607,14 @@ fn session_change_increasing_number_of_cores() {
 		// add another assignment for para b.
 		on_demand::Pallet::<Test>::push_back_order(para_b);
 
-		CoretimeAssigner::assign_core(
+		Pallet::<Test>::assign_core(
 			CoreIndex(2),
 			0,
 			vec![(CoreAssignment::Pool, PartsOf57600::FULL)],
 			None,
 		)
 		.unwrap();
-		CoretimeAssigner::assign_core(
+		Pallet::<Test>::assign_core(
 			CoreIndex(3),
 			0,
 			vec![(CoreAssignment::Pool, PartsOf57600::FULL)],
@@ -665,9 +665,6 @@ fn session_change_decreasing_number_of_cores() {
 
 	let para_a = ParaId::from(3_u32);
 	let para_b = ParaId::from(4_u32);
-
-	let assignment_a = Assignment::Bulk(para_a);
-	let assignment_b = Assignment::Bulk(para_b);
 
 	new_test_ext(genesis_config).execute_with(|| {
 		// Add 2 paras
@@ -755,9 +752,6 @@ fn session_change_increasing_lookahead() {
 	let para_a = ParaId::from(3_u32);
 	let para_b = ParaId::from(4_u32);
 
-	let assignment_a = Assignment::Bulk(para_a);
-	let assignment_b = Assignment::Bulk(para_b);
-
 	new_test_ext(genesis_config).execute_with(|| {
 		// Add 2 paras
 		register_para(para_a);
@@ -776,7 +770,7 @@ fn session_change_increasing_lookahead() {
 			_ => None,
 		});
 
-		CoretimeAssigner::assign_core(
+		Pallet::<Test>::assign_core(
 			CoreIndex(0),
 			0,
 			vec![(CoreAssignment::Pool, PartsOf57600::FULL)],

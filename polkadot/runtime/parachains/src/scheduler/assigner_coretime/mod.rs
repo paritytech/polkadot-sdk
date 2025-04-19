@@ -298,6 +298,7 @@ impl<N> From<Schedule<N>> for WorkState<N> {
 	}
 }
 
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Error {
 	AssignmentsEmpty,
 	/// assign_core is only allowed to append new assignments at the end of already existing

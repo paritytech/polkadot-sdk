@@ -2453,10 +2453,7 @@ mod sanitizers {
 
 	mod candidates {
 		use crate::{
-			assigner_coretime::{self, PartsOf57600},
-			mock::{set_disabled_validators, RuntimeOrigin},
-			on_demand,
-			util::{make_persisted_validation_data, make_persisted_validation_data_with_parent},
+			mock::{set_disabled_validators, RuntimeOrigin}, on_demand, scheduler::PartsOf57600, util::{make_persisted_validation_data, make_persisted_validation_data_with_parent}
 		};
 		use alloc::collections::vec_deque::VecDeque;
 		use pallet_broker::CoreAssignment;
@@ -2534,7 +2531,7 @@ mod sanitizers {
 			]);
 
 			// Update scheduler's claimqueue with the parachains
-			assigner_coretime::Pallet::<Test>::assign_core(
+			scheduler::Pallet::<Test>::assign_core(
 				CoreIndex(0),
 				0,
 				vec![(CoreAssignment::Pool, PartsOf57600::FULL)],
@@ -2542,7 +2539,7 @@ mod sanitizers {
 			)
 			.unwrap();
 			on_demand::Pallet::<Test>::push_back_order(1.into());
-			assigner_coretime::Pallet::<Test>::assign_core(
+			scheduler::Pallet::<Test>::assign_core(
 				CoreIndex(1),
 				0,
 				vec![(CoreAssignment::Pool, PartsOf57600::FULL)],
@@ -2718,90 +2715,18 @@ mod sanitizers {
 			]);
 
 			// Update scheduler's claimqueue with the parachains
-			scheduler::Pallet::<Test>::set_claim_queue(BTreeMap::from([
-				(
-					CoreIndex::from(0),
-					VecDeque::from([Assignment::Pool {
-						para_id: 1.into(),
-						core_index: CoreIndex(0),
-					}]),
-				),
-				(
-					CoreIndex::from(1),
-					VecDeque::from([Assignment::Pool {
-						para_id: 1.into(),
-						core_index: CoreIndex(1),
-					}]),
-				),
-				(
-					CoreIndex::from(2),
-					VecDeque::from([Assignment::Pool {
-						para_id: 2.into(),
-						core_index: CoreIndex(2),
-					}]),
-				),
-				(
-					CoreIndex::from(3),
-					VecDeque::from([Assignment::Pool {
-						para_id: 2.into(),
-						core_index: CoreIndex(3),
-					}]),
-				),
-				(
-					CoreIndex::from(4),
-					VecDeque::from([Assignment::Pool {
-						para_id: 3.into(),
-						core_index: CoreIndex(4),
-					}]),
-				),
-				(
-					CoreIndex::from(5),
-					VecDeque::from([Assignment::Pool {
-						para_id: 4.into(),
-						core_index: CoreIndex(5),
-					}]),
-				),
-				(
-					CoreIndex::from(6),
-					VecDeque::from([Assignment::Pool {
-						para_id: 5.into(),
-						core_index: CoreIndex(6),
-					}]),
-				),
-				(
-					CoreIndex::from(7),
-					VecDeque::from([Assignment::Pool {
-						para_id: 7.into(),
-						core_index: CoreIndex(7),
-					}]),
-				),
-				(
-					CoreIndex::from(8),
-					VecDeque::from([Assignment::Pool {
-						para_id: 7.into(),
-						core_index: CoreIndex(8),
-					}]),
-				),
-				(
-					CoreIndex::from(9),
-					VecDeque::from([Assignment::Pool {
-						para_id: 8.into(),
-						core_index: CoreIndex(9),
-					}]),
-				),
-			]));
+			for (core_num, para_id) in [(0, 1), (1, 1), (2, 2), (3, 2), (4, 3), (5, 4), (6, 5), (7, 7), (8, 7), (9, 8)] {
+			scheduler::Pallet::<Test>::assign_core(
+				CoreIndex::from(core_num),
+				RELAY_PARENT_NUM, vec![(CoreAssignment::Task(para_id), PartsOf57600::FULL)], None).unwrap();
+			}
 
 			// Add the relay parent to `shared` pallet. Otherwise some code (e.g. filtering backing
 			// votes) won't behave correctly
 			shared::Pallet::<Test>::add_allowed_relay_parent(
 				relay_parent,
 				Default::default(),
-				scheduler::Pallet::<Test>::claim_queue()
-					.into_iter()
-					.map(|(core_index, paras)| {
-						(core_index, paras.into_iter().map(|e| e.para_id()).collect())
-					})
-					.collect(),
+				scheduler::Pallet::<Test>::claim_queue(),
 				RELAY_PARENT_NUM,
 				1,
 			);
@@ -3165,25 +3090,9 @@ mod sanitizers {
 				}
 			}
 
-			// State sanity checks
-			assert_eq!(
-				Pallet::<Test>::eligible_paras(&Default::default()).collect::<Vec<_>>(),
-				vec![
-					(CoreIndex(0), ParaId::from(1)),
-					(CoreIndex(1), ParaId::from(1)),
-					(CoreIndex(2), ParaId::from(2)),
-					(CoreIndex(3), ParaId::from(2)),
-					(CoreIndex(4), ParaId::from(3)),
-					(CoreIndex(5), ParaId::from(4)),
-					(CoreIndex(6), ParaId::from(5)),
-					(CoreIndex(7), ParaId::from(7)),
-					(CoreIndex(8), ParaId::from(7)),
-					(CoreIndex(9), ParaId::from(8)),
-				]
-			);
 			let mut scheduled: BTreeMap<ParaId, BTreeSet<CoreIndex>> = BTreeMap::new();
-			for (core_idx, para_id) in Pallet::<Test>::eligible_paras(&Default::default()) {
-				scheduled.entry(para_id).or_default().insert(core_idx);
+			for (core_idx, para_ids) in scheduler::Pallet::<Test>::claim_queue() {
+				scheduled.entry(*para_ids.front().unwrap()).or_default().insert(core_idx);
 			}
 
 			assert_eq!(
@@ -3263,71 +3172,12 @@ mod sanitizers {
 			]);
 
 			// Update scheduler's claimqueue with the parachains
-			scheduler::Pallet::<Test>::set_claim_queue(BTreeMap::from([
-				(
-					CoreIndex::from(0),
-					VecDeque::from([Assignment::Pool {
-						para_id: 1.into(),
-						core_index: CoreIndex(0),
-					}]),
-				),
-				(
-					CoreIndex::from(1),
-					VecDeque::from([Assignment::Pool {
-						para_id: 1.into(),
-						core_index: CoreIndex(1),
-					}]),
-				),
-				(
-					CoreIndex::from(2),
-					VecDeque::from([Assignment::Pool {
-						para_id: 2.into(),
-						core_index: CoreIndex(2),
-					}]),
-				),
-				(
-					CoreIndex::from(3),
-					VecDeque::from([Assignment::Pool {
-						para_id: 2.into(),
-						core_index: CoreIndex(3),
-					}]),
-				),
-				(
-					CoreIndex::from(4),
-					VecDeque::from([Assignment::Pool {
-						para_id: 2.into(),
-						core_index: CoreIndex(4),
-					}]),
-				),
-				(
-					CoreIndex::from(5),
-					VecDeque::from([Assignment::Pool {
-						para_id: 3.into(),
-						core_index: CoreIndex(5),
-					}]),
-				),
-				(
-					CoreIndex::from(6),
-					VecDeque::from([Assignment::Pool {
-						para_id: 3.into(),
-						core_index: CoreIndex(6),
-					}]),
-				),
-				(
-					CoreIndex::from(7),
-					VecDeque::from([Assignment::Pool {
-						para_id: 4.into(),
-						core_index: CoreIndex(7),
-					}]),
-				),
-				(
-					CoreIndex::from(8),
-					VecDeque::from([Assignment::Pool {
-						para_id: 4.into(),
-						core_index: CoreIndex(8),
-					}]),
-				),
-			]));
+			// Update scheduler's claimqueue with the parachains
+			for (core_num, para_id) in [(0, 1), (1, 1), (2, 2), (3, 2), (4, 2), (5, 3), (6, 3), (7, 4), (8, 4)] {
+			scheduler::Pallet::<Test>::assign_core(
+				CoreIndex::from(core_num),
+				RELAY_PARENT_NUM, vec![(CoreAssignment::Task(para_id), PartsOf57600::FULL)], None).unwrap();
+			}
 
 			shared::Pallet::<Test>::add_allowed_relay_parent(
 				relay_parent,
