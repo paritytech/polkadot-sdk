@@ -57,6 +57,7 @@ pub fn genesis() -> Storage {
 		system: rococo_runtime::SystemConfig::default(),
 		balances: rococo_runtime::BalancesConfig {
 			balances: accounts::init_balances().iter().map(|k| (k.clone(), ENDOWMENT)).collect(),
+			..Default::default()
 		},
 		session: rococo_runtime::SessionConfig {
 			keys: validators::initial_authorities()

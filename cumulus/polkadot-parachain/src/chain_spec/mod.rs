@@ -1,18 +1,18 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
+// SPDX-License-Identifier: Apache-2.0
 
-// Cumulus is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-
-// Cumulus is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License for more details.
-
-// You should have received a copy of the GNU General Public License
-// along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// 	http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 use cumulus_primitives_core::ParaId;
 use polkadot_omni_node_lib::{
@@ -21,7 +21,8 @@ use polkadot_omni_node_lib::{
 		AuraConsensusId, BlockNumber, Consensus, Runtime, RuntimeResolver as RuntimeResolverT,
 	},
 };
-use sc_chain_spec::ChainSpec;
+use sc_chain_spec::{ChainSpec, ChainType};
+use yet_another_parachain::yet_another_parachain_config;
 
 pub mod asset_hubs;
 pub mod bridge_hubs;
@@ -31,6 +32,7 @@ pub mod glutton;
 pub mod penpal;
 pub mod people;
 pub mod rococo_parachain;
+pub mod yet_another_parachain;
 
 /// The default XCM version to set in genesis config.
 const SAFE_XCM_VERSION: u32 = xcm::prelude::XCM_VERSION;
@@ -151,14 +153,18 @@ impl LoadSpec for ChainSpecLoader {
 			// -- Glutton Westend
 			id if id.starts_with("glutton-westend-dev") => {
 				let (_, _, para_id) = extract_parachain_id(&id, &["glutton-westend-dev-"]);
-				Box::new(glutton::glutton_westend_development_config(
+				Box::new(glutton::glutton_westend_config(
 					para_id.expect("Must specify parachain id"),
+					ChainType::Development,
+					"westend-dev",
 				))
 			},
 			id if id.starts_with("glutton-westend-local") => {
 				let (_, _, para_id) = extract_parachain_id(&id, &["glutton-westend-local-"]);
-				Box::new(glutton::glutton_westend_local_config(
+				Box::new(glutton::glutton_westend_config(
 					para_id.expect("Must specify parachain id"),
+					ChainType::Local,
+					"westend-local",
 				))
 			},
 			// the chain spec as used for generating the upgrade genesis values
@@ -166,7 +172,28 @@ impl LoadSpec for ChainSpecLoader {
 				let (_, _, para_id) = extract_parachain_id(&id, &["glutton-westend-genesis-"]);
 				Box::new(glutton::glutton_westend_config(
 					para_id.expect("Must specify parachain id"),
+					ChainType::Live,
+					"westend",
 				))
+			},
+
+			id if id.starts_with("yap-") => {
+				let tok: Vec<String> = id.split('-').map(|s| s.to_owned()).collect();
+				assert!(
+					tok.len() == 4,
+					"Invalid YAP chain id, should be 'yap-<relay>-<chaintype>-<para-id>'"
+				);
+				let relay = if &tok[2] == "live" { tok[1].clone() } else { tok[1..=2].join("-") };
+				let chain_type = match tok[2].as_str() {
+					"local" => ChainType::Local,
+					"dev" => ChainType::Development,
+					"live" => ChainType::Live,
+					_ => unimplemented!("Unknown chain type {}", tok[2]),
+				};
+				let para_id: u32 =
+					tok[3].parse().expect(&format!("Illegal para id '{}' provided", tok[3]));
+
+				Box::new(yet_another_parachain_config(relay, chain_type, para_id))
 			},
 
 			// -- People

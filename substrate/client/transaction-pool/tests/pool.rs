@@ -45,6 +45,8 @@ use substrate_test_runtime_client::{
 };
 use substrate_test_runtime_transaction_pool::{uxt, TestApi};
 
+type Pool<Api> = sc_transaction_pool::Pool<Api, ()>;
+
 const LOG_TARGET: &str = "txpool";
 
 fn pool() -> (Pool<TestApi>, Arc<TestApi>) {
@@ -158,6 +160,7 @@ fn prune_tags_should_work() {
 	let (pool, api) = pool();
 	let hash209 =
 		block_on(pool.submit_one(&api.expect_hash_and_number(0), TSOURCE, uxt(Alice, 209).into()))
+			.map(|o| o.hash())
 			.unwrap();
 	block_on(pool.submit_one(&api.expect_hash_and_number(0), TSOURCE, uxt(Alice, 210).into()))
 		.unwrap();
@@ -184,10 +187,13 @@ fn prune_tags_should_work() {
 fn should_ban_invalid_transactions() {
 	let (pool, api) = pool();
 	let uxt = Arc::from(uxt(Alice, 209));
-	let hash =
-		block_on(pool.submit_one(&api.expect_hash_and_number(0), TSOURCE, uxt.clone())).unwrap();
+	let hash = block_on(pool.submit_one(&api.expect_hash_and_number(0), TSOURCE, uxt.clone()))
+		.unwrap()
+		.hash();
 	pool.validated_pool().remove_invalid(&[hash]);
-	block_on(pool.submit_one(&api.expect_hash_and_number(0), TSOURCE, uxt.clone())).unwrap_err();
+	block_on(pool.submit_one(&api.expect_hash_and_number(0), TSOURCE, uxt.clone()))
+		.map(|_| ())
+		.unwrap_err();
 
 	// when
 	let pending: Vec<_> = pool
@@ -198,7 +204,9 @@ fn should_ban_invalid_transactions() {
 	assert_eq!(pending, Vec::<Nonce>::new());
 
 	// then
-	block_on(pool.submit_one(&api.expect_hash_and_number(0), TSOURCE, uxt.clone())).unwrap_err();
+	block_on(pool.submit_one(&api.expect_hash_and_number(0), TSOURCE, uxt.clone()))
+		.map(|_| ())
+		.unwrap_err();
 }
 
 #[test]

@@ -44,9 +44,9 @@ use polkadot_node_subsystem::{
 	SubsystemContext, SubsystemError, SubsystemResult, SubsystemSender,
 };
 use polkadot_node_subsystem_util::{
-	request_claim_queue, request_persisted_validation_data, request_session_index_for_child,
-	request_validation_code_hash, request_validators,
-	runtime::{request_node_features, ClaimQueueSnapshot},
+	request_claim_queue, request_node_features, request_persisted_validation_data,
+	request_session_index_for_child, request_validation_code_hash, request_validators,
+	runtime::ClaimQueueSnapshot,
 };
 use polkadot_primitives::{
 	collator_signature_payload,
@@ -56,12 +56,11 @@ use polkadot_primitives::{
 		CommittedCandidateReceiptV2, TransposedClaimQueue,
 	},
 	CandidateCommitments, CandidateDescriptor, CollatorPair, CoreIndex, Hash, Id as ParaId,
-	NodeFeatures, OccupiedCoreAssumption, PersistedValidationData, SessionIndex,
-	ValidationCodeHash,
+	OccupiedCoreAssumption, PersistedValidationData, SessionIndex, ValidationCodeHash,
 };
 use schnellru::{ByLength, LruMap};
 use sp_core::crypto::Pair;
-use std::sync::Arc;
+use std::{collections::HashSet, sync::Arc};
 
 mod error;
 
@@ -276,13 +275,15 @@ impl CollationGenerationSubsystem {
 		let claim_queue =
 			ClaimQueueSnapshot::from(request_claim_queue(relay_parent, ctx.sender()).await.await??);
 
-		let cores_to_build_on = claim_queue
-			.iter_claims_at_depth(0)
-			.filter_map(|(core_idx, para_id)| (para_id == config.para_id).then_some(core_idx))
+		let assigned_cores = claim_queue
+			.iter_all_claims()
+			.filter_map(|(core_idx, para_ids)| {
+				para_ids.iter().any(|&para_id| para_id == config.para_id).then_some(*core_idx)
+			})
 			.collect::<Vec<_>>();
 
-		// Nothing to do if no core assigned to us.
-		if cores_to_build_on.is_empty() {
+		// Nothing to do if no core is assigned to us at any depth.
+		if assigned_cores.is_empty() {
 			return Ok(())
 		}
 
@@ -342,9 +343,13 @@ impl CollationGenerationSubsystem {
 		ctx.spawn(
 			"chained-collation-builder",
 			Box::pin(async move {
-				let transposed_claim_queue = transpose_claim_queue(claim_queue.0);
+				let transposed_claim_queue = transpose_claim_queue(claim_queue.0.clone());
 
-				for core_index in cores_to_build_on {
+				// Track used core indexes not to submit collations on the same core.
+				let mut used_cores = HashSet::new();
+
+				for i in 0..assigned_cores.len() {
+					// Get the collation.
 					let collator_fn = match task_config.collator.as_ref() {
 						Some(x) => x,
 						None => return,
@@ -363,6 +368,70 @@ impl CollationGenerationSubsystem {
 							},
 						};
 
+					// Use the core_selector method from CandidateCommitments to extract
+					// CoreSelector and ClaimQueueOffset.
+					let mut commitments = CandidateCommitments::default();
+					commitments.upward_messages = collation.upward_messages.clone();
+
+					let ump_signals = match commitments.ump_signals() {
+						Ok(signals) => signals,
+						Err(err) => {
+							gum::debug!(
+								target: LOG_TARGET,
+								?para_id,
+								"error processing UMP signals: {}",
+								err
+							);
+							return
+						},
+					};
+
+					let (cs_index, cq_offset) = ump_signals
+						.core_selector()
+						.map(|(cs_index, cq_offset)| (cs_index.0 as usize, cq_offset.0 as usize))
+						.unwrap_or((i, 0));
+
+					// Identify the cores to build collations on using the given claim queue offset.
+					let cores_to_build_on = claim_queue
+						.iter_claims_at_depth(cq_offset)
+						.filter_map(|(core_idx, para_id)| {
+							(para_id == task_config.para_id).then_some(core_idx)
+						})
+						.collect::<Vec<_>>();
+
+					if cores_to_build_on.is_empty() {
+						gum::debug!(
+							target: LOG_TARGET,
+							?para_id,
+							"no core is assigned to para at depth {}",
+							cq_offset,
+						);
+						return
+					}
+
+					let descriptor_core_index =
+						cores_to_build_on[cs_index % cores_to_build_on.len()];
+
+					// Ensure the core index has not been used before.
+					if used_cores.contains(&descriptor_core_index.0) {
+						gum::warn!(
+							target: LOG_TARGET,
+							?para_id,
+							"parachain repeatedly selected the same core index: {}",
+							descriptor_core_index.0,
+						);
+						return
+					}
+
+					used_cores.insert(descriptor_core_index.0);
+					gum::trace!(
+						target: LOG_TARGET,
+						?para_id,
+						"selected core index: {}",
+						descriptor_core_index.0,
+					);
+
+					// Distribute the collation.
 					let parent_head = collation.head_data.clone();
 					if let Err(err) = construct_and_distribute_receipt(
 						PreparedCollation {
@@ -372,7 +441,7 @@ impl CollationGenerationSubsystem {
 							validation_data: validation_data.clone(),
 							validation_code_hash,
 							n_validators,
-							core_index,
+							core_index: descriptor_core_index,
 							session_index,
 						},
 						task_config.key.clone(),
@@ -442,9 +511,8 @@ impl SessionInfoCache {
 		let n_validators =
 			request_validators(relay_parent, &mut sender.clone()).await.await??.len();
 
-		let node_features = request_node_features(relay_parent, session_index, sender)
-			.await?
-			.unwrap_or(NodeFeatures::EMPTY);
+		let node_features =
+			request_node_features(relay_parent, session_index, sender).await.await??;
 
 		let info = PerSessionInfo {
 			v2_receipts: node_features
@@ -546,15 +614,15 @@ async fn construct_and_distribute_receipt(
 				commitments.head_data.hash(),
 				validation_code_hash,
 			),
-			commitments,
+			commitments: commitments.clone(),
 		};
 
-		ccr.check_core_index(&transposed_claim_queue)
+		ccr.parse_ump_signals(&transposed_claim_queue)
 			.map_err(Error::CandidateReceiptCheck)?;
 
 		ccr.to_plain()
 	} else {
-		if commitments.core_selector().map_err(Error::CandidateReceiptCheck)?.is_some() {
+		if !commitments.ump_signals().map_err(Error::CandidateReceiptCheck)?.is_empty() {
 			gum::warn!(
 				target: LOG_TARGET,
 				?pov_hash,
@@ -587,8 +655,15 @@ async fn construct_and_distribute_receipt(
 		?relay_parent,
 		para_id = %para_id,
 		?core_index,
-		"candidate is generated",
+		"Candidate generated",
 	);
+	gum::trace!(
+		target: LOG_TARGET,
+		?commitments,
+		candidate_hash = ?receipt.hash(),
+		"Candidate commitments",
+	);
+
 	metrics.on_collation_generated();
 
 	sender

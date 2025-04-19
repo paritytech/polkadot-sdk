@@ -56,7 +56,7 @@ fn transfer_and_transact_in_same_xcm(
 		destination,
 		remote_fees: Some(AssetTransferFilter::ReserveDeposit(Wild(All))),
 		preserve_origin: true,
-		assets: vec![],
+		assets: BoundedVec::new(),
 		remote_xcm: xcm_on_dest,
 	}]);
 	let xcm = Xcm::<()>(vec![
@@ -66,7 +66,9 @@ fn transfer_and_transact_in_same_xcm(
 			destination: asset_hub_location,
 			remote_fees: Some(AssetTransferFilter::ReserveWithdraw(fees_for_ah.into())),
 			preserve_origin: true,
-			assets: vec![AssetTransferFilter::ReserveWithdraw(usdt_to_ah_then_onward.into())],
+			assets: BoundedVec::truncate_from(vec![AssetTransferFilter::ReserveWithdraw(
+				usdt_to_ah_then_onward.into(),
+			)]),
 			remote_xcm: xcm_on_ah,
 		},
 	]);
@@ -147,7 +149,6 @@ fn transact_from_para_to_para_through_asset_hub() {
 	// (going through Asset Hub)
 
 	let usdt_to_send: Asset = (usdt_from_asset_hub.clone(), fee_amount_to_send).into();
-	let assets: Assets = usdt_to_send.clone().into();
 	let asset_location_on_penpal_a =
 		Location::new(0, [PalletInstance(ASSETS_PALLET_ID), GeneralIndex(ASSET_ID.into())]);
 	let penpal_a_as_seen_by_penpal_b = PenpalB::sibling_location_of(PenpalA::para_id());
@@ -172,10 +173,7 @@ fn transact_from_para_to_para_through_asset_hub() {
 		let sov_penpal_a_on_ah = AssetHubWestend::sovereign_account_id_of(
 			AssetHubWestend::sibling_location_of(PenpalA::para_id()),
 		);
-		let sov_penpal_b_on_ah = AssetHubWestend::sovereign_account_id_of(
-			AssetHubWestend::sibling_location_of(PenpalB::para_id()),
-		);
-		asset_hub_hop_assertions(&assets, sov_penpal_a_on_ah, sov_penpal_b_on_ah);
+		asset_hub_hop_assertions(sov_penpal_a_on_ah);
 	});
 	PenpalB::execute_with(|| {
 		let expected_creator =
@@ -196,32 +194,22 @@ fn transact_from_para_to_para_through_asset_hub() {
 	assert!(receiver_assets_after > receiver_assets_before);
 }
 
-fn asset_hub_hop_assertions(assets: &Assets, sender_sa: AccountId, receiver_sa: AccountId) {
+fn asset_hub_hop_assertions(sender_sa: AccountId) {
 	type RuntimeEvent = <AssetHubWestend as Chain>::RuntimeEvent;
-	for asset in assets.inner() {
-		let amount = if let Fungible(a) = asset.fun { a } else { unreachable!() };
-		assert_expected_events!(
-			AssetHubWestend,
-			vec![
-				// Withdrawn from sender parachain SA
-				RuntimeEvent::Assets(
-					pallet_assets::Event::Burned { owner, balance, .. }
-				) => {
-					owner: *owner == sender_sa,
-					balance: *balance == amount,
-				},
-				// Deposited to receiver parachain SA
-				RuntimeEvent::Assets(
-					pallet_assets::Event::Deposited { who, .. }
-				) => {
-					who: *who == receiver_sa,
-				},
-				RuntimeEvent::MessageQueue(
-					pallet_message_queue::Event::Processed { success: true, .. }
-				) => {},
-			]
-		);
-	}
+	assert_expected_events!(
+		AssetHubWestend,
+		vec![
+			// Withdrawn from sender parachain SA
+			RuntimeEvent::Assets(
+				pallet_assets::Event::Burned { owner, .. }
+			) => {
+				owner: *owner == sender_sa,
+			},
+			RuntimeEvent::MessageQueue(
+				pallet_message_queue::Event::Processed { success: true, .. }
+			) => {},
+		]
+	);
 }
 
 fn penpal_b_assertions(

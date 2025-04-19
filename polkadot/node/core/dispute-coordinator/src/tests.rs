@@ -415,13 +415,6 @@ impl TestState {
 				},
 				AllMessages::RuntimeApi(RuntimeApiMessage::Request(
 					_new_leaf,
-					RuntimeApiRequest::Version(tx),
-				)) => {
-					tx.send(Ok(RuntimeApiRequest::DISABLED_VALIDATORS_RUNTIME_REQUIREMENT))
-						.unwrap();
-				},
-				AllMessages::RuntimeApi(RuntimeApiMessage::Request(
-					_new_leaf,
 					RuntimeApiRequest::DisabledValidators(tx),
 				)) => {
 					tx.send(Ok(Vec::new())).unwrap();
@@ -4387,15 +4380,6 @@ async fn handle_disabled_validators_queries(
 	virtual_overseer: &mut VirtualOverseer,
 	disabled_validators: Vec<ValidatorIndex>,
 ) {
-	assert_matches!(
-		virtual_overseer.recv().await,
-		AllMessages::RuntimeApi(RuntimeApiMessage::Request(
-			_new_leaf,
-			RuntimeApiRequest::Version(tx),
-		)) => {
-			tx.send(Ok(RuntimeApiRequest::DISABLED_VALIDATORS_RUNTIME_REQUIREMENT)).unwrap();
-		}
-	);
 	assert_matches!(
 		virtual_overseer.recv().await,
 		AllMessages::RuntimeApi(RuntimeApiMessage::Request(

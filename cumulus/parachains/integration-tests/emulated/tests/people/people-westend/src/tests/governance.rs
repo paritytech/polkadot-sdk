@@ -14,7 +14,6 @@
 // limitations under the License.
 
 use crate::imports::*;
-use frame_support::traits::ProcessMessageError;
 
 use codec::Encode;
 use frame_support::sp_runtime::traits::Dispatchable;
@@ -141,7 +140,7 @@ fn relay_commands_add_registrar_wrong_origin() {
 				assert_expected_events!(
 					PeopleWestend,
 					vec![
-						RuntimeEvent::MessageQueue(pallet_message_queue::Event::ProcessingFailed { error: ProcessMessageError::Unsupported, .. }) => {},
+						RuntimeEvent::MessageQueue(pallet_message_queue::Event::Processed { success: false, .. }) => {},
 					]
 				);
 			} else {
@@ -396,7 +395,7 @@ fn relay_commands_add_remove_username_authority() {
 		);
 	});
 
-	// Now, remove the username authority with another priviledged XCM call.
+	// Now, remove the username authority with another privileged XCM call.
 	Westend::execute_with(|| {
 		type Runtime = <Westend as Chain>::Runtime;
 		type RuntimeCall = <Westend as Chain>::RuntimeCall;

@@ -19,7 +19,7 @@
 use crate::{Message, MessageKey, MessageNonce, MessagePayload, OutboundLaneData};
 
 use bp_runtime::{messages::MessageDispatchResult, raw_storage_proof_size, RawStorageProof, Size};
-use codec::{Decode, Encode, Error as CodecError};
+use codec::{Decode, DecodeWithMemTracking, Encode, Error as CodecError};
 use frame_support::weights::Weight;
 use scale_info::TypeInfo;
 use sp_core::RuntimeDebug;
@@ -37,7 +37,7 @@ use sp_std::{fmt::Debug, marker::PhantomData, prelude::*};
 /// - lane id;
 ///
 /// - nonces (inclusive range) of messages which are included in this proof.
-#[derive(Clone, Decode, Encode, Eq, PartialEq, RuntimeDebug, TypeInfo)]
+#[derive(Clone, Decode, DecodeWithMemTracking, Encode, Eq, PartialEq, RuntimeDebug, TypeInfo)]
 pub struct FromBridgedChainMessagesProof<BridgedHeaderHash, Lane> {
 	/// Hash of the finalized bridged header the proof is for.
 	pub bridged_header_hash: BridgedHeaderHash,

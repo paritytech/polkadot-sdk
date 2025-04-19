@@ -15,7 +15,6 @@ workspace = true
 bitflags = { workspace = true }
 bitvec = { features = ["alloc"], workspace = true }
 codec = { features = ["derive", "max-encoded-len"], workspace = true }
-derive_more = { workspace = true, default-features = true }
 impl-trait-for-tuples = { workspace = true }
 log = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
@@ -47,7 +46,6 @@ pallet-mmr = { workspace = true, optional = true }
 pallet-session = { workspace = true }
 pallet-staking = { workspace = true }
 pallet-timestamp = { workspace = true }
-pallet-vesting = { workspace = true }
 
 polkadot-primitives = { workspace = true }
 xcm = { workspace = true }
@@ -65,7 +63,6 @@ polkadot-primitives = { workspace = true, features = ["test"] }
 
 assert_matches = { workspace = true }
 frame-support-test = { workspace = true }
-futures = { workspace = true }
 hex-literal = { workspace = true, default-features = true }
 polkadot-primitives-test-helpers = { workspace = true }
 rstest = { workspace = true }
@@ -96,7 +93,6 @@ std = [
 	"pallet-session/std",
 	"pallet-staking/std",
 	"pallet-timestamp/std",
-	"pallet-vesting/std",
 	"polkadot-core-primitives/std",
 	"polkadot-parachain-primitives/std",
 	"polkadot-primitives/std",
@@ -122,6 +118,7 @@ std = [
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
+	"frame-support-test/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
 	"pallet-babe/runtime-benchmarks",
@@ -131,7 +128,6 @@ runtime-benchmarks = [
 	"pallet-mmr/runtime-benchmarks",
 	"pallet-staking/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
-	"pallet-vesting/runtime-benchmarks",
 	"polkadot-parachain-primitives/runtime-benchmarks",
 	"polkadot-primitives/runtime-benchmarks",
 	"sp-application-crypto",
@@ -156,7 +152,6 @@ try-runtime = [
 	"pallet-session/try-runtime",
 	"pallet-staking/try-runtime",
 	"pallet-timestamp/try-runtime",
-	"pallet-vesting/try-runtime",
 	"sp-runtime/try-runtime",
 ]
 runtime-metrics = [

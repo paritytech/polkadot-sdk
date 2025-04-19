@@ -1,18 +1,18 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
+// SPDX-License-Identifier: Apache-2.0
 
-// Cumulus is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-
-// Cumulus is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License for more details.
-
-// You should have received a copy of the GNU General Public License
-// along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// 	http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 use crate::chain_spec::SAFE_XCM_VERSION;
 use cumulus_primitives_core::ParaId;
@@ -46,6 +46,7 @@ pub fn get_penpal_chain_spec(id: ParaId, relay_chain: &str) -> GenericChainSpec 
 		],
 		Sr25519Keyring::well_known().map(|k| k.to_account_id()).collect(),
 		id,
+		Sr25519Keyring::Alice.to_account_id(),
 	))
 	.build()
 }
@@ -54,6 +55,7 @@ fn penpal_testnet_genesis(
 	invulnerables: Vec<(AccountId, AuraId)>,
 	endowed_accounts: Vec<AccountId>,
 	id: ParaId,
+	sudo_account: AccountId,
 ) -> serde_json::Value {
 	serde_json::json!({
 		"balances": {
@@ -86,7 +88,45 @@ fn penpal_testnet_genesis(
 			"safeXcmVersion": Some(SAFE_XCM_VERSION),
 		},
 		"sudo": {
-			"key": Some(Sr25519Keyring::Alice.to_account_id()),
+			"key": Some(sudo_account.clone()),
+		},
+		"assets": {
+			"assets": vec![(
+				penpal_runtime::xcm_config::TELEPORTABLE_ASSET_ID,
+				sudo_account.clone(), // owner
+				false, // is_sufficient
+				penpal_runtime::EXISTENTIAL_DEPOSIT,
+			)],
+			"metadata": vec![(
+				penpal_runtime::xcm_config::TELEPORTABLE_ASSET_ID,
+				"pal-2".as_bytes().to_vec(),
+				"pal-2".as_bytes().to_vec(),
+				12,
+			)],
+			"accounts": vec![(
+				penpal_runtime::xcm_config::TELEPORTABLE_ASSET_ID,
+				sudo_account.clone(),
+				penpal_runtime::EXISTENTIAL_DEPOSIT * 4096,
+			)]
+		},
+		"foreignAssets": {
+			"assets": vec![(
+				penpal_runtime::xcm_config::RelayLocation::get(),
+				sudo_account.clone(),
+				true,
+				penpal_runtime::EXISTENTIAL_DEPOSIT
+			)],
+			"metadata": vec![(
+				penpal_runtime::xcm_config::RelayLocation::get(),
+				"relay".as_bytes().to_vec(),
+				"relay".as_bytes().to_vec(),
+				12
+			)],
+			"accounts": vec![(
+				penpal_runtime::xcm_config::RelayLocation::get(),
+				sudo_account.clone(),
+				penpal_runtime::EXISTENTIAL_DEPOSIT * 4096,
+			)]
 		},
 	})
 }

@@ -20,10 +20,7 @@
 use super::*;
 
 use crate as recovery;
-use frame_support::{
-	derive_impl, parameter_types,
-	traits::{OnFinalize, OnInitialize},
-};
+use frame_support::{derive_impl, parameter_types};
 use sp_runtime::BuildStorage;
 
 type Block = frame_system::mocking::MockBlock<Test>;
@@ -81,19 +78,9 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 	let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 	pallet_balances::GenesisConfig::<Test> {
 		balances: vec![(1, 100), (2, 100), (3, 100), (4, 100), (5, 100)],
+		..Default::default()
 	}
 	.assimilate_storage(&mut t)
 	.unwrap();
 	t.into()
-}
-
-/// Run until a particular block.
-pub fn run_to_block(n: u64) {
-	while System::block_number() < n {
-		if System::block_number() > 1 {
-			System::on_finalize(System::block_number());
-		}
-		System::set_block_number(System::block_number() + 1);
-		System::on_initialize(System::block_number());
-	}
 }
