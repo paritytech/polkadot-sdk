@@ -40,6 +40,7 @@ use sc_cli::{CliConfiguration, Result, SubstrateCli};
 use sp_runtime::traits::AccountIdConversion;
 #[cfg(feature = "runtime-benchmarks")]
 use sp_runtime::traits::HashingFor;
+use crate::extra_commands::NoExtraSubcommand;
 
 const DEFAULT_DEV_BLOCK_TIME_MS: u64 = 3000;
 
@@ -115,15 +116,10 @@ pub fn run<CliConfig: crate::cli::CliConfig>(cmd_config: RunConfig) -> Result<()
 }
 
 /// Parse command‑line arguments into service configuration and inject an
-/// optional extra sub‑command**.
+/// optional extra sub‑command.
 ///
 /// `run_with_custom_cli` builds the base CLI for the node binary, then asks the
 /// `Extra` type for an optional extra sub‑command via
-/// `Extra::extra_command()`.
-///
-/// * If `Extra::extra_command()` returns `Some(cmd)` the command is bolted onto the CLI (it shows
-///   up in `--help` and can be invoked).
-/// * If it returns `None` the binary exposes only the core Substrate / Cumulus commands.
 ///
 /// When the user actually invokes that extra sub‑command,
 /// `Extra::from_arg_matches` returns a parsed value which is immediately passed
@@ -136,16 +132,13 @@ pub fn run<CliConfig: crate::cli::CliConfig>(cmd_config: RunConfig) -> Result<()
 /// * `Extra` – an implementation of [`ExtraSubcommand`].  Use *[`DefaultExtraSubcommands`]* in
 ///   binaries that want some extra subcommands such as `export‑chain-spec`; use
 ///   *[`NoExtraSubcommand`]* when the binary should expose no extra subcommands.
-pub fn run_with_custom_cli<CliConfig, Extra: ExtraSubcommand>(cmd_config: RunConfig) -> Result<()>
+pub fn run_with_custom_cli<CliConfig, Extra>(cmd_config: RunConfig) -> Result<()>
 where
 	CliConfig: crate::cli::CliConfig,
 	Extra: ExtraSubcommand,
 {
-	let cli_command = if let Some(extra_cli) = Some(<Extra as CommandFactory>::command()) {
-		Cli::<CliConfig>::augment_args(extra_cli)
-	} else {
-		Cli::<CliConfig>::command()
-	};
+
+	let cli_command = Cli::<CliConfig>::augment_args(<Extra as CommandFactory>::command());
 	let matches = cli_command.get_matches();
 
 	// if user invoked the extra sub‑command, run it and exit

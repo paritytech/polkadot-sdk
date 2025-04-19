@@ -15406,6 +15406,7 @@ dependencies = [
 name = "polkadot-omni-node"
 version = "0.1.0"
 dependencies = [
+ "assert_cmd",
  "color-eyre",
  "polkadot-omni-node-lib",
  "substrate-build-script-utils",
