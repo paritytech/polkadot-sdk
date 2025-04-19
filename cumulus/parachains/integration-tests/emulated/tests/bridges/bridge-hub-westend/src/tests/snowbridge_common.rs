@@ -13,7 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{create_pool_with_native_on, imports::*};
+use crate::{imports::*};
 use asset_hub_westend_runtime::xcm_config::LocationToAccountId;
 use emulated_integration_tests_common::PenpalBTeleportableAssetLocation;
 use frame_support::traits::fungibles::Mutate;

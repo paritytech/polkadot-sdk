@@ -14,7 +14,6 @@
 // limitations under the License.
 
 use crate::{
-	create_pool_with_native_on,
 	tests::{snowbridge::CHAIN_ID, *},
 };
 use sp_core::Get;
