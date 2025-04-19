@@ -178,6 +178,7 @@ pub mod pallet {
 	#[pallet::config]
 	pub trait Config<I: 'static = ()>: frame_system::Config {
 		/// The overarching event type.
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self, I>>
 			+ IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
@@ -302,7 +303,7 @@ pub mod pallet {
 			ensure_signed(origin)?;
 			let dislocated = T::Lookup::lookup(dislocated)?;
 			let current_score = T::ScoreProvider::score(&dislocated);
-			let _ = Pallet::<T, I>::do_rebag(&dislocated, current_score)
+			Pallet::<T, I>::do_rebag(&dislocated, current_score)
 				.map_err::<Error<T, I>, _>(Into::into)?;
 			Ok(())
 		}
@@ -340,7 +341,7 @@ pub mod pallet {
 			heavier: AccountIdLookupOf<T>,
 			lighter: AccountIdLookupOf<T>,
 		) -> DispatchResult {
-			let _ = ensure_signed(origin)?;
+			ensure_signed(origin)?;
 			let lighter = T::Lookup::lookup(lighter)?;
 			let heavier = T::Lookup::lookup(heavier)?;
 			List::<T, I>::put_in_front_of(&lighter, &heavier)

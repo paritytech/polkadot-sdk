@@ -70,6 +70,7 @@ pub mod pallet {
 		type Deposit: Get<BalanceOf<Self>>;
 
 		/// The overarching event type.
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		/// Weight information for extrinsics in this pallet.
