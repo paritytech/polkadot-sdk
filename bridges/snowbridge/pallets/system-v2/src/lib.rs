@@ -225,9 +225,9 @@ pub mod pallet {
 	impl<T: Config> Pallet<T> {
 		/// Send `command` to the Gateway from a specific origin/agent
 		fn send(origin: H256, command: Command, fee: u128) -> DispatchResult {
-			let mut message = Message {
+			let message = Message {
 				origin,
-				id: frame_system::unique((origin, command, fee)),
+				id: frame_system::unique((origin, &command, fee)).into(),
 				fee,
 				commands: BoundedVec::try_from(vec![command]).unwrap(),
 			};
