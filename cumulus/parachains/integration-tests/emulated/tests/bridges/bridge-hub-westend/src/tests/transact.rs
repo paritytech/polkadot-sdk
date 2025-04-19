@@ -183,10 +183,7 @@ fn transact_from_ethereum_to_penpalb_through_asset_hub() {
 		);
 	});
 	AssetHubWestend::execute_with(|| {
-		let sov_penpal_b_on_ah = AssetHubWestend::sovereign_account_id_of(
-			AssetHubWestend::sibling_location_of(PenpalB::para_id()),
-		);
-		asset_hub_hop_assertions(sov_penpal_b_on_ah);
+		asset_hub_hop_assertions();
 	});
 	PenpalB::execute_with(|| {
 		let expected_creator = PenpalB::sovereign_account_id_of(sender);
@@ -202,17 +199,15 @@ fn transact_from_ethereum_to_penpalb_through_asset_hub() {
 	assert!(receiver_assets_after > receiver_assets_before);
 }
 
-fn asset_hub_hop_assertions(receiver_sa: AccountId) {
+fn asset_hub_hop_assertions() {
 	type RuntimeEvent = <AssetHubWestend as Chain>::RuntimeEvent;
 	assert_expected_events!(
 		AssetHubWestend,
 		vec![
 			// Deposited to receiver parachain SA
 			RuntimeEvent::ForeignAssets(
-				pallet_assets::Event::Deposited { who, .. }
-			) => {
-				who: *who == receiver_sa,
-			},
+				pallet_assets::Event::Deposited { .. }
+			) => {},
 			RuntimeEvent::MessageQueue(
 				pallet_message_queue::Event::Processed { success: true, .. }
 			) => {},

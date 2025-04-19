@@ -59,6 +59,7 @@ const INSUFFICIENT_XCM_FEE: u128 = 1000;
 const TOKEN_AMOUNT: u128 = 100_000_000_000;
 const TREASURY_ACCOUNT: [u8; 32] =
 	hex!("6d6f646c70792f74727372790000000000000000000000000000000000000000");
+const BRIDGE_FEE: u128 = 4_000_000_000_000;
 
 #[derive(Encode, Decode, Debug, PartialEq, Eq, Clone, TypeInfo)]
 pub enum ControlCall {
@@ -1222,7 +1223,7 @@ fn transfer_penpal_native_asset() {
 		// DOT as fee
 		let assets = vec![
 			// Should cover the bridge fee
-			Asset { id: AssetId(Location::parent()), fun: Fungible(3_000_000_000_000) },
+			Asset { id: AssetId(Location::parent()), fun: Fungible(BRIDGE_FEE) },
 			Asset { id: AssetId(Location::here()), fun: Fungible(TOKEN_AMOUNT) },
 		];
 
@@ -1430,7 +1431,7 @@ fn transfer_penpal_teleport_enabled_asset() {
 		// DOT as fee
 		let assets = vec![
 			// Should cover the bridge fee
-			Asset { id: AssetId(Location::parent()), fun: Fungible(3_000_000_000_000) },
+			Asset { id: AssetId(Location::parent()), fun: Fungible(BRIDGE_FEE) },
 			Asset { id: AssetId(asset_location_on_penpal.clone()), fun: Fungible(TOKEN_AMOUNT) },
 		];
 
