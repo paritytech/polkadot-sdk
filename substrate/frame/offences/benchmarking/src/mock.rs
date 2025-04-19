@@ -33,7 +33,6 @@ use sp_runtime::{
 };
 
 type AccountId = u64;
-type Balance = u64;
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
@@ -54,8 +53,8 @@ impl pallet_timestamp::Config for Test {
 	type WeightInfo = ();
 }
 impl pallet_session::historical::Config for Test {
-	type FullIdentification = pallet_staking::Exposure<AccountId, Balance>;
-	type FullIdentificationOf = pallet_staking::ExposureOf<Test>;
+	type FullIdentification = pallet_staking::Existence;
+	type FullIdentificationOf = pallet_staking::ExistenceOf<Test>;
 }
 
 sp_runtime::impl_opaque_keys! {
@@ -95,6 +94,7 @@ impl pallet_session::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type ValidatorId = AccountId;
 	type ValidatorIdOf = pallet_staking::StashOf<Test>;
+	type DisablingStrategy = ();
 	type WeightInfo = ();
 }
 
@@ -111,7 +111,6 @@ pallet_staking_reward_curve::build! {
 parameter_types! {
 	pub const RewardCurve: &'static sp_runtime::curve::PiecewiseLinear<'static> = &I_NPOS;
 	pub static ElectionsBounds: ElectionBounds = ElectionBoundsBuilder::default().build();
-	pub const Sort: bool = true;
 }
 
 pub struct OnChainSeqPhragmen;
@@ -120,9 +119,7 @@ impl onchain::Config for OnChainSeqPhragmen {
 	type Solver = SequentialPhragmen<AccountId, Perbill>;
 	type DataProvider = Staking;
 	type WeightInfo = ();
-	type MaxWinnersPerPage = ConstU32<100>;
-	type MaxBackersPerWinner = ConstU32<100>;
-	type Sort = Sort;
+	type MaxWinners = ConstU32<100>;
 	type Bounds = ElectionsBounds;
 }
 

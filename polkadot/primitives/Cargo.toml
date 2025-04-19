@@ -13,6 +13,7 @@ workspace = true
 
 [dependencies]
 bitvec = { features = ["alloc", "serde"], workspace = true }
+bounded-collections = { features = ["serde"], workspace = true }
 codec = { features = ["bit-vec", "derive"], workspace = true }
 hex-literal = { workspace = true, default-features = true }
 log = { workspace = true }
@@ -36,13 +37,11 @@ sp-std = { workspace = true, optional = true }
 polkadot-core-primitives = { workspace = true }
 polkadot-parachain-primitives = { workspace = true }
 
-[dev-dependencies]
-polkadot-primitives-test-helpers = { workspace = true }
-
 [features]
 default = ["std"]
 std = [
 	"bitvec/std",
+	"bounded-collections/std",
 	"codec/std",
 	"log/std",
 	"polkadot-core-primitives/std",

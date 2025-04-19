@@ -36,7 +36,7 @@ use std::{
 use super::{
 	base_pool as base,
 	validated_pool::{IsValidator, ValidatedPool, ValidatedTransaction},
-	ValidatedPoolSubmitOutcome,
+	EventHandler, ValidatedPoolSubmitOutcome,
 };
 
 /// Modification notification event stream type;
@@ -173,11 +173,11 @@ pub(crate) enum CheckBannedBeforeVerify {
 }
 
 /// Extrinsics pool that performs validation.
-pub struct Pool<B: ChainApi> {
-	validated_pool: Arc<ValidatedPool<B>>,
+pub struct Pool<B: ChainApi, L: EventHandler<B>> {
+	validated_pool: Arc<ValidatedPool<B, L>>,
 }
 
-impl<B: ChainApi> Pool<B> {
+impl<B: ChainApi, L: EventHandler<B>> Pool<B, L> {
 	/// Create a new transaction pool with statically sized rotator.
 	pub fn new_with_staticly_sized_rotator(
 		options: Options,
@@ -196,6 +196,23 @@ impl<B: ChainApi> Pool<B> {
 	/// Create a new transaction pool.
 	pub fn new(options: Options, is_validator: IsValidator, api: Arc<B>) -> Self {
 		Self { validated_pool: Arc::new(ValidatedPool::new(options, is_validator, api)) }
+	}
+
+	/// Create a new transaction pool.
+	pub fn new_with_event_handler(
+		options: Options,
+		is_validator: IsValidator,
+		api: Arc<B>,
+		event_handler: L,
+	) -> Self {
+		Self {
+			validated_pool: Arc::new(ValidatedPool::new_with_event_handler(
+				options,
+				is_validator,
+				api,
+				event_handler,
+			)),
+		}
 	}
 
 	/// Imports a bunch of unverified extrinsics to the pool
@@ -481,7 +498,7 @@ impl<B: ChainApi> Pool<B> {
 	}
 
 	/// Get a reference to the underlying validated pool.
-	pub fn validated_pool(&self) -> &ValidatedPool<B> {
+	pub fn validated_pool(&self) -> &ValidatedPool<B, L> {
 		&self.validated_pool
 	}
 
@@ -491,12 +508,13 @@ impl<B: ChainApi> Pool<B> {
 	}
 }
 
-impl<B: ChainApi> Pool<B> {
+impl<B: ChainApi, L: EventHandler<B>> Pool<B, L> {
 	/// Deep clones the pool.
 	///
 	/// Must be called on purpose: it duplicates all the internal structures.
-	pub fn deep_clone(&self) -> Self {
-		let other: ValidatedPool<B> = (*self.validated_pool).clone();
+	pub fn deep_clone_with_event_handler(&self, event_handler: L) -> Self {
+		let other: ValidatedPool<B, L> =
+			self.validated_pool().deep_clone_with_event_handler(event_handler);
 		Self { validated_pool: Arc::from(other) }
 	}
 }
@@ -518,6 +536,8 @@ mod tests {
 
 	const SOURCE: TimedTransactionSource =
 		TimedTransactionSource { source: TransactionSource::External, timestamp: None };
+
+	type Pool<Api> = super::Pool<Api, ()>;
 
 	#[test]
 	fn should_validate_and_import_transaction() {

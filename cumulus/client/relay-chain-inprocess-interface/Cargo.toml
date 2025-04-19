@@ -17,7 +17,7 @@ futures = { workspace = true }
 futures-timer = { workspace = true }
 
 # Substrate
-sc-cli = { workspace = true, default-features = true }
+sc-cli = { workspace = true, default-features = false }
 sc-client-api = { workspace = true, default-features = true }
 sc-sysinfo = { workspace = true, default-features = true }
 sc-telemetry = { workspace = true, default-features = true }
@@ -37,7 +37,6 @@ cumulus-primitives-core = { workspace = true, default-features = true }
 cumulus-relay-chain-interface = { workspace = true, default-features = true }
 
 [dev-dependencies]
-
 # Substrate
 sp-keyring = { workspace = true, default-features = true }
 

@@ -181,23 +181,24 @@ mod mock;
 mod tests;
 pub mod weights;
 
-type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup>::Source;
-type BalanceOf<T> =
+pub type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup>::Source;
+pub type BalanceOf<T> =
 	<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
-type BlockNumberFromProviderOf<T> =
+pub type BlockNumberFromProviderOf<T> =
 	<<T as Config>::BlockNumberProvider as BlockNumberProvider>::BlockNumber;
-type FriendsOf<T> = BoundedVec<<T as frame_system::Config>::AccountId, <T as Config>::MaxFriends>;
+pub type FriendsOf<T> =
+	BoundedVec<<T as frame_system::Config>::AccountId, <T as Config>::MaxFriends>;
 
 /// An active recovery process.
 #[derive(Clone, Eq, PartialEq, Encode, Decode, Default, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 pub struct ActiveRecovery<BlockNumber, Balance, Friends> {
 	/// The block number when the recovery process started.
-	created: BlockNumber,
+	pub created: BlockNumber,
 	/// The amount held in reserve of the `depositor`,
 	/// to be returned once this recovery process is closed.
-	deposit: Balance,
+	pub deposit: Balance,
 	/// The friends which have vouched so far. Always sorted.
-	friends: Friends,
+	pub friends: Friends,
 }
 
 /// Configuration for recovering an account.
@@ -205,14 +206,14 @@ pub struct ActiveRecovery<BlockNumber, Balance, Friends> {
 pub struct RecoveryConfig<BlockNumber, Balance, Friends> {
 	/// The minimum number of blocks since the start of the recovery process before the account
 	/// can be recovered.
-	delay_period: BlockNumber,
+	pub delay_period: BlockNumber,
 	/// The amount held in reserve of the `depositor`,
 	/// to be returned once this configuration is removed.
-	deposit: Balance,
+	pub deposit: Balance,
 	/// The list of friends which can help recover an account. Always sorted.
-	friends: Friends,
+	pub friends: Friends,
 	/// The number of approving friends needed to recover an account.
-	threshold: u16,
+	pub threshold: u16,
 }
 
 #[frame_support::pallet]
@@ -229,6 +230,7 @@ pub mod pallet {
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
 		/// The overarching event type.
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		/// Weight information for extrinsics in this pallet.
@@ -240,7 +242,28 @@ pub mod pallet {
 			+ GetDispatchInfo
 			+ From<frame_system::Call<Self>>;
 
-		/// Provider for the block number. Normally this is the `frame_system` pallet.
+		/// Query the current block number.
+		///
+		/// Must return monotonically increasing values when called from consecutive blocks.
+		/// Can be configured to return either:
+		/// - the local block number of the runtime via `frame_system::Pallet`
+		/// - a remote block number, eg from the relay chain through `RelaychainDataProvider`
+		/// - an arbitrary value through a custom implementation of the trait
+		///
+		/// There is currently no migration provided to "hot-swap" block number providers and it may
+		/// result in undefined behavior when doing so. Parachains are therefore best off setting
+		/// this to their local block number provider if they have the pallet already deployed.
+		///
+		/// Suggested values:
+		/// - Solo- and Relay-chains: `frame_system::Pallet`
+		/// - Parachains that may produce blocks sparingly or only when needed (on-demand):
+		///   - already have the pallet deployed: `frame_system::Pallet`
+		///   - are freshly deploying this pallet: `RelaychainDataProvider`
+		/// - Parachains with a reliably block production rate (PLO or bulk-coretime):
+		///   - already have the pallet deployed: `frame_system::Pallet`
+		///   - are freshly deploying this pallet: no strong recommendation. Both local and remote
+		///     providers can be used. Relay provider can be a bit better in cases where the
+		///     parachain is lagging its block production to avoid clock skew.
 		type BlockNumberProvider: BlockNumberProvider;
 
 		/// The currency mechanism.

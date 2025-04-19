@@ -17,7 +17,7 @@
 mod imports {
 	// Substrate
 	pub use codec::Encode;
-	pub use frame_support::{assert_err, assert_ok, pallet_prelude::DispatchResult};
+	pub use frame_support::{assert_err, assert_ok, pallet_prelude::DispatchResult, BoundedVec};
 	pub use sp_runtime::DispatchError;
 
 	// Polkadot
@@ -43,6 +43,7 @@ mod imports {
 	pub use parachains_common::AccountId;
 	pub use rococo_westend_system_emulated_network::{
 		asset_hub_rococo_emulated_chain::{
+			asset_hub_rococo_runtime::xcm_config::TreasuryAccount,
 			genesis::ED as ASSET_HUB_ROCOCO_ED, AssetHubRococoParaPallet as AssetHubRococoPallet,
 		},
 		asset_hub_westend_emulated_chain::{
@@ -50,7 +51,8 @@ mod imports {
 			AssetHubWestendParaPallet as AssetHubWestendPallet,
 		},
 		bridge_hub_westend_emulated_chain::{
-			genesis::ED as BRIDGE_HUB_WESTEND_ED, BridgeHubWestendExistentialDeposit,
+			bridge_hub_westend_runtime, genesis::ED as BRIDGE_HUB_WESTEND_ED,
+			BridgeHubWestendExistentialDeposit,
 			BridgeHubWestendParaPallet as BridgeHubWestendPallet, BridgeHubWestendRuntimeOrigin,
 			BridgeHubWestendXcmConfig,
 		},
@@ -61,8 +63,10 @@ mod imports {
 				LocalTeleportableToAssetHub as PenpalLocalTeleportableToAssetHub,
 				UniversalLocation as PenpalUniversalLocation,
 			},
-			PenpalAssetOwner, PenpalBParaPallet as PenpalBPallet,
+			PenpalAParaPallet as PenpalAPallet, PenpalAssetOwner,
+			PenpalBParaPallet as PenpalBPallet,
 		},
+		rococo_emulated_chain::RococoRelayPallet as RococoPallet,
 		westend_emulated_chain::{
 			genesis::ED as WESTEND_ED, westend_runtime::xcm_config::XcmConfig as WestendXcmConfig,
 			WestendRelayPallet as WestendPallet,
@@ -73,10 +77,11 @@ mod imports {
 		AssetHubWestendParaSender as AssetHubWestendSender, BridgeHubRococoPara as BridgeHubRococo,
 		BridgeHubWestendPara as BridgeHubWestend,
 		BridgeHubWestendParaReceiver as BridgeHubWestendReceiver,
-		BridgeHubWestendParaSender as BridgeHubWestendSender, PenpalBPara as PenpalB,
+		BridgeHubWestendParaSender as BridgeHubWestendSender, PenpalAPara as PenpalA,
+		PenpalAParaReceiver as PenpalAReceiver, PenpalBPara as PenpalB,
 		PenpalBParaReceiver as PenpalBReceiver, PenpalBParaSender as PenpalBSender,
-		WestendRelay as Westend, WestendRelayReceiver as WestendReceiver,
-		WestendRelaySender as WestendSender,
+		RococoRelay as Rococo, RococoRelayReceiver as RococoReceiver, WestendRelay as Westend,
+		WestendRelayReceiver as WestendReceiver, WestendRelaySender as WestendSender,
 	};
 
 	pub const ASSET_ID: u32 = 1;

@@ -211,13 +211,9 @@ mod tests {
 		let api = Arc::new(TestApi::default());
 		let block0 = api.expect_hash_and_number(0);
 
-		let view = Arc::new(View::new(
-			api.clone(),
-			block0,
-			Default::default(),
-			Default::default(),
-			false.into(),
-		));
+		let view = Arc::new(
+			View::new(api.clone(), block0, Default::default(), Default::default(), false.into()).0,
+		);
 		let queue = Arc::new(RevalidationQueue::new());
 
 		let uxt = uxt(Transfer {

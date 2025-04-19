@@ -15,6 +15,10 @@ workspace = true
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
+[[bench]]
+name = "basics"
+harness = false
+
 [dependencies]
 async-trait = { workspace = true }
 codec = { workspace = true, default-features = true }
@@ -43,7 +47,7 @@ tokio-stream = { workspace = true }
 tracing = { workspace = true, default-features = true }
 
 [dev-dependencies]
-array-bytes = { workspace = true, default-features = true }
+anyhow = { workspace = true }
 assert_matches = { workspace = true }
 criterion = { workspace = true, default-features = true }
 sc-block-builder = { workspace = true, default-features = true }
@@ -51,7 +55,8 @@ sp-consensus = { workspace = true, default-features = true }
 substrate-test-runtime = { workspace = true }
 substrate-test-runtime-client = { workspace = true }
 substrate-test-runtime-transaction-pool = { workspace = true }
-
-[[bench]]
-name = "basics"
-harness = false
+thiserror = { workspace = true }
+tokio = { workspace = true, features = ["rt-multi-thread"] }
+tracing-subscriber = { workspace = true }
+txtesttool = { workspace = true }
+zombienet-sdk = { workspace = true }

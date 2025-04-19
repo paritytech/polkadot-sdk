@@ -15,7 +15,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use codec::{Decode, Encode};
+use codec::{Decode, DecodeWithMemTracking, Encode};
+use scale_info::TypeInfo;
+use std::vec;
+
 use frame_election_provider_support::{
 	bounds::{ElectionBounds, ElectionBoundsBuilder},
 	onchain, SequentialPhragmen, Weight,
@@ -26,15 +29,14 @@ use frame_support::{
 };
 use frame_system::pallet_prelude::HeaderFor;
 use pallet_session::historical as pallet_session_historical;
-use scale_info::TypeInfo;
-use sp_core::{crypto::KeyTypeId, ConstBool, ConstU128};
+use sp_core::{crypto::KeyTypeId, ConstU128};
 use sp_runtime::{
 	app_crypto::ecdsa::Public,
 	curve::PiecewiseLinear,
 	impl_opaque_keys,
 	testing::TestXt,
 	traits::{Header as HeaderT, OpaqueKeys},
-	BoundedVec, BuildStorage, Perbill,
+	BuildStorage, Perbill,
 };
 use sp_staking::{EraIndex, SessionIndex};
 use sp_state_machine::BasicExternalities;
@@ -95,7 +97,7 @@ pub struct MockAncestryProofContext {
 	pub is_valid: bool,
 }
 
-#[derive(Clone, Debug, Decode, Encode, PartialEq, TypeInfo)]
+#[derive(Clone, Debug, Decode, DecodeWithMemTracking, Encode, PartialEq, TypeInfo)]
 pub struct MockAncestryProof {
 	pub is_optimal: bool,
 	pub is_non_canonical: bool,
@@ -184,12 +186,13 @@ impl pallet_session::Config for Test {
 	type SessionManager = pallet_session::historical::NoteHistoricalRoot<Self, Staking>;
 	type SessionHandler = <MockSessionKeys as OpaqueKeys>::KeyTypeIdProviders;
 	type Keys = MockSessionKeys;
+	type DisablingStrategy = ();
 	type WeightInfo = ();
 }
 
 impl pallet_session::historical::Config for Test {
-	type FullIdentification = pallet_staking::Exposure<u64, u128>;
-	type FullIdentificationOf = pallet_staking::ExposureOf<Self>;
+	type FullIdentification = pallet_staking::Existence;
+	type FullIdentificationOf = pallet_staking::ExistenceOf<Test>;
 }
 
 impl pallet_authorship::Config for Test {
@@ -235,9 +238,7 @@ impl onchain::Config for OnChainSeqPhragmen {
 	type Solver = SequentialPhragmen<u64, Perbill>;
 	type DataProvider = Staking;
 	type WeightInfo = ();
-	type MaxWinnersPerPage = ConstU32<100>;
-	type MaxBackersPerWinner = ConstU32<100>;
-	type Sort = ConstBool<true>;
+	type MaxWinners = ConstU32<100>;
 	type Bounds = ElectionsBoundsOnChain;
 }
 
@@ -277,7 +278,6 @@ impl ExtBuilder {
 	}
 
 	pub fn build(self) -> sp_io::TestExternalities {
-		sp_tracing::try_init_simple();
 		let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 
 		let balances: Vec<_> =
@@ -314,7 +314,7 @@ impl ExtBuilder {
 			validator_count: 2,
 			force_era: pallet_staking::Forcing::ForceNew,
 			minimum_validator_count: 0,
-			invulnerables: BoundedVec::new(),
+			invulnerables: vec![],
 			..Default::default()
 		};
 

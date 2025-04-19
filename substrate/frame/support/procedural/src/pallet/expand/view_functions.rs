@@ -108,6 +108,7 @@ fn expand_view_function(
 			#frame_support::PartialEqNoBound,
 			#frame_support::__private::codec::Encode,
 			#frame_support::__private::codec::Decode,
+			#frame_support::__private::codec::DecodeWithMemTracking,
 			#frame_support::__private::scale_info::TypeInfo,
 		)]
 		#[codec(encode_bound())]
@@ -213,7 +214,7 @@ fn impl_view_function_metadata(
 					let pat = &typed.pat;
 					let ty = &typed.ty;
 					Some(quote::quote! {
-						#frame_support::__private::metadata_ir::PalletViewFunctionMethodParamMetadataIR {
+						#frame_support::__private::metadata_ir::PalletViewFunctionParamMetadataIR {
 							name: ::core::stringify!(#pat),
 							ty: #frame_support::__private::scale_info::meta_type::<#ty>(),
 						}
@@ -234,7 +235,7 @@ fn impl_view_function_metadata(
 		};
 
 		quote::quote! {
-			#frame_support::__private::metadata_ir::PalletViewFunctionMethodMetadataIR {
+			#frame_support::__private::metadata_ir::PalletViewFunctionMetadataIR {
 				name: ::core::stringify!(#name),
 				id: <#view_function_struct_ident<#type_use_gen> as #frame_support::view_functions::ViewFunction>::id().into(),
 				inputs: #frame_support::__private::sp_std::vec![ #( #inputs ),* ],
@@ -251,7 +252,7 @@ fn impl_view_function_metadata(
 		impl<#type_impl_gen> #pallet_ident<#type_use_gen> #where_clause {
 			#[doc(hidden)]
 			pub fn pallet_view_functions_metadata()
-				-> #frame_support::__private::Vec<#frame_support::__private::metadata_ir::PalletViewFunctionMethodMetadataIR> {
+				-> #frame_support::__private::Vec<#frame_support::__private::metadata_ir::PalletViewFunctionMetadataIR> {
 				#frame_support::__private::vec![ #( #view_functions ),* ]
 			}
 		}
