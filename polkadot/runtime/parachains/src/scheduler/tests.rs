@@ -684,11 +684,25 @@ fn session_change_decreasing_number_of_cores() {
 			_ => None,
 		});
 
-		scheduler::Pallet::<Test>::set_claim_queue(BTreeMap::from([
-			(CoreIndex::from(0), VecDeque::from([assignment_a.clone()])),
-			// Leave a hole for core 1.
-			(CoreIndex::from(2), VecDeque::from([assignment_b.clone(), assignment_b.clone()])),
-		]));
+		Pallet::<Test>::assign_core(
+			CoreIndex(0),
+			0,
+			vec![(CoreAssignment::Pool, PartsOf57600::FULL)],
+			None,
+		)
+		.unwrap();
+		// Leave a hole for core 1.
+		Pallet::<Test>::assign_core(
+			CoreIndex(2),
+			0,
+			vec![(CoreAssignment::Pool, PartsOf57600::FULL)],
+			None,
+		)
+		.unwrap();
+		on_demand::Pallet::<Test>::push_back_order(para_a.clone());
+		on_demand::Pallet::<Test>::push_back_order(para_b.clone());
+		on_demand::Pallet::<Test>::push_back_order(para_a);
+		on_demand::Pallet::<Test>::push_back_order(para_b.clone());
 
 		// Decrease number of cores to 1.
 		let old_config = config;
@@ -696,8 +710,8 @@ fn session_change_decreasing_number_of_cores() {
 		new_config.scheduler_params.num_cores = 1;
 
 		// Session change.
-		// Assignment A had its shot already so will be dropped for good.
-		// The two assignments of B will be pushed back to the assignment provider.
+		// First two assignments had their shot already.
+		// The two next assignments will be pushed back to the assignment provider.
 		run_to_block(3, |number| match number {
 			3 => Some(SessionChangeNotification {
 				new_config: new_config.clone(),
