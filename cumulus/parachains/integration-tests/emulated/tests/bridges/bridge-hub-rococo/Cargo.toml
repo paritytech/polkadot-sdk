@@ -33,6 +33,14 @@ xcm-runtime-apis = { workspace = true }
 
 # Bridges
 bp-asset-hub-rococo = { workspace = true }
+bp-asset-hub-westend = { workspace = true }
+bp-bridge-hub-westend = { workspace = true }
+bp-header-chain = { workspace = true }
+bp-polkadot-core = { workspace = true }
+bp-parachains = { workspace = true }
+bp-westend = { workspace = true }
+bp-runtime = { workspace = true }
+bp-test-utils = { workspace = true }
 pallet-bridge-messages = { workspace = true }
 
 # Cumulus

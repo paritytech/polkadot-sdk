@@ -17,6 +17,7 @@ use crate::imports::*;
 use xcm::opaque::v5;
 
 mod asset_transfers;
+mod bridging;
 mod claim_assets;
 mod register_bridged_assets;
 mod send_xcm;

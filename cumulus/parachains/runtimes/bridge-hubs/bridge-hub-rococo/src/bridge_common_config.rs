@@ -22,7 +22,6 @@
 //! GRANDPA tracking pallet only needs to be aware of one chain.
 
 use super::{weights, AccountId, Balance, Balances, BlockNumber, Runtime, RuntimeEvent};
-use bp_parachains::SingleParaStoredHeaderDataBuilder;
 use bp_relayers::RewardsAccountParams;
 use frame_support::{parameter_types, traits::ConstU32};
 
@@ -59,7 +58,7 @@ impl pallet_bridge_parachains::Config<BridgeParachainWestendInstance> for Runtim
 	type BridgesGrandpaPalletInstance = BridgeGrandpaWestendInstance;
 	type ParasPalletName = WestendBridgeParachainPalletName;
 	type ParaStoredHeaderDataBuilder =
-		SingleParaStoredHeaderDataBuilder<bp_bridge_hub_westend::BridgeHubWestend>;
+		(bp_bridge_hub_westend::BridgeHubWestend, bp_asset_hub_westend::AssetHubWestend);
 	type HeadsToKeep = ParachainHeadsToKeep;
 	type MaxParaHeadDataSize = MaxWestendParaHeadDataSize;
 }
