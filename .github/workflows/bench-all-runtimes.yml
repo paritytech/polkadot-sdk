@@ -133,7 +133,7 @@ jobs:
           path: patches      
 
       # needs to be able to trigger CI
-      - uses: actions/create-github-app-token@v1
+      - uses: actions/create-github-app-token@v2
         id: generate_token
         with:
           app-id: ${{ secrets.CMD_BOT_APP_ID }}
