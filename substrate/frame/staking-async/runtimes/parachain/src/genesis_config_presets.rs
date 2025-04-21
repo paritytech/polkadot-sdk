@@ -78,7 +78,17 @@ fn staking_async_parachain_genesis(params: GenesisParams) -> serde_json::Value {
 		},
 		polkadot_xcm: PolkadotXcmConfig { safe_xcm_version: Some(SAFE_XCM_VERSION) },
 		sudo: SudoConfig { key: Some(root) },
-		staking: StakingConfig { validator_count, dev_stakers, ..Default::default() }
+		staking: StakingConfig {
+			validator_count,
+			dev_stakers,
+			unbonding_queue_config: Some(pallet_staking_async::UnbondingQueueConfig {
+				min_slashable_share: Perbill::from_percent(50),
+				lowest_ratio: Perbill::from_percent(34),
+				unbond_period_lower_bound: 0,
+				back_of_unbonding_queue_era: 0,
+			}),
+			..Default::default()
+		}
 	})
 }
 

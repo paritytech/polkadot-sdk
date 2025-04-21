@@ -142,6 +142,33 @@ pub(crate) fn create_validator_with_nominators<T: Config>(
 	Ok((v_stash, nominators, planned_era))
 }
 
+pub fn prepare_unbonding_scenario<T: Config>() {
+	Staking::<T>::set_staking_configs(
+		RawOrigin::Root.into(),
+		ConfigOp::Noop,
+		ConfigOp::Noop,
+		ConfigOp::Noop,
+		ConfigOp::Noop,
+		ConfigOp::Noop,
+		ConfigOp::Noop,
+		ConfigOp::Noop,
+		ConfigOp::Set(UnbondingQueueConfig {
+			min_slashable_share: Perbill::from_percent(50),
+			lowest_ratio: Perbill::from_percent(34),
+			unbond_period_lower_bound: 1,
+			back_of_unbonding_queue_era: Zero::zero(),
+		}),
+	)
+	.expect("failed to set staking configs");
+
+	let mut min_stakes = BoundedVec::new();
+	for _ in 0..T::BondingDuration::get() {
+		let _ = min_stakes.try_push(1000u32.into()).unwrap();
+	}
+	assert!(min_stakes.is_full());
+	EraLowestRatioTotalStake::<T>::set(min_stakes);
+}
+
 struct ListScenario<T: Config> {
 	/// Stash that is expected to be moved.
 	origin_stash1: T::AccountId,
@@ -293,6 +320,8 @@ mod benchmarks {
 		let amount = origin_weight - scenario.dest_weight;
 		let ledger = Ledger::<T>::get(&controller).ok_or("ledger not created before")?;
 		let original_bonded: BalanceOf<T> = ledger.active;
+
+		prepare_unbonding_scenario::<T>();
 
 		whitelist_account!(controller);
 
@@ -847,6 +876,12 @@ mod benchmarks {
 			ConfigOp::Set(Percent::max_value()),
 			ConfigOp::Set(Perbill::max_value()),
 			ConfigOp::Set(Percent::max_value()),
+			ConfigOp::Set(UnbondingQueueConfig {
+				min_slashable_share: Perbill::from_percent(50),
+				lowest_ratio: Perbill::from_percent(34),
+				unbond_period_lower_bound: 1,
+				back_of_unbonding_queue_era: 0,
+			}),
 		);
 
 		assert_eq!(MinNominatorBond::<T>::get(), BalanceOf::<T>::max_value());
@@ -870,6 +905,7 @@ mod benchmarks {
 			ConfigOp::Remove,
 			ConfigOp::Remove,
 			ConfigOp::Remove,
+			ConfigOp::Remove,
 		);
 
 		assert!(!MinNominatorBond::<T>::exists());
@@ -879,6 +915,7 @@ mod benchmarks {
 		assert!(!ChillThreshold::<T>::exists());
 		assert!(!MinCommission::<T>::exists());
 		assert!(!MaxStakedRewards::<T>::exists());
+		assert!(!UnbondingQueueParams::<T>::exists());
 	}
 
 	#[benchmark]
@@ -902,6 +939,7 @@ mod benchmarks {
 			ConfigOp::Set(0),
 			ConfigOp::Set(Percent::from_percent(0)),
 			ConfigOp::Set(Zero::zero()),
+			ConfigOp::Noop,
 			ConfigOp::Noop,
 		)?;
 

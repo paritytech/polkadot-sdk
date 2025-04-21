@@ -26,7 +26,7 @@ use crate::{
 	weights::WeightInfo,
 	BalanceOf, Exposure, Forcing, LedgerIntegrityState, MaxNominationsOf, Nominations,
 	NominationsQuota, PositiveImbalanceOf, RewardDestination, SnapshotStatus, StakingLedger,
-	ValidatorPrefs, STAKING_ID,
+	UnbondingQueueConfig, ValidatorPrefs, STAKING_ID,
 };
 use alloc::{boxed::Box, vec, vec::Vec};
 use frame_election_provider_support::{
@@ -47,7 +47,7 @@ use frame_system::{pallet_prelude::BlockNumberFor, RawOrigin};
 use pallet_staking_async_rc_client::{self as rc_client};
 use sp_runtime::{
 	traits::{CheckedAdd, Saturating, StaticLookup, Zero},
-	ArithmeticError, DispatchResult, Perbill,
+	ArithmeticError, DispatchResult, Perbill, SaturatedConversion,
 };
 use sp_staking::{
 	currency_to_vote::CurrencyToVote,
@@ -862,6 +862,101 @@ impl<T: Config> Pallet<T> {
 	pub fn api_pending_rewards(era: EraIndex, account: T::AccountId) -> bool {
 		Eras::<T>::pending_rewards(era, &account)
 	}
+
+	/// Calculate the total stake of the lowest portion validators and store it for the planned era.
+	///
+	/// Removes the stale entry from [`EraLowestRatioTotalStake`] if it exists.
+	pub(crate) fn calculate_lowest_total_stake() {
+		// Only calculate if unbonding queue params have been set.
+		if let Some(params) = UnbondingQueueParams::<T>::get() {
+			// Determine the total stake from the lowest portion of validators and persist for the
+			// era.
+			let mut exposures: Vec<_> =
+				ElectableStashes::<T>::get().into_iter().map(|(_, b)| b).collect();
+			let validators_to_check =
+				(params.lowest_ratio * exposures.len() as u32).max(1) as usize;
+
+			// Sort exposure total stake by the lowest first, and truncate to the lowest portion.
+			exposures.sort();
+			exposures.truncate(validators_to_check);
+
+			// Calculate the total stake of the lowest portion validators.
+			let total_stake = exposures.into_iter().sum();
+
+			// Store the total stake of the lowest portion validators for the planned era.
+			EraLowestRatioTotalStake::<T>::mutate(|lower_ratio| {
+				if lower_ratio.is_full() {
+					lower_ratio.remove(0);
+				}
+				lower_ratio.force_push(total_stake);
+			});
+		}
+	}
+
+	/// Gets the lowest of the lowest validator stake entries for the last upper bound eras.
+	pub(crate) fn get_min_lowest_stake() -> BalanceOf<T> {
+		// Find the minimum total stake of the lowest portion validators over the configured number
+		// of eras.
+		EraLowestRatioTotalStake::<T>::get().into_iter().min().unwrap_or(Zero::zero())
+	}
+
+	/// Get the unbonding time, in eras, for quick unbond for an unbond request.
+	///
+	/// We implement the calculation `unbonding_time_delta = new_unbonding_stake / max_unstake *
+	/// upper bound period in blocks.
+	pub(crate) fn get_unbond_eras_delta(
+		unbond_stake: BalanceOf<T>,
+		params: UnbondingQueueConfig,
+	) -> EraIndex {
+		let upper_bound: u128 = T::BondingDuration::get().saturated_into();
+		let unbond_stake: u128 = unbond_stake.saturated_into();
+
+		// Get the maximum unstake amount for quick unbond time supported at the time of an unbond
+		// request.
+		let max_unstake: u128 =
+			(params.min_slashable_share * Self::get_min_lowest_stake()).saturated_into();
+
+		if max_unstake > unbond_stake {
+			upper_bound
+				.saturating_mul(unbond_stake)
+				.saturating_div(max_unstake)
+				.saturated_into()
+		} else {
+			upper_bound.saturated_into()
+		}
+	}
+
+	/// Gets an unbond era for an unbond request, and updates `back_of_unbonding_queue_era`.
+	pub(crate) fn process_unbond_queue_request(era: EraIndex, value: BalanceOf<T>) -> EraIndex {
+		if let Some(params) = UnbondingQueueParams::<T>::get() {
+			// Calculate unbonding era based on unbonding queue mechanism.
+			let unbonding_eras_delta: EraIndex = Self::get_unbond_eras_delta(value, params);
+
+			let back_of_unbonding_queue_era: EraIndex = era
+				.max(params.back_of_unbonding_queue_era)
+				.defensive_saturating_add(unbonding_eras_delta);
+
+			if back_of_unbonding_queue_era > params.back_of_unbonding_queue_era {
+				// Update unbonding queue params with new `new_back_of_unbonding_queue_era`.
+				UnbondingQueueParams::<T>::set(Some(UnbondingQueueConfig {
+					back_of_unbonding_queue_era,
+					..params
+				}));
+			}
+
+			let unbonding_era: EraIndex = T::BondingDuration::get()
+				.min(
+					back_of_unbonding_queue_era
+						.defensive_saturating_sub(era)
+						.max(params.unbond_period_lower_bound),
+				)
+				.defensive_saturating_add(era);
+			unbonding_era
+		} else {
+			// If unbond queue params are not set, return current era plus maximum bonding duration.
+			era.defensive_saturating_add(T::BondingDuration::get())
+		}
+	}
 }
 
 impl<T: Config> ElectionDataProvider for Pallet<T> {
@@ -1459,6 +1554,9 @@ impl<T: Config> StakingInterface for Pallet<T> {
 	}
 
 	fn bonding_duration() -> EraIndex {
+		T::BondingDuration::get()
+	}
+	fn max_bonding_duration(_value: Self::Balance) -> EraIndex {
 		T::BondingDuration::get()
 	}
 

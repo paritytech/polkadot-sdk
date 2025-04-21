@@ -329,16 +329,32 @@ mod electable_stashes {
 			assert!(ElectableStashes::<Test>::get().is_empty());
 
 			// adds stashes without duplicates, do not overflow bounds.
-			assert_ok!(EraElectionPlanner::<T>::add_electables(vec![1u64, 2, 3].into_iter()));
+			assert_ok!(EraElectionPlanner::<T>::add_electables(&to_bounded_supports(vec![
+				(1, Support { total: 100, voters: vec![] }),
+				(2, Support { total: 100, voters: vec![] }),
+				(3, Support { total: 100, voters: vec![] }),
+			])));
 			assert_eq!(
-				ElectableStashes::<Test>::get().into_inner().into_iter().collect::<Vec<_>>(),
+				ElectableStashes::<Test>::get()
+					.into_inner()
+					.into_iter()
+					.map(|(s, _)| s)
+					.collect::<Vec<_>>(),
 				vec![1, 2, 3]
 			);
 
 			// adds with duplicates which are deduplicated implicitly, no not overflow bounds.
-			assert_ok!(EraElectionPlanner::<T>::add_electables(vec![1u64, 2, 4].into_iter()));
+			assert_ok!(EraElectionPlanner::<T>::add_electables(&to_bounded_supports(vec![
+				(1, Support { total: 100, voters: vec![] }),
+				(2, Support { total: 100, voters: vec![] }),
+				(4, Support { total: 100, voters: vec![] }),
+			])));
 			assert_eq!(
-				ElectableStashes::<Test>::get().into_inner().into_iter().collect::<Vec<_>>(),
+				ElectableStashes::<Test>::get()
+					.into_inner()
+					.into_iter()
+					.map(|(s, _)| s)
+					.collect::<Vec<_>>(),
 				vec![1, 2, 3, 4]
 			);
 		})
@@ -356,14 +372,25 @@ mod electable_stashes {
 			// included.
 			let expected_idx_not_included = 5; // stash 6.
 			assert_eq!(
-				EraElectionPlanner::<T>::add_electables(
-					vec![1u64, 2, 3, 4, 5, 6, 7, 8].into_iter()
-				),
+				EraElectionPlanner::<T>::add_electables(&to_bounded_supports(vec![
+					(1, Support { total: 100, voters: vec![] }),
+					(2, Support { total: 100, voters: vec![] }),
+					(3, Support { total: 100, voters: vec![] }),
+					(4, Support { total: 100, voters: vec![] }),
+					(5, Support { total: 100, voters: vec![] }),
+					(6, Support { total: 100, voters: vec![] }),
+					(7, Support { total: 100, voters: vec![] }),
+					(8, Support { total: 100, voters: vec![] }),
+				])),
 				Err(expected_idx_not_included)
 			);
 			// the included were added to the electable stashes, despite the error.
 			assert_eq!(
-				ElectableStashes::<Test>::get().into_inner().into_iter().collect::<Vec<_>>(),
+				ElectableStashes::<Test>::get()
+					.into_inner()
+					.into_iter()
+					.map(|(s, _)| s)
+					.collect::<Vec<_>>(),
 				vec![1, 2, 3, 4, 5]
 			);
 		})
@@ -392,7 +419,10 @@ mod electable_stashes {
 			);
 
 			// electable stashes have been collected to the max bounds despite the error.
-			assert_eq!(ElectableStashes::<Test>::get().into_iter().collect::<Vec<_>>(), vec![1, 2]);
+			assert_eq!(
+				ElectableStashes::<Test>::get().into_iter().map(|(s, _)| s).collect::<Vec<_>>(),
+				vec![1, 2]
+			);
 
 			let exposure_exists = |acc, era| Eras::<Test>::get_full_exposure(era, &acc).total != 0;
 
@@ -559,7 +589,10 @@ mod paged_on_initialize_era_election_planner {
 				assert_eq!(NextElectionPage::<Test>::get(), Some(1));
 				assert_eq!(VoterSnapshotStatus::<Test>::get(), SnapshotStatus::Ongoing(31));
 				assert_eq!(
-					ElectableStashes::<Test>::get().into_iter().collect::<Vec<AccountId>>(),
+					ElectableStashes::<Test>::get()
+						.into_iter()
+						.map(|(s, _)| s)
+						.collect::<Vec<AccountId>>(),
 					vec![11, 21, 31]
 				);
 
@@ -593,7 +626,7 @@ mod paged_on_initialize_era_election_planner {
 				Session::roll_until(22);
 				// the electable stashes remain the same.
 				assert_eq_uvec!(
-					ElectableStashes::<Test>::get().into_iter().collect::<Vec<_>>(),
+					ElectableStashes::<Test>::get().into_iter().map(|(s, _)| s).collect::<Vec<_>>(),
 					vec![11, 21, 31, 61, 71]
 				);
 				assert_eq!(NextElectionPage::<Test>::get(), Some(0));

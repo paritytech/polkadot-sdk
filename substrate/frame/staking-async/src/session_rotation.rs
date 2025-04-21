@@ -84,7 +84,7 @@ use frame_support::{
 	pallet_prelude::*,
 	traits::{Defensive, DefensiveMax, DefensiveSaturating, OnUnbalanced, TryCollect},
 };
-use sp_runtime::{Perbill, Percent, Saturating};
+use sp_runtime::{Perbill, Percent, SaturatedConversion, Saturating};
 use sp_staking::{
 	currency_to_vote::CurrencyToVote, Exposure, Page, PagedExposureMetadata, SessionIndex,
 };
@@ -489,7 +489,7 @@ impl<T: Config> Rotator<T> {
 			EraElectionPlanner::<T>::do_elect_paged(p);
 		}
 
-		crate::ElectableStashes::<T>::take().into_iter().collect()
+		crate::ElectableStashes::<T>::take().into_iter().map(|(s, _)| s).collect()
 	}
 
 	#[cfg(any(feature = "try-runtime", test))]
@@ -804,6 +804,9 @@ impl<T: Config> EraElectionPlanner<T> {
 			// we can report it now.
 			if maybe_next_page.is_none() {
 				use pallet_staking_async_rc_client::RcClientInterface;
+				// Modify the unbonding queue.
+				Pallet::<T>::calculate_lowest_total_stake();
+
 				let id = CurrentEra::<T>::get().defensive_unwrap_or(0);
 				let prune_up_to = Self::get_prune_up_to();
 
@@ -815,7 +818,7 @@ impl<T: Config> EraElectionPlanner<T> {
 				);
 
 				T::RcClientInterface::validator_set(
-					ElectableStashes::<T>::take().into_iter().collect(),
+					ElectableStashes::<T>::take().into_iter().map(|(s, _)| s).collect(),
 					id,
 					prune_up_to,
 				);
@@ -882,7 +885,7 @@ impl<T: Config> EraElectionPlanner<T> {
 	) -> Result<usize, usize> {
 		let planning_era = Rotator::<T>::planning_era();
 
-		match Self::add_electables(supports.iter().map(|(s, _)| s.clone())) {
+		match Self::add_electables(&supports) {
 			Ok(added) => {
 				let exposures = Self::collect_exposures(supports);
 				let _ = Self::store_stakers_info(exposures, planning_era);
@@ -1009,13 +1012,20 @@ impl<T: Config> EraElectionPlanner<T> {
 	/// `Ok(newly_added)` if all stashes were added successfully.
 	/// `Err(first_un_included)` if some stashes cannot be added due to bounds.
 	pub(crate) fn add_electables(
-		new_stashes: impl Iterator<Item = T::AccountId>,
+		supports: &BoundedSupportsOf<T::ElectionProvider>,
 	) -> Result<usize, usize> {
 		ElectableStashes::<T>::mutate(|electable| {
 			let pre_size = electable.len();
 
-			for (idx, stash) in new_stashes.enumerate() {
-				if electable.try_insert(stash).is_err() {
+			for (idx, (stash, support)) in supports.0.iter().enumerate() {
+				let current = *electable.get(stash).unwrap_or(&Zero::zero());
+				if electable
+					.try_insert(
+						stash.clone(),
+						current.saturating_add(support.total.saturated_into()),
+					)
+					.is_err()
+				{
 					return Err(idx);
 				}
 			}

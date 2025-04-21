@@ -108,6 +108,10 @@ impl sp_staking::StakingInterface for StakingMock {
 		BondingDuration::get()
 	}
 
+	fn max_bonding_duration(_value: Self::Balance) -> EraIndex {
+		BondingDuration::get()
+	}
+
 	fn status(
 		_: &Self::AccountId,
 	) -> Result<sp_staking::StakerStatus<Self::AccountId>, DispatchError> {
