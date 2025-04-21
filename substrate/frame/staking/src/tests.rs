@@ -3658,6 +3658,61 @@ fn test_multi_page_payout_stakers_by_page() {
 }
 
 #[test]
+fn unbond_with_chill_works() {
+	// Should test:
+	// * Given a bunded account
+	// * it can full unbond all portion of its funds from the stash account.
+	ExtBuilder::default().nominate(false).build_and_execute(|| {
+		// Set payee to stash.
+		assert_ok!(Staking::set_payee(RuntimeOrigin::signed(11), RewardDestination::Stash));
+
+		// Give account 11 some large free balance greater than total
+		let _ = Balances::make_free_balance_be(&11, 1000000);
+
+		// confirm that 10 is a normal validator and gets paid at the end of the era.
+		mock::start_active_era(1);
+
+		// Initial state of 11
+		assert_eq!(
+			Staking::ledger(11.into()).unwrap(),
+			StakingLedgerInspect {
+				stash: 11,
+				total: 1000,
+				active: 1000,
+				unlocking: Default::default(),
+				legacy_claimed_rewards: bounded_vec![],
+			}
+		);
+
+		assert!(Validators::<Test>::contains_key(11));
+
+		mock::start_active_era(2);
+		assert_eq!(active_era(), 2);
+
+		assert_eq!(Validators::<Test>::count(), 3);
+
+		// Unbond all amount by ensuring chilling
+		assert_ok!(Staking::unbond(RuntimeOrigin::signed(11), 1000));
+
+		assert!(matches!(
+			staking_events_since_last_call().as_slice(),
+			&[
+				Event::StakersElected,
+				Event::EraPaid { era_index: 0, validator_payout: 11075, remainder: 33225 },
+				Event::StakersElected,
+				Event::EraPaid { era_index: 1, validator_payout: 11075, remainder: 33225 },
+				Event::Chilled { stash: 11 },
+				Event::Unbonded { stash: 11, amount: 1000 }
+			]
+		));
+		assert!(!Validators::<Test>::contains_key(11));
+
+		assert!(Nominators::<Test>::get(11).is_none());
+		assert_eq!(Validators::<Test>::count(), 2);
+	})
+}
+
+#[test]
 fn test_multi_page_payout_stakers_backward_compatible() {
 	// Test that payout_stakers work in general and that it pays the correct amount of reward.
 	ExtBuilder::default().has_stakers(false).build_and_execute(|| {
