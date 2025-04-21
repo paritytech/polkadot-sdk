@@ -49,29 +49,38 @@ jobs:
 
       - uses: actions/download-artifact@v4.1.8
         with:
-          path: build-artifacts
-          pattern: build-{linux-stable,templates-node}-${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
-          merge-multiple: true
+          path: build-artifacts-linux-stable
+          name: build-linux-stable-${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
           run-id: ${{ needs.preflight.outputs.BUILD_RUN_ID }}
 
-      - run: ls -R build-artifacts
+      - uses: actions/download-artifact@v4.1.8
+        with:
+          path: build-artifacts-templates-node
+          name: build-templates-node-${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          run-id: ${{ needs.preflight.outputs.BUILD_RUN_ID }}
+
+      - run: ls -R build-artifacts*
 
       - name: tar
         shell: bash
         run: |
-          cd build-artifacts && tar -xvf artifacts.tar
+          echo "uncompressing build-artifacts-linux-stable"
+          cd build-artifacts-linux-stable && tar -xvf artifacts.tar
           rm artifacts.tar
           cd ../
+          echo "uncompressing build-artifacts-templates-node"
+          cd build-artifacts-templates-node && tar -xvf artifacts.tar
 
-      - run: ls -R build-artifacts
+      - run: ls -R build-artifacts*
 
       - name: zombienet
         id: zombienet_tests
         shell: bash
         run: |
           # add `./artifacts` to the PATH
-          export PATH=$(pwd)/build-artifacts:$PATH
+          export PATH=$(pwd)/build-artifacts-templates-node:$(pwd)/build-artifacts-linux-stable:$PATH
           echo $PATH
           ls -ltr $(pwd)/build-artifacts
           cargo test -p template-zombienet-tests  --features zombienet --tests  minimal_template_block_production_test
