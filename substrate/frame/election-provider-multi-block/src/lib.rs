@@ -224,12 +224,12 @@ pub mod helpers;
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
 
-/// The common logginv prefix of all pallets in this crate.
+/// The common logging prefix of all pallets in this crate.
 pub const LOG_PREFIX: &'static str = "runtime::multiblock-election";
 
-macro_rules! clear_paged_map {
-	($map: ty) => {{
-		let __r = <$map>::clear(u32::MAX, None);
+macro_rules! clear_round_based_map {
+	($map: ty, $round: expr) => {{
+		let __r = <$map>::clear_prefix($round, u32::MAX, None);
 		debug_assert!(__r.unique <= T::Pages::get(), "clearing map caused too many removals")
 	}};
 }
@@ -794,6 +794,14 @@ pub mod pallet {
 	/// - `PagedTargetSnapshot`: Paginated map of targets.
 	/// - `PagedTargetSnapshotHash`: Hash of the aforementioned.
 	///
+	/// ### Round
+	///
+	/// All inner storage items are keyed by the round number. Yet, none of the interface in this
+	/// type expose this. This is because a snapshot is really only ever meaningful in the current
+	/// round. Moreover, doing this will allow us to possibly lazy-delete the old round data, such
+	/// as the sizeable snapshot, in a lazy manner. If any of these storage items, key-ed by a round
+	/// index, are in a round that has passed, now they can be lazy deleted.
+	///
 	/// ### Invariants
 	///
 	/// The following invariants must be met at **all times** for this storage item to be "correct".
@@ -816,48 +824,48 @@ pub mod pallet {
 	impl<T: Config> Snapshot<T> {
 		// ----------- mutable methods
 		pub(crate) fn set_desired_targets(d: u32) {
-			DesiredTargets::<T>::put(d);
+			DesiredTargets::<T>::insert(Self::round(), d);
 		}
 
 		pub(crate) fn set_targets(targets: BoundedVec<T::AccountId, T::TargetSnapshotPerBlock>) {
 			let hash = Self::write_storage_with_pre_allocate(
-				&PagedTargetSnapshot::<T>::hashed_key_for(Pallet::<T>::msp()),
+				&PagedTargetSnapshot::<T>::hashed_key_for(Self::round(), Pallet::<T>::msp()),
 				targets,
 			);
-			PagedTargetSnapshotHash::<T>::insert(Pallet::<T>::msp(), hash);
+			PagedTargetSnapshotHash::<T>::insert(Self::round(), Pallet::<T>::msp(), hash);
 		}
 
 		pub(crate) fn set_voters(page: PageIndex, voters: VoterPageOf<T::MinerConfig>) {
 			let hash = Self::write_storage_with_pre_allocate(
-				&PagedVoterSnapshot::<T>::hashed_key_for(page),
+				&PagedVoterSnapshot::<T>::hashed_key_for(Self::round(), page),
 				voters,
 			);
-			PagedVoterSnapshotHash::<T>::insert(page, hash);
+			PagedVoterSnapshotHash::<T>::insert(Self::round(), page, hash);
 		}
 
 		/// Destroy the entire snapshot.
 		///
 		/// Should be called only once we transition to [`Phase::Off`].
 		pub(crate) fn kill() {
-			DesiredTargets::<T>::kill();
-			clear_paged_map!(PagedVoterSnapshot::<T>);
-			clear_paged_map!(PagedVoterSnapshotHash::<T>);
-			clear_paged_map!(PagedTargetSnapshot::<T>);
-			clear_paged_map!(PagedTargetSnapshotHash::<T>);
+			DesiredTargets::<T>::remove(Self::round());
+			clear_round_based_map!(PagedVoterSnapshot::<T>, Self::round());
+			clear_round_based_map!(PagedVoterSnapshotHash::<T>, Self::round());
+			clear_round_based_map!(PagedTargetSnapshot::<T>, Self::round());
+			clear_round_based_map!(PagedTargetSnapshotHash::<T>, Self::round());
 		}
 
 		// ----------- non-mutables
 		pub(crate) fn desired_targets() -> Option<u32> {
-			DesiredTargets::<T>::get()
+			DesiredTargets::<T>::get(Self::round())
 		}
 
 		pub(crate) fn voters(page: PageIndex) -> Option<VoterPageOf<T::MinerConfig>> {
-			PagedVoterSnapshot::<T>::get(page)
+			PagedVoterSnapshot::<T>::get(Self::round(), page)
 		}
 
 		pub(crate) fn targets() -> Option<BoundedVec<T::AccountId, T::TargetSnapshotPerBlock>> {
 			// NOTE: targets always have one index, which is 0, aka lsp.
-			PagedTargetSnapshot::<T>::get(Pallet::<T>::msp())
+			PagedTargetSnapshot::<T>::get(Self::round(), Pallet::<T>::msp())
 		}
 
 		/// Get a fingerprint of the snapshot, from all the hashes that are stored for each page of
@@ -870,7 +878,7 @@ pub mod pallet {
 			let mut hashed_target_and_voters =
 				Self::targets_hash().unwrap_or_default().as_ref().to_vec();
 			let hashed_voters = (Pallet::<T>::msp()..=Pallet::<T>::lsp())
-				.map(|i| PagedVoterSnapshotHash::<T>::get(i).unwrap_or_default())
+				.map(|i| PagedVoterSnapshotHash::<T>::get(Self::round(), i).unwrap_or_default())
 				.flat_map(|hash| <T::Hash as AsRef<[u8]>>::as_ref(&hash).to_owned())
 				.collect::<Vec<u8>>();
 			hashed_target_and_voters.extend(hashed_voters);
@@ -894,7 +902,11 @@ pub mod pallet {
 		}
 
 		pub(crate) fn targets_hash() -> Option<T::Hash> {
-			PagedTargetSnapshotHash::<T>::get(Pallet::<T>::msp())
+			PagedTargetSnapshotHash::<T>::get(Self::round(), Pallet::<T>::msp())
+		}
+
+		fn round() -> u32 {
+			Pallet::<T>::round()
 		}
 	}
 
@@ -985,15 +997,15 @@ pub mod pallet {
 		}
 
 		pub(crate) fn voters_decode_len(page: PageIndex) -> Option<usize> {
-			PagedVoterSnapshot::<T>::decode_len(page)
+			PagedVoterSnapshot::<T>::decode_len(Self::round(), page)
 		}
 
 		pub(crate) fn targets_decode_len() -> Option<usize> {
-			PagedTargetSnapshot::<T>::decode_len(Pallet::<T>::msp())
+			PagedTargetSnapshot::<T>::decode_len(Self::round(), Pallet::<T>::msp())
 		}
 
 		pub(crate) fn voters_hash(page: PageIndex) -> Option<T::Hash> {
-			PagedVoterSnapshotHash::<T>::get(page)
+			PagedVoterSnapshotHash::<T>::get(Self::round(), page)
 		}
 
 		pub(crate) fn sanity_check() -> Result<(), &'static str> {
@@ -1043,60 +1055,79 @@ pub mod pallet {
 				(crate::Pallet::<T>::lsp()..=crate::Pallet::<T>::msp()).collect::<Vec<_>>();
 			key_range
 				.into_iter()
-				.flat_map(|k| PagedVoterSnapshot::<T>::get(k).unwrap_or_default())
+				.flat_map(|k| PagedVoterSnapshot::<T>::get(Self::round(), k).unwrap_or_default())
 		}
 
 		pub(crate) fn remove_voter_page(page: PageIndex) {
-			PagedVoterSnapshot::<T>::remove(page);
+			PagedVoterSnapshot::<T>::remove(Self::round(), page);
 		}
 
 		pub(crate) fn kill_desired_targets() {
-			DesiredTargets::<T>::kill();
+			DesiredTargets::<T>::remove(Self::round());
 		}
 
 		pub(crate) fn remove_target_page() {
-			PagedTargetSnapshot::<T>::remove(Pallet::<T>::msp());
+			PagedTargetSnapshot::<T>::remove(Self::round(), Pallet::<T>::msp());
 		}
 
 		pub(crate) fn remove_target(at: usize) {
-			PagedTargetSnapshot::<T>::mutate(crate::Pallet::<T>::msp(), |maybe_targets| {
-				if let Some(targets) = maybe_targets {
-					targets.remove(at);
-					// and update the hash.
-					PagedTargetSnapshotHash::<T>::insert(
-						crate::Pallet::<T>::msp(),
-						T::Hashing::hash(&targets.encode()),
-					)
-				} else {
-					unreachable!();
-				}
-			})
+			PagedTargetSnapshot::<T>::mutate(
+				Self::round(),
+				crate::Pallet::<T>::msp(),
+				|maybe_targets| {
+					if let Some(targets) = maybe_targets {
+						targets.remove(at);
+						// and update the hash.
+						PagedTargetSnapshotHash::<T>::insert(
+							Self::round(),
+							crate::Pallet::<T>::msp(),
+							T::Hashing::hash(&targets.encode()),
+						)
+					} else {
+						unreachable!();
+					}
+				},
+			)
 		}
 	}
 
 	/// Desired number of targets to elect for this round.
 	#[pallet::storage]
-	type DesiredTargets<T> = StorageValue<_, u32>;
+	type DesiredTargets<T> = StorageMap<_, Twox64Concat, u32, u32>;
 	/// Paginated voter snapshot. At most [`T::Pages`] keys will exist.
 	#[pallet::storage]
-	type PagedVoterSnapshot<T: Config> =
-		StorageMap<_, Twox64Concat, PageIndex, VoterPageOf<T::MinerConfig>>;
+	type PagedVoterSnapshot<T: Config> = StorageDoubleMap<
+		_,
+		Twox64Concat,
+		u32,
+		Twox64Concat,
+		PageIndex,
+		VoterPageOf<T::MinerConfig>,
+	>;
 	/// Same as [`PagedVoterSnapshot`], but it will store the hash of the snapshot.
 	///
 	/// The hash is generated using [`frame_system::Config::Hashing`].
 	#[pallet::storage]
-	type PagedVoterSnapshotHash<T: Config> = StorageMap<_, Twox64Concat, PageIndex, T::Hash>;
+	type PagedVoterSnapshotHash<T: Config> =
+		StorageDoubleMap<_, Twox64Concat, u32, Twox64Concat, PageIndex, T::Hash>;
 	/// Paginated target snapshot.
 	///
 	/// For the time being, since we assume one pages of targets, at most ONE key will exist.
 	#[pallet::storage]
-	type PagedTargetSnapshot<T: Config> =
-		StorageMap<_, Twox64Concat, PageIndex, BoundedVec<T::AccountId, T::TargetSnapshotPerBlock>>;
+	type PagedTargetSnapshot<T: Config> = StorageDoubleMap<
+		_,
+		Twox64Concat,
+		u32,
+		Twox64Concat,
+		PageIndex,
+		BoundedVec<T::AccountId, T::TargetSnapshotPerBlock>,
+	>;
 	/// Same as [`PagedTargetSnapshot`], but it will store the hash of the snapshot.
 	///
 	/// The hash is generated using [`frame_system::Config::Hashing`].
 	#[pallet::storage]
-	type PagedTargetSnapshotHash<T: Config> = StorageMap<_, Twox64Concat, PageIndex, T::Hash>;
+	type PagedTargetSnapshotHash<T: Config> =
+		StorageDoubleMap<_, Twox64Concat, u32, Twox64Concat, PageIndex, T::Hash>;
 
 	#[pallet::pallet]
 	pub struct Pallet<T>(PhantomData<T>);
