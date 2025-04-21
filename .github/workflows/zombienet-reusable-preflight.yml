@@ -47,6 +47,11 @@ on:
         value: ${{ jobs.preflight.outputs.ZOMBIENET_IMAGE }}
         description: "ZOMBIENET CI image"
 
+      CI_IMAGE:
+        value: ${{ jobs.preflight.outputs.CI_IMAGE }}
+        description: "CI image"
+
+
       ZOMBIENET_RUNNER:
         value: ${{ jobs.preflight.outputs.ZOMBIENET_RUNNER }}
         description: |
