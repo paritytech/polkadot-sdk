@@ -24,6 +24,8 @@ use frame_election_provider_support::{
 use frame_support::sp_runtime::testing::TestXt;
 use pallet_election_provider_multi_block as multi_block;
 use pallet_staking_async::Forcing;
+use pallet_staking_async_rc_client::{SessionReport, ValidatorSetReport};
+use sp_staking::SessionIndex;
 
 construct_runtime! {
 	pub enum Runtime {
@@ -76,6 +78,86 @@ pub fn roll_until_matches(criteria: impl Fn() -> bool, with_rc: bool) {
 			});
 		}
 	}
+}
+
+/// Use the given `end_index` as the first session report, and increment as per needed.
+pub(crate) fn roll_until_next_active(mut end_index: SessionIndex) -> Vec<AccountId> {
+	// receive enough session reports, such that we plan a new era
+	let planned_era = pallet_staking_async::session_rotation::Rotator::<Runtime>::planning_era();
+	let active_era = pallet_staking_async::session_rotation::Rotator::<Runtime>::active_era();
+
+	while pallet_staking_async::session_rotation::Rotator::<Runtime>::planning_era() == planned_era
+	{
+		let report = SessionReport {
+			end_index,
+			activation_timestamp: None,
+			leftover: false,
+			validator_points: Default::default(),
+		};
+		assert_ok!(pallet_staking_async_rc_client::Pallet::<Runtime>::relay_session_report(
+			RuntimeOrigin::root(),
+			report
+		));
+		roll_next();
+		end_index += 1;
+	}
+
+	// now we have planned a new session. Roll until we have an outgoing message ready, meaning the
+	// election is done
+	LocalQueue::flush();
+	loop {
+		let messages = LocalQueue::get_since_last_call();
+		match messages.len() {
+			0 => {
+				roll_next();
+				continue;
+			},
+			1 => {
+				assert_eq!(
+					messages[0],
+					(
+						System::block_number(),
+						OutgoingMessages::ValidatorSet(ValidatorSetReport {
+							id: planned_era + 1,
+							leftover: false,
+							// arbitrary, feel free to change if test setup updates
+							new_validator_set: vec![3, 5, 6, 8],
+							prune_up_to: None,
+						})
+					)
+				);
+				break
+			},
+			_ => panic!("Expected only one message in local queue, but got: {:?}", messages),
+		}
+	}
+
+	// active era is still 0
+	assert_eq!(
+		pallet_staking_async::session_rotation::Rotator::<Runtime>::active_era(),
+		active_era
+	);
+
+	// rc will not tell us that it has instantly activated a validator set.
+	let report = SessionReport {
+		end_index,
+		activation_timestamp: Some((1000, planned_era + 1)),
+		leftover: false,
+		validator_points: Default::default(),
+	};
+	assert_ok!(pallet_staking_async_rc_client::Pallet::<Runtime>::relay_session_report(
+		RuntimeOrigin::root(),
+		report
+	));
+
+	// active era is now 1.
+	assert_eq!(
+		pallet_staking_async::session_rotation::Rotator::<Runtime>::active_era(),
+		active_era + 1
+	);
+
+	// arbitrary, feel free to change if test setup updates
+	vec![3, 5, 6, 8]
 }
 
 pub type AccountId = <Runtime as frame_system::Config>::AccountId;
@@ -316,6 +398,23 @@ pub enum OutgoingMessages {
 
 parameter_types! {
 	pub static LocalQueue: Option<Vec<(BlockNumber, OutgoingMessages)>> = None;
+	pub static LocalQueueLastIndex: usize = 0;
+}
+
+impl LocalQueue {
+	pub fn get_since_last_call() -> Vec<(BlockNumber, OutgoingMessages)> {
+		if let Some(all) = Self::get() {
+			let last = LocalQueueLastIndex::get();
+			LocalQueueLastIndex::set(all.len());
+			all.into_iter().skip(last).collect()
+		} else {
+			panic!("Must set local_queue()!")
+		}
+	}
+
+	pub fn flush() {
+		let _ = Self::get_since_last_call();
+	}
 }
 
 pub struct ExtBuilder {
@@ -339,6 +438,11 @@ impl ExtBuilder {
 	/// `LocalQueue` instead of enacting them on RC.
 	pub fn local_queue(self) -> Self {
 		LocalQueue::set(Some(Default::default()));
+		self
+	}
+
+	pub fn slash_defer_duration(self, duration: u32) -> Self {
+		SlashDeferredDuration::set(duration);
 		self
 	}
 

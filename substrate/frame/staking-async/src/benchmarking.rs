@@ -1052,7 +1052,7 @@ mod benchmarks {
 		let _new_validators = Rotator::<T>::legacy_insta_plan_era();
 		// activate the previous one
 		Rotator::<T>::start_era(
-			&crate::ActiveEraInfo { index: Rotator::<T>::planning_era() - 1, start: Some(1) },
+			crate::ActiveEraInfo { index: Rotator::<T>::planning_era() - 1, start: Some(1) },
 			42, // start session index doesn't really matter,
 			2,  // timestamp doesn't really matter
 		);
@@ -1116,7 +1116,7 @@ mod benchmarks {
 		ensure!(Rotator::<T>::planning_era() == initial_era + 1, "era should be incremented");
 		// activate the previous one
 		Rotator::<T>::start_era(
-			&crate::ActiveEraInfo { index: initial_era, start: Some(1) },
+			crate::ActiveEraInfo { index: initial_era, start: Some(1) },
 			42, // start session index doesn't really matter,
 			2,  // timestamp doesn't really matter
 		);

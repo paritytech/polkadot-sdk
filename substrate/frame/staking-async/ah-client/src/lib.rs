@@ -67,7 +67,7 @@ use sp_staking::{
 /// The balance type seen from this pallet's PoV.
 pub type BalanceOf<T> = <T as Config>::CurrencyBalance;
 
-const LOG_TARGET: &str = "runtime::staking::ah-client";
+const LOG_TARGET: &str = "runtime::staking-async::ah-client";
 
 // syntactic sugar for logging.
 #[macro_export]

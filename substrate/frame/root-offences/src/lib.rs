@@ -40,6 +40,7 @@ pub mod pallet {
 	use super::*;
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
+	use sp_staking::SessionIndex;
 
 	#[pallet::config]
 	pub trait Config:
@@ -87,6 +88,7 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			offenders: Vec<(T::AccountId, Perbill)>,
 			maybe_identifications: Option<Vec<T::FullIdentification>>,
+			maybe_session_index: Option<SessionIndex>,
 		) -> DispatchResult {
 			ensure_root(origin)?;
 
@@ -110,7 +112,7 @@ pub mod pallet {
 				offenders.clone().into_iter().map(|(_, fraction)| fraction).collect::<Vec<_>>();
 			let offence_details = Self::get_offence_details(offenders.clone(), identifications)?;
 
-			Self::submit_offence(&offence_details, &slash_fraction);
+			Self::submit_offence(&offence_details, &slash_fraction, maybe_session_index);
 			Self::deposit_event(Event::OffenceCreated { offenders });
 			Ok(())
 		}
@@ -134,8 +136,16 @@ pub mod pallet {
 		}
 
 		/// Submits the offence by calling the `on_offence` function.
-		fn submit_offence(offenders: &[OffenceDetails<T>], slash_fraction: &[Perbill]) {
-			let session_index = <pallet_session::Pallet<T> as frame_support::traits::ValidatorSet<T::AccountId>>::session_index();
+		fn submit_offence(
+			offenders: &[OffenceDetails<T>],
+			slash_fraction: &[Perbill],
+			maybe_session_index: Option<SessionIndex>,
+		) {
+			let session_index = maybe_session_index.unwrap_or_else(|| {
+				<pallet_session::Pallet<T> as frame_support::traits::ValidatorSet<
+						T::AccountId,
+					>>::session_index()
+			});
 			T::OffenceHandler::on_offence(&offenders, &slash_fraction, session_index);
 		}
 	}

@@ -16,9 +16,12 @@
 // limitations under the License.
 
 use crate::ah::mock::*;
+use frame::prelude::Perbill;
 use frame_support::{assert_noop, assert_ok};
 use pallet_election_provider_multi_block::{Event as ElectionEvent, Phase};
-use pallet_staking_async::{ActiveEra, ActiveEraInfo, CurrentEra, Event as StakingEvent};
+use pallet_staking_async::{
+	session_rotation::Rotator, ActiveEra, ActiveEraInfo, CurrentEra, Event as StakingEvent,
+};
 use pallet_staking_async_rc_client as rc_client;
 use pallet_staking_async_rc_client::ValidatorSetReport;
 
@@ -380,12 +383,317 @@ fn receives_session_report_in_future() {
 }
 
 #[test]
-fn on_new_offence() {
-	// todo:
-	// - Offence Report sent to AH.
-	// - Offence processed, and slashed.
-	// - Check if offenders only one at a time!
-	// - Mass slash triggers force era.
-	// - Tests processing of offence and slashing
-	ExtBuilder::default().local_queue().build().execute_with(|| {});
+fn on_offence_current_era() {
+	ExtBuilder::default().local_queue().build().execute_with(|| {
+		let active_validators = roll_until_next_active(0);
+		assert_eq!(pallet_staking_async::ErasStartSessionIndex::<Runtime>::get(1), Some(5));
+		assert_eq!(active_validators, vec![3, 5, 6, 8]);
+
+		// flush the events.
+		let _ = staking_events_since_last_call();
+
+		assert_ok!(rc_client::Pallet::<Runtime>::relay_new_offence(
+			RuntimeOrigin::root(),
+			5,
+			vec![
+				rc_client::Offence {
+					offender: 5,
+					reporters: vec![],
+					slash_fraction: Perbill::from_percent(50),
+				},
+				rc_client::Offence {
+					offender: 3,
+					reporters: vec![],
+					slash_fraction: Perbill::from_percent(50),
+				}
+			]
+		));
+
+		assert_eq!(
+			staking_events_since_last_call(),
+			vec![
+				pallet_staking_async::Event::OffenceReported {
+					offence_era: 1,
+					validator: 5,
+					fraction: Perbill::from_percent(50)
+				},
+				pallet_staking_async::Event::OffenceReported {
+					offence_era: 1,
+					validator: 3,
+					fraction: Perbill::from_percent(50)
+				}
+			]
+		);
+
+		// 2 blocks to process these offences, and they are deferred.
+		roll_next();
+		assert_eq!(
+			staking_events_since_last_call(),
+			vec![pallet_staking_async::Event::SlashComputed {
+				offence_era: 1,
+				slash_era: 3,
+				offender: 5,
+				page: 0
+			},]
+		);
+		roll_next();
+		assert_eq!(
+			staking_events_since_last_call(),
+			vec![pallet_staking_async::Event::SlashComputed {
+				offence_era: 1,
+				slash_era: 3,
+				offender: 3,
+				page: 0
+			}]
+		);
+
+		// skip two eras
+		assert_eq!(SlashDeferredDuration::get(), 2);
+		roll_until_next_active(5);
+		roll_until_next_active(10);
+		let _ = staking_events_since_last_call();
+
+		// 2 blocks to apply the slashes
+		roll_next();
+		assert_eq!(
+			staking_events_since_last_call(),
+			vec![pallet_staking_async::Event::Slashed { staker: 3, amount: 50 },]
+		);
+		roll_next();
+		assert_eq!(
+			staking_events_since_last_call(),
+			vec![
+				pallet_staking_async::Event::Slashed { staker: 5, amount: 50 },
+				pallet_staking_async::Event::Slashed { staker: 110, amount: 50 }
+			]
+		);
+	});
+}
+
+#[test]
+fn on_offence_current_era_instant_apply() {
+	ExtBuilder::default()
+		.local_queue()
+		.slash_defer_duration(0)
+		.build()
+		.execute_with(|| {
+			let active_validators = roll_until_next_active(0);
+			assert_eq!(pallet_staking_async::ErasStartSessionIndex::<Runtime>::get(1), Some(5));
+			assert_eq!(active_validators, vec![3, 5, 6, 8]);
+
+			// flush the events.
+			let _ = staking_events_since_last_call();
+
+			assert_ok!(rc_client::Pallet::<Runtime>::relay_new_offence(
+				RuntimeOrigin::root(),
+				5,
+				vec![
+					rc_client::Offence {
+						offender: 5,
+						reporters: vec![],
+						slash_fraction: Perbill::from_percent(50),
+					},
+					rc_client::Offence {
+						offender: 3,
+						reporters: vec![],
+						slash_fraction: Perbill::from_percent(50),
+					}
+				]
+			));
+
+			assert_eq!(
+				staking_events_since_last_call(),
+				vec![
+					pallet_staking_async::Event::OffenceReported {
+						offence_era: 1,
+						validator: 5,
+						fraction: Perbill::from_percent(50)
+					},
+					pallet_staking_async::Event::OffenceReported {
+						offence_era: 1,
+						validator: 3,
+						fraction: Perbill::from_percent(50)
+					}
+				]
+			);
+
+			// 2 blocks to process these offences, and they are applied on the spot.
+			roll_next();
+			assert_eq!(
+				staking_events_since_last_call(),
+				vec![
+					pallet_staking_async::Event::SlashComputed {
+						offence_era: 1,
+						slash_era: 1,
+						offender: 5,
+						page: 0
+					},
+					pallet_staking_async::Event::Slashed { staker: 5, amount: 50 },
+					pallet_staking_async::Event::Slashed { staker: 110, amount: 50 }
+				]
+			);
+			roll_next();
+			assert_eq!(
+				staking_events_since_last_call(),
+				vec![
+					pallet_staking_async::Event::SlashComputed {
+						offence_era: 1,
+						slash_era: 1,
+						offender: 3,
+						page: 0
+					},
+					pallet_staking_async::Event::Slashed { staker: 3, amount: 50 }
+				]
+			);
+		});
+}
+
+#[test]
+fn on_offence_non_validator() {
+	ExtBuilder::default()
+		.slash_defer_duration(0)
+		.local_queue()
+		.build()
+		.execute_with(|| {
+			let active_validators = roll_until_next_active(0);
+			assert_eq!(pallet_staking_async::ErasStartSessionIndex::<Runtime>::get(1), Some(5));
+			assert_eq!(active_validators, vec![3, 5, 6, 8]);
+
+			// flush the events.
+			let _ = staking_events_since_last_call();
+
+			assert_ok!(rc_client::Pallet::<Runtime>::relay_new_offence(
+				RuntimeOrigin::root(),
+				5,
+				vec![rc_client::Offence {
+					// this offender is unknown to the staking pallet.
+					offender: 666,
+					reporters: vec![],
+					slash_fraction: Perbill::from_percent(50),
+				}]
+			));
+
+			// nada
+			assert_eq!(staking_events_since_last_call(), vec![]);
+		});
+}
+
+#[test]
+fn on_offence_previous_era() {
+	ExtBuilder::default().local_queue().build().execute_with(|| {
+		let _ = roll_until_next_active(0);
+		let _ = roll_until_next_active(5);
+		let active_validators = roll_until_next_active(10);
+
+		assert_eq!(active_validators, vec![3, 5, 6, 8]);
+		assert_eq!(Rotator::<Runtime>::active_era(), 3);
+
+		// flush the events.
+		let _ = staking_events_since_last_call();
+
+		// report an offence for the session belonging to the previous era
+		assert_eq!(pallet_staking_async::ErasStartSessionIndex::<Runtime>::get(1), Some(5));
+
+		assert_ok!(rc_client::Pallet::<Runtime>::relay_new_offence(
+			RuntimeOrigin::root(),
+			// offence is in era 1
+			5,
+			vec![rc_client::Offence {
+				offender: 3,
+				reporters: vec![],
+				slash_fraction: Perbill::from_percent(50),
+			}]
+		));
+
+		// reported
+		assert_eq!(
+			staking_events_since_last_call(),
+			vec![pallet_staking_async::Event::OffenceReported {
+				offence_era: 1,
+				validator: 3,
+				fraction: Perbill::from_percent(50)
+			}]
+		);
+
+		// computed, and instantly applied, as we are already on era 3 (slash era = 1, defer = 2)
+		roll_next();
+		assert_eq!(
+			staking_events_since_last_call(),
+			vec![
+				pallet_staking_async::Event::SlashComputed {
+					offence_era: 1,
+					slash_era: 3,
+					offender: 3,
+					page: 0
+				},
+				pallet_staking_async::Event::Slashed { staker: 3, amount: 50 }
+			]
+		);
+
+		// nothing left
+		roll_next();
+		assert_eq!(staking_events_since_last_call(), vec![]);
+	});
+}
+
+#[test]
+fn on_offence_previous_era_instant_apply() {
+	ExtBuilder::default()
+		.slash_defer_duration(0)
+		.local_queue()
+		.build()
+		.execute_with(|| {
+			let _ = roll_until_next_active(0);
+			let _ = roll_until_next_active(5);
+			let active_validators = roll_until_next_active(10);
+
+			assert_eq!(active_validators, vec![3, 5, 6, 8]);
+			assert_eq!(Rotator::<Runtime>::active_era(), 3);
+
+			// flush the events.
+			let _ = staking_events_since_last_call();
+
+			// report an offence for the session belonging to the previous era
+			assert_eq!(pallet_staking_async::ErasStartSessionIndex::<Runtime>::get(1), Some(5));
+
+			assert_ok!(rc_client::Pallet::<Runtime>::relay_new_offence(
+				RuntimeOrigin::root(),
+				// offence is in era 1
+				5,
+				vec![rc_client::Offence {
+					offender: 3,
+					reporters: vec![],
+					slash_fraction: Perbill::from_percent(50),
+				}]
+			));
+
+			// reported
+			assert_eq!(
+				staking_events_since_last_call(),
+				vec![pallet_staking_async::Event::OffenceReported {
+					offence_era: 1,
+					validator: 3,
+					fraction: Perbill::from_percent(50)
+				}]
+			);
+
+			// applied right away
+			roll_next();
+			assert_eq!(
+				staking_events_since_last_call(),
+				vec![
+					pallet_staking_async::Event::SlashComputed {
+						offence_era: 1,
+						slash_era: 1,
+						offender: 3,
+						page: 0
+					},
+					pallet_staking_async::Event::Slashed { staker: 3, amount: 50 }
+				]
+			);
+
+			// nothing left
+			roll_next();
+			assert_eq!(staking_events_since_last_call(), vec![]);
+		});
 }

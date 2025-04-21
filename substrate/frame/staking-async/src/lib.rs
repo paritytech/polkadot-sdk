@@ -64,7 +64,7 @@ pub mod asset;
 pub mod election_size_tracker;
 pub mod ledger;
 mod pallet;
-mod session_rotation;
+pub mod session_rotation;
 pub mod slashing;
 pub mod weights;
 

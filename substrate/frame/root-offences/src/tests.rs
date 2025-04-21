@@ -29,7 +29,7 @@ fn create_offence_fails_given_signed_origin() {
 	ExtBuilder::default().build_and_execute(|| {
 		let offenders = (&[]).to_vec();
 		assert_err!(
-			RootOffences::create_offence(RuntimeOrigin::signed(1), offenders, None),
+			RootOffences::create_offence(RuntimeOrigin::signed(1), offenders, None, None),
 			BadOrigin
 		);
 	})
@@ -45,7 +45,12 @@ fn create_offence_works_given_root_origin() {
 		assert_eq!(asset::staked::<T>(&11), 1000);
 
 		let offenders = [(11, Perbill::from_percent(50))].to_vec();
-		assert_ok!(RootOffences::create_offence(RuntimeOrigin::root(), offenders.clone(), None));
+		assert_ok!(RootOffences::create_offence(
+			RuntimeOrigin::root(),
+			offenders.clone(),
+			None,
+			None
+		));
 
 		System::assert_last_event(Event::OffenceCreated { offenders }.into());
 
@@ -72,7 +77,7 @@ fn create_offence_wont_slash_non_active_validators() {
 		// for them.
 		let offenders = [(31, Perbill::from_percent(20)), (11, Perbill::from_percent(20))].to_vec();
 		assert_noop!(
-			RootOffences::create_offence(RuntimeOrigin::root(), offenders.clone(), None),
+			RootOffences::create_offence(RuntimeOrigin::root(), offenders.clone(), None, None),
 			"failed to call FullIdentificationOf"
 		);
 	})
@@ -92,7 +97,7 @@ fn create_offence_wont_slash_idle() {
 		// for them.
 		let offenders = [(41, Perbill::from_percent(50))].to_vec();
 		assert_noop!(
-			RootOffences::create_offence(RuntimeOrigin::root(), offenders.clone(), None),
+			RootOffences::create_offence(RuntimeOrigin::root(), offenders.clone(), None, None),
 			"failed to call FullIdentificationOf"
 		);
 	})

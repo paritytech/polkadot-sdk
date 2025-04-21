@@ -743,8 +743,7 @@ impl<T: Config> Pallet<T> {
 					.filter_map(|a| {
 						let k =
 							Self::load_keys(&a).or_else(|| {
-								#[cfg(test)]
-								log!(warn, "failed to load session key for {:?}, skipping for next session", a);
+								log!(warn, "failed to load session key for {:?}, skipping for next session, maybe you need to set session keys for them?", a);
 								None
 							})?;
 						check_next_changed(&k);
@@ -947,7 +946,7 @@ impl<T: Config> Pallet<T> {
 				Err(index) => {
 					log!(trace, "disabling validator {:?}", i);
 					Self::deposit_event(Event::ValidatorDisabled {
-						validator: Validators::<T>::get()[index as usize].clone(),
+						validator: Validators::<T>::get()[i as usize].clone(),
 					});
 					disabled.insert(index, (i, severity));
 					T::SessionHandler::on_disabled(i);
@@ -974,7 +973,7 @@ impl<T: Config> Pallet<T> {
 			if let Ok(index) = disabled.binary_search_by_key(&i, |(index, _)| *index) {
 				log!(trace, "reenabling validator {:?}", i);
 				Self::deposit_event(Event::ValidatorReenabled {
-					validator: Validators::<T>::get()[index as usize].clone(),
+					validator: Validators::<T>::get()[i as usize].clone(),
 				});
 				disabled.remove(index);
 				return true;
@@ -992,9 +991,15 @@ impl<T: Config> Pallet<T> {
 	/// Report an offence for the given validator and let disabling strategy decide
 	/// what changes to disabled validators should be made.
 	pub fn report_offence(validator: T::ValidatorId, severity: OffenceSeverity) {
-		log!(trace, "reporting offence for {:?} with {:?}", validator, severity);
 		let decision =
 			T::DisablingStrategy::decision(&validator, severity, &DisabledValidators::<T>::get());
+		log!(
+			debug,
+			"reporting offence for {:?} with {:?}, decision: {:?}",
+			validator,
+			severity,
+			decision
+		);
 
 		// Disable
 		if let Some(offender_idx) = decision.disable {

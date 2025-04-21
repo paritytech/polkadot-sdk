@@ -124,7 +124,7 @@ use sp_staking::SessionIndex;
 /// Export everything needed for the pallet to be used in the runtime.
 pub use pallet::*;
 
-const LOG_TARGET: &str = "runtime::staking::rc-client";
+const LOG_TARGET: &str = "runtime::staking-async::rc-client";
 
 // syntactic sugar for logging.
 #[macro_export]

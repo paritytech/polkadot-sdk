@@ -111,8 +111,8 @@ fn forcing_force_always() {
 					Event::SessionRotated { starting_session: 8, active_era: 1, planned_era: 2 },
 					Event::EraPaid { era_index: 1, validator_payout: 7500, remainder: 7500 },
 					// and by now it is activated. Note how the validator payout is less, since the
-					// era duration is less.
-					Event::SessionRotated { starting_session: 9, active_era: 2, planned_era: 2 }
+					// era duration is less. Note that we immediately plan the next era as well.
+					Event::SessionRotated { starting_session: 9, active_era: 2, planned_era: 3 }
 				]
 			);
 		});

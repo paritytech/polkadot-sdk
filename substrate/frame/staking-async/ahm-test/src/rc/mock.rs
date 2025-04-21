@@ -167,7 +167,7 @@ impl pallet_session::Config for Runtime {
 	type ValidatorIdOf = ValidatorIdOf;
 	type ValidatorId = AccountId;
 
-	type DisablingStrategy = ();
+	type DisablingStrategy = pallet_session::disabling::UpToLimitDisablingStrategy<1>;
 
 	type Keys = SessionKeys;
 	type SessionHandler = <SessionKeys as frame::traits::OpaqueKeys>::KeyTypeIdProviders;
@@ -261,6 +261,10 @@ impl LocalQueue {
 			panic!("Must set local_queue()!")
 		}
 	}
+
+	pub fn flush() {
+		let _ = Self::get_since_last_call();
+	}
 }
 
 impl ah_client::Config for Runtime {
@@ -275,7 +279,7 @@ impl ah_client::Config for Runtime {
 	type Fallback = Staking;
 }
 
-use pallet_staking_async_rc_client as rc_client;
+use pallet_staking_async_rc_client::{self as rc_client, ValidatorSetReport};
 pub struct DeliverToAH;
 impl ah_client::SendToAssetHub for DeliverToAH {
 	type AccountId = AccountId;
@@ -393,6 +397,12 @@ impl ExtBuilder {
 		self
 	}
 
+	/// Set the smallest number of validators to be received by ah-client
+	pub fn minimum_validator_set_size(self, size: u32) -> Self {
+		MinimumValidatorSetSize::set(size);
+		self
+	}
+
 	pub fn build(self) -> TestState {
 		let _ = sp_tracing::try_init_simple();
 		let mut t = frame_system::GenesisConfig::<T>::default().build_storage().unwrap();
@@ -469,5 +479,48 @@ impl ExtBuilder {
 		});
 
 		state
+	}
+}
+
+/// Progress until `sessions`, receive a `new_validator_set` with `id`, and go forward to `sessions
+/// + 1` such that it is queued in pallet-session. If `active`, then progress until `sessions + 2`
+/// such that it is in the active session validators.
+pub(crate) fn receive_validator_set_at(
+	sessions: SessionIndex,
+	id: u32,
+	new_validator_set: Vec<AccountId>,
+	activate: bool,
+) {
+	roll_until_matches(|| pallet_session::CurrentIndex::<Runtime>::get() == sessions, false);
+	assert_eq!(pallet_session::CurrentIndex::<Runtime>::get(), sessions);
+
+	let report = ValidatorSetReport {
+		id,
+		prune_up_to: None,
+		leftover: false,
+		new_validator_set: new_validator_set.clone(),
+	};
+
+	assert_ok!(ah_client::Pallet::<Runtime>::validator_set(RuntimeOrigin::root(), report));
+
+	// go forward till one more session such that these validators are in the session queue now
+	roll_until_matches(|| pallet_session::CurrentIndex::<Runtime>::get() == sessions + 1, false);
+	assert_eq!(pallet_session::CurrentIndex::<Runtime>::get(), sessions + 1);
+
+	assert_eq!(
+		pallet_session::QueuedKeys::<Runtime>::get()
+			.into_iter()
+			.map(|(x, _)| x)
+			.collect::<Vec<_>>(),
+		new_validator_set.clone(),
+	);
+
+	if activate {
+		// if need be go one more session to activate them
+		roll_until_matches(
+			|| pallet_session::CurrentIndex::<Runtime>::get() == sessions + 2,
+			false,
+		);
+		assert_eq!(pallet_session::Validators::<Runtime>::get(), new_validator_set);
 	}
 }

@@ -18,7 +18,9 @@
 use crate::rc::mock::*;
 use frame::testing_prelude::*;
 use pallet_staking_async_ah_client::{self as ah_client, Mode, OperatingMode};
-use pallet_staking_async_rc_client::{self as rc_client, SessionReport, ValidatorSetReport};
+use pallet_staking_async_rc_client::{
+	self as rc_client, Offence, SessionReport, ValidatorSetReport,
+};
 
 // Tests that are specific to Relay Chain.
 #[test]
@@ -439,14 +441,221 @@ fn splitted_drops_too_small_validator_set() {
 }
 
 #[test]
+fn on_offence_non_validator() {
+	ExtBuilder::default()
+		.local_queue()
+		.session_keys(vec![1, 2, 3, 4])
+		.build()
+		.execute_with(|| {
+			receive_validator_set_at(3, 1, vec![1, 2, 3, 4], true);
+			assert_eq!(pallet_session::CurrentIndex::<Runtime>::get(), 5);
 
-fn sends_offence_report() {
-	// todo:
-	// Test
-	// - pre-verification of offence on RC.
-	// - disabling of validator in active era.
-	// - Dispatch validator offence to AH.
-	ExtBuilder::default().local_queue().build().execute_with(|| {});
+			// flush some relevant data
+			LocalQueue::flush();
+			let _ = session_events_since_last_call();
+
+			// submit an offence for validator 5 in current session, which is not a validator
+			// really. Note that we have to provide a manual identification, as the default one
+			// won't work here.
+			assert_ok!(pallet_root_offences::Pallet::<Runtime>::create_offence(
+				RuntimeOrigin::root(),
+				vec![(5, Perbill::from_percent(50))],
+				Some(vec![Default::default()]),
+				None
+			));
+
+			// we nonetheless have sent the offence report to AH
+			assert_eq!(
+				LocalQueue::get_since_last_call(),
+				vec![(
+					150,
+					OutgoingMessages::OffenceReport(
+						5,
+						vec![Offence {
+							offender: 5,
+							reporters: vec![],
+							slash_fraction: Perbill::from_percent(50)
+						}]
+					)
+				)]
+			);
+
+			// no disabling has happened in session
+			assert_eq!(session_events_since_last_call(), vec![]);
+		})
+}
+
+#[test]
+fn on_offence_non_validator_and_active() {
+	ExtBuilder::default()
+		.local_queue()
+		.session_keys(vec![1, 2, 3, 4])
+		.build()
+		.execute_with(|| {
+			receive_validator_set_at(3, 1, vec![1, 2, 3, 4], true);
+			assert_eq!(pallet_session::CurrentIndex::<Runtime>::get(), 5);
+
+			// flush some relevant data
+			LocalQueue::flush();
+			let _ = session_events_since_last_call();
+
+			// submit an offence for 5 and 4, first a non-validator and second an active one.
+			assert_ok!(pallet_root_offences::Pallet::<Runtime>::create_offence(
+				RuntimeOrigin::root(),
+				vec![(4, Perbill::from_percent(50)), (5, Perbill::from_percent(50))],
+				Some(vec![Default::default(), Default::default()]),
+				None
+			));
+
+			// we nonetheless have sent the offence report to AH
+			assert_eq!(
+				LocalQueue::get_since_last_call(),
+				vec![(
+					150,
+					OutgoingMessages::OffenceReport(
+						5,
+						vec![
+							Offence {
+								offender: 4,
+								reporters: vec![],
+								slash_fraction: Perbill::from_percent(50)
+							},
+							Offence {
+								offender: 5,
+								reporters: vec![],
+								slash_fraction: Perbill::from_percent(50)
+							}
+						]
+					)
+				)]
+			);
+
+			// one validator has been disabled in session
+			assert_eq!(
+				session_events_since_last_call(),
+				vec![pallet_session::Event::ValidatorDisabled { validator: 4 }]
+			);
+		})
+}
+
+#[test]
+fn wont_disable_past_session_offence() {
+	ExtBuilder::default()
+		.local_queue()
+		.session_keys(vec![1, 2, 3, 4])
+		.minimum_validator_set_size(1)
+		.build()
+		.execute_with(|| {
+			// receive 1, 2 at 3, activate them
+			receive_validator_set_at(3, 1, vec![1, 2], true);
+			assert_eq!(pallet_session::CurrentIndex::<Runtime>::get(), 5);
+
+			// receive 3, 4 at 6, activate them
+			receive_validator_set_at(6, 2, vec![3, 4], true);
+			assert_eq!(pallet_session::CurrentIndex::<Runtime>::get(), 8);
+
+			// flush some relevant data
+			LocalQueue::flush();
+			let _ = session_events_since_last_call();
+
+			// submit an offence for 1, who is a past validator, in a past session.
+			assert_ok!(pallet_root_offences::Pallet::<Runtime>::create_offence(
+				RuntimeOrigin::root(),
+				vec![(1, Perbill::from_percent(50))],
+				Some(vec![Default::default()]),
+				Some(5)
+			));
+
+			// we nonetheless have sent the offence report to AH
+			assert_eq!(
+				LocalQueue::get_since_last_call(),
+				vec![(
+					240,
+					OutgoingMessages::OffenceReport(
+						5,
+						vec![Offence {
+							offender: 1,
+							reporters: vec![],
+							slash_fraction: Perbill::from_percent(50)
+						},]
+					)
+				)]
+			);
+
+			// no one disabled in session
+			assert_eq!(session_events_since_last_call(), vec![]);
+		})
+}
+
+#[test]
+fn on_offence_disable_and_re_enabled_next_set() {
+	ExtBuilder::default()
+		.local_queue()
+		.session_keys(vec![1, 2, 3, 4])
+		.build()
+		.execute_with(|| {
+			receive_validator_set_at(3, 1, vec![1, 2, 3, 4], true);
+			assert_eq!(pallet_session::CurrentIndex::<Runtime>::get(), 5);
+
+			// flush some relevant data
+			LocalQueue::flush();
+			let _ = session_events_since_last_call();
+
+			// submit an offence for 4 in the current session
+			assert_ok!(pallet_root_offences::Pallet::<Runtime>::create_offence(
+				RuntimeOrigin::root(),
+				vec![(4, Perbill::from_percent(50))],
+				Some(vec![Default::default()]),
+				None
+			));
+
+			// offence dispatched to AH
+			assert_eq!(
+				LocalQueue::get_since_last_call(),
+				vec![(
+					150,
+					OutgoingMessages::OffenceReport(
+						5,
+						vec![Offence {
+							offender: 4,
+							reporters: vec![],
+							slash_fraction: Perbill::from_percent(50)
+						},]
+					)
+				)]
+			);
+
+			// session disables 4
+			assert_eq!(
+				session_events_since_last_call(),
+				vec![pallet_session::Event::ValidatorDisabled { validator: 4 }]
+			);
+			assert_eq!(
+				pallet_session::DisabledValidators::<Runtime>::get()
+					.into_iter()
+					.map(|(x, _)| x)
+					.collect::<Vec<_>>(),
+				vec![3]
+			);
+
+			// now receive the same validator set, again
+			receive_validator_set_at(6, 2, vec![1, 2, 3, 4], true);
+			assert_eq!(pallet_session::CurrentIndex::<Runtime>::get(), 8);
+
+			// events related to session rotation
+			assert_eq!(
+				session_events_since_last_call(),
+				vec![
+					pallet_session::Event::NewSession { session_index: 6 },
+					pallet_session::Event::NewQueued,
+					pallet_session::Event::NewSession { session_index: 7 },
+					pallet_session::Event::NewSession { session_index: 8 }
+				]
+			);
+
+			// disabled validators is now gone
+			assert!(pallet_session::DisabledValidators::<Runtime>::get().is_empty());
+		});
 }
 
 mod session_pruning {

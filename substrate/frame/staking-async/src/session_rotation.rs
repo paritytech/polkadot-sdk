@@ -504,11 +504,11 @@ impl<T: Config> Rotator<T> {
 		Ok(())
 	}
 
-	pub(crate) fn planning_era() -> EraIndex {
+	pub fn planning_era() -> EraIndex {
 		CurrentEra::<T>::get().unwrap_or(0)
 	}
 
-	pub(crate) fn active_era() -> EraIndex {
+	pub fn active_era() -> EraIndex {
 		ActiveEra::<T>::get().map(|a| a.index).defensive_unwrap_or(0)
 	}
 
@@ -536,7 +536,7 @@ impl<T: Config> Rotator<T> {
 		match activation_timestamp {
 			Some((time, id)) if id == current_planned_era => {
 				// We rotate the era if we have the activation timestamp.
-				Self::start_era(&active_era, starting, time);
+				Self::start_era(active_era, starting, time);
 			},
 			Some((_time, id)) => {
 				// RC has done something wrong -- we received the wrong ID. Don't start a new era.
@@ -550,10 +550,11 @@ impl<T: Config> Rotator<T> {
 			None => (),
 		}
 
+		let active_era = Self::active_era();
 		// check if we should plan new era.
 		let should_plan_era = match ForceEra::<T>::get() {
 			// see if it's good time to plan a new era.
-			Forcing::NotForcing => Self::is_plan_era_deadline(starting, active_era.index),
+			Forcing::NotForcing => Self::is_plan_era_deadline(starting, active_era),
 			// Force plan new era only once.
 			Forcing::ForceNew => {
 				ForceEra::<T>::put(Forcing::NotForcing);
@@ -565,7 +566,7 @@ impl<T: Config> Rotator<T> {
 			Forcing::ForceNone => false,
 		};
 
-		let has_pending_era = active_era.index < current_planned_era;
+		let has_pending_era = active_era < current_planned_era;
 		match (should_plan_era, has_pending_era) {
 			(false, _) => {
 				// nothing to consider
@@ -593,7 +594,7 @@ impl<T: Config> Rotator<T> {
 	}
 
 	pub(crate) fn start_era(
-		ending_era: &ActiveEraInfo,
+		ending_era: ActiveEraInfo,
 		starting_session: SessionIndex,
 		new_era_start_timestamp: u64,
 	) {

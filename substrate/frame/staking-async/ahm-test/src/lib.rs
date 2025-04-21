@@ -148,6 +148,7 @@ mod tests {
 				rc::RuntimeOrigin::root(),
 				vec![(2, Perbill::from_percent(100))],
 				None,
+				None
 			));
 
 			// offence is expected to be deferred to era 1 + 3 = 4
@@ -222,6 +223,7 @@ mod tests {
 			assert_ok!(RootOffences::create_offence(
 				rc::RuntimeOrigin::root(),
 				vec![(5, Perbill::from_percent(100))],
+				None,
 				None,
 			));
 
