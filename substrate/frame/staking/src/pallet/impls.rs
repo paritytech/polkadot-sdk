@@ -53,7 +53,7 @@ use crate::{
 	asset, election_size_tracker::StaticTracker, log, slashing, weights::WeightInfo, ActiveEraInfo,
 	BalanceOf, EraInfo, EraPayout, Exposure, Forcing, IndividualExposure, LedgerIntegrityState,
 	MaxNominationsOf, MaxWinnersOf, Nominations, NominationsQuota, PositiveImbalanceOf,
-	RewardDestination, SessionInterface, StakingLedger, ValidatorPrefs, STAKING_ID,
+	RewardDestination, SessionInterface, StakingLedger, UnlockChunk, ValidatorPrefs, STAKING_ID,
 };
 use alloc::{boxed::Box, vec, vec::Vec};
 
@@ -1379,6 +1379,92 @@ impl<T: Config> Pallet<T> {
 		}
 
 		consumed_weight
+	}
+
+	/// Unbonds a controller.
+	pub(crate) fn do_unbond(
+		controller: T::AccountId,
+		value: BalanceOf<T>,
+	) -> Result<Option<Weight>, DispatchError> {
+		let unlocking = Self::ledger(Controller(controller.clone())).map(|l| l.unlocking.len())?;
+
+		// if there are no unlocking chunks available, try to withdraw chunks older than
+		// `BondingDuration` to proceed with the unbonding.
+		let maybe_withdraw_weight = {
+			if unlocking == T::MaxUnlockingChunks::get() as usize {
+				let real_num_slashing_spans =
+					SlashingSpans::<T>::get(&controller).map_or(0, |s| s.iter().count());
+				Some(Self::do_withdraw_unbonded(&controller, real_num_slashing_spans as u32)?)
+			} else {
+				None
+			}
+		};
+
+		// we need to fetch the ledger again because it may have been mutated in the call
+		// to `Self::do_withdraw_unbonded` above.
+		let mut ledger = Self::ledger(Controller(controller))?;
+		let mut value = value.min(ledger.active);
+		let stash = ledger.stash.clone();
+
+		ensure!(
+			ledger.unlocking.len() < T::MaxUnlockingChunks::get() as usize,
+			Error::<T>::NoMoreChunks,
+		);
+
+		if !value.is_zero() {
+			ledger.active -= value;
+
+			// Avoid there being a dust balance left in the staking system.
+			if ledger.active < asset::existential_deposit::<T>() {
+				value += ledger.active;
+				ledger.active = Zero::zero();
+			}
+
+			let min_active_bond = if Nominators::<T>::contains_key(&stash) {
+				MinNominatorBond::<T>::get()
+			} else if Validators::<T>::contains_key(&stash) {
+				MinValidatorBond::<T>::get()
+			} else {
+				Zero::zero()
+			};
+
+			// Make sure that the user maintains enough active bond for their role.
+			// If a user runs into this error, they should chill first.
+			ensure!(ledger.active >= min_active_bond, Error::<T>::InsufficientBond);
+
+			// Note: in case there is no current era it is fine to bond one era more.
+			let era = CurrentEra::<T>::get()
+				.unwrap_or(0)
+				.defensive_saturating_add(T::BondingDuration::get());
+			if let Some(chunk) = ledger.unlocking.last_mut().filter(|chunk| chunk.era == era) {
+				// To keep the chunk count down, we only keep one chunk per era. Since
+				// `unlocking` is a FiFo queue, if a chunk exists for `era` we know that it will
+				// be the last one.
+				chunk.value = chunk.value.defensive_saturating_add(value)
+			} else {
+				ledger
+					.unlocking
+					.try_push(UnlockChunk { value, era })
+					.map_err(|_| Error::<T>::NoMoreChunks)?;
+			};
+			// NOTE: ledger must be updated prior to calling `Self::weight_of`.
+			ledger.update()?;
+
+			// update this staker in the sorted list, if they exist in it.
+			if T::VoterList::contains(&stash) {
+				let _ = T::VoterList::on_update(&stash, Self::weight_of(&stash)).defensive();
+			}
+
+			Self::deposit_event(Event::<T>::Unbonded { stash, amount: value });
+		}
+
+		let actual_weight = if let Some(withdraw_weight) = maybe_withdraw_weight {
+			Some(T::WeightInfo::unbond().saturating_add(withdraw_weight))
+		} else {
+			Some(T::WeightInfo::unbond())
+		};
+
+		Ok(actual_weight)
 	}
 }
 
