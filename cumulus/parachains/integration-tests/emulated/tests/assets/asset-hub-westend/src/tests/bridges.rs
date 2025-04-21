@@ -20,9 +20,13 @@ use crate::imports::*;
 #[test]
 fn open_close_lane() {
 	<AssetHubWestend as AssetHubWestendPallet>::XcmOverAssetHubRococo::open_bridge(
-		OpenBridgeOrigin::origin_without_sovereign_account(),
-		Box::new(bridged_asset_hub_universal_location().into()),
+		AssetHubWestendRuntimeOrigin::root(),
+		Box::new(bridged_asset_hub_rococo_universal_location().into()),
 		None,
 	);
-	// <AssetHubRococo as AssetHubRococoPallet>::XcmOverAssetHubWestend::open_bridge();
+	<AssetHubRococo as AssetHubRococoPallet>::XcmOverAssetHubWestend::open_bridge(
+		AssetHubRococoRuntimeOrigin::root(),
+		Box::new(bridged_asset_hub_westend_universal_location().into()),
+		None,
+	);
 }

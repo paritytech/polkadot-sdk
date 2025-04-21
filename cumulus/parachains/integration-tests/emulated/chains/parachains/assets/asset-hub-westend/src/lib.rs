@@ -13,7 +13,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-pub use asset_hub_westend_runtime;
+pub use asset_hub_westend_runtime::{
+	self as asset_hub_westend_runtime, xcm_config::XcmConfig as AssetHubWestendXcmConfig,
+	ExistentialDeposit as AssetHubWestendExistentialDeposit,
+	RuntimeOrigin as AssetHubWestendRuntimeOrigin,
+};
 
 pub mod genesis;
 

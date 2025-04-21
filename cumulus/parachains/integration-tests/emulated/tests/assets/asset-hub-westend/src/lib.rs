@@ -61,6 +61,7 @@ mod imports {
 			},
 			genesis::{AssetHubRococoAssetOwner, ED as ASSET_HUB_ROCOCO_ED},
 			AssetHubRococoParaPallet as AssetHubRococoPallet,
+			AssetHubRococoRuntimeOrigin,
 		},
 		rococo_emulated_chain::{
 			genesis::ED as ROCOCO_ED,
@@ -91,6 +92,7 @@ mod imports {
 			},
 			genesis::{AssetHubWestendAssetOwner, ED as ASSET_HUB_WESTEND_ED},
 			AssetHubWestendParaPallet as AssetHubWestendPallet,
+			AssetHubWestendRuntimeOrigin,
 		},
 		bridge_hub_westend_emulated_chain::{
 			bridge_hub_westend_runtime::xcm_config::{self as bhw_xcm_config},
