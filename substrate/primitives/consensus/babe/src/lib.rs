@@ -58,7 +58,6 @@ pub type Randomness = [u8; RANDOMNESS_LENGTH];
 
 /// A Babe authority keypair. Necessarily equivalent to the schnorrkel public key used in
 /// the main Babe module. If that ever changes, then this must, too.
-#[cfg(feature = "std")]
 pub type AuthorityPair = app::Pair;
 
 /// A Babe authority signature.

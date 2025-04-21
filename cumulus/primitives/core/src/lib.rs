@@ -382,3 +382,14 @@ sp_api::decl_runtime_apis! {
 		fn core_selector() -> (CoreSelector, ClaimQueueOffset);
 	}
 }
+
+sp_api::decl_runtime_apis! {
+	/// API to tell the node side how the relay parent should be chosen.
+	///
+	/// A larger offset indicates that the relay parent should not be the tip of the relay chain,
+	/// but `N` blocks behind the tip. This offset is then enforced by the runtime.
+	pub trait RelayParentOffsetApi {
+		/// Fetch the slot offset that is expected from the relay chain.
+		fn slot_offset() -> u32;
+	}
+}

@@ -27,6 +27,7 @@ frame-system = { workspace = true }
 pallet-message-queue = { workspace = true }
 sp-core = { workspace = true }
 sp-externalities = { workspace = true }
+sp-consensus-babe = { workspace = true }
 sp-inherents = { workspace = true }
 sp-io = { workspace = true }
 sp-runtime = { workspace = true }
@@ -53,12 +54,15 @@ futures = { workspace = true }
 hex-literal = { workspace = true, default-features = true }
 rand = { workspace = true, default-features = true }
 trie-standardmap = { workspace = true }
+rstest = { workspace = true }
+
 
 # Substrate
 sp-consensus-slots = { workspace = true, default-features = true }
 sp-crypto-hashing = { workspace = true, default-features = true }
 sp-tracing = { workspace = true, default-features = true }
 sp-version = { workspace = true, default-features = true }
+sp-keyring = { workspace = true, default-features = true }
 
 # Cumulus
 cumulus-test-client = { workspace = true }

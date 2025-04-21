@@ -30,7 +30,7 @@
 extern crate alloc;
 
 use cumulus_primitives_core::{
-	relay_chain::{BlakeTwo256, Hash as RelayHash, HashT as _},
+	relay_chain::{BlakeTwo256, Hash as RelayHash, HashT as _, Header as RelayHeader},
 	InboundDownwardMessage, InboundHrmpMessage, ParaId, PersistedValidationData,
 };
 
@@ -41,6 +41,20 @@ use sp_inherents::InherentIdentifier;
 /// The identifier for the parachain inherent.
 pub const INHERENT_IDENTIFIER: InherentIdentifier = *b"sysi1337";
 
+pub const EXTRA_RP: InherentIdentifier = *b"extra_rp";
+
+#[derive(
+	codec::Encode,
+	codec::Decode,
+	codec::DecodeWithMemTracking,
+	sp_core::RuntimeDebug,
+	Clone,
+	PartialEq,
+	TypeInfo,
+)]
+pub struct RelayParentExtraData {
+	pub parents: Vec<RelayHeader>,
+}
 /// The inherent data that is passed by the collator to the parachain runtime.
 #[derive(
 	codec::Encode,
@@ -69,6 +83,7 @@ pub struct ParachainInherentData {
 	/// were sent. In combination with the rule of no more than one message in a channel per block,
 	/// this means `sent_at` is **strictly** greater than the previous one (if any).
 	pub horizontal_messages: BTreeMap<ParaId, Vec<InboundHrmpMessage>>,
+	pub relay_parent_descendants: Vec<RelayHeader>,
 }
 
 #[cfg(feature = "std")]
