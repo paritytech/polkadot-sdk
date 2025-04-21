@@ -468,10 +468,10 @@ impl<T: Config> Eras<T> {
 /// This controls the following storage items in FULL, meaning that they should not be accessed
 /// directly from anywhere else in this pallet:
 ///
-/// * [`CurrentEra`]: The current planning era
-/// * [`ActiveEra`]: The current active era
-/// * [`ErasStartSessionIndex`]: The starting index of the active era
-/// * [`BondedEras`]: the list of eras
+/// * `CurrentEra`: The current planning era
+/// * `ActiveEra`: The current active era
+/// * `ErasStartSessionIndex`: The starting index of the active era
+/// * `BondedEras`: the list of eras
 pub struct Rotator<T: Config>(core::marker::PhantomData<T>);
 
 impl<T: Config> Rotator<T> {
