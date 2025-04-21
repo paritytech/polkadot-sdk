@@ -19,14 +19,14 @@ use crate::imports::*;
 /// when `OriginKind::Superuser`.
 #[test]
 fn open_close_lane() {
-	<AssetHubWestend as AssetHubWestendPallet>::XcmOverAssetHubRococo::open_bridge(
+	let _ = <AssetHubWestend as AssetHubWestendPallet>::XcmOverAssetHubRococo::open_bridge(
 		AssetHubWestendRuntimeOrigin::root(),
-		Box::new(bridged_asset_hub_rococo_universal_location().into()),
+		Box::new(AssetHubRococoUniversalLocation::get().into()),
 		None,
 	);
-	<AssetHubRococo as AssetHubRococoPallet>::XcmOverAssetHubWestend::open_bridge(
+	let _ = <AssetHubRococo as AssetHubRococoPallet>::XcmOverAssetHubWestend::open_bridge(
 		AssetHubRococoRuntimeOrigin::root(),
-		Box::new(bridged_asset_hub_westend_universal_location().into()),
+		Box::new(AssetHubWestendUniversalLocation::get().into()),
 		None,
 	);
 }

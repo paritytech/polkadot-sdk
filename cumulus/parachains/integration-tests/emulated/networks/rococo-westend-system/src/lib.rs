@@ -64,18 +64,32 @@ decl_test_bridges! {
 	pub struct RococoWestendMockBridge {
 		source = BridgeHubRococoPara,
 		target = BridgeHubWestendPara,
-		handler = RococoWestendMessageHandler
+		handler = (AssetHubRococoWestendMessageHandler, RococoWestendMessageHandler)
 	},
 	pub struct WestendRococoMockBridge {
 		source = BridgeHubWestendPara,
 		target = BridgeHubRococoPara,
-		handler = WestendRococoMessageHandler
+		handler = (AssetHubWestendRococoMessageHandler,WestendRococoMessageHandler)
 	}
 }
 
+type AssetHubRococoRuntime = <AssetHubRococoPara as Chain>::Runtime;
+type AssetHubWestendRuntime = <AssetHubWestendPara as Chain>::Runtime;
 type BridgeHubRococoRuntime = <BridgeHubRococoPara as Chain>::Runtime;
 type BridgeHubWestendRuntime = <BridgeHubWestendPara as Chain>::Runtime;
 
+pub type AssetHubRococoWestendMessageHandler = BridgeMessagesHandler<
+	AssetHubRococoRuntime,
+	BridgeMessagesInstance3,
+	AssetHubWestendRuntime,
+	BridgeMessagesInstance1,
+>;
+pub type AssetHubWestendRococoMessageHandler = BridgeMessagesHandler<
+	AssetHubWestendRuntime,
+	BridgeMessagesInstance1,
+	AssetHubRococoRuntime,
+	BridgeMessagesInstance3,
+>;
 pub type RococoWestendMessageHandler = BridgeMessagesHandler<
 	BridgeHubRococoRuntime,
 	BridgeMessagesInstance3,
