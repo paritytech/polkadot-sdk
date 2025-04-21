@@ -184,7 +184,7 @@ where
 
 		loop {
 			// We wait here until the next slot arrives.
-			let Some(mut para_slot) = slot_timer.wait_until_next_slot().await else {
+			let Some(_) = slot_timer.wait_until_next_slot().await else {
 				return;
 			};
 
@@ -204,8 +204,6 @@ where
 				0
 			};
 
-			tracing::info!(target: LOG_TARGET, ?relay_parent_offset, ?para_slot, "Authoring with relay parent offset.");
-
 			let Ok(para_slot_duration) = crate::slot_duration(&*para_client) else {
 				tracing::error!(target: LOG_TARGET, "Failed to fetch slot duration from runtime.");
 				continue;
@@ -221,12 +219,13 @@ where
 				continue
 			};
 
-			adjust_para_to_relay_parent_slot(
+			let Some(para_slot) = adjust_para_to_relay_parent_slot(
 				&relay_parent_header,
 				relay_chain_slot_duration,
-				&mut para_slot,
 				para_slot_duration,
-			);
+			) else {
+				continue;
+			};
 			tracing::debug!(
 				target: LOG_TARGET,
 				timestamp = ?para_slot.timestamp,
@@ -444,9 +443,8 @@ where
 fn adjust_para_to_relay_parent_slot(
 	relay_header: &RelayHeader,
 	relay_chain_slot_duration: Duration,
-	para_slot: &mut SlotInfo,
 	para_slot_duration: SlotDuration,
-) {
+) -> Option<SlotInfo> {
 	let relay_slot = get_slot_from_relay_parent(&relay_header);
 	let new_slot = Slot::from_timestamp(
 		relay_slot
@@ -454,14 +452,14 @@ fn adjust_para_to_relay_parent_slot(
 			.unwrap(),
 		para_slot_duration,
 	);
-	para_slot.timestamp = new_slot.timestamp(para_slot_duration).unwrap();
-	para_slot.slot = new_slot;
+	let para_slot = SlotInfo { slot: new_slot, timestamp: new_slot.timestamp(para_slot_duration)? };
 	tracing::debug!(
 		target: LOG_TARGET,
 		timestamp = ?para_slot.timestamp,
 		slot = ?para_slot.slot,
 		"Parachain slot adjusted to relay chain.",
 	);
+	Some(para_slot)
 }
 
 fn get_slot_from_relay_parent(header: &RelayHeader) -> Slot {
@@ -491,6 +489,7 @@ where
 		return Ok((relay_header, Default::default()));
 	}
 
+	tracing::debug!(target: LOG_TARGET, relay_parent_offset, "Offsetting relay parent.");
 	let mut required_ancestors: VecDeque<RelayHeader> = Default::default();
 	required_ancestors.push_front(relay_header.clone());
 	while required_ancestors.len() < relay_parent_offset as usize + 1 {
