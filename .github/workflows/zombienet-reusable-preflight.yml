@@ -205,6 +205,7 @@ jobs:
         run: |
           echo "workflow file: ${{ steps.current_file.outputs.currentWorkflowFile }}"
           echo "ZOMBIENET_IMAGE: ${{ steps.set_vars.outputs.ZOMBIENET_IMAGE }}"
+          echo "CI_IMAGE: ${{ steps.set_vars.outputs.IMAGE }}"
 
   #
   #
@@ -217,6 +218,7 @@ jobs:
         run: |
           echo "CI_IMAGE: ${{ needs.preflight.outputs.CI_IMAGE }}"
           echo "ZOMBIENET_IMAGE: ${{ needs.preflight.outputs.ZOMBIENET_IMAGE }}"
+          echo "CI_IMAGE: ${{ needs.preflight.outputs.CI_IMAGE }}"
           echo "ZOMBIENET_RUNNER: ${{ needs.preflight.outputs.ZOMBIENET_RUNNER }}"
           echo "DOCKER_IMAGES_VERSION: ${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"
           echo "SOURCE_REF_SLUG: ${{ needs.preflight.outputs.SOURCE_REF_SLUG }}"

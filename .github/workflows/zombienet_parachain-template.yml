@@ -43,6 +43,7 @@ jobs:
       RUST_LOG: "info,zombienet_orchestrator=debug"
       FF_DISABLE_UMASK_FOR_DOCKER_EXECUTOR: 1
       RUN_IN_CONTAINER: "1"
+      IMAGE: ${{ needs.preflight.outputs.CI_IMAGE }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
