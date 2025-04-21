@@ -66,9 +66,9 @@ impl Entry {
 /// Returns a list of all rust contracts that need to be compiled to PVM
 /// and a list of all contracts already in PVM bytecode.
 fn collect_entries(contracts_dir: &Path) -> (Vec<Entry>, Vec<String>) {
-	fs::read_dir(contracts_dir)
-		.expect("src dir exists; qed")
-		.fold((Vec::new(), Vec::new()), |(mut rust_entries, mut pvm_entries), file| {
+	fs::read_dir(contracts_dir).expect("src dir exists; qed").fold(
+		(Vec::new(), Vec::new()),
+		|(mut rust_entries, mut pvm_entries), file| {
 			let path = file.expect("file exists; qed").path();
 			let extension = path.extension().unwrap_or_default();
 			if extension == "rs" {
@@ -77,7 +77,8 @@ fn collect_entries(contracts_dir: &Path) -> (Vec<Entry>, Vec<String>) {
 				pvm_entries.push(path.to_str().expect("path is valid unicode; qed").to_string());
 			}
 			(rust_entries, pvm_entries)
-		})
+		},
+	)
 }
 
 /// Create a `Cargo.toml` to compile the given contract entries.
@@ -200,7 +201,8 @@ fn move_files(entries: Vec<String>, output_directory: &Path) -> Result<()> {
 	for entry in entries {
 		let file_path = Path::new(&entry);
 		let output_path = output_directory.join(file_path.file_name().expect("entry is path; qed"));
-		fs::rename(Path::new(&entry), &output_path).with_context(|| format!("Failed to move {entry:?} to {output_path:?}"))?;
+		fs::rename(Path::new(&entry), &output_path)
+			.with_context(|| format!("Failed to move {entry:?} to {output_path:?}"))?;
 	}
 	Ok(())
 }

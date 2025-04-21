@@ -15,7 +15,10 @@
 
 use crate::{create_pool_with_wnd_on, foreign_balance_on, imports::*};
 
-use alloy_core::{primitives::U256, sol_types::{sol_data, SolType}};
+use alloy_core::{
+	primitives::U256,
+	sol_types::{sol_data, SolType},
+};
 use frame_support::traits::fungibles;
 use pallet_revive::{Code, DepositLimit, InstantiateReturnValue};
 use pallet_revive_fixtures::compile_module;
@@ -1499,14 +1502,19 @@ fn can_withdraw_and_deposit_erc20() {
 			constructor_data,
 			None,
 		);
-		let Ok(InstantiateReturnValue { addr: erc20_address, .. }) = result.result else { unreachable!("contract should initialize") };
+		let Ok(InstantiateReturnValue { addr: erc20_address, .. }) = result.result else {
+			unreachable!("contract should initialize")
+		};
 
 		let erc20_transfer_amount = 100u128;
 		let wnd_amount_for_fees = 1_000_000_000_000u128;
 		let message = Xcm::<RuntimeCall>::builder()
 			.withdraw_asset((Parent, wnd_amount_for_fees))
 			.pay_fees((Parent, wnd_amount_for_fees))
-			.withdraw_asset((AccountKey20 { key: erc20_address.into(), network: None }, erc20_transfer_amount))
+			.withdraw_asset((
+				AccountKey20 { key: erc20_address.into(), network: None },
+				erc20_transfer_amount,
+			))
 			.deposit_asset(AllCounted(1), beneficiary.clone())
 			.build();
 		assert_ok!(PolkadotXcm::execute(
@@ -1516,7 +1524,8 @@ fn can_withdraw_and_deposit_erc20() {
 		));
 
 		// Beneficiary receives the ERC20.
-		let beneficiary_amount = <Contracts as fungibles::Inspect<_>>::balance(erc20_address, &beneficiary);
+		let beneficiary_amount =
+			<Contracts as fungibles::Inspect<_>>::balance(erc20_address, &beneficiary);
 		assert_eq!(beneficiary_amount, erc20_transfer_amount);
 	});
 }

@@ -20,85 +20,113 @@
 //! This is meant to allow ERC20 tokens stored on this pallet to be used with
 //! the fungibles traits.
 
-use alloy_core::{sol, sol_types::*, primitives::{Address, U256 as EU256}};
-use frame_support::{
-    traits::tokens::{
-        fungibles,
-        DepositConsequence,
-        WithdrawConsequence,
-        Fortitude,
-        Precision,
-        Preservation,
-        Provenance,
-    },
+use alloy_core::{
+	primitives::{Address, U256 as EU256},
+	sol,
+	sol_types::*,
 };
-use sp_core::U256;
+use frame_support::traits::tokens::{
+	fungibles, DepositConsequence, Fortitude, Precision, Preservation, Provenance,
+	WithdrawConsequence,
+};
 use pallet_revive_uapi::ReturnFlags;
+use sp_core::U256;
 
 use super::*;
 
 // ERC20 interface.
 sol! {
-    function totalSupply() public view virtual returns (uint256);
-    function balanceOf(address account) public view virtual returns (uint256);
-    function transfer(address to, uint256 value) public virtual returns (bool);
-    function mint(uint256 amount) public;
+	function totalSupply() public view virtual returns (uint256);
+	function balanceOf(address account) public view virtual returns (uint256);
+	function transfer(address to, uint256 value) public virtual returns (bool);
 }
 
 impl<T: Config> fungibles::Inspect<<T as frame_system::Config>::AccountId> for Pallet<T>
 where
 	BalanceOf<T>: Into<U256> + TryFrom<U256> + Bounded,
 	MomentOf<T>: Into<U256>,
-    T::Hash: frame_support::traits::IsType<H256>
+	T::Hash: frame_support::traits::IsType<H256>,
 {
-    // The asset id of an ERC20 is its origin contract's address.
-    type AssetId = H160;
-    // The balance is always u128.
-    type Balance = u128;
+	// The asset id of an ERC20 is its origin contract's address.
+	type AssetId = H160;
+	// The balance is always u128.
+	type Balance = u128;
 
-    // Need to call a view function here.
-    fn total_issuance(_: Self::AssetId) -> Self::Balance {
-        1
-    }
+	// Need to call a view function here.
+	fn total_issuance(asset_id: Self::AssetId) -> Self::Balance {
+		let data = totalSupplyCall {}.abi_encode();
+		let ContractResult { result, .. } = Self::bare_call(
+			T::RuntimeOrigin::signed(T::CheckingAccount::get()),
+			asset_id,
+			BalanceOf::<T>::zero(),
+			Weight::from_parts(1_000_000_000, 100_000),
+			DepositLimit::Unchecked,
+			data,
+		);
+		EU256::abi_decode(&result.unwrap().data, true)
+			.expect("Failed to ABI decode")
+			.to::<u128>()
+	}
 
-    fn minimum_balance(_: Self::AssetId) -> Self::Balance {
-        1
-    }
+	fn minimum_balance(_: Self::AssetId) -> Self::Balance {
+		// TODO: ERC20s don't have this concept.
+		1
+	}
 
-    fn total_balance(_: Self::AssetId, _: &T::AccountId) -> Self::Balance {
-        1
-    }
+	fn total_balance(asset_id: Self::AssetId, account_id: &T::AccountId) -> Self::Balance {
+		// Since ERC20s don't have the concept of freezes and locks,
+		// total balance is the same as balance.
+		Self::balance(asset_id, account_id)
+	}
 
-    fn balance(asset_id: Self::AssetId, account_id: &T::AccountId) -> Self::Balance {
-        let eth_address = T::AddressMapper::to_address(account_id);
-        let address = Address::from(Into::<[u8; 20]>::into(eth_address));
-        let data = balanceOfCall { account: address }.abi_encode();
-        let ContractResult { result, .. } = Self::bare_call(
-            T::RuntimeOrigin::signed(account_id.clone()),
-            asset_id,
-            BalanceOf::<T>::zero(),
-            Weight::from_parts(1_000_000_000, 100_000),
-            DepositLimit::Unchecked,
-            data
-        );
-        EU256::abi_decode(&result.unwrap().data, true).expect("Failed to ABI decode").to::<u128>()
-    }
+	fn balance(asset_id: Self::AssetId, account_id: &T::AccountId) -> Self::Balance {
+		let eth_address = T::AddressMapper::to_address(account_id);
+		let address = Address::from(Into::<[u8; 20]>::into(eth_address));
+		let data = balanceOfCall { account: address }.abi_encode();
+		let ContractResult { result, .. } = Self::bare_call(
+			T::RuntimeOrigin::signed(account_id.clone()),
+			asset_id,
+			BalanceOf::<T>::zero(),
+			Weight::from_parts(1_000_000_000, 100_000),
+			DepositLimit::Unchecked,
+			data,
+		);
+		EU256::abi_decode(&result.unwrap().data, true)
+			.expect("Failed to ABI decode")
+			.to::<u128>()
+	}
 
-    fn reducible_balance(_: Self::AssetId, _: &T::AccountId, _: Preservation, _: Fortitude) -> Self::Balance {
-        1
-    }
+	fn reducible_balance(
+		asset_id: Self::AssetId,
+		account_id: &T::AccountId,
+		_: Preservation,
+		_: Fortitude,
+	) -> Self::Balance {
+		// Since ERC20s don't have minimum amounts, this is the same
+		// as balance.
+		Self::balance(asset_id, account_id)
+	}
 
-    fn can_deposit(_: Self::AssetId, _: &T::AccountId, _: Self::Balance, _: Provenance) -> DepositConsequence {
-        DepositConsequence::Success
-    }
+	fn can_deposit(
+		_: Self::AssetId,
+		_: &T::AccountId,
+		_: Self::Balance,
+		_: Provenance,
+	) -> DepositConsequence {
+		DepositConsequence::Success
+	}
 
-    fn can_withdraw(_: Self::AssetId, _: &T::AccountId, _: Self::Balance) -> WithdrawConsequence<Self::Balance> {
-        WithdrawConsequence::Success
-    }
+	fn can_withdraw(
+		_: Self::AssetId,
+		_: &T::AccountId,
+		_: Self::Balance,
+	) -> WithdrawConsequence<Self::Balance> {
+		WithdrawConsequence::Success
+	}
 
-    fn asset_exists(_: Self::AssetId) -> bool {
-        false
-    }
+	fn asset_exists(_: Self::AssetId) -> bool {
+		false
+	}
 }
 
 // We implement `fungibles::Mutate` to override `burn_from` and `mint_to`.
@@ -108,80 +136,82 @@ impl<T: Config> fungibles::Mutate<<T as frame_system::Config>::AccountId> for Pa
 where
 	BalanceOf<T>: Into<U256> + TryFrom<U256> + Bounded,
 	MomentOf<T>: Into<U256>,
-    T::Hash: frame_support::traits::IsType<H256>
+	T::Hash: frame_support::traits::IsType<H256>,
 {
-    fn burn_from(
-        asset: Self::AssetId,
-        who: &T::AccountId,
-        amount: Self::Balance,
-        _: Preservation,
-        _: Precision,
-        _: Fortitude,
-    ) -> Result<Self::Balance, DispatchError> {
-        let checking_account_eth = T::AddressMapper::to_address(&T::CheckingAccount::get());
-        let checking_address = Address::from(Into::<[u8; 20]>::into(checking_account_eth));
-        let data = transferCall { to: checking_address, value: EU256::from(amount) }.abi_encode();
-        let ContractResult { result, .. } = Self::bare_call(
-            T::RuntimeOrigin::signed(who.clone()),
-            asset,
-            BalanceOf::<T>::zero(),
-            Weight::from_parts(1_000_000_000, 100_000),
-            DepositLimit::Unchecked,
-            data
-        );
-        if let Ok(return_value) = result {
-        	let has_reverted = return_value.flags.contains(ReturnFlags::REVERT);
-	        if has_reverted {
-	            // TODO: Can actually match errors from contract call
-	            // to provide better errors here.
-	            Err(DispatchError::Unavailable)
-	        } else {
-		        let is_success = bool::abi_decode(&return_value.data, true).expect("Failed to ABI decode");
-		        if is_success {
-		            // TODO: Should return the balance left in `who`.
-		            Ok(0)
-		        } else {
-		            // TODO: Can actually match errors from contract call
-		            // to provide better errors here.
-		            Err(DispatchError::Unavailable)
-		        }
-	        }
-        } else {
-            Err(DispatchError::Unavailable)
-        }
-    }
+	fn burn_from(
+		asset: Self::AssetId,
+		who: &T::AccountId,
+		amount: Self::Balance,
+		_: Preservation,
+		_: Precision,
+		_: Fortitude,
+	) -> Result<Self::Balance, DispatchError> {
+		let checking_account_eth = T::AddressMapper::to_address(&T::CheckingAccount::get());
+		let checking_address = Address::from(Into::<[u8; 20]>::into(checking_account_eth));
+		let data = transferCall { to: checking_address, value: EU256::from(amount) }.abi_encode();
+		let ContractResult { result, .. } = Self::bare_call(
+			T::RuntimeOrigin::signed(who.clone()),
+			asset,
+			BalanceOf::<T>::zero(),
+			Weight::from_parts(1_000_000_000, 100_000),
+			DepositLimit::Unchecked,
+			data,
+		);
+		if let Ok(return_value) = result {
+			let has_reverted = return_value.flags.contains(ReturnFlags::REVERT);
+			if has_reverted {
+				// TODO: Can actually match errors from contract call
+				// to provide better errors here.
+				Err(DispatchError::Unavailable)
+			} else {
+				let is_success =
+					bool::abi_decode(&return_value.data, true).expect("Failed to ABI decode");
+				if is_success {
+					// TODO: Should return the balance left in `who`.
+					Ok(0)
+				} else {
+					// TODO: Can actually match errors from contract call
+					// to provide better errors here.
+					Err(DispatchError::Unavailable)
+				}
+			}
+		} else {
+			Err(DispatchError::Unavailable)
+		}
+	}
 
-    fn mint_into(
-        asset: Self::AssetId,
-        who: &T::AccountId,
-        amount: Self::Balance,
-    ) -> Result<Self::Balance, DispatchError> {
-        let eth_address = T::AddressMapper::to_address(who);
-        let address = Address::from(Into::<[u8; 20]>::into(eth_address));
-        let data = transferCall { to: address, value: EU256::from(amount) }.abi_encode();
-        let ContractResult { result, .. } = Self::bare_call(
-            T::RuntimeOrigin::signed(T::CheckingAccount::get()),
-            asset,
-            BalanceOf::<T>::zero(),
-            Weight::from_parts(1_000_000_000, 100_000),
-            DepositLimit::Unchecked,
-            data
-        );
-        if let Ok(return_value) = result {
-        	// Ok(0)
-	        let is_success = bool::abi_decode(&return_value.data, false).expect("Failed to ABI decode");
-	        if is_success {
-	            // TODO: Should return the balance left in `who`.
-	            Ok(0)
-	        } else {
-	            // TODO: Can actually match errors from contract call
-	            // to provide better errors here.
-	            Err(DispatchError::Unavailable)
-	        }
-        } else {
-        	Err(DispatchError::Unavailable)
-        }
-    }
+	fn mint_into(
+		asset: Self::AssetId,
+		who: &T::AccountId,
+		amount: Self::Balance,
+	) -> Result<Self::Balance, DispatchError> {
+		let eth_address = T::AddressMapper::to_address(who);
+		let address = Address::from(Into::<[u8; 20]>::into(eth_address));
+		let data = transferCall { to: address, value: EU256::from(amount) }.abi_encode();
+		let ContractResult { result, .. } = Self::bare_call(
+			T::RuntimeOrigin::signed(T::CheckingAccount::get()),
+			asset,
+			BalanceOf::<T>::zero(),
+			Weight::from_parts(1_000_000_000, 100_000),
+			DepositLimit::Unchecked,
+			data,
+		);
+		if let Ok(return_value) = result {
+			// Ok(0)
+			let is_success =
+				bool::abi_decode(&return_value.data, false).expect("Failed to ABI decode");
+			if is_success {
+				// TODO: Should return the balance left in `who`.
+				Ok(0)
+			} else {
+				// TODO: Can actually match errors from contract call
+				// to provide better errors here.
+				Err(DispatchError::Unavailable)
+			}
+		} else {
+			Err(DispatchError::Unavailable)
+		}
+	}
 }
 
 // This impl is needed for implementing `fungibles::Mutate`.
@@ -192,139 +222,171 @@ impl<T: Config> fungibles::Unbalanced<<T as frame_system::Config>::AccountId> fo
 where
 	BalanceOf<T>: Into<U256> + TryFrom<U256> + Bounded,
 	MomentOf<T>: Into<U256>,
-    T::Hash: frame_support::traits::IsType<H256>
+	T::Hash: frame_support::traits::IsType<H256>,
 {
-    fn handle_raw_dust(_: Self::AssetId, _: Self::Balance) {}
-    fn handle_dust(_: fungibles::Dust<T::AccountId, Self>) {}
-    fn write_balance(
-        _: Self::AssetId,
-        _: &T::AccountId,
-        _: Self::Balance,
-    ) -> Result<Option<Self::Balance>, DispatchError> {
-        Err(DispatchError::Unavailable)
-    }
-    fn set_total_issuance(_id: Self::AssetId, _amount: Self::Balance) {
-        // Empty.
-    }
+	fn handle_raw_dust(_: Self::AssetId, _: Self::Balance) {}
+	fn handle_dust(_: fungibles::Dust<T::AccountId, Self>) {}
+	fn write_balance(
+		_: Self::AssetId,
+		_: &T::AccountId,
+		_: Self::Balance,
+	) -> Result<Option<Self::Balance>, DispatchError> {
+		Err(DispatchError::Unavailable)
+	}
+	fn set_total_issuance(_id: Self::AssetId, _amount: Self::Balance) {
+		// Empty.
+	}
 
-    fn decrease_balance(
-        _: Self::AssetId,
-        _: &T::AccountId,
-        _: Self::Balance,
-        _: Precision,
-        _: Preservation,
-        _: Fortitude,
-    ) -> Result<Self::Balance, DispatchError> {
-        Err(DispatchError::Unavailable)
-    }
+	fn decrease_balance(
+		_: Self::AssetId,
+		_: &T::AccountId,
+		_: Self::Balance,
+		_: Precision,
+		_: Preservation,
+		_: Fortitude,
+	) -> Result<Self::Balance, DispatchError> {
+		Err(DispatchError::Unavailable)
+	}
 
-    fn increase_balance(
-        _: Self::AssetId,
-        _: &T::AccountId,
-        _: Self::Balance,
-        _: Precision,
-    ) -> Result<Self::Balance, DispatchError> {
-        Err(DispatchError::Unavailable)
-    }
+	fn increase_balance(
+		_: Self::AssetId,
+		_: &T::AccountId,
+		_: Self::Balance,
+		_: Precision,
+	) -> Result<Self::Balance, DispatchError> {
+		Err(DispatchError::Unavailable)
+	}
 }
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::{
-        test_utils::{builder::*, ALICE, BOB, deposit_limit},
-        tests::{Contracts, RuntimeOrigin, Test, ExtBuilder},
-        Code,
-    };
-    use frame_support::assert_ok;
-    use pallet_revive_fixtures::compile_module;
+	use super::*;
+	use crate::{
+		test_utils::{builder::*, ALICE},
+		tests::{Contracts, ExtBuilder, RuntimeOrigin, Test},
+		Code,
+	};
+	use frame_support::assert_ok;
+	use pallet_revive_fixtures::compile_module;
 
-    #[test]
-    fn call_erc20_contract() {
-        ExtBuilder::default().existential_deposit(1).build().execute_with(|| {
-    		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
-    		let (code, _) = compile_module("erc20").unwrap();
-            let Contract { addr, account_id } = BareInstantiateBuilder::<Test>::bare_instantiate(RuntimeOrigin::signed(ALICE), Code::Upload(code))
-                .build_and_unwrap_contract();
-            let amount = 1000;
-            let _ = BareCallBuilder::<Test>::bare_call(RuntimeOrigin::signed(ALICE), addr)
-                .data(mintCall { amount: EU256::from(amount) }.abi_encode())
-                .build_and_unwrap_result();
-            let result = BareCallBuilder::<Test>::bare_call(RuntimeOrigin::signed(ALICE), addr)
-                .data(totalSupplyCall {}.abi_encode())
-                .build_and_unwrap_result();
-            let balance = EU256::abi_decode(&result.data, true)
-                .expect("Failed to decode ABI response");
-            assert_eq!(balance, EU256::from(amount));
-            // Contract is uploaded.
-            assert_eq!(ContractInfoOf::<Test>::contains_key(&addr), true);
-        });
-    }
+	#[test]
+	fn call_erc20_contract() {
+		ExtBuilder::default().existential_deposit(1).build().execute_with(|| {
+			let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+			let (code, _) = compile_module("erc20").unwrap();
+			let amount = EU256::from(1000);
+			let constructor_data = sol_data::Uint::<256>::abi_encode(&amount);
+			let Contract { addr, .. } = BareInstantiateBuilder::<Test>::bare_instantiate(
+				RuntimeOrigin::signed(ALICE),
+				Code::Upload(code),
+			)
+			.data(constructor_data)
+			.build_and_unwrap_contract();
+			let result = BareCallBuilder::<Test>::bare_call(RuntimeOrigin::signed(ALICE), addr)
+				.data(totalSupplyCall {}.abi_encode())
+				.build_and_unwrap_result();
+			let balance =
+				EU256::abi_decode(&result.data, true).expect("Failed to decode ABI response");
+			assert_eq!(balance, EU256::from(amount));
+			// Contract is uploaded.
+			assert_eq!(ContractInfoOf::<Test>::contains_key(&addr), true);
+		});
+	}
 
-    #[test]
-    fn get_balance_of_erc20() {
-        ExtBuilder::default().existential_deposit(1).build().execute_with(|| {
-    		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
-    		let (code, _) = compile_module("erc20").unwrap();
-            let Contract { addr, account_id } = BareInstantiateBuilder::<Test>::bare_instantiate(RuntimeOrigin::signed(ALICE), Code::Upload(code))
-                .build_and_unwrap_contract();
-            assert_eq!(<Contracts as fungibles::Inspect<_>>::balance(addr, &ALICE), 0);
-            let amount = 1000;
-            let _ = BareCallBuilder::<Test>::bare_call(RuntimeOrigin::signed(ALICE), addr)
-                .data(mintCall { amount: EU256::from(amount) }.abi_encode())
-                .build_and_unwrap_result();
-            assert_eq!(<Contracts as fungibles::Inspect<_>>::balance(addr, &ALICE), amount);
-        });
-    }
+	#[test]
+	fn total_issuance_works() {
+		ExtBuilder::default().existential_deposit(1).build().execute_with(|| {
+			let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+			let (code, _) = compile_module("erc20").unwrap();
+			let amount = 1000;
+			let constructor_data = sol_data::Uint::<256>::abi_encode(&EU256::from(amount));
+			let Contract { addr, .. } = BareInstantiateBuilder::<Test>::bare_instantiate(
+				RuntimeOrigin::signed(ALICE),
+				Code::Upload(code),
+			)
+			.data(constructor_data)
+			.build_and_unwrap_contract();
 
-    #[test]
-    fn burn_from_impl_works() {
-        ExtBuilder::default().existential_deposit(1).build().execute_with(|| {
-            let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
-            let (code, _) = compile_module("erc20").unwrap();
-            let Contract { addr, account_id } = BareInstantiateBuilder::<Test>::bare_instantiate(RuntimeOrigin::signed(ALICE), Code::Upload(code))
-                .build_and_unwrap_contract();
-            let amount = 1000;
-            let _ = BareCallBuilder::<Test>::bare_call(RuntimeOrigin::signed(ALICE), addr)
-                .data(mintCall { amount: EU256::from(amount * 2) }.abi_encode())
-                .build_and_unwrap_result();
-            assert_eq!(<Contracts as fungibles::Inspect<_>>::balance(addr, &ALICE), amount * 2);
+			let total_issuance = <Contracts as fungibles::Inspect<_>>::total_issuance(addr);
+			assert_eq!(total_issuance, amount);
+		});
+	}
 
-            // Use `fungibles::Mutate<_>::burn_from`.
-            assert_ok!(<Contracts as fungibles::Mutate<_>>::burn_from(addr, &ALICE, amount, Preservation::Expendable, Precision::Exact, Fortitude::Polite));
-            assert_eq!(<Contracts as fungibles::Inspect<_>>::balance(addr, &ALICE), amount);
-        });
-    }
+	#[test]
+	fn get_balance_of_erc20() {
+		ExtBuilder::default().existential_deposit(1).build().execute_with(|| {
+			let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+			let (code, _) = compile_module("erc20").unwrap();
+			let amount = 1000;
+			let constructor_data = sol_data::Uint::<256>::abi_encode(&EU256::from(amount));
+			let Contract { addr, .. } = BareInstantiateBuilder::<Test>::bare_instantiate(
+				RuntimeOrigin::signed(ALICE),
+				Code::Upload(code),
+			)
+			.data(constructor_data)
+			.build_and_unwrap_contract();
+			assert_eq!(<Contracts as fungibles::Inspect<_>>::balance(addr, &ALICE), amount);
+		});
+	}
 
-    #[test]
-    fn mint_into_impl_works() {
-        ExtBuilder::default().existential_deposit(1).build().execute_with(|| {
-            let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
-            let (code, _) = compile_module("erc20").unwrap();
-            let Contract { addr, account_id } = BareInstantiateBuilder::<Test>::bare_instantiate(RuntimeOrigin::signed(ALICE), Code::Upload(code))
-                .storage_deposit_limit((1_000_000_000_000).into())
-                .build_and_unwrap_contract();
-            let amount = 1000;
-            // BOB is the checking account, we're putting `amount` in it.
-            let _ = Contracts::bare_call(
-                RuntimeOrigin::signed(BOB),
-                addr,
-                BalanceOf::<Test>::zero(),
-                Weight::from_parts(1_000_000_000, 100_000),
-                DepositLimit::Unchecked,
-                mintCall { amount: EU256::from(amount) }.abi_encode(),
-            );
-            assert_eq!(<Contracts as fungibles::Inspect<_>>::balance(addr, &BOB), amount);
-            let _ = BareCallBuilder::<Test>::bare_call(RuntimeOrigin::signed(ALICE), addr)
-                .data(mintCall { amount: EU256::from(amount) }.abi_encode())
-                .build_and_unwrap_result();
-            assert_eq!(<Contracts as fungibles::Inspect<_>>::balance(addr, &ALICE), amount);
+	#[test]
+	fn burn_from_impl_works() {
+		ExtBuilder::default().existential_deposit(1).build().execute_with(|| {
+			let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+			let (code, _) = compile_module("erc20").unwrap();
+			let amount = 1000;
+			let constructor_data = sol_data::Uint::<256>::abi_encode(&(EU256::from(amount * 2)));
+			let Contract { addr, .. } = BareInstantiateBuilder::<Test>::bare_instantiate(
+				RuntimeOrigin::signed(ALICE),
+				Code::Upload(code),
+			)
+			.data(constructor_data)
+			.build_and_unwrap_contract();
+			let _ = BareCallBuilder::<Test>::bare_call(RuntimeOrigin::signed(ALICE), addr)
+				.build_and_unwrap_result();
+			assert_eq!(<Contracts as fungibles::Inspect<_>>::balance(addr, &ALICE), amount * 2);
 
-            // We use `mint_into` to transfer assets from the checking account to `ALICE`.
-            assert_ok!(<Contracts as fungibles::Mutate<_>>::mint_into(addr, &ALICE, amount));
-            // Balances changed accordingly.
-            assert_eq!(<Contracts as fungibles::Inspect<_>>::balance(addr, &BOB), 0);
-            assert_eq!(<Contracts as fungibles::Inspect<_>>::balance(addr, &ALICE), amount * 2);
-        });
-    }
+			// Use `fungibles::Mutate<_>::burn_from`.
+			assert_ok!(<Contracts as fungibles::Mutate<_>>::burn_from(
+				addr,
+				&ALICE,
+				amount,
+				Preservation::Expendable,
+				Precision::Exact,
+				Fortitude::Polite
+			));
+			assert_eq!(<Contracts as fungibles::Inspect<_>>::balance(addr, &ALICE), amount);
+		});
+	}
+
+	#[test]
+	fn mint_into_impl_works() {
+		ExtBuilder::default().existential_deposit(1).build().execute_with(|| {
+			let checking_account = <Test as pallet::Config>::CheckingAccount::get();
+			let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+			let _ = <Test as Config>::Currency::set_balance(&checking_account, 1_000_000);
+			let (code, _) = compile_module("erc20").unwrap();
+			let amount = 1000;
+			let constructor_data = sol_data::Uint::<256>::abi_encode(&EU256::from(amount));
+			// We're instantiating the contract with the `CheckingAccount` so it has `amount` in it.
+			let Contract { addr, .. } = BareInstantiateBuilder::<Test>::bare_instantiate(
+				RuntimeOrigin::signed(checking_account.clone()),
+				Code::Upload(code),
+			)
+			.storage_deposit_limit((1_000_000_000_000).into())
+			.data(constructor_data)
+			.build_and_unwrap_contract();
+			assert_eq!(
+				<Contracts as fungibles::Inspect<_>>::balance(addr, &checking_account),
+				amount
+			);
+			assert_eq!(<Contracts as fungibles::Inspect<_>>::balance(addr, &ALICE), 0);
+
+			// We use `mint_into` to transfer assets from the checking account to `ALICE`.
+			assert_ok!(<Contracts as fungibles::Mutate<_>>::mint_into(addr, &ALICE, amount));
+			// Balances changed accordingly.
+			assert_eq!(<Contracts as fungibles::Inspect<_>>::balance(addr, &checking_account), 0);
+			assert_eq!(<Contracts as fungibles::Inspect<_>>::balance(addr, &ALICE), amount);
+		});
+	}
 }

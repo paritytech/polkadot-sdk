@@ -16,8 +16,8 @@
 use super::{
 	AccountId, AllPalletsWithSystem, Assets, Authorship, Balance, Balances, BaseDeliveryFee,
 	CollatorSelection, DepositPerByte, DepositPerItem, FeeAssetId, ForeignAssets,
-	ForeignAssetsInstance, ParachainInfo, ParachainSystem, PolkadotXcm, PoolAssets, Revive, Runtime,
-	RuntimeCall, RuntimeEvent, RuntimeHoldReason, RuntimeOrigin, ToRococoXcmRouter,
+	ForeignAssetsInstance, ParachainInfo, ParachainSystem, PolkadotXcm, PoolAssets, Revive,
+	Runtime, RuntimeCall, RuntimeEvent, RuntimeHoldReason, RuntimeOrigin, ToRococoXcmRouter,
 	TransactionByteFee, TrustBackedAssetsInstance, Uniques, WeightToFee, XcmpQueue,
 };
 use assets_common::{

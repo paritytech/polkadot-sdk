@@ -142,7 +142,7 @@ impl MaybeEquivalence<Location, H160> for AccountKey20ToH160 {
 	fn convert(location: &Location) -> Option<H160> {
 		match location.unpack() {
 			(0, [AccountKey20 { key, .. }]) => Some((*key).into()),
-			_ => None
+			_ => None,
 		}
 	}
 
@@ -158,7 +158,7 @@ pub type ERC20Matcher = MatchedConvertedConcreteId<
 	u128, // TODO: Do we do u128 for ERC20s?
 	IsAccountKey20,
 	AccountKey20ToH160,
-	JustTry
+	JustTry,
 >;
 
 pub type AssetIdForPoolAssets = u32;
