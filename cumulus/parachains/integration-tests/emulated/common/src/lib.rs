@@ -19,6 +19,8 @@ pub mod xcm_helpers;
 
 pub use xcm_emulator;
 
+use hex_literal::hex;
+
 // Substrate
 use frame_support::parameter_types;
 use sc_consensus_grandpa::AuthorityId as GrandpaId;
@@ -29,7 +31,7 @@ use sp_core::storage::Storage;
 use sp_keyring::{Ed25519Keyring, Sr25519Keyring};
 use sp_runtime::{traits::AccountIdConversion, BuildStorage};
 
-// Polakdot
+// Polkadot
 use parachains_common::BlockNumber;
 use polkadot_parachain_primitives::primitives::Sibling;
 use polkadot_runtime_parachains::configuration::HostConfiguration;
@@ -61,6 +63,9 @@ pub const PENPAL_B_ID: u32 = 2001;
 pub const ASSET_HUB_ROCOCO_ID: u32 = 1000;
 pub const ASSET_HUB_WESTEND_ID: u32 = 1000;
 pub const ASSETS_PALLET_ID: u8 = 50;
+
+// Address of WETH ERC20 token contract on remote Ethereum network
+pub const WETH: [u8; 20] = hex!("fff9976782d46cc05630d1f6ebab18b2324d6b14");
 
 parameter_types! {
 	pub PenpalATeleportableAssetLocation: xcm::v5::Location

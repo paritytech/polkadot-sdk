@@ -49,10 +49,11 @@ pub mod pallet {
 		+ pallet_staking::Config
 		+ pallet_session::Config<ValidatorId = <Self as frame_system::Config>::AccountId>
 		+ pallet_session::historical::Config<
-			FullIdentification = (),
-			FullIdentificationOf = pallet_staking::NullIdentity,
+			FullIdentification = pallet_staking::Existence,
+			FullIdentificationOf = pallet_staking::ExistenceOf<Self>,
 		>
 	{
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 	}
 
