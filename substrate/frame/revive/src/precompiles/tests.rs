@@ -205,12 +205,30 @@ fn builtin_matching_works() {
 			.has_contract_info(),
 		false,
 	);
+
+	assert_eq!(
+		<Builtin<Test>>::get::<Env>(&hex!("0000000000000000000000000000000000000002"))
+			.unwrap()
+			.has_contract_info(),
+		false,
+	);
+
+	assert_eq!(
+		<Builtin<Test>>::get::<Env>(&hex!("000000000000000000000000000000000000000a"))
+			.unwrap()
+			.has_contract_info(),
+		false,
+	);
+
+	#[cfg(feature = "runtime-benchmarks")]
 	assert_eq!(
 		<Builtin<Test>>::get::<Env>(&hex!("000000000000000000000000000000000000FFFF"))
 			.unwrap()
 			.has_contract_info(),
 		true,
 	);
+
+	#[cfg(feature = "runtime-benchmarks")]
 	assert_eq!(
 		<Builtin<Test>>::get::<Env>(&hex!("000000000000000000000000000000000000EFFF"))
 			.unwrap()
@@ -218,10 +236,10 @@ fn builtin_matching_works() {
 		false,
 	);
 	assert!(
-		<Builtin<Test>>::get::<Env>(&hex!("7000000000000000000000000000000000000001")).is_none()
+		<Builtin<Test>>::get::<Env>(&hex!("700000000000000000000000000000000000FFFF")).is_none()
 	);
 	assert!(
-		<Builtin<Test>>::get::<Env>(&hex!("7000000000000000000000000000000000001000")).is_none()
+		<Builtin<Test>>::get::<Env>(&hex!("700000000000000000000000000000000000EFFF")).is_none()
 	);
 }
 
