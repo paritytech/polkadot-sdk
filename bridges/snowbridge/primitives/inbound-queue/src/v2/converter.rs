@@ -122,7 +122,9 @@ where
 			// Get the claimer from the message,
 			.and_then(|claimer_bytes| Location::decode(&mut claimer_bytes.as_ref()).ok())
 			// or use the Snowbridge sovereign on AH as the fallback claimer.
-			.unwrap_or_else(|| Location::new(0, [AccountId32 { network: None, id: bridge_owner.clone().into() }]));
+			.unwrap_or_else(|| {
+				Location::new(0, [AccountId32 { network: None, id: bridge_owner.clone().into() }])
+			});
 
 		let mut remote_xcm: Xcm<()> = match &message.xcm {
 			XcmPayload::Raw(raw) => Self::decode_raw_xcm(raw),
@@ -260,7 +262,10 @@ where
 			},
 			// Deposit the dot deposit into the bridge sovereign account (where the asset
 			// creation fee will be deducted from).
-			DepositAsset { assets: dot_fee_asset.clone().into(), beneficiary: bridge_owner_bytes.into() },
+			DepositAsset {
+				assets: dot_fee_asset.clone().into(),
+				beneficiary: bridge_owner_bytes.into(),
+			},
 			// Call to create the asset.
 			Transact {
 				origin_kind: OriginKind::Xcm,
