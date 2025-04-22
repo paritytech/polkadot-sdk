@@ -7,3 +7,5 @@ doc:
 crates:
 - name: parachain-template-node
   bump: minor
+- name: sc-tracing-proc-macro
+  bump: minor

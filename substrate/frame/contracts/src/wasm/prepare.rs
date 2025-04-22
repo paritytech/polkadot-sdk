@@ -192,7 +192,7 @@ impl LoadedModule {
 				ExternType::Table(_) => return Err("Cannot import tables"),
 				ExternType::Global(_) => return Err("Cannot import globals"),
 				ExternType::Func(_) => {
-					let _ = import.ty().func().ok_or("expected a function")?;
+					import.ty().func().ok_or("expected a function")?;
 
 					if !<T as Config>::ChainExtension::enabled() &&
 						(import.name().as_bytes() == b"seal_call_chain_extension" ||
@@ -368,7 +368,7 @@ pub mod benchmarking {
 			LoadingMode::Checked,
 			CompilationMode::Eager,
 		)?;
-		let _ = contract_module.scan_imports::<T>(schedule)?;
+		contract_module.scan_imports::<T>(schedule)?;
 		let code: CodeVec<T> = code.try_into().map_err(|_| <Error<T>>::CodeTooLarge)?;
 		let code_info = CodeInfo {
 			owner,
