@@ -23,6 +23,7 @@ use crate::mock::{
 	reset_before_session_end_called, session_changed, set_next_validators, set_session_length,
 	PreUpgradeMockSessionKeys, RuntimeOrigin, Session, SessionChanged, System, Test,
 	TestSessionChanged, TestValidatorIdOf, MockSessionKeys, ValidatorAccounts, KeyDeposit,
+	Balances,
 };
 
 use codec::Decode;
@@ -486,7 +487,7 @@ fn test_migration_v1() {
 #[test]
 fn set_keys_should_fail_with_insufficient_funds() {
 	new_test_ext().execute_with(|| {
-		// Account 999 is mocked to always have insufficient funds
+		// Account 999 is mocked to have ExistentialDeposit but insufficient funds
 		let account_id = 999;
 		let keys = MockSessionKeys { dummy: UintAuthorityId(account_id).into() };
 		frame_system::Pallet::<Test>::inc_providers(&account_id);
@@ -497,8 +498,8 @@ fn set_keys_should_fail_with_insufficient_funds() {
 		
 		// Attempt to set keys with an account that has insufficient funds
 		let res = Session::set_keys(RuntimeOrigin::signed(account_id), keys, vec![]);
-		// Should fail with InsufficientFunds error
-		assert_noop!(res, Error::<Test>::InsufficientFunds);
+		// Should fail with Err(Token(FundsUnavailable)) from `pallet-balances`
+		assert_noop!(res, sp_runtime::TokenError::FundsUnavailable);
 	});
 }
 
@@ -516,7 +517,7 @@ fn set_keys_should_reserve_funds() {
 		});
 		
 		// Check the reserved balance before setting keys
-		let reserved_balance_before = crate::mock::pallet_balances::Pallet::<Test>::reserved_balance(&account_id);
+		let reserved_balance_before = Balances::reserved_balance(&account_id);
 		
 		// Ensure system providers are properly set for the test account
 		frame_system::Pallet::<Test>::inc_providers(&account_id);
@@ -526,7 +527,7 @@ fn set_keys_should_reserve_funds() {
 		assert_ok!(res);
 		
 		// Check that the funds were reserved
-		let reserved_balance_after = crate::mock::pallet_balances::Pallet::<Test>::reserved_balance(&account_id);
+		let reserved_balance_after = Balances::reserved_balance(&account_id);
 		assert_eq!(reserved_balance_after, reserved_balance_before + deposit);
 	});
 }
@@ -552,7 +553,7 @@ fn purge_keys_should_unreserve_funds() {
 		assert_ok!(res);
 		
 		// Check the reserved balance after setting keys
-		let reserved_balance_before_purge = crate::mock::pallet_balances::Pallet::<Test>::reserved_balance(&account_id);
+		let reserved_balance_before_purge = Balances::reserved_balance(&account_id);
 		assert!(reserved_balance_before_purge >= deposit, "Deposit should be reserved after setting keys");
 		
 		// Now purge the keys
@@ -560,7 +561,7 @@ fn purge_keys_should_unreserve_funds() {
 		assert_ok!(res);
 		
 		// Check that the funds were unreserved
-		let reserved_balance_after_purge = crate::mock::pallet_balances::Pallet::<Test>::reserved_balance(&account_id);
+		let reserved_balance_after_purge = Balances::reserved_balance(&account_id);
 		assert_eq!(reserved_balance_after_purge, reserved_balance_before_purge - deposit);
 	});
 }

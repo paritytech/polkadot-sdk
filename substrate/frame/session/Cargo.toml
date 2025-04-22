@@ -30,6 +30,7 @@ sp-session = { workspace = true }
 sp-staking = { features = ["serde"], workspace = true }
 sp-state-machine = { workspace = true }
 sp-trie = { optional = true, workspace = true }
+pallet-balances = { workspace = true }
 
 [features]
 default = ["historical", "std"]
@@ -40,6 +41,7 @@ std = [
 	"frame-system/std",
 	"log/std",
 	"pallet-timestamp/std",
+	"pallet-balances/std",
 	"scale-info/std",
 	"sp-core/std",
 	"sp-io/std",
@@ -52,6 +54,7 @@ std = [
 try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
+	"pallet-balances/try-runtime",
 	"pallet-timestamp/try-runtime",
 	"sp-runtime/try-runtime",
 ]
