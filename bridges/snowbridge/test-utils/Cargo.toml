@@ -38,6 +38,7 @@ runtime-benchmarks = [
 	"frame-system/runtime-benchmarks",
 	"pallet-asset-conversion/runtime-benchmarks",
 	"pallet-xcm/runtime-benchmarks",
+	"snowbridge-core/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",
 	"xcm-executor/runtime-benchmarks",
 	"xcm/runtime-benchmarks",
