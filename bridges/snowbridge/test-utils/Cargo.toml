@@ -15,8 +15,8 @@ workspace = true
 exclude-from-umbrella = true
 
 [dependencies]
-codec = { workspace = true, default-features = true }
 bp-relayers = { workspace = true, default-features = true }
+codec = { workspace = true, default-features = true }
 frame-benchmarking = { optional = true, workspace = true, default-features = true }
 frame-support = { workspace = true, default-features = true }
 frame-system = { workspace = true, default-features = true }

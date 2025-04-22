@@ -136,7 +136,8 @@ pub mod pallet {
 	/// processed or their order could not be found). Capturing the lost tips here supports
 	/// implementing a recovery method in the future.
 	#[pallet::storage]
-	pub type LostTips<T: Config> = StorageMap<_, Blake2_128Concat, AccountIdOf<T>, u128, ValueQuery>;
+	pub type LostTips<T: Config> =
+		StorageMap<_, Blake2_128Concat, AccountIdOf<T>, u128, ValueQuery>;
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
