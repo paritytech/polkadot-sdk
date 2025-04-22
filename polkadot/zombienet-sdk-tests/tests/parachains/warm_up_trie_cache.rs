@@ -1,7 +1,9 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-#[subxt::subxt(runtime_metadata_path = "metadata-files/asset-hub-westend-local.scale")]
+// TODO: Remove this metadata and use "metadata-files/asset-hub-westend-local.scale" after metadata
+// on master is same as on the asset-hub-westend
+#[subxt::subxt(runtime_metadata_path = "tests/parachains/asset-hub-westend-local.metadata")]
 mod asset_hub_westend {}
 
 use anyhow::anyhow;
