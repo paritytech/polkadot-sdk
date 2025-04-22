@@ -50,7 +50,7 @@ pub fn validate_candidate(
 	let result = unsafe {
 		// SAFETY: This is trivially safe since the artifact is obtained by calling `prepare`
 		//         and is written into a temporary directory in an unmodified state.
-		execute_artifact(&compiled_artifact_blob, &executor_params, params)?
+		execute_artifact(&compiled_artifact_blob, &executor_params, params, true)?
 	};
 
 	Ok(result)

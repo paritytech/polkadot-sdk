@@ -110,10 +110,15 @@ pub unsafe fn execute_artifact(
 	compiled_artifact_blob: &[u8],
 	executor_params: &ExecutorParams,
 	params: &[u8],
+	enable_pvf_logging: bool,
 ) -> Result<Vec<u8>, ExecuteError> {
 	let mut extensions = sp_externalities::Extensions::new();
 
 	extensions.register(sp_core::traits::ReadRuntimeVersionExt::new(ReadRuntimeVersion));
+
+	if enable_pvf_logging {
+		extensions.register(crate::custom_host_functions::EnableLogging);
+	}
 
 	let mut ext = ValidationExternalities(extensions);
 
@@ -206,8 +211,8 @@ type HostFunctions = (
 	sp_io::crypto::HostFunctions,
 	sp_io::hashing::HostFunctions,
 	sp_io::allocator::HostFunctions,
-	sp_io::logging::HostFunctions,
 	sp_io::trie::HostFunctions,
+	crate::custom_host_functions::logging::HostFunctions,
 );
 
 /// The validation externalities that will panic on any storage related access. (PVFs should not

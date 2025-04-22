@@ -177,6 +177,9 @@ struct Queue {
 
 	/// Active leaves and their ancestors to check the viability of backing jobs.
 	active_leaves: HashMap<Hash, Vec<Hash>>,
+
+	/// Enable logging support for PVFs?
+	enable_pvf_logging: bool,
 }
 
 impl Queue {
@@ -604,6 +607,7 @@ fn spawn_extra_worker(queue: &mut Queue, job: ExecuteJob) {
 			queue.spawn_timeout,
 			queue.node_version.clone(),
 			queue.security_status.clone(),
+			queue.enable_pvf_logging,
 		)
 		.boxed(),
 	);
@@ -624,6 +628,7 @@ async fn spawn_worker_task(
 	spawn_timeout: Duration,
 	node_version: Option<String>,
 	security_status: SecurityStatus,
+	enable_pvf_logging: bool,
 ) -> QueueEvent {
 	use futures_timer::Delay;
 
@@ -635,6 +640,7 @@ async fn spawn_worker_task(
 			spawn_timeout,
 			node_version.as_deref(),
 			security_status.clone(),
+			enable_pvf_logging,
 		)
 		.await
 		{

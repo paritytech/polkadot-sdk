@@ -154,10 +154,18 @@ pub struct RunCmd {
 	pub enable_approval_voting_parallel: bool,
 
 	/// How long finalized data should be kept in the availability store (in hours).
+	///
 	/// Only used for testnets. If not specified, set to 1 hour. Always set to 25 hours for live
 	/// networks.
 	#[arg(long)]
 	pub keep_finalized_for: Option<u32>,
+
+	/// Enable logging for PVFs.
+	///
+	/// When enabled, the logging host functions exposed to PVFs will be allowed to forward the
+	/// logging messages. Should only be used for debugging purposes.
+	#[arg(long)]
+	pub enable_pvf_logging: bool,
 }
 
 #[allow(missing_docs)]

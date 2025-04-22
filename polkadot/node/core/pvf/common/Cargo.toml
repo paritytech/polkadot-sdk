@@ -18,6 +18,7 @@ gum = { workspace = true, default-features = true }
 libc = { workspace = true }
 nix = { features = ["resource", "sched"], workspace = true }
 thiserror = { workspace = true }
+log = { workspace = true, default-features = true }
 
 codec = { features = ["derive"], workspace = true }
 
@@ -33,6 +34,7 @@ sp-crypto-hashing = { workspace = true, default-features = true }
 sp-externalities = { workspace = true, default-features = true }
 sp-io = { workspace = true, default-features = true }
 sp-tracing = { workspace = true, default-features = true }
+sp-runtime-interface = { workspace = true, default-features = true }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 landlock = { workspace = true }

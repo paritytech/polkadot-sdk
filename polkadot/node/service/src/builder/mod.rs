@@ -92,6 +92,8 @@ pub struct NewFullParams<OverseerGenerator: OverseerGen> {
 	pub hwbench: Option<sc_sysinfo::HwBench>,
 	/// Enable approval voting processing in parallel.
 	pub enable_approval_voting_parallel: bool,
+	/// Enable logging for `PVFs`?
+	pub enable_pvf_logging: bool,
 }
 
 /// Completely built polkadot node service.
@@ -203,6 +205,7 @@ where
 					prepare_workers_hard_max_num,
 					keep_finalized_for,
 					enable_approval_voting_parallel,
+					enable_pvf_logging,
 				},
 			overseer_connector,
 			partial_components:
@@ -393,6 +396,7 @@ where
 					pvf_execute_workers_max_num: execute_workers_max_num.unwrap_or(4),
 					pvf_prepare_workers_soft_max_num: prepare_workers_soft_max_num.unwrap_or(1),
 					pvf_prepare_workers_hard_max_num: prepare_workers_hard_max_num.unwrap_or(2),
+					enable_pvf_logging,
 				})
 			} else {
 				None

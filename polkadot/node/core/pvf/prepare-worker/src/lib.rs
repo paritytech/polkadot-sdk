@@ -204,6 +204,7 @@ pub fn worker_entrypoint(
 	worker_dir_path: PathBuf,
 	node_version: Option<&str>,
 	worker_version: Option<&str>,
+	_enable_pvf_logging: bool,
 ) {
 	run_worker(
 		WorkerKind::Prepare,

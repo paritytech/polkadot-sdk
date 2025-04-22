@@ -47,10 +47,15 @@ pub async fn spawn(
 	spawn_timeout: Duration,
 	node_version: Option<&str>,
 	security_status: SecurityStatus,
+	enable_pvf_logging: bool,
 ) -> Result<(IdleWorker, WorkerHandle), SpawnErr> {
 	let mut extra_args = vec!["execute-worker"];
 	if let Some(node_version) = node_version {
 		extra_args.extend_from_slice(&["--node-impl-version", node_version]);
+	}
+
+	if enable_pvf_logging {
+		extra_args.push("--enable-pvf-logging");
 	}
 
 	let (mut idle_worker, worker_handle) = spawn_with_program_path(

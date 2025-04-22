@@ -114,6 +114,8 @@ pub struct Config {
 	pub pvf_prepare_workers_soft_max_num: usize,
 	/// The absolute number of pvf workers that can be spawned in the pvf prepare pool.
 	pub pvf_prepare_workers_hard_max_num: usize,
+	/// Enable logging for `PVFs`?
+	pub enable_pvf_logging: bool,
 }
 
 /// The candidate validation subsystem.
@@ -317,6 +319,7 @@ async fn run<Context>(
 		pvf_execute_workers_max_num,
 		pvf_prepare_workers_soft_max_num,
 		pvf_prepare_workers_hard_max_num,
+		enable_pvf_logging,
 	}: Config,
 ) -> SubsystemResult<()> {
 	let (mut validation_host, task) = polkadot_node_core_pvf::start(

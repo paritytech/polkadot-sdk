@@ -142,6 +142,7 @@ pub fn worker_entrypoint(
 	worker_dir_path: PathBuf,
 	node_version: Option<&str>,
 	worker_version: Option<&str>,
+	enable_pvf_logging: bool,
 ) {
 	run_worker(
 		WorkerKind::Execute,
@@ -258,6 +259,7 @@ pub fn worker_entrypoint(
 								security_status.can_unshare_user_namespace_and_change_root,
 								usage_before,
 								pov_size,
+								enable_pvf_logging,
 							)?
 						} else {
 							// Fall back to using fork.
@@ -273,6 +275,7 @@ pub fn worker_entrypoint(
 								worker_info,
 								usage_before,
 								pov_size,
+								enable_pvf_logging,
 							)?
 						};
 					} else {
@@ -288,6 +291,7 @@ pub fn worker_entrypoint(
 							worker_info,
 							usage_before,
 							pov_size,
+							enable_pvf_logging,
 						)?;
 					}
 				}
@@ -308,12 +312,13 @@ fn validate_using_artifact(
 	compiled_artifact_blob: &[u8],
 	executor_params: &ExecutorParams,
 	params: &[u8],
+	enable_pvf_logging: bool,
 ) -> JobResponse {
 	let descriptor_bytes = match unsafe {
 		// SAFETY: this should be safe since the compiled artifact passed here comes from the
 		//         file created by the prepare workers. These files are obtained by calling
 		//         [`executor_interface::prepare`].
-		execute_artifact(compiled_artifact_blob, executor_params, params)
+		execute_artifact(compiled_artifact_blob, executor_params, params, enable_pvf_logging)
 	} {
 		Err(ExecuteError::RuntimeConstruction(wasmerr)) =>
 			return JobResponse::runtime_construction("execute", &wasmerr.to_string()),
@@ -396,6 +401,7 @@ fn handle_fork(
 	worker_info: &WorkerInfo,
 	usage_before: Usage,
 	pov_size: u32,
+	enable_pvf_logging: bool,
 ) -> io::Result<Result<WorkerResponse, WorkerError>> {
 	// SAFETY: new process is spawned within a single threaded process. This invariant
 	// is enforced by tests.
@@ -409,6 +415,7 @@ fn handle_fork(
 			Arc::clone(params),
 			execution_timeout,
 			execute_worker_stack_size,
+			enable_pvf_logging,
 		),
 		Ok(ForkResult::Parent { child }) => handle_parent_process(
 			pipe_read_fd,
@@ -438,6 +445,7 @@ fn handle_child_process(
 	params: Arc<Vec<u8>>,
 	execution_timeout: Duration,
 	execute_thread_stack_size: usize,
+	enable_pvf_logging: bool,
 ) -> ! {
 	// SAFETY: this is an open and owned file descriptor at this point.
 	let mut pipe_write = unsafe { PipeFd::from_raw_fd(pipe_write_fd) };
@@ -479,7 +487,14 @@ fn handle_child_process(
 
 	let execute_thread = thread::spawn_worker_thread_with_stack_size(
 		"execute thread",
-		move || validate_using_artifact(&compiled_artifact_blob, &executor_params, &params),
+		move || {
+			validate_using_artifact(
+				&compiled_artifact_blob,
+				&executor_params,
+				&params,
+				enable_pvf_logging,
+			)
+		},
 		Arc::clone(&condvar),
 		WaitOutcome::Finished,
 		execute_thread_stack_size,

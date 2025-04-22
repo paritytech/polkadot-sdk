@@ -236,6 +236,7 @@ where
 				prepare_workers_soft_max_num: cli.run.prepare_workers_soft_max_num,
 				enable_approval_voting_parallel: cli.run.enable_approval_voting_parallel,
 				keep_finalized_for: cli.run.keep_finalized_for,
+				enable_pvf_logging: cli.run.enable_pvf_logging,
 			},
 		)
 		.map(|full| full.task_manager)?;

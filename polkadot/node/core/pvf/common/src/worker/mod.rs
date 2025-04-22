@@ -160,6 +160,7 @@ macro_rules! decl_worker_main {
 			let mut socket_path = None;
 			let mut worker_dir_path = None;
 			let mut node_version = None;
+			let mut enable_pvf_logging = false;
 
 			let mut i = 2;
 			while i < args.len() {
@@ -176,6 +177,10 @@ macro_rules! decl_worker_main {
 						node_version = Some(args[i + 1].as_str());
 						i += 1
 					},
+					"--enable-pvf-logging" => {
+						enable_pvf_logging = true;
+						i += 1
+					},
 					arg => panic!("Unexpected argument found: {}", arg),
 				}
 				i += 1;
@@ -187,7 +192,13 @@ macro_rules! decl_worker_main {
 			let socket_path = std::path::Path::new(socket_path).to_owned();
 			let worker_dir_path = std::path::Path::new(worker_dir_path).to_owned();
 
-			$entrypoint(socket_path, worker_dir_path, node_version, Some($worker_version));
+			$entrypoint(
+				socket_path,
+				worker_dir_path,
+				node_version,
+				Some($worker_version),
+				enable_pvf_logging,
+			);
 		}
 	};
 }
