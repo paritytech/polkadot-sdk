@@ -138,8 +138,8 @@ const COST_INACCURATE_ADVERTISEMENT: Rep =
 	Rep::CostMajor("Peer advertised a candidate inaccurately");
 const COST_UNSUPPORTED_DESCRIPTOR_VERSION: Rep =
 	Rep::CostMajor("Candidate Descriptor version is not supported");
-const COST_INVALID_CORE_INDEX: Rep =
-	Rep::CostMajor("Candidate Descriptor contains an invalid core index");
+const COST_INVALID_UMP_SIGNALS: Rep =
+	Rep::CostMajor("Candidate Descriptor contains invalid ump signals");
 const COST_INVALID_SESSION_INDEX: Rep =
 	Rep::CostMajor("Candidate Descriptor contains an invalid session index");
 
