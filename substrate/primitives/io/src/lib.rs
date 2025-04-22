@@ -1381,8 +1381,8 @@ pub trait Crypto {
 			.flatten()
 	}
 
-	/// Generate combination `ecdsa & bls12-381` key for the given key type using an optional `seed` and
-	/// store it in the keystore.
+	/// Generate combination `ecdsa & bls12-381` key for the given key type using an optional `seed`
+	/// and store it in the keystore.
 	///
 	/// The `seed` needs to be a valid utf8.
 	///

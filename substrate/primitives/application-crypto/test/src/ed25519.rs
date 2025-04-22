@@ -18,8 +18,11 @@
 //! Integration tests for ed25519
 
 use sp_api::{ApiExt, ProvideRuntimeApi};
+use sp_application_crypto::{ed25519::AppPair, RuntimePublic};
 use sp_core::{
 	crypto::{ByteArray, Pair},
+	ed25519::Pair as Ed25519Pair,
+	pop::{ProofOfPossessionGenerator, ProofOfPossessionVerifier},
 	testing::ED25519,
 };
 use sp_keystore::{testing::MemoryKeystore, Keystore, KeystoreExt};
@@ -27,9 +30,6 @@ use std::sync::Arc;
 use substrate_test_runtime_client::{
 	runtime::TestAPI, DefaultTestClientBuilderExt, TestClientBuilder, TestClientBuilderExt,
 };
-use sp_application_crypto::{RuntimePublic, ed25519::AppPair};
-use sp_core::pop::{ProofOfPossessionGenerator, ProofOfPossessionVerifier};
-use sp_core::ed25519::Pair as Ed25519Pair;
 
 #[test]
 fn ed25519_works_in_runtime() {

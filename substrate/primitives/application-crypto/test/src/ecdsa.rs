@@ -17,13 +17,13 @@
 
 //! Integration tests for ecdsa
 use sp_api::{ApiExt, ProvideRuntimeApi};
-use sp_application_crypto::{RuntimePublic, ecdsa::AppPair};
+use sp_application_crypto::{ecdsa::AppPair, RuntimePublic};
 use sp_core::{
 	crypto::{ByteArray, Pair},
+	ecdsa::Pair as ECDSAPair,
 	pop::{ProofOfPossessionGenerator, ProofOfPossessionVerifier},
 	testing::ECDSA,
 };
-use sp_core::ecdsa::Pair as ECDSAPair;
 use sp_keystore::{testing::MemoryKeystore, Keystore, KeystoreExt};
 use std::sync::Arc;
 use substrate_test_runtime_client::{
@@ -51,8 +51,8 @@ fn ecdsa_works_in_runtime() {
 
 #[test]
 fn ecdsa_client_generated_pop_verified_by_runtime_public() {
-    let  (mut test_pair, _) = ECDSAPair::generate();
+	let (mut test_pair, _) = ECDSAPair::generate();
 
-    let client_generated_pop = test_pair.generate_proof_of_possession();
-    assert!(RuntimePublic::verify_pop(&test_pair.public(), &client_generated_pop));
+	let client_generated_pop = test_pair.generate_proof_of_possession();
+	assert!(RuntimePublic::verify_pop(&test_pair.public(), &client_generated_pop));
 }
