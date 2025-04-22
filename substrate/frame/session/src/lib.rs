@@ -929,7 +929,7 @@ impl<T: Config> Pallet<T> {
 		let reason = T::HoldReason::get();
 		
 		// Use release_all to handle the case where the exact amount might not be available
-		T::Currency::release_all(&reason, account, frame_support::traits::tokens::Precision::BestEffort);
+		let _ = T::Currency::release_all(&reason, account, frame_support::traits::tokens::Precision::BestEffort);
 		
 		frame_system::Pallet::<T>::dec_consumers(account);
 
