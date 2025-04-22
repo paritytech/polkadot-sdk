@@ -348,14 +348,22 @@ impl<T: Config> Eras<T> {
 		if let Some(active_era) = ActiveEra::<T>::get() {
 			<ErasRewardPoints<T>>::mutate(active_era.index, |era_rewards| {
 				for (validator, points) in validators_points.into_iter() {
-					*era_rewards.individual.entry(validator).or_default() += points;
+					match era_rewards.individual.get_mut(&validator) {
+						Some(individual) => individual.saturating_accrue(points),
+						None => {
+							// not much we can do -- validators should always be less than
+							// `MaxValidatorCount`.
+							let _ =
+								era_rewards.individual.try_insert(validator, points).defensive();
+						},
+					}
 					era_rewards.total += points;
 				}
 			});
 		}
 	}
 
-	pub(crate) fn get_reward_points(era: EraIndex) -> EraRewardPoints<T::AccountId> {
+	pub(crate) fn get_reward_points(era: EraIndex) -> EraRewardPoints<T> {
 		ErasRewardPoints::<T>::get(era)
 	}
 }

@@ -28,7 +28,11 @@ pub use frame_benchmarking::{
 	impl_benchmark_test_suite, v2::*, whitelist_account, whitelisted_caller, BenchmarkError,
 };
 use frame_election_provider_support::SortedListProvider;
-use frame_support::{pallet_prelude::*, storage::bounded_vec::BoundedVec, traits::Get};
+use frame_support::{
+	pallet_prelude::*,
+	storage::bounded_vec::BoundedVec,
+	traits::{Get, TryCollect},
+};
 use frame_system::RawOrigin;
 use pallet_staking_async_rc_client as rc_client;
 use sp_runtime::{
@@ -126,9 +130,9 @@ pub(crate) fn create_validator_with_nominators<T: Config>(
 	);
 
 	// Give Era Points
-	let reward = EraRewardPoints::<T::AccountId> {
+	let reward = EraRewardPoints::<T> {
 		total: points_total,
-		individual: points_individual.into_iter().collect(),
+		individual: points_individual.into_iter().try_collect()?,
 	};
 
 	ErasRewardPoints::<T>::insert(planned_era, reward);
@@ -1122,10 +1126,7 @@ mod benchmarks {
 		);
 
 		// this is needed in the slashing code, and is a sign that `initial_era + 1` is planned!
-		ensure!(
-			Rotator::<T>::active_era_start_session_index() == 42,
-			"BondedEra not set"
-		);
+		ensure!(Rotator::<T>::active_era_start_session_index() == 42, "BondedEra not set");
 
 		// slash the first half of the validators
 		let to_slash_count = new_validators.len() / 2;
