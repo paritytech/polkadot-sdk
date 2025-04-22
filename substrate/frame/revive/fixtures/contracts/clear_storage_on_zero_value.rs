@@ -31,6 +31,10 @@ fn test_storage_operations(flags: StorageFlags) {
 	const KEY: [u8; 32] = [1u8; 32];
 	const VALUE_A: [u8; 32] = [4u8; 32];
 	const ZERO: [u8; 32] = [0u8; 32];
+	let mut small_value_padded = [0u8; 32];
+	small_value_padded[0] = 5;
+	small_value_padded[1] = 6;
+	small_value_padded[2] = 7;
 
 	api::clear_storage(flags, &KEY);
 
@@ -51,6 +55,21 @@ fn test_storage_operations(flags: StorageFlags) {
 	assert_eq!(cleared, ZERO);
 
 	assert_eq!(api::contains_storage(flags, &KEY), None);
+
+	// Test retrieving a value smaller than 32 bytes
+	api::set_storage_or_clear(flags, &KEY, &small_value_padded);
+	let mut retrieved = [255u8; 32];
+	api::get_storage_or_zero(flags, &KEY, &mut retrieved);
+
+	assert_eq!(retrieved[0], 5);
+	assert_eq!(retrieved[1], 6);
+	assert_eq!(retrieved[2], 7);
+	for i in 3..32 {
+		assert_eq!(retrieved[i], 0, "Byte at position {} should be zero", i);
+	}
+
+	// Clean up
+	api::clear_storage(flags, &KEY);
 }
 
 #[no_mangle]

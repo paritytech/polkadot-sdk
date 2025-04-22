@@ -1310,12 +1310,12 @@ pub mod env {
 		key_ptr: u32,
 		value_ptr: u32,
 	) -> Result<u32, TrapReason> {
-		let value = memory.read_array::<32>(value_ptr)?;
+		let value = memory.read(value_ptr, 32)?;
 
 		if value.iter().all(|&b| b == 0) {
 			self.clear_storage(memory, flags, key_ptr, SENTINEL)
 		} else {
-			self.set_storage(memory, flags, key_ptr, SENTINEL, StorageValue::Value(value.to_vec()))
+			self.set_storage(memory, flags, key_ptr, SENTINEL, StorageValue::Value(value))
 		}
 	}
 
