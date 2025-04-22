@@ -31,19 +31,15 @@ async fn warm_up_trie_cache_test() -> Result<(), anyhow::Error> {
 		env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
 	);
 	let hit_rate = run(100).await?;
-	log::info!("Shared cache hit rate: {:?} %", hit_rate);
+	assert!(hit_rate > 90);
 
 	Ok(())
 }
 
 async fn run(accounts_count: usize) -> Result<u32, anyhow::Error> {
-	const NOT_ENOUGH_MEMORY_LOG: &str = "Not enough memory to force in-memory trie cache";
 	let network = setup_network().await?;
 	let collator = network.get_node("collator")?;
 	tokio::time::sleep(std::time::Duration::from_secs(3)).await;
-	if collator.logs().await?.contains(NOT_ENOUGH_MEMORY_LOG) {
-		return Err(anyhow!(NOT_ENOUGH_MEMORY_LOG));
-	}
 	let para_client: OnlineClient<PolkadotConfig> = collator.wait_client().await?;
 	log::info!("Network is ready");
 
@@ -67,9 +63,6 @@ async fn run(accounts_count: usize) -> Result<u32, anyhow::Error> {
 
 	collator.restart(None).await?;
 	tokio::time::sleep(std::time::Duration::from_secs(3)).await;
-	if collator.logs().await?.contains(NOT_ENOUGH_MEMORY_LOG) {
-		return Err(anyhow!(NOT_ENOUGH_MEMORY_LOG));
-	}
 	let para_client: OnlineClient<PolkadotConfig> = collator.wait_client().await?;
 	log::info!("Collator restarted");
 
@@ -78,8 +71,6 @@ async fn run(accounts_count: usize) -> Result<u32, anyhow::Error> {
 
 	let hit_rate = find_shared_cache_hit_rate(collator.logs().await?).await?;
 	log::info!("Shared cache hit rate: {:?} %", hit_rate);
-
-	assert!(hit_rate > 85);
 
 	Ok(hit_rate)
 }
@@ -106,7 +97,7 @@ async fn setup_network() -> Result<Network<LocalFileSystem>, anyhow::Error> {
 				.with_chain("asset-hub-westend-local")
 				.with_collator(|n| {
 					n.with_name("collator").validator(true).with_args(vec![
-						("--force-in-memory-trie-cache").into(),
+						("--warm-up-trie-cache").into(),
 						("-linfo,trie-cache=debug").into(),
 					])
 				})
