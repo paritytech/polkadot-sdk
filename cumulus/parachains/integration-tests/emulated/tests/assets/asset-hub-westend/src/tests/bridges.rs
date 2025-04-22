@@ -22,11 +22,46 @@ fn open_close_lane() {
 	let _ = <AssetHubWestend as AssetHubWestendPallet>::XcmOverAssetHubRococo::open_bridge(
 		AssetHubWestendRuntimeOrigin::root(),
 		Box::new(AssetHubRococoUniversalLocation::get().into()),
-		None,
+		Some(Receiver::new(13, 15)),
 	);
 	let _ = <AssetHubRococo as AssetHubRococoPallet>::XcmOverAssetHubWestend::open_bridge(
 		AssetHubRococoRuntimeOrigin::root(),
 		Box::new(AssetHubWestendUniversalLocation::get().into()),
-		None,
+		Some(Receiver::new(13, 15)),
+	);
+
+	let events = AssetHubWestend::events();
+	type RuntimeEventWestend = <AssetHubWestend as Chain>::RuntimeEvent;
+	assert!(
+		events.iter().any(|event| matches!(
+			event,
+			RuntimeEventWestend::XcmOverAssetHubRococo(
+				pallet_xcm_bridge::Event::BridgeOpened { .. }
+			),
+		)),
+		"Event BridgeOpened not found"
+	);
+
+	let events = AssetHubRococo::events();
+	type RuntimeEventRococo = <AssetHubRococo as Chain>::RuntimeEvent;
+	assert!(
+		events.iter().any(|event| matches!(
+			event,
+			RuntimeEventRococo::XcmOverAssetHubWestend(
+				pallet_xcm_bridge::Event::BridgeOpened { .. }
+			),
+		)),
+		"Event BridgeOpened not found"
+	);
+
+	let _ = <AssetHubWestend as AssetHubWestendPallet>::XcmOverAssetHubRococo::close_bridge(
+		AssetHubWestendRuntimeOrigin::root(),
+		Box::new(AssetHubRococoUniversalLocation::get().into()),
+		0,
+	);
+	let _ = <AssetHubRococo as AssetHubRococoPallet>::XcmOverAssetHubWestend::close_bridge(
+		AssetHubRococoRuntimeOrigin::root(),
+		Box::new(AssetHubWestendUniversalLocation::get().into()),
+		0,
 	);
 }

@@ -37,6 +37,7 @@ mod imports {
 	pub use asset_test_utils::xcm_helpers;
 	pub use emulated_integration_tests_common::{
 		accounts::DUMMY_EMPTY,
+		impls::Receiver,
 		test_parachain_is_trusted_teleporter, test_parachain_is_trusted_teleporter_for_relay,
 		test_relay_is_trusted_teleporter, test_xcm_fee_querying_apis_work_for_asset_hub,
 		xcm_emulator::{
@@ -59,9 +60,11 @@ mod imports {
 				AssetConversionOrigin as AssetHubRococoAssetConversionOrigin,
 				ExistentialDeposit as AssetHubRococoExistentialDeposit,
 			},
-			genesis::{AssetHubRococoAssetOwner, ED as ASSET_HUB_ROCOCO_ED, AssetHubRococoUniversalLocation},
-			AssetHubRococoParaPallet as AssetHubRococoPallet,
-			AssetHubRococoRuntimeOrigin,
+			genesis::{
+				AssetHubRococoAssetOwner, AssetHubRococoUniversalLocation,
+				ED as ASSET_HUB_ROCOCO_ED,
+			},
+			AssetHubRococoParaPallet as AssetHubRococoPallet, AssetHubRococoRuntimeOrigin,
 		},
 		rococo_emulated_chain::{
 			genesis::ED as ROCOCO_ED,
@@ -90,9 +93,11 @@ mod imports {
 				AssetConversionOrigin as AssetHubWestendAssetConversionOrigin,
 				ExistentialDeposit as AssetHubWestendExistentialDeposit,
 			},
-			genesis::{AssetHubWestendAssetOwner, ED as ASSET_HUB_WESTEND_ED, AssetHubWestendUniversalLocation},
-			AssetHubWestendParaPallet as AssetHubWestendPallet,
-			AssetHubWestendRuntimeOrigin,
+			genesis::{
+				AssetHubWestendAssetOwner, AssetHubWestendUniversalLocation,
+				ED as ASSET_HUB_WESTEND_ED,
+			},
+			AssetHubWestendParaPallet as AssetHubWestendPallet, AssetHubWestendRuntimeOrigin,
 		},
 		bridge_hub_westend_emulated_chain::{
 			bridge_hub_westend_runtime::xcm_config::{self as bhw_xcm_config},

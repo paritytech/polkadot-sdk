@@ -1179,6 +1179,7 @@ dependencies = [
  "pallet-message-queue",
  "pallet-treasury",
  "pallet-xcm",
+ "pallet-xcm-bridge",
  "parachains-common",
  "parity-scale-codec",
  "polkadot-runtime-common",
