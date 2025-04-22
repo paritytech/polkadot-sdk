@@ -155,7 +155,7 @@ pub mod pallet {
 		///
 		/// Following information is kept for eras in `[current_era -
 		/// HistoryDepth, current_era]`: `ErasValidatorPrefs`, `ErasValidatorReward`,
-		/// `ErasRewardPoints`, `ErasTotalStake`, `ErasStartSessionIndex`, `ErasClaimedRewards`,
+		/// `ErasRewardPoints`, `ErasTotalStake`, `ErasClaimedRewards`,
 		/// `ErasStakersPaged`, `ErasStakersOverview`.
 		///
 		/// Must be more than the number of eras delayed by session.
@@ -497,23 +497,24 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type ActiveEra<T> = StorageValue<_, ActiveEraInfo>;
 
+	/// Custom bound for [`BondedEras`] which is equal to [`Config::BondingDuration`] + 1.
+	pub struct BondedErasBound<T>(core::marker::PhantomData<T>);
+	impl<T: Config> Get<u32> for BondedErasBound<T> {
+		fn get() -> u32 {
+			T::BondingDuration::get().saturating_add(1)
+		}
+	}
+
 	/// A mapping from still-bonded eras to the first session index of that era.
 	///
 	/// Must contains information for eras for the range:
 	/// `[active_era - bounding_duration; active_era]`
 	#[pallet::storage]
 	#[pallet::unbounded]
-	pub(crate) type BondedEras<T: Config> =
-		StorageValue<_, Vec<(EraIndex, SessionIndex)>, ValueQuery>;
+	pub type BondedEras<T: Config> =
+		StorageValue<_, BoundedVec<(EraIndex, SessionIndex), BondedErasBound<T>>, ValueQuery>;
 
 	// --- AUDIT Note: end of storage items controlled by `Rotator`.
-
-	/// The session index at which the era start for the last [`Config::HistoryDepth`] eras.
-	///
-	/// Note: This tracks the STARTING session (i.e. session index when era start being ACTIVE)
-	/// for the eras in `[CurrentEra - HISTORY_DEPTH, CurrentEra]`.
-	#[pallet::storage]
-	pub type ErasStartSessionIndex<T> = StorageMap<_, Twox64Concat, EraIndex, SessionIndex>;
 
 	/// Summary of validator exposure at a given era.
 	///
@@ -914,7 +915,13 @@ pub mod pallet {
 			ActiveEra::<T>::put(ActiveEraInfo { index: active_era, start: Some(timestamp) });
 			// at genesis, we do not have any new planned era.
 			CurrentEra::<T>::put(active_era);
-			ErasStartSessionIndex::<T>::insert(active_era, session_index);
+			// set the bonded genesis era
+			BondedEras::<T>::put(
+				BoundedVec::<_, BondedErasBound<T>>::try_from(
+					vec![(active_era, session_index)]
+				)
+				.expect("bound for BondedEras is BondingDuration + 1; can contain at least one element; qed")
+			);
 		}
 	}
 

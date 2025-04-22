@@ -1123,8 +1123,8 @@ mod benchmarks {
 
 		// this is needed in the slashing code, and is a sign that `initial_era + 1` is planned!
 		ensure!(
-			ErasStartSessionIndex::<T>::get(initial_era + 1).unwrap() == 42,
-			"EraStartSessionIndex not set"
+			Rotator::<T>::active_era_start_session_index() == 42,
+			"BondedEra not set"
 		);
 
 		// slash the first half of the validators

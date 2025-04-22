@@ -272,6 +272,13 @@ pub mod session_mock {
 			}
 		}
 
+		pub fn roll_until_active_era_with(era: EraIndex, op: impl Fn() -> ()) {
+			while active_era() != era {
+				Self::roll_next();
+				op()
+			}
+		}
+
 		fn maybe_rotate_session_now() {
 			let now = System::block_number();
 			let period = Period::get();
@@ -764,7 +771,7 @@ pub(crate) fn add_slash(who: AccountId) {
 
 pub(crate) fn add_slash_in_era(who: AccountId, era: EraIndex) {
 	let _ = <Staking as rc_client::AHStakingInterface>::on_new_offences(
-		ErasStartSessionIndex::<T>::get(era).unwrap(),
+		Rotator::<T>::era_start_session_index(era).unwrap(),
 		vec![rc_client::Offence {
 			offender: who,
 			reporters: vec![],
@@ -775,7 +782,7 @@ pub(crate) fn add_slash_in_era(who: AccountId, era: EraIndex) {
 
 pub(crate) fn add_slash_in_era_with_value(who: AccountId, era: EraIndex, p: Perbill) {
 	let _ = <Staking as rc_client::AHStakingInterface>::on_new_offences(
-		ErasStartSessionIndex::<T>::get(era).unwrap(),
+		Rotator::<T>::era_start_session_index(era).unwrap(),
 		vec![rc_client::Offence { offender: who, reporters: vec![], slash_fraction: p }],
 	);
 }
