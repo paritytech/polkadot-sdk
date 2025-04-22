@@ -14,17 +14,18 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-/// Integration tests that spawn the actual binary `polkadot-omni-node`
+/// Integration tests that spawn the actual binary `polkadot-parachain`
 /// using `assert_cmd`. We verify that the help text
-/// excludes the `export-chain-spec` sub‑command exactly as intended
+/// includes the `export-chain-spec` sub‑command exactly as intended
+/// and that invoking the sub‑command executes successfully.
 
 use assert_cmd::Command;
 
 #[test]
-fn polkadot_omni_node_help_excludes_export_chain_spec() {
-    // Run `polkadot-omni-node --help` and capture stdout.
-    let output = Command::cargo_bin("polkadot-omni-node")
-        .expect("binary `polkadot-omni-node` should be built by the workspace")
+fn polkadot_parachain_help_includes_export_chain_spec_and_command_runs() {
+    // 1) Check that help text lists the extra command.
+    let help_output = Command::cargo_bin("polkadot-parachain")
+        .expect("binary `polkadot-pFarachain` should be built by the workspace")
         .arg("--help")
         .assert()
         .success()
@@ -32,10 +33,16 @@ fn polkadot_omni_node_help_excludes_export_chain_spec() {
         .stdout
         .clone();
 
-    let help_text = String::from_utf8_lossy(&output);
+    let help_text = String::from_utf8_lossy(&help_output);
     assert!(
-        !help_text.contains("export-chain-spec"),
-        "`polkadot-omni-node --help` must NOT list the \"export-chain-spec\" subcommand"
+        help_text.contains("export-chain-spec"),
+        "`polkadot-parachain --help` must list the \"export-chain-spec\" subcommand"
     );
-}
 
+    // 2) Call the sub‑command with `--help` to ensure it dispatches correctly.
+    Command::cargo_bin("polkadot-parachain")
+        .expect("binary `polkadot-parachain` should be built by the workspace")
+        .args(&["export-chain-spec", "--help"])
+        .assert()
+        .success();
+}

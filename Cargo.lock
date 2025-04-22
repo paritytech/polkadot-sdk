@@ -15527,6 +15527,7 @@ dependencies = [
 name = "polkadot-parachain-bin"
 version = "4.0.0"
 dependencies = [
+ "assert_cmd",
  "asset-hub-rococo-runtime",
  "asset-hub-westend-runtime",
  "bridge-hub-rococo-runtime",
