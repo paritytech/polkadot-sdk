@@ -16,6 +16,7 @@
 // limitations under the License.
 
 mod pallet_dummy;
+mod precompiles;
 
 use self::test_utils::{ensure_stored, expected_deposit};
 use crate::{
@@ -376,6 +377,7 @@ impl Config for Test {
 	type CodeHashLockupDepositPercent = CodeHashLockupDepositPercent;
 	type ChainId = ChainId;
 	type FindAuthor = Test;
+	type Precompiles = (precompiles::WithInfo<Self>, precompiles::NoInfo<Self>);
 }
 
 impl TryFrom<RuntimeCall> for crate::Call<Test> {
@@ -4302,7 +4304,7 @@ fn unknown_precompiles_revert() {
 		let cases: Vec<(H160, Box<dyn FnOnce(_)>)> = vec![(
 			H160::from_low_u64_be(0x0a),
 			Box::new(|result| {
-				assert_err!(result, <Error<Test>>::ContractTrapped);
+				assert_err!(result, <Error<Test>>::UnsupportedPrecompileAddress);
 			}),
 		)];
 
@@ -4401,6 +4403,121 @@ fn pure_precompile_works() {
 				"Unexpected output for precompile: {precompile_addr:?}",
 			);
 			assert_eq!(result.flags, ReturnFlags::empty());
+		});
+	}
+}
+
+#[test]
+fn precompiles_work() {
+	use crate::precompiles::Precompile;
+	use alloy_core::sol_types::{Panic, PanicKind, Revert, SolError, SolInterface, SolValue};
+	use precompiles::{INoInfo, NoInfo};
+
+	let precompile_addr = H160(NoInfo::<Test>::MATCHER.base_address());
+
+	let cases = vec![
+		(
+			INoInfo::INoInfoCalls::identity(INoInfo::identityCall { number: 42u64.into() })
+				.abi_encode(),
+			42u64.abi_encode(),
+			RuntimeReturnCode::Success,
+		),
+		(
+			INoInfo::INoInfoCalls::reverts(INoInfo::revertsCall { error: "panic".to_string() })
+				.abi_encode(),
+			Revert::from("panic").abi_encode(),
+			RuntimeReturnCode::CalleeReverted,
+		),
+		(
+			INoInfo::INoInfoCalls::panics(INoInfo::panicsCall {}).abi_encode(),
+			Panic::from(PanicKind::Assert).abi_encode(),
+			RuntimeReturnCode::CalleeReverted,
+		),
+		(
+			INoInfo::INoInfoCalls::errors(INoInfo::errorsCall {}).abi_encode(),
+			Vec::new(),
+			RuntimeReturnCode::CalleeTrapped,
+		),
+		// passing non decodeable input reverts with solidity panic
+		(
+			b"invalid".to_vec(),
+			Panic::from(PanicKind::ResourceError).abi_encode(),
+			RuntimeReturnCode::CalleeReverted,
+		),
+	];
+
+	for (input, output, error_code) in cases {
+		let (code, _code_hash) = compile_module("call_and_returncode").unwrap();
+		ExtBuilder::default().build().execute_with(|| {
+			let id = <Test as Config>::AddressMapper::to_account_id(&precompile_addr);
+			let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+			let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(code))
+				.value(1000)
+				.build_and_unwrap_contract();
+
+			let result = builder::bare_call(addr)
+				.data(
+					(&precompile_addr, 0u64).encode().into_iter().chain(input).collect::<Vec<_>>(),
+				)
+				.build_and_unwrap_result();
+
+			// no account or contract info should be created for a NoInfo pre-compile
+			assert!(test_utils::get_contract_checked(&precompile_addr).is_none());
+			assert!(!System::account_exists(&id));
+			assert_eq!(test_utils::get_balance(&id), 0u64);
+
+			assert_eq!(result.flags, ReturnFlags::empty());
+			assert_eq!(u32::from_le_bytes(result.data[..4].try_into().unwrap()), error_code as u32);
+			assert_eq!(
+				&result.data[4..],
+				&output,
+				"Unexpected output for precompile: {precompile_addr:?}",
+			);
+		});
+	}
+}
+
+#[test]
+fn precompiles_with_info_creates_contract() {
+	use crate::precompiles::Precompile;
+	use alloy_core::sol_types::SolInterface;
+	use precompiles::{IWithInfo, WithInfo};
+
+	let precompile_addr = H160(WithInfo::<Test>::MATCHER.base_address());
+
+	let cases = vec![(
+		IWithInfo::IWithInfoCalls::dummy(IWithInfo::dummyCall {}).abi_encode(),
+		Vec::<u8>::new(),
+		RuntimeReturnCode::Success,
+	)];
+
+	for (input, output, error_code) in cases {
+		let (code, _code_hash) = compile_module("call_and_returncode").unwrap();
+		ExtBuilder::default().build().execute_with(|| {
+			let id = <Test as Config>::AddressMapper::to_account_id(&precompile_addr);
+			let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+			let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(code))
+				.value(1000)
+				.build_and_unwrap_contract();
+
+			let result = builder::bare_call(addr)
+				.data(
+					(&precompile_addr, 0u64).encode().into_iter().chain(input).collect::<Vec<_>>(),
+				)
+				.build_and_unwrap_result();
+
+			// a pre-compile with contract info should create an account on first call
+			assert!(test_utils::get_contract_checked(&precompile_addr).is_some());
+			assert!(System::account_exists(&id));
+			assert_eq!(test_utils::get_balance(&id), 1u64);
+
+			assert_eq!(result.flags, ReturnFlags::empty());
+			assert_eq!(u32::from_le_bytes(result.data[..4].try_into().unwrap()), error_code as u32);
+			assert_eq!(
+				&result.data[4..],
+				&output,
+				"Unexpected output for precompile: {precompile_addr:?}",
+			);
 		});
 	}
 }

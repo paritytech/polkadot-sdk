@@ -830,11 +830,13 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 		let out_of_gas = Error::<E::T>::OutOfGas.into();
 		let out_of_deposit = Error::<E::T>::StorageDepositLimitExhausted.into();
 		let duplicate_contract = Error::<E::T>::DuplicateContract.into();
+		let unsupported_precompile = Error::<E::T>::UnsupportedPrecompileAddress.into();
 
 		// errors in the callee do not trap the caller
 		match (from.error, from.origin) {
 			(err, _) if err == transfer_failed => Ok(TransferFailed),
 			(err, _) if err == duplicate_contract => Ok(DuplicateContractAddress),
+			(err, _) if err == unsupported_precompile => Err(err),
 			(err, Callee) if err == out_of_gas || err == out_of_deposit => Ok(OutOfResources),
 			(_, Callee) => Ok(CalleeTrapped),
 			(err, _) => Err(err),
@@ -1129,7 +1131,7 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 				let error_code = Self::exec_error_into_return_code(err)?;
 				memory.write(output_len_ptr, &0u32.to_le_bytes())?;
 				Ok(error_code)
-			}
+			},
 		}
 	}
 
