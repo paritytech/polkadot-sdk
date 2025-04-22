@@ -188,7 +188,7 @@ where
 				return;
 			};
 
-			let Ok(relay_parent) = relay_client.best_block_hash().await else {
+			let Ok(relay_best_hash) = relay_client.best_block_hash().await else {
 				tracing::warn!(target: crate::LOG_TARGET, "Unable to fetch latest relay chain block hash.");
 				continue
 			};
@@ -209,12 +209,9 @@ where
 				continue;
 			};
 
-			let Ok((relay_parent_header, required_rp_ancestry)) = find_relay_parent_with_offset(
-				&relay_client,
-				relay_parent.clone(),
-				relay_parent_offset,
-			)
-			.await
+			let Ok((relay_parent_header, required_rp_ancestry)) =
+				find_relay_parent_with_offset(&relay_client, relay_best_hash, relay_parent_offset)
+					.await
 			else {
 				continue
 			};
@@ -235,7 +232,7 @@ where
 
 			let relay_parent = relay_parent_header.hash();
 
-			let Some((included_block, parent)) =
+			let Some((included_header, parent)) =
 				crate::collators::find_parent(relay_parent, para_id, &*para_backend, &relay_client)
 					.await
 			else {
@@ -270,6 +267,12 @@ where
 				continue;
 			};
 
+			tracing::debug!(
+				target: LOG_TARGET,
+				?relay_parent,
+				?claimed_cores,
+				"Claimed cores.",
+			);
 			if scheduled_cores.is_empty() {
 				tracing::debug!(target: LOG_TARGET, "Parachain not scheduled, skipping slot.");
 				continue;
@@ -291,15 +294,6 @@ where
 				continue;
 			};
 
-			if !claimed_cores.insert(*core_index) {
-				tracing::debug!(
-					target: LOG_TARGET,
-					"Core {:?} was already claimed at this relay chain slot",
-					core_index
-				);
-				continue
-			}
-
 			let parent_header = parent.header;
 
 			// We mainly call this to inform users at genesis if there is a mismatch with the
@@ -319,7 +313,7 @@ where
 				relay_slot,
 				para_slot.timestamp,
 				parent_hash,
-				included_block,
+				included_header.hash(),
 				&*para_client,
 				&keystore,
 			)
@@ -333,7 +327,8 @@ where
 						unincluded_segment_len = parent.depth,
 						relay_parent = %relay_parent,
 						relay_parent_num = %relay_parent_header.number(),
-						included = %included_block,
+						included_hash = %included_header.hash(),
+						included_num = %included_header.number(),
 						parent = %parent_hash,
 						slot = ?para_slot.slot,
 						"Not building block."
@@ -342,15 +337,25 @@ where
 				},
 			};
 
+			if !claimed_cores.insert(*core_index) {
+				tracing::debug!(
+					target: LOG_TARGET,
+					"Core {:?} was already claimed at this relay chain slot",
+					core_index
+				);
+				continue
+			}
+
 			tracing::debug!(
 				target: crate::LOG_TARGET,
-				?core_index,
 				unincluded_segment_len = parent.depth,
 				relay_parent = %relay_parent,
 				relay_parent_num = %relay_parent_header.number(),
-				included = %included_block,
+				included_hash = %included_header.hash(),
+				included_num = %included_header.number(),
 				parent = %parent_hash,
 				slot = ?para_slot.slot,
+				?core_index,
 				"Building block."
 			);
 

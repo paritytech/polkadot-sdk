@@ -36,6 +36,7 @@ async fn slot_based_relay_parent_offset_test() -> Result<(), anyhow::Error> {
 							"scheduler_params": {
 								// Num cores is 4, because 2 extra will be added automatically when registering the paras.
 								"num_cores": 4,
+								// "lookahead": 8,
 								"max_validators_per_core": 1
 							}
 						}
@@ -88,11 +89,9 @@ async fn slot_based_relay_parent_offset_test() -> Result<(), anyhow::Error> {
 
 	log::info!("2 more cores assigned to the parachain");
 
-	// Expect a backed candidate count of at least 39 for each parachain in 15 relay chain blocks
-	// (2.6 candidates per para per relay chain block).
-	// Note that only blocks after the first session change and blocks that don't contain a session
-	// change will be counted.
-	assert_para_throughput(&relay_client, 15, [(ParaId::from(2400), 39..46)].into_iter().collect())
+	// The expected values are a bit lower here than in the other elastic-scaling tests, since the
+	// relay parent offset suffers a bit more on session changes.
+	assert_para_throughput(&relay_client, 17, [(ParaId::from(2400), 35..46)].into_iter().collect())
 		.await?;
 
 	// Assert the parachain finalized block height is also on par with the number of backed

@@ -144,7 +144,7 @@ pub const BLOCK_PROCESSING_VELOCITY: u32 = 3;
 pub const BLOCK_PROCESSING_VELOCITY: u32 = 1;
 
 // The `+2` shouldn't be needed, https://github.com/paritytech/polkadot-sdk/issues/5260
-const UNINCLUDED_SEGMENT_CAPACITY: u32 = BLOCK_PROCESSING_VELOCITY * 2 + 2;
+const UNINCLUDED_SEGMENT_CAPACITY: u32 = BLOCK_PROCESSING_VELOCITY * (2 + RELAY_PARENT_OFFSET) + 2;
 
 pub const SLOT_DURATION: u64 = 6000;
 
