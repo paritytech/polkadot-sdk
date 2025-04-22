@@ -910,9 +910,7 @@ where
 		}
 	}
 
-	/// Searches in the store transactions provides tags.
-	///
-	/// Searches through the entire set of inactive views.
+	/// Searches transactions provides tags in the inactive views associated to a set of blocks.
 	pub(crate) fn provides_tags_from_inactive_views(
 		&self,
 		block_hashes: Vec<&HashAndNumber<Block>>,
