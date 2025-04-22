@@ -25,8 +25,8 @@ enum TestState {
 	// happen before an election is triggered.
 	WaitingForInitialSessionChange,
 	// Wait for an election to complete. We get into this state after the first session change and
-	// move on when we receive the last page from the election process.
-	WaitingForElection,
+	// move on when we receive a page containing `Ok(0)` as a result.
+	WaitingForElectionResult,
 	// The validator set should be delivered to RC
 	WaitForNewValidatorSetCount,
 	// AH should receive a session report with an activation timestamp
@@ -61,13 +61,13 @@ impl TestState {
 		match self {
 			TestState::WaitingForInitialSessionChange => {
 				log::info!("One session change after activating AH client");
-				*self = TestState::WaitingForElection;
+				*self = TestState::WaitingForElectionResult;
 			},
-			TestState::WaitingForElection => {
-				// these should be ignored
+			TestState::WaitingForElectionResult => {
+				// ignore
 			},
 			TestState::WaitForNewValidatorSetCount => {
-				// these should be ignored
+				// ignore
 			},
 			TestState::WaitForSessionReportWithActivationTimestamp { elapsed_sessions } => {
 				if activation_time_stamp.is_some() {
@@ -98,14 +98,14 @@ impl TestState {
 			TestState::WaitingForInitialSessionChange => {
 				assert!(false, "PagedElectionProceeded before the first session change?");
 			},
-			TestState::WaitingForElection => {
+			TestState::WaitingForElectionResult => {
 				log::info!(
 					"Paged election proceeded: page_idx: {}, page_content: {:?}",
 					page_idx,
 					page_content
 				);
 
-				// we can be smarter here - magic numbers
+				// we can be smarter here and avoid the magic numbers
 				if page_idx == 7 {
 					assert!(page_content.is_ok(), "Expected Ok");
 					assert!(page_content.unwrap() == 500, "Expected 500");
@@ -136,11 +136,11 @@ impl TestState {
 			TestState::WaitingForInitialSessionChange => {
 				assert!(false, "New validator set count before the first session change?");
 			},
-			TestState::WaitingForElection => {
+			TestState::WaitingForElectionResult => {
 				assert!(false, "New validator set count before the election is complete?");
 			},
 			TestState::WaitForNewValidatorSetCount => {
-				assert!(new_validator_set_count == 500, "Expected 0");
+				assert!(new_validator_set_count == 500, "Expected a validator set count of 500");
 				log::info!("Got NewValidatorSetCount on RC");
 				*self =
 					TestState::WaitForSessionReportWithActivationTimestamp { elapsed_sessions: 0 };
@@ -196,7 +196,7 @@ async fn happy_case() -> Result<(), anyhow::Error> {
 									test_state.on_ah_client_event(ev);
 								},
 								_ => {
-									log::info!(
+									log::debug!(
 										"ON RC: block: {}; pallet: StakingNextAhClient;  Event: {:?}; Fields: {:?}",
 										block.number(),
 										event.variant_name(),
@@ -204,9 +204,6 @@ async fn happy_case() -> Result<(), anyhow::Error> {
 									);
 								}
 							}
-
-
-
 						}
 					}
 				}
@@ -225,7 +222,7 @@ async fn happy_case() -> Result<(), anyhow::Error> {
 									test_state.on_rc_client_event(ev);
 								},
 								_ => {
-									log::info!(
+									log::debug!(
 										"ON AH: block: {} StakingNextRcClient Event: {:?}; Fields: {:?}",
 										block.number(),
 										event.variant_name(),
@@ -237,7 +234,7 @@ async fn happy_case() -> Result<(), anyhow::Error> {
 						} else if event.pallet_name() == "Staking" {
 							match event.variant_name() {
 								"PagedElectionProceeded" => {
-									log::info!(
+									log::debug!(
 										"ON AH: block: {} Staking PagedElectionProceeded Event: {:?}; Fields: {:?}",
 										block.number(),
 										event.variant_name(),
@@ -247,7 +244,7 @@ async fn happy_case() -> Result<(), anyhow::Error> {
 									test_state.on_rc_client_event(ev);
 								},
 								_ => {
-									log::info!(
+									log::debug!(
 										"ON AH: block: {} Staking Event: {:?}; Fields: {:?}",
 										block.number(),
 										event.variant_name(),
