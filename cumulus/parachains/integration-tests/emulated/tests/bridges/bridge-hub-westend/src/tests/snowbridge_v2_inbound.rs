@@ -1080,7 +1080,7 @@ pub fn add_tip_from_asset_hub_user_origin() {
 			events.iter().any(|event| matches!(
 				event,
 				RuntimeEvent::EthereumSystemV2(snowbridge_pallet_system_v2::Event::TipProcessed { sender, message_id, success, ..})
-					if *sender == relayer &&*message_id == tip_message_id.clone() && *success == true, // expect success
+					if *sender == relayer &&*message_id == tip_message_id.clone() && *success, // expect success
 			)),
 			"tip added event found"
 		);
