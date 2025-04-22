@@ -206,7 +206,7 @@ pub mod weights;
 extern crate alloc;
 
 use alloc::{vec, vec::Vec};
-use codec::{Codec, Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
+use codec::{Codec, ConstEncodedLen, Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use core::{fmt::Debug, ops::Deref};
 use frame_support::{
 	defensive,
@@ -243,6 +243,8 @@ pub struct ItemHeader<Size> {
 	is_processed: bool,
 }
 
+impl<Size: ConstEncodedLen> ConstEncodedLen for ItemHeader<Size> {} // marker
+
 /// A page of messages. Pages always contain at least one item.
 #[derive(
 	CloneNoBound, Encode, Decode, RuntimeDebugNoBound, DefaultNoBound, TypeInfo, MaxEncodedLen,
@@ -272,6 +274,8 @@ impl<
 		Size: BaseArithmetic + Unsigned + Copy + Into<u32> + Codec + MaxEncodedLen + Debug + Default,
 		HeapSize: Get<Size>,
 	> Page<Size, HeapSize>
+where
+	ItemHeader<Size>: ConstEncodedLen,
 {
 	/// Create a [`Page`] from one unprocessed message.
 	fn from_message<T: Config>(message: BoundedSlice<u8, MaxMessageLenOf<T>>) -> Self {
@@ -527,6 +531,7 @@ pub mod pallet {
 			+ Encode
 			+ Decode
 			+ MaxEncodedLen
+			+ ConstEncodedLen
 			+ TypeInfo
 			+ Default;
 
