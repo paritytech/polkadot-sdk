@@ -42,7 +42,9 @@ pub mod tracing;
 pub mod weights;
 
 use crate::{
-	evm::{runtime::GAS_PRICE, CallTrace, GasEncoder, GenericTransaction, TracerConfig},
+	evm::{
+		runtime::GAS_PRICE, CallTrace, GasEncoder, GenericTransaction, TracerConfig, TYPE_EIP1559,
+	},
 	exec::{AccountIdOf, ExecError, Executable, Key, Stack as ExecStack},
 	gas::GasMeter,
 	storage::{meter::Meter as StorageMeter, ContractInfo, DeletionQueueManager},
@@ -1169,8 +1171,17 @@ where
 		if tx.gas_price.is_none() {
 			tx.gas_price = Some(GAS_PRICE.into());
 		}
+		if tx.max_priority_fee_per_gas.is_none() {
+			tx.max_priority_fee_per_gas = Some(GAS_PRICE.into());
+		}
+		if tx.max_fee_per_gas.is_none() {
+			tx.max_fee_per_gas = Some(GAS_PRICE.into());
+		}
 		if tx.gas.is_none() {
 			tx.gas = Some(Self::evm_block_gas_limit());
+		}
+		if tx.r#type.is_none() {
+			tx.r#type = Some(TYPE_EIP1559.into());
 		}
 
 		// Convert the value to the native balance type.
