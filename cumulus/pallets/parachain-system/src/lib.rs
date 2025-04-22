@@ -650,12 +650,18 @@ pub mod pallet {
 			let expected_number_of_parents = T::RelayParentOffset::get();
 
 			if expected_number_of_parents > 0 {
-				descendant_validation::verify_relay_parent_descendants(
+				if let Err(err) = descendant_validation::verify_relay_parent_descendants(
 					&relay_state_proof,
 					relay_parent_descendants,
 					vfp.relay_parent_storage_root,
 					expected_number_of_parents,
-				);
+				) {
+					panic!(
+						"Unable to verify provided relay parent descendants. \
+						expected_number_of_parents: {expected_number_of_parents} \
+						error: {err:?}"
+					);
+				};
 			}
 
 			// Update the desired maximum capacity according to the consensus hook.

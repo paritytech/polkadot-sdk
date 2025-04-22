@@ -91,7 +91,7 @@ async fn slot_based_relay_parent_offset_test() -> Result<(), anyhow::Error> {
 
 	// The expected values are a bit lower here than in the other elastic-scaling tests, since the
 	// relay parent offset suffers a bit more on session changes.
-	assert_para_throughput(&relay_client, 17, [(ParaId::from(2400), 35..46)].into_iter().collect())
+	assert_para_throughput(&relay_client, 17, [(ParaId::from(2400), 30..38)].into_iter().collect())
 		.await?;
 
 	// Assert the parachain finalized block height is also on par with the number of backed

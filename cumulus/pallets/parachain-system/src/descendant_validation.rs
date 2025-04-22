@@ -1,4 +1,7 @@
-use crate::RelayChainStateProof;
+use crate::{
+	descendant_validation::RelayParentVerificationError::InvalidNumberOfDescendants,
+	RelayChainStateProof,
+};
 use alloc::vec::Vec;
 use sp_consensus_babe::{
 	digests::{CompatibleDigestItem, NextEpochDescriptor, PreDigest},
@@ -42,17 +45,16 @@ pub(crate) fn verify_relay_parent_descendants<H: Header>(
 	relay_parent_descendants: Vec<H>,
 	relay_parent_state_root: H::Hash,
 	expected_number_of_parents: u32,
-) {
+) -> Result<(), RelayParentVerificationError<H>> {
 	if relay_parent_descendants.len() != (expected_number_of_parents + 1) as usize {
-		panic!(
-            "Expected {} descendants of relay parent in `set_validation_data` inherent, received {}.",
-            expected_number_of_parents + 1,
-            relay_parent_descendants.len(),
-        );
+		return Err(InvalidNumberOfDescendants {
+			expected: expected_number_of_parents + 1,
+			received: relay_parent_descendants.len(),
+		});
 	}
 
 	let Ok(mut current_authorities) = relay_state_proof.read_authorities() else {
-		panic!("No authorities delivered in state proof!");
+		return Err(RelayParentVerificationError::MissingAuthorities)
 	};
 	let mut maybe_next_authorities = relay_state_proof.read_next_authorities().ok().flatten();
 
@@ -65,12 +67,10 @@ pub(crate) fn verify_relay_parent_descendants<H: Header>(
 	// available, so we need to use the storage root here to establish a chain.
 	if let Some(relay_parent) = relay_parent_descendants.get(0) {
 		if *relay_parent.state_root() != relay_parent_state_root {
-			panic!(
-				"Relay parent provided in inherent has different state root than expected!\
-					expected: {:?} found: {:?}",
-				relay_parent.state_root(),
-				relay_parent_state_root
-			);
+			return Err(RelayParentVerificationError::InvalidStateRoot {
+				expected: relay_parent_state_root,
+				found: *relay_parent.state_root(),
+			});
 		}
 	};
 
@@ -82,14 +82,20 @@ pub(crate) fn verify_relay_parent_descendants<H: Header>(
 		// Verify that the blocks actually form a chain
 		if let Some(ref expected_hash) = next_expected_hash {
 			if current_header.parent_hash() != expected_hash {
-				panic!("Expected {expected_hash:?} (#{relay_number:?}), but found {sealed_header_hash:?}.");
+				return Err(RelayParentVerificationError::InvalidChainSequence {
+					expected: expected_hash.clone(),
+					found: *current_header.parent_hash(),
+					number: relay_number,
+				});
 			}
 		}
 		next_expected_hash = Some(sealed_header_hash.clone());
 
 		log::debug!(target: crate::LOG_TARGET, "Validating header #{relay_number:?} ({sealed_header_hash:?})");
 		let Ok((pre_digest, next_epoch_descriptor)) = find_babe_pre_digest(&current_header) else {
-			panic!("Relay header without predigest");
+			return Err(RelayParentVerificationError::MissingPredigest {
+				hash: current_header.hash().clone(),
+			});
 		};
 
 		let authority_index = pre_digest.authority_index() as usize;
@@ -100,10 +106,10 @@ pub(crate) fn verify_relay_parent_descendants<H: Header>(
 		if let Some(descriptor) = next_epoch_descriptor {
 			if counter != 0 {
 				let Some(next_authorities) = maybe_next_authorities else {
-					panic!(
-                        "Relay parent descendant #{relay_number:?} ({sealed_header_hash:?}) contains \
-						epoch change, but no authorities where provided for the next epoch."
-                    );
+					return Err(RelayParentVerificationError::MissingNextEpochAuthorities {
+						number: relay_number,
+						hash: sealed_header_hash,
+					});
 				};
 				log::debug!(
 					target: crate::LOG_TARGET,
@@ -120,20 +126,21 @@ pub(crate) fn verify_relay_parent_descendants<H: Header>(
 		}
 
 		let Some(authority_id) = current_authorities.get(authority_index) else {
-			panic!("Unable to find authority ID where expected.");
+			return Err(RelayParentVerificationError::MissingAuthorityId);
 		};
 
-		let seal = current_header
-			.digest_mut()
-			.pop()
-			.expect("Valid relay chain block will always contain a seal.");
-		let signature =
-			seal.as_babe_seal().expect("Valid relay chain seal can be cast to signature.");
+		let Some(seal) = current_header.digest_mut().pop() else {
+			return Err(RelayParentVerificationError::MissingSeal { hash: current_header.hash() })
+		};
+		let Some(signature) = seal.as_babe_seal() else {
+			return Err(RelayParentVerificationError::InvalidSeal { hash: current_header.hash() })
+		};
 
 		if !AuthorityPair::verify(&signature, current_header.hash(), &authority_id.0) {
-			panic!(
-                "Bad Signature on relay parent descendant #{relay_number:?} ({sealed_header_hash:?})."
-            )
+			return Err(RelayParentVerificationError::InvalidSignature {
+				number: relay_number,
+				hash: sealed_header_hash,
+			});
 		}
 		log::debug!(target: crate::LOG_TARGET, "Validated header #{relay_number:?} ({sealed_header_hash:?})");
 	}
@@ -147,6 +154,7 @@ pub(crate) fn verify_relay_parent_descendants<H: Header>(
 				but next authority was part of the storage proof. This wastes PoV space."
 		);
 	}
+	Ok(())
 }
 
 /// Extract babe digest items from the header.
@@ -173,14 +181,37 @@ pub fn find_babe_pre_digest<H: Header>(
 	babe_pre_digest.map_or_else(|| Err(()), |pd| Ok((pd, next_epoch_digest)))
 }
 
+/// Errors that can occur during descendant validation
+#[derive(Debug, PartialEq)]
+pub(crate) enum RelayParentVerificationError<H: Header> {
+	/// The number of descendants provided doesn't match the expected count
+	InvalidNumberOfDescendants { expected: u32, received: usize },
+	/// No authorities were provided in the state proof
+	MissingAuthorities,
+	/// The state root of the relay parent doesn't match
+	InvalidStateRoot { expected: H::Hash, found: H::Hash },
+	/// The chain sequence is invalid (parent hash doesn't match expected hash)
+	InvalidChainSequence { expected: H::Hash, found: H::Hash, number: H::Number },
+	/// The header is missing the required pre-digest
+	MissingPredigest { hash: H::Hash },
+	/// The header is missing the required seal
+	MissingSeal { hash: H::Hash },
+	/// The header contains an invalid seal
+	InvalidSeal { hash: H::Hash },
+	/// Next epoch authorities are missing when they are required
+	MissingNextEpochAuthorities { number: H::Number, hash: H::Hash },
+	/// Unable to find the authority ID at the expected index
+	MissingAuthorityId,
+	/// The signature verification failed
+	InvalidSignature { number: H::Number, hash: H::Hash },
+}
+
 #[cfg(test)]
 mod tests {
 	use super::*;
 	use codec::{Decode, Encode};
 	use cumulus_primitives_core::relay_chain;
 	use cumulus_test_relay_sproof_builder::RelayStateSproofBuilder;
-	use pallet_message_queue::mock_helpers::IntoWeight;
-	use rand::random;
 	use rstest::rstest;
 	use sp_consensus_babe::{
 		digests::{CompatibleDigestItem, NextEpochDescriptor, PreDigest, PrimaryPreDigest},
@@ -188,12 +219,10 @@ mod tests {
 	};
 	use sp_core::{
 		sr25519::vrf::{VrfPreOutput, VrfProof, VrfSignature},
-		ByteArray, Pair, H256,
+		Pair, H256,
 	};
 	use sp_keyring::Sr25519Keyring;
 	use sp_runtime::{testing::Header as TestHeader, DigestItem};
-	use sp_trie::StorageProof;
-
 	const PARA_ID: u32 = 2000;
 
 	/// Verify a header chain with different lengths and different number of authorities included in
@@ -212,16 +241,16 @@ mod tests {
 		// Expected number of parents passed to the function does not include actual relay parent
 		let expected_number_of_descendants = (relay_parent_descendants.len() - 1) as u32;
 
-		verify_relay_parent_descendants(
+		assert!(verify_relay_parent_descendants(
 			&relay_state_proof,
 			relay_parent_descendants,
 			relay_parent_state_root,
 			expected_number_of_descendants,
-		);
+		)
+		.is_ok());
 	}
 
 	#[rstest]
-	#[should_panic = "Relay parent provided in inherent has different state root than expected!expected: 0x0000000000000000000000000000000000000000000000000000000000000000 found: 0x0909090909090909090909090909090909090909090909090909090909090909"]
 	fn test_verify_relay_parent_broken_state_root() {
 		let (relay_parent_descendants, authorities, _) =
 			build_relay_parent_descendants(10, 10, None);
@@ -233,11 +262,19 @@ mod tests {
 		// Expected number of parents passed to the function does not include actual relay parent
 		let expected_number_of_descendants = (relay_parent_descendants.len() - 1) as u32;
 
-		verify_relay_parent_descendants(
+		let result = verify_relay_parent_descendants(
 			&relay_state_proof,
 			relay_parent_descendants,
 			relay_parent_state_root,
 			expected_number_of_descendants,
+		);
+
+		assert_eq!(
+			result,
+			Err(RelayParentVerificationError::<TestHeader>::InvalidStateRoot {
+				expected: H256::repeat_byte(0x9),
+				found: H256::repeat_byte(0x0),
+			})
 		);
 	}
 
@@ -247,7 +284,6 @@ mod tests {
 	// 9 would be just right, but we want to panic
 	#[case::too_many_1(10)]
 	#[case::too_many_2(100)]
-	#[should_panic]
 	fn test_incorrect_number_of_headers(#[case] expected_number_of_descendants: u32) {
 		let (relay_parent_descendants, authorities, _) =
 			build_relay_parent_descendants(10, 10, None);
@@ -256,16 +292,23 @@ mod tests {
 		// Make sure that the first relay parent has the correct state root set
 		let relay_parent_state_root = relay_parent_descendants.get(0).unwrap().state_root.clone();
 
-		verify_relay_parent_descendants(
+		let result = verify_relay_parent_descendants(
 			&relay_state_proof,
 			relay_parent_descendants,
 			relay_parent_state_root,
 			expected_number_of_descendants,
 		);
+
+		assert_eq!(
+			result,
+			Err(InvalidNumberOfDescendants::<TestHeader> {
+				expected: expected_number_of_descendants + 1,
+				received: 10,
+			})
+		);
 	}
 
 	#[rstest]
-	#[should_panic = "No authorities delivered in state proof!"]
 	fn test_authorities_missing() {
 		let (relay_parent_descendants, _, _) = build_relay_parent_descendants(10, 10, None);
 		// No authorities, this is bad!
@@ -276,22 +319,24 @@ mod tests {
 		// Expected number of parents passed to the function does not include actual relay parent
 		let expected_number_of_descendants = (relay_parent_descendants.len() - 1) as u32;
 
-		verify_relay_parent_descendants(
+		let result = verify_relay_parent_descendants(
 			&relay_state_proof,
 			relay_parent_descendants,
 			relay_parent_state_root,
 			expected_number_of_descendants,
 		);
+
+		assert_eq!(result, Err(RelayParentVerificationError::<TestHeader>::MissingAuthorities));
 	}
 
 	#[rstest]
-	#[should_panic]
 	fn test_relay_parents_do_not_form_chain() {
 		let (mut relay_parent_descendants, authorities, _) =
 			build_relay_parent_descendants(10, 10, None);
+		let header_to_modify = relay_parent_descendants.get_mut(2).expect("Parent is available");
+		let expected_hash = header_to_modify.parent_hash;
 		// Parent hash does not point to the proper parent, incomplete chain
-		relay_parent_descendants.get_mut(2).expect("Parent is available").parent_hash =
-			H256::repeat_byte(0x9);
+		header_to_modify.parent_hash = H256::repeat_byte(0x9);
 		let relay_state_proof = build_relay_chain_storage_proof(Some(authorities), None);
 
 		// Make sure that the first relay parent has the correct state root set
@@ -299,16 +344,24 @@ mod tests {
 		// Expected number of parents passed to the function does not include actual relay parent
 		let expected_number_of_descendants = (relay_parent_descendants.len() - 1) as u32;
 
-		verify_relay_parent_descendants(
+		let result = verify_relay_parent_descendants(
 			&relay_state_proof,
 			relay_parent_descendants,
 			relay_parent_state_root,
 			expected_number_of_descendants,
 		);
+
+		assert_eq!(
+			result,
+			Err(RelayParentVerificationError::<TestHeader>::InvalidChainSequence {
+				number: 2,
+				expected: expected_hash,
+				found: H256::repeat_byte(0x9),
+			})
+		);
 	}
 
 	#[rstest]
-	#[should_panic = "Bad Signature on relay parent descendant #"]
 	fn test_relay_parent_with_wrong_signature() {
 		let (mut relay_parent_descendants, authorities, _) =
 			build_relay_parent_descendants(10, 10, None);
@@ -319,6 +372,7 @@ mod tests {
 		let invalid_signature =
 			Sr25519Keyring::Alice.sign(b"Not the signature you are looking for.");
 		rp_to_modify.digest_mut().push(DigestItem::babe_seal(invalid_signature.into()));
+		let expected_hash = rp_to_modify.hash();
 
 		let relay_state_proof = build_relay_chain_storage_proof(Some(authorities), None);
 
@@ -327,32 +381,47 @@ mod tests {
 		// Expected number of parents passed to the function does not include actual relay parent
 		let expected_number_of_descendants = (relay_parent_descendants.len() - 1) as u32;
 
-		verify_relay_parent_descendants(
+		let result = verify_relay_parent_descendants(
 			&relay_state_proof,
 			relay_parent_descendants,
 			relay_parent_state_root,
 			expected_number_of_descendants,
 		);
+
+		assert_eq!(
+			result,
+			Err(RelayParentVerificationError::<TestHeader>::InvalidSignature {
+				number: 9,
+				hash: expected_hash,
+			})
+		);
 	}
 
 	#[rstest]
-	#[should_panic = "contains epoch change, but no authorities where provided for the next epoch."]
 	fn test_verify_relay_parent_descendants_missing_next_authorities_with_epoch_change() {
 		sp_tracing::try_init_simple();
 		let (relay_parent_descendants, authorities, _) =
 			build_relay_parent_descendants(10, 10, Some(5));
 		let relay_state_proof = build_relay_chain_storage_proof(Some(authorities), None);
 
+		let expected_hash = relay_parent_descendants[5].hash().clone();
 		// Make sure that the first relay parent has the correct state root set
 		let relay_parent_state_root = relay_parent_descendants.get(0).unwrap().state_root.clone();
 		// Expected number of parents passed to the function does not include actual relay parent
 		let expected_number_of_descendants = (relay_parent_descendants.len() - 1) as u32;
 
-		verify_relay_parent_descendants(
+		let result = verify_relay_parent_descendants(
 			&relay_state_proof,
 			relay_parent_descendants,
 			relay_parent_state_root,
 			expected_number_of_descendants,
+		);
+		assert_eq!(
+			result,
+			Err(RelayParentVerificationError::<TestHeader>::MissingNextEpochAuthorities {
+				number: 5,
+				hash: expected_hash,
+			})
 		);
 	}
 
@@ -372,12 +441,13 @@ mod tests {
 		// Expected number of parents passed to the function does not include actual relay parent
 		let expected_number_of_descendants = (relay_parent_descendants.len() - 1) as u32;
 
-		verify_relay_parent_descendants(
+		assert!(verify_relay_parent_descendants(
 			&relay_state_proof,
 			relay_parent_descendants,
 			relay_parent_state_root,
 			expected_number_of_descendants,
-		);
+		)
+		.is_ok());
 	}
 
 	/// Test some interesting epoch change positions, like epoch change on RP directly, and last
@@ -397,12 +467,13 @@ mod tests {
 		// Expected number of parents passed to the function does not include actual relay parent
 		let expected_number_of_descendants = (relay_parent_descendants.len() - 1) as u32;
 
-		verify_relay_parent_descendants(
+		assert!(verify_relay_parent_descendants(
 			&relay_state_proof,
 			relay_parent_descendants,
 			relay_parent_state_root,
 			expected_number_of_descendants,
-		);
+		)
+		.is_ok());
 	}
 
 	/// Helper function to create a mock `RelayChainStateProof`.
