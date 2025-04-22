@@ -192,7 +192,7 @@ pub fn burn_for_teleport<AssetTransactor>(origin: &Location, fee: &Asset) -> Xcm
 where
 	AssetTransactor: TransactAsset,
 {
-	let dummy_context = XcmContext::with_message_id(Default::default());
+	let dummy_context = XcmContext { origin: None, message_id: Default::default(), topic: None };
 	AssetTransactor::can_check_out(origin, fee, &dummy_context)?;
 	AssetTransactor::check_out(origin, fee, &dummy_context);
 	AssetTransactor::withdraw_asset(fee, origin, None)?;

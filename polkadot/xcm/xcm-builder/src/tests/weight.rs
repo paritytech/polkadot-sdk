@@ -24,7 +24,7 @@ fn fixed_rate_of_fungible_should_work() {
 	}
 
 	let mut trader = FixedRateOfFungible::<WeightPrice, ()>::new();
-	let ctx = XcmContext::with_message_id(XcmHash::default());
+	let ctx = XcmContext { origin: None, message_id: XcmHash::default(), topic: None };
 
 	// supplies 100 unit of asset, 80 still remains after purchasing weight
 	assert_eq!(
@@ -199,7 +199,7 @@ fn weight_trader_tuple_should_work() {
 	);
 
 	let mut traders = Traders::new();
-	let ctx = XcmContext::with_message_id(XcmHash::default());
+	let ctx = XcmContext { origin: None, message_id: XcmHash::default(), topic: None };
 
 	// trader one buys weight
 	assert_eq!(

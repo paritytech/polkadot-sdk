@@ -33,7 +33,7 @@ fn create_asset_id(asset_id: AssetId) -> XcmAssetId {
 }
 
 fn xcm_context() -> XcmContext {
-	XcmContext::with_message_id([0u8; 32])
+	XcmContext { origin: None, message_id: [0u8; 32], topic: None }
 }
 
 fn weight_worth_of(fee: Balance) -> Weight {

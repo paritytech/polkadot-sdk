@@ -807,7 +807,7 @@ mod test_trader {
 			FeeChargerAssetsHandleRefund,
 		>;
 		let mut trader = <Trader as WeightTrader>::new();
-		let ctx = XcmContext::with_message_id(XcmHash::default());
+		let ctx = XcmContext { origin: None, message_id: XcmHash::default(), topic: None };
 
 		// prepare test data
 		let asset: Asset = (Here, AMOUNT).into();

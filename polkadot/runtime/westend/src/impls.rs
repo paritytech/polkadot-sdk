@@ -121,7 +121,7 @@ where
 			&destination,
 			&wnd,
 			// not used in AssetTransactor
-			&XcmContext::with_message_id([0; 32]),
+			&XcmContext { origin: None, message_id: [0; 32], topic: None },
 		)
 		.map_err(|err| {
 			log::error!(
@@ -135,7 +135,7 @@ where
 			&destination,
 			&wnd,
 			// not used in AssetTransactor
-			&XcmContext::with_message_id([0; 32]),
+			&XcmContext { origin: None, message_id: [0; 32], topic: None },
 		);
 
 		// reanchor

@@ -583,7 +583,7 @@ mod benchmarks {
 		crate::Pallet::<T>::drop_assets(
 			&claim_location,
 			asset.clone().into(),
-			&XcmContext::with_message_id([0u8; 32]),
+			&XcmContext { origin: None, message_id: [0u8; 32], topic: None },
 		);
 		let versioned_assets = VersionedAssets::from(Assets::from(asset));
 

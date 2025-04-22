@@ -165,7 +165,7 @@ fn test_buy_and_refund_weight_in_native() {
 			let weight = Weight::from_parts(4_000_000_000, 0);
 			let fee = WeightToFee::weight_to_fee(&weight);
 			let extra_amount = 100;
-			let ctx = XcmContext::with_message_id(XcmHash::default());
+			let ctx = XcmContext { origin: None, message_id: XcmHash::default(), topic: None };
 			let payment: Asset = (native_location.clone(), fee + extra_amount).into();
 
 			// init trader and buy weight.
@@ -253,7 +253,7 @@ fn test_buy_and_refund_weight_with_swap_local_asset_xcm_trader() {
 			let asset_fee =
 				AssetConversion::get_amount_in(&fee, &pool_liquidity, &pool_liquidity).unwrap();
 			let extra_amount = 100;
-			let ctx = XcmContext::with_message_id(XcmHash::default());
+			let ctx = XcmContext { origin: None, message_id: XcmHash::default(), topic: None };
 			let payment: Asset = (asset_1_location.clone(), asset_fee + extra_amount).into();
 
 			// init trader and buy weight.
@@ -359,7 +359,7 @@ fn test_buy_and_refund_weight_with_swap_foreign_asset_xcm_trader() {
 			let asset_fee =
 				AssetConversion::get_amount_in(&fee, &pool_liquidity, &pool_liquidity).unwrap();
 			let extra_amount = 100;
-			let ctx = XcmContext::with_message_id(XcmHash::default());
+			let ctx = XcmContext { origin: None, message_id: XcmHash::default(), topic: None };
 			let payment: Asset = (foreign_location.clone(), asset_fee + extra_amount).into();
 
 			// init trader and buy weight.
@@ -456,7 +456,7 @@ fn test_asset_xcm_take_first_trader() {
 				(asset_location.clone(), asset_amount_needed + asset_amount_extra).into();
 
 			let mut trader = <XcmConfig as xcm_executor::Config>::Trader::new();
-			let ctx = XcmContext::with_message_id(XcmHash::default());
+			let ctx = XcmContext { origin: None, message_id: XcmHash::default(), topic: None };
 
 			// Lets buy_weight and make sure buy_weight does not return an error
 			let unused_assets = trader.buy_weight(bought, asset.into(), &ctx).expect("Expected Ok");
@@ -533,7 +533,7 @@ fn test_foreign_asset_xcm_take_first_trader() {
 				(foreign_location.clone(), asset_amount_needed + asset_amount_extra).into();
 
 			let mut trader = <XcmConfig as xcm_executor::Config>::Trader::new();
-			let ctx = XcmContext::with_message_id(XcmHash::default());
+			let ctx = XcmContext { origin: None, message_id: XcmHash::default(), topic: None };
 
 			// Lets buy_weight and make sure buy_weight does not return an error
 			let unused_assets = trader.buy_weight(bought, asset.into(), &ctx).expect("Expected Ok");
@@ -588,7 +588,7 @@ fn test_asset_xcm_take_first_trader_with_refund() {
 			));
 
 			let mut trader = <XcmConfig as xcm_executor::Config>::Trader::new();
-			let ctx = XcmContext::with_message_id(XcmHash::default());
+			let ctx = XcmContext { origin: None, message_id: XcmHash::default(), topic: None };
 
 			// Set Alice as block author, who will receive fees
 			RuntimeHelper::run_to_block(2, AccountId::from(ALICE));
@@ -659,7 +659,7 @@ fn test_asset_xcm_take_first_trader_refund_not_possible_since_amount_less_than_e
 			));
 
 			let mut trader = <XcmConfig as xcm_executor::Config>::Trader::new();
-			let ctx = XcmContext::with_message_id(XcmHash::default());
+			let ctx = XcmContext { origin: None, message_id: XcmHash::default(), topic: None };
 
 			// Set Alice as block author, who will receive fees
 			RuntimeHelper::run_to_block(2, AccountId::from(ALICE));
@@ -711,7 +711,7 @@ fn test_that_buying_ed_refund_does_not_refund_for_take_first_trader() {
 			));
 
 			let mut trader = <XcmConfig as xcm_executor::Config>::Trader::new();
-			let ctx = XcmContext::with_message_id(XcmHash::default());
+			let ctx = XcmContext { origin: None, message_id: XcmHash::default(), topic: None };
 
 			// Set Alice as block author, who will receive fees
 			RuntimeHelper::run_to_block(2, AccountId::from(ALICE));
@@ -784,7 +784,7 @@ fn test_asset_xcm_trader_not_possible_for_non_sufficient_assets() {
 			));
 
 			let mut trader = <XcmConfig as xcm_executor::Config>::Trader::new();
-			let ctx = XcmContext::with_message_id(XcmHash::default());
+			let ctx = XcmContext { origin: None, message_id: XcmHash::default(), topic: None };
 
 			// Set Alice as block author, who will receive fees
 			RuntimeHelper::run_to_block(2, AccountId::from(ALICE));

@@ -349,7 +349,8 @@ pub mod pallet {
 
 		/// Burn the amount of the fee embedded into the XCM for teleports
 		pub fn burn_fees(para_id: ParaId, fee: BalanceOf<T>) -> DispatchResult {
-			let dummy_context = XcmContext::with_message_id(Default::default());
+			let dummy_context =
+				XcmContext { origin: None, message_id: Default::default(), topic: None };
 			let dest = Location::new(1, [Parachain(para_id.into())]);
 			let fees = (Location::parent(), fee.saturated_into::<u128>()).into();
 			T::AssetTransactor::can_check_out(&dest, &fees, &dummy_context).map_err(|error| {
