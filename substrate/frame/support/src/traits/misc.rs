@@ -37,7 +37,7 @@ use sp_runtime::{
 };
 
 #[doc(hidden)]
-pub const DEFENSIVE_OP_PUBLIC_ERROR: &str = "a defensive failure has been triggered; please report the block number at https://github.com/paritytech/substrate/issues";
+pub const DEFENSIVE_OP_PUBLIC_ERROR: &str = "a defensive failure has been triggered; please report the block number at https://github.com/paritytech/polkadot-sdk/issues";
 #[doc(hidden)]
 pub const DEFENSIVE_OP_INTERNAL_ERROR: &str = "Defensive failure has been triggered!";
 
@@ -983,6 +983,13 @@ impl<Call, Balance: From<u32>, const T: u32> EstimateCallFee<Call, Balance> for 
 	}
 }
 
+#[cfg(feature = "std")]
+impl<Call, Balance: From<u32>, const T: u64> EstimateCallFee<Call, Balance> for ConstU64<T> {
+	fn estimate_call_fee(_: &Call, _: crate::dispatch::PostDispatchInfo) -> Balance {
+		(T as u32).into()
+	}
+}
+
 /// A wrapper for any type `T` which implement encode/decode in a way compatible with `Vec<u8>`.
 ///
 /// The encoding is the encoding of `T` prepended with the compact encoding of its size in bytes.
@@ -1228,6 +1235,13 @@ pub trait AccountTouch<AssetId, AccountId> {
 
 	/// Create an account for `who` of the `asset` with a deposit taken from the `depositor`.
 	fn touch(asset: AssetId, who: &AccountId, depositor: &AccountId) -> DispatchResult;
+}
+
+/// Trait for reporting additional validator reward points
+pub trait RewardsReporter<ValidatorId> {
+	/// The input is an iterator of tuples of validator account IDs and the amount of points they
+	/// should be rewarded.
+	fn reward_by_ids(validators_points: impl IntoIterator<Item = (ValidatorId, u32)>);
 }
 
 #[cfg(test)]
