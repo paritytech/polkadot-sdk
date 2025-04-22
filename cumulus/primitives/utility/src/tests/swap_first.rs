@@ -411,7 +411,7 @@ pub mod mock {
 				Ok(c) => c,
 				Err(_) => return Err((credit_in, DispatchError::Unavailable)),
 			};
-			let _ = Fungibles::resolve(&pool_account, credit_in)
+			Fungibles::resolve(&pool_account, credit_in)
 				.map_err(|c| (c, DispatchError::Unavailable))?;
 			Ok(credit_out)
 		}
@@ -439,7 +439,7 @@ pub mod mock {
 				Err(_) => return Err((credit_in, DispatchError::Unavailable)),
 			};
 			let (credit_in, change) = credit_in.split(amount_out);
-			let _ = Fungibles::resolve(&pool_account, credit_in)
+			Fungibles::resolve(&pool_account, credit_in)
 				.map_err(|c| (c, DispatchError::Unavailable))?;
 			Ok((credit_out, change))
 		}
