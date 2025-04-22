@@ -143,12 +143,13 @@ fn fee_estimation_for_teleport() {
 		// results.
 		let weight =
 			runtime_api.query_xcm_weight(H256::zero(), local_xcm.clone()).unwrap().unwrap();
+		let versioned_asset = VersionedAssetId::from(AssetId(HereLocation::get()));
 		assert_eq!(weight, Weight::from_parts(400, 40));
 		let execution_fees = runtime_api
 			.query_weight_to_asset_fee(
 				H256::zero(),
 				weight,
-				VersionedAssetId::from(AssetId(HereLocation::get())),
+				versioned_asset.clone(),
 			)
 			.unwrap()
 			.unwrap();
@@ -160,7 +161,7 @@ fn fee_estimation_for_teleport() {
 		let remote_message = &remote_messages[0];
 
 		let delivery_fees = runtime_api
-			.query_delivery_fees(H256::zero(), destination.clone(), remote_message.clone())
+			.query_delivery_fees(H256::zero(), destination.clone(), remote_message.clone(), versioned_asset)
 			.unwrap()
 			.unwrap();
 		assert_eq!(delivery_fees, VersionedAssets::from((Here, 20u128)));

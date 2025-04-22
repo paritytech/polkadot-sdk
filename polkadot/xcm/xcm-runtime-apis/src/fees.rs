@@ -34,6 +34,7 @@ sp_api::decl_runtime_apis! {
 	///
 	/// To determine the execution weight of the calls required for
 	/// [`xcm::latest::Instruction::Transact`] instruction, `TransactionPaymentCallApi` can be used.
+	#[api_version(2)]
 	pub trait XcmPaymentApi {
 		/// Returns a list of acceptable payment assets.
 		///
@@ -58,14 +59,26 @@ sp_api::decl_runtime_apis! {
 		fn query_weight_to_asset_fee(weight: Weight, asset: VersionedAssetId) -> Result<u128, Error>;
 
 		/// Get delivery fees for sending a specific `message` to a `destination`.
-		/// These always come in a specific asset, defined by the chain.
+		/// These always come in a specific asset, defined by the chain. Version 1
 		///
 		/// # Arguments
 		/// * `message`: The message that'll be sent, necessary because most delivery fees are based on the
 		///   size of the message.
 		/// * `destination`: The destination to send the message to. Different destinations may use
 		///   different senders that charge different fees.
+		#[changed_in(2)]
 		fn query_delivery_fees(destination: VersionedLocation, message: VersionedXcm<()>) -> Result<VersionedAssets, Error>;
+
+		/// Get delivery fees for sending a specific `message` to a `destination`.
+		/// These always come in a specific asset, defined by the parameter `asset`.
+		///
+		/// # Arguments
+		/// * `asset`: The asset to charge fees in.
+		/// * `message`: The message that'll be sent, necessary because most delivery fees are based on the
+		///   size of the message.
+		/// * `destination`: The destination to send the message to. Different destinations may use
+		///   different senders that charge different fees.
+		fn query_delivery_fees(destination: VersionedLocation, message: VersionedXcm<()>, asset: VersionedAssetId) -> Result<VersionedAssets, Error>;
 	}
 }
 

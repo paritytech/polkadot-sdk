@@ -101,7 +101,7 @@ use assets_common::{
 use polkadot_runtime_common::{BlockHashCount, SlowAdjustingFeeUpdate};
 use weights::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight};
 use xcm::{
-	latest::prelude::AssetId,
+	latest::prelude::{AssetId, Asset, Assets as XcmAssets, Fungible},
 	prelude::{VersionedAsset, VersionedAssetId, VersionedAssets, VersionedLocation, VersionedXcm},
 	Version as XcmVersion,
 };
@@ -111,7 +111,7 @@ use frame_support::traits::PalletInfoAccess;
 
 #[cfg(feature = "runtime-benchmarks")]
 use xcm::latest::prelude::{
-	Asset, Assets as XcmAssets, Fungible, Here, InteriorLocation, Junction, Junction::*, Location,
+	Here, InteriorLocation, Junction, Junction::*, Location,
 	NetworkId, NonFungible, Parent, ParentThen, Response, XCM_VERSION,
 };
 
@@ -1725,8 +1725,49 @@ impl_runtime_apis! {
 			PolkadotXcm::query_xcm_weight(message)
 		}
 
-		fn query_delivery_fees(destination: VersionedLocation, message: VersionedXcm<()>) -> Result<VersionedAssets, XcmPaymentApiError> {
-			PolkadotXcm::query_delivery_fees(destination, message)
+		fn query_delivery_fees(destination: VersionedLocation, message: VersionedXcm<()>, asset: VersionedAssetId) -> Result<VersionedAssets, XcmPaymentApiError> {
+			let fee_in_native = PolkadotXcm::query_delivery_fees(destination, message)?;
+			let asset_id: Result<AssetId, ()> = asset.clone().try_into();
+			let native_asset = xcm_config::WestendLocation::get();
+			match asset_id {
+				// For native asset there is no need to convert.
+				Ok(asset_id) if asset_id.0 == native_asset => {
+					Ok(fee_in_native)
+				},
+				Ok(asset_id) => {
+					let fee: XcmAssets = fee_in_native.clone().try_into().map_err(|()| {
+						log::trace!(target: "xcm::xcm_runtime_apis", "query_delivery_fees - failed to convert fee: {fee_in_native:?}!");
+						XcmPaymentApiError::VersionedConversionFailed
+					})?;
+
+					// Convert Fee to Fungible
+					let Fungible(balance) = fee.inner()[0].fun else {
+						unreachable!("fee is fungible");
+					};
+
+					// Try to get current price of `asset_id` in `native_asset`.
+					if let Ok(Some(swapped_in_native)) = assets_common::PoolAdapter::<Runtime>::quote_price_tokens_for_exact_tokens(
+							asset_id.0.clone(),
+							native_asset,
+							balance,
+							true,
+						) {
+						// convert Balance to VersionedAssets
+						let converted_asset = Asset {
+							id: asset_id,
+							fun: Fungible(swapped_in_native),
+						};
+						Ok(vec![converted_asset].into())
+					} else {
+						log::trace!(target: "xcm::xcm_runtime_apis", "query_delivery_fees - unhandled asset_id: {asset_id:?}!");
+						Err(XcmPaymentApiError::AssetNotFound)
+					}
+				},
+				Err(_) => {
+					log::trace!(target: "xcm::xcm_runtime_apis", "query_delivery_fees - failed to convert asset: {asset:?}!");
+					Err(XcmPaymentApiError::VersionedConversionFailed)
+				}
+			}
 		}
 	}
 

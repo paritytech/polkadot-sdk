@@ -20,7 +20,7 @@ use emulated_integration_tests_common::test_can_estimate_and_pay_exact_fees;
 use frame_support::dispatch::RawOrigin;
 use xcm_runtime_apis::{
 	dry_run::runtime_decl_for_dry_run_api::DryRunApiV2,
-	fees::runtime_decl_for_xcm_payment_api::XcmPaymentApiV1,
+	fees::runtime_decl_for_xcm_payment_api::XcmPaymentApiV2,
 };
 
 fn sender_assertions(test: ParaToParaThroughAHTest) {
@@ -157,8 +157,9 @@ fn multi_hop_works() {
 			.unwrap();
 		assert_eq!(messages_to_query.len(), 1);
 		remote_message = messages_to_query[0].clone();
+		let versioned_asset_id = VersionedAssetId::from(AssetId(Location::new(1, [])));
 		let delivery_fees =
-			Runtime::query_delivery_fees(destination_to_query.clone(), remote_message.clone())
+			Runtime::query_delivery_fees(destination_to_query.clone(), remote_message.clone(), versioned_asset_id)
 				.unwrap();
 		delivery_fees_amount = get_amount_from_versioned_assets(delivery_fees);
 	});
@@ -203,6 +204,7 @@ fn multi_hop_works() {
 		let delivery_fees = Runtime::query_delivery_fees(
 			destination_to_query.clone(),
 			intermediate_remote_message.clone(),
+			VersionedAssetId::from(AssetId(Location::here())),
 		)
 		.unwrap();
 		intermediate_delivery_fees_amount = get_amount_from_versioned_assets(delivery_fees);
