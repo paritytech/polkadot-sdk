@@ -117,6 +117,9 @@ pub fn call_allowed_status(call: &<Runtime as frame_system::Config>::RuntimeCall
 		VoterList(..) => OFF,
 		Whitelist(..) => OFF,
 		XcmpQueue(..) => ON, /* Allow updating XCM settings. Only by Fellowship and root. */
+		SnowbridgeSystemFrontend(..) => OFF, // FAIL-CI Clara
+		StakingNextRcClient(..) => OFF,
+
 		        
 		
 		/* Exhaustive match. Compiler ensures that we did not miss any. */

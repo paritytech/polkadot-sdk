@@ -281,7 +281,7 @@ use {
 // This structs makes it easy to write tests to compare staking ledgers fetched from storage. This
 // is required because the controller field is not stored in storage and it is private.
 #[cfg(test)]
-#[derive(frame_support::DebugNoBound, Clone, Encode, Decode, TypeInfo, MaxEncodedLen)]
+#[derive(frame_support::DebugNoBound, Clone, Encode, Decode, TypeInfo, MaxEncodedLen, DecodeWithMemTracking)]
 pub struct StakingLedgerInspect<T: Config> {
 	pub stash: T::AccountId,
 	#[codec(compact)]

@@ -21,6 +21,7 @@ impl-trait-for-tuples = { workspace = true }
 pallet-asset-rate = { workspace = true }
 pallet-balances = { workspace = true }
 pallet-bags-list = { workspace = true }
+pallet-staking-async = { workspace = true }
 pallet-bounties = { workspace = true }
 pallet-conviction-voting = { workspace = true }
 pallet-fast-unstake = { workspace = true }
@@ -112,7 +113,8 @@ std = [
 	"xcm-executor/std",
 	"xcm-executor/std",
 	"xcm/std",
-	"serde?/std"
+	"serde?/std",
+	"pallet-staking-async/std"
 ]
 runtime-benchmarks = [
 	"assets-common/runtime-benchmarks",
@@ -152,8 +154,9 @@ runtime-benchmarks = [
 	"xcm-builder/runtime-benchmarks",
 	"xcm-executor/runtime-benchmarks",
 	"xcm/runtime-benchmarks",
-	"westend-runtime-constants/runtime-benchmarks"
+	"westend-runtime-constants/runtime-benchmarks",
 	# "asset-hub-westend-runtime/runtime-benchmarks"
+	"pallet-staking-async/runtime-benchmarks"
 ]
 try-runtime = [
 	"frame-support/try-runtime",
@@ -182,6 +185,7 @@ try-runtime = [
 	"polkadot-runtime-common/try-runtime",
 	"polkadot-runtime-parachains/try-runtime",
 	"sp-runtime/try-runtime",
+	"pallet-staking-async/try-runtime"
 ]
 
 ahm-polkadot = [

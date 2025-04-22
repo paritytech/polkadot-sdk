@@ -228,8 +228,8 @@ pub mod pallet {
 // 		+ pallet_claims::Config // Not on westend
 // 		+ pallet_bounties::Config // Not on westend
 // 		+ pallet_treasury::Config // Not on westend
-+ pallet_staking::Config // Only on westend
-	{
++ pallet_staking_async::Config // Only on westend
+ {
 		type RuntimeHoldReason: Parameter + VariantCount;
 		/// The overarching event type.
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
@@ -831,7 +831,7 @@ pub mod pallet {
 		#[pallet::weight({1})] // TODO: weight
 		pub fn receive_staking_messages(
 			origin: OriginFor<T>,
-			messages: Vec<RcStakingMessageOf<T>>,
+			messages: Vec<AhEquivalentStakingMessageOf<T>>,
 		) -> DispatchResult {
 			ensure_root(origin)?;
 

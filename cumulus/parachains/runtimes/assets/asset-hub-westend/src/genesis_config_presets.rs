@@ -62,8 +62,6 @@ fn asset_hub_westend_genesis(
 		staking: StakingConfig {
 			// we wish to elect 500 validators, maximum is set to 1000 in the runtime configs.
 			validator_count: 500,
-			// smallest validator set we accept, 50 for now?
-			minimum_validator_count: 50,
 			// initial stakers
 			dev_stakers,
 			..Default::default()

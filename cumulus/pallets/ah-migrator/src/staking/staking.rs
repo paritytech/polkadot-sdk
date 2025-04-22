@@ -20,7 +20,7 @@ use crate::*;
 
 impl<T: Config> Pallet<T> {
 	pub fn do_receive_staking_messages(
-		messages: Vec<RcStakingMessageOf<T>>,
+		messages: Vec<AhEquivalentStakingMessageOf<T>>,
 	) -> Result<(), Error<T>> {
 		let (mut good, mut bad) = (0, 0);
 		log::info!(target: LOG_TARGET, "Integrating {} StakingMessages", messages.len());
@@ -45,99 +45,100 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
-	fn do_receive_staking_message(message: RcStakingMessageOf<T>) -> Result<(), Error<T>> {
+	fn do_receive_staking_message(message: AhEquivalentStakingMessageOf<T>) -> Result<(), Error<T>> {
 		use RcStakingMessage::*;
 
 		match message {
 			Values(values) => {
 				log::debug!(target: LOG_TARGET, "Integrating StakingValues");
-				pallet_rc_migrator::staking::StakingMigrator::<T>::put_values(values);
+				// FIXME ggwpez FAIL-CI
+				//pallet_rc_migrator::staking::StakingMigrator::<T>::put_values(values);
 			},
 			Invulnerables(invulnerables) => {
 				log::debug!(target: LOG_TARGET, "Integrating StakingInvulnerables");
-				let Ok(bound_invulnerables) =
-					BoundedVec::try_from(invulnerables).defensive_proof("Invulnerables must fit")
-				else {
-					return Err(Error::FailedToBoundVector);
-				};
-
-				pallet_staking::Invulnerables::<T>::put(bound_invulnerables);
+				// FIXME ggwpez FAIL-CI
+				//pallet_staking_async::Invulnerables::<T>::put(invulnerables);
 			},
 			Bonded { stash, controller } => {
 				log::debug!(target: LOG_TARGET, "Integrating Bonded of stash {:?}", stash);
-				pallet_staking::Bonded::<T>::insert(stash, controller);
+				pallet_staking_async::Bonded::<T>::insert(stash, controller);
 			},
 			Ledger { controller, ledger } => {
 				log::debug!(target: LOG_TARGET, "Integrating Ledger of controller {:?}", controller);
-				pallet_staking::Ledger::<T>::insert(controller, ledger);
+				pallet_staking_async::Ledger::<T>::insert(controller, ledger);
 			},
 			Payee { stash, payment } => {
 				log::debug!(target: LOG_TARGET, "Integrating Payee of stash {:?}", stash);
-				pallet_staking::Payee::<T>::insert(stash, payment);
+				// FIXME ggwpez FAIL-CI
+				//pallet_staking_async::Payee::<T>::insert(stash, payment);
 			},
 			Validators { stash, validators } => {
 				log::debug!(target: LOG_TARGET, "Integrating Validators of stash {:?}", stash);
-				pallet_staking::Validators::<T>::insert(stash, validators);
+				// FIXME ggwpez FAIL-CI
+				//pallet_staking_async::Validators::<T>::insert(stash, validators);
 			},
 			Nominators { stash, nominations } => {
 				log::debug!(target: LOG_TARGET, "Integrating Nominators of stash {:?}", stash);
-				pallet_staking::Nominators::<T>::insert(stash, nominations);
+				pallet_staking_async::Nominators::<T>::insert(stash, nominations);
 			},
 			VirtualStakers(staker) => {
 				log::debug!(target: LOG_TARGET, "Integrating VirtualStakers of staker {:?}", staker);
-				pallet_staking::VirtualStakers::<T>::insert(staker, ());
+				pallet_staking_async::VirtualStakers::<T>::insert(staker, ());
 			},
 			ErasStartSessionIndex { era, session } => {
 				log::debug!(target: LOG_TARGET, "Integrating ErasStartSessionIndex {:?}/{:?}", era, session);
-				pallet_staking::ErasStartSessionIndex::<T>::insert(era, session);
+				pallet_staking_async::ErasStartSessionIndex::<T>::insert(era, session);
 			},
 			ErasStakersOverview { era, validator, exposure } => {
 				log::debug!(target: LOG_TARGET, "Integrating ErasStakersOverview {:?}/{:?}", validator, era);
-				pallet_staking::ErasStakersOverview::<T>::insert(era, validator, exposure);
+				pallet_staking_async::ErasStakersOverview::<T>::insert(era, validator, exposure);
 			},
 			ErasStakersPaged { era, validator, page, exposure } => {
 				log::debug!(target: LOG_TARGET, "Integrating ErasStakersPaged {:?}/{:?}/{:?}", validator, era, page);
-				pallet_staking::ErasStakersPaged::<T>::insert((era, validator, page), exposure);
+				pallet_staking_async::ErasStakersPaged::<T>::insert((era, validator, page), exposure);
 			},
 			ClaimedRewards { era, validator, rewards } => {
-				log::debug!(target: LOG_TARGET, "Integrating ClaimedRewards {:?}/{:?}", validator, era);
-				pallet_staking::ClaimedRewards::<T>::insert(era, validator, rewards);
+				// FIXME ErasClaimedRewards
 			},
 			ErasValidatorPrefs { era, validator, prefs } => {
 				log::debug!(target: LOG_TARGET, "Integrating ErasValidatorPrefs {:?}/{:?}", validator, era);
-				pallet_staking::ErasValidatorPrefs::<T>::insert(era, validator, prefs);
+				// FIXME ggwpez FAIL-CI
+				//pallet_staking_async::ErasValidatorPrefs::<T>::insert(era, validator, prefs);
 			},
 			ErasValidatorReward { era, reward } => {
 				log::debug!(target: LOG_TARGET, "Integrating ErasValidatorReward of era {:?}", era);
-				pallet_staking::ErasValidatorReward::<T>::insert(era, reward);
+				pallet_staking_async::ErasValidatorReward::<T>::insert(era, reward);
 			},
 			ErasRewardPoints { era, points } => {
 				log::debug!(target: LOG_TARGET, "Integrating ErasRewardPoints of era {:?}", era);
-				pallet_staking::ErasRewardPoints::<T>::insert(era, points);
+				// FIXME ggwpez FAIL-CI
+				//pallet_staking_async::ErasRewardPoints::<T>::insert(era, points);
 			},
 			ErasTotalStake { era, total_stake } => {
 				log::debug!(target: LOG_TARGET, "Integrating ErasTotalStake of era {:?}", era);
-				pallet_staking::ErasTotalStake::<T>::insert(era, total_stake);
+				pallet_staking_async::ErasTotalStake::<T>::insert(era, total_stake);
 			},
 			BondedEras(bonded_eras) => {
 				log::debug!(target: LOG_TARGET, "Integrating BondedEras");
-				pallet_staking::BondedEras::<T>::put(bonded_eras);
+				pallet_staking_async::BondedEras::<T>::put(bonded_eras);
 			},
 			ValidatorSlashInEra { era, validator, slash } => {
 				log::debug!(target: LOG_TARGET, "Integrating ValidatorSlashInEra {:?}/{:?}", validator, era);
-				pallet_staking::ValidatorSlashInEra::<T>::insert(era, validator, slash);
+				pallet_staking_async::ValidatorSlashInEra::<T>::insert(era, validator, slash);
 			},
 			NominatorSlashInEra { era, validator, slash } => {
 				log::debug!(target: LOG_TARGET, "Integrating NominatorSlashInEra {:?}/{:?}", validator, era);
-				pallet_staking::NominatorSlashInEra::<T>::insert(era, validator, slash);
+				pallet_staking_async::NominatorSlashInEra::<T>::insert(era, validator, slash);
 			},
 			SlashingSpans { account, spans } => {
 				log::debug!(target: LOG_TARGET, "Integrating SlashingSpans {:?}", account);
-				pallet_staking::SlashingSpans::<T>::insert(account, spans);
+				// FIXME ggwpez FAIL-CI
+				//pallet_staking_async::SlashingSpans::<T>::insert(account, spans);
 			},
 			SpanSlash { account, span, slash } => {
 				log::debug!(target: LOG_TARGET, "Integrating SpanSlash {:?}/{:?}", account, span);
-				pallet_staking::SpanSlash::<T>::insert((account, span), slash);
+				// FIXME ggwpez FAIL-CI
+				//pallet_staking_async::SpanSlash::<T>::insert((account, span), slash);
 			},
 		}
 

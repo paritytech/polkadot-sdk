@@ -1365,11 +1365,12 @@ construct_runtime!(
 		StateTrieMigration: pallet_state_trie_migration = 70,
 
 		// Staking.
-		Staking: pallet_staking = 80,
+		Staking: pallet_staking_async = 80,
 		NominationPools: pallet_nomination_pools = 81,
 		FastUnstake: pallet_fast_unstake = 82,
 		VoterList: pallet_bags_list::<Instance1> = 83,
 		DelegatedStaking: pallet_delegated_staking = 84,
+		StakingNextRcClient: pallet_staking_async_rc_client = 89,
 
 		// Staking election apparatus.
 		MultiBlock: pallet_election_provider_multi_block = 85,

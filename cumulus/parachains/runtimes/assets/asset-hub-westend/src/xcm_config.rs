@@ -490,10 +490,6 @@ impl xcm_executor::Config for XcmConfig {
 	type XcmRecorder = PolkadotXcm;
 }
 
-/// Converts a local signed origin into an XCM location. Forms the basis for local origins
-/// sending/executing XCMs.
-pub type LocalOriginToLocation = SignedToAccountId32<RuntimeOrigin, AccountId, RelayNetwork>;
-
 parameter_types! {
 	// `GeneralAdmin` pluralistic body.
 	pub const GeneralAdminBodyId: BodyId = BodyId::Administration;

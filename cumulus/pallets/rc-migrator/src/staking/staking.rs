@@ -23,6 +23,8 @@ use pallet_staking::{
 	ActiveEraInfo, EraRewardPoints, Forcing, Nominations, RewardDestination, StakingLedger,
 	ValidatorPrefs,
 };
+use core::fmt::Debug;
+use codec::HasCompact;
 use sp_runtime::{Perbill, Percent};
 use sp_staking::{EraIndex, ExposurePage, Page, PagedExposureMetadata, SessionIndex};
 
@@ -106,91 +108,124 @@ pub type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
 	EqNoBound,
 )]
 #[scale_info(skip_type_params(T))]
-pub enum RcStakingMessage<T: pallet_staking::Config> {
-	Values(StakingValues<BalanceOf<T>>),
-	Invulnerables(Vec<AccountIdOf<T>>),
+pub enum RcStakingMessage<AccountId, Balance, StakingLedger, Nominations, SpanRecord, EraRewardPoints, RewardDestination, ValidatorPrefs>
+// We do not want to pull in the Config trait; hence this
+where
+	AccountId: Ord + Debug + Clone,
+	Balance: HasCompact + MaxEncodedLen + Debug + PartialEq + Clone,
+	StakingLedger: Debug + PartialEq + Clone,
+	Nominations: Debug + PartialEq + Clone,
+	SpanRecord: Debug + PartialEq + Clone,
+	EraRewardPoints: Debug + PartialEq + Clone,
+	RewardDestination: Debug + PartialEq + Clone,
+	ValidatorPrefs: Debug + PartialEq + Clone,
+{
+	Values(StakingValues<Balance>),
+	Invulnerables(Vec<AccountId>),
 	Bonded {
-		stash: AccountIdOf<T>,
-		controller: AccountIdOf<T>,
+		stash: AccountId,
+		controller: AccountId,
 	},
 	// Stupid staking pallet forces us to use `T` since its staking ledger requires that...
 	Ledger {
-		controller: AccountIdOf<T>,
-		ledger: StakingLedger<T>,
+		controller: AccountId,
+		ledger: StakingLedger,
 	},
 	Payee {
-		stash: AccountIdOf<T>,
-		payment: RewardDestination<AccountIdOf<T>>,
+		stash: AccountId,
+		payment: RewardDestination,
 	},
 	Validators {
-		stash: AccountIdOf<T>,
+		stash: AccountId,
 		validators: ValidatorPrefs,
 	},
 	Nominators {
-		stash: AccountIdOf<T>,
-		nominations: Nominations<T>,
+		stash: AccountId,
+		nominations: Nominations,
 	},
-	VirtualStakers(AccountIdOf<T>),
+	VirtualStakers(AccountId),
 	ErasStartSessionIndex {
 		era: EraIndex,
 		session: SessionIndex,
 	},
 	ErasStakersOverview {
 		era: EraIndex,
-		validator: AccountIdOf<T>,
-		exposure: PagedExposureMetadata<BalanceOf<T>>,
+		validator: AccountId,
+		exposure: PagedExposureMetadata<Balance>,
 	},
 	ErasStakersPaged {
 		era: EraIndex,
-		validator: AccountIdOf<T>,
+		validator: AccountId,
 		page: Page,
-		exposure: ExposurePage<AccountIdOf<T>, BalanceOf<T>>,
+		exposure: ExposurePage<AccountId, Balance>,
 	},
 	ClaimedRewards {
 		era: EraIndex,
-		validator: AccountIdOf<T>,
+		validator: AccountId,
 		rewards: Vec<Page>,
 	},
 	ErasValidatorPrefs {
 		era: EraIndex,
-		validator: AccountIdOf<T>,
+		validator: AccountId,
 		prefs: ValidatorPrefs,
 	},
 	ErasValidatorReward {
 		era: EraIndex,
-		reward: BalanceOf<T>,
+		reward: Balance,
 	},
 	ErasRewardPoints {
 		era: EraIndex,
-		points: EraRewardPoints<AccountIdOf<T>>,
+		points: EraRewardPoints,
 	},
 	ErasTotalStake {
 		era: EraIndex,
-		total_stake: BalanceOf<T>,
+		total_stake: Balance,
 	},
 	BondedEras(Vec<(EraIndex, SessionIndex)>),
 	ValidatorSlashInEra {
 		era: EraIndex,
-		validator: AccountIdOf<T>,
-		slash: (Perbill, BalanceOf<T>),
+		validator: AccountId,
+		slash: (Perbill, Balance),
 	},
 	NominatorSlashInEra {
 		era: EraIndex,
-		validator: AccountIdOf<T>,
-		slash: BalanceOf<T>,
+		validator: AccountId,
+		slash: Balance,
 	},
 	SlashingSpans {
-		account: AccountIdOf<T>,
+		account: AccountId,
 		spans: SlashingSpans,
 	},
 	SpanSlash {
-		account: AccountIdOf<T>,
+		account: AccountId,
 		span: SpanIndex,
-		slash: SpanRecord<BalanceOf<T>>,
+		slash: SpanRecord,
 	},
 }
 
-pub type RcStakingMessageOf<T> = RcStakingMessage<T>;
+// ASSUMPTION: Encodes exactly the same as `AhEquivalentStakingMessageOf`
+pub type RcStakingMessageOf<T> = RcStakingMessage<
+	<T as frame_system::Config>::AccountId,
+	<T as pallet_staking::Config>::CurrencyBalance,
+	pallet_staking::StakingLedger<T>,
+	pallet_staking::Nominations<T>,
+	pallet_staking::slashing::SpanRecord<<T as pallet_staking::Config>::CurrencyBalance>,
+	pallet_staking::EraRewardPoints<<T as frame_system::Config>::AccountId>,
+	pallet_staking::RewardDestination<<T as frame_system::Config>::AccountId>,	
+	pallet_staking::ValidatorPrefs,
+>;
+
+// ASSUMPTION: Encodes exactly the same as `RcStakingMessage`
+pub type AhEquivalentStakingMessageOf<T> = RcStakingMessage<
+	<T as frame_system::Config>::AccountId,
+	<T as pallet_staking_async::Config>::CurrencyBalance,
+	pallet_staking_async::StakingLedger<T>,
+	pallet_staking_async::Nominations<T>,
+	pallet_staking_async::slashing::SpanRecord<<T as pallet_staking_async::Config>::CurrencyBalance>,
+	pallet_staking_async::EraRewardPoints<<T as frame_system::Config>::AccountId>,
+	pallet_staking_async::RewardDestination<<T as frame_system::Config>::AccountId>,
+	pallet_staking_async::ValidatorPrefs,
+>;
 
 impl<T: pallet_staking::Config> StakingMigrator<T> {
 	pub fn take_values() -> StakingValuesOf<T> {
@@ -274,7 +309,7 @@ impl<T: Config> PalletMigration for StakingMigrator<T> {
 				},
 				StakingStage::Invulnerables => {
 					let invulnerables = pallet_staking::Invulnerables::<T>::take();
-					messages.push(RcStakingMessage::Invulnerables(invulnerables.into_inner()));
+					messages.push(RcStakingMessage::Invulnerables(invulnerables));
 					StakingStage::Bonded(None)
 				},
 				StakingStage::Bonded(who) => {

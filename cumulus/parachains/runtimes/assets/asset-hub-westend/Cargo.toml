@@ -47,9 +47,11 @@ pallet-election-provider-multi-block = { workspace = true }
 pallet-fast-unstake = { workspace = true }
 pallet-indices = { workspace = true }
 pallet-migrations = { workspace = true }
+pallet-staking-async-rc-client = { workspace = true }
 pallet-multisig = { workspace = true }
 pallet-nft-fractionalization = { workspace = true }
 pallet-nfts = { workspace = true }
+pallet-staking-async = { workspace = true }
 pallet-nfts-runtime-api = { workspace = true }
 pallet-nomination-pools = { workspace = true }
 pallet-nomination-pools-runtime-api = { workspace = true }
@@ -203,7 +205,8 @@ runtime-benchmarks = [
 	"xcm-executor/runtime-benchmarks",
 	"xcm-runtime-apis/runtime-benchmarks",
 	"xcm/runtime-benchmarks",
-	"westend-runtime-constants/runtime-benchmarks"
+	"westend-runtime-constants/runtime-benchmarks",
+	"pallet-staking-async-rc-client/runtime-benchmarks"
 ]
 try-runtime = [
 	"cumulus-pallet-aura-ext/try-runtime",
@@ -263,6 +266,7 @@ try-runtime = [
 	"snowbridge-pallet-system-frontend/try-runtime",
 	"snowbridge-runtime-common/try-runtime",
 	"sp-runtime/try-runtime",
+	"pallet-staking-async-rc-client/try-runtime"
 ]
 std = [
 	"assets-common/std",
@@ -372,6 +376,7 @@ std = [
 	"xcm-executor/std",
 	"xcm-runtime-apis/std",
 	"xcm/std",
+	"pallet-staking-async-rc-client/std"
 ]
 
 fast-runtime = []
