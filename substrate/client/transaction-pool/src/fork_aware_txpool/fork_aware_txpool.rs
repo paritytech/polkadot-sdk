@@ -1429,7 +1429,12 @@ where
             .map(|ext| self.hash_of(&ext))
 			.collect::<Vec<_>>();
 
-		self.view_store.provides_tags_from_inactive_views(xts_hashes)
+		let blocks_hashes = tree_route
+			.retracted()
+			.iter()
+			.chain(std::iter::once(tree_route.common_block()).chain(tree_route.enacted().iter()))
+			.collect::<Vec<&HashAndNumber<Block>>>();
+		self.view_store.provides_tags_from_inactive_views(blocks_hashes, xts_hashes)
 	}
 
 	/// Updates the view with the transactions from the given tree route.

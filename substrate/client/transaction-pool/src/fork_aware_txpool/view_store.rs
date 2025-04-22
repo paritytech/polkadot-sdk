@@ -915,26 +915,29 @@ where
 	/// Searches through the entire set of inactive views.
 	pub(crate) fn provides_tags_from_inactive_views(
 		&self,
+		block_hashes: Vec<&HashAndNumber<Block>>,
 		mut xts_hashes: Vec<ExtrinsicHash<ChainApi>>,
 	) -> HashMap<ExtrinsicHash<ChainApi>, Vec<Tag>> {
 		let mut provides_tags_map = HashMap::new();
 
-		self.inactive_views.read().iter().for_each(|(_, view)| {
+		block_hashes.into_iter().for_each(|hn| {
 			// Get tx provides tags from inactive view's pool.
-			let provides_tags = view.pool.validated_pool().extrinsics_tags(&xts_hashes);
-			let xts_provides_tags = xts_hashes
-				.iter()
-				.zip(provides_tags.into_iter())
-				// We filter out the (transaction, tags) pair if no tags where found in the
-				// inactive view for the transaction.
-				.filter_map(|(hash, tags)| tags.map(|inner| (*hash, inner)))
-				.collect::<HashMap<ExtrinsicHash<ChainApi>, Vec<Tag>>>();
+			if let Some((view, _)) = self.get_view_at(hn.hash, true) {
+				let provides_tags = view.pool.validated_pool().extrinsics_tags(&xts_hashes);
+				let xts_provides_tags = xts_hashes
+					.iter()
+					.zip(provides_tags.into_iter())
+					// We filter out the (transaction, tags) pair if no tags where found in the
+					// inactive view for the transaction.
+					.filter_map(|(hash, tags)| tags.map(|inner| (*hash, inner)))
+					.collect::<HashMap<ExtrinsicHash<ChainApi>, Vec<Tag>>>();
 
-			// Remove txs that have been resolved.
-			xts_hashes.retain(|xth| !xts_provides_tags.contains_key(xth));
+				// Remove txs that have been resolved.
+				xts_hashes.retain(|xth| !xts_provides_tags.contains_key(xth));
 
-			// Collect the (extrinsic hash, tags) pairs in a map.
-			provides_tags_map.extend(xts_provides_tags);
+				// Collect the (extrinsic hash, tags) pairs in a map.
+				provides_tags_map.extend(xts_provides_tags);
+			}
 		});
 
 		provides_tags_map
