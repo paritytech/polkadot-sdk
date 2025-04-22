@@ -243,11 +243,13 @@ impl<Config: config::Config> ExecuteXcm<Config::RuntimeCall> for XcmExecutor<Con
 		weight_credit: Weight,
 	) -> Outcome {
 		let origin = origin.into();
+		let id_h256: sp_core::H256 = id.into();
 		tracing::trace!(
 			target: "xcm::execute",
 			?origin,
 			?message,
 			?id,
+			?id_h256,
 			?weight_credit,
 			"Executing message",
 		);
@@ -257,6 +259,16 @@ impl<Config: config::Config> ExecuteXcm<Config::RuntimeCall> for XcmExecutor<Con
 		// so as to not degrade regular performance.
 		if Config::XcmRecorder::should_record() {
 			Config::XcmRecorder::record(message.clone().into());
+		}
+
+		if let Some(SetTopic(topic_id)) = message.last() {
+			let id_h256: sp_core::H256 = topic_id.into();
+				tracing::debug!(
+				target: "xcm::execute",
+				?topic_id,
+				?id_h256,
+				"Before `Barrier::should_execute`",
+			);
 		}
 
 		if let Err(e) = Config::Barrier::should_execute(
@@ -278,6 +290,16 @@ impl<Config: config::Config> ExecuteXcm<Config::RuntimeCall> for XcmExecutor<Con
 				used: xcm_weight,         // Weight consumed before the error
 				error: XcmError::Barrier, // The error that occurred
 			};
+		}
+
+		if let Some(SetTopic(topic_id)) = message.last() {
+			let id_h256: sp_core::H256 = topic_id.into();
+			tracing::debug!(
+				target: "xcm::execute",
+				?topic_id,
+				?id_h256,
+				"After `Barrier::should_execute`",
+			);
 		}
 
 		*id = properties.message_id.unwrap_or(*id);
@@ -380,6 +402,9 @@ impl<Config: config::Config> XcmExecutor<Config> {
 	/// This includes refunding surplus weight, trapping extra holding funds, and returning any
 	/// errors during execution.
 	pub fn post_process(mut self, xcm_weight: Weight) -> Outcome {
+		let topic_id = self.context.topic;
+		let message_id: sp_core::H256 = self.context.message_id.into();
+		tracing::debug!(target: "xcm::post_process", ?topic_id, ?message_id);
 		// We silently drop any error from our attempt to refund the surplus as it's a charitable
 		// thing so best-effort is all we will do.
 		let _ = self.refund_surplus();
@@ -436,6 +461,9 @@ impl<Config: config::Config> XcmExecutor<Config> {
 		msg: Xcm<()>,
 		reason: FeeReason,
 	) -> Result<XcmHash, XcmError> {
+		let topic_id = self.context.topic;
+		let message_id: sp_core::H256 = self.context.message_id.into();
+		tracing::debug!(target: "xcm::send", ?topic_id, ?message_id);
 		tracing::trace!(
 			target: "xcm::send",
 			?msg,
@@ -445,8 +473,12 @@ impl<Config: config::Config> XcmExecutor<Config> {
 		);
 		let (ticket, fee) = validate_send::<Config::XcmSender>(dest.clone(), msg)?;
 		self.take_fee(fee, reason)?;
+		tracing::debug!(target: "xcm::send", before_send_topic=?self.context.topic, before_send_message_id=?message_id);
 		match Config::XcmSender::deliver(ticket) {
 			Ok(message_id) => {
+				let topic_id: sp_core::H256 = message_id.into();
+				let msg_id_h256: sp_core::H256 = self.context.message_id.into();
+				tracing::debug!(target: "xcm::send", ?topic_id, after_send_topic=?self.context.topic, after_send_message_id=?msg_id_h256);
 				Config::XcmEventEmitter::emit_sent_event(
 					self.original_origin.clone(),
 					dest,
@@ -880,6 +912,9 @@ impl<Config: config::Config> XcmExecutor<Config> {
 		&mut self,
 		instr: Instruction<Config::RuntimeCall>,
 	) -> Result<(), XcmError> {
+		let topic_id = self.context.topic;
+		let message_id: sp_core::H256 = self.context.message_id.into();
+		tracing::debug!(target: "xcm::process_instruction", ?topic_id, ?message_id);
 		tracing::trace!(
 			target: "xcm::process_instruction",
 			instruction = ?instr,
@@ -1330,6 +1365,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 					// append custom instructions
 					message.extend(remote_xcm.0.into_iter());
 					// send the onward XCM
+					tracing::debug!(target: "xcm::initiate_transfer", topic_before_send=?self.context.topic, message_id=?self.context.message_id);
 					self.send(destination, Xcm(message), FeeReason::InitiateTransfer)?;
 					Ok(())
 				});
@@ -1596,6 +1632,9 @@ impl<Config: config::Config> XcmExecutor<Config> {
 				result
 			},
 			LockAsset { asset, unlocker } => {
+				let topic_id = self.context.topic;
+				let message_id: sp_core::H256 = self.context.message_id.into();
+				tracing::debug!(target: "xcm::xcm_executor::process_instruction", ?topic_id, ?message_id);
 				let old_holding = self.holding.clone();
 				let result = Config::TransactionalProcessor::process(|| {
 					let origin = self.cloned_origin().ok_or(XcmError::BadOrigin)?;
@@ -1680,10 +1719,13 @@ impl<Config: config::Config> XcmExecutor<Config> {
 				Ok(())
 			},
 			SetTopic(topic) => {
+				let id_h256: sp_core::H256 = topic.into();
+				tracing::debug!(target: "xcm::process_instruction", old_topic=?self.context.topic, new_topic=?id_h256);
 				self.context.topic = Some(topic);
 				Ok(())
 			},
 			ClearTopic => {
+				tracing::debug!(target: "xcm::process_instruction", cleared_topic=?self.context.topic);
 				self.context.topic = None;
 				Ok(())
 			},
@@ -1790,6 +1832,9 @@ impl<Config: config::Config> XcmExecutor<Config> {
 		reason: FeeReason,
 		xcm: &Xcm<()>,
 	) -> Result<Option<AssetsInHolding>, XcmError> {
+		let topic_id = self.context.topic;
+		let message_id: sp_core::H256 = self.context.message_id.into();
+		tracing::debug!(target: "xcm::take_delivery_fee_from_assets", ?topic_id, ?message_id);
 		let to_weigh = assets.clone();
 		let to_weigh_reanchored = Self::reanchored(to_weigh, &destination, None);
 		let remote_instruction = match reason {
