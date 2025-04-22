@@ -19,10 +19,7 @@
 
 #![allow(unused)]
 pub mod measured;
-<<<<<<< HEAD
-pub(crate) mod mel;
-pub(crate) mod zero;
-=======
+pub mod mel;
 pub mod zero;
->>>>>>> origin/master
+
 pub use zero::AllZeroWeights;
