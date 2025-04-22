@@ -14,7 +14,6 @@ import argparse
 import os
 import re
 import sys
-import subprocess
 import toml
 import yaml
 import requests

@@ -11,9 +11,13 @@ categories = ["cryptography::cryptocurrencies"]
 [lints]
 workspace = true
 
+[package.metadata.polkadot-sdk]
+exclude-from-umbrella = true
+
 [dependencies]
 codec = { workspace = true }
 hex-literal = { workspace = true, default-features = true }
+log = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 serde = { optional = true, features = ["alloc", "derive"], workspace = true }
 
@@ -28,32 +32,28 @@ sp-core = { workspace = true }
 sp-io = { workspace = true }
 sp-runtime = { workspace = true }
 sp-std = { workspace = true }
+xcm-executor = { workspace = true }
 
-snowbridge-beacon-primitives = { workspace = true }
-
-ethabi = { workspace = true }
-
-[dev-dependencies]
-hex = { workspace = true, default-features = true }
-xcm-executor = { workspace = true, default-features = true }
+bp-relayers = { workspace = true }
 
 [features]
 default = ["std"]
 std = [
+	"bp-relayers/std",
 	"codec/std",
-	"ethabi/std",
 	"frame-support/std",
 	"frame-system/std",
+	"log/std",
 	"polkadot-parachain-primitives/std",
 	"scale-info/std",
 	"serde/std",
-	"snowbridge-beacon-primitives/std",
 	"sp-arithmetic/std",
 	"sp-core/std",
 	"sp-io/std",
 	"sp-runtime/std",
 	"sp-std/std",
 	"xcm-builder/std",
+	"xcm-executor/std",
 	"xcm/std",
 ]
 serde = ["dep:serde", "scale-info/serde"]

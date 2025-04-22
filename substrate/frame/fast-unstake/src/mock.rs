@@ -102,8 +102,20 @@ impl frame_election_provider_support::ElectionProvider for MockElection {
 		Err(())
 	}
 
-	fn ongoing() -> bool {
-		Ongoing::get()
+	fn start() -> Result<(), Self::Error> {
+		Ok(())
+	}
+
+	fn duration() -> Self::BlockNumber {
+		0
+	}
+
+	fn status() -> Result<bool, ()> {
+		if Ongoing::get() {
+			Ok(false)
+		} else {
+			Err(())
+		}
 	}
 }
 
@@ -204,7 +216,7 @@ impl ExtBuilder {
 				(v, Exposure { total: 0, own: 0, others })
 			})
 			.for_each(|(validator, exposure)| {
-				pallet_staking::EraInfo::<T>::upsert_exposure(era, &validator, exposure);
+				pallet_staking::EraInfo::<T>::set_exposure(era, &validator, exposure);
 			});
 	}
 
@@ -304,7 +316,7 @@ pub fn create_exposed_nominator(exposed: AccountId, era: u32) {
 	// create an exposed nominator in passed era
 	let mut exposure = pallet_staking::EraInfo::<T>::get_full_exposure(era, &VALIDATORS_PER_ERA);
 	exposure.others.push(IndividualExposure { who: exposed, value: 0 as Balance });
-	pallet_staking::EraInfo::<T>::upsert_exposure(era, &VALIDATORS_PER_ERA, exposure);
+	pallet_staking::EraInfo::<T>::set_exposure(era, &VALIDATORS_PER_ERA, exposure);
 
 	Balances::make_free_balance_be(&exposed, 100);
 	assert_ok!(Staking::bond(

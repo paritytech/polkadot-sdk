@@ -23,6 +23,12 @@ pub struct AllZeroWeights;
 use frame_support::weights::Weight;
 
 impl crate::WeightInfo for AllZeroWeights {
+	fn export_non_terminal() -> Weight {
+		Default::default()
+	}
+	fn export_terminal() -> Weight {
+		Default::default()
+	}
 	fn manage() -> Weight {
 		Default::default()
 	}
@@ -60,6 +66,9 @@ impl crate::signed::WeightInfo for AllZeroWeights {
 		Default::default()
 	}
 	fn unset_page() -> Weight {
+		Default::default()
+	}
+	fn clear_old_round_data(p: u32) -> Weight {
 		Default::default()
 	}
 }
