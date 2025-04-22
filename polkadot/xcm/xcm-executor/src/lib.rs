@@ -443,8 +443,6 @@ impl<Config: config::Config> XcmExecutor<Config> {
 			reason = ?reason,
 			"Sending msg",
 		);
-		let mut msg = msg;
-		self.preserve_message_topic(&mut msg);
 		let (ticket, fee) = validate_send::<Config::XcmSender>(dest.clone(), msg)?;
 		self.take_fee(fee, reason)?;
 		match Config::XcmSender::deliver(ticket) {
@@ -804,23 +802,6 @@ impl<Config: config::Config> XcmExecutor<Config> {
 		let reanchor_context = Config::UniversalLocation::get();
 		assets.reanchor(dest, &reanchor_context, maybe_failed_bin);
 		assets.into_assets_iter().collect::<Vec<_>>().into()
-	}
-
-	/// Preserves the original message ID as a topic if none exists and origin is cleared.
-	fn preserve_message_topic<T>(&self, msg: &mut Xcm<T>) {
-		if let Some(SetTopic(topic_id)) = msg.last() {
-			tracing::trace!(target: "xcm::send", ?topic_id, "Message already ends with `SetTopic`");
-		} else if let Some(topic_id) = self.context.topic {
-			tracing::trace!(target: "xcm::send", ?topic_id, "`SetTopic` not appended (context already has topic)");
-		} else {
-			let topic_id = self.context.message_id;
-			if self.context.origin.is_none() {
-				msg.inner_mut().push(SetTopic(topic_id));
-				tracing::trace!(target: "xcm::send", ?topic_id, "`SetTopic` appended to message (origin cleared and no context topic)");
-			} else {
-				tracing::trace!(target: "xcm::send", ?topic_id, "`SetTopic` neither found nor appended (origin not cleared)");
-			}
-		}
 	}
 
 	#[cfg(any(test, feature = "runtime-benchmarks"))]
@@ -1625,8 +1606,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 						tracing::error!(target: "xcm::xcm_executor::process_instruction", ?e, ?unlocker, ?context, "Failed to re-anchor origin");
 						XcmError::ReanchorFailed
 					})?;
-					let mut msg = Xcm::<()>(vec![NoteUnlockable { asset: remote_asset, owner }]);
-					self.preserve_message_topic(&mut msg);
+					let msg = Xcm::<()>(vec![NoteUnlockable { asset: remote_asset, owner }]);
 					let (ticket, price) = validate_send::<Config::XcmSender>(unlocker, msg)?;
 					self.take_fee(price, FeeReason::LockAsset)?;
 					lock_ticket.enact()?;
@@ -1657,9 +1637,8 @@ impl<Config: config::Config> XcmExecutor<Config> {
 					asset,
 					origin.clone(),
 				)?;
-				let mut msg =
+				let msg =
 					Xcm::<()>(vec![UnlockAsset { asset: remote_asset, target: remote_target }]);
-				self.preserve_message_topic(&mut msg);
 				let (ticket, price) = validate_send::<Config::XcmSender>(locker, msg)?;
 				let old_holding = self.holding.clone();
 				let result = Config::TransactionalProcessor::process(|| {
@@ -1829,9 +1808,8 @@ impl<Config: config::Config> XcmExecutor<Config> {
 		message_to_weigh.push(remote_instruction);
 		message_to_weigh.push(ClearOrigin);
 		message_to_weigh.extend(xcm.0.clone().into_iter());
-		let mut msg = Xcm(message_to_weigh);
-		self.preserve_message_topic(&mut msg);
-		let (_, fee) = validate_send::<Config::XcmSender>(destination.clone(), msg)?;
+		let (_, fee) =
+			validate_send::<Config::XcmSender>(destination.clone(), Xcm(message_to_weigh))?;
 		let maybe_delivery_fee = fee.get(0).map(|asset_needed_for_fees| {
 			tracing::trace!(
 				target: "xcm::fees::take_delivery_fee_from_assets",
