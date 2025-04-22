@@ -335,7 +335,7 @@ mod tests {
 			.output()
 			.unwrap();
 
-		// atleast  blocks should be imported
+		// at least  blocks should be imported
 		assert!(String::from_utf8(output.stderr)
 			.unwrap()
 			.contains(format!("Imported #{}", 7).to_string().as_str()));
