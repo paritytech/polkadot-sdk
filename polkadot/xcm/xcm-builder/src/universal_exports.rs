@@ -233,14 +233,6 @@ impl<T: Get<Vec<NetworkExportTableItem>>> ExporterFor for NetworkExportTable<T> 
 	}
 }
 
-/// Preserves the original topic ID for XCM forwarding to ensure consistent message tracking
-/// across chains. Returning the unchanged ID allows bridges and routers to recognise the
-/// same `SetTopic` identifier, avoiding confusion in message delivery and processing.
-pub fn forward_id_for(original_id: &XcmHash) -> XcmHash {
-	tracing::trace!(target: "xcm::exports", ?original_id, "Extracted topic ID from `SetTopic` for XCM forwarding");
-	*original_id
-}
-
 /// Implementation of `SendXcm` which wraps the message inside an `ExportMessage` instruction
 /// and sends it to a destination known to be able to handle it.
 ///
@@ -291,7 +283,10 @@ impl<Bridges: ExporterFor, Router: SendXcm, UniversalLocation: Get<InteriorLocat
 		// `xcm` should already end with `SetTopic` - if it does, then extract and derive into
 		// an onward topic ID.
 		let maybe_forward_id = match xcm.last() {
-			Some(SetTopic(t)) => Some(forward_id_for(t)),
+			Some(SetTopic(topic_id)) => {
+				tracing::trace!(target: "xcm::exports", ?topic_id, "Extracted topic ID from `SetTopic` for XCM forwarding");
+				Some(topic_id)
+			},
 			_ => None,
 		};
 
@@ -372,7 +367,10 @@ impl<Bridges: ExporterFor, Router: SendXcm, UniversalLocation: Get<InteriorLocat
 		// `xcm` should already end with `SetTopic` - if it does, then extract and derive into
 		// an onward topic ID.
 		let maybe_forward_id = match xcm.last() {
-			Some(SetTopic(t)) => Some(forward_id_for(t)),
+			Some(SetTopic(topic_id)) => {
+				tracing::trace!(target: "xcm::exports", ?topic_id, "Extracted topic ID from `SetTopic` for XCM forwarding");
+				Some(topic_id)
+			},
 			_ => None,
 		};
 

@@ -73,7 +73,7 @@ fn test_weight(mut count: u64) -> Weight {
 
 fn maybe_forward_id_for(topic: &XcmHash) -> XcmHash {
 	match UsingTopic::get() {
-		true => forward_id_for(topic),
+		true => *topic,
 		false => fake_id(),
 	}
 }
