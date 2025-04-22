@@ -526,19 +526,43 @@ impl BuiltinAddressMatcher {
 /// or tests.
 #[cfg(any(test, feature = "runtime-benchmarks"))]
 pub mod run {
-	pub use crate::call_builder::{CallSetup, Contract, WasmModule};
+	pub use crate::{
+		call_builder::{CallSetup, Contract, WasmModule},
+		BalanceOf, MomentOf,
+	};
+	pub use sp_core::{H256, U256};
 
 	use super::*;
-	use crate::{BalanceOf, MomentOf, H256, U256};
+
+	/// Convenience function to run pre-compiles for testing or benchmarking purposes.
+	///
+	/// Use [`CallSetup`] to create an appropriate environment to pass as the `ext` parameter.
+	/// Panics in case the `MATCHER` of `P` does not match the passed `address`.
+	pub fn precompile<P, E>(
+		ext: &mut E,
+		address: &[u8; 20],
+		input: &P::Interface,
+	) -> Result<Vec<u8>, Error>
+	where
+		P: Precompile<T = E::T>,
+		E: ExtWithInfo,
+		BalanceOf<E::T>: Into<U256> + TryFrom<U256>,
+		MomentOf<E::T>: Into<U256>,
+		<<E as Ext>::T as frame_system::Config>::Hash: frame_support::traits::IsType<H256>,
+	{
+		assert!(P::MATCHER.into_builtin().matches(address));
+		if P::HAS_CONTRACT_INFO {
+			P::call_with_info(address, input, ext)
+		} else {
+			P::call(address, input, ext)
+		}
+	}
 
 	/// Convenience function to run builtin pre-compiles from benchmarks.
 	#[cfg(feature = "runtime-benchmarks")]
-	pub(crate) fn builtin<E: ExtWithInfo>(
-		ext: &mut E,
-		address: &[u8; 20],
-		input: Vec<u8>,
-	) -> ExecResult
+	pub(crate) fn builtin<E>(ext: &mut E, address: &[u8; 20], input: Vec<u8>) -> ExecResult
 	where
+		E: ExtWithInfo,
 		BalanceOf<E::T>: Into<U256> + TryFrom<U256>,
 		MomentOf<E::T>: Into<U256>,
 		<<E as Ext>::T as frame_system::Config>::Hash: frame_support::traits::IsType<H256>,
