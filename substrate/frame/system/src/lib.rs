@@ -478,7 +478,7 @@ pub mod pallet {
 	}
 
 	/// System configuration trait. Implemented by runtime.
-	#[pallet::config(with_default)]
+	#[pallet::config(with_default, frame_system_config)]
 	#[pallet::disable_frame_system_supertrait_check]
 	pub trait Config: 'static + Eq + Clone {
 		/// The aggregated event type of the runtime.
@@ -1890,13 +1890,15 @@ impl<T: Config> Pallet<T> {
 		BlockWeight::<T>::kill();
 	}
 
-	/// Remove temporary "environment" entries in storage, compute the storage root and return the
-	/// resulting header for this block.
-	pub fn finalize() -> HeaderFor<T> {
+	/// Log the entire resouce usage report up until this point.
+	///
+	/// Uses `crate::LOG_TARGET`, level `debug` and prints the weight and block length usage.
+	pub fn resource_usage_report() {
 		log::debug!(
 			target: LOG_TARGET,
 			"[{:?}] {} extrinsics, length: {} (normal {}%, op: {}%, mandatory {}%) / normal weight:\
-			 {} ({}%) op weight {} ({}%) / mandatory weight {} ({}%)",
+			 {} (ref_time: {}%, proof_size: {}%) op weight {} (ref_time {}%, proof_size {}%) / \
+			  mandatory weight {} (ref_time: {}%, proof_size: {}%)",
 			Self::block_number(),
 			Self::extrinsic_count(),
 			Self::all_extrinsics_len(),
@@ -1917,17 +1919,35 @@ impl<T: Config> Pallet<T> {
 				Self::block_weight().get(DispatchClass::Normal).ref_time(),
 				T::BlockWeights::get().get(DispatchClass::Normal).max_total.unwrap_or(Bounded::max_value()).ref_time()
 			).deconstruct(),
+			sp_runtime::Percent::from_rational(
+				Self::block_weight().get(DispatchClass::Normal).proof_size(),
+				T::BlockWeights::get().get(DispatchClass::Normal).max_total.unwrap_or(Bounded::max_value()).proof_size()
+			).deconstruct(),
 			Self::block_weight().get(DispatchClass::Operational),
 			sp_runtime::Percent::from_rational(
 				Self::block_weight().get(DispatchClass::Operational).ref_time(),
 				T::BlockWeights::get().get(DispatchClass::Operational).max_total.unwrap_or(Bounded::max_value()).ref_time()
+			).deconstruct(),
+			sp_runtime::Percent::from_rational(
+				Self::block_weight().get(DispatchClass::Operational).proof_size(),
+				T::BlockWeights::get().get(DispatchClass::Operational).max_total.unwrap_or(Bounded::max_value()).proof_size()
 			).deconstruct(),
 			Self::block_weight().get(DispatchClass::Mandatory),
 			sp_runtime::Percent::from_rational(
 				Self::block_weight().get(DispatchClass::Mandatory).ref_time(),
 				T::BlockWeights::get().get(DispatchClass::Mandatory).max_total.unwrap_or(Bounded::max_value()).ref_time()
 			).deconstruct(),
+			sp_runtime::Percent::from_rational(
+				Self::block_weight().get(DispatchClass::Mandatory).proof_size(),
+				T::BlockWeights::get().get(DispatchClass::Mandatory).max_total.unwrap_or(Bounded::max_value()).proof_size()
+			).deconstruct(),
 		);
+	}
+
+	/// Remove temporary "environment" entries in storage, compute the storage root and return the
+	/// resulting header for this block.
+	pub fn finalize() -> HeaderFor<T> {
+		Self::resource_usage_report();
 		ExecutionPhase::<T>::kill();
 		AllExtrinsicsLen::<T>::kill();
 		storage::unhashed::kill(well_known_keys::INTRABLOCK_ENTROPY);

@@ -1654,6 +1654,7 @@ pub mod pallet {
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
 		/// The overarching event type.
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		/// Weight information for extrinsics in this pallet.
@@ -2275,7 +2276,7 @@ pub mod pallet {
 				bonded_pool.points,
 				bonded_pool.commission.current(),
 			)?;
-			let _ = Self::do_reward_payout(
+			Self::do_reward_payout(
 				&member_account,
 				&mut member,
 				&mut bonded_pool,
@@ -2344,7 +2345,7 @@ pub mod pallet {
 			pool_id: PoolId,
 			num_slashing_spans: u32,
 		) -> DispatchResult {
-			let _ = ensure_signed(origin)?;
+			ensure_signed(origin)?;
 			// ensure pool is not in an un-migrated state.
 			ensure!(!Self::api_pool_needs_delegate_migration(pool_id), Error::<T>::NotMigrated);
 
@@ -3679,12 +3680,7 @@ impl<T: Config> Pallet<T> {
 		let (mut member, mut bonded_pool, mut reward_pool) =
 			Self::get_member_with_pools(&member_account)?;
 
-		let _ = Self::do_reward_payout(
-			&member_account,
-			&mut member,
-			&mut bonded_pool,
-			&mut reward_pool,
-		)?;
+		Self::do_reward_payout(&member_account, &mut member, &mut bonded_pool, &mut reward_pool)?;
 
 		Self::put_member_with_pools(&member_account, member, bonded_pool, reward_pool);
 		Ok(())
@@ -3984,6 +3980,7 @@ impl<T: Config> Pallet<T> {
 
 			let sum_unbonding_balance = subs.sum_unbonding_balance();
 			let bonded_balance = T::StakeAdapter::active_stake(Pool::from(pool_account.clone()));
+			// TODO: should be total_balance + unclaimed_withdrawals from delegated staking
 			let total_balance = T::StakeAdapter::total_balance(Pool::from(pool_account.clone()))
 				// At the time when StakeAdapter is changed to `DelegateStake` but pool is not yet
 				// migrated, the total balance would be none.
@@ -4004,7 +4001,7 @@ impl<T: Config> Pallet<T> {
 
 		// Warn if any pool has incorrect ED frozen. We don't want to fail hard as this could be a
 		// result of an intentional ED change.
-		let _ = Self::check_ed_imbalance()?;
+		Self::check_ed_imbalance()?;
 
 		Ok(())
 	}
