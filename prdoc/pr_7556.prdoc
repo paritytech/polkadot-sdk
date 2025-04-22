@@ -1,17 +1,11 @@
 title: '[WIP] Add in memory trie cache'
 doc:
 - audience: Node Dev
-  description: "To increase the performance of smart contracts on AssetHub, reducing storage access time, we fit Trie cache into memory and warm up the state based on a CLI flag."
+  description: "To increase the performance of smart contracts on AssetHub, reducing storage access time, we warm up Trie cache based on a CLI flag."
 crates:
 - name: sc-cli
-  bump: patch
-- name: sc-client-db
-  bump: patch
+  bump: major
 - name: sc-service
-  bump: patch
-- name: sp-trie
-  bump: patch
-- name: frame-benchmarking-cli
-  bump: patch
-- name: polkadot-omni-node-lib
-  bump: patch
+  bump: major
+- name: sc-client-db
+  bump: minor
