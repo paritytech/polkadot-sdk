@@ -103,6 +103,7 @@ pub mod pallet {
 	use super::*;
 
 	#[pallet::pallet]
+	#[pallet::storage_version(migration::STORAGE_VERSION)]
 	pub struct Pallet<T>(_);
 
 	#[pallet::config]
