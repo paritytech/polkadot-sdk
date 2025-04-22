@@ -54,6 +54,29 @@ use sp_runtime::generic::{Digest, DigestItem};
 /// but might make the results less precise.
 const API_BENCHMARK_RUNS: u32 = 1600;
 
+macro_rules! memory(
+	($($bytes:expr,)*) => {{
+		vec![].iter()$(.chain($bytes.iter()))*.cloned().collect::<Vec<_>>()
+	}};
+);
+
+macro_rules! build_runtime(
+	($runtime:ident, $memory:ident: [$($segment:expr,)*]) => {
+		build_runtime!($runtime, _contract, $memory: [$($segment,)*]);
+	};
+	($runtime:ident, $contract:ident, $memory:ident: [$($bytes:expr,)*]) => {
+		build_runtime!($runtime, $contract);
+		let mut $memory = memory!($($bytes,)*);
+	};
+	($runtime:ident, $contract:ident) => {
+		let mut setup = CallSetup::<T>::default();
+		let $contract = setup.contract();
+		let input = setup.data();
+		let (mut ext, _) = setup.ext();
+		let mut $runtime = crate::wasm::Runtime::<_, [u8]>::new(&mut ext, input);
+	};
+);
+
 #[benchmarks(
 	where
 		BalanceOf<T>: Into<U256> + TryFrom<U256>,

@@ -293,7 +293,7 @@ impl<E> Instance<E> {
 /// Automatically implemented for tuples of types that implement any of the
 /// pre-compile traits.
 pub(crate) trait Precompiles<T: Config> {
-	/// Used to generate compile time error when multipe pre-compiles use the same matcher.
+	/// Used to generate compile time error when multiple pre-compiles use the same matcher.
 	const CHECK_COLLISION: ();
 	/// Does any of the pre-compiles use the range reserved for external pre-compiles.
 	///
@@ -519,12 +519,20 @@ impl BuiltinAddressMatcher {
 	}
 }
 
-#[cfg(feature = "runtime-benchmarks")]
+/// Types to run a pre-compile during testing or benchmarking.
+///
+/// Use the types exported from this module in order to test or benchmark
+/// your pre-compile. Module only exists when compiles for benchmarking
+/// or tests.
+#[cfg(any(test, feature = "runtime-benchmarks"))]
 pub mod run {
+	pub use crate::call_builder::{CallSetup, Contract, WasmModule};
+
 	use super::*;
 	use crate::{BalanceOf, MomentOf, H256, U256};
 
 	/// Convenience function to run builtin pre-compiles from benchmarks.
+	#[cfg(feature = "runtime-benchmarks")]
 	pub(crate) fn builtin<E: ExtWithInfo>(
 		ext: &mut E,
 		address: &[u8; 20],

@@ -200,31 +200,6 @@ where
 	}
 }
 
-#[macro_export]
-macro_rules! memory(
-	($($bytes:expr,)*) => {{
-		vec![].iter()$(.chain($bytes.iter()))*.cloned().collect::<Vec<_>>()
-	}};
-);
-
-#[macro_export]
-macro_rules! build_runtime(
-	($runtime:ident, $memory:ident: [$($segment:expr,)*]) => {
-		$crate::build_runtime!($runtime, _contract, $memory: [$($segment,)*]);
-	};
-	($runtime:ident, $contract:ident, $memory:ident: [$($bytes:expr,)*]) => {
-		$crate::build_runtime!($runtime, $contract);
-		let mut $memory = $crate::memory!($($bytes,)*);
-	};
-	($runtime:ident, $contract:ident) => {
-		let mut setup = CallSetup::<T>::default();
-		let $contract = setup.contract();
-		let input = setup.data();
-		let (mut ext, _) = setup.ext();
-		let mut $runtime = crate::wasm::Runtime::<_, [u8]>::new(&mut ext, input);
-	};
-);
-
 /// The deposit limit we use for benchmarks.
 pub fn default_deposit_limit<T: Config>() -> BalanceOf<T> {
 	(T::DepositPerByte::get() * 1024u32.into() * 1024u32.into()) +
