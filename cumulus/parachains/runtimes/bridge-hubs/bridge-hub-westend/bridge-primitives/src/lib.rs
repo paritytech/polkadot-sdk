@@ -85,6 +85,7 @@ pub const WITH_BRIDGE_HUB_WESTEND_RELAYERS_PALLET_NAME: &str = "BridgeRelayers";
 
 /// Pallet index of `BridgeRococoMessages: pallet_bridge_messages::<Instance1>`.
 pub const WITH_BRIDGE_WESTEND_TO_ROCOCO_MESSAGES_PALLET_INDEX: u8 = 44;
+pub const WITH_BRIDGE_WESTEND_TO_BULLETIN_MESSAGES_PALLET_INDEX: u8 = 46;
 
 decl_bridge_finality_runtime_apis!(bridge_hub_westend);
 decl_bridge_messages_runtime_apis!(bridge_hub_westend, LegacyLaneId);
