@@ -1,0 +1,40 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Fix version conversion in XcmPaymentApi::query_weight_to_asset_fee.
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      The `query_weight_to_asset_fee` function of the `XcmPaymentApi` was trying
+      to convert versions in the wrong way.
+      This resulted in all calls made with lower versions failing.
+      The version conversion is now done correctly and these same calls will now succeed.
+
+crates:
+  - name: xcm-runtime-apis
+    bump: patch
+  - name: assets-common
+    bump: patch
+  - name: asset-test-utils
+    bump: patch
+  - name: parachains-runtimes-test-utils
+    bump: patch
+  - name: asset-hub-rococo-runtime
+    bump: patch
+  - name: asset-hub-westend-runtime
+    bump: patch
+  - name: bridge-hub-rococo-runtime
+    bump: patch
+  - name: bridge-hub-westend-runtime
+    bump: patch
+  - name: collectives-westend-runtime
+    bump: patch
+  - name: coretime-rococo-runtime
+    bump: patch
+  - name: coretime-westend-runtime
+    bump: patch
+  - name: people-rococo-runtime
+    bump: patch
+  - name: people-westend-runtime
+    bump: patch

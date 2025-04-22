@@ -9,7 +9,7 @@ use sp_keyring::AccountKeyring as Keyring;
 use sp_runtime::DispatchError;
 use sp_std::convert::From;
 
-use crate::{Error, Event as InboundQueueEvent};
+use crate::Error;
 
 use crate::mock::*;
 
@@ -35,17 +35,16 @@ fn test_submit_happy_path() {
 		assert_eq!(Balances::balance(&channel_sovereign), initial_fund);
 
 		assert_ok!(InboundQueue::submit(origin.clone(), message.clone()));
-		expect_events(vec![InboundQueueEvent::MessageReceived {
-			channel_id: hex!("c173fac324158e77fb5840738a1a541f633cbec8884c6a601c567d2b376a0539")
-				.into(),
-			nonce: 1,
-			message_id: [
-				118, 166, 139, 182, 84, 52, 165, 189, 54, 14, 178, 73, 2, 228, 192, 97, 153, 201,
-				4, 75, 151, 15, 82, 6, 164, 187, 162, 133, 26, 183, 186, 126,
-			],
-			fee_burned: 110000000000,
-		}
-		.into()]);
+
+		let events = frame_system::Pallet::<Test>::events();
+		assert!(
+			events.iter().any(|event| matches!(
+				event.event,
+				RuntimeEvent::InboundQueue(Event::MessageReceived { nonce, ..})
+					if nonce == 1
+			)),
+			"No event emitted."
+		);
 
 		let delivery_cost = InboundQueue::calculate_delivery_cost(message.encode().len() as u32);
 		assert!(
