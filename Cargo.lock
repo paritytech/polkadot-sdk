@@ -23541,7 +23541,7 @@ version = "2.0.0"
 
 [[package]]
 name = "staging-xcm"
-version = "15.0.2"
+version = "15.0.3"
 dependencies = [
  "array-bytes",
  "bounded-collections",

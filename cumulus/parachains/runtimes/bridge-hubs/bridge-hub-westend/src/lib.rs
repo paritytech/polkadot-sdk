@@ -166,6 +166,7 @@ pub type Migrations = (
 		ConstU32<BRIDGE_HUB_ID>,
 		ConstU32<ASSET_HUB_ID>,
 	>,
+	snowbridge_pallet_system::migration::FeePerGasMigrationV0ToV1<Runtime>,
 	bridge_to_ethereum_config::migrations::MigrationForXcmV5<Runtime>,
 	// permanent
 	pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
