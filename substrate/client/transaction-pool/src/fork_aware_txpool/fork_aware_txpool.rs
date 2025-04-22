@@ -1406,28 +1406,23 @@ where
 		tree_route: &TreeRoute<Block>,
 	) -> HashMap<ExtrinsicHash<ChainApi>, Vec<Tag>> {
 		// Fetch all enacted blocks txs hashes.
-		let xts_hashes = future::join_all(
-			tree_route
-				.enacted()
-				.iter()
-				.map(|hn| {
-				    let api = self.api.clone();
-					async move {
-						api
-							.block_body(hn.hash)
-							.await
-							.unwrap_or_else(|e| {
-								log::warn!(target: LOG_TARGET, "provides_tags_from_inactive_views: block_body error request: {}", e);
-								None
-							})
-							.unwrap_or_default()
-					}
-				}))
-			.await
-			.into_iter()
-            .flatten()
-            .map(|ext| self.hash_of(&ext))
-			.collect::<Vec<_>>();
+		let xts_hashes = future::join_all(tree_route.enacted().iter().map(|hn| {
+			let api = self.api.clone();
+			async move {
+				api.block_body(hn.hash)
+					.await
+					.unwrap_or_else(|e| {
+						warn!(target: LOG_TARGET, %e, "provides_tags_from_inactive_views: block_body error request");
+						None
+					})
+					.unwrap_or_default()
+			}
+		}))
+		.await
+		.into_iter()
+		.flatten()
+		.map(|ext| self.hash_of(&ext))
+		.collect::<Vec<_>>();
 
 		let blocks_hashes = tree_route
 			.retracted()
