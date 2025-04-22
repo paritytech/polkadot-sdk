@@ -358,7 +358,7 @@ impl XcmContext {
 		XcmContext { origin: None, message_id, topic: None }
 	}
 
-	/// Returns the topic if set, otherwise the original_topic if set, otherwise the message_id.
+	/// Returns the topic if set, otherwise the message_id.
 	pub fn topic_or_message_id(&self) -> XcmHash {
 		if let Some(id) = self.topic {
 			id.into()
