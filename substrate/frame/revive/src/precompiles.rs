@@ -17,6 +17,12 @@
 
 //! Exposes types that can be used to `pallet_revive` with additional functionality.
 //!
+//! In order to add a pre-compile:
+//!
+//! - Implement [`Precompile`] on a type. Most likely another pallet.
+//! - Add the type to a tuple passed into [`Config::Precompiles`].
+//! - Use the types inside [`run`] to test and benchmark your pre-compile.
+//!
 //! Use `alloy` through our re-export in this module to implement Eth ABI.
 
 mod builtin;
@@ -127,6 +133,13 @@ impl<T: Config> From<CrateError<T>> for Error {
 /// Type that can be implemented in other crates to extend the list of pre-compiles.
 ///
 /// Only implement exacly one function. Either `call` or `call_with_info`.
+///
+/// # Warning
+///
+/// Pre-compiles are unmetered code. Hence they have to charge an appropriate amount of weight
+/// themselves. Generally, their first line of code should be a call to
+/// `env.gas_meter_mut().charge()`. For that you need to implement [`Token`] on a type of your
+/// chosing.
 pub trait Precompile {
 	/// Your runtime.
 	type T: Config;

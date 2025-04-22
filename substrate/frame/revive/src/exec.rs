@@ -184,6 +184,7 @@ impl<T: Config> Origin<T> {
 	}
 }
 
+/// Environment functions only available to host functions.
 pub trait Ext: PrecompileWithInfoExt {
 	/// Execute code in the current frame.
 	///
@@ -233,6 +234,7 @@ pub trait Ext: PrecompileWithInfoExt {
 	fn call_runtime(&self, call: <Self::T as Config>::RuntimeCall) -> DispatchResultWithPostInfo;
 }
 
+/// Environment functions which are available to pre-compiles with `HAS_CONTRACT_INFO = true`.
 pub trait PrecompileWithInfoExt: PrecompileExt {
 	/// Returns the storage entry of the executing account by the given `key`.
 	///
@@ -274,15 +276,7 @@ pub trait PrecompileWithInfoExt: PrecompileExt {
 	) -> Result<H160, ExecError>;
 }
 
-/// An interface that provides access to the external environment in which the
-/// smart-contract is executed.
-///
-/// This interface is specialized to an account of the executing code, so all
-/// operations are implicitly performed on that account.
-///
-/// # Note
-///
-/// This trait is sealed and cannot be implemented by downstream crates.
+/// Environment functions which are available to all pre-compiles.
 pub trait PrecompileExt: sealing::Sealed {
 	type T: Config;
 
