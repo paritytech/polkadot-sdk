@@ -374,7 +374,7 @@ impl<B: ChainApi, L: EventHandler<B>> Pool<B, L> {
 		}
 
 		let known_txs_count = known_provides_tags.map(|inner| inner.len()).unwrap_or(0);
-		log::debug!(target: LOG_TARGET,"prune: validated_counter:{validated_counter}, known_txs_count: {known_txs_count}, unknown_txs_count: {unknown_txs_count}, reused_txs_count: {reused_txs_count}, took:{:?}", now.elapsed());
+		log::debug!(target: LOG_TARGET, validated_counter, known_txs_count, unknown_txs_count, reused_txs_count, duration= now.elapsed(),"prune");
 
 		self.prune_tags(at, future_tags, in_pool_hashes).await
 	}
