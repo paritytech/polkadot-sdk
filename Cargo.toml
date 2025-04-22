@@ -352,6 +352,7 @@ members = [
 	"substrate/frame/core-fellowship",
 	"substrate/frame/delegated-staking",
 	"substrate/frame/democracy",
+	"substrate/frame/election-provider-multi-block",
 	"substrate/frame/election-provider-multi-phase",
 	"substrate/frame/election-provider-multi-phase/test-staking-e2e",
 	"substrate/frame/election-provider-support",
@@ -427,6 +428,15 @@ members = [
 	"substrate/frame/session/benchmarking",
 	"substrate/frame/society",
 	"substrate/frame/staking",
+	"substrate/frame/staking-async",
+	"substrate/frame/staking-async/ah-client",
+	"substrate/frame/staking-async/ahm-test",
+	"substrate/frame/staking-async/rc-client",
+	"substrate/frame/staking-async/reward-fn",
+	"substrate/frame/staking-async/runtime-api",
+	"substrate/frame/staking-async/runtimes/parachain",
+	"substrate/frame/staking-async/runtimes/rc",
+	"substrate/frame/staking-async/runtimes/rc/constants",
 	"substrate/frame/staking/reward-curve",
 	"substrate/frame/staking/reward-fn",
 	"substrate/frame/staking/runtime-api",
@@ -945,6 +955,7 @@ pallet-default-config-example = { path = "substrate/frame/examples/default-confi
 pallet-delegated-staking = { path = "substrate/frame/delegated-staking", default-features = false }
 pallet-democracy = { path = "substrate/frame/democracy", default-features = false }
 pallet-dev-mode = { path = "substrate/frame/examples/dev-mode", default-features = false }
+pallet-election-provider-multi-block = { path = "substrate/frame/election-provider-multi-block", default-features = false }
 pallet-election-provider-multi-phase = { path = "substrate/frame/election-provider-multi-phase", default-features = false }
 pallet-election-provider-support-benchmarking = { path = "substrate/frame/election-provider-support/benchmarking", default-features = false }
 pallet-elections-phragmen = { path = "substrate/frame/elections-phragmen", default-features = false }
@@ -1014,6 +1025,16 @@ pallet-staking = { path = "substrate/frame/staking", default-features = false }
 pallet-staking-reward-curve = { path = "substrate/frame/staking/reward-curve", default-features = false }
 pallet-staking-reward-fn = { path = "substrate/frame/staking/reward-fn", default-features = false }
 pallet-staking-runtime-api = { path = "substrate/frame/staking/runtime-api", default-features = false }
+# TODO: remove the reward stuff as they are not needed here
+pallet-staking-async = { path = "substrate/frame/staking-async", default-features = false }
+pallet-staking-async-ah-client = { path = "substrate/frame/staking-async/ah-client", default-features = false }
+pallet-staking-async-parachain-runtime = { path = "substrate/frame/staking-async/runtimes/parachain" }
+pallet-staking-async-rc-client = { path = "substrate/frame/staking-async/rc-client", default-features = false }
+pallet-staking-async-rc-runtime = { path = "substrate/frame/staking-async/runtimes/rc" }
+pallet-staking-async-rc-runtime-constants = { path = "substrate/frame/staking-async/runtimes/rc/constants", default-features = false }
+pallet-staking-async-reward-curve = { path = "substrate/frame/staking-async/reward-curve", default-features = false }
+pallet-staking-async-reward-fn = { path = "substrate/frame/staking-async/reward-fn", default-features = false }
+pallet-staking-async-runtime-api = { path = "substrate/frame/staking-async/runtime-api", default-features = false }
 pallet-state-trie-migration = { path = "substrate/frame/state-trie-migration", default-features = false }
 pallet-statement = { default-features = false, path = "substrate/frame/statement" }
 pallet-sudo = { path = "substrate/frame/sudo", default-features = false }

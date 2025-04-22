@@ -494,6 +494,7 @@ impl sp_runtime::traits::Convert<AccountId, Option<()>> for FullIdentificationOf
 }
 
 impl pallet_session::historical::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
 	type FullIdentification = ();
 	type FullIdentificationOf = FullIdentificationOf;
 }
