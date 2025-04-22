@@ -422,9 +422,9 @@ where
 	}
 }
 
-///This requires that the PoP of LEFT is of LeftPair::Signature
-///This is the case for current implemented cases but does not
-///holds in general
+/// This requires that the PoP of LEFT is of LeftPair::Signature.
+/// This is the case for current implemented cases but does not
+/// holds in general.
 impl<
 		LeftPair: PairT + ProofOfPossessionVerifier,
 		RightPair: PairT + ProofOfPossessionVerifier,
