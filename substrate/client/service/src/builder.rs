@@ -306,7 +306,7 @@ where
 				{
 					if client
 						.child_storage(storage_root, &info, &child_key)
-						.expect("Checked above to exist")
+						.unwrap_or_default()
 						.is_none()
 					{
 						debug!("Child storage value unexpectedly empty: {child_key:?}");
