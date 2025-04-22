@@ -20,7 +20,7 @@ use sp_keyring::Sr25519Keyring as Keyring;
 
 // Cumulus
 use emulated_integration_tests_common::{
-	accounts, build_genesis_storage, collators, xcm_emulator::ConvertLocation,
+	accounts, build_genesis_storage, collators, xcm_emulator::ConvertLocation, snowbridge::{ETHER_MIN_BALANCE},
 	PenpalASiblingSovereignAccount, PenpalATeleportableAssetLocation,
 	PenpalBSiblingSovereignAccount, PenpalBTeleportableAssetLocation, RESERVABLE_ASSET_ID,
 	SAFE_XCM_VERSION, USDT_ID, WETH,
@@ -109,7 +109,7 @@ pub fn genesis() -> Storage {
 					xcm::v5::Location::new(2, [GlobalConsensus(EthereumNetwork::get())]),
 					EthereumSovereignAccount::get(),
 					true,
-					ED,
+					ETHER_MIN_BALANCE,
 				),
 				// Weth
 				(
@@ -122,7 +122,7 @@ pub fn genesis() -> Storage {
 					),
 					EthereumSovereignAccount::get(),
 					true,
-					ED,
+					ETHER_MIN_BALANCE,
 				),
 			],
 			..Default::default()

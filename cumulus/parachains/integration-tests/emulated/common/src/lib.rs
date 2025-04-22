@@ -164,3 +164,7 @@ pub mod validators {
 		)]
 	}
 }
+
+pub mod snowbridge {
+	pub const ETHER_MIN_BALANCE: u128 = 1000;
+}

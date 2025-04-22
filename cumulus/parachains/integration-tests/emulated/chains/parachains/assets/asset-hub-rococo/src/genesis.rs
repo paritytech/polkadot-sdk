@@ -20,16 +20,15 @@ use sp_keyring::Sr25519Keyring as Keyring;
 
 // Cumulus
 use emulated_integration_tests_common::{
-	accounts, build_genesis_storage, collators, xcm_emulator::ConvertLocation,
+	accounts, build_genesis_storage, collators, xcm_emulator::ConvertLocation, snowbridge::ETHER_MIN_BALANCE,
 	PenpalASiblingSovereignAccount, PenpalATeleportableAssetLocation,
 	PenpalBSiblingSovereignAccount, PenpalBTeleportableAssetLocation, RESERVABLE_ASSET_ID,
-	SAFE_XCM_VERSION, USDT_ID,
+	SAFE_XCM_VERSION, USDT_ID, WETH,
 };
 use parachains_common::{AccountId, Balance};
 use testnet_parachains_constants::rococo::snowbridge::EthereumNetwork;
 use xcm::{latest::prelude::*, opaque::latest::ROCOCO_GENESIS_HASH};
 use xcm_builder::ExternalConsensusLocationsConverterFor;
-use emulated_integration_tests_common::WETH;
 
 pub const PARA_ID: u32 = 1000;
 pub const ED: Balance = testnet_parachains_constants::rococo::currency::EXISTENTIAL_DEPOSIT;
@@ -113,7 +112,7 @@ pub fn genesis() -> Storage {
 					xcm::v5::Location::new(2, [GlobalConsensus(EthereumNetwork::get())]),
 					EthereumSovereignAccount::get(),
 					true,
-					ED,
+					ETHER_MIN_BALANCE,
 				),
 				// Weth
 				(
@@ -126,7 +125,7 @@ pub fn genesis() -> Storage {
 					),
 					EthereumSovereignAccount::get(),
 					true,
-					ED,
+					ETHER_MIN_BALANCE,
 				),
 			],
 			..Default::default()

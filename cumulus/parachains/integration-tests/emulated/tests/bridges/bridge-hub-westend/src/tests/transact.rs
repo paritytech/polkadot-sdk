@@ -15,7 +15,7 @@
 
 use crate::{
 	create_pool_with_native_on,
-	tests::{snowbridge::CHAIN_ID, *},
+	tests::{snowbridge::CHAIN_ID, snowbridge_common::snowbridge_sovereign, *},
 };
 use sp_core::Get;
 use xcm::latest::AssetTransferFilter;
@@ -103,13 +103,6 @@ fn transact_from_ethereum_to_penpalb_through_asset_hub() {
 	);
 
 	let bridged_weth = weth_at_asset_hubs();
-	AssetHubWestend::force_create_foreign_asset(
-		bridged_weth.clone(),
-		PenpalAssetOwner::get(),
-		true,
-		ASSET_MIN_BALANCE,
-		vec![],
-	);
 	PenpalB::force_create_foreign_asset(
 		bridged_weth.clone(),
 		PenpalAssetOwner::get(),
@@ -139,15 +132,17 @@ fn transact_from_ethereum_to_penpalb_through_asset_hub() {
 	let sov_of_receiver_on_asset_hub = AssetHubWestend::execute_with(|| {
 		AssetHubWestend::sovereign_account_id_of(receiver_as_seen_by_asset_hub)
 	});
+
+	let snowbridge_owner = snowbridge_sovereign();
 	// Create SAs of sender and receiver on AHW with ED.
 	AssetHubWestend::fund_accounts(vec![
 		(sov_of_sender_on_asset_hub.clone().into(), ASSET_HUB_WESTEND_ED),
 		(sov_of_receiver_on_asset_hub.clone().into(), ASSET_HUB_WESTEND_ED),
+		(snowbridge_sovereign().into(), 1_000_000_000_000),
 	]);
 
 	// We create a pool between WND and WETH in AssetHub to support paying for fees with WETH.
-	let ahw_owner = AssetHubWestendSender::get();
-	create_pool_with_native_on!(AssetHubWestend, bridged_weth.clone(), true, ahw_owner);
+	create_pool_with_native_on!(AssetHubWestend, bridged_weth.clone(), true, snowbridge_owner);
 	// We also need a pool between WND and WETH on PenpalB to support paying for fees with WETH.
 	create_pool_with_native_on!(PenpalB, bridged_weth.clone(), true, PenpalAssetOwner::get());
 
