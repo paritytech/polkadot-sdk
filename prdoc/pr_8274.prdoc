@@ -11,4 +11,4 @@ crates:
   - name: kitchensink-runtime
     bump: minor
   - name: pallet-revive
-    bump: minor
+    bump: major
