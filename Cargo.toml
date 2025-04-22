@@ -9,6 +9,10 @@ repository = "https://github.com/paritytech/polkadot-sdk.git"
 resolver = "2"
 
 members = [
+	"cumulus/pallets/rc-migrator",
+	"cumulus/pallets/ah-migrator",
+	"cumulus/test/ahm",
+	"cumulus/pallets/ah-ops",
 	"bridges/bin/runtime-common",
 	"bridges/chains/chain-cumulus",
 	"bridges/chains/chain-polkadot-bulletin",
@@ -570,6 +574,10 @@ members = [
 ]
 
 default-members = [
+	"cumulus/pallets/rc-migrator",
+	"cumulus/pallets/ah-migrator",
+	"cumulus/test/ahm",
+	"cumulus/pallets/ah-ops",
 	"cumulus/polkadot-omni-node",
 	"cumulus/polkadot-parachain",
 	"polkadot",
@@ -614,6 +622,9 @@ while_immutable_condition = { level = "allow", priority = 2 }        # false pos
 zero-prefixed-literal = { level = "allow", priority = 2 }            # 00_1000_000
 
 [workspace.dependencies]
+pallet-rc-migrator = { path = "cumulus/pallets/rc-migrator" }
+pallet-ah-migrator = { path = "cumulus/pallets/ah-migrator" }
+pallet-ah-ops = { path = "cumulus/pallets/ah-ops" }
 Inflector = { version = "0.11.4" }
 aes-gcm = { version = "0.10" }
 ahash = { version = "0.8.2" }

@@ -1208,6 +1208,7 @@ dependencies = [
  "cumulus-primitives-core",
  "cumulus-primitives-utility",
  "frame-benchmarking",
+ "frame-election-provider-support",
  "frame-executive",
  "frame-metadata-hash-extension",
  "frame-support",
@@ -1217,31 +1218,50 @@ dependencies = [
  "frame-try-runtime",
  "hex-literal",
  "log",
+ "pallet-ah-migrator",
+ "pallet-ah-ops",
  "pallet-asset-conversion",
  "pallet-asset-conversion-ops",
  "pallet-asset-conversion-tx-payment",
+ "pallet-asset-rate",
  "pallet-asset-rewards",
  "pallet-assets",
  "pallet-assets-freezer",
  "pallet-aura",
  "pallet-authorship",
+ "pallet-bags-list",
  "pallet-balances",
  "pallet-collator-selection",
+ "pallet-conviction-voting",
+ "pallet-delegated-staking",
+ "pallet-election-provider-multi-block",
+ "pallet-fast-unstake",
+ "pallet-indices",
  "pallet-message-queue",
  "pallet-migrations",
  "pallet-multisig",
  "pallet-nft-fractionalization",
  "pallet-nfts",
  "pallet-nfts-runtime-api",
+ "pallet-nomination-pools",
+ "pallet-nomination-pools-runtime-api",
+ "pallet-preimage",
  "pallet-proxy",
+ "pallet-referenda",
  "pallet-revive",
+ "pallet-scheduler",
  "pallet-session",
+ "pallet-staking",
+ "pallet-staking-runtime-api",
  "pallet-state-trie-migration",
  "pallet-timestamp",
  "pallet-transaction-payment",
  "pallet-transaction-payment-rpc-runtime-api",
+ "pallet-treasury",
  "pallet-uniques",
  "pallet-utility",
+ "pallet-vesting",
+ "pallet-whitelist",
  "pallet-xcm",
  "pallet-xcm-benchmarks",
  "pallet-xcm-bridge-hub-router",
@@ -1257,6 +1277,7 @@ dependencies = [
  "snowbridge-pallet-system-frontend",
  "snowbridge-runtime-common",
  "sp-api 26.0.0",
+ "sp-arithmetic 23.0.0",
  "sp-block-builder",
  "sp-consensus-aura",
  "sp-core 28.0.0",
@@ -1264,9 +1285,11 @@ dependencies = [
  "sp-inherents",
  "sp-io 30.0.0",
  "sp-keyring",
+ "sp-npos-elections",
  "sp-offchain",
  "sp-runtime 31.0.1",
  "sp-session",
+ "sp-staking",
  "sp-std 14.0.0",
  "sp-storage 19.0.0",
  "sp-transaction-pool",
@@ -2049,9 +2072,9 @@ dependencies = [
 
 [[package]]
 name = "bounded-collections"
-version = "0.2.3"
+version = "0.2.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "32ed0a820ed50891d36358e997d27741a6142e382242df40ff01c89bcdcc7a2b"
+checksum = "64ad8a0bed7827f0b07a5d23cec2e58cc02038a99e4ca81616cb2bb2025f804d"
 dependencies = [
  "log",
  "parity-scale-codec",
@@ -10928,6 +10951,75 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c1b04fb49957986fdce4d6ee7a65027d55d4b6d2265e5848bbb507b58ccfdb6f"
 
 [[package]]
+name = "pallet-ah-migrator"
+version = "0.1.0"
+dependencies = [
+ "assets-common",
+ "chrono",
+ "cumulus-primitives-core",
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "hex",
+ "hex-literal",
+ "impl-trait-for-tuples",
+ "log",
+ "pallet-ah-ops",
+ "pallet-asset-rate",
+ "pallet-bags-list",
+ "pallet-balances",
+ "pallet-bounties",
+ "pallet-conviction-voting",
+ "pallet-fast-unstake",
+ "pallet-indices",
+ "pallet-message-queue",
+ "pallet-multisig",
+ "pallet-nomination-pools",
+ "pallet-preimage",
+ "pallet-proxy",
+ "pallet-rc-migrator",
+ "pallet-referenda",
+ "pallet-scheduler",
+ "pallet-staking",
+ "pallet-state-trie-migration",
+ "pallet-timestamp",
+ "pallet-treasury",
+ "pallet-vesting",
+ "parachains-common",
+ "parity-scale-codec",
+ "polkadot-parachain-primitives",
+ "polkadot-runtime-common",
+ "polkadot-runtime-parachains",
+ "scale-info",
+ "serde",
+ "sp-application-crypto 30.0.0",
+ "sp-core 28.0.0",
+ "sp-io 30.0.0",
+ "sp-runtime 31.0.1",
+ "sp-std 14.0.0",
+ "staging-xcm",
+ "staging-xcm-builder",
+ "staging-xcm-executor",
+ "westend-runtime-constants",
+]
+
+[[package]]
+name = "pallet-ah-ops"
+version = "0.1.0"
+dependencies = [
+ "cumulus-primitives-core",
+ "frame-support",
+ "frame-system",
+ "log",
+ "pallet-balances",
+ "pallet-timestamp",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-runtime 31.0.1",
+ "sp-std 14.0.0",
+]
+
+[[package]]
 name = "pallet-ahm-test"
 version = "1.0.0"
 dependencies = [
@@ -12603,6 +12695,50 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-rc-migrator"
+version = "0.1.0"
+dependencies = [
+ "frame-benchmarking",
+ "frame-election-provider-support",
+ "frame-support",
+ "frame-system",
+ "hex-literal",
+ "impl-trait-for-tuples",
+ "log",
+ "pallet-asset-rate",
+ "pallet-bags-list",
+ "pallet-balances",
+ "pallet-bounties",
+ "pallet-conviction-voting",
+ "pallet-fast-unstake",
+ "pallet-indices",
+ "pallet-multisig",
+ "pallet-nomination-pools",
+ "pallet-preimage",
+ "pallet-proxy",
+ "pallet-referenda",
+ "pallet-scheduler",
+ "pallet-staking",
+ "pallet-treasury",
+ "pallet-vesting",
+ "parity-scale-codec",
+ "polkadot-parachain-primitives",
+ "polkadot-runtime-common",
+ "polkadot-runtime-parachains",
+ "scale-info",
+ "serde",
+ "sp-core 28.0.0",
+ "sp-io 30.0.0",
+ "sp-runtime 31.0.1",
+ "sp-staking",
+ "sp-std 14.0.0",
+ "staging-xcm",
+ "staging-xcm-builder",
+ "staging-xcm-executor",
+ "westend-runtime-constants",
+]
+
+[[package]]
 name = "pallet-recovery"
 version = "28.0.0"
 dependencies = [
@@ -13778,6 +13914,7 @@ dependencies = [
  "pallet-xcm",
  "parity-scale-codec",
  "polkadot-primitives",
+ "polkadot-runtime-common",
  "scale-info",
  "sp-consensus-aura",
  "sp-core 28.0.0",
@@ -14735,6 +14872,55 @@ dependencies = [
  "sp-keystore 0.34.0",
  "sp-tracing 16.0.0",
  "tracing-gum",
+]
+
+[[package]]
+name = "polkadot-integration-tests-ahm"
+version = "0.1.0"
+dependencies = [
+ "asset-hub-westend-runtime",
+ "cumulus-pallet-parachain-system",
+ "cumulus-primitives-core",
+ "emulated-integration-tests-common",
+ "frame-benchmarking",
+ "frame-remote-externalities",
+ "frame-support",
+ "frame-system",
+ "hex",
+ "log",
+ "pallet-ah-migrator",
+ "pallet-balances",
+ "pallet-bounties",
+ "pallet-indices",
+ "pallet-message-queue",
+ "pallet-proxy",
+ "pallet-rc-migrator",
+ "pallet-timestamp",
+ "pallet-whitelist",
+ "pallet-xcm",
+ "parachains-common",
+ "parity-scale-codec",
+ "polkadot-parachain-primitives",
+ "polkadot-primitives",
+ "polkadot-runtime-common",
+ "polkadot-runtime-parachains",
+ "scale-info",
+ "sp-application-crypto 30.0.0",
+ "sp-authority-discovery",
+ "sp-consensus-babe",
+ "sp-consensus-beefy",
+ "sp-consensus-grandpa",
+ "sp-core 28.0.0",
+ "sp-io 30.0.0",
+ "sp-runtime 31.0.1",
+ "sp-storage 19.0.0",
+ "sp-tracing 16.0.0",
+ "staging-xcm",
+ "staging-xcm-builder",
+ "tokio",
+ "westend-runtime",
+ "westend-runtime-constants",
+ "xcm-emulator",
 ]
 
 [[package]]
@@ -27278,6 +27464,7 @@ dependencies = [
  "pallet-parameters",
  "pallet-preimage",
  "pallet-proxy",
+ "pallet-rc-migrator",
  "pallet-recovery",
  "pallet-referenda",
  "pallet-root-testing",

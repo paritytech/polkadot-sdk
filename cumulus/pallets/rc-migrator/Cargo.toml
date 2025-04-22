@@ -1,0 +1,154 @@
+[package]
+name = "pallet-rc-migrator"
+description = "Operational pallet managing and processing migration from Relay Chain to Asset Hub on Relay Chain"
+license = "Apache-2.0"
+version = "0.1.0"
+edition.workspace = true
+authors.workspace = true
+repository.workspace = true
+
+[dependencies]
+codec = { workspace = true, features = ["max-encoded-len"] }
+scale-info = { workspace = true, features = ["derive"] }
+serde = { features = ["derive"], optional = true, workspace = true }
+log = { workspace = true }
+impl-trait-for-tuples = { workspace = true }
+frame-benchmarking = { workspace = true, optional = true }
+frame-support = { workspace = true }
+frame-system = { workspace = true }
+sp-core = { workspace = true }
+sp-runtime = { workspace = true }
+sp-std = { workspace = true }
+sp-io = { workspace = true }
+pallet-asset-rate = { workspace = true }
+pallet-balances = { workspace = true }
+pallet-bags-list = { workspace = true }
+pallet-bounties = { workspace = true }
+pallet-conviction-voting = { workspace = true }
+pallet-scheduler = { workspace = true }
+pallet-staking = { workspace = true }
+pallet-proxy = { workspace = true }
+pallet-indices = { workspace = true }
+pallet-multisig = { workspace = true }
+pallet-preimage = { workspace = true }
+pallet-treasury = { workspace = true }
+pallet-fast-unstake = { workspace = true }
+pallet-referenda = { workspace = true }
+pallet-vesting = { workspace = true }
+pallet-nomination-pools = { workspace = true }
+polkadot-runtime-common = { workspace = true }
+polkadot-runtime-parachains = { workspace = true }
+polkadot-parachain-primitives = { workspace = true }
+westend-runtime-constants = { workspace = true }
+hex-literal = { workspace = true }
+xcm = { workspace = true }
+xcm-builder = { workspace = true }
+xcm-executor = { workspace = true }
+sp-staking = { workspace = true }
+frame-election-provider-support = { workspace = true }
+
+[features]
+default = ["std"]
+std = [
+	"codec/std",
+	"frame-benchmarking?/std",
+	"frame-election-provider-support/std",
+	"frame-support/std",
+	"frame-system/std",
+	"log/std",
+	"pallet-asset-rate/std",
+	"pallet-bags-list/std",
+	"pallet-balances/std",
+	"pallet-bounties/std",
+	"pallet-conviction-voting/std",
+	"pallet-fast-unstake/std",
+	"pallet-indices/std",
+	"pallet-multisig/std",
+	"pallet-nomination-pools/std",
+	"pallet-preimage/std",
+	"pallet-proxy/std",
+	"pallet-referenda/std",
+	"pallet-scheduler/std",
+	"pallet-staking/std",
+	"pallet-treasury/std",
+	"pallet-vesting/std",
+	"polkadot-parachain-primitives/std",
+	"polkadot-runtime-common/std",
+	"westend-runtime-constants/std",
+	"westend-runtime-constants/std",
+	"polkadot-runtime-parachains/std",
+	"scale-info/std",
+	"serde",
+	"sp-core/std",
+	"sp-io/std",
+	"sp-runtime/std",
+	"sp-staking/std",
+	"sp-std/std",
+	"xcm-builder/std",
+	"xcm-builder/std",
+	"xcm-executor/std",
+	"xcm-executor/std",
+	"xcm/std",
+	"serde?/std"
+]
+runtime-benchmarks = [
+	"frame-benchmarking/runtime-benchmarks",
+	"frame-election-provider-support/runtime-benchmarks",
+	"frame-support/runtime-benchmarks",
+	"frame-system/runtime-benchmarks",
+	"pallet-asset-rate/runtime-benchmarks",
+	"pallet-bags-list/runtime-benchmarks",
+	"pallet-balances/runtime-benchmarks",
+	"pallet-bounties/runtime-benchmarks",
+	"pallet-conviction-voting/runtime-benchmarks",
+	"pallet-fast-unstake/runtime-benchmarks",
+	"pallet-indices/runtime-benchmarks",
+	"pallet-multisig/runtime-benchmarks",
+	"pallet-nomination-pools/runtime-benchmarks",
+	"pallet-preimage/runtime-benchmarks",
+	"pallet-proxy/runtime-benchmarks",
+	"pallet-referenda/runtime-benchmarks",
+	"pallet-scheduler/runtime-benchmarks",
+	"pallet-staking/runtime-benchmarks",
+	"pallet-treasury/runtime-benchmarks",
+	"pallet-vesting/runtime-benchmarks",
+	"polkadot-parachain-primitives/runtime-benchmarks",
+	"polkadot-runtime-common/runtime-benchmarks",
+
+	"polkadot-runtime-parachains/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	"sp-staking/runtime-benchmarks",
+	"xcm-builder/runtime-benchmarks",
+	"xcm-executor/runtime-benchmarks",
+	"xcm/runtime-benchmarks",
+	"westend-runtime-constants/runtime-benchmarks"
+]
+try-runtime = [
+	"frame-election-provider-support/try-runtime",
+	"frame-support/try-runtime",
+	"frame-system/try-runtime",
+	"pallet-asset-rate/try-runtime",
+	"pallet-bags-list/try-runtime",
+	"pallet-balances/try-runtime",
+	"pallet-bounties/try-runtime",
+	"pallet-conviction-voting/try-runtime",
+	"pallet-fast-unstake/try-runtime",
+	"pallet-indices/try-runtime",
+	"pallet-multisig/try-runtime",
+	"pallet-nomination-pools/try-runtime",
+	"pallet-preimage/try-runtime",
+	"pallet-proxy/try-runtime",
+	"pallet-referenda/try-runtime",
+	"pallet-scheduler/try-runtime",
+	"pallet-staking/try-runtime",
+	"pallet-treasury/try-runtime",
+	"pallet-vesting/try-runtime",
+	"polkadot-runtime-common/try-runtime",
+	"polkadot-runtime-parachains/try-runtime",
+	"sp-runtime/try-runtime",
+]
+
+ahm-polkadot = []
+ahm-westend = ["ahm-staking-migration", "stable2503"]
+stable2503 = []
+ahm-staking-migration = []
