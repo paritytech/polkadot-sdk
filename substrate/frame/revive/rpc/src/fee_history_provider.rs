@@ -14,10 +14,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-use crate::{
-	client::{SubstrateBlock, SubstrateBlockNumber},
-	BlockInfo, ClientError,
-};
+use crate::{client::SubstrateBlockNumber, ClientError};
 use pallet_revive::evm::{Block, FeeHistoryResult, ReceiptInfo};
 use sp_core::U256;
 use std::{collections::BTreeMap, sync::Arc};
@@ -117,7 +114,7 @@ impl FeeHistoryProvider {
 			reward: Default::default(),
 		};
 
-		let mut rewards = &mut response.reward;
+		let rewards = &mut response.reward;
 		// Iterate over the requested block range.
 		for n in lowest..=highest {
 			if let Some(block) = cache.get(&n) {
