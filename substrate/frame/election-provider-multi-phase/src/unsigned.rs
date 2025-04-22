@@ -19,8 +19,8 @@
 
 use crate::{
 	helpers, Call, Config, CurrentPhase, DesiredTargets, ElectionCompute, Error, FeasibilityError,
-	Pallet, QueuedSolution, RawSolution, ReadySolution, Round, RoundSnapshot, Snapshot,
-	SolutionAccuracyOf, SolutionOf, SolutionOrSnapshotSize, Weight,
+	Pallet, QueuedSolution, RawSolution, ReadySolution, ReadySolutionOf, Round, RoundSnapshot,
+	Snapshot, SolutionAccuracyOf, SolutionOf, SolutionOrSnapshotSize, Weight,
 };
 use alloc::{boxed::Box, vec::Vec};
 use codec::Encode;
@@ -98,6 +98,8 @@ pub enum MinerError {
 	NoMoreVoters,
 	/// An error from the solver.
 	Solver,
+	/// Desired targets are mire than the maximum allowed winners.
+	TooManyDesiredTargets,
 }
 
 impl From<sp_npos_elections::Error> for MinerError {
@@ -112,16 +114,20 @@ impl From<FeasibilityError> for MinerError {
 	}
 }
 
-/// Reports the trimming result of a mined solution
+/// Reports the trimming result of a mined solution.
 #[derive(Debug, Clone)]
 pub struct TrimmingStatus {
+	/// Number of voters trimmed due to the solution weight limits.
 	weight: usize,
+	/// Number of voters trimmed due to the solution length limits.
 	length: usize,
+	/// Number of edges (voter -> target) trimmed due to the max backers per winner bound.
+	edges: usize,
 }
 
 impl TrimmingStatus {
 	pub fn is_trimmed(&self) -> bool {
-		self.weight > 0 || self.length > 0
+		self.weight > 0 || self.length > 0 || self.edges > 0
 	}
 
 	pub fn trimmed_weight(&self) -> usize {
@@ -130,6 +136,10 @@ impl TrimmingStatus {
 
 	pub fn trimmed_length(&self) -> usize {
 		self.length
+	}
+
+	pub fn trimmed_edges(&self) -> usize {
+		self.edges
 	}
 }
 
@@ -194,6 +204,7 @@ impl<T: Config + CreateInherent<Call<T>>> Pallet<T> {
 		let RoundSnapshot { voters, targets } =
 			Snapshot::<T>::get().ok_or(MinerError::SnapshotUnAvailable)?;
 		let desired_targets = DesiredTargets::<T>::get().ok_or(MinerError::SnapshotUnAvailable)?;
+		ensure!(desired_targets <= T::MaxWinners::get(), MinerError::TooManyDesiredTargets);
 		let (solution, score, size, is_trimmed) =
 			Miner::<T::MinerConfig>::mine_solution_with_snapshot::<T::Solver>(
 				voters,
@@ -262,16 +273,17 @@ impl<T: Config + CreateInherent<Call<T>>> Pallet<T> {
 	/// Mine a new solution as a call. Performs all checks.
 	pub fn mine_checked_call() -> Result<Call<T>, MinerError> {
 		// get the solution, with a load of checks to ensure if submitted, IT IS ABSOLUTELY VALID.
-		let (raw_solution, witness, _) = Self::mine_and_check()?;
+		let (raw_solution, witness, _trimming) = Self::mine_and_check()?;
 
 		let score = raw_solution.score;
 		let call: Call<T> = Call::submit_unsigned { raw_solution: Box::new(raw_solution), witness };
 
 		log!(
 			debug,
-			"mined a solution with score {:?} and size {}",
+			"mined a solution with score {:?} and size {} and trimming {:?}",
 			score,
-			call.using_encoded(|b| b.len())
+			call.using_encoded(|b| b.len()),
+			_trimming
 		);
 
 		Ok(call)
@@ -393,7 +405,7 @@ impl<T: Config + CreateInherent<Call<T>>> Pallet<T> {
 		// ensure score is being improved. Panic henceforth.
 		ensure!(
 			QueuedSolution::<T>::get()
-				.map_or(true, |q: ReadySolution<_, _>| raw_solution.score > q.score),
+				.map_or(true, |q: ReadySolution<_, _, _>| raw_solution.score > q.score),
 			Error::<T>::PreDispatchWeakSubmission,
 		);
 
@@ -427,8 +439,11 @@ pub trait MinerConfig {
 	///
 	/// The weight is computed using `solution_weight`.
 	type MaxWeight: Get<Weight>;
-	/// The maximum number of winners that can be elected.
+	/// The maximum number of winners that can be elected in the single page supported by this
+	/// pallet.
 	type MaxWinners: Get<u32>;
+	/// The maximum number of backers per winner in the last solution.
+	type MaxBackersPerWinner: Get<u32>;
 	/// Something that can compute the weight of a solution.
 	///
 	/// This weight estimate is then used to trim the solution, based on [`MinerConfig::MaxWeight`].
@@ -490,7 +505,11 @@ impl<T: MinerConfig> Miner<T> {
 
 		let ElectionResult { assignments, winners: _ } = election_result;
 
-		// Reduce (requires round-trip to staked form)
+		// keeps track of how many edges were trimmed out.
+		let mut edges_trimmed = 0;
+
+		// Reduce (requires round-trip to staked form) and ensures the max backer per winner bound
+		// requirements are met.
 		let sorted_assignments = {
 			// convert to staked and reduce.
 			let mut staked = assignment_ratio_to_staked_normalized(assignments, &stake_of)?;
@@ -516,6 +535,53 @@ impl<T: MinerConfig> Miner<T> {
 					core::cmp::Reverse(stake)
 				},
 			);
+
+			// ensures that the max backers per winner bounds are respected given the supports
+			// generated from the assignments. We achieve that by removing edges (voter ->
+			// target) in the assignments with lower stake until the total number of backers per
+			// winner fits within the expected bounded supports. This should be performed *after*
+			// applying reduce over the assignments to avoid over-trimming.
+			//
+			// a potential trimming does not affect the desired targets of the solution as the
+			// targets have *too many* edges by definition if trimmed.
+			let max_backers_per_winner = T::MaxBackersPerWinner::get().saturated_into::<usize>();
+
+			let _ = sp_npos_elections::to_supports(&staked)
+				.iter_mut()
+				.filter(|(_, support)| support.voters.len() > max_backers_per_winner)
+				.for_each(|(target, ref mut support)| {
+					// first sort by support stake, lowest at the tail.
+					support.voters.sort_by(|a, b| b.1.cmp(&a.1));
+
+					// filter out lowest stake edge in this support.
+					// optimization note: collects edge voters to remove from assignments into a
+					// btree set to optimize the search in the next loop.
+					let filtered: alloc::collections::BTreeSet<_> = support
+						.voters
+						.split_off(max_backers_per_winner)
+						.into_iter()
+						.map(|(who, _stake)| who)
+						.collect();
+
+					// remove lowest stake edges calculated above from assignments.
+					staked.iter_mut().for_each(|assignment| {
+						if filtered.contains(&assignment.who) {
+							assignment.distribution.retain(|(t, _)| t != target);
+						}
+					});
+
+					edges_trimmed += filtered.len();
+				});
+
+			debug_assert!({
+				// at this point we expect the supports generated from the assignments to fit within
+				// the expected bounded supports.
+				let expected_ok: Result<
+					crate::BoundedSupports<_, T::MaxWinners, T::MaxBackersPerWinner>,
+					_,
+				> = sp_npos_elections::to_supports(&staked).try_into();
+				expected_ok.is_ok()
+			});
 
 			// convert back.
 			assignment_staked_to_ratio_normalized(staked)?
@@ -549,7 +615,8 @@ impl<T: MinerConfig> Miner<T> {
 		// re-calc score.
 		let score = solution.clone().score(stake_of, voter_at, target_at)?;
 
-		let is_trimmed = TrimmingStatus { weight: weight_trimmed, length: length_trimmed };
+		let is_trimmed =
+			TrimmingStatus { weight: weight_trimmed, length: length_trimmed, edges: edges_trimmed };
 
 		Ok((solution, score, size, is_trimmed))
 	}
@@ -618,7 +685,7 @@ impl<T: MinerConfig> Miner<T> {
 		let remove = assignments.len().saturating_sub(maximum_allowed_voters);
 
 		log_no_system!(
-			debug,
+			trace,
 			"from {} assignments, truncating to {} for length, removing {}",
 			assignments.len(),
 			maximum_allowed_voters,
@@ -747,7 +814,7 @@ impl<T: MinerConfig> Miner<T> {
 		snapshot: RoundSnapshot<T::AccountId, MinerVoterOf<T>>,
 		current_round: u32,
 		minimum_untrusted_score: Option<ElectionScore>,
-	) -> Result<ReadySolution<T::AccountId, T::MaxWinners>, FeasibilityError> {
+	) -> Result<ReadySolutionOf<T>, FeasibilityError> {
 		let RawSolution { solution, score, round } = raw_solution;
 		let RoundSnapshot { voters: snapshot_voters, targets: snapshot_targets } = snapshot;
 
@@ -783,7 +850,7 @@ impl<T: MinerConfig> Miner<T> {
 			.map_err::<FeasibilityError, _>(Into::into)?;
 
 		// Ensure that assignments is correct.
-		let _ = assignments.iter().try_for_each(|assignment| {
+		assignments.iter().try_for_each(|assignment| {
 			// Check that assignment.who is actually a voter (defensive-only).
 			// NOTE: while using the index map from `voter_index` is better than a blind linear
 			// search, this *still* has room for optimization. Note that we had the index when
@@ -814,9 +881,12 @@ impl<T: MinerConfig> Miner<T> {
 
 		// Finally, check that the claimed score was indeed correct.
 		let known_score = supports.evaluate();
+
 		ensure!(known_score == score, FeasibilityError::InvalidScore);
 
-		// Size of winners in miner solution is equal to `desired_targets` <= `MaxWinners`.
+		// Size of winners in miner solution is equal to `desired_targets` <= `MaxWinners`. In
+		// addition, the miner should have ensured that the MaxBackerPerWinner bound in respected,
+		// thus this conversion should not fail.
 		let supports = supports
 			.try_into()
 			.defensive_map_err(|_| FeasibilityError::BoundedConversionFailed)?;
@@ -1859,6 +1929,193 @@ mod tests {
 				<MultiPhase as ValidateUnsigned>::pre_dispatch(&call).unwrap_err(),
 				pre_dispatch_check_error,
 			);
+		})
+	}
+
+	#[test]
+	fn mine_solution_always_respects_max_backers_per_winner() {
+		use crate::mock::MaxBackersPerWinner;
+		use frame_election_provider_support::BoundedSupport;
+
+		let targets = vec![10, 20, 30, 40];
+		let voters = vec![
+			(1, 11, bounded_vec![10, 20, 30]),
+			(2, 12, bounded_vec![10, 20, 30]),
+			(3, 13, bounded_vec![10, 20, 30]),
+			(4, 14, bounded_vec![10, 20, 30]),
+			(5, 15, bounded_vec![10, 20, 40]),
+		];
+		let snapshot = RoundSnapshot { voters: voters.clone(), targets: targets.clone() };
+		let (round, desired_targets) = (1, 3);
+
+		// election with unbounded max backers per winnner.
+		ExtBuilder::default().max_backers_per_winner(u32::MAX).build_and_execute(|| {
+			assert_eq!(MaxBackersPerWinner::get(), u32::MAX);
+
+			let (solution, expected_score_unbounded, _, trimming_status) =
+				Miner::<Runtime>::mine_solution_with_snapshot::<<Runtime as Config>::Solver>(
+					voters.clone(),
+					targets.clone(),
+					desired_targets,
+				)
+				.unwrap();
+
+			let ready_solution = Miner::<Runtime>::feasibility_check(
+				RawSolution { solution, score: expected_score_unbounded, round },
+				Default::default(),
+				desired_targets,
+				snapshot.clone(),
+				round,
+				Default::default(),
+			)
+			.unwrap();
+
+			assert_eq!(
+				ready_solution.supports.into_iter().collect::<Vec<_>>(),
+				vec![
+					(
+						10,
+						BoundedSupport { total: 25, voters: bounded_vec![(1, 11), (5, 5), (4, 9)] }
+					),
+					(20, BoundedSupport { total: 22, voters: bounded_vec![(2, 12), (5, 10)] }),
+					(30, BoundedSupport { total: 18, voters: bounded_vec![(3, 13), (4, 5)] })
+				]
+			);
+
+			// no trimmed edges.
+			assert_eq!(trimming_status.trimmed_edges(), 0);
+		});
+
+		// election with max 1 backer per winnner.
+		ExtBuilder::default().max_backers_per_winner(1).build_and_execute(|| {
+			assert_eq!(MaxBackersPerWinner::get(), 1);
+
+			let (solution, expected_score_bounded, _, trimming_status) =
+				Miner::<Runtime>::mine_solution_with_snapshot::<<Runtime as Config>::Solver>(
+					voters,
+					targets,
+					desired_targets,
+				)
+				.unwrap();
+
+			let ready_solution = Miner::<Runtime>::feasibility_check(
+				RawSolution { solution, score: expected_score_bounded, round },
+				Default::default(),
+				desired_targets,
+				snapshot,
+				round,
+				Default::default(),
+			)
+			.unwrap();
+
+			for (_, supports) in ready_solution.supports.iter() {
+				assert!((supports.voters.len() as u32) <= MaxBackersPerWinner::get());
+			}
+
+			assert_eq!(
+				ready_solution.supports.into_iter().collect::<Vec<_>>(),
+				vec![
+					(10, BoundedSupport { total: 11, voters: bounded_vec![(1, 11)] }),
+					(20, BoundedSupport { total: 12, voters: bounded_vec![(2, 12)] }),
+					(30, BoundedSupport { total: 13, voters: bounded_vec![(3, 13)] })
+				]
+			);
+
+			// four trimmed edges.
+			assert_eq!(trimming_status.trimmed_edges(), 4);
+		});
+	}
+
+	#[test]
+	fn max_backers_edges_trims_lowest_stake() {
+		use crate::mock::MaxBackersPerWinner;
+
+		ExtBuilder::default().build_and_execute(|| {
+			let targets = vec![10, 20, 30, 40];
+
+			let voters = vec![
+				(1, 100, bounded_vec![10, 20]),
+				(2, 200, bounded_vec![10, 20, 30]),
+				(3, 300, bounded_vec![10, 30]),
+				(4, 400, bounded_vec![10, 30]),
+				(5, 500, bounded_vec![10, 20, 30]),
+				(6, 600, bounded_vec![10, 20, 30, 40]),
+			];
+			let snapshot = RoundSnapshot { voters: voters.clone(), targets: targets.clone() };
+			let (round, desired_targets) = (1, 4);
+
+			let max_backers_bound = u32::MAX;
+			let trim_backers_bound = 2;
+
+			// election with unbounded max backers per winnner.
+			MaxBackersPerWinner::set(max_backers_bound);
+			let (solution, score, _, trimming_status) =
+				Miner::<Runtime>::mine_solution_with_snapshot::<<Runtime as Config>::Solver>(
+					voters.clone(),
+					targets.clone(),
+					desired_targets,
+				)
+				.unwrap();
+
+			assert_eq!(trimming_status.trimmed_edges(), 0);
+
+			let ready_solution = Miner::<Runtime>::feasibility_check(
+				RawSolution { solution, score, round },
+				Default::default(),
+				desired_targets,
+				snapshot.clone(),
+				round,
+				Default::default(),
+			)
+			.unwrap();
+
+			let full_supports = ready_solution.supports.into_iter().collect::<Vec<_>>();
+
+			// gather the expected trimmed supports (lowest stake from supports with more backers
+			// than expected when MaxBackersPerWinner is 2) from the full, unbounded supports.
+			let expected_trimmed_supports = full_supports
+				.into_iter()
+				.filter(|(_, s)| s.voters.len() as u32 > trim_backers_bound)
+				.map(|(t, s)| (t, s.voters.into_iter().min_by(|a, b| a.1.cmp(&b.1)).unwrap()))
+				.collect::<Vec<_>>();
+
+			// election with bounded 2 max backers per winnner.
+			MaxBackersPerWinner::set(trim_backers_bound);
+			let (solution, score, _, trimming_status) =
+				Miner::<Runtime>::mine_solution_with_snapshot::<<Runtime as Config>::Solver>(
+					voters.clone(),
+					targets.clone(),
+					desired_targets,
+				)
+				.unwrap();
+
+			assert_eq!(trimming_status.trimmed_edges(), 2);
+
+			let ready_solution = Miner::<Runtime>::feasibility_check(
+				RawSolution { solution, score, round },
+				Default::default(),
+				desired_targets,
+				snapshot.clone(),
+				round,
+				Default::default(),
+			)
+			.unwrap();
+
+			let trimmed_supports = ready_solution.supports.into_iter().collect::<Vec<_>>();
+
+			// gather all trimmed_supports edges from the trimmed solution.
+			let mut trimmed_supports_edges_full = vec![];
+			for (t, s) in trimmed_supports {
+				for v in s.voters {
+					trimmed_supports_edges_full.push((t, v));
+				}
+			}
+
+			// expected trimmed supports set should be disjoint to the trimmed_supports full set of
+			// edges.
+			for edge in trimmed_supports_edges_full {
+				assert!(!expected_trimmed_supports.contains(&edge));
+			}
 		})
 	}
 
