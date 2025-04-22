@@ -105,7 +105,10 @@ use polkadot_runtime_common::{BlockHashCount, SlowAdjustingFeeUpdate};
 use weights::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight};
 use xcm::{
 	latest::prelude::AssetId,
-	prelude::{VersionedAsset, VersionedAssetId, VersionedAssets, VersionedLocation, VersionedXcm},
+	prelude::{
+		VersionedAsset, VersionedAssetId, VersionedAssets, VersionedLocation, VersionedXcm,
+		WeightLimit,
+	},
 };
 
 #[cfg(feature = "runtime-benchmarks")]
