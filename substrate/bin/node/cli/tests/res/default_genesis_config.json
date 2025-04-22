@@ -33,12 +33,7 @@
     "minValidatorBond": 0,
     "maxValidatorCount": null,
     "maxNominatorCount": null,
-	"unbonding_queue_config": {
-	  "min_slashable_share": 50,
-	  "lowest_ratio": 34,
-	  "unbond_period_lower_bound": 2,
-	  "back_of_unbonding_queue_era": 0
-	}
+	"unbondingQueueConfig": null
   },
   "session": {
     "keys": [],
