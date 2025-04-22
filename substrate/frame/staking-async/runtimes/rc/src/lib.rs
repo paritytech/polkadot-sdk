@@ -2793,7 +2793,7 @@ sp_api::impl_runtime_apis! {
 					Ok((origin, ticket, assets))
 				}
 
-				fn worst_case_for_trader() -> Result<Asset, BenchmarkError> {
+				fn worst_case_for_trader() -> Result<(Asset, WeightLimit), BenchmarkError> {
 					Ok((Asset {
 						id: AssetId(TokenLocation::get()),
 						fun: Fungible(1_000_000 * UNITS),
