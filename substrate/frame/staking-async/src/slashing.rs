@@ -469,26 +469,6 @@ pub(crate) fn compute_slash<T: Config>(params: SlashParams<T>) -> Option<Unappli
 	})
 }
 
-// doesn't apply any slash, but kicks out the validator if the misbehavior is from
-// the most recent slashing span.
-fn kick_out_if_recent<T: Config>(params: SlashParams<T>) {
-	// these are not updated by era-span or end-span.
-	let mut reward_payout = Zero::zero();
-	let mut val_slashed = Zero::zero();
-	let mut spans = fetch_spans::<T>(
-		params.stash,
-		params.window_start,
-		&mut reward_payout,
-		&mut val_slashed,
-		params.reward_proportion,
-	);
-
-	if spans.era_span(params.slash_era).map(|s| s.index) == Some(spans.span_index()) {
-		// Check https://github.com/paritytech/polkadot-sdk/issues/2650 for details
-		spans.end_span(params.now);
-	}
-}
-
 /// Compute the slash for a validator. Returns the amount slashed and the reward payout.
 fn slash_validator<T: Config>(params: SlashParams<T>) -> (BalanceOf<T>, BalanceOf<T>) {
 	let own_slash = params.slash * params.exposure.exposure_metadata.own;
@@ -501,13 +481,6 @@ fn slash_validator<T: Config>(params: SlashParams<T>) -> (BalanceOf<T>, BalanceO
 		own_slash,
 		params.slash_era,
 	);
-
-	if own_slash == Zero::zero() {
-		// kick out the validator even if they won't be slashed,
-		// as long as the misbehavior is from their most recent slashing span.
-		kick_out_if_recent::<T>(params);
-		return (Zero::zero(), Zero::zero())
-	}
 
 	// apply slash to validator.
 	let mut reward_payout = Zero::zero();
