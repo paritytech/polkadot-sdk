@@ -873,5 +873,10 @@ mod tests {
 
 			futures.push(future);
 		}
+
+		// Futures will exit when all peers are discovered.
+		tokio::time::timeout(Duration::from_secs(60), futures.next())
+			.await
+			.expect("All peers should finish within 60 seconds");
 	}
 }
