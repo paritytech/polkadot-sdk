@@ -7,20 +7,20 @@ doc:
 
 crates:
 - name: snowbridge-pallet-inbound-queue-v2
-  bump: patch
+  bump: minor
 - name: snowbridge-pallet-outbound-queue-v2
-  bump: patch
+  bump: minor
 - name: snowbridge-pallet-system-frontend
-  bump: patch
+  bump: major
 - name: snowbridge-pallet-system-v2
-  bump: patch
+  bump: major
 - name: snowbridge-core
-  bump: patch
+  bump: minor
 - name: snowbridge-test-utils
-  bump: patch
+  bump: minor
 - name: bridge-hub-westend-integration-tests
   bump: patch
 - name: asset-hub-westend-runtime
-  bump: patch
+  bump: minor
 - name: bridge-hub-westend-runtime
-  bump: patch
+  bump: minor
