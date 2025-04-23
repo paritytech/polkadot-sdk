@@ -18,8 +18,8 @@ use crate::{
 	tests::{snowbridge_common::snowbridge_sovereign, *},
 };
 use emulated_integration_tests_common::{
-    macros::Dmp,
-    xcm_emulator::{find_all_xcm_topic_ids, helpers::TopicIdTracker},
+	macros::Dmp,
+	xcm_emulator::{find_all_xcm_topic_ids, helpers::TopicIdTracker},
 };
 use xcm::latest::AssetTransferFilter;
 
