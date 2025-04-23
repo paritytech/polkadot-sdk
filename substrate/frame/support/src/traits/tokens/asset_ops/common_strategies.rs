@@ -380,11 +380,11 @@ pub struct ConfigValue<Inspect: InspectStrategy>(pub Inspect::Value);
 /// This trait marks a config value to be used in the [WithConfig] strategy.
 /// It is used to make compiler error messages clearer if invalid type is supplied into the
 /// [WithConfig].
-pub trait IsConfigValue {}
-impl<Inspect: InspectStrategy> IsConfigValue for ConfigValue<Inspect> {}
+pub trait ConfigValueMarker {}
+impl<Inspect: InspectStrategy> ConfigValueMarker for ConfigValue<Inspect> {}
 
 #[impl_trait_for_tuples::impl_for_tuples(1, 8)]
-impl IsConfigValue for Tuple {}
+impl ConfigValueMarker for Tuple {}
 
 /// This trait converts the given [InspectStrategy] into the config value to be used in the
 /// [WithConfig] strategy.
@@ -434,26 +434,26 @@ impl<T: InspectStrategy> WithConfigValue for T {
 /// ))
 /// ```
 #[derive(RuntimeDebug, PartialEq, Eq, Clone, Encode, Decode, MaxEncodedLen, TypeInfo)]
-pub struct WithConfig<ConfigValue: IsConfigValue, Extra = ()> {
+pub struct WithConfig<ConfigValue: ConfigValueMarker, Extra = ()> {
 	pub config: ConfigValue,
 	pub extra: Extra,
 }
 
-impl<ConfigValue: IsConfigValue> WithConfig<ConfigValue> {
+impl<ConfigValue: ConfigValueMarker> WithConfig<ConfigValue> {
 	pub fn from(config: ConfigValue) -> Self {
 		Self { config, extra: () }
 	}
 }
-impl<ConfigValue: IsConfigValue, Extra> WithConfig<ConfigValue, Extra> {
+impl<ConfigValue: ConfigValueMarker, Extra> WithConfig<ConfigValue, Extra> {
 	pub fn new(config: ConfigValue, extra: Extra) -> Self {
 		Self { config, extra }
 	}
 }
-impl<ConfigValue: IsConfigValue, Assignment: IdAssignment> CreateStrategy
+impl<ConfigValue: ConfigValueMarker, Assignment: IdAssignment> CreateStrategy
 	for WithConfig<ConfigValue, Assignment>
 {
 	type Success = Assignment::ReportedId;
 }
-impl<ConfigValue: IsConfigValue, Extra> RestoreStrategy for WithConfig<ConfigValue, Extra> {
+impl<ConfigValue: ConfigValueMarker, Extra> RestoreStrategy for WithConfig<ConfigValue, Extra> {
 	type Success = ();
 }
