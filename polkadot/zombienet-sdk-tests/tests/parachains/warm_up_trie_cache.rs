@@ -90,8 +90,8 @@ async fn setup_network() -> Result<Network<LocalFileSystem>, anyhow::Error> {
 			p.with_id(2000)
 				.with_default_command("polkadot-parachain")
 				.with_default_image(
-					std::env::var("COL_IMAGE")
-						.unwrap_or("docker.io/paritypr/colander:latest".to_string())
+					std::env::var("CUMULUS_IMAGE")
+						.unwrap_or("docker.io/paritypr/polkadot-parachain-debug:latest".to_string())
 						.as_str(),
 				)
 				.with_chain("asset-hub-westend-local")
