@@ -20,14 +20,17 @@ use sp_keyring::Sr25519Keyring as Keyring;
 
 // Cumulus
 use emulated_integration_tests_common::{
-	accounts, build_genesis_storage, collators, xcm_emulator::ConvertLocation,
-	PenpalASiblingSovereignAccount, PenpalATeleportableAssetLocation,
-	PenpalBSiblingSovereignAccount, PenpalBTeleportableAssetLocation, RESERVABLE_ASSET_ID,
-	SAFE_XCM_VERSION, USDT_ID,
+	accounts, build_genesis_storage, collators, snowbridge::ETHER_MIN_BALANCE,
+	xcm_emulator::ConvertLocation, PenpalASiblingSovereignAccount,
+	PenpalATeleportableAssetLocation, PenpalBSiblingSovereignAccount,
+	PenpalBTeleportableAssetLocation, RESERVABLE_ASSET_ID, SAFE_XCM_VERSION, USDT_ID,
 };
 use parachains_common::{AccountId, Balance};
 use testnet_parachains_constants::rococo::snowbridge::EthereumNetwork;
-use xcm::{latest::prelude::*, opaque::latest::ROCOCO_GENESIS_HASH};
+use xcm::{
+	latest::prelude::*,
+	opaque::latest::{ROCOCO_GENESIS_HASH, WESTEND_GENESIS_HASH},
+};
 use xcm_builder::ExternalConsensusLocationsConverterFor;
 
 pub const PARA_ID: u32 = 1000;
@@ -37,12 +40,12 @@ parameter_types! {
 	pub AssetHubRococoAssetOwner: AccountId = Keyring::Alice.to_account_id();
 	pub RococoGlobalConsensusNetwork: NetworkId = NetworkId::ByGenesis(ROCOCO_GENESIS_HASH);
 	pub AssetHubRococoUniversalLocation: InteriorLocation = [GlobalConsensus(RococoGlobalConsensusNetwork::get()), Parachain(PARA_ID)].into();
-	pub EthereumSovereignAccount: AccountId = ExternalConsensusLocationsConverterFor::<
+	pub AssetHubWestendSovereignAccount: AccountId = ExternalConsensusLocationsConverterFor::<
 			AssetHubRococoUniversalLocation,
 			AccountId,
 		>::convert_location(&Location::new(
 			2,
-			[Junction::GlobalConsensus(EthereumNetwork::get())],
+			[Junction::GlobalConsensus( NetworkId::ByGenesis(WESTEND_GENESIS_HASH)), Parachain(PARA_ID)],
 		))
 		.unwrap();
 }
@@ -110,9 +113,11 @@ pub fn genesis() -> Storage {
 				// Ether
 				(
 					xcm::v5::Location::new(2, [GlobalConsensus(EthereumNetwork::get())]),
-					EthereumSovereignAccount::get(),
+					AssetHubWestendSovereignAccount::get(), /* To emulate double bridging, where
+					                                         * WAH is the owner of assets from
+					                                         * Ethereum on RAH */
 					true,
-					ED,
+					ETHER_MIN_BALANCE,
 				),
 			],
 			..Default::default()

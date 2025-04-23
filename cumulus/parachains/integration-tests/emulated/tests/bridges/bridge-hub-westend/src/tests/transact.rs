@@ -15,7 +15,7 @@
 
 use crate::{
 	create_pool_with_native_on,
-	tests::{snowbridge::CHAIN_ID, *},
+	tests::{snowbridge_common::snowbridge_sovereign, *},
 };
 use sp_core::Get;
 use xcm::latest::AssetTransferFilter;
@@ -61,7 +61,7 @@ fn transfer_and_transact_in_same_xcm(
 	let xcm_to_ah = Xcm::<()>(vec![
 		UnpaidExecution { check_origin: None, weight_limit: Unlimited },
 		DescendOrigin([PalletInstance(80)].into()), // snowbridge pallet
-		UniversalOrigin(GlobalConsensus(Ethereum { chain_id: CHAIN_ID })),
+		UniversalOrigin(GlobalConsensus(Ethereum { chain_id: SEPOLIA_ID })),
 		ReserveAssetDeposited(weth.clone().into()),
 		AliasOrigin(sender),
 		PayFees { asset: fees_for_ah },
@@ -97,19 +97,12 @@ fn transact_from_ethereum_to_penpalb_through_asset_hub() {
 	let sender = Location::new(
 		2,
 		[
-			GlobalConsensus(Ethereum { chain_id: CHAIN_ID }),
+			GlobalConsensus(Ethereum { chain_id: SEPOLIA_ID }),
 			AccountKey20 { network: None, key: ETHEREUM_BOB },
 		],
 	);
 
 	let bridged_weth = weth_at_asset_hubs();
-	AssetHubWestend::force_create_foreign_asset(
-		bridged_weth.clone(),
-		PenpalAssetOwner::get(),
-		true,
-		ASSET_MIN_BALANCE,
-		vec![],
-	);
 	PenpalB::force_create_foreign_asset(
 		bridged_weth.clone(),
 		PenpalAssetOwner::get(),
@@ -130,7 +123,7 @@ fn transact_from_ethereum_to_penpalb_through_asset_hub() {
 
 	let fee_amount_to_send: parachains_common::Balance = ASSET_HUB_WESTEND_ED * 10000;
 	let sender_chain_as_seen_by_asset_hub =
-		Location::new(2, [GlobalConsensus(Ethereum { chain_id: CHAIN_ID })]);
+		Location::new(2, [GlobalConsensus(Ethereum { chain_id: SEPOLIA_ID })]);
 
 	let sov_of_sender_on_asset_hub = AssetHubWestend::execute_with(|| {
 		AssetHubWestend::sovereign_account_id_of(sender_chain_as_seen_by_asset_hub)
@@ -143,11 +136,12 @@ fn transact_from_ethereum_to_penpalb_through_asset_hub() {
 	AssetHubWestend::fund_accounts(vec![
 		(sov_of_sender_on_asset_hub.clone().into(), ASSET_HUB_WESTEND_ED),
 		(sov_of_receiver_on_asset_hub.clone().into(), ASSET_HUB_WESTEND_ED),
+		(snowbridge_sovereign().into(), 10_000_000_000_00),
 	]);
 
 	// We create a pool between WND and WETH in AssetHub to support paying for fees with WETH.
-	let ahw_owner = AssetHubWestendSender::get();
-	create_pool_with_native_on!(AssetHubWestend, bridged_weth.clone(), true, ahw_owner);
+	let snowbridge_sovereign = snowbridge_sovereign();
+	create_pool_with_native_on!(AssetHubWestend, bridged_weth.clone(), true, snowbridge_sovereign);
 	// We also need a pool between WND and WETH on PenpalB to support paying for fees with WETH.
 	create_pool_with_native_on!(PenpalB, bridged_weth.clone(), true, PenpalAssetOwner::get());
 
@@ -168,7 +162,7 @@ fn transact_from_ethereum_to_penpalb_through_asset_hub() {
 	let foreign_asset_at_penpal_b = Location::new(
 		2,
 		[
-			GlobalConsensus(Ethereum { chain_id: CHAIN_ID }),
+			GlobalConsensus(Ethereum { chain_id: SEPOLIA_ID }),
 			AccountKey20 { network: None, key: ETHEREUM_BOB },
 		],
 	);
