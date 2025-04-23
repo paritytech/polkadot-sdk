@@ -307,7 +307,7 @@ pub trait EthExtra {
 
 		let signer = <Self::Config as Config>::AddressMapper::to_fallback_account_id(&signer);
 		let GenericTransaction { nonce, chain_id, to, value, input, gas, gas_price, .. } =
-			GenericTransaction::from_signed(tx, None);
+			GenericTransaction::from_signed(tx, crate::GAS_PRICE.into(), None);
 
 		let Some(gas) = gas else {
 			log::debug!(target: LOG_TARGET, "No gas provided");
