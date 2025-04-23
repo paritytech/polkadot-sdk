@@ -1125,7 +1125,11 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 				write_result?;
 				Ok(self.ext.last_frame_output().into())
 			},
-			Err(err) => Ok(Self::exec_error_into_return_code(err)?),
+			Err(err) => {
+				let error_code = Self::exec_error_into_return_code(err)?;
+				memory.write(output_len_ptr, &0u32.to_le_bytes())?;
+				Ok(error_code)
+			}
 		}
 	}
 
