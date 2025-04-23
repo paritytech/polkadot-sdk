@@ -6694,7 +6694,7 @@ dependencies = [
 
 [[package]]
 name = "frame-storage-access-test-runtime"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "cumulus-pallet-parachain-system",
  "sp-runtime 31.0.1",

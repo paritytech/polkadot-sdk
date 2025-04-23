@@ -1,13 +1,13 @@
 [package]
 name = "frame-storage-access-test-runtime"
-version = "0.0.0"
+version = "0.1.0"
 authors.workspace = true
 edition.workspace = true
 build = "build.rs"
 license = "Apache-2.0"
 homepage.workspace = true
 repository.workspace = true
-publish = false
+publish = true
 
 [lints]
 workspace = true
