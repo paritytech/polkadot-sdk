@@ -1297,6 +1297,8 @@ impl pallet_ah_migrator::Config for Runtime {
 	type Preimage = Preimage;
 	type SendXcm = xcm_config::XcmRouter;
 	type AhWeightInfo = (); // TODO: weights::pallet_ah_migrator::WeightInfo;
+	type AhIntraMigrationCalls = frame_support::traits::Everything; // TODO
+	type AhPostMigrationCalls = frame_support::traits::Everything; // TODO
 }
 
 // Create the runtime by composing the FRAME pallets that were previously configured.
