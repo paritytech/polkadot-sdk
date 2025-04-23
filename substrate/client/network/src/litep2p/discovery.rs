@@ -806,5 +806,72 @@ mod tests {
 				(peer_id, litep2p, discovery)
 			})
 			.collect::<Vec<_>>();
+
+		let total_peers = backends.len() as u32;
+		let remaining_peers =
+			backends.iter().map(|(peer_id, _, _)| peer_id.clone()).collect::<HashSet<_>>();
+
+		let first_peer = known_peers.iter().next().unwrap().0.clone();
+
+		// Each backend must discover the whole network.
+		let mut futures = FuturesUnordered::new();
+		let num_finished = Arc::new(AtomicU32::new(0));
+
+		for (peer_id, mut litep2p, mut discovery) in backends {
+			// Remove the local peer id from the set.
+			let mut remaining_peers = remaining_peers.clone();
+			remaining_peers.remove(&peer_id);
+
+			let num_finished = num_finished.clone();
+
+			let future = async move {
+				log::info!(target: LOG_TARGET, "{peer_id:?} starting loop");
+
+				if peer_id != first_peer {
+					log::info!(target: LOG_TARGET, "{peer_id:?} dialing {first_peer:?}");
+					litep2p.dial(&first_peer).await.unwrap();
+				}
+
+				loop {
+					// We need to keep the network alive until all peers are discovered.
+					if num_finished.load(std::sync::atomic::Ordering::Relaxed) == total_peers {
+						log::info!(target: LOG_TARGET, "{peer_id:?} all peers discovered");
+						break
+					}
+
+					tokio::select! {
+						// Drive litep2p backend forward.
+						event = litep2p.next_event() => {
+							log::info!(target: LOG_TARGET, "{peer_id:?} Litep2p event: {event:?}");
+						},
+
+						// Detect discovery events.
+						event = discovery.next() => {
+							match event.unwrap() {
+								// We have discovered the peer via kademlia and established
+								// a connection on the identify protocol.
+								DiscoveryEvent::Identified { peer, .. } => {
+									log::info!(target: LOG_TARGET, "{peer_id:?} Peer {peer} identified");
+
+									remaining_peers.remove(&peer);
+
+									if remaining_peers.is_empty() {
+										log::info!(target: LOG_TARGET, "{peer_id:?} All peers discovered");
+
+										num_finished.fetch_add(1, std::sync::atomic::Ordering::AcqRel);
+									}
+								},
+
+								event => {
+									log::info!(target: LOG_TARGET, "{peer_id:?} Discovery event: {event:?}");
+								}
+							}
+						}
+					}
+				}
+			};
+
+			futures.push(future);
+		}
 	}
 }
