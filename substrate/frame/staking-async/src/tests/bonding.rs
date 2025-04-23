@@ -137,7 +137,7 @@ fn do_not_die_when_active_is_ed() {
 			assert_ok!(Staking::unbond(RuntimeOrigin::signed(21), 999 * ed));
 
 			Session::roll_until_active_era(4);
-			assert_ok!(Staking::withdraw_unbonded(RuntimeOrigin::signed(21), 100));
+			assert_ok!(Staking::withdraw_unbonded(RuntimeOrigin::signed(21)));
 
 			// then
 			assert_eq!(
@@ -362,7 +362,7 @@ fn unbonding_works() {
 		);
 
 		// when
-		assert_ok!(Staking::withdraw_unbonded(RuntimeOrigin::signed(11), 0));
+		assert_ok!(Staking::withdraw_unbonded(RuntimeOrigin::signed(11)));
 		assert_eq!(staking_events_since_last_call(), vec![]);
 
 		// then
@@ -378,7 +378,7 @@ fn unbonding_works() {
 
 		// when
 		Session::roll_until_active_era(2);
-		assert_ok!(Staking::withdraw_unbonded(RuntimeOrigin::signed(11), 0));
+		assert_ok!(Staking::withdraw_unbonded(RuntimeOrigin::signed(11)));
 
 		// then
 		assert_eq!(
@@ -394,7 +394,7 @@ fn unbonding_works() {
 		// when
 		Session::roll_until_active_era(3);
 		let _ = staking_events_since_last_call();
-		assert_ok!(Staking::withdraw_unbonded(RuntimeOrigin::signed(11), 0));
+		assert_ok!(Staking::withdraw_unbonded(RuntimeOrigin::signed(11)));
 		assert_eq!(staking_events_since_last_call(), vec![]);
 
 		// then
@@ -411,7 +411,7 @@ fn unbonding_works() {
 		// when
 		Session::roll_until_active_era(4);
 		let _ = staking_events_since_last_call();
-		assert_ok!(Staking::withdraw_unbonded(RuntimeOrigin::signed(11), 0));
+		assert_ok!(Staking::withdraw_unbonded(RuntimeOrigin::signed(11)));
 		assert_eq!(
 			staking_events_since_last_call(),
 			vec![Event::Withdrawn { stash: 11, amount: 500 }]
@@ -483,7 +483,7 @@ fn unbonding_multi_chunk() {
 		// when
 		Session::roll_until_active_era(4);
 		let _ = staking_events_since_last_call();
-		assert_ok!(Staking::withdraw_unbonded(RuntimeOrigin::signed(11), 0));
+		assert_ok!(Staking::withdraw_unbonded(RuntimeOrigin::signed(11)));
 		assert_eq!(
 			staking_events_since_last_call(),
 			vec![Event::Withdrawn { stash: 11, amount: 500 }]
@@ -503,7 +503,7 @@ fn unbonding_multi_chunk() {
 		// when
 		Session::roll_until_active_era(5);
 		let _ = staking_events_since_last_call();
-		assert_ok!(Staking::withdraw_unbonded(RuntimeOrigin::signed(11), 0));
+		assert_ok!(Staking::withdraw_unbonded(RuntimeOrigin::signed(11)));
 		assert_eq!(
 			staking_events_since_last_call(),
 			vec![Event::Withdrawn { stash: 11, amount: 250 }]
@@ -542,7 +542,7 @@ fn full_unbonding_works() {
 		let _ = staking_events_since_last_call();
 
 		// done
-		assert_ok!(Staking::withdraw_unbonded(RuntimeOrigin::signed(11), 0));
+		assert_ok!(Staking::withdraw_unbonded(RuntimeOrigin::signed(11)));
 		assert_eq!(
 			staking_events_since_last_call(),
 			vec![Event::StakerRemoved { stash: 11 }, Event::Withdrawn { stash: 11, amount: 1000 }]
@@ -931,14 +931,14 @@ fn bond_with_no_staked_value() {
 			Session::roll_until_active_era(3);
 
 			// not yet removed.
-			assert_ok!(Staking::withdraw_unbonded(RuntimeOrigin::signed(1), 0));
+			assert_ok!(Staking::withdraw_unbonded(RuntimeOrigin::signed(1)));
 			assert!(Staking::ledger(1.into()).is_ok());
 			assert_eq!(pallet_balances::Holds::<Test>::get(&1)[0].amount, 5);
 
 			Session::roll_until_active_era(4);
 
 			// poof. Account 1 is removed from the staking system.
-			assert_ok!(Staking::withdraw_unbonded(RuntimeOrigin::signed(1), 0));
+			assert_ok!(Staking::withdraw_unbonded(RuntimeOrigin::signed(1)));
 			assert!(Staking::ledger(1.into()).is_err());
 			assert_eq!(pallet_balances::Holds::<Test>::get(&1).len(), 0);
 		});
@@ -1039,7 +1039,7 @@ fn restricted_accounts_can_only_withdraw() {
 		Session::roll_until_active_era(5);
 
 		// alice can withdraw now
-		assert_ok!(Staking::withdraw_unbonded(RuntimeOrigin::signed(alice), 0));
+		assert_ok!(Staking::withdraw_unbonded(RuntimeOrigin::signed(alice)));
 
 		// she still cannot bond
 		assert_noop!(
@@ -1063,7 +1063,7 @@ fn restricted_accounts_can_only_withdraw() {
 
 		// bob can withdraw as well.
 		Session::roll_until_active_era(6);
-		assert_ok!(Staking::withdraw_unbonded(RuntimeOrigin::signed(bob), 0));
+		assert_ok!(Staking::withdraw_unbonded(RuntimeOrigin::signed(bob)));
 	})
 }
 
@@ -1440,7 +1440,7 @@ mod reap {
 
 				// stash is not reapable
 				assert_noop!(
-					Staking::reap_stash(RuntimeOrigin::signed(20), 11, 0),
+					Staking::reap_stash(RuntimeOrigin::signed(20), 11),
 					Error::<Test>::FundedTarget
 				);
 
@@ -1449,7 +1449,7 @@ mod reap {
 				Ledger::<Test>::insert(11, StakingLedger::<Test>::new(11, 5));
 
 				// reap-able
-				assert_ok!(Staking::reap_stash(RuntimeOrigin::signed(20), 11, 0));
+				assert_ok!(Staking::reap_stash(RuntimeOrigin::signed(20), 11));
 
 				// then
 				assert!(!<Ledger<Test>>::contains_key(&11));
@@ -1478,7 +1478,7 @@ mod reap {
 
 				// stash is not reapable
 				assert_noop!(
-					Staking::reap_stash(RuntimeOrigin::signed(20), 11, 0),
+					Staking::reap_stash(RuntimeOrigin::signed(20), 11),
 					Error::<Test>::FundedTarget
 				);
 
@@ -1487,7 +1487,7 @@ mod reap {
 				Ledger::<Test>::insert(11, StakingLedger::<Test>::new(11, 0));
 
 				// reap-able
-				assert_ok!(Staking::reap_stash(RuntimeOrigin::signed(20), 11, 0));
+				assert_ok!(Staking::reap_stash(RuntimeOrigin::signed(20), 11));
 
 				// then
 				assert!(!<Ledger<Test>>::contains_key(&11));

@@ -422,8 +422,7 @@ mod staking_interface {
 
 			assert_eq!(Staking::bonded(&11), Some(11));
 
-			// todo(ank4n): remove slashing span arg
-			assert_ok!(Staking::withdraw_unbonded(RuntimeOrigin::signed(11), 0));
+			assert_ok!(Staking::withdraw_unbonded(RuntimeOrigin::signed(11)));
 		});
 	}
 
@@ -466,7 +465,7 @@ mod staking_interface {
 				Session::roll_until_active_era(4);
 
 				// withdraw unbonded
-				assert_ok!(Staking::withdraw_unbonded(RuntimeOrigin::signed(11), 0));
+				assert_ok!(Staking::withdraw_unbonded(RuntimeOrigin::signed(11)));
 
 				// empty stash has been reaped
 				assert!(!<Ledger<Test>>::contains_key(&11));
@@ -784,10 +783,10 @@ mod staking_unchecked {
 				assert_eq!(SlashObserver::get().get(&101).unwrap(), &nominator_stake);
 
 				// validator can be reaped.
-				assert_ok!(Staking::reap_stash(RuntimeOrigin::signed(10), 11, u32::MAX));
+				assert_ok!(Staking::reap_stash(RuntimeOrigin::signed(10), 11));
 				// nominator is a virtual staker and cannot be reaped.
 				assert_noop!(
-					Staking::reap_stash(RuntimeOrigin::signed(10), 101, u32::MAX),
+					Staking::reap_stash(RuntimeOrigin::signed(10), 101),
 					Error::<Test>::VirtualStakerNotAllowed
 				);
 			})

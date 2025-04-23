@@ -430,7 +430,7 @@ mod paged_on_initialize_era_election_planner {
 
 				// force unstake of 31 to ensure the election results of the next era are
 				// different than genesis.
-				assert_ok!(Staking::force_unstake(RuntimeOrigin::root(), 31, 0));
+				assert_ok!(Staking::force_unstake(RuntimeOrigin::root(), 31));
 
 				//  use all registered validators as potential targets.
 				let expected_elected = vec![11, 21];

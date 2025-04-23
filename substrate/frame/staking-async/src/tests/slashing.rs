@@ -616,11 +616,7 @@ fn garbage_collection_after_slashing() {
 			// Non staked balance is not touched.
 			assert_eq!(asset::total_balance::<T>(&11), ExistentialDeposit::get());
 
-			// todo(ank4n): remove slashing span.
-			assert_ok!(Staking::reap_stash(RuntimeOrigin::signed(20), 11, 0));
-
-			assert!(SlashingSpans::<T>::get(&11).is_none());
-			assert_eq!(SpanSlash::<T>::get(&(11, 0)).amount(), &0);
+			assert_ok!(Staking::reap_stash(RuntimeOrigin::signed(20), 11));
 		})
 }
 
@@ -774,7 +770,6 @@ fn staker_cannot_bail_deferred_slash() {
 			// and cannot yet unbond:
 			assert_storage_noop!(assert!(Staking::withdraw_unbonded(
 				RuntimeOrigin::signed(101),
-				0
 			)
 			.is_ok()));
 
