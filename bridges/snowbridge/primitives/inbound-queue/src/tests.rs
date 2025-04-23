@@ -95,7 +95,7 @@ fn test_convert_send_token_with_weth() {
 	const FEE: u128 = 1_000;
 	const ACCOUNT_ID: [u8; 32] = [0xBA; 32];
 	const MESSAGE: VersionedMessage = VersionedMessage::V1(MessageV1 {
-		chain_id: CHAIN_ID,
+		chain_id: SEPOLIA_ID,
 		command: Command::SendToken {
 			token: WETH,
 			destination: Destination::AccountId32 { id: ACCOUNT_ID },
@@ -132,7 +132,7 @@ fn test_convert_send_token_with_eth() {
 	const FEE: u128 = 1_000;
 	const ACCOUNT_ID: [u8; 32] = [0xBA; 32];
 	const MESSAGE: VersionedMessage = VersionedMessage::V1(MessageV1 {
-		chain_id: CHAIN_ID,
+		chain_id: SEPOLIA_ID,
 		command: Command::SendToken {
 			token: ETH,
 			destination: Destination::AccountId32 { id: ACCOUNT_ID },

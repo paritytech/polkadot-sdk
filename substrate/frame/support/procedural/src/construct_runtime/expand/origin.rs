@@ -107,17 +107,6 @@ pub fn expand_outer_origin(
 			filter: #scrate::__private::Rc<#scrate::__private::Box<dyn Fn(&<#runtime as #system_path::Config>::RuntimeCall) -> bool>>,
 		}
 
-		#[cfg(not(feature = "std"))]
-		impl core::fmt::Debug for RuntimeOrigin {
-			fn fmt(
-				&self,
-				fmt: &mut core::fmt::Formatter,
-			) -> core::result::Result<(), core::fmt::Error> {
-				fmt.write_str("<wasm:stripped>")
-			}
-		}
-
-		#[cfg(feature = "std")]
 		impl core::fmt::Debug for RuntimeOrigin {
 			fn fmt(
 				&self,
@@ -201,7 +190,7 @@ pub fn expand_outer_origin(
 
 		#[derive(
 			Clone, PartialEq, Eq,
-			#scrate::__private::RuntimeDebug,
+			#scrate::__private::Debug,
 			#scrate::__private::codec::Encode,
 			#scrate::__private::codec::Decode,
 			#scrate::__private::codec::DecodeWithMemTracking,
