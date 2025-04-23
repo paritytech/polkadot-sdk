@@ -16,10 +16,7 @@
 
 //! The actual implementation of the validate block functionality.
 
-use super::{
-	trie_cache, trie_recorder, MemoryOptimizedValidationParams, StorageAccessParams,
-	StorageAccessPayload,
-};
+use super::{trie_cache, trie_recorder, MemoryOptimizedValidationParams};
 use cumulus_primitives_core::{
 	relay_chain::Hash as RHash, ParachainBlockData, PersistedValidationData,
 };
@@ -27,7 +24,6 @@ use cumulus_primitives_parachain_inherent::ParachainInherentData;
 use polkadot_parachain_primitives::primitives::{
 	HeadData, RelayChainBlockNumber, ValidationResult,
 };
-use sp_state_machine::Backend;
 
 use alloc::vec::Vec;
 use codec::{Decode, Encode};
@@ -535,6 +531,8 @@ fn host_offchain_index_clear(_key: &[u8]) {}
 #[doc(hidden)]
 #[cfg(feature = "runtime-benchmarks")]
 pub fn proceed_storage_access<B: BlockT>(mut params: &[u8]) {
+	use super::{StorageAccessParams, StorageAccessPayload};
+
 	let StorageAccessParams { state_root, storage_proof, payload, is_dry_run } =
 		StorageAccessParams::<B>::decode(&mut params)
 			.expect("Invalid arguments to `validate_block`.");
