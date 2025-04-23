@@ -1177,7 +1177,8 @@ fn send_weth_from_ethereum_to_ahw_to_ahr_back_to_ahw_and_ethereum() {
 	let sender = AssetHubWestendSender::get();
 	BridgeHubWestend::fund_para_sovereign(AssetHubWestend::para_id(), INITIAL_FUND);
 	BridgeHubRococo::fund_para_sovereign(AssetHubRococo::para_id(), INITIAL_FUND);
-	let ethereum_destination = Location::new(2, [GlobalConsensus(Ethereum { chain_id: CHAIN_ID })]);
+	let ethereum_destination =
+		Location::new(2, [GlobalConsensus(Ethereum { chain_id: SEPOLIA_ID })]);
 	let ethereum_sovereign: AccountId = AssetHubWestend::execute_with(|| {
 		ExternalConsensusLocationsConverterFor::<
 			AssetHubWestendUniversalLocation,
@@ -1216,7 +1217,7 @@ fn send_weth_from_ethereum_to_ahw_to_ahr_back_to_ahw_and_ethereum() {
 
 		// Construct SendToken message and sent to inbound queue
 		let message = VersionedMessage::V1(MessageV1 {
-			chain_id: CHAIN_ID,
+			chain_id: SEPOLIA_ID,
 			command: Command::SendToken {
 				token: WETH.into(),
 				destination: Destination::AccountId32 { id: sender.clone().into() },
@@ -1417,7 +1418,7 @@ fn send_weth_from_ethereum_to_ahw_to_ahr_back_to_ahw_and_ethereum() {
 			id: AssetId(Location::new(
 				2,
 				[
-					GlobalConsensus(Ethereum { chain_id: CHAIN_ID }),
+					GlobalConsensus(Ethereum { chain_id: SEPOLIA_ID }),
 					AccountKey20 { network: None, key: WETH },
 				],
 			)),
@@ -1428,7 +1429,7 @@ fn send_weth_from_ethereum_to_ahw_to_ahr_back_to_ahw_and_ethereum() {
 
 		let destination = VersionedLocation::from(Location::new(
 			2,
-			[GlobalConsensus(Ethereum { chain_id: CHAIN_ID })],
+			[GlobalConsensus(Ethereum { chain_id: SEPOLIA_ID })],
 		));
 
 		let beneficiary = VersionedLocation::from(Location::new(
