@@ -263,7 +263,7 @@ impl<Config: config::Config> ExecuteXcm<Config::RuntimeCall> for XcmExecutor<Con
 
 		if let Some(SetTopic(topic_id)) = message.last() {
 			let id_h256: sp_core::H256 = topic_id.into();
-				tracing::debug!(
+			tracing::debug!(
 				target: "xcm::execute",
 				?topic_id,
 				?id_h256,
