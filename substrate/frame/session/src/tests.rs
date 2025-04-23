@@ -550,7 +550,8 @@ fn purge_keys_should_unreserve_funds() {
 		let reserved_balance_after_purge = Balances::reserved_balance(&account_id);
 		assert_eq!(reserved_balance_after_purge, reserved_balance_before_purge - deposit);
 	});
-  
+}
+
 mod disabling_byzantine_threshold {
 	use super::*;
 	use crate::disabling::{DisablingStrategy, UpToLimitDisablingStrategy};
