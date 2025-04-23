@@ -1669,6 +1669,12 @@ impl<T: Config> Pallet<T> {
 	pub(crate) fn do_try_state(_now: BlockNumberFor<T>) -> Result<(), TryRuntimeError> {
 		session_rotation::Rotator::<T>::do_try_state()?;
 		session_rotation::Eras::<T>::do_try_state()?;
+
+		use frame_support::traits::fungible::Inspect;
+		if T::CurrencyToVote::will_downscale(T::Currency::total_issuance()).map_or(false, |x| x) {
+			log!(warn, "total issuance will cause T::CurrencyToVote to downscale -- report to maintainers.")
+		}
+
 		Self::check_ledgers()?;
 		Self::check_bonded_consistency()?;
 		Self::check_payees()?;
