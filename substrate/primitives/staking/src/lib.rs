@@ -158,23 +158,6 @@ pub trait OnStakingUpdate<AccountId, Balance> {
 	fn on_withdraw(_stash: &AccountId, _amount: Balance) {}
 }
 
-/// A generic virtual staking event listener.
-///
-/// Note that the interface is designed in a way that the events are fired post-action, so any
-/// pre-action data that is needed needs to be passed to interface methods. The rest of the data can
-/// be retrieved by using `StakingInterface`.
-#[impl_trait_for_tuples::impl_for_tuples(10)]
-pub trait OnVirtualStakingUpdate<AccountId, Balance> {
-	fn on_virtual_nominator_payout(
-		_stash: &AccountId,
-		_dest: &AccountId,
-		_amount: Balance,
-		_validator: &AccountId,
-		_era: EraIndex,
-		_page: Page
-	) {}
-}
-
 /// A generic representation of a staking implementation.
 ///
 /// This interface uses the terminology of NPoS, but it is aims to be generic enough to cover other

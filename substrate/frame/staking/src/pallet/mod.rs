@@ -292,11 +292,6 @@ pub mod pallet {
 		#[pallet::no_default_bounds]
 		type EventListeners: sp_staking::OnStakingUpdate<Self::AccountId, BalanceOf<Self>>;
 
-		/// Something that listens to staking updates for virtual stakers and performs actions based
-		/// on the data it receives.
-		#[pallet::no_default_bounds]
-		type VirtualEventListeners: sp_staking::OnVirtualStakingUpdate<Self::AccountId, BalanceOf<Self>>;
-
 		/// `DisablingStragegy` controls how validators are disabled
 		#[pallet::no_default_bounds]
 		type DisablingStrategy: DisablingStrategy<Self>;
@@ -347,7 +342,6 @@ pub mod pallet {
 			type MaxUnlockingChunks = ConstU32<32>;
 			type MaxControllersInDeprecationBatch = ConstU32<100>;
 			type EventListeners = ();
-			type VirtualEventListeners = ();
 			type DisablingStrategy = crate::UpToLimitDisablingStrategy;
 			#[cfg(feature = "std")]
 			type BenchmarkingConfig = crate::TestBenchmarkingConfig;

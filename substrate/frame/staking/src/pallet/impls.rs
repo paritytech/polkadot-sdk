@@ -41,7 +41,7 @@ use sp_runtime::{
 	},
 	ArithmeticError, Perbill, Percent,
 };
-use sp_staking::{currency_to_vote::CurrencyToVote, offence::{OffenceDetails, OnOffenceHandler}, EraIndex, OnStakingUpdate, OnVirtualStakingUpdate, Page, SessionIndex, Stake, StakingAccount::{self, Controller, Stash}, StakingInterface};
+use sp_staking::{currency_to_vote::CurrencyToVote, offence::{OffenceDetails, OnOffenceHandler}, EraIndex, OnStakingUpdate, Page, SessionIndex, Stake, StakingAccount::{self, Controller, Stash}, StakingInterface};
 
 use crate::{
 	election_size_tracker::StaticTracker, log, slashing, weights::WeightInfo, ActiveEraInfo,
@@ -386,18 +386,6 @@ impl<T: Config> Pallet<T> {
 					page,
 				};
 				Self::deposit_event(e);
-				if let RewardDestination::Account(dest_account) = dest {
-					if Self::is_virtual_staker(&nominator.who) {
-						T::VirtualEventListeners::on_virtual_nominator_payout(
-							&nominator.who,
-							&dest_account,
-							imbalance.peek(),
-							&validator_stash,
-							era,
-							page,
-						);
-					}
-				}
 				total_imbalance.subsume(imbalance);
 			}
 		}
