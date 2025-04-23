@@ -11539,6 +11539,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-bridge-proof-root-sync"
+version = "0.1.0"
+dependencies = [
+ "bp-parachains",
+ "bp-polkadot-core",
+ "bp-runtime",
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "impl-trait-for-tuples",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-io 30.0.0",
+ "tracing",
+]
+
+[[package]]
 name = "pallet-bridge-relayers"
 version = "0.7.0"
 dependencies = [
