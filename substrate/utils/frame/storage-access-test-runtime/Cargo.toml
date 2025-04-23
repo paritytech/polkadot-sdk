@@ -29,4 +29,5 @@ std = [
 ]
 runtime-benchmarks = [
 	"cumulus-pallet-parachain-system/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
 ]
