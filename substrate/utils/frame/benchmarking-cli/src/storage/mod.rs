@@ -51,7 +51,7 @@ pub(crate) fn get_wasm_module() -> Box<dyn sc_executor_common::wasm_runtime::Was
 	};
 
 	Box::new(
-		sc_executor_wasmtime::create_runtime::<sp_io::SubstrateHostFunctions>(blob, DEFAULT_CONFIG)
+		sc_executor_wasmtime::create_runtime::<sp_io::SubstrateHostFunctions>(blob, config)
 			.expect("Unable to create wasm module."),
 	)
 }
