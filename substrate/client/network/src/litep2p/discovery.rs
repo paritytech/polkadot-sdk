@@ -761,7 +761,7 @@ mod tests {
 
 				let (discovery, ping_config, identify_config, kademlia_config, _mdns) =
 					Discovery::new(
-						peer_id.clone(),
+						peer_id,
 						&NetworkConfiguration::new_local(),
 						genesis_hash,
 						fork_id,
@@ -793,11 +793,11 @@ mod tests {
 				// Except the first peer, all other peers know the first peer addresses.
 				if i == 0 {
 					log::info!(target: LOG_TARGET, "First peer is {peer_id:?} with addresses {addresses:?}");
-					known_peers.insert(peer_id.clone(), addresses.clone());
+					known_peers.insert(peer_id, addresses.clone());
 				} else {
 					let (peer, addresses) = known_peers.iter().next().unwrap();
 
-					let result = litep2p.add_known_address(peer.clone(), addresses.into_iter().cloned());
+					let result = litep2p.add_known_address(*peer, addresses.into_iter().cloned());
 
 					log::info!(target: LOG_TARGET, "{peer_id:?}: Adding known peer {peer:?} with addresses {addresses:?} result={result:?}");
 
@@ -809,9 +809,9 @@ mod tests {
 
 		let total_peers = backends.len() as u32;
 		let remaining_peers =
-			backends.iter().map(|(peer_id, _, _)| peer_id.clone()).collect::<HashSet<_>>();
+			backends.iter().map(|(peer_id, _, _)| *peer_id).collect::<HashSet<_>>();
 
-		let first_peer = known_peers.iter().next().unwrap().0.clone();
+		let first_peer = *known_peers.iter().next().unwrap().0;
 
 		// Each backend must discover the whole network.
 		let mut futures = FuturesUnordered::new();
