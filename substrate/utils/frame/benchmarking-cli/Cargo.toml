@@ -83,6 +83,7 @@ westend-runtime = { workspace = true, default-features = true }
 [features]
 default = []
 runtime-benchmarks = [
+	"cumulus-pallet-parachain-system/runtime-benchmarks",
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-storage-access-test-runtime/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
@@ -93,6 +94,5 @@ runtime-benchmarks = [
 	"sc-service/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"westend-runtime/runtime-benchmarks",
-	"cumulus-pallet-parachain-system/runtime-benchmarks",
 ]
 rocksdb = ["sc-cli/rocksdb", "sc-client-db/rocksdb"]

@@ -25,8 +25,8 @@ default = ["std"]
 no_std = []
 std = [
 	"cumulus-pallet-parachain-system/std",
-	"substrate-wasm-builder",
 	"sp-runtime/std",
+	"substrate-wasm-builder",
 ]
 runtime-benchmarks = [
 	"cumulus-pallet-parachain-system/runtime-benchmarks",
