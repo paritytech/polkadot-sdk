@@ -83,7 +83,7 @@ use scale_info::TypeInfo;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 use sp_arithmetic::{traits::Zero, Normalizable, PerThing, Rational128, ThresholdOrd};
-use sp_core::{bounded::BoundedVec, RuntimeDebug};
+use sp_core::RuntimeDebug;
 
 #[cfg(test)]
 mod mock;
@@ -110,7 +110,16 @@ pub use reduce::reduce;
 pub use traits::{IdentifierT, PerThing128};
 
 /// The errors that might occur in this crate and `frame-election-provider-solution-type`.
-#[derive(Eq, PartialEq, RuntimeDebug)]
+#[derive(
+	Eq,
+	PartialEq,
+	RuntimeDebug,
+	Clone,
+	codec::Encode,
+	codec::Decode,
+	codec::DecodeWithMemTracking,
+	scale_info::TypeInfo,
+)]
 pub enum Error {
 	/// While going from solution indices to ratio, the weight of all the edges has gone above the
 	/// total.
@@ -122,11 +131,13 @@ pub enum Error {
 	/// One of the page indices was invalid.
 	SolutionInvalidPageIndex,
 	/// An error occurred in some arithmetic operation.
-	ArithmeticError(&'static str),
+	ArithmeticError,
 	/// The data provided to create support map was invalid.
 	InvalidSupportEdge,
 	/// The number of voters is bigger than the `MaxVoters` bound.
 	TooManyVoters,
+	/// Some bounds were exceeded when converting election types.
+	BoundsExceeded,
 }
 
 /// A type which is used in the API of this crate as a numeric weight of a vote, most often the
@@ -456,17 +467,18 @@ impl<AccountId> Default for Support<AccountId> {
 	}
 }
 
+impl<AccountId> Backings for &Support<AccountId> {
+	fn total(&self) -> ExtendedBalance {
+		self.total
+	}
+}
+
 /// A target-major representation of the the election outcome.
 ///
 /// Essentially a flat variant of [`SupportMap`].
 ///
 /// The main advantage of this is that it is encodable.
 pub type Supports<A> = Vec<(A, Support<A>)>;
-
-/// Same as `Supports` but bounded by `B`.
-///
-/// To note, the inner `Support` is still unbounded.
-pub type BoundedSupports<A, B> = BoundedVec<(A, Support<A>), B>;
 
 /// Linkage from a winner to their [`Support`].
 ///
@@ -491,8 +503,7 @@ pub fn to_support_map<AccountId: IdentifierT>(
 	supports
 }
 
-/// Same as [`to_support_map`] except it returns a
-/// flat vector.
+/// Same as [`to_support_map`] except it returns a flat vector.
 pub fn to_supports<AccountId: IdentifierT>(
 	assignments: &[StakedAssignment<AccountId>],
 ) -> Supports<AccountId> {
@@ -511,23 +522,34 @@ pub trait EvaluateSupport {
 
 impl<AccountId: IdentifierT> EvaluateSupport for Supports<AccountId> {
 	fn evaluate(&self) -> ElectionScore {
-		let mut minimal_stake = ExtendedBalance::max_value();
-		let mut sum_stake: ExtendedBalance = Zero::zero();
-		// NOTE: The third element might saturate but fine for now since this will run on-chain and
-		// need to be fast.
-		let mut sum_stake_squared: ExtendedBalance = Zero::zero();
-
-		for (_, support) in self {
-			sum_stake = sum_stake.saturating_add(support.total);
-			let squared = support.total.saturating_mul(support.total);
-			sum_stake_squared = sum_stake_squared.saturating_add(squared);
-			if support.total < minimal_stake {
-				minimal_stake = support.total;
-			}
-		}
-
-		ElectionScore { minimal_stake, sum_stake, sum_stake_squared }
+		evaluate_support(self.iter().map(|(_, s)| s))
 	}
+}
+
+/// Generic representation of a support.
+pub trait Backings {
+	/// The total backing of an individual target.
+	fn total(&self) -> ExtendedBalance;
+}
+
+/// General evaluation of a list of backings that returns an election score.
+pub fn evaluate_support(backings: impl Iterator<Item = impl Backings>) -> ElectionScore {
+	let mut minimal_stake = ExtendedBalance::max_value();
+	let mut sum_stake: ExtendedBalance = Zero::zero();
+	// NOTE: The third element might saturate but fine for now since this will run on-chain and
+	// need to be fast.
+	let mut sum_stake_squared: ExtendedBalance = Zero::zero();
+
+	for support in backings {
+		sum_stake = sum_stake.saturating_add(support.total());
+		let squared = support.total().saturating_mul(support.total());
+		sum_stake_squared = sum_stake_squared.saturating_add(squared);
+		if support.total() < minimal_stake {
+			minimal_stake = support.total();
+		}
+	}
+
+	ElectionScore { minimal_stake, sum_stake, sum_stake_squared }
 }
 
 /// Converts raw inputs to types used in this crate.
