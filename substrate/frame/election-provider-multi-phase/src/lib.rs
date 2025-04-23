@@ -1664,8 +1664,14 @@ impl<T: Config> Pallet<T> {
 			.or_else(|_| {
 				log!(warn, "No solution queued, falling back to instant fallback.",);
 
-				#[cfg(feature = "runtime-benchmarks")]
-				Self::asap();
+				// At block zero (genesis) we need to prepare the snapshot just like we do in
+				// benchmarks. This ensures the fallback can run successfully even at the very
+				// first block.
+				if cfg!(feature = "runtime-benchmarks") ||
+					frame_system::Pallet::<T>::block_number().is_zero()
+				{
+					Self::asap()
+				}
 
 				let (voters, targets, desired_targets) = if T::Fallback::bother() {
 					let RoundSnapshot { voters, targets } = Snapshot::<T>::get().ok_or(
@@ -1708,6 +1714,23 @@ impl<T: Config> Pallet<T> {
 			.fold(Zero::zero(), |acc, next| acc + next.voters.len() as u32);
 		let desired_targets = supports.len() as u32;
 		Self::register_weight(T::WeightInfo::elect_queued(active_voters, desired_targets));
+	}
+
+	/// Prepare snapshot for fallback election. This is normally only called during benchmarking,
+	/// but we also call it at genesis block (block 0) to ensure the fallback can run.
+	///
+	/// Ideally, we should rely on the session manager to be the solely responsbile for handling
+	/// genesis block and calling `new_session` or `new_session_genesis` accordingly instead of
+	/// handling this here.
+	fn asap() {
+		// prepare our snapshot so we can "hopefully" run a fallback.
+		if !Snapshot::<T>::exists() {
+			Self::create_snapshot()
+				.inspect_err(|e| {
+					crate::log!(error, "failed to create snapshot while asap-preparing: {:?}", e)
+				})
+				.unwrap()
+		}
 	}
 }
 
@@ -1845,18 +1868,6 @@ impl<T: Config> ElectionProvider for Pallet<T> {
 			(Phase::Unsigned(_), true) => Ok(true),
 			(Phase::Off, _) => Err(()),
 			_ => Ok(false),
-		}
-	}
-
-	#[cfg(feature = "runtime-benchmarks")]
-	fn asap() {
-		// prepare our snapshot so we can "hopefully" run a fallback.
-		if !Snapshot::<T>::exists() {
-			Self::create_snapshot()
-				.inspect_err(|e| {
-					crate::log!(error, "failed to create snapshot while asap-preparing: {:?}", e)
-				})
-				.unwrap()
 		}
 	}
 }

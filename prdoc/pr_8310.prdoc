@@ -1,0 +1,15 @@
+title: 'epm: enhance fallback election handling at genesis block'
+doc:
+  - audience: Runtime Dev
+    description: |-
+      Update the `asap() function to prepare the snapshot for fallback elections at block zero, ensuring successful execution even at genesis.
+      Modified the fallback logic to include a check for the genesis block alongside the existing runtime benchmarks feature.
+
+      This change improves the robustness of the election provider by ensuring that fallback elections can be executed from the very first block.
+      While the solution has the benefit to be limited in scope and not invasive, a better fix would be probably not to rely on the asap() method at all for genesis block but ensure that the session manager correctly calls new_session() or new_session_genesis() respectively.
+      
+      Fix #8302 as introduced by #8127.
+      Note also that the regression described in #8302 does NOT affect any running chain, but mostly testing.
+crates:
+- name: pallet-election-provider-multi-phase
+  bump: patch
