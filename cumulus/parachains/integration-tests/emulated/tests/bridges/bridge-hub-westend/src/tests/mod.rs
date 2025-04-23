@@ -44,7 +44,7 @@ pub(crate) fn asset_hub_rococo_location() -> Location {
 	)
 }
 
-pub(crate) fn asset_hub_westend_location() -> Location {
+pub(crate) fn asset_hub_westend_global_location() -> Location {
 	Location::new(
 		2,
 		[

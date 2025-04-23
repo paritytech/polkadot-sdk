@@ -22,7 +22,7 @@ use crate::{
 	},
 	tests::{
 		assert_bridge_hub_rococo_message_received, assert_bridge_hub_westend_message_accepted,
-		asset_hub_rococo_location, asset_hub_westend_location, bridged_wnd_at_ah_rococo,
+		asset_hub_rococo_location, asset_hub_westend_global_location, bridged_wnd_at_ah_rococo,
 		create_foreign_on_ah_rococo,
 		penpal_emulated_chain::penpal_runtime,
 		snowbridge_common::{
@@ -1198,11 +1198,11 @@ fn send_weth_from_ethereum_to_ahw_to_ahr_back_to_ahw_and_ethereum() {
 	);
 
 	// set XCM versions
-	BridgeHubWestend::force_xcm_version(asset_hub_westend_location(), XCM_VERSION);
+	BridgeHubWestend::force_xcm_version(asset_hub_westend_global_location(), XCM_VERSION);
 	BridgeHubWestend::force_xcm_version(asset_hub_rococo_location(), XCM_VERSION);
 	AssetHubWestend::force_xcm_version(asset_hub_rococo_location(), XCM_VERSION);
-	AssetHubRococo::force_xcm_version(asset_hub_westend_location(), XCM_VERSION);
-	BridgeHubRococo::force_xcm_version(asset_hub_westend_location(), XCM_VERSION);
+	AssetHubRococo::force_xcm_version(asset_hub_westend_global_location(), XCM_VERSION);
+	BridgeHubRococo::force_xcm_version(asset_hub_westend_global_location(), XCM_VERSION);
 	BridgeHubRococo::force_xcm_version(asset_hub_rococo_location(), XCM_VERSION);
 
 	// Bridge token from Ethereum to AHP
@@ -1336,7 +1336,7 @@ fn send_weth_from_ethereum_to_ahw_to_ahr_back_to_ahw_and_ethereum() {
 	assert_ok!(AssetHubRococo::execute_with(|| {
 		<AssetHubRococo as AssetHubRococoPallet>::PolkadotXcm::transfer_assets_using_type_and_then(
 			<AssetHubRococo as Chain>::RuntimeOrigin::signed(AssetHubRococoReceiver::get()),
-			bx!(asset_hub_westend_location().into()),
+			bx!(asset_hub_westend_global_location().into()),
 			bx!(assets.into()),
 			bx!(TransferType::DestinationReserve),
 			bx!(fees_asset.into()),
