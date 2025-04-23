@@ -83,6 +83,8 @@ pallet-root-testing = { workspace = true }
 pallet-scheduler = { workspace = true }
 pallet-session = { workspace = true }
 pallet-staking = { workspace = true }
+pallet-staking-async-ah-client = { workspace = true }
+pallet-staking-async-rc-client = { workspace = true }
 pallet-staking-runtime-api = { workspace = true }
 pallet-sudo = { workspace = true }
 pallet-timestamp = { workspace = true }
@@ -180,6 +182,8 @@ std = [
 	"pallet-scheduler/std",
 	"pallet-session-benchmarking?/std",
 	"pallet-session/std",
+	"pallet-staking-async-ah-client/std",
+	"pallet-staking-async-rc-client/std",
 	"pallet-staking-runtime-api/std",
 	"pallet-staking/std",
 	"pallet-sudo/std",
@@ -264,6 +268,8 @@ runtime-benchmarks = [
 	"pallet-referenda/runtime-benchmarks",
 	"pallet-scheduler/runtime-benchmarks",
 	"pallet-session-benchmarking/runtime-benchmarks",
+	"pallet-staking-async-ah-client/runtime-benchmarks",
+	"pallet-staking-async-rc-client/runtime-benchmarks",
 	"pallet-staking/runtime-benchmarks",
 	"pallet-sudo/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
@@ -323,6 +329,8 @@ try-runtime = [
 	"pallet-root-testing/try-runtime",
 	"pallet-scheduler/try-runtime",
 	"pallet-session/try-runtime",
+	"pallet-staking-async-ah-client/try-runtime",
+	"pallet-staking-async-rc-client/try-runtime",
 	"pallet-staking/try-runtime",
 	"pallet-sudo/try-runtime",
 	"pallet-timestamp/try-runtime",

@@ -136,9 +136,6 @@ pub mod pallet {
 		/// The identifier type for an offchain worker.
 		type AuthorityId: AppCrypto<Self::Public, Self::Signature>;
 
-		/// The overarching event type.
-		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
-
 		// Configuration parameters
 
 		/// A grace period after we send transaction.
