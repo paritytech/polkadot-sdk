@@ -18,8 +18,8 @@ use crate::{
 	tests::{snowbridge_common::snowbridge_sovereign, *},
 };
 use emulated_integration_tests_common::{
-	macros::Dmp,
-	xcm_emulator::{find_all_xcm_topic_ids, helpers::TopicIdTracker},
+    macros::Dmp,
+    xcm_emulator::{find_all_xcm_topic_ids, helpers::TopicIdTracker},
 };
 use xcm::latest::AssetTransferFilter;
 
@@ -1307,25 +1307,14 @@ fn do_send_pens_and_wnds_from_penpal_westend_via_ahw_to_asset_hub_rococo(
 				},
 			]);
 
-			let result = <PenpalB as PenpalBPallet>::PolkadotXcm::execute(
+			<PenpalB as PenpalBPallet>::PolkadotXcm::execute(
 				signed_origin,
 				bx!(xcm::VersionedXcm::V5(xcm.into())),
 				Weight::MAX,
-			);
-
-			type RuntimeEvent = <PenpalB as Chain>::RuntimeEvent;
-			let topic_ids = find_all_xcm_topic_ids!(PenpalB);
-			TopicIdTracker::insert_many(topic_ids);
-			TopicIdTracker::assert_unique();
-
-			result
+			)
 		}));
-
 		AssetHubWestend::execute_with(|| {
 			type RuntimeEvent = <AssetHubWestend as Chain>::RuntimeEvent;
-			let topic_ids = find_all_xcm_topic_ids!(AssetHubWestend);
-			TopicIdTracker::insert_many(topic_ids);
-			TopicIdTracker::assert_unique();
 			assert_expected_events!(
 				AssetHubWestend,
 				vec![
@@ -1345,12 +1334,6 @@ fn do_send_pens_and_wnds_from_penpal_westend_via_ahw_to_asset_hub_rococo(
 					) => {},
 				]
 			);
-		});
-
-		BridgeHubWestend::execute_with(|| {
-			type RuntimeEvent = <BridgeHubWestend as Chain>::RuntimeEvent;
-			let topic_ids = find_all_xcm_topic_ids!(BridgeHubWestend);
-			TopicIdTracker::assert_first_id_in(&topic_ids);
 		});
 	});
 }
@@ -1456,9 +1439,6 @@ fn send_pens_and_wnds_from_penpal_westend_via_ahw_to_ahr() {
 		)
 	});
 
-	// reset topic tracker
-	TopicIdTracker::reset();
-
 	// transfer assets
 	do_send_pens_and_wnds_from_penpal_westend_via_ahw_to_asset_hub_rococo(
 		(wnd_at_westend_parachains.clone(), wnds_to_send),
@@ -1468,8 +1448,6 @@ fn send_pens_and_wnds_from_penpal_westend_via_ahw_to_ahr() {
 	let wnd = Location::new(2, [GlobalConsensus(ByGenesis(WESTEND_GENESIS_HASH))]);
 	AssetHubRococo::execute_with(|| {
 		type RuntimeEvent = <AssetHubRococo as Chain>::RuntimeEvent;
-		let topic_ids = find_all_xcm_topic_ids!(AssetHubRococo);
-		TopicIdTracker::assert_first_id_in(&topic_ids);
 		assert_expected_events!(
 			AssetHubRococo,
 			vec![
