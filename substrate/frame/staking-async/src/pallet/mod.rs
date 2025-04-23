@@ -603,7 +603,6 @@ pub mod pallet {
 	///
 	/// This is cleared after [`Config::HistoryDepth`] eras.
 	#[pallet::storage]
-	#[pallet::unbounded]
 	pub type ErasStakersPaged<T: Config> = StorageNMap<
 		_,
 		(
