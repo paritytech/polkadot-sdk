@@ -17,11 +17,11 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 codec = { features = ["derive"], workspace = true }
-log = { workspace = true }
-scale-info = { features = ["derive", "serde"], workspace = true }
 frame = { workspace = true, features = ["runtime"] }
+log = { workspace = true }
 pallet-authorship = { workspace = true }
 pallet-session = { workspace = true }
+scale-info = { features = ["derive", "serde"], workspace = true }
 sp-application-crypto = { features = ["serde"], workspace = true }
 sp-consensus-grandpa = { features = ["serde"], workspace = true }
 sp-session = { workspace = true }
@@ -29,10 +29,10 @@ sp-staking = { features = ["serde"], workspace = true }
 sp-weights = { workspace = true }
 
 [dev-dependencies]
-frame = { workspace = true, features = ["runtime"] }
 finality-grandpa = { features = [
 	"derive-codec",
 ], workspace = true, default-features = true }
+frame = { workspace = true, features = ["runtime"] }
 frame-election-provider-support = { workspace = true, default-features = true }
 pallet-balances = { workspace = true, default-features = true }
 pallet-offences = { workspace = true, default-features = true }
@@ -58,8 +58,8 @@ std = [
 	"sp-staking/std",
 ]
 runtime-benchmarks = [
-	"frame/runtime-benchmarks",
 	"frame-election-provider-support/runtime-benchmarks",
+	"frame/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
 	"pallet-offences/runtime-benchmarks",
 	"pallet-staking/runtime-benchmarks",
