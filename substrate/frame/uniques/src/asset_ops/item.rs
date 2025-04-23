@@ -26,8 +26,8 @@ use frame_support::{
 	ensure,
 	traits::tokens::asset_ops::{
 		common_strategies::{
-			Bytes, CanUpdate, CheckOrigin, CheckState, ConfigValue, IfOwnedBy, NoParams, Owner,
-			PredefinedId, WithConfig,
+			Bytes, CanUpdate, ChangeOwnerFrom, CheckOrigin, CheckState, ConfigValue, IfOwnedBy,
+			NoParams, Owner, PredefinedId, WithConfig,
 		},
 		AssetDefinition, Create, Inspect, Restore, Stash, Update,
 	},
@@ -161,12 +161,10 @@ impl<T: Config<I>, I: 'static> Update<CheckOrigin<T::RuntimeOrigin, Owner<T::Acc
 	}
 }
 
-impl<T: Config<I>, I: 'static> Update<IfOwnedBy<T::AccountId, Owner<T::AccountId>>>
-	for Item<Pallet<T, I>>
-{
+impl<T: Config<I>, I: 'static> Update<ChangeOwnerFrom<T::AccountId>> for Item<Pallet<T, I>> {
 	fn update(
 		(collection, item): &Self::Id,
-		strategy: IfOwnedBy<T::AccountId, Owner<T::AccountId>>,
+		strategy: ChangeOwnerFrom<T::AccountId>,
 		dest: &T::AccountId,
 	) -> DispatchResult {
 		let CheckState(from, ..) = strategy;
