@@ -309,7 +309,7 @@ where
 	///
 	/// On success, returns the resulting position in the page where a new payload can be
 	/// appended.
-	fn check_can_append_message_at(pos: usize, message_len: usize) -> Result<usize, ()> {
+	fn can_append_message_at(pos: usize, message_len: usize) -> Result<usize, ()> {
 		let header_size = ItemHeader::<Size>::max_encoded_len();
 		let data_len = header_size.saturating_add(message_len);
 		let heap_size = HeapSize::get().into() as usize;
@@ -327,7 +327,7 @@ where
 		message: BoundedSlice<u8, MaxMessageLenOf<T>>,
 	) -> Result<(), ()> {
 		let pos = self.heap_pos();
-		Self::check_can_append_message_at(pos, message.len())?;
+		Self::can_append_message_at(pos, message.len())?;
 		let payload_len = message.len().saturated_into();
 		let header = ItemHeader::<Size> { payload_len, is_processed: false };
 
@@ -1852,10 +1852,7 @@ impl<T: Config> QueueFootprintQuery<MessageOriginOf<T>> for Pallet<T> {
 				return batches_footprints;
 			}
 
-			match Page::<T::Size, T::HeapSize>::check_can_append_message_at(
-				current_page_pos,
-				msg.len(),
-			) {
+			match Page::<T::Size, T::HeapSize>::can_append_message_at(current_page_pos, msg.len()) {
 				Ok(new_pos) => {
 					total_msgs_size += msg.len();
 					current_page_pos = new_pos;
