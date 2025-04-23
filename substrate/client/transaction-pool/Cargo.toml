@@ -27,7 +27,6 @@ futures-timer = { workspace = true }
 indexmap = { workspace = true }
 itertools = { workspace = true }
 linked-hash-map = { workspace = true }
-log = { workspace = true, default-features = true }
 parking_lot = { workspace = true, default-features = true }
 prometheus-endpoint = { workspace = true, default-features = true }
 sc-client-api = { workspace = true, default-features = true }
