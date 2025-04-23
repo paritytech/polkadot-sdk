@@ -2,7 +2,7 @@ title: '`fatxpool`: optimize txs prunning based on inactive views provides tags 
 doc:
 - audience: [Node Operator, Node Dev]
   description: |-
-   Optimize the transaction pruning on a new best block event, on a new enacted block. It removes transactions based on the provides tags present in the view store's inactive views if not found in the active view of the new best block that was just notified, instead of revalidating the transactions in the runtime, to obtain the provides tags, which is a costly operation.
+   Optimize the transaction pruning on a new best block event, when a fork happens. The new enacted fork's tip will have a view cloned from the retracted fork tip's view. When prunning happens for the newly cloned active view, it removes the transactions from the enacted fork based on their provides tags, but these txs and tags might miss from the new active view. For this we revalidate the txs, to get their provides tags, but this PR avoids this by precomputing a map with all txs -> provides tags found in the inactives views of blocks from the retracted + enacted forks, except their tips. This map will then be checked whenever some provides tags are needed for a txs missing from the new active view.
 crates:
 - name: sc-transaction-pool
   bump: major
