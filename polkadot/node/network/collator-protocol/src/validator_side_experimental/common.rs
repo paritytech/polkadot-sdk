@@ -109,3 +109,50 @@ pub enum PeerState {
 	/// Peer has declared.
 	Collating(ParaId),
 }
+
+/// Candidate supplied with a para head it's built on top of.
+#[derive(Debug, Copy, Clone, Hash, Eq, PartialEq)]
+pub struct ProspectiveCandidate {
+	/// Candidate hash.
+	pub candidate_hash: CandidateHash,
+	/// Parent head-data hash as supplied in advertisement.
+	pub parent_head_data_hash: Hash,
+}
+
+/// Identifier of a collation being requested.
+#[derive(Debug, Copy, Clone, Hash, Eq, PartialEq)]
+pub struct Advertisement {
+	/// Candidate's relay parent.
+	pub relay_parent: Hash,
+	/// Parachain id.
+	pub para_id: ParaId,
+	/// Peer that advertised this collation.
+	pub peer_id: PeerId,
+	/// Optional candidate hash and parent head-data hash if were
+	/// supplied in advertisement.
+	/// TODO: this needs to be optional (for collator protocol V1)
+	pub prospective_candidate: ProspectiveCandidate,
+}
+
+/// Fetched collation data.
+#[derive(Debug, Clone)]
+pub struct FetchedCollation {
+	/// Candidate receipt.
+	pub candidate_receipt: CandidateReceipt,
+	/// Proof of validity. Wrap it in an Arc to avoid expensive copying
+	pub pov: PoV,
+	/// Optional parachain parent head data.
+	/// Only needed for elastic scaling.
+	pub maybe_parent_head_data: Option<HeadData>,
+	pub parent_head_data_hash: Hash,
+}
+
+pub enum CollationFetchOutcome {
+	TryNew(Score),
+	Success(FetchedCollation),
+}
+
+pub type CollationFetchResponse = (
+	Advertisement,
+	std::result::Result<request_v2::CollationFetchingResponse, CollationFetchError>,
+);

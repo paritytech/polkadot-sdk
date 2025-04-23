@@ -337,7 +337,7 @@ impl PeerData {
 #[derive(Debug)]
 struct GroupAssignments {
 	/// Current assignments.
-	current: Vec<ParaId>,
+	current: VecDeque<ParaId>,
 }
 
 struct PerRelayParent {
@@ -524,8 +524,8 @@ where
 		}
 	}
 
-	let assignment = GroupAssignments { current: assigned_paras.into_iter().collect() };
-	let collations = Collations::new(&assignment.current);
+	let assignment = GroupAssignments { current: assigned_paras };
+	let collations = Collations::new(assignment.current.iter());
 
 	Ok(Some(PerRelayParent {
 		assignment,
@@ -1074,11 +1074,13 @@ fn ensure_seconding_limit_is_respected(
 					.current,
 			);
 			for _ in 0..seconded_and_pending {
-				cq_state.claim_at(ancestor, &para_id);
+				// It doesn't matter which type of claim we make for the purposes of this subsystem
+				// (pending or seconded).
+				cq_state.claim_pending_at(ancestor, &para_id, None);
 			}
 		}
 
-		if cq_state.can_claim_at(relay_parent, &para_id) {
+		if cq_state.can_claim_at(relay_parent, &para_id, None) {
 			gum::trace!(
 				target: LOG_TARGET,
 				?relay_parent,
@@ -2128,7 +2130,7 @@ async fn handle_collation_fetch_response(
 // Returns the claim queue without fetched or pending advertisement. The resulting `Vec` keeps the
 // order in the claim queue so the earlier an element is located in the `Vec` the higher its
 // priority is.
-fn unfulfilled_claim_queue_entries(relay_parent: &Hash, state: &State) -> Result<Vec<ParaId>> {
+fn unfulfilled_claim_queue_entries(relay_parent: &Hash, state: &State) -> Result<VecDeque<ParaId>> {
 	let relay_parent_state = state
 		.per_relay_parent
 		.get(relay_parent)
@@ -2153,7 +2155,9 @@ fn unfulfilled_claim_queue_entries(relay_parent: &Hash, state: &State) -> Result
 			for para_id in &scheduled_paras {
 				let seconded_and_pending = state.seconded_and_pending_for_para(&ancestor, &para_id);
 				for _ in 0..seconded_and_pending {
-					cq_state.claim_at(&ancestor, &para_id);
+					// It doesn't matter which type of claim we make for the purposes of this
+					// subsystem (pending or seconded).
+					cq_state.claim_pending_at(ancestor, &para_id, None);
 				}
 			}
 		}
@@ -2167,7 +2171,7 @@ fn unfulfilled_claim_queue_entries(relay_parent: &Hash, state: &State) -> Result
 	// 3rd spot from the claim queue but it should be good enough.
 	let unfulfilled_entries = claim_queue_states
 		.iter_mut()
-		.map(|cq| cq.unclaimed_at(relay_parent))
+		.map(|cq| cq.get_pending_at(relay_parent))
 		.max_by(|a, b| a.len().cmp(&b.len()))
 		.unwrap_or_default();
 

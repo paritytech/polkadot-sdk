@@ -16,6 +16,7 @@
 
 #![allow(unused)]
 
+mod collation_manager;
 mod common;
 mod error;
 mod metrics;
