@@ -245,7 +245,7 @@ fn progress_many_eras_with_try_state() {
 	// a bit slow, but worthwhile
 	ExtBuilder::default().build_and_execute(|| {
 		Session::roll_until_active_era_with(
-			HistoryDepth::get().max(BondingDuration::get()) * 2,
+			HistoryDepth::get().max(BondingDuration::get()) + 2,
 			|| {
 				Staking::do_try_state(System::block_number()).unwrap();
 			},

@@ -142,7 +142,6 @@ mod tests {
 			// No offence exist so far
 			assert!(staking_classic::UnappliedSlashes::<rc::Runtime>::get(4).is_empty());
 
-			pallet_session::Validators::<rc::Runtime>::get();
 
 			assert_ok!(RootOffences::create_offence(
 				rc::RuntimeOrigin::root(),
