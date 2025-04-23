@@ -129,9 +129,12 @@ use frame_support::{
 	dispatch::DispatchResult,
 	ensure,
 	traits::{
+		fungible::{
+			hold::{Inspect as HoldInspect, Mutate as HoldMutate},
+			Inspect,
+		},
 		Defensive, EstimateNextNewSession, EstimateNextSessionRotation, FindAuthor, Get,
 		OneSessionHandler, ValidatorRegistration, ValidatorSet,
-		fungible::{hold::Mutate as HoldMutate, hold::Inspect as HoldInspect, Inspect}, 
 	},
 	weights::Weight,
 	Parameter,
@@ -399,7 +402,16 @@ pub mod pallet {
 	pub struct Pallet<T>(_);
 
 	/// A simple identifier for session keys hold reason.
-	#[derive(codec::Encode, codec::Decode, codec::MaxEncodedLen, scale_info::TypeInfo, Debug, PartialEq, Eq, Clone)]
+	#[derive(
+		codec::Encode,
+		codec::Decode,
+		codec::MaxEncodedLen,
+		scale_info::TypeInfo,
+		Debug,
+		PartialEq,
+		Eq,
+		Clone,
+	)]
 	pub struct SessionKeysHoldReason;
 
 	#[pallet::config]
@@ -441,20 +453,23 @@ pub mod pallet {
 
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
-		
+
 		/// The currency type for placing holds when setting keys.
 		type Currency: HoldMutate<Self::AccountId> + Inspect<Self::AccountId>;
-		
+
 		/// The hold reason type.
-		type HoldReason: Get<<Self::Currency as HoldInspect<Self::AccountId>>::Reason> + TypeInfo + 'static;
-		
+		type HoldReason: Get<<Self::Currency as HoldInspect<Self::AccountId>>::Reason>
+			+ TypeInfo
+			+ 'static;
+
 		/// The amount to be held when setting keys.
 		#[pallet::constant]
 		type KeyDeposit: Get<BalanceOf<Self>>;
 	}
 
 	// Add a type alias for the balance
-	type BalanceOf<T> = <<T as Config>::Currency as Inspect<<T as frame_system::Config>::AccountId>>::Balance;
+	type BalanceOf<T> =
+		<<T as Config>::Currency as Inspect<<T as frame_system::Config>::AccountId>>::Balance;
 
 	#[pallet::genesis_config]
 	#[derive(frame_support::DefaultNoBound)]
@@ -854,16 +869,16 @@ impl<T: Config> Pallet<T> {
 			.ok_or(Error::<T>::NoAssociatedValidatorId)?;
 
 		ensure!(frame_system::Pallet::<T>::can_inc_consumer(account), Error::<T>::NoAccount);
-		
+
 		let old_keys = Self::inner_set_keys(&who, keys)?;
-		
+
 		// Place deposit on hold if this is a new registration (i.e. old_keys is None).
 		// The hold call itself will return an error if funds are insufficient.
 		if old_keys.is_none() {
 			let deposit = T::KeyDeposit::get();
 			let reason = T::HoldReason::get();
 			T::Currency::hold(&reason, account, deposit)?;
-			
+
 			let assertion = frame_system::Pallet::<T>::inc_consumers(account).is_ok();
 			debug_assert!(assertion, "can_inc_consumer() returned true; no change since; qed");
 		}
@@ -924,13 +939,17 @@ impl<T: Config> Pallet<T> {
 			let key_data = old_keys.get_raw(*id);
 			Self::clear_key_owner(*id, key_data);
 		}
-		
+
 		// Release the deposit from hold
 		let reason = T::HoldReason::get();
-		
+
 		// Use release_all to handle the case where the exact amount might not be available
-		let _ = T::Currency::release_all(&reason, account, frame_support::traits::tokens::Precision::BestEffort);
-		
+		let _ = T::Currency::release_all(
+			&reason,
+			account,
+			frame_support::traits::tokens::Precision::BestEffort,
+		);
+
 		frame_system::Pallet::<T>::dec_consumers(account);
 
 		Ok(())

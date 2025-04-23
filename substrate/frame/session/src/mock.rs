@@ -31,20 +31,25 @@ use sp_staking::SessionIndex;
 use sp_state_machine::BasicExternalities;
 
 use frame_support::{
-	derive_impl, parameter_types,
-	traits::{ConstU64, ConstU32, WithdrawReasons, Currency, ReservableCurrency, 
-	SignedImbalance, StoredMap, tokens::{fungible::{
-		hold::{Mutate as HoldMutate, Inspect as HoldInspect, Unbalanced as UnbalancedHold},
-		Inspect as FungibleInspect, Unbalanced as FungibleUnbalanced, Dust
-	}, Preservation, Fortitude}}, 
-	traits::{
-		KeyOwnerProofSystem, ValidatorSet, ValidatorSetWithIdentification,
-	},
+	derive_impl,
 	pallet_prelude::*,
+	parameter_types,
+	traits::{
+		tokens::{
+			fungible::{
+				hold::{
+					Inspect as HoldInspect, Mutate as HoldMutate, Unbalanced as UnbalancedHold,
+				},
+				Dust, Inspect as FungibleInspect, Unbalanced as FungibleUnbalanced,
+			},
+			Fortitude, Preservation,
+		},
+		ConstU32, ConstU64, Currency, KeyOwnerProofSystem, ReservableCurrency, SignedImbalance,
+		StoredMap, ValidatorSet, ValidatorSetWithIdentification, VariantCount, WithdrawReasons,
+	},
 };
 use scale_info::TypeInfo;
 use sp_runtime::traits::{Convert, OpaqueKeys};
-use frame_support::traits::VariantCount;
 
 impl_opaque_keys! {
 	pub struct MockSessionKeys {
@@ -349,5 +354,3 @@ impl pallet_balances::Config for Test {
 	type DoneSlashHandler = ();
 	type RuntimeEvent = RuntimeEvent;
 }
-
-
