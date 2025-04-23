@@ -60,7 +60,7 @@ pub type AssetIdOf<T> = <T as AssetDefinition>::Id;
 /// * [`CanDestroy`](common_strategies::CanDestroy)
 /// * [`CanUpdate`](common_strategies::CanUpdate)
 pub trait InspectStrategy {
-	/// The type to return from the [`Inspect::inspect`] function.
+	/// The value representing the asset's state related to this `InspectStrategy`.
 	type Value;
 }
 
@@ -88,8 +88,14 @@ pub trait Inspect<Strategy: InspectStrategy>: AssetDefinition {
 /// * [`CanDestroy`](common_strategies::CanDestroy)
 /// * [`CanUpdate`](common_strategies::CanUpdate)
 pub trait UpdateStrategy {
-	/// The type of state update to accept in the [`Update::update`] function.
-	type Update<'u>;
+	/// The value to update the asset's state.
+	/// Usually, it should be related to the corresponding `InspectStrategy::Value`.
+	///
+	/// For instance:
+	/// * If the `Value` is `Vec<u8>`, the `UpdateValue` can be `Option<&'a [u8]>` (e.g., asset
+	///   attributes that can be modified or deleted).
+	/// * If the `Value` is `bool`, the `UpdateValue` can also be `bool`.
+	type UpdateValue<'a>;
 
 	/// This type represents a successful asset state update.
 	/// It will be in the [`Result`] type of the [`Update::update`] function.
@@ -102,16 +108,16 @@ pub trait UpdateStrategy {
 /// [`update strategies`](UpdateStrategy).
 ///
 /// An update strategy defines how the asset state is identified
-/// and what [`Update`](UpdateStrategy::Update) type is used.
+/// and what [`UpdateValue`](UpdateStrategy::UpdateValue) type is used.
 pub trait Update<Strategy: UpdateStrategy>: AssetDefinition {
-	/// Update state information of the asset
-	/// using the given `id`, the update `strategy`, and the `update` value.
+	/// Update the state information of the asset
+	/// using the given `id`, the update `strategy`, and the strategy's `update_value`.
 	///
 	/// The ID type is retrieved from the [`AssetDefinition`].
 	fn update(
 		id: &Self::Id,
 		strategy: Strategy,
-		update: Strategy::Update<'_>,
+		update_value: Strategy::UpdateValue<'_>,
 	) -> Result<Strategy::Success, DispatchError>;
 }
 

@@ -56,7 +56,7 @@ impl<Inspect: InspectStrategy, Inner> CheckState<Inspect, Inner> {
 impl<Inspect: InspectStrategy, Inner: UpdateStrategy> UpdateStrategy
 	for CheckState<Inspect, Inner>
 {
-	type Update<'u> = Inner::Update<'u>;
+	type UpdateValue<'u> = Inner::UpdateValue<'u>;
 	type Success = Inner::Success;
 }
 impl<Inspect: InspectStrategy, Inner: CreateStrategy> CreateStrategy
@@ -108,7 +108,7 @@ impl<RuntimeOrigin, Inner> CheckOrigin<RuntimeOrigin, Inner> {
 }
 
 impl<RuntimeOrigin, Inner: UpdateStrategy> UpdateStrategy for CheckOrigin<RuntimeOrigin, Inner> {
-	type Update<'u> = Inner::Update<'u>;
+	type UpdateValue<'u> = Inner::UpdateValue<'u>;
 	type Success = Inner::Success;
 }
 impl<RuntimeOrigin, Inner: CreateStrategy> CreateStrategy for CheckOrigin<RuntimeOrigin, Inner> {
@@ -166,7 +166,7 @@ impl<Request> InspectStrategy for Bytes<Request> {
 	type Value = Vec<u8>;
 }
 impl<Request> UpdateStrategy for Bytes<Request> {
-	type Update<'u> = Option<&'u [u8]>;
+	type UpdateValue<'u> = Option<&'u [u8]>;
 	type Success = ();
 }
 
@@ -183,7 +183,7 @@ impl<AccountId> InspectStrategy for Owner<AccountId> {
 	type Value = AccountId;
 }
 impl<AccountId: 'static> UpdateStrategy for Owner<AccountId> {
-	type Update<'u> = &'u AccountId;
+	type UpdateValue<'u> = &'u AccountId;
 	type Success = ();
 }
 
@@ -200,7 +200,7 @@ impl<AccountId> InspectStrategy for Admin<AccountId> {
 	type Value = AccountId;
 }
 impl<AccountId: 'static> UpdateStrategy for Admin<AccountId> {
-	type Update<'u> = &'u AccountId;
+	type UpdateValue<'u> = &'u AccountId;
 	type Success = ();
 }
 
@@ -260,7 +260,7 @@ impl<Condition> InspectStrategy for CanCreate<Condition> {
 	type Value = bool;
 }
 impl<Condition> UpdateStrategy for CanCreate<Condition> {
-	type Update<'u> = bool;
+	type UpdateValue<'u> = bool;
 	type Success = ();
 }
 
@@ -286,7 +286,7 @@ impl<Condition> InspectStrategy for CanDestroy<Condition> {
 	type Value = bool;
 }
 impl<Condition> UpdateStrategy for CanDestroy<Condition> {
-	type Update<'u> = bool;
+	type UpdateValue<'u> = bool;
 	type Success = ();
 }
 
@@ -312,7 +312,7 @@ impl<Flavor> InspectStrategy for CanUpdate<Flavor> {
 	type Value = bool;
 }
 impl<Flavor> UpdateStrategy for CanUpdate<Flavor> {
-	type Update<'u> = bool;
+	type UpdateValue<'u> = bool;
 	type Success = ();
 }
 
