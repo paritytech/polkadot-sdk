@@ -102,6 +102,8 @@ pub enum DiscoveryEvent {
 	},
 
 	/// One or more addresses discovered.
+	///
+	/// This event is emitted when a new peer is discovered over mDNS.
 	Discovered {
 		/// Discovered addresses.
 		addresses: Vec<Multiaddr>,
@@ -713,5 +715,96 @@ impl Stream for Discovery {
 		}
 
 		Poll::Pending
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	use std::sync::atomic::AtomicU32;
+
+	use crate::{
+		config::ProtocolId,
+		peer_store::{PeerStore, PeerStoreProvider},
+	};
+	use futures::{stream::FuturesUnordered, StreamExt};
+	use sp_core::H256;
+	use sp_tracing::tracing_subscriber;
+
+	use litep2p::{
+		config::ConfigBuilder as Litep2pConfigBuilder, transport::tcp::config::Config as TcpConfig,
+		Litep2p,
+	};
+
+	#[tokio::test]
+	async fn litep2p_discovery_works() {
+		let _ = tracing_subscriber::fmt()
+			.with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
+			.try_init();
+
+		let mut known_peers = HashMap::new();
+		let genesis_hash = H256::from_low_u64_be(1);
+		let fork_id = Some("test-fork-id");
+		let protocol_id = ProtocolId::from("dot");
+
+		// Build backends such that the first peer is known to all other peers.
+		let backends = (0..10)
+			.map(|i| {
+				let keypair = litep2p::crypto::ed25519::Keypair::generate();
+				let peer_id: PeerId = keypair.public().to_peer_id().into();
+
+				let listen_addresses = Arc::new(RwLock::new(HashSet::new()));
+
+				let peer_store = PeerStore::new(vec![], None);
+				let peer_store_handle: Arc<dyn PeerStoreProvider> = Arc::new(peer_store.handle());
+
+				let (discovery, ping_config, identify_config, kademlia_config, _mdns) =
+					Discovery::new(
+						peer_id.clone(),
+						&NetworkConfiguration::new_local(),
+						genesis_hash,
+						fork_id,
+						&protocol_id,
+						known_peers.clone(),
+						listen_addresses.clone(),
+						peer_store_handle,
+					);
+
+				let config = Litep2pConfigBuilder::new()
+					.with_keypair(keypair)
+					.with_tcp(TcpConfig {
+						listen_addresses: vec!["/ip6/::1/tcp/0".parse().unwrap()],
+						..Default::default()
+					})
+					.with_libp2p_ping(ping_config)
+					.with_libp2p_identify(identify_config)
+					.with_libp2p_kademlia(kademlia_config)
+					.build();
+
+				let mut litep2p = Litep2p::new(config).unwrap();
+
+				let addresses = litep2p.listen_addresses().cloned().collect::<Vec<_>>();
+				// Propagate addresses to discovery.
+				addresses.iter().for_each(|address| {
+					listen_addresses.write().insert(address.clone());
+				});
+
+				// Except the first peer, all other peers know the first peer addresses.
+				if i == 0 {
+					log::info!(target: LOG_TARGET, "First peer is {peer_id:?} with addresses {addresses:?}");
+					known_peers.insert(peer_id.clone(), addresses.clone());
+				} else {
+					let (peer, addresses) = known_peers.iter().next().unwrap();
+
+					let result = litep2p.add_known_address(peer.clone(), addresses.into_iter().cloned());
+
+					log::info!(target: LOG_TARGET, "{peer_id:?}: Adding known peer {peer:?} with addresses {addresses:?} result={result:?}");
+
+				}
+
+				(peer_id, litep2p, discovery)
+			})
+			.collect::<Vec<_>>();
 	}
 }
