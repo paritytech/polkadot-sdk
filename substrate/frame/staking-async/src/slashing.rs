@@ -471,40 +471,21 @@ pub(crate) fn compute_slash<T: Config>(params: SlashParams<T>) -> Option<Unappli
 
 /// Compute the slash for a validator. Returns the amount slashed and the reward payout.
 fn slash_validator<T: Config>(params: SlashParams<T>) -> (BalanceOf<T>, BalanceOf<T>) {
-	let own_slash = params.slash * params.exposure.exposure_metadata.own;
+	let slash = params.slash * params.exposure.exposure_metadata.own;
 	log!(
 		warn,
 		"🦹 slashing validator {:?} of stake: {:?} with {:?}% for {:?} in era {:?}",
 		params.stash,
 		params.exposure.exposure_metadata.own,
 		params.slash,
-		own_slash,
+		slash,
 		params.slash_era,
 	);
 
 	// apply slash to validator.
-	let mut reward_payout = Zero::zero();
-	let mut val_slashed = Zero::zero();
-
-	{
-		let mut spans = fetch_spans::<T>(
-			params.stash,
-			params.window_start,
-			&mut reward_payout,
-			&mut val_slashed,
-			params.reward_proportion,
-		);
-
-		let target_span = spans.compare_and_update_span_slash(params.slash_era, own_slash);
-
-		if target_span == Some(spans.span_index()) {
-			// misbehavior occurred within the current slashing span - end current span.
-			// Check <https://github.com/paritytech/polkadot-sdk/issues/2650> for details.
-			spans.end_span(params.now);
-		}
-	}
-
-	(val_slashed, reward_payout)
+	let previous_slash = params.prior_slash * params.exposure.exposure_metadata.own;
+	let diff = slash.saturating_sub(previous_slash);
+	(diff, REWARD_F1 * (params.reward_proportion * diff))
 }
 
 /// Slash nominators. Accepts general parameters and the prior slash percentage of the validator.
@@ -520,11 +501,9 @@ fn slash_nominators<T: Config>(
 	nominators_slashed.reserve(params.exposure.exposure_page.others.len());
 	for nominator in &params.exposure.exposure_page.others {
 		let stash = &nominator.who;
-		let mut nom_slashed = Zero::zero();
-
 		// the era slash of a nominator always grows, if the validator had a new max slash for the
 		// era.
-		let era_slash = {
+		let slash_value = {
 			let own_slash_prior = params.prior_slash * nominator.value;
 			let own_slash_by_validator = params.slash * nominator.value;
 			let own_slash_difference = own_slash_by_validator.saturating_sub(own_slash_prior);
@@ -537,25 +516,9 @@ fn slash_nominators<T: Config>(
 			era_slash
 		};
 
-		// compare the era slash against other eras in the same span.
-		{
-			let mut spans = fetch_spans::<T>(
-				stash,
-				params.window_start,
-				&mut reward_payout,
-				&mut nom_slashed,
-				params.reward_proportion,
-			);
-
-			let target_span = spans.compare_and_update_span_slash(params.slash_era, era_slash);
-
-			if target_span == Some(spans.span_index()) {
-				// end the span, but don't chill the nominator.
-				spans.end_span(params.now);
-			}
-		}
-		nominators_slashed.push((stash.clone(), nom_slashed));
-		total_slashed.saturating_accrue(nom_slashed);
+		nominators_slashed.push((stash.clone(), slash_value));
+		total_slashed.saturating_accrue(slash_value);
+		reward_payout.saturating_accrue(REWARD_F1 * (params.reward_proportion * slash_value));
 	}
 
 	(total_slashed, reward_payout)
