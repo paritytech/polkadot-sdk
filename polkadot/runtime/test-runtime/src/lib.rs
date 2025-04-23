@@ -582,6 +582,12 @@ parameter_types! {
 	pub const ParasUnsignedPriority: TransactionPriority = TransactionPriority::max_value();
 }
 
+impl parachains_paras::FreezeParaStoragesAccess for Runtime {
+	type Dmp = Runtime;
+	type Inclusion = Runtime;
+	type Scheduler = Runtime;
+}
+
 impl parachains_paras::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = parachains_paras::TestWeightInfo;
@@ -590,6 +596,7 @@ impl parachains_paras::Config for Runtime {
 	type NextSessionRotation = Babe;
 	type OnNewHead = ();
 	type AssignCoretime = CoretimeAssignmentProvider;
+	type FreezeParaStoragesAccess = Runtime;
 }
 
 parameter_types! {

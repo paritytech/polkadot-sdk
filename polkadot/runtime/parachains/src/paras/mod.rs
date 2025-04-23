@@ -129,10 +129,13 @@ use sp_runtime::{
 	traits::{AppVerify, One, Saturating},
 	DispatchResult, SaturatedConversion,
 };
+use crate::scheduler::common::Assignment;
 
 use serde::{Deserialize, Serialize};
 
 pub use crate::Origin as ParachainOrigin;
+use crate::{scheduler, inclusion, dmp};
+
 
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
@@ -244,6 +247,7 @@ impl ParaLifecycle {
 	pub fn is_transitioning(&self) -> bool {
 		!Self::is_stable(self)
 	}
+
 }
 
 impl<N: Ord + Copy + PartialEq> ParaPastCodeMeta<N> {
@@ -609,6 +613,20 @@ impl WeightInfo for TestWeightInfo {
 	}
 }
 
+pub trait FreezeParaStoragesAccess {
+    type Scheduler: scheduler::Config;
+    type Inclusion: inclusion::Config;
+	type Dmp: dmp::Config;
+}
+
+pub type SchedulerAccess<T> = 
+    <<T as Config>::FreezeParaStoragesAccess as FreezeParaStoragesAccess>::Scheduler;
+pub type InclusionAccess<T> = 
+    <<T as Config>::FreezeParaStoragesAccess as FreezeParaStoragesAccess>::Inclusion;	
+pub type DmpAccess<T> = 
+    <<T as Config>::FreezeParaStoragesAccess as FreezeParaStoragesAccess>::Dmp;
+
+
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
@@ -654,6 +672,9 @@ pub mod pallet {
 		///
 		/// TODO: Remove once coretime is the standard across all chains.
 		type AssignCoretime: AssignCoretime;
+
+		/// Helper trait to access Freeze Parachain related storage
+		type FreezeParaStoragesAccess: FreezeParaStoragesAccess;
 	}
 
 	#[pallet::event]
@@ -678,6 +699,8 @@ pub mod pallet {
 		/// The given validation code was rejected by the PVF pre-checking vote.
 		/// `code_hash` `para_id`
 		PvfCheckRejected(ValidationCodeHash, ParaId),
+		/// A paraId has been frozen
+		ParaIdFrozen(ParaId)
 	}
 
 	#[pallet::error]
@@ -708,6 +731,8 @@ pub mod pallet {
 		CannotUpgradeCode,
 		/// Invalid validation code size.
 		InvalidCode,
+		/// Parachain cannot be frozen as it is unavailable
+		ParaNotRegistered
 	}
 
 	/// All currently active PVF pre-checking votes.
@@ -871,6 +896,10 @@ pub mod pallet {
 	/// [`PastCodeHash`].
 	#[pallet::storage]
 	pub type CodeByHash<T: Config> = StorageMap<_, Identity, ValidationCodeHash, ValidationCode>;
+
+	/// Frozen parachain list
+	#[pallet::storage]
+	pub type FrozenParas<T: Config> = StorageMap<_, Identity, ParaId, Vec<Assignment>, ValueQuery>;
 
 	#[pallet::genesis_config]
 	#[derive(DefaultNoBound)]
@@ -1159,6 +1188,60 @@ pub mod pallet {
 		) -> DispatchResult {
 			ensure_root(origin)?;
 			MostRecentContext::<T>::insert(&para, context);
+			Ok(())
+		}
+
+		#[pallet::call_index(9)]
+		#[pallet::weight(Weight::zero())]
+		pub fn freeze_parachain(origin: OriginFor<T>, para_id: ParaId) -> DispatchResult {
+			ensure_root(origin)?;
+			// Remove from core claiming queue and store frozen assignments
+
+			// Collect assignments to be frozen
+			let mut frozen_assignments = Vec::new();
+			scheduler::ClaimQueue::<SchedulerAccess<T>>::mutate(|cq| {
+				
+				for assignments in cq.values_mut() {
+					// Filter and collect matching assignments
+					assignments.retain(|assignment| {
+						let assigned_para_id = match assignment {
+							Assignment::Bulk(id) => id,
+							Assignment::Pool { para_id, ..} => para_id
+						};
+						
+						if para_id == *assigned_para_id {
+							frozen_assignments.push(assignment.clone());
+							false
+						} else {
+							true
+						}
+					});
+				}
+			});
+
+			if !frozen_assignments.is_empty() {
+				FrozenParas::<T>::insert(para_id, frozen_assignments);
+			}else{
+				Err(Error::<T>::ParaNotRegistered)?
+			}
+
+			// clean any ongoing activies on the parablock
+			inclusion::PendingAvailability::<InclusionAccess<T>>::remove(para_id);
+			dmp::DownwardMessageQueues::<DmpAccess<T>>::remove(para_id);
+			dmp::DownwardMessageQueueHeads::<DmpAccess<T>>::remove(para_id);
+
+			Self::deposit_event(Event::ParaIdFrozen(para_id));
+			Ok(())
+		}
+
+		#[pallet::call_index(10)]
+		#[pallet::weight(Weight::zero())]
+		pub fn unfreeze_para(origin:OriginFor<T>, para_id: ParaId) -> DispatchResult {
+			ensure_root(origin)?;
+			// restore the para Id to the queue, as unfreeze can happen in the middle of the session
+			let _para_assignments = FrozenParas::<T>::get(para_id);
+			// tracking which core to place these assgnments back again
+			todo!();
 			Ok(())
 		}
 	}
