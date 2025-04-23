@@ -267,7 +267,10 @@ pub mod pallet {
 					ether_location,
 					tip_amount,
 				)
-				.map_err(|_| Error::<T>::SwapError)?
+				.map_err(|e| {
+					tracing::error!(target: LOG_TARGET, ?e, "swap andd burn error");
+					Error::<T>::SwapError
+				})?
 			} else {
 				tip_amount
 			};
