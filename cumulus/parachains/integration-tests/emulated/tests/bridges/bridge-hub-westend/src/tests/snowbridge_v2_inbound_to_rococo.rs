@@ -18,10 +18,11 @@ use crate::{
 		assert_bridge_hub_rococo_message_received, assert_bridge_hub_westend_message_accepted,
 		asset_hub_rococo_location,
 		snowbridge_common::{
-			asset_hub_westend_global_location, bridged_roc_at_ah_westend, create_foreign_on_ah_westend,
-			erc20_token_location, eth_location, register_foreign_asset, register_roc_on_bh,
-			set_up_eth_and_dot_pool, set_up_eth_and_dot_pool_on_rococo,
-			set_up_pool_with_wnd_on_ah_westend, snowbridge_sovereign, TOKEN_AMOUNT,
+			asset_hub_westend_global_location, bridged_roc_at_ah_westend,
+			create_foreign_on_ah_westend, erc20_token_location, eth_location,
+			register_foreign_asset, register_roc_on_bh, set_up_eth_and_dot_pool,
+			set_up_eth_and_dot_pool_on_rococo, set_up_pool_with_wnd_on_ah_westend,
+			snowbridge_sovereign, TOKEN_AMOUNT,
 		},
 	},
 };
