@@ -1457,7 +1457,7 @@ where
 		// Create a map from enacted blocks' extrinsics to their `provides`
 		// tags based on inactive views.
 		let known_provides_tags = self.provides_tags_from_inactive_views(tree_route).await;
-		info!(target: LOG_TARGET, "update_view_with_fork: txs to tags map length: {}", known_provides_tags.len());
+		debug!(target: LOG_TARGET, "update_view_with_fork: txs to tags map length: {}", known_provides_tags.len());
 		future::join_all(tree_route.enacted().iter().map(|hn| {
 			let api = api.clone();
 			let known_provides_tags = known_provides_tags.clone();
