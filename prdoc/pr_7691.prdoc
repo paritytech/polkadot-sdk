@@ -10,6 +10,8 @@ crates:
   bump: patch
 - name: xcm-emulator
   bump: minor
+- name: xcm-simulator-example
+  bump: patch
 - name: asset-hub-westend-integration-tests
   bump: none
 - name: bridge-hub-westend-integration-tests
