@@ -283,7 +283,7 @@ impl<Bridges: ExporterFor, Router: SendXcm, UniversalLocation: Get<InteriorLocat
 		// `xcm` should already end with `SetTopic` - if it does, then extract and derive into
 		// an onward topic ID.
 		let maybe_forward_id = match xcm.last() {
-			Some(SetTopic(t)) => Some(t),
+			Some(SetTopic(t)) => Some(*t),
 			_ => None,
 		};
 
@@ -364,7 +364,7 @@ impl<Bridges: ExporterFor, Router: SendXcm, UniversalLocation: Get<InteriorLocat
 		// `xcm` should already end with `SetTopic` - if it does, then extract and derive into
 		// an onward topic ID.
 		let maybe_forward_id = match xcm.last() {
-			Some(SetTopic(t)) => Some(t),
+			Some(SetTopic(t)) => Some(*t),
 			_ => None,
 		};
 

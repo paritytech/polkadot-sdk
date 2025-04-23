@@ -187,14 +187,18 @@ fn reserve_transfer_should_work() {
 	);
 	assert_eq!(r, Outcome::Complete { used: Weight::from_parts(10, 10) });
 
-	let expected_msg = Xcm::<()>(vec![
+	let mut expected_msg = Xcm::<()>(vec![
 		ReserveAssetDeposited((Parent, 100u128).into()),
 		ClearOrigin,
 		DepositAsset { assets: AllCounted(1).into(), beneficiary: three },
 	]);
+	let xcm_sent = sent_xcm();
+	if let Some(SetTopic(topic_id)) = xcm_sent[0].1.last() {
+		expected_msg.0.push(SetTopic(*topic_id));
+	}
 	let expected_hash = fake_message_hash(&expected_msg);
 	assert_eq!(asset_list(Parachain(2)), vec![(Here, 100).into()]);
-	assert_eq!(sent_xcm(), vec![(Parachain(2).into(), expected_msg, expected_hash)]);
+	assert_eq!(xcm_sent, vec![(Parachain(2).into(), expected_msg, expected_hash)]);
 }
 
 #[test]

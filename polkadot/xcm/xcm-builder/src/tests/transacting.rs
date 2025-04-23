@@ -146,14 +146,18 @@ fn report_successful_transact_status_should_work() {
 		Weight::zero(),
 	);
 	assert_eq!(r, Outcome::Complete { used: Weight::from_parts(70, 70) });
-	let expected_msg = Xcm(vec![QueryResponse {
+	let mut expected_msg = Xcm(vec![QueryResponse {
 		response: Response::DispatchResult(MaybeErrorCode::Success),
 		query_id: 42,
 		max_weight: Weight::from_parts(5000, 5000),
 		querier: Some(Here.into()),
 	}]);
+	let xcm_sent = sent_xcm();
+	if let Some(SetTopic(topic_id)) = xcm_sent[0].1.last() {
+		expected_msg.0.push(SetTopic(*topic_id));
+	}
 	let expected_hash = fake_message_hash(&expected_msg);
-	assert_eq!(sent_xcm(), vec![(Parent.into(), expected_msg, expected_hash)]);
+	assert_eq!(xcm_sent, vec![(Parent.into(), expected_msg, expected_hash)]);
 }
 
 #[test]
@@ -182,14 +186,18 @@ fn report_failed_transact_status_should_work() {
 		Weight::zero(),
 	);
 	assert_eq!(r, Outcome::Complete { used: Weight::from_parts(70, 70) });
-	let expected_msg = Xcm(vec![QueryResponse {
+	let mut expected_msg = Xcm(vec![QueryResponse {
 		response: Response::DispatchResult(vec![2].into()),
 		query_id: 42,
 		max_weight: Weight::from_parts(5000, 5000),
 		querier: Some(Here.into()),
 	}]);
+	let xcm_sent = sent_xcm();
+	if let Some(SetTopic(topic_id)) = xcm_sent[0].1.last() {
+		expected_msg.0.push(SetTopic(*topic_id));
+	}
 	let expected_hash = fake_message_hash(&expected_msg);
-	assert_eq!(sent_xcm(), vec![(Parent.into(), expected_msg, expected_hash)]);
+	assert_eq!(xcm_sent, vec![(Parent.into(), expected_msg, expected_hash)]);
 }
 
 #[test]
@@ -311,12 +319,16 @@ fn clear_transact_status_should_work() {
 		Weight::zero(),
 	);
 	assert_eq!(r, Outcome::Complete { used: Weight::from_parts(80, 80) });
-	let expected_msg = Xcm(vec![QueryResponse {
+	let mut expected_msg = Xcm(vec![QueryResponse {
 		response: Response::DispatchResult(MaybeErrorCode::Success),
 		query_id: 42,
 		max_weight: Weight::from_parts(5000, 5000),
 		querier: Some(Here.into()),
 	}]);
+	let xcm_sent = sent_xcm();
+	if let Some(SetTopic(topic_id)) = xcm_sent[0].1.last() {
+		expected_msg.0.push(SetTopic(*topic_id));
+	}
 	let expected_hash = fake_message_hash(&expected_msg);
-	assert_eq!(sent_xcm(), vec![(Parent.into(), expected_msg, expected_hash)]);
+	assert_eq!(xcm_sent, vec![(Parent.into(), expected_msg, expected_hash)]);
 }

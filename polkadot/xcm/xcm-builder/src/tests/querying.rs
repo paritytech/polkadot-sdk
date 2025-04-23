@@ -39,14 +39,18 @@ fn pallet_query_should_work() {
 	);
 	assert_eq!(r, Outcome::Complete { used: Weight::from_parts(10, 10) });
 
-	let expected_msg = Xcm::<()>(vec![QueryResponse {
+	let mut expected_msg = Xcm::<()>(vec![QueryResponse {
 		query_id: 1,
 		max_weight: Weight::from_parts(50, 50),
 		response: Response::PalletsInfo(Default::default()),
 		querier: Some(Here.into()),
 	}]);
+	let xcm_sent = sent_xcm();
+	if let Some(SetTopic(topic_id)) = xcm_sent[0].1.last() {
+		expected_msg.0.push(SetTopic(*topic_id));
+	}
 	let expected_hash = fake_message_hash(&expected_msg);
-	assert_eq!(sent_xcm(), vec![(Parachain(1).into(), expected_msg, expected_hash)]);
+	assert_eq!(xcm_sent, vec![(Parachain(1).into(), expected_msg, expected_hash)]);
 }
 
 #[test]
@@ -72,7 +76,7 @@ fn pallet_query_with_results_should_work() {
 	);
 	assert_eq!(r, Outcome::Complete { used: Weight::from_parts(10, 10) });
 
-	let expected_msg = Xcm::<()>(vec![QueryResponse {
+	let mut expected_msg = Xcm::<()>(vec![QueryResponse {
 		query_id: 1,
 		max_weight: Weight::from_parts(50, 50),
 		response: Response::PalletsInfo(
@@ -90,8 +94,12 @@ fn pallet_query_with_results_should_work() {
 		),
 		querier: Some(Here.into()),
 	}]);
+	let xcm_sent = sent_xcm();
+	if let Some(SetTopic(topic_id)) = xcm_sent[0].1.last() {
+		expected_msg.0.push(SetTopic(*topic_id));
+	}
 	let expected_hash = fake_message_hash(&expected_msg);
-	assert_eq!(sent_xcm(), vec![(Parachain(1).into(), expected_msg, expected_hash)]);
+	assert_eq!(xcm_sent, vec![(Parachain(1).into(), expected_msg, expected_hash)]);
 }
 
 #[test]

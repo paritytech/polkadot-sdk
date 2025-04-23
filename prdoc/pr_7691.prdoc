@@ -1,8 +1,8 @@
-title: Ensure SetTopic is Always Applied in XCM Execution
+title: Ensure Consistent Topic IDs for Traceable Cross-Chain XCM
 doc:
 - audience: Runtime Dev
   description: |-
-    This PR ensures every XCM processed in `xcm::execute` applies the `SetTopic` instruction to improve traceability.
+    This PR ensures every XCM processed with the same topic ID across multiple chains to improve traceability.
 crates:
 - name: staging-xcm-builder
   bump: patch
@@ -10,3 +10,7 @@ crates:
   bump: patch
 - name: xcm-emulator
   bump: minor
+- name: asset-hub-westend-integration-tests
+  bump: none
+- name: bridge-hub-westend-integration-tests
+  bump: none

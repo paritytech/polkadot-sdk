@@ -45,12 +45,10 @@ impl<Inner: SendXcm> SendXcm for WithUniqueTopic<Inner> {
 	) -> SendResult<Self::Ticket> {
 		let mut message = message.take().ok_or(SendError::MissingArgument)?;
 		let unique_id = if let Some(SetTopic(id)) = message.last() {
-			tracing::trace!(target: "xcm::routing", topic_id=?id, "Message already ends with `SetTopic`");
 			*id
 		} else {
 			let unique_id = unique(&message);
 			message.0.push(SetTopic(unique_id));
-			tracing::trace!(target: "xcm::routing", topic_id=?unique_id, "`SetTopic` appended to message");
 			unique_id
 		};
 		let (ticket, assets) = Inner::validate(destination, &mut Some(message))?;
