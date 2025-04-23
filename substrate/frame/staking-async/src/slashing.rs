@@ -47,7 +47,7 @@
 //! has multiple misbehaviors. However, accounting for such cases is necessary
 //! to deter a class of "rage-quit" attacks.
 //!
-//! Based on research at <https://research.web3.foundation/en/latest/polkadot/slashing/npos.html>
+//! Based on research at <https://research.web3.foundation/Polkadot/security/slashing/npos>
 
 use crate::{
 	asset, log, session_rotation::Eras, BalanceOf, Config, Error, NegativeImbalanceOf,
@@ -471,21 +471,29 @@ pub(crate) fn compute_slash<T: Config>(params: SlashParams<T>) -> Option<Unappli
 
 /// Compute the slash for a validator. Returns the amount slashed and the reward payout.
 fn slash_validator<T: Config>(params: SlashParams<T>) -> (BalanceOf<T>, BalanceOf<T>) {
-	let slash = params.slash * params.exposure.exposure_metadata.own;
+	let own_stake = params.exposure.exposure_metadata.own;
+	let prior_slashed = params.prior_slash * own_stake;
+	let new_total_slash = params.slash * own_stake;
+	debug_assert!(
+		new_total_slash > prior_slashed,
+		"lower slash in era should have been filtered out"
+	);
+
+	let slash_due = new_total_slash.saturating_sub(prior_slashed);
+	// Audit Note: Previously, each repeated slash reduced the reward by 50% (e.g., 50% × 50% for
+	// two offences). Since repeat offences in the same era are discarded unless the new slash is
+	// higher, this reduction logic was unnecessary and removed.
+	let reward_due = params.reward_proportion * slash_due;
 	log!(
 		warn,
-		"🦹 slashing validator {:?} of stake: {:?} with {:?}% for {:?} in era {:?}",
+		"🦹 slashing validator {:?} of stake: {:?} for {:?} in era {:?}",
 		params.stash,
-		params.exposure.exposure_metadata.own,
-		params.slash,
-		slash,
+		own_stake,
+		slash_due,
 		params.slash_era,
 	);
 
-	// apply slash to validator.
-	let previous_slash = params.prior_slash * params.exposure.exposure_metadata.own;
-	let diff = slash.saturating_sub(previous_slash);
-	(diff, REWARD_F1 * (params.reward_proportion * diff))
+	(slash_due, reward_due)
 }
 
 /// Slash nominators. Accepts general parameters and the prior slash percentage of the validator.
@@ -518,7 +526,7 @@ fn slash_nominators<T: Config>(
 
 		nominators_slashed.push((stash.clone(), slash_value));
 		total_slashed.saturating_accrue(slash_value);
-		reward_payout.saturating_accrue(REWARD_F1 * (params.reward_proportion * slash_value));
+		reward_payout.saturating_accrue(params.reward_proportion * slash_value);
 	}
 
 	(total_slashed, reward_payout)
