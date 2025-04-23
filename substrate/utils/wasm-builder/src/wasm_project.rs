@@ -535,7 +535,8 @@ fn create_project_cargo_toml(
 			.and_then(|p| p.as_table().cloned())
 			.unwrap_or_default();
 
-		if let Some(existing_crates_io) = patch.get_mut("crates-io").and_then(|t| t.as_table_mut()) {
+		if let Some(existing_crates_io) = patch.get_mut("crates-io").and_then(|t| t.as_table_mut())
+		{
 			existing_crates_io.extend(radium_patch);
 		} else {
 			patch.insert("crates-io".into(), radium_patch.into());
