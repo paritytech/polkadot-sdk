@@ -64,12 +64,12 @@ decl_test_bridges! {
 	pub struct RococoWestendMockBridge {
 		source = BridgeHubRococoPara,
 		target = BridgeHubWestendPara,
-		handler = (AssetHubRococoWestendMessageHandler, RococoWestendMessageHandler)
+		handler = RococoWestendMessageHandler
 	},
 	pub struct WestendRococoMockBridge {
 		source = BridgeHubWestendPara,
 		target = BridgeHubRococoPara,
-		handler = (AssetHubWestendRococoMessageHandler,WestendRococoMessageHandler)
+		handler = WestendRococoMessageHandler
 	}
 }
 

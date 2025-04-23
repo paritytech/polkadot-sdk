@@ -19,49 +19,89 @@ use crate::imports::*;
 /// when `OriginKind::Superuser`.
 #[test]
 fn open_close_lane() {
-	let _ = AssetHubWestend::execute_with(||  { <AssetHubWestend as AssetHubWestendPallet>::XcmOverAssetHubRococo::open_bridge(
-		AssetHubWestendRuntimeOrigin::root(),
-		Box::new(AssetHubRococoUniversalLocation::get().into()),
-		Some(Receiver::new(13, 15)),
-	)});
-	let _ = AssetHubRococo::execute_with(||  { <AssetHubRococo as AssetHubRococoPallet>::XcmOverAssetHubWestend::open_bridge(
-		AssetHubRococoRuntimeOrigin::root(),
-		Box::new(AssetHubWestendUniversalLocation::get().into()),
-		Some(Receiver::new(13, 15)),
-	)});
+	let westend_bridge_opened_event = AssetHubWestend::execute_with(|| {
+		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::XcmOverAssetHubRococo::open_bridge(
+			AssetHubWestendRuntimeOrigin::root(),
+			Box::new(AssetHubRococoUniversalLocation::get().into()),
+			None,
+		));
+		let events = AssetHubWestend::events();
+		type RuntimeEventWestend = <AssetHubWestend as Chain>::RuntimeEvent;
+		events.iter().find_map(|event| {
+			if let RuntimeEventWestend::XcmOverAssetHubRococo(
+				pallet_xcm_bridge::Event::BridgeOpened { .. },
+			) = event
+			{
+				Some(true)
+			} else {
+				None
+			}
+		})
+	});
+	assert!(westend_bridge_opened_event.is_some(), "Westend BridgeOpened event not found");
 
-	let events = AssetHubWestend::ext_wrapper(|| AssetHubWestend::events());
-	type RuntimeEventWestend = <AssetHubWestend as Chain>::RuntimeEvent;
-	assert!(
-		events.iter().any(|event| matches!(
-			event,
-			RuntimeEventWestend::XcmOverAssetHubRococo(
-				pallet_xcm_bridge::Event::BridgeOpened { .. }
-			),
-		)),
-		"Event BridgeOpened not found"
-	);
+	let rococo_bridge_opened_event = AssetHubRococo::execute_with(|| {
+		assert_ok!(<AssetHubRococo as AssetHubRococoPallet>::XcmOverAssetHubWestend::open_bridge(
+			AssetHubRococoRuntimeOrigin::root(),
+			Box::new(AssetHubWestendUniversalLocation::get().into()),
+			None,
+		));
+		let events = AssetHubRococo::events();
+		type RuntimeEventRococo = <AssetHubRococo as Chain>::RuntimeEvent;
+		events.iter().find_map(|event| {
+			if let RuntimeEventRococo::XcmOverAssetHubWestend(
+				pallet_xcm_bridge::Event::BridgeOpened { .. },
+			) = event
+			{
+				Some(true)
+			} else {
+				None
+			}
+		})
+	});
+	assert!(rococo_bridge_opened_event.is_some(), "Rococo BridgeOpened event not found");
 
-	let events = AssetHubRococo::ext_wrapper(|| AssetHubRococo::events());
-	type RuntimeEventRococo = <AssetHubRococo as Chain>::RuntimeEvent;
-	assert!(
-		events.iter().any(|event| matches!(
-			event,
-			RuntimeEventRococo::XcmOverAssetHubWestend(
-				pallet_xcm_bridge::Event::BridgeOpened { .. }
-			),
-		)),
-		"Event BridgeOpened not found"
-	);
+	let westend_bridge_pruned_event = AssetHubWestend::execute_with(|| {
+		assert_ok!(
+			<AssetHubWestend as AssetHubWestendPallet>::XcmOverAssetHubRococo::close_bridge(
+				AssetHubWestendRuntimeOrigin::root(),
+				Box::new(AssetHubRococoUniversalLocation::get().into()),
+				1,
+			)
+		);
+		let events = AssetHubWestend::events();
+		type RuntimeEventWestend = <AssetHubWestend as Chain>::RuntimeEvent;
+		events.iter().find_map(|event| {
+			if let RuntimeEventWestend::XcmOverAssetHubRococo(
+				pallet_xcm_bridge::Event::BridgePruned { .. },
+			) = event
+			{
+				Some(true)
+			} else {
+				None
+			}
+		})
+	});
+	assert!(westend_bridge_pruned_event.is_some(), "Westend BridgePruned event not found");
 
-	let _ = AssetHubWestend::execute_with(|| { <AssetHubWestend as AssetHubWestendPallet>::XcmOverAssetHubRococo::close_bridge(
-		AssetHubWestendRuntimeOrigin::root(),
-		Box::new(AssetHubRococoUniversalLocation::get().into()),
-		0,
-	)});
-	let _ = AssetHubRococo::execute_with(|| { <AssetHubRococo as AssetHubRococoPallet>::XcmOverAssetHubWestend::close_bridge(
-		AssetHubRococoRuntimeOrigin::root(),
-		Box::new(AssetHubWestendUniversalLocation::get().into()),
-		0,
-	)});
+	let rococo_bridge_pruned_event = AssetHubRococo::execute_with(|| {
+		assert_ok!(<AssetHubRococo as AssetHubRococoPallet>::XcmOverAssetHubWestend::close_bridge(
+			AssetHubRococoRuntimeOrigin::root(),
+			Box::new(AssetHubWestendUniversalLocation::get().into()),
+			1,
+		));
+		let events = AssetHubRococo::events();
+		type RuntimeEventRococo = <AssetHubRococo as Chain>::RuntimeEvent;
+		events.iter().find_map(|event| {
+			if let RuntimeEventRococo::XcmOverAssetHubWestend(
+				pallet_xcm_bridge::Event::BridgePruned { .. },
+			) = event
+			{
+				Some(true)
+			} else {
+				None
+			}
+		})
+	});
+	assert!(rococo_bridge_pruned_event.is_some(), "Rococo BridgePruned event not found");
 }
