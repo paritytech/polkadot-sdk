@@ -19,18 +19,18 @@ use crate::imports::*;
 /// when `OriginKind::Superuser`.
 #[test]
 fn open_close_lane() {
-	let _ = <AssetHubWestend as AssetHubWestendPallet>::XcmOverAssetHubRococo::open_bridge(
+	let _ = AssetHubWestend::execute_with(||  { <AssetHubWestend as AssetHubWestendPallet>::XcmOverAssetHubRococo::open_bridge(
 		AssetHubWestendRuntimeOrigin::root(),
 		Box::new(AssetHubRococoUniversalLocation::get().into()),
 		Some(Receiver::new(13, 15)),
-	);
-	let _ = <AssetHubRococo as AssetHubRococoPallet>::XcmOverAssetHubWestend::open_bridge(
+	)});
+	let _ = AssetHubRococo::execute_with(||  { <AssetHubRococo as AssetHubRococoPallet>::XcmOverAssetHubWestend::open_bridge(
 		AssetHubRococoRuntimeOrigin::root(),
 		Box::new(AssetHubWestendUniversalLocation::get().into()),
 		Some(Receiver::new(13, 15)),
-	);
+	)});
 
-	let events = AssetHubWestend::events();
+	let events = AssetHubWestend::ext_wrapper(|| AssetHubWestend::events());
 	type RuntimeEventWestend = <AssetHubWestend as Chain>::RuntimeEvent;
 	assert!(
 		events.iter().any(|event| matches!(
@@ -42,7 +42,7 @@ fn open_close_lane() {
 		"Event BridgeOpened not found"
 	);
 
-	let events = AssetHubRococo::events();
+	let events = AssetHubRococo::ext_wrapper(|| AssetHubRococo::events());
 	type RuntimeEventRococo = <AssetHubRococo as Chain>::RuntimeEvent;
 	assert!(
 		events.iter().any(|event| matches!(
@@ -54,14 +54,14 @@ fn open_close_lane() {
 		"Event BridgeOpened not found"
 	);
 
-	let _ = <AssetHubWestend as AssetHubWestendPallet>::XcmOverAssetHubRococo::close_bridge(
+	let _ = AssetHubWestend::execute_with(|| { <AssetHubWestend as AssetHubWestendPallet>::XcmOverAssetHubRococo::close_bridge(
 		AssetHubWestendRuntimeOrigin::root(),
 		Box::new(AssetHubRococoUniversalLocation::get().into()),
 		0,
-	);
-	let _ = <AssetHubRococo as AssetHubRococoPallet>::XcmOverAssetHubWestend::close_bridge(
+	)});
+	let _ = AssetHubRococo::execute_with(|| { <AssetHubRococo as AssetHubRococoPallet>::XcmOverAssetHubWestend::close_bridge(
 		AssetHubRococoRuntimeOrigin::root(),
 		Box::new(AssetHubWestendUniversalLocation::get().into()),
 		0,
-	);
+	)});
 }
