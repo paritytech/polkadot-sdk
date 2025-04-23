@@ -206,6 +206,7 @@ fn send_wnds_usdt_and_weth_from_asset_hub_westend_to_asset_hub_rococo() {
 		sender.clone(),
 		amount * 2,
 	);
+	// create wETH at src and dest and prefund sender's account
 	AssetHubWestend::mint_foreign_asset(
 		<AssetHubWestend as Chain>::RuntimeOrigin::signed(snowbridge_sovereign()),
 		bridged_weth_at_ah.clone(),
