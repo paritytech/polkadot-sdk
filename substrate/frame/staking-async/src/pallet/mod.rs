@@ -557,6 +557,17 @@ pub mod pallet {
 		OptionQuery,
 	>;
 
+	pub struct ErasClaimedRewardsBound<T>(core::marker::PhantomData<T>);
+	impl<T: Config> Get<u32> for ErasClaimedRewardsBound<T> {
+		fn get() -> u32 {
+			let max_total_nominators_per_validator = <T::ElectionProvider as ElectionProvider>::MaxBackersPerWinner::get();
+			let exposure_page_size = T::MaxExposurePageSize::get();
+			max_total_nominators_per_validator
+				.saturating_div(exposure_page_size)
+				.saturating_add(1)
+		}
+	}
+
 	/// History of claimed paged rewards by era and validator.
 	///
 	/// This is keyed by era and validator stash which maps to the set of page indexes which have
@@ -571,7 +582,7 @@ pub mod pallet {
 		EraIndex,
 		Twox64Concat,
 		T::AccountId,
-		Vec<Page>,
+		WeakBoundedVec<Page, ErasClaimedRewardsBound<T>>,
 		ValueQuery,
 	>;
 

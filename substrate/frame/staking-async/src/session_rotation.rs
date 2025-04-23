@@ -220,7 +220,7 @@ impl<T: Config> Eras<T> {
 	/// Creates an entry to track validator reward has been claimed for a given era and page.
 	/// Noop if already claimed.
 	pub(crate) fn set_rewards_as_claimed(era: EraIndex, validator: &T::AccountId, page: Page) {
-		let mut claimed_pages = ErasClaimedRewards::<T>::get(era, validator);
+		let mut claimed_pages = ErasClaimedRewards::<T>::get(era, validator).into_inner();
 
 		// this should never be called if the reward has already been claimed
 		if claimed_pages.contains(&page) {
@@ -231,7 +231,11 @@ impl<T: Config> Eras<T> {
 
 		// add page to claimed entries
 		claimed_pages.push(page);
-		ErasClaimedRewards::<T>::insert(era, validator, claimed_pages);
+		ErasClaimedRewards::<T>::insert(
+			era,
+			validator,
+			WeakBoundedVec::<_, _>::force_from(claimed_pages, Some("set_rewards_as_claimed")),
+		);
 	}
 
 	/// Store exposure for elected validators at start of an era.

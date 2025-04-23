@@ -82,7 +82,7 @@ pub fn migrate_state() {
 					era,
 					pallet_staking_async::EraRewardPoints {
 						total: reward_points.total,
-						individual: reward_points.individual.clone(),
+						individual: reward_points.individual.clone().try_into().unwrap(),
 					},
 				)
 			});
