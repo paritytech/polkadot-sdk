@@ -156,7 +156,9 @@ pub struct ActiveEraInfo {
 /// Reward points of an era. Used to split era total payout between validators.
 ///
 /// This points will be used to reward validators and their respective nominators.
-#[derive(PartialEqNoBound, Encode, Decode, DebugNoBound, TypeInfo, MaxEncodedLen, DefaultNoBound)]
+#[derive(
+	PartialEqNoBound, Encode, Decode, DebugNoBound, TypeInfo, MaxEncodedLen, DefaultNoBound,
+)]
 #[codec(mel_bound())]
 #[scale_info(skip_type_params(T))]
 pub struct EraRewardPoints<T: Config> {
