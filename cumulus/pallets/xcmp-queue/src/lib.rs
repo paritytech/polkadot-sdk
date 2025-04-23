@@ -94,7 +94,8 @@ pub type MaxXcmpMessageLenOf<T> =
 
 const LOG_TARGET: &str = "xcmp_queue";
 const DEFAULT_POV_SIZE: u64 = 64 * 1024; // 64 KB
-const XCM_BATCH_SIZE: usize = 250;
+/// The size of an XCM messages batch.
+pub const XCM_BATCH_SIZE: usize = 250;
 
 /// Constants related to delivery fee calculation
 pub mod delivery_fee_constants {
@@ -671,19 +672,20 @@ impl<T: Config> Pallet<T> {
 				false => core::cmp::Ordering::Greater,
 			}
 		});
-		let best_batch_footprint = match best_batch_idx {
-			// Shouldn't happen since we never return `core::cmp::Ordering::Equal`.
-			// But it's safer to handle it.
-			Ok(last_ok_idx) => batches_footprints[last_ok_idx],
-			Err(0) => BatchFootprint { msgs_count: 0, size_in_bytes: 0, new_pages_count: 0 },
-			Err(first_err_idx) => batches_footprints[first_err_idx - 1],
+		let best_batch_idx = match best_batch_idx {
+			Ok(last_ok_idx) => {
+				// We should never reach this branch since we never return `Ordering::Equal`.
+				defensive!("Unexpected best_batch_idx found: Ok({})", last_ok_idx);
+				Some(last_ok_idx)
+			},
+			Err(first_err_idx) => first_err_idx.checked_sub(1),
 		};
-		if best_batch_footprint.msgs_count < xcms.len() {
-			log::error!(
-				"Out of weight: cannot enqueue entire XCMP messages batch; \
-				dropping some or all messages in batch"
-			);
-		}
+		let best_batch_footprint = match best_batch_idx {
+			Some(best_batch_idx) => batches_footprints.get(best_batch_idx).ok_or_else(|| {
+				defensive!("Invalid best_batch_idx: {}", best_batch_idx);
+			})?,
+			None => &BatchFootprint { msgs_count: 0, size_in_bytes: 0, new_pages_count: 0 },
+		};
 
 		meter.consume(T::WeightInfo::enqueue_xcmp_messages(
 			best_batch_footprint.new_pages_count,
@@ -691,9 +693,20 @@ impl<T: Config> Pallet<T> {
 			best_batch_footprint.size_in_bytes,
 		));
 		T::XcmpQueue::enqueue_messages(
-			xcms[..best_batch_footprint.msgs_count].iter().map(|xcm| xcm.as_bounded_slice()),
+			xcms.iter()
+				.take(best_batch_footprint.msgs_count)
+				.map(|xcm| xcm.as_bounded_slice()),
 			sender,
 		);
+
+		if best_batch_footprint.msgs_count < xcms.len() {
+			log::error!(
+				"Out of weight: cannot enqueue entire XCMP messages batch; \
+				dropped some or all messages in batch. Used weight: {:?}",
+				meter.consumed_ratio()
+			);
+			return Err(());
+		}
 		Ok(())
 	}
 
@@ -896,10 +909,6 @@ impl<T: Config> XcmpMessageHandler for Pallet<T> {
 						}
 
 						if let Err(()) = Self::enqueue_xcmp_messages(sender, &batch, &mut meter) {
-							defensive!(
-								"Could not enqueue XCMP messages batch. Used weight: ",
-								meter.consumed_ratio()
-							);
 							break
 						}
 					}

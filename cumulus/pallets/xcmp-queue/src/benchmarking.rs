@@ -79,6 +79,11 @@ mod benchmarks {
 		#[cfg(test)]
 		{
 			mock::EnqueuedMessages::set(vec![]);
+			<QueueConfig<T>>::set(QueueConfigData {
+				suspend_threshold: 1100,
+				drop_threshold: 1100,
+				resume_threshold: 1100,
+			});
 		}
 
 		let msgs = vec![Default::default(); n as usize];
@@ -112,9 +117,9 @@ mod benchmarks {
 			mock::EnqueuedMessages::set(vec![]);
 		}
 		<QueueConfig<T>>::set(QueueConfigData {
-			suspend_threshold: 500,
-			drop_threshold: 1000,
-			resume_threshold: 750,
+			suspend_threshold: 200,
+			drop_threshold: 200,
+			resume_threshold: 200,
 		});
 
 		let max_msg_len = MaxXcmpMessageLenOf::<T>::get() as usize;
@@ -143,6 +148,15 @@ mod benchmarks {
 
 	#[benchmark]
 	fn enqueue_1000_small_xcmp_messages() {
+		#[cfg(test)]
+		{
+			<QueueConfig<T>>::set(QueueConfigData {
+				suspend_threshold: 1100,
+				drop_threshold: 1100,
+				resume_threshold: 1100,
+			});
+		}
+
 		let mut msgs = vec![];
 		for _i in 0..1000 {
 			msgs.push(BoundedVec::try_from(vec![0; 3]).unwrap());

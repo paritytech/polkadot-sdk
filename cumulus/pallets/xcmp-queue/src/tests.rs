@@ -216,7 +216,13 @@ fn xcm_enqueueing_starts_dropping_on_out_of_weight() {
 			);
 
 			let mut weight_meter = WeightMeter::with_limit(required_weight);
-			assert!(XcmpQueue::enqueue_xcmp_messages(1000.into(), &xcms, &mut weight_meter).is_ok());
+			let res = XcmpQueue::enqueue_xcmp_messages(1000.into(), &xcms, &mut weight_meter);
+			if idx < xcms.len() - 1 {
+				assert!(res.is_err());
+			} else {
+				assert!(res.is_ok());
+			}
+
 			assert_eq!(
 				EnqueuedMessages::get(),
 				xcms[..idx + 1]

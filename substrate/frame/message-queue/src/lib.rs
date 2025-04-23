@@ -307,7 +307,8 @@ where
 
 	/// Check if a message can be appended to the current page at the provided heap position.
 	///
-	/// On success, returns the resulting position in the page where new messages can be appended.
+	/// On success, returns the resulting position in the page where a new payload can be
+	/// appended.
 	fn check_can_append_message_at(pos: usize, message_len: usize) -> Result<usize, ()> {
 		let header_size = ItemHeader::<Size>::max_encoded_len();
 		let data_len = header_size.saturating_add(message_len);
@@ -1866,6 +1867,8 @@ impl<T: Config> QueueFootprintQuery<MessageOriginOf<T>> for Pallet<T> {
 					msgs.next();
 				},
 				Err(_) => {
+					// Would not fit into the current page.
+					// We start a new one and try again in the next iteration.
 					new_pages_count += 1;
 					total_pages_count += 1;
 					current_page_pos = 0;
