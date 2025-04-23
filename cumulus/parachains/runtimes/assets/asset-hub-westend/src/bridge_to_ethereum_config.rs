@@ -21,7 +21,10 @@ use crate::{
 	AccountId, Assets, ForeignAssets, Runtime, RuntimeEvent,
 };
 #[cfg(not(feature = "runtime-benchmarks"))]
-use crate::{xcm_config::{AssetTransactors, XcmRouter}, AssetConversion};
+use crate::{
+	xcm_config::{AssetTransactors, XcmRouter},
+	AssetConversion,
+};
 use assets_common::{matching::FromSiblingParachain, AssetIdForTrustBackedAssetsConvert};
 #[cfg(feature = "runtime-benchmarks")]
 use benchmark_helpers::{DoNothingRouter, DoNothingSwap, SuccessfulTransactor};
@@ -97,7 +100,6 @@ pub mod benchmark_helpers {
 			_send_to: crate::AccountId,
 			_keep_alive: bool,
 		) -> Result<Self::Balance, DispatchError> {
-			tracing::error!(target: "asset-hub-westend-runtime", ?amount_out_min, "in swap_exact_tokens_for_tokens");
 			Ok(amount_out_min.unwrap_or(amount_in))
 		}
 

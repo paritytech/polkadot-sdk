@@ -267,10 +267,7 @@ pub mod pallet {
 					ether_location,
 					tip_amount,
 				)
-				.map_err(|e| {
-					tracing::error!(target: LOG_TARGET, ?e, "swap andd burn error");
-					Error::<T>::SwapError
-				})?
+				.map_err(|_| Error::<T>::SwapError)?
 			} else {
 				tip_amount
 			};
@@ -332,10 +329,7 @@ pub mod pallet {
 				who.clone(),
 				true,
 			)
-			.map_err(|e| {
-				tracing::error!(target: LOG_TARGET, ?e, "swap error");
-				Error::<T>::SwapError
-			})?;
+			.map_err(|_| Error::<T>::SwapError)?;
 
 			// Burn the ether
 			let ether_asset = Asset::from((ether_location.clone(), ether_gained));
