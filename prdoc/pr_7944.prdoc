@@ -37,3 +37,7 @@ crates:
     bump: patch
   - name: bp-bridge-hub-westend    
     bump: patch
+  - name: pallet-staking-async-parachain-runtime    
+    bump: patch
+  - name: pallet-staking-async-rc-runtime    
+    bump: patch
