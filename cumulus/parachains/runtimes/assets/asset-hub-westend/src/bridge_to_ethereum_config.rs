@@ -13,15 +13,23 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#[cfg(not(feature = "runtime-benchmarks"))]
+use crate::xcm_config::XcmRouter;
+#[cfg(not(feature = "runtime-benchmarks"))]
+use crate::AssetConversion;
 use crate::{
 	weights, xcm_config,
 	xcm_config::{
 		AssetTransactors, LocationToAccountId, TrustBackedAssetsPalletLocation, UniversalLocation,
 		XcmConfig,
 	},
-	AccountId, AssetConversion, Assets, ForeignAssets, Runtime, RuntimeEvent,
+	AccountId, Assets, ForeignAssets, Runtime, RuntimeEvent,
 };
 use assets_common::{matching::FromSiblingParachain, AssetIdForTrustBackedAssetsConvert};
+#[cfg(feature = "runtime-benchmarks")]
+use benchmark_helpers::DoNothingRouter;
+#[cfg(feature = "runtime-benchmarks")]
+use benchmark_helpers::DoNothingSwap;
 use frame_support::{parameter_types, traits::EitherOf};
 use frame_system::EnsureRootWithSuccess;
 use parachains_common::AssetIdForTrustBackedAssets;
@@ -30,15 +38,13 @@ use testnet_parachains_constants::westend::snowbridge::{EthereumNetwork, FRONTEN
 use xcm::prelude::{Asset, InteriorLocation, Location, PalletInstance, Parachain};
 use xcm_executor::XcmExecutor;
 
-#[cfg(not(feature = "runtime-benchmarks"))]
-use crate::xcm_config::XcmRouter;
-#[cfg(feature = "runtime-benchmarks")]
-use benchmark_helpers::DoNothingRouter;
-
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmark_helpers {
 	use crate::{xcm_config::LocationToAccountId, ForeignAssets, RuntimeOrigin};
+	use alloc::vec::Vec;
 	use codec::Encode;
+	use frame_support::pallet_prelude::DispatchError;
+	use pallet_asset_conversion::Swap;
 	use xcm::prelude::*;
 	use xcm_executor::traits::ConvertLocation;
 
@@ -73,6 +79,38 @@ pub mod benchmark_helpers {
 				1,
 			)
 			.unwrap()
+		}
+	}
+
+	pub struct DoNothingSwap;
+	impl Swap<crate::AccountId> for DoNothingSwap {
+		type Balance = u128;
+		type AssetKind = Location;
+
+		fn max_path_len() -> u32 {
+			8
+		}
+
+		fn swap_exact_tokens_for_tokens(
+			_sender: crate::AccountId,
+			_path: Vec<Self::AssetKind>,
+			_amount_in: Self::Balance,
+			amount_out_min: Option<Self::Balance>,
+			_send_to: crate::AccountId,
+			_keep_alive: bool,
+		) -> Result<Self::Balance, DispatchError> {
+			Ok(amount_out_min.unwrap_or(0u128))
+		}
+
+		fn swap_tokens_for_exact_tokens(
+			_sender: crate::AccountId,
+			_path: Vec<Self::AssetKind>,
+			amount_out: Self::Balance,
+			_amount_in_max: Option<Self::Balance>,
+			_send_to: crate::AccountId,
+			_keep_alive: bool,
+		) -> Result<Self::Balance, DispatchError> {
+			Ok(amount_out)
 		}
 	}
 }
@@ -127,6 +165,9 @@ impl snowbridge_pallet_system_frontend::Config for Runtime {
 	type BridgeHubLocation = BridgeHubLocation;
 	type UniversalLocation = UniversalLocation;
 	type PalletLocation = SystemFrontendPalletLocation;
+	#[cfg(not(feature = "runtime-benchmarks"))]
 	type Swap = AssetConversion;
+	#[cfg(feature = "runtime-benchmarks")]
+	type Swap = DoNothingSwap;
 	type BackendWeightInfo = weights::snowbridge_pallet_system_backend::WeightInfo<Runtime>;
 }
