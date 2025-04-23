@@ -21,7 +21,7 @@ use crate::{
 	AccountId, Assets, ForeignAssets, Runtime, RuntimeEvent,
 };
 #[cfg(not(feature = "runtime-benchmarks"))]
-use crate::{xcm_config::XcmRouter, AssetConversion, AssetTransactors};
+use crate::{xcm_config::{AssetTransactors, XcmRouter}, AssetConversion};
 use assets_common::{matching::FromSiblingParachain, AssetIdForTrustBackedAssetsConvert};
 #[cfg(feature = "runtime-benchmarks")]
 use benchmark_helpers::{DoNothingRouter, DoNothingSwap, SuccessfulTransactor};
