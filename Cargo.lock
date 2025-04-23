@@ -1277,6 +1277,7 @@ dependencies = [
  "staging-xcm-executor",
  "substrate-wasm-builder",
  "testnet-parachains-constants",
+ "tracing",
  "westend-runtime-constants",
  "xcm-runtime-apis",
 ]
@@ -21552,6 +21553,7 @@ dependencies = [
  "staging-xcm",
  "staging-xcm-builder",
  "staging-xcm-executor",
+ "tracing",
 ]
 
 [[package]]

@@ -193,8 +193,12 @@ where
 	AssetTransactor: TransactAsset,
 {
 	let dummy_context = XcmContext { origin: None, message_id: Default::default(), topic: None };
-	AssetTransactor::can_check_out(origin, fee, &dummy_context)?;
+	AssetTransactor::can_check_out(origin, fee, &dummy_context).inspect_err(|e| {
+		tracing::error!(target: "burn_for_teleport", ?e, "can_check_out error");
+	})?;
 	AssetTransactor::check_out(origin, fee, &dummy_context);
-	AssetTransactor::withdraw_asset(fee, origin, None)?;
+	AssetTransactor::withdraw_asset(fee, origin, None).inspect_err(|e| {
+		tracing::error!(target: "burn_for_teleport", ?e, "withdraw_asset error");
+	})?;
 	Ok(())
 }

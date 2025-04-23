@@ -319,6 +319,7 @@ pub mod pallet {
 		where
 			<T as frame_system::Config>::AccountId: Into<Location>,
 		{
+			tracing::error!(target: LOG_TARGET, "in swap and burn");
 			// Swap tip asset to ether
 			let swap_path = vec![tip_asset_location.clone(), ether_location.clone()];
 			let who_location: Location = who.clone().into();
