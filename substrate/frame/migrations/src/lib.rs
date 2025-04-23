@@ -332,6 +332,7 @@ pub mod pallet {
 	pub trait Config: frame_system::Config {
 		/// The overarching event type of the runtime.
 		#[pallet::no_default_bounds]
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		/// All the multi-block migrations to run.

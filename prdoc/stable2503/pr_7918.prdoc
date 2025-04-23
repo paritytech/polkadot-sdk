@@ -1,0 +1,13 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: "Add an extra_constant to pallet-treasury"
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      - Allows to query pallet-treasury's pot account via extra constant.
+
+crates:
+  - name: pallet-treasury
+    bump: minor
