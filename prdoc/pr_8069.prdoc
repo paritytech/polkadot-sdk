@@ -10,6 +10,8 @@ doc:
 
 crates:
   - name: cumulus-pallet-parachain-system
-    bump: patch
+    bump: minor
   - name: frame-benchmarking-cli
-    bump: patch
+    bump: minor
+  - name: frame-storage-access-test-runtime
+    bump: major
