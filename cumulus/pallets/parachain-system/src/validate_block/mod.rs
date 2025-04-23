@@ -69,6 +69,9 @@ pub struct MemoryOptimizedValidationParams {
 	pub relay_parent_storage_root: cumulus_primitives_core::relay_chain::Hash,
 }
 
+/// Parameters for benchmarking storage access on block validation.
+///
+/// On dry-run, the storage access is not performed.
 #[derive(codec::Decode, Clone)]
 #[cfg_attr(feature = "std", derive(codec::Encode))]
 pub struct StorageAccessParams<B: sp_runtime::traits::Block> {
@@ -78,9 +81,12 @@ pub struct StorageAccessParams<B: sp_runtime::traits::Block> {
 	pub is_dry_run: bool,
 }
 
+/// Payload for benchmarking read and write operations on block validation.
 #[derive(Debug, Clone, codec::Decode, codec::Encode)]
 pub enum StorageAccessPayload {
+	// Storage keys with optional child info.
 	Read(crate::Vec<(crate::Vec<u8>, Option<sp_core::storage::ChildInfo>)>),
+	// Storage key-value pairs with optional child info.
 	Write((crate::Vec<(crate::Vec<u8>, crate::Vec<u8>)>, Option<sp_core::storage::ChildInfo>)),
 }
 
