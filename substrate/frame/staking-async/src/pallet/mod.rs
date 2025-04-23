@@ -67,7 +67,9 @@ pub(crate) const SPECULATIVE_NUM_SPANS: u32 = 32;
 
 #[frame_support::pallet]
 pub mod pallet {
-	use super::*;
+	use core::ops::Deref;
+
+use super::*;
 	use crate::{session_rotation, PagedExposureMetadata, SnapshotStatus};
 	use codec::HasCompact;
 	use frame_election_provider_support::{ElectionDataProvider, PageIndex};
@@ -538,6 +540,23 @@ pub mod pallet {
 		OptionQuery,
 	>;
 
+	pub type BoundedExposurePage<T>(pub ExposurePage<T::AccountId, BalanceOf<T>>);
+	impl<T: Config> Deref for BoundedExposurePage<T> {
+		type Target = ExposurePage<T::AccountId, BalanceOf<T>>;
+
+		fn deref(&self) -> &Self::Target {
+			self.0
+		}
+	}
+
+	impl<T: Config> DerefMut for BoundedExposurePage<T> {
+		type Target = ExposurePage<T::AccountId, BalanceOf<T>>;
+
+		fn deref_mut(&mut self) -> &mut Self::Target {
+			self.0
+		}
+	}
+
 	/// Paginated exposure of a validator at given era.
 	///
 	/// This is keyed first by the era index to allow bulk deletion, then stash account and finally
@@ -575,7 +594,6 @@ pub mod pallet {
 	///
 	/// It is removed after [`Config::HistoryDepth`] eras.
 	#[pallet::storage]
-	#[pallet::unbounded]
 	pub type ErasClaimedRewards<T: Config> = StorageDoubleMap<
 		_,
 		Twox64Concat,
