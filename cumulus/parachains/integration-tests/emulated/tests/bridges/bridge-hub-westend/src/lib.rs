@@ -30,8 +30,8 @@ mod imports {
 
 	// Cumulus
 	pub use emulated_integration_tests_common::{
-		create_pool_with_native_on,
 		accounts::ALICE,
+		create_pool_with_native_on,
 		impls::Inspect,
 		test_dry_run_transfer_across_pk_bridge, test_parachain_is_trusted_teleporter,
 		test_parachain_is_trusted_teleporter_for_relay, test_relay_is_trusted_teleporter,

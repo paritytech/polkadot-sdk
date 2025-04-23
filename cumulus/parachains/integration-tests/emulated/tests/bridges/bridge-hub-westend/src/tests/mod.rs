@@ -121,7 +121,6 @@ pub(crate) fn foreign_balance_on_ah_westend(id: v5::Location, who: &AccountId) -
 	})
 }
 
-
 pub(crate) fn send_assets_from_asset_hub_westend(
 	destination: Location,
 	assets: Assets,

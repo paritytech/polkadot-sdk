@@ -13,7 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{tests::*};
+use crate::tests::*;
 use emulated_integration_tests_common::macros::Dmp;
 use xcm::latest::AssetTransferFilter;
 
