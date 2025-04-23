@@ -5,8 +5,8 @@
 
 # Polkadot SDK
 
-![GitHub stars](https://img.shields.io/github/stars/paritytech/polkadot-sdk)&nbsp;&nbsp;![GitHub
-forks](https://img.shields.io/github/forks/paritytech/polkadot-sdk)
+[![GitHub stars](https://img.shields.io/github/stars/paritytech/polkadot-sdk)](https://github.com/paritytech/polkadot-sdk/stargazers)
+[![GitHub forks](https://img.shields.io/github/forks/paritytech/polkadot-sdk)](https://github.com/paritytech/polkadot-sdk/network/members)
 
 <!-- markdownlint-disable-next-line MD013 -->
 [![StackExchange](https://img.shields.io/badge/StackExchange-Community%20&%20Support-222222?logo=stackexchange)](https://substrate.stackexchange.com/)&nbsp;&nbsp;![GitHub contributors](https://img.shields.io/github/contributors/paritytech/polkadot-sdk)&nbsp;&nbsp;![GitHub commit activity](https://img.shields.io/github/commit-activity/m/paritytech/polkadot-sdk)&nbsp;&nbsp;![GitHub last commit](https://img.shields.io/github/last-commit/paritytech/polkadot-sdk)
