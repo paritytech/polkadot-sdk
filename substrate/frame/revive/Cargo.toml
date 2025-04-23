@@ -23,6 +23,7 @@ derive_more = { workspace = true }
 environmental = { workspace = true }
 ethereum-types = { workspace = true, features = ["codec", "rlp", "serialize"] }
 hex-literal = { workspace = true }
+humantime-serde = { optional = true, workspace = true }
 impl-trait-for-tuples = { workspace = true }
 log = { workspace = true }
 num-bigint = { workspace = true }
@@ -86,6 +87,7 @@ std = [
 	"frame-benchmarking?/std",
 	"frame-support/std",
 	"frame-system/std",
+	"humantime-serde",
 	"log/std",
 	"num-bigint/std",
 	"num-integer/std",

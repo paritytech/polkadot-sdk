@@ -16,108 +16,78 @@
 // limitations under the License.
 
 use crate::evm::{Bytes, CallTracer};
-use alloc::{fmt, string::String, vec::Vec};
+use alloc::{string::String, vec::Vec};
 use codec::{Decode, Encode};
 use scale_info::TypeInfo;
-use serde::{
-	de::{self, MapAccess, Visitor},
-	Deserialize, Deserializer, Serialize,
-};
+use serde::{Deserialize, Serialize};
 use sp_core::{H160, H256, U256};
 
 /// Tracer configuration used to trace calls.
-#[derive(TypeInfo, Debug, Clone, Encode, Decode, Serialize, PartialEq)]
-#[serde(tag = "tracer", content = "tracerConfig")]
-pub enum TracerConfig {
-	/// A tracer that captures call traces.
-	#[serde(rename = "callTracer")]
-	CallTracer {
-		/// Whether or not to capture logs.
-		#[serde(rename = "withLog")]
-		with_logs: bool,
-	},
+#[derive(TypeInfo, Debug, Clone, Encode, Default, Decode, PartialEq)]
+#[cfg_attr(
+	feature = "std",
+	derive(Serialize, Deserialize),
+	serde(default, rename_all = "camelCase")
+)]
+pub struct TracerConfig {
+	/// The tracer type. (Only "callTracer" is supported for now.)
+	config: CallTracerConfig,
+
+	/// Timeout for the tracer.
+	#[cfg_attr(feature = "std", serde(with = "humantime_serde"))]
+	pub timeout: Option<core::time::Duration>,
+}
+
+/// The configuration for the call tracer.
+#[derive(Clone, Debug, Decode, Serialize, Deserialize, Encode, PartialEq, TypeInfo)]
+#[serde(default)]
+pub struct CallTracerConfig {
+	/// Whether to include logs in the trace.
+	#[serde(rename = "withLogs")]
+	pub with_logs: bool,
+
+	/// Whether to only include the top-level calls in the trace.
+	#[serde(rename = "onlyTopCall")]
+	pub only_top_call: bool,
+}
+
+impl Default for CallTracerConfig {
+	fn default() -> Self {
+		CallTracerConfig { with_logs: true, only_top_call: false }
+	}
 }
 
 impl TracerConfig {
 	/// Build the tracer associated to this config.
 	pub fn build<G>(self, gas_mapper: G) -> CallTracer<U256, G> {
-		match self {
-			Self::CallTracer { with_logs } => CallTracer::new(with_logs, gas_mapper),
-		}
-	}
-}
-
-/// Custom deserializer to support the following JSON format:
-///
-/// ```json
-/// { "tracer": "callTracer", "tracerConfig": { "withLogs": false } }
-/// ```
-///
-/// ```json
-/// { "tracer": "callTracer" }
-/// ```
-impl<'de> Deserialize<'de> for TracerConfig {
-	fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-	where
-		D: Deserializer<'de>,
-	{
-		struct TracerConfigVisitor;
-
-		impl<'de> Visitor<'de> for TracerConfigVisitor {
-			type Value = TracerConfig;
-
-			fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-				formatter.write_str("a map with tracer and optional tracerConfig")
-			}
-
-			fn visit_map<M>(self, mut map: M) -> Result<Self::Value, M::Error>
-			where
-				M: MapAccess<'de>,
-			{
-				let mut tracer_type: Option<String> = None;
-				let mut with_logs = None;
-
-				while let Some(key) = map.next_key::<String>()? {
-					match key.as_str() {
-						"tracer" => {
-							tracer_type = map.next_value()?;
-						},
-						"tracerConfig" => {
-							#[derive(Deserialize)]
-							struct CallTracerConfig {
-								#[serde(rename = "withLogs")]
-								with_logs: Option<bool>,
-							}
-							let inner: CallTracerConfig = map.next_value()?;
-							with_logs = inner.with_logs;
-						},
-						_ => {},
-					}
-				}
-
-				match tracer_type.as_deref() {
-					Some("callTracer") =>
-						Ok(TracerConfig::CallTracer { with_logs: with_logs.unwrap_or(true) }),
-					_ => Err(de::Error::custom("Unsupported or missing tracer type")),
-				}
-			}
-		}
-
-		deserializer.deserialize_map(TracerConfigVisitor)
+		CallTracer::new(self.config, gas_mapper)
 	}
 }
 
 #[test]
 fn test_tracer_config_serialization() {
 	let tracers = vec![
-		(r#"{"tracer": "callTracer"}"#, TracerConfig::CallTracer { with_logs: true }),
-		(
-			r#"{"tracer": "callTracer", "tracerConfig": { "withLogs": true }}"#,
-			TracerConfig::CallTracer { with_logs: true },
-		),
+		(r#"{"tracer": "callTracer"}"#, TracerConfig::default()),
 		(
 			r#"{"tracer": "callTracer", "tracerConfig": { "withLogs": false }}"#,
-			TracerConfig::CallTracer { with_logs: false },
+			TracerConfig {
+				config: CallTracerConfig { with_logs: false, only_top_call: false },
+				timeout: None,
+			},
+		),
+		(
+			r#"{"tracer": "callTracer", "tracerConfig": { "onlyTopCall": true }}"#,
+			TracerConfig {
+				config: CallTracerConfig { with_logs: true, only_top_call: true },
+				timeout: None,
+			},
+		),
+		(
+			r#"{"tracer": "callTracer", "tracerConfig": { "onlyTopCall": true }, "timeout": "10ms"}"#,
+			TracerConfig {
+				config: CallTracerConfig { with_logs: true, only_top_call: true },
+				timeout: Some(core::time::Duration::from_millis(10)),
+			},
 		),
 	];
 
@@ -125,12 +95,6 @@ fn test_tracer_config_serialization() {
 		let result: TracerConfig =
 			serde_json::from_str(json_data).expect("Deserialization should succeed");
 		assert_eq!(result, expected);
-	}
-}
-
-impl Default for TracerConfig {
-	fn default() -> Self {
-		TracerConfig::CallTracer { with_logs: false }
 	}
 }
 

@@ -24,7 +24,7 @@ pub trait DebugRpc {
 	///
 	/// ## References
 	///
-	/// - <https://geth.ethereum.org/docs/interacting-with-geth/rpc/ns-debug#debugtraceblockbynumb>er
+	/// - <https://geth.ethereum.org/docs/interacting-with-geth/rpc/ns-debug#debugtraceblockbynumber>
 	#[method(name = "debug_traceBlockByNumber")]
 	async fn trace_block_by_number(
 		&self,
@@ -68,6 +68,24 @@ impl DebugRpcServerImpl {
 	}
 }
 
+async fn with_timeout<T>(
+	timeout: Option<core::time::Duration>,
+	fut: impl std::future::Future<Output = Result<T, ClientError>>,
+) -> RpcResult<T> {
+	if let Some(timeout) = timeout {
+		match tokio::time::timeout(timeout, fut).await {
+			Ok(r) => Ok(r?),
+			Err(_) => Err(ErrorObjectOwned::owned::<String>(
+				-32000,
+				"execution timeout".to_string(),
+				None,
+			)),
+		}
+	} else {
+		Ok(fut.await?)
+	}
+}
+
 #[async_trait]
 impl DebugRpcServer for DebugRpcServerImpl {
 	async fn trace_block_by_number(
@@ -75,9 +93,8 @@ impl DebugRpcServer for DebugRpcServerImpl {
 		block: BlockNumberOrTag,
 		tracer_config: TracerConfig,
 	) -> RpcResult<Vec<TransactionTrace>> {
-		log::debug!(target: crate::LOG_TARGET, "trace_block_by_number: {block:?} config: {tracer_config:?}");
-		let traces = self.client.trace_block_by_number(block, tracer_config).await?;
-		Ok(traces)
+		with_timeout(tracer_config.timeout, self.client.trace_block_by_number(block, tracer_config))
+			.await
 	}
 
 	async fn trace_transaction(
@@ -85,8 +102,11 @@ impl DebugRpcServer for DebugRpcServerImpl {
 		transaction_hash: H256,
 		tracer_config: TracerConfig,
 	) -> RpcResult<CallTrace> {
-		let trace = self.client.trace_transaction(transaction_hash, tracer_config).await?;
-		Ok(trace)
+		with_timeout(
+			tracer_config.timeout,
+			self.client.trace_transaction(transaction_hash, tracer_config),
+		)
+		.await
 	}
 
 	async fn trace_call(
@@ -95,8 +115,10 @@ impl DebugRpcServer for DebugRpcServerImpl {
 		block: BlockNumberOrTag,
 		tracer_config: TracerConfig,
 	) -> RpcResult<CallTrace> {
-		log::debug!(target: crate::LOG_TARGET, "trace_call: {transaction:?} block: {block:?} config: {tracer_config:?}");
-		let trace = self.client.trace_call(transaction, block, tracer_config).await?;
-		Ok(trace)
+		with_timeout(
+			tracer_config.timeout,
+			self.client.trace_call(transaction, block, tracer_config),
+		)
+		.await
 	}
 }
