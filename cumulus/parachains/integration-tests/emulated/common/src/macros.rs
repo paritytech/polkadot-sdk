@@ -512,8 +512,11 @@ macro_rules! test_can_estimate_and_pay_exact_fees {
 				assert_eq!(messages_to_query.len(), 1);
 				remote_message = messages_to_query[0].clone();
 				let delivery_fees =
-					Runtime::query_delivery_fees(destination_to_query.clone(), remote_message.clone())
-						.unwrap();
+					Runtime::query_delivery_fees(
+						destination_to_query.clone(),
+						remote_message.clone(),
+						VersionedAssetId::from(AssetId(Location::parent()))
+					).unwrap();
 				local_delivery_fees = $crate::xcm_helpers::get_amount_from_versioned_assets(delivery_fees);
 			});
 
@@ -556,6 +559,7 @@ macro_rules! test_can_estimate_and_pay_exact_fees {
 				let delivery_fees = Runtime::query_delivery_fees(
 					destination_to_query.clone(),
 					intermediate_remote_message.clone(),
+					VersionedAssetId::from(AssetId(Location::new(1, []))),
 				)
 				.unwrap();
 				intermediate_delivery_fees = $crate::xcm_helpers::get_amount_from_versioned_assets(delivery_fees);
@@ -683,7 +687,7 @@ macro_rules! test_xcm_fee_querying_apis_work_for_asset_hub {
 	( $asset_hub:ty ) => {
 		$crate::macros::paste::paste! {
 			use emulated_integration_tests_common::USDT_ID;
-			use xcm_runtime_apis::fees::{Error as XcmPaymentApiError, runtime_decl_for_xcm_payment_api::XcmPaymentApiV1};
+			use xcm_runtime_apis::fees::{Error as XcmPaymentApiError, runtime_decl_for_xcm_payment_api::XcmPaymentApiV2};
 
 			$asset_hub::execute_with(|| {
 				// Setup a pool between USDT and WND.

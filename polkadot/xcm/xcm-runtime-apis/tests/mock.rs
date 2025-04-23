@@ -497,7 +497,7 @@ sp_api::mock_impl_runtime_apis! {
 			}
 		}
 
-		fn query_delivery_fees(destination: VersionedLocation, message: VersionedXcm<()>) -> Result<VersionedAssets, XcmPaymentApiError> {
+		fn query_delivery_fees(destination: VersionedLocation, message: VersionedXcm<()>, _: VersionedAssetId) -> Result<VersionedAssets, XcmPaymentApiError> {
 			XcmPallet::query_delivery_fees(destination, message)
 		}
 	}

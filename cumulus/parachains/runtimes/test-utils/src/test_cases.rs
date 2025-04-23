@@ -32,7 +32,7 @@ use sp_runtime::{
 };
 use xcm::prelude::XcmError;
 use xcm_runtime_apis::fees::{
-	runtime_decl_for_xcm_payment_api::XcmPaymentApiV1, Error as XcmPaymentApiError,
+	runtime_decl_for_xcm_payment_api::XcmPaymentApiV2, Error as XcmPaymentApiError,
 };
 
 type RuntimeHelper<Runtime, AllPalletsWithoutSystem = ()> =
@@ -150,7 +150,7 @@ pub fn set_storage_keys_by_governance_works<Runtime>(
 
 pub fn xcm_payment_api_with_native_token_works<Runtime, RuntimeCall, RuntimeOrigin, Block>()
 where
-	Runtime: XcmPaymentApiV1<Block>
+	Runtime: XcmPaymentApiV2<Block>
 		+ frame_system::Config<RuntimeOrigin = RuntimeOrigin, AccountId = AccountId>
 		+ pallet_balances::Config<Balance = u128>
 		+ pallet_session::Config
