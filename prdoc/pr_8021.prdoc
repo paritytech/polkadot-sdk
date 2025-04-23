@@ -41,3 +41,5 @@ crates:
   bump: patch
 - name: yet-another-parachain-runtime
   bump: patch
+- name: pallet-staking-async-parachain-runtime
+  bump: none
