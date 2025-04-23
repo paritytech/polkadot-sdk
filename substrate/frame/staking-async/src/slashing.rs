@@ -474,10 +474,6 @@ fn slash_validator<T: Config>(params: SlashParams<T>) -> (BalanceOf<T>, BalanceO
 	let own_stake = params.exposure.exposure_metadata.own;
 	let prior_slashed = params.prior_slash * own_stake;
 	let new_total_slash = params.slash * own_stake;
-	debug_assert!(
-		new_total_slash > prior_slashed,
-		"lower slash in era should have been filtered out"
-	);
 
 	let slash_due = new_total_slash.saturating_sub(prior_slashed);
 	// Audit Note: Previously, each repeated slash reduced the reward by 50% (e.g., 50% × 50% for
@@ -515,15 +511,19 @@ fn slash_nominators<T: Config>(
 		let new_total_slash = params.slash * nominator.value;
 		let slash_due = new_total_slash.saturating_sub(prior_slashed);
 
-		NominatorSlashInEra::<T>::mutate(
-			&params.slash_era,
+		log!(
+			debug,
+			"🦹 slashing nominator {:?} of stake: {:?} for {:?} in era {:?}",
 			stash,
-			|old_slash| {
-				let mut new_slash = old_slash.unwrap_or_else(Zero::zero);
-				new_slash += slash_due;
-				new_slash
-			},
+			nominator.value,
+			slash_due,
+			params.slash_era,
 		);
+
+		NominatorSlashInEra::<T>::mutate(&params.slash_era, stash, |existing| {
+			*existing = Some(existing.map(|e| e.saturating_add(slash_due)).unwrap_or(slash_due));
+		});
+
 		nominators_slashed.push((stash.clone(), slash_due));
 		total_slashed.saturating_accrue(slash_due);
 		reward_payout.saturating_accrue(params.reward_proportion * slash_due);

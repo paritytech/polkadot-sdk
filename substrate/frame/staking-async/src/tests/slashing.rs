@@ -218,7 +218,7 @@ fn only_first_reporter_receive_the_slice() {
 			]
 		);
 
-		let reward = 500 / 20;
+		let reward = 500 / 10;
 		assert_eq!(asset::total_balance::<T>(&1), initial_balance_1 + reward);
 		// second reporter got nothing
 		assert_eq!(asset::total_balance::<T>(&2), initial_balance_2);
@@ -598,8 +598,6 @@ fn garbage_collection_after_slashing() {
 			Session::roll_next();
 
 			assert_eq!(asset::stakeable_balance::<T>(&11), 2000 - 200);
-			assert!(SlashingSpans::<T>::get(&11).is_some());
-			assert_eq!(SpanSlash::<T>::get(&(11, 0)).amount(), &200);
 
 			add_slash_with_percent(11, 100);
 			Session::roll_next();
@@ -611,15 +609,8 @@ fn garbage_collection_after_slashing() {
 			// Non staked balance is not touched.
 			assert_eq!(asset::total_balance::<T>(&11), ExistentialDeposit::get());
 
-			let slashing_spans = SlashingSpans::<T>::get(&11).unwrap();
-			assert_eq!(slashing_spans.iter().count(), 2);
-
-			// reap_stash respects num_slashing_spans so that weight is accurate
-			assert_noop!(
-				Staking::reap_stash(RuntimeOrigin::signed(20), 11, 0),
-				Error::<T>::IncorrectSlashingSpans
-			);
-			assert_ok!(Staking::reap_stash(RuntimeOrigin::signed(20), 11, 2));
+			// todo(ank4n): remove slashing span.
+			assert_ok!(Staking::reap_stash(RuntimeOrigin::signed(20), 11, 0));
 
 			assert!(SlashingSpans::<T>::get(&11).is_none());
 			assert_eq!(SpanSlash::<T>::get(&(11, 0)).amount(), &0);
@@ -683,16 +674,6 @@ fn slashing_nominators_by_span_max() {
 		let slash_1_amount = Perbill::from_percent(10) * nominated_value_11;
 		assert_eq!(asset::stakeable_balance::<T>(&101), 500 - slash_1_amount);
 
-		let expected_spans = vec![
-			slashing::SlashingSpan { index: 1, start: 4, length: None },
-			slashing::SlashingSpan { index: 0, start: 0, length: Some(4) },
-		];
-
-		let get_span = |account| SlashingSpans::<T>::get(&account).unwrap();
-
-		assert_eq!(get_span(11).iter().collect::<Vec<_>>(), expected_spans);
-		assert_eq!(get_span(101).iter().collect::<Vec<_>>(), expected_spans);
-
 		// second slash: higher era, higher value, same span.
 		add_slash_in_era_with_value(21, 3, Perbill::from_percent(30));
 		Session::roll_next();
@@ -722,43 +703,6 @@ fn slashing_nominators_by_span_max() {
 
 		// only the maximum slash in a single span is taken.
 		assert_eq!(asset::stakeable_balance::<T>(&101), 500 - slash_2_amount);
-	});
-}
-
-#[test]
-fn slashes_are_summed_across_spans() {
-	ExtBuilder::default().nominate(false).build_and_execute(|| {
-		Session::roll_until_active_era(3);
-
-		assert_eq!(asset::stakeable_balance::<T>(&21), 1000);
-		assert_eq!(Staking::slashable_balance_of(&21), 1000);
-
-		let get_span = |account| SlashingSpans::<T>::get(&account).unwrap();
-
-		add_slash(21);
-		Session::roll_next();
-
-		let expected_spans = vec![
-			slashing::SlashingSpan { index: 1, start: 4, length: None },
-			slashing::SlashingSpan { index: 0, start: 0, length: Some(4) },
-		];
-
-		assert_eq!(get_span(21).iter().collect::<Vec<_>>(), expected_spans);
-		assert_eq!(asset::stakeable_balance::<T>(&21), 900);
-		assert_eq!(Staking::slashable_balance_of(&21), 900);
-
-		Session::roll_until_active_era(4);
-		add_slash(21);
-		Session::roll_next();
-
-		let expected_spans = vec![
-			slashing::SlashingSpan { index: 2, start: 5, length: None },
-			slashing::SlashingSpan { index: 1, start: 4, length: Some(1) },
-			slashing::SlashingSpan { index: 0, start: 0, length: Some(4) },
-		];
-
-		assert_eq!(get_span(21).iter().collect::<Vec<_>>(), expected_spans);
-		assert_eq!(asset::stakeable_balance::<T>(&21), 810);
 	});
 }
 
@@ -896,7 +840,7 @@ fn remove_deferred() {
 						others: bounded_vec![(101, 25)],
 						reporter: None,
 						// 10% of the slash
-						payout: (100 + 25)/10
+						payout: (100 + 25) / 10
 					}
 				),
 				(
@@ -907,7 +851,7 @@ fn remove_deferred() {
 						others: bounded_vec![(101, 12)],
 						reporter: None,
 						// 10% of the slash
-						payout: (50 + 12)/10
+						payout: (50 + 12) / 10
 					}
 				),
 			]
@@ -931,7 +875,7 @@ fn remove_deferred() {
 			vec![Event::SlashCancelled {
 				slash_era: 3,
 				slash_key: (11, Perbill::from_percent(10), 0),
-				payout: 6
+				payout: 12
 			}]
 		);
 
