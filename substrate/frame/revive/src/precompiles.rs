@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Exposes types that can be used to `pallet_revive` with additional functionality.
+//! Exposes types that can be used to extend `pallet_revive` with additional functionality.
 //!
 //! In order to add a pre-compile:
 //!
@@ -165,7 +165,7 @@ pub trait Precompile {
 	///
 	/// - An account will be created at the pre-compiles address when it is called for the first
 	///   time. The ed is minted.
-	/// - Contract info dats structure will be created in storage on first call.
+	/// - Contract info data structure will be created in storage on first call.
 	/// - Only `call_with_info` should be implemented. `call` is never called.
 	///
 	/// # When set to **false**
@@ -180,7 +180,7 @@ pub trait Precompile {
 	///
 	/// The contract info enables additional functionality:
 	/// - Storage deposits: Collect deposits from the origin rather than the caller. This makes it
-	///   easier for contracts to interact with your pre-compile as deposits
+	///   easier for contracts to interact with the pre-compile as deposits
 	/// 	are payed by the transaction signer (just like gas). It also makes refunding easier.
 	/// - Contract storage: You can use the contracts key value child trie storage instead of
 	///   providing your own state.
