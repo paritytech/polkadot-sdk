@@ -541,6 +541,7 @@ members = [
 	"substrate/utils/frame/rpc/state-trie-migration-rpc",
 	"substrate/utils/frame/rpc/support",
 	"substrate/utils/frame/rpc/system",
+	"substrate/utils/frame/storage-access-test-runtime",
 	"substrate/utils/prometheus",
 	"substrate/utils/substrate-bip39",
 	"substrate/utils/wasm-builder",
