@@ -1,5 +1,6 @@
 [package]
 name = "frame-storage-access-test-runtime"
+description = "A runtime for testing storage access on block validation"
 version = "0.1.0"
 authors.workspace = true
 edition.workspace = true
