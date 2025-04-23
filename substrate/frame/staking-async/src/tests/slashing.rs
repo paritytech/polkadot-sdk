@@ -895,7 +895,8 @@ fn remove_deferred() {
 						own: 100,
 						others: bounded_vec![(101, 25)],
 						reporter: None,
-						payout: 6
+						// 10% of the slash
+						payout: (100 + 25)/10
 					}
 				),
 				(
@@ -905,7 +906,8 @@ fn remove_deferred() {
 						own: 50,
 						others: bounded_vec![(101, 12)],
 						reporter: None,
-						payout: 6
+						// 10% of the slash
+						payout: (50 + 12)/10
 					}
 				),
 			]

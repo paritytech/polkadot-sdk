@@ -511,22 +511,22 @@ fn slash_nominators<T: Config>(
 		let stash = &nominator.who;
 		// the era slash of a nominator always grows, if the validator had a new max slash for the
 		// era.
-		let slash_value = {
-			let own_slash_prior = params.prior_slash * nominator.value;
-			let own_slash_by_validator = params.slash * nominator.value;
-			let own_slash_difference = own_slash_by_validator.saturating_sub(own_slash_prior);
+		let prior_slashed = params.prior_slash * nominator.value;
+		let new_total_slash = params.slash * nominator.value;
+		let slash_due = new_total_slash.saturating_sub(prior_slashed);
 
-			let mut era_slash =
-				NominatorSlashInEra::<T>::get(&params.slash_era, stash).unwrap_or_else(Zero::zero);
-			era_slash += own_slash_difference;
-			NominatorSlashInEra::<T>::insert(&params.slash_era, stash, &era_slash);
-
-			era_slash
-		};
-
-		nominators_slashed.push((stash.clone(), slash_value));
-		total_slashed.saturating_accrue(slash_value);
-		reward_payout.saturating_accrue(params.reward_proportion * slash_value);
+		NominatorSlashInEra::<T>::mutate(
+			&params.slash_era,
+			stash,
+			|old_slash| {
+				let mut new_slash = old_slash.unwrap_or_else(Zero::zero);
+				new_slash += slash_due;
+				new_slash
+			},
+		);
+		nominators_slashed.push((stash.clone(), slash_due));
+		total_slashed.saturating_accrue(slash_due);
+		reward_payout.saturating_accrue(params.reward_proportion * slash_due);
 	}
 
 	(total_slashed, reward_payout)
