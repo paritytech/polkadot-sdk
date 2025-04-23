@@ -19,7 +19,10 @@ use super::{
 	ParachainSystem, PolkadotXcm, Runtime, RuntimeCall, RuntimeEvent, RuntimeHoldReason,
 	RuntimeOrigin, TransactionByteFee, WeightToFee, XcmOverBridgeHubRococo, XcmpQueue,
 };
-use crate::bridge_to_ethereum_config::{AssetHubLocation, SnowbridgeFrontendLocation};
+use crate::{
+	bridge_common_config::AssetHubLocation,
+	bridge_to_ethereum_config::SnowbridgeFrontendLocation,
+};
 use bridge_hub_common::DenyExportMessageFrom;
 use frame_support::{
 	parameter_types,
