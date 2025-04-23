@@ -13,7 +13,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{create_pool_with_native_on, tests::*};
+use crate::{
+	create_pool_with_native_on,
+	tests::{snowbridge_common::snowbridge_sovereign, *},
+};
 use emulated_integration_tests_common::{
 	macros::Dmp,
 	xcm_emulator::{find_all_xcm_topic_ids, helpers::TopicIdTracker},
