@@ -532,6 +532,7 @@ fn host_offchain_index_clear(_key: &[u8]) {}
 #[cfg(feature = "runtime-benchmarks")]
 pub fn proceed_storage_access<B: BlockT>(mut params: &[u8]) {
 	use super::{StorageAccessParams, StorageAccessPayload};
+	use sp_state_machine::Backend;
 
 	let StorageAccessParams { state_root, storage_proof, payload, is_dry_run } =
 		StorageAccessParams::<B>::decode(&mut params)
