@@ -34,6 +34,95 @@
 //! A strategy defines the operation behavior,
 //! may supply additional parameters,
 //! and may define a return value type of the operation.
+//!
+//! ### Usage Example
+//!
+//! This example shows how to interact with pallet-uniques (assuming the pallet called Uniques in
+//! the chain’s Runtime) via the asset ops.
+//!
+//! If you are interested in the implementation example, you can look at the pallet-uniques
+//! implementation. You can check out the pallet-uniques tests if you want more examples of usage.
+//!
+//! ```rust,ignore
+//! type Collection = pallet_uniques::asset_ops::Collection<Uniques>;
+//! type Item = pallet_uniques::asset_ops::Item<Uniques>;
+//!
+//! // Collection creation
+//! //
+//! // Note the `Owner` and `Admin` are inspect strategies.
+//! //
+//! // **Any** inspect strategy can be used to produce a config value
+//! // using the `WithConfig` creation strategy.
+//! Collection::create(WithConfig::new(
+//!     (
+//!         Owner::with_config_value(collection_owner),
+//!         Admin::with_config_value(collection_admin)
+//!     ),
+//!     PredefinedId::from(collection_id),
+//! )).unwrap();
+//!
+//! // Get the collection owner
+//! let owner = Collection::inspect(&collection_id, Owner::default()).unwrap();
+//!
+//! // Get the collection admin
+//! let admin = Collection::inspect(&collection_id, Admin::default()).unwrap();
+//!
+//! // Get collection metadata
+//! let metadata = Collection::inspect(&collection_id, Bytes::default()).unwrap();
+//!
+//! // Get collection attribute
+//! use pallet_uniques::asset_strategies::Attribute;
+//! let attr_key = "example-key";
+//! let attr_value = Collection::inspect(
+//!    &collection_id,
+//!    Bytes(Attribute(attr_key.as_slice())),
+//! ).unwrap();
+//!
+//! // Item creation (note the usage of the same strategy -- WithConfig)
+//! Item::create(WithConfig::new(
+//!     Owner::with_config_value(item_owner),
+//!     PredefinedId::from(item_id),
+//! )).unwrap();
+//!
+//! // Get the item owner
+//! let item_owner = Item::inspect(&(collection_id, item_id), Owner::default()).unwrap();
+//!
+//! // Get item attribute
+//! let attr_key = "example-key";
+//! let attr_value = Item::inspect(
+//!     &(collection_id, item_id),
+//!     Bytes(Attribute(attr_key.as_slice())),
+//! ).unwrap();
+//!
+//! // Unconditionally update the item's owner (unchecked transfer)
+//! Item::update(&(collection_id, item_id), Owner::default(), &bob).unwrap();
+//!
+//! // CheckOrigin then transfer
+//! Item::update(
+//!     &(collection_id, item_id),
+//!     CheckOrigin(RuntimeOrigin::root(), Owner::default()),
+//!     &bob,
+//! ).unwrap();
+//!
+//! // From-To transfer
+//! Item::update(
+//!     &(collection_id, item_id),
+//!     ChangeOwnerFrom::check(alice),
+//!     &bob,
+//! ).unwrap();
+//!
+//! // Lock item (forbid changing its Owner)
+//! //
+//! // Note that Owner strategy is turned into the `CanUpdate<Owner>` strategy
+//! // via the `as_can_update` function.
+//! //
+//! // **Any** update strategy can be turned into the `CanUpdate` this way.
+//! Item::update(
+//!     &(collection_id, item_id),
+//!     Owner::default().as_can_update(),
+//!     false,
+//! );
+//! ```
 
 use core::marker::PhantomData;
 use sp_runtime::DispatchError;
