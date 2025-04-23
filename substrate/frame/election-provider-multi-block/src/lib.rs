@@ -476,9 +476,38 @@ pub enum AdminOperation<T: Config> {
 	SetMinUntrustedScore(ElectionScore),
 }
 
+/// Trait to notify other sub-systems that a round has ended.
+pub trait OnRoundRotation {
+	/// `ending` round has ended. Implies we are now at round `ending + 1`
+	fn on_round_rotation(ending: u32);
+}
+
+impl OnRoundRotation for () {
+	fn on_round_rotation(_: u32) {}
+}
+
+/// An implementation of [`OnRoundRotation`] that immediately deletes all the data in all the
+/// pallets, once the round is over.
+///
+/// This is intended to be phased out once we move to fully lazy deletion system to spare more PoV.
+/// In that case, simply use `()` on [`pallet::Config::OnRoundRotation`].
+pub struct CleanRound<T>(core::marker::PhantomData<T>);
+impl<T: Config> OnRoundRotation for CleanRound<T> {
+	fn on_round_rotation(_ending: u32) {
+		// Kill everything in the verifier.
+		T::Verifier::kill();
+
+		// Kill the snapshot.
+		pallet::Snapshot::<T>::kill();
+
+		// Nothing to do in the signed pallet -- it is already in lazy-deletion mode.
+	}
+}
+
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
+
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
 		/// Duration of the unsigned phase.
@@ -558,6 +587,10 @@ pub mod pallet {
 
 		/// The weight of the pallet.
 		type WeightInfo: WeightInfo;
+
+		/// Single type that implement [`super::OnRoundRotation`] to do something when the round
+		/// ends.
+		type OnRoundRotation: super::OnRoundRotation;
 	}
 
 	#[pallet::call]
@@ -1269,16 +1302,14 @@ impl<T: Config> Pallet<T> {
 	/// 3. Clear all snapshot data.
 	pub(crate) fn rotate_round() {
 		// Inc round.
-		<Round<T>>::mutate(|r| *r += 1);
+		<Round<T>>::mutate(|r| {
+			// Notify the rest of the world
+			T::OnRoundRotation::on_round_rotation(*r);
+			*r += 1
+		});
 
 		// Phase is off now.
 		Self::phase_transition(Phase::Off);
-
-		// Kill everything in the verifier.
-		T::Verifier::kill();
-
-		// Kill the snapshot.
-		Snapshot::<T>::kill();
 	}
 
 	/// Call fallback for the given page.

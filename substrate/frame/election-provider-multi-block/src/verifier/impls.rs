@@ -345,8 +345,10 @@ pub(crate) mod pallet {
 				// store the valid pages
 				for (support, page) in supports.into_iter().zip(pages.iter()) {
 					match Self::valid() {
-						ValidSolution::X => QueuedSolutionX::<T>::insert(Self::round(), page, support),
-						ValidSolution::Y => QueuedSolutionY::<T>::insert(Self::round(), page, support),
+						ValidSolution::X =>
+							QueuedSolutionX::<T>::insert(Self::round(), page, support),
+						ValidSolution::Y =>
+							QueuedSolutionY::<T>::insert(Self::round(), page, support),
 					}
 				}
 				QueuedSolutionScore::<T>::insert(Self::round(), score);
@@ -379,7 +381,9 @@ pub(crate) mod pallet {
 		/// should never become `valid`.
 		pub(crate) fn compute_invalid_score() -> Result<(ElectionScore, u32), FeasibilityError> {
 			// ensure that this is only called when all pages are verified individually.
-			if QueuedSolutionBackings::<T>::iter_key_prefix(Self::round()).count() != T::Pages::get() as usize {
+			if QueuedSolutionBackings::<T>::iter_key_prefix(Self::round()).count() !=
+				T::Pages::get() as usize
+			{
 				return Err(FeasibilityError::Incomplete)
 			}
 
@@ -493,7 +497,8 @@ pub(crate) mod pallet {
 			// The number of existing keys in `QueuedSolutionBackings` must always match that of
 			// the INVALID variant.
 			ensure!(
-				QueuedSolutionBackings::<T>::iter_prefix(Self::round()).count() == Self::invalid_iter().count(),
+				QueuedSolutionBackings::<T>::iter_prefix(Self::round()).count() ==
+					Self::invalid_iter().count(),
 				"incorrect number of backings pages",
 			);
 
