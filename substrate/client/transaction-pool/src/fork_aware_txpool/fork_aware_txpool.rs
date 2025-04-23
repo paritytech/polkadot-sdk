@@ -1427,7 +1427,13 @@ where
 		let blocks_hashes = tree_route
 			.retracted()
 			.iter()
-			.chain(std::iter::once(tree_route.common_block()).chain(tree_route.enacted().iter()))
+			// Skip the tip of the retracted fork, since it has an active view.
+			.skip(1)
+			// Skip also the tip of the enacted fork, since it has an active view too.
+			.chain(
+				std::iter::once(tree_route.common_block())
+					.chain(tree_route.enacted().iter().rev().skip(1)),
+			)
 			.collect::<Vec<&HashAndNumber<Block>>>();
 		self.view_store.provides_tags_from_inactive_views(blocks_hashes, xts_hashes)
 	}
