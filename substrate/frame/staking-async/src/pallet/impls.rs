@@ -185,9 +185,7 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
-	pub(super) fn do_withdraw_unbonded(
-		controller: &T::AccountId,
-	) -> Result<Weight, DispatchError> {
+	pub(super) fn do_withdraw_unbonded(controller: &T::AccountId) -> Result<Weight, DispatchError> {
 		let mut ledger = Self::ledger(Controller(controller.clone()))?;
 		let (stash, old_total) = (ledger.stash.clone(), ledger.total);
 		if let Some(current_era) = CurrentEra::<T>::get() {

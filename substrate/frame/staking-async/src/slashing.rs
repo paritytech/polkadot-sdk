@@ -35,21 +35,18 @@
 //! Based on research at <https://research.web3.foundation/Polkadot/security/slashing/npos>
 
 use crate::{
-	asset, log, session_rotation::Eras, BalanceOf, Config, Error, NegativeImbalanceOf,
+	asset, log, session_rotation::Eras, BalanceOf, Config, NegativeImbalanceOf,
 	NominatorSlashInEra, OffenceQueue, OffenceQueueEras, PagedExposure, Pallet, Perbill,
-	ProcessingOffence, SlashRewardFraction, UnappliedSlash, UnappliedSlashes,
-	ValidatorSlashInEra, WeightInfo,
+	ProcessingOffence, SlashRewardFraction, UnappliedSlash, UnappliedSlashes, ValidatorSlashInEra,
+	WeightInfo,
 };
 use alloc::vec::Vec;
 use codec::{Decode, Encode, MaxEncodedLen};
-use frame_support::{
-	ensure,
-	traits::{Defensive, DefensiveSaturating, Get, Imbalance, OnUnbalanced},
-};
+use frame_support::traits::{Defensive, DefensiveSaturating, Get, Imbalance, OnUnbalanced};
 use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{Saturating, Zero},
-	DispatchResult, RuntimeDebug, WeakBoundedVec, Weight,
+	RuntimeDebug, WeakBoundedVec, Weight,
 };
 use sp_staking::{EraIndex, StakingInterface};
 
@@ -68,10 +65,6 @@ pub(crate) struct SlashParams<'a, T: 'a + Config> {
 	pub(crate) exposure: &'a PagedExposure<T::AccountId, BalanceOf<T>>,
 	/// The era where the offence occurred.
 	pub(crate) slash_era: EraIndex,
-	/// The first era in the current bonding period.
-	pub(crate) window_start: EraIndex,
-	/// The current era.
-	pub(crate) now: EraIndex,
 	/// The maximum percentage of a slash that ever gets paid out.
 	/// This is f_inf in the paper.
 	pub(crate) reward_proportion: Perbill,
@@ -213,7 +206,6 @@ pub(crate) fn process_offence<T: Config>() -> Weight {
 	let slash_page = offence_record.exposure_page;
 	let slash_defer_duration = T::SlashDeferDuration::get();
 	let slash_era = offence_era.saturating_add(slash_defer_duration);
-	let window_start = offence_record.reported_era.saturating_sub(T::BondingDuration::get());
 
 	add_db_reads_writes(3, 3);
 	let Some(mut unapplied) = compute_slash::<T>(SlashParams {
@@ -222,8 +214,6 @@ pub(crate) fn process_offence<T: Config>() -> Weight {
 		prior_slash: offence_record.prior_slash_fraction,
 		exposure: &exposure,
 		slash_era: offence_era,
-		window_start,
-		now: offence_record.reported_era,
 		reward_proportion,
 	}) else {
 		log!(
@@ -397,7 +387,6 @@ pub(crate) fn clear_era_metadata<T: Config>(obsolete_era: EraIndex) {
 	#[allow(deprecated)]
 	NominatorSlashInEra::<T>::remove_prefix(&obsolete_era, None);
 }
-
 
 // apply the slash to a stash account, deducting any missing funds from the reward
 // payout, saturating at 0. this is mildly unfair but also an edge-case that

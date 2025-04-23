@@ -768,10 +768,9 @@ fn staker_cannot_bail_deferred_slash() {
 			assert_eq!(active_era(), 3);
 
 			// and cannot yet unbond:
-			assert_storage_noop!(assert!(Staking::withdraw_unbonded(
-				RuntimeOrigin::signed(101),
-			)
-			.is_ok()));
+			assert_storage_noop!(assert!(
+				Staking::withdraw_unbonded(RuntimeOrigin::signed(101),).is_ok()
+			));
 
 			// first block of era 3, slashes are applied.
 			Session::roll_next();
