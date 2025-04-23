@@ -505,11 +505,15 @@ fn slash_nominators<T: Config>(
 	nominators_slashed.reserve(params.exposure.exposure_page.others.len());
 	for nominator in &params.exposure.exposure_page.others {
 		let stash = &nominator.who;
-		// the era slash of a nominator always grows, if the validator had a new max slash for the
-		// era.
-		let prior_slashed = params.prior_slash * nominator.value;
-		let new_total_slash = params.slash * nominator.value;
-		let slash_due = new_total_slash.saturating_sub(prior_slashed);
+		let prior_slashed =
+			NominatorSlashInEra::<T>::get(&params.slash_era, stash).unwrap_or_else(Zero::zero);
+		let new_slash = params.slash * nominator.value;
+		let slash_due = new_slash.saturating_sub(prior_slashed);
+
+		if new_slash == Zero::zero() {
+			// nothing to do
+			continue
+		}
 
 		log!(
 			debug,
@@ -520,9 +524,13 @@ fn slash_nominators<T: Config>(
 			params.slash_era,
 		);
 
-		NominatorSlashInEra::<T>::mutate(&params.slash_era, stash, |existing| {
-			*existing = Some(existing.map(|e| e.saturating_add(slash_due)).unwrap_or(slash_due));
-		});
+		// the era slash of a nominator always grows, if the validator had a new max slash for the
+		// era.
+		NominatorSlashInEra::<T>::insert(
+			&params.slash_era,
+			stash,
+			prior_slashed.saturating_add(slash_due),
+		);
 
 		nominators_slashed.push((stash.clone(), slash_due));
 		total_slashed.saturating_accrue(slash_due);

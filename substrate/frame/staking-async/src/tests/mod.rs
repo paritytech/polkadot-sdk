@@ -422,18 +422,8 @@ mod staking_interface {
 
 			assert_eq!(Staking::bonded(&11), Some(11));
 
-			assert_noop!(
-				Staking::withdraw_unbonded(RuntimeOrigin::signed(11), 0),
-				Error::<Test>::IncorrectSlashingSpans
-			);
-
-			let num_slashing_spans =
-				SlashingSpans::<Test>::get(&11).map_or(0, |s| s.iter().count());
-
-			assert_ok!(Staking::withdraw_unbonded(
-				RuntimeOrigin::signed(11),
-				num_slashing_spans as u32
-			));
+			// todo(ank4n): remove slashing span arg
+			assert_ok!(Staking::withdraw_unbonded(RuntimeOrigin::signed(11), 0));
 		});
 	}
 

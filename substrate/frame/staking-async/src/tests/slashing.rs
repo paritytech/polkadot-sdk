@@ -226,9 +226,9 @@ fn only_first_reporter_receive_the_slice() {
 }
 
 #[test]
-fn subsequent_reports_in_same_span_pay_out_less() {
+fn subsequent_reports_pay_out_reward_based_on_net_slash() {
 	// This test verifies that the reporters of the offence receive their slice from the slashed
-	// amount, but less and less if they submit multiple reports in one span.
+	// amount.
 	ExtBuilder::default().nominate(false).build_and_execute(|| {
 		// The reporters' reward is calculated from the total exposure.
 		let initial_balance = 1000;
@@ -246,10 +246,12 @@ fn subsequent_reports_in_same_span_pay_out_less() {
 		);
 		Session::roll_next();
 
-		// F1 * (reward_proportion * slash - 0)
-		// 50% * (10% * initial_balance * 20%)
-		let reward = (initial_balance / 5) / 20;
-		assert_eq!(reward, 10);
+		let slash = Perbill::from_percent(20) * initial_balance;
+		let reward = SlashRewardFraction::<T>::get() * slash;
+		// slash is 1000/5
+		assert_eq!(slash, 200);
+		// reward is 10% of the slash
+		assert_eq!(reward, 20);
 		assert_eq!(asset::total_balance::<T>(&1), initial_balance_1 + reward);
 
 		<Staking as rc_client::AHStakingInterface>::on_new_offences(
@@ -262,12 +264,17 @@ fn subsequent_reports_in_same_span_pay_out_less() {
 		);
 		Session::roll_next();
 
-		let prior_payout = reward;
-		// F1 * (reward_proportion * slash - prior_payout)
-		// 50% * (10% * (initial_balance / 2) - prior_payout)
-		let reward = ((initial_balance / 20) - prior_payout) / 2;
-		assert_eq!(reward, 20);
-		assert_eq!(asset::total_balance::<T>(&1), initial_balance_1 + prior_payout + reward);
+		let prior_slash = slash;
+		let prior_reward = reward;
+
+		// since the slash is in the same era, the prior slash is discounted.
+		// total slash is 1000/2 = 500, out of which 200 is already slashed. So net slash is 300.
+		let slash = Perbill::from_percent(50) * initial_balance - prior_slash;
+		assert_eq!(slash, 300);
+		// reward is 10% of the slash
+		let reward = SlashRewardFraction::<T>::get() * slash;
+		assert_eq!(reward, 30);
+		assert_eq!(asset::total_balance::<T>(&1), initial_balance_1 + prior_reward + reward);
 	});
 }
 
@@ -652,7 +659,7 @@ fn garbage_collection_on_window_pruning() {
 }
 
 #[test]
-fn slashing_nominators_by_span_max() {
+fn slashing_nominators_by_era_max() {
 	ExtBuilder::default().build_and_execute(|| {
 		Session::roll_until_active_era(3);
 
@@ -674,8 +681,8 @@ fn slashing_nominators_by_span_max() {
 		let slash_1_amount = Perbill::from_percent(10) * nominated_value_11;
 		assert_eq!(asset::stakeable_balance::<T>(&101), 500 - slash_1_amount);
 
-		// second slash: higher era, higher value, same span.
-		add_slash_in_era_with_value(21, 3, Perbill::from_percent(30));
+		// second slash: higher value, same era.
+		add_slash_in_era_with_value(21, 2, Perbill::from_percent(30));
 		Session::roll_next();
 
 		// 11 was not further slashed, but 21 and 101 were.
