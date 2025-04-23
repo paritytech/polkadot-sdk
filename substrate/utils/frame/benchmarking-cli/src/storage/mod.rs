@@ -29,11 +29,26 @@ pub(crate) const MAX_BATCH_SIZE_FOR_BLOCK_VALIDATION: usize = 10_000;
 pub(crate) fn get_wasm_module() -> Box<dyn sc_executor_common::wasm_runtime::WasmModule> {
 	use frame_storage_access_test_runtime::WASM_BINARY;
 	use polkadot_node_core_pvf_common::executor_interface::DEFAULT_CONFIG;
+	use sc_executor_wasmtime::{Config, Semantics};
 
 	let blob = sc_executor_common::runtime_blob::RuntimeBlob::uncompress_if_needed(
 		WASM_BINARY.expect("You need to build the WASM binaries to run the benchmark!"),
 	)
 	.unwrap();
+
+	// Use Polkadot's ExecutorParams::MaxMemoryPages
+	let extra_heap_pages = 8192;
+	// polkadot_node_core_pvf_common::executor_interface::DEFAULT_HEAP_PAGES_ESTIMATE
+	let default_heap_pages_estimate = 32;
+	let config = Config {
+		semantics: Semantics {
+			heap_alloc_strategy: sc_executor_common::wasm_runtime::HeapAllocStrategy::Dynamic {
+				maximum_pages: Some(default_heap_pages_estimate + extra_heap_pages),
+			},
+			..DEFAULT_CONFIG.semantics
+		},
+		..DEFAULT_CONFIG
+	};
 
 	Box::new(
 		sc_executor_wasmtime::create_runtime::<sp_io::SubstrateHostFunctions>(blob, DEFAULT_CONFIG)
