@@ -24,8 +24,8 @@ substrate-wasm-builder = { optional = true, workspace = true, default-features =
 default = ["std"]
 no_std = []
 std = [
-	"substrate-wasm-builder",
 	"cumulus-pallet-parachain-system/std",
+	"substrate-wasm-builder",
 ]
 runtime-benchmarks = [
 	"cumulus-pallet-parachain-system/runtime-benchmarks",
