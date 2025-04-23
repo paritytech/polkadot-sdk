@@ -30,6 +30,7 @@ use frame::{
 			curve::PiecewiseLinear,
 			impl_opaque_keys,
 			testing::{DigestItem, TestXt, UintAuthorityId},
+			traits::ConvertInto,
 			BuildStorage, Perbill,
 		},
 	},
@@ -100,7 +101,7 @@ parameter_types! {
 impl pallet_session::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type ValidatorId = u64;
-	type ValidatorIdOf = sp_runtime::traits::ConvertInto;
+	type ValidatorIdOf = ConvertInto;
 	type ShouldEndSession = pallet_session::PeriodicSessions<ConstU64<1>, ConstU64<0>>;
 	type NextSessionRotation = pallet_session::PeriodicSessions<ConstU64<1>, ConstU64<0>>;
 	type SessionManager = pallet_session::historical::NoteHistoricalRoot<Self, Staking>;
@@ -228,7 +229,7 @@ pub fn new_test_ext(vec: Vec<(u64, u64)>) -> TestExternalities {
 	new_test_ext_raw_authorities(to_authorities(vec))
 }
 
-pub fn new_test_ext_raw_authorities(authorities: AuthorityList) -> sp_io::TestExternalities {
+pub fn new_test_ext_raw_authorities(authorities: AuthorityList) -> TestExternalities {
 	sp_tracing::try_init_simple();
 	let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 
