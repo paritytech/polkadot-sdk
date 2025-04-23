@@ -3445,6 +3445,16 @@ impl_runtime_apis! {
 			)
 		}
 
+		fn get_storage_var_key(
+			address: H160,
+			key: Vec<u8>,
+		) -> pallet_revive::GetStorageResult {
+			Revive::get_storage_var_key(
+				address,
+				key
+			)
+		}
+
 		fn get_storage(
 			address: H160,
 			key: [u8; 32],
