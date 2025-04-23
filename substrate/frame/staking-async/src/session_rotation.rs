@@ -166,7 +166,7 @@ impl<T: Config> Eras<T> {
 		// build the exposure
 		Some(PagedExposure {
 			exposure_metadata: PagedExposureMetadata { own: validator_stake, ..overview },
-			exposure_page,
+			exposure_page: exposure_page.into(),
 		})
 	}
 
@@ -182,7 +182,7 @@ impl<T: Config> Eras<T> {
 		let mut others = Vec::with_capacity(overview.nominator_count as usize);
 		for page in 0..overview.page_count {
 			let nominators = <ErasStakersPaged<T>>::get((era, validator, page));
-			others.append(&mut nominators.map(|n| n.others).defensive_unwrap_or_default());
+			others.append(&mut nominators.map(|n| n.others.clone()).defensive_unwrap_or_default());
 		}
 
 		Exposure { total: overview.total, own: overview.own, others }
@@ -296,10 +296,10 @@ impl<T: Config> Eras<T> {
 			// has been already handled above.
 			let (_, exposure_pages) = exposure.into_pages(page_size);
 
-			exposure_pages.iter().enumerate().for_each(|(idx, paged_exposure)| {
+			exposure_pages.into_iter().enumerate().for_each(|(idx, paged_exposure)| {
 				let append_at =
 					(last_page_idx.saturating_add(1).saturating_add(idx as u32)) as Page;
-				<ErasStakersPaged<T>>::insert((era, &validator, append_at), &paged_exposure);
+				<ErasStakersPaged<T>>::insert((era, &validator, append_at), paged_exposure);
 			});
 		} else {
 			// expected page count is the number of nominators divided by the page size, rounded up.
@@ -318,9 +318,9 @@ impl<T: Config> Eras<T> {
 			ErasStakersOverview::<T>::insert(era, &validator, exposure_metadata);
 
 			// insert validator's overview.
-			exposure_pages.iter().enumerate().for_each(|(idx, paged_exposure)| {
+			exposure_pages.into_iter().enumerate().for_each(|(idx, paged_exposure)| {
 				let append_at = idx as Page;
-				<ErasStakersPaged<T>>::insert((era, &validator, append_at), &paged_exposure);
+				<ErasStakersPaged<T>>::insert((era, &validator, append_at), paged_exposure);
 			});
 		};
 	}

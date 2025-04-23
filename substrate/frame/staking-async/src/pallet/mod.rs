@@ -69,10 +69,11 @@ pub(crate) const SPECULATIVE_NUM_SPANS: u32 = 32;
 pub mod pallet {
 	use core::ops::Deref;
 
-use super::*;
+	use super::*;
 	use crate::{session_rotation, PagedExposureMetadata, SnapshotStatus};
 	use codec::HasCompact;
 	use frame_election_provider_support::{ElectionDataProvider, PageIndex};
+	use frame_support::DefaultNoBound;
 
 	/// The in-code storage version.
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(17);
@@ -540,21 +541,59 @@ use super::*;
 		OptionQuery,
 	>;
 
-	pub type BoundedExposurePage<T>(pub ExposurePage<T::AccountId, BalanceOf<T>>);
+	/// A bounded wrapper for [`sp_staking::ExposurePage`].
+	///
+	/// It has `Deref` and `DerefMut` impls that map it back [`sp_staking::ExposurePage`] for all
+	/// purposes. This is done in such a way because we prefer to keep the types in [`sp_staking`]
+	/// pure, and not polluted by pallet-specific bounding logic.
+	///
+	/// It encoded and decodes exactly the same as [`sp_staking::ExposurePage`], and provides a
+	/// manual `MaxEncodedLen` implementation, to be used in benchmarking
+	#[derive(PartialEqNoBound, Encode, Decode, DebugNoBound, TypeInfo, DefaultNoBound)]
+	#[scale_info(skip_type_params(T))]
+	pub struct BoundedExposurePage<T: Config>(pub ExposurePage<T::AccountId, BalanceOf<T>>);
 	impl<T: Config> Deref for BoundedExposurePage<T> {
 		type Target = ExposurePage<T::AccountId, BalanceOf<T>>;
 
 		fn deref(&self) -> &Self::Target {
-			self.0
+			&self.0
 		}
 	}
 
-	impl<T: Config> DerefMut for BoundedExposurePage<T> {
-		type Target = ExposurePage<T::AccountId, BalanceOf<T>>;
-
+	impl<T: Config> core::ops::DerefMut for BoundedExposurePage<T> {
 		fn deref_mut(&mut self) -> &mut Self::Target {
-			self.0
+			&mut self.0
 		}
+	}
+
+	impl<T: Config> codec::MaxEncodedLen for BoundedExposurePage<T> {
+		fn max_encoded_len() -> usize {
+			let max_exposure_page_size = T::MaxExposurePageSize::get() as usize;
+			let individual_size =
+				T::AccountId::max_encoded_len() + BalanceOf::<T>::max_encoded_len();
+
+			// 1 balance for `total`
+			BalanceOf::<T>::max_encoded_len() +
+			// individual_size multiplied by page size
+				max_exposure_page_size.saturating_mul(individual_size)
+		}
+	}
+
+	impl<T: Config> From<ExposurePage<T::AccountId, BalanceOf<T>>> for BoundedExposurePage<T> {
+		fn from(value: ExposurePage<T::AccountId, BalanceOf<T>>) -> Self {
+			Self(value)
+		}
+	}
+
+	impl<T: Config> From<BoundedExposurePage<T>> for ExposurePage<T::AccountId, BalanceOf<T>> {
+		fn from(value: BoundedExposurePage<T>) -> Self {
+			value.0
+		}
+	}
+
+	impl<T: Config> codec::EncodeLike<BoundedExposurePage<T>>
+		for ExposurePage<T::AccountId, BalanceOf<T>>
+	{
 	}
 
 	/// Paginated exposure of a validator at given era.
@@ -572,14 +611,15 @@ use super::*;
 			NMapKey<Twox64Concat, T::AccountId>,
 			NMapKey<Twox64Concat, Page>,
 		),
-		ExposurePage<T::AccountId, BalanceOf<T>>,
+		BoundedExposurePage<T>,
 		OptionQuery,
 	>;
 
 	pub struct ErasClaimedRewardsBound<T>(core::marker::PhantomData<T>);
 	impl<T: Config> Get<u32> for ErasClaimedRewardsBound<T> {
 		fn get() -> u32 {
-			let max_total_nominators_per_validator = <T::ElectionProvider as ElectionProvider>::MaxBackersPerWinner::get();
+			let max_total_nominators_per_validator =
+				<T::ElectionProvider as ElectionProvider>::MaxBackersPerWinner::get();
 			let exposure_page_size = T::MaxExposurePageSize::get();
 			max_total_nominators_per_validator
 				.saturating_div(exposure_page_size)

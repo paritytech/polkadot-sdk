@@ -283,7 +283,7 @@ mod paged_exposures {
 						IndividualExposure { who: 101, value: 500 },
 						IndividualExposure { who: 102, value: 100 }
 					]
-				},
+				}.into(),
 			);
 			assert_eq!(
 				ErasStakersPaged::<T>::get((current_era, &1, 1)).unwrap(),
@@ -293,14 +293,14 @@ mod paged_exposures {
 						IndividualExposure { who: 103, value: 100 },
 						IndividualExposure { who: 110, value: 250 }
 					]
-				}
+				}.into()
 			);
 			assert_eq!(
 				ErasStakersPaged::<T>::get((current_era, &1, 2)).unwrap(),
 				ExposurePage {
 					page_total: 250,
 					others: vec![IndividualExposure { who: 111, value: 250 }]
-				}
+				}.into()
 			);
 
 			// exposures of validator 2.
@@ -312,7 +312,7 @@ mod paged_exposures {
 						IndividualExposure { who: 104, value: 500 },
 						IndividualExposure { who: 105, value: 500 }
 					]
-				}],
+				}.into()],
 			);
 		})
 	}
