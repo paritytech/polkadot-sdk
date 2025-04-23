@@ -35,17 +35,8 @@ use frame_support::{
 	pallet_prelude::*,
 	parameter_types,
 	traits::{
-		tokens::{
-			fungible::{
-				hold::{
-					Inspect as HoldInspect, Mutate as HoldMutate, Unbalanced as UnbalancedHold,
-				},
-				Dust, Inspect as FungibleInspect, Unbalanced as FungibleUnbalanced,
-			},
-			Fortitude, Preservation,
-		},
-		ConstU32, ConstU64, Currency, KeyOwnerProofSystem, ReservableCurrency, SignedImbalance,
-		StoredMap, ValidatorSet, ValidatorSetWithIdentification, VariantCount, WithdrawReasons,
+		ConstU32, ConstU64,
+		 VariantCount, 
 	},
 };
 use scale_info::TypeInfo;

@@ -31,7 +31,7 @@ use sp_runtime::{testing::UintAuthorityId, Perbill};
 
 use frame_support::{
 	assert_noop, assert_ok,
-	traits::{ConstU64, OnInitialize, ReservableCurrency},
+	traits::{ConstU64, OnInitialize},
 };
 
 fn initialize_block(block: u64) {
