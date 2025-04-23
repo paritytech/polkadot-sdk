@@ -22,7 +22,7 @@ use core::marker::PhantomData;
 
 use frame::{
 	deps::sp_runtime,
-	prelude::{VersionedMigration, *},
+	prelude::*,
 	traits::UncheckedOnRuntimeUpgrade,
 };
 
