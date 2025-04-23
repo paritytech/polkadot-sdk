@@ -75,8 +75,7 @@ use polkadot_runtime_common::{
 	},
 	paras_registrar, paras_sudo_wrapper, prod_or_fast, slots,
 	traits::OnSwap,
-	BalanceToU256, BlockHashCount, BlockLength, SlowAdjustingFeeUpdate,
-	U256ToBalance,
+	BalanceToU256, BlockHashCount, BlockLength, SlowAdjustingFeeUpdate, U256ToBalance,
 };
 use polkadot_runtime_parachains::{
 	assigner_coretime as parachains_assigner_coretime, configuration as parachains_configuration,
