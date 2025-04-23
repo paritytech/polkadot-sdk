@@ -339,7 +339,17 @@ pub mod pallet {
 				return Err(Yield);
 			}
 
-			let nonce = Nonce::<T>::get();
+			let nonce = <Nonce<T>>::try_mutate(|nonce| -> Result<u64, ProcessMessageError> {
+				*nonce = nonce.checked_add(1).ok_or_else(|| {
+					Self::deposit_event(Event::MessageRejected {
+						id: None,
+						payload: message.to_vec(),
+						error: Unsupported,
+					});
+					Unsupported
+				})?;
+				Ok(*nonce)
+			})?;
 
 			// Decode bytes into Message
 			let Message { origin, id, fee, commands } =
@@ -408,15 +418,6 @@ pub mod pallet {
 				block_number: frame_system::Pallet::<T>::current_block_number(),
 			};
 			<PendingOrders<T>>::insert(nonce, order);
-
-			Nonce::<T>::set(nonce.checked_add(1).ok_or_else(|| {
-				Self::deposit_event(Event::MessageRejected {
-					id: Some(id),
-					payload: message.to_vec(),
-					error: Unsupported,
-				});
-				Unsupported
-			})?);
 
 			Self::deposit_event(Event::MessageAccepted { id, nonce });
 
