@@ -464,6 +464,12 @@ impl<Config: config::Config> XcmExecutor<Config> {
 		let topic_id = self.context.topic;
 		let message_id: sp_core::H256 = self.context.message_id.into();
 		tracing::debug!(target: "xcm::send", ?topic_id, ?message_id);
+		let mut msg = msg;
+		if !matches!(msg.last(), Some(SetTopic(_))) {
+			let topic_id = self.context.topic_or_message_id();
+			msg.0.push(SetTopic(topic_id.into()));
+			tracing::debug!(target: "xcm::send", ?topic_id, "Appended `SetTopic` from `context.topic_or_message_id()`");
+		}
 		tracing::trace!(
 			target: "xcm::send",
 			?msg,
