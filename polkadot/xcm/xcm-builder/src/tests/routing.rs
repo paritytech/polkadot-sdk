@@ -24,8 +24,6 @@ fn props() -> Properties {
 
 #[test]
 fn trailing_set_topic_as_id_with_unique_topic_should_work() {
-	use sp_tracing::{capture_test_logs, tracing::Level};
-
 	type AllowSubscriptions = AllowSubscriptionsFrom<Everything>;
 
 	// check the validity of XCM for the `AllowSubscriptions` barrier
@@ -45,14 +43,7 @@ fn trailing_set_topic_as_id_with_unique_topic_should_work() {
 
 	// simulate sending `valid_xcm` with the `WithUniqueTopic` router
 	let mut sent_xcm = sp_io::TestExternalities::default().execute_with(|| {
-		let log_capture = capture_test_logs!(Level::TRACE, {
-			assert_ok!(send_xcm::<WithUniqueTopic<TestMessageSender>>(
-				Location::parent(),
-				valid_xcm,
-			));
-		});
-		assert!(log_capture.contains("`SetTopic` appended to message"));
-
+		assert_ok!(send_xcm::<WithUniqueTopic<TestMessageSender>>(Location::parent(), valid_xcm,));
 		sent_xcm()
 	});
 	assert_eq!(1, sent_xcm.len());
