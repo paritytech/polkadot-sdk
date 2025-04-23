@@ -19,10 +19,11 @@ use crate::{BoundedAuthorityList, Pallet};
 use alloc::vec::Vec;
 use codec::Decode;
 use core::marker::PhantomData;
-
 use frame::{prelude::*, traits::UncheckedOnRuntimeUpgrade};
-
 use sp_consensus_grandpa::AuthorityList;
+
+#[cfg(feature = "try-runtime")]
+use frame::deps::sp_runtime;
 
 const GRANDPA_AUTHORITIES_KEY: &[u8] = b":grandpa_authorities";
 
