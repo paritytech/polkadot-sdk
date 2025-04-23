@@ -105,10 +105,7 @@ use polkadot_runtime_common::{BlockHashCount, SlowAdjustingFeeUpdate};
 use weights::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight};
 use xcm::{
 	latest::prelude::AssetId,
-	prelude::{
-		VersionedAsset, VersionedAssetId, VersionedAssets, VersionedLocation, VersionedXcm,
-		WeightLimit,
-	},
+	prelude::{VersionedAsset, VersionedAssetId, VersionedAssets, VersionedLocation, VersionedXcm},
 };
 
 #[cfg(feature = "runtime-benchmarks")]
@@ -1842,6 +1839,7 @@ impl_runtime_apis! {
 			use sp_storage::TrackedStorageKey;
 			use frame_system_benchmarking::Pallet as SystemBench;
 			use frame_system_benchmarking::extensions::Pallet as SystemExtensionsBench;
+			use xcm::prelude::WeightLimit;
 
 			// add a few custom keys to benchmarks.
 			frame_benchmarking::benchmarking::add_to_whitelist(
@@ -2120,7 +2118,7 @@ impl_runtime_apis! {
 
 				fn worst_case_for_trader() -> Result<(Asset, WeightLimit), BenchmarkError> {
 					Ok((Asset {
-						id: AssetId(TokenLocation::get()),
+						id: AssetId(WestendLocation::get()),
 						fun: Fungible(1_000 * UNITS),
 					}, WeightLimit::Limited(Weight::from_parts(5000, 5000))))
 				}
