@@ -138,7 +138,9 @@ where
 	Extra: ExtraSubcommand,
 {
 
-	let cli_command = Cli::<CliConfig>::augment_args(<Extra as CommandFactory>::command());
+	let cli_command = Cli::<CliConfig>::augment_args(<Extra as CommandFactory>::command())
+		.subcommand_required(true)
+		.arg_required_else_help(false);
 	let matches = cli_command.get_matches();
 
 	// if user invoked the extra sub‑command, run it and exit
