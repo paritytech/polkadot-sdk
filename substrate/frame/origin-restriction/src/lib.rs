@@ -161,6 +161,7 @@ pub mod pallet {
 		type OperationAllowedOneTimeExcess: ContainsPair<Self::RestrictedEntity, Self::RuntimeCall>;
 
 		/// The runtime event type.
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 	}
 
