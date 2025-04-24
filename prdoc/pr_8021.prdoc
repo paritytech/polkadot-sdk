@@ -1,0 +1,45 @@
+title: 'XCMP: use batching when enqueuing inbound messages'
+doc:
+- audience: Runtime Dev
+  description: |-
+    This PR implements batching for the XCMP inbound enqueueing logic, which leads to an about ~75x performance
+    improvement for that specific code.
+
+    The PR also moves the `footprint()` method from the `EnqueuMessage` trait to a new `QueueuFootprintQuery` trait.
+crates:
+- name: cumulus-pallet-xcmp-queue
+  bump: major
+- name: pallet-message-queue
+  bump: minor
+- name: frame-support
+  bump: major
+- name: asset-hub-rococo-runtime
+  bump: patch
+- name: asset-hub-westend-runtime
+  bump: patch
+- name: bridge-hub-rococo-runtime
+  bump: patch
+- name: bridge-hub-westend-runtime
+  bump: patch
+- name: collectives-westend-runtime
+  bump: patch
+- name: coretime-rococo-runtime
+  bump: patch
+- name: coretime-westend-runtime
+  bump: patch
+- name: people-rococo-runtime
+  bump: patch
+- name: people-westend-runtime
+  bump: patch
+- name: snowbridge-pallet-outbound-queue-v2
+  bump: none
+- name: snowbridge-pallet-outbound-queue
+  bump: none
+- name: cumulus-pallet-dmp-queue
+  bump: none
+- name: polkadot-runtime-parachains
+  bump: patch
+- name: yet-another-parachain-runtime
+  bump: patch
+- name: pallet-staking-async-parachain-runtime
+  bump: none
