@@ -349,7 +349,7 @@ fn test_max_memory_pages(
 
 		let runtime = builder.build();
 		let mut instance = runtime.new_instance().unwrap();
-		let _ = instance.call_export("main", &[])?;
+		instance.call_export("main", &[])?;
 		Ok(())
 	}
 

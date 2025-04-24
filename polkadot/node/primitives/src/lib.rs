@@ -30,10 +30,13 @@ use futures::Future;
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 
 use polkadot_primitives::{
-	vstaging::CommittedCandidateReceiptV2 as CommittedCandidateReceipt, BlakeTwo256, BlockNumber,
-	CandidateCommitments, CandidateHash, ChunkIndex, CollatorPair, CompactStatement, CoreIndex,
-	EncodeAs, Hash, HashT, HeadData, Id as ParaId, PersistedValidationData, SessionIndex, Signed,
-	UncheckedSigned, ValidationCode, ValidationCodeHash, MAX_CODE_SIZE, MAX_POV_SIZE,
+	vstaging::{
+		CommittedCandidateReceiptError, CommittedCandidateReceiptV2 as CommittedCandidateReceipt,
+	},
+	BlakeTwo256, BlockNumber, CandidateCommitments, CandidateHash, ChunkIndex, CollatorPair,
+	CompactStatement, CoreIndex, EncodeAs, Hash, HashT, HeadData, Id as ParaId,
+	PersistedValidationData, SessionIndex, Signed, UncheckedSigned, ValidationCode,
+	ValidationCodeHash, MAX_CODE_SIZE, MAX_POV_SIZE,
 };
 pub use sp_consensus_babe::{
 	AllowedSlots as BabeAllowedSlots, BabeEpochConfiguration, Epoch as BabeEpoch,
@@ -70,7 +73,7 @@ const MERKLE_PROOF_MAX_DEPTH: usize = 8;
 
 /// The bomb limit for decompressing code blobs.
 #[deprecated(
-	note = "`VALIDATION_CODE_BOMB_LIMIT` will be removed. Use `validation_code_bomb_limit` 
+	note = "`VALIDATION_CODE_BOMB_LIMIT` will be removed. Use `validation_code_bomb_limit`
 	runtime API to retrieve the value from the runtime"
 )]
 pub const VALIDATION_CODE_BOMB_LIMIT: usize = (MAX_CODE_SIZE * 4u32) as usize;
@@ -354,8 +357,8 @@ pub enum InvalidCandidate {
 	CommitmentsHashMismatch,
 	/// The candidate receipt contains an invalid session index.
 	InvalidSessionIndex,
-	/// The candidate receipt contains an invalid core index.
-	InvalidCoreIndex,
+	/// The candidate receipt invalid UMP signals.
+	InvalidUMPSignals(CommittedCandidateReceiptError),
 }
 
 /// Result of the validation of the candidate.

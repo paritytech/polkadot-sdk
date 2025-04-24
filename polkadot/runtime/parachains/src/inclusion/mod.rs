@@ -38,7 +38,7 @@ use core::fmt;
 use frame_support::{
 	defensive,
 	pallet_prelude::*,
-	traits::{EnqueueMessage, Footprint, QueueFootprint},
+	traits::{EnqueueMessage, Footprint, QueueFootprint, QueueFootprintQuery},
 	BoundedSlice,
 };
 use frame_system::pallet_prelude::*;
@@ -286,6 +286,7 @@ pub mod pallet {
 		+ configuration::Config
 		+ scheduler::Config
 	{
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		type DisputesHandler: disputes::DisputesHandler<BlockNumberFor<Self>>;
 		type RewardValidators: RewardValidators;
@@ -295,7 +296,8 @@ pub mod pallet {
 		/// The message queue provides general queueing and processing functionality. Currently it
 		/// replaces the old `UMP` dispatch queue. Other use-cases can be implemented as well by
 		/// adding new variants to `AggregateMessageOrigin`.
-		type MessageQueue: EnqueueMessage<AggregateMessageOrigin>;
+		type MessageQueue: EnqueueMessage<AggregateMessageOrigin>
+			+ QueueFootprintQuery<AggregateMessageOrigin, MaxMessageLen = MaxUmpMessageLenOf<Self>>;
 
 		/// Weight info for the calls of this pallet.
 		type WeightInfo: WeightInfo;
@@ -1319,19 +1321,23 @@ impl<T: Config> CandidateCheckContext<T> {
 		hrmp_watermark: BlockNumberFor<T>,
 		horizontal_messages: &[polkadot_primitives::OutboundHrmpMessage<ParaId>],
 	) -> Result<(), AcceptanceCheckErr> {
-		ensure!(
-			head_data.0.len() <= self.config.max_head_data_size as _,
-			AcceptanceCheckErr::HeadDataTooLarge,
-		);
+		// Safe convertions when `self.config.max_head_data_size` is in bounds of `usize` type.
+		let max_head_data_size = usize::try_from(self.config.max_head_data_size)
+			.map_err(|_| AcceptanceCheckErr::HeadDataTooLarge)?;
+		ensure!(head_data.0.len() <= max_head_data_size, AcceptanceCheckErr::HeadDataTooLarge);
 
 		// if any, the code upgrade attempt is allowed.
 		if let Some(new_validation_code) = new_validation_code {
+			// Safe convertions when `self.config.max_code_size` is in bounds of `usize` type.
+			let max_code_size = usize::try_from(self.config.max_code_size)
+				.map_err(|_| AcceptanceCheckErr::NewCodeTooLarge)?;
+
 			ensure!(
 				paras::Pallet::<T>::can_upgrade_validation_code(para_id),
 				AcceptanceCheckErr::PrematureCodeUpgrade,
 			);
 			ensure!(
-				new_validation_code.0.len() <= self.config.max_code_size as _,
+				new_validation_code.0.len() <= max_code_size,
 				AcceptanceCheckErr::NewCodeTooLarge,
 			);
 		}
