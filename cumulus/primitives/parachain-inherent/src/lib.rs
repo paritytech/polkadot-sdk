@@ -41,20 +41,47 @@ use sp_inherents::InherentIdentifier;
 /// The identifier for the parachain inherent.
 pub const INHERENT_IDENTIFIER: InherentIdentifier = *b"sysi1337";
 
-pub const EXTRA_RP: InherentIdentifier = *b"extra_rp";
+/// Legacy ParachainInherentData that is kept around for backward compatibility.
+/// Can be removed once we can safely assume that parachain nodes provide the
+/// `relay_parent_descendants` field.
+pub mod legacy {
+	use alloc::{collections::BTreeMap, vec::Vec};
+	use cumulus_primitives_core::{
+		InboundDownwardMessage, InboundHrmpMessage, ParaId, PersistedValidationData,
+	};
+	use scale_info::TypeInfo;
 
-#[derive(
-	codec::Encode,
-	codec::Decode,
-	codec::DecodeWithMemTracking,
-	sp_core::RuntimeDebug,
-	Clone,
-	PartialEq,
-	TypeInfo,
-)]
-pub struct RelayParentExtraData {
-	pub parents: Vec<RelayHeader>,
+	/// The inherent data that is passed by the collator to the parachain runtime.
+	#[derive(
+		codec::Encode,
+		codec::Decode,
+		codec::DecodeWithMemTracking,
+		sp_core::RuntimeDebug,
+		Clone,
+		PartialEq,
+		TypeInfo,
+	)]
+	pub struct ParachainInherentData {
+		pub validation_data: PersistedValidationData,
+		/// A storage proof of a predefined set of keys from the relay-chain.
+		///
+		/// Specifically this witness contains the data for:
+		///
+		/// - the current slot number at the given relay parent
+		/// - active host configuration as per the relay parent,
+		/// - the relay dispatch queue sizes
+		/// - the list of egress HRMP channels (in the list of recipients form)
+		/// - the metadata for the egress HRMP channels
+		pub relay_chain_state: sp_trie::StorageProof,
+		/// Downward messages in the order they were sent.
+		pub downward_messages: Vec<InboundDownwardMessage>,
+		/// HRMP messages grouped by channels. The messages in the inner vec must be in order they
+		/// were sent. In combination with the rule of no more than one message in a channel per
+		/// block, this means `sent_at` is **strictly** greater than the previous one (if any).
+		pub horizontal_messages: BTreeMap<ParaId, Vec<InboundHrmpMessage>>,
+	}
 }
+
 /// The inherent data that is passed by the collator to the parachain runtime.
 #[derive(
 	codec::Encode,
@@ -83,7 +110,22 @@ pub struct ParachainInherentData {
 	/// were sent. In combination with the rule of no more than one message in a channel per block,
 	/// this means `sent_at` is **strictly** greater than the previous one (if any).
 	pub horizontal_messages: BTreeMap<ParaId, Vec<InboundHrmpMessage>>,
+	/// Represents the relay parent block and its descendants.
+	/// This information is used to ensure that a parachain node builds blocks
+	/// at a specified offset from the chain tip rather than directly at the tip.
 	pub relay_parent_descendants: Vec<RelayHeader>,
+}
+
+impl Into<ParachainInherentData> for legacy::ParachainInherentData {
+	fn into(self) -> ParachainInherentData {
+		ParachainInherentData {
+			validation_data: self.validation_data,
+			relay_chain_state: self.relay_chain_state,
+			downward_messages: self.downward_messages,
+			horizontal_messages: self.horizontal_messages,
+			relay_parent_descendants: Vec::new(),
+		}
+	}
 }
 
 #[cfg(feature = "std")]
