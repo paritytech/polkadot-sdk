@@ -61,6 +61,8 @@ runs:
       shell: bash
       if: ${{ inputs.pushToDockerhub }}
       run: |
-        docker tag ${{ env.IMAGE_TAG }} docker.io/paritypr/${{ inputs.image-name }}:$DOCKER_IMAGES_VERSION
+        export DOCKERHUB_TAG=docker.io/paritypr/${{ inputs.image-name }}:${{ github.event.pull_request.head.sha }}
+        docker tag ${{ env.IMAGE_TAG }} $DOCKERHUB_TAG
+        docker push $DOCKERHUB_TAG
 
 
