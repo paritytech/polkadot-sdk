@@ -26,9 +26,7 @@ use cumulus_relay_chain_interface::RelayChainInterface;
 mod mock;
 
 use cumulus_primitives_core::relay_chain::Header as RelayHeader;
-pub use cumulus_primitives_parachain_inherent::{
-	ParachainInherentData, RelayParentExtraData, EXTRA_RP, INHERENT_IDENTIFIER,
-};
+pub use cumulus_primitives_parachain_inherent::{ParachainInherentData, INHERENT_IDENTIFIER};
 pub use mock::{MockValidationDataInherentDataProvider, MockXcmConfig};
 
 const LOG_TARGET: &str = "parachain-inherent";
