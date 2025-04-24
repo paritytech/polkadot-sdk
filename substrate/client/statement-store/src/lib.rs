@@ -925,6 +925,20 @@ impl StatementStore for Store {
 		}
 		Ok(())
 	}
+
+	fn account_channel_priority(
+		&self,
+		account_id: &AccountId,
+		channel: &Channel,
+	) -> Result<Option<u32>> {
+		let index = self.index.read();
+
+		Ok(
+			index.accounts.get(account_id)
+				.and_then(|a| a.channels.get(channel))
+				.map(|c| c.priority.0)
+		)
+	}
 }
 
 #[cfg(test)]

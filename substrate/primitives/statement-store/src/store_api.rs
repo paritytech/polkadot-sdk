@@ -16,7 +16,7 @@
 // limitations under the License.
 
 pub use crate::runtime_api::StatementSource;
-use crate::{Hash, Statement, Topic};
+use crate::{AccountId, Channel, Hash, Statement, Topic};
 
 /// Statement store error.
 #[derive(Debug, Eq, PartialEq, thiserror::Error)]
@@ -87,4 +87,12 @@ pub trait StatementStore: Send + Sync {
 
 	/// Remove a statement from the store.
 	fn remove(&self, hash: &Hash) -> Result<()>;
+
+	/// Return the priority of the statement in given channel for the given account, or `None` if
+	/// the statement doesn't have a priority or if there is no statement.
+	fn account_channel_priority(
+		&self,
+		account: &AccountId,
+		channel: &Channel,
+	) -> Result<Option<u32>>;
 }

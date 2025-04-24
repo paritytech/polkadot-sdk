@@ -103,4 +103,14 @@ impl StatementApiServer for StatementStore {
 	fn remove(&self, hash: [u8; 32]) -> RpcResult<()> {
 		Ok(self.store.remove(&hash).map_err(|e| Error::StatementStore(e.to_string()))?)
 	}
+
+	fn account_channel_priority(
+		&self,
+		account: [u8; 32],
+		channel: [u8; 32],
+	) -> RpcResult<Option<u32>> {
+		Ok(self.store
+			.account_channel_priority(&account, &channel)
+			.map_err(|e| Error::StatementStore(e.to_string()))?)
+	}
 }
