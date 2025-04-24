@@ -24,7 +24,8 @@ use bp_test_utils::{
 	make_default_justification, prepare_parachain_heads_proof, test_header_with_root,
 };
 
-/// Submits to BH's `pallet-bridge-parachains` some header and return (bridged_block_hash, bridged_state_root)
+/// Submits to BH's `pallet-bridge-parachains` some header and return (bridged_block_hash,
+/// bridged_state_root)
 fn submit_fake_parachain_heads<
 	BridgedRelay: BpChain<Hash = RelayBlockHash, Header = bp_polkadot_core::Header>,
 	BridgedPara: Parachain<Hash = ParaHash>,

@@ -23,9 +23,8 @@
 
 use super::{weights, AccountId, Balance, Balances, BlockNumber, Runtime, RuntimeEvent};
 use crate::{
-	bridge_to_ethereum_config::InboundQueueV2Location,
-	xcm_config::XcmConfig,
-	RuntimeCall, XcmRouter,
+	bridge_to_ethereum_config::InboundQueueV2Location, xcm_config::XcmConfig, RuntimeCall,
+	XcmRouter,
 };
 use bp_messages::LegacyLaneId;
 use bp_relayers::RewardsAccountParams;
@@ -34,7 +33,10 @@ use frame_support::parameter_types;
 use scale_info::TypeInfo;
 use testnet_parachains_constants::westend::snowbridge::EthereumNetwork;
 use westend_runtime_constants::system_parachain::ASSET_HUB_ID;
-use xcm::{latest::{Location, prelude::Parachain}, VersionedLocation};
+use xcm::{
+	latest::{prelude::Parachain, Location},
+	VersionedLocation,
+};
 use xcm_executor::XcmExecutor;
 
 parameter_types! {

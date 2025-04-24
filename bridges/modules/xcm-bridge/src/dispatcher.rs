@@ -36,14 +36,14 @@ use xcm_builder::{DispatchBlob, DispatchBlobError};
 
 /// Message dispatch result type for single message.
 #[derive(
-    CloneNoBound,
-    EqNoBound,
-    PartialEqNoBound,
-    Encode,
-    Decode,
-    DecodeWithMemTracking,
-    Debug,
-    TypeInfo
+	CloneNoBound,
+	EqNoBound,
+	PartialEqNoBound,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	Debug,
+	TypeInfo,
 )]
 pub enum XcmBlobMessageDispatchResult {
 	/// We've been unable to decode message payload.
