@@ -163,7 +163,7 @@ pub struct BlockData(#[cfg_attr(feature = "std", serde(with = "bytes"))] pub Vec
 	Ord,
 	PartialEq,
 	PartialOrd,
-	RuntimeDebug,
+	Debug,
 	serde::Serialize,
 	serde::Deserialize,
 	TypeInfo,

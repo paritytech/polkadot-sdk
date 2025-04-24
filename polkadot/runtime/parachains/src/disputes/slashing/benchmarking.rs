@@ -83,11 +83,12 @@ where
 	pallet_session::Pallet::<T>::on_initialize(BlockNumberFor::<T>::one());
 	initializer::Pallet::<T>::on_initialize(BlockNumberFor::<T>::one());
 
+	// signal to `pallet-staking`'s `ElectionProvider` to be ready asap.
+	use frame_election_provider_support::ElectionProvider;
+	<<T as pallet_staking::Config>::ElectionProvider as ElectionProvider>::asap();
+
 	// skip sessions until the new validator set is enacted
 	while pallet_session::Pallet::<T>::validators().len() < n as usize {
-		// initialize stakers in pallet_staking. This is suboptimal, but an easy way to avoid this
-		// being an infinite loop.
-		pallet_staking::Pallet::<T>::populate_staking_election_testing_benchmarking_only().unwrap();
 		pallet_session::Pallet::<T>::rotate_session();
 	}
 	initializer::Pallet::<T>::on_finalize(BlockNumberFor::<T>::one());

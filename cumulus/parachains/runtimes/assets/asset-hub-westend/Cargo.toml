@@ -77,6 +77,7 @@ sp-consensus-aura = { workspace = true }
 sp-core = { workspace = true }
 sp-genesis-builder = { workspace = true }
 sp-inherents = { workspace = true }
+sp-io = { workspace = true }
 sp-keyring = { workspace = true }
 sp-npos-elections = { workspace = true }
 sp-offchain = { workspace = true }
@@ -125,7 +126,9 @@ bp-asset-hub-westend = { workspace = true }
 bp-bridge-hub-rococo = { workspace = true }
 bp-bridge-hub-westend = { workspace = true }
 pallet-xcm-bridge-hub-router = { workspace = true }
-snowbridge-router-primitives = { workspace = true }
+snowbridge-outbound-queue-primitives = { workspace = true }
+snowbridge-pallet-system-frontend = { workspace = true }
+snowbridge-runtime-common = { workspace = true }
 
 [dev-dependencies]
 asset-test-utils = { workspace = true, default-features = true }
@@ -192,7 +195,8 @@ runtime-benchmarks = [
 	"parachains-common/runtime-benchmarks",
 	"polkadot-parachain-primitives/runtime-benchmarks",
 	"polkadot-runtime-common/runtime-benchmarks",
-	"snowbridge-router-primitives/runtime-benchmarks",
+	"snowbridge-pallet-system-frontend/runtime-benchmarks",
+	"snowbridge-runtime-common/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"sp-staking/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",
@@ -255,6 +259,8 @@ try-runtime = [
 	"pallet-xcm/try-runtime",
 	"parachain-info/try-runtime",
 	"polkadot-runtime-common/try-runtime",
+	"snowbridge-pallet-system-frontend/try-runtime",
+	"snowbridge-runtime-common/try-runtime",
 	"sp-runtime/try-runtime",
 ]
 std = [
@@ -337,7 +343,9 @@ std = [
 	"primitive-types/std",
 	"scale-info/std",
 	"serde_json/std",
-	"snowbridge-router-primitives/std",
+	"snowbridge-outbound-queue-primitives/std",
+	"snowbridge-pallet-system-frontend/std",
+	"snowbridge-runtime-common/std",
 	"sp-api/std",
 	"sp-arithmetic/std",
 	"sp-block-builder/std",
@@ -345,6 +353,7 @@ std = [
 	"sp-core/std",
 	"sp-genesis-builder/std",
 	"sp-inherents/std",
+	"sp-io/std",
 	"sp-keyring/std",
 	"sp-npos-elections/std",
 	"sp-offchain/std",

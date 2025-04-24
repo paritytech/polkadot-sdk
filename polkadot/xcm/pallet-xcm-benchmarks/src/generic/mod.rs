@@ -26,7 +26,9 @@ pub mod pallet {
 	use frame_benchmarking::BenchmarkError;
 	use frame_support::{dispatch::GetDispatchInfo, pallet_prelude::Encode};
 	use sp_runtime::traits::Dispatchable;
-	use xcm::latest::{Asset, Assets, InteriorLocation, Junction, Location, NetworkId, Response};
+	use xcm::latest::{
+		Asset, Assets, InteriorLocation, Junction, Location, NetworkId, Response, WeightLimit,
+	};
 
 	#[pallet::config]
 	pub trait Config<I: 'static = ()>: frame_system::Config + crate::Config {
@@ -73,9 +75,11 @@ pub mod pallet {
 		/// Return an origin, ticket, and assets that can be trapped and claimed.
 		fn claimable_asset() -> Result<(Location, Location, Assets), BenchmarkError>;
 
-		/// Asset used to pay for fees. Used to buy weight in benchmarks, for example in
+		/// The worst case buy execution weight limit and
+		/// asset to trigger the Trader::buy_execution in the XCM executor
+		/// Used to buy weight in benchmarks, for example in
 		/// `refund_surplus`.
-		fn fee_asset() -> Result<Asset, BenchmarkError>;
+		fn worst_case_for_trader() -> Result<(Asset, WeightLimit), BenchmarkError>;
 
 		/// Return an unlocker, owner and assets that can be locked and unlocked.
 		fn unlockable_asset() -> Result<(Location, Location, Asset), BenchmarkError>;
