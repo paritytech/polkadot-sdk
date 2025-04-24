@@ -27,6 +27,8 @@ frame-support = { workspace = true }
 frame-system = { workspace = true }
 frame-system-benchmarking = { optional = true, workspace = true }
 frame-system-rpc-runtime-api = { workspace = true }
+pallet-staking-async-rc-client = { workspace = true }
+pallet-staking-async = { workspace = true }
 frame-try-runtime = { optional = true, workspace = true }
 pallet-ah-migrator = { workspace = true }
 pallet-ah-ops = { workspace = true }
@@ -262,6 +264,7 @@ try-runtime = [
 	"snowbridge-pallet-system-frontend/try-runtime",
 	"snowbridge-runtime-common/try-runtime",
 	"sp-runtime/try-runtime",
+	"pallet-staking-async-rc-client/try-runtime"
 ]
 std = [
 	"assets-common/std",
@@ -371,6 +374,7 @@ std = [
 	"xcm-executor/std",
 	"xcm-runtime-apis/std",
 	"xcm/std",
+	"pallet-staking-async-rc-client/std"
 ]
 
 fast-runtime = []

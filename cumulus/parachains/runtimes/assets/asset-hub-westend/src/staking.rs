@@ -20,11 +20,12 @@ use frame_election_provider_support::{
 	bounds::{ElectionBounds, ElectionBoundsBuilder},
 	onchain, ElectionDataProvider, SequentialPhragmen,
 };
+use core::marker::PhantomData;
 use frame_support::traits::{ConstU128, EitherOf};
 use pallet_election_provider_multi_block::{
 	self as multi_block, weights::measured, SolutionAccuracyOf,
 };
-use pallet_staking::UseValidatorsMap;
+use pallet_staking_async::UseValidatorsMap;
 use polkadot_runtime_common::{prod_or_fast, BalanceToU256, CurrencyToVote, U256ToBalance};
 use sp_runtime::{
 	transaction_validity::TransactionPriority, FixedPointNumber, FixedU128, SaturatedConversion,
@@ -111,7 +112,6 @@ impl onchain::Config for OnChainSeqPhragmen {
 }
 
 impl multi_block::Config for Runtime {
-	type RuntimeEvent = RuntimeEvent;
 	type Pages = Pages;
 	type UnsignedPhase = UnsignedPhase;
 	type SignedPhase = SignedPhase;
@@ -126,12 +126,12 @@ impl multi_block::Config for Runtime {
 	type MinerConfig = Self;
 	type Verifier = MultiBlockVerifier;
 	type WeightInfo = measured::pallet_election_provider_multi_block::SubstrateWeight<Self>;
-	// Random low number as it is removed on a branch.
-	type Lookahead = ConstU32<100>;
+
+	// Dont know about these ones, just making it compile:
+	type AreWeDone = multi_block::RevertToSignedIfNotQueuedOf<Self>;
 }
 
 impl multi_block::verifier::Config for Runtime {
-	type RuntimeEvent = RuntimeEvent;
 	type MaxWinnersPerPage = MaxWinnersPerPage;
 	type MaxBackersPerWinner = MaxBackersPerWinner;
 	type MaxBackersPerWinnerFinal = MaxBackersPerWinnerFinal;
@@ -143,6 +143,7 @@ impl multi_block::verifier::Config for Runtime {
 
 parameter_types! {
 	pub BailoutGraceRatio: Perbill = Perbill::from_percent(50);
+	pub EjectGraceRatio: Perbill = Perbill::from_percent(50);
 	pub DepositBase: Balance = 5 * UNITS;
 	pub DepositPerPage: Balance = 1 * UNITS;
 	pub RewardBase: Balance = 10 * UNITS;
@@ -150,10 +151,10 @@ parameter_types! {
 }
 
 impl multi_block::signed::Config for Runtime {
-	type RuntimeEvent = RuntimeEvent;
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type Currency = Balances;
 	type BailoutGraceRatio = BailoutGraceRatio;
+	type EjectGraceRatio = EjectGraceRatio;
 	type DepositBase = DepositBase;
 	type DepositPerPage = DepositPerPage;
 	type RewardBase = RewardBase;
@@ -171,6 +172,7 @@ parameter_types! {
 }
 
 impl multi_block::unsigned::Config for Runtime {
+	type MinerPages = ConstU32<2>; // TODO review
 	type OffchainSolver = SequentialPhragmen<AccountId, SolutionAccuracyOf<Runtime>>;
 	type MinerTxPriority = MinerTxPriority;
 	type OffchainRepeat = OffchainRepeat;
@@ -217,7 +219,7 @@ impl pallet_bags_list::Config<VoterBagsListInstance> for Runtime {
 }
 
 pub struct EraPayout;
-impl pallet_staking::EraPayout<Balance> for EraPayout {
+impl pallet_staking_async::EraPayout<Balance> for EraPayout {
 	fn era_payout(
 		_total_staked: Balance,
 		_total_issuance: Balance,
@@ -256,40 +258,93 @@ parameter_types! {
 	pub const MaxNominations: u32 = <NposCompactSolution16 as frame_election_provider_support::NposSolution>::LIMIT as u32;
 }
 
-impl pallet_staking::Config for Runtime {
+impl pallet_staking_async::Config for Runtime {
+	type Filter = ();
 	type OldCurrency = Balances;
 	type Currency = Balances;
 	type CurrencyBalance = Balance;
 	type RuntimeHoldReason = RuntimeHoldReason;
-	type UnixTime = Timestamp;
-	type CurrencyToVote = CurrencyToVote;
+	type CurrencyToVote = sp_staking::currency_to_vote::SaturatingCurrencyToVote;
 	type RewardRemainder = ();
-	type RuntimeEvent = RuntimeEvent;
 	type Slash = ();
 	type Reward = ();
 	type SessionsPerEra = SessionsPerEra;
 	type BondingDuration = BondingDuration;
 	type SlashDeferDuration = SlashDeferDuration;
 	type AdminOrigin = EitherOf<EnsureRoot<AccountId>, StakingAdmin>;
-	type SessionInterface = Self;
 	type EraPayout = EraPayout;
 	type MaxExposurePageSize = MaxExposurePageSize;
-	type NextNewSession = Session;
 	type ElectionProvider = MultiBlock;
-	type GenesisElectionProvider = onchain::OnChainExecution<OnChainSeqPhragmen>;
 	type VoterList = VoterList;
 	type TargetList = UseValidatorsMap<Self>;
 	type MaxValidatorSet = MaxValidatorSet;
-	type NominationsQuota = pallet_staking::FixedNominationsQuota<{ MaxNominations::get() }>;
+	type NominationsQuota = pallet_staking_async::FixedNominationsQuota<{ MaxNominations::get() }>;
 	type MaxUnlockingChunks = frame_support::traits::ConstU32<32>;
 	type HistoryDepth = frame_support::traits::ConstU32<84>;
 	type MaxControllersInDeprecationBatch = MaxControllersInDeprecationBatch;
-	type BenchmarkingConfig = polkadot_runtime_common::StakingBenchmarkingConfig;
 	type EventListeners = (NominationPools, DelegatedStaking);
-	type WeightInfo = weights::pallet_staking::WeightInfo<Runtime>;
+	type WeightInfo = ();
 	type MaxInvulnerables = frame_support::traits::ConstU32<20>;
 	type MaxDisabledValidators = ConstU32<100>;
-	type Filter = Nothing;
+	type PlanningEraOffset = ConstU32<2>;
+	type RcClientInterface = StakingNextRcClient;
+}
+
+impl pallet_staking_async_rc_client::Config for Runtime {
+	type RelayChainOrigin = EnsureRoot<AccountId>;
+	type AHStakingInterface = Staking;
+	type SendToRelayChain = XcmToRelayChain<xcm_config::XcmRouter>;
+}
+
+#[derive(Encode, Decode)]
+// Call indices taken from westend-next runtime.
+pub enum RelayChainRuntimePallets {
+	// FAIL-CI ggwpez
+	#[codec(index = 67)]
+	AhClient(AhClientCalls),
+}
+
+#[derive(Encode, Decode)]
+pub enum AhClientCalls {
+	// FAIL-CI ggwpez check this shit
+	#[codec(index = 0)]
+	ValidatorSet(rc_client::ValidatorSetReport<AccountId>),
+}
+
+use pallet_staking_async_rc_client as rc_client;
+use xcm::latest::{prelude::*, SendXcm};
+
+pub struct XcmToRelayChain<T: SendXcm>(PhantomData<T>);
+impl<T: SendXcm> rc_client::SendToRelayChain for XcmToRelayChain<T> {
+	type AccountId = AccountId;
+
+	/// Send a new validator set report to relay chain.
+	fn validator_set(report: rc_client::ValidatorSetReport<Self::AccountId>) {
+		let message = Xcm(vec![
+			Instruction::UnpaidExecution {
+				weight_limit: WeightLimit::Unlimited,
+				check_origin: None,
+			},
+			Instruction::Transact {
+				origin_kind: OriginKind::Native,
+				fallback_max_weight: None,
+				call: RelayChainRuntimePallets::AhClient(AhClientCalls::ValidatorSet(report))
+					.encode()
+					.into(),
+			},
+		]);
+		let dest = Location::parent();
+		let result = send_xcm::<T>(dest, message);
+
+		match result {
+			Ok(_) => {
+				log::info!(target: "runtime", "Successfully sent validator set report to relay chain")
+			},
+			Err(e) => {
+				log::error!(target: "runtime", "Failed to send validator set report to relay chain: {:?}", e)
+			},
+		}
+	}
 }
 
 impl pallet_fast_unstake::Config for Runtime {
@@ -321,7 +376,7 @@ impl pallet_nomination_pools::Config for Runtime {
 	type PostUnbondingPoolsWindow = ConstU32<4>;
 	type MaxMetadataLen = ConstU32<256>;
 	// we use the same number of allowed unlocking chunks as with staking.
-	type MaxUnbonding = <Self as pallet_staking::Config>::MaxUnlockingChunks;
+	type MaxUnbonding = <Self as pallet_staking_async::Config>::MaxUnlockingChunks;
 	type PalletId = PoolsPalletId;
 	type MaxPointsToBalance = MaxPointsToBalance;
 	type AdminOrigin = EitherOf<EnsureRoot<AccountId>, StakingAdmin>;
@@ -430,9 +485,4 @@ where
 	fn create_inherent(call: RuntimeCall) -> UncheckedExtrinsic {
 		UncheckedExtrinsic::new_bare(call)
 	}
-}
-
-impl pallet_session::historical::Config for Runtime {
-	type FullIdentification = ();
-	type FullIdentificationOf = pallet_staking::NullIdentity;
 }
