@@ -303,6 +303,7 @@ where
 
 	if !upward_message_signals.is_empty() {
 		let mut selected_core = None;
+		let mut approved_peer = None;
 
 		upward_message_signals.iter().for_each(|s| {
 			match UMPSignal::decode(&mut &s[..]).expect("Failed to decode `UMPSignal`") {
@@ -316,6 +317,17 @@ where
 					Some(_) => {},
 					None => {
 						selected_core = Some((selector, offset));
+					},
+				},
+				UMPSignal::ApprovedPeer(new_approved_peer) => match &approved_peer {
+					Some(approved_peer) if *approved_peer != new_approved_peer => {
+						panic!(
+							"All `ApprovedPeer` signals need to select the same peer_id: {new_approved_peer:?} vs {approved_peer:?}",
+						)
+					},
+					Some(_) => {},
+					None => {
+						approved_peer = Some(new_approved_peer);
 					},
 				},
 			}

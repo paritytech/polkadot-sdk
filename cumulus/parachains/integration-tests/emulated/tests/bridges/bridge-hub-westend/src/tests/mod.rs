@@ -14,6 +14,7 @@
 // limitations under the License.
 
 use crate::imports::*;
+use emulated_integration_tests_common::snowbridge::{SEPOLIA_ID, WETH};
 
 mod aliases;
 mod asset_transfers;
@@ -87,8 +88,8 @@ pub(crate) fn weth_at_asset_hubs() -> Location {
 	Location::new(
 		2,
 		[
-			GlobalConsensus(Ethereum { chain_id: snowbridge::CHAIN_ID }),
-			AccountKey20 { network: None, key: snowbridge::WETH },
+			GlobalConsensus(Ethereum { chain_id: SEPOLIA_ID }),
+			AccountKey20 { network: None, key: WETH },
 		],
 	)
 }
@@ -119,72 +120,6 @@ pub(crate) fn foreign_balance_on_ah_westend(id: v5::Location, who: &AccountId) -
 		type Assets = <AssetHubWestend as AssetHubWestendPallet>::ForeignAssets;
 		<Assets as Inspect<_>>::balance(id, who)
 	})
-}
-
-/// note: $asset needs to be prefunded outside this function
-#[macro_export]
-macro_rules! create_pool_with_native_on {
-	( $chain:ident, $asset:expr, $is_foreign:expr, $asset_owner:expr ) => {
-		emulated_integration_tests_common::impls::paste::paste! {
-			<$chain>::execute_with(|| {
-				type RuntimeEvent = <$chain as Chain>::RuntimeEvent;
-				let owner = $asset_owner;
-				let signed_owner = <$chain as Chain>::RuntimeOrigin::signed(owner.clone());
-				let native_asset: Location = Parent.into();
-
-				if $is_foreign {
-					assert_ok!(<$chain as [<$chain Pallet>]>::ForeignAssets::mint(
-						signed_owner.clone(),
-						$asset.clone().into(),
-						owner.clone().into(),
-						10_000_000_000_000, // For it to have more than enough.
-					));
-				} else {
-					let asset_id = match $asset.interior.last() {
-						Some(GeneralIndex(id)) => *id as u32,
-						_ => unreachable!(),
-					};
-					assert_ok!(<$chain as [<$chain Pallet>]>::Assets::mint(
-						signed_owner.clone(),
-						asset_id.into(),
-						owner.clone().into(),
-						10_000_000_000_000, // For it to have more than enough.
-					));
-				}
-
-				assert_ok!(<$chain as [<$chain Pallet>]>::AssetConversion::create_pool(
-					signed_owner.clone(),
-					Box::new(native_asset.clone()),
-					Box::new($asset.clone()),
-				));
-
-				assert_expected_events!(
-					$chain,
-					vec![
-						RuntimeEvent::AssetConversion(pallet_asset_conversion::Event::PoolCreated { .. }) => {},
-					]
-				);
-
-				assert_ok!(<$chain as [<$chain Pallet>]>::AssetConversion::add_liquidity(
-					signed_owner,
-					Box::new(native_asset),
-					Box::new($asset),
-					1_000_000_000_000,
-					2_000_000_000_000, // $asset is worth half of native_asset
-					0,
-					0,
-					owner.into()
-				));
-
-				assert_expected_events!(
-					$chain,
-					vec![
-						RuntimeEvent::AssetConversion(pallet_asset_conversion::Event::LiquidityAdded { .. }) => {},
-					]
-				);
-			});
-		}
-	};
 }
 
 pub(crate) fn send_assets_from_asset_hub_westend(
