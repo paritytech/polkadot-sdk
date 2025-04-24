@@ -6,9 +6,10 @@ use anyhow::anyhow;
 use cumulus_zombienet_sdk_helpers::assert_para_throughput;
 use polkadot_primitives::Id as ParaId;
 use subxt::{OnlineClient, PolkadotConfig};
-use zombienet_sdk::{AddCollatorOptions, LocalFileSystem, Network, NetworkConfigBuilder};
+use zombienet_sdk::{LocalFileSystem, Network, NetworkConfigBuilder};
 
 const PARA_ID: u32 = 2000;
+const BEST_BLOCK_METRIC: &str = "block_height{status=\"best\"}";
 
 #[tokio::test(flavor = "multi_thread")]
 async fn sync_blocks_from_tip_without_connected_collator() -> Result<(), anyhow::Error> {
@@ -16,17 +17,18 @@ async fn sync_blocks_from_tip_without_connected_collator() -> Result<(), anyhow:
 		env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
 	);
 
+	log::info!("Spawning network");
 	let network = initialize_network().await?;
 
 	let relay_alice = network.get_node("alice")?;
 
 	let relay_client: OnlineClient<PolkadotConfig> = relay_alice.wait_client().await?;
 
-	// Ensure parachains are registered.
+	log::info!("Ensuring parachain is registered");
 	assert_para_throughput(&relay_client, 2, [(ParaId::from(PARA_ID), 2..3)].into_iter().collect())
 		.await?;
 
-	// Ensure parachains made progress.
+	log::info!("Ensuring parachain making progress");
 	assert_para_throughput(
 		&relay_client,
 		10,
@@ -37,17 +39,13 @@ async fn sync_blocks_from_tip_without_connected_collator() -> Result<(), anyhow:
 	let para_ferdie = network.get_node("ferdie")?;
 	let para_eve = network.get_node("eve")?;
 
-	// Ensure ferdie and eve are syncing
-	let block_height_metric = "block_height{status=\"best\"}";
-	let timeout_secs: u64 = 250;
-	let min_block_height: f64 = 12.0;
-
+	log::info!("Ensuring ferdie and eve are syncing");
 	assert!(para_ferdie
-		.wait_metric_with_timeout(block_height_metric, |b| b > min_block_height, timeout_secs)
+		.wait_metric_with_timeout(BEST_BLOCK_METRIC, |b| b > 12.0, 250u64)
 		.await
 		.is_ok());
 	assert!(para_eve
-		.wait_metric_with_timeout(block_height_metric, |b| b > min_block_height, timeout_secs)
+		.wait_metric_with_timeout(BEST_BLOCK_METRIC, |b| b > 12.0, 250u64)
 		.await
 		.is_ok());
 
@@ -63,12 +61,10 @@ async fn initialize_network() -> Result<Network<LocalFileSystem>, anyhow::Error>
 	// 	 - alice
 	// 	 - bob
 	// - parachain Nodes:
-	// 	 - spawned immediately
-	//     - charlie - collator
-	//     - dave    - full node
-	//   - spawned later (as they refer to running nodes)
-	//     - eve     - full node; connected only to dave,
-	//     - ferdie  - full node; connected only to dave; gets relay chain data only from alice
+	//   - charlie - collator
+	//   - dave    - full node
+	//   - eve     - full node; connected only to dave,
+	//   - ferdie  - full node; connected only to dave; gets relay chain data only from alice
 	let config = NetworkConfigBuilder::new()
 		.with_relaychain(|r| {
 			r.with_chain("rococo-local")
