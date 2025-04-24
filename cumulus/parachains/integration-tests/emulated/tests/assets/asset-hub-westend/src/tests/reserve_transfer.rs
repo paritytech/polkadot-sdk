@@ -15,8 +15,10 @@
 
 use crate::{create_pool_with_wnd_on, foreign_balance_on, imports::*};
 use emulated_integration_tests_common::xcm_emulator::{
-	find_mq_processed_id, find_xcm_sent_message_id, helpers::TopicIdTracker,
+	find_xcm_sent_message_id, helpers::TopicIdTracker,
 };
+use emulated_integration_tests_common::xcm_emulator::helpers::find_mq_processed_id;
+use pallet_message_queue::Config;
 use sp_core::{crypto::get_public_from_string_or_panic, sr25519};
 use westend_system_emulated_network::westend_emulated_chain::westend_runtime::Dmp;
 
@@ -519,7 +521,7 @@ pub fn para_to_para_through_hop_receiver_assertions<Hop: Clone>(t: Test<PenpalA,
 		);
 	}
 
-	let mq_prc_id = find_mq_processed_id!(PenpalB);
+	let mq_prc_id = find_mq_processed_id::<PenpalB, <PenpalB as Chain>::Runtime>();
 	if let Some(prc_id) = mq_prc_id {
 		TopicIdTracker::insert(prc_id.into());
 		TopicIdTracker::assert_unique();

@@ -1702,8 +1702,22 @@ where
 }
 
 pub mod helpers {
+	use pallet_message_queue::Config;
 	use super::*;
 	use sp_core::H256;
+
+	pub fn find_mq_processed_id<C: Chain, T: Config>() -> Option<H256>
+	where
+		C::RuntimeEvent: TryInto<pallet_message_queue::Event<T>>,
+	{
+		C::events().into_iter().find_map(|event| {
+			if let Ok(pallet_message_queue::Event::Processed { id, .. }) = event.try_into() {
+				Some(id)
+			} else {
+				None
+			}
+		})
+	}
 
 	pub fn within_threshold(threshold: u64, expected_value: u64, current_value: u64) -> bool {
 		let margin = (current_value * threshold) / 100;
