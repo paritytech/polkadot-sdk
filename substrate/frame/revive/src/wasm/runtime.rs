@@ -628,6 +628,7 @@ enum StorageReadMode {
 	/// If the key is missing, write 32 bytes of zeros.
 	EthSemantics,
 }
+
 /// Can only be used for one call.
 pub struct Runtime<'a, E: Ext, M: ?Sized> {
 	ext: &'a mut E,
