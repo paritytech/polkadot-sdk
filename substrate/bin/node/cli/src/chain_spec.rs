@@ -22,7 +22,7 @@ use polkadot_sdk::*;
 
 use crate::chain_spec::sc_service::Properties;
 use kitchensink_runtime::{
-	genesis_config_presets::{session_keys, Staker, StakingPlaygroundConfig, STASH},
+	genesis_config_presets::{session_keys, Staker, STASH},
 	wasm_binary_unwrap, Block, MaxNominations, StakerStatus,
 };
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
@@ -314,12 +314,6 @@ pub fn testnet_genesis(
 	let (initial_authorities, endowed_accounts, stakers) =
 		configure_accounts(initial_authorities, initial_nominators, endowed_accounts, STASH);
 
-	let staking_playground_config = if cfg!(feature = "staking-playground") {
-		Some(get_staking_playground_config())
-	} else {
-		None
-	};
-
 	// Todo: After #7748 is done, we can refactor this to avoid
 	// calling into the native runtime.
 	kitchensink_runtime::genesis_config_presets::kitchensink_genesis(
@@ -344,26 +338,7 @@ pub fn testnet_genesis(
 		root_key,
 		endowed_accounts,
 		stakers,
-		staking_playground_config,
 	)
-}
-
-fn get_staking_playground_config() -> StakingPlaygroundConfig {
-	let random_validators =
-		std::option_env!("VALIDATORS").map(|s| s.parse::<u32>().unwrap()).unwrap_or(100);
-	let random_nominators = std::option_env!("NOMINATORS")
-		.map(|s| s.parse::<u32>().unwrap())
-		.unwrap_or(3000);
-
-	let validator_count = std::option_env!("VALIDATOR_COUNT")
-		.map(|v| v.parse::<u32>().unwrap())
-		.unwrap_or(100);
-
-	StakingPlaygroundConfig {
-		dev_stakers: (random_validators, random_nominators),
-		validator_count,
-		minimum_validator_count: 10,
-	}
 }
 
 fn props() -> Properties {

@@ -150,14 +150,25 @@ where
 		// Save the tx hash to remove it later.
 		let tx_hash = pool.hash_of(&decoded_extrinsic);
 
+		// Get a stream of best block hashes that immediately produces the current best block.
+		// This is used for the broadcast method to retry submitting the transaction to a future
+		// block if the error is retriable (for example, the transaction is invalid at the moment,
+		// but will become valid at a later block N + 1).
+		//
+		// Providing the best hash immediately is important for chains that are configured with
+		// `InstantSeal`.
+		let best_hash = self.client.info().best_hash;
+
 		// The compiler can no longer deduce the type of the stream and complains
 		// about `one type is more general than the other`.
 		let mut best_block_import_stream: std::pin::Pin<
 			Box<dyn Stream<Item = <Pool::Block as BlockT>::Hash> + Send>,
-		> =
-			Box::pin(self.client.import_notification_stream().filter_map(
-				|notification| async move { notification.is_new_best.then_some(notification.hash) },
-			));
+		> = Box::pin(futures::stream::select(
+			futures::stream::iter(std::iter::once(best_hash)),
+			self.client.import_notification_stream().filter_map(|notification| async move {
+				notification.is_new_best.then_some(notification.hash)
+			}),
+		));
 
 		let broadcast_transaction_fut = async move {
 			// Flag to determine if the we should broadcast the transaction again.
