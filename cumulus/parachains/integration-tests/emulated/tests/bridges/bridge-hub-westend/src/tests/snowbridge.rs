@@ -13,7 +13,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 use crate::{
-	create_pool_with_native_on,
 	imports::{
 		penpal_emulated_chain::penpal_runtime::xcm_config::{
 			CheckingAccount, TELEPORTABLE_ASSET_ID,
