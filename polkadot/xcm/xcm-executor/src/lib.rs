@@ -437,6 +437,8 @@ impl<Config: config::Config> XcmExecutor<Config> {
 		reason: FeeReason,
 	) -> Result<XcmHash, XcmError> {
 		let mut msg = msg;
+		// Only the last `SetTopic` instruction is considered relevant.
+		// If the message does not end with it, a `topic_or_message_id()` from the context is appended to it.
 		if !matches!(msg.last(), Some(SetTopic(_))) {
 			let topic_id = self.context.topic_or_message_id();
 			msg.0.push(SetTopic(topic_id.into()));
