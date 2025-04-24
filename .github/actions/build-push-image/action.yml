@@ -9,6 +9,10 @@ inputs:
   pushToDockerhub:
     description: ""
     default: true
+  username:
+    required: false
+  password:
+    required: false
 outputs:
   branch:
     description: "Branch name for the PR"
@@ -50,10 +54,11 @@ runs:
       if: ${{ inputs.pushToDockerhub }}
       uses: docker/login-action@v3
       with:
-        username: ${{ secrets.PARITYPR_DOCKERHUB_USERNAME }}
-        password: ${{ secrets.PARITYPR_DOCKERHUB_PASSWORD }}
+        username: ${{ inputs.username }}
+        password: ${{ inputs.password }}
 
     - name: push to dockerhub
+      shell: bash
       if: ${{ inputs.pushToDockerhub }}
       run: |
         docker tag ${{ env.IMAGE_TAG }} docker.io/paritypr/${{ inputs.image-name }}:$DOCKER_IMAGES_VERSION
