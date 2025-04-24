@@ -47,10 +47,25 @@ jobs:
           echo "Labels: ${labels}"
           echo "labels=${labels}" >> "$GITHUB_OUTPUT"
 
-      - name: Validate prdoc for PR#${{ github.event.pull_request.number }}
+      - name: Get PR number
         if: ${{ github.event.pull_request.number != '' && !contains(steps.get-labels.outputs.labels, 'R0') }}
         run: |
-          echo "Validating PR#${GITHUB_PR}"
+          pr_number=''
+          PR_TITLE="${{ github.event.pull_request.title }}"
+          if [[ $PR_TITLE =~ 'Backport' ]]; then
+            if [[ $PR_TITLE =~ \#([0-9]+) ]]; then
+              pr_number="${BASH_REMATCH[1]}"
+              echo "Extracted PR number: $pr_number"
+            fi
+          else
+            pr_number=${{ github.event.pull_request.number }}
+          fi
+          echo "PR_NUMBER=$pr_number" >> $GITHUB_ENV
+
+      - name: Validate prdoc for PR#${{ env.PR_NUMBER }}
+        if: ${{ github.event.pull_request.number != '' && !contains(steps.get-labels.outputs.labels, 'R0') }}
+        run: |
+          echo "Validating PR#${{ env.PR_NUMBER }}"
           python3 --version
           python3 -m pip install cargo-workspace==1.2.1
-          python3 .github/scripts/check-prdoc.py Cargo.toml prdoc/pr_${GITHUB_PR}.prdoc
+          python3 .github/scripts/check-prdoc.py Cargo.toml prdoc/pr_${{ env.PR_NUMBER }}.prdoc
