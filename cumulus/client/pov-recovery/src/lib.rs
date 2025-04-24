@@ -663,7 +663,7 @@ where
 }
 
 /// Returns a stream over pending candidates for the parachain corresponding to `para_id`.
-async fn pending_candidates(
+pub async fn pending_candidates(
 	relay_chain_client: impl RelayChainInterface + Clone,
 	para_id: ParaId,
 	sync_service: Arc<dyn SyncOracle + Sync + Send>,

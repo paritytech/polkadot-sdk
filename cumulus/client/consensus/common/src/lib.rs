@@ -40,7 +40,7 @@ mod tests;
 
 pub use parent_search::*;
 
-pub use parachain_consensus::run_parachain_consensus;
+pub use parachain_consensus::{finalized_heads, run_parachain_consensus};
 
 use level_monitor::LevelMonitor;
 pub use level_monitor::{LevelLimit, MAX_LEAVES_PER_LEVEL_SENSIBLE_DEFAULT};

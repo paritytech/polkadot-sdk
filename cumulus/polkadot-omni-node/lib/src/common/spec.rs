@@ -23,14 +23,17 @@ use crate::common::{
 	},
 	ConstructNodeRuntimeApi, NodeBlock, NodeExtraArgs,
 };
+use codec::Decode;
 use cumulus_client_cli::CollatorOptions;
+use cumulus_client_consensus_common::finalized_heads;
+use cumulus_client_pov_recovery::pending_candidates;
 use cumulus_client_service::{
 	build_network, build_relay_chain_interface, prepare_node_config, start_relay_chain_tasks,
 	BuildNetworkParams, CollatorSybilResistance, DARecoveryProfile, StartRelayChainTasksParams,
 };
 use cumulus_primitives_core::{BlockT, ParaId};
 use cumulus_relay_chain_interface::{OverseerHandle, RelayChainInterface};
-use futures::FutureExt;
+use futures::{select, FutureExt, StreamExt};
 use parachains_common::Hash;
 use polkadot_cli::service::IdentifyNetworkBackend;
 use polkadot_primitives::CollatorPair;
@@ -45,7 +48,9 @@ use sc_telemetry::{TelemetryHandle, TelemetryWorker};
 use sc_tracing::tracing::Instrument;
 use sc_transaction_pool::TransactionPoolHandle;
 use sc_transaction_pool_api::OffchainTransactionPoolFactory;
+use sp_consensus::SyncOracle;
 use sp_keystore::KeystorePtr;
+use sp_runtime::traits::Header;
 use std::{future::Future, pin::Pin, sync::Arc, time::Duration};
 
 pub(crate) trait BuildImportQueue<
@@ -307,6 +312,16 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 				})
 				.await?;
 
+			task_manager.spawn_handle().spawn(
+				"parachain-informant",
+				None,
+				parachain_informant::<Self::Block>(
+					relay_chain_interface.clone(),
+					sync_service.clone(),
+					para_id,
+				),
+			);
+
 			if parachain_config.offchain_worker.enabled {
 				let offchain_workers =
 					sc_offchain::OffchainWorkers::new(sc_offchain::OffchainWorkerOptions {
@@ -482,6 +497,73 @@ where
 					hwbench,
 					node_extra_args,
 				),
+		}
+	}
+}
+
+async fn parachain_informant<Block: BlockT>(
+	relay_chain_interface: Arc<dyn RelayChainInterface>,
+	sync_service: Arc<dyn SyncOracle + Send + Sync>,
+	para_id: ParaId,
+) -> () {
+	// Log backed blocks.
+	let pending_candidates =
+		match pending_candidates(relay_chain_interface.clone(), para_id, sync_service).await {
+			Ok(pending_candidates_stream) => pending_candidates_stream.fuse(),
+			Err(err) => {
+				log::error!("Unable to retrieve pending candidate stream: {err:?}.");
+				return
+			},
+		};
+	futures::pin_mut!(pending_candidates);
+	let mut backed_blocks_logger = pending_candidates.map(|(candidates, _)| {
+		for candidate in candidates {
+			let header = match Block::Header::decode(&mut &candidate.commitments.head_data.0[..]) {
+				Ok(header) => header,
+				Err(e) => {
+					sc_tracing::tracing::warn!(
+						error = ?e,
+						"Failed to decode parachain header from backed block",
+					);
+					continue
+				},
+			};
+			sc_tracing::tracing::info!("Backed block #{} ({}).", header.number(), header.hash(),);
+		}
+	});
+
+	// Log included blocks.
+	let finalized_heads = match finalized_heads(relay_chain_interface.clone(), para_id).await {
+		Ok(finalized_heads_stream) => finalized_heads_stream.fuse(),
+		Err(err) => {
+			log::error!("Unable to retrieve finalized heads stream: {err:?}.");
+			return
+		},
+	};
+	futures::pin_mut!(finalized_heads);
+	let mut included_blocks_logger = finalized_heads.map(|head| {
+		let header = match Block::Header::decode(&mut &head[..]) {
+			Ok(header) => header,
+			Err(e) => {
+				sc_tracing::tracing::warn!(
+					error = ?e,
+					"Failed to decode parachain header from finalized block",
+				);
+				return;
+			},
+		};
+		let block_number: sp_core::U256 = (*header.number()).into();
+		if block_number.is_zero() {
+			// No need to log the genesis block.
+			return;
+		}
+		sc_tracing::tracing::info!("Included block #{} ({}).", header.number(), header.hash());
+	});
+
+	loop {
+		select! {
+			() = backed_blocks_logger.select_next_some() => {},
+			() = included_blocks_logger.select_next_some() => {},
 		}
 	}
 }

@@ -15414,6 +15414,7 @@ dependencies = [
  "cumulus-client-consensus-proposer",
  "cumulus-client-consensus-relay-chain",
  "cumulus-client-parachain-inherent",
+ "cumulus-client-pov-recovery",
  "cumulus-client-service",
  "cumulus-primitives-aura",
  "cumulus-primitives-core",

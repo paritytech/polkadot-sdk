@@ -482,7 +482,7 @@ async fn new_best_heads(
 }
 
 /// Returns a stream that will yield finalized heads for the given `para_id`.
-async fn finalized_heads(
+pub async fn finalized_heads(
 	relay_chain: impl RelayChainInterface + Clone,
 	para_id: ParaId,
 ) -> RelayChainResult<impl Stream<Item = Vec<u8>>> {
