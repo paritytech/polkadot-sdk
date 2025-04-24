@@ -25,6 +25,8 @@ use std::time::Duration;
 mod sysinfo;
 #[cfg(target_os = "linux")]
 mod sysinfo_linux;
+#[cfg(target_os = "freebsd")]
+mod sysinfo_freebsd;
 
 pub use sysinfo::{
 	benchmark_cpu, benchmark_cpu_parallelism, benchmark_disk_random_writes,
