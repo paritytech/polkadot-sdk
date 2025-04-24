@@ -25,7 +25,7 @@ use crate::{
 		types::Block,
 		NodeBlock, NodeExtraArgs,
 	},
-	extra_commands::{DefaultExtraSubcommands, ExtraSubcommand},
+	extra_commands::{DefaultExtraSubcommands, ExtraSubcommand, NoExtraSubcommand},
 	fake_runtime_api,
 	nodes::DynNodeSpecExt,
 	runtime::BlockNumber,
@@ -40,7 +40,6 @@ use sc_cli::{CliConfiguration, Result, SubstrateCli};
 use sp_runtime::traits::AccountIdConversion;
 #[cfg(feature = "runtime-benchmarks")]
 use sp_runtime::traits::HashingFor;
-use crate::extra_commands::NoExtraSubcommand;
 
 const DEFAULT_DEV_BLOCK_TIME_MS: u64 = 3000;
 
@@ -137,7 +136,6 @@ where
 	CliConfig: crate::cli::CliConfig,
 	Extra: ExtraSubcommand,
 {
-
 	let cli_command = Cli::<CliConfig>::augment_args(<Extra as CommandFactory>::command())
 		.subcommand_required(true)
 		.arg_required_else_help(false);
