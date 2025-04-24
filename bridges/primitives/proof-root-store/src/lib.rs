@@ -24,7 +24,8 @@ use alloc::vec::Vec;
 use codec::{Decode, DecodeWithMemTracking, Encode};
 use scale_info::TypeInfo;
 
-/// A minimized version of `pallet-bridge-proof-root-store::Call` that can be used without a runtime.
+/// A minimized version of `pallet-bridge-proof-root-store::Call` that can be used without a
+/// runtime.
 #[derive(Encode, Decode, DecodeWithMemTracking, Debug, PartialEq, Eq, Clone, TypeInfo)]
 #[allow(non_camel_case_types)]
 pub enum ProofRootStoreCall<Key, Value> {

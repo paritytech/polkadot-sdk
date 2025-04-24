@@ -87,7 +87,8 @@ pub mod pallet {
 	pub type Roots<T: Config<I>, I: 'static = ()> =
 		StorageMap<_, Blake2_128Concat, T::Key, T::Value, OptionQuery>;
 
-	/// Storage tracking the insertion order of roots for `T::RootsToKeep` (implemented as a simple ring buffer).
+	/// Storage tracking the insertion order of roots for `T::RootsToKeep` (implemented as a simple
+	/// ring buffer).
 	#[pallet::storage]
 	#[pallet::unbounded]
 	pub type RootIndex<T: Config<I>, I: 'static = ()> =

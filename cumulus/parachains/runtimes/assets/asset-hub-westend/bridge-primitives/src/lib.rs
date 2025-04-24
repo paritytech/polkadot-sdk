@@ -22,11 +22,11 @@ extern crate alloc;
 
 pub use bp_bridge_hub_cumulus::*;
 use bp_messages::*;
+pub use bp_proof_root_store::ProofRootStoreCall;
 use bp_runtime::{
 	decl_bridge_finality_runtime_apis, decl_bridge_messages_runtime_apis, Chain, ChainId, Parachain,
 };
 pub use bp_xcm_bridge_router::XcmBridgeHubCall;
-pub use bp_proof_root_store::ProofRootStoreCall;
 use frame_support::{
 	dispatch::DispatchClass,
 	sp_runtime::{MultiAddress, MultiSigner, RuntimeDebug, StateVersion},
