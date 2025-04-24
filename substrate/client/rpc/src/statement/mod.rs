@@ -91,7 +91,7 @@ impl StatementApiServer for StatementStore {
 			.broadcasts_stmt(&match_all_topics)
 			.map_err(|e| Error::StatementStore(e.to_string()))?
 			.into_iter()
-			.map(|stmt| stmt.encode().into())
+			.map(Into::into)
 			.collect())
 	}
 
@@ -105,7 +105,7 @@ impl StatementApiServer for StatementStore {
 			.posted_stmt(&match_all_topics, dest)
 			.map_err(|e| Error::StatementStore(e.to_string()))?
 			.into_iter()
-			.map(|stmt| stmt.encode().into())
+			.map(Into::into)
 			.collect())
 	}
 
@@ -119,12 +119,7 @@ impl StatementApiServer for StatementStore {
 			.posted_clear_stmt(&match_all_topics, dest)
 			.map_err(|e| Error::StatementStore(e.to_string()))?
 			.into_iter()
-			.map(|(stmt, data)| {
-				let mut res = Vec::with_capacity(stmt.size_hint() + data.len());
-				stmt.encode_to(&mut res);
-				res.extend_from_slice(&data);
-				res.into()
-			})
+			.map(Into::into)
 			.collect())
 	}
 
