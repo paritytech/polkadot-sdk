@@ -1307,4 +1307,36 @@ mod tests {
 		let posted_clear = store.posted_clear(&[], public.into()).unwrap();
 		assert_eq!(posted_clear, vec![plain]);
 	}
+
+	#[test]
+	fn account_channel_priority_works() {
+		let (store, _temp) = test_store();
+
+		let acc = account(1);
+		let chan = channel(1);
+
+		// Initially there is no statement for this (account, channel) pair
+		assert_eq!(store.account_channel_priority(&acc, &chan).unwrap(), None);
+
+		// Submit a statement with priority 2
+		let s1 = statement(1, 2, Some(1), 100);
+		assert_eq!(
+			store.submit(s1, StatementSource::Network),
+			SubmitResult::New(NetworkPriority::High)
+		);
+		assert_eq!(store.account_channel_priority(&acc, &chan).unwrap(), Some(2));
+
+		// Submit a higher-priority statement (priority 5) to the same channel;
+		// it should replace the previous one.
+		let s2 = statement(1, 5, Some(1), 100);
+		assert_eq!(
+			store.submit(s2.clone(), StatementSource::Network),
+			SubmitResult::New(NetworkPriority::High)
+		);
+		assert_eq!(store.account_channel_priority(&acc, &chan).unwrap(), Some(5));
+
+		// Remove the statement; priority lookup should now return `None`
+		store.remove(&s2.hash()).unwrap();
+		assert_eq!(store.account_channel_priority(&acc, &chan).unwrap(), None);
+	}
 }
