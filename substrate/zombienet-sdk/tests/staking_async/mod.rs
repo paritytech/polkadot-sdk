@@ -8,6 +8,12 @@ use zombienet_sdk::{NetworkConfig, NetworkConfigBuilder};
 
 mod tests;
 
+#[subxt::subxt(runtime_metadata_path = "tests/metadata/polkadot-metadata-stripped.scale")]
+pub mod polkadot {}
+
+#[subxt::subxt(runtime_metadata_path = "tests/metadata/ah-metadata-stripped.scale")]
+pub mod assethub {}
+
 /// Sets `ValidatorCount` in staking pallet to 500.
 async fn set_validator_count(
 	ah_client: &OnlineClient<PolkadotConfig>,
