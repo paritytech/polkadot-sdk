@@ -605,6 +605,7 @@ fn already_charged(_: u32) -> Option<RuntimeCosts> {
 fn extract_hi_lo(reg: u64) -> (u32, u32) {
 	((reg >> 32) as u32, reg as u32)
 }
+
 /// Provides storage variants to support standard and Etheruem compatible semantics.
 enum StorageValue {
 	/// Indicates that the storage value should be read from a memory buffer.
