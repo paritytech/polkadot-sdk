@@ -498,7 +498,7 @@ fn send_weth_asset_from_asset_hub_to_ethereum() {
 		assert!(
 			events.iter().any(|event| matches!(
 				event,
-				RuntimeEvent::Balances(pallet_balances::Event::Minted { who, amount })
+				RuntimeEvent::Balances(pallet_balances::Event::Minted { who, .. })
 					if *who == TREASURY_ACCOUNT.into()
 			)),
 			"Snowbridge sovereign takes local fee."
@@ -507,7 +507,7 @@ fn send_weth_asset_from_asset_hub_to_ethereum() {
 		assert!(
 			events.iter().any(|event| matches!(
 				event,
-				RuntimeEvent::Balances(pallet_balances::Event::Minted { who, amount })
+				RuntimeEvent::Balances(pallet_balances::Event::Minted { who, .. })
 					if *who == assethub_sovereign
 			)),
 			"AssetHub sovereign takes remote fee."
@@ -668,7 +668,7 @@ fn send_eth_asset_from_asset_hub_to_ethereum_and_back() {
 		assert!(
 			events.iter().any(|event| matches!(
 				event,
-				RuntimeEvent::Balances(pallet_balances::Event::Minted { who, amount })
+				RuntimeEvent::Balances(pallet_balances::Event::Minted { who, .. })
 					if *who == TREASURY_ACCOUNT.into()
 			)),
 			"Snowbridge sovereign takes local fee."
@@ -677,7 +677,7 @@ fn send_eth_asset_from_asset_hub_to_ethereum_and_back() {
 		assert!(
 			events.iter().any(|event| matches!(
 				event,
-				RuntimeEvent::Balances(pallet_balances::Event::Minted { who, amount })
+				RuntimeEvent::Balances(pallet_balances::Event::Minted { who, .. })
 					if *who == assethub_sovereign
 			)),
 			"AssetHub sovereign takes remote fee."
