@@ -4,6 +4,8 @@ doc:
   description: |-
     This PR ensures every XCM processed with the same topic ID across multiple chains to improve traceability.
 crates:
+- name: pallet-xcm
+  bump: patch
 - name: staging-xcm
   bump: minor
 - name: staging-xcm-builder

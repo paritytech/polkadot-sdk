@@ -1679,25 +1679,32 @@ fn execute_initiate_transfer_and_check_sent_event() {
 			);
 			assert_ok!(result);
 
-			let sent_message: Xcm<()> = Xcm(vec![
+			let events = last_events(2);
+			let mut sent_message: Xcm<()> = Xcm(vec![
 				WithdrawAsset(Assets::new()),
 				ClearOrigin,
 				BuyExecution { fees: fee_asset.clone(), weight_limit: Unlimited },
 				DepositAsset { assets: All.into(), beneficiary: beneficiary.clone() },
 			]);
+			let mut sent_msg_id = None;
+			if let Some(RuntimeEvent::XcmPallet(Event::Sent { message_id, ..})) = events.first() {
+				sent_message.0.push(SetTopic(*message_id));
+				sent_msg_id = Some(*message_id);
+			} else {
+				assert!(false, "Missing Sent Event");
+			}
 			assert!(log_capture
 				.contains(format!("xcm::send: Sending msg msg={:?}", sent_message).as_str()));
 
 			let origin: Location = AccountId32 { network: None, id: ALICE.into() }.into();
-			let sent_msg_id = fake_message_hash(&sent_message);
 			assert_eq!(
-				last_events(2),
+				events,
 				vec![
 					RuntimeEvent::XcmPallet(Event::Sent {
 						origin,
 						destination: Parent.into(),
 						message: Xcm::default(),
-						message_id: sent_msg_id,
+						message_id: sent_msg_id.unwrap(),
 					}),
 					RuntimeEvent::XcmPallet(Event::Attempted {
 						outcome: Outcome::Complete { used: Weight::from_parts(1_000, 1_000) }
@@ -1738,7 +1745,7 @@ fn deliver_failure_with_expect_error() {
 			assert!(result.is_err());
 
 			// Check logs for send attempt and failure
-			assert!(log_capture.contains("xcm::send: Sending msg msg=Xcm([WithdrawAsset(Assets([])), ClearOrigin, ExpectError(Some((1, Unimplemented)))])"));
+			assert!(log_capture.contains("xcm::send: Sending msg msg=Xcm([WithdrawAsset(Assets([])), ClearOrigin, ExpectError(Some((1, Unimplemented))), SetTopic("));
 			assert!(log_capture.contains("xcm::send: XCM failed to deliver with error error=Transport(\"Intentional deliver failure used in tests\")"));
 		})
 	});

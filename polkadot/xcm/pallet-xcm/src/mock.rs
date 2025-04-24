@@ -739,5 +739,9 @@ pub(crate) fn new_test_ext_with_balances_and_xcm_version(
 }
 
 pub(crate) fn fake_message_hash<T>(message: &Xcm<T>) -> XcmHash {
-	message.using_encoded(sp_io::hashing::blake2_256)
+	if let Some(SetTopic(topic_id)) = message.last() {
+		*topic_id
+	} else {
+		message.using_encoded(sp_io::hashing::blake2_256)
+	}
 }

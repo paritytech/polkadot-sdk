@@ -16,11 +16,7 @@
 
 #![cfg(test)]
 
-use crate::{
-	mock::*,
-	tests::{ALICE, BOB, FEE_AMOUNT, INITIAL_BALANCE, SEND_AMOUNT},
-	DispatchResult, OriginFor,
-};
+use crate::{mock::*, tests::{ALICE, BOB, FEE_AMOUNT, INITIAL_BALANCE, SEND_AMOUNT}, DispatchResult, Event, OriginFor};
 use frame_support::{
 	assert_err, assert_ok,
 	traits::{tokens::fungibles::Inspect, Currency},
@@ -1434,26 +1430,30 @@ fn remote_asset_reserve_and_remote_fee_reserve_call<Call>(
 		assert_eq!(AssetsPallet::active_issuance(usdc_id_location.clone()), expected_usdc_issuance);
 
 		// Verify sent XCM program
+		let mut expected_msg = Xcm(vec![
+			WithdrawAsset(expected_assets_on_reserve),
+			ClearOrigin,
+			BuyExecution { fees: expected_fee_on_reserve, weight_limit: Unlimited },
+			DepositReserveAsset {
+				assets: Wild(AllCounted(1)),
+				// final destination is `dest` as seen by `reserve`
+				dest: expected_dest_on_reserve,
+				// message sent onward to `dest`
+				xcm: Xcm(vec![
+					buy_limited_execution(expected_fee_on_dest, Unlimited),
+					DepositAsset { assets: AllCounted(1).into(), beneficiary }
+				])
+			}
+		]);
+		let xcm_sent = sent_xcm();
+		if let Some(SetTopic(topic_id)) = xcm_sent[0].1.last() {
+			expected_msg.0.push(SetTopic(*topic_id));
+		}
 		assert_eq!(
-			sent_xcm(),
+			xcm_sent,
 			vec![(
 				// first message sent to reserve chain
-				usdc_chain,
-				Xcm(vec![
-					WithdrawAsset(expected_assets_on_reserve),
-					ClearOrigin,
-					BuyExecution { fees: expected_fee_on_reserve, weight_limit: Unlimited },
-					DepositReserveAsset {
-						assets: Wild(AllCounted(1)),
-						// final destination is `dest` as seen by `reserve`
-						dest: expected_dest_on_reserve,
-						// message sent onward to `dest`
-						xcm: Xcm(vec![
-							buy_limited_execution(expected_fee_on_dest, Unlimited),
-							DepositAsset { assets: AllCounted(1).into(), beneficiary }
-						])
-					}
-				])
+				usdc_chain, expected_msg
 			)],
 		);
 	});
@@ -2526,7 +2526,7 @@ fn remote_asset_reserve_and_remote_fee_reserve_paid_call<Call>(
 		let foreign_id_location_reanchored =
 			foreign_asset_id_location.clone().reanchored(&dest, &context).unwrap();
 		let dest_reanchored = dest.reanchored(&reserve_location, &context).unwrap();
-		let sent_message = Xcm(vec![
+		let mut sent_message = Xcm(vec![
 			WithdrawAsset((Location::here(), SEND_AMOUNT).into()),
 			ClearOrigin,
 			buy_execution((Location::here(), SEND_AMOUNT / 2)),
@@ -2541,7 +2541,13 @@ fn remote_asset_reserve_and_remote_fee_reserve_paid_call<Call>(
 				]),
 			},
 		]);
-		let sent_msg_id = fake_message_hash(&sent_message);
+		let mut sent_msg_id = None;
+		if let Some(RuntimeEvent::XcmPallet(Event::Sent { message_id, ..})) = last_events(2).first() {
+			sent_message.0.push(SetTopic(*message_id));
+			sent_msg_id = Some(*message_id);
+		} else {
+			assert!(false, "Missing Sent Event");
+		}
 
 		let mut last_events = last_events(7).into_iter();
 		// asset events
@@ -2562,7 +2568,7 @@ fn remote_asset_reserve_and_remote_fee_reserve_paid_call<Call>(
 				origin: user_account.clone().into(),
 				destination: Parachain(paid_para_id).into(),
 				message: Xcm::default(),
-				message_id: sent_msg_id,
+				message_id: sent_msg_id.unwrap(),
 			})
 		);
 		assert_eq!(
