@@ -179,6 +179,9 @@ impl<T: frame_system::Config> pallet_collator_selection::WeightInfo for WeightIn
 			.saturating_add(T::DbWeight::get().reads(2))
 			.saturating_add(T::DbWeight::get().writes(2))
 	}
+	fn withdraw_unbonded() -> Weight {
+		Weight::zero()
+	}
 	fn update_bond(c: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `306 + c * (50 ±0)`
