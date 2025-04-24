@@ -1452,4 +1452,48 @@ mod tests {
 		let trailing = &retrieved[0][stmt_len..];
 		assert_eq!(trailing, &plain1[..]);
 	}
+
+	#[test]
+	fn posted_clear_returns_plain_data_for_dest_and_topics() {
+		let (store, _tmp) = test_store();
+
+		// prepare two key-pairs
+		let public_dest = store
+			.keystore
+			.ed25519_generate_new(sp_core::crypto::key_types::STATEMENT, None)
+			.unwrap();
+		let dest: [u8; 32] = public_dest.into();
+
+		let public_other = store
+			.keystore
+			.ed25519_generate_new(sp_core::crypto::key_types::STATEMENT, None)
+			.unwrap();
+
+		// statement that SHOULD be returned (matches dest & topic 42)
+		let mut s_good = statement(1, 1, None, 0);
+		let plaintext_good = b"The most valuable secret".to_vec();
+		s_good.encrypt(&plaintext_good, &public_dest).unwrap();
+		s_good.set_topic(0, topic(42));
+
+		// statement that should NOT be returned (same dest but different topic)
+		let mut s_wrong_topic = statement(2, 2, None, 0);
+		s_wrong_topic.encrypt(b"Wrong topic", &public_dest).unwrap();
+		s_wrong_topic.set_topic(0, topic(99));
+
+		// statement that should NOT be returned (different dest)
+		let mut s_other_dest = statement(3, 3, None, 0);
+		s_other_dest.encrypt(b"Other dest", &public_other).unwrap();
+		s_other_dest.set_topic(0, topic(42));
+
+		// submit all
+		for s in [&s_good, &s_wrong_topic, &s_other_dest] {
+			store.submit(s.clone(), StatementSource::Network);
+		}
+
+		// call posted_clear with the topic filter and dest
+		let retrieved = store.posted_clear(&[topic(42)], dest).unwrap();
+
+		// exactly one element, equal to the expected plaintext
+		assert_eq!(retrieved, vec![plaintext_good]);
+	}
 }
