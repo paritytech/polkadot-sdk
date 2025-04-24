@@ -18,8 +18,8 @@
 //! Precompiles added to the test runtime.
 
 use crate::{
-	precompiles::{AddressMatcher, Error, Ext, ExtWithInfo, Precompile},
-	Config, DispatchError,
+	precompiles::{AddressMatcher, Error, Ext, ExtWithInfo, Precompile, Token},
+	Config, DispatchError, Weight,
 };
 use alloc::vec::Vec;
 use alloy_core::{
@@ -38,6 +38,7 @@ sol! {
 		function reverts(string calldata error) external;
 		function panics() external;
 		function errors() external;
+		function consumeMaxGas() external;
 	}
 }
 
@@ -69,7 +70,7 @@ impl<T: Config> Precompile for NoInfo<T> {
 	fn call(
 		_address: &[u8; 20],
 		input: &Self::Interface,
-		_env: &mut impl Ext<T = Self::T>,
+		env: &mut impl Ext<T = Self::T>,
 	) -> Result<Vec<u8>, Error> {
 		use INoInfo::INoInfoCalls;
 
@@ -81,6 +82,19 @@ impl<T: Config> Precompile for NoInfo<T> {
 				Err(Error::Panic(PanicKind::Assert.into())),
 			INoInfoCalls::errors(INoInfo::errorsCall {}) =>
 				Err(Error::Error(DispatchError::Other("precompile failed").into())),
+			INoInfoCalls::consumeMaxGas(INoInfo::consumeMaxGasCall {}) => {
+				env.gas_meter_mut().charge(MaxGasToken)?;
+				Ok(Vec::new())
+			},
 		}
+	}
+}
+
+#[derive(PartialEq, Eq, Clone, Copy, Debug)]
+struct MaxGasToken;
+
+impl<T: Config> Token<T> for MaxGasToken {
+	fn weight(&self) -> Weight {
+		Weight::MAX
 	}
 }

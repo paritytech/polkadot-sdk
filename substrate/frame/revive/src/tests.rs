@@ -638,31 +638,22 @@ fn run_out_of_fuel_engine() {
 	});
 }
 
-/*
 // Fail out of fuel (ref_time weight) in the host.
 #[test]
 fn run_out_of_fuel_host() {
-	let (code, _hash) = compile_module("chain_extension").unwrap();
-	ExtBuilder::default().existential_deposit(50).build().execute_with(|| {
-		let min_balance = Contracts::min_balance();
-		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1000 * min_balance);
+	use crate::precompiles::Precompile;
+	use alloy_core::sol_types::{SolInterface};
+	use precompiles::{INoInfo, NoInfo};
 
-		let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(code))
-			.value(min_balance * 100)
-			.build_and_unwrap_contract();
+	let precompile_addr = H160(NoInfo::<Test>::MATCHER.base_address());
+	let input = INoInfo::INoInfoCalls::consumeMaxGas(INoInfo::consumeMaxGasCall {}).abi_encode();
 
-		let gas_limit = Weight::from_parts(u32::MAX as u64, GAS_LIMIT.proof_size());
-
-		// Use chain extension to charge more ref_time than it is available.
-		let result = builder::bare_call(addr)
-			.gas_limit(gas_limit)
-			.data(ExtensionInput { extension_id: 0, func_id: 2, extra: &u32::MAX.encode() }.into())
-			.build()
-			.result;
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+		let result = builder::bare_call(precompile_addr).data(input).build().result;
 		assert_err!(result, <Error<Test>>::OutOfGas);
 	});
 }
-*/
 
 #[test]
 fn gas_syncs_work() {
