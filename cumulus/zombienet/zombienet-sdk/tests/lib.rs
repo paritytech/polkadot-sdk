@@ -12,3 +12,6 @@ mod bootnodes;
 
 #[cfg(feature = "zombie-ci")]
 mod pov_recovery;
+
+#[cfg(feature = "zombie-ci")]
+mod runtime_upgrade;
