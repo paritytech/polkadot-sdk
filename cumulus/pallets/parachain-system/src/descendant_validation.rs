@@ -1,3 +1,18 @@
+// Copyright (C) Parity Technologies (UK) Ltd.
+// SPDX-License-Identifier: Apache-2.0
+
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// 	http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 use crate::{
 	descendant_validation::RelayParentVerificationError::InvalidNumberOfDescendants,
 	RelayChainStateProof,
@@ -77,25 +92,23 @@ pub(crate) fn verify_relay_parent_descendants<H: Header>(
 	for (counter, mut current_header) in relay_parent_descendants.into_iter().enumerate() {
 		// Hash calculated while seal is intact
 		let sealed_header_hash = current_header.hash();
-		let relay_number = current_header.number().clone();
+		let relay_number = *current_header.number();
 
 		// Verify that the blocks actually form a chain
-		if let Some(ref expected_hash) = next_expected_hash {
-			if current_header.parent_hash() != expected_hash {
+		if let Some(expected_hash) = next_expected_hash {
+			if *current_header.parent_hash() != expected_hash {
 				return Err(RelayParentVerificationError::InvalidChainSequence {
-					expected: expected_hash.clone(),
+					expected: expected_hash,
 					found: *current_header.parent_hash(),
 					number: relay_number,
 				});
 			}
 		}
-		next_expected_hash = Some(sealed_header_hash.clone());
+		next_expected_hash = Some(sealed_header_hash);
 
 		log::debug!(target: crate::LOG_TARGET, "Validating header #{relay_number:?} ({sealed_header_hash:?})");
 		let Ok((pre_digest, next_epoch_descriptor)) = find_babe_pre_digest(&current_header) else {
-			return Err(RelayParentVerificationError::MissingPredigest {
-				hash: current_header.hash().clone(),
-			});
+			return Err(RelayParentVerificationError::MissingPredigest { hash: sealed_header_hash });
 		};
 
 		let authority_index = pre_digest.authority_index() as usize;
