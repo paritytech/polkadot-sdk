@@ -26,6 +26,9 @@ use polkadot_parachain_primitives::primitives::HeadData;
 use scale_info::TypeInfo;
 use sp_runtime::RuntimeDebug;
 
+pub mod parachain_block_data;
+
+pub use parachain_block_data::ParachainBlockData;
 pub use polkadot_core_primitives::InboundDownwardMessage;
 pub use polkadot_parachain_primitives::primitives::{
 	DmpMessageHandler, Id as ParaId, IsSystem, UpwardMessage, ValidationParams, XcmpMessageFormat,
@@ -35,13 +38,11 @@ pub use polkadot_primitives::{
 	vstaging::{ClaimQueueOffset, CoreSelector},
 	AbridgedHostConfiguration, AbridgedHrmpChannel, PersistedValidationData,
 };
-
 pub use sp_runtime::{
 	generic::{Digest, DigestItem},
 	traits::Block as BlockT,
 	ConsensusEngineId,
 };
-
 pub use xcm::latest::prelude::*;
 
 /// A module that re-exports relevant relay chain definitions.
@@ -196,61 +197,6 @@ pub enum ServiceQuality {
 	/// Ensure that the message is dispatched as soon as possible, which could result in it being
 	/// dispatched before other messages which are larger and/or rely on relative ordering.
 	Fast,
-}
-
-/// The parachain block that is created by a collator.
-///
-/// This is send as PoV (proof of validity block) to the relay-chain validators. There it will be
-/// passed to the parachain validation Wasm blob to be validated.
-#[derive(codec::Encode, codec::Decode, Clone)]
-pub struct ParachainBlockData<B: BlockT> {
-	/// The header of the parachain block.
-	header: B::Header,
-	/// The extrinsics of the parachain block.
-	extrinsics: alloc::vec::Vec<B::Extrinsic>,
-	/// The data that is required to emulate the storage accesses executed by all extrinsics.
-	storage_proof: sp_trie::CompactProof,
-}
-
-impl<B: BlockT> ParachainBlockData<B> {
-	/// Creates a new instance of `Self`.
-	pub fn new(
-		header: <B as BlockT>::Header,
-		extrinsics: alloc::vec::Vec<<B as BlockT>::Extrinsic>,
-		storage_proof: sp_trie::CompactProof,
-	) -> Self {
-		Self { header, extrinsics, storage_proof }
-	}
-
-	/// Convert `self` into the stored block.
-	pub fn into_block(self) -> B {
-		B::new(self.header, self.extrinsics)
-	}
-
-	/// Convert `self` into the stored header.
-	pub fn into_header(self) -> B::Header {
-		self.header
-	}
-
-	/// Returns the header.
-	pub fn header(&self) -> &B::Header {
-		&self.header
-	}
-
-	/// Returns the extrinsics.
-	pub fn extrinsics(&self) -> &[B::Extrinsic] {
-		&self.extrinsics
-	}
-
-	/// Returns the [`CompactProof`](sp_trie::CompactProof).
-	pub fn storage_proof(&self) -> &sp_trie::CompactProof {
-		&self.storage_proof
-	}
-
-	/// Deconstruct into the inner parts.
-	pub fn deconstruct(self) -> (B::Header, alloc::vec::Vec<B::Extrinsic>, sp_trie::CompactProof) {
-		(self.header, self.extrinsics, self.storage_proof)
-	}
 }
 
 /// A consensus engine ID indicating that this is a Cumulus Parachain.
@@ -414,7 +360,11 @@ pub struct CollationInfo {
 
 sp_api::decl_runtime_apis! {
 	/// Runtime api to collect information about a collation.
-	#[api_version(2)]
+	///
+	/// Version history:
+	/// - Version 2: Changed [`Self::collect_collation_info`] signature
+	/// - Version 3: Signals to the node to use version 1 of [`ParachainBlockData`].
+	#[api_version(3)]
 	pub trait CollectCollationInfo {
 		/// Collect information about a collation.
 		#[changed_in(2)]

@@ -16,31 +16,31 @@
 // limitations under the License.
 
 use crate::{
-	client::{SubstrateBlock, SubstrateBlockNumber},
+	client::{SubscriptionType, SubstrateBlock, SubstrateBlockNumber},
 	subxt_client::SrcChainConfig,
 	ClientError,
 };
 use jsonrpsee::core::async_trait;
 use sp_core::H256;
-use std::{
-	collections::{HashMap, VecDeque},
-	sync::Arc,
-};
+use std::sync::Arc;
 use subxt::{backend::legacy::LegacyRpcMethods, OnlineClient};
 use tokio::sync::RwLock;
 
 /// BlockInfoProvider cache and retrieves information about blocks.
 #[async_trait]
 pub trait BlockInfoProvider: Send + Sync {
-	/// Cache a new block and return the pruned block hash.
-	async fn cache_block(&self, block: SubstrateBlock) -> Option<H256>;
+	/// Update the latest block
+	async fn update_latest(&self, block: SubstrateBlock, subscription_type: SubscriptionType);
 
-	/// Return the latest ingested block.
-	async fn latest_block(&self) -> Option<Arc<SubstrateBlock>>;
+	/// Return the latest finalized block.
+	async fn latest_finalized_block(&self) -> Arc<SubstrateBlock>;
+
+	/// Return the latest block.
+	async fn latest_block(&self) -> Arc<SubstrateBlock>;
 
 	/// Return the latest block number
-	async fn latest_block_number(&self) -> Option<SubstrateBlockNumber> {
-		return self.latest_block().await.map(|block| block.number());
+	async fn latest_block_number(&self) -> SubstrateBlockNumber {
+		return self.latest_block().await.number()
 	}
 
 	/// Get block by block_number.
@@ -55,9 +55,12 @@ pub trait BlockInfoProvider: Send + Sync {
 
 /// Provides information about blocks.
 #[derive(Clone)]
-pub struct BlockInfoProviderImpl {
-	/// The shared in memory cache.
-	cache: Arc<RwLock<BlockCache<SubstrateBlock>>>,
+pub struct SubxtBlockInfoProvider {
+	/// The latest block.
+	latest_block: Arc<RwLock<Arc<SubstrateBlock>>>,
+
+	/// The latest finalized block.
+	latest_finalized_block: Arc<RwLock<Arc<SubstrateBlock>>>,
 
 	/// The rpc client, used to fetch blocks not in the cache.
 	rpc: LegacyRpcMethods<SrcChainConfig>,
@@ -66,34 +69,43 @@ pub struct BlockInfoProviderImpl {
 	api: OnlineClient<SrcChainConfig>,
 }
 
-impl BlockInfoProviderImpl {
-	pub fn new(
-		cache_size: usize,
+impl SubxtBlockInfoProvider {
+	pub async fn new(
 		api: OnlineClient<SrcChainConfig>,
 		rpc: LegacyRpcMethods<SrcChainConfig>,
-	) -> Self {
-		Self { api, rpc, cache: Arc::new(RwLock::new(BlockCache::new(cache_size))) }
+	) -> Result<Self, ClientError> {
+		let latest = Arc::new(api.blocks().at_latest().await?);
+		Ok(Self {
+			api,
+			rpc,
+			latest_block: Arc::new(RwLock::new(latest.clone())),
+			latest_finalized_block: Arc::new(RwLock::new(latest)),
+		})
 	}
 }
 
 #[async_trait]
-impl BlockInfoProvider for BlockInfoProviderImpl {
-	async fn cache_block(&self, block: SubstrateBlock) -> Option<H256> {
-		self.cache.write().await.insert(block)
+impl BlockInfoProvider for SubxtBlockInfoProvider {
+	async fn update_latest(&self, block: SubstrateBlock, subscription_type: SubscriptionType) {
+		let mut latest = match subscription_type {
+			SubscriptionType::FinalizedBlocks => self.latest_finalized_block.write().await,
+			SubscriptionType::BestBlocks => self.latest_block.write().await,
+		};
+		*latest = Arc::new(block);
 	}
 
-	async fn latest_block(&self) -> Option<Arc<SubstrateBlock>> {
-		self.cache.read().await.buffer.back().cloned()
+	async fn latest_block(&self) -> Arc<SubstrateBlock> {
+		self.latest_block.read().await.clone()
+	}
+
+	async fn latest_finalized_block(&self) -> Arc<SubstrateBlock> {
+		self.latest_finalized_block.read().await.clone()
 	}
 
 	async fn block_by_number(
 		&self,
 		block_number: SubstrateBlockNumber,
 	) -> Result<Option<Arc<SubstrateBlock>>, ClientError> {
-		if let Some(block) = self.cache.read().await.blocks_by_number.get(&block_number).cloned() {
-			return Ok(Some(block));
-		}
-
 		let Some(hash) = self.rpc.chain_get_block_hash(Some(block_number.into())).await? else {
 			return Ok(None);
 		};
@@ -102,8 +114,10 @@ impl BlockInfoProvider for BlockInfoProviderImpl {
 	}
 
 	async fn block_by_hash(&self, hash: &H256) -> Result<Option<Arc<SubstrateBlock>>, ClientError> {
-		if let Some(block) = self.cache.read().await.blocks_by_hash.get(hash).cloned() {
-			return Ok(Some(block));
+		if hash == &self.latest_block().await.hash() {
+			return Ok(Some(self.latest_block().await));
+		} else if hash == &self.latest_finalized_block().await.hash() {
+			return Ok(Some(self.latest_finalized_block().await));
 		}
 
 		match self.api.blocks().at(*hash).await {
@@ -114,124 +128,47 @@ impl BlockInfoProvider for BlockInfoProviderImpl {
 	}
 }
 
-/// The cache maintains a buffer of the last N blocks,
-struct BlockCache<Block> {
-	/// The maximum buffer's size.
-	max_cache_size: usize,
-
-	/// A double-ended queue of the last N blocks.
-	/// The most recent block is at the back of the queue, and the oldest block is at the front.
-	buffer: VecDeque<Arc<Block>>,
-
-	/// A map of blocks by block number.
-	blocks_by_number: HashMap<SubstrateBlockNumber, Arc<Block>>,
-
-	/// A map of blocks by block hash.
-	blocks_by_hash: HashMap<H256, Arc<Block>>,
-}
-
-/// Provides information about a block,
-/// This is an abstratction on top of [`SubstrateBlock`] used to test the [`BlockCache`].
-/// Can be removed once https://github.com/paritytech/subxt/issues/1883 is fixed.
-trait BlockInfo {
-	/// Returns the block hash.
-	fn hash(&self) -> H256;
-	/// Returns the block number.
-	fn number(&self) -> SubstrateBlockNumber;
-}
-
-impl BlockInfo for SubstrateBlock {
-	fn hash(&self) -> H256 {
-		SubstrateBlock::hash(self)
-	}
-	fn number(&self) -> u32 {
-		SubstrateBlock::number(self)
-	}
-}
-
-impl<B: BlockInfo> BlockCache<B> {
-	/// Create a new cache with the given maximum buffer size.
-	pub fn new(max_cache_size: usize) -> Self {
-		Self {
-			max_cache_size,
-			buffer: Default::default(),
-			blocks_by_number: Default::default(),
-			blocks_by_hash: Default::default(),
-		}
-	}
-
-	/// Insert an entry into the cache, and prune the oldest entry if the cache is full.
-	pub fn insert(&mut self, block: B) -> Option<H256> {
-		let mut pruned_block_hash = None;
-		if self.buffer.len() >= self.max_cache_size {
-			if let Some(block) = self.buffer.pop_front() {
-				let hash = block.hash();
-				self.blocks_by_hash.remove(&hash);
-				self.blocks_by_number.remove(&block.number());
-				pruned_block_hash = Some(hash);
-			}
-		}
-
-		let block = Arc::new(block);
-		self.buffer.push_back(block.clone());
-		self.blocks_by_number.insert(block.number(), block.clone());
-		self.blocks_by_hash.insert(block.hash(), block);
-		pruned_block_hash
-	}
-}
-
 #[cfg(test)]
 pub mod test {
 	use super::*;
+	use crate::BlockInfo;
 
-	struct MockBlock {
-		block_number: SubstrateBlockNumber,
-		block_hash: H256,
-	}
-
-	impl BlockInfo for MockBlock {
-		fn hash(&self) -> H256 {
-			self.block_hash
-		}
-
-		fn number(&self) -> u32 {
-			self.block_number
-		}
-	}
-
-	#[test]
-	fn cache_insert_works() {
-		let mut cache = BlockCache::<MockBlock>::new(2);
-
-		let pruned = cache.insert(MockBlock { block_number: 1, block_hash: H256::from([1; 32]) });
-		assert_eq!(pruned, None);
-
-		let pruned = cache.insert(MockBlock { block_number: 2, block_hash: H256::from([2; 32]) });
-		assert_eq!(pruned, None);
-
-		let pruned = cache.insert(MockBlock { block_number: 3, block_hash: H256::from([3; 32]) });
-		assert_eq!(pruned, Some(H256::from([1; 32])));
-
-		assert_eq!(cache.buffer.len(), 2);
-		assert_eq!(cache.blocks_by_number.len(), 2);
-		assert_eq!(cache.blocks_by_hash.len(), 2);
-	}
-
-	/// A Noop BlockInfoProvider used to test [`db::DBReceiptProvider`].
+	/// A Noop BlockInfoProvider used to test [`db::ReceiptProvider`].
 	pub struct MockBlockInfoProvider;
+
+	pub struct MockBlockInfo {
+		pub number: SubstrateBlockNumber,
+		pub hash: H256,
+	}
+
+	impl BlockInfo for MockBlockInfo {
+		fn hash(&self) -> H256 {
+			self.hash
+		}
+		fn number(&self) -> SubstrateBlockNumber {
+			self.number
+		}
+	}
 
 	#[async_trait]
 	impl BlockInfoProvider for MockBlockInfoProvider {
-		async fn cache_block(&self, _block: SubstrateBlock) -> Option<H256> {
-			None
+		async fn update_latest(
+			&self,
+			_block: SubstrateBlock,
+			_subscription_type: SubscriptionType,
+		) {
 		}
 
-		async fn latest_block(&self) -> Option<Arc<SubstrateBlock>> {
-			None
+		async fn latest_finalized_block(&self) -> Arc<SubstrateBlock> {
+			unimplemented!()
 		}
 
-		async fn latest_block_number(&self) -> Option<SubstrateBlockNumber> {
-			Some(2u32)
+		async fn latest_block(&self) -> Arc<SubstrateBlock> {
+			unimplemented!()
+		}
+
+		async fn latest_block_number(&self) -> SubstrateBlockNumber {
+			2u32
 		}
 
 		async fn block_by_number(
