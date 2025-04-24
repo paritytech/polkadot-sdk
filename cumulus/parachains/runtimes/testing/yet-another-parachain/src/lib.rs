@@ -289,10 +289,6 @@ impl HandleMessage for DmpSink {
 	fn sweep_queue() {
 		unimplemented!()
 	}
-
-	fn footprint() -> QueueFootprint {
-		unimplemented!()
-	}
 }
 
 impl cumulus_pallet_parachain_system::Config for Runtime {
