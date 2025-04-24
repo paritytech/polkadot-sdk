@@ -6616,9 +6616,8 @@ dependencies = [
 
 [[package]]
 name = "frame-metadata"
-version = "21.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "20dfd1d7eae1d94e32e869e2fb272d81f52dd8db57820a373adb83ea24d7d862"
+version = "22.0.0"
+source = "git+https://github.com/paritytech/frame-metadata.git?branch=jsdw-tidy-deprecation-info#9b8685ca45c77bd3bffb0fc4f61dc24489e854d3"
 dependencies = [
  "cfg-if",
  "parity-scale-codec",
@@ -6633,7 +6632,7 @@ dependencies = [
  "array-bytes 6.2.2",
  "const-hex",
  "docify",
- "frame-metadata 21.0.0",
+ "frame-metadata 22.0.0",
  "frame-support",
  "frame-system",
  "log",
@@ -6699,7 +6698,7 @@ dependencies = [
  "bitflags 1.3.2",
  "docify",
  "environmental",
- "frame-metadata 21.0.0",
+ "frame-metadata 22.0.0",
  "frame-support-procedural",
  "frame-system",
  "impl-trait-for-tuples",
@@ -6787,7 +6786,7 @@ version = "3.0.0"
 dependencies = [
  "frame-benchmarking",
  "frame-executive",
- "frame-metadata 21.0.0",
+ "frame-metadata 22.0.0",
  "frame-support",
  "frame-support-test-pallet",
  "frame-system",
@@ -9882,7 +9881,7 @@ checksum = "b3e3e3f549d27d2dc054372f320ddf68045a833fab490563ff70d4cf1b9d91ea"
 dependencies = [
  "array-bytes 9.1.2",
  "blake3",
- "frame-metadata 21.0.0",
+ "frame-metadata 22.0.0",
  "parity-scale-codec",
  "scale-decode 0.16.0",
  "scale-info",
@@ -12008,7 +12007,7 @@ dependencies = [
 name = "pallet-example-view-functions"
 version = "1.0.0"
 dependencies = [
- "frame-metadata 21.0.0",
+ "frame-metadata 22.0.0",
  "frame-support",
  "frame-system",
  "log",
@@ -23007,7 +23006,7 @@ dependencies = [
 name = "sp-metadata-ir"
 version = "0.6.0"
 dependencies = [
- "frame-metadata 21.0.0",
+ "frame-metadata 22.0.0",
  "parity-scale-codec",
  "scale-info",
 ]
@@ -24675,7 +24674,7 @@ dependencies = [
  "cargo_metadata",
  "console",
  "filetime",
- "frame-metadata 21.0.0",
+ "frame-metadata 22.0.0",
  "jobserver",
  "merkleized-metadata",
  "parity-scale-codec",
