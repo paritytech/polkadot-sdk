@@ -189,6 +189,8 @@ pub mod pallet {
 		type WeightInfo: WeightInfo;
 
 		/// Type that allows the runtime authors to add new host functions for a contract to call.
+		///
+		/// Pass in a tuple of types that implement [`precompiles::Precompile`].
 		#[pallet::no_default_bounds]
 		#[allow(private_bounds)]
 		type Precompiles: precompiles::Precompiles<Self>;

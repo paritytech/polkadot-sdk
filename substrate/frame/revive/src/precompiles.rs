@@ -21,7 +21,7 @@
 //!
 //! - Implement [`Precompile`] on a type. Most likely another pallet.
 //! - Add the type to a tuple passed into [`Config::Precompiles`].
-//! - Use the types inside [`run`] to test and benchmark your pre-compile.
+//! - Use the types inside the `run` module to test and benchmark your pre-compile.
 //!
 //! Use `alloy` through our re-export in this module to implement Eth ABI.
 
@@ -81,7 +81,7 @@ pub enum AddressMatcher {
 	///
 	/// This means the precompile will be invoked for all `x`:
 	/// ```ignore
-	/// xxxxxxxx0000000000000000000000000000pppp
+	/// xxxxxxxx000000000000000000000000pppp0000
 	/// ```
 	///
 	/// Where `p` is the `u16` defined here as big endian. Hence a maximum of 2 byte can be encoded
