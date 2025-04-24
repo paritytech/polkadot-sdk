@@ -1670,7 +1670,7 @@ impl<T: Config> Pallet<T> {
 				if cfg!(feature = "runtime-benchmarks") ||
 					frame_system::Pallet::<T>::block_number().is_zero()
 				{
-					Self::asap()
+					Self::do_asap()
 				}
 
 				let (voters, targets, desired_targets) = if T::Fallback::bother() {
@@ -1716,13 +1716,14 @@ impl<T: Config> Pallet<T> {
 		Self::register_weight(T::WeightInfo::elect_queued(active_voters, desired_targets));
 	}
 
-	/// Prepare snapshot for fallback election. This is normally only called during benchmarking,
-	/// but we also call it at genesis block (block 0) to ensure the fallback can run.
+	/// Prepare snapshot for fallback election. This is normally only called during benchmarking
+	/// via the public asap() function, but we also call it at genesis block (block 0) to ensure
+	/// the fallback can run.
 	///
 	/// Ideally, we should rely on the session manager to be the solely responsbile for handling
 	/// genesis block and calling `new_session` or `new_session_genesis` accordingly instead of
 	/// handling this here.
-	fn asap() {
+	fn do_asap() {
 		// prepare our snapshot so we can "hopefully" run a fallback.
 		if !Snapshot::<T>::exists() {
 			Self::create_snapshot()
@@ -1869,6 +1870,12 @@ impl<T: Config> ElectionProvider for Pallet<T> {
 			(Phase::Off, _) => Err(()),
 			_ => Ok(false),
 		}
+	}
+
+	/// Public function only compiled with benchmarks feature
+	#[cfg(feature = "runtime-benchmarks")]
+	fn asap() {
+		Self::do_asap()
 	}
 }
 
