@@ -13,3 +13,5 @@ crates:
   bump: minor
 - name: westend-runtime
   bump: minor
+- name: pallet-staking-async-rc-runtime
+  bump: minor
