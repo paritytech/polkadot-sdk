@@ -528,11 +528,12 @@ pub mod pallet {
 		}
 
 		fn new_session_genesis(
-				new_index: SessionIndex,
-			) -> Option<Vec<(T::AccountId, sp_staking::Exposure<T::AccountId, BalanceOf<T>>)>> {
+			new_index: SessionIndex,
+		) -> Option<Vec<(T::AccountId, sp_staking::Exposure<T::AccountId, BalanceOf<T>>)>> {
 			if Mode::<T>::get() == OperatingMode::Passive {
-				T::Fallback::new_session_genesis(new_index)
-					.map(|validators| validators.into_iter().map(|v| (v, sp_staking::Exposure::default())).collect())
+				T::Fallback::new_session_genesis(new_index).map(|validators| {
+					validators.into_iter().map(|v| (v, sp_staking::Exposure::default())).collect()
+				})
 			} else {
 				None
 			}
