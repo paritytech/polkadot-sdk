@@ -235,7 +235,10 @@ impl CollationTracker {
 	) -> Option<CollationStats> {
 		self.entries.remove(&head).map(|mut entry| {
 			entry.backed_at = Some(block_number);
+			// Observe the backing latency since the collation was fetched.
+			let _ = entry.backed_latency_metric.take();
 			metrics.on_collation_backed((block_number - entry.relay_parent_number) as f64);
+
 			entry
 		})
 	}
@@ -327,8 +330,11 @@ struct CollationStats {
 	fetched_at: Option<Instant>,
 	// Advertisement time
 	advertised_at: Instant,
-	// The collation fetch latency.
+	// The collation fetch latency (seconds).
 	fetch_latency_metric: Option<HistogramTimer>,
+	// The collation backing latency (seconds). Duration since collation fetched
+	// until the import of a relay chain block where collation is backed.
+	backed_latency_metric: Option<HistogramTimer>,
 }
 
 impl CollationStats {
@@ -343,6 +349,7 @@ impl CollationStats {
 			fetched_at: None,
 			included_at: None,
 			fetch_latency_metric: metrics.time_collation_fetch_latency(),
+			backed_latency_metric: None,
 		}
 	}
 
@@ -375,7 +382,7 @@ impl CollationStats {
 impl Drop for CollationStats {
 	fn drop(&mut self) {
 		if let Some(fetch_latency_metric) = self.fetch_latency_metric.take() {
-			// Tnis metric is only observed when collation was sent fully to the validator..
+			// This metric is only observed when collation was sent fully to the validator.
 			//
 			// If `fetch_latency_metric` is Some it means that the metrics was observed.
 			// We don't want to observe it again and report a higher value at a later point in time.
@@ -1706,7 +1713,7 @@ async fn run_inner<Context>(
 	let new_reputation_delay = || futures_timer::Delay::new(reputation_interval).fuse();
 	let mut reputation_delay = new_reputation_delay();
 
-	let mut state = State::new(local_peer_id, collator_pair, metrics, reputation);
+	let mut state = State::new(local_peer_id, collator_pair, metrics.clone(), reputation);
 	let mut runtime = RuntimeInfo::new(None);
 
 	loop {
@@ -1781,6 +1788,8 @@ async fn run_inner<Context>(
 
 									// Observe fetch latency metric.
 									stats.fetch_latency_metric.take();
+									stats.backed_latency_metric = metrics.time_collation_backing_latency();
+
 									// Next step is to measure backing latency.
 									state.collation_tracker.track(stats);
 								}

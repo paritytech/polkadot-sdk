@@ -71,6 +71,12 @@ impl Metrics {
 	pub fn time_collation_fetch_latency(&self) -> Option<prometheus::prometheus::HistogramTimer> {
 		self.0.as_ref().map(|metrics| metrics.collation_fetch_latency.start_timer())
 	}
+
+	/// Create a timer to measure how much time it takes for fetched collations to be backed.
+	pub fn time_collation_backing_latency(&self) -> Option<prometheus::prometheus::HistogramTimer> {
+		self.0.as_ref().map(|metrics| metrics.collation_backing_latency_time.start_timer())
+	}
+
 	/// Record the time a collation took before expiring.
 	/// Collations can expire in the following states: "advertised, fetched or backed"
 	pub fn on_collation_expired(&self, latency: f64, state: &'static str) {
@@ -88,6 +94,7 @@ struct MetricsInner {
 	process_msg: prometheus::Histogram,
 	collation_distribution_time: prometheus::HistogramVec,
 	collation_fetch_latency: prometheus::Histogram,
+	collation_backing_latency_time: prometheus::Histogram,
 	collation_backing_latency: prometheus::Histogram,
 	collation_inclusion_latency: prometheus::Histogram,
 	collation_expired_total: prometheus::HistogramVec,
@@ -154,6 +161,18 @@ impl metrics::Metrics for Metrics {
 					)
 					.buckets(vec![
 						0.001, 0.01, 0.025, 0.05, 0.1, 0.15, 0.25, 0.35, 0.5, 0.75, 1.0, 2.0, 5.0,
+					]),
+				)?,
+				registry,
+			)?,
+			collation_backing_latency_time: prometheus::register(
+				prometheus::Histogram::with_opts(
+					prometheus::HistogramOpts::new(
+						"polkadot_parachain_collation_backing_latency_time",
+						"How much time it takes for a fetched collation to be backed",
+					)
+					.buckets(vec![
+						1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 8.0, 10.0, 12.0, 15.0, 18.0, 24.0, 30.0,
 					]),
 				)?,
 				registry,
