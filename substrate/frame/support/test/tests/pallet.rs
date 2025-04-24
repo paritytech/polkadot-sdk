@@ -2603,7 +2603,7 @@ fn test_error_feature_parsing() {
 
 #[test]
 fn pallet_metadata() {
-	use sp_metadata_ir::{DeprecationInfoIR, DeprecationStatusIR};
+	use sp_metadata_ir::{EnumDeprecationInfoIR, ItemDeprecationInfoIR};
 	let pallets = Runtime::metadata_ir().pallets;
 	let example = pallets[0].clone();
 	let example2 = pallets[1].clone();
@@ -2611,9 +2611,9 @@ fn pallet_metadata() {
 		// Example pallet calls is fully and partially deprecated
 		let meta = &example.calls.unwrap();
 		assert_eq!(
-			DeprecationInfoIR::VariantsDeprecated(BTreeMap::from([(
-				codec::Compact(0),
-				DeprecationStatusIR::Deprecated { note: "test", since: None }
+			EnumDeprecationInfoIR(BTreeMap::from([(
+				0,
+				ItemDeprecationInfoIR::Deprecated { note: "test", since: None }
 			)])),
 			meta.deprecation_info
 		)
@@ -2622,7 +2622,7 @@ fn pallet_metadata() {
 		// Example pallet constant is deprecated
 		let meta = &example.constants[0];
 		assert_eq!(
-			DeprecationStatusIR::Deprecated { note: "test 2", since: None },
+			ItemDeprecationInfoIR::Deprecated { note: "test 2", since: None },
 			meta.deprecation_info
 		)
 	}
@@ -2630,9 +2630,9 @@ fn pallet_metadata() {
 		// Example pallet errors are partially and fully deprecated
 		let meta = &example.error.unwrap();
 		assert_eq!(
-			DeprecationInfoIR::VariantsDeprecated(BTreeMap::from([(
-				codec::Compact(2),
-				DeprecationStatusIR::Deprecated { note: "test", since: None }
+			EnumDeprecationInfoIR(BTreeMap::from([(
+				2,
+				ItemDeprecationInfoIR::Deprecated { note: "test", since: None }
 			)])),
 			meta.deprecation_info
 		)
@@ -2641,9 +2641,9 @@ fn pallet_metadata() {
 		// Example pallet events are partially and fully deprecated
 		let meta = example.event.unwrap();
 		assert_eq!(
-			DeprecationInfoIR::VariantsDeprecated(BTreeMap::from([(
-				codec::Compact(1),
-				DeprecationStatusIR::Deprecated { note: "test", since: None }
+			EnumDeprecationInfoIR(BTreeMap::from([(
+				1,
+				ItemDeprecationInfoIR::Deprecated { note: "test", since: None }
 			)])),
 			meta.deprecation_info
 		);
@@ -2651,6 +2651,6 @@ fn pallet_metadata() {
 	{
 		// Example2 pallet events are not deprecated
 		let meta = example2.event.unwrap();
-		assert_eq!(DeprecationInfoIR::NotDeprecated, meta.deprecation_info);
+		assert_eq!(!meta.deprecation_info.has_deprecated_variants());
 	}
 }

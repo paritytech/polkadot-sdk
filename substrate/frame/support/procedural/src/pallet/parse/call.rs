@@ -51,8 +51,6 @@ pub struct CallDef {
 	pub docs: Vec<syn::Expr>,
 	/// The optional `weight` attribute on the `pallet::call`.
 	pub inherited_call_weight: Option<InheritedCallWeightAttr>,
-	/// attributes
-	pub attrs: Vec<syn::Attribute>,
 }
 
 /// The weight of a call.
@@ -461,7 +459,6 @@ impl CallDef {
 			where_clause: item_impl.generics.where_clause.clone(),
 			docs: get_doc_literals(&item_impl.attrs),
 			inherited_call_weight,
-			attrs: item_impl.attrs.clone(),
 		})
 	}
 }
