@@ -324,9 +324,9 @@ impl<B: ChainApi, L: EventHandler<B>> Pool<B, L> {
 		let tags = in_pool_hashes.iter().zip(in_pool_tags).map(|(tx_hash, tags)| {
 			tags.or_else(|| {
 				known_provides_tags.as_ref().and_then(|inner| {
-					inner.get(&tx_hash).map(|hash| {
+					inner.get(&tx_hash).map(|found_tags| {
 						reused_txs_count += 1;
-						hash.clone()
+						found_tags.clone()
 					})
 				})
 			})
