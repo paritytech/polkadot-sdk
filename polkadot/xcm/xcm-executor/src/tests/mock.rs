@@ -49,6 +49,19 @@ pub fn instantiate_executor(
 	(vm, weight)
 }
 
+pub fn instantiate_executor_with_ed(
+	origin: impl Into<Location>,
+	message: Xcm<<XcmConfigWithED as Config>::RuntimeCall>,
+) -> (XcmExecutor<XcmConfigWithED>, Weight) {
+	let mut vm = XcmExecutor::<XcmConfigWithED>::new(
+		origin,
+		message.using_encoded(sp_io::hashing::blake2_256),
+	);
+	let weight = XcmExecutor::<XcmConfigWithED>::prepare(message.clone()).unwrap().weight_of();
+	vm.message_weight = weight;
+	(vm, weight)
+}
+
 parameter_types! {
 	pub const MaxAssetsIntoHolding: u32 = 10;
 	pub const BaseXcmWeight: Weight = Weight::from_parts(1, 1);
@@ -146,6 +159,33 @@ impl TransactAsset for TestAssetTransactor {
 				.try_take(what.clone().into())
 				.map_err(|_| XcmError::NotWithdrawable)
 		})
+	}
+}
+
+// Dummy Transactor to test under ED conditions
+pub struct AssetTransactorWithED;
+impl TransactAsset for AssetTransactorWithED {
+	fn deposit_asset(
+		what: &Asset,
+		who: &Location,
+		_context: Option<&XcmContext>,
+	) -> Result<(), XcmError> {
+		// Simulate existential deposit of 10
+		if let Fungibility::Fungible(amount) = what.fun {
+			if amount < 10 {
+				return Err(XcmError::FailedToTransactAsset("BelowMinimum".into()));
+			}
+		}
+		add_asset(who.clone(), what.clone());
+		Ok(())
+	}
+
+	fn withdraw_asset(
+		what: &Asset,
+		who: &Location,
+		_context: Option<&XcmContext>,
+	) -> Result<AssetsInHolding, XcmError> {
+		TestAssetTransactor::withdraw_asset(what, who, _context)
 	}
 }
 
@@ -290,6 +330,40 @@ impl Config for XcmConfig {
 	type XcmSender = TestSender;
 	type XcmEventEmitter = ();
 	type AssetTransactor = TestAssetTransactor;
+	type OriginConverter = ();
+	type IsReserve = ();
+	type IsTeleporter = ();
+	type UniversalLocation = UniversalLocation;
+	type Barrier = TestBarrier;
+	type Weigher = TestWeigher;
+	type Trader = TestTrader;
+	type ResponseHandler = ();
+	type AssetTrap = TestAssetTrap;
+	type AssetLocker = ();
+	type AssetExchanger = ();
+	type AssetClaims = ();
+	type SubscriptionService = ();
+	type PalletInstancesInfo = ();
+	type MaxAssetsIntoHolding = MaxAssetsIntoHolding;
+	type FeeManager = TestFeeManager;
+	type MessageExporter = ();
+	type UniversalAliases = Nothing;
+	type CallDispatcher = Self::RuntimeCall;
+	type SafeCallFilter = Everything;
+	type Aliasers = Nothing;
+	type TransactionalProcessor = TestTransactionalProcessor;
+	type HrmpNewChannelOpenRequestHandler = ();
+	type HrmpChannelAcceptedHandler = ();
+	type HrmpChannelClosingHandler = ();
+	type XcmRecorder = ();
+}
+
+pub struct XcmConfigWithED;
+impl Config for XcmConfigWithED {
+	type RuntimeCall = TestCall;
+	type XcmSender = TestSender;
+	type XcmEventEmitter = ();
+	type AssetTransactor = AssetTransactorWithED;
 	type OriginConverter = ();
 	type IsReserve = ();
 	type IsTeleporter = ();
