@@ -127,8 +127,9 @@ pub fn run() -> Result<()> {
 						let partial = new_partial(&config, None)?;
 						let db = partial.backend.expose_db();
 						let storage = partial.backend.expose_storage();
+						let shared_trie_cache = partial.backend.expose_shared_trie_cache();
 
-						cmd.run(config, partial.client, db, storage)
+						cmd.run(config, partial.client, db, storage, shared_trie_cache)
 					},
 					BenchmarkCmd::Overhead(cmd) => {
 						// ensure that we keep the task manager alive

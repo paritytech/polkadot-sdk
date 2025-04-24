@@ -15,7 +15,7 @@ on:
         type: string
 
       release_tag:
-        description: Tag matching the actual release candidate with the format polkadpt-stableYYMM(-rcX) or plkadot-stableYYMM-X(-rcX)
+        description: Tag matching the actual release candidate with the format polkadot-stableYYMM(-rcX) or polkadot-stableYYMM-X(-rcX)
         required: true
         type: string
 

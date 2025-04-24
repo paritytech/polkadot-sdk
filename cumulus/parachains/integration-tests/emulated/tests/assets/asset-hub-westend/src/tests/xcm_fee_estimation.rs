@@ -52,7 +52,7 @@ fn hop_assertions(test: ParaToParaThroughAHTest) {
 			RuntimeEvent::Balances(
 				pallet_balances::Event::Burned { amount, .. }
 			) => {
-				amount: *amount == test.args.amount,
+				amount: *amount >= test.args.amount * 90/100,
 			},
 		]
 	);

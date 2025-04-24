@@ -38,10 +38,7 @@ std = [
 	"frame-system/std",
 	"scale-info/std",
 	"sp-core/std",
-	"sp-externalities/std",
-	"sp-io/std",
 	"sp-runtime/std",
-	"sp-version/std",
 ]
 
 runtime-benchmarks = [

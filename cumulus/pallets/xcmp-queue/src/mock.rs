@@ -144,7 +144,7 @@ parameter_types! {
 pub struct EnqueueToLocalStorage<T>(PhantomData<T>);
 
 impl<T: OnQueueChanged<ParaId>> EnqueueMessage<ParaId> for EnqueueToLocalStorage<T> {
-	type MaxMessageLen = sp_core::ConstU32<65_536>;
+	type MaxMessageLen = sp_core::ConstU32<256>;
 
 	fn enqueue_message(message: BoundedSlice<u8, Self::MaxMessageLen>, origin: ParaId) {
 		let mut msgs = EnqueuedMessages::get();
@@ -169,6 +169,10 @@ impl<T: OnQueueChanged<ParaId>> EnqueueMessage<ParaId> for EnqueueToLocalStorage
 		EnqueuedMessages::set(msgs);
 		T::on_queue_changed(origin, Self::footprint(origin));
 	}
+}
+
+impl<T: OnQueueChanged<ParaId>> QueueFootprintQuery<ParaId> for EnqueueToLocalStorage<T> {
+	type MaxMessageLen = sp_core::ConstU32<256>;
 
 	fn footprint(origin: ParaId) -> QueueFootprint {
 		let msgs = EnqueuedMessages::get();
@@ -179,9 +183,36 @@ impl<T: OnQueueChanged<ParaId>> EnqueueMessage<ParaId> for EnqueueToLocalStorage
 				footprint.storage.size += m.len() as u64;
 			}
 		}
-		footprint.pages = footprint.storage.size as u32 / 16; // Number does not matter
+		// Let's consider that we add one message per page
+		footprint.pages = footprint.storage.count as u32;
 		footprint.ready_pages = footprint.pages;
 		footprint
+	}
+
+	fn get_batches_footprints<'a>(
+		origin: ParaId,
+		msgs: impl Iterator<Item = BoundedSlice<'a, u8, Self::MaxMessageLen>>,
+		total_pages_limit: u32,
+	) -> Vec<BatchFootprint> {
+		// Let's consider that we add one message per page
+		let footprint = Self::footprint(origin);
+		let mut batches_footprints = vec![];
+		let mut new_pages_count = 0;
+		let mut total_size = 0;
+		for (idx, msg) in msgs.enumerate() {
+			new_pages_count += 1;
+			if footprint.pages + new_pages_count > total_pages_limit {
+				break;
+			}
+
+			total_size += msg.len();
+			batches_footprints.push(BatchFootprint {
+				msgs_count: idx + 1,
+				size_in_bytes: total_size,
+				new_pages_count,
+			})
+		}
+		batches_footprints
 	}
 }
 
@@ -228,7 +259,7 @@ pub struct MockedChannelInfo;
 impl GetChannelInfo for MockedChannelInfo {
 	fn get_channel_status(id: ParaId) -> ChannelStatus {
 		if id == HRMP_PARA_ID.into() {
-			return ChannelStatus::Ready(usize::MAX, usize::MAX)
+			return ChannelStatus::Ready(usize::MAX, usize::MAX);
 		}
 
 		ParachainSystem::get_channel_status(id)
@@ -242,7 +273,7 @@ impl GetChannelInfo for MockedChannelInfo {
 				max_message_size: u32::MAX,
 				msg_count: 0,
 				total_size: 0,
-			})
+			});
 		}
 
 		ParachainSystem::get_channel_info(id)

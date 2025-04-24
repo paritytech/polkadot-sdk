@@ -1,0 +1,32 @@
+title: '[XCM] allow signed account to be aliased between system chains'
+doc:
+- audience: Runtime Dev
+  description: |-
+    New alias filter available `AliasAccountId32FromSiblingSystemChain`:
+    that allows account `X` on a system chain to alias itself on another chain where the filter is installed.
+    Enables UX improvements like configuring other chains to allow signed account on AH to operate over XCM on another chain using the same signed account on the remote chain (rather than use a sovereign account).
+- audience: Runtime User
+  description: |-
+    Aliasing configuration change for system chains:
+    - Asset Hub: does not allow same account aliasing: there is no real world demand for it, the direction is usually reversed, users already have accounts on AH and want to use them cross-chain on other chains. Without real world demand, it's better to keep AH permissions as tight as possible.
+    - Bridge Hub: does not allow same account aliasing: there is no real world demand for it, only low-level power users (like relayers) directly interact with Bridge Hub. They don't need aliasing to operate cross-chain they can operate locally.
+    - Collectives: allows account A on a sibling system chain to alias into the local account A.
+    - Coretime: allows account A on a sibling system chain to alias into the local account A.
+    - People: allows account A on a sibling system chain to alias into the local account A.
+    Practical example showcased with new configuration:
+    `Alice` on AssetHub can set identity for `Alice` on People over XCM.
+crates:
+- name: parachains-common
+  bump: patch
+- name: people-westend-runtime
+  bump: major
+- name: emulated-integration-tests-common
+  bump: patch
+- name: penpal-runtime
+  bump: major
+- name: coretime-westend-runtime
+  bump: major
+- name: collectives-westend-runtime
+  bump: major
+- name: bridge-hub-westend-runtime
+  bump: major

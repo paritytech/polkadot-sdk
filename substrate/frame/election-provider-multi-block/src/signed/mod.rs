@@ -17,16 +17,30 @@
 
 //! The signed phase of the multi-block election system.
 //!
-//! Signed submissions work on the basis of keeping a queue of submissions from random signed
-//! accounts, and sorting them based on the best claimed score to the worse.
+//! Signed submissions work on the basis of keeping a queue of submissions from unknown signed
+//! accounts, and sorting them based on the best claimed score to the worst.
+//!
+//! Each submission must put a deposit down. This is parameterize-able by the runtime, and might be
+//! a constant, linear or exponential value. See [`signed::Config::DepositPerPage`] and
+//! [`signed::Config::DepositBase`].
+//!
+//! During the queuing time, if the queue is full, and a better solution comes in, the weakest
+//! deposit is said to be **Ejected**. Ejected solutions get [`signed::Config::EjectGraceRatio`] of
+//! their deposit back. This is because we have to delete any submitted pages from them on the spot.
+//! They don't get any refund of whatever tx-fee they have paid.
 //!
 //! Once the time to evaluate the signed phase comes (`Phase::SignedValidation`), the solutions are
-//! checked from best-to-worse claim, and they end up in either of the 3 buckets:
+//! checked from best-to-worst claim, and they end up in either of the 3 buckets:
 //!
-//! 1. If they are the first, correct solution (and consequently the best one, since we start
-//!    evaluating from the best claim), they are rewarded.
-//! 2. Any solution after the first correct solution is refunded in an unbiased way.
-//! 3. Any invalid solution that wasted valuable blockchain time gets slashed for their deposit.
+//! 1. **Rewarded**: If they are the first correct solution (and consequently the best one, since we
+//!    start evaluating from the best claim), they are rewarded. Rewarded solutions always get both
+//!    their deposit and transaction fee back.
+//! 2. **Slashed**: Any invalid solution that wasted valuable blockchain time gets slashed for their
+//!    deposit.
+//! 3. **Discarded**: Any solution after the first correct solution is eligible to be peacefully
+//!    discarded. But, to delete their data, they have to call
+//!    [`signed::Call::clear_old_round_data`]. Once done, they get their full deposit back. Their
+//!    tx-fee is not refunded.
 //!
 //! ## Future Plans:
 //!
@@ -38,17 +52,10 @@
 //!    for more or less free by the submitter itself, and by anyone else as well, in which case they
 //!    get a share of the the sum deposit. The share increases as times goes on.
 //! **Metadata update**: imagine you mis-computed your score.
-
-// TODO: we should delete this async and once the round is passed.
-// Registration would consequently be as follows:
-// - If you get ejected, and you are lazy removed, a percentage of your deposit is burned. If we set
-//   this to 100%, we will not have bad submissions after the queue is full. The queue can be made
-//   full by purely an attacker, in which case the sum of deposits should be large enough to cover
-//   the fact that we will have a bad election.
-// - whitelisted accounts who will not pay deposits are needed. They can still be ejected, but for
-//   free.
-// - Deposit should exponentially increase, and in general we should not allow for more than say 8
-//   signed submissions.
+//! **whitelisted accounts**: who will not pay deposits are needed. They can still be ejected, but
+//! for free.
+//! **Permissionless `clear_old_round_data`**: Anyone can clean anyone else's data, and get a part
+//! of their deposit.
 
 use crate::{
 	types::SolutionOf,
@@ -66,7 +73,7 @@ use frame_support::{
 		},
 		Defensive, DefensiveSaturating, EstimateCallFee,
 	},
-	transactional, BoundedVec, Twox64Concat,
+	BoundedVec, Twox64Concat,
 };
 use frame_system::{ensure_signed, pallet_prelude::*};
 use scale_info::TypeInfo;
@@ -156,24 +163,6 @@ impl<T: Config> SolutionDataProvider for Pallet<T> {
 						Precision::BestEffort,
 					);
 					debug_assert!(_res.is_ok());
-
-					// note: we could wipe this data either over time, or via transactions.
-					while let Some((discarded, metadata)) =
-						Submissions::<T>::take_leader_with_data(Self::current_round())
-					{
-						let _res = T::Currency::release(
-							&HoldReason::SignedSubmission.into(),
-							&discarded,
-							metadata.deposit,
-							Precision::BestEffort,
-						);
-						debug_assert_eq!(_res, Ok(metadata.deposit));
-						Self::deposit_event(Event::<T>::Discarded(current_round, discarded));
-					}
-
-					// everything should have been clean.
-					#[cfg(debug_assertions)]
-					assert!(Submissions::<T>::ensure_killed(current_round).is_ok());
 				}
 			},
 			VerificationResult::Rejected => {
@@ -212,6 +201,35 @@ impl<T: Config> SolutionDataProvider for Pallet<T> {
 	}
 }
 
+/// Something that can compute the base deposit that is collected upon `register`.
+///
+/// A blanket impl allows for any `Get` to be used as-is, which will always return the said balance
+/// as deposit.
+pub trait CalculateBaseDeposit<Balance> {
+	fn calculate_base_deposit(existing_submitters: usize) -> Balance;
+}
+
+impl<Balance, G: Get<Balance>> CalculateBaseDeposit<Balance> for G {
+	fn calculate_base_deposit(_existing_submitters: usize) -> Balance {
+		G::get()
+	}
+}
+
+/// Something that can calculate the deposit per-page upon `submit`.
+///
+/// A blanket impl allows for any `Get` to be used as-is, which will always return the said balance
+/// as deposit **per page**.
+pub trait CalculatePageDeposit<Balance> {
+	fn calculate_page_deposit(existing_submitters: usize, page_size: usize) -> Balance;
+}
+
+impl<Balance: From<u32> + Saturating, G: Get<Balance>> CalculatePageDeposit<Balance> for G {
+	fn calculate_page_deposit(_existing_submitters: usize, page_size: usize) -> Balance {
+		let page_size: Balance = (page_size as u32).into();
+		G::get().saturating_mul(page_size)
+	}
+}
+
 #[frame_support::pallet]
 pub mod pallet {
 	use super::{WeightInfo, *};
@@ -219,21 +237,16 @@ pub mod pallet {
 	#[pallet::config]
 	#[pallet::disable_frame_system_supertrait_check]
 	pub trait Config: crate::Config {
-		/// The overarching event type.
-		type RuntimeEvent: From<Event<Self>>
-			+ IsType<<Self as frame_system::Config>::RuntimeEvent>
-			+ TryInto<Event<Self>>;
-
 		/// Handler to the currency.
 		type Currency: Inspect<Self::AccountId>
 			+ Mutate<Self::AccountId>
 			+ MutateHold<Self::AccountId, Reason = Self::RuntimeHoldReason>;
 
 		/// Base deposit amount for a submission.
-		type DepositBase: Get<BalanceOf<Self>>;
+		type DepositBase: CalculateBaseDeposit<BalanceOf<Self>>;
 
 		/// Extra deposit per-page.
-		type DepositPerPage: Get<BalanceOf<Self>>;
+		type DepositPerPage: CalculatePageDeposit<BalanceOf<Self>>;
 
 		/// Base reward that is given to the winner.
 		type RewardBase: Get<BalanceOf<Self>>;
@@ -248,6 +261,12 @@ pub mod pallet {
 		/// This should be large enough to cover for the deletion cost of possible all pages. To be
 		/// safe, you can put it to 100% to begin with to fully dis-incentivize bailing.
 		type BailoutGraceRatio: Get<Perbill>;
+
+		/// The ratio of the deposit to return in case a signed account is ejected from the queue.
+		///
+		/// This value is assumed to be 100% for accounts that are in the invulnerable list,
+		/// which can only be set by governance.
+		type EjectGraceRatio: Get<Perbill>;
 
 		/// Handler to estimate the fee of a call. Useful to refund the transaction fee of the
 		/// submitter for the winner.
@@ -390,11 +409,16 @@ pub mod pallet {
 			who: &T::AccountId,
 		) -> Option<SubmissionMetadata<T>> {
 			Self::mutate_checked(round, || {
-				SortedScores::<T>::mutate(round, |sorted_scores| {
-					if let Some(index) = sorted_scores.iter().position(|(x, _)| x == who) {
-						sorted_scores.remove(index);
-					}
-				});
+				let mut sorted_scores = SortedScores::<T>::get(round);
+				if let Some(index) = sorted_scores.iter().position(|(x, _)| x == who) {
+					sorted_scores.remove(index);
+				}
+				if sorted_scores.is_empty() {
+					SortedScores::<T>::remove(round);
+				} else {
+					SortedScores::<T>::insert(round, sorted_scores);
+				}
+
 				// Note: safe to remove unbounded, as at most `Pages` pages are stored.
 				let r = SubmissionStorage::<T>::clear_prefix((round, who), u32::MAX, None);
 				debug_assert!(r.unique <= T::Pages::get());
@@ -444,7 +468,8 @@ pub mod pallet {
 				match sorted_scores.force_insert_keep_right(pos, record) {
 					Ok(None) => false,
 					Ok(Some((discarded, _score))) => {
-						let metadata = SubmissionMetadataStorage::<T>::take(round, &discarded);
+						let maybe_metadata =
+							SubmissionMetadataStorage::<T>::take(round, &discarded).defensive();
 						// Note: safe to remove unbounded, as at most `Pages` pages are stored.
 						let _r = SubmissionStorage::<T>::clear_prefix(
 							(round, &discarded),
@@ -452,15 +477,16 @@ pub mod pallet {
 							None,
 						);
 						debug_assert!(_r.unique <= T::Pages::get());
-						let to_refund = metadata.map(|m| m.deposit).defensive_unwrap_or_default();
-						let _released = T::Currency::release(
-							&HoldReason::SignedSubmission.into(),
-							&discarded,
-							to_refund,
-							Precision::BestEffort,
-						)?;
-						debug_assert_eq!(_released, to_refund);
-						Pallet::<T>::deposit_event(Event::<T>::Discarded(round, discarded));
+
+						if let Some(metadata) = maybe_metadata {
+							Pallet::<T>::settle_deposit(
+								&discarded,
+								metadata.deposit,
+								T::EjectGraceRatio::get(),
+							);
+						}
+
+						Pallet::<T>::deposit_event(Event::<T>::Ejected(round, discarded));
 						true
 					},
 					Err(_) => return Err(Error::<T>::QueueFull.into()),
@@ -490,6 +516,15 @@ pub mod pallet {
 			})
 		}
 
+		/// Get the deposit of a registration with the given number of pages.
+		fn deposit_for(pages: usize) -> BalanceOf<T> {
+			let round = Pallet::<T>::current_round();
+			let queue_size = Self::submitters_count(round);
+			let base = T::DepositBase::calculate_base_deposit(queue_size);
+			let pages = T::DepositPerPage::calculate_page_deposit(queue_size, pages);
+			base.saturating_add(pages)
+		}
+
 		fn try_mutate_page_inner(
 			round: u32,
 			who: &T::AccountId,
@@ -507,9 +542,8 @@ pub mod pallet {
 			}
 
 			// update deposit.
-			let new_pages: BalanceOf<T> =
-				(metadata.pages.iter().filter(|x| **x).count() as u32).into();
-			let new_deposit = T::DepositBase::get() + T::DepositPerPage::get() * new_pages;
+			let new_pages = metadata.pages.iter().filter(|x| **x).count();
+			let new_deposit = Self::deposit_for(new_pages);
 			let old_deposit = metadata.deposit;
 			if new_deposit > old_deposit {
 				let to_reserve = new_deposit - old_deposit;
@@ -551,6 +585,10 @@ pub mod pallet {
 
 		pub(crate) fn leader(round: u32) -> Option<(T::AccountId, ElectionScore)> {
 			SortedScores::<T>::get(round).last().cloned()
+		}
+
+		pub(crate) fn submitters_count(round: u32) -> usize {
+			SortedScores::<T>::get(round).len()
 		}
 
 		pub(crate) fn get_page_of(
@@ -605,6 +643,24 @@ pub mod pallet {
 			ensure!(Self::metadata_iter(round).count() == 0, "metadata_iter not cleared.");
 			ensure!(Self::submissions_iter(round).count() == 0, "submissions_iter not cleared.");
 			ensure!(Self::sorted_submitters(round).len() == 0, "sorted_submitters not cleared.");
+
+			Ok(())
+		}
+
+		/// Ensure that no data associated with `who` exists for `round`.
+		pub(crate) fn ensure_killed_with(who: &T::AccountId, round: u32) -> DispatchResult {
+			ensure!(
+				SubmissionMetadataStorage::<T>::get(round, who).is_none(),
+				"metadata not cleared."
+			);
+			ensure!(
+				SubmissionStorage::<T>::iter_prefix((round, who)).count() == 0,
+				"submissions not cleared."
+			);
+			ensure!(
+				SortedScores::<T>::get(round).iter().all(|(x, _)| x != who),
+				"sorted_submitters not cleared."
+			);
 
 			Ok(())
 		}
@@ -670,6 +726,8 @@ pub mod pallet {
 		Rewarded(u32, T::AccountId, BalanceOf<T>),
 		/// The given account has been slashed with the given amount.
 		Slashed(u32, T::AccountId, BalanceOf<T>),
+		/// The given solution, for the given round, was ejected.
+		Ejected(u32, T::AccountId),
 		/// The given account has been discarded.
 		Discarded(u32, T::AccountId),
 		/// The given account has bailed.
@@ -690,6 +748,10 @@ pub mod pallet {
 		NotRegistered,
 		/// No submission found.
 		NoSubmission,
+		/// Round is not yet over.
+		RoundNotOver,
+		/// Bad witness data provided.
+		BadWitnessData,
 	}
 
 	#[pallet::call]
@@ -707,7 +769,7 @@ pub mod pallet {
 			// note: we could already check if this is a duplicate here, but prefer keeping the code
 			// simple for now.
 
-			let deposit = T::DepositBase::get();
+			let deposit = Submissions::<T>::deposit_for(0);
 			let reward = T::RewardBase::get();
 			let fee = T::EstimateCallFee::estimate_call_fee(
 				&Call::register { claimed_score },
@@ -769,7 +831,6 @@ pub mod pallet {
 		/// This will fully remove the solution from storage.
 		#[pallet::weight(SignedWeightsOf::<T>::bail())]
 		#[pallet::call_index(2)]
-		#[transactional]
 		pub fn bail(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
 			ensure!(crate::Pallet::<T>::current_phase().is_signed(), Error::<T>::PhaseNotSigned);
@@ -778,42 +839,61 @@ pub mod pallet {
 				.ok_or(Error::<T>::NoSubmission)?;
 
 			let deposit = metadata.deposit;
-			let to_refund = T::BailoutGraceRatio::get() * deposit;
-			let to_slash = deposit.defensive_saturating_sub(to_refund);
-
-			let _res = T::Currency::release(
-				&HoldReason::SignedSubmission.into(),
-				&who,
-				to_refund,
-				Precision::BestEffort,
-			)
-			.defensive();
-			debug_assert_eq!(_res, Ok(to_refund));
-
-			let _res = T::Currency::burn_held(
-				&HoldReason::SignedSubmission.into(),
-				&who,
-				to_slash,
-				Precision::BestEffort,
-				Fortitude::Force,
-			)
-			.defensive();
-			debug_assert_eq!(_res, Ok(to_slash));
-
+			Self::settle_deposit(&who, deposit, T::BailoutGraceRatio::get());
 			Self::deposit_event(Event::<T>::Bailed(round, who));
 
+			Ok(None.into())
+		}
+
+		/// Clear the data of a submitter form an old round.
+		///
+		/// The dispatch origin of this call must be signed, and the original submitter.
+		///
+		/// This can only be called for submissions that end up being discarded, as in they are not
+		/// processed and they end up lingering in the queue.
+		#[pallet::call_index(3)]
+		#[pallet::weight(SignedWeightsOf::<T>::clear_old_round_data(*witness_pages))]
+		pub fn clear_old_round_data(
+			origin: OriginFor<T>,
+			round: u32,
+			witness_pages: u32,
+		) -> DispatchResultWithPostInfo {
+			let discarded = ensure_signed(origin)?;
+
+			let current_round = Self::current_round();
+			// we can only operate on old rounds.
+			ensure!(round < current_round, Error::<T>::RoundNotOver);
+
+			let metadata = Submissions::<T>::take_submission_with_data(round, &discarded)
+				.ok_or(Error::<T>::NoSubmission)?;
+			ensure!(
+				metadata.pages.iter().filter(|p| **p).count() as u32 <= witness_pages,
+				Error::<T>::BadWitnessData
+			);
+
+			// give back their deposit.
+			let _res = T::Currency::release(
+				&HoldReason::SignedSubmission.into(),
+				&discarded,
+				metadata.deposit,
+				Precision::BestEffort,
+			);
+			debug_assert_eq!(_res, Ok(metadata.deposit));
+			Self::deposit_event(Event::<T>::Discarded(current_round, discarded));
+
+			// IFF all good, this is free of charge.
 			Ok(None.into())
 		}
 	}
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-		fn on_initialize(now: BlockNumberFor<T>) -> Weight {
+		fn on_initialize(_: BlockNumberFor<T>) -> Weight {
 			// this code is only called when at the boundary of phase transition, which is already
 			// captured by the parent pallet. No need for weight.
 			let weight_taken_into_account: Weight = Default::default();
 
-			if crate::Pallet::<T>::current_phase().is_signed_validation_open_at(now) {
+			if crate::Pallet::<T>::current_phase().is_signed_validation_opened_now() {
 				let maybe_leader = Submissions::<T>::leader(Self::current_round());
 				sublog!(
 					info,
@@ -830,7 +910,7 @@ pub mod pallet {
 				}
 			}
 
-			if crate::Pallet::<T>::current_phase().is_unsigned_open_at(now) {
+			if crate::Pallet::<T>::current_phase().is_unsigned_opened_now() {
 				// signed validation phase just ended, make sure you stop any ongoing operation.
 				sublog!(info, "signed", "signed validation ended, sending validation stop signal",);
 				<T::Verifier as AsynchronousVerifier>::stop();
@@ -854,5 +934,29 @@ impl<T: Config> Pallet<T> {
 
 	fn current_round() -> u32 {
 		crate::Pallet::<T>::round()
+	}
+
+	fn settle_deposit(who: &T::AccountId, deposit: BalanceOf<T>, grace: Perbill) {
+		let to_refund = grace * deposit;
+		let to_slash = deposit.defensive_saturating_sub(to_refund);
+
+		let _res = T::Currency::release(
+			&HoldReason::SignedSubmission.into(),
+			who,
+			to_refund,
+			Precision::BestEffort,
+		)
+		.defensive();
+		debug_assert_eq!(_res, Ok(to_refund));
+
+		let _res = T::Currency::burn_held(
+			&HoldReason::SignedSubmission.into(),
+			who,
+			to_slash,
+			Precision::BestEffort,
+			Fortitude::Force,
+		)
+		.defensive();
+		debug_assert_eq!(_res, Ok(to_slash));
 	}
 }

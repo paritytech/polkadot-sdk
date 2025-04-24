@@ -467,12 +467,6 @@ impl<AccountId> Default for Support<AccountId> {
 	}
 }
 
-impl<AccountId: Clone> Support<AccountId> {
-	pub fn self_vote_only(who: AccountId, amount: ExtendedBalance) -> (AccountId, Self) {
-		(who.clone(), Self { total: amount, voters: vec![(who, amount)] })
-	}
-}
-
 impl<AccountId> Backings for &Support<AccountId> {
 	fn total(&self) -> ExtendedBalance {
 		self.total

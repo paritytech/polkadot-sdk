@@ -81,12 +81,12 @@ where
 		// `HaulBlobExporter` may consume the `universal_source` and `destination` arguments, so
 		// let's save them before
 		let bridge_origin_universal_location =
-			universal_source.clone().take().ok_or(SendError::MissingArgument)?;
+			universal_source.clone().ok_or(SendError::MissingArgument)?;
 		// Note: watch out this is `ExportMessage::destination`, which is relative to the `network`,
 		// which means it does not contain `GlobalConsensus`, We need to find `BridgeId` with
 		// `Self::bridge_locations` which requires **universal** location for destination.
 		let bridge_destination_universal_location = {
-			let dest = destination.clone().take().ok_or(SendError::MissingArgument)?;
+			let dest = destination.clone().ok_or(SendError::MissingArgument)?;
 			match dest.global_consensus() {
 				Ok(dest_network) => {
 					log::trace!(

@@ -50,15 +50,15 @@ struct MatchAndInsertDef {
 impl syn::parse::Parse for MatchAndInsertDef {
 	fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
 		let mut target;
-		let _ = input.parse::<keyword::target>()?;
-		let _ = input.parse::<syn::Token![=]>()?;
+		input.parse::<keyword::target>()?;
+		input.parse::<syn::Token![=]>()?;
 		let _replace_with_bracket: syn::token::Bracket = syn::bracketed!(target in input);
 		let _replace_with_brace: syn::token::Brace = syn::braced!(target in target);
 		let target = target.parse()?;
 
 		let mut pattern;
-		let _ = input.parse::<keyword::pattern>()?;
-		let _ = input.parse::<syn::Token![=]>()?;
+		input.parse::<keyword::pattern>()?;
+		input.parse::<syn::Token![=]>()?;
 		let _replace_with_bracket: syn::token::Bracket = syn::bracketed!(pattern in input);
 		let _replace_with_brace: syn::token::Brace = syn::braced!(pattern in pattern);
 		let pattern = pattern.parse::<TokenStream>()?.into_iter().collect::<Vec<TokenTree>>();
@@ -75,8 +75,8 @@ impl syn::parse::Parse for MatchAndInsertDef {
 		}
 
 		let mut tokens;
-		let _ = input.parse::<keyword::tokens>()?;
-		let _ = input.parse::<syn::Token![=]>()?;
+		input.parse::<keyword::tokens>()?;
+		input.parse::<syn::Token![=]>()?;
 		let _replace_with_bracket: syn::token::Bracket = syn::bracketed!(tokens in input);
 		let _replace_with_brace: syn::token::Brace = syn::braced!(tokens in tokens);
 		let tokens = tokens.parse()?;

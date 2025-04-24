@@ -261,7 +261,7 @@ fn on_first_block_after_genesis() {
 
 		// Post-initialization status
 
-		assert!(ClaimTemporaryData::<Test>::exists());
+		assert!(SlotRandomness::<Test>::exists());
 		common_assertions();
 		println!("[DEBUG] {}", b2h(Sassafras::randomness_accumulator()));
 		assert_eq!(
@@ -273,12 +273,11 @@ fn on_first_block_after_genesis() {
 
 		// Post-finalization status
 
-		assert!(!ClaimTemporaryData::<Test>::exists());
+		assert!(!SlotRandomness::<Test>::exists());
 		common_assertions();
-		println!("[DEBUG] {}", b2h(Sassafras::randomness_accumulator()));
 		assert_eq!(
 			Sassafras::randomness_accumulator(),
-			h2b("9f2b9fd19a772c34d437dcd8b84a927e73a5cb43d3d1cd00093223d60d2b4843"),
+			h2b("95a508cf10f877cf0457af3503a6cb3192763d5c15a7b9a58e40dc543efae889"),
 		);
 
 		// Header data check
@@ -332,23 +331,24 @@ fn on_normal_block() {
 
 		// Post-initialization status
 
-		assert!(ClaimTemporaryData::<Test>::exists());
+		assert!(SlotRandomness::<Test>::exists());
 		common_assertions();
 		println!("[DEBUG] {}", b2h(Sassafras::randomness_accumulator()));
 		assert_eq!(
 			Sassafras::randomness_accumulator(),
-			h2b("9f2b9fd19a772c34d437dcd8b84a927e73a5cb43d3d1cd00093223d60d2b4843"),
+			h2b("95a508cf10f877cf0457af3503a6cb3192763d5c15a7b9a58e40dc543efae889"),
 		);
 
 		let header = finalize_block(end_block);
 
 		// Post-finalization status
 
-		assert!(!ClaimTemporaryData::<Test>::exists());
+		assert!(!SlotRandomness::<Test>::exists());
 		common_assertions();
+		println!("[DEBUG] {}", b2h(Sassafras::randomness_accumulator()));
 		assert_eq!(
 			Sassafras::randomness_accumulator(),
-			h2b("be9261adb9686dfd3f23f8a276b7acc7f4beb3137070beb64c282ac22d84cbf0"),
+			h2b("5465cb257ad20cd4b9400a9fc85af7b1e2e72b59debd8ca06580dfb76bfca394"),
 		);
 
 		// Header data check
@@ -389,34 +389,34 @@ fn produce_epoch_change_digest_no_config() {
 
 		// Post-initialization status
 
-		assert!(ClaimTemporaryData::<Test>::exists());
+		assert!(SlotRandomness::<Test>::exists());
 		common_assertions();
 		println!("[DEBUG] {}", b2h(Sassafras::next_randomness()));
 		assert_eq!(
 			Sassafras::next_randomness(),
-			h2b("d3a18b857af6ecc7b52f047107e684fff0058b5722d540a296d727e37eaa55b3"),
+			h2b("c4d374ed47b71e1c29e57143db23861916ff2d0c59ead4c51070d42ff4af2830"),
 		);
 		println!("[DEBUG] {}", b2h(Sassafras::randomness_accumulator()));
 		assert_eq!(
 			Sassafras::randomness_accumulator(),
-			h2b("bf0f1228f4ff953c8c1bda2cceb668bf86ea05d7ae93e26d021c9690995d5279"),
+			h2b("c6d84d1f389853959c39271a38010f2f27abe6ff56cc419cf9e89eafcae1ab5e"),
 		);
 
 		let header = finalize_block(end_block);
 
 		// Post-finalization status
 
-		assert!(!ClaimTemporaryData::<Test>::exists());
+		assert!(!SlotRandomness::<Test>::exists());
 		common_assertions();
 		println!("[DEBUG] {}", b2h(Sassafras::next_randomness()));
 		assert_eq!(
 			Sassafras::next_randomness(),
-			h2b("d3a18b857af6ecc7b52f047107e684fff0058b5722d540a296d727e37eaa55b3"),
+			h2b("c4d374ed47b71e1c29e57143db23861916ff2d0c59ead4c51070d42ff4af2830"),
 		);
 		println!("[DEBUG] {}", b2h(Sassafras::randomness_accumulator()));
 		assert_eq!(
 			Sassafras::randomness_accumulator(),
-			h2b("8a1ceb346036c386d021264b10912c8b656799668004c4a487222462b394cd89"),
+			h2b("6ca02b90e14ef11b3855069794da7e9d4007526b0588c426c3e3533b0b6ade7a"),
 		);
 
 		// Header data check
@@ -670,7 +670,7 @@ fn block_allowed_to_skip_epochs() {
 
 		// Post-initialization status
 
-		assert!(ClaimTemporaryData::<Test>::exists());
+		assert!(SlotRandomness::<Test>::exists());
 		assert_eq!(Sassafras::genesis_slot(), start_slot);
 		assert_eq!(Sassafras::current_slot(), start_slot + offset);
 		assert_eq!(Sassafras::epoch_index(), 4);
@@ -829,9 +829,9 @@ fn submit_tickets_with_ring_proof_check_works() {
 		// Check state after submission
 		assert_eq!(
 			TicketsMeta::<Test>::get(),
-			TicketsMetadata { unsorted_tickets_count: 16, tickets_count: [0, 0] },
+			TicketsMetadata { unsorted_tickets_count: 13, tickets_count: [0, 0] },
 		);
-		assert_eq!(UnsortedSegments::<Test>::get(0).len(), 16);
+		assert_eq!(UnsortedSegments::<Test>::get(0).len(), 13);
 		assert_eq!(UnsortedSegments::<Test>::get(1).len(), 0);
 
 		finalize_block(start_block);

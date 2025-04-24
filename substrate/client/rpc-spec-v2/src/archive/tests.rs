@@ -17,12 +17,13 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 use crate::{
+	archive::MethodResult,
 	common::events::{
 		ArchiveStorageDiffEvent, ArchiveStorageDiffItem, ArchiveStorageDiffOperationType,
 		ArchiveStorageDiffResult, ArchiveStorageDiffType, ArchiveStorageEvent, StorageQuery,
 		StorageQueryType, StorageResult, StorageResultType,
 	},
-	hex_string, MethodResult,
+	hex_string,
 };
 
 use super::{archive::Archive, *};
@@ -94,8 +95,7 @@ async fn get_next_event<T: serde::de::DeserializeOwned>(sub: &mut RpcSubscriptio
 async fn archive_genesis() {
 	let (_client, api) = setup_api();
 
-	let genesis: String =
-		api.call("archive_unstable_genesisHash", EmptyParams::new()).await.unwrap();
+	let genesis: String = api.call("archive_v1_genesisHash", EmptyParams::new()).await.unwrap();
 	assert_eq!(genesis, hex_string(&CHAIN_GENESIS));
 }
 
@@ -105,7 +105,7 @@ async fn archive_body() {
 
 	// Invalid block hash.
 	let invalid_hash = hex_string(&INVALID_HASH);
-	let res: Option<Vec<String>> = api.call("archive_unstable_body", [invalid_hash]).await.unwrap();
+	let res: Option<Vec<String>> = api.call("archive_v1_body", [invalid_hash]).await.unwrap();
 	assert!(res.is_none());
 
 	// Import a new block with an extrinsic.
@@ -129,7 +129,7 @@ async fn archive_body() {
 
 	let expected_tx = hex_string(&block.extrinsics[0].encode());
 
-	let body: Vec<String> = api.call("archive_unstable_body", [block_hash]).await.unwrap();
+	let body: Vec<String> = api.call("archive_v1_body", [block_hash]).await.unwrap();
 	assert_eq!(vec![expected_tx], body);
 }
 
@@ -139,7 +139,7 @@ async fn archive_header() {
 
 	// Invalid block hash.
 	let invalid_hash = hex_string(&INVALID_HASH);
-	let res: Option<String> = api.call("archive_unstable_header", [invalid_hash]).await.unwrap();
+	let res: Option<String> = api.call("archive_v1_header", [invalid_hash]).await.unwrap();
 	assert!(res.is_none());
 
 	// Import a new block with an extrinsic.
@@ -161,7 +161,7 @@ async fn archive_header() {
 	let block_hash = format!("{:?}", block.header.hash());
 	client.import(BlockOrigin::Own, block.clone()).await.unwrap();
 
-	let header: String = api.call("archive_unstable_header", [block_hash]).await.unwrap();
+	let header: String = api.call("archive_v1_header", [block_hash]).await.unwrap();
 	let bytes = array_bytes::hex2bytes(&header).unwrap();
 	let header: Header = Decode::decode(&mut &bytes[..]).unwrap();
 	assert_eq!(header, block.header);
@@ -173,8 +173,7 @@ async fn archive_finalized_height() {
 
 	let client_height: u32 = client.info().finalized_number.saturated_into();
 
-	let height: u32 =
-		api.call("archive_unstable_finalizedHeight", EmptyParams::new()).await.unwrap();
+	let height: u32 = api.call("archive_v1_finalizedHeight", EmptyParams::new()).await.unwrap();
 
 	assert_eq!(client_height, height);
 }
@@ -184,7 +183,7 @@ async fn archive_hash_by_height() {
 	let (client, api) = setup_api();
 
 	// Genesis height.
-	let hashes: Vec<String> = api.call("archive_unstable_hashByHeight", [0]).await.unwrap();
+	let hashes: Vec<String> = api.call("archive_v1_hashByHeight", [0]).await.unwrap();
 	assert_eq!(hashes, vec![format!("{:?}", client.genesis_hash())]);
 
 	// Block tree:
@@ -260,28 +259,28 @@ async fn archive_hash_by_height() {
 	client.import(BlockOrigin::Own, block_4.clone()).await.unwrap();
 
 	// Check finalized height.
-	let hashes: Vec<String> = api.call("archive_unstable_hashByHeight", [1]).await.unwrap();
+	let hashes: Vec<String> = api.call("archive_v1_hashByHeight", [1]).await.unwrap();
 	assert_eq!(hashes, vec![format!("{:?}", finalized_hash)]);
 
 	// Test nonfinalized heights.
 	// Height N must include block 1.
 	let mut height = block_1.header.number;
-	let hashes: Vec<String> = api.call("archive_unstable_hashByHeight", [height]).await.unwrap();
+	let hashes: Vec<String> = api.call("archive_v1_hashByHeight", [height]).await.unwrap();
 	assert_eq!(hashes, vec![format!("{:?}", block_1_hash)]);
 
 	// Height (N + 1) must include block 2 and 4.
 	height += 1;
-	let hashes: Vec<String> = api.call("archive_unstable_hashByHeight", [height]).await.unwrap();
+	let hashes: Vec<String> = api.call("archive_v1_hashByHeight", [height]).await.unwrap();
 	assert_eq!(hashes, vec![format!("{:?}", block_4_hash), format!("{:?}", block_2_hash)]);
 
 	// Height (N + 2) must include block 3.
 	height += 1;
-	let hashes: Vec<String> = api.call("archive_unstable_hashByHeight", [height]).await.unwrap();
+	let hashes: Vec<String> = api.call("archive_v1_hashByHeight", [height]).await.unwrap();
 	assert_eq!(hashes, vec![format!("{:?}", block_3_hash)]);
 
 	// Height (N + 3) has no blocks.
 	height += 1;
-	let hashes: Vec<String> = api.call("archive_unstable_hashByHeight", [height]).await.unwrap();
+	let hashes: Vec<String> = api.call("archive_v1_hashByHeight", [height]).await.unwrap();
 	assert!(hashes.is_empty());
 }
 
@@ -293,7 +292,7 @@ async fn archive_call() {
 	// Invalid parameter (non-hex).
 	let err = api
 		.call::<_, serde_json::Value>(
-			"archive_unstable_call",
+			"archive_v1_call",
 			[&invalid_hash, "BabeApi_current_epoch", "0x00X"],
 		)
 		.await
@@ -303,7 +302,7 @@ async fn archive_call() {
 	// Pass an invalid parameters that cannot be decode.
 	let err = api
 		.call::<_, serde_json::Value>(
-			"archive_unstable_call",
+			"archive_v1_call",
 			// 0x0 is invalid.
 			[&invalid_hash, "BabeApi_current_epoch", "0x0"],
 		)
@@ -313,7 +312,7 @@ async fn archive_call() {
 
 	// Invalid hash.
 	let result: MethodResult = api
-		.call("archive_unstable_call", [&invalid_hash, "BabeApi_current_epoch", "0x00"])
+		.call("archive_v1_call", [&invalid_hash, "BabeApi_current_epoch", "0x00"])
 		.await
 		.unwrap();
 	assert_matches!(result, MethodResult::Err(_));
@@ -335,7 +334,7 @@ async fn archive_call() {
 	let call_parameters = hex_string(&alice_id.encode());
 	let result: MethodResult = api
 		.call(
-			"archive_unstable_call",
+			"archive_v1_call",
 			[&format!("{:?}", block_1_hash), "AccountNonceApi_account_nonce", &call_parameters],
 		)
 		.await
@@ -368,7 +367,7 @@ async fn archive_storage_hashes_values() {
 	];
 
 	let mut sub = api
-		.subscribe_unbounded("archive_unstable_storage", rpc_params![&block_hash, items.clone()])
+		.subscribe_unbounded("archive_v1_storage", rpc_params![&block_hash, items.clone()])
 		.await
 		.unwrap();
 
@@ -393,7 +392,7 @@ async fn archive_storage_hashes_values() {
 	let expected_value = hex_string(&VALUE);
 
 	let mut sub = api
-		.subscribe_unbounded("archive_unstable_storage", rpc_params![&block_hash, items])
+		.subscribe_unbounded("archive_v1_storage", rpc_params![&block_hash, items])
 		.await
 		.unwrap();
 
@@ -455,10 +454,7 @@ async fn archive_storage_hashes_values_child_trie() {
 		StorageQuery { key: key.clone(), query_type: StorageQueryType::DescendantsValues },
 	];
 	let mut sub = api
-		.subscribe_unbounded(
-			"archive_unstable_storage",
-			rpc_params![&genesis_hash, items, &child_info],
-		)
+		.subscribe_unbounded("archive_v1_storage", rpc_params![&genesis_hash, items, &child_info])
 		.await
 		.unwrap();
 
@@ -502,7 +498,7 @@ async fn archive_storage_closest_merkle_value() {
 	) -> HashMap<String, String> {
 		let mut sub = api
 			.subscribe_unbounded(
-				"archive_unstable_storage",
+				"archive_v1_storage",
 				rpc_params![
 					&block_hash,
 					vec![
@@ -664,7 +660,7 @@ async fn archive_storage_iterations() {
 	let invalid_hash = hex_string(&INVALID_HASH);
 	let mut sub = api
 		.subscribe_unbounded(
-			"archive_unstable_storage",
+			"archive_v1_storage",
 			rpc_params![
 				&invalid_hash,
 				vec![StorageQuery {
@@ -684,7 +680,7 @@ async fn archive_storage_iterations() {
 	// Valid call with storage at the key.
 	let mut sub = api
 		.subscribe_unbounded(
-			"archive_unstable_storage",
+			"archive_v1_storage",
 			rpc_params![
 				&block_hash,
 				vec![StorageQuery {
@@ -791,7 +787,7 @@ async fn archive_storage_diff_main_trie() {
 	];
 	let mut sub = api
 		.subscribe_unbounded(
-			"archive_unstable_storageDiff",
+			"archive_v1_storageDiff",
 			rpc_params![&block_hash, items.clone(), &prev_hash],
 		)
 		.await
@@ -894,7 +890,7 @@ async fn archive_storage_diff_no_changes() {
 	}];
 	let mut sub = api
 		.subscribe_unbounded(
-			"archive_unstable_storageDiff",
+			"archive_v1_storageDiff",
 			rpc_params![&block_hash, items.clone(), &prev_hash],
 		)
 		.await
@@ -949,7 +945,7 @@ async fn archive_storage_diff_deleted_changes() {
 
 	let mut sub = api
 		.subscribe_unbounded(
-			"archive_unstable_storageDiff",
+			"archive_v1_storageDiff",
 			rpc_params![&block_hash, items.clone(), &prev_hash],
 		)
 		.await
@@ -979,7 +975,7 @@ async fn archive_storage_diff_invalid_params() {
 	let items: Vec<ArchiveStorageDiffItem<String>> = Vec::new();
 	let err = api
 		.subscribe_unbounded(
-			"archive_unstable_storageDiff",
+			"archive_v1_storageDiff",
 			rpc_params!["123", items.clone(), &invalid_hash],
 		)
 		.await
@@ -992,7 +988,7 @@ async fn archive_storage_diff_invalid_params() {
 	let items: Vec<ArchiveStorageDiffItem<String>> = Vec::new();
 	let mut sub = api
 		.subscribe_unbounded(
-			"archive_unstable_storageDiff",
+			"archive_v1_storageDiff",
 			rpc_params![&invalid_hash, items.clone(), &invalid_hash],
 		)
 		.await

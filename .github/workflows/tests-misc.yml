@@ -64,9 +64,9 @@ jobs:
       - name: script
         run: |
           cd substrate/frame/examples/offchain-worker/
-          forklift cargo build --locked --target=wasm32-unknown-unknown --no-default-features
+          RUSTFLAGS="--cfg substrate_runtime" forklift cargo build --locked --target=wasm32-unknown-unknown --no-default-features
           cd ../basic
-          forklift cargo build --locked --target=wasm32-unknown-unknown --no-default-features
+          RUSTFLAGS="--cfg substrate_runtime" forklift cargo build --locked --target=wasm32-unknown-unknown --no-default-features
 
   test-frame-ui:
     timeout-minutes: 60

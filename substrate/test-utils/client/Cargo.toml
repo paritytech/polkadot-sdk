@@ -21,9 +21,7 @@ async-trait = { workspace = true }
 codec = { workspace = true, default-features = true }
 futures = { workspace = true }
 sc-client-api = { workspace = true, default-features = true }
-sc-client-db = { features = [
-	"test-helpers",
-], workspace = true, default-features = false }
+sc-client-db = { features = ["test-helpers"], workspace = true, default-features = false }
 sc-consensus = { workspace = true, default-features = true }
 sc-executor = { workspace = true, default-features = true }
 sc-service = { workspace = true, default-features = false }
@@ -35,5 +33,4 @@ sp-core = { workspace = true, default-features = true }
 sp-keyring = { workspace = true, default-features = true }
 sp-keystore = { workspace = true, default-features = true }
 sp-runtime = { workspace = true, default-features = true }
-sp-state-machine = { workspace = true, default-features = true }
 tokio = { features = ["sync"], workspace = true, default-features = true }

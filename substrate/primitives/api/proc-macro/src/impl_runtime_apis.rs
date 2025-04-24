@@ -173,10 +173,10 @@ fn generate_impl_calls(
 					&impl_trait,
 					&trait_api_ver,
 				)?;
-				let mut attrs = filter_cfg_attrs(&impl_.attrs);
+				let mut attrs = filter_cfg_and_allow_attrs(&impl_.attrs);
 
 				// Add any `#[cfg(feature = X)]` attributes of the method to result
-				attrs.extend(filter_cfg_attrs(&method.attrs));
+				attrs.extend(filter_cfg_and_allow_attrs(&method.attrs));
 
 				impl_calls.push((
 					impl_trait_ident.clone(),
@@ -503,7 +503,7 @@ fn generate_api_impl_for_runtime(impls: &[ItemImpl]) -> Result<TokenStream> {
 		let trait_api_ver = extract_api_version(&impl_.attrs, impl_.span())?;
 
 		let mut impl_ = impl_.clone();
-		impl_.attrs = filter_cfg_attrs(&impl_.attrs);
+		impl_.attrs = filter_cfg_and_allow_attrs(&impl_.attrs);
 
 		let trait_ = extract_impl_trait(&impl_, RequireQualifiedTraitPath::Yes)?.clone();
 		let trait_ = extend_with_runtime_decl_path(trait_);
@@ -653,7 +653,7 @@ impl<'a> Fold for ApiRuntimeImplToApiRuntimeApiImpl<'a> {
 
 		where_clause.predicates.push(parse_quote! { &'static RuntimeApiImplCall: Send });
 
-		input.attrs = filter_cfg_attrs(&input.attrs);
+		input.attrs = filter_cfg_and_allow_attrs(&input.attrs);
 
 		fold::fold_item_impl(self, input)
 	}
@@ -747,7 +747,7 @@ fn generate_runtime_api_versions(impls: &[ItemImpl]) -> Result<TokenStream> {
 		}
 
 		let id: Path = parse_quote!( #path ID );
-		let mut attrs = filter_cfg_attrs(&impl_.attrs);
+		let mut attrs = filter_cfg_and_allow_attrs(&impl_.attrs);
 
 		// Handle API versioning
 		// If feature gated version is set - handle it first
@@ -866,9 +866,13 @@ fn impl_runtime_apis_impl_inner(api_impls: &mut [ItemImpl]) -> Result<TokenStrea
 	Ok(impl_)
 }
 
-// Filters all attributes except the cfg ones.
-fn filter_cfg_attrs(attrs: &[Attribute]) -> Vec<Attribute> {
-	attrs.iter().filter(|a| a.path().is_ident("cfg")).cloned().collect()
+// Filters all attributes except the cfg and allow ones.
+fn filter_cfg_and_allow_attrs(attrs: &[Attribute]) -> Vec<Attribute> {
+	attrs
+		.iter()
+		.filter(|a| a.path().is_ident("cfg") || a.path().is_ident("allow"))
+		.cloned()
+		.collect()
 }
 
 #[cfg(test)]
@@ -879,6 +883,7 @@ mod tests {
 	fn filter_non_cfg_attributes() {
 		let cfg_std: Attribute = parse_quote!(#[cfg(feature = "std")]);
 		let cfg_benchmarks: Attribute = parse_quote!(#[cfg(feature = "runtime-benchmarks")]);
+		let allow: Attribute = parse_quote!(#[allow(non_camel_case_types)]);
 
 		let attrs = vec![
 			cfg_std.clone(),
@@ -888,10 +893,11 @@ mod tests {
 			parse_quote!(#[allow(non_camel_case_types)]),
 		];
 
-		let filtered = filter_cfg_attrs(&attrs);
-		assert_eq!(filtered.len(), 2);
+		let filtered = filter_cfg_and_allow_attrs(&attrs);
+		assert_eq!(filtered.len(), 3);
 		assert_eq!(cfg_std, filtered[0]);
 		assert_eq!(cfg_benchmarks, filtered[1]);
+		assert_eq!(allow, filtered[2]);
 	}
 
 	#[test]

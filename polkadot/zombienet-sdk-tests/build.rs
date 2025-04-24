@@ -27,14 +27,7 @@ fn make_env_key(k: &str) -> String {
 
 fn wasm_sub_path(chain: &str) -> String {
 	let (package, runtime_name) =
-		if let Some(cumulus_test_runtime) = chain.strip_prefix("cumulus-test-runtime-") {
-			(
-				"cumulus-test-runtime".to_string(),
-				format!("wasm_binary_{}.rs", replace_dashes(cumulus_test_runtime)),
-			)
-		} else {
-			(format!("{chain}-runtime"), replace_dashes(&format!("{chain}-runtime")))
-		};
+		(format!("{chain}-runtime"), replace_dashes(&format!("{chain}-runtime")));
 
 	format!("{}/{}.wasm", package, runtime_name)
 }
@@ -61,11 +54,7 @@ fn find_wasm(chain: &str) -> Option<PathBuf> {
 
 // based on https://gist.github.com/s0me0ne-unkn0wn/bbd83fe32ce10327086adbf13e750eec
 fn build_wasm(chain: &str) -> PathBuf {
-	let package = if chain.starts_with("cumulus-test-runtime-") {
-		String::from("cumulus-test-runtime")
-	} else {
-		format!("{chain}-runtime")
-	};
+	let package = format!("{chain}-runtime");
 
 	let cargo = env::var("CARGO").unwrap();
 	let target = env::var("TARGET").unwrap();
@@ -132,28 +121,9 @@ fn main() {
 	const METADATA_DIR: &str = "metadata-files";
 	const CHAINS: [&str; 2] = ["rococo", "coretime-rococo"];
 
-	// Add some cumulus test runtimes if needed. Formatted like
-	// "cumulus-test-runtime-elastic-scaling".
-	const CUMULUS_TEST_RUNTIMES: [&str; 0] = [];
-
 	let metadata_path = format!("{manifest_path}/{METADATA_DIR}");
 
 	for chain in CHAINS {
-		let full_path = format!("{metadata_path}/{chain}-local.scale");
-		let output_path = path::PathBuf::from(&full_path);
-
-		match output_path.try_exists() {
-			Ok(true) => {
-				debug_output!("got: {}", full_path);
-			},
-			_ => {
-				debug_output!("needs: {}", full_path);
-				fetch_metadata_file(chain, &output_path);
-			},
-		};
-	}
-
-	for chain in CUMULUS_TEST_RUNTIMES {
 		let full_path = format!("{metadata_path}/{chain}-local.scale");
 		let output_path = path::PathBuf::from(&full_path);
 

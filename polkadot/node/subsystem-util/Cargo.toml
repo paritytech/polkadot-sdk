@@ -12,16 +12,12 @@ repository.workspace = true
 workspace = true
 
 [dependencies]
-async-trait = { workspace = true }
 codec = { features = ["derive"], workspace = true }
-derive_more = { workspace = true, default-features = true }
 fatality = { workspace = true }
 futures = { workspace = true }
-futures-channel = { workspace = true }
 gum = { workspace = true, default-features = true }
 itertools = { workspace = true }
 parking_lot = { workspace = true, default-features = true }
-pin-project = { workspace = true }
 rand = { workspace = true, default-features = true }
 schnellru = { workspace = true }
 thiserror = { workspace = true }
@@ -36,7 +32,6 @@ polkadot-node-subsystem-types = { workspace = true, default-features = true }
 polkadot-overseer = { workspace = true, default-features = true }
 polkadot-primitives = { workspace = true, default-features = true }
 
-sc-client-api = { workspace = true, default-features = true }
 sp-application-crypto = { workspace = true, default-features = true }
 sp-core = { workspace = true, default-features = true }
 sp-keystore = { workspace = true, default-features = true }
@@ -47,9 +42,7 @@ parity-db = { workspace = true }
 [dev-dependencies]
 assert_matches = { workspace = true }
 futures = { features = ["thread-pool"], workspace = true }
-kvdb-memorydb = { workspace = true }
 kvdb-shared-tests = { workspace = true }
-log = { workspace = true, default-features = true }
 polkadot-node-subsystem-test-helpers = { workspace = true }
 polkadot-primitives-test-helpers = { workspace = true }
 tempfile = { workspace = true }

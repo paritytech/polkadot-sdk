@@ -326,7 +326,7 @@ error[E0277]: the trait bound `Runtime: Config` is not satisfied
 28 | | }
    | |_^ the trait `Config` is not implemented for `Runtime`
    |
-   = note: this error originates in the derive macro `self::sp_api_hidden_includes_construct_runtime::hidden_include::__private::RuntimeDebug` (in Nightly builds, run with -Z macro-backtrace for more info)
+   = note: this error originates in the derive macro `self::sp_api_hidden_includes_construct_runtime::hidden_include::__private::Debug` (in Nightly builds, run with -Z macro-backtrace for more info)
 
 error[E0277]: the trait bound `Runtime: Config` is not satisfied
   --> tests/construct_runtime_ui/deprecated_where_block.rs:26:11

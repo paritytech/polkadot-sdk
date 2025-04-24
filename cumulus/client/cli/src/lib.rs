@@ -308,6 +308,14 @@ pub struct RunCmd {
 	/// Will use the specified relay chain chainspec.
 	#[arg(long, conflicts_with_all = ["relay_chain_rpc_urls", "collator"])]
 	pub relay_chain_light_client: bool,
+
+	/// EXPERIMENTAL: This is meant to be used only if collator is overshooting the PoV size, and
+	/// building blocks that do not fit in the max_pov_size. It is a percentage of the max_pov_size
+	/// configuration of the relay-chain.
+	///
+	/// It will be removed once <https://github.com/paritytech/polkadot-sdk/issues/6020> is fixed.
+	#[arg(long)]
+	pub experimental_max_pov_percentage: Option<u32>,
 }
 
 impl RunCmd {
@@ -430,6 +438,18 @@ impl sc_cli::CliConfiguration for NormalizedRunCmd {
 
 	fn rpc_methods(&self) -> sc_cli::Result<sc_service::config::RpcMethods> {
 		self.base.rpc_methods()
+	}
+
+	fn rpc_rate_limit(&self) -> sc_cli::Result<Option<std::num::NonZeroU32>> {
+		Ok(self.base.rpc_params.rpc_rate_limit)
+	}
+
+	fn rpc_rate_limit_whitelisted_ips(&self) -> sc_cli::Result<Vec<sc_service::config::IpNetwork>> {
+		Ok(self.base.rpc_params.rpc_rate_limit_whitelisted_ips.clone())
+	}
+
+	fn rpc_rate_limit_trust_proxy_headers(&self) -> sc_cli::Result<bool> {
+		Ok(self.base.rpc_params.rpc_rate_limit_trust_proxy_headers)
 	}
 
 	fn rpc_max_request_size(&self) -> sc_cli::Result<u32> {

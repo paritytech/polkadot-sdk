@@ -1,0 +1,18 @@
+title: Set PoV size limit to 10 Mb
+doc:
+- audience: Runtime Dev
+  description: |-
+    Bumps the default PoV size limit to 10 Mb on both relay chain and parachains.
+crates:
+- name: polkadot-primitives
+  bump: minor
+- name: bridge-hub-rococo-runtime
+  bump: minor
+- name: bridge-hub-westend-runtime
+  bump: minor
+- name: polkadot-omni-node
+  bump: minor
+- name: polkadot-omni-node-lib
+  bump: minor
+- name: polkadot-parachain-bin
+  bump: minor

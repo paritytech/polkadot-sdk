@@ -15,21 +15,17 @@ workspace = true
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
+[[bin]]
+name = "compact"
+path = "src/compact.rs"
+
 [dependencies]
-clap = { features = ["derive"], workspace = true }
 honggfuzz = { workspace = true }
-rand = { features = ["small_rng", "std"], workspace = true, default-features = true }
 
 codec = { features = ["derive"], workspace = true }
 frame-election-provider-solution-type = { workspace = true, default-features = true }
 frame-election-provider-support = { workspace = true, default-features = true }
-scale-info = { features = ["derive"], workspace = true }
 sp-arithmetic = { workspace = true, default-features = true }
 sp-runtime = { workspace = true, default-features = true }
 # used by generate_solution_type:
 frame-support = { workspace = true, default-features = true }
-sp-npos-elections = { workspace = true }
-
-[[bin]]
-name = "compact"
-path = "src/compact.rs"

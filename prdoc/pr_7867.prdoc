@@ -1,0 +1,23 @@
+title: benchmark/storage Make read/write benchmarks more accurate
+
+doc:
+- audience: [Runtime Dev, Node Dev]
+  description: |-
+    Improve the benchmark accuracy of read/write costs by making sure for both
+    reads and write we compute the amortized cost of a single key operation, by adding
+    a batch functionality to make sure the cost of common operations like root computation
+    is spread across multiple keys. Additionally, also add a pov-recorder flag, so that we
+    are able to replicate the same environment as parachains do.
+
+crates:
+- name: sc-client-db
+  bump: major
+- name: frame-benchmarking-cli
+  bump: major
+- name: polkadot-cli
+  bump: major
+- name: polkadot-omni-node-lib
+  bump: major
+- name: polkadot
+  bump: patch
+

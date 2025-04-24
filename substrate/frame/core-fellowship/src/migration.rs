@@ -73,7 +73,7 @@ impl<T: Config<I>, I: 'static> UncheckedOnRuntimeUpgrade for MigrateToV1<T, I> {
 	#[cfg(feature = "try-runtime")]
 	fn pre_upgrade() -> Result<Vec<u8>, TryRuntimeError> {
 		ensure!(
-			T::MaxRank::get() >= v0::RANK_COUNT as u32,
+			T::MaxRank::get() as usize >= v0::RANK_COUNT,
 			"pallet-core-fellowship: new bound should not truncate"
 		);
 		Ok(Default::default())

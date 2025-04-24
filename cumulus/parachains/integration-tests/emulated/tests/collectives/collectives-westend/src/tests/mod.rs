@@ -13,6 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+mod aliases;
 mod fellowship;
 mod fellowship_salary;
 mod fellowship_treasury;

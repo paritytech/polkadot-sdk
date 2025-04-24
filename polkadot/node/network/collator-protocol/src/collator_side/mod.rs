@@ -33,8 +33,8 @@ use polkadot_node_network_protocol::{
 		incoming::{self, OutgoingResponse},
 		v2 as request_v2, IncomingRequestReceiver,
 	},
-	v1 as protocol_v1, v2 as protocol_v2, OurView, PeerId, UnifiedReputationChange as Rep,
-	Versioned, View,
+	v1 as protocol_v1, v2 as protocol_v2, CollationProtocols, OurView, PeerId,
+	UnifiedReputationChange as Rep, View,
 };
 use polkadot_node_primitives::{CollationSecondedSignal, PoV, Statement};
 use polkadot_node_subsystem::{
@@ -54,13 +54,10 @@ use polkadot_primitives::{
 	CollatorPair, CoreIndex, GroupIndex, Hash, HeadData, Id as ParaId, SessionIndex,
 };
 
-use super::LOG_TARGET;
-use crate::{
-	error::{log_error, Error, FatalError, Result},
-	modify_reputation,
-};
+use crate::{modify_reputation, LOG_TARGET};
 
 mod collation;
+mod error;
 mod metrics;
 #[cfg(test)]
 mod tests;
@@ -70,6 +67,7 @@ use collation::{
 	ActiveCollationFetches, Collation, CollationSendResult, CollationStatus,
 	VersionedCollationRequest, WaitingCollationFetches,
 };
+use error::{log_error, Error, FatalError, Result};
 use validators_buffer::{
 	ResetInterestTimeout, ValidatorGroupsBuffer, RESET_INTEREST_TIMEOUT, VALIDATORS_BUFFER_CAPACITY,
 };
@@ -581,7 +579,7 @@ async fn determine_our_validators<Context>(
 /// Construct the declare message to be sent to validator.
 fn declare_message(
 	state: &mut State,
-) -> Option<Versioned<protocol_v1::CollationProtocol, protocol_v2::CollationProtocol>> {
+) -> Option<CollationProtocols<protocol_v1::CollationProtocol, protocol_v2::CollationProtocol>> {
 	let para_id = state.collating_on?;
 	let declare_signature_payload = protocol_v2::declare_signature_payload(&state.local_peer_id);
 	let wire_message = protocol_v2::CollatorProtocolMessage::Declare(
@@ -589,7 +587,7 @@ fn declare_message(
 		para_id,
 		state.collator_pair.sign(&declare_signature_payload),
 	);
-	Some(Versioned::V2(protocol_v2::CollationProtocol::CollatorProtocol(wire_message)))
+	Some(CollationProtocols::V2(protocol_v2::CollationProtocol::CollatorProtocol(wire_message)))
 }
 
 /// Issue versioned `Declare` collation message to the given `peer`.
@@ -680,7 +678,7 @@ async fn advertise_collation<Context>(
 
 		ctx.send_message(NetworkBridgeTxMessage::SendCollationMessage(
 			vec![*peer],
-			Versioned::V2(protocol_v2::CollationProtocol::CollatorProtocol(
+			CollationProtocols::V2(protocol_v2::CollationProtocol::CollatorProtocol(
 				protocol_v2::CollatorProtocolMessage::AdvertiseCollation {
 					relay_parent,
 					candidate_hash: *candidate_hash,
@@ -838,15 +836,16 @@ async fn handle_incoming_peer_message<Context>(
 	runtime: &mut RuntimeInfo,
 	state: &mut State,
 	origin: PeerId,
-	msg: Versioned<protocol_v1::CollatorProtocolMessage, protocol_v2::CollatorProtocolMessage>,
+	msg: CollationProtocols<
+		protocol_v1::CollatorProtocolMessage,
+		protocol_v2::CollatorProtocolMessage,
+	>,
 ) -> Result<()> {
 	use protocol_v1::CollatorProtocolMessage as V1;
 	use protocol_v2::CollatorProtocolMessage as V2;
 
 	match msg {
-		Versioned::V1(V1::Declare(..)) |
-		Versioned::V2(V2::Declare(..)) |
-		Versioned::V3(V2::Declare(..)) => {
+		CollationProtocols::V1(V1::Declare(..)) | CollationProtocols::V2(V2::Declare(..)) => {
 			gum::trace!(
 				target: LOG_TARGET,
 				?origin,
@@ -857,9 +856,8 @@ async fn handle_incoming_peer_message<Context>(
 			ctx.send_message(NetworkBridgeTxMessage::DisconnectPeer(origin, PeerSet::Collation))
 				.await;
 		},
-		Versioned::V1(V1::AdvertiseCollation(_)) |
-		Versioned::V2(V2::AdvertiseCollation { .. }) |
-		Versioned::V3(V2::AdvertiseCollation { .. }) => {
+		CollationProtocols::V1(V1::AdvertiseCollation(_)) |
+		CollationProtocols::V2(V2::AdvertiseCollation { .. }) => {
 			gum::trace!(
 				target: LOG_TARGET,
 				?origin,
@@ -873,7 +871,7 @@ async fn handle_incoming_peer_message<Context>(
 			ctx.send_message(NetworkBridgeTxMessage::DisconnectPeer(origin, PeerSet::Collation))
 				.await;
 		},
-		Versioned::V1(V1::CollationSeconded(relay_parent, statement)) => {
+		CollationProtocols::V1(V1::CollationSeconded(relay_parent, statement)) => {
 			// Impossible, we no longer accept connections on v1.
 			gum::warn!(
 				target: LOG_TARGET,
@@ -883,8 +881,7 @@ async fn handle_incoming_peer_message<Context>(
 				"Collation seconded message received on unsupported protocol version 1",
 			);
 		},
-		Versioned::V2(V2::CollationSeconded(relay_parent, statement)) |
-		Versioned::V3(V2::CollationSeconded(relay_parent, statement)) => {
+		CollationProtocols::V2(V2::CollationSeconded(relay_parent, statement)) => {
 			if !matches!(statement.unchecked_payload(), Statement::Seconded(_)) {
 				gum::warn!(
 					target: LOG_TARGET,

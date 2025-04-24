@@ -30,7 +30,6 @@ pallet-balances = { workspace = true, default-features = true }
 pallet-collective = { workspace = true, default-features = true }
 pallet-root-testing = { workspace = true, default-features = true }
 pallet-timestamp = { workspace = true, default-features = true }
-sp-core = { workspace = true, default-features = true }
 
 [features]
 default = ["std"]
@@ -39,10 +38,6 @@ std = [
 	"frame-benchmarking?/std",
 	"frame-support/std",
 	"frame-system/std",
-	"pallet-balances/std",
-	"pallet-collective/std",
-	"pallet-root-testing/std",
-	"pallet-timestamp/std",
 	"scale-info/std",
 	"sp-core/std",
 	"sp-io/std",

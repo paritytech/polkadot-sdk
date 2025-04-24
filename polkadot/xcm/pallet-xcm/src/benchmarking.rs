@@ -28,7 +28,7 @@ type RuntimeOrigin<T> = <T as frame_system::Config>::RuntimeOrigin;
 pub struct Pallet<T: Config>(crate::Pallet<T>);
 
 /// Trait that must be implemented by runtime to be able to benchmark pallet properly.
-pub trait Config: crate::Config {
+pub trait Config: crate::Config + pallet_balances::Config {
 	/// Helper that ensures successful delivery for extrinsics/benchmarks which need `SendXcm`.
 	type DeliveryHelper: EnsureDelivery;
 
@@ -396,7 +396,7 @@ mod benchmarks {
 
 		#[block]
 		{
-			crate::Pallet::<T>::check_xcm_version_change(
+			crate::Pallet::<T>::lazy_migration(
 				VersionMigrationStage::MigrateSupportedVersion,
 				Weight::zero(),
 			);
@@ -411,7 +411,7 @@ mod benchmarks {
 
 		#[block]
 		{
-			crate::Pallet::<T>::check_xcm_version_change(
+			crate::Pallet::<T>::lazy_migration(
 				VersionMigrationStage::MigrateVersionNotifiers,
 				Weight::zero(),
 			);
@@ -433,7 +433,7 @@ mod benchmarks {
 
 		#[block]
 		{
-			crate::Pallet::<T>::check_xcm_version_change(
+			crate::Pallet::<T>::lazy_migration(
 				VersionMigrationStage::NotifyCurrentTargets(None),
 				Weight::zero(),
 			);
@@ -454,7 +454,7 @@ mod benchmarks {
 
 		#[block]
 		{
-			crate::Pallet::<T>::check_xcm_version_change(
+			crate::Pallet::<T>::lazy_migration(
 				VersionMigrationStage::NotifyCurrentTargets(None),
 				Weight::zero(),
 			);
@@ -480,7 +480,7 @@ mod benchmarks {
 
 		#[block]
 		{
-			crate::Pallet::<T>::check_xcm_version_change(
+			crate::Pallet::<T>::lazy_migration(
 				VersionMigrationStage::MigrateAndNotifyOldTargets,
 				Weight::zero(),
 			);
@@ -496,7 +496,7 @@ mod benchmarks {
 
 		#[block]
 		{
-			crate::Pallet::<T>::check_xcm_version_change(
+			crate::Pallet::<T>::lazy_migration(
 				VersionMigrationStage::MigrateAndNotifyOldTargets,
 				Weight::zero(),
 			);
@@ -514,7 +514,7 @@ mod benchmarks {
 
 		#[block]
 		{
-			crate::Pallet::<T>::check_xcm_version_change(
+			crate::Pallet::<T>::lazy_migration(
 				VersionMigrationStage::MigrateAndNotifyOldTargets,
 				Weight::zero(),
 			);
@@ -593,6 +593,89 @@ mod benchmarks {
 			Box::new(versioned_assets),
 			Box::new(VersionedLocation::from(claim_location)),
 		);
+
+		Ok(())
+	}
+
+	#[benchmark]
+	fn add_authorized_alias() -> Result<(), BenchmarkError> {
+		let who: T::AccountId = whitelisted_caller();
+		let origin = RawOrigin::Signed(who.clone());
+		let origin_location: VersionedLocation =
+			T::ExecuteXcmOrigin::try_origin(origin.clone().into())
+				.map_err(|_| BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)))?
+				.into();
+
+		// Give some multiple of ED
+		let balance = T::ExistentialDeposit::get() * 1000u32.into();
+		let _ =
+			<pallet_balances::Pallet::<T> as frame_support::traits::Currency<_>>::make_free_balance_be(&who, balance);
+
+		let mut existing_aliases = BoundedVec::<OriginAliaser, MaxAuthorizedAliases>::new();
+		// prepopulate list with `max-1` aliases to benchmark worst case
+		for i in 1..MaxAuthorizedAliases::get() {
+			let alias =
+				Location::new(1, [Parachain(i), AccountId32 { network: None, id: [42_u8; 32] }])
+					.into();
+			let aliaser = OriginAliaser { location: alias, expiry: None };
+			existing_aliases.try_push(aliaser).unwrap()
+		}
+		let ticket = TicketOf::<T>::new(&who, aliasers_footprint(existing_aliases.len()))
+			.map_err(|_| BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)))?;
+		let entry = AuthorizedAliasesEntry { aliasers: existing_aliases, ticket };
+		AuthorizedAliases::<T>::insert(&origin_location, entry);
+
+		// now benchmark adding new alias
+		let aliaser: VersionedLocation =
+			Location::new(1, [Parachain(1234), AccountId32 { network: None, id: [42_u8; 32] }])
+				.into();
+
+		#[extrinsic_call]
+		_(origin, Box::new(aliaser), None);
+
+		Ok(())
+	}
+
+	#[benchmark]
+	fn remove_authorized_alias() -> Result<(), BenchmarkError> {
+		let who: T::AccountId = whitelisted_caller();
+		let origin = RawOrigin::Signed(who.clone());
+		let error = BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX));
+		let origin_location =
+			T::ExecuteXcmOrigin::try_origin(origin.clone().into()).map_err(|_| error.clone())?;
+		// remove `network` from inner `AccountId32` for easier matching of automatic AccountId ->
+		// Location conversions.
+		let origin_location: VersionedLocation = match origin_location.unpack() {
+			(0, [AccountId32 { network: _, id }]) =>
+				Location::new(0, [AccountId32 { network: None, id: *id }]).into(),
+			_ => return Err(error.clone()),
+		};
+
+		// Give some multiple of ED
+		let balance = T::ExistentialDeposit::get() * 1000u32.into();
+		let _ =
+			<pallet_balances::Pallet::<T> as frame_support::traits::Currency<_>>::make_free_balance_be(&who, balance);
+
+		let mut existing_aliases = BoundedVec::<OriginAliaser, MaxAuthorizedAliases>::new();
+		// prepopulate list with `max` aliases to benchmark worst case
+		for i in 1..MaxAuthorizedAliases::get() + 1 {
+			let alias =
+				Location::new(1, [Parachain(i), AccountId32 { network: None, id: [42_u8; 32] }])
+					.into();
+			let aliaser = OriginAliaser { location: alias, expiry: None };
+			existing_aliases.try_push(aliaser).unwrap()
+		}
+		let ticket = TicketOf::<T>::new(&who, aliasers_footprint(existing_aliases.len()))
+			.map_err(|_| error)?;
+		let entry = AuthorizedAliasesEntry { aliasers: existing_aliases, ticket };
+		AuthorizedAliases::<T>::insert(&origin_location, entry);
+
+		// now benchmark removing an alias
+		let aliaser_to_remove: VersionedLocation =
+			Location::new(1, [Parachain(1), AccountId32 { network: None, id: [42_u8; 32] }]).into();
+
+		#[extrinsic_call]
+		_(origin, Box::new(aliaser_to_remove));
 
 		Ok(())
 	}

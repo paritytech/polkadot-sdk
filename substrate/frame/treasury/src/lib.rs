@@ -218,6 +218,7 @@ pub mod pallet {
 		type RejectOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
 		/// The overarching event type.
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self, I>>
 			+ IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
@@ -743,6 +744,7 @@ pub mod pallet {
 				.map_err(|_| Error::<T, I>::PayoutError)?;
 
 			spend.status = PaymentState::Attempted { id };
+			spend.expire_at = now.saturating_add(T::PayoutPeriod::get());
 			Spends::<T, I>::insert(index, spend);
 
 			Self::deposit_event(Event::<T, I>::Paid { index, payment_id: id });

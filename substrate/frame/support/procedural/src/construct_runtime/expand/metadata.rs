@@ -74,6 +74,7 @@ pub fn expand_runtime_metadata(
 
 	quote! {
 		impl #runtime {
+			#[allow(deprecated)]
 			fn metadata_ir() -> #scrate::__private::metadata_ir::MetadataIR {
 				// Each runtime must expose the `runtime_metadata()` to fetch the runtime API metadata.
 				// The function is implemented by calling `impl_runtime_apis!`.

@@ -1,4 +1,4 @@
-FROM docker.io/parity/base-bin
+FROM docker.io/paritytech/base-bin
 
 # This file allows building a Generic container image
 # based on one or multiple pre-built Linux binaries.

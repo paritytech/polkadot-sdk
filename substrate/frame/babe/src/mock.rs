@@ -39,7 +39,7 @@ use sp_runtime::{
 	impl_opaque_keys,
 	testing::{Digest, DigestItem, Header, TestXt},
 	traits::{Header as _, OpaqueKeys},
-	BoundedVec, BuildStorage, Perbill,
+	BuildStorage, Perbill,
 };
 use sp_staking::{EraIndex, SessionIndex};
 
@@ -94,7 +94,7 @@ impl_opaque_keys! {
 impl pallet_session::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type ValidatorId = <Self as frame_system::Config>::AccountId;
-	type ValidatorIdOf = pallet_staking::StashOf<Self>;
+	type ValidatorIdOf = sp_runtime::traits::ConvertInto;
 	type ShouldEndSession = Babe;
 	type NextSessionRotation = Babe;
 	type SessionManager = pallet_session::historical::NoteHistoricalRoot<Self, Staking>;
@@ -105,8 +105,9 @@ impl pallet_session::Config for Test {
 }
 
 impl pallet_session::historical::Config for Test {
+	type RuntimeEvent = RuntimeEvent;
 	type FullIdentification = ();
-	type FullIdentificationOf = pallet_staking::NullIdentity;
+	type FullIdentificationOf = pallet_staking::UnitIdentificationOf<Self>;
 }
 
 impl pallet_authorship::Config for Test {
@@ -121,9 +122,10 @@ impl pallet_timestamp::Config for Test {
 	type WeightInfo = ();
 }
 
+type Balance = u128;
 #[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for Test {
-	type Balance = u128;
+	type Balance = Balance;
 	type ExistentialDeposit = ConstU128<1>;
 	type AccountStore = System;
 }
@@ -313,6 +315,7 @@ pub fn new_test_ext_with_pairs(
 }
 
 pub fn new_test_ext_raw_authorities(authorities: Vec<AuthorityId>) -> sp_io::TestExternalities {
+	sp_tracing::try_init_simple();
 	let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 
 	let balances: Vec<_> = (0..authorities.len()).map(|i| (i as u64, 10_000_000)).collect();
@@ -346,7 +349,7 @@ pub fn new_test_ext_raw_authorities(authorities: Vec<AuthorityId>) -> sp_io::Tes
 		validator_count: 8,
 		force_era: pallet_staking::Forcing::ForceNew,
 		minimum_validator_count: 0,
-		invulnerables: BoundedVec::new(),
+		invulnerables: vec![],
 		..Default::default()
 	};
 

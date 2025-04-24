@@ -18,12 +18,10 @@ scale-info = { features = ["derive"], workspace = true }
 serde = { optional = true, workspace = true }
 
 # Bridge Dependencies
-
 bp-beefy = { workspace = true }
 bp-runtime = { workspace = true }
 
 # Substrate Dependencies
-
 frame-support = { workspace = true }
 frame-system = { workspace = true }
 sp-core = { workspace = true }
@@ -32,7 +30,7 @@ sp-std = { workspace = true }
 
 [dev-dependencies]
 bp-test-utils = { workspace = true, default-features = true }
-mmr-lib = { workspace = true }
+mmr-lib = { workspace = true, default-features = true }
 pallet-beefy-mmr = { workspace = true, default-features = true }
 pallet-mmr = { workspace = true, default-features = true }
 rand = { workspace = true, default-features = true }

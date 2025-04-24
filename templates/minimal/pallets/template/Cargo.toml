@@ -14,12 +14,8 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 codec = { features = ["derive"], workspace = true }
-polkadot-sdk = { workspace = true, default-features = false, features = [
-	"experimental",
-	"runtime",
-] }
+polkadot-sdk = { workspace = true, default-features = false, features = ["experimental", "runtime"] }
 scale-info = { features = ["derive"], workspace = true }
-
 
 [features]
 default = ["std"]

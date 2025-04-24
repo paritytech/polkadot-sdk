@@ -290,8 +290,8 @@ where
 			"basic-authorship-proposer",
 			None,
 			Box::pin(async move {
-				// leave some time for evaluation and block finalization (33%)
-				let deadline = (self.now)() + max_duration - max_duration / 3;
+				// leave some time for evaluation and block finalization (10%)
+				let deadline = (self.now)() + max_duration - max_duration / 10;
 				let res = self
 					.propose_with(inherent_data, inherent_digests, deadline, block_size_limit)
 					.await;

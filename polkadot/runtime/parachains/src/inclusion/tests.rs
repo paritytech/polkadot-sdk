@@ -107,7 +107,7 @@ pub(crate) fn back_candidate(
 	keystore: &KeystorePtr,
 	signing_context: &SigningContext,
 	kind: BackingKind,
-	core_index: Option<CoreIndex>,
+	core_index: CoreIndex,
 ) -> BackedCandidate {
 	let mut validator_indices = bitvec::bitvec![u8, BitOrderLsb0; 0; group.len()];
 	let threshold = effective_minimum_backing_votes(
@@ -1265,7 +1265,6 @@ fn candidate_checks() {
 				&allowed_relay_parents,
 				&BTreeMap::new(),
 				&group_validators,
-				false
 			),
 			Ok(Default::default())
 		);
@@ -1316,7 +1315,7 @@ fn candidate_checks() {
 				&keystore,
 				&signing_context,
 				BackingKind::Threshold,
-				None,
+				CoreIndex(0),
 			);
 
 			let backed_b_1 = back_candidate(
@@ -1326,7 +1325,7 @@ fn candidate_checks() {
 				&keystore,
 				&signing_context,
 				BackingKind::Threshold,
-				None,
+				CoreIndex(2),
 			);
 
 			let backed_b_2 = back_candidate(
@@ -1336,7 +1335,7 @@ fn candidate_checks() {
 				&keystore,
 				&signing_context,
 				BackingKind::Threshold,
-				None,
+				CoreIndex(1),
 			);
 
 			// candidates are required to be sorted in dependency order.
@@ -1353,7 +1352,6 @@ fn candidate_checks() {
 					.into_iter()
 					.collect(),
 					&group_validators,
-					false
 				),
 				Error::<Test>::ValidationDataHashMismatch
 			);
@@ -1374,7 +1372,6 @@ fn candidate_checks() {
 				.into_iter()
 				.collect(),
 				&group_validators,
-				false,
 			)
 			.unwrap();
 
@@ -1403,7 +1400,7 @@ fn candidate_checks() {
 				&keystore,
 				&signing_context,
 				BackingKind::Threshold,
-				None,
+				CoreIndex(3),
 			);
 
 			assert_noop!(
@@ -1411,7 +1408,6 @@ fn candidate_checks() {
 					&allowed_relay_parents,
 					&vec![(chain_b, vec![(backed_b_3, CoreIndex(3))])].into_iter().collect(),
 					&group_validators,
-					false
 				),
 				Error::<Test>::ValidationDataHashMismatch
 			);
@@ -1437,7 +1433,7 @@ fn candidate_checks() {
 				&keystore,
 				&signing_context,
 				BackingKind::Lacking,
-				None,
+				CoreIndex(0),
 			);
 
 			assert_noop!(
@@ -1447,7 +1443,6 @@ fn candidate_checks() {
 						.into_iter()
 						.collect(),
 					&group_validators,
-					false
 				),
 				Error::<Test>::InsufficientBacking
 			);
@@ -1460,7 +1455,7 @@ fn candidate_checks() {
 				&keystore,
 				&signing_context,
 				BackingKind::Threshold,
-				None,
+				CoreIndex(0),
 			);
 
 			assert_noop!(
@@ -1470,7 +1465,6 @@ fn candidate_checks() {
 						.into_iter()
 						.collect(),
 					&group_validators,
-					false
 				),
 				Error::<Test>::InvalidBacking
 			);
@@ -1507,7 +1501,7 @@ fn candidate_checks() {
 				&keystore,
 				&signing_context,
 				BackingKind::Threshold,
-				None,
+				chain_a_assignment.1,
 			);
 
 			let backed_b = back_candidate(
@@ -1517,7 +1511,7 @@ fn candidate_checks() {
 				&keystore,
 				&signing_context,
 				BackingKind::Threshold,
-				None,
+				chain_b_assignment.1,
 			);
 
 			assert_noop!(
@@ -1530,7 +1524,6 @@ fn candidate_checks() {
 					.into_iter()
 					.collect(),
 					&group_validators,
-					false
 				),
 				Error::<Test>::DisallowedRelayParent
 			);
@@ -1560,7 +1553,7 @@ fn candidate_checks() {
 				&keystore,
 				&signing_context,
 				BackingKind::Threshold,
-				None,
+				thread_a_assignment.1,
 			);
 
 			let candidate_receipt_with_backing_validator_indices =
@@ -1570,7 +1563,6 @@ fn candidate_checks() {
 						.into_iter()
 						.collect(),
 					&group_validators,
-					false,
 				)
 				.expect("candidate is accepted with bad collator signature");
 
@@ -1582,8 +1574,10 @@ fn candidate_checks() {
 			let candidate_receipt_with_backers = expected
 				.entry(backed_candidate.hash())
 				.or_insert_with(|| (backed_candidate.receipt(), Vec::new()));
-			let (validator_indices, _maybe_core_index) =
-				backed_candidate.validator_indices_and_core_index(true);
+			let (validator_indices, Some(_)) = backed_candidate.validator_indices_and_core_index()
+			else {
+				panic!("Expected core index")
+			};
 			assert_eq!(backed_candidate.validity_votes().len(), validator_indices.count_ones());
 			candidate_receipt_with_backers.1.extend(
 				validator_indices
@@ -1628,7 +1622,7 @@ fn candidate_checks() {
 				&keystore,
 				&signing_context,
 				BackingKind::Threshold,
-				None,
+				chain_a_assignment.1,
 			);
 
 			{
@@ -1651,7 +1645,6 @@ fn candidate_checks() {
 						.into_iter()
 						.collect(),
 					&group_validators,
-					false
 				),
 				Error::<Test>::PrematureCodeUpgrade
 			);
@@ -1676,7 +1669,7 @@ fn candidate_checks() {
 				&keystore,
 				&signing_context,
 				BackingKind::Threshold,
-				None,
+				chain_a_assignment.1,
 			);
 
 			assert_noop!(
@@ -1686,7 +1679,6 @@ fn candidate_checks() {
 						.into_iter()
 						.collect(),
 					&group_validators,
-					false,
 				),
 				Error::<Test>::ValidationDataHashMismatch
 			);
@@ -1712,7 +1704,7 @@ fn candidate_checks() {
 				&keystore,
 				&signing_context,
 				BackingKind::Threshold,
-				None,
+				chain_a_assignment.1,
 			);
 
 			assert_noop!(
@@ -1722,7 +1714,6 @@ fn candidate_checks() {
 						.into_iter()
 						.collect(),
 					&group_validators,
-					false
 				),
 				Error::<Test>::InvalidValidationCodeHash
 			);
@@ -1748,7 +1739,7 @@ fn candidate_checks() {
 				&keystore,
 				&signing_context,
 				BackingKind::Threshold,
-				None,
+				chain_a_assignment.1,
 			);
 
 			assert_noop!(
@@ -1758,7 +1749,6 @@ fn candidate_checks() {
 						.into_iter()
 						.collect(),
 					&group_validators,
-					false
 				),
 				Error::<Test>::ParaHeadMismatch
 			);
@@ -1868,7 +1858,7 @@ fn backing_works() {
 			&keystore,
 			&signing_context,
 			BackingKind::Threshold,
-			None,
+			chain_a_assignment.1,
 		);
 
 		let backed_b = back_candidate(
@@ -1878,7 +1868,7 @@ fn backing_works() {
 			&keystore,
 			&signing_context,
 			BackingKind::Threshold,
-			None,
+			chain_b_assignment.1,
 		);
 
 		let backed_c = back_candidate(
@@ -1888,7 +1878,7 @@ fn backing_works() {
 			&keystore,
 			&signing_context,
 			BackingKind::Threshold,
-			None,
+			thread_a_assignment.1,
 		);
 
 		let backed_candidates = vec![
@@ -1924,7 +1914,6 @@ fn backing_works() {
 			&allowed_relay_parents,
 			&backed_candidates,
 			&group_validators,
-			false,
 		)
 		.expect("candidates scheduled, in order, and backed");
 
@@ -1939,10 +1928,10 @@ fn backing_works() {
 				let candidate_receipt_with_backers = intermediate
 					.entry(backed_candidate.hash())
 					.or_insert_with(|| (backed_candidate.receipt(), Vec::new()));
-				let (validator_indices, None) =
-					backed_candidate.validator_indices_and_core_index(false)
+				let (validator_indices, Some(_)) =
+					backed_candidate.validator_indices_and_core_index()
 				else {
-					panic!("Expected no injected core index")
+					panic!("Expected injected core index")
 				};
 				assert_eq!(backed_candidate.validity_votes().len(), validator_indices.count_ones());
 				candidate_receipt_with_backers.1.extend(
@@ -2154,7 +2143,7 @@ fn backing_works_with_elastic_scaling_mvp() {
 			&keystore,
 			&signing_context,
 			BackingKind::Threshold,
-			None,
+			CoreIndex(0),
 		);
 
 		let backed_b_1 = back_candidate(
@@ -2164,7 +2153,7 @@ fn backing_works_with_elastic_scaling_mvp() {
 			&keystore,
 			&signing_context,
 			BackingKind::Threshold,
-			Some(CoreIndex(1)),
+			CoreIndex(1),
 		);
 
 		let backed_b_2 = back_candidate(
@@ -2174,7 +2163,7 @@ fn backing_works_with_elastic_scaling_mvp() {
 			&keystore,
 			&signing_context,
 			BackingKind::Threshold,
-			Some(CoreIndex(2)),
+			CoreIndex(2),
 		);
 
 		let mut backed_candidates = BTreeMap::new();
@@ -2212,7 +2201,6 @@ fn backing_works_with_elastic_scaling_mvp() {
 			&allowed_relay_parents,
 			&backed_candidates,
 			&group_validators,
-			true,
 		)
 		.expect("candidates scheduled, in order, and backed");
 
@@ -2227,8 +2215,11 @@ fn backing_works_with_elastic_scaling_mvp() {
 				let candidate_receipt_with_backers = expected
 					.entry(backed_candidate.hash())
 					.or_insert_with(|| (backed_candidate.receipt(), Vec::new()));
-				let (validator_indices, _maybe_core_index) =
-					backed_candidate.validator_indices_and_core_index(true);
+				let (validator_indices, Some(_)) =
+					backed_candidate.validator_indices_and_core_index()
+				else {
+					panic!("Expected injected core index")
+				};
 				assert_eq!(backed_candidate.validity_votes().len(), validator_indices.count_ones());
 				candidate_receipt_with_backers.1.extend(
 					validator_indices
@@ -2388,7 +2379,7 @@ fn can_include_candidate_with_ok_code_upgrade() {
 			&keystore,
 			&signing_context,
 			BackingKind::Threshold,
-			None,
+			chain_a_assignment.1,
 		);
 
 		let _ = ParaInclusion::process_candidates(
@@ -2397,7 +2388,6 @@ fn can_include_candidate_with_ok_code_upgrade() {
 				.into_iter()
 				.collect::<BTreeMap<_, _>>(),
 			group_validators,
-			false,
 		)
 		.expect("candidates scheduled, in order, and backed");
 
@@ -2581,7 +2571,7 @@ fn check_allowed_relay_parents() {
 			&keystore,
 			&signing_context_a,
 			BackingKind::Threshold,
-			None,
+			chain_a_assignment.1,
 		);
 
 		let backed_b = back_candidate(
@@ -2591,7 +2581,7 @@ fn check_allowed_relay_parents() {
 			&keystore,
 			&signing_context_b,
 			BackingKind::Threshold,
-			None,
+			chain_b_assignment.1,
 		);
 
 		let backed_c = back_candidate(
@@ -2601,7 +2591,7 @@ fn check_allowed_relay_parents() {
 			&keystore,
 			&signing_context_c,
 			BackingKind::Threshold,
-			None,
+			thread_a_assignment.1,
 		);
 
 		let backed_candidates = vec![
@@ -2616,7 +2606,6 @@ fn check_allowed_relay_parents() {
 			&allowed_relay_parents,
 			&backed_candidates,
 			&group_validators,
-			false,
 		)
 		.expect("candidates scheduled, in order, and backed");
 	});
@@ -2811,7 +2800,7 @@ fn para_upgrade_delay_scheduled_from_inclusion() {
 			&keystore,
 			&signing_context,
 			BackingKind::Threshold,
-			None,
+			chain_a_assignment.1,
 		);
 
 		let _ =
@@ -2821,7 +2810,6 @@ fn para_upgrade_delay_scheduled_from_inclusion() {
 					.into_iter()
 					.collect::<BTreeMap<_, _>>(),
 				&group_validators,
-				false,
 			)
 			.expect("candidates scheduled, in order, and backed");
 

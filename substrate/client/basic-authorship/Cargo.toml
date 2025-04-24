@@ -18,7 +18,6 @@ targets = ["x86_64-unknown-linux-gnu"]
 [dependencies]
 codec = { workspace = true, default-features = true }
 futures = { workspace = true }
-futures-timer = { workspace = true }
 log = { workspace = true, default-features = true }
 prometheus-endpoint = { workspace = true, default-features = true }
 sc-block-builder = { workspace = true, default-features = true }

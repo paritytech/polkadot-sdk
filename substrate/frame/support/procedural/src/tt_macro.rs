@@ -29,13 +29,13 @@ struct CreateTtReturnMacroDef {
 impl syn::parse::Parse for CreateTtReturnMacroDef {
 	fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
 		let name = input.parse()?;
-		let _ = input.parse::<syn::Token![,]>()?;
+		input.parse::<syn::Token![,]>()?;
 
 		let mut args = Vec::new();
 		while !input.is_empty() {
 			let mut value;
 			let key: Ident = input.parse()?;
-			let _ = input.parse::<syn::Token![=]>()?;
+			input.parse::<syn::Token![=]>()?;
 			let _: syn::token::Bracket = syn::bracketed!(value in input);
 			let _: syn::token::Brace = syn::braced!(value in value);
 			let value: TokenStream = value.parse()?;

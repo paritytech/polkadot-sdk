@@ -1,0 +1,30 @@
+title: 'Frame: Authorize pallet::error int discriminant'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Authorize int discriminants for pallet::error
+
+    Why?
+    The raw hex value shows up in tools like polkadotjs, being able to quiclkly scan the enum of the code base to find out what error was triggered can be very useful, especially when the enum is large like in pallet-revive
+
+    e.g:
+
+    ```rust
+
+    #[pallet::error]
+    #[repr(u8)]
+    pub enum Error<T> {
+        /// Invalid schedule supplied, e.g. with zero weight of a basic operation.
+        InvalidSchedule = 0x00,
+        /// Invalid combination of flags supplied to `seal_call` or `seal_delegate_call`.
+        InvalidCallFlags = 0x01,
+        /// The executed contract exhausted its gas limit.
+        OutOfGas = 0x02,
+        /// ...
+    }
+    ```
+crates:
+- name: pallet-revive
+  bump: patch
+- name: frame-support-procedural
+  bump: patch

@@ -1,0 +1,184 @@
+title: '[AHM] Async Staking module across AH and RC'
+doc:
+- audience: Runtime Dev
+  description: |-
+    This PR is the final outcome of a multi-month development period, with a lot of background work
+    since 2022. Its main aim is to make pallet-staking, alongside its `type ElectionProvider`
+    compatible to be used in a parachain, and report back the validator set to a relay-chain.
+
+    This setup is intended to be used for Polkadot, Kusama and Westend relay-chains, with the
+    corresponding AssetHubs hosting the staking system.
+
+    While this PR is quite big, a lot of the diffs are due to adding a relay and parachain runtime
+    for testing. The following is a guide to help reviewers/auditors distinguish what has actually
+    changed in this PR.
+
+    ## Added
+
+    This PR adds the following new pallets, all of which are not used anywhere yet, with the
+    exception of one (see `westend-runtime` changes below).
+
+    #### `pallet-election-provider-multi-block`
+
+    This is a set of 4 pallets, capable of implementing an async, multi-page `ElectionProvider`.
+    This pallet is not used in any real runtime yet, and is intended to be used in `AssetHub`, next
+    to `pallet-staking-async`.
+
+    #### `pallet-staking-async`
+
+    A fork of the old `pallet-staking`, with a number of key differences, making it suitable to be
+    used in a parachain:
+
+    1. It no longer has access to a secure timestamp, previously used to calculate the duration of
+    an era. 2. It no longer has access to a `pallet-session`. 2. It no longer has access to a
+    `pallet-authorship`. 3. It is capable of working with a multi-page `ElectionProvider`, aka.
+    `pallet-election-provider-multi-block`.
+
+    To compensate for the above, this pallet relies on XCM messages coming from the relay-chain,
+    informing the pallet of:
+
+    * When a new era should be activated, and how long its duration was
+    * When an offence has happened on the relay relay-chain
+    * When a session ends on the relay-chain, and how many reward points were accumulated for each
+    validators during that period.
+
+    #### `pallet-staking-async-ah-client` and `pallet-staking-async-rc-client`
+
+    Are the two new pallets that facilitate the above communication.
+
+    #### `pallet-ahm-test`
+
+    A test-only crate that contains e2e rust-based unit test for all of the above.
+
+    #### `pallet-staking-async-rc-runtime` and `pallet-staking-async-parachain-runtime`
+
+    Forks of westend and westend-asset-hub, customized to be used for testing all of the above with
+    Zombienet. It contains a lot of unrelated code as well.
+
+    ## Changed
+
+    #### `Identification`
+
+    This mechanism, which lives on the relay-chain, is expressed by `type FullIdentification` and `type FullIdentificationOf` in runtimes. It is a way to identify the full data needed to slash a validator. Historically, it was pointing to a validator, and their `struct Exposure`. With the move to Asset-Hub, this is no longer possible for two reasons:
+
+    1. Relay chain no longer knows the full exposures
+    2. Even if, the full exposures are getting bigger and bigger and relying the entirety of it is not scalable.
+
+    Instead, runtimes now move to a new `type FullIdentificationOf = DefaultExposureOf`, which will identify a validator with a `Exposure::default()`. This is suboptimal, as it forces us to still store a number of bytes. Yet, it allows any old `FullIdentification`, pertaining to an old slash, to be decoded. This compromise is only needed to cater for slashes that happen around the time of AHM.
+
+    #### `westend-runtime`
+
+    This runtime already has the `pallet-staking-async-ah-client`, integrated into all the places such that:
+
+    1. It handles the validator reward points
+    2. It handles offences
+    3. It is the `SessionManager`
+
+    Yet, it is delegating all of the above to its `type Fallback`, which is the old `pallet-staking`. This is a preparatory step for AHM, and should not be any logical change.
+
+    #### `pallet-election-provider-multi-phase`
+
+    This is the old single-page `ElectionProvider`. It has been updated to work with multi-page traits, yet it only supports `page-size = 1` for now. It should not have seen any logical changes.
+
+
+    #### `pallet-bags-list`
+
+    Now has two new features. 1. It can be `Locked`, in which case all updates to it fail with an
+    `Err(_)`, even deletion of a node. This is needed because we cannot alter any nodes in this
+    pallet during a multi-page iteration, aka. multi-page snapshot. 2. To combat this, the same
+    `rebag` transaction can be also be used to remove a node from the list, or add a node to the
+    list. This is done through the `score_of` api.
+
+    See the file changes and tests under `./substrate/frame/bags-list` for more info.
+
+    #### RuntimeDebug -> Debug
+
+    To facilitate debugging, a number of types' `RuntimeDebug` impl has been changed to `Debug`. See https://github.com/paritytech/polkadot-sdk/pull/3107
+
+crates:
+- name: pallet-bags-list
+  bump: major
+- name: pallet-staking
+  bump: major
+- name: pallet-election-provider-multi-block
+  bump: patch
+- name: frame-election-provider-support
+  bump: major
+- name: polkadot-node-primitives
+  bump: patch
+- name: pallet-election-provider-multi-phase
+  bump: major
+- name: pallet-fast-unstake
+  bump: patch
+- name: pallet-babe
+  bump: patch
+- name: pallet-beefy
+  bump: patch
+- name: pallet-delegated-staking
+  bump: patch
+- name: pallet-grandpa
+  bump: patch
+- name: pallet-offences-benchmarking
+  bump: patch
+- name: pallet-root-offences
+  bump: major
+- name: pallet-session-benchmarking
+  bump: patch
+- name: frame-support
+  bump: minor
+- name: westend-runtime
+  bump: major
+- name: polkadot-parachain-primitives
+  bump: patch
+- name: polkadot-runtime-parachains
+  bump: minor
+- name: polkadot
+  bump: patch
+- name: pallet-session
+  bump: major
+- name: frame-support-procedural
+  bump: patch
+- name: sp-runtime
+  bump: patch
+- name: polkadot-sdk-frame
+  bump: patch
+- name: pallet-elections-phragmen
+  bump: patch
+- name: pallet-nomination-pools-benchmarking
+  bump: patch
+- name: sp-npos-elections
+  bump: major
+- name: sp-staking
+  bump: minor
+- name: polkadot-sdk
+  bump: minor
+- name: pallet-staking-reward-fn
+  bump: patch
+- name: pallet-staking-async
+  bump: patch
+- name: pallet-staking-async-ah-client
+  bump: patch
+- name: pallet-staking-async-rc-client
+  bump: patch
+- name: pallet-staking-async-reward-fn
+  bump: patch
+- name: pallet-staking-async-runtime-api
+  bump: patch
+- name: pallet-staking-async-parachain-runtime
+  bump: patch
+- name: pallet-staking-async-rc-runtime
+  bump: patch
+- name: pallet-staking-async-rc-runtime-constants
+  bump: patch
+- name: rococo-runtime
+  bump: major
+- name: pallet-authority-discovery
+  bump: patch
+- name: pallet-im-online
+  bump: patch
+- name: pallet-collator-selection
+  bump: patch
+- name: pallet-beefy-mmr
+  bump: patch
+- name: pallet-nomination-pools
+  bump: patch

@@ -24,6 +24,7 @@ mod pallet {
 	pub trait Config: frame_system::Config {
 		#[pallet::no_default_bounds]
 		#[pallet::include_metadata]
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		#[pallet::constant]

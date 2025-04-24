@@ -256,7 +256,7 @@ async fn assert_collation_seconded(
 				overseer_recv(virtual_overseer).await,
 				AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::SendCollationMessage(
 					peers,
-					Versioned::V1(protocol_v1::CollationProtocol::CollatorProtocol(
+					CollationProtocols::V1(protocol_v1::CollationProtocol::CollatorProtocol(
 						protocol_v1::CollatorProtocolMessage::CollationSeconded(
 							_relay_parent,
 							..,
@@ -273,7 +273,7 @@ async fn assert_collation_seconded(
 				overseer_recv(virtual_overseer).await,
 				AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::SendCollationMessage(
 					peers,
-					Versioned::V2(protocol_v2::CollationProtocol::CollatorProtocol(
+					CollationProtocols::V2(protocol_v2::CollationProtocol::CollatorProtocol(
 						protocol_v2::CollatorProtocolMessage::CollationSeconded(
 							_relay_parent,
 							..,

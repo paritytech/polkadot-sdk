@@ -32,7 +32,6 @@ zstd = { optional = true, workspace = true }
 
 [dev-dependencies]
 pallet-balances = { workspace = true, default-features = true }
-parking_lot = { workspace = true, default-features = true }
 sp-tracing = { workspace = true, default-features = true }
 tokio = { features = ["macros"], workspace = true, default-features = true }
 

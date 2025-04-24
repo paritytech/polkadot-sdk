@@ -189,7 +189,7 @@ macro_rules! impl_ensure_origin_with_arg_ignoring_arg {
 	( impl < { O: .., I: 'static, $( $bound:tt )* }> EnsureOriginWithArg<O, $t_param:ty> for $name:ty {} ) => {
 		impl_ensure_origin_with_arg_ignoring_arg! {
 			impl <{
-				O: Into<Result<RawOrigin<AccountId, I>, O>> + From<RawOrigin<AccountId, I>>,
+				O: $crate::traits::OriginTrait,
 				I: 'static,
 				$( $bound )*
 			}> EnsureOriginWithArg<O, $t_param> for $name {}
@@ -198,7 +198,7 @@ macro_rules! impl_ensure_origin_with_arg_ignoring_arg {
 	( impl < { O: .. , $( $bound:tt )* }> EnsureOriginWithArg<O, $t_param:ty> for $name:ty {} ) => {
 		impl_ensure_origin_with_arg_ignoring_arg! {
 			impl <{
-				O: Into<Result<RawOrigin<AccountId>, O>> + From<RawOrigin<AccountId>>,
+				O: $crate::traits::OriginTrait,
 				$( $bound )*
 			}> EnsureOriginWithArg<O, $t_param> for $name {}
 		}

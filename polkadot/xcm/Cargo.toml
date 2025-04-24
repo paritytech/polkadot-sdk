@@ -29,7 +29,6 @@ sp-weights = { features = ["serde"], workspace = true }
 xcm-procedural = { workspace = true, default-features = true }
 
 [dev-dependencies]
-hex = { workspace = true, default-features = true }
 sp-io = { workspace = true, default-features = true }
 
 [features]

@@ -52,6 +52,8 @@ pub use storage_proof::{
 };
 pub use storage_types::BoundedStorageValue;
 
+extern crate alloc;
+
 pub mod extensions;
 pub mod messages;
 
@@ -61,6 +63,13 @@ mod storage_types;
 
 // Re-export macro to avoid include paste dependency everywhere
 pub use sp_runtime::paste;
+
+// Re-export for usage in macro.
+#[doc(hidden)]
+pub mod private {
+	#[doc(hidden)]
+	pub use alloc::vec::Vec;
+}
 
 /// Use this when something must be shared among all instances.
 pub const NO_INSTANCE_ID: ChainId = [0, 0, 0, 0];

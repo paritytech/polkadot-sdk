@@ -28,9 +28,9 @@ use sc_network::{
 
 use codec::DecodeAll;
 use polkadot_node_network_protocol::{
-	peer_set::{PeerSetProtocolNames, ValidationVersion},
+	peer_set::PeerSetProtocolNames,
 	request_response::{outgoing::Requests, ReqProtocolNames},
-	v1 as protocol_v1, v2 as protocol_v2, ObservedRole, Versioned,
+	v1 as protocol_v1, v3 as protocol_v3, CollationProtocols, ObservedRole, ValidationProtocols,
 };
 use polkadot_node_subsystem::{FromOrchestra, OverseerSignal};
 use polkadot_node_subsystem_test_helpers::TestSubsystemContextHandle;
@@ -220,13 +220,7 @@ impl TestNetworkHandle {
 		self.action_rx.next().await.expect("subsystem concluded early")
 	}
 
-	async fn connect_peer(
-		&mut self,
-		peer: PeerId,
-		_protocol_version: ValidationVersion,
-		peer_set: PeerSet,
-		_role: ObservedRole,
-	) {
+	async fn connect_peer(&mut self, peer: PeerId, peer_set: PeerSet, _role: ObservedRole) {
 		self.notification_sinks.lock().insert(
 			(peer_set, peer),
 			Box::new(TestMessageSink::new(peer, peer_set, self.action_tx.clone())),
@@ -289,7 +283,7 @@ fn send_messages_to_peers() {
 		let peer = PeerId::random();
 
 		network_handle
-			.connect_peer(peer, ValidationVersion::V1, PeerSet::Validation, ObservedRole::Full)
+			.connect_peer(peer, PeerSet::Validation, ObservedRole::Full)
 			.timeout(TIMEOUT)
 			.await
 			.expect("Timeout does not occur");
@@ -298,7 +292,7 @@ fn send_messages_to_peers() {
 		// so the single item sink has to be free explicitly
 
 		network_handle
-			.connect_peer(peer, ValidationVersion::V1, PeerSet::Collation, ObservedRole::Full)
+			.connect_peer(peer, PeerSet::Collation, ObservedRole::Full)
 			.timeout(TIMEOUT)
 			.await
 			.expect("Timeout does not occur");
@@ -307,9 +301,9 @@ fn send_messages_to_peers() {
 
 		{
 			let approval_distribution_message =
-				protocol_v1::ApprovalDistributionMessage::Approvals(Vec::new());
+				protocol_v3::ApprovalDistributionMessage::Approvals(Vec::new());
 
-			let message_v1 = protocol_v1::ValidationProtocol::ApprovalDistribution(
+			let message_v1 = protocol_v3::ValidationProtocol::ApprovalDistribution(
 				approval_distribution_message.clone(),
 			);
 
@@ -317,7 +311,7 @@ fn send_messages_to_peers() {
 				.send(FromOrchestra::Communication {
 					msg: NetworkBridgeTxMessage::SendValidationMessage(
 						vec![peer],
-						Versioned::V1(message_v1.clone()),
+						ValidationProtocols::V3(message_v1.clone()),
 					),
 				})
 				.timeout(TIMEOUT)
@@ -354,7 +348,7 @@ fn send_messages_to_peers() {
 				.send(FromOrchestra::Communication {
 					msg: NetworkBridgeTxMessage::SendCollationMessage(
 						vec![peer],
-						Versioned::V1(message_v1.clone()),
+						CollationProtocols::V1(message_v1.clone()),
 					),
 				})
 				.await;
@@ -371,110 +365,6 @@ fn send_messages_to_peers() {
 					WireMessage::ProtocolMessage(message_v1).encode(),
 				)
 			);
-		}
-		virtual_overseer
-	});
-}
-
-#[test]
-fn network_protocol_versioning_send() {
-	test_harness(|test_harness| async move {
-		let TestHarness { mut network_handle, mut virtual_overseer } = test_harness;
-
-		let peer_ids: Vec<_> = (0..4).map(|_| PeerId::random()).collect();
-		let peers = [
-			(peer_ids[0], PeerSet::Validation, ValidationVersion::V2),
-			(peer_ids[1], PeerSet::Collation, ValidationVersion::V1),
-			(peer_ids[2], PeerSet::Validation, ValidationVersion::V1),
-			(peer_ids[3], PeerSet::Collation, ValidationVersion::V2),
-		];
-
-		for &(peer_id, peer_set, version) in &peers {
-			network_handle
-				.connect_peer(peer_id, version, peer_set, ObservedRole::Full)
-				.timeout(TIMEOUT)
-				.await
-				.expect("Timeout does not occur");
-		}
-
-		// send a validation protocol message.
-		{
-			let approval_distribution_message =
-				protocol_v2::ApprovalDistributionMessage::Approvals(Vec::new());
-
-			let msg = protocol_v2::ValidationProtocol::ApprovalDistribution(
-				approval_distribution_message.clone(),
-			);
-
-			// only `peer_ids[0]` opened the validation protocol v2
-			// so only they will be sent a notification
-			let receivers = vec![peer_ids[0]];
-			virtual_overseer
-				.send(FromOrchestra::Communication {
-					msg: NetworkBridgeTxMessage::SendValidationMessage(
-						receivers.clone(),
-						Versioned::V2(msg.clone()),
-					),
-				})
-				.timeout(TIMEOUT)
-				.await
-				.expect("Timeout does not occur");
-
-			for peer in &receivers {
-				assert_eq!(
-					network_handle
-						.next_network_action()
-						.timeout(TIMEOUT)
-						.await
-						.expect("Timeout does not occur"),
-					NetworkAction::WriteNotification(
-						*peer,
-						PeerSet::Validation,
-						WireMessage::ProtocolMessage(msg.clone()).encode(),
-					)
-				);
-			}
-		}
-
-		// send a collation protocol message.
-
-		{
-			let collator_protocol_message = protocol_v2::CollatorProtocolMessage::Declare(
-				Sr25519Keyring::Alice.public().into(),
-				0_u32.into(),
-				dummy_collator_signature(),
-			);
-
-			let msg =
-				protocol_v2::CollationProtocol::CollatorProtocol(collator_protocol_message.clone());
-
-			// only `peer_ids[0]` opened the collation protocol v2
-			// so only they will be sent a notification
-			let receivers = vec![peer_ids[1]];
-
-			virtual_overseer
-				.send(FromOrchestra::Communication {
-					msg: NetworkBridgeTxMessage::SendCollationMessages(vec![(
-						receivers.clone(),
-						Versioned::V2(msg.clone()),
-					)]),
-				})
-				.await;
-
-			for peer in &receivers {
-				assert_eq!(
-					network_handle
-						.next_network_action()
-						.timeout(TIMEOUT)
-						.await
-						.expect("Timeout does not occur"),
-					NetworkAction::WriteNotification(
-						*peer,
-						PeerSet::Collation,
-						WireMessage::ProtocolMessage(msg.clone()).encode(),
-					)
-				);
-			}
 		}
 		virtual_overseer
 	});

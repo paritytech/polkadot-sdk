@@ -218,7 +218,7 @@ mod benchmarks {
 		let caller: T::AccountId = whitelisted_caller();
 
 		// Give them p many previous sub accounts.
-		let _ = add_sub_accounts::<T>(&caller, p)?;
+		add_sub_accounts::<T>(&caller, p)?;
 
 		// Remove all subs.
 		let subs = create_sub_accounts::<T>(&caller, 0)?;
@@ -246,7 +246,7 @@ mod benchmarks {
 		add_registrars::<T>(r)?;
 
 		// Add sub accounts
-		let _ = add_sub_accounts::<T>(&caller, s)?;
+		add_sub_accounts::<T>(&caller, s)?;
 
 		// Create their main identity with x additional fields
 		let info = T::IdentityInformation::create_identity_info();
@@ -464,7 +464,7 @@ mod benchmarks {
 
 		let info = T::IdentityInformation::create_identity_info();
 		Identity::<T>::set_identity(target_origin.clone(), Box::new(info.clone()))?;
-		let _ = add_sub_accounts::<T>(&target, s)?;
+		add_sub_accounts::<T>(&target, s)?;
 
 		// User requests judgement from all the registrars, and they approve
 		for i in 0..r {
@@ -498,7 +498,7 @@ mod benchmarks {
 	#[benchmark]
 	fn add_sub(s: Linear<0, { T::MaxSubAccounts::get() - 1 }>) -> Result<(), BenchmarkError> {
 		let caller: T::AccountId = whitelisted_caller();
-		let _ = add_sub_accounts::<T>(&caller, s)?;
+		add_sub_accounts::<T>(&caller, s)?;
 		let sub = account("new_sub", 0, SEED);
 		let data = Data::Raw(vec![0; 32].try_into().unwrap());
 
@@ -546,7 +546,7 @@ mod benchmarks {
 	fn quit_sub(s: Linear<0, { T::MaxSubAccounts::get() - 1 }>) -> Result<(), BenchmarkError> {
 		let caller: T::AccountId = whitelisted_caller();
 		let sup = account("super", 0, SEED);
-		let _ = add_sub_accounts::<T>(&sup, s)?;
+		add_sub_accounts::<T>(&sup, s)?;
 		let sup_origin = RawOrigin::Signed(sup).into();
 		Identity::<T>::add_sub(
 			sup_origin,

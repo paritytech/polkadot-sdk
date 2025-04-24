@@ -37,20 +37,22 @@ pub use cumulus_primitives_core::AggregateMessageOrigin as CumulusAggregateMessa
 pub use frame_support::{
 	assert_ok,
 	sp_runtime::{
-		traits::{Dispatchable, Header as HeaderT},
-		DispatchResult,
+		traits::{Convert, Dispatchable, Header as HeaderT, Zero},
+		Digest, DispatchResult,
 	},
 	traits::{
-		EnqueueMessage, ExecuteOverweightError, Get, Hooks, OnInitialize, OriginTrait,
-		ProcessMessage, ProcessMessageError, ServiceQueues,
+		EnqueueMessage, ExecuteOverweightError, Get, Hooks, OnFinalize, OnIdle, OnInitialize,
+		OriginTrait, ProcessMessage, ProcessMessageError, ServiceQueues,
 	},
 	weights::{Weight, WeightMeter},
 };
 pub use frame_system::{
-	pallet_prelude::BlockNumberFor, Config as SystemConfig, Pallet as SystemPallet,
+	limits::BlockWeights as BlockWeightsLimits, pallet_prelude::BlockNumberFor,
+	Config as SystemConfig, Pallet as SystemPallet,
 };
 pub use pallet_balances::AccountData;
 pub use pallet_message_queue;
+pub use pallet_timestamp::Call as TimestampCall;
 pub use sp_arithmetic::traits::Bounded;
 pub use sp_core::{
 	crypto::get_public_from_string_or_panic, parameter_types, sr25519, storage::Storage, Pair,
@@ -61,7 +63,9 @@ pub use sp_runtime::BoundedSlice;
 pub use sp_tracing;
 
 // Cumulus
-pub use cumulus_pallet_parachain_system::Pallet as ParachainSystemPallet;
+pub use cumulus_pallet_parachain_system::{
+	Call as ParachainSystemCall, Pallet as ParachainSystemPallet,
+};
 pub use cumulus_primitives_core::{
 	relay_chain::{BlockNumber as RelayBlockNumber, HeadData, HrmpChannelId},
 	AbridgedHrmpChannel, DmpMessageHandler, ParaId, PersistedValidationData, XcmpMessageHandler,
@@ -108,7 +112,6 @@ thread_local! {
 	/// Most recent `HeadData` of each parachain, encoded.
 	pub static LAST_HEAD: RefCell<HashMap<String, HashMap<u32, HeadData>>> = RefCell::new(HashMap::new());
 }
-
 pub trait CheckAssertion<Origin, Destination, Hops, Args>
 where
 	Origin: Chain + Clone,
@@ -264,6 +267,7 @@ pub trait Parachain: Chain {
 	type ParachainInfo: Get<ParaId>;
 	type ParachainSystem;
 	type MessageProcessor: ProcessMessage + ServiceQueues;
+	type DigestProvider: Convert<BlockNumberFor<Self::Runtime>, Digest>;
 
 	fn init();
 
@@ -599,6 +603,7 @@ macro_rules! decl_test_parachains {
 					LocationToAccountId: $location_to_account:path,
 					ParachainInfo: $parachain_info:path,
 					MessageOrigin: $message_origin:path,
+					$( DigestProvider: $digest_provider:ty, )?
 				},
 				pallets = {
 					$($pallet_name:ident: $pallet_path:path,)*
@@ -639,11 +644,13 @@ macro_rules! decl_test_parachains {
 				type ParachainSystem = $crate::ParachainSystemPallet<<Self as $crate::Chain>::Runtime>;
 				type ParachainInfo = $parachain_info;
 				type MessageProcessor = $crate::DefaultParaMessageProcessor<$name<N>, $message_origin>;
+				$crate::decl_test_parachains!(@inner_digest_provider $($digest_provider)?);
 
 				// We run an empty block during initialisation to open HRMP channels
 				// and have them ready for the next block
 				fn init() {
-					use $crate::{Chain, HeadData, Network, Hooks, Encode, Parachain, TestExt};
+					use $crate::{Chain, TestExt};
+
 					// Initialize the thread local variable
 					$crate::paste::paste! {
 						[<LOCAL_EXT_ $name:upper>].with(|v| *v.borrow_mut() = Self::build_new_ext($genesis));
@@ -657,7 +664,9 @@ macro_rules! decl_test_parachains {
 				}
 
 				fn new_block() {
-					use $crate::{Chain, HeadData, Network, Hooks, Encode, Parachain, TestExt};
+					use $crate::{
+						Dispatchable, Chain, Convert, TestExt, Zero,
+					};
 
 					let para_id = Self::para_id().into();
 
@@ -677,22 +686,51 @@ macro_rules! decl_test_parachains {
 							.expect("network not initialized?")
 							.clone()
 						);
-						<Self as Chain>::System::initialize(&block_number, &parent_head_data.hash(), &Default::default());
-						<<Self as Parachain>::ParachainSystem as Hooks<$crate::BlockNumberFor<Self::Runtime>>>::on_initialize(block_number);
 
-						let _ = <Self as Parachain>::ParachainSystem::set_validation_data(
-							<Self as Chain>::RuntimeOrigin::none(),
-							N::hrmp_channel_parachain_inherent_data(para_id, relay_block_number, parent_head_data),
+						// Initialze `System`.
+						let digest = <Self as Parachain>::DigestProvider::convert(block_number);
+						<Self as Chain>::System::initialize(&block_number, &parent_head_data.hash(), &digest);
+
+						// Process `on_initialize` for all pallets except `System`.
+						let _ = $runtime::AllPalletsWithoutSystem::on_initialize(block_number);
+
+						// Process parachain inherents:
+
+						// 1. inherent: cumulus_pallet_parachain_system::Call::set_validation_data
+						let set_validation_data: <Self as Chain>::RuntimeCall = $crate::ParachainSystemCall::set_validation_data {
+							data: N::hrmp_channel_parachain_inherent_data(para_id, relay_block_number, parent_head_data),
+						}.into();
+						$crate::assert_ok!(
+							set_validation_data.dispatch(<Self as Chain>::RuntimeOrigin::none())
+						);
+
+						// 2. inherent: pallet_timestamp::Call::set (we expect the parachain has `pallet_timestamp`)
+						let timestamp_set: <Self as Chain>::RuntimeCall = $crate::TimestampCall::set {
+							// We need to satisfy `pallet_timestamp::on_finalize`.
+							now: Zero::zero(),
+						}.into();
+						$crate::assert_ok!(
+							timestamp_set.dispatch(<Self as Chain>::RuntimeOrigin::none())
 						);
 					});
 				}
 
 				fn finalize_block() {
-					use $crate::{Chain, Encode, Hooks, Network, Parachain, TestExt};
+					use $crate::{BlockWeightsLimits, Chain, OnFinalize, OnIdle, SystemConfig, TestExt, Weight};
 
 					Self::ext_wrapper(|| {
 						let block_number = <Self as Chain>::System::block_number();
-						<Self as Parachain>::ParachainSystem::on_finalize(block_number);
+
+						// Process `on_idle` for all pallets.
+						let weight = <Self as Chain>::System::block_weight();
+						let max_weight: Weight = <<<Self as Chain>::Runtime as SystemConfig>::BlockWeights as frame_support::traits::Get<BlockWeightsLimits>>::get().max_block;
+						let remaining_weight = max_weight.saturating_sub(weight.total());
+						if remaining_weight.all_gt(Weight::zero()) {
+							let _ = $runtime::AllPalletsWithSystem::on_idle(block_number, remaining_weight);
+						}
+
+						// Process `on_finalize` for all pallets except `System`.
+						$runtime::AllPalletsWithoutSystem::on_finalize(block_number);
 					});
 
 					Self::set_last_head();
@@ -700,7 +738,7 @@ macro_rules! decl_test_parachains {
 
 
 				fn set_last_head() {
-					use $crate::{Chain, Encode, HeadData, Network, Parachain, TestExt};
+					use $crate::{Chain, Encode, HeadData, TestExt};
 
 					let para_id = Self::para_id().into();
 
@@ -734,6 +772,8 @@ macro_rules! decl_test_parachains {
 			$crate::__impl_check_assertion!($name, N);
 		)+
 	};
+	( @inner_digest_provider $digest_provider:ty ) => { type DigestProvider = $digest_provider; };
+	( @inner_digest_provider /* none */ ) => { type DigestProvider = (); };
 }
 
 #[macro_export]
@@ -1150,7 +1190,7 @@ macro_rules! decl_test_networks {
 
 					$crate::ParachainInherentData {
 						validation_data: $crate::PersistedValidationData {
-							parent_head: Default::default(),
+							parent_head: parent_head_data.clone(),
 							relay_parent_number,
 							relay_parent_storage_root: relay_storage_root,
 							max_pov_size: Default::default(),
@@ -1253,63 +1293,62 @@ macro_rules! __impl_check_assertion {
 
 #[macro_export]
 macro_rules! assert_expected_events {
-	( $chain:ident, vec![$( $event_pat:pat => { $($attr:ident : $condition:expr, )* }, )*] ) => {
-		let mut message: Vec<String> = Vec::new();
+    ( $chain:ident, vec![$( $event_pat:pat => { $($attr:ident : $condition:expr, )* }, )*] ) => {
+		let mut messages: Vec<String> = Vec::new();
 		let mut events = <$chain as $crate::Chain>::events();
 
+		// For each event pattern, we try to find a matching event.
 		$(
-			let mut event_received = false;
-			let mut meet_conditions = true;
-			let mut index_match = 0;
-			let mut event_message: Vec<String> = Vec::new();
-
-			for (index, event) in events.iter().enumerate() {
-				// Have to reset the variable to override a previous partial match
-				meet_conditions = true;
+			// We'll store a string representation of the first partially matching event.
+			let mut failure_message: Option<String> = None;
+			for index in 0..events.len() {
+				let event = &events[index];
 				match event {
 					$event_pat => {
-						event_received = true;
+						let mut event_meets_conditions = true;
 						let mut conditions_message: Vec<String> = Vec::new();
 
 						$(
-							// We only want to record condition error messages in case it did not happened before
-							// Only the first partial match is recorded
-							if !$condition && event_message.is_empty() {
+							if !$condition {
 								conditions_message.push(
 									format!(
-										" - The attribute {:?} = {:?} did not met the condition {:?}\n",
+										" - The attribute {} = {:?} did not meet the condition {}\n",
 										stringify!($attr),
 										$attr,
 										stringify!($condition)
 									)
 								);
 							}
-							meet_conditions &= $condition;
+							event_meets_conditions &= $condition;
 						)*
 
-						// Set the index where we found a perfect match
-						if event_received && meet_conditions {
-							index_match = index;
+						if failure_message.is_none() && !conditions_message.is_empty() {
+							// Record the failure message.
+							failure_message = Some(format!(
+								"\n\n{}::\x1b[31m{}\x1b[0m was received but some of its attributes did not meet the conditions.\n\
+								 Actual event:\n{:#?}\n\
+								 Failures:\n{}",
+								stringify!($chain),
+								stringify!($event_pat),
+								event,
+								conditions_message.concat()
+							));
+						}
+
+						if event_meets_conditions {
+							// Found an event where all conditions hold.
+							failure_message = None;
+							events.remove(index);
 							break;
-						} else {
-							event_message.extend(conditions_message);
 						}
 					},
 					_ => {}
 				}
 			}
 
-			if event_received && !meet_conditions  {
-				message.push(
-					format!(
-						"\n\n{}::\x1b[31m{}\x1b[0m was received but some of its attributes did not meet the conditions:\n{}",
-						stringify!($chain),
-						stringify!($event_pat),
-						event_message.concat()
-					)
-				);
-			} else if !event_received {
-				message.push(
+			if failure_message.is_some() {
+				// No event matching the pattern was found.
+				messages.push(
 					format!(
 						"\n\n{}::\x1b[31m{}\x1b[0m was never received. All events:\n{:#?}",
 						stringify!($chain),
@@ -1317,18 +1356,15 @@ macro_rules! assert_expected_events {
 						<$chain as $crate::Chain>::events(),
 					)
 				);
-			} else {
-				// If we find a perfect match we remove the event to avoid being potentially assessed multiple times
-				events.remove(index_match);
 			}
 		)*
 
-		if !message.is_empty() {
-			// Log events as they will not be logged after the panic
+		if !messages.is_empty() {
+			// Log all events (since they won't be logged after the panic).
 			<$chain as $crate::Chain>::events().iter().for_each(|event| {
 				$crate::log::info!(target: concat!("events::", stringify!($chain)), "{:?}", event);
 			});
-			panic!("{}", message.concat())
+			panic!("{}", messages.concat())
 		}
 	}
 }

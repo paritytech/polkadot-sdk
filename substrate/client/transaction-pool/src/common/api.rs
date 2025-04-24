@@ -45,6 +45,7 @@ use super::{
 	metrics::{ApiMetrics, ApiMetricsExt},
 };
 use crate::graph;
+use tracing::{trace, warn};
 
 /// The transaction pool logic for full client.
 pub struct FullChainApi<Client, Block> {
@@ -84,11 +85,11 @@ impl<Client, Block> FullChainApi<Client, Block> {
 		spawner: &impl SpawnEssentialNamed,
 	) -> Self {
 		let metrics = prometheus.map(ApiMetrics::register).and_then(|r| match r {
-			Err(err) => {
-				log::warn!(
+			Err(error) => {
+				warn!(
 					target: LOG_TARGET,
-					"Failed to register transaction pool api prometheus metrics: {:?}",
-					err,
+					?error,
+					"Failed to register transaction pool API Prometheus metrics"
 				);
 				None
 			},
@@ -230,7 +231,7 @@ where
 	Client::Api: TaggedTransactionQueue<Block>,
 {
 	let s = std::time::Instant::now();
-	let h = uxt.using_encoded(|x| <traits::HashingFor<Block> as traits::Hash>::hash(x));
+	let tx_hash = uxt.using_encoded(|x| <traits::HashingFor<Block> as traits::Hash>::hash(x));
 
 	let result = sp_tracing::within_span!(sp_tracing::Level::TRACE, "validate_transaction";
 	{
@@ -280,7 +281,12 @@ where
 			}
 		})
 	});
-	log::trace!(target: LOG_TARGET, "[{h:?}] validate_transaction_blocking: at:{at:?} took:{:?}", s.elapsed());
-
+	trace!(
+		target: LOG_TARGET,
+		?tx_hash,
+		?at,
+		duration = ?s.elapsed(),
+		"validate_transaction_blocking"
+	);
 	result
 }

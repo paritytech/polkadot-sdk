@@ -341,10 +341,15 @@ pub mod old_consensus {
 
 /// Prepare the parachain's node configuration
 ///
-/// This function will disable the default announcement of Substrate for the parachain in favor
-/// of the one of Cumulus.
+/// This function will:
+/// * Disable the default announcement of Substrate for the parachain in favor of the one of
+///   Cumulus.
+/// * Set peers needed to start warp sync to 1.
 pub fn prepare_node_config(mut parachain_config: Configuration) -> Configuration {
 	parachain_config.announce_block = false;
+	// Parachains only need 1 peer to start warp sync, because the target block is fetched from the
+	// relay chain.
+	parachain_config.network.min_peers_to_start_warp_sync = Some(1);
 
 	parachain_config
 }

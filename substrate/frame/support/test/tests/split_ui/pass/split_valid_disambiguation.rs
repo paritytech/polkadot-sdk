@@ -36,7 +36,7 @@ mod first {
 
 mod second {
 	use super::*;
-	
+
 	#[pallet_section(section2)]
 	mod section {
 		#[pallet::error]
@@ -58,6 +58,7 @@ pub mod pallet {
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 	}
 
@@ -74,5 +75,4 @@ pub mod pallet {
 	}
 }
 
-fn main() {
-}
+fn main() {}

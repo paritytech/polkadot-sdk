@@ -21,9 +21,9 @@ parking_lot = { workspace = true, default-features = true }
 prometheus = { workspace = true }
 sp-arithmetic = { workspace = true }
 
+[dev-dependencies]
+tokio-test = { workspace = true }
+
 [features]
 default = ["metered"]
 metered = []
-
-[dev-dependencies]
-tokio-test = { workspace = true }

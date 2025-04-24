@@ -214,11 +214,6 @@ mod tests {
 		type WeightInfo = ();
 	}
 
-	impl pallet_session::historical::Config for Test {
-		type FullIdentification = ();
-		type FullIdentificationOf = ();
-	}
-
 	pub type BlockNumber = u64;
 
 	parameter_types! {

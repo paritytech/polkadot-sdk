@@ -15,19 +15,23 @@
 // limitations under the License.
 
 use super::{
-	AccountId, AllPalletsWithSystem, Balances, BaseDeliveryFee, FeeAssetId, ParachainInfo,
-	ParachainSystem, PolkadotXcm, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin,
-	TransactionByteFee, WeightToFee, XcmOverBridgeHubWestend, XcmOverRococoBulletin, XcmpQueue,
+	AccountId, AllPalletsWithSystem, Balance, Balances, BaseDeliveryFee, FeeAssetId, ParachainInfo,
+	ParachainSystem, PolkadotXcm, Runtime, RuntimeCall, RuntimeEvent, RuntimeHoldReason,
+	RuntimeOrigin, TransactionByteFee, WeightToFee, XcmOverBridgeHubWestend, XcmOverRococoBulletin,
+	XcmpQueue,
 };
 
 use core::marker::PhantomData;
 use frame_support::{
 	parameter_types,
-	traits::{tokens::imbalance::ResolveTo, ConstU32, Contains, Equals, Everything, Nothing},
+	traits::{
+		fungible::HoldConsideration, tokens::imbalance::ResolveTo, ConstU32, Contains, Equals,
+		Everything, LinearStoragePrice, Nothing,
+	},
 };
 use frame_system::EnsureRoot;
 use pallet_collator_selection::StakingPotAccountId;
-use pallet_xcm::XcmPassthrough;
+use pallet_xcm::{AuthorizedAliasers, XcmPassthrough};
 use parachains_common::{
 	xcm_config::{
 		AllSiblingSystemParachains, ConcreteAssetFromSystem, ParentRelayOrSiblingParachains,
@@ -42,10 +46,10 @@ use sp_runtime::traits::AccountIdConversion;
 use testnet_parachains_constants::rococo::snowbridge::EthereumNetwork;
 use xcm::latest::{prelude::*, ROCOCO_GENESIS_HASH};
 use xcm_builder::{
-	AccountId32Aliases, AllowExplicitUnpaidExecutionFrom, AllowHrmpNotificationsFromRelayChain,
-	AllowKnownQueryResponses, AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom,
-	DenyRecursively, DenyReserveTransferToRelayChain, DenyThenTry, DescribeAllTerminal,
-	DescribeFamily, EnsureXcmOrigin, ExternalConsensusLocationsConverterFor,
+	AccountId32Aliases, AliasChildLocation, AllowExplicitUnpaidExecutionFrom,
+	AllowHrmpNotificationsFromRelayChain, AllowKnownQueryResponses, AllowSubscriptionsFrom,
+	AllowTopLevelPaidExecutionFrom, DenyRecursively, DenyReserveTransferToRelayChain, DenyThenTry,
+	DescribeAllTerminal, DescribeFamily, EnsureXcmOrigin, ExternalConsensusLocationsConverterFor,
 	FrameTransactionalProcessor, FungibleAdapter, HandleFee, HashedDescription, IsConcrete,
 	ParentAsSuperuser, ParentIsPreset, RelayChainAsNative, SendXcmFeeToAccount,
 	SiblingParachainAsNative, SiblingParachainConvertsVia, SignedAccountId32AsNative,
@@ -177,6 +181,12 @@ pub type WaivedLocations = (
 /// - NativeToken with the parent Relay Chain and sibling parachains.
 pub type TrustedTeleporters = ConcreteAssetFromSystem<TokenLocation>;
 
+/// Defines origin aliasing rules for this chain.
+///
+/// - Allow any origin to alias into a child sub-location (equivalent to DescendOrigin),
+/// - Allow origins explicitly authorized by the alias target location.
+pub type TrustedAliasers = (AliasChildLocation, AuthorizedAliasers<Runtime>);
+
 pub struct XcmConfig;
 impl xcm_executor::Config for XcmConfig {
 	type RuntimeCall = RuntimeCall;
@@ -232,7 +242,7 @@ impl xcm_executor::Config for XcmConfig {
 	type UniversalAliases = Nothing;
 	type CallDispatcher = RuntimeCall;
 	type SafeCallFilter = Everything;
-	type Aliasers = Nothing;
+	type Aliasers = TrustedAliasers;
 	type TransactionalProcessor = FrameTransactionalProcessor;
 	type HrmpNewChannelOpenRequestHandler = ();
 	type HrmpChannelAcceptedHandler = ();
@@ -243,8 +253,8 @@ impl xcm_executor::Config for XcmConfig {
 pub type PriceForParentDelivery =
 	ExponentialPrice<FeeAssetId, BaseDeliveryFee, TransactionByteFee, ParachainSystem>;
 
-/// Converts a local signed origin into an XCM location.
-/// Forms the basis for local origins sending/executing XCMs.
+/// Converts a local signed origin into an XCM location. Forms the basis for local origins
+/// sending/executing XCMs.
 pub type LocalOriginToLocation = SignedToAccountId32<RuntimeOrigin, AccountId, RelayNetwork>;
 
 /// The means for routing XCM messages which are not for local execution into the right message
@@ -255,6 +265,12 @@ pub type XcmRouter = WithUniqueTopic<(
 	// ..and XCMP to communicate with the sibling chains.
 	XcmpQueue,
 )>;
+
+parameter_types! {
+	pub const DepositPerItem: Balance = crate::deposit(1, 0);
+	pub const DepositPerByte: Balance = crate::deposit(0, 1);
+	pub const AuthorizeAliasHoldReason: RuntimeHoldReason = RuntimeHoldReason::PolkadotXcm(pallet_xcm::HoldReason::AuthorizeAlias);
+}
 
 impl pallet_xcm::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
@@ -286,6 +302,13 @@ impl pallet_xcm::Config for Runtime {
 	type AdminOrigin = EnsureRoot<AccountId>;
 	type MaxRemoteLockConsumers = ConstU32<0>;
 	type RemoteLockConsumerIdentifier = ();
+	// xcm_executor::Config::Aliasers also uses pallet_xcm::AuthorizedAliasers.
+	type AuthorizedAliasConsideration = HoldConsideration<
+		AccountId,
+		Balances,
+		AuthorizeAliasHoldReason,
+		LinearStoragePrice<DepositPerItem, DepositPerByte, Balance>,
+	>;
 }
 
 impl cumulus_pallet_xcm::Config for Runtime {

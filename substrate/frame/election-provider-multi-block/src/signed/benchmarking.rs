@@ -22,19 +22,20 @@ use crate::{
 	CurrentPhase, Phase, Round,
 };
 use frame_benchmarking::v2::*;
-use frame_election_provider_support::ElectionDataProvider;
+use frame_election_provider_support::ElectionProvider;
 use frame_support::pallet_prelude::*;
 use frame_system::RawOrigin;
 use sp_npos_elections::ElectionScore;
+use sp_runtime::traits::One;
 use sp_std::boxed::Box;
 
 #[benchmarks(where T: crate::Config + crate::verifier::Config + crate::unsigned::Config)]
 mod benchmarks {
 	use super::*;
 
-	#[benchmark]
+	#[benchmark(pov_mode = Measured)]
 	fn register_not_full() -> Result<(), BenchmarkError> {
-		CurrentPhase::<T>::put(Phase::Signed);
+		CurrentPhase::<T>::put(Phase::Signed(T::SignedPhase::get() - One::one()));
 		let round = Round::<T>::get();
 		let alice = crate::Pallet::<T>::funded_account("alice", 0);
 		let score = ElectionScore::default();
@@ -49,9 +50,9 @@ mod benchmarks {
 		Ok(())
 	}
 
-	#[benchmark]
+	#[benchmark(pov_mode = Measured)]
 	fn register_eject() -> Result<(), BenchmarkError> {
-		CurrentPhase::<T>::put(Phase::Signed);
+		CurrentPhase::<T>::put(Phase::Signed(T::SignedPhase::get() - One::one()));
 		let round = Round::<T>::get();
 
 		for i in 0..T::MaxSubmissions::get() {
@@ -89,11 +90,14 @@ mod benchmarks {
 		Ok(())
 	}
 
-	#[benchmark]
+	#[benchmark(pov_mode = Measured)]
 	fn submit_page() -> Result<(), BenchmarkError> {
-		T::DataProvider::set_next_election(crate::Pallet::<T>::reasonable_next_election());
+		#[cfg(test)]
+		crate::mock::ElectionStart::set(sp_runtime::traits::Bounded::max_value());
+		crate::Pallet::<T>::start().unwrap();
+
 		crate::Pallet::<T>::roll_until_matches(|| {
-			matches!(CurrentPhase::<T>::get(), Phase::Signed)
+			matches!(CurrentPhase::<T>::get(), Phase::Signed(_))
 		});
 
 		// mine a full solution
@@ -113,11 +117,14 @@ mod benchmarks {
 		Ok(())
 	}
 
-	#[benchmark]
+	#[benchmark(pov_mode = Measured)]
 	fn unset_page() -> Result<(), BenchmarkError> {
-		T::DataProvider::set_next_election(crate::Pallet::<T>::reasonable_next_election());
+		#[cfg(test)]
+		crate::mock::ElectionStart::set(sp_runtime::traits::Bounded::max_value());
+		crate::Pallet::<T>::start().unwrap();
+
 		crate::Pallet::<T>::roll_until_matches(|| {
-			matches!(CurrentPhase::<T>::get(), Phase::Signed)
+			matches!(CurrentPhase::<T>::get(), Phase::Signed(_))
 		});
 
 		// mine a full solution
@@ -140,9 +147,9 @@ mod benchmarks {
 		Ok(())
 	}
 
-	#[benchmark]
+	#[benchmark(pov_mode = Measured)]
 	fn bail() -> Result<(), BenchmarkError> {
-		CurrentPhase::<T>::put(Phase::Signed);
+		CurrentPhase::<T>::put(Phase::Signed(T::SignedPhase::get() - One::one()));
 		let alice = crate::Pallet::<T>::funded_account("alice", 0);
 
 		// register alice
@@ -158,6 +165,34 @@ mod benchmarks {
 		#[block]
 		{
 			Pallet::<T>::bail(RawOrigin::Signed(alice).into())?;
+		}
+
+		Ok(())
+	}
+
+	#[benchmark(pov_mode = Measured)]
+	fn clear_old_round_data(p: Linear<1, { T::Pages::get() }>) -> Result<(), BenchmarkError> {
+		// set signed phase and alice ready to submit
+		CurrentPhase::<T>::put(Phase::Signed(T::SignedPhase::get() - One::one()));
+		let alice = crate::Pallet::<T>::funded_account("alice", 0);
+
+		// register alice
+		let score = ElectionScore::default();
+		Pallet::<T>::register(RawOrigin::Signed(alice.clone()).into(), score)?;
+
+		// submit a solution with p pages.
+		for pp in 0..p {
+			let page = Some(Default::default());
+			Pallet::<T>::submit_page(RawOrigin::Signed(alice.clone()).into(), pp, page)?;
+		}
+
+		// force rotate to the next round.
+		let prev_round = Round::<T>::get();
+		crate::Pallet::<T>::rotate_round();
+
+		#[block]
+		{
+			Pallet::<T>::clear_old_round_data(RawOrigin::Signed(alice).into(), prev_round, p)?;
 		}
 
 		Ok(())

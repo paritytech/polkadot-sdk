@@ -190,14 +190,14 @@ mod tests {
 
 			// do translation.
 			NumberMap::translate(
-				|k: u32, v: u64| if k % 2 == 0 { Some((k as u64) << 32 | v) } else { None },
+				|k: u32, v: u64| if k % 2 == 0 { Some(((k as u64) << 32) | v) } else { None },
 			);
 
 			assert_eq!(
 				NumberMap::iter().collect::<Vec<_>>(),
 				(0..50u32)
 					.map(|x| x * 2)
-					.map(|x| (x, (x as u64) << 32 | x as u64))
+					.map(|x| (x, ((x as u64) << 32) | x as u64))
 					.collect::<Vec<_>>(),
 			);
 		})

@@ -53,7 +53,7 @@ pub use crate::types::{
 	WasmEntryAttributes, WasmFieldName, WasmFields, WasmLevel, WasmMetadata, WasmValue,
 	WasmValuesSet,
 };
-#[cfg(feature = "std")]
+#[cfg(not(substrate_runtime))]
 pub use crate::types::{WASM_NAME_KEY, WASM_TARGET_KEY, WASM_TRACE_IDENTIFIER};
 
 /// Tracing facilities and helpers.

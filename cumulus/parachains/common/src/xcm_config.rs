@@ -144,13 +144,44 @@ impl Contains<Location> for ParentRelayOrSiblingParachains {
 	}
 }
 
+/// Filter to check if a given `target` location represents the same AccountId32 as `origin`,
+/// but coming from another sibling system chain.
+///
+/// This type should only be used within the context of a parachain, to allow accounts on system
+/// chains to Alias to the same accounts on the local chain.
+pub struct AliasAccountId32FromSiblingSystemChain;
+impl ContainsPair<Location, Location> for AliasAccountId32FromSiblingSystemChain {
+	fn contains(origin: &Location, target: &Location) -> bool {
+		let result = match origin.unpack() {
+			// `origin` is AccountId32 on sibling system parachain
+			(1, [Parachain(para_id), AccountId32 { network: _, id: origin }])
+				if ParaId::from(*para_id).is_system() =>
+			{
+				match target.unpack() {
+					// `target` is local AccountId32 and matches `origin` remote account
+					(0, [AccountId32 { network: _, id: target }]) => target.eq(origin),
+					_ => false,
+				}
+			},
+			_ => false,
+		};
+		log::trace!(
+			target: "xcm::contains",
+			"AliasAccountId32FromSiblingSystemChain origin: {:?}, target: {:?}, result {:?}",
+			origin, target, result,
+		);
+		result
+	}
+}
+
 #[cfg(test)]
 mod tests {
 	use frame_support::{parameter_types, traits::Contains};
 
 	use super::{
-		AllSiblingSystemParachains, Asset, ConcreteAssetFromSystem, ContainsPair, GeneralIndex,
-		Here, Location, PalletInstance, Parachain, Parent,
+		AliasAccountId32FromSiblingSystemChain, AllSiblingSystemParachains, Asset,
+		ConcreteAssetFromSystem, ContainsPair, GeneralIndex, Here, Location, PalletInstance,
+		Parachain, Parent,
 	};
 	use polkadot_primitives::LOWEST_PUBLIC_ID;
 	use xcm::latest::prelude::*;
@@ -220,5 +251,55 @@ mod tests {
 		assert!(!AllSiblingSystemParachains::contains(&Location::new(0, [Parachain(1)])));
 		// when used with non-parachain
 		assert!(!AllSiblingSystemParachains::contains(&Location::new(1, [OnlyChild])));
+	}
+
+	#[test]
+	fn alias_accountid32_from_sibling_system_parachains() {
+		let acc_42 = AccountId32 { network: None, id: [42u8; 32] };
+		let acc_13 = AccountId32 { network: None, id: [13u8; 32] };
+		// origin acc_42 on sibling system parachain aliases into local acc_42
+		assert!(AliasAccountId32FromSiblingSystemChain::contains(
+			&Location::new(1, [Parachain(1), acc_42]),
+			&Location::new(0, [acc_42])
+		));
+		// if target is not local account, always fails
+		assert!(!AliasAccountId32FromSiblingSystemChain::contains(
+			&Location::new(1, [Parachain(1), acc_42]),
+			&Location::new(0, [])
+		));
+		assert!(!AliasAccountId32FromSiblingSystemChain::contains(
+			&Location::new(1, [Parachain(1), acc_42]),
+			&Location::new(0, [Parachain(1)])
+		));
+		assert!(!AliasAccountId32FromSiblingSystemChain::contains(
+			&Location::new(1, [Parachain(1), acc_42]),
+			&Location::new(0, [GeneralIndex(42)])
+		));
+		assert!(!AliasAccountId32FromSiblingSystemChain::contains(
+			&Location::new(1, [Parachain(1), acc_42]),
+			&Location::new(1, [acc_42])
+		));
+		assert!(!AliasAccountId32FromSiblingSystemChain::contains(
+			&Location::new(1, [Parachain(1), acc_42]),
+			&Location::new(2, [acc_42])
+		));
+		// origin acc_13 on sibling system parachain CANNOT alias into local acc_42
+		assert!(!AliasAccountId32FromSiblingSystemChain::contains(
+			&Location::new(1, [Parachain(1), acc_13]),
+			&Location::new(0, [acc_42])
+		));
+		// origin acc_42 on sibling non-system parachain CANNOT alias into local acc_42
+		assert!(!AliasAccountId32FromSiblingSystemChain::contains(
+			&Location::new(1, [Parachain(LOWEST_PUBLIC_ID.into()), acc_42]),
+			&Location::new(0, [acc_42])
+		));
+		assert!(!AliasAccountId32FromSiblingSystemChain::contains(
+			&Location::new(0, [acc_13]),
+			&Location::new(0, [acc_13]),
+		));
+		assert!(!AliasAccountId32FromSiblingSystemChain::contains(
+			&Location::new(0, [acc_42]),
+			&Location::new(1, [Parachain(1), acc_42]),
+		));
 	}
 }

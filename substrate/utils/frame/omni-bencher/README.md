@@ -13,13 +13,13 @@ host functions that are not part of the Polkadot host specification.
 Directly via crates.io:
 
 ```sh
-cargo install frame-omni-bencher --profile=production
+cargo install frame-omni-bencher --profile=production --locked
 ```
 
 from GitHub:
 
 ```sh
-cargo install --git https://github.com/paritytech/polkadot-sdk frame-omni-bencher --profile=production
+cargo install --git https://github.com/paritytech/polkadot-sdk frame-omni-bencher --profile=production --locked
 ```
 
 or locally from the sources:

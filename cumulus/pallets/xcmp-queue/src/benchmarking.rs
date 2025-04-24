@@ -20,7 +20,7 @@ use crate::*;
 use alloc::vec;
 use codec::DecodeAll;
 use frame_benchmarking::v2::*;
-use frame_support::traits::Hooks;
+use frame_support::{assert_ok, traits::Hooks};
 use frame_system::RawOrigin;
 use xcm::MAX_INSTRUCTIONS_TO_DECODE;
 
@@ -40,14 +40,142 @@ mod benchmarks {
 		Pallet::<T>::update_resume_threshold(RawOrigin::Root, 1);
 	}
 
+	/// Add a XCMP message of `n` bytes to the message queue.
+	///
+	/// The message will be added on a new page and also, the `BookState` will be added
+	/// to the ready ring.
 	#[benchmark]
-	fn enqueue_xcmp_message() {
-		assert!(QueueConfig::<T>::get().drop_threshold * MaxXcmpMessageLenOf::<T>::get() > 1000);
-		let msg = BoundedVec::<u8, MaxXcmpMessageLenOf<T>>::default();
+	fn enqueue_n_bytes_xcmp_message(n: Linear<0, { MaxXcmpMessageLenOf::<T>::get() }>) {
+		#[cfg(test)]
+		{
+			mock::EnqueuedMessages::set(vec![]);
+		}
 
+		let msg = BoundedVec::try_from(vec![0; n as usize]).unwrap();
+
+		#[cfg(not(test))]
+		let fp_before = T::XcmpQueue::footprint(0.into());
 		#[block]
 		{
-			Pallet::<T>::enqueue_xcmp_message(0.into(), msg, &mut WeightMeter::new()).unwrap();
+			assert_ok!(Pallet::<T>::enqueue_xcmp_messages(
+				0.into(),
+				&[msg],
+				&mut WeightMeter::new()
+			));
+		}
+		#[cfg(not(test))]
+		{
+			let fp_after = T::XcmpQueue::footprint(0.into());
+			assert_eq!(fp_after.ready_pages, fp_before.ready_pages + 1);
+		}
+	}
+
+	/// Add `n` XCMP message of 0 bytes to the message queue.
+	///
+	/// Only for the first message a new page will be created and the `BookState` will be added
+	/// to the ready ring.
+	#[benchmark]
+	fn enqueue_n_empty_xcmp_messages(n: Linear<0, 1000>) {
+		#[cfg(test)]
+		{
+			mock::EnqueuedMessages::set(vec![]);
+			<QueueConfig<T>>::set(QueueConfigData {
+				suspend_threshold: 1100,
+				drop_threshold: 1100,
+				resume_threshold: 1100,
+			});
+		}
+
+		let msgs = vec![Default::default(); n as usize];
+
+		#[cfg(not(test))]
+		let fp_before = T::XcmpQueue::footprint(0.into());
+		#[block]
+		{
+			assert_ok!(Pallet::<T>::enqueue_xcmp_messages(
+				0.into(),
+				&msgs,
+				&mut WeightMeter::new()
+			));
+		}
+		#[cfg(not(test))]
+		{
+			let fp_after = T::XcmpQueue::footprint(0.into());
+			if !msgs.is_empty() {
+				assert_eq!(fp_after.ready_pages, fp_before.ready_pages + 1);
+			}
+		}
+	}
+
+	/// Add `n` pages to the message queue.
+	///
+	/// We add one page by enqueueing a maximal size message which fills it.
+	#[benchmark]
+	fn enqueue_n_full_pages(n: Linear<0, 100>) {
+		#[cfg(test)]
+		{
+			mock::EnqueuedMessages::set(vec![]);
+		}
+		<QueueConfig<T>>::set(QueueConfigData {
+			suspend_threshold: 200,
+			drop_threshold: 200,
+			resume_threshold: 200,
+		});
+
+		let max_msg_len = MaxXcmpMessageLenOf::<T>::get() as usize;
+		let mut msgs = vec![];
+		for _i in 0..n {
+			let msg = BoundedVec::try_from(vec![0; max_msg_len]).unwrap();
+			msgs.push(msg);
+		}
+
+		#[cfg(not(test))]
+		let fp_before = T::XcmpQueue::footprint(0.into());
+		#[block]
+		{
+			assert_ok!(Pallet::<T>::enqueue_xcmp_messages(
+				0.into(),
+				&msgs,
+				&mut WeightMeter::new()
+			));
+		}
+		#[cfg(not(test))]
+		{
+			let fp_after = T::XcmpQueue::footprint(0.into());
+			assert_eq!(fp_after.ready_pages, fp_before.ready_pages + n);
+		}
+	}
+
+	#[benchmark]
+	fn enqueue_1000_small_xcmp_messages() {
+		#[cfg(test)]
+		{
+			<QueueConfig<T>>::set(QueueConfigData {
+				suspend_threshold: 1100,
+				drop_threshold: 1100,
+				resume_threshold: 1100,
+			});
+		}
+
+		let mut msgs = vec![];
+		for _i in 0..1000 {
+			msgs.push(BoundedVec::try_from(vec![0; 3]).unwrap());
+		}
+
+		#[cfg(not(test))]
+		let fp_before = T::XcmpQueue::footprint(0.into());
+		#[block]
+		{
+			assert_ok!(Pallet::<T>::enqueue_xcmp_messages(
+				0.into(),
+				&msgs,
+				&mut WeightMeter::new()
+			));
+		}
+		#[cfg(not(test))]
+		{
+			let fp_after = T::XcmpQueue::footprint(0.into());
+			assert_eq!(fp_after.ready_pages, fp_before.ready_pages + 1);
 		}
 	}
 
@@ -94,7 +222,7 @@ mod benchmarks {
 	/// Split a singular XCM.
 	#[benchmark]
 	fn take_first_concatenated_xcm() {
-		let max_downward_message_size = MaxXcmpMessageLenOf::<T>::get() as usize;
+		let max_message_size = MaxXcmpMessageLenOf::<T>::get() as usize;
 
 		assert!(MAX_INSTRUCTIONS_TO_DECODE as u32 > MAX_XCM_DECODE_DEPTH, "Preconditon failed");
 		let max_instrs = MAX_INSTRUCTIONS_TO_DECODE as u32 - MAX_XCM_DECODE_DEPTH;
@@ -105,7 +233,7 @@ mod benchmarks {
 		}
 
 		let data = VersionedXcm::<T>::from(xcm).encode();
-		assert!(data.len() < max_downward_message_size, "Page size is too small");
+		assert!(data.len() < max_message_size, "Page size is too small");
 		// Verify that decoding works with the exact recursion limit:
 		VersionedXcm::<T::RuntimeCall>::decode_all_with_depth_limit(
 			MAX_XCM_DECODE_DEPTH,

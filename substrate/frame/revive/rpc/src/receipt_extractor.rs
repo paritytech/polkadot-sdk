@@ -17,6 +17,7 @@
 use crate::{
 	client::{SubstrateBlock, SubstrateBlockNumber},
 	subxt_client::{
+		self,
 		revive::{calls::types::EthTransact, events::ContractEmitted},
 		system::events::ExtrinsicSuccess,
 		transaction_payment::events::TransactionFeePaid,
@@ -30,10 +31,19 @@ use pallet_revive::{
 	evm::{GenericTransaction, Log, ReceiptInfo, TransactionSigned, H256, U256},
 };
 use sp_core::keccak_256;
+use std::{future::Future, pin::Pin, sync::Arc};
+use subxt::OnlineClient;
+
+type FetchGasPriceFn = Arc<
+	dyn Fn(H256) -> Pin<Box<dyn Future<Output = Result<U256, ClientError>> + Send>> + Send + Sync,
+>;
 
 /// Utility to extract receipts from extrinsics.
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct ReceiptExtractor {
+	/// Fetch the gas price from the chain.
+	fetch_gas_price: FetchGasPriceFn,
+
 	/// The native to eth decimal ratio, used to calculated gas from native fees.
 	native_to_eth_ratio: u32,
 
@@ -41,16 +51,43 @@ pub struct ReceiptExtractor {
 	earliest_receipt_block: Option<SubstrateBlockNumber>,
 }
 
+/// Fetch the native_to_eth_ratio
+async fn native_to_eth_ratio(api: &OnlineClient<SrcChainConfig>) -> Result<u32, ClientError> {
+	let query = subxt_client::constants().revive().native_to_eth_ratio();
+	api.constants().at(&query).map_err(|err| err.into())
+}
+
 impl ReceiptExtractor {
 	/// Create a new `ReceiptExtractor` with the given native to eth ratio.
-	pub fn new(
-		native_to_eth_ratio: u32,
+	pub async fn new(
+		api: OnlineClient<SrcChainConfig>,
 		earliest_receipt_block: Option<SubstrateBlockNumber>,
-	) -> Self {
-		Self { native_to_eth_ratio, earliest_receipt_block }
+	) -> Result<Self, ClientError> {
+		let native_to_eth_ratio = native_to_eth_ratio(&api).await?;
+
+		let fetch_gas_price = Arc::new(move |block_hash| {
+			let api_clone = api.clone();
+			let fut = async move {
+				let runtime_api = api_clone.runtime_api().at(block_hash);
+				let payload = subxt_client::apis().revive_api().gas_price();
+				let base_gas_price = runtime_api.call(payload).await?;
+				Ok(*base_gas_price)
+			};
+			Box::pin(fut) as Pin<Box<_>>
+		});
+
+		Ok(Self { native_to_eth_ratio, fetch_gas_price, earliest_receipt_block })
 	}
 
-	/// Extract a [`TransactionSigned`] and a [`ReceiptInfo`] and  from an extrinsic.
+	#[cfg(test)]
+	pub fn new_mock() -> Self {
+		let fetch_gas_price =
+			Arc::new(|_| Box::pin(std::future::ready(Ok(U256::from(1000)))) as Pin<Box<_>>);
+
+		Self { native_to_eth_ratio: 1_000_000, fetch_gas_price, earliest_receipt_block: None }
+	}
+
+	/// Extract a [`TransactionSigned`] and a [`ReceiptInfo`] from an extrinsic.
 	async fn extract_from_extrinsic(
 		&self,
 		block: &SubstrateBlock,
@@ -80,7 +117,9 @@ impl ReceiptExtractor {
 			ClientError::RecoverEthAddressFailed
 		})?;
 
-		let tx_info = GenericTransaction::from_signed(signed_tx.clone(), Some(from));
+		let base_gas_price = (self.fetch_gas_price)(block_hash).await?;
+		let tx_info =
+			GenericTransaction::from_signed(signed_tx.clone(), base_gas_price, Some(from));
 		let gas_price = tx_info.gas_price.unwrap_or_default();
 		let gas_used = U256::from(tx_fees.tip.saturating_add(tx_fees.actual_fee))
 			.saturating_mul(self.native_to_eth_ratio.into())
@@ -139,7 +178,7 @@ impl ReceiptExtractor {
 		Ok((signed_tx, receipt))
 	}
 
-	///  Extract receipts from block.
+	/// Extract receipts from block.
 	pub async fn extract_from_block(
 		&self,
 		block: &SubstrateBlock,
@@ -170,7 +209,7 @@ impl ReceiptExtractor {
 			.collect::<Result<Vec<_>, _>>()
 	}
 
-	///  Extract receipt from transaction
+	/// Extract receipt from transaction
 	pub async fn extract_from_transaction(
 		&self,
 		block: &SubstrateBlock,

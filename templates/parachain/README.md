@@ -175,7 +175,7 @@ to `Omni Node`. Similarly, it requires setting up a relay chain, and we'll use `
 #### Install the `parachain-template-node`
 
 ```sh
-cargo install --path node
+cargo install --path node --locked
 ```
 
 #### Setup and start the network

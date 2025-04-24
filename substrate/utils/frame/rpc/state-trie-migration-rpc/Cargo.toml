@@ -30,6 +30,3 @@ jsonrpsee = { features = ["client-core", "macros", "server-core"], workspace = t
 sc-client-api = { workspace = true, default-features = true }
 sc-rpc-api = { workspace = true, default-features = true }
 sp-runtime = { workspace = true, default-features = true }
-
-[dev-dependencies]
-serde_json = { workspace = true, default-features = true }

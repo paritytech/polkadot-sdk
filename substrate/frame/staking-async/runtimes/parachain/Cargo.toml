@@ -1,0 +1,368 @@
+[package]
+name = "pallet-staking-async-parachain-runtime"
+version = "0.15.0"
+authors.workspace = true
+edition.workspace = true
+description = "A parachain runtime for staking-async"
+license.workspace = true
+homepage.workspace = true
+repository.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+codec = { features = ["derive", "max-encoded-len"], workspace = true }
+hex-literal = { workspace = true, default-features = true }
+log = { workspace = true }
+scale-info = { features = ["derive"], workspace = true }
+serde_json = { features = ["alloc"], workspace = true }
+
+# Substrate
+frame-benchmarking = { optional = true, workspace = true }
+frame-election-provider-support = { workspace = true }
+frame-executive = { workspace = true }
+frame-metadata-hash-extension = { workspace = true }
+frame-support = { workspace = true }
+frame-system = { workspace = true }
+frame-system-benchmarking = { optional = true, workspace = true }
+frame-system-rpc-runtime-api = { workspace = true }
+frame-try-runtime = { optional = true, workspace = true }
+pallet-asset-conversion = { workspace = true }
+pallet-asset-conversion-ops = { workspace = true }
+pallet-asset-conversion-tx-payment = { workspace = true }
+pallet-asset-rate = { workspace = true }
+pallet-asset-rewards = { workspace = true }
+pallet-assets = { workspace = true }
+pallet-assets-freezer = { workspace = true }
+pallet-aura = { workspace = true }
+pallet-authorship = { workspace = true }
+pallet-bags-list = { workspace = true }
+pallet-balances = { workspace = true }
+pallet-conviction-voting = { workspace = true }
+pallet-delegated-staking = { workspace = true }
+pallet-election-provider-multi-block = { workspace = true }
+pallet-fast-unstake = { workspace = true }
+pallet-migrations = { workspace = true }
+pallet-multisig = { workspace = true }
+pallet-nft-fractionalization = { workspace = true }
+pallet-nfts = { workspace = true }
+pallet-nfts-runtime-api = { workspace = true }
+pallet-nomination-pools = { workspace = true }
+pallet-nomination-pools-runtime-api = { workspace = true }
+pallet-parameters = { workspace = true }
+pallet-preimage = { workspace = true }
+pallet-proxy = { workspace = true }
+pallet-referenda = { workspace = true }
+pallet-scheduler = { workspace = true }
+pallet-session = { workspace = true }
+pallet-staking-async = { workspace = true }
+pallet-staking-async-rc-client = { workspace = true }
+pallet-staking-async-runtime-api = { workspace = true }
+pallet-state-trie-migration = { workspace = true }
+pallet-sudo = { workspace = true }
+pallet-timestamp = { workspace = true }
+pallet-transaction-payment = { workspace = true }
+pallet-transaction-payment-rpc-runtime-api = { workspace = true }
+pallet-treasury = { workspace = true }
+pallet-uniques = { workspace = true }
+pallet-utility = { workspace = true }
+pallet-vesting = { workspace = true }
+pallet-whitelist = { workspace = true }
+sp-api = { workspace = true }
+sp-arithmetic = { workspace = true }
+sp-block-builder = { workspace = true }
+sp-consensus-aura = { workspace = true }
+sp-core = { workspace = true }
+sp-genesis-builder = { workspace = true }
+sp-inherents = { workspace = true }
+sp-keyring = { workspace = true }
+sp-npos-elections = { workspace = true }
+sp-offchain = { workspace = true }
+sp-runtime = { workspace = true }
+sp-session = { workspace = true }
+sp-staking = { workspace = true }
+sp-std = { workspace = true }
+sp-storage = { workspace = true }
+sp-transaction-pool = { workspace = true }
+sp-version = { workspace = true }
+
+# num-traits feature needed for dex integer sq root:
+primitive-types = { features = ["codec", "num-traits", "scale-info"], workspace = true }
+
+# Polkadot
+pallet-xcm = { workspace = true }
+pallet-xcm-benchmarks = { optional = true, workspace = true }
+polkadot-parachain-primitives = { workspace = true }
+polkadot-runtime-common = { workspace = true }
+westend-runtime-constants = { workspace = true }
+xcm = { workspace = true }
+xcm-builder = { workspace = true }
+xcm-executor = { workspace = true }
+xcm-runtime-apis = { workspace = true }
+
+# Cumulus
+assets-common = { workspace = true }
+cumulus-pallet-aura-ext = { workspace = true }
+cumulus-pallet-parachain-system = { workspace = true }
+cumulus-pallet-session-benchmarking = { workspace = true }
+cumulus-pallet-weight-reclaim = { workspace = true }
+cumulus-pallet-xcm = { workspace = true }
+cumulus-pallet-xcmp-queue = { features = ["bridging"], workspace = true }
+cumulus-primitives-aura = { workspace = true }
+cumulus-primitives-core = { workspace = true }
+cumulus-primitives-utility = { workspace = true }
+pallet-collator-selection = { workspace = true }
+pallet-message-queue = { workspace = true }
+parachain-info = { workspace = true }
+parachains-common = { workspace = true }
+testnet-parachains-constants = { features = ["westend"], workspace = true }
+
+# Bridges
+bp-asset-hub-rococo = { workspace = true }
+# bp-asset-hub-next-westend = { workspace = true }
+bp-bridge-hub-rococo = { workspace = true }
+bp-bridge-hub-westend = { workspace = true }
+pallet-xcm-bridge-hub-router = { workspace = true }
+
+[dev-dependencies]
+asset-test-utils = { workspace = true, default-features = true }
+parachains-runtimes-test-utils = { workspace = true, default-features = true }
+
+[build-dependencies]
+substrate-wasm-builder = { optional = true, workspace = true, default-features = true }
+
+[features]
+default = ["std"]
+runtime-benchmarks = [
+	"assets-common/runtime-benchmarks",
+	"cumulus-pallet-parachain-system/runtime-benchmarks",
+	"cumulus-pallet-session-benchmarking/runtime-benchmarks",
+	"cumulus-pallet-weight-reclaim/runtime-benchmarks",
+	"cumulus-pallet-xcmp-queue/runtime-benchmarks",
+	"cumulus-primitives-core/runtime-benchmarks",
+	"cumulus-primitives-utility/runtime-benchmarks",
+	"frame-benchmarking/runtime-benchmarks",
+	"frame-election-provider-support/runtime-benchmarks",
+	"frame-support/runtime-benchmarks",
+	"frame-system-benchmarking/runtime-benchmarks",
+	"frame-system/runtime-benchmarks",
+	"pallet-asset-conversion-ops/runtime-benchmarks",
+	"pallet-asset-conversion-tx-payment/runtime-benchmarks",
+	"pallet-asset-conversion/runtime-benchmarks",
+	"pallet-asset-rate/runtime-benchmarks",
+	"pallet-asset-rewards/runtime-benchmarks",
+	"pallet-assets-freezer/runtime-benchmarks",
+	"pallet-assets/runtime-benchmarks",
+	"pallet-bags-list/runtime-benchmarks",
+	"pallet-balances/runtime-benchmarks",
+	"pallet-collator-selection/runtime-benchmarks",
+	"pallet-conviction-voting/runtime-benchmarks",
+	"pallet-delegated-staking/runtime-benchmarks",
+	"pallet-election-provider-multi-block/runtime-benchmarks",
+	"pallet-fast-unstake/runtime-benchmarks",
+	"pallet-message-queue/runtime-benchmarks",
+	"pallet-migrations/runtime-benchmarks",
+	"pallet-multisig/runtime-benchmarks",
+	"pallet-nft-fractionalization/runtime-benchmarks",
+	"pallet-nfts/runtime-benchmarks",
+	"pallet-nomination-pools/runtime-benchmarks",
+	"pallet-parameters/runtime-benchmarks",
+	"pallet-preimage/runtime-benchmarks",
+	"pallet-proxy/runtime-benchmarks",
+	"pallet-referenda/runtime-benchmarks",
+	"pallet-scheduler/runtime-benchmarks",
+	"pallet-staking-async-rc-client/runtime-benchmarks",
+	"pallet-staking-async/runtime-benchmarks",
+	"pallet-state-trie-migration/runtime-benchmarks",
+	"pallet-sudo/runtime-benchmarks",
+	"pallet-timestamp/runtime-benchmarks",
+	"pallet-transaction-payment/runtime-benchmarks",
+	"pallet-treasury/runtime-benchmarks",
+	"pallet-uniques/runtime-benchmarks",
+	"pallet-utility/runtime-benchmarks",
+	"pallet-vesting/runtime-benchmarks",
+	"pallet-whitelist/runtime-benchmarks",
+	"pallet-xcm-benchmarks/runtime-benchmarks",
+	"pallet-xcm-bridge-hub-router/runtime-benchmarks",
+	"pallet-xcm/runtime-benchmarks",
+	"parachains-common/runtime-benchmarks",
+	"polkadot-parachain-primitives/runtime-benchmarks",
+	"polkadot-runtime-common/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	"sp-staking/runtime-benchmarks",
+	"xcm-builder/runtime-benchmarks",
+	"xcm-executor/runtime-benchmarks",
+	"xcm-runtime-apis/runtime-benchmarks",
+	"xcm/runtime-benchmarks",
+]
+try-runtime = [
+	"cumulus-pallet-aura-ext/try-runtime",
+	"cumulus-pallet-parachain-system/try-runtime",
+	"cumulus-pallet-weight-reclaim/try-runtime",
+	"cumulus-pallet-xcm/try-runtime",
+	"cumulus-pallet-xcmp-queue/try-runtime",
+	"frame-election-provider-support/try-runtime",
+	"frame-executive/try-runtime",
+	"frame-support/try-runtime",
+	"frame-system/try-runtime",
+	"frame-try-runtime/try-runtime",
+	"pallet-asset-conversion-ops/try-runtime",
+	"pallet-asset-conversion-tx-payment/try-runtime",
+	"pallet-asset-conversion/try-runtime",
+	"pallet-asset-rate/try-runtime",
+	"pallet-asset-rewards/try-runtime",
+	"pallet-assets-freezer/try-runtime",
+	"pallet-assets/try-runtime",
+	"pallet-aura/try-runtime",
+	"pallet-authorship/try-runtime",
+	"pallet-bags-list/try-runtime",
+	"pallet-balances/try-runtime",
+	"pallet-collator-selection/try-runtime",
+	"pallet-conviction-voting/try-runtime",
+	"pallet-delegated-staking/try-runtime",
+	"pallet-election-provider-multi-block/try-runtime",
+	"pallet-fast-unstake/try-runtime",
+	"pallet-message-queue/try-runtime",
+	"pallet-migrations/try-runtime",
+	"pallet-multisig/try-runtime",
+	"pallet-nft-fractionalization/try-runtime",
+	"pallet-nfts/try-runtime",
+	"pallet-nomination-pools/try-runtime",
+	"pallet-parameters/try-runtime",
+	"pallet-preimage/try-runtime",
+	"pallet-proxy/try-runtime",
+	"pallet-referenda/try-runtime",
+	"pallet-scheduler/try-runtime",
+	"pallet-session/try-runtime",
+	"pallet-staking-async-rc-client/try-runtime",
+	"pallet-staking-async/try-runtime",
+	"pallet-state-trie-migration/try-runtime",
+	"pallet-sudo/try-runtime",
+	"pallet-timestamp/try-runtime",
+	"pallet-transaction-payment/try-runtime",
+	"pallet-treasury/try-runtime",
+	"pallet-uniques/try-runtime",
+	"pallet-utility/try-runtime",
+	"pallet-vesting/try-runtime",
+	"pallet-whitelist/try-runtime",
+	"pallet-xcm-bridge-hub-router/try-runtime",
+	"pallet-xcm/try-runtime",
+	"parachain-info/try-runtime",
+	"polkadot-runtime-common/try-runtime",
+	"sp-runtime/try-runtime",
+]
+std = [
+	"assets-common/std",
+	"bp-asset-hub-rococo/std",
+	# "bp-asset-hub-next-westend/std",
+	"bp-bridge-hub-rococo/std",
+	"bp-bridge-hub-westend/std",
+	"codec/std",
+	"cumulus-pallet-aura-ext/std",
+	"cumulus-pallet-parachain-system/std",
+	"cumulus-pallet-session-benchmarking/std",
+	"cumulus-pallet-weight-reclaim/std",
+	"cumulus-pallet-xcm/std",
+	"cumulus-pallet-xcmp-queue/std",
+	"cumulus-primitives-aura/std",
+	"cumulus-primitives-core/std",
+	"cumulus-primitives-utility/std",
+	"frame-benchmarking?/std",
+	"frame-election-provider-support/std",
+	"frame-executive/std",
+	"frame-metadata-hash-extension/std",
+	"frame-support/std",
+	"frame-system-benchmarking?/std",
+	"frame-system-rpc-runtime-api/std",
+	"frame-system/std",
+	"frame-try-runtime?/std",
+	"log/std",
+	"pallet-asset-conversion-ops/std",
+	"pallet-asset-conversion-tx-payment/std",
+	"pallet-asset-conversion/std",
+	"pallet-asset-rate/std",
+	"pallet-asset-rewards/std",
+	"pallet-assets-freezer/std",
+	"pallet-assets/std",
+	"pallet-aura/std",
+	"pallet-authorship/std",
+	"pallet-bags-list/std",
+	"pallet-balances/std",
+	"pallet-collator-selection/std",
+	"pallet-conviction-voting/std",
+	"pallet-delegated-staking/std",
+	"pallet-election-provider-multi-block/std",
+	"pallet-fast-unstake/std",
+	"pallet-message-queue/std",
+	"pallet-migrations/std",
+	"pallet-multisig/std",
+	"pallet-nft-fractionalization/std",
+	"pallet-nfts-runtime-api/std",
+	"pallet-nfts/std",
+	"pallet-nomination-pools-runtime-api/std",
+	"pallet-nomination-pools/std",
+	"pallet-parameters/std",
+	"pallet-preimage/std",
+	"pallet-proxy/std",
+	"pallet-referenda/std",
+	"pallet-scheduler/std",
+	"pallet-session/std",
+	"pallet-staking-async-rc-client/std",
+	"pallet-staking-async-runtime-api/std",
+	"pallet-staking-async/std",
+	"pallet-state-trie-migration/std",
+	"pallet-sudo/std",
+	"pallet-timestamp/std",
+	"pallet-transaction-payment-rpc-runtime-api/std",
+	"pallet-transaction-payment/std",
+	"pallet-treasury/std",
+	"pallet-uniques/std",
+	"pallet-utility/std",
+	"pallet-vesting/std",
+	"pallet-whitelist/std",
+	"pallet-xcm-benchmarks?/std",
+	"pallet-xcm-bridge-hub-router/std",
+	"pallet-xcm/std",
+	"parachain-info/std",
+	"parachains-common/std",
+	"polkadot-parachain-primitives/std",
+	"polkadot-runtime-common/std",
+	"primitive-types/std",
+	"scale-info/std",
+	"serde_json/std",
+	"sp-api/std",
+	"sp-arithmetic/std",
+	"sp-block-builder/std",
+	"sp-consensus-aura/std",
+	"sp-core/std",
+	"sp-genesis-builder/std",
+	"sp-inherents/std",
+	"sp-keyring/std",
+	"sp-npos-elections/std",
+	"sp-offchain/std",
+	"sp-runtime/std",
+	"sp-session/std",
+	"sp-staking/std",
+	"sp-std/std",
+	"sp-storage/std",
+	"sp-transaction-pool/std",
+	"sp-version/std",
+	"substrate-wasm-builder",
+	"testnet-parachains-constants/std",
+	"westend-runtime-constants/std",
+	"xcm-builder/std",
+	"xcm-executor/std",
+	"xcm-runtime-apis/std",
+	"xcm/std",
+]
+
+fast-runtime = []
+
+# Enable the metadata hash generation in the wasm builder.
+metadata-hash = ["substrate-wasm-builder/metadata-hash"]
+
+# A feature that should be enabled when the runtime should be built for on-chain
+# deployment. This will disable stuff that shouldn't be part of the on-chain wasm
+# to make it smaller, like logging for example.
+on-chain-release-build = ["metadata-hash"]

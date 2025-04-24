@@ -6,8 +6,10 @@
 //! making some of the honest nodes go offline.
 
 use anyhow::anyhow;
-
-use crate::helpers::{assert_blocks_are_being_finalized, assert_para_throughput};
+use cumulus_zombienet_sdk_helpers::{
+	assert_blocks_are_being_finalized, assert_finalized_para_throughput,
+	wait_for_first_session_change,
+};
 use polkadot_primitives::{BlockNumber, CandidateHash, DisputeState, Id as ParaId, SessionIndex};
 use serde_json::json;
 use subxt::{OnlineClient, PolkadotConfig};
@@ -87,8 +89,12 @@ async fn dispute_past_session_slashing() -> Result<(), anyhow::Error> {
 	let relay_client: OnlineClient<PolkadotConfig> = honest.wait_client().await?;
 
 	// Wait for some para blocks being produced
-	assert_para_throughput(&relay_client, 20, [(ParaId::from(1337), 10..20)].into_iter().collect())
-		.await?;
+	assert_finalized_para_throughput(
+		&relay_client,
+		20,
+		[(ParaId::from(1337), 10..20)].into_iter().collect(),
+	)
+	.await?;
 
 	// Let's initiate a dispute
 	malus.resume().await?;
@@ -119,16 +125,7 @@ async fn dispute_past_session_slashing() -> Result<(), anyhow::Error> {
 	assert_ne!(dispute_session, u32::MAX, "dispute should be initiated");
 	log::info!("Dispute initiated, now waiting for a new session");
 
-	while let Some(block) = best_blocks.next().await {
-		let current_session = relay_client
-			.runtime_api()
-			.at(block?.hash())
-			.call_raw::<SessionIndex>("ParachainHost_session_index_for_child", None)
-			.await?;
-		if current_session > dispute_session {
-			break
-		}
-	}
+	wait_for_first_session_change(&mut best_blocks).await?;
 
 	// We don't need malus anymore
 	malus.pause().await?;

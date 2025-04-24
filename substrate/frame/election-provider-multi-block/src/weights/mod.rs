@@ -15,8 +15,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//! Weights for the election provider multi-block pallet.
+
 #![allow(unused)]
-pub(crate) mod measured;
-pub(crate) mod mel;
-pub(crate) mod zero;
+pub mod measured;
+pub mod zero;
 pub use zero::AllZeroWeights;

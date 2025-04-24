@@ -1,0 +1,11 @@
+title: Remove node-side feature flag checks for Elastic Scaling MVP
+doc:
+  - audience: Node Dev
+    description: |
+      This PR removes node-side conditional checks for FeatureIndex::ElasticScalingMVP, by
+      default elastic scaling is always enabled. This simplifies the backing and provisioner logic.
+crates:
+  - name: polkadot-node-core-backing
+    bump: patch
+  - name: polkadot-node-core-provisioner
+    bump: major

@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 function relayer_path() {
     local default_path=~/local_bridge_testing/bin/substrate-relay

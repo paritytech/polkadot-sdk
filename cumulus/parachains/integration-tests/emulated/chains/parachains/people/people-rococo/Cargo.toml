@@ -7,8 +7,10 @@ license = "Apache-2.0"
 description = "People Rococo emulated chain"
 publish = false
 
-[dependencies]
+[lints]
+workspace = true
 
+[dependencies]
 # Substrate
 frame-support = { workspace = true }
 sp-core = { workspace = true }

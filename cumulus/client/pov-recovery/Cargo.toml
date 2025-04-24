@@ -40,7 +40,6 @@ cumulus-relay-chain-interface = { workspace = true, default-features = true }
 
 [dev-dependencies]
 assert_matches = { workspace = true }
-cumulus-test-client = { workspace = true }
 rstest = { workspace = true }
 sc-utils = { workspace = true, default-features = true }
 sp-blockchain = { workspace = true, default-features = true }
@@ -48,8 +47,7 @@ sp-tracing = { workspace = true, default-features = true }
 tokio = { features = ["macros"], workspace = true, default-features = true }
 
 # Cumulus
-cumulus-test-service = { workspace = true }
+cumulus-test-client = { workspace = true }
 
 # Substrate
-sc-cli = { workspace = true, default-features = true }
 sc-client-api = { workspace = true, default-features = true }

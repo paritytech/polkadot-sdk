@@ -29,6 +29,7 @@ use sc_transaction_pool_api::{
 };
 use substrate_test_runtime_client::Sr25519Keyring::*;
 use substrate_test_runtime_transaction_pool::uxt;
+use tracing::info;
 #[test]
 fn fatp_prio_ready_higher_evicts_lower() {
 	sp_tracing::try_init_simple();
@@ -50,10 +51,10 @@ fn fatp_prio_ready_higher_evicts_lower() {
 	let result0 = block_on(pool.submit_one(header01.hash(), SOURCE, xt0.clone()));
 	let result1 = block_on(pool.submit_one(header01.hash(), SOURCE, xt1.clone()));
 
-	log::info!("r0 => {:?}", result0);
-	log::info!("r1 => {:?}", result1);
-	log::info!("len: {:?}", pool.mempool_len());
-	log::info!("len: {:?}", pool.status_all()[&header01.hash()]);
+	info!(target: LOG_TARGET, ?result0, "r0");
+	info!(target: LOG_TARGET, ?result1, "r1");
+	info!(target: LOG_TARGET, len = ?pool.mempool_len(), "len");
+	info!(target: LOG_TARGET, status = ?pool.status_all()[&header01.hash()], "len");
 	assert_ready_iterator!(header01.hash(), pool, [xt1]);
 	assert_pool_status!(header01.hash(), &pool, 1, 0);
 }
@@ -89,8 +90,8 @@ fn fatp_prio_watcher_ready_higher_evicts_lower() {
 	let xt1_status = futures::executor::block_on_stream(xt1_watcher).take(1).collect::<Vec<_>>();
 	assert_eq!(xt1_status, vec![TransactionStatus::Ready]);
 
-	log::info!("len: {:?}", pool.mempool_len());
-	log::info!("len: {:?}", pool.status_all()[&header01.hash()]);
+	info!(target: LOG_TARGET, len = ?pool.mempool_len(), "len");
+	info!(target: LOG_TARGET, pool_status = ?pool.status_all()[&header01.hash()], "len");
 	assert_ready_iterator!(header01.hash(), pool, [xt1]);
 	assert_pool_status!(header01.hash(), &pool, 1, 0);
 }

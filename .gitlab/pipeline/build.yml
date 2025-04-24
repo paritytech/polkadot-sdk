@@ -131,7 +131,7 @@ build-polkadot-zombienet-tests:
       artifacts: true
 
   script:
-    - cargo nextest --manifest-path polkadot/zombienet-sdk-tests/Cargo.toml archive --features zombie-metadata --archive-file polkadot-zombienet-tests.tar.zst
+    - cargo nextest --manifest-path polkadot/zombienet-sdk-tests/Cargo.toml archive --features zombie-metadata,zombie-ci --archive-file polkadot-zombienet-tests.tar.zst
     - mkdir -p artifacts
     - cp polkadot-zombienet-tests.tar.zst ./artifacts
 

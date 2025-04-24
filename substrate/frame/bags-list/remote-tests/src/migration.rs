@@ -52,7 +52,7 @@ pub async fn execute<Runtime, Block>(
 		// run the actual migration
 		let moved = <Runtime as pallet_staking::Config>::VoterList::unsafe_regenerate(
 			pallet_staking::Nominators::<Runtime>::iter().map(|(n, _)| n),
-			pallet_staking::Pallet::<Runtime>::weight_of_fn(),
+			Box::new(|x| Some(pallet_staking::Pallet::<Runtime>::weight_of(x))),
 		);
 		log::info!(target: LOG_TARGET, "Moved {} nominators", moved);
 

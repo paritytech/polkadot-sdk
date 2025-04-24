@@ -55,7 +55,6 @@ use frame_system::{ensure_none, ensure_root, pallet_prelude::HeaderFor};
 use polkadot_parachain_primitives::primitives::RelayChainBlockNumber;
 use polkadot_runtime_parachains::FeeTracker;
 use scale_info::TypeInfo;
-use sp_core::U256;
 use sp_runtime::{
 	traits::{Block as BlockT, BlockNumberProvider, Hash, One},
 	BoundedSlice, FixedU128, RuntimeDebug, Saturating,
@@ -204,15 +203,16 @@ pub struct DefaultCoreSelector<T>(PhantomData<T>);
 
 impl<T: frame_system::Config> SelectCore for DefaultCoreSelector<T> {
 	fn selected_core() -> (CoreSelector, ClaimQueueOffset) {
-		let core_selector: U256 = frame_system::Pallet::<T>::block_number().into();
+		let core_selector = frame_system::Pallet::<T>::block_number().using_encoded(|b| b[0]);
 
-		(CoreSelector(core_selector.byte(0)), ClaimQueueOffset(DEFAULT_CLAIM_QUEUE_OFFSET))
+		(CoreSelector(core_selector), ClaimQueueOffset(DEFAULT_CLAIM_QUEUE_OFFSET))
 	}
 
 	fn select_next_core() -> (CoreSelector, ClaimQueueOffset) {
-		let core_selector: U256 = (frame_system::Pallet::<T>::block_number() + One::one()).into();
+		let core_selector =
+			(frame_system::Pallet::<T>::block_number() + One::one()).using_encoded(|b| b[0]);
 
-		(CoreSelector(core_selector.byte(0)), ClaimQueueOffset(DEFAULT_CLAIM_QUEUE_OFFSET))
+		(CoreSelector(core_selector), ClaimQueueOffset(DEFAULT_CLAIM_QUEUE_OFFSET))
 	}
 }
 
@@ -221,15 +221,16 @@ pub struct LookaheadCoreSelector<T>(PhantomData<T>);
 
 impl<T: frame_system::Config> SelectCore for LookaheadCoreSelector<T> {
 	fn selected_core() -> (CoreSelector, ClaimQueueOffset) {
-		let core_selector: U256 = frame_system::Pallet::<T>::block_number().into();
+		let core_selector = frame_system::Pallet::<T>::block_number().using_encoded(|b| b[0]);
 
-		(CoreSelector(core_selector.byte(0)), ClaimQueueOffset(1))
+		(CoreSelector(core_selector), ClaimQueueOffset(1))
 	}
 
 	fn select_next_core() -> (CoreSelector, ClaimQueueOffset) {
-		let core_selector: U256 = (frame_system::Pallet::<T>::block_number() + One::one()).into();
+		let core_selector =
+			(frame_system::Pallet::<T>::block_number() + One::one()).using_encoded(|b| b[0]);
 
-		(CoreSelector(core_selector.byte(0)), ClaimQueueOffset(1))
+		(CoreSelector(core_selector), ClaimQueueOffset(1))
 	}
 }
 
@@ -247,6 +248,7 @@ pub mod pallet {
 	#[pallet::config]
 	pub trait Config: frame_system::Config<OnSetCode = ParachainSetCode<Self>> {
 		/// The overarching event type.
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		/// Something which can be notified when the validation data is set.
@@ -485,6 +487,9 @@ pub mod pallet {
 			// like for example from scheduler, we only kill the storage entry if it was not yet
 			// updated in the current block.
 			if !<DidSetValidationCode<T>>::get() {
+				// NOTE: Killing here is required to at least include the trie nodes down to the key
+				// in the proof. Because this value will be read in `validate_block` and thus,
+				// needs to be reachable by the proof.
 				NewValidationCode::<T>::kill();
 				weight += T::DbWeight::get().writes(1);
 			}
@@ -507,10 +512,25 @@ pub mod pallet {
 
 			// Remove the validation from the old block.
 			ValidationData::<T>::kill();
+			// NOTE: Killing here is required to at least include the trie nodes down to the key in
+			// the proof. Because this value will be read in `validate_block` and thus, needs to
+			// be reachable by the proof.
 			ProcessedDownwardMessages::<T>::kill();
+			// NOTE: Killing here is required to at least include the trie nodes down to the key in
+			// the proof. Because this value will be read in `validate_block` and thus, needs to
+			// be reachable by the proof.
 			HrmpWatermark::<T>::kill();
+			// NOTE: Killing here is required to at least include the trie nodes down to the key in
+			// the proof. Because this value will be read in `validate_block` and thus, needs to
+			// be reachable by the proof.
 			UpwardMessages::<T>::kill();
+			// NOTE: Killing here is required to at least include the trie nodes down to the key in
+			// the proof. Because this value will be read in `validate_block` and thus, needs to
+			// be reachable by the proof.
 			HrmpOutboundMessages::<T>::kill();
+			// NOTE: Killing here is required to at least include the trie nodes down to the key in
+			// the proof. Because this value will be read in `validate_block` and thus, needs to
+			// be reachable by the proof.
 			CustomValidationHeadData::<T>::kill();
 
 			weight += T::DbWeight::get().writes(6);
@@ -553,6 +573,16 @@ pub mod pallet {
 
 			// Always try to read `UpgradeGoAhead` in `on_finalize`.
 			weight += T::DbWeight::get().reads(1);
+
+			// Post a digest that contains the information for selecting a core.
+			let selected_core = T::SelectCore::selected_core();
+			frame_system::Pallet::<T>::deposit_log(
+				cumulus_primitives_core::CumulusDigestItem::SelectCore {
+					selector: selected_core.0,
+					claim_queue_offset: selected_core.1,
+				}
+				.to_digest_item(),
+			);
 
 			weight
 		}

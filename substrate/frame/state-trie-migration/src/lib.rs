@@ -507,6 +507,7 @@ pub mod pallet {
 
 		/// The overarching event type.
 		#[pallet::no_default_bounds]
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		/// The currency provider type.
@@ -836,7 +837,7 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			limits: MigrationLimits,
 		) -> DispatchResult {
-			let _ = T::ControlOrigin::ensure_origin(origin)?;
+			T::ControlOrigin::ensure_origin(origin)?;
 			SignedMigrationMaxLimits::<T>::put(limits);
 			Ok(())
 		}
@@ -857,7 +858,7 @@ pub mod pallet {
 			progress_top: ProgressOf<T>,
 			progress_child: ProgressOf<T>,
 		) -> DispatchResult {
-			let _ = T::ControlOrigin::ensure_origin(origin)?;
+			T::ControlOrigin::ensure_origin(origin)?;
 			MigrationProcess::<T>::mutate(|task| {
 				task.progress_top = progress_top;
 				task.progress_child = progress_child;

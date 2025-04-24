@@ -28,14 +28,17 @@ use runtime::{
 	Balance, Block, BlockHashCount, Runtime, RuntimeCall, Signature, SignedPayload, TxExtension,
 	UncheckedExtrinsic, VERSION,
 };
-use sc_consensus_aura::standalone::{seal, slot_author};
+use sc_consensus_aura::{
+	find_pre_digest,
+	standalone::{seal, slot_author},
+};
 pub use sc_executor::error::Result as ExecutorResult;
 use sc_executor::HeapAllocStrategy;
 use sc_executor_common::runtime_blob::RuntimeBlob;
 use sp_api::ProvideRuntimeApi;
 use sp_application_crypto::AppCrypto;
 use sp_blockchain::HeaderBackend;
-use sp_consensus_aura::{AuraApi, Slot};
+use sp_consensus_aura::AuraApi;
 use sp_core::Pair;
 use sp_io::TestExternalities;
 use sp_keystore::testing::MemoryKeystore;
@@ -72,6 +75,7 @@ pub type Client = client::Client<Backend, Executor, Block, runtime::RuntimeApi>;
 #[derive(Default)]
 pub struct GenesisParameters {
 	pub endowed_accounts: Vec<cumulus_test_runtime::AccountId>,
+	pub wasm: Option<Vec<u8>>,
 }
 
 impl substrate_test_client::GenesisInit for GenesisParameters {
@@ -79,7 +83,9 @@ impl substrate_test_client::GenesisInit for GenesisParameters {
 		cumulus_test_service::chain_spec::get_chain_spec_with_extra_endowed(
 			None,
 			self.endowed_accounts.clone(),
-			cumulus_test_runtime::WASM_BINARY.expect("WASM binary not compiled!"),
+			self.wasm.as_deref().unwrap_or_else(|| {
+				cumulus_test_runtime::WASM_BINARY.expect("WASM binary not compiled!")
+			}),
 		)
 		.build_storage()
 		.expect("Builds test runtime genesis storage")
@@ -233,24 +239,34 @@ fn get_keystore() -> sp_keystore::KeystorePtr {
 
 /// Given parachain block data and a slot, seal the block with an aura seal. Assumes that the
 /// authorities of the test runtime are present in the keyring.
-pub fn seal_block(
-	block: ParachainBlockData,
-	parachain_slot: Slot,
-	client: &Client,
-) -> ParachainBlockData {
-	let parent_hash = block.header().parent_hash;
-	let authorities = client.runtime_api().authorities(parent_hash).unwrap();
-	let expected_author = slot_author::<<AuraId as AppCrypto>::Pair>(parachain_slot, &authorities)
-		.expect("Should be able to find author");
+pub fn seal_block(block: ParachainBlockData, client: &Client) -> ParachainBlockData {
+	let (blocks, proof) = block.into_inner();
 
-	let (mut header, extrinsics, proof) = block.deconstruct();
-	let keystore = get_keystore();
-	let seal_digest = seal::<_, sp_consensus_aura::sr25519::AuthorityPair>(
-		&header.hash(),
-		expected_author,
-		&keystore,
+	ParachainBlockData::new(
+		blocks
+			.into_iter()
+			.map(|mut block| {
+				let parachain_slot =
+					find_pre_digest::<Block, <AuraId as AppCrypto>::Signature>(&block.header)
+						.unwrap();
+				let parent_hash = block.header.parent_hash;
+				let authorities = client.runtime_api().authorities(parent_hash).unwrap();
+				let expected_author =
+					slot_author::<<AuraId as AppCrypto>::Pair>(parachain_slot, &authorities)
+						.expect("Should be able to find author");
+
+				let keystore = get_keystore();
+				let seal_digest = seal::<_, sp_consensus_aura::sr25519::AuthorityPair>(
+					&block.header.hash(),
+					expected_author,
+					&keystore,
+				)
+				.expect("Should be able to create seal");
+				block.header.digest_mut().push(seal_digest);
+
+				block
+			})
+			.collect::<Vec<_>>(),
+		proof,
 	)
-	.expect("Should be able to create seal");
-	header.digest_mut().push(seal_digest);
-	ParachainBlockData::new(header, extrinsics, proof)
 }

@@ -98,7 +98,6 @@ bp-asset-hub-westend = { workspace = true }
 bp-bridge-hub-rococo = { workspace = true }
 bp-bridge-hub-westend = { workspace = true }
 pallet-xcm-bridge-hub-router = { workspace = true }
-snowbridge-router-primitives = { workspace = true }
 
 [dev-dependencies]
 asset-test-utils = { workspace = true, default-features = true }
@@ -144,7 +143,6 @@ runtime-benchmarks = [
 	"parachains-common/runtime-benchmarks",
 	"polkadot-parachain-primitives/runtime-benchmarks",
 	"polkadot-runtime-common/runtime-benchmarks",
-	"snowbridge-router-primitives/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",
 	"xcm-executor/runtime-benchmarks",
@@ -244,7 +242,6 @@ std = [
 	"rococo-runtime-constants/std",
 	"scale-info/std",
 	"serde_json/std",
-	"snowbridge-router-primitives/std",
 	"sp-api/std",
 	"sp-block-builder/std",
 	"sp-consensus-aura/std",

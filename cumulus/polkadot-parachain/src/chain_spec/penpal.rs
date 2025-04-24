@@ -46,6 +46,7 @@ pub fn get_penpal_chain_spec(id: ParaId, relay_chain: &str) -> GenericChainSpec 
 		],
 		Sr25519Keyring::well_known().map(|k| k.to_account_id()).collect(),
 		id,
+		Sr25519Keyring::Alice.to_account_id(),
 	))
 	.build()
 }
@@ -54,6 +55,7 @@ fn penpal_testnet_genesis(
 	invulnerables: Vec<(AccountId, AuraId)>,
 	endowed_accounts: Vec<AccountId>,
 	id: ParaId,
+	sudo_account: AccountId,
 ) -> serde_json::Value {
 	serde_json::json!({
 		"balances": {
@@ -86,7 +88,45 @@ fn penpal_testnet_genesis(
 			"safeXcmVersion": Some(SAFE_XCM_VERSION),
 		},
 		"sudo": {
-			"key": Some(Sr25519Keyring::Alice.to_account_id()),
+			"key": Some(sudo_account.clone()),
+		},
+		"assets": {
+			"assets": vec![(
+				penpal_runtime::xcm_config::TELEPORTABLE_ASSET_ID,
+				sudo_account.clone(), // owner
+				false, // is_sufficient
+				penpal_runtime::EXISTENTIAL_DEPOSIT,
+			)],
+			"metadata": vec![(
+				penpal_runtime::xcm_config::TELEPORTABLE_ASSET_ID,
+				"pal-2".as_bytes().to_vec(),
+				"pal-2".as_bytes().to_vec(),
+				12,
+			)],
+			"accounts": vec![(
+				penpal_runtime::xcm_config::TELEPORTABLE_ASSET_ID,
+				sudo_account.clone(),
+				penpal_runtime::EXISTENTIAL_DEPOSIT * 4096,
+			)]
+		},
+		"foreignAssets": {
+			"assets": vec![(
+				penpal_runtime::xcm_config::RelayLocation::get(),
+				sudo_account.clone(),
+				true,
+				penpal_runtime::EXISTENTIAL_DEPOSIT
+			)],
+			"metadata": vec![(
+				penpal_runtime::xcm_config::RelayLocation::get(),
+				"relay".as_bytes().to_vec(),
+				"relay".as_bytes().to_vec(),
+				12
+			)],
+			"accounts": vec![(
+				penpal_runtime::xcm_config::RelayLocation::get(),
+				sudo_account.clone(),
+				penpal_runtime::EXISTENTIAL_DEPOSIT * 4096,
+			)]
 		},
 	})
 }

@@ -197,9 +197,13 @@ jobs:
         if: ${{ matrix.target == 'aarch64-apple-darwin' }}
         working-directory: ${{ github.workspace}}/release-artifacts/${{ matrix.target }}/${{ matrix.binary }}
         run: |
+          . ../../../.github/scripts/common/lib.sh
+
           mv ${{ matrix.binary }} ${{ matrix.binary }}-aarch64-apple-darwin
           mv ${{ matrix.binary }}.asc ${{ matrix.binary }}-aarch64-apple-darwin.asc
-          mv ${{ matrix.binary }}.sha256 ${{ matrix.binary }}-aarch64-apple-darwin.sha256
+
+          sha256sum "${{ matrix.binary }}-aarch64-apple-darwin" | tee "${{ matrix.binary }}-aarch64-apple-darwin.sha256"
+          check_sha256 "${{ matrix.binary }}-aarch64-apple-darwin" && echo "OK" || echo "ERR"
 
       - name: Generate content write token for the release automation
         id: generate_write_token
