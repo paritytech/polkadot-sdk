@@ -226,7 +226,7 @@ pub mod pallet {
 	use alloc::vec;
 	use frame_support::traits::UnixTime;
 	use frame_system::pallet_prelude::*;
-	use pallet_session::historical;
+	use pallet_session::{historical, SessionManager};
 	use sp_runtime::{Perbill, Saturating};
 	use sp_staking::{
 		offence::{OffenceSeverity, OnOffenceHandler},
@@ -527,21 +527,19 @@ pub mod pallet {
 				.map(|v| v.into_iter().map(|v| (v, sp_staking::Exposure::default())).collect())
 		}
 
-		// We don't implement `new_session_genesis` because we rely on the default implementation
-		// which calls `new_session`
-
-		fn start_session(start_index: SessionIndex) {
-			<Self as pallet_session::SessionManager<_>>::start_session(start_index)
-		}
-
 		fn new_session_genesis(
 				new_index: SessionIndex,
 			) -> Option<Vec<(T::AccountId, sp_staking::Exposure<T::AccountId, BalanceOf<T>>)>> {
 			if Mode::<T>::get() == OperatingMode::Passive {
 				T::Fallback::new_session_genesis(new_index)
+					.map(|validators| validators.into_iter().map(|v| (v, sp_staking::Exposure::default())).collect())
 			} else {
 				None
 			}
+		}
+
+		fn start_session(start_index: SessionIndex) {
+			<Self as pallet_session::SessionManager<_>>::start_session(start_index)
 		}
 
 		fn end_session(end_index: SessionIndex) {
