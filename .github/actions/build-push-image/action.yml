@@ -6,13 +6,12 @@ inputs:
   image-name:
     description: "image name (without registry)"
     required: true
-  pushToDockerhub:
-    description: ""
-    default: true
   username:
     required: false
+    default: ""
   password:
     required: false
+    default: ""
 outputs:
   branch:
     description: "Branch name for the PR"
@@ -51,7 +50,9 @@ runs:
         docker push "${{ env.IMAGE_TAG }}:$DOCKER_IMAGES_VERSION"
 
     - name: login to dockerhub
-      if: ${{ inputs.pushToDockerhub }}
+      id: login
+      # fork check
+      if: ${{ inputs.username != '' && inputs.password != '' }}
       uses: docker/login-action@v3
       with:
         username: ${{ inputs.username }}
@@ -59,11 +60,11 @@ runs:
 
     - name: push to dockerhub
       shell: bash
-      if: ${{ inputs.pushToDockerhub }}
+      needs: [login]
       run: |
         export DOCKER_IMAGES_VERSION=${{ github.event.pull_request.head.sha }}
         if [[ ${{ github.event_name }} == "merge_group" ]]; then export DOCKER_IMAGES_VERSION="${GITHUB_SHA::8}"; fi
-        export DOCKERHUB_TAG=docker.io/paritypr/${{ inputs.image-name }}:$DOCKER_IMAGES_VERSION
+        export DOCKERHUB_TAG=docker.io/paritypr/${{ inputs.image-name }}:${{ github.event.pull_request.number }}-${GITHUB_SHA::8}
         docker tag "europe-docker.pkg.dev/parity-ci-2024/temp-images/${{ inputs.image-name }}:$DOCKER_IMAGES_VERSION" $DOCKERHUB_TAG
         docker push $DOCKERHUB_TAG
 
