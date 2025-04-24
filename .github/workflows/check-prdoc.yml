@@ -50,17 +50,17 @@ jobs:
       - name: Get PR number
         if: ${{ github.event.pull_request.number != '' && !contains(steps.get-labels.outputs.labels, 'R0') }}
         run: |
-          pr_number=''
+          original_pr_number=''
           PR_TITLE="${{ github.event.pull_request.title }}"
           if [[ $PR_TITLE =~ 'Backport' ]]; then
             if [[ $PR_TITLE =~ \#([0-9]+) ]]; then
-              pr_number="${BASH_REMATCH[1]}"
-              echo "Extracted PR number: $pr_number"
+              original_pr_number="${BASH_REMATCH[1]}"
+              echo "Extracted PR number: $original_pr_number"
             fi
           else
-            pr_number=${{ github.event.pull_request.number }}
+            original_pr_number=${{ github.event.pull_request.number }}
           fi
-          echo "PR_NUMBER=$pr_number" >> $GITHUB_ENV
+          echo "PR_NUMBER=$original_pr_number" >> $GITHUB_ENV
 
       - name: Validate prdoc for PR#${{ env.PR_NUMBER }}
         if: ${{ github.event.pull_request.number != '' && !contains(steps.get-labels.outputs.labels, 'R0') }}
