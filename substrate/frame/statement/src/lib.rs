@@ -70,6 +70,7 @@ pub mod pallet {
 		<Self as frame_system::Config>::AccountId: From<sp_statement_store::AccountId>,
 	{
 		/// The overarching event type.
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		/// The currency which is used to calculate account limits.
 		type Currency: Inspect<Self::AccountId>;
