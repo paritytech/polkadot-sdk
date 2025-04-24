@@ -59,7 +59,8 @@ pub trait StatementApi {
 	/// Return all known statements which include all topics and have no `DecryptionKey`
 	/// field.
 	///
-	/// This returns the SCALE-encoded statements not just the data as in rpc `statement_broadcasts`.
+	/// This returns the SCALE-encoded statements not just the data as in rpc
+	/// `statement_broadcasts`.
 	#[method(name = "statement_broadcastsStatement")]
 	fn broadcasts_stmt(&self, match_all_topics: Vec<[u8; 32]>) -> RpcResult<Vec<Bytes>>;
 
@@ -69,7 +70,8 @@ pub trait StatementApi {
 	///
 	/// This returns the SCALE-encoded statements not just the data as in rpc `statement_posted`.
 	#[method(name = "statement_postedStatement")]
-	fn posted_stmt(&self, match_all_topics: Vec<[u8; 32]>, dest: [u8; 32]) -> RpcResult<Vec<Bytes>>;
+	fn posted_stmt(&self, match_all_topics: Vec<[u8; 32]>, dest: [u8; 32])
+		-> RpcResult<Vec<Bytes>>;
 
 	/// Return the statement and the decrypted data of all known statements whose decryption key is
 	/// identified as `dest`. The key must be available to the client.

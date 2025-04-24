@@ -93,7 +93,8 @@ pub trait StatementStore: Send + Sync {
 
 	/// Return the statement and the decrypted data of all known statements whose decryption key is
 	/// identified as `dest`. The key must be available to the client.
-	fn posted_clear_stmt(&self, match_all_topics: &[Topic], dest: [u8; 32]) -> Result<Vec<Vec<u8>>>;
+	fn posted_clear_stmt(&self, match_all_topics: &[Topic], dest: [u8; 32])
+		-> Result<Vec<Vec<u8>>>;
 
 	/// Submit a statement.
 	fn submit(&self, statement: Statement, source: StatementSource) -> SubmitResult;

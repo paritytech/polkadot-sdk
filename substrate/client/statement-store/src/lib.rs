@@ -710,7 +710,12 @@ impl Store {
 
 	/// Return information of all known statements whose decryption key is identified as
 	/// `dest`. The key must be available to the client.
-	fn posted_clear_inner<R>(&self, match_all_topics: &[Topic], dest: [u8; 32], mut map: impl FnMut(Statement, Option<Vec<u8>>) -> Option<R>) -> Result<Vec<R>> {
+	fn posted_clear_inner<R>(
+		&self,
+		match_all_topics: &[Topic],
+		dest: [u8; 32],
+		mut map: impl FnMut(Statement, Option<Vec<u8>>) -> Option<R>,
+	) -> Result<Vec<R>> {
 		self.collect_statements(Some(dest), match_all_topics, |statement| {
 			if let (Some(key), Some(_)) = (statement.decryption_key(), statement.data()) {
 				let public: sp_core::ed25519::Public = UncheckedFrom::unchecked_from(key);
@@ -835,7 +840,11 @@ impl StatementStore for Store {
 
 	/// Return the statement and the decrypted data of all known statements whose decryption key is
 	/// identified as `dest`. The key must be available to the client.
-	fn posted_clear_stmt(&self, match_all_topics: &[Topic], dest: [u8; 32]) -> Result<Vec<Vec<u8>>> {
+	fn posted_clear_stmt(
+		&self,
+		match_all_topics: &[Topic],
+		dest: [u8; 32],
+	) -> Result<Vec<Vec<u8>>> {
 		self.posted_clear_inner(match_all_topics, dest, |statement, data| {
 			data.map(|data| {
 				let mut res = Vec::with_capacity(statement.size_hint() + data.len());
@@ -963,8 +972,7 @@ impl StatementStore for Store {
 mod tests {
 	use crate::Store;
 	use sc_keystore::Keystore;
-	use sp_core::Pair;
-	use sp_core::{Encode, Decode};
+	use sp_core::{Decode, Encode, Pair};
 	use sp_statement_store::{
 		runtime_api::{InvalidStatement, ValidStatement, ValidateStatement},
 		AccountId, Channel, DecryptionKey, NetworkPriority, Proof, SignatureVerificationResult,

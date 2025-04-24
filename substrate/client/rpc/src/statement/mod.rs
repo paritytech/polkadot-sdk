@@ -95,7 +95,11 @@ impl StatementApiServer for StatementStore {
 			.collect())
 	}
 
-	fn posted_stmt(&self, match_all_topics: Vec<[u8; 32]>, dest: [u8; 32]) -> RpcResult<Vec<Bytes>> {
+	fn posted_stmt(
+		&self,
+		match_all_topics: Vec<[u8; 32]>,
+		dest: [u8; 32],
+	) -> RpcResult<Vec<Bytes>> {
 		Ok(self
 			.store
 			.posted_stmt(&match_all_topics, dest)
