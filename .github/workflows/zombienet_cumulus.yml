@@ -144,9 +144,21 @@ jobs:
     container:
       image: ${{ needs.preflight.outputs.ZOMBIENET_IMAGE }}
     env:
-      RELAY_IMAGE: "${{ needs.preflight.outputs.TEMP_IMAGES_BASE }}/polkadot-debug:${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"
-      COL_IMAGE: "${{ needs.preflight.outputs.TEMP_IMAGES_BASE }}/test-parachain:${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"
+      # sdk tests are looking for POLKADOT_IMAGE
+      POLKADOT_IMAGE: "${{ needs.preflight.outputs.TEMP_IMAGES_BASE }}/polkadot-debug:${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"
+      CUMULUS_IMAGE: "${{ needs.preflight.outputs.TEMP_IMAGES_BASE }}/test-parachain:${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"
+      RUST_LOG: ${{ needs.preflight.outputs.RUST_LOG }}
+      ZOMBIE_PROVIDER: ${{ needs.preflight.outputs.ZOMBIE_PROVIDER }}
+      # don't retry sdk tests
+      NEXTEST_RETRIES: 0
+
     steps:
+      - name: k8s_auth
+        shell: bash
+        run: |
+          . /home/nonroot/zombie-net/scripts/ci/run-test-local-env-manager.sh
+          k8s_auth
+
       - name: Checkout
         uses: actions/checkout@v4
 
@@ -166,11 +178,12 @@ jobs:
           ls -ltr *
           cp ./artifacts/zombienet/wasm_binary_spec_version_incremented.rs.compact.compressed.wasm /tmp/
           ls /tmp
-          export DEBUG=${{ needs.preflight.outputs.DEBUG }}
-          /home/nonroot/zombie-net/scripts/ci/run-test-local-env-manager.sh \
-            --local-dir="$(pwd)/$LOCAL_DIR" \
-            --concurrency=1 \
-            --test="0004-runtime_upgrade.zndsl"
+          # use spot by default
+          export X_INFRA_INSTANCE=spot
+          # we want to use `--no-capture` in zombienet tests.
+          unset NEXTEST_FAILURE_OUTPUT
+          unset NEXTEST_SUCCESS_OUTPUT
+          cargo nextest run --archive-file ./artifacts/cumulus-zombienet-tests.tar.zst --no-capture -- zombie_ci::runtime_upgrade::runtime_upgrade
 
       - name: upload logs
         uses: actions/upload-artifact@v4
