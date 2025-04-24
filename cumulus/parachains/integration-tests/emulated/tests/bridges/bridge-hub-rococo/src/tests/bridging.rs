@@ -140,3 +140,28 @@ fn can_submit_ahw_and_bhw_parachain_proofs_works() {
 		ahr_para_head_hash
 	));
 }
+
+#[test]
+fn asset_hub_westend_proof_root_sync_works() {
+	// check AssetHubRococo for no synced proof roots
+	AssetHubRococo::execute_with(|| {
+		assert!(<AssetHubRococo as AssetHubRococoPallet>::AssetHubWestendProofRootStore::get_root_index().is_empty())
+	});
+
+	// (simulate) relay AHW parachain head (triggers `pallet-bridge-parachains`'s `OnNewHead`).
+	let (bridged_para_head_hash, bridged_para_state_root) = submit_fake_parachain_heads::<
+		bp_westend::Westend,
+		bp_asset_hub_westend::AssetHubWestend,
+	>(1, 1);
+
+	// check AssetHubWestend for synced proof root (only the AHR is set up for syncing)
+	AssetHubRococo::execute_with(|| {
+		assert_eq!(
+			<AssetHubRococo as AssetHubRococoPallet>::AssetHubWestendProofRootStore::get_root(
+				&bridged_para_head_hash,
+			),
+			Some(bridged_para_state_root)
+		);
+		assert!(<AssetHubRococo as AssetHubRococoPallet>::AssetHubWestendProofRootStore::get_root_index().contains(&bridged_para_head_hash));
+	});
+}

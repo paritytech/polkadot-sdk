@@ -603,6 +603,7 @@ construct_runtime!(
 		BridgeWestendMessages: pallet_bridge_messages::<Instance3> = 51,
 		// With-Westend bridge hub pallet.
 		XcmOverBridgeHubWestend: pallet_xcm_bridge::<Instance1> = 52,
+		AssetHubWestendStateRootSync: pallet_bridge_proof_root_sync::<Instance1> = 53,
 
 		// With-Rococo Bulletin GRANDPA bridge module.
 		//
