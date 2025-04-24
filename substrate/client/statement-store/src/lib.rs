@@ -714,7 +714,8 @@ impl Store {
 		&self,
 		match_all_topics: &[Topic],
 		dest: [u8; 32],
-		mut map: impl FnMut(Statement, Option<Vec<u8>>) -> Option<R>,
+		// Map the statement and the decrypted data to the desired result.
+		mut map_f: impl FnMut(Statement, Vec<u8>) -> R,
 	) -> Result<Vec<R>> {
 		self.collect_statements(Some(dest), match_all_topics, |statement| {
 			if let (Some(key), Some(_)) = (statement.decryption_key(), statement.data()) {
@@ -739,7 +740,7 @@ impl Store {
 						None
 					},
 					Ok(Some(pair)) => match statement.decrypt_private(&pair.into_inner()) {
-						Ok(r) => map(statement, r),
+						Ok(r) => r.map(|data| map_f(statement, data)),
 						Err(e) => {
 							log::debug!(
 								target: LOG_TARGET,
@@ -846,12 +847,10 @@ impl StatementStore for Store {
 		dest: [u8; 32],
 	) -> Result<Vec<Vec<u8>>> {
 		self.posted_clear_inner(match_all_topics, dest, |statement, data| {
-			data.map(|data| {
-				let mut res = Vec::with_capacity(statement.size_hint() + data.len());
-				statement.encode_to(&mut res);
-				res.extend_from_slice(&data);
-				res
-			})
+			let mut res = Vec::with_capacity(statement.size_hint() + data.len());
+			statement.encode_to(&mut res);
+			res.extend_from_slice(&data);
+			res
 		})
 	}
 
