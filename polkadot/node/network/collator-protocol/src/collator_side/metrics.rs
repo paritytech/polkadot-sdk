@@ -74,7 +74,9 @@ impl Metrics {
 
 	/// Create a timer to measure how much time it takes for fetched collations to be backed.
 	pub fn time_collation_backing_latency(&self) -> Option<prometheus::prometheus::HistogramTimer> {
-		self.0.as_ref().map(|metrics| metrics.collation_backing_latency_time.start_timer())
+		self.0
+			.as_ref()
+			.map(|metrics| metrics.collation_backing_latency_time.start_timer())
 	}
 
 	/// Record the time a collation took before expiring.
