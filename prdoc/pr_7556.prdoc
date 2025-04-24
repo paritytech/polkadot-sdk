@@ -1,4 +1,4 @@
-title: '[WIP] Add in memory trie cache'
+title: 'Add trie cache warmup'
 doc:
 - audience: Node Dev
   description: "To increase the performance of smart contracts on AssetHub, reducing storage access time, we warm up Trie cache based on a CLI flag."
