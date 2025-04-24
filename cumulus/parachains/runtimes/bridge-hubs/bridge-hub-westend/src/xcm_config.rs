@@ -20,8 +20,7 @@ use super::{
 	RuntimeOrigin, TransactionByteFee, WeightToFee, XcmOverBridgeHubRococo, XcmpQueue,
 };
 use crate::{
-	bridge_common_config::AssetHubLocation,
-	bridge_to_ethereum_config::SnowbridgeFrontendLocation,
+	bridge_common_config::AssetHubLocation, bridge_to_ethereum_config::SnowbridgeFrontendLocation,
 };
 use bridge_hub_common::DenyExportMessageFrom;
 use frame_support::{

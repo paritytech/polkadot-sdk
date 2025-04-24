@@ -143,7 +143,8 @@ impl pallet_bridge_proof_root_store::Config<AssetHubWestendProofRootStoreInstanc
 	type RootsToKeep = ConstU32<64>;
 }
 
-/// Adapter `bp_header_chain::HeaderChain` implementation which resolves AssetHubWestend `state_root` for `block_hash`.
+/// Adapter `bp_header_chain::HeaderChain` implementation which resolves AssetHubWestend
+/// `state_root` for `block_hash`.
 pub struct AssetHubWestendHeaders;
 impl
 	bp_header_chain::HeaderChain<
