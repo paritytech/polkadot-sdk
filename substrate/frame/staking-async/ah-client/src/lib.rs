@@ -534,6 +534,16 @@ pub mod pallet {
 			<Self as pallet_session::SessionManager<_>>::start_session(start_index)
 		}
 
+		fn new_session_genesis(
+				new_index: SessionIndex,
+			) -> Option<Vec<(T::AccountId, sp_staking::Exposure<T::AccountId, BalanceOf<T>>)>> {
+			if Mode::<T>::get() == OperatingMode::Passive {
+				T::Fallback::new_session_genesis(new_index)
+			} else {
+				None
+			}
+		}
+
 		fn end_session(end_index: SessionIndex) {
 			<Self as pallet_session::SessionManager<_>>::end_session(end_index)
 		}
@@ -552,6 +562,14 @@ pub mod pallet {
 		fn start_session(session_index: u32) {
 			if Mode::<T>::get() == OperatingMode::Passive {
 				T::Fallback::start_session(session_index)
+			}
+		}
+
+		fn new_session_genesis(new_index: SessionIndex) -> Option<Vec<T::AccountId>> {
+			if Mode::<T>::get() == OperatingMode::Passive {
+				T::Fallback::new_session_genesis(new_index)
+			} else {
+				None
 			}
 		}
 
