@@ -984,7 +984,7 @@ pub mod pallet {
 			// set the bonded genesis era
 			BondedEras::<T>::put(
 				BoundedVec::<_, BondedErasBound<T>>::try_from(
-					vec![(active_era, session_index)]
+					alloc::vec![(active_era, session_index)]
 				)
 				.expect("bound for BondedEras is BondingDuration + 1; can contain at least one element; qed")
 			);
