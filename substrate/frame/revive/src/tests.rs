@@ -642,7 +642,7 @@ fn run_out_of_fuel_engine() {
 #[test]
 fn run_out_of_fuel_host() {
 	use crate::precompiles::Precompile;
-	use alloy_core::sol_types::{SolInterface};
+	use alloy_core::sol_types::SolInterface;
 	use precompiles::{INoInfo, NoInfo};
 
 	let precompile_addr = H160(NoInfo::<Test>::MATCHER.base_address());
