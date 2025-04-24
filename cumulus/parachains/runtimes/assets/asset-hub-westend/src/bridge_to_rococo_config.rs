@@ -141,7 +141,8 @@ impl pallet_bridge_proof_root_store::Config<AssetHubRococoProofRootStoreInstance
 	type RootsToKeep = ConstU32<64>;
 }
 
-/// Adapter `bp_header_chain::HeaderChain` implementation which resolves AssetHubRococo `state_root` for `block_hash`.
+/// Adapter `bp_header_chain::HeaderChain` implementation which resolves AssetHubRococo `state_root`
+/// for `block_hash`.
 pub struct AssetHubRococoHeaders;
 impl
 	bp_header_chain::HeaderChain<
@@ -352,10 +353,7 @@ mod tests {
 	#[test]
 	fn ensure_encoding_compatibility() {
 		let hash = HashOf::<
-			pallet_bridge_messages::BridgedChainOf<
-				Runtime,
-				WithAssetHubRococoMessagesInstance,
-			>,
+			pallet_bridge_messages::BridgedChainOf<Runtime, WithAssetHubRococoMessagesInstance>,
 		>::from([1; 32]);
 		let roots = vec![(hash, hash), (hash, hash)];
 

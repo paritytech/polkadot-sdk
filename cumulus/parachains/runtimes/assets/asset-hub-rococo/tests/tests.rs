@@ -1729,8 +1729,10 @@ mod bridge_to_westend_tests {
 	use bp_runtime::{HeaderOf, RangeInclusiveExt};
 	use bridge_hub_test_utils::mock_open_hrmp_channel;
 	use codec::Decode;
-	use frame_support::traits::{ConstU8, ProcessMessageError};
-	use frame_support::BoundedVec;
+	use frame_support::{
+		traits::{ConstU8, ProcessMessageError},
+		BoundedVec,
+	};
 	use pallet_bridge_messages::BridgedChainOf;
 	use xcm::latest::{prelude::*, ROCOCO_GENESIS_HASH};
 	use xcm_builder::{CreateMatcher, MatchXcm};
