@@ -1421,9 +1421,8 @@ xcm-procedural = { path = "polkadot/xcm/procedural", default-features = false }
 xcm-runtime-apis = { path = "polkadot/xcm/xcm-runtime-apis", default-features = false }
 xcm-simulator = { path = "polkadot/xcm/xcm-simulator", default-features = false }
 zeroize = { version = "1.7.0", default-features = false }
+zombienet-sdk = { version = "0.2.31" }
 zstd = { version = "0.12.4", default-features = false }
-# TODO: Switch back to versioned crate once it this change https://github.com/paritytech/zombienet-sdk/pull/325
-zombienet-sdk = { git = "https://github.com/paritytech/zombienet-sdk.git", rev = "f686bf95cbfd61430cb83c9e15683193498be3fe" }
 
 [profile.release]
 # Polkadot runtime requires unwinding.

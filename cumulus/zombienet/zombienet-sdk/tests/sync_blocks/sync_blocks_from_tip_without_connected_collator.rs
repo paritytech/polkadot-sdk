@@ -59,12 +59,10 @@ async fn initialize_network() -> Result<Network<LocalFileSystem>, anyhow::Error>
 	log::info!("Using images: {images:?}");
 
 	// Network setup:
-	// - relaychain
-	// 	 Nodes:
+	// - relaychain Nodes:
 	// 	 - alice
 	// 	 - bob
-	// - parachain
-	// 	 Nodes:
+	// - parachain Nodes:
 	// 	 - spawned immediately
 	//     - charlie - collator
 	//     - dave    - full node
@@ -88,8 +86,21 @@ async fn initialize_network() -> Result<Network<LocalFileSystem>, anyhow::Error>
 				.with_default_command("test-parachain")
 				.with_default_image(images.cumulus.as_str())
 				.with_default_args(vec![("-lparachain=debug").into()])
-				.with_collator(|n| n.with_name("charlie").validator(true))
 				.with_collator(|n| n.with_name("dave").validator(false))
+				.with_collator(|n| n.with_name("charlie").validator(true))
+				.with_collator(|n| {
+					n.with_name("eve").validator(false).with_args(vec![
+						"--reserved-only".into(),
+						("--reserved-nodes", "{{ZOMBIE:dave:multiAddress}}").into(),
+					])
+				})
+				.with_collator(|n| {
+					n.with_name("ferdie").validator(false).with_args(vec![
+						"--reserved-only".into(),
+						("--reserved-nodes", "{{ZOMBIE:dave:multiaddr}}").into(),
+						("--relay-chain-rpc-url", "{{ZOMBIE:alice:ws_uri}}").into(),
+					])
+				})
 		})
 		.with_global_settings(|global_settings| match std::env::var("ZOMBIENET_SDK_BASE_DIR") {
 			Ok(val) => global_settings.with_base_dir(val),
@@ -103,32 +114,7 @@ async fn initialize_network() -> Result<Network<LocalFileSystem>, anyhow::Error>
 
 	// Spawn network
 	let spawn_fn = zombienet_sdk::environment::get_spawn_fn();
-	let mut network = spawn_fn(config).await?;
-
-	let dave_multi_address = network.get_node("dave")?.multi_addr().to_string();
-	let alice_ws_uri = network.get_node("alice")?.ws_uri().to_string();
-
-	// Spawn remaining nodes
-	let eve_options = AddCollatorOptions {
-		is_validator: false,
-		args: vec![
-			("--reserved-only").into(),
-			(format!("--reserved-nodes={dave_multi_address}").as_str()).into(),
-		],
-		..Default::default()
-	};
-	network.add_collator("eve", eve_options, PARA_ID).await?;
-
-	let ferdie_options = AddCollatorOptions {
-		is_validator: false,
-		args: vec![
-			("--reserved-only").into(),
-			(format!("--reserved-nodes={dave_multi_address}").as_str()).into(),
-			(format!("--relay-chain-rpc-url={alice_ws_uri}").as_str()).into(),
-		],
-		..Default::default()
-	};
-	network.add_collator("ferdie", ferdie_options, PARA_ID).await?;
+	let network = spawn_fn(config).await?;
 
 	Ok(network)
 }
