@@ -195,6 +195,8 @@ fn reserve_transfer_should_work() {
 	let xcm_sent = sent_xcm();
 	if let Some(SetTopic(topic_id)) = xcm_sent[0].1.last() {
 		expected_msg.0.push(SetTopic(*topic_id));
+	} else {
+		assert!(false, "Missing SetTopic");
 	}
 	let expected_hash = fake_message_hash(&expected_msg);
 	assert_eq!(asset_list(Parachain(2)), vec![(Here, 100).into()]);

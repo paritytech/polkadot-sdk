@@ -155,6 +155,8 @@ fn report_successful_transact_status_should_work() {
 	let xcm_sent = sent_xcm();
 	if let Some(SetTopic(topic_id)) = xcm_sent[0].1.last() {
 		expected_msg.0.push(SetTopic(*topic_id));
+	} else {
+		assert!(false, "Missing SetTopic");
 	}
 	let expected_hash = fake_message_hash(&expected_msg);
 	assert_eq!(xcm_sent, vec![(Parent.into(), expected_msg, expected_hash)]);
@@ -195,6 +197,8 @@ fn report_failed_transact_status_should_work() {
 	let xcm_sent = sent_xcm();
 	if let Some(SetTopic(topic_id)) = xcm_sent[0].1.last() {
 		expected_msg.0.push(SetTopic(*topic_id));
+	} else {
+		assert!(false, "Missing SetTopic");
 	}
 	let expected_hash = fake_message_hash(&expected_msg);
 	assert_eq!(xcm_sent, vec![(Parent.into(), expected_msg, expected_hash)]);
@@ -328,6 +332,8 @@ fn clear_transact_status_should_work() {
 	let xcm_sent = sent_xcm();
 	if let Some(SetTopic(topic_id)) = xcm_sent[0].1.last() {
 		expected_msg.0.push(SetTopic(*topic_id));
+	} else {
+		assert!(false, "Missing SetTopic");
 	}
 	let expected_hash = fake_message_hash(&expected_msg);
 	assert_eq!(xcm_sent, vec![(Parent.into(), expected_msg, expected_hash)]);

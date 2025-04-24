@@ -114,6 +114,8 @@ fn works_for_delivery_fees() {
 	let xcm_sent = sent_xcm();
 	if let Some(SetTopic(topic_id)) = xcm_sent[0].1.last() {
 		sent_message.0.push(SetTopic(*topic_id));
+	} else {
+		assert!(false, "Missing SetTopic");
 	}
 	assert_eq!(
 		xcm_sent,

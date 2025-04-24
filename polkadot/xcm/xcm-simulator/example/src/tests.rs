@@ -570,6 +570,8 @@ fn query_holding() {
 		let xcm_sent = ReceivedDmp::<parachain::Runtime>::get();
 		if let Some(SetTopic(topic_id)) = xcm_sent[0].last() {
 			expected_msg.0.push(SetTopic(*topic_id));
+		} else {
+			assert!(false, "Missing SetTopic");
 		}
 		assert_eq!(xcm_sent, vec![expected_msg]);
 	});

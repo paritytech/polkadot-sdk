@@ -1448,6 +1448,8 @@ fn remote_asset_reserve_and_remote_fee_reserve_call<Call>(
 		let xcm_sent = sent_xcm();
 		if let Some(SetTopic(topic_id)) = xcm_sent[0].1.last() {
 			expected_msg.0.push(SetTopic(*topic_id));
+		} else {
+			assert!(false, "Missing SetTopic");
 		}
 		assert_eq!(
 			xcm_sent,

@@ -186,6 +186,8 @@ fn report_holding_works() {
 		let xcm_sent = mock::sent_xcm();
 		if let Some(SetTopic(topic_id)) = xcm_sent[0].1.last() {
 			expected_msg.0.push(SetTopic(*topic_id));
+		} else {
+			assert!(false, "Missing SetTopic");
 		}
 		let expected_hash = fake_message_hash(&expected_msg);
 		assert_eq!(xcm_sent, vec![(Parachain(PARA_ID).into(), expected_msg, expected_hash,)]);
@@ -267,6 +269,8 @@ fn teleport_to_asset_hub_works() {
 		let xcm_sent = mock::sent_xcm();
 		if let Some(SetTopic(topic_id)) = xcm_sent[0].1.last() {
 			expected_msg.0.push(SetTopic(*topic_id));
+		} else {
+			assert!(false, "Missing SetTopic");
 		}
 		let expected_hash = fake_message_hash(&expected_msg);
 		assert_eq!(xcm_sent, vec![(Parachain(asset_hub_id).into(), expected_msg, expected_hash,)]);
@@ -322,6 +326,8 @@ fn reserve_based_transfer_works() {
 		let xcm_sent = mock::sent_xcm();
 		if let Some(SetTopic(topic_id)) = xcm_sent[0].1.last() {
 			expected_msg.0.push(SetTopic(*topic_id));
+		} else {
+			assert!(false, "Missing SetTopic");
 		}
 		let expected_hash = fake_message_hash(&expected_msg);
 		assert_eq!(xcm_sent, vec![(Parachain(other_para_id).into(), expected_msg, expected_hash,)]);
