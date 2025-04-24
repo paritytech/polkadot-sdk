@@ -329,7 +329,6 @@ impl pallet_staking_async::Config for Runtime {
 	type PlanningEraOffset = PlanningEraOffset;
 
 	type Currency = Balances;
-	type OldCurrency = Balances;
 	type CurrencyBalance = Balance;
 	type CurrencyToVote = ();
 

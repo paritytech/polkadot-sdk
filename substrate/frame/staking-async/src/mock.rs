@@ -377,7 +377,6 @@ impl EraPayout<Balance> for OneTokenPerMillisecond {
 
 impl crate::pallet::pallet::Config for Test {
 	type RuntimeHoldReason = RuntimeHoldReason;
-	type OldCurrency = Balances;
 	type Currency = Balances;
 	type RewardRemainder = RewardRemainderMock;
 	type Reward = MockReward;

@@ -34,8 +34,7 @@ use frame_support::{
 			hold::{Balanced as FunHoldBalanced, Mutate as FunHoldMutate},
 			Mutate, Mutate as FunMutate,
 		},
-		Contains, Defensive, DefensiveSaturating, EnsureOrigin, Get, InspectLockableCurrency,
-		Nothing, OnUnbalanced,
+		Contains, Defensive, DefensiveSaturating, EnsureOrigin, Get, Nothing, OnUnbalanced,
 	},
 	weights::Weight,
 	BoundedBTreeSet, BoundedVec,
@@ -92,14 +91,6 @@ pub mod pallet {
 
 	#[pallet::config(with_default)]
 	pub trait Config: frame_system::Config {
-		/// The old trait for staking balance. Deprecated and only used for migrating old ledgers.
-		#[pallet::no_default]
-		type OldCurrency: InspectLockableCurrency<
-			Self::AccountId,
-			Moment = BlockNumberFor<Self>,
-			Balance = Self::CurrencyBalance,
-		>;
-
 		/// The staking balance.
 		#[pallet::no_default]
 		type Currency: FunHoldMutate<
@@ -2308,26 +2299,6 @@ pub mod pallet {
 				Error::<T>::BadState
 			);
 			Ok(())
-		}
-
-		/// Migrates permissionlessly a stash from locks to holds.
-		///
-		/// This removes the old lock on the stake and creates a hold on it atomically. If all
-		/// stake cannot be held, the best effort is made to hold as much as possible. The remaining
-		/// stake is removed from the ledger.
-		///
-		/// The fee is waived if the migration is successful.
-		#[pallet::call_index(30)]
-		#[pallet::weight(T::WeightInfo::migrate_currency())]
-		pub fn migrate_currency(
-			origin: OriginFor<T>,
-			stash: T::AccountId,
-		) -> DispatchResultWithPostInfo {
-			let _ = ensure_signed(origin)?;
-			Self::do_migrate_currency(&stash)?;
-
-			// Refund the transaction fee if successful.
-			Ok(Pays::No.into())
 		}
 
 		/// Manually applies a deferred slash for a given era.

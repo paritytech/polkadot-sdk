@@ -26,7 +26,7 @@ use crate::{
 	weights::WeightInfo,
 	BalanceOf, Exposure, Forcing, LedgerIntegrityState, MaxNominationsOf, Nominations,
 	NominationsQuota, PositiveImbalanceOf, RewardDestination, SnapshotStatus, StakingLedger,
-	ValidatorPrefs, STAKING_ID,
+	ValidatorPrefs,
 };
 use alloc::{boxed::Box, vec, vec::Vec};
 use frame_election_provider_support::{
@@ -37,10 +37,7 @@ use frame_support::{
 	defensive,
 	dispatch::WithPostDispatchInfo,
 	pallet_prelude::*,
-	traits::{
-		Defensive, DefensiveSaturating, Get, Imbalance, InspectLockableCurrency, LockableCurrency,
-		OnUnbalanced,
-	},
+	traits::{Defensive, DefensiveSaturating, Get, Imbalance, OnUnbalanced},
 	weights::Weight,
 };
 use frame_system::{pallet_prelude::BlockNumberFor, RawOrigin};
@@ -97,11 +94,10 @@ impl<T: Config> Pallet<T> {
 		stash: &T::AccountId,
 	) -> Result<LedgerIntegrityState, Error<T>> {
 		// look at any old unmigrated lock as well.
-		let hold_or_lock = asset::staked::<T>(&stash)
-			.max(T::OldCurrency::balance_locked(STAKING_ID, &stash).into());
+		let hold = asset::staked::<T>(&stash);
 
 		let controller = <Bonded<T>>::get(stash).ok_or_else(|| {
-			if hold_or_lock == Zero::zero() {
+			if hold == Zero::zero() {
 				Error::<T>::NotStash
 			} else {
 				Error::<T>::BadState
@@ -113,7 +109,7 @@ impl<T: Config> Pallet<T> {
 				if ledger.stash != *stash {
 					Ok(LedgerIntegrityState::Corrupted)
 				} else {
-					if hold_or_lock != ledger.total {
+					if hold != ledger.total {
 						Ok(LedgerIntegrityState::LockCorrupted)
 					} else {
 						Ok(LedgerIntegrityState::Ok)
@@ -762,81 +758,6 @@ impl<T: Config> Pallet<T> {
 		account: &T::AccountId,
 	) -> Exposure<T::AccountId, BalanceOf<T>> {
 		Eras::<T>::get_full_exposure(era, account)
-	}
-
-	pub(super) fn do_migrate_currency(stash: &T::AccountId) -> DispatchResult {
-		if Self::is_virtual_staker(stash) {
-			return Self::do_migrate_virtual_staker(stash);
-		}
-
-		let ledger = Self::ledger(Stash(stash.clone()))?;
-		let staked: BalanceOf<T> = T::OldCurrency::balance_locked(STAKING_ID, stash).into();
-		ensure!(!staked.is_zero(), Error::<T>::AlreadyMigrated);
-		ensure!(ledger.total == staked, Error::<T>::BadState);
-
-		// remove old staking lock
-		T::OldCurrency::remove_lock(STAKING_ID, &stash);
-
-		// check if we can hold all stake.
-		let max_hold = asset::free_to_stake::<T>(&stash);
-		let force_withdraw = if max_hold >= staked {
-			// this means we can hold all stake. yay!
-			asset::update_stake::<T>(&stash, staked)?;
-			Zero::zero()
-		} else {
-			// if we are here, it means we cannot hold all user stake. We will do a force withdraw
-			// from ledger, but that's okay since anyways user do not have funds for it.
-			let force_withdraw = staked.saturating_sub(max_hold);
-
-			// we ignore if active is 0. It implies the locked amount is not actively staked. The
-			// account can still get away from potential slash but we can't do much better here.
-			StakingLedger {
-				total: max_hold,
-				active: ledger.active.saturating_sub(force_withdraw),
-				// we are not changing the stash, so we can keep the stash.
-				..ledger
-			}
-			.update()?;
-			force_withdraw
-		};
-
-		// Get rid of the extra consumer we used to have with OldCurrency.
-		frame_system::Pallet::<T>::dec_consumers(&stash);
-
-		Self::deposit_event(Event::<T>::CurrencyMigrated { stash: stash.clone(), force_withdraw });
-		Ok(())
-	}
-
-	fn do_migrate_virtual_staker(stash: &T::AccountId) -> DispatchResult {
-		// Funds for virtual stakers not managed/held by this pallet. We only need to clear
-		// the extra consumer we used to have with OldCurrency.
-		frame_system::Pallet::<T>::dec_consumers(&stash);
-
-		// The delegation system that manages the virtual staker needed to increment provider
-		// previously because of the consumer needed by this pallet. In reality, this stash
-		// is just a key for managing the ledger and the account does not need to hold any
-		// balance or exist. We decrement this provider.
-		let actual_providers = frame_system::Pallet::<T>::providers(stash);
-
-		let expected_providers =
-			// provider is expected to be 1 but someone can always transfer some free funds to
-			// these accounts, increasing the provider.
-			if asset::free_to_stake::<T>(&stash) >= asset::existential_deposit::<T>() {
-				2
-			} else {
-				1
-			};
-
-		// We should never have more than expected providers.
-		ensure!(actual_providers <= expected_providers, Error::<T>::BadState);
-
-		// if actual provider is less than expected, it is already migrated.
-		ensure!(actual_providers == expected_providers, Error::<T>::AlreadyMigrated);
-
-		// dec provider
-		let _ = frame_system::Pallet::<T>::dec_providers(&stash)?;
-
-		return Ok(())
 	}
 }
 

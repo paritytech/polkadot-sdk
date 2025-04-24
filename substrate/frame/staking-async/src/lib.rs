@@ -75,7 +75,7 @@ use frame_election_provider_support::ElectionProvider;
 use frame_support::{
 	traits::{
 		tokens::fungible::{Credit, Debt},
-		ConstU32, Contains, Get, LockIdentifier,
+		ConstU32, Contains, Get,
 	},
 	BoundedVec, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound, WeakBoundedVec,
 };
@@ -93,7 +93,6 @@ pub use weights::WeightInfo;
 pub use ledger::{StakingLedger, UnlockChunk};
 pub use pallet::{pallet::*, UseNominatorsAndValidatorsMap, UseValidatorsMap};
 
-pub(crate) const STAKING_ID: LockIdentifier = *b"staking ";
 pub(crate) const LOG_TARGET: &str = "runtime::staking-async";
 
 // syntactic sugar for logging.
