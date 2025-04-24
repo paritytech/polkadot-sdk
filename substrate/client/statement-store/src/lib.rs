@@ -933,11 +933,11 @@ impl StatementStore for Store {
 	) -> Result<Option<u32>> {
 		let index = self.index.read();
 
-		Ok(
-			index.accounts.get(account_id)
-				.and_then(|a| a.channels.get(channel))
-				.map(|c| c.priority.0)
-		)
+		Ok(index
+			.accounts
+			.get(account_id)
+			.and_then(|a| a.channels.get(channel))
+			.map(|c| c.priority.0))
 	}
 }
 

@@ -109,7 +109,8 @@ impl StatementApiServer for StatementStore {
 		account: [u8; 32],
 		channel: [u8; 32],
 	) -> RpcResult<Option<u32>> {
-		Ok(self.store
+		Ok(self
+			.store
 			.account_channel_priority(&account, &channel)
 			.map_err(|e| Error::StatementStore(e.to_string()))?)
 	}
