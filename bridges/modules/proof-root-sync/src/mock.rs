@@ -16,8 +16,7 @@
 #![cfg(test)]
 
 use crate as pallet_bridge_proof_root_sync;
-use frame_support::pallet_prelude::Weight;
-use frame_support::{derive_impl, sp_runtime::BuildStorage};
+use frame_support::{derive_impl, pallet_prelude::Weight, sp_runtime::BuildStorage};
 use std::cell::RefCell;
 
 type Block = frame_system::mocking::MockBlock<TestRuntime>;

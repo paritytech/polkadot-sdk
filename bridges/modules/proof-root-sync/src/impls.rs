@@ -19,10 +19,10 @@ use crate::{Config, Pallet};
 use bp_parachains::OnNewHead;
 use bp_polkadot_core::parachains::{ParaHash, ParaHead, ParaId};
 use bp_runtime::Parachain;
-use frame_support::traits::Get;
-use frame_support::weights::Weight;
+use frame_support::{traits::Get, weights::Weight};
 
-/// An adapter `OnNewHead` implementation that listens for parachain head updates and schedules them for syncing.
+/// An adapter `OnNewHead` implementation that listens for parachain head updates and schedules them
+/// for syncing.
 pub struct SyncParaHeadersFor<T, I, C>(core::marker::PhantomData<(T, I, C)>);
 impl<T: Config<I, Key = ParaId, Value = ParaHead>, I: 'static, C: Parachain<Hash = ParaHash>>
 	OnNewHead for SyncParaHeadersFor<T, I, C>

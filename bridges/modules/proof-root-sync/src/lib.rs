@@ -19,17 +19,17 @@
 //! - Schedule roots for syncing using `schedule_for_sync`
 //! - Automatically process scheduled roots during `on_idle` hooks
 //!
-//! The actual sending/syncing of roots is implemented by the `OnSend` trait, which can be customized
-//! for specific use cases like cross-chain communication.
+//! The actual sending/syncing of roots is implemented by the `OnSend` trait, which can be
+//! customized for specific use cases like cross-chain communication.
 //!
-//! Basically, this is a simple `on_idle` hook that can schedule data with a ring buffer and send data.
+//! Basically, this is a simple `on_idle` hook that can schedule data with a ring buffer and send
+//! data.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
 extern crate alloc;
 
-use alloc::collections::VecDeque;
-use alloc::vec::Vec;
+use alloc::{collections::VecDeque, vec::Vec};
 use frame_support::pallet_prelude::Weight;
 
 pub mod impls;
@@ -49,8 +49,8 @@ pub trait OnSend<Key, Value> {
 	///
 	/// # Arguments
 	///
-	/// * `roots` - A vector of roots where each root is a tuple of (key, value).
-	///    		Roots are ordered from the oldest (index 0) to the newest (last index).
+	/// * `roots` - A vector of roots where each root is a tuple of (key, value). Roots are ordered
+	///   from the oldest (index 0) to the newest (last index).
 	fn on_send(roots: &Vec<(Key, Value)>);
 
 	/// Returns the weight consumed by `on_send`.
@@ -73,8 +73,7 @@ impl<Key, Value> OnSend<Key, Value> for Tuple {
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
-	use frame_support::sp_runtime::SaturatedConversion;
-	use frame_support::{pallet_prelude::*, weights::WeightMeter};
+	use frame_support::{pallet_prelude::*, sp_runtime::SaturatedConversion, weights::WeightMeter};
 	use frame_system::pallet_prelude::*;
 
 	#[pallet::pallet]
@@ -103,9 +102,10 @@ pub mod pallet {
 		type OnSend: OnSend<Self::Key, Self::Value>;
 	}
 
-	/// A ring-buffer storage of roots (key-value pairs) that need to be sent/synced to other chains.
-	/// When the buffer reaches its capacity limit defined by `T::RootsToKeep`, the oldest elements are removed.
-	/// The elements are drained and processed in order by `T::OnSend` during `on_idle` up to `T::MaxRootsToSend` elements at a time.
+	/// A ring-buffer storage of roots (key-value pairs) that need to be sent/synced to other
+	/// chains. When the buffer reaches its capacity limit defined by `T::RootsToKeep`, the oldest
+	/// elements are removed. The elements are drained and processed in order by `T::OnSend` during
+	/// `on_idle` up to `T::MaxRootsToSend` elements at a time.
 	#[pallet::storage]
 	#[pallet::unbounded]
 	pub type RootsToSend<T: Config<I>, I: 'static = ()> =
@@ -146,10 +146,10 @@ pub mod pallet {
 
 		/// Schedule new data to be synced by `T::OnSend` means.
 		///
-		/// The roots are stored in a ring buffer with limited capacity as defined by `T::RootsToKeep`.
-		/// When the buffer reaches its capacity limit, the oldest elements are removed.
-		/// The elements will be drained and processed in order by `T::OnSend` during `on_idle` up to
-		/// `T::MaxRootsToSend` elements at a time.
+		/// The roots are stored in a ring buffer with limited capacity as defined by
+		/// `T::RootsToKeep`. When the buffer reaches its capacity limit, the oldest elements are
+		/// removed. The elements will be drained and processed in order by `T::OnSend` during
+		/// `on_idle` up to `T::MaxRootsToSend` elements at a time.
 		pub fn schedule_for_sync(key: T::Key, value: T::Value) {
 			RootsToSend::<T, I>::mutate(|roots| {
 				// Add to schedules.
