@@ -142,7 +142,6 @@ mod tests {
 			// No offence exist so far
 			assert!(staking_classic::UnappliedSlashes::<rc::Runtime>::get(4).is_empty());
 
-
 			assert_ok!(RootOffences::create_offence(
 				rc::RuntimeOrigin::root(),
 				vec![(2, Perbill::from_percent(100))],
