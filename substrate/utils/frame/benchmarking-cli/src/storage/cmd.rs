@@ -19,6 +19,7 @@ use sc_cli::{CliConfiguration, DatabaseParams, PruningParams, Result, SharedPara
 use sc_client_api::{Backend as ClientBackend, StorageProvider, UsageProvider};
 use sc_client_db::DbHash;
 use sc_service::Configuration;
+use sp_api::CallApiAt;
 use sp_blockchain::HeaderBackend;
 use sp_database::{ColumnId, Database};
 use sp_runtime::traits::{Block as BlockT, HashingFor};
@@ -116,6 +117,25 @@ pub struct StorageParams {
 	/// Include child trees in benchmark.
 	#[arg(long)]
 	pub include_child_trees: bool,
+
+	/// Disable PoV recorder.
+	///
+	/// The recorder has impact on performance when benchmarking with the TrieCache enabled.
+	/// If the chain is recording a proof while building/importing a block, the pov recorder
+	/// should be activated.
+	///
+	/// Hence, when generating weights for a parachain this should be activated and when generating
+	/// weights for a standalone chain this should be deactivated.
+	#[arg(long, default_value = "false")]
+	pub disable_pov_recorder: bool,
+
+	/// The batch size for the write benchmark.
+	///
+	/// Since the write size needs to also include the cost of computing the storage root, which is
+	/// done once at the end of the block, the batch size is used to simulate multiple writes in a
+	/// block.
+	#[arg(long, default_value_t = 100_000)]
+	pub batch_size: usize,
 }
 
 impl StorageCmd {
@@ -127,11 +147,15 @@ impl StorageCmd {
 		client: Arc<C>,
 		db: (Arc<dyn Database<DbHash>>, ColumnId),
 		storage: Arc<dyn Storage<HashingFor<Block>>>,
+		shared_trie_cache: Option<sp_trie::cache::SharedTrieCache<HashingFor<Block>>>,
 	) -> Result<()>
 	where
 		BA: ClientBackend<Block>,
 		Block: BlockT<Hash = DbHash>,
-		C: UsageProvider<Block> + StorageProvider<Block, BA> + HeaderBackend<Block>,
+		C: UsageProvider<Block>
+			+ StorageProvider<Block, BA>
+			+ HeaderBackend<Block>
+			+ CallApiAt<Block>,
 	{
 		let mut template = TemplateData::new(&cfg, &self.params)?;
 
@@ -140,7 +164,7 @@ impl StorageCmd {
 
 		if !self.params.skip_read {
 			self.bench_warmup(&client)?;
-			let record = self.bench_read(client.clone())?;
+			let record = self.bench_read(client.clone(), shared_trie_cache.clone())?;
 			if let Some(path) = &self.params.json_read_path {
 				record.save_json(&cfg, path, "read")?;
 			}
@@ -151,7 +175,7 @@ impl StorageCmd {
 
 		if !self.params.skip_write {
 			self.bench_warmup(&client)?;
-			let record = self.bench_write(client, db, storage)?;
+			let record = self.bench_write(client, db, storage, shared_trie_cache)?;
 			if let Some(path) = &self.params.json_write_path {
 				record.save_json(&cfg, path, "write")?;
 			}
@@ -197,11 +221,31 @@ impl StorageCmd {
 
 		for i in 0..self.params.warmups {
 			info!("Warmup round {}/{}", i + 1, self.params.warmups);
+			let mut child_nodes = Vec::new();
+
 			for key in keys.as_slice() {
 				let _ = client
 					.storage(hash, &key)
 					.expect("Checked above to exist")
 					.ok_or("Value unexpectedly empty");
+
+				if let Some(info) = self
+					.params
+					.include_child_trees
+					.then(|| self.is_child_key(key.clone().0))
+					.flatten()
+				{
+					// child tree key
+					for ck in client.child_storage_keys(hash, info.clone(), None, None)? {
+						child_nodes.push((ck.clone(), info.clone()));
+					}
+				}
+			}
+			for (key, info) in child_nodes.as_slice() {
+				client
+					.child_storage(hash, info, key)
+					.expect("Checked above to exist")
+					.ok_or("Value unexpectedly empty")?;
 			}
 		}
 

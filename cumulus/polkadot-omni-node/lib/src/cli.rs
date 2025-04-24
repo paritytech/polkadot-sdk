@@ -232,6 +232,7 @@ impl<Config: CliConfig> Cli<Config> {
 				.then(|| AuthoringPolicy::SlotBased)
 				.unwrap_or(self.authoring),
 			export_pov: self.export_pov_to_path.clone(),
+			max_pov_percentage: self.run.experimental_max_pov_percentage,
 		}
 	}
 }
