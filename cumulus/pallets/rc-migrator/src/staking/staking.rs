@@ -274,7 +274,7 @@ impl<T: Config> PalletMigration for StakingMigrator<T> {
 				},
 				StakingStage::Invulnerables => {
 					let invulnerables = pallet_staking::Invulnerables::<T>::take();
-					messages.push(RcStakingMessage::Invulnerables(invulnerables.into_inner()));
+					messages.push(RcStakingMessage::Invulnerables(invulnerables));
 					StakingStage::Bonded(None)
 				},
 				StakingStage::Bonded(who) => {
