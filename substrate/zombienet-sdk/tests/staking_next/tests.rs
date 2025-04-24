@@ -46,10 +46,14 @@ impl TestState {
 		}
 	}
 
-	pub fn on_rc_client_event(&mut self, event: RcClientEvent) {
+	pub fn on_rc_client_event(
+		&mut self,
+		event: RcClientEvent,
+		end_test: &mut Option<tokio::sync::oneshot::Sender<()>>,
+	) {
 		match event {
 			RcClientEvent::SessionReportReceived { activation_time_stamp } => {
-				self.handle_ah_session_report_received(activation_time_stamp);
+				self.handle_ah_session_report_received(activation_time_stamp, end_test);
 			},
 			RcClientEvent::PagedElectionProceeded { page_idx, page_content } => {
 				self.handle_ah_paged_election_proceeded(page_idx, page_content);
@@ -57,7 +61,11 @@ impl TestState {
 		}
 	}
 
-	fn handle_ah_session_report_received(&mut self, activation_time_stamp: Option<u128>) {
+	fn handle_ah_session_report_received(
+		&mut self,
+		activation_time_stamp: Option<u128>,
+		end_test: &mut Option<tokio::sync::oneshot::Sender<()>>,
+	) {
 		match self {
 			TestState::WaitingForInitialSessionChange => {
 				log::info!("One session change after activating AH client");
@@ -75,7 +83,9 @@ impl TestState {
 						"Got session report with activation timestamp: {:?}",
 						activation_time_stamp
 					);
-					assert!(false, "Test should end here");
+					// All done. Terminate the test.
+					end_test.take().unwrap().send(()).unwrap();
+					return
 				}
 				*elapsed_sessions += 1;
 
@@ -152,6 +162,8 @@ impl TestState {
 	}
 }
 
+/// This test is intended for local runs only because it requires manual steps and takes quite a lot
+/// of time to execute.
 #[tokio::test(flavor = "multi_thread")]
 async fn happy_case() -> Result<(), anyhow::Error> {
 	let _ = env_logger::try_init_from_env(
@@ -181,6 +193,9 @@ async fn happy_case() -> Result<(), anyhow::Error> {
 
 	let mut rc_blocks_sub = rc_client.blocks().subscribe_finalized().await?;
 	let mut ah_blocks_sub = ah_next_client.blocks().subscribe_finalized().await?;
+	let (tx, rx) = tokio::sync::oneshot::channel::<()>();
+	let mut rx = rx;
+	let mut tx = Some(tx);
 
 	loop {
 		tokio::select! {
@@ -219,7 +234,7 @@ async fn happy_case() -> Result<(), anyhow::Error> {
 								"SessionReportReceived" => {
 									let fields = event.field_values()?;
 									let ev = parse_session_report_received(fields).expect("SessionReportReceived event should be parsed");
-									test_state.on_rc_client_event(ev);
+									test_state.on_rc_client_event(ev, &mut tx);
 								},
 								_ => {
 									log::debug!(
@@ -241,7 +256,7 @@ async fn happy_case() -> Result<(), anyhow::Error> {
 										event.field_values()?
 									);
 									let ev = parse_paged_election_proceeded(event.field_values()?).expect("PagedElectionProceeded event should be parsed");
-									test_state.on_rc_client_event(ev);
+									test_state.on_rc_client_event(ev, &mut tx);
 								},
 								_ => {
 									log::debug!(
@@ -261,8 +276,14 @@ async fn happy_case() -> Result<(), anyhow::Error> {
 					}
 				}
 			}
+			_ = &mut rx => {
+				log::info!("Test finished");
+				break
+			}
 		}
 	}
+
+	Ok(())
 }
 
 // TODO: There should be a better way to do this.
