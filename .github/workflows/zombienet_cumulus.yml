@@ -96,7 +96,7 @@ jobs:
           # we want to use `--no-capture` in zombienet tests.
           unset NEXTEST_FAILURE_OUTPUT
           unset NEXTEST_SUCCESS_OUTPUT
-          cargo nextest run --archive-file ./artifacts/cumulus-zombienet-tests.tar.zst --no-capture -- pov_recovery::pov_recovery::pov_recovery
+          cargo nextest run --archive-file ./artifacts/cumulus-zombienet-tests.tar.zst --no-capture -- zombie_ci::pov_recovery::pov_recovery
 
       - name: upload logs
         uses: actions/upload-artifact@v4
