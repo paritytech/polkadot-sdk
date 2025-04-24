@@ -20,7 +20,7 @@
 use crate::{mock::*, Event, *};
 use frame_support::{assert_noop, assert_ok, traits::Currency};
 use pallet_balances::Error as BalancesError;
-use sp_runtime::traits::Dispatchable;
+use sp_runtime::{traits::Dispatchable, DispatchError};
 
 fn items() -> Vec<(u64, u32, u32)> {
 	let mut r: Vec<_> = Account::<Test>::iter().map(|x| x.0).collect();
@@ -1098,4 +1098,1300 @@ fn clear_collection_metadata_works() {
 		assert_eq!(Collection::<Test>::get(0), None);
 		assert_eq!(Balances::reserved_balance(&1), 10);
 	});
+}
+
+mod asset_ops_tests {
+	use super::*;
+	use crate::asset_strategies::*;
+	use frame_support::traits::tokens::asset_ops::{common_strategies::*, *};
+
+	type Collection = asset_ops::Collection<Uniques>;
+	type Item = asset_ops::Item<Uniques>;
+
+	#[test]
+	fn create_collection() {
+		new_test_ext().execute_with(|| {
+			let collection_id = 10;
+
+			let collection_owner = 1;
+			let collection_admin = 2;
+
+			Balances::make_free_balance_be(&collection_owner, 100);
+
+			assert_ok!(Collection::create(WithConfig::new(
+				(
+					Owner::with_config_value(collection_owner),
+					Admin::with_config_value(collection_admin)
+				),
+				PredefinedId::from(collection_id),
+			)));
+
+			assert_eq!(collections(), vec![(collection_owner, collection_id)]);
+		});
+	}
+
+	#[test]
+	fn create_collection_check_origin() {
+		new_test_ext().execute_with(|| {
+			let alice = 1;
+			let bob = 2;
+			let collection_admin = 3;
+
+			Balances::make_free_balance_be(&alice, 100);
+			Balances::make_free_balance_be(&bob, 100);
+
+			// Signed origin, same owner
+			assert_ok!(Collection::create(CheckOrigin(
+				RuntimeOrigin::signed(alice),
+				WithConfig::new(
+					(Owner::with_config_value(alice), Admin::with_config_value(collection_admin)),
+					PredefinedId::from(0),
+				),
+			)));
+
+			// Signed origin, different owner
+			assert_noop!(
+				Collection::create(CheckOrigin(
+					RuntimeOrigin::signed(alice),
+					WithConfig::new(
+						(Owner::with_config_value(bob), Admin::with_config_value(collection_admin)),
+						PredefinedId::from(1),
+					),
+				)),
+				Error::<Test>::NoPermission,
+			);
+
+			// Root origin, any owner
+			assert_ok!(Collection::create(CheckOrigin(
+				RuntimeOrigin::root(),
+				WithConfig::new(
+					(Owner::with_config_value(alice), Admin::with_config_value(collection_admin)),
+					PredefinedId::from(2)
+				),
+			)));
+
+			assert_ok!(Collection::create(CheckOrigin(
+				RuntimeOrigin::root(),
+				WithConfig::new(
+					(Owner::with_config_value(bob), Admin::with_config_value(collection_admin)),
+					PredefinedId::from(3)
+				),
+			)));
+		});
+	}
+
+	#[test]
+	fn destroy_collection_with_witness() {
+		new_test_ext().execute_with(|| {
+			let collection_id = 10;
+
+			let collection_owner = 1;
+			let collection_admin = 2;
+			let item_owner = 3;
+
+			Balances::make_free_balance_be(&collection_owner, 100);
+
+			assert_ok!(Collection::create(WithConfig::new(
+				(
+					Owner::with_config_value(collection_owner),
+					Admin::with_config_value(collection_admin)
+				),
+				PredefinedId::from(collection_id),
+			)));
+
+			assert_ok!(Item::create(WithConfig::new(
+				Owner::with_config_value(item_owner),
+				PredefinedId::from((collection_id, 0)),
+			)));
+
+			let outdated_witness =
+				crate::Collection::<Test>::get(collection_id).unwrap().destroy_witness();
+
+			assert_ok!(Item::create(WithConfig::new(
+				Owner::with_config_value(item_owner),
+				PredefinedId::from((collection_id, 1)),
+			)));
+
+			let ok_witness =
+				crate::Collection::<Test>::get(collection_id).unwrap().destroy_witness();
+
+			assert_noop!(
+				Collection::destroy(&collection_id, WithWitness::check(outdated_witness)),
+				Error::<Test>::BadWitness,
+			);
+
+			assert_ok!(Collection::destroy(&collection_id, WithWitness::check(ok_witness)));
+
+			assert_eq!(collections(), vec![]);
+			assert_eq!(items(), vec![]);
+		});
+	}
+
+	#[test]
+	fn destroy_collection_if_owned_by_and_with_witness() {
+		new_test_ext().execute_with(|| {
+			let collection_id = 10;
+
+			let collection_owner = 1;
+			let collection_admin = 2;
+			let item_owner = 3;
+
+			Balances::make_free_balance_be(&collection_owner, 100);
+
+			assert_ok!(Collection::create(WithConfig::new(
+				(
+					Owner::with_config_value(collection_owner),
+					Admin::with_config_value(collection_admin)
+				),
+				PredefinedId::from(collection_id),
+			)));
+
+			assert_ok!(Item::create(WithConfig::new(
+				Owner::with_config_value(item_owner),
+				PredefinedId::from((collection_id, 0)),
+			)));
+
+			let outdated_witness =
+				crate::Collection::<Test>::get(collection_id).unwrap().destroy_witness();
+
+			assert_ok!(Item::create(WithConfig::new(
+				Owner::with_config_value(item_owner),
+				PredefinedId::from((collection_id, 1)),
+			)));
+
+			let ok_witness =
+				crate::Collection::<Test>::get(collection_id).unwrap().destroy_witness();
+
+			assert_noop!(
+				Collection::destroy(
+					&collection_id,
+					IfOwnedBy::new(collection_admin, WithWitness::check(ok_witness)),
+				),
+				Error::<Test>::NoPermission,
+			);
+
+			// A bad witness is rejected even for the owner
+			assert_noop!(
+				Collection::destroy(
+					&collection_id,
+					IfOwnedBy::new(collection_owner, WithWitness::check(outdated_witness)),
+				),
+				Error::<Test>::BadWitness,
+			);
+
+			assert_ok!(Collection::destroy(
+				&collection_id,
+				IfOwnedBy::new(collection_owner, WithWitness::check(ok_witness)),
+			));
+
+			assert_eq!(collections(), vec![]);
+			assert_eq!(items(), vec![]);
+		});
+	}
+
+	#[test]
+	fn destroy_collection_check_origin() {
+		new_test_ext().execute_with(|| {
+			let collection_id = 10;
+
+			let collection_owner = 1;
+			let collection_admin = 2;
+			let item_owner = 3;
+
+			Balances::make_free_balance_be(&collection_owner, 100);
+
+			let setup_test_collection = || {
+				assert_ok!(Collection::create(WithConfig::new(
+					(
+						Owner::with_config_value(collection_owner),
+						Admin::with_config_value(collection_admin),
+					),
+					PredefinedId::from(collection_id),
+				)));
+
+				assert_ok!(Item::create(WithConfig::new(
+					Owner::with_config_value(item_owner),
+					PredefinedId::from((collection_id, 0)),
+				)));
+
+				let outdated_witness =
+					crate::Collection::<Test>::get(collection_id).unwrap().destroy_witness();
+
+				assert_ok!(Item::create(WithConfig::new(
+					Owner::with_config_value(item_owner),
+					PredefinedId::from((collection_id, 1)),
+				)));
+
+				let ok_witness =
+					crate::Collection::<Test>::get(collection_id).unwrap().destroy_witness();
+
+				(outdated_witness, ok_witness)
+			};
+
+			let (outdated_witness, ok_witness) = setup_test_collection();
+
+			// Not an owner signed origin is rejected even if the `owner` parameter is correct
+			assert_noop!(
+				Collection::destroy(
+					&collection_id,
+					CheckOrigin(
+						RuntimeOrigin::signed(collection_admin),
+						WithWitness::check(ok_witness)
+					),
+				),
+				Error::<Test>::NoPermission,
+			);
+
+			// A bad witness is rejected even for the owner
+			assert_noop!(
+				Collection::destroy(
+					&collection_id,
+					CheckOrigin(
+						RuntimeOrigin::signed(collection_owner),
+						WithWitness::check(outdated_witness),
+					),
+				),
+				Error::<Test>::BadWitness,
+			);
+
+			assert_ok!(Collection::destroy(
+				&collection_id,
+				CheckOrigin(
+					RuntimeOrigin::signed(collection_owner),
+					WithWitness::check(ok_witness)
+				),
+			));
+
+			assert_eq!(collections(), vec![]);
+			assert_eq!(items(), vec![]);
+
+			// Recreate the collection to the the root origin
+			let (outdated_witness, ok_witness) = setup_test_collection();
+
+			// A bad witness is rejected even for the root origin
+			assert_noop!(
+				Collection::destroy(
+					&collection_id,
+					CheckOrigin(RuntimeOrigin::root(), WithWitness::check(outdated_witness)),
+				),
+				Error::<Test>::BadWitness,
+			);
+
+			assert_ok!(Collection::destroy(
+				&collection_id,
+				CheckOrigin(RuntimeOrigin::root(), WithWitness::check(ok_witness)),
+			));
+
+			assert_eq!(collections(), vec![]);
+			assert_eq!(items(), vec![]);
+		});
+	}
+
+	#[test]
+	fn inspect_collection_ownership() {
+		new_test_ext().execute_with(|| {
+			let collection_id = 10;
+
+			let collection_owner = 1;
+			let collection_admin = 2;
+
+			Balances::make_free_balance_be(&collection_owner, 100);
+
+			assert_ok!(Collection::create(WithConfig::new(
+				(
+					Owner::with_config_value(collection_owner),
+					Admin::with_config_value(collection_admin)
+				),
+				PredefinedId::from(collection_id),
+			)));
+
+			let retrieved_collection_owner =
+				Collection::inspect(&collection_id, Owner::default()).unwrap();
+
+			assert_eq!(retrieved_collection_owner, collection_owner);
+		});
+	}
+
+	#[test]
+	fn inspect_collection_metadata() {
+		new_test_ext().execute_with(|| {
+			let collection_id = 10;
+
+			let collection_owner = 1;
+			let collection_admin = 2;
+
+			Balances::make_free_balance_be(&collection_owner, 100);
+
+			assert_ok!(Collection::create(WithConfig::new(
+				(
+					Owner::with_config_value(collection_owner),
+					Admin::with_config_value(collection_admin)
+				),
+				PredefinedId::from(collection_id),
+			)));
+
+			assert_noop!(
+				Collection::inspect(&collection_id, Bytes::default()),
+				Error::<Test>::NoMetadata,
+			);
+
+			let metadata = vec![0xB, 0xE, 0xE, 0xF];
+			let is_frozen = false;
+			assert_ok!(Uniques::set_collection_metadata(
+				RuntimeOrigin::signed(collection_owner),
+				collection_id,
+				metadata.clone().try_into().unwrap(),
+				is_frozen,
+			));
+
+			let retreived_metadata = Collection::inspect(&collection_id, Bytes::default()).unwrap();
+
+			assert_eq!(retreived_metadata, metadata);
+
+			assert_ok!(Uniques::clear_collection_metadata(
+				RuntimeOrigin::signed(collection_owner),
+				collection_id,
+			));
+
+			assert_noop!(
+				Collection::inspect(&collection_id, Bytes::default()),
+				Error::<Test>::NoMetadata,
+			);
+		});
+	}
+
+	#[test]
+	fn inspect_collection_attributes() {
+		new_test_ext().execute_with(|| {
+			let collection_id = 10;
+
+			let collection_owner = 1;
+			let collection_admin = 2;
+
+			let food_attr_key = vec![0xB, 0xE, 0xE, 0xF];
+			let food_attr_value = vec![0xC, 0x0, 0x0, 0x1];
+
+			let drink_attr_key = vec![0xC, 0x0, 0xF, 0xF, 0xE, 0xE];
+			let drink_attr_value = vec![0xD, 0xE, 0xC, 0xA, 0xF];
+
+			Balances::make_free_balance_be(&collection_owner, 100);
+
+			let set_attribute = |key: &Vec<u8>, value: &Vec<u8>| {
+				let item_id = None;
+
+				assert_ok!(Uniques::set_attribute(
+					RuntimeOrigin::signed(collection_owner),
+					collection_id,
+					item_id,
+					key.clone().try_into().unwrap(),
+					value.clone().try_into().unwrap(),
+				));
+			};
+
+			let clear_attribute = |key: &Vec<u8>| {
+				let item_id = None;
+
+				assert_ok!(Uniques::clear_attribute(
+					RuntimeOrigin::signed(collection_owner),
+					collection_id,
+					item_id,
+					key.clone().try_into().unwrap(),
+				));
+			};
+
+			assert_ok!(Collection::create(WithConfig::new(
+				(
+					Owner::with_config_value(collection_owner),
+					Admin::with_config_value(collection_admin)
+				),
+				PredefinedId::from(collection_id),
+			)));
+
+			assert_noop!(
+				Collection::inspect(&collection_id, Bytes(Attribute(food_attr_key.as_slice()))),
+				Error::<Test>::AttributeNotFound,
+			);
+
+			assert_noop!(
+				Collection::inspect(&collection_id, Bytes(Attribute(drink_attr_key.as_slice()))),
+				Error::<Test>::AttributeNotFound,
+			);
+
+			set_attribute(&food_attr_key, &food_attr_value);
+
+			let retreived_food_value =
+				Collection::inspect(&collection_id, Bytes(Attribute(food_attr_key.as_slice())))
+					.unwrap();
+
+			assert_eq!(retreived_food_value, food_attr_value);
+
+			assert_noop!(
+				Collection::inspect(&collection_id, Bytes(Attribute(drink_attr_key.as_slice()))),
+				Error::<Test>::AttributeNotFound,
+			);
+
+			set_attribute(&drink_attr_key, &drink_attr_value);
+
+			let retreived_food_value =
+				Collection::inspect(&collection_id, Bytes(Attribute(food_attr_key.as_slice())))
+					.unwrap();
+
+			assert_eq!(retreived_food_value, food_attr_value);
+
+			let retreived_drink_value =
+				Collection::inspect(&collection_id, Bytes(Attribute(drink_attr_key.as_slice())))
+					.unwrap();
+
+			assert_eq!(retreived_drink_value, drink_attr_value);
+
+			clear_attribute(&food_attr_key);
+
+			assert_noop!(
+				Collection::inspect(&collection_id, Bytes(Attribute(food_attr_key.as_slice()))),
+				Error::<Test>::AttributeNotFound,
+			);
+
+			let retreived_drink_value =
+				Collection::inspect(&collection_id, Bytes(Attribute(drink_attr_key.as_slice())))
+					.unwrap();
+
+			assert_eq!(retreived_drink_value, drink_attr_value);
+
+			clear_attribute(&drink_attr_key);
+
+			assert_noop!(
+				Collection::inspect(&collection_id, Bytes(Attribute(food_attr_key.as_slice()))),
+				Error::<Test>::AttributeNotFound,
+			);
+
+			assert_noop!(
+				Collection::inspect(&collection_id, Bytes(Attribute(drink_attr_key.as_slice()))),
+				Error::<Test>::AttributeNotFound,
+			);
+		});
+	}
+
+	#[test]
+	fn mint_item() {
+		new_test_ext().execute_with(|| {
+			let collection_id = 10;
+			let item_id = 111;
+
+			let collection_owner = 1;
+			let collection_admin = 2;
+			let item_owner = 3;
+
+			Balances::make_free_balance_be(&collection_owner, 100);
+
+			assert_ok!(Collection::create(WithConfig::new(
+				(
+					Owner::with_config_value(collection_owner),
+					Admin::with_config_value(collection_admin)
+				),
+				PredefinedId::from(collection_id),
+			)));
+
+			assert_eq!(collections(), vec![(collection_owner, collection_id)]);
+
+			assert_ok!(Item::create(WithConfig::new(
+				Owner::with_config_value(item_owner),
+				PredefinedId::from((collection_id, item_id)),
+			)));
+
+			assert_eq!(items(), vec![(item_owner, collection_id, item_id)]);
+		});
+	}
+
+	#[test]
+	fn mint_item_by_admin() {
+		new_test_ext().execute_with(|| {
+			let collection_id = 10;
+			let item_id = 111;
+
+			let collection_owner = 1;
+			let collection_admin = 2;
+			let item_owner = 3;
+
+			Balances::make_free_balance_be(&collection_owner, 100);
+
+			assert_ok!(Collection::create(WithConfig::new(
+				(
+					Owner::with_config_value(collection_owner),
+					Admin::with_config_value(collection_admin)
+				),
+				PredefinedId::from(collection_id),
+			)));
+
+			assert_ok!(Uniques::mint(
+				RuntimeOrigin::signed(collection_admin),
+				collection_id,
+				item_id,
+				item_owner,
+			));
+
+			assert_eq!(items(), vec![(item_owner, collection_id, item_id)]);
+		});
+	}
+
+	#[test]
+	fn mint_item_check_origin() {
+		new_test_ext().execute_with(|| {
+			let collection_id = 10;
+			let item_id = 111;
+
+			let collection_owner = 1;
+			let collection_admin = 2;
+			let item_owner = 3;
+
+			Balances::make_free_balance_be(&collection_owner, 100);
+
+			assert_ok!(Collection::create(WithConfig::new(
+				(
+					Owner::with_config_value(collection_owner),
+					Admin::with_config_value(collection_admin)
+				),
+				PredefinedId::from(collection_id),
+			)));
+
+			// Not an admin (not an issuer) can't mint new tokens
+			assert_noop!(
+				Item::create(CheckOrigin(
+					RuntimeOrigin::signed(collection_owner),
+					WithConfig::new(
+						Owner::with_config_value(item_owner),
+						PredefinedId::from((collection_id, item_id)),
+					),
+				)),
+				Error::<Test>::NoPermission,
+			);
+
+			// Force origin doesn't affect minting: only the admin (the issuer) can mint
+			assert_noop!(
+				Item::create(CheckOrigin(
+					RuntimeOrigin::root(),
+					WithConfig::new(
+						Owner::with_config_value(item_owner),
+						PredefinedId::from((collection_id, item_id)),
+					),
+				)),
+				DispatchError::BadOrigin,
+			);
+
+			assert_ok!(Item::create(CheckOrigin(
+				RuntimeOrigin::signed(collection_admin),
+				WithConfig::new(
+					Owner::with_config_value(item_owner),
+					PredefinedId::from((collection_id, item_id)),
+				),
+			)));
+
+			assert_eq!(items(), vec![(item_owner, collection_id, item_id)]);
+		});
+	}
+
+	#[test]
+	fn transfer_item_unchecked() {
+		new_test_ext().execute_with(|| {
+			let collection_id = 10;
+			let item_id = 111;
+
+			let collection_owner = 1;
+			let collection_admin = 2;
+			let alice = 3;
+			let bob = 4;
+
+			Balances::make_free_balance_be(&collection_owner, 100);
+
+			assert_ok!(Collection::create(WithConfig::new(
+				(
+					Owner::with_config_value(collection_owner),
+					Admin::with_config_value(collection_admin)
+				),
+				PredefinedId::from(collection_id),
+			)));
+
+			assert_ok!(Item::create(WithConfig::new(
+				Owner::with_config_value(alice),
+				PredefinedId::from((collection_id, item_id)),
+			)));
+
+			assert_eq!(items(), vec![(alice, collection_id, item_id)]);
+
+			assert_ok!(Item::update(&(collection_id, item_id), Owner::default(), &bob,));
+
+			assert_eq!(items(), vec![(bob, collection_id, item_id)]);
+		});
+	}
+
+	#[test]
+	fn transfer_item_check_origin() {
+		new_test_ext().execute_with(|| {
+			let collection_id = 10;
+			let item_id = 111;
+
+			let collection_owner = 1;
+			let collection_admin = 2;
+			let alice = 3;
+			let bob = 4;
+
+			Balances::make_free_balance_be(&collection_owner, 100);
+
+			assert_ok!(Collection::create(WithConfig::new(
+				(
+					Owner::with_config_value(collection_owner),
+					Admin::with_config_value(collection_admin)
+				),
+				PredefinedId::from(collection_id),
+			)));
+
+			assert_ok!(Item::create(WithConfig::new(
+				Owner::with_config_value(alice),
+				PredefinedId::from((collection_id, item_id)),
+			)));
+
+			assert_eq!(items(), vec![(alice, collection_id, item_id)]);
+
+			// Bob is not the admin, not the owner and he's not been approved to transfer Alice's
+			// token
+			assert_noop!(
+				Item::update(
+					&(collection_id, item_id),
+					CheckOrigin(RuntimeOrigin::signed(bob), Owner::default()),
+					&bob,
+				),
+				Error::<Test>::NoPermission,
+			);
+
+			// The force origin can't transfer tokens
+			assert_noop!(
+				Item::update(
+					&(collection_id, item_id),
+					CheckOrigin(RuntimeOrigin::root(), Owner::default()),
+					&bob,
+				),
+				DispatchError::BadOrigin,
+			);
+
+			// The owner can transfer the token
+			assert_ok!(Item::update(
+				&(collection_id, item_id),
+				CheckOrigin(RuntimeOrigin::signed(alice), Owner::default()),
+				&bob,
+			));
+
+			assert_eq!(items(), vec![(bob, collection_id, item_id)]);
+
+			// The admin can transfer the token
+			assert_ok!(Item::update(
+				&(collection_id, item_id),
+				CheckOrigin(RuntimeOrigin::signed(collection_admin), Owner::default()),
+				&alice,
+			));
+
+			assert_eq!(items(), vec![(alice, collection_id, item_id)]);
+
+			// Approve Bob to transfer Alice's token
+			assert_ok!(Uniques::approve_transfer(
+				RuntimeOrigin::signed(alice),
+				collection_id,
+				item_id,
+				bob,
+			));
+
+			// Now Bob can transfer Alice's token
+			assert_ok!(Item::update(
+				&(collection_id, item_id),
+				CheckOrigin(RuntimeOrigin::signed(bob), Owner::default()),
+				&bob,
+			));
+
+			assert_eq!(items(), vec![(bob, collection_id, item_id)]);
+		});
+	}
+
+	#[test]
+	fn transfer_item_from_to() {
+		new_test_ext().execute_with(|| {
+			let collection_id = 10;
+			let item_id = 111;
+
+			let collection_owner = 1;
+			let collection_admin = 2;
+			let alice = 3;
+			let bob = 4;
+
+			Balances::make_free_balance_be(&collection_owner, 100);
+
+			assert_ok!(Collection::create(WithConfig::new(
+				(
+					Owner::with_config_value(collection_owner),
+					Admin::with_config_value(collection_admin)
+				),
+				PredefinedId::from(collection_id),
+			)));
+
+			assert_ok!(Item::create(WithConfig::new(
+				Owner::with_config_value(alice),
+				PredefinedId::from((collection_id, item_id)),
+			)));
+
+			assert_eq!(items(), vec![(alice, collection_id, item_id)]);
+
+			assert_ok!(Item::update(
+				&(collection_id, item_id),
+				ChangeOwnerFrom::check(alice),
+				&bob,
+			));
+
+			assert_eq!(items(), vec![(bob, collection_id, item_id)]);
+
+			assert_noop!(
+				Item::update(&(collection_id, item_id), ChangeOwnerFrom::check(alice), &bob,),
+				Error::<Test>::WrongOwner,
+			);
+
+			assert_ok!(Item::update(
+				&(collection_id, item_id),
+				ChangeOwnerFrom::check(bob),
+				&alice,
+			));
+
+			assert_eq!(items(), vec![(alice, collection_id, item_id)]);
+		});
+	}
+
+	#[test]
+	fn stash_item_unchecked() {
+		new_test_ext().execute_with(|| {
+			let collection_id = 10;
+			let item_id = 111;
+
+			let collection_owner = 1;
+			let collection_admin = 2;
+			let item_owner = 3;
+
+			Balances::make_free_balance_be(&collection_owner, 100);
+
+			assert_ok!(Collection::create(WithConfig::new(
+				(
+					Owner::with_config_value(collection_owner),
+					Admin::with_config_value(collection_admin)
+				),
+				PredefinedId::from(collection_id),
+			)));
+
+			assert_ok!(Item::create(WithConfig::new(
+				Owner::with_config_value(item_owner),
+				PredefinedId::from((collection_id, item_id)),
+			)));
+
+			assert_eq!(items(), vec![(item_owner, collection_id, item_id)]);
+
+			let test_key = vec![0xF, 0x0, 0x0, 0xD];
+			let test_value = vec![0xC, 0x0, 0x0, 0x1];
+
+			assert_ok!(Uniques::set_attribute(
+				RuntimeOrigin::signed(collection_owner),
+				collection_id,
+				Some(item_id),
+				test_key.clone().try_into().unwrap(),
+				test_value.clone().try_into().unwrap(),
+			));
+
+			// Can't restore an already existing item
+			assert_noop!(
+				Item::restore(
+					&(collection_id, item_id),
+					WithConfig::from(Owner::with_config_value(item_owner)),
+				),
+				Error::<Test>::InUse,
+			);
+
+			assert_ok!(Item::stash(&(collection_id, item_id), NoParams));
+
+			assert_eq!(items(), vec![]);
+
+			let retreived_test_value =
+				Item::inspect(&(collection_id, item_id), Bytes(Attribute(test_key.as_slice())))
+					.unwrap();
+
+			// the attributes are still available
+			assert_eq!(retreived_test_value, test_value);
+
+			// A stahed item can be restored
+			assert_ok!(Item::restore(
+				&(collection_id, item_id),
+				WithConfig::from(Owner::with_config_value(item_owner)),
+			));
+			assert_eq!(items(), vec![(item_owner, collection_id, item_id)]);
+		});
+	}
+
+	#[test]
+	fn stash_item_if_owned_by() {
+		new_test_ext().execute_with(|| {
+			let collection_id = 10;
+			let item_id = 111;
+
+			let collection_owner = 1;
+			let collection_admin = 2;
+			let item_owner = 3;
+
+			Balances::make_free_balance_be(&collection_owner, 100);
+
+			assert_ok!(Collection::create(WithConfig::new(
+				(
+					Owner::with_config_value(collection_owner),
+					Admin::with_config_value(collection_admin)
+				),
+				PredefinedId::from(collection_id),
+			)));
+
+			assert_ok!(Item::create(WithConfig::new(
+				Owner::with_config_value(item_owner),
+				PredefinedId::from((collection_id, item_id)),
+			)));
+
+			assert_eq!(items(), vec![(item_owner, collection_id, item_id)]);
+
+			let test_key = vec![0xF, 0x0, 0x0, 0xD];
+			let test_value = vec![0xC, 0x0, 0x0, 0x1];
+
+			assert_ok!(Uniques::set_attribute(
+				RuntimeOrigin::signed(collection_owner),
+				collection_id,
+				Some(item_id),
+				test_key.clone().try_into().unwrap(),
+				test_value.clone().try_into().unwrap(),
+			));
+
+			// Can't restore an already existing item
+			assert_noop!(
+				Item::restore(
+					&(collection_id, item_id),
+					WithConfig::from(Owner::with_config_value(item_owner)),
+				),
+				Error::<Test>::InUse,
+			);
+
+			assert_noop!(
+				Item::stash(&(collection_id, item_id), IfOwnedBy::check(collection_owner)),
+				Error::<Test>::NoPermission,
+			);
+
+			assert_noop!(
+				Item::stash(&(collection_id, item_id), IfOwnedBy::check(collection_admin)),
+				Error::<Test>::NoPermission,
+			);
+
+			assert_ok!(Item::stash(&(collection_id, item_id), IfOwnedBy::check(item_owner)));
+
+			assert_eq!(items(), vec![]);
+
+			let retreived_test_value =
+				Item::inspect(&(collection_id, item_id), Bytes(Attribute(test_key.as_slice())))
+					.unwrap();
+
+			// the attributes are still available
+			assert_eq!(retreived_test_value, test_value);
+
+			// A stahed item can be restored
+			assert_ok!(Item::restore(
+				&(collection_id, item_id),
+				WithConfig::from(Owner::with_config_value(item_owner)),
+			));
+			assert_eq!(items(), vec![(item_owner, collection_id, item_id)]);
+		});
+	}
+
+	#[test]
+	fn stash_item_if_check_origin() {
+		new_test_ext().execute_with(|| {
+			let collection_id = 10;
+			let item_id = 111;
+
+			let collection_owner = 1;
+			let collection_admin = 2;
+			let alice = 3;
+			let bob = 4;
+
+			Balances::make_free_balance_be(&collection_owner, 100);
+
+			assert_ok!(Collection::create(WithConfig::new(
+				(
+					Owner::with_config_value(collection_owner),
+					Admin::with_config_value(collection_admin)
+				),
+				PredefinedId::from(collection_id),
+			)));
+
+			assert_ok!(Item::create(WithConfig::new(
+				Owner::with_config_value(alice),
+				PredefinedId::from((collection_id, item_id)),
+			)));
+
+			assert_eq!(items(), vec![(alice, collection_id, item_id)]);
+
+			let test_key = vec![0xF, 0x0, 0x0, 0xD];
+			let test_value = vec![0xC, 0x0, 0x0, 0x1];
+
+			assert_ok!(Uniques::set_attribute(
+				RuntimeOrigin::signed(collection_owner),
+				collection_id,
+				Some(item_id),
+				test_key.clone().try_into().unwrap(),
+				test_value.clone().try_into().unwrap(),
+			));
+
+			// Can't restore an already existing item
+			assert_noop!(
+				Item::restore(
+					&(collection_id, item_id),
+					WithConfig::from(Owner::with_config_value(alice)),
+				),
+				Error::<Test>::InUse,
+			);
+
+			// Bob is not the admin and not the token owner
+			// He can't stash the token
+			assert_noop!(
+				Item::stash(
+					&(collection_id, item_id),
+					CheckOrigin::check(RuntimeOrigin::signed(bob)),
+				),
+				Error::<Test>::NoPermission,
+			);
+
+			// Force origin can't stash tokens
+			assert_noop!(
+				Item::stash(&(collection_id, item_id), CheckOrigin::check(RuntimeOrigin::root())),
+				DispatchError::BadOrigin,
+			);
+
+			// The collection admin can stash tokens
+			assert_ok!(Item::stash(
+				&(collection_id, item_id),
+				CheckOrigin::check(RuntimeOrigin::signed(collection_admin)),
+			));
+
+			assert_eq!(items(), vec![]);
+
+			let retreived_test_value =
+				Item::inspect(&(collection_id, item_id), Bytes(Attribute(test_key.as_slice())))
+					.unwrap();
+
+			// the attributes are still available
+			assert_eq!(retreived_test_value, test_value);
+
+			// Restore the token
+			assert_ok!(Item::restore(
+				&(collection_id, item_id),
+				WithConfig::from(Owner::with_config_value(alice)),
+			));
+			assert_eq!(items(), vec![(alice, collection_id, item_id)]);
+
+			// The token owner can stash it
+			assert_ok!(Item::stash(
+				&(collection_id, item_id),
+				CheckOrigin::check(RuntimeOrigin::signed(alice)),
+			));
+
+			assert_eq!(items(), vec![]);
+
+			let retreived_test_value =
+				Item::inspect(&(collection_id, item_id), Bytes(Attribute(test_key.as_slice())))
+					.unwrap();
+
+			// the attributes are still available
+			assert_eq!(retreived_test_value, test_value);
+
+			// A stahed item can be restored
+			assert_ok!(Item::restore(
+				&(collection_id, item_id),
+				WithConfig::from(Owner::with_config_value(alice)),
+			));
+			assert_eq!(items(), vec![(alice, collection_id, item_id)]);
+		});
+	}
+
+	#[test]
+	fn inspect_item_ownership() {
+		new_test_ext().execute_with(|| {
+			let collection_id = 10;
+			let item_id = 111;
+
+			let collection_owner = 1;
+			let collection_admin = 2;
+			let item_owner = 3;
+
+			Balances::make_free_balance_be(&collection_owner, 100);
+
+			assert_ok!(Collection::create(WithConfig::new(
+				(
+					Owner::with_config_value(collection_owner),
+					Admin::with_config_value(collection_admin)
+				),
+				PredefinedId::from(collection_id),
+			)));
+
+			assert_ok!(Item::create(WithConfig::new(
+				Owner::with_config_value(item_owner),
+				PredefinedId::from((collection_id, item_id)),
+			)));
+
+			let retreived_item_owner =
+				Item::inspect(&(collection_id, item_id), Owner::default()).unwrap();
+
+			assert_eq!(retreived_item_owner, item_owner);
+		});
+	}
+
+	#[test]
+	fn inspect_item_metadata() {
+		new_test_ext().execute_with(|| {
+			let collection_id = 10;
+			let item_id = 111;
+
+			let collection_owner = 1;
+			let collection_admin = 2;
+			let item_owner = 3;
+
+			let metadata = vec![0xB, 0xE, 0xE, 0xF];
+			let is_frozen = false;
+
+			Balances::make_free_balance_be(&collection_owner, 100);
+
+			assert_ok!(Collection::create(WithConfig::new(
+				(
+					Owner::with_config_value(collection_owner),
+					Admin::with_config_value(collection_admin)
+				),
+				PredefinedId::from(collection_id),
+			)));
+
+			assert_ok!(Item::create(WithConfig::new(
+				Owner::with_config_value(item_owner),
+				PredefinedId::from((collection_id, item_id)),
+			)));
+
+			assert_noop!(
+				Item::inspect(&(collection_id, item_id), Bytes::default()),
+				Error::<Test>::NoMetadata,
+			);
+
+			assert_ok!(Uniques::set_metadata(
+				RuntimeOrigin::root(),
+				collection_id,
+				item_id,
+				metadata.clone().try_into().unwrap(),
+				is_frozen,
+			));
+
+			let retreived_metadata =
+				Item::inspect(&(collection_id, item_id), Bytes::default()).unwrap();
+
+			assert_eq!(retreived_metadata, metadata);
+
+			assert_ok!(Uniques::clear_metadata(RuntimeOrigin::root(), collection_id, item_id,));
+
+			assert_noop!(
+				Item::inspect(&(collection_id, item_id), Bytes::default()),
+				Error::<Test>::NoMetadata,
+			);
+		});
+	}
+
+	#[test]
+	fn inspect_item_attributes() {
+		new_test_ext().execute_with(|| {
+			let collection_id = 10;
+			let item_id = 111;
+
+			let collection_owner = 1;
+			let collection_admin = 2;
+			let item_owner = 3;
+
+			let food_attr_key = vec![0xB, 0xE, 0xE, 0xF];
+			let food_attr_value = vec![0xC, 0x0, 0x0, 0x1];
+
+			let drink_attr_key = vec![0xC, 0x0, 0xF, 0xF, 0xE, 0xE];
+			let drink_attr_value = vec![0xD, 0xE, 0xC, 0xA, 0xF];
+
+			Balances::make_free_balance_be(&collection_owner, 100);
+
+			let set_attribute = |key: &Vec<u8>, value: &Vec<u8>| {
+				assert_ok!(Uniques::set_attribute(
+					RuntimeOrigin::signed(collection_owner),
+					collection_id,
+					Some(item_id),
+					key.clone().try_into().unwrap(),
+					value.clone().try_into().unwrap(),
+				));
+			};
+
+			let clear_attribute = |key: &Vec<u8>| {
+				assert_ok!(Uniques::clear_attribute(
+					RuntimeOrigin::signed(collection_owner),
+					collection_id,
+					Some(item_id),
+					key.clone().try_into().unwrap(),
+				));
+			};
+
+			assert_ok!(Collection::create(WithConfig::new(
+				(
+					Owner::with_config_value(collection_owner),
+					Admin::with_config_value(collection_admin)
+				),
+				PredefinedId::from(collection_id),
+			)));
+
+			assert_ok!(Item::create(WithConfig::new(
+				Owner::with_config_value(item_owner),
+				PredefinedId::from((collection_id, item_id)),
+			)));
+
+			assert_noop!(
+				Item::inspect(
+					&(collection_id, item_id),
+					Bytes(Attribute(food_attr_key.as_slice())),
+				),
+				Error::<Test>::AttributeNotFound,
+			);
+
+			assert_noop!(
+				Item::inspect(
+					&(collection_id, item_id),
+					Bytes(Attribute(drink_attr_key.as_slice())),
+				),
+				Error::<Test>::AttributeNotFound,
+			);
+
+			set_attribute(&food_attr_key, &food_attr_value);
+
+			let retreived_food_value = Item::inspect(
+				&(collection_id, item_id),
+				Bytes(Attribute(food_attr_key.as_slice())),
+			)
+			.unwrap();
+
+			assert_eq!(retreived_food_value, food_attr_value);
+
+			assert_noop!(
+				Item::inspect(
+					&(collection_id, item_id),
+					Bytes(Attribute(drink_attr_key.as_slice())),
+				),
+				Error::<Test>::AttributeNotFound,
+			);
+
+			set_attribute(&drink_attr_key, &drink_attr_value);
+
+			let retreived_food_value = Item::inspect(
+				&(collection_id, item_id),
+				Bytes(Attribute(food_attr_key.as_slice())),
+			)
+			.unwrap();
+
+			assert_eq!(retreived_food_value, food_attr_value);
+
+			let retreived_drink_value = Item::inspect(
+				&(collection_id, item_id),
+				Bytes(Attribute(drink_attr_key.as_slice())),
+			)
+			.unwrap();
+
+			assert_eq!(retreived_drink_value, drink_attr_value);
+
+			clear_attribute(&food_attr_key);
+
+			assert_noop!(
+				Item::inspect(
+					&(collection_id, item_id),
+					Bytes(Attribute(food_attr_key.as_slice())),
+				),
+				Error::<Test>::AttributeNotFound,
+			);
+
+			let retreived_drink_value = Item::inspect(
+				&(collection_id, item_id),
+				Bytes(Attribute(drink_attr_key.as_slice())),
+			)
+			.unwrap();
+
+			assert_eq!(retreived_drink_value, drink_attr_value);
+
+			clear_attribute(&drink_attr_key);
+
+			assert_noop!(
+				Item::inspect(
+					&(collection_id, item_id),
+					Bytes(Attribute(food_attr_key.as_slice())),
+				),
+				Error::<Test>::AttributeNotFound,
+			);
+
+			assert_noop!(
+				Item::inspect(
+					&(collection_id, item_id),
+					Bytes(Attribute(drink_attr_key.as_slice())),
+				),
+				Error::<Test>::AttributeNotFound,
+			);
+		});
+	}
+
+	#[test]
+	fn inspect_item_can_update_owner() {
+		new_test_ext().execute_with(|| {
+			let collection_id = 10;
+			let item_id = 111;
+
+			let collection_owner = 1;
+			let collection_admin = 2;
+			let item_owner = 3;
+
+			Balances::make_free_balance_be(&collection_owner, 100);
+
+			assert_ok!(Collection::create(WithConfig::new(
+				(
+					Owner::with_config_value(collection_owner),
+					Admin::with_config_value(collection_admin)
+				),
+				PredefinedId::from(collection_id),
+			)));
+
+			assert_ok!(Item::create(WithConfig::new(
+				Owner::with_config_value(item_owner),
+				PredefinedId::from((collection_id, item_id)),
+			)));
+
+			let can_update_owner =
+				Item::inspect(&(collection_id, item_id), Owner::default().as_can_update()).unwrap();
+
+			assert!(can_update_owner);
+
+			assert_ok!(Uniques::freeze(
+				RuntimeOrigin::signed(collection_admin),
+				collection_id,
+				item_id,
+			));
+
+			let can_update_owner =
+				Item::inspect(&(collection_id, item_id), Owner::default().as_can_update()).unwrap();
+
+			assert!(!can_update_owner);
+
+			assert_ok!(Uniques::thaw(
+				RuntimeOrigin::signed(collection_admin),
+				collection_id,
+				item_id,
+			));
+
+			let can_update_owner =
+				Item::inspect(&(collection_id, item_id), Owner::default().as_can_update()).unwrap();
+
+			assert!(can_update_owner);
+		});
+	}
 }

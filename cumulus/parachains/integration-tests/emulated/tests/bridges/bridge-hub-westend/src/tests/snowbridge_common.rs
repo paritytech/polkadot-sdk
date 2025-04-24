@@ -13,9 +13,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{create_pool_with_native_on, imports::*};
+use crate::imports::*;
 use asset_hub_westend_runtime::xcm_config::LocationToAccountId;
-use emulated_integration_tests_common::PenpalBTeleportableAssetLocation;
+use emulated_integration_tests_common::{
+	snowbridge::{SEPOLIA_ID, WETH},
+	PenpalBTeleportableAssetLocation,
+};
 use frame_support::traits::fungibles::Mutate;
 use hex_literal::hex;
 use rococo_westend_system_emulated_network::penpal_emulated_chain::{
@@ -28,8 +31,6 @@ use testnet_parachains_constants::westend::snowbridge::EthereumNetwork;
 use xcm_builder::ExternalConsensusLocationsConverterFor;
 use xcm_executor::traits::ConvertLocation;
 
-pub const CHAIN_ID: u64 = 11155111;
-pub const WETH: [u8; 20] = hex!("fff9976782d46cc05630d1f6ebab18b2324d6b14");
 pub const INITIAL_FUND: u128 = 50_000_000_000_000;
 pub const ETHEREUM_DESTINATION_ADDRESS: [u8; 20] = hex!("44a57ee2f2FCcb85FDa2B0B18EBD0D8D2333700e");
 pub const AGENT_ADDRESS: [u8; 20] = hex!("90A987B944Cb1dCcE5564e5FDeCD7a54D3de27Fe");
@@ -242,7 +243,7 @@ pub fn set_trust_reserve_on_penpal() {
 			<PenpalB as Chain>::RuntimeOrigin::root(),
 			vec![(
 				PenpalCustomizableAssetFromSystemAssetHub::key().to_vec(),
-				Location::new(2, [GlobalConsensus(Ethereum { chain_id: CHAIN_ID })]).encode(),
+				Location::new(2, [GlobalConsensus(Ethereum { chain_id: SEPOLIA_ID })]).encode(),
 			)],
 		));
 	});
@@ -341,9 +342,12 @@ pub(crate) fn set_up_eth_and_dot_pool_on_penpal() {
 }
 
 pub(crate) fn set_up_eth_and_dot_pool_on_rococo() {
-	let ethereum_sovereign = snowbridge_sovereign();
-	AssetHubRococo::fund_accounts(vec![(ethereum_sovereign.clone(), INITIAL_FUND)]);
-	create_pool_with_native_on!(AssetHubRococo, eth_location(), true, ethereum_sovereign.clone());
+	let sa_of_wah_on_rah = AssetHubRococo::sovereign_account_of_parachain_on_other_global_consensus(
+		ByGenesis(WESTEND_GENESIS_HASH),
+		AssetHubWestend::para_id(),
+	);
+	AssetHubRococo::fund_accounts(vec![(sa_of_wah_on_rah.clone(), INITIAL_FUND)]);
+	create_pool_with_native_on!(AssetHubRococo, eth_location(), true, sa_of_wah_on_rah.clone());
 }
 
 pub fn register_pal_on_bh() {
@@ -389,7 +393,7 @@ pub fn weth_location() -> Location {
 }
 
 pub fn eth_location() -> Location {
-	Location::new(2, [GlobalConsensus(Ethereum { chain_id: CHAIN_ID })])
+	Location::new(2, [GlobalConsensus(Ethereum { chain_id: SEPOLIA_ID })])
 }
 
 pub fn ethereum() -> Location {
