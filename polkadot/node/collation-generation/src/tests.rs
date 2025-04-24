@@ -28,7 +28,9 @@ use polkadot_node_subsystem_test_helpers::TestSubsystemContextHandle;
 use polkadot_node_subsystem_util::TimeoutExt;
 use polkadot_primitives::{
 	node_features,
-	vstaging::{CandidateDescriptorVersion, CoreSelector, UMPSignal, UMP_SEPARATOR},
+	vstaging::{
+		CandidateDescriptorVersion, ClaimQueueOffset, CoreSelector, UMPSignal, UMP_SEPARATOR,
+	},
 	CollatorPair, NodeFeatures, PersistedValidationData,
 };
 use polkadot_primitives_test_helpers::dummy_head_data;
@@ -573,6 +575,78 @@ fn v2_receipts_failed_core_index_check() {
 		virtual_overseer
 	});
 }
+
+#[test]
+// Verify that an ApprovedPeer UMP signal does not break the subsystem (DistributeCollation is
+// sent), assuming CandidateReceiptV2 node feature is enabled.
+fn approved_peer_signal() {
+	let relay_parent = Hash::repeat_byte(0);
+	let validation_code_hash = ValidationCodeHash::from(Hash::repeat_byte(42));
+	let parent_head = dummy_head_data();
+	let para_id = ParaId::from(5);
+	let expected_pvd = PersistedValidationData {
+		parent_head: parent_head.clone(),
+		relay_parent_number: 10,
+		relay_parent_storage_root: Hash::repeat_byte(1),
+		max_pov_size: 1024,
+	};
+
+	test_harness(|mut virtual_overseer| async move {
+		virtual_overseer
+			.send(FromOrchestra::Communication {
+				msg: CollationGenerationMessage::Initialize(test_config_no_collator(para_id)),
+			})
+			.await;
+
+		let mut collation = test_collation();
+		collation.upward_messages.force_push(UMP_SEPARATOR);
+		collation
+			.upward_messages
+			.force_push(UMPSignal::ApprovedPeer(vec![1, 2, 3, 4, 5].try_into().unwrap()).encode());
+
+		virtual_overseer
+			.send(FromOrchestra::Communication {
+				msg: CollationGenerationMessage::SubmitCollation(SubmitCollationParams {
+					relay_parent,
+					collation,
+					parent_head: dummy_head_data(),
+					validation_code_hash,
+					result_sender: None,
+					core_index: CoreIndex(0),
+				}),
+			})
+			.await;
+
+		helpers::handle_runtime_calls_on_submit_collation(
+			&mut virtual_overseer,
+			relay_parent,
+			para_id,
+			expected_pvd.clone(),
+			node_features_with_v2_enabled(),
+			[(CoreIndex(0), [para_id].into_iter().collect())].into_iter().collect(),
+		)
+		.await;
+
+		assert_matches!(
+			overseer_recv(&mut virtual_overseer).await,
+			AllMessages::CollatorProtocol(CollatorProtocolMessage::DistributeCollation {
+				candidate_receipt,
+				parent_head_data_hash,
+				..
+			}) => {
+				let CandidateReceipt { descriptor, .. } = candidate_receipt;
+				assert_eq!(parent_head_data_hash, parent_head.hash());
+				assert_eq!(descriptor.persisted_validation_data_hash(), expected_pvd.hash());
+				assert_eq!(descriptor.para_head(), dummy_head_data().hash());
+				assert_eq!(descriptor.validation_code_hash(), validation_code_hash);
+				assert_eq!(descriptor.version(), CandidateDescriptorVersion::V2);
+			}
+		);
+
+		virtual_overseer
+	});
+}
+
 mod helpers {
 	use super::*;
 	use std::collections::{BTreeMap, VecDeque};
