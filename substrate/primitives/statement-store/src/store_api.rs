@@ -89,7 +89,7 @@ pub trait StatementStore: Send + Sync {
 	fn remove(&self, hash: &Hash) -> Result<()>;
 
 	/// Return the priority of the statement in given channel for the given account, or `None` if
-	/// the statement doesn't have a priority or if there is no statement.
+	/// there is no statement.
 	fn account_channel_priority(
 		&self,
 		account: &AccountId,

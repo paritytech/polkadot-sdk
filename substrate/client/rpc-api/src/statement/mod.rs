@@ -59,7 +59,7 @@ pub trait StatementApi {
 	fn remove(&self, statement_hash: [u8; 32]) -> RpcResult<()>;
 
 	/// Return the priority of the statement in given channel for the given account, or `None` if
-	/// the statement doesn't have a priority or if there is no statement.
+	/// there is no statement.
 	#[method(name = "statement_accountChannelPriority")]
 	fn account_channel_priority(
 		&self,
