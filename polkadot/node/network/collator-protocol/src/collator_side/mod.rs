@@ -293,7 +293,7 @@ impl CollationTracker {
 			MAX_BACKING_DELAY
 		} else if stats.included().is_none() {
 			// Set expiration date relative to backing block.
-			stats.backed_at.unwrap_or_default() + MAX_AVAILABILITY_DELAY
+			MAX_AVAILABILITY_DELAY
 		} else {
 			// If block included no reason to track it.
 			return
