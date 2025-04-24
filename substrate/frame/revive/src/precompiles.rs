@@ -132,14 +132,14 @@ impl<T: Config> From<CrateError<T>> for Error {
 
 /// Type that can be implemented in other crates to extend the list of pre-compiles.
 ///
-/// Only implement exacly one function. Either `call` or `call_with_info`.
+/// Only implement exactly one function. Either `call` or `call_with_info`.
 ///
 /// # Warning
 ///
 /// Pre-compiles are unmetered code. Hence they have to charge an appropriate amount of weight
 /// themselves. Generally, their first line of code should be a call to
 /// `env.gas_meter_mut().charge()`. For that you need to implement [`Token`] on a type of your
-/// chosing.
+/// choosing.
 pub trait Precompile {
 	/// Your runtime.
 	type T: Config;
@@ -181,7 +181,7 @@ pub trait Precompile {
 	/// The contract info enables additional functionality:
 	/// - Storage deposits: Collect deposits from the origin rather than the caller. This makes it
 	///   easier for contracts to interact with the pre-compile as deposits
-	/// 	are payed by the transaction signer (just like gas). It also makes refunding easier.
+	/// 	are paid by the transaction signer (just like gas). It also makes refunding easier.
 	/// - Contract storage: You can use the contracts key value child trie storage instead of
 	///   providing your own state.
 	/// 	The contract storage automatically takes care of deposits.
@@ -246,7 +246,7 @@ pub(crate) trait BuiltinPrecompile {
 
 /// A low level pre-compiles that does use Solidity ABI.
 ///
-/// It is used to implement the oroginal Ethereum pre-compies which do not
+/// It is used to implement the original Ethereum pre-compiles which do not
 /// use Solidity ABI but just encode inputs and outputs packed in memory.
 ///
 /// Automatically implemented for all types that implement `BuiltinPrecompile`.

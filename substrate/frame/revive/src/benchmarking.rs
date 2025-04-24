@@ -1965,7 +1965,7 @@ mod benchmarks {
 	// `n`: pairings to perform
 	#[benchmark(pov_mode = Measured)]
 	fn bn128_pairing(n: Linear<0, { 20 }>) {
-		pub fn generate_random_ecpairs(n: usize) -> Vec<u8> {
+		fn generate_random_ecpairs(n: usize) -> Vec<u8> {
 			use bn::{AffineG1, AffineG2, Fr, Group, G1, G2};
 			use rand::SeedableRng;
 			use rand_pcg::Pcg64;
