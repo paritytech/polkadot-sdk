@@ -16,7 +16,11 @@
 
 #![cfg(test)]
 
-use crate::{mock::*, tests::{ALICE, BOB, FEE_AMOUNT, INITIAL_BALANCE, SEND_AMOUNT}, DispatchResult, Event, OriginFor};
+use crate::{
+	mock::*,
+	tests::{ALICE, BOB, FEE_AMOUNT, INITIAL_BALANCE, SEND_AMOUNT},
+	DispatchResult, Event, OriginFor,
+};
 use frame_support::{
 	assert_err, assert_ok,
 	traits::{tokens::fungibles::Inspect, Currency},
@@ -1441,9 +1445,9 @@ fn remote_asset_reserve_and_remote_fee_reserve_call<Call>(
 				// message sent onward to `dest`
 				xcm: Xcm(vec![
 					buy_limited_execution(expected_fee_on_dest, Unlimited),
-					DepositAsset { assets: AllCounted(1).into(), beneficiary }
-				])
-			}
+					DepositAsset { assets: AllCounted(1).into(), beneficiary },
+				]),
+			},
 		]);
 		let xcm_sent = sent_xcm();
 		if let Some(SetTopic(topic_id)) = xcm_sent[0].1.last() {
@@ -1455,7 +1459,8 @@ fn remote_asset_reserve_and_remote_fee_reserve_call<Call>(
 			xcm_sent,
 			vec![(
 				// first message sent to reserve chain
-				usdc_chain, expected_msg
+				usdc_chain,
+				expected_msg
 			)],
 		);
 	});
@@ -2544,7 +2549,9 @@ fn remote_asset_reserve_and_remote_fee_reserve_paid_call<Call>(
 			},
 		]);
 		let mut sent_msg_id = None;
-		if let Some(RuntimeEvent::XcmPallet(Event::Sent { message_id, ..})) = last_events(2).first() {
+		if let Some(RuntimeEvent::XcmPallet(Event::Sent { message_id, .. })) =
+			last_events(2).first()
+		{
 			sent_message.0.push(SetTopic(*message_id));
 			sent_msg_id = Some(*message_id);
 		} else {

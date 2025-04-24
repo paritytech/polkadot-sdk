@@ -1687,7 +1687,7 @@ fn execute_initiate_transfer_and_check_sent_event() {
 				DepositAsset { assets: All.into(), beneficiary: beneficiary.clone() },
 			]);
 			let mut sent_msg_id = None;
-			if let Some(RuntimeEvent::XcmPallet(Event::Sent { message_id, ..})) = events.first() {
+			if let Some(RuntimeEvent::XcmPallet(Event::Sent { message_id, .. })) = events.first() {
 				sent_message.0.push(SetTopic(*message_id));
 				sent_msg_id = Some(*message_id);
 			} else {
