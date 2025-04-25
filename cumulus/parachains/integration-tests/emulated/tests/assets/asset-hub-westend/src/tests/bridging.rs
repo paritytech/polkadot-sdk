@@ -60,6 +60,7 @@ fn ah_to_ah_open_close_bridge_works() {
 	});
 	assert!(rococo_bridge_opened_lane_id.is_some(), "Rococo BridgeOpened event not found");
 
+    // check the same lane ID is generated
 	assert_eq!(westend_bridge_opened_lane_id, rococo_bridge_opened_lane_id);
 
 	// close bridges  
