@@ -134,10 +134,6 @@ jobs:
         run: |
           # Fixes "detected dubious ownership" error in the ci
           git config --global --add safe.directory '*'
-<<<<<<< HEAD
-          python3 scripts/generate-umbrella.py --sdk . --version 0.1.0
-          cargo +nightly fmt --all
-=======
 
           # Ensure jq is installed
           if ! command -v jq &> /dev/null; then
@@ -158,7 +154,6 @@ jobs:
           python3 scripts/generate-umbrella.py --sdk . --version "$UMBRELLA_VERSION"
 
           cargo +nightly fmt -p polkadot-sdk
->>>>>>> c854f7c6 (Check umbrella version (#8250))
 
           if [ -n "$(git status --porcelain)" ]; then
             cat <<EOF
