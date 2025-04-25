@@ -177,17 +177,7 @@ in the repo with the actual release dates.
 
 Cadence: every month. Responsible: Developer
 
-Describes how developers should merge bug and security fixes.
-
-### Steps
-
-1. Developer opens a Pull Request with a bug or security fix.
-2. The Pull Request is marked as priority fix.
-3. Audit happens with priority.
-4. It is merged into `master`.
-5. Dev adds the `A4-needs-backport` label.
-6. It is automatically back-ported to `stable` and merged by a release engineer.
-7. The fix will be released in the next *Stable patch* release. In urgent cases, a release can happen earlier.
+Bacporting rules can be found in the [BACKPORT.md](/docs/BACKPORT.md)
 
 The release itself is similar to [the new stable release](#steps-to-execute-a-new-stable-release) process without
 the branching-off step, as the branch already exists and depending on the patch
