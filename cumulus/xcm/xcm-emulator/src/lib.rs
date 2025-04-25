@@ -1397,23 +1397,6 @@ macro_rules! find_all_xcm_topic_ids {
 }
 
 #[macro_export]
-macro_rules! find_mq_processed_id {
-	( $chain:ident ) => {{
-		let events = <$chain as $crate::Chain>::events();
-		events.iter().find_map(|event| {
-			if let RuntimeEvent::MessageQueue(pallet_message_queue::Event::Processed {
-				id, ..
-			}) = event
-			{
-				Some(*id)
-			} else {
-				None
-			}
-		})
-	}};
-}
-
-#[macro_export]
 macro_rules! find_xcm_sent_message_id {
 	( $chain:ident, $runtime_pallet:path ) => {{
 		let events = <$chain as $crate::Chain>::events();
@@ -1702,11 +1685,10 @@ where
 }
 
 pub mod helpers {
-	use pallet_message_queue::Config;
 	use super::*;
 	use sp_core::H256;
 
-	pub fn find_mq_processed_id<C: Chain, T: Config>() -> Option<H256>
+	pub fn find_mq_processed_id<C: Chain, T: pallet_message_queue::Config>() -> Option<H256>
 	where
 		C::RuntimeEvent: TryInto<pallet_message_queue::Event<T>>,
 	{
