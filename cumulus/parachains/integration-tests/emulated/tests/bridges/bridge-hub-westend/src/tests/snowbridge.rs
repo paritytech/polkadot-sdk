@@ -32,7 +32,10 @@ use bridge_hub_westend_runtime::{
 	bridge_to_ethereum_config::EthereumGatewayAddress, EthereumBeaconClient, EthereumInboundQueue,
 };
 use codec::{Decode, Encode};
-use emulated_integration_tests_common::{PENPAL_B_ID, RESERVABLE_ASSET_ID};
+use emulated_integration_tests_common::{
+	snowbridge::{SEPOLIA_ID, WETH},
+	PENPAL_B_ID, RESERVABLE_ASSET_ID,
+};
 use frame_support::{pallet_prelude::TypeInfo, traits::fungibles::Mutate};
 use hex_literal::hex;
 use rococo_westend_system_emulated_network::{
@@ -45,12 +48,10 @@ use snowbridge_inbound_queue_primitives::{
 	EventFixture,
 };
 use snowbridge_pallet_inbound_queue_fixtures::send_native_eth::make_send_native_eth_message;
-use sp_core::H256;
+use sp_core::{H160, H256};
 use testnet_parachains_constants::westend::snowbridge::EthereumNetwork;
 use xcm_executor::traits::ConvertLocation;
 
-pub const CHAIN_ID: u64 = 11155111;
-pub const WETH: [u8; 20] = hex!("87d1f7fdfEe7f651FaBc8bFCB6E086C278b77A7d");
 const INITIAL_FUND: u128 = 5_000_000_000_000;
 const ETHEREUM_DESTINATION_ADDRESS: [u8; 20] = hex!("44a57ee2f2FCcb85FDa2B0B18EBD0D8D2333700e");
 const XCM_FEE: u128 = 100_000_000_000;
@@ -87,18 +88,20 @@ pub fn send_inbound_message(fixture: EventFixture) -> DispatchResult {
 
 /// Tests the registering of a token as an asset on AssetHub.
 #[test]
-fn register_weth_token_from_ethereum_to_asset_hub() {
+fn register_token_from_ethereum_to_asset_hub() {
 	// Fund AssetHub sovereign account so that it can pay execution fees.
 	BridgeHubWestend::fund_para_sovereign(AssetHubWestend::para_id().into(), INITIAL_FUND);
 	// Fund Snowbridge Sovereign to satisfy ED.
 	AssetHubWestend::fund_accounts(vec![(snowbridge_sovereign(), INITIAL_FUND)]);
 
+	let token = H160::random();
+
 	BridgeHubWestend::execute_with(|| {
 		type RuntimeEvent = <BridgeHubWestend as Chain>::RuntimeEvent;
 
 		let message = VersionedMessage::V1(MessageV1 {
-			chain_id: CHAIN_ID,
-			command: Command::RegisterToken { token: WETH.into(), fee: XCM_FEE },
+			chain_id: SEPOLIA_ID,
+			command: Command::RegisterToken { token: token.into(), fee: XCM_FEE },
 		});
 		let (xcm, _) = EthereumInboundQueue::do_convert([0; 32].into(), message).unwrap();
 		let _ = EthereumInboundQueue::send_xcm(xcm, AssetHubWestend::para_id().into()).unwrap();
@@ -133,32 +136,6 @@ fn send_weth_token_from_ethereum_to_asset_hub() {
 		(ethereum_sovereign, INITIAL_FUND),
 	]);
 
-	// Register the token
-	BridgeHubWestend::execute_with(|| {
-		type RuntimeEvent = <BridgeHubWestend as Chain>::RuntimeEvent;
-
-		let message = VersionedMessage::V1(MessageV1 {
-			chain_id: CHAIN_ID,
-			command: Command::RegisterToken { token: WETH.into(), fee: XCM_FEE },
-		});
-		let (xcm, _) = EthereumInboundQueue::do_convert([0; 32].into(), message).unwrap();
-		let _ = EthereumInboundQueue::send_xcm(xcm, AssetHubWestend::para_id().into()).unwrap();
-
-		assert_expected_events!(
-			BridgeHubWestend,
-			vec![RuntimeEvent::XcmpQueue(cumulus_pallet_xcmp_queue::Event::XcmpMessageSent { .. }) => {},]
-		);
-	});
-
-	AssetHubWestend::execute_with(|| {
-		type RuntimeEvent = <AssetHubWestend as Chain>::RuntimeEvent;
-
-		assert_expected_events!(
-			AssetHubWestend,
-			vec![RuntimeEvent::ForeignAssets(pallet_assets::Event::Created { .. }) => {},]
-		);
-	});
-
 	// Send the token
 	BridgeHubWestend::execute_with(|| {
 		type RuntimeEvent = <BridgeHubWestend as Chain>::RuntimeEvent;
@@ -167,7 +144,7 @@ fn send_weth_token_from_ethereum_to_asset_hub() {
 			<BridgeHubWestend as BridgeHubWestendPallet>::EthereumInboundQueue;
 		let message_id: H256 = [0; 32].into();
 		let message = VersionedMessage::V1(MessageV1 {
-			chain_id: CHAIN_ID,
+			chain_id: SEPOLIA_ID,
 			command: Command::SendToken {
 				token: WETH.into(),
 				destination: Destination::AccountId32 { id: AssetHubWestendSender::get().into() },
@@ -224,14 +201,14 @@ fn send_weth_from_ethereum_to_penpal() {
 
 	PenpalB::execute_with(|| {
 		let key = PenpalCustomizableAssetFromSystemAssetHub::key().to_vec();
-		let value = Location::new(2, [GlobalConsensus(Ethereum { chain_id: CHAIN_ID })]).encode();
+		let value = Location::new(2, [GlobalConsensus(Ethereum { chain_id: SEPOLIA_ID })]).encode();
 		assert_eq!(key, hex!("770800eb78be69c327d8334d09276072"));
 		assert_eq!(value, hex!("020109079edaa802"));
 		assert_ok!(<PenpalB as Chain>::System::set_storage(
 			<PenpalB as Chain>::RuntimeOrigin::root(),
 			vec![(
 				PenpalCustomizableAssetFromSystemAssetHub::key().to_vec(),
-				Location::new(2, [GlobalConsensus(Ethereum { chain_id: CHAIN_ID })]).encode(),
+				Location::new(2, [GlobalConsensus(Ethereum { chain_id: SEPOLIA_ID })]).encode(),
 			)],
 		));
 	});
@@ -259,32 +236,6 @@ fn send_weth_from_ethereum_to_penpal() {
 		assert!(<PenpalB as PenpalBPallet>::ForeignAssets::asset_exists(weth_asset_location));
 	});
 
-	// Register the token
-	BridgeHubWestend::execute_with(|| {
-		type RuntimeEvent = <BridgeHubWestend as Chain>::RuntimeEvent;
-
-		let message = VersionedMessage::V1(MessageV1 {
-			chain_id: CHAIN_ID,
-			command: Command::RegisterToken { token: WETH.into(), fee: XCM_FEE },
-		});
-		let (xcm, _) = EthereumInboundQueue::do_convert([0; 32].into(), message).unwrap();
-		let _ = EthereumInboundQueue::send_xcm(xcm, AssetHubWestend::para_id().into()).unwrap();
-
-		assert_expected_events!(
-			BridgeHubWestend,
-			vec![RuntimeEvent::XcmpQueue(cumulus_pallet_xcmp_queue::Event::XcmpMessageSent { .. }) => {},]
-		);
-	});
-
-	AssetHubWestend::execute_with(|| {
-		type RuntimeEvent = <AssetHubWestend as Chain>::RuntimeEvent;
-
-		assert_expected_events!(
-			AssetHubWestend,
-			vec![RuntimeEvent::ForeignAssets(pallet_assets::Event::Created { .. }) => {},]
-		);
-	});
-
 	// Send the token
 	BridgeHubWestend::execute_with(|| {
 		type RuntimeEvent = <BridgeHubWestend as Chain>::RuntimeEvent;
@@ -293,7 +244,7 @@ fn send_weth_from_ethereum_to_penpal() {
 			<BridgeHubWestend as BridgeHubWestendPallet>::EthereumInboundQueue;
 		let message_id: H256 = [0; 32].into();
 		let message = VersionedMessage::V1(MessageV1 {
-			chain_id: CHAIN_ID,
+			chain_id: SEPOLIA_ID,
 			command: Command::SendToken {
 				token: WETH.into(),
 				destination: Destination::ForeignAccountId32 {
@@ -499,7 +450,7 @@ fn register_weth_token_in_asset_hub_fail_for_insufficient_fee() {
 			<BridgeHubWestend as BridgeHubWestendPallet>::EthereumInboundQueue;
 		let message_id: H256 = [0; 32].into();
 		let message = VersionedMessage::V1(MessageV1 {
-			chain_id: CHAIN_ID,
+			chain_id: SEPOLIA_ID,
 			command: Command::RegisterToken {
 				token: WETH.into(),
 				// Insufficient fee which should trigger the trap
@@ -530,32 +481,12 @@ fn register_weth_token_in_asset_hub_fail_for_insufficient_fee() {
 }
 
 fn send_weth_from_ethereum_to_asset_hub_with_fee(account_id: [u8; 32], fee: u128) {
-	let ethereum_network_v5: NetworkId = EthereumNetwork::get().into();
-	let weth_asset_location: Location =
-		Location::new(2, [ethereum_network_v5.into(), AccountKey20 { network: None, key: WETH }]);
 	// Fund asset hub sovereign on bridge hub
 	let asset_hub_sovereign = BridgeHubWestend::sovereign_account_id_of(Location::new(
 		1,
 		[Parachain(AssetHubWestend::para_id().into())],
 	));
 	BridgeHubWestend::fund_accounts(vec![(asset_hub_sovereign.clone(), INITIAL_FUND)]);
-
-	// Register WETH
-	AssetHubWestend::execute_with(|| {
-		type RuntimeOrigin = <AssetHubWestend as Chain>::RuntimeOrigin;
-
-		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::ForeignAssets::force_create(
-			RuntimeOrigin::root(),
-			weth_asset_location.clone().try_into().unwrap(),
-			asset_hub_sovereign.into(),
-			false,
-			1,
-		));
-
-		assert!(<AssetHubWestend as AssetHubWestendPallet>::ForeignAssets::asset_exists(
-			weth_asset_location.clone().try_into().unwrap(),
-		));
-	});
 
 	// Send WETH to an existent account on asset hub
 	BridgeHubWestend::execute_with(|| {
@@ -565,7 +496,7 @@ fn send_weth_from_ethereum_to_asset_hub_with_fee(account_id: [u8; 32], fee: u128
 			<BridgeHubWestend as BridgeHubWestendPallet>::EthereumInboundQueue;
 		let message_id: H256 = [0; 32].into();
 		let message = VersionedMessage::V1(MessageV1 {
-			chain_id: CHAIN_ID,
+			chain_id: SEPOLIA_ID,
 			command: Command::SendToken {
 				token: WETH.into(),
 				destination: Destination::AccountId32 { id: account_id },
@@ -671,32 +602,11 @@ fn send_token_from_ethereum_to_asset_hub() {
 	// Fund ethereum sovereign on AssetHub
 	AssetHubWestend::fund_accounts(vec![(AssetHubWestendReceiver::get(), INITIAL_FUND)]);
 
-	let ethereum_network_v5: NetworkId = EthereumNetwork::get().into();
-
-	let weth_asset_location: Location =
-		(Parent, Parent, ethereum_network_v5, AccountKey20 { network: None, key: WETH }).into();
-
-	AssetHubWestend::execute_with(|| {
-		type RuntimeOrigin = <AssetHubWestend as Chain>::RuntimeOrigin;
-
-		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::ForeignAssets::force_create(
-			RuntimeOrigin::root(),
-			weth_asset_location.clone().try_into().unwrap(),
-			asset_hub_sovereign.into(),
-			false,
-			1,
-		));
-
-		assert!(<AssetHubWestend as AssetHubWestendPallet>::ForeignAssets::asset_exists(
-			weth_asset_location.clone().try_into().unwrap(),
-		));
-	});
-
 	BridgeHubWestend::execute_with(|| {
 		type RuntimeEvent = <BridgeHubWestend as Chain>::RuntimeEvent;
 
 		let message = VersionedMessage::V1(MessageV1 {
-			chain_id: CHAIN_ID,
+			chain_id: SEPOLIA_ID,
 			command: Command::SendToken {
 				token: WETH.into(),
 				destination: Destination::AccountId32 { id: AssetHubWestendReceiver::get().into() },
@@ -733,33 +643,14 @@ fn send_token_from_ethereum_to_asset_hub() {
 fn send_weth_asset_from_asset_hub_to_ethereum() {
 	let assethub_location = BridgeHubWestend::sibling_location_of(AssetHubWestend::para_id());
 	let assethub_sovereign = BridgeHubWestend::sovereign_account_id_of(assethub_location);
-	let ethereum_network_v5: NetworkId = EthereumNetwork::get().into();
-	let weth_asset_location: Location =
-		(Parent, Parent, ethereum_network_v5, AccountKey20 { network: None, key: WETH }).into();
 
 	BridgeHubWestend::fund_accounts(vec![(assethub_sovereign.clone(), INITIAL_FUND)]);
-
-	AssetHubWestend::execute_with(|| {
-		type RuntimeOrigin = <AssetHubWestend as Chain>::RuntimeOrigin;
-
-		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::ForeignAssets::force_create(
-			RuntimeOrigin::root(),
-			weth_asset_location.clone().try_into().unwrap(),
-			assethub_sovereign.clone().into(),
-			false,
-			1,
-		));
-
-		assert!(<AssetHubWestend as AssetHubWestendPallet>::ForeignAssets::asset_exists(
-			weth_asset_location.clone().try_into().unwrap(),
-		));
-	});
 
 	BridgeHubWestend::execute_with(|| {
 		type RuntimeEvent = <BridgeHubWestend as Chain>::RuntimeEvent;
 
 		let message = VersionedMessage::V1(MessageV1 {
-			chain_id: CHAIN_ID,
+			chain_id: SEPOLIA_ID,
 			command: Command::SendToken {
 				token: WETH.into(),
 				destination: Destination::AccountId32 { id: AssetHubWestendReceiver::get().into() },
@@ -790,7 +681,7 @@ fn send_weth_asset_from_asset_hub_to_ethereum() {
 			id: AssetId(Location::new(
 				2,
 				[
-					GlobalConsensus(Ethereum { chain_id: CHAIN_ID }),
+					GlobalConsensus(Ethereum { chain_id: SEPOLIA_ID }),
 					AccountKey20 { network: None, key: WETH },
 				],
 			)),
@@ -800,7 +691,7 @@ fn send_weth_asset_from_asset_hub_to_ethereum() {
 
 		let destination = VersionedLocation::from(Location::new(
 			2,
-			[GlobalConsensus(Ethereum { chain_id: CHAIN_ID })],
+			[GlobalConsensus(Ethereum { chain_id: SEPOLIA_ID })],
 		));
 
 		let beneficiary = VersionedLocation::from(Location::new(
@@ -879,7 +770,7 @@ fn send_token_from_ethereum_to_penpal() {
 			<PenpalB as Chain>::RuntimeOrigin::root(),
 			vec![(
 				PenpalCustomizableAssetFromSystemAssetHub::key().to_vec(),
-				Location::new(2, [GlobalConsensus(Ethereum { chain_id: CHAIN_ID })]).encode(),
+				Location::new(2, [GlobalConsensus(Ethereum { chain_id: SEPOLIA_ID })]).encode(),
 			)],
 		));
 	});
@@ -909,27 +800,11 @@ fn send_token_from_ethereum_to_penpal() {
 		));
 	});
 
-	AssetHubWestend::execute_with(|| {
-		type RuntimeOrigin = <AssetHubWestend as Chain>::RuntimeOrigin;
-
-		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::ForeignAssets::force_create(
-			RuntimeOrigin::root(),
-			weth_asset_location.clone().try_into().unwrap(),
-			ethereum_sovereign.into(),
-			false,
-			1,
-		));
-
-		assert!(<AssetHubWestend as AssetHubWestendPallet>::ForeignAssets::asset_exists(
-			weth_asset_location.clone().try_into().unwrap(),
-		));
-	});
-
 	BridgeHubWestend::execute_with(|| {
 		type RuntimeEvent = <BridgeHubWestend as Chain>::RuntimeEvent;
 
 		let message = VersionedMessage::V1(MessageV1 {
-			chain_id: CHAIN_ID,
+			chain_id: SEPOLIA_ID,
 			command: Command::SendToken {
 				token: WETH.into(),
 				destination: Destination::ForeignAccountId32 {
@@ -1029,7 +904,7 @@ fn transfer_relay_token() {
 
 		let destination = VersionedLocation::from(Location::new(
 			2,
-			[GlobalConsensus(Ethereum { chain_id: CHAIN_ID })],
+			[GlobalConsensus(Ethereum { chain_id: SEPOLIA_ID })],
 		));
 
 		let beneficiary = VersionedLocation::from(Location::new(
@@ -1072,7 +947,7 @@ fn transfer_relay_token() {
 		// Send relay token back to AH
 		let message_id: H256 = [0; 32].into();
 		let message = VersionedMessage::V1(MessageV1 {
-			chain_id: CHAIN_ID,
+			chain_id: SEPOLIA_ID,
 			command: Command::SendNativeToken {
 				token_id: expected_token_id,
 				destination: Destination::AccountId32 { id: AssetHubWestendReceiver::get().into() },
@@ -1130,7 +1005,8 @@ fn transfer_ah_token() {
 	);
 	BridgeHubWestend::fund_accounts(vec![(assethub_sovereign.clone(), INITIAL_FUND)]);
 
-	let ethereum_destination = Location::new(2, [GlobalConsensus(Ethereum { chain_id: CHAIN_ID })]);
+	let ethereum_destination =
+		Location::new(2, [GlobalConsensus(Ethereum { chain_id: SEPOLIA_ID })]);
 
 	let ethereum_sovereign: AccountId = snowbridge_sovereign();
 	AssetHubWestend::fund_accounts(vec![(ethereum_sovereign.clone(), INITIAL_FUND)]);
@@ -1235,7 +1111,7 @@ fn transfer_ah_token() {
 		);
 
 		let message = VersionedMessage::V1(MessageV1 {
-			chain_id: CHAIN_ID,
+			chain_id: SEPOLIA_ID,
 			command: Command::SendNativeToken {
 				token_id,
 				destination: Destination::AccountId32 { id: AssetHubWestendReceiver::get().into() },
@@ -1416,7 +1292,7 @@ fn transfer_penpal_native_asset() {
 		type RuntimeEvent = <BridgeHubWestend as Chain>::RuntimeEvent;
 
 		let message = VersionedMessage::V1(MessageV1 {
-			chain_id: CHAIN_ID,
+			chain_id: SEPOLIA_ID,
 			command: Command::SendNativeToken {
 				token_id,
 				destination: Destination::AccountId32 { id: AssetHubWestendSender::get().into() },
@@ -1629,7 +1505,7 @@ fn transfer_penpal_teleport_enabled_asset() {
 		type RuntimeEvent = <BridgeHubWestend as Chain>::RuntimeEvent;
 
 		let message = VersionedMessage::V1(MessageV1 {
-			chain_id: CHAIN_ID,
+			chain_id: SEPOLIA_ID,
 			command: Command::SendNativeToken {
 				token_id,
 				destination: Destination::AccountId32 { id: AssetHubWestendSender::get().into() },
@@ -1830,7 +1706,8 @@ fn transfer_roc_from_ah_with_legacy_api_will_fail() {
 	);
 	BridgeHubWestend::fund_accounts(vec![(assethub_sovereign.clone(), INITIAL_FUND)]);
 
-	let ethereum_destination = Location::new(2, [GlobalConsensus(Ethereum { chain_id: CHAIN_ID })]);
+	let ethereum_destination =
+		Location::new(2, [GlobalConsensus(Ethereum { chain_id: SEPOLIA_ID })]);
 
 	let ethereum_sovereign: AccountId = snowbridge_sovereign();
 	AssetHubWestend::fund_accounts(vec![(ethereum_sovereign.clone(), INITIAL_FUND)]);
@@ -1894,7 +1771,8 @@ fn transfer_roc_from_ah_with_transfer_and_then() {
 	);
 	BridgeHubWestend::fund_accounts(vec![(assethub_sovereign.clone(), INITIAL_FUND)]);
 
-	let ethereum_destination = Location::new(2, [GlobalConsensus(Ethereum { chain_id: CHAIN_ID })]);
+	let ethereum_destination =
+		Location::new(2, [GlobalConsensus(Ethereum { chain_id: SEPOLIA_ID })]);
 
 	let ethereum_sovereign: AccountId = snowbridge_sovereign();
 	AssetHubWestend::fund_accounts(vec![(ethereum_sovereign.clone(), INITIAL_FUND)]);
@@ -1972,7 +1850,7 @@ fn transfer_roc_from_ah_with_transfer_and_then() {
 			Location::new(1, [GlobalConsensus(ByGenesis(ROCOCO_GENESIS_HASH))]);
 		let token_id = TokenIdOf::convert_location(&asset_id_after_reanchor).unwrap();
 		let message = VersionedMessage::V1(MessageV1 {
-			chain_id: CHAIN_ID,
+			chain_id: SEPOLIA_ID,
 			command: Command::SendNativeToken {
 				token_id,
 				destination: Destination::AccountId32 { id: AssetHubWestendReceiver::get().into() },

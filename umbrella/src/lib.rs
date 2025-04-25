@@ -443,6 +443,10 @@ pub use pallet_democracy;
 #[cfg(feature = "pallet-dev-mode")]
 pub use pallet_dev_mode;
 
+/// PALLET multi phase+block election providers.
+#[cfg(feature = "pallet-election-provider-multi-block")]
+pub use pallet_election_provider_multi_block;
+
 /// PALLET two phase election providers.
 #[cfg(feature = "pallet-election-provider-multi-phase")]
 pub use pallet_election_provider_multi_phase;
@@ -652,6 +656,28 @@ pub use pallet_society;
 /// FRAME pallet staking.
 #[cfg(feature = "pallet-staking")]
 pub use pallet_staking;
+
+/// FRAME pallet staking async.
+#[cfg(feature = "pallet-staking-async")]
+pub use pallet_staking_async;
+
+/// Pallet handling the communication with staking-rc-client. It's role is to glue the staking
+/// pallet (on AssetHub chain) and session pallet (on Relay Chain) in a transparent way.
+#[cfg(feature = "pallet-staking-async-ah-client")]
+pub use pallet_staking_async_ah_client;
+
+/// Pallet handling the communication with staking-ah-client. It's role is to glue the staking
+/// pallet (on AssetHub chain) and session pallet (on Relay Chain) in a transparent way.
+#[cfg(feature = "pallet-staking-async-rc-client")]
+pub use pallet_staking_async_rc_client;
+
+/// Reward function for FRAME staking pallet.
+#[cfg(feature = "pallet-staking-async-reward-fn")]
+pub use pallet_staking_async_reward_fn;
+
+/// RPC runtime API for transaction payment FRAME pallet.
+#[cfg(feature = "pallet-staking-async-runtime-api")]
+pub use pallet_staking_async_runtime_api;
 
 /// Reward Curve for FRAME staking pallet.
 #[cfg(feature = "pallet-staking-reward-curve")]
