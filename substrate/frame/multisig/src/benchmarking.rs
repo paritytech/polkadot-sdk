@@ -229,7 +229,6 @@ mod benchmarks {
 	#[benchmark]
 	fn approve_as_multi_approve(
 		s: Linear<2, { T::MaxSignatories::get() }>,
-		z: Linear<0, 10_000>,
 	) -> Result<(), BenchmarkError> {
 		// The call is neither in storage or an argument, so just use any:
 		let call_len = 10_000;
