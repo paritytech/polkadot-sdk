@@ -2603,7 +2603,7 @@ fn test_error_feature_parsing() {
 
 #[test]
 fn pallet_metadata() {
-	use sp_metadata_ir::{EnumDeprecationInfoIR, ItemDeprecationInfoIR};
+	use sp_metadata_ir::{EnumDeprecationInfoIR, ItemDeprecationInfoIR, VariantDeprecationInfoIR};
 	let pallets = Runtime::metadata_ir().pallets;
 	let example = pallets[0].clone();
 	let example2 = pallets[1].clone();
@@ -2613,7 +2613,7 @@ fn pallet_metadata() {
 		assert_eq!(
 			EnumDeprecationInfoIR(BTreeMap::from([(
 				0,
-				ItemDeprecationInfoIR::Deprecated { note: "test", since: None }
+				VariantDeprecationInfoIR::Deprecated { note: "test", since: None }
 			)])),
 			meta.deprecation_info
 		)
@@ -2632,7 +2632,7 @@ fn pallet_metadata() {
 		assert_eq!(
 			EnumDeprecationInfoIR(BTreeMap::from([(
 				2,
-				ItemDeprecationInfoIR::Deprecated { note: "test", since: None }
+				VariantDeprecationInfoIR::Deprecated { note: "test", since: None }
 			)])),
 			meta.deprecation_info
 		)
@@ -2643,7 +2643,7 @@ fn pallet_metadata() {
 		assert_eq!(
 			EnumDeprecationInfoIR(BTreeMap::from([(
 				1,
-				ItemDeprecationInfoIR::Deprecated { note: "test", since: None }
+				VariantDeprecationInfoIR::Deprecated { note: "test", since: None }
 			)])),
 			meta.deprecation_info
 		);
@@ -2651,6 +2651,6 @@ fn pallet_metadata() {
 	{
 		// Example2 pallet events are not deprecated
 		let meta = example2.event.unwrap();
-		assert_eq!(!meta.deprecation_info.has_deprecated_variants());
+		assert!(!meta.deprecation_info.has_deprecated_variants());
 	}
 }

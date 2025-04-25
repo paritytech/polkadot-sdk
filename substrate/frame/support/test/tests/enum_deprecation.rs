@@ -153,7 +153,7 @@ frame_support::construct_runtime!(
 
 #[test]
 fn pallet_metadata() {
-	use sp_metadata_ir::{EnumDeprecationInfoIR, ItemDeprecationInfoIR};
+	use sp_metadata_ir::{EnumDeprecationInfoIR, VariantDeprecationInfoIR};
 	let pallets = Runtime::metadata_ir().pallets;
 	let example = pallets[0].clone();
 	{
@@ -161,8 +161,8 @@ fn pallet_metadata() {
 		let meta = example.event.unwrap();
 		assert_eq!(
 			EnumDeprecationInfoIR(BTreeMap::from([
-				(0, ItemDeprecationInfoIR::Deprecated { note: "first", since: None }),
-				(1, ItemDeprecationInfoIR::Deprecated { note: "second", since: None })
+				(0, VariantDeprecationInfoIR::Deprecated { note: "first", since: None }),
+				(1, VariantDeprecationInfoIR::Deprecated { note: "second", since: None })
 			])),
 			meta.deprecation_info
 		);
