@@ -42,6 +42,7 @@ async fn sync_backing_test() -> Result<(), anyhow::Error> {
 		.with_parachain(|p| {
 			p.with_id(2500)
 				.with_default_command("test-parachain")
+				.with_default_image(images.cumulus.as_str())
 				.with_chain("sync-backing")
 				.with_default_args(vec![("-lparachain=debug,aura=debug").into()])
 				.with_collator(|n| n.with_name("collator-2500"))
