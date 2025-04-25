@@ -910,7 +910,7 @@ where
 		}
 	}
 
-	/// Searches transactions provides tags in the inactive views associated to a set of blocks.
+	/// Returns provides tags of given transactions in the views associated to the given set of blocks.
 	pub(crate) fn provides_tags_from_inactive_views(
 		&self,
 		block_hashes: Vec<&HashAndNumber<Block>>,
@@ -919,7 +919,7 @@ where
 		let mut provides_tags_map = HashMap::new();
 
 		block_hashes.into_iter().for_each(|hn| {
-			// Get tx provides tags from inactive view's pool.
+			// Get tx provides tags from given view's pool.
 			if let Some((view, _)) = self.get_view_at(hn.hash, true) {
 				let provides_tags = view.pool.validated_pool().extrinsics_tags(&xts_hashes);
 				let xts_provides_tags = xts_hashes
