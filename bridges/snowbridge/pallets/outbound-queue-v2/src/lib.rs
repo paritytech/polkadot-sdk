@@ -321,7 +321,8 @@ pub mod pallet {
 			Self::deposit_event(Event::MessagesCommitted { root, count });
 		}
 
-		/// Process a message delivered by the MessageQueue pallet
+		/// Process a message delivered by the MessageQueue pallet.
+		/// IMPORTANT!! This method does not roll back storage changes on error.
 		pub(crate) fn do_process_message(
 			_: ProcessMessageOriginOf<T>,
 			mut message: &[u8],
