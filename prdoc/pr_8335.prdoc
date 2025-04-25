@@ -1,0 +1,9 @@
+title: Backport fix for pallet-multisig benchmarks
+doc:
+- audience: Runtime Dev
+  description: |-
+    Closes: https://github.com/paritytech/polkadot-sdk/issues/8334
+    Relates to: https://github.com/paritytech/polkadot-sdk/pull/6789
+crates:
+- name: pallet-multisig
+  bump: patch
