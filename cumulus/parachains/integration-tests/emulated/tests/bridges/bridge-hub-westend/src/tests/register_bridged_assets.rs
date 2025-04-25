@@ -38,11 +38,12 @@ fn register_westend_asset_on_rah_from_wah() {
 #[test]
 fn register_ethereum_asset_on_rah_from_wah() {
 	// Ethereum asset when bridged to Rococo Asset Hub.
+	let token_id = H160::random();
 	let bridged_asset_at_rah = Location::new(
 		2,
 		[
 			GlobalConsensus(Ethereum { chain_id: SEPOLIA_ID }),
-			AccountKey20 { network: None, key: WETH },
+			AccountKey20 { network: None, key: token_id.into() },
 		],
 	);
 	// Register above asset on Rococo AH from Westend AH.
