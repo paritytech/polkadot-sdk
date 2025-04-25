@@ -83,6 +83,7 @@ pub mod labels {
 	}
 }
 
+#[derive(Debug, Clone)]
 pub struct ExecutionState {
 	/// The time when the transaction entered this state.
 	started_at: Instant,
@@ -104,8 +105,8 @@ impl ExecutionState {
 }
 
 /// RPC layer metrics for transaction pool.
-#[derive(Clone)]
-pub struct TransactionMetrics {
+#[derive(Debug, Clone)]
+pub struct Metrics {
 	/// Counter for transaction status.
 	pub status: CounterVec<U64>,
 
@@ -113,7 +114,7 @@ pub struct TransactionMetrics {
 	execution_time: HistogramVec,
 }
 
-impl TransactionMetrics {
+impl Metrics {
 	/// Creates a new [`TransactionMetrics`] instance.
 	pub fn new(registry: &Registry) -> Result<Self, PrometheusError> {
 		let status = register(
@@ -136,26 +137,50 @@ impl TransactionMetrics {
 			registry,
 		)?;
 
-		Ok(TransactionMetrics { status, execution_time })
+		// The execution state will be initialized when the transaction is submitted.
+		Ok(Metrics { status, execution_time })
+	}
+}
+
+/// Transaction metrics for a single transaction instance.
+pub struct InstanceMetrics {
+	metrics: Option<Metrics>,
+
+	/// The execution state of the transaction.
+	execution_state: ExecutionState,
+}
+
+impl InstanceMetrics {
+	/// Creates a new [`InstanceMetrics`] instance.
+	pub fn new(metrics: Option<Metrics>) -> Self {
+		if let Some(ref metrics) = metrics {
+			// Register the initial state of the transaction.
+			metrics.status.with_label_values(&[labels::SUBMITTED]).inc();
+		}
+
+		Self { metrics, execution_state: ExecutionState::new() }
 	}
 
 	/// Record the execution time of a transaction state.
 	///
 	/// This represents how long it took for the transaction to move to the next state.
-	pub fn publish_and_advance_state<Hash>(
-		&self,
-		state: &mut ExecutionState,
-		event: &TransactionEvent<Hash>,
-	) {
+	///
+	/// The method must be called before the transaction event is provided to the user.
+	pub fn register_event<Hash>(&mut self, event: &TransactionEvent<Hash>) {
+		let Some(ref metrics) = self.metrics else {
+			return;
+		};
+
 		let final_state = labels::transaction_event_label(event);
 
-		self.status.with_label_values(&[final_state]).inc();
+		metrics.status.with_label_values(&[final_state]).inc();
 
-		let elapsed = state.started_at.elapsed().as_micros() as f64;
-		self.execution_time
-			.with_label_values(&[state.initial_state, final_state])
+		let elapsed = self.execution_state.started_at.elapsed().as_micros() as f64;
+		metrics
+			.execution_time
+			.with_label_values(&[self.execution_state.initial_state, final_state])
 			.observe(elapsed);
 
-		state.advance_state(final_state);
+		self.execution_state.advance_state(final_state);
 	}
 }

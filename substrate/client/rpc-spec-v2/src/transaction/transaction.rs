@@ -30,9 +30,8 @@ use crate::{
 use codec::Decode;
 use futures::{StreamExt, TryFutureExt};
 use jsonrpsee::{core::async_trait, PendingSubscriptionSink};
-use parking_lot::Mutex;
 
-use super::metrics::{labels, ExecutionState, TransactionMetrics};
+use super::metrics::{InstanceMetrics, Metrics};
 
 use prometheus_endpoint::{PrometheusError, Registry};
 
@@ -57,7 +56,7 @@ pub struct Transaction<Pool, Client> {
 	/// Executor to spawn subscriptions.
 	executor: SubscriptionTaskExecutor,
 	/// Metrics for transactions.
-	metrics: Option<TransactionMetrics>,
+	metrics: Option<Metrics>,
 }
 
 impl<Pool, Client> Transaction<Pool, Client> {
@@ -68,11 +67,8 @@ impl<Pool, Client> Transaction<Pool, Client> {
 		executor: SubscriptionTaskExecutor,
 		registry: Option<&Registry>,
 	) -> Result<Self, PrometheusError> {
-		let metrics = if let Some(registry) = registry {
-			Some(TransactionMetrics::new(registry)?)
-		} else {
-			None
-		};
+		let metrics =
+			if let Some(registry) = registry { Some(Metrics::new(registry)?) } else { None };
 
 		Ok(Transaction { client, pool, executor, metrics })
 	}
@@ -96,14 +92,11 @@ where
 	fn submit_and_watch(&self, pending: PendingSubscriptionSink, xt: Bytes) {
 		let client = self.client.clone();
 		let pool = self.pool.clone();
-		let metrics = self.metrics.clone();
+
+		// Get a new transaction metrics instance and increment the counter.
+		let mut metrics = InstanceMetrics::new(self.metrics.clone());
 
 		let fut = async move {
-			let metrics = &metrics;
-			if let Some(metrics) = metrics {
-				metrics.status.with_label_values(&[labels::SUBMITTED]).inc();
-			}
-
 			let decoded_extrinsic = match TransactionFor::<Pool>::decode(&mut &xt[..]) {
 				Ok(decoded_extrinsic) => decoded_extrinsic,
 				Err(e) => {
@@ -115,9 +108,7 @@ where
 						error: "Extrinsic bytes cannot be decoded".into(),
 					});
 
-					if let Some(metrics) = metrics {
-						metrics.status.with_label_values(&[labels::INVALID]).inc();
-					}
+					metrics.register_event(&event);
 
 					// The transaction is invalid.
 					let _ = sink.send(&event).await;
@@ -139,21 +130,14 @@ where
 				return;
 			};
 
-			let execution_state = Arc::new(Mutex::new(ExecutionState::new()));
-
 			match submit.await {
 				Ok(stream) => {
 					let stream = stream
 						.filter_map(|event| {
-							let execution_state = execution_state.clone();
 							let event = handle_event(event);
 
-							match (&event, &metrics) {
-								(Some(event), Some(metrics)) => {
-									let mut execution_state = execution_state.lock();
-									metrics.publish_and_advance_state(&mut execution_state, event);
-								},
-								_ => {},
+							if let Some(ref event) = event {
+								metrics.register_event(event);
 							}
 
 							async move { event }
