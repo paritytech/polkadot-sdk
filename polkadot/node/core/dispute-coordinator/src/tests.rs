@@ -578,7 +578,6 @@ impl TestState {
 			self.config,
 			self.subsystem_keystore.clone(),
 			Metrics::default(),
-			false,
 		);
 		let backend =
 			DbBackend::new(self.db.clone(), self.config.column_config(), Metrics::default());

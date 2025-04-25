@@ -123,8 +123,7 @@ fn build_overseer(
 		network_interface.subsystem_sender(),
 		state.test_authorities.clone(),
 	);
-	let network_bridge_rx =
-		MockNetworkBridgeRx::new(network_receiver, Some(candidate_req_cfg), false);
+	let network_bridge_rx = MockNetworkBridgeRx::new(network_receiver, Some(candidate_req_cfg));
 
 	let dummy = dummy_builder!(spawn_task_handle, overseer_metrics)
 		.replace_runtime_api(|_| mock_runtime_api)

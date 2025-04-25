@@ -80,7 +80,6 @@ fn test_harness<T: Future<Output = VirtualOverseer>>(
 		context.sender().clone(),
 		Default::default(),
 		None,
-		false,
 	);
 
 	let target_hash = case_vars.target_block;
