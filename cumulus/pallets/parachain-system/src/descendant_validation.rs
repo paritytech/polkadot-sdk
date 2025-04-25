@@ -250,7 +250,7 @@ mod tests {
 		let relay_state_proof = build_relay_chain_storage_proof(Some(authorities), None);
 
 		// Make sure that the first relay parent has the correct state root set
-		let relay_parent_state_root = relay_parent_descendants.get(0).unwrap().state_root.clone();
+		let relay_parent_state_root = relay_parent_descendants.get(0).unwrap().state_root;
 		// Expected number of parents passed to the function does not include actual relay parent
 		let expected_number_of_descendants = (relay_parent_descendants.len() - 1) as u32;
 
@@ -303,7 +303,7 @@ mod tests {
 		let relay_state_proof = build_relay_chain_storage_proof(Some(authorities), None);
 
 		// Make sure that the first relay parent has the correct state root set
-		let relay_parent_state_root = relay_parent_descendants.get(0).unwrap().state_root.clone();
+		let relay_parent_state_root = relay_parent_descendants.get(0).unwrap().state_root;
 
 		let result = verify_relay_parent_descendants(
 			&relay_state_proof,
@@ -328,7 +328,7 @@ mod tests {
 		let relay_state_proof = build_relay_chain_storage_proof(None, None);
 
 		// Make sure that the first relay parent has the correct state root set
-		let relay_parent_state_root = relay_parent_descendants.get(0).unwrap().state_root.clone();
+		let relay_parent_state_root = relay_parent_descendants.get(0).unwrap().state_root;
 		// Expected number of parents passed to the function does not include actual relay parent
 		let expected_number_of_descendants = (relay_parent_descendants.len() - 1) as u32;
 
@@ -353,7 +353,7 @@ mod tests {
 		let relay_state_proof = build_relay_chain_storage_proof(Some(authorities), None);
 
 		// Make sure that the first relay parent has the correct state root set
-		let relay_parent_state_root = relay_parent_descendants.get(0).unwrap().state_root.clone();
+		let relay_parent_state_root = relay_parent_descendants.get(0).unwrap().state_root;
 		// Expected number of parents passed to the function does not include actual relay parent
 		let expected_number_of_descendants = (relay_parent_descendants.len() - 1) as u32;
 
@@ -390,7 +390,7 @@ mod tests {
 		let relay_state_proof = build_relay_chain_storage_proof(Some(authorities), None);
 
 		// Make sure that the first relay parent has the correct state root set
-		let relay_parent_state_root = relay_parent_descendants.get(0).unwrap().state_root.clone();
+		let relay_parent_state_root = relay_parent_descendants.get(0).unwrap().state_root;
 		// Expected number of parents passed to the function does not include actual relay parent
 		let expected_number_of_descendants = (relay_parent_descendants.len() - 1) as u32;
 
@@ -417,9 +417,9 @@ mod tests {
 			build_relay_parent_descendants(10, 10, Some(5));
 		let relay_state_proof = build_relay_chain_storage_proof(Some(authorities), None);
 
-		let expected_hash = relay_parent_descendants[5].hash().clone();
+		let expected_hash = relay_parent_descendants[5].hash();
 		// Make sure that the first relay parent has the correct state root set
-		let relay_parent_state_root = relay_parent_descendants.get(0).unwrap().state_root.clone();
+		let relay_parent_state_root = relay_parent_descendants.get(0).unwrap().state_root;
 		// Expected number of parents passed to the function does not include actual relay parent
 		let expected_number_of_descendants = (relay_parent_descendants.len() - 1) as u32;
 
@@ -450,7 +450,7 @@ mod tests {
 			build_relay_chain_storage_proof(Some(authorities), Some(next_authorities));
 
 		// Make sure that the first relay parent has the correct state root set
-		let relay_parent_state_root = relay_parent_descendants.get(0).unwrap().state_root.clone();
+		let relay_parent_state_root = relay_parent_descendants.get(0).unwrap().state_root;
 		// Expected number of parents passed to the function does not include actual relay parent
 		let expected_number_of_descendants = (relay_parent_descendants.len() - 1) as u32;
 
@@ -476,7 +476,7 @@ mod tests {
 			build_relay_chain_storage_proof(Some(authorities), Some(next_authorities));
 
 		// Make sure that the first relay parent has the correct state root set
-		let relay_parent_state_root = relay_parent_descendants.get(0).unwrap().state_root.clone();
+		let relay_parent_state_root = relay_parent_descendants.get(0).unwrap().state_root;
 		// Expected number of parents passed to the function does not include actual relay parent
 		let expected_number_of_descendants = (relay_parent_descendants.len() - 1) as u32;
 
