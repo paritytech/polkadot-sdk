@@ -52,7 +52,7 @@ runs:
     - name: login to dockerhub
       id: login
       # fork check
-      if: ${{ inputs.username != '' && inputs.password != '' && github.event_name != "merge_group" }}
+      if: ${{ inputs.username != '' && inputs.password != '' && github.event_name != 'merge_group' }}
       uses: docker/login-action@v3
       with:
         username: ${{ inputs.username }}
