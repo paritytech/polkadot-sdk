@@ -76,16 +76,16 @@ async fn approval_voting_coalescing_test() -> Result<(), anyhow::Error> {
 	log::info!("Waiting for parachains to advance to block 15");
 	assert_para_throughput(
 		&relay_client,
-		15,
+		30,
 		[
-			(ParaId::from(2000), 11..16),
-			(ParaId::from(2001), 11..16),
-			(ParaId::from(2002), 11..16),
-			(ParaId::from(2003), 11..16),
-			(ParaId::from(2004), 11..16),
-			(ParaId::from(2005), 11..16),
-			(ParaId::from(2006), 11..16),
-			(ParaId::from(2007), 11..16),
+			(ParaId::from(2000), 11..30),
+			(ParaId::from(2001), 11..30),
+			(ParaId::from(2002), 11..30),
+			(ParaId::from(2003), 11..30),
+			(ParaId::from(2004), 11..30),
+			(ParaId::from(2005), 11..30),
+			(ParaId::from(2006), 11..30),
+			(ParaId::from(2007), 11..30),
 		]
 		.into_iter()
 		.collect(),
