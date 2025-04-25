@@ -52,6 +52,14 @@ async fn parachains_max_tranche0_test() -> Result<(), anyhow::Error> {
 		let collator_name = format!("collator-undying-{para_id}");
 		config_builder = config_builder.with_parachain(|p| {
 			p.with_id(para_id)
+				.with_genesis_state_generator(
+					format!(
+						"undying-collator export-genesis-state --pov-size={} --pvf-complexity={}",
+						10000 * (para_id - 1999),
+						para_id - 1999
+					)
+					.as_str(),
+				)
 				.with_default_command("undying-collator")
 				.with_default_image(
 					std::env::var("COL_IMAGE")
@@ -62,8 +70,7 @@ async fn parachains_max_tranche0_test() -> Result<(), anyhow::Error> {
 				.with_collator(|n| {
 					n.with_name(&collator_name).with_args(vec![
 						("-lparachain=debug").into(),
-						format!("--pov-size={}", 1000).as_str().into(),
-						// format!("--pov-size={}", 10000 * (para_id - 1999)).as_str().into(),
+						format!("--pov-size={}", 10000 * (para_id - 1999)).as_str().into(),
 						format!("--pvf-complexity={}", para_id - 1999).as_str().into(),
 					])
 				})
