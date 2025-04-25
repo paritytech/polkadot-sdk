@@ -925,9 +925,7 @@ where
 				let xts_provides_tags = xts_hashes
 					.iter()
 					.zip(provides_tags.into_iter())
-					// We filter out the (transaction, tags) pair if no tags where found in the
-					// inactive view for the transaction.
-					.filter_map(|(hash, tags)| tags.map(|inner| (*hash, inner)))
+					.filter_map(|(hash, maybe_tags)| maybe_tags.map(|tags| (*hash, tags)))
 					.collect::<HashMap<ExtrinsicHash<ChainApi>, Vec<Tag>>>();
 
 				// Remove txs that have been resolved.

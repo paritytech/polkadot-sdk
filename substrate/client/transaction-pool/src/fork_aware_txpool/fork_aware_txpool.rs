@@ -1401,7 +1401,7 @@ where
 	/// The 'provides' tags of transactions from enacted blocks are searched
 	/// in inactive views. Found `provide` tags are intended to serve as cache,
 	/// helping to avoid unnecessary revalidations during pruning.
-	async fn provides_tags_from_inactive_views(
+	async fn collect_provides_tags_from_view_store(
 		&self,
 		tree_route: &TreeRoute<Block>,
 	) -> HashMap<ExtrinsicHash<ChainApi>, Vec<Tag>> {
@@ -1462,7 +1462,7 @@ where
 
 		// Create a map from enacted blocks' extrinsics to their `provides`
 		// tags based on inactive views.
-		let known_provides_tags = self.provides_tags_from_inactive_views(tree_route).await;
+		let known_provides_tags = self.collect_provides_tags_from_view_store(tree_route).await;
 		debug!(target: LOG_TARGET, "update_view_with_fork: txs to tags map length: {}", known_provides_tags.len());
 		future::join_all(tree_route.enacted().iter().map(|hn| {
 			let api = api.clone();

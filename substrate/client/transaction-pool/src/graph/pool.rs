@@ -318,11 +318,12 @@ impl<B: ChainApi, L: EventHandler<B>> Pool<B, L> {
 		let in_pool_hashes =
 			extrinsics.iter().map(|extrinsic| self.hash_of(extrinsic)).collect::<Vec<_>>();
 		let in_pool_tags = self.validated_pool.extrinsics_tags(&in_pool_hashes);
-		// Fill unknown tags based on the known tags from inactive views.
-		let unknown_txs_count = in_pool_tags.iter().filter(|x| x.is_none()).count();
+		// Fill unknown tags based on the known tags given in `known_provides_tags`.
+		let mut unknown_txs_count = 0u64;
 		let mut reused_txs_count = 0u64;
 		let tags = in_pool_hashes.iter().zip(in_pool_tags).map(|(tx_hash, tags)| {
 			tags.or_else(|| {
+				unknown_txs_count += 1;
 				known_provides_tags.as_ref().and_then(|inner| {
 					inner.get(&tx_hash).map(|found_tags| {
 						reused_txs_count += 1;
@@ -340,8 +341,7 @@ impl<B: ChainApi, L: EventHandler<B>> Pool<B, L> {
 		let now = Instant::now();
 		for (extrinsic, in_pool_tags) in all {
 			match in_pool_tags {
-				// reuse the tags for extrinsics that were found in the pool or in the inactive
-				// views
+				// reuse the tags for extrinsics that were found in the pool or given in `known_provides_tags` cache.
 				Some(tags) => future_tags.extend(tags),
 				// if it's not found in the pool query the runtime at parent block
 				// to get validity info and tags that the extrinsic provides.
@@ -379,11 +379,11 @@ impl<B: ChainApi, L: EventHandler<B>> Pool<B, L> {
 			}
 		}
 
-		let known_txs_count = known_provides_tags.map(|inner| inner.len()).unwrap_or(0);
+		let known_provides_tags_len = known_provides_tags.map(|inner| inner.len()).unwrap_or(0);
 		debug!(
 			target: LOG_TARGET,
 			validated_counter,
-			known_txs_count,
+			known_provides_tags_len,
 			unknown_txs_count,
 			reused_txs_count,
 			duration = ?now.elapsed(),
