@@ -621,12 +621,12 @@ enum StorageValue {
 
 /// Controls the output behavior for storage reads, both when a key is found and when it is not.
 enum StorageReadMode {
-	/// Standard mode: if the key exists, the full stored value is returned
+	/// VariableOutput mode: if the key exists, the full stored value is returned
 	/// using the caller‑provided output length.
-	Standard { output_len_ptr: u32 },
-	/// Ethereum commpatible mode: always write a 32-byte value into the output buffer.
-	/// If the key is missing, write 32 bytes of zeros.
-	EthSemantics,
+	VariableOutput { output_len_ptr: u32 },
+	/// Ethereum commpatible(FixedOutput32) mode: always write a 32-byte value into the output
+	/// buffer. If the key is missing, write 32 bytes of zeros.
+	FixedOutput32,
 }
 
 /// Can only be used for one call.
@@ -989,9 +989,9 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 			self.adjust_gas(charged, costs(value.len() as u32));
 
 			match read_mode {
-				StorageReadMode::EthSemantics => {
+				StorageReadMode::FixedOutput32 => {
 					let mut fixed_output = [0u8; 32];
-					let len = core::cmp::min(value.len(), fixed_output.len());
+					let len = value.len().min(fixed_output.len());
 					fixed_output[..len].copy_from_slice(&value[..len]);
 
 					self.write_fixed_sandbox_output(
@@ -1003,7 +1003,7 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 					)?;
 					Ok(ReturnErrorCode::Success)
 				},
-				StorageReadMode::Standard { output_len_ptr: out_len_ptr } => {
+				StorageReadMode::VariableOutput { output_len_ptr: out_len_ptr } => {
 					self.write_sandbox_output(
 						memory,
 						out_ptr,
@@ -1019,7 +1019,7 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 			self.adjust_gas(charged, costs(0));
 
 			match read_mode {
-				StorageReadMode::EthSemantics => {
+				StorageReadMode::FixedOutput32 => {
 					self.write_fixed_sandbox_output(
 						memory,
 						out_ptr,
@@ -1029,7 +1029,7 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 					)?;
 					Ok(ReturnErrorCode::Success)
 				},
-				StorageReadMode::Standard { .. } => Ok(ReturnErrorCode::KeyNotFound),
+				StorageReadMode::VariableOutput { .. } => Ok(ReturnErrorCode::KeyNotFound),
 			}
 		}
 	}
@@ -1339,7 +1339,7 @@ pub mod env {
 			key_ptr,
 			key_len,
 			out_ptr,
-			StorageReadMode::Standard { output_len_ptr: out_len_ptr },
+			StorageReadMode::VariableOutput { output_len_ptr: out_len_ptr },
 		)
 	}
 
@@ -1359,7 +1359,7 @@ pub mod env {
 			key_ptr,
 			SENTINEL,
 			out_ptr,
-			StorageReadMode::EthSemantics,
+			StorageReadMode::FixedOutput32,
 		)?;
 
 		Ok(())
