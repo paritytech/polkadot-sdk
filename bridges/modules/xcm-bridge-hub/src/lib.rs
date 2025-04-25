@@ -145,8 +145,10 @@
 
 use bp_messages::{LaneState, MessageNonce};
 use bp_runtime::{AccountIdOf, BalanceOf, RangeInclusiveExt};
-pub use bp_xcm_bridge_hub::{Bridge, BridgeId, BridgeState, LocalXcmChannelManager};
-use bp_xcm_bridge_hub::{BridgeLocations, BridgeLocationsError};
+use bp_xcm_bridge_hub::BridgeLocationsError;
+pub use bp_xcm_bridge_hub::{
+	Bridge, BridgeId, BridgeLocations, BridgeState, LocalXcmChannelManager,
+};
 use frame_support::{traits::fungible::MutateHold, DefaultNoBound};
 use frame_system::Config as SystemConfig;
 use pallet_bridge_messages::{Config as BridgeMessagesConfig, LanesManagerError};
@@ -192,6 +194,7 @@ pub mod pallet {
 		BridgeMessagesConfig<Self::BridgeMessagesPalletInstance>
 	{
 		/// The overarching event type.
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self, I>>
 			+ IsType<<Self as frame_system::Config>::RuntimeEvent>;
 

@@ -1,5 +1,6 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
+// SPDX-License-Identifier: GPL-3.0-or-later WITH Classpath-exception-2.0
 
 // Cumulus is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -8,11 +9,11 @@
 
 // Cumulus is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 // GNU General Public License for more details.
 
 // You should have received a copy of the GNU General Public License
-// along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
+// along with Cumulus. If not, see <https://www.gnu.org/licenses/>.
 
 //! Cumulus service
 //!
@@ -340,10 +341,15 @@ pub mod old_consensus {
 
 /// Prepare the parachain's node configuration
 ///
-/// This function will disable the default announcement of Substrate for the parachain in favor
-/// of the one of Cumulus.
+/// This function will:
+/// * Disable the default announcement of Substrate for the parachain in favor of the one of
+///   Cumulus.
+/// * Set peers needed to start warp sync to 1.
 pub fn prepare_node_config(mut parachain_config: Configuration) -> Configuration {
 	parachain_config.announce_block = false;
+	// Parachains only need 1 peer to start warp sync, because the target block is fetched from the
+	// relay chain.
+	parachain_config.network.min_peers_to_start_warp_sync = Some(1);
 
 	parachain_config
 }

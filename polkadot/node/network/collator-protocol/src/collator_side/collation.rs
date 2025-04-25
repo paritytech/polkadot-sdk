@@ -21,9 +21,7 @@ use std::collections::{HashSet, VecDeque};
 use futures::{future::BoxFuture, stream::FuturesUnordered};
 
 use polkadot_node_network_protocol::{
-	request_response::{
-		incoming::OutgoingResponse, v1 as protocol_v1, v2 as protocol_v2, IncomingRequest,
-	},
+	request_response::{incoming::OutgoingResponse, v2 as protocol_v2, IncomingRequest},
 	PeerId,
 };
 use polkadot_node_primitives::PoV;
@@ -90,14 +88,7 @@ pub struct WaitingCollationFetches {
 
 /// Backwards-compatible wrapper for incoming collations requests.
 pub enum VersionedCollationRequest {
-	V1(IncomingRequest<protocol_v1::CollationFetchingRequest>),
 	V2(IncomingRequest<protocol_v2::CollationFetchingRequest>),
-}
-
-impl From<IncomingRequest<protocol_v1::CollationFetchingRequest>> for VersionedCollationRequest {
-	fn from(req: IncomingRequest<protocol_v1::CollationFetchingRequest>) -> Self {
-		Self::V1(req)
-	}
 }
 
 impl From<IncomingRequest<protocol_v2::CollationFetchingRequest>> for VersionedCollationRequest {
@@ -110,15 +101,20 @@ impl VersionedCollationRequest {
 	/// Returns parachain id from the request payload.
 	pub fn para_id(&self) -> ParaId {
 		match self {
-			VersionedCollationRequest::V1(req) => req.payload.para_id,
 			VersionedCollationRequest::V2(req) => req.payload.para_id,
+		}
+	}
+
+	/// Returns candidate hash from the request payload.
+	pub fn candidate_hash(&self) -> CandidateHash {
+		match self {
+			VersionedCollationRequest::V2(req) => req.payload.candidate_hash,
 		}
 	}
 
 	/// Returns relay parent from the request payload.
 	pub fn relay_parent(&self) -> Hash {
 		match self {
-			VersionedCollationRequest::V1(req) => req.payload.relay_parent,
 			VersionedCollationRequest::V2(req) => req.payload.relay_parent,
 		}
 	}
@@ -126,7 +122,6 @@ impl VersionedCollationRequest {
 	/// Returns id of the peer the request was received from.
 	pub fn peer_id(&self) -> PeerId {
 		match self {
-			VersionedCollationRequest::V1(req) => req.peer,
 			VersionedCollationRequest::V2(req) => req.peer,
 		}
 	}
@@ -134,10 +129,9 @@ impl VersionedCollationRequest {
 	/// Sends the response back to requester.
 	pub fn send_outgoing_response(
 		self,
-		response: OutgoingResponse<protocol_v1::CollationFetchingResponse>,
+		response: OutgoingResponse<protocol_v2::CollationFetchingResponse>,
 	) -> Result<(), ()> {
 		match self {
-			VersionedCollationRequest::V1(req) => req.send_outgoing_response(response),
 			VersionedCollationRequest::V2(req) => req.send_outgoing_response(response),
 		}
 	}

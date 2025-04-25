@@ -18,19 +18,13 @@ workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-bitflags = { workspace = true }
-codec = { features = [
-	"derive",
-	"max-encoded-len",
-], workspace = true }
+codec = { features = ["derive", "max-encoded-len"], workspace = true }
 impl-trait-for-tuples = { workspace = true }
 log = { workspace = true }
 paste = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 serde = { optional = true, features = ["derive"], workspace = true, default-features = true }
-smallvec = { features = [
-	"const_generics",
-], workspace = true }
+smallvec = { features = ["const_generics"], workspace = true }
 wasmi = { workspace = true }
 
 # Only used in benchmarking to generate contract code
@@ -65,10 +59,8 @@ wat = { workspace = true }
 xcm-builder = { workspace = true, default-features = true }
 
 # Substrate Dependencies
-pallet-assets = { workspace = true, default-features = true }
 pallet-balances = { workspace = true, default-features = true }
 pallet-insecure-randomness-collective-flip = { workspace = true, default-features = true }
-pallet-message-queue = { workspace = true, default-features = true }
 pallet-proxy = { workspace = true, default-features = true }
 pallet-timestamp = { workspace = true, default-features = true }
 pallet-utility = { workspace = true, default-features = true }
@@ -106,9 +98,7 @@ runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
-	"pallet-assets/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
-	"pallet-message-queue/runtime-benchmarks",
 	"pallet-proxy/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
 	"pallet-utility/runtime-benchmarks",
@@ -122,10 +112,8 @@ runtime-benchmarks = [
 try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
-	"pallet-assets/try-runtime",
 	"pallet-balances/try-runtime",
 	"pallet-insecure-randomness-collective-flip/try-runtime",
-	"pallet-message-queue/try-runtime",
 	"pallet-proxy/try-runtime",
 	"pallet-timestamp/try-runtime",
 	"pallet-utility/try-runtime",

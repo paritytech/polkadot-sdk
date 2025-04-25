@@ -178,11 +178,10 @@ pub struct NetworkParams {
 		long,
 		value_enum,
 		value_name = "NETWORK_BACKEND",
-		default_value_t = NetworkBackendType::Libp2p,
 		ignore_case = true,
 		verbatim_doc_comment
 	)]
-	pub network_backend: NetworkBackendType,
+	pub network_backend: Option<NetworkBackendType>,
 }
 
 impl NetworkParams {
@@ -271,14 +270,14 @@ impl NetworkParams {
 			},
 			max_parallel_downloads: self.max_parallel_downloads,
 			max_blocks_per_request: self.max_blocks_per_request,
+			min_peers_to_start_warp_sync: None,
 			enable_dht_random_walk: !self.reserved_only,
 			allow_non_globals_in_dht,
 			kademlia_disjoint_query_paths: self.kademlia_disjoint_query_paths,
 			kademlia_replication_factor: self.kademlia_replication_factor,
-			yamux_window_size: None,
 			ipfs_server: self.ipfs_server,
 			sync_mode: self.sync.into(),
-			network_backend: self.network_backend.into(),
+			network_backend: self.network_backend.map(Into::into),
 		}
 	}
 }

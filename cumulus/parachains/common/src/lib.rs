@@ -82,6 +82,7 @@ mod constants {
 		PalletId,
 	};
 	use sp_runtime::Perbill;
+
 	/// This determines the average expected block time that we are targeting. Blocks will be
 	/// produced at a minimum duration defined by `SLOT_DURATION`. `SLOT_DURATION` is picked up by
 	/// `pallet_timestamp` which is in turn picked up by `pallet_aura` to implement `fn
@@ -106,6 +107,12 @@ mod constants {
 	/// We allow for 0.5 seconds of compute with a 6 second average block time.
 	pub const MAXIMUM_BLOCK_WEIGHT: Weight = Weight::from_parts(
 		WEIGHT_REF_TIME_PER_SECOND.saturating_div(2),
+		polkadot_primitives::MAX_POV_SIZE as u64,
+	);
+
+	/// We allow for 2 seconds of compute with a 6 second average block.
+	pub const MAXIMUM_BLOCK_WEIGHT_FOR_ASYNC_BACKING: Weight = Weight::from_parts(
+		WEIGHT_REF_TIME_PER_SECOND.saturating_mul(2),
 		polkadot_primitives::MAX_POV_SIZE as u64,
 	);
 

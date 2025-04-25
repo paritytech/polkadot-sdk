@@ -144,10 +144,17 @@ export PATH="$PATH:<path/to/binaries>"
 
 #### Update `zombienet-omni-node.toml` with a valid chain spec path
 
+To simplify the process of using the parachain-template with zombienet and Omni Node, we've added a pre-configured
+development chain spec (dev_chain_spec.json) to the parachain template. The zombienet-omni-node.toml file of this
+template points to it, but you can update it to an updated chain spec generated on your machine. To generate a
+chain spec refer to [staging-chain-spec-builder](https://crates.io/crates/staging-chain-spec-builder)
+
+Then make the changes in the network specification like so:
+
 ```toml
 # ...
 [[parachains]]
-id = {{PARACHAIN_ID}}
+id = "<PARACHAIN_ID>"
 chain_spec_path = "<TO BE UPDATED WITH A VALID PATH>"
 # ...
 ```
@@ -166,7 +173,7 @@ to `Omni Node`. Similarly, it requires setting up a relay chain, and we'll use `
 #### Install the `parachain-template-node`
 
 ```sh
-cargo install --path node
+cargo install --path node --locked
 ```
 
 #### Setup and start the network
@@ -245,10 +252,12 @@ relay chain network (see [Parachain Template node](#parachain-template-node) set
 
 ## Getting Help
 
-- 🧑‍🏫 To learn about Polkadot in general, [Polkadot.network](https://polkadot.network/) website is a good starting point.
+- 🧑‍🏫 To learn about Polkadot in general, [docs.Polkadot.com](https://docs.polkadot.com/) website is a good starting point.
 
 - 🧑‍🔧 For technical introduction, [here](https://github.com/paritytech/polkadot-sdk#-documentation) are
   the Polkadot SDK documentation resources.
 
 - 👥 Additionally, there are [GitHub issues](https://github.com/paritytech/polkadot-sdk/issues) and
   [Substrate StackExchange](https://substrate.stackexchange.com/).
+- 👥You can also reach out on the [Official Polkdot discord server](https://polkadot-discord.w3f.tools/)
+- 🧑Reach out on [Telegram](https://t.me/substratedevs) for more questions and discussions
