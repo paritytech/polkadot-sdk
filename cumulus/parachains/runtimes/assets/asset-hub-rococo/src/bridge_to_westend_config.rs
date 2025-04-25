@@ -20,8 +20,8 @@ use crate::{
 	bridge_common_config::{BridgeRelayersInstance, DeliveryRewardInBalance},
 	weights, xcm_config,
 	xcm_config::UniversalLocation,
-	AccountId, Balance, Balances, PolkadotXcm, Runtime, RuntimeEvent, RuntimeHoldReason,
-	ToWestendOverAssetHubWestendXcmRouter, XcmOverAssetHubWestend,
+	AccountId, Balance, Balances, BridgeWestendMessages, PolkadotXcm, Runtime, RuntimeEvent,
+	RuntimeHoldReason, ToWestendOverAssetHubWestendXcmRouter, XcmOverAssetHubWestend,
 };
 use alloc::{vec, vec::Vec};
 use bp_messages::HashedLaneId;
@@ -31,7 +31,7 @@ use pallet_xcm_bridge::XcmAsPlainPayload;
 
 use frame_support::{
 	parameter_types,
-	traits::{EitherOf, Equals},
+	traits::{EitherOf, Equals, PalletInfoAccess},
 };
 use frame_system::{EnsureRoot, EnsureRootWithSuccess};
 use pallet_bridge_relayers::extension::{
@@ -57,6 +57,7 @@ use xcm_builder::{
 };
 
 parameter_types! {
+	pub BridgeRococoToWestendMessagesPalletInstance: InteriorLocation = [PalletInstance(<BridgeWestendMessages as PalletInfoAccess>::index() as u8)].into();
 	pub const HereLocation: Location = Location::here();
 	pub WestendGlobalConsensusNetwork: NetworkId = NetworkId::ByGenesis(WESTEND_GENESIS_HASH);
 	pub WestendGlobalConsensusNetworkLocation: Location = Location::new(
@@ -200,10 +201,10 @@ impl pallet_xcm_bridge::Config<XcmOverAssetHubWestendInstance> for Runtime {
 	type BlobDispatcher = BlobDispatcherWithChannelStatus<
 		// Dispatches received XCM messages from other bridge
 		BridgeBlobDispatcher<
-			// TODO: FAIL-CI wait for https://github.com/paritytech/polkadot-sdk/pull/6002#issuecomment-2469892343
 			xcm_config::LocalXcmRouter,
 			UniversalLocation,
-			(),
+			// TODO: FAIL-CI wait for https://github.com/paritytech/polkadot-sdk/pull/6002#issuecomment-2469892343
+			BridgeRococoToWestendMessagesPalletInstance,
 		>,
 		// Provides the status of the XCMP queue's outbound queue, indicating whether messages can
 		// be dispatched to the sibling.
@@ -305,5 +306,11 @@ mod tests {
 			WithAssetHubWestendMessagesInstance,
 			PriorityBoostPerMessage,
 		>(FEE_BOOST_PER_MESSAGE);
+
+		let expected: InteriorLocation = [PalletInstance(
+			bp_asset_hub_rococo::WITH_BRIDGE_ROCOCO_TO_WESTEND_MESSAGES_PALLET_INDEX,
+		)]
+		.into();
+		assert_eq!(BridgeRococoToWestendMessagesPalletInstance::get(), expected);
 	}
 }

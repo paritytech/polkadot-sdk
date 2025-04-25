@@ -242,7 +242,7 @@ pub type DepositOf<ThisChain> = Deposit<AccountIdOf<ThisChain>, BalanceOf<ThisCh
 	PartialEq,
 	TypeInfo,
 	MaxEncodedLen,
-	RuntimeDebug
+	RuntimeDebug,
 )]
 pub struct Deposit<AccountId, Balance> {
 	/// Account with the reserved funds.
@@ -272,7 +272,9 @@ pub struct BridgeLocations {
 }
 
 /// Errors that may happen when we check bridge locations.
-#[derive(Encode, Decode, DecodeWithMemTracking, RuntimeDebug, PartialEq, Eq, PalletError, TypeInfo)]
+#[derive(
+	Encode, Decode, DecodeWithMemTracking, RuntimeDebug, PartialEq, Eq, PalletError, TypeInfo,
+)]
 pub enum BridgeLocationsError {
 	/// Origin or destination locations are not universal.
 	NonUniversalLocation,

@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! This pallet demonstrates the use of the `pallet::view_functions_experimental` api for service
+//! This pallet demonstrates the use of the `pallet::view_functions` api for service
 //! work.
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -58,7 +58,7 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type SomeMap<T: Config> = StorageMap<_, Twox64Concat, u32, u32, OptionQuery>;
 
-	#[pallet::view_functions_experimental]
+	#[pallet::view_functions]
 	impl<T: Config> Pallet<T>
 	where
 		T::AccountId: From<SomeType1> + SomeAssociation1,
@@ -96,7 +96,7 @@ pub mod pallet2 {
 	pub type SomeMap<T: Config<I>, I: 'static = ()> =
 		StorageMap<_, Twox64Concat, u32, u32, OptionQuery>;
 
-	#[pallet::view_functions_experimental]
+	#[pallet::view_functions]
 	impl<T: Config<I>, I: 'static> Pallet<T, I>
 	where
 		T::AccountId: From<SomeType1> + SomeAssociation1,

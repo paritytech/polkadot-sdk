@@ -87,6 +87,7 @@ pub mod pallet {
 		type WeightInfo: WeightInfo;
 
 		/// The runtime event type.
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self, I>>
 			+ IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
@@ -203,7 +204,7 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::init())]
 		#[pallet::call_index(0)]
 		pub fn init(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
-			let _ = ensure_signed(origin)?;
+			ensure_signed(origin)?;
 			let now = frame_system::Pallet::<T>::block_number();
 			ensure!(!Status::<T, I>::exists(), Error::<T, I>::AlreadyStarted);
 			let status = StatusType {
@@ -225,7 +226,7 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::bump())]
 		#[pallet::call_index(1)]
 		pub fn bump(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
-			let _ = ensure_signed(origin)?;
+			ensure_signed(origin)?;
 			let now = frame_system::Pallet::<T>::block_number();
 			let cycle_period = Self::cycle_period();
 			let mut status = Status::<T, I>::get().ok_or(Error::<T, I>::NotStarted)?;
@@ -247,7 +248,7 @@ pub mod pallet {
 		pub fn induct(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
 			let cycle_index = Status::<T, I>::get().ok_or(Error::<T, I>::NotStarted)?.cycle_index;
-			let _ = T::Members::rank_of(&who).ok_or(Error::<T, I>::NotMember)?;
+			T::Members::rank_of(&who).ok_or(Error::<T, I>::NotMember)?;
 			ensure!(!Claimant::<T, I>::contains_key(&who), Error::<T, I>::AlreadyInducted);
 
 			Claimant::<T, I>::insert(
