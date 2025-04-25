@@ -35,6 +35,7 @@ jobs:
           echo "Labels: ${labels}"
           echo "labels=${labels}" >> "$GITHUB_OUTPUT"
 
+<<<<<<< HEAD
           echo "Checking PRdoc version"
           $ENGINE run --rm -v $PWD:/repo $IMAGE --version
 
@@ -60,8 +61,31 @@ jobs:
 
       - name: Validate prdoc for PR#${{ github.event.pull_request.number }}
         if: ${{ !contains(steps.get-labels.outputs.labels, 'R0') }}
+=======
+      - name: Get PR number
+        if: ${{ github.event.pull_request.number != '' && !contains(steps.get-labels.outputs.labels, 'R0') }}
+>>>>>>> aa67e2d ([CI/CD] Use original PR name in prdoc check for the backport PR's to the stable branches (#8329))
         run: |
-          echo "Validating PR#${GITHUB_PR}"
+          original_pr_number=''
+          PR_TITLE="${{ github.event.pull_request.title }}"
+          if [[ $PR_TITLE =~ 'Backport' ]]; then
+            # Extracting the original PR number from the backport's PR title
+            if [[ $PR_TITLE =~ \#([0-9]+) ]]; then
+              original_pr_number="${BASH_REMATCH[1]}"
+              echo "Extracted PR number: $original_pr_number"
+            else
+              echo "⚠️ The PR title dose not contain original PR number. PR title should be in form: [stableBranchName] Backport #originalPRNumber"
+              exit 1
+            fi
+          else
+            original_pr_number=${{ github.event.pull_request.number }}
+          fi
+          echo "PR_NUMBER=$original_pr_number" >> $GITHUB_ENV
+
+      - name: Validate prdoc for PR#${{ env.PR_NUMBER }}
+        if: ${{ github.event.pull_request.number != '' && !contains(steps.get-labels.outputs.labels, 'R0') }}
+        run: |
+          echo "Validating PR#${{ env.PR_NUMBER }}"
           python3 --version
           python3 -m pip install cargo-workspace==1.2.1
-          python3 .github/scripts/check-prdoc.py Cargo.toml prdoc/pr_${GITHUB_PR}.prdoc
+          python3 .github/scripts/check-prdoc.py Cargo.toml prdoc/pr_${{ env.PR_NUMBER }}.prdoc
