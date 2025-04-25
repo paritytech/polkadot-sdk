@@ -405,11 +405,14 @@ fn parse_session_report_received(fields: Composite<u32>) -> Option<RcClientEvent
 	assert!(activation_timestamp_variant.name == "Some", "Expected Some");
 
 	// Here we are parsing:
-	// Variant { name: "Some", values: Unnamed([Value { value: Composite(Unnamed([Value { value: Primitive(U128(1745574174001)), context: 12 }, Value { value: Primitive(U128(1)), context: 4 }])), context: 204 }]) }
+	//
+	// Variant { name: "Some", values: Unnamed([Value { value: Composite(Unnamed([Value { value:
+	// Primitive(U128(1745574174001)), context: 12 }, Value { value: Primitive(U128(1)), context: 4
+	// }])), context: 204 }]) }
 	let activation_time_stamp = activation_timestamp_variant
-		.at(0)	// the value of `Some`
+		.at(0) // the value of `Some`
 		.unwrap()
-		.at(0)	// the 1st value in the composite
+		.at(0) // the 1st value in the composite
 		.unwrap()
 		.as_u128()
 		.unwrap()
