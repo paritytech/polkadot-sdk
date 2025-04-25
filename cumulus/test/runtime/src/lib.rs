@@ -131,11 +131,7 @@ pub const BLOCK_PROCESSING_VELOCITY: u32 = 3;
 	feature = "elastic-scaling",
 	feature = "elastic-scaling-500ms",
 	feature = "elastic-scaling-multi-block-slot",
-	feature = "sync-backing"
 )))]
-pub const BLOCK_PROCESSING_VELOCITY: u32 = 1;
-
-#[cfg(feature = "sync-backing")]
 pub const BLOCK_PROCESSING_VELOCITY: u32 = 1;
 
 #[cfg(feature = "sync-backing")]
