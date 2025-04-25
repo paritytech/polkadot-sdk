@@ -87,7 +87,32 @@ pub fn get_amount_from_versioned_assets(assets: VersionedAssets) -> u128 {
 	amount
 }
 
-/// Finds the ID of the first `MessageQueue::Processed` event in the chain's event list.
+/// Helper method to collect all topic IDs from `MessageQueue::Processed` and `PolkadotXcm::Sent`
+/// events in the chain's event list.
+pub fn find_all_xcm_topic_ids<C: Chain>() -> Vec<H256>
+where
+	<C as Chain>::Runtime: pallet_message_queue::Config + pallet_xcm::Config,
+	C::RuntimeEvent: TryInto<pallet_message_queue::Event<<C as Chain>::Runtime>>
+		+ TryInto<pallet_xcm::Event<<C as Chain>::Runtime>>
+		+ Clone,
+{
+	C::events()
+		.into_iter()
+		.filter_map(|event| {
+			if let Ok(pallet_message_queue::Event::Processed { id, .. }) = event.clone().try_into()
+			{
+				Some(id)
+			} else if let Ok(pallet_xcm::Event::Sent { message_id, .. }) = event.try_into() {
+				Some(H256::from(message_id))
+			} else {
+				None
+			}
+		})
+		.collect()
+}
+
+/// Helper method to find the ID of the first `MessageQueue::Processed` event in the chain's event
+/// list.
 pub fn find_mq_processed_id<C: Chain>() -> Option<H256>
 where
 	<C as Chain>::Runtime: pallet_message_queue::Config,
@@ -102,7 +127,8 @@ where
 	})
 }
 
-/// Finds the message ID of the first `pallet_xcm::Event::Sent` event in the chain's event list.
+/// Helper method to find the message ID of the first `pallet_xcm::Event::Sent` event in the chain's
+/// event list.
 pub fn find_xcm_sent_message_id<C: Chain>() -> Option<XcmHash>
 where
 	<C as Chain>::Runtime: pallet_xcm::Config,

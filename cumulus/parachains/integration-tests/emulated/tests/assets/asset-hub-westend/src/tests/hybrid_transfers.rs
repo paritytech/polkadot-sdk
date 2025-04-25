@@ -14,8 +14,8 @@
 // limitations under the License.
 
 use emulated_integration_tests_common::{
-	xcm_emulator::{find_all_xcm_topic_ids, helpers::TopicIdTracker},
-	xcm_helpers::find_xcm_sent_message_id,
+	xcm_emulator::helpers::TopicIdTracker,
+	xcm_helpers::{find_all_xcm_topic_ids, find_xcm_sent_message_id},
 };
 use westend_system_emulated_network::westend_emulated_chain::westend_runtime::Dmp;
 
@@ -56,7 +56,7 @@ fn para_to_para_assethub_hop_assertions(t: ParaToParaThroughAHTest) {
 		]
 	);
 
-	let topic_ids = find_all_xcm_topic_ids!(AssetHubWestend);
+	let topic_ids = find_all_xcm_topic_ids::<AssetHubWestend>();
 	TopicIdTracker::insert_many(topic_ids);
 	TopicIdTracker::assert_unique();
 }
