@@ -22249,7 +22249,6 @@ dependencies = [
 name = "sp-application-crypto"
 version = "30.0.0"
 dependencies = [
- "log",
  "parity-scale-codec",
  "scale-info",
  "serde",

@@ -22,14 +22,12 @@ scale-info = { features = ["derive"], workspace = true }
 serde = { optional = true, features = ["alloc", "derive"], workspace = true }
 sp-core = { workspace = true }
 sp-io = { workspace = true }
-log = { workspace = true }
 
 [features]
 default = ["std"]
 std = [
 	"codec/std",
 	"full_crypto",
-	"log/std",
 	"scale-info/std",
 	"serde/std",
 	"sp-core/std",
