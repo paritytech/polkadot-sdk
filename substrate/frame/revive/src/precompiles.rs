@@ -244,7 +244,7 @@ pub(crate) trait BuiltinPrecompile {
 	}
 }
 
-/// A low level pre-compiles that does use Solidity ABI.
+/// A low level pre-compile that does use Solidity ABI.
 ///
 /// It is used to implement the original Ethereum pre-compiles which do not
 /// use Solidity ABI but just encode inputs and outputs packed in memory.

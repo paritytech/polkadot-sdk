@@ -62,7 +62,7 @@ pub fn run_primitive<P: PrimitivePrecompile<T = Test>>(input: Vec<u8>) -> Result
 }
 
 /// Tests a precompile against the ethereum consensus tests defined in the given json
-/// The  JSON format is expected to contain an array of test vectors,
+/// The JSON format is expected to contain an array of test vectors,
 /// where each vector can be deserialized into an "EthConsensusTest".
 pub fn run_test_vectors<P: PrimitivePrecompile<T = Test>>(json: &str) {
 	let tests: Vec<EthConsensusTest> = serde_json::from_str(json).expect("expected json array");
