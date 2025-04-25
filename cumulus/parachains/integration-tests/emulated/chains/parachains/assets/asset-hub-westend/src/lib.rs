@@ -13,7 +13,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-pub use asset_hub_westend_runtime;
+pub use asset_hub_westend_runtime::{
+	self as asset_hub_westend_runtime, xcm_config::XcmConfig as AssetHubWestendXcmConfig,
+	ExistentialDeposit as AssetHubWestendExistentialDeposit,
+	RuntimeOrigin as AssetHubWestendRuntimeOrigin,
+};
 
 pub mod genesis;
 
@@ -24,8 +28,8 @@ use frame_support::traits::OnInitialize;
 use emulated_integration_tests_common::{
 	impl_accounts_helpers_for_parachain, impl_assert_events_helpers_for_parachain,
 	impl_assets_helpers_for_parachain, impl_assets_helpers_for_system_parachain,
-	impl_bridge_helpers_for_chain, impl_foreign_assets_helpers_for_parachain,
-	impl_xcm_helpers_for_parachain, impls::Parachain, xcm_emulator::decl_test_parachains,
+	impl_foreign_assets_helpers_for_parachain, impl_xcm_helpers_for_parachain, impls::Parachain,
+	xcm_emulator::decl_test_parachains,
 };
 use westend_emulated_chain::Westend;
 
@@ -52,6 +56,7 @@ decl_test_parachains! {
 			PoolAssets: asset_hub_westend_runtime::PoolAssets,
 			AssetConversion: asset_hub_westend_runtime::AssetConversion,
 			SnowbridgeSystemFrontend: asset_hub_westend_runtime::SnowbridgeSystemFrontend,
+			XcmOverAssetHubRococo: asset_hub_westend_runtime::XcmOverAssetHubRococo,
 			AssetHubRococoProofRootStore: asset_hub_westend_runtime::AssetHubRococoProofRootStore,
 		}
 	},
@@ -64,9 +69,3 @@ impl_assets_helpers_for_system_parachain!(AssetHubWestend, Westend);
 impl_assets_helpers_for_parachain!(AssetHubWestend);
 impl_foreign_assets_helpers_for_parachain!(AssetHubWestend, xcm::v5::Location);
 impl_xcm_helpers_for_parachain!(AssetHubWestend);
-impl_bridge_helpers_for_chain!(
-	AssetHubWestend,
-	ParaPallet,
-	PolkadotXcm,
-	bp_bridge_hub_westend::RuntimeCall::XcmOverBridgeHubRococo
-);
