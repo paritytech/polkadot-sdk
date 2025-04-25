@@ -59,7 +59,7 @@ pub use misc::{
 	defensive_prelude::{self, *},
 	AccountTouch, Backing, ConstBool, ConstI128, ConstI16, ConstI32, ConstI64, ConstI8, ConstInt,
 	ConstU128, ConstU16, ConstU32, ConstU64, ConstU8, ConstUint, DefensiveMax, DefensiveMin,
-	DefensiveSaturating, DefensiveTruncateFrom, EnsureInherentsAreFirst, EqualPrivilegeOnly,
+	DefensiveSaturating, DefensiveTruncateFrom, DefensiveTruncateInto, EnsureInherentsAreFirst, EqualPrivilegeOnly,
 	EstimateCallFee, ExecuteBlock, ExtrinsicCall, Get, GetBacking, GetDefault, HandleLifetime,
 	InherentBuilder, IsInherent, IsSubType, IsType, Len, OffchainWorker, OnKilledAccount,
 	OnNewAccount, PrivilegeCmp, RewardsReporter, SameOrOther, SignedTransactionBuilder, Time,
