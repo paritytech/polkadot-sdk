@@ -30,6 +30,7 @@ use crate::{
 use codec::Decode;
 use futures::{StreamExt, TryFutureExt};
 use jsonrpsee::{core::async_trait, PendingSubscriptionSink};
+use prometheus_endpoint::{register, Counter, PrometheusError, Registry, U64};
 use sc_rpc::utils::{RingBuffer, Subscription};
 use sc_transaction_pool_api::{
 	error::IntoPoolError, BlockHash, TransactionFor, TransactionPool, TransactionSource,
@@ -42,6 +43,49 @@ use std::sync::Arc;
 
 pub(crate) const LOG_TARGET: &str = "rpc-spec-v2";
 
+/// RPC layer metrics for transaction pool.
+#[derive(Debug, Clone)]
+struct Metrics {
+	/// Number of transactions submitted.
+	submitted: Counter<U64>,
+	/// Number of transactions dropped.
+	dropped: Counter<U64>,
+	/// Number of transactions invalidated.
+	invalid: Counter<U64>,
+	/// Number of transactions finalized.
+	finalized: Counter<U64>,
+	/// Number of transactions included in a block.
+	included: Counter<U64>,
+}
+
+impl Metrics {
+	/// Creates a new [`Metrics`] instance.
+	fn new(registry: &Registry) -> Result<Self, PrometheusError> {
+		let submitted = register(
+			Counter::new("rpc_transaction_submitted", "Number of transactions submitted")?,
+			registry,
+		)?;
+		let dropped = register(
+			Counter::new("rpc_transaction_dropped", "Number of transactions dropped")?,
+			registry,
+		)?;
+		let invalid = register(
+			Counter::new("rpc_transaction_invalid", "Number of transactions invalidated")?,
+			registry,
+		)?;
+		let finalized = register(
+			Counter::new("rpc_transaction_finalized", "Number of transactions finalized")?,
+			registry,
+		)?;
+		let included = register(
+			Counter::new("rpc_transaction_included", "Number of transactions included in a block")?,
+			registry,
+		)?;
+
+		Ok(Metrics { submitted, dropped, invalid, finalized, included })
+	}
+}
+
 /// An API for transaction RPC calls.
 pub struct Transaction<Pool, Client> {
 	/// Substrate client.
@@ -50,12 +94,22 @@ pub struct Transaction<Pool, Client> {
 	pool: Arc<Pool>,
 	/// Executor to spawn subscriptions.
 	executor: SubscriptionTaskExecutor,
+	/// Metrics for transactions.
+	metrics: Option<Metrics>,
 }
 
 impl<Pool, Client> Transaction<Pool, Client> {
 	/// Creates a new [`Transaction`].
-	pub fn new(client: Arc<Client>, pool: Arc<Pool>, executor: SubscriptionTaskExecutor) -> Self {
-		Transaction { client, pool, executor }
+	pub fn new(
+		client: Arc<Client>,
+		pool: Arc<Pool>,
+		executor: SubscriptionTaskExecutor,
+		registry: Option<&Registry>,
+	) -> Result<Self, PrometheusError> {
+		let metrics =
+			if let Some(registry) = registry { Some(Metrics::new(registry)?) } else { None };
+
+		Ok(Transaction { client, pool, executor, metrics })
 	}
 }
 
