@@ -1300,6 +1300,7 @@ impl pallet_ah_migrator::Config for Runtime {
 	type AhWeightInfo = (); // TODO: weights::pallet_ah_migrator::WeightInfo;
 	type AhIntraMigrationCalls = frame_support::traits::Everything; // TODO
 	type AhPostMigrationCalls = frame_support::traits::Everything; // TODO
+	type RcStakingMessage = pallet_rc_migrator::staking::message::RcStakingMessageOf<westend_runtime::Runtime>;
 }
 
 // Create the runtime by composing the FRAME pallets that were previously configured.

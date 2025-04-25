@@ -60,6 +60,7 @@ pallet-proxy = { workspace = true }
 pallet-referenda = { workspace = true }
 pallet-revive = { workspace = true }
 pallet-scheduler = { workspace = true }
+pallet-rc-migrator = { workspace = true }
 pallet-session = { workspace = true }
 pallet-staking = { workspace = true }
 pallet-staking-runtime-api = { workspace = true }
@@ -99,6 +100,7 @@ pallet-xcm = { workspace = true }
 pallet-xcm-benchmarks = { optional = true, workspace = true }
 polkadot-parachain-primitives = { workspace = true }
 polkadot-runtime-common = { workspace = true }
+westend-runtime = { workspace = true }
 westend-runtime-constants = { workspace = true }
 xcm = { workspace = true }
 xcm-builder = { workspace = true }
