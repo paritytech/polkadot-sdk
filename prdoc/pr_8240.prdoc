@@ -16,10 +16,10 @@ crates:
 - name: snowbridge-pallet-system-v2
   bump: patch
 - name: snowbridge-core
-  bump: minor
+  bump: patch
 - name: snowbridge-inbound-queue-primitives
-  bump: minor
-- name: bridge-hub-westend-runtime
-  bump: minor
+  bump: patch
 - name: snowbridge-pallet-system-frontend
+  bump: patch
+- name: bridge-hub-westend-runtime
   bump: minor
