@@ -1371,9 +1371,9 @@ pub trait Crypto {
 	#[cfg(feature = "bls-experimental")]
 	fn bls381_generate_pop(
 		&mut self,
-		id: KeyTypeId,
-		pub_key: &bls381::Public,
-	) -> Option<bls381::Signature> {
+		id: PassPointerAndReadCopy<KeyTypeId, 4>,
+		pub_key: PassPointerAndRead<&bls381::Public, 144>,
+	) -> AllocateAndReturnByCodec<Option<bls381::Signature>> {
 		self.extension::<KeystoreExt>()
 			.expect("No `keystore` associated for the current context!")
 			.bls381_generate_pop(id, pub_key)
@@ -1426,10 +1426,10 @@ pub trait Crypto {
 	#[cfg(feature = "bandersnatch-experimental")]
 	fn bandersnatch_sign(
 		&mut self,
-		id: KeyTypeId,
-		pub_key: &bandersnatch::Public,
-		msg: &[u8],
-	) -> Option<bandersnatch::Signature> {
+		id: PassPointerAndReadCopy<KeyTypeId, 4>,
+		pub_key: PassPointerAndRead<&bandersnatch::Public, 32>,
+		msg: PassFatPointerAndRead<&[u8]>,
+	) -> AllocateAndReturnByCodec<Option<bandersnatch::Signature>> {
 		self.extension::<KeystoreExt>()
 			.expect("No `keystore` associated for the current context!")
 			.bandersnatch_sign(id, pub_key, msg)
