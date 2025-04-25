@@ -64,6 +64,8 @@ jobs:
         run: |
           echo "POLKADOT_IMAGE: $POLKADOT_IMAGE"
           echo "CUMULUS_IMAGE: $CUMULUS_IMAGE"
+          echo "RUN_IN_CI: $RUN_IN_CI"
+
           ls -ltr ./artifacts
           # use spot by default
           export X_INFRA_INSTANCE=spot
