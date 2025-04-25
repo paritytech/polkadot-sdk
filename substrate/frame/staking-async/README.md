@@ -15,24 +15,24 @@ Courtesy to @kianenigma for these instructions.
    pallet-staking-async-parachain-runtime -p staging-chain-spec-builder`
 2. For AH-Next run
 
-```
-chain-spec-builder \
-    create \
-    -t development \
-    --runtime ../../target/release/wbuild/pallet-staking-async-parachain-runtime/pallet_staking_async_parachain_runtime.compact.compressed.wasm \
-    --relay-chain rococo-local \
-    --para-id 1100 \
-    named-preset development
-mv ./chain_spec.json ./parachain.json
-```
+   ```
+   chain-spec-builder \
+       create \
+       -t development \
+       --runtime ../../target/release/wbuild/pallet-staking-async-parachain-runtime/pallet_staking_async_parachain_runtime.compact.compressed.wasm \
+       --relay-chain rococo-local \
+       --para-id 1100 \
+       named-preset development
+   mv ./chain_spec.json ./parachain.json
+   ```
 
 3. For RC run
 
-```
-chain-spec-builder \
-    create \
-    -t development \
-    --runtime ../../target/release/wbuild/pallet-staking-async-rc-runtime/fast_runtime_binary.rs.wasm \
-    named-preset local_testnet
-mv ./chain_spec.json ./rc.json
-```
+   ```
+   chain-spec-builder \
+       create \
+       -t development \
+       --runtime ../../target/release/wbuild/pallet-staking-async-rc-runtime/fast_runtime_binary.rs.wasm \
+       named-preset local_testnet
+   mv ./chain_spec.json ./rc.json
+   ```
