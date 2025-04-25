@@ -234,7 +234,6 @@ where
 				execute_workers_max_num: cli.run.execute_workers_max_num,
 				prepare_workers_hard_max_num: cli.run.prepare_workers_hard_max_num,
 				prepare_workers_soft_max_num: cli.run.prepare_workers_soft_max_num,
-				enable_approval_voting_parallel: cli.run.enable_approval_voting_parallel,
 				keep_finalized_for: cli.run.keep_finalized_for,
 			},
 		)

@@ -551,7 +551,6 @@ pub struct Overseer<SupportsParachains> {
 	#[subsystem(blocking, NetworkBridgeRxMessage, sends: [
 		BitfieldDistributionMessage,
 		StatementDistributionMessage,
-		ApprovalDistributionMessage,
 		ApprovalVotingParallelMessage,
 		GossipSupportMessage,
 		DisputeDistributionMessage,
@@ -606,8 +605,6 @@ pub struct Overseer<SupportsParachains> {
 		DisputeCoordinatorMessage,
 		RuntimeApiMessage,
 		NetworkBridgeTxMessage,
-		ApprovalVotingMessage,
-		ApprovalDistributionMessage,
 		ApprovalVotingParallelMessage,
 	])]
 	approval_voting_parallel: ApprovalVotingParallel,
@@ -625,7 +622,6 @@ pub struct Overseer<SupportsParachains> {
 		ChainApiMessage,
 		DisputeDistributionMessage,
 		CandidateValidationMessage,
-		ApprovalVotingMessage,
 		AvailabilityStoreMessage,
 		AvailabilityRecoveryMessage,
 		ChainSelectionMessage,
