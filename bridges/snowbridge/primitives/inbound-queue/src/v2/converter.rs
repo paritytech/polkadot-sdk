@@ -54,7 +54,7 @@ pub struct MessageToXcm<
 	ConvertAssetId,
 	GatewayProxyAddress,
 	EthereumUniversalLocation,
-	GlobalAssetHubLocation,
+	AssetHubFromEthereum,
 > {
 	_phantom: PhantomData<(
 		CreateAssetCall,
@@ -64,7 +64,7 @@ pub struct MessageToXcm<
 		ConvertAssetId,
 		GatewayProxyAddress,
 		EthereumUniversalLocation,
-		GlobalAssetHubLocation,
+		AssetHubFromEthereum,
 	)>,
 }
 
@@ -76,7 +76,7 @@ impl<
 		ConvertAssetId,
 		GatewayProxyAddress,
 		EthereumUniversalLocation,
-		GlobalAssetHubLocation,
+		AssetHubFromEthereum,
 	>
 	MessageToXcm<
 		CreateAssetCall,
@@ -86,7 +86,7 @@ impl<
 		ConvertAssetId,
 		GatewayProxyAddress,
 		EthereumUniversalLocation,
-		GlobalAssetHubLocation,
+		AssetHubFromEthereum,
 	>
 where
 	CreateAssetCall: Get<CallIndex>,
@@ -96,7 +96,7 @@ where
 	ConvertAssetId: MaybeEquivalence<TokenId, Location>,
 	GatewayProxyAddress: Get<H160>,
 	EthereumUniversalLocation: Get<InteriorLocation>,
-	GlobalAssetHubLocation: Get<Location>,
+	AssetHubFromEthereum: Get<Location>,
 {
 	/// Parse the message into an intermediate form, with all fields decoded
 	/// and prepared.
@@ -153,7 +153,7 @@ where
 						.ok_or(ConvertMessageError::InvalidAsset)?;
 					let reanchored_asset_loc = asset_loc
 						.reanchored(
-							&GlobalAssetHubLocation::get(),
+							&AssetHubFromEthereum::get(),
 							&EthereumUniversalLocation::get(),
 						)
 						.map_err(|_| ConvertMessageError::CannotReanchor)?;
@@ -292,7 +292,7 @@ impl<
 		ConvertAssetId,
 		GatewayProxyAddress,
 		EthereumUniversalLocation,
-		GlobalAssetHubLocation,
+		AssetHubFromEthereum,
 	> ConvertMessage
 	for MessageToXcm<
 		CreateAssetCall,
@@ -302,7 +302,7 @@ impl<
 		ConvertAssetId,
 		GatewayProxyAddress,
 		EthereumUniversalLocation,
-		GlobalAssetHubLocation,
+		AssetHubFromEthereum,
 	>
 where
 	CreateAssetCall: Get<CallIndex>,
@@ -312,7 +312,7 @@ where
 	ConvertAssetId: MaybeEquivalence<TokenId, Location>,
 	GatewayProxyAddress: Get<H160>,
 	EthereumUniversalLocation: Get<InteriorLocation>,
-	GlobalAssetHubLocation: Get<Location>,
+	AssetHubFromEthereum: Get<Location>,
 {
 	fn convert(message: Message) -> Result<Xcm<()>, ConvertMessageError> {
 		let message = Self::prepare(message)?;
