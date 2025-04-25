@@ -204,8 +204,8 @@ pub mod prelude {
 	pub use frame_support::dispatch::{GetDispatchInfo, PostDispatchInfo};
 	pub use frame_support::{
 		defensive, defensive_assert,
-    tokens::{Fortitude, Precision},
 		traits::{
+			tokens::{Fortitude, Precision},
 			Contains, Defensive, DefensiveSaturating, EitherOf, EstimateNextSessionRotation,
 			Everything, InsideBoth, InstanceFilter, IsSubType, MapSuccess, NoOpPoll,
 			OnRuntimeUpgrade, OneSessionHandler, RankedMembers, RankedMembersSwapHandler,
