@@ -13,8 +13,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use emulated_integration_tests_common::xcm_emulator::{
-	find_all_xcm_topic_ids, find_xcm_sent_message_id, helpers::TopicIdTracker,
+use emulated_integration_tests_common::{
+	xcm_emulator::{find_all_xcm_topic_ids, helpers::TopicIdTracker},
+	xcm_helpers::find_xcm_sent_message_id,
 };
 use westend_system_emulated_network::westend_emulated_chain::westend_runtime::Dmp;
 
@@ -99,8 +100,6 @@ fn para_to_ah_transfer_assets(t: ParaToSystemParaTest) -> DispatchResult {
 }
 
 fn para_to_para_transfer_assets_through_ah(t: ParaToParaThroughAHTest) -> DispatchResult {
-	type RuntimeEvent = <PenpalA as Chain>::RuntimeEvent;
-
 	let fee_idx = t.args.fee_asset_item as usize;
 	let fee: Asset = t.args.assets.inner().get(fee_idx).cloned().unwrap();
 	let asset_hub_location: Location = PenpalA::sibling_location_of(AssetHubWestend::para_id());
@@ -119,7 +118,7 @@ fn para_to_para_transfer_assets_through_ah(t: ParaToParaThroughAHTest) -> Dispat
 		t.args.weight_limit,
 	);
 
-	let msg_id_sent = find_xcm_sent_message_id!(PenpalA, RuntimeEvent::PolkadotXcm);
+	let msg_id_sent = find_xcm_sent_message_id::<PenpalA>();
 	if let Some(msg_id) = msg_id_sent {
 		TopicIdTracker::insert(msg_id.into());
 		TopicIdTracker::assert_unique();

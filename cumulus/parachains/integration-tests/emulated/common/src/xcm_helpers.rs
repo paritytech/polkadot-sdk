@@ -101,3 +101,18 @@ where
 		}
 	})
 }
+
+/// Finds the message ID of the first `pallet_xcm::Event::Sent` event in the chain's event list.
+pub fn find_xcm_sent_message_id<C: Chain>() -> Option<XcmHash>
+where
+	<C as Chain>::Runtime: pallet_xcm::Config,
+	C::RuntimeEvent: TryInto<pallet_xcm::Event<<C as Chain>::Runtime>>,
+{
+	C::events().into_iter().find_map(|event| {
+		if let Ok(pallet_xcm::Event::Sent { message_id, .. }) = event.try_into() {
+			Some(message_id)
+		} else {
+			None
+		}
+	})
+}

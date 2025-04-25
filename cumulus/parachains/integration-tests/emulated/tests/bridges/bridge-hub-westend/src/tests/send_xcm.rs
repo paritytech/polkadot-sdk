@@ -14,8 +14,8 @@
 // limitations under the License.
 
 use emulated_integration_tests_common::{
-	xcm_emulator::{find_xcm_sent_message_id, helpers::TopicIdTracker},
-	xcm_helpers::find_mq_processed_id,
+	xcm_emulator::helpers::TopicIdTracker,
+	xcm_helpers::{find_mq_processed_id, find_xcm_sent_message_id},
 };
 use rococo_westend_system_emulated_network::westend_emulated_chain::westend_runtime::Dmp;
 
@@ -183,8 +183,7 @@ fn xcm_persists_set_topic_across_hops() {
 			}
 
 			// Track actual emitted XCM message ID
-			type RuntimeEvent = <Westend as Chain>::RuntimeEvent;
-			if let Some(emitted_id) = find_xcm_sent_message_id!(Westend, RuntimeEvent::XcmPallet) {
+			if let Some(emitted_id) = find_xcm_sent_message_id::<Westend>() {
 				TopicIdTracker::insert(emitted_id.into());
 			}
 		});
