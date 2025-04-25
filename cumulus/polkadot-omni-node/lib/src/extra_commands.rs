@@ -20,7 +20,7 @@
 ///   [`DefaultExtraSubcommands`] to `run_with_custom_cli`, which injects that one command.
 /// * Binaries that should stay minimal pass [`NoExtraSubcommand`], which requests no extras at
 ///   all.
-use clap::{FromArgMatches, Parser};
+use clap::Parser;
 use sc_cli::{ExportChainSpecCmd, Result};
 
 use crate::RunConfig;

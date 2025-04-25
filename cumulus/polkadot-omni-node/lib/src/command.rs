@@ -25,12 +25,12 @@ use crate::{
 		types::Block,
 		NodeBlock, NodeExtraArgs,
 	},
-	extra_commands::{DefaultExtraSubcommands, ExtraSubcommand, NoExtraSubcommand},
+	extra_commands::{DefaultExtraSubcommands, ExtraSubcommand},
 	fake_runtime_api,
 	nodes::DynNodeSpecExt,
 	runtime::BlockNumber,
 };
-use clap::{command, Args, Command, CommandFactory, FromArgMatches};
+use clap::{Args, CommandFactory, FromArgMatches};
 #[cfg(feature = "runtime-benchmarks")]
 use cumulus_client_service::storage_proof_size::HostFunctions as ReclaimHostFunctions;
 use cumulus_primitives_core::ParaId;
