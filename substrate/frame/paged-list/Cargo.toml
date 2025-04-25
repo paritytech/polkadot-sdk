@@ -28,6 +28,7 @@ std = [
 	"codec/std",
 	"frame/std",
 	"scale-info/std",
+	"sp-metadata-ir/std",
 ]
 
 runtime-benchmarks = [
