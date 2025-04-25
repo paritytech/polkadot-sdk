@@ -134,8 +134,31 @@ jobs:
         run: |
           # Fixes "detected dubious ownership" error in the ci
           git config --global --add safe.directory '*'
+<<<<<<< HEAD
           python3 scripts/generate-umbrella.py --sdk . --version 0.1.0
           cargo +nightly fmt --all
+=======
+
+          # Ensure jq is installed
+          if ! command -v jq &> /dev/null; then
+            echo "Installing jq..."
+            apt-get update && apt-get install -y jq
+          fi
+
+          # Extract the umbrella crate version dynamically from cargo metadata
+          UMBRELLA_VERSION=$(cargo metadata --format-version=1 | jq -r '.packages[] | select(.manifest_path | endswith("umbrella/Cargo.toml")) | .version')
+          
+          if [ -z "$UMBRELLA_VERSION" ]; then
+            echo "Warning: Could not determine umbrella version from cargo metadata, using fallback version 0.1.0"
+            UMBRELLA_VERSION="0.1.0"
+          fi
+
+          echo "Using umbrella crate version: $UMBRELLA_VERSION"
+
+          python3 scripts/generate-umbrella.py --sdk . --version "$UMBRELLA_VERSION"
+
+          cargo +nightly fmt -p polkadot-sdk
+>>>>>>> c854f7c6 (Check umbrella version (#8250))
 
           if [ -n "$(git status --porcelain)" ]; then
             cat <<EOF
