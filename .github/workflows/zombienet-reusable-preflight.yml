@@ -249,7 +249,8 @@ jobs:
           if [[ ${{ github.event_name }} == "merge_group" ]]; then export SHA="${GITHUB_SHA::8}"; fi
           DELAYER=10
           while true; do
-            STATUS=$(gh run ls -c $SHA -w "Build and push images" --json name,status --jq '.[] | select(.name == "Build and push images") | .status')
+            # In case of multiple runs take the most recent one (with greatest databaseId)
+            STATUS=$(gh run ls -c $SHA -w "Build and push images" --json status,databaseId --jq 'max_by(.databaseId) | .status')
             echo "CI workflow status: $STATUS"
             if [[ $STATUS == "completed" ]]; then
               echo "CI workflow is done."
@@ -264,7 +265,7 @@ jobs:
           done
 
           #check if the build succeeded
-          RUN_INFO=($(gh run ls -c $SHA -w "Build and push images" --json name,conclusion,databaseId --jq '.[] | select(.name == "Build and push images") | .conclusion, .databaseId'))
+          RUN_INFO=($(gh run ls -c $SHA -w "Build and push images" --json conclusion,databaseId --jq 'max_by(.databaseId) | .conclusion, .databaseId'))
           CONCLUSION=${RUN_INFO[@]:0:1}
           BUILD_RUN_ID=${RUN_INFO[@]:1:1}
           if [[ $CONCLUSION == "success" ]]; then
