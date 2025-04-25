@@ -53,6 +53,14 @@ static_assertions = { workspace = true }
 default = ["std"]
 std = [
 	"sp-crypto-hashing/std",
+	"frame-support/std",
+	"frame-system/std",
+	"sp-core/std",
+	"sp-io/std",
+	"sp-metadata-ir/std",
+	"sp-runtime/std",
+	"codec/std",
+	"scale-info/std"
 ]
 no-metadata-docs = []
 experimental = []

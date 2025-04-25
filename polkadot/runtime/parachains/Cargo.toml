@@ -149,6 +149,7 @@ try-runtime = [
 	"pallet-timestamp/try-runtime",
 	"pallet-vesting/try-runtime",
 	"sp-runtime/try-runtime",
+	"frame-support-test/try-runtime"
 ]
 runtime-metrics = [
 	"polkadot-runtime-metrics/runtime-metrics",

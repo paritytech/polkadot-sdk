@@ -68,6 +68,9 @@ std = [
 	"sp-trie/std",
 	"tuplex/std",
 	"xcm/std",
+	"bp-test-utils/std",
+	"pallet-balances/std",
+	"sp-core/std"
 ]
 runtime-benchmarks = [
 	"bp-runtime/test-helpers",
@@ -81,6 +84,7 @@ runtime-benchmarks = [
 	"pallet-utility/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"sp-trie",
+	"pallet-balances/runtime-benchmarks"
 ]
 integrity-test = ["static_assertions"]
 test-helpers = ["bp-runtime/test-helpers", "sp-trie"]

@@ -93,14 +93,17 @@ std = [
 	"sp-std/std",
 	"sp-tracing/std",
 	"sp-weights/std",
+	"sp-timestamp/std"
 ]
 runtime-benchmarks = [
 	"sp-runtime/runtime-benchmarks",
 	"sp-staking/runtime-benchmarks",
+	"frame-system/runtime-benchmarks"
 ]
 try-runtime = [
 	"sp-debug-derive/force-debug",
 	"sp-runtime/try-runtime",
+	"frame-system/try-runtime"
 ]
 experimental = [
 	"frame-support-procedural/experimental",

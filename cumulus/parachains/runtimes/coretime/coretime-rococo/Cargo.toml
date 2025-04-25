@@ -140,6 +140,7 @@ std = [
 	"xcm-executor/std",
 	"xcm-runtime-apis/std",
 	"xcm/std",
+	"parachains-runtimes-test-utils/std"
 ]
 
 runtime-benchmarks = [
