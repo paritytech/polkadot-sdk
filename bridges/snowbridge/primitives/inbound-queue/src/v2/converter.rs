@@ -194,8 +194,7 @@ where
 		Ok(prepared_message)
 	}
 
-	/// Get the bridge owner account ID from the current Ethereum network chain ID.
-	/// Returns an error if the network is not Ethereum.
+	/// Get sovereign account of Ethereum on Asset Hub.
 	fn bridge_owner() -> Result<AccountId, ConvertMessageError> {
 		let account =
 			ExternalConsensusLocationsConverterFor::<AssetHubUniversalLocation, AccountId>::convert_location(
