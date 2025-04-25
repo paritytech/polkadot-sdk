@@ -24,7 +24,7 @@ use crate::{
 	LOG_TARGET,
 };
 use alloc::vec::Vec;
-use codec::{Decode, Encode};
+use codec::{Decode, DecodeWithMemTracking, Encode};
 use frame_support::{
 	dispatch::{DispatchInfo, GetDispatchInfo},
 	traits::{ExtrinsicCall, InherentBuilder, SignedTransactionBuilder},
@@ -39,7 +39,7 @@ use sp_runtime::{
 		TransactionExtension,
 	},
 	transaction_validity::{InvalidTransaction, TransactionValidityError},
-	OpaqueExtrinsic, RuntimeDebug, Saturating,
+	OpaqueExtrinsic, RuntimeDebug,
 };
 
 type CallOf<T> = <T as frame_system::Config>::RuntimeCall;
@@ -55,11 +55,11 @@ type CallOf<T> = <T as frame_system::Config>::RuntimeCall;
 /// - Not too high, ensuring the gas value is large enough (at least 7 digits) to encode the
 ///   ref_time, proof_size, and deposit into the less significant (6 lower) digits of the gas value.
 /// - Not too low, enabling users to adjust the gas price to define a tip.
-pub const GAS_PRICE: u32 = 1_000u32;
+pub(crate) const GAS_PRICE: u64 = 1_000u64;
 
 /// Wraps [`generic::UncheckedExtrinsic`] to support checking unsigned
 /// [`crate::Call::eth_transact`] extrinsic.
-#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug)]
+#[derive(Encode, Decode, DecodeWithMemTracking, Clone, PartialEq, Eq, RuntimeDebug)]
 pub struct UncheckedExtrinsic<Address, Signature, E: EthExtra>(
 	pub generic::UncheckedExtrinsic<Address, CallOf<E::Config>, Signature, E::Extension>,
 );
@@ -307,7 +307,7 @@ pub trait EthExtra {
 
 		let signer = <Self::Config as Config>::AddressMapper::to_fallback_account_id(&signer);
 		let GenericTransaction { nonce, chain_id, to, value, input, gas, gas_price, .. } =
-			GenericTransaction::from_signed(tx, None);
+			GenericTransaction::from_signed(tx, crate::GAS_PRICE.into(), None);
 
 		let Some(gas) = gas else {
 			log::debug!(target: LOG_TARGET, "No gas provided");
@@ -328,7 +328,7 @@ pub trait EthExtra {
 			InvalidTransaction::Call
 		})?;
 
-		let data = input.unwrap_or_default().0;
+		let data = input.to_vec();
 
 		let (gas_limit, storage_deposit_limit) =
 			<Self::Config as Config>::EthGasEncoder::decode(gas).ok_or_else(|| {
@@ -366,29 +366,16 @@ pub trait EthExtra {
 			}
 		};
 
+		let mut info = call.get_dispatch_info();
+		let function: CallOf<Self::Config> = call.into();
 		let nonce = nonce.unwrap_or_default().try_into().map_err(|_| InvalidTransaction::Call)?;
+		let gas_price = gas_price.unwrap_or_default();
 
-		// Fees calculated with the fixed `GAS_PRICE`
-		// When we dry-run the transaction, we set the gas to `fee / GAS_PRICE`
-		let eth_fee_no_tip = U256::from(GAS_PRICE)
-			.saturating_mul(gas)
-			.try_into()
+		let eth_fee = Pallet::<Self::Config>::evm_gas_to_fee(gas, gas_price)
 			.map_err(|_| InvalidTransaction::Call)?;
 
-		// Fees calculated from the gas and gas_price of the transaction.
-		let eth_fee = Pallet::<Self::Config>::convert_evm_to_native(
-			U256::from(gas_price.unwrap_or_default()).saturating_mul(gas),
-			ConversionPrecision::RoundUp,
-		)
-		.map_err(|err| {
-			log::debug!(target: LOG_TARGET, "Failed to compute eth_fee: {err:?}");
-			InvalidTransaction::Call
-		})?;
-
-		let info = call.get_dispatch_info();
-		let function: CallOf<Self::Config> = call.into();
-
 		// Fees calculated from the extrinsic, without the tip.
+		info.extension_weight = Self::get_eth_extension(nonce, 0u32.into()).weight(&function);
 		let actual_fee: BalanceOf<Self::Config> =
 			pallet_transaction_payment::Pallet::<Self::Config>::compute_fee(
 				encoded_len as u32,
@@ -405,7 +392,11 @@ pub trait EthExtra {
 			return Err(InvalidTransaction::Payment.into())
 		}
 
-		let tip = eth_fee.saturating_sub(eth_fee_no_tip);
+		let tip =
+			Pallet::<Self::Config>::evm_gas_to_fee(gas, gas_price.saturating_sub(GAS_PRICE.into()))
+				.unwrap_or_default()
+				.min(actual_fee);
+
 		log::debug!(target: LOG_TARGET, "Created checked Ethereum transaction with nonce: {nonce:?} and tip: {tip:?}");
 		Ok(CheckedExtrinsic {
 			format: ExtrinsicFormat::Signed(signer.into(), Self::get_eth_extension(nonce, tip)),
@@ -481,12 +472,20 @@ mod test {
 		}
 
 		fn estimate_gas(&mut self) {
-			let dry_run =
-				crate::Pallet::<Test>::bare_eth_transact(self.tx.clone(), Weight::MAX, |call| {
+			let dry_run = crate::Pallet::<Test>::bare_eth_transact(
+				self.tx.clone(),
+				Weight::MAX,
+				|call, mut info| {
 					let call = RuntimeCall::Contracts(call);
+					info.extension_weight = Extra::get_eth_extension(0, 0u32.into()).weight(&call);
 					let uxt: Ex = sp_runtime::generic::UncheckedExtrinsic::new_bare(call).into();
-					uxt.encoded_size() as u32
-				});
+					pallet_transaction_payment::Pallet::<Test>::compute_fee(
+						uxt.encoded_size() as u32,
+						&info,
+						Default::default(),
+					)
+				},
+			);
 
 			match dry_run {
 				Ok(dry_run) => {
@@ -509,7 +508,7 @@ mod test {
 		/// Create a new builder with an instantiate call.
 		fn instantiate_with(code: Vec<u8>, data: Vec<u8>) -> Self {
 			let mut builder = Self::new();
-			builder.tx.input = Some(Bytes(code.into_iter().chain(data.into_iter()).collect()));
+			builder.tx.input = Bytes(code.into_iter().chain(data.into_iter()).collect()).into();
 			builder
 		}
 
@@ -581,7 +580,7 @@ mod test {
 			crate::Call::call::<Test> {
 				dest: tx.to.unwrap(),
 				value: tx.value.unwrap_or_default().as_u64(),
-				data: tx.input.unwrap_or_default().0,
+				data: tx.input.to_vec(),
 				gas_limit,
 				storage_deposit_limit
 			}
@@ -650,7 +649,7 @@ mod test {
 
 		// Fail because the tx input fail to get the blob length
 		assert_eq!(
-			builder.mutate_estimate_and_check(Box::new(|tx| tx.input = Some(Bytes(vec![1, 2, 3])))),
+			builder.mutate_estimate_and_check(Box::new(|tx| tx.input = vec![1, 2, 3].into())),
 			Err(TransactionValidityError::Invalid(InvalidTransaction::Call))
 		);
 	}
@@ -693,9 +692,8 @@ mod test {
 					log::debug!(target: LOG_TARGET, "Gas price: {:?}", tx.gas_price);
 				}))
 				.unwrap();
-
-		let expected_tip =
-			tx.gas_price.unwrap() * tx.gas.unwrap() - U256::from(GAS_PRICE) * tx.gas.unwrap();
-		assert_eq!(U256::from(extra.1.tip()), expected_tip);
+		let diff = tx.gas_price.unwrap() - U256::from(GAS_PRICE);
+		let expected_tip = crate::Pallet::<Test>::evm_gas_to_fee(tx.gas.unwrap(), diff).unwrap();
+		assert_eq!(extra.1.tip(), expected_tip);
 	}
 }

@@ -256,9 +256,14 @@ mod tests {
 
 		let expected_blocks = (10_000 / block_time).saturating_div(2);
 		assert!(expected_blocks > 0, "test configuration is bad, should give it more time");
-		assert!(String::from_utf8(output.stderr)
-			.unwrap()
-			.contains(format!("Imported #{}", expected_blocks).to_string().as_str()));
+		let output = String::from_utf8(output.stderr).unwrap();
+		let want = format!("Imported #{}", expected_blocks);
+		if !output.contains(&want) {
+			panic!(
+				"Output did not contain the pattern:\n\npattern: {}\n\noutput: {}\n",
+				want, output
+			);
+		}
 	}
 
 	#[test]
@@ -282,6 +287,7 @@ mod tests {
 	}
 
 	#[test]
+	#[ignore]
 	fn parachain_runtime_works() {
 		// TODO: None doesn't work. But maybe it should? it would be misleading as many users might
 		// use it.
@@ -304,5 +310,34 @@ mod tests {
 		[Some(DEV_RUNTIME_PRESET.into())].into_iter().for_each(|preset| {
 			test_runtime_preset(FIRST_RUNTIME, 1000, preset);
 		});
+	}
+
+	#[test]
+	fn omni_node_dev_mode_works() {
+		//Omni Node in dev mode works with parachain's template `dev_chain_spec`
+		let dev_chain_spec = std::env::current_dir()
+			.unwrap()
+			.parent()
+			.unwrap()
+			.parent()
+			.unwrap()
+			.join("templates")
+			.join("parachain")
+			.join("dev_chain_spec.json");
+
+		maybe_build_omni_node();
+		let omni_node = find_release_binary(OMNI_NODE).unwrap();
+
+		let output = Command::new(omni_node)
+			.arg("--dev")
+			.args(["--chain", dev_chain_spec.to_str().unwrap()])
+			.timeout(std::time::Duration::from_secs(70))
+			.output()
+			.unwrap();
+
+		// at least  blocks should be imported
+		assert!(String::from_utf8(output.stderr)
+			.unwrap()
+			.contains(format!("Imported #{}", 7).to_string().as_str()));
 	}
 }

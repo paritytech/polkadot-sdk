@@ -64,6 +64,9 @@ use std::{
 
 pub use libp2p::request_response::{Config, InboundRequestId, OutboundRequestId};
 
+/// Logging target for the file.
+const LOG_TARGET: &str = "sub-libp2p::request-response";
+
 /// Periodically check if requests are taking too long.
 const PERIODIC_REQUEST_CHECK: Duration = Duration::from_secs(2);
 
@@ -461,7 +464,7 @@ impl RequestResponsesBehaviour {
 		pending_response: oneshot::Sender<Result<(Vec<u8>, ProtocolName), RequestFailure>>,
 		connect: IfDisconnected,
 	) {
-		log::trace!(target: "sub-libp2p", "send request to {target} ({protocol_name:?}), {} bytes", request.len());
+		log::trace!(target: LOG_TARGET, "send request to {target} ({protocol_name:?}), {} bytes", request.len());
 
 		if let Some(ProtocolDetails { behaviour, .. }) =
 			self.protocols.get_mut(protocol_name.deref())
@@ -478,7 +481,7 @@ impl RequestResponsesBehaviour {
 			)
 		} else if pending_response.send(Err(RequestFailure::UnknownProtocol)).is_err() {
 			log::debug!(
-				target: "sub-libp2p",
+				target: LOG_TARGET,
 				"Unknown protocol {:?}. At the same time local \
 				 node is no longer interested in the result.",
 				protocol_name,
@@ -509,7 +512,7 @@ impl RequestResponsesBehaviour {
 			debug_assert!(prev_req_id.is_none(), "Expect request id to be unique.");
 		} else if pending_response.send(Err(RequestFailure::NotConnected)).is_err() {
 			log::debug!(
-				target: "sub-libp2p",
+				target: LOG_TARGET,
 				"Not connected to peer {:?}. At the same time local \
 				 node is no longer interested in the result.",
 				target,
@@ -615,7 +618,7 @@ impl NetworkBehaviour for RequestResponsesBehaviour {
 			return behaviour.on_connection_handler_event(peer_id, connection_id, event.1)
 		} else {
 			log::warn!(
-				target: "sub-libp2p",
+				target: LOG_TARGET,
 				"on_connection_handler_event: no request-response instance registered for protocol {:?}",
 				p_name
 			);
@@ -631,14 +634,14 @@ impl NetworkBehaviour for RequestResponsesBehaviour {
 						self.protocols.get(&id.protocol)
 					else {
 						log::warn!(
-							target: "sub-libp2p",
+							target: LOG_TARGET,
 							"Request {id:?} has no protocol registered.",
 						);
 
 						if let Some(response_tx) = req.response_tx.take() {
 							if response_tx.send(Err(RequestFailure::UnknownProtocol)).is_err() {
 								log::debug!(
-									target: "sub-libp2p",
+									target: LOG_TARGET,
 									"Request {id:?} has no protocol registered. At the same time local node is no longer interested in the result.",
 								);
 							}
@@ -649,14 +652,14 @@ impl NetworkBehaviour for RequestResponsesBehaviour {
 					let elapsed = req.started_at.elapsed();
 					if elapsed > *request_timeout {
 						log::debug!(
-							target: "sub-libp2p",
+							target: LOG_TARGET,
 							"Request {id:?} force detected as timeout.",
 						);
 
 						if let Some(response_tx) = req.response_tx.take() {
 							if response_tx.send(Err(RequestFailure::Network(OutboundFailure::Timeout))).is_err() {
 								log::debug!(
-									target: "sub-libp2p",
+									target: LOG_TARGET,
 									"Request {id:?} force detected as timeout. At the same time local node is no longer interested in the result.",
 								);
 							}
@@ -688,13 +691,13 @@ impl NetworkBehaviour for RequestResponsesBehaviour {
 					if let Some(ProtocolDetails { behaviour, .. }) =
 						self.protocols.get_mut(&*protocol_name)
 					{
-						log::trace!(target: "sub-libp2p", "send response to {peer} ({protocol_name:?}), {} bytes", payload.len());
+						log::trace!(target: LOG_TARGET, "send response to {peer} ({protocol_name:?}), {} bytes", payload.len());
 
 						if behaviour.send_response(inner_channel, Ok(payload)).is_err() {
 							// Note: Failure is handled further below when receiving
 							// `InboundFailure` event from request-response [`Behaviour`].
 							log::debug!(
-								target: "sub-libp2p",
+								target: LOG_TARGET,
 								"Failed to send response for {:?} on protocol {:?} due to a \
 								 timeout or due to the connection to the peer being closed. \
 								 Dropping response",
@@ -730,7 +733,7 @@ impl NetworkBehaviour for RequestResponsesBehaviour {
 						ToSwarm::Dial { opts } => {
 							if opts.get_peer_id().is_none() {
 								log::error!(
-									target: "sub-libp2p",
+									target: LOG_TARGET,
 									"The request-response isn't supposed to start dialing addresses"
 								);
 							}
@@ -762,7 +765,7 @@ impl NetworkBehaviour for RequestResponsesBehaviour {
 
 							if reputation < BANNED_THRESHOLD {
 								log::debug!(
-									target: "sub-libp2p",
+									target: LOG_TARGET,
 									"Cannot handle requests from a node with a low reputation {}: {}",
 									peer,
 									reputation,
@@ -828,7 +831,7 @@ impl NetworkBehaviour for RequestResponsesBehaviour {
 									..
 								}) => {
 									log::trace!(
-										target: "sub-libp2p",
+										target: LOG_TARGET,
 										"received response from {peer} ({protocol:?}), {} bytes",
 										response.as_ref().map_or(0usize, |response| response.len()),
 									);
@@ -844,7 +847,7 @@ impl NetworkBehaviour for RequestResponsesBehaviour {
 								},
 								_ => {
 									log::debug!(
-										target: "sub-libp2p",
+										target: LOG_TARGET,
 										"Received `RequestResponseEvent::Message` with unexpected request id {:?} from {:?}",
 										request_id,
 										peer,
@@ -887,7 +890,7 @@ impl NetworkBehaviour for RequestResponsesBehaviour {
 											fallback_request
 										{
 											log::trace!(
-												target: "sub-libp2p",
+												target: LOG_TARGET,
 												"Request with id {:?} failed. Trying the fallback protocol. {}",
 												request_id,
 												fallback_protocol.deref()
@@ -907,7 +910,7 @@ impl NetworkBehaviour for RequestResponsesBehaviour {
 										.is_err()
 									{
 										log::debug!(
-											target: "sub-libp2p",
+											target: LOG_TARGET,
 											"Request with id {:?} failed. At the same time local \
 											 node is no longer interested in the result.",
 											request_id,
@@ -917,7 +920,7 @@ impl NetworkBehaviour for RequestResponsesBehaviour {
 								},
 								_ => {
 									log::debug!(
-										target: "sub-libp2p",
+										target: LOG_TARGET,
 										"Received `RequestResponseEvent::OutboundFailure` with unexpected request id {:?} error {:?} from {:?}",
 										request_id,
 										error,

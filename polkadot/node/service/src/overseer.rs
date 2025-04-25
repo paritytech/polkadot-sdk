@@ -72,7 +72,6 @@ pub use polkadot_node_core_prospective_parachains::ProspectiveParachainsSubsyste
 pub use polkadot_node_core_provisioner::ProvisionerSubsystem;
 pub use polkadot_node_core_pvf_checker::PvfCheckerSubsystem;
 pub use polkadot_node_core_runtime_api::RuntimeApiSubsystem;
-use polkadot_node_subsystem_util::rand::{self, SeedableRng};
 pub use polkadot_statement_distribution::StatementDistributionSubsystem;
 
 /// Arguments passed for overseer construction.
@@ -126,8 +125,6 @@ pub struct ExtendedOverseerGenArgs {
 	pub chunk_req_v1_receiver: IncomingRequestReceiver<request_v1::ChunkFetchingRequest>,
 	/// Erasure chunk request v2 receiver.
 	pub chunk_req_v2_receiver: IncomingRequestReceiver<request_v2::ChunkFetchingRequest>,
-	/// Receiver for incoming large statement requests.
-	pub statement_req_receiver: IncomingRequestReceiver<request_v1::StatementFetchingRequest>,
 	/// Receiver for incoming candidate requests.
 	pub candidate_req_v2_receiver: IncomingRequestReceiver<request_v2::AttestedCandidateRequest>,
 	/// Configuration for the approval voting subsystem.
@@ -177,7 +174,6 @@ pub fn validator_overseer_builder<Spawner, RuntimeClient>(
 		pov_req_receiver,
 		chunk_req_v1_receiver,
 		chunk_req_v2_receiver,
-		statement_req_receiver,
 		candidate_req_v2_receiver,
 		approval_voting_config,
 		dispute_req_receiver,
@@ -193,7 +189,7 @@ pub fn validator_overseer_builder<Spawner, RuntimeClient>(
 		CandidateValidationSubsystem,
 		PvfCheckerSubsystem,
 		CandidateBackingSubsystem,
-		StatementDistributionSubsystem<rand::rngs::StdRng>,
+		StatementDistributionSubsystem,
 		AvailabilityDistributionSubsystem,
 		AvailabilityRecoverySubsystem,
 		BitfieldSigningSubsystem,
@@ -319,10 +315,8 @@ where
 		))
 		.statement_distribution(StatementDistributionSubsystem::new(
 			keystore.clone(),
-			statement_req_receiver,
 			candidate_req_v2_receiver,
 			Metrics::register(registry)?,
-			rand::rngs::StdRng::from_entropy(),
 		))
 		.approval_distribution(ApprovalDistributionSubsystem::new(
 			approval_voting_parallel_metrics.approval_distribution_metrics(),
@@ -402,7 +396,6 @@ pub fn validator_with_parallel_overseer_builder<Spawner, RuntimeClient>(
 		pov_req_receiver,
 		chunk_req_v1_receiver,
 		chunk_req_v2_receiver,
-		statement_req_receiver,
 		candidate_req_v2_receiver,
 		approval_voting_config,
 		dispute_req_receiver,
@@ -418,7 +411,7 @@ pub fn validator_with_parallel_overseer_builder<Spawner, RuntimeClient>(
 		CandidateValidationSubsystem,
 		PvfCheckerSubsystem,
 		CandidateBackingSubsystem,
-		StatementDistributionSubsystem<rand::rngs::StdRng>,
+		StatementDistributionSubsystem,
 		AvailabilityDistributionSubsystem,
 		AvailabilityRecoverySubsystem,
 		BitfieldSigningSubsystem,
@@ -543,10 +536,8 @@ where
 		))
 		.statement_distribution(StatementDistributionSubsystem::new(
 			keystore.clone(),
-			statement_req_receiver,
 			candidate_req_v2_receiver,
 			Metrics::register(registry)?,
-			rand::rngs::StdRng::from_entropy(),
 		))
 		.approval_distribution(DummySubsystem)
 		.approval_voting(DummySubsystem)
@@ -600,7 +591,7 @@ pub fn collator_overseer_builder<Spawner, RuntimeClient>(
 		network_service,
 		sync_service,
 		authority_discovery_service,
-		collation_req_v1_receiver,
+		collation_req_v1_receiver: _,
 		collation_req_v2_receiver,
 		available_data_req_receiver,
 		registry,
@@ -703,7 +694,6 @@ where
 				IsParachainNode::Collator(collator_pair) => ProtocolSide::Collator {
 					peer_id: network_service.local_peer_id(),
 					collator_pair,
-					request_receiver_v1: collation_req_v1_receiver,
 					request_receiver_v2: collation_req_v2_receiver,
 					metrics: Metrics::register(registry)?,
 				},
