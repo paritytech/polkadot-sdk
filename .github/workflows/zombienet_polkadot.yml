@@ -59,7 +59,7 @@ jobs:
 
       - name: script
         run: |
-          echo "RELAY_IMAGE: $RELAY_IMAGE"
+          echo "POLKADOT_IMAGE: $POLKADOT_IMAGE"
           echo "COL_IMAGE: $COL_IMAGE"
           ls -ltr ./artifacts
           # use spot by default
