@@ -14,7 +14,7 @@
 // limitations under the License.
 
 mod aliases;
-mod bridges;
+mod bridging;
 mod claim_assets;
 mod exchange_asset;
 mod fellowship_treasury;

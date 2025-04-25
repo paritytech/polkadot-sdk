@@ -80,7 +80,7 @@ type BridgeHubWestendRuntime = <BridgeHubWestendPara as Chain>::Runtime;
 
 pub type AssetHubRococoWestendMessageHandler = BridgeMessagesHandler<
 	AssetHubRococoRuntime,
-	BridgeMessagesInstance3,
+	BridgeMessagesInstance1,
 	AssetHubWestendRuntime,
 	BridgeMessagesInstance1,
 >;
@@ -88,7 +88,7 @@ pub type AssetHubWestendRococoMessageHandler = BridgeMessagesHandler<
 	AssetHubWestendRuntime,
 	BridgeMessagesInstance1,
 	AssetHubRococoRuntime,
-	BridgeMessagesInstance3,
+	BridgeMessagesInstance1,
 >;
 pub type RococoWestendMessageHandler = BridgeMessagesHandler<
 	BridgeHubRococoRuntime,

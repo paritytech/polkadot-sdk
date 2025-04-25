@@ -30,4 +30,3 @@ xcm-builder = { workspace = true, default-features = true }
 
 # Bridges
 bp-bridge-hub-rococo = { workspace = true }
-pallet-xcm-bridge = { workspace = true }
