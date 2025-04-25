@@ -361,16 +361,13 @@ pub mod pallet {
 				})
 				.collect();
 
-			let nonce = <Nonce<T>>::try_mutate(|nonce| -> Result<u64, ProcessMessageError> {
-				*nonce = nonce.checked_add(1).ok_or_else(|| {
-					Self::deposit_event(Event::MessageRejected {
-						id: None,
-						payload: message.to_vec(),
-						error: Unsupported,
-					});
-					Unsupported
-				})?;
-				Ok(*nonce)
+			let nonce = <Nonce<T>>::get().checked_add(1).ok_or_else(|| {
+				Self::deposit_event(Event::MessageRejected {
+					id: None,
+					payload: message.to_vec(),
+					error: Unsupported,
+				});
+				Unsupported
 			})?;
 
 			let outbound_message = OutboundMessage {
@@ -420,6 +417,8 @@ pub mod pallet {
 				block_number: frame_system::Pallet::<T>::current_block_number(),
 			};
 			<PendingOrders<T>>::insert(nonce, order);
+
+			<Nonce<T>>::set(nonce);
 
 			Self::deposit_event(Event::MessageAccepted { id, nonce });
 
