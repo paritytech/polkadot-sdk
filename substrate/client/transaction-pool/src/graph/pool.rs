@@ -341,7 +341,8 @@ impl<B: ChainApi, L: EventHandler<B>> Pool<B, L> {
 		let now = Instant::now();
 		for (extrinsic, in_pool_tags) in all {
 			match in_pool_tags {
-				// reuse the tags for extrinsics that were found in the pool or given in `known_provides_tags` cache.
+				// reuse the tags for extrinsics that were found in the pool or given in
+				// `known_provides_tags` cache.
 				Some(tags) => future_tags.extend(tags),
 				// if it's not found in the pool query the runtime at parent block
 				// to get validity info and tags that the extrinsic provides.

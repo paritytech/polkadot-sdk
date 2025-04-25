@@ -910,7 +910,8 @@ where
 		}
 	}
 
-	/// Returns provides tags of given transactions in the views associated to the given set of blocks.
+	/// Returns provides tags of given transactions in the views associated to the given set of
+	/// blocks.
 	pub(crate) fn provides_tags_from_inactive_views(
 		&self,
 		block_hashes: Vec<&HashAndNumber<Block>>,
