@@ -73,9 +73,23 @@ decl_test_bridges! {
 	}
 }
 
+type AssetHubRococoRuntime = <AssetHubRococoPara as Chain>::Runtime;
+type AssetHubWestendRuntime = <AssetHubWestendPara as Chain>::Runtime;
 type BridgeHubRococoRuntime = <BridgeHubRococoPara as Chain>::Runtime;
 type BridgeHubWestendRuntime = <BridgeHubWestendPara as Chain>::Runtime;
 
+pub type AssetHubRococoWestendMessageHandler = BridgeMessagesHandler<
+	AssetHubRococoRuntime,
+	BridgeMessagesInstance1,
+	AssetHubWestendRuntime,
+	BridgeMessagesInstance1,
+>;
+pub type AssetHubWestendRococoMessageHandler = BridgeMessagesHandler<
+	AssetHubWestendRuntime,
+	BridgeMessagesInstance1,
+	AssetHubRococoRuntime,
+	BridgeMessagesInstance1,
+>;
 pub type RococoWestendMessageHandler = BridgeMessagesHandler<
 	BridgeHubRococoRuntime,
 	BridgeMessagesInstance3,
