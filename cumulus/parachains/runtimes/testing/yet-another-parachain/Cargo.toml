@@ -57,9 +57,7 @@ polkadot-runtime-common = { workspace = true }
 
 # Cumulus
 cumulus-pallet-aura-ext = { workspace = true }
-cumulus-pallet-parachain-system = { workspace = true, features = [
-	"experimental-ump-signals",
-] }
+cumulus-pallet-parachain-system = { workspace = true, features = ["experimental-ump-signals"] }
 cumulus-pallet-weight-reclaim = { workspace = true }
 cumulus-primitives-aura = { workspace = true }
 cumulus-primitives-core = { workspace = true }
