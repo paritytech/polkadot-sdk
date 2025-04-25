@@ -12514,7 +12514,6 @@ dependencies = [
  "polkadot-sdk-frame",
  "scale-info",
  "sp-metadata-ir 0.6.0",
- "sp-runtime 31.0.1",
 ]
 
 [[package]]
