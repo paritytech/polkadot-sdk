@@ -840,9 +840,9 @@ jobs:
           test: "functional::spam_statement_distribution_requests::spam_statement_distribution_requests_test"
           prefix: "polkadot"
   
-  zombienet-polkadot-approval-voting-coalescing-test:
+  zombienet-polkadot-approval-voting-coalescing:
     needs: [preflight]
-    if: ${{ (needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_polkadot) &&  ! contains(needs.preflight.outputs.FLAKY_TESTS, 'zombienet-polkadot-functional-spam-statement-distribution-requests') }}
+    if: ${{ (needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_polkadot) &&  ! contains(needs.preflight.outputs.FLAKY_TESTS, 'zombienet-polkadot-approval-voting-coalescing') }}
     runs-on: ${{ needs.preflight.outputs.ZOMBIENET_RUNNER }} # NOTE: should be zombienet-arc-runner (without quotes)
     timeout-minutes: 60
     container:
