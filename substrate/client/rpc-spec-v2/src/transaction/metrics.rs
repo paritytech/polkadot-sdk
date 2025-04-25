@@ -24,6 +24,8 @@ use prometheus_endpoint::{
 	register, CounterVec, HistogramOpts, HistogramVec, Opts, PrometheusError, Registry, U64,
 };
 
+use super::TransactionEvent;
+
 /// Histogram time buckets in microseconds.
 const HISTOGRAM_BUCKETS: [f64; 11] = [
 	5.0,
@@ -41,6 +43,8 @@ const HISTOGRAM_BUCKETS: [f64; 11] = [
 
 /// Labels for transaction status.
 pub mod labels {
+	use crate::transaction::TransactionEvent;
+
 	/// The initial state of the transaction.
 	pub const SUBMITTED: &str = "submitted";
 
@@ -56,11 +60,27 @@ pub mod labels {
 	/// Represents the `TransactionEvent::Finalized` event.
 	pub const FINALIZED: &str = "finalized";
 
-	/// Represents the `TransactionEvent::Dropped` event.
-	pub const DROPPED: &str = "dropped";
+	/// Represents the `TransactionEvent::Error` event.
+	pub const ERROR: &str = "error";
 
 	/// Represents the `TransactionEvent::Invalid` event.
 	pub const INVALID: &str = "invalid";
+
+	/// Represents the `TransactionEvent::Dropped` event.
+	pub const DROPPED: &str = "dropped";
+
+	/// Convert a transaction event to a metric label.
+	pub fn transaction_event_label<Hash>(event: &TransactionEvent<Hash>) -> &'static str {
+		match event {
+			TransactionEvent::Validated => VALIDATED,
+			TransactionEvent::BestChainBlockIncluded(Some(_)) => IN_BLOCK,
+			TransactionEvent::BestChainBlockIncluded(None) => RETRACTED,
+			TransactionEvent::Finalized(..) => FINALIZED,
+			TransactionEvent::Error(..) => ERROR,
+			TransactionEvent::Dropped(..) => DROPPED,
+			TransactionEvent::Invalid(..) => INVALID,
+		}
+	}
 }
 
 pub struct ExecutionState {
@@ -122,7 +142,13 @@ impl TransactionMetrics {
 	/// Record the execution time of a transaction state.
 	///
 	/// This represents how long it took for the transaction to move to the next state.
-	pub fn publish_and_advance_state(&self, state: &mut ExecutionState, final_state: &'static str) {
+	pub fn publish_and_advance_state<Hash>(
+		&self,
+		state: &mut ExecutionState,
+		event: &TransactionEvent<Hash>,
+	) {
+		let final_state = labels::transaction_event_label(event);
+
 		self.status.with_label_values(&[final_state]).inc();
 
 		let elapsed = state.started_at.elapsed().as_micros() as f64;

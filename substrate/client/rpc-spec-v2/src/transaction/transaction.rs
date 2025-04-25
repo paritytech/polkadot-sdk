@@ -111,16 +111,16 @@ where
 
 					let Ok(sink) = pending.accept().await.map(Subscription::from) else { return };
 
+					let event = TransactionEvent::Invalid::<BlockHash<Pool>>(TransactionError {
+						error: "Extrinsic bytes cannot be decoded".into(),
+					});
+
 					if let Some(metrics) = metrics {
 						metrics.status.with_label_values(&[labels::INVALID]).inc();
 					}
 
 					// The transaction is invalid.
-					let _ = sink
-						.send(&TransactionEvent::Invalid::<BlockHash<Pool>>(TransactionError {
-							error: "Extrinsic bytes cannot be decoded".into(),
-						}))
-						.await;
+					let _ = sink.send(&event).await;
 					return
 				},
 			};
@@ -146,7 +146,17 @@ where
 					let stream = stream
 						.filter_map(|event| {
 							let execution_state = execution_state.clone();
-							async move { handle_event(event, metrics, execution_state) }
+							let event = handle_event(event);
+
+							match (&event, &metrics) {
+								(Some(event), Some(metrics)) => {
+									let mut execution_state = execution_state.lock();
+									metrics.publish_and_advance_state(&mut execution_state, event);
+								},
+								_ => {},
+							}
+
+							async move { event }
 						})
 						.boxed();
 
@@ -171,75 +181,28 @@ where
 #[inline]
 fn handle_event<Hash: Clone, BlockHash: Clone>(
 	event: TransactionStatus<Hash, BlockHash>,
-	metrics: &Option<TransactionMetrics>,
-	execution_state: Arc<Mutex<ExecutionState>>,
 ) -> Option<TransactionEvent<BlockHash>> {
-	let mut execution_state = execution_state.lock();
 	match event {
-		TransactionStatus::Ready | TransactionStatus::Future => {
-			if let Some(metrics) = metrics {
-				metrics.publish_and_advance_state(&mut execution_state, labels::VALIDATED);
-			}
-
-			Some(TransactionEvent::<BlockHash>::Validated)
-		},
-		TransactionStatus::InBlock((hash, index)) => {
-			if let Some(metrics) = metrics {
-				metrics.publish_and_advance_state(&mut execution_state, labels::IN_BLOCK);
-			}
-
-			Some(TransactionEvent::BestChainBlockIncluded(Some(TransactionBlock { hash, index })))
-		},
-		TransactionStatus::Retracted(_) => {
-			if let Some(metrics) = metrics {
-				metrics.publish_and_advance_state(&mut execution_state, labels::RETRACTED);
-			}
-
-			Some(TransactionEvent::BestChainBlockIncluded(None))
-		},
-		TransactionStatus::FinalityTimeout(_) => {
-			if let Some(metrics) = metrics {
-				metrics.publish_and_advance_state(&mut execution_state, labels::DROPPED);
-			}
-
+		TransactionStatus::Ready | TransactionStatus::Future =>
+			Some(TransactionEvent::<BlockHash>::Validated),
+		TransactionStatus::InBlock((hash, index)) =>
+			Some(TransactionEvent::BestChainBlockIncluded(Some(TransactionBlock { hash, index }))),
+		TransactionStatus::Retracted(_) => Some(TransactionEvent::BestChainBlockIncluded(None)),
+		TransactionStatus::FinalityTimeout(_) =>
 			Some(TransactionEvent::Dropped(TransactionDropped {
 				error: "Maximum number of finality watchers has been reached".into(),
-			}))
-		},
-		TransactionStatus::Finalized((hash, index)) => {
-			if let Some(metrics) = metrics {
-				metrics.publish_and_advance_state(&mut execution_state, labels::FINALIZED);
-			}
-
-			Some(TransactionEvent::Finalized(TransactionBlock { hash, index }))
-		},
-		TransactionStatus::Usurped(_) => {
-			if let Some(metrics) = metrics {
-				metrics.publish_and_advance_state(&mut execution_state, labels::INVALID);
-			}
-
-			Some(TransactionEvent::Invalid(TransactionError {
-				error: "Extrinsic was rendered invalid by another extrinsic".into(),
-			}))
-		},
-		TransactionStatus::Dropped => {
-			if let Some(metrics) = metrics {
-				metrics.publish_and_advance_state(&mut execution_state, labels::DROPPED);
-			}
-
-			Some(TransactionEvent::Dropped(TransactionDropped {
-				error: "Extrinsic dropped from the pool due to exceeding limits".into(),
-			}))
-		},
-		TransactionStatus::Invalid => {
-			if let Some(metrics) = metrics {
-				metrics.publish_and_advance_state(&mut execution_state, labels::INVALID);
-			}
-
-			Some(TransactionEvent::Invalid(TransactionError {
-				error: "Extrinsic marked as invalid".into(),
-			}))
-		},
+			})),
+		TransactionStatus::Finalized((hash, index)) =>
+			Some(TransactionEvent::Finalized(TransactionBlock { hash, index })),
+		TransactionStatus::Usurped(_) => Some(TransactionEvent::Invalid(TransactionError {
+			error: "Extrinsic was rendered invalid by another extrinsic".into(),
+		})),
+		TransactionStatus::Dropped => Some(TransactionEvent::Dropped(TransactionDropped {
+			error: "Extrinsic dropped from the pool due to exceeding limits".into(),
+		})),
+		TransactionStatus::Invalid => Some(TransactionEvent::Invalid(TransactionError {
+			error: "Extrinsic marked as invalid".into(),
+		})),
 		// These are the events that are not supported by the new API.
 		TransactionStatus::Broadcast(_) => None,
 	}
