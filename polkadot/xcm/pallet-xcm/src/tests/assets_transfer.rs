@@ -2549,7 +2549,9 @@ fn remote_asset_reserve_and_remote_fee_reserve_paid_call<Call>(
 			},
 		]);
 		let mut sent_msg_id = None;
-		if let Some(RuntimeEvent::XcmPallet(crate::Event::Sent { message_id, .. })) = last_events(2).first() {
+		if let Some(RuntimeEvent::XcmPallet(crate::Event::Sent { message_id, .. })) =
+			last_events(2).first()
+		{
 			sent_message.0.push(SetTopic(*message_id));
 			sent_msg_id = Some(*message_id);
 		} else {
