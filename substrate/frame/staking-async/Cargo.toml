@@ -35,14 +35,21 @@ sp-staking = { features = ["serde"], workspace = true }
 frame-benchmarking = { optional = true, workspace = true }
 
 [dev-dependencies]
+anyhow = { workspace = true }
+env_logger = { workspace = true }
 frame-benchmarking = { workspace = true, default-features = true }
 frame-support = { features = ["experimental"], workspace = true, default-features = true }
+log = { workspace = true }
 pallet-bags-list = { workspace = true, default-features = true }
 pallet-balances = { workspace = true, default-features = true }
 rand_chacha = { workspace = true, default-features = true }
 sp-npos-elections = { workspace = true, default-features = true }
 sp-tracing = { workspace = true, default-features = true }
 substrate-test-utils = { workspace = true }
+subxt = { workspace = true }
+subxt-signer = { workspace = true }
+tokio = { workspace = true, features = ["rt-multi-thread"] }
+zombienet-sdk = { workspace = true }
 
 [features]
 default = ["std"]
