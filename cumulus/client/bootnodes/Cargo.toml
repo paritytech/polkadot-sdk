@@ -39,3 +39,4 @@ sp-runtime = { workspace = true, default-features = true }
 cumulus-client-network = { workspace = true, default-features = true }
 cumulus-primitives-core = { workspace = true, default-features = true }
 cumulus-relay-chain-interface = { workspace = true, default-features = true }
+parachains-common = { workspace = true, default-features = true }

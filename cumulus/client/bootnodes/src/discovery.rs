@@ -34,12 +34,13 @@
 
 use crate::schema::Response;
 use codec::{CompactRef, Decode, Encode};
-use cumulus_primitives_core::{relay_chain::Hash, ParaId};
+use cumulus_primitives_core::{relay_chain::Hash as RelayHash, ParaId};
 use cumulus_relay_chain_interface::{RelayChainError, RelayChainInterface, RelayChainResult};
 use futures::{
 	channel::oneshot, future::BoxFuture, pin_mut, stream::FuturesUnordered, FutureExt, StreamExt,
 };
 use log::{debug, error, info, trace, warn};
+use parachains_common::Hash as ParaHash;
 use prost::Message;
 use sc_network::{
 	event::{DhtEvent, Event},
@@ -63,7 +64,7 @@ pub struct BootnodeDiscoveryParams {
 	/// Parachain node network service.
 	pub parachain_network: Arc<dyn NetworkService>,
 	/// Parachain genesis hash.
-	pub parachain_genesis_hash: Vec<u8>,
+	pub parachain_genesis_hash: ParaHash,
 	/// Parachain fork ID.
 	pub parachain_fork_id: Option<String>,
 	/// Relay chain interface.
@@ -78,11 +79,11 @@ pub struct BootnodeDiscoveryParams {
 pub struct BootnodeDiscovery {
 	para_id_scale_compact: Vec<u8>,
 	parachain_network: Arc<dyn NetworkService>,
-	parachain_genesis_hash: Vec<u8>,
+	parachain_genesis_hash: ParaHash,
 	parachain_fork_id: Option<String>,
 	relay_chain_interface: Arc<dyn RelayChainInterface>,
 	relay_chain_network: Arc<dyn NetworkService>,
-	latest_relay_chain_hash: Option<Hash>,
+	latest_relay_chain_hash: Option<RelayHash>,
 	key_being_discovered: Option<KademliaKey>,
 	paranode_protocol_name: ProtocolName,
 	pending_responses: FuturesUnordered<
@@ -128,7 +129,7 @@ impl BootnodeDiscovery {
 		}
 	}
 
-	async fn current_epoch(&mut self, hash: Hash) -> RelayChainResult<Epoch> {
+	async fn current_epoch(&mut self, hash: RelayHash) -> RelayChainResult<Epoch> {
 		let res = self
 			.relay_chain_interface
 			.call_runtime_api("BabeApi_current_epoch", hash, &[])
@@ -306,7 +307,7 @@ impl BootnodeDiscovery {
 
 		match (response.genesis_hash, response.fork_id) {
 			(genesis_hash, fork_id)
-				if genesis_hash == self.parachain_genesis_hash &&
+				if genesis_hash == self.parachain_genesis_hash.as_ref() &&
 					fork_id == self.parachain_fork_id => {},
 			(genesis_hash, fork_id) => {
 				warn!(
@@ -315,7 +316,7 @@ impl BootnodeDiscovery {
 					 genesis hash {}, fork ID {:?} don't match expected genesis hash {}, fork ID {:?}",
 					hex::encode(genesis_hash),
 					fork_id,
-					hex::encode(self.parachain_genesis_hash.clone()),
+					hex::encode(self.parachain_genesis_hash),
 					self.parachain_fork_id,
 				);
 				return;

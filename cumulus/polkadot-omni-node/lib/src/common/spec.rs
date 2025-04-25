@@ -413,7 +413,7 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 				request_receiver: paranode_rx,
 				parachain_network: network,
 				advertise_non_global_ips,
-				parachain_genesis_hash: client.chain_info().genesis_hash.as_ref().to_vec(),
+				parachain_genesis_hash: client.chain_info().genesis_hash,
 				parachain_fork_id,
 				parachain_public_addresses,
 			});

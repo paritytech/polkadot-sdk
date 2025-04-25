@@ -19,13 +19,14 @@
 
 use codec::{Compact, CompactRef, Decode, Encode};
 use cumulus_primitives_core::{
-	relay_chain::{Hash, Header},
+	relay_chain::{Hash as RelayHash, Header as RelayHeader},
 	ParaId,
 };
 use cumulus_relay_chain_interface::{RelayChainInterface, RelayChainResult};
 use futures::{future::Fuse, pin_mut, FutureExt, StreamExt};
 use ip_network::IpNetwork;
 use log::{debug, error, trace, warn};
+use parachains_common::Hash as ParaHash;
 use prost::Message;
 use sc_network::{
 	config::OutgoingResponse,
@@ -64,7 +65,7 @@ pub struct BootnodeAdvertisementParams {
 	/// Whether to advertise non-global IPs.
 	pub advertise_non_global_ips: bool,
 	/// Parachain genesis hash.
-	pub parachain_genesis_hash: Vec<u8>,
+	pub parachain_genesis_hash: ParaHash,
 	/// Parachain fork ID.
 	pub parachain_fork_id: Option<String>,
 	/// Parachain side public addresses.
@@ -84,7 +85,7 @@ pub struct BootnodeAdvertisement {
 	request_receiver: async_channel::Receiver<IncomingRequest>,
 	parachain_network: Arc<dyn NetworkService>,
 	advertise_non_global_ips: bool,
-	parachain_genesis_hash: Vec<u8>,
+	parachain_genesis_hash: ParaHash,
 	parachain_fork_id: Option<String>,
 	public_addresses: Vec<Multiaddr>,
 }
@@ -143,7 +144,7 @@ impl BootnodeAdvertisement {
 		}
 	}
 
-	async fn current_epoch(&self, hash: Hash) -> RelayChainResult<Epoch> {
+	async fn current_epoch(&self, hash: RelayHash) -> RelayChainResult<Epoch> {
 		let res = self
 			.relay_chain_interface
 			.call_runtime_api("BabeApi_current_epoch", hash, &[])
@@ -151,7 +152,7 @@ impl BootnodeAdvertisement {
 		Decode::decode(&mut &*res).map_err(Into::into)
 	}
 
-	async fn next_epoch(&self, hash: Hash) -> RelayChainResult<Epoch> {
+	async fn next_epoch(&self, hash: RelayHash) -> RelayChainResult<Epoch> {
 		let res = self
 			.relay_chain_interface
 			.call_runtime_api("BabeApi_next_epoch", hash, &[])
@@ -170,7 +171,7 @@ impl BootnodeAdvertisement {
 
 	async fn current_and_next_epoch_keys(
 		&self,
-		header: Header,
+		header: RelayHeader,
 	) -> (Option<KademliaKey>, Option<KademliaKey>) {
 		let hash = header.hash();
 		let number = header.number();
@@ -205,7 +206,7 @@ impl BootnodeAdvertisement {
 		)
 	}
 
-	async fn handle_import_notification(&mut self, header: Header) {
+	async fn handle_import_notification(&mut self, header: RelayHeader) {
 		if let Some(ref old_current_epoch_key) = self.current_epoch_key {
 			// Readvertise on start of new epoch only.
 			let is_start_of_epoch =
@@ -441,7 +442,7 @@ impl BootnodeAdvertisement {
 			let response = crate::schema::Response {
 				peer_id: self.parachain_network.local_peer_id().to_bytes(),
 				addrs: self.paranode_addresses().iter().map(|a| a.to_vec()).collect(),
-				genesis_hash: self.parachain_genesis_hash.clone(),
+				genesis_hash: self.parachain_genesis_hash.clone().as_bytes().to_vec(),
 				fork_id: self.parachain_fork_id.clone(),
 			};
 
