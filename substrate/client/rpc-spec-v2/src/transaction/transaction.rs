@@ -199,7 +199,6 @@ fn handle_event<Hash: Clone, BlockHash: Clone>(
 		},
 		TransactionStatus::FinalityTimeout(_) => {
 			if let Some(metrics) = metrics {
-				metrics.status.with_label_values(&[labels::DROPPED]).inc();
 				metrics.publish_and_advance_state(&mut execution_state, labels::DROPPED);
 			}
 
@@ -209,7 +208,6 @@ fn handle_event<Hash: Clone, BlockHash: Clone>(
 		},
 		TransactionStatus::Finalized((hash, index)) => {
 			if let Some(metrics) = metrics {
-				metrics.status.with_label_values(&[labels::FINALIZED]).inc();
 				metrics.publish_and_advance_state(&mut execution_state, labels::FINALIZED);
 			}
 
@@ -217,7 +215,6 @@ fn handle_event<Hash: Clone, BlockHash: Clone>(
 		},
 		TransactionStatus::Usurped(_) => {
 			if let Some(metrics) = metrics {
-				metrics.status.with_label_values(&[labels::INVALID]).inc();
 				metrics.publish_and_advance_state(&mut execution_state, labels::INVALID);
 			}
 
@@ -227,7 +224,6 @@ fn handle_event<Hash: Clone, BlockHash: Clone>(
 		},
 		TransactionStatus::Dropped => {
 			if let Some(metrics) = metrics {
-				metrics.status.with_label_values(&[labels::DROPPED]).inc();
 				metrics.publish_and_advance_state(&mut execution_state, labels::DROPPED);
 			}
 
@@ -237,7 +233,6 @@ fn handle_event<Hash: Clone, BlockHash: Clone>(
 		},
 		TransactionStatus::Invalid => {
 			if let Some(metrics) = metrics {
-				metrics.status.with_label_values(&[labels::INVALID]).inc();
 				metrics.publish_and_advance_state(&mut execution_state, labels::INVALID);
 			}
 

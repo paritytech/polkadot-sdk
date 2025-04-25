@@ -123,6 +123,8 @@ impl TransactionMetrics {
 	///
 	/// This represents how long it took for the transaction to move to the next state.
 	pub fn publish_and_advance_state(&self, state: &mut ExecutionState, final_state: &'static str) {
+		self.status.with_label_values(&[final_state]).inc();
+
 		let elapsed = state.started_at.elapsed().as_micros() as f64;
 		self.execution_time
 			.with_label_values(&[state.initial_state, final_state])
