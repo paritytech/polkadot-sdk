@@ -529,6 +529,7 @@ where
 			config.blocks_pruning,
 			backend.clone(),
 			&*rpc_builder,
+			config.prometheus_registry(),
 		)
 	};
 
@@ -676,6 +677,7 @@ pub fn gen_rpc_module<TBl, TBackend, TCl, TRpc, TExPool>(
 	blocks_pruning: BlocksPruning,
 	backend: Arc<TBackend>,
 	rpc_builder: &(dyn Fn(SubscriptionTaskExecutor) -> Result<RpcModule<TRpc>, Error>),
+	registry: Option<&Registry>,
 ) -> Result<RpcModule<()>, Error>
 where
 	TBl: BlockT,
@@ -731,7 +733,8 @@ where
 		client.clone(),
 		transaction_pool.clone(),
 		task_executor.clone(),
-	)
+		registry,
+	)?
 	.into_rpc();
 
 	let chain_head_v2 = sc_rpc_spec_v2::chain_head::ChainHead::new(
