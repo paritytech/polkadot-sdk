@@ -28,7 +28,7 @@ fn ah_to_ah_open_close_bridge_works() {
 		type RuntimeEventWestend = <AssetHubWestend as Chain>::RuntimeEvent;
 		events.iter().find_map(|event| {
 			if let RuntimeEventWestend::XcmOverAssetHubRococo(
-				pallet_xcm_bridge::Event::BridgeOpened { lane_id,.. },
+				pallet_xcm_bridge::Event::BridgeOpened { lane_id, .. },
 			) = event
 			{
 				Some(*lane_id)
@@ -49,7 +49,7 @@ fn ah_to_ah_open_close_bridge_works() {
 		type RuntimeEventRococo = <AssetHubRococo as Chain>::RuntimeEvent;
 		events.iter().find_map(|event| {
 			if let RuntimeEventRococo::XcmOverAssetHubWestend(
-				pallet_xcm_bridge::Event::BridgeOpened { lane_id,.. },
+				pallet_xcm_bridge::Event::BridgeOpened { lane_id, .. },
 			) = event
 			{
 				Some(*lane_id)
@@ -60,10 +60,10 @@ fn ah_to_ah_open_close_bridge_works() {
 	});
 	assert!(rococo_bridge_opened_lane_id.is_some(), "Rococo BridgeOpened event not found");
 
-    // check the same lane ID is generated
+	// check the same lane ID is generated
 	assert_eq!(westend_bridge_opened_lane_id, rococo_bridge_opened_lane_id);
 
-	// close bridges  
+	// close bridges
 	let westend_bridge_pruned_lane_id = AssetHubWestend::execute_with(|| {
 		assert_ok!(
 			<AssetHubWestend as AssetHubWestendPallet>::XcmOverAssetHubRococo::close_bridge(
@@ -76,7 +76,7 @@ fn ah_to_ah_open_close_bridge_works() {
 		type RuntimeEventWestend = <AssetHubWestend as Chain>::RuntimeEvent;
 		events.iter().find_map(|event| {
 			if let RuntimeEventWestend::XcmOverAssetHubRococo(
-				pallet_xcm_bridge::Event::BridgePruned { lane_id,.. },
+				pallet_xcm_bridge::Event::BridgePruned { lane_id, .. },
 			) = event
 			{
 				Some(*lane_id)
@@ -97,7 +97,7 @@ fn ah_to_ah_open_close_bridge_works() {
 		type RuntimeEventRococo = <AssetHubRococo as Chain>::RuntimeEvent;
 		events.iter().find_map(|event| {
 			if let RuntimeEventRococo::XcmOverAssetHubWestend(
-				pallet_xcm_bridge::Event::BridgePruned { lane_id,.. },
+				pallet_xcm_bridge::Event::BridgePruned { lane_id, .. },
 			) = event
 			{
 				Some(*lane_id)
