@@ -25,7 +25,7 @@ use frame::{
 #[cfg(feature = "try-runtime")]
 use alloc::vec::Vec;
 #[cfg(feature = "try-runtime")]
-use frame::runtime::prelude::TryRuntimeError;
+use frame::try_runtime::TryRuntimeError;
 
 mod v0 {
 	use frame::{runtime::prelude::*, storage_alias};
