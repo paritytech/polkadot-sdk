@@ -7,9 +7,9 @@ doc:
   - audience: Runtime Dev
     description: |
       Introduced `ProofOfPossessionGenerator` and `ProofOfPossessionVerifier` traits.
-      Provided blanket implementations for all crypto `Pair` types **not** implementing
+      Provided blanket implementations for all crypto `Pair` types implementing
       the `NonAggregatable` trait. Currently, this includes all cryptographic types
-      **except** the experimental BLS types, which have dedicated implementations.
+      **except** the experimental BLS, which have dedicated implementations.
       Implemented `ProofOfPossessionVerifier` for all application-level crypto wrappers
       from the `sp-application-crypto`crate.
       Enabled PoP generation for all `RuntimePublic` crypto types, allowing PoP generation
