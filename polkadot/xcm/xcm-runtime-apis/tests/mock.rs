@@ -151,7 +151,11 @@ impl InspectMessageQueues for TestXcmSender {
 }
 
 pub(crate) fn fake_message_hash<Call>(message: &Xcm<Call>) -> XcmHash {
-	message.using_encoded(sp_io::hashing::blake2_256)
+	if let Some(SetTopic(topic_id)) = message.last() {
+		*topic_id
+	} else {
+		message.using_encoded(sp_io::hashing::blake2_256)
+	}
 }
 
 pub type XcmRouter = TestXcmSender;

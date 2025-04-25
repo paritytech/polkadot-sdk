@@ -45,6 +45,8 @@ pub struct XcmDryRunEffects<Event> {
 	pub emitted_events: Vec<Event>,
 	/// List of queued messages for sending.
 	pub forwarded_xcms: Vec<(VersionedLocation, Vec<VersionedXcm<()>>)>,
+	/// The topic ID associated with forwarded XCM messages.
+	pub forwarded_topic_id: XcmHash,
 }
 
 sp_api::decl_runtime_apis! {

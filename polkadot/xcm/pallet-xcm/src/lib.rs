@@ -2898,7 +2898,12 @@ impl<T: Config> Pallet<T> {
 			frame_system::Pallet::<Runtime>::read_events_no_consensus()
 				.map(|record| record.event.clone())
 				.collect();
-		Ok(XcmDryRunEffects { forwarded_xcms, emitted_events: events, execution_result: result })
+		Ok(XcmDryRunEffects {
+			forwarded_xcms,
+			forwarded_topic_id: hash,
+			emitted_events: events,
+			execution_result: result,
+		})
 	}
 
 	fn convert_xcms(

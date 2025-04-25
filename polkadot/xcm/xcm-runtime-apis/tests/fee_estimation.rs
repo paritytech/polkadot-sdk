@@ -392,6 +392,7 @@ fn dry_run_xcm_common(xcm_version: XcmVersion) {
 			)
 			.unwrap()
 			.unwrap();
+		let expected_msg_id = dry_run_effects.forwarded_topic_id;
 		let expected_xcms = Xcm::<()>::builder_unsafe()
 			.reserve_asset_deposited((
 				(Parent, Parachain(2000)),
@@ -400,8 +401,8 @@ fn dry_run_xcm_common(xcm_version: XcmVersion) {
 			.clear_origin()
 			.buy_execution((Here, 1u128), Unlimited)
 			.deposit_asset(AllCounted(1), [0u8; 32])
+			.set_topic(expected_msg_id)
 			.build();
-		let expected_msg_id = fake_message_hash(&expected_xcms);
 		assert_eq!(
 			dry_run_effects.forwarded_xcms,
 			vec![(
