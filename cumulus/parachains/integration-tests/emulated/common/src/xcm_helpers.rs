@@ -17,7 +17,9 @@
 use parachains_common::AccountId;
 
 // Polkadot
+use sp_core::H256;
 use xcm::{prelude::*, DoubleEncoded};
+use xcm_emulator::Chain;
 
 /// Helper method to build a XCM with a `Transact` instruction and paying for its execution
 pub fn xcm_transact_paid_execution(
@@ -83,4 +85,19 @@ pub fn get_amount_from_versioned_assets(assets: VersionedAssets) -> u128 {
 		unreachable!("asset is non-fungible");
 	};
 	amount
+}
+
+/// Finds the ID of the first `MessageQueue::Processed` event in the chain's event list.
+pub fn find_mq_processed_id<C: Chain>() -> Option<H256>
+where
+	<C as Chain>::Runtime: pallet_message_queue::Config,
+	C::RuntimeEvent: TryInto<pallet_message_queue::Event<<C as Chain>::Runtime>>,
+{
+	C::events().into_iter().find_map(|event| {
+		if let Ok(pallet_message_queue::Event::Processed { id, .. }) = event.try_into() {
+			Some(id)
+		} else {
+			None
+		}
+	})
 }

@@ -13,9 +13,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use emulated_integration_tests_common::xcm_emulator::{
-	find_xcm_sent_message_id,
-	helpers::{find_mq_processed_id, TopicIdTracker},
+use emulated_integration_tests_common::{
+	xcm_emulator::{find_xcm_sent_message_id, helpers::TopicIdTracker},
+	xcm_helpers::find_mq_processed_id,
 };
 use rococo_westend_system_emulated_network::westend_emulated_chain::westend_runtime::Dmp;
 
@@ -191,8 +191,7 @@ fn xcm_persists_set_topic_across_hops() {
 
 		// Track processed topic ID on BridgeHubWestend
 		BridgeHubWestend::execute_with(|| {
-			type RuntimeEvent = <BridgeHubWestend as Chain>::RuntimeEvent;
-			if let Some(processed_id) = find_mq_processed_id() {
+			if let Some(processed_id) = find_mq_processed_id::<BridgeHubWestend>() {
 				TopicIdTracker::insert(processed_id);
 			}
 		});
