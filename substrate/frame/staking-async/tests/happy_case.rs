@@ -185,6 +185,8 @@ async fn happy_case() -> Result<(), anyhow::Error> {
 	let mut test_state = TestState::new();
 
 	log::info!("Set validator count to 500");
+	// Validator count is set in the chainspec but for a still unknown reason the value doesn't get
+	// set in the storage item. Once this mystery is solved this call should be removed.
 	set_validator_count(&ah_next_client, 500).await?;
 
 	log::info!("Activate AH Client");
@@ -284,7 +286,7 @@ async fn happy_case() -> Result<(), anyhow::Error> {
 	Ok(())
 }
 
-/// Sets `ValidatorCount` in staking pallet to 500.
+/// Sets `ValidatorCount` in staking pallet to `validator_count`.
 async fn set_validator_count(
 	ah_client: &OnlineClient<PolkadotConfig>,
 	validator_count: u32,
