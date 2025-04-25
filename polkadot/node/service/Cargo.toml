@@ -1,7 +1,7 @@
 [package]
 name = "polkadot-service"
 rust-version = "1.60"
-version = "7.0.0"
+version = "7.0.1"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -146,9 +146,7 @@ tempfile = { workspace = true }
 
 [features]
 default = ["db", "full-node"]
-
 db = ["sc-service/rocksdb"]
-
 full-node = [
 	"kvdb-rocksdb",
 	"parity-db",

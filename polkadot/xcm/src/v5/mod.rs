@@ -21,12 +21,12 @@ use super::v4::{
 	Instruction as OldInstruction, PalletInfo as OldPalletInfo,
 	QueryResponseInfo as OldQueryResponseInfo, Response as OldResponse, Xcm as OldXcm,
 };
-use crate::DoubleEncoded;
+use crate::{utils::decode_xcm_instructions, DoubleEncoded};
 use alloc::{vec, vec::Vec};
 use bounded_collections::{parameter_types, BoundedVec};
 use codec::{
-	self, decode_vec_with_len, Compact, Decode, DecodeWithMemTracking, Encode, Error as CodecError,
-	Input as CodecInput, MaxEncodedLen,
+	self, Decode, DecodeWithMemTracking, Encode, Error as CodecError, Input as CodecInput,
+	MaxEncodedLen,
 };
 use core::{fmt::Debug, result};
 use derive_where::derive_where;
@@ -66,25 +66,9 @@ pub type QueryId = u64;
 #[scale_info(bounds(), skip_type_params(Call))]
 pub struct Xcm<Call>(pub Vec<Instruction<Call>>);
 
-pub const MAX_INSTRUCTIONS_TO_DECODE: u8 = 100;
-
-environmental::environmental!(instructions_count: u8);
-
 impl<Call> Decode for Xcm<Call> {
 	fn decode<I: CodecInput>(input: &mut I) -> core::result::Result<Self, CodecError> {
-		instructions_count::using_once(&mut 0, || {
-			let number_of_instructions: u32 = <Compact<u32>>::decode(input)?.into();
-			instructions_count::with(|count| {
-				*count = count.saturating_add(number_of_instructions as u8);
-				if *count > MAX_INSTRUCTIONS_TO_DECODE {
-					return Err(CodecError::from("Max instructions exceeded"))
-				}
-				Ok(())
-			})
-			.expect("Called in `using` context and thus can not return `None`; qed")?;
-			let decoded_instructions = decode_vec_with_len(input, number_of_instructions as usize)?;
-			Ok(Self(decoded_instructions))
-		})
+		Ok(Xcm(decode_xcm_instructions(input)?))
 	}
 }
 
@@ -202,7 +186,7 @@ pub mod prelude {
 			InteriorLocation,
 			Junction::{self, *},
 			Junctions::{self, Here},
-			Location, MaybeErrorCode,
+			Location, MaxAssetTransferFilters, MaybeErrorCode,
 			NetworkId::{self, *},
 			OriginKind, Outcome, PalletInfo, Parent, ParentThen, PreparedMessage, QueryId,
 			QueryResponseInfo, Reanchorable, Response, Result as XcmResult, SendError, SendResult,
@@ -226,6 +210,7 @@ pub mod prelude {
 parameter_types! {
 	pub MaxPalletNameLen: u32 = 48;
 	pub MaxPalletsInfo: u32 = 64;
+	pub MaxAssetTransferFilters: u32 = 6;
 }
 
 #[derive(
@@ -1055,10 +1040,11 @@ pub enum Instruction<Call> {
 	/// Errors: If the given origin is `Some` and not equal to the current Origin register.
 	UnpaidExecution { weight_limit: WeightLimit, check_origin: Option<Location> },
 
-	/// Pay Fees.
+	/// Takes an asset, uses it to pay for execution and puts the rest in the fees register.
 	///
 	/// Successor to `BuyExecution`.
-	/// Defined in fellowship RFC 105.
+	/// Defined in [Fellowship RFC 105](https://github.com/polkadot-fellows/RFCs/pull/105).
+	/// Subsequent `PayFees` after the first one are noops.
 	#[builder(pays_fees)]
 	PayFees { asset: Asset },
 
@@ -1112,7 +1098,7 @@ pub enum Instruction<Call> {
 		destination: Location,
 		remote_fees: Option<AssetTransferFilter>,
 		preserve_origin: bool,
-		assets: Vec<AssetTransferFilter>,
+		assets: BoundedVec<AssetTransferFilter, MaxAssetTransferFilters>,
 		remote_xcm: Xcm<()>,
 	},
 
@@ -1509,8 +1495,11 @@ impl<Call> TryFrom<OldInstruction<Call>> for Instruction<Call> {
 #[cfg(test)]
 mod tests {
 	use super::{prelude::*, *};
-	use crate::v4::{
-		AssetFilter as OldAssetFilter, Junctions::Here as OldHere, WildAsset as OldWildAsset,
+	use crate::{
+		v4::{
+			AssetFilter as OldAssetFilter, Junctions::Here as OldHere, WildAsset as OldWildAsset,
+		},
+		MAX_INSTRUCTIONS_TO_DECODE,
 	};
 
 	#[test]

@@ -48,11 +48,16 @@ mod benchmarking;
 #[cfg(feature = "bridging")]
 pub mod bridging;
 pub mod weights;
+pub mod weights_ext;
+
 pub use weights::WeightInfo;
+#[cfg(feature = "std")]
+pub use weights_ext::check_weight_info_ext_accuracy;
+pub use weights_ext::WeightInfoExt;
 
 extern crate alloc;
 
-use alloc::vec::Vec;
+use alloc::{collections::BTreeSet, vec, vec::Vec};
 use bounded_collections::BoundedBTreeSet;
 use codec::{Decode, DecodeLimit, Encode, MaxEncodedLen};
 use cumulus_primitives_core::{
@@ -62,7 +67,10 @@ use cumulus_primitives_core::{
 
 use frame_support::{
 	defensive, defensive_assert,
-	traits::{Defensive, EnqueueMessage, EnsureOrigin, Get, QueueFootprint, QueuePausedQuery},
+	traits::{
+		BatchFootprint, Defensive, EnqueueMessage, EnsureOrigin, Get, QueueFootprint,
+		QueueFootprintQuery, QueuePausedQuery,
+	},
 	weights::{Weight, WeightMeter},
 	BoundedVec,
 };
@@ -86,6 +94,8 @@ pub type MaxXcmpMessageLenOf<T> =
 
 const LOG_TARGET: &str = "xcmp_queue";
 const DEFAULT_POV_SIZE: u64 = 64 * 1024; // 64 KB
+/// The size of an XCM messages batch.
+pub const XCM_BATCH_SIZE: usize = 250;
 
 /// Constants related to delivery fee calculation
 pub mod delivery_fee_constants {
@@ -112,6 +122,7 @@ pub mod pallet {
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		/// Information on the available XCMP channels.
@@ -124,7 +135,8 @@ pub mod pallet {
 		///
 		/// This defines the maximal message length via [`crate::MaxXcmpMessageLenOf`]. The pallet
 		/// assumes that this hook will eventually process all the pushed messages.
-		type XcmpQueue: EnqueueMessage<ParaId>;
+		type XcmpQueue: EnqueueMessage<ParaId>
+			+ QueueFootprintQuery<ParaId, MaxMessageLen = MaxXcmpMessageLenOf<Self>>;
 
 		/// The maximum number of inbound XCMP channels that can be suspended simultaneously.
 		///
@@ -164,7 +176,7 @@ pub mod pallet {
 		type PriceForSiblingDelivery: PriceForMessageDelivery<Id = ParaId>;
 
 		/// The weight information of this pallet.
-		type WeightInfo: WeightInfo;
+		type WeightInfo: WeightInfoExt;
 	}
 
 	#[pallet::call]
@@ -528,11 +540,7 @@ impl<T: Config> Pallet<T> {
 					recipient,
 					channel_details.last_index - 1,
 					|page| {
-						if XcmpMessageFormat::decode_with_depth_limit(
-							MAX_XCM_DECODE_DEPTH,
-							&mut &page[..],
-						) != Ok(format)
-						{
+						if XcmpMessageFormat::decode(&mut &page[..]) != Ok(format) {
 							defensive!("Bad format in outbound queue; dropping message");
 							return Err(())
 						}
@@ -638,28 +646,67 @@ impl<T: Config> Pallet<T> {
 		});
 	}
 
-	fn enqueue_xcmp_message(
+	fn enqueue_xcmp_messages(
 		sender: ParaId,
-		xcm: BoundedVec<u8, MaxXcmpMessageLenOf<T>>,
+		xcms: &[BoundedVec<u8, MaxXcmpMessageLenOf<T>>],
 		meter: &mut WeightMeter,
 	) -> Result<(), ()> {
-		if meter.try_consume(T::WeightInfo::enqueue_xcmp_message()).is_err() {
-			defensive!("Out of weight: cannot enqueue XCMP messages; dropping msg");
-			return Err(())
-		}
-
 		let QueueConfigData { drop_threshold, .. } = <QueueConfig<T>>::get();
-		let fp = T::XcmpQueue::footprint(sender);
-		// Assume that it will not fit into the current page:
-		let new_pages = fp.ready_pages.saturating_add(1);
-		if new_pages > drop_threshold {
-			// This should not happen since the channel should have been suspended in
-			// [`on_queue_changed`].
-			log::error!("XCMP queue for sibling {:?} is full; dropping messages.", sender);
-			return Err(())
-		}
+		let batches_footprints = T::XcmpQueue::get_batches_footprints(
+			sender,
+			xcms.iter().map(|xcm| xcm.as_bounded_slice()),
+			drop_threshold,
+		);
 
-		T::XcmpQueue::enqueue_message(xcm.as_bounded_slice(), sender);
+		// `batches_footprints[n]` contains the footprint of the batch `xcms[0..n]`,
+		// so as `n` increases `batches_footprints[n]` contains the footprint of a bigger batch.
+		let best_batch_idx = batches_footprints.binary_search_by(|batch_info| {
+			let required_weight = T::WeightInfo::enqueue_xcmp_messages(
+				batch_info.new_pages_count,
+				batch_info.msgs_count,
+				batch_info.size_in_bytes,
+			);
+
+			match meter.can_consume(required_weight) {
+				true => core::cmp::Ordering::Less,
+				false => core::cmp::Ordering::Greater,
+			}
+		});
+		let best_batch_idx = match best_batch_idx {
+			Ok(last_ok_idx) => {
+				// We should never reach this branch since we never return `Ordering::Equal`.
+				defensive!("Unexpected best_batch_idx found: Ok({})", last_ok_idx);
+				Some(last_ok_idx)
+			},
+			Err(first_err_idx) => first_err_idx.checked_sub(1),
+		};
+		let best_batch_footprint = match best_batch_idx {
+			Some(best_batch_idx) => batches_footprints.get(best_batch_idx).ok_or_else(|| {
+				defensive!("Invalid best_batch_idx: {}", best_batch_idx);
+			})?,
+			None => &BatchFootprint { msgs_count: 0, size_in_bytes: 0, new_pages_count: 0 },
+		};
+
+		meter.consume(T::WeightInfo::enqueue_xcmp_messages(
+			best_batch_footprint.new_pages_count,
+			best_batch_footprint.msgs_count,
+			best_batch_footprint.size_in_bytes,
+		));
+		T::XcmpQueue::enqueue_messages(
+			xcms.iter()
+				.take(best_batch_footprint.msgs_count)
+				.map(|xcm| xcm.as_bounded_slice()),
+			sender,
+		);
+
+		if best_batch_footprint.msgs_count < xcms.len() {
+			log::error!(
+				"Out of weight: cannot enqueue entire XCMP messages batch; \
+				dropped some or all messages in batch. Used weight: {:?}",
+				meter.consumed_ratio()
+			);
+			return Err(());
+		}
 		Ok(())
 	}
 
@@ -667,12 +714,15 @@ impl<T: Config> Pallet<T> {
 	/// individual items.
 	///
 	/// We directly encode them again since that is needed later on.
+	///
+	/// On error returns a partial batch with all the XCMs processed before the failure.
+	/// This can happen in case of a decoding/re-encoding failure.
 	pub(crate) fn take_first_concatenated_xcm(
 		data: &mut &[u8],
 		meter: &mut WeightMeter,
-	) -> Result<BoundedVec<u8, MaxXcmpMessageLenOf<T>>, ()> {
+	) -> Result<Option<BoundedVec<u8, MaxXcmpMessageLenOf<T>>>, ()> {
 		if data.is_empty() {
-			return Err(())
+			return Ok(None)
 		}
 
 		if meter.try_consume(T::WeightInfo::take_first_concatenated_xcm()).is_err() {
@@ -682,7 +732,34 @@ impl<T: Config> Pallet<T> {
 
 		let xcm = VersionedXcm::<()>::decode_with_depth_limit(MAX_XCM_DECODE_DEPTH, data)
 			.map_err(|_| ())?;
-		xcm.encode().try_into().map_err(|_| ())
+		Ok(Some(xcm.encode().try_into().map_err(|_| ())?))
+	}
+
+	/// Split concatenated encoded `VersionedXcm`s or `MaybeDoubleEncodedVersionedXcm`s into
+	/// batches.
+	///
+	/// We directly encode them again since that is needed later on.
+	pub(crate) fn take_first_concatenated_xcms(
+		data: &mut &[u8],
+		batch_size: usize,
+		meter: &mut WeightMeter,
+	) -> Result<
+		Vec<BoundedVec<u8, MaxXcmpMessageLenOf<T>>>,
+		Vec<BoundedVec<u8, MaxXcmpMessageLenOf<T>>>,
+	> {
+		let mut batch = vec![];
+		loop {
+			match Self::take_first_concatenated_xcm(data, meter) {
+				Ok(Some(xcm)) => {
+					batch.push(xcm);
+					if batch.len() >= batch_size {
+						return Ok(batch);
+					}
+				},
+				Ok(None) => return Ok(batch),
+				Err(_) => return Err(batch),
+			}
+		}
 	}
 
 	/// The worst-case weight of `on_idle`.
@@ -763,6 +840,7 @@ impl<T: Config> XcmpMessageHandler for Pallet<T> {
 	) -> Weight {
 		let mut meter = WeightMeter::with_limit(max_weight);
 
+		let mut known_xcm_senders = BTreeSet::new();
 		for (sender, _sent_at, mut data) in iter {
 			let format = match XcmpMessageFormat::decode(&mut data) {
 				Ok(f) => f,
@@ -795,22 +873,46 @@ impl<T: Config> XcmpMessageHandler for Pallet<T> {
 							},
 						}
 					},
-				XcmpMessageFormat::ConcatenatedVersionedXcm =>
-					while !data.is_empty() {
-						let Ok(xcm) = Self::take_first_concatenated_xcm(&mut data, &mut meter)
-						else {
-							defensive!("HRMP inbound decode stream broke; page will be dropped.",);
-							break
-						};
-
-						if let Err(()) = Self::enqueue_xcmp_message(sender, xcm, &mut meter) {
+				XcmpMessageFormat::ConcatenatedVersionedXcm => {
+					if known_xcm_senders.insert(sender) {
+						if meter
+							.try_consume(T::WeightInfo::uncached_enqueue_xcmp_messages())
+							.is_err()
+						{
 							defensive!(
-								"Could not enqueue XCMP messages. Used weight: ",
+								"Out of weight: cannot enqueue XCMP messages; dropping page; \
+                                    Used weight: ",
 								meter.consumed_ratio()
 							);
+							continue;
+						}
+					}
+
+					let mut can_process_next_batch = true;
+					while can_process_next_batch {
+						let batch = match Self::take_first_concatenated_xcms(
+							&mut data,
+							XCM_BATCH_SIZE,
+							&mut meter,
+						) {
+							Ok(batch) => batch,
+							Err(batch) => {
+								can_process_next_batch = false;
+								defensive!(
+									"HRMP inbound decode stream broke; page will be dropped."
+								);
+								batch
+							},
+						};
+						if batch.is_empty() {
+							break;
+						}
+
+						if let Err(()) = Self::enqueue_xcmp_messages(sender, &batch, &mut meter) {
 							break
 						}
-					},
+					}
+				},
 				XcmpMessageFormat::ConcatenatedEncodedBlob => {
 					defensive!("Blob messages are unhandled - dropping");
 					continue
@@ -977,7 +1079,7 @@ impl<T: Config> SendXcm for Pallet<T> {
 				let versioned_xcm = T::VersionWrapper::wrap_version(&d, xcm)
 					.map_err(|()| SendError::DestinationUnsupported)?;
 				versioned_xcm
-					.validate_xcm_nesting()
+					.check_is_decodable()
 					.map_err(|()| SendError::ExceedsMaxMessageSize)?;
 
 				Ok(((id, versioned_xcm), price))
@@ -1011,6 +1113,12 @@ impl<T: Config> InspectMessageQueues for Pallet<T> {
 	fn clear_messages() {
 		// Best effort.
 		let _ = OutboundXcmpMessages::<T>::clear(u32::MAX, None);
+		OutboundXcmpStatus::<T>::mutate(|details_vec| {
+			for details in details_vec {
+				details.first_index = 0;
+				details.last_index = 0;
+			}
+		});
 	}
 
 	fn get_messages() -> Vec<(VersionedLocation, Vec<VersionedXcm<()>>)> {
@@ -1019,9 +1127,7 @@ impl<T: Config> InspectMessageQueues for Pallet<T> {
 		OutboundXcmpMessages::<T>::iter()
 			.map(|(para_id, _, messages)| {
 				let mut data = &messages[..];
-				let decoded_format =
-					XcmpMessageFormat::decode_with_depth_limit(MAX_XCM_DECODE_DEPTH, &mut data)
-						.unwrap();
+				let decoded_format = XcmpMessageFormat::decode(&mut data).unwrap();
 				if decoded_format != XcmpMessageFormat::ConcatenatedVersionedXcm {
 					panic!("Unexpected format.")
 				}

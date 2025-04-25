@@ -1,0 +1,7 @@
+title: '[pallet-revive] eth-rpc-tester quick fixes'
+doc:
+- audience: Runtime Dev
+  description: Small tweaks to the eth-rpc-tester bin
+crates:
+- name: pallet-revive-eth-rpc
+  bump: patch

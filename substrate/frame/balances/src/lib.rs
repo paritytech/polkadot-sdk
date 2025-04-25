@@ -203,6 +203,7 @@ type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
+	use codec::HasCompact;
 	use frame_support::{
 		pallet_prelude::*,
 		traits::{fungible::Credit, tokens::Precision, VariantCount, VariantCountOf},
@@ -251,6 +252,7 @@ pub mod pallet {
 	pub trait Config<I: 'static = ()>: frame_system::Config {
 		/// The overarching event type.
 		#[pallet::no_default_bounds]
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self, I>>
 			+ IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
@@ -270,6 +272,7 @@ pub mod pallet {
 			+ Member
 			+ AtLeast32BitUnsigned
 			+ Codec
+			+ HasCompact<Type: DecodeWithMemTracking>
 			+ Default
 			+ Copy
 			+ MaybeSerializeDeserialize

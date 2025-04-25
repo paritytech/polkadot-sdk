@@ -65,7 +65,7 @@ pub mod frame_system {
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
 
-	#[pallet::config(with_default)]
+	#[pallet::config(with_default, frame_system_config)]
 	#[pallet::disable_frame_system_supertrait_check]
 	pub trait Config: 'static {
 		#[pallet::no_default]
