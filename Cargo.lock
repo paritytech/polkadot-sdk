@@ -26630,7 +26630,8 @@ checksum = "accd4ea62f7bb7a82fe23066fb0957d48ef677f6eeb8215f372f52e48bb32426"
 [[package]]
 name = "verifiable"
 version = "0.1.0"
-source = "git+https://github.com/paritytech/verifiable?branch=main#e27dc246e69e2db9ad8009a6dd233e97dc20791e"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "225eaa083192400abfe78838e3089c539a361e0dd9b6884f61b5c6237676ec01"
 dependencies = [
  "ark-scale 0.0.13",
  "ark-serialize 0.5.0",

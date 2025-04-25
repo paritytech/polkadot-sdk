@@ -14,7 +14,6 @@ from cargo_workspace import Workspace, DependencyLocation
 # Some crates are allowed to have git dependencies until we fix them.
 ALLOWED_GIT_DEPS = {
 	'subwasmlib': ['polkadot-zombienet-sdk-tests'],
-	'verifiable': ['pallet-people'],
 }
 
 root = sys.argv[1] if len(sys.argv) > 1 else os.getcwd()
