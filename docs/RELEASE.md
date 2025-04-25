@@ -177,7 +177,7 @@ in the repo with the actual release dates.
 
 Cadence: every month. Responsible: Developer
 
-Bacporting rules can be found in the [BACKPORT.md](/docs/BACKPORT.md)
+Backporting rules can be found in the [BACKPORT.md](/docs/BACKPORT.md)
 
 The release itself is similar to [the new stable release](#steps-to-execute-a-new-stable-release) process without
 the branching-off step, as the branch already exists and depending on the patch
