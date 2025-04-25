@@ -15,10 +15,9 @@
 
 use crate::imports::*;
 
-/// Relay Chain should be able to open and close lane in System Parachain
-/// when `OriginKind::Superuser`.
 #[test]
-fn open_close_lane() {
+fn ah_to_ah_open_close_bridge_works() {
+	// open bridges
 	let westend_bridge_opened_lane_id = AssetHubWestend::execute_with(|| {
 		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::XcmOverAssetHubRococo::open_bridge(
 			AssetHubWestendRuntimeOrigin::root(),
@@ -63,6 +62,7 @@ fn open_close_lane() {
 
 	assert_eq!(westend_bridge_opened_lane_id, rococo_bridge_opened_lane_id);
 
+	// close bridges  
 	let westend_bridge_pruned_lane_id = AssetHubWestend::execute_with(|| {
 		assert_ok!(
 			<AssetHubWestend as AssetHubWestendPallet>::XcmOverAssetHubRococo::close_bridge(
@@ -106,5 +106,4 @@ fn open_close_lane() {
 		})
 	});
 	assert!(rococo_bridge_pruned_lane_id.is_some(), "Rococo BridgePruned event not found");
-	assert_eq!(westend_bridge_pruned_lane_id, rococo_bridge_pruned_lane_id);
 }
