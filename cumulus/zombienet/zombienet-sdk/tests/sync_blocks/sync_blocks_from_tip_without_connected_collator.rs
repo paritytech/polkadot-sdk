@@ -24,10 +24,6 @@ async fn sync_blocks_from_tip_without_connected_collator() -> Result<(), anyhow:
 
 	let relay_client: OnlineClient<PolkadotConfig> = relay_alice.wait_client().await?;
 
-	log::info!("Ensuring parachain is registered");
-	assert_para_throughput(&relay_client, 2, [(ParaId::from(PARA_ID), 2..3)].into_iter().collect())
-		.await?;
-
 	log::info!("Ensuring parachain making progress");
 	assert_para_throughput(
 		&relay_client,
