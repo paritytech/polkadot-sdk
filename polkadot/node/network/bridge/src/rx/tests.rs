@@ -42,7 +42,7 @@ use polkadot_node_network_protocol::{
 };
 use polkadot_node_subsystem::{
 	messages::{
-		AllMessages, ApprovalDistributionMessage, BitfieldDistributionMessage,
+		AllMessages, ApprovalVotingParallelMessage, BitfieldDistributionMessage,
 		GossipSupportMessage, StatementDistributionMessage,
 	},
 	ActiveLeavesUpdate, FromOrchestra, OverseerSignal,
@@ -568,8 +568,8 @@ async fn assert_sends_validation_event_to_all(
 
 	assert_matches!(
 		virtual_overseer.recv().await,
-		AllMessages::ApprovalDistribution(
-			ApprovalDistributionMessage::NetworkBridgeUpdate(e)
+		AllMessages::ApprovalVotingParallel(
+			ApprovalVotingParallelMessage::NetworkBridgeUpdate(e)
 		) if e == event.focus().expect("could not focus message")
 	);
 
@@ -1009,8 +1009,8 @@ fn peer_messages_sent_via_overseer() {
 
 		assert_matches!(
 			virtual_overseer.recv().await,
-			AllMessages::ApprovalDistribution(
-				ApprovalDistributionMessage::NetworkBridgeUpdate(
+			AllMessages::ApprovalVotingParallel(
+				ApprovalVotingParallelMessage::NetworkBridgeUpdate(
 					NetworkBridgeEvent::PeerMessage(p, ValidationProtocols::V3(m))
 				)
 			) => {
@@ -1615,13 +1615,15 @@ fn network_new_topology_update() {
 
 		assert_matches!(
 			virtual_overseer.recv().await,
-			AllMessages::ApprovalDistribution(ApprovalDistributionMessage::NetworkBridgeUpdate(
-				NetworkBridgeEvent::NewGossipTopology(NewGossipTopology {
-					session: 1,
-					topology: _,
-					local_index: _,
-				})
-			))
+			AllMessages::ApprovalVotingParallel(
+				ApprovalVotingParallelMessage::NetworkBridgeUpdate(
+					NetworkBridgeEvent::NewGossipTopology(NewGossipTopology {
+						session: 1,
+						topology: _,
+						local_index: _,
+					})
+				)
+			)
 		);
 
 		// 3. Send new gossip topology and check is sent to all subsystems.
