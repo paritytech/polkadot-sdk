@@ -340,18 +340,6 @@ pub mod pallet {
 				return Err(Yield);
 			}
 
-			let nonce = <Nonce<T>>::try_mutate(|nonce| -> Result<u64, ProcessMessageError> {
-				*nonce = nonce.checked_add(1).ok_or_else(|| {
-					Self::deposit_event(Event::MessageRejected {
-						id: None,
-						payload: message.to_vec(),
-						error: Unsupported,
-					});
-					Unsupported
-				})?;
-				Ok(*nonce)
-			})?;
-
 			// Decode bytes into Message
 			let Message { origin, id, fee, commands } =
 				Message::decode(&mut message).map_err(|_| {
@@ -372,6 +360,19 @@ pub mod pallet {
 					payload: command.abi_encode(),
 				})
 				.collect();
+
+			let nonce = <Nonce<T>>::try_mutate(|nonce| -> Result<u64, ProcessMessageError> {
+				*nonce = nonce.checked_add(1).ok_or_else(|| {
+					Self::deposit_event(Event::MessageRejected {
+						id: None,
+						payload: message.to_vec(),
+						error: Unsupported,
+					});
+					Unsupported
+				})?;
+				Ok(*nonce)
+			})?;
+
 			let outbound_message = OutboundMessage {
 				origin,
 				nonce,
