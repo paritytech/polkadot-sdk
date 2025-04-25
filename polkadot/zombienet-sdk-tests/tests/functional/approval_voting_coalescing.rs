@@ -78,14 +78,14 @@ async fn approval_voting_coalescing_test() -> Result<(), anyhow::Error> {
 		&relay_client,
 		30,
 		[
-			(ParaId::from(2000), 11..30),
-			(ParaId::from(2001), 11..30),
-			(ParaId::from(2002), 11..30),
-			(ParaId::from(2003), 11..30),
-			(ParaId::from(2004), 11..30),
-			(ParaId::from(2005), 11..30),
-			(ParaId::from(2006), 11..30),
-			(ParaId::from(2007), 11..30),
+			(ParaId::from(2000), 11..35),
+			(ParaId::from(2001), 11..35),
+			(ParaId::from(2002), 11..35),
+			(ParaId::from(2003), 11..35),
+			(ParaId::from(2004), 11..35),
+			(ParaId::from(2005), 11..35),
+			(ParaId::from(2006), 11..35),
+			(ParaId::from(2007), 11..35),
 		]
 		.into_iter()
 		.collect(),
