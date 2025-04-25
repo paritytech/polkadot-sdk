@@ -241,7 +241,6 @@ parameter_types! {
 	pub const VotingPeriod:u64 = 2;
 }
 impl pallet_opf::Config for Test {
-	type RuntimeEvent = RuntimeEvent;
 	type RuntimeCall = RuntimeCall;
 	type AdminOrigin = frame_system::EnsureRoot<Self::AccountId>;
 	type NativeBalance = Balances;

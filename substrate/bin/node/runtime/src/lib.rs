@@ -1625,7 +1625,6 @@ parameter_types! {
 }
 
 impl pallet_opf::Config for Runtime {
-	type RuntimeEvent = RuntimeEvent;
 	type RuntimeCall = RuntimeCall;
 	type NativeBalance = Balances;
 	type AdminOrigin = EnsureRoot<AccountId>;
