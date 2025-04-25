@@ -54,6 +54,7 @@ zombienet-sdk = { workspace = true }
 [features]
 default = ["std"]
 std = [
+	"anyhow/std",
 	"codec/std",
 	"frame-benchmarking?/std",
 	"frame-election-provider-support/std",
