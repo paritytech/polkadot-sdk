@@ -58,7 +58,7 @@ jobs:
               original_pr_number="${BASH_REMATCH[1]}"
               echo "Extracted PR number: $original_pr_number"
             else
-              echo "⚠️ The PR title dose not contain original PR number. PR titel should be in form: [stableBranchName] Backport #originalPRNumber"
+              echo "⚠️ The PR title dose not contain original PR number. PR title should be in form: [stableBranchName] Backport #originalPRNumber"
               exit 1
             fi
           else
