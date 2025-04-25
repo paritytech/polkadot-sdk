@@ -1890,6 +1890,28 @@ fn start_sales_sets_correct_core_count() {
 	})
 }
 
+#[test]
+fn swap_leases_works() {
+	TestExt::new().execute_with(|| {
+		// Set initial leases
+		assert_ok!(Broker::do_set_lease(1000, 10));
+		assert_ok!(Broker::do_set_lease(2000, 20));
+
+		// Verify initial leases
+		assert_eq!(Leases::<Test>::get().len(), 2);
+		assert!(Leases::<Test>::get().iter().any(|l| l.task == 1000 && l.until == 10));
+		assert!(Leases::<Test>::get().iter().any(|l| l.task == 2000 && l.until == 20));
+
+		// Swap leases
+		assert_ok!(Broker::swap_leases(RuntimeOrigin::root(), 1000, 2000));
+
+		// Verify leases swapped
+		assert_eq!(Leases::<Test>::get().len(), 2);
+		assert!(Leases::<Test>::get().iter().any(|l| l.task == 1000 && l.until == 20));
+		assert!(Leases::<Test>::get().iter().any(|l| l.task == 2000 && l.until == 10));
+	});
+}
+
 // Reservations currently need two sale period boundaries to pass before coming into effect.
 #[test]
 fn reserve_works() {
