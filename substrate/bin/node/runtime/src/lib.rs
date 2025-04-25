@@ -2825,8 +2825,9 @@ mod runtime {
 
 	#[runtime::pallet_index(89)]
 	pub type MetaTx = pallet_meta_tx::Pallet<Runtime>;
-  #[runtime::pallet_index(90)]
-  pub type Opf = pallet_opf::Pallet<Runtime>;
+  	
+	#[runtime::pallet_index(90)]
+  	pub type Opf = pallet_opf::Pallet<Runtime>;
 
 }
 
@@ -3092,7 +3093,7 @@ mod benches {
 		[pallet_asset_conversion_ops, AssetConversionMigration]
 		[pallet_verify_signature, VerifySignature]
 		[pallet_meta_tx, MetaTx]
-    [pallet_opf, Opf]
+    	[pallet_opf, Opf]
 	);
 }
 
