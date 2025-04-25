@@ -202,17 +202,13 @@ pub mod prelude {
 	/// Dispatch types from `frame-support`, other fundamental traits.
 	#[doc(no_inline)]
 	pub use frame_support::dispatch::{GetDispatchInfo, PostDispatchInfo};
-	pub use frame_support::traits::{
-		Contains, EitherOf, EstimateNextSessionRotation, Everything, IsSubType, MapSuccess,
-		NoOpPoll, OnRuntimeUpgrade, OneSessionHandler, PalletInfoAccess, RankedMembers,
-		RankedMembersSwapHandler, VariantCount, VariantCountOf,
 	pub use frame_support::{
 		defensive, defensive_assert,
 		traits::{
 			Contains, Defensive, DefensiveSaturating, EitherOf, EstimateNextSessionRotation,
 			Everything, InsideBoth, InstanceFilter, IsSubType, MapSuccess, NoOpPoll,
-			OnRuntimeUpgrade, OneSessionHandler, RankedMembers, RankedMembersSwapHandler,
-			VariantCount, VariantCountOf,
+			OnRuntimeUpgrade, OneSessionHandler, PalletInfoAccess, RankedMembers,
+			RankedMembersSwapHandler, VariantCount, VariantCountOf,
 		},
 		PalletId,
 	};
@@ -246,11 +242,9 @@ pub mod prelude {
 	/// Runtime traits
 	#[doc(no_inline)]
 	pub use sp_runtime::traits::{
-		BlockNumberProvider, Bounded, Convert, DispatchInfoOf, Dispatchable, IdentityLookup,
-		ReduceBy, ReplaceWithDefault, SaturatedConversion, Saturating, StaticLookup,
 		AccountIdConversion, BlockNumberProvider, Bounded, Convert, ConvertBack, DispatchInfoOf,
-		Dispatchable, ReduceBy, ReplaceWithDefault, SaturatedConversion, Saturating, StaticLookup,
-		TrailingZeroInput,
+		Dispatchable, IdentityLookup, ReduceBy, ReplaceWithDefault, SaturatedConversion,
+		Saturating, StaticLookup, TrailingZeroInput,
 	};
 
 	/// Bounded storage related types.

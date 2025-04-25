@@ -12511,7 +12511,7 @@ version = "0.6.0"
 dependencies = [
  "docify",
  "parity-scale-codec",
- "polkadot-sdk-frame 0.1.0",
+ "polkadot-sdk-frame",
  "scale-info",
  "sp-metadata-ir 0.6.0",
  "sp-runtime 31.0.1",
