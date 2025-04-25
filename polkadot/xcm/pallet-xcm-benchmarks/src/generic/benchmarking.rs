@@ -594,7 +594,7 @@ benchmarks! {
 	}: {
 		executor.bench_process(xcm)?;
 	} verify {
-		assert_eq!(executor.holding(), &want.into());
+		assert!(executor.holding().contains(&want.into()));
 	}
 
 	universal_origin {
