@@ -247,8 +247,8 @@ pub mod prelude {
 	#[doc(no_inline)]
 	pub use sp_runtime::traits::{
 		AccountIdConversion, BlockNumberProvider, Bounded, Convert, ConvertBack, DispatchInfoOf,
-		Dispatchable, IdentityLookup, ReduceBy, ReplaceWithDefault, SaturatedConversion, Saturating, StaticLookup,
-		TrailingZeroInput,
+		Dispatchable, IdentityLookup, ReduceBy, ReplaceWithDefault, SaturatedConversion,
+		Saturating, StaticLookup, TrailingZeroInput,
 	};
 
 	/// Bounded storage related types.
@@ -301,8 +301,8 @@ pub mod benchmarking {
 			add_benchmark, benchmarking::add_to_whitelist, v1::account, v2::*, whitelist,
 			whitelisted_caller,
 		};
+		pub use frame_support::traits::UnfilteredDispatchable;
 		pub use frame_system::{Pallet as System, RawOrigin};
-    pub use frame_support::traits::UnfilteredDispatchable;
 	}
 }
 
