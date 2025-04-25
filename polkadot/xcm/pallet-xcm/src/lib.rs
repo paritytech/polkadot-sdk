@@ -241,6 +241,7 @@ pub mod pallet {
 	/// The module configuration trait.
 	pub trait Config: frame_system::Config {
 		/// The overarching event type.
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		/// A lockable currency.
@@ -299,6 +300,7 @@ pub mod pallet {
 
 		/// The latest supported version that we advertise. Generally just set it to
 		/// `pallet_xcm::CurrentXcmVersion`.
+		#[pallet::constant]
 		type AdvertisedXcmVersion: Get<XcmVersion>;
 
 		/// The origin that is allowed to call privileged operations on the XCM pallet

@@ -21,12 +21,13 @@ use polkadot_sdk::*;
 
 use crate::{
 	constants::currency::*, frame_support::build_struct_json_patch, AccountId, AssetsConfig,
-	BabeConfig, Balance, BalancesConfig, ElectionsConfig, NominationPoolsConfig,
+	BabeConfig, Balance, BalancesConfig, ElectionsConfig, NominationPoolsConfig, ReviveConfig,
 	RuntimeGenesisConfig, SessionConfig, SessionKeys, SocietyConfig, StakerStatus, StakingConfig,
 	SudoConfig, TechnicalCommitteeConfig, BABE_GENESIS_EPOCH_CONFIG,
 };
 use alloc::{vec, vec::Vec};
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
+use pallet_revive::is_eth_derived;
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_consensus_babe::AuthorityId as BabeId;
 use sp_consensus_beefy::ecdsa_crypto::AuthorityId as BeefyId;
@@ -40,11 +41,6 @@ use sp_runtime::Perbill;
 pub const ENDOWMENT: Balance = 10_000_000 * DOLLARS;
 pub const STASH: Balance = ENDOWMENT / 1000;
 
-pub struct StakingPlaygroundConfig {
-	pub validator_count: u32,
-	pub minimum_validator_count: u32,
-}
-
 /// The staker type as supplied ot the Staking config.
 pub type Staker = (AccountId, AccountId, Balance, StakerStatus<AccountId>);
 
@@ -54,15 +50,9 @@ pub fn kitchensink_genesis(
 	root_key: AccountId,
 	endowed_accounts: Vec<AccountId>,
 	stakers: Vec<Staker>,
-	staking_playground_config: Option<StakingPlaygroundConfig>,
 ) -> serde_json::Value {
-	let (validator_count, min_validator_count) = match staking_playground_config {
-		Some(c) => (c.validator_count, c.minimum_validator_count),
-		None => {
-			let authorities_count = initial_authorities.len() as u32;
-			(authorities_count, authorities_count)
-		},
-	};
+	let validator_count = initial_authorities.len() as u32;
+	let minimum_validator_count = validator_count;
 
 	let collective = collective(&endowed_accounts);
 
@@ -79,7 +69,7 @@ pub fn kitchensink_genesis(
 		},
 		staking: StakingConfig {
 			validator_count,
-			minimum_validator_count: min_validator_count,
+			minimum_validator_count,
 			invulnerables: initial_authorities
 				.iter()
 				.map(|x| x.0.clone())
@@ -105,6 +95,7 @@ pub fn kitchensink_genesis(
 			min_create_bond: 10 * DOLLARS,
 			min_join_bond: 1 * DOLLARS,
 		},
+		revive: ReviveConfig { mapped_accounts: endowed_accounts.iter().filter(|x| ! is_eth_derived(x)).cloned().collect() },
 	})
 }
 
@@ -124,7 +115,6 @@ pub fn get_preset(id: &PresetId) -> Option<Vec<u8>> {
 			alice.clone(),
 			endowed,
 			vec![validator(alice_stash.clone())],
-			None,
 		),
 		sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET => kitchensink_genesis(
 			vec![
@@ -136,7 +126,6 @@ pub fn get_preset(id: &PresetId) -> Option<Vec<u8>> {
 			alice,
 			endowed,
 			vec![validator(alice_stash), validator(bob_stash)],
-			None,
 		),
 		_ => return None,
 	};
@@ -169,7 +158,7 @@ fn collective(endowed: &[AccountId]) -> Vec<AccountId> {
 	let endowed_accounts_count = endowed.len();
 	endowed
 		.iter()
-		.take(((endowed_accounts_count + 1) / 2).min(MAX_COLLECTIVE_SIZE))
+		.take((endowed_accounts_count.div_ceil(2)).min(MAX_COLLECTIVE_SIZE))
 		.cloned()
 		.collect()
 }

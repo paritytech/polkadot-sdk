@@ -46,7 +46,7 @@ on:
         required: true
 
       stable_tag:
-        description: Tag matching the actual stable release version in the format polkadpt-stableYYMM(-rcX) or plkadot-stableYYMM-X(-rcX) for patch releases
+        description: Tag matching the actual stable release version in the format polkadot-stableYYMM(-rcX) or polkadot-stableYYMM-X(-rcX) for patch releases
         required: true
 
 permissions:

@@ -988,7 +988,7 @@ fn check_catch_up<Block: BlockT>(
 	)?;
 
 	// check signatures on all contained precommits.
-	let _ = check_signatures::<Block, _>(
+	check_signatures::<Block, _>(
 		msg.precommits.iter().map(|vote| {
 			(
 				finality_grandpa::Message::Precommit(vote.precommit.clone()),

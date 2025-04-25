@@ -32,7 +32,7 @@ jobs:
           result-encoding: string
           script: |
             const fs = require("fs");
-            try {              
+            try {
               const org = '${{ github.event.repository.owner.login }}';
               const username = '${{ github.event.comment.user.login }}';
 
@@ -92,8 +92,8 @@ jobs:
                     (
                       (
                         (
-                          comment.body.startsWith('Command') || 
-                          comment.body.startsWith('<details><summary>Command') || 
+                          comment.body.startsWith('Command') ||
+                          comment.body.startsWith('<details><summary>Command') ||
                           comment.body.startsWith('Sorry, only ')
                         ) && comment.user.type === 'Bot'
                       ) ||
@@ -189,11 +189,11 @@ jobs:
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: `<details><summary>Command help:</summary> 
+              body: `<details><summary>Command help:</summary>
 
             \`\`\`
             ${{ steps.help.outputs.help }}
-            \`\`\` 
+            \`\`\`
 
             </details>`
             })
@@ -264,8 +264,8 @@ jobs:
   run-cmd-workflow:
     needs: [set-image, get-pr-info, is-org-member]
     runs-on: ubuntu-latest
-    # don't run on help and clean commands
-    if: ${{ startsWith(github.event.comment.body, '/cmd') && !contains(github.event.comment.body, '--help') && !contains(github.event.comment.body, '--clean') }}
+    # don't run on help command
+    if: ${{ startsWith(github.event.comment.body, '/cmd') && !contains(github.event.comment.body, '--help') }}
     permissions: # run workflow
       contents: read
       issues: write

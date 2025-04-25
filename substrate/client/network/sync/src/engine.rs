@@ -112,7 +112,7 @@ struct Metrics {
 
 impl Metrics {
 	fn register(r: &Registry, major_syncing: Arc<AtomicBool>) -> Result<Self, PrometheusError> {
-		let _ = MajorSyncingGauge::register(r, major_syncing)?;
+		MajorSyncingGauge::register(r, major_syncing)?;
 		Ok(Self {
 			peers: {
 				let g = Gauge::new("substrate_sync_peers", "Number of peers we sync with")?;

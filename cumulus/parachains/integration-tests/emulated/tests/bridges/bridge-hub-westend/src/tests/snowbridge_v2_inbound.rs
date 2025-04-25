@@ -26,7 +26,10 @@ use bridge_hub_westend_runtime::{
 	EthereumInboundQueueV2,
 };
 use codec::Encode;
-use emulated_integration_tests_common::{RESERVABLE_ASSET_ID, WETH};
+use emulated_integration_tests_common::{
+	snowbridge::{SEPOLIA_ID, WETH},
+	RESERVABLE_ASSET_ID,
+};
 use hex_literal::hex;
 use rococo_westend_system_emulated_network::penpal_emulated_chain::PARA_ID_B;
 use snowbridge_core::{AssetMetadata, TokenIdOf};
@@ -47,7 +50,6 @@ const INITIAL_FUND: u128 = 5_000_000_000_000;
 
 /// An ERC-20 token to be registered and sent.
 const TOKEN_ID: [u8; 20] = hex!("c02aaa39b223fe8d0a0e5c4f27ead9083c756cc2");
-const CHAIN_ID: u64 = 11155111u64;
 
 #[test]
 fn register_token_v2() {
@@ -579,7 +581,7 @@ fn send_token_to_penpal_v2() {
 			<PenpalB as Chain>::RuntimeOrigin::root(),
 			vec![(
 				PenpalCustomizableAssetFromSystemAssetHub::key().to_vec(),
-				Location::new(2, [GlobalConsensus(Ethereum { chain_id: CHAIN_ID })]).encode(),
+				Location::new(2, [GlobalConsensus(Ethereum { chain_id: SEPOLIA_ID })]).encode(),
 			)],
 		));
 	});
@@ -654,6 +656,11 @@ fn send_token_to_penpal_v2() {
 		);
 	});
 
+	let penpal_sov_on_ah = AssetHubWestend::sovereign_account_id_of(Location::new(
+		1,
+		[Parachain(PenpalB::para_id().into())],
+	));
+
 	AssetHubWestend::execute_with(|| {
 		type RuntimeEvent = <AssetHubWestend as Chain>::RuntimeEvent;
 		// Check that the assets were issued on AssetHub
@@ -664,10 +671,15 @@ fn send_token_to_penpal_v2() {
 				RuntimeEvent::MessageQueue(
 					pallet_message_queue::Event::Processed { success: true, .. }
 				) => {},
+				// Ether was issued to beneficiary
+				RuntimeEvent::ForeignAssets(pallet_assets::Event::Issued { asset_id, owner, .. }) => {
+					asset_id: *asset_id == eth_location(),
+					owner: *owner == penpal_sov_on_ah,
+				},
 				// Token was issued to beneficiary
 				RuntimeEvent::ForeignAssets(pallet_assets::Event::Issued { asset_id, owner, .. }) => {
 					asset_id: *asset_id == token_location,
-					owner: *owner == beneficiary_acc_bytes.into(),
+					owner: *owner == penpal_sov_on_ah,
 				},
 				RuntimeEvent::XcmpQueue(cumulus_pallet_xcmp_queue::Event::XcmpMessageSent { .. }) => {},
 			]
