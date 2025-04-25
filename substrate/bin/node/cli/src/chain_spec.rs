@@ -22,7 +22,7 @@ use polkadot_sdk::*;
 
 use crate::chain_spec::sc_service::Properties;
 use kitchensink_runtime::{
-	genesis_config_presets::{session_keys, Staker, ENDOWMENT, STASH},
+	genesis_config_presets::{Staker, ENDOWMENT, STASH},
 	wasm_binary_unwrap, Block, MaxNominations, StakerStatus,
 };
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
@@ -333,7 +333,7 @@ pub fn testnet_genesis_patch(
 					x.0.clone(),
 					// stash account is controller
 					x.0.clone(),
-					session_keys(
+					session_keys_json(
 						x.2.clone(),
 						x.3.clone(),
 						x.4.clone(),
@@ -366,6 +366,25 @@ pub fn testnet_genesis_patch(
 		"revive": {
 			"mappedAccounts": endowed_accounts.iter().filter(|x| ! is_eth_derived(x)).cloned().collect::<Vec<_>>()
 		}
+	})
+}
+
+/// Creates the session keys as defined by the runtime.
+fn session_keys_json(
+	grandpa: GrandpaId,
+	babe: BabeId,
+	im_online: ImOnlineId,
+	authority_discovery: AuthorityDiscoveryId,
+	mixnet: MixnetId,
+	beefy: BeefyId,
+) -> serde_json::Value {
+	serde_json::json!({
+		"authority_discovery": authority_discovery,
+		"babe": babe,
+		"beefy": beefy,
+		"grandpa": grandpa,
+		"im_online": im_online,
+		"mixnet": mixnet
 	})
 }
 
