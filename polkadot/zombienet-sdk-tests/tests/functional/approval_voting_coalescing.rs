@@ -5,7 +5,7 @@
 
 use anyhow::anyhow;
 
-use crate::helpers::{assert_finality_lag_less_than, assert_para_throughput};
+use cumulus_zombienet_sdk_helpers::{assert_finality_lag, assert_para_throughput};
 use polkadot_primitives::Id as ParaId;
 use serde_json::json;
 use subxt::{OnlineClient, PolkadotConfig};
@@ -94,7 +94,7 @@ async fn approval_voting_coalescing_test() -> Result<(), anyhow::Error> {
 
 	log::info!("Checking finality does not lag and no-shows are within range");
 	for node in network.nodes() {
-		assert_finality_lag_less_than(&node.wait_client().await?, no_show_slots).await?;
+		assert_finality_lag(&node.wait_client().await?, no_show_slots).await?;
 		assert!(
 			node.reports("polkadot_parachain_approvals_no_shows_total").await.unwrap() < 3.0,
 			"No-shows should be less than 3"
