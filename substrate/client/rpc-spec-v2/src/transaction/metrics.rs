@@ -42,9 +42,7 @@ const HISTOGRAM_BUCKETS: [f64; 11] = [
 ];
 
 /// Labels for transaction status.
-pub mod labels {
-	use crate::transaction::TransactionEvent;
-
+mod labels {
 	/// The initial state of the transaction.
 	pub const SUBMITTED: &str = "submitted";
 
@@ -68,18 +66,18 @@ pub mod labels {
 
 	/// Represents the `TransactionEvent::Dropped` event.
 	pub const DROPPED: &str = "dropped";
+}
 
-	/// Convert a transaction event to a metric label.
-	pub fn transaction_event_label<Hash>(event: &TransactionEvent<Hash>) -> &'static str {
-		match event {
-			TransactionEvent::Validated => VALIDATED,
-			TransactionEvent::BestChainBlockIncluded(Some(_)) => IN_BLOCK,
-			TransactionEvent::BestChainBlockIncluded(None) => RETRACTED,
-			TransactionEvent::Finalized(..) => FINALIZED,
-			TransactionEvent::Error(..) => ERROR,
-			TransactionEvent::Dropped(..) => DROPPED,
-			TransactionEvent::Invalid(..) => INVALID,
-		}
+/// Convert a transaction event to a metric label.
+fn transaction_event_label<Hash>(event: &TransactionEvent<Hash>) -> &'static str {
+	match event {
+		TransactionEvent::Validated => labels::VALIDATED,
+		TransactionEvent::BestChainBlockIncluded(Some(_)) => labels::IN_BLOCK,
+		TransactionEvent::BestChainBlockIncluded(None) => labels::RETRACTED,
+		TransactionEvent::Finalized(..) => labels::FINALIZED,
+		TransactionEvent::Error(..) => labels::ERROR,
+		TransactionEvent::Dropped(..) => labels::DROPPED,
+		TransactionEvent::Invalid(..) => labels::INVALID,
 	}
 }
 
@@ -171,7 +169,7 @@ impl InstanceMetrics {
 			return;
 		};
 
-		let final_state = labels::transaction_event_label(event);
+		let final_state = transaction_event_label(event);
 
 		metrics.status.with_label_values(&[final_state]).inc();
 
