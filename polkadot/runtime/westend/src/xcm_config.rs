@@ -47,7 +47,7 @@ use xcm_builder::{
 	TrailingSetTopicAsId, UsingComponents, WeightInfoBounds, WithComputedOrigin, WithUniqueTopic,
 	XcmFeeManagerFromComponents,
 };
-use xcm_executor::XcmExecutor;
+use xcm_executor::{traits::ConvertOrigin, XcmExecutor};
 
 parameter_types! {
 	pub const TokenLocation: Location = Here.into_location();
@@ -61,6 +61,8 @@ parameter_types! {
 	pub FeeAssetId: AssetId = AssetId(TokenLocation::get());
 	/// The base fee for the message delivery fees.
 	pub const BaseDeliveryFee: u128 = CENTS.saturating_mul(3);
+	// Fellows pluralistic body.
+	pub const FellowsBodyId: BodyId = BodyId::Technical;
 }
 
 pub type LocationConverter = (
@@ -85,6 +87,22 @@ pub type LocalAssetTransactor = FungibleAdapter<
 	LocalCheckAccount,
 >;
 
+// Origin converter to allow Asset Hub to gain root on the Relay Chain.
+pub struct AssetHubAsSuperuser;
+impl ConvertOrigin<RuntimeOrigin> for AssetHubAsSuperuser {
+	fn convert_origin(
+		origin: impl Into<Location>,
+		kind: OriginKind,
+	) -> Result<RuntimeOrigin, Location> {
+		let origin = origin.into();
+		log::trace!(target: "xcm::origin_conversion", "AssetHubAsSuperuser origin: {:?}, kind: {:?}", origin, kind);
+		match (kind, origin.unpack()) {
+			(OriginKind::Superuser, (0, [Parachain(ASSET_HUB_ID)])) => Ok(RuntimeOrigin::root()),
+			_ => Err(origin),
+		}
+	}
+}
+
 type LocalOriginConverter = (
 	// If the origin kind is `Sovereign`, then return a `Signed` origin with the account determined
 	// by the `LocationConverter` converter.
@@ -97,6 +115,8 @@ type LocalOriginConverter = (
 	SignedAccountId32AsNative<ThisNetwork, RuntimeOrigin>,
 	// Xcm origins can be represented natively under the Xcm pallet's Xcm origin.
 	XcmPassthrough<RuntimeOrigin>,
+	// Asset Hub can gain root on the relay chain.
+	AssetHubAsSuperuser,
 );
 
 pub type PriceForChildParachainDelivery =

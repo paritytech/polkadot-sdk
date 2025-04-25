@@ -56,7 +56,7 @@ use crate::{
 	ValidatorSlashInEra, WeightInfo,
 };
 use alloc::vec::Vec;
-use codec::{Decode, Encode, MaxEncodedLen};
+use codec::{Decode, Encode, MaxEncodedLen, DecodeWithMemTracking};
 use frame_support::{
 	ensure,
 	traits::{Defensive, DefensiveSaturating, Get, Imbalance, OnUnbalanced},
@@ -189,10 +189,10 @@ impl SlashingSpans {
 }
 
 /// A slashing-span record for a particular stash.
-#[derive(Encode, Decode, Default, TypeInfo, MaxEncodedLen)]
-pub(crate) struct SpanRecord<Balance> {
-	slashed: Balance,
-	paid_out: Balance,
+#[derive(Encode, Decode, Default, RuntimeDebug, TypeInfo, MaxEncodedLen, PartialEq, Clone, DecodeWithMemTracking)]
+pub struct SpanRecord<Balance> {
+	pub slashed: Balance,
+	pub paid_out: Balance,
 }
 
 impl<Balance> SpanRecord<Balance> {

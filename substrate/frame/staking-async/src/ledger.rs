@@ -69,7 +69,7 @@ pub struct UnlockChunk<Balance: HasCompact + MaxEncodedLen> {
 /// leaving here to enforce a clean PR diff, given how critical this logic is. Tracking issue
 /// <https://github.com/paritytech/substrate/issues/14749>.
 #[derive(
-	PartialEqNoBound, EqNoBound, CloneNoBound, Encode, Decode, DebugNoBound, TypeInfo, MaxEncodedLen,
+	PartialEqNoBound, EqNoBound, CloneNoBound, Encode, Decode, DebugNoBound, TypeInfo, MaxEncodedLen, DecodeWithMemTracking
 )]
 #[scale_info(skip_type_params(T))]
 pub struct StakingLedger<T: Config> {

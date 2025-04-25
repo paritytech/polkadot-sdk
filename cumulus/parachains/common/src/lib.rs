@@ -19,6 +19,7 @@ extern crate alloc;
 
 pub mod impls;
 pub mod message_queue;
+pub mod pay;
 pub mod xcm_config;
 pub use constants::*;
 pub use opaque::*;

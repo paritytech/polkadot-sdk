@@ -22,6 +22,7 @@
 
 extern crate alloc;
 
+use ah_migration::phase1 as ahm_phase1;
 use alloc::{
 	collections::{btree_map::BTreeMap, vec_deque::VecDeque},
 	vec,
@@ -37,9 +38,9 @@ use frame_support::{
 	parameter_types,
 	traits::{
 		fungible::HoldConsideration, tokens::UnityOrOuterConversion, ConstU32, Contains, EitherOf,
-		EitherOfDiverse, EnsureOriginWithArg, EverythingBut, FromContains, InstanceFilter,
-		KeyOwnerProofSystem, LinearStoragePrice, Nothing, ProcessMessage, ProcessMessageError,
-		VariantCountOf, WithdrawReasons,
+		EitherOfDiverse, EnsureOriginWithArg, FromContains, InstanceFilter, KeyOwnerProofSystem,
+		LinearStoragePrice, Nothing, ProcessMessage, ProcessMessageError, VariantCountOf,
+		WithdrawReasons,
 	},
 	weights::{ConstantMultiplier, WeightMeter, WeightToFee as _},
 	PalletId,
@@ -53,6 +54,7 @@ use pallet_staking::UseValidatorsMap;
 use pallet_staking_async_ah_client as ah_client;
 use pallet_staking_async_rc_client as rc_client;
 use pallet_transaction_payment::{FeeDetails, FungibleAdapter, RuntimeDispatchInfo};
+use pallet_xcm::{EnsureXcm, IsVoiceOfBody};
 use polkadot_primitives::{
 	slashing,
 	vstaging::{
@@ -120,7 +122,7 @@ use xcm::{
 	VersionedLocation, VersionedXcm,
 };
 use xcm_builder::PayOverXcm;
-
+use xcm_config::{AssetHub, Collectives, FellowsBodyId};
 use xcm_runtime_apis::{
 	dry_run::{CallDryRunEffects, Error as XcmDryRunApiError, XcmDryRunEffects},
 	fees::Error as XcmPaymentApiError,
@@ -151,6 +153,7 @@ pub mod xcm_config;
 mod impls;
 use impls::ToParachainIdentityReaper;
 
+pub mod ah_migration;
 // Governance and configurations.
 pub mod governance;
 use governance::{
@@ -216,7 +219,7 @@ parameter_types! {
 
 #[derive_impl(frame_system::config_preludes::RelayChainDefaultConfig)]
 impl frame_system::Config for Runtime {
-	type BaseCallFilter = EverythingBut<IsIdentityCall>;
+	type BaseCallFilter = RcMigrator;
 	type BlockWeights = BlockWeights;
 	type BlockLength = BlockLength;
 	type Nonce = Nonce;
@@ -246,7 +249,8 @@ impl pallet_scheduler::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type PalletsOrigin = OriginCaller;
 	type RuntimeCall = RuntimeCall;
-	type MaximumWeight = MaximumSchedulerWeight;
+	type MaximumWeight =
+		pallet_rc_migrator::types::ZeroWeightOr<RcMigrator, MaximumSchedulerWeight>;
 	// The goal of having ScheduleOrigin include AuctionAdmin is to allow the auctions track of
 	// OpenGov to schedule periodic auctions.
 	type ScheduleOrigin = EitherOf<EnsureRoot<AccountId>, AuctionAdmin>;
@@ -254,7 +258,7 @@ impl pallet_scheduler::Config for Runtime {
 	type WeightInfo = weights::pallet_scheduler::WeightInfo<Runtime>;
 	type OriginPrivilegeCmp = frame_support::traits::EqualPrivilegeOnly;
 	type Preimages = Preimage;
-	type BlockNumberProvider = frame_system::Pallet<Runtime>;
+	type BlockNumberProvider = System;
 }
 
 parameter_types! {
@@ -1726,6 +1730,53 @@ impl OnSwap for SwapLeases {
 	}
 }
 
+// Derived from `polkadot_asset_hub_runtime::RuntimeBlockWeights`.
+const AH_MAXIMUM_BLOCK_WEIGHT: Weight = Weight::from_parts(
+	frame_support::weights::constants::WEIGHT_REF_TIME_PER_SECOND.saturating_div(2),
+	polkadot_primitives::MAX_POV_SIZE as u64,
+);
+
+parameter_types! {
+	// Exvivalent to `polkadot_asset_hub_runtime::MessageQueueServiceWeight`.
+	pub AhMqServiceWeight: Weight = Perbill::from_percent(50) * AH_MAXIMUM_BLOCK_WEIGHT;
+	// 80 percent of the `AhMqServiceWeight` to leave some space for XCM message base processing.
+	pub AhMigratorMaxWeight: Weight = Perbill::from_percent(80) * AhMqServiceWeight::get(); // ~ 0.2 sec + 2 mb
+	pub RcMigratorMaxWeight: Weight = Weight::from_parts(10_000_000_000, u64::MAX); // TODO set the actual max weight
+	pub AhExistentialDeposit: Balance = EXISTENTIAL_DEPOSIT / 100;
+}
+
+pub struct ContainsAssetHub;
+impl Contains<Location> for ContainsAssetHub {
+	fn contains(loc: &Location) -> bool {
+		*loc == AssetHub::get()
+	}
+}
+
+impl pallet_rc_migrator::Config for Runtime {
+	type RuntimeHoldReason = RuntimeHoldReason;
+	type RuntimeEvent = RuntimeEvent;
+	type ManagerOrigin = EitherOfDiverse<
+		EnsureRoot<AccountId>,
+		EitherOfDiverse<
+			EnsureXcm<IsVoiceOfBody<Collectives, FellowsBodyId>>,
+			EnsureXcm<ContainsAssetHub, Location>,
+		>,
+	>;
+	type Currency = Balances;
+	type CheckingAccount = xcm_config::CheckAccount;
+	type SendXcm = xcm_config::XcmRouter;
+	type MaxRcWeight = RcMigratorMaxWeight;
+	type MaxAhWeight = AhMigratorMaxWeight;
+	type AhExistentialDeposit = AhExistentialDeposit;
+	// TODO: weights::pallet_rc_migrator::WeightInfo
+	type RcWeightInfo = ();
+	// TODO: weights::pallet_ah_migrator::WeightInfo
+	// we use `SubstrateWeight` instead of () to use the local `DbWeight`.
+	type AhWeightInfo = pallet_rc_migrator::weights_ah::SubstrateWeight<Runtime>;
+	type RcIntraMigrationCalls = ahm_phase1::CallsEnabledDuringMigration;
+	type RcPostMigrationCalls = ahm_phase1::CallsEnabledAfterMigration;
+}
+
 pub type MetaTxExtension = (
 	pallet_verify_signature::VerifySignature<Runtime>,
 	pallet_meta_tx::MetaTxMarker<Runtime>,
@@ -1969,6 +2020,10 @@ mod runtime {
 	// Pallet for migrating Identity to a parachain. To be removed post-migration.
 	#[runtime::pallet_index(248)]
 	pub type IdentityMigrator = identity_migrator;
+
+	// Relay Chain Migrator.
+	#[runtime::pallet_index(255)]
+	pub type RcMigrator = pallet_rc_migrator;
 }
 
 /// The address format for describing accounts.
