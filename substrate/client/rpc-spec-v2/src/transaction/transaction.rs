@@ -151,6 +151,9 @@ where
 					// We have not created an `Watcher` for the tx. Make sure the
 					// error is still propagated as an event.
 					let event: TransactionEvent<<Pool::Block as BlockT>::Hash> = err.into();
+
+					metrics.register_event(&event);
+
 					_ = sink.send(&event).await;
 				},
 			};
