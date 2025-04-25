@@ -1,9 +1,6 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-use frame_support::assert_noop;
-use snowbridge_core::AssetMetadata;
-use sp_runtime::DispatchError::BadOrigin;
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -15,7 +12,7 @@ use sp_runtime::DispatchError::BadOrigin;
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-//
+
 use crate::{
 	imports::*,
 	tests::{
@@ -24,6 +21,10 @@ use crate::{
 		usdt_at_ah_westend,
 	},
 };
+use emulated_integration_tests_common::snowbridge::{SEPOLIA_ID, WETH};
+use frame_support::assert_noop;
+use snowbridge_core::AssetMetadata;
+use sp_runtime::DispatchError::BadOrigin;
 use xcm::v5::AssetTransferFilter;
 
 #[test]
@@ -145,7 +146,7 @@ fn export_from_non_system_parachain_will_fail() {
 				WithdrawAsset(relay_fee_asset.clone().into()),
 				BuyExecution { fees: relay_fee_asset.clone(), weight_limit: Unlimited },
 				ExportMessage {
-					network: Ethereum { chain_id: CHAIN_ID },
+					network: Ethereum { chain_id: SEPOLIA_ID },
 					destination: Here,
 					xcm: Xcm(vec![
 						AliasOrigin(penpal_location),

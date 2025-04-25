@@ -13,13 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{
-	imports::*,
-	tests::{
-		snowbridge::{CHAIN_ID, WETH},
-		*,
-	},
-};
+use crate::{imports::*, tests::*};
 
 const XCM_FEE: u128 = 40_000_000_000;
 
@@ -44,11 +38,12 @@ fn register_westend_asset_on_rah_from_wah() {
 #[test]
 fn register_ethereum_asset_on_rah_from_wah() {
 	// Ethereum asset when bridged to Rococo Asset Hub.
+	let token_id = H160::random();
 	let bridged_asset_at_rah = Location::new(
 		2,
 		[
-			GlobalConsensus(Ethereum { chain_id: CHAIN_ID }),
-			AccountKey20 { network: None, key: WETH },
+			GlobalConsensus(Ethereum { chain_id: SEPOLIA_ID }),
+			AccountKey20 { network: None, key: token_id.into() },
 		],
 	);
 	// Register above asset on Rococo AH from Westend AH.
