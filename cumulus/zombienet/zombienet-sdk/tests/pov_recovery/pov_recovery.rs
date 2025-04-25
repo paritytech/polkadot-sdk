@@ -12,6 +12,7 @@ use zombienet_configuration::types::Arg;
 use zombienet_sdk::{LocalFileSystem, Network, NetworkConfigBuilder};
 
 const PARA_ID: u32 = 2000;
+const BEST_BLOCK_METRIC: &str = "block_height{status=\"best\"}";
 
 #[tokio::test(flavor = "multi_thread")]
 async fn pov_recovery() -> Result<(), anyhow::Error> {
@@ -28,7 +29,7 @@ async fn pov_recovery() -> Result<(), anyhow::Error> {
 	// We need to make sure that the recovering node is able to see all relay-chain
 	// notifications containing the candidates to recover.
 	assert!(validator_3
-		.wait_metric_with_timeout("block_height{status=\"best\"}", |b| b >= 20.0, 250u64)
+		.wait_metric_with_timeout(BEST_BLOCK_METRIC, |b| b >= 20.0, 250u64)
 		.await
 		.is_ok());
 
@@ -59,7 +60,7 @@ async fn pov_recovery() -> Result<(), anyhow::Error> {
 	] {
 		assert!(network
 			.get_node(name)?
-			.wait_metric_with_timeout("block_height{status=\"best\"}", |b| b >= 20.0, timeout_secs)
+			.wait_metric_with_timeout(BEST_BLOCK_METRIC, |b| b >= 20.0, timeout_secs)
 			.await
 			.is_ok());
 	}
@@ -84,43 +85,43 @@ async fn setup_network_with_relaychain_only() -> Result<Network<LocalFileSystem>
 	let images = zombienet_sdk::environment::get_images_from_env();
 	log::info!("Using images: {images:?}");
 
-	let config = NetworkConfigBuilder::new().with_relaychain(|r| {
-		let r = r
-			.with_chain("rococo-local")
-			.with_default_command("polkadot")
-			.with_default_image(images.polkadot.as_str())
-			.with_genesis_overrides(json!({
-					"configuration": {
-						"config": {
-							"scheduler_params": {
-								"max_validators_per_core": 1,
-								"group_rotation_frequency": 100
+	let config = NetworkConfigBuilder::new()
+		.with_relaychain(|r| {
+			let r = r
+				.with_chain("rococo-local")
+				.with_default_command("polkadot")
+				.with_default_image(images.polkadot.as_str())
+				.with_genesis_overrides(json!({
+						"configuration": {
+							"config": {
+								"scheduler_params": {
+									"max_validators_per_core": 1,
+									"group_rotation_frequency": 100
+								}
 							}
 						}
-					}
-			}))
-			.with_node(|node| node.with_name("ferdie").validator(false).with_p2p_port(54189));
+				}))
+				.with_node(|node| node.with_name("ferdie").validator(false));
 
-		(0..13).fold(r, |acc, i| {
-			acc.with_node(|node| {
-				node.with_name(&format!("validator-{i}")).with_args(vec![
-					("-lparachain::availability=trace,sync=debug,parachain=debug").into(),
-					("--reserved-only").into(),
-					// TODO switch to {{'ferdie'|zombie('multiAddress')}} when ready
-					("--reserved-nodes=/ip4/127.0.0.1/tcp/54189/ws/p2p/12D3KooWHmTccx3iQVudoetE7K4ANiproMfppKrXgYd2Gfd1UcTQ").into(),
-				])
+			(0..13).fold(r, |acc, i| {
+				acc.with_node(|node| {
+					node.with_name(&format!("validator-{i}")).with_args(vec![
+						("-lparachain::availability=trace,sync=debug,parachain=debug").into(),
+						("--reserved-only").into(),
+						("--reserved-nodes", "{{ZOMBIE:ferdie:multiaddr}}").into(),
+					])
+				})
 			})
 		})
-	})
-	.with_global_settings(|global_settings| match std::env::var("ZOMBIENET_SDK_BASE_DIR") {
-		Ok(val) => global_settings.with_base_dir(val),
-		_ => global_settings,
-	})
-	.build()
-	.map_err(|e| {
-		let errs = e.into_iter().map(|e| e.to_string()).collect::<Vec<_>>().join(" ");
-		anyhow!("config errs: {errs}")
-	})?;
+		.with_global_settings(|global_settings| match std::env::var("ZOMBIENET_SDK_BASE_DIR") {
+			Ok(val) => global_settings.with_base_dir(val),
+			_ => global_settings,
+		})
+		.build()
+		.map_err(|e| {
+			let errs = e.into_iter().map(|e| e.to_string()).collect::<Vec<_>>().join(" ");
+			anyhow!("config errs: {errs}")
+		})?;
 
 	// Spawn network
 	let spawn_fn = zombienet_sdk::environment::get_spawn_fn();
@@ -136,22 +137,18 @@ fn build_collator_args(in_args: Vec<Arg>) -> Vec<Arg> {
 		("--out-peers=0").into()
 	];
 
-	let remaining_args: Vec<Arg> =  vec![
+	let remaining_args: Vec<Arg> = vec![
 		("--").into(),
 		("--reserved-only").into(),
-		// TODO switch to {{'ferdie'|zombie('multiAddress')}}
-		("--reserved-nodes=/ip4/127.0.0.1/tcp/54189/ws/p2p/12D3KooWHmTccx3iQVudoetE7K4ANiproMfppKrXgYd2Gfd1UcTQ").into(),
+		("--reserved-nodes", "{{ZOMBIE:ferdie:multiaddr}}").into(),
 	];
 
-	let in_args = [start_args, in_args, remaining_args].concat();
-	in_args
+	let args = [start_args, in_args, remaining_args].concat();
+	args
 }
 
 async fn setup_parachain(network: &mut Network<LocalFileSystem>) -> Result<(), anyhow::Error> {
 	let images = zombienet_sdk::environment::get_images_from_env();
-
-	let ferdie = network.get_node("ferdie")?;
-	let ferdie_ws_uri = ferdie.ws_uri();
 
 	// TODO switch to {{'bob'|zombie('multiAddress')}}
 	let bob_multi_addr =
@@ -202,7 +199,7 @@ async fn setup_parachain(network: &mut Network<LocalFileSystem>) -> Result<(), a
 				.with_bootnodes_addresses(bootnodes_addresses.clone())
 				.with_args(build_collator_args(vec![
 					"--use-null-consensus".into(),
-					format!("--relay-chain-rpc-url={ferdie_ws_uri}").as_str().into(),
+					("--relay-chain-rpc-url", "{{ZOMBIE:ferdie:ws_uri}}").into(),
 				]))
 		})
 		// run 'two' as a RPC parachain full node
@@ -210,11 +207,11 @@ async fn setup_parachain(network: &mut Network<LocalFileSystem>) -> Result<(), a
 			c.with_name("two")
 				.validator(false)
 				.with_bootnodes_addresses(bootnodes_addresses.clone())
-				.with_args(build_collator_args(vec![format!(
-					"--relay-chain-rpc-url={ferdie_ws_uri}"
+				.with_args(build_collator_args(vec![(
+					"--relay-chain-rpc-url",
+					"{{ZOMBIE:ferdie:ws_uri}}",
 				)
-				.as_str()
-				.into()]))
+					.into()]))
 		})
 		// run 'three' with light client
 		.with_collator(|c| {
