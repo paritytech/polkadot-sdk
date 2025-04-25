@@ -1,7 +1,10 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
 title: Proof Of Possession for public keys
 
 doc:
-  - audience: [Runtime Dev]
+  - audience: Runtime Dev
     description: |
       Introduced `ProofOfPossessionGenerator` and `ProofOfPossessionVerifier` traits.
       Provided blanket implementations for all crypto `Pair` types **not** implementing
@@ -14,7 +17,7 @@ doc:
       BLS PoP generation within the context of runtime requires a new dedicated host function
       in `sp-io` and a new dedicated `Keystore` method.
 
-crates: [
+crates:
 - name: sp-application-crypto
   bump: minor
 - name: sp-core
@@ -26,4 +29,3 @@ crates: [
   note: Introduces a new host function (not exposed by default, feature gated)
 - name: sc-keystore
   bump: minor
-]
