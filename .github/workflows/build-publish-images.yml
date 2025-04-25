@@ -302,6 +302,51 @@ jobs:
         with:
           app-id: ${{ secrets.WORKFLOW_STOPPER_RUNNER_APP_ID }}
           app-key: ${{ secrets.WORKFLOW_STOPPER_RUNNER_APP_KEY }}
+  #
+  #
+  #
+  build-templates-node:
+    needs: [preflight]
+    runs-on: ${{ needs.preflight.outputs.RUNNER }}
+    timeout-minutes: 60
+    container:
+      image: ${{ needs.preflight.outputs.IMAGE }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: build
+        id: required
+        run: |
+          forklift cargo build --locked --package parachain-template-node --release
+          forklift cargo build --locked --package minimal-template-node --release
+          forklift cargo build --locked --package solochain-template-node --release
+      - name: pack artifacts
+        run: |
+          mkdir -p ./artifacts
+          mv ./target/release/parachain-template-node ./artifacts/.
+          mv ./target/release/minimal-template-node ./artifacts/.
+          mv ./target/release/solochain-template-node ./artifacts/.
+          echo -n "${{ needs.preflight.outputs.SOURCE_REF_SLUG }}" > ./artifacts/VERSION
+          echo -n "${{ needs.preflight.outputs.SOURCE_REF_SLUG }}-${COMMIT_SHA}" > ./artifacts/EXTRATAG
+          echo "polkadot-test-malus = $(cat ./artifacts/VERSION) (EXTRATAG = $(cat ./artifacts/EXTRATAG))"
+
+      - name: tar
+        run: tar -cvf artifacts.tar artifacts
+
+      - name: upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ github.job }}-${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
+          path: artifacts.tar
+          retention-days: 1
+      - name: Stop all workflows if failed
+        if: ${{ failure() && steps.required.conclusion == 'failure' && !github.event.pull_request.head.repo.fork }}
+        uses: ./.github/actions/workflow-stopper
+        with:
+          app-id: ${{ secrets.WORKFLOW_STOPPER_RUNNER_APP_ID }}
+          app-key: ${{ secrets.WORKFLOW_STOPPER_RUNNER_APP_KEY }}
+
+
   ### Build zombienet test artifacts ########################
 
   #
@@ -600,6 +645,7 @@ jobs:
       - build-test-collators
       - build-malus
       - build-linux-substrate
+      - build-templates-node
     if: always() && !cancelled()
     steps:
       - run: |
