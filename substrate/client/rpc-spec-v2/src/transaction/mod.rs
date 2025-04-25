@@ -28,6 +28,8 @@
 #[cfg(test)]
 mod tests;
 
+mod metrics;
+
 pub mod api;
 pub mod error;
 pub mod event;

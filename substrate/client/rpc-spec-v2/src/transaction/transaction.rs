@@ -31,9 +31,11 @@ use codec::Decode;
 use futures::{StreamExt, TryFutureExt};
 use jsonrpsee::{core::async_trait, PendingSubscriptionSink};
 use parking_lot::Mutex;
-use prometheus_endpoint::{
-	register, CounterVec, HistogramOpts, HistogramVec, Opts, PrometheusError, Registry, U64,
-};
+
+use super::metrics::{labels, ExecutionState, TransactionMetrics};
+
+use prometheus_endpoint::{PrometheusError, Registry};
+
 use sc_rpc::utils::{RingBuffer, Subscription};
 use sc_transaction_pool_api::{
 	error::IntoPoolError, BlockHash, TransactionFor, TransactionPool, TransactionSource,
@@ -42,101 +44,9 @@ use sc_transaction_pool_api::{
 use sp_blockchain::HeaderBackend;
 use sp_core::Bytes;
 use sp_runtime::traits::Block as BlockT;
-use std::{sync::Arc, time::Instant};
+use std::sync::Arc;
 
 pub(crate) const LOG_TARGET: &str = "rpc-spec-v2";
-
-/// Histogram time buckets in microseconds.
-const HISTOGRAM_BUCKETS: [f64; 11] = [
-	5.0,
-	25.0,
-	100.0,
-	500.0,
-	1_000.0,
-	2_500.0,
-	10_000.0,
-	25_000.0,
-	100_000.0,
-	1_000_000.0,
-	10_000_000.0,
-];
-
-/// RPC layer metrics for transaction pool.
-#[derive(Clone)]
-struct Metrics {
-	/// Counter for transaction status.
-	status: CounterVec<U64>,
-
-	/// Histogram for transaction execution time in each event.
-	execution_time: HistogramVec,
-}
-
-struct ExecutionState {
-	/// The time when the transaction entered this state.
-	started_at: Instant,
-	/// The initial state.
-	initial_state: &'static str,
-}
-
-impl ExecutionState {
-	/// Creates a new [`ExecutionState`].
-	fn new() -> Self {
-		Self { started_at: Instant::now(), initial_state: LABEL_SUBMITTED }
-	}
-
-	/// Advance the state of the transaction.
-	fn advance_state(&mut self, state: &'static str) {
-		self.initial_state = state;
-		self.started_at = Instant::now();
-	}
-}
-
-const LABEL_SUBMITTED: &str = "submitted";
-const LABEL_VALIDATED: &str = "validated";
-const LABEL_IN_BLOCK: &str = "in_block";
-const LABEL_RETRACTED: &str = "retracted";
-const LABEL_FINALIZED: &str = "finalized";
-const LABEL_DROPPED: &str = "dropped";
-const LABEL_INVALID: &str = "invalid";
-
-impl Metrics {
-	/// Creates a new [`Metrics`] instance.
-	fn new(registry: &Registry) -> Result<Self, PrometheusError> {
-		let status = register(
-			CounterVec::new(
-				Opts::new("rpc_transaction_status", "Number of transactions by status"),
-				&["state"],
-			)?,
-			registry,
-		)?;
-
-		let execution_time = register(
-			HistogramVec::new(
-				HistogramOpts::new(
-					"rpc_transaction_execution_time",
-					"Transaction execution time in each event",
-				)
-				.buckets(HISTOGRAM_BUCKETS.to_vec()),
-				&["initial_state", "final_state"],
-			)?,
-			registry,
-		)?;
-
-		Ok(Metrics { status, execution_time })
-	}
-
-	/// Record the execution time of a transaction state.
-	///
-	/// This represents how long it took for the transaction to move to the next state.
-	fn publish_and_advance_state(&self, state: &mut ExecutionState, final_state: &'static str) {
-		let elapsed = state.started_at.elapsed().as_micros() as f64;
-		self.execution_time
-			.with_label_values(&[state.initial_state, final_state])
-			.observe(elapsed);
-
-		state.advance_state(final_state);
-	}
-}
 
 /// An API for transaction RPC calls.
 pub struct Transaction<Pool, Client> {
@@ -147,7 +57,7 @@ pub struct Transaction<Pool, Client> {
 	/// Executor to spawn subscriptions.
 	executor: SubscriptionTaskExecutor,
 	/// Metrics for transactions.
-	metrics: Option<Metrics>,
+	metrics: Option<TransactionMetrics>,
 }
 
 impl<Pool, Client> Transaction<Pool, Client> {
@@ -158,8 +68,11 @@ impl<Pool, Client> Transaction<Pool, Client> {
 		executor: SubscriptionTaskExecutor,
 		registry: Option<&Registry>,
 	) -> Result<Self, PrometheusError> {
-		let metrics =
-			if let Some(registry) = registry { Some(Metrics::new(registry)?) } else { None };
+		let metrics = if let Some(registry) = registry {
+			Some(TransactionMetrics::new(registry)?)
+		} else {
+			None
+		};
 
 		Ok(Transaction { client, pool, executor, metrics })
 	}
@@ -188,7 +101,7 @@ where
 		let fut = async move {
 			let metrics = &metrics;
 			if let Some(metrics) = metrics {
-				metrics.status.with_label_values(&[LABEL_SUBMITTED]).inc();
+				metrics.status.with_label_values(&[labels::SUBMITTED]).inc();
 			}
 
 			let decoded_extrinsic = match TransactionFor::<Pool>::decode(&mut &xt[..]) {
@@ -199,7 +112,7 @@ where
 					let Ok(sink) = pending.accept().await.map(Subscription::from) else { return };
 
 					if let Some(metrics) = metrics {
-						metrics.status.with_label_values(&[LABEL_INVALID]).inc();
+						metrics.status.with_label_values(&[labels::INVALID]).inc();
 					}
 
 					// The transaction is invalid.
@@ -258,36 +171,36 @@ where
 #[inline]
 fn handle_event<Hash: Clone, BlockHash: Clone>(
 	event: TransactionStatus<Hash, BlockHash>,
-	metrics: &Option<Metrics>,
+	metrics: &Option<TransactionMetrics>,
 	execution_state: Arc<Mutex<ExecutionState>>,
 ) -> Option<TransactionEvent<BlockHash>> {
 	let mut execution_state = execution_state.lock();
 	match event {
 		TransactionStatus::Ready | TransactionStatus::Future => {
 			if let Some(metrics) = metrics {
-				metrics.publish_and_advance_state(&mut execution_state, LABEL_VALIDATED);
+				metrics.publish_and_advance_state(&mut execution_state, labels::VALIDATED);
 			}
 
 			Some(TransactionEvent::<BlockHash>::Validated)
 		},
 		TransactionStatus::InBlock((hash, index)) => {
 			if let Some(metrics) = metrics {
-				metrics.publish_and_advance_state(&mut execution_state, LABEL_IN_BLOCK);
+				metrics.publish_and_advance_state(&mut execution_state, labels::IN_BLOCK);
 			}
 
 			Some(TransactionEvent::BestChainBlockIncluded(Some(TransactionBlock { hash, index })))
 		},
 		TransactionStatus::Retracted(_) => {
 			if let Some(metrics) = metrics {
-				metrics.publish_and_advance_state(&mut execution_state, LABEL_RETRACTED);
+				metrics.publish_and_advance_state(&mut execution_state, labels::RETRACTED);
 			}
 
 			Some(TransactionEvent::BestChainBlockIncluded(None))
 		},
 		TransactionStatus::FinalityTimeout(_) => {
 			if let Some(metrics) = metrics {
-				metrics.status.with_label_values(&[LABEL_DROPPED]).inc();
-				metrics.publish_and_advance_state(&mut execution_state, LABEL_DROPPED);
+				metrics.status.with_label_values(&[labels::DROPPED]).inc();
+				metrics.publish_and_advance_state(&mut execution_state, labels::DROPPED);
 			}
 
 			Some(TransactionEvent::Dropped(TransactionDropped {
@@ -296,16 +209,16 @@ fn handle_event<Hash: Clone, BlockHash: Clone>(
 		},
 		TransactionStatus::Finalized((hash, index)) => {
 			if let Some(metrics) = metrics {
-				metrics.status.with_label_values(&[LABEL_FINALIZED]).inc();
-				metrics.publish_and_advance_state(&mut execution_state, LABEL_FINALIZED);
+				metrics.status.with_label_values(&[labels::FINALIZED]).inc();
+				metrics.publish_and_advance_state(&mut execution_state, labels::FINALIZED);
 			}
 
 			Some(TransactionEvent::Finalized(TransactionBlock { hash, index }))
 		},
 		TransactionStatus::Usurped(_) => {
 			if let Some(metrics) = metrics {
-				metrics.status.with_label_values(&[LABEL_INVALID]).inc();
-				metrics.publish_and_advance_state(&mut execution_state, LABEL_INVALID);
+				metrics.status.with_label_values(&[labels::INVALID]).inc();
+				metrics.publish_and_advance_state(&mut execution_state, labels::INVALID);
 			}
 
 			Some(TransactionEvent::Invalid(TransactionError {
@@ -314,8 +227,8 @@ fn handle_event<Hash: Clone, BlockHash: Clone>(
 		},
 		TransactionStatus::Dropped => {
 			if let Some(metrics) = metrics {
-				metrics.status.with_label_values(&[LABEL_DROPPED]).inc();
-				metrics.publish_and_advance_state(&mut execution_state, LABEL_DROPPED);
+				metrics.status.with_label_values(&[labels::DROPPED]).inc();
+				metrics.publish_and_advance_state(&mut execution_state, labels::DROPPED);
 			}
 
 			Some(TransactionEvent::Dropped(TransactionDropped {
@@ -324,8 +237,8 @@ fn handle_event<Hash: Clone, BlockHash: Clone>(
 		},
 		TransactionStatus::Invalid => {
 			if let Some(metrics) = metrics {
-				metrics.status.with_label_values(&[LABEL_INVALID]).inc();
-				metrics.publish_and_advance_state(&mut execution_state, LABEL_INVALID);
+				metrics.status.with_label_values(&[labels::INVALID]).inc();
+				metrics.publish_and_advance_state(&mut execution_state, labels::INVALID);
 			}
 
 			Some(TransactionEvent::Invalid(TransactionError {
