@@ -1,0 +1,8 @@
+title: Backport fix for pallet-multisig benchmarks
+doc:
+- audience: Runtime Dev
+  description: |-
+    Fixes the benchmarks for `pallet-multisig` that generates incompatible weights for stable2412.
+crates:
+- name: pallet-multisig
+  bump: patch
