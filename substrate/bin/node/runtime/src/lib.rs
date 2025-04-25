@@ -1658,8 +1658,11 @@ impl pallet_opf::Config for Runtime {
 	/// This should be calculated as a percentage of inflation.
 	type TemporaryRewards = TemporaryRewards;
 
-
+	/// Trait used to manage the referenda.
 	type Governance = Referenda;
+
+	/// Trait used to manage the conviction voting.
+	/// This is used to manage the voting of the referenda.
 	type Conviction = ConvictionVoting;
 
 	type WeightInfo = pallet_opf::weights::SubstrateWeight<Runtime>;
