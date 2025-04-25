@@ -56,7 +56,7 @@ pub struct MessageToXcm<
 	ConvertAssetId,
 	GatewayProxyAddress,
 	EthereumUniversalLocation,
-	GlobalAssetHubLocation,
+	AssetHubFromEthereum,
 	AssetHubUniversalLocation,
 	AccountId,
 > {
@@ -68,7 +68,7 @@ pub struct MessageToXcm<
 		ConvertAssetId,
 		GatewayProxyAddress,
 		EthereumUniversalLocation,
-		GlobalAssetHubLocation,
+		AssetHubFromEthereum,
 		AssetHubUniversalLocation,
 		AccountId,
 	)>,
@@ -82,7 +82,7 @@ impl<
 		ConvertAssetId,
 		GatewayProxyAddress,
 		EthereumUniversalLocation,
-		GlobalAssetHubLocation,
+		AssetHubFromEthereum,
 		AssetHubUniversalLocation,
 		AccountId,
 	>
@@ -94,7 +94,7 @@ impl<
 		ConvertAssetId,
 		GatewayProxyAddress,
 		EthereumUniversalLocation,
-		GlobalAssetHubLocation,
+		AssetHubFromEthereum,
 		AssetHubUniversalLocation,
 		AccountId,
 	>
@@ -106,7 +106,7 @@ where
 	ConvertAssetId: MaybeEquivalence<TokenId, Location>,
 	GatewayProxyAddress: Get<H160>,
 	EthereumUniversalLocation: Get<InteriorLocation>,
-	GlobalAssetHubLocation: Get<Location>,
+	AssetHubFromEthereum: Get<Location>,
 	AssetHubUniversalLocation: Get<InteriorLocation>,
 	AccountId: Into<[u8; 32]> + From<[u8; 32]> + Clone,
 {
@@ -167,7 +167,7 @@ where
 						.ok_or(ConvertMessageError::InvalidAsset)?;
 					let reanchored_asset_loc = asset_loc
 						.reanchored(
-							&GlobalAssetHubLocation::get(),
+							&AssetHubFromEthereum::get(),
 							&EthereumUniversalLocation::get(),
 						)
 						.map_err(|_| ConvertMessageError::CannotReanchor)?;
@@ -311,7 +311,7 @@ impl<
 		ConvertAssetId,
 		GatewayProxyAddress,
 		EthereumUniversalLocation,
-		GlobalAssetHubLocation,
+		AssetHubFromEthereum,
 		AssetHubUniversalLocation,
 		AccountId,
 	> ConvertMessage
@@ -323,7 +323,7 @@ impl<
 		ConvertAssetId,
 		GatewayProxyAddress,
 		EthereumUniversalLocation,
-		GlobalAssetHubLocation,
+		AssetHubFromEthereum,
 		AssetHubUniversalLocation,
 		AccountId,
 	>
@@ -335,7 +335,7 @@ where
 	ConvertAssetId: MaybeEquivalence<TokenId, Location>,
 	GatewayProxyAddress: Get<H160>,
 	EthereumUniversalLocation: Get<InteriorLocation>,
-	GlobalAssetHubLocation: Get<Location>,
+	AssetHubFromEthereum: Get<Location>,
 	AssetHubUniversalLocation: Get<InteriorLocation>,
 	AccountId: Into<[u8; 32]> + From<[u8; 32]> + Clone,
 {
