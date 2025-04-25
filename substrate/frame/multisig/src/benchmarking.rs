@@ -194,14 +194,14 @@ mod benchmarks {
 		Ok(())
 	}
 
-	/// `z`: Transaction Length, not a component
 	/// `s`: Signatories, need at least 2 people
 	#[benchmark]
 	fn approve_as_multi_create(
 		s: Linear<2, { T::MaxSignatories::get() }>,
-		z: Linear<0, 10_000>,
 	) -> Result<(), BenchmarkError> {
-		let (mut signatories, call) = setup_multi::<T>(s, z)?;
+		// The call is neither in storage or an argument, so just use any:
+		let call_len = 10_000;
+		let (mut signatories, call) = setup_multi::<T>(s, call_len)?;
 		let multi_account_id = Multisig::<T>::multi_account_id(&signatories, s.try_into().unwrap());
 		let caller = signatories.pop().ok_or("signatories should have len 2 or more")?;
 		let call_hash = call.using_encoded(blake2_256);
@@ -225,14 +225,15 @@ mod benchmarks {
 		Ok(())
 	}
 
-	/// `z`: Transaction Length, not a component
 	/// `s`: Signatories, need at least 2 people
 	#[benchmark]
 	fn approve_as_multi_approve(
 		s: Linear<2, { T::MaxSignatories::get() }>,
 		z: Linear<0, 10_000>,
 	) -> Result<(), BenchmarkError> {
-		let (mut signatories, call) = setup_multi::<T>(s, z)?;
+		// The call is neither in storage or an argument, so just use any:
+		let call_len = 10_000;
+		let (mut signatories, call) = setup_multi::<T>(s, call_len)?;
 		let mut signatories2 = signatories.clone();
 		let multi_account_id = Multisig::<T>::multi_account_id(&signatories, s.try_into().unwrap());
 		let caller = signatories.pop().ok_or("signatories should have len 2 or more")?;
@@ -270,14 +271,12 @@ mod benchmarks {
 		Ok(())
 	}
 
-	/// `z`: Transaction Length, not a component
 	/// `s`: Signatories, need at least 2 people
 	#[benchmark]
-	fn cancel_as_multi(
-		s: Linear<2, { T::MaxSignatories::get() }>,
-		z: Linear<0, 10_000>,
-	) -> Result<(), BenchmarkError> {
-		let (mut signatories, call) = setup_multi::<T>(s, z)?;
+	fn cancel_as_multi(s: Linear<2, { T::MaxSignatories::get() }>) -> Result<(), BenchmarkError> {
+		// The call is neither in storage or an argument, so just use any:
+		let call_len = 10_000;
+		let (mut signatories, call) = setup_multi::<T>(s, call_len)?;
 		let multi_account_id = Multisig::<T>::multi_account_id(&signatories, s.try_into().unwrap());
 		let caller = signatories.pop().ok_or("signatories should have len 2 or more")?;
 		let call_hash = call.using_encoded(blake2_256);
