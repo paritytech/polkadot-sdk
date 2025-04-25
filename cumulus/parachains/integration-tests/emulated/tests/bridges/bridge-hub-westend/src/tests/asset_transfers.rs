@@ -212,7 +212,6 @@ fn send_wnds_usdt_and_weth_from_asset_hub_westend_to_asset_hub_rococo() {
 		sender.clone(),
 		amount * 2,
 	);
-	create_foreign_on_ah_rococo(bridged_weth_at_ah.clone(), true);
 	create_foreign_on_ah_rococo(bridged_usdt_at_asset_hub_rococo.clone(), true);
 	create_pool_with_native_on!(
 		AssetHubRococo,
