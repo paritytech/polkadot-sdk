@@ -350,8 +350,6 @@ pub mod testing_prelude {
 
 	pub use sp_io::TestExternalities as TestState;
 
-	pub use sp_io::storage;
-
 	/// Commonly used runtime traits for testing.
 	pub use sp_runtime::{traits::BadOrigin, StateVersion};
 }
