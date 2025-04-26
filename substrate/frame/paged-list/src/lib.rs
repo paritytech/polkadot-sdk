@@ -31,7 +31,7 @@
 //! ## Overview
 //!
 //! The pallet is quite unique since it does not expose any `Call`s, `Error`s or `Event`s. All
-//! interaction goes through the implemented [`StorageList`][frame_support::storage::StorageList]
+//! interaction goes through the implemented [`StorageList`][frame::deps::frame_support::storage::StorageList]
 //! trait.
 //!
 //! A fuzzer for testing is provided in crate `pallet-paged-list-fuzzer`.

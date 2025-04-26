@@ -87,7 +87,7 @@ pub struct StoragePagedList<Prefix, Value, ValuesPerNewPage> {
 
 /// The state of a [`StoragePagedList`].
 ///
-/// This struct doubles as [`frame_support::storage::StorageList::Appender`].
+/// This struct doubles as [`frame::deps::frame_support::storage::StorageList::Appender`].
 #[derive(
 	Encode, Decode, CloneNoBound, PartialEqNoBound, EqNoBound, DebugNoBound, DefaultNoBound,
 )]
@@ -432,7 +432,7 @@ pub(crate) mod mock {
 #[cfg(test)]
 mod tests {
 	use super::mock::*;
-	use frame::testing_prelude::{storage, TestExternalities, *};
+	use frame::testing_prelude::{TestExternalities, *};
 
 	#[test]
 	fn append_works() {
