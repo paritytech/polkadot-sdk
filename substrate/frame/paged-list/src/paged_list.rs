@@ -28,12 +28,13 @@ use codec::{Decode, Encode, EncodeLike, FullCodec};
 use core::marker::PhantomData;
 use frame::{
 	derive::{CloneNoBound, DebugNoBound, DefaultNoBound, EqNoBound, PartialEqNoBound},
+	prelude::Saturating,
 	runtime::prelude::{
 		defensive,
 		storage::{StorageAppender, StorageList, StoragePrefixedContainer},
 	},
-	testing_prelude::*,
-	traits::StorageInstance,
+	testing_prelude::storage,
+	traits::{Get, StorageInstance},
 };
 
 pub type PageIndex = u32;
@@ -62,12 +63,13 @@ pub type ValueIndex = u32;
 /// as long as there are elements in the page and there are pages in storage. All elements of a page
 /// are loaded once a page is read from storage. Iteration then happens on the cached elements. This
 /// reduces the number of storage `read` calls on the overlay. **Appending** to the list happens by
-/// appending to the last page by utilizing [`storage::append`]. It allows to directly extend
+/// appending to the last page by utilizing
+/// [`storage::append`](frame::deps::sp_io::storage::append). It allows to directly extend
 /// the elements of `values` vector of the page without loading the whole vector from storage. A new
 /// page is instantiated once [`Page::next`] overflows `ValuesPerNewPage`. Its vector will also be
-/// created through [`storage::append`]. **Draining** advances the internal indices identical
-/// to Iteration. It additionally persists the increments to storage and thereby 'drains' elements.
-/// Completely drained pages are deleted from storage.
+/// created through [`storage::append`](frame::deps::sp_io::storage::append). **Draining** advances
+/// the internal indices identical to Iteration. It additionally persists the increments to storage
+/// and thereby 'drains' elements. Completely drained pages are deleted from storage.
 ///
 /// # Further Observations
 ///
@@ -409,6 +411,7 @@ where
 #[allow(dead_code)]
 pub(crate) mod mock {
 	pub use super::*;
+	use frame::testing_prelude::*;
 
 	parameter_types! {
 		pub const ValuesPerNewPage: u32 = 5;
@@ -429,6 +432,7 @@ pub(crate) mod mock {
 #[cfg(test)]
 mod tests {
 	use super::mock::*;
+	use frame::testing_prelude::{storage, TestExternalities, *};
 
 	#[test]
 	fn append_works() {
