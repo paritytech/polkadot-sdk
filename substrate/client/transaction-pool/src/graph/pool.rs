@@ -319,8 +319,8 @@ impl<B: ChainApi, L: EventHandler<B>> Pool<B, L> {
 			extrinsics.iter().map(|extrinsic| self.hash_of(extrinsic)).collect::<Vec<_>>();
 		let in_pool_tags = self.validated_pool.extrinsics_tags(&in_pool_hashes);
 		// Fill unknown tags based on the known tags given in `known_provides_tags`.
-		let mut unknown_txs_count = 0u64;
-		let mut reused_txs_count = 0u64;
+		let mut unknown_txs_count = 0usize;
+		let mut reused_txs_count = 0usize;
 		let tags = in_pool_hashes.iter().zip(in_pool_tags).map(|(tx_hash, tags)| {
 			tags.or_else(|| {
 				unknown_txs_count += 1;
