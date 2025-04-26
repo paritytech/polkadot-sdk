@@ -265,6 +265,12 @@ fn send_back_wnds_usdt_and_weth_from_asset_hub_rococo_to_asset_hub_westend() {
 		ByGenesis(ROCOCO_GENESIS_HASH),
 		AssetHubRococo::para_id(),
 	);
+
+	let sov_ahw_on_ahr = AssetHubRococo::sovereign_account_of_parachain_on_other_global_consensus(
+		ByGenesis(WESTEND_GENESIS_HASH),
+		AssetHubWestend::para_id(),
+	);
+
 	AssetHubWestend::mint_asset(
 		<AssetHubWestend as Chain>::RuntimeOrigin::signed(AssetHubWestendAssetOwner::get()),
 		USDT_ID,
@@ -274,14 +280,25 @@ fn send_back_wnds_usdt_and_weth_from_asset_hub_rococo_to_asset_hub_westend() {
 	AssetHubWestend::mint_foreign_asset(
 		<AssetHubWestend as Chain>::RuntimeOrigin::signed(snowbridge_sovereign()),
 		bridged_weth_at_ah.clone(),
-		sov_ahr_on_ahw,
+		sov_ahr_on_ahw.clone(),
 		amount_to_send * 2,
+	);
+	AssetHubRococo::mint_foreign_asset(
+		<AssetHubRococo as Chain>::RuntimeOrigin::signed(sov_ahw_on_ahr.clone()),
+		bridged_weth_at_ah.clone(),
+		sov_ahr_on_ahw,
+		prefund_amount,
+	);
+	AssetHubRococo::mint_foreign_asset(
+		<AssetHubRococo as Chain>::RuntimeOrigin::signed(sov_ahw_on_ahr),
+		bridged_weth_at_ah.clone(),
+		sender.clone(),
+		prefund_amount,
 	);
 
 	// set up source chain AH Rococo:
 	// create wETH and USDT foreign assets on Rococo and prefund sender's account
 	let prefund_accounts = vec![(sender.clone(), amount_to_send * 2)];
-	create_foreign_on_ah_rococo(bridged_weth_at_ah.clone(), true, prefund_accounts.clone());
 	create_foreign_on_ah_rococo(bridged_usdt_at_asset_hub_rococo.clone(), true, prefund_accounts);
 
 	// check balances before
