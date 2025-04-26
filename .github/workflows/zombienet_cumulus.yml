@@ -39,7 +39,7 @@ jobs:
       # RUST_LOG: ${{ needs.preflight.outputs.RUST_LOG }}
       RUST_LOG: debug
       ZOMBIE_PROVIDER: ${{ needs.preflight.outputs.ZOMBIE_PROVIDER }}
-      RUN_IN_CI: ${{ needs.preflight.outputs.RUN_IN_CI }}
+      # RUN_IN_CI: ${{ needs.preflight.outputs.RUN_IN_CI }}
       # don't retry sdk tests
       NEXTEST_RETRIES: 0
 
@@ -357,7 +357,7 @@ jobs:
       # RUST_LOG: ${{ needs.preflight.outputs.RUST_LOG }}
       RUST_LOG: debug
       ZOMBIE_PROVIDER: ${{ needs.preflight.outputs.ZOMBIE_PROVIDER }}
-      RUN_IN_CI: ${{ needs.preflight.outputs.RUN_IN_CI }}
+      # RUN_IN_CI: ${{ needs.preflight.outputs.RUN_IN_CI }}
       # don't retry sdk tests
       NEXTEST_RETRIES: 0
 
