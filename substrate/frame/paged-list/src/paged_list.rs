@@ -27,13 +27,13 @@ use alloc::vec::Vec;
 use codec::{Decode, Encode, EncodeLike, FullCodec};
 use core::marker::PhantomData;
 use frame::{
+	deps::sp_io,
 	derive::{CloneNoBound, DebugNoBound, DefaultNoBound, EqNoBound, PartialEqNoBound},
 	prelude::Saturating,
 	runtime::prelude::{
 		defensive,
 		storage::{StorageAppender, StorageList, StoragePrefixedContainer},
 	},
-	deps::sp_io,
 	traits::{Get, StorageInstance},
 };
 
@@ -191,8 +191,8 @@ impl<V: FullCodec> Page<V> {
 		value_index: ValueIndex,
 	) -> Option<Self> {
 		let key = page_key::<Prefix>(index);
-		let values =
-			sp_io::storage::get(&key).and_then(|raw| alloc::vec::Vec::<V>::decode(&mut &raw[..]).ok())?;
+		let values = sp_io::storage::get(&key)
+			.and_then(|raw| alloc::vec::Vec::<V>::decode(&mut &raw[..]).ok())?;
 		if values.is_empty() {
 			// Don't create empty pages.
 			return None
