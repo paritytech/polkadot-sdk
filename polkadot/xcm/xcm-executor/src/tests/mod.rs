@@ -20,7 +20,6 @@
 //! `xcm-emulator` based tests in the cumulus folder.
 //! These tests deal with internal state changes of the XCVM.
 
-mod deposit_asset;
 mod initiate_transfer;
 mod mock;
 mod pay_fees;

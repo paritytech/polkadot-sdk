@@ -49,6 +49,7 @@ pub fn instantiate_executor(
 	(vm, weight)
 }
 
+/// Dummy XCVM instance to test deposits under BelowMinimum conditions
 pub fn instantiate_executor_with_ed(
 	origin: impl Into<Location>,
 	message: Xcm<<XcmConfigWithED as Config>::RuntimeCall>,
@@ -162,7 +163,7 @@ impl TransactAsset for TestAssetTransactor {
 	}
 }
 
-// Dummy Transactor to test under ED conditions
+/// Dummy Transactor to test deposist under BelowMinimum conditions
 pub struct AssetTransactorWithED;
 impl TransactAsset for AssetTransactorWithED {
 	fn deposit_asset(
@@ -358,6 +359,7 @@ impl Config for XcmConfig {
 	type XcmRecorder = ();
 }
 
+/// Dummy XcmConfig to test deposists under BelowMinimum conditions
 pub struct XcmConfigWithED;
 impl Config for XcmConfigWithED {
 	type RuntimeCall = TestCall;

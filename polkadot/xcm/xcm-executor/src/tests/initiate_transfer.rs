@@ -21,6 +21,7 @@
 //! [specification](https://github.com/polkadot-fellows/xcm-format) for more information.
 
 use codec::Encode;
+use frame_benchmarking::v2::__private::log::debug;
 use frame_support::BoundedVec;
 use xcm::{latest::AssetTransferFilter, prelude::*};
 
@@ -217,4 +218,57 @@ fn unpaid_transact() {
 	let mut instructions = sent_message.inner().iter();
 	assert!(matches!(instructions.next().unwrap(), UnpaidExecution { .. }));
 	assert!(matches!(instructions.next().unwrap(), Transact { .. }));
+}
+
+/// This test verifies that mixed deposits (dust and legit) are handled gracefully:
+///
+/// - The initiator sends both deposits inside the outgoing XCM (dust is not filtered early).
+/// - The outgoing XCM contains two `DepositAsset` instructions.
+/// - XCM sending succeeds.
+///
+/// Dust handling (trapping of dust assets) will occur during execution on the destination chain,
+/// and is not tested here, but it confirms ignoring `BelowMinimum` errors at deposit time
+/// allowing sending XCMs containing both dust and legit assets without aborting execution.
+#[test]
+fn deposit_asset_mixed_below_and_above_ed_should_succeed_gracefully() {
+	add_asset(SENDER, (Here, 200u128));
+
+	let dust_asset: Asset = (Here, 5u128).into(); // Below ED
+	let legit_asset: Asset = (Here, 100u128).into(); // Above ED
+
+	let remote_xcm = Xcm(vec![
+		DepositAsset {
+			assets: Definite(Assets::from(vec![dust_asset.clone()])),
+			beneficiary: RECIPIENT.into(),
+		},
+		DepositAsset {
+			assets: Definite(Assets::from(vec![legit_asset.clone()])),
+			beneficiary: RECIPIENT.into(),
+		},
+	]);
+
+	let xcm = Xcm::<TestCall>(vec![
+		WithdrawAsset((Here, 105u128).into()),
+		InitiateTransfer {
+			destination: Parent.into(),
+			remote_fees: None,
+			preserve_origin: false,
+			assets: BoundedVec::new(),
+			remote_xcm,
+		},
+	]);
+
+	let (mut vm, _) = instantiate_executor_with_ed(SENDER, xcm.clone());
+
+	let result = vm.bench_process(xcm);
+
+	assert!(result.is_ok(), "XCM execution must succeed even if one deposit is dust");
+
+	let (destination, sent_xcm) = sent_xcm().pop().expect("A message must have been sent");
+	assert_eq!(destination, Parent.into(), "Destination must be Parent");
+
+	let instructions = sent_xcm.inner();
+
+	let deposit_count = instructions.iter().filter(|i| matches!(i, DepositAsset { .. })).count();
+	assert!(deposit_count == 2, "Sent XCM must contain DepositAsset instructions");
 }

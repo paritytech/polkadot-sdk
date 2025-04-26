@@ -519,8 +519,8 @@ impl<Config: config::Config> XcmExecutor<Config> {
 		);
 		if current_surplus.any_gt(Weight::zero()) {
 			if let Some(w) = self.trader.refund_weight(current_surplus, &self.context) {
-				if !self.holding.contains_asset(&(w.id.clone(), 1).into()) &&
-					self.ensure_can_subsume_assets(1).is_err()
+				if !self.holding.contains_asset(&(w.id.clone(), 1).into())
+					&& self.ensure_can_subsume_assets(1).is_err()
 				{
 					let _ = self
 						.trader
@@ -532,7 +532,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 						target: "xcm::refund_surplus",
 						"error: HoldingWouldOverflow",
 					);
-					return Err(XcmError::HoldingWouldOverflow)
+					return Err(XcmError::HoldingWouldOverflow);
 				}
 				self.total_refunded.saturating_accrue(current_surplus);
 				self.holding.subsume_assets(w.into());
@@ -552,7 +552,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 
 	fn take_fee(&mut self, fees: Assets, reason: FeeReason) -> XcmResult {
 		if Config::FeeManager::is_waived(self.origin_ref(), reason.clone()) {
-			return Ok(())
+			return Ok(());
 		}
 		tracing::trace!(
 			target: "xcm::fees",
@@ -830,7 +830,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 					let inst_res = recursion_count::using_once(&mut 1, || {
 						recursion_count::with(|count| {
 							if *count > RECURSION_LIMIT {
-								return None
+								return None;
 							}
 							*count = count.saturating_add(1);
 							Some(())
@@ -865,10 +865,11 @@ impl<Config: config::Config> XcmExecutor<Config> {
 						});
 					}
 				},
-				Err(ref mut error) =>
+				Err(ref mut error) => {
 					if let Ok(x) = Config::Weigher::instr_weight(&mut instr) {
 						error.weight.saturating_accrue(x)
-					},
+					}
+				},
 			}
 		}
 		result
@@ -1752,15 +1753,24 @@ impl<Config: config::Config> XcmExecutor<Config> {
 		context: Option<&XcmContext>,
 	) -> Result<(), XcmError> {
 		let mut failed_deposits = Vec::with_capacity(to_deposit.len());
+		let deposit_result = Ok(());
 
-		let mut deposit_result = Ok(());
 		for asset in to_deposit.assets_iter() {
-			deposit_result = Config::AssetTransactor::deposit_asset(&asset, &beneficiary, context);
+			let deposit_result =
+				Config::AssetTransactor::deposit_asset(&asset, &beneficiary, context);
+
 			// if deposit failed for asset, mark it for retry after depositing the others.
-			if deposit_result.is_err() {
-				failed_deposits.push(asset);
+			if let Err(e) = &deposit_result {
+				// Gracefully skip dust deposits
+				if Self::is_below_minimum_error(e) {
+					Self::do_handle_below_minimum(&asset, &beneficiary, context);
+					continue;
+				} else {
+					failed_deposits.push(asset);
+				}
 			}
 		}
+
 		if failed_deposits.len() == to_deposit.len() {
 			tracing::debug!(
 				target: "xcm::execute",
@@ -1773,9 +1783,39 @@ impl<Config: config::Config> XcmExecutor<Config> {
 
 		// retry previously failed deposits, this time short-circuiting on any error.
 		for asset in failed_deposits {
-			Config::AssetTransactor::deposit_asset(&asset, &beneficiary, context)?;
+			let deposit_result =
+				Config::AssetTransactor::deposit_asset(&asset, &beneficiary, context);
+			// Gracefully skip dust deposits
+			if let Err(e) = &deposit_result {
+				if Self::is_below_minimum_error(&e) {
+					Self::do_handle_below_minimum(&asset, &beneficiary, context);
+
+					continue;
+				} else {
+					return Err(*e);
+				}
+			}
 		}
 		Ok(())
+	}
+
+	fn is_below_minimum_error(e: &XcmError) -> bool {
+		matches!(e, XcmError::FailedToTransactAsset(s) if *s == "BelowMinimum")
+	}
+
+	fn do_handle_below_minimum(
+		asset: &Asset,
+		beneficiary: &Location,
+		context: Option<&XcmContext>,
+	) {
+		tracing::debug!(
+			target: "xcm::execute",
+			?asset,
+			"Skipping dust asset (BelowMinimum). Trapping instead."
+		);
+		if let Some(ctx) = context {
+			Config::AssetTrap::drop_assets(beneficiary, asset.clone().into(), ctx);
+		}
 	}
 
 	/// Take from transferred `assets` the delivery fee required to send an onward transfer message
