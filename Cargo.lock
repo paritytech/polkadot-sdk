@@ -4414,6 +4414,7 @@ dependencies = [
  "cumulus-relay-chain-streams",
  "futures",
  "polkadot-primitives",
+ "prometheus",
  "sc-client-api",
  "sc-consensus",
  "sc-network",
