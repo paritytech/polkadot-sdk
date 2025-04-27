@@ -1444,7 +1444,9 @@ xcm-runtime-apis = { path = "polkadot/xcm/xcm-runtime-apis", default-features = 
 xcm-simulator = { path = "polkadot/xcm/xcm-simulator", default-features = false }
 yet-another-parachain-runtime = { path = "cumulus/parachains/runtimes/testing/yet-another-parachain" }
 zeroize = { version = "1.7.0", default-features = false }
-zombienet-sdk = { version = "0.2.31" }
+# zombienet-sdk = { version = "0.2.31" }
+# zombienet-sdk = { path = "../zombienet-sdk/crates/sdk" }
+zombienet-sdk = { git = "https://github.com/lrubasze/zombienet-sdk.git", rev = "79b08c32be7167b957d025eeaca600b3c9a38548" }
 zstd = { version = "0.12.4", default-features = false }
 
 [profile.release]
