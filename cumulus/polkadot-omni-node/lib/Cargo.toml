@@ -95,7 +95,6 @@ cumulus-client-service = { workspace = true, default-features = true }
 cumulus-primitives-aura = { workspace = true, default-features = true }
 cumulus-primitives-core = { workspace = true, default-features = true }
 cumulus-relay-chain-interface = { workspace = true, default-features = true }
-cumulus-relay-chain-streams = { workspace = true, default-features = true }
 futures-timer = { workspace = true }
 
 [dev-dependencies]

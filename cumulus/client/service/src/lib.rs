@@ -20,7 +20,7 @@
 //! Provides functions for starting a collator node or a normal full node.
 
 use cumulus_client_cli::CollatorOptions;
-use cumulus_client_consensus_common::ParachainConsensus;
+use cumulus_client_consensus_common::{finalized_heads, ParachainConsensus};
 use cumulus_client_network::{AssumeSybilResistance, RequireSecondedInBlockAnnounce};
 use cumulus_client_pov_recovery::{PoVRecovery, RecoveryDelayRange, RecoveryHandle};
 use cumulus_primitives_core::{CollectCollationInfo, ParaId};
@@ -29,7 +29,8 @@ use cumulus_relay_chain_interface::{RelayChainInterface, RelayChainResult};
 use cumulus_relay_chain_minimal_node::{
 	build_minimal_relay_chain_node_light_client, build_minimal_relay_chain_node_with_rpc,
 };
-use futures::{channel::mpsc, StreamExt};
+use cumulus_relay_chain_streams::pending_candidates;
+use futures::{channel::mpsc, select, StreamExt};
 use polkadot_primitives::{CollatorPair, OccupiedCoreAssumption};
 use sc_client_api::{
 	Backend as BackendT, BlockBackend, BlockchainEvents, Finalizer, ProofProvider, UsageProvider,
@@ -46,6 +47,7 @@ use sc_telemetry::{log, TelemetryWorkerHandle};
 use sc_utils::mpsc::TracingUnboundedSender;
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::{HeaderBackend, HeaderMetadata};
+use sp_consensus::SyncOracle;
 use sp_core::{traits::SpawnNamed, Decode};
 use sp_runtime::traits::{Block as BlockT, BlockIdTo, Header};
 use std::{sync::Arc, time::Duration};
@@ -203,6 +205,8 @@ where
 /// arrive via the normal p2p layer (i.e. when authors withhold their blocks deliberately).
 ///
 /// This function spawns work for those side tasks.
+///
+/// It also spawns a parachain informant task that will log the relay chain state and some metrics.
 pub fn start_relay_chain_tasks<Block, Client, Backend, RCInterface>(
 	StartRelayChainTasksParams {
 		client,
@@ -276,12 +280,18 @@ where
 		relay_chain_interface.clone(),
 		para_id,
 		recovery_chan_rx,
-		sync_service,
+		sync_service.clone(),
 	);
 
 	task_manager
 		.spawn_essential_handle()
 		.spawn("cumulus-pov-recovery", None, pov_recovery.run());
+
+	let parachain_informant =
+		parachain_informant::<Block>(relay_chain_interface.clone(), sync_service, para_id);
+	task_manager
+		.spawn_handle()
+		.spawn("parachain-informant", None, parachain_informant);
 
 	Ok(())
 }
@@ -571,4 +581,91 @@ where
 	}
 
 	Err("Stopping following imported blocks. Could not determine parachain target block".into())
+}
+
+async fn parachain_informant<Block: BlockT>(
+	relay_chain_interface: impl RelayChainInterface + Clone,
+	sync_service: Arc<dyn SyncOracle + Send + Sync>,
+	para_id: ParaId,
+) {
+	// Backed blocks.
+	let pending_candidates =
+		match pending_candidates(relay_chain_interface.clone(), para_id, sync_service).await {
+			Ok(pending_candidates_stream) => pending_candidates_stream.fuse(),
+			Err(err) => {
+				log::error!("Unable to retrieve pending candidate stream: {err:?}.");
+				return
+			},
+		};
+	let backed_blocks = pending_candidates.flat_map(|(candidates, _, relay_header)| {
+		futures::stream::iter(candidates.into_iter().filter_map(move |candidate| {
+			let relay_header = relay_header.clone();
+			match Block::Header::decode(&mut &candidate.commitments.head_data.0[..]) {
+				Ok(header) => Some((header, relay_header)),
+				Err(e) => {
+					log::warn!("Failed to decode parachain header from backed block: {e:?}");
+					None
+				},
+			}
+		}))
+	});
+	futures::pin_mut!(backed_blocks);
+
+	// Included blocks.
+	let finalized_heads = match finalized_heads(relay_chain_interface.clone(), para_id).await {
+		Ok(finalized_heads_stream) => finalized_heads_stream.fuse(),
+		Err(err) => {
+			log::error!("Unable to retrieve finalized heads stream: {err:?}.");
+			return
+		},
+	};
+	let included_blocks = finalized_heads.filter_map(async |head| {
+		let header = match Block::Header::decode(&mut &head[..]) {
+			Ok(header) => header,
+			Err(e) => {
+				log::warn!("Failed to decode parachain header from finalized block: {e:?}");
+				return None;
+			},
+		};
+		let block_number: sp_core::U256 = (*header.number()).into();
+		if block_number.is_zero() {
+			// No need to log the genesis block.
+			return None;
+		}
+		Some(header)
+	});
+	futures::pin_mut!(included_blocks);
+
+	let mut last_backed_block: Option<<Block as BlockT>::Header> = None;
+	let mut last_included_block: Option<<Block as BlockT>::Header> = None;
+	loop {
+		select! {
+			(backed_block, relay_block) = backed_blocks.select_next_some() => {
+				match &last_backed_block {
+					Some(last_backed_block) if backed_block == *last_backed_block => {
+						// Ignore duplicate notifications.
+						continue;
+					},
+					_ => {
+						last_backed_block = Some(backed_block.clone());
+						log::info!(
+							"Parachain status changed at #{} ({}): backed #{} ({}){}",
+							relay_block.number(),
+							relay_block.hash(),
+							backed_block.number(),
+							backed_block.hash(),
+							if let Some(latest_included_block) = &last_included_block {
+								format!(" included #{} ({})", latest_included_block.number(), latest_included_block.hash())
+							} else {
+								String::new()
+							}
+						);
+					},
+				}
+			},
+			included_block = included_blocks.select_next_some() => {
+				last_included_block = Some(included_block);
+			},
+		}
+	}
 }

@@ -23,17 +23,14 @@ use crate::common::{
 	},
 	ConstructNodeRuntimeApi, NodeBlock, NodeExtraArgs,
 };
-use codec::Decode;
 use cumulus_client_cli::CollatorOptions;
-use cumulus_client_consensus_common::finalized_heads;
 use cumulus_client_service::{
 	build_network, build_relay_chain_interface, prepare_node_config, start_relay_chain_tasks,
 	BuildNetworkParams, CollatorSybilResistance, DARecoveryProfile, StartRelayChainTasksParams,
 };
 use cumulus_primitives_core::{BlockT, ParaId};
 use cumulus_relay_chain_interface::{OverseerHandle, RelayChainInterface};
-use cumulus_relay_chain_streams::pending_candidates;
-use futures::{select, FutureExt, StreamExt};
+use futures::FutureExt;
 use parachains_common::Hash;
 use polkadot_cli::service::IdentifyNetworkBackend;
 use polkadot_primitives::CollatorPair;
@@ -48,9 +45,7 @@ use sc_telemetry::{TelemetryHandle, TelemetryWorker};
 use sc_tracing::tracing::Instrument;
 use sc_transaction_pool::TransactionPoolHandle;
 use sc_transaction_pool_api::OffchainTransactionPoolFactory;
-use sp_consensus::SyncOracle;
 use sp_keystore::KeystorePtr;
-use sp_runtime::traits::Header;
 use std::{future::Future, pin::Pin, sync::Arc, time::Duration};
 
 pub(crate) trait BuildImportQueue<
@@ -312,16 +307,6 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 				})
 				.await?;
 
-			task_manager.spawn_handle().spawn(
-				"parachain-informant",
-				None,
-				parachain_informant::<Self::Block>(
-					relay_chain_interface.clone(),
-					sync_service.clone(),
-					para_id,
-				),
-			);
-
 			if parachain_config.offchain_worker.enabled {
 				let offchain_workers =
 					sc_offchain::OffchainWorkers::new(sc_offchain::OffchainWorkerOptions {
@@ -497,101 +482,6 @@ where
 					hwbench,
 					node_extra_args,
 				),
-		}
-	}
-}
-
-async fn parachain_informant<Block: BlockT>(
-	relay_chain_interface: Arc<dyn RelayChainInterface>,
-	sync_service: Arc<dyn SyncOracle + Send + Sync>,
-	para_id: ParaId,
-) {
-	// Backed blocks.
-	let pending_candidates =
-		match pending_candidates(relay_chain_interface.clone(), para_id, sync_service).await {
-			Ok(pending_candidates_stream) => pending_candidates_stream.fuse(),
-			Err(err) => {
-				sc_tracing::tracing::error!(
-					"Unable to retrieve pending candidate stream: {err:?}."
-				);
-				return
-			},
-		};
-	let backed_blocks = pending_candidates.flat_map(|(candidates, _, relay_header)| {
-		futures::stream::iter(candidates.into_iter().filter_map(move |candidate| {
-			let relay_header = relay_header.clone();
-			match Block::Header::decode(&mut &candidate.commitments.head_data.0[..]) {
-				Ok(header) => Some((header, relay_header)),
-				Err(e) => {
-					sc_tracing::tracing::warn!(
-						error = ?e,
-						"Failed to decode parachain header from backed block",
-					);
-					None
-				},
-			}
-		}))
-	});
-	futures::pin_mut!(backed_blocks);
-
-	// Included blocks.
-	let finalized_heads = match finalized_heads(relay_chain_interface.clone(), para_id).await {
-		Ok(finalized_heads_stream) => finalized_heads_stream.fuse(),
-		Err(err) => {
-			log::error!("Unable to retrieve finalized heads stream: {err:?}.");
-			return
-		},
-	};
-	let included_blocks = finalized_heads.filter_map(async |head| {
-		let header = match Block::Header::decode(&mut &head[..]) {
-			Ok(header) => header,
-			Err(e) => {
-				sc_tracing::tracing::warn!(
-					error = ?e,
-					"Failed to decode parachain header from finalized block",
-				);
-				return None;
-			},
-		};
-		let block_number: sp_core::U256 = (*header.number()).into();
-		if block_number.is_zero() {
-			// No need to log the genesis block.
-			return None;
-		}
-		Some(header)
-	});
-	futures::pin_mut!(included_blocks);
-
-	let mut last_backed_block: Option<<Block as BlockT>::Header> = None;
-	let mut last_included_block: Option<<Block as BlockT>::Header> = None;
-	loop {
-		select! {
-			(backed_block, relay_block) = backed_blocks.select_next_some() => {
-				match &last_backed_block {
-					Some(last_backed_block) if backed_block == *last_backed_block => {
-						// Ignore duplicate notifications.
-						continue;
-					},
-					_ => {
-						last_backed_block = Some(backed_block.clone());
-						sc_tracing::tracing::info!(
-							"Parachain status changed at #{} ({}): backed #{} ({}){}",
-							relay_block.number(),
-							relay_block.hash(),
-							backed_block.number(),
-							backed_block.hash(),
-							if let Some(latest_included_block) = &last_included_block {
-								format!(" included #{} ({})", latest_included_block.number(), latest_included_block.hash())
-							} else {
-								String::new()
-							}
-						);
-					},
-				}
-			},
-			included_block = included_blocks.select_next_some() => {
-				last_included_block = Some(included_block);
-			},
 		}
 	}
 }
