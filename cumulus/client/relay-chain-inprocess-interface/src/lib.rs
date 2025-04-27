@@ -478,7 +478,7 @@ mod tests {
 		DefaultTestClientBuilderExt, InitPolkadotBlockBuilder, TestClientBuilder,
 		TestClientBuilderExt,
 	};
-	use sp_consensus::BlockOrigin;
+	use sp_consensus::{BlockOrigin, SyncOracle};
 	use sp_runtime::traits::Block as BlockT;
 	use std::sync::Arc;
 
@@ -507,7 +507,6 @@ mod tests {
 
 		let (tx, _rx) = metered::channel(30);
 		let mock_handle = Handle::new(tx);
-
 		(
 			client.clone(),
 			block,
