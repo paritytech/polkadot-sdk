@@ -4373,6 +4373,7 @@ dependencies = [
  "async-trait",
  "cumulus-primitives-core",
  "cumulus-relay-chain-interface",
+ "cumulus-relay-chain-streams",
  "cumulus-test-client",
  "futures",
  "futures-timer",
@@ -4386,7 +4387,6 @@ dependencies = [
  "sc-client-api",
  "sc-consensus",
  "sc-utils",
- "sp-api 26.0.0",
  "sp-blockchain",
  "sp-consensus",
  "sp-maybe-compressed-blob 11.0.0",
@@ -4853,6 +4853,19 @@ dependencies = [
  "tokio-util",
  "tracing",
  "url",
+]
+
+[[package]]
+name = "cumulus-relay-chain-streams"
+version = "0.7.0"
+dependencies = [
+ "cumulus-relay-chain-interface",
+ "futures",
+ "polkadot-node-subsystem",
+ "polkadot-primitives",
+ "sp-api 26.0.0",
+ "sp-consensus",
+ "tracing",
 ]
 
 [[package]]
@@ -15414,11 +15427,11 @@ dependencies = [
  "cumulus-client-consensus-proposer",
  "cumulus-client-consensus-relay-chain",
  "cumulus-client-parachain-inherent",
- "cumulus-client-pov-recovery",
  "cumulus-client-service",
  "cumulus-primitives-aura",
  "cumulus-primitives-core",
  "cumulus-relay-chain-interface",
+ "cumulus-relay-chain-streams",
  "cumulus-test-runtime",
  "docify",
  "frame-benchmarking",

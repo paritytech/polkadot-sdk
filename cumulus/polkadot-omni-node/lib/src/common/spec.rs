@@ -26,13 +26,13 @@ use crate::common::{
 use codec::Decode;
 use cumulus_client_cli::CollatorOptions;
 use cumulus_client_consensus_common::finalized_heads;
-use cumulus_client_pov_recovery::pending_candidates;
 use cumulus_client_service::{
 	build_network, build_relay_chain_interface, prepare_node_config, start_relay_chain_tasks,
 	BuildNetworkParams, CollatorSybilResistance, DARecoveryProfile, StartRelayChainTasksParams,
 };
 use cumulus_primitives_core::{BlockT, ParaId};
 use cumulus_relay_chain_interface::{OverseerHandle, RelayChainInterface};
+use cumulus_relay_chain_streams::pending_candidates;
 use futures::{select, FutureExt, StreamExt};
 use parachains_common::Hash;
 use polkadot_cli::service::IdentifyNetworkBackend;
