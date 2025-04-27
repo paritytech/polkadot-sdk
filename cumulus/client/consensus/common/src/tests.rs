@@ -38,7 +38,6 @@ use futures_timer::Delay;
 use polkadot_primitives::HeadData;
 use sc_client_api::{Backend as _, UsageProvider};
 use sc_consensus::{BlockImport, BlockImportParams, ForkChoiceStrategy};
-use sc_network::service::traits::NetworkService;
 use sp_blockchain::Backend as BlockchainBackend;
 use sp_consensus::{BlockOrigin, BlockStatus};
 use sp_version::RuntimeVersion;
@@ -199,10 +198,6 @@ impl RelayChainInterface for Relaychain {
 	}
 
 	fn overseer_handle(&self) -> RelayChainResult<OverseerHandle> {
-		unimplemented!("Not needed for test")
-	}
-
-	fn network_service(&self) -> RelayChainResult<Arc<dyn NetworkService>> {
 		unimplemented!("Not needed for test")
 	}
 

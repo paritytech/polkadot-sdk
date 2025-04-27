@@ -315,7 +315,6 @@ async fn build_relay_chain_interface(
 		relay_chain_node.overseer_handle.ok_or(RelayChainError::GenericError(
 			"Overseer should be running in full node.".to_string(),
 		))?,
-		relay_chain_node.network,
 	)))
 }
 

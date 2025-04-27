@@ -44,6 +44,8 @@ pub struct StartBootnodeTasksParams<'a> {
 	pub relay_chain_interface: Arc<dyn RelayChainInterface>,
 	/// Relay chain fork ID.
 	pub relay_chain_fork_id: Option<String>,
+	/// Relay chain network service.
+	pub relay_chain_network: Arc<dyn NetworkService>,
 	/// `/paranode` protocol request receiver.
 	pub request_receiver: async_channel::Receiver<IncomingRequest>,
 	/// Parachain node network service.
@@ -61,6 +63,7 @@ pub struct StartBootnodeTasksParams<'a> {
 async fn bootnode_advertisement(
 	para_id: ParaId,
 	relay_chain_interface: Arc<dyn RelayChainInterface>,
+	relay_chain_network: Arc<dyn NetworkService>,
 	request_receiver: async_channel::Receiver<IncomingRequest>,
 	parachain_network: Arc<dyn NetworkService>,
 	advertise_non_global_ips: bool,
@@ -68,18 +71,6 @@ async fn bootnode_advertisement(
 	parachain_fork_id: Option<String>,
 	public_addresses: Vec<Multiaddr>,
 ) {
-	let relay_chain_network = match relay_chain_interface.network_service() {
-		Ok(network_service) => network_service,
-		Err(e) => {
-			error!(
-				target: LOG_TARGET,
-				"Bootnode advertisement: Failed to obtain network service: {e}",
-			);
-			// Returning here will cause an essential task to fail.
-			return;
-		},
-	};
-
 	let bootnode_advertisement = BootnodeAdvertisement::new(BootnodeAdvertisementParams {
 		para_id,
 		relay_chain_interface,
@@ -104,19 +95,8 @@ async fn bootnode_discovery(
 	parachain_fork_id: Option<String>,
 	relay_chain_interface: Arc<dyn RelayChainInterface>,
 	relay_chain_fork_id: Option<String>,
+	relay_chain_network: Arc<dyn NetworkService>,
 ) {
-	let relay_chain_network = match relay_chain_interface.network_service() {
-		Ok(network_service) => network_service,
-		Err(e) => {
-			error!(
-				target: LOG_TARGET,
-				"Bootnode discovery: failed to obtain network service: {e}",
-			);
-			// Make essential task fail.
-			return;
-		},
-	};
-
 	let relay_chain_genesis_hash =
 		match relay_chain_interface.header(BlockId::Number(Zero::zero())).await {
 			Ok(Some(header)) => header.hash().as_bytes().to_vec(),
@@ -165,6 +145,7 @@ pub fn start_bootnode_tasks(
 		task_manager,
 		relay_chain_interface,
 		relay_chain_fork_id,
+		relay_chain_network,
 		request_receiver,
 		parachain_network,
 		advertise_non_global_ips,
@@ -179,6 +160,7 @@ pub fn start_bootnode_tasks(
 		bootnode_advertisement(
 			para_id,
 			relay_chain_interface.clone(),
+			relay_chain_network.clone(),
 			request_receiver,
 			parachain_network.clone(),
 			advertise_non_global_ips,
@@ -197,6 +179,7 @@ pub fn start_bootnode_tasks(
 			parachain_fork_id,
 			relay_chain_interface,
 			relay_chain_fork_id,
+			relay_chain_network,
 		),
 	);
 }

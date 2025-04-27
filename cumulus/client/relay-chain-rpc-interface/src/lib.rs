@@ -32,11 +32,10 @@ use futures::{FutureExt, Stream, StreamExt};
 use polkadot_overseer::Handle;
 
 use sc_client_api::StorageProof;
-use sc_network::service::traits::NetworkService;
 use sp_state_machine::StorageValue;
 use sp_storage::StorageKey;
 use sp_version::RuntimeVersion;
-use std::{collections::btree_map::BTreeMap, pin::Pin, sync::Arc};
+use std::{collections::btree_map::BTreeMap, pin::Pin};
 
 use cumulus_primitives_core::relay_chain::BlockId;
 pub use url::Url;
@@ -60,16 +59,11 @@ const TIMEOUT_IN_SECONDS: u64 = 6;
 pub struct RelayChainRpcInterface {
 	rpc_client: RelayChainRpcClient,
 	overseer_handle: Handle,
-	network_service: Arc<dyn NetworkService>,
 }
 
 impl RelayChainRpcInterface {
-	pub fn new(
-		rpc_client: RelayChainRpcClient,
-		overseer_handle: Handle,
-		network_service: Arc<dyn NetworkService>,
-	) -> Self {
-		Self { rpc_client, overseer_handle, network_service }
+	pub fn new(rpc_client: RelayChainRpcClient, overseer_handle: Handle) -> Self {
+		Self { rpc_client, overseer_handle }
 	}
 }
 
@@ -191,10 +185,6 @@ impl RelayChainInterface for RelayChainRpcInterface {
 
 	fn overseer_handle(&self) -> RelayChainResult<Handle> {
 		Ok(self.overseer_handle.clone())
-	}
-
-	fn network_service(&self) -> RelayChainResult<Arc<dyn NetworkService>> {
-		Ok(self.network_service.clone())
 	}
 
 	async fn get_storage_by_key(

@@ -365,6 +365,7 @@ pub async fn build_relay_chain_interface(
 ) -> RelayChainResult<(
 	Arc<(dyn RelayChainInterface + 'static)>,
 	Option<CollatorPair>,
+	Arc<dyn NetworkService>,
 	async_channel::Receiver<IncomingRequest>,
 )> {
 	match collator_options.relay_chain_mode {

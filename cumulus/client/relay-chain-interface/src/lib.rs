@@ -24,7 +24,6 @@ use std::{
 use futures::Stream;
 use polkadot_overseer::prometheus::PrometheusError;
 use sc_client_api::StorageProof;
-use sc_network::service::traits::NetworkService;
 use sp_version::RuntimeVersion;
 
 use async_trait::async_trait;
@@ -207,9 +206,6 @@ pub trait RelayChainInterface: Send + Sync {
 	/// Get a handle to the overseer.
 	fn overseer_handle(&self) -> RelayChainResult<OverseerHandle>;
 
-	/// Get a handle to the network.
-	fn network_service(&self) -> RelayChainResult<Arc<dyn NetworkService>>;
-
 	/// Generate a storage read proof.
 	async fn prove_read(
 		&self,
@@ -338,10 +334,6 @@ where
 
 	fn overseer_handle(&self) -> RelayChainResult<OverseerHandle> {
 		(**self).overseer_handle()
-	}
-
-	fn network_service(&self) -> RelayChainResult<Arc<dyn NetworkService>> {
-		(**self).network_service()
 	}
 
 	async fn get_storage_by_key(

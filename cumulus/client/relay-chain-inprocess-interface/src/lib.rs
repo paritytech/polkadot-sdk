@@ -55,9 +55,6 @@ use sp_consensus::SyncOracle;
 use sp_core::Pair;
 use sp_state_machine::{Backend as StateBackend, StorageValue};
 
-#[cfg(test)]
-mod tests;
-
 /// The timeout in seconds after that the waiting for a block should be aborted.
 const TIMEOUT_IN_SECONDS: u64 = 6;
 
@@ -69,7 +66,6 @@ pub struct RelayChainInProcessInterface {
 	backend: Arc<FullBackend>,
 	sync_oracle: Arc<dyn SyncOracle + Send + Sync>,
 	overseer_handle: Handle,
-	network_service: Arc<dyn NetworkService>,
 }
 
 impl RelayChainInProcessInterface {
@@ -79,9 +75,8 @@ impl RelayChainInProcessInterface {
 		backend: Arc<FullBackend>,
 		sync_oracle: Arc<dyn SyncOracle + Send + Sync>,
 		overseer_handle: Handle,
-		network_service: Arc<dyn NetworkService>,
 	) -> Self {
-		Self { full_client, backend, sync_oracle, overseer_handle, network_service }
+		Self { full_client, backend, sync_oracle, overseer_handle }
 	}
 }
 
@@ -222,10 +217,6 @@ impl RelayChainInterface for RelayChainInProcessInterface {
 
 	fn overseer_handle(&self) -> RelayChainResult<Handle> {
 		Ok(self.overseer_handle.clone())
-	}
-
-	fn network_service(&self) -> RelayChainResult<Arc<dyn NetworkService>> {
-		Ok(self.network_service.clone())
 	}
 
 	async fn get_storage_by_key(
@@ -447,6 +438,7 @@ pub fn build_inprocess_relay_chain(
 ) -> RelayChainResult<(
 	Arc<(dyn RelayChainInterface + 'static)>,
 	Option<CollatorPair>,
+	Arc<dyn NetworkService>,
 	async_channel::Receiver<IncomingRequest>,
 )> {
 	// This is essentially a hack, but we want to ensure that we send the correct node version
@@ -469,10 +461,141 @@ pub fn build_inprocess_relay_chain(
 		full_node.overseer_handle.clone().ok_or(RelayChainError::GenericError(
 			"Overseer not running in full node.".to_string(),
 		))?,
-		full_node.network,
 	));
 
 	task_manager.add_child(full_node.task_manager);
 
-	Ok((relay_chain_interface, collator_key, paranode_req_receiver))
+	Ok((relay_chain_interface, collator_key, full_node.network, paranode_req_receiver))
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	use polkadot_primitives::Block as PBlock;
+	use polkadot_test_client::{
+		construct_transfer_extrinsic, BlockBuilderExt, Client, ClientBlockImportExt,
+		DefaultTestClientBuilderExt, InitPolkadotBlockBuilder, TestClientBuilder,
+		TestClientBuilderExt,
+	};
+	use sp_consensus::BlockOrigin;
+	use sp_runtime::traits::Block as BlockT;
+	use std::sync::Arc;
+
+	use futures::{executor::block_on, poll, task::Poll};
+
+	struct DummyNetwork {}
+
+	impl SyncOracle for DummyNetwork {
+		fn is_major_syncing(&self) -> bool {
+			unimplemented!("Not needed for test")
+		}
+
+		fn is_offline(&self) -> bool {
+			unimplemented!("Not needed for test")
+		}
+	}
+
+	fn build_client_backend_and_block() -> (Arc<Client>, PBlock, RelayChainInProcessInterface) {
+		let builder = TestClientBuilder::new();
+		let backend = builder.backend();
+		let client = Arc::new(builder.build());
+
+		let block_builder = client.init_polkadot_block_builder();
+		let block = block_builder.build().expect("Finalizes the block").block;
+		let dummy_network: Arc<dyn SyncOracle + Sync + Send> = Arc::new(DummyNetwork {});
+
+		let (tx, _rx) = metered::channel(30);
+		let mock_handle = Handle::new(tx);
+
+		(
+			client.clone(),
+			block,
+			RelayChainInProcessInterface::new(client, backend, dummy_network, mock_handle),
+		)
+	}
+
+	#[test]
+	fn returns_directly_for_available_block() {
+		let (client, block, relay_chain_interface) = build_client_backend_and_block();
+		let hash = block.hash();
+
+		block_on(client.import(BlockOrigin::Own, block)).expect("Imports the block");
+
+		block_on(async move {
+			// Should be ready on the first poll
+			assert!(matches!(
+				poll!(relay_chain_interface.wait_for_block(hash)),
+				Poll::Ready(Ok(()))
+			));
+		});
+	}
+
+	#[test]
+	fn resolve_after_block_import_notification_was_received() {
+		let (client, block, relay_chain_interface) = build_client_backend_and_block();
+		let hash = block.hash();
+
+		block_on(async move {
+			let mut future = relay_chain_interface.wait_for_block(hash);
+			// As the block is not yet imported, the first poll should return `Pending`
+			assert!(poll!(&mut future).is_pending());
+
+			// Import the block that should fire the notification
+			client.import(BlockOrigin::Own, block).await.expect("Imports the block");
+
+			// Now it should have received the notification and report that the block was imported
+			assert!(matches!(poll!(future), Poll::Ready(Ok(()))));
+		});
+	}
+
+	#[test]
+	fn wait_for_block_time_out_when_block_is_not_imported() {
+		let (_, block, relay_chain_interface) = build_client_backend_and_block();
+		let hash = block.hash();
+
+		assert!(matches!(
+			block_on(relay_chain_interface.wait_for_block(hash)),
+			Err(RelayChainError::WaitTimeout(_))
+		));
+	}
+
+	#[test]
+	fn do_not_resolve_after_different_block_import_notification_was_received() {
+		let (client, block, relay_chain_interface) = build_client_backend_and_block();
+		let hash = block.hash();
+
+		let ext = construct_transfer_extrinsic(
+			&client,
+			sp_keyring::Sr25519Keyring::Alice,
+			sp_keyring::Sr25519Keyring::Bob,
+			1000,
+		);
+		let mut block_builder = client.init_polkadot_block_builder();
+		// Push an extrinsic to get a different block hash.
+		block_builder.push_polkadot_extrinsic(ext).expect("Push extrinsic");
+		let block2 = block_builder.build().expect("Build second block").block;
+		let hash2 = block2.hash();
+
+		block_on(async move {
+			let mut future = relay_chain_interface.wait_for_block(hash);
+			let mut future2 = relay_chain_interface.wait_for_block(hash2);
+			// As the block is not yet imported, the first poll should return `Pending`
+			assert!(poll!(&mut future).is_pending());
+			assert!(poll!(&mut future2).is_pending());
+
+			// Import the block that should fire the notification
+			client.import(BlockOrigin::Own, block2).await.expect("Imports the second block");
+
+			// The import notification of the second block should not make this one finish
+			assert!(poll!(&mut future).is_pending());
+			// Now it should have received the notification and report that the block was imported
+			assert!(matches!(poll!(future2), Poll::Ready(Ok(()))));
+
+			client.import(BlockOrigin::Own, block).await.expect("Imports the first block");
+
+			// Now it should be ready
+			assert!(matches!(poll!(future), Poll::Ready(Ok(()))));
+		});
+	}
 }

@@ -39,7 +39,6 @@ use polkadot_test_client::{
 };
 use rstest::rstest;
 use sc_client_api::{Backend, BlockchainEvents};
-use sc_network::service::traits::NetworkService;
 use sp_blockchain::HeaderBackend;
 use sp_consensus::BlockOrigin;
 use sp_core::{Pair, H256};
@@ -230,10 +229,6 @@ impl RelayChainInterface for DummyRelayChainInterface {
 	}
 
 	fn overseer_handle(&self) -> RelayChainResult<OverseerHandle> {
-		unimplemented!("Not needed for test")
-	}
-
-	fn network_service(&self) -> RelayChainResult<Arc<dyn NetworkService>> {
 		unimplemented!("Not needed for test")
 	}
 

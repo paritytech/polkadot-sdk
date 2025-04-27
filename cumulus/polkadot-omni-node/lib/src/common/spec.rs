@@ -277,16 +277,17 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 			let backend = params.backend.clone();
 			let mut task_manager = params.task_manager;
 			let relay_chain_fork_id = polkadot_config.chain_spec.fork_id().map(ToString::to_string);
-			let (relay_chain_interface, collator_key, paranode_rx) = build_relay_chain_interface(
-				polkadot_config,
-				&parachain_config,
-				telemetry_worker_handle,
-				&mut task_manager,
-				collator_options.clone(),
-				hwbench.clone(),
-			)
-			.await
-			.map_err(|e| sc_service::Error::Application(Box::new(e)))?;
+			let (relay_chain_interface, collator_key, relay_chain_network, paranode_rx) =
+				build_relay_chain_interface(
+					polkadot_config,
+					&parachain_config,
+					telemetry_worker_handle,
+					&mut task_manager,
+					collator_options.clone(),
+					hwbench.clone(),
+				)
+				.await
+				.map_err(|e| sc_service::Error::Application(Box::new(e)))?;
 
 			let validator = parachain_config.role.is_authority();
 			let prometheus_registry = parachain_config.prometheus_registry().cloned();
@@ -410,6 +411,7 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 				task_manager: &mut task_manager,
 				relay_chain_interface: relay_chain_interface.clone(),
 				relay_chain_fork_id,
+				relay_chain_network,
 				request_receiver: paranode_rx,
 				parachain_network: network,
 				advertise_non_global_ips,

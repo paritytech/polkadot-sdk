@@ -99,6 +99,7 @@ async fn build_interface(
 ) -> RelayChainResult<(
 	Arc<(dyn RelayChainInterface + 'static)>,
 	Option<CollatorPair>,
+	Arc<dyn NetworkService>,
 	async_channel::Receiver<GenericIncomingRequest>,
 )> {
 	let collator_pair = CollatorPair::generate().0;
@@ -126,12 +127,9 @@ async fn build_interface(
 	};
 	task_manager.add_child(collator_node.task_manager);
 	Ok((
-		Arc::new(RelayChainRpcInterface::new(
-			client,
-			collator_node.overseer_handle,
-			collator_node.network_service,
-		)),
+		Arc::new(RelayChainRpcInterface::new(client, collator_node.overseer_handle)),
 		Some(collator_pair),
+		collator_node.network_service,
 		collator_node.paranode_rx,
 	))
 }
@@ -144,6 +142,7 @@ pub async fn build_minimal_relay_chain_node_with_rpc(
 ) -> RelayChainResult<(
 	Arc<(dyn RelayChainInterface + 'static)>,
 	Option<CollatorPair>,
+	Arc<dyn NetworkService>,
 	async_channel::Receiver<GenericIncomingRequest>,
 )> {
 	let client = cumulus_relay_chain_rpc_interface::create_client_and_start_worker(
@@ -162,6 +161,7 @@ pub async fn build_minimal_relay_chain_node_light_client(
 ) -> RelayChainResult<(
 	Arc<(dyn RelayChainInterface + 'static)>,
 	Option<CollatorPair>,
+	Arc<dyn NetworkService>,
 	async_channel::Receiver<GenericIncomingRequest>,
 )> {
 	tracing::info!(
