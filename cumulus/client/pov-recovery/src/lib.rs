@@ -605,7 +605,7 @@ where
 		loop {
 			select! {
 				next_pending_candidates = pending_candidates.next() => {
-					if let Some((candidates, session_index)) = next_pending_candidates {
+					if let Some((candidates, session_index, _)) = next_pending_candidates {
 						for candidate in candidates {
 							self.handle_pending_candidate(candidate, session_index);
 						}
@@ -662,12 +662,15 @@ where
 	}
 }
 
+pub type RelayHeader = polkadot_primitives::Header;
+
 /// Returns a stream over pending candidates for the parachain corresponding to `para_id`.
 pub async fn pending_candidates(
 	relay_chain_client: impl RelayChainInterface + Clone,
 	para_id: ParaId,
 	sync_service: Arc<dyn SyncOracle + Sync + Send>,
-) -> RelayChainResult<impl Stream<Item = (Vec<CommittedCandidateReceipt>, SessionIndex)>> {
+) -> RelayChainResult<impl Stream<Item = (Vec<CommittedCandidateReceipt>, SessionIndex, RelayHeader)>>
+{
 	let import_notification_stream = relay_chain_client.import_notification_stream().await?;
 
 	let filtered_stream = import_notification_stream.filter_map(move |n| {
@@ -742,7 +745,7 @@ pub async fn pending_candidates(
 				});
 
 			if let Ok(candidates) = pending_availability_result {
-				session_index_result.map(|session_index| (candidates, session_index)).ok()
+				session_index_result.map(|session_index| (candidates, session_index, n)).ok()
 			} else {
 				None
 			}
