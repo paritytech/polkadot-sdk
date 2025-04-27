@@ -1745,6 +1745,10 @@ impl<Config: config::Config> XcmExecutor<Config> {
 	/// Most common transient error is: `beneficiary` account does not yet exist and the first
 	/// asset(s) in the (sorted) list does not satisfy ED, but a subsequent one in the list does.
 	///
+	/// Deposits also proceed without aborting on “below minimum” (dust) errors. This ensures
+	/// that a batch of assets containing some legitimately depositable amounts will succeed
+	/// even if some “dust” amounts fall below the chain’s existential deposit.
+	///
 	/// This function can write into storage and also return an error at the same time, it should
 	/// always be called within a transactional context.
 	fn deposit_assets_with_retry(
@@ -1803,6 +1807,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 		matches!(e, XcmError::FailedToTransactAsset(s) if *s == "BelowMinimum")
 	}
 
+	/// Trap a dust asset via the configured `AssetTrap`.
 	fn do_handle_below_minimum(
 		asset: &Asset,
 		beneficiary: &Location,

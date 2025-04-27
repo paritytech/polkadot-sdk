@@ -21,7 +21,6 @@
 //! [specification](https://github.com/polkadot-fellows/xcm-format) for more information.
 
 use codec::Encode;
-use frame_benchmarking::v2::__private::log::debug;
 use frame_support::BoundedVec;
 use xcm::{latest::AssetTransferFilter, prelude::*};
 
@@ -220,55 +219,86 @@ fn unpaid_transact() {
 	assert!(matches!(instructions.next().unwrap(), Transact { .. }));
 }
 
-/// This test verifies that mixed deposits (dust and legit) are handled gracefully:
-///
-/// - The initiator sends both deposits inside the outgoing XCM (dust is not filtered early).
-/// - The outgoing XCM contains two `DepositAsset` instructions.
-/// - XCM sending succeeds.
-///
-/// Dust handling (trapping of dust assets) will occur during execution on the destination chain,
-/// and is not tested here, but it confirms ignoring `BelowMinimum` errors at deposit time
-/// allowing sending XCMs containing both dust and legit assets without aborting execution.
 #[test]
-fn deposit_asset_mixed_below_and_above_ed_should_succeed_gracefully() {
+fn deposit_assets_with_retry_skips_dust_and_deposits_legit() {
+	// fund sende
 	add_asset(SENDER, (Here, 200u128));
 
-	let dust_asset: Asset = (Here, 5u128).into(); // Below ED
-	let legit_asset: Asset = (Here, 100u128).into(); // Above ED
+	// a dust amounts, both < ED=10
+	let dust: Asset = (Here, 5u128).into();
 
-	let remote_xcm = Xcm(vec![
-		DepositAsset {
-			assets: Definite(Assets::from(vec![dust_asset.clone()])),
-			beneficiary: RECIPIENT.into(),
-		},
-		DepositAsset {
-			assets: Definite(Assets::from(vec![legit_asset.clone()])),
-			beneficiary: RECIPIENT.into(),
-		},
-	]);
+	// a legit amount > ED=10
+	let legit: Asset = (Here, 100u128).into();
 
 	let xcm = Xcm::<TestCall>(vec![
 		WithdrawAsset((Here, 105u128).into()),
-		InitiateTransfer {
-			destination: Parent.into(),
-			remote_fees: None,
-			preserve_origin: false,
-			assets: BoundedVec::new(),
-			remote_xcm,
+		DepositAsset {
+			assets: Definite(Assets::from(vec![dust.clone()])),
+			beneficiary: RECIPIENT.into(),
+		},
+		DepositAsset {
+			assets: Definite(Assets::from(vec![legit.clone()])),
+			beneficiary: RECIPIENT.into(),
 		},
 	]);
 
-	let (mut vm, _) = instantiate_executor_with_ed(SENDER, xcm.clone());
+	let (mut vm, weight) = instantiate_executor_with_ed(SENDER, xcm.clone());
 
 	let result = vm.bench_process(xcm);
 
 	assert!(result.is_ok(), "XCM execution must succeed even if one deposit is dust");
+	let outcome = vm.bench_post_process(weight);
+	assert!(matches!(outcome, Outcome::Complete { .. }), "Expected Complete, got {:?}", outcome);
 
-	let (destination, sent_xcm) = sent_xcm().pop().expect("A message must have been sent");
-	assert_eq!(destination, Parent.into(), "Destination must be Parent");
+	let here_assets = asset_list(RECIPIENT);
+	assert_eq!(
+		here_assets,
+		vec![legit.clone()],
+		"only the ≥ED asset (100) should end up in `Here`"
+	);
 
-	let instructions = sent_xcm.inner();
+	let trapped = asset_list(TRAPPED_ASSETS);
+	assert_eq!(trapped, vec![dust.clone()], "the <ED asset (5) must have been trapped");
+}
 
-	let deposit_count = instructions.iter().filter(|i| matches!(i, DepositAsset { .. })).count();
-	assert!(deposit_count == 2, "Sent XCM must contain DepositAsset instructions");
+#[test]
+fn deposit_assets_with_retry_all_dust_traps_all() {
+	// fund sender
+	add_asset(SENDER, (Here, 20u128));
+
+	// two dust amounts, both < ED=10
+	let d1: Asset = (Here, 5u128).into();
+	let d2: Asset = (Here, 5u128).into();
+
+	let xcm = Xcm::<TestCall>(vec![
+		// withdraw 5+5 so it succeeds
+		WithdrawAsset((Here, (5u128 + 5u128)).into()),
+		DepositAsset {
+			assets: Definite(Assets::from(vec![d1.clone()])),
+			beneficiary: RECIPIENT.into(),
+		},
+		DepositAsset {
+			assets: Definite(Assets::from(vec![d2.clone()])),
+			beneficiary: RECIPIENT.into(),
+		},
+	]);
+
+	let (mut vm, weight) = instantiate_executor_with_ed(SENDER, xcm.clone());
+	let result = vm.bench_process(xcm);
+
+	assert!(result.is_ok(), "all-dust deposit must not abort");
+	let outcome = vm.bench_post_process(weight);
+	assert!(matches!(outcome, Outcome::Complete { .. }));
+
+	// none of the two dust deposits should land in recipient
+	let received = asset_list(RECIPIENT);
+	assert!(received.is_empty(), "no ≥ED assets, so recipient must get nothing");
+
+	// both dust amounts must be trapped
+	let trapped = asset_list(TRAPPED_ASSETS);
+	assert_eq!(
+		trapped,
+		vec![Asset { id: Here.into(), fun: Fungible(5 + 5) }],
+		"all dust assets (5 + 5) must merged into a single trapped 10"
+	);
 }
