@@ -47,6 +47,11 @@ on:
         value: ${{ jobs.preflight.outputs.ZOMBIENET_IMAGE }}
         description: "ZOMBIENET CI image"
 
+      CI_IMAGE:
+        value: ${{ jobs.preflight.outputs.CI_IMAGE }}
+        description: "CI image"
+
+
       ZOMBIENET_RUNNER:
         value: ${{ jobs.preflight.outputs.ZOMBIENET_RUNNER }}
         description: |
@@ -118,6 +123,8 @@ jobs:
       changes_bridges: true
       changes_templates: true
 
+      CI_IMAGE: ${{ steps.set_vars.outputs.IMAGE }}
+
       ZOMBIENET_IMAGE: ${{ steps.set_vars.outputs.ZOMBIENET_IMAGE }}
       ZOMBIENET_RUNNER: ${{ steps.set_vars.outputs.ZOMBIENET_RUNNER }}
 
@@ -183,6 +190,9 @@ jobs:
           #
           cat .github/zombienet-env >> $GITHUB_OUTPUT
           cat .github/zombienet-env
+          # global imga from ci
+          cat .github/env >> $GITHUB_OUTPUT
+          cat .github/env
 
       #
       #
@@ -200,6 +210,7 @@ jobs:
         run: |
           echo "workflow file: ${{ steps.current_file.outputs.currentWorkflowFile }}"
           echo "ZOMBIENET_IMAGE: ${{ steps.set_vars.outputs.ZOMBIENET_IMAGE }}"
+          echo "CI_IMAGE: ${{ steps.set_vars.outputs.IMAGE }}"
 
   #
   #
@@ -210,7 +221,9 @@ jobs:
     steps:
       - name: Info vars
         run: |
+          echo "CI_IMAGE: ${{ needs.preflight.outputs.CI_IMAGE }}"
           echo "ZOMBIENET_IMAGE: ${{ needs.preflight.outputs.ZOMBIENET_IMAGE }}"
+          echo "CI_IMAGE: ${{ needs.preflight.outputs.CI_IMAGE }}"
           echo "ZOMBIENET_RUNNER: ${{ needs.preflight.outputs.ZOMBIENET_RUNNER }}"
           echo "DOCKER_IMAGES_VERSION: ${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"
           echo "SOURCE_REF_SLUG: ${{ needs.preflight.outputs.SOURCE_REF_SLUG }}"
@@ -249,7 +262,8 @@ jobs:
           if [[ ${{ github.event_name }} == "merge_group" ]]; then export SHA="${GITHUB_SHA::8}"; fi
           DELAYER=10
           while true; do
-            STATUS=$(gh run ls -c $SHA -w "Build and push images" --json name,status --jq '.[] | select(.name == "Build and push images") | .status')
+            # In case of multiple runs take the most recent one (with greatest databaseId)
+            STATUS=$(gh run ls -c $SHA -w "Build and push images" --json status,databaseId --jq 'max_by(.databaseId) | .status')
             echo "CI workflow status: $STATUS"
             if [[ $STATUS == "completed" ]]; then
               echo "CI workflow is done."
@@ -264,7 +278,7 @@ jobs:
           done
 
           #check if the build succeeded
-          RUN_INFO=($(gh run ls -c $SHA -w "Build and push images" --json name,conclusion,databaseId --jq '.[] | select(.name == "Build and push images") | .conclusion, .databaseId'))
+          RUN_INFO=($(gh run ls -c $SHA -w "Build and push images" --json conclusion,databaseId --jq 'max_by(.databaseId) | .conclusion, .databaseId'))
           CONCLUSION=${RUN_INFO[@]:0:1}
           BUILD_RUN_ID=${RUN_INFO[@]:1:1}
           if [[ $CONCLUSION == "success" ]]; then
