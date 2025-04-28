@@ -86,7 +86,7 @@ pub struct ExecutionState {
 	/// The time when the transaction was submitted.
 	submitted_at: Instant,
 	/// The time when the transaction entered this state.
-	started_at: Instant,
+	current_state_started_at: Instant,
 	/// The initial state.
 	initial_state: &'static str,
 }
@@ -96,7 +96,7 @@ impl ExecutionState {
 	pub fn new() -> Self {
 		Self {
 			submitted_at: Instant::now(),
-			started_at: Instant::now(),
+			current_state_started_at: Instant::now(),
 			initial_state: labels::SUBMITTED,
 		}
 	}
@@ -104,7 +104,7 @@ impl ExecutionState {
 	/// Advance the state of the transaction.
 	fn advance_state(&mut self, state: &'static str) {
 		self.initial_state = state;
-		self.started_at = Instant::now();
+		self.current_state_started_at = Instant::now();
 	}
 }
 
@@ -114,8 +114,16 @@ pub struct Metrics {
 	/// Counter for transaction status.
 	pub status: CounterVec<U64>,
 
-	/// Histogram for transaction execution time in each event.
+	/// Histogram for transaction execution time from the beginning to the end of the transaction.
+	///
+	/// This measures the time it took the transaction since the moment it was
+	/// submitted until a final state was reached (ie dropped / in block / finalized).
 	execution_time: HistogramVec,
+
+	/// Histogram for transaction execution time in each event.
+	///
+	/// This measures the time it took the transaction to move from one state to another.
+	state_transition_time: HistogramVec,
 }
 
 impl Metrics {
@@ -133,7 +141,19 @@ impl Metrics {
 			HistogramVec::new(
 				HistogramOpts::new(
 					"rpc_transaction_execution_time",
-					"Transaction execution time in each event",
+					"Transaction execution time since submitted to a final state",
+				)
+				.buckets(HISTOGRAM_BUCKETS.to_vec()),
+				&["final_state"],
+			)?,
+			registry,
+		)?;
+
+		let state_transition_time = register(
+			HistogramVec::new(
+				HistogramOpts::new(
+					"rpc_transaction_state_transition_time",
+					"Transaction execution time in each state",
 				)
 				.buckets(HISTOGRAM_BUCKETS.to_vec()),
 				&["initial_state", "final_state"],
@@ -142,7 +162,7 @@ impl Metrics {
 		)?;
 
 		// The execution state will be initialized when the transaction is submitted.
-		Ok(Metrics { status, execution_time })
+		Ok(Metrics { status, execution_time, state_transition_time })
 	}
 }
 
@@ -176,19 +196,16 @@ impl InstanceMetrics {
 		};
 
 		let final_state = transaction_event_label(event);
-		if final_state == labels::FINALIZED {
+		if event.is_final() {
 			let elapsed = self.execution_state.submitted_at.elapsed().as_micros() as f64;
-			metrics
-				.execution_time
-				.with_label_values(&[labels::SUBMITTED, final_state])
-				.observe(elapsed);
+			metrics.execution_time.with_label_values(&[final_state]).observe(elapsed);
 		}
 
 		metrics.status.with_label_values(&[final_state]).inc();
 
-		let elapsed = self.execution_state.started_at.elapsed().as_micros() as f64;
+		let elapsed = self.execution_state.current_state_started_at.elapsed().as_micros() as f64;
 		metrics
-			.execution_time
+			.state_transition_time
 			.with_label_values(&[self.execution_state.initial_state, final_state])
 			.observe(elapsed);
 
