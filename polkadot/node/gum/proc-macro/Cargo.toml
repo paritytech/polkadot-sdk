@@ -27,7 +27,6 @@ syn = { features = ["extra-traits", "full"], workspace = true }
 [dev-dependencies]
 assert_matches = { workspace = true }
 
-
 [features]
 default = []
 # write the expanded version to a `gum.[a-f0-9]{10}.rs`

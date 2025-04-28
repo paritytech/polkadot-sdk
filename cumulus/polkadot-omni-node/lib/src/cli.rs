@@ -240,6 +240,7 @@ impl<Config: CliConfig> Cli<Config> {
 				.unwrap_or(self.authoring),
 			export_pov: self.export_pov_to_path.clone(),
 			enable_statement_store: self.enable_statement_store,
+			max_pov_percentage: self.run.experimental_max_pov_percentage,
 		}
 	}
 }

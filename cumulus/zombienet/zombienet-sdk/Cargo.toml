@@ -9,7 +9,6 @@ publish = false
 
 [dependencies]
 anyhow = { workspace = true }
-codec = { workspace = true, features = ["derive"] }
 env_logger = { workspace = true }
 log = { workspace = true }
 polkadot-primitives = { workspace = true, default-features = true }

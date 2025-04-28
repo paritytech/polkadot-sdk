@@ -617,7 +617,7 @@ struct ExtensionInput<'a> {
 
 impl<'a> ExtensionInput<'a> {
 	fn to_vec(&self) -> Vec<u8> {
-		((self.extension_id as u32) << 16 | (self.func_id as u32))
+		(((self.extension_id as u32) << 16) | (self.func_id as u32))
 			.to_le_bytes()
 			.iter()
 			.chain(self.extra)
@@ -943,6 +943,21 @@ fn storage_max_value_limit() {
 			builder::call(addr).data((limits::PAYLOAD_BYTES + 1).encode()).build(),
 			Error::<Test>::ValueTooLarge,
 		);
+	});
+}
+
+#[test]
+fn clear_storage_on_zero_value() {
+	let (code, _code_hash) = compile_module("clear_storage_on_zero_value").unwrap();
+
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+		let min_balance = Contracts::min_balance();
+		let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(code))
+			.value(min_balance * 100)
+			.build_and_unwrap_contract();
+
+		builder::bare_call(addr).build_and_unwrap_result();
 	});
 }
 
