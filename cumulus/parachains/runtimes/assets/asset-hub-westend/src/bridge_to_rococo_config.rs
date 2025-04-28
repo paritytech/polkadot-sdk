@@ -20,14 +20,15 @@ use crate::{
 	bridge_common_config::{BridgeRelayersInstance, DeliveryRewardInBalance},
 	weights, xcm_config,
 	xcm_config::UniversalLocation,
-	AccountId, AssetHubRococoProofRootStore, Balance, Balances, BridgeRococoMessages, PolkadotXcm,
-	Runtime, RuntimeEvent, RuntimeHoldReason, ToRococoOverAssetHubRococoXcmRouter,
+	AccountId, AssetHubRococoProofRootStore, Balance, Balances, BridgeRococoMessages, MessageQueue,
+	PolkadotXcm, Runtime, RuntimeEvent, RuntimeHoldReason, ToRococoOverAssetHubRococoXcmRouter,
 	XcmOverAssetHubRococo,
 };
 use alloc::{vec, vec::Vec};
 use bp_messages::HashedLaneId;
 use bp_runtime::HashOf;
 use bridge_hub_common::xcm_version::XcmVersionOfDestAndRemoteBridge;
+use cumulus_primitives_core::AggregateMessageOrigin;
 use pallet_xcm_bridge::XcmAsPlainPayload;
 
 use frame_support::{
@@ -47,14 +48,15 @@ use parachains_common::xcm_config::{
 	AllSiblingSystemParachains, ParentRelayOrSiblingParachains, RelayOrOtherSystemParachains,
 };
 use polkadot_parachain_primitives::primitives::Sibling;
-use sp_runtime::traits::{ConstU32, Convert};
+use sp_runtime::traits::{ConstU32, Convert, MaybeConvert};
 use testnet_parachains_constants::westend::currency::UNITS as WND;
 use xcm::{
 	latest::{prelude::*, ROCOCO_GENESIS_HASH},
 	prelude::NetworkId,
 };
 use xcm_builder::{
-	BridgeBlobDispatcher, LocalExporter, ParentIsPreset, SiblingParachainConvertsVia,
+	BridgeBlobDispatcher, LocalExporter, MessageQueueRouterFor, ParentIsPreset,
+	SiblingParachainConvertsVia,
 };
 
 parameter_types! {
@@ -78,6 +80,20 @@ parameter_types! {
 	);
 
 	pub storage BridgeDeposit: Balance = 5 * WND;
+}
+
+/// A converter that accepts only the `Here` location and converts it into `AggregateMessageOrigin`.
+pub struct AcceptOnlyHere;
+impl MaybeConvert<&Location, AggregateMessageOrigin> for AcceptOnlyHere {
+	fn maybe_convert(loc: &Location) -> Option<AggregateMessageOrigin> {
+		match loc.unpack() {
+			(0, []) => {
+				// Let's use `Here` for local message queue dispatch, but we can also change to custom.
+				Some(AggregateMessageOrigin::Here)
+			},
+			_ => None,
+		}
+	}
 }
 
 /// Transaction extension that refunds relayers that are delivering messages from the Rococo
@@ -234,7 +250,13 @@ impl pallet_xcm_bridge::Config<XcmOverAssetHubRococoInstance> for Runtime {
 	type BlobDispatcher = BlobDispatcherWithChannelStatus<
 		// Dispatches received XCM messages from other bridge
 		BridgeBlobDispatcher<
-			xcm_config::LocalXcmRouter,
+			(
+				// This router handles parent (UMP) or sibling (HRMP) dispatch.
+				xcm_config::LocalXcmRouter,
+				// This router enqueues a message for local XCM execution to the message queue.
+				// (According to the `DispatchBlob` trait, we should just enqueue a message).
+				MessageQueueRouterFor<MessageQueue, AggregateMessageOrigin, AcceptOnlyHere>,
+			),
 			UniversalLocation,
 			// TODO: FAIL-CI wait for https://github.com/paritytech/polkadot-sdk/pull/6002#issuecomment-2469892343
 			BridgeWestendToRococoMessagesPalletInstance,
