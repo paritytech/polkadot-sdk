@@ -1434,7 +1434,9 @@ fn remote_asset_reserve_and_remote_fee_reserve_call<Call>(
 		assert_eq!(AssetsPallet::active_issuance(usdc_id_location.clone()), expected_usdc_issuance);
 
 		// Verify sent XCM program
-		let mut expected_msg = Xcm(vec![
+		let xcm_sent = sent_xcm();
+		let expected_hash = get_sent_xcm_topic_id();
+		let expected_msg = Xcm(vec![
 			WithdrawAsset(expected_assets_on_reserve),
 			ClearOrigin,
 			BuyExecution { fees: expected_fee_on_reserve, weight_limit: Unlimited },
@@ -1448,13 +1450,8 @@ fn remote_asset_reserve_and_remote_fee_reserve_call<Call>(
 					DepositAsset { assets: AllCounted(1).into(), beneficiary },
 				]),
 			},
+			SetTopic(expected_hash),
 		]);
-		let xcm_sent = sent_xcm();
-		if let Some(SetTopic(topic_id)) = xcm_sent[0].1.last() {
-			expected_msg.0.push(SetTopic(*topic_id));
-		} else {
-			assert!(false, "Missing SetTopic");
-		}
 		assert_eq!(
 			xcm_sent,
 			vec![(
@@ -2533,7 +2530,8 @@ fn remote_asset_reserve_and_remote_fee_reserve_paid_call<Call>(
 		let foreign_id_location_reanchored =
 			foreign_asset_id_location.clone().reanchored(&dest, &context).unwrap();
 		let dest_reanchored = dest.reanchored(&reserve_location, &context).unwrap();
-		let mut sent_message = Xcm(vec![
+		let sent_msg_id = get_sent_xcm_topic_id();
+		let sent_message = Xcm(vec![
 			WithdrawAsset((Location::here(), SEND_AMOUNT).into()),
 			ClearOrigin,
 			buy_execution((Location::here(), SEND_AMOUNT / 2)),
@@ -2547,16 +2545,8 @@ fn remote_asset_reserve_and_remote_fee_reserve_paid_call<Call>(
 					DepositAsset { assets: AllCounted(1).into(), beneficiary },
 				]),
 			},
+			SetTopic(sent_msg_id.into()),
 		]);
-		let mut sent_msg_id = None;
-		if let Some(RuntimeEvent::XcmPallet(crate::Event::Sent { message_id, .. })) =
-			last_events(2).first()
-		{
-			sent_message.0.push(SetTopic(*message_id));
-			sent_msg_id = Some(*message_id);
-		} else {
-			assert!(false, "Missing Sent Event");
-		}
 
 		let mut last_events = last_events(7).into_iter();
 		// asset events
@@ -2577,7 +2567,7 @@ fn remote_asset_reserve_and_remote_fee_reserve_paid_call<Call>(
 				origin: user_account.clone().into(),
 				destination: Parachain(paid_para_id).into(),
 				message: Xcm::default(),
-				message_id: sent_msg_id.unwrap(),
+				message_id: sent_msg_id,
 			})
 		);
 		assert_eq!(

@@ -1679,32 +1679,26 @@ fn execute_initiate_transfer_and_check_sent_event() {
 			);
 			assert_ok!(result);
 
-			let events = last_events(2);
-			let mut sent_message: Xcm<()> = Xcm(vec![
+			let expected_hash = get_sent_xcm_topic_id();
+			let sent_message: Xcm<()> = Xcm(vec![
 				WithdrawAsset(Assets::new()),
 				ClearOrigin,
 				BuyExecution { fees: fee_asset.clone(), weight_limit: Unlimited },
 				DepositAsset { assets: All.into(), beneficiary: beneficiary.clone() },
+				SetTopic(expected_hash.into()),
 			]);
-			let mut sent_msg_id = None;
-			if let Some(RuntimeEvent::XcmPallet(Event::Sent { message_id, .. })) = events.first() {
-				sent_message.0.push(SetTopic(*message_id));
-				sent_msg_id = Some(*message_id);
-			} else {
-				assert!(false, "Missing Sent Event");
-			}
 			assert!(log_capture
 				.contains(format!("xcm::send: Sending msg msg={:?}", sent_message).as_str()));
 
 			let origin: Location = AccountId32 { network: None, id: ALICE.into() }.into();
 			assert_eq!(
-				events,
+				last_events(2),
 				vec![
 					RuntimeEvent::XcmPallet(Event::Sent {
 						origin,
 						destination: Parent.into(),
 						message: Xcm::default(),
-						message_id: sent_msg_id.unwrap(),
+						message_id: expected_hash,
 					}),
 					RuntimeEvent::XcmPallet(Event::Attempted {
 						outcome: Outcome::Complete { used: Weight::from_parts(1_000, 1_000) }

@@ -177,19 +177,17 @@ fn report_holding_works() {
 		let other_para_acc: AccountId = ParaId::from(other_para_id).into_account_truncating();
 		assert_eq!(Balances::free_balance(other_para_acc), amount);
 		assert_eq!(Balances::free_balance(para_acc), INITIAL_BALANCE - 2 * amount);
-		let mut expected_msg = Xcm(vec![QueryResponse {
-			query_id: response_info.query_id,
-			response: Response::Assets(vec![].into()),
-			max_weight: response_info.max_weight,
-			querier: Some(Here.into()),
-		}]);
 		let xcm_sent = mock::sent_xcm();
-		if let Some(SetTopic(topic_id)) = xcm_sent[0].1.last() {
-			expected_msg.0.push(SetTopic(*topic_id));
-		} else {
-			assert!(false, "Missing SetTopic");
-		}
-		let expected_hash = fake_message_hash(&expected_msg);
+		let expected_hash = mock::get_sent_xcm_topic_id();
+		let expected_msg = Xcm(vec![
+			QueryResponse {
+				query_id: response_info.query_id,
+				response: Response::Assets(vec![].into()),
+				max_weight: response_info.max_weight,
+				querier: Some(Here.into()),
+			},
+			SetTopic(expected_hash.into()),
+		]);
 		assert_eq!(xcm_sent, vec![(Parachain(PARA_ID).into(), expected_msg, expected_hash,)]);
 	});
 }
@@ -261,18 +259,14 @@ fn teleport_to_asset_hub_works() {
 		assert_eq!(r, Outcome::Complete { used: weight });
 		// 2 * amount because of the other teleport above
 		assert_eq!(Balances::free_balance(para_acc), INITIAL_BALANCE - 2 * amount);
+		let xcm_sent = mock::sent_xcm();
+		let expected_hash = mock::get_sent_xcm_topic_id();
 		let mut expected_msg =
 			Xcm(vec![ReceiveTeleportedAsset((Parent, amount).into()), ClearOrigin]
 				.into_iter()
 				.chain(teleport_effects.clone().into_iter())
 				.collect());
-		let xcm_sent = mock::sent_xcm();
-		if let Some(SetTopic(topic_id)) = xcm_sent[0].1.last() {
-			expected_msg.0.push(SetTopic(*topic_id));
-		} else {
-			assert!(false, "Missing SetTopic");
-		}
-		let expected_hash = fake_message_hash(&expected_msg);
+		expected_msg.0.push(SetTopic(expected_hash.into()));
 		assert_eq!(xcm_sent, vec![(Parachain(asset_hub_id).into(), expected_msg, expected_hash,)]);
 	});
 }
@@ -318,18 +312,14 @@ fn reserve_based_transfer_works() {
 		);
 		assert_eq!(r, Outcome::Complete { used: weight });
 		assert_eq!(Balances::free_balance(para_acc), INITIAL_BALANCE - amount);
+		let xcm_sent = mock::sent_xcm();
+		let expected_hash = mock::get_sent_xcm_topic_id();
 		let mut expected_msg =
 			Xcm(vec![ReserveAssetDeposited((Parent, amount).into()), ClearOrigin]
 				.into_iter()
 				.chain(transfer_effects.into_iter())
 				.collect());
-		let xcm_sent = mock::sent_xcm();
-		if let Some(SetTopic(topic_id)) = xcm_sent[0].1.last() {
-			expected_msg.0.push(SetTopic(*topic_id));
-		} else {
-			assert!(false, "Missing SetTopic");
-		}
-		let expected_hash = fake_message_hash(&expected_msg);
+		expected_msg.0.push(SetTopic(expected_hash.into()));
 		assert_eq!(xcm_sent, vec![(Parachain(other_para_id).into(), expected_msg, expected_hash,)]);
 	});
 }

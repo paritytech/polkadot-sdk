@@ -153,6 +153,7 @@ construct_runtime!(
 
 thread_local! {
 	pub static SENT_XCM: RefCell<Vec<(Location, Xcm<()>)>> = RefCell::new(Vec::new());
+	pub static SENT_XCM_TOPIC_ID: RefCell<XcmHash> = RefCell::new(XcmHash::default());
 	pub static FAIL_SEND_XCM: RefCell<bool> = RefCell::new(false);
 }
 pub(crate) fn sent_xcm() -> Vec<(Location, Xcm<()>)> {
@@ -164,6 +165,9 @@ pub(crate) fn take_sent_xcm() -> Vec<(Location, Xcm<()>)> {
 		std::mem::swap(&mut r, &mut *q.borrow_mut());
 		r
 	})
+}
+pub(crate) fn get_sent_xcm_topic_id() -> XcmHash {
+	SENT_XCM_TOPIC_ID.with(|q| *q.borrow())
 }
 pub(crate) fn set_send_xcm_artificial_failure(should_fail: bool) {
 	FAIL_SEND_XCM.with(|q| *q.borrow_mut() = should_fail);
@@ -192,6 +196,7 @@ impl SendXcm for TestSendXcm {
 		}
 		let hash = fake_message_hash(&message);
 		SENT_XCM.with(|q| q.borrow_mut().push(pair));
+		SENT_XCM_TOPIC_ID.set(hash);
 		Ok(hash)
 	}
 }
@@ -213,6 +218,7 @@ impl SendXcm for TestSendXcmErrX8 {
 	fn deliver(pair: (Location, Xcm<()>)) -> Result<XcmHash, SendError> {
 		let hash = fake_message_hash(&pair.1);
 		SENT_XCM.with(|q| q.borrow_mut().push(pair));
+		SENT_XCM_TOPIC_ID.set(hash);
 		Ok(hash)
 	}
 }
@@ -245,6 +251,7 @@ impl SendXcm for TestPaidForPara3000SendXcm {
 	fn deliver(pair: (Location, Xcm<()>)) -> Result<XcmHash, SendError> {
 		let hash = fake_message_hash(&pair.1);
 		SENT_XCM.with(|q| q.borrow_mut().push(pair));
+		SENT_XCM_TOPIC_ID.set(hash);
 		Ok(hash)
 	}
 }

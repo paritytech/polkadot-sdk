@@ -39,19 +39,17 @@ fn pallet_query_should_work() {
 	);
 	assert_eq!(r, Outcome::Complete { used: Weight::from_parts(10, 10) });
 
-	let mut expected_msg = Xcm::<()>(vec![QueryResponse {
-		query_id: 1,
-		max_weight: Weight::from_parts(50, 50),
-		response: Response::PalletsInfo(Default::default()),
-		querier: Some(Here.into()),
-	}]);
 	let xcm_sent = sent_xcm();
-	if let Some(SetTopic(topic_id)) = xcm_sent[0].1.last() {
-		expected_msg.0.push(SetTopic(*topic_id));
-	} else {
-		assert!(false, "Missing SetTopic");
-	}
-	let expected_hash = fake_message_hash(&expected_msg);
+	let expected_hash = get_sent_xcm_topic_id();
+	let expected_msg = Xcm::<()>(vec![
+		QueryResponse {
+			query_id: 1,
+			max_weight: Weight::from_parts(50, 50),
+			response: Response::PalletsInfo(Default::default()),
+			querier: Some(Here.into()),
+		},
+		SetTopic(expected_hash),
+	]);
 	assert_eq!(xcm_sent, vec![(Parachain(1).into(), expected_msg, expected_hash)]);
 }
 
@@ -78,31 +76,29 @@ fn pallet_query_with_results_should_work() {
 	);
 	assert_eq!(r, Outcome::Complete { used: Weight::from_parts(10, 10) });
 
-	let mut expected_msg = Xcm::<()>(vec![QueryResponse {
-		query_id: 1,
-		max_weight: Weight::from_parts(50, 50),
-		response: Response::PalletsInfo(
-			vec![PalletInfo::new(
-				1,
-				b"Balances".as_ref().into(),
-				b"pallet_balances".as_ref().into(),
-				1,
-				42,
-				69,
-			)
-			.unwrap()]
-			.try_into()
-			.unwrap(),
-		),
-		querier: Some(Here.into()),
-	}]);
 	let xcm_sent = sent_xcm();
-	if let Some(SetTopic(topic_id)) = xcm_sent[0].1.last() {
-		expected_msg.0.push(SetTopic(*topic_id));
-	} else {
-		assert!(false, "Missing SetTopic");
-	}
-	let expected_hash = fake_message_hash(&expected_msg);
+	let expected_hash = get_sent_xcm_topic_id();
+	let expected_msg = Xcm::<()>(vec![
+		QueryResponse {
+			query_id: 1,
+			max_weight: Weight::from_parts(50, 50),
+			response: Response::PalletsInfo(
+				vec![PalletInfo::new(
+					1,
+					b"Balances".as_ref().into(),
+					b"pallet_balances".as_ref().into(),
+					1,
+					42,
+					69,
+				)
+				.unwrap()]
+				.try_into()
+				.unwrap(),
+			),
+			querier: Some(Here.into()),
+		},
+		SetTopic(expected_hash),
+	]);
 	assert_eq!(xcm_sent, vec![(Parachain(1).into(), expected_msg, expected_hash)]);
 }
 

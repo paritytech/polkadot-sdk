@@ -45,9 +45,13 @@ pub type Balance = u128;
 
 thread_local! {
 	pub static SENT_XCM: RefCell<Vec<(Location, opaque::Xcm, XcmHash)>> = RefCell::new(Vec::new());
+	pub static SENT_XCM_TOPIC_ID: RefCell<XcmHash> = RefCell::new(XcmHash::default());
 }
 pub fn sent_xcm() -> Vec<(Location, opaque::Xcm, XcmHash)> {
 	SENT_XCM.with(|q| (*q.borrow()).clone())
+}
+pub(crate) fn get_sent_xcm_topic_id() -> XcmHash {
+	SENT_XCM_TOPIC_ID.with(|q| *q.borrow())
 }
 pub struct TestSendXcm;
 impl SendXcm for TestSendXcm {
@@ -64,6 +68,7 @@ impl SendXcm for TestSendXcm {
 	fn deliver(triplet: (Location, Xcm<()>, XcmHash)) -> Result<XcmHash, SendError> {
 		let hash = triplet.2;
 		SENT_XCM.with(|q| q.borrow_mut().push(triplet));
+		SENT_XCM_TOPIC_ID.set(hash);
 		Ok(hash)
 	}
 }
@@ -258,5 +263,9 @@ pub fn kusama_like_with_balances(balances: Vec<(AccountId, Balance)>) -> sp_io::
 }
 
 pub fn fake_message_hash<T>(message: &Xcm<T>) -> XcmHash {
-	message.using_encoded(sp_io::hashing::blake2_256)
+	if let Some(SetTopic(topic_id)) = message.last() {
+		*topic_id
+	} else {
+		message.using_encoded(sp_io::hashing::blake2_256)
+	}
 }
