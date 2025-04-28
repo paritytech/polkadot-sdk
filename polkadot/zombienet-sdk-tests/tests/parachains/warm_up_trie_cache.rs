@@ -1,9 +1,9 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// TODO: Remove this metadata and use "metadata-files/asset-hub-westend-local.scale" after metadata
-// on master is same as on the asset-hub-westend
-#[subxt::subxt(runtime_metadata_path = "tests/parachains/asset-hub-westend-local.metadata")]
+// TODO: Use precompiled metadata when v15 has become by default
+// `#[subxt::subxt(runtime_metadata_path = "metadata-files/asset-hub-westend-local.scale")]`
+#[subxt::subxt(runtime_metadata_insecure_url = "wss://westend-asset-hub-rpc.polkadot.io:443")]
 mod asset_hub_westend {}
 
 use anyhow::anyhow;

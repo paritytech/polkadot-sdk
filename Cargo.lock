@@ -16696,6 +16696,7 @@ dependencies = [
  "substrate-build-script-utils",
  "subwasmlib",
  "subxt 0.38.1",
+ "subxt-macro 0.38.1",
  "subxt-signer 0.38.0",
  "tokio",
  "tokio-util",
@@ -24771,7 +24772,7 @@ dependencies = [
  "serde_json",
  "subxt-core 0.38.0",
  "subxt-lightclient 0.38.0",
- "subxt-macro 0.38.0",
+ "subxt-macro 0.38.1",
  "subxt-metadata 0.38.0",
  "thiserror 1.0.65",
  "tokio",
@@ -24948,9 +24949,9 @@ dependencies = [
 
 [[package]]
 name = "subxt-macro"
-version = "0.38.0"
+version = "0.38.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "228db9a5c95a6d8dc6152b4d6cdcbabc4f60821dd3f482a4f8791e022b7caadb"
+checksum = "7819c5e09aae0319981ee853869f2fcd1fac4db8babd0d004c17161297aadc05"
 dependencies = [
  "darling",
  "parity-scale-codec",
@@ -25072,9 +25073,13 @@ version = "0.38.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3082b17a86e3c3fe45d858d94d68f6b5247caace193dad6201688f24db8ba9bb"
 dependencies = [
+ "frame-metadata 17.0.0",
  "hex",
+ "jsonrpsee",
  "parity-scale-codec",
  "thiserror 1.0.65",
+ "tokio",
+ "url",
 ]
 
 [[package]]
