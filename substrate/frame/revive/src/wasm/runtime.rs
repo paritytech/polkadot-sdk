@@ -23,8 +23,8 @@ use crate::{
 	exec::{ExecError, ExecResult, Ext, Key},
 	gas::{ChargedAmount, Token},
 	limits,
+	precompiles::{All as AllPrecompiles, Precompiles},
 	primitives::ExecReturnValue,
-	pure_precompiles::is_precompile,
 	weights::WeightInfo,
 	Config, Error, LOG_TARGET, SENTINEL,
 };
@@ -368,6 +368,12 @@ pub enum RuntimeCosts {
 	CallBase,
 	/// Weight of calling `seal_delegate_call` for the given input size.
 	DelegateCallBase,
+	/// Weight of calling a precompile.
+	PrecompileBase,
+	/// Weight of calling a precompile that has a contract info.
+	PrecompileWithInfoBase,
+	/// Weight of reading and decoding the input to a precompile.
+	PrecompileDecode(u32),
 	/// Weight of the transfer performed during a call.
 	CallTransferSurcharge,
 	/// Weight per byte that is cloned by supplying the `CLONE_INPUT` flag.
@@ -388,8 +394,6 @@ pub enum RuntimeCosts {
 	EcdsaRecovery,
 	/// Weight of calling `seal_sr25519_verify` for the given input size.
 	Sr25519Verify(u32),
-	/// Weight charged by a chain extension through `seal_call_chain_extension`.
-	ChainExtension(Weight),
 	/// Weight charged for calling into the runtime.
 	CallRuntime(Weight),
 	/// Weight charged for calling xcm_execute.
@@ -528,6 +532,9 @@ impl<T: Config> Token<T> for RuntimeCosts {
 			},
 			CallBase => T::WeightInfo::seal_call(0, 0),
 			DelegateCallBase => T::WeightInfo::seal_delegate_call(),
+			PrecompileBase => T::WeightInfo::seal_call_precompile(0, 0),
+			PrecompileWithInfoBase => T::WeightInfo::seal_call_precompile(1, 0),
+			PrecompileDecode(len) => cost_args!(seal_call_precompile, 0, len),
 			CallTransferSurcharge => cost_args!(seal_call, 1, 0),
 			CallInputCloned(len) => cost_args!(seal_call, 0, len),
 			Instantiate { input_data_len } => T::WeightInfo::seal_instantiate(input_data_len),
@@ -538,7 +545,7 @@ impl<T: Config> Token<T> for RuntimeCosts {
 			HashBlake128(len) => T::WeightInfo::seal_hash_blake2_128(len),
 			EcdsaRecovery => T::WeightInfo::ecdsa_recover(),
 			Sr25519Verify(len) => T::WeightInfo::seal_sr25519_verify(len),
-			ChainExtension(weight) | CallRuntime(weight) | CallXcmExecute(weight) => weight,
+			CallRuntime(weight) | CallXcmExecute(weight) => weight,
 			SetCodeHash => T::WeightInfo::seal_set_code_hash(),
 			EcdsaToEthAddress => T::WeightInfo::seal_ecdsa_to_eth_address(),
 			GetImmutableData(len) => T::WeightInfo::seal_get_immutable_data(len),
@@ -633,7 +640,6 @@ enum StorageReadMode {
 pub struct Runtime<'a, E: Ext, M: ?Sized> {
 	ext: &'a mut E,
 	input_data: Option<Vec<u8>>,
-	chain_extension: Option<Box<<E::T as Config>::ChainExtension>>,
 	_phantom_data: PhantomData<M>,
 }
 
@@ -693,18 +699,10 @@ impl<'a, E: Ext, M: PolkaVmInstance<E::T>> Runtime<'a, E, M> {
 
 impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 	pub fn new(ext: &'a mut E, input_data: Vec<u8>) -> Self {
-		Self {
-			ext,
-			input_data: Some(input_data),
-			chain_extension: Some(Box::new(Default::default())),
-			_phantom_data: Default::default(),
-		}
+		Self { ext, input_data: Some(input_data), _phantom_data: Default::default() }
 	}
 
 	/// Get a mutable reference to the inner `Ext`.
-	///
-	/// This is mainly for the chain extension to have access to the environment the
-	/// contract is executing in.
 	pub fn ext(&mut self) -> &mut E {
 		self.ext
 	}
@@ -712,7 +710,7 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 	/// Charge the gas meter with the specified token.
 	///
 	/// Returns `Err(HostError)` if there is not enough gas.
-	pub fn charge_gas(&mut self, costs: RuntimeCosts) -> Result<ChargedAmount, DispatchError> {
+	fn charge_gas(&mut self, costs: RuntimeCosts) -> Result<ChargedAmount, DispatchError> {
 		charge_gas!(self, costs)
 	}
 
@@ -720,7 +718,7 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 	///
 	/// This is when a maximum a priori amount was charged and then should be partially
 	/// refunded to match the actual amount.
-	pub fn adjust_gas(&mut self, charged: ChargedAmount, actual_costs: RuntimeCosts) {
+	fn adjust_gas(&mut self, charged: ChargedAmount, actual_costs: RuntimeCosts) {
 		self.ext.gas_meter_mut().adjust_gas(charged, actual_costs);
 	}
 
@@ -798,7 +796,7 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 		allow_skip: bool,
 		create_token: impl FnOnce(u32) -> Option<RuntimeCosts>,
 	) -> Result<(), DispatchError> {
-		if allow_skip && out_ptr == SENTINEL {
+		if buf.is_empty() || (allow_skip && out_ptr == SENTINEL) {
 			return Ok(());
 		}
 
@@ -855,11 +853,13 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 		let out_of_gas = Error::<E::T>::OutOfGas.into();
 		let out_of_deposit = Error::<E::T>::StorageDepositLimitExhausted.into();
 		let duplicate_contract = Error::<E::T>::DuplicateContract.into();
+		let unsupported_precompile = Error::<E::T>::UnsupportedPrecompileAddress.into();
 
 		// errors in the callee do not trap the caller
 		match (from.error, from.origin) {
 			(err, _) if err == transfer_failed => Ok(TransferFailed),
 			(err, _) if err == duplicate_contract => Ok(DuplicateContractAddress),
+			(err, _) if err == unsupported_precompile => Err(err),
 			(err, Callee) if err == out_of_gas || err == out_of_deposit => Ok(OutOfResources),
 			(_, Callee) => Ok(CalleeTrapped),
 			(err, _) => Err(err),
@@ -1115,16 +1115,13 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 		output_ptr: u32,
 		output_len_ptr: u32,
 	) -> Result<ReturnErrorCode, TrapReason> {
-		let callee = match memory.read_h160(callee_ptr) {
-			Ok(callee) if is_precompile(&callee) => callee,
-			Ok(callee) => {
-				self.charge_gas(call_type.cost())?;
-				callee
-			},
-			Err(err) => {
-				self.charge_gas(call_type.cost())?;
-				return Err(err.into());
-			},
+		let callee = memory.read_h160(callee_ptr)?;
+		let precompile = <AllPrecompiles<E::T>>::get::<E>(&callee.as_fixed_bytes());
+		match &precompile {
+			Some(precompile) if precompile.has_contract_info() =>
+				self.charge_gas(RuntimeCosts::PrecompileWithInfoBase)?,
+			Some(_) => self.charge_gas(RuntimeCosts::PrecompileBase)?,
+			None => self.charge_gas(call_type.cost())?,
 		};
 
 		let deposit_limit = memory.read_u256(deposit_ptr)?;
@@ -1136,7 +1133,11 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 		} else if flags.contains(CallFlags::FORWARD_INPUT) {
 			self.input_data.take().ok_or(Error::<E::T>::InputForwarded)?
 		} else {
-			self.charge_gas(RuntimeCosts::CopyFromContract(input_data_len))?;
+			if precompile.is_some() {
+				self.charge_gas(RuntimeCosts::PrecompileDecode(input_data_len))?;
+			} else {
+				self.charge_gas(RuntimeCosts::CopyFromContract(input_data_len))?;
+			}
 			memory.read(input_data_ptr, input_data_len)?
 		};
 
@@ -1194,7 +1195,11 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 				write_result?;
 				Ok(self.ext.last_frame_output().into())
 			},
-			Err(err) => Ok(Self::exec_error_into_return_code(err)?),
+			Err(err) => {
+				let error_code = Self::exec_error_into_return_code(err)?;
+				memory.write(output_len_ptr, &0u32.to_le_bytes())?;
+				Ok(error_code)
+			},
 		}
 	}
 
@@ -1939,36 +1944,6 @@ pub mod env {
 	fn ref_time_left(&mut self, memory: &mut M) -> Result<u64, TrapReason> {
 		self.charge_gas(RuntimeCosts::RefTimeLeft)?;
 		Ok(self.ext.gas_meter().gas_left().ref_time())
-	}
-
-	/// Call into the chain extension provided by the chain if any.
-	/// See [`pallet_revive_uapi::HostFn::call_chain_extension`].
-	fn call_chain_extension(
-		&mut self,
-		memory: &mut M,
-		id: u32,
-		input_ptr: u32,
-		input_len: u32,
-		output_ptr: u32,
-		output_len_ptr: u32,
-	) -> Result<u32, TrapReason> {
-		use crate::chain_extension::{ChainExtension, Environment, RetVal};
-		if !<E::T as Config>::ChainExtension::enabled() {
-			return Err(Error::<E::T>::NoChainExtension.into());
-		}
-		let mut chain_extension = self.chain_extension.take().expect(
-            "Constructor initializes with `Some`. This is the only place where it is set to `None`.\
-			It is always reset to `Some` afterwards. qed",
-        );
-		let env =
-			Environment::new(self, memory, id, input_ptr, input_len, output_ptr, output_len_ptr);
-		let ret = match chain_extension.call(env)? {
-			RetVal::Converging(val) => Ok(val),
-			RetVal::Diverging { flags, data } =>
-				Err(TrapReason::Return(ReturnData { flags: flags.bits(), data })),
-		};
-		self.chain_extension = Some(chain_extension);
-		ret
 	}
 
 	/// Call some dispatchable of the runtime.

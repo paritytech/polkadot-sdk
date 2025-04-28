@@ -15,11 +15,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//! This calls another contract and returns the returncode and output.
+
 #![no_std]
 #![no_main]
 include!("../panic_handler.rs");
 
-use uapi::{input, HostFn, HostFnImpl as api};
+use uapi::{input, u256_bytes, HostFn, HostFnImpl as api};
 
 #[no_mangle]
 #[polkavm_derive::polkavm_export]
@@ -28,23 +30,32 @@ pub extern "C" fn deploy() {}
 #[no_mangle]
 #[polkavm_derive::polkavm_export]
 pub extern "C" fn call() {
-	input!(address: &[u8; 20],);
+	input!(
+		512,
+		callee_addr: &[u8; 20],
+		value: u64,
+		callee_input: [u8],
+	);
 
-	let mut output = [0; 512];
-	let ptr = &mut &mut output[..];
+	// the first 4 bytes are reserved for the return code
+	let mut output = [0u8; 512];
+	let output_ptr = &mut &mut output[4..];
 
-	// Delegate call into passed address.
-	let input = [0u8; 0];
-	api::delegate_call(
+	let code = match api::call(
 		uapi::CallFlags::empty(),
-		address,
-		u64::MAX,
-		u64::MAX,
-		&[u8::MAX; 32],
-		&input,
-		Some(ptr),
-	)
-	.unwrap();
+		callee_addr,
+		u64::MAX,           // How much ref_time to devote for the execution. u64::MAX = use all.
+		u64::MAX,           // How much proof_size to devote for the execution. u64::MAX = use all.
+		&[u8::MAX; 32],     // No deposit limit.
+		&u256_bytes(value), // Value transferred to the contract.
+		callee_input,
+		Some(output_ptr),
+	) {
+		Ok(_) => 0,
+		Err(code) => code as u32,
+	};
 
-	assert_eq!(ptr.len(), 0);
+	let len = 4 + output_ptr.len();
+	output[0..4].copy_from_slice(&code.to_le_bytes());
+	api::return_value(uapi::ReturnFlags::empty(), &output[..len]);
 }
