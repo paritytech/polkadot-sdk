@@ -967,10 +967,10 @@ fn reclaim_works() {
 
 // Tests for set_code behavior when system_version >= 3.
 mod version3_set_code_tests {
-    use frame_support::{assert_ok, storage};
-    use sp_core::storage::well_known_keys;
+	use frame_support::{assert_ok, storage};
+	use sp_core::storage::well_known_keys;
 
-    use crate::mock_v3::*;
+	use crate::mock_v3::*;
 
 	#[test]
 	fn set_code_version_3_schedules_and_applies_pending_code() {
@@ -986,15 +986,14 @@ mod version3_set_code_tests {
 				.expect("Pending code should exist");
 			assert_eq!(pending, code.clone());
 			// Immediate code not updated
-			let current =
-				storage::unhashed::get_raw(well_known_keys::CODE).unwrap_or_default();
+			let current = storage::unhashed::get_raw(well_known_keys::CODE).unwrap_or_default();
 			assert_ne!(current, code.clone());
 			crate::Pallet::<Test>::set_block_number(2);
 			// Apply on finalize at block 2
 			crate::Pallet::<Test>::maybe_apply_pending_code_upgrade();
 			// Code should now be updated
-			let updated = storage::unhashed::get_raw(well_known_keys::CODE)
-				.expect("Code should be updated");
+			let updated =
+				storage::unhashed::get_raw(well_known_keys::CODE).expect("Code should be updated");
 			assert_eq!(updated, code);
 		});
 	}
