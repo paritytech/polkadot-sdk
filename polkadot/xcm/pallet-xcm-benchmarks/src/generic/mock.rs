@@ -173,8 +173,8 @@ impl generic::Config for Test {
 		Ok((Default::default(), ticket, assets))
 	}
 
-	fn fee_asset() -> Result<Asset, BenchmarkError> {
-		Ok(Asset { id: AssetId(Here.into()), fun: Fungible(1_000_000) })
+	fn worst_case_for_trader() -> Result<(Asset, WeightLimit), BenchmarkError> {
+		Ok((Asset { id: AssetId(Here.into()), fun: Fungible(1_000_000) }, WeightLimit::Unlimited))
 	}
 
 	fn unlockable_asset() -> Result<(Location, Location, Asset), BenchmarkError> {

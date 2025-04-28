@@ -18,8 +18,6 @@
 //! Shared utilities for testing contracts.
 //! This is not part of the tests module because it is made public for other crates to use.
 
-#![cfg(feature = "std")]
-
 pub mod builder;
 
 pub use sp_runtime::AccountId32;
