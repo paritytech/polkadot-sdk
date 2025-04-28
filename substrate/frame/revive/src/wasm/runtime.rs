@@ -773,7 +773,7 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 		allow_skip: bool,
 		create_token: impl FnOnce(u32) -> Option<RuntimeCosts>,
 	) -> Result<(), DispatchError> {
-		if allow_skip && out_ptr == SENTINEL {
+		if buf.is_empty() || (allow_skip && out_ptr == SENTINEL) {
 			return Ok(());
 		}
 

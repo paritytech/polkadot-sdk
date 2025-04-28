@@ -910,107 +910,100 @@ where
 		read_only: bool,
 		origin_is_caller: bool,
 	) -> Result<Option<(Frame<T>, ExecutableOrPrecompile<T, E, Self>)>, ExecError> {
-		let (account_id, contract_info, executable, delegate, entry_point, nested_gas) =
-			match frame_args {
-				FrameArgs::Call { dest, cached_info, delegated_call } => {
-					let address = T::AddressMapper::to_address(&dest);
-					let precompile = <AllPrecompiles<T>>::get(address.as_fixed_bytes());
+		let (account_id, contract_info, executable, delegate, entry_point) = match frame_args {
+			FrameArgs::Call { dest, cached_info, delegated_call } => {
+				let address = T::AddressMapper::to_address(&dest);
+				let precompile = <AllPrecompiles<T>>::get(address.as_fixed_bytes());
 
-					// which contract info to load is unaffected by the fact if this
-					// is a delegate call or not
-					let mut contract = match (cached_info, &precompile) {
-						(Some(info), _) => CachedContract::Cached(info),
-						(None, None) =>
-							if let Some(info) = <ContractInfoOf<T>>::get(&address) {
-								CachedContract::Cached(info)
-							} else {
-								return Ok(None)
-							},
-						(None, Some(precompile)) if precompile.has_contract_info() => {
-							if let Some(info) = <ContractInfoOf<T>>::get(&address) {
-								CachedContract::Cached(info)
-							} else {
-								let info = ContractInfo::new(&address, 0u32.into(), H256::zero())?;
-								CachedContract::Cached(info)
-							}
+				// which contract info to load is unaffected by the fact if this
+				// is a delegate call or not
+				let mut contract = match (cached_info, &precompile) {
+					(Some(info), _) => CachedContract::Cached(info),
+					(None, None) =>
+						if let Some(info) = <ContractInfoOf<T>>::get(&address) {
+							CachedContract::Cached(info)
+						} else {
+							return Ok(None)
 						},
-						(None, Some(_)) => CachedContract::None,
-					};
-
-					let mut nested_gas = gas_meter.nested(gas_limit);
-
-					// in case of delegate the executable is not the one at `address`
-					let executable = if let Some(delegated_call) = &delegated_call {
-						if let Some(precompile) =
-							<AllPrecompiles<T>>::get(delegated_call.callee.as_fixed_bytes())
-						{
-							ExecutableOrPrecompile::Precompile {
-								instance: precompile,
-								_phantom: Default::default(),
-							}
+					(None, Some(precompile)) if precompile.has_contract_info() => {
+						if let Some(info) = <ContractInfoOf<T>>::get(&address) {
+							CachedContract::Cached(info)
 						} else {
-							let Some(info) = ContractInfoOf::<T>::get(&delegated_call.callee)
-							else {
-								return Ok(None);
-							};
-							let executable = E::from_storage(info.code_hash, &mut nested_gas)?;
-							ExecutableOrPrecompile::Executable(executable)
+							let info = ContractInfo::new(&address, 0u32.into(), H256::zero())?;
+							CachedContract::Cached(info)
+						}
+					},
+					(None, Some(_)) => CachedContract::None,
+				};
+
+				// in case of delegate the executable is not the one at `address`
+				let executable = if let Some(delegated_call) = &delegated_call {
+					if let Some(precompile) =
+						<AllPrecompiles<T>>::get(delegated_call.callee.as_fixed_bytes())
+					{
+						ExecutableOrPrecompile::Precompile {
+							instance: precompile,
+							_phantom: Default::default(),
 						}
 					} else {
-						if let Some(precompile) = precompile {
-							ExecutableOrPrecompile::Precompile {
-								instance: precompile,
-								_phantom: Default::default(),
-							}
-						} else {
-							let executable = E::from_storage(
-								contract
-									.as_contract()
-									.expect(
-										"When not a precompile the contract was loaded above; qed",
-									)
-									.code_hash,
-								&mut nested_gas,
-							)?;
-							ExecutableOrPrecompile::Executable(executable)
+						let Some(info) = ContractInfoOf::<T>::get(&delegated_call.callee) else {
+							return Ok(None);
+						};
+						let executable = E::from_storage(info.code_hash, gas_meter)?;
+						ExecutableOrPrecompile::Executable(executable)
+					}
+				} else {
+					if let Some(precompile) = precompile {
+						ExecutableOrPrecompile::Precompile {
+							instance: precompile,
+							_phantom: Default::default(),
 						}
-					};
-
-					(dest, contract, executable, delegated_call, ExportedFunction::Call, nested_gas)
-				},
-				FrameArgs::Instantiate { sender, executable, salt, input_data } => {
-					let deployer = T::AddressMapper::to_address(&sender);
-					let account_nonce = <System<T>>::account_nonce(&sender);
-					let address = if let Some(salt) = salt {
-						address::create2(&deployer, executable.code(), input_data, salt)
 					} else {
-						use sp_runtime::Saturating;
-						address::create1(
-							&deployer,
-							// the Nonce from the origin has been incremented pre-dispatch, so we
-							// need to subtract 1 to get the nonce at the time of the call.
-							if origin_is_caller {
-								account_nonce.saturating_sub(1u32.into()).saturated_into()
-							} else {
-								account_nonce.saturated_into()
-							},
-						)
-					};
-					let contract = ContractInfo::new(
-						&address,
-						<System<T>>::account_nonce(&sender),
-						*executable.code_hash(),
-					)?;
-					(
-						T::AddressMapper::to_fallback_account_id(&address),
-						CachedContract::Cached(contract),
-						ExecutableOrPrecompile::Executable(executable),
-						None,
-						ExportedFunction::Constructor,
-						gas_meter.nested(gas_limit),
+						let executable = E::from_storage(
+							contract
+								.as_contract()
+								.expect("When not a precompile the contract was loaded above; qed")
+								.code_hash,
+							gas_meter,
+						)?;
+						ExecutableOrPrecompile::Executable(executable)
+					}
+				};
+
+				(dest, contract, executable, delegated_call, ExportedFunction::Call)
+			},
+			FrameArgs::Instantiate { sender, executable, salt, input_data } => {
+				let deployer = T::AddressMapper::to_address(&sender);
+				let account_nonce = <System<T>>::account_nonce(&sender);
+				let address = if let Some(salt) = salt {
+					address::create2(&deployer, executable.code(), input_data, salt)
+				} else {
+					use sp_runtime::Saturating;
+					address::create1(
+						&deployer,
+						// the Nonce from the origin has been incremented pre-dispatch, so we
+						// need to subtract 1 to get the nonce at the time of the call.
+						if origin_is_caller {
+							account_nonce.saturating_sub(1u32.into()).saturated_into()
+						} else {
+							account_nonce.saturated_into()
+						},
 					)
-				},
-			};
+				};
+				let contract = ContractInfo::new(
+					&address,
+					<System<T>>::account_nonce(&sender),
+					*executable.code_hash(),
+				)?;
+				(
+					T::AddressMapper::to_fallback_account_id(&address),
+					CachedContract::Cached(contract),
+					ExecutableOrPrecompile::Executable(executable),
+					None,
+					ExportedFunction::Constructor,
+				)
+			},
+		};
 
 		let frame = Frame {
 			delegate,
@@ -1018,7 +1011,7 @@ where
 			contract_info,
 			account_id,
 			entry_point,
-			nested_gas,
+			nested_gas: gas_meter.nested(gas_limit),
 			nested_storage: storage_meter.nested(deposit_limit),
 			allows_reentry: true,
 			read_only,

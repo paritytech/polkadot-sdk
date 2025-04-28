@@ -930,6 +930,28 @@ fn delegate_call() {
 }
 
 #[test]
+fn delegate_call_non_existant_is_noop() {
+	let (caller_wasm, _caller_code_hash) = compile_module("delegate_call_simple").unwrap();
+
+	ExtBuilder::default().existential_deposit(500).build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+
+		// Instantiate the 'caller'
+		let Contract { addr: caller_addr, .. } =
+			builder::bare_instantiate(Code::Upload(caller_wasm))
+				.value(300_000)
+				.build_and_unwrap_contract();
+
+		assert_ok!(builder::call(caller_addr)
+			.value(1337)
+			.data((BOB_ADDR, u64::MAX, u64::MAX).encode())
+			.build());
+
+		assert_eq!(test_utils::get_balance(&BOB_FALLBACK), 0);
+	});
+}
+
+#[test]
 fn delegate_call_with_weight_limit() {
 	let (caller_wasm, _caller_code_hash) = compile_module("delegate_call").unwrap();
 	let (callee_wasm, _callee_code_hash) = compile_module("delegate_call_lib").unwrap();
@@ -956,7 +978,7 @@ fn delegate_call_with_weight_limit() {
 				.data((callee_addr, 100u64, 100u64).encode())
 				.build()
 				.result,
-			Error::<Test>::OutOfGas,
+			Error::<Test>::ContractTrapped,
 		);
 
 		assert_ok!(builder::call(caller_addr)
