@@ -17,7 +17,8 @@
 mod imports {
 	// Substrate
 	pub use codec::Encode;
-	pub use frame_support::{assert_err, assert_ok, pallet_prelude::DispatchResult};
+	pub use frame_support::{assert_err, assert_ok, pallet_prelude::DispatchResult, BoundedVec};
+	pub use sp_core::H160;
 	pub use sp_runtime::DispatchError;
 
 	// Polkadot
@@ -31,6 +32,7 @@ mod imports {
 	// Cumulus
 	pub use emulated_integration_tests_common::{
 		accounts::ALICE,
+		create_pool_with_native_on,
 		impls::Inspect,
 		test_dry_run_transfer_across_pk_bridge, test_parachain_is_trusted_teleporter,
 		test_parachain_is_trusted_teleporter_for_relay, test_relay_is_trusted_teleporter,
@@ -43,6 +45,7 @@ mod imports {
 	pub use parachains_common::AccountId;
 	pub use rococo_westend_system_emulated_network::{
 		asset_hub_rococo_emulated_chain::{
+			asset_hub_rococo_runtime::xcm_config::TreasuryAccount,
 			genesis::ED as ASSET_HUB_ROCOCO_ED, AssetHubRococoParaPallet as AssetHubRococoPallet,
 		},
 		asset_hub_westend_emulated_chain::{
@@ -50,7 +53,8 @@ mod imports {
 			AssetHubWestendParaPallet as AssetHubWestendPallet,
 		},
 		bridge_hub_westend_emulated_chain::{
-			genesis::ED as BRIDGE_HUB_WESTEND_ED, BridgeHubWestendExistentialDeposit,
+			bridge_hub_westend_runtime, genesis::ED as BRIDGE_HUB_WESTEND_ED,
+			BridgeHubWestendExistentialDeposit,
 			BridgeHubWestendParaPallet as BridgeHubWestendPallet, BridgeHubWestendRuntimeOrigin,
 			BridgeHubWestendXcmConfig,
 		},

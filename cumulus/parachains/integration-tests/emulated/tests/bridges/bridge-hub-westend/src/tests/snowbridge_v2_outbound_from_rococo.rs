@@ -183,7 +183,7 @@ fn send_roc_from_asset_hub_rococo_to_ethereum() {
 	register_roc_on_bh();
 
 	// set XCM versions
-	AssetHubRococo::force_xcm_version(asset_hub_westend_location(), XCM_VERSION);
+	AssetHubRococo::force_xcm_version(asset_hub_westend_global_location(), XCM_VERSION);
 	BridgeHubRococo::force_xcm_version(bridge_hub_westend_location(), XCM_VERSION);
 
 	// send ROCs, use them for fees
@@ -199,14 +199,14 @@ fn send_roc_from_asset_hub_rococo_to_ethereum() {
 		WithdrawAsset(assets.clone().into()),
 		PayFees { asset: local_fee_asset.clone() },
 		InitiateTransfer {
-			destination: asset_hub_westend_location(),
+			destination: asset_hub_westend_global_location(),
 			remote_fees: Some(AssetTransferFilter::ReserveDeposit(Definite(
 				remote_fee_on_westend.clone().into(),
 			))),
 			preserve_origin: true,
-			assets: vec![AssetTransferFilter::ReserveDeposit(Definite(
+			assets: BoundedVec::truncate_from(vec![AssetTransferFilter::ReserveDeposit(Definite(
 				reserved_asset_on_westend.clone().into(),
-			))],
+			))]),
 			remote_xcm: Xcm(vec![
 				// swap from roc to wnd
 				ExchangeAsset {
@@ -227,9 +227,9 @@ fn send_roc_from_asset_hub_rococo_to_ethereum() {
 						Asset { id: AssetId(ethereum()), fun: Fungible(ether_fee_amount) }.into(),
 					))),
 					preserve_origin: true,
-					assets: vec![AssetTransferFilter::ReserveDeposit(Definite(
-						reserved_asset_on_westend_reanchored.clone().into(),
-					))],
+					assets: BoundedVec::truncate_from(vec![AssetTransferFilter::ReserveDeposit(
+						Definite(reserved_asset_on_westend_reanchored.clone().into()),
+					)]),
 					remote_xcm: Xcm(vec![DepositAsset {
 						assets: Wild(All),
 						beneficiary: beneficiary(),
@@ -330,7 +330,7 @@ fn register_rococo_asset_on_ethereum_from_rah() {
 		));
 	});
 
-	let destination = asset_hub_westend_location();
+	let destination = asset_hub_westend_global_location();
 
 	// fund the RAH's SA on RBH for paying bridge delivery fees
 	BridgeHubRococo::fund_para_sovereign(AssetHubRococo::para_id(), 10_000_000_000_000u128);

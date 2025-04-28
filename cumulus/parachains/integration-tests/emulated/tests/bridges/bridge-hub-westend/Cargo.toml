@@ -12,9 +12,7 @@ workspace = true
 
 [dependencies]
 codec = { workspace = true }
-hex = { workspace = true, default-features = true }
 hex-literal = { workspace = true, default-features = true }
-log = { workspace = true }
 scale-info = { workspace = true }
 
 # Substrate
@@ -41,16 +39,14 @@ pallet-bridge-relayers = { workspace = true }
 # Cumulus
 asset-hub-westend-runtime = { workspace = true }
 bp-asset-hub-westend = { workspace = true }
+bridge-hub-common = { workspace = true }
 bridge-hub-westend-runtime = { workspace = true }
 cumulus-pallet-parachain-system = { workspace = true }
 cumulus-pallet-xcmp-queue = { workspace = true }
 emulated-integration-tests-common = { workspace = true }
 parachains-common = { workspace = true, default-features = true }
 rococo-westend-system-emulated-network = { workspace = true }
-testnet-parachains-constants = { features = [
-	"rococo",
-	"westend",
-], workspace = true, default-features = true }
+testnet-parachains-constants = { features = ["rococo", "westend"], workspace = true, default-features = true }
 
 # Snowbridge
 snowbridge-core = { workspace = true }
@@ -62,4 +58,3 @@ snowbridge-pallet-inbound-queue-v2 = { workspace = true }
 snowbridge-pallet-outbound-queue = { workspace = true }
 snowbridge-pallet-outbound-queue-v2 = { workspace = true }
 snowbridge-pallet-system = { workspace = true }
-snowbridge-pallet-system-v2 = { workspace = true }
