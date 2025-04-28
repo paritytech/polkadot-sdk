@@ -38,30 +38,29 @@ jobs:
           echo "Checking PRdoc version"
           $ENGINE run --rm -v $PWD:/repo $IMAGE --version
 
-      - name: Early exit if PR is silent
-        if: ${{ contains(steps.get-labels.outputs.labels, 'R0') }}
+      - name: Get PR number
+        if: ${{ github.event.pull_request.number != '' && !contains(steps.get-labels.outputs.labels, 'R0') }}
         run: |
-          hits=$(find prdoc -name "pr_$GITHUB_PR*.prdoc" | wc -l)
-          if (( hits > 0 )); then
-            echo "PR detected as silent, but a PRDoc was found, checking it as information"
-            $ENGINE run --rm -v $PWD:/repo $IMAGE check -n ${GITHUB_PR} || echo "Ignoring failure"
+          original_pr_number=''
+          PR_TITLE="${{ github.event.pull_request.title }}"
+          if [[ $PR_TITLE =~ 'Backport' ]]; then
+            # Extracting the original PR number from the backport's PR title
+            if [[ $PR_TITLE =~ \#([0-9]+) ]]; then
+              original_pr_number="${BASH_REMATCH[1]}"
+              echo "Extracted PR number: $original_pr_number"
+            else
+              echo "⚠️ The PR title dose not contain original PR number. PR title should be in form: [stableBranchName] Backport #originalPRNumber"
+              exit 1
+            fi
           else
-            echo "PR detected as silent, no PRDoc found, exiting..."
+            original_pr_number=${{ github.event.pull_request.number }}
           fi
-          echo "If you want to add a PRDoc, please refer to $PRDOC_DOC"
-          exit 0
+          echo "PR_NUMBER=$original_pr_number" >> $GITHUB_ENV
 
-      - name: PRdoc check for PR#${{ github.event.pull_request.number }}
-        if: ${{ !contains(steps.get-labels.outputs.labels, 'R0') }}
+      - name: Validate prdoc for PR#${{ env.PR_NUMBER }}
+        if: ${{ github.event.pull_request.number != '' && !contains(steps.get-labels.outputs.labels, 'R0') }}
         run: |
-          echo "Checking for PR#${GITHUB_PR}"
-          echo "You can find more information about PRDoc at $PRDOC_DOC"
-          $ENGINE run --rm -v $PWD:/repo -e RUST_LOG=info $IMAGE check -n ${GITHUB_PR}
-
-      - name: Validate prdoc for PR#${{ github.event.pull_request.number }}
-        if: ${{ !contains(steps.get-labels.outputs.labels, 'R0') }}
-        run: |
-          echo "Validating PR#${GITHUB_PR}"
+          echo "Validating PR#${{ env.PR_NUMBER }}"
           python3 --version
           python3 -m pip install cargo-workspace==1.2.1
-          python3 .github/scripts/check-prdoc.py Cargo.toml prdoc/pr_${GITHUB_PR}.prdoc
+          python3 .github/scripts/check-prdoc.py Cargo.toml prdoc/pr_${{ env.PR_NUMBER }}.prdoc
