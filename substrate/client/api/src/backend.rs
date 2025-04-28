@@ -502,7 +502,9 @@ pub enum TrieCacheContext {
 	///
 	/// A trusted context is for example the building or importing of a block.
 	/// In this case the local trie cache can grow unlimited and all the cached data
-	/// will be propagated back to the shared trie cache.
+	/// will be propagated back to the shared trie cache. It is safe to let the local
+	/// cache grow to hold the entire data, because importing and building blocks is
+	/// bounded by the block size limit.
 	Trusted,
 	/// This is used when calling [`Backend::state_at`] in from untrusted context.
 	///

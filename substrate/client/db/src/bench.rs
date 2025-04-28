@@ -199,7 +199,7 @@ impl<Hasher: Hash> BenchmarkingState<Hasher> {
 		*self.state.borrow_mut() = Some(
 			DbStateBuilder::<Hasher>::new(storage_db, self.root.get())
 				.with_optional_recorder(self.proof_recorder.clone())
-				.with_cache(self.shared_trie_cache.local_cache_untrusted())
+				.with_cache(self.shared_trie_cache.local_cache_trusted())
 				.build(),
 		);
 		Ok(())

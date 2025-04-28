@@ -2492,9 +2492,13 @@ impl<Block: BlockT> sc_client_api::backend::Backend<Block> for Backend<Block> {
 				let root = genesis_state.root;
 				let db_state =
 					DbStateBuilder::<HashingFor<Block>>::new(genesis_state.clone(), root)
-						.with_optional_cache(
-							self.shared_trie_cache.as_ref().map(|c| c.local_cache_untrusted()),
-						)
+						.with_optional_cache(self.shared_trie_cache.as_ref().map(|c| {
+							if matches!(trie_cache_context, TrieCacheContext::Trusted) {
+								c.local_cache_trusted()
+							} else {
+								c.local_cache_untrusted()
+							}
+						}))
 						.build();
 
 				let state = RefTrackingState::new(db_state, self.storage.clone(), None);
