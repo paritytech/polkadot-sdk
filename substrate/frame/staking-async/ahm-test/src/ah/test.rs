@@ -32,7 +32,7 @@ fn on_receive_session_report() {
 		// GIVEN genesis state of ah
 		assert_eq!(System::block_number(), 1);
 		assert_eq!(CurrentEra::<T>::get(), Some(0));
-		assert_eq!(pallet_staking_async::ErasStartSessionIndex::<T>::get(0), Some(0));
+		assert_eq!(Rotator::<Runtime>::active_era_start_session_index(), 0);
 		assert_eq!(ActiveEra::<T>::get(), Some(ActiveEraInfo { index: 0, start: Some(0) }));
 
 		// WHEN session ends on RC and session report is received by AH.
@@ -271,7 +271,7 @@ fn receives_old_session_report() {
 	ExtBuilder::default().local_queue().build().execute_with(|| {
 		// Initial state
 		assert_eq!(CurrentEra::<T>::get(), Some(0));
-		assert_eq!(pallet_staking_async::ErasStartSessionIndex::<T>::get(0), Some(0));
+		assert_eq!(Rotator::<Runtime>::active_era_start_session_index(), 0);
 		assert_eq!(ActiveEra::<T>::get(), Some(ActiveEraInfo { index: 0, start: Some(0) }));
 		assert_eq!(rc_client::LastSessionReportEndingIndex::<T>::get(), None);
 
@@ -327,7 +327,7 @@ fn receives_session_report_in_future() {
 	ExtBuilder::default().local_queue().build().execute_with(|| {
 		// Initial state
 		assert_eq!(CurrentEra::<T>::get(), Some(0));
-		assert_eq!(pallet_staking_async::ErasStartSessionIndex::<T>::get(0), Some(0));
+		assert_eq!(Rotator::<Runtime>::active_era_start_session_index(), 0);
 		assert_eq!(ActiveEra::<T>::get(), Some(ActiveEraInfo { index: 0, start: Some(0) }));
 		assert_eq!(rc_client::LastSessionReportEndingIndex::<T>::get(), None);
 
@@ -386,7 +386,7 @@ fn receives_session_report_in_future() {
 fn on_offence_current_era() {
 	ExtBuilder::default().local_queue().build().execute_with(|| {
 		let active_validators = roll_until_next_active(0);
-		assert_eq!(pallet_staking_async::ErasStartSessionIndex::<Runtime>::get(1), Some(5));
+		assert_eq!(Rotator::<Runtime>::active_era_start_session_index(), 5);
 		assert_eq!(active_validators, vec![3, 5, 6, 8]);
 
 		// flush the events.
@@ -478,7 +478,7 @@ fn on_offence_current_era_instant_apply() {
 		.build()
 		.execute_with(|| {
 			let active_validators = roll_until_next_active(0);
-			assert_eq!(pallet_staking_async::ErasStartSessionIndex::<Runtime>::get(1), Some(5));
+			assert_eq!(Rotator::<Runtime>::era_start_session_index(1), Some(5));
 			assert_eq!(active_validators, vec![3, 5, 6, 8]);
 
 			// flush the events.
@@ -556,7 +556,7 @@ fn on_offence_non_validator() {
 		.build()
 		.execute_with(|| {
 			let active_validators = roll_until_next_active(0);
-			assert_eq!(pallet_staking_async::ErasStartSessionIndex::<Runtime>::get(1), Some(5));
+			assert_eq!(Rotator::<Runtime>::era_start_session_index(1), Some(5));
 			assert_eq!(active_validators, vec![3, 5, 6, 8]);
 
 			// flush the events.
@@ -592,7 +592,7 @@ fn on_offence_previous_era() {
 		let _ = staking_events_since_last_call();
 
 		// report an offence for the session belonging to the previous era
-		assert_eq!(pallet_staking_async::ErasStartSessionIndex::<Runtime>::get(1), Some(5));
+		assert_eq!(Rotator::<Runtime>::era_start_session_index(1), Some(5));
 
 		assert_ok!(rc_client::Pallet::<Runtime>::relay_new_offence(
 			RuntimeOrigin::root(),
@@ -654,7 +654,7 @@ fn on_offence_previous_era_instant_apply() {
 			let _ = staking_events_since_last_call();
 
 			// report an offence for the session belonging to the previous era
-			assert_eq!(pallet_staking_async::ErasStartSessionIndex::<Runtime>::get(1), Some(5));
+			assert_eq!(Rotator::<Runtime>::era_start_session_index(1), Some(5));
 
 			assert_ok!(rc_client::Pallet::<Runtime>::relay_new_offence(
 				RuntimeOrigin::root(),
