@@ -95,14 +95,14 @@ impl SlashingSpan {
 pub struct SlashingSpans {
 	// the index of the current slashing span of the nominator. different for
 	// every stash, resets when the account hits free balance 0.
-	span_index: SpanIndex,
+	pub span_index: SpanIndex,
 	// the start era of the most recent (ongoing) slashing span.
-	last_start: EraIndex,
+	pub last_start: EraIndex,
 	// the last era at which a non-zero slash occurred.
-	last_nonzero_slash: EraIndex,
+	pub last_nonzero_slash: EraIndex,
 	// all prior slashing spans' start indices, in reverse order (most recent first)
 	// encoded as offsets relative to the slashing span after it.
-	prior: Vec<EraIndex>,
+	pub prior: Vec<EraIndex>,
 }
 
 impl SlashingSpans {
