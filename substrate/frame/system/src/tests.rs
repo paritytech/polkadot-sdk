@@ -956,3 +956,38 @@ fn reclaim_works() {
 		assert_eq!(crate::ExtrinsicWeightReclaimed::<Test>::get(), Weight::zero());
 	});
 }
+
+// Tests for set_code behavior when system_version >= 3.
+mod version3_set_code_tests {
+    use frame_support::{assert_ok, storage};
+    use sp_core::storage::well_known_keys;
+
+    use crate::mock_v3::*;
+
+	#[test]
+	fn set_code_version_3_schedules_and_applies_pending_code() {
+		let code = vec![1, 2, 3];
+		let mut ext = new_test_ext();
+		ext.execute_with(|| {
+			// Move to block 1
+			crate::Pallet::<Test>::set_block_number(1);
+			// Schedule new code
+			assert_ok!(<() as crate::SetCode<Test>>::set_code(code.clone()));
+			// Pending code stored
+			let pending = storage::unhashed::get_raw(well_known_keys::PENDING_CODE)
+				.expect("Pending code should exist");
+			assert_eq!(pending, code.clone());
+			// Immediate code not updated
+			let current =
+				storage::unhashed::get_raw(well_known_keys::CODE).unwrap_or_default();
+			assert_ne!(current, code.clone());
+			crate::Pallet::<Test>::set_block_number(2);
+			// Apply on finalize at block 2
+			crate::Pallet::<Test>::maybe_apply_pending_code_upgrade();
+			// Code should now be updated
+			let updated = storage::unhashed::get_raw(well_known_keys::CODE)
+				.expect("Code should be updated");
+			assert_eq!(updated, code);
+		});
+	}
+}

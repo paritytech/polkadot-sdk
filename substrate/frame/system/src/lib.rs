@@ -157,6 +157,8 @@ use sp_io::TestExternalities;
 pub mod limits;
 #[cfg(test)]
 pub(crate) mod mock;
+#[cfg(test)]
+pub(crate) mod mock_v3;
 
 pub mod offchain;
 
