@@ -287,17 +287,17 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 			.map_err(|e| sc_service::Error::Application(Box::new(e) as Box<_>))?;
 
 			let statement_store = if !node_extra_args.disable_statement_store {
-				Some(
-					sc_statement_store::Store::new_shared(
-						&parachain_config.data_path,
-						Default::default(),
-						client.clone(),
-						params.keystore_container.local_keystore(),
-						parachain_config.prometheus_registry(),
-						&task_manager.spawn_handle(),
-					)
-					.map_err(|e| sc_service::Error::Application(Box::new(e) as Box<_>))?,
+				let statement_store = sc_statement_store::Store::new_shared(
+					&parachain_config.data_path,
+					Default::default(),
+					client.clone(),
+					params.keystore_container.local_keystore(),
+					parachain_config.prometheus_registry(),
+					&task_manager.spawn_handle(),
 				)
+				.map_err(|e| sc_service::Error::Application(Box::new(e) as Box<_>))?;
+
+				Some(statement_store)
 			} else {
 				None
 			};
