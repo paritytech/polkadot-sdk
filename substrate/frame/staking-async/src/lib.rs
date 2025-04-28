@@ -77,7 +77,7 @@ use frame_support::{
 		tokens::fungible::{Credit, Debt},
 		ConstU32, Contains, Get, LockIdentifier,
 	},
-	BoundedVec, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound, WeakBoundedVec,
+	BoundedVec, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound, WeakBoundedVec, CloneNoBound,
 };
 use ledger::LedgerIntegrityState;
 use scale_info::TypeInfo;
@@ -302,7 +302,7 @@ impl<AccountId, Balance: HasCompact + Copy + AtLeast32BitUnsigned + codec::MaxEn
 
 /// A pending slash record. The value of the slash has been computed but not applied yet,
 /// rather deferred for several eras.
-#[derive(Encode, Decode, RuntimeDebugNoBound, TypeInfo, MaxEncodedLen, PartialEqNoBound)]
+#[derive(Encode, Decode, RuntimeDebugNoBound, TypeInfo, MaxEncodedLen, PartialEqNoBound, CloneNoBound)]
 #[scale_info(skip_type_params(T))]
 pub struct UnappliedSlash<T: Config> {
 	/// The stash ID of the offending validator.
