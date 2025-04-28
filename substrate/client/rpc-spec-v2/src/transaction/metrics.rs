@@ -18,7 +18,7 @@
 
 //! Metrics for recording transaction events.
 
-use std::time::Instant;
+use std::{collections::HashSet, time::Instant};
 
 use prometheus_endpoint::{
 	register, CounterVec, HistogramOpts, HistogramVec, Opts, PrometheusError, Registry, U64,
@@ -80,34 +80,6 @@ fn transaction_event_label<Hash>(event: &TransactionEvent<Hash>) -> &'static str
 		TransactionEvent::Invalid(..) => labels::INVALID,
 	}
 }
-
-#[derive(Debug, Clone)]
-pub struct ExecutionState {
-	/// The time when the transaction was submitted.
-	submitted_at: Instant,
-	/// The time when the transaction entered this state.
-	current_state_started_at: Instant,
-	/// The initial state.
-	initial_state: &'static str,
-}
-
-impl ExecutionState {
-	/// Creates a new [`ExecutionState`].
-	pub fn new() -> Self {
-		Self {
-			submitted_at: Instant::now(),
-			current_state_started_at: Instant::now(),
-			initial_state: labels::SUBMITTED,
-		}
-	}
-
-	/// Advance the state of the transaction.
-	fn advance_state(&mut self, state: &'static str) {
-		self.initial_state = state;
-		self.current_state_started_at = Instant::now();
-	}
-}
-
 /// RPC layer metrics for transaction pool.
 #[derive(Debug, Clone)]
 pub struct Metrics {
@@ -117,13 +89,8 @@ pub struct Metrics {
 	/// Histogram for transaction execution time from the beginning to the end of the transaction.
 	///
 	/// This measures the time it took the transaction since the moment it was
-	/// submitted until a final state was reached (ie dropped / in block / finalized).
+	/// submitted until a target state was reached (ie dropped / in block / finalized).
 	execution_time: HistogramVec,
-
-	/// Histogram for transaction execution time in each event.
-	///
-	/// This measures the time it took the transaction to move from one state to another.
-	state_transition_time: HistogramVec,
 }
 
 impl Metrics {
@@ -141,37 +108,27 @@ impl Metrics {
 			HistogramVec::new(
 				HistogramOpts::new(
 					"rpc_transaction_execution_time",
-					"Transaction execution time since submitted to a final state",
+					"Transaction execution time since submitted to a target state",
 				)
 				.buckets(HISTOGRAM_BUCKETS.to_vec()),
-				&["final_state"],
-			)?,
-			registry,
-		)?;
-
-		let state_transition_time = register(
-			HistogramVec::new(
-				HistogramOpts::new(
-					"rpc_transaction_state_transition_time",
-					"Transaction execution time in each state",
-				)
-				.buckets(HISTOGRAM_BUCKETS.to_vec()),
-				&["initial_state", "final_state"],
+				&["target_state"],
 			)?,
 			registry,
 		)?;
 
 		// The execution state will be initialized when the transaction is submitted.
-		Ok(Metrics { status, execution_time, state_transition_time })
+		Ok(Metrics { status, execution_time })
 	}
 }
 
 /// Transaction metrics for a single transaction instance.
 pub struct InstanceMetrics {
+	/// The metrics instance.
 	metrics: Option<Metrics>,
-
-	/// The execution state of the transaction.
-	execution_state: ExecutionState,
+	/// The time when the transaction was submitted.
+	submitted_at: Instant,
+	/// Ensure the states are reported once.
+	reported_states: HashSet<&'static str>,
 }
 
 impl InstanceMetrics {
@@ -182,7 +139,7 @@ impl InstanceMetrics {
 			metrics.status.with_label_values(&[labels::SUBMITTED]).inc();
 		}
 
-		Self { metrics, execution_state: ExecutionState::new() }
+		Self { metrics, submitted_at: Instant::now(), reported_states: HashSet::new() }
 	}
 
 	/// Record the execution time of a transaction state.
@@ -195,20 +152,12 @@ impl InstanceMetrics {
 			return;
 		};
 
-		let final_state = transaction_event_label(event);
-		if event.is_final() {
-			let elapsed = self.execution_state.submitted_at.elapsed().as_micros() as f64;
-			metrics.execution_time.with_label_values(&[final_state]).observe(elapsed);
+		let target_state = transaction_event_label(event);
+		metrics.status.with_label_values(&[target_state]).inc();
+
+		if self.reported_states.insert(target_state) {
+			let elapsed = self.submitted_at.elapsed().as_micros() as f64;
+			metrics.execution_time.with_label_values(&[target_state]).observe(elapsed);
 		}
-
-		metrics.status.with_label_values(&[final_state]).inc();
-
-		let elapsed = self.execution_state.current_state_started_at.elapsed().as_micros() as f64;
-		metrics
-			.state_transition_time
-			.with_label_values(&[self.execution_state.initial_state, final_state])
-			.observe(elapsed);
-
-		self.execution_state.advance_state(final_state);
 	}
 }
