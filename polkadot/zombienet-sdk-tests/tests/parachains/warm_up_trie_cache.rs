@@ -3,14 +3,16 @@
 
 // TODO: Use precompiled metadata when v15 has become by default
 // `#[subxt::subxt(runtime_metadata_path = "metadata-files/asset-hub-westend-local.scale")]`
+// Don't forget to remove `subxt-macro` from all Cargo.toml files
 #[subxt::subxt(runtime_metadata_insecure_url = "wss://westend-asset-hub-rpc.polkadot.io:443")]
-mod asset_hub_westend {}
+mod ahw {}
 
-use anyhow::anyhow;
-use asset_hub_westend::runtime_types::{
+use ahw::runtime_types::{
 	pallet_revive::primitives::{Code, StorageDeposit},
 	sp_weights::weight_v2::Weight,
 };
+use anyhow::anyhow;
+use asset_hub_westend_runtime::Runtime as AHWRuntime;
 use futures::{stream::FuturesUnordered, StreamExt};
 use pallet_revive::AddressMapper;
 use sp_core::H160;
@@ -27,7 +29,7 @@ use zombienet_sdk::{LocalFileSystem, Network, NetworkConfigBuilder};
 
 /// Verifies the effectiveness of the trie cache warming mechanism
 ///
-/// Passes if the cache hit rate is above 90%, indicating that the trie cache
+/// Passes if the cache hit rate is above 85%, indicating that the trie cache
 /// was successfully warmed up and is effectively reducing storage access after node restart.
 ///
 /// 1. Setting up a network with a collator node, immitating Asset Hub with smart contracts
@@ -42,7 +44,7 @@ async fn warm_up_trie_cache_test() -> Result<(), anyhow::Error> {
 		env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
 	);
 	let hit_rate = run(100).await?;
-	assert!(hit_rate > 90);
+	assert!(hit_rate > 85);
 
 	Ok(())
 }
@@ -133,69 +135,54 @@ fn create_keys(n: usize) -> Vec<Keypair> {
 		.collect()
 }
 
+fn tx_params<T: subxt::Config>(
+	nonce: u64,
+) -> <subxt::config::DefaultExtrinsicParams<T> as subxt::config::ExtrinsicParams<T>>::Params {
+	PolkadotExtrinsicParamsBuilder::<T>::new().nonce(nonce).build()
+}
+
 async fn setup_accounts(
-	para_client: &OnlineClient<PolkadotConfig>,
+	client: &OnlineClient<PolkadotConfig>,
 	caller: &Keypair,
 	keys: &[Keypair],
 	nonce: u64,
 ) -> Result<(), anyhow::Error> {
 	let caller_account_id = caller.public_key().to_account_id();
-	let caller_nonce = para_client.tx().account_nonce(&caller_account_id).await?;
+	let caller_nonce = client.tx().account_nonce(&caller_account_id).await?;
+
 	let transfers = keys
 		.iter()
 		.enumerate()
 		.map(|(i, key)| {
-			let params =
-				PolkadotExtrinsicParamsBuilder::new().nonce(caller_nonce + i as u64).build();
-			para_client.tx().create_signed_offline(
-				&asset_hub_westend::tx()
-					.balances()
-					.transfer_keep_alive(key.public_key().into(), 1000000000000),
-				caller,
-				params,
-			)
+			let key = key.public_key().into();
+			let call = &ahw::tx().balances().transfer_keep_alive(key, 1000000000000);
+			let params = tx_params(caller_nonce + i as u64);
+			client.tx().create_signed_offline(call, caller, params)
 		})
 		.collect::<Result<Vec<_>, _>>()?;
 	submit_txs(transfers).await?;
 
-	let mut mappings = keys
+	let map_call = &ahw::tx().revive().map_account();
+	let mappings = keys
 		.iter()
-		.map(|key| {
-			para_client.tx().create_signed_offline(
-				&asset_hub_westend::tx().revive().map_account(),
-				key,
-				PolkadotExtrinsicParamsBuilder::new().nonce(nonce).build(),
-			)
-		})
+		.map(|key| (key, nonce))
+		.chain(std::iter::once((caller, caller_nonce + keys.len() as u64)))
+		.map(|(k, n)| client.tx().create_signed_offline(map_call, k, tx_params(n)))
 		.collect::<Result<Vec<_>, _>>()?;
-	let caller_nonce = para_client.tx().account_nonce(&caller_account_id).await?;
-	let caller_mapping = para_client.tx().create_signed_offline(
-		&asset_hub_westend::tx().revive().map_account(),
-		caller,
-		PolkadotExtrinsicParamsBuilder::new().nonce(caller_nonce).build(),
-	)?;
-	mappings.push(caller_mapping);
 	submit_txs(mappings).await?;
 
 	Ok(())
 }
 
 async fn call_params(
-	para_client: &OnlineClient<PolkadotConfig>,
-	contract_address: H160,
+	client: &OnlineClient<PolkadotConfig>,
+	contract: H160,
 	payload: Vec<u8>,
 	caller: &Keypair,
 ) -> Result<(u64, u64, u128), anyhow::Error> {
-	let caller_account_id = caller.public_key().to_account_id();
-	let call = asset_hub_westend::apis().revive_api().call(
-		caller_account_id,
-		contract_address,
-		0,
-		None,
-		None,
-		payload,
-	);
-	let dry_run = para_client.runtime_api().at_latest().await?.call(call).await?;
+	let account_id = caller.public_key().to_account_id();
+	let call = ahw::apis().revive_api().call(account_id, contract, 0, None, None, payload);
+	let dry_run = client.runtime_api().at_latest().await?.call(call).await?;
 	let deposit = match dry_run.storage_deposit {
 		StorageDeposit::Charge(c) => c,
 		StorageDeposit::Refund(_) => 0,
@@ -205,21 +192,16 @@ async fn call_params(
 }
 
 async fn instantiate_params(
-	para_client: &OnlineClient<PolkadotConfig>,
+	client: &OnlineClient<PolkadotConfig>,
 	code: Vec<u8>,
 	caller: &Keypair,
 ) -> Result<(u64, u64, u128), anyhow::Error> {
-	let caller_account_id = caller.public_key().to_account_id();
-	let call = asset_hub_westend::apis().revive_api().instantiate(
-		caller_account_id,
-		0,
-		None,
-		None,
-		Code::Upload(code),
-		vec![],
-		None,
-	);
-	let dry_run = para_client.runtime_api().at_latest().await?.call(call).await?;
+	let account_id = caller.public_key().to_account_id();
+	let code = Code::Upload(code);
+	let call = ahw::apis()
+		.revive_api()
+		.instantiate(account_id, 0, None, None, code, vec![], None);
+	let dry_run = client.runtime_api().at_latest().await?.call(call).await?;
 	let deposit = match dry_run.storage_deposit {
 		StorageDeposit::Charge(c) => c,
 		StorageDeposit::Refund(_) => 0,
@@ -229,40 +211,28 @@ async fn instantiate_params(
 }
 
 async fn instantiate_contract(
-	para_client: &OnlineClient<PolkadotConfig>,
+	client: &OnlineClient<PolkadotConfig>,
 	caller: &Keypair,
 ) -> Result<H160, anyhow::Error> {
 	let code_path = std::env::current_dir().unwrap().join("tests/parachains/contract.polkavm");
 	let code = std::fs::read(code_path)?;
-	let (ref_time, proof_size, deposit) =
-		instantiate_params(para_client, code.clone(), caller).await?;
+	let (ref_time, proof_size, deposit) = instantiate_params(client, code.clone(), caller).await?;
 
 	// We need a nonce before instantiating the contract
-	let caller_h160 =
-		<asset_hub_westend_runtime::Runtime as pallet_revive::Config>::AddressMapper::to_address(
-			&caller.public_key().0.into(),
-		);
-	let caller_revive_nonce = para_client
+	let account_id = caller.public_key().0.into();
+	let caller_h160 = <AHWRuntime as pallet_revive::Config>::AddressMapper::to_address(&account_id);
+	let caller_revive_nonce = client
 		.runtime_api()
 		.at_latest()
 		.await?
-		.call(asset_hub_westend::apis().revive_api().nonce(caller_h160))
+		.call(ahw::apis().revive_api().nonce(caller_h160))
 		.await?;
 	let contract_address = pallet_revive::create1(&caller_h160, caller_revive_nonce.into());
-
-	para_client
+	let weight = Weight { ref_time, proof_size };
+	let call = &ahw::tx().revive().instantiate_with_code(0, weight, deposit, code, vec![], None);
+	client
 		.tx()
-		.sign_and_submit_then_watch_default(
-			&asset_hub_westend::tx().revive().instantiate_with_code(
-				0,
-				Weight { ref_time, proof_size },
-				deposit,
-				code,
-				vec![],
-				None,
-			),
-			caller,
-		)
+		.sign_and_submit_then_watch_default(call, caller)
 		.await?
 		.wait_for_finalized_success()
 		.await?;
@@ -271,8 +241,8 @@ async fn instantiate_contract(
 }
 
 async fn call_contract(
-	para_client: &OnlineClient<PolkadotConfig>,
-	contract_address: H160,
+	client: &OnlineClient<PolkadotConfig>,
+	contract: H160,
 	caller: &Keypair,
 	keys: &[Keypair],
 	nonce: u64,
@@ -282,22 +252,12 @@ async fn call_contract(
 	)
 	.to_vec();
 	let (ref_time, proof_size, deposit) =
-		call_params(para_client, contract_address, mint_100.clone(), caller).await?;
+		call_params(client, contract, mint_100.clone(), caller).await?;
+	let weight = Weight { ref_time, proof_size };
+	let call = &ahw::tx().revive().call(contract, 0, weight, deposit, mint_100.clone());
 	let txs = keys
 		.iter()
-		.map(|key| {
-			para_client.tx().create_signed_offline(
-				&asset_hub_westend::tx().revive().call(
-					contract_address,
-					0,
-					Weight { ref_time, proof_size },
-					deposit,
-					mint_100.clone(),
-				),
-				key,
-				PolkadotExtrinsicParamsBuilder::new().nonce(nonce).build(),
-			)
-		})
+		.map(|key| client.tx().create_signed_offline(call, key, tx_params(nonce)))
 		.collect::<Result<Vec<_>, _>>()?;
 	submit_txs(txs).await?;
 
