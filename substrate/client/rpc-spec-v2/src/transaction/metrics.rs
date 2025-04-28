@@ -43,9 +43,6 @@ const HISTOGRAM_BUCKETS: [f64; 11] = [
 
 /// Labels for transaction status.
 mod labels {
-	/// The initial state of the transaction.
-	pub const SUBMITTED: &str = "submitted";
-
 	/// Represents the `TransactionEvent::Validated` event.
 	pub const VALIDATED: &str = "validated";
 
@@ -83,27 +80,14 @@ fn transaction_event_label<Hash>(event: &TransactionEvent<Hash>) -> &'static str
 /// RPC layer metrics for transaction pool.
 #[derive(Debug, Clone)]
 pub struct Metrics {
-	/// Counter for transaction status.
-	pub status: CounterVec<U64>,
-
-	/// Histogram for transaction execution time from the beginning to the end of the transaction.
-	///
 	/// This measures the time it took the transaction since the moment it was
-	/// submitted until a target state was reached (ie dropped / in block / finalized).
+	/// submitted until a target state was reached.
 	execution_time: HistogramVec,
 }
 
 impl Metrics {
 	/// Creates a new [`TransactionMetrics`] instance.
 	pub fn new(registry: &Registry) -> Result<Self, PrometheusError> {
-		let status = register(
-			CounterVec::new(
-				Opts::new("rpc_transaction_status", "Number of transactions by status"),
-				&["state"],
-			)?,
-			registry,
-		)?;
-
 		let execution_time = register(
 			HistogramVec::new(
 				HistogramOpts::new(
@@ -117,7 +101,7 @@ impl Metrics {
 		)?;
 
 		// The execution state will be initialized when the transaction is submitted.
-		Ok(Metrics { status, execution_time })
+		Ok(Metrics { execution_time })
 	}
 }
 
@@ -134,11 +118,6 @@ pub struct InstanceMetrics {
 impl InstanceMetrics {
 	/// Creates a new [`InstanceMetrics`] instance.
 	pub fn new(metrics: Option<Metrics>) -> Self {
-		if let Some(ref metrics) = metrics {
-			// Register the initial state of the transaction.
-			metrics.status.with_label_values(&[labels::SUBMITTED]).inc();
-		}
-
 		Self { metrics, submitted_at: Instant::now(), reported_states: HashSet::new() }
 	}
 
@@ -153,8 +132,6 @@ impl InstanceMetrics {
 		};
 
 		let target_state = transaction_event_label(event);
-		metrics.status.with_label_values(&[target_state]).inc();
-
 		if self.reported_states.insert(target_state) {
 			let elapsed = self.submitted_at.elapsed().as_micros() as f64;
 			metrics.execution_time.with_label_values(&[target_state]).observe(elapsed);
