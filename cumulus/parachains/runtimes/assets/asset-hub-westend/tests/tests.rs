@@ -52,7 +52,7 @@ use hex_literal::hex;
 use parachains_common::{AccountId, AssetIdForTrustBackedAssets, AuraId, Balance};
 use sp_consensus_aura::SlotDuration;
 use sp_core::crypto::Ss58Codec;
-use sp_runtime::{traits::MaybeEquivalence, Either};
+use sp_runtime::{traits::MaybeEquivalence, Either, SaturatedConversion};
 use std::{convert::Into, ops::Mul};
 use testnet_parachains_constants::westend::{consensus::*, currency::UNITS, fee::WeightToFee};
 use xcm::latest::{
@@ -61,7 +61,9 @@ use xcm::latest::{
 };
 use xcm_builder::WithLatestLocationConverter;
 use xcm_executor::traits::{ConvertLocation, JustTry, WeightTrader};
-use xcm_runtime_apis::conversions::LocationToAccountHelper;
+use xcm_runtime_apis::{
+	conversions::LocationToAccountHelper, fees::runtime_decl_for_xcm_payment_api::XcmPaymentApiV1,
+};
 
 const ALICE: [u8; 32] = [1u8; 32];
 const SOME_ASSET_ADMIN: [u8; 32] = [5u8; 32];
@@ -1737,6 +1739,71 @@ fn xcm_payment_api_works() {
 		Block,
 		WeightToFee,
 	>();
+
+	xcm_payment_api_foreign_asset_pool_works();
+}
+
+fn xcm_payment_api_foreign_asset_pool_works() {
+	use xcm::prelude::*;
+
+	ExtBuilder::<Runtime>::default().build().execute_with(|| {
+		let foreign_asset_owner =
+			LocationToAccountId::convert_location(&Location::parent()).unwrap();
+		let foreign_asset_id_location = Location::new(
+			2,
+			[Junction::GlobalConsensus(NetworkId::ByGenesis(ROCOCO_GENESIS_HASH))],
+		);
+		let native_asset_location = Location::parent();
+		let foreign_asset_id_minimum_balance = 1_000_000_000;
+
+		ForeignAssets::force_create(
+			RuntimeHelper::root_origin(),
+			foreign_asset_id_location.clone().into(),
+			foreign_asset_owner.clone().into(),
+			true, // is_sufficient=true
+			foreign_asset_id_minimum_balance.into(),
+		)
+		.unwrap();
+
+		setup_pool_for_paying_fees_with_foreign_assets((
+			foreign_asset_owner,
+			foreign_asset_id_location.clone(),
+			foreign_asset_id_minimum_balance,
+		));
+
+		let transfer_amount = 100u128;
+		let xcm_to_weigh = Xcm::<RuntimeCall>::builder_unsafe()
+			.withdraw_asset((Here, transfer_amount))
+			.buy_execution((Here, transfer_amount), Unlimited)
+			.deposit_asset(AllCounted(1), [1u8; 32])
+			.build();
+		let versioned_xcm_to_weigh = VersionedXcm::from(xcm_to_weigh.into());
+
+		let xcm_weight =
+			Runtime::query_xcm_weight(versioned_xcm_to_weigh).expect("xcm weight must be computed");
+
+		let weight_native_fee: u128 = WeightToFee::weight_to_fee(&xcm_weight).saturated_into();
+
+		let expected_weight_foreign_asset_fee: u128 =
+			AssetConversion::quote_price_tokens_for_exact_tokens(
+				foreign_asset_id_location.clone(),
+				native_asset_location,
+				weight_native_fee,
+				true,
+			)
+			.expect("the quote price must work")
+			.saturated_into();
+
+		assert_ne!(expected_weight_foreign_asset_fee, weight_native_fee);
+
+		let execution_fees = Runtime::query_weight_to_asset_fee(
+			xcm_weight,
+			foreign_asset_id_location.clone().into(),
+		)
+		.expect("weight must be converted to foreign asset fee");
+
+		assert_eq!(execution_fees, expected_weight_foreign_asset_fee);
+	});
 }
 
 #[test]

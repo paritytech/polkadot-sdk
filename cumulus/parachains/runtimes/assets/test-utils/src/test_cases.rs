@@ -1705,7 +1705,7 @@ where
 				expected_weight_native_fee,
 				true,
 			)
-			.expect("weight must be converted to USDT fee")
+			.expect("the quote price must work")
 			.saturated_into();
 
 		assert_ne!(expected_weight_usdt_fee, expected_weight_native_fee);
