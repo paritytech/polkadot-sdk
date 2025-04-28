@@ -37,7 +37,7 @@ where
 	/// unpossessed public key resulting in a rogue key attack (See: Section 4.3 of
 	/// - Ristenpart, T., & Yilek, S. (2007). The power of proofs-of-possession: Securing multiparty
 	///   signatures against rogue-key attacks. In , Annual {{International Conference}} on the
-	///   {{Theory}} and {{Applications}} of {{Cryptographic Techniques} (pp. 228–245). : Springer.
+	///   {{Theory}} and {{Applications}} of {{Cryptographic Techniques} (pp. 228–245). : Springer).
 	#[cfg(feature = "full_crypto")]
 	fn generate_proof_of_possession(&mut self) -> Self::Signature;
 }
