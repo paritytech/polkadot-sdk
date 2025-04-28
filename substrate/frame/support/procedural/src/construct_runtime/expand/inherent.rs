@@ -83,7 +83,7 @@ pub fn expand_outer_inherent(
 
 			fn check_extrinsics(&self, block: &#block) -> #scrate::inherent::CheckInherentsResult {
 				use #scrate::inherent::{ProvideInherent, IsFatalError};
-				use #scrate::traits::{IsSubType};
+				use #scrate::traits::IsSubType;
 				use #scrate::sp_runtime::traits::{Block as _, ExtrinsicCall};
 				use #scrate::__private::{sp_inherents::Error, log};
 
@@ -115,7 +115,7 @@ pub fn expand_outer_inherent(
 					}
 				}
 
-				let mut pallet_has_inherent = #scrate::__private::vec![false; #pallet_count];
+				let mut pallet_has_inherent = [false; #pallet_count];
 				for xt in block.extrinsics() {
 					// Inherents are before any other extrinsics.
 					// And signed extrinsics are not inherents.
@@ -184,7 +184,7 @@ pub fn expand_outer_inherent(
 		impl #scrate::traits::IsInherent<<#block as #scrate::sp_runtime::traits::Block>::Extrinsic> for #runtime {
 			fn is_inherent(ext: &<#block as #scrate::sp_runtime::traits::Block>::Extrinsic) -> bool {
 				use #scrate::inherent::ProvideInherent;
-				use #scrate::traits::{IsSubType};
+				use #scrate::traits::IsSubType;
 				use #scrate::sp_runtime::traits::ExtrinsicCall;
 
 				let is_bare = #scrate::sp_runtime::traits::ExtrinsicLike::is_bare(ext);

@@ -343,6 +343,11 @@ where
 		let (header, extrinsics) = block.deconstruct();
 
 		// Apply extrinsics:
+		let signature_check = if signature_check {
+			Block::Extrinsic::check
+		} else {
+			Block::Extrinsic::unchecked_into_checked_i_know_what_i_am_doing
+		};
 		Self::apply_extrinsics(mode, extrinsics.into_iter(), |uxt, is_inherent| {
 			Self::do_apply_extrinsic(uxt, is_inherent, signature_check)
 		})?;
@@ -625,7 +630,7 @@ where
 				mode,
 				extrinsics.into_iter(),
 				|uxt, is_inherent| {
-					Self::do_apply_extrinsic(uxt, is_inherent, #[cfg(feature = "try-runtime")] true)
+					Self::do_apply_extrinsic(uxt, is_inherent, Block::Extrinsic::check)
 				}
 			) {
 				panic!("{:?}", e)
@@ -665,35 +670,29 @@ where
 	}
 
 	/// Execute given extrinsics.
-	fn apply_extrinsics<F>(
+	fn apply_extrinsics(
 		mode: ExtrinsicInclusionMode,
 		extrinsics: impl Iterator<Item = Block::Extrinsic>,
-		mut f: F,
-	) -> Result<(), ExecutiveError>
-	where
-		F: FnMut(Block::Extrinsic, bool) -> ApplyExtrinsicResult,
-	{
-		let mut last_inherent_idx = 0;
+		mut apply_extrinsic: impl FnMut(Block::Extrinsic, bool) -> ApplyExtrinsicResult,
+	) -> Result<(), ExecutiveError> {
+		let mut first_non_inherent_idx = 0;
 		for (idx, uxt) in extrinsics.into_iter().enumerate() {
 			let is_inherent = System::is_inherent(&uxt);
-			match is_inherent {
-				true => {
-					// Check if inherents are first
-					if last_inherent_idx != idx {
-						return Err(ExecutiveError::InvalidInherentPosition(idx));
-					}
-					last_inherent_idx += 1;
-				},
-				false => {
-					// Check if there are any forbidden non-inherents in the block.
-					if mode == ExtrinsicInclusionMode::OnlyInherents {
-						return Err(ExecutiveError::OnlyInherentsAllowed)
-					}
-				},
+			if is_inherent {
+				// Check if inherents are first
+				if first_non_inherent_idx != idx {
+					return Err(ExecutiveError::InvalidInherentPosition(idx));
+				}
+				first_non_inherent_idx += 1;
+			} else {
+				// Check if there are any forbidden non-inherents in the block.
+				if mode == ExtrinsicInclusionMode::OnlyInherents {
+					return Err(ExecutiveError::OnlyInherentsAllowed)
+				}
 			}
 
 			log::debug!(target: LOG_TARGET, "Executing transaction: {:?}", uxt);
-			if let Err(e) = f(uxt, is_inherent) {
+			if let Err(e) = apply_extrinsic(uxt, is_inherent) {
 				log::error!(
 					target: LOG_TARGET,
 					"Transaction failed due to {:?}. Aborting the rest of the block execution.",
@@ -784,7 +783,10 @@ where
 	fn do_apply_extrinsic(
 		uxt: Block::Extrinsic,
 		is_inherent: bool,
-		#[cfg(feature = "try-runtime")] signature_check: bool,
+		check: impl FnOnce(
+			Block::Extrinsic,
+			&Context,
+		) -> Result<CheckedOf<Block::Extrinsic, Context>, TransactionValidityError>,
 	) -> ApplyExtrinsicResult {
 		sp_io::init_tracing();
 		let encoded = uxt.encode();
@@ -793,19 +795,7 @@ where
 				ext=?sp_core::hexdisplay::HexDisplay::from(&encoded)));
 
 		// Verify that the signature is good.
-		let xt;
-		#[cfg(feature = "try-runtime")]
-		{
-			xt = if !signature_check {
-				uxt.unchecked_into_checked_i_know_what_i_am_doing(&Default::default())
-			} else {
-				uxt.check(&Default::default())
-			}?
-		}
-		#[cfg(not(feature = "try-runtime"))]
-		{
-			xt = uxt.check(&Default::default())?
-		}
+		let xt = check(uxt, &Context::default())?;
 
 		let dispatch_info = xt.get_dispatch_info();
 
@@ -841,12 +831,7 @@ where
 	/// hashes.
 	pub fn apply_extrinsic(uxt: Block::Extrinsic) -> ApplyExtrinsicResult {
 		let is_inherent = System::is_inherent(&uxt);
-		Self::do_apply_extrinsic(
-			uxt,
-			is_inherent,
-			#[cfg(feature = "try-runtime")]
-			true,
-		)
+		Self::do_apply_extrinsic(uxt, is_inherent, Block::Extrinsic::check)
 	}
 
 	fn final_checks(header: &frame_system::pallet_prelude::HeaderFor<System>) {

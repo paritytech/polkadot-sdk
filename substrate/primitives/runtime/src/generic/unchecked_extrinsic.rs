@@ -62,8 +62,8 @@ pub const LEGACY_EXTRINSIC_FORMAT_VERSION: ExtrinsicVersion = 4;
 /// [UncheckedExtrinsic] implementation.
 const EXTENSION_VERSION: ExtensionVersion = 0;
 
-/// Maximum heap size for a runtime call (in bytes).
-pub const MAX_CALL_HEAP_SIZE: usize = 8 * 1024 * 1024; // 8 MiB
+/// Maximum decoded heap size for a runtime call (in bytes).
+pub const DEFAULT_MAX_CALL_SIZE: usize = 16 * 1024 * 1024; // 16 MiB
 
 /// The `SignaturePayload` of `UncheckedExtrinsic`.
 pub type UncheckedSignaturePayload<Address, Signature, Extension> = (Address, Signature, Extension);
@@ -232,7 +232,13 @@ where
 	Signature: DecodeWithMemTracking,
 	Extension: DecodeWithMemTracking)
 )]
-pub struct UncheckedExtrinsic<Address, Call, Signature, Extension> {
+pub struct UncheckedExtrinsic<
+	Address,
+	Call,
+	Signature,
+	Extension,
+	const MAX_CALL_SIZE: usize = DEFAULT_MAX_CALL_SIZE,
+> {
 	/// Information regarding the type of extrinsic this is (inherent or transaction) as well as
 	/// associated extension (`Extension`) data if it's a transaction and a possible signature.
 	pub preamble: Preamble<Address, Signature, Extension>,
@@ -428,8 +434,8 @@ impl<Address, Call: Dispatchable, Signature, Extension: TransactionExtension<Cal
 	}
 }
 
-impl<Address, Call, Signature, Extension> Decode
-	for UncheckedExtrinsic<Address, Call, Signature, Extension>
+impl<Address, Call, Signature, Extension, const MAX_CALL_SIZE: usize> Decode
+	for UncheckedExtrinsic<Address, Call, Signature, Extension, MAX_CALL_SIZE>
 where
 	Address: Decode,
 	Signature: Decode,
@@ -444,7 +450,7 @@ where
 		let mut input = CountedInput::new(input);
 
 		let preamble = Decode::decode(&mut input)?;
-		let function = Call::decode_with_mem_limit(&mut input, MAX_CALL_HEAP_SIZE)?;
+		let function = Call::decode_with_mem_limit(&mut input, MAX_CALL_SIZE)?;
 
 		if input.count() != expected_length.0 as u64 {
 			return Err("Invalid length prefix".into())
@@ -1020,12 +1026,12 @@ mod tests {
 	fn max_call_heap_size_should_be_checked() {
 		// Should be able to decode an `UncheckedExtrinsic` that contains a call with
 		// heap size < `MAX_CALL_HEAP_SIZE`
-		let ux = Ex::new_bare(vec![0u8; MAX_CALL_HEAP_SIZE - 1].into());
+		let ux = Ex::new_bare(vec![0u8; DEFAULT_MAX_CALL_SIZE - 1].into());
 		let encoded = ux.encode();
 		assert_eq!(Ex::decode(&mut &encoded[..]), Ok(ux));
 
 		// Otherwise should fail
-		let ux = Ex::new_bare(vec![0u8; MAX_CALL_HEAP_SIZE].into());
+		let ux = Ex::new_bare(vec![0u8; DEFAULT_MAX_CALL_SIZE].into());
 		let encoded = ux.encode();
 		assert_eq!(
 			Ex::decode(&mut &encoded[..]).unwrap_err().to_string(),
