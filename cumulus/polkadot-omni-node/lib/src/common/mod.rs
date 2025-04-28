@@ -38,6 +38,7 @@ use sp_runtime::{
 	OpaqueExtrinsic,
 };
 use sp_session::SessionKeys;
+use sp_statement_store::runtime_api::ValidateStatement;
 use sp_transaction_pool::runtime_api::TaggedTransactionQueue;
 use std::{fmt::Debug, path::PathBuf, str::FromStr};
 
@@ -70,7 +71,7 @@ pub trait NodeRuntimeApi<Block: BlockT>:
 	+ OffchainWorkerApi<Block>
 	+ CollectCollationInfo<Block>
 	+ GetCoreSelectorApi<Block>
-	+ sp_statement_store::runtime_api::ValidateStatement<Block>
+	+ ValidateStatement<Block>
 	+ Sized
 {
 }
@@ -84,7 +85,7 @@ impl<T, Block: BlockT> NodeRuntimeApi<Block> for T where
 		+ OffchainWorkerApi<Block>
 		+ GetCoreSelectorApi<Block>
 		+ CollectCollationInfo<Block>
-		+ sp_statement_store::runtime_api::ValidateStatement<Block>
+		+ ValidateStatement<Block>
 {
 }
 
@@ -115,8 +116,8 @@ pub struct NodeExtraArgs {
 	/// If set, each `PoV` build by the node will be exported to this folder.
 	pub export_pov: Option<PathBuf>,
 
-	/// Enable the statement store.
-	pub enable_statement_store: bool,
+	/// Disable the statement store.
+	pub disable_statement_store: bool,
 
 	/// The maximum percentage of the maximum PoV size that the collator can use.
 	/// It will be removed once <https://github.com/paritytech/polkadot-sdk/issues/6020> is fixed.
