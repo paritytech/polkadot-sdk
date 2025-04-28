@@ -14,6 +14,10 @@ Backports should only be used to fix bugs or security issues - never to introduc
 
 The label can also be added after the PR is merged.
 
+ℹ️ If, for some reasons, a backport PR was not created automatically, it can be done manually.
+But it is important, that the PR title follows the following pattern:
+`[stableBranchName] Backport #originalPRNumber` (i.e. **[stable2412] Backport #8198**)
+
 ## Example
 
 For example here where the dev triggered the process by adding the label after merging:
