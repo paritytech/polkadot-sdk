@@ -16,13 +16,14 @@
 
 use std::{
 	collections::{HashMap, HashSet},
-	time::{Duration, Instant},
+	time::Duration,
 };
 
 use bitvec::{bitvec, vec::BitVec};
 use futures::{
 	channel::oneshot, future::Fuse, pin_mut, select, stream::FuturesUnordered, FutureExt, StreamExt,
 };
+use metrics::{CollationStats, CollationTracker};
 use schnellru::{ByLength, LruMap};
 use sp_core::Pair;
 
@@ -42,9 +43,7 @@ use polkadot_node_subsystem::{
 		ChainApiMessage, CollatorProtocolMessage, NetworkBridgeEvent, NetworkBridgeTxMessage,
 		ParentHeadData,
 	},
-	overseer,
-	prometheus::prometheus::HistogramTimer,
-	FromOrchestra, OverseerSignal,
+	overseer, FromOrchestra, OverseerSignal,
 };
 use polkadot_node_subsystem_util::{
 	backing_implicit_view::View as ImplicitView,
@@ -204,195 +203,6 @@ struct PeerData {
 	/// This can happen when the validator is faster at importing a block and sending out its
 	/// `View` than the collator is able to import a block.
 	unknown_heads: LruMap<Hash, (), ByLength>,
-}
-
-// Equal to allowed ancestry len + 1
-const MAX_BACKING_DELAY: BlockNumber = 3;
-// Paras availability period. In practice, candidates time out in exceptional situations.
-const MAX_AVAILABILITY_DELAY: BlockNumber = 10;
-
-// Collations are kept in the tracker, until they are included or expired
-#[derive(Default)]
-struct CollationTracker {
-	// Keep track of collation expiration block number.
-	expire: HashMap<BlockNumber, HashSet<Hash>>,
-	// All un-expired collation entries
-	entries: HashMap<Hash, CollationStats>,
-}
-
-impl CollationTracker {
-	// Mark a tracked collation as backed and return the stats.
-	// After this call, the collation is no longer tracked. To measure
-	// inclusion time call `track` again with the returned stats.
-	//
-	// Block built on top of N is earliest backed at N + 1.
-	// Returns `None` if the collation is not tracked.
-	pub fn collation_backed(
-		&mut self,
-		block_number: BlockNumber,
-		head: Hash,
-		metrics: &Metrics,
-	) -> Option<CollationStats> {
-		self.entries.remove(&head).map(|mut entry| {
-			entry.backed_at = Some(block_number);
-			// Observe the backing latency since the collation was fetched.
-			let _ = entry.backed_latency_metric.take();
-			metrics.on_collation_backed((block_number - entry.relay_parent_number) as f64);
-
-			entry
-		})
-	}
-
-	// Mark a previously backed collation as included and return the stats.
-	// After this call, the collation is no longer trackable.
-	//
-	// Block built on top of N is earliest backed at N + 1.
-	// Returns `None` if there collation is not in tracker.
-	pub fn collation_included(
-		&mut self,
-		block_number: BlockNumber,
-		head: Hash,
-		metrics: &Metrics,
-	) -> Option<CollationStats> {
-		self.entries.remove(&head).map(|mut entry| {
-			entry.included_at = Some(block_number);
-			if let Some(backed_at) = entry.backed_at {
-				metrics.on_collation_included((block_number - backed_at) as f64);
-			}
-			entry
-		})
-	}
-
-	// Returns all the collations that have expired at `block_number`.
-	pub fn drain_expired(&mut self, block_number: BlockNumber) -> Vec<CollationStats> {
-		let Some(expired) = self.expire.remove(&block_number) else {
-			// No collations built on all seen relay parents at height `block_number`
-			return Vec::new()
-		};
-
-		expired
-			.iter()
-			.filter_map(|head| self.entries.remove(head))
-			.map(|mut entry| {
-				entry.expired_at = Some(block_number);
-				entry
-			})
-			.collect::<Vec<_>>()
-	}
-
-	// Track a collation for a given period of time (TTL). TTL depends
-	// on the collation state.
-	// Collation is evicted after it expires.
-	pub fn track(&mut self, mut stats: CollationStats) {
-		// Check the state of collation to compute ttl.
-		let ttl = if stats.fetch_latency().is_none() {
-			// Disable the fetch timer, to prevent bogus observe on drop.
-			if let Some(fetch_latency_metric) = stats.fetch_latency_metric.take() {
-				fetch_latency_metric.stop_and_discard();
-			}
-			// Collation was never fetched, expires ASAP
-			0
-		} else if stats.backed().is_none() {
-			MAX_BACKING_DELAY
-		} else if stats.included().is_none() {
-			// Set expiration date relative to relay parent block.
-			stats.backed().unwrap_or_default() + MAX_AVAILABILITY_DELAY
-		} else {
-			// If block included no reason to track it.
-			return
-		};
-
-		self.expire
-			.entry(stats.relay_parent_number + ttl)
-			.and_modify(|heads| {
-				heads.insert(stats.head);
-			})
-			.or_insert_with(|| HashSet::from_iter(vec![stats.head].into_iter()));
-		self.entries.insert(stats.head, stats);
-	}
-}
-
-// Information about how collations live their lives.
-struct CollationStats {
-	// The pre-backing collation status information
-	pre_backing_status: CollationStatus,
-	// The block header hash.
-	head: Hash,
-	// The relay parent on top of which collation was built
-	relay_parent_number: BlockNumber,
-	// The expiration block number if expired.
-	expired_at: Option<BlockNumber>,
-	// The backed block number if backed.
-	backed_at: Option<BlockNumber>,
-	// The backed block number if backed.
-	included_at: Option<BlockNumber>,
-	// The collation time.
-	fetched_at: Option<Instant>,
-	// Advertisement time
-	advertised_at: Instant,
-	// The collation fetch latency (seconds).
-	fetch_latency_metric: Option<HistogramTimer>,
-	// The collation backing latency (seconds). Duration since collation fetched
-	// until the import of a relay chain block where collation is backed.
-	backed_latency_metric: Option<HistogramTimer>,
-}
-
-impl CollationStats {
-	pub fn new(head: Hash, relay_parent_number: BlockNumber, metrics: &Metrics) -> Self {
-		Self {
-			pre_backing_status: CollationStatus::Created,
-			head,
-			relay_parent_number,
-			advertised_at: std::time::Instant::now(),
-			backed_at: None,
-			expired_at: None,
-			fetched_at: None,
-			included_at: None,
-			fetch_latency_metric: metrics.time_collation_fetch_latency(),
-			backed_latency_metric: None,
-		}
-	}
-
-	// Returns the age at which the collation expired.
-	pub fn expired(&self) -> Option<BlockNumber> {
-		let expired_at = self.expired_at?;
-		Some(expired_at - self.relay_parent_number)
-	}
-
-	// Returns the age of the collation at the moment of backing.
-	pub fn backed(&self) -> Option<BlockNumber> {
-		let backed_at = self.backed_at?;
-		Some(backed_at.saturating_sub(self.relay_parent_number))
-	}
-
-	// Returns the age of the collation at the moment of inclusion.
-	pub fn included(&self) -> Option<BlockNumber> {
-		let included_at = self.included_at?;
-		let backed_at = self.backed_at?;
-		Some(included_at.saturating_sub(backed_at))
-	}
-
-	// Returns time the collation waited to be fetched.
-	pub fn fetch_latency(&self) -> Option<Duration> {
-		let fetched_at = self.fetched_at?;
-		Some(fetched_at - self.advertised_at)
-	}
-}
-
-impl Drop for CollationStats {
-	fn drop(&mut self) {
-		if let Some(fetch_latency_metric) = self.fetch_latency_metric.take() {
-			// This metric is only observed when collation was sent fully to the validator.
-			//
-			// If `fetch_latency_metric` is Some it means that the metrics was observed.
-			// We don't want to observe it again and report a higher value at a later point in time.
-			fetch_latency_metric.stop_and_discard();
-		}
-		// If timer still exists, drop it. It is measured in `collation_backed`.
-		if let Some(backed_latency_metric) = self.backed_latency_metric.take() {
-			backed_latency_metric.stop_and_discard();
-		}
-	}
 }
 
 /// A type wrapping a collation and it's designated core index.
@@ -1454,51 +1264,22 @@ async fn process_block_events<Context>(
 					if receipt.descriptor.para_id() != para_id {
 						continue
 					}
-					let relay_parent = receipt.descriptor.relay_parent();
 
 					let Some(block_number) = maybe_block_number else { continue };
-					let Some(stats) = collation_tracker.collation_included(
-						block_number,
-						receipt.descriptor.para_head(),
-						metrics,
-					) else {
-						continue
-					};
 
-					gum::debug!(
-						target: crate::LOG_TARGET_STATS,
-						latency = ?stats.included().unwrap_or_default(),
-						relay_block = ?leaf,
-						?relay_parent,
-						?para_id,
-						head = ?receipt.descriptor.para_head(),
-						"Collation included on relay chain",
-					);
+					collation_tracker.collation_included(block_number, leaf, receipt, metrics);
 				},
 				CandidateEvent::CandidateBacked(receipt, _, _, _) => {
 					if receipt.descriptor.para_id() != para_id {
 						continue
 					}
-					let relay_parent = receipt.descriptor.relay_parent();
 
 					let Some(block_number) = maybe_block_number else { continue };
-					let Some(stats) = collation_tracker.collation_backed(
-						block_number,
-						receipt.descriptor.para_head(),
-						metrics,
-					) else {
+					let Some(stats) =
+						collation_tracker.collation_backed(block_number, leaf, receipt, metrics)
+					else {
 						continue
 					};
-
-					gum::debug!(
-						target: crate::LOG_TARGET_STATS,
-						latency = ?stats.backed().unwrap_or_default(),
-						relay_block = ?leaf,
-						?relay_parent,
-						?para_id,
-						head = ?receipt.descriptor.para_head(),
-						"Collation backed on relay chain",
-					);
 
 					// Continue measuring inclusion latency.
 					collation_tracker.track(stats);
@@ -1655,7 +1436,7 @@ fn process_out_of_view_collation(
 	// succesfully fetched, even if a fetch request was received, but not succeed.
 	//
 	// Will expire in it's current state at the next block import.
-	stats.pre_backing_status = collation_status;
+	stats.set_pre_backing_status(collation_status);
 	collation_tracker.track(stats);
 }
 
@@ -1669,7 +1450,7 @@ fn process_expired_collations(
 		let collation_state = if expired_collation.fetch_latency().is_none() {
 			// If collation was not fetched, we rely on the status provided
 			// by the collator protocol.
-			expired_collation.pre_backing_status.label()
+			expired_collation.pre_backing_status().label()
 		} else if expired_collation.backed().is_none() {
 			"fetched"
 		} else if expired_collation.included().is_none() {
@@ -1685,7 +1466,7 @@ fn process_expired_collations(
 			?collation_state,
 			relay_parent = ?removed,
 			?para_id,
-			?expired_collation.head,
+			head = ?expired_collation.head(),
 			"Collation expired",
 		);
 
@@ -1789,22 +1570,22 @@ async fn run_inner<Context>(
 
 								if let Some(mut stats) = maybe_stats {
 									// Update the timestamp when collation has been sent (from subsysytem perspective)
-									stats.fetched_at = Some(std::time::Instant::now());
+									stats.set_fetched_at(std::time::Instant::now());
 									gum::debug!(
 										target: LOG_TARGET_STATS,
-										para_head = ?stats.head,
+										para_head = ?stats.head(),
 										%our_para_id,
 										"Collation fetch latency is {}ms",
 										stats.fetch_latency().unwrap_or_default().as_millis(),
 									);
 
 									// Update the pre-backing status. Should be requested at this point.
-									stats.pre_backing_status = collation_with_core.collation().status.clone();
+									stats.set_pre_backing_status(collation_with_core.collation().status.clone());
 									debug_assert_eq!(collation_with_core.collation().status, CollationStatus::Requested);
 
 									// Observe fetch latency metric.
-									stats.fetch_latency_metric.take();
-									stats.backed_latency_metric = metrics.time_collation_backing_latency();
+									stats.take_fetch_latency_metric();
+									stats.set_backed_latency_metric(metrics.time_collation_backing_latency());
 
 									// Next step is to measure backing latency.
 									state.collation_tracker.track(stats);
