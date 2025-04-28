@@ -83,6 +83,8 @@ fn transaction_event_label<Hash>(event: &TransactionEvent<Hash>) -> &'static str
 
 #[derive(Debug, Clone)]
 pub struct ExecutionState {
+	/// The time when the transaction was submitted.
+	submitted_at: Instant,
 	/// The time when the transaction entered this state.
 	started_at: Instant,
 	/// The initial state.
@@ -92,7 +94,11 @@ pub struct ExecutionState {
 impl ExecutionState {
 	/// Creates a new [`ExecutionState`].
 	pub fn new() -> Self {
-		Self { started_at: Instant::now(), initial_state: labels::SUBMITTED }
+		Self {
+			submitted_at: Instant::now(),
+			started_at: Instant::now(),
+			initial_state: labels::SUBMITTED,
+		}
 	}
 
 	/// Advance the state of the transaction.
@@ -170,6 +176,13 @@ impl InstanceMetrics {
 		};
 
 		let final_state = transaction_event_label(event);
+		if final_state == labels::FINALIZED {
+			let elapsed = self.execution_state.submitted_at.elapsed().as_micros() as f64;
+			metrics
+				.execution_time
+				.with_label_values(&[labels::SUBMITTED, final_state])
+				.observe(elapsed);
+		}
 
 		metrics.status.with_label_values(&[final_state]).inc();
 
