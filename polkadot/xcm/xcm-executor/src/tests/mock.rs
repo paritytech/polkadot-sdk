@@ -240,7 +240,7 @@ impl SendXcm for TestSender {
 
 	fn deliver(ticket: Self::Ticket) -> Result<XcmHash, SendError> {
 		SENT_XCM.with(|q| q.borrow_mut().push(ticket));
-		Ok(XcmHash::default())
+		Ok([0; 32])
 	}
 }
 

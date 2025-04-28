@@ -106,7 +106,7 @@ fn works_for_delivery_fees() {
 
 	// The messages were "sent" successfully.
 	let xcm_sent = sent_xcm();
-	let expected_hash = XcmHash::default();
+	let expected_hash = vm.context.topic_or_message_id();
 	let sent_message = Xcm(vec![
 		QueryResponse {
 			query_id: 0,
