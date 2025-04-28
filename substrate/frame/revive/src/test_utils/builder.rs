@@ -20,6 +20,7 @@ use crate::{
 	address::AddressMapper, AccountIdOf, BalanceOf, Code, Config, ContractResult, DepositLimit,
 	ExecReturnValue, InstantiateReturnValue, OriginFor, Pallet, Weight,
 };
+use alloc::{vec, vec::Vec};
 use frame_support::pallet_prelude::DispatchResultWithPostInfo;
 use paste::paste;
 use sp_core::H160;

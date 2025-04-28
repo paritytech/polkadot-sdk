@@ -15,18 +15,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Benchmarks for the revive pallet
+//! Benchmarks for the revive pallet.
 
 #![cfg(feature = "runtime-benchmarks")]
 
-mod call_builder;
-mod code;
-use self::{call_builder::CallSetup, code::WasmModule};
 use crate::{
+	call_builder::{caller_funding, default_deposit_limit, CallSetup, Contract, WasmModule},
 	evm::runtime::GAS_PRICE,
-	exec::{Ext, Key, MomentOf},
+	exec::{Key, MomentOf, PrecompileExt},
 	limits,
-	pure_precompiles::Precompile,
+	precompiles::{self, run::builtin as run_builtin_precompile},
 	storage::WriteOutcome,
 	ConversionPrecision, Pallet as Contracts, *,
 };
@@ -47,10 +45,7 @@ use sp_consensus_babe::{
 	BABE_ENGINE_ID,
 };
 use sp_consensus_slots::Slot;
-use sp_runtime::{
-	generic::{Digest, DigestItem},
-	traits::{Bounded, Hash},
-};
+use sp_runtime::generic::{Digest, DigestItem};
 
 /// How many runs we do per API benchmark.
 ///
@@ -59,165 +54,28 @@ use sp_runtime::{
 /// but might make the results less precise.
 const API_BENCHMARK_RUNS: u32 = 1600;
 
-/// Number of layers in a Radix16 unbalanced trie.
-const UNBALANCED_TRIE_LAYERS: u32 = 20;
+macro_rules! memory(
+	($($bytes:expr,)*) => {{
+		vec![].iter()$(.chain($bytes.iter()))*.cloned().collect::<Vec<_>>()
+	}};
+);
 
-/// An instantiated and deployed contract.
-#[derive(Clone)]
-struct Contract<T: Config> {
-	caller: T::AccountId,
-	account_id: T::AccountId,
-	address: H160,
-}
-
-impl<T> Contract<T>
-where
-	T: Config,
-	BalanceOf<T>: Into<U256> + TryFrom<U256>,
-	MomentOf<T>: Into<U256>,
-	T::Hash: frame_support::traits::IsType<H256>,
-{
-	/// Create new contract and use a default account id as instantiator.
-	fn new(module: WasmModule, data: Vec<u8>) -> Result<Contract<T>, &'static str> {
-		Self::with_index(0, module, data)
-	}
-
-	/// Create new contract and use an account id derived from the supplied index as instantiator.
-	fn with_index(
-		index: u32,
-		module: WasmModule,
-		data: Vec<u8>,
-	) -> Result<Contract<T>, &'static str> {
-		Self::with_caller(account("instantiator", index, 0), module, data)
-	}
-
-	/// Create new contract and use the supplied `caller` as instantiator.
-	fn with_caller(
-		caller: T::AccountId,
-		module: WasmModule,
-		data: Vec<u8>,
-	) -> Result<Contract<T>, &'static str> {
-		T::Currency::set_balance(&caller, caller_funding::<T>());
-		let salt = Some([0xffu8; 32]);
-		let origin: T::RuntimeOrigin = RawOrigin::Signed(caller.clone()).into();
-
-		Contracts::<T>::map_account(origin.clone()).unwrap();
-
-		let outcome = Contracts::<T>::bare_instantiate(
-			origin,
-			0u32.into(),
-			Weight::MAX,
-			DepositLimit::Balance(default_deposit_limit::<T>()),
-			Code::Upload(module.code),
-			data,
-			salt,
-		);
-
-		let address = outcome.result?.addr;
-		let account_id = T::AddressMapper::to_fallback_account_id(&address);
-		let result = Contract { caller, address, account_id };
-
-		ContractInfoOf::<T>::insert(&address, result.info()?);
-
-		Ok(result)
-	}
-
-	/// Create a new contract with the supplied storage item count and size each.
-	fn with_storage(code: WasmModule, stor_num: u32, stor_size: u32) -> Result<Self, &'static str> {
-		let contract = Contract::<T>::new(code, vec![])?;
-		let storage_items = (0..stor_num)
-			.map(|i| {
-				let hash = T::Hashing::hash_of(&i)
-					.as_ref()
-					.try_into()
-					.map_err(|_| "Hash too big for storage key")?;
-				Ok((hash, vec![42u8; stor_size as usize]))
-			})
-			.collect::<Result<Vec<_>, &'static str>>()?;
-		contract.store(&storage_items)?;
-		Ok(contract)
-	}
-
-	/// Store the supplied storage items into this contracts storage.
-	fn store(&self, items: &Vec<([u8; 32], Vec<u8>)>) -> Result<(), &'static str> {
-		let info = self.info()?;
-		for item in items {
-			info.write(&Key::Fix(item.0), Some(item.1.clone()), None, false)
-				.map_err(|_| "Failed to write storage to restoration dest")?;
-		}
-		<ContractInfoOf<T>>::insert(&self.address, info);
-		Ok(())
-	}
-
-	/// Create a new contract with the specified unbalanced storage trie.
-	fn with_unbalanced_storage_trie(code: WasmModule, key: &[u8]) -> Result<Self, &'static str> {
-		if (key.len() as u32) < (UNBALANCED_TRIE_LAYERS + 1) / 2 {
-			return Err("Key size too small to create the specified trie");
-		}
-
-		let value = vec![16u8; limits::PAYLOAD_BYTES as usize];
-		let contract = Contract::<T>::new(code, vec![])?;
-		let info = contract.info()?;
-		let child_trie_info = info.child_trie_info();
-		child::put_raw(&child_trie_info, &key, &value);
-		for l in 0..UNBALANCED_TRIE_LAYERS {
-			let pos = l as usize / 2;
-			let mut key_new = key.to_vec();
-			for i in 0u8..16 {
-				key_new[pos] = if l % 2 == 0 {
-					(key_new[pos] & 0xF0) | i
-				} else {
-					(key_new[pos] & 0x0F) | (i << 4)
-				};
-
-				if key == &key_new {
-					continue;
-				}
-				child::put_raw(&child_trie_info, &key_new, &value);
-			}
-		}
-		Ok(contract)
-	}
-
-	/// Get the `ContractInfo` of the `addr` or an error if it no longer exists.
-	fn address_info(addr: &T::AccountId) -> Result<ContractInfo<T>, &'static str> {
-		ContractInfoOf::<T>::get(T::AddressMapper::to_address(addr))
-			.ok_or("Expected contract to exist at this point.")
-	}
-
-	/// Get the `ContractInfo` of this contract or an error if it no longer exists.
-	fn info(&self) -> Result<ContractInfo<T>, &'static str> {
-		Self::address_info(&self.account_id)
-	}
-
-	/// Set the balance of the contract to the supplied amount.
-	fn set_balance(&self, balance: BalanceOf<T>) {
-		T::Currency::set_balance(&self.account_id, balance);
-	}
-
-	/// Returns `true` iff all storage entries related to code storage exist.
-	fn code_exists(hash: &sp_core::H256) -> bool {
-		<PristineCode<T>>::contains_key(hash) && <CodeInfoOf<T>>::contains_key(&hash)
-	}
-
-	/// Returns `true` iff no storage entry related to code storage exist.
-	fn code_removed(hash: &sp_core::H256) -> bool {
-		!<PristineCode<T>>::contains_key(hash) && !<CodeInfoOf<T>>::contains_key(&hash)
-	}
-}
-
-/// The funding that each account that either calls or instantiates contracts is funded with.
-fn caller_funding<T: Config>() -> BalanceOf<T> {
-	// Minting can overflow, so we can't abuse of the funding. This value happens to be big enough,
-	// but not too big to make the total supply overflow.
-	BalanceOf::<T>::max_value() / 10_000u32.into()
-}
-
-/// The deposit limit we use for benchmarks.
-fn default_deposit_limit<T: Config>() -> BalanceOf<T> {
-	(T::DepositPerByte::get() * 1024u32.into() * 1024u32.into()) +
-		T::DepositPerItem::get() * 1024u32.into()
-}
+macro_rules! build_runtime(
+	($runtime:ident, $memory:ident: [$($segment:expr,)*]) => {
+		build_runtime!($runtime, _contract, $memory: [$($segment,)*]);
+	};
+	($runtime:ident, $contract:ident, $memory:ident: [$($bytes:expr,)*]) => {
+		build_runtime!($runtime, $contract);
+		let mut $memory = memory!($($bytes,)*);
+	};
+	($runtime:ident, $contract:ident) => {
+		let mut setup = CallSetup::<T>::default();
+		let $contract = setup.contract();
+		let input = setup.data();
+		let (mut ext, _) = setup.ext();
+		let mut $runtime = crate::wasm::Runtime::<_, [u8]>::new(&mut ext, input);
+	};
+);
 
 #[benchmarks(
 	where
@@ -1724,6 +1582,8 @@ mod benchmarks {
 
 		let mut setup = CallSetup::<T>::default();
 		setup.set_storage_deposit_limit(deposit);
+		// We benchmark the overhead of cloning the input. Not passing it to the contract.
+		// This is why we set the input here instead of passig it as pointer to the `bench_call`.
 		setup.set_data(vec![42; i as usize]);
 		setup.set_origin(Origin::from_account_id(setup.contract().account_id.clone()));
 
@@ -1746,6 +1606,68 @@ mod benchmarks {
 		}
 
 		assert_ok!(result);
+	}
+
+	// d: 1 if the associated pre-compile has a contract info that needs to be loaded
+	// i: size of the input data
+	#[benchmark(pov_mode = Measured)]
+	fn seal_call_precompile(d: Linear<0, 1>, i: Linear<0, { limits::code::BLOB_BYTES }>) {
+		use alloy_core::sol_types::SolInterface;
+		use precompiles::{BenchmarkNoInfo, BenchmarkWithInfo, BuiltinPrecompile, IBenchmarking};
+
+		let callee_bytes = if d == 1 {
+			BenchmarkWithInfo::<T>::MATCHER.base_address().to_vec()
+		} else {
+			BenchmarkNoInfo::<T>::MATCHER.base_address().to_vec()
+		};
+		let callee_len = callee_bytes.len() as u32;
+
+		let deposit: BalanceOf<T> = (u32::MAX - 100).into();
+		let deposit_bytes = Into::<U256>::into(deposit).encode();
+		let deposit_len = deposit_bytes.len() as u32;
+
+		let value: BalanceOf<T> = Zero::zero();
+		let value_bytes = Into::<U256>::into(value).encode();
+		let value_len = value_bytes.len() as u32;
+
+		let input_bytes = IBenchmarking::IBenchmarkingCalls::bench(IBenchmarking::benchCall {
+			input: vec![42; i as usize].into(),
+		})
+		.abi_encode();
+		let input_len = input_bytes.len() as u32;
+
+		let mut setup = CallSetup::<T>::default();
+		setup.set_storage_deposit_limit(deposit);
+
+		let (mut ext, _) = setup.ext();
+		let mut runtime = crate::wasm::Runtime::<_, [u8]>::new(&mut ext, vec![]);
+		let mut memory = memory!(callee_bytes, deposit_bytes, value_bytes, input_bytes,);
+
+		let mut do_benchmark = || {
+			runtime.bench_call(
+				memory.as_mut_slice(),
+				pack_hi_lo(0, 0), // flags + callee
+				u64::MAX,         // ref_time_limit
+				u64::MAX,         // proof_size_limit
+				pack_hi_lo(callee_len, callee_len + deposit_len), /* deposit_ptr +
+				                   * value_pr */
+				pack_hi_lo(input_len, callee_len + deposit_len + value_len), /* input len +
+				                                                              * input ptr */
+				pack_hi_lo(0, SENTINEL), // output len + output ptr
+			)
+		};
+
+		// first call of the pre-compile will create its contract info and account
+		// so we make sure to create it
+		assert_eq!(do_benchmark().unwrap(), ReturnErrorCode::Success);
+
+		let result;
+		#[block]
+		{
+			result = do_benchmark();
+		}
+
+		assert_eq!(result.unwrap(), ReturnErrorCode::Success);
 	}
 
 	#[benchmark(pov_mode = Measured)]
@@ -1862,7 +1784,11 @@ mod benchmarks {
 		let result;
 		#[block]
 		{
-			result = pure_precompiles::Sha256::execute(ext.gas_meter_mut(), &input);
+			result = run_builtin_precompile(
+				&mut ext,
+				H160::from_low_u64_be(2).as_fixed_bytes(),
+				input.clone(),
+			);
 		}
 		assert_eq!(sp_io::hashing::sha2_256(&input).to_vec(), result.unwrap().data);
 	}
@@ -1876,7 +1802,11 @@ mod benchmarks {
 		let result;
 		#[block]
 		{
-			result = pure_precompiles::Identity::execute(ext.gas_meter_mut(), &input);
+			result = run_builtin_precompile(
+				&mut ext,
+				H160::from_low_u64_be(4).as_fixed_bytes(),
+				input.clone(),
+			);
 		}
 		assert_eq!(input, result.unwrap().data);
 	}
@@ -1892,7 +1822,11 @@ mod benchmarks {
 		let result;
 		#[block]
 		{
-			result = pure_precompiles::Ripemd160::execute(ext.gas_meter_mut(), &input);
+			result = run_builtin_precompile(
+				&mut ext,
+				H160::from_low_u64_be(3).as_fixed_bytes(),
+				input.clone(),
+			);
 		}
 		let mut expected = [0u8; 32];
 		expected[12..32].copy_from_slice(&ripemd::Ripemd160::digest(input));
@@ -1976,7 +1910,7 @@ mod benchmarks {
 	#[benchmark(pov_mode = Measured)]
 	fn ecdsa_recover() {
 		use hex_literal::hex;
-		let input = hex!("18c547e4f7b0f325ad1e56f57e26c745b09a3e503d86e00e5255ff7f715d3d1c000000000000000000000000000000000000000000000000000000000000001c73b1693892219d736caba55bdb67216e485557ea6b6af75f37096c9aa6a5a75feeb940b1d03b21e36b0e47e79769f095fe2ab855bd91e3a38756b7d75a9c4549");
+		let input = hex!("18c547e4f7b0f325ad1e56f57e26c745b09a3e503d86e00e5255ff7f715d3d1c000000000000000000000000000000000000000000000000000000000000001c73b1693892219d736caba55bdb67216e485557ea6b6af75f37096c9aa6a5a75feeb940b1d03b21e36b0e47e79769f095fe2ab855bd91e3a38756b7d75a9c4549").to_vec();
 		let expected = hex!("000000000000000000000000a94f5374fce5edbc8e2a8697c15331677e6ebf0b");
 		let mut call_setup = CallSetup::<T>::default();
 		let (mut ext, _) = call_setup.ext();
@@ -1985,7 +1919,8 @@ mod benchmarks {
 
 		#[block]
 		{
-			result = pure_precompiles::ECRecover::execute(ext.gas_meter_mut(), &input);
+			result =
+				run_builtin_precompile(&mut ext, H160::from_low_u64_be(1).as_fixed_bytes(), input);
 		}
 
 		assert_eq!(result.unwrap().data, expected);
@@ -1994,16 +1929,16 @@ mod benchmarks {
 	#[benchmark(pov_mode = Measured)]
 	fn bn128_add() {
 		use hex_literal::hex;
-		let input = hex!("089142debb13c461f61523586a60732d8b69c5b38a3380a74da7b2961d867dbf2d5fc7bbc013c16d7945f190b232eacc25da675c0eb093fe6b9f1b4b4e107b3625f8c89ea3437f44f8fc8b6bfbb6312074dc6f983809a5e809ff4e1d076dd5850b38c7ced6e4daef9c4347f370d6d8b58f4b1d8dc61a3c59d651a0644a2a27cf");
+		let input = hex!("089142debb13c461f61523586a60732d8b69c5b38a3380a74da7b2961d867dbf2d5fc7bbc013c16d7945f190b232eacc25da675c0eb093fe6b9f1b4b4e107b3625f8c89ea3437f44f8fc8b6bfbb6312074dc6f983809a5e809ff4e1d076dd5850b38c7ced6e4daef9c4347f370d6d8b58f4b1d8dc61a3c59d651a0644a2a27cf").to_vec();
 		let expected = hex!("0a6678fd675aa4d8f0d03a1feb921a27f38ebdcb860cc083653519655acd6d79172fd5b3b2bfdd44e43bcec3eace9347608f9f0a16f1e184cb3f52e6f259cbeb");
 		let mut call_setup = CallSetup::<T>::default();
 		let (mut ext, _) = call_setup.ext();
 
 		let result;
-
 		#[block]
 		{
-			result = pure_precompiles::Bn128Add::execute(ext.gas_meter_mut(), &input);
+			result =
+				run_builtin_precompile(&mut ext, H160::from_low_u64_be(6).as_fixed_bytes(), input);
 		}
 
 		assert_eq!(result.unwrap().data, expected);
@@ -2012,34 +1947,66 @@ mod benchmarks {
 	#[benchmark(pov_mode = Measured)]
 	fn bn128_mul() {
 		use hex_literal::hex;
-		let input = hex!("089142debb13c461f61523586a60732d8b69c5b38a3380a74da7b2961d867dbf2d5fc7bbc013c16d7945f190b232eacc25da675c0eb093fe6b9f1b4b4e107b36ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
+		let input = hex!("089142debb13c461f61523586a60732d8b69c5b38a3380a74da7b2961d867dbf2d5fc7bbc013c16d7945f190b232eacc25da675c0eb093fe6b9f1b4b4e107b36ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff").to_vec();
 		let expected = hex!("0bf982b98a2757878c051bfe7eee228b12bc69274b918f08d9fcb21e9184ddc10b17c77cbf3c19d5d27e18cbd4a8c336afb488d0e92c18d56e64dd4ea5c437e6");
 		let mut call_setup = CallSetup::<T>::default();
 		let (mut ext, _) = call_setup.ext();
 
 		let result;
-
 		#[block]
 		{
-			result = pure_precompiles::Bn128Mul::execute(ext.gas_meter_mut(), &input);
+			result =
+				run_builtin_precompile(&mut ext, H160::from_low_u64_be(7).as_fixed_bytes(), input);
 		}
 
 		assert_eq!(result.unwrap().data, expected);
 	}
 
 	// `n`: pairings to perform
-	// This is a slow call: We reduce the number of runs to 20 to avoid the benchmark taking too
-	// long.
 	#[benchmark(pov_mode = Measured)]
-	fn bn128_pairing(n: Linear<0, 20>) {
-		let input = pure_precompiles::generate_random_ecpairs(n as usize);
+	fn bn128_pairing(n: Linear<0, { 20 }>) {
+		fn generate_random_ecpairs(n: usize) -> Vec<u8> {
+			use bn::{AffineG1, AffineG2, Fr, Group, G1, G2};
+			use rand::SeedableRng;
+			use rand_pcg::Pcg64;
+			let mut rng = Pcg64::seed_from_u64(1);
+
+			let mut buffer = vec![0u8; n * 192];
+
+			let mut write = |element: &bn::Fq, offset: &mut usize| {
+				element.to_big_endian(&mut buffer[*offset..*offset + 32]).unwrap();
+				*offset += 32
+			};
+
+			for i in 0..n {
+				let mut offset = i * 192;
+				let scalar = Fr::random(&mut rng);
+
+				let g1 = G1::one() * scalar;
+				let g2 = G2::one() * scalar;
+				let a = AffineG1::from_jacobian(g1).expect("G1 point should be on curve");
+				let b = AffineG2::from_jacobian(g2).expect("G2 point should be on curve");
+
+				write(&a.x(), &mut offset);
+				write(&a.y(), &mut offset);
+				write(&b.x().imaginary(), &mut offset);
+				write(&b.x().real(), &mut offset);
+				write(&b.y().imaginary(), &mut offset);
+				write(&b.y().real(), &mut offset);
+			}
+
+			buffer
+		}
+
+		let input = generate_random_ecpairs(n as usize);
 		let mut call_setup = CallSetup::<T>::default();
 		let (mut ext, _) = call_setup.ext();
 
 		let result;
 		#[block]
 		{
-			result = pure_precompiles::Bn128Pairing::execute(ext.gas_meter_mut(), &input);
+			result =
+				run_builtin_precompile(&mut ext, H160::from_low_u64_be(8).as_fixed_bytes(), input);
 		}
 		assert_ok!(result);
 	}
@@ -2056,7 +2023,8 @@ mod benchmarks {
 		let result;
 		#[block]
 		{
-			result = pure_precompiles::Blake2F::execute(ext.gas_meter_mut(), &input);
+			result =
+				run_builtin_precompile(&mut ext, H160::from_low_u64_be(9).as_fixed_bytes(), input);
 		}
 		assert_ok!(result);
 	}

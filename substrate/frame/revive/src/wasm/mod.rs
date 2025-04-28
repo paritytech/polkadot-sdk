@@ -26,7 +26,7 @@ pub use crate::wasm::runtime::SyscallDoc;
 #[cfg(feature = "runtime-benchmarks")]
 pub use crate::wasm::runtime::{ReturnData, TrapReason};
 
-pub use crate::wasm::runtime::{Memory, Runtime, RuntimeCosts};
+pub use crate::wasm::runtime::{Runtime, RuntimeCosts};
 
 use crate::{
 	exec::{ExecResult, Executable, ExportedFunction, Ext},
@@ -396,7 +396,7 @@ where
 	fn from_storage(code_hash: H256, gas_meter: &mut GasMeter<T>) -> Result<Self, DispatchError> {
 		let code_info = <CodeInfoOf<T>>::get(code_hash).ok_or(Error::<T>::CodeNotFound)?;
 		gas_meter.charge(CodeLoadToken(code_info.code_len))?;
-		let code = <PristineCode<T>>::get(code_hash).ok_or(Error::<T>::CodeNotFound)?;
+		let code = <PristineCode<T>>::get(&code_hash).ok_or(Error::<T>::CodeNotFound)?;
 		Ok(Self { code, code_info, code_hash })
 	}
 
