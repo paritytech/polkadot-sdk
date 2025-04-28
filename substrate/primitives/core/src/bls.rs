@@ -265,16 +265,14 @@ where
 		proof_of_possession: &Self::Signature,
 		allegedly_possessed_pubkey: &Self::Public,
 	) -> bool {
-		let proof_of_possession =
-			match NuggetBLSnCPPoP::<T>::from_bytes(proof_of_possession.as_ref()) {
-				Ok(s) => s,
-				Err(_) => return false,
+		let Ok(proof_of_possession) =
+			NuggetBLSnCPPoP::<T>::from_bytes(proof_of_possession.as_ref()) else {
+				return false,
 			};
 
-		let allegedly_possessed_pubkey_as_bls_pubkey =
-			match DoublePublicKey::<T>::from_bytes(allegedly_possessed_pubkey.as_ref()) {
-				Ok(pk) => pk,
-				Err(_) => return false,
+		let Ok(allegedly_possessed_pubkey_as_bls_pubkey) =
+			DoublePublicKey::<T>::from_bytes(allegedly_possessed_pubkey.as_ref()) else {
+				return false,
 			};
 
 		BlsProofOfPossession::<T, Sha256, _>::verify(
