@@ -275,6 +275,11 @@ impl CollationTracker {
 			.filter_map(|head| self.entries.remove(head))
 			.map(|mut entry| {
 				entry.expired_at = Some(block_number);
+
+				// Don't record backing time if collation expired.
+				if let Some(backed_latency_metric) = stats.backed_latency_metric.take() {
+					backed_latency_metric.stop_and_discard();
+				}
 				entry
 			})
 			.collect::<Vec<_>>()
@@ -1431,6 +1436,19 @@ async fn process_block_events<Context>(
 	metrics: &Metrics,
 ) -> Result<()> {
 	if let Ok(events) = get_candidate_events(ctx.sender(), leaf).await {
+		let maybe_block_number = get_block_number(ctx, leaf).await;
+
+		// This should not happen. If it does this log message explains why
+		// metrics and logs are missing for the candidates under this block.
+		if maybe_block_number.is_none() {
+			gum::debug!(
+				target: crate::LOG_TARGET_STATS,
+				relay_block = ?leaf,
+				?para_id,
+				"Failed to get relay chain block number",
+			);
+		}
+
 		for ev in events {
 			match ev {
 				CandidateEvent::CandidateIncluded(receipt, _, _, _) => {
@@ -1438,8 +1456,8 @@ async fn process_block_events<Context>(
 						continue
 					}
 					let relay_parent = receipt.descriptor.relay_parent();
-					let Some(block_number) = get_block_number(ctx, leaf).await else { continue };
 
+					let Some(block_number) = maybe_block_number else { continue };
 					let Some(stats) = collation_tracker.collation_included(
 						block_number,
 						receipt.descriptor.para_head(),
@@ -1454,7 +1472,7 @@ async fn process_block_events<Context>(
 						relay_block = ?leaf,
 						?relay_parent,
 						?para_id,
-						?stats.head,
+						head = ?receipt.descriptor.para_head(),
 						"Collation included on relay chain",
 					);
 				},
@@ -1464,8 +1482,7 @@ async fn process_block_events<Context>(
 					}
 					let relay_parent = receipt.descriptor.relay_parent();
 
-					let Some(block_number) = get_block_number(ctx, leaf).await else { continue };
-
+					let Some(block_number) = maybe_block_number else { continue };
 					let Some(stats) = collation_tracker.collation_backed(
 						block_number,
 						receipt.descriptor.para_head(),
@@ -1480,7 +1497,7 @@ async fn process_block_events<Context>(
 						relay_block = ?leaf,
 						?relay_parent,
 						?para_id,
-						?stats.head,
+						head = ?receipt.descriptor.para_head(),
 						"Collation backed on relay chain",
 					);
 
