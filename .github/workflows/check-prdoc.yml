@@ -35,7 +35,6 @@ jobs:
           echo "Labels: ${labels}"
           echo "labels=${labels}" >> "$GITHUB_OUTPUT"
 
-<<<<<<< HEAD
           echo "Checking PRdoc version"
           $ENGINE run --rm -v $PWD:/repo $IMAGE --version
 
@@ -59,12 +58,8 @@ jobs:
           echo "You can find more information about PRDoc at $PRDOC_DOC"
           $ENGINE run --rm -v $PWD:/repo -e RUST_LOG=info $IMAGE check -n ${GITHUB_PR}
 
-      - name: Validate prdoc for PR#${{ github.event.pull_request.number }}
-        if: ${{ !contains(steps.get-labels.outputs.labels, 'R0') }}
-=======
       - name: Get PR number
         if: ${{ github.event.pull_request.number != '' && !contains(steps.get-labels.outputs.labels, 'R0') }}
->>>>>>> aa67e2d ([CI/CD] Use original PR name in prdoc check for the backport PR's to the stable branches (#8329))
         run: |
           original_pr_number=''
           PR_TITLE="${{ github.event.pull_request.title }}"

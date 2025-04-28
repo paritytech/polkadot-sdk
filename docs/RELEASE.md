@@ -157,23 +157,9 @@ git push
 
 Cadence: n.a. Responsible: Developer
 
-<<<<<<< HEAD
-Describes how developers should merge bug and security fixes.
-
-### Steps
-
-1. Developer opens a Pull Request with a bug or security fix.
-2. The Pull Request is marked as priority fix.
-3. Audit happens with priority.
-4. It is merged into `master`.
-5. Dev adds the `A4-needs-backport` label.
-6. It is automatically back-ported to `stable`.
-7. The fix will be released in the next *Stable* release. In urgent cases, a release can happen earlier.
-=======
 Backporting rules can be found in the [BACKPORT.md](/docs/BACKPORT.md)
 
 The release itself is similar to [the new stable release](#steps-to-execute-a-new-stable-release) process without
 the branching-off step, as the branch already exists and depending on the patch
 (whether it is for the current `stable` release or one of the previous ones) the binary build can be skipped
 and only crates and GitHub publishing is done.
->>>>>>> aa67e2d ([CI/CD] Use original PR name in prdoc check for the backport PR's to the stable branches (#8329))
