@@ -23,7 +23,6 @@
 use std::{cmp::Ordering, collections::HashSet, fmt, hash, sync::Arc, time::Instant};
 
 use crate::LOG_TARGET;
-use log::{trace, warn};
 use sc_transaction_pool_api::{error, InPoolTransaction, PoolStatus};
 use serde::Serialize;
 use sp_core::hexdisplay::HexDisplay;
@@ -34,6 +33,7 @@ use sp_runtime::{
 		TransactionTag as Tag,
 	},
 };
+use tracing::{trace, warn};
 
 use super::{
 	future::{FutureTransactions, WaitingTransaction},
@@ -318,10 +318,10 @@ impl<Hash: hash::Hash + Member + Serialize, Ex: std::fmt::Debug> BasePool<Hash, 
 		let tx = WaitingTransaction::new(tx, self.ready.provided_tags(), &self.recently_pruned);
 		trace!(
 			target: LOG_TARGET,
-			"[{:?}] Importing {:?} to {}",
-			tx.transaction.hash,
-			tx,
-			if tx.is_ready() { "ready" } else { "future" }
+			tx_hash = ?tx.transaction.hash,
+			?tx,
+			set = if tx.is_ready() { "ready" } else { "future" },
+			"Importing transaction"
 		);
 
 		// If all tags are not satisfied import to future.
@@ -345,7 +345,7 @@ impl<Hash: hash::Hash + Member + Serialize, Ex: std::fmt::Debug> BasePool<Hash, 
 		&mut self,
 		tx: WaitingTransaction<Hash, Ex>,
 	) -> error::Result<Imported<Hash, Ex>> {
-		let hash = tx.transaction.hash.clone();
+		let tx_hash = tx.transaction.hash.clone();
 		let mut promoted = vec![];
 		let mut failed = vec![];
 		let mut removed = vec![];
@@ -373,24 +373,36 @@ impl<Hash: hash::Hash + Member + Serialize, Ex: std::fmt::Debug> BasePool<Hash, 
 					// re-import them.
 					removed.append(&mut replaced);
 				},
-				Err(e @ error::Error::TooLowPriority { .. }) =>
+				Err(error @ error::Error::TooLowPriority { .. }) => {
+					trace!(
+						target: LOG_TARGET,
+						tx_hash = ?current_tx.hash,
+						?first,
+						%error,
+						"Error importing transaction"
+					);
 					if first {
-						trace!(target: LOG_TARGET, "[{:?}] Error importing {first}: {:?}", current_tx.hash, e);
-						return Err(e)
+						return Err(error)
 					} else {
-						trace!(target: LOG_TARGET, "[{:?}] Error importing {first}: {:?}", current_tx.hash, e);
 						removed.push(current_tx);
 						promoted.retain(|hash| *hash != current_hash);
-					},
+					}
+				},
 				// transaction failed to be imported.
-				Err(e) =>
+				Err(error) => {
+					trace!(
+						target: LOG_TARGET,
+						tx_hash = ?current_tx.hash,
+						?error,
+						first,
+						"Error importing transaction"
+					);
 					if first {
-						trace!(target: LOG_TARGET, "[{:?}] Error importing {first}: {:?}", current_tx.hash, e);
-						return Err(e)
+						return Err(error)
 					} else {
-						trace!(target: LOG_TARGET, "[{:?}] Error importing {first}: {:?}", current_tx.hash, e);
 						failed.push(current_tx.hash.clone());
-					},
+					}
+				},
 			}
 			first = false;
 		}
@@ -400,16 +412,20 @@ impl<Hash: hash::Hash + Member + Serialize, Ex: std::fmt::Debug> BasePool<Hash, 
 		// future transactions pushed out current transaction.
 		// This means that there is a cycle and the transactions should
 		// be moved back to future, since we can't resolve it.
-		if removed.iter().any(|tx| tx.hash == hash) {
+		if removed.iter().any(|tx| tx.hash == tx_hash) {
 			// We still need to remove all transactions that we promoted
 			// since they depend on each other and will never get to the best iterator.
 			self.ready.remove_subtree(&promoted);
 
-			trace!(target: LOG_TARGET, "[{:?}] Cycle detected, bailing.", hash);
+			trace!(
+				target: LOG_TARGET,
+				?tx_hash,
+				"Cycle detected, bailing."
+			);
 			return Err(error::Error::CycleDetected)
 		}
 
-		Ok(Imported::Ready { hash, promoted, failed, removed })
+		Ok(Imported::Ready { hash: tx_hash, promoted, failed, removed })
 	}
 
 	/// Returns an iterator over ready transactions in the pool.
@@ -569,15 +585,17 @@ impl<Hash: hash::Hash + Member + Serialize, Ex: std::fmt::Debug> BasePool<Hash, 
 		}
 
 		for tx in to_import {
-			let hash = tx.transaction.hash.clone();
+			let tx_hash = tx.transaction.hash.clone();
 			match self.import_to_ready(tx) {
 				Ok(res) => promoted.push(res),
-				Err(e) => {
+				Err(error) => {
 					warn!(
 						target: LOG_TARGET,
-						"[{:?}] Failed to promote during pruning: {:?}", hash, e,
+						?tx_hash,
+						?error,
+						"Failed to promote during pruning."
 					);
-					failed.push(hash)
+					failed.push(tx_hash)
 				},
 			}
 		}
