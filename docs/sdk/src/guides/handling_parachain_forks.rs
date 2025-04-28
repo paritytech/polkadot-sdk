@@ -30,7 +30,7 @@
 //! building on 12s old relay chain blocks, forks will already have settled and the parachain can
 //! build fork-free.
 //!
-//! ```
+//! ```text
 //! Without offset:
 //! Relay Chain:    A --- B --- C --- D  --- E
 //!                              \
