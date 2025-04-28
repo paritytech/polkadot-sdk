@@ -3,7 +3,7 @@
 Implementation of a <https://polkadot.com> node in Rust based on the Substrate framework.
 
 The README provides information about installing the `polkadot` binary and developing on the codebase. For more specific
-guides, like how to run a validator node, see the [Polkadot Wiki](https://wiki.polkadot.network/docs/getting-started).
+guides, like how to run a validator node, see the [Polkadot SDK docs website](https://docs.polkadot.com/).
 
 ## Installation
 
@@ -204,7 +204,7 @@ Ensure you replace `ALICE_BOOTNODE_ID_HERE` with the node ID from the output of 
 
 ### Monitoring
 
-[Setup Prometheus and Grafana](https://wiki.polkadot.network/docs/maintain-guides-how-to-monitor-your-node).
+[Setup Prometheus and Grafana](https://docs.polkadot.com/infrastructure/running-a-validator/operational-tasks/general-management/#monitor-your-node).
 
 Once you set this up you can take a look at the [Polkadot Grafana dashboards](grafana/README.md)
 that we currently maintain.
