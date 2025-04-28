@@ -25,6 +25,17 @@ use subxt_signer::{
 };
 use zombienet_sdk::{LocalFileSystem, Network, NetworkConfigBuilder};
 
+/// Verifies the effectiveness of the trie cache warming mechanism
+///
+/// Passes if the cache hit rate is above 90%, indicating that the trie cache
+/// was successfully warmed up and is effectively reducing storage access after node restart.
+///
+/// 1. Setting up a network with a collator node, immitating Asset Hub with smart contracts
+/// 2. Creating multiple accounts and a smart contract
+/// 3. Making contract calls to populate storage
+/// 4. Restarting the collator node
+/// 5. Making the same contract calls again
+/// 6. Measuring the cache hit rate after restart
 #[tokio::test(flavor = "multi_thread")]
 async fn warm_up_trie_cache_test() -> Result<(), anyhow::Error> {
 	let _ = env_logger::try_init_from_env(
