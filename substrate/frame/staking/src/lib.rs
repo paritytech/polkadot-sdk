@@ -888,15 +888,15 @@ impl<AccountId, Balance: HasCompact + Copy + AtLeast32BitUnsigned + codec::MaxEn
 #[derive(Encode, Decode, RuntimeDebug, TypeInfo, PartialEq, Eq, Clone)]
 pub struct UnappliedSlash<AccountId, Balance: HasCompact> {
 	/// The stash ID of the offending validator.
-	validator: AccountId,
+	pub validator: AccountId,
 	/// The validator's own slash.
-	own: Balance,
+	pub own: Balance,
 	/// All other slashed stakers and amounts.
-	others: Vec<(AccountId, Balance)>,
+	pub others: Vec<(AccountId, Balance)>,
 	/// Reporters of the offence; bounty payout recipients.
-	reporters: Vec<AccountId>,
+	pub reporters: Vec<AccountId>,
 	/// The amount of payout.
-	payout: Balance,
+	pub payout: Balance,
 }
 
 impl<AccountId, Balance: HasCompact + Zero> UnappliedSlash<AccountId, Balance> {

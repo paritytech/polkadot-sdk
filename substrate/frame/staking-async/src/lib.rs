@@ -306,15 +306,15 @@ impl<AccountId, Balance: HasCompact + Copy + AtLeast32BitUnsigned + codec::MaxEn
 #[scale_info(skip_type_params(T))]
 pub struct UnappliedSlash<T: Config> {
 	/// The stash ID of the offending validator.
-	validator: T::AccountId,
+	pub validator: T::AccountId,
 	/// The validator's own slash.
-	own: BalanceOf<T>,
+	pub own: BalanceOf<T>,
 	/// All other slashed stakers and amounts.
-	others: WeakBoundedVec<(T::AccountId, BalanceOf<T>), T::MaxExposurePageSize>,
+	pub others: WeakBoundedVec<(T::AccountId, BalanceOf<T>), T::MaxExposurePageSize>,
 	/// Reporters of the offence; bounty payout recipients.
-	reporter: Option<T::AccountId>,
+	pub reporter: Option<T::AccountId>,
 	/// The amount of payout.
-	payout: BalanceOf<T>,
+	pub payout: BalanceOf<T>,
 }
 
 /// Something that defines the maximum number of nominations per nominator based on a curve.
