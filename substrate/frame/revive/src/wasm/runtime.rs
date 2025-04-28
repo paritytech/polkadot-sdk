@@ -613,6 +613,29 @@ fn extract_hi_lo(reg: u64) -> (u32, u32) {
 	((reg >> 32) as u32, reg as u32)
 }
 
+/// Provides storage variants to support standard and Etheruem compatible semantics.
+enum StorageValue {
+	/// Indicates that the storage value should be read from a memory buffer.
+	/// - `ptr`: A pointer to the start of the data in sandbox memory.
+	/// - `len`: The length (in bytes) of the data.
+	Memory { ptr: u32, len: u32 },
+
+	/// Indicates that the storage value is provided inline as a fixed-size (256-bit) value.
+	/// This is used by set_storage_or_clear() to avoid double reads.
+	/// This variant is used to implement Ethereum SSTORE-like semantics.
+	Value(Vec<u8>),
+}
+
+/// Controls the output behavior for storage reads, both when a key is found and when it is not.
+enum StorageReadMode {
+	/// VariableOutput mode: if the key exists, the full stored value is returned
+	/// using the caller‑provided output length.
+	VariableOutput { output_len_ptr: u32 },
+	/// Ethereum commpatible(FixedOutput32) mode: always write a 32-byte value into the output
+	/// buffer. If the key is missing, write 32 bytes of zeros.
+	FixedOutput32,
+}
+
 /// Can only be used for one call.
 pub struct Runtime<'a, E: Ext, M: ?Sized> {
 	ext: &'a mut E,
@@ -872,8 +895,7 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 		flags: u32,
 		key_ptr: u32,
 		key_len: u32,
-		value_ptr: u32,
-		value_len: u32,
+		value: StorageValue,
 	) -> Result<u32, TrapReason> {
 		let transient = Self::is_transient(flags)?;
 		let costs = |new_bytes: u32, old_bytes: u32| {
@@ -883,18 +905,31 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 				RuntimeCosts::SetStorage { new_bytes, old_bytes }
 			}
 		};
+
+		let value_len = match &value {
+			StorageValue::Memory { ptr: _, len } => *len,
+			StorageValue::Value(data) => data.len() as u32,
+		};
+
 		let max_size = self.ext.max_value_size();
 		let charged = self.charge_gas(costs(value_len, self.ext.max_value_size()))?;
 		if value_len > max_size {
 			return Err(Error::<E::T>::ValueTooLarge.into());
 		}
+
 		let key = self.decode_key(memory, key_ptr, key_len)?;
-		let value = Some(memory.read(value_ptr, value_len)?);
+
+		let value = match value {
+			StorageValue::Memory { ptr, len } => Some(memory.read(ptr, len)?),
+			StorageValue::Value(data) => Some(data),
+		};
+
 		let write_outcome = if transient {
 			self.ext.set_transient_storage(&key, value, false)?
 		} else {
 			self.ext.set_storage(&key, value, false)?
 		};
+
 		self.adjust_gas(charged, costs(value_len, write_outcome.old_len()));
 		Ok(write_outcome.old_len_with_sentinel())
 	}
@@ -932,7 +967,7 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 		key_ptr: u32,
 		key_len: u32,
 		out_ptr: u32,
-		out_len_ptr: u32,
+		read_mode: StorageReadMode,
 	) -> Result<ReturnErrorCode, TrapReason> {
 		let transient = Self::is_transient(flags)?;
 		let costs = |len| {
@@ -949,20 +984,53 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 		} else {
 			self.ext.get_storage(&key)
 		};
+
 		if let Some(value) = outcome {
 			self.adjust_gas(charged, costs(value.len() as u32));
-			self.write_sandbox_output(
-				memory,
-				out_ptr,
-				out_len_ptr,
-				&value,
-				false,
-				already_charged,
-			)?;
-			Ok(ReturnErrorCode::Success)
+
+			match read_mode {
+				StorageReadMode::FixedOutput32 => {
+					let mut fixed_output = [0u8; 32];
+					let len = value.len().min(fixed_output.len());
+					fixed_output[..len].copy_from_slice(&value[..len]);
+
+					self.write_fixed_sandbox_output(
+						memory,
+						out_ptr,
+						&fixed_output,
+						false,
+						already_charged,
+					)?;
+					Ok(ReturnErrorCode::Success)
+				},
+				StorageReadMode::VariableOutput { output_len_ptr: out_len_ptr } => {
+					self.write_sandbox_output(
+						memory,
+						out_ptr,
+						out_len_ptr,
+						&value,
+						false,
+						already_charged,
+					)?;
+					Ok(ReturnErrorCode::Success)
+				},
+			}
 		} else {
 			self.adjust_gas(charged, costs(0));
-			Ok(ReturnErrorCode::KeyNotFound)
+
+			match read_mode {
+				StorageReadMode::FixedOutput32 => {
+					self.write_fixed_sandbox_output(
+						memory,
+						out_ptr,
+						&[0u8; 32],
+						false,
+						already_charged,
+					)?;
+					Ok(ReturnErrorCode::Success)
+				},
+				StorageReadMode::VariableOutput { .. } => Ok(ReturnErrorCode::KeyNotFound),
+			}
 		}
 	}
 
@@ -1229,7 +1297,33 @@ pub mod env {
 		value_ptr: u32,
 		value_len: u32,
 	) -> Result<u32, TrapReason> {
-		self.set_storage(memory, flags, key_ptr, key_len, value_ptr, value_len)
+		self.set_storage(
+			memory,
+			flags,
+			key_ptr,
+			key_len,
+			StorageValue::Memory { ptr: value_ptr, len: value_len },
+		)
+	}
+
+	/// Sets the storage at a fixed 256-bit key with a fixed 256-bit value.
+	/// See [`pallet_revive_uapi::HostFn::set_storage_or_clear`].
+	#[stable]
+	#[mutating]
+	fn set_storage_or_clear(
+		&mut self,
+		memory: &mut M,
+		flags: u32,
+		key_ptr: u32,
+		value_ptr: u32,
+	) -> Result<u32, TrapReason> {
+		let value = memory.read(value_ptr, 32)?;
+
+		if value.iter().all(|&b| b == 0) {
+			self.clear_storage(memory, flags, key_ptr, SENTINEL)
+		} else {
+			self.set_storage(memory, flags, key_ptr, SENTINEL, StorageValue::Value(value))
+		}
 	}
 
 	/// Retrieve the value under the given key from storage.
@@ -1244,7 +1338,36 @@ pub mod env {
 		out_ptr: u32,
 		out_len_ptr: u32,
 	) -> Result<ReturnErrorCode, TrapReason> {
-		self.get_storage(memory, flags, key_ptr, key_len, out_ptr, out_len_ptr)
+		self.get_storage(
+			memory,
+			flags,
+			key_ptr,
+			key_len,
+			out_ptr,
+			StorageReadMode::VariableOutput { output_len_ptr: out_len_ptr },
+		)
+	}
+
+	/// Reads the storage at a fixed 256-bit key and writes back a fixed 256-bit value.
+	/// See [`pallet_revive_uapi::HostFn::get_storage_or_zero`].
+	#[stable]
+	fn get_storage_or_zero(
+		&mut self,
+		memory: &mut M,
+		flags: u32,
+		key_ptr: u32,
+		out_ptr: u32,
+	) -> Result<(), TrapReason> {
+		let _ = self.get_storage(
+			memory,
+			flags,
+			key_ptr,
+			SENTINEL,
+			out_ptr,
+			StorageReadMode::FixedOutput32,
+		)?;
+
+		Ok(())
 	}
 
 	/// Make a call to another contract.
