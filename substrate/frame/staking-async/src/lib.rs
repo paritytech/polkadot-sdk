@@ -69,7 +69,7 @@ pub mod slashing;
 pub mod weights;
 
 extern crate alloc;
-use alloc::{collections::btree_map::BTreeMap, vec, vec::Vec};
+use alloc::{vec, vec::Vec};
 use codec::{Decode, DecodeWithMemTracking, Encode, HasCompact, MaxEncodedLen};
 use frame_election_provider_support::ElectionProvider;
 use frame_support::{
@@ -77,13 +77,14 @@ use frame_support::{
 		tokens::fungible::{Credit, Debt},
 		ConstU32, Contains, Get, LockIdentifier,
 	},
-	BoundedVec, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound, WeakBoundedVec,
+	BoundedVec, DebugNoBound, DefaultNoBound, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound,
+	WeakBoundedVec,
 };
 use ledger::LedgerIntegrityState;
 use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{AtLeast32BitUnsigned, StaticLookup},
-	Perbill, RuntimeDebug,
+	BoundedBTreeMap, Perbill, RuntimeDebug,
 };
 use sp_staking::{EraIndex, ExposurePage, PagedExposureMetadata};
 pub use sp_staking::{Exposure, IndividualExposure, StakerStatus};
@@ -155,18 +156,16 @@ pub struct ActiveEraInfo {
 /// Reward points of an era. Used to split era total payout between validators.
 ///
 /// This points will be used to reward validators and their respective nominators.
-#[derive(PartialEq, Encode, Decode, RuntimeDebug, TypeInfo)]
-pub struct EraRewardPoints<AccountId: Ord> {
+#[derive(
+	PartialEqNoBound, Encode, Decode, DebugNoBound, TypeInfo, MaxEncodedLen, DefaultNoBound,
+)]
+#[codec(mel_bound())]
+#[scale_info(skip_type_params(T))]
+pub struct EraRewardPoints<T: Config> {
 	/// Total number of points. Equals the sum of reward points for each validator.
 	pub total: RewardPoint,
 	/// The reward points earned by a given validator.
-	pub individual: BTreeMap<AccountId, RewardPoint>,
-}
-
-impl<AccountId: Ord> Default for EraRewardPoints<AccountId> {
-	fn default() -> Self {
-		EraRewardPoints { total: Default::default(), individual: BTreeMap::new() }
-	}
+	pub individual: BoundedBTreeMap<T::AccountId, RewardPoint, T::MaxValidatorSet>,
 }
 
 /// A destination account for payment.
