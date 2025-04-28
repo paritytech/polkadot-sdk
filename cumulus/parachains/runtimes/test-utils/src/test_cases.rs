@@ -24,10 +24,11 @@ use codec::Encode;
 use frame_support::{
 	assert_ok,
 	traits::{Get, OriginTrait},
+	weights::WeightToFee as WeightToFeeT,
 };
 use parachains_common::AccountId;
 use sp_runtime::{
-	traits::{Block as BlockT, StaticLookup},
+	traits::{Block as BlockT, SaturatedConversion, StaticLookup},
 	DispatchError, Either,
 };
 use xcm::prelude::XcmError;
@@ -148,7 +149,13 @@ pub fn set_storage_keys_by_governance_works<Runtime>(
 	});
 }
 
-pub fn xcm_payment_api_with_native_token_works<Runtime, RuntimeCall, RuntimeOrigin, Block>()
+pub fn xcm_payment_api_with_native_token_works<
+	Runtime,
+	RuntimeCall,
+	RuntimeOrigin,
+	Block,
+	WeightToFee,
+>()
 where
 	Runtime: XcmPaymentApiV1<Block>
 		+ frame_system::Config<RuntimeOrigin = RuntimeOrigin, AccountId = AccountId>
@@ -165,6 +172,7 @@ where
 	<<Runtime as frame_system::Config>::Lookup as StaticLookup>::Source:
 		From<<Runtime as frame_system::Config>::AccountId>,
 	Block: BlockT,
+	WeightToFee: WeightToFeeT,
 {
 	use xcm::prelude::*;
 	ExtBuilder::<Runtime>::default().build().execute_with(|| {
@@ -179,28 +187,37 @@ where
 		// We first try calling it with a lower XCM version.
 		let lower_version_xcm_to_weigh =
 			versioned_xcm_to_weigh.clone().into_version(XCM_VERSION - 1).unwrap();
-		let xcm_weight = Runtime::query_xcm_weight(lower_version_xcm_to_weigh);
-		assert!(xcm_weight.is_ok());
+		let xcm_weight = Runtime::query_xcm_weight(lower_version_xcm_to_weigh)
+			.expect("xcm weight must be computed");
+
+		let expected_weight_fee: u128 = WeightToFee::weight_to_fee(&xcm_weight).saturated_into();
+
 		let native_token: Location = Parent.into();
 		let native_token_versioned = VersionedAssetId::from(AssetId(native_token));
 		let lower_version_native_token =
 			native_token_versioned.clone().into_version(XCM_VERSION - 1).unwrap();
 		let execution_fees =
-			Runtime::query_weight_to_asset_fee(xcm_weight.unwrap(), lower_version_native_token);
-		assert!(execution_fees.is_ok());
+			Runtime::query_weight_to_asset_fee(xcm_weight, lower_version_native_token)
+				.expect("weight must be converted to native fee");
+
+		assert_eq!(execution_fees, expected_weight_fee);
 
 		// Now we call it with the latest version.
-		let xcm_weight = Runtime::query_xcm_weight(versioned_xcm_to_weigh);
-		assert!(xcm_weight.is_ok());
-		let execution_fees =
-			Runtime::query_weight_to_asset_fee(xcm_weight.unwrap(), native_token_versioned);
-		assert!(execution_fees.is_ok());
+		let xcm_weight =
+			Runtime::query_xcm_weight(versioned_xcm_to_weigh).expect("xcm weight must be computed");
+
+		let expected_weight_fee: u128 = WeightToFee::weight_to_fee(&xcm_weight).saturated_into();
+
+		let execution_fees = Runtime::query_weight_to_asset_fee(xcm_weight, native_token_versioned)
+			.expect("weight must be converted to native fee");
+
+		assert_eq!(execution_fees, expected_weight_fee);
 
 		// If we call it with anything other than the native token it will error.
 		let non_existent_token: Location = Here.into();
 		let non_existent_token_versioned = VersionedAssetId::from(AssetId(non_existent_token));
 		let execution_fees =
-			Runtime::query_weight_to_asset_fee(xcm_weight.unwrap(), non_existent_token_versioned);
+			Runtime::query_weight_to_asset_fee(xcm_weight, non_existent_token_versioned);
 		assert_eq!(execution_fees, Err(XcmPaymentApiError::AssetNotFound));
 	});
 }

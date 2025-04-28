@@ -35,7 +35,7 @@ use parachains_runtimes_test_utils::{
 };
 use sp_runtime::{
 	traits::{Block as BlockT, MaybeEquivalence, StaticLookup, Zero},
-	DispatchError, Saturating,
+	DispatchError, SaturatedConversion, Saturating,
 };
 use xcm::{latest::prelude::*, VersionedAssets};
 use xcm_executor::{traits::ConvertLocation, XcmExecutor};
@@ -1598,7 +1598,7 @@ pub fn reserve_transfer_native_asset_to_non_teleport_para_works<
 		})
 }
 
-pub fn xcm_payment_api_with_pools_works<Runtime, RuntimeCall, RuntimeOrigin, Block>()
+pub fn xcm_payment_api_with_pools_works<Runtime, RuntimeCall, RuntimeOrigin, Block, WeightToFee>()
 where
 	Runtime: XcmPaymentApiV1<Block>
 		+ frame_system::Config<RuntimeOrigin = RuntimeOrigin, AccountId = AccountId>
@@ -1623,6 +1623,7 @@ where
 	<<Runtime as frame_system::Config>::Lookup as StaticLookup>::Source:
 		From<<Runtime as frame_system::Config>::AccountId>,
 	Block: BlockT,
+	WeightToFee: frame_support::weights::WeightToFee,
 {
 	use xcm::prelude::*;
 
@@ -1636,13 +1637,18 @@ where
 			.build();
 		let versioned_xcm_to_weigh = VersionedXcm::from(xcm_to_weigh.clone().into());
 
-		let xcm_weight = Runtime::query_xcm_weight(versioned_xcm_to_weigh);
-		assert!(xcm_weight.is_ok());
+		let xcm_weight =
+			Runtime::query_xcm_weight(versioned_xcm_to_weigh).expect("xcm weight must be computed");
+
+		let expected_weight_native_fee: u128 =
+			WeightToFee::weight_to_fee(&xcm_weight).saturated_into();
+
 		let native_token: Location = Parent.into();
 		let native_token_versioned = VersionedAssetId::from(AssetId(native_token.clone()));
-		let execution_fees =
-			Runtime::query_weight_to_asset_fee(xcm_weight.unwrap(), native_token_versioned);
-		assert!(execution_fees.is_ok());
+		let execution_fees = Runtime::query_weight_to_asset_fee(xcm_weight, native_token_versioned)
+			.expect("weight must be converted to native fee");
+
+		assert_eq!(execution_fees, expected_weight_native_fee);
 
 		// We need some balance to create an asset.
 		assert_ok!(
@@ -1651,30 +1657,25 @@ where
 
 		// Now we try to use an asset that's not in a pool.
 		let asset_id = 1984u32; // USDT.
-		let asset_not_in_pool: Location =
-			(PalletInstance(50), GeneralIndex(asset_id.into())).into();
+		let usdt_token: Location = (PalletInstance(50), GeneralIndex(asset_id.into())).into();
 		assert_ok!(pallet_assets::Pallet::<Runtime, pallet_assets::Instance1>::create(
 			RuntimeOrigin::signed(test_account.clone()),
 			asset_id.into(),
 			test_account.clone().into(),
 			1000
 		));
-		let execution_fees = Runtime::query_weight_to_asset_fee(
-			xcm_weight.unwrap(),
-			asset_not_in_pool.clone().into(),
-		);
+		let execution_fees =
+			Runtime::query_weight_to_asset_fee(xcm_weight, usdt_token.clone().into());
 		assert_eq!(execution_fees, Err(XcmPaymentApiError::AssetNotFound));
 
 		// We add it to a pool with native.
 		assert_ok!(pallet_asset_conversion::Pallet::<Runtime>::create_pool(
 			RuntimeOrigin::signed(test_account.clone()),
 			native_token.clone().try_into().unwrap(),
-			asset_not_in_pool.clone().try_into().unwrap()
+			usdt_token.clone().try_into().unwrap()
 		));
-		let execution_fees = Runtime::query_weight_to_asset_fee(
-			xcm_weight.unwrap(),
-			asset_not_in_pool.clone().into(),
-		);
+		let execution_fees =
+			Runtime::query_weight_to_asset_fee(xcm_weight, usdt_token.clone().into());
 		// Still not enough because it doesn't have any liquidity.
 		assert_eq!(execution_fees, Err(XcmPaymentApiError::AssetNotFound));
 
@@ -1688,17 +1689,30 @@ where
 		// ...so we can add liquidity to the pool.
 		assert_ok!(pallet_asset_conversion::Pallet::<Runtime>::add_liquidity(
 			RuntimeOrigin::signed(test_account.clone()),
-			native_token.try_into().unwrap(),
-			asset_not_in_pool.clone().try_into().unwrap(),
+			native_token.clone().try_into().unwrap(),
+			usdt_token.clone().try_into().unwrap(),
 			1_000_000_000_000,
 			2_000_000_000_000,
 			0,
 			0,
 			test_account
 		));
-		let execution_fees =
-			Runtime::query_weight_to_asset_fee(xcm_weight.unwrap(), asset_not_in_pool.into());
-		// Now it works!
-		assert_ok!(execution_fees);
+
+		let expected_weight_usdt_fee: u128 =
+			pallet_asset_conversion::Pallet::<Runtime>::quote_price_tokens_for_exact_tokens(
+				usdt_token.clone(),
+				native_token,
+				expected_weight_native_fee,
+				true,
+			)
+			.expect("weight must be converted to USDT fee")
+			.saturated_into();
+
+		assert_ne!(expected_weight_usdt_fee, expected_weight_native_fee);
+
+		let execution_fees = Runtime::query_weight_to_asset_fee(xcm_weight, usdt_token.into())
+			.expect("weight must be converted to native fee");
+
+		assert_eq!(execution_fees, expected_weight_usdt_fee);
 	});
 }
