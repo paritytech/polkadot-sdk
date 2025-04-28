@@ -539,11 +539,7 @@ fn pool_slash_proportional() {
 	new_test_ext().execute_with(|| {
 		ExistentialDeposit::set(2);
 		BondingDuration::set(28);
-<<<<<<< HEAD
-		assert_eq!(Balances::minimum_balance(), 1);
-=======
 		assert_eq!(Balances::minimum_balance(), 2);
->>>>>>> bf20a9ee ([Fix|NominationPools] Only allow apply slash to be executed if the slash amount is atleast ED (#6540))
 		assert_eq!(Staking::current_era(), None);
 
 		// create the pool, we know this has id 1.
