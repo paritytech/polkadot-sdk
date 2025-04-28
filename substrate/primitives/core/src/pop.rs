@@ -42,7 +42,7 @@ where
 	fn generate_proof_of_possession(&mut self) -> Self::Signature;
 }
 
-/// Pair which is able to generate proof of possession.
+/// Pair which is able to verify proof of possession.
 ///
 /// While you don't need a keypair to verify a proof of possession (you only need a public key)
 /// we constrain on Pair to use the Public and Signature types associated to Pair.
