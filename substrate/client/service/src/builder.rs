@@ -515,6 +515,14 @@ where
 	let rpc_id_provider = config.rpc.id_provider.take();
 
 	// jsonrpsee RPC
+	// RPC-V2 specific metrics need to be registered before the RPC server is started,
+	// since we might have two instances running (one for the in-memory RPC and one for the network
+	// RPC).
+	let rpc_v2_metrics = if let Some(registry) = config.prometheus_registry() {
+		Some(sc_rpc_spec_v2::transaction::TransactionMetrics::new(registry)?)
+	} else {
+		None
+	};
 	let gen_rpc_module = || {
 		gen_rpc_module(
 			task_manager.spawn_handle(),
@@ -529,7 +537,7 @@ where
 			config.blocks_pruning,
 			backend.clone(),
 			&*rpc_builder,
-			config.prometheus_registry(),
+			rpc_v2_metrics.clone(),
 		)
 	};
 
@@ -677,7 +685,7 @@ pub fn gen_rpc_module<TBl, TBackend, TCl, TRpc, TExPool>(
 	blocks_pruning: BlocksPruning,
 	backend: Arc<TBackend>,
 	rpc_builder: &(dyn Fn(SubscriptionTaskExecutor) -> Result<RpcModule<TRpc>, Error>),
-	registry: Option<&Registry>,
+	metrics: Option<sc_rpc_spec_v2::transaction::TransactionMetrics>,
 ) -> Result<RpcModule<()>, Error>
 where
 	TBl: BlockT,
@@ -733,8 +741,8 @@ where
 		client.clone(),
 		transaction_pool.clone(),
 		task_executor.clone(),
-		registry,
-	)?
+		metrics,
+	)
 	.into_rpc();
 
 	let chain_head_v2 = sc_rpc_spec_v2::chain_head::ChainHead::new(

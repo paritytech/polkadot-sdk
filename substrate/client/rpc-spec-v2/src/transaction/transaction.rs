@@ -33,8 +33,6 @@ use jsonrpsee::{core::async_trait, PendingSubscriptionSink};
 
 use super::metrics::{InstanceMetrics, Metrics};
 
-use prometheus_endpoint::{PrometheusError, Registry};
-
 use sc_rpc::utils::{RingBuffer, Subscription};
 use sc_transaction_pool_api::{
 	error::IntoPoolError, BlockHash, TransactionFor, TransactionPool, TransactionSource,
@@ -65,12 +63,9 @@ impl<Pool, Client> Transaction<Pool, Client> {
 		client: Arc<Client>,
 		pool: Arc<Pool>,
 		executor: SubscriptionTaskExecutor,
-		registry: Option<&Registry>,
-	) -> Result<Self, PrometheusError> {
-		let metrics =
-			if let Some(registry) = registry { Some(Metrics::new(registry)?) } else { None };
-
-		Ok(Transaction { client, pool, executor, metrics })
+		metrics: Option<Metrics>,
+	) -> Self {
+		Transaction { client, pool, executor, metrics }
 	}
 }
 
