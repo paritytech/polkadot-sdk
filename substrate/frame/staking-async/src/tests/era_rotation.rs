@@ -199,7 +199,6 @@ fn max_era_duration_safety_guard() {
 
 #[test]
 fn era_cleanup_history_depth_works() {
-	// TODO: try-state for it
 	ExtBuilder::default().build_and_execute(|| {
 		// when we go forward to `HistoryDepth - 1`
 		assert_eq!(active_era(), 1);
@@ -239,6 +238,19 @@ fn era_cleanup_history_depth_works() {
 		// ..
 		assert_ok!(Eras::<T>::era_present(HistoryDepth::get() + 2));
 	});
+}
+
+#[test]
+fn progress_many_eras_with_try_state() {
+	// a bit slow, but worthwhile
+	ExtBuilder::default().build_and_execute(|| {
+		Session::roll_until_active_era_with(
+			HistoryDepth::get().max(BondingDuration::get()) + 2,
+			|| {
+				Staking::do_try_state(System::block_number()).unwrap();
+			},
+		);
+	})
 }
 
 mod inflation {

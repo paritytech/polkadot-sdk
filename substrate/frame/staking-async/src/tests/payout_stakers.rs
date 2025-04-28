@@ -18,7 +18,7 @@
 use super::*;
 use crate::session_rotation::Eras;
 use frame_support::dispatch::{extract_actual_weight, GetDispatchInfo, WithPostDispatchInfo};
-use sp_runtime::traits::Dispatchable;
+use sp_runtime::{bounded_btree_map, traits::Dispatchable};
 
 #[test]
 fn rewards_with_nominator_should_work() {
@@ -48,10 +48,7 @@ fn rewards_with_nominator_should_work() {
 		assert_eq!(asset::total_balance::<T>(&101), init_balance_101);
 		assert_eq!(
 			ErasRewardPoints::<T>::get(active_era()),
-			EraRewardPoints {
-				total: 50 * 3,
-				individual: vec![(11, 100), (21, 50)].into_iter().collect(),
-			}
+			EraRewardPoints { total: 50 * 3, individual: bounded_btree_map![11 => 100, 21 => 50] }
 		);
 		let part_for_11 = Perbill::from_rational::<u32>(1000, 1250);
 		let part_for_21 = Perbill::from_rational::<u32>(1000, 1250);
@@ -1641,11 +1638,9 @@ fn test_runtime_api_pending_rewards() {
 		}
 
 		// Add reward points
-		let reward = EraRewardPoints::<AccountId> {
+		let reward = EraRewardPoints::<T> {
 			total: 1,
-			individual: vec![(validator_one, 1), (validator_two, 1), (validator_three, 1)]
-				.into_iter()
-				.collect(),
+			individual: bounded_btree_map![validator_one => 1, validator_two => 1, validator_three => 1],
 		};
 		ErasRewardPoints::<T>::insert(0, reward);
 
