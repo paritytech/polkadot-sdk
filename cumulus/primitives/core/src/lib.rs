@@ -112,6 +112,18 @@ impl From<AggregateMessageOrigin> for Location {
 	}
 }
 
+impl TryFrom<&Location> for AggregateMessageOrigin {
+	type Error = ();
+	fn try_from(location: &Location) -> Result<Self, Self::Error> {
+		match location.unpack() {
+			(0, []) => Ok(Self::Here),
+			(1, []) => Ok(Self::Parent),
+			(1, [Parachain(para_id)]) => Ok(Self::Sibling((*para_id).into())),
+			_ => Err(()),
+		}
+	}
+}
+
 #[cfg(feature = "runtime-benchmarks")]
 impl From<u32> for AggregateMessageOrigin {
 	fn from(x: u32) -> Self {
