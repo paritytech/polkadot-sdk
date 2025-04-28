@@ -54,7 +54,7 @@ jobs:
 
       - name: Generate content write token for the release automation
         id: generate_write_token
-        uses: actions/create-github-app-token@v1
+        uses: actions/create-github-app-token@v2
         with:
             app-id: ${{ vars.RELEASE_AUTOMATION_APP_ID }}
             private-key: ${{ secrets.RELEASE_AUTOMATION_APP_PRIVATE_KEY }}
