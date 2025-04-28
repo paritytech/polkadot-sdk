@@ -2976,7 +2976,7 @@ impl<T: Config> Pallet<T> {
 	) -> Result<u128, XcmPaymentApiError> {
 		let asset: AssetId = asset.clone().try_into()
 			.map_err(|e| {
-				tracing::error!(target: "xcm::pallet::query_weight_to_asset_fee", ?e, ?asset, "Failed to convert versioned asset");
+				tracing::debug!(target: "xcm::pallet::query_weight_to_asset_fee", ?e, ?asset, "Failed to convert versioned asset");
 				XcmPaymentApiError::VersionedConversionFailed
 			})?;
 
