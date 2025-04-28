@@ -275,11 +275,6 @@ impl CollationTracker {
 			.filter_map(|head| self.entries.remove(head))
 			.map(|mut entry| {
 				entry.expired_at = Some(block_number);
-
-				// Don't record backing time if collation expired.
-				if let Some(backed_latency_metric) = entry.backed_latency_metric.take() {
-					backed_latency_metric.stop_and_discard();
-				}
 				entry
 			})
 			.collect::<Vec<_>>()
@@ -367,14 +362,14 @@ impl CollationStats {
 	// Returns the age of the collation at the moment of backing.
 	pub fn backed(&self) -> Option<BlockNumber> {
 		let backed_at = self.backed_at?;
-		Some(backed_at - self.relay_parent_number)
+		Some(backed_at.saturating_sub(self.relay_parent_number))
 	}
 
 	// Returns the age of the collation at the moment of inclusion.
 	pub fn included(&self) -> Option<BlockNumber> {
 		let included_at = self.included_at?;
 		let backed_at = self.backed_at?;
-		Some(included_at - backed_at)
+		Some(included_at.saturating_sub(backed_at))
 	}
 
 	// Returns time the collation waited to be fetched.
@@ -392,6 +387,10 @@ impl Drop for CollationStats {
 			// If `fetch_latency_metric` is Some it means that the metrics was observed.
 			// We don't want to observe it again and report a higher value at a later point in time.
 			fetch_latency_metric.stop_and_discard();
+		}
+		// If timer still exists, drop it. It is measured in `collation_backed`.
+		if let Some(backed_latency_metric) = self.backed_latency_metric.take() {
+			backed_latency_metric.stop_and_discard();
 		}
 	}
 }
