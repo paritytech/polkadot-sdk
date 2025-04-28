@@ -302,7 +302,7 @@ impl<AccountId, Balance: HasCompact + Copy + AtLeast32BitUnsigned + codec::MaxEn
 
 /// A pending slash record. The value of the slash has been computed but not applied yet,
 /// rather deferred for several eras.
-#[derive(Encode, Decode, RuntimeDebugNoBound, TypeInfo, MaxEncodedLen, PartialEqNoBound, CloneNoBound)]
+#[derive(Encode, Decode, RuntimeDebugNoBound, TypeInfo, MaxEncodedLen, PartialEqNoBound, CloneNoBound, DecodeWithMemTracking)]
 #[scale_info(skip_type_params(T))]
 pub struct UnappliedSlash<T: Config> {
 	/// The stash ID of the offending validator.
