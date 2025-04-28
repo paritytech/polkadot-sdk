@@ -249,17 +249,6 @@ impl<NodeSpec: NodeSpecT> ManualSealNode<NodeSpec> {
 			None,
 			authorship_future,
 		);
-
-		// TODO TODO: Not sure if needed here
-		let statement_store = sc_statement_store::Store::new_shared(
-			&config.data_path,
-			Default::default(),
-			client.clone(),
-			keystore_container.local_keystore(),
-			config.prometheus_registry(),
-			&task_manager.spawn_handle(),
-		).map_err(|e| sc_service::Error::Application(Box::new(e) as Box<_>))?;
-
 		let rpc_extensions_builder = {
 			let client = client.clone();
 			let transaction_pool = transaction_pool.clone();
@@ -270,7 +259,7 @@ impl<NodeSpec: NodeSpecT> ManualSealNode<NodeSpec> {
 					client.clone(),
 					backend_for_rpc.clone(),
 					transaction_pool.clone(),
-					Some(statement_store.clone()),
+					None,
 				)?;
 				module
 					.merge(ManualSeal::new(manual_seal_sink.clone()).into_rpc())

@@ -166,6 +166,14 @@ pub struct Cli<Config: CliConfig> {
 	#[arg(long)]
 	pub dev_block_time: Option<u64>,
 
+	/// Enable the statement store.
+	///
+	/// The statement store is an off-chain data-store for signed statements accessible via RPC
+	/// and OCW.
+	/// It uses the runtime api to get the allowance associated to an account.
+	#[arg(long)]
+	pub enable_statement_store: bool,
+
 	/// DEPRECATED: This feature has been stabilized, pLease use `--authoring slot-based` instead.
 	///
 	/// Use slot-based collator which can handle elastic scaling.
@@ -231,6 +239,7 @@ impl<Config: CliConfig> Cli<Config> {
 				.then(|| AuthoringPolicy::SlotBased)
 				.unwrap_or(self.authoring),
 			export_pov: self.export_pov_to_path.clone(),
+			enable_statement_store: self.enable_statement_store,
 		}
 	}
 }

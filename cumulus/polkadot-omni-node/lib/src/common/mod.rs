@@ -114,4 +114,7 @@ pub struct NodeExtraArgs {
 
 	/// If set, each `PoV` build by the node will be exported to this folder.
 	pub export_pov: Option<PathBuf>,
+
+	/// Enable the statement store.
+	pub enable_statement_store: bool,
 }

@@ -23,13 +23,14 @@ use crate::common::{
 	ConstructNodeRuntimeApi,
 };
 use pallet_transaction_payment_rpc::{TransactionPayment, TransactionPaymentApiServer};
-use sc_rpc::dev::{Dev, DevApiServer};
+use sc_rpc::{
+	dev::{Dev, DevApiServer},
+	statement::{StatementApiServer, StatementStore},
+};
 use sp_runtime::traits::Block as BlockT;
 use std::{marker::PhantomData, sync::Arc};
 use substrate_frame_rpc_system::{System, SystemApiServer};
 use substrate_state_trie_migration_rpc::{StateMigration, StateMigrationApiServer};
-use sc_rpc::statement::StatementStore;
-use sc_rpc::statement::StatementApiServer;
 
 /// A type representing all RPC extensions.
 pub type RpcExtension = jsonrpsee::RpcModule<()>;
