@@ -1679,13 +1679,13 @@ fn execute_initiate_transfer_and_check_sent_event() {
 			);
 			assert_ok!(result);
 
-			let expected_hash = get_sent_xcm_topic_id();
+			let sent_msg_id = get_sent_xcm_topic_id();
 			let sent_message: Xcm<()> = Xcm(vec![
 				WithdrawAsset(Assets::new()),
 				ClearOrigin,
 				BuyExecution { fees: fee_asset.clone(), weight_limit: Unlimited },
 				DepositAsset { assets: All.into(), beneficiary: beneficiary.clone() },
-				SetTopic(expected_hash.into()),
+				SetTopic(sent_msg_id.into()),
 			]);
 			assert!(log_capture
 				.contains(format!("xcm::send: Sending msg msg={:?}", sent_message).as_str()));
@@ -1698,7 +1698,7 @@ fn execute_initiate_transfer_and_check_sent_event() {
 						origin,
 						destination: Parent.into(),
 						message: Xcm::default(),
-						message_id: expected_hash,
+						message_id: sent_msg_id,
 					}),
 					RuntimeEvent::XcmPallet(Event::Attempted {
 						outcome: Outcome::Complete { used: Weight::from_parts(1_000, 1_000) }
