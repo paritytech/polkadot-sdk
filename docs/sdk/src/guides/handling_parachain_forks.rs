@@ -61,12 +61,12 @@
 //! **Note:** The APIs mentioned here are available in `polkadot-sdk` versions after `stable-2506`.
 //!
 //! 1. Define the relay parent offset your parachain should respect in the runtime.
-//! ```rust
+//! ```ignore
 //! const RELAY_PARENT_OFFSET = 2;
 //! ```
 //! 2. Pass this constant to the `parachain-system` pallet.
 //!
-//! ```
+//! ```ignore
 //! impl cumulus_pallet_parachain_system::Config for Runtime {
 //! 	// Other config items here
 //!     ...
@@ -76,7 +76,7 @@
 //! ```
 //! 3. Implement the `RelayParentOffsetApi` runtime API for your runtime.
 //!
-//! ```
+//! ```ignore
 //! impl cumulus_primitives_core::RelayParentOffsetApi<Block> for Runtime {
 //!     fn slot_offset() -> u32 {
 //! 		RELAY_PARENT_OFFSET
