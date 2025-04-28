@@ -136,21 +136,23 @@ where
 	CliConfig: crate::cli::CliConfig,
 	Extra: ExtraSubcommand,
 {
-	let cli_command = Cli::<CliConfig>::augment_args(<Extra as CommandFactory>::command())
-		.subcommand_required(true)
-		.arg_required_else_help(false);
+	let cli_command = Cli::<CliConfig>::augment_args(<Extra as CommandFactory>::command());
 	let matches = cli_command.get_matches();
 
-	// if user invoked the extra sub‑command, run it and exit
-	if let Ok(extra) = Extra::from_arg_matches(&matches) {
-		extra.handle(&cmd_config)?;
-		return Ok(());
+	// First, check if a subcommand was provided
+	if let Some((_subcommand, _sub_matches)) = matches.subcommand() {
+		// Try parsing it as an ExtraSubcommand
+		if let Ok(extra) = Extra::from_arg_matches(&matches) {
+			extra.handle(&cmd_config)?;
+			return Ok(());
+		}
 	}
 
-	// If no extra subcommand matched, fall back to handling base subcommands
-	let mut cli =
-		Cli::<CliConfig>::from_arg_matches(&matches).map_err(|e| sc_cli::Error::Cli(e.into()))?;
+	// No extra subcommand matched -> treat it as normal node CLI arguments
+	let mut cli = Cli::<CliConfig>::from_arg_matches(&matches)
+		.map_err(|e| sc_cli::Error::Cli(e.into()))?;
 	cli.chain_spec_loader = Some(cmd_config.chain_spec_loader);
+
 
 	#[allow(deprecated)]
 	match &cli.subcommand {
