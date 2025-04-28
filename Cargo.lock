@@ -28292,7 +28292,7 @@ dependencies = [
 [[package]]
 name = "zombienet-configuration"
 version = "0.2.31"
-source = "git+https://github.com/lrubasze/zombienet-sdk.git?rev=79b08c32be7167b957d025eeaca600b3c9a38548#79b08c32be7167b957d025eeaca600b3c9a38548"
+source = "git+https://github.com/lrubasze/zombienet-sdk.git?rev=4cd3f5b6067740c22f648765f9f1e8bdf1ab376a#4cd3f5b6067740c22f648765f9f1e8bdf1ab376a"
 dependencies = [
  "anyhow",
  "lazy_static",
@@ -28312,7 +28312,7 @@ dependencies = [
 [[package]]
 name = "zombienet-orchestrator"
 version = "0.2.31"
-source = "git+https://github.com/lrubasze/zombienet-sdk.git?rev=79b08c32be7167b957d025eeaca600b3c9a38548#79b08c32be7167b957d025eeaca600b3c9a38548"
+source = "git+https://github.com/lrubasze/zombienet-sdk.git?rev=4cd3f5b6067740c22f648765f9f1e8bdf1ab376a#4cd3f5b6067740c22f648765f9f1e8bdf1ab376a"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -28344,7 +28344,7 @@ dependencies = [
 [[package]]
 name = "zombienet-prom-metrics-parser"
 version = "0.2.31"
-source = "git+https://github.com/lrubasze/zombienet-sdk.git?rev=79b08c32be7167b957d025eeaca600b3c9a38548#79b08c32be7167b957d025eeaca600b3c9a38548"
+source = "git+https://github.com/lrubasze/zombienet-sdk.git?rev=4cd3f5b6067740c22f648765f9f1e8bdf1ab376a#4cd3f5b6067740c22f648765f9f1e8bdf1ab376a"
 dependencies = [
  "pest",
  "pest_derive",
@@ -28354,7 +28354,7 @@ dependencies = [
 [[package]]
 name = "zombienet-provider"
 version = "0.2.31"
-source = "git+https://github.com/lrubasze/zombienet-sdk.git?rev=79b08c32be7167b957d025eeaca600b3c9a38548#79b08c32be7167b957d025eeaca600b3c9a38548"
+source = "git+https://github.com/lrubasze/zombienet-sdk.git?rev=4cd3f5b6067740c22f648765f9f1e8bdf1ab376a#4cd3f5b6067740c22f648765f9f1e8bdf1ab376a"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -28384,7 +28384,7 @@ dependencies = [
 [[package]]
 name = "zombienet-sdk"
 version = "0.2.31"
-source = "git+https://github.com/lrubasze/zombienet-sdk.git?rev=79b08c32be7167b957d025eeaca600b3c9a38548#79b08c32be7167b957d025eeaca600b3c9a38548"
+source = "git+https://github.com/lrubasze/zombienet-sdk.git?rev=4cd3f5b6067740c22f648765f9f1e8bdf1ab376a#4cd3f5b6067740c22f648765f9f1e8bdf1ab376a"
 dependencies = [
  "async-trait",
  "futures",
@@ -28401,7 +28401,7 @@ dependencies = [
 [[package]]
 name = "zombienet-support"
 version = "0.2.31"
-source = "git+https://github.com/lrubasze/zombienet-sdk.git?rev=79b08c32be7167b957d025eeaca600b3c9a38548#79b08c32be7167b957d025eeaca600b3c9a38548"
+source = "git+https://github.com/lrubasze/zombienet-sdk.git?rev=4cd3f5b6067740c22f648765f9f1e8bdf1ab376a#4cd3f5b6067740c22f648765f9f1e8bdf1ab376a"
 dependencies = [
  "anyhow",
  "async-trait",

@@ -1446,7 +1446,7 @@ yet-another-parachain-runtime = { path = "cumulus/parachains/runtimes/testing/ye
 zeroize = { version = "1.7.0", default-features = false }
 # zombienet-sdk = { version = "0.2.31" }
 # zombienet-sdk = { path = "../zombienet-sdk/crates/sdk" }
-zombienet-sdk = { git = "https://github.com/lrubasze/zombienet-sdk.git", rev = "79b08c32be7167b957d025eeaca600b3c9a38548" }
+zombienet-sdk = { git = "https://github.com/lrubasze/zombienet-sdk.git", rev = "4cd3f5b6067740c22f648765f9f1e8bdf1ab376a" }
 zstd = { version = "0.12.4", default-features = false }
 
 [profile.release]
