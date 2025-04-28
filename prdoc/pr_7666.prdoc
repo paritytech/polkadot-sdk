@@ -1,0 +1,5 @@
+title: Migrate 0009-approval-voting-coalescing.zndsl to zombienet-sdk
+doc:
+- audience: Node Dev
+  description: 'Fixes: https://github.com/paritytech/polkadot-sdk/issues/7651'
+crates: []
