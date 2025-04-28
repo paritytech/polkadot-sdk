@@ -17,8 +17,9 @@
 //! Various implementations for `SendXcm`.
 
 use alloc::vec::Vec;
-use codec::Encode;
+use codec::{Encode, MaxEncodedLen};
 use core::{marker::PhantomData, result::Result};
+use frame_support::{sp_runtime::traits::MaybeConvert, traits::EnqueueMessage, BoundedVec};
 use frame_system::unique;
 use xcm::prelude::*;
 use xcm_executor::{traits::FeeReason, FeesMode};
@@ -229,5 +230,55 @@ impl<Inner: SendXcm> SendXcm for EnsureDecodableXcm<Inner> {
 	#[cfg(feature = "runtime-benchmarks")]
 	fn ensure_successful_delivery(location: Option<Location>) {
 		Inner::ensure_successful_delivery(location);
+	}
+}
+
+/// An adapter implementation of `SendXcm` for message queues that handles sending XCM messages.
+///
+/// Validates a message before sending by:
+/// 1. Converting the destination to an origin
+/// 2. Encoding the XCM message within size limits
+///
+/// Delivers by enqueuing the message in the queue.
+///
+/// Generic parameters:
+/// - `Queue`: The message queue implementation that can enqueue messages
+/// - `Origin`: The origin type used for message sources/destinations
+/// - `Conversion`: Type that can convert between Location and Origin
+pub struct MessageQueueRouterFor<Queue, Origin, Conversion>(
+	PhantomData<(Queue, Origin, Conversion)>,
+);
+impl<
+		Queue: EnqueueMessage<Origin>,
+		Origin: MaxEncodedLen,
+		Conversion: for<'a> MaybeConvert<&'a Location, Origin>,
+	> SendXcm for MessageQueueRouterFor<Queue, Origin, Conversion>
+{
+	/// The ticket type containing the encoded ('VersionedXcm') message and origin.
+	type Ticket = (BoundedVec<u8, Queue::MaxMessageLen>, Origin);
+
+	fn validate(
+		dest: &mut Option<Location>,
+		msg: &mut Option<Xcm<()>>,
+	) -> SendResult<Self::Ticket> {
+		// Convert dest to origin.
+		let origin = match dest.as_ref().and_then(Conversion::maybe_convert) {
+			Some(origin) => origin,
+			_ => return Err(SendError::NotApplicable),
+		};
+
+		// We can consume a message now.
+		let xcm = VersionedXcm::from(msg.take().ok_or(SendError::MissingArgument)?);
+		// We need to respect `Queue::MaxMessageLen`.
+		let bounded =
+			BoundedVec::try_from(xcm.encode()).map_err(|_| SendError::ExceedsMaxMessageSize)?;
+
+		Ok(((bounded, origin), Assets::new()))
+	}
+
+	fn deliver((msg, origin): Self::Ticket) -> Result<XcmHash, SendError> {
+		let unique_id = unique((&msg, &origin));
+		Queue::enqueue_message(msg.as_bounded_slice(), origin);
+		Ok(unique_id)
 	}
 }
