@@ -42,7 +42,7 @@ mod upgrade;
 mod utils;
 
 use linked_hash_map::LinkedHashMap;
-use log::{debug, trace, warn};
+use log::{debug, info, trace, warn};
 use parking_lot::{Mutex, RwLock};
 use std::{
 	collections::{HashMap, HashSet},
@@ -1248,6 +1248,7 @@ impl<Block: BlockT> Backend<Block> {
 				));
 			}
 
+			info!("Initializing shared trie cache with size {} bytes, {}% of total memory", maximum_size, (maximum_size as f64 / total_memory as f64 * 100.0));
 			Ok(SharedTrieCache::new(sp_trie::cache::CacheSize::new(maximum_size)))
 		}).transpose()?;
 
