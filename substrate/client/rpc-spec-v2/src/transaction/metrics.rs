@@ -20,9 +20,7 @@
 
 use std::{collections::HashSet, time::Instant};
 
-use prometheus_endpoint::{
-	register, CounterVec, HistogramOpts, HistogramVec, Opts, PrometheusError, Registry, U64,
-};
+use prometheus_endpoint::{register, HistogramOpts, HistogramVec, PrometheusError, Registry};
 
 use super::TransactionEvent;
 
