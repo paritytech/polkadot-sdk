@@ -104,7 +104,7 @@ pub trait RuntimePublic: Sized {
 	///
 	/// The private key will be requested from the keystore using the given key type.
 	///
-	/// Returns the proof of possession as a signature type or `None` if there is an error.
+	/// Returns the proof of possession as a signature or `None` if it failed or is not able to do so.
 	fn generate_pop(&mut self, key_type: KeyTypeId) -> Option<Self::Signature>;
 
 	/// Verify that the given pop is valid for the corresponding public key.
