@@ -84,7 +84,7 @@ pub struct Metrics {
 }
 
 impl Metrics {
-	/// Creates a new [`TransactionMetrics`] instance.
+	/// Creates a new [`Metrics`] instance.
 	pub fn new(registry: &Registry) -> Result<Self, PrometheusError> {
 		let execution_time = register(
 			HistogramVec::new(
