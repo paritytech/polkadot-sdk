@@ -11,7 +11,7 @@ doc:
 
 crates:
 - name: pallet-xcm
-  bump: minor
+  bump: patch
 - name: asset-hub-rococo-runtime
   bump: minor
 - name: asset-hub-westend-runtime
