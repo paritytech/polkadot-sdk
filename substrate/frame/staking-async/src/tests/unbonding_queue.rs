@@ -94,18 +94,25 @@ fn get_min_lowest_stake_with_many_validators_works() {
 		.validator_count(9)
 		.multi_page_election_provider(3)
 		// We already have the following validators:
-		// 11 - 1000
-		// 21 - 1000
-		// 31 - 500
+		// 11 -> 1000
+		// 21 -> 1000
 		.set_status(31, StakerStatus::<AccountId>::Validator) // 1000
 		.set_status(41, StakerStatus::<AccountId>::Validator) // 1000
 		.set_status(51, StakerStatus::<AccountId>::Validator) // 1000
-		.add_staker(201, 1000, StakerStatus::<AccountId>::Validator)
-		.add_staker(202, 1000, StakerStatus::<AccountId>::Validator)
-		// And we add two more
 		.add_staker(61, 100, StakerStatus::<AccountId>::Validator)
 		.add_staker(71, 200, StakerStatus::<AccountId>::Validator)
-		.set_status(101, StakerStatus::<AccountId>::Nominator(vec![61])) // 500 extras to nominate candidate 61
+		.add_staker(81, 1000, StakerStatus::<AccountId>::Validator)
+		.add_staker(91, 1000, StakerStatus::<AccountId>::Validator)
+		// Add nominators
+		.set_status(101, StakerStatus::<AccountId>::Nominator(vec![11])) // 500
+		.add_staker(102, 500, StakerStatus::<AccountId>::Nominator(vec![21]))
+		.add_staker(103, 500, StakerStatus::<AccountId>::Nominator(vec![31]))
+		.add_staker(104, 500, StakerStatus::<AccountId>::Nominator(vec![41]))
+		.add_staker(105, 500, StakerStatus::<AccountId>::Nominator(vec![51]))
+		.add_staker(106, 500, StakerStatus::<AccountId>::Nominator(vec![61]))
+		.add_staker(107, 500, StakerStatus::<AccountId>::Nominator(vec![71]))
+		.add_staker(108, 500, StakerStatus::<AccountId>::Nominator(vec![81]))
+		.add_staker(109, 500, StakerStatus::<AccountId>::Nominator(vec![91]))
 		.build_and_execute(|| {
 			assert_ok!(Staking::set_staking_configs(
 				RuntimeOrigin::root(),
@@ -129,11 +136,11 @@ fn get_min_lowest_stake_with_many_validators_works() {
 
 			// There are 9 validators, so one third of them would be 3.
 			// Hence, the lowest third would be composed of the following validators:
-			// 61 -> 100 (own) + 500 (nominated)
-			// 71 -> 200
-			// 31 -> 500
-			// Summing up 1300 total.
-			assert_eq!(Staking::get_min_lowest_stake(), 1300);
+			// 61 -> 100 (own) + 500 (nomination from 106)
+			// 71 -> 200 (own) + 500 (nomination from 107)
+			// 31 -> 500 (own) + 500 (nomination from 103)
+			// Summing up 2300 total.
+			assert_eq!(Staking::get_min_lowest_stake(), 2300);
 		});
 }
 
