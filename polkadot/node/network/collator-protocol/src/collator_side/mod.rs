@@ -277,7 +277,7 @@ impl CollationTracker {
 				entry.expired_at = Some(block_number);
 
 				// Don't record backing time if collation expired.
-				if let Some(backed_latency_metric) = stats.backed_latency_metric.take() {
+				if let Some(backed_latency_metric) = entry.backed_latency_metric.take() {
 					backed_latency_metric.stop_and_discard();
 				}
 				entry

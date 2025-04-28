@@ -81,6 +81,13 @@ pub(super) async fn update_view(
 			);
 
 			assert_matches!(
+				overseer_recv(virtual_overseer).await,
+				AllMessages::ChainApi(ChainApiMessage::BlockNumber(.., tx)) => {
+					tx.send(Ok(Some(1))).unwrap();
+				}
+			);
+
+			assert_matches!(
 				overseer_recv_with_timeout(virtual_overseer, Duration::from_millis(50)).await.unwrap(),
 				AllMessages::ChainApi(ChainApiMessage::BlockHeader(.., tx)) => {
 					let header = Header {
