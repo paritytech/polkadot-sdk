@@ -14,17 +14,9 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-use super::Precompile;
-use crate::{Config, ExecReturnValue, GasMeter, RuntimeCosts};
-use pallet_revive_uapi::ReturnFlags;
 
-/// The identity precompile.
-pub struct Identity;
+mod collection;
+mod item;
 
-impl<T: Config> Precompile<T> for Identity {
-	fn execute(gas_meter: &mut GasMeter<T>, input: &[u8]) -> Result<ExecReturnValue, &'static str> {
-		gas_meter.charge(RuntimeCosts::Identity(input.len() as u32))?;
-
-		Ok(ExecReturnValue { data: input.to_vec(), flags: ReturnFlags::empty() })
-	}
-}
+pub use collection::Collection;
+pub use item::Item;
