@@ -24,10 +24,10 @@ use std::{
 };
 
 use crate::LOG_TARGET;
-use log::trace;
 use sc_transaction_pool_api::error;
 use serde::Serialize;
 use sp_runtime::{traits::Member, transaction_validity::TransactionTag as Tag};
+use tracing::trace;
 
 use super::{
 	base_pool::Transaction,
@@ -279,8 +279,8 @@ impl<Hash: hash::Hash + Member + Serialize, Ex> ReadyTransactions<Hash, Ex> {
 	) -> Vec<Arc<Transaction<Hash, Ex>>> {
 		let mut removed = vec![];
 		let mut ready = self.ready.write();
-		while let Some(hash) = to_remove.pop() {
-			if let Some(mut tx) = ready.remove(&hash) {
+		while let Some(tx_hash) = to_remove.pop() {
+			if let Some(mut tx) = ready.remove(&tx_hash) {
 				let invalidated = tx.transaction.transaction.provides.iter().filter(|tag| {
 					provides_tag_filter
 						.as_ref()
@@ -313,7 +313,7 @@ impl<Hash: hash::Hash + Member + Serialize, Ex> ReadyTransactions<Hash, Ex> {
 				}
 
 				// add to removed
-				trace!(target: LOG_TARGET, "[{:?}] Removed as part of the subtree.", hash);
+				trace!(target: LOG_TARGET, ?tx_hash, "Removed as part of the subtree.");
 				removed.push(tx.transaction.transaction);
 			}
 		}
@@ -521,8 +521,8 @@ impl<Hash: hash::Hash + Member, Ex> BestIterator<Hash, Ex> {
 		if let Some(to_report) = self.all.get(&tx.hash) {
 			trace!(
 				target: LOG_TARGET,
-				"[{:?}] best-iterator: Reported as invalid. Will skip sub-chains while iterating.",
-				to_report.transaction.transaction.hash
+				tx_hash = ?to_report.transaction.transaction.hash,
+				"best-iterator: Reported as invalid. Will skip sub-chains while iterating."
 			);
 			for hash in &to_report.unlocks {
 				self.invalid.insert(hash.clone());
@@ -538,18 +538,19 @@ impl<Hash: hash::Hash + Member, Ex> Iterator for BestIterator<Hash, Ex> {
 		loop {
 			let best = self.best.iter().next_back()?.clone();
 			let best = self.best.take(&best)?;
-			let hash = &best.transaction.hash;
+			let tx_hash = &best.transaction.hash;
 
 			// Check if the transaction was marked invalid.
-			if self.invalid.contains(hash) {
+			if self.invalid.contains(tx_hash) {
 				trace!(
 					target: LOG_TARGET,
-					"[{:?}] Skipping invalid child transaction while iterating.", hash,
+					?tx_hash,
+					"Skipping invalid child transaction while iterating."
 				);
 				continue
 			}
 
-			let ready = match self.all.get(hash).cloned() {
+			let ready = match self.all.get(tx_hash).cloned() {
 				Some(ready) => ready,
 				// The transaction is not in all, maybe it was removed in the meantime?
 				None => continue,

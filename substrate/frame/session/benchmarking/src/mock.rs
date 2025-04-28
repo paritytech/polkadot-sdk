@@ -67,8 +67,9 @@ impl pallet_timestamp::Config for Test {
 	type WeightInfo = ();
 }
 impl pallet_session::historical::Config for Test {
+	type RuntimeEvent = RuntimeEvent;
 	type FullIdentification = ();
-	type FullIdentificationOf = pallet_staking::NullIdentity;
+	type FullIdentificationOf = pallet_staking::UnitIdentificationOf<Self>;
 }
 
 sp_runtime::impl_opaque_keys! {
@@ -102,7 +103,7 @@ impl pallet_session::Config for Test {
 	type SessionHandler = TestSessionHandler;
 	type RuntimeEvent = RuntimeEvent;
 	type ValidatorId = AccountId;
-	type ValidatorIdOf = pallet_staking::StashOf<Test>;
+	type ValidatorIdOf = sp_runtime::traits::ConvertInto;
 	type DisablingStrategy = ();
 	type WeightInfo = ();
 }
@@ -119,6 +120,7 @@ pallet_staking_reward_curve::build! {
 parameter_types! {
 	pub const RewardCurve: &'static sp_runtime::curve::PiecewiseLinear<'static> = &I_NPOS;
 	pub static ElectionsBounds: ElectionBounds = ElectionBoundsBuilder::default().build();
+	pub const Sort: bool = true;
 }
 
 pub struct OnChainSeqPhragmen;
@@ -127,7 +129,9 @@ impl onchain::Config for OnChainSeqPhragmen {
 	type Solver = SequentialPhragmen<AccountId, sp_runtime::Perbill>;
 	type DataProvider = Staking;
 	type WeightInfo = ();
-	type MaxWinners = ConstU32<100>;
+	type MaxWinnersPerPage = ConstU32<100>;
+	type MaxBackersPerWinner = ConstU32<100>;
+	type Sort = Sort;
 	type Bounds = ElectionsBounds;
 }
 

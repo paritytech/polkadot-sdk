@@ -22,7 +22,6 @@ alloy-sol-types = { workspace = true }
 codec = { features = ["derive", "max-encoded-len"], workspace = true }
 derive_more = { workspace = true }
 environmental = { workspace = true }
-ethabi = { workspace = true }
 ethereum-types = { workspace = true, features = ["codec", "rlp", "serialize"] }
 hex-literal = { workspace = true }
 impl-trait-for-tuples = { workspace = true }
@@ -37,10 +36,7 @@ rand = { workspace = true, optional = true }
 rand_pcg = { workspace = true, optional = true }
 rlp = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
-serde = { features = [
-	"alloc",
-	"derive",
-], workspace = true, default-features = false }
+serde = { features = ["alloc", "derive"], workspace = true, default-features = false }
 
 
 # Polkadot SDK Dependencies
@@ -61,9 +57,7 @@ sp-consensus-slots = { workspace = true, optional = true }
 sp-core = { workspace = true }
 sp-io = { workspace = true }
 sp-runtime = { workspace = true }
-subxt-signer = { workspace = true, optional = true, features = [
-	"unstable-eth",
-] }
+subxt-signer = { workspace = true, optional = true, features = ["unstable-eth"] }
 xcm = { workspace = true }
 xcm-builder = { workspace = true }
 xcm-simulator = { workspace = true, default-features = true }
@@ -72,6 +66,7 @@ pallet-xcm = { workspace = true, default-features = true }
 [dev-dependencies]
 array-bytes = { workspace = true, default-features = true }
 assert_matches = { workspace = true }
+polkavm-common = { version = "0.21.0" }
 pretty_assertions = { workspace = true }
 secp256k1 = { workspace = true, features = ["recovery"] }
 serde_json = { workspace = true }
@@ -92,7 +87,6 @@ std = [
 	"alloy-core/std",
 	"codec/std",
 	"environmental/std",
-	"ethabi/std",
 	"ethereum-types/std",
 	"frame-benchmarking?/std",
 	"frame-support/std",

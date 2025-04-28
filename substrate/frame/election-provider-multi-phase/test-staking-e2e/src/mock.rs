@@ -24,7 +24,7 @@ use frame_support::{
 	PalletId,
 };
 use frame_system::EnsureRoot;
-use sp_core::{ConstU32, Get};
+use sp_core::{ConstBool, ConstU32, Get};
 use sp_npos_elections::{ElectionScore, VoteWeight};
 use sp_runtime::{
 	offchain::{
@@ -140,15 +140,16 @@ impl pallet_session::Config for Runtime {
 	type SessionHandler = (OtherSessionHandler,);
 	type RuntimeEvent = RuntimeEvent;
 	type ValidatorId = AccountId;
-	type ValidatorIdOf = pallet_staking::StashOf<Runtime>;
+	type ValidatorIdOf = sp_runtime::traits::ConvertInto;
 	type DisablingStrategy = pallet_session::disabling::UpToLimitWithReEnablingDisablingStrategy<
 		SLASHING_DISABLING_FACTOR,
 	>;
 	type WeightInfo = ();
 }
 impl pallet_session::historical::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
 	type FullIdentification = ();
-	type FullIdentificationOf = pallet_staking::NullIdentity;
+	type FullIdentificationOf = pallet_staking::UnitIdentificationOf<Self>;
 }
 
 frame_election_provider_support::generate_solution_type!(
@@ -174,6 +175,8 @@ parameter_types! {
 	pub static TransactionPriority: transaction_validity::TransactionPriority = 1;
 	#[derive(Debug)]
 	pub static MaxWinners: u32 = 100;
+	#[derive(Debug)]
+	pub static MaxBackersPerWinner: u32 = 100;
 	pub static MaxVotesPerVoter: u32 = 16;
 	pub static SignedFixedDeposit: Balance = 1;
 	pub static SignedDepositIncreaseFactor: Percent = Percent::from_percent(10);
@@ -184,7 +187,7 @@ parameter_types! {
 impl pallet_election_provider_multi_phase::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Currency = Balances;
-	type EstimateCallFee = frame_support::traits::ConstU32<8>;
+	type EstimateCallFee = frame_support::traits::ConstU64<8>;
 	type SignedPhase = SignedPhase;
 	type UnsignedPhase = UnsignedPhase;
 	type BetterSignedThreshold = ();
@@ -202,12 +205,18 @@ impl pallet_election_provider_multi_phase::Config for Runtime {
 	type SlashHandler = ();
 	type RewardHandler = ();
 	type DataProvider = Staking;
-	type Fallback =
-		frame_election_provider_support::NoElection<(AccountId, BlockNumber, Staking, MaxWinners)>;
+	type Fallback = frame_election_provider_support::NoElection<(
+		AccountId,
+		BlockNumber,
+		Staking,
+		MaxWinners,
+		MaxBackersPerWinner,
+	)>;
 	type GovernanceFallback = onchain::OnChainExecution<OnChainSeqPhragmen>;
 	type Solver = SequentialPhragmen<AccountId, SolutionAccuracyOf<Runtime>, ()>;
 	type ForceOrigin = EnsureRoot<AccountId>;
 	type MaxWinners = MaxWinners;
+	type MaxBackersPerWinner = MaxBackersPerWinner;
 	type ElectionBounds = ElectionBounds;
 	type BenchmarkingConfig = NoopElectionProviderBenchmarkConfig;
 	type WeightInfo = ();
@@ -221,6 +230,7 @@ impl MinerConfig for Runtime {
 	type MaxLength = MinerMaxLength;
 	type MaxWeight = MinerMaxWeight;
 	type MaxWinners = MaxWinners;
+	type MaxBackersPerWinner = MaxBackersPerWinner;
 
 	fn solution_weight(_v: u32, _t: u32, _a: u32, _d: u32) -> Weight {
 		Weight::zero()
@@ -357,6 +367,9 @@ parameter_types! {
 }
 
 impl onchain::Config for OnChainSeqPhragmen {
+	type MaxWinnersPerPage = MaxWinners;
+	type MaxBackersPerWinner = MaxBackersPerWinner;
+	type Sort = ConstBool<true>;
 	type System = Runtime;
 	type Solver = SequentialPhragmen<
 		AccountId,
@@ -364,7 +377,6 @@ impl onchain::Config for OnChainSeqPhragmen {
 	>;
 	type DataProvider = Staking;
 	type WeightInfo = ();
-	type MaxWinners = MaxWinners;
 	type Bounds = ElectionBounds;
 }
 

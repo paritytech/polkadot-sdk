@@ -33,7 +33,7 @@ use polkadot_node_network_protocol::{
 		BackedCandidateAcknowledgement, StatementDistributionMessage, StatementFilter,
 		ValidationProtocol,
 	},
-	Versioned,
+	ValidationProtocols,
 };
 use polkadot_node_primitives::{AvailableData, BlockData, PoV};
 use polkadot_node_subsystem_test_helpers::{
@@ -293,7 +293,7 @@ impl HandleNetworkMessage for TestState {
 			},
 			NetworkMessage::MessageFromNode(
 				authority_id,
-				Versioned::V3(ValidationProtocol::StatementDistribution(
+				ValidationProtocols::V3(ValidationProtocol::StatementDistribution(
 					StatementDistributionMessage::Statement(relay_parent, statement),
 				)),
 			) => {
@@ -344,7 +344,7 @@ impl HandleNetworkMessage for TestState {
 				node_sender
 					.start_send(NetworkMessage::MessageFromPeer(
 						*self.test_authorities.peer_ids.get(index).unwrap(),
-						Versioned::V3(ValidationProtocol::StatementDistribution(
+						ValidationProtocols::V3(ValidationProtocol::StatementDistribution(
 							StatementDistributionMessage::Statement(relay_parent, statement),
 						)),
 					))
@@ -353,7 +353,7 @@ impl HandleNetworkMessage for TestState {
 			},
 			NetworkMessage::MessageFromNode(
 				authority_id,
-				Versioned::V3(ValidationProtocol::StatementDistribution(
+				ValidationProtocols::V3(ValidationProtocol::StatementDistribution(
 					StatementDistributionMessage::BackedCandidateManifest(manifest),
 				)),
 			) => {
@@ -411,7 +411,7 @@ impl HandleNetworkMessage for TestState {
 				node_sender
 					.start_send(NetworkMessage::MessageFromPeer(
 						*self.test_authorities.peer_ids.get(index).unwrap(),
-						Versioned::V3(ValidationProtocol::StatementDistribution(
+						ValidationProtocols::V3(ValidationProtocol::StatementDistribution(
 							StatementDistributionMessage::BackedCandidateKnown(ack),
 						)),
 					))
@@ -427,7 +427,7 @@ impl HandleNetworkMessage for TestState {
 			},
 			NetworkMessage::MessageFromNode(
 				_authority_id,
-				Versioned::V3(ValidationProtocol::StatementDistribution(
+				ValidationProtocols::V3(ValidationProtocol::StatementDistribution(
 					StatementDistributionMessage::BackedCandidateKnown(ack),
 				)),
 			) => {

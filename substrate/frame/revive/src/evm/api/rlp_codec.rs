@@ -49,6 +49,19 @@ impl TransactionUnsigned {
 }
 
 impl TransactionSigned {
+	/// Extract the unsigned transaction from a signed transaction.
+	pub fn unsigned(self) -> TransactionUnsigned {
+		use TransactionSigned::*;
+		use TransactionUnsigned::*;
+		match self {
+			Transaction2930Signed(tx) => Transaction2930Unsigned(tx.transaction_2930_unsigned),
+			Transaction1559Signed(tx) => Transaction1559Unsigned(tx.transaction_1559_unsigned),
+			Transaction4844Signed(tx) => Transaction4844Unsigned(tx.transaction_4844_unsigned),
+			TransactionLegacySigned(tx) =>
+				TransactionLegacyUnsigned(tx.transaction_legacy_unsigned),
+		}
+	}
+
 	/// Encode the Ethereum transaction into bytes.
 	pub fn signed_payload(&self) -> Vec<u8> {
 		use TransactionSigned::*;
@@ -90,12 +103,9 @@ impl TransactionSigned {
 
 impl TransactionUnsigned {
 	/// Get a signed transaction payload with a dummy 65 bytes signature.
-	pub fn dummy_signed_payload(&self) -> Vec<u8> {
-		const DUMMY_SIGNATURE: [u8; 65] = [0u8; 65];
-		self.unsigned_payload()
-			.into_iter()
-			.chain(DUMMY_SIGNATURE.iter().copied())
-			.collect::<Vec<_>>()
+	pub fn dummy_signed_payload(self) -> Vec<u8> {
+		const DUMMY_SIGNATURE: [u8; 65] = [1u8; 65];
+		self.with_signature(DUMMY_SIGNATURE).signed_payload()
 	}
 }
 
@@ -147,13 +157,7 @@ impl Decodable for TransactionLegacyUnsigned {
 			},
 			value: rlp.val_at(4)?,
 			input: Bytes(rlp.val_at(5)?),
-			chain_id: {
-				if let Ok(chain_id) = rlp.val_at(6) {
-					Some(chain_id)
-				} else {
-					None
-				}
-			},
+			chain_id: rlp.val_at(6).ok(),
 			..Default::default()
 		})
 	}
@@ -579,7 +583,7 @@ mod test {
 		}
 		.into();
 
-		let dummy_signed_payload = tx.dummy_signed_payload();
+		let dummy_signed_payload = tx.clone().dummy_signed_payload();
 		let payload = Account::default().sign_transaction(tx).signed_payload();
 		assert_eq!(dummy_signed_payload.len(), payload.len());
 	}
