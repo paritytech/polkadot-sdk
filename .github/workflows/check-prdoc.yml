@@ -38,26 +38,6 @@ jobs:
           echo "Checking PRdoc version"
           $ENGINE run --rm -v $PWD:/repo $IMAGE --version
 
-      - name: Early exit if PR is silent
-        if: ${{ contains(steps.get-labels.outputs.labels, 'R0') }}
-        run: |
-          hits=$(find prdoc -name "pr_$GITHUB_PR*.prdoc" | wc -l)
-          if (( hits > 0 )); then
-            echo "PR detected as silent, but a PRDoc was found, checking it as information"
-            $ENGINE run --rm -v $PWD:/repo $IMAGE check -n ${GITHUB_PR} || echo "Ignoring failure"
-          else
-            echo "PR detected as silent, no PRDoc found, exiting..."
-          fi
-          echo "If you want to add a PRDoc, please refer to $PRDOC_DOC"
-          exit 0
-
-      - name: PRdoc check for PR#${{ github.event.pull_request.number }}
-        if: ${{ !contains(steps.get-labels.outputs.labels, 'R0') }}
-        run: |
-          echo "Checking for PR#${GITHUB_PR}"
-          echo "You can find more information about PRDoc at $PRDOC_DOC"
-          $ENGINE run --rm -v $PWD:/repo -e RUST_LOG=info $IMAGE check -n ${GITHUB_PR}
-
       - name: Get PR number
         if: ${{ github.event.pull_request.number != '' && !contains(steps.get-labels.outputs.labels, 'R0') }}
         run: |
