@@ -447,6 +447,12 @@ macro_rules! parameter_types_impl_thread_local {
 						Self::set($value);
 						current
 					}
+
+					/// Kill/reset the value to whatever was set at first.
+					#[allow(unused)]
+					pub fn reset() {
+						Self::set($value);
+					}
 				}
 			)*
 		}
@@ -850,7 +856,6 @@ macro_rules! assert_error_encoded_size {
 ///
 /// Returns the original result of the closure.
 #[macro_export]
-#[cfg(feature = "experimental")]
 macro_rules! hypothetically {
 	( $e:expr ) => {
 		$crate::storage::transactional::with_transaction(|| -> $crate::__private::TransactionOutcome<Result<_, $crate::__private::DispatchError>> {
@@ -864,7 +869,6 @@ macro_rules! hypothetically {
 ///
 /// Reverts any storage changes made by the closure.
 #[macro_export]
-#[cfg(feature = "experimental")]
 macro_rules! hypothetically_ok {
 	($e:expr $(, $args:expr)* $(,)?) => {
 		$crate::assert_ok!($crate::hypothetically!($e) $(, $args)*);
@@ -2134,6 +2138,11 @@ pub mod pallet_macros {
 	/// generation of a `enum Call`. This enum contains only the encoding of the function
 	/// arguments of the dispatchable, alongside the information needed to route it to the
 	/// correct function.
+	///
+	/// The macro also ensures that the extrinsic when invoked will be wrapped via
+	/// [`frame_support::storage::with_storage_layer`] to make it transactional. Thus if the
+	/// extrinsic returns with an error any state changes that had already occurred will be
+	/// rolled back.
 	///
 	/// ```
 	/// #[frame_support::pallet(dev_mode)]
