@@ -1422,7 +1422,7 @@ pub trait Crypto {
 	/// Sign the given `msg` with the `bandersnatch` key that corresponds to the given public key
 	/// and key type in the keystore.
 	///
-	/// Returns the signature.
+	/// Returns the signature or `None` if an error occurred.
 	#[cfg(feature = "bandersnatch-experimental")]
 	fn bandersnatch_sign(
 		&mut self,
