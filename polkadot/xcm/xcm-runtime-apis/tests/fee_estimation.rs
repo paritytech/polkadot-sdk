@@ -431,7 +431,7 @@ fn dry_run_xcm_common(xcm_version: XcmVersion) {
 
 #[test]
 fn dry_run_xcm_versions() {
-	let tested_versions = [XCM_VERSION, 4, 3, 2];
+	let tested_versions = [XCM_VERSION, 4, 3];
 
 	for version in tested_versions {
 		dry_run_xcm_common(version);
