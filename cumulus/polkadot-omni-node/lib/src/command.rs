@@ -136,7 +136,8 @@ where
 	CliConfig: crate::cli::CliConfig,
 	Extra: ExtraSubcommand,
 {
-	let cli_command = Cli::<CliConfig>::augment_args(<Extra as CommandFactory>::command());
+	let cli_command = Cli::<CliConfig>::augment_args(<Extra as CommandFactory>::command())
+		.version(Cli::<CliConfig>::impl_version());;
 	let matches = cli_command.get_matches();
 
 	// First, check if a subcommand was provided
