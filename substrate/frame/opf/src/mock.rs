@@ -340,18 +340,18 @@ impl Polling<TallyOf<Test>> for TestPolls {
 		let i = polls.keys().rev().next().map_or(0, |x| x + 1);
 		polls.insert(i, Ongoing(TallyOfConviction::new(0), class));
 		Polls::set(polls);
-		Ok(i)
+		Ok(i.into())
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
 	fn end_ongoing(index: Self::Index, approved: bool) -> Result<(), ()> {
 		let mut polls = Polls::get();
-		match polls.get(&index) {
+		match polls.get(&(index.try_into().unwrap())) {
 			Some(Ongoing(..)) => {},
 			_ => return Err(()),
 		}
 		let now = frame_system::Pallet::<Test>::block_number();
-		polls.insert(index, Completed(now, approved));
+		polls.insert(index.try_into().unwrap(), Completed(now, approved));
 		Polls::set(polls);
 		Ok(())
 	}

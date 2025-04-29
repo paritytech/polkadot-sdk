@@ -19,7 +19,7 @@
 
 #![cfg(feature = "runtime-benchmarks")]
 use super::*;
-use crate::{Democracy::Conviction, Pallet as Opf};
+use crate::{Conviction, Pallet as Opf};
 //use pallet_distribution as Distribution;
 pub use frame_benchmarking::{
 	v1::{account, BenchmarkError},
@@ -32,29 +32,30 @@ use sp_runtime::traits::One;
 const SEED: u32 = 0;
 
 pub fn next_block<T: Config>() {
-	let when = T::BlockNumberProvider::current_block_number().saturating_add(One::one());
-	T::BlockNumberProvider::set_block_number(when);
-	Democracy::Pallet::<T>::on_initialize(frame_system::Pallet::<T>::block_number());
-	frame_system::Pallet::<T>::on_initialize(frame_system::Pallet::<T>::block_number());
-	frame_system::Pallet::<T>::on_idle(frame_system::Pallet::<T>::block_number(), Weight::MAX);
+	T::BlockNumberProvider::set_block_number(T::BlockNumberProvider::current_block_number().saturating_add(One::one()));
+	Opf::<T>::on_idle(
+		0u32.into(),
+		Weight::MAX,
+	);
 }
-pub fn run_to_block<T: Config>(n: ProvidedBlockNumberFor<T>) {
-	while T::BlockNumberProvider::current_block_number() < n {
-		if T::BlockNumberProvider::current_block_number() > One::one() {
-			Democracy::Pallet::<T>::on_finalize(frame_system::Pallet::<T>::block_number());
-			frame_system::Pallet::<T>::on_finalize(frame_system::Pallet::<T>::block_number());
-		}
+pub fn run_to_block<T: Config>() {
+		Opf::<T>::on_idle(
+			0u32.into(),
+			Weight::MAX,
+		);
 		next_block::<T>();
-	}
+
 }
 
 fn add_whitelisted_project<T: Config>(n: u32, caller: T::AccountId) -> Result<(), &'static str> {
 	let mut batch = BoundedVec::<ProjectId<T>, <T as Config>::MaxProjects>::new();
 	for i in 1..=n {
 		let project_id = account("project", i, SEED);
+		let caller_balance = T::NativeBalance::minimum_balance() * 100000000u32.into();
+		T::NativeBalance::mint_into(&project_id, caller_balance)?;
 		let _ = batch.try_push(project_id).map_err(|_| "Exceeded max projects")?;
 	}
-	crate::Pallet::<T>::register_projects_batch(RawOrigin::Signed(caller).into(), batch)?;
+	crate::Pallet::<T>::register_projects_batch(T::AdminOrigin::try_successful_origin().expect("couldn'create origin"), batch)?;
 
 	Ok(())
 }
@@ -75,13 +76,17 @@ mod benchmarks {
 		r: Linear<1, { T::MaxProjects::get() }>,
 	) -> Result<(), BenchmarkError> {
 		let caller: T::AccountId = whitelisted_caller();
+		let origin = T::AdminOrigin::try_successful_origin().expect("Failed to create origin");
+		let caller_balance = T::NativeBalance::minimum_balance() * 100000000u32.into();
+		T::NativeBalance::mint_into(&caller, caller_balance)?;
 		let account0: T::AccountId = account("project", r, SEED);
+		T::NativeBalance::mint_into(&account0, caller_balance)?;
 		let mut batch = BoundedVec::<ProjectId<T>, <T as Config>::MaxProjects>::new();
 
 		let project_id = account("project", r, SEED);
 		let _ = batch.try_push(project_id).map_err(|_| "Exceeded max projects")?;
 		#[extrinsic_call]
-		_(RawOrigin::Signed(caller.clone()), batch);
+		_(origin, batch);
 
 		assert_eq!(WhiteListedProjectAccounts::<T>::contains_key(account0.clone()), true);
 
@@ -91,11 +96,14 @@ mod benchmarks {
 	#[benchmark]
 	fn unregister_project(r: Linear<1, { T::MaxProjects::get() }>) -> Result<(), BenchmarkError> {
 		let caller: T::AccountId = whitelisted_caller();
+		let caller_balance = T::NativeBalance::minimum_balance() * 100000000u32.into();
+		T::NativeBalance::mint_into(&caller, caller_balance)?;
 		let account0: T::AccountId = account("project", r, SEED);
+		let origin = T::AdminOrigin::try_successful_origin().expect("Failed to create origin");
 		add_whitelisted_project::<T>(r, caller.clone())?;
 		assert_eq!(WhiteListedProjectAccounts::<T>::contains_key(account0.clone()), true);
 		#[extrinsic_call]
-		_(RawOrigin::Root, account0.clone());
+		_(origin, account0.clone());
 
 		assert_eq!(!WhiteListedProjectAccounts::<T>::contains_key(account0.clone()), true);
 
@@ -105,6 +113,8 @@ mod benchmarks {
 	#[benchmark]
 	fn vote(r: Linear<1, { T::MaxProjects::get() }>) -> Result<(), BenchmarkError> {
 		let caller: T::AccountId = whitelisted_caller();
+		let caller_balance = T::NativeBalance::minimum_balance() * 100000000u32.into();
+		T::NativeBalance::mint_into(&caller, caller_balance)?;
 		let account0: T::AccountId = account("project", r, SEED);
 		add_whitelisted_project::<T>(r, caller.clone())?;
 		assert_eq!(WhiteListedProjectAccounts::<T>::contains_key(account0.clone()), true);
@@ -119,7 +129,7 @@ mod benchmarks {
 		_(RawOrigin::Signed(caller.clone()), account0.clone(), value, true, Conviction::Locked1x);
 
 		// Verify the vote was recorded
-		let vote_info = Votes::<T>::get(account0.clone(), caller.clone())
+		let vote_info = Votes::<T>::get(r-1, caller.clone())
 			.ok_or("Vote not recorded!")
 			.unwrap();
 		assert_eq!(vote_info.amount, value, "Vote value mismatch!");
@@ -129,6 +139,8 @@ mod benchmarks {
 	#[benchmark]
 	fn remove_vote(r: Linear<1, { T::MaxProjects::get() }>) -> Result<(), BenchmarkError> {
 		let caller: T::AccountId = whitelisted_caller();
+		let caller_balance = T::NativeBalance::minimum_balance() * 100000000u32.into();
+		T::NativeBalance::mint_into(&caller, caller_balance)?;
 		let account0: T::AccountId = account("project", r, SEED);
 		add_whitelisted_project::<T>(r, caller.clone())?;
 		ensure!(
@@ -158,6 +170,8 @@ mod benchmarks {
 	#[benchmark]
 	fn release_voter_funds(r: Linear<1, { T::MaxProjects::get() }>) -> Result<(), BenchmarkError> {
 		let caller: T::AccountId = whitelisted_caller();
+		let caller_balance = T::NativeBalance::minimum_balance() * 100000000u32.into();
+		T::NativeBalance::mint_into(&caller, caller_balance)?;
 		let account0: T::AccountId = account("project", r, SEED);
 		add_whitelisted_project::<T>(r, caller.clone())?;
 		ensure!(
@@ -179,12 +193,12 @@ mod benchmarks {
 			Conviction::Locked1x,
 		)?;
 
-		let when = Votes::<T>::get(account0.clone(), caller.clone()).unwrap().funds_unlock_block;
+		let when = Votes::<T>::get(r-1, caller.clone()).unwrap().funds_unlock_block;
 
 		T::BlockNumberProvider::set_block_number(when);
 
 		#[extrinsic_call]
-		_(RawOrigin::Signed(caller.clone()), account0);
+		_(RawOrigin::Signed(caller.clone()), account0, caller.clone());
 
 		Ok(())
 	}
@@ -195,6 +209,11 @@ mod benchmarks {
 		let caller1: T::AccountId = account("caller", 2, SEED);
 		let caller2: T::AccountId = account("caller", 3, SEED);
 		let account0: T::AccountId = account("project", r, SEED);
+		let caller_balance = T::NativeBalance::minimum_balance() * 100000000u32.into();
+		T::NativeBalance::mint_into(&caller0, caller_balance)?;
+		T::NativeBalance::mint_into(&caller1, caller_balance)?;
+		T::NativeBalance::mint_into(&caller2, caller_balance)?;
+		T::NativeBalance::mint_into(&account0, caller_balance)?;
 		add_whitelisted_project::<T>(r, caller0.clone())?;
 		let pot = setup_pot_account::<T>();
 		assert_eq!(T::NativeBalance::balance(&pot) > Zero::zero(), true);
@@ -241,8 +260,12 @@ mod benchmarks {
 		let round = VotingRounds::<T>::get(0).unwrap();
 		let round_end = round.round_ending_block;
 		// go to end of the round
-		run_to_block::<T>(round_end);
-		assert_eq!(Democracy::ReferendumCount::<T>::get(), r, "referenda not created");
+		let now = T::BlockNumberProvider::current_block_number();
+		while now < round_end {
+			run_to_block::<T>();
+		}
+		
+		assert_eq!(T::Governance::referendum_count(), r.into(), "referenda not created");
 
 		#[block]
 		{
@@ -252,9 +275,10 @@ mod benchmarks {
 		// go to claiming period
 		let when = round_end.saturating_add(<T as Config>::EnactmentPeriod::get());
 		T::BlockNumberProvider::set_block_number(when);
+		let origin = RawOrigin::Root.into();
 
 		assert_ok!(Opf::<T>::on_registration(
-			RawOrigin::Signed(caller0.clone()).into(),
+			origin,
 			account0.clone()
 		));
 		assert_eq!(Spends::<T>::contains_key(&account0), true);
@@ -313,8 +337,11 @@ mod benchmarks {
 		let round = VotingRounds::<T>::get(0).unwrap();
 		let round_end = round.round_ending_block;
 		// go to end of the round
-		run_to_block::<T>(round_end);
-		assert_eq!(Democracy::ReferendumCount::<T>::get(), r, "referenda not created");
+		let now = T::BlockNumberProvider::current_block_number();
+		while now < round_end {
+			run_to_block::<T>();
+		}
+		assert_eq!(T::Governance::referendum_count(), r.into(), "referenda not created");
 
 		#[block]
 		{

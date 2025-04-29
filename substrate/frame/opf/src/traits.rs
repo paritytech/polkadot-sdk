@@ -313,6 +313,13 @@ impl<T: Config> VotingHooks<AccountIdOf<T>, ReferendumIndex, BalanceOf<T>> for P
 		// No-op
 		None
 	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn on_vote_worst_case(_who: &AccountIdOf<T>) {}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn on_remove_vote_worst_case(_who: &AccountIdOf<T>) {}
+
 }
 
 impl<T: pallet_conviction_voting::Config<I>, I: 'static> ConvictionVotingTrait<AccountIdOf<T>>
