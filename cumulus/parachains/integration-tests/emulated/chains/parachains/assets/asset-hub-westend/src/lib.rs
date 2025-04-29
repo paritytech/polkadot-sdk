@@ -57,6 +57,7 @@ decl_test_parachains! {
 			AssetConversion: asset_hub_westend_runtime::AssetConversion,
 			SnowbridgeSystemFrontend: asset_hub_westend_runtime::SnowbridgeSystemFrontend,
 			XcmOverAssetHubRococo: asset_hub_westend_runtime::XcmOverAssetHubRococo,
+			AssetHubRococoProofRootStore: asset_hub_westend_runtime::AssetHubRococoProofRootStore,
 		}
 	},
 }
