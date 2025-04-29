@@ -20,50 +20,85 @@
 
 use std::{collections::HashSet, time::Instant};
 
-use prometheus_endpoint::{register, HistogramOpts, HistogramVec, PrometheusError, Registry};
+use prometheus_endpoint::{
+	exponential_buckets, linear_buckets, register, Histogram, HistogramOpts, PrometheusError,
+	Registry,
+};
 
 use super::TransactionEvent;
-
-/// Histogram time buckets in microseconds.
-const HISTOGRAM_BUCKETS: [f64; 11] = [
-	5.0,
-	25.0,
-	100.0,
-	500.0,
-	1_000.0,
-	2_500.0,
-	10_000.0,
-	25_000.0,
-	100_000.0,
-	1_000_000.0,
-	10_000_000.0,
-];
 
 /// RPC layer metrics for transaction pool.
 #[derive(Debug, Clone)]
 pub struct Metrics {
-	/// This measures the time it took the transaction since the moment it was
-	/// submitted until a target state was reached.
-	execution_time: HistogramVec,
+	validated: Histogram,
+	in_block: Histogram,
+	finalized: Histogram,
+	dropped: Histogram,
+	invalid: Histogram,
+	error: Histogram,
 }
 
 impl Metrics {
 	/// Creates a new [`Metrics`] instance.
 	pub fn new(registry: &Registry) -> Result<Self, PrometheusError> {
-		let execution_time = register(
-			HistogramVec::new(
+		let validated = register(
+			Histogram::with_opts(
 				HistogramOpts::new(
-					"rpc_transaction_execution_time",
-					"Transaction execution time since submitted to a target state",
+					"rpc_transaction_validation_time",
+					"RPC Transaction validation time",
 				)
-				.buckets(HISTOGRAM_BUCKETS.to_vec()),
-				&["target_state"],
+				.buckets(exponential_buckets(0.01, 2.0, 16).expect("Valid buckets; qed")),
 			)?,
 			registry,
 		)?;
 
-		// The execution state will be initialized when the transaction is submitted.
-		Ok(Metrics { execution_time })
+		let in_block = register(
+			Histogram::with_opts(
+				HistogramOpts::new(
+					"rpc_transaction_in_block_time",
+					"RPC Transaction in block time",
+				)
+				.buckets(linear_buckets(0.0, 3.0, 20).expect("Valid buckets; qed")),
+			)?,
+			registry,
+		)?;
+
+		let finalized = register(
+			Histogram::with_opts(
+				HistogramOpts::new(
+					"rpc_transaction_finalized_time",
+					"RPC Transaction finalized time",
+				)
+				.buckets(linear_buckets(0.01, 40.0, 20).expect("Valid buckets; qed")),
+			)?,
+			registry,
+		)?;
+
+		let dropped = register(
+			Histogram::with_opts(
+				HistogramOpts::new("rpc_transaction_dropped_time", "RPC Transaction dropped time")
+					.buckets(linear_buckets(0.01, 3.0, 20).expect("Valid buckets; qed")),
+			)?,
+			registry,
+		)?;
+
+		let invalid = register(
+			Histogram::with_opts(
+				HistogramOpts::new("rpc_transaction_invalid_time", "RPC Transaction invalid time")
+					.buckets(linear_buckets(0.01, 3.0, 20).expect("Valid buckets; qed")),
+			)?,
+			registry,
+		)?;
+
+		let error = register(
+			Histogram::with_opts(
+				HistogramOpts::new("rpc_transaction_error_time", "RPC Transaction error time")
+					.buckets(linear_buckets(0.01, 3.0, 20).expect("Valid buckets; qed")),
+			)?,
+			registry,
+		)?;
+
+		Ok(Metrics { validated, in_block, finalized, dropped, invalid, error })
 	}
 }
 
@@ -93,19 +128,19 @@ impl InstanceMetrics {
 			return;
 		};
 
-		let target_state = match event {
-			TransactionEvent::Validated => "validated",
-			TransactionEvent::BestChainBlockIncluded(Some(_)) => "in_block",
-			TransactionEvent::BestChainBlockIncluded(None) => "retracted",
-			TransactionEvent::Finalized(..) => "finalized",
-			TransactionEvent::Error(..) => "error",
-			TransactionEvent::Dropped(..) => "dropped",
-			TransactionEvent::Invalid(..) => "invalid",
+		let (histogram, target_state) = match event {
+			TransactionEvent::Validated => (&metrics.validated, "validated"),
+			TransactionEvent::BestChainBlockIncluded(Some(_)) => (&metrics.in_block, "in_block"),
+			TransactionEvent::BestChainBlockIncluded(None) => (&metrics.in_block, "retracted"),
+			TransactionEvent::Finalized(..) => (&metrics.finalized, "finalized"),
+			TransactionEvent::Error(..) => (&metrics.error, "error"),
+			TransactionEvent::Dropped(..) => (&metrics.dropped, "dropped"),
+			TransactionEvent::Invalid(..) => (&metrics.invalid, "invalid"),
 		};
 
+		// Only record the state if it hasn't been reported before.
 		if self.reported_states.insert(target_state) {
-			let elapsed = self.submitted_at.elapsed().as_micros() as f64;
-			metrics.execution_time.with_label_values(&[target_state]).observe(elapsed);
+			histogram.observe(self.submitted_at.as_secs_f64());
 		}
 	}
 }
