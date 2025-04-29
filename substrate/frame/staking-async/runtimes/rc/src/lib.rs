@@ -574,6 +574,11 @@ impl session_historical::Config for Runtime {
 	type FullIdentificationOf = ah_client::DefaultExposureOf<Self>;
 }
 
+impl pallet_root_offences::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type OffenceHandler = StakingAsyncAhClient;
+}
+
 pub struct AssetHubLocation;
 impl Get<Location> for AssetHubLocation {
 	fn get() -> Location {
@@ -1837,6 +1842,10 @@ mod runtime {
 	// Root testing pallet.
 	#[runtime::pallet_index(102)]
 	pub type RootTesting = pallet_root_testing;
+
+	// Root offences pallet
+	#[runtime::pallet_index(103)]
+	pub type RootOffences = pallet_root_offences;
 
 	// BEEFY Bridges support.
 	#[runtime::pallet_index(200)]
