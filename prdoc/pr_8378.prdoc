@@ -1,0 +1,8 @@
+title: Update Cargo.toml
+doc:
+- audience: Node Operator
+  description: |-
+    Addressing https://github.com/paritytech/polkadot-sdk-parachain-template/issues/35
+
+    Adding the production build profile for 15-30% speedup when people build with --profile production, see https://github.com/polkadot-developers/polkadot-docs/issues/534 and https://github.com/polkadot-developers/polkadot-docs/pull/575.
+crates: []
