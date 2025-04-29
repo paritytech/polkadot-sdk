@@ -113,6 +113,12 @@ impl EthRpcServer for EthRpcServerImpl {
 		Ok(self.client.chain_id().to_string())
 	}
 
+	async fn net_listening(&self) -> RpcResult<bool> {
+		let syncing = self.client.syncing().await?;
+		let listening = matches!(syncing, SyncingStatus::Bool(false));
+		Ok(listening)
+	}
+
 	async fn syncing(&self) -> RpcResult<SyncingStatus> {
 		Ok(self.client.syncing().await?)
 	}
