@@ -5,6 +5,8 @@ name = "staging-parachain-info"
 version = "0.7.0"
 license = "Apache-2.0"
 description = "Pallet to store the parachain ID"
+homepage.workspace = true
+repository.workspace = true
 
 [lints]
 workspace = true

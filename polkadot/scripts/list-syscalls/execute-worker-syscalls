@@ -20,6 +20,7 @@
 24 (sched_yield)
 25 (mremap)
 28 (madvise)
+34 (pause)
 39 (getpid)
 41 (socket)
 42 (connect)

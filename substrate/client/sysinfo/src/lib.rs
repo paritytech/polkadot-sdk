@@ -27,10 +27,10 @@ mod sysinfo;
 mod sysinfo_linux;
 
 pub use sysinfo::{
-	benchmark_cpu, benchmark_disk_random_writes, benchmark_disk_sequential_writes,
-	benchmark_memory, benchmark_sr25519_verify, gather_hwbench, gather_sysinfo,
-	serialize_throughput, serialize_throughput_option, Metric, Requirement, Requirements,
-	Throughput,
+	benchmark_cpu, benchmark_cpu_parallelism, benchmark_disk_random_writes,
+	benchmark_disk_sequential_writes, benchmark_memory, benchmark_sr25519_verify, gather_hwbench,
+	gather_sysinfo, serialize_throughput, serialize_throughput_option, Metric, Requirement,
+	Requirements, Throughput,
 };
 
 /// The operating system part of the current target triplet.
@@ -48,6 +48,12 @@ pub struct HwBench {
 	/// The CPU speed, as measured in how many MB/s it can hash using the BLAKE2b-256 hash.
 	#[serde(serialize_with = "serialize_throughput")]
 	pub cpu_hashrate_score: Throughput,
+	/// The parallel CPU speed, as measured in how many MB/s it can hash in parallel using the
+	/// BLAKE2b-256 hash.
+	#[serde(serialize_with = "serialize_throughput")]
+	pub parallel_cpu_hashrate_score: Throughput,
+	/// The number of expected cores used for computing the parallel CPU speed.
+	pub parallel_cpu_cores: usize,
 	/// Memory bandwidth in MB/s, calculated by measuring the throughput of `memcpy`.
 	#[serde(serialize_with = "serialize_throughput")]
 	pub memory_memcpy_score: Throughput,
@@ -65,6 +71,7 @@ pub struct HwBench {
 	pub disk_random_write_score: Option<Throughput>,
 }
 
+#[derive(Copy, Clone, Debug)]
 /// Limit the execution time of a benchmark.
 pub enum ExecutionLimit {
 	/// Limit by the maximal duration.
@@ -132,7 +139,12 @@ pub fn print_sysinfo(sysinfo: &sc_telemetry::SysInfo) {
 
 /// Prints out the results of the hardware benchmarks in the logs.
 pub fn print_hwbench(hwbench: &HwBench) {
-	log::info!("🏁 CPU score: {}", hwbench.cpu_hashrate_score);
+	log::info!(
+		"🏁 CPU single core score: {}, parallelism score: {} with expected cores: {}",
+		hwbench.cpu_hashrate_score,
+		hwbench.parallel_cpu_hashrate_score,
+		hwbench.parallel_cpu_cores,
+	);
 	log::info!("🏁 Memory score: {}", hwbench.memory_memcpy_score);
 
 	if let Some(score) = hwbench.disk_sequential_write_score {

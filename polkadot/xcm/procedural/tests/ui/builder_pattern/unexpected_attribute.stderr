@@ -1,4 +1,4 @@
-error: Expected `builder(loads_holding)`
+error: Expected `builder(loads_holding)` or `builder(pays_fees)`
   --> tests/ui/builder_pattern/unexpected_attribute.rs:25:5
    |
 25 |     #[builder(funds_holding)]

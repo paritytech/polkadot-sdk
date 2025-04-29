@@ -15,17 +15,11 @@
 
 #[cfg(test)]
 mod imports {
-	pub use codec::Encode;
 	// Substrate
-	pub use frame_support::{
-		assert_ok,
-		pallet_prelude::Weight,
-		sp_runtime::{AccountId32, DispatchResult},
-		traits::fungibles::Inspect,
-	};
+	pub use frame_support::{assert_ok, sp_runtime::DispatchResult, traits::fungibles::Inspect};
 
 	// Polkadot
-	pub use xcm::prelude::*;
+	pub use xcm::{latest::WESTEND_GENESIS_HASH, prelude::*};
 
 	// Cumulus
 	pub use asset_test_utils::xcm_helpers;
@@ -36,29 +30,30 @@ mod imports {
 	pub use parachains_common::Balance;
 	pub use westend_system_emulated_network::{
 		self,
+		asset_hub_westend_emulated_chain::AssetHubWestendParaPallet as AssetHubWestendPallet,
+		bridge_hub_westend_emulated_chain::BridgeHubWestendParaPallet as BridgeHubWestendPallet,
+		collectives_westend_emulated_chain::CollectivesWestendParaPallet as CollectivesWestendPallet,
+		coretime_westend_emulated_chain::CoretimeWestendParaPallet as CoretimeWestendPallet,
+		penpal_emulated_chain::{PenpalAssetOwner, PenpalBParaPallet as PenpalBPallet},
 		people_westend_emulated_chain::{
-			genesis::ED as PEOPLE_WESTEND_ED,
 			people_westend_runtime::{
-				people, xcm_config::XcmConfig as PeopleWestendXcmConfig,
-				ExistentialDeposit as PeopleWestendExistentialDeposit, Runtime as PeopleRuntime,
+				self, xcm_config::XcmConfig as PeopleWestendXcmConfig,
+				ExistentialDeposit as PeopleWestendExistentialDeposit,
 			},
 			PeopleWestendParaPallet as PeopleWestendPallet,
 		},
 		westend_emulated_chain::{
-			genesis::ED as WESTEND_ED,
-			westend_runtime::{
-				xcm_config::XcmConfig as WestendXcmConfig, BasicDeposit, ByteDeposit,
-				MaxAdditionalFields, MaxSubAccounts, Runtime as WestendRuntime,
-				RuntimeOrigin as WestendOrigin, SubAccountDeposit,
-			},
+			genesis::ED as WESTEND_ED, westend_runtime::xcm_config::XcmConfig as WestendXcmConfig,
 			WestendRelayPallet as WestendPallet,
 		},
-		PeopleWestendPara as PeopleWestend, PeopleWestendParaReceiver as PeopleWestendReceiver,
+		AssetHubWestendPara as AssetHubWestend, BridgeHubWestendPara as BridgeHubWestend,
+		CollectivesWestendPara as CollectivesWestend, CoretimeWestendPara as CoretimeWestend,
+		PenpalBPara as PenpalB, PeopleWestendPara as PeopleWestend,
+		PeopleWestendParaReceiver as PeopleWestendReceiver,
 		PeopleWestendParaSender as PeopleWestendSender, WestendRelay as Westend,
 		WestendRelayReceiver as WestendReceiver, WestendRelaySender as WestendSender,
 	};
 
-	pub type RelayToSystemParaTest = Test<Westend, PeopleWestend>;
 	pub type SystemParaToRelayTest = Test<PeopleWestend, Westend>;
 }
 

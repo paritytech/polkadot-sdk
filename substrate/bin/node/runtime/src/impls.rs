@@ -65,7 +65,7 @@ impl IdentityVerifier<AccountId> for AllianceIdentityVerifier {
 	fn has_good_judgement(who: &AccountId) -> bool {
 		use pallet_identity::{IdentityOf, Judgement};
 		IdentityOf::<Runtime>::get(who)
-			.map(|(registration, _)| registration.judgements)
+			.map(|registration| registration.judgements)
 			.map_or(false, |judgements| {
 				judgements
 					.iter()

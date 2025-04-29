@@ -400,7 +400,9 @@ impl<T: Config> OnTimestampSet<T::Moment> for Pallet<T> {
 		assert_eq!(
 			CurrentSlot::<T>::get(),
 			timestamp_slot,
-			"Timestamp slot must match `CurrentSlot`"
+			"Timestamp slot must match `CurrentSlot`. This likely means that the configured block \
+			time in the node and/or rest of the runtime is not compatible with Aura's \
+			`SlotDuration`",
 		);
 	}
 }

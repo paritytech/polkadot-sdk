@@ -64,6 +64,7 @@ pub fn derive_ord_no_bound(input: proc_macro::TokenStream) -> proc_macro::TokenS
 
 	quote::quote!(
 		const _: () = {
+			#[allow(deprecated)]
 			impl #impl_generics core::cmp::Ord for #name #ty_generics #where_clause {
 				fn cmp(&self, other: &Self) -> core::cmp::Ordering {
 					#impl_

@@ -17,18 +17,16 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 assert_matches = { optional = true, workspace = true }
-codec = { features = [
-	"derive",
-], workspace = true }
-scale-info = { features = ["derive"], workspace = true }
-serde = { features = ["derive"], optional = true, workspace = true, default-features = true }
-sp-arithmetic = { workspace = true }
+codec = { features = ["derive"], workspace = true }
 frame-benchmarking = { optional = true, workspace = true }
 frame-support = { workspace = true }
 frame-system = { workspace = true }
+log = { workspace = true }
+scale-info = { features = ["derive"], workspace = true }
+serde = { features = ["derive"], optional = true, workspace = true, default-features = true }
+sp-arithmetic = { workspace = true }
 sp-io = { workspace = true }
 sp-runtime = { workspace = true }
-log = { workspace = true }
 
 [dev-dependencies]
 assert_matches = { workspace = true }
@@ -57,7 +55,6 @@ std = [
 ]
 runtime-benchmarks = [
 	"assert_matches",
-	"frame-benchmarking",
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",

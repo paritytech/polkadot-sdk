@@ -1,0 +1,300 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: FRAME Reintroduce `TransactionExtension` as a replacement for `SignedExtension`
+
+doc:
+  - audience: [Runtime Dev, Runtime User, Node Operator, Node Dev]
+    description: |
+      Introduces a new trait `TransactionExtension` to replace `SignedExtension`. Introduce the
+      idea of transactions which obey the runtime's extensions and have according Extension data
+      (né Extra data) yet do not have hard-coded signatures.
+
+      Deprecate the terminology of "Unsigned" when used for transactions/extrinsics owing to there
+      now being "proper" unsigned transactions which obey the extension framework and "old-style"
+      unsigned which do not. Instead we have `General` for the former and `Bare` for the latter.
+      Unsigned will be phased out as a type of transaction, and `Bare` will only be used for
+      Inherents.
+
+      Types of extrinsic are now therefore
+        - Bare (no hardcoded signature, no Extra data; used to be known as "Unsigned")
+            - Bare transactions (deprecated) - Gossiped, validated with `ValidateUnsigned`
+              (deprecated) and the `_bare_compat` bits of `TransactionExtension` (deprecated).
+            - Inherents - Not gossiped, validated with `ProvideInherent`.
+        - Extended (Extra data) - Gossiped, validated via `TransactionExtension`.
+            - Signed transactions (with a hardcoded signature).
+            - General transactions (without a hardcoded signature).
+
+      Notable information on `TransactionExtension` and the differences from `SignedExtension`
+        - `AdditionalSigned`/`additional_signed` is renamed to `Implicit`/`implicit`. It is encoded
+          for the entire transaction and passed in to each extension as a new argument to validate.
+        - `pre_dispatch` is renamed to `prepare`.
+        - `validate` runs transaction validation logic both off-chain and on-chain, and is
+          non-mutating.
+        - `prepare` runs on-chain pre-execution logic using information extracted during validation
+          and is mutating.
+        - `validate` and `prepare` are now passed an `Origin` rather than an `AccountId`. If the
+          extension logic presumes an `AccountId`, consider using the trait function
+          `AsSystemOriginSigner::as_system_origin_signer`.
+        - A signature on the underlying transaction may validly not be present.
+        - The origin may be altered during validation.
+        - Validation functionality present in `validate` should not be repeated in `prepare`.
+          Useful information obtained during `validate` should now be passed in to `prepare` using
+          the new user-specifiable type `Val`.
+        - Unsigned logic should be temporarily migrated from the old `*_unsigned` functions into the
+          regular versions of the new functions where the `Origin` is `None`, until the deprecation
+          of `ValidateUnsigned` in phase 2 of Extrinsic Horizon.
+        - The `Call` type defining the runtime call is now a type parameter.
+        - Extensions now track the weight they consume during validation, preparation and
+          post-dispatch through the `TransactionExtensionBase::weight` function.
+        - `TestXt` was removed and its usage in tests was replaced with `UncheckedExtrinsic`
+          instances.
+
+      To fix the build issues introduced by this change, use the `AsTransactionExtension` adapter
+      to wrap existing `SignedExtension`s by converting them using the `From<SignedExtension>`
+      generic implementation for `AsTransactionExtension`. More details on migrating existing
+      `SignedExtension` implementations to `TransactionExtension` in the PR description.
+
+crates:
+  - name: bridge-runtime-common
+    bump: major
+  - name: bp-bridge-hub-cumulus
+    bump: major
+  - name: bp-bridge-hub-rococo
+    bump: major
+  - name: bp-bridge-hub-westend
+    bump: major
+  - name: bp-kusama
+    bump: major
+  - name: bp-polkadot-bulletin
+    bump: major
+  - name: bp-polkadot
+    bump: major
+  - name: bp-rococo
+    bump: major
+  - name: bp-westend
+    bump: major
+  - name: pallet-bridge-relayers
+    bump: major
+  - name: bp-polkadot-core
+    bump: major
+  - name: bp-relayers
+    bump: major
+  - name: bp-runtime
+    bump: major
+  - name: substrate-relay-helper
+    bump: major
+  - name: snowbridge-pallet-ethereum-client
+    bump: major
+  - name: snowbridge-pallet-inbound-queue
+    bump: major
+  - name: snowbridge-pallet-outbound-queue
+    bump: major
+  - name: snowbridge-pallet-system
+    bump: major
+  - name: snowbridge-runtime-test-common
+    bump: major
+  - name: parachain-template-runtime
+    bump: major
+  - name: cumulus-pallet-parachain-system
+    bump: major
+  - name: asset-hub-rococo-runtime
+    bump: major
+  - name: asset-hub-westend-runtime
+    bump: major
+  - name: bridge-hub-rococo-runtime
+    bump: major
+  - name: bridge-hub-westend-runtime
+    bump: major
+  - name: collectives-westend-runtime
+    bump: major
+  - name: contracts-rococo-runtime
+    bump: major
+  - name: coretime-rococo-runtime
+    bump: major
+  - name: coretime-westend-runtime
+    bump: major
+  - name: glutton-westend-runtime
+    bump: major
+  - name: people-rococo-runtime
+    bump: major
+  - name: people-westend-runtime
+    bump: major
+  - name: parachains-runtimes-test-utils
+    bump: major
+  - name: penpal-runtime
+    bump: major
+  - name: rococo-parachain-runtime
+    bump: major
+  - name: polkadot-omni-node
+    bump: major
+  - name: polkadot-parachain-bin
+    bump: major
+  - name: cumulus-primitives-storage-weight-reclaim
+    bump: major
+  - name: cumulus-test-client
+    bump: major
+  - name: cumulus-test-runtime
+    bump: major
+  - name: cumulus-test-service
+    bump: major
+  - name: polkadot-sdk-docs
+    bump: major
+  - name: polkadot-service
+    bump: major
+  - name: polkadot-test-service
+    bump: major
+  - name: polkadot-runtime-common
+    bump: major
+  - name: polkadot-runtime-parachains
+    bump: major
+  - name: rococo-runtime
+    bump: major
+  - name: polkadot-test-runtime
+    bump: major
+  - name: westend-runtime
+    bump: major
+  - name: pallet-xcm-benchmarks
+    bump: major
+  - name: pallet-xcm
+    bump: major
+  - name: staging-xcm-builder
+    bump: major
+  - name: staging-xcm-executor
+    bump: major
+  - name: xcm-runtime-apis
+    bump: major
+  - name: xcm-simulator
+    bump: major
+  - name: minimal-template-runtime
+    bump: major
+  - name: minimal-template-node
+    bump: major
+  - name: solochain-template-runtime
+    bump: major
+  - name: staging-node-cli
+    bump: major
+  - name: kitchensink-runtime
+    bump: major
+  - name: node-testing
+    bump: major
+  - name: sc-client-api
+    bump: major
+  - name: sc-client-db
+    bump: major
+  - name: sc-network-gossip
+    bump: major
+  - name: sc-network-sync
+    bump: major
+  - name: sc-transaction-pool
+    bump: major
+  - name: polkadot-sdk-frame
+    bump: major
+  - name: pallet-alliance
+    bump: major
+  - name: pallet-assets
+    bump: major
+  - name: pallet-asset-conversion
+    bump: major
+  - name: pallet-babe
+    bump: major
+  - name: pallet-balances
+    bump: major
+  - name: pallet-beefy
+    bump: major
+  - name: pallet-collective
+    bump: major
+  - name: pallet-contracts
+    bump: major
+  - name: pallet-election-provider-multi-phase
+    bump: major
+  - name: pallet-elections-phragmen
+    bump: major
+  - name: pallet-example-basic
+    bump: major
+  - name: pallet-example-tasks
+    bump: major
+  - name: pallet-example-offchain-worker
+    bump: major
+  - name: pallet-examples
+    bump: major
+  - name: frame-executive
+    bump: major
+  - name: pallet-grandpa
+    bump: major
+  - name: pallet-im-online
+    bump: major
+  - name: pallet-lottery
+    bump: major
+  - name: frame-metadata-hash-extension
+    bump: major
+  - name: pallet-mixnet
+    bump: major
+  - name: pallet-multisig
+    bump: major
+  - name: pallet-offences
+    bump: major
+  - name: pallet-proxy
+    bump: major
+  - name: pallet-recovery
+    bump: major
+  - name: pallet-revive
+    bump: major
+  - name: pallet-sassafras
+    bump: major
+  - name: pallet-scheduler
+    bump: major
+  - name: pallet-state-trie-migration
+    bump: major
+  - name: pallet-sudo
+    bump: major
+  - name: frame-support-procedural
+    bump: major
+  - name: frame-support
+    bump: major
+  - name: frame-support-test
+    bump: major
+  - name: frame-system
+    bump: major
+  - name: frame-system-benchmarking
+    bump: major
+  - name: pallet-transaction-payment
+    bump: major
+  - name: pallet-asset-conversion-tx-payment
+    bump: major
+  - name: pallet-asset-tx-payment
+    bump: major
+  - name: pallet-skip-feeless-payment
+    bump: major
+  - name: pallet-utility
+    bump: major
+  - name: pallet-whitelist
+    bump: major
+  - name: sp-inherents
+    bump: major
+  - name: sp-metadata-ir
+    bump: major
+  - name: sp-runtime
+    bump: major
+  - name: sp-storage
+    bump: major
+  - name: sp-test-primitives
+    bump: major
+  - name: substrate-test-runtime
+    bump: major
+  - name: substrate-test-utils
+    bump: major
+  - name: frame-benchmarking-cli
+    bump: major
+  - name: frame-remote-externalities
+    bump: major
+  - name: substrate-rpc-client
+    bump: major
+  - name: minimal-template-runtime
+    bump: major
+  - name: parachain-template-runtime
+    bump: major
+  - name: solochain-template-node
+    bump: major
+  - name: polkadot-sdk
+    bump: major

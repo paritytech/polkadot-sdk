@@ -290,7 +290,18 @@ impl<N: Ord + Copy + PartialEq> ParaPastCodeMeta<N> {
 }
 
 /// Arguments for initializing a para.
-#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, TypeInfo, Serialize, Deserialize)]
+#[derive(
+	PartialEq,
+	Eq,
+	Clone,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	RuntimeDebug,
+	TypeInfo,
+	Serialize,
+	Deserialize,
+)]
 pub struct ParaGenesisArgs {
 	/// The initial head data to use.
 	pub genesis_head: HeadData,
@@ -302,7 +313,7 @@ pub struct ParaGenesisArgs {
 }
 
 /// Distinguishes between lease holding Parachain and Parathread (on-demand parachain)
-#[derive(PartialEq, Eq, Clone, RuntimeDebug)]
+#[derive(DecodeWithMemTracking, PartialEq, Eq, Clone, RuntimeDebug)]
 pub enum ParaKind {
 	Parathread,
 	Parachain,
@@ -545,6 +556,7 @@ pub trait WeightInfo {
 	fn force_queue_action() -> Weight;
 	fn add_trusted_validation_code(c: u32) -> Weight;
 	fn poke_unused_validation_code() -> Weight;
+	fn remove_upgrade_cooldown() -> Weight;
 
 	fn include_pvf_check_statement_finalize_upgrade_accept() -> Weight;
 	fn include_pvf_check_statement_finalize_upgrade_reject() -> Weight;
@@ -596,15 +608,24 @@ impl WeightInfo for TestWeightInfo {
 		// This special value is to distinguish from the finalizing variants above in tests.
 		Weight::MAX - Weight::from_parts(1, 1)
 	}
+	fn remove_upgrade_cooldown() -> Weight {
+		Weight::MAX
+	}
 }
 
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
+	use frame_support::traits::{
+		fungible::{Inspect, Mutate},
+		tokens::{Fortitude, Precision, Preservation},
+	};
 	use sp_runtime::transaction_validity::{
 		InvalidTransaction, TransactionPriority, TransactionSource, TransactionValidity,
 		ValidTransaction,
 	};
+
+	type BalanceOf<T> = <<T as Config>::Fungible as Inspect<AccountIdFor<T>>>::Balance;
 
 	#[pallet::pallet]
 	#[pallet::without_storage_info]
@@ -615,8 +636,9 @@ pub mod pallet {
 		frame_system::Config
 		+ configuration::Config
 		+ shared::Config
-		+ frame_system::offchain::SendTransactionTypes<Call<Self>>
+		+ frame_system::offchain::CreateInherent<Call<Self>>
 	{
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		#[pallet::constant]
@@ -642,6 +664,20 @@ pub mod pallet {
 		///
 		/// TODO: Remove once coretime is the standard across all chains.
 		type AssignCoretime: AssignCoretime;
+
+		/// The fungible instance used by the runtime.
+		type Fungible: Mutate<Self::AccountId, Balance: From<BlockNumberFor<Self>>>;
+
+		/// Multiplier to determine the cost of removing upgrade cooldown.
+		///
+		/// After a parachain upgrades their runtime, an upgrade cooldown is applied
+		/// ([`configuration::HostConfiguration::validation_upgrade_cooldown`]). This cooldown
+		/// exists to prevent spamming the relay chain with runtime upgrades. But as life is going
+		/// on, mistakes can happen and a consequent may be required. The cooldown period can be
+		/// removed by using [`Pallet::remove_upgrade_cooldown`]. This dispatchable will use this
+		/// multiplier to determine the cost for removing the upgrade cooldown. Time left for the
+		/// cooldown multiplied with this multiplier determines the cost.
+		type CooldownRemovalMultiplier: Get<BalanceOf<Self>>;
 	}
 
 	#[pallet::event]
@@ -666,6 +702,11 @@ pub mod pallet {
 		/// The given validation code was rejected by the PVF pre-checking vote.
 		/// `code_hash` `para_id`
 		PvfCheckRejected(ValidationCodeHash, ParaId),
+		/// The upgrade cooldown was removed.
+		UpgradeCooldownRemoved {
+			/// The parachain for which the cooldown got removed.
+			para_id: ParaId,
+		},
 	}
 
 	#[pallet::error]
@@ -1148,6 +1189,67 @@ pub mod pallet {
 			ensure_root(origin)?;
 			MostRecentContext::<T>::insert(&para, context);
 			Ok(())
+		}
+
+		/// Remove an upgrade cooldown for a parachain.
+		///
+		/// The cost for removing the cooldown earlier depends on the time left for the cooldown
+		/// multiplied by [`Config::CooldownRemovalMultiplier`]. The paid tokens are burned.
+		#[pallet::call_index(9)]
+		#[pallet::weight(<T as Config>::WeightInfo::remove_upgrade_cooldown())]
+		pub fn remove_upgrade_cooldown(origin: OriginFor<T>, para: ParaId) -> DispatchResult {
+			let who = ensure_signed(origin)?;
+
+			let removed = UpgradeCooldowns::<T>::mutate(|cooldowns| {
+				let Some(pos) = cooldowns.iter().position(|(p, _)| p == &para) else {
+					return Ok::<_, DispatchError>(false)
+				};
+				let (_, cooldown_until) = cooldowns.remove(pos);
+
+				let cost = Self::calculate_remove_upgrade_cooldown_cost(cooldown_until);
+
+				// burn...
+				T::Fungible::burn_from(
+					&who,
+					cost,
+					Preservation::Preserve,
+					Precision::Exact,
+					Fortitude::Polite,
+				)?;
+
+				Ok(true)
+			})?;
+
+			if removed {
+				UpgradeRestrictionSignal::<T>::remove(para);
+
+				Self::deposit_event(Event::UpgradeCooldownRemoved { para_id: para });
+			}
+
+			Ok(())
+		}
+	}
+
+	impl<T: Config> Pallet<T> {
+		pub(crate) fn calculate_remove_upgrade_cooldown_cost(
+			cooldown_until: BlockNumberFor<T>,
+		) -> BalanceOf<T> {
+			let time_left =
+				cooldown_until.saturating_sub(frame_system::Pallet::<T>::block_number());
+
+			BalanceOf::<T>::from(time_left).saturating_mul(T::CooldownRemovalMultiplier::get())
+		}
+	}
+
+	#[pallet::view_functions]
+	impl<T: Config> Pallet<T> {
+		/// Returns the cost for removing an upgrade cooldown for the given `para`.
+		pub fn remove_upgrade_cooldown_cost(para: ParaId) -> BalanceOf<T> {
+			UpgradeCooldowns::<T>::get()
+				.iter()
+				.find(|(p, _)| p == &para)
+				.map(|(_, c)| Self::calculate_remove_upgrade_cooldown_cost(*c))
+				.unwrap_or_default()
 		}
 	}
 
@@ -1956,14 +2058,12 @@ impl<T: Config> Pallet<T> {
 		inclusion_block_number: BlockNumberFor<T>,
 		cfg: &configuration::HostConfiguration<BlockNumberFor<T>>,
 		upgrade_strategy: UpgradeStrategy,
-	) -> Weight {
-		let mut weight = T::DbWeight::get().reads(1);
-
+	) {
 		// Should be prevented by checks in `schedule_code_upgrade_external`
 		let new_code_len = new_code.0.len();
 		if new_code_len < MIN_CODE_SIZE as usize || new_code_len > cfg.max_code_size as usize {
 			log::warn!(target: LOG_TARGET, "attempted to schedule an upgrade with invalid new validation code",);
-			return weight
+			return
 		}
 
 		// Enacting this should be prevented by the `can_upgrade_validation_code`
@@ -1977,7 +2077,7 @@ impl<T: Config> Pallet<T> {
 			// NOTE: we cannot set `UpgradeGoAheadSignal` signal here since this will be reset by
 			//       the following call `note_new_head`
 			log::warn!(target: LOG_TARGET, "ended up scheduling an upgrade while one is pending",);
-			return weight
+			return
 		}
 
 		let code_hash = new_code.hash();
@@ -1986,7 +2086,6 @@ impl<T: Config> Pallet<T> {
 		// process right away.
 		//
 		// We do not want to allow this since it will mess with the code reference counting.
-		weight += T::DbWeight::get().reads(1);
 		if CurrentCodeHash::<T>::get(&id) == Some(code_hash) {
 			// NOTE: we cannot set `UpgradeGoAheadSignal` signal here since this will be reset by
 			//       the following call `note_new_head`
@@ -1994,15 +2093,13 @@ impl<T: Config> Pallet<T> {
 				target: LOG_TARGET,
 				"para tried to upgrade to the same code. Abort the upgrade",
 			);
-			return weight
+			return
 		}
 
 		// This is the start of the upgrade process. Prevent any further attempts at upgrading.
-		weight += T::DbWeight::get().writes(2);
 		FutureCodeHash::<T>::insert(&id, &code_hash);
 		UpgradeRestrictionSignal::<T>::insert(&id, UpgradeRestriction::Present);
 
-		weight += T::DbWeight::get().reads_writes(1, 1);
 		let next_possible_upgrade_at = inclusion_block_number + cfg.validation_upgrade_cooldown;
 		UpgradeCooldowns::<T>::mutate(|upgrade_cooldowns| {
 			let insert_idx = upgrade_cooldowns
@@ -2011,14 +2108,12 @@ impl<T: Config> Pallet<T> {
 			upgrade_cooldowns.insert(insert_idx, (id, next_possible_upgrade_at));
 		});
 
-		weight += Self::kick_off_pvf_check(
+		Self::kick_off_pvf_check(
 			PvfCheckCause::Upgrade { id, included_at: inclusion_block_number, upgrade_strategy },
 			code_hash,
 			new_code,
 			cfg,
 		);
-
-		weight
 	}
 
 	/// Makes sure that the given code hash has passed pre-checking.
@@ -2108,11 +2203,11 @@ impl<T: Config> Pallet<T> {
 		id: ParaId,
 		new_head: HeadData,
 		execution_context: BlockNumberFor<T>,
-	) -> Weight {
+	) {
 		Heads::<T>::insert(&id, &new_head);
 		MostRecentContext::<T>::insert(&id, execution_context);
 
-		let weight = if let Some(expected_at) = FutureCodeUpgrades::<T>::get(&id) {
+		if let Some(expected_at) = FutureCodeUpgrades::<T>::get(&id) {
 			if expected_at <= execution_context {
 				FutureCodeUpgrades::<T>::remove(&id);
 				UpgradeGoAheadSignal::<T>::remove(&id);
@@ -2122,14 +2217,10 @@ impl<T: Config> Pallet<T> {
 					new_code_hash
 				} else {
 					log::error!(target: LOG_TARGET, "Missing future code hash for {:?}", &id);
-					return T::DbWeight::get().reads_writes(3, 1 + 3)
+					return
 				};
 
-				let weight = Self::set_current_code(id, new_code_hash, expected_at);
-
-				weight + T::DbWeight::get().reads_writes(3, 3)
-			} else {
-				T::DbWeight::get().reads_writes(1, 1 + 0)
+				Self::set_current_code(id, new_code_hash, expected_at);
 			}
 		} else {
 			// This means there is no upgrade scheduled.
@@ -2137,10 +2228,9 @@ impl<T: Config> Pallet<T> {
 			// In case the upgrade was aborted by the relay-chain we should reset
 			// the `Abort` signal.
 			UpgradeGoAheadSignal::<T>::remove(&id);
-			T::DbWeight::get().reads_writes(1, 2)
 		};
 
-		weight.saturating_add(T::OnNewHead::on_new_head(id, &new_head))
+		T::OnNewHead::on_new_head(id, &new_head);
 	}
 
 	/// Set the current code for the given parachain.
@@ -2189,9 +2279,8 @@ impl<T: Config> Pallet<T> {
 	) {
 		use frame_system::offchain::SubmitTransaction;
 
-		if let Err(e) = SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(
-			Call::include_pvf_check_statement { stmt, signature }.into(),
-		) {
+		let xt = T::create_inherent(Call::include_pvf_check_statement { stmt, signature }.into());
+		if let Err(e) = SubmitTransaction::<T, Call<T>>::submit_transaction(xt) {
 			log::error!(target: LOG_TARGET, "Error submitting pvf check statement: {:?}", e,);
 		}
 	}

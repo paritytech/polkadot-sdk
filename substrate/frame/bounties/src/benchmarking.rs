@@ -15,9 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! bounties pallet benchmarking.
-
-#![cfg(feature = "runtime-benchmarks")]
+//! Bounties pallet benchmarking.
 
 use super::*;
 
@@ -25,13 +23,27 @@ use alloc::{vec, vec::Vec};
 use frame_benchmarking::v1::{
 	account, benchmarks_instance_pallet, whitelisted_caller, BenchmarkError,
 };
-use frame_system::{pallet_prelude::BlockNumberFor, RawOrigin};
-use sp_runtime::traits::Bounded;
+use frame_system::{pallet_prelude::BlockNumberFor as SystemBlockNumberFor, RawOrigin};
+use sp_runtime::traits::{BlockNumberProvider, Bounded};
 
 use crate::Pallet as Bounties;
 use pallet_treasury::Pallet as Treasury;
 
 const SEED: u32 = 0;
+
+fn set_block_number<T: Config<I>, I: 'static>(n: BlockNumberFor<T, I>) {
+	<T as pallet_treasury::Config<I>>::BlockNumberProvider::set_block_number(n);
+}
+
+fn minimum_balance<T: Config<I>, I: 'static>() -> BalanceOf<T, I> {
+	let minimum_balance = T::Currency::minimum_balance();
+
+	if minimum_balance.is_zero() {
+		1u32.into()
+	} else {
+		minimum_balance
+	}
+}
 
 // Create bounties that are approved for use in `on_initialize`.
 fn create_approved_bounties<T: Config<I>, I: 'static>(n: u32) -> Result<(), BenchmarkError> {
@@ -58,12 +70,10 @@ fn setup_bounty<T: Config<I>, I: 'static>(
 	let fee = value / 2u32.into();
 	let deposit = T::BountyDepositBase::get() +
 		T::DataDepositPerByte::get() * T::MaximumReasonLength::get().into();
-	let _ = T::Currency::make_free_balance_be(&caller, deposit + T::Currency::minimum_balance());
+	let _ = T::Currency::make_free_balance_be(&caller, deposit + minimum_balance::<T, I>());
 	let curator = account("curator", u, SEED);
-	let _ = T::Currency::make_free_balance_be(
-		&curator,
-		fee / 2u32.into() + T::Currency::minimum_balance(),
-	);
+	let _ =
+		T::Currency::make_free_balance_be(&curator, fee / 2u32.into() + minimum_balance::<T, I>());
 	let reason = vec![0; d as usize];
 	(caller, curator, fee, value, reason)
 }
@@ -78,7 +88,8 @@ fn create_bounty<T: Config<I>, I: 'static>(
 	let approve_origin =
 		T::SpendOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
 	Bounties::<T, I>::approve_bounty(approve_origin.clone(), bounty_id)?;
-	Treasury::<T, I>::on_initialize(BlockNumberFor::<T>::zero());
+	set_block_number::<T, I>(T::SpendPeriod::get());
+	Treasury::<T, I>::on_initialize(frame_system::Pallet::<T>::block_number());
 	Bounties::<T, I>::propose_curator(approve_origin, bounty_id, curator_lookup.clone(), fee)?;
 	Bounties::<T, I>::accept_curator(RawOrigin::Signed(curator).into(), bounty_id)?;
 	Ok((curator_lookup, bounty_id))
@@ -86,7 +97,7 @@ fn create_bounty<T: Config<I>, I: 'static>(
 
 fn setup_pot_account<T: Config<I>, I: 'static>() {
 	let pot_account = Bounties::<T, I>::account_id();
-	let value = T::Currency::minimum_balance().saturating_mul(1_000_000_000u32.into());
+	let value = minimum_balance::<T, I>().saturating_mul(1_000_000_000u32.into());
 	let _ = T::Currency::make_free_balance_be(&pot_account, value);
 }
 
@@ -116,18 +127,45 @@ benchmarks_instance_pallet! {
 		let bounty_id = BountyCount::<T, I>::get() - 1;
 		let approve_origin = T::SpendOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
 		Bounties::<T, I>::approve_bounty(approve_origin.clone(), bounty_id)?;
-		Treasury::<T, I>::on_initialize(BlockNumberFor::<T>::zero());
+		set_block_number::<T, I>(T::SpendPeriod::get());
+		Treasury::<T, I>::on_initialize(frame_system::Pallet::<T>::block_number());
 	}: _<T::RuntimeOrigin>(approve_origin, bounty_id, curator_lookup, fee)
 
-	// Worst case when curator is inactive and any sender unassigns the curator.
+	approve_bounty_with_curator {
+		setup_pot_account::<T, I>();
+		let (caller, curator, fee, value, reason) = setup_bounty::<T, I>(0, T::MaximumReasonLength::get());
+		let curator_lookup = T::Lookup::unlookup(curator.clone());
+		Bounties::<T, I>::propose_bounty(RawOrigin::Signed(caller).into(), value, reason)?;
+		let bounty_id = BountyCount::<T, I>::get() - 1;
+		let approve_origin = T::SpendOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
+		Treasury::<T, I>::on_initialize(SystemBlockNumberFor::<T>::zero());
+	}: _<T::RuntimeOrigin>(approve_origin, bounty_id, curator_lookup, fee)
+	verify {
+		assert_last_event::<T, I>(
+			Event::CuratorProposed { bounty_id, curator }.into()
+		);
+	}
+
+	// Worst case when curator is inactive and any sender unassigns the curator,
+	// or if `BountyUpdatePeriod` is large enough and `RejectOrigin` executes the call.
 	unassign_curator {
 		setup_pot_account::<T, I>();
 		let (curator_lookup, bounty_id) = create_bounty::<T, I>()?;
-		Treasury::<T, I>::on_initialize(BlockNumberFor::<T>::zero());
+		Treasury::<T, I>::on_initialize(frame_system::Pallet::<T>::block_number());
 		let bounty_id = BountyCount::<T, I>::get() - 1;
-		frame_system::Pallet::<T>::set_block_number(T::BountyUpdatePeriod::get() + 2u32.into());
-		let caller = whitelisted_caller();
-	}: _(RawOrigin::Signed(caller), bounty_id)
+		let bounty_update_period = T::BountyUpdatePeriod::get();
+		let inactivity_timeout = T::SpendPeriod::get().saturating_add(bounty_update_period);
+		set_block_number::<T, I>(inactivity_timeout.saturating_add(2u32.into()));
+
+		// If `BountyUpdatePeriod` overflows the inactivity timeout the benchmark still executes the slash
+		let origin = if Pallet::<T, I>::treasury_block_number() <= inactivity_timeout {
+			let curator = T::Lookup::lookup(curator_lookup).map_err(<&str>::from)?;
+			T::RejectOrigin::try_successful_origin().unwrap_or_else(|_| RawOrigin::Signed(curator).into())
+		} else {
+			let caller = whitelisted_caller();
+			RawOrigin::Signed(caller).into()
+		};
+	}: _<T::RuntimeOrigin>(origin, bounty_id)
 
 	accept_curator {
 		setup_pot_account::<T, I>();
@@ -137,14 +175,15 @@ benchmarks_instance_pallet! {
 		let bounty_id = BountyCount::<T, I>::get() - 1;
 		let approve_origin = T::SpendOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
 		Bounties::<T, I>::approve_bounty(approve_origin.clone(), bounty_id)?;
-		Treasury::<T, I>::on_initialize(BlockNumberFor::<T>::zero());
+		set_block_number::<T, I>(T::SpendPeriod::get());
+		Treasury::<T, I>::on_initialize(frame_system::Pallet::<T>::block_number());
 		Bounties::<T, I>::propose_curator(approve_origin, bounty_id, curator_lookup, fee)?;
 	}: _(RawOrigin::Signed(curator), bounty_id)
 
 	award_bounty {
 		setup_pot_account::<T, I>();
 		let (curator_lookup, bounty_id) = create_bounty::<T, I>()?;
-		Treasury::<T, I>::on_initialize(BlockNumberFor::<T>::zero());
+		Treasury::<T, I>::on_initialize(frame_system::Pallet::<T>::block_number());
 
 		let bounty_id = BountyCount::<T, I>::get() - 1;
 		let curator = T::Lookup::lookup(curator_lookup).map_err(<&str>::from)?;
@@ -155,7 +194,7 @@ benchmarks_instance_pallet! {
 	claim_bounty {
 		setup_pot_account::<T, I>();
 		let (curator_lookup, bounty_id) = create_bounty::<T, I>()?;
-		Treasury::<T, I>::on_initialize(BlockNumberFor::<T>::zero());
+		Treasury::<T, I>::on_initialize(frame_system::Pallet::<T>::block_number());
 
 		let bounty_id = BountyCount::<T, I>::get() - 1;
 		let curator = T::Lookup::lookup(curator_lookup).map_err(<&str>::from)?;
@@ -164,7 +203,7 @@ benchmarks_instance_pallet! {
 		let beneficiary = T::Lookup::unlookup(beneficiary_account.clone());
 		Bounties::<T, I>::award_bounty(RawOrigin::Signed(curator.clone()).into(), bounty_id, beneficiary)?;
 
-		frame_system::Pallet::<T>::set_block_number(T::BountyDepositPayoutDelay::get() + 1u32.into());
+		set_block_number::<T, I>(T::SpendPeriod::get() + T::BountyDepositPayoutDelay::get() + 1u32.into());
 		ensure!(T::Currency::free_balance(&beneficiary_account).is_zero(), "Beneficiary already has balance");
 
 	}: _(RawOrigin::Signed(curator), bounty_id)
@@ -184,7 +223,7 @@ benchmarks_instance_pallet! {
 	close_bounty_active {
 		setup_pot_account::<T, I>();
 		let (curator_lookup, bounty_id) = create_bounty::<T, I>()?;
-		Treasury::<T, I>::on_initialize(BlockNumberFor::<T>::zero());
+		Treasury::<T, I>::on_initialize(frame_system::Pallet::<T>::block_number());
 		let bounty_id = BountyCount::<T, I>::get() - 1;
 		let approve_origin =
 			T::RejectOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
@@ -196,7 +235,7 @@ benchmarks_instance_pallet! {
 	extend_bounty_expiry {
 		setup_pot_account::<T, I>();
 		let (curator_lookup, bounty_id) = create_bounty::<T, I>()?;
-		Treasury::<T, I>::on_initialize(BlockNumberFor::<T>::zero());
+		Treasury::<T, I>::on_initialize(frame_system::Pallet::<T>::block_number());
 
 		let bounty_id = BountyCount::<T, I>::get() - 1;
 		let curator = T::Lookup::lookup(curator_lookup).map_err(<&str>::from)?;

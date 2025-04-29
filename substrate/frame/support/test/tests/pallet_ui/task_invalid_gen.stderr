@@ -1,0 +1,5 @@
+error: Invalid generic declaration, trait is defined with instance but generic use none
+  --> tests/pallet_ui/task_invalid_gen.rs:32:11
+   |
+32 |     pub enum Task<T> {}
+   |              ^^^^

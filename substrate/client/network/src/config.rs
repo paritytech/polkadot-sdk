@@ -626,6 +626,9 @@ pub struct NetworkConfiguration {
 	/// Maximum number of blocks per request.
 	pub max_blocks_per_request: u32,
 
+	/// Number of peers that need to be connected before warp sync is started.
+	pub min_peers_to_start_warp_sync: Option<usize>,
+
 	/// Initial syncing mode.
 	pub sync_mode: SyncMode,
 
@@ -650,29 +653,8 @@ pub struct NetworkConfiguration {
 	/// Enable serving block data over IPFS bitswap.
 	pub ipfs_server: bool,
 
-	/// Size of Yamux receive window of all substreams. `None` for the default (256kiB).
-	/// Any value less than 256kiB is invalid.
-	///
-	/// # Context
-	///
-	/// By design, notifications substreams on top of Yamux connections only allow up to `N` bytes
-	/// to be transferred at a time, where `N` is the Yamux receive window size configurable here.
-	/// This means, in practice, that every `N` bytes must be acknowledged by the receiver before
-	/// the sender can send more data. The maximum bandwidth of each notifications substream is
-	/// therefore `N / round_trip_time`.
-	///
-	/// It is recommended to leave this to `None`, and use a request-response protocol instead if
-	/// a large amount of data must be transferred. The reason why the value is configurable is
-	/// that some Substrate users mis-use notification protocols to send large amounts of data.
-	/// As such, this option isn't designed to stay and will likely get removed in the future.
-	///
-	/// Note that configuring a value here isn't a modification of the Yamux protocol, but rather
-	/// a modification of the way the implementation works. Different nodes with different
-	/// configured values remain compatible with each other.
-	pub yamux_window_size: Option<u32>,
-
 	/// Networking backend used for P2P communication.
-	pub network_backend: NetworkBackendType,
+	pub network_backend: Option<NetworkBackendType>,
 }
 
 impl NetworkConfiguration {
@@ -697,15 +679,15 @@ impl NetworkConfiguration {
 			transport: TransportConfig::Normal { enable_mdns: false, allow_private_ip: true },
 			max_parallel_downloads: 5,
 			max_blocks_per_request: 64,
+			min_peers_to_start_warp_sync: None,
 			sync_mode: SyncMode::Full,
 			enable_dht_random_walk: true,
 			allow_non_globals_in_dht: false,
 			kademlia_disjoint_query_paths: false,
 			kademlia_replication_factor: NonZeroUsize::new(DEFAULT_KADEMLIA_REPLICATION_FACTOR)
 				.expect("value is a constant; constant is non-zero; qed."),
-			yamux_window_size: None,
 			ipfs_server: false,
-			network_backend: NetworkBackendType::Libp2p,
+			network_backend: None,
 		}
 	}
 
@@ -931,9 +913,10 @@ impl<B: BlockT + 'static, H: ExHashT, N: NetworkBackend<B, H>> FullNetworkConfig
 }
 
 /// Network backend type.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default, Copy)]
 pub enum NetworkBackendType {
 	/// Use libp2p for P2P networking.
+	#[default]
 	Libp2p,
 
 	/// Use litep2p for P2P networking.

@@ -1,0 +1,5 @@
+error: Invalid #[pallet::include_metadata]: conflict with #[pallet::constant]. Pallet constant already collect the metadata for the type.
+  --> tests/pallet_ui/config_metadata_on_constants.rs:26:10
+   |
+26 |            #[pallet::include_metadata]
+   |             ^^^^^^^^^^^^^^^^^^^^^^^^^^

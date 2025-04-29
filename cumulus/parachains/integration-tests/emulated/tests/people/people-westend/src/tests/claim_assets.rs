@@ -25,5 +25,11 @@ fn assets_can_be_claimed() {
 	let amount = PeopleWestendExistentialDeposit::get();
 	let assets: Assets = (Parent, amount).into();
 
-	test_chain_can_claim_assets!(PeopleWestend, RuntimeCall, NetworkId::Westend, assets, amount);
+	test_chain_can_claim_assets!(
+		PeopleWestend,
+		RuntimeCall,
+		NetworkId::ByGenesis(WESTEND_GENESIS_HASH),
+		assets,
+		amount
+	);
 }

@@ -20,7 +20,7 @@ use cumulus_pallet_parachain_system::AnyRelayNumber;
 use cumulus_primitives_core::{ChannelInfo, IsSystem, ParaId};
 use frame_support::{
 	derive_impl, parameter_types,
-	traits::{ConstU32, Everything, Nothing, OriginTrait},
+	traits::{ConstU32, Everything, OriginTrait},
 	BoundedSlice,
 };
 use frame_system::EnsureRoot;
@@ -30,10 +30,6 @@ use sp_runtime::{
 	BuildStorage,
 };
 use xcm::prelude::*;
-use xcm_builder::{
-	FixedWeightBounds, FrameTransactionalProcessor, FungibleAdapter, IsConcrete, NativeAsset,
-	ParentIsPreset,
-};
 use xcm_executor::traits::ConvertOrigin;
 
 type Block = frame_system::mocking::MockBlock<Test>;
@@ -45,7 +41,7 @@ frame_support::construct_runtime!(
 		System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
 		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
 		ParachainSystem: cumulus_pallet_parachain_system::{
-			Pallet, Call, Config<T>, Storage, Inherent, Event<T>, ValidateUnsigned,
+			Pallet, Call, Config<T>, Storage, Inherent, Event<T>,
 		},
 		XcmpQueue: xcmp_queue::{Pallet, Call, Storage, Event<T>},
 	}
@@ -108,6 +104,7 @@ impl cumulus_pallet_parachain_system::Config for Test {
 	type ReservedXcmpWeight = ();
 	type CheckAssociatedRelayNumber = AnyRelayNumber;
 	type ConsensusHook = cumulus_pallet_parachain_system::consensus_hook::ExpectParentIncluded;
+	type SelectCore = cumulus_pallet_parachain_system::DefaultCoreSelector<Test>;
 }
 
 parameter_types! {
@@ -117,61 +114,6 @@ parameter_types! {
 	pub const MaxInstructions: u32 = 100;
 	pub const MaxAssetsIntoHolding: u32 = 64;
 }
-
-/// Means for transacting assets on this chain.
-pub type LocalAssetTransactor = FungibleAdapter<
-	// Use this currency:
-	Balances,
-	// Use this currency when it is a fungible asset matching the given location or name:
-	IsConcrete<RelayChain>,
-	// Do a simple punn to convert an AccountId32 Location into a native chain account ID:
-	LocationToAccountId,
-	// Our chain's account ID type (we can't get away without mentioning it explicitly):
-	AccountId,
-	// We don't track any teleports.
-	(),
->;
-
-pub type LocationToAccountId = (ParentIsPreset<AccountId>,);
-
-pub struct XcmConfig;
-impl xcm_executor::Config for XcmConfig {
-	type RuntimeCall = RuntimeCall;
-	type XcmSender = XcmRouter;
-	// How to withdraw and deposit an asset.
-	type AssetTransactor = LocalAssetTransactor;
-	type OriginConverter = ();
-	type IsReserve = NativeAsset;
-	type IsTeleporter = NativeAsset;
-	type UniversalLocation = UniversalLocation;
-	type Barrier = ();
-	type Weigher = FixedWeightBounds<UnitWeightCost, RuntimeCall, MaxInstructions>;
-	type Trader = ();
-	type ResponseHandler = ();
-	type AssetTrap = ();
-	type AssetClaims = ();
-	type SubscriptionService = ();
-	type PalletInstancesInfo = AllPalletsWithSystem;
-	type MaxAssetsIntoHolding = MaxAssetsIntoHolding;
-	type AssetLocker = ();
-	type AssetExchanger = ();
-	type FeeManager = ();
-	type MessageExporter = ();
-	type UniversalAliases = Nothing;
-	type CallDispatcher = RuntimeCall;
-	type SafeCallFilter = Everything;
-	type Aliasers = Nothing;
-	type TransactionalProcessor = FrameTransactionalProcessor;
-	type HrmpNewChannelOpenRequestHandler = ();
-	type HrmpChannelAcceptedHandler = ();
-	type HrmpChannelClosingHandler = ();
-	type XcmRecorder = ();
-}
-
-pub type XcmRouter = (
-	// XCMP to communicate with the sibling chains.
-	XcmpQueue,
-);
 
 pub struct SystemParachainAsSuperuser<RuntimeOrigin>(PhantomData<RuntimeOrigin>);
 impl<RuntimeOrigin: OriginTrait> ConvertOrigin<RuntimeOrigin>
@@ -202,7 +144,7 @@ parameter_types! {
 pub struct EnqueueToLocalStorage<T>(PhantomData<T>);
 
 impl<T: OnQueueChanged<ParaId>> EnqueueMessage<ParaId> for EnqueueToLocalStorage<T> {
-	type MaxMessageLen = sp_core::ConstU32<65_536>;
+	type MaxMessageLen = sp_core::ConstU32<256>;
 
 	fn enqueue_message(message: BoundedSlice<u8, Self::MaxMessageLen>, origin: ParaId) {
 		let mut msgs = EnqueuedMessages::get();
@@ -227,6 +169,10 @@ impl<T: OnQueueChanged<ParaId>> EnqueueMessage<ParaId> for EnqueueToLocalStorage
 		EnqueuedMessages::set(msgs);
 		T::on_queue_changed(origin, Self::footprint(origin));
 	}
+}
+
+impl<T: OnQueueChanged<ParaId>> QueueFootprintQuery<ParaId> for EnqueueToLocalStorage<T> {
+	type MaxMessageLen = sp_core::ConstU32<256>;
 
 	fn footprint(origin: ParaId) -> QueueFootprint {
 		let msgs = EnqueuedMessages::get();
@@ -237,9 +183,36 @@ impl<T: OnQueueChanged<ParaId>> EnqueueMessage<ParaId> for EnqueueToLocalStorage
 				footprint.storage.size += m.len() as u64;
 			}
 		}
-		footprint.pages = footprint.storage.size as u32 / 16; // Number does not matter
+		// Let's consider that we add one message per page
+		footprint.pages = footprint.storage.count as u32;
 		footprint.ready_pages = footprint.pages;
 		footprint
+	}
+
+	fn get_batches_footprints<'a>(
+		origin: ParaId,
+		msgs: impl Iterator<Item = BoundedSlice<'a, u8, Self::MaxMessageLen>>,
+		total_pages_limit: u32,
+	) -> Vec<BatchFootprint> {
+		// Let's consider that we add one message per page
+		let footprint = Self::footprint(origin);
+		let mut batches_footprints = vec![];
+		let mut new_pages_count = 0;
+		let mut total_size = 0;
+		for (idx, msg) in msgs.enumerate() {
+			new_pages_count += 1;
+			if footprint.pages + new_pages_count > total_pages_limit {
+				break;
+			}
+
+			total_size += msg.len();
+			batches_footprints.push(BatchFootprint {
+				msgs_count: idx + 1,
+				size_in_bytes: total_size,
+				new_pages_count,
+			})
+		}
+		batches_footprints
 	}
 }
 
@@ -286,7 +259,7 @@ pub struct MockedChannelInfo;
 impl GetChannelInfo for MockedChannelInfo {
 	fn get_channel_status(id: ParaId) -> ChannelStatus {
 		if id == HRMP_PARA_ID.into() {
-			return ChannelStatus::Ready(usize::MAX, usize::MAX)
+			return ChannelStatus::Ready(usize::MAX, usize::MAX);
 		}
 
 		ParachainSystem::get_channel_status(id)
@@ -300,7 +273,7 @@ impl GetChannelInfo for MockedChannelInfo {
 				max_message_size: u32::MAX,
 				msg_count: 0,
 				total_size: 0,
-			})
+			});
 		}
 
 		ParachainSystem::get_channel_info(id)

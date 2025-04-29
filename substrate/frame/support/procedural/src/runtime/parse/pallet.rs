@@ -21,7 +21,7 @@ use crate::{
 };
 use frame_support_procedural_tools::get_doc_literals;
 use quote::ToTokens;
-use syn::{punctuated::Punctuated, token, Error};
+use syn::{punctuated::Punctuated, spanned::Spanned, token, Error};
 
 impl Pallet {
 	pub fn try_from(
@@ -49,7 +49,7 @@ impl Pallet {
 				return Err(Error::new(
 					attr_span,
 					"Invalid pallet declaration, expected a path or a trait object",
-				))
+				));
 			};
 		}
 
@@ -78,7 +78,18 @@ impl Pallet {
 			})
 			.collect();
 
-		let cfg_pattern = vec![];
+		let cfg_pattern = item
+			.attrs
+			.iter()
+			.filter(|attr| attr.path().segments.first().map_or(false, |s| s.ident == "cfg"))
+			.map(|attr| {
+				attr.parse_args_with(|input: syn::parse::ParseStream| {
+					let input = input.parse::<proc_macro2::TokenStream>()?;
+					cfg_expr::Expression::parse(&input.to_string())
+						.map_err(|e| syn::Error::new(attr.span(), e.to_string()))
+				})
+			})
+			.collect::<syn::Result<Vec<_>>>()?;
 
 		let docs = get_doc_literals(&item.attrs);
 

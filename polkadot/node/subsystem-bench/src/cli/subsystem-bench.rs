@@ -165,7 +165,7 @@ impl BenchCli {
 				},
 				TestObjective::StatementDistribution => {
 					let state = statement::TestState::new(&test_config);
-					let (mut env, _protocol_config) = statement::prepare_test(&state, true);
+					let mut env = statement::prepare_test(&state, true);
 					env.runtime()
 						.block_on(statement::benchmark_statement_distribution(&mut env, &state))
 				},
@@ -181,6 +181,17 @@ impl BenchCli {
 		Ok(())
 	}
 }
+
+#[cfg(feature = "memprofile")]
+#[global_allocator]
+static ALLOC: tikv_jemallocator::Jemalloc = tikv_jemallocator::Jemalloc;
+
+#[cfg(feature = "memprofile")]
+#[allow(non_upper_case_globals)]
+#[export_name = "malloc_conf"]
+// See https://jemalloc.net/jemalloc.3.html for more information on the configuration options.
+pub static malloc_conf: &[u8] =
+	b"prof:true,prof_active:true,lg_prof_interval:30,lg_prof_sample:21,prof_prefix:/tmp/subsystem-bench\0";
 
 fn main() -> eyre::Result<()> {
 	color_eyre::install()?;

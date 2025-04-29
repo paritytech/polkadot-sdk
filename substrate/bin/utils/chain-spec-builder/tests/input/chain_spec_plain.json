@@ -1,0 +1,40 @@
+{
+  "name": "Custom",
+  "id": "custom",
+  "chainType": "Live",
+  "bootNodes": [],
+  "telemetryEndpoints": null,
+  "protocolId": null,
+  "properties": {
+    "tokenDecimals": 12,
+    "tokenSymbol": "UNIT"
+  },
+  "relay_chain": "rococo-local",
+  "para_id": 10101,
+  "custom_field": "custom_value",
+  "codeSubstitutes": {},
+  "genesis": {
+    "runtimeGenesis": {
+      "code": "0x010203",
+      "config": {
+        "babe": {
+          "authorities": [],
+          "epochConfig": {
+            "allowed_slots": "PrimaryAndSecondaryVRFSlots",
+            "c": [
+              1,
+              4
+            ]
+          }
+        },
+        "balances": {
+          "balances": []
+        },
+        "substrateTest": {
+          "authorities": []
+        },
+        "system": {}
+      }
+    }
+  }
+}

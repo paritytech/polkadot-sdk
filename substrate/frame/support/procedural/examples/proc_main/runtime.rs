@@ -14,6 +14,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+#![allow(deprecated, clippy::deprecated_semver)]
 
 use super::{frame_system, Block};
 use crate::derive_impl;
@@ -98,7 +99,8 @@ mod runtime {
 		RuntimeHoldReason,
 		RuntimeSlashReason,
 		RuntimeLockId,
-		RuntimeTask
+		RuntimeTask,
+		RuntimeViewFunction
 	)]
 	pub struct Runtime;
 
@@ -121,6 +123,7 @@ mod runtime {
 	// Ensure that the runtime does not export the calls from the pallet
 	#[runtime::pallet_index(4)]
 	#[runtime::disable_call]
+	#[deprecated = "example"]
 	pub type PalletWithDisabledCall = pallet_with_disabled_call::Pallet<Runtime>;
 
 	// Ensure that the runtime does not export the unsigned calls from the pallet

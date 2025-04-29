@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::pallet::Def;
+use crate::pallet::{parse::GenericKind, Def};
 use proc_macro2::TokenStream;
 use quote::quote;
 use syn::{parse_quote, Item};
@@ -47,6 +47,30 @@ Consequently, a runtime that wants to include this pallet must implement this tr
 			]
 		),
 	);
+	config_item.attrs.retain(|attr| !attr.path().is_ident("deprecated"));
+
+	// insert `frame_system::Config` supertrait with `RuntimeEvent: From<Event<Self>>` if neither
+	// associated type nor type bound is defined.
+	if let Some(event) = &def.event {
+		if !def.is_frame_system {
+			let frame_system = &def.frame_system;
+
+			// can't use `type_use_gen()` since it returns `T`, not `Self`
+			let event_use_gen = match event.gen_kind {
+				GenericKind::None => quote!(),
+				GenericKind::Config => quote::quote_spanned! {event.attr_span => Self},
+				GenericKind::ConfigAndInstance =>
+					quote::quote_spanned! {event.attr_span => Self, I},
+			};
+
+			let supertrait_with_event_bound = syn::parse2::<syn::TypeParamBound>(
+				quote! { #frame_system::Config<RuntimeEvent: From<Event<#event_use_gen>>> },
+			)
+			.expect("Parsing super trait doesn't fail; qed");
+
+			config_item.supertraits.push(supertrait_with_event_bound.into());
+		}
+	}
 
 	// we only emit `DefaultConfig` if there are trait items, so an empty `DefaultConfig` is
 	// impossible consequently.
@@ -92,6 +116,54 @@ Consequently, a runtime that wants to include this pallet must implement this tr
 				}
 			)
 		},
-		_ => Default::default(),
+		_ => quote!(),
 	}
+}
+
+/// Generate the metadata for the associated types of the config trait.
+///
+/// Implements the `pallet_associated_types_metadata` function for the pallet.
+pub fn expand_config_metadata(def: &Def) -> proc_macro2::TokenStream {
+	let frame_support = &def.frame_support;
+	let type_impl_gen = &def.type_impl_generics(proc_macro2::Span::call_site());
+	let type_use_gen = &def.type_use_generics(proc_macro2::Span::call_site());
+	let pallet_ident = &def.pallet_struct.pallet;
+	let trait_use_gen = &def.trait_use_generics(proc_macro2::Span::call_site());
+
+	let mut where_clauses = vec![&def.config.where_clause];
+	where_clauses.extend(def.extra_constants.iter().map(|d| &d.where_clause));
+	let completed_where_clause = super::merge_where_clauses(&where_clauses);
+
+	let types = def.config.associated_types_metadata.iter().map(|metadata| {
+		let ident = &metadata.ident;
+		let span = ident.span();
+		let ident_str = ident.to_string();
+		let cfgs = &metadata.cfg;
+
+		let no_docs = vec![];
+		let doc = if cfg!(feature = "no-metadata-docs") { &no_docs } else { &metadata.doc };
+
+		quote::quote_spanned!(span => {
+			#( #cfgs ) *
+			#frame_support::__private::metadata_ir::PalletAssociatedTypeMetadataIR {
+				name: #ident_str,
+				ty: #frame_support::__private::scale_info::meta_type::<
+						<T as Config #trait_use_gen>::#ident
+					>(),
+				docs: #frame_support::__private::vec![ #( #doc ),* ],
+			}
+		})
+	});
+
+	quote::quote!(
+		impl<#type_impl_gen> #pallet_ident<#type_use_gen> #completed_where_clause {
+
+			#[doc(hidden)]
+			pub fn pallet_associated_types_metadata()
+				-> #frame_support::__private::vec::Vec<#frame_support::__private::metadata_ir::PalletAssociatedTypeMetadataIR>
+			{
+				#frame_support::__private::vec![ #( #types ),* ]
+			}
+		}
+	)
 }

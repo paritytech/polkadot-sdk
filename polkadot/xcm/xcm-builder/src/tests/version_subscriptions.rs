@@ -37,7 +37,7 @@ fn simple_version_subscriptions_should_work() {
 			weight_limit,
 			Weight::zero(),
 		),
-		Outcome::Error { error: XcmError::Barrier }
+		Outcome::Incomplete { used: Weight::from_parts(20, 20), error: XcmError::Barrier }
 	);
 
 	// this case fails because the additional `SetAppendix` instruction is not allowed in the
@@ -50,7 +50,7 @@ fn simple_version_subscriptions_should_work() {
 			weight_limit,
 			Weight::zero(),
 		),
-		Outcome::Error { error: XcmError::Barrier }
+		Outcome::Incomplete { used: Weight::from_parts(20, 20), error: XcmError::Barrier }
 	);
 
 	let message = Xcm::<TestCall>(vec![SubscribeVersion {
@@ -66,7 +66,10 @@ fn simple_version_subscriptions_should_work() {
 		weight_limit,
 		Weight::zero(),
 	);
-	assert_eq!(r, Outcome::Error { error: XcmError::Barrier });
+	assert_eq!(
+		r,
+		Outcome::Incomplete { used: Weight::from_parts(10, 10), error: XcmError::Barrier }
+	);
 
 	let r = XcmExecutor::<TestConfig>::prepare_and_execute(
 		Parent,
@@ -139,7 +142,10 @@ fn simple_version_unsubscriptions_should_work() {
 		weight_limit,
 		Weight::zero(),
 	);
-	assert_eq!(r, Outcome::Error { error: XcmError::Barrier });
+	assert_eq!(
+		r,
+		Outcome::Incomplete { used: Weight::from_parts(20, 20), error: XcmError::Barrier }
+	);
 
 	let origin = Parachain(1000);
 	let message = Xcm::<TestCall>(vec![UnsubscribeVersion]);
@@ -152,7 +158,10 @@ fn simple_version_unsubscriptions_should_work() {
 		weight_limit,
 		Weight::zero(),
 	);
-	assert_eq!(r, Outcome::Error { error: XcmError::Barrier });
+	assert_eq!(
+		r,
+		Outcome::Incomplete { used: Weight::from_parts(10, 10), error: XcmError::Barrier }
+	);
 
 	let r = XcmExecutor::<TestConfig>::prepare_and_execute(
 		Parent,

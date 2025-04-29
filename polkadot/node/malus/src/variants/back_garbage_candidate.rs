@@ -67,12 +67,10 @@ impl OverseerGen for BackGarbageCandidates {
 		RuntimeClient: RuntimeApiSubsystemClient + ChainApiBackend + AuxStore + 'static,
 		Spawner: 'static + SpawnNamed + Clone + Unpin,
 	{
-		let spawner = args.spawner.clone();
 		let validation_filter = ReplaceValidationResult::new(
 			FakeCandidateValidation::BackingAndApprovalValid,
 			FakeCandidateValidationError::InvalidOutputs,
 			f64::from(self.percentage),
-			SpawnGlue(spawner),
 		);
 
 		validator_overseer_builder(

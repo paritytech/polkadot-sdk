@@ -1,0 +1,12 @@
+title: Warn on empty public-addr when starting a validator node
+
+doc:
+  - audience: Node Operator
+    description: |
+      This PR shows a warning when the `--public-addr` CLI parameter is missing for validators.
+      In the future, we'll transform this warning into a hard failure.
+      Validators are encouraged to provide this parameter for better availability over the network.
+
+crates:
+  - name: sc-cli
+    bump: patch

@@ -1,0 +1,22 @@
+title: Fix DryRunApi client-facing XCM versions
+
+doc:
+  - audience: Runtime Dev
+    description: |-
+      Fixes https://github.com/paritytech/polkadot-sdk/issues/7413
+
+      This PR updates the DryRunApi. The signature of the dry_run_call is changed, and the XCM version of the return values of dry_run_xcm now follows the version of the input XCM program.
+
+      It also fixes xcmp-queue's Router's `clear_messages`: the channel details `first_index` and `last_index` are reset when clearing.
+
+crates:
+- name: xcm-runtime-apis
+  bump: patch
+- name: staging-xcm
+  bump: patch
+- name: pallet-xcm
+  bump: patch
+- name: polkadot-service
+  bump: patch
+- name: cumulus-pallet-xcmp-queue
+  bump: patch

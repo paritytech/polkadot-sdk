@@ -49,7 +49,7 @@ pub trait ChainHeadApi<Hash> {
 	/// allowing the JSON-RPC client to retrieve more information about a block
 	/// that has been reported.
 	///
-	/// Use `archive_unstable_body` if instead you want to retrieve the body of an arbitrary block.
+	/// Use `archive_v1_body` if instead you want to retrieve the body of an arbitrary block.
 	///
 	/// # Unstable
 	///
@@ -67,7 +67,7 @@ pub trait ChainHeadApi<Hash> {
 	/// allowing the JSON-RPC client to retrieve more information about a block
 	/// that has been reported.
 	///
-	/// Use `archive_unstable_header` if instead you want to retrieve the header of an arbitrary
+	/// Use `archive_v1_header` if instead you want to retrieve the header of an arbitrary
 	/// block.
 	///
 	/// # Unstable

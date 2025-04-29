@@ -20,8 +20,8 @@ pub mod v0 {
 	use frame_support::{storage_alias, Twox64Concat};
 	use frame_system::pallet_prelude::BlockNumberFor;
 	use polkadot_primitives::{
-		AvailabilityBitfield, CandidateCommitments, CandidateDescriptor, CandidateHash, CoreIndex,
-		GroupIndex, Id as ParaId, ValidatorIndex,
+		vstaging::CandidateDescriptorV2 as CandidateDescriptor, AvailabilityBitfield,
+		CandidateCommitments, CandidateHash, CoreIndex, GroupIndex, Id as ParaId, ValidatorIndex,
 	};
 	use scale_info::TypeInfo;
 
@@ -219,7 +219,7 @@ mod tests {
 	use frame_support::traits::UncheckedOnRuntimeUpgrade;
 	use polkadot_primitives::{AvailabilityBitfield, Id as ParaId};
 	use polkadot_primitives_test_helpers::{
-		dummy_candidate_commitments, dummy_candidate_descriptor, dummy_hash,
+		dummy_candidate_commitments, dummy_candidate_descriptor_v2, dummy_hash,
 	};
 
 	#[test]
@@ -235,7 +235,7 @@ mod tests {
 			let mut expected = vec![];
 
 			for i in 1..5 {
-				let descriptor = dummy_candidate_descriptor(dummy_hash());
+				let descriptor = dummy_candidate_descriptor_v2(dummy_hash());
 				v0::PendingAvailability::<Test>::insert(
 					ParaId::from(i),
 					v0::CandidatePendingAvailability {
@@ -285,7 +285,7 @@ mod tests {
 				ParaId::from(6),
 				v0::CandidatePendingAvailability {
 					core: CoreIndex(6),
-					descriptor: dummy_candidate_descriptor(dummy_hash()),
+					descriptor: dummy_candidate_descriptor_v2(dummy_hash()),
 					relay_parent_number: 6,
 					hash: CandidateHash(dummy_hash()),
 					availability_votes: Default::default(),

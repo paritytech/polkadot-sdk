@@ -8,7 +8,7 @@ required to address security issues.
 ## Reporting a Vulnerability
 
 Security vulnerabilities in Parity software should be reported by email to security@parity.io. If you think your report
-might be eligible for the Parity Bug Bounty Program, your email should be send to bugbounty@parity.io.
+might be eligible for the Parity Bug Bounty Program, your email should be sent to bugbounty@parity.io.
 
 Your report should include the following:
 

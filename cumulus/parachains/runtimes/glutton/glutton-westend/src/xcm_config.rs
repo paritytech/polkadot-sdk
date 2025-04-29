@@ -22,7 +22,7 @@ use frame_support::{
 	traits::{Contains, Everything, Nothing},
 	weights::Weight,
 };
-use xcm::latest::prelude::*;
+use xcm::latest::{prelude::*, WESTEND_GENESIS_HASH};
 use xcm_builder::{
 	AllowExplicitUnpaidExecutionFrom, FixedWeightBounds, FrameTransactionalProcessor,
 	ParentAsSuperuser, ParentIsPreset, SovereignSignedViaLocation,
@@ -30,7 +30,7 @@ use xcm_builder::{
 
 parameter_types! {
 	pub const WestendLocation: Location = Location::parent();
-	pub const WestendNetwork: NetworkId = NetworkId::Westend;
+	pub const WestendNetwork: NetworkId = NetworkId::ByGenesis(WESTEND_GENESIS_HASH);
 	pub UniversalLocation: InteriorLocation = [GlobalConsensus(WestendNetwork::get()), Parachain(ParachainInfo::parachain_id().into())].into();
 }
 
@@ -65,6 +65,7 @@ pub struct XcmConfig;
 impl xcm_executor::Config for XcmConfig {
 	type RuntimeCall = RuntimeCall;
 	type XcmSender = (); // sending XCM not supported
+	type XcmEventEmitter = ();
 	type AssetTransactor = (); // balances not supported
 	type OriginConverter = XcmOriginToTransactDispatchOrigin;
 	type IsReserve = (); // balances not supported

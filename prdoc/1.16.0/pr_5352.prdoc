@@ -1,0 +1,10 @@
+title: "Aura: Ensure parachains are building on all relay chain forks"
+
+doc:
+  - audience: Node Dev
+    description: |
+      Ensure that parachains using the `basic` collator are building on all relay chain forks.
+
+crates:
+  - name: cumulus-client-consensus-aura
+    bump: patch

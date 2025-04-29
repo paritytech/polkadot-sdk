@@ -1,0 +1,15 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Add CLI options for parachain chain specifications + fix bug for swallowing custom fields
+
+doc:
+  - audience: Node Operator
+    description: |
+      Parachain ID and relay chain can be specified via the CLI arguments for when creating a chain spec.
+      A bug that also swallowed custom fields outside of the default config has also been fixed.
+      
+
+crates:
+  - name: staging-chain-spec-builder
+    bump: major

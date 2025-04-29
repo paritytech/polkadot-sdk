@@ -1,0 +1,32 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Added benchmarks for BEEFY fork voting
+
+doc:
+  - audience:
+    - Runtime Dev
+    - Runtime User
+    description: |
+      This PR adds benchmarks for `report_fork_voting` and `report_future_voting` extrinsics to `pallet-beefy`.
+      `report_future_voting` can be called now. `report_fork_voting` can't be called yet. Even though we have added
+       the formula for computing its weight, we still use `Weight::MAX`. We will set the proper weight in a future PR.
+       In order to do this we need to also check that the ancestry proof is optimal.
+       The PR adds a `WeightInfo` associated trait to the `pallet_beefy_mmr::Config` and defines benchmarks for
+       `pallet_beefy_mmr`.
+
+crates:
+  - name: pallet-mmr
+    bump: minor
+  - name: sp-mmr-primitives
+    bump: minor
+  - name: sp-consensus-beefy
+    bump: minor
+  - name: rococo-runtime
+    bump: minor
+  - name: pallet-beefy
+    bump: major
+  - name: pallet-beefy-mmr
+    bump: major
+  - name: westend-runtime
+    bump: minor

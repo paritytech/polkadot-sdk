@@ -1,0 +1,8 @@
+Description: Check if the Rococo parachains started producing blocks reliably
+Network: ./bridge_hub_westend_local_network.toml
+Creds: config
+
+# ensure that initialization has completed
+asset-hub-rococo-collator1: reports block height is at least 10 within 180 seconds
+bridge-hub-rococo-collator1: reports block height is at least 10 within 180 seconds
+

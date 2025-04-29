@@ -17,7 +17,9 @@ workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
+binary-merkle-tree = { workspace = true }
 codec = { features = ["derive", "max-encoded-len"], workspace = true }
+docify = { workspace = true }
 either = { workspace = true }
 hash256-std-hasher = { workspace = true }
 impl-trait-for-tuples = { workspace = true }
@@ -32,26 +34,28 @@ sp-arithmetic = { workspace = true }
 sp-core = { workspace = true }
 sp-io = { workspace = true }
 sp-std = { workspace = true }
+sp-trie = { workspace = true }
 sp-weights = { workspace = true }
-docify = { workspace = true }
 tracing = { workspace = true, features = ["log"], default-features = false }
 
-simple-mermaid = { version = "0.1.1", optional = true }
+simple-mermaid = { workspace = true, optional = true }
+tuplex = { workspace = true, default-features = false }
 
 [dev-dependencies]
 rand = { workspace = true, default-features = true }
 serde_json = { workspace = true, default-features = true }
-zstd = { workspace = true }
 sp-api = { workspace = true, default-features = true }
 sp-state-machine = { workspace = true, default-features = true }
 sp-tracing = { workspace = true, default-features = true }
 substrate-test-runtime-client = { workspace = true }
+zstd = { workspace = true }
 
 [features]
 runtime-benchmarks = []
 try-runtime = []
 default = ["std"]
 std = [
+	"binary-merkle-tree/std",
 	"codec/std",
 	"either/use_std",
 	"hash256-std-hasher/std",
@@ -69,8 +73,10 @@ std = [
 	"sp-state-machine/std",
 	"sp-std/std",
 	"sp-tracing/std",
+	"sp-trie/std",
 	"sp-weights/std",
 	"tracing/std",
+	"tuplex/std",
 ]
 
 # Serde support without relying on std features.

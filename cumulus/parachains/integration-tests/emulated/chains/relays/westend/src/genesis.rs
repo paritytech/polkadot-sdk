@@ -58,6 +58,7 @@ pub fn genesis() -> Storage {
 		system: westend_runtime::SystemConfig::default(),
 		balances: westend_runtime::BalancesConfig {
 			balances: accounts::init_balances().iter().cloned().map(|k| (k, ENDOWMENT)).collect(),
+			..Default::default()
 		},
 		session: westend_runtime::SessionConfig {
 			keys: validators::initial_authorities()
@@ -84,9 +85,7 @@ pub fn genesis() -> Storage {
 			minimum_validator_count: 1,
 			stakers: validators::initial_authorities()
 				.iter()
-				.map(|x| {
-					(x.0.clone(), x.1.clone(), STASH, westend_runtime::StakerStatus::Validator)
-				})
+				.map(|x| (x.0.clone(), x.1.clone(), STASH, pallet_staking::StakerStatus::Validator))
 				.collect(),
 			invulnerables: validators::initial_authorities().iter().map(|x| x.0.clone()).collect(),
 			force_era: pallet_staking::Forcing::ForceNone,

@@ -16,6 +16,8 @@
 // limitations under the License.
 
 pub mod constants {
+	use polkadot_sdk::*;
+
 	use frame_support::{
 		parameter_types,
 		weights::{constants, RuntimeDbWeight},
@@ -32,6 +34,8 @@ pub mod constants {
 
 	#[cfg(test)]
 	mod test_db_weights {
+		use polkadot_sdk::*;
+
 		use super::constants::ParityDbWeight as W;
 		use frame_support::weights::constants;
 

@@ -15,26 +15,26 @@ workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-static_assertions = { workspace = true, default-features = true }
-serde = { features = ["derive"], workspace = true }
 codec = { features = ["derive"], workspace = true }
-scale-info = { features = ["derive"], workspace = true }
-frame-metadata = { features = ["current"], workspace = true }
-sp-api = { workspace = true }
-sp-arithmetic = { workspace = true }
-sp-io = { workspace = true }
-sp-state-machine = { optional = true, workspace = true, default-features = true }
-frame-support = { features = ["experimental"], workspace = true }
 frame-benchmarking = { workspace = true }
-sp-runtime = { workspace = true }
-sp-core = { workspace = true }
-sp-version = { workspace = true }
-sp-metadata-ir = { workspace = true }
-trybuild = { features = ["diff"], workspace = true }
+frame-executive = { workspace = true }
+frame-metadata = { features = ["current", "unstable"], workspace = true }
+frame-support = { features = ["experimental"], workspace = true }
+frame-system = { workspace = true }
 pretty_assertions = { workspace = true }
 rustversion = { workspace = true }
-frame-system = { workspace = true }
-frame-executive = { workspace = true }
+scale-info = { features = ["derive"], workspace = true }
+serde = { features = ["derive"], workspace = true }
+sp-api = { workspace = true }
+sp-arithmetic = { workspace = true }
+sp-core = { workspace = true }
+sp-io = { workspace = true }
+sp-metadata-ir = { workspace = true }
+sp-runtime = { workspace = true }
+sp-state-machine = { optional = true, workspace = true, default-features = true }
+sp-version = { workspace = true }
+static_assertions = { workspace = true, default-features = true }
+trybuild = { features = ["diff"], workspace = true }
 # The "std" feature for this pallet is never activated on purpose, in order to test construct_runtime error message
 test-pallet = { workspace = true }
 
@@ -59,9 +59,12 @@ std = [
 	"sp-version/std",
 	"test-pallet/std",
 ]
-experimental = [
-	"frame-support/experimental",
-	"frame-system/experimental",
+experimental = ["frame-support/experimental", "frame-system/experimental"]
+runtime-benchmarks = [
+	"frame-benchmarking/runtime-benchmarks",
+	"frame-support/runtime-benchmarks",
+	"frame-system/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
 ]
 try-runtime = [
 	"frame-executive/try-runtime",

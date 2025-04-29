@@ -34,6 +34,8 @@ use sp_runtime::traits::Header as HeaderT;
 use sp_std::{
 	collections::{btree_map::BTreeMap, btree_set::BTreeSet},
 	prelude::*,
+	vec,
+	vec::Vec,
 };
 
 enum AuthorityVotes<Header: HeaderT> {

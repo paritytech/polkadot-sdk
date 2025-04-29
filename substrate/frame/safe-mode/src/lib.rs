@@ -109,6 +109,7 @@ pub mod pallet {
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
 		/// The overarching event type.
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		/// Currency type for this pallet, used for Deposits.
@@ -238,7 +239,18 @@ pub mod pallet {
 	}
 
 	/// The reason why the safe-mode was deactivated.
-	#[derive(Copy, Clone, PartialEq, Eq, RuntimeDebug, Encode, Decode, TypeInfo, MaxEncodedLen)]
+	#[derive(
+		Copy,
+		Clone,
+		PartialEq,
+		Eq,
+		RuntimeDebug,
+		Encode,
+		Decode,
+		DecodeWithMemTracking,
+		TypeInfo,
+		MaxEncodedLen,
+	)]
 	pub enum ExitReason {
 		/// The safe-mode was automatically deactivated after it's duration ran out.
 		Timeout,

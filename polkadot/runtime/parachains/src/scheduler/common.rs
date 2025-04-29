@@ -77,11 +77,6 @@ pub trait AssignmentProvider<BlockNumber> {
 	#[cfg(any(feature = "runtime-benchmarks", test))]
 	fn get_mock_assignment(core_idx: CoreIndex, para_id: ParaId) -> Assignment;
 
-	/// How many cores are allocated to this provider.
-	///
-	/// As the name suggests the core count has to be session buffered:
-	///
-	/// - Core count has to be predetermined for the next session in the current session.
-	/// - Core count must not change during a session.
-	fn session_core_count() -> u32;
+	/// Report that an assignment was duplicated by the scheduler.
+	fn assignment_duplicated(assignment: &Assignment);
 }

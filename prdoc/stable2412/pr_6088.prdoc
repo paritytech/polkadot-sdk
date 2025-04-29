@@ -1,0 +1,14 @@
+title: "[pallet-revive] EXTCODEHASH to match EIP-1052"
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Update `ext_code_hash` to match [EIP-1052](https://eips.ethereum.org/EIPS/eip-1052) specs.
+
+crates:
+  - name: pallet-revive
+    bump: major
+  - name: pallet-revive-fixtures
+    bump: patch
+  - name: pallet-revive-uapi
+    bump: major

@@ -294,6 +294,9 @@ pub struct TestSubsystemContextHandle<M> {
 
 	/// Message counter over subsystems.
 	pub message_counter: MessageCounter,
+
+	/// Intermediate buffer for a message when using `peek`.
+	message_buffer: Option<AllMessages>,
 }
 
 impl<M> TestSubsystemContextHandle<M> {
@@ -323,11 +326,29 @@ impl<M> TestSubsystemContextHandle<M> {
 
 	/// Receive the next message from the subsystem, or `None` if the channel has been closed.
 	pub async fn try_recv(&mut self) -> Option<AllMessages> {
+		if let Some(msg) = self.message_buffer.take() {
+			return Some(msg)
+		}
+
 		self.rx
 			.next()
 			.timeout(Self::TIMEOUT)
 			.await
 			.expect("`try_recv` does not timeout")
+	}
+
+	/// Peek into the next message from the subsystem or `None` if the channel has been closed.
+	pub async fn peek(&mut self) -> Option<&AllMessages> {
+		if self.message_buffer.is_none() {
+			self.message_buffer = self
+				.rx
+				.next()
+				.timeout(Self::TIMEOUT)
+				.await
+				.expect("`try_recv` does not timeout");
+		}
+
+		self.message_buffer.as_ref()
 	}
 }
 
@@ -392,6 +413,7 @@ pub fn make_buffered_subsystem_context<M, S>(
 			tx: overseer_tx,
 			rx: all_messages_rx,
 			message_counter: message_counter.clone(),
+			message_buffer: None,
 		},
 	)
 }

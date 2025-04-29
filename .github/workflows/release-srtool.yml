@@ -1,7 +1,7 @@
 name: Srtool build
 
 env:
-  SUBWASM_VERSION: 0.20.0
+  SUBWASM_VERSION: 0.21.0
   TOML_CLI_VERSION: 0.2.4
 
 on:
@@ -9,14 +9,18 @@ on:
     inputs:
       excluded_runtimes:
         type: string
+      build_opts:
+        type: string
+      profile:
+        type: string
     outputs:
       published_runtimes:
         value: ${{ jobs.find-runtimes.outputs.runtime }}
 
-  schedule:
-    - cron: "00 02 * * 1" # 2AM weekly on monday
-
-  workflow_dispatch:
+permissions:
+    id-token: write
+    attestations: write
+    contents: read
 
 jobs:
   find-runtimes:
@@ -26,7 +30,7 @@ jobs:
       runs-on: ubuntu-latest
       steps:
         - name: Checkout
-          uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.0.0
+          uses: actions/checkout@6d193bf28034eafb982f37bd894289fe649468fc # v4.0.0
           with:
             fetch-depth: 0
 
@@ -37,7 +41,8 @@ jobs:
             sudo dpkg -i toml.deb
             toml --version; jq --version
 
-        - name: Scan runtimes
+        - name: Scan and get runtimes list
+          id: get_runtimes_list
           env:
             EXCLUDED_RUNTIMES: ${{ inputs.excluded_runtimes }}:"substrate-test"
           run: |
@@ -48,13 +53,6 @@ jobs:
             ls -al
 
             MATRIX=$(find_runtimes | tee runtimes_list.json)
-            echo $MATRIX
-
-        - name: Get runtimes list
-          id: get_runtimes_list
-          run: |
-            ls -al
-            MATRIX=$(cat runtimes_list.json)
             echo $MATRIX
             echo "runtime=$MATRIX" >> $GITHUB_OUTPUT
 
@@ -67,16 +65,19 @@ jobs:
       matrix: ${{ fromJSON(needs.find-runtimes.outputs.runtime) }}
 
     steps:
-      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.0.0
+      - uses: actions/checkout@6d193bf28034eafb982f37bd894289fe649468fc # v4.0.0
         with:
           fetch-depth: 0
 
       - name: Srtool build
         id: srtool_build
         uses: chevdor/srtool-actions@v0.9.2
+        env:
+          BUILD_OPTS: ${{ inputs.build_opts }}
         with:
           chain: ${{ matrix.chain }}
           runtime_dir: ${{ matrix.runtime_dir }}
+          profile: ${{ inputs.profile }}
 
       - name: Summary
         run: |
@@ -84,6 +85,11 @@ jobs:
           cat ${{ matrix.chain }}-srtool-digest.json
           echo "Compact Runtime: ${{ steps.srtool_build.outputs.wasm }}"
           echo "Compressed Runtime: ${{ steps.srtool_build.outputs.wasm_compressed }}"
+
+      - name: Generate artifact attestation
+        uses: actions/attest-build-provenance@c074443f1aee8d4aeeae555aebba3282517141b2 # v2.2.3
+        with:
+          subject-path:  ${{ steps.srtool_build.outputs.wasm }}
 
       # We now get extra information thanks to subwasm
       - name: Install subwasm

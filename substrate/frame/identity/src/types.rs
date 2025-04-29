@@ -17,7 +17,7 @@
 
 use super::*;
 use alloc::{vec, vec::Vec};
-use codec::{Decode, Encode, MaxEncodedLen};
+use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use core::{fmt::Debug, iter::once, ops::Add};
 use frame_support::{
 	traits::{ConstU32, Get},
@@ -39,7 +39,7 @@ pub type RegistrarIndex = u32;
 /// than 32-bytes then it will be truncated when encoding.
 ///
 /// Can also be `None`.
-#[derive(Clone, Eq, PartialEq, RuntimeDebug, MaxEncodedLen)]
+#[derive(Clone, DecodeWithMemTracking, Eq, PartialEq, RuntimeDebug, MaxEncodedLen)]
 pub enum Data {
 	/// No data here.
 	None,
@@ -190,7 +190,18 @@ impl Default for Data {
 ///
 /// NOTE: Registrars may pay little attention to some fields. Registrars may want to make clear
 /// which fields their attestation is relevant for by off-chain means.
-#[derive(Copy, Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug, MaxEncodedLen, TypeInfo)]
+#[derive(
+	Copy,
+	Clone,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	Eq,
+	PartialEq,
+	RuntimeDebug,
+	MaxEncodedLen,
+	TypeInfo,
+)]
 pub enum Judgement<Balance: Encode + Decode + MaxEncodedLen + Copy + Clone + Debug + Eq + PartialEq>
 {
 	/// The default value; no opinion is held.
@@ -320,9 +331,6 @@ pub struct RegistrarInfo<
 	pub fields: IdField,
 }
 
-/// Authority properties for a given pallet configuration.
-pub type AuthorityPropertiesOf<T> = AuthorityProperties<Suffix<T>>;
-
 /// The number of usernames that an authority may allocate.
 type Allocation = u32;
 /// A byte vec used to represent a username.
@@ -330,17 +338,43 @@ pub(crate) type Suffix<T> = BoundedVec<u8, <T as Config>::MaxSuffixLength>;
 
 /// Properties of a username authority.
 #[derive(Clone, Encode, Decode, MaxEncodedLen, TypeInfo, PartialEq, Debug)]
-pub struct AuthorityProperties<Suffix> {
-	/// The suffix added to usernames granted by this authority. Will be appended to usernames; for
-	/// example, a suffix of `wallet` will result in `.wallet` being appended to a user's selected
-	/// name.
-	pub suffix: Suffix,
+pub struct AuthorityProperties<Account> {
+	/// The account of the authority.
+	pub account_id: Account,
 	/// The number of usernames remaining that this authority can grant.
 	pub allocation: Allocation,
 }
 
 /// A byte vec used to represent a username.
 pub(crate) type Username<T> = BoundedVec<u8, <T as Config>::MaxUsernameLength>;
+
+#[derive(Clone, Encode, Decode, MaxEncodedLen, TypeInfo, PartialEq, Debug)]
+pub enum Provider<Balance> {
+	Allocation,
+	AuthorityDeposit(Balance),
+	System,
+}
+
+impl<Balance> Provider<Balance> {
+	pub fn new_with_allocation() -> Self {
+		Self::Allocation
+	}
+
+	pub fn new_with_deposit(deposit: Balance) -> Self {
+		Self::AuthorityDeposit(deposit)
+	}
+
+	#[allow(unused)]
+	pub fn new_permanent() -> Self {
+		Self::System
+	}
+}
+
+#[derive(Clone, Encode, Decode, MaxEncodedLen, TypeInfo, PartialEq, Debug)]
+pub struct UsernameInformation<Account, Balance> {
+	pub owner: Account,
+	pub provider: Provider<Balance>,
+}
 
 #[cfg(test)]
 mod tests {

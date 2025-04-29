@@ -1,0 +1,17 @@
+title: "[pallet-revive] Update delegate_call to accept address and weight"
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Enhance the `delegate_call` function to accept an `address` target parameter instead of a `code_hash`.
+      This allows direct identification of the target contract using the provided address.
+      Additionally, introduce parameters for specifying a customizable `ref_time` limit and `proof_size` limit,
+      thereby improving flexibility and control during contract interactions.
+
+crates:
+  - name: pallet-revive
+    bump: major
+  - name: pallet-revive-fixtures
+    bump: patch
+  - name: pallet-revive-uapi
+    bump: major

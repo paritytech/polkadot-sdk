@@ -220,18 +220,16 @@ impl<B: BlockT> Future for GossipEngine<B> {
 							},
 							NotificationEvent::NotificationStreamOpened {
 								peer, handshake, ..
-							} => {
-								let Some(role) = this.network.peer_role(peer, handshake) else {
+							} =>
+								if let Some(role) = this.network.peer_role(peer, handshake) {
+									this.state_machine.new_peer(
+										&mut this.notification_service,
+										peer,
+										role,
+									);
+								} else {
 									log::debug!(target: "gossip", "role for {peer} couldn't be determined");
-									continue
-								};
-
-								this.state_machine.new_peer(
-									&mut this.notification_service,
-									peer,
-									role,
-								);
-							},
+								},
 							NotificationEvent::NotificationStreamClosed { peer } => {
 								this.state_machine
 									.peer_disconnected(&mut this.notification_service, peer);
@@ -376,9 +374,6 @@ mod tests {
 
 	#[derive(Clone, Default)]
 	struct TestNetwork {}
-
-	#[derive(Clone, Default)]
-	struct TestNetworkInner {}
 
 	#[async_trait::async_trait]
 	impl NetworkPeers for TestNetwork {

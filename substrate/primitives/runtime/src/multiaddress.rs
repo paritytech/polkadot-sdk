@@ -18,10 +18,19 @@
 //! MultiAddress type is a wrapper for multiple downstream account formats.
 
 use alloc::vec::Vec;
-use codec::{Decode, Encode};
+use codec::{Decode, DecodeWithMemTracking, Encode};
 
 /// A multi-format address wrapper for on-chain accounts.
-#[derive(Encode, Decode, PartialEq, Eq, Clone, crate::RuntimeDebug, scale_info::TypeInfo)]
+#[derive(
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	PartialEq,
+	Eq,
+	Clone,
+	crate::RuntimeDebug,
+	scale_info::TypeInfo,
+)]
 #[cfg_attr(feature = "std", derive(Hash))]
 pub enum MultiAddress<AccountId, AccountIndex> {
 	/// It's an account ID (pubkey).

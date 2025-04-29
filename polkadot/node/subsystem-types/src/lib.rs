@@ -23,7 +23,7 @@
 #![warn(missing_docs)]
 
 use smallvec::SmallVec;
-use std::{fmt, sync::Arc};
+use std::fmt;
 
 pub use polkadot_primitives::{Block, BlockNumber, Hash};
 
@@ -42,9 +42,6 @@ pub mod messages;
 mod runtime_client;
 pub use runtime_client::{ChainApiBackend, DefaultSubsystemClient, RuntimeApiSubsystemClient};
 
-pub use jaeger::*;
-pub use polkadot_node_jaeger as jaeger;
-
 /// How many slots are stack-reserved for active leaves updates
 ///
 /// If there are fewer than this number of slots, then we've wasted some stack space.
@@ -60,11 +57,6 @@ pub struct ActivatedLeaf {
 	pub number: BlockNumber,
 	/// A handle to unpin the block on drop.
 	pub unpin_handle: UnpinHandle,
-	/// An associated [`jaeger::Span`].
-	///
-	/// NOTE: Each span should only be kept active as long as the leaf is considered active and
-	/// should be dropped when the leaf is deactivated.
-	pub span: Arc<jaeger::Span>,
 }
 
 /// Changes in the set of active leaves: the parachain heads which we care to work on.

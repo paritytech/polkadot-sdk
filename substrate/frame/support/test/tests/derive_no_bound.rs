@@ -159,6 +159,7 @@ fn test_struct_unnamed() {
 	PartialOrdNoBound,
 	OrdNoBound,
 )]
+#[allow(dead_code)]
 struct StructNoGenerics {
 	field1: u32,
 	field2: u64,

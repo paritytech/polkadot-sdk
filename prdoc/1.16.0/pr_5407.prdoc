@@ -1,0 +1,17 @@
+title: Prepare PVFs if node is a validator in the next session
+
+doc:
+  - audience: [Node Operator, Node Dev]
+    description: |
+      This PR aims to remove the noise caused by the peer store's reputation system.
+      A warning was emitted each time a reputation was reported for a banned peer,
+      regardless of the reputation being positive. This has led in the past to
+      situations where it was hard to identify the actual reason of the ban and
+      caused noise for node operators.
+
+      The `Banned, disconnecting.` warning is logged only when the peer is banned.
+      Other misbehaves are logged as `Misbehaved during the ban threshold`.
+
+crates:
+  - name: sc-network
+    bump: patch

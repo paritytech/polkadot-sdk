@@ -32,7 +32,7 @@ use frame_system::{EnsureRoot, EnsureSignedBy};
 use sp_arithmetic::Perbill;
 use sp_core::{ConstU32, ConstU64, Get};
 use sp_runtime::{
-	traits::{BlockNumberProvider, Identity},
+	traits::{BlockNumberProvider, Identity, MaybeConvert},
 	BuildStorage, Saturating,
 };
 
@@ -177,8 +177,17 @@ impl OnUnbalanced<Credit<u64, <Test as Config>::Currency>> for IntoZero {
 
 ord_parameter_types! {
 	pub const One: u64 = 1;
+	pub const MinimumCreditPurchase: u64 = 50;
 }
 type EnsureOneOrRoot = EitherOfDiverse<EnsureRoot<u64>, EnsureSignedBy<One, u64>>;
+
+// Dummy implementation which converts `TaskId` to `AccountId`.
+pub struct SovereignAccountOf;
+impl MaybeConvert<TaskId, u64> for SovereignAccountOf {
+	fn maybe_convert(task: TaskId) -> Option<u64> {
+		Some(task.into())
+	}
+}
 
 impl crate::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
@@ -192,7 +201,10 @@ impl crate::Config for Test {
 	type WeightInfo = ();
 	type PalletId = TestBrokerId;
 	type AdminOrigin = EnsureOneOrRoot;
+	type SovereignAccountOf = SovereignAccountOf;
+	type MaxAutoRenewals = ConstU32<3>;
 	type PriceAdapter = CenterTargetPrice<BalanceOf<Self>>;
+	type MinimumCreditPurchase = MinimumCreditPurchase;
 }
 
 pub fn advance_to(b: u64) {
@@ -244,6 +256,10 @@ pub fn new_config() -> ConfigRecordOf<Test> {
 		renewal_bump: Perbill::from_percent(10),
 		contribution_timeout: 5,
 	}
+}
+
+pub fn endow(who: u64, amount: u64) {
+	assert_ok!(<<Test as Config>::Currency as Mutate<_>>::mint_into(&who, amount));
 }
 
 pub struct TestExt(ConfigRecordOf<Test>);
@@ -298,7 +314,7 @@ impl TestExt {
 	}
 
 	pub fn endow(self, who: u64, amount: u64) -> Self {
-		assert_ok!(<<Test as Config>::Currency as Mutate<_>>::mint_into(&who, amount));
+		endow(who, amount);
 		self
 	}
 

@@ -29,6 +29,165 @@ use frame_system::RawOrigin as SystemOrigin;
 use sp_runtime::traits::One;
 
 benchmarks_instance_pallet! {
+	// iteration of any number of items should only touch that many nodes and bags.
+	#[extra]
+	iter {
+		let n = 100;
+
+		// clear any pre-existing storage.
+		List::<T, _>::unsafe_clear();
+
+		// add n nodes, half to first bag and half to second bag.
+		let bag_thresh = T::BagThresholds::get()[0];
+		let second_bag_thresh = T::BagThresholds::get()[1];
+
+
+		for i in 0..n/2 {
+			let node: T::AccountId = account("node", i, 0);
+			assert_ok!(List::<T, _>::insert(node.clone(), bag_thresh - One::one()));
+		}
+		for i in 0..n/2 {
+			let node: T::AccountId = account("node", i, 1);
+			assert_ok!(List::<T, _>::insert(node.clone(), bag_thresh + One::one()));
+		}
+		assert_eq!(
+			List::<T, _>::get_bags().into_iter().map(|(bag, nodes)| (bag, nodes.len())).collect::<Vec<_>>(),
+			vec![
+				(bag_thresh, (n / 2) as usize),
+				(second_bag_thresh, (n / 2) as usize),
+			]
+		);
+	}: {
+		let voters = <Pallet<T, _> as SortedListProvider<T::AccountId>>::iter();
+		let len = voters.collect::<Vec<_>>().len();
+		assert!(len as u32 == n, "len is {}, expected {}", len, n);
+	}
+
+	// iteration of any number of items should only touch that many nodes and bags.
+	#[extra]
+	iter_take {
+		let n = 100;
+
+		// clear any pre-existing storage.
+		List::<T, _>::unsafe_clear();
+
+		// add n nodes, half to first bag and half to second bag.
+		let bag_thresh = T::BagThresholds::get()[0];
+		let second_bag_thresh = T::BagThresholds::get()[1];
+
+
+		for i in 0..n/2 {
+			let node: T::AccountId = account("node", i, 0);
+			assert_ok!(List::<T, _>::insert(node.clone(), bag_thresh - One::one()));
+		}
+		for i in 0..n/2 {
+			let node: T::AccountId = account("node", i, 1);
+			assert_ok!(List::<T, _>::insert(node.clone(), bag_thresh + One::one()));
+		}
+		assert_eq!(
+			List::<T, _>::get_bags().into_iter().map(|(bag, nodes)| (bag, nodes.len())).collect::<Vec<_>>(),
+			vec![
+				(bag_thresh, (n / 2) as usize),
+				(second_bag_thresh, (n / 2) as usize),
+			]
+		);
+	}: {
+		// this should only go into one of the bags
+		let voters = <Pallet<T, _> as SortedListProvider<T::AccountId>>::iter().take(n as usize / 4 );
+		let len = voters.collect::<Vec<_>>().len();
+		assert!(len as u32 == n / 4, "len is {}, expected {}", len, n / 4);
+	}
+
+	#[extra]
+	iter_next {
+		let n = 100;
+
+		// clear any pre-existing storage.
+		List::<T, _>::unsafe_clear();
+
+		// add n nodes, half to first bag and half to second bag.
+		let bag_thresh = T::BagThresholds::get()[0];
+		let second_bag_thresh = T::BagThresholds::get()[1];
+
+
+		for i in 0..n/2 {
+			let node: T::AccountId = account("node", i, 0);
+			assert_ok!(List::<T, _>::insert(node.clone(), bag_thresh - One::one()));
+		}
+		for i in 0..n/2 {
+			let node: T::AccountId = account("node", i, 1);
+			assert_ok!(List::<T, _>::insert(node.clone(), bag_thresh + One::one()));
+		}
+		assert_eq!(
+			List::<T, _>::get_bags().into_iter().map(|(bag, nodes)| (bag, nodes.len())).collect::<Vec<_>>(),
+			vec![
+				(bag_thresh, (n / 2) as usize),
+				(second_bag_thresh, (n / 2) as usize),
+			]
+		);
+	}: {
+		// this should only go into one of the bags
+		let mut iter_var = <Pallet<T, _> as SortedListProvider<T::AccountId>>::iter();
+		let mut voters = Vec::<T::AccountId>::with_capacity((n/4) as usize);
+		for _ in 0..(n/4) {
+			let next = iter_var.next().unwrap();
+			voters.push(next);
+		}
+
+		let len = voters.len();
+		assert!(len as u32 == n / 4, "len is {}, expected {}", len, n / 4);
+	}
+
+	#[extra]
+	iter_from {
+		let n = 100;
+
+		// clear any pre-existing storage.
+		List::<T, _>::unsafe_clear();
+
+		// populate the first 4 bags with n/4 nodes each
+		let bag_thresh = T::BagThresholds::get()[0];
+
+		for i in 0..n/4 {
+			let node: T::AccountId = account("node", i, 0);
+			assert_ok!(List::<T, _>::insert(node.clone(), bag_thresh - One::one()));
+		}
+		for i in 0..n/4 {
+			let node: T::AccountId = account("node", i, 1);
+			assert_ok!(List::<T, _>::insert(node.clone(), bag_thresh + One::one()));
+		}
+
+		let bag_thresh = T::BagThresholds::get()[2];
+
+		for i in 0..n/4 {
+			let node: T::AccountId = account("node", i, 2);
+			assert_ok!(List::<T, _>::insert(node.clone(), bag_thresh - One::one()));
+		}
+
+		for i in 0..n/4 {
+			let node: T::AccountId = account("node", i, 3);
+			assert_ok!(List::<T, _>::insert(node.clone(), bag_thresh + One::one()));
+		}
+
+		assert_eq!(
+			List::<T, _>::get_bags().into_iter().map(|(bag, nodes)| (bag, nodes.len())).collect::<Vec<_>>(),
+			vec![
+				(T::BagThresholds::get()[0], (n / 4) as usize),
+				(T::BagThresholds::get()[1], (n / 4) as usize),
+				(T::BagThresholds::get()[2], (n / 4) as usize),
+				(T::BagThresholds::get()[3], (n / 4) as usize),
+			]
+		);
+
+		// iter from someone in the 3rd bag, so this should touch ~75 nodes and 3 bags
+		let from: T::AccountId = account("node", 0, 2);
+	}: {
+		let voters = <Pallet<T, _> as SortedListProvider<T::AccountId>>::iter_from(&from).unwrap();
+		let len = voters.collect::<Vec<_>>().len();
+		assert!(len as u32 == 74, "len is {}, expected {}", len, 74);
+	}
+
+
 	rebag_non_terminal {
 		// An expensive case for rebag-ing (rebag a non-terminal node):
 		//

@@ -18,33 +18,93 @@
 
 use std::{collections::HashMap, fmt::Debug, hash};
 
-use crate::LOG_TARGET;
 use linked_hash_map::LinkedHashMap;
-use log::{debug, trace};
-use serde::Serialize;
-use sp_runtime::traits;
+use tracing::trace;
 
 use super::{watcher, BlockHash, ChainApi, ExtrinsicHash};
 
-/// Extrinsic pool default listener.
-pub struct Listener<H: hash::Hash + Eq, C: ChainApi> {
-	watchers: HashMap<H, watcher::Sender<H, ExtrinsicHash<C>>>,
+static LOG_TARGET: &str = "txpool::watcher";
+
+/// The `EventHandler` trait provides a mechanism for clients to respond to various
+/// transaction-related events. It offers a set of callback methods that are invoked by the
+/// transaction pool's event dispatcher to notify about changes in the status of transactions.
+///
+/// This trait can be implemented by any component that needs to respond to transaction lifecycle
+/// events, enabling custom logic and handling of these events.
+pub trait EventHandler<C: ChainApi> {
+	/// Called when a transaction is broadcasted.
+	fn broadcasted(&self, _hash: ExtrinsicHash<C>, _peers: Vec<String>) {}
+
+	/// Called when a transaction is ready for execution.
+	fn ready(&self, _tx: ExtrinsicHash<C>) {}
+
+	/// Called when a transaction is deemed to be executable in the future.
+	fn future(&self, _tx: ExtrinsicHash<C>) {}
+
+	/// Called when transaction pool limits result in a transaction being affected.
+	fn limits_enforced(&self, _tx: ExtrinsicHash<C>) {}
+
+	/// Called when a transaction is replaced by another.
+	fn usurped(&self, _tx: ExtrinsicHash<C>, _by: ExtrinsicHash<C>) {}
+
+	/// Called when a transaction is dropped from the pool.
+	fn dropped(&self, _tx: ExtrinsicHash<C>) {}
+
+	/// Called when a transaction is found to be invalid.
+	fn invalid(&self, _tx: ExtrinsicHash<C>) {}
+
+	/// Called when a transaction was pruned from the pool due to its presence in imported block.
+	fn pruned(&self, _tx: ExtrinsicHash<C>, _block_hash: BlockHash<C>, _tx_index: usize) {}
+
+	/// Called when a transaction is retracted from inclusion in a block.
+	fn retracted(&self, _tx: ExtrinsicHash<C>, _block_hash: BlockHash<C>) {}
+
+	/// Called when a transaction has not been finalized within a timeout period.
+	fn finality_timeout(&self, _tx: ExtrinsicHash<C>, _hash: BlockHash<C>) {}
+
+	/// Called when a transaction is finalized in a block.
+	fn finalized(&self, _tx: ExtrinsicHash<C>, _block_hash: BlockHash<C>, _tx_index: usize) {}
+}
+
+impl<C: ChainApi> EventHandler<C> for () {}
+
+/// The `EventDispatcher` struct is responsible for dispatching transaction-related events from the
+/// validated pool to interested observers and an optional event handler. It acts as the primary
+/// liaison between the transaction pool and clients that are monitoring transaction statuses.
+pub struct EventDispatcher<H: hash::Hash + Eq, C: ChainApi, L: EventHandler<C>> {
+	/// Map containing per-transaction sinks for emitting transaction status events.
+	watchers: HashMap<H, watcher::Sender<H, BlockHash<C>>>,
 	finality_watchers: LinkedHashMap<ExtrinsicHash<C>, Vec<H>>,
+
+	/// Optional event handler (listener) that will be notified about all transactions status
+	/// changes from the pool.
+	event_handler: Option<L>,
 }
 
 /// Maximum number of blocks awaiting finality at any time.
 const MAX_FINALITY_WATCHERS: usize = 512;
 
-impl<H: hash::Hash + Eq + Debug, C: ChainApi> Default for Listener<H, C> {
+impl<H: hash::Hash + Eq + Debug, C: ChainApi, L: EventHandler<C>> Default
+	for EventDispatcher<H, C, L>
+{
 	fn default() -> Self {
-		Self { watchers: Default::default(), finality_watchers: Default::default() }
+		Self {
+			watchers: Default::default(),
+			finality_watchers: Default::default(),
+			event_handler: None,
+		}
 	}
 }
 
-impl<H: hash::Hash + traits::Member + Serialize, C: ChainApi> Listener<H, C> {
-	fn fire<F>(&mut self, hash: &H, fun: F)
+impl<C: ChainApi, L: EventHandler<C>> EventDispatcher<ExtrinsicHash<C>, C, L> {
+	/// Creates a new instance with provided event handler.
+	pub fn new_with_event_handler(event_handler: Option<L>) -> Self {
+		Self { event_handler, ..Default::default() }
+	}
+
+	fn fire<F>(&mut self, hash: &ExtrinsicHash<C>, fun: F)
 	where
-		F: FnOnce(&mut watcher::Sender<H, ExtrinsicHash<C>>),
+		F: FnOnce(&mut watcher::Sender<ExtrinsicHash<C>, ExtrinsicHash<C>>),
 	{
 		let clean = if let Some(h) = self.watchers.get_mut(hash) {
 			fun(h);
@@ -61,62 +121,123 @@ impl<H: hash::Hash + traits::Member + Serialize, C: ChainApi> Listener<H, C> {
 	/// Creates a new watcher for given verified extrinsic.
 	///
 	/// The watcher can be used to subscribe to life-cycle events of that extrinsic.
-	pub fn create_watcher(&mut self, hash: H) -> watcher::Watcher<H, ExtrinsicHash<C>> {
-		let sender = self.watchers.entry(hash.clone()).or_insert_with(watcher::Sender::default);
+	pub fn create_watcher(
+		&mut self,
+		hash: ExtrinsicHash<C>,
+	) -> watcher::Watcher<ExtrinsicHash<C>, ExtrinsicHash<C>> {
+		let sender = self.watchers.entry(hash).or_insert_with(watcher::Sender::default);
 		sender.new_watcher(hash)
 	}
 
-	/// Notify the listeners about extrinsic broadcast.
-	pub fn broadcasted(&mut self, hash: &H, peers: Vec<String>) {
-		trace!(target: LOG_TARGET, "[{:?}] Broadcasted", hash);
-		self.fire(hash, |watcher| watcher.broadcast(peers));
+	/// Notify the listeners about the extrinsic broadcast.
+	pub fn broadcasted(&mut self, tx_hash: &ExtrinsicHash<C>, peers: Vec<String>) {
+		trace!(
+			target: LOG_TARGET,
+			?tx_hash,
+			"Broadcasted."
+		);
+		self.fire(tx_hash, |watcher| watcher.broadcast(peers.clone()));
+		self.event_handler.as_ref().map(|l| l.broadcasted(*tx_hash, peers));
 	}
 
 	/// New transaction was added to the ready pool or promoted from the future pool.
-	pub fn ready(&mut self, tx: &H, old: Option<&H>) {
-		trace!(target: LOG_TARGET, "[{:?}] Ready (replaced with {:?})", tx, old);
+	pub fn ready(&mut self, tx: &ExtrinsicHash<C>, old: Option<&ExtrinsicHash<C>>) {
+		trace!(
+			target: LOG_TARGET,
+			tx_hash = ?*tx,
+			replaced_with = ?old,
+			"Ready."
+		);
 		self.fire(tx, |watcher| watcher.ready());
 		if let Some(old) = old {
-			self.fire(old, |watcher| watcher.usurped(tx.clone()));
+			self.fire(old, |watcher| watcher.usurped(*tx));
 		}
+
+		self.event_handler.as_ref().map(|l| l.ready(*tx));
 	}
 
 	/// New transaction was added to the future pool.
-	pub fn future(&mut self, tx: &H) {
-		trace!(target: LOG_TARGET, "[{:?}] Future", tx);
-		self.fire(tx, |watcher| watcher.future());
+	pub fn future(&mut self, tx_hash: &ExtrinsicHash<C>) {
+		trace!(
+			target: LOG_TARGET,
+			?tx_hash,
+			"Future."
+		);
+		self.fire(tx_hash, |watcher| watcher.future());
+
+		self.event_handler.as_ref().map(|l| l.future(*tx_hash));
 	}
 
-	/// Transaction was dropped from the pool because of the limit.
-	pub fn dropped(&mut self, tx: &H, by: Option<&H>) {
-		trace!(target: LOG_TARGET, "[{:?}] Dropped (replaced with {:?})", tx, by);
-		self.fire(tx, |watcher| match by {
-			Some(t) => watcher.usurped(t.clone()),
-			None => watcher.dropped(),
-		})
+	/// Transaction was dropped from the pool because of enforcing the limit.
+	pub fn limits_enforced(&mut self, tx_hash: &ExtrinsicHash<C>) {
+		trace!(
+			target: LOG_TARGET,
+			?tx_hash,
+			"Dropped (limits enforced)."
+		);
+		self.fire(tx_hash, |watcher| watcher.limit_enforced());
+
+		self.event_handler.as_ref().map(|l| l.limits_enforced(*tx_hash));
+	}
+
+	/// Transaction was replaced with other extrinsic.
+	pub fn usurped(&mut self, tx: &ExtrinsicHash<C>, by: &ExtrinsicHash<C>) {
+		trace!(
+			target: LOG_TARGET,
+			tx_hash = ?tx,
+			?by,
+			"Dropped (replaced)."
+		);
+		self.fire(tx, |watcher| watcher.usurped(*by));
+
+		self.event_handler.as_ref().map(|l| l.usurped(*tx, *by));
+	}
+
+	/// Transaction was dropped from the pool because of the failure during the resubmission of
+	/// revalidate transactions or failure during pruning tags.
+	pub fn dropped(&mut self, tx_hash: &ExtrinsicHash<C>) {
+		trace!(
+			target: LOG_TARGET,
+			   ?tx_hash,
+			"Dropped."
+		);
+		self.fire(tx_hash, |watcher| watcher.dropped());
+		self.event_handler.as_ref().map(|l| l.dropped(*tx_hash));
 	}
 
 	/// Transaction was removed as invalid.
-	pub fn invalid(&mut self, tx: &H) {
-		debug!(target: LOG_TARGET, "[{:?}] Extrinsic invalid", tx);
-		self.fire(tx, |watcher| watcher.invalid());
+	pub fn invalid(&mut self, tx_hash: &ExtrinsicHash<C>) {
+		trace!(
+			target: LOG_TARGET,
+			?tx_hash,
+			"Extrinsic invalid."
+		);
+		self.fire(tx_hash, |watcher| watcher.invalid());
+		self.event_handler.as_ref().map(|l| l.invalid(*tx_hash));
 	}
 
 	/// Transaction was pruned from the pool.
-	pub fn pruned(&mut self, block_hash: BlockHash<C>, tx: &H) {
-		debug!(target: LOG_TARGET, "[{:?}] Pruned at {:?}", tx, block_hash);
+	pub fn pruned(&mut self, block_hash: BlockHash<C>, tx_hash: &ExtrinsicHash<C>) {
+		trace!(
+			target: LOG_TARGET,
+			?tx_hash,
+			?block_hash,
+			"Pruned at."
+		);
 		// Get the transactions included in the given block hash.
 		let txs = self.finality_watchers.entry(block_hash).or_insert(vec![]);
-		txs.push(tx.clone());
+		txs.push(*tx_hash);
 		// Current transaction is the last one included.
 		let tx_index = txs.len() - 1;
 
-		self.fire(tx, |watcher| watcher.in_block(block_hash, tx_index));
+		self.fire(tx_hash, |watcher| watcher.in_block(block_hash, tx_index));
+		self.event_handler.as_ref().map(|l| l.pruned(*tx_hash, block_hash, tx_index));
 
 		while self.finality_watchers.len() > MAX_FINALITY_WATCHERS {
 			if let Some((hash, txs)) = self.finality_watchers.pop_front() {
 				for tx in txs {
 					self.fire(&tx, |watcher| watcher.finality_timeout(hash));
+					self.event_handler.as_ref().map(|l| l.finality_timeout(tx, block_hash));
 				}
 			}
 		}
@@ -126,7 +247,8 @@ impl<H: hash::Hash + traits::Member + Serialize, C: ChainApi> Listener<H, C> {
 	pub fn retracted(&mut self, block_hash: BlockHash<C>) {
 		if let Some(hashes) = self.finality_watchers.remove(&block_hash) {
 			for hash in hashes {
-				self.fire(&hash, |watcher| watcher.retracted(block_hash))
+				self.fire(&hash, |watcher| watcher.retracted(block_hash));
+				self.event_handler.as_ref().map(|l| l.retracted(hash, block_hash));
 			}
 		}
 	}
@@ -134,15 +256,21 @@ impl<H: hash::Hash + traits::Member + Serialize, C: ChainApi> Listener<H, C> {
 	/// Notify all watchers that transactions have been finalized
 	pub fn finalized(&mut self, block_hash: BlockHash<C>) {
 		if let Some(hashes) = self.finality_watchers.remove(&block_hash) {
-			for (tx_index, hash) in hashes.into_iter().enumerate() {
-				log::debug!(
+			for (tx_index, tx_hash) in hashes.into_iter().enumerate() {
+				trace!(
 					target: LOG_TARGET,
-					"[{:?}] Sent finalization event (block {:?})",
-					hash,
-					block_hash,
+					?tx_hash,
+					?block_hash,
+					"Sent finalization event."
 				);
-				self.fire(&hash, |watcher| watcher.finalized(block_hash, tx_index))
+				self.fire(&tx_hash, |watcher| watcher.finalized(block_hash, tx_index));
+				self.event_handler.as_ref().map(|l| l.finalized(tx_hash, block_hash, tx_index));
 			}
 		}
+	}
+
+	/// Provides hashes of all watched transactions.
+	pub fn watched_transactions(&self) -> impl Iterator<Item = &ExtrinsicHash<C>> {
+		self.watchers.keys()
 	}
 }

@@ -17,62 +17,52 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 array-bytes = { workspace = true }
-serde = { features = ["alloc", "derive"], workspace = true }
-codec = { features = [
-	"derive",
-	"max-encoded-len",
-], workspace = true }
-scale-info = { features = [
-	"derive",
-], workspace = true }
-frame-metadata = { features = [
-	"current",
-], workspace = true }
-sp-api = { features = [
-	"frame-metadata",
-], workspace = true }
-sp-std = { workspace = true }
-sp-io = { workspace = true }
-sp-runtime = { features = [
-	"serde",
-], workspace = true }
-sp-tracing = { workspace = true }
-sp-core = { workspace = true }
-sp-arithmetic = { workspace = true }
-sp-inherents = { workspace = true }
-sp-staking = { workspace = true }
-sp-weights = { workspace = true }
-sp-debug-derive = { workspace = true }
-sp-metadata-ir = { workspace = true }
-tt-call = { workspace = true }
-macro_magic = { workspace = true }
-frame-support-procedural = { workspace = true }
-paste = { workspace = true, default-features = true }
-sp-state-machine = { optional = true, workspace = true }
+binary-merkle-tree = { workspace = true }
 bitflags = { workspace = true }
-impl-trait-for-tuples = { workspace = true }
-smallvec = { workspace = true, default-features = true }
-log = { workspace = true }
-sp-crypto-hashing-proc-macro = { workspace = true, default-features = true }
-k256 = { features = ["ecdsa"], workspace = true }
-environmental = { workspace = true }
-sp-genesis-builder = { workspace = true }
-serde_json = { features = ["alloc"], workspace = true }
+codec = { features = ["derive", "max-encoded-len"], workspace = true }
 docify = { workspace = true }
-static_assertions = { workspace = true, default-features = true }
+environmental = { workspace = true }
+frame-metadata = { features = ["current", "unstable"], workspace = true }
+frame-support-procedural = { workspace = true }
+impl-trait-for-tuples = { workspace = true }
+k256 = { features = ["ecdsa"], workspace = true }
+log = { workspace = true }
+macro_magic = { workspace = true }
+paste = { workspace = true, default-features = true }
+scale-info = { features = ["derive"], workspace = true }
+serde = { features = ["alloc", "derive"], workspace = true }
+serde_json = { features = ["alloc"], workspace = true }
+sp-api = { features = ["frame-metadata"], workspace = true }
+sp-arithmetic = { workspace = true }
+sp-core = { workspace = true }
+sp-crypto-hashing-proc-macro = { workspace = true, default-features = true }
+sp-debug-derive = { workspace = true }
+sp-genesis-builder = { workspace = true }
+sp-inherents = { workspace = true }
+sp-io = { workspace = true }
+sp-metadata-ir = { workspace = true }
+sp-runtime = { features = ["serde"], workspace = true }
+sp-staking = { workspace = true }
+sp-state-machine = { optional = true, workspace = true }
+sp-std = { workspace = true }
+sp-tracing = { workspace = true }
+sp-trie = { workspace = true }
+sp-weights = { workspace = true }
+tt-call = { workspace = true }
 
 aquamarine = { workspace = true }
 
 [dev-dependencies]
-assert_matches = { workspace = true }
-pretty_assertions = { workspace = true }
-sp-timestamp = { workspace = true }
+Inflector = { workspace = true }
 frame-system = { workspace = true, default-features = true }
+pretty_assertions = { workspace = true }
 sp-crypto-hashing = { workspace = true, default-features = true }
+sp-timestamp = { workspace = true, default-features = true }
 
 [features]
 default = ["std"]
 std = [
+	"binary-merkle-tree/std",
 	"codec/std",
 	"environmental/std",
 	"frame-metadata/std",
@@ -95,8 +85,8 @@ std = [
 	"sp-staking/std",
 	"sp-state-machine/std",
 	"sp-std/std",
-	"sp-timestamp/std",
 	"sp-tracing/std",
+	"sp-trie/std",
 	"sp-weights/std",
 ]
 runtime-benchmarks = [
@@ -109,9 +99,7 @@ try-runtime = [
 	"sp-debug-derive/force-debug",
 	"sp-runtime/try-runtime",
 ]
-experimental = [
-	"frame-support-procedural/experimental",
-]
+experimental = ["frame-support-procedural/experimental"]
 # By default some types have documentation, `no-metadata-docs` allows to reduce the documentation
 # in the metadata.
 no-metadata-docs = [

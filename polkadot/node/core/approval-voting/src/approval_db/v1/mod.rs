@@ -25,8 +25,8 @@
 use codec::{Decode, Encode};
 use polkadot_node_primitives::approval::v1::{AssignmentCert, DelayTranche};
 use polkadot_primitives::{
-	BlockNumber, CandidateHash, CandidateReceipt, CoreIndex, GroupIndex, Hash, SessionIndex,
-	ValidatorIndex, ValidatorSignature,
+	vstaging::CandidateReceiptV2 as CandidateReceipt, BlockNumber, CandidateHash, CoreIndex,
+	GroupIndex, Hash, SessionIndex, ValidatorIndex, ValidatorSignature,
 };
 use sp_consensus_slots::Slot;
 use std::collections::BTreeMap;

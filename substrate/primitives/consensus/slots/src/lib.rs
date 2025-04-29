@@ -19,12 +19,25 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use codec::{Decode, Encode, MaxEncodedLen};
+use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 use sp_timestamp::Timestamp;
 
 /// Unit type wrapper that represents a slot.
-#[derive(Debug, Encode, MaxEncodedLen, Decode, Eq, Clone, Copy, Default, Ord, Hash, TypeInfo)]
+#[derive(
+	Debug,
+	Encode,
+	MaxEncodedLen,
+	Decode,
+	DecodeWithMemTracking,
+	Eq,
+	Clone,
+	Copy,
+	Default,
+	Ord,
+	Hash,
+	TypeInfo,
+)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[repr(transparent)]
 pub struct Slot(u64);
@@ -89,6 +102,13 @@ impl Slot {
 	/// Create a new slot by calculating it from the given timestamp and slot duration.
 	pub const fn from_timestamp(timestamp: Timestamp, slot_duration: SlotDuration) -> Self {
 		Slot(timestamp.as_millis() / slot_duration.as_millis())
+	}
+
+	/// Timestamp of the start of the slot.
+	///
+	/// Returns `None` if would overflow for given `SlotDuration`.
+	pub fn timestamp(&self, slot_duration: SlotDuration) -> Option<Timestamp> {
+		slot_duration.as_millis().checked_mul(self.0).map(Timestamp::new)
 	}
 
 	/// Saturating addition.
@@ -165,7 +185,7 @@ impl SlotDuration {
 /// produces more than one block on the same slot. The proof of equivocation
 /// are the given distinct headers that were signed by the validator and which
 /// include the slot number.
-#[derive(Clone, Debug, Decode, Encode, PartialEq, TypeInfo, Eq)]
+#[derive(Clone, Debug, Decode, DecodeWithMemTracking, Encode, PartialEq, TypeInfo, Eq)]
 pub struct EquivocationProof<Header, Id> {
 	/// Returns the authority id of the equivocator.
 	pub offender: Id,

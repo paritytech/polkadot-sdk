@@ -1,0 +1,25 @@
+title: 'Fix implication order in implementation of `TransactionExtension` for tuple'
+doc:
+- audience:
+  - Runtime Dev
+  - Runtime User
+  description: |-
+    Before this PR, the implications were different in the pipeline `(A, B, C)` and `((A, B), C)`.
+    This PR fixes this behavior and make nested tuple transparant, the implication order of tuple of
+    tuple is now the same as in a single tuple.
+
+    For runtime users this mean that the implication can be breaking depending on the pipeline used
+    in the runtime.
+
+    For runtime developers this breaks usage of `TransactionExtension::validate`.
+    When calling `TransactionExtension::validate` the implication must now implement `Implication`
+    trait, you can use `TxBaseImplication` to wrap the type and use it as the base implication.
+    E.g. instead of `&(extension_version, call),` you can write `&TxBaseImplication((extension_version, call))`.
+
+crates:
+- name: sp-runtime
+  bump: major
+- name: pallet-skip-feeless-payment
+  bump: major
+- name: frame-system
+  bump: major

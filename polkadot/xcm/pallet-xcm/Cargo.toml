@@ -5,6 +5,8 @@ description = "A pallet for handling XCM programs."
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
+homepage.workspace = true
+repository.workspace = true
 
 [lints]
 workspace = true
@@ -14,7 +16,7 @@ bounded-collections = { workspace = true }
 codec = { features = ["derive"], workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 serde = { optional = true, features = ["derive"], workspace = true, default-features = true }
-log = { workspace = true }
+tracing = { workspace = true }
 
 frame-support = { workspace = true }
 frame-system = { workspace = true }
@@ -23,8 +25,8 @@ sp-io = { workspace = true }
 sp-runtime = { workspace = true }
 
 xcm = { workspace = true }
-xcm-executor = { workspace = true }
 xcm-builder = { workspace = true }
+xcm-executor = { workspace = true }
 xcm-runtime-apis = { workspace = true }
 
 # marked optional, used in benchmarking
@@ -33,8 +35,9 @@ pallet-balances = { optional = true, workspace = true }
 
 [dev-dependencies]
 pallet-assets = { workspace = true, default-features = true }
-polkadot-runtime-parachains = { workspace = true, default-features = true }
 polkadot-parachain-primitives = { workspace = true, default-features = true }
+polkadot-runtime-parachains = { workspace = true, default-features = true }
+sp-tracing = { features = ["test-utils"], workspace = true, default-features = true }
 
 [features]
 default = ["std"]
@@ -44,13 +47,13 @@ std = [
 	"frame-benchmarking?/std",
 	"frame-support/std",
 	"frame-system/std",
-	"log/std",
 	"pallet-balances/std",
 	"scale-info/std",
 	"serde",
 	"sp-core/std",
 	"sp-io/std",
 	"sp-runtime/std",
+	"tracing/std",
 	"xcm-builder/std",
 	"xcm-executor/std",
 	"xcm-runtime-apis/std",
@@ -68,6 +71,7 @@ runtime-benchmarks = [
 	"xcm-builder/runtime-benchmarks",
 	"xcm-executor/runtime-benchmarks",
 	"xcm-runtime-apis/runtime-benchmarks",
+	"xcm/runtime-benchmarks",
 ]
 try-runtime = [
 	"frame-support/try-runtime",

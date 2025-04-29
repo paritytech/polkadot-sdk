@@ -1,4 +1,4 @@
-// This file is part of Substrate.
+// This file is part of Cumulus.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
@@ -84,8 +84,31 @@ impl<H: Hasher> CacheProvider<H> {
 	}
 }
 
+impl<H: Hasher> TrieCacheProvider<H> for &CacheProvider<H> {
+	type Cache<'a>
+		= TrieCache<'a, H>
+	where
+		Self: 'a,
+		H: 'a;
+
+	fn as_trie_db_cache(&self, storage_root: <H as Hasher>::Out) -> Self::Cache<'_> {
+		TrieCacheProvider::<H>::as_trie_db_cache(*self, storage_root)
+	}
+
+	fn as_trie_db_mut_cache(&self) -> Self::Cache<'_> {
+		TrieCacheProvider::<H>::as_trie_db_mut_cache(*self)
+	}
+
+	fn merge<'a>(&'a self, other: Self::Cache<'a>, new_root: <H as Hasher>::Out) {
+		TrieCacheProvider::merge(*self, other, new_root)
+	}
+}
+
 impl<H: Hasher> TrieCacheProvider<H> for CacheProvider<H> {
-	type Cache<'a> = TrieCache<'a, H> where H: 'a;
+	type Cache<'a>
+		= TrieCache<'a, H>
+	where
+		H: 'a;
 
 	fn as_trie_db_cache(&self, storage_root: <H as Hasher>::Out) -> Self::Cache<'_> {
 		TrieCache {

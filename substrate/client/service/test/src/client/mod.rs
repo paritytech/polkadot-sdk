@@ -29,7 +29,7 @@ use sc_consensus::{
 	BlockCheckParams, BlockImport, BlockImportParams, ForkChoiceStrategy, ImportResult,
 };
 use sc_executor::WasmExecutor;
-use sc_service::client::{new_in_mem, Client, LocalCallExecutor};
+use sc_service::client::{new_with_backend, Client, LocalCallExecutor};
 use sp_api::ProvideRuntimeApi;
 use sp_consensus::{BlockOrigin, Error as ConsensusError, SelectChain};
 use sp_core::{testing::TaskExecutor, traits::CallContext, H256};
@@ -48,8 +48,8 @@ use substrate_test_runtime_client::{
 		genesismap::{insert_genesis_block, GenesisStorageBuilder},
 		Block, BlockNumber, Digest, Hash, Header, RuntimeApi, Transfer,
 	},
-	AccountKeyring, BlockBuilderExt, ClientBlockImportExt, ClientExt, DefaultTestClientBuilderExt,
-	Sr25519Keyring, TestClientBuilder, TestClientBuilderExt,
+	BlockBuilderExt, ClientBlockImportExt, ClientExt, DefaultTestClientBuilderExt, Sr25519Keyring,
+	TestClientBuilder, TestClientBuilderExt,
 };
 
 mod db;
@@ -126,8 +126,8 @@ fn block1(genesis_hash: Hash, backend: &InMemoryBackend<BlakeTwo256>) -> Vec<u8>
 		1,
 		genesis_hash,
 		vec![Transfer {
-			from: AccountKeyring::One.into(),
-			to: AccountKeyring::Two.into(),
+			from: Sr25519Keyring::One.into(),
+			to: Sr25519Keyring::Two.into(),
 			amount: 69 * DOLLARS,
 			nonce: 0,
 		}],
@@ -158,7 +158,7 @@ fn finality_notification_check(
 fn construct_genesis_should_work_with_native() {
 	let mut storage = GenesisStorageBuilder::new(
 		vec![Sr25519Keyring::One.public().into(), Sr25519Keyring::Two.public().into()],
-		vec![AccountKeyring::One.into(), AccountKeyring::Two.into()],
+		vec![Sr25519Keyring::One.into(), Sr25519Keyring::Two.into()],
 		1000 * DOLLARS,
 	)
 	.build();
@@ -189,7 +189,7 @@ fn construct_genesis_should_work_with_native() {
 fn construct_genesis_should_work_with_wasm() {
 	let mut storage = GenesisStorageBuilder::new(
 		vec![Sr25519Keyring::One.public().into(), Sr25519Keyring::Two.public().into()],
-		vec![AccountKeyring::One.into(), AccountKeyring::Two.into()],
+		vec![Sr25519Keyring::One.into(), Sr25519Keyring::Two.into()],
 		1000 * DOLLARS,
 	)
 	.build();
@@ -223,14 +223,14 @@ fn client_initializes_from_genesis_ok() {
 	assert_eq!(
 		client
 			.runtime_api()
-			.balance_of(client.chain_info().best_hash, AccountKeyring::Alice.into())
+			.balance_of(client.chain_info().best_hash, Sr25519Keyring::Alice.into())
 			.unwrap(),
 		1000 * DOLLARS
 	);
 	assert_eq!(
 		client
 			.runtime_api()
-			.balance_of(client.chain_info().best_hash, AccountKeyring::Ferdie.into())
+			.balance_of(client.chain_info().best_hash, Sr25519Keyring::Ferdie.into())
 			.unwrap(),
 		0 * DOLLARS
 	);
@@ -238,7 +238,7 @@ fn client_initializes_from_genesis_ok() {
 
 #[test]
 fn block_builder_works_with_no_transactions() {
-	let mut client = substrate_test_runtime_client::new();
+	let client = substrate_test_runtime_client::new();
 
 	let block = BlockBuilderBuilder::new(&client)
 		.on_parent_block(client.chain_info().genesis_hash)
@@ -256,7 +256,7 @@ fn block_builder_works_with_no_transactions() {
 
 #[test]
 fn block_builder_works_with_transactions() {
-	let mut client = substrate_test_runtime_client::new();
+	let client = substrate_test_runtime_client::new();
 
 	let mut builder = BlockBuilderBuilder::new(&client)
 		.on_parent_block(client.chain_info().genesis_hash)
@@ -266,8 +266,8 @@ fn block_builder_works_with_transactions() {
 
 	builder
 		.push_transfer(Transfer {
-			from: AccountKeyring::Alice.into(),
-			to: AccountKeyring::Ferdie.into(),
+			from: Sr25519Keyring::Alice.into(),
+			to: Sr25519Keyring::Ferdie.into(),
 			amount: 42 * DOLLARS,
 			nonce: 0,
 		})
@@ -301,14 +301,14 @@ fn block_builder_works_with_transactions() {
 	assert_eq!(
 		client
 			.runtime_api()
-			.balance_of(client.chain_info().best_hash, AccountKeyring::Alice.into())
+			.balance_of(client.chain_info().best_hash, Sr25519Keyring::Alice.into())
 			.unwrap(),
 		958 * DOLLARS
 	);
 	assert_eq!(
 		client
 			.runtime_api()
-			.balance_of(client.chain_info().best_hash, AccountKeyring::Ferdie.into())
+			.balance_of(client.chain_info().best_hash, Sr25519Keyring::Ferdie.into())
 			.unwrap(),
 		42 * DOLLARS
 	);
@@ -316,7 +316,7 @@ fn block_builder_works_with_transactions() {
 
 #[test]
 fn block_builder_does_not_include_invalid() {
-	let mut client = substrate_test_runtime_client::new();
+	let client = substrate_test_runtime_client::new();
 	let mut builder = BlockBuilderBuilder::new(&client)
 		.on_parent_block(client.chain_info().genesis_hash)
 		.with_parent_block_number(0)
@@ -325,8 +325,8 @@ fn block_builder_does_not_include_invalid() {
 
 	builder
 		.push_transfer(Transfer {
-			from: AccountKeyring::Alice.into(),
-			to: AccountKeyring::Ferdie.into(),
+			from: Sr25519Keyring::Alice.into(),
+			to: Sr25519Keyring::Ferdie.into(),
 			amount: 42 * DOLLARS,
 			nonce: 0,
 		})
@@ -334,8 +334,8 @@ fn block_builder_does_not_include_invalid() {
 
 	assert!(builder
 		.push_transfer(Transfer {
-			from: AccountKeyring::Alice.into(),
-			to: AccountKeyring::Ferdie.into(),
+			from: Sr25519Keyring::Alice.into(),
+			to: Sr25519Keyring::Ferdie.into(),
 			amount: 30 * DOLLARS,
 			nonce: 0,
 		})
@@ -390,7 +390,7 @@ fn best_containing_with_genesis_block() {
 fn uncles_with_only_ancestors() {
 	// block tree:
 	// G -> A1 -> A2
-	let mut client = substrate_test_runtime_client::new();
+	let client = substrate_test_runtime_client::new();
 
 	// G -> A1
 	let a1 = BlockBuilderBuilder::new(&client)
@@ -424,7 +424,7 @@ fn uncles_with_multiple_forks() {
 	//      A1 -> B2 -> B3 -> B4
 	//	          B2 -> C3
 	//	    A1 -> D2
-	let mut client = substrate_test_runtime_client::new();
+	let client = substrate_test_runtime_client::new();
 
 	// G -> A1
 	let a1 = BlockBuilderBuilder::new(&client)
@@ -491,8 +491,8 @@ fn uncles_with_multiple_forks() {
 	// this push is required as otherwise B2 has the same hash as A2 and won't get imported
 	builder
 		.push_transfer(Transfer {
-			from: AccountKeyring::Alice.into(),
-			to: AccountKeyring::Ferdie.into(),
+			from: Sr25519Keyring::Alice.into(),
+			to: Sr25519Keyring::Ferdie.into(),
 			amount: 41 * DOLLARS,
 			nonce: 0,
 		})
@@ -531,8 +531,8 @@ fn uncles_with_multiple_forks() {
 	// this push is required as otherwise C3 has the same hash as B3 and won't get imported
 	builder
 		.push_transfer(Transfer {
-			from: AccountKeyring::Alice.into(),
-			to: AccountKeyring::Ferdie.into(),
+			from: Sr25519Keyring::Alice.into(),
+			to: Sr25519Keyring::Ferdie.into(),
 			amount: 1 * DOLLARS,
 			nonce: 1,
 		})
@@ -549,8 +549,8 @@ fn uncles_with_multiple_forks() {
 	// this push is required as otherwise D2 has the same hash as B2 and won't get imported
 	builder
 		.push_transfer(Transfer {
-			from: AccountKeyring::Alice.into(),
-			to: AccountKeyring::Ferdie.into(),
+			from: Sr25519Keyring::Alice.into(),
+			to: Sr25519Keyring::Ferdie.into(),
 			amount: 1 * DOLLARS,
 			nonce: 0,
 		})
@@ -584,7 +584,7 @@ fn finality_target_on_longest_chain_with_single_chain_3_blocks() {
 	// block tree:
 	// G -> A1 -> A2
 
-	let (mut client, longest_chain_select) = TestClientBuilder::new().build_with_longest_chain();
+	let (client, longest_chain_select) = TestClientBuilder::new().build_with_longest_chain();
 
 	// G -> A1
 	let a1 = BlockBuilderBuilder::new(&client)
@@ -625,7 +625,7 @@ fn finality_target_on_longest_chain_with_multiple_forks() {
 	//      A1 -> B2 -> B3 -> B4
 	// 	          B2 -> C3
 	// 	    A1 -> D2
-	let (mut client, longest_chain_select) = TestClientBuilder::new().build_with_longest_chain();
+	let (client, longest_chain_select) = TestClientBuilder::new().build_with_longest_chain();
 
 	// G -> A1
 	let a1 = BlockBuilderBuilder::new(&client)
@@ -691,8 +691,8 @@ fn finality_target_on_longest_chain_with_multiple_forks() {
 	// this push is required as otherwise B2 has the same hash as A2 and won't get imported
 	builder
 		.push_transfer(Transfer {
-			from: AccountKeyring::Alice.into(),
-			to: AccountKeyring::Ferdie.into(),
+			from: Sr25519Keyring::Alice.into(),
+			to: Sr25519Keyring::Ferdie.into(),
 			amount: 41 * DOLLARS,
 			nonce: 0,
 		})
@@ -732,8 +732,8 @@ fn finality_target_on_longest_chain_with_multiple_forks() {
 	// this push is required as otherwise C3 has the same hash as B3 and won't get imported
 	builder
 		.push_transfer(Transfer {
-			from: AccountKeyring::Alice.into(),
-			to: AccountKeyring::Ferdie.into(),
+			from: Sr25519Keyring::Alice.into(),
+			to: Sr25519Keyring::Ferdie.into(),
 			amount: 1 * DOLLARS,
 			nonce: 1,
 		})
@@ -751,8 +751,8 @@ fn finality_target_on_longest_chain_with_multiple_forks() {
 	// this push is required as otherwise D2 has the same hash as B2 and won't get imported
 	builder
 		.push_transfer(Transfer {
-			from: AccountKeyring::Alice.into(),
-			to: AccountKeyring::Ferdie.into(),
+			from: Sr25519Keyring::Alice.into(),
+			to: Sr25519Keyring::Ferdie.into(),
 			amount: 1 * DOLLARS,
 			nonce: 0,
 		})
@@ -877,7 +877,7 @@ fn finality_target_on_longest_chain_with_max_depth_higher_than_best() {
 	// block tree:
 	// G -> A1 -> A2
 
-	let (mut client, chain_select) = TestClientBuilder::new().build_with_longest_chain();
+	let (client, chain_select) = TestClientBuilder::new().build_with_longest_chain();
 	let chain = client.chain_info();
 
 	// G -> A1
@@ -914,7 +914,7 @@ fn finality_target_with_best_not_on_longest_chain() {
 	//         -> B2 -> (B3) -> B4
 	//                   ^best
 
-	let (mut client, chain_select) = TestClientBuilder::new().build_with_longest_chain();
+	let (client, chain_select) = TestClientBuilder::new().build_with_longest_chain();
 	let chain = client.chain_info();
 
 	// G -> A1
@@ -982,8 +982,8 @@ fn finality_target_with_best_not_on_longest_chain() {
 	// this push is required as otherwise B2 has the same hash as A2 and won't get imported
 	builder
 		.push_transfer(Transfer {
-			from: AccountKeyring::Alice.into(),
-			to: AccountKeyring::Ferdie.into(),
+			from: Sr25519Keyring::Alice.into(),
+			to: Sr25519Keyring::Ferdie.into(),
 			amount: 41 * DOLLARS,
 			nonce: 0,
 		})
@@ -1045,7 +1045,7 @@ fn finality_target_with_best_not_on_longest_chain() {
 fn import_with_justification() {
 	// block tree:
 	// G -> A1 -> A2 -> A3
-	let mut client = substrate_test_runtime_client::new();
+	let client = substrate_test_runtime_client::new();
 
 	let mut finality_notifications = client.finality_notification_stream();
 
@@ -1099,7 +1099,7 @@ fn import_with_justification() {
 
 #[test]
 fn importing_diverged_finalized_block_should_trigger_reorg() {
-	let mut client = substrate_test_runtime_client::new();
+	let client = substrate_test_runtime_client::new();
 
 	// G -> A1 -> A2
 	//   \
@@ -1134,8 +1134,8 @@ fn importing_diverged_finalized_block_should_trigger_reorg() {
 		.unwrap();
 	// needed to make sure B1 gets a different hash from A1
 	b1.push_transfer(Transfer {
-		from: AccountKeyring::Alice.into(),
-		to: AccountKeyring::Ferdie.into(),
+		from: Sr25519Keyring::Alice.into(),
+		to: Sr25519Keyring::Ferdie.into(),
 		amount: 1 * DOLLARS,
 		nonce: 0,
 	})
@@ -1160,7 +1160,7 @@ fn importing_diverged_finalized_block_should_trigger_reorg() {
 
 #[test]
 fn finalizing_diverged_block_should_trigger_reorg() {
-	let (mut client, select_chain) = TestClientBuilder::new().build_with_longest_chain();
+	let (client, select_chain) = TestClientBuilder::new().build_with_longest_chain();
 
 	// G -> A1 -> A2
 	//   \
@@ -1195,8 +1195,8 @@ fn finalizing_diverged_block_should_trigger_reorg() {
 		.unwrap();
 	// needed to make sure B1 gets a different hash from A1
 	b1.push_transfer(Transfer {
-		from: AccountKeyring::Alice.into(),
-		to: AccountKeyring::Ferdie.into(),
+		from: Sr25519Keyring::Alice.into(),
+		to: Sr25519Keyring::Ferdie.into(),
 		amount: 1 * DOLLARS,
 		nonce: 0,
 	})
@@ -1257,7 +1257,7 @@ fn finalizing_diverged_block_should_trigger_reorg() {
 #[test]
 fn finality_notifications_content() {
 	sp_tracing::try_init_simple();
-	let (mut client, _select_chain) = TestClientBuilder::new().build_with_longest_chain();
+	let (client, _select_chain) = TestClientBuilder::new().build_with_longest_chain();
 
 	//               -> D3 -> D4
 	// G -> A1 -> A2 -> A3
@@ -1303,8 +1303,8 @@ fn finality_notifications_content() {
 		.unwrap();
 	// needed to make sure B1 gets a different hash from A1
 	b1.push_transfer(Transfer {
-		from: AccountKeyring::Alice.into(),
-		to: AccountKeyring::Ferdie.into(),
+		from: Sr25519Keyring::Alice.into(),
+		to: Sr25519Keyring::Ferdie.into(),
 		amount: 1,
 		nonce: 0,
 	})
@@ -1329,8 +1329,8 @@ fn finality_notifications_content() {
 		.unwrap();
 	// needed to make sure B1 gets a different hash from A1
 	c1.push_transfer(Transfer {
-		from: AccountKeyring::Alice.into(),
-		to: AccountKeyring::Ferdie.into(),
+		from: Sr25519Keyring::Alice.into(),
+		to: Sr25519Keyring::Ferdie.into(),
 		amount: 2 * DOLLARS,
 		nonce: 0,
 	})
@@ -1346,8 +1346,8 @@ fn finality_notifications_content() {
 
 	// needed to make sure D3 gets a different hash from A3
 	d3.push_transfer(Transfer {
-		from: AccountKeyring::Alice.into(),
-		to: AccountKeyring::Ferdie.into(),
+		from: Sr25519Keyring::Alice.into(),
+		to: Sr25519Keyring::Ferdie.into(),
 		amount: 2 * DOLLARS,
 		nonce: 0,
 	})
@@ -1410,12 +1410,12 @@ fn get_hash_by_block_number_doesnt_panic() {
 #[test]
 fn state_reverted_on_reorg() {
 	sp_tracing::try_init_simple();
-	let mut client = substrate_test_runtime_client::new();
+	let client = substrate_test_runtime_client::new();
 
 	let current_balance = |client: &substrate_test_runtime_client::TestClient| {
 		client
 			.runtime_api()
-			.balance_of(client.chain_info().best_hash, AccountKeyring::Alice.into())
+			.balance_of(client.chain_info().best_hash, Sr25519Keyring::Alice.into())
 			.unwrap()
 	};
 
@@ -1428,8 +1428,8 @@ fn state_reverted_on_reorg() {
 		.build()
 		.unwrap();
 	a1.push_transfer(Transfer {
-		from: AccountKeyring::Alice.into(),
-		to: AccountKeyring::Bob.into(),
+		from: Sr25519Keyring::Alice.into(),
+		to: Sr25519Keyring::Bob.into(),
 		amount: 10 * DOLLARS,
 		nonce: 0,
 	})
@@ -1443,8 +1443,8 @@ fn state_reverted_on_reorg() {
 		.build()
 		.unwrap();
 	b1.push_transfer(Transfer {
-		from: AccountKeyring::Alice.into(),
-		to: AccountKeyring::Ferdie.into(),
+		from: Sr25519Keyring::Alice.into(),
+		to: Sr25519Keyring::Ferdie.into(),
 		amount: 50 * DOLLARS,
 		nonce: 0,
 	})
@@ -1460,8 +1460,8 @@ fn state_reverted_on_reorg() {
 		.build()
 		.unwrap();
 	a2.push_transfer(Transfer {
-		from: AccountKeyring::Alice.into(),
-		to: AccountKeyring::Charlie.into(),
+		from: Sr25519Keyring::Alice.into(),
+		to: Sr25519Keyring::Charlie.into(),
 		amount: 10 * DOLLARS,
 		nonce: 1,
 	})
@@ -1492,7 +1492,7 @@ fn doesnt_import_blocks_that_revert_finality() {
 		.unwrap(),
 	);
 
-	let mut client = TestClientBuilder::with_backend(backend).build();
+	let client = TestClientBuilder::with_backend(backend).build();
 
 	let mut finality_notifications = client.finality_notification_stream();
 
@@ -1530,8 +1530,8 @@ fn doesnt_import_blocks_that_revert_finality() {
 
 	// needed to make sure B1 gets a different hash from A1
 	b1.push_transfer(Transfer {
-		from: AccountKeyring::Alice.into(),
-		to: AccountKeyring::Ferdie.into(),
+		from: Sr25519Keyring::Alice.into(),
+		to: Sr25519Keyring::Ferdie.into(),
 		amount: 1 * DOLLARS,
 		nonce: 0,
 	})
@@ -1580,8 +1580,8 @@ fn doesnt_import_blocks_that_revert_finality() {
 
 	// needed to make sure C1 gets a different hash from A1 and B1
 	c1.push_transfer(Transfer {
-		from: AccountKeyring::Alice.into(),
-		to: AccountKeyring::Ferdie.into(),
+		from: Sr25519Keyring::Alice.into(),
+		to: Sr25519Keyring::Ferdie.into(),
 		amount: 2 * DOLLARS,
 		nonce: 0,
 	})
@@ -1619,7 +1619,7 @@ fn respects_block_rules() {
 		known_bad: &mut HashSet<H256>,
 		fork_rules: &mut Vec<(u64, H256)>,
 	) {
-		let mut client = if record_only {
+		let client = if record_only {
 			TestClientBuilder::new().build()
 		} else {
 			TestClientBuilder::new()
@@ -1748,11 +1748,9 @@ fn respects_block_rules() {
 }
 
 #[test]
-#[cfg(disable_flaky)]
-#[allow(dead_code)]
-// FIXME: https://github.com/paritytech/substrate/issues/11321
+// FIXME: https://github.com/paritytech/polkadot-sdk/issues/48
 fn returns_status_for_pruned_blocks() {
-	use sc_consensus::BlockStatus;
+	use sp_consensus::BlockStatus;
 	sp_tracing::try_init_simple();
 	let tmp = tempfile::tempdir().unwrap();
 
@@ -1771,7 +1769,7 @@ fn returns_status_for_pruned_blocks() {
 		.unwrap(),
 	);
 
-	let mut client = TestClientBuilder::with_backend(backend).build();
+	let client = TestClientBuilder::with_backend(backend).build();
 
 	let a1 = BlockBuilderBuilder::new(&client)
 		.on_parent_block(client.chain_info().genesis_hash)
@@ -1790,8 +1788,8 @@ fn returns_status_for_pruned_blocks() {
 
 	// b1 is created, but not imported
 	b1.push_transfer(Transfer {
-		from: AccountKeyring::Alice.into(),
-		to: AccountKeyring::Ferdie.into(),
+		from: Sr25519Keyring::Alice.into(),
+		to: Sr25519Keyring::Ferdie.into(),
 		amount: 1 * DOLLARS,
 		nonce: 0,
 	})
@@ -2089,13 +2087,13 @@ fn cleans_up_closed_notification_sinks_on_block_import() {
 	// NOTE: we need to build the client here instead of using the client
 	// provided by test_runtime_client otherwise we can't access the private
 	// `import_notification_sinks` and `finality_notification_sinks` fields.
-	let mut client = new_in_mem::<_, Block, _, RuntimeApi>(
+	let mut client = new_with_backend::<_, _, Block, _, RuntimeApi>(
 		backend,
 		executor,
 		genesis_block_builder,
-		None,
-		None,
 		Box::new(TaskExecutor::new()),
+		None,
+		None,
 		client_config,
 	)
 	.unwrap();
@@ -2160,7 +2158,7 @@ fn cleans_up_closed_notification_sinks_on_block_import() {
 /// Test that ensures that we always send an import notification for re-orgs.
 #[test]
 fn reorg_triggers_a_notification_even_for_sources_that_should_not_trigger_notifications() {
-	let mut client = TestClientBuilder::new().build();
+	let client = TestClientBuilder::new().build();
 
 	let mut notification_stream =
 		futures::executor::block_on_stream(client.import_notification_stream());
@@ -2193,8 +2191,8 @@ fn reorg_triggers_a_notification_even_for_sources_that_should_not_trigger_notifi
 
 	// needed to make sure B1 gets a different hash from A1
 	b1.push_transfer(Transfer {
-		from: AccountKeyring::Alice.into(),
-		to: AccountKeyring::Ferdie.into(),
+		from: Sr25519Keyring::Alice.into(),
+		to: Sr25519Keyring::Ferdie.into(),
 		amount: 1 * DOLLARS,
 		nonce: 0,
 	})
@@ -2232,7 +2230,7 @@ fn use_dalek_ext_works() {
 		sp_core::ed25519::Signature::default()
 	}
 
-	let mut client = TestClientBuilder::new().build();
+	let client = TestClientBuilder::new().build();
 
 	client.execution_extensions().set_extensions_factory(
 		sc_client_api::execution_extensions::ExtensionBeforeBlock::<Block, sp_io::UseDalekExt>::new(
@@ -2263,7 +2261,7 @@ fn use_dalek_ext_works() {
 
 #[test]
 fn finalize_after_best_block_updates_best() {
-	let mut client = substrate_test_runtime_client::new();
+	let client = substrate_test_runtime_client::new();
 
 	// G -> A1
 	let a1 = BlockBuilderBuilder::new(&client)

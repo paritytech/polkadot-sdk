@@ -632,7 +632,7 @@ where
 	///
 	/// This is `Polite` and thus will not repatriate any funds which would lead the total balance
 	/// to be less than the frozen amount. Returns `Ok` with the actual amount of funds moved,
-	/// which may be less than `value` since the operation is done an a `BestEffort` basis.
+	/// which may be less than `value` since the operation is done on a `BestEffort` basis.
 	fn repatriate_reserved(
 		slashed: &T::AccountId,
 		beneficiary: &T::AccountId,
@@ -674,8 +674,10 @@ where
 		Reserves::<T, I>::try_mutate(who, |reserves| -> DispatchResult {
 			match reserves.binary_search_by_key(id, |data| data.id) {
 				Ok(index) => {
-					// this add can't overflow but just to be defensive.
-					reserves[index].amount = reserves[index].amount.defensive_saturating_add(value);
+					reserves[index].amount = reserves[index]
+						.amount
+						.checked_add(&value)
+						.ok_or(ArithmeticError::Overflow)?;
 				},
 				Err(index) => {
 					reserves

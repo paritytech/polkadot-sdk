@@ -244,7 +244,7 @@ fn vote_works() {
 fn close_works() {
 	new_test_ext().execute_with(|| {
 		let (proposal, proposal_len, hash) = make_remark_proposal(42);
-		let proposal_weight = proposal.get_dispatch_info().weight;
+		let proposal_weight = proposal.get_dispatch_info().call_weight;
 		assert_ok!(Alliance::propose(
 			RuntimeOrigin::signed(1),
 			3,
@@ -645,8 +645,8 @@ fn remove_unscrupulous_items_works() {
 #[test]
 fn weights_sane() {
 	let info = crate::Call::<Test>::join_alliance {}.get_dispatch_info();
-	assert_eq!(<() as crate::WeightInfo>::join_alliance(), info.weight);
+	assert_eq!(<() as crate::WeightInfo>::join_alliance(), info.call_weight);
 
 	let info = crate::Call::<Test>::nominate_ally { who: 10 }.get_dispatch_info();
-	assert_eq!(<() as crate::WeightInfo>::nominate_ally(), info.weight);
+	assert_eq!(<() as crate::WeightInfo>::nominate_ally(), info.call_weight);
 }

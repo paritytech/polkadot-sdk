@@ -17,7 +17,7 @@
 //! Implementation for `ContainsPair<Location, Location>`.
 
 use core::marker::PhantomData;
-use frame_support::traits::{Contains, ContainsPair};
+use frame_support::traits::{Contains, ContainsPair, Get};
 use xcm::latest::prelude::*;
 
 /// Alias a Foreign `AccountId32` with a local `AccountId32` if the foreign `AccountId32` matches
@@ -36,5 +36,36 @@ impl<Prefix: Contains<Location>> ContainsPair<Location, Location>
 				*target == Location { parents: 0, interior: [account_id].into() }
 		}
 		false
+	}
+}
+
+/// Alias a descendant location of the original origin.
+pub struct AliasChildLocation;
+impl ContainsPair<Location, Location> for AliasChildLocation {
+	fn contains(origin: &Location, target: &Location) -> bool {
+		return target.starts_with(origin)
+	}
+}
+
+/// Alias a location if it passes `Filter` and the original origin is root of `Origin`.
+///
+/// This can be used to allow (trusted) system chains root to alias into other locations.
+/// **Warning**: do not use with untrusted `Origin` chains.
+pub struct AliasOriginRootUsingFilter<Origin, Filter>(PhantomData<(Origin, Filter)>);
+impl<Origin, Filter> ContainsPair<Location, Location> for AliasOriginRootUsingFilter<Origin, Filter>
+where
+	Origin: Get<Location>,
+	Filter: Contains<Location>,
+{
+	fn contains(origin: &Location, target: &Location) -> bool {
+		// check that `origin` is a root location
+		match origin.unpack() {
+			(1, [Parachain(_)]) |
+			(2, [GlobalConsensus(_)]) |
+			(2, [GlobalConsensus(_), Parachain(_)]) => (),
+			_ => return false,
+		};
+		// check that `origin` matches `Origin` and `target` matches `Filter`
+		return Origin::get().eq(origin) && Filter::contains(target)
 	}
 }

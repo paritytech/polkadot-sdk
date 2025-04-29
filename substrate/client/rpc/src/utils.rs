@@ -21,7 +21,7 @@
 use crate::SubscriptionTaskExecutor;
 use futures::{
 	future::{self, Either, Fuse, FusedFuture},
-	Future, FutureExt, Stream, StreamExt,
+	Future, FutureExt, Stream, StreamExt, TryStream, TryStreamExt,
 };
 use jsonrpsee::{
 	types::SubscriptionId, DisconnectError, PendingSubscriptionSink, SubscriptionMessage,
@@ -173,14 +173,27 @@ impl From<SubscriptionSink> for Subscription {
 impl Subscription {
 	/// Feed items to the subscription from the underlying stream
 	/// with specified buffer strategy.
-	pub async fn pipe_from_stream<S, T, B>(self, mut stream: S, mut buf: B)
+	pub async fn pipe_from_stream<S, T, B>(&self, stream: S, buf: B)
 	where
-		S: Stream<Item = T> + Unpin + Send + 'static,
-		T: Serialize + Send + 'static,
+		S: Stream<Item = T> + Unpin,
+		T: Serialize + Send,
+		B: Buffer<Item = T>,
+	{
+		self.pipe_from_try_stream(stream.map(Ok::<T, ()>), buf)
+			.await
+			.expect("No Err will be ever encountered.qed");
+	}
+
+	/// Feed items to the subscription from the underlying stream
+	/// with specified buffer strategy.
+	pub async fn pipe_from_try_stream<S, T, B, E>(&self, mut stream: S, mut buf: B) -> Result<(), E>
+	where
+		S: TryStream<Ok = T, Error = E> + Unpin,
+		T: Serialize + Send,
 		B: Buffer<Item = T>,
 	{
 		let mut next_fut = Box::pin(Fuse::terminated());
-		let mut next_item = stream.next();
+		let mut next_item = stream.try_next();
 		let closed = self.0.closed();
 
 		futures::pin_mut!(closed);
@@ -201,7 +214,7 @@ impl Subscription {
 					next_fut = Box::pin(Fuse::terminated());
 				},
 				// New item from the stream
-				Either::Right((Either::Right((Some(v), n)), c)) => {
+				Either::Right((Either::Right((Ok(Some(v)), n)), c)) => {
 					if buf.push(v).is_err() {
 						log::debug!(
 							target: "rpc",
@@ -209,31 +222,35 @@ impl Subscription {
 							self.0.method_name(),
 							self.0.connection_id().0
 						);
-						return
+						return Ok(());
 					}
 
 					next_fut = n;
 					closed = c;
-					next_item = stream.next();
+					next_item = stream.try_next();
 				},
+				// Error occured while processing the stream.
+				//
+				// terminate the stream.
+				Either::Right((Either::Right((Err(e), _)), _)) => return Err(e),
 				// Stream "finished".
 				//
 				// Process remaining items and terminate.
-				Either::Right((Either::Right((None, pending_fut)), _)) => {
+				Either::Right((Either::Right((Ok(None), pending_fut)), _)) => {
 					if !pending_fut.is_terminated() && pending_fut.await.is_err() {
-						return;
+						return Ok(());
 					}
 
 					while let Some(v) = buf.pop() {
 						if self.send(&v).await.is_err() {
-							return;
+							return Ok(());
 						}
 					}
 
-					return;
+					return Ok(());
 				},
 				// Subscription was closed.
-				Either::Left(_) => return,
+				Either::Left(_) => return Ok(()),
 			}
 		}
 	}

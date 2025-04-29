@@ -1,0 +1,10 @@
+title: Forward logging directives to Polkadot workers
+doc:
+- audience: Node Dev
+  description: |-
+    This pull request forward all the logging directives given to the node via `RUST_LOG` or `-l` to the workers, instead of only forwarding `RUST_LOG`.
+crates:
+- name: polkadot-node-core-pvf
+  bump: patch
+- name: sc-tracing
+  bump: patch

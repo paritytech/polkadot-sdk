@@ -57,8 +57,8 @@ use polkadot_node_subsystem_test_helpers::{
 	subsystem_test_harness, TestSubsystemContextHandle,
 };
 use polkadot_primitives::{
-	AuthorityDiscoveryId, Block, CandidateHash, CandidateReceipt, ExecutorParams, Hash,
-	NodeFeatures, SessionIndex, SessionInfo,
+	vstaging::CandidateReceiptV2 as CandidateReceipt, AuthorityDiscoveryId, Block, CandidateHash,
+	ExecutorParams, Hash, NodeFeatures, SessionIndex, SessionInfo,
 };
 
 use self::mock::{

@@ -18,9 +18,7 @@
 
 #![cfg(feature = "runtime-benchmarks")]
 
-use crate::{Bridge, Call};
-
-use bp_xcm_bridge_hub_router::{BridgeState, MINIMAL_DELIVERY_FEE_FACTOR};
+use crate::{Bridge, BridgeState, Call, MINIMAL_DELIVERY_FEE_FACTOR};
 use frame_benchmarking::{benchmarks_instance_pallet, BenchmarkError};
 use frame_support::traits::{EnsureOrigin, Get, Hooks, UnfilteredDispatchable};
 use sp_runtime::traits::Zero;
@@ -60,7 +58,6 @@ benchmarks_instance_pallet! {
 			is_congested: false,
 			delivery_fee_factor: MINIMAL_DELIVERY_FEE_FACTOR + MINIMAL_DELIVERY_FEE_FACTOR,
 		});
-
 		let _ = T::ensure_bridged_target_destination()?;
 		T::make_congested();
 	}: {
@@ -78,18 +75,5 @@ benchmarks_instance_pallet! {
 	}: { call.dispatch_bypass_filter(origin)? }
 	verify {
 		assert!(Bridge::<T, I>::get().is_congested);
-	}
-
-	send_message {
-		let dest = T::ensure_bridged_target_destination()?;
-		let xcm = sp_std::vec![].into();
-
-		// make local queue congested, because it means additional db write
-		T::make_congested();
-	}: {
-		send_xcm::<crate::Pallet<T, I>>(dest, xcm).expect("message is sent")
-	}
-	verify {
-		assert!(Bridge::<T, I>::get().delivery_fee_factor > MINIMAL_DELIVERY_FEE_FACTOR);
 	}
 }

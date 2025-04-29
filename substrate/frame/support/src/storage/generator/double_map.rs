@@ -346,9 +346,8 @@ where
 
 			final_key
 		};
-		unhashed::take(old_key.as_ref()).map(|value| {
+		unhashed::take(old_key.as_ref()).inspect(|value| {
 			unhashed::put(Self::storage_double_map_final_key(key1, key2).as_ref(), &value);
-			value
 		})
 	}
 }

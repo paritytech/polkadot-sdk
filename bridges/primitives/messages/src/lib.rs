@@ -24,16 +24,24 @@ use bp_runtime::{
 	messages::MessageDispatchResult, BasicOperatingMode, Chain, OperatingMode, RangeInclusiveExt,
 	StorageProofError, UnderlyingChainOf, UnderlyingChainProvider,
 };
-use codec::{Decode, Encode, MaxEncodedLen};
+use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use frame_support::PalletError;
 // Weight is reexported to avoid additional frame-support dependencies in related crates.
 pub use frame_support::weights::Weight;
 use scale_info::TypeInfo;
 use serde::{Deserialize, Serialize};
 use source_chain::RelayersRewards;
-use sp_core::{RuntimeDebug, TypeId};
+use sp_core::RuntimeDebug;
 use sp_std::{collections::vec_deque::VecDeque, ops::RangeInclusive, prelude::*};
 
+pub use call_info::{
+	BaseMessagesProofInfo, BridgeMessagesCall, MessagesCallInfo, ReceiveMessagesDeliveryProofInfo,
+	ReceiveMessagesProofInfo, UnrewardedRelayerOccupation,
+};
+pub use lane::{HashedLaneId, LaneIdType, LaneState, LegacyLaneId};
+
+mod call_info;
+mod lane;
 pub mod source_chain;
 pub mod storage_keys;
 pub mod target_chain;
@@ -127,6 +135,7 @@ where
 #[derive(
 	Encode,
 	Decode,
+	DecodeWithMemTracking,
 	Clone,
 	Copy,
 	PartialEq,
@@ -165,52 +174,15 @@ impl OperatingMode for MessagesOperatingMode {
 	}
 }
 
-/// Lane id which implements `TypeId`.
-#[derive(
-	Clone,
-	Copy,
-	Decode,
-	Default,
-	Encode,
-	Eq,
-	Ord,
-	PartialOrd,
-	PartialEq,
-	TypeInfo,
-	MaxEncodedLen,
-	Serialize,
-	Deserialize,
-)]
-pub struct LaneId(pub [u8; 4]);
-
-impl core::fmt::Debug for LaneId {
-	fn fmt(&self, fmt: &mut core::fmt::Formatter) -> core::fmt::Result {
-		self.0.fmt(fmt)
-	}
-}
-
-impl AsRef<[u8]> for LaneId {
-	fn as_ref(&self) -> &[u8] {
-		&self.0
-	}
-}
-
-impl TypeId for LaneId {
-	const TYPE_ID: [u8; 4] = *b"blan";
-}
-
 /// Message nonce. Valid messages will never have 0 nonce.
 pub type MessageNonce = u64;
-
-/// Message id as a tuple.
-pub type BridgeMessageId = (LaneId, MessageNonce);
 
 /// Opaque message payload. We only decode this payload when it is dispatched.
 pub type MessagePayload = Vec<u8>;
 
 /// Message key (unique message identifier) as it is stored in the storage.
 #[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
-pub struct MessageKey {
+pub struct MessageKey<LaneId: Encode> {
 	/// ID of the message lane.
 	pub lane_id: LaneId,
 	/// Message nonce.
@@ -219,9 +191,9 @@ pub struct MessageKey {
 
 /// Message as it is stored in the storage.
 #[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo)]
-pub struct Message {
+pub struct Message<LaneId: Encode> {
 	/// Message key.
-	pub key: MessageKey,
+	pub key: MessageKey<LaneId>,
 	/// Message payload.
 	pub payload: MessagePayload,
 }
@@ -257,15 +229,29 @@ pub struct InboundLaneData<RelayerId> {
 	/// This value is updated indirectly when an `OutboundLane` state of the source
 	/// chain is received alongside with new messages delivery.
 	pub last_confirmed_nonce: MessageNonce,
+
+	/// Inbound lane state.
+	///
+	/// If state is `Closed`, then all attempts to deliver messages to this end will fail.
+	pub state: LaneState,
 }
 
 impl<RelayerId> Default for InboundLaneData<RelayerId> {
 	fn default() -> Self {
-		InboundLaneData { relayers: VecDeque::new(), last_confirmed_nonce: 0 }
+		InboundLaneData {
+			state: LaneState::Closed,
+			relayers: VecDeque::new(),
+			last_confirmed_nonce: 0,
+		}
 	}
 }
 
 impl<RelayerId> InboundLaneData<RelayerId> {
+	/// Returns default inbound lane data with opened state.
+	pub fn opened() -> Self {
+		InboundLaneData { state: LaneState::Opened, ..Default::default() }
+	}
+
 	/// Returns approximate size of the struct, given a number of entries in the `relayers` set and
 	/// size of each entry.
 	///
@@ -351,21 +337,21 @@ pub struct UnrewardedRelayer<RelayerId> {
 }
 
 /// Received messages with their dispatch result.
-#[derive(Clone, Default, Encode, Decode, RuntimeDebug, PartialEq, Eq, TypeInfo)]
-pub struct ReceivedMessages<DispatchLevelResult> {
+#[derive(Clone, Encode, Decode, DecodeWithMemTracking, RuntimeDebug, PartialEq, Eq, TypeInfo)]
+pub struct ReceivedMessages<DispatchLevelResult, LaneId> {
 	/// Id of the lane which is receiving messages.
 	pub lane: LaneId,
 	/// Result of messages which we tried to dispatch
 	pub receive_results: Vec<(MessageNonce, ReceptionResult<DispatchLevelResult>)>,
 }
 
-impl<DispatchLevelResult> ReceivedMessages<DispatchLevelResult> {
+impl<DispatchLevelResult, LaneId> ReceivedMessages<DispatchLevelResult, LaneId> {
 	/// Creates new `ReceivedMessages` structure from given results.
 	pub fn new(
 		lane: LaneId,
 		receive_results: Vec<(MessageNonce, ReceptionResult<DispatchLevelResult>)>,
 	) -> Self {
-		ReceivedMessages { lane, receive_results }
+		ReceivedMessages { lane: lane.into(), receive_results }
 	}
 
 	/// Push `result` of the `message` delivery onto `receive_results` vector.
@@ -375,7 +361,7 @@ impl<DispatchLevelResult> ReceivedMessages<DispatchLevelResult> {
 }
 
 /// Result of single message receival.
-#[derive(RuntimeDebug, Encode, Decode, PartialEq, Eq, Clone, TypeInfo)]
+#[derive(RuntimeDebug, Encode, Decode, DecodeWithMemTracking, PartialEq, Eq, Clone, TypeInfo)]
 pub enum ReceptionResult<DispatchLevelResult> {
 	/// Message has been received and dispatched. Note that we don't care whether dispatch has
 	/// been successful or not - in both case message falls into this category.
@@ -391,7 +377,18 @@ pub enum ReceptionResult<DispatchLevelResult> {
 }
 
 /// Delivered messages with their dispatch result.
-#[derive(Clone, Default, Encode, Decode, RuntimeDebug, PartialEq, Eq, TypeInfo, MaxEncodedLen)]
+#[derive(
+	Clone,
+	Default,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	RuntimeDebug,
+	PartialEq,
+	Eq,
+	TypeInfo,
+	MaxEncodedLen,
+)]
 pub struct DeliveredMessages {
 	/// Nonce of the first message that has been delivered (inclusive).
 	pub begin: MessageNonce,
@@ -423,7 +420,9 @@ impl DeliveredMessages {
 }
 
 /// Gist of `InboundLaneData::relayers` field used by runtime APIs.
-#[derive(Clone, Default, Encode, Decode, RuntimeDebug, PartialEq, Eq, TypeInfo)]
+#[derive(
+	Clone, Default, Encode, Decode, DecodeWithMemTracking, RuntimeDebug, PartialEq, Eq, TypeInfo,
+)]
 pub struct UnrewardedRelayersState {
 	/// Number of entries in the `InboundLaneData::relayers` set.
 	pub unrewarded_relayer_entries: MessageNonce,
@@ -471,11 +470,23 @@ pub struct OutboundLaneData {
 	pub latest_received_nonce: MessageNonce,
 	/// Nonce of the latest message, generated by us.
 	pub latest_generated_nonce: MessageNonce,
+	/// Lane state.
+	///
+	/// If state is `Closed`, then all attempts to send messages at this end will fail.
+	pub state: LaneState,
+}
+
+impl OutboundLaneData {
+	/// Returns default outbound lane data with opened state.
+	pub fn opened() -> Self {
+		OutboundLaneData { state: LaneState::Opened, ..Default::default() }
+	}
 }
 
 impl Default for OutboundLaneData {
 	fn default() -> Self {
 		OutboundLaneData {
+			state: LaneState::Closed,
 			// it is 1 because we're pruning everything in [oldest_unpruned_nonce;
 			// latest_received_nonce]
 			oldest_unpruned_nonce: 1,
@@ -514,34 +525,10 @@ where
 	relayers_rewards
 }
 
-/// A minimized version of `pallet-bridge-messages::Call` that can be used without a runtime.
-#[derive(Encode, Decode, Debug, PartialEq, Eq, Clone, TypeInfo)]
-#[allow(non_camel_case_types)]
-pub enum BridgeMessagesCall<AccountId, MessagesProof, MessagesDeliveryProof> {
-	/// `pallet-bridge-messages::Call::receive_messages_proof`
-	#[codec(index = 2)]
-	receive_messages_proof {
-		/// Account id of relayer at the **bridged** chain.
-		relayer_id_at_bridged_chain: AccountId,
-		/// Messages proof.
-		proof: MessagesProof,
-		/// A number of messages in the proof.
-		messages_count: u32,
-		/// Total dispatch weight of messages in the proof.
-		dispatch_weight: Weight,
-	},
-	/// `pallet-bridge-messages::Call::receive_messages_delivery_proof`
-	#[codec(index = 3)]
-	receive_messages_delivery_proof {
-		/// Messages delivery proof.
-		proof: MessagesDeliveryProof,
-		/// "Digest" of unrewarded relayers state at the bridged chain.
-		relayers_state: UnrewardedRelayersState,
-	},
-}
-
 /// Error that happens during message verification.
-#[derive(Encode, Decode, RuntimeDebug, PartialEq, Eq, PalletError, TypeInfo)]
+#[derive(
+	Encode, Decode, DecodeWithMemTracking, RuntimeDebug, PartialEq, Eq, PalletError, TypeInfo,
+)]
 pub enum VerificationError {
 	/// The message proof is empty.
 	EmptyMessageProof,
@@ -570,8 +557,15 @@ mod tests {
 	use super::*;
 
 	#[test]
+	fn lane_is_closed_by_default() {
+		assert_eq!(InboundLaneData::<()>::default().state, LaneState::Closed);
+		assert_eq!(OutboundLaneData::default().state, LaneState::Closed);
+	}
+
+	#[test]
 	fn total_unrewarded_messages_does_not_overflow() {
 		let lane_data = InboundLaneData {
+			state: LaneState::Opened,
 			relayers: vec![
 				UnrewardedRelayer { relayer: 1, messages: DeliveredMessages::new(0) },
 				UnrewardedRelayer {
@@ -599,6 +593,7 @@ mod tests {
 		for (relayer_entries, messages_count) in test_cases {
 			let expected_size = InboundLaneData::<u8>::encoded_size_hint(relayer_entries as _);
 			let actual_size = InboundLaneData {
+				state: LaneState::Opened,
 				relayers: (1u8..=relayer_entries)
 					.map(|i| UnrewardedRelayer {
 						relayer: i,
@@ -625,10 +620,5 @@ mod tests {
 		assert!(delivered_messages.contains_message(100));
 		assert!(delivered_messages.contains_message(150));
 		assert!(!delivered_messages.contains_message(151));
-	}
-
-	#[test]
-	fn lane_id_debug_format_matches_inner_array_format() {
-		assert_eq!(format!("{:?}", LaneId([0, 0, 0, 0])), format!("{:?}", [0, 0, 0, 0]),);
 	}
 }

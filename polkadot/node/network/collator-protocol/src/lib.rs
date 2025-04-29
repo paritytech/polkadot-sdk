@@ -32,17 +32,17 @@ use polkadot_node_subsystem_util::reputation::ReputationAggregator;
 use sp_keystore::KeystorePtr;
 
 use polkadot_node_network_protocol::{
-	request_response::{v1 as request_v1, v2 as protocol_v2, IncomingRequestReceiver},
+	request_response::{v2 as protocol_v2, IncomingRequestReceiver},
 	PeerId, UnifiedReputationChange as Rep,
 };
 use polkadot_primitives::CollatorPair;
 
 use polkadot_node_subsystem::{errors::SubsystemError, overseer, DummySubsystem, SpawnedSubsystem};
 
-mod error;
-
 mod collator_side;
 mod validator_side;
+#[cfg(feature = "experimental-collator-protocol")]
+mod validator_side_experimental;
 
 const LOG_TARGET: &'static str = "parachain::collator-protocol";
 
@@ -75,14 +75,20 @@ pub enum ProtocolSide {
 		/// Prometheus metrics for validators.
 		metrics: validator_side::Metrics,
 	},
+	/// Experimental variant of the validator side. Do not use in production.
+	#[cfg(feature = "experimental-collator-protocol")]
+	ValidatorExperimental {
+		/// The keystore holding validator keys.
+		keystore: KeystorePtr,
+		/// Prometheus metrics for validators.
+		metrics: validator_side_experimental::Metrics,
+	},
 	/// Collators operate on a parachain.
 	Collator {
 		/// Local peer id.
 		peer_id: PeerId,
 		/// Parachain collator pair.
 		collator_pair: CollatorPair,
-		/// Receiver for v1 collation fetching requests.
-		request_receiver_v1: IncomingRequestReceiver<request_v1::CollationFetchingRequest>,
 		/// Receiver for v2 collation fetching requests.
 		request_receiver_v2: IncomingRequestReceiver<protocol_v2::CollationFetchingRequest>,
 		/// Metrics.
@@ -116,22 +122,15 @@ impl<Context> CollatorProtocolSubsystem {
 				validator_side::run(ctx, keystore, eviction_policy, metrics)
 					.map_err(|e| SubsystemError::with_origin("collator-protocol", e))
 					.boxed(),
-			ProtocolSide::Collator {
-				peer_id,
-				collator_pair,
-				request_receiver_v1,
-				request_receiver_v2,
-				metrics,
-			} => collator_side::run(
-				ctx,
-				peer_id,
-				collator_pair,
-				request_receiver_v1,
-				request_receiver_v2,
-				metrics,
-			)
-			.map_err(|e| SubsystemError::with_origin("collator-protocol", e))
-			.boxed(),
+			#[cfg(feature = "experimental-collator-protocol")]
+			ProtocolSide::ValidatorExperimental { keystore, metrics } =>
+				validator_side_experimental::run(ctx, keystore, metrics)
+					.map_err(|e| SubsystemError::with_origin("collator-protocol", e))
+					.boxed(),
+			ProtocolSide::Collator { peer_id, collator_pair, request_receiver_v2, metrics } =>
+				collator_side::run(ctx, peer_id, collator_pair, request_receiver_v2, metrics)
+					.map_err(|e| SubsystemError::with_origin("collator-protocol", e))
+					.boxed(),
 			ProtocolSide::None => return DummySubsystem.start(ctx),
 		};
 

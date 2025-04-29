@@ -5,6 +5,8 @@ authors.workspace = true
 edition.workspace = true
 description = "Utils for Runtimes testing"
 license = "Apache-2.0"
+homepage.workspace = true
+repository.workspace = true
 
 [lints]
 workspace = true
@@ -19,31 +21,27 @@ pallet-balances = { workspace = true }
 pallet-session = { workspace = true }
 pallet-timestamp = { workspace = true }
 sp-consensus-aura = { workspace = true }
+sp-core = { workspace = true }
 sp-io = { workspace = true }
 sp-runtime = { workspace = true }
 sp-tracing = { workspace = true, default-features = true }
-sp-core = { workspace = true }
 
 # Cumulus
 cumulus-pallet-parachain-system = { workspace = true }
 cumulus-pallet-xcmp-queue = { workspace = true }
-pallet-collator-selection = { workspace = true }
-parachain-info = { workspace = true }
 cumulus-primitives-core = { workspace = true }
 cumulus-primitives-parachain-inherent = { workspace = true }
 cumulus-test-relay-sproof-builder = { workspace = true }
+pallet-collator-selection = { workspace = true }
+parachain-info = { workspace = true }
+parachains-common = { workspace = true }
 
 # Polkadot
-xcm = { workspace = true }
-xcm-executor = { workspace = true }
 pallet-xcm = { workspace = true }
 polkadot-parachain-primitives = { workspace = true }
-
-[dev-dependencies]
-hex-literal = { workspace = true, default-features = true }
-
-[build-dependencies]
-substrate-wasm-builder = { workspace = true, default-features = true }
+xcm = { workspace = true }
+xcm-executor = { workspace = true }
+xcm-runtime-apis = { workspace = true }
 
 [features]
 default = ["std"]
@@ -62,11 +60,13 @@ std = [
 	"pallet-timestamp/std",
 	"pallet-xcm/std",
 	"parachain-info/std",
+	"parachains-common/std",
 	"polkadot-parachain-primitives/std",
 	"sp-consensus-aura/std",
 	"sp-core/std",
 	"sp-io/std",
 	"sp-runtime/std",
 	"xcm-executor/std",
+	"xcm-runtime-apis/std",
 	"xcm/std",
 ]

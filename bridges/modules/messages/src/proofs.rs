@@ -22,7 +22,7 @@ use bp_header_chain::{HeaderChain, HeaderChainError};
 use bp_messages::{
 	source_chain::FromBridgedChainMessagesDeliveryProof,
 	target_chain::{FromBridgedChainMessagesProof, ProvedLaneMessages, ProvedMessages},
-	ChainWithMessages, InboundLaneData, LaneId, Message, MessageKey, MessageNonce, MessagePayload,
+	ChainWithMessages, InboundLaneData, Message, MessageKey, MessageNonce, MessagePayload,
 	OutboundLaneData, VerificationError,
 };
 use bp_runtime::{
@@ -32,8 +32,8 @@ use codec::Decode;
 use sp_std::vec::Vec;
 
 /// 'Parsed' message delivery proof - inbound lane id and its state.
-pub(crate) type ParsedMessagesDeliveryProofFromBridgedChain<T> =
-	(LaneId, InboundLaneData<<T as frame_system::Config>::AccountId>);
+pub(crate) type ParsedMessagesDeliveryProofFromBridgedChain<T, I> =
+	(<T as Config<I>>::LaneId, InboundLaneData<<T as frame_system::Config>::AccountId>);
 
 /// Verify proof of Bridged -> This chain messages.
 ///
@@ -44,9 +44,9 @@ pub(crate) type ParsedMessagesDeliveryProofFromBridgedChain<T> =
 /// outside of this function. This function only verifies that the proof declares exactly
 /// `messages_count` messages.
 pub fn verify_messages_proof<T: Config<I>, I: 'static>(
-	proof: FromBridgedChainMessagesProof<HashOf<BridgedChainOf<T, I>>>,
+	proof: FromBridgedChainMessagesProof<HashOf<BridgedChainOf<T, I>>, T::LaneId>,
 	messages_count: u32,
-) -> Result<ProvedMessages<Message>, VerificationError> {
+) -> Result<ProvedMessages<T::LaneId, Message<T::LaneId>>, VerificationError> {
 	let FromBridgedChainMessagesProof {
 		bridged_header_hash,
 		storage_proof,
@@ -98,17 +98,13 @@ pub fn verify_messages_proof<T: Config<I>, I: 'static>(
 	// Check that the storage proof doesn't have any untouched keys.
 	parser.ensure_no_unused_keys().map_err(VerificationError::StorageProof)?;
 
-	// We only support single lane messages in this generated_schema
-	let mut proved_messages = ProvedMessages::new();
-	proved_messages.insert(lane, proved_lane_messages);
-
-	Ok(proved_messages)
+	Ok((lane, proved_lane_messages))
 }
 
 /// Verify proof of This -> Bridged chain messages delivery.
 pub fn verify_messages_delivery_proof<T: Config<I>, I: 'static>(
-	proof: FromBridgedChainMessagesDeliveryProof<HashOf<BridgedChainOf<T, I>>>,
-) -> Result<ParsedMessagesDeliveryProofFromBridgedChain<T>, VerificationError> {
+	proof: FromBridgedChainMessagesDeliveryProof<HashOf<BridgedChainOf<T, I>>, T::LaneId>,
+) -> Result<ParsedMessagesDeliveryProofFromBridgedChain<T, I>, VerificationError> {
 	let FromBridgedChainMessagesDeliveryProof { bridged_header_hash, storage_proof, lane } = proof;
 	let mut parser: MessagesStorageProofAdapter<T, I> =
 		MessagesStorageProofAdapter::try_new_with_verified_storage_proof(
@@ -147,7 +143,7 @@ trait StorageProofAdapter<T: Config<I>, I: 'static> {
 
 	fn read_and_decode_outbound_lane_data(
 		&mut self,
-		lane_id: &LaneId,
+		lane_id: &T::LaneId,
 	) -> Result<Option<OutboundLaneData>, StorageProofError> {
 		let storage_outbound_lane_data_key = bp_messages::storage_keys::outbound_lane_data_key(
 			T::ThisChain::WITH_CHAIN_MESSAGES_PALLET_NAME,
@@ -158,7 +154,7 @@ trait StorageProofAdapter<T: Config<I>, I: 'static> {
 
 	fn read_and_decode_message_payload(
 		&mut self,
-		message_key: &MessageKey,
+		message_key: &MessageKey<T::LaneId>,
 	) -> Result<MessagePayload, StorageProofError> {
 		let storage_message_key = bp_messages::storage_keys::message_key(
 			T::ThisChain::WITH_CHAIN_MESSAGES_PALLET_NAME,
@@ -220,7 +216,8 @@ mod tests {
 		mock::*,
 	};
 
-	use bp_header_chain::StoredHeaderDataBuilder;
+	use bp_header_chain::{HeaderChainError, StoredHeaderDataBuilder};
+	use bp_messages::LaneState;
 	use bp_runtime::{HeaderId, StorageProofError};
 	use codec::Encode;
 	use sp_runtime::traits::Header;
@@ -232,19 +229,20 @@ mod tests {
 		encode_outbound_lane_data: impl Fn(&OutboundLaneData) -> Vec<u8>,
 		add_duplicate_key: bool,
 		add_unused_key: bool,
-		test: impl Fn(FromBridgedChainMessagesProof<BridgedHeaderHash>) -> R,
+		test: impl Fn(FromBridgedChainMessagesProof<BridgedHeaderHash, TestLaneIdType>) -> R,
 	) -> R {
-		let (state_root, storage_proof) = prepare_messages_storage_proof::<BridgedChain, ThisChain>(
-			TEST_LANE_ID,
-			1..=nonces_end,
-			outbound_lane_data,
-			bp_runtime::UnverifiedStorageProofParams::default(),
-			generate_dummy_message,
-			encode_message,
-			encode_outbound_lane_data,
-			add_duplicate_key,
-			add_unused_key,
-		);
+		let (state_root, storage_proof) =
+			prepare_messages_storage_proof::<BridgedChain, ThisChain, TestLaneIdType>(
+				test_lane_id(),
+				1..=nonces_end,
+				outbound_lane_data,
+				bp_runtime::UnverifiedStorageProofParams::default(),
+				generate_dummy_message,
+				encode_message,
+				encode_outbound_lane_data,
+				add_duplicate_key,
+				add_unused_key,
+			);
 
 		sp_io::TestExternalities::new(Default::default()).execute_with(move || {
 			let bridged_header = BridgedChainHeader::new(
@@ -267,7 +265,7 @@ mod tests {
 			test(FromBridgedChainMessagesProof {
 				bridged_header_hash,
 				storage_proof,
-				lane: TEST_LANE_ID,
+				lane: test_lane_id(),
 				nonces_start: 1,
 				nonces_end,
 			})
@@ -440,6 +438,7 @@ mod tests {
 			using_messages_proof(
 				10,
 				Some(OutboundLaneData {
+					state: LaneState::Opened,
 					oldest_unpruned_nonce: 1,
 					latest_received_nonce: 1,
 					latest_generated_nonce: 1,
@@ -480,6 +479,7 @@ mod tests {
 			using_messages_proof(
 				0,
 				Some(OutboundLaneData {
+					state: LaneState::Opened,
 					oldest_unpruned_nonce: 1,
 					latest_received_nonce: 1,
 					latest_generated_nonce: 1,
@@ -490,19 +490,18 @@ mod tests {
 				false,
 				|proof| verify_messages_proof::<TestRuntime, ()>(proof, 0),
 			),
-			Ok(vec![(
-				TEST_LANE_ID,
+			Ok((
+				test_lane_id(),
 				ProvedLaneMessages {
 					lane_state: Some(OutboundLaneData {
+						state: LaneState::Opened,
 						oldest_unpruned_nonce: 1,
 						latest_received_nonce: 1,
 						latest_generated_nonce: 1,
 					}),
 					messages: Vec::new(),
 				},
-			)]
-			.into_iter()
-			.collect()),
+			)),
 		);
 	}
 
@@ -512,6 +511,7 @@ mod tests {
 			using_messages_proof(
 				1,
 				Some(OutboundLaneData {
+					state: LaneState::Opened,
 					oldest_unpruned_nonce: 1,
 					latest_received_nonce: 1,
 					latest_generated_nonce: 1,
@@ -522,22 +522,21 @@ mod tests {
 				false,
 				|proof| verify_messages_proof::<TestRuntime, ()>(proof, 1),
 			),
-			Ok(vec![(
-				TEST_LANE_ID,
+			Ok((
+				test_lane_id(),
 				ProvedLaneMessages {
 					lane_state: Some(OutboundLaneData {
+						state: LaneState::Opened,
 						oldest_unpruned_nonce: 1,
 						latest_received_nonce: 1,
 						latest_generated_nonce: 1,
 					}),
 					messages: vec![Message {
-						key: MessageKey { lane_id: TEST_LANE_ID, nonce: 1 },
+						key: MessageKey { lane_id: test_lane_id(), nonce: 1 },
 						payload: vec![42],
 					}],
 				},
-			)]
-			.into_iter()
-			.collect()),
+			))
 		);
 	}
 

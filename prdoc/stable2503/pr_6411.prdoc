@@ -1,0 +1,10 @@
+title: "Support more types in TypeWithDefault"
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      This PR supports more integer types to be used with `TypeWithDefault` and makes `TypeWithDefault<u8/u16/u32, ..>: BaseArithmetic` satisfied
+
+crates:
+  - name: sp-runtime
+    bump: patch
