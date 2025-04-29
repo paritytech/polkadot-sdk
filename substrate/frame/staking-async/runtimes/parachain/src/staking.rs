@@ -117,6 +117,7 @@ impl multi_block::Config for Runtime {
 	type Fallback = frame_election_provider_support::onchain::OnChainExecution<OnChainConfig>;
 	type MinerConfig = Self;
 	type Verifier = MultiBlockVerifier;
+	type OnRoundRotation = multi_block::CleanRound<Self>;
 	type WeightInfo = measured::pallet_election_provider_multi_block::SubstrateWeight<Self>;
 }
 

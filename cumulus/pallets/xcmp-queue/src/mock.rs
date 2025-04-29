@@ -15,7 +15,7 @@
 
 use super::*;
 use crate as xcmp_queue;
-use core::{cmp::max, marker::PhantomData};
+use core::marker::PhantomData;
 use cumulus_pallet_parachain_system::AnyRelayNumber;
 use cumulus_primitives_core::{ChannelInfo, IsSystem, ParaId};
 use frame_support::{
@@ -169,6 +169,10 @@ impl<T: OnQueueChanged<ParaId>> EnqueueMessage<ParaId> for EnqueueToLocalStorage
 		EnqueuedMessages::set(msgs);
 		T::on_queue_changed(origin, Self::footprint(origin));
 	}
+}
+
+impl<T: OnQueueChanged<ParaId>> QueueFootprintQuery<ParaId> for EnqueueToLocalStorage<T> {
+	type MaxMessageLen = sp_core::ConstU32<256>;
 
 	fn footprint(origin: ParaId) -> QueueFootprint {
 		let msgs = EnqueuedMessages::get();
@@ -179,13 +183,36 @@ impl<T: OnQueueChanged<ParaId>> EnqueueMessage<ParaId> for EnqueueToLocalStorage
 				footprint.storage.size += m.len() as u64;
 			}
 		}
-		footprint.pages =
-			(footprint.storage.size as u32).div_ceil(<Self::MaxMessageLen as Get<u32>>::get());
-		if footprint.storage.count > 0 {
-			footprint.pages = max(footprint.pages, 1);
-		}
+		// Let's consider that we add one message per page
+		footprint.pages = footprint.storage.count as u32;
 		footprint.ready_pages = footprint.pages;
 		footprint
+	}
+
+	fn get_batches_footprints<'a>(
+		origin: ParaId,
+		msgs: impl Iterator<Item = BoundedSlice<'a, u8, Self::MaxMessageLen>>,
+		total_pages_limit: u32,
+	) -> Vec<BatchFootprint> {
+		// Let's consider that we add one message per page
+		let footprint = Self::footprint(origin);
+		let mut batches_footprints = vec![];
+		let mut new_pages_count = 0;
+		let mut total_size = 0;
+		for (idx, msg) in msgs.enumerate() {
+			new_pages_count += 1;
+			if footprint.pages + new_pages_count > total_pages_limit {
+				break;
+			}
+
+			total_size += msg.len();
+			batches_footprints.push(BatchFootprint {
+				msgs_count: idx + 1,
+				size_in_bytes: total_size,
+				new_pages_count,
+			})
+		}
+		batches_footprints
 	}
 }
 
