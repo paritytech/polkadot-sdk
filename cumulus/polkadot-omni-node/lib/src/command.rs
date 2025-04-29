@@ -150,10 +150,9 @@ where
 	}
 
 	// No extra subcommand matched -> treat it as normal node CLI arguments
-	let mut cli = Cli::<CliConfig>::from_arg_matches(&matches)
-		.map_err(|e| sc_cli::Error::Cli(e.into()))?;
+	let mut cli =
+		Cli::<CliConfig>::from_arg_matches(&matches).map_err(|e| sc_cli::Error::Cli(e.into()))?;
 	cli.chain_spec_loader = Some(cmd_config.chain_spec_loader);
-
 
 	#[allow(deprecated)]
 	match &cli.subcommand {

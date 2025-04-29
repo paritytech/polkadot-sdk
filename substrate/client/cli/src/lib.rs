@@ -228,7 +228,8 @@ pub trait SubstrateCli: Sized {
 
 		Runner::new(config, tokio_runtime, signals)
 	}
-	/// Augments a `clap::Command` with standard metadata like name, version, author, description, etc.
+	/// Augments a `clap::Command` with standard metadata like name, version, author, description,
+	/// etc.
 	///
 	/// This is used internally in `from_iter`, `try_from_iter` and can be used externally
 	/// to manually set up a command with Substrate CLI defaults.
