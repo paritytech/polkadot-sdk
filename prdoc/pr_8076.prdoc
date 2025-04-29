@@ -1,0 +1,21 @@
+title: '[Draft] Add statement store in omni-node'
+doc:
+- audience: Node Operator
+  description: |-
+    We want to enable statement store for people chain.
+
+    This PR introduce enables the statement store for all nodes and add a new argument in omni-node, and polkadot-parachain: `disable_statement_store`.
+
+    The reasoning is following other service such as `offchain_worker` the default behavior is to support it, otherwise I expect not many collator to explictly opt-in (but I can be wrong assuming this).
+    Do system chain collator use `omni-node` or `polkadot-parachain`? we could otherwise only enable it for `polkadot-parachain`. Or we could also create a new binary for people chain and enable it only for this new binary, and remove people chain from `polkadot-parachain`.
+
+    If the runtime doesn't support the API then it any submission will fail with `Error calling into the runtime`.
+
+    It would be ideal to target the next cut-off for this issue/PR given that it can take time for node operator to update their node.
+crates:
+- name: polkadot-omni-node-lib
+  bump: major
+- name: polkadot-service
+  bump: major
+- name: sc-service
+  bump: major
