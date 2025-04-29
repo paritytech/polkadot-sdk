@@ -352,6 +352,7 @@ fn handle_clone(
 	have_unshare_newuser: bool,
 	usage_before: Usage,
 	pov_size: u32,
+	enable_pvf_logging: bool,
 ) -> io::Result<Result<WorkerResponse, WorkerError>> {
 	use polkadot_node_core_pvf_common::worker::security;
 
@@ -371,6 +372,7 @@ fn handle_clone(
 					Arc::clone(params),
 					execution_timeout,
 					execute_stack_size,
+					enable_pvf_logging,
 				)
 			}),
 		)

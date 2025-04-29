@@ -193,6 +193,7 @@ impl Queue {
 		security_status: SecurityStatus,
 		to_queue_rx: mpsc::Receiver<ToQueue>,
 		from_queue_tx: mpsc::UnboundedSender<FromQueue>,
+		enable_pvf_logging: bool,
 	) -> Self {
 		Self {
 			metrics,
@@ -211,6 +212,7 @@ impl Queue {
 				capacity: worker_capacity,
 			},
 			active_leaves: Default::default(),
+			enable_pvf_logging,
 		}
 	}
 
@@ -711,6 +713,7 @@ pub fn start(
 	spawn_timeout: Duration,
 	node_version: Option<String>,
 	security_status: SecurityStatus,
+	enable_pvf_logging: bool,
 ) -> (mpsc::Sender<ToQueue>, mpsc::UnboundedReceiver<FromQueue>, impl Future<Output = ()>) {
 	let (to_queue_tx, to_queue_rx) = mpsc::channel(20);
 	let (from_queue_tx, from_queue_rx) = mpsc::unbounded();
@@ -725,6 +728,7 @@ pub fn start(
 		security_status,
 		to_queue_rx,
 		from_queue_tx,
+		enable_pvf_logging,
 	)
 	.run();
 	(to_queue_tx, from_queue_rx, run)

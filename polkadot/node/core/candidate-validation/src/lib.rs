@@ -332,6 +332,7 @@ async fn run<Context>(
 			pvf_execute_workers_max_num,
 			pvf_prepare_workers_soft_max_num,
 			pvf_prepare_workers_hard_max_num,
+			enable_pvf_logging,
 		),
 		pvf_metrics,
 	)

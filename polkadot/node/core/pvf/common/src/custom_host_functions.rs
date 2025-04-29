@@ -27,7 +27,7 @@ decl_extension! {
 }
 
 #[runtime_interface]
-pub(crate) trait Logging {
+pub trait Logging {
 	/// Request to print a log message on the host.
 	///
 	/// Note that this will be only displayed if the host is enabled to display log messages with

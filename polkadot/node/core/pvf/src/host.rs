@@ -204,6 +204,8 @@ pub struct Config {
 	pub execute_worker_spawn_timeout: Duration,
 	/// The maximum number of execute workers that can run at the same time.
 	pub execute_workers_max_num: usize,
+	/// Whether to enable logging for PVFs.
+	pub enable_pvf_logging: bool,
 }
 
 impl Config {
@@ -217,6 +219,7 @@ impl Config {
 		execute_workers_max_num: usize,
 		prepare_workers_soft_max_num: usize,
 		prepare_workers_hard_max_num: usize,
+		enable_pvf_logging: bool,
 	) -> Self {
 		Self {
 			cache_path,
@@ -231,6 +234,7 @@ impl Config {
 			execute_worker_program_path,
 			execute_worker_spawn_timeout: Duration::from_secs(3),
 			execute_workers_max_num,
+			enable_pvf_logging,
 		}
 	}
 }
@@ -311,6 +315,7 @@ pub async fn start(
 		config.execute_worker_spawn_timeout,
 		config.node_version,
 		security_status,
+		config.enable_pvf_logging,
 	);
 
 	let (to_sweeper_tx, to_sweeper_rx) = mpsc::channel(100);
