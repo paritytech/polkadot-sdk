@@ -22,12 +22,11 @@ use std::{
 	num::NonZeroU32,
 	time::{Duration, Instant},
 	future::Future,
-	convert::Infallible,
 };
 
 use governor::{clock::Clock, Jitter};
 use jsonrpsee::{
-	server::middleware::rpc::{RpcServiceT, Batch, Notification, Request, MethodResponse},
+	server::middleware::rpc::{RpcServiceT, Batch, BatchEntry, Notification, Request, MethodResponse},
 	types::{ErrorObject, Id},
 };
 
@@ -98,53 +97,106 @@ pub struct Middleware<S> {
 	metrics: Option<Metrics>,
 }
 
+impl<S> Middleware<S> {
+	// Waits for a permit from the rate limiting guard.
+	//
+	// Internally, the rate limiter retries the call up to 10 times.
+	// If the permit is not granted within those attempts, the call is rejected.
+	//
+	// Returns true if the call is allowed, false otherwise.
+	async fn rate_limit_permit(&self) -> Result<usize, ()> {
+		let Some(limit) = self.rate_limit.as_ref() else {
+			return Ok(0);
+		};
+
+		let mut attempts = 0;
+		let jitter = Jitter::up_to(MAX_JITTER);
+
+		loop {
+			if attempts >= MAX_RETRIES {
+				return Err(());
+			}
+
+			if let Err(rejected) = limit.inner.check() {
+				tokio::time::sleep(jitter + rejected.wait_time_from(limit.clock.now()))
+					.await;
+			} else {
+				return Ok(attempts)
+			}
+
+			attempts += 1;
+		}
+	}
+}
+
+
 impl<S> RpcServiceT for Middleware<S>
 where
-	S: RpcServiceT<MethodResponse = MethodResponse> + Send + Sync + Clone + 'static,
+	S: RpcServiceT<MethodResponse = MethodResponse, BatchResponse = MethodResponse> + Send + Sync + Clone + 'static,
 {
 	type MethodResponse = MethodResponse;
-	type BatchResponse = S::BatchResponse;
+	type BatchResponse = MethodResponse;
 	type NotificationResponse = S::NotificationResponse;
 
 	fn call<'a>(&self, req: Request<'a>) -> impl Future<Output = Self::MethodResponse> + Send + 'a {
+		let this = self.clone();
 		let now = Instant::now();
 
-		self.metrics.as_ref().map(|m| m.on_call(&req));
-
-		let service = self.service.clone();
-		let rate_limit = self.rate_limit.clone();
-		let metrics = self.metrics.clone();
-
 		async move {
-			let mut is_rate_limited = false;
+			this.metrics.as_ref().map(|m| m.on_call(&req));
 
-			if let Some(limit) = rate_limit.as_ref() {
-				let mut attempts = 0;
-				let jitter = Jitter::up_to(MAX_JITTER);
-
-				loop {
-					if attempts >= MAX_RETRIES {
-						return reject_too_many_calls(req.id);
-					}
-
-					if let Err(rejected) = limit.inner.check() {
-						tokio::time::sleep(jitter + rejected.wait_time_from(limit.clock.now()))
-							.await;
-					} else {
-						break;
-					}
-
-					is_rate_limited = true;
-					attempts += 1;
+			let (rp, is_rate_limited) = match this.rate_limit_permit().await {
+				Ok(retries) => {
+					let is_rate_limited = retries > 0;
+					(this.service.call(req.clone()).await, is_rate_limited)
 				}
-			}
+				Err(_) => (reject_too_many_calls(req.id.clone()), true)
+			};
 
-			service.call(req).await
+			this.metrics.as_ref().map(|m| m.on_response(&req, &rp, is_rate_limited, now));
+
+			rp
 		}
 	}
 
 	fn batch<'a>(&self, batch: Batch<'a>) -> impl Future<Output = Self::BatchResponse> + Send + 'a {
-		self.service.batch(batch)
+		// This implementation is not recommended because it overwrites additional
+		// batch implementations but since we don't have additional middleware layers
+		// this is okay for now.
+		//
+		// See https://github.com/paritytech/polkadot-sdk/blob/master/substrate/client/rpc-servers/src/lib.rs#L257-#L258
+		// if that changes then this hack will not work anymore.
+		//
+		// Workaround for https://github.com/paritytech/jsonrpsee/issues/1570
+
+		// Substrate already enforces limit on the batches.
+		let mut rps = jsonrpsee::core::server::BatchResponseBuilder::new_with_limit(usize::MAX);
+		let svc = self.service.clone();
+
+		async move {
+			for entry in batch {
+				match entry {
+					Ok(BatchEntry::Call(req)) => {
+						// Invoke our own call implementation defined above.
+						let rp = svc.call(req).await;
+						if let Err(e) = rps.append(rp) {
+							return e;
+						}
+					}
+					Ok(BatchEntry::Notification(n)) => {
+						svc.notification(n).await;
+					}
+					Err(err) => {
+						let (err, id) = err.into_parts();
+						if let Err(e) = rps.append(MethodResponse::error(id, err)) {
+							return e;
+						}
+					}
+				}
+			}
+
+			MethodResponse::from_batch(rps.finish())
+		}
 	}
 
 
