@@ -1,4 +1,4 @@
-title: Update Cargo.toml
+title: 'parachain-template: add release and production profiles explicitly'
 doc:
 - audience: Node Operator
   description: |-
