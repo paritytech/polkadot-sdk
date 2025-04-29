@@ -63,7 +63,7 @@ pub enum ReputationUpdateKind {
 #[derive(Debug, PartialEq)]
 enum TryAcceptOutcome {
 	Added,
-	Replaced(Vec<PeerId>),
+	Replaced(HashSet<PeerId>),
 	Rejected,
 }
 
@@ -74,8 +74,8 @@ impl TryAcceptOutcome {
 			(Added, Added) => Added,
 			(Rejected, Rejected) => Rejected,
 			(Added, Rejected) | (Rejected, Added) => Added,
-			(Replaced(mut replaced_a), Replaced(mut replaced_b)) => {
-				replaced_a.append(&mut replaced_b);
+			(Replaced(mut replaced_a), Replaced(replaced_b)) => {
+				replaced_a.extend(replaced_b);
 				Replaced(replaced_a)
 			},
 			(_, Replaced(replaced)) | (Replaced(replaced), _) => Replaced(replaced),
@@ -83,6 +83,7 @@ impl TryAcceptOutcome {
 	}
 }
 
+#[derive(Debug, PartialEq)]
 enum DeclarationOutcome {
 	Rejected,
 	Switched(ParaId),
@@ -214,15 +215,17 @@ impl<B: Backend> PeerManager<B> {
 		};
 
 		// See which of the old peers we should keep.
-		let mut peers_to_disconnect = vec![];
+		let mut peers_to_disconnect = HashSet::new();
 		for (peer_id, peer_info) in prev_peers {
 			let outcome = self.connected.try_accept(reputation_query_fn, peer_id, peer_info).await;
 
 			match outcome {
 				TryAcceptOutcome::Rejected => {
-					peers_to_disconnect.push(peer_id);
+					peers_to_disconnect.insert(peer_id);
 				},
 				TryAcceptOutcome::Replaced(replaced_peer_ids) => {
+					// TODO: only disconnect the ones that were not kept on any paraids. Also
+					// double-check other places where we're calling disconnect_peers.
 					peers_to_disconnect.extend(replaced_peer_ids);
 				},
 				TryAcceptOutcome::Added => {},
@@ -240,6 +243,7 @@ impl<B: Backend> PeerManager<B> {
 		peer_id: PeerId,
 		para_id: ParaId,
 	) {
+		let Some(peer_info) = self.connected.peer_info(&peer_id).cloned() else { return };
 		let outcome = self.connected.declared(peer_id, para_id);
 
 		match outcome {
@@ -257,8 +261,17 @@ impl<B: Backend> PeerManager<B> {
 					?para_id,
 					?old_para_id,
 					?peer_id,
-					"Peer switched collating paraid",
+					"Peer switched collating paraid. Trying to accept it on the new one.",
 				);
+
+				let accepted = self
+					.try_accept_connection(sender, peer_id, peer_info.version, Some(para_id))
+					.await;
+				if accepted {
+					// TODO: log
+				} else {
+					// TODO: log
+				}
 			},
 			DeclarationOutcome::Rejected => {
 				gum::debug!(
@@ -268,7 +281,7 @@ impl<B: Backend> PeerManager<B> {
 					"Peer declared but rejected. Going to disconnect.",
 				);
 
-				self.disconnect_peers(sender, vec![peer_id]).await;
+				self.disconnect_peers(sender, [peer_id].into_iter().collect()).await;
 			},
 		}
 	}
@@ -303,6 +316,7 @@ impl<B: Backend> PeerManager<B> {
 		sender: &mut Sender,
 		peer_id: PeerId,
 		version: CollationVersion,
+		maybe_declared_para: Option<ParaId>,
 	) -> bool {
 		let db = &self.db;
 		let reputation_query_fn = |peer_id: PeerId, para_id: ParaId| async move {
@@ -310,14 +324,12 @@ impl<B: Backend> PeerManager<B> {
 			db.query(&peer_id, &para_id).await.unwrap_or_default()
 		};
 
-		let outcome = self
-			.connected
-			.try_accept(
-				reputation_query_fn,
-				peer_id,
-				PeerInfo { version, state: PeerState::Connected },
-			)
-			.await;
+		let peer_info = if let Some(declared_para) = maybe_declared_para {
+			PeerInfo { version, state: PeerState::Collating(declared_para) }
+		} else {
+			PeerInfo { version, state: PeerState::Connected }
+		};
+		let outcome = self.connected.try_accept(reputation_query_fn, peer_id, peer_info).await;
 
 		match outcome {
 			TryAcceptOutcome::Added => true,
@@ -337,7 +349,7 @@ impl<B: Backend> PeerManager<B> {
 					?peer_id,
 					"Peer connection was rejected",
 				);
-				self.disconnect_peers(sender, vec![peer_id]).await;
+				self.disconnect_peers(sender, [peer_id].into_iter().collect()).await;
 				false
 			},
 		}
@@ -351,7 +363,7 @@ impl<B: Backend> PeerManager<B> {
 	async fn disconnect_peers<Sender: CollatorProtocolSenderTrait>(
 		&self,
 		sender: &mut Sender,
-		peers: Vec<PeerId>,
+		peers: HashSet<PeerId>,
 	) {
 		gum::trace!(
 			target: LOG_TARGET,
@@ -360,7 +372,10 @@ impl<B: Backend> PeerManager<B> {
 		);
 
 		sender
-			.send_message(NetworkBridgeTxMessage::DisconnectPeers(peers, PeerSet::Collation))
+			.send_message(NetworkBridgeTxMessage::DisconnectPeers(
+				peers.into_iter().collect(),
+				PeerSet::Collation,
+			))
 			.await;
 	}
 }

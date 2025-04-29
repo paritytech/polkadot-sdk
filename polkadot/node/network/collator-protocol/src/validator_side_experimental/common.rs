@@ -77,7 +77,7 @@ impl From<Score> for u16 {
 }
 
 /// Information about a connected peer.
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Debug, Clone)]
 pub struct PeerInfo {
 	/// Protocol version.
 	pub version: CollationVersion,
@@ -86,7 +86,7 @@ pub struct PeerInfo {
 }
 
 /// State of a connected peer
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Debug, Clone)]
 pub enum PeerState {
 	/// Connected.
 	Connected,
@@ -119,7 +119,7 @@ mod tests {
 		for other_score in (0..(MAX_SCORE - 50)).step_by(10) {
 			let expected_value = u16::from(score) + other_score;
 
-			let mut score = score.clone();
+			let mut score = score;
 			score.saturating_add(other_score);
 
 			assert_eq!(expected_value, u16::from(score));
@@ -127,7 +127,7 @@ mod tests {
 
 		// Test overflowing addition.
 		for other_score in ((MAX_SCORE - 50)..MAX_SCORE).step_by(10) {
-			let mut score = score.clone();
+			let mut score = score;
 			score.saturating_add(other_score);
 
 			assert_eq!(MAX_SCORE, u16::from(score));
@@ -137,7 +137,7 @@ mod tests {
 		for other_score in (0..50).step_by(10) {
 			let expected_value = u16::from(score) - other_score;
 
-			let mut score = score.clone();
+			let mut score = score;
 			score.saturating_sub(other_score);
 
 			assert_eq!(expected_value, u16::from(score));
@@ -145,7 +145,7 @@ mod tests {
 
 		// Test underflowing subtraction.
 		for other_score in (50..100).step_by(10) {
-			let mut score = score.clone();
+			let mut score = score;
 			score.saturating_sub(other_score);
 
 			assert_eq!(0, u16::from(score));
