@@ -1,0 +1,5 @@
+title: Migrate 0009-approval-voting-coalescing.zndsl to zombienet-sdk
+doc:
+- audience: Node Dev
+  description: Migrate test from the legacy zombienet to the newer version.
+crates: []
