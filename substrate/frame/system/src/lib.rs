@@ -2561,4 +2561,7 @@ pub mod pallet_prelude {
 
 	/// Type alias for the `RuntimeCall` associated type of system config.
 	pub type RuntimeCallFor<T> = <T as crate::Config>::RuntimeCall;
+
+	/// Type alias for the `AccountId` associated type of system config.
+	pub type AccountIdFor<T> = <T as crate::Config>::AccountId;
 }
