@@ -6617,7 +6617,8 @@ dependencies = [
 [[package]]
 name = "frame-metadata"
 version = "22.0.0"
-source = "git+https://github.com/paritytech/frame-metadata.git?branch=jsdw-tidy-deprecation-info#9b8685ca45c77bd3bffb0fc4f61dc24489e854d3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2753bc34b8cf637f58a4f7c3fcd54e8e588503bc9bba449bd8f5a1ab202b0172"
 dependencies = [
  "cfg-if",
  "parity-scale-codec",
