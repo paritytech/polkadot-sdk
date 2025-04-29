@@ -921,7 +921,7 @@ dependencies = [
 
 [[package]]
 name = "asset-hub-westend-runtime"
-version = "0.26.4"
+version = "0.26.5"
 dependencies = [
  "asset-test-utils",
  "assets-common",
@@ -4062,7 +4062,7 @@ dependencies = [
 
 [[package]]
 name = "cumulus-pallet-parachain-system"
-version = "0.17.1"
+version = "0.17.2"
 dependencies = [
  "assert_matches",
  "bytes",
@@ -4161,7 +4161,7 @@ dependencies = [
 
 [[package]]
 name = "cumulus-pallet-xcmp-queue"
-version = "0.17.2"
+version = "0.17.3"
 dependencies = [
  "bounded-collections",
  "bp-xcm-bridge-hub-router",
@@ -4294,7 +4294,7 @@ dependencies = [
 
 [[package]]
 name = "cumulus-primitives-utility"
-version = "0.17.0"
+version = "0.17.1"
 dependencies = [
  "cumulus-primitives-core",
  "frame-support",
@@ -11998,7 +11998,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-xcm-benchmarks"
-version = "17.0.0"
+version = "17.0.1"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -12228,7 +12228,7 @@ dependencies = [
 
 [[package]]
 name = "parachains-runtimes-test-utils"
-version = "19.0.0"
+version = "19.0.1"
 dependencies = [
  "cumulus-pallet-parachain-system",
  "cumulus-pallet-xcmp-queue",
@@ -14084,7 +14084,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-runtime-common"
-version = "17.0.0"
+version = "17.0.1"
 dependencies = [
  "bitvec",
  "frame-benchmarking",
@@ -20358,7 +20358,7 @@ dependencies = [
 
 [[package]]
 name = "sp-io"
-version = "38.0.0"
+version = "38.0.2"
 dependencies = [
  "bytes",
  "docify",
@@ -20983,7 +20983,7 @@ version = "2.0.0"
 
 [[package]]
 name = "staging-xcm"
-version = "14.2.1"
+version = "14.2.2"
 dependencies = [
  "array-bytes",
  "bounded-collections",
@@ -21005,7 +21005,7 @@ dependencies = [
 
 [[package]]
 name = "staging-xcm-builder"
-version = "17.0.4"
+version = "17.0.5"
 dependencies = [
  "assert_matches",
  "frame-support",
@@ -21036,7 +21036,7 @@ dependencies = [
 
 [[package]]
 name = "staging-xcm-executor"
-version = "17.0.1"
+version = "17.0.2"
 dependencies = [
  "environmental",
  "frame-benchmarking",
@@ -21516,7 +21516,7 @@ dependencies = [
 
 [[package]]
 name = "substrate-wasm-builder"
-version = "24.0.1"
+version = "24.0.2"
 dependencies = [
  "array-bytes",
  "build-helper",

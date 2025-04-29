@@ -716,7 +716,7 @@ version = "0.17.0"
 path = "../cumulus/pallets/parachain-system"
 default-features = false
 optional = true
-version = "0.17.1"
+version = "0.17.2"
 
 [dependencies.cumulus-pallet-parachain-system-proc-macro]
 path = "../cumulus/pallets/parachain-system/proc-macro"
@@ -746,7 +746,7 @@ version = "0.17.0"
 path = "../cumulus/pallets/xcmp-queue"
 default-features = false
 optional = true
-version = "0.17.2"
+version = "0.17.3"
 
 [dependencies.cumulus-ping]
 path = "../cumulus/parachains/pallets/ping"
@@ -794,7 +794,7 @@ version = "0.16.0"
 path = "../cumulus/primitives/utility"
 default-features = false
 optional = true
-version = "0.17.0"
+version = "0.17.1"
 
 [dependencies.frame-benchmarking]
 path = "../substrate/frame/benchmarking"
@@ -1496,7 +1496,7 @@ version = "17.0.2"
 path = "../polkadot/xcm/pallet-xcm-benchmarks"
 default-features = false
 optional = true
-version = "17.0.0"
+version = "17.0.1"
 
 [dependencies.pallet-xcm-bridge-hub]
 path = "../bridges/modules/xcm-bridge-hub"
@@ -1538,7 +1538,7 @@ version = "16.0.0"
 path = "../polkadot/runtime/common"
 default-features = false
 optional = true
-version = "17.0.0"
+version = "17.0.1"
 
 [dependencies.polkadot-runtime-metrics]
 path = "../polkadot/runtime/metrics"
@@ -1784,7 +1784,7 @@ version = "34.0.0"
 path = "../substrate/primitives/io"
 default-features = false
 optional = true
-version = "38.0.0"
+version = "38.0.2"
 
 [dependencies.sp-keyring]
 path = "../substrate/primitives/keyring"
@@ -1946,19 +1946,19 @@ version = "0.17.0"
 path = "../polkadot/xcm"
 default-features = false
 optional = true
-version = "14.2.1"
+version = "14.2.2"
 
 [dependencies.staging-xcm-builder]
 path = "../polkadot/xcm/xcm-builder"
 default-features = false
 optional = true
-version = "17.0.4"
+version = "17.0.5"
 
 [dependencies.staging-xcm-executor]
 path = "../polkadot/xcm/xcm-executor"
 default-features = false
 optional = true
-version = "17.0.1"
+version = "17.0.2"
 
 [dependencies.substrate-bip39]
 path = "../substrate/utils/substrate-bip39"
@@ -2162,7 +2162,7 @@ version = "41.0.0"
 path = "../cumulus/parachains/runtimes/test-utils"
 default-features = false
 optional = true
-version = "19.0.0"
+version = "19.0.1"
 
 [dependencies.polkadot-approval-distribution]
 path = "../polkadot/node/network/approval-distribution"
@@ -2840,7 +2840,7 @@ version = "38.0.0"
 path = "../substrate/utils/wasm-builder"
 default-features = false
 optional = true
-version = "24.0.1"
+version = "24.0.2"
 
 [dependencies.tracing-gum]
 path = "../polkadot/node/gum"
