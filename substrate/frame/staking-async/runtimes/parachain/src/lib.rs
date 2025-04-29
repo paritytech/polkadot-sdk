@@ -1839,6 +1839,7 @@ impl_runtime_apis! {
 			use sp_storage::TrackedStorageKey;
 			use frame_system_benchmarking::Pallet as SystemBench;
 			use frame_system_benchmarking::extensions::Pallet as SystemExtensionsBench;
+			use xcm::prelude::WeightLimit;
 
 			// add a few custom keys to benchmarks.
 			frame_benchmarking::benchmarking::add_to_whitelist(
@@ -2115,11 +2116,11 @@ impl_runtime_apis! {
 					Ok((origin, ticket, assets))
 				}
 
-				fn fee_asset() -> Result<Asset, BenchmarkError> {
-					Ok(Asset {
+				fn worst_case_for_trader() -> Result<(Asset, WeightLimit), BenchmarkError> {
+					Ok((Asset {
 						id: AssetId(WestendLocation::get()),
 						fun: Fungible(1_000 * UNITS),
-					})
+					}, WeightLimit::Limited(Weight::from_parts(5000, 5000))))
 				}
 
 				fn unlockable_asset() -> Result<(Location, Location, Asset), BenchmarkError> {

@@ -6,8 +6,8 @@ use sp_runtime::{
 };
 use xcm::{latest::WESTEND_GENESIS_HASH, prelude::*};
 
-pub const CHAIN_ID: u64 = 11155111;
-pub const NETWORK: NetworkId = Ethereum { chain_id: CHAIN_ID };
+pub const SEPOLIA_ID: u64 = 11155111;
+pub const NETWORK: NetworkId = Ethereum { chain_id: SEPOLIA_ID };
 
 parameter_types! {
 	pub EthereumNetwork: NetworkId = NETWORK;
