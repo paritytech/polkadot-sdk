@@ -49,15 +49,18 @@
 //! - **Bounty spending proposal:** A proposal to reward a predefined body of work upon completion
 //!   by the Treasury.
 //! - **Proposer:** An account proposing a bounty spending.
-//! - **Curator:** An account managing the bounty and assigning a payout address receiving the
+//! - **Curator:** An account managing the bounty and assigning a Beneficiary address receiving the
 //!   reward for the completion of work.
+//! - **Curator stash:** An account/location chosen by the curator that receives the curator fee
+//!   when the bounty is paid out.
 //! - **Deposit:** The amount held on deposit for placing a bounty proposal plus the amount held on
 //!   deposit per byte within the bounty description.
 //! - **Curator deposit:** The payment from a candidate willing to curate an approved bounty. The
 //!   deposit is returned when/if the bounty is completed.
-//! - **Bounty value:** The total amount that should be paid to the Payout Address if the bounty is
-//!   rewarded.
-//! - **Payout address:** The account to which the total or part of the bounty is assigned to.
+//! - **Bounty value:** The total amount in an asset kind that should be paid to the Beneficiary
+//!   Address and Curator stash if the bounty is rewarded.
+//! - **Beneficiary address:** The account/location to which the total or part of the bounty is
+//!   assigned to.
 //! - **Payout Delay:** The delay period for which a bounty beneficiary needs to wait before
 //!   claiming.
 //! - **Curator fee:** The reserved upfront payment for a curator for work related to the bounty.
@@ -78,13 +81,12 @@
 //! - `accept_curator` - Accept a bounty assignment from the Council, setting a curator deposit.
 //! - `extend_bounty_expiry` - Extend the expiry block number of the bounty and stay active.
 //! - `award_bounty` - Close and pay out the specified amount for the completed work.
-//! - `claim_bounty` - Claim a specific bounty amount from the Payout Address.
+//! - `claim_bounty` - Claim a specific bounty amount from the Beneficiary Address.
 //! - `unassign_curator` - Unassign an accepted curator from a specific earmark.
 //! - `close_bounty` - Cancel the earmark for a specific treasury amount and close the bounty.
-//! - `process_payment` - Retry a failed payment for bounty funding, curator and beneficiary payout
-//!   or refund.
-//! - `check_payment_status` - Check and update the current state of the bounty funding, payout or
-//!   refund.
+//! - `process_payment` - Retry a failed payment for bounty funding, refund or payout.
+//! - `check_payment_status` - Check and update the current state of the bounty funding, refund or
+//!   payout.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -126,7 +128,7 @@ macro_rules! log {
 	($level:tt, $patter:expr $(, $values:expr)* $(,)?) => {
 		log::$level!(
 			target: crate::LOG_TARGET,
-			concat!("[{:?}] ✍️ ", $patter), <frame_system::Pallet<T>>::block_number() $(, $values)*
+			concat!("[{:?}] ", $patter), <frame_system::Pallet<T>>::block_number() $(, $values)*
 		)
 	};
 }
@@ -139,6 +141,8 @@ type PaymentIdOf<T, I = ()> = <<T as crate::Config<I>>::Paymaster as Pay>::Id;
 pub type BountyIndex = u32;
 
 type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup>::Source;
+
+/// Convenience alias for `Bounty`.
 pub type BountyOf<T, I> = Bounty<
 	<T as frame_system::Config>::AccountId,
 	BalanceOf<T, I>,
@@ -183,8 +187,8 @@ pub enum BountyStatus<AccountId, BlockNumber, PaymentId, Beneficiary> {
 		/// The status of the bounty amount transfer from the source (e.g. Treasury) to
 		/// the bounty account.
 		///
-		/// Once the payment is confirmed, the bounty will transition to either
-		/// [`BountyStatus::Funded`]
+		/// Once `check_payment_status` confirms, the bounty will transition to either
+		/// [`BountyStatus::Funded`] or [`BountyStatus::ApprovedWithCurator`].
 		payment_status: PaymentState<PaymentId>,
 	},
 	/// The bounty is funded and waiting for curator assignment.
@@ -198,7 +202,7 @@ pub enum BountyStatus<AccountId, BlockNumber, PaymentId, Beneficiary> {
 	Active {
 		/// The curator of this bounty.
 		curator: AccountId,
-		/// The curator's stash account used as a fee destination.
+		/// The curator's stash account/location used as a fee destination.
 		curator_stash: Beneficiary,
 		/// An update from the curator is due by this block, else they are considered inactive.
 		update_due: BlockNumber,
@@ -207,7 +211,7 @@ pub enum BountyStatus<AccountId, BlockNumber, PaymentId, Beneficiary> {
 	PendingPayout {
 		/// The curator of this bounty.
 		curator: AccountId,
-		/// The curator's stash account used as a fee destination.
+		/// The curator's stash account/location used as a fee destination.
 		curator_stash: Beneficiary,
 		/// The beneficiary of the bounty.
 		beneficiary: Beneficiary,
@@ -221,24 +225,27 @@ pub enum BountyStatus<AccountId, BlockNumber, PaymentId, Beneficiary> {
 		/// The status of the bounty amount transfer from the source (e.g. Treasury) to
 		/// the bounty account.
 		///
-		/// Once the payment is confirmed, the bounty will transition to
-		/// [`BountyStatus::CuratorProposed`], depending on the value
+		/// Once `check_payment_status` confirms the payment succeeded, the bounty will transition
+		/// to [`BountyStatus::CuratorProposed`].
 		payment_status: PaymentState<PaymentId>,
 	},
 	/// The bounty payout has been attempted.
 	///
-	/// In case of a failed payout, the payout can be retried. Once the payout is successful, the
-	/// bounty is completed and removed from the storage.
+	/// The transfers to both the curator stash and the beneficiary have been initiated.
+	/// You can call `process_payment` to retry one or both payments, and `check_payment_status`
+	/// to advance each payment’s state. Once `check_payment_status` confirms both payments
+	/// succeeded, the bounty is finalized and removed from storage.
 	PayoutAttempted {
 		/// The curator of this bounty.
 		curator: AccountId,
-		/// The curator's stash account with the payout status.
+		/// The curator stash account/location with the payout status.
 		curator_stash: (Beneficiary, PaymentState<PaymentId>),
-		/// The beneficiary's stash account with the payout status.
+		/// The beneficiary stash account/location with the payout status.
 		beneficiary: (Beneficiary, PaymentState<PaymentId>),
 	},
 	/// The bounty is closed, and the funds are being refunded to the original source (e.g.,
-	/// Treasury).
+	/// Treasury). Once `check_payment_status` confirms the payment succeeded, the bounty is
+	/// finalized and removed from storage.
 	RefundAttempted {
 		/// The curator of this bounty.
 		curator: Option<AccountId>,
@@ -251,9 +258,10 @@ pub enum BountyStatus<AccountId, BlockNumber, PaymentId, Beneficiary> {
 
 /// The state of payments associated with each bounty and its `BountyStatus`.
 ///
-/// When a payment is initiated using `Paymaster::pay`, an asynchronous task is triggered.
-/// The call `check_payment_status` updates the payment state and advances the bounty lifecycle.
-/// The `process_payment` can be called to retry a payment in `Failed` or `Pending` state.
+/// When a payment is initiated using `Paymaster::pay`, the payment enters in a pending state,
+/// thus supporting asynchronous payments. Calling `check_payment_status` updates the payment state
+/// and advances the bounty lifecycle. The `process_payment` can be called to retry a payment in
+/// `Failed` or `Pending` state.
 #[derive(Encode, Decode, Clone, PartialEq, Eq, MaxEncodedLen, RuntimeDebug, TypeInfo)]
 pub enum PaymentState<Id> {
 	/// Pending claim.
@@ -266,10 +274,13 @@ pub enum PaymentState<Id> {
 	Succeeded,
 }
 impl<Id: Clone> PaymentState<Id> {
+	/// Used to check if payment can be retried.
 	pub fn is_pending_or_failed(&self) -> bool {
 		matches!(self, PaymentState::Pending | PaymentState::Failed)
 	}
 
+	/// If a payment has been initialized, returns its identifier, which is used to check its
+	/// status.
 	pub fn get_attempt_id(&self) -> Option<Id> {
 		match self {
 			PaymentState::Attempted { id } => Some(id.clone()),
@@ -283,10 +294,10 @@ pub trait ChildBountyManager<Balance> {
 	/// Get the active child bounties for a parent bounty.
 	fn child_bounties_count(bounty_id: BountyIndex) -> BountyIndex;
 
-	/// Calculate total value of child-bounties.
+	/// Calculate total value of child-bounties for a given parent bounty_id.
 	fn children_value(bounty_id: BountyIndex) -> Balance;
 
-	/// Calculate total curator fees of child-bounties.
+	/// Calculate total curator fees of child-bounties for a given parent bounty_id.
 	fn children_curator_fees(bounty_id: BountyIndex) -> Balance;
 
 	/// Hook called when a parent bounty is removed.
@@ -345,16 +356,14 @@ pub mod pallet {
 		#[pallet::constant]
 		type DataDepositPerByte: Get<BalanceOf<Self, I>>;
 
-		#[cfg(feature = "runtime-benchmarks")]
-		type BenchmarkHelper: benchmarking::ArgumentsFactory<Self::AssetKind, Self::Beneficiary>;
-
 		/// The overarching event type.
 		type RuntimeEvent: From<Event<Self, I>>
 			+ IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		/// Maximum acceptable reason length.
 		///
-		/// Benchmarks depend on this value, be sure to update weights file when changing this value
+		/// Benchmarks depend on this value, be sure to update weights file when changing this
+		/// value.
 		#[pallet::constant]
 		type MaximumReasonLength: Get<u32>;
 
@@ -369,13 +378,18 @@ pub mod pallet {
 
 		/// Type used to derive the source account responsible for funding a bounty.
 		///
-		/// The source account is derived from the asset location (`AssetKind`) and the
-		/// `BountyIndex`, enabling distinct contexts between source account and bounty beneficiary.
-		type BountySource: TryConvert<(BountyIndex, Self::AssetKind), Self::Beneficiary>;
+		/// The source account is derived from asset kind/class (`AssetKind`) and the
+		/// `BountyIndex`, enabling distinct chains between source account and bounty beneficiary.
+		type BountySource: TryConvert<
+			(BountyIndex, Self::AssetKind),
+			<<Self as pallet::Config<I>>::Paymaster as Pay>::Source
+		>;
 
 		/// Type for processing payments of [`Self::AssetKind`] from [`Self::Source`] in favor of
 		/// [`Self::Beneficiary`].
 		///
+		/// Means by which we can make payments to accounts/locations. This defines the currency,
+		/// balance which we use to denote that currency, the source of the payment
 		/// Enables payment control where the funding source, resolved via `BountySource`,
 		/// can differ from the funding source, allowing each bounty to have a unique means for
 		/// making payments.
@@ -385,6 +399,10 @@ pub mod pallet {
 			Beneficiary = Self::Beneficiary,
 			AssetKind = Self::AssetKind,
 		>;
+
+		/// Helper type for benchmarks.
+		#[cfg(feature = "runtime-benchmarks")]
+		type BenchmarkHelper: benchmarking::ArgumentsFactory<Self::AssetKind, Self::Beneficiary>;
 	}
 
 	#[pallet::error]
@@ -412,24 +430,25 @@ pub mod pallet {
 		HasActiveChildBounty,
 		/// Too many approvals are already queued.
 		TooManyQueued,
-		/// There was issue with funding the bounty
+		/// There was issue with funding the bounty.
 		FundingError,
-		/// Bounty funding has not concluded yet
+		/// Bounty funding has not concluded yet.
 		FundingInconclusive,
-		/// There was issue paying out the bounty
+		/// There was issue paying out the bounty.
 		PayoutError,
-		/// No progress in payouts was made
+		/// Bounty payout has not concluded yet.
 		PayoutInconclusive,
-		/// There was issue with refunding the bounty
+		/// There was issue with refunding the bounty.
 		RefundError,
-		/// No progress was made processing a refund
+		/// Bounty refund has not concluded yet.
 		RefundInconclusive,
 		/// The spend origin is valid but the amount it is allowed to spend is lower than the
-		/// amount to be spent.
+		/// requested amount.
 		InsufficientPermission,
-		/// The balance of the asset kind is not convertible to the balance of the native asset.
+		/// The balance of the asset kind is not convertible to the balance of the native asset for
+		/// asserting the origin permissions.
 		FailedToConvertBalance,
-		/// The bounty account could not be derived from the bounty ID and asset kind.
+		/// The bounty source account could not be derived from the bounty ID and asset kind.
 		FailedToConvertBountySource,
 	}
 
@@ -454,6 +473,7 @@ pub mod pallet {
 		BountyPayoutProcessed {
 			index: BountyIndex,
 			asset_kind: T::AssetKind,
+			/// The amount paid to the beneficiary.
 			value: BalanceOf<T, I>,
 			beneficiary: T::Beneficiary,
 		},
@@ -497,6 +517,7 @@ pub mod pallet {
 	pub type BountyApprovals<T: Config<I>, I: 'static = ()> =
 		StorageValue<_, BoundedVec<BountyIndex, T::MaxApprovals>, ValueQuery>;
 
+	/// Temporarily tracks spending limits within the current block to prevent overspending.
 	#[derive(Default)]
 	pub struct SpendContext<Balance> {
 		pub spend_in_context: BTreeMap<Balance, Balance>,
@@ -647,12 +668,11 @@ pub mod pallet {
 		/// - If this function is called by the `RejectOrigin`, we assume that the curator is
 		///   malicious or inactive. As a result, we will slash the curator when possible.
 		/// - If the origin is the curator, we take this as a sign they are unable to do their job
-		///   and
-		/// they willingly give up. We could slash them, but for now we allow them to recover their
-		/// deposit and exit without issue. (We may want to change this if it is abused.)
-		/// - The origin can be anyone if and only if the curator is "inactive". This allows
-		/// anyone in the community to call out that a curator is not doing their due diligence, and
-		/// we should pick a new curator. In this case the curator should also be slashed.
+		///   and they willingly give up. We could slash them, but for now we allow them to recover
+		///   their deposit and exit without issue. (We may want to change this if it is abused.)
+		/// - The origin can be anyone if and only if the curator is "inactive". This allows anyone
+		///   in the community to call out that a curator is not doing their due diligence, and we
+		///   should pick a new curator. In this case the curator should also be slashed.
 		///
 		/// ### Parameters
 		/// - `bounty_id`: The index of the bounty from which to unassign the curator.
@@ -769,7 +789,7 @@ pub mod pallet {
 		///
 		/// ### Parameters
 		/// - `bounty_id`: The index of the bounty for which the curator is accepting the role.
-		/// - `stash`: The curator's stash account that will receive the curator fee.
+		/// - `stash`: The curator's stash account/location that will receive the curator fee.
 		///
 		/// ## Events
 		/// Emits [`Event::CuratorAccepted`] if successful.
@@ -821,8 +841,8 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// Award bounty to a beneficiary account. The beneficiary will be able to claim the funds
-		/// after `BountyDepositPayoutDelay`.
+		/// Award bounty to a beneficiary account/location. The beneficiary will be able to claim
+		/// the funds after `BountyDepositPayoutDelay`.
 		///
 		/// ## Dispatch Origin
 		/// Must be signed by the curator of this bounty.
@@ -834,7 +854,7 @@ pub mod pallet {
 		///
 		/// ### Parameters
 		/// - `bounty_id`: The index of the bounty to be awarded.
-		/// - `beneficiary`: The account to be awarded the bounty.
+		/// - `beneficiary`: The account/location to be awarded the bounty.
 		///
 		/// ## Events
 		/// Emits [`Event::BountyAwarded`] if successful.
@@ -890,7 +910,7 @@ pub mod pallet {
 		/// - The bounty must be in the `PendingPayout` state.
 		/// - The funds will be transferred to the beneficiary and the curator.
 		/// - In case of a payout failure, the bounty status must be updated with the
-		///   `check_payment_status`
+		///   `check_payment_status`.
 		/// dispatchable before retrying with `process_payment` call.
 		///
 		/// ### Parameters
@@ -948,8 +968,8 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// Cancel a proposed or active bounty. All the funds will be sent to treasury and
-		/// the curator deposit will be unreserved if possible.
+		/// Cancel a proposed or active bounty. A payment to send all the funds to treasury is
+		/// initialized.
 		///
 		/// ## Dispatch Origin
 		/// Only `T::RejectOrigin` is able to cancel a bounty.
@@ -960,7 +980,7 @@ pub mod pallet {
 		/// - If the bounty is in the `Funded` or `CuratorProposed` state, a refund payment is
 		///   initiated.
 		/// - If the bounty is in the `Active` state, a refund payment is initiated and the bounty
-		///   status is updated with the curator account.
+		///   status is updated with the curator account/location.
 		/// - If the bounty is already in the payout phase, it cannot be canceled.
 		/// - When a payment is initiated, the bounty status must be updated via the
 		///   `check_payment_status` dispatchable.
@@ -1120,7 +1140,7 @@ pub mod pallet {
 		/// - The bounty must be in the `Proposed` state.
 		/// - The `fee` must be lower than the bounty value.
 		/// - The treasury must have sufficient funds to approve the bounty.
-		/// - If successful, funds are transferred from the treasury to the bounty account.
+		/// - If successful, funds are transferred from the treasury to the bounty account/location.
 		///
 		/// ### Parameters
 		/// - `bounty_id`: The index of the bounty to approve.
@@ -1172,11 +1192,11 @@ pub mod pallet {
 		///
 		/// ## Details
 		/// - If the bounty is in the `Approved` or `ApprovedWithCurator` state, it retries the
-		///   funding payment from the treasury pot to the bounty account.
+		///   funding payment from the treasury pot to the bounty account/location.
 		/// - If the bounty is in the `RefundAttempted` state, it retries the refund payment from
-		///   the bounty account back to the treasury pot.
+		///   the bounty account/location back to the treasury pot account/location.
 		/// - If the bounty is in the `PayoutAttempted` state, it retries the payout payments from
-		///   the bounty account to the beneficiary and curator stash accounts.
+		///   the bounty account/location to the beneficiary and curator stash accounts/locations.
 		/// - In all cases, the bounty payment status must be `Failed` or `Pending`.
 		/// - After retrying a payment, `check_payment_status` must be called to advance the bounty
 		///   state.
@@ -1279,12 +1299,12 @@ pub mod pallet {
 		/// - If the bounty is in the `Approved` or `ApprovedWithCurator` state, it checks if the
 		///   funding payment has succeeded. If successful, the bounty becomes `Active`, and the
 		///   proposer's deposit is unreserved.
-		/// - If the bounty is in the `PayoutAttempted` state, it checks the status of curator and
-		///   beneficiary payouts. If both payments succeed, the bounty is removed, and the
-		///   curator's deposit is unreserved. If any payment failed, the bounty status is updated.
 		/// - If the bounty is in the `RefundAttempted` state, it checks whether the refund has been
 		///   completed. If successful, the bounty is removed, and the curator's deposit is returned
 		///   if a curator was already assigned.
+		/// - If the bounty is in the `PayoutAttempted` state, it checks the status of curator and
+		///   beneficiary payouts. If both payments succeed, the bounty is removed, and the
+		///   curator's deposit is unreserved. If any payment failed, the bounty status is updated.
 		/// - If no progress is made in the state machine, an error is returned.
 		///
 		/// ### Parameters
@@ -1490,7 +1510,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		Ok(deposit)
 	}
 
-	/// The account ID of the treasury pot.
+	/// The account/location ID of the treasury pot.
 	///
 	/// This actually does computation. If you need to keep using it, then make sure you cache the
 	/// value and only call this once.
@@ -1498,7 +1518,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		T::PalletId::get().into_account_truncating()
 	}
 
-	/// The account ID of a bounty account
+	/// The account/location ID of a bounty.
 	pub fn bounty_account_id(
 		bounty_id: BountyIndex,
 		asset_kind: T::AssetKind,
@@ -1559,6 +1579,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		T::ChildBountyManager::bounty_removed(bounty_id);
 	}
 
+	/// Calculates amount the curator stash and beneficiary receive during bounty payout.
 	fn calculate_curator_fee_and_payout(
 		bounty_id: BountyIndex,
 		fee: BalanceOf<T, I>,
@@ -1580,6 +1601,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		(final_fee, payout)
 	}
 
+	/// Initializes payment from the treasury pot to the bounty account/location.
 	fn do_process_funding_payment(
 		bounty_id: BountyIndex,
 		bounty: &BountyOf<T, I>,
@@ -1625,6 +1647,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		Ok(PaymentState::Attempted { id })
 	}
 
+	/// Initializes payment from the bounty account/location to the treasury pot.
 	fn do_process_refund_payment(
 		bounty_id: BountyIndex,
 		bounty: &BountyOf<T, I>,
@@ -1650,6 +1673,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		Ok(PaymentState::Attempted { id })
 	}
 
+	/// Initializes payments from the bounty account/location to the curator stash and beneficiary.
 	fn do_process_payout_payment(
 		bounty_id: BountyIndex,
 		bounty: &BountyOf<T, I>,
@@ -1703,6 +1727,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		))
 	}
 
+	/// Queries the status of the payment from the treasury pot to the bounty account/location
 	fn do_check_funding_payment_status(
 		bounty_id: BountyIndex,
 		bounty: &BountyOf<T, I>,
@@ -1725,6 +1750,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		}
 	}
 
+	/// Queries the status of the payment from the bounty account/location to the treasury pot.
 	fn do_check_refund_payment_status(
 		bounty_id: BountyIndex,
 		bounty: &BountyOf<T, I>,
@@ -1756,6 +1782,8 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		}
 	}
 
+	/// Queries the status of the payment from the bounty account/location to the curator stash and
+	/// beneficiary.
 	fn do_check_payout_payment_status(
 		bounty_id: BountyIndex,
 		bounty: &BountyOf<T, I>,

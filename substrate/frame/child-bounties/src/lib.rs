@@ -92,7 +92,7 @@ macro_rules! log {
 	($level:tt, $patter:expr $(, $values:expr)* $(,)?) => {
 		log::$level!(
 			target: crate::LOG_TARGET,
-			concat!("[{:?}] ✍️ ", $patter), <frame_system::Pallet<T>>::block_number() $(, $values)*
+			concat!("[{:?}] ", $patter), <frame_system::Pallet<T>>::block_number() $(, $values)*
 		)
 	};
 }
@@ -167,6 +167,7 @@ pub mod pallet {
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
 
+		/// Helper type for benchmarks.
 		#[cfg(feature = "runtime-benchmarks")]
 		type BenchmarkHelper: benchmarking::ArgumentsFactory<Self::AssetKind, Self::Beneficiary>;
 	}
@@ -463,7 +464,7 @@ pub mod pallet {
 		/// ### Parameters
 		/// - `parent_bounty_id`: Index of parent bounty.
 		/// - `child_bounty_id`: Index of child-bounty.
-		/// - `stash`: Account to receive the curator fee.
+		/// - `stash`: Account/Location to receive the curator fee.
 		///
 		/// ## Events
 		/// Emits [`Event::ChildBountyCuratorAccepted`] if successful.
@@ -684,7 +685,7 @@ pub mod pallet {
 		/// ### Parameters
 		/// - `parent_bounty_id`: Index of parent bounty.
 		/// - `child_bounty_id`: Index of child-bounty.
-		/// - `beneficiary`: Account to receive the bounty payout.
+		/// - `beneficiary`: Account/Location to receive the bounty payout.
 		///
 		/// ## Events
 		/// Emits [`Event::ChildBountyAwarded`] if successful.
@@ -815,7 +816,7 @@ pub mod pallet {
 		}
 
 		/// Cancel a proposed or active child-bounty. Child-bounty account funds
-		/// are transferred to parent bounty account. The child-bounty curator
+		/// are transferred to parent bounty account/location. The child-bounty curator
 		/// deposit may be unreserved if possible.
 		///
 		/// ## Dispatch Origin
@@ -825,7 +826,7 @@ pub mod pallet {
 		/// ## Details
 		/// - If the child-bounty is in the `Proposed` state, it is simply removed from storage.
 		/// - If the child-bounty is in the `Funded` or `CuratorProposed` state, a refund payment is
-		///   initiated to return funds to the parent bounty account.
+		///   initiated to return funds to the parent bounty account/location.
 		/// - If the child-bounty is in the `Active` state, the curator’s deposit is unreserved, and
 		///   a refund payment is initiated.
 		/// - If the child-bounty is in the `PendingPayout`, `PayoutAttempted`, or `RefundAttempted`
@@ -1132,7 +1133,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		pallet_bounties::Pallet::<T, I>::calculate_curator_deposit(bounty_fee, asset_kind)
 	}
 
-	/// The account ID of a child-bounty account.
+	/// The account/location ID of a child-bounty.
 	pub fn child_bounty_account_id(
 		parent_bounty_id: BountyIndex,
 		child_bounty_id: BountyIndex,

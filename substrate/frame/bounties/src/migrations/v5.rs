@@ -15,8 +15,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::*;
 use crate as pallet_bounties;
+use crate::*;
 
 #[cfg(feature = "try-runtime")]
 use alloc::vec::Vec;

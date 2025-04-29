@@ -124,6 +124,42 @@ where
 	fn ensure_concluded(_: Self::Id) {}
 }
 
+/// Simple implementation of `Pay` for assets which makes a payment from a "pot" - i.e. a single
+/// account.
+pub struct PayAssetFromAccount<F, A>(core::marker::PhantomData<(F, A)>);
+impl<A, F> frame_support::traits::tokens::Pay for PayAssetFromAccount<F, A>
+where
+	A: TypedGet,
+	F: fungibles::Mutate<A::Type> + fungibles::Create<A::Type>,
+	A::Type: Eq,
+{
+	type Balance = F::Balance;
+	type Source = A::Type;
+	type Beneficiary = A::Type;
+	type AssetKind = F::AssetId;
+	type Id = ();
+	type Error = DispatchError;
+	fn pay(
+		_: &Self::Source,
+		who: &Self::Beneficiary,
+		asset: Self::AssetKind,
+		amount: Self::Balance,
+	) -> Result<Self::Id, Self::Error> {
+		<F as fungibles::Mutate<_>>::transfer(asset, &A::get(), who, amount, Expendable)?;
+		Ok(())
+	}
+	fn check_payment(_: ()) -> PaymentStatus {
+		PaymentStatus::Success
+	}
+	#[cfg(feature = "runtime-benchmarks")]
+	fn ensure_successful(_: &Self::Source, _: &Self::Beneficiary, asset: Self::AssetKind, amount: Self::Balance) {
+		<F as fungibles::Create<_>>::create(asset.clone(), A::get(), true, amount).unwrap();
+		<F as fungibles::Mutate<_>>::mint_into(asset, &A::get(), amount).unwrap();
+	}
+	#[cfg(feature = "runtime-benchmarks")]
+	fn ensure_concluded(_: Self::Id) {}
+}
+
 /// Implementation of the `Pay` trait using a single fungible token (e.g., the native currency)
 pub struct PayWithFungible<F, A>(core::marker::PhantomData<(F, A)>);
 impl<A, F> Pay for PayWithFungible<F, A>
