@@ -214,9 +214,6 @@ pub mod prelude {
 		PalletId,
 	};
 
-	// Reexport the entire `fungible` and `fungibles` modules to avoid conflicts.
-	pub use frame_support::traits::{fungible, fungibles};
-
 	/// Pallet prelude of `frame-system`.
 	#[doc(no_inline)]
 	pub use frame_system::pallet_prelude::*;
@@ -247,7 +244,7 @@ pub mod prelude {
 	#[doc(no_inline)]
 	pub use sp_runtime::traits::{
 		AccountIdConversion, BlockNumberProvider, Bounded, Convert, ConvertBack, DispatchInfoOf,
-		Dispatchable, IdentityLookup, ReduceBy, ReplaceWithDefault, SaturatedConversion,
+		Dispatchable, ReduceBy, ReplaceWithDefault, SaturatedConversion,
 		Saturating, StaticLookup, TrailingZeroInput,
 	};
 
