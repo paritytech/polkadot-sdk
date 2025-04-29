@@ -38,7 +38,6 @@ jobs:
 
       - name: install parity-publish
         run: |
-          rustup override set 1.82.0
           cargo install parity-publish@0.10.4 --locked -q
 
       - name: parity-publish update plan
