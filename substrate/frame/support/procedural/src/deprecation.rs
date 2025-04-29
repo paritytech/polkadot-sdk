@@ -145,7 +145,7 @@ pub fn prevent_deprecation_attr_on_outer_enum(parent_attrs: &[syn::Attribute]) -
 	if let Some(attr) = find_deprecation_attr(parent_attrs) {
 		return Err(Error::new(
 			attr.span(),
-			"The `#[deprecated]` attribute should be applied to individual variants, not the enum as a whole",
+			"The `#[deprecated]` attribute should be applied to individual variants, not the enum as a whole.",
 		));
 	}
 	Ok(())
