@@ -67,9 +67,7 @@
 #![allow(missing_docs)]
 #![allow(dead_code)]
 
-use frame::prelude::*;
-use core::marker::PhantomData;
-use frame::runtime::prelude::weights::constants::RocksDbWeight;
+use frame::weights_prelude::*;
 
 /// Weight functions needed for `pallet_core_fellowship`.
 pub trait WeightInfo {

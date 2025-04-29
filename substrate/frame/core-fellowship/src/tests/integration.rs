@@ -20,10 +20,8 @@
 #![allow(deprecated)]
 
 use frame::{
-	prelude::*,
-	runtime::prelude::EnsureSignedBy,
 	testing_prelude::{storage::root as storage_root, TestExternalities, *},
-	traits::{ConstU16, IsInVec, TryMapSuccess, TryMorphInto},
+	traits::{IsInVec, TryMapSuccess, TryMorphInto},
 };
 use pallet_ranked_collective::{EnsureRanked, Geometric, Rank};
 type Class = Rank;

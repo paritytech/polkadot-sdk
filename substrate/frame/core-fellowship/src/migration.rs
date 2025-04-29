@@ -18,7 +18,7 @@
 //! Storage migrations for the core-fellowship pallet.
 use super::*;
 use frame::{
-	deps::frame_support::migrations::VersionedMigration,
+	migrations::*,
 	traits::{DefensiveTruncateFrom, UncheckedOnRuntimeUpgrade},
 };
 

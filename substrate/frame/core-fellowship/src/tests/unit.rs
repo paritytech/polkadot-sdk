@@ -21,14 +21,12 @@
 
 use crate as pallet_core_fellowship;
 use crate::{
-	tests::unit::sp_api_hidden_includes_construct_runtime::hidden_include::testing_prelude::bounded_vec,
 	DispatchError, *,
 };
 use core::cell::RefCell;
 use frame::{
-	runtime::prelude::EnsureSignedBy,
 	testing_prelude::{storage::root as storage_root, *},
-	traits::{tokens::GetSalary, ConstU16, ConstU32, IsInVec, TryMapSuccess, TryMorphInto},
+	traits::{tokens::GetSalary, IsInVec, TryMapSuccess, TryMorphInto},
 };
 
 use std::collections::BTreeMap;

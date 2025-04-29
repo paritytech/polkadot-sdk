@@ -133,12 +133,12 @@ mod benchmarks {
 		// Set it to the max value to ensure that any possible auto-demotion period has passed.
 		frame_system::Pallet::<T>::set_block_number(BlockNumberFor::<T>::max_value());
 		ensure_evidence::<T, I>(&member)?;
-		assert!(crate::pallet::Member::<T, I>::contains_key(&member));
+		assert!(Member::<T, I>::contains_key(&member));
 
 		#[extrinsic_call]
 		CoreFellowship::<T, I>::bump(RawOrigin::Signed(member.clone()), member.clone());
 
-		assert!(!crate::pallet::Member::<T, I>::contains_key(&member));
+		assert!(!Member::<T, I>::contains_key(&member));
 		assert!(!MemberEvidence::<T, I>::contains_key(&member));
 		Ok(())
 	}
@@ -155,13 +155,13 @@ mod benchmarks {
 		frame_system::Pallet::<T>::set_block_number(BlockNumberFor::<T>::max_value());
 		ensure_evidence::<T, I>(&member)?;
 
-		assert!(crate::pallet::Member::<T, I>::contains_key(&member));
+		assert!(Member::<T, I>::contains_key(&member));
 		assert_eq!(T::Members::rank_of(&member), Some(initial_rank));
 
 		#[extrinsic_call]
 		CoreFellowship::<T, I>::bump(RawOrigin::Signed(member.clone()), member.clone());
 
-		assert!(crate::pallet::Member::<T, I>::contains_key(&member));
+		assert!(Member::<T, I>::contains_key(&member));
 		assert_eq!(T::Members::rank_of(&member), Some(initial_rank.saturating_sub(1)));
 		assert!(!MemberEvidence::<T, I>::contains_key(&member));
 		Ok(())
@@ -170,12 +170,12 @@ mod benchmarks {
 	#[benchmark]
 	fn set_active() -> Result<(), BenchmarkError> {
 		let member = make_member::<T, I>(1)?;
-		assert!(crate::pallet::Member::<T, I>::get(&member).unwrap().is_active);
+		assert!(Member::<T, I>::get(&member).unwrap().is_active);
 
 		#[extrinsic_call]
 		_(RawOrigin::Signed(member.clone()), false);
 
-		assert!(!crate::pallet::Member::<T, I>::get(&member).unwrap().is_active);
+		assert!(!Member::<T, I>::get(&member).unwrap().is_active);
 		Ok(())
 	}
 
@@ -187,7 +187,7 @@ mod benchmarks {
 		_(RawOrigin::Root, candidate.clone());
 
 		assert_eq!(T::Members::rank_of(&candidate), Some(0));
-		assert!(crate::pallet::Member::<T, I>::contains_key(&candidate));
+		assert!(Member::<T, I>::contains_key(&candidate));
 		Ok(())
 	}
 
@@ -251,14 +251,14 @@ mod benchmarks {
 		ensure_evidence::<T, I>(&member)?;
 
 		assert!(T::Members::rank_of(&member).is_none());
-		assert!(crate::pallet::Member::<T, I>::contains_key(&member));
-		assert!(crate::pallet::MemberEvidence::<T, I>::contains_key(&member));
+		assert!(Member::<T, I>::contains_key(&member));
+		assert!(MemberEvidence::<T, I>::contains_key(&member));
 
 		#[extrinsic_call]
 		_(RawOrigin::Signed(member.clone()), member.clone());
 
-		assert!(!crate::pallet::Member::<T, I>::contains_key(&member));
-		assert!(!crate::pallet::MemberEvidence::<T, I>::contains_key(&member));
+		assert!(!Member::<T, I>::contains_key(&member));
+		assert!(!MemberEvidence::<T, I>::contains_key(&member));
 		Ok(())
 	}
 
@@ -268,12 +268,12 @@ mod benchmarks {
 		T::Members::induct(&member)?;
 		T::Members::promote(&member)?;
 
-		assert!(!crate::pallet::Member::<T, I>::contains_key(&member));
+		assert!(!Member::<T, I>::contains_key(&member));
 
 		#[extrinsic_call]
 		_(RawOrigin::Signed(member.clone()));
 
-		assert!(crate::pallet::Member::<T, I>::contains_key(&member));
+		assert!(Member::<T, I>::contains_key(&member));
 		Ok(())
 	}
 
@@ -285,12 +285,12 @@ mod benchmarks {
 		T::Members::induct(&member)?;
 		T::Members::promote(&member)?;
 
-		assert!(!crate::pallet::Member::<T, I>::contains_key(&member));
+		assert!(!Member::<T, I>::contains_key(&member));
 
 		#[extrinsic_call]
 		_(RawOrigin::Signed(sender), member.clone());
 
-		assert!(crate::pallet::Member::<T, I>::contains_key(&member));
+		assert!(Member::<T, I>::contains_key(&member));
 		Ok(())
 	}
 
@@ -302,13 +302,13 @@ mod benchmarks {
 		frame_system::Pallet::<T>::set_block_number(now);
 		ensure_evidence::<T, I>(&member)?;
 
-		assert_eq!(crate::pallet::Member::<T, I>::get(&member).unwrap().last_proof, then);
+		assert_eq!(Member::<T, I>::get(&member).unwrap().last_proof, then);
 
 		#[extrinsic_call]
 		_(RawOrigin::Root, member.clone(), 1u8.into());
 
-		assert_eq!(crate::pallet::Member::<T, I>::get(&member).unwrap().last_proof, now);
-		assert!(!crate::pallet::MemberEvidence::<T, I>::contains_key(&member));
+		assert_eq!(Member::<T, I>::get(&member).unwrap().last_proof, now);
+		assert!(!MemberEvidence::<T, I>::contains_key(&member));
 		Ok(())
 	}
 
@@ -317,12 +317,12 @@ mod benchmarks {
 		let member = make_member::<T, I>(1)?;
 		let evidence = vec![0; Evidence::<T, I>::bound()].try_into().unwrap();
 
-		assert!(!crate::pallet::MemberEvidence::<T, I>::contains_key(&member));
+		assert!(!MemberEvidence::<T, I>::contains_key(&member));
 
 		#[extrinsic_call]
 		_(RawOrigin::Signed(member.clone()), Wish::Retention, evidence);
 
-		assert!(crate::pallet::MemberEvidence::<T, I>::contains_key(&member));
+		assert!(MemberEvidence::<T, I>::contains_key(&member));
 		Ok(())
 	}
 
