@@ -1,7 +1,10 @@
 use core::marker::PhantomData;
 use frame_support::traits::tokens::asset_ops::{
-	common_strategies::{DeriveAndReportId, FromTo, IfOwnedBy, Owned, PredefinedId},
-	AssetDefinition, Create, Destroy, Transfer,
+	common_strategies::{
+		ChangeOwnerFrom, ConfigValue, DeriveAndReportId, IfOwnedBy, Owner, WithConfig,
+		WithConfigValue,
+	},
+	AssetDefinition, Create, Restore, Stash, Update,
 };
 use xcm::latest::prelude::*;
 use xcm_executor::traits::{ConvertLocation, Error as MatchError, MatchesInstance, TransactAsset};
@@ -10,20 +13,14 @@ use super::NonFungibleAsset;
 
 const LOG_TARGET: &str = "xcm::unique_instances";
 
-/// The `UniqueInstancesAdapter` implements the [`TransactAsset`] for unique instances (NFT-like
-/// entities), for which the `Matcher` can deduce the instance ID from the XCM [`AssetId`].
+/// The `UniqueInstancesAdapter` implements the [`TransactAsset`] for existing unique instances
+/// (NFT-like entities), for which the `Matcher` can deduce the instance ID from the XCM
+/// [`AssetId`].
 ///
 /// The adapter uses the following asset operations:
-/// * [`Create`] with the [`Owned`] strategy, which uses the [`PredefinedId`] approach
-/// to assign the instance ID deduced by the `Matcher`.
-/// * [`Transfer`] with [`FromTo`] strategy
-/// * [`Destroy`] with [`IfOwnedBy`] strategy
-///
-/// This adapter assumes that the asset can be safely destroyed
-/// without destroying any important data.
-/// However, the "destroy" operation can be replaced by another operation.
-/// For instance, one can use the [`StashOnDestroy`](super::ops::StashOnDestroy) type to stash the
-/// instance instead of destroying it. See other similar types in the [`ops`](super::ops) module.
+/// * [`Restore`] with the strategy to restore the instance to a given owner.
+/// * [`Update`] with the strategy to change the instance's owner from one to another.
+/// * [`Stash`] with the strategy to check the current owner before stashing.
 ///
 /// Note on teleports: This adapter doesn't implement teleports since unique instances have
 /// associated data that also should be teleported. Currently, neither XCM can transfer such data
@@ -35,28 +32,28 @@ pub struct UniqueInstancesAdapter<AccountId, AccountIdConverter, Matcher, Instan
 impl<AccountId, AccountIdConverter, Matcher, InstanceOps> TransactAsset
 	for UniqueInstancesAdapter<AccountId, AccountIdConverter, Matcher, InstanceOps>
 where
+	AccountId: 'static,
 	AccountIdConverter: ConvertLocation<AccountId>,
 	Matcher: MatchesInstance<InstanceOps::Id>,
 	InstanceOps: AssetDefinition
-		+ Create<Owned<AccountId, PredefinedId<InstanceOps::Id>>>
-		+ Transfer<FromTo<AccountId>>
-		+ Destroy<IfOwnedBy<AccountId>>,
+		+ Restore<WithConfig<ConfigValue<Owner<AccountId>>>>
+		+ Update<ChangeOwnerFrom<AccountId>>
+		+ Stash<IfOwnedBy<AccountId>>,
 {
 	fn deposit_asset(what: &Asset, who: &Location, context: Option<&XcmContext>) -> XcmResult {
-		log::trace!(
+		tracing::trace!(
 			target: LOG_TARGET,
-			"UniqueInstancesAdapter::deposit_asset what: {:?}, who: {:?}, context: {:?}",
-			what,
-			who,
-			context,
+			?what,
+			?who,
+			?context,
+			"deposit_asset",
 		);
 
 		let instance_id = Matcher::matches_instance(what)?;
 		let who = AccountIdConverter::convert_location(who)
 			.ok_or(MatchError::AccountIdConversionFailed)?;
 
-		InstanceOps::create(Owned::new(who, PredefinedId::from(instance_id)))
-			.map(|_reported_id| ())
+		InstanceOps::restore(&instance_id, WithConfig::from(Owner::with_config_value(who)))
 			.map_err(|e| XcmError::FailedToTransactAsset(e.into()))
 	}
 
@@ -65,18 +62,19 @@ where
 		who: &Location,
 		maybe_context: Option<&XcmContext>,
 	) -> Result<xcm_executor::AssetsInHolding, XcmError> {
-		log::trace!(
+		tracing::trace!(
 			target: LOG_TARGET,
-			"UniqueInstancesAdapter::withdraw_asset what: {:?}, who: {:?}, context: {:?}",
-			what,
-			who,
-			maybe_context,
+			?what,
+			?who,
+			?maybe_context,
+			"withdraw_asset",
 		);
+
 		let instance_id = Matcher::matches_instance(what)?;
 		let who = AccountIdConverter::convert_location(who)
 			.ok_or(MatchError::AccountIdConversionFailed)?;
 
-		InstanceOps::destroy(&instance_id, IfOwnedBy(who))
+		InstanceOps::stash(&instance_id, IfOwnedBy::check(who))
 			.map_err(|e| XcmError::FailedToTransactAsset(e.into()))?;
 
 		Ok(what.clone().into())
@@ -88,13 +86,13 @@ where
 		to: &Location,
 		context: &XcmContext,
 	) -> Result<xcm_executor::AssetsInHolding, XcmError> {
-		log::trace!(
+		tracing::trace!(
 			target: LOG_TARGET,
-			"UniqueInstancesAdapter::internal_transfer_asset what: {:?}, from: {:?}, to: {:?}, context: {:?}",
-			what,
-			from,
-			to,
-			context,
+			?what,
+			?from,
+			?to,
+			?context,
+			"internal_transfer_asset",
 		);
 
 		let instance_id = Matcher::matches_instance(what)?;
@@ -103,7 +101,7 @@ where
 		let to = AccountIdConverter::convert_location(to)
 			.ok_or(MatchError::AccountIdConversionFailed)?;
 
-		InstanceOps::transfer(&instance_id, FromTo(from, to))
+		InstanceOps::update(&instance_id, ChangeOwnerFrom::check(from), &to)
 			.map_err(|e| XcmError::FailedToTransactAsset(e.into()))?;
 
 		Ok(what.clone().into())
@@ -123,15 +121,20 @@ impl<AccountId, AccountIdConverter, InstanceCreateOp> TransactAsset
 where
 	AccountIdConverter: ConvertLocation<AccountId>,
 	InstanceCreateOp: AssetDefinition
-		+ Create<Owned<AccountId, DeriveAndReportId<NonFungibleAsset, InstanceCreateOp::Id>>>,
+		+ Create<
+			WithConfig<
+				ConfigValue<Owner<AccountId>>,
+				DeriveAndReportId<NonFungibleAsset, InstanceCreateOp::Id>,
+			>,
+		>,
 {
 	fn deposit_asset(what: &Asset, who: &Location, context: Option<&XcmContext>) -> XcmResult {
-		log::trace!(
+		tracing::trace!(
 			target: LOG_TARGET,
-			"UniqueInstancesDepositAdapter::deposit_asset what: {:?}, who: {:?}, context: {:?}",
-			what,
-			who,
-			context,
+			?what,
+			?who,
+			?context,
+			"deposit_asset",
 		);
 
 		let asset = match what.fun {
@@ -142,8 +145,11 @@ where
 		let who = AccountIdConverter::convert_location(who)
 			.ok_or(MatchError::AccountIdConversionFailed)?;
 
-		InstanceCreateOp::create(Owned::new(who, DeriveAndReportId::from(asset)))
-			.map(|_reported_id| ())
-			.map_err(|e| XcmError::FailedToTransactAsset(e.into()))
+		InstanceCreateOp::create(WithConfig::new(
+			Owner::with_config_value(who),
+			DeriveAndReportId::from(asset),
+		))
+		.map(|_reported_id| ())
+		.map_err(|e| XcmError::FailedToTransactAsset(e.into()))
 	}
 }
