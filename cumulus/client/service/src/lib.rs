@@ -51,7 +51,10 @@ use sp_api::ProvideRuntimeApi;
 use sp_blockchain::{HeaderBackend, HeaderMetadata};
 use sp_consensus::SyncOracle;
 use sp_core::{traits::SpawnNamed, Decode, U256};
-use sp_runtime::traits::{Block as BlockT, BlockIdTo, Header};
+use sp_runtime::{
+	traits::{Block as BlockT, BlockIdTo, Header},
+	SaturatedConversion, Saturating,
+};
 use std::{
 	sync::Arc,
 	time::{Duration, Instant},
@@ -234,6 +237,7 @@ where
 	Block: BlockT,
 	Client: Finalizer<Block, Backend>
 		+ UsageProvider<Block>
+		+ HeaderBackend<Block>
 		+ Send
 		+ Sync
 		+ BlockBackend<Block>
@@ -296,9 +300,10 @@ where
 		.spawn_essential_handle()
 		.spawn("cumulus-pov-recovery", None, pov_recovery.run());
 
-	let parachain_informant = parachain_informant::<Block>(
+	let parachain_informant = parachain_informant::<Block, _>(
 		relay_chain_interface.clone(),
 		sync_service,
+		client.clone(),
 		para_id,
 		prometheus_registry.map(ParachainInformantMetrics::new),
 	);
@@ -332,6 +337,7 @@ where
 	Block: BlockT,
 	Client: Finalizer<Block, Backend>
 		+ UsageProvider<Block>
+		+ HeaderBackend<Block>
 		+ Send
 		+ Sync
 		+ BlockBackend<Block>
@@ -598,12 +604,15 @@ where
 	Err("Stopping following imported blocks. Could not determine parachain target block".into())
 }
 
-async fn parachain_informant<Block: BlockT>(
+async fn parachain_informant<Block: BlockT, Client>(
 	relay_chain_interface: impl RelayChainInterface + Clone,
 	sync_service: Arc<dyn SyncOracle + Send + Sync>,
+	client: Arc<Client>,
 	para_id: ParaId,
 	metrics: Option<ParachainInformantMetrics>,
-) {
+) where
+	Client: HeaderBackend<Block> + Send + Sync + 'static,
+{
 	// Backed blocks.
 	let pending_candidates =
 		match pending_candidates(relay_chain_interface.clone(), para_id, sync_service).await {
@@ -678,10 +687,8 @@ async fn parachain_informant<Block: BlockT>(
 							}
 						);
 						if let Some(last_included_block) = &last_included_block {
-							let last_included_block: U256 = (*last_included_block.number()).into();
-							let backed_block: U256 = (*backed_block.number()).into();
-							let unincluded_segment_size = backed_block.saturating_sub(last_included_block);
-							let unincluded_segment_size: u32 = unincluded_segment_size.try_into().unwrap_or(u32::MAX);
+							let unincluded_segment_size = client.info().best_number.saturating_sub(*last_included_block.number());
+							let unincluded_segment_size: u32 = unincluded_segment_size.saturated_into();
 							if let Some(metrics) = &metrics {
 								metrics.unincluded_segment_size.observe(unincluded_segment_size.into());
 							}
