@@ -12,6 +12,10 @@ doc:
 crates:
 - name: pallet-xcm
   bump: patch
+- name: parachains-runtimes-test-utils
+  bump: minor
+- name: asset-test-utils
+  bump: minor
 - name: asset-hub-rococo-runtime
   bump: minor
 - name: asset-hub-westend-runtime
