@@ -18,7 +18,7 @@ use polkadot_node_network_protocol::peer_set::CollationVersion;
 use polkadot_primitives::Id as ParaId;
 
 /// Maximum reputation score.
-pub const MAX_SCORE: u16 = 1000;
+pub const MAX_SCORE: u16 = 5000;
 
 /// Limit for the total number connected peers.
 pub const CONNECTED_PEERS_LIMIT: u16 = 300;
@@ -27,11 +27,12 @@ pub const CONNECTED_PEERS_LIMIT: u16 = 300;
 /// Must be smaller than `CONNECTED_PEERS_LIMIT`.
 pub const CONNECTED_PEERS_PARA_LIMIT: u16 = 100;
 
-/// Maximum number of relay parents to process for reputation bumps on startup.
+/// Maximum number of relay parents to process for reputation bumps on startup and between finality
+/// notifications.
 pub const MAX_STARTUP_ANCESTRY_LOOKBACK: u32 = 20;
 
 /// Reputation bump for getting a valid candidate included.
-pub const VALID_INCLUDED_CANDIDATE_BUMP: u16 = 10;
+pub const VALID_INCLUDED_CANDIDATE_BUMP: u16 = 50;
 
 /// Reputation slash for peer inactivity (for each included candidate of the para that was not
 /// authored by the peer)
@@ -86,4 +87,63 @@ pub enum PeerState {
 	Connected,
 	/// Peer has declared.
 	Collating(ParaId),
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	// Test that the `Score` functions are working correctly.
+	#[test]
+	fn score_functions() {
+		assert!(MAX_SCORE > 50);
+
+		// Test that the constructor returns None for values that exceed the limit.
+		for score in (0..MAX_SCORE).step_by(10) {
+			assert_eq!(u16::from(Score::new(score).unwrap()), score);
+		}
+		assert_eq!(u16::from(Score::new(MAX_SCORE).unwrap()), MAX_SCORE);
+		for score in ((MAX_SCORE + 1)..(MAX_SCORE + 50)).step_by(5) {
+			assert_eq!(Score::new(score), None);
+		}
+
+		// Test saturating arithmetic functions.
+		let score = Score::new(50).unwrap();
+
+		// Test addition with value that does not go over the limit.
+		for other_score in (0..(MAX_SCORE - 50)).step_by(10) {
+			let expected_value = u16::from(score) + other_score;
+
+			let mut score = score.clone();
+			score.saturating_add(other_score);
+
+			assert_eq!(expected_value, u16::from(score));
+		}
+
+		// Test overflowing addition.
+		for other_score in ((MAX_SCORE - 50)..MAX_SCORE).step_by(10) {
+			let mut score = score.clone();
+			score.saturating_add(other_score);
+
+			assert_eq!(MAX_SCORE, u16::from(score));
+		}
+
+		// Test subtraction with value that does not go under zero.
+		for other_score in (0..50).step_by(10) {
+			let expected_value = u16::from(score) - other_score;
+
+			let mut score = score.clone();
+			score.saturating_sub(other_score);
+
+			assert_eq!(expected_value, u16::from(score));
+		}
+
+		// Test underflowing subtraction.
+		for other_score in (50..100).step_by(10) {
+			let mut score = score.clone();
+			score.saturating_sub(other_score);
+
+			assert_eq!(0, u16::from(score));
+		}
+	}
 }
