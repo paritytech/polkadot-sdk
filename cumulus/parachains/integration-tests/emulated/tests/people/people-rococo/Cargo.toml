@@ -14,11 +14,13 @@ workspace = true
 # Substrate
 frame-support = { workspace = true }
 pallet-balances = { workspace = true }
+pallet-xcm = { workspace = true }
 sp-runtime = { workspace = true }
 
 # Polkadot
 xcm = { workspace = true }
 xcm-executor = { workspace = true }
+xcm-runtime-apis = { workspace = true }
 
 # Cumulus
 asset-test-utils = { workspace = true, default-features = true }

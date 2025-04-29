@@ -26,6 +26,8 @@ mod imports {
 		fees::runtime_decl_for_xcm_payment_api::XcmPaymentApiV1,
 	};
 
+	pub use frame_support::traits::fungible::Mutate;
+
 	pub use sp_runtime::traits::Dispatchable;
 	// Polkadot
 	pub use xcm::{
@@ -59,7 +61,7 @@ mod imports {
 		},
 		bridge_hub_rococo_emulated_chain::{
 			genesis::ED as BRIDGE_HUB_ROCOCO_ED, BridgeHubRococoExistentialDeposit,
-			BridgeHubRococoParaPallet as BridgeHubRococoPallet, BridgeHubRococoXcmConfig,
+			BridgeHubRococoParaPallet as BridgeHubRococoPallet,
 		},
 		penpal_emulated_chain::{
 			penpal_runtime::xcm_config::{

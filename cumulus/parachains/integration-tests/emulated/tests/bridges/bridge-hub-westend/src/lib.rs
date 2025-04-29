@@ -27,6 +27,8 @@ mod imports {
 		fees::runtime_decl_for_xcm_payment_api::XcmPaymentApiV1,
 	};
 
+	pub use frame_support::traits::fungible::Mutate;
+
 	pub use sp_runtime::traits::Dispatchable;
 
 	// Polkadot
@@ -64,7 +66,6 @@ mod imports {
 			bridge_hub_westend_runtime, genesis::ED as BRIDGE_HUB_WESTEND_ED,
 			BridgeHubWestendExistentialDeposit,
 			BridgeHubWestendParaPallet as BridgeHubWestendPallet, BridgeHubWestendRuntimeOrigin,
-			BridgeHubWestendXcmConfig,
 		},
 		penpal_emulated_chain::{
 			self,

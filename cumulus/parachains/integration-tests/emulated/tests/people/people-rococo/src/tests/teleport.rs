@@ -32,9 +32,9 @@ fn teleport_from_and_to_relay() {
 
 	test_parachain_is_trusted_teleporter_for_relay!(
 		PeopleRococo,
-		PeopleRococoXcmConfig,
 		Rococo,
-		amount
+		amount,
+		limited_teleport_assets
 	);
 }
 

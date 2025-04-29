@@ -23,6 +23,8 @@ mod imports {
 		fees::runtime_decl_for_xcm_payment_api::XcmPaymentApiV1,
 	};
 
+	pub use frame_support::traits::fungible::Mutate;
+
 	pub use sp_runtime::traits::Dispatchable;
 
 	// Substrate

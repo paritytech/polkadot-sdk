@@ -23,6 +23,8 @@ mod imports {
 		fees::runtime_decl_for_xcm_payment_api::XcmPaymentApiV1,
 	};
 
+	pub use frame_support::traits::fungible::Mutate;
+
 	// Substrate
 	pub use frame_support::{
 		assert_err, assert_ok,
