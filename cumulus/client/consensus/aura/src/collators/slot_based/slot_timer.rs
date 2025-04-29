@@ -67,7 +67,6 @@ pub(crate) struct SlotTimer<Block, Client, P> {
 ///
 /// Returns a tuple with:
 /// - `Duration`: How long to wait until the next slot.
-/// - `Timestamp`: The timestamp to pass to the inherent
 /// - `Slot`: The AURA slot used for authoring
 fn compute_next_wake_up_time(
 	para_slot_duration: SlotDuration,
@@ -75,7 +74,7 @@ fn compute_next_wake_up_time(
 	core_count: Option<u32>,
 	time_now: Duration,
 	time_offset: Duration,
-) -> Duration {
+) -> (Duration, Slot) {
 	let para_slots_per_relay_block =
 		(relay_slot_duration.as_millis() / para_slot_duration.as_millis() as u128) as u32;
 	let assigned_core_num = core_count.unwrap_or(1);
@@ -96,8 +95,10 @@ fn compute_next_wake_up_time(
 		);
 	}
 
-	let duration = time_until_next_attempt(time_now, block_production_interval, time_offset);
-	duration
+	let (duration, timestamp) =
+		time_until_next_attempt(time_now, block_production_interval, time_offset);
+	let aura_slot = Slot::from_timestamp(timestamp, para_slot_duration);
+	(duration, aura_slot)
 }
 
 /// Returns current duration since Unix epoch.
@@ -116,14 +117,14 @@ fn time_until_next_attempt(
 	now: Duration,
 	block_production_interval: Duration,
 	offset: Duration,
-) -> Duration {
+) -> (Duration, Timestamp) {
 	let now = now.as_millis().saturating_sub(offset.as_millis());
 
 	let next_slot_time = ((now + block_production_interval.as_millis()) /
 		block_production_interval.as_millis()) *
 		block_production_interval.as_millis();
 	let remaining_millis = next_slot_time - now;
-	Duration::from_millis(remaining_millis as u64)
+	(Duration::from_millis(remaining_millis as u64), Timestamp::from(next_slot_time as u64))
 }
 
 impl<Block, Client, P> SlotTimer<Block, Client, P>
@@ -163,7 +164,7 @@ where
 			return None
 		};
 
-		let time_until_next_attempt = compute_next_wake_up_time(
+		let (time_until_next_attempt, mut next_aura_slot) = compute_next_wake_up_time(
 			slot_duration,
 			self.relay_slot_duration,
 			self.last_reported_core_num,
@@ -176,9 +177,6 @@ where
 			// to go through all the slots if a node was halted for some reason.
 			Some(ls) if ls + 1 < next_aura_slot && next_aura_slot <= ls + 3 => {
 				next_aura_slot = ls + 1u64;
-				next_timestamp = next_aura_slot
-					.timestamp(slot_duration)
-					.expect("Timestamp does not overflow; qed");
 			},
 			None | Some(_) => {
 				tokio::time::sleep(time_until_next_attempt).await;
@@ -188,6 +186,7 @@ where
 		tracing::debug!(
 			target: LOG_TARGET,
 			?slot_duration,
+			aura_slot = ?next_aura_slot,
 			"New block production opportunity."
 		);
 		Some(())
@@ -261,7 +260,7 @@ mod tests {
 		let time_now = Duration::from_millis(time_now); // 1 second passed
 		let offset = Duration::from_millis(offset_millis);
 
-		let wait_duration = compute_next_wake_up_time(
+		let (wait_duration, _) = compute_next_wake_up_time(
 			para_slot_duration,
 			relay_slot_duration,
 			core_count,
