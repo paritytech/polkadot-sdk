@@ -627,6 +627,12 @@ pub mod bridging {
 					PalletInstance(bp_bridge_hub_westend::WITH_BRIDGE_WESTEND_TO_ROCOCO_MESSAGES_PALLET_INDEX)
 				]
 			);
+			pub LocalBridge: Location = Location::new(
+				0,
+				[
+					PalletInstance(bp_asset_hub_westend::WITH_BRIDGE_WESTEND_TO_ROCOCO_MESSAGES_PALLET_INDEX)
+				]
+			);
 
 			pub const RococoNetwork: NetworkId = NetworkId::ByGenesis(ROCOCO_GENESIS_HASH);
 			pub RococoEcosystem: Location = Location::new(2, [GlobalConsensus(RococoNetwork::get())]);
@@ -656,7 +662,10 @@ pub mod bridging {
 			/// Universal aliases
 			pub UniversalAliases: BTreeSet<(Location, Junction)> = BTreeSet::from_iter(
 				alloc::vec![
-					(SiblingBridgeHubWithBridgeHubRococoInstance::get(), GlobalConsensus(RococoNetwork::get()))
+					// The bridge over BridgeHubs (legacy).
+					(SiblingBridgeHubWithBridgeHubRococoInstance::get(), GlobalConsensus(RococoNetwork::get())),
+					// The direct bridge over AssetHubs.
+					(LocalBridge::get(), GlobalConsensus(RococoNetwork::get()))
 				]
 			);
 		}
