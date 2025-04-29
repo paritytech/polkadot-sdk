@@ -294,7 +294,7 @@ impl ChainSpecBuilder {
 			},
 			ChainSpecBuilderCmd::Verify(VerifyCmd { ref input_chain_spec }) => {
 				let chain_spec = ChainSpec::from_json_file(input_chain_spec.clone())?;
-				let _ = serde_json::from_str::<serde_json::Value>(&chain_spec.as_json(true)?)
+				serde_json::from_str::<serde_json::Value>(&chain_spec.as_json(true)?)
 					.map_err(|e| format!("Conversion to json failed: {e}"))?;
 			},
 			ChainSpecBuilderCmd::ListPresets(ListPresetsCmd { runtime }) => {

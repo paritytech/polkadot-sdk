@@ -62,8 +62,9 @@ pub use misc::{
 	DefensiveSaturating, DefensiveTruncateFrom, EnsureInherentsAreFirst, EqualPrivilegeOnly,
 	EstimateCallFee, ExecuteBlock, ExtrinsicCall, Get, GetBacking, GetDefault, HandleLifetime,
 	InherentBuilder, IsInherent, IsSubType, IsType, Len, OffchainWorker, OnKilledAccount,
-	OnNewAccount, PrivilegeCmp, SameOrOther, SignedTransactionBuilder, Time, TryCollect, TryDrop,
-	TypedGet, UnixTime, VariantCount, VariantCountOf, WrapperKeepOpaque, WrapperOpaque,
+	OnNewAccount, PrivilegeCmp, RewardsReporter, SameOrOther, SignedTransactionBuilder, Time,
+	TryCollect, TryDrop, TypedGet, UnixTime, VariantCount, VariantCountOf, WrapperKeepOpaque,
+	WrapperOpaque,
 };
 #[allow(deprecated)]
 pub use misc::{PreimageProvider, PreimageRecipient};
@@ -118,9 +119,9 @@ pub use preimages::{Bounded, BoundedInline, FetchResult, QueryPreimage, StorePre
 
 mod messages;
 pub use messages::{
-	EnqueueMessage, EnqueueWithOrigin, ExecuteOverweightError, HandleMessage, NoopServiceQueues,
-	ProcessMessage, ProcessMessageError, QueueFootprint, QueuePausedQuery, ServiceQueues,
-	TransformOrigin,
+	BatchFootprint, EnqueueMessage, EnqueueWithOrigin, ExecuteOverweightError, HandleMessage,
+	NoopServiceQueues, ProcessMessage, ProcessMessageError, QueueFootprint, QueueFootprintQuery,
+	QueuePausedQuery, ServiceQueues, TransformOrigin,
 };
 
 mod safe_mode;
