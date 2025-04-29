@@ -255,6 +255,9 @@ struct State {
 	/// Starts as `None` and is updated with every `CollateOn` message.
 	collating_on: Option<ParaId>,
 
+	/// The number of cores currently assigned to the para we are collating on.
+	num_assigned_cores: usize,
+
 	/// Track all active peers and their views
 	/// to determine what is relevant to them.
 	peer_data: HashMap<PeerId, PeerData>,
@@ -322,6 +325,7 @@ impl State {
 			collator_pair,
 			metrics,
 			collating_on: Default::default(),
+			num_assigned_cores: Default::default(),
 			peer_data: Default::default(),
 			implicit_view: None,
 			per_relay_parent: Default::default(),
@@ -472,7 +476,7 @@ async fn distribute_collation<Context>(
 	});
 
 	// Update a set of connected validators if necessary.
-	connect_to_validators(ctx, &state.validator_groups_buf).await;
+	connect_to_validators(ctx, state.num_assigned_cores, &state.validator_groups_buf).await;
 
 	if let Some(result_sender) = result_sender {
 		state.collation_result_senders.insert(candidate_hash, result_sender);
@@ -604,9 +608,23 @@ async fn declare<Context>(ctx: &mut Context, state: &mut State, peer: &PeerId) {
 #[overseer::contextbounds(CollatorProtocol, prefix = self::overseer)]
 async fn connect_to_validators<Context>(
 	ctx: &mut Context,
+	num_assigned_cores: usize,
 	validator_groups_buf: &ValidatorGroupsBuffer,
 ) {
-	let validator_ids = validator_groups_buf.validators_to_connect();
+	// If no cores are assigned to the para, we still need to send a ConnectToValidators request to
+	// the network bridge passing an empty list of validator ids. Otherwise, it will keep connecting
+	// to the last requested validators until a new request is issued.
+	let validator_ids = match num_assigned_cores {
+		0 => Vec::new(),
+		_ => validator_groups_buf.validators_to_connect(),
+	};
+
+	gum::trace!(
+		target: LOG_TARGET,
+		?num_assigned_cores,
+		"Sending connection request to validators: {:?}",
+		validator_ids,
+	);
 
 	// ignore address resolution failure
 	// will reissue a new request on new collation
@@ -1218,7 +1236,9 @@ async fn handle_our_view_change<Context>(
 
 	for leaf in added {
 		let claim_queue = fetch_claim_queue(ctx.sender(), *leaf).await?;
-		state.per_relay_parent.insert(*leaf, PerRelayParent::new(para_id, claim_queue));
+		let relay_data = PerRelayParent::new(para_id, claim_queue);
+		state.num_assigned_cores = relay_data.assignments.len();
+		state.per_relay_parent.insert(*leaf, relay_data);
 
 		implicit_view
 			.activate_leaf(ctx.sender(), *leaf)
@@ -1441,7 +1461,7 @@ async fn run_inner<Context>(
 				}
 			}
 			_ = reconnect_timeout => {
-				connect_to_validators(&mut ctx, &state.validator_groups_buf).await;
+				connect_to_validators(&mut ctx, state.num_assigned_cores, &state.validator_groups_buf).await;
 
 				gum::trace!(
 					target: LOG_TARGET,
