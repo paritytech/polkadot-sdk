@@ -47,7 +47,7 @@ where
 	fn update(
 		id: &Self::Id,
 		strategy: Strategy,
-		update: Strategy::Update<'_>,
+		update: Strategy::UpdateValue<'_>,
 	) -> Result<Strategy::Success, DispatchError> {
 		UpdateOp::update(id, strategy, update)
 	}
