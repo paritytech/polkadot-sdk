@@ -51,7 +51,11 @@ jobs:
         if: ${{ github.event.pull_request.number != '' && !contains(steps.get-labels.outputs.labels, 'R0') }}
         run: |
           original_pr_number=''
-          PR_TITLE=${{ toJson(github.event.pull_request.title) }}
+
+          # Safely quote PR title
+          PR_TITLE_RAW=${{ toJson(github.event.pull_request.title) }}
+          PR_TITLE=$(echo "$PR_TITLE_RAW" | jq -r .)
+
           if [[ $PR_TITLE =~ 'Backport' ]]; then
             # Extracting the original PR number from the backport's PR title
             if [[ $PR_TITLE =~ \#([0-9]+) ]]; then
