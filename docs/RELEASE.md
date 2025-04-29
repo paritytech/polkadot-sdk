@@ -161,8 +161,8 @@ to the release branch
 5. Repeat steps 1-3 to prepare the rc
 6. Trigger [Release - Promote RC to final candidate on S3](/.github/workflows/release-31_promote-rc-to-final.yml)
 to have it as a final rc on the S3
-7. Publish deb package for the `polakdot` binary using
-[Release - Publish polakdot deb package](/.github/workflows/release-40_publish-deb-package.yml)
+7. Publish deb package for the `polkadot` binary using
+[Release - Publish Polkadot deb package](/.github/workflows/release-40_publish-deb-package.yml)
 8. Adjust the release draft and publish release on the GitHub.
 9. Publish docker images using [Release - Publish Docker Image](/.github/workflows/release-50_publish-docker.yml)
 
@@ -177,17 +177,7 @@ in the repo with the actual release dates.
 
 Cadence: every month. Responsible: Developer
 
-Describes how developers should merge bug and security fixes.
-
-### Steps
-
-1. Developer opens a Pull Request with a bug or security fix.
-2. The Pull Request is marked as priority fix.
-3. Audit happens with priority.
-4. It is merged into `master`.
-5. Dev adds the `A4-needs-backport` label.
-6. It is automatically back-ported to `stable` and merged by a release engineer.
-7. The fix will be released in the next *Stable patch* release. In urgent cases, a release can happen earlier.
+Backporting rules can be found in the [BACKPORT.md](/docs/BACKPORT.md)
 
 The release itself is similar to [the new stable release](#steps-to-execute-a-new-stable-release) process without
 the branching-off step, as the branch already exists and depending on the patch
