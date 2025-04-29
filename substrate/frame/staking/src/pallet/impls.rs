@@ -20,7 +20,7 @@
 use frame_election_provider_support::{
 	bounds::{CountBound, SizeBound},
 	data_provider, BoundedSupportsOf, DataProviderBounds, ElectionDataProvider, ElectionProvider,
-	ScoreProvider, SortedListProvider, VoteWeight, VoterOf,
+	PageIndex, ScoreProvider, SortedListProvider, TryFromOtherBounds, VoteWeight, VoterOf,
 };
 use frame_support::{
 	defensive,
@@ -28,7 +28,8 @@ use frame_support::{
 	pallet_prelude::*,
 	traits::{
 		Defensive, DefensiveSaturating, EstimateNextNewSession, Get, Imbalance,
-		InspectLockableCurrency, Len, LockableCurrency, OnUnbalanced, TryCollect, UnixTime,
+		InspectLockableCurrency, Len, LockableCurrency, OnUnbalanced, RewardsReporter, TryCollect,
+		UnixTime,
 	},
 	weights::Weight,
 };
@@ -50,10 +51,9 @@ use sp_staking::{
 
 use crate::{
 	asset, election_size_tracker::StaticTracker, log, slashing, weights::WeightInfo, ActiveEraInfo,
-	BalanceOf, EraInfo, EraPayout, Existence, ExistenceOrLegacyExposure, Exposure, Forcing,
-	IndividualExposure, LedgerIntegrityState, MaxNominationsOf, MaxWinnersOf, Nominations,
-	NominationsQuota, PositiveImbalanceOf, RewardDestination, SessionInterface, StakingLedger,
-	ValidatorPrefs, STAKING_ID,
+	BalanceOf, EraInfo, EraPayout, Exposure, Forcing, IndividualExposure, LedgerIntegrityState,
+	MaxNominationsOf, MaxWinnersOf, Nominations, NominationsQuota, PositiveImbalanceOf,
+	RewardDestination, SessionInterface, StakingLedger, UnlockChunk, ValidatorPrefs, STAKING_ID,
 };
 use alloc::{boxed::Box, vec, vec::Vec};
 
@@ -641,24 +641,24 @@ impl<T: Config> Pallet<T> {
 		start_session_index: SessionIndex,
 		is_genesis: bool,
 	) -> Option<BoundedVec<T::AccountId, MaxWinnersOf<T>>> {
-		let election_result: BoundedVec<_, MaxWinnersOf<T>> = if is_genesis {
-			let result = <T::GenesisElectionProvider>::elect().map_err(|e| {
-				log!(warn, "genesis election provider failed due to {:?}", e);
-				Self::deposit_event(Event::StakingElectionFailed);
-			});
+		let election_result = if is_genesis {
+			// This pallet only supports single page elections.
+			let result = <T::GenesisElectionProvider>::elect(0)
+				.map_err(|e| {
+					log!(warn, "genesis election provider failed due to {:?}", e);
+					Self::deposit_event(Event::StakingElectionFailed);
+				})
+				.ok()?;
 
-			result
-				.ok()?
-				.into_inner()
-				.try_into()
-				// both bounds checked in integrity test to be equal
-				.defensive_unwrap_or_default()
+			BoundedSupportsOf::<T::ElectionProvider>::try_from_other_bounds(result).ok()?
 		} else {
-			let result = <T::ElectionProvider>::elect().map_err(|e| {
-				log!(warn, "election provider failed due to {:?}", e);
-				Self::deposit_event(Event::StakingElectionFailed);
-			});
-			result.ok()?
+			// This pallet only supports single page elections.
+			<T::ElectionProvider>::elect(0)
+				.map_err(|e| {
+					log!(warn, "election provider failed due to {:?}", e);
+					Self::deposit_event(Event::StakingElectionFailed);
+				})
+				.ok()?
 		};
 
 		let exposures = Self::collect_exposures(election_result);
@@ -845,7 +845,7 @@ impl<T: Config> Pallet<T> {
 	/// relatively to their points.
 	///
 	/// COMPLEXITY: Complexity is `number_of_validator_to_reward x current_elected_len`.
-	pub fn reward_by_ids(validators_points: impl IntoIterator<Item = (T::AccountId, u32)>) {
+	fn reward_by_ids(validators_points: impl IntoIterator<Item = (T::AccountId, u32)>) {
 		if let Some(active_era) = ActiveEra::<T>::get() {
 			<ErasRewardPoints<T>>::mutate(active_era.index, |era_rewards| {
 				for (validator, points) in validators_points.into_iter() {
@@ -1260,6 +1260,7 @@ impl<T: Config> Pallet<T> {
 			let active_era = ActiveEra::<T>::get();
 			add_db_reads_writes(1, 0);
 			if active_era.is_none() {
+				log!(warn, "🦹 on_offence: Active era not set -- not processing offence");
 				// This offence need not be re-submitted.
 				return consumed_weight
 			}
@@ -1267,7 +1268,7 @@ impl<T: Config> Pallet<T> {
 		};
 		let active_era_start_session_index = ErasStartSessionIndex::<T>::get(active_era)
 			.unwrap_or_else(|| {
-				frame_support::print("Error: start_session_index must be set for current_era");
+				log!(error, "🦹 on_offence: start_session_index must be set for current_era");
 				0
 			});
 		add_db_reads_writes(1, 0);
@@ -1286,7 +1287,10 @@ impl<T: Config> Pallet<T> {
 			match eras.iter().rev().find(|&(_, sesh)| sesh <= &slash_session) {
 				Some((slash_era, _)) => *slash_era,
 				// Before bonding period. defensive - should be filtered out.
-				None => return consumed_weight,
+				None => {
+					log!(warn, "🦹 on_offence: bonded era not found");
+					return consumed_weight
+				},
 			}
 		};
 
@@ -1376,6 +1380,92 @@ impl<T: Config> Pallet<T> {
 
 		consumed_weight
 	}
+
+	/// Unbonds a controller.
+	pub(crate) fn do_unbond(
+		controller: T::AccountId,
+		value: BalanceOf<T>,
+	) -> Result<Option<Weight>, DispatchError> {
+		let unlocking = Self::ledger(Controller(controller.clone())).map(|l| l.unlocking.len())?;
+
+		// if there are no unlocking chunks available, try to withdraw chunks older than
+		// `BondingDuration` to proceed with the unbonding.
+		let maybe_withdraw_weight = {
+			if unlocking == T::MaxUnlockingChunks::get() as usize {
+				let real_num_slashing_spans =
+					SlashingSpans::<T>::get(&controller).map_or(0, |s| s.iter().count());
+				Some(Self::do_withdraw_unbonded(&controller, real_num_slashing_spans as u32)?)
+			} else {
+				None
+			}
+		};
+
+		// we need to fetch the ledger again because it may have been mutated in the call
+		// to `Self::do_withdraw_unbonded` above.
+		let mut ledger = Self::ledger(Controller(controller))?;
+		let mut value = value.min(ledger.active);
+		let stash = ledger.stash.clone();
+
+		ensure!(
+			ledger.unlocking.len() < T::MaxUnlockingChunks::get() as usize,
+			Error::<T>::NoMoreChunks,
+		);
+
+		if !value.is_zero() {
+			ledger.active -= value;
+
+			// Avoid there being a dust balance left in the staking system.
+			if ledger.active < asset::existential_deposit::<T>() {
+				value += ledger.active;
+				ledger.active = Zero::zero();
+			}
+
+			let min_active_bond = if Nominators::<T>::contains_key(&stash) {
+				MinNominatorBond::<T>::get()
+			} else if Validators::<T>::contains_key(&stash) {
+				MinValidatorBond::<T>::get()
+			} else {
+				Zero::zero()
+			};
+
+			// Make sure that the user maintains enough active bond for their role.
+			// If a user runs into this error, they should chill first.
+			ensure!(ledger.active >= min_active_bond, Error::<T>::InsufficientBond);
+
+			// Note: in case there is no current era it is fine to bond one era more.
+			let era = CurrentEra::<T>::get()
+				.unwrap_or(0)
+				.defensive_saturating_add(T::BondingDuration::get());
+			if let Some(chunk) = ledger.unlocking.last_mut().filter(|chunk| chunk.era == era) {
+				// To keep the chunk count down, we only keep one chunk per era. Since
+				// `unlocking` is a FiFo queue, if a chunk exists for `era` we know that it will
+				// be the last one.
+				chunk.value = chunk.value.defensive_saturating_add(value)
+			} else {
+				ledger
+					.unlocking
+					.try_push(UnlockChunk { value, era })
+					.map_err(|_| Error::<T>::NoMoreChunks)?;
+			};
+			// NOTE: ledger must be updated prior to calling `Self::weight_of`.
+			ledger.update()?;
+
+			// update this staker in the sorted list, if they exist in it.
+			if T::VoterList::contains(&stash) {
+				let _ = T::VoterList::on_update(&stash, Self::weight_of(&stash)).defensive();
+			}
+
+			Self::deposit_event(Event::<T>::Unbonded { stash, amount: value });
+		}
+
+		let actual_weight = if let Some(withdraw_weight) = maybe_withdraw_weight {
+			Some(T::WeightInfo::unbond().saturating_add(withdraw_weight))
+		} else {
+			Some(T::WeightInfo::unbond())
+		};
+
+		Ok(actual_weight)
+	}
 }
 
 impl<T: Config> Pallet<T> {
@@ -1412,7 +1502,10 @@ impl<T: Config> ElectionDataProvider for Pallet<T> {
 		Ok(ValidatorCount::<T>::get())
 	}
 
-	fn electing_voters(bounds: DataProviderBounds) -> data_provider::Result<Vec<VoterOf<Self>>> {
+	fn electing_voters(
+		bounds: DataProviderBounds,
+		_page: PageIndex,
+	) -> data_provider::Result<Vec<VoterOf<Self>>> {
 		// This can never fail -- if `maybe_max_len` is `Some(_)` we handle it.
 		let voters = Self::get_npos_voters(bounds);
 
@@ -1424,7 +1517,10 @@ impl<T: Config> ElectionDataProvider for Pallet<T> {
 		Ok(voters)
 	}
 
-	fn electable_targets(bounds: DataProviderBounds) -> data_provider::Result<Vec<T::AccountId>> {
+	fn electable_targets(
+		bounds: DataProviderBounds,
+		_page: PageIndex,
+	) -> data_provider::Result<Vec<T::AccountId>> {
 		let targets = Self::get_npos_targets(bounds);
 
 		// We can't handle this case yet -- return an error. WIP to improve handling this case in
@@ -1572,23 +1668,34 @@ impl<T: Config> pallet_session::SessionManager<T::AccountId> for Pallet<T> {
 	}
 }
 
-impl<T: Config>
-	historical::SessionManager<T::AccountId, ExistenceOrLegacyExposure<T::AccountId, BalanceOf<T>>>
+impl<T: Config> historical::SessionManager<T::AccountId, Exposure<T::AccountId, BalanceOf<T>>>
 	for Pallet<T>
 {
 	fn new_session(
 		new_index: SessionIndex,
-	) -> Option<Vec<(T::AccountId, ExistenceOrLegacyExposure<T::AccountId, BalanceOf<T>>)>> {
+	) -> Option<Vec<(T::AccountId, Exposure<T::AccountId, BalanceOf<T>>)>> {
 		<Self as pallet_session::SessionManager<_>>::new_session(new_index).map(|validators| {
-			validators.into_iter().map(|v| (v, ExistenceOrLegacyExposure::Exists)).collect()
+			validators
+				.into_iter()
+				.map(|v| {
+					let exposure = Exposure::<T::AccountId, BalanceOf<T>>::default();
+					(v, exposure)
+				})
+				.collect()
 		})
 	}
 	fn new_session_genesis(
 		new_index: SessionIndex,
-	) -> Option<Vec<(T::AccountId, ExistenceOrLegacyExposure<T::AccountId, BalanceOf<T>>)>> {
+	) -> Option<Vec<(T::AccountId, Exposure<T::AccountId, BalanceOf<T>>)>> {
 		<Self as pallet_session::SessionManager<_>>::new_session_genesis(new_index).map(
 			|validators| {
-				validators.into_iter().map(|v| (v, ExistenceOrLegacyExposure::Exists)).collect()
+				validators
+					.into_iter()
+					.map(|v| {
+						let exposure = Exposure::<T::AccountId, BalanceOf<T>>::default();
+						(v, exposure)
+					})
+					.collect()
 			},
 		)
 	}
@@ -1600,12 +1707,12 @@ impl<T: Config>
 	}
 }
 
-impl<T: Config> historical::SessionManager<T::AccountId, Existence> for Pallet<T> {
-	fn new_session(new_index: SessionIndex) -> Option<Vec<(T::AccountId, Existence)>> {
+impl<T: Config> historical::SessionManager<T::AccountId, ()> for Pallet<T> {
+	fn new_session(new_index: SessionIndex) -> Option<Vec<(T::AccountId, ())>> {
 		<Self as pallet_session::SessionManager<_>>::new_session(new_index)
 			.map(|validators| validators.into_iter().map(|v| (v, ())).collect())
 	}
-	fn new_session_genesis(new_index: SessionIndex) -> Option<Vec<(T::AccountId, Existence)>> {
+	fn new_session_genesis(new_index: SessionIndex) -> Option<Vec<(T::AccountId, ())>> {
 		<Self as pallet_session::SessionManager<_>>::new_session_genesis(new_index)
 			.map(|validators| validators.into_iter().map(|v| (v, ())).collect())
 	}
@@ -1624,7 +1731,7 @@ where
 	T: Config + pallet_authorship::Config + pallet_session::Config,
 {
 	fn note_author(author: T::AccountId) {
-		Self::reward_by_ids(vec![(author, 20)])
+		<Self as RewardsReporter<T::AccountId>>::reward_by_ids(vec![(author, 20)])
 	}
 }
 
@@ -1671,8 +1778,14 @@ where
 impl<T: Config> ScoreProvider<T::AccountId> for Pallet<T> {
 	type Score = VoteWeight;
 
-	fn score(who: &T::AccountId) -> Self::Score {
-		Self::weight_of(who)
+	fn score(who: &T::AccountId) -> Option<Self::Score> {
+		Self::ledger(Stash(who.clone()))
+			.map(|l| l.active)
+			.map(|a| {
+				let issuance = asset::total_issuance::<T>();
+				T::CurrencyToVote::to_vote(a, issuance)
+			})
+			.ok()
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
@@ -1744,7 +1857,7 @@ impl<T: Config> SortedListProvider<T::AccountId> for UseValidatorsMap<T> {
 	}
 	fn unsafe_regenerate(
 		_: impl IntoIterator<Item = T::AccountId>,
-		_: Box<dyn Fn(&T::AccountId) -> Self::Score>,
+		_: Box<dyn Fn(&T::AccountId) -> Option<Self::Score>>,
 	) -> u32 {
 		// nothing to do upon regenerate.
 		0
@@ -1763,6 +1876,10 @@ impl<T: Config> SortedListProvider<T::AccountId> for UseValidatorsMap<T> {
 	fn score_update_worst_case(_who: &T::AccountId, _is_increase: bool) -> Self::Score {
 		unimplemented!()
 	}
+
+	fn lock() {}
+
+	fn unlock() {}
 }
 
 /// A simple voter list implementation that does not require any additional pallets. Note, this
@@ -1820,7 +1937,7 @@ impl<T: Config> SortedListProvider<T::AccountId> for UseNominatorsAndValidatorsM
 	}
 	fn unsafe_regenerate(
 		_: impl IntoIterator<Item = T::AccountId>,
-		_: Box<dyn Fn(&T::AccountId) -> Self::Score>,
+		_: Box<dyn Fn(&T::AccountId) -> Option<Self::Score>>,
 	) -> u32 {
 		// nothing to do upon regenerate.
 		0
@@ -1844,6 +1961,10 @@ impl<T: Config> SortedListProvider<T::AccountId> for UseNominatorsAndValidatorsM
 	fn score_update_worst_case(_who: &T::AccountId, _is_increase: bool) -> Self::Score {
 		unimplemented!()
 	}
+
+	fn lock() {}
+
+	fn unlock() {}
 }
 
 impl<T: Config> StakingInterface for Pallet<T> {
@@ -1947,7 +2068,7 @@ impl<T: Config> StakingInterface for Pallet<T> {
 	}
 
 	fn election_ongoing() -> bool {
-		T::ElectionProvider::ongoing()
+		T::ElectionProvider::status().is_ok()
 	}
 
 	fn force_unstake(who: Self::AccountId) -> sp_runtime::DispatchResult {
@@ -2077,6 +2198,12 @@ impl<T: Config> sp_staking::StakingUnchecked for Pallet<T> {
 	}
 }
 
+impl<T: Config> RewardsReporter<T::AccountId> for Pallet<T> {
+	fn reward_by_ids(validators_points: impl IntoIterator<Item = (T::AccountId, u32)>) {
+		Self::reward_by_ids(validators_points)
+	}
+}
+
 #[cfg(any(test, feature = "try-runtime"))]
 impl<T: Config> Pallet<T> {
 	pub(crate) fn do_try_state(_: BlockNumberFor<T>) -> Result<(), TryRuntimeError> {
@@ -2186,11 +2313,16 @@ impl<T: Config> Pallet<T> {
 			<T as Config>::TargetList::count() == Validators::<T>::count(),
 			"wrong external count"
 		);
+
+		let max_validators_bound = MaxWinnersOf::<T>::get();
+		let max_winners_per_page_bound = crate::MaxWinnersPerPageOf::<T::ElectionProvider>::get();
+
 		ensure!(
-			ValidatorCount::<T>::get() <=
-				<T::ElectionProvider as frame_election_provider_support::ElectionProviderBase>::MaxWinners::get(),
-			Error::<T>::TooManyValidators
+			max_validators_bound >= max_winners_per_page_bound,
+			"max validators should be higher than per page bounds"
 		);
+
+		ensure!(ValidatorCount::<T>::get() <= max_validators_bound, Error::<T>::TooManyValidators);
 		Ok(())
 	}
 
