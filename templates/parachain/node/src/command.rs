@@ -219,6 +219,7 @@ pub fn run() -> Result<()> {
 		None => {
 			let runner = cli.create_runner(&cli.run.normalize())?;
 			let collator_options = cli.run.collator_options();
+			let dht_bootnode_options = cli.run.dht_bootnode_options();
 
 			runner.run_node_until_exit(|config| async move {
 				let hwbench = (!cli.no_hardware_benchmarks)
@@ -255,6 +256,7 @@ pub fn run() -> Result<()> {
 					config,
 					polkadot_config,
 					collator_options,
+					dht_bootnode_options,
 					id,
 					hwbench,
 				)

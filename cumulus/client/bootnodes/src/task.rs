@@ -24,7 +24,7 @@ use crate::{
 };
 use cumulus_primitives_core::{relay_chain::BlockId, ParaId};
 use cumulus_relay_chain_interface::RelayChainInterface;
-use log::error;
+use log::{debug, error};
 use num_traits::Zero;
 use parachains_common::Hash as ParaHash;
 use sc_network::{request_responses::IncomingRequest, service::traits::NetworkService, Multiaddr};
@@ -36,6 +36,10 @@ const LOG_TARGET: &str = "bootnodes";
 
 /// Bootnode advertisement task params.
 pub struct StartBootnodeTasksParams<'a> {
+	/// Enable embedded DHT bootnode.
+	pub embedded_dht_bootnode: bool,
+	/// Enable DHT bootnode discovery.
+	pub dht_bootnode_discovery: bool,
 	/// Parachain ID.
 	pub para_id: ParaId,
 	/// Task manager.
@@ -141,6 +145,8 @@ async fn bootnode_discovery(
 /// Start parachain bootnode advertisement and discovery tasks.
 pub fn start_bootnode_tasks(
 	StartBootnodeTasksParams {
+		embedded_dht_bootnode,
+		dht_bootnode_discovery,
 		para_id,
 		task_manager,
 		relay_chain_interface,
@@ -154,32 +160,43 @@ pub fn start_bootnode_tasks(
 		parachain_public_addresses,
 	}: StartBootnodeTasksParams,
 ) {
-	task_manager.spawn_essential_handle().spawn(
-		"cumulus-bootnode-advertisement",
-		None,
-		bootnode_advertisement(
-			para_id,
-			relay_chain_interface.clone(),
-			relay_chain_network.clone(),
-			request_receiver,
-			parachain_network.clone(),
-			advertise_non_global_ips,
-			parachain_genesis_hash,
-			parachain_fork_id.clone(),
-			parachain_public_addresses,
-		),
+	debug!(
+		target: LOG_TARGET,
+		"Embedded DHT bootnode enabled: {embedded_dht_bootnode}; \
+		 DHT bootnode discovery enabled: {dht_bootnode_discovery}",
 	);
-	task_manager.spawn_essential_handle().spawn(
-		"cumulus-bootnode-discovery",
-		None,
-		bootnode_discovery(
-			para_id,
-			parachain_network,
-			parachain_genesis_hash,
-			parachain_fork_id,
-			relay_chain_interface,
-			relay_chain_fork_id,
-			relay_chain_network,
-		),
-	);
+
+	if embedded_dht_bootnode {
+		task_manager.spawn_essential_handle().spawn(
+			"cumulus-dht-bootnode-advertisement",
+			None,
+			bootnode_advertisement(
+				para_id,
+				relay_chain_interface.clone(),
+				relay_chain_network.clone(),
+				request_receiver,
+				parachain_network.clone(),
+				advertise_non_global_ips,
+				parachain_genesis_hash,
+				parachain_fork_id.clone(),
+				parachain_public_addresses,
+			),
+		);
+	}
+
+	if dht_bootnode_discovery {
+		task_manager.spawn_essential_handle().spawn(
+			"cumulus-dht-bootnode-discovery",
+			None,
+			bootnode_discovery(
+				para_id,
+				parachain_network,
+				parachain_genesis_hash,
+				parachain_fork_id,
+				relay_chain_interface,
+				relay_chain_fork_id,
+				relay_chain_network,
+			),
+		);
+	}
 }

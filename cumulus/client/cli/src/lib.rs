@@ -316,6 +316,18 @@ pub struct RunCmd {
 	/// It will be removed once <https://github.com/paritytech/polkadot-sdk/issues/6020> is fixed.
 	#[arg(long)]
 	pub experimental_max_pov_percentage: Option<u32>,
+
+	/// Disable embedded DHT bootnode.
+	///
+	/// Do not advertise the node as a parachain bootnode on the relay chain DHT.
+	#[arg(long)]
+	pub no_dht_bootnode: bool,
+
+	/// Disable DHT bootnode discovery.
+	///
+	/// Disable discovery of the parachain bootnodes via the relay chain DHT.
+	#[arg(long)]
+	pub no_dht_bootnode_discovery: bool,
 }
 
 impl RunCmd {
@@ -340,6 +352,14 @@ impl RunCmd {
 
 		CollatorOptions { relay_chain_mode }
 	}
+
+	/// Create [`DhtBootnodeOptions`] enabling embedded DHT bootnode & DHT bootnode discovery.
+	pub fn dht_bootnode_options(&self) -> DhtBootnodeOptions {
+		DhtBootnodeOptions {
+			embedded_dht_bootnode: !self.no_dht_bootnode,
+			dht_bootnode_discovery: !self.no_dht_bootnode_discovery,
+		}
+	}
 }
 
 /// Possible modes for the relay chain to operate in.
@@ -358,6 +378,15 @@ pub enum RelayChainMode {
 pub struct CollatorOptions {
 	/// How this collator retrieves relay chain information
 	pub relay_chain_mode: RelayChainMode,
+}
+
+/// Options of the embedded DHT bootnode & DHT bootnode discovery.
+#[derive(Clone, Debug)]
+pub struct DhtBootnodeOptions {
+	/// Enable embedded DHT bootnode.
+	pub embedded_dht_bootnode: bool,
+	/// Enable DHT bootnode discovery.
+	pub dht_bootnode_discovery: bool,
 }
 
 /// A non-redundant version of the `RunCmd` that sets the `validator` field when the

@@ -16,6 +16,8 @@ crates:
   bump: minor
 - name: cumulus-client-bootnodes
   bump: patch
+- name: cumulus-client-cli
+  bump: minor
 - name: polkadot-omni-node-lib
   bump: minor
 - name: cumulus-client-service

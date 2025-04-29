@@ -226,6 +226,7 @@ pub fn run<CliConfig: crate::cli::CliConfig>(cmd_config: RunConfig) -> Result<()
 			let polkadot_cli =
 				RelayChainCli::<CliConfig>::new(runner.config(), cli.relay_chain_args.iter());
 			let collator_options = cli.run.collator_options();
+			let dht_bootnode_options = cli.run.dht_bootnode_options();
 
 			if cli.experimental_use_slot_based {
 				log::warn!(
@@ -329,6 +330,7 @@ pub fn run<CliConfig: crate::cli::CliConfig>(cmd_config: RunConfig) -> Result<()
 						config,
 						polkadot_config,
 						collator_options,
+						dht_bootnode_options,
 						para_id,
 						hwbench,
 						cli.node_extra_args(),
