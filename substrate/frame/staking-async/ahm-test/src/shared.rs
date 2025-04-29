@@ -82,7 +82,7 @@ pub fn migrate_state() {
 					era,
 					pallet_staking_async::EraRewardPoints {
 						total: reward_points.total,
-						individual: reward_points.individual.clone(),
+						individual: reward_points.individual.clone().try_into().unwrap(),
 					},
 				)
 			});
@@ -109,12 +109,15 @@ pub fn migrate_state() {
 			});
 		}
 
-		for (era, session_index) in pallet_staking::ErasStartSessionIndex::<rc::Runtime>::drain() {
+		shared::in_ah(|| {
+			pallet_staking_async::BondedEras::<ah::Runtime>::kill();
+		});
+
+		for (era, session) in pallet_staking::BondedEras::<rc::Runtime>::get() {
 			shared::in_ah(|| {
-				pallet_staking_async::ErasStartSessionIndex::<ah::Runtime>::insert(
-					era,
-					session_index,
-				)
+				pallet_staking_async::BondedEras::<ah::Runtime>::mutate(|bonded| {
+					bonded.try_push((era, session)).unwrap()
+				})
 			});
 		}
 	})

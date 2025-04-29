@@ -46,6 +46,11 @@ pub mod elastic_scaling_multi_block_slot {
 	include!(concat!(env!("OUT_DIR"), "/wasm_binary_elastic_scaling_multi_block_slot.rs"));
 }
 
+pub mod sync_backing {
+	#[cfg(feature = "std")]
+	include!(concat!(env!("OUT_DIR"), "/wasm_binary_sync_backing.rs"));
+}
+
 mod genesis_config_presets;
 mod test_pallet;
 
@@ -129,9 +134,16 @@ pub const BLOCK_PROCESSING_VELOCITY: u32 = 3;
 )))]
 pub const BLOCK_PROCESSING_VELOCITY: u32 = 1;
 
+#[cfg(feature = "sync-backing")]
+const UNINCLUDED_SEGMENT_CAPACITY: u32 = 1;
+
 // The `+2` shouldn't be needed, https://github.com/paritytech/polkadot-sdk/issues/5260
+#[cfg(not(feature = "sync-backing"))]
 const UNINCLUDED_SEGMENT_CAPACITY: u32 = BLOCK_PROCESSING_VELOCITY * 2 + 2;
 
+#[cfg(feature = "sync-backing")]
+pub const SLOT_DURATION: u64 = 12000;
+#[cfg(not(feature = "sync-backing"))]
 pub const SLOT_DURATION: u64 = 6000;
 
 const RELAY_CHAIN_SLOT_DURATION_MILLIS: u32 = 6000;
@@ -353,6 +365,9 @@ impl pallet_aura::Config for Runtime {
 	type AuthorityId = AuraId;
 	type DisabledValidators = ();
 	type MaxAuthorities = ConstU32<32>;
+	#[cfg(feature = "sync-backing")]
+	type AllowMultipleBlocksPerSlot = ConstBool<false>;
+	#[cfg(not(feature = "sync-backing"))]
 	type AllowMultipleBlocksPerSlot = ConstBool<true>;
 	type SlotDuration = ConstU64<SLOT_DURATION>;
 }
