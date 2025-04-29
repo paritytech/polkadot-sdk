@@ -39,42 +39,6 @@ const HISTOGRAM_BUCKETS: [f64; 11] = [
 	10_000_000.0,
 ];
 
-/// Labels for transaction status.
-mod labels {
-	/// Represents the `TransactionEvent::Validated` event.
-	pub const VALIDATED: &str = "validated";
-
-	/// Represents the `TransactionEvent::BestChainBlockIncluded(Some (..))` event.
-	pub const IN_BLOCK: &str = "in_block";
-
-	/// Represents the `TransactionEvent::BestChainBlockIncluded(None)` event.
-	pub const RETRACTED: &str = "retracted";
-
-	/// Represents the `TransactionEvent::Finalized` event.
-	pub const FINALIZED: &str = "finalized";
-
-	/// Represents the `TransactionEvent::Error` event.
-	pub const ERROR: &str = "error";
-
-	/// Represents the `TransactionEvent::Invalid` event.
-	pub const INVALID: &str = "invalid";
-
-	/// Represents the `TransactionEvent::Dropped` event.
-	pub const DROPPED: &str = "dropped";
-}
-
-/// Convert a transaction event to a metric label.
-fn transaction_event_label<Hash>(event: &TransactionEvent<Hash>) -> &'static str {
-	match event {
-		TransactionEvent::Validated => labels::VALIDATED,
-		TransactionEvent::BestChainBlockIncluded(Some(_)) => labels::IN_BLOCK,
-		TransactionEvent::BestChainBlockIncluded(None) => labels::RETRACTED,
-		TransactionEvent::Finalized(..) => labels::FINALIZED,
-		TransactionEvent::Error(..) => labels::ERROR,
-		TransactionEvent::Dropped(..) => labels::DROPPED,
-		TransactionEvent::Invalid(..) => labels::INVALID,
-	}
-}
 /// RPC layer metrics for transaction pool.
 #[derive(Debug, Clone)]
 pub struct Metrics {
@@ -129,7 +93,16 @@ impl InstanceMetrics {
 			return;
 		};
 
-		let target_state = transaction_event_label(event);
+		let target_state = match event {
+			TransactionEvent::Validated => "validated",
+			TransactionEvent::BestChainBlockIncluded(Some(_)) => "in_block",
+			TransactionEvent::BestChainBlockIncluded(None) => "retracted",
+			TransactionEvent::Finalized(..) => "finalized",
+			TransactionEvent::Error(..) => "error",
+			TransactionEvent::Dropped(..) => "dropped",
+			TransactionEvent::Invalid(..) => "invalid",
+		};
+
 		if self.reported_states.insert(target_state) {
 			let elapsed = self.submitted_at.elapsed().as_micros() as f64;
 			metrics.execution_time.with_label_values(&[target_state]).observe(elapsed);
