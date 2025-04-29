@@ -86,6 +86,8 @@ pub use parachains_runtimes_test_utils::test_cases::{
 	change_storage_constant_by_governance_works, set_storage_keys_by_governance_works,
 };
 
+pub use helpers::{EnsureDeliveryAndMessage, ToMessageQueueDelivery, ToSiblingDelivery};
+
 /// Prepare default runtime storage and run test within this context.
 pub fn run_test<Runtime, T>(
 	collator_session_key: CollatorSessionKeys<Runtime>,
@@ -967,19 +969,15 @@ pub(crate) mod for_pallet_xcm_bridge {
 
 /// Helper trait to test bridges with just messages pallet.
 ///
-/// This is only used to decrease amount of lines, dedicated to bounds.
+/// This is only used to decrease the number of lines dedicated to bounds.
 pub trait WithBridgeMessagesHelper {
 	/// This chain runtime.
 	type Runtime: BasicParachainRuntime
-		+ cumulus_pallet_xcmp_queue::Config
 		+ BridgeMessagesConfig<
 			Self::MPI,
 			InboundPayload = test_data::XcmAsPlainPayload,
 			OutboundPayload = test_data::XcmAsPlainPayload,
 		> + pallet_bridge_relayers::Config<Self::RPI, Reward = Self::RelayerReward>;
-	/// All pallets of this chain, excluding system pallet.
-	type AllPalletsWithoutSystem: OnInitialize<BlockNumberFor<Self::Runtime>>
-		+ OnFinalize<BlockNumberFor<Self::Runtime>>;
 	/// Instance of the `pallet-bridge-messages`, used to bridge with remote parachain.
 	type MPI: 'static;
 	/// Instance of the `pallet-bridge-relayers`, used to collect rewards from messages `MPI`
@@ -987,35 +985,38 @@ pub trait WithBridgeMessagesHelper {
 	type RPI: 'static;
 	/// Relayer reward type.
 	type RelayerReward: From<RewardsAccountParams<LaneIdOf<Self::Runtime, Self::MPI>>>;
+	/// Generic means for ensuring delivery (e.g. open hrmp) and getting the enqueued XCM.
+	type EnsureDeliveryAndMessage: EnsureDeliveryAndMessage;
 }
 
 /// Adapter struct that implements `WithBridgeMessagesHelper`.
-pub struct WithBridgeMessagesHelperAdapter<Runtime, AllPalletsWithoutSystem, MPI, RPI>(
-	core::marker::PhantomData<(Runtime, AllPalletsWithoutSystem, MPI, RPI)>,
-);
+pub struct WithBridgeMessagesHelperAdapter<
+	Runtime,
+	MPI,
+	RPI,
+	DeliveryAndMessage,
+>(core::marker::PhantomData<(Runtime, MPI, RPI, DeliveryAndMessage)>);
 
-impl<Runtime, AllPalletsWithoutSystem, MPI, RPI> WithBridgeMessagesHelper
-	for WithBridgeMessagesHelperAdapter<Runtime, AllPalletsWithoutSystem, MPI, RPI>
+impl<Runtime, MPI, RPI, DeliveryAndMessage> WithBridgeMessagesHelper
+	for WithBridgeMessagesHelperAdapter<Runtime, MPI, RPI, DeliveryAndMessage>
 where
 	Runtime: BasicParachainRuntime
-		+ cumulus_pallet_xcmp_queue::Config
 		+ BridgeMessagesConfig<
 			MPI,
 			InboundPayload = test_data::XcmAsPlainPayload,
 			OutboundPayload = test_data::XcmAsPlainPayload,
 		> + pallet_bridge_relayers::Config<RPI>,
-	AllPalletsWithoutSystem:
-		OnInitialize<BlockNumberFor<Runtime>> + OnFinalize<BlockNumberFor<Runtime>>,
 	<Runtime as pallet_bridge_relayers::Config<RPI>>::Reward:
 		From<RewardsAccountParams<LaneIdOf<Runtime, MPI>>>,
 	MPI: 'static,
 	RPI: 'static,
+	DeliveryAndMessage: EnsureDeliveryAndMessage,
 {
 	type Runtime = Runtime;
-	type AllPalletsWithoutSystem = AllPalletsWithoutSystem;
 	type MPI = MPI;
 	type RPI = RPI;
 	type RelayerReward = Runtime::Reward;
+	type EnsureDeliveryAndMessage = DeliveryAndMessage;
 }
 
 /// Test-case makes sure that Runtime can dispatch XCM messages submitted by relayer,
@@ -1023,10 +1024,8 @@ where
 /// Also verifies relayer transaction signed extensions work as intended.
 pub fn relayed_incoming_message_proofs_works<RuntimeHelper>(
 	collator_session_key: CollatorSessionKeys<RuntimeHelper::Runtime>,
-	slot_durations: SlotDurations,
 	runtime_para_id: u32,
-	sibling_parachain_id: u32,
-	local_relay_chain_id: NetworkId,
+	local_destination_for_message: Location,
 	prepare_configuration: impl Fn() -> LaneIdOf<RuntimeHelper::Runtime, RuntimeHelper::MPI>,
 	ensure_proof_state_root: fn(
 		HashOf<BridgedChainOf<RuntimeHelper::Runtime, RuntimeHelper::MPI>>,
@@ -1045,16 +1044,14 @@ pub fn relayed_incoming_message_proofs_works<RuntimeHelper>(
 	RuntimeCallOf<RuntimeHelper::Runtime>:
 		From<BridgeMessagesCall<RuntimeHelper::Runtime, RuntimeHelper::MPI>>,
 {
-	helpers::relayed_incoming_message_works::<
+	helpers::relayed_incoming_message_proofs_works::<
 		RuntimeHelper::Runtime,
-		RuntimeHelper::AllPalletsWithoutSystem,
 		RuntimeHelper::MPI,
+		RuntimeHelper::EnsureDeliveryAndMessage,
 	>(
 		collator_session_key,
-		slot_durations,
 		runtime_para_id,
-		sibling_parachain_id,
-		local_relay_chain_id,
+		local_destination_for_message,
 		construct_and_apply_extrinsic,
 		expect_descend_origin_with_messaging_pallet_instance,
 		|relayer_id_at_this_chain,
@@ -1066,9 +1063,9 @@ pub fn relayed_incoming_message_proofs_works<RuntimeHelper>(
 			// prepare configuration
 			let lane_id = prepare_configuration();
 
-			// prepare message
+			// prepare a message
 			let message_payload = test_data::prepare_inbound_xcm(xcm, message_destination);
-			// prepare para storage proof containing message
+			// prepare para storage proof containing a message
 			let (para_state_root, para_storage_proof) = prepare_messages_storage_proof::<
 				BridgedChainOf<RuntimeHelper::Runtime, RuntimeHelper::MPI>,
 				ThisChainOf<RuntimeHelper::Runtime, RuntimeHelper::MPI>,

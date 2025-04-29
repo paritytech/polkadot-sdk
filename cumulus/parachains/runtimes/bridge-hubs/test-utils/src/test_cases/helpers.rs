@@ -40,6 +40,7 @@ use sp_core::Get;
 use sp_keyring::Sr25519Keyring::*;
 use sp_runtime::{traits::TrailingZeroInput, AccountId32};
 use xcm::latest::prelude::*;
+use xcm::VersionedXcm;
 use xcm_executor::traits::ConvertLocation;
 
 /// Verify that the transaction has succeeded.
@@ -68,7 +69,7 @@ where
 	Runtime: BridgeGrandpaConfig<GPI>,
 	GPI: 'static,
 {
-	/// Expect given header hash to be the best after transaction.
+	/// Expect the given header hash to be the best after transaction.
 	pub fn expect_best_header_hash(
 		expected_best_hash: BridgedBlockHash<Runtime, GPI>,
 	) -> Box<dyn VerifyTransactionOutcome> {
@@ -373,6 +374,111 @@ pub fn relayed_incoming_message_works<Runtime, AllPalletsWithoutSystem, MPI>(
 	)
 }
 
+/// Test-case makes sure that Runtime can dispatch XCM messages submitted by relayer,
+/// with proofs (finality, message) independently submitted.
+pub fn relayed_incoming_message_proofs_works<Runtime, MPI, DeliveryAndMessage>(
+	collator_session_key: CollatorSessionKeys<Runtime>,
+	runtime_para_id: u32,
+	local_destination_for_message: Location,
+	construct_and_apply_extrinsic: fn(
+		sp_keyring::Sr25519Keyring,
+		RuntimeCallOf<Runtime>,
+	) -> sp_runtime::DispatchOutcome,
+	expect_descend_origin_with_messaging_pallet_instance: bool,
+	prepare_message_proof_import: impl FnOnce(
+		Runtime::AccountId,
+		InboundRelayerId<Runtime, MPI>,
+		InteriorLocation,
+		MessageNonce,
+		Xcm<()>,
+		bp_runtime::ChainId,
+	) -> CallsAndVerifiers<Runtime>,
+) where
+	Runtime: BasicParachainRuntime + BridgeMessagesConfig<MPI>,
+	MPI: 'static,
+	AccountIdOf<Runtime>: From<AccountId32>,
+	DeliveryAndMessage: EnsureDeliveryAndMessage,
+{
+	let relayer_at_target = Bob;
+	let relayer_id_on_target: AccountId32 = relayer_at_target.public().into();
+	let relayer_id_on_source = relayer_id_at_bridged_chain::<Runtime, MPI>();
+	let bridged_chain_id = Runtime::BridgedChain::ID;
+
+	run_test::<Runtime, _>(
+		collator_session_key,
+		runtime_para_id,
+		vec![(
+			relayer_id_on_target.clone().into(),
+			// this value should be enough to cover all transaction costs, but computing the actual
+			// value here is tricky - there are several transaction payment pallets and we don't
+			// want to introduce additional bounds and traits here just for that, so let's just
+			// select some presumably large value
+			core::cmp::max::<Runtime::Balance>(Runtime::ExistentialDeposit::get(), 1u32.into())
+				* 100_000_000u32.into(),
+		)],
+		|| {
+			// setup delivery to destination (hrmp, ...)
+			DeliveryAndMessage::ensure_delivery_for(&local_destination_for_message)
+				.expect("delivery works");
+
+			// universal location of destination on the local chain
+			let message_destination: InteriorLocation =
+				<Runtime as pallet_xcm::Config>::UniversalLocation::get()
+					.within_global(local_destination_for_message.clone())
+					.expect("valid destination");
+
+			// some random numbers (checked by test)
+			let message_nonce = 1;
+
+			let xcm = vec![Instruction::<()>::ClearOrigin; 42];
+			let expected_dispatch = Xcm::<()>({
+				let mut expected_instructions = xcm.clone();
+				if expect_descend_origin_with_messaging_pallet_instance {
+					// dispatch prepends bridge pallet instance
+					expected_instructions.insert(
+						0,
+						DescendOrigin([PalletInstance(
+							<pallet_bridge_messages::Pallet<Runtime, MPI> as PalletInfoAccess>::index()
+								as u8,
+						)].into()),
+					);
+				}
+				expected_instructions
+			});
+
+			// set up relayer details and proofs
+			execute_and_verify_calls::<Runtime>(
+				relayer_at_target,
+				construct_and_apply_extrinsic,
+				prepare_message_proof_import(
+					relayer_id_on_target.clone().into(),
+					relayer_id_on_source.clone().into(),
+					message_destination,
+					message_nonce,
+					xcm.clone().into(),
+					bridged_chain_id,
+				),
+			);
+
+			// verify that imported XCM contains an original message
+			let imported_xcm =
+				DeliveryAndMessage::get_xcm_to_deliver_for(&local_destination_for_message)
+					.expect("valid XCM!");
+			let dispatched = Xcm::<()>::try_from(imported_xcm).expect("valid versioned XCM!");
+			let mut dispatched_clone = dispatched.clone();
+			for (idx, expected_instr) in expected_dispatch.0.iter().enumerate() {
+				assert_eq!(expected_instr, &dispatched.0[idx]);
+				assert_eq!(expected_instr, &dispatched_clone.0.remove(0));
+			}
+			match dispatched_clone.0.len() {
+				0 => (),
+				1 => assert!(matches!(dispatched_clone.0[0], SetTopic(_))),
+				count => assert!(false, "Unexpected messages count: {:?}", count),
+			}
+		},
+	)
+}
+
 /// Execute every call and verify its outcome.
 fn execute_and_verify_calls<Runtime: frame_system::Config>(
 	submitter: sp_keyring::Sr25519Keyring,
@@ -386,6 +492,112 @@ fn execute_and_verify_calls<Runtime: frame_system::Config>(
 		let dispatch_outcome = construct_and_apply_extrinsic(submitter, call);
 		assert_ok!(dispatch_outcome);
 		verifier.verify_outcome();
+	}
+}
+
+/// Trait for ensuring XCM message delivery and retrieving messages for a given location
+///
+/// Used to abstract over different message delivery mechanisms like HRMP channels
+/// and message queues.
+pub trait EnsureDeliveryAndMessage {
+	/// Sets up any required message delivery infrastructure for the given location.
+	fn ensure_delivery_for(location: &Location) -> Result<(), XcmError>;
+
+	/// Retrieves any XCM messages ready to be delivered to the given location.
+	fn get_xcm_to_deliver_for(location: &Location) -> Option<VersionedXcm<()>>;
+}
+
+#[impl_trait_for_tuples::impl_for_tuples(8)]
+impl EnsureDeliveryAndMessage for Tuple {
+	fn ensure_delivery_for(location: &Location) -> Result<(), XcmError> {
+		for_tuples!( #(
+			if let Err(e) = Tuple::ensure_delivery_for(location) {
+				return Err(e)
+			}
+		)* );
+		Ok(())
+	}
+
+	fn get_xcm_to_deliver_for(location: &Location) -> Option<VersionedXcm<()>> {
+		for_tuples!( #(
+			if let Some(xcm) = Tuple::get_xcm_to_deliver_for(location) {
+				return Some(xcm);
+			}
+		)* );
+		None
+	}
+}
+
+/// An implementation of `EnsureDeliveryAndMessage` for `Here` location.
+/// - reads XCM from the `pallet-message-queue`
+pub struct ToMessageQueueDelivery<Runtime>(PhantomData<Runtime>);
+impl<Runtime: pallet_message_queue::Config> EnsureDeliveryAndMessage
+	for ToMessageQueueDelivery<Runtime>
+where
+	pallet_message_queue::MessageOriginOf<Runtime>: for<'a> TryFrom<&'a Location>,
+{
+	fn ensure_delivery_for(_location: &Location) -> Result<(), XcmError> {
+		Ok(())
+	}
+
+	fn get_xcm_to_deliver_for(location: &Location) -> Option<VersionedXcm<()>> {
+		if !matches!(location.unpack(), (0, [])) {
+			return None;
+		}
+
+		let Ok(origin): Result<pallet_message_queue::MessageOriginOf<Runtime>, _> =
+			location.try_into()
+		else {
+			return None;
+		};
+		// read page index from state
+		// TODO: FAIL-CI - (Serban) if 0 is ok, we remove the line bellow
+		// let page_index = pallet_message_queue::BookStateFor::<Runtime>::get(origin).begin;
+		let page_index = 0;
+		// get page
+		let Some(page) = pallet_message_queue::Pages::<Runtime>::get(origin, page_index) else {
+			return None;
+		};
+		// find/peek first unprocessed message
+		// TODO: FAIL-CI - (Serban) - how?
+		page.peek_first()
+			.map(|msg| VersionedXcm::<()>::decode(&mut &msg[..]).expect("valid XCM"))
+	}
+}
+
+/// An implementation of `EnsureDeliveryAndMessage` for sibling parachain locations.
+/// - opens HRMP
+/// - reads XCM from the `XcmpQueue`
+/// (we could possibly remove/replace `mock_open_hrmp_channel` with this)
+pub struct ToSiblingDelivery<Runtime>(PhantomData<Runtime>);
+impl<Runtime: cumulus_pallet_xcmp_queue::Config + cumulus_pallet_parachain_system::Config>
+	EnsureDeliveryAndMessage for ToSiblingDelivery<Runtime>
+{
+	fn ensure_delivery_for(location: &Location) -> Result<(), XcmError> {
+		let sibling_parachain_id = match location.unpack() {
+			(1, [Parachain(para_id)]) => *para_id,
+			_ => return Ok(()),
+		};
+
+		use cumulus_primitives_core::GetChannelInfo;
+		if let cumulus_primitives_core::ChannelStatus::Closed =
+			cumulus_pallet_parachain_system::Pallet::<Runtime>::get_channel_status(
+				sibling_parachain_id.into(),
+			) {
+			cumulus_pallet_parachain_system::Pallet::<Runtime>::open_outbound_hrmp_channel_for_benchmarks_or_tests(sibling_parachain_id.into());
+		}
+		Ok(())
+	}
+
+	fn get_xcm_to_deliver_for(location: &Location) -> Option<VersionedXcm<()>> {
+		let sibling_parachain_id = match location.unpack() {
+			(1, [Parachain(para_id)]) => *para_id,
+			_ => return None,
+		};
+
+		RuntimeHelper::<cumulus_pallet_xcmp_queue::Pallet<Runtime>>::take_xcm(
+			sibling_parachain_id.into(),
+		)
 	}
 }
 
