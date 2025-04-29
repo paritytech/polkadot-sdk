@@ -3,7 +3,6 @@
 
 use anyhow::anyhow;
 
-use subxt::{OnlineClient, PolkadotConfig};
 use zombienet_sdk::{NetworkConfig, NetworkConfigBuilder};
 
 async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
@@ -38,8 +37,8 @@ async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 					"--".into(),
 					"--no-mdns".into(),
 				])
-				.with_collator(|n| n.with_name("collator-0"))
-				.with_collator(|n| n.with_name("collator-1"))
+				.with_collator(|n| n.with_name("alpha"))
+				.with_collator(|n| n.with_name("beta"))
 		})
 		.with_global_settings(|global_settings| match std::env::var("ZOMBIENET_SDK_BASE_DIR") {
 			Ok(val) => global_settings.with_base_dir(val),
@@ -60,26 +59,55 @@ async fn dht_bootnodes_test() -> Result<(), anyhow::Error> {
 
 	let config = build_network_config().await?;
 	let spawn_fn = zombienet_sdk::environment::get_spawn_fn();
-	let network = spawn_fn(config).await?;
+	let mut network = spawn_fn(config).await?;
 
-	let para_node = network.get_node("collator-0")?;
-	let para_client: OnlineClient<PolkadotConfig> = para_node.wait_client().await?;
+	let alpha = network.get_node("alpha")?;
 
-	let mut blocks_sub = para_client.blocks().subscribe_all().await?;
+	// Make sure the collators connect to each other.
+	alpha
+		.wait_metric_with_timeout("substrate_sync_peers", |count| count == 1.0, 300u64)
+		.await?;
 
-	// Skip the genesis block.
-	let genesis_block = blocks_sub.next().await.expect("to receive genesis block")?;
-	assert_eq!(genesis_block.number(), 0);
+	// Make sure the DHT bootnode discovery was successful.
+	alpha
+		.wait_log_line_count_with_timeout(
+			".* Parachain bootnode discovery on the relay chain DHT succeeded",
+			false,
+			1,
+			30u64,
+		)
+		.await?;
 
-	// Producing the first block is a good indicator the colators have connected to each other.
-	let first_block = blocks_sub.next().await.expect("to receive first block")?;
-	assert_eq!(first_block.number(), 1);
+	log::info!(
+		"First two collators successfully connected via DHT bootnodes. \
+		 Waiting 150 secs for two sessions to pass."
+	);
 
-	// Make sure we are connected to another collator. This can be not the case if the collator
-	// produced a block locally without actually talking to another collator.
-	assert!(para_node.assert("substrate_sync_peers", 1).await?);
+	// Wait for two sessions (2 min + 30 sec extra) and spawn a new collator to check the bootnode
+	// is also advertised with the new epoch key (republishing works).
+	tokio::time::sleep(std::time::Duration::from_secs(150)).await;
 
-	log::info!("Test finished successfully");
+	log::info!("Spawning a third collator.");
+	network.add_collator("gamma", Default::default(), 1000).await?;
+
+	let gamma = network.get_node("gamma")?;
+
+	// Make sure the new collator has connected to the existing collators.
+	gamma
+		.wait_metric_with_timeout("substrate_sync_peers", |count| count == 2.0, 300u64)
+		.await?;
+
+	// Make sure the DHT bootnode discovery was successful.
+	gamma
+		.wait_log_line_count_with_timeout(
+			".* Parachain bootnode discovery on the relay chain DHT succeeded",
+			false,
+			1,
+			30u64,
+		)
+		.await?;
+
+	log::info!("Test finished successfully.");
 
 	Ok(())
 }
