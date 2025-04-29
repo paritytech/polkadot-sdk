@@ -1741,7 +1741,7 @@ parameter_types! {
 	pub AhMqServiceWeight: Weight = Perbill::from_percent(50) * AH_MAXIMUM_BLOCK_WEIGHT;
 	// 80 percent of the `AhMqServiceWeight` to leave some space for XCM message base processing.
 	pub AhMigratorMaxWeight: Weight = Perbill::from_percent(80) * AhMqServiceWeight::get(); // ~ 0.2 sec + 2 mb
-	pub RcMigratorMaxWeight: Weight = Weight::from_parts(10_000_000_000, u64::MAX); // TODO set the actual max weight
+	pub RcMigratorMaxWeight: Weight = Perbill::from_percent(50) * BlockWeights::get().max_block; // TODO set the actual max weight
 	pub AhExistentialDeposit: Balance = EXISTENTIAL_DEPOSIT / 100;
 }
 
