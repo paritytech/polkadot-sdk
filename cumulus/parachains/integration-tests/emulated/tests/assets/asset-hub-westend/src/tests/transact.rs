@@ -13,7 +13,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{create_pool_with_wnd_on, create_pool_with_wnd_on_custom_amounts, foreign_balance_on, imports::*};
+use crate::{
+	create_pool_with_wnd_on, create_pool_with_wnd_on_custom_amounts, foreign_balance_on, imports::*,
+};
 use frame_support::traits::tokens::fungibles::Mutate;
 use xcm_builder::{DescribeAllTerminal, DescribeFamily, HashedDescription};
 use xcm_executor::traits::ConvertLocation;
@@ -113,7 +115,14 @@ fn transact_from_para_to_para_through_asset_hub() {
 
 	// We create a pool between WND and USDT in AssetHub.
 	let usdt = Location::new(0, [PalletInstance(ASSETS_PALLET_ID), GeneralIndex(USDT_ID.into())]);
-	create_pool_with_wnd_on_custom_amounts!(AssetHubWestend, usdt, false, AssetHubWestendSender::get(), 1_000_000_000_000, 20_000_000_000);
+	create_pool_with_wnd_on_custom_amounts!(
+		AssetHubWestend,
+		usdt,
+		false,
+		AssetHubWestendSender::get(),
+		1_000_000_000_000,
+		20_000_000_000
+	);
 	// We also need a pool between WND and USDT on PenpalA.
 	create_pool_with_wnd_on!(PenpalA, PenpalUsdtFromAssetHub::get(), true, PenpalAssetOwner::get());
 	// We also need a pool between WND and USDT on PenpalB.
