@@ -109,6 +109,7 @@ bp-runtime = { workspace = true }
 bridge-hub-common = { workspace = true }
 bridge-runtime-common = { workspace = true }
 pallet-bridge-messages = { workspace = true }
+pallet-bridge-proof-root-store = { workspace = true }
 pallet-bridge-relayers = { workspace = true }
 pallet-xcm-bridge = { workspace = true }
 pallet-xcm-bridge-router = { workspace = true }
@@ -151,6 +152,7 @@ runtime-benchmarks = [
 	"pallet-assets/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
 	"pallet-bridge-messages/runtime-benchmarks",
+	"pallet-bridge-proof-root-store/runtime-benchmarks",
 	"pallet-bridge-relayers/runtime-benchmarks",
 	"pallet-collator-selection/runtime-benchmarks",
 	"pallet-message-queue/runtime-benchmarks",
@@ -200,6 +202,7 @@ try-runtime = [
 	"pallet-authorship/try-runtime",
 	"pallet-balances/try-runtime",
 	"pallet-bridge-messages/try-runtime",
+	"pallet-bridge-proof-root-store/try-runtime",
 	"pallet-bridge-relayers/try-runtime",
 	"pallet-collator-selection/try-runtime",
 	"pallet-message-queue/try-runtime",
@@ -266,6 +269,7 @@ std = [
 	"pallet-authorship/std",
 	"pallet-balances/std",
 	"pallet-bridge-messages/std",
+	"pallet-bridge-proof-root-store/std",
 	"pallet-bridge-relayers/std",
 	"pallet-collator-selection/std",
 	"pallet-message-queue/std",

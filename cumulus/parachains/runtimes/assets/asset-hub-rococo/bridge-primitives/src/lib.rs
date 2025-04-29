@@ -25,6 +25,7 @@ use scale_info::TypeInfo;
 
 pub use bp_bridge_hub_cumulus::*;
 use bp_messages::*;
+pub use bp_proof_root_store::ProofRootStoreCall;
 use bp_runtime::{
 	decl_bridge_finality_runtime_apis, decl_bridge_messages_runtime_apis, Chain, ChainId, Parachain,
 };
@@ -50,6 +51,9 @@ pub enum Call {
 	/// `ToWestendXcmRouter` bridge pallet.
 	#[codec(index = 45)]
 	ToWestendXcmRouter(XcmBridgeHubCall<sp_core::H256>),
+	/// `AssetHubWestendProofRootStore` bridge pallet.
+	#[codec(index = 65)]
+	AssetHubWestendProofRootStore(ProofRootStoreCall<Hash, Hash>),
 }
 
 frame_support::parameter_types! {

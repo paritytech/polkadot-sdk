@@ -1205,6 +1205,7 @@ construct_runtime!(
 		BridgeRococoMessages: pallet_bridge_messages::<Instance1> = 63,
 		BridgeRelayers: pallet_bridge_relayers::<Instance1> = 64,
 		ToRococoOverAssetHubRococoXcmRouter: pallet_xcm_bridge_router::<Instance2> = 65,
+		AssetHubRococoProofRootStore: pallet_bridge_proof_root_store::<Instance1> = 66,
 
 		StateTrieMigration: pallet_state_trie_migration = 70,
 
