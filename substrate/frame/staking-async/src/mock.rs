@@ -22,7 +22,6 @@ use crate::{
 	session_rotation::{Eras, Rotator},
 	*,
 };
-
 use frame_election_provider_support::{
 	bounds::{ElectionBounds, ElectionBoundsBuilder},
 	onchain, BoundedSupports, BoundedSupportsOf, ElectionProvider, PageIndex, SequentialPhragmen,
@@ -42,6 +41,7 @@ use sp_runtime::{traits::Zero, BuildStorage};
 use sp_staking::{
 	currency_to_vote::SaturatingCurrencyToVote, OnStakingUpdate, SessionIndex, StakingAccount,
 };
+use std::collections::BTreeMap;
 
 pub(crate) const INIT_TIMESTAMP: u64 = 30_000;
 pub(crate) const BLOCK_TIME: u64 = 1000;
@@ -269,6 +269,13 @@ pub mod session_mock {
 		pub fn roll_until_active_era(era: EraIndex) {
 			while active_era() != era {
 				Self::roll_next();
+			}
+		}
+
+		pub fn roll_until_active_era_with(era: EraIndex, op: impl Fn() -> ()) {
+			while active_era() != era {
+				Self::roll_next();
+				op()
 			}
 		}
 
@@ -764,7 +771,7 @@ pub(crate) fn add_slash(who: AccountId) {
 
 pub(crate) fn add_slash_in_era(who: AccountId, era: EraIndex) {
 	let _ = <Staking as rc_client::AHStakingInterface>::on_new_offences(
-		ErasStartSessionIndex::<T>::get(era).unwrap(),
+		Rotator::<T>::era_start_session_index(era).unwrap(),
 		vec![rc_client::Offence {
 			offender: who,
 			reporters: vec![],
@@ -775,7 +782,7 @@ pub(crate) fn add_slash_in_era(who: AccountId, era: EraIndex) {
 
 pub(crate) fn add_slash_in_era_with_value(who: AccountId, era: EraIndex, p: Perbill) {
 	let _ = <Staking as rc_client::AHStakingInterface>::on_new_offences(
-		ErasStartSessionIndex::<T>::get(era).unwrap(),
+		Rotator::<T>::era_start_session_index(era).unwrap(),
 		vec![rc_client::Offence { offender: who, reporters: vec![], slash_fraction: p }],
 	);
 }

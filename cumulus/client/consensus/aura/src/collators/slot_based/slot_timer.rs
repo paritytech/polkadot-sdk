@@ -55,6 +55,8 @@ pub(crate) struct SlotTimer<Block, Client, P> {
 	/// Slot duration of the relay chain. This is used to compute how man block-production
 	/// attempts we should trigger per relay chain block.
 	relay_slot_duration: Duration,
+	/// Stores the latest slot that was reported by [`Self::wait_until_next_slot`].
+	last_reported_slot: Option<Slot>,
 	_marker: std::marker::PhantomData<(Block, Box<dyn Fn(P) + Send + Sync + 'static>)>,
 }
 
@@ -64,7 +66,9 @@ pub(crate) struct SlotTimer<Block, Client, P> {
 /// for them.
 ///
 /// Returns a tuple with:
-/// - `Duration`: How long to wait until the block production attempt.
+/// - `Duration`: How long to wait until the next slot.
+/// - `Timestamp`: The timestamp to pass to the inherent
+/// - `Slot`: The AURA slot used for authoring
 fn compute_next_wake_up_time(
 	para_slot_duration: SlotDuration,
 	relay_slot_duration: Duration,
@@ -142,6 +146,7 @@ where
 			time_offset,
 			last_reported_core_num: None,
 			relay_slot_duration,
+			last_reported_slot: None,
 			_marker: Default::default(),
 		}
 	}
@@ -152,7 +157,7 @@ where
 	}
 
 	/// Returns a future that resolves when the next block production should be attempted.
-	pub async fn wait_until_next_slot(&self) -> Option<()> {
+	pub async fn wait_until_next_slot(&mut self) -> Option<()> {
 		let Ok(slot_duration) = crate::slot_duration(&*self.client) else {
 			tracing::error!(target: LOG_TARGET, "Failed to fetch slot duration from runtime.");
 			return None
@@ -166,7 +171,19 @@ where
 			self.time_offset,
 		);
 
-		tokio::time::sleep(time_until_next_attempt).await;
+		match self.last_reported_slot {
+			// If we already reported a slot, we don't want to skip a slot. But we also don't want
+			// to go through all the slots if a node was halted for some reason.
+			Some(ls) if ls + 1 < next_aura_slot && next_aura_slot <= ls + 3 => {
+				next_aura_slot = ls + 1u64;
+				next_timestamp = next_aura_slot
+					.timestamp(slot_duration)
+					.expect("Timestamp does not overflow; qed");
+			},
+			None | Some(_) => {
+				tokio::time::sleep(time_until_next_attempt).await;
+			},
+		}
 
 		tracing::debug!(
 			target: LOG_TARGET,
