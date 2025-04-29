@@ -140,7 +140,7 @@ impl InstanceMetrics {
 
 		// Only record the state if it hasn't been reported before.
 		if self.reported_states.insert(target_state) {
-			histogram.observe(self.submitted_at.as_secs_f64());
+			histogram.observe(self.submitted_at.elapsed().as_secs_f64());
 		}
 	}
 }
