@@ -244,8 +244,8 @@ pub mod prelude {
 	#[doc(no_inline)]
 	pub use sp_runtime::traits::{
 		AccountIdConversion, BlockNumberProvider, Bounded, Convert, ConvertBack, DispatchInfoOf,
-		Dispatchable, ReduceBy, ReplaceWithDefault, SaturatedConversion,
-		Saturating, StaticLookup, TrailingZeroInput,
+		Dispatchable, ReduceBy, ReplaceWithDefault, SaturatedConversion, Saturating, StaticLookup,
+		TrailingZeroInput,
 	};
 
 	/// Bounded storage related types.
