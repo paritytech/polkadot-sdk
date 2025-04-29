@@ -140,21 +140,22 @@ pub fn get_deprecation(path: &TokenStream, attrs: &[syn::Attribute]) -> Result<T
 	})
 }
 
-/// collects deprecation attribute if its present for enum-like types
-pub fn get_deprecation_enum<'a>(
-	path: &TokenStream,
-	parent_attrs: &[syn::Attribute],
-	children_attrs: impl Iterator<Item = (u8, &'a [syn::Attribute])>,
-) -> Result<TokenStream> {
-	// If deprecated attribute is on the outer enum, then return an error
-	// warning that it should be applied only to the individual variants.
+/// Call this on enum attributes to return an error if the #[deprecation] attribute is found.
+pub fn prevent_deprecation_attr_on_outer_enum(parent_attrs: &[syn::Attribute]) -> Result<()> {
 	if let Some(attr) = find_deprecation_attr(parent_attrs) {
 		return Err(Error::new(
 			attr.span(),
-			"The `#[deprecated]` should be applied to individual variants, not the enum as a whole",
+			"The `#[deprecated]` attribute should be applied to individual variants, not the enum as a whole",
 		));
 	}
+	Ok(())
+}
 
+/// collects deprecation attribute if its present for enum-like types
+pub fn get_deprecation_enum<'a>(
+	path: &TokenStream,
+	children_attrs: impl Iterator<Item = (u8, &'a [syn::Attribute])>,
+) -> Result<TokenStream> {
 	let children = children_attrs
 		.filter_map(|(key, attributes)| {
 			let deprecation_status =
