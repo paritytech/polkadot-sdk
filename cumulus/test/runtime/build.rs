@@ -63,12 +63,12 @@ fn main() {
 		.set_file_name("wasm_binary_relay_parent_offset.rs")
 		.build();
 
-    WasmBuilder::new()
-        .with_current_project()
-        .enable_feature("sync-backing")
-        .import_memory()
-        .set_file_name("wasm_binary_sync_backing.rs")
-        .build();
+	WasmBuilder::new()
+		.with_current_project()
+		.enable_feature("sync-backing")
+		.import_memory()
+		.set_file_name("wasm_binary_sync_backing.rs")
+		.build();
 }
 
 #[cfg(not(feature = "std"))]
