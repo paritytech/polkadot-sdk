@@ -46,9 +46,6 @@ pub fn run_to_block(n: BlockNumberFor<Test>) {
 			AllPalletsWithSystem::on_finalize(
 				<Test as Config>::BlockNumberProvider::current_block_number(),
 			);
-			AllPalletsWithSystem::on_initialize(
-				<Test as Config>::BlockNumberProvider::current_block_number(),
-			);
 		}
 		next_block();
 	}
@@ -516,6 +513,10 @@ fn spends_creation_works_but_claim_blocked_after_claim_period() {
 		);
 
 		run_to_block(round_info.round_ending_block + 4);
+		println!(
+			"Current block number: {:?}",
+			<Test as Config>::BlockNumberProvider::current_block_number()
+		);
 		let now = <Test as Config>::BlockNumberProvider::current_block_number();
 		let expire = now.saturating_add(<Test as Config>::ClaimingPeriod::get());
 
@@ -546,14 +547,18 @@ fn spends_creation_works_but_claim_blocked_after_claim_period() {
 		assert_eq!(balance_101_before < balance_101_after, true);
 
 		// Claim does not work after claiming period
-		expect_events(vec![
-			RuntimeEvent::Opf(Event::RewardClaimed { amount: spend_101.amount, project_id: 101 }),
-			//RuntimeEvent::Opf(Event::ExpiredClaim { expired_when: expire, project_id: 102 }),
-		]);
+		expect_events(vec![RuntimeEvent::Opf(Event::RewardClaimed {
+			amount: spend_101.amount,
+			project_id: 101,
+		})]);
 
 		run_to_block(spend_102.expire);
-		// Claim does not work after claiming period
 		assert_ok!(Opf::claim_reward_for(RawOrigin::Signed(EVE).into(), 102));
+		// Claim does not work but returns an event instead of an error
+		expect_events(vec![RuntimeEvent::Opf(Event::ExpiredClaim {
+			expired_when: spend_102.expire,
+			project_id: 102,
+		})]);
 		assert_eq!(Spends::<Test>::get(102).is_some(), false);
 	})
 }

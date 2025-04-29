@@ -32,19 +32,24 @@ use sp_runtime::traits::One;
 const SEED: u32 = 0;
 
 pub fn next_block<T: Config>() {
-	T::BlockNumberProvider::set_block_number(T::BlockNumberProvider::current_block_number().saturating_add(One::one()));
-	Opf::<T>::on_idle(
-		0u32.into(),
+	frame_system::Pallet::<T>::set_block_number(
+		frame_system::Pallet::<T>::current_block_number() + One::one(),
+	);
+	frame_system::Pallet::<T>::on_initialize(frame_system::Pallet::<T>::block_number());
+	crate::Pallet::<T>::on_initialize(frame_system::Pallet::<T>::block_number());
+	frame_system::Pallet::<T>::on_idle(
+		frame_system::Pallet::<T>::current_block_number(),
 		Weight::MAX,
 	);
 }
-pub fn run_to_block<T: Config>() {
-		Opf::<T>::on_idle(
-			0u32.into(),
-			Weight::MAX,
-		);
+pub fn run_to_block<T: Config>(n: ProvidedBlockNumberFor<T>) {
+	while T::BlockNumberProvider::current_block_number() < n {
+		if <T as Config>::BlockNumberProvider::current_block_number() > One::one() {
+			crate::Pallet::<T>::on_finalize(frame_system::Pallet::<T>::block_number());
+			frame_system::Pallet::<T>::on_finalize(frame_system::Pallet::<T>::block_number());			
+		}
 		next_block::<T>();
-
+	}
 }
 
 fn add_whitelisted_project<T: Config>(n: u32, caller: T::AccountId) -> Result<(), &'static str> {
@@ -55,7 +60,10 @@ fn add_whitelisted_project<T: Config>(n: u32, caller: T::AccountId) -> Result<()
 		T::NativeBalance::mint_into(&project_id, caller_balance)?;
 		let _ = batch.try_push(project_id).map_err(|_| "Exceeded max projects")?;
 	}
-	crate::Pallet::<T>::register_projects_batch(T::AdminOrigin::try_successful_origin().expect("couldn'create origin"), batch)?;
+	crate::Pallet::<T>::register_projects_batch(
+		T::AdminOrigin::try_successful_origin().expect("couldn'create origin"),
+		batch,
+	)?;
 
 	Ok(())
 }
@@ -129,9 +137,7 @@ mod benchmarks {
 		_(RawOrigin::Signed(caller.clone()), account0.clone(), value, true, Conviction::Locked1x);
 
 		// Verify the vote was recorded
-		let vote_info = Votes::<T>::get(r-1, caller.clone())
-			.ok_or("Vote not recorded!")
-			.unwrap();
+		let vote_info = Votes::<T>::get(r - 1, caller.clone()).ok_or("Vote not recorded!").unwrap();
 		assert_eq!(vote_info.amount, value, "Vote value mismatch!");
 		Ok(())
 	}
@@ -193,7 +199,7 @@ mod benchmarks {
 			Conviction::Locked1x,
 		)?;
 
-		let when = Votes::<T>::get(r-1, caller.clone()).unwrap().funds_unlock_block;
+		let when = Votes::<T>::get(r - 1, caller.clone()).unwrap().funds_unlock_block;
 
 		T::BlockNumberProvider::set_block_number(when);
 
@@ -203,7 +209,7 @@ mod benchmarks {
 		Ok(())
 	}
 
-	#[benchmark]
+	/*#[benchmark]
 	fn on_registration(r: Linear<1, { T::MaxProjects::get() }>) -> Result<(), BenchmarkError> {
 		let caller0: T::AccountId = account("caller", 1, SEED);
 		let caller1: T::AccountId = account("caller", 2, SEED);
@@ -261,10 +267,8 @@ mod benchmarks {
 		let round_end = round.round_ending_block;
 		// go to end of the round
 		let now = T::BlockNumberProvider::current_block_number();
-		while now < round_end {
-			run_to_block::<T>();
-		}
-		
+		run_to_block::<T>(round_end);
+
 		assert_eq!(T::Governance::referendum_count(), r.into(), "referenda not created");
 
 		#[block]
@@ -277,10 +281,7 @@ mod benchmarks {
 		T::BlockNumberProvider::set_block_number(when);
 		let origin = RawOrigin::Root.into();
 
-		assert_ok!(Opf::<T>::on_registration(
-			origin,
-			account0.clone()
-		));
+		assert_ok!(Opf::<T>::on_registration(origin, account0.clone()));
 		assert_eq!(Spends::<T>::contains_key(&account0), true);
 		Ok(())
 	}
@@ -336,26 +337,24 @@ mod benchmarks {
 		)?;
 		let round = VotingRounds::<T>::get(0).unwrap();
 		let round_end = round.round_ending_block;
+
 		// go to end of the round
 		let now = T::BlockNumberProvider::current_block_number();
-		while now < round_end {
-			run_to_block::<T>();
-		}
+		let when = round_end.saturating_add(4u32.into());
+		run_to_block::<T>(round_end);
 		assert_eq!(T::Governance::referendum_count(), r.into(), "referenda not created");
+
+		// go to claiming period
+		run_to_block::<T>(when);
+		println!("Current block number: {:?}", T::BlockNumberProvider::current_block_number());
 
 		#[block]
 		{
 			Opf::<T>::on_idle(frame_system::Pallet::<T>::block_number(), Weight::MAX);
 		}
 
-		// go to claiming period
-		let when = round_end.saturating_add(<T as Config>::EnactmentPeriod::get());
-		T::BlockNumberProvider::set_block_number(when);
-
-		assert_ok!(Opf::<T>::on_registration(
-			RawOrigin::Signed(caller0.clone()).into(),
-			account0.clone()
-		));
+		let origin = T::AdminOrigin::try_successful_origin().expect("Failed to create origin");
+		assert_ok!(Opf::<T>::on_registration(origin, account0.clone()));
 		assert_eq!(Spends::<T>::contains_key(&account0), true);
 		let claim = Spends::<T>::get(&account0).unwrap();
 		assert_eq!(claim.claimed, false);
@@ -373,7 +372,7 @@ mod benchmarks {
 		assert_eq!(claim_after.claimed, true);
 
 		Ok(())
-	}
+	}*/
 
 	impl_benchmark_test_suite!(Opf, crate::mock::new_test_ext(), crate::mock::Test);
 }

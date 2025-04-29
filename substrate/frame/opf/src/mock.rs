@@ -252,7 +252,7 @@ impl pallet_opf::Config for Test {
 	type VoteValidityPeriod = VotingPeriod;
 	type BlockNumberProvider = System;
 	type TemporaryRewards = TemporaryRewards;
-	type EnactmentPeriod = ConstU64<1>;
+	type EnactmentPeriod = ConstU64<4>;
 	type Governance = Referenda;
 	type Conviction = ConvictionVoting;
 	type WeightInfo = ();
