@@ -17,7 +17,6 @@
 
 //! Traits for working with tokens and their associated datastructures.
 
-pub mod asset_ops;
 pub mod currency;
 pub mod fungible;
 pub mod fungibles;
