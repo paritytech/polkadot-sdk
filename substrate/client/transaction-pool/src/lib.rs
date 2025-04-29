@@ -40,7 +40,7 @@ pub use graph::{
 	base_pool::{Limit as PoolLimit, TimedTransactionSource},
 	ChainApi, Options, Pool,
 };
-use single_state_txpool::prune_known_txs_for_block;
+use single_state_txpool::{collect_extrinsics, prune_known_txs_for_block};
 pub use single_state_txpool::{BasicPool, RevalidationType};
 pub use transaction_pool_wrapper::TransactionPoolWrapper;
 

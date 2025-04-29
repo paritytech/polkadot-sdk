@@ -1404,26 +1404,8 @@ where
 	async fn collect_provides_tags_from_view_store(
 		&self,
 		tree_route: &TreeRoute<Block>,
+		xts_hashes: Vec<ExtrinsicHash<ChainApi>>,
 	) -> HashMap<ExtrinsicHash<ChainApi>, Vec<Tag>> {
-		// Fetch all enacted blocks txs hashes.
-		let xts_hashes = future::join_all(tree_route.enacted().iter().map(|hn| {
-			let api = self.api.clone();
-			async move {
-				api.block_body(hn.hash)
-					.await
-					.unwrap_or_else(|e| {
-						warn!(target: LOG_TARGET, %e, "provides_tags_from_inactive_views: block_body error request");
-						None
-					})
-					.unwrap_or_default()
-			}
-		}))
-		.await
-		.into_iter()
-		.flatten()
-		.map(|ext| self.hash_of(&ext))
-		.collect::<Vec<_>>();
-
 		let blocks_hashes = tree_route
 			.retracted()
 			.iter()
@@ -1435,6 +1417,7 @@ where
 					.chain(tree_route.enacted().iter().rev().skip(1)),
 			)
 			.collect::<Vec<&HashAndNumber<Block>>>();
+
 		self.view_store.provides_tags_from_inactive_views(blocks_hashes, xts_hashes)
 	}
 
@@ -1456,17 +1439,28 @@ where
 		);
 		let api = self.api.clone();
 
-		// We keep track of everything we prune so that later we won't add
-		// transactions with those hashes from the retracted blocks.
-		let mut pruned_log = HashSet::<ExtrinsicHash<ChainApi>>::new();
+		// Collect extrinsics on the enacted path in a map from block hn -> extrinsics.
+		let mut extrinsics = crate::collect_extrinsics(tree_route.enacted(), &*self.api).await;
 
 		// Create a map from enacted blocks' extrinsics to their `provides`
 		// tags based on inactive views.
-		let known_provides_tags = self.collect_provides_tags_from_view_store(tree_route).await;
+		let known_provides_tags = Arc::new(
+			self.collect_provides_tags_from_view_store(
+				tree_route,
+				extrinsics.values().flatten().map(|tx| view.pool.hash_of(tx)).collect(),
+			)
+			.await,
+		);
+
 		debug!(target: LOG_TARGET, "update_view_with_fork: txs to tags map length: {}", known_provides_tags.len());
+
+		// We keep track of everything we prune so that later we won't add
+		// transactions with those hashes from the retracted blocks.
+		let mut pruned_log = HashSet::<ExtrinsicHash<ChainApi>>::new();
 		future::join_all(tree_route.enacted().iter().map(|hn| {
 			let api = api.clone();
 			let known_provides_tags = known_provides_tags.clone();
+			let xts = extrinsics.remove(&hn.hash).unwrap_or_else(|| Vec::new());
 			async move {
 				(
 					hn,
@@ -1474,7 +1468,8 @@ where
 						hn,
 						&*api,
 						&view.pool,
-						Some(Arc::new(known_provides_tags)),
+						xts,
+						Some(known_provides_tags),
 					)
 					.await,
 				)

@@ -372,8 +372,8 @@ impl<B: ChainApi, L: EventHandler<B>> Pool<B, L> {
 					} else {
 						trace!(
 							target: LOG_TARGET,
-							at = ?at,
-							"txpool is empty, skipping validation for block"
+							?at,
+							"txpool is empty, skipping validation for block",
 						);
 					}
 				},
