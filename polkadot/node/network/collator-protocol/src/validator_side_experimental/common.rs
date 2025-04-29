@@ -25,7 +25,10 @@ pub const CONNECTED_PEERS_LIMIT: u16 = 300;
 
 /// Limit for the total number of connected peers for a paraid.
 /// Must be smaller than `CONNECTED_PEERS_LIMIT`.
-pub const CONNECTED_PEERS_PARA_LIMIT: u16 = 100;
+pub const CONNECTED_PEERS_PARA_LIMIT: u16 = const {
+	assert!(CONNECTED_PEERS_LIMIT >= 100);
+	100
+};
 
 /// Maximum number of relay parents to process for reputation bumps on startup and between finality
 /// notifications.
@@ -74,6 +77,7 @@ impl From<Score> for u16 {
 }
 
 /// Information about a connected peer.
+#[derive(PartialEq, Debug)]
 pub struct PeerInfo {
 	/// Protocol version.
 	pub version: CollationVersion,
@@ -82,6 +86,7 @@ pub struct PeerInfo {
 }
 
 /// State of a connected peer
+#[derive(PartialEq, Debug)]
 pub enum PeerState {
 	/// Connected.
 	Connected,

@@ -60,6 +60,7 @@ pub enum ReputationUpdateKind {
 	Slash,
 }
 
+#[derive(Debug, PartialEq)]
 enum TryAcceptOutcome {
 	Added,
 	Replaced(Vec<PeerId>),

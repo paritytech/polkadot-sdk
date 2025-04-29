@@ -16,6 +16,9 @@
 
 #![allow(unused)]
 
+// See reasoning in Cargo.toml why this temporary useless import is needed.
+use tokio as _;
+
 mod common;
 mod error;
 mod metrics;

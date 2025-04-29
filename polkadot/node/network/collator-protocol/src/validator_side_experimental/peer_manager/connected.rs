@@ -36,6 +36,8 @@ pub struct ConnectedPeers {
 impl ConnectedPeers {
 	/// Create a new ConnectedPeers object.
 	pub fn new(scheduled_paras: BTreeSet<ParaId>, overall_limit: u16, per_para_limit: u16) -> Self {
+		debug_assert!(per_para_limit <= overall_limit);
+
 		let limit = std::cmp::min(
 			(overall_limit)
 				.checked_div(
@@ -277,4 +279,234 @@ impl PartialOrd for PeerScoreEntry {
 	fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
 		Some(self.cmp(other))
 	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	use polkadot_node_network_protocol::peer_set::CollationVersion;
+
+	fn default_connected_state() -> PeerInfo {
+		PeerInfo { version: CollationVersion::V2, state: PeerState::Connected }
+	}
+
+	// Test the ConnectedPeers constructor
+	#[test]
+	fn test_connected_peers_constructor() {
+		// Test an empty instance.
+		let connected = ConnectedPeers::new(BTreeSet::new(), 0, 0);
+		assert!(connected.per_para.is_empty());
+		assert!(connected.peer_info.is_empty());
+
+		let connected = ConnectedPeers::new(BTreeSet::new(), 1000, 50);
+		assert!(connected.per_para.is_empty());
+		assert!(connected.peer_info.is_empty());
+
+		// Test that the constructor sets the per-para limit as the minimum between the
+		// per_para_limit and the overall_limit divided by the number of scheduled paras.
+		let connected = ConnectedPeers::new((0..5).map(ParaId::from).collect(), 50, 3);
+		assert_eq!(connected.per_para.len(), 5);
+		assert!(connected.peer_info.is_empty());
+		for (para_id, per_para) in connected.per_para {
+			let para_id = u32::from(para_id);
+			assert!(para_id < 5);
+			assert_eq!(per_para.limit, 3);
+		}
+
+		let connected = ConnectedPeers::new((0..5).map(ParaId::from).collect(), 50, 15);
+		assert_eq!(connected.per_para.len(), 5);
+		assert!(connected.peer_info.is_empty());
+		for (para_id, per_para) in connected.per_para {
+			let para_id = u32::from(para_id);
+			assert!(para_id < 5);
+			assert_eq!(per_para.limit, 10);
+		}
+	}
+
+	#[tokio::test]
+	// Test peer connection acceptance criteria while the peer limit is not reached.
+	async fn test_try_accept_below_limit() {
+		let mut connected = ConnectedPeers::new((0..5).map(ParaId::from).collect(), 50, 15);
+		let first_peer = PeerId::random();
+
+		// Try accepting a new peer which has no past reputation and has not declared.
+		assert_eq!(
+			connected
+				.try_accept(
+					|_, _| async { Score::default() },
+					first_peer,
+					default_connected_state()
+				)
+				.await,
+			TryAcceptOutcome::Added
+		);
+		assert_eq!(connected.peer_info(&first_peer).unwrap(), &default_connected_state());
+		for per_para in connected.per_para.values() {
+			assert!(per_para.contains(&first_peer));
+			assert_eq!(per_para.get_score(&first_peer).unwrap(), Score::default());
+		}
+
+		// Try adding an already accepted peer.
+		assert_eq!(
+			connected
+				.try_accept(
+					|_, _| async { Score::default() },
+					first_peer,
+					default_connected_state()
+				)
+				.await,
+			TryAcceptOutcome::Added
+		);
+		assert_eq!(connected.peer_info(&first_peer).unwrap(), &default_connected_state());
+		for per_para in connected.per_para.values() {
+			assert!(per_para.contains(&first_peer));
+			assert_eq!(per_para.get_score(&first_peer).unwrap(), Score::default());
+		}
+
+		// Try accepting a peer which has past reputation for an unscheduled para.
+		let second_peer = PeerId::random();
+		assert_eq!(
+			connected
+				.try_accept(
+					|peer_id, para_id| async move {
+						if peer_id == second_peer && para_id == ParaId::from(100) {
+							Score::new(10).unwrap()
+						} else {
+							Score::default()
+						}
+					},
+					second_peer,
+					default_connected_state()
+				)
+				.await,
+			TryAcceptOutcome::Added
+		);
+		assert_eq!(connected.peer_info(&first_peer).unwrap(), &default_connected_state());
+		assert_eq!(connected.peer_info(&second_peer).unwrap(), &default_connected_state());
+
+		for per_para in connected.per_para.values() {
+			assert!(per_para.contains(&second_peer));
+			assert_eq!(per_para.get_score(&second_peer).unwrap(), Score::default());
+		}
+
+		// Try accepting a peer which has past reputation for a scheduled para but is not yet
+		// declared.
+		let third_peer = PeerId::random();
+		let third_peer_para_id = ParaId::from(3);
+		assert_eq!(
+			connected
+				.try_accept(
+					|peer_id, para_id| async move {
+						if peer_id == third_peer && para_id == third_peer_para_id {
+							Score::new(10).unwrap()
+						} else {
+							Score::default()
+						}
+					},
+					third_peer,
+					default_connected_state()
+				)
+				.await,
+			TryAcceptOutcome::Added
+		);
+		assert_eq!(connected.peer_info(&first_peer).unwrap(), &default_connected_state());
+		assert_eq!(connected.peer_info(&second_peer).unwrap(), &default_connected_state());
+		assert_eq!(connected.peer_info(&third_peer).unwrap(), &default_connected_state());
+
+		for (para_id, per_para) in connected.per_para.iter() {
+			assert!(per_para.contains(&third_peer));
+
+			if para_id == &third_peer_para_id {
+				assert_eq!(per_para.get_score(&third_peer).unwrap(), Score::new(10).unwrap());
+			} else {
+				assert_eq!(per_para.get_score(&third_peer).unwrap(), Score::default());
+			}
+		}
+
+		// Try accepting a peer which is declared for an unscheduled para. It will be rejected,
+		// regardless of its other reputations.
+		let rejected_peer = PeerId::random();
+		assert_eq!(
+			connected
+				.try_accept(
+					|peer_id, para_id| async move {
+						if peer_id == rejected_peer {
+							Score::new(10).unwrap()
+						} else {
+							Score::default()
+						}
+					},
+					rejected_peer,
+					PeerInfo {
+						version: CollationVersion::V2,
+						state: PeerState::Collating(ParaId::from(100))
+					}
+				)
+				.await,
+			TryAcceptOutcome::Rejected
+		);
+		assert_eq!(connected.peer_info(&rejected_peer), None);
+		for (para_id, per_para) in connected.per_para.iter() {
+			assert!(!per_para.contains(&rejected_peer));
+			assert_eq!(per_para.get_score(&rejected_peer), None);
+		}
+
+		// Try accepting a peer which is declared for a scheduled para.
+		let fourth_peer = PeerId::random();
+		let fourth_peer_para_id = ParaId::from(4);
+
+		assert_eq!(
+			connected
+				.try_accept(
+					|peer_id, para_id| async move {
+						if peer_id == fourth_peer && para_id == fourth_peer_para_id {
+							Score::new(10).unwrap()
+						} else {
+							Score::default()
+						}
+					},
+					fourth_peer,
+					PeerInfo {
+						version: CollationVersion::V2,
+						state: PeerState::Collating(fourth_peer_para_id)
+					}
+				)
+				.await,
+			TryAcceptOutcome::Added
+		);
+		assert_eq!(connected.peer_info(&first_peer).unwrap(), &default_connected_state());
+		assert_eq!(connected.peer_info(&second_peer).unwrap(), &default_connected_state());
+		assert_eq!(connected.peer_info(&third_peer).unwrap(), &default_connected_state());
+		assert_eq!(
+			connected.peer_info(&fourth_peer).unwrap(),
+			&PeerInfo {
+				version: CollationVersion::V2,
+				state: PeerState::Collating(fourth_peer_para_id)
+			}
+		);
+
+		for (para_id, per_para) in connected.per_para.iter() {
+			if para_id == &fourth_peer_para_id {
+				assert!(per_para.contains(&fourth_peer));
+				assert_eq!(per_para.get_score(&fourth_peer).unwrap(), Score::new(10).unwrap());
+			} else {
+				assert!(!per_para.contains(&fourth_peer));
+				assert_eq!(per_para.get_score(&fourth_peer), None);
+			}
+		}
+	}
+
+	#[tokio::test]
+	// Test peer connection acceptance criteria while the peer limit is reached.
+	async fn test_try_accept_at_limit() {}
+
+	#[tokio::test]
+	async fn test_declare() {}
+
+	#[tokio::test]
+	async fn test_remove() {}
+
+	#[tokio::test]
+	async fn test_update_reputation() {}
 }
