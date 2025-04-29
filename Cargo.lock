@@ -3281,6 +3281,7 @@ dependencies = [
  "staging-xcm-executor",
  "westend-runtime-constants",
  "westend-system-emulated-network",
+ "xcm-runtime-apis",
 ]
 
 [[package]]

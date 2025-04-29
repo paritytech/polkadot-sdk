@@ -21,6 +21,14 @@ mod imports {
 	pub use sp_core::H160;
 	pub use sp_runtime::DispatchError;
 
+	pub use frame_support::dispatch::{GetDispatchInfo, RawOrigin};
+	pub use xcm_runtime_apis::{
+		dry_run::runtime_decl_for_dry_run_api::DryRunApiV2,
+		fees::runtime_decl_for_xcm_payment_api::XcmPaymentApiV1,
+	};
+
+	pub use sp_runtime::traits::Dispatchable;
+
 	// Polkadot
 	pub use xcm::{
 		latest::{ParentThen, ROCOCO_GENESIS_HASH, WESTEND_GENESIS_HASH},

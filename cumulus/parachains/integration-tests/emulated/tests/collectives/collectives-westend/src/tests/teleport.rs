@@ -45,10 +45,10 @@ fn teleport_from_collectives_to_asset_hub() {
 	let native_asset: Assets = (Parent, amount).into();
 
 	test_parachain_is_trusted_teleporter!(
-		CollectivesWestend,          // Origin
-		CollectivesWestendXcmConfig, // XCM Configuration
-		vec![AssetHubWestend],       // Destinations
-		(native_asset, amount)
+		CollectivesWestend,    // Origin
+		vec![AssetHubWestend], // Destinations
+		(native_asset, amount),
+		limited_teleport_assets
 	);
 }
 
@@ -59,8 +59,8 @@ fn teleport_from_asset_hub_to_collectives() {
 
 	test_parachain_is_trusted_teleporter!(
 		AssetHubWestend,          // Origin
-		AssetHubWestendXcmConfig, // XCM Configuration
 		vec![CollectivesWestend], // Destinations
-		(native_asset, amount)
+		(native_asset, amount),
+		limited_teleport_assets
 	);
 }

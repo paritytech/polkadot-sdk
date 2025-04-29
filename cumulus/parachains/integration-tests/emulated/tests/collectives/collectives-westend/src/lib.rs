@@ -15,6 +15,14 @@
 
 pub use xcm::{latest::WESTEND_GENESIS_HASH, prelude::*};
 
+pub use frame_support::dispatch::{GetDispatchInfo, RawOrigin};
+pub use xcm_runtime_apis::{
+	dry_run::runtime_decl_for_dry_run_api::DryRunApiV2,
+	fees::runtime_decl_for_xcm_payment_api::XcmPaymentApiV1,
+};
+
+pub use sp_runtime::traits::Dispatchable;
+
 pub use emulated_integration_tests_common::{
 	accounts::ALICE,
 	test_parachain_is_trusted_teleporter,

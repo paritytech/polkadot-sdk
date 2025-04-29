@@ -17,6 +17,12 @@
 mod imports {
 	pub use codec::Encode;
 
+	pub use frame_support::dispatch::{GetDispatchInfo, RawOrigin};
+	pub use xcm_runtime_apis::{
+		dry_run::runtime_decl_for_dry_run_api::DryRunApiV2,
+		fees::runtime_decl_for_xcm_payment_api::XcmPaymentApiV1,
+	};
+
 	// Substrate
 	pub use frame_support::{
 		assert_err, assert_ok,
@@ -25,6 +31,8 @@ mod imports {
 		traits::fungibles::Inspect,
 		BoundedVec,
 	};
+
+	pub use sp_runtime::traits::Dispatchable;
 
 	// Polkadot
 	pub use xcm::{
