@@ -567,6 +567,7 @@ fn pure_works() {
 
 		let call = Box::new(call_transfer(6, 1));
 		assert_ok!(Balances::transfer_allow_death(RuntimeOrigin::signed(3), anon, 5));
+		assert_eq!(Balances::free_balance(6), 0);
 		assert_ok!(Proxy::proxy(RuntimeOrigin::signed(1), anon, None, call));
 		System::assert_last_event(ProxyEvent::ProxyExecuted { result: Ok(()) }.into());
 		assert_eq!(Balances::free_balance(6), 1);
@@ -579,7 +580,7 @@ fn pure_works() {
 			0,
 		)));
 		assert_ok!(Proxy::proxy(RuntimeOrigin::signed(2), anon2, None, call.clone()));
-		let de = DispatchError::from(Error::<Test>::NoPermission).stripped();
+		let de: DispatchError = DispatchError::from(Error::<Test>::NoPermission).stripped();
 		System::assert_last_event(ProxyEvent::ProxyExecuted { result: Err(de) }.into());
 		assert_noop!(
 			Proxy::kill_pure(RuntimeOrigin::signed(1), 1, ProxyType::Any, 0, 1, 0),
@@ -591,6 +592,18 @@ fn pure_works() {
 		assert_noop!(
 			Proxy::proxy(RuntimeOrigin::signed(1), anon, None, call.clone()),
 			Error::<Test>::NotProxy
+		);
+
+		// Actually kill the pure proxy.
+		assert_ok!(Proxy::kill_pure(RuntimeOrigin::signed(anon), 1, ProxyType::Any, 0, 1, 0));
+		System::assert_last_event(
+			ProxyEvent::PureKilled {
+				pure: anon,
+				spawner: 1,
+				proxy_type: ProxyType::Any,
+				disambiguation_index: 0,
+			}
+			.into(),
 		);
 	});
 }
