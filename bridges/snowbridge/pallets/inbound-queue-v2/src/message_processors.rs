@@ -44,8 +44,7 @@ where
 	AssetHubParaId: Get<u32>,
 {
 	fn can_process_message(_who: &AccountId, message: &Message) -> bool {
-		// Check if the message can be converted to XCM
-		Converter::convert(message.clone()).is_ok()
+		true
 	}
 
 	fn process_message(who: AccountId, message: Message) -> Result<[u8; 32], DispatchError> {
