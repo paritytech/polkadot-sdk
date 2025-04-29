@@ -122,9 +122,13 @@ async fn transfer() -> anyhow::Result<()> {
 		"Receipt should have the correct contract address."
 	);
 
-	let increase =
-		client.get_balance(ethan.address(), BlockTag::Latest.into()).await? - initial_balance;
-	assert_eq!(value, increase);
+	let balance = client.get_balance(ethan.address(), BlockTag::Latest.into()).await?;
+	assert_eq!(
+		Some(value),
+		balance.checked_sub(initial_balance),
+		"Ethan {:?} {balance:?} should have increased by {value:?} from {initial_balance}.",
+		ethan.address()
+	);
 	Ok(())
 }
 
@@ -148,8 +152,13 @@ async fn deploy_and_call() -> anyhow::Result<()> {
 		"Receipt should have the correct contract address."
 	);
 
-	let updated_balance = client.get_balance(ethan.address(), BlockTag::Latest.into()).await?;
-	assert_eq!(value, updated_balance - initial_balance);
+	let balance = client.get_balance(ethan.address(), BlockTag::Latest.into()).await?;
+	assert_eq!(
+		Some(value),
+		balance.checked_sub(initial_balance),
+		"Ethan {:?} {balance:?} should have increased by {value:?} from {initial_balance}.",
+		ethan.address()
+	);
 
 	// Deploy contract
 	let data = b"hello world".to_vec();
@@ -163,11 +172,14 @@ async fn deploy_and_call() -> anyhow::Result<()> {
 	assert_eq!(
 		Some(contract_address),
 		receipt.contract_address,
-		"Contract should be deployed with the correct address."
+		"Contract should be deployed at {contract_address:?}."
 	);
 
-	let balance = client.get_balance(contract_address, BlockTag::Latest.into()).await?;
-	assert_eq!(value, balance, "Contract balance should be the same as the value sent.");
+	let initial_balance = client.get_balance(contract_address, BlockTag::Latest.into()).await?;
+	assert_eq!(
+		value, initial_balance,
+		"Contract {contract_address:?} balance should be the same as the value sent ({value})."
+	);
 
 	// Call contract
 	let tx = TransactionBuilder::new(&client)
@@ -180,14 +192,14 @@ async fn deploy_and_call() -> anyhow::Result<()> {
 	assert_eq!(
 		Some(contract_address),
 		receipt.to,
-		"Receipt should have the correct contract address."
+		"Receipt should have the correct contract address {contract_address:?}."
 	);
 
-	let increase = client.get_balance(contract_address, BlockTag::Latest.into()).await? - balance;
-	assert_eq!(value, increase, "contract's balance should have increased by the value sent.");
+	let balance = client.get_balance(contract_address, BlockTag::Latest.into()).await?;
+	assert_eq!(Some(value), balance.checked_sub(initial_balance), "Contract {contract_address:?} Balance {balance} should have increased from {initial_balance} by {value}.");
 
 	// Balance transfer to contract
-	let balance = client.get_balance(contract_address, BlockTag::Latest.into()).await?;
+	let initial_balance = client.get_balance(contract_address, BlockTag::Latest.into()).await?;
 	let tx = TransactionBuilder::new(&client)
 		.value(value)
 		.to(contract_address)
@@ -195,8 +207,14 @@ async fn deploy_and_call() -> anyhow::Result<()> {
 		.await?;
 
 	tx.wait_for_receipt().await?;
-	let increase = client.get_balance(contract_address, BlockTag::Latest.into()).await? - balance;
-	assert_eq!(value, increase, "contract's balance should have increased by the value sent.");
+
+	let balance = client.get_balance(contract_address, BlockTag::Latest.into()).await?;
+
+	assert_eq!(
+		Some(value),
+		balance.checked_sub(initial_balance),
+		"Balance {balance} should have increased from {initial_balance} by {value}."
+	);
 	Ok(())
 }
 

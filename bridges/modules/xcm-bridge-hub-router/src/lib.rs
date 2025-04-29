@@ -79,6 +79,7 @@ pub mod pallet {
 	#[pallet::config]
 	pub trait Config<I: 'static = ()>: frame_system::Config {
 		/// The overarching event type.
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self, I>>
 			+ IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		/// Benchmarks results from runtime we're plugged into.
@@ -166,7 +167,7 @@ pub mod pallet {
 			bridge_id: H256,
 			is_congested: bool,
 		) -> DispatchResult {
-			let _ = T::BridgeHubOrigin::ensure_origin(origin)?;
+			T::BridgeHubOrigin::ensure_origin(origin)?;
 
 			log::info!(
 				target: LOG_TARGET,
@@ -404,7 +405,7 @@ impl<T: Config<I>, I: 'static> SendXcm for Pallet<T, I> {
 				// to avoid losing funds).
 				let destination_version = T::DestinationVersion::get_version_for(&dest_clone)
 					.ok_or(SendError::DestinationUnsupported)?;
-				let _ = VersionedXcm::from(xcm_to_dest_clone)
+				VersionedXcm::from(xcm_to_dest_clone)
 					.into_version(destination_version)
 					.map_err(|()| SendError::DestinationUnsupported)?;
 
