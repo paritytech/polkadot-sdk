@@ -27,11 +27,9 @@ use alloc::vec::Vec;
 use codec::{Decode, Encode, EncodeLike, FullCodec};
 use core::marker::PhantomData;
 use frame::{
-	prelude::*,
 	deps::sp_io,
-	runtime::prelude::{
-		storage::{StorageAppender, StorageList, StoragePrefixedContainer},
-	},
+	prelude::*,
+	runtime::prelude::storage::{StorageAppender, StorageList, StoragePrefixedContainer},
 	traits::{Get, StorageInstance},
 };
 
