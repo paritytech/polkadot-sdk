@@ -23,7 +23,8 @@ use cumulus_relay_chain_interface::{RelayChainInterface, RelayChainResult};
 use futures::{Stream, StreamExt};
 use polkadot_node_subsystem::messages::RuntimeApiRequest;
 use polkadot_primitives::{
-	vstaging::CommittedCandidateReceiptV2 as CommittedCandidateReceipt, Id as ParaId, SessionIndex,
+	vstaging::CommittedCandidateReceiptV2 as CommittedCandidateReceipt, Hash as PHash,
+	Id as ParaId, OccupiedCoreAssumption, SessionIndex,
 };
 use sp_api::RuntimeApiInfo;
 use sp_consensus::SyncOracle;
@@ -120,4 +121,44 @@ pub async fn pending_candidates(
 		}
 	});
 	Ok(filtered_stream)
+}
+
+/// Returns a stream that will yield best heads for the given `para_id`.
+pub async fn new_best_heads(
+	relay_chain: impl RelayChainInterface + Clone,
+	para_id: ParaId,
+) -> RelayChainResult<impl Stream<Item = Vec<u8>>> {
+	let new_best_notification_stream =
+		relay_chain.new_best_notification_stream().await?.filter_map(move |n| {
+			let relay_chain = relay_chain.clone();
+			async move { parachain_head_at(&relay_chain, n.hash(), para_id).await.ok().flatten() }
+		});
+
+	Ok(new_best_notification_stream)
+}
+
+/// Returns a stream that will yield finalized heads for the given `para_id`.
+pub async fn finalized_heads(
+	relay_chain: impl RelayChainInterface + Clone,
+	para_id: ParaId,
+) -> RelayChainResult<impl Stream<Item = Vec<u8>>> {
+	let finality_notification_stream =
+		relay_chain.finality_notification_stream().await?.filter_map(move |n| {
+			let relay_chain = relay_chain.clone();
+			async move { parachain_head_at(&relay_chain, n.hash(), para_id).await.ok().flatten() }
+		});
+
+	Ok(finality_notification_stream)
+}
+
+/// Returns head of the parachain at the given relay chain block.
+async fn parachain_head_at(
+	relay_chain: &impl RelayChainInterface,
+	at: PHash,
+	para_id: ParaId,
+) -> RelayChainResult<Option<Vec<u8>>> {
+	relay_chain
+		.persisted_validation_data(at, para_id, OccupiedCoreAssumption::TimedOut)
+		.await
+		.map(|s| s.map(|s| s.parent_head.0))
 }

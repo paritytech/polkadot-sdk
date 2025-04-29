@@ -4252,6 +4252,7 @@ dependencies = [
  "cumulus-client-pov-recovery",
  "cumulus-primitives-core",
  "cumulus-relay-chain-interface",
+ "cumulus-relay-chain-streams",
  "cumulus-test-client",
  "cumulus-test-relay-sproof-builder",
  "dyn-clone",
