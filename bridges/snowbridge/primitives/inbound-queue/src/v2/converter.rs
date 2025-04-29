@@ -166,10 +166,7 @@ where
 					let asset_loc = ConvertAssetId::convert(&token_id)
 						.ok_or(ConvertMessageError::InvalidAsset)?;
 					let reanchored_asset_loc = asset_loc
-						.reanchored(
-							&AssetHubFromEthereum::get(),
-							&EthereumUniversalLocation::get(),
-						)
+						.reanchored(&AssetHubFromEthereum::get(), &EthereumUniversalLocation::get())
 						.map_err(|_| ConvertMessageError::CannotReanchor)?;
 					let asset: Asset = (reanchored_asset_loc, *value).into();
 					assets.push(AssetTransfer::ReserveWithdraw(asset));
