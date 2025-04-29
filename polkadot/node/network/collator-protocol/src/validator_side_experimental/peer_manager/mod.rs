@@ -98,12 +98,10 @@ impl<B: Backend> PeerManager<B> {
 	/// the tip of the chain).
 	pub async fn startup<Sender: CollatorProtocolSenderTrait>(
 		sender: &mut Sender,
-		first_leaf: ActivatedLeaf,
 		scheduled_paras: BTreeSet<ParaId>,
 	) -> Result<Self> {
 		// Open the Db.
 		let db = B::new().await;
-		let latest_block_number = db.latest_block_number().await;
 
 		let mut instance = Self {
 			db,
@@ -114,71 +112,50 @@ impl<B: Backend> PeerManager<B> {
 			),
 		};
 
-		let ancestry_len = if let Some(number) = latest_block_number {
-			if first_leaf.number <= number {
-				// Shouldn't be possible, but in this case there is no other initialisation needed.
-				gum::warn!(
-					target: LOG_TARGET,
-					leaf_number = first_leaf.number,
-					leaf_hash = ?first_leaf.hash,
-					"Peer manager latest block number {} is higher than the new active leaf.",
-					number,
-				);
-				return Ok(instance)
-			}
-			std::cmp::min(first_leaf.number.saturating_sub(number), MAX_STARTUP_ANCESTRY_LOOKBACK)
-		} else {
-			MAX_STARTUP_ANCESTRY_LOOKBACK
-		};
+		let (latest_finalized_block_number, latest_finalized_block_hash) =
+			get_latest_finalized_block(sender).await?;
 
-		let mut ancestors = get_ancestors(sender, ancestry_len as usize, first_leaf.hash).await?;
-		ancestors.push(first_leaf.hash);
-		ancestors.reverse();
+		let processed_finalized_block_number =
+			instance.db.processed_finalized_block_number().await.unwrap_or_default();
 
-		let bumps = extract_reputation_bumps_from_ancestry(sender, &ancestors[..]).await?;
+		let bumps = extract_reputation_bumps_on_new_finalized_block(
+			sender,
+			processed_finalized_block_number,
+			(latest_finalized_block_number, latest_finalized_block_hash),
+		)
+		.await?;
 
-		instance.db.process_bumps(first_leaf.number, bumps, None).await;
+		instance.db.process_bumps(latest_finalized_block_number, bumps, None).await;
 
 		Ok(instance)
 	}
 
-	/// Handle new leaves update, by updating peer reputations.
-	pub async fn update_reputations_on_new_leaves<Sender: CollatorProtocolSenderTrait>(
+	/// Handle a new block finality notification, by updating peer reputations.
+	pub async fn update_reputations_on_new_finalized_block<Sender: CollatorProtocolSenderTrait>(
 		&mut self,
 		sender: &mut Sender,
-		new_leaves: Vec<Hash>,
-		cached_parents: &mut HashMap<Hash, Hash>,
+		(finalized_block_hash, finalized_block_number): (Hash, BlockNumber),
 	) -> Result<()> {
-		for leaf in new_leaves {
-			let block_number = get_block_number(sender, leaf).await?;
+		let processed_finalized_block_number =
+			self.db.processed_finalized_block_number().await.unwrap_or_default();
 
-			let latest_processed_block_number = self.db.latest_block_number().await;
-			if latest_processed_block_number.unwrap_or(0) > block_number {
-				continue
-			}
+		let bumps = extract_reputation_bumps_on_new_finalized_block(
+			sender,
+			processed_finalized_block_number,
+			(finalized_block_number, finalized_block_hash),
+		)
+		.await?;
 
-			let parent = if let Some(parent) = cached_parents.get(&leaf) {
-				*parent
-			} else {
-				let parent = get_ancestors(sender, 1, leaf).await?.remove(0);
-				cached_parents.insert(leaf, parent);
-				parent
-			};
-
-			let ancestors = vec![parent, leaf];
-			let bumps = extract_reputation_bumps_from_ancestry(sender, &ancestors[..]).await?;
-
-			let updates = self
-				.db
-				.process_bumps(
-					block_number,
-					bumps,
-					Some(Score::new(INACTIVITY_DECAY).expect("INACTIVITY_DECAY is a valid score")),
-				)
-				.await;
-			for update in updates {
-				self.connected.update_reputation(update);
-			}
+		let updates = self
+			.db
+			.process_bumps(
+				finalized_block_number,
+				bumps,
+				Some(Score::new(INACTIVITY_DECAY).expect("INACTIVITY_DECAY is a valid score")),
+			)
+			.await;
+		for update in updates {
+			self.connected.update_reputation(update);
 		}
 
 		Ok(())
@@ -400,22 +377,56 @@ async fn get_ancestors<Sender: CollatorProtocolSenderTrait>(
 	Ok(rx.await.map_err(|_| Error::CanceledAncestors)??)
 }
 
-async fn get_block_number<Sender: CollatorProtocolSenderTrait>(
+async fn get_latest_finalized_block<Sender: CollatorProtocolSenderTrait>(
 	sender: &mut Sender,
-	hash: Hash,
-) -> Result<BlockNumber> {
+) -> Result<(BlockNumber, Hash)> {
 	let (tx, rx) = oneshot::channel();
-	sender.send_message(ChainApiMessage::BlockNumber(hash, tx)).await;
+	sender.send_message(ChainApiMessage::FinalizedBlockNumber(tx)).await;
 
-	rx.await
-		.map_err(|_| Error::CanceledBlockNumber)??
-		.ok_or_else(|| Error::BlockNumberNotFound(hash))
+	let block_number = rx.await.map_err(|_| Error::CanceledFinalizedBlockNumber)??;
+
+	let (tx, rx) = oneshot::channel();
+	sender.send_message(ChainApiMessage::FinalizedBlockHash(block_number, tx)).await;
+
+	let block_hash = rx
+		.await
+		.map_err(|_| Error::CanceledFinalizedBlockHash)??
+		.ok_or_else(|| Error::FinalizedBlockNotFound(block_number))?;
+
+	Ok((block_number, block_hash))
 }
 
-async fn extract_reputation_bumps_from_ancestry<Sender: CollatorProtocolSenderTrait>(
+async fn extract_reputation_bumps_on_new_finalized_block<Sender: CollatorProtocolSenderTrait>(
 	sender: &mut Sender,
-	ancestors: &[Hash],
+	processed_finalized_block_number: BlockNumber,
+	(latest_finalized_block_number, latest_finalized_block_hash): (BlockNumber, Hash),
 ) -> Result<BTreeMap<ParaId, HashMap<PeerId, Score>>> {
+	if latest_finalized_block_number < processed_finalized_block_number {
+		// Shouldn't be possible, but in this case there is no other initialisation needed.
+		gum::info!(
+			target: LOG_TARGET,
+			latest_finalized_block_number,
+			?latest_finalized_block_hash,
+			"Peer manager stored finalized block number {} is higher than the latest finalized block.",
+			processed_finalized_block_number,
+		);
+		return Ok(BTreeMap::new())
+	}
+
+	let ancestry_len = std::cmp::min(
+		latest_finalized_block_number.saturating_sub(processed_finalized_block_number),
+		MAX_STARTUP_ANCESTRY_LOOKBACK,
+	);
+
+	if ancestry_len == 0 {
+		return Ok(BTreeMap::new())
+	}
+
+	let mut ancestors =
+		get_ancestors(sender, ancestry_len as usize, latest_finalized_block_hash).await?;
+	ancestors.push(latest_finalized_block_hash);
+	ancestors.reverse();
+
 	let mut candidates_per_rp: HashMap<Hash, BTreeMap<ParaId, HashSet<CandidateHash>>> =
 		HashMap::with_capacity(ancestors.len());
 

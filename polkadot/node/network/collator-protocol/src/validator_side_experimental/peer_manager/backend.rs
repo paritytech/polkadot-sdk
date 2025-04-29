@@ -25,8 +25,8 @@ use std::collections::{BTreeMap, BTreeSet, HashMap};
 pub trait Backend {
 	/// Instantiate a new backend.
 	async fn new() -> Self;
-	/// Return the latest known leaf for which the backend processed bumps.
-	async fn latest_block_number(&self) -> Option<BlockNumber>;
+	/// Return the latest finalized block for which the backend processed bumps.
+	async fn processed_finalized_block_number(&self) -> Option<BlockNumber>;
 	/// Get the peer's stored reputation for this paraid, if any.
 	async fn query(&self, peer_id: &PeerId, para_id: &ParaId) -> Option<Score>;
 	/// Slash the peer's reputation for this paraid, with the given value.

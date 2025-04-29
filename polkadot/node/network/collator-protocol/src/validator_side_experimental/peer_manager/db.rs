@@ -32,7 +32,7 @@ impl Backend for Db {
 		Db
 	}
 
-	async fn latest_block_number(&self) -> Option<BlockNumber> {
+	async fn processed_finalized_block_number(&self) -> Option<BlockNumber> {
 		None
 	}
 

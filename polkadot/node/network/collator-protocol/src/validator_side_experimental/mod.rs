@@ -77,9 +77,7 @@ async fn initialize<Context>(
 			},
 		};
 
-		match PeerManager::startup(ctx.sender(), first_leaf, scheduled_paras.into_iter().collect())
-			.await
-		{
+		match PeerManager::startup(ctx.sender(), scheduled_paras.into_iter().collect()).await {
 			Ok(peer_manager) => return Ok(Some(State::new(peer_manager, keystore, metrics))),
 			Err(err) => {
 				log_error(Err(err))?;
