@@ -5,7 +5,7 @@ doc:
   description: |-
     This allows that we can update the hardcoded genesis-presets with some json-values, closes https://github.com/paritytech/polkadot-sdk/issues/7748.
 
-    Ideally, we should be able to remove calls into the native runtime with this (i.e., don't link the runtime in the node's code). It is almost ready, but there are minor clarifications that I need before finalizing this. But maybe we want to move this to a separate PR anyhow.
+    Ideally, we should be able to remove calls into the native runtime with this (i.e., don't link the runtime in the node's code).
 crates:
 - name: sc-chain-spec
   bump: patch
