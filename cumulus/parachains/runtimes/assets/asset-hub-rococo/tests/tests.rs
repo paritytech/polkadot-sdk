@@ -1156,7 +1156,7 @@ mod asset_hub_rococo_tests {
 			Box::new(bridging::to_westend::AssetHubWestend::get()),
 			XCM_VERSION,
 		)
-			.expect("version saved!");
+		.expect("version saved!");
 		TestBridgingConfig {
 			bridged_network: bridging::to_westend::WestendNetwork::get(),
 			// Local AH para_id.
@@ -1176,7 +1176,10 @@ mod asset_hub_rococo_tests {
 
 	#[test]
 	fn receive_reserve_asset_deposited_wnd_from_asset_hub_westend_fees_paid_by_pool_swap_works() {
-		fn test_with(bridging_cfg: impl Fn() -> TestBridgingConfig, bridge_instance: InteriorLocation) {
+		fn test_with(
+			bridging_cfg: impl Fn() -> TestBridgingConfig,
+			bridge_instance: InteriorLocation,
+		) {
 			const BLOCK_AUTHOR_ACCOUNT: [u8; 32] = [13; 32];
 			let block_author_account = AccountId::from(BLOCK_AUTHOR_ACCOUNT);
 			let staking_pot = StakingPot::get();
@@ -1249,9 +1252,21 @@ mod asset_hub_rococo_tests {
 		}
 
 		// The bridge with BHs is working.
-		test_with(bridging_to_asset_hub_westend, [PalletInstance(bp_bridge_hub_rococo::WITH_BRIDGE_ROCOCO_TO_WESTEND_MESSAGES_PALLET_INDEX)].into());
+		test_with(
+			bridging_to_asset_hub_westend,
+			[PalletInstance(
+				bp_bridge_hub_rococo::WITH_BRIDGE_ROCOCO_TO_WESTEND_MESSAGES_PALLET_INDEX,
+			)]
+			.into(),
+		);
 		// The bridge with direct AHs is working.
-		test_with(direct_bridging_to_asset_hub_westend, [PalletInstance(bp_asset_hub_rococo::WITH_BRIDGE_ROCOCO_TO_WESTEND_MESSAGES_PALLET_INDEX)].into());
+		test_with(
+			direct_bridging_to_asset_hub_westend,
+			[PalletInstance(
+				bp_asset_hub_rococo::WITH_BRIDGE_ROCOCO_TO_WESTEND_MESSAGES_PALLET_INDEX,
+			)]
+			.into(),
+		);
 	}
 
 	#[test]
@@ -1753,8 +1768,10 @@ mod bridge_to_westend_tests {
 		ParachainSystem, PolkadotXcm, Runtime, RuntimeEvent, RuntimeOrigin,
 	};
 	use bp_runtime::{HeaderOf, RangeInclusiveExt};
-	use bridge_hub_test_utils::mock_open_hrmp_channel;
-	use bridge_hub_test_utils::test_cases::{ToMessageQueueDelivery, ToSiblingDelivery};
+	use bridge_hub_test_utils::{
+		mock_open_hrmp_channel,
+		test_cases::{ToMessageQueueDelivery, ToSiblingDelivery},
+	};
 	use codec::Decode;
 	use frame_support::{
 		traits::{ConstU8, ProcessMessageError},
@@ -1910,8 +1927,8 @@ mod bridge_to_westend_tests {
 							Runtime,
 							XcmOverAssetHubWestendInstance,
 						>(
-							// This should represent `RuntimeOrigin::root()` which represents `Location::here()`
-							// for `OpenBridgeOrigin`
+							// This should represent `RuntimeOrigin::root()` which represents
+							// `Location::here()` for `OpenBridgeOrigin`
 							(Location::parent(), OriginKind::Superuser),
 							locations.bridge_destination_universal_location().clone(),
 							fee,

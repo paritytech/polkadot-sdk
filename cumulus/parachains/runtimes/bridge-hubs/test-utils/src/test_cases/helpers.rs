@@ -39,8 +39,7 @@ use parachains_runtimes_test_utils::{
 use sp_core::Get;
 use sp_keyring::Sr25519Keyring::*;
 use sp_runtime::{traits::TrailingZeroInput, AccountId32};
-use xcm::latest::prelude::*;
-use xcm::VersionedXcm;
+use xcm::{latest::prelude::*, VersionedXcm};
 use xcm_executor::traits::ConvertLocation;
 
 /// Verify that the transaction has succeeded.
@@ -413,8 +412,8 @@ pub fn relayed_incoming_message_proofs_works<Runtime, MPI, DeliveryAndMessage>(
 			// value here is tricky - there are several transaction payment pallets and we don't
 			// want to introduce additional bounds and traits here just for that, so let's just
 			// select some presumably large value
-			core::cmp::max::<Runtime::Balance>(Runtime::ExistentialDeposit::get(), 1u32.into())
-				* 100_000_000u32.into(),
+			core::cmp::max::<Runtime::Balance>(Runtime::ExistentialDeposit::get(), 1u32.into()) *
+				100_000_000u32.into(),
 		)],
 		|| {
 			// setup delivery to destination (hrmp, ...)

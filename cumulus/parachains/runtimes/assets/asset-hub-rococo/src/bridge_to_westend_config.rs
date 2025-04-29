@@ -88,7 +88,8 @@ impl MaybeConvert<&Location, AggregateMessageOrigin> for AcceptOnlyHere {
 	fn maybe_convert(loc: &Location) -> Option<AggregateMessageOrigin> {
 		match loc.unpack() {
 			(0, []) => {
-				// Let's use `Here` for local message queue dispatch, but we can also change to custom.
+				// Let's use `Here` for local message queue dispatch, but we can also change to
+				// custom.
 				Some(AggregateMessageOrigin::Here)
 			},
 			_ => None,

@@ -990,12 +990,9 @@ pub trait WithBridgeMessagesHelper {
 }
 
 /// Adapter struct that implements `WithBridgeMessagesHelper`.
-pub struct WithBridgeMessagesHelperAdapter<
-	Runtime,
-	MPI,
-	RPI,
-	DeliveryAndMessage,
->(core::marker::PhantomData<(Runtime, MPI, RPI, DeliveryAndMessage)>);
+pub struct WithBridgeMessagesHelperAdapter<Runtime, MPI, RPI, DeliveryAndMessage>(
+	core::marker::PhantomData<(Runtime, MPI, RPI, DeliveryAndMessage)>,
+);
 
 impl<Runtime, MPI, RPI, DeliveryAndMessage> WithBridgeMessagesHelper
 	for WithBridgeMessagesHelperAdapter<Runtime, MPI, RPI, DeliveryAndMessage>

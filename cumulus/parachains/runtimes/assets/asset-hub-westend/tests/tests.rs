@@ -1240,7 +1240,7 @@ fn direct_bridging_to_asset_hub_rococo() -> TestBridgingConfig {
 		Box::new(bridging::to_rococo::AssetHubRococo::get()),
 		XCM_VERSION,
 	)
-		.expect("version saved!");
+	.expect("version saved!");
 	TestBridgingConfig {
 		bridged_network: bridging::to_rococo::RococoNetwork::get(),
 		// Local AH para_id.
@@ -1293,13 +1293,19 @@ fn receive_reserve_asset_deposited_roc_from_asset_hub_rococo_fees_paid_by_pool_s
 
 		let foreign_asset_id_location = xcm::v5::Location::new(
 			2,
-			[xcm::v5::Junction::GlobalConsensus(xcm::v5::NetworkId::ByGenesis(ROCOCO_GENESIS_HASH))],
+			[xcm::v5::Junction::GlobalConsensus(xcm::v5::NetworkId::ByGenesis(
+				ROCOCO_GENESIS_HASH,
+			))],
 		);
 		let foreign_asset_id_minimum_balance = 1_000_000_000;
 		// sovereign account as a foreign asset owner (can be whoever for this scenario)
-		let foreign_asset_owner = LocationToAccountId::convert_location(&Location::parent()).unwrap();
-		let foreign_asset_create_params =
-			(foreign_asset_owner, foreign_asset_id_location.clone(), foreign_asset_id_minimum_balance);
+		let foreign_asset_owner =
+			LocationToAccountId::convert_location(&Location::parent()).unwrap();
+		let foreign_asset_create_params = (
+			foreign_asset_owner,
+			foreign_asset_id_location.clone(),
+			foreign_asset_id_minimum_balance,
+		);
 
 		asset_test_utils::test_cases_over_bridge::receive_reserve_asset_deposited_from_different_consensus_works::<
 			Runtime,
@@ -1357,9 +1363,19 @@ fn receive_reserve_asset_deposited_roc_from_asset_hub_rococo_fees_paid_by_pool_s
 	}
 
 	// The bridge with BHs is working.
-	test_with(bridging_to_asset_hub_rococo, [PalletInstance(bp_bridge_hub_westend::WITH_BRIDGE_WESTEND_TO_ROCOCO_MESSAGES_PALLET_INDEX)].into());
+	test_with(
+		bridging_to_asset_hub_rococo,
+		[PalletInstance(
+			bp_bridge_hub_westend::WITH_BRIDGE_WESTEND_TO_ROCOCO_MESSAGES_PALLET_INDEX,
+		)]
+		.into(),
+	);
 	// The bridge with direct AHs is working.
-	test_with(direct_bridging_to_asset_hub_rococo, [PalletInstance(bp_asset_hub_westend::WITH_BRIDGE_WESTEND_TO_ROCOCO_MESSAGES_PALLET_INDEX)].into());
+	test_with(
+		direct_bridging_to_asset_hub_rococo,
+		[PalletInstance(bp_asset_hub_westend::WITH_BRIDGE_WESTEND_TO_ROCOCO_MESSAGES_PALLET_INDEX)]
+			.into(),
+	);
 }
 
 #[test]
@@ -1875,8 +1891,10 @@ mod bridge_to_rococo_tests {
 		PolkadotXcm, Runtime, RuntimeEvent, RuntimeOrigin,
 	};
 	use bp_runtime::{HeaderOf, RangeInclusiveExt};
-	use bridge_hub_test_utils::mock_open_hrmp_channel;
-	use bridge_hub_test_utils::test_cases::{ToMessageQueueDelivery, ToSiblingDelivery};
+	use bridge_hub_test_utils::{
+		mock_open_hrmp_channel,
+		test_cases::{ToMessageQueueDelivery, ToSiblingDelivery},
+	};
 	use codec::Decode;
 	use frame_support::traits::{ConstU8, ProcessMessageError};
 	use pallet_bridge_messages::BridgedChainOf;
@@ -2030,8 +2048,8 @@ mod bridge_to_rococo_tests {
 							Runtime,
 							XcmOverAssetHubRococoInstance,
 						>(
-							// This should represent `RuntimeOrigin::root()` which represents `Location::here()`
-							// for `OpenBridgeOrigin`
+							// This should represent `RuntimeOrigin::root()` which represents
+							// `Location::here()` for `OpenBridgeOrigin`
 							(Location::parent(), OriginKind::Superuser),
 							locations.bridge_destination_universal_location().clone(),
 							fee,
