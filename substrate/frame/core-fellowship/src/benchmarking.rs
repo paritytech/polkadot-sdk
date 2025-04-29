@@ -20,7 +20,7 @@
 #![cfg(feature = "runtime-benchmarks")]
 
 use super::*;
-use crate::Pallet as CoreFellowship;
+use crate::{pallet::Member as CoreFellowshipMember, Pallet as CoreFellowship};
 
 use alloc::{boxed::Box, vec};
 use frame::benchmarking::prelude::*;
@@ -133,12 +133,12 @@ mod benchmarks {
 		// Set it to the max value to ensure that any possible auto-demotion period has passed.
 		frame_system::Pallet::<T>::set_block_number(BlockNumberFor::<T>::max_value());
 		ensure_evidence::<T, I>(&member)?;
-		assert!(Member::<T, I>::contains_key(&member));
+		assert!(CoreFellowshipMember::<T, I>::contains_key(&member));
 
 		#[extrinsic_call]
 		CoreFellowship::<T, I>::bump(RawOrigin::Signed(member.clone()), member.clone());
 
-		assert!(!Member::<T, I>::contains_key(&member));
+		assert!(!CoreFellowshipMember::<T, I>::contains_key(&member));
 		assert!(!MemberEvidence::<T, I>::contains_key(&member));
 		Ok(())
 	}
@@ -155,13 +155,13 @@ mod benchmarks {
 		frame_system::Pallet::<T>::set_block_number(BlockNumberFor::<T>::max_value());
 		ensure_evidence::<T, I>(&member)?;
 
-		assert!(Member::<T, I>::contains_key(&member));
+		assert!(CoreFellowshipMember::<T, I>::contains_key(&member));
 		assert_eq!(T::Members::rank_of(&member), Some(initial_rank));
 
 		#[extrinsic_call]
 		CoreFellowship::<T, I>::bump(RawOrigin::Signed(member.clone()), member.clone());
 
-		assert!(Member::<T, I>::contains_key(&member));
+		assert!(CoreFellowshipMember::<T, I>::contains_key(&member));
 		assert_eq!(T::Members::rank_of(&member), Some(initial_rank.saturating_sub(1)));
 		assert!(!MemberEvidence::<T, I>::contains_key(&member));
 		Ok(())
@@ -170,12 +170,12 @@ mod benchmarks {
 	#[benchmark]
 	fn set_active() -> Result<(), BenchmarkError> {
 		let member = make_member::<T, I>(1)?;
-		assert!(Member::<T, I>::get(&member).unwrap().is_active);
+		assert!(CoreFellowshipMember::<T, I>::get(&member).unwrap().is_active);
 
 		#[extrinsic_call]
 		_(RawOrigin::Signed(member.clone()), false);
 
-		assert!(!Member::<T, I>::get(&member).unwrap().is_active);
+		assert!(!CoreFellowshipMember::<T, I>::get(&member).unwrap().is_active);
 		Ok(())
 	}
 
@@ -187,7 +187,7 @@ mod benchmarks {
 		_(RawOrigin::Root, candidate.clone());
 
 		assert_eq!(T::Members::rank_of(&candidate), Some(0));
-		assert!(Member::<T, I>::contains_key(&candidate));
+		assert!(CoreFellowshipMember::<T, I>::contains_key(&candidate));
 		Ok(())
 	}
 
@@ -251,13 +251,13 @@ mod benchmarks {
 		ensure_evidence::<T, I>(&member)?;
 
 		assert!(T::Members::rank_of(&member).is_none());
-		assert!(Member::<T, I>::contains_key(&member));
+		assert!(CoreFellowshipMember::<T, I>::contains_key(&member));
 		assert!(MemberEvidence::<T, I>::contains_key(&member));
 
 		#[extrinsic_call]
 		_(RawOrigin::Signed(member.clone()), member.clone());
 
-		assert!(!Member::<T, I>::contains_key(&member));
+		assert!(!CoreFellowshipMember::<T, I>::contains_key(&member));
 		assert!(!MemberEvidence::<T, I>::contains_key(&member));
 		Ok(())
 	}
@@ -268,12 +268,12 @@ mod benchmarks {
 		T::Members::induct(&member)?;
 		T::Members::promote(&member)?;
 
-		assert!(!Member::<T, I>::contains_key(&member));
+		assert!(!CoreFellowshipMember::<T, I>::contains_key(&member));
 
 		#[extrinsic_call]
 		_(RawOrigin::Signed(member.clone()));
 
-		assert!(Member::<T, I>::contains_key(&member));
+		assert!(CoreFellowshipMember::<T, I>::contains_key(&member));
 		Ok(())
 	}
 
@@ -285,12 +285,12 @@ mod benchmarks {
 		T::Members::induct(&member)?;
 		T::Members::promote(&member)?;
 
-		assert!(!Member::<T, I>::contains_key(&member));
+		assert!(!CoreFellowshipMember::<T, I>::contains_key(&member));
 
 		#[extrinsic_call]
 		_(RawOrigin::Signed(sender), member.clone());
 
-		assert!(Member::<T, I>::contains_key(&member));
+		assert!(CoreFellowshipMember::<T, I>::contains_key(&member));
 		Ok(())
 	}
 
@@ -302,12 +302,12 @@ mod benchmarks {
 		frame_system::Pallet::<T>::set_block_number(now);
 		ensure_evidence::<T, I>(&member)?;
 
-		assert_eq!(Member::<T, I>::get(&member).unwrap().last_proof, then);
+		assert_eq!(CoreFellowshipMember::<T, I>::get(&member).unwrap().last_proof, then);
 
 		#[extrinsic_call]
 		_(RawOrigin::Root, member.clone(), 1u8.into());
 
-		assert_eq!(Member::<T, I>::get(&member).unwrap().last_proof, now);
+		assert_eq!(CoreFellowshipMember::<T, I>::get(&member).unwrap().last_proof, now);
 		assert!(!MemberEvidence::<T, I>::contains_key(&member));
 		Ok(())
 	}
