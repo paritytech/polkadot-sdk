@@ -1091,6 +1091,7 @@ mod asset_hub_rococo_tests {
 	};
 	use xcm_executor::traits::ConvertLocation;
 
+	/// The bridge over BridgeHubs: AHW <-> BHW <-> BHR <-> AHR
 	fn bridging_to_asset_hub_westend() -> TestBridgingConfig {
 		let _ = PolkadotXcm::force_xcm_version(
 			RuntimeOrigin::root(),
@@ -1106,6 +1107,24 @@ mod asset_hub_rococo_tests {
 		}
 	}
 
+	/// The direct bridge over AssetHubs: AHW <-> AHR
+	fn direct_bridging_to_asset_hub_westend() -> TestBridgingConfig {
+		let _ = PolkadotXcm::force_xcm_version(
+			RuntimeOrigin::root(),
+			Box::new(bridging::to_westend::AssetHubWestend::get()),
+			XCM_VERSION,
+		)
+			.expect("version saved!");
+		TestBridgingConfig {
+			bridged_network: bridging::to_westend::WestendNetwork::get(),
+			// Local AH para_id.
+			local_bridge_hub_para_id: bp_asset_hub_rococo::ASSET_HUB_ROCOCO_PARACHAIN_ID,
+			// The bridge is deployed `Here` on the AH chain.
+			local_bridge_hub_location: Location::here(),
+			bridged_target_location: bridging::to_westend::AssetHubWestend::get(),
+		}
+	}
+
 	#[test]
 	fn limited_reserve_transfer_assets_for_native_asset_to_asset_hub_westend_works() {
 		limited_reserve_transfer_assets_for_native_asset_over_bridge_works(
@@ -1115,75 +1134,82 @@ mod asset_hub_rococo_tests {
 
 	#[test]
 	fn receive_reserve_asset_deposited_wnd_from_asset_hub_westend_fees_paid_by_pool_swap_works() {
-		const BLOCK_AUTHOR_ACCOUNT: [u8; 32] = [13; 32];
-		let block_author_account = AccountId::from(BLOCK_AUTHOR_ACCOUNT);
-		let staking_pot = StakingPot::get();
+		fn test_with(bridging_cfg: impl Fn() -> TestBridgingConfig, bridge_instance: InteriorLocation) {
+			const BLOCK_AUTHOR_ACCOUNT: [u8; 32] = [13; 32];
+			let block_author_account = AccountId::from(BLOCK_AUTHOR_ACCOUNT);
+			let staking_pot = StakingPot::get();
 
-		let foreign_asset_id_location =
-			Location::new(2, [GlobalConsensus(WestendGlobalConsensusNetwork::get())]);
-		let foreign_asset_id_minimum_balance = 1_000_000_000;
-		// sovereign account as foreign asset owner (can be whoever for this scenario)
-		let foreign_asset_owner =
-			LocationToAccountId::convert_location(&Location::parent()).unwrap();
-		let foreign_asset_create_params = (
-			foreign_asset_owner,
-			foreign_asset_id_location.clone(),
-			foreign_asset_id_minimum_balance,
-		);
+			let foreign_asset_id_location =
+				Location::new(2, [GlobalConsensus(WestendGlobalConsensusNetwork::get())]);
+			let foreign_asset_id_minimum_balance = 1_000_000_000;
+			// sovereign account as foreign asset owner (can be whoever for this scenario)
+			let foreign_asset_owner =
+				LocationToAccountId::convert_location(&Location::parent()).unwrap();
+			let foreign_asset_create_params = (
+				foreign_asset_owner,
+				foreign_asset_id_location.clone(),
+				foreign_asset_id_minimum_balance,
+			);
 
-		asset_test_utils::test_cases_over_bridge::receive_reserve_asset_deposited_from_different_consensus_works::<
-			Runtime,
-			AllPalletsWithoutSystem,
-			XcmConfig,
-			ForeignAssetsInstance,
-		>(
-			collator_session_keys().add(collator_session_key(BLOCK_AUTHOR_ACCOUNT)),
-			ExistentialDeposit::get(),
-			AccountId::from([73; 32]),
-			block_author_account,
-			// receiving WNDs
-			foreign_asset_create_params.clone(),
-			1000000000000,
-			|| {
-				// setup pool for paying fees to touch `SwapFirstAssetTrader`
-				setup_pool_for_paying_fees_with_foreign_assets(foreign_asset_create_params);
-				// staking pot account for collecting local native fees from `BuyExecution`
-				let _ = Balances::force_set_balance(RuntimeOrigin::root(), StakingPot::get().into(), ExistentialDeposit::get());
-				// prepare bridge configuration
-				bridging_to_asset_hub_westend()
-			},
-			(
-				[PalletInstance(bp_bridge_hub_rococo::WITH_BRIDGE_ROCOCO_TO_WESTEND_MESSAGES_PALLET_INDEX)].into(),
-				GlobalConsensus(WestendGlobalConsensusNetwork::get()),
-				[Parachain(1000)].into()
-			),
-			|| {
-				// check staking pot for ED
-				assert_eq!(Balances::free_balance(&staking_pot), ExistentialDeposit::get());
-				// check now foreign asset for staking pot
-				assert_eq!(
-					ForeignAssets::balance(
-						foreign_asset_id_location.clone().into(),
-						&staking_pot
-					),
-					0
-				);
-			},
-			|| {
-				// `SwapFirstAssetTrader` - staking pot receives xcm fees in ROCs
-				assert!(
-					Balances::free_balance(&staking_pot) > ExistentialDeposit::get()
-				);
-				// staking pot receives no foreign assets
-				assert_eq!(
-					ForeignAssets::balance(
-						foreign_asset_id_location.clone().into(),
-						&staking_pot
-					),
-					0
-				);
-			}
-		)
+			asset_test_utils::test_cases_over_bridge::receive_reserve_asset_deposited_from_different_consensus_works::<
+				Runtime,
+				AllPalletsWithoutSystem,
+				XcmConfig,
+				ForeignAssetsInstance,
+			>(
+				collator_session_keys().add(collator_session_key(BLOCK_AUTHOR_ACCOUNT)),
+				ExistentialDeposit::get(),
+				AccountId::from([73; 32]),
+				block_author_account,
+				// receiving WNDs
+				foreign_asset_create_params.clone(),
+				1000000000000,
+				|| {
+					// setup pool for paying fees to touch `SwapFirstAssetTrader`
+					setup_pool_for_paying_fees_with_foreign_assets(foreign_asset_create_params);
+					// staking pot account for collecting local native fees from `BuyExecution`
+					let _ = Balances::force_set_balance(RuntimeOrigin::root(), StakingPot::get().into(), ExistentialDeposit::get());
+					// prepare bridge configuration
+					bridging_cfg()
+				},
+				(
+					bridge_instance,
+					GlobalConsensus(WestendGlobalConsensusNetwork::get()),
+					[Parachain(1000)].into()
+				),
+				|| {
+					// check staking pot for ED
+					assert_eq!(Balances::free_balance(&staking_pot), ExistentialDeposit::get());
+					// check now foreign asset for staking pot
+					assert_eq!(
+						ForeignAssets::balance(
+							foreign_asset_id_location.clone().into(),
+							&staking_pot
+						),
+						0
+					);
+				},
+				|| {
+					// `SwapFirstAssetTrader` - staking pot receives xcm fees in ROCs
+					assert!(
+						Balances::free_balance(&staking_pot) > ExistentialDeposit::get()
+					);
+					// staking pot receives no foreign assets
+					assert_eq!(
+						ForeignAssets::balance(
+							foreign_asset_id_location.clone().into(),
+							&staking_pot
+						),
+						0
+					);
+				}
+			)
+		}
+
+		// The bridge with BHs is working.
+		test_with(bridging_to_asset_hub_westend, [PalletInstance(bp_bridge_hub_rococo::WITH_BRIDGE_ROCOCO_TO_WESTEND_MESSAGES_PALLET_INDEX)].into());
+		// The bridge with direct AHs is working.
+		test_with(direct_bridging_to_asset_hub_westend, [PalletInstance(bp_asset_hub_rococo::WITH_BRIDGE_ROCOCO_TO_WESTEND_MESSAGES_PALLET_INDEX)].into());
 	}
 
 	#[test]
