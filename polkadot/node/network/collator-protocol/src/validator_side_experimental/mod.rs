@@ -24,7 +24,7 @@ mod state;
 
 use std::collections::VecDeque;
 
-use error::{FatalError, FatalResult, Result};
+use error::{log_error, FatalError, FatalResult, Result};
 use fatality::Split;
 use peer_manager::{Db, PeerManager};
 use polkadot_node_subsystem::{
@@ -72,7 +72,7 @@ async fn initialize<Context>(
 		{
 			Ok(paras) => paras,
 			Err(err) => {
-				err.split()?.log();
+				log_error(Err(err))?;
 				continue
 			},
 		};
@@ -82,7 +82,7 @@ async fn initialize<Context>(
 		{
 			Ok(peer_manager) => return Ok(Some(State::new(peer_manager, keystore, metrics))),
 			Err(err) => {
-				err.split()?.log();
+				log_error(Err(err))?;
 				continue
 			},
 		}

@@ -53,7 +53,7 @@ impl Score {
 
 	/// Add `val` to the inner value, saturating at `MAX_SCORE`.
 	pub fn saturating_add(&mut self, val: u16) {
-		if (MAX_SCORE - self.0) >= val {
+		if (self.0 + val) <= MAX_SCORE {
 			self.0 += val;
 		} else {
 			self.0 = MAX_SCORE;
@@ -62,11 +62,7 @@ impl Score {
 
 	/// Subtract `val` from the inner value, saturating at 0.
 	pub fn saturating_sub(&mut self, val: u16) {
-		if val >= self.0 {
-			self.0 = 0;
-		} else {
-			self.0 -= val;
-		}
+		self.0 = self.0.saturating_sub(val);
 	}
 }
 
@@ -82,20 +78,6 @@ pub struct PeerInfo {
 	pub version: CollationVersion,
 	/// State of the peer.
 	pub state: PeerState,
-}
-
-impl PeerInfo {
-	pub fn state(&self) -> &PeerState {
-		&self.state
-	}
-
-	pub fn set_state(&mut self, new_state: PeerState) {
-		self.state = new_state;
-	}
-
-	pub fn version(&self) -> CollationVersion {
-		self.version
-	}
 }
 
 /// State of a connected peer

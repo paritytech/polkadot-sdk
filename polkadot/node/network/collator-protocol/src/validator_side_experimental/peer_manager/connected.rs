@@ -61,9 +61,7 @@ impl ConnectedPeers {
 	/// peers.
 	pub fn update_reputation(&mut self, update: ReputationUpdate) {
 		let Some(per_para) = self.per_para.get_mut(&update.para_id) else { return };
-		if u16::from(update.value) == 0 {
-			return
-		}
+
 		per_para.update_reputation(update);
 	}
 
@@ -84,9 +82,9 @@ impl ConnectedPeers {
 
 		let mut outcome = TryAcceptOutcome::Rejected;
 
-		match peer_info.state() {
+		match peer_info.state {
 			PeerState::Collating(para_id) => {
-				let past_reputation = reputation_query_fn(peer_id, *para_id).await;
+				let past_reputation = reputation_query_fn(peer_id, para_id).await;
 				if let Some(per_para) = self.per_para.get_mut(&para_id) {
 					let res = per_para.try_accept(peer_id, past_reputation);
 					outcome = outcome.combine(res);
@@ -122,7 +120,7 @@ impl ConnectedPeers {
 
 		let Some(peer_info) = self.peer_info.get_mut(&peer_id) else { return outcome };
 
-		match peer_info.state() {
+		match &peer_info.state {
 			PeerState::Connected => {
 				for (para, per_para) in self.per_para.iter_mut() {
 					if para == &para_id && per_para.contains(&peer_id) {
@@ -150,7 +148,7 @@ impl ConnectedPeers {
 		}
 
 		if !matches!(outcome, DeclarationOutcome::Rejected) {
-			peer_info.set_state(PeerState::Collating(para_id));
+			peer_info.state = PeerState::Collating(para_id);
 		}
 
 		outcome
@@ -187,7 +185,7 @@ pub struct PerPara {
 	limit: u16,
 	// A min-heap would be more efficient for getting the min (constant) but modifying the score
 	// would be linear, so use a BST which achieves logarithmic performance for all ops.
-	sorted_scores: BTreeSet<OrderedPeerScoreEntry>,
+	sorted_scores: BTreeSet<PeerScoreEntry>,
 	// This is needed so that we can quickly access the ordered entry. Also has the nice benefit of
 	// being an in-memory copy of the reputation DB for the connected peers.
 	per_peer_score: HashMap<PeerId, Score>,
@@ -207,7 +205,7 @@ impl PerPara {
 		// If we've got enough room, add it. Otherwise, see if it has a higher reputation than any
 		// other connected peer.
 		if self.sorted_scores.len() < (self.limit as usize) {
-			self.sorted_scores.insert(OrderedPeerScoreEntry { peer_id, score });
+			self.sorted_scores.insert(PeerScoreEntry { peer_id, score });
 			self.per_peer_score.insert(peer_id, score);
 			TryAcceptOutcome::Added
 		} else {
@@ -227,7 +225,7 @@ impl PerPara {
 				};
 				self.per_peer_score.remove(&replaced.peer_id);
 
-				self.sorted_scores.insert(OrderedPeerScoreEntry { peer_id, score });
+				self.sorted_scores.insert(PeerScoreEntry { peer_id, score });
 				self.per_peer_score.insert(peer_id, score);
 				TryAcceptOutcome::Replaced(vec![replaced.peer_id])
 			}
@@ -241,7 +239,7 @@ impl PerPara {
 		};
 
 		self.sorted_scores
-			.remove(&OrderedPeerScoreEntry { peer_id: update.peer_id, score: *score });
+			.remove(&PeerScoreEntry { peer_id: update.peer_id, score: *score });
 
 		match update.kind {
 			ReputationUpdateKind::Bump => score.saturating_add(update.value.into()),
@@ -249,13 +247,13 @@ impl PerPara {
 		};
 
 		self.sorted_scores
-			.insert(OrderedPeerScoreEntry { peer_id: update.peer_id, score: *score });
+			.insert(PeerScoreEntry { peer_id: update.peer_id, score: *score });
 	}
 
 	fn remove(&mut self, peer_id: &PeerId) {
 		let Some(score) = self.per_peer_score.remove(&peer_id) else { return };
 
-		self.sorted_scores.remove(&OrderedPeerScoreEntry { peer_id: *peer_id, score });
+		self.sorted_scores.remove(&PeerScoreEntry { peer_id: *peer_id, score });
 	}
 
 	fn contains(&self, peer_id: &PeerId) -> bool {
@@ -264,18 +262,18 @@ impl PerPara {
 }
 
 #[derive(PartialEq, Eq)]
-struct OrderedPeerScoreEntry {
+struct PeerScoreEntry {
 	peer_id: PeerId,
 	score: Score,
 }
 
-impl Ord for OrderedPeerScoreEntry {
+impl Ord for PeerScoreEntry {
 	fn cmp(&self, other: &Self) -> Ordering {
 		self.score.cmp(&other.score)
 	}
 }
 
-impl PartialOrd for OrderedPeerScoreEntry {
+impl PartialOrd for PeerScoreEntry {
 	fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
 		Some(self.cmp(other))
 	}

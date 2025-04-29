@@ -94,7 +94,8 @@ pub struct PeerManager<B> {
 }
 
 impl<B: Backend> PeerManager<B> {
-	/// Initialize the peer manager (called on subsystem startup).
+	/// Initialize the peer manager (called on subsystem startup, after the node finished syncing to
+	/// the tip of the chain).
 	pub async fn startup<Sender: CollatorProtocolSenderTrait>(
 		sender: &mut Sender,
 		first_leaf: ActivatedLeaf,
@@ -116,6 +117,13 @@ impl<B: Backend> PeerManager<B> {
 		let ancestry_len = if let Some(number) = latest_block_number {
 			if first_leaf.number <= number {
 				// Shouldn't be possible, but in this case there is no other initialisation needed.
+				gum::warn!(
+					target: LOG_TARGET,
+					leaf_number = first_leaf.number,
+					leaf_hash = ?first_leaf.hash,
+					"Peer manager latest block number {} is higher than the new active leaf.",
+					number,
+				);
 				return Ok(instance)
 			}
 			std::cmp::min(first_leaf.number.saturating_sub(number), MAX_STARTUP_ANCESTRY_LOOKBACK)
@@ -192,24 +200,13 @@ impl<B: Backend> PeerManager<B> {
 		sender: &mut Sender,
 		scheduled_paras: BTreeSet<ParaId>,
 	) {
-		let mut prev_paras_count = 0;
-		let mut prev_scheduled_paras = self.connected.scheduled_paras();
+		let mut prev_scheduled_paras: BTreeSet<_> =
+			self.connected.scheduled_paras().copied().collect();
 
-		if prev_scheduled_paras.all(|p| {
-			prev_paras_count += 1;
-			scheduled_paras.contains(p)
-		}) {
-			// The new set is a superset of the old paras and their lengths are equal, so they are
-			// identical.
-
-			if prev_paras_count == scheduled_paras.len() {
-				// Nothing to do if the scheduled paras didn't change.
-				return
-			}
+		if prev_scheduled_paras == scheduled_paras {
+			// Nothing to do if the scheduled paras didn't change.
+			return
 		}
-
-		// Borrow checker can't tell that prev_scheduled_paras is not used anymore.
-		std::mem::drop(prev_scheduled_paras);
 
 		// Recreate the connected peers based on the new schedule and try populating it again based
 		// on their reputations. Disconnect any peers that couldn't be kept
