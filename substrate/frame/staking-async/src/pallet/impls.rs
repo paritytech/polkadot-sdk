@@ -894,7 +894,7 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Gets the lowest of the lowest validator stake entries for the last upper bound eras.
-	pub(crate) fn get_min_lowest_stake() -> BalanceOf<T> {
+	pub fn get_min_lowest_stake() -> BalanceOf<T> {
 		// Find the minimum total stake of the lowest portion validators over the configured number
 		// of eras.
 		EraLowestRatioTotalStake::<T>::get().into_iter().min().unwrap_or(Zero::zero())
@@ -904,7 +904,7 @@ impl<T: Config> Pallet<T> {
 	///
 	/// We implement the calculation `unbonding_time_delta = new_unbonding_stake / max_unstake *
 	/// upper bound period in blocks.
-	pub(crate) fn get_unbond_eras_delta(
+	pub fn get_unbond_eras_delta(
 		unbond_stake: BalanceOf<T>,
 		params: UnbondingQueueConfig,
 	) -> EraIndex {

@@ -492,6 +492,12 @@ impl ExtBuilder {
 			validator_count: 4,
 			active_era: (0, 0, 0),
 			force_era: if self.pre_migration { Forcing::ForceNone } else { Forcing::default() },
+			unbonding_queue_config: Some(pallet_staking_async::UnbondingQueueConfig {
+				min_slashable_share: Perbill::from_percent(50),
+				lowest_ratio: Perbill::from_percent(34),
+				unbond_period_lower_bound: 1,
+				back_of_unbonding_queue_era: 0,
+			}),
 			..Default::default()
 		}
 		.assimilate_storage(&mut t)

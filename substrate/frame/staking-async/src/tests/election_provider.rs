@@ -339,12 +339,8 @@ mod electable_stashes {
 				(3, Support { total: 100, voters: vec![] }),
 			])));
 			assert_eq!(
-				ElectableStashes::<Test>::get()
-					.into_inner()
-					.into_iter()
-					.map(|(s, _)| s)
-					.collect::<Vec<_>>(),
-				vec![1, 2, 3]
+				ElectableStashes::<Test>::get().into_inner().into_iter().collect::<Vec<_>>(),
+				vec![(1, 100), (2, 100), (3, 100)]
 			);
 
 			// adds with duplicates which are deduplicated implicitly, no not overflow bounds.
@@ -354,12 +350,8 @@ mod electable_stashes {
 				(4, Support { total: 100, voters: vec![] }),
 			])));
 			assert_eq!(
-				ElectableStashes::<Test>::get()
-					.into_inner()
-					.into_iter()
-					.map(|(s, _)| s)
-					.collect::<Vec<_>>(),
-				vec![1, 2, 3, 4]
+				ElectableStashes::<Test>::get().into_inner().into_iter().collect::<Vec<_>>(),
+				vec![(1, 200), (2, 200), (3, 100), (4, 100)]
 			);
 		})
 	}
@@ -424,8 +416,8 @@ mod electable_stashes {
 
 			// electable stashes have been collected to the max bounds despite the error.
 			assert_eq!(
-				ElectableStashes::<Test>::get().into_iter().map(|(s, _)| s).collect::<Vec<_>>(),
-				vec![1, 2]
+				ElectableStashes::<Test>::get().into_iter().collect::<Vec<_>>(),
+				vec![(1, 100), (2, 200)]
 			);
 
 			let exposure_exists = |acc, era| Eras::<Test>::get_full_exposure(era, &acc).total != 0;
@@ -593,11 +585,8 @@ mod paged_on_initialize_era_election_planner {
 				assert_eq!(NextElectionPage::<Test>::get(), Some(1));
 				assert_eq!(VoterSnapshotStatus::<Test>::get(), SnapshotStatus::Ongoing(31));
 				assert_eq!(
-					ElectableStashes::<Test>::get()
-						.into_iter()
-						.map(|(s, _)| s)
-						.collect::<Vec<AccountId>>(),
-					vec![11, 21, 31]
+					ElectableStashes::<Test>::get().into_iter().collect::<Vec<_>>(),
+					vec![(11, 1000), (21, 1000), (31, 500)]
 				);
 
 				assert_eq_uvec!(
@@ -630,8 +619,8 @@ mod paged_on_initialize_era_election_planner {
 				Session::roll_until(22);
 				// the electable stashes remain the same.
 				assert_eq_uvec!(
-					ElectableStashes::<Test>::get().into_iter().map(|(s, _)| s).collect::<Vec<_>>(),
-					vec![11, 21, 31, 61, 71]
+					ElectableStashes::<Test>::get().into_iter().collect::<Vec<_>>(),
+					vec![(11, 1250), (21, 1250), (31, 500), (61, 1000), (71, 1000)]
 				);
 				assert_eq!(NextElectionPage::<Test>::get(), Some(0));
 				assert_eq!(VoterSnapshotStatus::<Test>::get(), SnapshotStatus::Ongoing(71));
