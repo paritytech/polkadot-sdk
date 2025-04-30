@@ -19,7 +19,7 @@ use crate::*;
 use codec::Encode;
 use frame_support::{assert_ok, weights::Weight};
 use xcm::latest::QueryResponseInfo;
-use xcm_simulator::{mock_message_queue::ReceivedDmp, TestExt};
+use xcm_simulator::{helpers::TopicIdTracker, mock_message_queue::ReceivedDmp, TestExt};
 
 // Helper function for forming buy execution message
 fn buy_execution<C>(fees: impl Into<Asset>) -> Instruction<C> {
@@ -570,7 +570,7 @@ fn query_holding() {
 					max_weight: Weight::from_parts(1_000_000_000, 1024 * 1024),
 					querier: Some(Here.into()),
 				},
-				SetTopic(MockNet::get_relay_message_id()),
+				SetTopic(TopicIdTracker::get().into()),
 			])],
 		);
 	});

@@ -88,14 +88,6 @@ pub fn encode_xcm(message: Xcm<()>, message_kind: MessageKind) -> Vec<u8> {
 	}
 }
 
-pub fn fake_message_hash<T>(message: &Xcm<T>) -> XcmHash {
-	if let Some(SetTopic(topic_id)) = message.last() {
-		*topic_id
-	} else {
-		message.using_encoded(blake2_256)
-	}
-}
-
 /// The macro is implementing upward message passing(UMP) for the provided relay
 /// chain struct. The struct has to provide the XCM configuration for the relay
 /// chain.
@@ -309,16 +301,12 @@ macro_rules! decl_test_network {
 				use $crate::{TestExt, VecDeque};
 				// Reset relay chain message bus.
 				$crate::RELAY_MESSAGE_BUS.with(|b| b.replace(VecDeque::new()));
-				// Reset relay message ID.
-				$crate::RELAY_MESSAGE_ID.with(|b| *b.borrow_mut() = $crate::XcmHash::default());
 				// Reset parachain message bus.
 				$crate::PARA_MESSAGE_BUS.with(|b| b.replace(VecDeque::new()));
+				// Reset tracked topic IDs.
+				$crate::helpers::TopicIdTracker::reset();
 				<$relay_chain>::reset_ext();
 				$( <$parachain>::reset_ext(); )*
-			}
-
-			pub fn get_relay_message_id() -> $crate::XcmHash {
-				$crate::RELAY_MESSAGE_ID.with(|b| *b.borrow())
 			}
 		}
 
@@ -424,8 +412,9 @@ macro_rules! decl_test_network {
 			fn deliver(
 				triple: ($crate::ParaId, $crate::Location, $crate::Xcm<()>),
 			) -> Result<$crate::XcmHash, $crate::SendError> {
-				let hash = $crate::fake_message_hash(&triple.2);
+				let hash = $crate::helpers::derive_topic_id(&triple.2);
 				$crate::PARA_MESSAGE_BUS.with(|b| b.borrow_mut().push_back(triple));
+				$crate::helpers::TopicIdTracker::insert(hash.into());
 				Ok(hash)
 			}
 		}
@@ -456,11 +445,91 @@ macro_rules! decl_test_network {
 			fn deliver(
 				pair: ($crate::Location, $crate::Xcm<()>),
 			) -> Result<$crate::XcmHash, $crate::SendError> {
-				let hash = $crate::fake_message_hash(&pair.1);
+				let hash = $crate::helpers::derive_topic_id(&pair.1);
 				$crate::RELAY_MESSAGE_BUS.with(|b| b.borrow_mut().push_back(pair));
-				$crate::RELAY_MESSAGE_ID.with(|b| *b.borrow_mut() = hash);
+				$crate::helpers::TopicIdTracker::insert(hash.into());
 				Ok(hash)
 			}
 		}
 	};
+}
+
+pub mod helpers {
+	use super::*;
+	use sp_runtime::testing::H256;
+
+	thread_local! {
+		/// Tracked XCM topic IDs
+		static TRACKED_TOPIC_IDS: RefCell<std::collections::HashSet<H256>> = RefCell::new(std::collections::HashSet::new());
+	}
+
+	/// Derives a topic ID for an XCM in tests.
+	pub fn derive_topic_id<T>(message: &Xcm<T>) -> XcmHash {
+		if let Some(SetTopic(topic_id)) = message.last() {
+			*topic_id
+		} else {
+			message.using_encoded(blake2_256)
+		}
+	}
+
+	/// A test utility for tracking XCM topic IDs
+	pub struct TopicIdTracker;
+	impl TopicIdTracker {
+		/// Asserts that the unique tracked topic ID exists in the given list.
+		pub fn assert_tracked_id_in(topic_ids: &[H256]) {
+			Self::assert_unique();
+
+			let tracked_id = Self::get();
+			assert!(
+				topic_ids.contains(&tracked_id),
+				"Tracked topic ID {:?} was not found in emitted events: {:?}",
+				tracked_id,
+				topic_ids
+			);
+		}
+
+		/// Asserts that exactly one topic ID is tracked.
+		pub fn assert_unique() {
+			TRACKED_TOPIC_IDS.with(|b| {
+				let ids = b.borrow();
+				assert_eq!(
+					ids.len(),
+					1,
+					"Expected exactly one topic ID, found {}: {:?}",
+					ids.len(),
+					ids
+				);
+			});
+		}
+
+		/// Inserts multiple topic IDs into the tracker and asserts exactly one is tracked.
+		pub fn expect_insert_multi_unique(ids: Vec<H256>) {
+			for id in ids {
+				Self::insert(id);
+			}
+			Self::assert_unique();
+		}
+
+		/// Inserts a topic ID into the tracker and asserts it is the only one tracked.
+		pub fn expect_insert_unique(id: H256) {
+			Self::insert(id);
+			Self::assert_unique()
+		}
+
+		/// Retrieves the unique tracked topic ID.
+		pub fn get() -> H256 {
+			TRACKED_TOPIC_IDS
+				.with(|b| *b.borrow().iter().next().expect("Expected exactly one tracked topic ID"))
+		}
+
+		/// Inserts a single topic ID into the tracker.
+		pub fn insert(id: H256) {
+			TRACKED_TOPIC_IDS.with(|b| b.borrow_mut().insert(id));
+		}
+
+		/// Clears all tracked topic IDs, resetting the tracker for a new test.
+		pub fn reset() {
+			TRACKED_TOPIC_IDS.with(|b| b.borrow_mut().clear());
+		}
+	}
 }
