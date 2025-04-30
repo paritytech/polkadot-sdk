@@ -1944,13 +1944,12 @@ pub mod pallet {
 		NothingToAdjust,
 		/// No slash pending that can be applied to the member.
 		NothingToSlash,
-		/// The slash amount is too low to be applied.
-		SlashTooLow,
 		/// The pool or member delegation has already migrated to delegate stake.
 		AlreadyMigrated,
 		/// The pool or member delegation has not migrated yet to delegate stake.
 		NotMigrated,
-		/// This call is not allowed in the current state of the pallet.
+		/// This call is not allowed in the current state of the pallet or an unspecific error
+		/// occurred.
 		NotSupported,
 	}
 
@@ -3590,7 +3589,7 @@ impl<T: Config> Pallet<T> {
 
 		if enforce_min_slash {
 			// ensure slashed amount is at least the minimum balance.
-			ensure!(pending_slash >= T::Currency::minimum_balance(), Error::<T>::SlashTooLow);
+			ensure!(pending_slash >= T::Currency::minimum_balance(), Error::<T>::NotSupported);
 		}
 
 		T::StakeAdapter::member_slash(

@@ -13,4 +13,4 @@ crates:
 - name: pallet-nomination-pools-runtime-api
   bump: patch
 - name: pallet-nomination-pools
-  bump: major
+  bump: patch
