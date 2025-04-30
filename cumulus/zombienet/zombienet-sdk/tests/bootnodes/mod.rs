@@ -3,6 +3,8 @@
 
 use anyhow::anyhow;
 
+use cumulus_zombienet_sdk_helpers::wait_for_nth_session_change;
+use subxt::{OnlineClient, PolkadotConfig};
 use zombienet_sdk::{NetworkConfig, NetworkConfigBuilder};
 
 async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
@@ -61,6 +63,9 @@ async fn dht_bootnodes_test() -> Result<(), anyhow::Error> {
 	let spawn_fn = zombienet_sdk::environment::get_spawn_fn();
 	let mut network = spawn_fn(config).await?;
 
+	let relay_node = network.get_node("validator-0")?;
+	let relay_client: OnlineClient<PolkadotConfig> = relay_node.wait_client().await?;
+
 	let alpha = network.get_node("alpha")?;
 
 	// Make sure the collators connect to each other.
@@ -80,14 +85,16 @@ async fn dht_bootnodes_test() -> Result<(), anyhow::Error> {
 
 	log::info!(
 		"First two collators successfully connected via DHT bootnodes. \
-		 Waiting 150 secs for two sessions to pass."
+		 Waiting for two full sessions (~3min) before spawning a third collator."
 	);
 
-	// Wait for two sessions (2 min + 30 sec extra) and spawn a new collator to check the bootnode
-	// is also advertised with the new epoch key (republishing works).
-	tokio::time::sleep(std::time::Duration::from_secs(150)).await;
+	// Wait for two full sessions (three session changes) and spawn a new collator to check the
+	// bootnode is also advertised with the new epoch key (republishing works).
+	let mut blocks_sub = relay_client.blocks().subscribe_all().await?;
+	wait_for_nth_session_change(&mut blocks_sub, 3).await?;
+	drop(blocks_sub);
 
-	log::info!("Spawning a third collator.");
+	log::info!("Spawning the third collator.");
 	network.add_collator("gamma", Default::default(), 1000).await?;
 
 	let gamma = network.get_node("gamma")?;

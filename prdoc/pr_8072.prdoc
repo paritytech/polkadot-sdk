@@ -34,5 +34,7 @@ crates:
   bump: minor
 - name: cumulus-client-pov-recovery
   bump: minor
+- name: cumulus-zombienet-sdk-helpers
+  bump: minor
 - name: polkadot-sdk
   bump: minor
