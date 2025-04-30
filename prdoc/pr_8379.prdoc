@@ -1,7 +1,8 @@
 title: 'WIP: Bridges tmp branch'
 doc:
 - audience: Runtime Dev
-  description: null
+  description: |-
+    WIP: dummy desc
 crates:
 - name: pallet-xcm-bridge-hub-router
   bump: patch
