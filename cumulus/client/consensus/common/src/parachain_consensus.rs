@@ -121,7 +121,7 @@ where
 		select! {
 			fin = finalized_heads.next() => {
 				match fin {
-					Some(finalized_head) =>
+					Some((finalized_head, _)) =>
 						handle_new_finalized_head(&parachain, finalized_head, &mut last_seen_finalized_hashes),
 					None => {
 						tracing::debug!(target: LOG_TARGET, "Stopping following finalized head.");

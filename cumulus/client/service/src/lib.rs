@@ -50,7 +50,7 @@ use sc_utils::mpsc::TracingUnboundedSender;
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::{HeaderBackend, HeaderMetadata};
 use sp_consensus::SyncOracle;
-use sp_core::{traits::SpawnNamed, Decode, U256};
+use sp_core::{traits::SpawnNamed, Decode};
 use sp_runtime::{
 	traits::{Block as BlockT, BlockIdTo, Header},
 	SaturatedConversion, Saturating,
@@ -644,20 +644,14 @@ async fn parachain_informant<Block: BlockT, Client>(
 			return
 		},
 	};
-	let included_blocks = finalized_heads.filter_map(async |head| {
-		let header = match Block::Header::decode(&mut &head[..]) {
-			Ok(header) => header,
+	let included_blocks = finalized_heads.filter_map(|(head, relay_header)| async move {
+		match Block::Header::decode(&mut &head[..]) {
+			Ok(header) => Some((header, relay_header)),
 			Err(e) => {
 				log::warn!("Failed to decode parachain header from finalized block: {e:?}");
-				return None;
+				None
 			},
-		};
-		let block_number: U256 = (*header.number()).into();
-		if block_number.is_zero() {
-			// No need to log the genesis block.
-			return None;
 		}
-		Some(header)
 	});
 	futures::pin_mut!(included_blocks);
 
@@ -667,45 +661,47 @@ async fn parachain_informant<Block: BlockT, Client>(
 	loop {
 		select! {
 			(backed_block, relay_block) = backed_blocks.select_next_some() => {
-				match &last_backed_block {
-					Some(last_backed_block) if backed_block == *last_backed_block => {
-						// Ignore duplicate notifications.
-						continue;
-					},
-					_ => {
-						last_backed_block = Some(backed_block.clone());
-						log::info!(
-							"Parachain status changed at #{} ({}): backed #{} ({}){}",
-							relay_block.number(),
-							relay_block.hash(),
-							backed_block.number(),
-							backed_block.hash(),
-							if let Some(last_included_block) = &last_included_block {
-								format!(" included #{} ({})", last_included_block.number(), last_included_block.hash())
-							} else {
-								String::new()
-							}
-						);
-						if let Some(last_included_block) = &last_included_block {
-							let unincluded_segment_size = client.info().best_number.saturating_sub(*last_included_block.number());
-							let unincluded_segment_size: u32 = unincluded_segment_size.saturated_into();
-							if let Some(metrics) = &metrics {
-								metrics.unincluded_segment_size.observe(unincluded_segment_size.into());
-							}
-						}
-						let backed_block_time = Instant::now();
-						if let Some(last_backed_block_time) = &last_backed_block_time {
-							let duration = backed_block_time.duration_since(*last_backed_block_time);
-							if let Some(metrics) = &metrics {
-								metrics.parachain_block_authorship_duration.observe(duration.as_secs_f64());
-							}
-						}
-						last_backed_block_time = Some(backed_block_time);
-					},
+				if last_backed_block.as_ref() == Some(&backed_block) {
+					// Ignore duplicate notifications.
+					continue;
 				}
+				log::info!(
+					"New backed block at relay block #{} ({}): #{} ({})",
+					relay_block.number(),
+					relay_block.hash(),
+					backed_block.number(),
+					backed_block.hash(),
+				);
+				let backed_block_time = Instant::now();
+				if let Some(last_backed_block_time) = &last_backed_block_time {
+					let duration = backed_block_time.duration_since(*last_backed_block_time);
+					if let Some(metrics) = &metrics {
+						metrics.parachain_block_authorship_duration.observe(duration.as_secs_f64());
+					}
+				}
+				last_backed_block_time = Some(backed_block_time);
+				last_backed_block = Some(backed_block.clone());
 			},
-			included_block = included_blocks.select_next_some() => {
-				last_included_block = Some(included_block);
+			(included_block, relay_block) = included_blocks.select_next_some() => {
+				if last_included_block.as_ref() == Some(&included_block) {
+					// Ignore duplicate notifications.
+					continue;
+				}
+				log::info!(
+					"New included block at relay block #{} ({}): #{} ({})",
+					relay_block.number(),
+					relay_block.hash(),
+					included_block.number(),
+					included_block.hash(),
+				);
+				if let Some(last_included_block) = &last_included_block {
+					let unincluded_segment_size = client.info().best_number.saturating_sub(*last_included_block.number());
+					let unincluded_segment_size: u32 = unincluded_segment_size.saturated_into();
+					if let Some(metrics) = &metrics {
+						metrics.unincluded_segment_size.observe(unincluded_segment_size.into());
+					}
+				}
+				last_included_block = Some(included_block.clone());
 			},
 		}
 	}

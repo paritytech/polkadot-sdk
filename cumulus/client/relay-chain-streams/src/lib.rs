@@ -141,11 +141,17 @@ pub async fn new_best_heads(
 pub async fn finalized_heads(
 	relay_chain: impl RelayChainInterface + Clone,
 	para_id: ParaId,
-) -> RelayChainResult<impl Stream<Item = Vec<u8>>> {
+) -> RelayChainResult<impl Stream<Item = (Vec<u8>, RelayHeader)>> {
 	let finality_notification_stream =
 		relay_chain.finality_notification_stream().await?.filter_map(move |n| {
 			let relay_chain = relay_chain.clone();
-			async move { parachain_head_at(&relay_chain, n.hash(), para_id).await.ok().flatten() }
+			async move {
+				parachain_head_at(&relay_chain, n.hash(), para_id)
+					.await
+					.ok()
+					.flatten()
+					.map(|h| (h, n))
+			}
 		});
 
 	Ok(finality_notification_stream)
