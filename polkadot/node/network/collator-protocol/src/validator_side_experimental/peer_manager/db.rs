@@ -48,7 +48,7 @@ impl Backend for Db {
 		Self { db: BTreeMap::new(), highest_block: None, stored_limit_per_para }
 	}
 
-	async fn latest_block_number(&self) -> Option<BlockNumber> {
+	async fn processed_finalized_block_number(&self) -> Option<BlockNumber> {
 		self.highest_block
 	}
 

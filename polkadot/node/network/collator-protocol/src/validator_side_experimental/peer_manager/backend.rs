@@ -25,8 +25,8 @@ use std::collections::{BTreeMap, BTreeSet, HashMap};
 pub trait Backend {
 	/// Instantiate a new backend.
 	async fn new(stored_limit_per_para: u8) -> Self;
-	/// Return the latest known leaf for which the backend processed bumps.
-	async fn latest_block_number(&self) -> Option<BlockNumber>;
+	/// Return the latest finalized block for which the backend processed bumps.
+	async fn processed_finalized_block_number(&self) -> Option<BlockNumber>;
 	/// Get the peer's stored reputation for this paraid, if any.
 	async fn query(&self, peer_id: &PeerId, para_id: &ParaId) -> Option<Score>;
 	/// Slash the peer's reputation for this paraid, with the given value.
@@ -38,7 +38,7 @@ pub trait Backend {
 	/// decay for the other collators of that para (if the `decay_value` param is present) and
 	/// because if the number of stored reputations go over the `stored_limit_per_para`, we'll 100%
 	/// slash the least recently bumped peers. `leaf_number` needs to be at least equal to the
-	/// `latest_block_number`
+	/// `processed_finalized_block_number`
 	async fn process_bumps(
 		&mut self,
 		leaf_number: BlockNumber,

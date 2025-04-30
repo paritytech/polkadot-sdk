@@ -87,6 +87,7 @@ std = [
 	"pallet-delegated-staking?/std",
 	"pallet-democracy?/std",
 	"pallet-dev-mode?/std",
+	"pallet-election-provider-multi-block?/std",
 	"pallet-election-provider-multi-phase?/std",
 	"pallet-election-provider-support-benchmarking?/std",
 	"pallet-elections-phragmen?/std",
@@ -135,6 +136,11 @@ std = [
 	"pallet-session?/std",
 	"pallet-skip-feeless-payment?/std",
 	"pallet-society?/std",
+	"pallet-staking-async-ah-client?/std",
+	"pallet-staking-async-rc-client?/std",
+	"pallet-staking-async-reward-fn?/std",
+	"pallet-staking-async-runtime-api?/std",
+	"pallet-staking-async?/std",
 	"pallet-staking-reward-fn?/std",
 	"pallet-staking-runtime-api?/std",
 	"pallet-staking?/std",
@@ -268,6 +274,7 @@ runtime-benchmarks = [
 	"pallet-core-fellowship?/runtime-benchmarks",
 	"pallet-delegated-staking?/runtime-benchmarks",
 	"pallet-democracy?/runtime-benchmarks",
+	"pallet-election-provider-multi-block?/runtime-benchmarks",
 	"pallet-election-provider-multi-phase?/runtime-benchmarks",
 	"pallet-election-provider-support-benchmarking?/runtime-benchmarks",
 	"pallet-elections-phragmen?/runtime-benchmarks",
@@ -308,6 +315,9 @@ runtime-benchmarks = [
 	"pallet-session-benchmarking?/runtime-benchmarks",
 	"pallet-skip-feeless-payment?/runtime-benchmarks",
 	"pallet-society?/runtime-benchmarks",
+	"pallet-staking-async-ah-client?/runtime-benchmarks",
+	"pallet-staking-async-rc-client?/runtime-benchmarks",
+	"pallet-staking-async?/runtime-benchmarks",
 	"pallet-staking?/runtime-benchmarks",
 	"pallet-state-trie-migration?/runtime-benchmarks",
 	"pallet-sudo?/runtime-benchmarks",
@@ -396,6 +406,7 @@ try-runtime = [
 	"pallet-delegated-staking?/try-runtime",
 	"pallet-democracy?/try-runtime",
 	"pallet-dev-mode?/try-runtime",
+	"pallet-election-provider-multi-block?/try-runtime",
 	"pallet-election-provider-multi-phase?/try-runtime",
 	"pallet-elections-phragmen?/try-runtime",
 	"pallet-fast-unstake?/try-runtime",
@@ -438,6 +449,9 @@ try-runtime = [
 	"pallet-session?/try-runtime",
 	"pallet-skip-feeless-payment?/try-runtime",
 	"pallet-society?/try-runtime",
+	"pallet-staking-async-ah-client?/try-runtime",
+	"pallet-staking-async-rc-client?/try-runtime",
+	"pallet-staking-async?/try-runtime",
 	"pallet-staking?/try-runtime",
 	"pallet-state-trie-migration?/try-runtime",
 	"pallet-statement?/try-runtime",
@@ -599,6 +613,7 @@ runtime-full = [
 	"pallet-delegated-staking",
 	"pallet-democracy",
 	"pallet-dev-mode",
+	"pallet-election-provider-multi-block",
 	"pallet-election-provider-multi-phase",
 	"pallet-election-provider-support-benchmarking",
 	"pallet-elections-phragmen",
@@ -649,6 +664,11 @@ runtime-full = [
 	"pallet-skip-feeless-payment",
 	"pallet-society",
 	"pallet-staking",
+	"pallet-staking-async",
+	"pallet-staking-async-ah-client",
+	"pallet-staking-async-rc-client",
+	"pallet-staking-async-reward-fn",
+	"pallet-staking-async-runtime-api",
 	"pallet-staking-reward-curve",
 	"pallet-staking-reward-fn",
 	"pallet-staking-runtime-api",
@@ -1367,6 +1387,11 @@ default-features = false
 optional = true
 path = "../substrate/frame/examples/dev-mode"
 
+[dependencies.pallet-election-provider-multi-block]
+default-features = false
+optional = true
+path = "../substrate/frame/election-provider-multi-block"
+
 [dependencies.pallet-election-provider-multi-phase]
 default-features = false
 optional = true
@@ -1616,6 +1641,31 @@ path = "../substrate/frame/society"
 default-features = false
 optional = true
 path = "../substrate/frame/staking"
+
+[dependencies.pallet-staking-async]
+default-features = false
+optional = true
+path = "../substrate/frame/staking-async"
+
+[dependencies.pallet-staking-async-ah-client]
+default-features = false
+optional = true
+path = "../substrate/frame/staking-async/ah-client"
+
+[dependencies.pallet-staking-async-rc-client]
+default-features = false
+optional = true
+path = "../substrate/frame/staking-async/rc-client"
+
+[dependencies.pallet-staking-async-reward-fn]
+default-features = false
+optional = true
+path = "../substrate/frame/staking-async/reward-fn"
+
+[dependencies.pallet-staking-async-runtime-api]
+default-features = false
+optional = true
+path = "../substrate/frame/staking-async/runtime-api"
 
 [dependencies.pallet-staking-reward-curve]
 default-features = false

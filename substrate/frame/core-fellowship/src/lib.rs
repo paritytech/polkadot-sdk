@@ -163,6 +163,13 @@ impl<
 	}
 }
 
+pub struct ConvertU16ToU32<Inner>(PhantomData<Inner>);
+impl<Inner: Get<u16>> Get<u32> for ConvertU16ToU32<Inner> {
+	fn get() -> u32 {
+		Inner::get() as u32
+	}
+}
+
 /// The status of a single member.
 #[derive(Encode, Decode, Eq, PartialEq, Clone, TypeInfo, MaxEncodedLen, RuntimeDebug)]
 pub struct MemberStatus<BlockNumber> {
@@ -196,6 +203,7 @@ pub mod pallet {
 		type WeightInfo: WeightInfo;
 
 		/// The runtime event type.
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self, I>>
 			+ IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
@@ -238,15 +246,18 @@ pub mod pallet {
 		///
 		/// Increasing this value is supported, but decreasing it may lead to a broken state.
 		#[pallet::constant]
-		type MaxRank: Get<u32>;
+		type MaxRank: Get<u16>;
 	}
 
-	pub type ParamsOf<T, I> =
-		ParamsType<<T as Config<I>>::Balance, BlockNumberFor<T>, <T as Config<I>>::MaxRank>;
+	pub type ParamsOf<T, I> = ParamsType<
+		<T as Config<I>>::Balance,
+		BlockNumberFor<T>,
+		ConvertU16ToU32<<T as Config<I>>::MaxRank>,
+	>;
 	pub type PartialParamsOf<T, I> = ParamsType<
 		Option<<T as Config<I>>::Balance>,
 		Option<BlockNumberFor<T>>,
-		<T as Config<I>>::MaxRank,
+		ConvertU16ToU32<<T as Config<I>>::MaxRank>,
 	>;
 	pub type MemberStatusOf<T> = MemberStatus<BlockNumberFor<T>>;
 	pub type RankOf<T, I> = <<T as Config<I>>::Members as RankedMembers>::Rank;
@@ -341,7 +352,7 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::bump_offboard().max(T::WeightInfo::bump_demote()))]
 		#[pallet::call_index(0)]
 		pub fn bump(origin: OriginFor<T>, who: T::AccountId) -> DispatchResultWithPostInfo {
-			let _ = ensure_signed(origin)?;
+			ensure_signed(origin)?;
 			let mut member = Member::<T, I>::get(&who).ok_or(Error::<T, I>::NotTracked)?;
 			let rank = T::Members::rank_of(&who).ok_or(Error::<T, I>::Unranked)?;
 
@@ -523,7 +534,7 @@ pub mod pallet {
 		/// This is useful for out-of-band promotions, hence it has its own `FastPromoteOrigin` to
 		/// be (possibly) more restrictive than `PromoteOrigin`. Note that the member must already
 		/// be inducted.
-		#[pallet::weight(T::WeightInfo::promote_fast(*to_rank as u32))]
+		#[pallet::weight(T::WeightInfo::promote_fast(*to_rank))]
 		#[pallet::call_index(10)]
 		pub fn promote_fast(
 			origin: OriginFor<T>,
@@ -534,7 +545,7 @@ pub mod pallet {
 				Ok(allow_rank) => ensure!(allow_rank >= to_rank, Error::<T, I>::NoPermission),
 				Err(origin) => ensure_root(origin)?,
 			}
-			ensure!(to_rank as u32 <= T::MaxRank::get(), Error::<T, I>::InvalidRank);
+			ensure!(to_rank <= T::MaxRank::get(), Error::<T, I>::InvalidRank);
 			let curr_rank = T::Members::rank_of(&who).ok_or(Error::<T, I>::Unranked)?;
 			ensure!(to_rank > curr_rank, Error::<T, I>::UnexpectedRank);
 
@@ -564,7 +575,7 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::offboard())]
 		#[pallet::call_index(6)]
 		pub fn offboard(origin: OriginFor<T>, who: T::AccountId) -> DispatchResultWithPostInfo {
-			let _ = ensure_signed(origin)?;
+			ensure_signed(origin)?;
 			ensure!(T::Members::rank_of(&who).is_none(), Error::<T, I>::Ranked);
 			ensure!(Member::<T, I>::contains_key(&who), Error::<T, I>::NotTracked);
 			Member::<T, I>::remove(&who);
@@ -681,8 +692,8 @@ pub mod pallet {
 		///
 		/// Only elements in the base slice which has a new value in the new slice will be updated.
 		pub(crate) fn set_partial_params_slice<S>(
-			base_slice: &mut BoundedVec<S, <T as Config<I>>::MaxRank>,
-			new_slice: BoundedVec<Option<S>, <T as Config<I>>::MaxRank>,
+			base_slice: &mut BoundedVec<S, ConvertU16ToU32<T::MaxRank>>,
+			new_slice: BoundedVec<Option<S>, ConvertU16ToU32<T::MaxRank>>,
 		) {
 			for (base_element, new_element) in base_slice.iter_mut().zip(new_slice) {
 				if let Some(element) = new_element {
@@ -713,9 +724,10 @@ pub mod pallet {
 		/// Rank 1 becomes index 0, rank `RANK_COUNT` becomes index `RANK_COUNT - 1`. Any rank not
 		/// in the range `1..=RANK_COUNT` is `None`.
 		pub(crate) fn rank_to_index(rank: RankOf<T, I>) -> Option<usize> {
-			match TryInto::<usize>::try_into(rank) {
-				Ok(r) if r as u32 <= <T as Config<I>>::MaxRank::get() && r > 0 => Some(r - 1),
-				_ => return None,
+			if rank == 0 || rank > T::MaxRank::get() {
+				None
+			} else {
+				Some((rank - 1) as usize)
 			}
 		}
 

@@ -29,10 +29,13 @@ pub enum Error {
 	#[error("Oneshot for receiving ancestors from chain API got cancelled")]
 	CanceledAncestors,
 	#[fatal]
-	#[error("Oneshot for receiving block number from chain API got cancelled")]
-	CanceledBlockNumber,
-	#[error("Block number for {0} not found")]
-	BlockNumberNotFound(Hash),
+	#[error("Oneshot for receiving finalized block number from chain API got cancelled")]
+	CanceledFinalizedBlockNumber,
+	#[fatal]
+	#[error("Oneshot for receiving finalized block hash from chain API got cancelled")]
+	CanceledFinalizedBlockHash,
+	#[error("Finalized block hash for {0} not found")]
+	FinalizedBlockNotFound(u32),
 	#[error(transparent)]
 	ChainApi(#[from] ChainApiError),
 	#[fatal(forward)]

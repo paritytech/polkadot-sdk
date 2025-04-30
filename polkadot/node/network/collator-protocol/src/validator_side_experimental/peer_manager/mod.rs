@@ -63,9 +63,15 @@ pub enum ReputationUpdateKind {
 	Slash,
 }
 
+#[derive(Debug, PartialEq)]
 enum TryAcceptOutcome {
 	Added,
-	Replaced(Vec<PeerId>),
+	// This can hold more than one `PeerId` because before receiving the `Declare` message,
+	// one peer can hold connection slots for multiple paraids.
+	// The set can also be empty if this peer replaced some other peer's slot but that other peer
+	// maintained a connection slot for another para (therefore not disconnected).
+	// The number of peers in the set is bound to the number of scheduled paras.
+	Replaced(HashSet<PeerId>),
 	Rejected,
 }
 
@@ -76,8 +82,8 @@ impl TryAcceptOutcome {
 			(Added, Added) => Added,
 			(Rejected, Rejected) => Rejected,
 			(Added, Rejected) | (Rejected, Added) => Added,
-			(Replaced(mut replaced_a), Replaced(mut replaced_b)) => {
-				replaced_a.append(&mut replaced_b);
+			(Replaced(mut replaced_a), Replaced(replaced_b)) => {
+				replaced_a.extend(replaced_b);
 				Replaced(replaced_a)
 			},
 			(_, Replaced(replaced)) | (Replaced(replaced), _) => Replaced(replaced),
@@ -85,6 +91,7 @@ impl TryAcceptOutcome {
 	}
 }
 
+#[derive(Debug, PartialEq)]
 enum DeclarationOutcome {
 	Rejected,
 	Switched(ParaId),
@@ -97,15 +104,14 @@ pub struct PeerManager<B> {
 }
 
 impl<B: Backend> PeerManager<B> {
-	/// Initialize the peer manager (called on subsystem startup).
+	/// Initialize the peer manager (called on subsystem startup, after the node finished syncing to
+	/// the tip of the chain).
 	pub async fn startup<Sender: CollatorProtocolSenderTrait>(
 		sender: &mut Sender,
-		first_leaf: ActivatedLeaf,
 		scheduled_paras: BTreeSet<ParaId>,
 	) -> Result<Self> {
 		// Open the Db.
 		let db = B::new(MAX_STORED_SCORES_PER_PARA).await;
-		let latest_block_number = db.latest_block_number().await;
 
 		let mut instance = Self {
 			db,
@@ -116,64 +122,50 @@ impl<B: Backend> PeerManager<B> {
 			),
 		};
 
-		let ancestry_len = if let Some(number) = latest_block_number {
-			if first_leaf.number <= number {
-				// Shouldn't be possible, but in this case there is no other initialisation needed.
-				return Ok(instance)
-			}
-			std::cmp::min(first_leaf.number.saturating_sub(number), MAX_STARTUP_ANCESTRY_LOOKBACK)
-		} else {
-			MAX_STARTUP_ANCESTRY_LOOKBACK
-		};
+		let (latest_finalized_block_number, latest_finalized_block_hash) =
+			get_latest_finalized_block(sender).await?;
 
-		let mut ancestors = get_ancestors(sender, ancestry_len as usize, first_leaf.hash).await?;
-		ancestors.push(first_leaf.hash);
-		ancestors.reverse();
+		let processed_finalized_block_number =
+			instance.db.processed_finalized_block_number().await.unwrap_or_default();
 
-		let bumps = extract_reputation_bumps_from_ancestry(sender, &ancestors[..]).await?;
+		let bumps = extract_reputation_bumps_on_new_finalized_block(
+			sender,
+			processed_finalized_block_number,
+			(latest_finalized_block_number, latest_finalized_block_hash),
+		)
+		.await?;
 
-		instance.db.process_bumps(first_leaf.number, bumps, None).await;
+		instance.db.process_bumps(latest_finalized_block_number, bumps, None).await;
 
 		Ok(instance)
 	}
 
-	/// Handle new leaves update, by updating peer reputations.
-	pub async fn update_reputations_on_new_leaves<Sender: CollatorProtocolSenderTrait>(
+	/// Handle a new block finality notification, by updating peer reputations.
+	pub async fn update_reputations_on_new_finalized_block<Sender: CollatorProtocolSenderTrait>(
 		&mut self,
 		sender: &mut Sender,
-		new_leaves: Vec<Hash>,
-		cached_parents: &mut HashMap<Hash, Hash>,
+		(finalized_block_hash, finalized_block_number): (Hash, BlockNumber),
 	) -> Result<()> {
-		for leaf in new_leaves {
-			let block_number = get_block_number(sender, leaf).await?;
+		let processed_finalized_block_number =
+			self.db.processed_finalized_block_number().await.unwrap_or_default();
 
-			let latest_processed_block_number = self.db.latest_block_number().await;
-			if latest_processed_block_number.unwrap_or(0) > block_number {
-				continue
-			}
+		let bumps = extract_reputation_bumps_on_new_finalized_block(
+			sender,
+			processed_finalized_block_number,
+			(finalized_block_number, finalized_block_hash),
+		)
+		.await?;
 
-			let parent = if let Some(parent) = cached_parents.get(&leaf) {
-				*parent
-			} else {
-				let parent = get_ancestors(sender, 1, leaf).await?.remove(0);
-				cached_parents.insert(leaf, parent);
-				parent
-			};
-
-			let ancestors = vec![parent, leaf];
-			let bumps = extract_reputation_bumps_from_ancestry(sender, &ancestors[..]).await?;
-
-			let updates = self
-				.db
-				.process_bumps(
-					block_number,
-					bumps,
-					Some(Score::new(INACTIVITY_DECAY).expect("INACTIVITY_DECAY is a valid score")),
-				)
-				.await;
-			for update in updates {
-				self.connected.update_reputation(update);
-			}
+		let updates = self
+			.db
+			.process_bumps(
+				finalized_block_number,
+				bumps,
+				Some(Score::new(INACTIVITY_DECAY).expect("INACTIVITY_DECAY is a valid score")),
+			)
+			.await;
+		for update in updates {
+			self.connected.update_reputation(update);
 		}
 
 		Ok(())
@@ -195,24 +187,13 @@ impl<B: Backend> PeerManager<B> {
 		sender: &mut Sender,
 		scheduled_paras: BTreeSet<ParaId>,
 	) {
-		let mut prev_paras_count = 0;
-		let mut prev_scheduled_paras = self.connected.scheduled_paras();
+		let mut prev_scheduled_paras: BTreeSet<_> =
+			self.connected.scheduled_paras().copied().collect();
 
-		if prev_scheduled_paras.all(|p| {
-			prev_paras_count += 1;
-			scheduled_paras.contains(p)
-		}) {
-			// The new set is a superset of the old paras and their lengths are equal, so they are
-			// identical.
-
-			if prev_paras_count == scheduled_paras.len() {
-				// Nothing to do if the scheduled paras didn't change.
-				return
-			}
+		if prev_scheduled_paras == scheduled_paras {
+			// Nothing to do if the scheduled paras didn't change.
+			return
 		}
-
-		// Borrow checker can't tell that prev_scheduled_paras is not used anymore.
-		std::mem::drop(prev_scheduled_paras);
 
 		// Recreate the connected peers based on the new schedule and try populating it again based
 		// on their reputations. Disconnect any peers that couldn't be kept
@@ -225,8 +206,6 @@ impl<B: Backend> PeerManager<B> {
 
 		// Build a closure that can be used to first query the in-memory past reputations of the
 		// peers before reaching for the DB.
-		// TODO: we could warm-up the DB for these specific paraids. (Cache them in memory on the
-		// Backend impl)
 
 		// Borrow these for use in the closure.
 		let cached_scores = &cached_scores;
@@ -242,13 +221,13 @@ impl<B: Backend> PeerManager<B> {
 		};
 
 		// See which of the old peers we should keep.
-		let mut peers_to_disconnect = vec![];
+		let mut peers_to_disconnect = HashSet::new();
 		for (peer_id, peer_info) in prev_peers {
 			let outcome = self.connected.try_accept(reputation_query_fn, peer_id, peer_info).await;
 
 			match outcome {
 				TryAcceptOutcome::Rejected => {
-					peers_to_disconnect.push(peer_id);
+					peers_to_disconnect.insert(peer_id);
 				},
 				TryAcceptOutcome::Replaced(replaced_peer_ids) => {
 					peers_to_disconnect.extend(replaced_peer_ids);
@@ -268,6 +247,7 @@ impl<B: Backend> PeerManager<B> {
 		peer_id: PeerId,
 		para_id: ParaId,
 	) {
+		let Some(peer_info) = self.connected.peer_info(&peer_id).cloned() else { return };
 		let outcome = self.connected.declared(peer_id, para_id);
 
 		match outcome {
@@ -285,8 +265,10 @@ impl<B: Backend> PeerManager<B> {
 					?para_id,
 					?old_para_id,
 					?peer_id,
-					"Peer switched collating paraid",
+					"Peer switched collating paraid. Trying to accept it on the new one.",
 				);
+
+				self.try_accept_connection(sender, peer_id, peer_info).await;
 			},
 			DeclarationOutcome::Rejected => {
 				gum::debug!(
@@ -296,7 +278,7 @@ impl<B: Backend> PeerManager<B> {
 					"Peer declared but rejected. Going to disconnect.",
 				);
 
-				self.disconnect_peers(sender, vec![peer_id]).await;
+				self.disconnect_peers(sender, [peer_id].into_iter().collect()).await;
 			},
 		}
 	}
@@ -330,7 +312,7 @@ impl<B: Backend> PeerManager<B> {
 		&mut self,
 		sender: &mut Sender,
 		peer_id: PeerId,
-		version: CollationVersion,
+		peer_info: PeerInfo,
 	) -> bool {
 		let db = &self.db;
 		let reputation_query_fn = |peer_id: PeerId, para_id: ParaId| async move {
@@ -338,14 +320,7 @@ impl<B: Backend> PeerManager<B> {
 			db.query(&peer_id, &para_id).await.unwrap_or_default()
 		};
 
-		let outcome = self
-			.connected
-			.try_accept(
-				reputation_query_fn,
-				peer_id,
-				PeerInfo { version, state: PeerState::Connected },
-			)
-			.await;
+		let outcome = self.connected.try_accept(reputation_query_fn, peer_id, peer_info).await;
 
 		match outcome {
 			TryAcceptOutcome::Added => true,
@@ -365,7 +340,7 @@ impl<B: Backend> PeerManager<B> {
 					?peer_id,
 					"Peer connection was rejected",
 				);
-				self.disconnect_peers(sender, vec![peer_id]).await;
+				self.disconnect_peers(sender, [peer_id].into_iter().collect()).await;
 				false
 			},
 		}
@@ -379,7 +354,7 @@ impl<B: Backend> PeerManager<B> {
 	async fn disconnect_peers<Sender: CollatorProtocolSenderTrait>(
 		&self,
 		sender: &mut Sender,
-		peers: Vec<PeerId>,
+		peers: HashSet<PeerId>,
 	) {
 		gum::trace!(
 			target: LOG_TARGET,
@@ -388,7 +363,10 @@ impl<B: Backend> PeerManager<B> {
 		);
 
 		sender
-			.send_message(NetworkBridgeTxMessage::DisconnectPeers(peers, PeerSet::Collation))
+			.send_message(NetworkBridgeTxMessage::DisconnectPeers(
+				peers.into_iter().collect(),
+				PeerSet::Collation,
+			))
 			.await;
 	}
 }
@@ -406,22 +384,65 @@ async fn get_ancestors<Sender: CollatorProtocolSenderTrait>(
 	Ok(rx.await.map_err(|_| Error::CanceledAncestors)??)
 }
 
-async fn get_block_number<Sender: CollatorProtocolSenderTrait>(
+async fn get_latest_finalized_block<Sender: CollatorProtocolSenderTrait>(
 	sender: &mut Sender,
-	hash: Hash,
-) -> Result<BlockNumber> {
+) -> Result<(BlockNumber, Hash)> {
 	let (tx, rx) = oneshot::channel();
-	sender.send_message(ChainApiMessage::BlockNumber(hash, tx)).await;
+	sender.send_message(ChainApiMessage::FinalizedBlockNumber(tx)).await;
 
-	rx.await
-		.map_err(|_| Error::CanceledBlockNumber)??
-		.ok_or_else(|| Error::BlockNumberNotFound(hash))
+	let block_number = rx.await.map_err(|_| Error::CanceledFinalizedBlockNumber)??;
+
+	let (tx, rx) = oneshot::channel();
+	sender.send_message(ChainApiMessage::FinalizedBlockHash(block_number, tx)).await;
+
+	let block_hash = rx
+		.await
+		.map_err(|_| Error::CanceledFinalizedBlockHash)??
+		.ok_or_else(|| Error::FinalizedBlockNotFound(block_number))?;
+
+	Ok((block_number, block_hash))
 }
 
-async fn extract_reputation_bumps_from_ancestry<Sender: CollatorProtocolSenderTrait>(
+async fn extract_reputation_bumps_on_new_finalized_block<Sender: CollatorProtocolSenderTrait>(
 	sender: &mut Sender,
-	ancestors: &[Hash],
+	processed_finalized_block_number: BlockNumber,
+	(latest_finalized_block_number, latest_finalized_block_hash): (BlockNumber, Hash),
 ) -> Result<BTreeMap<ParaId, HashMap<PeerId, Score>>> {
+	if latest_finalized_block_number < processed_finalized_block_number {
+		// Shouldn't be possible, but in this case there is no other initialisation needed.
+		gum::info!(
+			target: LOG_TARGET,
+			latest_finalized_block_number,
+			?latest_finalized_block_hash,
+			"Peer manager stored finalized block number {} is higher than the latest finalized block.",
+			processed_finalized_block_number,
+		);
+		return Ok(BTreeMap::new())
+	}
+
+	let ancestry_len = std::cmp::min(
+		latest_finalized_block_number.saturating_sub(processed_finalized_block_number),
+		MAX_STARTUP_ANCESTRY_LOOKBACK,
+	);
+
+	if ancestry_len == 0 {
+		return Ok(BTreeMap::new())
+	}
+
+	let mut ancestors =
+		get_ancestors(sender, ancestry_len as usize, latest_finalized_block_hash).await?;
+	ancestors.push(latest_finalized_block_hash);
+	ancestors.reverse();
+
+	gum::trace!(
+		target: LOG_TARGET,
+		?latest_finalized_block_hash,
+		processed_finalized_block_number,
+		"Processing reputation bumps for finalized relay parent {} and its {} ancestors",
+		latest_finalized_block_number,
+		ancestry_len
+	);
+
 	let mut candidates_per_rp: HashMap<Hash, BTreeMap<ParaId, HashSet<CandidateHash>>> =
 		HashMap::with_capacity(ancestors.len());
 

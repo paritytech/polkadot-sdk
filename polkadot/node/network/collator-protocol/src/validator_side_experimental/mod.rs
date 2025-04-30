@@ -16,6 +16,9 @@
 
 #![allow(unused)]
 
+// See reasoning in Cargo.toml why this temporary useless import is needed.
+use tokio as _;
+
 mod common;
 mod error;
 mod metrics;
@@ -24,7 +27,7 @@ mod state;
 
 use std::collections::VecDeque;
 
-use error::{FatalError, FatalResult, Result};
+use error::{log_error, FatalError, FatalResult, Result};
 use fatality::Split;
 use peer_manager::{Db, PeerManager};
 use polkadot_node_subsystem::{
@@ -75,17 +78,15 @@ async fn initialize<Context>(
 		{
 			Ok(paras) => paras,
 			Err(err) => {
-				err.split()?.log();
+				log_error(Err(err))?;
 				continue
 			},
 		};
 
-		match PeerManager::startup(ctx.sender(), first_leaf, scheduled_paras.into_iter().collect())
-			.await
-		{
+		match PeerManager::startup(ctx.sender(), scheduled_paras.into_iter().collect()).await {
 			Ok(peer_manager) => return Ok(Some(State::new(peer_manager, keystore, metrics))),
 			Err(err) => {
-				err.split()?.log();
+				log_error(Err(err))?;
 				continue
 			},
 		}
