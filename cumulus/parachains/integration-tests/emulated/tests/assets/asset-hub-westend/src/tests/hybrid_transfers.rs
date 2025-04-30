@@ -14,8 +14,8 @@
 // limitations under the License.
 
 use emulated_integration_tests_common::{
-	xcm_simulator::helpers::TopicIdTracker,
 	xcm_helpers::{find_all_xcm_topic_ids, find_xcm_sent_message_id},
+	xcm_simulator::helpers::TopicIdTracker,
 };
 use westend_system_emulated_network::westend_emulated_chain::westend_runtime::Dmp;
 

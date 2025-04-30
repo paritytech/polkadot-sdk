@@ -111,8 +111,6 @@ thread_local! {
 	pub static INITIALIZED: RefCell<HashMap<String, bool>> = RefCell::new(HashMap::new());
 	/// Most recent `HeadData` of each parachain, encoded.
 	pub static LAST_HEAD: RefCell<HashMap<String, HashMap<u32, HeadData>>> = RefCell::new(HashMap::new());
-	/// Tracked XCM topic IDs
-	pub static TRACKED_TOPIC_IDS: RefCell<std::collections::HashSet<sp_core::H256>> = RefCell::new(std::collections::HashSet::new());
 }
 pub trait CheckAssertion<Origin, Destination, Hops, Args>
 where
@@ -1647,7 +1645,6 @@ where
 
 pub mod helpers {
 	use super::*;
-	use sp_core::H256;
 
 	pub fn within_threshold(threshold: u64, expected_value: u64, current_value: u64) -> bool {
 		let margin = (current_value * threshold) / 100;
@@ -1668,66 +1665,5 @@ pub mod helpers {
 			within_threshold(threshold_size, expected_weight.proof_size(), weight.proof_size());
 
 		ref_time_within && proof_size_within
-	}
-
-	/// A test utility for tracking XCM topic IDs
-	pub struct TopicIdTracker;
-	impl TopicIdTracker {
-		/// Asserts that the unique tracked topic ID exists in the given list.
-		pub fn assert_tracked_id_in(topic_ids: &[H256]) {
-			Self::assert_unique();
-
-			let tracked_id = Self::get();
-			assert!(
-				topic_ids.contains(&tracked_id),
-				"Tracked topic ID {:?} was not found in emitted events: {:?}",
-				tracked_id,
-				topic_ids
-			);
-		}
-
-		/// Asserts that exactly one topic ID is tracked.
-		pub fn assert_unique() {
-			TRACKED_TOPIC_IDS.with(|b| {
-				let ids = b.borrow();
-				assert_eq!(
-					ids.len(),
-					1,
-					"Expected exactly one topic ID, found {}: {:?}",
-					ids.len(),
-					ids
-				);
-			});
-		}
-
-		/// Inserts multiple topic IDs into the tracker and asserts exactly one is tracked.
-		pub fn expect_insert_multi_unique(ids: Vec<H256>) {
-			for id in ids {
-				Self::insert(id);
-			}
-			Self::assert_unique();
-		}
-
-		/// Inserts a topic ID into the tracker and asserts it is the only one tracked.
-		pub fn expect_insert_unique(id: H256) {
-			Self::insert(id);
-			Self::assert_unique()
-		}
-
-		/// Retrieves the unique tracked topic ID.
-		pub fn get() -> H256 {
-			TRACKED_TOPIC_IDS
-				.with(|b| *b.borrow().iter().next().expect("Expected exactly one tracked topic ID"))
-		}
-
-		/// Inserts a single topic ID into the tracker.
-		pub fn insert(id: H256) {
-			TRACKED_TOPIC_IDS.with(|b| b.borrow_mut().insert(id));
-		}
-
-		/// Clears all tracked topic IDs, resetting the tracker for a new test.
-		pub fn reset() {
-			TRACKED_TOPIC_IDS.with(|b| b.borrow_mut().clear());
-		}
 	}
 }
