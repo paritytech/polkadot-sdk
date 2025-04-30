@@ -42,7 +42,5 @@ doc:
 crates:
 - name: emulated-integration-tests-common
   bump: major
-- name: yet-another-parachain-runtime
-  bump: none
 - name: polkadot-runtime-common
   bump: patch
