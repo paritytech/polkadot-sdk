@@ -7,6 +7,8 @@ pragma solidity ^0.8.26;
 
 TODO
 
+https://excalidraw.com/#json=jbWQYv0LqecjPxrt5gnEy,fXpnaX2LDA_aKnGK_mNTYg
+
 ## Use-Cases
 
 * Allow EVM accounts (users) to stake, and have a reasonably good experience, on-par with native accounts. As per my understanding, EVM accounts cannot yet directly transact with pallets, and ergo will only rely on this.
