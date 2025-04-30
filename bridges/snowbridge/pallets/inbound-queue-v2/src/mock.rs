@@ -141,11 +141,11 @@ impl RewardLedger<<mock::Test as frame_system::Config>::AccountId, BridgeReward,
 pub struct DummyPrefix;
 
 impl MessageProcessor<AccountId> for DummyPrefix {
-	fn can_process_message(_who: &AccountId, _message: &Message) -> bool {
+	fn can_process_message(_relayer: &AccountId, _message: &Message) -> bool {
 		false
 	}
 
-	fn process_message(_who: AccountId, _message: Message) -> Result<[u8; 32], DispatchError> {
+	fn process_message(_relayer: AccountId, _message: Message) -> Result<[u8; 32], DispatchError> {
 		panic!("DummyPrefix::process_message shouldn't be called");
 	}
 }
@@ -153,11 +153,11 @@ impl MessageProcessor<AccountId> for DummyPrefix {
 pub struct DummySuffix;
 
 impl MessageProcessor<AccountId> for DummySuffix {
-	fn can_process_message(_who: &AccountId, _message: &Message) -> bool {
+	fn can_process_message(_relayer: &AccountId, _message: &Message) -> bool {
 		true
 	}
 
-	fn process_message(_who: AccountId, _message: Message) -> Result<[u8; 32], DispatchError> {
+	fn process_message(_relayer: AccountId, _message: Message) -> Result<[u8; 32], DispatchError> {
 		panic!("DummySuffix::process_message shouldn't be called");
 	}
 }

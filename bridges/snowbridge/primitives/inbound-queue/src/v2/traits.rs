@@ -23,18 +23,19 @@ pub enum ConvertMessageError {
 	InvalidNetwork,
 }
 
+/// Trait to define the logic for checking and processing inbound messages.
 pub trait MessageProcessor<AccountId> {
 	/// Lightweight function to check if this processor can handle the message
-	fn can_process_message(who: &AccountId, message: &Message) -> bool;
+	fn can_process_message(relayer: &AccountId, message: &Message) -> bool;
 	/// Process the message and return the message ID
-	fn process_message(who: AccountId, message: Message) -> Result<[u8; 32], DispatchError>;
+	fn process_message(relayer: AccountId, message: Message) -> Result<[u8; 32], DispatchError>;
 }
 
 #[impl_trait_for_tuples::impl_for_tuples(10)]
 impl<AccountId> MessageProcessor<AccountId> for Tuple {
-	fn can_process_message(who: &AccountId, message: &Message) -> bool {
+	fn can_process_message(relayer: &AccountId, message: &Message) -> bool {
 		for_tuples!( #(
- 			match Tuple::can_process_message(&who, &message) {
+ 			match Tuple::can_process_message(&relayer, &message) {
 				true => {
 					return true;
 				},
@@ -45,11 +46,11 @@ impl<AccountId> MessageProcessor<AccountId> for Tuple {
 		false
 	}
 
-	fn process_message(who: AccountId, message: Message) -> Result<[u8; 32], DispatchError> {
+	fn process_message(relayer: AccountId, message: Message) -> Result<[u8; 32], DispatchError> {
 		for_tuples!( #(
- 			match Tuple::can_process_message(&who, &message) {
+ 			match Tuple::can_process_message(&relayer, &message) {
 				true => {
-					return Tuple::process_message(who, message)
+					return Tuple::process_message(relayer, message)
 				},
 				_ => {}
 			}

@@ -33,7 +33,7 @@ use snowbridge_outbound_queue_primitives::{
 	v1::{ConstantGasMeter, EthereumBlobExporter},
 	v2::{ConstantGasMeter as ConstantGasMeterV2, EthereumBlobExporter as EthereumBlobExporterV2},
 };
-use snowbridge_pallet_inbound_queue_v2::message_processors::XcmMessageProcessor;
+use snowbridge_pallet_inbound_queue_v2::message_processors::XcmMessageProcessor as InboundXcmMessageProcessor;
 use sp_core::H160;
 use sp_runtime::{
 	traits::{ConstU32, ConstU8, Keccak256},
@@ -124,7 +124,7 @@ impl snowbridge_pallet_inbound_queue::Config for Runtime {
 	type AssetTransactor = <xcm_config::XcmConfig as xcm_executor::Config>::AssetTransactor;
 }
 
-pub type XcmMessageProcessorAlias = XcmMessageProcessor<
+pub type XcmMessageProcessor = InboundXcmMessageProcessor<
 	Runtime,
 	crate::XcmRouter,
 	XcmExecutor<XcmConfig>,
@@ -153,7 +153,7 @@ impl snowbridge_pallet_inbound_queue_v2::Config for Runtime {
 	#[cfg(feature = "runtime-benchmarks")]
 	type MessageProcessor = benchmark_helpers::DummyXcmProcessor;
 	#[cfg(not(feature = "runtime-benchmarks"))]
-	type MessageProcessor = XcmMessageProcessorAlias;
+	type MessageProcessor = XcmMessageProcessor;
 	type RewardKind = BridgeReward;
 	type DefaultRewardKind = SnowbridgeReward;
 	type RewardPayment = BridgeRelayers;
@@ -363,7 +363,7 @@ pub mod benchmark_helpers {
 		}
 	}
 
-	pub type DummyXcmProcessor = XcmMessageProcessor<
+	pub type DummyXcmProcessor = InboundXcmMessageProcessor<
 		Runtime,
 		DoNothingRouter,
 		XcmExecutor<XcmConfig>,

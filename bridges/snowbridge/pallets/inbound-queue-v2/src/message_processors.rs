@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2023 Snowfork <hello@snowfork.com>
 use super::*;
-use codec::Encode;
 use frame_support::traits::Get;
 use sp_runtime::{traits::TryConvert, DispatchError};
 use sp_std::marker::PhantomData;
@@ -25,13 +24,13 @@ where
 	AccountToLocation: for<'a> TryConvert<&'a AccountId, Location>,
 	AssetHubParaId: Get<u32>,
 {
-	fn can_process_message(_who: &AccountId, _message: &Message) -> bool {
+	fn can_process_message(_relayer: &AccountId, _message: &Message) -> bool {
 		true
 	}
 
-	fn process_message(who: AccountId, message: Message) -> Result<[u8; 32], DispatchError> {
+	fn process_message(relayer: AccountId, message: Message) -> Result<[u8; 32], DispatchError> {
 		// Process the message and return its ID
-		let id = Self::process_xcm(who, message)?;
+		let id = Self::process_xcm(relayer, message)?;
 		Ok(id)
 	}
 }
