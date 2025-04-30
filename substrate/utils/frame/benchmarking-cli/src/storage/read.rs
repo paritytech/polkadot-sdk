@@ -16,7 +16,7 @@
 // limitations under the License.
 
 use codec::Encode;
-use cumulus_pallet_parachain_system::validate_block::StorageAccessParams;
+use frame_storage_access_test_runtime::StorageAccessParams;
 use log::{debug, info, warn};
 use rand::prelude::*;
 use sc_cli::{Error, Result};

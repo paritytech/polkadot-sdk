@@ -19,9 +19,142 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
+use alloc::vec::Vec;
+use codec::{Decode, Encode};
+use sp_core::storage::ChildInfo;
+use sp_runtime::traits;
+use sp_trie::CompactProof;
+
+#[cfg(all(not(feature = "std"), feature = "runtime-benchmarks"))]
+use {
+	cumulus_pallet_parachain_system::validate_block::{
+		trie_cache::CacheProvider, trie_recorder::SizeOnlyRecorderProvider,
+	},
+	sp_core::storage::StateVersion,
+	sp_runtime::{generic, OpaqueExtrinsic},
+	sp_state_machine::{Backend, TrieBackendBuilder},
+};
+
 // Include the WASM binary
 #[cfg(feature = "std")]
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
+
+/// Parameters for benchmarking storage access on block validation.
+///
+/// On dry-run, the storage access is not performed.
+#[derive(Decode, Clone)]
+#[cfg_attr(feature = "std", derive(Encode))]
+pub struct StorageAccessParams<B: traits::Block> {
+	pub state_root: B::Hash,
+	pub storage_proof: CompactProof,
+	pub payload: StorageAccessPayload,
+	pub is_dry_run: bool,
+}
+
+/// Payload for benchmarking read and write operations on block validation.
+#[derive(Debug, Clone, Decode, Encode)]
+pub enum StorageAccessPayload {
+	// Storage keys with optional child info.
+	Read(Vec<(Vec<u8>, Option<ChildInfo>)>),
+	// Storage key-value pairs with optional child info.
+	Write((Vec<(Vec<u8>, Vec<u8>)>, Option<ChildInfo>)),
+}
+
+impl<B: traits::Block> StorageAccessParams<B> {
+	pub fn new_read(
+		state_root: B::Hash,
+		storage_proof: CompactProof,
+		payload: Vec<(Vec<u8>, Option<ChildInfo>)>,
+	) -> Self {
+		Self {
+			state_root,
+			storage_proof,
+			payload: StorageAccessPayload::Read(payload),
+			is_dry_run: false,
+		}
+	}
+
+	pub fn new_write(
+		state_root: B::Hash,
+		storage_proof: CompactProof,
+		payload: (Vec<(Vec<u8>, Vec<u8>)>, Option<ChildInfo>),
+	) -> Self {
+		Self {
+			state_root,
+			storage_proof,
+			payload: StorageAccessPayload::Write(payload),
+			is_dry_run: false,
+		}
+	}
+
+	pub fn as_dry_run(&self) -> Self {
+		Self {
+			state_root: self.state_root,
+			storage_proof: self.storage_proof.clone(),
+			payload: self.payload.clone(),
+			is_dry_run: true,
+		}
+	}
+}
+
+/// Imitates `cumulus_pallet_parachain_system::validate_block::implementation::validate_block`
+///
+/// Only performs the storage access, this is used to benchmark the storage access cost.
+#[doc(hidden)]
+#[cfg(all(not(feature = "std"), feature = "runtime-benchmarks"))]
+pub fn proceed_storage_access<B: traits::Block>(mut params: &[u8]) {
+	let StorageAccessParams { state_root, storage_proof, payload, is_dry_run } =
+		StorageAccessParams::<B>::decode(&mut params)
+			.expect("Invalid arguments to `validate_block`.");
+	// Create the db
+	let db = match storage_proof.to_memory_db(Some(&state_root)) {
+		Ok((db, _)) => db,
+		Err(_) => panic!("Compact proof decoding failure."),
+	};
+
+	let recorder = SizeOnlyRecorderProvider::<traits::HashingFor<B>>::default();
+	let cache_provider = CacheProvider::new();
+	let backend = TrieBackendBuilder::new_with_cache(db, state_root, cache_provider)
+		.with_recorder(recorder)
+		.build();
+
+	if is_dry_run {
+		return;
+	}
+
+	match payload {
+		StorageAccessPayload::Read(keys) =>
+			for (key, maybe_child_info) in keys {
+				match maybe_child_info {
+					Some(child_info) => {
+						let _ = backend
+							.child_storage(&child_info, key.as_ref())
+							.expect("Key not found")
+							.ok_or("Value unexpectedly empty");
+					},
+					None => {
+						let _ = backend
+							.storage(key.as_ref())
+							.expect("Key not found")
+							.ok_or("Value unexpectedly empty");
+					},
+				}
+			},
+		StorageAccessPayload::Write((changes, maybe_child_info)) => {
+			let delta = changes.iter().map(|(key, value)| (key.as_ref(), Some(value.as_ref())));
+			match maybe_child_info {
+				Some(child_info) => {
+					backend.child_storage_root(&child_info, delta, StateVersion::V1);
+				},
+				None => {
+					backend.storage_root(delta, StateVersion::V1);
+				},
+			}
+		},
+	}
+}
 
 /// Wasm binary unwrapped. If built with `SKIP_WASM_BUILD`, the function panics.
 #[cfg(feature = "std")]
@@ -48,15 +181,8 @@ pub fn panic(_info: &core::panic::PanicInfo) -> ! {
 #[cfg(all(not(feature = "std"), feature = "runtime-benchmarks"))]
 #[no_mangle]
 pub extern "C" fn validate_block(params: *const u8, len: usize) -> u64 {
-	type Block = sp_runtime::generic::Block<
-		sp_runtime::generic::Header<u32, sp_runtime::traits::BlakeTwo256>,
-		sp_runtime::OpaqueExtrinsic,
-	>;
-	let params = unsafe {
-		cumulus_pallet_parachain_system::validate_block::slice::from_raw_parts(params, len)
-	};
-	cumulus_pallet_parachain_system::validate_block::implementation::proceed_storage_access::<Block>(
-		params,
-	);
+	type Block = generic::Block<generic::Header<u32, traits::BlakeTwo256>, OpaqueExtrinsic>;
+	let params = unsafe { alloc::slice::from_raw_parts(params, len) };
+	proceed_storage_access::<Block>(params);
 	1
 }
