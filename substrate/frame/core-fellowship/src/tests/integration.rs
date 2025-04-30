@@ -180,8 +180,8 @@ fn import_simple_works() {
 			assert_ok!(Club::add_member(RuntimeOrigin::root(), acc));
 			promote_n_times(acc, i);
 
-			assert_ok!(hypothetically! { CoreFellowship::import(signed(acc)) });
-			assert_ok!(hypothetically! { CoreFellowship::import_member(signed(acc), acc) });
+			hypothetically_ok! { CoreFellowship::import(signed(acc)) };
+			hypothetically_ok! { CoreFellowship::import_member(signed(acc), acc) };
 			// Works from other accounts
 			assert_ok!(CoreFellowship::import_member(signed(acc + 1), acc));
 
@@ -203,7 +203,7 @@ fn swap_simple_works() {
 
 			assert_ok!(Club::add_member(RuntimeOrigin::root(), acc));
 			promote_n_times(acc, i);
-			assert_ok!(hypothetically!(CoreFellowship::import(signed(acc))));
+			hypothetically_ok!(CoreFellowship::import(signed(acc)));
 			assert_ok!(CoreFellowship::import_member(signed(acc), acc));
 
 			// Swapping normally works:
