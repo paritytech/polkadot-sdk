@@ -20,7 +20,7 @@
 #![allow(deprecated)]
 
 use frame::{
-	testing_prelude::{storage::root as storage_root, TestExternalities, *},
+	testing_prelude::{storage::root as storage_root, *},
 	traits::{IsInVec, TryMapSuccess, TryMorphInto},
 };
 use pallet_ranked_collective::{EnsureRanked, Geometric, Rank};
