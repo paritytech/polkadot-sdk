@@ -24,6 +24,7 @@ use std::{
 	cmp::Ordering,
 	collections::{BTreeMap, BTreeSet, HashMap, HashSet},
 	future::Future,
+	num::NonZeroU16,
 };
 
 /// Keeps track of connected peers, together with relevant info such as their procotol versions,
@@ -36,11 +37,15 @@ pub struct ConnectedPeers {
 
 impl ConnectedPeers {
 	/// Create a new ConnectedPeers object.
-	pub fn new(scheduled_paras: BTreeSet<ParaId>, overall_limit: u16, per_para_limit: u16) -> Self {
+	pub fn new(
+		scheduled_paras: BTreeSet<ParaId>,
+		overall_limit: NonZeroU16,
+		per_para_limit: NonZeroU16,
+	) -> Self {
 		debug_assert!(per_para_limit <= overall_limit);
 
 		let limit = std::cmp::min(
-			(overall_limit)
+			(u16::from(overall_limit))
 				.checked_div(
 					scheduled_paras
 						.len()
@@ -48,12 +53,18 @@ impl ConnectedPeers {
 						.expect("Nr of scheduled paras on a core should always fit in a u16"),
 				)
 				.unwrap_or(0),
-			per_para_limit,
+			u16::from(per_para_limit),
 		);
 
 		let mut per_para = BTreeMap::new();
-		for para_id in scheduled_paras {
-			per_para.insert(para_id, PerPara::new(limit));
+
+		if limit != 0 {
+			for para_id in scheduled_paras {
+				per_para.insert(
+					para_id,
+					PerPara::new(NonZeroU16::new(limit).expect("Just checked that limit is not 0")),
+				);
+			}
 		}
 
 		Self { per_para, peer_info: Default::default() }
@@ -206,7 +217,7 @@ impl ConnectedPeers {
 #[derive(Clone)]
 pub struct PerPara {
 	// Don't accept more than this number of connected peers for this para.
-	limit: u16,
+	limit: NonZeroU16,
 	// A min-heap would be more efficient for getting the min (constant) but modifying the score
 	// would be linear, so use a BST which achieves logarithmic performance for all ops.
 	sorted_scores: BTreeSet<PeerScoreEntry>,
@@ -221,20 +232,20 @@ impl PerPara {
 		self.per_peer_score.get(peer_id).map(|s| *s)
 	}
 
-	fn new(limit: u16) -> Self {
+	fn new(limit: NonZeroU16) -> Self {
 		Self { limit, sorted_scores: BTreeSet::default(), per_peer_score: HashMap::default() }
 	}
 
 	fn try_accept(&mut self, peer_id: PeerId, score: Score) -> TryAcceptOutcome {
 		// If we've got enough room, add it. Otherwise, see if it has a higher reputation than any
 		// other connected peer.
-		if self.sorted_scores.len() < (self.limit as usize) {
+		if self.sorted_scores.len() < (u16::from(self.limit) as usize) {
 			self.sorted_scores.insert(PeerScoreEntry { peer_id, score });
 			self.per_peer_score.insert(peer_id, score);
 			TryAcceptOutcome::Added
 		} else {
 			let Some(min_score) = self.sorted_scores.first() else {
-				// The limit must be 0.
+				// The limit must be 0, which is not possible given that limit is a NonZeroU16.
 				return TryAcceptOutcome::Rejected
 			};
 
@@ -316,39 +327,51 @@ mod tests {
 	#[test]
 	fn test_connected_peers_constructor() {
 		// Test an empty instance.
-		let connected = ConnectedPeers::new(BTreeSet::new(), 0, 0);
-		assert!(connected.per_para.is_empty());
-		assert!(connected.peer_info.is_empty());
-
-		let connected = ConnectedPeers::new(BTreeSet::new(), 1000, 50);
+		let connected = ConnectedPeers::new(
+			BTreeSet::new(),
+			NonZeroU16::new(1000).unwrap(),
+			NonZeroU16::new(50).unwrap(),
+		);
 		assert!(connected.per_para.is_empty());
 		assert!(connected.peer_info.is_empty());
 
 		// Test that the constructor sets the per-para limit as the minimum between the
 		// per_para_limit and the overall_limit divided by the number of scheduled paras.
-		let connected = ConnectedPeers::new((0..5).map(ParaId::from).collect(), 50, 3);
+		let connected = ConnectedPeers::new(
+			(0..5).map(ParaId::from).collect(),
+			NonZeroU16::new(50).unwrap(),
+			NonZeroU16::new(3).unwrap(),
+		);
 		assert_eq!(connected.per_para.len(), 5);
 		assert!(connected.peer_info.is_empty());
 		for (para_id, per_para) in connected.per_para {
 			let para_id = u32::from(para_id);
 			assert!(para_id < 5);
-			assert_eq!(per_para.limit, 3);
+			assert_eq!(per_para.limit.get(), 3);
 		}
 
-		let connected = ConnectedPeers::new((0..5).map(ParaId::from).collect(), 50, 15);
+		let connected = ConnectedPeers::new(
+			(0..5).map(ParaId::from).collect(),
+			NonZeroU16::new(50).unwrap(),
+			NonZeroU16::new(15).unwrap(),
+		);
 		assert_eq!(connected.per_para.len(), 5);
 		assert!(connected.peer_info.is_empty());
 		for (para_id, per_para) in connected.per_para {
 			let para_id = u32::from(para_id);
 			assert!(para_id < 5);
-			assert_eq!(per_para.limit, 10);
+			assert_eq!(per_para.limit.get(), 10);
 		}
 	}
 
 	#[tokio::test]
 	// Test peer connection acceptance criteria while the peer limit is not reached.
 	async fn test_try_accept_below_limit() {
-		let mut connected = ConnectedPeers::new((0..5).map(ParaId::from).collect(), 50, 15);
+		let mut connected = ConnectedPeers::new(
+			(0..5).map(ParaId::from).collect(),
+			NonZeroU16::new(50).unwrap(),
+			NonZeroU16::new(15).unwrap(),
+		);
 		let first_peer = PeerId::random();
 
 		// Try accepting a new peer which has no past reputation and has not declared.
@@ -522,7 +545,11 @@ mod tests {
 	// Test peer connection acceptance criteria while the peer limit is reached.
 	async fn test_try_accept_at_limit() {
 		// We have 2 scheduled paras. The per para limit is 2.
-		let mut connected = ConnectedPeers::new((1..=2).map(ParaId::from).collect(), 50, 2);
+		let mut connected = ConnectedPeers::new(
+			(1..=2).map(ParaId::from).collect(),
+			NonZeroU16::new(50).unwrap(),
+			NonZeroU16::new(2).unwrap(),
+		);
 		let first_peer = PeerId::random();
 		let second_peer = PeerId::random();
 		let third_peer = PeerId::random();
@@ -677,7 +704,11 @@ mod tests {
 		// Trying to accept an undeclared peer when all other peers have lower reputations ->
 		// Replace the ones with the lowest rep.
 		{
-			let mut connected = ConnectedPeers::new((1..=2).map(ParaId::from).collect(), 50, 2);
+			let mut connected = ConnectedPeers::new(
+				(1..=2).map(ParaId::from).collect(),
+				NonZeroU16::new(50).unwrap(),
+				NonZeroU16::new(2).unwrap(),
+			);
 			let fourth_peer = PeerId::random();
 
 			let rep_query_fn = |peer_id, para_id| async move {
@@ -823,7 +854,11 @@ mod tests {
 			default_connected_state(),
 			PeerInfo { version: CollationVersion::V2, state: PeerState::Collating(para_1) },
 		] {
-			let mut connected = ConnectedPeers::new((1..=2).map(ParaId::from).collect(), 50, 2);
+			let mut connected = ConnectedPeers::new(
+				(1..=2).map(ParaId::from).collect(),
+				NonZeroU16::new(50).unwrap(),
+				NonZeroU16::new(2).unwrap(),
+			);
 
 			let rep_query_fn = |peer_id, para_id| async move {
 				match (peer_id, para_id) {
@@ -894,7 +929,11 @@ mod tests {
 	#[tokio::test]
 	// Test the handling of a Declare message in different scenarios.
 	async fn test_declare() {
-		let mut connected = ConnectedPeers::new((0..5).map(ParaId::from).collect(), 50, 15);
+		let mut connected = ConnectedPeers::new(
+			(0..5).map(ParaId::from).collect(),
+			NonZeroU16::new(50).unwrap(),
+			NonZeroU16::new(15).unwrap(),
+		);
 		let first_peer = PeerId::random();
 
 		assert_eq!(connected.peer_info(&first_peer), None);
@@ -1006,7 +1045,11 @@ mod tests {
 	#[tokio::test]
 	// Test the removal of disconnected peers.
 	async fn test_remove() {
-		let mut connected = ConnectedPeers::new((0..5).map(ParaId::from).collect(), 50, 15);
+		let mut connected = ConnectedPeers::new(
+			(0..5).map(ParaId::from).collect(),
+			NonZeroU16::new(50).unwrap(),
+			NonZeroU16::new(15).unwrap(),
+		);
 		let first_peer = PeerId::random();
 
 		assert_eq!(connected.peer_info(&first_peer), None);
@@ -1095,7 +1138,11 @@ mod tests {
 	#[tokio::test]
 	// Test different scenarios for reputation updates.
 	async fn test_update_reputation() {
-		let mut connected = ConnectedPeers::new((0..6).map(ParaId::from).collect(), 50, 15);
+		let mut connected = ConnectedPeers::new(
+			(0..6).map(ParaId::from).collect(),
+			NonZeroU16::new(50).unwrap(),
+			NonZeroU16::new(15).unwrap(),
+		);
 		let first_peer = PeerId::random();
 
 		assert_eq!(connected.peer_info(&first_peer), None);

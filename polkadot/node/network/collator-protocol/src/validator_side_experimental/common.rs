@@ -14,6 +14,8 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
+use std::num::NonZeroU16;
+
 use polkadot_node_network_protocol::peer_set::CollationVersion;
 use polkadot_primitives::Id as ParaId;
 
@@ -21,13 +23,13 @@ use polkadot_primitives::Id as ParaId;
 pub const MAX_SCORE: u16 = 5000;
 
 /// Limit for the total number connected peers.
-pub const CONNECTED_PEERS_LIMIT: u16 = 300;
+pub const CONNECTED_PEERS_LIMIT: NonZeroU16 = NonZeroU16::new(300).expect("300 is greater than 0");
 
 /// Limit for the total number of connected peers for a paraid.
 /// Must be smaller than `CONNECTED_PEERS_LIMIT`.
-pub const CONNECTED_PEERS_PARA_LIMIT: u16 = const {
-	assert!(CONNECTED_PEERS_LIMIT >= 100);
-	100
+pub const CONNECTED_PEERS_PARA_LIMIT: NonZeroU16 = const {
+	assert!(CONNECTED_PEERS_LIMIT.get() >= 100);
+	NonZeroU16::new(100).expect("100 is greater than 0")
 };
 
 /// Maximum number of relay parents to process for reputation bumps on startup and between finality
