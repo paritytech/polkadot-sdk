@@ -11,10 +11,10 @@ doc:
     Previous usage:
     ```
     test_parachain_is_trusted_teleporter!(
-		  Polkadot,          
-		  PeoplePolkadotXcmConfig,
-		  vec![PeoplePolkadot],
-		  (native_asset, amount)
+      Polkadot,          
+      PeoplePolkadotXcmConfig,
+      vec![PeoplePolkadot],
+      (native_asset, amount)
 	  );
     ```
 
