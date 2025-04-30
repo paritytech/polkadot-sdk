@@ -248,4 +248,10 @@ impl<T: frame_system::Config> pallet_bounties::WeightInfo for WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().writes((3_u64).saturating_mul(b.into())))
 			.saturating_add(Weight::from_parts(0, 5206).saturating_mul(b.into()))
 	}
+	fn poke_deposit() -> Weight {
+		Weight::from_parts(15_756_000, 0)
+			.saturating_add(Weight::from_parts(0, 3642))
+			.saturating_add(T::DbWeight::get().reads(1))
+			.saturating_add(T::DbWeight::get().writes(1))
+	}
 }

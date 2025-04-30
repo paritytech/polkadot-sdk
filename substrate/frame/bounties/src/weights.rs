@@ -84,6 +84,7 @@ pub trait WeightInfo {
 	fn close_bounty_active() -> Weight;
 	fn extend_bounty_expiry() -> Weight;
 	fn spend_funds(b: u32, ) -> Weight;
+	fn poke_deposit() -> Weight;
 }
 
 /// Weights for `pallet_bounties` using the Substrate node and recommended hardware.
@@ -274,6 +275,11 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().writes((3_u64).saturating_mul(b.into())))
 			.saturating_add(Weight::from_parts(0, 5206).saturating_mul(b.into()))
 	}
+	fn poke_deposit() -> Weight {
+		Weight::from_parts(13_905_000, 3642)
+			.saturating_add(T::DbWeight::get().reads(1_u64))
+			.saturating_add(T::DbWeight::get().writes(1_u64))
+	}
 }
 
 // For backwards compatibility and tests.
@@ -462,5 +468,10 @@ impl WeightInfo for () {
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 			.saturating_add(RocksDbWeight::get().writes((3_u64).saturating_mul(b.into())))
 			.saturating_add(Weight::from_parts(0, 5206).saturating_mul(b.into()))
+	}
+	fn poke_deposit() -> Weight {
+		Weight::from_parts(13_905_000, 3642)
+			.saturating_add(RocksDbWeight::get().reads(1_u64))
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 }
