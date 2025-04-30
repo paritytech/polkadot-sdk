@@ -68,7 +68,6 @@ use frame::{
 	prelude::*,
 	traits::{tokens::Balance as BalanceTrait, EnsureOriginWithArg},
 };
-use scale_info::TypeInfo;
 
 #[cfg(test)]
 mod tests;
