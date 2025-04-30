@@ -142,7 +142,7 @@ parachains-runtimes-test-utils = { workspace = true, default-features = true }
 substrate-wasm-builder = { optional = true, workspace = true, default-features = true }
 
 [features]
-default = ["std"]
+default = ["std", "ahm-westend"]
 ahm-westend = ["ahm-staking-migration"]
 ahm-staking-migration = []
 runtime-benchmarks = [
