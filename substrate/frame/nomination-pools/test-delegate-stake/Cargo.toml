@@ -26,7 +26,7 @@ sp-staking = { default-features = true, path = "../../../primitives/staking" }
 sp-core = { default-features = true, path = "../../../primitives/core" }
 
 frame-system = { default-features = true, path = "../../system" }
-frame-support = { default-features = true, path = "../../support" }
+frame-support = { features = ["experimental"], default-features = true, path = "../../support" }
 frame-election-provider-support = { default-features = true, path = "../../election-provider-support" }
 
 pallet-timestamp = { default-features = true, path = "../../timestamp" }
