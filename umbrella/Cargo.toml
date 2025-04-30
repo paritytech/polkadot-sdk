@@ -1552,7 +1552,7 @@ version = "39.0.0"
 path = "../substrate/frame/multisig"
 default-features = false
 optional = true
-version = "39.1.0"
+version = "39.1.1"
 
 [dependencies.pallet-nft-fractionalization]
 path = "../substrate/frame/nft-fractionalization"
@@ -1588,7 +1588,7 @@ version = "39.0.0"
 path = "../substrate/frame/nomination-pools"
 default-features = false
 optional = true
-version = "37.0.1"
+version = "37.0.2"
 
 [dependencies.pallet-nomination-pools-benchmarking]
 path = "../substrate/frame/nomination-pools/benchmarking"
@@ -1600,7 +1600,7 @@ version = "37.1.0"
 path = "../substrate/frame/nomination-pools/runtime-api"
 default-features = false
 optional = true
-version = "35.0.0"
+version = "35.0.1"
 
 [dependencies.pallet-offences]
 path = "../substrate/frame/offences"
@@ -1846,7 +1846,7 @@ version = "18.1.0"
 path = "../polkadot/xcm/pallet-xcm-benchmarks"
 default-features = false
 optional = true
-version = "18.1.0"
+version = "18.1.1"
 
 [dependencies.pallet-xcm-bridge-hub]
 path = "../bridges/modules/xcm-bridge-hub"
@@ -1936,7 +1936,7 @@ version = "0.12.1"
 path = "../bridges/snowbridge/primitives/core"
 default-features = false
 optional = true
-version = "0.12.1"
+version = "0.12.2"
 
 [dependencies.snowbridge-ethereum]
 path = "../bridges/snowbridge/primitives/ethereum"
@@ -1990,7 +1990,7 @@ version = "0.12.1"
 path = "../bridges/snowbridge/pallets/system"
 default-features = false
 optional = true
-version = "0.12.1"
+version = "0.12.2"
 
 [dependencies.snowbridge-router-primitives]
 path = "../bridges/snowbridge/primitives/router"
@@ -2134,7 +2134,7 @@ version = "35.0.0"
 path = "../substrate/primitives/io"
 default-features = false
 optional = true
-version = "39.0.0"
+version = "39.0.1"
 
 [dependencies.sp-keyring]
 path = "../substrate/primitives/keyring"
@@ -2302,7 +2302,7 @@ version = "15.0.3"
 path = "../polkadot/xcm/xcm-builder"
 default-features = false
 optional = true
-version = "18.1.0"
+version = "18.2.0"
 
 [dependencies.staging-xcm-executor]
 path = "../polkadot/xcm/xcm-executor"
@@ -3184,7 +3184,7 @@ version = "41.0.0"
 path = "../substrate/utils/wasm-builder"
 default-features = false
 optional = true
-version = "25.0.0"
+version = "25.0.1"
 
 [dependencies.tracing-gum]
 path = "../polkadot/node/gum"
