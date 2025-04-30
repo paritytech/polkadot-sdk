@@ -899,13 +899,14 @@ pub mod pallet {
 		///
 		/// This can be used by accounts to possibly lower their locked amount.
 		///
-		/// The dispatch origin for this call must be _Signed_ and must be the proposer of the bounty.
+		/// The dispatch origin for this call must be _Signed_ and must be the proposer of the
+		/// bounty.
 		///
 		/// Parameters:
 		/// - `bounty_id`: The bounty id for which to adjust the deposit.
 		///
-		/// If the deposit is updated, the difference will be reserved/unreserved from the proposer's
-		/// account.
+		/// If the deposit is updated, the difference will be reserved/unreserved from the
+		/// proposer's account.
 		///
 		/// The transaction is made free if the deposit is updated and paid otherwise.
 		///
@@ -1047,16 +1048,23 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	}
 
 	/// Helper function to calculate the bounty storage deposit.
-	fn calculate_bounty_deposit(description: &BoundedVec<u8, T::MaximumReasonLength>) -> BalanceOf<T, I> {
-		T::BountyDepositBase::get() + T::DataDepositPerByte::get() * (description.len() as u32).into()
+	fn calculate_bounty_deposit(
+		description: &BoundedVec<u8, T::MaximumReasonLength>,
+	) -> BalanceOf<T, I> {
+		T::BountyDepositBase::get() +
+			T::DataDepositPerByte::get() * (description.len() as u32).into()
 	}
 
 	/// Helper function to poke the deposit reserved for proposing a bounty.
-	/// 
+	///
 	/// Returns true if the deposit was updated and false otherwise.
-	fn poke_bounty_deposit(bounty_id: BountyIndex, who: T::AccountId) -> Result<bool, DispatchError> {
+	fn poke_bounty_deposit(
+		bounty_id: BountyIndex,
+		who: T::AccountId,
+	) -> Result<bool, DispatchError> {
 		let mut bounty = Bounties::<T, I>::get(bounty_id).ok_or(Error::<T, I>::InvalidIndex)?;
-		let bounty_description = BountyDescriptions::<T, I>::get(bounty_id).ok_or(Error::<T, I>::InvalidIndex)?;
+		let bounty_description =
+			BountyDescriptions::<T, I>::get(bounty_id).ok_or(Error::<T, I>::InvalidIndex)?;
 		// ensure that the bounty status is proposed.
 		ensure!(bounty.status == BountyStatus::Proposed, Error::<T, I>::UnexpectedStatus);
 
@@ -1084,7 +1092,12 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		bounty.bond = new_bond;
 		Bounties::<T, I>::insert(bounty_id, &bounty);
 
-		Self::deposit_event(Event::<T, I>::DepositPoked { bounty_id, proposer: who, old_deposit: old_bond, new_deposit: new_bond });
+		Self::deposit_event(Event::<T, I>::DepositPoked {
+			bounty_id,
+			proposer: who,
+			old_deposit: old_bond,
+			new_deposit: new_bond,
+		});
 
 		Ok(true)
 	}
