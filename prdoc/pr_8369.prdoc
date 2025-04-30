@@ -1,0 +1,21 @@
+title: Sync xcm related test utils impls with runtimes repo
+doc:
+- audience: Runtime Dev
+  description: |-
+    # Description
+
+    This PR covers an effort to sync some utils implementations that were created/modified for the purpose of using them in [runtimes repo](https://github.com/polkadot-fellows/runtimes) with the intention to introduce there first and then upstream back to polkadot-sdk
+
+    # Checklist
+
+    * [x] `test_parachain_is_trusted_teleporter` utilizng dry-run as in [PR](https://github.com/polkadot-fellows/runtimes/pull/673/files/dc3f9cdd588e62f3a4abd5b0ca08262fcb568882#diff-7346706278168c97dfec9e73bec1a115274a2be89a3147b914dd2eedec9f6269R344)
+    * [x] `test_relay_is_trusted_teleporter` utilizing dry-run as currently on [main](https://github.com/polkadot-fellows/runtimes/blob/f5b3d53f25cf7a78479874badf3aa44c6f7ec49b/integration-tests/emulated/helpers/src/lib.rs#L71)
+    * [x] `test_parachain_is_trusted_teleporter_for_relay` utilizing dry-run as currently on [main](https://github.com/polkadot-fellows/runtimes/blob/f5b3d53f25cf7a78479874badf3aa44c6f7ec49b/integration-tests/emulated/helpers/src/lib.rs#L209)
+    * [x] modified `ToParachainDeliveryHelper` to utilize `WithdrawAsset` based worst-case fee estimation instead of `ClearOrigin`, first introduced in [forked repo](https://github.com/karolk91/runtimes/pull/1/files#diff-ef0567d8ca7b55f6f8fa190c7613f343f0ac6c0314492b8db4a1b213f351f7a7R46) (to be merged to fellows)
+crates:
+- name: emulated-integration-tests-common
+  bump: major
+- name: yet-another-parachain-runtime
+  bump: major
+- name: polkadot-runtime-common
+  bump: major
