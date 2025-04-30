@@ -431,6 +431,15 @@ async fn extract_reputation_bumps_on_new_finalized_block<Sender: CollatorProtoco
 	ancestors.push(latest_finalized_block_hash);
 	ancestors.reverse();
 
+	gum::trace!(
+		target: LOG_TARGET,
+		?latest_finalized_block_hash,
+		processed_finalized_block_number,
+		"Processing reputation bumps for finalized relay parent {} and its {} ancestors",
+		latest_finalized_block_number,
+		ancestry_len
+	);
+
 	let mut candidates_per_rp: HashMap<Hash, BTreeMap<ParaId, HashSet<CandidateHash>>> =
 		HashMap::with_capacity(ancestors.len());
 
