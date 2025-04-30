@@ -1701,6 +1701,20 @@ pub mod helpers {
 			});
 		}
 
+		/// Inserts multiple topic IDs into the tracker and asserts exactly one is tracked.
+		pub fn expect_insert_only_unique(ids: Vec<H256>) {
+			for id in ids {
+				Self::insert(id);
+			}
+			Self::assert_unique();
+		}
+
+		/// Inserts a topic ID into the tracker and asserts it is the only one tracked.
+		pub fn expect_insert_unique(id: H256) {
+			Self::insert(id);
+			Self::assert_unique()
+		}
+
 		/// Retrieves all tracked topic IDs.
 		pub fn get() -> Vec<H256> {
 			TRACKED_TOPIC_IDS.with(|b| b.borrow().iter().cloned().collect())
@@ -1709,13 +1723,6 @@ pub mod helpers {
 		/// Inserts a single topic ID into the tracker.
 		pub fn insert(id: H256) {
 			TRACKED_TOPIC_IDS.with(|b| b.borrow_mut().insert(id));
-		}
-
-		/// Inserts multiple topic IDs into the tracker.
-		pub fn insert_many(ids: Vec<H256>) {
-			for id in ids {
-				Self::insert(id);
-			}
 		}
 
 		/// Clears all tracked topic IDs, resetting the tracker for a new test.
