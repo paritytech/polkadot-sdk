@@ -14,15 +14,16 @@ TODO
 * Allow existing parachains to (possibly) re-implement their protocol in AH (Bifrost vDOT, Acala LDOT, moonbeam stDOT).
 * (experimental) A validator can put their funds into a contract that interfaces with the following. This contract is fully owned by the validator and they can do anything, except it restricts them from certain arbitrary commission changes. Require the EVM account to be able to transact with other pallets (e.g. validator needs to set session keys, claim rewards etc), and a good template contract for it.
 
-## Risks / Stability
-
-TODO
-
 ## Implementation Notes
 
-TODO
+### Upgradability and Splitting
+Precompiles are not upgradable in any meaningful way, yet we can later add more features to each, as an extension to that particular interface. This is also a motivation for the interfaces to be broken apart as much as possible, rather than one massive one, beyond a better exercise of separation of concerns. For example, I opted to not include the "blocking" mechanism that validator have access to in the interface (tentative, open to suggestions), and if need be it can be added later in a new precompile (`StakingRolesV2`) that extends the current oen (`StakingRoles`).
 
 ### Bond Limits
+
+TODO
+
+## Risks / Stability
 
 TODO
 
