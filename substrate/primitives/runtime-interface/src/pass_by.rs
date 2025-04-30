@@ -465,7 +465,7 @@ where
 		<U as FromFFIValue>::from_ffi_value(context, arg).and_then(|value| value.try_into()
 			.map_err(|_| format!(
 				"failed to convert '{}' (passed as '{}') into '{}' when marshalling hostcall's arguments through the FFI boundary",
-				type_name::<T>(),
+				type_name::<U>(),
 				type_name::<Self::FFIType>(),
 				type_name::<Self::Owned>()
 			)))
