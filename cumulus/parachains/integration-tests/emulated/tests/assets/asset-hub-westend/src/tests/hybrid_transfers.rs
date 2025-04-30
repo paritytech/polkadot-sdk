@@ -118,13 +118,9 @@ fn para_to_para_transfer_assets_through_ah(t: ParaToParaThroughAHTest) -> Dispat
 		t.args.weight_limit,
 	);
 
-	let msg_id_sent = find_xcm_sent_message_id::<PenpalA>();
-	if let Some(msg_id) = msg_id_sent {
-		TopicIdTracker::insert(msg_id.into());
-		TopicIdTracker::assert_unique();
-	} else {
-		assert!(false, "Missing Sent Event");
-	}
+	let msg_id_sent = find_xcm_sent_message_id::<PenpalA>().expect("Missing Sent Event");
+	TopicIdTracker::insert(msg_id_sent.into());
+	TopicIdTracker::assert_unique();
 
 	result
 }
