@@ -350,12 +350,8 @@ impl RunCmd {
 				_ => RelayChainMode::Embedded,
 			};
 
-		CollatorOptions { relay_chain_mode }
-	}
-
-	/// Create [`DhtBootnodeOptions`] enabling embedded DHT bootnode & DHT bootnode discovery.
-	pub fn dht_bootnode_options(&self) -> DhtBootnodeOptions {
-		DhtBootnodeOptions {
+		CollatorOptions {
+			relay_chain_mode,
 			embedded_dht_bootnode: !self.no_dht_bootnode,
 			dht_bootnode_discovery: !self.no_dht_bootnode_discovery,
 		}
@@ -373,16 +369,11 @@ pub enum RelayChainMode {
 	LightClient,
 }
 
-/// Options only relevant for collator nodes
+/// Options only relevant for collator/parachain nodes
 #[derive(Clone, Debug)]
 pub struct CollatorOptions {
 	/// How this collator retrieves relay chain information
 	pub relay_chain_mode: RelayChainMode,
-}
-
-/// Options of the embedded DHT bootnode & DHT bootnode discovery.
-#[derive(Clone, Debug)]
-pub struct DhtBootnodeOptions {
 	/// Enable embedded DHT bootnode.
 	pub embedded_dht_bootnode: bool,
 	/// Enable DHT bootnode discovery.

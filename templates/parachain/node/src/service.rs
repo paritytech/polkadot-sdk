@@ -13,7 +13,7 @@ use polkadot_sdk::*;
 
 // Cumulus Imports
 use cumulus_client_bootnodes::{start_bootnode_tasks, StartBootnodeTasksParams};
-use cumulus_client_cli::{CollatorOptions, DhtBootnodeOptions};
+use cumulus_client_cli::CollatorOptions;
 use cumulus_client_collator::service::CollatorService;
 #[docify::export(lookahead_collator)]
 use cumulus_client_consensus_aura::collators::lookahead::{self as aura, Params as AuraParams};
@@ -236,7 +236,6 @@ pub async fn start_parachain_node(
 	parachain_config: Configuration,
 	polkadot_config: Configuration,
 	collator_options: CollatorOptions,
-	dht_bootnode_options: DhtBootnodeOptions,
 	para_id: ParaId,
 	hwbench: Option<sc_sysinfo::HwBench>,
 ) -> sc_service::error::Result<(TaskManager, Arc<ParachainClient>)> {
@@ -397,8 +396,8 @@ pub async fn start_parachain_node(
 	})?;
 
 	start_bootnode_tasks(StartBootnodeTasksParams {
-		embedded_dht_bootnode: dht_bootnode_options.embedded_dht_bootnode,
-		dht_bootnode_discovery: dht_bootnode_options.dht_bootnode_discovery,
+		embedded_dht_bootnode: collator_options.embedded_dht_bootnode,
+		dht_bootnode_discovery: collator_options.dht_bootnode_discovery,
 		para_id,
 		task_manager: &mut task_manager,
 		relay_chain_interface: relay_chain_interface.clone(),

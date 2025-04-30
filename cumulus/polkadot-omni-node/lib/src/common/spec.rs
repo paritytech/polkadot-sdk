@@ -24,7 +24,7 @@ use crate::common::{
 	ConstructNodeRuntimeApi, NodeBlock, NodeExtraArgs,
 };
 use cumulus_client_bootnodes::{start_bootnode_tasks, StartBootnodeTasksParams};
-use cumulus_client_cli::{CollatorOptions, DhtBootnodeOptions};
+use cumulus_client_cli::CollatorOptions;
 use cumulus_client_service::{
 	build_network, build_relay_chain_interface, prepare_node_config, start_relay_chain_tasks,
 	BuildNetworkParams, CollatorSybilResistance, DARecoveryProfile, StartRelayChainTasksParams,
@@ -258,7 +258,6 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 		parachain_config: Configuration,
 		polkadot_config: Configuration,
 		collator_options: CollatorOptions,
-		dht_bootnode_options: DhtBootnodeOptions,
 		para_id: ParaId,
 		hwbench: Option<sc_sysinfo::HwBench>,
 		node_extra_args: NodeExtraArgs,
@@ -408,8 +407,8 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 			})?;
 
 			start_bootnode_tasks(StartBootnodeTasksParams {
-				embedded_dht_bootnode: dht_bootnode_options.embedded_dht_bootnode,
-				dht_bootnode_discovery: dht_bootnode_options.dht_bootnode_discovery,
+				embedded_dht_bootnode: collator_options.embedded_dht_bootnode,
+				dht_bootnode_discovery: collator_options.dht_bootnode_discovery,
 				para_id,
 				task_manager: &mut task_manager,
 				relay_chain_interface: relay_chain_interface.clone(),
@@ -463,7 +462,6 @@ pub(crate) trait DynNodeSpec: NodeCommandRunner {
 		parachain_config: Configuration,
 		polkadot_config: Configuration,
 		collator_options: CollatorOptions,
-		dht_bootnode_options: DhtBootnodeOptions,
 		para_id: ParaId,
 		hwbench: Option<HwBench>,
 		node_extra_args: NodeExtraArgs,
@@ -479,7 +477,6 @@ where
 		parachain_config: Configuration,
 		polkadot_config: Configuration,
 		collator_options: CollatorOptions,
-		dht_bootnode_options: DhtBootnodeOptions,
 		para_id: ParaId,
 		hwbench: Option<HwBench>,
 		node_extra_args: NodeExtraArgs,
@@ -493,7 +490,6 @@ where
 					parachain_config,
 					polkadot_config,
 					collator_options,
-					dht_bootnode_options,
 					para_id,
 					hwbench,
 					node_extra_args,
@@ -503,7 +499,6 @@ where
 					parachain_config,
 					polkadot_config,
 					collator_options,
-					dht_bootnode_options,
 					para_id,
 					hwbench,
 					node_extra_args,
