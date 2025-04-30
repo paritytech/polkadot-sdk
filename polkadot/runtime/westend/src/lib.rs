@@ -1775,6 +1775,8 @@ impl pallet_rc_migrator::Config for Runtime {
 	type AhWeightInfo = pallet_rc_migrator::weights_ah::SubstrateWeight<Runtime>;
 	type RcIntraMigrationCalls = ahm_phase1::CallsEnabledDuringMigration;
 	type RcPostMigrationCalls = ahm_phase1::CallsEnabledAfterMigration;
+	type StakingDelegationReason = ahm_phase1::StakingDelegationReason;
+	type OnDemandPalletId = OnDemandPalletId;
 }
 
 pub type MetaTxExtension = (
