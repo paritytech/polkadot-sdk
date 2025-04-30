@@ -562,47 +562,6 @@ pub fn proceed_storage_access<B: BlockT>(mut params: &[u8]) {
 			.with_recorder(recorder)
 			.build();
 
-	let _guard = (
-		// Replace storage calls with our own implementations
-		sp_io::storage::host_read.replace_implementation(host_storage_read),
-		sp_io::storage::host_set.replace_implementation(host_storage_set),
-		sp_io::storage::host_get.replace_implementation(host_storage_get),
-		sp_io::storage::host_exists.replace_implementation(host_storage_exists),
-		sp_io::storage::host_clear.replace_implementation(host_storage_clear),
-		sp_io::storage::host_root.replace_implementation(host_storage_root),
-		sp_io::storage::host_clear_prefix.replace_implementation(host_storage_clear_prefix),
-		sp_io::storage::host_append.replace_implementation(host_storage_append),
-		sp_io::storage::host_next_key.replace_implementation(host_storage_next_key),
-		sp_io::storage::host_start_transaction
-			.replace_implementation(host_storage_start_transaction),
-		sp_io::storage::host_rollback_transaction
-			.replace_implementation(host_storage_rollback_transaction),
-		sp_io::storage::host_commit_transaction
-			.replace_implementation(host_storage_commit_transaction),
-		sp_io::default_child_storage::host_get
-			.replace_implementation(host_default_child_storage_get),
-		sp_io::default_child_storage::host_read
-			.replace_implementation(host_default_child_storage_read),
-		sp_io::default_child_storage::host_set
-			.replace_implementation(host_default_child_storage_set),
-		sp_io::default_child_storage::host_clear
-			.replace_implementation(host_default_child_storage_clear),
-		sp_io::default_child_storage::host_storage_kill
-			.replace_implementation(host_default_child_storage_storage_kill),
-		sp_io::default_child_storage::host_exists
-			.replace_implementation(host_default_child_storage_exists),
-		sp_io::default_child_storage::host_clear_prefix
-			.replace_implementation(host_default_child_storage_clear_prefix),
-		sp_io::default_child_storage::host_root
-			.replace_implementation(host_default_child_storage_root),
-		sp_io::default_child_storage::host_next_key
-			.replace_implementation(host_default_child_storage_next_key),
-		sp_io::offchain_index::host_set.replace_implementation(host_offchain_index_set),
-		sp_io::offchain_index::host_clear.replace_implementation(host_offchain_index_clear),
-		cumulus_primitives_proof_size_hostfunction::storage_proof_size::host_storage_proof_size
-			.replace_implementation(host_storage_proof_size),
-	);
-
 	if is_dry_run {
 		return;
 	}
