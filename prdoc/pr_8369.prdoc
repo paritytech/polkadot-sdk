@@ -5,6 +5,39 @@ doc:
     Improvements have been made to the macros used for testing trusted teleporter functionality between relay chains and parachains. Changes include:
     - Integration of dry-run support to accurately estimate and verify the fees expected during testing
     - Parameterization of the macro, allowing users to specify which transfer-related extrinsic to test. This replaces the previous hardcoded use of `limited_teleport_assets` with the option to test alternatives such as `transfer_assets`
+
+    The macro interface has been updated. Below is a comparison of the previous usage and the new syntax:
+
+    Previous usage:
+    ```
+    test_parachain_is_trusted_teleporter!(
+		  Polkadot,          
+		  PeoplePolkadotXcmConfig,
+		  vec![PeoplePolkadot],
+		  (native_asset, amount)
+	  );
+    ```
+
+    Updated equivalent usage:
+    ```
+    test_parachain_is_trusted_teleporter!(
+      Polkadot,
+      vec![PeoplePolkadot],
+      (native_asset, amount),
+      limited_teleport_assets
+    );
+    ```
+      
+    Example with a different extrinsic possible with updated version
+    ```
+    test_parachain_is_trusted_teleporter!(
+      Polkadot,
+      vec![PeoplePolkadot],
+      (native_asset, amount),
+      transfer_assets
+    );
+    ```
+
         
 crates:
 - name: emulated-integration-tests-common
