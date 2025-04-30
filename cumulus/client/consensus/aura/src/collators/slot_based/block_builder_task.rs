@@ -46,7 +46,7 @@ use futures::prelude::*;
 use sc_client_api::{backend::AuxStore, BlockBackend, BlockOf, UsageProvider};
 use sc_consensus::BlockImport;
 use sc_consensus_aura::SlotDuration;
-use sp_api::{ApiExt, ProvideRuntimeApi};
+use sp_api::ProvideRuntimeApi;
 use sp_application_crypto::AppPublic;
 use sp_blockchain::HeaderBackend;
 use sp_consensus_aura::AuraApi;
@@ -55,7 +55,6 @@ use sp_inherents::CreateInherentDataProviders;
 use sp_keystore::KeystorePtr;
 use sp_runtime::traits::{Block as BlockT, Header as HeaderT, Member};
 use std::{collections::VecDeque, sync::Arc, time::Duration};
-use tracing::log;
 
 /// Parameters for [`run_block_builder`].
 pub struct BuilderTaskParams<
