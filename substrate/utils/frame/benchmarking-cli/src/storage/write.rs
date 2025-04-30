@@ -87,7 +87,7 @@ impl StorageCmd {
 		info!("Writing {} keys in batches of {}", kvs.len(), self.params.batch_size);
 		let remainder = kvs.len() % self.params.batch_size;
 		if self.params.on_block_validation && remainder != 0 {
-			info!("Remaining {} keys will be skipped", remainder);
+			info!("Remaining `{remainder}` keys will be skipped");
 		}
 
 		let mut child_nodes = Vec::new();
