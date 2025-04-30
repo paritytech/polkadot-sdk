@@ -574,6 +574,7 @@ pub trait WeightInfo {
 	fn force_queue_action() -> Weight;
 	fn add_trusted_validation_code(c: u32) -> Weight;
 	fn poke_unused_validation_code() -> Weight;
+	fn remove_upgrade_cooldown() -> Weight;
 
 	fn include_pvf_check_statement_finalize_upgrade_accept() -> Weight;
 	fn include_pvf_check_statement_finalize_upgrade_reject() -> Weight;
@@ -627,6 +628,9 @@ impl WeightInfo for TestWeightInfo {
 		// This special value is to distinguish from the finalizing variants above in tests.
 		Weight::MAX - Weight::from_parts(1, 1)
 	}
+	fn remove_upgrade_cooldown() -> Weight {
+		Weight::MAX
+	}
 	fn authorize_force_set_current_code_hash() -> Weight {
 		Weight::MAX
 	}
@@ -638,10 +642,16 @@ impl WeightInfo for TestWeightInfo {
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
+	use frame_support::traits::{
+		fungible::{Inspect, Mutate},
+		tokens::{Fortitude, Precision, Preservation},
+	};
 	use sp_runtime::transaction_validity::{
 		InvalidTransaction, TransactionPriority, TransactionSource, TransactionValidity,
 		ValidTransaction,
 	};
+
+	type BalanceOf<T> = <<T as Config>::Fungible as Inspect<AccountIdFor<T>>>::Balance;
 
 	#[pallet::pallet]
 	#[pallet::without_storage_info]
@@ -681,6 +691,20 @@ pub mod pallet {
 		/// TODO: Remove once coretime is the standard across all chains.
 		type AssignCoretime: AssignCoretime;
 
+		/// The fungible instance used by the runtime.
+		type Fungible: Mutate<Self::AccountId, Balance: From<BlockNumberFor<Self>>>;
+
+		/// Multiplier to determine the cost of removing upgrade cooldown.
+		///
+		/// After a parachain upgrades their runtime, an upgrade cooldown is applied
+		/// ([`configuration::HostConfiguration::validation_upgrade_cooldown`]). This cooldown
+		/// exists to prevent spamming the relay chain with runtime upgrades. But as life is going
+		/// on, mistakes can happen and a consequent may be required. The cooldown period can be
+		/// removed by using [`Pallet::remove_upgrade_cooldown`]. This dispatchable will use this
+		/// multiplier to determine the cost for removing the upgrade cooldown. Time left for the
+		/// cooldown multiplied with this multiplier determines the cost.
+		type CooldownRemovalMultiplier: Get<BalanceOf<Self>>;
+
 		/// The origin that can authorize `force_set_current_code_hash`.
 		type AuthorizeCurrentCodeOrigin: EnsureOriginWithArg<Self::RuntimeOrigin, ParaId>;
 	}
@@ -707,7 +731,12 @@ pub mod pallet {
 		/// The given validation code was rejected by the PVF pre-checking vote.
 		/// `code_hash` `para_id`
 		PvfCheckRejected(ValidationCodeHash, ParaId),
-		/// New code hash has been authorized for a Para.
+		/// The upgrade cooldown was removed.
+		UpgradeCooldownRemoved {
+			/// The parachain for which the cooldown got removed.
+			para_id: ParaId,
+		},
+		/// A new code hash has been authorized for a Para.
 		CodeAuthorized {
 			/// Para
 			para_id: ParaId,
@@ -1208,6 +1237,44 @@ pub mod pallet {
 			Ok(())
 		}
 
+		/// Remove an upgrade cooldown for a parachain.
+		///
+		/// The cost for removing the cooldown earlier depends on the time left for the cooldown
+		/// multiplied by [`Config::CooldownRemovalMultiplier`]. The paid tokens are burned.
+		#[pallet::call_index(9)]
+		#[pallet::weight(<T as Config>::WeightInfo::remove_upgrade_cooldown())]
+		pub fn remove_upgrade_cooldown(origin: OriginFor<T>, para: ParaId) -> DispatchResult {
+			let who = ensure_signed(origin)?;
+
+			let removed = UpgradeCooldowns::<T>::mutate(|cooldowns| {
+				let Some(pos) = cooldowns.iter().position(|(p, _)| p == &para) else {
+					return Ok::<_, DispatchError>(false)
+				};
+				let (_, cooldown_until) = cooldowns.remove(pos);
+
+				let cost = Self::calculate_remove_upgrade_cooldown_cost(cooldown_until);
+
+				// burn...
+				T::Fungible::burn_from(
+					&who,
+					cost,
+					Preservation::Preserve,
+					Precision::Exact,
+					Fortitude::Polite,
+				)?;
+
+				Ok(true)
+			})?;
+
+			if removed {
+				UpgradeRestrictionSignal::<T>::remove(para);
+
+				Self::deposit_event(Event::UpgradeCooldownRemoved { para_id: para });
+			}
+
+			Ok(())
+		}
+
 		/// Sets the storage for the authorized current code hash of the parachain.
 		/// If not applied, it will be removed at the `System::block_number() + valid_period` block.
 		///
@@ -1219,7 +1286,7 @@ pub mod pallet {
 		/// `Paras::apply_authorized_force_set_current_code(para, code)` by anyone.
 		///
 		/// Authorizations are stored in an **overwriting manner**.
-		#[pallet::call_index(9)]
+		#[pallet::call_index(10)]
 		#[pallet::weight(<T as Config>::WeightInfo::authorize_force_set_current_code_hash())]
 		pub fn authorize_force_set_current_code_hash(
 			origin: OriginFor<T>,
@@ -1248,7 +1315,7 @@ pub mod pallet {
 
 		/// Applies the already authorized current code for the parachain,
 		/// triggering the same functionality as `force_set_current_code`.
-		#[pallet::call_index(10)]
+		#[pallet::call_index(11)]
 		#[pallet::weight(<T as Config>::WeightInfo::apply_authorized_force_set_current_code(new_code.0.len() as u32))]
 		pub fn apply_authorized_force_set_current_code(
 			_origin: OriginFor<T>,
@@ -1272,6 +1339,29 @@ pub mod pallet {
 				// no fee for valid upgrade
 				pays_fee: Pays::No,
 			})
+		}
+	}
+
+	impl<T: Config> Pallet<T> {
+		pub(crate) fn calculate_remove_upgrade_cooldown_cost(
+			cooldown_until: BlockNumberFor<T>,
+		) -> BalanceOf<T> {
+			let time_left =
+				cooldown_until.saturating_sub(frame_system::Pallet::<T>::block_number());
+
+			BalanceOf::<T>::from(time_left).saturating_mul(T::CooldownRemovalMultiplier::get())
+		}
+	}
+
+	#[pallet::view_functions]
+	impl<T: Config> Pallet<T> {
+		/// Returns the cost for removing an upgrade cooldown for the given `para`.
+		pub fn remove_upgrade_cooldown_cost(para: ParaId) -> BalanceOf<T> {
+			UpgradeCooldowns::<T>::get()
+				.iter()
+				.find(|(p, _)| p == &para)
+				.map(|(_, c)| Self::calculate_remove_upgrade_cooldown_cost(*c))
+				.unwrap_or_default()
 		}
 	}
 

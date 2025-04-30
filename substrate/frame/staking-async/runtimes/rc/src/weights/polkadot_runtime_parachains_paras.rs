@@ -292,6 +292,18 @@ impl<T: frame_system::Config> polkadot_runtime_parachains::paras::WeightInfo for
 			.saturating_add(T::DbWeight::get().reads(3))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
+
+	fn remove_upgrade_cooldown() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `26706`
+		//  Estimated: `30171`
+		// Minimum execution time: 103_358_000 picoseconds.
+		Weight::from_parts(107_759_000, 0)
+			.saturating_add(Weight::from_parts(0, 30171))
+			.saturating_add(T::DbWeight::get().reads(3))
+			.saturating_add(T::DbWeight::get().writes(1))
+	}
+
 	/// Storage: `Paras::AuthorizedCodeHash` (r:0 w:1)
 	/// Proof: `Paras::AuthorizedCodeHash` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	fn authorize_force_set_current_code_hash() -> Weight {
