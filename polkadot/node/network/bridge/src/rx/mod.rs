@@ -968,9 +968,17 @@ fn update_our_view<Context>(
 		)
 	};
 
+
 	let our_view = OurView::new(
 		live_heads.iter().take(MAX_VIEW_HEADS).cloned().map(|a| a.hash),
 		finalized_number,
+	);
+
+	gum::debug!(
+		target: LOG_TARGET,
+		live_head_count = ?live_heads.len(),
+		"Our view updated, current view: {:?}",
+		our_view,
 	);
 
 	dispatch_validation_event_to_all_unbounded(
