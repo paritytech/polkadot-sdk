@@ -616,9 +616,9 @@ arrayvec = { version = "0.7.4" }
 assert_cmd = { version = "2.0.14" }
 assert_matches = { version = "1.5.0" }
 asset-hub-rococo-emulated-chain = { path = "cumulus/parachains/integration-tests/emulated/chains/parachains/assets/asset-hub-rococo", version = "0.1.0" }
-asset-hub-rococo-runtime = { path = "cumulus/parachains/runtimes/assets/asset-hub-rococo", default-features = false, version = "0.24.2" }
+asset-hub-rococo-runtime = { path = "cumulus/parachains/runtimes/assets/asset-hub-rococo", default-features = false, version = "0.24.3" }
 asset-hub-westend-emulated-chain = { path = "cumulus/parachains/integration-tests/emulated/chains/parachains/assets/asset-hub-westend", version = "0.1.0" }
-asset-hub-westend-runtime = { path = "cumulus/parachains/runtimes/assets/asset-hub-westend", version = "0.27.2" }
+asset-hub-westend-runtime = { path = "cumulus/parachains/runtimes/assets/asset-hub-westend", version = "0.27.3" }
 asset-test-utils = { path = "cumulus/parachains/runtimes/assets/test-utils", default-features = false, version = "21.0.2" }
 assets-common = { path = "cumulus/parachains/runtimes/assets/common", default-features = false, version = "0.19.1" }
 async-channel = { version = "1.8.0" }
@@ -661,10 +661,10 @@ bp-xcm-bridge-hub = { path = "bridges/primitives/xcm-bridge-hub", default-featur
 bp-xcm-bridge-hub-router = { path = "bridges/primitives/xcm-bridge-hub-router", default-features = false, version = "0.15.0" }
 bridge-hub-common = { path = "cumulus/parachains/runtimes/bridge-hubs/common", default-features = false, version = "0.12.0" }
 bridge-hub-rococo-emulated-chain = { path = "cumulus/parachains/integration-tests/emulated/chains/parachains/bridges/bridge-hub-rococo", version = "0.1.0" }
-bridge-hub-rococo-runtime = { path = "cumulus/parachains/runtimes/bridge-hubs/bridge-hub-rococo", default-features = false, version = "0.18.3" }
+bridge-hub-rococo-runtime = { path = "cumulus/parachains/runtimes/bridge-hubs/bridge-hub-rococo", default-features = false, version = "0.18.4" }
 bridge-hub-test-utils = { path = "cumulus/parachains/runtimes/bridge-hubs/test-utils", default-features = false }
 bridge-hub-westend-emulated-chain = { path = "cumulus/parachains/integration-tests/emulated/chains/parachains/bridges/bridge-hub-westend", version = "0.1.0" }
-bridge-hub-westend-runtime = { path = "cumulus/parachains/runtimes/bridge-hubs/bridge-hub-westend", default-features = false, version = "0.15.3" }
+bridge-hub-westend-runtime = { path = "cumulus/parachains/runtimes/bridge-hubs/bridge-hub-westend", default-features = false, version = "0.15.4" }
 bridge-runtime-common = { path = "bridges/bin/runtime-common", default-features = false, version = "0.19.2" }
 bs58 = { version = "0.5.1", default-features = false }
 build-helper = { version = "0.1.1" }
@@ -950,15 +950,15 @@ pallet-migrations = { path = "substrate/frame/migrations", default-features = fa
 pallet-minimal-template = { path = "templates/minimal/pallets/template", default-features = false, version = "0.1.0" }
 pallet-mixnet = { default-features = false, path = "substrate/frame/mixnet" }
 pallet-mmr = { path = "substrate/frame/merkle-mountain-range", default-features = false, version = "39.0.0" }
-pallet-multisig = { path = "substrate/frame/multisig", default-features = false, version = "39.1.0" }
+pallet-multisig = { path = "substrate/frame/multisig", default-features = false, version = "39.1.1" }
 pallet-nft-fractionalization = { path = "substrate/frame/nft-fractionalization", default-features = false, version = "22.1.0" }
 pallet-nfts = { path = "substrate/frame/nfts", default-features = false, version = "33.1.0" }
 pallet-nfts-runtime-api = { path = "substrate/frame/nfts/runtime-api", default-features = false, version = "25.0.0" }
 pallet-nis = { path = "substrate/frame/nis", default-features = false, version = "39.1.0" }
 pallet-node-authorization = { default-features = false, path = "substrate/frame/node-authorization" }
-pallet-nomination-pools = { path = "substrate/frame/nomination-pools", default-features = false, version = "37.0.1" }
+pallet-nomination-pools = { path = "substrate/frame/nomination-pools", default-features = false, version = "37.0.2" }
 pallet-nomination-pools-benchmarking = { path = "substrate/frame/nomination-pools/benchmarking", default-features = false, version = "37.1.0" }
-pallet-nomination-pools-runtime-api = { path = "substrate/frame/nomination-pools/runtime-api", default-features = false, version = "35.0.0" }
+pallet-nomination-pools-runtime-api = { path = "substrate/frame/nomination-pools/runtime-api", default-features = false, version = "35.0.1" }
 pallet-offences = { path = "substrate/frame/offences", default-features = false, version = "38.0.0" }
 pallet-offences-benchmarking = { path = "substrate/frame/offences/benchmarking", default-features = false, version = "39.1.0" }
 pallet-paged-list = { path = "substrate/frame/paged-list", default-features = false, version = "0.17.0" }
@@ -1008,7 +1008,7 @@ pallet-verify-signature = { path = "substrate/frame/verify-signature", default-f
 pallet-vesting = { path = "substrate/frame/vesting", default-features = false, version = "39.1.0" }
 pallet-whitelist = { path = "substrate/frame/whitelist", default-features = false, version = "38.1.0" }
 pallet-xcm = { path = "polkadot/xcm/pallet-xcm", default-features = false, version = "18.1.0" }
-pallet-xcm-benchmarks = { path = "polkadot/xcm/pallet-xcm-benchmarks", default-features = false, version = "18.1.0" }
+pallet-xcm-benchmarks = { path = "polkadot/xcm/pallet-xcm-benchmarks", default-features = false, version = "18.1.1" }
 pallet-xcm-bridge-hub = { path = "bridges/modules/xcm-bridge-hub", default-features = false, version = "0.14.2" }
 pallet-xcm-bridge-hub-router = { path = "bridges/modules/xcm-bridge-hub-router", default-features = false, version = "0.16.0" }
 parachain-info = { path = "cumulus/parachains/pallets/parachain-info", default-features = false, package = "staging-parachain-info", version = "0.18.0" }
@@ -1218,7 +1218,7 @@ smallvec = { version = "1.11.0", default-features = false }
 smoldot = { version = "0.11.0", default-features = false }
 smoldot-light = { version = "0.9.0", default-features = false }
 snowbridge-beacon-primitives = { path = "bridges/snowbridge/primitives/beacon", default-features = false, version = "0.12.1" }
-snowbridge-core = { path = "bridges/snowbridge/primitives/core", default-features = false, version = "0.12.1" }
+snowbridge-core = { path = "bridges/snowbridge/primitives/core", default-features = false, version = "0.12.2" }
 snowbridge-ethereum = { path = "bridges/snowbridge/primitives/ethereum", default-features = false, version = "0.11.0" }
 snowbridge-outbound-queue-merkle-tree = { path = "bridges/snowbridge/pallets/outbound-queue/merkle-tree", default-features = false, version = "0.10.0" }
 snowbridge-outbound-queue-runtime-api = { path = "bridges/snowbridge/pallets/outbound-queue/runtime-api", default-features = false, version = "0.12.0" }
@@ -1227,7 +1227,7 @@ snowbridge-pallet-ethereum-client-fixtures = { path = "bridges/snowbridge/pallet
 snowbridge-pallet-inbound-queue = { path = "bridges/snowbridge/pallets/inbound-queue", default-features = false, version = "0.12.1" }
 snowbridge-pallet-inbound-queue-fixtures = { path = "bridges/snowbridge/pallets/inbound-queue/fixtures", default-features = false, version = "0.20.1" }
 snowbridge-pallet-outbound-queue = { path = "bridges/snowbridge/pallets/outbound-queue", default-features = false, version = "0.12.1" }
-snowbridge-pallet-system = { path = "bridges/snowbridge/pallets/system", default-features = false, version = "0.12.1" }
+snowbridge-pallet-system = { path = "bridges/snowbridge/pallets/system", default-features = false, version = "0.12.2" }
 snowbridge-router-primitives = { path = "bridges/snowbridge/primitives/router", default-features = false, version = "0.18.1" }
 snowbridge-runtime-common = { path = "bridges/snowbridge/runtime/runtime-common", default-features = false, version = "0.12.0" }
 snowbridge-runtime-test-common = { path = "bridges/snowbridge/runtime/test-common", default-features = false }
@@ -1260,7 +1260,7 @@ sp-debug-derive = { path = "substrate/primitives/debug-derive", default-features
 sp-externalities = { path = "substrate/primitives/externalities", default-features = false, version = "0.30.0" }
 sp-genesis-builder = { path = "substrate/primitives/genesis-builder", default-features = false, version = "0.16.0" }
 sp-inherents = { path = "substrate/primitives/inherents", default-features = false, version = "35.0.0" }
-sp-io = { path = "substrate/primitives/io", default-features = false, version = "39.0.0" }
+sp-io = { path = "substrate/primitives/io", default-features = false, version = "39.0.1" }
 sp-keyring = { path = "substrate/primitives/keyring", default-features = false, version = "40.0.0" }
 sp-keystore = { path = "substrate/primitives/keystore", default-features = false, version = "0.41.0" }
 sp-maybe-compressed-blob = { path = "substrate/primitives/maybe-compressed-blob", default-features = false, version = "11.0.0" }
@@ -1313,7 +1313,7 @@ substrate-test-runtime = { path = "substrate/test-utils/runtime", version = "2.0
 substrate-test-runtime-client = { path = "substrate/test-utils/runtime/client", version = "2.0.0" }
 substrate-test-runtime-transaction-pool = { path = "substrate/test-utils/runtime/transaction-pool" }
 substrate-test-utils = { path = "substrate/test-utils" }
-substrate-wasm-builder = { path = "substrate/utils/wasm-builder", default-features = false, version = "25.0.0" }
+substrate-wasm-builder = { path = "substrate/utils/wasm-builder", default-features = false, version = "25.0.1" }
 subxt = { version = "0.37", default-features = false }
 subxt-signer = { version = "0.37" }
 syn = { version = "2.0.87" }
@@ -1377,7 +1377,7 @@ westend-runtime-constants = { path = "polkadot/runtime/westend/constants", defau
 westend-system-emulated-network = { path = "cumulus/parachains/integration-tests/emulated/networks/westend-system", version = "0.1.0" }
 x25519-dalek = { version = "2.0" }
 xcm = { path = "polkadot/xcm", default-features = false, package = "staging-xcm", version = "15.0.3" }
-xcm-builder = { path = "polkadot/xcm/xcm-builder", default-features = false, package = "staging-xcm-builder", version = "18.1.0" }
+xcm-builder = { path = "polkadot/xcm/xcm-builder", default-features = false, package = "staging-xcm-builder", version = "18.2.0" }
 xcm-docs = { path = "polkadot/xcm/docs", version = "0.1.0" }
 xcm-emulator = { path = "cumulus/xcm/xcm-emulator", default-features = false, version = "0.17.1" }
 xcm-executor = { path = "polkadot/xcm/xcm-executor", default-features = false, package = "staging-xcm-executor", version = "18.0.2" }
