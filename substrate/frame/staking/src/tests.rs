@@ -6402,7 +6402,8 @@ fn proportional_slash_stop_slashing_if_remaining_zero() {
 
 		assert_eq!(BondingDuration::get(), 3);
 
-		// should not slash more than the amount requested, by accidentally slashing the first chunk.
+		// should not slash more than the amount requested, by accidentally slashing the first
+		// chunk.
 		assert_eq!(ledger.slash(18, 1, 0), 18);
 	});
 }
@@ -6477,7 +6478,10 @@ fn proportional_ledger_slash_works() {
 		assert_eq!(ledger.slash(900 / 2, 0, 0), 450);
 		// Then
 		assert_eq!(ledger.active, 500 / 2);
-		assert_eq!(ledger.unlocking, vec![c(4, 40 / 2), c(5, 100 / 2), c(6, 10 / 2), c(7, 250 / 2)]);
+		assert_eq!(
+			ledger.unlocking,
+			vec![c(4, 40 / 2), c(5, 100 / 2), c(6, 10 / 2), c(7, 250 / 2)]
+		);
 		assert_eq!(ledger.total, 900 / 2);
 		assert_eq!(LedgerSlashPerEra::get().0, 500 / 2);
 		assert_eq!(
@@ -6507,15 +6511,15 @@ fn proportional_ledger_slash_works() {
 		assert_eq!(
 			ledger.slash(
 				900 / 2,
-				25, /* min balance - chunks with era 0 & 2 will be slashed to <=25, causing it to
-			     * get swept */
+				25, /* min balance - chunks with era 0 & 2 will be slashed to <=25, causing it
+				     * to get swept */
 				0
 			),
 			450
 		);
 		assert_eq!(ledger.active, 500 / 2);
-		// the last chunk was not slashed 50% like all the rest, because some other earlier chunks got
-		// dusted.
+		// the last chunk was not slashed 50% like all the rest, because some other earlier chunks
+		// got dusted.
 		assert_eq!(ledger.unlocking, vec![c(5, 100 / 2), c(7, 150)]);
 		assert_eq!(ledger.total, 900 / 2);
 		assert_eq!(LedgerSlashPerEra::get().0, 500 / 2);
@@ -6534,8 +6538,8 @@ fn proportional_ledger_slash_works() {
 				500 + 10 + 250 + 100 / 2, // active + era 6 + era 7 + era 5 / 2
 				0,
 				3 /* slash era 6 first, so the affected parts are era 6, era 7 and
-			   * ledge.active. This will cause the affected to go to zero, and then we will
-			   * start slashing older chunks */
+				   * ledge.active. This will cause the affected to go to zero, and then we will
+				   * start slashing older chunks */
 			),
 			500 + 250 + 10 + 100 / 2
 		);
@@ -6557,8 +6561,8 @@ fn proportional_ledger_slash_works() {
 				351, // active + era 6 + era 7 + era 5 / 2 + 1
 				50,  // min balance - everything slashed below 50 will get dusted
 				3    /* slash era 3+3 first, so the affected parts are era 6, era 7 and
-			      * ledge.active. This will cause the affected to go to zero, and then we will
-			      * start slashing older chunks */
+				      * ledge.active. This will cause the affected to go to zero, and then we
+				      * will start slashing older chunks */
 			),
 			400
 		);
@@ -6607,8 +6611,8 @@ fn proportional_ledger_slash_works() {
 		// Then
 		// The amount slashed out of `unit`
 		let affected_balance = value + unit * 4;
-		let ratio =
-			Perquintill::from_rational_with_rounding(slash, affected_balance, Rounding::Up).unwrap();
+		let ratio = Perquintill::from_rational_with_rounding(slash, affected_balance, Rounding::Up)
+			.unwrap();
 		// `unit` after the slash is applied
 		let unit_slashed = {
 			let unit_slash = ratio.mul_ceil(unit);
