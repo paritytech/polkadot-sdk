@@ -5768,6 +5768,7 @@ dependencies = [
  "sp-runtime 31.0.1",
  "staging-xcm",
  "xcm-emulator",
+ "xcm-simulator",
 ]
 
 [[package]]

@@ -15,7 +15,7 @@
 
 use crate::{create_pool_with_wnd_on, foreign_balance_on, imports::*};
 use emulated_integration_tests_common::{
-	xcm_emulator::helpers::TopicIdTracker,
+	xcm_simulator::helpers::TopicIdTracker,
 	xcm_helpers::{find_mq_processed_id, find_xcm_sent_message_id},
 };
 use sp_core::{crypto::get_public_from_string_or_panic, sr25519};
