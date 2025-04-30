@@ -1067,5 +1067,141 @@ mod tests {
 	}
 
 	#[tokio::test]
-	async fn test_update_reputation() {}
+	// Test different scenarios for reputation updates.
+	async fn test_update_reputation() {
+		let mut connected = ConnectedPeers::new((0..6).map(ParaId::from).collect(), 50, 15);
+		let first_peer = PeerId::random();
+
+		assert_eq!(connected.peer_info(&first_peer), None);
+		for per_para in connected.per_para.values() {
+			assert!(!per_para.contains(&first_peer));
+			assert_eq!(per_para.get_score(&first_peer), None);
+		}
+
+		// Update for a non-existant peer. No-op.
+		connected.update_reputation(ReputationUpdate {
+			peer_id: first_peer,
+			para_id: ParaId::from(1),
+			value: Score::new(100).unwrap(),
+			kind: ReputationUpdateKind::Slash,
+		});
+
+		assert_eq!(connected.peer_info(&first_peer), None);
+		for per_para in connected.per_para.values() {
+			assert!(!per_para.contains(&first_peer));
+			assert_eq!(per_para.get_score(&first_peer), None);
+		}
+
+		// Peer exists, but this para is not scheduled.
+		assert_eq!(
+			connected
+				.try_accept(
+					|peer_id, _| async move {
+						if peer_id == first_peer {
+							Score::new(10).unwrap()
+						} else {
+							Score::default()
+						}
+					},
+					first_peer,
+					default_connected_state()
+				)
+				.await,
+			TryAcceptOutcome::Added
+		);
+		assert_eq!(connected.peer_info(&first_peer).unwrap(), &default_connected_state());
+		for per_para in connected.per_para.values() {
+			assert!(per_para.contains(&first_peer));
+			assert_eq!(per_para.get_score(&first_peer).unwrap(), Score::new(10).unwrap());
+		}
+
+		connected.update_reputation(ReputationUpdate {
+			peer_id: first_peer,
+			para_id: ParaId::from(100),
+			value: Score::new(100).unwrap(),
+			kind: ReputationUpdateKind::Slash,
+		});
+		assert_eq!(connected.peer_info(&first_peer).unwrap(), &default_connected_state());
+		for per_para in connected.per_para.values() {
+			assert!(per_para.contains(&first_peer));
+			assert_eq!(per_para.get_score(&first_peer).unwrap(), Score::new(10).unwrap());
+		}
+
+		// Test a slash for only one para, even though peer has reputation for all.
+		connected.update_reputation(ReputationUpdate {
+			peer_id: first_peer,
+			para_id: ParaId::from(1),
+			value: Score::new(100).unwrap(),
+			kind: ReputationUpdateKind::Slash,
+		});
+		assert_eq!(connected.peer_info(&first_peer).unwrap(), &default_connected_state());
+		for (para_id, per_para) in connected.per_para.iter() {
+			assert!(per_para.contains(&first_peer));
+
+			if para_id == &ParaId::from(1) {
+				assert_eq!(per_para.get_score(&first_peer).unwrap(), Score::new(0).unwrap());
+			} else {
+				assert_eq!(per_para.get_score(&first_peer).unwrap(), Score::new(10).unwrap());
+			}
+		}
+
+		// Test a bump after the peer declared for one para. First test a bump for the wrong para.
+		// Then a bump for the declared para.
+		assert_eq!(connected.declared(first_peer, ParaId::from(5)), DeclarationOutcome::Accepted);
+		assert_eq!(
+			connected.peer_info(&first_peer).unwrap(),
+			&PeerInfo {
+				version: CollationVersion::V2,
+				state: PeerState::Collating(ParaId::from(5))
+			}
+		);
+
+		connected.update_reputation(ReputationUpdate {
+			peer_id: first_peer,
+			para_id: ParaId::from(1),
+			value: Score::new(100).unwrap(),
+			kind: ReputationUpdateKind::Bump,
+		});
+		assert_eq!(
+			connected.peer_info(&first_peer).unwrap(),
+			&PeerInfo {
+				version: CollationVersion::V2,
+				state: PeerState::Collating(ParaId::from(5))
+			}
+		);
+
+		for (para_id, per_para) in connected.per_para.iter() {
+			if para_id == &ParaId::from(5) {
+				assert!(per_para.contains(&first_peer));
+				assert_eq!(per_para.get_score(&first_peer).unwrap(), Score::new(10).unwrap());
+			} else {
+				assert!(!per_para.contains(&first_peer));
+				assert_eq!(per_para.get_score(&first_peer), None);
+			}
+		}
+
+		connected.update_reputation(ReputationUpdate {
+			peer_id: first_peer,
+			para_id: ParaId::from(5),
+			value: Score::new(50).unwrap(),
+			kind: ReputationUpdateKind::Bump,
+		});
+		assert_eq!(
+			connected.peer_info(&first_peer).unwrap(),
+			&PeerInfo {
+				version: CollationVersion::V2,
+				state: PeerState::Collating(ParaId::from(5))
+			}
+		);
+
+		for (para_id, per_para) in connected.per_para.iter() {
+			if para_id == &ParaId::from(5) {
+				assert!(per_para.contains(&first_peer));
+				assert_eq!(per_para.get_score(&first_peer).unwrap(), Score::new(60).unwrap());
+			} else {
+				assert!(!per_para.contains(&first_peer));
+				assert_eq!(per_para.get_score(&first_peer), None);
+			}
+		}
+	}
 }
