@@ -561,16 +561,17 @@ fn query_holding() {
 
 	// Check that QueryResponse message was received
 	ParaA::execute_with(|| {
-		let expected_msg = Xcm(vec![
-			QueryResponse {
-				query_id: query_id_set,
-				response: Response::Assets(Assets::new()),
-				max_weight: Weight::from_parts(1_000_000_000, 1024 * 1024),
-				querier: Some(Here.into()),
-			},
-			SetTopic(MockNet::get_relay_message_id()),
-		]);
-		let xcm_sent = ReceivedDmp::<parachain::Runtime>::get();
-		assert_eq!(xcm_sent, vec![expected_msg]);
+		assert_eq!(
+			ReceivedDmp::<parachain::Runtime>::get(),
+			vec![Xcm(vec![
+				QueryResponse {
+					query_id: query_id_set,
+					response: Response::Assets(Assets::new()),
+					max_weight: Weight::from_parts(1_000_000_000, 1024 * 1024),
+					querier: Some(Here.into()),
+				},
+				SetTopic(MockNet::get_relay_message_id()),
+			])],
+		);
 	});
 }
