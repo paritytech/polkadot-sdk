@@ -4149,6 +4149,31 @@ dependencies = [
 ]
 
 [[package]]
+name = "cumulus-client-bootnodes"
+version = "0.1.0"
+dependencies = [
+ "array-bytes 6.2.2",
+ "async-channel 1.9.0",
+ "cumulus-client-network",
+ "cumulus-primitives-core",
+ "cumulus-relay-chain-interface",
+ "futures",
+ "hex",
+ "ip_network",
+ "log",
+ "num-traits",
+ "parachains-common",
+ "parity-scale-codec",
+ "prost 0.12.6",
+ "prost-build",
+ "sc-network",
+ "sc-service",
+ "sp-consensus-babe",
+ "sp-runtime 31.0.1",
+ "tokio",
+]
+
+[[package]]
 name = "cumulus-client-cli"
 version = "0.7.0"
 dependencies = [
@@ -4263,6 +4288,7 @@ dependencies = [
  "sc-client-api",
  "sc-consensus",
  "sc-consensus-babe",
+ "sc-network",
  "schnellru",
  "sp-blockchain",
  "sp-consensus",
@@ -4333,6 +4359,7 @@ dependencies = [
  "polkadot-test-client",
  "rstest",
  "sc-client-api",
+ "sc-network",
  "sp-api 26.0.0",
  "sp-blockchain",
  "sp-consensus",
@@ -4385,6 +4412,7 @@ dependencies = [
  "rstest",
  "sc-client-api",
  "sc-consensus",
+ "sc-network",
  "sc-utils",
  "sp-api 26.0.0",
  "sp-blockchain",
@@ -4401,6 +4429,7 @@ dependencies = [
 name = "cumulus-client-service"
 version = "0.7.0"
 dependencies = [
+ "async-channel 1.9.0",
  "cumulus-client-cli",
  "cumulus-client-collator",
  "cumulus-client-consensus-common",
@@ -4741,7 +4770,9 @@ dependencies = [
 name = "cumulus-relay-chain-inprocess-interface"
 version = "0.7.0"
 dependencies = [
+ "async-channel 1.9.0",
  "async-trait",
+ "cumulus-client-bootnodes",
  "cumulus-primitives-core",
  "cumulus-relay-chain-interface",
  "futures",
@@ -4753,6 +4784,7 @@ dependencies = [
  "prioritized-metered-channel",
  "sc-cli",
  "sc-client-api",
+ "sc-network",
  "sc-sysinfo",
  "sc-telemetry",
  "sc-tracing",
@@ -4775,6 +4807,7 @@ dependencies = [
  "parity-scale-codec",
  "polkadot-overseer",
  "sc-client-api",
+ "sc-network",
  "sp-api 26.0.0",
  "sp-blockchain",
  "sp-state-machine 0.35.0",
@@ -4787,7 +4820,9 @@ name = "cumulus-relay-chain-minimal-node"
 version = "0.7.0"
 dependencies = [
  "array-bytes 6.2.2",
+ "async-channel 1.9.0",
  "async-trait",
+ "cumulus-client-bootnodes",
  "cumulus-primitives-core",
  "cumulus-relay-chain-interface",
  "cumulus-relay-chain-rpc-interface",
@@ -4833,6 +4868,7 @@ dependencies = [
  "prometheus",
  "rand 0.8.5",
  "sc-client-api",
+ "sc-network",
  "sc-rpc-api",
  "sc-service",
  "schnellru",
@@ -15418,6 +15454,7 @@ dependencies = [
  "async-trait",
  "clap",
  "color-print",
+ "cumulus-client-bootnodes",
  "cumulus-client-cli",
  "cumulus-client-collator",
  "cumulus-client-consensus-aura",
@@ -15783,6 +15820,7 @@ dependencies = [
  "bridge-hub-common",
  "bridge-hub-test-utils",
  "bridge-runtime-common",
+ "cumulus-client-bootnodes",
  "cumulus-client-cli",
  "cumulus-client-collator",
  "cumulus-client-consensus-aura",
@@ -28302,9 +28340,9 @@ dependencies = [
 
 [[package]]
 name = "zombienet-configuration"
-version = "0.2.29"
+version = "0.2.30"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f4e0e7e93b56f7fdea2e732399caff7f773a1ef4c19a98a24514b390f832504e"
+checksum = "f23f5abe2a83faf76fe4d6c2243c495bd7fd75c3b1a66657e99db173b7418839"
 dependencies = [
  "anyhow",
  "lazy_static",
@@ -28323,9 +28361,9 @@ dependencies = [
 
 [[package]]
 name = "zombienet-orchestrator"
-version = "0.2.29"
+version = "0.2.30"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4a36a3983d7c06e30f585ba99e983c5d28b9622b44d8e5ba11a9718d2712c418"
+checksum = "6b882fa555eddda618be464ea2ce47de4e4e9142581eced19de4b12d0ace3198"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -28356,9 +28394,9 @@ dependencies = [
 
 [[package]]
 name = "zombienet-prom-metrics-parser"
-version = "0.2.29"
+version = "0.2.30"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "70f596e81ddcd8c6d70abcd8f6b336dac6bfdd7a94f1fce3696b8889231084b0"
+checksum = "9ca98a24687ebd7fc06872ef872f1be8c003bd0d20f285091f45c24e9bec9973"
 dependencies = [
  "pest",
  "pest_derive",
@@ -28367,9 +28405,9 @@ dependencies = [
 
 [[package]]
 name = "zombienet-provider"
-version = "0.2.29"
+version = "0.2.30"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0431363423a2a378a24d4148056e80cdf45911f238a2e597d4eb2b8a3b2ae334"
+checksum = "8c65a3e3e07ab327e54be1668272ef2575a9c54aa4beb0d1e453df5046073772"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -28398,9 +28436,9 @@ dependencies = [
 
 [[package]]
 name = "zombienet-sdk"
-version = "0.2.29"
+version = "0.2.30"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f725d029b34acea1e5de4df09835de70594d828db57338c528dea52753be9343"
+checksum = "a8ece725021717cc70b7f35c9f95819d03fd7818a596560c4d02dda8731f25e3"
 dependencies = [
  "async-trait",
  "futures",
@@ -28416,9 +28454,9 @@ dependencies = [
 
 [[package]]
 name = "zombienet-support"
-version = "0.2.29"
+version = "0.2.30"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e3cfa5555e6725c65e1dfbec6fcd49ef2799ac1a89d4fe56255ed21882275cee"
+checksum = "e42dcf18237dbd576d7696e331085222c144e89ebe71b462f616a9147f8162bb"
 dependencies = [
  "anyhow",
  "async-trait",
