@@ -15,7 +15,7 @@ doc:
       PeoplePolkadotXcmConfig,
       vec![PeoplePolkadot],
       (native_asset, amount)
-	  );
+    );
     ```
 
     Updated equivalent usage:
