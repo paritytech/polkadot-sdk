@@ -561,18 +561,16 @@ fn query_holding() {
 
 	// Check that QueryResponse message was received
 	ParaA::execute_with(|| {
-		let mut expected_msg = Xcm(vec![QueryResponse {
-			query_id: query_id_set,
-			response: Response::Assets(Assets::new()),
-			max_weight: Weight::from_parts(1_000_000_000, 1024 * 1024),
-			querier: Some(Here.into()),
-		}]);
+		let expected_msg = Xcm(vec![
+			QueryResponse {
+				query_id: query_id_set,
+				response: Response::Assets(Assets::new()),
+				max_weight: Weight::from_parts(1_000_000_000, 1024 * 1024),
+				querier: Some(Here.into()),
+			},
+			SetTopic(MockNet::get_relay_message_id()),
+		]);
 		let xcm_sent = ReceivedDmp::<parachain::Runtime>::get();
-		if let Some(SetTopic(topic_id)) = xcm_sent[0].last() {
-			expected_msg.0.push(SetTopic(*topic_id));
-		} else {
-			assert!(false, "Missing SetTopic");
-		}
 		assert_eq!(xcm_sent, vec![expected_msg]);
 	});
 }

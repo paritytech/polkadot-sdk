@@ -89,7 +89,11 @@ pub fn encode_xcm(message: Xcm<()>, message_kind: MessageKind) -> Vec<u8> {
 }
 
 pub fn fake_message_hash<T>(message: &Xcm<T>) -> XcmHash {
-	message.using_encoded(blake2_256)
+	if let Some(SetTopic(topic_id)) = message.last() {
+		*topic_id
+	} else {
+		message.using_encoded(blake2_256)
+	}
 }
 
 /// The macro is implementing upward message passing(UMP) for the provided relay
@@ -269,6 +273,7 @@ thread_local! {
 		= RefCell::new(VecDeque::new());
 	pub static RELAY_MESSAGE_BUS: RefCell<VecDeque<(Location, Xcm<()>)>>
 		= RefCell::new(VecDeque::new());
+    pub static RELAY_MESSAGE_ID: RefCell<XcmHash> = RefCell::new(XcmHash::default());
 }
 
 /// Declares a test network that consists of a relay chain and multiple
@@ -304,10 +309,16 @@ macro_rules! decl_test_network {
 				use $crate::{TestExt, VecDeque};
 				// Reset relay chain message bus.
 				$crate::RELAY_MESSAGE_BUS.with(|b| b.replace(VecDeque::new()));
+				// Reset relay message ID.
+				$crate::RELAY_MESSAGE_ID.with(|b| *b.borrow_mut() = $crate::XcmHash::default());
 				// Reset parachain message bus.
 				$crate::PARA_MESSAGE_BUS.with(|b| b.replace(VecDeque::new()));
 				<$relay_chain>::reset_ext();
 				$( <$parachain>::reset_ext(); )*
+			}
+
+			pub fn get_relay_message_id() -> $crate::XcmHash {
+				$crate::RELAY_MESSAGE_ID.with(|b| *b.borrow())
 			}
 		}
 
@@ -447,6 +458,7 @@ macro_rules! decl_test_network {
 			) -> Result<$crate::XcmHash, $crate::SendError> {
 				let hash = $crate::fake_message_hash(&pair.1);
 				$crate::RELAY_MESSAGE_BUS.with(|b| b.borrow_mut().push_back(pair));
+				$crate::RELAY_MESSAGE_ID.with(|b| *b.borrow_mut() = hash);
 				Ok(hash)
 			}
 		}
