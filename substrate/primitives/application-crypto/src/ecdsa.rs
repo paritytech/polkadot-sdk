@@ -22,7 +22,7 @@ use crate::{KeyTypeId, RuntimePublic};
 use alloc::vec::Vec;
 
 pub use sp_core::ecdsa::*;
-use sp_core::pop::NonAggregatable;
+use sp_core::proof_of_possession::NonAggregatable;
 
 mod app {
 	crate::app_crypto!(super, sp_core::testing::ECDSA);
@@ -49,14 +49,14 @@ impl RuntimePublic for Public {
 		sp_io::crypto::ecdsa_verify(signature, msg.as_ref(), self)
 	}
 
-	fn generate_pop(&mut self, key_type: KeyTypeId) -> Option<Self::Signature> {
-		let pop_statement = Pair::pop_statement(self);
-		sp_io::crypto::ecdsa_sign(key_type, self, &pop_statement)
+	fn generate_proof_of_possession(&mut self, key_type: KeyTypeId) -> Option<Self::Signature> {
+		let proof_of_possession_statement = Pair::proof_of_possession_statement(self);
+		sp_io::crypto::ecdsa_sign(key_type, self, &proof_of_possession_statement)
 	}
 
-	fn verify_pop(&self, pop: &Self::Signature) -> bool {
-		let pop_statement = Pair::pop_statement(self);
-		sp_io::crypto::ecdsa_verify(&pop, &pop_statement, &self)
+	fn verify_proof_of_possession(&self, proof_of_possession: &Self::Signature) -> bool {
+		let proof_of_possession_statement = Pair::proof_of_possession_statement(self);
+		sp_io::crypto::ecdsa_verify(&proof_of_possession, &proof_of_possession_statement, &self)
 	}
 
 	fn to_raw_vec(&self) -> Vec<u8> {

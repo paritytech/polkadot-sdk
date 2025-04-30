@@ -21,7 +21,7 @@ use sp_api::{ApiExt, ProvideRuntimeApi};
 use sp_application_crypto::{ecdsa_bls381::AppPair, RuntimePublic};
 use sp_core::{
 	ecdsa_bls381::Pair as EcdsaBls381Pair,
-	pop::{ProofOfPossessionGenerator, ProofOfPossessionVerifier},
+	proof_of_possession::{ProofOfPossessionGenerator, ProofOfPossessionVerifier},
 	Pair,
 };
 use sp_keystore::{testing::MemoryKeystore, KeystoreExt};
@@ -39,17 +39,17 @@ fn ecdsa_bls381_works_in_runtime() {
 	let mut runtime_api = test_client.runtime_api();
 	runtime_api.register_extension(KeystoreExt::new(keystore.clone()));
 
-	let (pop, public) = runtime_api
+	let (proof_of_possession, public) = runtime_api
 		.test_ecdsa_bls381_crypto(test_client.chain_info().genesis_hash)
 		.expect("Tests `ecdsa_bls381` crypto.");
 
-	assert!(AppPair::verify_proof_of_possession(&pop, &public));
+	assert!(AppPair::verify_proof_of_possession(&proof_of_possession, &public));
 }
 
 #[test]
-fn ecdsa_bls381_client_pop_verified_by_runtime_public() {
+fn ecdsa_bls381_client_proof_of_possession_verified_by_runtime_public() {
 	let (mut test_pair, _) = EcdsaBls381Pair::generate();
 
-	let client_generated_pop = test_pair.generate_proof_of_possession();
-	assert!(RuntimePublic::verify_pop(&test_pair.public(), &client_generated_pop));
+	let client_generated_proof_of_possession = test_pair.generate_proof_of_possession();
+	assert!(RuntimePublic::verify_proof_of_possession(&test_pair.public(), &client_generated_proof_of_possession));
 }

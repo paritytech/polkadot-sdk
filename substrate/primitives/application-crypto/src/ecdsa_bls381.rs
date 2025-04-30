@@ -25,7 +25,7 @@ use sp_core::{
 	bls381,
 	crypto::CryptoType,
 	ecdsa, ecdsa_bls381,
-	pop::{NonAggregatable, ProofOfPossessionVerifier},
+	proof_of_possession::{NonAggregatable, ProofOfPossessionVerifier},
 	testing::{BLS381, ECDSA, ECDSA_BLS381},
 };
 
@@ -59,22 +59,22 @@ impl RuntimePublic for Public {
 		false
 	}
 
-	fn generate_pop(&mut self, key_type: KeyTypeId) -> Option<Self::Signature> {
+	fn generate_proof_of_possession(&mut self, key_type: KeyTypeId) -> Option<Self::Signature> {
 		if key_type != ECDSA_BLS381 {
 			return None
 		}
 		let pub_key_as_bytes = self.to_raw_vec();
 		let (ecdsa_pub_as_bytes, bls381_pub_as_bytes) = split_pub_key_bytes(&pub_key_as_bytes)?;
-		let ecdsa_pop = generate_ecdsa_pop(ecdsa_pub_as_bytes)?;
-		let bls381_pop = generate_bls381_pop(bls381_pub_as_bytes)?;
-		let combined_pop_raw = combine_pop(&ecdsa_pop, &bls381_pop)?;
-		Some(Self::Signature::from_raw(combined_pop_raw))
+		let ecdsa_proof_of_possession = generate_ecdsa_proof_of_possession(ecdsa_pub_as_bytes)?;
+		let bls381_proof_of_possession = generate_bls381_proof_of_possession(bls381_pub_as_bytes)?;
+		let combined_proof_of_possession_raw = combine_proof_of_possession(&ecdsa_proof_of_possession, &bls381_proof_of_possession)?;
+		Some(Self::Signature::from_raw(combined_proof_of_possession_raw))
 	}
 
-	fn verify_pop(&self, pop: &Self::Signature) -> bool {
-		let pop = AppSignature::from(*pop);
+	fn verify_proof_of_possession(&self, proof_of_possession: &Self::Signature) -> bool {
+		let proof_of_possession = AppSignature::from(*proof_of_possession);
 		let pub_key = AppPublic::from(*self);
-		<AppPublic as CryptoType>::Pair::verify_proof_of_possession(&pop, &pub_key)
+		<AppPublic as CryptoType>::Pair::verify_proof_of_possession(&proof_of_possession, &pub_key)
 	}
 
 	fn to_raw_vec(&self) -> Vec<u8> {
@@ -94,31 +94,31 @@ fn split_pub_key_bytes(
 }
 
 /// Helper: Generate ECDSA proof of possession
-fn generate_ecdsa_pop(
+fn generate_ecdsa_proof_of_possession(
 	ecdsa_pub_as_bytes: [u8; ecdsa::PUBLIC_KEY_SERIALIZED_SIZE],
 ) -> Option<ecdsa::Signature> {
 	let ecdsa_pub = ecdsa::Public::from_raw(ecdsa_pub_as_bytes);
-	let pop_statement = ecdsa::Pair::pop_statement(&ecdsa_pub);
-	sp_io::crypto::ecdsa_sign(ECDSA, &ecdsa_pub, &pop_statement)
+	let proof_of_possession_statement = ecdsa::Pair::proof_of_possession_statement(&ecdsa_pub);
+	sp_io::crypto::ecdsa_sign(ECDSA, &ecdsa_pub, &proof_of_possession_statement)
 }
 
 /// Helper: Generate BLS381 proof of possession
-fn generate_bls381_pop(
+fn generate_bls381_proof_of_possession(
 	bls381_pub_as_bytes: [u8; bls381::PUBLIC_KEY_SERIALIZED_SIZE],
 ) -> Option<bls381::Signature> {
 	let bls381_pub = bls381::Public::from_raw(bls381_pub_as_bytes);
-	sp_io::crypto::bls381_generate_pop(BLS381, &bls381_pub)
+	sp_io::crypto::bls381_generate_proof_of_possession(BLS381, &bls381_pub)
 }
 
-/// Helper: Combine ECDSA and BLS381 pops into a single raw pop
-fn combine_pop(
-	ecdsa_pop: &ecdsa::Signature,
-	bls381_pop: &bls381::Signature,
+/// Helper: Combine ECDSA and BLS381 proof_of_possessions into a single raw proof_of_possession
+fn combine_proof_of_possession(
+	ecdsa_proof_of_possession: &ecdsa::Signature,
+	bls381_proof_of_possession: &bls381::Signature,
 ) -> Option<[u8; ecdsa_bls381::SIGNATURE_LEN]> {
-	let mut combined_pop_raw = [0u8; ecdsa_bls381::SIGNATURE_LEN];
-	combined_pop_raw[..ecdsa::SIGNATURE_SERIALIZED_SIZE].copy_from_slice(ecdsa_pop.as_ref());
-	combined_pop_raw[ecdsa::SIGNATURE_SERIALIZED_SIZE..].copy_from_slice(bls381_pop.as_ref());
-	Some(combined_pop_raw)
+	let mut combined_proof_of_possession_raw = [0u8; ecdsa_bls381::SIGNATURE_LEN];
+	combined_proof_of_possession_raw[..ecdsa::SIGNATURE_SERIALIZED_SIZE].copy_from_slice(ecdsa_proof_of_possession.as_ref());
+	combined_proof_of_possession_raw[ecdsa::SIGNATURE_SERIALIZED_SIZE..].copy_from_slice(bls381_proof_of_possession.as_ref());
+	Some(combined_proof_of_possession_raw)
 }
 
 #[cfg(test)]

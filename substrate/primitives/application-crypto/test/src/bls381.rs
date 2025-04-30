@@ -22,7 +22,7 @@ use sp_application_crypto::{bls381::AppPair, RuntimePublic};
 use sp_core::{
 	bls381::Pair as Bls381Pair,
 	crypto::ByteArray,
-	pop::{ProofOfPossessionGenerator, ProofOfPossessionVerifier},
+	proof_of_possession::{ProofOfPossessionGenerator, ProofOfPossessionVerifier},
 	testing::BLS381,
 	Pair,
 };
@@ -41,20 +41,20 @@ fn bls381_works_in_runtime() {
 	let mut runtime_api = test_client.runtime_api();
 	runtime_api.register_extension(KeystoreExt::new(keystore.clone()));
 
-	let (pop, public) = runtime_api
+	let (proof_of_possession, public) = runtime_api
 		.test_bls381_crypto(test_client.chain_info().genesis_hash)
 		.expect("Tests `bls381` crypto.");
 
 	let supported_keys = keystore.keys(BLS381).unwrap();
 	assert!(supported_keys.contains(&public.to_raw_vec()));
 
-	assert!(AppPair::verify_proof_of_possession(&pop.into(), &public.into()));
+	assert!(AppPair::verify_proof_of_possession(&proof_of_possession.into(), &public.into()));
 }
 
 #[test]
-fn bls381_client_pop_verified_by_runtime_public() {
+fn bls381_client_proof_of_possession_verified_by_runtime_public() {
 	let (mut test_pair, _) = Bls381Pair::generate();
 
-	let client_generated_pop = test_pair.generate_proof_of_possession();
-	assert!(RuntimePublic::verify_pop(&test_pair.public(), &client_generated_pop));
+	let client_generated_proof_of_possession = test_pair.generate_proof_of_possession();
+	assert!(RuntimePublic::verify_proof_of_possession(&test_pair.public(), &client_generated_proof_of_possession));
 }

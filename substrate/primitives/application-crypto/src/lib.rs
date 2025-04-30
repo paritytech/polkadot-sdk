@@ -29,7 +29,7 @@ pub use sp_core::crypto::{DeriveError, Pair, SecretStringError};
 pub use sp_core::{
 	self,
 	crypto::{ByteArray, CryptoType, Derive, IsWrappedBy, Public, Signature, UncheckedFrom, Wraps},
-	pop::{ProofOfPossessionGenerator, ProofOfPossessionVerifier},
+	proof_of_possession::{ProofOfPossessionGenerator, ProofOfPossessionVerifier},
 	RuntimeDebug,
 };
 

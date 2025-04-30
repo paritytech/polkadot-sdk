@@ -38,7 +38,7 @@ use sp_core::bandersnatch;
 }
 
 sp_keystore::bls_experimental_enabled! {
-use sp_core::{bls381, ecdsa_bls381, KeccakHasher, pop::ProofOfPossessionGenerator};
+use sp_core::{bls381, ecdsa_bls381, KeccakHasher, proof_of_possession::ProofOfPossessionGenerator};
 }
 
 use crate::{Error, Result};
@@ -143,17 +143,17 @@ impl LocalKeystore {
 	}
 
 	sp_keystore::bls_experimental_enabled! {
-		fn generate_pop<T: CorePair + ProofOfPossessionGenerator>(
+		fn generate_proof_of_possession<T: CorePair + ProofOfPossessionGenerator>(
 			&self,
 			key_type: KeyTypeId,
 			public: &T::Public,
 		) -> std::result::Result<Option<T::Signature>, TraitError> {
-			let pop = self
+			let proof_of_possession = self
 				.0
 				.read()
 				.key_pair_by_type::<T>(public, key_type)?
 				.map(|mut pair| pair.generate_proof_of_possession());
-			Ok(pop)
+			Ok(proof_of_possession)
 		}
 	}
 }
@@ -373,12 +373,12 @@ impl Keystore for LocalKeystore {
 			self.sign::<bls381::Pair>(key_type, public, msg)
 		}
 
-		fn bls381_generate_pop(
+		fn bls381_generate_proof_of_possession(
 			&self,
 			key_type: KeyTypeId,
 			public: &bls381::Public
 		) -> std::result::Result<Option<bls381::Signature>, TraitError> {
-			self.generate_pop::<bls381::Pair>(key_type, public)
+			self.generate_proof_of_possession::<bls381::Pair>(key_type, public)
 		}
 
 		fn ecdsa_bls381_public_keys(&self, key_type: KeyTypeId) -> Vec<ecdsa_bls381::Public> {

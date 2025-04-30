@@ -28,7 +28,7 @@ use crate::{
 		CryptoType, DeriveError, DeriveJunction, Pair as TraitPair, PublicBytes, SecretStringError,
 		SignatureBytes, UncheckedFrom,
 	},
-	pop::{ProofOfPossessionGenerator, ProofOfPossessionVerifier},
+	proof_of_possession::{ProofOfPossessionGenerator, ProofOfPossessionVerifier},
 };
 
 use alloc::vec::Vec;
@@ -42,7 +42,7 @@ use w3f_bls::{
 #[cfg(feature = "full_crypto")]
 use w3f_bls::ProofOfPossessionGenerator as BlsProofOfPossessionGenerator;
 
-/// Required to generate PoP
+/// Required to generate Proof Of Possession
 use sha2::Sha256;
 
 /// BLS-377 specialized types
@@ -110,7 +110,7 @@ pub const SIGNATURE_SERIALIZED_SIZE: usize =
 	<DoubleSignature<TinyBLS381> as SerializableToBytes>::SERIALIZED_BYTES_SIZE;
 
 /// Signature serialized size
-pub const POP_SERIALIZED_SIZE: usize =
+pub const PROOF_OF_POSSESSION_SERIALIZED_SIZE: usize =
 	<NuggetBLSnCPPoP<TinyBLS381> as SerializableToBytes>::SERIALIZED_BYTES_SIZE;
 
 /// A secret seed.
@@ -267,12 +267,12 @@ where
 	) -> bool {
 		let Ok(proof_of_possession) =
 			NuggetBLSnCPPoP::<T>::from_bytes(proof_of_possession.as_ref()) else {
-				return false,
+				return false
 			};
 
 		let Ok(allegedly_possessed_pubkey_as_bls_pubkey) =
 			DoublePublicKey::<T>::from_bytes(allegedly_possessed_pubkey.as_ref()) else {
-				return false,
+				return false
 			};
 
 		BlsProofOfPossession::<T, Sha256, _>::verify(
@@ -617,8 +617,8 @@ mod tests {
 
 	fn good_proof_of_possession_must_verify<E: BlsBound>() {
 		let mut pair = Pair::<E>::from_seed(b"12345678901234567890123456789012");
-		let pop = pair.generate_proof_of_possession();
-		assert!(Pair::<E>::verify_proof_of_possession(&pop, &pair.public()));
+		let proof_of_possession = pair.generate_proof_of_possession();
+		assert!(Pair::<E>::verify_proof_of_possession(&proof_of_possession, &pair.public()));
 	}
 
 	#[test]
@@ -634,8 +634,8 @@ mod tests {
 	fn proof_of_possession_must_fail_if_prover_does_not_possess_secret_key<E: BlsBound>() {
 		let mut pair = Pair::<E>::from_seed(b"12345678901234567890123456789012");
 		let other_pair = Pair::<E>::from_seed(b"23456789012345678901234567890123");
-		let pop = pair.generate_proof_of_possession();
-		assert_eq!(Pair::<E>::verify_proof_of_possession(&pop, &other_pair.public()), false);
+		let proof_of_possession = pair.generate_proof_of_possession();
+		assert_eq!(Pair::<E>::verify_proof_of_possession(&proof_of_possession, &other_pair.public()), false);
 	}
 
 	#[test]

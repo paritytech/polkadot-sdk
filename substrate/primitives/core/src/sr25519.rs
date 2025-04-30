@@ -24,7 +24,7 @@
 use crate::crypto::Ss58Codec;
 use crate::{
 	crypto::{CryptoBytes, DeriveError, DeriveJunction, Pair as TraitPair, SecretStringError},
-	pop::NonAggregatable,
+	proof_of_possession::NonAggregatable,
 };
 
 use alloc::vec::Vec;
@@ -591,7 +591,7 @@ mod tests {
 	use super::{vrf::*, *};
 	use crate::{
 		crypto::{Ss58Codec, VrfPublic, VrfSecret, DEV_ADDRESS, DEV_PHRASE},
-		pop::{ProofOfPossessionGenerator, ProofOfPossessionVerifier},
+		proof_of_possession::{ProofOfPossessionGenerator, ProofOfPossessionVerifier},
 		ByteArray as _,
 	};
 	use serde_json;
@@ -922,11 +922,11 @@ mod tests {
 	}
 
 	#[test]
-	fn good_proof_of_possession_should_work_bad_pop_should_fail() {
+	fn good_proof_of_possession_should_work_bad_proof_of_possession_should_fail() {
 		let mut pair = Pair::from_seed(b"12345678901234567890123456789012");
 		let other_pair = Pair::from_seed(b"23456789012345678901234567890123");
-		let pop = pair.generate_proof_of_possession();
-		assert!(Pair::verify_proof_of_possession(&pop, &pair.public()));
-		assert!(!Pair::verify_proof_of_possession(&pop, &other_pair.public()));
+		let proof_of_possession = pair.generate_proof_of_possession();
+		assert!(Pair::verify_proof_of_possession(&proof_of_possession, &pair.public()));
+		assert!(!Pair::verify_proof_of_possession(&proof_of_possession, &other_pair.public()));
 	}
 }

@@ -24,7 +24,7 @@ use crate::crypto::{
 	PublicBytes, SecretStringError, Signature as SignatureT, SignatureBytes, UncheckedFrom,
 };
 
-use crate::pop::{ProofOfPossessionGenerator, ProofOfPossessionVerifier};
+use crate::proof_of_possession::{ProofOfPossessionGenerator, ProofOfPossessionVerifier};
 
 use alloc::vec::Vec;
 
@@ -422,7 +422,7 @@ where
 	}
 }
 
-/// This requires that the PoP of LEFT is of LeftPair::Signature.
+/// This requires that the proof_of_possession of LEFT is of LeftPair::Signature.
 /// This is the case for current implemented cases but does not
 /// holds in general.
 impl<
@@ -446,21 +446,21 @@ where
 		let Ok(left_pub) = allegedly_possessed_pubkey.0[..LeftPair::Public::LEN].try_into() else {
 			return false
 		};
-		let Ok(left_pop) = proof_of_possession.0[0..LeftPair::Signature::LEN].try_into() else {
+		let Ok(left_proof_of_possession) = proof_of_possession.0[0..LeftPair::Signature::LEN].try_into() else {
 			return false
 		};
 
-		if !LeftPair::verify_proof_of_possession(&left_pop, &left_pub) {
+		if !LeftPair::verify_proof_of_possession(&left_proof_of_possession, &left_pub) {
 			return false
 		}
 
 		let Ok(right_pub) = allegedly_possessed_pubkey.0[LeftPair::Public::LEN..].try_into() else {
 			return false
 		};
-		let Ok(right_pop) = proof_of_possession.0[LeftPair::Signature::LEN..].try_into() else {
+		let Ok(right_proof_of_possession) = proof_of_possession.0[LeftPair::Signature::LEN..].try_into() else {
 			return false
 		};
-		RightPair::verify_proof_of_possession(&right_pop, &right_pub)
+		RightPair::verify_proof_of_possession(&right_proof_of_possession, &right_pub)
 	}
 }
 
@@ -707,11 +707,11 @@ mod tests {
 	}
 
 	#[test]
-	fn good_proof_of_possession_should_work_bad_pop_should_fail() {
+	fn good_proof_of_possession_should_work_bad_proof_of_possession_should_fail() {
 		let mut pair = Pair::from_seed(b"12345678901234567890123456789012");
 		let other_pair = Pair::from_seed(b"23456789012345678901234567890123");
-		let pop = pair.generate_proof_of_possession();
-		assert!(Pair::verify_proof_of_possession(&pop, &pair.public()));
-		assert_eq!(Pair::verify_proof_of_possession(&pop, &other_pair.public()), false);
+		let proof_of_possession = pair.generate_proof_of_possession();
+		assert!(Pair::verify_proof_of_possession(&proof_of_possession, &pair.public()));
+		assert_eq!(Pair::verify_proof_of_possession(&proof_of_possession, &other_pair.public()), false);
 	}
 }

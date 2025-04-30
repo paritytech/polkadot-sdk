@@ -124,11 +124,11 @@ impl sp_application_crypto::RuntimeAppPublic for UintAuthorityId {
 		traits::Verify::verify(signature, msg.as_ref(), &self.0)
 	}
 
-	fn generate_pop(&mut self) -> Option<Self::Signature> {
+	fn generate_proof_of_possession(&mut self) -> Option<Self::Signature> {
 		None
 	}
 
-	fn verify_pop(&self, _pop: &Self::Signature) -> bool {
+	fn verify_proof_of_possession(&self, _pop: &Self::Signature) -> bool {
 		false
 	}
 

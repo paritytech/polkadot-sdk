@@ -72,19 +72,19 @@ where
 ///
 /// We would like to prevent aggregatable scheme from unknowingly generating signatures
 /// which aggregate to false albeit valid proof of possession aka rouge key attack.
-/// We ensure that by separating signing and generating pop at the API level.
+/// We ensure that by separating signing and generating proof_of_possession at the API level.
 ///
 /// Rouge key attack however is not immediately applicable to non-aggregatable scheme
-/// when even if an honest signing oracle is tricked to sign a rogue pop, it is not
+/// when even if an honest signing oracle is tricked to sign a rogue proof_of_possession, it is not
 /// possible to aggregate it to generate a valid proof for a key the attack does not
-/// possess. Therefore we do not require non-aggregatable schemes to prevent PoP
+/// possess. Therefore we do not require non-aggregatable schemes to prevent proof_of_possession
 /// confirming signatures at API level
 pub trait NonAggregatable: Pair {
-	/// Default PoP statement.
-	fn pop_statement(pk: &impl crate::Public) -> Vec<u8> {
+	/// Default proof_of_possession statement.
+	fn proof_of_possession_statement(pk: &impl crate::Public) -> Vec<u8> {
 		/// The context which attached to pop message to attest its purpose.
-		const POP_CONTEXT_TAG: &[u8; 4] = b"POP_";
-		[POP_CONTEXT_TAG, pk.to_raw_vec().as_slice()].concat()
+		const PROOF_OF_POSSESSION_CONTEXT_TAG: &[u8; 4] = b"POP_";
+		[PROOF_OF_POSSESSION_CONTEXT_TAG, pk.to_raw_vec().as_slice()].concat()
 	}
 }
 
@@ -101,8 +101,8 @@ where
 		proof_of_possession: &Self::Signature,
 		allegedly_possessesd_pubkey: &Self::Public,
 	) -> bool {
-		let pop_statement = Self::pop_statement(allegedly_possessesd_pubkey);
-		Self::verify(&proof_of_possession, pop_statement, allegedly_possessesd_pubkey)
+		let proof_of_possession_statement = Self::proof_of_possession_statement(allegedly_possessesd_pubkey);
+		Self::verify(&proof_of_possession, proof_of_possession_statement, allegedly_possessesd_pubkey)
 	}
 }
 
@@ -117,7 +117,7 @@ where
 	/// non-aggregatable schemes
 	#[cfg(feature = "full_crypto")]
 	fn generate_proof_of_possession(&mut self) -> Self::Signature {
-		let pop_statement = Self::pop_statement(&self.public());
-		self.sign(pop_statement.as_slice())
+		let proof_of_possession_statement = Self::proof_of_possession_statement(&self.public());
+		self.sign(proof_of_possession_statement.as_slice())
 	}
 }

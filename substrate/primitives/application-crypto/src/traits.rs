@@ -105,10 +105,10 @@ pub trait RuntimePublic: Sized {
 	/// The private key will be requested from the keystore using the given key type.
 	///
 	/// Returns the proof of possession as a signature or `None` if it failed or is not able to do so.
-	fn generate_pop(&mut self, key_type: KeyTypeId) -> Option<Self::Signature>;
+	fn generate_proof_of_possession(&mut self, key_type: KeyTypeId) -> Option<Self::Signature>;
 
-	/// Verify that the given pop is valid for the corresponding public key.
-	fn verify_pop(&self, pop: &Self::Signature) -> bool;
+	/// Verify that the given proof of possession is valid for the corresponding public key.
+	fn verify_proof_of_possession(&self, pop: &Self::Signature) -> bool;
 
 	/// Returns `Self` as raw vec.
 	fn to_raw_vec(&self) -> Vec<u8>;
@@ -148,10 +148,10 @@ pub trait RuntimeAppPublic: Sized {
 	/// The private key will be requested from the keystore using the given key type.
 	///
 	/// Returns the proof of possession as a signature or `None` if it failed or is not able to do so.
-	fn generate_pop(&mut self) -> Option<Self::Signature>;
+	fn generate_proof_of_possession(&mut self) -> Option<Self::Signature>;
 
-	/// Verify that the given pop is valid for the corresponding public key.
-	fn verify_pop(&self, pop: &Self::Signature) -> bool;
+	/// Verify that the given proof of possession is valid for the corresponding public key.
+	fn verify_proof_of_possession(&self, pop: &Self::Signature) -> bool;
 
 	/// Returns `Self` as raw vec.
 	fn to_raw_vec(&self) -> Vec<u8>;
@@ -190,13 +190,13 @@ where
 		<<T as AppPublic>::Generic as RuntimePublic>::verify(self.as_ref(), msg, signature.as_ref())
 	}
 
-	fn generate_pop(&mut self) -> Option<Self::Signature> {
-		<<T as AppPublic>::Generic as RuntimePublic>::generate_pop(self.as_mut(), Self::ID)
+	fn generate_proof_of_possession(&mut self) -> Option<Self::Signature> {
+		<<T as AppPublic>::Generic as RuntimePublic>::generate_proof_of_possession(self.as_mut(), Self::ID)
 			.map(|s| s.into())
 	}
 
-	fn verify_pop(&self, pop: &Self::Signature) -> bool {
-		<<T as AppPublic>::Generic as RuntimePublic>::verify_pop(self.as_ref(), pop.as_ref())
+	fn verify_proof_of_possession(&self, pop: &Self::Signature) -> bool {
+		<<T as AppPublic>::Generic as RuntimePublic>::verify_proof_of_possession(self.as_ref(), pop.as_ref())
 	}
 
 	fn to_raw_vec(&self) -> Vec<u8> {

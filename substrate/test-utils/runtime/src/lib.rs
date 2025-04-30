@@ -827,12 +827,12 @@ fn test_ed25519_crypto() -> (ed25519::AppSignature, ed25519::AppPublic, Ed25519P
 	assert!(all.contains(&public1));
 	assert!(all.contains(&public2));
 
-	let pop = public0.generate_pop().expect("Cant generate Pop for ed25519");
-	assert!(public0.verify_pop(&pop));
+	let proof_of_possession = public0.generate_proof_of_possession().expect("Cant generate proof_of_possession for ed25519");
+	assert!(public0.verify_proof_of_possession(&proof_of_possession));
 
 	let signature = public0.sign(&"ed25519").expect("Generates a valid `ed25519` signature.");
 	assert!(public0.verify(&"ed25519", &signature));
-	(signature, public0, pop)
+	(signature, public0, proof_of_possession)
 }
 
 fn test_sr25519_crypto() -> (sr25519::AppSignature, sr25519::AppPublic, Sr25519Pop) {
@@ -845,12 +845,12 @@ fn test_sr25519_crypto() -> (sr25519::AppSignature, sr25519::AppPublic, Sr25519P
 	assert!(all.contains(&public1));
 	assert!(all.contains(&public2));
 
-	let pop = public0.generate_pop().expect("Cant generate Pop for sr25519");
-	assert!(public0.verify_pop(&pop));
+	let proof_of_possession = public0.generate_proof_of_possession().expect("Cant generate proof_of_possession for sr25519");
+	assert!(public0.verify_proof_of_possession(&proof_of_possession));
 
 	let signature = public0.sign(&"sr25519").expect("Generates a valid `sr25519` signature.");
 	assert!(public0.verify(&"sr25519", &signature));
-	(signature, public0, pop)
+	(signature, public0, proof_of_possession)
 }
 
 fn test_ecdsa_crypto() -> (ecdsa::AppSignature, ecdsa::AppPublic, EcdsaPop) {
@@ -863,33 +863,33 @@ fn test_ecdsa_crypto() -> (ecdsa::AppSignature, ecdsa::AppPublic, EcdsaPop) {
 	assert!(all.contains(&public1));
 	assert!(all.contains(&public2));
 
-	let pop = public0.generate_pop().expect("Cant generate Pop for ecdsa");
-	assert!(public0.verify_pop(&pop));
+	let proof_of_possession = public0.generate_proof_of_possession().expect("Cant generate proof_of_possession for ecdsa");
+	assert!(public0.verify_proof_of_possession(&proof_of_possession));
 
 	let signature = public0.sign(&"ecdsa").expect("Generates a valid `ecdsa` signature.");
 
 	assert!(public0.verify(&"ecdsa", &signature));
-	(signature, public0, pop)
+	(signature, public0, proof_of_possession)
 }
 
 #[cfg(feature = "bls-experimental")]
 fn test_bls381_crypto() -> (Bls381Pop, Bls381Public) {
 	let mut public0 = bls381::AppPublic::generate_pair(None);
 
-	let pop = public0.generate_pop().expect("Cant generate Pop for bls381");
-	assert!(public0.verify_pop(&pop));
+	let proof_of_possession = public0.generate_proof_of_possession().expect("Cant generate proof_of_possession for bls381");
+	assert!(public0.verify_proof_of_possession(&proof_of_possession));
 
-	(pop, public0)
+	(proof_of_possession, public0)
 }
 
 #[cfg(feature = "bls-experimental")]
 fn test_ecdsa_bls381_crypto() -> (EcdsaBls381Pop, EcdsaBls381Public) {
 	let mut public0 = ecdsa_bls381::AppPublic::generate_pair(None);
 
-	let pop = public0.generate_pop().expect("Cant Generate Pop for ecdsa_bls381");
+	let proof_of_possession = public0.generate_proof_of_possession().expect("Cant Generate proof_of_possession for ecdsa_bls381");
 
-	assert!(public0.verify_pop(&pop));
-	(pop, public0)
+	assert!(public0.verify_proof_of_possession(&proof_of_possession));
+	(proof_of_possession, public0)
 }
 
 fn test_read_storage() {

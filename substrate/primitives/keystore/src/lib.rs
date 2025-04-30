@@ -331,7 +331,7 @@ pub trait Keystore: Send + Sync {
 	/// and 'public' combination doesn't exist in the keystore.
 	/// An 'Err' will be returned if generating the proof of possession itself failed.
 	#[cfg(feature = "bls-experimental")]
-	fn bls381_generate_pop(
+	fn bls381_generate_proof_of_possession(
 		&self,
 		key_type: KeyTypeId,
 		public: &bls381::Public,
@@ -636,12 +636,12 @@ impl<T: Keystore + ?Sized> Keystore for Arc<T> {
 	}
 
 	#[cfg(feature = "bls-experimental")]
-	fn bls381_generate_pop(
+	fn bls381_generate_proof_of_possession(
 		&self,
 		key_type: KeyTypeId,
 		public: &bls381::Public,
 	) -> Result<Option<bls381::Signature>, Error> {
-		(**self).bls381_generate_pop(key_type, public)
+		(**self).bls381_generate_proof_of_possession(key_type, public)
 	}
 
 	#[cfg(feature = "bls-experimental")]

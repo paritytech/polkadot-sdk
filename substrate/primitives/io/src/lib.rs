@@ -1369,14 +1369,14 @@ pub trait Crypto {
 	/// Returns the Proof Of Possession as an option of the ['bls381::Signature'] type
 	/// or 'None' if an error occurs.
 	#[cfg(feature = "bls-experimental")]
-	fn bls381_generate_pop(
+	fn bls381_generate_proof_of_possession(
 		&mut self,
 		id: PassPointerAndReadCopy<KeyTypeId, 4>,
 		pub_key: PassPointerAndRead<&bls381::Public, 144>,
 	) -> AllocateAndReturnByCodec<Option<bls381::Signature>> {
 		self.extension::<KeystoreExt>()
 			.expect("No `keystore` associated for the current context!")
-			.bls381_generate_pop(id, pub_key)
+			.bls381_generate_proof_of_possession(id, pub_key)
 			.ok()
 			.flatten()
 	}
