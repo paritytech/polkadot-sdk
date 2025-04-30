@@ -20,7 +20,7 @@ use crate::{
 use alloc::vec::Vec;
 use sp_consensus_babe::{
 	digests::{CompatibleDigestItem, NextEpochDescriptor, PreDigest},
-	AuthorityPair,
+	AuthorityIndex, AuthorityPair,
 };
 use sp_core::Pair;
 use sp_runtime::traits::Header;
@@ -107,11 +107,12 @@ pub(crate) fn verify_relay_parent_descendants<H: Header>(
 		next_expected_hash = Some(sealed_header_hash);
 
 		log::debug!(target: crate::LOG_TARGET, "Validating header #{relay_number:?} ({sealed_header_hash:?})");
-		let Ok((pre_digest, next_epoch_descriptor)) = find_babe_pre_digest(&current_header) else {
+		let Ok((authority_index, next_epoch_descriptor)) =
+			find_authority_idx_epoch_digest(&current_header)
+		else {
 			return Err(RelayParentVerificationError::MissingPredigest { hash: sealed_header_hash });
 		};
 
-		let authority_index = pre_digest.authority_index() as usize;
 		// Once we have seen a next epoch descriptor, we must always use the authorities of the
 		// next epoch.If the relay parent contains epoch descriptor, we shall not rotate
 		// authorities. As in that case the authorities in the state proof reflect the
@@ -138,7 +139,7 @@ pub(crate) fn verify_relay_parent_descendants<H: Header>(
 			}
 		}
 
-		let Some(authority_id) = current_authorities.get(authority_index) else {
+		let Some(authority_id) = current_authorities.get(authority_index as usize) else {
 			return Err(RelayParentVerificationError::MissingAuthorityId);
 		};
 
@@ -171,14 +172,14 @@ pub(crate) fn verify_relay_parent_descendants<H: Header>(
 }
 
 /// Extract babe digest items from the header.
-/// - [Predigest]: We extract it because it contains the authority index. We use it to verify that a
-///   correct authority from the authority set signed the header.
+/// - [AuthorityIndex]: We extract the authority index from the babe predigest. We use it to verify
+///   that a correct authority from the authority set signed the header.
 /// - [NextEpochDescriptor]: We extract it because we need to know which block starts a new epoch on
 ///   the relay chain. Epoch change indicates a switch in authority set, so we need to verify
 ///   following signatures against the new authorities.
-pub fn find_babe_pre_digest<H: Header>(
+pub fn find_authority_idx_epoch_digest<H: Header>(
 	header: &H,
-) -> Result<(PreDigest, Option<NextEpochDescriptor>), ()> {
+) -> Result<(AuthorityIndex, Option<NextEpochDescriptor>), ()> {
 	let mut babe_pre_digest = None;
 	let mut next_epoch_digest = None;
 	for log in header.digest().logs() {
@@ -191,7 +192,7 @@ pub fn find_babe_pre_digest<H: Header>(
 		}
 	}
 
-	babe_pre_digest.map_or_else(|| Err(()), |pd| Ok((pd, next_epoch_digest)))
+	babe_pre_digest.map_or_else(|| Err(()), |pd| Ok((pd.authority_index(), next_epoch_digest)))
 }
 
 /// Errors that can occur during descendant validation

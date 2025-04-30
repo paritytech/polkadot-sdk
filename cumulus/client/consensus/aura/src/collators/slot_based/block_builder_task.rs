@@ -55,6 +55,7 @@ use sp_inherents::CreateInherentDataProviders;
 use sp_keystore::KeystorePtr;
 use sp_runtime::traits::{Block as BlockT, Header as HeaderT, Member};
 use std::{collections::VecDeque, sync::Arc, time::Duration};
+use tracing::log;
 
 /// Parameters for [`run_block_builder`].
 pub struct BuilderTaskParams<
@@ -194,15 +195,8 @@ where
 			};
 
 			let best_hash = para_client.info().best_hash;
-			let relay_parent_offset = if para_client
-				.runtime_api()
-				.has_api::<dyn RelayParentOffsetApi<Block>>(best_hash)
-				.is_ok_and(|has_api| has_api)
-			{
-				para_client.runtime_api().slot_offset(best_hash).unwrap_or_default()
-			} else {
-				0
-			};
+			let relay_parent_offset =
+				para_client.runtime_api().slot_offset(best_hash).unwrap_or_default();
 
 			let Ok(para_slot_duration) = crate::slot_duration(&*para_client) else {
 				tracing::error!(target: LOG_TARGET, "Failed to fetch slot duration from runtime.");
@@ -450,7 +444,9 @@ fn adjust_para_to_relay_parent_slot(
 	relay_chain_slot_duration: Duration,
 	para_slot_duration: SlotDuration,
 ) -> Option<SlotInfo> {
-	let relay_slot = get_slot_from_relay_parent(&relay_header);
+	let relay_slot = sc_consensus_babe::find_pre_digest::<RelayBlock>(&relay_header)
+		.map(|babe_pre_digest| babe_pre_digest.slot())
+		.ok()?;
 	let new_slot = Slot::from_timestamp(
 		relay_slot
 			.timestamp(SlotDuration::from_millis(relay_chain_slot_duration.as_millis() as u64))
@@ -467,34 +463,26 @@ fn adjust_para_to_relay_parent_slot(
 	Some(para_slot)
 }
 
-fn get_slot_from_relay_parent(header: &RelayHeader) -> Slot {
-	let Ok(relay_slot) = sc_consensus_babe::find_pre_digest::<RelayBlock>(header)
-		.map(|babe_pre_digest| babe_pre_digest.slot())
-	else {
-		tracing::error!(target: crate::LOG_TARGET, "Relay chain does not contain babe slot. This should never happen.");
-		panic!("nope");
-	};
-	relay_slot
-}
-
+/// Traverses the ancestry of the given relay chain header to find the relay parent at the correct
+/// offset.
 async fn find_relay_parent_with_offset<RelayClient>(
 	relay_client: &RelayClient,
-	relay_parent: RelayHash,
+	relay_best_block: RelayHash,
 	relay_parent_offset: u32,
 ) -> Result<(RelayHeader, VecDeque<RelayHeader>), ()>
 where
 	RelayClient: RelayChainInterface + Clone + 'static,
 {
-	let Ok(Some(mut relay_header)) = relay_client.header(BlockId::Hash(relay_parent)).await else {
+	let Ok(Some(mut relay_header)) = relay_client.header(BlockId::Hash(relay_best_block)).await
+	else {
+		tracing::error!(target: LOG_TARGET, ?relay_best_block, "Unable to fetch best relay chain block header.");
 		return Err(())
 	};
 
 	if relay_parent_offset == 0 {
-		tracing::debug!(target: LOG_TARGET, "Authoring without relay parent offset.");
 		return Ok((relay_header, Default::default()));
 	}
 
-	tracing::debug!(target: LOG_TARGET, relay_parent_offset, "Offsetting relay parent.");
 	let mut required_ancestors: VecDeque<RelayHeader> = Default::default();
 	required_ancestors.push_front(relay_header.clone());
 	while required_ancestors.len() < relay_parent_offset as usize + 1 {
@@ -503,7 +491,6 @@ where
 		else {
 			return Err(())
 		};
-		tracing::trace!(target: LOG_TARGET, rp_number = next_header.number(),  rp_hash = ?next_header.hash(), "Adding header to the relay parent descendants");
 		required_ancestors.push_front(next_header.clone());
 		relay_header = next_header;
 	}

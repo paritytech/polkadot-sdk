@@ -203,7 +203,6 @@ impl ParachainInherentDataProvider {
 			})
 			.ok()?;
 
-		tracing::debug!(target: "skunert", ?relay_parent_descendants, "Creating parachain inherent with extra relay parents.");
 		Some(ParachainInherentData {
 			downward_messages,
 			horizontal_messages,
