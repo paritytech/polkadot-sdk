@@ -17,6 +17,7 @@ polkadot-overseer = { workspace = true, default-features = true }
 cumulus-primitives-core = { workspace = true, default-features = true }
 
 sc-client-api = { workspace = true, default-features = true }
+sc-network = { workspace = true, default-features = true }
 sp-api = { workspace = true, default-features = true }
 sp-blockchain = { workspace = true, default-features = true }
 sp-state-machine = { workspace = true, default-features = true }
