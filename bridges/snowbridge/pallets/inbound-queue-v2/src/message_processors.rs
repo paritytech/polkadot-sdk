@@ -7,24 +7,6 @@ use sp_runtime::{traits::TryConvert, DispatchError};
 use sp_std::marker::PhantomData;
 use xcm::prelude::{ExecuteXcm, Location, Parachain, SendError, SendXcm, XcmHash};
 
-/// A message processor that simply returns the Blake2_256 hash of the SCALE encoded message
-pub struct RemarkMessageProcessor<T>(pub PhantomData<T>);
-
-impl<AccountId, T> MessageProcessor<AccountId> for RemarkMessageProcessor<T>
-where
-	T: crate::Config<AccountId = AccountId>,
-{
-	fn can_process_message(_who: &AccountId, _message: &Message) -> bool {
-		true
-	}
-
-	fn process_message(_who: AccountId, _message: Message) -> Result<[u8; 32], DispatchError> {
-		// Simply return the Blake2_256 hash of the SCALE encoded message
-		let hash = sp_core::hashing::blake2_256(_message.encode().as_slice());
-		Ok(hash)
-	}
-}
-
 /// A message processor that converts messages to XCM and forwards them to AssetHub
 /// Generic parameters: T = pallet Config, Sender = XCM sender, Executor = fee handler,
 /// Converter = message converter, AccountToLocation = account-to-location converter
@@ -43,7 +25,7 @@ where
 	AccountToLocation: for<'a> TryConvert<&'a AccountId, Location>,
 	AssetHubParaId: Get<u32>,
 {
-	fn can_process_message(_who: &AccountId, message: &Message) -> bool {
+	fn can_process_message(_who: &AccountId, _message: &Message) -> bool {
 		true
 	}
 
