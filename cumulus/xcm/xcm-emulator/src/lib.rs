@@ -1673,14 +1673,13 @@ pub mod helpers {
 	/// A test utility for tracking XCM topic IDs
 	pub struct TopicIdTracker;
 	impl TopicIdTracker {
-		/// Asserts that the first tracked topic ID exists in the given list.
-		pub fn assert_first_id_in(topic_ids: &[H256]) {
-			let tracked_ids = Self::get();
-			assert!(!tracked_ids.is_empty(), "No topic IDs were tracked; expected at least one.");
+		/// Asserts that the unique tracked topic ID exists in the given list.
+		pub fn assert_tracked_id_in(topic_ids: &[H256]) {
+			Self::assert_unique();
 
-			let tracked_id = &tracked_ids[0];
+			let tracked_id = Self::get();
 			assert!(
-				topic_ids.contains(tracked_id),
+				topic_ids.contains(&tracked_id),
 				"Tracked topic ID {:?} was not found in emitted events: {:?}",
 				tracked_id,
 				topic_ids
@@ -1715,9 +1714,10 @@ pub mod helpers {
 			Self::assert_unique()
 		}
 
-		/// Retrieves all tracked topic IDs.
-		pub fn get() -> Vec<H256> {
-			TRACKED_TOPIC_IDS.with(|b| b.borrow().iter().cloned().collect())
+		/// Retrieves the unique tracked topic ID.
+		pub fn get() -> H256 {
+			TRACKED_TOPIC_IDS
+				.with(|b| *b.borrow().iter().next().expect("Expected exactly one tracked topic ID"))
 		}
 
 		/// Inserts a single topic ID into the tracker.

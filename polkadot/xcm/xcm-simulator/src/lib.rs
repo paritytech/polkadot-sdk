@@ -273,7 +273,7 @@ thread_local! {
 		= RefCell::new(VecDeque::new());
 	pub static RELAY_MESSAGE_BUS: RefCell<VecDeque<(Location, Xcm<()>)>>
 		= RefCell::new(VecDeque::new());
-    pub static RELAY_MESSAGE_ID: RefCell<XcmHash> = RefCell::new(XcmHash::default());
+	pub static RELAY_MESSAGE_ID: RefCell<XcmHash> = RefCell::new(XcmHash::default());
 }
 
 /// Declares a test network that consists of a relay chain and multiple

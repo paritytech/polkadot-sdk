@@ -1342,7 +1342,7 @@ fn do_send_pens_and_wnds_from_penpal_westend_via_ahw_to_asset_hub_rococo(
 
 		BridgeHubWestend::execute_with(|| {
 			let topic_ids = find_all_xcm_topic_ids::<BridgeHubWestend>();
-			TopicIdTracker::assert_first_id_in(&topic_ids);
+			TopicIdTracker::assert_tracked_id_in(&topic_ids);
 		});
 	});
 }
@@ -1461,7 +1461,7 @@ fn send_pens_and_wnds_from_penpal_westend_via_ahw_to_ahr() {
 	AssetHubRococo::execute_with(|| {
 		type RuntimeEvent = <AssetHubRococo as Chain>::RuntimeEvent;
 		let topic_ids = find_all_xcm_topic_ids::<AssetHubRococo>();
-		TopicIdTracker::assert_first_id_in(&topic_ids);
+		TopicIdTracker::assert_tracked_id_in(&topic_ids);
 		assert_expected_events!(
 			AssetHubRococo,
 			vec![
