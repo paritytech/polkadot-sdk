@@ -51,10 +51,7 @@ mod imports {
 			},
 			PeopleWestendParaPallet as PeopleWestendPallet,
 		},
-		westend_emulated_chain::{
-			genesis::ED as WESTEND_ED, westend_runtime::xcm_config::XcmConfig as WestendXcmConfig,
-			WestendRelayPallet as WestendPallet,
-		},
+		westend_emulated_chain::{genesis::ED as WESTEND_ED, WestendRelayPallet as WestendPallet},
 		AssetHubWestendPara as AssetHubWestend, BridgeHubWestendPara as BridgeHubWestend,
 		CollectivesWestendPara as CollectivesWestend, CoretimeWestendPara as CoretimeWestend,
 		PenpalBPara as PenpalB, PeopleWestendPara as PeopleWestend,

@@ -45,10 +45,7 @@ mod imports {
 			},
 			PeopleRococoParaPallet as PeopleRococoPallet,
 		},
-		rococo_emulated_chain::{
-			genesis::ED as ROCOCO_ED, rococo_runtime::xcm_config::XcmConfig as RococoXcmConfig,
-			RococoRelayPallet as RococoPallet,
-		},
+		rococo_emulated_chain::{genesis::ED as ROCOCO_ED, RococoRelayPallet as RococoPallet},
 		PeopleRococoPara as PeopleRococo, PeopleRococoParaReceiver as PeopleRococoReceiver,
 		PeopleRococoParaSender as PeopleRococoSender, RococoRelay as Rococo,
 		RococoRelayReceiver as RococoReceiver, RococoRelaySender as RococoSender,

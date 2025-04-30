@@ -78,10 +78,7 @@ mod imports {
 			PenpalBParaPallet as PenpalBPallet,
 		},
 		rococo_emulated_chain::RococoRelayPallet as RococoPallet,
-		westend_emulated_chain::{
-			genesis::ED as WESTEND_ED, westend_runtime::xcm_config::XcmConfig as WestendXcmConfig,
-			WestendRelayPallet as WestendPallet,
-		},
+		westend_emulated_chain::{genesis::ED as WESTEND_ED, WestendRelayPallet as WestendPallet},
 		AssetHubRococoPara as AssetHubRococo, AssetHubRococoParaReceiver as AssetHubRococoReceiver,
 		AssetHubRococoParaSender as AssetHubRococoSender, AssetHubWestendPara as AssetHubWestend,
 		AssetHubWestendParaReceiver as AssetHubWestendReceiver,

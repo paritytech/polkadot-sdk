@@ -70,10 +70,7 @@ mod imports {
 			},
 			PenpalAParaPallet as PenpalAPallet, PenpalAssetOwner,
 		},
-		rococo_emulated_chain::{
-			genesis::ED as ROCOCO_ED, rococo_runtime::xcm_config::XcmConfig as RococoXcmConfig,
-			RococoRelayPallet as RococoPallet,
-		},
+		rococo_emulated_chain::{genesis::ED as ROCOCO_ED, RococoRelayPallet as RococoPallet},
 		AssetHubRococoPara as AssetHubRococo, AssetHubRococoParaReceiver as AssetHubRococoReceiver,
 		AssetHubRococoParaSender as AssetHubRococoSender, AssetHubWestendPara as AssetHubWestend,
 		AssetHubWestendParaReceiver as AssetHubWestendReceiver,

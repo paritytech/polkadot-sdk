@@ -95,10 +95,7 @@ mod imports {
 			genesis::ED as WESTEND_ED,
 			westend_runtime::{
 				governance::pallet_custom_origins::Origin::Treasurer,
-				xcm_config::{
-					UniversalLocation as WestendUniversalLocation, XcmConfig as WestendXcmConfig,
-				},
-				Dmp,
+				xcm_config::UniversalLocation as WestendUniversalLocation, Dmp,
 			},
 			WestendRelayPallet as WestendPallet,
 		},
