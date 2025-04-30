@@ -23,7 +23,7 @@ use crate as pallet_core_fellowship;
 use crate::{DispatchError, *};
 use core::cell::RefCell;
 use frame::{
-	testing_prelude::{storage::root as storage_root, BoundedVec, *},
+	testing_prelude::{storage::root as storage_root, *},
 	traits::{tokens::GetSalary, IsInVec, TryMapSuccess, TryMorphInto},
 };
 
