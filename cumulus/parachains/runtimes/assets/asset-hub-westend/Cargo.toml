@@ -143,6 +143,8 @@ substrate-wasm-builder = { optional = true, workspace = true, default-features =
 
 [features]
 default = ["std"]
+ahm-westend = ["ahm-staking-migration"]
+ahm-staking-migration = []
 runtime-benchmarks = [
 	"assets-common/runtime-benchmarks",
 	"cumulus-pallet-parachain-system/runtime-benchmarks",
