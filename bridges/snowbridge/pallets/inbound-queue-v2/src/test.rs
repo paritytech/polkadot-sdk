@@ -331,7 +331,7 @@ fn zero_reward_does_not_register_reward() {
 			Message {
 				nonce: 0,
 				assets: vec![],
-				xcm: Payload::Raw(vec![]),
+				payload: Payload::Raw(vec![]),
 				claimer: None,
 				execution_fee: 1_000_000_000,
 				relayer_fee: 0,

@@ -108,7 +108,7 @@ pub struct Message {
 	/// The assets sent from Ethereum (ERC-20s).
 	pub assets: Vec<EthereumAsset>,
 	/// The command originating from the Gateway contract.
-	pub xcm: Payload,
+	pub payload: Payload,
 	/// The claimer in the case that funds get trapped. Expected to be an XCM::v5::Location.
 	pub claimer: Option<Vec<u8>>,
 	/// Native ether bridged over from Ethereum
@@ -152,27 +152,27 @@ impl TryFrom<&Log> for Message {
 		let event = IGatewayV2::OutboundMessageAccepted::decode_raw_log(topics, &log.data, true)
 			.map_err(|_| MessageDecodeError)?;
 
-		let payload = event.payload;
+		let event_payload = event.payload;
 
-		let substrate_assets = Self::extract_assets(&payload)?;
+		let substrate_assets = Self::extract_assets(&event_payload)?;
 
-		let xcm = Payload::try_from(&payload)?;
+		let message_payload = Payload::try_from(&event_payload)?;
 
 		let mut claimer = None;
-		if payload.claimer.len() > 0 {
-			claimer = Some(payload.claimer.to_vec());
+		if event_payload.claimer.len() > 0 {
+			claimer = Some(event_payload.claimer.to_vec());
 		}
 
 		let message = Message {
 			gateway: log.address,
 			nonce: event.nonce,
-			origin: H160::from(payload.origin.as_ref()),
+			origin: H160::from(event_payload.origin.as_ref()),
 			assets: substrate_assets,
-			xcm,
+			payload: message_payload,
 			claimer,
-			value: payload.value,
-			execution_fee: payload.executionFee,
-			relayer_fee: payload.relayerFee,
+			value: event_payload.value,
+			execution_fee: event_payload.executionFee,
+			relayer_fee: event_payload.relayerFee,
 		};
 
 		Ok(message)
