@@ -131,9 +131,10 @@ tokio = { features = ["macros"], workspace = true, default-features = true }
 substrate-wasm-builder = { workspace = true, default-features = true }
 
 [features]
-default = ["std"]
+default = ["std", "ahm-westend"]
 no_std = []
-only-staking = []
+ahm-westend = ["ahm-staking-migration"]
+ahm-staking-migration = []
 std = [
 	"binary-merkle-tree/std",
 	"bitvec/std",

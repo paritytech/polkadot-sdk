@@ -1430,7 +1430,7 @@ wasmi = { version = "0.32.3", default-features = false }
 wasmtime = { version = "8.0.1", default-features = false }
 wat = { version = "1.0.0" }
 westend-emulated-chain = { path = "cumulus/parachains/integration-tests/emulated/chains/relays/westend", default-features = false }
-westend-runtime = { path = "polkadot/runtime/westend" }
+westend-runtime = { path = "polkadot/runtime/westend", default-features = false }
 westend-runtime-constants = { path = "polkadot/runtime/westend/constants", default-features = false }
 westend-system-emulated-network = { path = "cumulus/parachains/integration-tests/emulated/networks/westend-system" }
 x25519-dalek = { version = "2.0" }
