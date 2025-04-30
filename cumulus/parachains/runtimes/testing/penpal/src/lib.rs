@@ -632,14 +632,13 @@ parameter_types! {
 	pub const ReservedXcmpWeight: Weight = MAXIMUM_BLOCK_WEIGHT.saturating_div(4);
 	pub const ReservedDmpWeight: Weight = MAXIMUM_BLOCK_WEIGHT.saturating_div(4);
 	pub const RelayOrigin: AggregateMessageOrigin = AggregateMessageOrigin::Parent;
-	pub const SelfParaId: ParaId = ParaId::new(2042);
 }
 
 impl cumulus_pallet_parachain_system::Config for Runtime {
 	type WeightInfo = ();
 	type RuntimeEvent = RuntimeEvent;
 	type OnSystemEvent = ();
-	type SelfParaId = SelfParaId;
+	type SelfParaId = parachain_info::Pallet<Runtime>;
 	type DmpQueue = frame_support::traits::EnqueueWithOrigin<MessageQueue, RelayOrigin>;
 	type ReservedDmpWeight = ReservedDmpWeight;
 	type OutboundXcmpMessageSource = XcmpQueue;
@@ -1182,8 +1181,8 @@ impl_runtime_apis! {
 	}
 
 	impl cumulus_primitives_core::GetParachainIdentity<Block> for Runtime {
-		fn id() -> ParaId {
-			<Runtime as cumulus_pallet_parachain_system::Config>::SelfParaId::get()
+		fn parachain_id() -> ParaId {
+			parachain_info::Pallet::<Runtime>::parachain_id()
 		}
 	}
 }

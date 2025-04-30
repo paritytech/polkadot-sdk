@@ -48,7 +48,7 @@ use cumulus_client_consensus_proposer::{Proposer, ProposerInterface};
 use cumulus_client_consensus_relay_chain::Verifier as RelayChainVerifier;
 #[allow(deprecated)]
 use cumulus_client_service::CollatorSybilResistance;
-use cumulus_primitives_core::{relay_chain::ValidationCode, ParaId};
+use cumulus_primitives_core::{relay_chain::ValidationCode, ParaId, GetParachainIdentity};
 use cumulus_relay_chain_interface::{OverseerHandle, RelayChainInterface};
 use futures::prelude::*;
 use polkadot_primitives::CollatorPair;
@@ -214,7 +214,8 @@ where
 	RuntimeApi: ConstructNodeRuntimeApi<Block, ParachainClient<Block, RuntimeApi>>,
 	RuntimeApi::RuntimeApi: AuraRuntimeApi<Block, AuraId>
 		+ pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi<Block, Balance>
-		+ substrate_frame_rpc_system::AccountNonceApi<Block, AccountId, Nonce>,
+		+ substrate_frame_rpc_system::AccountNonceApi<Block, AccountId, Nonce>
+		+ GetParachainIdentity<Block>,
 	AuraId: AuraIdT + Sync,
 {
 	if extra_args.use_slot_based_consensus {

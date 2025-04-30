@@ -35,6 +35,9 @@ use sc_transaction_pool_api::OffchainTransactionPoolFactory;
 use sp_api::{ApiExt, ProvideRuntimeApi};
 use sp_runtime::traits::Header;
 use std::{marker::PhantomData, sync::Arc};
+use log::info;
+use sp_runtime::traits::AccountIdConversion;
+use cumulus_primitives_core::GetParachainIdentity;
 
 pub struct ManualSealNode<NodeSpec>(PhantomData<NodeSpec>);
 
@@ -78,7 +81,6 @@ impl<NodeSpec: NodeSpecT> ManualSealNode<NodeSpec> {
 	pub fn start_node<Net>(
 		&self,
 		mut config: Configuration,
-		para_id: ParaId,
 		block_time: u64,
 	) -> sc_service::error::Result<TaskManager>
 	where
@@ -95,6 +97,16 @@ impl<NodeSpec: NodeSpecT> ManualSealNode<NodeSpec> {
 			other: (_, mut telemetry, _, _),
 		} = Self::new_partial(&config)?;
 		let select_chain = LongestChain::new(backend.clone());
+
+		let best_hash = client.chain_info().best_hash;
+		let para_id = client.runtime_api().parachain_id(best_hash).expect("Failed to retrieve parachain id from runtime");
+
+		let parachain_account =
+					AccountIdConversion::<polkadot_primitives::AccountId>::into_account_truncating(
+						&para_id,
+					);
+		info!("🪪 Parachain id: {:?}", para_id);
+		info!("🧾 Parachain Account: {}", parachain_account);
 
 		// Since this is a dev node, prevent it from connecting to peers.
 		config.network.default_peers_set.in_peers = 0;

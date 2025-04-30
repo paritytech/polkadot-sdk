@@ -57,7 +57,7 @@ parameter_types! {
 	pub const RelayNetwork: Option<NetworkId> = Some(NetworkId::ByGenesis(ROCOCO_GENESIS_HASH));
 	pub RelayChainOrigin: RuntimeOrigin = cumulus_pallet_xcm::Origin::Relay.into();
 	pub UniversalLocation: InteriorLocation =
-		[GlobalConsensus(RelayNetwork::get().unwrap()), Parachain(ParachainInfo::parachain_id().into())].into();
+		[GlobalConsensus(RelayNetwork::get().unwrap()), Parachain(parachain_info::Pallet::<Runtime>::parachain_id().into())].into();
 	pub BrokerPalletLocation: Location =
 		PalletInstance(<Broker as PalletInfoAccess>::index() as u8).into();
 	pub const MaxInstructions: u32 = 100;

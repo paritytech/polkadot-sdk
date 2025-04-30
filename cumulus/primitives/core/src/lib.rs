@@ -407,6 +407,6 @@ sp_api::decl_runtime_apis! {
 	pub trait GetParachainIdentity {
 
 		/// Retrieve the parachain id used for runtime.
-		fn id() -> ParaId;
+		fn parachain_id() -> ParaId;
 	}
 }

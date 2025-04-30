@@ -167,7 +167,6 @@ parameter_types! {
 	// We do anything the parent chain tells us in this runtime.
 	pub const ReservedDmpWeight: Weight = MAXIMUM_BLOCK_WEIGHT.saturating_div(2);
 	pub const RelayOrigin: AggregateMessageOrigin = AggregateMessageOrigin::Parent;
-	pub const SelfParaId: ParaId = ParaId::new(1300);
 }
 
 type ConsensusHook = cumulus_pallet_aura_ext::FixedVelocityConsensusHook<
@@ -180,7 +179,7 @@ type ConsensusHook = cumulus_pallet_aura_ext::FixedVelocityConsensusHook<
 impl cumulus_pallet_parachain_system::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type OnSystemEvent = ();
-	type SelfParaId = SelfParaId;
+	type SelfParaId = parachain_info::Pallet<Runtime>;
 	type DmpQueue = frame_support::traits::EnqueueWithOrigin<MessageQueue, RelayOrigin>;
 	type OutboundXcmpMessageSource = ();
 	type ReservedDmpWeight = ReservedDmpWeight;
@@ -504,8 +503,8 @@ impl_runtime_apis! {
 	}
 
 	impl cumulus_primitives_core::GetParachainIdentity<Block> for Runtime {
-		fn id() -> ParaId {
-			<Runtime as cumulus_pallet_parachain_system::Config>::SelfParaId::get()
+		fn parachain_id() -> ParaId {
+			parachain_info::Pallet::<Runtime>::parachain_id()
 		}
 	}
 }

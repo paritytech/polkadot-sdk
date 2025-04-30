@@ -61,7 +61,7 @@ parameter_types! {
 	pub const RelayNetwork: NetworkId = NetworkId::ByGenesis(WESTEND_GENESIS_HASH);
 	pub RelayChainOrigin: RuntimeOrigin = cumulus_pallet_xcm::Origin::Relay.into();
 	pub UniversalLocation: InteriorLocation =
-		[GlobalConsensus(RelayNetwork::get()), Parachain(ParachainInfo::parachain_id().into())].into();
+		[GlobalConsensus(RelayNetwork::get()), Parachain(parachain_info::Pallet::<Runtime>::parachain_id().into())].into();
 	pub const MaxInstructions: u32 = 100;
 	pub const MaxAssetsIntoHolding: u32 = 64;
 	pub TreasuryAccount: AccountId = TREASURY_PALLET_ID.into_account_truncating();

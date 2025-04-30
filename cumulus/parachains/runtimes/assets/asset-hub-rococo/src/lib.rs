@@ -40,7 +40,7 @@ use assets_common::{
 use cumulus_pallet_parachain_system::RelayNumberMonotonicallyIncreases;
 use cumulus_primitives_core::{AggregateMessageOrigin, ClaimQueueOffset, CoreSelector};
 use sp_api::impl_runtime_apis;
-use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
+use sp_core::{crypto::KeyTypeId, OpaqueMetadata, Get};
 use sp_runtime::{
 	generic, impl_opaque_keys,
 	traits::{AccountIdConversion, BlakeTwo256, Block as BlockT, Saturating, Verify},
@@ -719,14 +719,13 @@ impl pallet_proxy::Config for Runtime {
 parameter_types! {
 	pub const ReservedXcmpWeight: Weight = MAXIMUM_BLOCK_WEIGHT.saturating_div(4);
 	pub const ReservedDmpWeight: Weight = MAXIMUM_BLOCK_WEIGHT.saturating_div(4);
-	pub const SelfParaId: ParaId = ParaId::new(1000);
 }
 
 impl cumulus_pallet_parachain_system::Config for Runtime {
 	type WeightInfo = weights::cumulus_pallet_parachain_system::WeightInfo<Runtime>;
 	type RuntimeEvent = RuntimeEvent;
 	type OnSystemEvent = ();
-	type SelfParaId = SelfParaId;
+	type SelfParaId = parachain_info::Pallet<Runtime>;
 	type DmpQueue = frame_support::traits::EnqueueWithOrigin<MessageQueue, RelayOrigin>;
 	type ReservedDmpWeight = ReservedDmpWeight;
 	type OutboundXcmpMessageSource = XcmpQueue;
@@ -2013,8 +2012,8 @@ impl_runtime_apis! {
 	}
 
 	impl cumulus_primitives_core::GetParachainIdentity<Block> for Runtime {
-		fn id() -> ParaId {
-			<Runtime as cumulus_pallet_parachain_system::Config>::SelfParaId::get()
+		fn parachain_id() -> ParaId {
+			parachain_info::Pallet::<Runtime>::parachain_id()
 		}
 	}
 }

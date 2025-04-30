@@ -46,6 +46,10 @@ use sc_transaction_pool::TransactionPoolHandle;
 use sc_transaction_pool_api::OffchainTransactionPoolFactory;
 use sp_keystore::KeystorePtr;
 use std::{future::Future, pin::Pin, sync::Arc, time::Duration};
+use sp_api::ProvideRuntimeApi;
+use cumulus_primitives_core::GetParachainIdentity;
+use log::info;
+use sp_runtime::traits::AccountIdConversion;
 
 pub(crate) trait BuildImportQueue<
 	Block: BlockT,
@@ -256,7 +260,6 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 		parachain_config: Configuration,
 		polkadot_config: Configuration,
 		collator_options: CollatorOptions,
-		para_id: ParaId,
 		hwbench: Option<sc_sysinfo::HwBench>,
 		node_extra_args: NodeExtraArgs,
 	) -> Pin<Box<dyn Future<Output = sc_service::error::Result<TaskManager>>>>
@@ -272,6 +275,15 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 			let client = params.client.clone();
 			let backend = params.backend.clone();
 			let mut task_manager = params.task_manager;
+			let best_hash = client.chain_info().best_hash;
+			let para_id = client.runtime_api().parachain_id(best_hash).expect("Failed to retrieve parachain id from runtime");
+
+			let parachain_account =
+					AccountIdConversion::<polkadot_primitives::AccountId>::into_account_truncating(
+						&para_id,
+					);
+			info!("🪪 Parachain id: {:?}", para_id);
+			info!("🧾 Parachain Account: {}", parachain_account);
 			let (relay_chain_interface, collator_key) = build_relay_chain_interface(
 				polkadot_config,
 				&parachain_config,
@@ -440,7 +452,6 @@ pub(crate) trait DynNodeSpec: NodeCommandRunner {
 		parachain_config: Configuration,
 		polkadot_config: Configuration,
 		collator_options: CollatorOptions,
-		para_id: ParaId,
 		hwbench: Option<HwBench>,
 		node_extra_args: NodeExtraArgs,
 	) -> Pin<Box<dyn Future<Output = sc_service::error::Result<TaskManager>>>>;
@@ -455,7 +466,6 @@ where
 		parachain_config: Configuration,
 		polkadot_config: Configuration,
 		collator_options: CollatorOptions,
-		para_id: ParaId,
 		hwbench: Option<HwBench>,
 		node_extra_args: NodeExtraArgs,
 	) -> Pin<Box<dyn Future<Output = sc_service::error::Result<TaskManager>>>> {
@@ -465,7 +475,6 @@ where
 					parachain_config,
 					polkadot_config,
 					collator_options,
-					para_id,
 					hwbench,
 					node_extra_args,
 				),
@@ -474,7 +483,6 @@ where
 					parachain_config,
 					polkadot_config,
 					collator_options,
-					para_id,
 					hwbench,
 					node_extra_args,
 				),
