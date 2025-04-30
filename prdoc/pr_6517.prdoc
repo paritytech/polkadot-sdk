@@ -30,5 +30,3 @@ crates:
   bump: minor
 - name: westend-runtime
   bump: minor
-- name: contracts-rococo-runtime
-  bump: minor
