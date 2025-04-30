@@ -382,11 +382,11 @@ pub(crate) struct CollationStats {
 	relay_parent_number: BlockNumber,
 	// The expiration block number if expired.
 	expired_at: Option<BlockNumber>,
-	// The backed block number if backed.
+	// The backed block number.
 	backed_at: Option<BlockNumber>,
-	// The backed block number if backed.
+	// The included block number if backed.
 	included_at: Option<BlockNumber>,
-	// The collation time.
+	// The collation fetch time.
 	fetched_at: Option<Instant>,
 	// Advertisement time
 	advertised_at: Instant,
@@ -417,7 +417,7 @@ impl CollationStats {
 	/// Returns the age at which the collation expired.
 	pub fn expired(&self) -> Option<BlockNumber> {
 		let expired_at = self.expired_at?;
-		Some(expired_at - self.relay_parent_number)
+		Some(expired_at.saturating_sub(self.relay_parent_number))
 	}
 
 	/// Returns the age of the collation at the moment of backing.
