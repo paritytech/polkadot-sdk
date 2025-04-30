@@ -50,6 +50,7 @@ use sc_network_sync::SyncingService;
 use sc_network_types::PeerId;
 use sc_rpc_server::Server;
 use sc_utils::mpsc::TracingUnboundedReceiver;
+use serde_json::value::RawValue;
 use sp_blockchain::HeaderMetadata;
 use sp_consensus::SyncOracle;
 use sp_runtime::traits::{Block as BlockT, Header as HeaderT};
@@ -134,7 +135,7 @@ impl RpcHandlers {
 	pub async fn rpc_query(
 		&self,
 		json_query: &str,
-	) -> Result<(String, tokio::sync::mpsc::Receiver<String>), serde_json::Error> {
+	) -> Result<(Box<RawValue>, tokio::sync::mpsc::Receiver<Box<RawValue>>), serde_json::Error> {
 		// Because `tokio::sync::mpsc::channel` is used under the hood
 		// it will panic if it's set to usize::MAX.
 		//

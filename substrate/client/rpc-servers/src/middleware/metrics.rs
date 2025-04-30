@@ -161,7 +161,7 @@ impl RpcMetrics {
 		now: Instant,
 	) {
 		log::trace!(target: "rpc_metrics", "[{transport_label}] on_response started_at={:?}", now);
-		log::trace!(target: "rpc_metrics::extra", "[{transport_label}] result={}", rp.as_result());
+		log::trace!(target: "rpc_metrics::extra", "[{transport_label}] result={}", rp);
 
 		let micros = now.elapsed().as_micros();
 		log::debug!(

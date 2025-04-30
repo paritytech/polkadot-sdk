@@ -26,5 +26,5 @@ sp-version = { workspace = true }
 async-trait = { workspace = true }
 codec = { workspace = true, default-features = true }
 futures = { workspace = true }
-jsonrpsee-core = { workspace = true }
+jsonrpsee-core = { workspace = true, features = ["client"] }
 thiserror = { workspace = true }
