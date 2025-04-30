@@ -55,17 +55,14 @@ rand = { workspace = true, default-features = true }
 trie-standardmap = { workspace = true }
 
 # Substrate
-sc-client-api = { workspace = true, default-features = true }
 sp-consensus-slots = { workspace = true, default-features = true }
 sp-crypto-hashing = { workspace = true, default-features = true }
-sp-keyring = { workspace = true, default-features = true }
 sp-tracing = { workspace = true, default-features = true }
 sp-version = { workspace = true, default-features = true }
 
 # Cumulus
 cumulus-test-client = { workspace = true }
 cumulus-test-relay-sproof-builder = { workspace = true, default-features = true }
-cumulus-test-runtime = { workspace = true }
 
 [features]
 default = ["std"]

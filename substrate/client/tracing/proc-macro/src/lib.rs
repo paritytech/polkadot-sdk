@@ -19,10 +19,8 @@ use proc_macro::TokenStream;
 use proc_macro2::Span;
 use proc_macro_crate::{crate_name, FoundCrate};
 use quote::quote;
-use syn::{Error, Expr, Ident, ItemFn};
+use syn::{Error, Expr, ItemFn, Path, Result};
 
-/// Add a log prefix to the function.
-///
 /// This prefixes all the log lines with `[<name>]` (after the timestamp). It works by making a
 /// tracing's span that is propagated to all the child calls and child tasks (futures) if they are
 /// spawned properly with the `SpawnHandle` (see `TaskManager` in sc-cli) or if the futures use
@@ -104,33 +102,33 @@ use syn::{Error, Expr, Ident, ItemFn};
 /// ```
 #[proc_macro_attribute]
 pub fn prefix_logs_with(arg: TokenStream, item: TokenStream) -> TokenStream {
-	let item_fn = syn::parse_macro_input!(item as ItemFn);
-
+	// Ensure an argument was provided.
 	if arg.is_empty() {
 		return Error::new(
-			Span::call_site(),
-			"missing argument: name of the node. Example: sc_cli::prefix_logs_with(<expr>)",
+			proc_macro2::Span::call_site(),
+			"missing argument: prefix. Example: prefix_logs_with(\"Relaychain\")",
 		)
 		.to_compile_error()
-		.into()
+		.into();
 	}
 
-	let name = syn::parse_macro_input!(arg as Expr);
+	let prefix_expr = syn::parse_macro_input!(arg as Expr);
+	let item_fn = syn::parse_macro_input!(item as ItemFn);
 
-	let crate_name = match crate_name("sc-tracing") {
-		Ok(FoundCrate::Itself) => Ident::new("sc_tracing", Span::call_site()),
-		Ok(FoundCrate::Name(crate_name)) => Ident::new(&crate_name, Span::call_site()),
-		Err(e) => return Error::new(Span::call_site(), e).to_compile_error().into(),
+	// Resolve the proper sc_tracing path.
+	let crate_name = match resolve_sc_tracing() {
+		Ok(path) => path,
+		Err(err) => return err.to_compile_error().into(),
 	};
 
-	let ItemFn { attrs, vis, sig, block } = item_fn;
+	let syn::ItemFn { attrs, vis, sig, block } = item_fn;
 
 	(quote! {
 		#(#attrs)*
 		#vis #sig {
 			let span = #crate_name::tracing::info_span!(
 				#crate_name::logging::PREFIX_LOG_SPAN,
-				name = #name,
+				name = #prefix_expr,
 			);
 			let _enter = span.enter();
 
@@ -138,4 +136,19 @@ pub fn prefix_logs_with(arg: TokenStream, item: TokenStream) -> TokenStream {
 		}
 	})
 	.into()
+}
+
+/// Resolve the correct path for sc_tracing:
+/// - If `polkadot-sdk` is in scope, returns a Path corresponding to `polkadot_sdk::sc_tracing`
+/// - Otherwise, falls back to `sc_tracing`
+fn resolve_sc_tracing() -> Result<Path> {
+	match crate_name("polkadot-sdk") {
+		Ok(FoundCrate::Itself) => syn::parse_str("polkadot_sdk::sc_tracing"),
+		Ok(FoundCrate::Name(sdk_name)) => syn::parse_str(&format!("{}::sc_tracing", sdk_name)),
+		Err(_) => match crate_name("sc-tracing") {
+			Ok(FoundCrate::Itself) => syn::parse_str("sc_tracing"),
+			Ok(FoundCrate::Name(name)) => syn::parse_str(&name),
+			Err(e) => Err(syn::Error::new(Span::call_site(), e)),
+		},
+	}
 }

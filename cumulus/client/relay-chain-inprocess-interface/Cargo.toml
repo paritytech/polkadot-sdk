@@ -37,7 +37,6 @@ cumulus-primitives-core = { workspace = true, default-features = true }
 cumulus-relay-chain-interface = { workspace = true, default-features = true }
 
 [dev-dependencies]
-
 # Substrate
 sp-keyring = { workspace = true, default-features = true }
 

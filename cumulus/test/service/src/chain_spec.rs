@@ -136,3 +136,21 @@ pub fn get_elastic_scaling_mvp_chain_spec(id: Option<ParaId>) -> ChainSpec {
 			.expect("WASM binary was not built, please build it!"),
 	)
 }
+
+pub fn get_elastic_scaling_multi_block_slot_chain_spec(id: Option<ParaId>) -> ChainSpec {
+	get_chain_spec_with_extra_endowed(
+		id,
+		Default::default(),
+		cumulus_test_runtime::elastic_scaling_multi_block_slot::WASM_BINARY
+			.expect("WASM binary was not built, please build it!"),
+	)
+}
+
+pub fn get_sync_backing_chain_spec(id: Option<ParaId>) -> ChainSpec {
+	get_chain_spec_with_extra_endowed(
+		id,
+		Default::default(),
+		cumulus_test_runtime::sync_backing::WASM_BINARY
+			.expect("WASM binary was not built, please build it!"),
+	)
+}

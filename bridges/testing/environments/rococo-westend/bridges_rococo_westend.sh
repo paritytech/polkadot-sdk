@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # import common functions
 source "$FRAMEWORK_PATH/utils/bridges.sh"

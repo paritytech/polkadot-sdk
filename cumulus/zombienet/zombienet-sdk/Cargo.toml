@@ -1,0 +1,24 @@
+[package]
+name = "cumulus-zombienet-sdk-tests"
+version = "0.1.0"
+description = "Zomebienet-sdk tests for cumulus."
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+publish = false
+
+[dependencies]
+anyhow = { workspace = true }
+env_logger = { workspace = true }
+log = { workspace = true }
+polkadot-primitives = { workspace = true, default-features = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+subxt = { workspace = true }
+subxt-signer = { workspace = true }
+tokio = { workspace = true, features = ["rt-multi-thread"] }
+zombienet-sdk = { workspace = true }
+cumulus-zombienet-sdk-helpers = { workspace = true }
+
+[features]
+zombie-ci = []

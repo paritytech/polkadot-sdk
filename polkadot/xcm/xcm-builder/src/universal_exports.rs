@@ -75,7 +75,7 @@ impl<Exporter: ExportXcm, UniversalLocation: Get<InteriorLocation>> SendXcm
 		msg: &mut Option<Xcm<()>>,
 	) -> SendResult<Exporter::Ticket> {
 		// This `clone` ensures that `dest` is not consumed in any case.
-		let d = dest.clone().take().ok_or(MissingArgument)?;
+		let d = dest.clone().ok_or(MissingArgument)?;
 		let universal_source = UniversalLocation::get();
 		let devolved = ensure_is_remote(universal_source.clone(), d).map_err(|_| NotApplicable)?;
 		let (remote_network, remote_location) = devolved;
@@ -119,7 +119,7 @@ impl<Exporter: ExportXcm, UniversalLocation: Get<InteriorLocation>> SendXcm
 		msg: &mut Option<Xcm<()>>,
 	) -> SendResult<Exporter::Ticket> {
 		// This `clone` ensures that `dest` is not consumed in any case.
-		let d = dest.clone().take().ok_or(MissingArgument)?;
+		let d = dest.clone().ok_or(MissingArgument)?;
 		let universal_source = UniversalLocation::get();
 		let devolved = ensure_is_remote(universal_source.clone(), d).map_err(|_| NotApplicable)?;
 		let (remote_network, remote_location) = devolved;
@@ -269,7 +269,7 @@ impl<Bridges: ExporterFor, Router: SendXcm, UniversalLocation: Get<InteriorLocat
 		msg: &mut Option<Xcm<()>>,
 	) -> SendResult<Router::Ticket> {
 		// This `clone` ensures that `dest` is not consumed in any case.
-		let d = dest.clone().take().ok_or(MissingArgument)?;
+		let d = dest.clone().ok_or(MissingArgument)?;
 		let devolved = ensure_is_remote(UniversalLocation::get(), d).map_err(|_| NotApplicable)?;
 		let (remote_network, remote_location) = devolved;
 		let xcm = msg.take().ok_or(MissingArgument)?;
@@ -351,7 +351,7 @@ impl<Bridges: ExporterFor, Router: SendXcm, UniversalLocation: Get<InteriorLocat
 		msg: &mut Option<Xcm<()>>,
 	) -> SendResult<Router::Ticket> {
 		// This `clone` ensures that `dest` is not consumed in any case.
-		let d = dest.clone().take().ok_or(MissingArgument)?;
+		let d = dest.clone().ok_or(MissingArgument)?;
 		let devolved = ensure_is_remote(UniversalLocation::get(), d).map_err(|_| NotApplicable)?;
 		let (remote_network, remote_location) = devolved;
 		let xcm = msg.take().ok_or(MissingArgument)?;
@@ -529,7 +529,7 @@ impl<
 			message.0.insert(0, DescendOrigin(bridge_instance));
 		}
 
-		let _ = send_xcm::<Router>(dest, message).map_err(|_| DispatchBlobError::RoutingError)?;
+		send_xcm::<Router>(dest, message).map_err(|_| DispatchBlobError::RoutingError)?;
 		Ok(())
 	}
 }

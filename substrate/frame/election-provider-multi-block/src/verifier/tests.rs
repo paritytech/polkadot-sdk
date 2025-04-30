@@ -16,15 +16,19 @@
 // limitations under the License.
 
 use crate::{
-	mock::*,
-	types::*,
-	verifier::{impls::Status, *},
-	*,
+	mock::{
+		fake_solution, mine_solution, roll_to_snapshot_created, solution_from_supports,
+		verifier_events, ExtBuilder, MaxBackersPerWinner, MaxWinnersPerPage, MultiBlock, Runtime,
+		VerifierPallet, *,
+	},
+	verifier::{impls::Status, Event, FeasibilityError, Verifier, *},
+	PagedRawSolution, Snapshot, *,
 };
-
 use frame_election_provider_support::Support;
 use frame_support::{assert_noop, assert_ok};
-use sp_runtime::traits::Bounded;
+use sp_core::bounded_vec;
+use sp_npos_elections::ElectionScore;
+use sp_runtime::{traits::Bounded, Perbill};
 
 mod feasibility_check {
 	use super::*;
@@ -231,9 +235,8 @@ mod feasibility_check {
 }
 
 mod async_verification {
-	use sp_core::bounded_vec;
-
 	use super::*;
+	use sp_core::bounded_vec;
 	// disambiguate event
 	use crate::verifier::Event;
 
@@ -711,7 +714,6 @@ mod async_verification {
 		ExtBuilder::verifier()
 			.desired_targets(1)
 			.max_backers_per_winner(1) // in each page we allow 1 baker to be presented.
-			.max_backers_per_winner_final(12)
 			.build_and_execute(|| {
 				roll_to_snapshot_created();
 
@@ -865,21 +867,213 @@ mod async_verification {
 	}
 }
 
-mod sync_verification {
-	use frame_election_provider_support::Support;
-	use sp_core::bounded_vec;
-	use sp_npos_elections::ElectionScore;
-	use sp_runtime::Perbill;
+mod multi_page_sync_verification {
+	use super::*;
+	use frame_support::hypothetically;
 
-	use crate::{
-		mock::{
-			fake_solution, mine_solution, roll_to_snapshot_created, solution_from_supports,
-			verifier_events, ExtBuilder, MaxBackersPerWinner, MaxWinnersPerPage, MultiBlock,
-			Runtime, VerifierPallet,
-		},
-		verifier::{Event, FeasibilityError, Verifier},
-		PagedRawSolution, Snapshot,
-	};
+	#[test]
+	fn basic_sync_verification_works() {
+		ExtBuilder::verifier().build_and_execute(|| {
+			roll_to_snapshot_created();
+			let paged = mine_solution(2).unwrap();
+
+			assert_eq!(verifier_events(), vec![]);
+			assert_eq!(<VerifierPallet as Verifier>::queued_score(), None);
+
+			let _ = <VerifierPallet as Verifier>::verify_synchronous_multi(
+				paged.solution_pages.clone().into_inner(),
+				MultiBlock::msp_range_for(2),
+				paged.score,
+			)
+			.unwrap();
+
+			assert_eq!(
+				verifier_events(),
+				vec![
+					Event::<Runtime>::Verified(1, 2),
+					Event::<Runtime>::Verified(2, 2),
+					Event::<Runtime>::Queued(paged.score, None)
+				]
+			);
+			assert_eq!(<VerifierPallet as Verifier>::queued_score(), Some(paged.score));
+		})
+	}
+
+	#[test]
+	fn basic_sync_verification_works_full() {
+		ExtBuilder::verifier().build_and_execute(|| {
+			roll_to_snapshot_created();
+			let paged = mine_full_solution().unwrap();
+
+			assert_eq!(verifier_events(), vec![]);
+			assert_eq!(<VerifierPallet as Verifier>::queued_score(), None);
+
+			let _ = <VerifierPallet as Verifier>::verify_synchronous_multi(
+				paged.solution_pages.clone().into_inner(),
+				MultiBlock::msp_range_for(3),
+				paged.score,
+			)
+			.unwrap();
+
+			assert_eq!(
+				verifier_events(),
+				vec![
+					Event::<Runtime>::Verified(0, 2),
+					Event::<Runtime>::Verified(1, 2),
+					Event::<Runtime>::Verified(2, 2),
+					Event::<Runtime>::Queued(paged.score, None)
+				]
+			);
+			assert_eq!(<VerifierPallet as Verifier>::queued_score(), Some(paged.score));
+		})
+	}
+
+	#[test]
+	fn incorrect_score_checked_at_end() {
+		ExtBuilder::verifier().build_and_execute(|| {
+			// A solution that where each individual page is valid, but the final score is bad.
+			roll_to_snapshot_created();
+			let mut paged = mine_solution(2).unwrap();
+			paged.score.minimal_stake += 1;
+
+			assert_eq!(verifier_events(), vec![]);
+			assert_eq!(<VerifierPallet as Verifier>::queued_score(), None);
+
+			assert_eq!(
+				<VerifierPallet as Verifier>::verify_synchronous_multi(
+					paged.solution_pages.clone().into_inner(),
+					MultiBlock::msp_range_for(2),
+					paged.score,
+				)
+				.unwrap_err(),
+				FeasibilityError::InvalidScore
+			);
+
+			assert_eq!(
+				verifier_events(),
+				vec![
+					Event::<Runtime>::Verified(1, 2),
+					Event::<Runtime>::Verified(2, 2),
+					Event::<Runtime>::VerificationFailed(2, FeasibilityError::InvalidScore),
+				]
+			);
+			assert_eq!(<VerifierPallet as Verifier>::queued_score(), None);
+		})
+	}
+
+	#[test]
+	fn invalid_second_page() {
+		ExtBuilder::verifier().build_and_execute(|| {
+			// A solution that where the second validated page is invalid.
+			use frame_election_provider_support::traits::NposSolution;
+			roll_to_snapshot_created();
+			let mut paged = mine_solution(2).unwrap();
+			paged.solution_pages.last_mut().map(|p| p.corrupt());
+
+			assert_eq!(verifier_events(), vec![]);
+			assert_eq!(<VerifierPallet as Verifier>::queued_score(), None);
+
+			assert_eq!(
+				<VerifierPallet as Verifier>::verify_synchronous_multi(
+					paged.solution_pages.clone().into_inner(),
+					MultiBlock::msp_range_for(2),
+					paged.score,
+				)
+				.unwrap_err(),
+				FeasibilityError::NposElection(sp_npos_elections::Error::SolutionInvalidIndex)
+			);
+
+			assert_eq!(
+				verifier_events(),
+				vec![
+					Event::<Runtime>::Verified(1, 2),
+					Event::<Runtime>::VerificationFailed(
+						2,
+						FeasibilityError::NposElection(
+							sp_npos_elections::Error::SolutionInvalidIndex
+						)
+					),
+				]
+			);
+			assert_eq!(<VerifierPallet as Verifier>::queued_score(), None);
+		})
+	}
+
+	#[test]
+	fn too_may_max_backers_per_winner_second_page() {
+		ExtBuilder::verifier().build_and_execute(|| {
+			// A solution that where the at the second page with hit the final max backers per
+			// winner final bound.
+			roll_to_snapshot_created();
+			let paged = mine_solution(2).unwrap();
+
+			hypothetically!({
+				assert_ok!(<VerifierPallet as Verifier>::verify_synchronous_multi(
+					paged.solution_pages.clone().into_inner(),
+					MultiBlock::msp_range_for(2),
+					paged.score,
+				));
+				let p1 = QueuedSolution::<Runtime>::get_queued_solution_page(1).unwrap();
+				let p2 = QueuedSolution::<Runtime>::get_queued_solution_page(2).unwrap();
+
+				// 40 has 2 backers in the first page, and 3 in the second
+				assert_eq!(
+					p1.into_iter()
+						.find_map(|(who, support)| {
+							if who == 40 {
+								Some(support.voters.len())
+							} else {
+								None
+							}
+						})
+						.unwrap(),
+					2
+				);
+
+				assert_eq!(
+					p2.into_iter()
+						.find_map(|(who, support)| {
+							if who == 40 {
+								Some(support.voters.len())
+							} else {
+								None
+							}
+						})
+						.unwrap(),
+					3
+				);
+			});
+
+			// From the above, we know setting this will do the trick
+			MaxBackersPerWinnerFinal::set(4);
+
+			assert_eq!(verifier_events(), vec![]);
+			assert_eq!(<VerifierPallet as Verifier>::queued_score(), None);
+
+			assert_eq!(
+				<VerifierPallet as Verifier>::verify_synchronous_multi(
+					paged.solution_pages.clone().into_inner(),
+					MultiBlock::msp_range_for(2),
+					paged.score,
+				)
+				.unwrap_err(),
+				FeasibilityError::FailedToBoundSupport
+			);
+
+			assert_eq!(
+				verifier_events(),
+				vec![
+					Event::<Runtime>::Verified(1, 2),
+					Event::<Runtime>::VerificationFailed(2, FeasibilityError::FailedToBoundSupport),
+				]
+			);
+			assert_eq!(<VerifierPallet as Verifier>::queued_score(), None);
+		})
+	}
+}
+
+mod single_page_sync_verification {
+	use super::*;
 
 	#[test]
 	fn basic_sync_verification_works() {
@@ -964,7 +1158,10 @@ mod sync_verification {
 
 			assert_eq!(
 				verifier_events(),
-				vec![Event::<Runtime>::VerificationFailed(2, FeasibilityError::WrongWinnerCount)]
+				vec![
+					Event::Verified(2, 2),
+					Event::<Runtime>::VerificationFailed(2, FeasibilityError::WrongWinnerCount)
+				]
 			);
 			assert_eq!(<VerifierPallet as Verifier>::queued_score(), None);
 		})
@@ -991,7 +1188,10 @@ mod sync_verification {
 
 			assert_eq!(
 				verifier_events(),
-				vec![Event::<Runtime>::VerificationFailed(2, FeasibilityError::InvalidScore),]
+				vec![
+					Event::Verified(2, 2),
+					Event::<Runtime>::VerificationFailed(2, FeasibilityError::InvalidScore),
+				]
 			);
 		})
 	}
@@ -1027,8 +1227,7 @@ mod sync_verification {
 	}
 
 	#[test]
-	fn bad_bounds_rejected() {
-		// MaxBackersPerWinner.
+	fn bad_bounds_rejected_max_backers_per_winner() {
 		ExtBuilder::verifier().build_and_execute(|| {
 			roll_to_snapshot_created();
 
@@ -1054,14 +1253,45 @@ mod sync_verification {
 				)]
 			);
 		});
+	}
 
-		// MaxWinnersPerPage.
+	#[test]
+	fn bad_bounds_rejected_max_winners_per_page() {
 		ExtBuilder::verifier().build_and_execute(|| {
 			roll_to_snapshot_created();
 
 			let single_page = mine_solution(1).unwrap();
 			// note: the miner does feasibility internally, change this parameter afterwards.
 			MaxWinnersPerPage::set(1);
+
+			assert_eq!(
+				<VerifierPallet as Verifier>::verify_synchronous(
+					single_page.solution_pages.first().cloned().unwrap(),
+					single_page.score,
+					MultiBlock::msp(),
+				)
+				.unwrap_err(),
+				FeasibilityError::FailedToBoundSupport
+			);
+
+			assert_eq!(
+				verifier_events(),
+				vec![Event::<Runtime>::VerificationFailed(
+					2,
+					FeasibilityError::FailedToBoundSupport
+				)]
+			);
+		});
+	}
+
+	#[test]
+	fn bad_bounds_rejected_max_backers_per_winner_final() {
+		ExtBuilder::verifier().build_and_execute(|| {
+			roll_to_snapshot_created();
+
+			let single_page = mine_solution(1).unwrap();
+			// note: the miner does feasibility internally, change this parameter afterwards.
+			MaxBackersPerWinnerFinal::set(1);
 
 			assert_eq!(
 				<VerifierPallet as Verifier>::verify_synchronous(

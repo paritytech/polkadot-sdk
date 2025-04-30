@@ -21,6 +21,7 @@
 //! [specification](https://github.com/polkadot-fellows/xcm-format) for more information.
 
 use codec::Encode;
+use frame_support::BoundedVec;
 use xcm::{latest::AssetTransferFilter, prelude::*};
 
 use super::mock::*;
@@ -44,7 +45,7 @@ fn clears_origin() {
 			destination: Parent.into(),
 			remote_fees: Some(AssetTransferFilter::ReserveDeposit(assets.into())),
 			preserve_origin: false,
-			assets: vec![],
+			assets: BoundedVec::new(),
 			remote_xcm: xcm_on_dest,
 		},
 	]);
@@ -81,7 +82,7 @@ fn preserves_origin() {
 			destination: Parent.into(),
 			remote_fees: Some(AssetTransferFilter::ReserveDeposit(assets.into())),
 			preserve_origin: true,
-			assets: vec![],
+			assets: BoundedVec::new(),
 			remote_xcm: xcm_on_dest,
 		},
 	]);

@@ -15,11 +15,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//! The implementation of the verifier pallet, and an implementation of [`crate::Verifier`] and
+//! [`crate::AsynchronousVerifier`] for [`Pallet`].
+
 use super::*;
 use crate::{
 	helpers,
 	types::VoterOf,
-	unsigned::miner::{MinerConfig, SupportsOfMiner},
+	unsigned::miner::{MinerConfig, PageSupportsOfMiner},
 	verifier::Verifier,
 	SolutionOf,
 };
@@ -34,7 +37,7 @@ use frame_support::{
 };
 use frame_system::pallet_prelude::*;
 use pallet::*;
-use sp_npos_elections::{evaluate_support, ElectionScore, EvaluateSupport};
+use sp_npos_elections::{evaluate_support, ElectionScore};
 use sp_runtime::Perbill;
 use sp_std::{collections::btree_map::BTreeMap, prelude::*};
 
@@ -108,15 +111,10 @@ impl sp_npos_elections::Backings for PartialBackings {
 #[frame_support::pallet]
 pub(crate) mod pallet {
 	use super::*;
+
 	#[pallet::config]
 	#[pallet::disable_frame_system_supertrait_check]
 	pub trait Config: crate::Config {
-		/// The overarching event type.
-		type RuntimeEvent: From<Event<Self>>
-			+ IsType<<Self as frame_system::Config>::RuntimeEvent>
-			+ TryInto<Event<Self>>
-			+ Clone;
-
 		/// The minimum amount of improvement to the solution score that defines a solution as
 		/// "better".
 		#[pallet::constant]
@@ -125,13 +123,18 @@ pub(crate) mod pallet {
 		/// Maximum number of backers, per winner, among all pages of an election.
 		///
 		/// This can only be checked at the very final step of verification.
+		///
+		/// NOTE: at the moment, we don't check this, and it is in place for future compatibility.
+		#[pallet::constant]
 		type MaxBackersPerWinnerFinal: Get<u32>;
 
 		/// Maximum number of backers, per winner, per page.
+		#[pallet::constant]
 		type MaxBackersPerWinner: Get<u32>;
 
 		/// Maximum number of supports (aka. winners/validators/targets) that can be represented in
 		/// a page of results.
+		#[pallet::constant]
 		type MaxWinnersPerPage: Get<u32>;
 
 		/// Something that can provide the solution data to the verifier.
@@ -162,11 +165,6 @@ pub(crate) mod pallet {
 		Queued(ElectionScore, Option<ElectionScore>),
 	}
 
-	// TODO this has to be entirely re-done to take into account that for lazy deletions. We store
-	// the queued solutions per round and account id. if a solution is invalid, we just mark it as
-	// garbage and delete it later.
-	// we keep a pointer to (round, who) which stores the current best solution.
-
 	/// A wrapper interface for the storage items related to the queued solution.
 	///
 	/// It wraps the following:
@@ -181,6 +179,14 @@ pub(crate) mod pallet {
 	/// `QueuedSolutionX` and `QueuedSolutionY`. In the context of this pallet, by VALID and
 	/// INVALID variant we mean either of these two storage items, based on the value of
 	/// `QueuedValidVariant`.
+	///
+	/// ### Round Index
+	///
+	/// Much like `Snapshot` in the parent crate, these storage items are mapping whereby their
+	/// _first_ key is the round index. None of the APIs in [`QueuedSolution`] expose this, as
+	/// on-chain, we should ONLY ever be reading the current round's associated data.
+	///
+	/// Having this extra key paves the way for lazy deletion in the future.
 	///
 	/// ### Invariants
 	///
@@ -217,6 +223,10 @@ pub(crate) mod pallet {
 			r
 		}
 
+		fn round() -> u32 {
+			crate::Pallet::<T>::round()
+		}
+
 		/// Finalize a correct solution.
 		///
 		/// Should be called at the end of a verification process, once we are sure that a certain
@@ -230,13 +240,13 @@ pub(crate) mod pallet {
 				info,
 				"verifier",
 				"finalizing verification a correct solution, replacing old score {:?} with {:?}",
-				QueuedSolutionScore::<T>::get(),
+				QueuedSolutionScore::<T>::get(Self::round()),
 				score
 			);
 
 			Self::mutate_checked(|| {
-				QueuedValidVariant::<T>::mutate(|v| *v = v.other());
-				QueuedSolutionScore::<T>::put(score);
+				QueuedValidVariant::<T>::mutate(Self::round(), |v| *v = v.other());
+				QueuedSolutionScore::<T>::insert(Self::round(), score);
 
 				// Clear what was previously the valid variant. Also clears the partial backings.
 				Self::clear_invalid_and_backings_unchecked();
@@ -256,10 +266,10 @@ pub(crate) mod pallet {
 		pub(crate) fn clear_invalid_and_backings_unchecked() {
 			// clear is safe as we delete at most `Pages` entries, and `Pages` is bounded.
 			match Self::invalid() {
-				ValidSolution::X => clear_paged_map!(QueuedSolutionX::<T>),
-				ValidSolution::Y => clear_paged_map!(QueuedSolutionY::<T>),
+				ValidSolution::X => clear_round_based_map!(QueuedSolutionX::<T>, Self::round()),
+				ValidSolution::Y => clear_round_based_map!(QueuedSolutionY::<T>, Self::round()),
 			};
-			clear_paged_map!(QueuedSolutionBackings::<T>);
+			clear_round_based_map!(QueuedSolutionBackings::<T>, Self::round());
 		}
 
 		/// Write a single page of a valid solution into the `invalid` variant of the storage.
@@ -278,11 +288,11 @@ pub(crate) mod pallet {
 					.map(|(x, s)| (x.clone(), PartialBackings { total: s.total, backers: s.voters.len() as u32 } ))
 					.try_collect()
 					.expect("`SupportsOfVerifier` is bounded by <Pallet<T> as Verifier>::MaxWinnersPerPage, which is assured to be the same as `T::MaxWinnersPerPage` in an integrity test");
-				QueuedSolutionBackings::<T>::insert(page, backings);
+				QueuedSolutionBackings::<T>::insert(Self::round(), page, backings);
 
 				match Self::invalid() {
-					ValidSolution::X => QueuedSolutionX::<T>::insert(page, supports),
-					ValidSolution::Y => QueuedSolutionY::<T>::insert(page, supports),
+					ValidSolution::X => QueuedSolutionX::<T>::insert(Self::round(), page, supports),
+					ValidSolution::Y => QueuedSolutionY::<T>::insert(Self::round(), page, supports),
 				}
 			})
 		}
@@ -301,20 +311,48 @@ pub(crate) mod pallet {
 			Self::mutate_checked(|| {
 				// clear everything about valid solutions.
 				match Self::valid() {
-					ValidSolution::X => clear_paged_map!(QueuedSolutionX::<T>),
-					ValidSolution::Y => clear_paged_map!(QueuedSolutionY::<T>),
+					ValidSolution::X => clear_round_based_map!(QueuedSolutionX::<T>, Self::round()),
+					ValidSolution::Y => clear_round_based_map!(QueuedSolutionY::<T>, Self::round()),
 				};
-				QueuedSolutionScore::<T>::kill();
+				QueuedSolutionScore::<T>::remove(Self::round());
 
 				// write a single new page.
 				match Self::valid() {
-					ValidSolution::X => QueuedSolutionX::<T>::insert(page, supports),
-					ValidSolution::Y => QueuedSolutionY::<T>::insert(page, supports),
+					ValidSolution::X => QueuedSolutionX::<T>::insert(Self::round(), page, supports),
+					ValidSolution::Y => QueuedSolutionY::<T>::insert(Self::round(), page, supports),
 				}
 
 				// write the score.
-				QueuedSolutionScore::<T>::put(score);
+				QueuedSolutionScore::<T>::insert(Self::round(), score);
 			})
+		}
+
+		pub(crate) fn force_set_multi_page_valid(
+			pages: Vec<PageIndex>,
+			supports: Vec<SupportsOfVerifier<Pallet<T>>>,
+			score: ElectionScore,
+		) {
+			debug_assert_eq!(pages.len(), supports.len());
+			// queue it in our valid queue
+			Self::mutate_checked(|| {
+				// clear everything about valid solutions.
+				match Self::valid() {
+					ValidSolution::X => clear_round_based_map!(QueuedSolutionX::<T>, Self::round()),
+					ValidSolution::Y => clear_round_based_map!(QueuedSolutionY::<T>, Self::round()),
+				};
+				QueuedSolutionScore::<T>::remove(Self::round());
+
+				// store the valid pages
+				for (support, page) in supports.into_iter().zip(pages.iter()) {
+					match Self::valid() {
+						ValidSolution::X =>
+							QueuedSolutionX::<T>::insert(Self::round(), page, support),
+						ValidSolution::Y =>
+							QueuedSolutionY::<T>::insert(Self::round(), page, support),
+					}
+				}
+				QueuedSolutionScore::<T>::insert(Self::round(), score);
+			});
 		}
 
 		/// Clear all storage items.
@@ -322,11 +360,11 @@ pub(crate) mod pallet {
 		/// Should only be called once everything is done.
 		pub(crate) fn kill() {
 			Self::mutate_checked(|| {
-				clear_paged_map!(QueuedSolutionX::<T>);
-				clear_paged_map!(QueuedSolutionY::<T>);
-				QueuedValidVariant::<T>::kill();
-				clear_paged_map!(QueuedSolutionBackings::<T>);
-				QueuedSolutionScore::<T>::kill();
+				clear_round_based_map!(QueuedSolutionX::<T>, Self::round());
+				clear_round_based_map!(QueuedSolutionY::<T>, Self::round());
+				QueuedValidVariant::<T>::remove(Self::round());
+				clear_round_based_map!(QueuedSolutionBackings::<T>, Self::round());
+				QueuedSolutionScore::<T>::remove(Self::round());
 			})
 		}
 
@@ -343,15 +381,15 @@ pub(crate) mod pallet {
 		/// should never become `valid`.
 		pub(crate) fn compute_invalid_score() -> Result<(ElectionScore, u32), FeasibilityError> {
 			// ensure that this is only called when all pages are verified individually.
-			// TODO: this is a very EXPENSIVE, and perhaps unreasonable check. A partial solution
-			// could very well be valid.
-			if QueuedSolutionBackings::<T>::iter_keys().count() != T::Pages::get() as usize {
+			if QueuedSolutionBackings::<T>::iter_key_prefix(Self::round()).count() !=
+				T::Pages::get() as usize
+			{
 				return Err(FeasibilityError::Incomplete)
 			}
 
 			let mut total_supports: BTreeMap<T::AccountId, PartialBackings> = Default::default();
 			for (who, PartialBackings { backers, total }) in
-				QueuedSolutionBackings::<T>::iter().flat_map(|(_, pb)| pb)
+				QueuedSolutionBackings::<T>::iter_prefix(Self::round()).flat_map(|(_, pb)| pb)
 			{
 				let entry = total_supports.entry(who).or_default();
 				entry.total = entry.total.saturating_add(total);
@@ -370,7 +408,7 @@ pub(crate) mod pallet {
 
 		/// The score of the current best solution, if any.
 		pub(crate) fn queued_score() -> Option<ElectionScore> {
-			QueuedSolutionScore::<T>::get()
+			QueuedSolutionScore::<T>::get(Self::round())
 		}
 
 		/// Get a page of the current queued (aka valid) solution.
@@ -378,13 +416,13 @@ pub(crate) mod pallet {
 			page: PageIndex,
 		) -> Option<SupportsOfVerifier<Pallet<T>>> {
 			match Self::valid() {
-				ValidSolution::X => QueuedSolutionX::<T>::get(page),
-				ValidSolution::Y => QueuedSolutionY::<T>::get(page),
+				ValidSolution::X => QueuedSolutionX::<T>::get(Self::round(), page),
+				ValidSolution::Y => QueuedSolutionY::<T>::get(Self::round(), page),
 			}
 		}
 
 		fn valid() -> ValidSolution {
-			QueuedValidVariant::<T>::get()
+			QueuedValidVariant::<T>::get(Self::round())
 		}
 
 		fn invalid() -> ValidSolution {
@@ -398,30 +436,30 @@ pub(crate) mod pallet {
 		pub(crate) fn valid_iter(
 		) -> impl Iterator<Item = (PageIndex, SupportsOfVerifier<Pallet<T>>)> {
 			match Self::valid() {
-				ValidSolution::X => QueuedSolutionX::<T>::iter(),
-				ValidSolution::Y => QueuedSolutionY::<T>::iter(),
+				ValidSolution::X => QueuedSolutionX::<T>::iter_prefix(Self::round()),
+				ValidSolution::Y => QueuedSolutionY::<T>::iter_prefix(Self::round()),
 			}
 		}
 
 		pub(crate) fn invalid_iter(
 		) -> impl Iterator<Item = (PageIndex, SupportsOfVerifier<Pallet<T>>)> {
 			match Self::invalid() {
-				ValidSolution::X => QueuedSolutionX::<T>::iter(),
-				ValidSolution::Y => QueuedSolutionY::<T>::iter(),
+				ValidSolution::X => QueuedSolutionX::<T>::iter_prefix(Self::round()),
+				ValidSolution::Y => QueuedSolutionY::<T>::iter_prefix(Self::round()),
 			}
 		}
 
 		pub(crate) fn get_valid_page(page: PageIndex) -> Option<SupportsOfVerifier<Pallet<T>>> {
 			match Self::valid() {
-				ValidSolution::X => QueuedSolutionX::<T>::get(page),
-				ValidSolution::Y => QueuedSolutionY::<T>::get(page),
+				ValidSolution::X => QueuedSolutionX::<T>::get(Self::round(), page),
+				ValidSolution::Y => QueuedSolutionY::<T>::get(Self::round(), page),
 			}
 		}
 
 		pub(crate) fn backing_iter() -> impl Iterator<
 			Item = (PageIndex, BoundedVec<(T::AccountId, PartialBackings), T::MaxWinnersPerPage>),
 		> {
-			QueuedSolutionBackings::<T>::iter()
+			QueuedSolutionBackings::<T>::iter_prefix(Self::round())
 		}
 
 		/// Ensure that all the storage items managed by this struct are in `kill` state, meaning
@@ -452,12 +490,15 @@ pub(crate) mod pallet {
 					});
 				let real_score = evaluate_support(backing_map.into_values());
 				ensure!(real_score == queued_score, "queued solution has wrong score");
+			} else {
+				assert!(Self::valid_iter().count() == 0, "nothing should be stored if no score");
 			}
 
 			// The number of existing keys in `QueuedSolutionBackings` must always match that of
 			// the INVALID variant.
 			ensure!(
-				QueuedSolutionBackings::<T>::iter().count() == Self::invalid_iter().count(),
+				QueuedSolutionBackings::<T>::iter_prefix(Self::round()).count() ==
+					Self::invalid_iter().count(),
 				"incorrect number of backings pages",
 			);
 
@@ -479,16 +520,32 @@ pub(crate) mod pallet {
 	/// Writing them to a bugger and copying at the ned is slightly better, but expensive. This flag
 	/// system is best of both worlds.
 	#[pallet::storage]
-	type QueuedSolutionX<T: Config> =
-		StorageMap<_, Twox64Concat, PageIndex, SupportsOfVerifier<Pallet<T>>>;
-	#[pallet::storage]
+	type QueuedSolutionX<T: Config> = StorageDoubleMap<
+		_,
+		Twox64Concat,
+		u32,
+		Twox64Concat,
+		PageIndex,
+		SupportsOfVerifier<Pallet<T>>,
+	>;
+
 	/// The `Y` variant of the current queued solution. Might be the valid one or not.
-	type QueuedSolutionY<T: Config> =
-		StorageMap<_, Twox64Concat, PageIndex, SupportsOfVerifier<Pallet<T>>>;
+	#[pallet::storage]
+	type QueuedSolutionY<T: Config> = StorageDoubleMap<
+		_,
+		Twox64Concat,
+		u32,
+		Twox64Concat,
+		PageIndex,
+		SupportsOfVerifier<Pallet<T>>,
+	>;
 	/// Pointer to the variant of [`QueuedSolutionX`] or [`QueuedSolutionY`] that is currently
 	/// valid.
+
 	#[pallet::storage]
-	type QueuedValidVariant<T: Config> = StorageValue<_, ValidSolution, ValueQuery>;
+	type QueuedValidVariant<T: Config> =
+		StorageMap<_, Twox64Concat, u32, ValidSolution, ValueQuery>;
+
 	/// The `(amount, count)` of backings, divided per page.
 	///
 	/// This is stored because in the last block of verification we need them to compute the score,
@@ -498,17 +555,21 @@ pub(crate) mod pallet {
 	/// need this information anymore; the score is already computed once in
 	/// [`QueuedSolutionScore`], and the backing counts are checked.
 	#[pallet::storage]
-	type QueuedSolutionBackings<T: Config> = StorageMap<
+	type QueuedSolutionBackings<T: Config> = StorageDoubleMap<
 		_,
+		Twox64Concat,
+		u32,
 		Twox64Concat,
 		PageIndex,
 		BoundedVec<(T::AccountId, PartialBackings), T::MaxWinnersPerPage>,
 	>;
+
 	/// The score of the valid variant of [`QueuedSolution`].
 	///
 	/// This only ever lives for the `valid` variant.
 	#[pallet::storage]
-	type QueuedSolutionScore<T: Config> = StorageValue<_, ElectionScore>;
+	type QueuedSolutionScore<T: Config> = StorageMap<_, Twox64Concat, u32, ElectionScore>;
+
 	// -- ^^ private storage items, managed by `QueuedSolution`.
 
 	/// The minimum score that each solution must attain in order to be considered feasible.
@@ -571,8 +632,9 @@ impl<T: Config> Pallet<T> {
 				T::SolutionDataProvider::report_result(VerificationResult::DataUnavailable);
 
 				Self::deposit_event(Event::<T>::VerificationDataUnavailable);
-				// TODO: weight
-				return Default::default();
+				// weight is a bit overestimate.
+				let wasted_pages = T::Pages::get().saturating_sub(current_page);
+				return VerifierWeightsOf::<T>::on_initialize_invalid_non_terminal(wasted_pages);
 			}
 
 			let page_solution = maybe_page_solution.expect("Option checked to not be None; qed");
@@ -610,6 +672,7 @@ impl<T: Config> Pallet<T> {
 						match Self::finalize_async_verification(claimed_score) {
 							Ok(_) => {
 								T::SolutionDataProvider::report_result(VerificationResult::Queued);
+								VerifierWeightsOf::<T>::on_initialize_valid_terminal()
 							},
 							Err(_) => {
 								T::SolutionDataProvider::report_result(
@@ -617,9 +680,9 @@ impl<T: Config> Pallet<T> {
 								);
 								// In case of any of the errors, kill the solution.
 								QueuedSolution::<T>::clear_invalid_and_backings();
+								VerifierWeightsOf::<T>::on_initialize_invalid_terminal()
 							},
 						}
-						VerifierWeightsOf::<T>::on_initialize_valid_terminal()
 					}
 				},
 				Err(err) => {
@@ -628,41 +691,85 @@ impl<T: Config> Pallet<T> {
 					StatusStorage::<T>::put(Status::Nothing);
 					QueuedSolution::<T>::clear_invalid_and_backings();
 					T::SolutionDataProvider::report_result(VerificationResult::Rejected);
-					// TODO: use lower weight if non-terminal.
-					VerifierWeightsOf::<T>::on_initialize_invalid_terminal()
+					let wasted_pages = T::Pages::get().saturating_sub(current_page);
+					VerifierWeightsOf::<T>::on_initialize_invalid_non_terminal(wasted_pages)
 				},
 			}
 		} else {
-			// TODO: weight for when nothing happens
-			Default::default()
+			T::DbWeight::get().reads(1)
 		}
 	}
 
-	fn do_verify_synchronous(
-		partial_solution: SolutionOf<T::MinerConfig>,
+	fn do_verify_synchronous_multi(
+		partial_solutions: Vec<SolutionOf<T::MinerConfig>>,
+		solution_pages: Vec<PageIndex>,
 		claimed_score: ElectionScore,
-		page: PageIndex,
-	) -> Result<SupportsOfVerifier<Self>, FeasibilityError> {
+	) -> Result<(), (PageIndex, FeasibilityError)> {
+		let first_page = solution_pages.first().cloned().unwrap_or_default();
+		let last_page = solution_pages.last().cloned().unwrap_or_default();
 		// first, ensure this score will be good enough, even if valid..
-		let _ = Self::ensure_score_quality(claimed_score)?;
+		let _ = Self::ensure_score_quality(claimed_score).map_err(|fe| (first_page, fe))?;
+		ensure!(
+			partial_solutions.len() == solution_pages.len(),
+			(first_page, FeasibilityError::Incomplete)
+		);
 
-		// then actually check feasibility...
-		// NOTE: `MaxBackersPerWinnerFinal` is also already checked here.
-		let supports = Self::feasibility_check_page_inner(partial_solution, page)?;
+		// verify each page, and amalgamate into a final support.
+		let mut backings =
+			sp_std::collections::btree_map::BTreeMap::<T::AccountId, PartialBackings>::new();
+		let mut linked_supports = Vec::with_capacity(partial_solutions.len());
+
+		for (solution_page, page) in partial_solutions.into_iter().zip(solution_pages.iter()) {
+			let page_supports = Self::feasibility_check_page_inner(solution_page, *page)
+				.map_err(|fe| (*page, fe))?;
+
+			linked_supports.push(page_supports.clone());
+			let support_len = page_supports.len() as u32;
+			for (who, support) in page_supports.into_iter() {
+				let entry = backings.entry(who).or_default();
+				entry.total = entry.total.saturating_add(support.total);
+				// Note we assume snapshots are always disjoint, and therefore we can easily extend
+				// here.
+				entry.backers = entry.backers.saturating_add(support.voters.len() as u32);
+				if entry.backers > T::MaxBackersPerWinnerFinal::get() {
+					return Err((*page, FeasibilityError::FailedToBoundSupport))
+				}
+			}
+
+			Self::deposit_event(Event::<T>::Verified(*page, support_len));
+		}
 
 		// then check that the number of winners was exactly enough..
-		let desired_targets =
-			crate::Snapshot::<T>::desired_targets().ok_or(FeasibilityError::SnapshotUnavailable)?;
-		ensure!(supports.len() as u32 == desired_targets, FeasibilityError::WrongWinnerCount);
+		let desired_targets = crate::Snapshot::<T>::desired_targets()
+			.ok_or(FeasibilityError::SnapshotUnavailable)
+			.map_err(|fe| (last_page, fe))?;
+		ensure!(
+			backings.len() as u32 == desired_targets,
+			(last_page, FeasibilityError::WrongWinnerCount)
+		);
 
 		// then check the score was truth..
-		let truth_score = supports.evaluate();
-		ensure!(truth_score == claimed_score, FeasibilityError::InvalidScore);
+		let truth_score = evaluate_support(backings.into_values());
+		ensure!(truth_score == claimed_score, (last_page, FeasibilityError::InvalidScore));
 
-		// and finally queue the solution.
-		QueuedSolution::<T>::force_set_single_page_valid(page, supports.clone(), truth_score);
+		let maybe_current_score = QueuedSolution::<T>::queued_score();
 
-		Ok(supports)
+		// then store it.
+		sublog!(
+			info,
+			"verifier",
+			"queued sync solution with score {:?} for pages {:?}",
+			truth_score,
+			solution_pages
+		);
+		QueuedSolution::<T>::force_set_multi_page_valid(
+			solution_pages,
+			linked_supports,
+			truth_score,
+		);
+		Self::deposit_event(Event::<T>::Queued(truth_score, maybe_current_score));
+
+		Ok(())
 	}
 
 	/// Finalize an asynchronous verification. Checks the final score for correctness, and ensures
@@ -716,9 +823,9 @@ impl<T: Config> Pallet<T> {
 		});
 		ensure!(is_improvement, FeasibilityError::ScoreTooLow);
 
-		let is_greater_than_min_trusted = Self::minimum_score()
+		let is_greater_than_min_untrusted = Self::minimum_score()
 			.map_or(true, |min_score| score.strict_threshold_better(min_score, Perbill::zero()));
-		ensure!(is_greater_than_min_trusted, FeasibilityError::ScoreTooLow);
+		ensure!(is_greater_than_min_untrusted, FeasibilityError::ScoreTooLow);
 
 		Ok(())
 	}
@@ -768,7 +875,7 @@ pub fn feasibility_check_page_inner_with_snapshot<T: MinerConfig>(
 	snapshot_voters: &BoundedVec<VoterOf<T>, T::VoterSnapshotPerBlock>,
 	snapshot_targets: &BoundedVec<T::AccountId, T::TargetSnapshotPerBlock>,
 	desired_targets: u32,
-) -> Result<SupportsOfMiner<T>, FeasibilityError> {
+) -> Result<PageSupportsOfMiner<T>, FeasibilityError> {
 	// ----- Start building. First, we need some closures.
 	let cache = helpers::generate_voter_cache::<T, _>(snapshot_voters);
 	let voter_at = helpers::voter_at_fn::<T>(snapshot_voters);
@@ -857,37 +964,24 @@ impl<T: Config> Verifier for Pallet<T> {
 		QueuedSolution::<T>::get_queued_solution_page(page)
 	}
 
-	fn verify_synchronous(
-		partial_solution: Self::Solution,
+	fn verify_synchronous_multi(
+		partial_solutions: Vec<Self::Solution>,
+		solution_pages: Vec<PageIndex>,
 		claimed_score: ElectionScore,
-		page: PageIndex,
-	) -> Result<SupportsOfVerifier<Self>, FeasibilityError> {
-		let maybe_current_score = Self::queued_score();
-		match Self::do_verify_synchronous(partial_solution, claimed_score, page) {
-			Ok(supports) => {
-				sublog!(
-					info,
-					"verifier",
-					"queued a sync solution with score {:?} for page {}",
-					claimed_score,
-					page
-				);
-				Self::deposit_event(Event::<T>::Verified(page, supports.len() as u32));
-				Self::deposit_event(Event::<T>::Queued(claimed_score, maybe_current_score));
-				Ok(supports)
-			},
-			Err(fe) => {
+	) -> Result<(), FeasibilityError> {
+		Self::do_verify_synchronous_multi(partial_solutions, solution_pages, claimed_score).map_err(
+			|(page, fe)| {
 				sublog!(
 					warn,
 					"verifier",
-					"sync verification of page {} failed due to {:?}.",
+					"sync verification of page {:?} failed due to {:?}.",
 					page,
 					fe
 				);
 				Self::deposit_event(Event::<T>::VerificationFailed(page, fe.clone()));
-				Err(fe)
+				fe
 			},
-		}
+		)
 	}
 
 	fn force_set_single_page_valid(

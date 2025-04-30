@@ -41,26 +41,6 @@ use crate::{metrics::Metrics, validator_discovery::AuthorityDiscovery, WireMessa
 // network bridge network abstraction log target
 const LOG_TARGET: &'static str = "parachain::network-bridge-net";
 
-// Helper function to send a validation v1 message to a list of peers.
-// Messages are always sent via the main protocol, even legacy protocol messages.
-pub(crate) fn send_validation_message_v1(
-	peers: Vec<PeerId>,
-	message: WireMessage<protocol_v1::ValidationProtocol>,
-	metrics: &Metrics,
-	notification_sinks: &Arc<Mutex<HashMap<(PeerSet, PeerId), Box<dyn MessageSink>>>>,
-) {
-	gum::trace!(target: LOG_TARGET, ?peers, ?message, "Sending validation v1 message to peers",);
-
-	send_message(
-		peers,
-		PeerSet::Validation,
-		ValidationVersion::V1.into(),
-		message,
-		metrics,
-		notification_sinks,
-	);
-}
-
 // Helper function to send a validation v3 message to a list of peers.
 // Messages are always sent via the main protocol, even legacy protocol messages.
 pub(crate) fn send_validation_message_v3(
@@ -75,24 +55,6 @@ pub(crate) fn send_validation_message_v3(
 		peers,
 		PeerSet::Validation,
 		ValidationVersion::V3.into(),
-		message,
-		metrics,
-		notification_sinks,
-	);
-}
-
-// Helper function to send a validation v2 message to a list of peers.
-// Messages are always sent via the main protocol, even legacy protocol messages.
-pub(crate) fn send_validation_message_v2(
-	peers: Vec<PeerId>,
-	message: WireMessage<protocol_v2::ValidationProtocol>,
-	metrics: &Metrics,
-	notification_sinks: &Arc<Mutex<HashMap<(PeerSet, PeerId), Box<dyn MessageSink>>>>,
-) {
-	send_message(
-		peers,
-		PeerSet::Validation,
-		ValidationVersion::V2.into(),
 		message,
 		metrics,
 		notification_sinks,

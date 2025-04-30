@@ -288,6 +288,7 @@ pub struct XcmConfig;
 impl Config for XcmConfig {
 	type RuntimeCall = TestCall;
 	type XcmSender = TestSender;
+	type XcmEventEmitter = ();
 	type AssetTransactor = TestAssetTransactor;
 	type OriginConverter = ();
 	type IsReserve = ();

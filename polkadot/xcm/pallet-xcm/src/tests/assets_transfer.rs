@@ -2030,6 +2030,11 @@ fn transfer_assets_with_filtered_teleported_fee_disallowed() {
 /// burn) effects are reverted.
 #[test]
 fn intermediary_error_reverts_side_effects() {
+	use sp_tracing::{
+		test_log_capture::init_log_capture,
+		tracing::{subscriber, Level},
+	};
+
 	let balances = vec![(ALICE, INITIAL_BALANCE)];
 	let beneficiary: Location = Junction::AccountId32 { network: None, id: ALICE.into() }.into();
 	new_test_ext_with_balances(balances).execute_with(|| {
@@ -2060,15 +2065,32 @@ fn intermediary_error_reverts_side_effects() {
 		set_send_xcm_artificial_failure(true);
 
 		// do the transfer - extrinsic should completely fail on xcm send failure
-		assert!(XcmPallet::limited_reserve_transfer_assets(
-			RuntimeOrigin::signed(ALICE),
-			Box::new(dest.into()),
-			Box::new(beneficiary.into()),
-			Box::new(assets.into()),
-			fee_index as u32,
-			Unlimited,
-		)
-		.is_err());
+		let (log_capture, subscriber) = init_log_capture(Level::DEBUG, true);
+		subscriber::with_default(subscriber, || {
+			let result = XcmPallet::limited_reserve_transfer_assets(
+				RuntimeOrigin::signed(ALICE),
+				Box::new(dest.into()),
+				Box::new(beneficiary.into()),
+				Box::new(assets.into()),
+				fee_index as u32,
+				Unlimited,
+			);
+			assert!(result.is_err());
+
+			// Ensure the log occurs before `XcmEventEmitter::emit_process_failure_event` is called.
+			assert!(log_capture.contains(
+				"xcm::process: XCM execution failed at instruction index=2 error=Transport(\"Intentional send failure used in tests\")"
+			), "Expected transport error log message not found");
+
+			// Verify that `XcmPallet::ProcessXcmError` was NOT emitted, indicating a rollback.
+			let process_xcm_error_emitted = System::events().iter().any(|r| {
+				matches!(r.event, RuntimeEvent::XcmPallet(crate::Event::ProcessXcmError { .. }))
+			});
+			assert!(
+				!process_xcm_error_emitted,
+				"Expected no `XcmPallet::ProcessXcmError` event due to rollback, but it was emitted"
+			);
+		});
 
 		// Alice no changes
 		assert_eq!(
@@ -2500,6 +2522,27 @@ fn remote_asset_reserve_and_remote_fee_reserve_paid_call<Call>(
 			return;
 		}
 
+		let context = UniversalLocation::get();
+		let foreign_id_location_reanchored =
+			foreign_asset_id_location.clone().reanchored(&dest, &context).unwrap();
+		let dest_reanchored = dest.reanchored(&reserve_location, &context).unwrap();
+		let sent_message = Xcm(vec![
+			WithdrawAsset((Location::here(), SEND_AMOUNT).into()),
+			ClearOrigin,
+			buy_execution((Location::here(), SEND_AMOUNT / 2)),
+			DepositReserveAsset {
+				assets: Wild(AllCounted(1)),
+				// final destination is `dest` as seen by `reserve`
+				dest: dest_reanchored,
+				// message sent onward to `dest`
+				xcm: Xcm(vec![
+					buy_execution((foreign_id_location_reanchored, SEND_AMOUNT / 2)),
+					DepositAsset { assets: AllCounted(1).into(), beneficiary },
+				]),
+			},
+		]);
+		let sent_msg_id = fake_message_hash(&sent_message);
+
 		let mut last_events = last_events(7).into_iter();
 		// asset events
 		// forceCreate
@@ -2513,6 +2556,15 @@ fn remote_asset_reserve_and_remote_fee_reserve_paid_call<Call>(
 		last_events.next().unwrap();
 		// mint delivery fee
 		last_events.next().unwrap();
+		assert_eq!(
+			last_events.next().unwrap(),
+			RuntimeEvent::XcmPallet(crate::Event::Sent {
+				origin: user_account.clone().into(),
+				destination: Parachain(paid_para_id).into(),
+				message: Xcm::default(),
+				message_id: sent_msg_id,
+			})
+		);
 		assert_eq!(
 			last_events.next().unwrap(),
 			RuntimeEvent::XcmPallet(crate::Event::Attempted {
@@ -2542,37 +2594,15 @@ fn remote_asset_reserve_and_remote_fee_reserve_paid_call<Call>(
 			AssetsPallet::total_issuance(foreign_asset_id_location.clone()),
 			expected_issuance
 		);
-		assert_eq!(
-			AssetsPallet::active_issuance(foreign_asset_id_location.clone()),
-			expected_issuance
-		);
-
-		let context = UniversalLocation::get();
-		let foreign_id_location_reanchored =
-			foreign_asset_id_location.reanchored(&dest, &context).unwrap();
-		let dest_reanchored = dest.reanchored(&reserve_location, &context).unwrap();
+		assert_eq!(AssetsPallet::active_issuance(foreign_asset_id_location), expected_issuance);
 
 		// Verify sent XCM program
 		assert_eq!(
 			sent_xcm(),
 			vec![(
-				reserve_location,
 				// `assets` are burned on source and withdrawn from SA in remote reserve chain
-				Xcm(vec![
-					WithdrawAsset((Location::here(), SEND_AMOUNT).into()),
-					ClearOrigin,
-					buy_execution((Location::here(), SEND_AMOUNT / 2)),
-					DepositReserveAsset {
-						assets: Wild(AllCounted(1)),
-						// final destination is `dest` as seen by `reserve`
-						dest: dest_reanchored,
-						// message sent onward to `dest`
-						xcm: Xcm(vec![
-							buy_execution((foreign_id_location_reanchored, SEND_AMOUNT / 2)),
-							DepositAsset { assets: AllCounted(1).into(), beneficiary }
-						])
-					}
-				])
+				reserve_location,
+				sent_message,
 			)]
 		);
 	});
