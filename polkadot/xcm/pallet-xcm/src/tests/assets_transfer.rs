@@ -1434,30 +1434,27 @@ fn remote_asset_reserve_and_remote_fee_reserve_call<Call>(
 		assert_eq!(AssetsPallet::active_issuance(usdc_id_location.clone()), expected_usdc_issuance);
 
 		// Verify sent XCM program
-		let xcm_sent = sent_xcm();
-		let expected_hash = get_sent_xcm_topic_id();
-		let expected_msg = Xcm(vec![
-			WithdrawAsset(expected_assets_on_reserve),
-			ClearOrigin,
-			BuyExecution { fees: expected_fee_on_reserve, weight_limit: Unlimited },
-			DepositReserveAsset {
-				assets: Wild(AllCounted(1)),
-				// final destination is `dest` as seen by `reserve`
-				dest: expected_dest_on_reserve,
-				// message sent onward to `dest`
-				xcm: Xcm(vec![
-					buy_limited_execution(expected_fee_on_dest, Unlimited),
-					DepositAsset { assets: AllCounted(1).into(), beneficiary },
-				]),
-			},
-			SetTopic(expected_hash),
-		]);
 		assert_eq!(
-			xcm_sent,
+			sent_xcm(),
 			vec![(
 				// first message sent to reserve chain
 				usdc_chain,
-				expected_msg
+				Xcm(vec![
+					WithdrawAsset(expected_assets_on_reserve),
+					ClearOrigin,
+					BuyExecution { fees: expected_fee_on_reserve, weight_limit: Unlimited },
+					DepositReserveAsset {
+						assets: Wild(AllCounted(1)),
+						// final destination is `dest` as seen by `reserve`
+						dest: expected_dest_on_reserve,
+						// message sent onward to `dest`
+						xcm: Xcm(vec![
+							buy_limited_execution(expected_fee_on_dest, Unlimited),
+							DepositAsset { assets: AllCounted(1).into(), beneficiary }
+						])
+					},
+					SetTopic(get_sent_xcm_topic_id()),
+				])
 			)],
 		);
 	});
