@@ -42,6 +42,14 @@ impl Contains<<Runtime as frame_system::Config>::RuntimeCall> for CallsEnabledAf
 	}
 }
 
+/// The hold reason for staking delegation.
+pub struct StakingDelegationReason;
+impl Get<RuntimeHoldReason> for StakingDelegationReason {
+	fn get() -> RuntimeHoldReason {
+		RuntimeHoldReason::DelegatedStaking(pallet_delegated_staking::HoldReason::StakingDelegation)
+	}
+}
+
 /// Return whether a call should be enabled during and/or after the migration.
 ///
 /// Time line of the migration looks like this:
