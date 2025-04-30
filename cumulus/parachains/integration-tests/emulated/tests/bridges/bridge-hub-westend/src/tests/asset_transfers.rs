@@ -1310,7 +1310,7 @@ fn do_send_pens_and_wnds_from_penpal_westend_via_ahw_to_asset_hub_rococo(
 			);
 
 			let topic_ids = find_all_xcm_topic_ids::<PenpalB>();
-			TopicIdTracker::expect_insert_only_unique(topic_ids);
+			TopicIdTracker::expect_insert_multi_unique(topic_ids);
 
 			result
 		}));
@@ -1318,7 +1318,7 @@ fn do_send_pens_and_wnds_from_penpal_westend_via_ahw_to_asset_hub_rococo(
 		AssetHubWestend::execute_with(|| {
 			type RuntimeEvent = <AssetHubWestend as Chain>::RuntimeEvent;
 			let topic_ids = find_all_xcm_topic_ids::<AssetHubWestend>();
-			TopicIdTracker::expect_insert_only_unique(topic_ids);
+			TopicIdTracker::expect_insert_multi_unique(topic_ids);
 			assert_expected_events!(
 				AssetHubWestend,
 				vec![

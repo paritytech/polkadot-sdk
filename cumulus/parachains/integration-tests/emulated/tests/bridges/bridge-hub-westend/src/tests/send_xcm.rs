@@ -182,18 +182,14 @@ fn xcm_persists_set_topic_across_hops() {
 				TopicIdTracker::insert(expected.into());
 			}
 
-			// Track actual emitted XCM message ID
 			let msg_id_sent = find_xcm_sent_message_id::<Westend>().expect("Missing Sent Event");
-			TopicIdTracker::insert(msg_id_sent.into());
+			TopicIdTracker::expect_insert_unique(msg_id_sent.into());
 		});
 
-		// Track processed topic ID on BridgeHubWestend
 		BridgeHubWestend::execute_with(|| {
-			let mq_prc_id = find_mq_processed_id::<BridgeHubWestend>().expect("Missing Processed Event");
-			TopicIdTracker::insert(mq_prc_id.into());
+			let mq_prc_id =
+				find_mq_processed_id::<BridgeHubWestend>().expect("Missing Processed Event");
+			TopicIdTracker::expect_insert_unique(mq_prc_id.into());
 		});
-
-		// Assert exactly one consistent topic ID observed across hops
-		TopicIdTracker::assert_unique();
 	}
 }

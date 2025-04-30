@@ -1702,7 +1702,7 @@ pub mod helpers {
 		}
 
 		/// Inserts multiple topic IDs into the tracker and asserts exactly one is tracked.
-		pub fn expect_insert_only_unique(ids: Vec<H256>) {
+		pub fn expect_insert_multi_unique(ids: Vec<H256>) {
 			for id in ids {
 				Self::insert(id);
 			}

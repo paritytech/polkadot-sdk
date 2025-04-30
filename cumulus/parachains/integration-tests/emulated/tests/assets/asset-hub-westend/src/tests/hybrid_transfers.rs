@@ -57,7 +57,7 @@ fn para_to_para_assethub_hop_assertions(t: ParaToParaThroughAHTest) {
 	);
 
 	let topic_ids = find_all_xcm_topic_ids::<AssetHubWestend>();
-	TopicIdTracker::expect_insert_only_unique(topic_ids);
+	TopicIdTracker::expect_insert_multi_unique(topic_ids);
 }
 
 fn ah_to_para_transfer_assets(t: SystemParaToParaTest) -> DispatchResult {
