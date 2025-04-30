@@ -382,11 +382,7 @@ mod electable_stashes {
 			);
 			// the included were added to the electable stashes, despite the error.
 			assert_eq!(
-				ElectableStashes::<Test>::get()
-					.into_inner()
-					.into_iter()
-					.map(|(s, _)| s)
-					.collect::<Vec<_>>(),
+				ElectableStashes::<Test>::get().into_inner().into_keys().collect::<Vec<_>>(),
 				vec![1, 2, 3, 4, 5]
 			);
 		})
