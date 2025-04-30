@@ -304,7 +304,7 @@ pub mod benchmarking {
 /// Prelude to be included in the `migration.rs` of each pallet.
 ///
 /// ```
-/// pub use polkadot_sdk_frame::migrations::*;
+/// use polkadot_sdk_frame::migrations::*;
 /// ```
 pub mod migrations {
 	pub use frame_support::migrations::*;
