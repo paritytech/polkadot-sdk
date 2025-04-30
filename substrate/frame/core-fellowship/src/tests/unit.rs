@@ -23,7 +23,7 @@ use crate as pallet_core_fellowship;
 use crate::{DispatchError, *};
 use core::cell::RefCell;
 use frame::{
-	testing_prelude::{storage::root as storage_root, *},
+	testing_prelude::{storage::root as storage_root, BoundedVec, *},
 	traits::{tokens::GetSalary, IsInVec, TryMapSuccess, TryMorphInto},
 };
 
@@ -123,10 +123,11 @@ pub fn new_test_ext() -> TestExternalities {
 	ext.execute_with(|| {
 		set_rank(100, 9);
 		let params = ParamsType {
-			active_salary: bounded_vec![10, 20, 30, 40, 50, 60, 70, 80, 90],
-			passive_salary: bounded_vec![1, 2, 3, 4, 5, 6, 7, 8, 9],
-			demotion_period: bounded_vec![2, 4, 6, 8, 10, 12, 14, 16, 18],
-			min_promotion_period: bounded_vec![3, 6, 9, 12, 15, 18, 21, 24, 27],
+			active_salary: BoundedVec::try_from(vec![10, 20, 30, 40, 50, 60, 70, 80, 90]).unwrap(),
+			passive_salary: BoundedVec::try_from(vec![1, 2, 3, 4, 5, 6, 7, 8, 9]).unwrap(),
+			demotion_period: BoundedVec::try_from(vec![2, 4, 6, 8, 10, 12, 14, 16, 18]).unwrap(),
+			min_promotion_period: BoundedVec::try_from(vec![3, 6, 9, 12, 15, 18, 21, 24, 27])
+				.unwrap(),
 			offboard_timeout: 1,
 		};
 
@@ -171,10 +172,11 @@ fn basic_stuff() {
 fn set_params_works() {
 	new_test_ext().execute_with(|| {
 		let params = ParamsType {
-			active_salary: bounded_vec![10, 20, 30, 40, 50, 60, 70, 80, 90],
-			passive_salary: bounded_vec![1, 2, 3, 4, 5, 6, 7, 8, 9],
-			demotion_period: bounded_vec![1, 2, 3, 4, 5, 6, 7, 8, 9],
-			min_promotion_period: bounded_vec![1, 2, 3, 4, 5, 10, 15, 20, 30],
+			active_salary: BoundedVec::try_from(vec![10, 20, 30, 40, 50, 60, 70, 80, 90]).unwrap(),
+			passive_salary: BoundedVec::try_from(vec![1, 2, 3, 4, 5, 6, 7, 8, 9]).unwrap(),
+			demotion_period: BoundedVec::try_from(vec![1, 2, 3, 4, 5, 6, 7, 8, 9]).unwrap(),
+			min_promotion_period: BoundedVec::try_from(vec![1, 2, 3, 4, 5, 10, 15, 20, 30])
+				.unwrap(),
 			offboard_timeout: 1,
 		};
 		assert_noop!(
@@ -189,10 +191,21 @@ fn set_params_works() {
 fn set_partial_params_works() {
 	new_test_ext().execute_with(|| {
 		let params = ParamsType {
-			active_salary: bounded_vec![None; 9],
-			passive_salary: bounded_vec![None; 9],
-			demotion_period: bounded_vec![None, Some(10), None, None, None, None, None, None, None],
-			min_promotion_period: bounded_vec![None; 9],
+			active_salary: BoundedVec::try_from(vec![None; 9]).unwrap(),
+			passive_salary: BoundedVec::try_from(vec![None; 9]).unwrap(),
+			demotion_period: BoundedVec::try_from(vec![
+				None,
+				Some(10),
+				None,
+				None,
+				None,
+				None,
+				None,
+				None,
+				None,
+			])
+			.unwrap(),
+			min_promotion_period: BoundedVec::try_from(vec![None; 9]).unwrap(),
 			offboard_timeout: Some(2),
 		};
 		assert_noop!(
@@ -203,10 +216,11 @@ fn set_partial_params_works() {
 
 		// Update params from the base params value declared in `new_test_ext`
 		let raw_updated_params = ParamsType {
-			active_salary: bounded_vec![10, 20, 30, 40, 50, 60, 70, 80, 90],
-			passive_salary: bounded_vec![1, 2, 3, 4, 5, 6, 7, 8, 9],
-			demotion_period: bounded_vec![2, 10, 6, 8, 10, 12, 14, 16, 18],
-			min_promotion_period: bounded_vec![3, 6, 9, 12, 15, 18, 21, 24, 27],
+			active_salary: BoundedVec::try_from(vec![10, 20, 30, 40, 50, 60, 70, 80, 90]).unwrap(),
+			passive_salary: BoundedVec::try_from(vec![1, 2, 3, 4, 5, 6, 7, 8, 9]).unwrap(),
+			demotion_period: BoundedVec::try_from(vec![2, 10, 6, 8, 10, 12, 14, 16, 18]).unwrap(),
+			min_promotion_period: BoundedVec::try_from(vec![3, 6, 9, 12, 15, 18, 21, 24, 27])
+				.unwrap(),
 			offboard_timeout: 2,
 		};
 		// Updated params stored in Params storage value
@@ -383,7 +397,7 @@ fn promote_fast_identical_to_promote() {
 		assert_ok!(CoreFellowship::submit_evidence(
 			signed(alice),
 			Wish::Promotion,
-			bounded_vec![0; 1024]
+			BoundedVec::try_from(vec![0; 1024]).unwrap(),
 		));
 
 		let root_promote = hypothetically!({
@@ -472,10 +486,11 @@ fn offboard_works() {
 fn infinite_demotion_period_works() {
 	new_test_ext().execute_with(|| {
 		let params = ParamsType {
-			active_salary: bounded_vec![10, 10, 10, 10, 10, 10, 10, 10, 10],
-			passive_salary: bounded_vec![10, 10, 10, 10, 10, 10, 10, 10, 10],
-			min_promotion_period: bounded_vec![10, 10, 10, 10, 10, 10, 10, 10, 10],
-			demotion_period: bounded_vec![0, 0, 0, 0, 0, 0, 0, 0, 0],
+			active_salary: BoundedVec::try_from(vec![10, 10, 10, 10, 10, 10, 10, 10, 10]).unwrap(),
+			passive_salary: BoundedVec::try_from(vec![10, 10, 10, 10, 10, 10, 10, 10, 10]).unwrap(),
+			min_promotion_period: BoundedVec::try_from(vec![10, 10, 10, 10, 10, 10, 10, 10, 10])
+				.unwrap(),
+			demotion_period: BoundedVec::try_from(vec![0, 0, 0, 0, 0, 0, 0, 0, 0]).unwrap(),
 			offboard_timeout: 0,
 		};
 		assert_ok!(CoreFellowship::set_params(signed(1), Box::new(params)));
