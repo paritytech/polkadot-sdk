@@ -22,7 +22,7 @@ use polkadot_node_network_protocol::PeerId;
 use polkadot_primitives::Id as ParaId;
 use std::{
 	cmp::Ordering,
-	collections::{BTreeMap, BTreeSet, HashMap},
+	collections::{BTreeMap, BTreeSet, HashMap, HashSet},
 	future::Future,
 };
 
@@ -101,11 +101,31 @@ impl ConnectedPeers {
 				},
 		}
 
-		if !matches!(outcome, TryAcceptOutcome::Rejected) {
-			self.peer_info.insert(peer_id, peer_info);
-		}
+		match outcome {
+			TryAcceptOutcome::Replaced(mut replaced) => {
+				self.peer_info.insert(peer_id, peer_info);
 
-		outcome
+				// Even if this peer took the place of some other peers, these replaced peers may
+				// still have connection slots for other paras. Only remove them if they don't.
+				replaced.retain(|replaced_peer| {
+					let disconnect =
+						!self.per_para.values().any(|per_para| per_para.contains(&replaced_peer));
+
+					if disconnect {
+						self.peer_info.remove(replaced_peer);
+					}
+
+					disconnect
+				});
+
+				TryAcceptOutcome::Replaced(replaced)
+			},
+			TryAcceptOutcome::Added => {
+				self.peer_info.insert(peer_id, peer_info);
+				TryAcceptOutcome::Added
+			},
+			TryAcceptOutcome::Rejected => TryAcceptOutcome::Rejected,
+		}
 	}
 
 	/// Remove the peer. Should be called when we see a peer being disconnected.
@@ -636,6 +656,7 @@ mod tests {
 				TryAcceptOutcome::Replaced([first_peer].into_iter().collect())
 			);
 			assert_eq!(connected.peer_info(&new_peer).unwrap(), &default_connected_state());
+			assert_eq!(connected.peer_info(&first_peer), None);
 
 			assert_eq!(connected.peer_score(&first_peer, &para_1), None);
 			assert_eq!(
@@ -715,13 +736,18 @@ mod tests {
 						}
 					)
 					.await,
-				TryAcceptOutcome::Replaced([first_peer].into_iter().collect())
+				TryAcceptOutcome::Replaced(HashSet::new())
 			);
+
+			assert_eq!(connected.peer_info(&first_peer).unwrap(), &default_connected_state());
 
 			assert_eq!(
 				connected.try_accept(rep_query_fn, new_peer, default_connected_state()).await,
 				TryAcceptOutcome::Replaced([first_peer, fourth_peer].into_iter().collect())
 			);
+			assert_eq!(connected.peer_info(&first_peer), None);
+			assert_eq!(connected.peer_info(&fourth_peer), None);
+
 			assert_eq!(connected.peer_info(&new_peer).unwrap(), &default_connected_state());
 
 			assert_eq!(connected.peer_score(&first_peer, &para_1), None);
@@ -766,13 +792,13 @@ mod tests {
 						}
 					)
 					.await,
-				TryAcceptOutcome::Replaced([first_peer].into_iter().collect())
+				TryAcceptOutcome::Replaced(HashSet::new())
 			);
 			assert_eq!(
 				connected.peer_info(&new_peer).unwrap(),
 				&PeerInfo { version: CollationVersion::V2, state: PeerState::Collating(para_1) }
 			);
-
+			assert_eq!(connected.peer_info(&first_peer).unwrap(), &default_connected_state());
 			assert_eq!(connected.peer_score(&first_peer, &para_1), None);
 			assert_eq!(
 				connected.peer_score(&second_peer, &para_1).unwrap(),

@@ -63,6 +63,11 @@ pub enum ReputationUpdateKind {
 #[derive(Debug, PartialEq)]
 enum TryAcceptOutcome {
 	Added,
+	// This can hold more than one `PeerId` because before receiving the `Declare` message,
+	// one peer can hold connection slots for multiple paraids.
+	// The set can also be empty if this peer replaced some other peer's slot but that other peer
+	// maintained a connection slot for another para (therefore not disconnected).
+	// The number of peers in the set is bound to the number of scheduled paras.
 	Replaced(HashSet<PeerId>),
 	Rejected,
 }
@@ -198,8 +203,6 @@ impl<B: Backend> PeerManager<B> {
 
 		// Build a closure that can be used to first query the in-memory past reputations of the
 		// peers before reaching for the DB.
-		// TODO: we could warm-up the DB for these specific paraids. (Cache them in memory on the
-		// Backend impl)
 
 		// Borrow these for use in the closure.
 		let cached_scores = &cached_scores;
@@ -224,8 +227,6 @@ impl<B: Backend> PeerManager<B> {
 					peers_to_disconnect.insert(peer_id);
 				},
 				TryAcceptOutcome::Replaced(replaced_peer_ids) => {
-					// TODO: only disconnect the ones that were not kept on any paraids. Also
-					// double-check other places where we're calling disconnect_peers.
 					peers_to_disconnect.extend(replaced_peer_ids);
 				},
 				TryAcceptOutcome::Added => {},
@@ -264,14 +265,7 @@ impl<B: Backend> PeerManager<B> {
 					"Peer switched collating paraid. Trying to accept it on the new one.",
 				);
 
-				let accepted = self
-					.try_accept_connection(sender, peer_id, peer_info.version, Some(para_id))
-					.await;
-				if accepted {
-					// TODO: log
-				} else {
-					// TODO: log
-				}
+				self.try_accept_connection(sender, peer_id, peer_info).await;
 			},
 			DeclarationOutcome::Rejected => {
 				gum::debug!(
@@ -315,8 +309,7 @@ impl<B: Backend> PeerManager<B> {
 		&mut self,
 		sender: &mut Sender,
 		peer_id: PeerId,
-		version: CollationVersion,
-		maybe_declared_para: Option<ParaId>,
+		peer_info: PeerInfo,
 	) -> bool {
 		let db = &self.db;
 		let reputation_query_fn = |peer_id: PeerId, para_id: ParaId| async move {
@@ -324,11 +317,6 @@ impl<B: Backend> PeerManager<B> {
 			db.query(&peer_id, &para_id).await.unwrap_or_default()
 		};
 
-		let peer_info = if let Some(declared_para) = maybe_declared_para {
-			PeerInfo { version, state: PeerState::Collating(declared_para) }
-		} else {
-			PeerInfo { version, state: PeerState::Connected }
-		};
 		let outcome = self.connected.try_accept(reputation_query_fn, peer_id, peer_info).await;
 
 		match outcome {
