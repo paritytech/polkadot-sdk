@@ -36,8 +36,7 @@ pub(crate) fn get_wasm_module() -> Box<dyn sc_executor_common::wasm_runtime::Was
 	)
 	.unwrap();
 
-	// Use Polkadot's ExecutorParams::MaxMemoryPages
-	let extra_heap_pages = 8192;
+	let extra_heap_pages = 4096;
 	// polkadot_node_core_pvf_common::executor_interface::DEFAULT_HEAP_PAGES_ESTIMATE
 	let default_heap_pages_estimate = 32;
 	let config = Config {
