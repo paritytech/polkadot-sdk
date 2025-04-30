@@ -19,7 +19,7 @@ use crate::{
 };
 use alloc::vec::Vec;
 use sp_consensus_babe::{
-	digests::{CompatibleDigestItem, NextEpochDescriptor, PreDigest},
+	digests::{CompatibleDigestItem, NextEpochDescriptor},
 	AuthorityIndex, AuthorityPair,
 };
 use sp_core::Pair;
