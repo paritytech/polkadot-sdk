@@ -1,7 +1,9 @@
 title: 'WIP: DNM - prdoc for bridges'
 doc:
 - audience: Runtime Dev
-  description: null
+  description: |-
+    WIP
+
 crates:
 - name: pallet-xcm-bridge-hub-router
   bump: patch
