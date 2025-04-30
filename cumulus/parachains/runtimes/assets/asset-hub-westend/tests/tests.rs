@@ -52,8 +52,8 @@ use hex_literal::hex;
 use parachains_common::{AccountId, AssetIdForTrustBackedAssets, AuraId, Balance};
 use sp_consensus_aura::SlotDuration;
 use sp_core::crypto::Ss58Codec;
-use sp_runtime::{traits::MaybeEquivalence, Either, SaturatedConversion};
-use std::{convert::Into, ops::Mul};
+use sp_runtime::{traits::MaybeEquivalence, Either};
+use std::convert::Into;
 use testnet_parachains_constants::westend::{consensus::*, currency::UNITS, fee::WeightToFee};
 use xcm::latest::{
 	prelude::{Assets as XcmAssets, *},
@@ -61,9 +61,7 @@ use xcm::latest::{
 };
 use xcm_builder::WithLatestLocationConverter;
 use xcm_executor::traits::{ConvertLocation, JustTry, WeightTrader};
-use xcm_runtime_apis::{
-	conversions::LocationToAccountHelper, fees::runtime_decl_for_xcm_payment_api::XcmPaymentApiV1,
-};
+use xcm_runtime_apis::conversions::LocationToAccountHelper;
 
 const ALICE: [u8; 32] = [1u8; 32];
 const SOME_ASSET_ADMIN: [u8; 32] = [5u8; 32];
