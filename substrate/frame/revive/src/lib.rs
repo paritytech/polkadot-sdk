@@ -510,6 +510,15 @@ pub mod pallet {
 		AddressMapping,
 	}
 
+	#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+	pub enum ExecContext {
+		/// A normal transaction execution, where the nonce has been pre-incremented.
+		Transaction,
+
+		/// A dry run execution (through RPC), where the nonce has not been incremented.
+		DryRun,
+	}
+
 	/// A mapping from a contract's code hash to its code.
 	#[pallet::storage]
 	pub(crate) type PristineCode<T: Config> = StorageMap<_, Identity, H256, CodeVec>;
@@ -737,6 +746,7 @@ pub mod pallet {
 				gas_limit,
 				DepositLimit::Balance(storage_deposit_limit),
 				data,
+				ExecContext::Transaction,
 			);
 
 			if let Ok(return_value) = &output.result {
@@ -774,6 +784,7 @@ pub mod pallet {
 				Code::Existing(code_hash),
 				data,
 				salt,
+				ExecContext::Transaction,
 			);
 			if let Ok(retval) = &output.result {
 				if retval.result.did_revert() {
@@ -838,6 +849,7 @@ pub mod pallet {
 				Code::Upload(code),
 				data,
 				salt,
+				ExecContext::Transaction,
 			);
 			if let Ok(retval) = &output.result {
 				if retval.result.did_revert() {
@@ -1002,6 +1014,7 @@ where
 		gas_limit: Weight,
 		storage_deposit_limit: DepositLimit<BalanceOf<T>>,
 		data: Vec<u8>,
+		exec_context: ExecContext,
 	) -> ContractResult<ExecReturnValue, BalanceOf<T>> {
 		let mut gas_meter = GasMeter::new(gas_limit);
 		let mut storage_deposit = Default::default();
@@ -1019,7 +1032,7 @@ where
 				&mut storage_meter,
 				Self::convert_native_to_evm(value),
 				data,
-				storage_deposit_limit.is_unchecked(),
+				exec_context,
 			)?;
 			storage_deposit = storage_meter
 				.try_into_deposit(&origin, storage_deposit_limit.is_unchecked())
@@ -1050,6 +1063,7 @@ where
 		code: Code,
 		data: Vec<u8>,
 		salt: Option<[u8; 32]>,
+		exec_context: ExecContext,
 	) -> ContractResult<InstantiateReturnValue, BalanceOf<T>> {
 		let mut gas_meter = GasMeter::new(gas_limit);
 		let mut storage_deposit = Default::default();
@@ -1091,7 +1105,7 @@ where
 				Self::convert_native_to_evm(value),
 				data,
 				salt.as_ref(),
-				unchecked_deposit_limit,
+				exec_context,
 			);
 			storage_deposit = storage_meter
 				.try_into_deposit(&instantiate_origin, unchecked_deposit_limit)?
@@ -1133,6 +1147,9 @@ where
 
 		let from = tx.from.unwrap_or_default();
 		let origin = T::AddressMapper::to_account_id(&from);
+
+		let exec_context =
+			if tx.gas.is_some() { ExecContext::Transaction } else { ExecContext::DryRun };
 
 		let storage_deposit_limit = if tx.gas.is_some() {
 			DepositLimit::Balance(BalanceOf::<T>::max_value())
@@ -1192,6 +1209,7 @@ where
 					gas_limit,
 					storage_deposit_limit,
 					input.clone(),
+					exec_context,
 				);
 
 				let data = match result.result {
@@ -1252,6 +1270,7 @@ where
 					Code::Upload(code.to_vec()),
 					data.to_vec(),
 					None,
+					ExecContext::DryRun,
 				);
 
 				let returned_data = match result.result {

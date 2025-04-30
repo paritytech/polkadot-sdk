@@ -2373,6 +2373,7 @@ impl_runtime_apis! {
 				gas_limit.unwrap_or(blockweights.max_block),
 				pallet_revive::DepositLimit::Balance(storage_deposit_limit.unwrap_or(u128::MAX)),
 				input_data,
+				pallet_revive::ExecContext::DryRun,
 			)
 		}
 
@@ -2395,6 +2396,7 @@ impl_runtime_apis! {
 				code,
 				data,
 				salt,
+				pallet_revive::ExecContext::DryRun,
 			)
 		}
 

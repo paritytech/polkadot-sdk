@@ -26,7 +26,7 @@ use crate::{
 	tracing::if_tracing,
 	transient_storage::TransientStorage,
 	BalanceOf, CodeInfo, CodeInfoOf, Config, ContractInfo, ContractInfoOf, ConversionPrecision,
-	Error, Event, ImmutableData, ImmutableDataOf, Pallet as Contracts,
+	Error, Event, ExecContext, ImmutableData, ImmutableDataOf, Pallet as Contracts,
 };
 use alloc::vec::Vec;
 use core::{fmt::Debug, marker::PhantomData, mem};
@@ -516,7 +516,7 @@ pub struct Stack<'a, T: Config, E> {
 	transient_storage: TransientStorage<T>,
 	/// Whether or not actual transfer of funds should be performed.
 	/// This is set to `true` exclusively when we simulate a call through eth_transact.
-	skip_transfer: bool,
+	exec_context: ExecContext,
 	/// No executable is held by the struct but influences its behaviour.
 	_phantom: PhantomData<E>,
 }
@@ -591,6 +591,7 @@ enum FrameArgs<'a, T: Config, E> {
 		salt: Option<&'a [u8; 32]>,
 		/// The input data is used in the contract address derivation of the new contract.
 		input_data: &'a [u8],
+		is_transaction: bool,
 	},
 }
 
@@ -727,7 +728,7 @@ where
 		storage_meter: &'a mut storage::meter::Meter<T>,
 		value: U256,
 		input_data: Vec<u8>,
-		skip_transfer: bool,
+		exec_context: ExecContext,
 	) -> ExecResult {
 		let dest = T::AddressMapper::to_account_id(&dest);
 		if let Some((mut stack, executable)) = Self::new(
@@ -736,7 +737,7 @@ where
 			gas_meter,
 			storage_meter,
 			value,
-			skip_transfer,
+			exec_context,
 		)? {
 			stack.run(executable, input_data).map(|_| stack.first_frame.last_frame_output)
 		} else {
@@ -774,7 +775,7 @@ where
 		value: U256,
 		input_data: Vec<u8>,
 		salt: Option<&[u8; 32]>,
-		skip_transfer: bool,
+		exec_context: ExecContext,
 	) -> Result<(H160, ExecReturnValue), ExecError> {
 		let (mut stack, executable) = Self::new(
 			FrameArgs::Instantiate {
@@ -782,12 +783,13 @@ where
 				executable,
 				salt,
 				input_data: input_data.as_ref(),
+				is_transaction: exec_context == ExecContext::Transaction,
 			},
 			Origin::from_account_id(origin),
 			gas_meter,
 			storage_meter,
 			value,
-			skip_transfer,
+			exec_context,
 		)?
 		.expect(FRAME_ALWAYS_EXISTS_ON_INSTANTIATE);
 		let address = T::AddressMapper::to_address(&stack.top_frame().account_id);
@@ -830,7 +832,7 @@ where
 		gas_meter: &'a mut GasMeter<T>,
 		storage_meter: &'a mut storage::meter::Meter<T>,
 		value: U256,
-		skip_transfer: bool,
+		exec_context: ExecContext,
 	) -> Result<Option<(Self, E)>, ExecError> {
 		origin.ensure_mapped()?;
 		let Some((first_frame, executable)) = Self::new_frame(
@@ -856,7 +858,7 @@ where
 			first_frame,
 			frames: Default::default(),
 			transient_storage: TransientStorage::new(limits::TRANSIENT_STORAGE_BYTES),
-			skip_transfer,
+			exec_context,
 			_phantom: Default::default(),
 		};
 
@@ -913,7 +915,7 @@ where
 						nested_gas,
 					)
 				},
-				FrameArgs::Instantiate { sender, executable, salt, input_data } => {
+				FrameArgs::Instantiate { sender, executable, salt, input_data, is_transaction } => {
 					let deployer = T::AddressMapper::to_address(&sender);
 					let account_nonce = <System<T>>::account_nonce(&sender);
 					let address = if let Some(salt) = salt {
@@ -924,7 +926,7 @@ where
 							&deployer,
 							// the Nonce from the origin has been incremented pre-dispatch, so we
 							// need to subtract 1 to get the nonce at the time of the call.
-							if origin_is_caller {
+							if origin_is_caller && is_transaction {
 								account_nonce.saturating_sub(1u32.into()).saturated_into()
 							} else {
 								account_nonce.saturated_into()
@@ -1059,10 +1061,13 @@ where
 
 				let ed = <Contracts<T>>::min_balance();
 				frame.nested_storage.record_charge(&StorageDeposit::Charge(ed));
-				if self.skip_transfer {
-					T::Currency::set_balance(account_id, ed);
-				} else {
-					T::Currency::transfer(origin, account_id, ed, Preservation::Preserve)?;
+				match self.exec_context {
+					ExecContext::DryRun => {
+						T::Currency::set_balance(account_id, ed);
+					},
+					ExecContext::Transaction => {
+						T::Currency::transfer(origin, account_id, ed, Preservation::Preserve)?;
+					},
 				}
 
 				// A consumer is added at account creation and removed it on termination, otherwise
@@ -1621,6 +1626,7 @@ where
 				executable,
 				salt,
 				input_data: input_data.as_ref(),
+				is_transaction: false,
 			},
 			value.try_into().map_err(|_| Error::<T>::BalanceConversionFailed)?,
 			gas_limit,

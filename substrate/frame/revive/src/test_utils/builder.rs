@@ -137,6 +137,7 @@ builder!(
 		code: Code,
 		data: Vec<u8>,
 		salt: Option<[u8; 32]>,
+		exec_context: crate::ExecContext,
 	) -> ContractResult<InstantiateReturnValue, BalanceOf<T>>;
 
 	/// Build the instantiate call and unwrap the result.
@@ -164,6 +165,7 @@ builder!(
 			code,
 			data: vec![],
 			salt: Some([0; 32]),
+			exec_context: crate::ExecContext::Transaction,
 		}
 	}
 );
@@ -199,6 +201,7 @@ builder!(
 		gas_limit: Weight,
 		storage_deposit_limit: DepositLimit<BalanceOf<T>>,
 		data: Vec<u8>,
+		exec_context: crate::ExecContext,
 	) -> ContractResult<ExecReturnValue, BalanceOf<T>>;
 
 	/// Build the call and unwrap the result.
@@ -215,6 +218,7 @@ builder!(
 			gas_limit: GAS_LIMIT,
 			storage_deposit_limit: DepositLimit::Balance(deposit_limit::<T>()),
 			data: vec![],
+			exec_context: crate::ExecContext::Transaction,
 		}
 	}
 );
