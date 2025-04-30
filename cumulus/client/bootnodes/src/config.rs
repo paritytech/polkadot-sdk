@@ -23,6 +23,8 @@ use sc_network::{
 use sp_runtime::traits::Block as BlockT;
 use std::time::Duration;
 
+/// Maximum number of addresses allowed in the response.
+pub const MAX_ADDRESSES: usize = 32;
 /// Expected maximum number of simultaneous requests from remote peers.
 /// Should be enough for a testnet with a plenty of nodes starting at the same time.
 const INBOUND_CHANNEL_SIZE: usize = 1000;

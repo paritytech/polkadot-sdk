@@ -32,7 +32,7 @@
 //!     requests over the `/paranode` protocol succeded or failed, but we have not found any
 //!     bootnode addresses, we repeat the discovery process up to `MAX_DISCOVERY_ATTEMPTS` times.
 
-use crate::schema::Response;
+use crate::{config::MAX_ADDRESSES, schema::Response};
 use codec::{CompactRef, Decode, Encode};
 use cumulus_primitives_core::{relay_chain::Hash as RelayHash, ParaId};
 use cumulus_relay_chain_interface::{RelayChainError, RelayChainInterface, RelayChainResult};
@@ -347,13 +347,14 @@ impl BootnodeDiscovery {
 			.addrs
 			.into_iter()
 			.map(Multiaddr::try_from)
+			.take(MAX_ADDRESSES)
 			.collect::<Result<Vec<_>, _>>();
 		let paranode_addresses = match paranode_addresses {
 			Ok(paranode_addresses) => paranode_addresses,
 			Err(e) => {
 				warn!(
 					target: LOG_TARGET,
-					"Failed to decode parachain addresses in response from {peer_id:?}: {e}",
+					"Failed to decode parachain node addresses in response from {peer_id:?}: {e}",
 				);
 				return;
 			},

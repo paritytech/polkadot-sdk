@@ -17,6 +17,7 @@
 
 //! Parachain bootnode advertisement.
 
+use crate::config::MAX_ADDRESSES;
 use codec::{Compact, CompactRef, Decode, Encode};
 use cumulus_primitives_core::{
 	relay_chain::{Hash as RelayHash, Header as RelayHeader},
@@ -43,9 +44,6 @@ use tokio::time::Sleep;
 
 /// Log target for this file.
 const LOG_TARGET: &str = "bootnodes::advertisement";
-
-/// Maximum number of addresses to return via requset-response protocol.
-const MAX_ADDRESSES: usize = 32;
 
 /// Delay before retrying the DHT content provider publish operation.
 const RETRY_DELAY: std::time::Duration = std::time::Duration::from_secs(30);
