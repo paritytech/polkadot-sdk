@@ -490,7 +490,8 @@ pub mod helpers {
 		/// Asserts that exactly one topic ID is tracked across all chains.
 		pub fn assert_unique() {
 			TRACKED_TOPIC_IDS.with(|b| {
-				let ids: HashSet<_> = b.borrow().values().collect();
+				let r = b.borrow();
+				let ids: HashSet<_> = r.values().collect();
 				assert_eq!(
 					ids.len(),
 					1,
