@@ -1435,9 +1435,14 @@ pub mod pallet {
 		/// Emits `Withdrawn`.
 		///
 		/// See also [`Call::unbond`].
+		///
+		/// ## Parameters
+		///
+		/// - `num_slashing_spans`: **Deprecated**. This parameter is retained for backward
+		/// compatibility. It no longer has any effect.
 		#[pallet::call_index(3)]
 		#[pallet::weight(T::WeightInfo::withdraw_unbonded_kill())]
-		pub fn withdraw_unbonded(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
+		pub fn withdraw_unbonded(origin: OriginFor<T>, _num_slashing_spans: u32) -> DispatchResultWithPostInfo {
 			let controller = ensure_signed(origin)?;
 
 			let actual_weight = Self::do_withdraw_unbonded(&controller)?;
@@ -1740,9 +1745,14 @@ pub mod pallet {
 		/// Force a current staker to become completely unstaked, immediately.
 		///
 		/// The dispatch origin must be Root.
+		/// ## Parameters
+		///
+		/// - `stash`: The stash account to be unstaked.
+		/// - `num_slashing_spans`: **Deprecated**. This parameter is retained for backward
+		/// compatibility. It no longer has any effect.
 		#[pallet::call_index(15)]
 		#[pallet::weight(T::WeightInfo::force_unstake())]
-		pub fn force_unstake(origin: OriginFor<T>, stash: T::AccountId) -> DispatchResult {
+		pub fn force_unstake(origin: OriginFor<T>, stash: T::AccountId, _num_slashing_spans: u32) -> DispatchResult {
 			ensure_root(origin)?;
 
 			// Remove all staking-related information and lock.
@@ -1881,9 +1891,15 @@ pub mod pallet {
 		/// It can be called by anyone, as long as `stash` meets the above requirements.
 		///
 		/// Refunds the transaction fees upon successful execution.
+		///
+		/// ## Parameters
+		///
+		/// - `stash`: The stash account to be reaped.
+		/// - `num_slashing_spans`: **Deprecated**. This parameter is retained for backward
+		/// compatibility. It no longer has any effect.
 		#[pallet::call_index(20)]
 		#[pallet::weight(T::WeightInfo::reap_stash())]
-		pub fn reap_stash(origin: OriginFor<T>, stash: T::AccountId) -> DispatchResultWithPostInfo {
+		pub fn reap_stash(origin: OriginFor<T>, stash: T::AccountId, _num_slashing_spans: u32) -> DispatchResultWithPostInfo {
 			let _ = ensure_signed(origin)?;
 
 			// virtual stakers should not be allowed to be reaped.

@@ -29,9 +29,9 @@ fn force_unstake_works() {
 		);
 
 		// Force unstake requires root.
-		assert_noop!(Staking::force_unstake(RuntimeOrigin::signed(11), 11), BadOrigin);
+		assert_noop!(Staking::force_unstake(RuntimeOrigin::signed(11), 11, 0), BadOrigin);
 
-		assert_ok!(Staking::force_unstake(RuntimeOrigin::root(), 11));
+		assert_ok!(Staking::force_unstake(RuntimeOrigin::root(), 11, 0));
 
 		// No longer bonded, can transfer out
 		assert_eq!(Staking::bonded(&11), None);

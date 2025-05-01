@@ -1504,7 +1504,7 @@ impl<T: Config> StakingInterface for Pallet<T> {
 		_num_slashing_spans: u32,
 	) -> Result<bool, DispatchError> {
 		let ctrl = Self::bonded(&who).ok_or(Error::<T>::NotStash)?;
-		Self::withdraw_unbonded(RawOrigin::Signed(ctrl.clone()).into())
+		Self::withdraw_unbonded(RawOrigin::Signed(ctrl.clone()).into(), 0)
 			.map(|_| !StakingLedger::<T>::is_bonded(StakingAccount::Controller(ctrl)))
 			.map_err(|with_post| with_post.error)
 	}
@@ -1536,7 +1536,7 @@ impl<T: Config> StakingInterface for Pallet<T> {
 	}
 
 	fn force_unstake(who: Self::AccountId) -> sp_runtime::DispatchResult {
-		Self::force_unstake(RawOrigin::Root.into(), who.clone())
+		Self::force_unstake(RawOrigin::Root.into(), who.clone(), 0)
 	}
 
 	fn is_exposed_in_era(who: &Self::AccountId, era: &EraIndex) -> bool {

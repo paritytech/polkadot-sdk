@@ -672,7 +672,7 @@ fn garbage_collection_after_slashing() {
 			// Non staked balance is not touched.
 			assert_eq!(asset::total_balance::<T>(&11), ExistentialDeposit::get());
 
-			assert_ok!(Staking::reap_stash(RuntimeOrigin::signed(20), 11));
+			assert_ok!(Staking::reap_stash(RuntimeOrigin::signed(20), 11, 0));
 		})
 }
 
@@ -770,7 +770,7 @@ fn staker_cannot_bail_deferred_slash() {
 
 			// and cannot yet unbond:
 			assert_storage_noop!(assert!(
-				Staking::withdraw_unbonded(RuntimeOrigin::signed(101),).is_ok()
+				Staking::withdraw_unbonded(RuntimeOrigin::signed(101), 0).is_ok()
 			));
 
 			// first block of era 3, slashes are applied.
