@@ -683,29 +683,32 @@ fn only_slash_nominator_for_max_in_era() {
 }
 
 #[test]
-fn garbage_collection_after_slashing() {
+fn fully_slashed_account_can_be_reaped() {
 	// ensures that `SlashingSpans` and `SpanSlash` of an account is removed after reaping.
 	ExtBuilder::default()
 		.existential_deposit(2)
 		.balance_factor(2)
 		.build_and_execute(|| {
+			// Given a bonded account.
 			assert_eq!(asset::stakeable_balance::<T>(&11), 2000);
 
+			// When slashed.
 			add_slash_with_percent(11, 10);
 			Session::roll_next();
 
+			// Then the account's balance is reduced.
 			assert_eq!(asset::stakeable_balance::<T>(&11), 2000 - 200);
 
+			// When fully slashed.
 			add_slash_with_percent(11, 100);
 			Session::roll_next();
 
-			// validator and nominator slash in era are garbage-collected by era change,
-			// so we don't test those here.
-
+			// Then the account's balance is reduced to 0.
 			assert_eq!(asset::stakeable_balance::<T>(&11), 0);
 			// Non staked balance is not touched.
 			assert_eq!(asset::total_balance::<T>(&11), ExistentialDeposit::get());
 
+			// And the account can be reaped.
 			assert_ok!(Staking::reap_stash(RuntimeOrigin::signed(20), 11, 0));
 		})
 }

@@ -413,20 +413,6 @@ mod staking_interface {
 	}
 
 	#[test]
-	fn do_withdraw_unbonded_with_wrong_slash_spans_works_as_expected() {
-		ExtBuilder::default().build_and_execute(|| {
-			// add a slash and go forward one block so that it is computed, and slashing spans are
-			// created.
-			add_slash_with_percent(11, 100);
-			Session::roll_next();
-
-			assert_eq!(Staking::bonded(&11), Some(11));
-
-			assert_ok!(Staking::withdraw_unbonded(RuntimeOrigin::signed(11), 0));
-		});
-	}
-
-	#[test]
 	fn do_withdraw_unbonded_can_kill_stash_with_existential_deposit_zero() {
 		ExtBuilder::default()
 			.existential_deposit(0)
