@@ -72,6 +72,10 @@ pub use bridge_hub_test_utils;
 #[cfg(feature = "bridge-runtime-common")]
 pub use bridge_runtime_common;
 
+/// Parachain bootnodes registration and discovery.
+#[cfg(feature = "cumulus-client-bootnodes")]
+pub use cumulus_client_bootnodes;
+
 /// Parachain node CLI utilities.
 #[cfg(feature = "cumulus-client-cli")]
 pub use cumulus_client_cli;
