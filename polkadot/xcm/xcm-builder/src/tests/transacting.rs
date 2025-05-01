@@ -149,7 +149,7 @@ fn report_successful_transact_status_should_work() {
 	);
 	assert_eq!(r, Outcome::Complete { used: Weight::from_parts(70, 70) });
 	let xcm_sent = sent_xcm();
-	let expected_hash: XcmHash = TopicIdTracker::get().into();
+	let expected_hash: XcmHash = TopicIdTracker::get_unique_id().into();
 	let expected_msg = Xcm(vec![
 		QueryResponse {
 			response: Response::DispatchResult(MaybeErrorCode::Success),
@@ -190,7 +190,7 @@ fn report_failed_transact_status_should_work() {
 	);
 	assert_eq!(r, Outcome::Complete { used: Weight::from_parts(70, 70) });
 	let xcm_sent = sent_xcm();
-	let expected_hash: XcmHash = TopicIdTracker::get().into();
+	let expected_hash: XcmHash = TopicIdTracker::get_unique_id().into();
 	let expected_msg = Xcm(vec![
 		QueryResponse {
 			response: Response::DispatchResult(vec![2].into()),
@@ -324,7 +324,7 @@ fn clear_transact_status_should_work() {
 	);
 	assert_eq!(r, Outcome::Complete { used: Weight::from_parts(80, 80) });
 	let xcm_sent = sent_xcm();
-	let expected_hash: XcmHash = TopicIdTracker::get().into();
+	let expected_hash: XcmHash = TopicIdTracker::get_unique_id().into();
 	let expected_msg = Xcm(vec![
 		QueryResponse {
 			response: Response::DispatchResult(MaybeErrorCode::Success),

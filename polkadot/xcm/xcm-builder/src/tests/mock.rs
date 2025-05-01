@@ -185,7 +185,7 @@ impl SendXcm for TestMessageSenderImpl {
 	fn deliver(triplet: (Location, Xcm<()>, XcmHash)) -> Result<XcmHash, SendError> {
 		let hash = triplet.2;
 		SENT_XCM.with(|q| q.borrow_mut().push(triplet));
-		TopicIdTracker::insert(hash.into());
+		TopicIdTracker::insert_unique_id(hash.into());
 		Ok(hash)
 	}
 }
@@ -230,7 +230,7 @@ impl ExportXcm for TestMessageExporter {
 			} else {
 				let hash = tuple.5;
 				EXPORTED_XCM.with(|q| q.borrow_mut().push(tuple));
-				TopicIdTracker::insert(hash.into());
+				TopicIdTracker::insert_unique_id(hash.into());
 				Ok(hash)
 			}
 		})

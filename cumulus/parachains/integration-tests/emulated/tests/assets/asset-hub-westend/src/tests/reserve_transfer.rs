@@ -440,7 +440,7 @@ pub fn para_to_para_through_hop_sender_assertions<Hop: Clone>(t: Test<PenpalA, P
 	}
 
 	let msg_id_sent = find_xcm_sent_message_id::<PenpalA>().expect("Missing Sent Event");
-	TopicIdTracker::expect_insert_unique(msg_id_sent.into());
+	TopicIdTracker::insert_all_and_assert_unique(msg_id_sent.into());
 }
 
 fn para_to_para_relay_hop_assertions(t: ParaToParaThroughRelayTest) {
@@ -516,7 +516,7 @@ pub fn para_to_para_through_hop_receiver_assertions<Hop: Clone>(t: Test<PenpalA,
 	}
 
 	let mq_prc_id = find_mq_processed_id::<PenpalB>().expect("Missing Processed Event");
-	TopicIdTracker::expect_insert_unique(mq_prc_id.into());
+	TopicIdTracker::insert_all_and_assert_unique(mq_prc_id.into());
 }
 
 fn relay_to_para_reserve_transfer_assets(t: RelayToParaTest) -> DispatchResult {

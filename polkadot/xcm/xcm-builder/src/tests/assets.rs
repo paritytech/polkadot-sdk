@@ -191,7 +191,7 @@ fn reserve_transfer_should_work() {
 	assert_eq!(r, Outcome::Complete { used: Weight::from_parts(10, 10) });
 
 	let xcm_sent = sent_xcm();
-	let expected_hash: XcmHash = TopicIdTracker::get().into();
+	let expected_hash: XcmHash = TopicIdTracker::get_unique_id().into();
 	let expected_msg = Xcm::<()>(vec![
 		ReserveAssetDeposited((Parent, 100u128).into()),
 		ClearOrigin,

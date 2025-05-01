@@ -177,11 +177,6 @@ fn xcm_persists_set_topic_across_hops() {
 				bx!(xcm),
 			));
 
-			// Track expected topic ID (if provided) to compare against sent and processed IDs
-			if let Some(expected) = test_topic_id {
-				TopicIdTracker::insert("Test", expected.into());
-			}
-
 			let msg_id_sent = find_xcm_sent_message_id::<Westend>().expect("Missing Sent Event");
 			TopicIdTracker::insert("Westend", msg_id_sent.into());
 		});
@@ -193,6 +188,9 @@ fn xcm_persists_set_topic_across_hops() {
 		});
 
 		// Assert exactly one consistent topic ID across all hops
+		if let Some(expected) = test_topic_id {
+			assert_eq!(TopicIdTracker::get_unique_id(), expected.into());
+		}
 		assert_eq!(TopicIdTracker::get("Westend"), TopicIdTracker::get("BridgeHubWestend"));
 		TopicIdTracker::assert_unique();
 	}

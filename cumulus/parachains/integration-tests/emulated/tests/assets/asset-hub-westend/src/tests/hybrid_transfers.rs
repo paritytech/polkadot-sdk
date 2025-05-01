@@ -57,7 +57,7 @@ fn para_to_para_assethub_hop_assertions(t: ParaToParaThroughAHTest) {
 	);
 
 	let topic_ids = find_all_xcm_topic_ids::<AssetHubWestend>();
-	TopicIdTracker::expect_insert_multi_unique(topic_ids);
+	TopicIdTracker::insert_all_and_assert_unique(topic_ids);
 }
 
 fn ah_to_para_transfer_assets(t: SystemParaToParaTest) -> DispatchResult {
@@ -118,7 +118,7 @@ fn para_to_para_transfer_assets_through_ah(t: ParaToParaThroughAHTest) -> Dispat
 	);
 
 	let msg_id_sent = find_xcm_sent_message_id::<PenpalA>().expect("Missing Sent Event");
-	TopicIdTracker::expect_insert_unique(msg_id_sent.into());
+	TopicIdTracker::insert_all_and_assert_unique(msg_id_sent.into());
 
 	result
 }
