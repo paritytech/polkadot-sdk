@@ -42,7 +42,7 @@ use cumulus_primitives_core::{
 	OutboundHrmpMessage, ParaId, PersistedValidationData, UpwardMessage, UpwardMessageSender,
 	XcmpMessageHandler, XcmpMessageSource,
 };
-use cumulus_primitives_parachain_inherent::{MessageQueueChain, ParachainInherentData};
+use cumulus_primitives_parachain_inherent::{legacy, MessageQueueChain, ParachainInherentData};
 use frame_support::{
 	defensive,
 	dispatch::DispatchResult,
@@ -77,6 +77,7 @@ pub mod consensus_hook;
 pub mod relay_state_snapshot;
 #[macro_use]
 pub mod validate_block;
+mod descendant_validation;
 
 use unincluded_segment::{
 	HrmpChannelUpdate, HrmpWatermarkUpdate, OutboundBandwidthLimits, SegmentTracker,
@@ -111,6 +112,7 @@ pub use unincluded_segment::{Ancestor, UsedBandwidth};
 
 pub use pallet::*;
 
+const LOG_TARGET: &str = "parachain-system";
 /// Something that can check the associated relay block number.
 ///
 /// Each Parachain block is built in the context of a relay chain block, this trait allows us
@@ -298,6 +300,8 @@ pub mod pallet {
 
 		/// Select core.
 		type SelectCore: SelectCore;
+
+		type RelayParentOffset: Get<u32>;
 	}
 
 	#[pallet::hooks]
@@ -627,6 +631,7 @@ pub mod pallet {
 				relay_chain_state,
 				downward_messages,
 				horizontal_messages,
+				relay_parent_descendants,
 			} = data;
 
 			// Check that the associated relay chain block number is as expected.
@@ -641,6 +646,23 @@ pub mod pallet {
 				relay_chain_state.clone(),
 			)
 			.expect("Invalid relay chain state proof");
+
+			let expected_number_of_parents = T::RelayParentOffset::get();
+
+			if expected_number_of_parents > 0 {
+				if let Err(err) = descendant_validation::verify_relay_parent_descendants(
+					&relay_state_proof,
+					relay_parent_descendants,
+					vfp.relay_parent_storage_root,
+					expected_number_of_parents,
+				) {
+					panic!(
+						"Unable to verify provided relay parent descendants. \
+						expected_number_of_parents: {expected_number_of_parents} \
+						error: {err:?}"
+					);
+				};
+			}
 
 			// Update the desired maximum capacity according to the consensus hook.
 			let (consensus_hook_weight, capacity) =
@@ -678,9 +700,9 @@ pub mod pallet {
 				},
 				Some(relay_chain::UpgradeGoAhead::GoAhead) => {
 					assert!(
-						<PendingValidationCode<T>>::exists(),
-						"No new validation function found in storage, GoAhead signal is not expected",
-					);
+                        <PendingValidationCode<T>>::exists(),
+                        "No new validation function found in storage, GoAhead signal is not expected",
+                    );
 					let validation_code = <PendingValidationCode<T>>::take();
 
 					frame_system::Pallet::<T>::update_code_in_storage(&validation_code);
@@ -967,10 +989,18 @@ pub mod pallet {
 			cumulus_primitives_parachain_inherent::INHERENT_IDENTIFIER;
 
 		fn create_inherent(data: &InherentData) -> Option<Self::Call> {
-			let mut data: ParachainInherentData =
-				data.get_data(&Self::INHERENT_IDENTIFIER).ok().flatten().expect(
-					"validation function params are always injected into inherent data; qed",
-				);
+			let mut data: ParachainInherentData = {
+				match data.get_data(&Self::INHERENT_IDENTIFIER).ok().flatten() {
+					Some(data) => data,
+					None => {
+						// If decoding of parachain inherent data fails, we try to decode
+						// the old variant without the relay parent descendants.
+						let data: legacy::ParachainInherentData =
+							data.get_data(&Self::INHERENT_IDENTIFIER).ok().flatten().expect("validation function params are always injected into inherent data; qed");
+						data.into()
+					},
+				}
+			};
 
 			Self::drop_processed_messages_from_inherent(&mut data);
 
@@ -1063,7 +1093,7 @@ impl<T: Config> GetChannelInfo for Pallet<T> {
 		let channels = match RelevantMessagingState::<T>::get() {
 			None => {
 				log::warn!("calling `get_channel_status` with no RelevantMessagingState?!");
-				return ChannelStatus::Closed
+				return ChannelStatus::Closed;
 			},
 			Some(d) => d.egress_channels,
 		};
@@ -1080,7 +1110,7 @@ impl<T: Config> GetChannelInfo for Pallet<T> {
 		let meta = &channels[index].1;
 		if meta.msg_count + 1 > meta.max_capacity {
 			// The channel is at its capacity. Skip it for now.
-			return ChannelStatus::Full
+			return ChannelStatus::Full;
 		}
 		let max_size_now = meta.max_total_size - meta.total_size;
 		let max_size_ever = meta.max_message_size;
@@ -1602,7 +1632,7 @@ impl<T: Config> Pallet<T> {
 		// However, changing this setting is expected to be rare.
 		if let Some(cfg) = HostConfiguration::<T>::get() {
 			if message_len > cfg.max_upward_message_size as usize {
-				return Err(MessageSendError::TooBig)
+				return Err(MessageSendError::TooBig);
 			}
 			let threshold =
 				cfg.max_upward_queue_size.saturating_div(ump_constants::THRESHOLD_FACTOR);
@@ -1789,13 +1819,13 @@ impl<T: Config> BlockNumberProvider for RelaychainDataProvider<T> {
 	#[cfg(feature = "runtime-benchmarks")]
 	fn set_block_number(block: Self::BlockNumber) {
 		let mut validation_data = ValidationData::<T>::get().unwrap_or_else(||
-			// PersistedValidationData does not impl default in non-std
-			PersistedValidationData {
-				parent_head: vec![].into(),
-				relay_parent_number: Default::default(),
-				max_pov_size: Default::default(),
-				relay_parent_storage_root: Default::default(),
-			});
+            // PersistedValidationData does not impl default in non-std
+            PersistedValidationData {
+                parent_head: vec![].into(),
+                relay_parent_number: Default::default(),
+                max_pov_size: Default::default(),
+                relay_parent_storage_root: Default::default(),
+            });
 		validation_data.relay_parent_number = block;
 		ValidationData::<T>::put(validation_data)
 	}

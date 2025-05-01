@@ -33,7 +33,8 @@ use cumulus_client_consensus_common::{
 use cumulus_client_consensus_proposer::ProposerInterface;
 use cumulus_client_parachain_inherent::{ParachainInherentData, ParachainInherentDataProvider};
 use cumulus_primitives_core::{
-	relay_chain::Hash as PHash, DigestItem, ParachainBlockData, PersistedValidationData,
+	relay_chain::{Hash as PHash, Header as RelayHeader},
+	DigestItem, ParachainBlockData, PersistedValidationData,
 };
 use cumulus_relay_chain_interface::RelayChainInterface;
 
@@ -117,19 +118,23 @@ where
 	}
 
 	/// Explicitly creates the inherent data for parachain block authoring and overrides
-	/// the timestamp inherent data with the one provided, if any.
-	pub async fn create_inherent_data(
+	/// the timestamp inherent data with the one provided, if any. Additionally allows to specify
+	/// relay parent descendants that can be used to prevent authoring at the tip of the relay
+	/// chain.
+	pub async fn create_inherent_data_with_rp_offset(
 		&self,
 		relay_parent: PHash,
 		validation_data: &PersistedValidationData,
 		parent_hash: Block::Hash,
 		timestamp: impl Into<Option<Timestamp>>,
+		relay_parent_descendants: Vec<RelayHeader>,
 	) -> Result<(ParachainInherentData, InherentData), Box<dyn Error + Send + Sync + 'static>> {
 		let paras_inherent_data = ParachainInherentDataProvider::create_at(
 			relay_parent,
 			&self.relay_client,
 			validation_data,
 			self.para_id,
+			relay_parent_descendants,
 		)
 		.await;
 
@@ -155,6 +160,25 @@ where
 		}
 
 		Ok((paras_inherent_data, other_inherent_data))
+	}
+
+	/// Explicitly creates the inherent data for parachain block authoring and overrides
+	/// the timestamp inherent data with the one provided, if any.
+	pub async fn create_inherent_data(
+		&self,
+		relay_parent: PHash,
+		validation_data: &PersistedValidationData,
+		parent_hash: Block::Hash,
+		timestamp: impl Into<Option<Timestamp>>,
+	) -> Result<(ParachainInherentData, InherentData), Box<dyn Error + Send + Sync + 'static>> {
+		self.create_inherent_data_with_rp_offset(
+			relay_parent,
+			validation_data,
+			parent_hash,
+			timestamp,
+			Default::default(),
+		)
+		.await
 	}
 
 	/// Build and import a parachain block on the given parent header, using the given slot claim.

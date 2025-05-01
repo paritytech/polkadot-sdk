@@ -7,21 +7,28 @@
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
-// 	http://www.apache.org/licenses/LICENSE-2.0
+// http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
-// limitations under the Liense.
-use super::Precompile;
-use crate::{Config, ExecReturnValue, GasMeter, RuntimeCosts};
+// limitations under the License.
+
+use crate::{
+	precompiles::{BuiltinAddressMatcher, Error, Ext, PrimitivePrecompile},
+	wasm::RuntimeCosts,
+	Config,
+};
 use alloc::{vec, vec::Vec};
-use core::cmp::max;
+use core::{cmp::max, marker::PhantomData, num::NonZero};
 use num_bigint::BigUint;
 use num_integer::Integer;
 use num_traits::{One, Zero};
-use pallet_revive_uapi::ReturnFlags;
+use sp_runtime::DispatchError;
+
+/// See EIP-2565
+const MIN_GAS_COST: u64 = 200;
 
 /// The Modexp precompile.
 /// ModExp expects the following as inputs:
@@ -38,10 +45,112 @@ use pallet_revive_uapi::ReturnFlags;
 /// that gas limits would be applied before actual computation.
 /// maximum stack size will also prevent abuse.
 /// see <https://eips.ethereum.org/EIPS/eip-198>
-pub struct Modexp;
+pub struct Modexp<T>(PhantomData<T>);
 
-/// See EIP-2565
-const MIN_GAS_COST: u64 = 200;
+impl<T: Config> PrimitivePrecompile for Modexp<T> {
+	type T = T;
+	const MATCHER: BuiltinAddressMatcher = BuiltinAddressMatcher::Fixed(NonZero::new(5).unwrap());
+	const HAS_CONTRACT_INFO: bool = false;
+
+	fn call(
+		_address: &[u8; 20],
+		input: Vec<u8>,
+		env: &mut impl Ext<T = Self::T>,
+	) -> Result<Vec<u8>, Error> {
+		let mut input_offset = 0;
+
+		// Yellowpaper: whenever the input is too short, the missing bytes are
+		// considered to be zero.
+		let mut base_len_buf = [0u8; 32];
+		read_input(&input, &mut base_len_buf, &mut input_offset);
+		let mut exp_len_buf = [0u8; 32];
+		read_input(&input, &mut exp_len_buf, &mut input_offset);
+		let mut mod_len_buf = [0u8; 32];
+		read_input(&input, &mut mod_len_buf, &mut input_offset);
+
+		// reasonable assumption: this must fit within the Ethereum EVM's max stack size
+		let max_size_big = BigUint::from(1024u32);
+
+		let base_len_big = BigUint::from_bytes_be(&base_len_buf);
+		if base_len_big > max_size_big {
+			Err(DispatchError::from("unreasonably large base length"))?;
+		}
+
+		let exp_len_big = BigUint::from_bytes_be(&exp_len_buf);
+		if exp_len_big > max_size_big {
+			Err(DispatchError::from("unreasonably exponent length"))?;
+		}
+
+		let mod_len_big = BigUint::from_bytes_be(&mod_len_buf);
+		if mod_len_big > max_size_big {
+			Err(DispatchError::from("unreasonably large modulus length"))?;
+		}
+
+		// bounds check handled above
+		let base_len: usize = base_len_big.try_into().expect("base_len out of bounds");
+		let exp_len: usize = exp_len_big.try_into().expect("exp_len out of bounds");
+		let mod_len: usize = mod_len_big.try_into().expect("mod_len out of bounds");
+
+		// if mod_len is 0 output must be empty
+		if mod_len == 0 {
+			return Ok(Vec::new())
+		}
+
+		// Gas formula allows arbitrary large exp_len when base and modulus are empty, so we need to
+		// handle empty base first.
+		let r = if base_len == 0 && mod_len == 0 {
+			env.gas_meter_mut().charge(RuntimeCosts::Modexp(MIN_GAS_COST))?;
+
+			BigUint::zero()
+		} else {
+			// read the numbers themselves.
+			let mut base_buf = vec![0u8; base_len];
+			read_input(&input, &mut base_buf, &mut input_offset);
+			let base = BigUint::from_bytes_be(&base_buf);
+
+			let mut exp_buf = vec![0u8; exp_len];
+			read_input(&input, &mut exp_buf, &mut input_offset);
+			let exponent = BigUint::from_bytes_be(&exp_buf);
+
+			let mut mod_buf = vec![0u8; mod_len];
+			read_input(&input, &mut mod_buf, &mut input_offset);
+			let modulus = BigUint::from_bytes_be(&mod_buf);
+
+			// do our gas accounting
+			let gas_cost = calculate_gas_cost(
+				base_len as u64,
+				mod_len as u64,
+				&exponent,
+				&exp_buf,
+				modulus.is_even(),
+			);
+
+			env.gas_meter_mut().charge(RuntimeCosts::Modexp(gas_cost))?;
+
+			if modulus.is_zero() || modulus.is_one() {
+				BigUint::zero()
+			} else {
+				base.modpow(&exponent, &modulus)
+			}
+		};
+
+		// write output to given memory, left padded and same length as the modulus.
+		let bytes = r.to_bytes_be();
+
+		// always true except in the case of zero-length modulus, which leads to
+		// output of length and value 1.
+		if bytes.len() == mod_len {
+			Ok(bytes.to_vec())
+		} else if bytes.len() < mod_len {
+			let mut ret = Vec::with_capacity(mod_len);
+			ret.extend(core::iter::repeat(0).take(mod_len - bytes.len()));
+			ret.extend_from_slice(&bytes[..]);
+			Ok(ret)
+		} else {
+			return Err(DispatchError::from("failed").into());
+		}
+	}
+}
 
 // Calculate gas cost according to EIP 2565:
 // https://eips.ethereum.org/EIPS/eip-2565
@@ -118,120 +227,25 @@ fn read_input(source: &[u8], target: &mut [u8], source_offset: &mut usize) {
 	target[..len].copy_from_slice(&source[offset..][..len]);
 }
 
-impl<T: Config> Precompile<T> for Modexp {
-	fn execute(gas_meter: &mut GasMeter<T>, input: &[u8]) -> Result<ExecReturnValue, &'static str> {
-		let mut input_offset = 0;
-
-		// Yellowpaper: whenever the input is too short, the missing bytes are
-		// considered to be zero.
-		let mut base_len_buf = [0u8; 32];
-		read_input(input, &mut base_len_buf, &mut input_offset);
-		let mut exp_len_buf = [0u8; 32];
-		read_input(input, &mut exp_len_buf, &mut input_offset);
-		let mut mod_len_buf = [0u8; 32];
-		read_input(input, &mut mod_len_buf, &mut input_offset);
-
-		// reasonable assumption: this must fit within the Ethereum EVM's max stack size
-		let max_size_big = BigUint::from(1024u32);
-
-		let base_len_big = BigUint::from_bytes_be(&base_len_buf);
-		if base_len_big > max_size_big {
-			return Err("unreasonably large base length");
-		}
-
-		let exp_len_big = BigUint::from_bytes_be(&exp_len_buf);
-		if exp_len_big > max_size_big {
-			return Err("unreasonably large exponent length");
-		}
-
-		let mod_len_big = BigUint::from_bytes_be(&mod_len_buf);
-		if mod_len_big > max_size_big {
-			return Err("unreasonably large modulus length");
-		}
-
-		// bounds check handled above
-		let base_len: usize = base_len_big.try_into().expect("base_len out of bounds");
-		let exp_len: usize = exp_len_big.try_into().expect("exp_len out of bounds");
-		let mod_len: usize = mod_len_big.try_into().expect("mod_len out of bounds");
-
-		// if mod_len is 0 output must be empty
-		if mod_len == 0 {
-			return Ok(ExecReturnValue { data: vec![], flags: ReturnFlags::empty() })
-		}
-
-		// Gas formula allows arbitrary large exp_len when base and modulus are empty, so we need to
-		// handle empty base first.
-		let r = if base_len == 0 && mod_len == 0 {
-			gas_meter.charge(RuntimeCosts::Modexp(MIN_GAS_COST))?;
-
-			BigUint::zero()
-		} else {
-			// read the numbers themselves.
-			let mut base_buf = vec![0u8; base_len];
-			read_input(input, &mut base_buf, &mut input_offset);
-			let base = BigUint::from_bytes_be(&base_buf);
-
-			let mut exp_buf = vec![0u8; exp_len];
-			read_input(input, &mut exp_buf, &mut input_offset);
-			let exponent = BigUint::from_bytes_be(&exp_buf);
-
-			let mut mod_buf = vec![0u8; mod_len];
-			read_input(input, &mut mod_buf, &mut input_offset);
-			let modulus = BigUint::from_bytes_be(&mod_buf);
-
-			// do our gas accounting
-			let gas_cost = calculate_gas_cost(
-				base_len as u64,
-				mod_len as u64,
-				&exponent,
-				&exp_buf,
-				modulus.is_even(),
-			);
-
-			gas_meter.charge(RuntimeCosts::Modexp(gas_cost))?;
-
-			if modulus.is_zero() || modulus.is_one() {
-				BigUint::zero()
-			} else {
-				base.modpow(&exponent, &modulus)
-			}
-		};
-
-		// write output to given memory, left padded and same length as the modulus.
-		let bytes = r.to_bytes_be();
-
-		// always true except in the case of zero-length modulus, which leads to
-		// output of length and value 1.
-		if bytes.len() == mod_len {
-			Ok(ExecReturnValue { data: bytes.to_vec(), flags: ReturnFlags::empty() })
-		} else if bytes.len() < mod_len {
-			let mut ret = Vec::with_capacity(mod_len);
-			ret.extend(core::iter::repeat(0).take(mod_len - bytes.len()));
-			ret.extend_from_slice(&bytes[..]);
-			Ok(ExecReturnValue { data: ret.to_vec(), flags: ReturnFlags::empty() })
-		} else {
-			Err("failed")
-		}
-	}
-}
-
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use crate::pure_precompiles::test::*;
+	use crate::{
+		precompiles::tests::{run_primitive, run_test_vectors},
+		tests::Test,
+	};
 	use alloy_core::hex;
 
 	#[test]
-	fn process_consensus_tests() -> Result<(), String> {
-		test_precompile_test_vectors::<Modexp>(include_str!("./testdata/5-modexp_eip2565.json"))?;
-		Ok(())
+	fn process_consensus_tests() {
+		run_test_vectors::<Modexp<Test>>(include_str!("./testdata/5-modexp_eip2565.json"));
 	}
 
 	#[test]
 	fn test_empty_input() {
 		let input = Vec::new();
-		let result = run_precompile::<Modexp>(input).unwrap();
-		assert_eq!(result.data, Vec::<u8>::new());
+		let result = run_primitive::<Modexp<Test>>(input).unwrap();
+		assert_eq!(result, Vec::<u8>::new());
 	}
 
 	#[test]
@@ -243,8 +257,8 @@ mod tests {
 		)
 		.expect("Decode failed");
 
-		let result = run_precompile::<Modexp>(input).unwrap();
-		assert_eq!(result.data, vec![0x00]);
+		let result = run_primitive::<Modexp<Test>>(input).unwrap();
+		assert_eq!(result, vec![0x00]);
 	}
 
 	#[test]
@@ -256,8 +270,12 @@ mod tests {
 		)
 		.expect("Decode failed");
 
-		let result = run_precompile::<Modexp>(input).unwrap_err();
-		assert_eq!(result, "unreasonably large base length");
+		let result = run_primitive::<Modexp<Test>>(input).unwrap_err();
+		if let Error::Error(crate::ExecError { error: DispatchError::Other(reason), .. }) = result {
+			assert_eq!(reason, "unreasonably large base length");
+		} else {
+			panic!("Unexpected error");
+		}
 	}
 
 	#[test]
@@ -274,9 +292,9 @@ mod tests {
 
 		// 3 ^ 5 % 7 == 5
 
-		let precompile_result = run_precompile::<Modexp>(input).unwrap();
-		assert_eq!(precompile_result.data.len(), 1); // should be same length as mod
-		let result = BigUint::from_bytes_be(&precompile_result.data[..]);
+		let precompile_result = run_primitive::<Modexp<Test>>(input).unwrap();
+		assert_eq!(precompile_result.len(), 1); // should be same length as mod
+		let result = BigUint::from_bytes_be(&precompile_result[..]);
 		let expected = BigUint::parse_bytes(b"5", 10).unwrap();
 		assert_eq!(result, expected);
 	}
@@ -295,9 +313,9 @@ mod tests {
 
 		// 59999 ^ 21 % 14452 = 10055
 
-		let precompile_result = run_precompile::<Modexp>(input).unwrap();
-		assert_eq!(precompile_result.data.len(), 32); // should be same length as mod
-		let result = BigUint::from_bytes_be(&precompile_result.data[..]);
+		let precompile_result = run_primitive::<Modexp<Test>>(input).unwrap();
+		assert_eq!(precompile_result.len(), 32); // should be same length as mod
+		let result = BigUint::from_bytes_be(&precompile_result[..]);
 		let expected = BigUint::parse_bytes(b"10055", 10).unwrap();
 		assert_eq!(result, expected);
 	}
@@ -314,9 +332,9 @@ mod tests {
 		)
 		.expect("Decode failed");
 
-		let precompile_result = run_precompile::<Modexp>(input).unwrap();
-		assert_eq!(precompile_result.data.len(), 32); // should be same length as mod
-		let result = BigUint::from_bytes_be(&precompile_result.data[..]);
+		let precompile_result = run_primitive::<Modexp<Test>>(input).unwrap();
+		assert_eq!(precompile_result.len(), 32); // should be same length as mod
+		let result = BigUint::from_bytes_be(&precompile_result[..]);
 		let expected = BigUint::parse_bytes(b"1", 10).unwrap();
 		assert_eq!(result, expected);
 	}
@@ -339,16 +357,16 @@ mod tests {
 			0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
 		];
 
-		let precompile_result = run_precompile::<Modexp>(input).unwrap();
-		assert_eq!(precompile_result.data.len(), 1); // should be same length as mod
-		let result = BigUint::from_bytes_be(&precompile_result.data[..]);
+		let precompile_result = run_primitive::<Modexp<Test>>(input).unwrap();
+		assert_eq!(precompile_result.len(), 1); // should be same length as mod
+		let result = BigUint::from_bytes_be(&precompile_result[..]);
 		let expected = BigUint::parse_bytes(b"0", 10).unwrap();
 		assert_eq!(result, expected);
 	}
 
 	#[test]
 	fn test_long_exp_gas_cost_matches_specs() {
-		use crate::{gas::Token, tests::Test, GasMeter, Weight};
+		use crate::{call_builder::CallSetup, gas::Token, tests::ExtBuilder};
 
 		let input = vec![
 			0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -367,13 +385,16 @@ mod tests {
 			255, 255, 255, 249,
 		];
 
-		let mut gas_meter = GasMeter::<Test>::new(Weight::MAX);
-		Modexp::execute(&mut gas_meter, &input).unwrap();
+		ExtBuilder::default().build().execute_with(|| {
+			let mut call_setup = CallSetup::<Test>::default();
+			let (mut ext, _) = call_setup.ext();
 
-		// 7104 * 20 gas used when ran in geth (x20)
-		assert_eq!(
-			gas_meter.gas_consumed(),
-			Token::<Test>::weight(&RuntimeCosts::Modexp(7104 * 20))
-		);
+			let before = ext.gas_meter().gas_consumed();
+			<Modexp<Test>>::call(&<Modexp<Test>>::MATCHER.base_address(), input, &mut ext).unwrap();
+			let after = ext.gas_meter().gas_consumed();
+
+			// 7104 * 20 gas used when ran in geth (x20)
+			assert_eq!(after - before, Token::<Test>::weight(&RuntimeCosts::Modexp(7104 * 20)));
+		})
 	}
 }
