@@ -7,24 +7,35 @@
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
-// 	http://www.apache.org/licenses/LICENSE-2.0
+// http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-use super::Precompile;
-use crate::{Config, ExecReturnValue, GasMeter, RuntimeCosts};
-use pallet_revive_uapi::ReturnFlags;
 
-/// The ecrecover precompile.
-pub struct ECRecover;
+use crate::{
+	precompiles::{BuiltinAddressMatcher, Error, Ext, PrimitivePrecompile},
+	wasm::RuntimeCosts,
+	Config,
+};
+use alloc::vec::Vec;
+use core::{marker::PhantomData, num::NonZero};
 
-impl<T: Config> Precompile<T> for ECRecover {
-	fn execute(gas_meter: &mut GasMeter<T>, i: &[u8]) -> Result<ExecReturnValue, &'static str> {
-		gas_meter.charge(RuntimeCosts::EcdsaRecovery)?;
+pub struct EcRecover<T>(PhantomData<T>);
 
+impl<T: Config> PrimitivePrecompile for EcRecover<T> {
+	type T = T;
+	const MATCHER: BuiltinAddressMatcher = BuiltinAddressMatcher::Fixed(NonZero::new(1).unwrap());
+	const HAS_CONTRACT_INFO: bool = false;
+
+	fn call(
+		_address: &[u8; 20],
+		i: Vec<u8>,
+		env: &mut impl Ext<T = Self::T>,
+	) -> Result<Vec<u8>, Error> {
+		env.gas_meter_mut().charge(RuntimeCosts::EcdsaRecovery)?;
 		let mut input = [0u8; 128];
 		let len = i.len().min(128);
 		input[..len].copy_from_slice(&i[..len]);
@@ -40,7 +51,7 @@ impl<T: Config> Precompile<T> for ECRecover {
 		// v can only be 27 or 28 on the full 32 bytes value.
 		// https://github.com/ethereum/go-ethereum/blob/a907d7e81aaeea15d80b2d3209ad8e08e3bf49e0/core/vm/contracts.go#L177
 		if input[32..63] != [0u8; 31] || ![27, 28].contains(&input[63]) {
-			return Ok(ExecReturnValue { data: [0u8; 0].to_vec(), flags: ReturnFlags::empty() });
+			return Ok(Vec::new());
 		}
 
 		let data = match sp_io::crypto::secp256k1_ecdsa_recover(&sig, &msg) {
@@ -49,21 +60,20 @@ impl<T: Config> Precompile<T> for ECRecover {
 				address[0..12].copy_from_slice(&[0u8; 12]);
 				address.to_vec()
 			},
-			Err(_) => [0u8; 0].to_vec(),
+			Err(_) => Vec::new(),
 		};
 
-		Ok(ExecReturnValue { data, flags: ReturnFlags::empty() })
+		Ok(data)
 	}
 }
 
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use crate::pure_precompiles::test::test_precompile_test_vectors;
+	use crate::{precompiles::tests::run_test_vectors, tests::Test};
 
 	#[test]
-	fn test_ecrecover() -> Result<(), String> {
-		test_precompile_test_vectors::<ECRecover>(include_str!("./testdata/1-ecRecover.json"))?;
-		Ok(())
+	fn test_ecrecover() {
+		run_test_vectors::<EcRecover<Test>>(include_str!("./testdata/1-ecRecover.json"));
 	}
 }

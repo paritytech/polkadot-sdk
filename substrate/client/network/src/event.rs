@@ -26,6 +26,7 @@ use bytes::Bytes;
 use sc_network_common::role::ObservedRole;
 use sc_network_types::{
 	kad::{Key, PeerRecord},
+	multiaddr::Multiaddr,
 	PeerId,
 };
 
@@ -33,6 +34,13 @@ use sc_network_types::{
 #[derive(Debug, Clone)]
 #[must_use]
 pub enum DhtEvent {
+	/// Found closest peers to the target `PeerId`. With libp2p also delivers a partial result
+	/// in case the query timed out, because it can contain the target peer's address.
+	ClosestPeersFound(PeerId, Vec<(PeerId, Vec<Multiaddr>)>),
+
+	/// Closest peers to the target `PeerId` has not been found.
+	ClosestPeersNotFound(PeerId),
+
 	/// The value was found.
 	ValueFound(PeerRecord),
 
@@ -40,21 +48,31 @@ pub enum DhtEvent {
 	ValueNotFound(Key),
 
 	/// The record has been successfully inserted into the DHT.
+	// TODO: this is not implemented with litep2p network backend.
 	ValuePut(Key),
 
 	/// An error has occurred while putting a record into the DHT.
 	ValuePutFailed(Key),
 
+	/// Successfully started providing the given key.
+	// TODO: this is not implemented with litep2p network backend.
+	StartedProviding(Key),
+
 	/// An error occured while registering as a content provider on the DHT.
 	StartProvidingFailed(Key),
 
 	/// The DHT received a put record request.
-	PutRecordRequest(Key, Vec<u8>, Option<sc_network_types::PeerId>, Option<std::time::Instant>),
+	PutRecordRequest(Key, Vec<u8>, Option<PeerId>, Option<std::time::Instant>),
 
-	/// The providers for [`Key`] were found.
+	/// The providers for [`Key`] were found. Multiple such events can be generated per provider
+	/// discovery request.
 	ProvidersFound(Key, Vec<PeerId>),
 
-	/// The providers for [`Key`] were not found.
+	/// `GET_PROVIDERS` query finished and won't yield any more providers.
+	NoMoreProviders(Key),
+
+	/// `GET_PROVIDERS` query failed and no providers for [`Key`] were found. libp2p also emits
+	/// this event after already yielding some results via [`DhtEvent::ProvidersFound`].
 	ProvidersNotFound(Key),
 }
 
