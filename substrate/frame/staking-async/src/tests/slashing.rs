@@ -642,21 +642,69 @@ fn only_slash_nominator_for_max_in_era() {
 		let nominated_value_11 = exposure_11.others.iter().find(|o| o.who == 101).unwrap().value;
 		let nominated_value_21 = exposure_21.others.iter().find(|o| o.who == 101).unwrap().value;
 
+		// clear staking events until now
+		staking_events_since_last_call();
+
+		// First slash
 		add_slash_in_era(11, 2, Perbill::from_percent(10));
 		Session::roll_next();
 
-		assert_eq!(asset::stakeable_balance::<T>(&11), 900);
+		let slash_11_amount = Perbill::from_percent(10) * 1000u128;
+		assert_eq!(slash_11_amount, 100);
+		let first_slash_101_amount = Perbill::from_percent(10) * nominated_value_11;
+		assert_eq!(first_slash_101_amount, 25);
+
+		assert_eq!(
+			staking_events_since_last_call(),
+			vec![
+				Event::OffenceReported {
+					offence_era: 2,
+					validator: 11,
+					fraction: Perbill::from_percent(10)
+				},
+				Event::SlashComputed { offence_era: 2, slash_era: 2, offender: 11, page: 0 },
+				Event::Slashed { staker: 11, amount: slash_11_amount },
+				Event::Slashed {
+					staker: 101,
+					amount: first_slash_101_amount
+				}
+			]
+		);
+
+		assert_eq!(asset::stakeable_balance::<T>(&11), 1000 - slash_11_amount);
 
 		let slash_1_amount = Perbill::from_percent(10) * nominated_value_11;
 		assert_eq!(asset::stakeable_balance::<T>(&101), 500 - slash_1_amount);
 
-		// second slash: higher value, same era.
+		// Second slash: higher value, same era.
 		add_slash_in_era(21, 2, Perbill::from_percent(30));
 		Session::roll_next();
 
+		let slash_21_amount = Perbill::from_percent(30) * 1000u128;
+		assert_eq!(slash_21_amount, 300);
+		let second_slash_101_amount = Perbill::from_percent(30) * nominated_value_21 - first_slash_101_amount;
+		assert_eq!(second_slash_101_amount, 50);
+
+		assert_eq!(
+			staking_events_since_last_call(),
+			vec![
+				Event::OffenceReported {
+					offence_era: 2,
+					validator: 21,
+					fraction: Perbill::from_percent(30)
+				},
+				Event::SlashComputed { offence_era: 2, slash_era: 2, offender: 21, page: 0 },
+				Event::Slashed { staker: 21, amount: slash_21_amount },
+				Event::Slashed {
+					staker: 101,
+					amount: second_slash_101_amount
+				}
+			]
+		);
+
 		// 11 was not further slashed, but 21 and 101 were.
 		assert_eq!(asset::stakeable_balance::<T>(&11), 900);
-		assert_eq!(asset::stakeable_balance::<T>(&21), 700);
+		assert_eq!(asset::stakeable_balance::<T>(&21), 1000 - slash_21_amount);
 
 		let slash_2_amount = Perbill::from_percent(30) * nominated_value_21;
 		assert!(slash_2_amount > slash_1_amount);
@@ -664,10 +712,30 @@ fn only_slash_nominator_for_max_in_era() {
 		// only the maximum slash in a single span is taken.
 		assert_eq!(asset::stakeable_balance::<T>(&101), 500 - slash_2_amount);
 
-		// third slash: in same era and on same validator as first, higher in-era value, but lower
+		// Third slash: in same era and on same validator as first, higher in-era value, but lower
 		// slash value than slash 2.
 		add_slash_in_era(11, 2, Perbill::from_percent(20));
 		Session::roll_next();
+		assert_eq!(
+			staking_events_since_last_call(),
+			vec![
+				Event::OffenceReported {
+					offence_era: 2,
+					validator: 11,
+					fraction: Perbill::from_percent(20),
+				},
+				Event::SlashComputed {
+					offence_era: 2,
+					slash_era: 2,
+					offender: 11,
+					page: 0,
+				},
+				Event::Slashed {
+					staker: 11,
+					amount: Perbill::from_percent(10) * 1000u128, // the delta is 10%
+				},
+			]
+		);
 
 		// 11 was further slashed, but 21 and 101 were not.
 		assert_eq!(asset::stakeable_balance::<T>(&11), 800);
