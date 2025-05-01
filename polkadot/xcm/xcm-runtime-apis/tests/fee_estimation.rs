@@ -130,7 +130,7 @@ fn fee_estimation_for_teleport() {
 					origin: AccountIndex64 { index: 1, network: None }.into(),
 					destination: (Parent, Parachain(1000)).into(),
 					message: send_message.clone(),
-					message_id: TopicIdTracker::get().into(),
+					message_id: TopicIdTracker::get_unique_id().into(),
 				}),
 			]
 		);
@@ -289,7 +289,7 @@ fn dry_run_reserve_asset_transfer_common(
 					origin: AccountIndex64 { index: 1, network: None }.into(),
 					destination: send_destination.clone(),
 					message: send_message.clone(),
-					message_id: TopicIdTracker::get().into(),
+					message_id: TopicIdTracker::get_unique_id().into(),
 				}),
 			]
 		);

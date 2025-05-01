@@ -1681,7 +1681,7 @@ fn execute_initiate_transfer_and_check_sent_event() {
 			);
 			assert_ok!(result);
 
-			let sent_msg_id: XcmHash = TopicIdTracker::get().into();
+			let sent_msg_id: XcmHash = TopicIdTracker::get_unique_id().into();
 			let sent_message: Xcm<()> = Xcm(vec![
 				WithdrawAsset(Assets::new()),
 				ClearOrigin,

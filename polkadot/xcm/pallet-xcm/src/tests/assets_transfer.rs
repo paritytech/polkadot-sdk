@@ -1455,7 +1455,7 @@ fn remote_asset_reserve_and_remote_fee_reserve_call<Call>(
 							DepositAsset { assets: AllCounted(1).into(), beneficiary }
 						])
 					},
-					SetTopic(TopicIdTracker::get().into()),
+					SetTopic(TopicIdTracker::get_unique_id().into()),
 				])
 			)],
 		);
@@ -2530,7 +2530,7 @@ fn remote_asset_reserve_and_remote_fee_reserve_paid_call<Call>(
 		let foreign_id_location_reanchored =
 			foreign_asset_id_location.clone().reanchored(&dest, &context).unwrap();
 		let dest_reanchored = dest.reanchored(&reserve_location, &context).unwrap();
-		let sent_msg_id: XcmHash = TopicIdTracker::get().into();
+		let sent_msg_id: XcmHash = TopicIdTracker::get_unique_id().into();
 		let sent_message = Xcm(vec![
 			WithdrawAsset((Location::here(), SEND_AMOUNT).into()),
 			ClearOrigin,

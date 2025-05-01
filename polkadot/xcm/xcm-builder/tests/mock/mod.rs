@@ -64,7 +64,7 @@ impl SendXcm for TestSendXcm {
 	fn deliver(triplet: (Location, Xcm<()>, XcmHash)) -> Result<XcmHash, SendError> {
 		let hash = triplet.2;
 		SENT_XCM.with(|q| q.borrow_mut().push(triplet));
-		TopicIdTracker::insert(hash.into());
+		TopicIdTracker::insert_unique_id(hash.into());
 		Ok(hash)
 	}
 }

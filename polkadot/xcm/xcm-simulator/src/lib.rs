@@ -490,8 +490,8 @@ pub mod helpers {
 		/// Asserts that exactly one topic ID is tracked across all chains.
 		pub fn assert_unique() {
 			TRACKED_TOPIC_IDS.with(|b| {
-				let r = b.borrow();
-				let ids: HashSet<_> = r.values().collect();
+				let map = b.borrow();
+				let ids: HashSet<_> = map.values().collect();
 				assert_eq!(
 					ids.len(),
 					1,
@@ -530,14 +530,15 @@ pub mod helpers {
 		pub fn get_unique_id() -> H256 {
 			TRACKED_TOPIC_IDS.with(|b| {
 				let map = b.borrow();
+				let ids: HashSet<_> = map.values().collect();
 				assert_eq!(
-					map.len(),
+					ids.len(),
 					1,
 					"Expected exactly one tracked topic ID, found {}: {:?}",
-					map.len(),
-					map
+					ids.len(),
+					ids
 				);
-				*map.values().next().expect("Expected exactly one tracked topic ID")
+				*ids.into_iter().next().expect("Expected exactly one tracked topic ID")
 			})
 		}
 

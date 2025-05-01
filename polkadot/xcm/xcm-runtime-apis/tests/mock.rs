@@ -126,7 +126,7 @@ impl SendXcm for TestXcmSender {
 	fn deliver(ticket: Self::Ticket) -> Result<XcmHash, SendError> {
 		let hash = derive_topic_id(&ticket.1);
 		SENT_XCM.with(|q| q.borrow_mut().push(ticket));
-		TopicIdTracker::insert(hash.into());
+		TopicIdTracker::insert_unique_id(hash.into());
 		Ok(hash)
 	}
 }
