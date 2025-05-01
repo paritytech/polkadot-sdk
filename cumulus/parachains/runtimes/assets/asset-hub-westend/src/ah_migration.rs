@@ -135,7 +135,7 @@ impl TryConvert<RcProxyType, ProxyType> for RcToProxyType {
 pub enum RcPalletsOrigin {
 	#[codec(index = 0u8)]
 	system(frame_system::Origin<Runtime>),
-	#[codec(index = 22u8)]
+	#[codec(index = 35u8)]
 	Origins(pallet_custom_origins::Origin),
 }
 
