@@ -1175,6 +1175,8 @@ version = "1.0.0"
 dependencies = [
  "assert_matches",
  "asset-test-utils",
+ "bp-asset-hub-westend",
+ "bp-xcm-bridge",
  "cumulus-pallet-parachain-system",
  "cumulus-pallet-xcmp-queue",
  "emulated-integration-tests-common",
