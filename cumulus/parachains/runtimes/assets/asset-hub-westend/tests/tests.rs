@@ -20,10 +20,8 @@
 use asset_hub_westend_runtime::{
 	xcm_config,
 	xcm_config::{
-		bridging, AssetFeeAsExistentialDepositMultiplierFeeCharger, CheckingAccount,
-		ForeignAssetFeeAsExistentialDepositMultiplierFeeCharger, GovernanceLocation,
-		LocationToAccountId, StakingPot, TrustBackedAssetsPalletLocation, WestendLocation,
-		XcmConfig,
+		bridging, CheckingAccount, GovernanceLocation, LocationToAccountId, StakingPot,
+		TrustBackedAssetsPalletLocation, WestendLocation, XcmConfig,
 	},
 	AllPalletsWithoutSystem, Assets, Balances, Block, ExistentialDeposit, ForeignAssets,
 	ForeignAssetsInstance, MetadataDepositBase, MetadataDepositPerByte, ParachainSystem,
@@ -36,7 +34,6 @@ use asset_test_utils::{
 	ExtBuilder, GovernanceOrigin, SlotDurations,
 };
 use codec::{Decode, Encode};
-use cumulus_primitives_utility::ChargeWeightInFungibles;
 use frame_support::{
 	assert_err, assert_noop, assert_ok, parameter_types,
 	traits::{
