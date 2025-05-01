@@ -67,10 +67,13 @@ pub(crate) const SPECULATIVE_NUM_SPANS: u32 = 32;
 
 #[frame_support::pallet]
 pub mod pallet {
+	use core::ops::Deref;
+
 	use super::*;
 	use crate::{session_rotation, PagedExposureMetadata, SnapshotStatus};
 	use codec::HasCompact;
 	use frame_election_provider_support::{ElectionDataProvider, PageIndex};
+	use frame_support::DefaultNoBound;
 
 	/// The in-code storage version.
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(17);
@@ -155,7 +158,7 @@ pub mod pallet {
 		///
 		/// Following information is kept for eras in `[current_era -
 		/// HistoryDepth, current_era]`: `ErasValidatorPrefs`, `ErasValidatorReward`,
-		/// `ErasRewardPoints`, `ErasTotalStake`, `ErasStartSessionIndex`, `ErasClaimedRewards`,
+		/// `ErasRewardPoints`, `ErasTotalStake`, `ErasClaimedRewards`,
 		/// `ErasStakersPaged`, `ErasStakersOverview`.
 		///
 		/// Must be more than the number of eras delayed by session.
@@ -497,23 +500,23 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type ActiveEra<T> = StorageValue<_, ActiveEraInfo>;
 
+	/// Custom bound for [`BondedEras`] which is equal to [`Config::BondingDuration`] + 1.
+	pub struct BondedErasBound<T>(core::marker::PhantomData<T>);
+	impl<T: Config> Get<u32> for BondedErasBound<T> {
+		fn get() -> u32 {
+			T::BondingDuration::get().saturating_add(1)
+		}
+	}
+
 	/// A mapping from still-bonded eras to the first session index of that era.
 	///
 	/// Must contains information for eras for the range:
 	/// `[active_era - bounding_duration; active_era]`
 	#[pallet::storage]
-	#[pallet::unbounded]
-	pub(crate) type BondedEras<T: Config> =
-		StorageValue<_, Vec<(EraIndex, SessionIndex)>, ValueQuery>;
+	pub type BondedEras<T: Config> =
+		StorageValue<_, BoundedVec<(EraIndex, SessionIndex), BondedErasBound<T>>, ValueQuery>;
 
 	// --- AUDIT Note: end of storage items controlled by `Rotator`.
-
-	/// The session index at which the era start for the last [`Config::HistoryDepth`] eras.
-	///
-	/// Note: This tracks the STARTING session (i.e. session index when era start being ACTIVE)
-	/// for the eras in `[CurrentEra - HISTORY_DEPTH, CurrentEra]`.
-	#[pallet::storage]
-	pub type ErasStartSessionIndex<T> = StorageMap<_, Twox64Concat, EraIndex, SessionIndex>;
 
 	/// Summary of validator exposure at a given era.
 	///
@@ -538,6 +541,61 @@ pub mod pallet {
 		OptionQuery,
 	>;
 
+	/// A bounded wrapper for [`sp_staking::ExposurePage`].
+	///
+	/// It has `Deref` and `DerefMut` impls that map it back [`sp_staking::ExposurePage`] for all
+	/// purposes. This is done in such a way because we prefer to keep the types in [`sp_staking`]
+	/// pure, and not polluted by pallet-specific bounding logic.
+	///
+	/// It encoded and decodes exactly the same as [`sp_staking::ExposurePage`], and provides a
+	/// manual `MaxEncodedLen` implementation, to be used in benchmarking
+	#[derive(PartialEqNoBound, Encode, Decode, DebugNoBound, TypeInfo, DefaultNoBound)]
+	#[scale_info(skip_type_params(T))]
+	pub struct BoundedExposurePage<T: Config>(pub ExposurePage<T::AccountId, BalanceOf<T>>);
+	impl<T: Config> Deref for BoundedExposurePage<T> {
+		type Target = ExposurePage<T::AccountId, BalanceOf<T>>;
+
+		fn deref(&self) -> &Self::Target {
+			&self.0
+		}
+	}
+
+	impl<T: Config> core::ops::DerefMut for BoundedExposurePage<T> {
+		fn deref_mut(&mut self) -> &mut Self::Target {
+			&mut self.0
+		}
+	}
+
+	impl<T: Config> codec::MaxEncodedLen for BoundedExposurePage<T> {
+		fn max_encoded_len() -> usize {
+			let max_exposure_page_size = T::MaxExposurePageSize::get() as usize;
+			let individual_size =
+				T::AccountId::max_encoded_len() + BalanceOf::<T>::max_encoded_len();
+
+			// 1 balance for `total`
+			BalanceOf::<T>::max_encoded_len() +
+			// individual_size multiplied by page size
+				max_exposure_page_size.saturating_mul(individual_size)
+		}
+	}
+
+	impl<T: Config> From<ExposurePage<T::AccountId, BalanceOf<T>>> for BoundedExposurePage<T> {
+		fn from(value: ExposurePage<T::AccountId, BalanceOf<T>>) -> Self {
+			Self(value)
+		}
+	}
+
+	impl<T: Config> From<BoundedExposurePage<T>> for ExposurePage<T::AccountId, BalanceOf<T>> {
+		fn from(value: BoundedExposurePage<T>) -> Self {
+			value.0
+		}
+	}
+
+	impl<T: Config> codec::EncodeLike<BoundedExposurePage<T>>
+		for ExposurePage<T::AccountId, BalanceOf<T>>
+	{
+	}
+
 	/// Paginated exposure of a validator at given era.
 	///
 	/// This is keyed first by the era index to allow bulk deletion, then stash account and finally
@@ -545,7 +603,6 @@ pub mod pallet {
 	///
 	/// This is cleared after [`Config::HistoryDepth`] eras.
 	#[pallet::storage]
-	#[pallet::unbounded]
 	pub type ErasStakersPaged<T: Config> = StorageNMap<
 		_,
 		(
@@ -553,9 +610,21 @@ pub mod pallet {
 			NMapKey<Twox64Concat, T::AccountId>,
 			NMapKey<Twox64Concat, Page>,
 		),
-		ExposurePage<T::AccountId, BalanceOf<T>>,
+		BoundedExposurePage<T>,
 		OptionQuery,
 	>;
+
+	pub struct ErasClaimedRewardsBound<T>(core::marker::PhantomData<T>);
+	impl<T: Config> Get<u32> for ErasClaimedRewardsBound<T> {
+		fn get() -> u32 {
+			let max_total_nominators_per_validator =
+				<T::ElectionProvider as ElectionProvider>::MaxBackersPerWinner::get();
+			let exposure_page_size = T::MaxExposurePageSize::get();
+			max_total_nominators_per_validator
+				.saturating_div(exposure_page_size)
+				.saturating_add(1)
+		}
+	}
 
 	/// History of claimed paged rewards by era and validator.
 	///
@@ -564,14 +633,13 @@ pub mod pallet {
 	///
 	/// It is removed after [`Config::HistoryDepth`] eras.
 	#[pallet::storage]
-	#[pallet::unbounded]
 	pub type ErasClaimedRewards<T: Config> = StorageDoubleMap<
 		_,
 		Twox64Concat,
 		EraIndex,
 		Twox64Concat,
 		T::AccountId,
-		Vec<Page>,
+		WeakBoundedVec<Page, ErasClaimedRewardsBound<T>>,
 		ValueQuery,
 	>;
 
@@ -601,9 +669,8 @@ pub mod pallet {
 	/// Rewards for the last [`Config::HistoryDepth`] eras.
 	/// If reward hasn't been set or has been removed then 0 reward is returned.
 	#[pallet::storage]
-	#[pallet::unbounded]
 	pub type ErasRewardPoints<T: Config> =
-		StorageMap<_, Twox64Concat, EraIndex, EraRewardPoints<T::AccountId>, ValueQuery>;
+		StorageMap<_, Twox64Concat, EraIndex, EraRewardPoints<T>, ValueQuery>;
 
 	/// The total amount staked for the last [`Config::HistoryDepth`] eras.
 	/// If total hasn't been set or has been removed then 0 stake is returned.
@@ -914,7 +981,13 @@ pub mod pallet {
 			ActiveEra::<T>::put(ActiveEraInfo { index: active_era, start: Some(timestamp) });
 			// at genesis, we do not have any new planned era.
 			CurrentEra::<T>::put(active_era);
-			ErasStartSessionIndex::<T>::insert(active_era, session_index);
+			// set the bonded genesis era
+			BondedEras::<T>::put(
+				BoundedVec::<_, BondedErasBound<T>>::try_from(
+					alloc::vec![(active_era, session_index)]
+				)
+				.expect("bound for BondedEras is BondingDuration + 1; can contain at least one element; qed")
+			);
 		}
 	}
 
