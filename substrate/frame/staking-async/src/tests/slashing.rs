@@ -245,12 +245,28 @@ fn subsequent_reports_pay_out_reward_based_on_net_slash() {
 				slash_fraction: Perbill::from_percent(20),
 			}],
 		);
+		assert_eq!(
+			staking_events_since_last_call(),
+			vec![Event::OffenceReported {
+				offence_era: 1,
+				validator: 11,
+				fraction: Perbill::from_percent(20)
+			}]
+		);
+
 		Session::roll_next();
 
 		let slash = Perbill::from_percent(20) * initial_balance;
 		let reward = SlashRewardFraction::<T>::get() * slash;
 		// slash is 1000/5
 		assert_eq!(slash, 200);
+		assert_eq!(
+			staking_events_since_last_call(),
+			vec![
+				Event::SlashComputed { offence_era: 1, slash_era: 1, offender: 11, page: 0 },
+				Event::Slashed { staker: 11, amount: slash },
+			]
+		);
 		// reward is 10% of the slash
 		assert_eq!(reward, 20);
 		assert_eq!(asset::total_balance::<T>(&1), initial_balance_1 + reward);
@@ -263,6 +279,16 @@ fn subsequent_reports_pay_out_reward_based_on_net_slash() {
 				slash_fraction: Perbill::from_percent(50),
 			}],
 		);
+
+		assert_eq!(
+			staking_events_since_last_call(),
+			vec![Event::OffenceReported {
+				offence_era: 1,
+				validator: 11,
+				fraction: Perbill::from_percent(50)
+			}]
+		);
+
 		Session::roll_next();
 
 		let prior_slash = slash;
@@ -272,6 +298,14 @@ fn subsequent_reports_pay_out_reward_based_on_net_slash() {
 		// total slash is 1000/2 = 500, out of which 200 is already slashed. So net slash is 300.
 		let slash = Perbill::from_percent(50) * initial_balance - prior_slash;
 		assert_eq!(slash, 300);
+		assert_eq!(
+			staking_events_since_last_call(),
+			vec![
+				Event::SlashComputed { offence_era: 1, slash_era: 1, offender: 11, page: 0 },
+				Event::Slashed { staker: 11, amount: slash },
+			]
+		);
+
 		// reward is 10% of the slash
 		let reward = SlashRewardFraction::<T>::get() * slash;
 		assert_eq!(reward, 30);
