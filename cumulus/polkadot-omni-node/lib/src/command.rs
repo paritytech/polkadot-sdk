@@ -140,9 +140,9 @@ where
 	let cli_command = Cli::<CliConfig>::setup_command(cli_command);
 	let matches = cli_command.get_matches();
 
-	// First, check if a subcommand was provided
-	if let Some((_subcommand, _sub_matches)) = matches.subcommand() {
-		// Try parsing it as an ExtraSubcommand
+	let extra_has_subcommands = <Extra as CommandFactory>::command().has_subcommands();
+
+	if extra_has_subcommands {
 		if let Ok(extra) = Extra::from_arg_matches(&matches) {
 			extra.handle(&cmd_config)?;
 			return Ok(());
