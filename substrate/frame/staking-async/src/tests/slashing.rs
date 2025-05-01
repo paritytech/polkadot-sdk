@@ -664,10 +664,7 @@ fn only_slash_nominator_for_max_in_era() {
 				},
 				Event::SlashComputed { offence_era: 2, slash_era: 2, offender: 11, page: 0 },
 				Event::Slashed { staker: 11, amount: slash_11_amount },
-				Event::Slashed {
-					staker: 101,
-					amount: first_slash_101_amount
-				}
+				Event::Slashed { staker: 101, amount: first_slash_101_amount }
 			]
 		);
 
@@ -682,7 +679,8 @@ fn only_slash_nominator_for_max_in_era() {
 
 		let slash_21_amount = Perbill::from_percent(30) * 1000u128;
 		assert_eq!(slash_21_amount, 300);
-		let second_slash_101_amount = Perbill::from_percent(30) * nominated_value_21 - first_slash_101_amount;
+		let second_slash_101_amount =
+			Perbill::from_percent(30) * nominated_value_21 - first_slash_101_amount;
 		assert_eq!(second_slash_101_amount, 50);
 
 		assert_eq!(
@@ -695,10 +693,7 @@ fn only_slash_nominator_for_max_in_era() {
 				},
 				Event::SlashComputed { offence_era: 2, slash_era: 2, offender: 21, page: 0 },
 				Event::Slashed { staker: 21, amount: slash_21_amount },
-				Event::Slashed {
-					staker: 101,
-					amount: second_slash_101_amount
-				}
+				Event::Slashed { staker: 101, amount: second_slash_101_amount }
 			]
 		);
 
@@ -724,12 +719,7 @@ fn only_slash_nominator_for_max_in_era() {
 					validator: 11,
 					fraction: Perbill::from_percent(20),
 				},
-				Event::SlashComputed {
-					offence_era: 2,
-					slash_era: 2,
-					offender: 11,
-					page: 0,
-				},
+				Event::SlashComputed { offence_era: 2, slash_era: 2, offender: 11, page: 0 },
 				Event::Slashed {
 					staker: 11,
 					amount: Perbill::from_percent(10) * 1000u128, // the delta is 10%
