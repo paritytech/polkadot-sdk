@@ -407,7 +407,7 @@ fn retroactive_deferred_slashes_two_eras_before() {
 		let _ = staking_events_since_last_call();
 
 		// slash for era 1 detected in era 2, defer for 2, apply in era 3.
-		add_slash_in_era(11, 1);
+		add_slash_in_era(11, 1, Perbill::from_percent(10));
 		assert_eq!(
 			staking_events_since_last_call(),
 			vec![Event::OffenceReported {
@@ -466,7 +466,7 @@ fn retroactive_deferred_slashes_one_before() {
 			// ignore all events thus far
 			let _ = staking_events_since_last_call();
 
-			add_slash_in_era(11, 2);
+			add_slash_in_era(11, 2, Perbill::from_percent(10));
 			assert_eq!(
 				staking_events_since_last_call(),
 				vec![Event::OffenceReported {
@@ -642,7 +642,7 @@ fn only_slash_nominator_for_max_in_era() {
 		let nominated_value_11 = exposure_11.others.iter().find(|o| o.who == 101).unwrap().value;
 		let nominated_value_21 = exposure_21.others.iter().find(|o| o.who == 101).unwrap().value;
 
-		add_slash_in_era(11, 2);
+		add_slash_in_era(11, 2, Perbill::from_percent(10));
 		Session::roll_next();
 
 		assert_eq!(asset::stakeable_balance::<T>(&11), 900);
@@ -651,7 +651,7 @@ fn only_slash_nominator_for_max_in_era() {
 		assert_eq!(asset::stakeable_balance::<T>(&101), 500 - slash_1_amount);
 
 		// second slash: higher value, same era.
-		add_slash_in_era_with_value(21, 2, Perbill::from_percent(30));
+		add_slash_in_era(21, 2, Perbill::from_percent(30));
 		Session::roll_next();
 
 		// 11 was not further slashed, but 21 and 101 were.
@@ -666,7 +666,7 @@ fn only_slash_nominator_for_max_in_era() {
 
 		// third slash: in same era and on same validator as first, higher in-era value, but lower
 		// slash value than slash 2.
-		add_slash_in_era_with_value(11, 2, Perbill::from_percent(20));
+		add_slash_in_era(11, 2, Perbill::from_percent(20));
 		Session::roll_next();
 
 		// 11 was further slashed, but 21 and 101 were not.
@@ -856,7 +856,7 @@ fn remove_deferred() {
 		Session::roll_until_active_era(2);
 		let _ = staking_events_since_last_call();
 		// reported later, but deferred to start of era 3 as well.
-		add_slash_in_era_with_value(11, 1, Perbill::from_percent(15));
+		add_slash_in_era(11, 1, Perbill::from_percent(15));
 		Session::roll_next();
 		assert_eq!(
 			staking_events_since_last_call(),
@@ -1569,12 +1569,12 @@ mod paged_slashing {
 			Session::roll_until_active_era(2);
 
 			// 11 and 21 commits offence in era 2.
-			add_slash_in_era(11, 2);
-			add_slash_in_era(21, 2);
+			add_slash_in_era(11, 2, Perbill::from_percent(10));
+			add_slash_in_era(21, 2, Perbill::from_percent(10));
 
 			// 11 and 21 commits offence in era 1 but reported after the era 2 offence.
-			add_slash_in_era(11, 1);
-			add_slash_in_era(21, 1);
+			add_slash_in_era(11, 1, Perbill::from_percent(10));
+			add_slash_in_era(21, 1, Perbill::from_percent(10));
 
 			// queued offence eras are sorted.
 			assert_eq!(OffenceQueueEras::<T>::get().unwrap(), vec![1, 2]);
@@ -1611,7 +1611,7 @@ mod paged_slashing {
 			let _ = staking_events_since_last_call();
 
 			// report an offence for 11 in era 1.
-			add_slash_in_era_with_value(11, 1, slash_fraction);
+			add_slash_in_era(11, 1, slash_fraction);
 
 			// ensure offence is queued.
 			assert_eq!(
