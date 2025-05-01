@@ -1221,6 +1221,7 @@ dependencies = [
  "pallet-authorship",
  "pallet-bags-list",
  "pallet-balances",
+ "pallet-bridge-proof-root-sync",
  "pallet-collator-selection",
  "pallet-conviction-voting",
  "pallet-delegated-staking",

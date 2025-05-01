@@ -876,7 +876,7 @@ parameter_types! {
 impl cumulus_pallet_parachain_system::Config for Runtime {
 	type WeightInfo = weights::cumulus_pallet_parachain_system::WeightInfo<Runtime>;
 	type RuntimeEvent = RuntimeEvent;
-	type OnSystemEvent = (DDayHook,);
+	type OnSystemEvent = (dday_hook::DDayHeaderSyncForCollectives,);
 	type SelfParaId = parachain_info::Pallet<Runtime>;
 	type DmpQueue = frame_support::traits::EnqueueWithOrigin<MessageQueue, RelayOrigin>;
 	type ReservedDmpWeight = ReservedDmpWeight;
@@ -1281,9 +1281,6 @@ impl pallet_sudo::Config for Runtime {
 	type WeightInfo = weights::pallet_sudo::WeightInfo<Runtime>;
 }
 
-// TODO: remove hook
-impl dday_hook::Config for Runtime {}
-
 // Create the runtime by composing the FRAME pallets that were previously configured.
 construct_runtime!(
 	pub enum Runtime
@@ -1347,7 +1344,7 @@ construct_runtime!(
 		AssetRewards: pallet_asset_rewards = 61,
 
 		StateTrieMigration: pallet_state_trie_migration = 70,
-		DDayHook: dday_hook = 71,
+		DDayHook: pallet_bridge_proof_root_sync::<Instance1> = 71,
 
 		// Staking.
 		Staking: pallet_staking_async = 80,
