@@ -42,7 +42,7 @@ use xcm_builder::{
 	AllowKnownQueryResponses, AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom,
 	ChildParachainAsNative, ChildParachainConvertsVia, DescribeAllTerminal, DescribeFamily,
 	FrameTransactionalProcessor, FungibleAdapter, HashedDescription, IsChildSystemParachain,
-	IsConcrete, MintLocation, OriginToPluralityVoice, SendXcmFeeToAccount,
+	IsConcrete, LocationAsSuperuser, MintLocation, OriginToPluralityVoice, SendXcmFeeToAccount,
 	SignedAccountId32AsNative, SignedToAccountId32, SovereignSignedViaLocation, TakeWeightCredit,
 	TrailingSetTopicAsId, UsingComponents, WeightInfoBounds, WithComputedOrigin, WithUniqueTopic,
 	XcmFeeManagerFromComponents,
@@ -90,22 +90,6 @@ pub type LocalAssetTransactor = FungibleAdapter<
 	TeleportTracking,
 >;
 
-// Origin converter to allow Asset Hub to gain root on the Relay Chain.
-pub struct AssetHubAsSuperuser;
-impl ConvertOrigin<RuntimeOrigin> for AssetHubAsSuperuser {
-	fn convert_origin(
-		origin: impl Into<Location>,
-		kind: OriginKind,
-	) -> Result<RuntimeOrigin, Location> {
-		let origin = origin.into();
-		log::trace!(target: "xcm::origin_conversion", "AssetHubAsSuperuser origin: {:?}, kind: {:?}", origin, kind);
-		match (kind, origin.unpack()) {
-			(OriginKind::Superuser, (0, [Parachain(ASSET_HUB_ID)])) => Ok(RuntimeOrigin::root()),
-			_ => Err(origin),
-		}
-	}
-}
-
 type LocalOriginConverter = (
 	// If the origin kind is `Sovereign`, then return a `Signed` origin with the account determined
 	// by the `LocationConverter` converter.
@@ -119,7 +103,7 @@ type LocalOriginConverter = (
 	// Xcm origins can be represented natively under the Xcm pallet's Xcm origin.
 	XcmPassthrough<RuntimeOrigin>,
 	// Asset Hub can gain root on the relay chain.
-	AssetHubAsSuperuser,
+	LocationAsSuperuser<Equals<AssetHub>, RuntimeOrigin>,
 );
 
 pub type PriceForChildParachainDelivery =
