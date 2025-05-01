@@ -14,6 +14,8 @@ use zombienet_sdk::{LocalFileSystem, Network, NetworkConfigBuilder, Registration
 const PARA_ID: u32 = 2000;
 const BEST_BLOCK_METRIC: &str = "block_height{status=\"best\"}";
 
+// This tests makes sure that the recovering nodes are able to see all relay-chain
+// notifications containing the candidates to recover.
 #[tokio::test(flavor = "multi_thread")]
 async fn pov_recovery() -> Result<(), anyhow::Error> {
 	let _ = env_logger::try_init_from_env(
@@ -21,14 +23,12 @@ async fn pov_recovery() -> Result<(), anyhow::Error> {
 	);
 
 	log::info!("Spawning network with relay chain only");
-	let mut network = setup_network_with_relaychain_only().await?;
+	let mut network = initialize_network().await?;
 
 	let validator_3 = network.get_node("validator-3")?;
 
 	log::info!("Waiting 20 blocks to register parachain");
 	// Wait 20 blocks and register parachain. This part is important for pov-recovery.
-	// We need to make sure that the recovering node is able to see all relay-chain
-	// notifications containing the candidates to recover.
 	assert!(validator_3
 		.wait_metric_with_timeout(BEST_BLOCK_METRIC, |b| b >= 20.0, 250u64)
 		.await
@@ -83,10 +83,34 @@ async fn pov_recovery() -> Result<(), anyhow::Error> {
 	Ok(())
 }
 
-async fn setup_network_with_relaychain_only() -> Result<Network<LocalFileSystem>, anyhow::Error> {
+async fn initialize_network() -> Result<Network<LocalFileSystem>, anyhow::Error> {
 	let images = zombienet_sdk::environment::get_images_from_env();
 	log::info!("Using images: {images:?}");
 
+	// Network setup:
+	// - relaychain nodes:
+	// 	 - ferdie
+	// 	   - full node
+	// 	 - validator[0-13]
+	// 	   - validator
+	// 	   - synchronize only with ferdie
+	// - parachain nodes
+	//   - bob
+	//     - collator which is the only one producing blocks
+	//   - alice
+	//     - collator which doesn't produce blocks
+	//     - will need to recover the pov blocks through availability recovery
+	//   - charlie
+	//     - full node
+	//   - eve
+	//     - collator which doesn't produce blocks
+	//     - it fails recovery from time to time to test retries
+	//   - one
+	//     - RPC collator which does not produce blocks
+	//   - two
+	//     - RPC full node
+	//   - three
+	//     - light client
 	let config = NetworkConfigBuilder::new()
 		.with_relaychain(|r| {
 			let r = r
@@ -117,43 +141,35 @@ async fn setup_network_with_relaychain_only() -> Result<Network<LocalFileSystem>
 		})
 		.with_parachain(|p| {
 			p.with_id(PARA_ID)
-				// do not register parachain when network is spawned, it will be registered later on
 				.with_registration_strategy(RegistrationStrategy::Manual)
 				.with_default_command("test-parachain")
 				.with_default_image(images.cumulus.as_str())
-				// run 'bob' as a parachain collator who is the only one producing blocks
-				// 'alice' and 'charlie' will need to recover the pov blocks through availability recovery
 				.with_collator(|c| {
 					c.with_name("bob")
 						.with_p2p_port(55915)
 						.validator(true)
 						.with_args(vec!["--disable-block-announcements".into()])
 				})
-				// run 'alice' as a parachain collator which does not produce blocks
 				.with_collator(|c| {
 					c.with_name("alice")
 						.validator(true)
 						.with_args(build_collator_args(vec!["--use-null-consensus".into()]))
 				})
-				// run 'charlie' as a parachain full node
 				.with_collator(|c| {
 					c.with_name("charlie").validator(false).with_args(build_collator_args(vec![]))
 				})
-				// we fail recovery for 'eve' from time to time to test retries
 				.with_collator(|c| {
 					c.with_name("eve").validator(true).with_args(build_collator_args(vec![
 						"--fail-pov-recovery".into(),
 						"--use-null-consensus".into(),
 					]))
 				})
-				// run 'one' as a RPC collator which does not produce blocks
 				.with_collator(|c| {
 					c.with_name("one").validator(true).with_args(build_collator_args(vec![
 						"--use-null-consensus".into(),
 						("--relay-chain-rpc-url", "{{ZOMBIE:ferdie:ws_uri}}").into(),
 					]))
 				})
-				// run 'two' as a RPC parachain full node
 				.with_collator(|c| {
 					c.with_name("two").validator(false).with_args(build_collator_args(vec![(
 						"--relay-chain-rpc-url",
@@ -161,7 +177,6 @@ async fn setup_network_with_relaychain_only() -> Result<Network<LocalFileSystem>
 					)
 						.into()]))
 				})
-				// run 'three' with light client
 				.with_collator(|c| {
 					c.with_name("three")
 						.validator(false)
@@ -194,7 +209,6 @@ fn build_collator_args(in_args: Vec<Arg>) -> Vec<Arg> {
 	];
 
 	let remaining_args: Vec<Arg> = vec![
-		("--").into(),
 		("--reserved-only").into(),
 		("--reserved-nodes", "{{ZOMBIE:ferdie:multiaddr}}").into(),
 	];
