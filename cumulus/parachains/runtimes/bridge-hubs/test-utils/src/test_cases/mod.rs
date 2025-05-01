@@ -28,10 +28,13 @@ use crate::{test_cases::bridges_prelude::*, test_data};
 
 use asset_test_utils::BasicParachainRuntime;
 use bp_messages::{
-	target_chain::{DispatchMessage, DispatchMessageData, MessageDispatch},
+	target_chain::{
+		DispatchMessage, DispatchMessageData, FromBridgedChainMessagesProof, MessageDispatch,
+	},
 	LaneState, MessageKey, MessagesOperatingMode, OutboundLaneData,
 };
-use bp_runtime::BasicOperatingMode;
+use bp_relayers::{RewardsAccountOwner, RewardsAccountParams};
+use bp_runtime::{BasicOperatingMode, HashOf, UnverifiedStorageProofParams};
 use codec::Encode;
 use frame_support::{
 	assert_ok,
@@ -39,6 +42,10 @@ use frame_support::{
 	traits::{Contains, Get, OnFinalize, OnInitialize, OriginTrait},
 };
 use frame_system::pallet_prelude::BlockNumberFor;
+use pallet_bridge_messages::{
+	messages_generation::{encode_all_messages, encode_lane_data, prepare_messages_storage_proof},
+	BridgedChainOf, LaneIdOf, ThisChainOf,
+};
 use parachains_common::AccountId;
 use parachains_runtimes_test_utils::{
 	mock_open_hrmp_channel, AccountIdOf, BalanceOf, CollatorSessionKeys, ExtBuilder,
@@ -65,11 +72,11 @@ pub(crate) mod bridges_prelude {
 }
 
 // Re-export test-case
+pub use for_pallet_xcm_bridge::open_and_close_xcm_bridge_works;
 pub use for_pallet_xcm_bridge_hub::open_and_close_bridge_works;
 
 // Re-export test_case from assets
 pub use asset_test_utils::include_teleports_for_native_asset_works;
-use pallet_bridge_messages::LaneIdOf;
 
 pub type RuntimeHelper<Runtime, AllPalletsWithoutSystem = ()> =
 	parachains_runtimes_test_utils::RuntimeHelper<Runtime, AllPalletsWithoutSystem>;
@@ -78,6 +85,8 @@ pub type RuntimeHelper<Runtime, AllPalletsWithoutSystem = ()> =
 pub use parachains_runtimes_test_utils::test_cases::{
 	change_storage_constant_by_governance_works, set_storage_keys_by_governance_works,
 };
+
+pub use helpers::{EnsureDeliveryAndMessage, ToMessageQueueDelivery, ToSiblingDelivery};
 
 /// Prepare default runtime storage and run test within this context.
 pub fn run_test<Runtime, T>(
@@ -805,4 +814,311 @@ pub(crate) mod for_pallet_xcm_bridge_hub {
 			);
 		});
 	}
+}
+
+pub(crate) mod for_pallet_xcm_bridge {
+	use super::*;
+	use crate::test_cases::helpers::for_pallet_xcm_bridge::{
+		close_xcm_bridge, ensure_opened_xcm_bridge, open_xcm_bridge_with_extrinsic,
+	};
+	pub(crate) use pallet_xcm_bridge::{
+		Bridge, BridgeState, Call as BridgeXcmOverBridgeCall, Config as BridgeXcmOverBridgeConfig,
+		LanesManagerOf,
+	};
+
+	/// Test-case makes sure that `Runtime` can open/close bridges.
+	pub fn open_and_close_xcm_bridge_works<Runtime, XcmOverBridgePalletInstance, LocationToAccountId, TokenLocation>(
+		collator_session_key: CollatorSessionKeys<Runtime>,
+		runtime_para_id: u32,
+		expected_source: Location,
+		destination: InteriorLocation,
+		origin_with_origin_kind: (Location, OriginKind),
+		is_paid_xcm_execution: bool,
+	) where
+		Runtime: BasicParachainRuntime + BridgeXcmOverBridgeConfig<XcmOverBridgePalletInstance>,
+		XcmOverBridgePalletInstance: 'static,
+		<Runtime as frame_system::Config>::RuntimeCall: GetDispatchInfo + From<BridgeXcmOverBridgeCall<Runtime, XcmOverBridgePalletInstance>>,
+		<Runtime as pallet_balances::Config>::Balance: From<<<Runtime as pallet_bridge_messages::Config<<Runtime as pallet_xcm_bridge::Config<XcmOverBridgePalletInstance>>::BridgeMessagesPalletInstance>>::ThisChain as bp_runtime::Chain>::Balance>,
+		<Runtime as pallet_balances::Config>::Balance: From<u128>,
+		<<Runtime as pallet_bridge_messages::Config<<Runtime as pallet_xcm_bridge::Config<XcmOverBridgePalletInstance>>::BridgeMessagesPalletInstance>>::ThisChain as bp_runtime::Chain>::AccountId: From<<Runtime as frame_system::Config>::AccountId>,
+		LocationToAccountId: ConvertLocation<AccountIdOf<Runtime>>,
+		TokenLocation: Get<Location>,
+	{
+		run_test::<Runtime, _>(collator_session_key, runtime_para_id, vec![], || {
+			// construct expected bridge configuration
+			let locations = pallet_xcm_bridge::Pallet::<Runtime, XcmOverBridgePalletInstance>::bridge_locations(
+				expected_source.clone().into(),
+				destination.clone().into(),
+			).expect("valid bridge locations");
+			let expected_lane_id =
+				locations.calculate_lane_id(xcm::latest::VERSION).expect("valid laneId");
+			let lanes_manager = LanesManagerOf::<Runtime, XcmOverBridgePalletInstance>::new();
+
+			let expected_deposit = if <Runtime as pallet_xcm_bridge::Config<
+				XcmOverBridgePalletInstance,
+			>>::AllowWithoutBridgeDeposit::contains(
+				locations.bridge_origin_relative_location()
+			) {
+				None
+			} else {
+				let bridge_owner_account = LocationToAccountId::convert_location(&expected_source)
+					.expect("valid location")
+					.into();
+				let deposit = <Runtime as pallet_xcm_bridge::Config<
+					XcmOverBridgePalletInstance,
+				>>::BridgeDeposit::get();
+
+				Some(pallet_xcm_bridge::Deposit::new(bridge_owner_account, deposit))
+			};
+
+			// check bridge/lane DOES not exist
+			assert_eq!(
+				pallet_xcm_bridge::Bridges::<Runtime, XcmOverBridgePalletInstance>::get(
+					locations.bridge_id()
+				),
+				None
+			);
+			assert_eq!(
+				lanes_manager.active_inbound_lane(expected_lane_id).map(drop),
+				Err(LanesManagerError::UnknownInboundLane)
+			);
+			assert_eq!(
+				lanes_manager.active_outbound_lane(expected_lane_id).map(drop),
+				Err(LanesManagerError::UnknownOutboundLane)
+			);
+
+			// open bridge with Transact call
+			assert_eq!(
+				ensure_opened_xcm_bridge::<
+					Runtime,
+					XcmOverBridgePalletInstance,
+					LocationToAccountId,
+					TokenLocation,
+				>(
+					expected_source.clone(),
+					destination.clone(),
+					is_paid_xcm_execution,
+					|locations, maybe_paid_execution| open_xcm_bridge_with_extrinsic::<
+						Runtime,
+						XcmOverBridgePalletInstance,
+					>(
+						origin_with_origin_kind.clone(),
+						locations.bridge_destination_universal_location().clone(),
+						maybe_paid_execution
+					)
+				)
+				.0
+				.bridge_id(),
+				locations.bridge_id()
+			);
+
+			// check bridge/lane DOES exist
+			assert_eq!(
+				pallet_xcm_bridge::Bridges::<Runtime, XcmOverBridgePalletInstance>::get(
+					locations.bridge_id()
+				),
+				Some(Bridge {
+					bridge_origin_relative_location: Box::new(expected_source.clone().into()),
+					bridge_origin_universal_location: Box::new(
+						locations.bridge_origin_universal_location().clone().into()
+					),
+					bridge_destination_universal_location: Box::new(
+						locations.bridge_destination_universal_location().clone().into()
+					),
+					state: BridgeState::Opened,
+					deposit: expected_deposit,
+					lane_id: expected_lane_id,
+					maybe_notify: None,
+				})
+			);
+			assert_eq!(
+				lanes_manager.active_inbound_lane(expected_lane_id).map(|lane| lane.state()),
+				Ok(LaneState::Opened)
+			);
+			assert_eq!(
+				lanes_manager.active_outbound_lane(expected_lane_id).map(|lane| lane.state()),
+				Ok(LaneState::Opened)
+			);
+
+			// close bridge with Transact call
+			close_xcm_bridge::<
+				Runtime,
+				XcmOverBridgePalletInstance,
+				LocationToAccountId,
+				TokenLocation,
+			>(expected_source, destination, origin_with_origin_kind, is_paid_xcm_execution);
+
+			// check bridge/lane DOES not exist
+			assert_eq!(
+				pallet_xcm_bridge::Bridges::<Runtime, XcmOverBridgePalletInstance>::get(
+					locations.bridge_id()
+				),
+				None
+			);
+			assert_eq!(
+				lanes_manager.active_inbound_lane(expected_lane_id).map(drop),
+				Err(LanesManagerError::UnknownInboundLane)
+			);
+			assert_eq!(
+				lanes_manager.active_outbound_lane(expected_lane_id).map(drop),
+				Err(LanesManagerError::UnknownOutboundLane)
+			);
+		});
+	}
+}
+
+/// Helper trait to test bridges with just messages pallet.
+///
+/// This is only used to decrease the number of lines dedicated to bounds.
+pub trait WithBridgeMessagesHelper {
+	/// This chain runtime.
+	type Runtime: BasicParachainRuntime
+		+ BridgeMessagesConfig<
+			Self::MPI,
+			InboundPayload = test_data::XcmAsPlainPayload,
+			OutboundPayload = test_data::XcmAsPlainPayload,
+		> + pallet_bridge_relayers::Config<Self::RPI, Reward = Self::RelayerReward>;
+	/// Instance of the `pallet-bridge-messages`, used to bridge with remote parachain.
+	type MPI: 'static;
+	/// Instance of the `pallet-bridge-relayers`, used to collect rewards from messages `MPI`
+	/// instance.
+	type RPI: 'static;
+	/// Relayer reward type.
+	type RelayerReward: From<RewardsAccountParams<LaneIdOf<Self::Runtime, Self::MPI>>>;
+	/// Generic means for ensuring delivery (e.g. open hrmp) and getting the enqueued XCM.
+	type EnsureDeliveryAndMessage: EnsureDeliveryAndMessage;
+}
+
+/// Adapter struct that implements `WithBridgeMessagesHelper`.
+pub struct WithBridgeMessagesHelperAdapter<Runtime, MPI, RPI, DeliveryAndMessage>(
+	core::marker::PhantomData<(Runtime, MPI, RPI, DeliveryAndMessage)>,
+);
+
+impl<Runtime, MPI, RPI, DeliveryAndMessage> WithBridgeMessagesHelper
+	for WithBridgeMessagesHelperAdapter<Runtime, MPI, RPI, DeliveryAndMessage>
+where
+	Runtime: BasicParachainRuntime
+		+ BridgeMessagesConfig<
+			MPI,
+			InboundPayload = test_data::XcmAsPlainPayload,
+			OutboundPayload = test_data::XcmAsPlainPayload,
+		> + pallet_bridge_relayers::Config<RPI>,
+	<Runtime as pallet_bridge_relayers::Config<RPI>>::Reward:
+		From<RewardsAccountParams<LaneIdOf<Runtime, MPI>>>,
+	MPI: 'static,
+	RPI: 'static,
+	DeliveryAndMessage: EnsureDeliveryAndMessage,
+{
+	type Runtime = Runtime;
+	type MPI = MPI;
+	type RPI = RPI;
+	type RelayerReward = Runtime::Reward;
+	type EnsureDeliveryAndMessage = DeliveryAndMessage;
+}
+
+/// Test-case makes sure that Runtime can dispatch XCM messages submitted by relayer,
+/// with message proofs independently submitted.
+/// Also verifies relayer transaction signed extensions work as intended.
+pub fn relayed_incoming_message_proofs_works<RuntimeHelper>(
+	collator_session_key: CollatorSessionKeys<RuntimeHelper::Runtime>,
+	runtime_para_id: u32,
+	local_destination_for_message: Location,
+	prepare_configuration: impl Fn() -> LaneIdOf<RuntimeHelper::Runtime, RuntimeHelper::MPI>,
+	ensure_proof_state_root: fn(
+		HashOf<BridgedChainOf<RuntimeHelper::Runtime, RuntimeHelper::MPI>>,
+	) -> HashOf<
+		BridgedChainOf<RuntimeHelper::Runtime, RuntimeHelper::MPI>,
+	>,
+	construct_and_apply_extrinsic: fn(
+		sp_keyring::Sr25519Keyring,
+		<RuntimeHelper::Runtime as frame_system::Config>::RuntimeCall,
+	) -> sp_runtime::DispatchOutcome,
+	expect_rewards: bool,
+	expect_descend_origin_with_messaging_pallet_instance: bool,
+) where
+	RuntimeHelper: WithBridgeMessagesHelper,
+	AccountIdOf<RuntimeHelper::Runtime>: From<AccountId32>,
+	RuntimeCallOf<RuntimeHelper::Runtime>:
+		From<BridgeMessagesCall<RuntimeHelper::Runtime, RuntimeHelper::MPI>>,
+{
+	helpers::relayed_incoming_message_proofs_works::<
+		RuntimeHelper::Runtime,
+		RuntimeHelper::MPI,
+		RuntimeHelper::EnsureDeliveryAndMessage,
+	>(
+		collator_session_key,
+		runtime_para_id,
+		local_destination_for_message,
+		construct_and_apply_extrinsic,
+		expect_descend_origin_with_messaging_pallet_instance,
+		|relayer_id_at_this_chain,
+		 relayer_id_at_bridged_chain,
+		 message_destination,
+		 message_nonce,
+		 xcm,
+		 bridged_chain_id| {
+			// prepare configuration
+			let lane_id = prepare_configuration();
+
+			// prepare a message
+			let message_payload = test_data::prepare_inbound_xcm(xcm, message_destination);
+			// prepare para storage proof containing a message
+			let (para_state_root, para_storage_proof) = prepare_messages_storage_proof::<
+				BridgedChainOf<RuntimeHelper::Runtime, RuntimeHelper::MPI>,
+				ThisChainOf<RuntimeHelper::Runtime, RuntimeHelper::MPI>,
+				LaneIdOf<RuntimeHelper::Runtime, RuntimeHelper::MPI>,
+			>(
+				lane_id,
+				message_nonce..=message_nonce,
+				None,
+				UnverifiedStorageProofParams::from_db_size(message_payload.len() as u32),
+				|_| message_payload.clone(),
+				encode_all_messages,
+				encode_lane_data,
+				false,
+				false,
+			);
+
+			// Ensure proof state root
+			let bridged_header_hash = ensure_proof_state_root(para_state_root);
+
+			// Prepare message proof for `para_state_root`
+			let message_proof = FromBridgedChainMessagesProof {
+				bridged_header_hash,
+				storage_proof: para_storage_proof,
+				lane: lane_id,
+				nonces_start: message_nonce,
+				nonces_end: message_nonce,
+			};
+
+			vec![
+				(
+					BridgeMessagesCall::<RuntimeHelper::Runtime, RuntimeHelper::MPI>::receive_messages_proof {
+						relayer_id_at_bridged_chain,
+						proof: Box::new(message_proof),
+						messages_count: 1,
+						dispatch_weight: Weight::from_parts(1000000000, 0),
+					}.into(),
+					Box::new((
+						helpers::VerifySubmitMessagesProofOutcome::<RuntimeHelper::Runtime, RuntimeHelper::MPI>::expect_last_delivered_nonce(
+							lane_id,
+							1,
+						),
+						if expect_rewards {
+							helpers::VerifyRelayerRewarded::<RuntimeHelper::Runtime, RuntimeHelper::RPI>::expect_relayer_reward(
+								relayer_id_at_this_chain,
+								RewardsAccountParams::new(
+									lane_id,
+									bridged_chain_id,
+									RewardsAccountOwner::ThisChain,
+								),
+							)
+						} else {
+							Box::new(())
+						}
+					)),
+				),
+			]
+		},
+	);
 }

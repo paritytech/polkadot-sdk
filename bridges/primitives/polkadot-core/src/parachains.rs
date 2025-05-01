@@ -67,7 +67,17 @@ impl From<u32> for ParaId {
 ///
 /// The parachain head means (at least in Cumulus) a SCALE-encoded parachain header.
 #[derive(
-	PartialEq, Eq, Clone, PartialOrd, Ord, Encode, Decode, RuntimeDebug, TypeInfo, Default,
+	PartialEq,
+	Eq,
+	Clone,
+	PartialOrd,
+	Ord,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	RuntimeDebug,
+	TypeInfo,
+	Default,
 )]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize, Hash))]
 pub struct ParaHead(pub Vec<u8>);

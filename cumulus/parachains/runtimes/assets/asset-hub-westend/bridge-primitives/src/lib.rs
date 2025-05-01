@@ -13,7 +13,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Module with configuration which reflects AssetHubWestend runtime setup.
+//! Module with configuration which reflects AssetHubWestend runtime setup (AccountId, Headers,
+//! Hashes...)
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -21,15 +22,17 @@ extern crate alloc;
 
 pub use bp_bridge_hub_cumulus::*;
 use bp_messages::*;
+pub use bp_proof_root_store::ProofRootStoreCall;
 use bp_runtime::{
 	decl_bridge_finality_runtime_apis, decl_bridge_messages_runtime_apis, Chain, ChainId, Parachain,
 };
-pub use bp_xcm_bridge_hub_router::XcmBridgeHubRouterCall;
-use codec::{Decode, Encode};
+pub use bp_xcm_bridge_router::XcmBridgeHubCall;
 use frame_support::{
 	dispatch::DispatchClass,
 	sp_runtime::{MultiAddress, MultiSigner, RuntimeDebug, StateVersion},
 };
+
+use codec::{Decode, Encode};
 use scale_info::TypeInfo;
 use testnet_parachains_constants::westend::currency::UNITS;
 use xcm::latest::prelude::*;
@@ -47,7 +50,10 @@ use xcm::latest::prelude::*;
 pub enum Call {
 	/// `ToRococoXcmRouter` bridge pallet.
 	#[codec(index = 34)]
-	ToRococoXcmRouter(XcmBridgeHubRouterCall),
+	ToRococoXcmRouter(XcmBridgeHubCall<sp_core::H256>),
+	/// `AssetHubRococoProofRootStore` bridge pallet.
+	#[codec(index = 66)]
+	AssetHubRococoProofRootStore(ProofRootStoreCall<Hash, Hash>),
 }
 
 frame_support::parameter_types! {
@@ -69,7 +75,7 @@ pub fn build_congestion_message<RuntimeCall>(
 		Transact {
 			origin_kind: OriginKind::Xcm,
 			fallback_max_weight: Some(XcmBridgeHubRouterTransactCallMaxWeight::get()),
-			call: Call::ToRococoXcmRouter(XcmBridgeHubRouterCall::report_bridge_status {
+			call: Call::ToRococoXcmRouter(XcmBridgeHubCall::update_bridge_status {
 				bridge_id,
 				is_congested,
 			})
@@ -148,3 +154,27 @@ pub const WITH_BRIDGE_WESTEND_TO_ROCOCO_MESSAGES_PALLET_INDEX: u8 = 63;
 
 decl_bridge_finality_runtime_apis!(asset_hub_westend);
 decl_bridge_messages_runtime_apis!(asset_hub_westend, HashedLaneId);
+
+frame_support::parameter_types! {
+	/// TODO: FAIL-CI - probably not needed
+	/// The XCM fee that is paid for executing XCM program (with `ExportMessage` instruction) at the Westend
+	/// AssetHub.
+	/// (initially was calculated by test `AssetHubWestend::can_calculate_weight_for_paid_export_message_with_reserve_transfer` + `33%`)
+	pub const AssetHubWestendBaseXcmFeeInWnds: u128 = 57_325_000;
+
+	/// Transaction fee that is paid at the Westend AssetHub for delivering single inbound message.
+	/// (initially was calculated by test `AssetHubWestend::can_calculate_fee_for_standalone_message_delivery_transaction` + `33%`)
+	pub const AssetHubWestendBaseDeliveryFeeInWnds: u128 = 297_685_840;
+
+	/// Transaction fee that is paid at the Westend AssetHub for delivering single outbound message confirmation.
+	/// (initially was calculated by test `AssetHubWestend::can_calculate_fee_for_standalone_message_confirmation_transaction` + `33%`)
+	pub const AssetHubWestendBaseConfirmationFeeInWnds: u128 = 56_782_099;
+}
+
+/// Wrapper over `AssetHubWestend`'s `RuntimeCall` that can be used without a runtime.
+#[derive(Decode, Encode)]
+pub enum RuntimeCall {
+	/// Points to the `pallet_xcm_bridge_hub` pallet instance for `AssetHubRococo`.
+	#[codec(index = 62)] // TODO: FAIL-CI - corect index when AssetHubWestend
+	XcmOverAssetHubRococo(bp_xcm_bridge::XcmBridgeCall),
+}

@@ -23,9 +23,8 @@
 
 use super::{weights, AccountId, Balance, Balances, BlockNumber, Runtime, RuntimeEvent};
 use crate::{
-	bridge_to_ethereum_config::{AssetHubLocation, InboundQueueV2Location},
-	xcm_config::XcmConfig,
-	RuntimeCall, XcmRouter,
+	bridge_to_ethereum_config::InboundQueueV2Location, xcm_config::XcmConfig, RuntimeCall,
+	XcmRouter,
 };
 use bp_messages::LegacyLaneId;
 use bp_relayers::RewardsAccountParams;
@@ -33,10 +32,15 @@ use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use frame_support::parameter_types;
 use scale_info::TypeInfo;
 use testnet_parachains_constants::westend::snowbridge::EthereumNetwork;
-use xcm::{opaque::latest::Location, VersionedLocation};
+use westend_runtime_constants::system_parachain::ASSET_HUB_ID;
+use xcm::{
+	latest::{prelude::Parachain, Location},
+	VersionedLocation,
+};
 use xcm_executor::XcmExecutor;
 
 parameter_types! {
+	pub AssetHubLocation: Location = Location::new(1, [Parachain(ASSET_HUB_ID)]);
 	pub storage RequiredStakeForStakeAndSlash: Balance = 1_000_000;
 	pub const RelayerStakeLease: u32 = 8;
 	pub const RelayerStakeReserveId: [u8; 8] = *b"brdgrlrs";

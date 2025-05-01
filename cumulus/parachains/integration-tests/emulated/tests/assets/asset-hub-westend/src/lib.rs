@@ -49,6 +49,13 @@ mod imports {
 		PenpalATeleportableAssetLocation, ASSETS_PALLET_ID, RESERVABLE_ASSET_ID, USDT_ID, XCM_V3,
 	};
 	pub use parachains_common::{AccountId, Balance};
+	pub use rococo_system_emulated_network::{
+		asset_hub_rococo_emulated_chain::{
+			genesis::AssetHubRococoUniversalLocation,
+			AssetHubRococoParaPallet as AssetHubRococoPallet, AssetHubRococoRuntimeOrigin,
+		},
+		AssetHubRococoPara as AssetHubRococo,
+	};
 	pub use westend_system_emulated_network::{
 		asset_hub_westend_emulated_chain::{
 			asset_hub_westend_runtime::{
@@ -60,8 +67,11 @@ mod imports {
 				AssetConversionOrigin as AssetHubWestendAssetConversionOrigin,
 				ExistentialDeposit as AssetHubWestendExistentialDeposit,
 			},
-			genesis::{AssetHubWestendAssetOwner, ED as ASSET_HUB_WESTEND_ED},
-			AssetHubWestendParaPallet as AssetHubWestendPallet,
+			genesis::{
+				AssetHubWestendAssetOwner, AssetHubWestendUniversalLocation,
+				ED as ASSET_HUB_WESTEND_ED,
+			},
+			AssetHubWestendParaPallet as AssetHubWestendPallet, AssetHubWestendRuntimeOrigin,
 		},
 		bridge_hub_westend_emulated_chain::{
 			bridge_hub_westend_runtime::xcm_config::{self as bhw_xcm_config},

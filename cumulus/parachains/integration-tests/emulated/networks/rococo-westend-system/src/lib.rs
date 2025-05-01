@@ -32,7 +32,7 @@ use westend_emulated_chain::Westend;
 // Cumulus
 use emulated_integration_tests_common::{
 	accounts::{ALICE, BOB},
-	impls::{BridgeHubMessageHandler, BridgeMessagesInstance1, BridgeMessagesInstance3},
+	impls::{BridgeMessagesHandler, BridgeMessagesInstance1, BridgeMessagesInstance3},
 	xcm_emulator::{
 		decl_test_bridges, decl_test_networks, decl_test_sender_receiver_accounts_parameter_types,
 		Chain,
@@ -73,16 +73,30 @@ decl_test_bridges! {
 	}
 }
 
+type AssetHubRococoRuntime = <AssetHubRococoPara as Chain>::Runtime;
+type AssetHubWestendRuntime = <AssetHubWestendPara as Chain>::Runtime;
 type BridgeHubRococoRuntime = <BridgeHubRococoPara as Chain>::Runtime;
 type BridgeHubWestendRuntime = <BridgeHubWestendPara as Chain>::Runtime;
 
-pub type RococoWestendMessageHandler = BridgeHubMessageHandler<
+pub type AssetHubRococoWestendMessageHandler = BridgeMessagesHandler<
+	AssetHubRococoRuntime,
+	BridgeMessagesInstance1,
+	AssetHubWestendRuntime,
+	BridgeMessagesInstance1,
+>;
+pub type AssetHubWestendRococoMessageHandler = BridgeMessagesHandler<
+	AssetHubWestendRuntime,
+	BridgeMessagesInstance1,
+	AssetHubRococoRuntime,
+	BridgeMessagesInstance1,
+>;
+pub type RococoWestendMessageHandler = BridgeMessagesHandler<
 	BridgeHubRococoRuntime,
 	BridgeMessagesInstance3,
 	BridgeHubWestendRuntime,
 	BridgeMessagesInstance1,
 >;
-pub type WestendRococoMessageHandler = BridgeHubMessageHandler<
+pub type WestendRococoMessageHandler = BridgeMessagesHandler<
 	BridgeHubWestendRuntime,
 	BridgeMessagesInstance1,
 	BridgeHubRococoRuntime,

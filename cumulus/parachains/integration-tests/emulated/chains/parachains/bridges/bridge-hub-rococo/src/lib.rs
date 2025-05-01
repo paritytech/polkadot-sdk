@@ -51,6 +51,8 @@ decl_test_parachains! {
 			EthereumSystem: bridge_hub_rococo_runtime::EthereumSystem,
 			EthereumInboundQueue: bridge_hub_rococo_runtime::EthereumInboundQueue,
 			EthereumOutboundQueue: bridge_hub_rococo_runtime::EthereumOutboundQueue,
+			BridgeWestendGrandpa: bridge_hub_rococo_runtime::BridgeWestendGrandpa,
+			BridgeWestendParachains: bridge_hub_rococo_runtime::BridgeWestendParachains,
 		}
 	},
 }

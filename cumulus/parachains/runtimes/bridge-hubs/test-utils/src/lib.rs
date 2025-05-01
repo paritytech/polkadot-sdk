@@ -21,11 +21,16 @@ pub mod test_data;
 
 extern crate alloc;
 
-pub use bp_test_utils::test_header;
+pub use bp_test_utils::{test_header, test_header_with_root};
 pub use parachains_runtimes_test_utils::*;
 use sp_runtime::Perbill;
-pub use test_cases::helpers::for_pallet_xcm_bridge_hub::{
-	ensure_opened_bridge, open_bridge_with_extrinsic, open_bridge_with_storage,
+pub use test_cases::helpers::{
+	for_pallet_xcm_bridge::{
+		ensure_opened_xcm_bridge, open_xcm_bridge_with_extrinsic, open_xcm_bridge_with_storage,
+	},
+	for_pallet_xcm_bridge_hub::{
+		ensure_opened_bridge, open_bridge_with_extrinsic, open_bridge_with_storage,
+	},
 };
 
 /// A helper function for comparing the actual value of a fee constant with its estimated value. The
