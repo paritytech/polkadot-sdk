@@ -180,7 +180,7 @@ fn report_holding_works() {
 		assert_eq!(Balances::free_balance(other_para_acc), amount);
 		assert_eq!(Balances::free_balance(para_acc), INITIAL_BALANCE - 2 * amount);
 		let xcm_sent = mock::sent_xcm();
-		let expected_hash: XcmHash = TopicIdTracker::get_unique_id().into();
+		let expected_hash = TopicIdTracker::get_sent_hash();
 		let expected_msg = Xcm(vec![
 			QueryResponse {
 				query_id: response_info.query_id,
@@ -263,7 +263,7 @@ fn teleport_to_asset_hub_works() {
 		// 2 * amount because of the other teleport above
 		assert_eq!(Balances::free_balance(para_acc), INITIAL_BALANCE - 2 * amount);
 		let xcm_sent = mock::sent_xcm();
-		let expected_hash: XcmHash = TopicIdTracker::get_unique_id().into();
+		let expected_hash = TopicIdTracker::get_sent_hash();
 		let mut expected_msg =
 			Xcm(vec![ReceiveTeleportedAsset((Parent, amount).into()), ClearOrigin]
 				.into_iter()
@@ -317,7 +317,7 @@ fn reserve_based_transfer_works() {
 		assert_eq!(r, Outcome::Complete { used: weight });
 		assert_eq!(Balances::free_balance(para_acc), INITIAL_BALANCE - amount);
 		let xcm_sent = mock::sent_xcm();
-		let expected_hash: XcmHash = TopicIdTracker::get_unique_id().into();
+		let expected_hash = TopicIdTracker::get_sent_hash();
 		let mut expected_msg =
 			Xcm(vec![ReserveAssetDeposited((Parent, amount).into()), ClearOrigin]
 				.into_iter()
