@@ -53,5 +53,5 @@ thiserror = { workspace = true }
 
 [dev-dependencies]
 quickcheck = { workspace = true }
-sp-tracing = { default-features = true, path = "../../primitives/tracing" }
-substrate-test-runtime-client = { path = "../../test-utils/runtime/client" }
+sp-tracing = { default-features = true, workspace = true }
+substrate-test-runtime-client = { workspace = true }

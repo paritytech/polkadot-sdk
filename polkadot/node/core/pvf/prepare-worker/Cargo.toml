@@ -45,8 +45,8 @@ jemalloc-allocator = [
 
 [dev-dependencies]
 criterion = { features = ["cargo_bench_support"], workspace = true }
-rococo-runtime = { path = "../../../../runtime/rococo" }
-sp-maybe-compressed-blob = { default-features = true, path = "../../../../../substrate/primitives/maybe-compressed-blob" }
+rococo-runtime = { workspace = true }
+sp-maybe-compressed-blob = { default-features = true, workspace = true }
 
 [[bench]]
 name = "prepare_rococo_runtime"

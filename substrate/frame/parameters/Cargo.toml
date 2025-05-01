@@ -20,10 +20,10 @@ sp-core.workspace = true
 sp-runtime.workspace = true
 
 [dev-dependencies]
-pallet-balances = { features = ["std"], default-features = true, path = "../balances" }
-pallet-example-basic = { features = ["std"], default-features = true, path = "../examples/basic" }
-sp-core = { features = ["std"], default-features = true, path = "../../primitives/core" }
-sp-io = { features = ["std"], default-features = true, path = "../../primitives/io" }
+pallet-balances = { features = ["std"], default-features = true, workspace = true }
+pallet-example-basic = { features = ["std"], default-features = true, workspace = true }
+sp-core = { features = ["std"], default-features = true, workspace = true }
+sp-io = { features = ["std"], default-features = true, workspace = true }
 
 [features]
 default = ["std"]

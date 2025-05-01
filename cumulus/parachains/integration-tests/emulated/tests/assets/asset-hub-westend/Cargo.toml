@@ -39,4 +39,4 @@ xcm-executor.workspace = true
 xcm-runtime-apis.workspace = true
 
 [dev-dependencies]
-sp-tracing = { features = ["test-utils"], default-features = true, path = "../../../../../../../substrate/primitives/tracing" }
+sp-tracing = { features = ["test-utils"], default-features = true, workspace = true }

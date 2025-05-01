@@ -39,8 +39,8 @@ xcm.workspace = true
 xcm-executor.workspace = true
 
 [dev-dependencies]
-pallet-authorship = { default-features = false, path = "../../../substrate/frame/authorship" }
-sp-io = { default-features = false, path = "../../../substrate/primitives/io" }
+pallet-authorship = { default-features = false, workspace = true }
+sp-io = { default-features = false, workspace = true }
 
 [features]
 default = ["std"]

@@ -87,7 +87,7 @@ tokio = { workspace = true, features = ["macros"] }
 tracing = { workspace = true, default-features = true }
 
 [dev-dependencies]
-cumulus-test-client = { path = "../../../test/client" }
-cumulus-test-relay-sproof-builder = { default-features = false, path = "../../../test/relay-sproof-builder" }
+cumulus-test-client = { workspace = true }
+cumulus-test-relay-sproof-builder = { default-features = false, workspace = true }
 rstest = { workspace = true }
-sp-keyring = { default-features = false, path = "../../../../substrate/primitives/keyring" }
+sp-keyring = { default-features = false, workspace = true }

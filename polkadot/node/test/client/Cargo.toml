@@ -45,7 +45,7 @@ substrate-test-client.workspace = true
 
 [dev-dependencies]
 futures = { workspace = true }
-sp-keyring = { default-features = true, path = "../../../../substrate/primitives/keyring" }
+sp-keyring = { default-features = true, workspace = true }
 
 [features]
 runtime-benchmarks = [

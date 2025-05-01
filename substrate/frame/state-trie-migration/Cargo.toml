@@ -31,8 +31,8 @@ thousands = { optional = true, workspace = true }
 zstd = { optional = true, workspace = true }
 
 [dev-dependencies]
-pallet-balances = { default-features = true, path = "../balances" }
-sp-tracing = { default-features = true, path = "../../primitives/tracing" }
+pallet-balances = { default-features = true, workspace = true }
+sp-tracing = { default-features = true, workspace = true }
 tokio = { features = ["macros"], workspace = true, default-features = true }
 
 [features]

@@ -31,7 +31,7 @@ log = { workspace = true, default-features = true }
 scale-info = { features = ["derive"], workspace = true }
 
 [dev-dependencies]
-cumulus-primitives-proof-size-hostfunction = { default-features = false, path = "../../primitives/proof-size-hostfunction" }
+cumulus-primitives-proof-size-hostfunction = { default-features = false, workspace = true }
 
 [features]
 default = ["std"]
