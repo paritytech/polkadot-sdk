@@ -15,7 +15,7 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use super::*;
-use xcm_simulator::helpers::TopicIdTracker;
+use xcm_simulator::helpers::{derive_topic_id, TopicIdTracker};
 
 #[test]
 fn pallet_query_should_work() {
@@ -31,7 +31,7 @@ fn pallet_query_should_work() {
 			max_weight: Weight::from_parts(50, 50),
 		},
 	}]);
-	let mut hash = fake_message_hash(&message);
+	let mut hash = derive_topic_id(&message);
 	let r = XcmExecutor::<TestConfig>::prepare_and_execute(
 		Parachain(1),
 		message,
@@ -69,7 +69,7 @@ fn pallet_query_with_results_should_work() {
 			max_weight: Weight::from_parts(50, 50),
 		},
 	}]);
-	let mut hash = fake_message_hash(&message);
+	let mut hash = derive_topic_id(&message);
 	let r = XcmExecutor::<TestConfig>::prepare_and_execute(
 		Parachain(1),
 		message,
@@ -119,7 +119,7 @@ fn prepaid_result_of_query_should_get_free_execution() {
 		max_weight: Weight::from_parts(10, 10),
 		querier: Some(Here.into()),
 	}]);
-	let mut hash = fake_message_hash(&message);
+	let mut hash = derive_topic_id(&message);
 	let weight_limit = Weight::from_parts(10, 10);
 
 	// First time the response gets through since we're expecting it...

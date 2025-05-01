@@ -17,14 +17,14 @@
 mod mock;
 
 use mock::{
-	fake_message_hash, kusama_like_with_balances, AccountId, Balance, Balances, BaseXcmWeight,
-	System, XcmConfig, CENTS,
+	kusama_like_with_balances, AccountId, Balance, Balances, BaseXcmWeight, System, XcmConfig,
+	CENTS,
 };
 use polkadot_parachain_primitives::primitives::Id as ParaId;
 use sp_runtime::traits::AccountIdConversion;
 use xcm::latest::{prelude::*, Error::UntrustedTeleportLocation};
 use xcm_executor::XcmExecutor;
-use xcm_simulator::helpers::TopicIdTracker;
+use xcm_simulator::helpers::{derive_topic_id, TopicIdTracker};
 
 pub const ALICE: AccountId = AccountId::new([0u8; 32]);
 pub const PARA_ID: u32 = 2000;
@@ -56,7 +56,7 @@ fn withdraw_and_deposit_works() {
 				beneficiary: Parachain(other_para_id).into(),
 			},
 		]);
-		let mut hash = fake_message_hash(&message);
+		let mut hash = derive_topic_id(&message);
 		let r = XcmExecutor::<XcmConfig>::prepare_and_execute(
 			Parachain(PARA_ID),
 			message,
@@ -86,7 +86,7 @@ fn transfer_asset_works() {
 			assets: (Here, amount).into(),
 			beneficiary: AccountId32 { network: None, id: bob.clone().into() }.into(),
 		}]);
-		let mut hash = fake_message_hash(&message);
+		let mut hash = derive_topic_id(&message);
 		// Use `prepare_and_execute` here to pass through the barrier
 		let r = XcmExecutor::<XcmConfig>::prepare_and_execute(
 			AccountId32 { network: None, id: ALICE.into() },
@@ -137,7 +137,7 @@ fn report_holding_works() {
 			// is not triggered because the deposit fails
 			ReportHolding { response_info: response_info.clone(), assets: All.into() },
 		]);
-		let mut hash = fake_message_hash(&message);
+		let mut hash = derive_topic_id(&message);
 		let r = XcmExecutor::<XcmConfig>::prepare_and_execute(
 			Parachain(PARA_ID),
 			message,
@@ -167,7 +167,7 @@ fn report_holding_works() {
 			// used to get a notification in case of success
 			ReportHolding { response_info: response_info.clone(), assets: AllCounted(1).into() },
 		]);
-		let mut hash = fake_message_hash(&message);
+		let mut hash = derive_topic_id(&message);
 		let r = XcmExecutor::<XcmConfig>::prepare_and_execute(
 			Parachain(PARA_ID),
 			message,
@@ -231,7 +231,7 @@ fn teleport_to_asset_hub_works() {
 				xcm: Xcm(teleport_effects.clone()),
 			},
 		]);
-		let mut hash = fake_message_hash(&message);
+		let mut hash = derive_topic_id(&message);
 		let r = XcmExecutor::<XcmConfig>::prepare_and_execute(
 			Parachain(PARA_ID),
 			message,
@@ -251,7 +251,7 @@ fn teleport_to_asset_hub_works() {
 				xcm: Xcm(teleport_effects.clone()),
 			},
 		]);
-		let mut hash = fake_message_hash(&message);
+		let mut hash = derive_topic_id(&message);
 		let r = XcmExecutor::<XcmConfig>::prepare_and_execute(
 			Parachain(PARA_ID),
 			message,
@@ -264,7 +264,8 @@ fn teleport_to_asset_hub_works() {
 		assert_eq!(Balances::free_balance(para_acc), INITIAL_BALANCE - 2 * amount);
 		let xcm_sent = mock::sent_xcm();
 		let expected_hash: XcmHash = TopicIdTracker::get().into();
-		let mut expected_msg = Xcm(vec![ReceiveTeleportedAsset((Parent, amount).into()), ClearOrigin]
+		let mut expected_msg =
+			Xcm(vec![ReceiveTeleportedAsset((Parent, amount).into()), ClearOrigin]
 				.into_iter()
 				.chain(teleport_effects.clone().into_iter())
 				.collect());
@@ -304,7 +305,7 @@ fn reserve_based_transfer_works() {
 				xcm: Xcm(transfer_effects.clone()),
 			},
 		]);
-		let mut hash = fake_message_hash(&message);
+		let mut hash = derive_topic_id(&message);
 		let weight = BaseXcmWeight::get() * 3;
 		let r = XcmExecutor::<XcmConfig>::prepare_and_execute(
 			Parachain(PARA_ID),
@@ -317,7 +318,8 @@ fn reserve_based_transfer_works() {
 		assert_eq!(Balances::free_balance(para_acc), INITIAL_BALANCE - amount);
 		let xcm_sent = mock::sent_xcm();
 		let expected_hash: XcmHash = TopicIdTracker::get().into();
-		let mut expected_msg = Xcm(vec![ReserveAssetDeposited((Parent, amount).into()), ClearOrigin]
+		let mut expected_msg =
+			Xcm(vec![ReserveAssetDeposited((Parent, amount).into()), ClearOrigin]
 				.into_iter()
 				.chain(transfer_effects.into_iter())
 				.collect());
@@ -409,7 +411,7 @@ fn recursive_xcm_execution_fail() {
 	let balances = vec![(ALICE, INITIAL_BALANCE), (para_acc.clone(), INITIAL_BALANCE)];
 	let origin = Parachain(PARA_ID);
 	let message = Xcm(vec![SetAppendix(Xcm(vec![SetAppendix(Xcm(vec![ClearOrigin]))]))]);
-	let mut hash = fake_message_hash(&message);
+	let mut hash = derive_topic_id(&message);
 	let weight = BaseXcmWeight::get() * 3;
 
 	kusama_like_with_balances(balances).execute_with(|| {

@@ -15,6 +15,7 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use super::*;
+use xcm_simulator::helpers::derive_topic_id;
 
 #[test]
 fn universal_origin_should_work() {
@@ -29,7 +30,7 @@ fn universal_origin_should_work() {
 		UniversalOrigin(GlobalConsensus(Kusama)),
 		TransferAsset { assets: (Parent, 100u128).into(), beneficiary: Here.into() },
 	]);
-	let mut hash = fake_message_hash(&message);
+	let mut hash = derive_topic_id(&message);
 	let r = XcmExecutor::<TestConfig>::prepare_and_execute(
 		Parachain(2),
 		message,
@@ -46,7 +47,7 @@ fn universal_origin_should_work() {
 		UniversalOrigin(GlobalConsensus(Kusama)),
 		TransferAsset { assets: (Parent, 100u128).into(), beneficiary: Here.into() },
 	]);
-	let mut hash = fake_message_hash(&message);
+	let mut hash = derive_topic_id(&message);
 	let r = XcmExecutor::<TestConfig>::prepare_and_execute(
 		Parachain(1),
 		message,
@@ -64,7 +65,7 @@ fn universal_origin_should_work() {
 		UniversalOrigin(GlobalConsensus(Kusama)),
 		TransferAsset { assets: (Parent, 100u128).into(), beneficiary: Here.into() },
 	]);
-	let mut hash = fake_message_hash(&message);
+	let mut hash = derive_topic_id(&message);
 	let r = XcmExecutor::<TestConfig>::prepare_and_execute(
 		Parachain(1),
 		message,
@@ -86,13 +87,13 @@ fn export_message_should_work() {
 		assets: (Here, 100u128).into(),
 		beneficiary: Parachain(2).into(),
 	}]);
-	let expected_hash = fake_message_hash(&expected_message);
+	let expected_hash = derive_topic_id(&expected_message);
 	let message = Xcm(vec![ExportMessage {
 		network: Polkadot,
 		destination: Here,
 		xcm: expected_message.clone(),
 	}]);
-	let mut hash = fake_message_hash(&message);
+	let mut hash = derive_topic_id(&message);
 	let r = XcmExecutor::<TestConfig>::prepare_and_execute(
 		Parachain(1),
 		message,
@@ -120,7 +121,7 @@ fn unpaid_execution_should_work() {
 		weight_limit: Limited(Weight::from_parts(9, 9)),
 		check_origin: Some(Parachain(2).into()),
 	}]);
-	let mut hash = fake_message_hash(&message);
+	let mut hash = derive_topic_id(&message);
 	let r = XcmExecutor::<TestConfig>::prepare_and_execute(
 		Parachain(1),
 		message.clone(),

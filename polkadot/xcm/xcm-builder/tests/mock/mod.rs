@@ -39,13 +39,13 @@ use xcm_builder::{
 	IsChildSystemParachain, IsConcrete, MintLocation, RespectSuspension, SignedAccountId32AsNative,
 	SignedToAccountId32, SovereignSignedViaLocation, TakeWeightCredit,
 };
+use xcm_simulator::helpers::{derive_topic_id, TopicIdTracker};
 
 pub type AccountId = AccountId32;
 pub type Balance = u128;
 
 thread_local! {
 	pub static SENT_XCM: RefCell<Vec<(Location, opaque::Xcm, XcmHash)>> = RefCell::new(Vec::new());
-	pub static SENT_XCM_TOPIC_ID: RefCell<XcmHash> = RefCell::new(XcmHash::default());
 }
 pub fn sent_xcm() -> Vec<(Location, opaque::Xcm, XcmHash)> {
 	SENT_XCM.with(|q| (*q.borrow()).clone())
@@ -58,14 +58,14 @@ impl SendXcm for TestSendXcm {
 		msg: &mut Option<Xcm<()>>,
 	) -> SendResult<(Location, Xcm<()>, XcmHash)> {
 		let msg = msg.take().unwrap();
-		let hash = fake_message_hash(&msg);
+		let hash = derive_topic_id(&msg);
 		let triplet = (dest.take().unwrap(), msg, hash);
 		Ok((triplet, Assets::new()))
 	}
 	fn deliver(triplet: (Location, Xcm<()>, XcmHash)) -> Result<XcmHash, SendError> {
 		let hash = triplet.2;
 		SENT_XCM.with(|q| q.borrow_mut().push(triplet));
-		SENT_XCM_TOPIC_ID.set(hash);
+		TopicIdTracker::insert(hash.into());
 		Ok(hash)
 	}
 }
@@ -257,12 +257,4 @@ pub fn kusama_like_with_balances(balances: Vec<(AccountId, Balance)>) -> sp_io::
 	let mut ext = sp_io::TestExternalities::new(t);
 	ext.execute_with(|| System::set_block_number(1));
 	ext
-}
-
-pub fn fake_message_hash<T>(message: &Xcm<T>) -> XcmHash {
-	if let Some(SetTopic(topic_id)) = message.last() {
-		*topic_id
-	} else {
-		message.using_encoded(sp_io::hashing::blake2_256)
-	}
 }

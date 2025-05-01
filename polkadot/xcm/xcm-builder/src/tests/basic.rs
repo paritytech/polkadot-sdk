@@ -15,6 +15,7 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use super::*;
+use xcm_simulator::helpers::derive_topic_id;
 
 #[test]
 fn basic_setup_works() {
@@ -84,7 +85,7 @@ fn code_registers_should_work() {
 	let limit = <TestConfig as Config>::Weigher::weight(&mut message).unwrap();
 	assert_eq!(limit, Weight::from_parts(70, 70));
 
-	let mut hash = fake_message_hash(&message);
+	let mut hash = derive_topic_id(&message);
 
 	let r = XcmExecutor::<TestConfig>::prepare_and_execute(
 		Here,

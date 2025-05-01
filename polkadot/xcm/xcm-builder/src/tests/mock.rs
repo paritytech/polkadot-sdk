@@ -49,6 +49,7 @@ pub use xcm_executor::{
 	},
 	AssetsInHolding, Config,
 };
+use xcm_simulator::helpers::{derive_topic_id, TopicIdTracker};
 
 #[derive(Debug)]
 pub enum TestOrigin {
@@ -115,7 +116,6 @@ impl GetDispatchInfo for TestCall {
 
 thread_local! {
 	pub static SENT_XCM: RefCell<Vec<(Location, Xcm<()>, XcmHash)>> = RefCell::new(Vec::new());
-	pub static SENT_XCM_TOPIC_ID: RefCell<XcmHash> = RefCell::new(XcmHash::default());
 	pub static EXPORTED_XCM: RefCell<
 		Vec<(NetworkId, u32, InteriorLocation, InteriorLocation, Xcm<()>, XcmHash)>
 	> = RefCell::new(Vec::new());
@@ -178,14 +178,14 @@ impl SendXcm for TestMessageSenderImpl {
 		msg: &mut Option<Xcm<()>>,
 	) -> SendResult<(Location, Xcm<()>, XcmHash)> {
 		let msg = msg.take().unwrap();
-		let hash = fake_message_hash(&msg);
+		let hash = derive_topic_id(&msg);
 		let triplet = (dest.take().unwrap(), msg, hash);
 		Ok((triplet, SEND_PRICE.with(|l| l.borrow().clone())))
 	}
 	fn deliver(triplet: (Location, Xcm<()>, XcmHash)) -> Result<XcmHash, SendError> {
 		let hash = triplet.2;
 		SENT_XCM.with(|q| q.borrow_mut().push(triplet));
-		SENT_XCM_TOPIC_ID.set(hash);
+		TopicIdTracker::insert(hash.into());
 		Ok(hash)
 	}
 }
@@ -209,7 +209,7 @@ impl ExportXcm for TestMessageExporter {
 				Ok(Assets::new())
 			}
 		});
-		let h = fake_message_hash(&m);
+		let h = derive_topic_id(&m);
 		match r {
 			Ok(price) => Ok(((network, channel, s, d, m, h), price)),
 			Err(e) => {
@@ -230,7 +230,7 @@ impl ExportXcm for TestMessageExporter {
 			} else {
 				let hash = tuple.5;
 				EXPORTED_XCM.with(|q| q.borrow_mut().push(tuple));
-				SENT_XCM_TOPIC_ID.set(hash);
+				TopicIdTracker::insert(hash.into());
 				Ok(hash)
 			}
 		})
@@ -777,12 +777,4 @@ impl Config for TestConfig {
 
 pub fn fungible_multi_asset(location: Location, amount: u128) -> Asset {
 	(AssetId::from(location), Fungibility::Fungible(amount)).into()
-}
-
-pub fn fake_message_hash<T>(message: &Xcm<T>) -> XcmHash {
-	if let Some(SetTopic(topic_id)) = message.last() {
-		*topic_id
-	} else {
-		message.using_encoded(sp_io::hashing::blake2_256)
-	}
 }

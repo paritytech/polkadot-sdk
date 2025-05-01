@@ -15,6 +15,7 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use super::*;
+use xcm_simulator::helpers::derive_topic_id;
 
 #[test]
 fn expect_pallet_should_work() {
@@ -28,7 +29,7 @@ fn expect_pallet_should_work() {
 		crate_major: 1,
 		min_crate_minor: 42,
 	}]);
-	let mut hash = fake_message_hash(&message);
+	let mut hash = derive_topic_id(&message);
 	let r = XcmExecutor::<TestConfig>::prepare_and_execute(
 		Parachain(1),
 		message,
@@ -45,7 +46,7 @@ fn expect_pallet_should_work() {
 		crate_major: 1,
 		min_crate_minor: 41,
 	}]);
-	let mut hash = fake_message_hash(&message);
+	let mut hash = derive_topic_id(&message);
 	let r = XcmExecutor::<TestConfig>::prepare_and_execute(
 		Parachain(1),
 		message,
@@ -66,7 +67,7 @@ fn expect_pallet_should_fail_correctly() {
 		crate_major: 1,
 		min_crate_minor: 60,
 	}]);
-	let mut hash = fake_message_hash(&message);
+	let mut hash = derive_topic_id(&message);
 	let r = XcmExecutor::<TestConfig>::prepare_and_execute(
 		Parachain(1),
 		message,
@@ -89,7 +90,7 @@ fn expect_pallet_should_fail_correctly() {
 		crate_major: 1,
 		min_crate_minor: 42,
 	}]);
-	let mut hash = fake_message_hash(&message);
+	let mut hash = derive_topic_id(&message);
 	let r = XcmExecutor::<TestConfig>::prepare_and_execute(
 		Parachain(1),
 		message,
@@ -109,7 +110,7 @@ fn expect_pallet_should_fail_correctly() {
 		crate_major: 1,
 		min_crate_minor: 42,
 	}]);
-	let mut hash = fake_message_hash(&message);
+	let mut hash = derive_topic_id(&message);
 	let r = XcmExecutor::<TestConfig>::prepare_and_execute(
 		Parachain(1),
 		message,
@@ -129,7 +130,7 @@ fn expect_pallet_should_fail_correctly() {
 		crate_major: 1,
 		min_crate_minor: 42,
 	}]);
-	let mut hash = fake_message_hash(&message);
+	let mut hash = derive_topic_id(&message);
 	let r = XcmExecutor::<TestConfig>::prepare_and_execute(
 		Parachain(1),
 		message,
@@ -149,7 +150,7 @@ fn expect_pallet_should_fail_correctly() {
 		crate_major: 1,
 		min_crate_minor: 42,
 	}]);
-	let mut hash = fake_message_hash(&message);
+	let mut hash = derive_topic_id(&message);
 	let r = XcmExecutor::<TestConfig>::prepare_and_execute(
 		Parachain(1),
 		message,
@@ -169,7 +170,7 @@ fn expect_pallet_should_fail_correctly() {
 		crate_major: 2,
 		min_crate_minor: 42,
 	}]);
-	let mut hash = fake_message_hash(&message);
+	let mut hash = derive_topic_id(&message);
 	let r = XcmExecutor::<TestConfig>::prepare_and_execute(
 		Parachain(1),
 		message,
@@ -192,7 +193,7 @@ fn expect_pallet_should_fail_correctly() {
 		crate_major: 0,
 		min_crate_minor: 42,
 	}]);
-	let mut hash = fake_message_hash(&message);
+	let mut hash = derive_topic_id(&message);
 	let r = XcmExecutor::<TestConfig>::prepare_and_execute(
 		Parachain(1),
 		message,
@@ -215,7 +216,7 @@ fn expect_pallet_should_fail_correctly() {
 		crate_major: 1,
 		min_crate_minor: 43,
 	}]);
-	let mut hash = fake_message_hash(&message);
+	let mut hash = derive_topic_id(&message);
 	let r = XcmExecutor::<TestConfig>::prepare_and_execute(
 		Parachain(1),
 		message,
