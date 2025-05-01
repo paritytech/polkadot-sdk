@@ -115,7 +115,7 @@ fn transact_from_para_to_para_through_asset_hub() {
 
 	// We create a pool between WND and USDT in AssetHub.
 	let usdt = Location::new(0, [PalletInstance(ASSETS_PALLET_ID), GeneralIndex(USDT_ID.into())]);
-	create_pool_with_wnd_on_custom_amounts!(
+	create_pool_with_wnd_on!(
 		AssetHubWestend,
 		usdt,
 		false,
