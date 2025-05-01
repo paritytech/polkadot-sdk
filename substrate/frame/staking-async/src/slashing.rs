@@ -32,6 +32,12 @@
 //! We only slash participants for the _maximum_ slash they receive in some time period (era),
 //! rather than the sum. This ensures a protection from overslashing.
 //!
+//! In most of the cases, thanks to validator disabling, an offender won't be able to commit more 
+//! than one offence. An exception is the case when the number of offenders reaches the 
+//! Byzantine threshold. In that case one or more offenders with the smallest offence will be re-enabled
+//! and they can commit another offence. But as noted previously, even in this case we slash the offender
+//! only for the biggest offence committed within an era.
+//!
 //! Based on research at <https://research.web3.foundation/Polkadot/security/slashing/npos>
 
 use crate::{
