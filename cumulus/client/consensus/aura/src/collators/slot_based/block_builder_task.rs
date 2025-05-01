@@ -194,8 +194,7 @@ where
 			};
 
 			let best_hash = para_client.info().best_hash;
-			let relay_parent_offset =
-				para_client.runtime_api().slot_offset(best_hash).unwrap_or_default();
+			let relay_parent_offset = 1; // FIXME(ordian)
 
 			let Ok(para_slot_duration) = crate::slot_duration(&*para_client) else {
 				tracing::error!(target: LOG_TARGET, "Failed to fetch slot duration from runtime.");
