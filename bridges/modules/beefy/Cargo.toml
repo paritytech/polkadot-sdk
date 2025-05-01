@@ -52,4 +52,6 @@ try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
 	"sp-runtime/try-runtime",
+	"pallet-beefy-mmr/try-runtime",
+	"pallet-mmr/try-runtime"
 ]

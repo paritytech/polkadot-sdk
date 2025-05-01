@@ -33,7 +33,11 @@ std = [
 ]
 runtime-benchmarks = [
 	"frame/runtime-benchmarks",
+	"pallet-balances/runtime-benchmarks",
+	"pallet-utility/runtime-benchmarks"
 ]
 try-runtime = [
 	"frame/try-runtime",
+	"pallet-balances/try-runtime",
+	"pallet-utility/try-runtime"
 ]

@@ -65,6 +65,7 @@ std = [
 	"sp-runtime/std",
 	"xcm-executor/std",
 	"xcm/std",
+	"pallet-revive-fixtures/std"
 ]
 runtime-benchmarks = [
 	"frame-support/runtime-benchmarks",
