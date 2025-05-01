@@ -17,6 +17,8 @@ const BEST_BLOCK_METRIC: &str = "block_height{status=\"best\"}";
 const WASM_WITH_SPEC_VERSION_INCREMENTED: &str =
 	"/tmp/wasm_binary_spec_version_incremented.rs.compact.compressed.wasm";
 
+// This tests makes sure that it is possible to upgrade parachain's runtime
+// and parachain produces blocks after such upgrade.
 #[tokio::test(flavor = "multi_thread")]
 async fn runtime_upgrade() -> Result<(), anyhow::Error> {
 	let _ = env_logger::try_init_from_env(
@@ -82,6 +84,13 @@ async fn initialize_network() -> Result<Network<LocalFileSystem>, anyhow::Error>
 	let images = zombienet_sdk::environment::get_images_from_env();
 	log::info!("Using images: {images:?}");
 
+	// Network setup:
+	// - relaychain nodes:
+	// 	 - alice   - validator
+	// 	 - bob     - validator
+	// - parachain nodes
+	//   - charlie - validator
+	//   - dave    - full node
 	let config = NetworkConfigBuilder::new()
 		.with_relaychain(|r| {
 			r.with_chain("rococo-local")
