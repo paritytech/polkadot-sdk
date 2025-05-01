@@ -4,4 +4,4 @@ doc:
   description: Adds the ability to set the genesis `miniumScore` in `election-provider-multi-block`.
 crates:
 - name: pallet-election-provider-multi-block
-  bump: patch
+  bump: minor
