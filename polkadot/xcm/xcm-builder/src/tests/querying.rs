@@ -15,9 +15,11 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use super::*;
+use xcm_simulator::helpers::TopicIdTracker;
 
 #[test]
 fn pallet_query_should_work() {
+	TopicIdTracker::reset();
 	AllowUnpaidFrom::set(vec![[Parachain(1)].into()]);
 	// They want to transfer 100 of our native asset from sovereign account of parachain #1 into #2
 	// and let them know to hand it to account #3.
@@ -40,7 +42,7 @@ fn pallet_query_should_work() {
 	assert_eq!(r, Outcome::Complete { used: Weight::from_parts(10, 10) });
 
 	let xcm_sent = sent_xcm();
-	let expected_hash = get_sent_xcm_topic_id();
+	let expected_hash: XcmHash = TopicIdTracker::get().into();
 	let expected_msg = Xcm::<()>(vec![
 		QueryResponse {
 			query_id: 1,
@@ -55,6 +57,7 @@ fn pallet_query_should_work() {
 
 #[test]
 fn pallet_query_with_results_should_work() {
+	TopicIdTracker::reset();
 	AllowUnpaidFrom::set(vec![[Parachain(1)].into()]);
 	// They want to transfer 100 of our native asset from sovereign account of parachain #1 into #2
 	// and let them know to hand it to account #3.
@@ -77,7 +80,7 @@ fn pallet_query_with_results_should_work() {
 	assert_eq!(r, Outcome::Complete { used: Weight::from_parts(10, 10) });
 
 	let xcm_sent = sent_xcm();
-	let expected_hash = get_sent_xcm_topic_id();
+	let expected_hash: XcmHash = TopicIdTracker::get().into();
 	let expected_msg = Xcm::<()>(vec![
 		QueryResponse {
 			query_id: 1,

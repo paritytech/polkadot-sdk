@@ -15,6 +15,7 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use super::*;
+use xcm_simulator::helpers::TopicIdTracker;
 
 #[test]
 fn transacting_should_work() {
@@ -122,6 +123,7 @@ fn paid_transacting_should_refund_payment_for_unused_weight() {
 
 #[test]
 fn report_successful_transact_status_should_work() {
+	TopicIdTracker::reset();
 	AllowUnpaidFrom::set(vec![Parent.into()]);
 
 	let message = Xcm::<TestCall>(vec![
@@ -147,7 +149,7 @@ fn report_successful_transact_status_should_work() {
 	);
 	assert_eq!(r, Outcome::Complete { used: Weight::from_parts(70, 70) });
 	let xcm_sent = sent_xcm();
-	let expected_hash = get_sent_xcm_topic_id();
+	let expected_hash: XcmHash = TopicIdTracker::get().into();
 	let expected_msg = Xcm(vec![
 		QueryResponse {
 			response: Response::DispatchResult(MaybeErrorCode::Success),
@@ -162,6 +164,7 @@ fn report_successful_transact_status_should_work() {
 
 #[test]
 fn report_failed_transact_status_should_work() {
+	TopicIdTracker::reset();
 	AllowUnpaidFrom::set(vec![Parent.into()]);
 
 	let message = Xcm::<TestCall>(vec![
@@ -187,7 +190,7 @@ fn report_failed_transact_status_should_work() {
 	);
 	assert_eq!(r, Outcome::Complete { used: Weight::from_parts(70, 70) });
 	let xcm_sent = sent_xcm();
-	let expected_hash = get_sent_xcm_topic_id();
+	let expected_hash: XcmHash = TopicIdTracker::get().into();
 	let expected_msg = Xcm(vec![
 		QueryResponse {
 			response: Response::DispatchResult(vec![2].into()),
@@ -294,6 +297,7 @@ fn expect_failed_transact_status_should_work() {
 
 #[test]
 fn clear_transact_status_should_work() {
+	TopicIdTracker::reset();
 	AllowUnpaidFrom::set(vec![Parent.into()]);
 
 	let message = Xcm::<TestCall>(vec![
@@ -320,7 +324,7 @@ fn clear_transact_status_should_work() {
 	);
 	assert_eq!(r, Outcome::Complete { used: Weight::from_parts(80, 80) });
 	let xcm_sent = sent_xcm();
-	let expected_hash = get_sent_xcm_topic_id();
+	let expected_hash: XcmHash = TopicIdTracker::get().into();
 	let expected_msg = Xcm(vec![
 		QueryResponse {
 			response: Response::DispatchResult(MaybeErrorCode::Success),

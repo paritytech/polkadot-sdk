@@ -15,6 +15,7 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use super::*;
+use xcm_simulator::helpers::TopicIdTracker;
 
 #[test]
 fn exchange_asset_should_work() {
@@ -133,6 +134,7 @@ fn paying_reserve_deposit_should_work() {
 
 #[test]
 fn transfer_should_work() {
+	TopicIdTracker::reset();
 	// we'll let them have message execution for free.
 	AllowUnpaidFrom::set(vec![[Parachain(1)].into()]);
 	// Child parachain #1 owns 1000 tokens held by us in reserve.
@@ -161,6 +163,7 @@ fn transfer_should_work() {
 
 #[test]
 fn reserve_transfer_should_work() {
+	TopicIdTracker::reset();
 	AllowUnpaidFrom::set(vec![[Parachain(1)].into()]);
 	// Child parachain #1 owns 1000 tokens held by us in reserve.
 	add_asset(Parachain(1), (Here, 1000));
@@ -188,7 +191,7 @@ fn reserve_transfer_should_work() {
 	assert_eq!(r, Outcome::Complete { used: Weight::from_parts(10, 10) });
 
 	let xcm_sent = sent_xcm();
-	let expected_hash = get_sent_xcm_topic_id();
+	let expected_hash: XcmHash = TopicIdTracker::get().into();
 	let expected_msg = Xcm::<()>(vec![
 		ReserveAssetDeposited((Parent, 100u128).into()),
 		ClearOrigin,

@@ -141,9 +141,6 @@ thread_local! {
 pub fn sent_xcm() -> Vec<(Location, opaque::Xcm, XcmHash)> {
 	SENT_XCM.with(|q| (*q.borrow()).clone())
 }
-pub(crate) fn get_sent_xcm_topic_id() -> XcmHash {
-	SENT_XCM_TOPIC_ID.with(|q| *q.borrow())
-}
 pub fn set_send_price(p: impl Into<Asset>) {
 	SEND_PRICE.with(|l| l.replace(p.into().into()));
 }
