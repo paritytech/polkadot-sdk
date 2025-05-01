@@ -54,15 +54,6 @@ pub struct RunConfig {
 
 impl RunConfig {
 	/// Creates a new `RunConfig` instance.
-	///
-	/// # Parameters
-	///
-	/// - `runtime_resolver`: A boxed runtime resolver.
-	/// - `chain_spec_loader`: A boxed chain spec loader.
-	///
-	/// # Returns
-	///
-	/// A new `RunConfig` instance configured with the given components.
 	pub fn new(
 		runtime_resolver: Box<dyn RuntimeResolver>,
 		chain_spec_loader: Box<dyn LoadSpec>,
@@ -118,7 +109,7 @@ pub fn run<CliConfig: crate::cli::CliConfig>(cmd_config: RunConfig) -> Result<()
 /// optional extra sub‑command.
 ///
 /// `run_with_custom_cli` builds the base CLI for the node binary, then asks the
-/// `Extra` type for an optional extra sub‑command via
+/// `Extra` type for an optional extra sub‑command via ExtraSubcommand
 ///
 /// When the user actually invokes that extra sub‑command,
 /// `Extra::from_arg_matches` returns a parsed value which is immediately passed
