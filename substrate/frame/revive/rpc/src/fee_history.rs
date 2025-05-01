@@ -14,17 +14,14 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-use super::Precompile;
-use crate::{Config, ExecReturnValue, GasMeter, RuntimeCosts};
-use pallet_revive_uapi::ReturnFlags;
 
-/// The identity precompile.
-pub struct Identity;
+pub struct FeeHistoryCacheItem {
+	pub base_fee: u64,
+	pub gas_used_ratio: f64,
+	pub rewards: Vec<u64>,
+}
 
-impl<T: Config> Precompile<T> for Identity {
-	fn execute(gas_meter: &mut GasMeter<T>, input: &[u8]) -> Result<ExecReturnValue, &'static str> {
-		gas_meter.charge(RuntimeCosts::Identity(input.len() as u32))?;
-
-		Ok(ExecReturnValue { data: input.to_vec(), flags: ReturnFlags::empty() })
-	}
+pub struct FeeHistoryProvider {
+	pub client: Arc<dyn Client>,
+	pub fee_history_cache: RwLock<HashMap<SubstrateBlockNumbe, FeeHistoryCacheItem>>,
 }
