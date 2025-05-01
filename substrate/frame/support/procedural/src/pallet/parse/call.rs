@@ -51,8 +51,6 @@ pub struct CallDef {
 	pub docs: Vec<syn::Expr>,
 	/// The optional `weight` attribute on the `pallet::call`.
 	pub inherited_call_weight: Option<InheritedCallWeightAttr>,
-	/// attributes
-	pub attrs: Vec<syn::Attribute>,
 }
 
 /// The weight of a call.
@@ -220,6 +218,9 @@ impl CallDef {
 		} else {
 			return Err(syn::Error::new(item.span(), "Invalid pallet::call, expected item impl"));
 		};
+
+		crate::deprecation::prevent_deprecation_attr_on_outer_enum(&item_impl.attrs)?;
+
 		let instances = vec![
 			helper::check_impl_gen(&item_impl.generics, item_impl.impl_token.span())?,
 			helper::check_pallet_struct_usage(&item_impl.self_ty)?,
@@ -461,7 +462,6 @@ impl CallDef {
 			where_clause: item_impl.generics.where_clause.clone(),
 			docs: get_doc_literals(&item_impl.attrs),
 			inherited_call_weight,
-			attrs: item_impl.attrs.clone(),
 		})
 	}
 }
