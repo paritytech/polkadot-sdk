@@ -299,7 +299,7 @@ pub mod pallet {
 		/// Get the current `score` of a given account.
 		///
 		/// Returns `(current, real_score)`, the former being the current score that this pallet is aware of,
-		/// whihc may or may not be up to date, and the latter being the real score, as provided by 
+		/// which may or may not be up to date, and the latter being the real score, as provided by 
 		// [`Config::ScoreProvider`].
 		///
 		/// If the two differ, it probably means this node is eligible for [`Call::rebag`].
