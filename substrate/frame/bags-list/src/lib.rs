@@ -303,7 +303,7 @@ pub mod pallet {
 		/// provided by
 		// [`Config::ScoreProvider`].
 		///
-		/// If the two differ, it probably means this node is eligible for [`Call::rebag`].
+		/// If the two differ, it means this node is eligible for [`Call::rebag`].
 		pub fn scores(who: T::AccountId) -> (Option<T::Score>, Option<T::Score>) {
 			(ListNodes::<T, I>::get(&who).map(|node| node.score), T::ScoreProvider::score(&who))
 		}
