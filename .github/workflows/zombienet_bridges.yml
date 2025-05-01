@@ -50,6 +50,7 @@ jobs:
           echo "Done"
 
       - name: prepare logs
+        if: ${{ ! cancelled() }}
         run: |
           mkdir -p ./zombienet-logs
           # copy general logs
@@ -60,6 +61,7 @@ jobs:
           cp -r /tmp/bridges-tests-run-*/bridge_hub_westend_local_network/*.log ./zombienet-logs/
 
       - name: upload logs
+        if: ${{ ! cancelled() }}
         uses: actions/upload-artifact@v4
         with:
           name: zombienet-logs-${{ github.job }}-${{ github.sha }}
@@ -93,6 +95,7 @@ jobs:
             echo "Done"
 
       - name: prepare logs
+        if: ${{ ! cancelled() }}
         run: |
           mkdir -p ./zombienet-logs
           # copy general logs
@@ -103,6 +106,7 @@ jobs:
           cp -r /tmp/bridges-tests-run-*/bridge_hub_westend_local_network/*.log ./zombienet-logs/
 
       - name: upload logs
+        if: ${{ ! cancelled() }}
         uses: actions/upload-artifact@v4
         with:
           name: zombienet-logs-${{ github.job }}-${{ github.sha }}
