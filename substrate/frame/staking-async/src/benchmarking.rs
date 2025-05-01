@@ -303,7 +303,7 @@ mod benchmarks {
 		whitelist_account!(controller);
 
 		#[extrinsic_call]
-		withdraw_unbonded(RawOrigin::Signed(controller.clone()));
+		withdraw_unbonded(RawOrigin::Signed(controller.clone()), 0);
 
 		let ledger = Ledger::<T>::get(&controller).ok_or("ledger not created after")?;
 		let new_total: BalanceOf<T> = ledger.total;
@@ -336,7 +336,7 @@ mod benchmarks {
 		whitelist_account!(controller);
 
 		#[extrinsic_call]
-		withdraw_unbonded(RawOrigin::Signed(controller.clone()));
+		withdraw_unbonded(RawOrigin::Signed(controller.clone()), 0);
 
 		assert!(!Ledger::<T>::contains_key(controller));
 		assert!(!T::VoterList::contains(&stash));
@@ -643,7 +643,7 @@ mod benchmarks {
 		assert!(T::VoterList::contains(&stash));
 
 		#[extrinsic_call]
-		_(RawOrigin::Root, stash.clone());
+		_(RawOrigin::Root, stash.clone(), 0);
 
 		assert!(!Ledger::<T>::contains_key(&controller));
 		assert!(!T::VoterList::contains(&stash));
@@ -799,7 +799,7 @@ mod benchmarks {
 		whitelist_account!(controller);
 
 		#[extrinsic_call]
-		_(RawOrigin::Signed(controller), stash.clone());
+		_(RawOrigin::Signed(controller), stash.clone(), 0);
 
 		assert!(!Bonded::<T>::contains_key(&stash));
 		assert!(!T::VoterList::contains(&stash));
