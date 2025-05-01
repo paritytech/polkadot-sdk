@@ -741,7 +741,3 @@ pub(crate) fn new_test_ext_with_balances_and_xcm_version(
 	ext.execute_with(|| System::set_block_number(1));
 	ext
 }
-
-pub(crate) fn fake_message_hash<T>(message: &Xcm<T>) -> XcmHash {
-	message.using_encoded(sp_io::hashing::blake2_256)
-}
