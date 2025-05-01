@@ -534,7 +534,7 @@ fn dont_slash_if_fraction_is_zero() {
 }
 
 #[test]
-fn only_slash_for_max_in_era() {
+fn only_slash_validator_for_max_in_era() {
 	// multiple slashes within one era are only applied if it is more than any previous slash in the
 	// same era.
 	ExtBuilder::default().nominate(false).build_and_execute(|| {
@@ -591,6 +591,61 @@ fn only_slash_for_max_in_era() {
 		// The validator got slashed 10% more.
 		assert_eq!(asset::stakeable_balance::<T>(&11), 400);
 	})
+}
+
+#[test]
+fn only_slash_nominator_for_max_in_era() {
+	ExtBuilder::default().build_and_execute(|| {
+		Session::roll_until_active_era(3);
+
+		assert_eq!(asset::stakeable_balance::<T>(&11), 1000);
+		assert_eq!(asset::stakeable_balance::<T>(&21), 1000);
+		assert_eq!(asset::stakeable_balance::<T>(&101), 500);
+		assert_eq!(Staking::slashable_balance_of(&21), 1000);
+
+		let exposure_11 = Staking::eras_stakers(active_era(), &11);
+		let exposure_21 = Staking::eras_stakers(active_era(), &21);
+		let nominated_value_11 = exposure_11.others.iter().find(|o| o.who == 101).unwrap().value;
+		let nominated_value_21 = exposure_21.others.iter().find(|o| o.who == 101).unwrap().value;
+
+		add_slash_in_era(11, 2);
+		Session::roll_next();
+
+		assert_eq!(asset::stakeable_balance::<T>(&11), 900);
+
+		let slash_1_amount = Perbill::from_percent(10) * nominated_value_11;
+		assert_eq!(asset::stakeable_balance::<T>(&101), 500 - slash_1_amount);
+
+		// second slash: higher value, same era.
+		add_slash_in_era_with_value(21, 2, Perbill::from_percent(30));
+		Session::roll_next();
+
+		// 11 was not further slashed, but 21 and 101 were.
+		assert_eq!(asset::stakeable_balance::<T>(&11), 900);
+		assert_eq!(asset::stakeable_balance::<T>(&21), 700);
+
+		let slash_2_amount = Perbill::from_percent(30) * nominated_value_21;
+		assert!(slash_2_amount > slash_1_amount);
+
+		// only the maximum slash in a single span is taken.
+		assert_eq!(asset::stakeable_balance::<T>(&101), 500 - slash_2_amount);
+
+		// third slash: in same era and on same validator as first, higher in-era value, but lower
+		// slash value than slash 2.
+		add_slash_in_era_with_value(11, 2, Perbill::from_percent(20));
+		Session::roll_next();
+
+		// 11 was further slashed, but 21 and 101 were not.
+		assert_eq!(asset::stakeable_balance::<T>(&11), 800);
+		assert_eq!(asset::stakeable_balance::<T>(&21), 700);
+
+		let slash_3_amount = Perbill::from_percent(20) * nominated_value_21;
+		assert!(slash_3_amount < slash_2_amount);
+		assert!(slash_3_amount > slash_1_amount);
+
+		// only the maximum slash in a single span is taken.
+		assert_eq!(asset::stakeable_balance::<T>(&101), 500 - slash_2_amount);
+	});
 }
 
 #[test]
@@ -653,61 +708,6 @@ fn garbage_collection_on_window_pruning() {
 		assert!(ValidatorSlashInEra::<T>::get(&now, &11).is_none());
 		assert!(NominatorSlashInEra::<T>::get(&now, &101).is_none());
 	})
-}
-
-#[test]
-fn slashing_nominators_by_era_max() {
-	ExtBuilder::default().build_and_execute(|| {
-		Session::roll_until_active_era(3);
-
-		assert_eq!(asset::stakeable_balance::<T>(&11), 1000);
-		assert_eq!(asset::stakeable_balance::<T>(&21), 1000);
-		assert_eq!(asset::stakeable_balance::<T>(&101), 500);
-		assert_eq!(Staking::slashable_balance_of(&21), 1000);
-
-		let exposure_11 = Staking::eras_stakers(active_era(), &11);
-		let exposure_21 = Staking::eras_stakers(active_era(), &21);
-		let nominated_value_11 = exposure_11.others.iter().find(|o| o.who == 101).unwrap().value;
-		let nominated_value_21 = exposure_21.others.iter().find(|o| o.who == 101).unwrap().value;
-
-		add_slash_in_era(11, 2);
-		Session::roll_next();
-
-		assert_eq!(asset::stakeable_balance::<T>(&11), 900);
-
-		let slash_1_amount = Perbill::from_percent(10) * nominated_value_11;
-		assert_eq!(asset::stakeable_balance::<T>(&101), 500 - slash_1_amount);
-
-		// second slash: higher value, same era.
-		add_slash_in_era_with_value(21, 2, Perbill::from_percent(30));
-		Session::roll_next();
-
-		// 11 was not further slashed, but 21 and 101 were.
-		assert_eq!(asset::stakeable_balance::<T>(&11), 900);
-		assert_eq!(asset::stakeable_balance::<T>(&21), 700);
-
-		let slash_2_amount = Perbill::from_percent(30) * nominated_value_21;
-		assert!(slash_2_amount > slash_1_amount);
-
-		// only the maximum slash in a single span is taken.
-		assert_eq!(asset::stakeable_balance::<T>(&101), 500 - slash_2_amount);
-
-		// third slash: in same era and on same validator as first, higher in-era value, but lower
-		// slash value than slash 2.
-		add_slash_in_era_with_value(11, 2, Perbill::from_percent(20));
-		Session::roll_next();
-
-		// 11 was further slashed, but 21 and 101 were not.
-		assert_eq!(asset::stakeable_balance::<T>(&11), 800);
-		assert_eq!(asset::stakeable_balance::<T>(&21), 700);
-
-		let slash_3_amount = Perbill::from_percent(20) * nominated_value_21;
-		assert!(slash_3_amount < slash_2_amount);
-		assert!(slash_3_amount > slash_1_amount);
-
-		// only the maximum slash in a single span is taken.
-		assert_eq!(asset::stakeable_balance::<T>(&101), 500 - slash_2_amount);
-	});
 }
 
 #[test]
