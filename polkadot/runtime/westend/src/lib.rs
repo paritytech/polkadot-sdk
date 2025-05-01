@@ -75,8 +75,7 @@ use polkadot_runtime_common::{
 	},
 	paras_registrar, paras_sudo_wrapper, prod_or_fast, slots,
 	traits::OnSwap,
-	BalanceToU256, BlockHashCount, BlockLength, CurrencyToVote, SlowAdjustingFeeUpdate,
-	U256ToBalance,
+	BalanceToU256, BlockHashCount, BlockLength, SlowAdjustingFeeUpdate, U256ToBalance,
 };
 use polkadot_runtime_parachains::{
 	assigner_coretime as parachains_assigner_coretime, configuration as parachains_configuration,
@@ -750,7 +749,8 @@ impl pallet_staking::Config for Runtime {
 	type CurrencyBalance = Balance;
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type UnixTime = Timestamp;
-	type CurrencyToVote = CurrencyToVote;
+	// Westend's total issuance is already more than `u64::MAX`, this will work better.
+	type CurrencyToVote = sp_staking::currency_to_vote::SaturatingCurrencyToVote;
 	type RewardRemainder = ();
 	type RuntimeEvent = RuntimeEvent;
 	type Slash = ();
