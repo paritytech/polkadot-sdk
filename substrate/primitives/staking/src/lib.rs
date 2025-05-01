@@ -673,6 +673,11 @@ pub trait DelegationInterface {
 		value: Self::Balance,
 		maybe_reporter: Option<Self::AccountId>,
 	) -> DispatchResult;
+
+	#[cfg(feature = "std")]
+	fn unclaimed_withdrawals(_agent: Agent<Self::AccountId>) -> Self::Balance {
+		unimplemented!("unclaimed withdrawals not implemented");
+	}
 }
 
 /// Trait to provide functionality for direct stakers to migrate to delegation agents.

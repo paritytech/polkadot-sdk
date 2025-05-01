@@ -235,6 +235,11 @@ pub trait StakeStrategy {
 	fn remove_as_agent(_pool: Pool<Self::AccountId>) {
 		// noop by default
 	}
+
+	#[cfg(feature = "std")]
+	fn unclaimed_withdrawals(_pool: Pool<Self::AccountId>) -> Self::Balance{
+		unimplemented!("unclaimed withdrawals not implemented");
+	}
 }
 
 /// A staking strategy implementation that supports transfer based staking.
@@ -465,5 +470,10 @@ impl<
 	#[cfg(feature = "runtime-benchmarks")]
 	fn remove_as_agent(pool: Pool<Self::AccountId>) {
 		Delegation::force_kill_agent(pool.into())
+	}
+
+	#[cfg(feature = "std")]
+	fn unclaimed_withdrawals(pool: Pool<Self::AccountId>) -> Self::Balance {
+		Delegation::unclaimed_withdrawals(pool.into())
 	}
 }

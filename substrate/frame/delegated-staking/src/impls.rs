@@ -97,6 +97,11 @@ impl<T: Config> DelegationInterface for Pallet<T> {
 	) -> sp_runtime::DispatchResult {
 		Pallet::<T>::do_slash(agent, delegator, value, maybe_reporter)
 	}
+
+	#[cfg(feature = "std")]
+	fn unclaimed_withdrawals(agent: Agent<Self::AccountId>) -> Self::Balance {
+		AgentLedgerOuter::<T>::get(&agent.get()).map(|d| d.ledger.unclaimed_withdrawals).unwrap_or_default()
+	}
 }
 
 impl<T: Config> DelegationMigrator for Pallet<T> {

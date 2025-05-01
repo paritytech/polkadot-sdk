@@ -3980,23 +3980,45 @@ impl<T: Config> Pallet<T> {
 
 			let sum_unbonding_balance = subs.sum_unbonding_balance();
 			let bonded_balance = T::StakeAdapter::active_stake(Pool::from(pool_account.clone()));
-			// TODO: should be total_balance + unclaimed_withdrawals from delegated staking
 			let total_balance = T::StakeAdapter::total_balance(Pool::from(pool_account.clone()))
 				// At the time when StakeAdapter is changed to `DelegateStake` but pool is not yet
 				// migrated, the total balance would be none.
 				.unwrap_or(T::Currency::total_balance(&pool_account));
 
-			if total_balance < bonded_balance + sum_unbonding_balance {
-				log!(
-						warn,
-						"possibly faulty pool: {:?} / {:?}, total_balance {:?} >= bonded_balance {:?} + sum_unbonding_balance {:?}",
-						pool_id,
-						_pool,
-						total_balance,
-						bonded_balance,
-						sum_unbonding_balance
-					)
-			};
+			let pending_slash = T::StakeAdapter::pending_slash(Pool::from(pool_account.clone()));
+			if pending_slash > T::Currency::minimum_balance() {
+				log::warn!(
+					"pool {:?} has pending slashes of {:?}.",
+					pool_id,
+					pending_slash
+				);
+			}
+
+			let pool_unclaimed_withdrawals = T::StakeAdapter::unclaimed_withdrawals(Pool::from(pool_account.clone()));
+
+			assert_eq!(
+				total_balance,
+				bonded_balance + sum_unbonding_balance,
+				"faulty pool: {:?} / {:?}, total_balance {:?} != bonded_balance {:?} + sum_unbonding_balance {:?} \
+				\n unclaimed_withdrawals = {:?}, pending_slash = {:?}",
+				pool_id,
+				_pool,
+				total_balance,
+				bonded_balance,
+				sum_unbonding_balance,
+				pool_unclaimed_withdrawals,
+				pending_slash,
+			);
+
+			// unclaimed withdrawals should never be greater than the sum of unbonding balance.
+			assert!(
+				sum_unbonding_balance >= pool_unclaimed_withdrawals,
+				"faulty pool: {:?} / {:?}, sum_unbonding_balance {:?} < unclaimed_withdrawals {:?}",
+				pool_id,
+				_pool,
+				sum_unbonding_balance,
+				T::StakeAdapter::unclaimed_withdrawals(Pool::from(pool_account.clone())),
+			);
 		}
 
 		// Warn if any pool has incorrect ED frozen. We don't want to fail hard as this could be a

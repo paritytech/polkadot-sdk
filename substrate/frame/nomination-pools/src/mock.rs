@@ -362,6 +362,14 @@ impl DelegationInterface for DelegateMock {
 
 		Ok(())
 	}
+
+	fn unclaimed_withdrawals(agent: Agent<Self::AccountId>) -> Self::Balance {
+		AgentBalanceMap::get()
+			.get(&agent.get())
+			.copied()
+			.map(|(_, unclaimed, _)| unclaimed)
+			.unwrap_or_default()
+	}
 }
 
 impl DelegateMock {
@@ -518,7 +526,7 @@ impl Default for ExtBuilder {
 
 #[cfg_attr(feature = "fuzzing", allow(dead_code))]
 impl ExtBuilder {
-	// Add members to pool 0.
+	// Add members to pool 1.
 	pub fn add_members(mut self, members: Vec<(AccountId, Balance)>) -> Self {
 		self.members = members;
 		self
