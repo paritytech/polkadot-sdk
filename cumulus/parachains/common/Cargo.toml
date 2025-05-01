@@ -35,8 +35,8 @@ sp-consensus-aura.workspace = true
 sp-core.workspace = true
 sp-io.workspace = true
 sp-runtime.workspace = true
-xcm-executor.workspace = true
 xcm.workspace = true
+xcm-executor.workspace = true
 
 [dev-dependencies]
 pallet-authorship = { default-features = false, path = "../../../substrate/frame/authorship" }

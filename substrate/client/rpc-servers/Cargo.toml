@@ -26,8 +26,8 @@ hyper = { workspace = true }
 ip_network = { workspace = true }
 jsonrpsee = { features = ["server"], workspace = true }
 log = { workspace = true, default-features = true }
-prometheus-endpoint.workspace = true
 prometheus-endpoint.default-features = true
+prometheus-endpoint.workspace = true
 sc-rpc-api.workspace = true
 serde = { workspace = true }
 serde_json = { workspace = true, default-features = true }

@@ -38,9 +38,9 @@ sp-io.workspace = true
 sp-runtime.workspace = true
 sp-std.workspace = true
 tracing = { workspace = true }
+xcm.workspace = true
 xcm-builder.workspace = true
 xcm-executor.workspace = true
-xcm.workspace = true
 
 [dev-dependencies]
 frame-benchmarking = { default-features = true, path = "../../../../substrate/frame/benchmarking" }

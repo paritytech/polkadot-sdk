@@ -12,8 +12,8 @@ repository.workspace = true
 workspace = true
 
 [dependencies]
-asset-test-utils.workspace = true
 asset-test-utils.default-features = true
+asset-test-utils.workspace = true
 bp-header-chain.workspace = true
 bp-messages.workspace = true
 bp-parachains.workspace = true
@@ -35,21 +35,21 @@ pallet-bridge-parachains.workspace = true
 pallet-bridge-relayers.workspace = true
 pallet-timestamp.workspace = true
 pallet-utility.workspace = true
-pallet-xcm-bridge-hub.workspace = true
 pallet-xcm.workspace = true
+pallet-xcm-bridge-hub.workspace = true
 parachains-common.workspace = true
 parachains-runtimes-test-utils.workspace = true
 sp-core.workspace = true
 sp-io.workspace = true
-sp-keyring.workspace = true
 sp-keyring.default-features = true
+sp-keyring.workspace = true
 sp-runtime.workspace = true
 sp-std.workspace = true
-sp-tracing.workspace = true
 sp-tracing.default-features = true
+sp-tracing.workspace = true
+xcm.workspace = true
 xcm-builder.workspace = true
 xcm-executor.workspace = true
-xcm.workspace = true
 
 [features]
 default = ["std"]

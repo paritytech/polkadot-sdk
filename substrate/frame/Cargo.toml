@@ -22,9 +22,9 @@ codec = { features = ["derive"], workspace = true }
 frame-benchmarking = { optional = true, workspace = true }
 frame-executive = { optional = true, workspace = true }
 frame-support.workspace = true
+frame-system.workspace = true
 frame-system-benchmarking = { optional = true, workspace = true }
 frame-system-rpc-runtime-api = { optional = true, workspace = true }
-frame-system.workspace = true
 frame-try-runtime = { optional = true, workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 serde = { workspace = true }

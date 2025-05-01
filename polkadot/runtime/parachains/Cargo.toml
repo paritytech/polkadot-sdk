@@ -51,8 +51,8 @@ sp-staking = { features = ["serde"], workspace = true }
 sp-std = { workspace = true, optional = true }
 sp-tracing = { optional = true, workspace = true }
 static_assertions = { optional = true, workspace = true, default-features = true }
-xcm-executor.workspace = true
 xcm.workspace = true
+xcm-executor.workspace = true
 
 [dev-dependencies]
 polkadot-primitives = { features = ["test"], default-features = false, path = "../../primitives" }

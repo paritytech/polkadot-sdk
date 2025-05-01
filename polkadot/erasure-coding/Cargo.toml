@@ -14,14 +14,14 @@ workspace = true
 [dependencies]
 codec = { features = ["derive", "std"], workspace = true }
 novelpoly = { workspace = true }
-polkadot-node-primitives.workspace = true
 polkadot-node-primitives.default-features = true
-polkadot-primitives.workspace = true
+polkadot-node-primitives.workspace = true
 polkadot-primitives.default-features = true
-sp-core.workspace = true
+polkadot-primitives.workspace = true
 sp-core.default-features = true
-sp-trie.workspace = true
+sp-core.workspace = true
 sp-trie.default-features = true
+sp-trie.workspace = true
 thiserror = { workspace = true }
 
 [dev-dependencies]

@@ -21,17 +21,17 @@ codec = { features = ["derive"], workspace = true }
 futures = { workspace = true }
 parking_lot = { workspace = true, default-features = true }
 schnellru = { workspace = true }
-sp-api.workspace = true
 sp-api.default-features = true
-sp-consensus.workspace = true
+sp-api.workspace = true
 sp-consensus.default-features = true
-sp-core.workspace = true
+sp-consensus.workspace = true
 sp-core.default-features = true
-sp-database.workspace = true
+sp-core.workspace = true
 sp-database.default-features = true
-sp-runtime.workspace = true
+sp-database.workspace = true
 sp-runtime.default-features = true
-sp-state-machine.workspace = true
+sp-runtime.workspace = true
 sp-state-machine.default-features = true
+sp-state-machine.workspace = true
 thiserror = { workspace = true }
 tracing = { workspace = true, default-features = true }

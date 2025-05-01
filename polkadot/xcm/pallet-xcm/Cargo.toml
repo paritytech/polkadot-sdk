@@ -24,10 +24,10 @@ sp-core.workspace = true
 sp-io.workspace = true
 sp-runtime.workspace = true
 tracing = { workspace = true }
+xcm.workspace = true
 xcm-builder.workspace = true
 xcm-executor.workspace = true
 xcm-runtime-apis.workspace = true
-xcm.workspace = true
 
 [dev-dependencies]
 pallet-assets = { default-features = true, path = "../../../substrate/frame/assets" }

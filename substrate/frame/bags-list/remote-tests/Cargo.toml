@@ -16,21 +16,21 @@ workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-frame-election-provider-support.workspace = true
 frame-election-provider-support.default-features = true
-frame-support.workspace = true
+frame-election-provider-support.workspace = true
 frame-support.default-features = true
-frame-system.workspace = true
+frame-support.workspace = true
 frame-system.default-features = true
+frame-system.workspace = true
 pallet-bags-list = { features = ["fuzz"], workspace = true, default-features = true }
-pallet-staking.workspace = true
 pallet-staking.default-features = true
-remote-externalities.workspace = true
+pallet-staking.workspace = true
 remote-externalities.default-features = true
-sp-core.workspace = true
+remote-externalities.workspace = true
 sp-core.default-features = true
-sp-runtime.workspace = true
+sp-core.workspace = true
 sp-runtime.default-features = true
+sp-runtime.workspace = true
 
 # others
 log = { workspace = true, default-features = true }

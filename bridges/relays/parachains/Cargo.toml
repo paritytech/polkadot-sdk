@@ -13,8 +13,8 @@ workspace = true
 [dependencies]
 async-std = { workspace = true }
 async-trait = { workspace = true }
-bp-polkadot-core.workspace = true
 bp-polkadot-core.default-features = true
+bp-polkadot-core.workspace = true
 futures = { workspace = true }
 log = { workspace = true }
 relay-substrate-client.workspace = true

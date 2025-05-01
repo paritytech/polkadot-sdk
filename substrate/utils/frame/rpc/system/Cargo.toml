@@ -18,25 +18,25 @@ targets = ["x86_64-unknown-linux-gnu"]
 [dependencies]
 codec = { workspace = true, default-features = true }
 docify = { workspace = true }
-frame-system-rpc-runtime-api.workspace = true
 frame-system-rpc-runtime-api.default-features = true
+frame-system-rpc-runtime-api.workspace = true
 futures = { workspace = true }
 jsonrpsee = { features = ["client-core", "macros", "server-core"], workspace = true }
 log = { workspace = true, default-features = true }
-sc-rpc-api.workspace = true
 sc-rpc-api.default-features = true
-sc-transaction-pool-api.workspace = true
+sc-rpc-api.workspace = true
 sc-transaction-pool-api.default-features = true
-sp-api.workspace = true
+sc-transaction-pool-api.workspace = true
 sp-api.default-features = true
-sp-block-builder.workspace = true
+sp-api.workspace = true
 sp-block-builder.default-features = true
-sp-blockchain.workspace = true
+sp-block-builder.workspace = true
 sp-blockchain.default-features = true
-sp-core.workspace = true
+sp-blockchain.workspace = true
 sp-core.default-features = true
-sp-runtime.workspace = true
+sp-core.workspace = true
 sp-runtime.default-features = true
+sp-runtime.workspace = true
 
 [dev-dependencies]
 assert_matches = { workspace = true }

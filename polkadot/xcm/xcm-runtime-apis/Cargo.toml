@@ -16,8 +16,8 @@ frame-support.workspace = true
 scale-info = { features = ["derive", "serde"], workspace = true }
 sp-api.workspace = true
 sp-weights.workspace = true
-xcm-executor.workspace = true
 xcm.workspace = true
+xcm-executor.workspace = true
 
 [dev-dependencies]
 frame-executive = { default-features = false, path = "../../../substrate/frame/executive" }
