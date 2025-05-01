@@ -34,24 +34,27 @@ enum SystemCalls {
 #[test]
 fn ah_can_transact_as_root_on_relay_chain() {
 	// Encoded `set_storage` call to be executed in Relay Chain
+	let call: <Westend as Chain>::RuntimeCall =
+		frame_system::Call::<<Westend as Chain>::Runtime>::set_storage { items: vec![] }.into();
+
 	type RuntimeEvent = <AssetHubWestend as Chain>::RuntimeEvent;
 	let root_origin = <AssetHubWestend as Chain>::RuntimeOrigin::root();
-	let relay_location = Parent.into();
+	let relay_location: Location = Parent.into();
 
 	let xcm = VersionedXcm::from(Xcm(vec![
 		UnpaidExecution { weight_limit: Unlimited, check_origin: None },
 		Transact {
-			OriginKind::Superuser,
+			origin_kind: OriginKind::Superuser,
 			fallback_max_weight: None,
-			call: call.into(),
+			call: call.encode().into(),
 		},
 	]));
 
 	AssetHubWestend::execute_with(|| {
 		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::PolkadotXcm::send(
 			root_origin,
-			relay_location,
-			xcm,
+			Box::new(VersionedLocation::from(relay_location)),
+			Box::new(xcm),
 		));
 
 		assert_expected_events!(

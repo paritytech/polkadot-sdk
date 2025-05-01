@@ -15,7 +15,7 @@
 
 #[cfg(test)]
 mod imports {
-	pub use codec::Encode;
+	pub use codec::{Decode, Encode};
 
 	// Substrate
 	pub use frame_support::{
