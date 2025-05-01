@@ -22,7 +22,6 @@ tracing = { workspace = true }
 frame-benchmarking = { optional = true, workspace = true }
 frame-executive = { workspace = true }
 frame-metadata-hash-extension = { workspace = true }
-frame-proofs-primitives = { workspace = true }
 frame-support = { workspace = true }
 frame-system = { workspace = true }
 frame-system-benchmarking = { optional = true, workspace = true }
@@ -95,6 +94,9 @@ pallet-collective-content = { workspace = true }
 parachain-info = { workspace = true }
 parachains-common = { workspace = true }
 testnet-parachains-constants = { features = ["westend"], workspace = true }
+
+# Bridges
+bp-runtime = { workspace = true }
 
 [dev-dependencies]
 parachains-runtimes-test-utils = { workspace = true, default-features = true }
@@ -205,7 +207,6 @@ std = [
 	"frame-benchmarking?/std",
 	"frame-executive/std",
 	"frame-metadata-hash-extension/std",
-	"frame-proofs-primitives/std",
 	"frame-support/std",
 	"frame-system-benchmarking?/std",
 	"frame-system-rpc-runtime-api/std",

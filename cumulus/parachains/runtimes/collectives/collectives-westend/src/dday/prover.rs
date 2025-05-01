@@ -16,10 +16,10 @@
 
 //! Utilities for handling proofs from the stalled AssetHub chain.
 
+use bp_runtime::{RawStorageProof, StorageProofChecker};
 use codec::{Decode, Encode};
 use core::ops::ControlFlow;
 use cumulus_primitives_core::Weight;
-use frame_proofs_primitives::proving::{RawStorageProof, StorageProofChecker};
 use frame_support::{
 	ensure,
 	storage::storage_prefix,
@@ -204,7 +204,7 @@ impl<F: Contains<Location>> ShouldExecute for AllowTransactWithDDayDataUpdatesFr
 
 #[cfg(any(test, feature = "std"))]
 pub mod tests {
-	use frame_proofs_primitives::proving::RawStorageProof;
+	use bp_runtime::RawStorageProof;
 
 	/// Sample proof downloaded from AssetHubWestend:
 	///

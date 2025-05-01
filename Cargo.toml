@@ -415,7 +415,6 @@ members = [
 	"substrate/frame/parameters",
 	"substrate/frame/people",
 	"substrate/frame/preimage",
-	"substrate/frame/proofs/primitives",
 	"substrate/frame/proxy",
 	"substrate/frame/ranked-collective",
 	"substrate/frame/recovery",
@@ -822,7 +821,6 @@ frame-executive = { path = "substrate/frame/executive", default-features = false
 frame-metadata = { version = "23.0.0", default-features = false }
 frame-metadata-hash-extension = { path = "substrate/frame/metadata-hash-extension", default-features = false }
 frame-storage-access-test-runtime = { path = "substrate/utils/frame/storage-access-test-runtime", default-features = false }
-frame-proofs-primitives = { path = "substrate/frame/proofs/primitives", default-features = false }
 frame-support = { path = "substrate/frame/support", default-features = false }
 frame-support-procedural = { path = "substrate/frame/support/procedural", default-features = false }
 frame-support-procedural-tools = { path = "substrate/frame/support/procedural/tools", default-features = false }
