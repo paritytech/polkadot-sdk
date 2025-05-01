@@ -39,9 +39,9 @@ std = [
 	"log/std",
 	"pallet-balances/std",
 	"scale-info/std",
+	"sp-core/std",
 	"sp-io/std",
 	"sp-runtime/std",
-	"sp-core/std"
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",

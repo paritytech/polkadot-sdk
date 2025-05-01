@@ -37,6 +37,7 @@ cumulus-primitives-proof-size-hostfunction = { default-features = false, workspa
 default = ["std"]
 std = [
 	"codec/std",
+	"cumulus-primitives-proof-size-hostfunction/std",
 	"cumulus-primitives-storage-weight-reclaim/std",
 	"frame-benchmarking?/std",
 	"frame-support/std",
@@ -46,7 +47,6 @@ std = [
 	"sp-io/std",
 	"sp-runtime/std",
 	"sp-trie/std",
-	"cumulus-primitives-proof-size-hostfunction/std"
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
