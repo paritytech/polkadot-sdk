@@ -1442,7 +1442,10 @@ pub mod pallet {
 		/// compatibility. It no longer has any effect.
 		#[pallet::call_index(3)]
 		#[pallet::weight(T::WeightInfo::withdraw_unbonded_kill())]
-		pub fn withdraw_unbonded(origin: OriginFor<T>, _num_slashing_spans: u32) -> DispatchResultWithPostInfo {
+		pub fn withdraw_unbonded(
+			origin: OriginFor<T>,
+			_num_slashing_spans: u32,
+		) -> DispatchResultWithPostInfo {
 			let controller = ensure_signed(origin)?;
 
 			let actual_weight = Self::do_withdraw_unbonded(&controller)?;
@@ -1752,7 +1755,11 @@ pub mod pallet {
 		/// compatibility. It no longer has any effect.
 		#[pallet::call_index(15)]
 		#[pallet::weight(T::WeightInfo::force_unstake())]
-		pub fn force_unstake(origin: OriginFor<T>, stash: T::AccountId, _num_slashing_spans: u32) -> DispatchResult {
+		pub fn force_unstake(
+			origin: OriginFor<T>,
+			stash: T::AccountId,
+			_num_slashing_spans: u32,
+		) -> DispatchResult {
 			ensure_root(origin)?;
 
 			// Remove all staking-related information and lock.
@@ -1899,7 +1906,11 @@ pub mod pallet {
 		/// compatibility. It no longer has any effect.
 		#[pallet::call_index(20)]
 		#[pallet::weight(T::WeightInfo::reap_stash())]
-		pub fn reap_stash(origin: OriginFor<T>, stash: T::AccountId, _num_slashing_spans: u32) -> DispatchResultWithPostInfo {
+		pub fn reap_stash(
+			origin: OriginFor<T>,
+			stash: T::AccountId,
+			_num_slashing_spans: u32,
+		) -> DispatchResultWithPostInfo {
 			let _ = ensure_signed(origin)?;
 
 			// virtual stakers should not be allowed to be reaped.
