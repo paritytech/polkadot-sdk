@@ -892,7 +892,7 @@ pub mod pallet {
 		///
 		/// This allows an offchain application to know what [`Config::DepositPerPage`] and
 		/// [`Config::DepositBase`] are doing under the hood.
-		pub fn deposit_for(p: u32) -> BalanceOf<T> {
+		pub fn deposit_for(page: u32) -> BalanceOf<T> {
 			Self::deposit_for(p as usize)
 		}
 	}
