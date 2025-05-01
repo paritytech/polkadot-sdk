@@ -40,3 +40,5 @@ mod routing;
 mod transacting;
 mod version_subscriptions;
 mod weight;
+
+pub(crate) use xcm_simulator::helpers::{derive_topic_id, TopicIdTracker};
