@@ -118,7 +118,7 @@ where
 				into();
 				// let para_session_info_prefix: Vec<u8> = hex!("4da2c41eaffa8e1a791c5d65beeefd1f028685274e698e781f7f2766cba0cc83").into();
 				let paras_heads_prefix: Vec<u8> = hex!("cd710b30bd2eab0352ddcc26417aa1941b3c252fcb29d88eff4f3de5de4476c3").into();
-				let mut injects_iter = injects.into_iter();
+				let mut injects_iter = injects.clone().into_iter();
 				{
 
 					for state in imported_state.state.0.iter_mut() {
@@ -288,12 +288,12 @@ where
 								state.key_values.push((GENESIS_SLOT_KEY.into(), genesis_slot_override.encode()));
 
 								// for now only insert into the relaychain
-								// for (k,v) in &injects {
-								// 	debug!(target: LOG_TARGET, "Injecting key: {}", sp_core::hexdisplay::HexDisplay::from(k));
-								// 	debug!(target: LOG_TARGET,"Injecting value: {}", sp_core::hexdisplay::HexDisplay::from(v));
-								// 	storage.top.insert(k.clone(), v.clone());
-								// 	state.key_values.push((k.clone(), v.encode()));
-								// }
+								for (k,v) in injects.iter() {
+									debug!(target: LOG_TARGET, "Injecting key: {}", sp_core::hexdisplay::HexDisplay::from(k));
+									debug!(target: LOG_TARGET,"Injecting value: {}", sp_core::hexdisplay::HexDisplay::from(v));
+									storage.top.insert(k.clone(), v.clone());
+									state.key_values.push((k.clone(), v.clone()));
+								}
 							}
 						} else {
 							for parent_storage in &state.parent_storage_keys {
