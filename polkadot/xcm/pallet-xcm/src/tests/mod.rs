@@ -45,6 +45,7 @@ use xcm_executor::{
 	traits::{Properties, QueryHandler, QueryResponseStatus, ShouldExecute},
 	XcmExecutor,
 };
+use xcm_simulator::helpers::TopicIdTracker;
 
 const ALICE: AccountId = AccountId::new([0u8; 32]);
 const BOB: AccountId = AccountId::new([1u8; 32]);
@@ -1655,6 +1656,7 @@ fn execute_initiate_transfer_and_check_sent_event() {
 		tracing::{subscriber, Level},
 	};
 
+	TopicIdTracker::reset();
 	let (log_capture, subscriber) = init_log_capture(Level::TRACE, true);
 	subscriber::with_default(subscriber, || {
 		let balances = vec![(ALICE, INITIAL_BALANCE)];
@@ -1679,13 +1681,13 @@ fn execute_initiate_transfer_and_check_sent_event() {
 			);
 			assert_ok!(result);
 
-			let sent_msg_id = get_sent_xcm_topic_id();
+			let sent_msg_id: XcmHash = TopicIdTracker::get().into();
 			let sent_message: Xcm<()> = Xcm(vec![
 				WithdrawAsset(Assets::new()),
 				ClearOrigin,
 				BuyExecution { fees: fee_asset.clone(), weight_limit: Unlimited },
 				DepositAsset { assets: All.into(), beneficiary: beneficiary.clone() },
-				SetTopic(sent_msg_id.into()),
+				SetTopic(sent_msg_id),
 			]);
 			assert!(log_capture
 				.contains(format!("xcm::send: Sending msg msg={:?}", sent_message).as_str()));

@@ -46,6 +46,7 @@ use xcm_executor::{
 	traits::{Identity, JustTry},
 	XcmExecutor,
 };
+use xcm_simulator::helpers::{derive_topic_id, TopicIdTracker};
 
 use crate::{self as pallet_xcm, TestWeightInfo};
 
@@ -153,7 +154,6 @@ construct_runtime!(
 
 thread_local! {
 	pub static SENT_XCM: RefCell<Vec<(Location, Xcm<()>)>> = RefCell::new(Vec::new());
-	pub static SENT_XCM_TOPIC_ID: RefCell<XcmHash> = RefCell::new(XcmHash::default());
 	pub static FAIL_SEND_XCM: RefCell<bool> = RefCell::new(false);
 }
 pub(crate) fn sent_xcm() -> Vec<(Location, Xcm<()>)> {
@@ -165,9 +165,6 @@ pub(crate) fn take_sent_xcm() -> Vec<(Location, Xcm<()>)> {
 		std::mem::swap(&mut r, &mut *q.borrow_mut());
 		r
 	})
-}
-pub(crate) fn get_sent_xcm_topic_id() -> XcmHash {
-	SENT_XCM_TOPIC_ID.with(|q| *q.borrow())
 }
 pub(crate) fn set_send_xcm_artificial_failure(should_fail: bool) {
 	FAIL_SEND_XCM.with(|q| *q.borrow_mut() = should_fail);
@@ -194,9 +191,9 @@ impl SendXcm for TestSendXcm {
 		{
 			return Err(SendError::Transport("Intentional deliver failure used in tests".into()));
 		}
-		let hash = fake_message_hash(&message);
+		let hash = derive_topic_id(&message);
 		SENT_XCM.with(|q| q.borrow_mut().push(pair));
-		SENT_XCM_TOPIC_ID.set(hash);
+		TopicIdTracker::insert(hash.into());
 		Ok(hash)
 	}
 }
@@ -216,9 +213,9 @@ impl SendXcm for TestSendXcmErrX8 {
 		}
 	}
 	fn deliver(pair: (Location, Xcm<()>)) -> Result<XcmHash, SendError> {
-		let hash = fake_message_hash(&pair.1);
+		let hash = derive_topic_id(&pair.1);
 		SENT_XCM.with(|q| q.borrow_mut().push(pair));
-		SENT_XCM_TOPIC_ID.set(hash);
+		TopicIdTracker::insert(hash.into());
 		Ok(hash)
 	}
 }
@@ -249,9 +246,9 @@ impl SendXcm for TestPaidForPara3000SendXcm {
 		Ok((pair, Para3000PaymentAssets::get()))
 	}
 	fn deliver(pair: (Location, Xcm<()>)) -> Result<XcmHash, SendError> {
-		let hash = fake_message_hash(&pair.1);
+		let hash = derive_topic_id(&pair.1);
 		SENT_XCM.with(|q| q.borrow_mut().push(pair));
-		SENT_XCM_TOPIC_ID.set(hash);
+		TopicIdTracker::insert(hash.into());
 		Ok(hash)
 	}
 }
@@ -746,9 +743,5 @@ pub(crate) fn new_test_ext_with_balances_and_xcm_version(
 }
 
 pub(crate) fn fake_message_hash<T>(message: &Xcm<T>) -> XcmHash {
-	if let Some(SetTopic(topic_id)) = message.last() {
-		*topic_id
-	} else {
-		message.using_encoded(sp_io::hashing::blake2_256)
-	}
+	message.using_encoded(sp_io::hashing::blake2_256)
 }

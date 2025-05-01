@@ -14,8 +14,8 @@
 // limitations under the License.
 
 use emulated_integration_tests_common::{
-	xcm_emulator::helpers::TopicIdTracker,
 	xcm_helpers::{find_mq_processed_id, find_xcm_sent_message_id},
+	xcm_simulator::helpers::TopicIdTracker,
 };
 use rococo_westend_system_emulated_network::westend_emulated_chain::westend_runtime::Dmp;
 

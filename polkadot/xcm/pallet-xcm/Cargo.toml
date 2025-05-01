@@ -38,6 +38,7 @@ pallet-assets = { workspace = true, default-features = true }
 polkadot-parachain-primitives = { workspace = true, default-features = true }
 polkadot-runtime-parachains = { workspace = true, default-features = true }
 sp-tracing = { features = ["test-utils"], workspace = true, default-features = true }
+xcm-simulator = { workspace = true, default-features = true }
 
 [features]
 default = ["std"]

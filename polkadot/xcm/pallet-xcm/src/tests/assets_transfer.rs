@@ -30,6 +30,7 @@ use polkadot_parachain_primitives::primitives::Id as ParaId;
 use sp_runtime::traits::AccountIdConversion;
 use xcm::prelude::*;
 use xcm_executor::traits::ConvertLocation;
+use xcm_simulator::helpers::TopicIdTracker;
 
 /// Test `limited_teleport_assets`
 ///
@@ -1359,6 +1360,7 @@ fn remote_asset_reserve_and_remote_fee_reserve_call<Call>(
 		WeightLimit,
 	) -> DispatchResult,
 {
+	TopicIdTracker::reset();
 	let balances = vec![(ALICE, INITIAL_BALANCE)];
 	let beneficiary: Location = Junction::AccountId32 { network: None, id: ALICE.into() }.into();
 	new_test_ext_with_balances(balances).execute_with(|| {
@@ -1453,7 +1455,7 @@ fn remote_asset_reserve_and_remote_fee_reserve_call<Call>(
 							DepositAsset { assets: AllCounted(1).into(), beneficiary }
 						])
 					},
-					SetTopic(get_sent_xcm_topic_id()),
+					SetTopic(TopicIdTracker::get().into()),
 				])
 			)],
 		);
@@ -2474,6 +2476,7 @@ fn remote_asset_reserve_and_remote_fee_reserve_paid_call<Call>(
 		WeightLimit,
 	) -> DispatchResult,
 {
+	TopicIdTracker::reset();
 	let weight = BaseXcmWeight::get() * 3;
 	let user_account = AccountId::from(XCM_FEES_NOT_WAIVED_USER_ACCOUNT);
 	let xcm_router_fee_amount = Para3000PaymentAmount::get();
@@ -2527,7 +2530,7 @@ fn remote_asset_reserve_and_remote_fee_reserve_paid_call<Call>(
 		let foreign_id_location_reanchored =
 			foreign_asset_id_location.clone().reanchored(&dest, &context).unwrap();
 		let dest_reanchored = dest.reanchored(&reserve_location, &context).unwrap();
-		let sent_msg_id = get_sent_xcm_topic_id();
+		let sent_msg_id: XcmHash = TopicIdTracker::get().into();
 		let sent_message = Xcm(vec![
 			WithdrawAsset((Location::here(), SEND_AMOUNT).into()),
 			ClearOrigin,
@@ -2542,7 +2545,7 @@ fn remote_asset_reserve_and_remote_fee_reserve_paid_call<Call>(
 					DepositAsset { assets: AllCounted(1).into(), beneficiary },
 				]),
 			},
-			SetTopic(sent_msg_id.into()),
+			SetTopic(sent_msg_id),
 		]);
 
 		let mut last_events = last_events(7).into_iter();

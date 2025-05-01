@@ -15,7 +15,7 @@
 
 use crate::tests::{snowbridge_common::snowbridge_sovereign, *};
 use emulated_integration_tests_common::{
-	macros::Dmp, xcm_emulator::helpers::TopicIdTracker, xcm_helpers::find_all_xcm_topic_ids,
+	macros::Dmp, xcm_helpers::find_all_xcm_topic_ids, xcm_simulator::helpers::TopicIdTracker,
 };
 use xcm::latest::AssetTransferFilter;
 
@@ -1314,7 +1314,6 @@ fn do_send_pens_and_wnds_from_penpal_westend_via_ahw_to_asset_hub_rococo(
 
 			result
 		}));
-
 		AssetHubWestend::execute_with(|| {
 			type RuntimeEvent = <AssetHubWestend as Chain>::RuntimeEvent;
 			let topic_ids = find_all_xcm_topic_ids::<AssetHubWestend>();
