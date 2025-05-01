@@ -48,7 +48,7 @@ impl Backend for Db {
 		Self { db: BTreeMap::new(), highest_block: None, stored_limit_per_para }
 	}
 
-	async fn latest_block_number(&self) -> Option<BlockNumber> {
+	async fn processed_finalized_block_number(&self) -> Option<BlockNumber> {
 		self.highest_block
 	}
 
@@ -85,7 +85,7 @@ impl Backend for Db {
 		bumps: BTreeMap<ParaId, HashMap<PeerId, Score>>,
 		decay_value: Option<Score>,
 	) -> Vec<ReputationUpdate> {
-		if self.highest_block.unwrap_or(0) > leaf_number {
+		if self.highest_block.unwrap_or(0) >= leaf_number {
 			return vec![]
 		}
 
@@ -221,12 +221,12 @@ mod tests {
 	// Test different types of reputation updates and their effects.
 	async fn test_reputation_updates() {
 		let mut db = Db::new(10).await;
-		assert_eq!(db.latest_block_number().await, None);
+		assert_eq!(db.processed_finalized_block_number().await, None);
 		assert_eq!(db.len(), 0);
 
 		// Test empty update with no decay.
 		assert!(db.process_bumps(10, Default::default(), None).await.is_empty());
-		assert_eq!(db.latest_block_number().await, Some(10));
+		assert_eq!(db.processed_finalized_block_number().await, Some(10));
 		assert_eq!(db.len(), 0);
 
 		// Test a query on a non-existant entry.
@@ -237,7 +237,7 @@ mod tests {
 			.process_bumps(11, Default::default(), Some(Score::new(1).unwrap()))
 			.await
 			.is_empty());
-		assert_eq!(db.latest_block_number().await, Some(11));
+		assert_eq!(db.processed_finalized_block_number().await, Some(11));
 		assert_eq!(db.len(), 0);
 
 		// Test empty update with a leaf number smaller than the latest one.
@@ -245,7 +245,7 @@ mod tests {
 			.process_bumps(5, Default::default(), Some(Score::new(1).unwrap()))
 			.await
 			.is_empty());
-		assert_eq!(db.latest_block_number().await, Some(11));
+		assert_eq!(db.processed_finalized_block_number().await, Some(11));
 		assert_eq!(db.len(), 0);
 
 		// Test an update with zeroed score.
@@ -262,16 +262,30 @@ mod tests {
 			)
 			.await
 			.is_empty());
-		assert_eq!(db.latest_block_number().await, Some(12));
+		assert_eq!(db.processed_finalized_block_number().await, Some(12));
 		assert_eq!(db.len(), 0);
 
-		// Test a non-zero update on an empty DB.
+		// Reuse the same 12 block height, it should not be taken into consideration.
 		let first_peer_id = PeerId::random();
 		let first_para_id = ParaId::from(100);
+		assert!(db
+			.process_bumps(
+				12,
+				[(first_para_id, [(first_peer_id, Score::new(10).unwrap())].into_iter().collect())]
+					.into_iter()
+					.collect(),
+				Some(Score::new(1).unwrap())
+			)
+			.await
+			.is_empty());
+		assert_eq!(db.processed_finalized_block_number().await, Some(12));
+		assert_eq!(db.len(), 0);
+		assert_eq!(db.query(&first_peer_id, &first_para_id).await, None);
+
+		// Test a non-zero update on an empty DB.
 		assert_eq!(
 			db.process_bumps(
-				// Reuse the same 12 block height, it should be taken into consideration.
-				12,
+				13,
 				[(first_para_id, [(first_peer_id, Score::new(10).unwrap())].into_iter().collect())]
 					.into_iter()
 					.collect(),
@@ -285,7 +299,7 @@ mod tests {
 				value: Score::new(10).unwrap()
 			}]
 		);
-		assert_eq!(db.latest_block_number().await, Some(12));
+		assert_eq!(db.processed_finalized_block_number().await, Some(13));
 		assert_eq!(db.len(), 1);
 		assert_eq!(
 			db.query(&first_peer_id, &first_para_id).await.unwrap(),
@@ -307,7 +321,7 @@ mod tests {
 			)
 			.await
 			.is_empty());
-		assert_eq!(db.latest_block_number().await, Some(12));
+		assert_eq!(db.processed_finalized_block_number().await, Some(13));
 		assert_eq!(db.len(), 1);
 		assert_eq!(
 			db.query(&first_peer_id, &first_para_id).await.unwrap(),
@@ -319,7 +333,7 @@ mod tests {
 		// Test a subsequent update with no decay.
 		assert_eq!(
 			db.process_bumps(
-				13,
+				14,
 				[
 					(
 						first_para_id,
@@ -351,7 +365,7 @@ mod tests {
 			]
 		);
 		assert_eq!(db.len(), 2);
-		assert_eq!(db.latest_block_number().await, Some(13));
+		assert_eq!(db.processed_finalized_block_number().await, Some(14));
 		assert_eq!(
 			db.query(&first_peer_id, &first_para_id).await.unwrap(),
 			Score::new(10).unwrap()
@@ -367,10 +381,10 @@ mod tests {
 
 		// Empty update with decay has no effect.
 		assert!(db
-			.process_bumps(14, Default::default(), Some(Score::new(1).unwrap()))
+			.process_bumps(15, Default::default(), Some(Score::new(1).unwrap()))
 			.await
 			.is_empty());
-		assert_eq!(db.latest_block_number().await, Some(14));
+		assert_eq!(db.processed_finalized_block_number().await, Some(15));
 		assert_eq!(db.len(), 2);
 		assert_eq!(
 			db.query(&first_peer_id, &first_para_id).await.unwrap(),
@@ -388,7 +402,7 @@ mod tests {
 		// Test a subsequent update with decay.
 		assert_eq!(
 			db.process_bumps(
-				14,
+				16,
 				[
 					(
 						first_para_id,
@@ -431,7 +445,7 @@ mod tests {
 				},
 			]
 		);
-		assert_eq!(db.latest_block_number().await, Some(14));
+		assert_eq!(db.processed_finalized_block_number().await, Some(16));
 		assert_eq!(db.len(), 2);
 		assert_eq!(
 			db.query(&first_peer_id, &first_para_id).await.unwrap(),
@@ -453,7 +467,7 @@ mod tests {
 		// Test a decay that makes the reputation go to 0 (The peer's entry will be removed)
 		assert_eq!(
 			db.process_bumps(
-				15,
+				17,
 				[(
 					second_para_id,
 					[(second_peer_id, Score::new(10).unwrap())].into_iter().collect()
@@ -478,7 +492,7 @@ mod tests {
 				}
 			]
 		);
-		assert_eq!(db.latest_block_number().await, Some(15));
+		assert_eq!(db.processed_finalized_block_number().await, Some(17));
 		assert_eq!(db.len(), 2);
 		assert_eq!(
 			db.query(&first_peer_id, &first_para_id).await.unwrap(),

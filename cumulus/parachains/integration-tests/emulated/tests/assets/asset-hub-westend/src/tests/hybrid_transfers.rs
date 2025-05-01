@@ -738,13 +738,11 @@ fn transfer_native_asset_from_relay_to_penpal_through_asset_hub() {
 	}
 	fn penpal_assertions(t: RelayToParaThroughAHTest) {
 		type RuntimeEvent = <PenpalA as Chain>::RuntimeEvent;
-		let expected_id =
-			t.args.assets.into_inner().first().unwrap().id.0.clone().try_into().unwrap();
 		assert_expected_events!(
 			PenpalA,
 			vec![
 				RuntimeEvent::ForeignAssets(pallet_assets::Event::Issued { asset_id, owner, .. }) => {
-					asset_id: *asset_id == expected_id,
+					asset_id: *asset_id == Location::new(1, Here),
 					owner: *owner == t.receiver.account_id,
 				},
 			]

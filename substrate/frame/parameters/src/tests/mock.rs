@@ -140,8 +140,6 @@ impl Config for Runtime {
 impl pallet_example_basic::Config for Runtime {
 	// Use the dynamic key in the pallet config:
 	type MagicNumber = dynamic_params::pallet1::Key1;
-
-	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = ();
 }
 

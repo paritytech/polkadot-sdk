@@ -570,7 +570,7 @@ fn collator_peer_id(
 
 async fn disconnect_peer(sender: &mut impl overseer::CollatorProtocolSenderTrait, peer_id: PeerId) {
 	sender
-		.send_message(NetworkBridgeTxMessage::DisconnectPeer(peer_id, PeerSet::Collation))
+		.send_message(NetworkBridgeTxMessage::DisconnectPeers(vec![peer_id], PeerSet::Collation))
 		.await
 }
 

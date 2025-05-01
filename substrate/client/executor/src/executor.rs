@@ -758,11 +758,11 @@ impl<D: NativeExecutionDispatch> sp_core::traits::ReadRuntimeVersion for NativeE
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use sp_runtime_interface::runtime_interface;
+	use sp_runtime_interface::{pass_by::PassFatPointerAndRead, runtime_interface};
 
 	#[runtime_interface]
 	trait MyInterface {
-		fn say_hello_world(data: &str) {
+		fn say_hello_world(data: PassFatPointerAndRead<&str>) {
 			println!("Hello world from: {}", data);
 		}
 	}

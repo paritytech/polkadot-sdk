@@ -1,0 +1,57 @@
+[package]
+name = "pallet-staking-async-ah-client"
+description = "Pallet handling the communication with staking-rc-client. It's role is to glue the staking pallet (on AssetHub chain) and session pallet (on Relay Chain) in a transparent way."
+license = "Apache-2.0"
+version = "0.1.0"
+edition.workspace = true
+authors.workspace = true
+repository.workspace = true
+
+[dependencies]
+codec = { workspace = true, features = ["derive"] }
+log = { workspace = true }
+scale-info = { workspace = true, features = ["derive"] }
+serde = { features = ["alloc", "derive"], workspace = true }
+
+sp-core = { workspace = true }
+sp-runtime = { workspace = true }
+sp-staking = { workspace = true }
+
+frame-support = { workspace = true }
+frame-system = { workspace = true }
+
+pallet-authorship = { workspace = true }
+pallet-session = { features = ["historical"], workspace = true }
+pallet-staking-async-rc-client = { workspace = true }
+
+[features]
+default = ["std"]
+std = [
+	"codec/std",
+	"frame-support/std",
+	"frame-system/std",
+	"log/std",
+	"pallet-authorship/std",
+	"pallet-session/std",
+	"pallet-staking-async-rc-client/std",
+	"scale-info/std",
+	"serde/std",
+	"sp-core/std",
+	"sp-runtime/std",
+	"sp-staking/std",
+]
+runtime-benchmarks = [
+	"frame-support/runtime-benchmarks",
+	"frame-system/runtime-benchmarks",
+	"pallet-staking-async-rc-client/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	"sp-staking/runtime-benchmarks",
+]
+try-runtime = [
+	"frame-support/try-runtime",
+	"frame-system/try-runtime",
+	"pallet-authorship/try-runtime",
+	"pallet-session/try-runtime",
+	"pallet-staking-async-rc-client/try-runtime",
+	"sp-runtime/try-runtime",
+]
