@@ -22,7 +22,7 @@ use crate::{
 	election_size_tracker::StaticTracker,
 	log,
 	session_rotation::{self, Eras, Rotator},
-	slashing,
+	slashing::OffenceRecord,
 	weights::WeightInfo,
 	BalanceOf, Exposure, Forcing, LedgerIntegrityState, MaxNominationsOf, Nominations,
 	NominationsQuota, PositiveImbalanceOf, RewardDestination, SnapshotStatus, StakingLedger,
@@ -58,7 +58,6 @@ use sp_staking::{
 
 use super::pallet::*;
 
-use crate::slashing::OffenceRecord;
 #[cfg(feature = "try-runtime")]
 use frame_support::ensure;
 #[cfg(any(test, feature = "try-runtime"))]
