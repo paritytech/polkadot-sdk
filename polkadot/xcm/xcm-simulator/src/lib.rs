@@ -265,7 +265,6 @@ thread_local! {
 		= RefCell::new(VecDeque::new());
 	pub static RELAY_MESSAGE_BUS: RefCell<VecDeque<(Location, Xcm<()>)>>
 		= RefCell::new(VecDeque::new());
-	pub static RELAY_MESSAGE_ID: RefCell<XcmHash> = RefCell::new(XcmHash::default());
 }
 
 /// Declares a test network that consists of a relay chain and multiple
@@ -414,7 +413,7 @@ macro_rules! decl_test_network {
 			) -> Result<$crate::XcmHash, $crate::SendError> {
 				let hash = $crate::helpers::derive_topic_id(&triple.2);
 				$crate::PARA_MESSAGE_BUS.with(|b| b.borrow_mut().push_back(triple));
-				$crate::helpers::TopicIdTracker::insert(hash.into());
+				$crate::helpers::TopicIdTracker::insert("parachains", hash.into());
 				Ok(hash)
 			}
 		}
@@ -447,7 +446,7 @@ macro_rules! decl_test_network {
 			) -> Result<$crate::XcmHash, $crate::SendError> {
 				let hash = $crate::helpers::derive_topic_id(&pair.1);
 				$crate::RELAY_MESSAGE_BUS.with(|b| b.borrow_mut().push_back(pair));
-				$crate::helpers::TopicIdTracker::insert(hash.into());
+				$crate::helpers::TopicIdTracker::insert(stringify!($relay_chain), hash.into());
 				Ok(hash)
 			}
 		}
@@ -457,10 +456,12 @@ macro_rules! decl_test_network {
 pub mod helpers {
 	use super::*;
 	use sp_runtime::testing::H256;
+	use std::collections::{HashMap, HashSet};
 
 	thread_local! {
 		/// Tracked XCM topic IDs
-		static TRACKED_TOPIC_IDS: RefCell<std::collections::HashSet<H256>> = RefCell::new(std::collections::HashSet::new());
+		static TRACKED_TOPIC_IDS: RefCell<HashSet<H256>> = RefCell::new(HashSet::new());
+		static TRACKED_TOPIC_IDS_MAP: RefCell<HashMap<String, H256>> = RefCell::new(HashMap::new());
 	}
 
 	/// Derives a topic ID for an XCM in tests.
@@ -479,7 +480,7 @@ pub mod helpers {
 		pub fn assert_tracked_id_in(topic_ids: &[H256]) {
 			Self::assert_unique();
 
-			let tracked_id = Self::get();
+			let tracked_id = Self::get_x();
 			assert!(
 				topic_ids.contains(&tracked_id),
 				"Tracked topic ID {:?} was not found in emitted events: {:?}",
@@ -505,31 +506,49 @@ pub mod helpers {
 		/// Inserts multiple topic IDs into the tracker and asserts exactly one is tracked.
 		pub fn expect_insert_multi_unique(ids: Vec<H256>) {
 			for id in ids {
-				Self::insert(id);
+				Self::insert_x(id);
 			}
 			Self::assert_unique();
 		}
 
 		/// Inserts a topic ID into the tracker and asserts it is the only one tracked.
 		pub fn expect_insert_unique(id: H256) {
-			Self::insert(id);
+			Self::insert_x(id);
 			Self::assert_unique()
 		}
 
 		/// Retrieves the unique tracked topic ID.
-		pub fn get() -> H256 {
+		pub fn get_x() -> H256 {
 			TRACKED_TOPIC_IDS
 				.with(|b| *b.borrow().iter().next().expect("Expected exactly one tracked topic ID"))
 		}
 
+		/// Retrieves the tracked topic ID for the specified chain.
+		pub fn get(chain: &str) -> H256 {
+			TRACKED_TOPIC_IDS_MAP.with(|b| {
+				b.borrow()
+					.get(chain)
+					.cloned()
+					.expect(&format!("Expected a tracked topic ID for chain '{}'", chain))
+			})
+		}
+
 		/// Inserts a single topic ID into the tracker.
-		pub fn insert(id: H256) {
+		pub fn insert_x(id: H256) {
 			TRACKED_TOPIC_IDS.with(|b| b.borrow_mut().insert(id));
+		}
+
+		/// Associates a topic ID with the given chain name in the tracker.
+		pub fn insert(chain: &str, id: H256) {
+			TRACKED_TOPIC_IDS_MAP.with(|b| {
+				b.borrow_mut().insert(chain.to_string(), id);
+			});
 		}
 
 		/// Clears all tracked topic IDs, resetting the tracker for a new test.
 		pub fn reset() {
 			TRACKED_TOPIC_IDS.with(|b| b.borrow_mut().clear());
+			TRACKED_TOPIC_IDS_MAP.with(|b| b.borrow_mut().clear());
 		}
 	}
 }

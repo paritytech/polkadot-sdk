@@ -570,7 +570,7 @@ fn query_holding() {
 					max_weight: Weight::from_parts(1_000_000_000, 1024 * 1024),
 					querier: Some(Here.into()),
 				},
-				SetTopic(TopicIdTracker::get().into()),
+				SetTopic(TopicIdTracker::get("Relay").into()),
 			])],
 		);
 	});
