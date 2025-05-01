@@ -122,11 +122,11 @@ xcm-runtime-apis = { workspace = true }
 
 [dev-dependencies]
 approx = { workspace = true }
-remote-externalities = { workspace = true, default-features = true }
 serde_json = { workspace = true, default-features = true }
 sp-keyring = { workspace = true, default-features = true }
 sp-tracing = { workspace = true }
 tiny-keccak = { features = ["keccak"], workspace = true }
+remote-externalities = { workspace = true, default-features = true }
 tokio = { features = ["macros"], workspace = true, default-features = true }
 
 [build-dependencies]

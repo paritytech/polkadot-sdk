@@ -1250,6 +1250,40 @@ fn proportional_ledger_slash_works() {
 	});
 }
 
+#[test]
+fn slash_updates_hold() {
+	ExtBuilder::default()
+		.slash_defer_duration(0)
+		.nominate(false)
+		.build_and_execute(|| {
+			// given initial held balance
+			assert_eq!(asset::staked::<T>(&11), 1000);
+
+			// when add a slash for 11
+			add_slash_with_percent(11, 50);
+			// and apply it
+			Session::roll_next();
+
+			// then held and ledger both updated
+			assert_eq!(
+				staking_events_since_last_call(),
+				vec![
+					Event::OffenceReported {
+						offence_era: 1,
+						validator: 11,
+						fraction: Perbill::from_percent(50)
+					},
+					Event::SlashComputed { offence_era: 1, slash_era: 1, offender: 11, page: 0 },
+					Event::Slashed { staker: 11, amount: 500 }
+				]
+			);
+
+			assert_eq!(asset::staked::<T>(&11), 500);
+			assert_eq!(Ledger::<T>::get(&11).map(|l| (l.total, l.active)).unwrap(), (500, 500));
+		});
+}
+
+
 mod paged_slashing {
 	use super::*;
 	use crate::slashing::OffenceRecord;

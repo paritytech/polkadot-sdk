@@ -97,11 +97,12 @@ impl<T: Config> Pallet<T> {
 		stash: &T::AccountId,
 	) -> Result<LedgerIntegrityState, Error<T>> {
 		// look at any old unmigrated lock as well.
-		let hold_or_lock = asset::staked::<T>(&stash)
-			.max(T::OldCurrency::balance_locked(STAKING_ID, &stash).into());
+		let held = asset::staked::<T>(&stash);
+		let locked = T::OldCurrency::balance_locked(STAKING_ID, &stash).into();
+		let hold_max_lock = held.max(locked);
 
 		let controller = <Bonded<T>>::get(stash).ok_or_else(|| {
-			if hold_or_lock == Zero::zero() {
+			if hold_max_lock == Zero::zero() {
 				Error::<T>::NotStash
 			} else {
 				Error::<T>::BadState
@@ -113,10 +114,28 @@ impl<T: Config> Pallet<T> {
 				if ledger.stash != *stash {
 					Ok(LedgerIntegrityState::Corrupted)
 				} else {
-					if hold_or_lock != ledger.total {
-						Ok(LedgerIntegrityState::LockCorrupted)
-					} else {
-						Ok(LedgerIntegrityState::Ok)
+					match (held.is_zero(), locked.is_zero()) {
+						(false, true) => {
+							// if we have a hold, it must always match the ledger total
+							if held == ledger.total {
+								Ok(LedgerIntegrityState::Ok)
+							} else {
+								Ok(LedgerIntegrityState::LockCorrupted)
+							}
+						},
+						(true, false) => {
+							// if we have a lock, it should be equal or more than the ledger.total
+							// (old slashing code with locks does not update locks)
+							if locked >= ledger.total {
+								Ok(LedgerIntegrityState::Ok)
+							} else {
+								Ok(LedgerIntegrityState::LockCorrupted)
+							}
+						},
+						_ => {
+							// we should not have both a lock and a hold for anyone, or neither
+							Ok(LedgerIntegrityState::LockCorrupted)
+						},
 					}
 				},
 			None => Ok(LedgerIntegrityState::CorruptedKilled),
@@ -1817,9 +1836,11 @@ impl<T: Config> Pallet<T> {
 						));
 					}
 				} else {
-					ensure!(
+					assert!(
 						Self::inspect_bond_state(&stash) == Ok(LedgerIntegrityState::Ok),
-						"bond, ledger and/or staking hold inconsistent for a bonded stash."
+						"bond, ledger and/or staking hold inconsistent for a bonded stash: {:?} ({:?})",
+						stash,
+						Self::inspect_bond_state(&stash)
 					);
 				}
 

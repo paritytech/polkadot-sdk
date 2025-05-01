@@ -61,7 +61,7 @@
 //! potential future slashes. The goal is to eventually allow foreign MultiLocations
 //! (smart contracts or pallets on another chain) to build their own pooled staking solutions
 //! similar to `NominationPools`.
-
+//!
 //! ## Core functions
 //!
 //! - Allow an account to receive delegations. See [`Pallet::register_agent`].
@@ -101,7 +101,8 @@
 //! optionally used by Nomination Pool. The vision is to build this in a configurable way such that
 //! runtime can choose whether to use this pallet or not.
 //!
-//! With that said, following is the main difference between
+//! With that said, following is the main difference between:
+//!
 //! #### Nomination Pool without delegation support
 //!  1) transfer fund from delegator to pool account, and
 //!  2) stake from pool account as a direct nominator.

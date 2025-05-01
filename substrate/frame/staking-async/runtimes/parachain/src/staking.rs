@@ -474,3 +474,88 @@ where
 		UncheckedExtrinsic::new_bare(call)
 	}
 }
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use frame_support::traits::Hooks;
+	use remote_externalities::{
+		Builder, Mode, OfflineConfig, OnlineConfig, SnapshotConfig, Transport,
+	};
+	use std::env::var;
+
+	/// Run it like:
+	///
+	/// ```text
+	/// RUST_BACKTRACE=full \
+	/// 	RUST_LOG=remote-ext=info,runtime::staking-async=debug \
+	/// 	REMOTE_TESTS=1 \
+	/// 	WS=ws://127.0.0.1:9999 \
+	/// 	cargo test --release -p pallet-staking-async-parachain-runtime \
+	/// 	--features try-runtime run_try
+	/// ```
+	///
+	/// Just replace the node with your local node.
+	///
+	/// Pass `SNAP=polkadot` or similar to store and reuse a snapshot.
+	#[tokio::test]
+	async fn run_try_state_on_remote() {
+		if var("REMOTE_TESTS").is_err() {
+			return;
+		}
+
+		sp_tracing::try_init_simple();
+		let transport: Transport =
+			var("WS").unwrap_or("wss://westend-rpc.polkadot.io:443".to_string()).into();
+		let maybe_state_snapshot: Option<SnapshotConfig> = var("SNAP").map(|s| s.into()).ok();
+		// You can use this if you want to scrape smaller set of pallets, but they the name must
+		// match the runtime.
+		let _pallets = vec![
+			"System",
+			"Balances",
+			"DelegatedStaking",
+			"VoterList",
+			"Staking",
+			"Session",
+			"Historical",
+			"NominationPools",
+			"FastUnstake",
+		]
+		.into_iter()
+		.map(|x| x.to_string())
+		.collect::<Vec<_>>();
+		let mut ext = Builder::<Block>::default()
+			.mode(if let Some(state_snapshot) = maybe_state_snapshot {
+				Mode::OfflineOrElseOnline(
+					OfflineConfig { state_snapshot: state_snapshot.clone() },
+					OnlineConfig {
+						transport,
+						hashed_prefixes: vec![vec![]],
+						state_snapshot: Some(state_snapshot),
+						..Default::default()
+					},
+				)
+			} else {
+				Mode::Online(OnlineConfig {
+					hashed_prefixes: vec![vec![]],
+					transport,
+					..Default::default()
+				})
+			})
+			.build()
+			.await
+			.unwrap();
+		ext.execute_with(|| {
+			let now = frame_system::Pallet::<Runtime>::block_number();
+
+			log::info!(target: "runtime", "Running display_and_check_bags");
+			pallet_bags_list_remote_tests::display_and_check_bags::<Runtime>(10 ^ 12u64, "WND");
+
+			log::info!(target: "runtime", "Running try_state for voter_list");
+			pallet_bags_list::Pallet::<Runtime, VoterBagsListInstance>::try_state(now).unwrap();
+
+			log::info!(target: "runtime", "Running try_state for staking");
+			pallet_staking_async::Pallet::<Runtime>::try_state(now).unwrap();
+		});
+	}
+}

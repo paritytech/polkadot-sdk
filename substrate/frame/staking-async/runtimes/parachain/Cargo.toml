@@ -128,6 +128,11 @@ pallet-xcm-bridge-hub-router = { workspace = true }
 [dev-dependencies]
 asset-test-utils = { workspace = true, default-features = true }
 parachains-runtimes-test-utils = { workspace = true, default-features = true }
+remote-externalities = { workspace = true, default-features = true }
+tokio = { features = ["macros"], workspace = true, default-features = true }
+frame-try-runtime = { workspace = true, default-features = true }
+sp-tracing = { workspace = true, default-features = true }
+pallet-bags-list-remote-tests = { workspace = true, default-features = true }
 
 [build-dependencies]
 substrate-wasm-builder = { optional = true, workspace = true, default-features = true }
