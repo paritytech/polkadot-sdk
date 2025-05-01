@@ -27999,6 +27999,7 @@ dependencies = [
  "staging-xcm",
  "staging-xcm-builder",
  "staging-xcm-executor",
+ "xcm-simulator",
 ]
 
 [[package]]

@@ -24,12 +24,12 @@ use xcm_runtime_apis::{
 	dry_run::{CallDryRunEffects, DryRunApi},
 	fees::XcmPaymentApi,
 };
+use xcm_simulator::helpers::{derive_topic_id, TopicIdTracker};
 
 mod mock;
 use mock::{
-	fake_message_hash, new_test_ext_with_balances, new_test_ext_with_balances_and_assets,
-	DeliveryFees, ExistentialDeposit, HereLocation, OriginCaller, RuntimeCall, RuntimeEvent,
-	TestClient,
+	new_test_ext_with_balances, new_test_ext_with_balances_and_assets, DeliveryFees,
+	ExistentialDeposit, HereLocation, OriginCaller, RuntimeCall, RuntimeEvent, TestClient,
 };
 
 // Scenario: User `1` in the local chain (id 2000) wants to transfer assets to account `[0u8; 32]`
@@ -45,6 +45,7 @@ use mock::{
 #[test]
 fn fee_estimation_for_teleport() {
 	sp_tracing::init_for_tests();
+	TopicIdTracker::reset();
 	let who = 1; // AccountId = u64.
 	let balances = vec![(who, 100 + DeliveryFees::get() + ExistentialDeposit::get())];
 	let assets = vec![(1, who, 50)];
@@ -129,7 +130,7 @@ fn fee_estimation_for_teleport() {
 					origin: AccountIndex64 { index: 1, network: None }.into(),
 					destination: (Parent, Parachain(1000)).into(),
 					message: send_message.clone(),
-					message_id: fake_message_hash(&send_message),
+					message_id: TopicIdTracker::get().into(),
 				}),
 			]
 		);
@@ -204,6 +205,7 @@ fn dry_run_reserve_asset_transfer_common(
 	dry_run_call: impl FnOnce(&TestClient, OriginCaller, RuntimeCall) -> CallDryRunEffects<RuntimeEvent>,
 ) {
 	sp_tracing::init_for_tests();
+	TopicIdTracker::reset();
 	let who = 1; // AccountId = u64.
 			  // Native token used for fees.
 	let balances = vec![(who, DeliveryFees::get() + ExistentialDeposit::get())];
@@ -287,7 +289,7 @@ fn dry_run_reserve_asset_transfer_common(
 					origin: AccountIndex64 { index: 1, network: None }.into(),
 					destination: send_destination.clone(),
 					message: send_message.clone(),
-					message_id: fake_message_hash(&send_message),
+					message_id: TopicIdTracker::get().into(),
 				}),
 			]
 		);
