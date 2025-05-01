@@ -16,11 +16,10 @@
 
 //! Test kit to simulate cross-chain message passing and XCM execution.
 
+extern crate alloc;
 /// Implementation of a simple message queue.
 /// Used for sending messages.
 pub mod mock_message_queue;
-
-extern crate alloc;
 
 pub use codec::Encode;
 pub use paste;
@@ -459,9 +458,8 @@ pub mod helpers {
 	use std::collections::{HashMap, HashSet};
 
 	thread_local! {
-		/// Tracked XCM topic IDs
-		static TRACKED_TOPIC_IDS: RefCell<HashSet<H256>> = RefCell::new(HashSet::new());
-		static TRACKED_TOPIC_IDS_MAP: RefCell<HashMap<String, H256>> = RefCell::new(HashMap::new());
+		/// Tracked XCM topic IDs, mapped by chain name.
+		static TRACKED_TOPIC_IDS: RefCell<HashMap<String, H256>> = RefCell::new(HashMap::new());
 	}
 
 	/// Derives a topic ID for an XCM in tests.
@@ -480,7 +478,7 @@ pub mod helpers {
 		pub fn assert_tracked_id_in(topic_ids: &[H256]) {
 			Self::assert_unique();
 
-			let tracked_id = Self::get_x();
+			let tracked_id = Self::get_unique_id();
 			assert!(
 				topic_ids.contains(&tracked_id),
 				"Tracked topic ID {:?} was not found in emitted events: {:?}",
@@ -489,10 +487,10 @@ pub mod helpers {
 			);
 		}
 
-		/// Asserts that exactly one topic ID is tracked.
+		/// Asserts that exactly one topic ID is tracked across all chains.
 		pub fn assert_unique() {
 			TRACKED_TOPIC_IDS.with(|b| {
-				let ids = b.borrow();
+				let ids: HashSet<_> = b.borrow().values().collect();
 				assert_eq!(
 					ids.len(),
 					1,
@@ -506,26 +504,20 @@ pub mod helpers {
 		/// Inserts multiple topic IDs into the tracker and asserts exactly one is tracked.
 		pub fn expect_insert_multi_unique(ids: Vec<H256>) {
 			for id in ids {
-				Self::insert_x(id);
+				Self::insert_unique_id(id);
 			}
 			Self::assert_unique();
 		}
 
-		/// Inserts a topic ID into the tracker and asserts it is the only one tracked.
+		/// Inserts a topic ID and asserts it is the only one tracked.
 		pub fn expect_insert_unique(id: H256) {
-			Self::insert_x(id);
+			Self::insert_unique_id(id);
 			Self::assert_unique()
-		}
-
-		/// Retrieves the unique tracked topic ID.
-		pub fn get_x() -> H256 {
-			TRACKED_TOPIC_IDS
-				.with(|b| *b.borrow().iter().next().expect("Expected exactly one tracked topic ID"))
 		}
 
 		/// Retrieves the tracked topic ID for the specified chain.
 		pub fn get(chain: &str) -> H256 {
-			TRACKED_TOPIC_IDS_MAP.with(|b| {
+			TRACKED_TOPIC_IDS.with(|b| {
 				b.borrow()
 					.get(chain)
 					.cloned()
@@ -533,22 +525,41 @@ pub mod helpers {
 			})
 		}
 
-		/// Inserts a single topic ID into the tracker.
-		pub fn insert_x(id: H256) {
-			TRACKED_TOPIC_IDS.with(|b| b.borrow_mut().insert(id));
+		/// Retrieves the unique tracked topic ID, assuming only one exists.
+		pub fn get_unique_id() -> H256 {
+			TRACKED_TOPIC_IDS.with(|b| {
+				let map = b.borrow();
+				assert_eq!(
+					map.len(),
+					1,
+					"Expected exactly one tracked topic ID, found {}: {:?}",
+					map.len(),
+					map
+				);
+				*map.values().next().expect("Expected exactly one tracked topic ID")
+			})
+		}
+
+		/// Retrieves all unique tracked topic IDs across chains.
+		pub fn get_all() -> HashSet<H256> {
+			TRACKED_TOPIC_IDS.with(|b| b.borrow().values().cloned().collect())
 		}
 
 		/// Associates a topic ID with the given chain name in the tracker.
 		pub fn insert(chain: &str, id: H256) {
-			TRACKED_TOPIC_IDS_MAP.with(|b| {
+			TRACKED_TOPIC_IDS.with(|b| {
 				b.borrow_mut().insert(chain.to_string(), id);
 			});
+		}
+
+		/// Inserts a single topic ID into the tracker.
+		pub fn insert_unique_id(id: H256) {
+			Self::insert("any", id);
 		}
 
 		/// Clears all tracked topic IDs, resetting the tracker for a new test.
 		pub fn reset() {
 			TRACKED_TOPIC_IDS.with(|b| b.borrow_mut().clear());
-			TRACKED_TOPIC_IDS_MAP.with(|b| b.borrow_mut().clear());
 		}
 	}
 }
