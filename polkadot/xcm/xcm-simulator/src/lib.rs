@@ -542,11 +542,6 @@ pub mod helpers {
 			})
 		}
 
-		/// Retrieves all unique tracked topic IDs across chains.
-		pub fn get_all() -> HashSet<H256> {
-			TRACKED_TOPIC_IDS.with(|b| b.borrow().values().cloned().collect())
-		}
-
 		/// Associates a topic ID with the given chain name in the tracker.
 		pub fn insert(chain: &str, id: H256) {
 			TRACKED_TOPIC_IDS.with(|b| {
