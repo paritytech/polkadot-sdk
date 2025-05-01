@@ -24,7 +24,7 @@ use xcm_runtime_apis::{
 	dry_run::{CallDryRunEffects, DryRunApi},
 	fees::XcmPaymentApi,
 };
-use xcm_simulator::helpers::{derive_topic_id, TopicIdTracker};
+use xcm_simulator::helpers::TopicIdTracker;
 
 mod mock;
 use mock::{
