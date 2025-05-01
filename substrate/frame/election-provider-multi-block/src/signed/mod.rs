@@ -888,11 +888,11 @@ pub mod pallet {
 
 	#[pallet::view_functions]
 	impl<T: Config> Pallet<T> {
-		/// Get the deposit amount that will be held for a solution of `p` pages.
+		/// Get the deposit amount that will be held for a solution of `pages`.
 		///
 		/// This allows an offchain application to know what [`Config::DepositPerPage`] and
 		/// [`Config::DepositBase`] are doing under the hood.
-		pub fn deposit_for(page: u32) -> BalanceOf<T> {
+		pub fn deposit_for(pages: u32) -> BalanceOf<T> {
 			Self::deposit_for(pages as usize)
 		}
 	}
