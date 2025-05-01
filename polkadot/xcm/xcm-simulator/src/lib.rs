@@ -512,6 +512,11 @@ pub mod helpers {
 			})
 		}
 
+		/// Retrieves the sent hash.
+		pub fn get_sent_hash() -> XcmHash {
+			Self::get("sent").into()
+		}
+
 		/// Retrieves the unique tracked topic ID, assuming only one exists.
 		pub fn get_unique_id() -> H256 {
 			TRACKED_TOPIC_IDS.with(|b| {
@@ -538,14 +543,14 @@ pub mod helpers {
 		/// Inserts multiple topic IDs into the tracker and asserts exactly one is tracked.
 		pub fn insert_all_and_assert_unique(ids: &[H256]) {
 			for id in ids {
-				Self::insert_unique_id(*id);
+				Self::insert("any", *id);
 			}
 			Self::assert_unique();
 		}
 
-		/// Inserts a single topic ID into the tracker.
-		pub fn insert_unique_id(id: H256) {
-			Self::insert("any", id);
+		/// Inserts the sent hash into the tracker.
+		pub fn insert_sent_hash(id: XcmHash) {
+			Self::insert("sent", id.into());
 		}
 
 		/// Clears all tracked topic IDs, resetting the tracker for a new test.

@@ -192,7 +192,7 @@ impl SendXcm for TestSendXcm {
 		}
 		let hash = derive_topic_id(&message);
 		SENT_XCM.with(|q| q.borrow_mut().push(pair));
-		TopicIdTracker::insert_unique_id(hash.into());
+		TopicIdTracker::insert_sent_hash(hash);
 		Ok(hash)
 	}
 }
@@ -214,7 +214,7 @@ impl SendXcm for TestSendXcmErrX8 {
 	fn deliver(pair: (Location, Xcm<()>)) -> Result<XcmHash, SendError> {
 		let hash = derive_topic_id(&pair.1);
 		SENT_XCM.with(|q| q.borrow_mut().push(pair));
-		TopicIdTracker::insert_unique_id(hash.into());
+		TopicIdTracker::insert_sent_hash(hash);
 		Ok(hash)
 	}
 }
@@ -247,7 +247,7 @@ impl SendXcm for TestPaidForPara3000SendXcm {
 	fn deliver(pair: (Location, Xcm<()>)) -> Result<XcmHash, SendError> {
 		let hash = derive_topic_id(&pair.1);
 		SENT_XCM.with(|q| q.borrow_mut().push(pair));
-		TopicIdTracker::insert_unique_id(hash.into());
+		TopicIdTracker::insert_sent_hash(hash);
 		Ok(hash)
 	}
 }
