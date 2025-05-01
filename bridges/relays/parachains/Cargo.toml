@@ -13,13 +13,13 @@ workspace = true
 [dependencies]
 async-std = { workspace = true }
 async-trait = { workspace = true }
-bp-polkadot-core.default-features = true
 bp-polkadot-core.workspace = true
+bp-polkadot-core.default-features = true
 futures = { workspace = true }
 log = { workspace = true }
 relay-substrate-client.workspace = true
 relay-utils.workspace = true
 
 [dev-dependencies]
-relay-substrate-client = { features = ["test-helpers"], workspace = true }
-sp-core = { default-features = true, workspace = true }
+relay-substrate-client = { features = ["test-helpers"], path = "../client-substrate" }
+sp-core = { default-features = true, path = "../../../substrate/primitives/core" }

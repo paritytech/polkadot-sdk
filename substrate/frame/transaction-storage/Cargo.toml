@@ -31,8 +31,8 @@ sp-runtime.workspace = true
 sp-transaction-storage-proof.workspace = true
 
 [dev-dependencies]
-sp-core = { workspace = true, default-features = false }
-sp-transaction-storage-proof = { default-features = true, workspace = true }
+sp-core = { default-features = false, path = "../../primitives/core" }
+sp-transaction-storage-proof = { default-features = true, path = "../../primitives/transaction-storage-proof" }
 
 [features]
 default = ["std"]
@@ -53,7 +53,6 @@ std = [
 	"pallet-balances/std",
 	"scale-info/std",
 	"serde",
-	"sp-core/std",
 	"sp-inherents/std",
 	"sp-io/std",
 	"sp-runtime/std",

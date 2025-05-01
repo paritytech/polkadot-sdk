@@ -25,8 +25,6 @@ scale-info = { features = ["derive", "serde"], workspace = true }
 serde_json = { features = ["alloc", "arbitrary_precision"], workspace = true }
 sp-debug-derive = { workspace = true, features = ["force-debug"] }
 static_assertions = { workspace = true, default-features = true }
-
-# pallet-asset-conversion: turn on "num-traits" feature
 node-primitives.workspace = true
 pallet-example-mbm.workspace = true
 pallet-example-tasks.workspace = true

@@ -19,31 +19,31 @@ targets = ["x86_64-unknown-linux-gnu"]
 codec = { workspace = true, default-features = true }
 futures = { workspace = true }
 log = { workspace = true, default-features = true }
-prometheus-endpoint.default-features = true
 prometheus-endpoint.workspace = true
-sc-block-builder.default-features = true
+prometheus-endpoint.default-features = true
 sc-block-builder.workspace = true
-sc-proposer-metrics.default-features = true
+sc-block-builder.default-features = true
 sc-proposer-metrics.workspace = true
-sc-telemetry.default-features = true
+sc-proposer-metrics.default-features = true
 sc-telemetry.workspace = true
-sc-transaction-pool-api.default-features = true
+sc-telemetry.default-features = true
 sc-transaction-pool-api.workspace = true
-sp-api.default-features = true
+sc-transaction-pool-api.default-features = true
 sp-api.workspace = true
-sp-blockchain.default-features = true
+sp-api.default-features = true
 sp-blockchain.workspace = true
-sp-consensus.default-features = true
+sp-blockchain.default-features = true
 sp-consensus.workspace = true
-sp-core.default-features = true
+sp-consensus.default-features = true
 sp-core.workspace = true
-sp-inherents.default-features = true
+sp-core.default-features = true
 sp-inherents.workspace = true
-sp-runtime.default-features = true
+sp-inherents.default-features = true
 sp-runtime.workspace = true
+sp-runtime.default-features = true
 
 [dev-dependencies]
 parking_lot = { workspace = true, default-features = true }
-sc-client-api = { default-features = true, workspace = true }
-sc-transaction-pool = { default-features = true, workspace = true }
-substrate-test-runtime-client = { workspace = true }
+sc-client-api = { default-features = true, path = "../api" }
+sc-transaction-pool = { default-features = true, path = "../transaction-pool" }
+substrate-test-runtime-client = { path = "../../test-utils/runtime/client" }

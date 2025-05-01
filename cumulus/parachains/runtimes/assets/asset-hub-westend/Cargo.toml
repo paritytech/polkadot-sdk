@@ -1,6 +1,6 @@
 [package]
 name = "asset-hub-westend-runtime"
-version = "0.29.1"
+version = "0.29.2"
 authors.workspace = true
 edition.workspace = true
 description = "Westend variant of Asset Hub parachain runtime"
@@ -63,8 +63,6 @@ sp-std.workspace = true
 sp-storage.workspace = true
 sp-transaction-pool.workspace = true
 sp-version.workspace = true
-
-# num-traits feature needed for dex integer sq root:
 assets-common.workspace = true
 bp-asset-hub-rococo.workspace = true
 bp-asset-hub-westend.workspace = true
@@ -105,8 +103,8 @@ xcm-runtime-apis.workspace = true
 xcm.workspace = true
 
 [dev-dependencies]
-asset-test-utils = { default-features = true, workspace = true }
-parachains-runtimes-test-utils = { default-features = true, workspace = true }
+asset-test-utils = { default-features = true, path = "../test-utils" }
+parachains-runtimes-test-utils = { default-features = true, path = "../../test-utils" }
 
 [build-dependencies]
 substrate-wasm-builder = { optional = true, workspace = true, default-features = true }

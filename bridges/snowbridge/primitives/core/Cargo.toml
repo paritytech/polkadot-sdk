@@ -23,7 +23,6 @@ scale-info = { features = ["derive"], workspace = true }
 serde = { optional = true, features = ["alloc", "derive"], workspace = true }
 xcm-builder.workspace = true
 xcm.workspace = true
-
 bp-relayers.workspace = true
 ethabi = { workspace = true }
 frame-support.workspace = true

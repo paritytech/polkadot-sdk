@@ -78,7 +78,7 @@ xcm-runtime-apis.workspace = true
 xcm.workspace = true
 
 [dev-dependencies]
-parachains-runtimes-test-utils = { workspace = true, default-features = false }
+parachains-runtimes-test-utils = { default-features = false, path = "../../test-utils" }
 
 [features]
 default = ["std"]
@@ -120,7 +120,6 @@ std = [
 	"pallet-xcm/std",
 	"parachain-info/std",
 	"parachains-common/std",
-	"parachains-runtimes-test-utils/std",
 	"polkadot-parachain-primitives/std",
 	"polkadot-runtime-common/std",
 	"rococo-runtime-constants/std",

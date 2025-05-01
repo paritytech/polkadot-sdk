@@ -38,7 +38,7 @@ array-bytes = { workspace = true, default-features = true }
 assert_matches = { workspace = true }
 pretty_assertions = { workspace = true }
 rand = { workspace = true, default-features = true }
-sp-runtime = { default-features = true, workspace = true }
+sp-runtime = { default-features = true, path = "../runtime" }
 
 [features]
 default = ["std"]

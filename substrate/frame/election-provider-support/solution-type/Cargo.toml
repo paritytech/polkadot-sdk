@@ -26,10 +26,10 @@ syn = { features = ["full", "visit"], workspace = true }
 [dev-dependencies]
 codec = { workspace = true, default-features = true }
 scale-info = { workspace = true, default-features = true }
-sp-arithmetic = { default-features = true, workspace = true }
+sp-arithmetic = { default-features = true, path = "../../../primitives/arithmetic" }
 # used by generate_solution_type:
 # NOTE: we have to explicitly specify `std` because of trybuild
 # https://github.com/paritytech/polkadot-sdk/pull/5167
-frame-election-provider-support = { default-features = true, features = ["std"], workspace = true }
-frame-support = { default-features = true, workspace = true }
+frame-election-provider-support = { default-features = true, features = ["std"], path = ".." }
+frame-support = { default-features = true, path = "../../support" }
 trybuild = { workspace = true }

@@ -20,10 +20,10 @@ targets = ["x86_64-unknown-linux-gnu"]
 clap = { features = ["derive"], workspace = true }
 honggfuzz = { workspace = true }
 rand = { features = ["small_rng", "std"], workspace = true, default-features = true }
-sp-npos-elections.default-features = true
 sp-npos-elections.workspace = true
-sp-runtime.default-features = true
+sp-npos-elections.default-features = true
 sp-runtime.workspace = true
+sp-runtime.default-features = true
 
 [[bin]]
 name = "reduce"
