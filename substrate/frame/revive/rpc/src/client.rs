@@ -20,16 +20,16 @@ use crate::{
 	subxt_client::{
 		revive::calls::types::EthTransact, runtime_types::pallet_revive::storage::ContractInfo,
 	},
-	BlockInfoProvider, BlockTag, ReceiptProvider, SubxtBlockInfoProvider, TransactionInfo,
-	LOG_TARGET,
+	BlockInfoProvider, BlockTag, FeeHistoryProvider, ReceiptProvider, SubxtBlockInfoProvider,
+	TransactionInfo, LOG_TARGET,
 };
 use codec::{Decode, Encode};
 use jsonrpsee::types::{error::CALL_EXECUTION_FAILED_CODE, ErrorObjectOwned};
 use pallet_revive::{
 	evm::{
-		decode_revert_reason, Block, BlockNumberOrTag, BlockNumberOrTagOrHash, CallTrace, Filter,
-		GenericTransaction, Log, ReceiptInfo, SyncingProgress, SyncingStatus, TracerConfig,
-		TransactionSigned, TransactionTrace, H160, H256, U256,
+		decode_revert_reason, Block, BlockNumberOrTag, BlockNumberOrTagOrHash, CallTrace,
+		FeeHistoryResult, Filter, GenericTransaction, Log, ReceiptInfo, SyncingProgress,
+		SyncingStatus, TracerConfig, TransactionSigned, TransactionTrace, H160, H256, U256,
 	},
 	EthTransactError, EthTransactInfo,
 };
@@ -121,7 +121,6 @@ pub enum ClientError {
 	/// The block hash was not found.
 	#[error("hash not found")]
 	BlockNotFound,
-
 	#[error("No Ethereum extrinsic found")]
 	EthExtrinsicNotFound,
 	/// The transaction fee could not be found
@@ -177,6 +176,7 @@ pub struct Client {
 	rpc: LegacyRpcMethods<SrcChainConfig>,
 	receipt_provider: ReceiptProvider,
 	block_provider: SubxtBlockInfoProvider,
+	fee_history_provider: FeeHistoryProvider,
 	chain_id: u64,
 	max_block_weight: Weight,
 }
@@ -243,6 +243,7 @@ impl Client {
 			rpc,
 			receipt_provider,
 			block_provider,
+			fee_history_provider: FeeHistoryProvider::default(),
 			chain_id,
 			max_block_weight,
 		})
@@ -335,8 +336,14 @@ impl Client {
 		log::info!(target: LOG_TARGET, "🔌 Subscribing to new blocks ({subscription_type:?})");
 		let res = self
 			.subscribe_new_blocks(subscription_type, |block| async {
-				self.receipt_provider.insert_block_receipts(&block).await?;
+				let (signed_txs, receipts): (Vec<_>, Vec<_>) =
+					self.receipt_provider.insert_block_receipts(&block).await?.into_iter().unzip();
+
+				let evm_block =
+					self.evm_block_from_receipts(&block, &receipts, signed_txs, false).await;
 				self.block_provider.update_latest(block, subscription_type).await;
+
+				self.fee_history_provider.update_fee_history(&evm_block, &receipts).await;
 				Ok(())
 			})
 			.await;
@@ -744,36 +751,55 @@ impl Client {
 		Result::<CallTrace, EthTransactError>::decode(&mut &bytes[..])?
 			.map_err(ClientError::TransactError)
 	}
-	/// Get the EVM block for the given hash.
+	/// Get the EVM block for the given Substrate block.
 	pub async fn evm_block(
 		&self,
 		block: Arc<SubstrateBlock>,
+		hydrated_transactions: bool,
+	) -> Block {
+		let (signed_txs, receipts): (Vec<_>, Vec<_>) = self
+			.receipt_provider
+			.receipts_from_block(&block)
+			.await
+			.unwrap_or_default()
+			.into_iter()
+			.unzip();
+		return self
+			.evm_block_from_receipts(&block, &receipts, signed_txs, hydrated_transactions)
+			.await
+	}
+
+	/// Get the EVM block for the given block and receipts.
+	pub async fn evm_block_from_receipts(
+		&self,
+		block: &SubstrateBlock,
+		receipts: &[ReceiptInfo],
+		signed_txs: Vec<TransactionSigned>,
 		hydrated_transactions: bool,
 	) -> Block {
 		let runtime_api = self.api.runtime_api().at(block.hash());
 		let gas_limit = Self::block_gas_limit(&runtime_api).await.unwrap_or_default();
 
 		let header = block.header();
-		let timestamp = extract_block_timestamp(&block).await.unwrap_or_default();
+		let timestamp = extract_block_timestamp(block).await.unwrap_or_default();
 
 		// TODO: remove once subxt is updated
 		let parent_hash = header.parent_hash.0.into();
 		let state_root = header.state_root.0.into();
 		let extrinsics_root = header.extrinsics_root.0.into();
 
-		let receipts = self.receipt_provider.receipts_from_block(&block).await.unwrap_or_default();
-		let gas_used =
-			receipts.iter().fold(U256::zero(), |acc, (_, receipt)| acc + receipt.gas_used);
+		let gas_used = receipts.iter().fold(U256::zero(), |acc, receipt| acc + receipt.gas_used);
 		let transactions = if hydrated_transactions {
-			receipts
+			signed_txs
 				.into_iter()
+				.zip(receipts.iter())
 				.map(|(signed_tx, receipt)| TransactionInfo::new(receipt, signed_tx))
 				.collect::<Vec<TransactionInfo>>()
 				.into()
 		} else {
 			receipts
-				.into_iter()
-				.map(|(_, receipt)| receipt.transaction_hash)
+				.iter()
+				.map(|receipt| receipt.transaction_hash)
 				.collect::<Vec<_>>()
 				.into()
 		};
@@ -795,7 +821,7 @@ impl Client {
 		}
 	}
 
-	/// Convert a weight to a fee.
+	/// Get the block gas limit.
 	async fn block_gas_limit(
 		runtime_api: &subxt::runtime_api::RuntimeApi<SrcChainConfig, OnlineClient<SrcChainConfig>>,
 	) -> Result<U256, ClientError> {
@@ -819,5 +845,20 @@ impl Client {
 		let logs =
 			self.receipt_provider.logs(filter).await.map_err(ClientError::LogFilterFailed)?;
 		Ok(logs)
+	}
+
+	pub async fn fee_history(
+		&self,
+		block_count: u32,
+		latest_block: BlockNumberOrTag,
+		reward_percentiles: Option<Vec<f64>>,
+	) -> Result<FeeHistoryResult, ClientError> {
+		let Some(latest_block) = self.block_by_number_or_tag(&latest_block).await? else {
+			return Err(ClientError::BlockNotFound);
+		};
+
+		self.fee_history_provider
+			.fee_history(block_count, latest_block.number(), reward_percentiles)
+			.await
 	}
 }
