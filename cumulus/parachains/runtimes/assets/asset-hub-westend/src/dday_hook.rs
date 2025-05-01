@@ -77,10 +77,11 @@ enum DDayDetectionCall {
 	note_new_head { remote_block_number: BlockNumberFor<Runtime>, remote_head: HeadData },
 }
 
-/// Implementation of the ` OnSystemEvent ` adapter over `pallet_bridge_proof_root_sync` where we can get the parent head
-/// and sync it to the Collectives.
+/// Implementation of the ` OnSystemEvent ` adapter over `pallet_bridge_proof_root_sync` where we
+/// can get the parent head and sync it to the Collectives.
 ///
-/// Note: We could alternatively implement `OnSystemEvent` for `pallet_bridge_proof_root_sync` directly.
+/// Note: We could alternatively implement `OnSystemEvent` for `pallet_bridge_proof_root_sync`
+/// directly.
 pub struct DDayHeaderSyncForCollectives;
 impl OnSystemEvent for DDayHeaderSyncForCollectives {
 	fn on_validation_data(data: &PersistedValidationData) {
