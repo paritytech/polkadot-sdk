@@ -260,7 +260,9 @@ impl BootnodeAdvertisement {
 			if let Some(next_epoch_key) = next_epoch_key {
 				match (current_epoch_key, &self.next_epoch_key) {
 					(Some(current_epoch_key), Some(old_next_epoch_key)) =>
-						if *old_next_epoch_key != current_epoch_key {
+						if *old_next_epoch_key != current_epoch_key &&
+							*old_next_epoch_key != next_epoch_key
+						{
 							self.relay_chain_network.stop_providing(old_next_epoch_key.clone());
 
 							debug!(
