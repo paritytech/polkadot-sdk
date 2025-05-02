@@ -188,9 +188,10 @@ fn xcm_persists_set_topic_across_hops() {
 		});
 
 		// Assert exactly one consistent topic ID across all hops
-		assert_eq!(TopicIdTracker::get("Westend"), TopicIdTracker::get("BridgeHubWestend"));
+		let topic_id = TopicIdTracker::get("Westend");
+		assert_eq!(TopicIdTracker::get("BridgeHubWestend"), topic_id);
 		if let Some(expected) = test_topic_id {
-			assert_eq!(TopicIdTracker::get("Westend"), expected.into());
+			assert_eq!(topic_id, expected.into());
 		}
 	}
 }
