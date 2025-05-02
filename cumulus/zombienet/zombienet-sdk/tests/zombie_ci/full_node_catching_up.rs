@@ -7,6 +7,7 @@ use cumulus_zombienet_sdk_helpers::assert_para_throughput;
 
 use polkadot_primitives::Id as ParaId;
 use subxt::{OnlineClient, PolkadotConfig};
+use zombienet_orchestrator::network::node::{LogLineCount, LogLineCountOptions};
 use zombienet_sdk::{LocalFileSystem, Network, NetworkConfigBuilder};
 
 const PARA_ID: u32 = 2000;
@@ -41,16 +42,16 @@ async fn full_node_catching_up() -> Result<(), anyhow::Error> {
 	// We want to make sure that none of the consensus hook checks fail, even if the chain makes progress.
 	// If below log line occurred 1 or more times then test failed.
 	log::info!("Ensuring none of the consensus hook checks fail");
-	let found = network
+	let log_line_count = network
 		.get_node("charlie")?
-		.wait_log_line_count_with_timeout(
+		.wait_log_line_count_with_timeout_v2(
 			"set_validation_data inherent needs to be present in every block",
 			false,
-			1,
-			10u64,
+			LogLineCountOptions::no_occurences_within_timeout(10u64),
 		)
 		.await?;
-	assert!(found == false);
+
+	assert!(matches!(log_line_count, LogLineCount::TargetReached(..)));
 
 	Ok(())
 }
