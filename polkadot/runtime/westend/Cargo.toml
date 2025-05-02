@@ -52,6 +52,7 @@ frame-support = { features = ["experimental", "tuples-96"], workspace = true }
 frame-system = { workspace = true }
 frame-system-rpc-runtime-api = { workspace = true }
 pallet-asset-rate = { workspace = true }
+pallet-ah-migrator = { workspace = true }
 pallet-authority-discovery = { workspace = true }
 pallet-authorship = { workspace = true }
 pallet-babe = { workspace = true }
