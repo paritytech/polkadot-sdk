@@ -107,9 +107,9 @@ fn send_xcm_from_para_to_asset_hub_paying_fee_with_system_asset() {
 	});
 }
 
-/// We tests two things here:
-/// - Parachain should be able to send XCM paying its fee at Asset Hub using sufficient asset
-/// - Parachain should be able to create a new Asset at Asset Hub
+// /// We tests two things here:
+// /// - Parachain should be able to send XCM paying its fee at Asset Hub using sufficient asset
+// /// - Parachain should be able to create a new Asset at Asset Hub
 // #[test]
 // fn send_xcm_from_para_to_asset_hub_paying_fee_with_sufficient_asset() {
 // 	let para_sovereign_account = AssetHubWestend::sovereign_account_id_of(
