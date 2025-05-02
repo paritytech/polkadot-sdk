@@ -22,5 +22,5 @@ parachains-common.workspace = true
 sp-runtime.workspace = true
 westend-runtime.workspace = true
 westend-system-emulated-network.workspace = true
-xcm.workspace = true
 xcm-executor.workspace = true
+xcm.workspace = true

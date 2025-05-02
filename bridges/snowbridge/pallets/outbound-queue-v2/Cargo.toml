@@ -39,9 +39,9 @@ sp-core.workspace = true
 sp-io.workspace = true
 sp-runtime.workspace = true
 sp-std.workspace = true
-xcm.workspace = true
 xcm-builder.workspace = true
 xcm-executor.workspace = true
+xcm.workspace = true
 
 [dev-dependencies]
 pallet-message-queue = { workspace = true, default-features = false }

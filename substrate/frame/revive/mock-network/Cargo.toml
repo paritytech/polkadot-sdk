@@ -21,9 +21,9 @@ pallet-balances.default-features = true
 pallet-balances.workspace = true
 pallet-message-queue.default-features = true
 pallet-message-queue.workspace = true
+pallet-revive-uapi.workspace = true
 pallet-revive.default-features = true
 pallet-revive.workspace = true
-pallet-revive-uapi.workspace = true
 pallet-timestamp.default-features = true
 pallet-timestamp.workspace = true
 pallet-xcm.workspace = true
@@ -39,12 +39,12 @@ sp-io.workspace = true
 sp-runtime.workspace = true
 sp-tracing.default-features = true
 sp-tracing.workspace = true
-xcm.workspace = true
 xcm-builder.default-features = true
 xcm-builder.workspace = true
 xcm-executor.workspace = true
 xcm-simulator.default-features = true
 xcm-simulator.workspace = true
+xcm.workspace = true
 
 [dev-dependencies]
 pallet-revive-fixtures = { default-features = false, workspace = true }

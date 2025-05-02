@@ -32,12 +32,12 @@ sp-core.default-features = true
 sp-core.workspace = true
 sp-std.default-features = true
 sp-std.workspace = true
-xcm.default-features = true
-xcm.workspace = true
 xcm-builder.default-features = true
 xcm-builder.workspace = true
 xcm-executor.default-features = true
 xcm-executor.workspace = true
+xcm.default-features = true
+xcm.workspace = true
 
 [features]
 runtime-benchmarks = [

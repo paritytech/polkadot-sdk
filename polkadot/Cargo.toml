@@ -29,14 +29,14 @@ workspace = true
 [dependencies]
 color-eyre = { workspace = true }
 polkadot-cli = { features = ["rococo-native", "westend-native"], workspace = true, default-features = true }
-polkadot-node-core-pvf.default-features = true
-polkadot-node-core-pvf.workspace = true
 polkadot-node-core-pvf-common.default-features = true
 polkadot-node-core-pvf-common.workspace = true
 polkadot-node-core-pvf-execute-worker.default-features = true
 polkadot-node-core-pvf-execute-worker.workspace = true
 polkadot-node-core-pvf-prepare-worker.default-features = true
 polkadot-node-core-pvf-prepare-worker.workspace = true
+polkadot-node-core-pvf.default-features = true
+polkadot-node-core-pvf.workspace = true
 polkadot-overseer.default-features = true
 polkadot-overseer.workspace = true
 tikv-jemallocator = { optional = true, features = ["unprefixed_malloc_on_supported_platforms"], workspace = true }

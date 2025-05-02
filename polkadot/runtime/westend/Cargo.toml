@@ -21,9 +21,9 @@ frame-election-provider-support.workspace = true
 frame-executive.workspace = true
 frame-metadata-hash-extension.workspace = true
 frame-support = { features = ["experimental", "tuples-96"], workspace = true }
-frame-system.workspace = true
 frame-system-benchmarking = { optional = true, workspace = true }
 frame-system-rpc-runtime-api.workspace = true
+frame-system.workspace = true
 frame-try-runtime = { optional = true, workspace = true }
 hex-literal = { workspace = true, default-features = true }
 log = { workspace = true }
@@ -33,8 +33,8 @@ pallet-authorship.workspace = true
 pallet-babe.workspace = true
 pallet-bags-list.workspace = true
 pallet-balances.workspace = true
-pallet-beefy.workspace = true
 pallet-beefy-mmr.workspace = true
+pallet-beefy.workspace = true
 pallet-conviction-voting.workspace = true
 pallet-delegated-staking.workspace = true
 pallet-election-provider-multi-phase.workspace = true
@@ -50,11 +50,11 @@ pallet-meta-tx.workspace = true
 pallet-migrations.workspace = true
 pallet-mmr.workspace = true
 pallet-multisig.workspace = true
-pallet-nomination-pools.workspace = true
 pallet-nomination-pools-benchmarking = { optional = true, workspace = true }
 pallet-nomination-pools-runtime-api.workspace = true
-pallet-offences.workspace = true
+pallet-nomination-pools.workspace = true
 pallet-offences-benchmarking = { optional = true, workspace = true }
+pallet-offences.workspace = true
 pallet-parameters.workspace = true
 pallet-preimage.workspace = true
 pallet-proxy.workspace = true
@@ -62,23 +62,23 @@ pallet-recovery.workspace = true
 pallet-referenda.workspace = true
 pallet-root-testing.workspace = true
 pallet-scheduler.workspace = true
-pallet-session.workspace = true
 pallet-session-benchmarking = { optional = true, workspace = true }
+pallet-session.workspace = true
 pallet-society.workspace = true
-pallet-staking.workspace = true
 pallet-staking-runtime-api.workspace = true
+pallet-staking.workspace = true
 pallet-state-trie-migration.workspace = true
 pallet-sudo.workspace = true
 pallet-timestamp.workspace = true
-pallet-transaction-payment.workspace = true
 pallet-transaction-payment-rpc-runtime-api.workspace = true
+pallet-transaction-payment.workspace = true
 pallet-treasury.workspace = true
 pallet-utility.workspace = true
 pallet-verify-signature.workspace = true
 pallet-vesting.workspace = true
 pallet-whitelist.workspace = true
-pallet-xcm.workspace = true
 pallet-xcm-benchmarks = { optional = true, workspace = true }
+pallet-xcm.workspace = true
 polkadot-parachain-primitives.workspace = true
 polkadot-primitives.workspace = true
 polkadot-runtime-common.workspace = true
@@ -110,10 +110,10 @@ sp-storage.workspace = true
 sp-transaction-pool.workspace = true
 sp-version.workspace = true
 westend-runtime-constants.workspace = true
-xcm.workspace = true
 xcm-builder.workspace = true
 xcm-executor.workspace = true
 xcm-runtime-apis.workspace = true
+xcm.workspace = true
 
 [dev-dependencies]
 approx = { workspace = true }

@@ -22,5 +22,5 @@ sp-runtime.workspace = true
 westend-runtime-constants.default-features = true
 westend-runtime-constants.workspace = true
 westend-system-emulated-network.workspace = true
-xcm.workspace = true
 xcm-executor.workspace = true
+xcm.workspace = true

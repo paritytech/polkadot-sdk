@@ -19,9 +19,9 @@ log = { workspace = true }
 pallet-asset-conversion.workspace = true
 polkadot-runtime-common.workspace = true
 sp-runtime.workspace = true
-xcm.workspace = true
 xcm-builder.workspace = true
 xcm-executor.workspace = true
+xcm.workspace = true
 
 [features]
 default = ["std"]

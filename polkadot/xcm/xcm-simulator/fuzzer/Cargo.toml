@@ -41,14 +41,14 @@ sp-io.default-features = true
 sp-io.workspace = true
 sp-runtime.default-features = true
 sp-runtime.workspace = true
-xcm.default-features = true
-xcm.workspace = true
 xcm-builder.default-features = true
 xcm-builder.workspace = true
 xcm-executor.default-features = true
 xcm-executor.workspace = true
 xcm-simulator.default-features = true
 xcm-simulator.workspace = true
+xcm.default-features = true
+xcm.workspace = true
 
 [features]
 try-runtime = [

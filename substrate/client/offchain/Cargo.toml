@@ -32,10 +32,10 @@ rand = { workspace = true, default-features = true }
 rustls = { workspace = true }
 sc-client-api.default-features = true
 sc-client-api.workspace = true
-sc-network.default-features = true
-sc-network.workspace = true
 sc-network-types.default-features = true
 sc-network-types.workspace = true
+sc-network.default-features = true
+sc-network.workspace = true
 sc-transaction-pool-api.default-features = true
 sc-transaction-pool-api.workspace = true
 sc-utils.default-features = true

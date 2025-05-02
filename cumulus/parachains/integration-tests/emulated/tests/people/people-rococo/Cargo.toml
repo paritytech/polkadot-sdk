@@ -17,5 +17,5 @@ parachains-common.default-features = true
 parachains-common.workspace = true
 rococo-system-emulated-network.workspace = true
 sp-runtime.workspace = true
-xcm.workspace = true
 xcm-executor.workspace = true
+xcm.workspace = true

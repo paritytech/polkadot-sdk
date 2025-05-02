@@ -24,9 +24,9 @@ snowbridge-core.workspace = true
 snowbridge-outbound-queue-primitives.workspace = true
 sp-arithmetic.workspace = true
 sp-std.workspace = true
-xcm.workspace = true
 xcm-builder.workspace = true
 xcm-executor.workspace = true
+xcm.workspace = true
 
 [dev-dependencies]
 

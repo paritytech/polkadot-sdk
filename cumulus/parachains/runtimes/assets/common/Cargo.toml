@@ -24,9 +24,9 @@ scale-info = { features = ["derive"], workspace = true }
 sp-api.workspace = true
 sp-runtime.workspace = true
 tracing = { workspace = true }
-xcm.workspace = true
 xcm-builder.workspace = true
 xcm-executor.workspace = true
+xcm.workspace = true
 
 [features]
 default = ["std"]

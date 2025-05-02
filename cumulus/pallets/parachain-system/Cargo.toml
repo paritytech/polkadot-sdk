@@ -38,8 +38,8 @@ sp-std.workspace = true
 sp-trie.workspace = true
 sp-version.workspace = true
 trie-db = { workspace = true }
-xcm.workspace = true
 xcm-builder.workspace = true
+xcm.workspace = true
 
 [dev-dependencies]
 assert_matches = { workspace = true }

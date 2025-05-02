@@ -41,12 +41,12 @@ polkadot-node-network-protocol.default-features = true
 polkadot-node-network-protocol.workspace = true
 polkadot-node-primitives.default-features = true
 polkadot-node-primitives.workspace = true
-polkadot-node-subsystem.default-features = true
-polkadot-node-subsystem.workspace = true
 polkadot-node-subsystem-types.default-features = true
 polkadot-node-subsystem-types.workspace = true
 polkadot-node-subsystem-util.default-features = true
 polkadot-node-subsystem-util.workspace = true
+polkadot-node-subsystem.default-features = true
+polkadot-node-subsystem.workspace = true
 polkadot-overseer.default-features = true
 polkadot-overseer.workspace = true
 polkadot-primitives = { workspace = true, features = ["test"] }
@@ -71,10 +71,10 @@ codec = { features = ["derive", "std"], workspace = true, default-features = tru
 itertools = { workspace = true }
 polkadot-approval-distribution.default-features = true
 polkadot-approval-distribution.workspace = true
-polkadot-node-core-approval-voting.default-features = true
-polkadot-node-core-approval-voting.workspace = true
 polkadot-node-core-approval-voting-parallel.default-features = true
 polkadot-node-core-approval-voting-parallel.workspace = true
+polkadot-node-core-approval-voting.default-features = true
+polkadot-node-core-approval-voting.workspace = true
 polkadot-node-metrics.default-features = true
 polkadot-node-metrics.workspace = true
 polkadot-node-subsystem-test-helpers.workspace = true
@@ -82,10 +82,10 @@ polkadot-primitives-test-helpers.workspace = true
 prometheus = { workspace = true }
 prometheus-endpoint.default-features = true
 prometheus-endpoint.workspace = true
-sc-network.default-features = true
-sc-network.workspace = true
 sc-network-types.default-features = true
 sc-network-types.workspace = true
+sc-network.default-features = true
+sc-network.workspace = true
 sc-service.default-features = true
 sc-service.workspace = true
 serde = { workspace = true, default-features = true }
@@ -93,10 +93,10 @@ serde_json = { workspace = true }
 serde_yaml = { workspace = true }
 sp-application-crypto.default-features = true
 sp-application-crypto.workspace = true
-sp-consensus.default-features = true
-sp-consensus.workspace = true
 sp-consensus-babe.default-features = true
 sp-consensus-babe.workspace = true
+sp-consensus.default-features = true
+sp-consensus.workspace = true
 sp-keyring.default-features = true
 sp-keyring.workspace = true
 sp-runtime.workspace = true

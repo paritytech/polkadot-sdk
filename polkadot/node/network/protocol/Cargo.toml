@@ -29,10 +29,10 @@ polkadot-primitives.workspace = true
 rand = { workspace = true, default-features = true }
 sc-authority-discovery.default-features = true
 sc-authority-discovery.workspace = true
-sc-network.default-features = true
-sc-network.workspace = true
 sc-network-types.default-features = true
 sc-network-types.workspace = true
+sc-network.default-features = true
+sc-network.workspace = true
 sp-runtime.default-features = true
 sp-runtime.workspace = true
 strum = { features = ["derive"], workspace = true, default-features = true }
