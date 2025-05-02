@@ -27,7 +27,7 @@ impl frame_system::Config for Runtime {
 #[frame_support::runtime]
 mod runtime {
     #[runtime::runtime]
-    #[runtime::derive(RuntimeCall, RuntimeEvent, RuntimeOrigin, RuntimeError, RuntimeTask)]
+    #[runtime::derive(RuntimeCall, RuntimeEvent, RuntimeOrigin, RuntimeError, RuntimeTask, RuntimeViewFunction)]
     pub struct Runtime;
 
     #[runtime::pallet_index(0)]

@@ -16,13 +16,11 @@ impl-trait-for-tuples = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 
 # Bridge dependencies
-
 bp-header-chain = { workspace = true }
 bp-polkadot-core = { workspace = true }
 bp-runtime = { workspace = true }
 
 # Substrate dependencies
-
 frame-support = { workspace = true }
 sp-core = { workspace = true }
 sp-runtime = { workspace = true }

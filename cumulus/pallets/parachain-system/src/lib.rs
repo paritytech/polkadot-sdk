@@ -1,18 +1,18 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
+// SPDX-License-Identifier: Apache-2.0
 
-// Cumulus is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-
-// Cumulus is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License for more details.
-
-// You should have received a copy of the GNU General Public License
-// along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// 	http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -30,7 +30,7 @@
 extern crate alloc;
 
 use alloc::{collections::btree_map::BTreeMap, vec, vec::Vec};
-use codec::{Decode, Encode};
+use codec::{Decode, DecodeLimit, Encode};
 use core::{cmp, marker::PhantomData};
 use cumulus_primitives_core::{
 	relay_chain::{
@@ -45,7 +45,7 @@ use cumulus_primitives_core::{
 use cumulus_primitives_parachain_inherent::{MessageQueueChain, ParachainInherentData};
 use frame_support::{
 	defensive,
-	dispatch::{DispatchResult, Pays, PostDispatchInfo},
+	dispatch::DispatchResult,
 	ensure,
 	inherent::{InherentData, InherentIdentifier, ProvideInherent},
 	traits::{Get, HandleMessage},
@@ -55,12 +55,11 @@ use frame_system::{ensure_none, ensure_root, pallet_prelude::HeaderFor};
 use polkadot_parachain_primitives::primitives::RelayChainBlockNumber;
 use polkadot_runtime_parachains::FeeTracker;
 use scale_info::TypeInfo;
-use sp_core::U256;
 use sp_runtime::{
 	traits::{Block as BlockT, BlockNumberProvider, Hash, One},
 	BoundedSlice, FixedU128, RuntimeDebug, Saturating,
 };
-use xcm::{latest::XcmHash, VersionedLocation, VersionedXcm};
+use xcm::{latest::XcmHash, VersionedLocation, VersionedXcm, MAX_XCM_DECODE_DEPTH};
 use xcm_builder::InspectMessageQueues;
 
 mod benchmarking;
@@ -80,8 +79,7 @@ pub mod relay_state_snapshot;
 pub mod validate_block;
 
 use unincluded_segment::{
-	Ancestor, HrmpChannelUpdate, HrmpWatermarkUpdate, OutboundBandwidthLimits, SegmentTracker,
-	UsedBandwidth,
+	HrmpChannelUpdate, HrmpWatermarkUpdate, OutboundBandwidthLimits, SegmentTracker,
 };
 
 pub use consensus_hook::{ConsensusHook, ExpectParentIncluded};
@@ -109,6 +107,7 @@ pub use consensus_hook::{ConsensusHook, ExpectParentIncluded};
 /// ```
 pub use cumulus_pallet_parachain_system_proc_macro::register_validate_block;
 pub use relay_state_snapshot::{MessagingStateSnapshot, RelayChainStateProof};
+pub use unincluded_segment::{Ancestor, UsedBandwidth};
 
 pub use pallet::*;
 
@@ -204,15 +203,16 @@ pub struct DefaultCoreSelector<T>(PhantomData<T>);
 
 impl<T: frame_system::Config> SelectCore for DefaultCoreSelector<T> {
 	fn selected_core() -> (CoreSelector, ClaimQueueOffset) {
-		let core_selector: U256 = frame_system::Pallet::<T>::block_number().into();
+		let core_selector = frame_system::Pallet::<T>::block_number().using_encoded(|b| b[0]);
 
-		(CoreSelector(core_selector.byte(0)), ClaimQueueOffset(DEFAULT_CLAIM_QUEUE_OFFSET))
+		(CoreSelector(core_selector), ClaimQueueOffset(DEFAULT_CLAIM_QUEUE_OFFSET))
 	}
 
 	fn select_next_core() -> (CoreSelector, ClaimQueueOffset) {
-		let core_selector: U256 = (frame_system::Pallet::<T>::block_number() + One::one()).into();
+		let core_selector =
+			(frame_system::Pallet::<T>::block_number() + One::one()).using_encoded(|b| b[0]);
 
-		(CoreSelector(core_selector.byte(0)), ClaimQueueOffset(DEFAULT_CLAIM_QUEUE_OFFSET))
+		(CoreSelector(core_selector), ClaimQueueOffset(DEFAULT_CLAIM_QUEUE_OFFSET))
 	}
 }
 
@@ -221,15 +221,16 @@ pub struct LookaheadCoreSelector<T>(PhantomData<T>);
 
 impl<T: frame_system::Config> SelectCore for LookaheadCoreSelector<T> {
 	fn selected_core() -> (CoreSelector, ClaimQueueOffset) {
-		let core_selector: U256 = frame_system::Pallet::<T>::block_number().into();
+		let core_selector = frame_system::Pallet::<T>::block_number().using_encoded(|b| b[0]);
 
-		(CoreSelector(core_selector.byte(0)), ClaimQueueOffset(1))
+		(CoreSelector(core_selector), ClaimQueueOffset(1))
 	}
 
 	fn select_next_core() -> (CoreSelector, ClaimQueueOffset) {
-		let core_selector: U256 = (frame_system::Pallet::<T>::block_number() + One::one()).into();
+		let core_selector =
+			(frame_system::Pallet::<T>::block_number() + One::one()).using_encoded(|b| b[0]);
 
-		(CoreSelector(core_selector.byte(0)), ClaimQueueOffset(1))
+		(CoreSelector(core_selector), ClaimQueueOffset(1))
 	}
 }
 
@@ -247,6 +248,7 @@ pub mod pallet {
 	#[pallet::config]
 	pub trait Config: frame_system::Config<OnSetCode = ParachainSetCode<Self>> {
 		/// The overarching event type.
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		/// Something which can be notified when the validation data is set.
@@ -309,8 +311,12 @@ pub mod pallet {
 			<UpgradeRestrictionSignal<T>>::kill();
 			let relay_upgrade_go_ahead = <UpgradeGoAhead<T>>::take();
 
-			let vfp = <ValidationData<T>>::get()
-				.expect("set_validation_data inherent needs to be present in every block!");
+			let vfp = <ValidationData<T>>::get().expect(
+				r"Missing required set_validation_data inherent. This inherent must be
+				present in every block. This error typically occurs when the set_validation_data
+				execution failed and was rejected by the block builder. Check earlier log entries
+				for the specific cause of the failure.",
+			);
 
 			LastRelayChainBlockNumber::<T>::put(vfp.relay_parent_number);
 
@@ -481,6 +487,9 @@ pub mod pallet {
 			// like for example from scheduler, we only kill the storage entry if it was not yet
 			// updated in the current block.
 			if !<DidSetValidationCode<T>>::get() {
+				// NOTE: Killing here is required to at least include the trie nodes down to the key
+				// in the proof. Because this value will be read in `validate_block` and thus,
+				// needs to be reachable by the proof.
 				NewValidationCode::<T>::kill();
 				weight += T::DbWeight::get().writes(1);
 			}
@@ -503,10 +512,25 @@ pub mod pallet {
 
 			// Remove the validation from the old block.
 			ValidationData::<T>::kill();
+			// NOTE: Killing here is required to at least include the trie nodes down to the key in
+			// the proof. Because this value will be read in `validate_block` and thus, needs to
+			// be reachable by the proof.
 			ProcessedDownwardMessages::<T>::kill();
+			// NOTE: Killing here is required to at least include the trie nodes down to the key in
+			// the proof. Because this value will be read in `validate_block` and thus, needs to
+			// be reachable by the proof.
 			HrmpWatermark::<T>::kill();
+			// NOTE: Killing here is required to at least include the trie nodes down to the key in
+			// the proof. Because this value will be read in `validate_block` and thus, needs to
+			// be reachable by the proof.
 			UpwardMessages::<T>::kill();
+			// NOTE: Killing here is required to at least include the trie nodes down to the key in
+			// the proof. Because this value will be read in `validate_block` and thus, needs to
+			// be reachable by the proof.
 			HrmpOutboundMessages::<T>::kill();
+			// NOTE: Killing here is required to at least include the trie nodes down to the key in
+			// the proof. Because this value will be read in `validate_block` and thus, needs to
+			// be reachable by the proof.
 			CustomValidationHeadData::<T>::kill();
 
 			weight += T::DbWeight::get().writes(6);
@@ -550,6 +574,16 @@ pub mod pallet {
 			// Always try to read `UpgradeGoAhead` in `on_finalize`.
 			weight += T::DbWeight::get().reads(1);
 
+			// Post a digest that contains the information for selecting a core.
+			let selected_core = T::SelectCore::selected_core();
+			frame_system::Pallet::<T>::deposit_log(
+				cumulus_primitives_core::CumulusDigestItem::SelectCore {
+					selector: selected_core.0,
+					claim_queue_offset: selected_core.1,
+				}
+				.to_digest_item(),
+			);
+
 			weight
 		}
 	}
@@ -567,11 +601,12 @@ pub mod pallet {
 		/// if the appropriate time has come.
 		#[pallet::call_index(0)]
 		#[pallet::weight((0, DispatchClass::Mandatory))]
-		// TODO: This weight should be corrected.
+		// TODO: This weight should be corrected. Currently the weight is registered manually in the
+		// call with `register_extra_weight_unchecked`.
 		pub fn set_validation_data(
 			origin: OriginFor<T>,
 			data: ParachainInherentData,
-		) -> DispatchResultWithPostInfo {
+		) -> DispatchResult {
 			ensure_none(origin)?;
 			assert!(
 				!<ValidationData<T>>::exists(),
@@ -692,7 +727,12 @@ pub mod pallet {
 				vfp.relay_parent_number,
 			));
 
-			Ok(PostDispatchInfo { actual_weight: Some(total_weight), pays_fee: Pays::No })
+			frame_system::Pallet::<T>::register_extra_weight_unchecked(
+				total_weight,
+				DispatchClass::Mandatory,
+			);
+
+			Ok(())
 		}
 
 		#[pallet::call_index(1)]
@@ -742,10 +782,6 @@ pub mod pallet {
 		HostConfigurationNotAvailable,
 		/// No validation function upgrade is currently scheduled.
 		NotScheduled,
-		/// No code upgrade has been authorized.
-		NothingAuthorized,
-		/// The given code upgrade has not been authorized.
-		Unauthorized,
 	}
 
 	/// Latest included block descendants the runtime accepted. In other words, these are
@@ -1624,7 +1660,13 @@ impl<T: Config> InspectMessageQueues for Pallet<T> {
 
 		let messages: Vec<VersionedXcm<()>> = PendingUpwardMessages::<T>::get()
 			.iter()
-			.map(|encoded_message| VersionedXcm::<()>::decode(&mut &encoded_message[..]).unwrap())
+			.map(|encoded_message| {
+				VersionedXcm::<()>::decode_all_with_depth_limit(
+					MAX_XCM_DECODE_DEPTH,
+					&mut &encoded_message[..],
+				)
+				.unwrap()
+			})
 			.collect();
 
 		if messages.is_empty() {

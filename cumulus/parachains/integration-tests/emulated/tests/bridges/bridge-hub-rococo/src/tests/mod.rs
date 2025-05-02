@@ -14,13 +14,15 @@
 // limitations under the License.
 
 use crate::imports::*;
+use emulated_integration_tests_common::{snowbridge, snowbridge::WETH};
+use testnet_parachains_constants::rococo::snowbridge::EthereumNetwork;
 use xcm::opaque::v5;
+use xcm_executor::traits::ConvertLocation;
 
 mod asset_transfers;
 mod claim_assets;
 mod register_bridged_assets;
 mod send_xcm;
-mod snowbridge;
 mod teleport;
 
 pub(crate) fn asset_hub_westend_location() -> Location {
@@ -51,9 +53,6 @@ pub(crate) fn bridged_roc_at_ah_westend() -> Location {
 }
 
 // WND and wWND
-pub(crate) fn wnd_at_ah_westend() -> Location {
-	Parent.into()
-}
 pub(crate) fn bridged_wnd_at_ah_rococo() -> Location {
 	Location::new(2, [GlobalConsensus(ByGenesis(WESTEND_GENESIS_HASH))])
 }
@@ -79,8 +78,8 @@ pub(crate) fn weth_at_asset_hubs() -> Location {
 	Location::new(
 		2,
 		[
-			GlobalConsensus(Ethereum { chain_id: snowbridge::CHAIN_ID }),
-			AccountKey20 { network: None, key: snowbridge::WETH },
+			GlobalConsensus(Ethereum { chain_id: snowbridge::SEPOLIA_ID }),
+			AccountKey20 { network: None, key: WETH },
 		],
 	)
 }
@@ -241,42 +240,19 @@ pub(crate) fn assert_bridge_hub_westend_message_received() {
 	})
 }
 
-pub(crate) fn open_bridge_between_asset_hub_rococo_and_asset_hub_westend() {
-	use testnet_parachains_constants::{
-		rococo::currency::UNITS as ROC, westend::currency::UNITS as WND,
-	};
+pub fn snowbridge_sovereign() -> sp_runtime::AccountId32 {
+	use asset_hub_rococo_runtime::xcm_config::UniversalLocation as AssetHubRococoUniversalLocation;
+	let ethereum_sovereign: AccountId = AssetHubRococo::execute_with(|| {
+		ExternalConsensusLocationsConverterFor::<
+			AssetHubRococoUniversalLocation,
+			[u8; 32],
+		>::convert_location(&Location::new(
+			2,
+			[xcm::v5::Junction::GlobalConsensus(EthereumNetwork::get())],
+		))
+			.unwrap()
+			.into()
+	});
 
-	// open AHR -> AHW
-	BridgeHubRococo::fund_para_sovereign(AssetHubRococo::para_id(), ROC * 5);
-	AssetHubRococo::open_bridge(
-		AssetHubRococo::sibling_location_of(BridgeHubRococo::para_id()),
-		[
-			GlobalConsensus(ByGenesis(WESTEND_GENESIS_HASH)),
-			Parachain(AssetHubWestend::para_id().into()),
-		]
-		.into(),
-		Some((
-			(roc_at_ah_rococo(), ROC * 1).into(),
-			BridgeHubRococo::sovereign_account_id_of(BridgeHubRococo::sibling_location_of(
-				AssetHubRococo::para_id(),
-			)),
-		)),
-	);
-
-	// open AHW -> AHR
-	BridgeHubWestend::fund_para_sovereign(AssetHubWestend::para_id(), WND * 5);
-	AssetHubWestend::open_bridge(
-		AssetHubWestend::sibling_location_of(BridgeHubWestend::para_id()),
-		[
-			GlobalConsensus(ByGenesis(ROCOCO_GENESIS_HASH)),
-			Parachain(AssetHubRococo::para_id().into()),
-		]
-		.into(),
-		Some((
-			(wnd_at_ah_westend(), WND * 1).into(),
-			BridgeHubWestend::sovereign_account_id_of(BridgeHubWestend::sibling_location_of(
-				AssetHubWestend::para_id(),
-			)),
-		)),
-	);
+	ethereum_sovereign
 }

@@ -25,6 +25,7 @@ mod imports {
 		latest::{ParentThen, ROCOCO_GENESIS_HASH, WESTEND_GENESIS_HASH},
 		prelude::{AccountId32 as AccountId32Junction, *},
 	};
+	pub use xcm_builder::ExternalConsensusLocationsConverterFor;
 	pub use xcm_executor::traits::TransferType;
 
 	// Cumulus
@@ -42,7 +43,7 @@ mod imports {
 	pub use parachains_common::AccountId;
 	pub use rococo_westend_system_emulated_network::{
 		asset_hub_rococo_emulated_chain::{
-			asset_hub_rococo_runtime::xcm_config as ahr_xcm_config,
+			asset_hub_rococo_runtime::xcm_config::TreasuryAccount,
 			genesis::ED as ASSET_HUB_ROCOCO_ED, AssetHubRococoParaPallet as AssetHubRococoPallet,
 		},
 		asset_hub_westend_emulated_chain::{
@@ -51,16 +52,12 @@ mod imports {
 		},
 		bridge_hub_rococo_emulated_chain::{
 			genesis::ED as BRIDGE_HUB_ROCOCO_ED, BridgeHubRococoExistentialDeposit,
-			BridgeHubRococoParaPallet as BridgeHubRococoPallet, BridgeHubRococoRuntimeOrigin,
-			BridgeHubRococoXcmConfig, EthereumBeaconClient, EthereumInboundQueue,
+			BridgeHubRococoParaPallet as BridgeHubRococoPallet, BridgeHubRococoXcmConfig,
 		},
 		penpal_emulated_chain::{
-			penpal_runtime::{
-				self,
-				xcm_config::{
-					CustomizableAssetFromSystemAssetHub as PenpalCustomizableAssetFromSystemAssetHub,
-					UniversalLocation as PenpalUniversalLocation,
-				},
+			penpal_runtime::xcm_config::{
+				CustomizableAssetFromSystemAssetHub as PenpalCustomizableAssetFromSystemAssetHub,
+				UniversalLocation as PenpalUniversalLocation,
 			},
 			PenpalAParaPallet as PenpalAPallet, PenpalAssetOwner,
 		},

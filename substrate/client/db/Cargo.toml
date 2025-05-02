@@ -15,10 +15,15 @@ workspace = true
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
+[[bench]]
+name = "state_access"
+harness = false
+
+[lib]
+bench = false
+
 [dependencies]
-codec = { features = [
-	"derive",
-], workspace = true, default-features = true }
+codec = { features = ["derive"], workspace = true, default-features = true }
 hash-db = { workspace = true, default-features = true }
 kvdb = { workspace = true }
 kvdb-memorydb = { workspace = true }
@@ -43,7 +48,6 @@ array-bytes = { workspace = true, default-features = true }
 criterion = { workspace = true, default-features = true }
 kitchensink-runtime = { workspace = true }
 kvdb-rocksdb = { workspace = true }
-quickcheck = { workspace = true }
 rand = { workspace = true, default-features = true }
 sp-tracing = { workspace = true, default-features = true }
 substrate-test-runtime-client = { workspace = true }
@@ -57,10 +61,3 @@ runtime-benchmarks = [
 	"sp-runtime/runtime-benchmarks",
 ]
 rocksdb = ["kvdb-rocksdb"]
-
-[[bench]]
-name = "state_access"
-harness = false
-
-[lib]
-bench = false

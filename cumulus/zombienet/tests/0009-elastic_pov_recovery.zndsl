@@ -21,4 +21,4 @@ alice: parachain 2100 is registered within 300 seconds
 collator-elastic: reports block height is at least 40 within 225 seconds
 collator-elastic: count of log lines containing "set_validation_data inherent needs to be present in every block" is 0 within 10 seconds
 
-recovery-target: count of log lines containing "Importing block retrieved using pov_recovery" is greater than 35 within 10 seconds
+recovery-target: count of log lines containing "Importing blocks retrieved using pov_recovery" is greater than 35 within 10 seconds

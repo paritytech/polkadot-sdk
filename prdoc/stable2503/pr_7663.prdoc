@@ -1,0 +1,21 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Validator disabling in session enhancements
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      This PR introduces changes to the pallet-session interface. Disabled validators can
+      still be disabled with just the index but it will default to highest possible severity.
+      pallet-session also additionally exposes DisabledValidators with their severities.
+      The staking primitive OffenceSeverity received min, max and default implementations
+      for ease of use.
+
+crates:
+  - name: pallet-staking
+    bump: minor
+  - name: pallet-session
+    bump: minor
+  - name: sp-staking
+    bump: minor

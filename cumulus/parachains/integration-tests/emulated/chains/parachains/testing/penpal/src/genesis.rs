@@ -40,6 +40,7 @@ pub fn genesis(para_id: u32) -> Storage {
 		system: penpal_runtime::SystemConfig::default(),
 		balances: penpal_runtime::BalancesConfig {
 			balances: accounts::init_balances().iter().cloned().map(|k| (k, ED * 4096)).collect(),
+			..Default::default()
 		},
 		parachain_info: penpal_runtime::ParachainInfoConfig {
 			parachain_id: para_id.into(),

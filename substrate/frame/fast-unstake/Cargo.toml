@@ -38,7 +38,6 @@ pallet-staking-reward-curve = { workspace = true, default-features = true }
 pallet-timestamp = { workspace = true, default-features = true }
 sp-core = { workspace = true }
 sp-tracing = { workspace = true, default-features = true }
-substrate-test-utils = { workspace = true }
 
 [features]
 default = ["std"]

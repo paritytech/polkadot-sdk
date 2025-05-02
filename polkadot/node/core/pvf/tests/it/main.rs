@@ -24,7 +24,7 @@ use polkadot_node_core_pvf::{
 	PossiblyInvalidError, PrepareError, PrepareJobKind, PvfPrepData, ValidationError,
 	ValidationHost, JOB_TIMEOUT_WALL_CLOCK_FACTOR,
 };
-use polkadot_node_primitives::{PoV, POV_BOMB_LIMIT, VALIDATION_CODE_BOMB_LIMIT};
+use polkadot_node_primitives::{PoV, POV_BOMB_LIMIT};
 use polkadot_node_subsystem::messages::PvfExecKind;
 use polkadot_parachain_primitives::primitives::{BlockData, ValidationResult};
 use polkadot_primitives::{
@@ -95,6 +95,7 @@ impl TestHost {
 					executor_params,
 					TEST_PREPARATION_TIMEOUT,
 					PrepareJobKind::Prechecking,
+					VALIDATION_CODE_BOMB_LIMIT,
 				),
 				result_tx,
 			)
@@ -122,6 +123,7 @@ impl TestHost {
 					executor_params,
 					TEST_PREPARATION_TIMEOUT,
 					PrepareJobKind::Compilation,
+					VALIDATION_CODE_BOMB_LIMIT,
 				),
 				TEST_EXECUTION_TIMEOUT,
 				Arc::new(pvd),
@@ -683,7 +685,7 @@ async fn artifact_does_reprepare_on_meaningful_exec_parameter_change() {
 #[tokio::test]
 async fn invalid_compressed_code_fails_prechecking() {
 	let host = TestHost::new().await;
-	let raw_code = vec![2u8; VALIDATION_CODE_BOMB_LIMIT + 1];
+	let raw_code = vec![2u8; VALIDATION_CODE_BOMB_LIMIT as usize + 1];
 	let validation_code =
 		compress_as(MaybeCompressedBlobType::Wasm, &raw_code, VALIDATION_CODE_BOMB_LIMIT + 1)
 			.unwrap();
@@ -705,7 +707,7 @@ async fn invalid_compressed_code_fails_validation() {
 	};
 	let pov = PoV { block_data: BlockData(Vec::new()) };
 
-	let raw_code = vec![2u8; VALIDATION_CODE_BOMB_LIMIT + 1];
+	let raw_code = vec![2u8; VALIDATION_CODE_BOMB_LIMIT as usize + 1];
 	let validation_code =
 		compress_as(MaybeCompressedBlobType::Wasm, &raw_code, VALIDATION_CODE_BOMB_LIMIT + 1)
 			.unwrap();

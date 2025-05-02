@@ -38,7 +38,6 @@ use polkadot_node_core_pvf_common::{
 	executor_interface::{prepare, prevalidate},
 	worker::{pipe2_cloexec, PipeFd, WorkerInfo},
 };
-use polkadot_node_primitives::VALIDATION_CODE_BOMB_LIMIT;
 
 use codec::{Decode, Encode};
 use polkadot_node_core_pvf_common::{
@@ -308,7 +307,7 @@ fn prepare_artifact(pvf: PvfPrepData) -> Result<PrepareOutcome, PrepareError> {
 	let raw_validation_code = decompress_as(
 		MaybeCompressedBlobType::Wasm,
 		&maybe_compressed_code,
-		VALIDATION_CODE_BOMB_LIMIT,
+		pvf.validation_code_bomb_limit() as usize,
 	)
 	.map_err(|e| PrepareError::CouldNotDecompressCodeBlob(e.to_string()))?;
 	let observed_wasm_code_len = raw_validation_code.len() as u32;

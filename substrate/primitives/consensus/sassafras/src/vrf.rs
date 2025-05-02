@@ -24,88 +24,48 @@ use codec::Encode;
 use sp_consensus_slots::Slot;
 
 pub use sp_core::bandersnatch::{
-	ring_vrf::{RingProver, RingVerifier, RingVerifierData, RingVrfSignature},
+	ring_vrf::{RingProver, RingVerifier, RingVerifierKey, RingVrfSignature},
 	vrf::{VrfInput, VrfPreOutput, VrfSignData, VrfSignature},
 };
 
-/// Ring VRF domain size for Sassafras consensus.
-pub const RING_VRF_DOMAIN_SIZE: u32 = 2048;
+/// Ring size (aka authorities count) for Sassafras consensus.
+pub const RING_SIZE: usize = 1024;
 
-/// Bandersnatch VRF [`RingContext`] specialization for Sassafras using [`RING_VRF_DOMAIN_SIZE`].
-pub type RingContext = sp_core::bandersnatch::ring_vrf::RingContext<RING_VRF_DOMAIN_SIZE>;
+/// Bandersnatch VRF [`RingContext`] specialization for Sassafras using [`RING_SIZE`].
+pub type RingContext = sp_core::bandersnatch::ring_vrf::RingContext<RING_SIZE>;
 
-fn vrf_input_from_data(
-	domain: &[u8],
-	data: impl IntoIterator<Item = impl AsRef<[u8]>>,
-) -> VrfInput {
-	let buf = data.into_iter().fold(Vec::new(), |mut buf, item| {
-		let bytes = item.as_ref();
-		buf.extend_from_slice(bytes);
-		let len = u8::try_from(bytes.len()).expect("private function with well known inputs; qed");
-		buf.push(len);
-		buf
-	});
-	VrfInput::new(domain, buf)
-}
-
-/// VRF input to claim slot ownership during block production.
+/// Input for slot claim
 pub fn slot_claim_input(randomness: &Randomness, slot: Slot, epoch: u64) -> VrfInput {
-	vrf_input_from_data(
-		b"sassafras-claim-v1.0",
-		[randomness.as_slice(), &slot.to_le_bytes(), &epoch.to_le_bytes()],
-	)
+	let v = [b"sassafras-ticket", randomness.as_slice(), &slot.to_le_bytes(), &epoch.to_le_bytes()]
+		.concat();
+	VrfInput::new(&v[..])
 }
 
 /// Signing-data to claim slot ownership during block production.
 pub fn slot_claim_sign_data(randomness: &Randomness, slot: Slot, epoch: u64) -> VrfSignData {
-	let input = slot_claim_input(randomness, slot, epoch);
-	VrfSignData::new_unchecked(
-		b"sassafras-slot-claim-transcript-v1.0",
-		Option::<&[u8]>::None,
-		Some(input),
-	)
+	let v = [b"sassafras-ticket", randomness.as_slice(), &slot.to_le_bytes(), &epoch.to_le_bytes()]
+		.concat();
+	VrfSignData::new(&v[..], &[])
 }
 
 /// VRF input to generate the ticket id.
 pub fn ticket_id_input(randomness: &Randomness, attempt: u32, epoch: u64) -> VrfInput {
-	vrf_input_from_data(
-		b"sassafras-ticket-v1.0",
-		[randomness.as_slice(), &attempt.to_le_bytes(), &epoch.to_le_bytes()],
-	)
-}
-
-/// VRF input to generate the revealed key.
-pub fn revealed_key_input(randomness: &Randomness, attempt: u32, epoch: u64) -> VrfInput {
-	vrf_input_from_data(
-		b"sassafras-revealed-v1.0",
-		[randomness.as_slice(), &attempt.to_le_bytes(), &epoch.to_le_bytes()],
-	)
+	let v =
+		[b"sassafras-ticket", randomness.as_slice(), &attempt.to_le_bytes(), &epoch.to_le_bytes()]
+			.concat();
+	VrfInput::new(&v[..])
 }
 
 /// Data to be signed via ring-vrf.
 pub fn ticket_body_sign_data(ticket_body: &TicketBody, ticket_id_input: VrfInput) -> VrfSignData {
-	VrfSignData::new_unchecked(
-		b"sassafras-ticket-body-transcript-v1.0",
-		Some(ticket_body.encode().as_slice()),
-		Some(ticket_id_input),
-	)
+	VrfSignData { vrf_input: ticket_id_input, aux_data: ticket_body.encode() }
 }
 
-/// Make ticket-id from the given VRF input and pre-output.
+/// Make ticket-id from the given VRF pre-output.
 ///
-/// Input should have been obtained via [`ticket_id_input`].
 /// Pre-output should have been obtained from the input directly using the vrf
-/// secret key or from the vrf signature pre-outputs.
-pub fn make_ticket_id(input: &VrfInput, pre_output: &VrfPreOutput) -> TicketId {
-	let bytes = pre_output.make_bytes::<16>(b"ticket-id", input);
+/// secret key or from the vrf signature pre-output.
+pub fn make_ticket_id(preout: &VrfPreOutput) -> TicketId {
+	let bytes: [u8; 16] = preout.make_bytes()[..16].try_into().unwrap();
 	u128::from_le_bytes(bytes)
-}
-
-/// Make revealed key seed from a given VRF input and pre-output.
-///
-/// Input should have been obtained via [`revealed_key_input`].
-/// Pre-output should have been obtained from the input directly using the vrf
-/// secret key or from the vrf signature pre-outputs.
-pub fn make_revealed_key_seed(input: &VrfInput, pre_output: &VrfPreOutput) -> [u8; 32] {
-	pre_output.make_bytes::<32>(b"revealed-seed", input)
 }

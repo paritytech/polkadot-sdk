@@ -469,7 +469,7 @@ where
 
 	fn do_propagate_transactions(
 		&mut self,
-		transactions: &[(H, B::Extrinsic)],
+		transactions: &[(H, Arc<B::Extrinsic>)],
 	) -> HashMap<H, Vec<String>> {
 		let mut propagated_to = HashMap::<_, Vec<_>>::new();
 		let mut propagated_transactions = 0;

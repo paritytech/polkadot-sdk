@@ -48,6 +48,9 @@
 //!
 //! - [`pallet_example_tasks`]: This pallet demonstrates the use of `Tasks` to execute service work.
 //!
+//! - [`pallet_example_view_functions`]: This pallet demonstrates the use of view functions to query
+//!   pallet state.
+//!
 //! - [`pallet_example_authorization_tx_extension`]: An example `TransactionExtension` that
 //!   authorizes a custom origin through signature validation, along with two support pallets to
 //!   showcase the usage.

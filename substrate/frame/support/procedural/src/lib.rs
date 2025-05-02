@@ -376,6 +376,7 @@ pub fn derive_eq_no_bound(input: TokenStream) -> TokenStream {
 	let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
 
 	quote::quote_spanned!(name.span() =>
+		#[allow(deprecated)]
 		const _: () = {
 			impl #impl_generics ::core::cmp::Eq for #name #ty_generics #where_clause {}
 		};
@@ -817,6 +818,7 @@ pub fn inject_runtime_type(_: TokenStream, tokens: TokenStream) -> TokenStream {
 	if item.ident != "RuntimeCall" &&
 		item.ident != "RuntimeEvent" &&
 		item.ident != "RuntimeTask" &&
+		item.ident != "RuntimeViewFunction" &&
 		item.ident != "RuntimeOrigin" &&
 		item.ident != "RuntimeHoldReason" &&
 		item.ident != "RuntimeFreezeReason" &&
@@ -826,7 +828,7 @@ pub fn inject_runtime_type(_: TokenStream, tokens: TokenStream) -> TokenStream {
 		return syn::Error::new_spanned(
 			item,
 			"`#[inject_runtime_type]` can only be attached to `RuntimeCall`, `RuntimeEvent`, \
-			`RuntimeTask`, `RuntimeOrigin`, `RuntimeParameters` or `PalletInfo`",
+			`RuntimeTask`, `RuntimeViewFunction`, `RuntimeOrigin`, `RuntimeParameters` or `PalletInfo`",
 		)
 		.to_compile_error()
 		.into();
@@ -1087,6 +1089,16 @@ pub fn inherent(_: TokenStream, _: TokenStream) -> TokenStream {
 /// Documentation for this macro can be found at `frame_support::pallet_macros::validate_unsigned`.
 #[proc_macro_attribute]
 pub fn validate_unsigned(_: TokenStream, _: TokenStream) -> TokenStream {
+	pallet_macro_stub()
+}
+
+///
+/// ---
+///
+/// Documentation for this macro can be found at
+/// `frame_support::pallet_macros::view_functions`.
+#[proc_macro_attribute]
+pub fn view_functions(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
 }
 

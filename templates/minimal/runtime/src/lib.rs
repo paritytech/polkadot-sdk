@@ -118,6 +118,10 @@ type TxExtension = (
 	// Ensures that the sender has enough funds to pay for the transaction
 	// and deducts the fee from the sender's account.
 	pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
+	// Reclaim the unused weight from the block using post dispatch information.
+	// It must be last in the pipeline in order to catch the refund in previous transaction
+	// extensions
+	frame_system::WeightReclaim<Runtime>,
 );
 
 // Composes the runtime by adding all the used pallets and deriving necessary types.
@@ -134,7 +138,8 @@ mod runtime {
 		RuntimeHoldReason,
 		RuntimeSlashReason,
 		RuntimeLockId,
-		RuntimeTask
+		RuntimeTask,
+		RuntimeViewFunction
 	)]
 	pub struct Runtime;
 

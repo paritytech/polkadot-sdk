@@ -27,7 +27,7 @@ use crate::{
 	},
 };
 use clap::{error::ErrorKind, CommandFactory};
-use codec::{Decode, Encode};
+use codec::{Decode, DecodeWithMemTracking, Encode};
 use frame_benchmarking::{
 	Analysis, BenchmarkBatch, BenchmarkBatchSplitResults, BenchmarkList, BenchmarkParameter,
 	BenchmarkResult, BenchmarkSelector,
@@ -168,6 +168,7 @@ impl PalletCmd {
 	pub fn run<Hasher, ExtraHostFunctions>(&self, config: sc_service::Configuration) -> Result<()>
 	where
 		Hasher: Hash,
+		<Hasher as Hash>::Output: DecodeWithMemTracking,
 		ExtraHostFunctions: HostFunctions,
 	{
 		self.run_with_spec::<Hasher, ExtraHostFunctions>(Some(config.chain_spec))
@@ -235,6 +236,7 @@ impl PalletCmd {
 	) -> Result<()>
 	where
 		Hasher: Hash,
+		<Hasher as Hash>::Output: DecodeWithMemTracking,
 		ExtraHostFunctions: HostFunctions,
 	{
 		if let Err((error_kind, msg)) = self.check_args(&chain_spec) {
@@ -598,6 +600,7 @@ impl PalletCmd {
 				let benchmark_name = &benchmark.name;
 				if extrinsic.is_empty() ||
 					extrinsic.as_bytes() == &b"*"[..] ||
+					extrinsic.as_bytes() == &b"all"[..] ||
 					extrinsics.contains(&&benchmark_name[..])
 				{
 					benchmarks_to_run.push((
@@ -645,7 +648,10 @@ impl PalletCmd {
 	fn pallet_selected(&self, pallet: &Vec<u8>) -> bool {
 		let include = self.pallet.clone().unwrap_or_default();
 
-		let included = include.is_empty() || include == "*" || include.as_bytes() == pallet;
+		let included = include.is_empty() ||
+			include == "*" ||
+			include == "all" ||
+			include.as_bytes() == pallet;
 		let excluded = self.exclude_pallets.iter().any(|p| p.as_bytes() == pallet);
 
 		included && !excluded

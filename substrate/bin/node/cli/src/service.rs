@@ -138,6 +138,7 @@ pub fn create_extrinsic(
 				>::from(tip, None),
 			),
 			frame_metadata_hash_extension::CheckMetadataHash::new(false),
+			frame_system::WeightReclaim::<kitchensink_runtime::Runtime>::new(),
 		);
 
 	let raw_payload = kitchensink_runtime::SignedPayload::from_raw(
@@ -153,6 +154,7 @@ pub fn create_extrinsic(
 			(),
 			(),
 			None,
+			(),
 		),
 	);
 	let signature = raw_payload.using_encoded(|e| sender.sign(e));
@@ -816,7 +818,7 @@ pub fn new_full(config: Configuration, cli: Cli) -> Result<TaskManager, ServiceE
 	let mixnet_config = cli.mixnet_params.config(config.role.is_authority());
 	let database_path = config.database.path().map(Path::to_path_buf);
 
-	let task_manager = match config.network.network_backend {
+	let task_manager = match config.network.network_backend.unwrap_or_default() {
 		sc_network::config::NetworkBackendType::Libp2p => {
 			let task_manager = new_full_base::<sc_network::NetworkWorker<_, _>>(
 				config,
@@ -1060,6 +1062,7 @@ mod tests {
 				let tx_payment = pallet_skip_feeless_payment::SkipCheckIfFeeless::from(
 					pallet_asset_conversion_tx_payment::ChargeAssetTxPayment::from(0, None),
 				);
+				let weight_reclaim = frame_system::WeightReclaim::new();
 				let metadata_hash = frame_metadata_hash_extension::CheckMetadataHash::new(false);
 				let tx_ext: TxExtension = (
 					check_non_zero_sender,
@@ -1071,6 +1074,7 @@ mod tests {
 					check_weight,
 					tx_payment,
 					metadata_hash,
+					weight_reclaim,
 				);
 				let raw_payload = SignedPayload::from_raw(
 					function,
@@ -1085,6 +1089,7 @@ mod tests {
 						(),
 						(),
 						None,
+						(),
 					),
 				);
 				let signature = raw_payload.using_encoded(|payload| signer.sign(payload));

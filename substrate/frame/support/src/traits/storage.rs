@@ -18,14 +18,15 @@
 //! Traits for encoding data related to pallet's storage items.
 
 use alloc::{collections::btree_set::BTreeSet, vec, vec::Vec};
-use codec::{Encode, FullCodec, MaxEncodedLen};
+use codec::{Decode, Encode, FullCodec, MaxEncodedLen};
 use core::marker::PhantomData;
+use frame_support::CloneNoBound;
 use impl_trait_for_tuples::impl_for_tuples;
 use scale_info::TypeInfo;
 pub use sp_core::storage::TrackedStorageKey;
 use sp_core::Get;
 use sp_runtime::{
-	traits::{Convert, Member, Saturating},
+	traits::{Convert, Member},
 	DispatchError, RuntimeDebug,
 };
 
@@ -200,6 +201,35 @@ where
 	}
 }
 
+/// Constant `Price` regardless of the given [`Footprint`].
+pub struct ConstantStoragePrice<Price, Balance>(PhantomData<(Price, Balance)>);
+impl<Price, Balance> Convert<Footprint, Balance> for ConstantStoragePrice<Price, Balance>
+where
+	Price: Get<Balance>,
+	Balance: From<u64> + sp_runtime::Saturating,
+{
+	fn convert(_: Footprint) -> Balance {
+		Price::get()
+	}
+}
+
+/// Placeholder marking functionality disabled. Useful for disabling various (sub)features.
+#[derive(CloneNoBound, Debug, Encode, Eq, Decode, TypeInfo, MaxEncodedLen, PartialEq)]
+pub struct Disabled;
+impl<A, F> Consideration<A, F> for Disabled {
+	fn new(_: &A, _: F) -> Result<Self, DispatchError> {
+		Err(DispatchError::Other("Disabled"))
+	}
+	fn update(self, _: &A, _: F) -> Result<Self, DispatchError> {
+		Err(DispatchError::Other("Disabled"))
+	}
+	fn drop(self, _: &A) -> Result<(), DispatchError> {
+		Ok(())
+	}
+	#[cfg(feature = "runtime-benchmarks")]
+	fn ensure_successful(_: &A, _: F) {}
+}
+
 /// Some sort of cost taken from account temporarily in order to offset the cost to the chain of
 /// holding some data [`Footprint`] in state.
 ///
@@ -280,9 +310,7 @@ macro_rules! impl_incrementable {
 		$(
 			impl Incrementable for $type {
 				fn increment(&self) -> Option<Self> {
-					let mut val = self.clone();
-					val.saturating_inc();
-					Some(val)
+					self.checked_add(1)
 				}
 
 				fn initial_value() -> Option<Self> {
@@ -319,6 +347,14 @@ mod tests {
 	use super::*;
 	use crate::BoundedVec;
 	use sp_core::{ConstU32, ConstU64};
+
+	#[test]
+	fn incrementable_works() {
+		assert_eq!(0u8.increment(), Some(1));
+		assert_eq!(1u8.increment(), Some(2));
+
+		assert_eq!(u8::MAX.increment(), None);
+	}
 
 	#[test]
 	fn linear_storage_price_works() {

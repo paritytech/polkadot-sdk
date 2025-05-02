@@ -1,0 +1,47 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Currency to Fungible migration for pallet-staking
+
+doc:
+  - audience: Runtime User
+    description: |
+      Lazy migration of staking balance from `Currency::locks` to `Fungible::holds`. New extrinsic
+      `staking::migrate_currency` removes the old lock along with other housekeeping. Additionally, any ledger mutation
+      creates hold if it does not exist.
+
+      The pallet-staking configuration item `Currency` is updated to use `fungible::hold::Mutate` type while still
+      requiring `LockableCurrency` type to be passed as `OldCurrency` for migration purposes.
+
+
+crates:
+  - name: westend-runtime
+    bump: major
+  - name: kitchensink-runtime
+    bump: minor
+  - name: pallet-delegated-staking
+    bump: patch
+  - name: pallet-nomination-pools
+    bump: minor
+  - name: pallet-nomination-pools-runtime-api
+    bump: patch
+  - name: sp-staking
+    bump: patch
+  - name: pallet-beefy
+    bump: patch
+  - name: pallet-fast-unstake
+    bump: patch
+  - name: pallet-staking
+    bump: major
+  - name: pallet-grandpa
+    bump: patch
+  - name: pallet-babe
+    bump: patch
+  - name: pallet-nomination-pools-benchmarking
+    bump: patch
+  - name: pallet-session-benchmarking
+    bump: patch
+  - name: pallet-root-offences
+    bump: patch
+  - name: pallet-offences-benchmarking
+    bump: patch

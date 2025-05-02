@@ -24,7 +24,7 @@ use super::{
 use crate::governance::pallet_custom_origins::Treasurer;
 use frame_support::{
 	parameter_types,
-	traits::{Contains, Equals, Everything, Nothing},
+	traits::{Contains, Disabled, Equals, Everything, Nothing},
 };
 use frame_system::EnsureRoot;
 use pallet_xcm::XcmPassthrough;
@@ -111,6 +111,7 @@ pub type XcmRouter = WithUniqueTopic<
 
 parameter_types! {
 	pub AssetHub: Location = Parachain(ASSET_HUB_ID).into_location();
+	pub AssetHubNext: Location = Parachain(ASSET_HUB_NEXT_ID).into_location();
 	pub Collectives: Location = Parachain(COLLECTIVES_ID).into_location();
 	pub BridgeHub: Location = Parachain(BRIDGE_HUB_ID).into_location();
 	pub Encointer: Location = Parachain(ENCOINTER_ID).into_location();
@@ -118,6 +119,7 @@ parameter_types! {
 	pub Broker: Location = Parachain(BROKER_ID).into_location();
 	pub Wnd: AssetFilter = Wild(AllOf { fun: WildFungible, id: AssetId(TokenLocation::get()) });
 	pub WndForAssetHub: (AssetFilter, Location) = (Wnd::get(), AssetHub::get());
+	pub WndForAssetHubNext: (AssetFilter, Location) = (Wnd::get(), AssetHubNext::get());
 	pub WndForCollectives: (AssetFilter, Location) = (Wnd::get(), Collectives::get());
 	pub WndForBridgeHub: (AssetFilter, Location) = (Wnd::get(), BridgeHub::get());
 	pub WndForEncointer: (AssetFilter, Location) = (Wnd::get(), Encointer::get());
@@ -129,6 +131,7 @@ parameter_types! {
 
 pub type TrustedTeleporters = (
 	xcm_builder::Case<WndForAssetHub>,
+	xcm_builder::Case<WndForAssetHubNext>,
 	xcm_builder::Case<WndForCollectives>,
 	xcm_builder::Case<WndForBridgeHub>,
 	xcm_builder::Case<WndForEncointer>,
@@ -193,6 +196,7 @@ pub struct XcmConfig;
 impl xcm_executor::Config for XcmConfig {
 	type RuntimeCall = RuntimeCall;
 	type XcmSender = XcmRouter;
+	type XcmEventEmitter = XcmPallet;
 	type AssetTransactor = LocalAssetTransactor;
 	type OriginConverter = LocalOriginConverter;
 	type IsReserve = ();
@@ -245,7 +249,8 @@ parameter_types! {
 pub type GeneralAdminToPlurality =
 	OriginToPluralityVoice<RuntimeOrigin, GeneralAdmin, GeneralAdminBodyId>;
 
-/// location of this chain.
+/// Converts a local signed origin into an XCM location. Forms the basis for local origins
+/// sending/executing XCMs.
 pub type LocalOriginToLocation = (
 	GeneralAdminToPlurality,
 	// And a usual Signed origin to be used in XCM as a corresponding AccountId32
@@ -280,7 +285,10 @@ impl pallet_xcm::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	// Note that this configuration of `SendXcmOrigin` is different from the one present in
 	// production.
-	type SendXcmOrigin = xcm_builder::EnsureXcmOrigin<RuntimeOrigin, LocalOriginToLocation>;
+	type SendXcmOrigin = xcm_builder::EnsureXcmOrigin<
+		RuntimeOrigin,
+		(LocalPalletOriginToLocation, LocalOriginToLocation),
+	>;
 	type XcmRouter = XcmRouter;
 	// Anyone can execute XCM messages locally.
 	type ExecuteXcmOrigin = xcm_builder::EnsureXcmOrigin<RuntimeOrigin, LocalOriginToLocation>;
@@ -307,4 +315,6 @@ impl pallet_xcm::Config for Runtime {
 	type RemoteLockConsumerIdentifier = ();
 	type WeightInfo = crate::weights::pallet_xcm::WeightInfo<Runtime>;
 	type AdminOrigin = EnsureRoot<AccountId>;
+	// Aliasing is disabled: xcm_executor::Config::Aliasers only allows `AliasChildLocation`.
+	type AuthorizedAliasConsideration = Disabled;
 }

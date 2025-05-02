@@ -58,6 +58,7 @@ pub fn genesis() -> Storage {
 		system: westend_runtime::SystemConfig::default(),
 		balances: westend_runtime::BalancesConfig {
 			balances: accounts::init_balances().iter().cloned().map(|k| (k, ENDOWMENT)).collect(),
+			..Default::default()
 		},
 		session: westend_runtime::SessionConfig {
 			keys: validators::initial_authorities()
