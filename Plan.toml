@@ -107,7 +107,9 @@ reason = "changed"
 # substrate/client/tracing/proc-macro
 name = "sc-tracing-proc-macro"
 from = "11.0.0"
-to = "11.0.0"
+to = "11.1.0"
+bump = "minor"
+reason = "changed"
 
 [[crate]]
 # substrate/primitives/api/proc-macro
