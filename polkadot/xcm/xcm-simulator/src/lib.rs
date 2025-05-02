@@ -516,15 +516,15 @@ pub mod helpers {
 		pub fn get_unique_id() -> H256 {
 			TRACKED_TOPIC_IDS.with(|b| {
 				let map = b.borrow();
-				let ids: HashSet<_> = map.values().collect();
+				let unique_ids: HashSet<_> = map.values().collect();
 				assert_eq!(
-					ids.len(),
+					unique_ids.len(),
 					1,
 					"Expected exactly one tracked topic ID, found {}: {:?}",
-					ids.len(),
-					ids
+					unique_ids.len(),
+					unique_ids
 				);
-				*ids.into_iter().next().expect("Expected exactly one tracked topic ID")
+				*unique_ids.into_iter().next().expect("Expected exactly one tracked topic ID")
 			})
 		}
 
@@ -532,6 +532,24 @@ pub mod helpers {
 		pub fn insert(chain: &str, id: H256) {
 			TRACKED_TOPIC_IDS.with(|b| {
 				b.borrow_mut().insert(chain.to_string(), id);
+			});
+		}
+
+		/// Associates a topic ID with the given chain name and asserts it matches the unique
+		/// tracked ID.
+		pub fn insert_and_assert_unique(chain: &str, id: H256) {
+			TRACKED_TOPIC_IDS.with(|b| {
+				let mut map = b.borrow_mut();
+				if map.contains_key(chain) {
+					let existing_id = map.get(chain).cloned().unwrap();
+					assert_eq!(
+						id, existing_id,
+						"New topic ID {:?} does not match existing unique ID {:?}",
+						id, existing_id
+					);
+				} else {
+					map.insert(chain.to_string(), id);
+				}
 			});
 		}
 
