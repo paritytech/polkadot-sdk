@@ -1360,7 +1360,6 @@ fn remote_asset_reserve_and_remote_fee_reserve_call<Call>(
 		WeightLimit,
 	) -> DispatchResult,
 {
-	TopicIdTracker::reset();
 	let balances = vec![(ALICE, INITIAL_BALANCE)];
 	let beneficiary: Location = Junction::AccountId32 { network: None, id: ALICE.into() }.into();
 	new_test_ext_with_balances(balances).execute_with(|| {
@@ -1436,6 +1435,16 @@ fn remote_asset_reserve_and_remote_fee_reserve_call<Call>(
 		assert_eq!(AssetsPallet::active_issuance(usdc_id_location.clone()), expected_usdc_issuance);
 
 		// Verify sent XCM program
+		let expected_hash = last_events(2)
+			.iter()
+			.find_map(|event| {
+				if let RuntimeEvent::XcmPallet(crate::Event::Sent { message_id, .. }) = event {
+					Some(*message_id)
+				} else {
+					None
+				}
+			})
+			.expect("Missing XcmPallet::Sent event in last two events");
 		assert_eq!(
 			sent_xcm(),
 			vec![(
@@ -1455,7 +1464,7 @@ fn remote_asset_reserve_and_remote_fee_reserve_call<Call>(
 							DepositAsset { assets: AllCounted(1).into(), beneficiary }
 						])
 					},
-					SetTopic(TopicIdTracker::get_sent_hash()),
+					SetTopic(expected_hash),
 				])
 			)],
 		);
@@ -2530,7 +2539,7 @@ fn remote_asset_reserve_and_remote_fee_reserve_paid_call<Call>(
 		let foreign_id_location_reanchored =
 			foreign_asset_id_location.clone().reanchored(&dest, &context).unwrap();
 		let dest_reanchored = dest.reanchored(&reserve_location, &context).unwrap();
-		let sent_msg_id = TopicIdTracker::get_sent_hash();
+		let sent_msg_id: XcmHash = TopicIdTracker::get("Para3000").into();
 		let sent_message = Xcm(vec![
 			WithdrawAsset((Location::here(), SEND_AMOUNT).into()),
 			ClearOrigin,

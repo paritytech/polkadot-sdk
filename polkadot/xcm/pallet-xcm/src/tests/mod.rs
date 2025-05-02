@@ -45,7 +45,7 @@ use xcm_executor::{
 	traits::{Properties, QueryHandler, QueryResponseStatus, ShouldExecute},
 	XcmExecutor,
 };
-use xcm_simulator::helpers::{derive_topic_id, TopicIdTracker};
+use xcm_simulator::helpers::TopicIdTracker;
 
 const ALICE: AccountId = AccountId::new([0u8; 32]);
 const BOB: AccountId = AccountId::new([1u8; 32]);
@@ -103,7 +103,7 @@ fn report_outcome_notify_works() {
 			max_weight: Weight::from_parts(1_000_000, 1_000_000),
 			querier: Some(querier),
 		}]);
-		let mut hash = derive_topic_id(&message);
+		let mut hash = fake_message_hash(&message);
 		let r = XcmExecutor::<XcmConfig>::prepare_and_execute(
 			Parachain(OTHER_PARA_ID),
 			message,
@@ -171,7 +171,7 @@ fn report_outcome_works() {
 			max_weight: Weight::zero(),
 			querier: Some(querier),
 		}]);
-		let mut hash = derive_topic_id(&message);
+		let mut hash = fake_message_hash(&message);
 		let r = XcmExecutor::<XcmConfig>::prepare_and_execute(
 			Parachain(OTHER_PARA_ID),
 			message,
@@ -220,7 +220,7 @@ fn custom_querier_works() {
 			max_weight: Weight::zero(),
 			querier: None,
 		}]);
-		let mut hash = derive_topic_id(&message);
+		let mut hash = fake_message_hash(&message);
 		let r = XcmExecutor::<XcmConfig>::prepare_and_execute(
 			AccountId32 { network: None, id: ALICE.into() },
 			message,
@@ -246,7 +246,7 @@ fn custom_querier_works() {
 			max_weight: Weight::zero(),
 			querier: Some(Location::here()),
 		}]);
-		let mut hash = derive_topic_id(&message);
+		let mut hash = fake_message_hash(&message);
 		let r = XcmExecutor::<XcmConfig>::prepare_and_execute(
 			AccountId32 { network: None, id: ALICE.into() },
 			message,
@@ -272,7 +272,7 @@ fn custom_querier_works() {
 			max_weight: Weight::zero(),
 			querier: Some(querier),
 		}]);
-		let mut hash = derive_topic_id(&message);
+		let mut hash = fake_message_hash(&message);
 		let r = XcmExecutor::<XcmConfig>::prepare_and_execute(
 			AccountId32 { network: None, id: ALICE.into() },
 			message,
@@ -324,7 +324,7 @@ fn send_works() {
 			.into_iter()
 			.chain(message.0.clone().into_iter())
 			.collect());
-		let id = derive_topic_id(&sent_message);
+		let id = fake_message_hash(&sent_message);
 		assert_eq!(sent_xcm(), vec![(Here.into(), sent_message)]);
 		assert_eq!(
 			last_event(),
@@ -916,7 +916,7 @@ fn subscription_side_works() {
 		let weight = BaseXcmWeight::get();
 		let message =
 			Xcm(vec![SubscribeVersion { query_id: 0, max_response_weight: Weight::zero() }]);
-		let mut hash = derive_topic_id(&message);
+		let mut hash = fake_message_hash(&message);
 		let r = XcmExecutor::<XcmConfig>::prepare_and_execute(
 			remote.clone(),
 			message,
@@ -1058,7 +1058,7 @@ fn subscriber_side_subscription_works() {
 				querier: None,
 			},
 		]);
-		let mut hash = derive_topic_id(&message);
+		let mut hash = fake_message_hash(&message);
 		let r = XcmExecutor::<XcmConfig>::prepare_and_execute(
 			remote.clone(),
 			message,
@@ -1086,7 +1086,7 @@ fn subscriber_side_subscription_works() {
 				querier: None,
 			},
 		]);
-		let mut hash = derive_topic_id(&message);
+		let mut hash = fake_message_hash(&message);
 		let r = XcmExecutor::<XcmConfig>::prepare_and_execute(
 			remote.clone(),
 			message,
@@ -1163,7 +1163,7 @@ fn auto_subscription_works() {
 				querier: None,
 			},
 		]);
-		let mut hash = derive_topic_id(&message);
+		let mut hash = fake_message_hash(&message);
 		let r = XcmExecutor::<XcmConfig>::prepare_and_execute(
 			remote_v4.clone(),
 			message,
@@ -1205,7 +1205,7 @@ fn auto_subscription_works() {
 				querier: None,
 			},
 		]);
-		let mut hash = derive_topic_id(&message);
+		let mut hash = fake_message_hash(&message);
 		let r = XcmExecutor::<XcmConfig>::prepare_and_execute(
 			remote_v3.clone(),
 			message,
@@ -1681,7 +1681,7 @@ fn execute_initiate_transfer_and_check_sent_event() {
 			);
 			assert_ok!(result);
 
-			let sent_msg_id = TopicIdTracker::get_sent_hash();
+			let sent_msg_id: XcmHash = TopicIdTracker::get("TestSendXcm").into();
 			let sent_message: Xcm<()> = Xcm(vec![
 				WithdrawAsset(Assets::new()),
 				ClearOrigin,

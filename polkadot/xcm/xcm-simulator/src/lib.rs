@@ -16,10 +16,11 @@
 
 //! Test kit to simulate cross-chain message passing and XCM execution.
 
-extern crate alloc;
 /// Implementation of a simple message queue.
 /// Used for sending messages.
 pub mod mock_message_queue;
+
+extern crate alloc;
 
 pub use codec::Encode;
 pub use paste;
@@ -412,7 +413,6 @@ macro_rules! decl_test_network {
 			) -> Result<$crate::XcmHash, $crate::SendError> {
 				let hash = $crate::helpers::derive_topic_id(&triple.2);
 				$crate::PARA_MESSAGE_BUS.with(|b| b.borrow_mut().push_back(triple));
-				$crate::helpers::TopicIdTracker::insert("parachains", hash.into());
 				Ok(hash)
 			}
 		}
@@ -512,11 +512,6 @@ pub mod helpers {
 			})
 		}
 
-		/// Retrieves the sent hash.
-		pub fn get_sent_hash() -> XcmHash {
-			Self::get("sent").into()
-		}
-
 		/// Retrieves the unique tracked topic ID, assuming only one exists.
 		pub fn get_unique_id() -> H256 {
 			TRACKED_TOPIC_IDS.with(|b| {
@@ -546,11 +541,6 @@ pub mod helpers {
 				Self::insert("any", *id);
 			}
 			Self::assert_unique();
-		}
-
-		/// Inserts the sent hash into the tracker.
-		pub fn insert_sent_hash(id: XcmHash) {
-			Self::insert("sent", id.into());
 		}
 
 		/// Clears all tracked topic IDs, resetting the tracker for a new test.
