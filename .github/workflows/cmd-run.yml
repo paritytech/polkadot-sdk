@@ -176,8 +176,9 @@ jobs:
           # install deps and run a command from master
           python3 -m pip install -r $BOT_PATH/scripts/generate-prdoc.requirements.txt
           python3 $BOT_PATH/scripts/cmd/cmd.py $CMD $PR_ARG
-          git status
-          git diff
+          # commented in order to not exceed output size
+          # git status
+          # git diff
 
           if [ -f /tmp/cmd/command_output.log ]; then
             CMD_OUTPUT=$(cat /tmp/cmd/command_output.log)
