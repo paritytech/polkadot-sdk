@@ -32,7 +32,7 @@ fn exchange_asset_should_work() {
 			maximal: true,
 		},
 	]);
-	let mut hash = derive_topic_id(&message);
+	let mut hash = fake_message_hash(&message);
 	let r = XcmExecutor::<TestConfig>::prepare_and_execute(
 		Parent,
 		message,
@@ -61,7 +61,7 @@ fn exchange_asset_without_maximal_should_work() {
 			maximal: false,
 		},
 	]);
-	let mut hash = derive_topic_id(&message);
+	let mut hash = fake_message_hash(&message);
 	let r = XcmExecutor::<TestConfig>::prepare_and_execute(
 		Parent,
 		message,
@@ -90,7 +90,7 @@ fn exchange_asset_should_fail_when_no_deal_possible() {
 			maximal: false,
 		},
 	]);
-	let mut hash = derive_topic_id(&message);
+	let mut hash = fake_message_hash(&message);
 	let r = XcmExecutor::<TestConfig>::prepare_and_execute(
 		Parent,
 		message,
@@ -118,7 +118,7 @@ fn paying_reserve_deposit_should_work() {
 		BuyExecution { fees, weight_limit: Limited(Weight::from_parts(30, 30)) },
 		DepositAsset { assets: AllCounted(1).into(), beneficiary: Here.into() },
 	]);
-	let mut hash = derive_topic_id(&message);
+	let mut hash = fake_message_hash(&message);
 	let weight_limit = Weight::from_parts(50, 50);
 	let r = XcmExecutor::<TestConfig>::prepare_and_execute(
 		Parent,
@@ -142,7 +142,7 @@ fn transfer_should_work() {
 		assets: (Here, 100u128).into(),
 		beneficiary: [AccountIndex64 { index: 3, network: None }].into(),
 	}]);
-	let mut hash = derive_topic_id(&message);
+	let mut hash = fake_message_hash(&message);
 	let r = XcmExecutor::<TestConfig>::prepare_and_execute(
 		Parachain(1),
 		message,
@@ -178,7 +178,7 @@ fn reserve_transfer_should_work() {
 			beneficiary: three.clone(),
 		}]),
 	}]);
-	let mut hash = derive_topic_id(&message);
+	let mut hash = fake_message_hash(&message);
 	let r = XcmExecutor::<TestConfig>::prepare_and_execute(
 		Parachain(1),
 		message,
@@ -188,7 +188,7 @@ fn reserve_transfer_should_work() {
 	);
 	assert_eq!(r, Outcome::Complete { used: Weight::from_parts(10, 10) });
 
-	let expected_hash: XcmHash = TopicIdTracker::get_unique_id().into();
+	let expected_has = hash;
 	let expected_msg = Xcm::<()>(vec![
 		ReserveAssetDeposited((Parent, 100u128).into()),
 		ClearOrigin,
@@ -211,7 +211,7 @@ fn burn_should_work() {
 		BurnAsset((Here, 100u128).into()),
 		DepositAsset { assets: Wild(AllCounted(1)), beneficiary: Parachain(1).into() },
 	]);
-	let mut hash = derive_topic_id(&message);
+	let mut hash = fake_message_hash(&message);
 	let r = XcmExecutor::<TestConfig>::prepare_and_execute(
 		Parachain(1),
 		message,
@@ -229,7 +229,7 @@ fn burn_should_work() {
 		BurnAsset((Here, 1000u128).into()),
 		DepositAsset { assets: Wild(AllCounted(1)), beneficiary: Parachain(1).into() },
 	]);
-	let mut hash = derive_topic_id(&message);
+	let mut hash = fake_message_hash(&message);
 	let r = XcmExecutor::<TestConfig>::prepare_and_execute(
 		Parachain(1),
 		message,
@@ -257,7 +257,7 @@ fn basic_asset_trap_should_work() {
 			beneficiary: AccountIndex64 { index: 3, network: None }.into(),
 		},
 	]);
-	let mut hash = derive_topic_id(&message);
+	let mut hash = fake_message_hash(&message);
 	let r = XcmExecutor::<TestConfig>::prepare_and_execute(
 		Parachain(1),
 		message,
@@ -277,7 +277,7 @@ fn basic_asset_trap_should_work() {
 			beneficiary: AccountIndex64 { index: 3, network: None }.into(),
 		},
 	]);
-	let mut hash = derive_topic_id(&message);
+	let mut hash = fake_message_hash(&message);
 	let old_trapped_assets = TrappedAssets::get();
 	let r = XcmExecutor::<TestConfig>::prepare_and_execute(
 		Parachain(1),
@@ -302,7 +302,7 @@ fn basic_asset_trap_should_work() {
 			beneficiary: AccountIndex64 { index: 3, network: None }.into(),
 		},
 	]);
-	let mut hash = derive_topic_id(&message);
+	let mut hash = fake_message_hash(&message);
 	let old_trapped_assets = TrappedAssets::get();
 	let r = XcmExecutor::<TestConfig>::prepare_and_execute(
 		Parachain(2),
@@ -327,7 +327,7 @@ fn basic_asset_trap_should_work() {
 			beneficiary: AccountIndex64 { index: 3, network: None }.into(),
 		},
 	]);
-	let mut hash = derive_topic_id(&message);
+	let mut hash = fake_message_hash(&message);
 	let old_trapped_assets = TrappedAssets::get();
 	let r = XcmExecutor::<TestConfig>::prepare_and_execute(
 		Parachain(1),
@@ -351,7 +351,7 @@ fn basic_asset_trap_should_work() {
 			beneficiary: AccountIndex64 { index: 3, network: None }.into(),
 		},
 	]);
-	let mut hash = derive_topic_id(&message);
+	let mut hash = fake_message_hash(&message);
 	let r = XcmExecutor::<TestConfig>::prepare_and_execute(
 		Parachain(1),
 		message,
@@ -374,7 +374,7 @@ fn basic_asset_trap_should_work() {
 			beneficiary: AccountIndex64 { index: 3, network: None }.into(),
 		},
 	]);
-	let mut hash = derive_topic_id(&message);
+	let mut hash = fake_message_hash(&message);
 	let r = XcmExecutor::<TestConfig>::prepare_and_execute(
 		Parachain(1),
 		message,
@@ -414,7 +414,7 @@ fn max_assets_limit_should_work() {
 		WithdrawAsset((Junctions::from([GeneralIndex(6)]), 100u128).into()),
 		WithdrawAsset((Junctions::from([GeneralIndex(7)]), 100u128).into()),
 	]);
-	let mut hash = derive_topic_id(&message);
+	let mut hash = fake_message_hash(&message);
 	let r = XcmExecutor::<TestConfig>::prepare_and_execute(
 		Parachain(1),
 		message,
@@ -436,7 +436,7 @@ fn max_assets_limit_should_work() {
 		WithdrawAsset((Junctions::from([GeneralIndex(7)]), 100u128).into()),
 		WithdrawAsset((Junctions::from([GeneralIndex(8)]), 100u128).into()),
 	]);
-	let mut hash = derive_topic_id(&message);
+	let mut hash = fake_message_hash(&message);
 	let r = XcmExecutor::<TestConfig>::prepare_and_execute(
 		Parachain(1),
 		message,
@@ -468,7 +468,7 @@ fn max_assets_limit_should_work() {
 		WithdrawAsset((Junctions::from([GeneralIndex(6)]), 100u128).into()),
 		WithdrawAsset((Junctions::from([GeneralIndex(7)]), 100u128).into()),
 	]);
-	let mut hash = derive_topic_id(&message);
+	let mut hash = fake_message_hash(&message);
 	let r = XcmExecutor::<TestConfig>::prepare_and_execute(
 		Parachain(1),
 		message,
@@ -493,7 +493,7 @@ fn max_assets_limit_should_work() {
 		WithdrawAsset((Junctions::from([GeneralIndex(2)]), 100u128).into()),
 		WithdrawAsset((Junctions::from([GeneralIndex(3)]), 100u128).into()),
 	]);
-	let mut hash = derive_topic_id(&message);
+	let mut hash = fake_message_hash(&message);
 	let r = XcmExecutor::<TestConfig>::prepare_and_execute(
 		Parachain(1),
 		message,
@@ -523,7 +523,7 @@ fn max_assets_limit_should_work() {
 		])),
 		WithdrawAsset((Junctions::from([GeneralIndex(0)]), 100u128).into()),
 	]);
-	let mut hash = derive_topic_id(&message);
+	let mut hash = fake_message_hash(&message);
 	let r = XcmExecutor::<TestConfig>::prepare_and_execute(
 		Parachain(1),
 		message,
