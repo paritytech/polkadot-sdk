@@ -139,10 +139,8 @@ fn send_xcm_from_para_to_asset_hub_paying_fee_with_sufficient_asset() {
 	let fee_amount = ASSET_MIN_BALANCE * 1000000;
 	let asset =
 		([PalletInstance(ASSETS_PALLET_ID), GeneralIndex(ASSET_ID.into())], fee_amount).into();
-	let asset_location = Location::new(
-		0,
-		[PalletInstance(ASSETS_PALLET_ID), GeneralIndex(ASSET_ID.into())],
-	);
+	let asset_location =
+		Location::new(0, [PalletInstance(ASSETS_PALLET_ID), GeneralIndex(ASSET_ID.into())]);
 
 	let root_origin = <PenpalA as Chain>::RuntimeOrigin::root();
 	let system_para_destination = PenpalA::sibling_location_of(AssetHubWestend::para_id()).into();
