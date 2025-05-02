@@ -1768,11 +1768,8 @@ impl pallet_rc_migrator::Config for Runtime {
 	type MaxRcWeight = RcMigratorMaxWeight;
 	type MaxAhWeight = AhMigratorMaxWeight;
 	type AhExistentialDeposit = AhExistentialDeposit;
-	// TODO: weights::pallet_rc_migrator::WeightInfo
-	type RcWeightInfo = ();
-	// TODO: weights::pallet_ah_migrator::WeightInfo
-	// we use `SubstrateWeight` instead of () to use the local `DbWeight`.
-	type AhWeightInfo = pallet_rc_migrator::weights_ah::SubstrateWeight<Runtime>;
+	type RcWeightInfo = weights::pallet_rc_migrator::WeightInfo<Runtime>;
+	type AhWeightInfo = weights::pallet_ah_migrator::WeightInfo<ah_migration::weights::AhDbConfig>;
 	type RcIntraMigrationCalls = ahm_phase1::CallsEnabledDuringMigration;
 	type RcPostMigrationCalls = ahm_phase1::CallsEnabledAfterMigration;
 	type StakingDelegationReason = ahm_phase1::StakingDelegationReason;

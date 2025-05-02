@@ -40,7 +40,7 @@ pub mod ah_migration;
 
 extern crate alloc;
 
-use alloc::{vec, vec::Vec, boxed::Box};
+use alloc::{boxed::Box, vec, vec::Vec};
 use assets_common::{
 	local_and_foreign_assets::{LocalFromLeft, TargetFromLeft},
 	AssetIdForPoolAssets, AssetIdForPoolAssetsConvert, AssetIdForTrustBackedAssetsConvert,
@@ -1272,7 +1272,7 @@ impl pallet_ah_ops::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Currency = Balances;
 	type RcBlockNumberProvider = RelaychainDataProvider<Runtime>;
-	type WeightInfo = ();
+	type WeightInfo = weights::pallet_ah_ops::WeightInfo<Runtime>;
 }
 
 impl pallet_ah_migrator::Config for Runtime {
@@ -1298,10 +1298,11 @@ impl pallet_ah_migrator::Config for Runtime {
 	type RcToAhPalletsOrigin = ah_migration::RcToAhPalletsOrigin;
 	type Preimage = Preimage;
 	type SendXcm = xcm_config::XcmRouter;
-	type AhWeightInfo = (); // TODO: weights::pallet_ah_migrator::WeightInfo;
+	type AhWeightInfo = weights::pallet_ah_migrator::WeightInfo<Runtime>;
 	type AhIntraMigrationCalls = frame_support::traits::Everything; // TODO
 	type AhPostMigrationCalls = frame_support::traits::Everything; // TODO
-	type RcStakingMessage = pallet_rc_migrator::staking::message::RcStakingMessageOf<westend_runtime::Runtime>;
+	type RcStakingMessage =
+		pallet_rc_migrator::staking::message::RcStakingMessageOf<westend_runtime::Runtime>;
 }
 
 // Create the runtime by composing the FRAME pallets that were previously configured.
