@@ -39,7 +39,7 @@ use xcm_builder::{
 	IsChildSystemParachain, IsConcrete, MintLocation, RespectSuspension, SignedAccountId32AsNative,
 	SignedToAccountId32, SovereignSignedViaLocation, TakeWeightCredit,
 };
-pub(crate) use xcm_simulator::helpers::{derive_topic_id, TopicIdTracker};
+use xcm_simulator::helpers::derive_topic_id;
 
 pub type AccountId = AccountId32;
 pub type Balance = u128;
