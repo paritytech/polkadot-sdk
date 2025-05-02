@@ -1648,6 +1648,15 @@ impl<T: Config> UpwardMessageSender for Pallet<T> {
 	fn send_upward_message(message: UpwardMessage) -> Result<(u32, XcmHash), MessageSendError> {
 		Self::send_upward_message(message)
 	}
+
+	fn check_size(size: usize) -> Result<(), ()> {
+		let cfg = HostConfiguration::<T>::get().ok_or(())?;
+		if size > cfg.max_upward_message_size as usize {
+			Err(())
+		} else {
+			Ok(())
+		}
+	}
 }
 
 impl<T: Config> InspectMessageQueues for Pallet<T> {
