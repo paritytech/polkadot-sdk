@@ -247,7 +247,6 @@ pub type XcmOriginToTransactDispatchOrigin = (
 parameter_types! {
 	pub const MaxInstructions: u32 = 100;
 	pub const MaxAssetsIntoHolding: u32 = 64;
-	pub XcmAssetFeesReceiver: Option<AccountId> = Authorship::author();
 }
 
 pub struct ParentOrParentsPlurality;
@@ -309,27 +308,6 @@ pub type Barrier = TrailingSetTopicAsId<
 		),
 	>,
 >;
-
-// TODO: This calls into the Assets pallet's default `BalanceToAssetBalance` implementation, which
-// uses the ratio of minimum balances and requires asset sufficiency. This means that purchasing
-// weight within XCM programs will still use the old way, and paying fees via asset conversion will
-// only be possible when transacting locally. We should add an impl of this trait that does asset
-// conversion.
-pub type AssetFeeAsExistentialDepositMultiplierFeeCharger = AssetFeeAsExistentialDepositMultiplier<
-	Runtime,
-	WeightToFee,
-	pallet_assets::BalanceToAssetBalance<Balances, Runtime, ConvertInto, TrustBackedAssetsInstance>,
-	TrustBackedAssetsInstance,
->;
-
-/// Multiplier used for dedicated `TakeFirstAssetTrader` with `ForeignAssets` instance.
-pub type ForeignAssetFeeAsExistentialDepositMultiplierFeeCharger =
-	AssetFeeAsExistentialDepositMultiplier<
-		Runtime,
-		WeightToFee,
-		pallet_assets::BalanceToAssetBalance<Balances, Runtime, ConvertInto, ForeignAssetsInstance>,
-		ForeignAssetsInstance,
-	>;
 
 /// Locations that will not be charged fees in the executor,
 /// either execution or delivery.
