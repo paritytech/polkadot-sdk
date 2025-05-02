@@ -8,3 +8,9 @@ crates:
   bump: minor
 - name: asset-hub-westend-integration-tests
   bump: minor
+- name emulated-integration-tests-common
+  bump: minor
+- name: bridge-hub-westend-integration-tests
+  bump: minor
+- name: bridge-hub-rococo-integration-tests
+  bump: minor
