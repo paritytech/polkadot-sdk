@@ -15,7 +15,6 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use super::*;
-use xcm_simulator::helpers::derive_topic_id;
 
 #[test]
 fn alias_foreign_account_sibling_prefix() {
@@ -67,7 +66,7 @@ fn alias_origin_should_work() {
 	]);
 
 	let message = Xcm(vec![AliasOrigin((AccountId32 { network: None, id: [0; 32] }).into())]);
-	let mut hash = derive_topic_id(&message);
+	let mut hash = fake_message_hash(&message);
 	let r = XcmExecutor::<TestConfig>::prepare_and_execute(
 		(Parachain(1), AccountId32 { network: None, id: [0; 32] }),
 		message.clone(),
