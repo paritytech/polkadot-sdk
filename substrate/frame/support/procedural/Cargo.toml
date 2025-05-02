@@ -35,15 +35,15 @@ syn = { features = ["full", "parsing", "visit-mut"], workspace = true }
 
 [dev-dependencies]
 codec = { features = ["derive", "max-encoded-len"], workspace = true }
-frame-support = { workspace = true, default-features = false }
-frame-system = { workspace = true, default-features = false }
+frame-support = { default-features = false, workspace = true }
+frame-system = { default-features = false, workspace = true }
 pretty_assertions = { workspace = true }
 regex = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
-sp-core = { workspace = true, default-features = false }
-sp-io = { workspace = true, default-features = false }
-sp-metadata-ir = { workspace = true, default-features = false }
-sp-runtime = { features = ["serde"], workspace = true, default-features = false }
+sp-core = { default-features = false, workspace = true }
+sp-io = { default-features = false, workspace = true }
+sp-metadata-ir = { default-features = false, workspace = true }
+sp-runtime = { features = ["serde"], default-features = false, workspace = true }
 static_assertions = { workspace = true }
 
 [features]

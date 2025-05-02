@@ -7,6 +7,7 @@ find . -name "Cargo.toml" \
 
   echo "Processing $file..."
 
+  # Find and replace path dependencies with "workspace = true"
   awk '
     BEGIN { in_section = 0 }
     /^\[dependencies\]/     { in_section = 1; print; next }

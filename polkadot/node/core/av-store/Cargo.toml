@@ -35,7 +35,7 @@ sp-consensus.workspace = true
 [dev-dependencies]
 assert_matches = { workspace = true }
 kvdb-memorydb = { workspace = true }
-sp-tracing = { workspace = true, default-features = false }
+sp-tracing = { default-features = false, workspace = true }
 
 parking_lot = { workspace = true, default-features = true }
 polkadot-node-subsystem-test-helpers = { workspace = true }

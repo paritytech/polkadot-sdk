@@ -30,7 +30,7 @@ scale-info = { features = ["derive"], workspace = true }
 serde = { optional = true, workspace = true, default-features = true }
 
 [dev-dependencies]
-sp-storage = { workspace = true, default-features = false }
+sp-storage = { default-features = false, workspace = true }
 
 pallet-assets = { default-features = true, workspace = true }
 pallet-authorship = { default-features = true, workspace = true }

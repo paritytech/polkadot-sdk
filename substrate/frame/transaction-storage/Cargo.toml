@@ -31,7 +31,7 @@ sp-runtime.workspace = true
 sp-transaction-storage-proof.workspace = true
 
 [dev-dependencies]
-sp-core = { workspace = true, default-features = false }
+sp-core = { default-features = false, workspace = true }
 sp-transaction-storage-proof = { default-features = true, workspace = true }
 
 [features]

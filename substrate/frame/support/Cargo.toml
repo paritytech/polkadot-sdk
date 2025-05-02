@@ -55,10 +55,10 @@ aquamarine = { workspace = true }
 
 [dev-dependencies]
 Inflector = { workspace = true }
-frame-system = { workspace = true, default-features = true }
+frame-system = { default-features = true, workspace = true }
 pretty_assertions = { workspace = true }
-sp-crypto-hashing = { workspace = true, default-features = true }
-sp-timestamp = { workspace = true, default-features = false }
+sp-crypto-hashing = { default-features = true, workspace = true }
+sp-timestamp = { default-features = false, workspace = true }
 
 [features]
 default = ["std"]

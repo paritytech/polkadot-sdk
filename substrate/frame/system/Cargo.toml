@@ -31,7 +31,7 @@ sp-weights = { features = ["serde"], workspace = true }
 
 [dev-dependencies]
 criterion = { workspace = true, default-features = true }
-sp-externalities = { workspace = true, default-features = true }
+sp-externalities = { default-features = true, workspace = true }
 substrate-test-runtime-client = { workspace = true }
 
 [features]

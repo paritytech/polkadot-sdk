@@ -31,7 +31,7 @@ pallet-staking-reward-curve = { default-features = true, workspace = true }
 pallet-timestamp = { default-features = true, workspace = true }
 
 sp-core = { default-features = true, workspace = true }
-sp-io = { workspace = true, default-features = false }
+sp-io = { default-features = false, workspace = true }
 
 frame-election-provider-support = { default-features = true, workspace = true }
 

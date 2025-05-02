@@ -77,7 +77,7 @@ test-runtime-constants.workspace = true
 tokio = { workspace = true, default-features = true }
 
 [dev-dependencies]
-pallet-balances = { workspace = true, default-features = false }
+pallet-balances = { default-features = false, workspace = true }
 tokio = { features = ["macros"], workspace = true, default-features = true }
 
 [features]
