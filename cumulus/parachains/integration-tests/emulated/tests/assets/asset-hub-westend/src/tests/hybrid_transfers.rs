@@ -14,7 +14,7 @@
 // limitations under the License.
 
 use emulated_integration_tests_common::{
-	xcm_helpers::{find_all_xcm_topic_ids, find_xcm_sent_message_id},
+	xcm_helpers::{find_mq_processed_id, find_xcm_sent_message_id},
 	xcm_simulator::helpers::TopicIdTracker,
 };
 use westend_system_emulated_network::westend_emulated_chain::westend_runtime::Dmp;
@@ -56,8 +56,10 @@ fn para_to_para_assethub_hop_assertions(t: ParaToParaThroughAHTest) {
 		]
 	);
 
-	let topic_ids = find_all_xcm_topic_ids::<AssetHubWestend>();
-	TopicIdTracker::insert_all_and_assert_unique(&topic_ids);
+	let msg_id_sent = find_xcm_sent_message_id::<AssetHubWestend>().expect("Missing Sent Event");
+	TopicIdTracker::insert_and_assert_unique("AssetHubWestends", msg_id_sent.into());
+	let mq_prc_id = find_mq_processed_id::<AssetHubWestend>().expect("Missing Processed Event");
+	TopicIdTracker::insert_and_assert_unique("AssetHubWestend", mq_prc_id);
 }
 
 fn ah_to_para_transfer_assets(t: SystemParaToParaTest) -> DispatchResult {
@@ -118,7 +120,7 @@ fn para_to_para_transfer_assets_through_ah(t: ParaToParaThroughAHTest) -> Dispat
 	);
 
 	let msg_id_sent = find_xcm_sent_message_id::<PenpalA>().expect("Missing Sent Event");
-	TopicIdTracker::insert_all_and_assert_unique(msg_id_sent.into());
+	TopicIdTracker::insert_and_assert_unique("PenpalA", msg_id_sent.into());
 
 	result
 }
@@ -600,6 +602,9 @@ fn transfer_foreign_assets_from_para_to_para_through_asset_hub() {
 	test.set_assertion::<PenpalB>(para_to_para_through_hop_receiver_assertions);
 	test.set_dispatchable::<PenpalA>(para_to_para_transfer_assets_through_ah);
 	test.assert();
+
+	// assert unique topic across all chains
+	TopicIdTracker::assert_unique();
 
 	// Query final balances
 	let sender_wnds_after = PenpalA::execute_with(|| {

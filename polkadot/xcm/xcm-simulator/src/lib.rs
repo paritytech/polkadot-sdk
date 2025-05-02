@@ -474,19 +474,6 @@ pub mod helpers {
 	/// A test utility for tracking XCM topic IDs
 	pub struct TopicIdTracker;
 	impl TopicIdTracker {
-		/// Asserts that the unique tracked topic ID exists in the given list.
-		pub fn assert_tracked_id_in(topic_ids: &[H256]) {
-			Self::assert_unique();
-
-			let tracked_id = Self::get_unique_id();
-			assert!(
-				topic_ids.contains(&tracked_id),
-				"Tracked topic ID {:?} was not found in emitted events: {:?}",
-				tracked_id,
-				topic_ids
-			);
-		}
-
 		/// Asserts that exactly one topic ID is tracked across all chains.
 		pub fn assert_unique() {
 			TRACKED_TOPIC_IDS.with(|b| {
@@ -551,14 +538,6 @@ pub mod helpers {
 					map.insert(chain.to_string(), id);
 				}
 			});
-		}
-
-		/// Inserts multiple topic IDs into the tracker and asserts exactly one is tracked.
-		pub fn insert_all_and_assert_unique(ids: &[H256]) {
-			for id in ids {
-				Self::insert("any", *id);
-			}
-			Self::assert_unique();
 		}
 
 		/// Clears all tracked topic IDs, resetting the tracker for a new test.
