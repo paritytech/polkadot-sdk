@@ -19,7 +19,6 @@
 
 use super::{mock::*, *};
 use frame_support::{assert_ok, traits::tokens::Pay};
-use xcm_simulator::helpers::derive_topic_id;
 
 /// Type representing both a location and an asset that is held at that location.
 /// The id of the held asset is relative to the location where it is being held.
@@ -85,7 +84,7 @@ fn pay_over_xcm_works() {
 				beneficiary: AccountId32 { id: recipient.clone().into(), network: None }.into(),
 			},
 		]);
-		let expected_hash = derive_topic_id(&expected_message);
+		let expected_hash = fake_message_hash(&expected_message);
 
 		assert_eq!(
 			sent_xcm(),
@@ -153,7 +152,7 @@ fn pay_over_xcm_governance_body() {
 				beneficiary: AccountId32 { id: recipient.clone().into(), network: None }.into(),
 			},
 		]);
-		let expected_hash = derive_topic_id(&expected_message);
+		let expected_hash = fake_message_hash(&expected_message);
 		assert_eq!(
 			sent_xcm(),
 			vec![((Parent, Parachain(2)).into(), expected_message, expected_hash)]

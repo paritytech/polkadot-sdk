@@ -49,7 +49,6 @@ pub use xcm_executor::{
 	},
 	AssetsInHolding, Config,
 };
-use xcm_simulator::helpers::{derive_topic_id, TopicIdTracker};
 
 #[derive(Debug)]
 pub enum TestOrigin {
@@ -178,14 +177,13 @@ impl SendXcm for TestMessageSenderImpl {
 		msg: &mut Option<Xcm<()>>,
 	) -> SendResult<(Location, Xcm<()>, XcmHash)> {
 		let msg = msg.take().unwrap();
-		let hash = derive_topic_id(&msg);
+		let hash = fake_message_hash(&msg);
 		let triplet = (dest.take().unwrap(), msg, hash);
 		Ok((triplet, SEND_PRICE.with(|l| l.borrow().clone())))
 	}
 	fn deliver(triplet: (Location, Xcm<()>, XcmHash)) -> Result<XcmHash, SendError> {
 		let hash = triplet.2;
 		SENT_XCM.with(|q| q.borrow_mut().push(triplet));
-		TopicIdTracker::insert_sent_id(hash.into());
 		Ok(hash)
 	}
 }
@@ -209,7 +207,7 @@ impl ExportXcm for TestMessageExporter {
 				Ok(Assets::new())
 			}
 		});
-		let h = derive_topic_id(&m);
+		let h = fake_message_hash(&m);
 		match r {
 			Ok(price) => Ok(((network, channel, s, d, m, h), price)),
 			Err(e) => {
@@ -230,7 +228,6 @@ impl ExportXcm for TestMessageExporter {
 			} else {
 				let hash = tuple.5;
 				EXPORTED_XCM.with(|q| q.borrow_mut().push(tuple));
-				TopicIdTracker::insert_sent_id(hash.into());
 				Ok(hash)
 			}
 		})
@@ -777,4 +774,8 @@ impl Config for TestConfig {
 
 pub fn fungible_multi_asset(location: Location, amount: u128) -> Asset {
 	(AssetId::from(location), Fungibility::Fungible(amount)).into()
+}
+
+pub fn fake_message_hash<T>(message: &Xcm<T>) -> XcmHash {
+	message.using_encoded(sp_io::hashing::blake2_256)
 }

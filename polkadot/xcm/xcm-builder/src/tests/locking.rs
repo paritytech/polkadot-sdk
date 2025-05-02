@@ -15,7 +15,6 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use super::*;
-use xcm_simulator::helpers::derive_topic_id;
 use LockTraceItem::*;
 
 #[test]
@@ -35,7 +34,7 @@ fn lock_roundtrip_should_work() {
 		),
 		LockAsset { asset: (Parent, 100u128).into(), unlocker: (Parent, Parachain(1)).into() },
 	]);
-	let mut hash = derive_topic_id(&message);
+	let mut hash = fake_message_hash(&message);
 	let r = XcmExecutor::<TestConfig>::prepare_and_execute(
 		(3u64,),
 		message,
@@ -50,7 +49,7 @@ fn lock_roundtrip_should_work() {
 		owner: (Parent, Parachain(42), 3u64).into(),
 		asset: (Parent, 100u128).into(),
 	}]);
-	let expected_hash = derive_topic_id(&expected_msg);
+	let expected_hash = fake_message_hash(&expected_msg);
 	assert_eq!(sent_xcm(), vec![((Parent, Parachain(1)).into(), expected_msg, expected_hash)]);
 	assert_eq!(
 		take_lock_trace(),
@@ -64,7 +63,7 @@ fn lock_roundtrip_should_work() {
 	// Now we'll unlock it.
 	let message =
 		Xcm(vec![UnlockAsset { asset: (Parent, 100u128).into(), target: (3u64,).into() }]);
-	let mut hash = derive_topic_id(&message);
+	let mut hash = fake_message_hash(&message);
 	let r = XcmExecutor::<TestConfig>::prepare_and_execute(
 		(Parent, Parachain(1)),
 		message,
@@ -89,7 +88,7 @@ fn auto_fee_paying_should_work() {
 		SetFeesMode { jit_withdraw: true },
 		LockAsset { asset: (Parent, 100u128).into(), unlocker: (Parent, Parachain(1)).into() },
 	]);
-	let mut hash = derive_topic_id(&message);
+	let mut hash = fake_message_hash(&message);
 	let r = XcmExecutor::<TestConfig>::prepare_and_execute(
 		(3u64,),
 		message,
@@ -112,7 +111,7 @@ fn lock_should_fail_correctly() {
 		asset: (Parent, 100u128).into(),
 		unlocker: (Parent, Parachain(1)).into(),
 	}]);
-	let mut hash = derive_topic_id(&message);
+	let mut hash = fake_message_hash(&message);
 	let r = XcmExecutor::<TestConfig>::prepare_and_execute(
 		(3u64,),
 		message,
@@ -138,7 +137,7 @@ fn lock_should_fail_correctly() {
 		asset: (Parent, 100u128).into(),
 		unlocker: (Parent, Parachain(1)).into(),
 	}]);
-	let mut hash = derive_topic_id(&message);
+	let mut hash = fake_message_hash(&message);
 	let r = XcmExecutor::<TestConfig>::prepare_and_execute(
 		(3u64,),
 		message,
@@ -168,7 +167,7 @@ fn remote_unlock_roundtrip_should_work() {
 	// This caused Parachain #1 to send us the NoteUnlockable instruction.
 	let message =
 		Xcm(vec![NoteUnlockable { asset: (Parent, 100u128).into(), owner: (3u64,).into() }]);
-	let mut hash = derive_topic_id(&message);
+	let mut hash = fake_message_hash(&message);
 	let r = XcmExecutor::<TestConfig>::prepare_and_execute(
 		(Parent, Parachain(1)),
 		message,
@@ -194,7 +193,7 @@ fn remote_unlock_roundtrip_should_work() {
 		),
 		RequestUnlock { asset: (Parent, 100u128).into(), locker: (Parent, Parachain(1)).into() },
 	]);
-	let mut hash = derive_topic_id(&message);
+	let mut hash = fake_message_hash(&message);
 	let r = XcmExecutor::<TestConfig>::prepare_and_execute(
 		(3u64,),
 		message,
@@ -209,7 +208,7 @@ fn remote_unlock_roundtrip_should_work() {
 		target: (Parent, Parachain(42), 3u64).into(),
 		asset: (Parent, 100u128).into(),
 	}]);
-	let expected_hash = derive_topic_id(&expected_msg);
+	let expected_hash = fake_message_hash(&expected_msg);
 	assert_eq!(sent_xcm(), vec![((Parent, Parachain(1)).into(), expected_msg, expected_hash)]);
 	assert_eq!(
 		take_lock_trace(),
@@ -235,7 +234,7 @@ fn remote_unlock_should_fail_correctly() {
 		asset: (Parent, 100u128).into(),
 		locker: (Parent, Parachain(1)).into(),
 	}]);
-	let mut hash = derive_topic_id(&message);
+	let mut hash = fake_message_hash(&message);
 	let r = XcmExecutor::<TestConfig>::prepare_and_execute(
 		(3u64,),
 		message,
@@ -253,7 +252,7 @@ fn remote_unlock_should_fail_correctly() {
 	// We have been told by Parachain #1 that Account #3 has locked funds which we can unlock.
 	let message =
 		Xcm(vec![NoteUnlockable { asset: (Parent, 100u128).into(), owner: (3u64,).into() }]);
-	let mut hash = derive_topic_id(&message);
+	let mut hash = fake_message_hash(&message);
 	let r = XcmExecutor::<TestConfig>::prepare_and_execute(
 		(Parent, Parachain(1)),
 		message,
@@ -271,7 +270,7 @@ fn remote_unlock_should_fail_correctly() {
 		asset: (Parent, 100u128).into(),
 		locker: (Parent, Parachain(1)).into(),
 	}]);
-	let mut hash = derive_topic_id(&message);
+	let mut hash = fake_message_hash(&message);
 	let r = XcmExecutor::<TestConfig>::prepare_and_execute(
 		(3u64,),
 		message,

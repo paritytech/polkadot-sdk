@@ -15,11 +15,9 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use super::*;
-use xcm_simulator::helpers::{derive_topic_id, TopicIdTracker};
 
 #[test]
 fn pallet_query_should_work() {
-	TopicIdTracker::reset();
 	AllowUnpaidFrom::set(vec![[Parachain(1)].into()]);
 	// They want to transfer 100 of our native asset from sovereign account of parachain #1 into #2
 	// and let them know to hand it to account #3.
@@ -31,7 +29,7 @@ fn pallet_query_should_work() {
 			max_weight: Weight::from_parts(50, 50),
 		},
 	}]);
-	let mut hash = derive_topic_id(&message);
+	let mut hash = fake_message_hash(&message);
 	let r = XcmExecutor::<TestConfig>::prepare_and_execute(
 		Parachain(1),
 		message,
@@ -41,8 +39,6 @@ fn pallet_query_should_work() {
 	);
 	assert_eq!(r, Outcome::Complete { used: Weight::from_parts(10, 10) });
 
-	let xcm_sent = sent_xcm();
-	let expected_hash: XcmHash = TopicIdTracker::get_unique_id().into();
 	let expected_msg = Xcm::<()>(vec![
 		QueryResponse {
 			query_id: 1,
@@ -50,14 +46,13 @@ fn pallet_query_should_work() {
 			response: Response::PalletsInfo(Default::default()),
 			querier: Some(Here.into()),
 		},
-		SetTopic(expected_hash),
+		SetTopic(hash),
 	]);
-	assert_eq!(xcm_sent, vec![(Parachain(1).into(), expected_msg, expected_hash)]);
+	assert_eq!(sent_xcm(), vec![(Parachain(1).into(), expected_msg, hash)]);
 }
 
 #[test]
 fn pallet_query_with_results_should_work() {
-	TopicIdTracker::reset();
 	AllowUnpaidFrom::set(vec![[Parachain(1)].into()]);
 	// They want to transfer 100 of our native asset from sovereign account of parachain #1 into #2
 	// and let them know to hand it to account #3.
@@ -69,7 +64,7 @@ fn pallet_query_with_results_should_work() {
 			max_weight: Weight::from_parts(50, 50),
 		},
 	}]);
-	let mut hash = derive_topic_id(&message);
+	let mut hash = fake_message_hash(&message);
 	let r = XcmExecutor::<TestConfig>::prepare_and_execute(
 		Parachain(1),
 		message,
@@ -79,8 +74,6 @@ fn pallet_query_with_results_should_work() {
 	);
 	assert_eq!(r, Outcome::Complete { used: Weight::from_parts(10, 10) });
 
-	let xcm_sent = sent_xcm();
-	let expected_hash: XcmHash = TopicIdTracker::get_unique_id().into();
 	let expected_msg = Xcm::<()>(vec![
 		QueryResponse {
 			query_id: 1,
@@ -100,9 +93,9 @@ fn pallet_query_with_results_should_work() {
 			),
 			querier: Some(Here.into()),
 		},
-		SetTopic(expected_hash),
+		SetTopic(hash),
 	]);
-	assert_eq!(xcm_sent, vec![(Parachain(1).into(), expected_msg, expected_hash)]);
+	assert_eq!(sent_xcm(), vec![(Parachain(1).into(), expected_msg, hash)]);
 }
 
 #[test]
@@ -119,7 +112,7 @@ fn prepaid_result_of_query_should_get_free_execution() {
 		max_weight: Weight::from_parts(10, 10),
 		querier: Some(Here.into()),
 	}]);
-	let mut hash = derive_topic_id(&message);
+	let mut hash = fake_message_hash(&message);
 	let weight_limit = Weight::from_parts(10, 10);
 
 	// First time the response gets through since we're expecting it...

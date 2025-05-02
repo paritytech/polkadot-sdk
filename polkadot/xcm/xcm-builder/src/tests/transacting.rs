@@ -15,7 +15,6 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use super::*;
-use xcm_simulator::helpers::{derive_topic_id, TopicIdTracker};
 
 #[test]
 fn transacting_should_work() {
@@ -26,7 +25,7 @@ fn transacting_should_work() {
 		call: TestCall::Any(Weight::from_parts(50, 50), None).encode().into(),
 		fallback_max_weight: None,
 	}]);
-	let mut hash = derive_topic_id(&message);
+	let mut hash = fake_message_hash(&message);
 	let weight_limit = Weight::from_parts(60, 60);
 	let r = XcmExecutor::<TestConfig>::prepare_and_execute(
 		Parent,
@@ -47,7 +46,7 @@ fn transacting_should_respect_max_weight_requirement() {
 		call: TestCall::Any(Weight::from_parts(50, 50), None).encode().into(),
 		fallback_max_weight: None,
 	}]);
-	let mut hash = derive_topic_id(&message);
+	let mut hash = fake_message_hash(&message);
 	let weight_limit = Weight::from_parts(60, 60);
 	let r = XcmExecutor::<TestConfig>::prepare_and_execute(
 		Parent,
@@ -70,7 +69,7 @@ fn transacting_should_refund_weight() {
 			.into(),
 		fallback_max_weight: None,
 	}]);
-	let mut hash = derive_topic_id(&message);
+	let mut hash = fake_message_hash(&message);
 	let weight_limit = Weight::from_parts(60, 60);
 	let r = XcmExecutor::<TestConfig>::prepare_and_execute(
 		Parent,
@@ -105,7 +104,7 @@ fn paid_transacting_should_refund_payment_for_unused_weight() {
 		RefundSurplus,
 		DepositAsset { assets: AllCounted(1).into(), beneficiary: one },
 	]);
-	let mut hash = derive_topic_id(&message);
+	let mut hash = fake_message_hash(&message);
 	let weight_limit = Weight::from_parts(100, 100);
 	let r = XcmExecutor::<TestConfig>::prepare_and_execute(
 		origin,
@@ -123,7 +122,6 @@ fn paid_transacting_should_refund_payment_for_unused_weight() {
 
 #[test]
 fn report_successful_transact_status_should_work() {
-	TopicIdTracker::reset();
 	AllowUnpaidFrom::set(vec![Parent.into()]);
 
 	let message = Xcm::<TestCall>(vec![
@@ -138,7 +136,7 @@ fn report_successful_transact_status_should_work() {
 			max_weight: Weight::from_parts(5000, 5000),
 		}),
 	]);
-	let mut hash = derive_topic_id(&message);
+	let mut hash = fake_message_hash(&message);
 	let weight_limit = Weight::from_parts(70, 70);
 	let r = XcmExecutor::<TestConfig>::prepare_and_execute(
 		Parent,
@@ -148,8 +146,6 @@ fn report_successful_transact_status_should_work() {
 		Weight::zero(),
 	);
 	assert_eq!(r, Outcome::Complete { used: Weight::from_parts(70, 70) });
-	let xcm_sent = sent_xcm();
-	let expected_hash: XcmHash = TopicIdTracker::get_unique_id().into();
 	let expected_msg = Xcm(vec![
 		QueryResponse {
 			response: Response::DispatchResult(MaybeErrorCode::Success),
@@ -157,14 +153,13 @@ fn report_successful_transact_status_should_work() {
 			max_weight: Weight::from_parts(5000, 5000),
 			querier: Some(Here.into()),
 		},
-		SetTopic(expected_hash),
+		SetTopic(hash),
 	]);
-	assert_eq!(xcm_sent, vec![(Parent.into(), expected_msg, expected_hash)]);
+	assert_eq!(sent_xcm(), vec![(Parent.into(), expected_msg, hash)]);
 }
 
 #[test]
 fn report_failed_transact_status_should_work() {
-	TopicIdTracker::reset();
 	AllowUnpaidFrom::set(vec![Parent.into()]);
 
 	let message = Xcm::<TestCall>(vec![
@@ -179,7 +174,7 @@ fn report_failed_transact_status_should_work() {
 			max_weight: Weight::from_parts(5000, 5000),
 		}),
 	]);
-	let mut hash = derive_topic_id(&message);
+	let mut hash = fake_message_hash(&message);
 	let weight_limit = Weight::from_parts(70, 70);
 	let r = XcmExecutor::<TestConfig>::prepare_and_execute(
 		Parent,
@@ -189,8 +184,6 @@ fn report_failed_transact_status_should_work() {
 		Weight::zero(),
 	);
 	assert_eq!(r, Outcome::Complete { used: Weight::from_parts(70, 70) });
-	let xcm_sent = sent_xcm();
-	let expected_hash: XcmHash = TopicIdTracker::get_unique_id().into();
 	let expected_msg = Xcm(vec![
 		QueryResponse {
 			response: Response::DispatchResult(vec![2].into()),
@@ -198,9 +191,9 @@ fn report_failed_transact_status_should_work() {
 			max_weight: Weight::from_parts(5000, 5000),
 			querier: Some(Here.into()),
 		},
-		SetTopic(expected_hash),
+		SetTopic(hash),
 	]);
-	assert_eq!(xcm_sent, vec![(Parent.into(), expected_msg, expected_hash)]);
+	assert_eq!(sent_xcm(), vec![(Parent.into(), expected_msg, hash)]);
 }
 
 #[test]
@@ -215,7 +208,7 @@ fn expect_successful_transact_status_should_work() {
 		},
 		ExpectTransactStatus(MaybeErrorCode::Success),
 	]);
-	let mut hash = derive_topic_id(&message);
+	let mut hash = fake_message_hash(&message);
 	let weight_limit = Weight::from_parts(70, 70);
 	let r = XcmExecutor::<TestConfig>::prepare_and_execute(
 		Parent,
@@ -234,7 +227,7 @@ fn expect_successful_transact_status_should_work() {
 		},
 		ExpectTransactStatus(MaybeErrorCode::Success),
 	]);
-	let mut hash = derive_topic_id(&message);
+	let mut hash = fake_message_hash(&message);
 	let weight_limit = Weight::from_parts(70, 70);
 	let r = XcmExecutor::<TestConfig>::prepare_and_execute(
 		Parent,
@@ -261,7 +254,7 @@ fn expect_failed_transact_status_should_work() {
 		},
 		ExpectTransactStatus(vec![2].into()),
 	]);
-	let mut hash = derive_topic_id(&message);
+	let mut hash = fake_message_hash(&message);
 	let weight_limit = Weight::from_parts(70, 70);
 	let r = XcmExecutor::<TestConfig>::prepare_and_execute(
 		Parent,
@@ -280,7 +273,7 @@ fn expect_failed_transact_status_should_work() {
 		},
 		ExpectTransactStatus(vec![2].into()),
 	]);
-	let mut hash = derive_topic_id(&message);
+	let mut hash = fake_message_hash(&message);
 	let weight_limit = Weight::from_parts(70, 70);
 	let r = XcmExecutor::<TestConfig>::prepare_and_execute(
 		Parent,
@@ -297,7 +290,6 @@ fn expect_failed_transact_status_should_work() {
 
 #[test]
 fn clear_transact_status_should_work() {
-	TopicIdTracker::reset();
 	AllowUnpaidFrom::set(vec![Parent.into()]);
 
 	let message = Xcm::<TestCall>(vec![
@@ -313,7 +305,7 @@ fn clear_transact_status_should_work() {
 			max_weight: Weight::from_parts(5000, 5000),
 		}),
 	]);
-	let mut hash = derive_topic_id(&message);
+	let mut hash = fake_message_hash(&message);
 	let weight_limit = Weight::from_parts(80, 80);
 	let r = XcmExecutor::<TestConfig>::prepare_and_execute(
 		Parent,
@@ -323,8 +315,6 @@ fn clear_transact_status_should_work() {
 		Weight::zero(),
 	);
 	assert_eq!(r, Outcome::Complete { used: Weight::from_parts(80, 80) });
-	let xcm_sent = sent_xcm();
-	let expected_hash: XcmHash = TopicIdTracker::get_unique_id().into();
 	let expected_msg = Xcm(vec![
 		QueryResponse {
 			response: Response::DispatchResult(MaybeErrorCode::Success),
@@ -332,7 +322,7 @@ fn clear_transact_status_should_work() {
 			max_weight: Weight::from_parts(5000, 5000),
 			querier: Some(Here.into()),
 		},
-		SetTopic(expected_hash),
+		SetTopic(hash),
 	]);
-	assert_eq!(xcm_sent, vec![(Parent.into(), expected_msg, expected_hash)]);
+	assert_eq!(sent_xcm(), vec![(Parent.into(), expected_msg, hash)]);
 }

@@ -161,7 +161,6 @@ fn transfer_should_work() {
 
 #[test]
 fn reserve_transfer_should_work() {
-	TopicIdTracker::reset();
 	AllowUnpaidFrom::set(vec![[Parachain(1)].into()]);
 	// Child parachain #1 owns 1000 tokens held by us in reserve.
 	add_asset(Parachain(1), (Here, 1000));
@@ -188,15 +187,14 @@ fn reserve_transfer_should_work() {
 	);
 	assert_eq!(r, Outcome::Complete { used: Weight::from_parts(10, 10) });
 
-	let expected_has = hash;
 	let expected_msg = Xcm::<()>(vec![
 		ReserveAssetDeposited((Parent, 100u128).into()),
 		ClearOrigin,
 		DepositAsset { assets: AllCounted(1).into(), beneficiary: three },
-		SetTopic(expected_hash),
+		SetTopic(hash),
 	]);
 	assert_eq!(asset_list(Parachain(2)), vec![(Here, 100).into()]);
-	assert_eq!(sent_xcm(), vec![(Parachain(2).into(), expected_msg, expected_hash)]);
+	assert_eq!(sent_xcm(), vec![(Parachain(2).into(), expected_msg, hash)]);
 }
 
 #[test]
