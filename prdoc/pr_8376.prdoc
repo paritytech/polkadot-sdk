@@ -1,12 +1,16 @@
-title: 'Stopped using TakeFirstAssetTrader in AH Westend'
+title: 'Stopped using TakeFirstAssetTrader in AH Westend and Rococ'
 doc:
 - audience: Runtime Dev
   description: |-
-    Removed `TakeFirstAssetTrader` from Westend configs. Improved macro, fixed test.
+    Removed `TakeFirstAssetTrader` from configs. Improved macros, fixed tests.
 crates:
 - name: asset-hub-westend-runtime
   bump: minor
+- name: asset-hub-rococo-runtime
+  bump: minor
 - name: asset-hub-westend-integration-tests
+  bump: minor
+- name: asset-hub-rococo-integration-tests
   bump: minor
 - name: emulated-integration-tests-common
   bump: minor
