@@ -14,11 +14,10 @@
 // limitations under the License.
 
 use super::{
-	AccountId, AllPalletsWithSystem, Assets, Balance, Balances, BaseDeliveryFee,
-	CollatorSelection, FeeAssetId, ForeignAssets, ParachainInfo,
-	ParachainSystem, PolkadotXcm, PoolAssets, Runtime, RuntimeCall, RuntimeEvent,
-	RuntimeHoldReason, RuntimeOrigin, ToWestendXcmRouter, TransactionByteFee,
-	Uniques, WeightToFee, XcmpQueue,
+	AccountId, AllPalletsWithSystem, Assets, Balance, Balances, BaseDeliveryFee, CollatorSelection,
+	FeeAssetId, ForeignAssets, ParachainInfo, ParachainSystem, PolkadotXcm, PoolAssets, Runtime,
+	RuntimeCall, RuntimeEvent, RuntimeHoldReason, RuntimeOrigin, ToWestendXcmRouter,
+	TransactionByteFee, Uniques, WeightToFee, XcmpQueue,
 };
 use assets_common::{
 	matching::{FromNetwork, FromSiblingParachain, IsForeignConcreteAsset, ParentLocation},
@@ -36,8 +35,8 @@ use frame_system::EnsureRoot;
 use pallet_xcm::{AuthorizedAliasers, XcmPassthrough};
 use parachains_common::{
 	xcm_config::{
-		AllSiblingSystemParachains,
-		ConcreteAssetFromSystem, ParentRelayOrSiblingParachains, RelayOrOtherSystemParachains,
+		AllSiblingSystemParachains, ConcreteAssetFromSystem, ParentRelayOrSiblingParachains,
+		RelayOrOtherSystemParachains,
 	},
 	TREASURY_PALLET_ID,
 };
