@@ -14,11 +14,11 @@
 // limitations under the License.
 
 use super::{
-	AccountId, AllPalletsWithSystem, Assets, Authorship, Balance, Balances, BaseDeliveryFee,
-	CollatorSelection, FeeAssetId, ForeignAssets, ForeignAssetsInstance, ParachainInfo,
+	AccountId, AllPalletsWithSystem, Assets, Balance, Balances, BaseDeliveryFee,
+	CollatorSelection, FeeAssetId, ForeignAssets, ParachainInfo,
 	ParachainSystem, PolkadotXcm, PoolAssets, Runtime, RuntimeCall, RuntimeEvent,
 	RuntimeHoldReason, RuntimeOrigin, ToWestendXcmRouter, TransactionByteFee,
-	TrustBackedAssetsInstance, Uniques, WeightToFee, XcmpQueue,
+	Uniques, WeightToFee, XcmpQueue,
 };
 use assets_common::{
 	matching::{FromNetwork, FromSiblingParachain, IsForeignConcreteAsset, ParentLocation},
