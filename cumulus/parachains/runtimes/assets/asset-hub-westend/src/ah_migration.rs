@@ -36,6 +36,10 @@ use xcm::latest::prelude::*;
 pub enum RcHoldReason {
 	#[codec(index = 28u8)]
 	Preimage(pallet_preimage::HoldReason),
+	#[codec(index = 38u8)]
+	DelegatedStaking(pallet_delegated_staking::HoldReason),
+	#[codec(index = 6u8)]
+	Staking(pallet_staking::HoldReason),
 }
 
 impl Default for RcHoldReason {
