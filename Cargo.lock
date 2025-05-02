@@ -1048,7 +1048,7 @@ dependencies = [
 
 [[package]]
 name = "asset-hub-rococo-runtime"
-version = "0.25.1"
+version = "0.25.2"
 dependencies = [
  "asset-test-utils",
  "assets-common",
@@ -1182,7 +1182,7 @@ dependencies = [
 
 [[package]]
 name = "asset-hub-westend-runtime"
-version = "0.29.1"
+version = "0.29.2"
 dependencies = [
  "asset-test-utils",
  "assets-common",
@@ -1255,7 +1255,7 @@ dependencies = [
  "sp-core 36.1.0",
  "sp-genesis-builder",
  "sp-inherents",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-keyring",
  "sp-offchain",
  "sp-runtime 41.1.0",
@@ -1294,7 +1294,7 @@ dependencies = [
  "parachains-common",
  "parachains-runtimes-test-utils",
  "parity-scale-codec",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-runtime 41.1.0",
  "staging-parachain-info",
  "staging-xcm",
@@ -2187,7 +2187,7 @@ dependencies = [
  "scale-info",
  "serde",
  "sp-core 36.1.0",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-std 14.0.0",
 ]
 
@@ -2287,7 +2287,7 @@ dependencies = [
  "scale-info",
  "serde",
  "sp-core 36.1.0",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-runtime 41.1.0",
  "sp-state-machine 0.45.0",
  "sp-std 14.0.0",
@@ -2337,7 +2337,7 @@ dependencies = [
  "scale-info",
  "serde",
  "sp-core 36.1.0",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-std 14.0.0",
  "staging-xcm",
 ]
@@ -2424,7 +2424,7 @@ dependencies = [
 
 [[package]]
 name = "bridge-hub-rococo-runtime"
-version = "0.19.0"
+version = "0.19.1"
 dependencies = [
  "bp-asset-hub-rococo",
  "bp-asset-hub-westend",
@@ -2508,7 +2508,7 @@ dependencies = [
  "sp-core 36.1.0",
  "sp-genesis-builder",
  "sp-inherents",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-keyring",
  "sp-offchain",
  "sp-runtime 41.1.0",
@@ -2557,7 +2557,7 @@ dependencies = [
  "parachains-runtimes-test-utils",
  "parity-scale-codec",
  "sp-core 36.1.0",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-keyring",
  "sp-runtime 41.1.0",
  "sp-std 14.0.0",
@@ -2618,7 +2618,7 @@ dependencies = [
  "snowbridge-pallet-outbound-queue-v2",
  "snowbridge-pallet-system",
  "sp-core 36.1.0",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-runtime 41.1.0",
  "staging-xcm",
  "staging-xcm-builder",
@@ -2629,7 +2629,7 @@ dependencies = [
 
 [[package]]
 name = "bridge-hub-westend-runtime"
-version = "0.16.0"
+version = "0.16.1"
 dependencies = [
  "bp-asset-hub-rococo",
  "bp-asset-hub-westend",
@@ -2715,7 +2715,7 @@ dependencies = [
  "sp-core 36.1.0",
  "sp-genesis-builder",
  "sp-inherents",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-keyring",
  "sp-offchain",
  "sp-runtime 41.1.0",
@@ -2759,7 +2759,7 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "sp-core 36.1.0",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-runtime 41.1.0",
  "sp-std 14.0.0",
  "sp-trie 39.1.0",
@@ -3351,7 +3351,7 @@ dependencies = [
  "sp-core 36.1.0",
  "sp-genesis-builder",
  "sp-inherents",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-keyring",
  "sp-offchain",
  "sp-runtime 41.1.0",
@@ -4434,7 +4434,7 @@ dependencies = [
  "sp-blockchain",
  "sp-consensus",
  "sp-core 36.1.0",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-runtime 41.1.0",
  "sp-transaction-pool",
 ]
@@ -4456,7 +4456,7 @@ dependencies = [
  "sp-application-crypto 40.1.0",
  "sp-consensus-aura",
  "sp-core 36.1.0",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-runtime 41.1.0",
  "sp-version 39.0.0",
 ]
@@ -4473,7 +4473,7 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "sp-core 36.1.0",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-runtime 41.1.0",
  "sp-tracing 17.1.0",
  "staging-xcm",
@@ -4512,7 +4512,7 @@ dependencies = [
  "sp-crypto-hashing 0.1.0",
  "sp-externalities 0.30.0",
  "sp-inherents",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-keyring",
  "sp-runtime 41.1.0",
  "sp-state-machine 0.45.0",
@@ -4576,7 +4576,7 @@ dependencies = [
  "log",
  "parity-scale-codec",
  "scale-info",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-runtime 41.1.0",
  "sp-trie 39.1.0",
 ]
@@ -4590,7 +4590,7 @@ dependencies = [
  "frame-system",
  "parity-scale-codec",
  "scale-info",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-runtime 41.1.0",
  "staging-xcm",
 ]
@@ -4614,7 +4614,7 @@ dependencies = [
  "polkadot-runtime-parachains",
  "scale-info",
  "sp-core 36.1.0",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-runtime 41.1.0",
  "staging-xcm",
  "staging-xcm-builder",
@@ -4647,7 +4647,7 @@ dependencies = [
  "polkadot-primitives",
  "sc-executor 0.42.0",
  "sp-core 36.1.0",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-maybe-compressed-blob 11.0.0",
  "tracing",
  "tracing-subscriber",
@@ -4695,7 +4695,7 @@ version = "0.12.0"
 dependencies = [
  "sp-core 36.1.0",
  "sp-externalities 0.30.0",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-runtime-interface 29.0.1",
  "sp-state-machine 0.45.0",
  "sp-trie 39.1.0",
@@ -4715,7 +4715,7 @@ dependencies = [
  "log",
  "parity-scale-codec",
  "scale-info",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-runtime 41.1.0",
  "sp-trie 39.1.0",
 ]
@@ -4892,7 +4892,7 @@ dependencies = [
  "sp-consensus-aura",
  "sp-core 36.1.0",
  "sp-inherents",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-keyring",
  "sp-keystore 0.42.0",
  "sp-runtime 41.1.0",
@@ -4943,7 +4943,7 @@ dependencies = [
  "sp-core 36.1.0",
  "sp-genesis-builder",
  "sp-inherents",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-keyring",
  "sp-offchain",
  "sp-runtime 41.1.0",
@@ -5018,7 +5018,7 @@ dependencies = [
  "sp-consensus-aura",
  "sp-core 36.1.0",
  "sp-genesis-builder",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-keyring",
  "sp-runtime 41.1.0",
  "sp-state-machine 0.45.0",
@@ -5745,7 +5745,7 @@ dependencies = [
 
 [[package]]
 name = "emulated-integration-tests-common"
-version = "20.0.0"
+version = "20.0.1"
 dependencies = [
  "asset-test-utils",
  "bp-messages",
@@ -6405,7 +6405,7 @@ dependencies = [
  "sp-application-crypto 40.1.0",
  "sp-core 36.1.0",
  "sp-externalities 0.30.0",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-keystore 0.42.0",
  "sp-runtime 41.1.0",
  "sp-runtime-interface 29.0.1",
@@ -6458,7 +6458,7 @@ dependencies = [
  "sp-externalities 0.30.0",
  "sp-genesis-builder",
  "sp-inherents",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-keystore 0.42.0",
  "sp-runtime 41.1.0",
  "sp-state-machine 0.45.0",
@@ -6485,7 +6485,7 @@ dependencies = [
  "frame-system",
  "parity-scale-codec",
  "scale-info",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-runtime 41.1.0",
 ]
 
@@ -6545,7 +6545,7 @@ dependencies = [
  "scale-info",
  "sp-arithmetic 26.1.0",
  "sp-core 36.1.0",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-npos-elections",
  "sp-runtime 41.1.0",
 ]
@@ -6579,7 +6579,7 @@ dependencies = [
  "scale-info",
  "sp-core 36.1.0",
  "sp-inherents",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-runtime 41.1.0",
  "sp-tracing 17.1.0",
  "sp-version 39.0.0",
@@ -6685,7 +6685,7 @@ dependencies = [
  "serde",
  "sp-core 36.1.0",
  "sp-crypto-hashing 0.1.0",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-runtime 41.1.0",
  "sp-state-machine 0.45.0",
  "sp-tracing 17.1.0",
@@ -6727,7 +6727,7 @@ dependencies = [
  "sp-debug-derive 14.0.0",
  "sp-genesis-builder",
  "sp-inherents",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-metadata-ir 0.10.0",
  "sp-runtime 41.1.0",
  "sp-staking",
@@ -6763,7 +6763,7 @@ dependencies = [
  "scale-info",
  "sp-core 36.1.0",
  "sp-crypto-hashing 0.1.0",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-metadata-ir 0.10.0",
  "sp-runtime 41.1.0",
  "static_assertions",
@@ -6808,7 +6808,7 @@ dependencies = [
  "sp-api 36.0.1",
  "sp-arithmetic 26.1.0",
  "sp-core 36.1.0",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-metadata-ir 0.10.0",
  "sp-runtime 41.1.0",
  "sp-state-machine 0.45.0",
@@ -6865,7 +6865,7 @@ dependencies = [
  "serde",
  "sp-core 36.1.0",
  "sp-externalities 0.30.0",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-runtime 41.1.0",
  "sp-version 39.0.0",
  "sp-weights 31.1.0",
@@ -6883,7 +6883,7 @@ dependencies = [
  "scale-info",
  "sp-core 36.1.0",
  "sp-externalities 0.30.0",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-runtime 41.1.0",
  "sp-version 39.0.0",
 ]
@@ -10962,7 +10962,7 @@ dependencies = [
  "scale-info",
  "sp-core 36.1.0",
  "sp-crypto-hashing 0.1.0",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-runtime 41.1.0",
 ]
 
@@ -10982,7 +10982,7 @@ dependencies = [
  "sp-api 36.0.1",
  "sp-arithmetic 26.1.0",
  "sp-core 36.1.0",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-runtime 41.1.0",
 ]
 
@@ -11002,7 +11002,7 @@ dependencies = [
  "scale-info",
  "sp-arithmetic 26.1.0",
  "sp-core 36.1.0",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-runtime 41.1.0",
 ]
 
@@ -11020,7 +11020,7 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "sp-core 36.1.0",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-runtime 41.1.0",
  "sp-storage 22.0.0",
 ]
@@ -11036,7 +11036,7 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "sp-core 36.1.0",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-runtime 41.1.0",
 ]
 
@@ -11056,7 +11056,7 @@ dependencies = [
  "sp-api 36.0.1",
  "sp-arithmetic 26.1.0",
  "sp-core 36.1.0",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-runtime 41.1.0",
  "sp-std 14.0.0",
 ]
@@ -11076,7 +11076,7 @@ dependencies = [
  "scale-info",
  "serde",
  "sp-core 36.1.0",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-runtime 41.1.0",
  "sp-storage 22.0.0",
 ]
@@ -11094,7 +11094,7 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "sp-core 36.1.0",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-runtime 41.1.0",
 ]
 
@@ -11123,7 +11123,7 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "sp-core 36.1.0",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-runtime 41.1.0",
 ]
 
@@ -11150,7 +11150,7 @@ dependencies = [
  "sp-application-crypto 40.1.0",
  "sp-consensus-aura",
  "sp-core 36.1.0",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-runtime 41.1.0",
 ]
 
@@ -11166,7 +11166,7 @@ dependencies = [
  "sp-application-crypto 40.1.0",
  "sp-authority-discovery",
  "sp-core 36.1.0",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-runtime 41.1.0",
 ]
 
@@ -11180,7 +11180,7 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "sp-core 36.1.0",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-runtime 41.1.0",
 ]
 
@@ -11205,7 +11205,7 @@ dependencies = [
  "sp-application-crypto 40.1.0",
  "sp-consensus-babe",
  "sp-core 36.1.0",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-runtime 41.1.0",
  "sp-session",
  "sp-staking",
@@ -11226,7 +11226,7 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "sp-core 36.1.0",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-runtime 41.1.0",
  "sp-tracing 17.1.0",
 ]
@@ -11269,7 +11269,7 @@ dependencies = [
  "paste",
  "scale-info",
  "sp-core 36.1.0",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-runtime 41.1.0",
 ]
 
@@ -11293,7 +11293,7 @@ dependencies = [
  "serde",
  "sp-consensus-beefy",
  "sp-core 36.1.0",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-runtime 41.1.0",
  "sp-session",
  "sp-staking",
@@ -11319,7 +11319,7 @@ dependencies = [
  "sp-api 36.0.1",
  "sp-consensus-beefy",
  "sp-core 36.1.0",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-runtime 41.1.0",
  "sp-staking",
  "sp-state-machine 0.45.0",
@@ -11338,7 +11338,7 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "sp-core 36.1.0",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-runtime 41.1.0",
 ]
 
@@ -11361,7 +11361,7 @@ dependencies = [
  "serde",
  "sp-consensus-beefy",
  "sp-core 36.1.0",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-runtime 41.1.0",
  "sp-std 14.0.0",
 ]
@@ -11381,7 +11381,7 @@ dependencies = [
  "scale-info",
  "sp-consensus-grandpa",
  "sp-core 36.1.0",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-runtime 41.1.0",
  "sp-std 14.0.0",
 ]
@@ -11403,7 +11403,7 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "sp-core 36.1.0",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-runtime 41.1.0",
  "sp-std 14.0.0",
  "sp-trie 39.1.0",
@@ -11426,7 +11426,7 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "sp-core 36.1.0",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-runtime 41.1.0",
  "sp-std 14.0.0",
 ]
@@ -11456,7 +11456,7 @@ dependencies = [
  "scale-info",
  "sp-arithmetic 26.1.0",
  "sp-core 36.1.0",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-runtime 41.1.0",
 ]
 
@@ -11475,7 +11475,7 @@ dependencies = [
  "sp-api 36.0.1",
  "sp-arithmetic 26.1.0",
  "sp-core 36.1.0",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-runtime 41.1.0",
  "sp-tracing 17.1.0",
 ]
@@ -11494,7 +11494,7 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "sp-core 36.1.0",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-runtime 41.1.0",
 ]
 
@@ -11515,7 +11515,7 @@ dependencies = [
  "rand 0.8.5",
  "scale-info",
  "sp-consensus-aura",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-runtime 41.1.0",
  "sp-staking",
  "sp-tracing 17.1.0",
@@ -11534,7 +11534,7 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "sp-core 36.1.0",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-runtime 41.1.0",
 ]
 
@@ -11548,7 +11548,7 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "sp-core 36.1.0",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-runtime 41.1.0",
 ]
 
@@ -11582,7 +11582,7 @@ dependencies = [
  "smallvec",
  "sp-api 36.0.1",
  "sp-core 36.1.0",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-keystore 0.42.0",
  "sp-runtime 41.1.0",
  "sp-tracing 17.1.0",
@@ -11627,7 +11627,7 @@ dependencies = [
  "scale-info",
  "sp-api 36.0.1",
  "sp-core 36.1.0",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-keystore 0.42.0",
  "sp-runtime 41.1.0",
  "sp-tracing 17.1.0",
@@ -11669,7 +11669,7 @@ dependencies = [
  "scale-info",
  "serde",
  "sp-core 36.1.0",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-runtime 41.1.0",
 ]
 
@@ -11686,7 +11686,7 @@ dependencies = [
  "scale-info",
  "sp-arithmetic 26.1.0",
  "sp-core 36.1.0",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-runtime 41.1.0",
 ]
 
@@ -11699,7 +11699,7 @@ dependencies = [
  "log",
  "parity-scale-codec",
  "scale-info",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-runtime 41.1.0",
 ]
 
@@ -11719,7 +11719,7 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "sp-core 36.1.0",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-runtime 41.1.0",
  "sp-staking",
  "sp-tracing 17.1.0",
@@ -11740,7 +11740,7 @@ dependencies = [
  "scale-info",
  "serde",
  "sp-core 36.1.0",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-runtime 41.1.0",
 ]
 
@@ -11755,7 +11755,7 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "sp-core 36.1.0",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-runtime 41.1.0",
 ]
 
@@ -11779,7 +11779,7 @@ dependencies = [
  "parking_lot 0.12.3",
  "scale-info",
  "sp-core 36.1.0",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-npos-elections",
  "sp-runtime 41.1.0",
  "sp-staking",
@@ -11803,7 +11803,7 @@ dependencies = [
  "scale-info",
  "sp-arithmetic 26.1.0",
  "sp-core 36.1.0",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-npos-elections",
  "sp-runtime 41.1.0",
  "sp-tracing 17.1.0",
@@ -11834,7 +11834,7 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "sp-core 36.1.0",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-npos-elections",
  "sp-runtime 41.1.0",
  "sp-staking",
@@ -11855,7 +11855,7 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "sp-core 36.1.0",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-keyring",
  "sp-runtime 41.1.0",
 ]
@@ -11872,7 +11872,7 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "sp-core 36.1.0",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-runtime 41.1.0",
 ]
 
@@ -11897,7 +11897,7 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "sp-core 36.1.0",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-runtime 41.1.0",
 ]
 
@@ -11912,7 +11912,7 @@ dependencies = [
  "pallet-migrations",
  "parity-scale-codec",
  "scale-info",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
 ]
 
 [[package]]
@@ -11926,7 +11926,7 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "sp-core 36.1.0",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-keystore 0.42.0",
  "sp-runtime 41.1.0",
 ]
@@ -11945,7 +11945,7 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "sp-core 36.1.0",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-runtime 41.1.0",
  "sp-version 39.0.0",
 ]
@@ -11961,7 +11961,7 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "sp-core 36.1.0",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
 ]
 
 [[package]]
@@ -11975,7 +11975,7 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "sp-core 36.1.0",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-runtime 41.1.0",
 ]
 
@@ -11992,7 +11992,7 @@ dependencies = [
  "pretty_assertions",
  "scale-info",
  "sp-core 36.1.0",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-metadata-ir 0.10.0",
  "sp-runtime 41.1.0",
 ]
@@ -12031,7 +12031,7 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "sp-core 36.1.0",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-runtime 41.1.0",
  "sp-staking",
  "sp-tracing 17.1.0",
@@ -12050,7 +12050,7 @@ dependencies = [
  "scale-info",
  "sp-core 36.1.0",
  "sp-inherents",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-runtime 41.1.0",
 ]
 
@@ -12076,7 +12076,7 @@ dependencies = [
  "sp-application-crypto 40.1.0",
  "sp-consensus-grandpa",
  "sp-core 36.1.0",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-keyring",
  "sp-runtime 41.1.0",
  "sp-session",
@@ -12096,7 +12096,7 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "sp-core 36.1.0",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-keystore 0.42.0",
  "sp-runtime 41.1.0",
 ]
@@ -12115,7 +12115,7 @@ dependencies = [
  "scale-info",
  "sp-application-crypto 40.1.0",
  "sp-core 36.1.0",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-runtime 41.1.0",
  "sp-staking",
 ]
@@ -12131,7 +12131,7 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "sp-core 36.1.0",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-runtime 41.1.0",
 ]
 
@@ -12157,7 +12157,7 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "sp-core 36.1.0",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-runtime 41.1.0",
 ]
 
@@ -12172,7 +12172,7 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "sp-core 36.1.0",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-runtime 41.1.0",
 ]
 
@@ -12193,7 +12193,7 @@ dependencies = [
  "sp-arithmetic 26.1.0",
  "sp-core 36.1.0",
  "sp-crypto-hashing 0.1.0",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-runtime 41.1.0",
  "sp-tracing 17.1.0",
  "sp-weights 31.1.0",
@@ -12214,7 +12214,7 @@ dependencies = [
  "scale-info",
  "serde",
  "sp-core 36.1.0",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-keyring",
  "sp-keystore 0.42.0",
  "sp-runtime 41.1.0",
@@ -12237,7 +12237,7 @@ dependencies = [
  "pretty_assertions",
  "scale-info",
  "sp-core 36.1.0",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-runtime 41.1.0",
  "sp-tracing 17.1.0",
 ]
@@ -12302,7 +12302,7 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "sp-core 36.1.0",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-runtime 41.1.0",
 ]
 
@@ -12319,7 +12319,7 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "sp-core 36.1.0",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-keystore 0.42.0",
  "sp-runtime 41.1.0",
 ]
@@ -12340,7 +12340,7 @@ dependencies = [
  "parity-scale-codec",
  "polkadot-sdk-frame",
  "scale-info",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
 ]
 
 [[package]]
@@ -12364,7 +12364,7 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "sp-core 36.1.0",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-runtime 41.1.0",
  "sp-staking",
  "sp-tracing 17.1.0",
@@ -12388,7 +12388,7 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "sp-core 36.1.0",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-runtime 41.1.0",
  "sp-runtime-interface 29.0.1",
  "sp-staking",
@@ -12404,7 +12404,7 @@ dependencies = [
  "log",
  "pallet-nomination-pools",
  "rand 0.8.5",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-runtime 41.1.0",
  "sp-tracing 17.1.0",
 ]
@@ -12436,7 +12436,7 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "sp-core 36.1.0",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-runtime 41.1.0",
  "sp-staking",
  "sp-tracing 17.1.0",
@@ -12453,7 +12453,7 @@ dependencies = [
  "scale-info",
  "serde",
  "sp-core 36.1.0",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-runtime 41.1.0",
  "sp-staking",
 ]
@@ -12479,7 +12479,7 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "sp-core 36.1.0",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-runtime 41.1.0",
  "sp-staking",
 ]
@@ -12494,7 +12494,7 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "sp-core 36.1.0",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-metadata-ir 0.10.0",
  "sp-runtime 41.1.0",
 ]
@@ -12533,7 +12533,7 @@ dependencies = [
  "scale-info",
  "serde",
  "sp-core 36.1.0",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-runtime 41.1.0",
 ]
 
@@ -12549,7 +12549,7 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "sp-core 36.1.0",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-runtime 41.1.0",
 ]
 
@@ -12577,7 +12577,7 @@ dependencies = [
  "scale-info",
  "sp-arithmetic 26.1.0",
  "sp-core 36.1.0",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-runtime 41.1.0",
 ]
 
@@ -12592,7 +12592,7 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "sp-core 36.1.0",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-runtime 41.1.0",
 ]
 
@@ -12613,7 +12613,7 @@ dependencies = [
  "serde",
  "sp-arithmetic 26.1.0",
  "sp-core 36.1.0",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-runtime 41.1.0",
 ]
 
@@ -12628,7 +12628,7 @@ dependencies = [
  "scale-info",
  "serde",
  "sp-core 36.1.0",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-runtime 41.1.0",
 ]
 
@@ -12679,7 +12679,7 @@ dependencies = [
  "sp-consensus-babe",
  "sp-consensus-slots",
  "sp-core 36.1.0",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-keystore 0.42.0",
  "sp-runtime 41.1.0",
  "sp-tracing 17.1.0",
@@ -12734,7 +12734,7 @@ dependencies = [
  "pallet-revive-uapi",
  "polkavm-linker 0.21.0",
  "sp-core 36.1.0",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "toml 0.8.19",
 ]
 
@@ -12758,7 +12758,7 @@ dependencies = [
  "polkadot-runtime-parachains",
  "scale-info",
  "sp-core 36.1.0",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-runtime 41.1.0",
  "sp-tracing 17.1.0",
  "staging-xcm",
@@ -12802,7 +12802,7 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "sp-core 36.1.0",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-runtime 41.1.0",
  "sp-staking",
 ]
@@ -12816,7 +12816,7 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "sp-core 36.1.0",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-runtime 41.1.0",
 ]
 
@@ -12835,7 +12835,7 @@ dependencies = [
  "scale-info",
  "sp-arithmetic 26.1.0",
  "sp-core 36.1.0",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-runtime 41.1.0",
 ]
 
@@ -12864,7 +12864,7 @@ dependencies = [
  "sp-consensus-sassafras",
  "sp-core 36.1.0",
  "sp-crypto-hashing 0.1.0",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-runtime 41.1.0",
 ]
 
@@ -12881,7 +12881,7 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "sp-core 36.1.0",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-runtime 41.1.0",
  "sp-weights 31.1.0",
  "substrate-test-utils",
@@ -12897,7 +12897,7 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "sp-core 36.1.0",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-runtime 41.1.0",
 ]
 
@@ -12913,7 +12913,7 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "sp-core 36.1.0",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-runtime 41.1.0",
  "sp-session",
  "sp-staking",
@@ -12938,7 +12938,7 @@ dependencies = [
  "rand 0.8.5",
  "scale-info",
  "sp-core 36.1.0",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-runtime 41.1.0",
  "sp-session",
 ]
@@ -12970,7 +12970,7 @@ dependencies = [
  "sp-arithmetic 26.1.0",
  "sp-core 36.1.0",
  "sp-crypto-hashing 0.1.0",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-runtime 41.1.0",
 ]
 
@@ -12995,7 +12995,7 @@ dependencies = [
  "serde",
  "sp-application-crypto 40.1.0",
  "sp-core 36.1.0",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-npos-elections",
  "sp-runtime 41.1.0",
  "sp-staking",
@@ -13045,7 +13045,7 @@ dependencies = [
  "scale-info",
  "serde",
  "sp-core 36.1.0",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-runtime 41.1.0",
  "sp-tracing 17.1.0",
  "substrate-state-trie-migration-rpc",
@@ -13066,7 +13066,7 @@ dependencies = [
  "scale-info",
  "sp-api 36.0.1",
  "sp-core 36.1.0",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-runtime 41.1.0",
  "sp-statement-store",
 ]
@@ -13082,7 +13082,7 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "sp-core 36.1.0",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-runtime 41.1.0",
 ]
 
@@ -13096,7 +13096,7 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "sp-core 36.1.0",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-runtime 41.1.0",
 ]
 
@@ -13113,7 +13113,7 @@ dependencies = [
  "scale-info",
  "sp-core 36.1.0",
  "sp-inherents",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-runtime 41.1.0",
  "sp-storage 22.0.0",
  "sp-timestamp",
@@ -13133,7 +13133,7 @@ dependencies = [
  "scale-info",
  "serde",
  "sp-core 36.1.0",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-runtime 41.1.0",
  "sp-storage 22.0.0",
 ]
@@ -13151,7 +13151,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sp-core 36.1.0",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-runtime 41.1.0",
 ]
 
@@ -13196,7 +13196,7 @@ dependencies = [
  "serde",
  "sp-core 36.1.0",
  "sp-inherents",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-runtime 41.1.0",
  "sp-transaction-storage-proof",
 ]
@@ -13217,7 +13217,7 @@ dependencies = [
  "scale-info",
  "serde",
  "sp-core 36.1.0",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-runtime 41.1.0",
 ]
 
@@ -13246,7 +13246,7 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "sp-core 36.1.0",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-runtime 41.1.0",
 ]
 
@@ -13264,7 +13264,7 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "sp-core 36.1.0",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-runtime 41.1.0",
 ]
 
@@ -13278,7 +13278,7 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "sp-core 36.1.0",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-runtime 41.1.0",
  "sp-weights 31.1.0",
 ]
@@ -13295,7 +13295,7 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "sp-core 36.1.0",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-runtime 41.1.0",
 ]
 
@@ -13326,7 +13326,7 @@ dependencies = [
  "scale-info",
  "serde",
  "sp-core 36.1.0",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-runtime 41.1.0",
  "sp-tracing 17.1.0",
  "staging-xcm",
@@ -13347,7 +13347,7 @@ dependencies = [
  "pallet-balances",
  "parity-scale-codec",
  "scale-info",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-runtime 41.1.0",
  "sp-tracing 17.1.0",
  "staging-xcm",
@@ -13374,7 +13374,7 @@ dependencies = [
  "polkadot-parachain-primitives",
  "scale-info",
  "sp-core 36.1.0",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-runtime 41.1.0",
  "sp-std 14.0.0",
  "staging-xcm",
@@ -13394,7 +13394,7 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "sp-core 36.1.0",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-runtime 41.1.0",
  "sp-std 14.0.0",
  "staging-xcm",
@@ -13462,7 +13462,7 @@ dependencies = [
  "scale-info",
  "sp-consensus-aura",
  "sp-core 36.1.0",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-runtime 41.1.0",
  "staging-parachain-info",
  "staging-xcm",
@@ -13504,7 +13504,7 @@ dependencies = [
  "polkadot-parachain-primitives",
  "sp-consensus-aura",
  "sp-core 36.1.0",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-runtime 41.1.0",
  "sp-tracing 17.1.0",
  "staging-parachain-info",
@@ -13716,7 +13716,7 @@ dependencies = [
 
 [[package]]
 name = "penpal-runtime"
-version = "0.28.0"
+version = "0.28.1"
 dependencies = [
  "assets-common",
  "cumulus-pallet-aura-ext",
@@ -14837,7 +14837,7 @@ dependencies = [
  "sp-core 36.1.0",
  "sp-crypto-hashing 0.1.0",
  "sp-externalities 0.30.0",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-tracing 17.1.0",
  "tempfile",
  "thiserror 1.0.65",
@@ -15250,7 +15250,7 @@ dependencies = [
  "sp-consensus-slots",
  "sp-core 36.1.0",
  "sp-inherents",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-keystore 0.42.0",
  "sp-runtime 41.1.0",
  "sp-staking",
@@ -15343,7 +15343,7 @@ dependencies = [
  "sp-api 36.0.1",
  "sp-core 36.1.0",
  "sp-inherents",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-keyring",
  "sp-keystore 0.42.0",
  "sp-npos-elections",
@@ -15410,7 +15410,7 @@ dependencies = [
  "sp-core 36.1.0",
  "sp-crypto-hashing 0.1.0",
  "sp-inherents",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-keyring",
  "sp-keystore 0.42.0",
  "sp-runtime 41.1.0",
@@ -15749,7 +15749,7 @@ dependencies = [
  "sp-externalities 0.30.0",
  "sp-genesis-builder",
  "sp-inherents",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-keyring",
  "sp-keystore 0.42.0",
  "sp-maybe-compressed-blob 11.0.0",
@@ -15883,7 +15883,7 @@ dependencies = [
  "sp-arithmetic 26.1.0",
  "sp-core 36.1.0",
  "sp-genesis-builder",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-keyring",
  "sp-offchain",
  "sp-runtime 41.1.0",
@@ -15959,7 +15959,7 @@ dependencies = [
  "sp-core 36.1.0",
  "sp-genesis-builder",
  "sp-inherents",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-keyring",
  "sp-offchain",
  "sp-runtime 41.1.0",
@@ -16064,7 +16064,7 @@ dependencies = [
  "sp-core 36.1.0",
  "sp-genesis-builder",
  "sp-inherents",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-keyring",
  "sp-mmr-primitives",
  "sp-offchain",
@@ -16214,7 +16214,7 @@ dependencies = [
  "sp-consensus",
  "sp-consensus-babe",
  "sp-inherents",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-keyring",
  "sp-runtime 41.1.0",
  "sp-state-machine 0.45.0",
@@ -16289,7 +16289,7 @@ dependencies = [
  "sp-core 36.1.0",
  "sp-genesis-builder",
  "sp-inherents",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-mmr-primitives",
  "sp-offchain",
  "sp-runtime 41.1.0",
@@ -17988,7 +17988,7 @@ dependencies = [
  "sp-core 36.1.0",
  "sp-genesis-builder",
  "sp-inherents",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-keyring",
  "sp-mmr-primitives",
  "sp-offchain",
@@ -18630,7 +18630,7 @@ dependencies = [
  "sp-core 36.1.0",
  "sp-crypto-hashing 0.1.0",
  "sp-genesis-builder",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-keyring",
  "sp-runtime 41.1.0",
  "sp-state-machine 0.45.0",
@@ -19154,7 +19154,7 @@ dependencies = [
  "sp-core 36.1.0",
  "sp-crypto-hashing 0.1.0",
  "sp-externalities 0.30.0",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-maybe-compressed-blob 11.0.0",
  "sp-panic-handler 13.0.2",
  "sp-runtime 41.1.0",
@@ -19252,7 +19252,7 @@ dependencies = [
  "sc-allocator 31.0.0",
  "sc-executor-common 0.38.0",
  "sc-runtime-test",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-runtime-interface 29.0.1",
  "sp-wasm-interface 21.0.1",
  "tempfile",
@@ -19318,7 +19318,7 @@ dependencies = [
 
 [[package]]
 name = "sc-network"
-version = "0.49.0"
+version = "0.49.1"
 dependencies = [
  "array-bytes",
  "assert_matches",
@@ -19686,7 +19686,7 @@ dependencies = [
 
 [[package]]
 name = "sc-rpc-spec-v2"
-version = "0.49.0"
+version = "0.49.1"
 dependencies = [
  "array-bytes",
  "assert_matches",
@@ -19734,7 +19734,7 @@ name = "sc-runtime-test"
 version = "2.0.0"
 dependencies = [
  "sp-core 36.1.0",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-runtime 41.1.0",
  "sp-runtime-interface 29.0.1",
  "substrate-wasm-builder",
@@ -19751,7 +19751,7 @@ dependencies = [
  "sc-executor-common 0.38.0",
  "sp-core 36.1.0",
  "sp-crypto-hashing 0.1.0",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-state-machine 0.45.0",
  "sp-version 39.0.0",
  "sp-wasm-interface 21.0.1",
@@ -19848,7 +19848,7 @@ dependencies = [
  "sp-blockchain",
  "sp-consensus",
  "sp-core 36.1.0",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-runtime 41.1.0",
  "sp-state-machine 0.45.0",
  "sp-storage 22.0.0",
@@ -19935,7 +19935,7 @@ dependencies = [
  "serde_json",
  "sp-core 36.1.0",
  "sp-crypto-hashing 0.1.0",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-runtime 41.1.0",
 ]
 
@@ -19988,7 +19988,7 @@ dependencies = [
 
 [[package]]
 name = "sc-tracing-proc-macro"
-version = "11.0.0"
+version = "11.1.0"
 dependencies = [
  "proc-macro-crate 3.1.0",
  "proc-macro2 1.0.93",
@@ -21211,7 +21211,7 @@ dependencies = [
  "snowbridge-ethereum",
  "snowbridge-milagro-bls",
  "sp-core 36.1.0",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-runtime 41.1.0",
  "sp-std 14.0.0",
  "ssz_rs",
@@ -21234,7 +21234,7 @@ dependencies = [
  "serde",
  "sp-arithmetic 26.1.0",
  "sp-core 36.1.0",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-runtime 41.1.0",
  "sp-std 14.0.0",
  "staging-xcm",
@@ -21256,7 +21256,7 @@ dependencies = [
  "scale-info",
  "serde",
  "serde-big-array",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-runtime 41.1.0",
  "sp-std 14.0.0",
 ]
@@ -21276,7 +21276,7 @@ dependencies = [
  "snowbridge-core",
  "snowbridge-verification-primitives",
  "sp-core 36.1.0",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-runtime 41.1.0",
  "sp-std 14.0.0",
  "staging-xcm",
@@ -21316,7 +21316,7 @@ dependencies = [
 
 [[package]]
 name = "snowbridge-outbound-queue-primitives"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "alloy-core",
  "ethabi-decode",
@@ -21331,7 +21331,7 @@ dependencies = [
  "snowbridge-verification-primitives",
  "sp-arithmetic 26.1.0",
  "sp-core 36.1.0",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-runtime 41.1.0",
  "sp-std 14.0.0",
  "staging-xcm",
@@ -21387,7 +21387,7 @@ dependencies = [
  "snowbridge-pallet-ethereum-client-fixtures",
  "snowbridge-verification-primitives",
  "sp-core 36.1.0",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-runtime 41.1.0",
  "sp-std 14.0.0",
  "static_assertions",
@@ -21395,7 +21395,7 @@ dependencies = [
 
 [[package]]
 name = "snowbridge-pallet-ethereum-client-fixtures"
-version = "0.21.0"
+version = "0.21.1"
 dependencies = [
  "hex-literal",
  "snowbridge-beacon-primitives",
@@ -21425,7 +21425,7 @@ dependencies = [
  "snowbridge-pallet-ethereum-client",
  "snowbridge-pallet-inbound-queue-fixtures",
  "sp-core 36.1.0",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-keyring",
  "sp-runtime 41.1.0",
  "sp-std 14.0.0",
@@ -21467,7 +21467,7 @@ dependencies = [
  "snowbridge-pallet-inbound-queue-v2-fixtures",
  "snowbridge-test-utils",
  "sp-core 36.1.0",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-keyring",
  "sp-runtime 41.1.0",
  "sp-std 14.0.0",
@@ -21507,14 +21507,14 @@ dependencies = [
  "snowbridge-outbound-queue-primitives",
  "sp-arithmetic 26.1.0",
  "sp-core 36.1.0",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-runtime 41.1.0",
  "sp-std 14.0.0",
 ]
 
 [[package]]
 name = "snowbridge-pallet-outbound-queue-v2"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "alloy-core",
  "bp-relayers",
@@ -21535,7 +21535,7 @@ dependencies = [
  "snowbridge-verification-primitives",
  "sp-arithmetic 26.1.0",
  "sp-core 36.1.0",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-runtime 41.1.0",
  "sp-std 14.0.0",
  "staging-xcm",
@@ -21545,7 +21545,7 @@ dependencies = [
 
 [[package]]
 name = "snowbridge-pallet-system"
-version = "0.13.1"
+version = "0.13.2"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -21562,7 +21562,7 @@ dependencies = [
  "snowbridge-outbound-queue-primitives",
  "snowbridge-pallet-outbound-queue",
  "sp-core 36.1.0",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-runtime 41.1.0",
  "sp-std 14.0.0",
  "staging-xcm",
@@ -21584,7 +21584,7 @@ dependencies = [
  "snowbridge-core",
  "snowbridge-test-utils",
  "sp-core 36.1.0",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-runtime 41.1.0",
  "sp-std 14.0.0",
  "staging-xcm",
@@ -21612,7 +21612,7 @@ dependencies = [
  "snowbridge-pallet-system",
  "snowbridge-test-utils",
  "sp-core 36.1.0",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-keyring",
  "sp-runtime 41.1.0",
  "sp-std 14.0.0",
@@ -21660,7 +21660,7 @@ dependencies = [
  "snowbridge-pallet-outbound-queue",
  "snowbridge-pallet-system",
  "sp-core 36.1.0",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-keyring",
  "sp-runtime 41.1.0",
  "staging-parachain-info",
@@ -21806,7 +21806,7 @@ dependencies = [
  "sp-core 36.1.0",
  "sp-genesis-builder",
  "sp-inherents",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-keyring",
  "sp-runtime 41.1.0",
  "sp-timestamp",
@@ -21988,7 +21988,7 @@ dependencies = [
  "scale-info",
  "serde",
  "sp-core 36.1.0",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
 ]
 
 [[package]]
@@ -22141,7 +22141,7 @@ dependencies = [
  "sp-application-crypto 40.1.0",
  "sp-core 36.1.0",
  "sp-crypto-hashing 0.1.0",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-keystore 0.42.0",
  "sp-mmr-primitives",
  "sp-runtime 41.1.0",
@@ -22619,7 +22619,7 @@ dependencies = [
 
 [[package]]
 name = "sp-io"
-version = "40.0.0"
+version = "40.0.1"
 dependencies = [
  "bytes",
  "docify",
@@ -22885,7 +22885,7 @@ dependencies = [
  "sp-application-crypto 40.1.0",
  "sp-arithmetic 26.1.0",
  "sp-core 36.1.0",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-state-machine 0.45.0",
  "sp-std 14.0.0",
  "sp-tracing 17.1.0",
@@ -22949,7 +22949,7 @@ dependencies = [
  "rustversion",
  "sp-core 36.1.0",
  "sp-externalities 0.30.0",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-runtime-interface-proc-macro 18.0.0",
  "sp-runtime-interface-test-wasm",
  "sp-state-machine 0.45.0",
@@ -22993,7 +22993,7 @@ version = "2.0.0"
 dependencies = [
  "sc-executor 0.42.0",
  "sc-executor-common 0.38.0",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-runtime 41.1.0",
  "sp-runtime-interface 29.0.1",
  "sp-runtime-interface-test-wasm",
@@ -23009,7 +23009,7 @@ version = "2.0.0"
 dependencies = [
  "bytes",
  "sp-core 36.1.0",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-runtime-interface 29.0.1",
  "substrate-wasm-builder",
 ]
@@ -23019,7 +23019,7 @@ name = "sp-runtime-interface-test-wasm-deprecated"
 version = "2.0.0"
 dependencies = [
  "sp-core 36.1.0",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-runtime-interface 29.0.1",
  "substrate-wasm-builder",
 ]
@@ -23783,7 +23783,7 @@ dependencies = [
  "sc-service",
  "sp-blockchain",
  "sp-core 36.1.0",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-runtime 41.1.0",
  "sp-statement-store",
  "thiserror 1.0.65",
@@ -23821,7 +23821,7 @@ dependencies = [
  "scale-info",
  "schemars",
  "serde",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-runtime 41.1.0",
  "sp-weights 31.1.0",
  "xcm-procedural",
@@ -23829,7 +23829,7 @@ dependencies = [
 
 [[package]]
 name = "staging-xcm-builder"
-version = "20.0.0"
+version = "20.1.0"
 dependencies = [
  "environmental",
  "frame-support",
@@ -23850,7 +23850,7 @@ dependencies = [
  "scale-info",
  "sp-arithmetic 26.1.0",
  "sp-core 36.1.0",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-runtime 41.1.0",
  "sp-weights 31.1.0",
  "staging-xcm",
@@ -23870,7 +23870,7 @@ dependencies = [
  "scale-info",
  "sp-arithmetic 26.1.0",
  "sp-core 36.1.0",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-runtime 41.1.0",
  "sp-weights 31.1.0",
  "staging-xcm",
@@ -24281,7 +24281,7 @@ dependencies = [
  "sp-externalities 0.30.0",
  "sp-genesis-builder",
  "sp-inherents",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-keyring",
  "sp-offchain",
  "sp-runtime 41.1.0",
@@ -24369,7 +24369,7 @@ dependencies = [
 
 [[package]]
 name = "substrate-wasm-builder"
-version = "26.0.0"
+version = "26.0.1"
 dependencies = [
  "array-bytes",
  "build-helper",
@@ -24385,7 +24385,7 @@ dependencies = [
  "sc-executor 0.42.0",
  "shlex",
  "sp-core 36.1.0",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-maybe-compressed-blob 11.0.0",
  "sp-tracing 17.1.0",
  "sp-version 39.0.0",
@@ -25124,7 +25124,7 @@ dependencies = [
  "dlmalloc",
  "parity-scale-codec",
  "polkadot-parachain-primitives",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "substrate-wasm-builder",
  "tiny-keccak",
 ]
@@ -25171,7 +25171,7 @@ dependencies = [
  "parity-scale-codec",
  "polkadot-parachain-primitives",
  "polkadot-primitives",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "substrate-wasm-builder",
  "tiny-keccak",
 ]
@@ -27021,7 +27021,7 @@ dependencies = [
  "sp-core 36.1.0",
  "sp-genesis-builder",
  "sp-inherents",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-keyring",
  "sp-mmr-primitives",
  "sp-npos-elections",
@@ -27551,7 +27551,7 @@ dependencies = [
  "polkadot-sdk-frame",
  "scale-info",
  "simple-mermaid 0.1.0",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-runtime 41.1.0",
  "staging-xcm",
  "staging-xcm-builder",
@@ -27562,7 +27562,7 @@ dependencies = [
 
 [[package]]
 name = "xcm-emulator"
-version = "0.19.0"
+version = "0.19.1"
 dependencies = [
  "array-bytes",
  "cumulus-pallet-parachain-system",
@@ -27585,7 +27585,7 @@ dependencies = [
  "sp-arithmetic 26.1.0",
  "sp-core 36.1.0",
  "sp-crypto-hashing 0.1.0",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-runtime 41.1.0",
  "sp-tracing 17.1.0",
  "staging-xcm",
@@ -27644,7 +27644,7 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "sp-api 36.0.1",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-tracing 17.1.0",
  "sp-weights 31.1.0",
  "staging-xcm",
@@ -27665,7 +27665,7 @@ dependencies = [
  "polkadot-primitives",
  "polkadot-runtime-parachains",
  "scale-info",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-runtime 41.1.0",
  "staging-xcm",
  "staging-xcm-builder",
@@ -27688,7 +27688,7 @@ dependencies = [
  "polkadot-runtime-parachains",
  "scale-info",
  "sp-core 36.1.0",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-runtime 41.1.0",
  "sp-tracing 17.1.0",
  "staging-xcm",
@@ -27716,7 +27716,7 @@ dependencies = [
  "polkadot-runtime-parachains",
  "scale-info",
  "sp-core 36.1.0",
- "sp-io 40.0.0",
+ "sp-io 40.0.1",
  "sp-runtime 41.1.0",
  "staging-xcm",
  "staging-xcm-builder",

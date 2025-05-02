@@ -55,7 +55,7 @@ xcm-executor.workspace = true
 xcm.workspace = true
 
 [dev-dependencies]
-polkadot-primitives = { features = ["test"], workspace = true, default-features = false }
+polkadot-primitives = { features = ["test"], default-features = false, workspace = true }
 
 assert_matches = { workspace = true }
 frame-support-test = { workspace = true }

@@ -34,7 +34,7 @@ thiserror = { workspace = true }
 [dev-dependencies]
 assert_matches = { workspace = true }
 polkadot-node-subsystem-test-helpers = { workspace = true }
-polkadot-primitives = { features = ["test"], workspace = true, default-features = false }
+polkadot-primitives = { features = ["test"], default-features = false, workspace = true }
 polkadot-primitives-test-helpers = { workspace = true }
 rstest = { workspace = true }
 sp-keyring = { default-features = true, workspace = true }

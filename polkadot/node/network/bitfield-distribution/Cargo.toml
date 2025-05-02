@@ -37,4 +37,4 @@ sp-authority-discovery = { default-features = true, workspace = true }
 sp-core = { default-features = true, workspace = true }
 sp-keyring = { default-features = true, workspace = true }
 sp-keystore = { default-features = true, workspace = true }
-sp-tracing = { workspace = true, default-features = false }
+sp-tracing = { default-features = false, workspace = true }

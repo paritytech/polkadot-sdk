@@ -39,8 +39,8 @@ xcm-executor.workspace = true
 xcm.workspace = true
 
 [dev-dependencies]
-pallet-authorship = { workspace = true, default-features = false }
-sp-io = { workspace = true, default-features = false }
+pallet-authorship = { default-features = false, workspace = true }
+sp-io = { default-features = false, workspace = true }
 
 [features]
 default = ["std"]

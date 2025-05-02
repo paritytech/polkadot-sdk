@@ -51,7 +51,7 @@ sp-tracing.workspace = true
 
 [dev-dependencies]
 regex = { workspace = true }
-sp-application-crypto = { features = ["serde"], workspace = true, default-features = false }
-sp-consensus-babe = { features = ["serde"], workspace = true, default-features = false }
+sp-application-crypto = { features = ["serde"], default-features = false, workspace = true }
+sp-consensus-babe = { features = ["serde"], default-features = false, workspace = true }
 sp-keyring = { default-features = true, workspace = true }
 substrate-test-runtime = { workspace = true }

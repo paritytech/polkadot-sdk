@@ -25,8 +25,8 @@ sp-runtime.workspace = true
 
 [dev-dependencies]
 cumulus-test-runtime = { workspace = true }
-sp-io = { workspace = true, default-features = false }
-sp-trie = { workspace = true, default-features = false }
+sp-io = { default-features = false, workspace = true }
+sp-trie = { default-features = false, workspace = true }
 
 [features]
 default = ["std"]
