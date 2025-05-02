@@ -1,4 +1,4 @@
-title: 'Stopped using TakeFirstAssetTrader in AH Westend and Rococ'
+title: 'Remove TakeFirstAssetTrader from AH Westend and Rococo'
 doc:
 - audience: Runtime Dev
   description: |-
