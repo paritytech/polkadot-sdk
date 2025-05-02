@@ -34,6 +34,10 @@ pub mod pallet {
 	#[pallet::config]
 	pub trait Config: frame_system::Config + cumulus_pallet_parachain_system::Config {}
 
+	/// A simple storage map for testing purposes.
+	#[pallet::storage]
+	pub type TestMap<T: Config> = StorageMap<_, Twox64Concat, u32, (), ValueQuery>;
+
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {}
 
@@ -83,6 +87,22 @@ pub mod pallet {
 			sp_io::storage::get(key);
 			sp_io::storage::set(key, &vec![0u8; 1024 * 1024 * 5]);
 
+			Ok(())
+		}
+
+		/// Stores `()` in `TestMap` for keys from 0 up to `max_key`.
+		#[pallet::weight(0)]
+		pub fn store_values_in_map(_: OriginFor<T>, max_key: u32) -> DispatchResult {
+			for i in 0..=max_key {
+				TestMap::<T>::insert(i, ());
+			}
+			Ok(())
+		}
+
+		/// Removes the value associated with `key` from `TestMap`.
+		#[pallet::weight(0)]
+		pub fn remove_value_from_map(_: OriginFor<T>, key: u32) -> DispatchResult {
+			TestMap::<T>::remove(key);
 			Ok(())
 		}
 	}

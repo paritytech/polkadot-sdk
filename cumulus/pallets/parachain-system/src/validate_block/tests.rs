@@ -197,7 +197,6 @@ fn build_multiple_blocks_with_witness(
 		let built_block = block_builder.build().unwrap();
 
 		futures::executor::block_on({
-			dbg!(i);
 			let parent_hash = *built_block.block.header.parent_hash();
 			let state = client.state_at(parent_hash).unwrap();
 
@@ -218,11 +217,10 @@ fn build_multiple_blocks_with_witness(
 		})
 		.unwrap();
 
-		ignored_nodes.extend(&IgnoredNodes::from_storage_proof::<BlakeTwo256>(
+		ignored_nodes.extend(IgnoredNodes::from_storage_proof::<BlakeTwo256>(
 			&built_block.proof.clone().unwrap(),
 		));
-		ignored_nodes
-			.extend(&IgnoredNodes::from_memory_db(built_block.storage_changes.transaction));
+		ignored_nodes.extend(IgnoredNodes::from_memory_db(built_block.storage_changes.transaction));
 		proof = StorageProof::merge([proof, built_block.proof.unwrap()]);
 
 		parent_head = built_block.block.header.clone();
@@ -501,6 +499,61 @@ fn validate_block_works_with_child_tries() {
 		call_validate_block(parent_head, block, validation_data.relay_parent_storage_root)
 			.expect("Calls `validate_block`");
 	assert_eq!(header, res_header);
+}
+
+#[test]
+fn state_changes_in_multiple_blocks_are_applied_in_exact_order() {
+	sp_tracing::try_init_simple();
+
+	let blocks_per_pov = 12;
+	let (client, genesis_head) = create_elastic_scaling_test_client(blocks_per_pov);
+
+	// 1. Build the initial block that stores values in the map.
+	let TestBlockData { block: initial_block_data, .. } = build_block_with_witness(
+		&client,
+		vec![generate_extrinsic_with_pair(
+			&client,
+			Alice.into(),
+			TestPalletCall::store_values_in_map { max_key: 4095 },
+			Some(0), // Nonce 0 for Alice
+		)],
+		genesis_head.clone(),
+		RelayStateSproofBuilder { current_slot: 1.into(), ..Default::default() },
+	);
+
+	let initial_block = initial_block_data.blocks()[0].clone();
+	futures::executor::block_on(client.import(BlockOrigin::Own, initial_block.clone())).unwrap();
+	let initial_block_header = initial_block.header().clone();
+
+	// 2. Build the PoV block that removes values from the map.
+	let TestBlockData { block: pov_block_data, validation_data: pov_validation_data } =
+		build_multiple_blocks_with_witness(
+			&client,
+			initial_block_header.clone(), // Start building PoV from the initial block's header
+			RelayStateSproofBuilder { current_slot: 2.into(), ..Default::default() },
+			blocks_per_pov,
+			|i| {
+				// Each block `i` (0-11) removes key `116 + i`.
+				let key_to_remove = 116 + i;
+				vec![generate_extrinsic_with_pair(
+					&client,
+					Bob.into(), // Use Bob to avoid nonce conflicts with Alice
+					TestPalletCall::remove_value_from_map { key: key_to_remove },
+					Some(i), // Nonce `i` for Bob
+				)]
+			},
+		);
+
+	// 3. Validate the PoV.
+	let sealed_pov_block = seal_block(pov_block_data, &client);
+	let final_pov_header = sealed_pov_block.blocks().last().unwrap().header().clone();
+	let res_header = call_validate_block_elastic_scaling(
+		initial_block_header, // The parent is the head of the initial block before the PoV
+		sealed_pov_block,
+		pov_validation_data.relay_parent_storage_root,
+	)
+	.expect("Calls `validate_block` after building the PoV");
+	assert_eq!(final_pov_header, res_header);
 }
 
 #[test]
