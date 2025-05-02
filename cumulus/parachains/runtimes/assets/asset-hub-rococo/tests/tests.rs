@@ -35,7 +35,6 @@ use asset_test_utils::{
 };
 use codec::{Decode, Encode};
 use core::ops::Mul;
-use cumulus_primitives_utility::ChargeWeightInFungibles;
 use frame_support::{
 	assert_noop, assert_ok, parameter_types,
 	traits::{
