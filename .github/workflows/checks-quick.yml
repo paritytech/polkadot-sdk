@@ -75,7 +75,7 @@ jobs:
       - name: run rust features
         run: bash .gitlab/rust-features.sh .
   check-toml-format:
-    runs-on: ubuntu-latest
+    runs-on: parity-default
     timeout-minutes: 20
     needs: [preflight]
     container:
