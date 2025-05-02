@@ -87,8 +87,7 @@ pub fn get_amount_from_versioned_assets(assets: VersionedAssets) -> u128 {
 	amount
 }
 
-/// Helper method to find the ID of the first `MessageQueue::Processed` event in the chain's event
-/// list.
+/// Helper method to find the ID of the first `Event::Processed` event in the chain's events.
 pub fn find_mq_processed_id<C: Chain>() -> Option<H256>
 where
 	<C as Chain>::Runtime: pallet_message_queue::Config,
@@ -103,8 +102,7 @@ where
 	})
 }
 
-/// Helper method to find the message ID of the first `pallet_xcm::Event::Sent` event in the chain's
-/// event list.
+/// Helper method to find the message ID of the first `Event::Sent` event in the chain's events.
 pub fn find_xcm_sent_message_id<C: Chain>() -> Option<XcmHash>
 where
 	<C as Chain>::Runtime: pallet_xcm::Config,

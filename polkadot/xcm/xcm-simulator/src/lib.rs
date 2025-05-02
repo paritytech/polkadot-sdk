@@ -499,22 +499,6 @@ pub mod helpers {
 			})
 		}
 
-		/// Retrieves the unique tracked topic ID, assuming only one exists.
-		pub fn get_unique_id() -> H256 {
-			TRACKED_TOPIC_IDS.with(|b| {
-				let map = b.borrow();
-				let unique_ids: HashSet<_> = map.values().collect();
-				assert_eq!(
-					unique_ids.len(),
-					1,
-					"Expected exactly one tracked topic ID, found {}: {:?}",
-					unique_ids.len(),
-					unique_ids
-				);
-				*unique_ids.into_iter().next().expect("Expected exactly one tracked topic ID")
-			})
-		}
-
 		/// Associates a topic ID with the given chain name in the tracker.
 		pub fn insert(chain: &str, id: H256) {
 			TRACKED_TOPIC_IDS.with(|b| {
