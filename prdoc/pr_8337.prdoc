@@ -7,6 +7,6 @@ doc:
     how much deposit they need in advance.
 crates:
 - name: pallet-bags-list
-  bump: patch
+  bump: minor
 - name: pallet-election-provider-multi-block
-  bump: patch
+  bump: minor
