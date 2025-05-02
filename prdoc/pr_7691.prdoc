@@ -18,8 +18,6 @@ crates:
   bump: minor
 - name: xcm-runtime-apis
   bump: major
-- name: xcm-simulator
-  bump: minor
 - name: xcm-simulator-example
   bump: patch
 - name: asset-hub-westend-integration-tests
