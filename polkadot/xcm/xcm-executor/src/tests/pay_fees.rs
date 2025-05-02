@@ -103,10 +103,6 @@ fn works_for_delivery_fees() {
 
 	let querier: Location =
 		(Parachain(1000), AccountId32 { id: SENDER.into(), network: None }).into();
-
-	// The messages were "sent" successfully.
-	let xcm_sent = sent_xcm();
-	let expected_hash = vm.context.topic_or_message_id();
 	let sent_message = Xcm(vec![
 		QueryResponse {
 			query_id: 0,
@@ -114,10 +110,12 @@ fn works_for_delivery_fees() {
 			max_weight: Weight::zero(),
 			querier: Some(querier),
 		},
-		SetTopic(expected_hash),
+		SetTopic(vm.context.topic_or_message_id()),
 	]);
+
+	// The messages were "sent" successfully.
 	assert_eq!(
-		xcm_sent,
+		sent_xcm(),
 		vec![
 			(Parent.into(), sent_message.clone()),
 			(Parent.into(), sent_message.clone()),
