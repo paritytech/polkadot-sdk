@@ -398,31 +398,25 @@ mod tests {
 	use frame_support::{assert_err, assert_ok, parameter_types};
 	use hex_literal::hex;
 	use snowbridge_core::TokenId;
+	use snowbridge_test_utils::mock_converter::{
+		add_location_override, reanchor_to_ethereum, LocationIdConvert,
+	};
 	use sp_core::{H160, H256};
 	use sp_runtime::traits::MaybeEquivalence;
-	use xcm::opaque::latest::WESTEND_GENESIS_HASH;
 	const GATEWAY_ADDRESS: [u8; 20] = hex!["eda338e4dc46038493b885327842fd3e301cab39"];
 
 	parameter_types! {
-		pub const EthereumNetwork: xcm::v5::NetworkId = xcm::v5::NetworkId::Ethereum { chain_id: 11155111 };
+		pub const EthereumNetwork: xcm::v5::NetworkId = xcm::v5::NetworkId::Ethereum { chain_id: 1 };
 		pub const GatewayAddress: H160 = H160(GATEWAY_ADDRESS);
 		pub InboundQueueLocation: InteriorLocation = [PalletInstance(84)].into();
 		pub EthereumUniversalLocation: InteriorLocation =
-			[GlobalConsensus(ByGenesis(WESTEND_GENESIS_HASH)), Parachain(1002)].into();
-		pub AssetHubFromEthereum: Location = Location::new(1,[GlobalConsensus(ByGenesis(WESTEND_GENESIS_HASH)),Parachain(1000)]);
-		pub AssetHubUniversalLocation: InteriorLocation = [GlobalConsensus(ByGenesis(WESTEND_GENESIS_HASH)),Parachain(1000)].into();
+			[GlobalConsensus(EthereumNetwork::get())].into();
+		pub AssetHubFromEthereum: Location = Location::new(1,[GlobalConsensus(Polkadot),Parachain(1000)]);
+		pub AssetHubUniversalLocation: InteriorLocation = [GlobalConsensus(Polkadot),Parachain(1000)].into();
 		pub const CreateAssetCall: [u8;2] = [53, 0];
 		pub const CreateAssetDeposit: u128 = 10_000_000_000u128;
-	}
-
-	pub struct MockTokenIdConvert;
-	impl MaybeEquivalence<TokenId, Location> for MockTokenIdConvert {
-		fn convert(_id: &TokenId) -> Option<Location> {
-			Some(Location::parent())
-		}
-		fn convert_back(_loc: &Location) -> Option<TokenId> {
-			None
-		}
+		pub EthereumLocation: Location = Location::new(2,EthereumUniversalLocation::get());
+		pub BridgeHubContext: InteriorLocation = [GlobalConsensus(Polkadot),Parachain(1002)].into();
 	}
 
 	pub struct MockFailedTokenConvert;
@@ -440,7 +434,7 @@ mod tests {
 		CreateAssetDeposit,
 		EthereumNetwork,
 		InboundQueueLocation,
-		MockTokenIdConvert,
+		LocationIdConvert,
 		GatewayAddress,
 		EthereumUniversalLocation,
 		AssetHubFromEthereum,
@@ -466,8 +460,13 @@ mod tests {
 		sp_io::TestExternalities::default().execute_with(|| {
 			let origin: H160 = hex!("29e3b139f4393adda86303fcdaa35f60bb7092bf").into();
 			let native_token_id: H160 = hex!("5615deb798bb3e4dfa0139dfa1b3d433cc23b72f").into();
-			let foreign_token_id: H256 =
-				hex!("37a6c666da38711a963d938eafdd09314fd3f95a96a3baffb55f26560f4ecdd8").into();
+			let dot_location = Location::parent();
+			let (foreign_token_id, _) = reanchor_to_ethereum(
+				dot_location.clone(),
+				EthereumLocation::get(),
+				BridgeHubContext::get(),
+			);
+			add_location_override(dot_location, EthereumLocation::get(), BridgeHubContext::get());
 			let beneficiary: Location =
 				hex!("908783d8cd24c9e02cee1d26ab9c46d458621ad0150b626c536a40b9df3f09c6").into();
 			let token_value = 3_000_000_000_000u128;
@@ -571,7 +570,7 @@ mod tests {
 				}
 				if let WithdrawAsset(ref withdraw_assets) = instruction {
 					withdraw_assets_found += 1;
-					let token_asset = Location::new(2, Here);
+					let token_asset = Location::new(1, Here);
 					let token: Asset = (token_asset, token_value).into();
 					let token_assets: Assets = token.into();
 					assert_eq!(token_assets, withdraw_assets.clone());
@@ -606,17 +605,13 @@ mod tests {
 	fn test_message_with_gateway_origin_does_not_descend_origin_into_sender() {
 		let origin: H160 = GatewayAddress::get();
 		let native_token_id: H160 = hex!("5615deb798bb3e4dfa0139dfa1b3d433cc23b72f").into();
-		let foreign_token_id: H256 =
-			hex!("37a6c666da38711a963d938eafdd09314fd3f95a96a3baffb55f26560f4ecdd8").into();
 		let beneficiary =
 			hex!("908783d8cd24c9e02cee1d26ab9c46d458621ad0150b626c536a40b9df3f09c6").into();
 		let message_id: H256 =
 			hex!("8b69c7e376e28114618e829a7ec768dbda28357d359ba417a3bd79b11215059d").into();
 		let token_value = 3_000_000_000_000u128;
-		let assets = vec![
-			EthereumAsset::NativeTokenERC20 { token_id: native_token_id, value: token_value },
-			EthereumAsset::ForeignTokenERC20 { token_id: foreign_token_id, value: token_value },
-		];
+		let assets =
+			vec![EthereumAsset::NativeTokenERC20 { token_id: native_token_id, value: token_value }];
 		let instructions = vec![
 			DepositAsset { assets: Wild(AllCounted(1).into()), beneficiary },
 			SetTopic(message_id.into()),
@@ -700,12 +695,14 @@ mod tests {
 	fn test_invalid_claimer() {
 		sp_io::TestExternalities::default().execute_with(|| {
 			let origin: H160 = hex!("29e3b139f4393adda86303fcdaa35f60bb7092bf").into();
-			let token_id: H256 =
-				hex!("37a6c666da38711a963d938eafdd09314fd3f95a96a3baffb55f26560f4ecdd8").into();
+			let native_token_id: H160 = hex!("5615deb798bb3e4dfa0139dfa1b3d433cc23b72f").into();
 			let beneficiary =
 				hex!("908783d8cd24c9e02cee1d26ab9c46d458621ad0150b626c536a40b9df3f09c6").into();
 			let token_value = 3_000_000_000_000u128;
-			let assets = vec![EthereumAsset::ForeignTokenERC20 { token_id, value: token_value }];
+			let assets = vec![EthereumAsset::NativeTokenERC20 {
+				token_id: native_token_id,
+				value: token_value,
+			}];
 			let instructions =
 				vec![DepositAsset { assets: Wild(AllCounted(1).into()), beneficiary }];
 			let xcm: Xcm<()> = instructions.into();
@@ -771,10 +768,12 @@ mod tests {
 	fn test_invalid_xcm() {
 		sp_io::TestExternalities::default().execute_with(|| {
 			let origin: H160 = hex!("29e3b139f4393adda86303fcdaa35f60bb7092bf").into();
-			let token_id: H256 =
-				hex!("37a6c666da38711a963d938eafdd09314fd3f95a96a3baffb55f26560f4ecdd8").into();
+			let native_token_id: H160 = hex!("5615deb798bb3e4dfa0139dfa1b3d433cc23b72f").into();
 			let token_value = 3_000_000_000_000u128;
-			let assets = vec![EthereumAsset::ForeignTokenERC20 { token_id, value: token_value }];
+			let assets = vec![EthereumAsset::NativeTokenERC20 {
+				token_id: native_token_id,
+				value: token_value,
+			}];
 			// invalid xcm
 			let versioned_xcm = hex!("8b69c7e376e28114618e829a7ec7").to_vec();
 			let claimer_account = AccountId32 { network: None, id: H256::random().into() };
