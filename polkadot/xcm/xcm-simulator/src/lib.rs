@@ -522,21 +522,19 @@ pub mod helpers {
 			});
 		}
 
-		/// Associates a topic ID with the given chain name and asserts it matches the unique
-		/// tracked ID.
+		/// Associates a topic ID with the given chain name, asserting it matches the existing ID if
+		/// present.
 		pub fn insert_and_assert_unique(chain: &str, id: H256) {
 			TRACKED_TOPIC_IDS.with(|b| {
 				let mut map = b.borrow_mut();
-				if map.contains_key(chain) {
-					let existing_id = map.get(chain).cloned().unwrap();
+				if let Some(existing_id) = map.get(chain) {
 					assert_eq!(
-						id, existing_id,
-						"New topic ID {:?} does not match existing unique ID {:?}",
-						id, existing_id
+						id, *existing_id,
+						"New topic ID {:?} does not match existing ID {:?} for chain '{}'",
+						id, existing_id, chain
 					);
-				} else {
-					map.insert(chain.to_string(), id);
 				}
+				map.insert(chain.to_string(), id);
 			});
 		}
 

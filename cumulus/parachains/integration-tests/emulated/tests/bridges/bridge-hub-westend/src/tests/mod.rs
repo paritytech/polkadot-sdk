@@ -14,7 +14,11 @@
 // limitations under the License.
 
 use crate::imports::*;
-use emulated_integration_tests_common::snowbridge::{SEPOLIA_ID, WETH};
+use emulated_integration_tests_common::{
+	snowbridge::{SEPOLIA_ID, WETH},
+	xcm_helpers::find_mq_processed_id,
+	xcm_simulator::helpers::TopicIdTracker,
+};
 
 mod aliases;
 mod asset_transfers;
@@ -174,6 +178,9 @@ pub(crate) fn assert_bridge_hub_westend_message_accepted(expected_processed: boo
 					) => {},
 				]
 			);
+			let mq_prc_id =
+				find_mq_processed_id::<BridgeHubWestend>().expect("Missing Processed Event");
+			TopicIdTracker::insert("BridgeHubWestend", mq_prc_id.into());
 		} else {
 			assert_expected_events!(
 				BridgeHubWestend,

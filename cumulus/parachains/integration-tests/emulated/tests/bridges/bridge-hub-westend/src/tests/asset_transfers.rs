@@ -1344,12 +1344,6 @@ fn do_send_pens_and_wnds_from_penpal_westend_via_ahw_to_asset_hub_rococo(
 				]
 			);
 		});
-
-		BridgeHubWestend::execute_with(|| {
-			let mq_prc_id =
-				find_mq_processed_id::<BridgeHubWestend>().expect("Missing Processed Event");
-			TopicIdTracker::insert("BridgeHubWestend", mq_prc_id.into());
-		});
 	});
 }
 
