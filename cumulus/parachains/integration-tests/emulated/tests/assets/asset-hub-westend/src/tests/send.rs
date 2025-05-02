@@ -106,90 +106,92 @@ fn send_xcm_from_para_to_asset_hub_paying_fee_with_system_asset() {
 	});
 }
 
-// /// We tests two things here:
-// /// - Parachain should be able to send XCM paying its fee at Asset Hub using sufficient asset
-// /// - Parachain should be able to create a new Asset at Asset Hub
-// #[test]
-// fn send_xcm_from_para_to_asset_hub_paying_fee_with_sufficient_asset() {
-// 	let para_sovereign_account = AssetHubWestend::sovereign_account_id_of(
-// 		AssetHubWestend::sibling_location_of(PenpalA::para_id()),
-// 	);
-//
-// 	// Force create and mint sufficient assets for Parachain's sovereign account
-// 	AssetHubWestend::force_create_and_mint_asset(
-// 		ASSET_ID,
-// 		ASSET_MIN_BALANCE,
-// 		true,
-// 		para_sovereign_account.clone(),
-// 		Some(Weight::from_parts(144_759_000, 3675)),
-// 		ASSET_MIN_BALANCE * 1000000000,
-// 	);
-//
-// 	// Just a different `asset_id`` that does not exist yet
-// 	let new_asset_id = ASSET_ID + 1;
-//
-// 	// Encoded `create_asset` call to be executed in AssetHub
-// 	let call = AssetHubWestend::create_asset_call(
-// 		new_asset_id,
-// 		ASSET_MIN_BALANCE,
-// 		para_sovereign_account.clone(),
-// 	);
-//
-// 	let origin_kind = OriginKind::SovereignAccount;
-// 	let fee_amount = ASSET_MIN_BALANCE * 1000000;
-// 	let asset =
-// 		([PalletInstance(ASSETS_PALLET_ID), GeneralIndex(ASSET_ID.into())], fee_amount).into();
-//
-// 	let asset_location = Location::new(
-// 		0,
-// 		[PalletInstance(ASSETS_PALLET_ID), GeneralIndex(ASSET_ID.into())],
-// 	);
-// 	create_pool_with_wnd_on!(
-// 		AssetHubWestend,
-// 		asset_location,
-// 		false,
-// 		para_sovereign_account.clone()
-// 	);
-//
-// 	let root_origin = <PenpalA as Chain>::RuntimeOrigin::root();
-// 	let system_para_destination = PenpalA::sibling_location_of(AssetHubWestend::para_id()).into();
-// 	let xcm = xcm_transact_paid_execution(call, origin_kind, asset, para_sovereign_account.clone());
-//
-// 	// SA-of-Penpal-on-AHR needs to have balance to pay for asset creation deposit
-// 	AssetHubWestend::fund_accounts(vec![(
-// 		para_sovereign_account.clone().into(),
-// 		ASSET_HUB_WESTEND_ED * 10000000000,
-// 	)]);
-//
-// 	PenpalA::execute_with(|| {
-// 		assert_ok!(<PenpalA as PenpalAPallet>::PolkadotXcm::send(
-// 			root_origin,
-// 			bx!(system_para_destination),
-// 			bx!(xcm),
-// 		));
-//
-// 		PenpalA::assert_xcm_pallet_sent();
-// 	});
-//
-// 	AssetHubWestend::execute_with(|| {
-// 		type RuntimeEvent = <AssetHubWestend as Chain>::RuntimeEvent;
-// 		AssetHubWestend::assert_xcmp_queue_success(None);
-// 		assert_expected_events!(
-// 			AssetHubWestend,
-// 			vec![
-// 				// Burned the fee
-// 				RuntimeEvent::Assets(pallet_assets::Event::Burned { asset_id, owner, balance }) => {
-// 					asset_id: *asset_id == ASSET_ID,
-// 					owner: *owner == para_sovereign_account,
-// 					balance: *balance == fee_amount,
-// 				},
-// 				// Asset created
-// 				RuntimeEvent::Assets(pallet_assets::Event::Created { asset_id, creator, owner }) => {
-// 					asset_id: *asset_id == new_asset_id,
-// 					creator: *creator == para_sovereign_account.clone(),
-// 					owner: *owner == para_sovereign_account,
-// 				},
-// 			]
-// 		);
-// 	});
-// }
+/// We tests two things here:
+/// - Parachain should be able to send XCM paying its fee at Asset Hub using sufficient asset
+/// - Parachain should be able to create a new Asset at Asset Hub
+#[test]
+fn send_xcm_from_para_to_asset_hub_paying_fee_with_sufficient_asset() {
+	let para_sovereign_account = AssetHubWestend::sovereign_account_id_of(
+		AssetHubWestend::sibling_location_of(PenpalA::para_id()),
+	);
+
+	// Force create and mint sufficient assets for Parachain's sovereign account
+	AssetHubWestend::force_create_and_mint_asset(
+		ASSET_ID,
+		ASSET_MIN_BALANCE,
+		true,
+		para_sovereign_account.clone(),
+		Some(Weight::from_parts(144_759_000, 3675)),
+		ASSET_MIN_BALANCE * 1000000000,
+	);
+
+	// Just a different `asset_id`` that does not exist yet
+	let new_asset_id = ASSET_ID + 1;
+
+	// Encoded `create_asset` call to be executed in AssetHub
+	let call = AssetHubWestend::create_asset_call(
+		new_asset_id,
+		ASSET_MIN_BALANCE,
+		para_sovereign_account.clone(),
+	);
+
+	let origin_kind = OriginKind::SovereignAccount;
+	let fee_amount = ASSET_MIN_BALANCE * 1000000;
+	let asset =
+		([PalletInstance(ASSETS_PALLET_ID), GeneralIndex(ASSET_ID.into())], fee_amount).into();
+	let asset_location = Location::new(
+		0,
+		[PalletInstance(ASSETS_PALLET_ID), GeneralIndex(ASSET_ID.into())],
+	);
+
+	let root_origin = <PenpalA as Chain>::RuntimeOrigin::root();
+	let system_para_destination = PenpalA::sibling_location_of(AssetHubWestend::para_id()).into();
+	let xcm = xcm_transact_paid_execution(call, origin_kind, asset, para_sovereign_account.clone());
+
+	// SA-of-Penpal-on-AHR needs to have balance to pay for asset creation deposit
+	AssetHubWestend::fund_accounts(vec![(
+		para_sovereign_account.clone().into(),
+		ASSET_HUB_WESTEND_ED * 10000000000,
+	)]);
+
+	create_pool_with_wnd_on!(
+		AssetHubWestend,
+		asset_location,
+		false,
+		para_sovereign_account.clone(),
+		9_000_000_000_000_000,
+		9_000_000_000_000
+	);
+
+	PenpalA::execute_with(|| {
+		assert_ok!(<PenpalA as PenpalAPallet>::PolkadotXcm::send(
+			root_origin,
+			bx!(system_para_destination),
+			bx!(xcm),
+		));
+
+		PenpalA::assert_xcm_pallet_sent();
+	});
+
+	AssetHubWestend::execute_with(|| {
+		type RuntimeEvent = <AssetHubWestend as Chain>::RuntimeEvent;
+		AssetHubWestend::assert_xcmp_queue_success(None);
+		assert_expected_events!(
+			AssetHubWestend,
+			vec![
+				// Burned the fee
+				RuntimeEvent::Assets(pallet_assets::Event::Burned { asset_id, owner, balance }) => {
+					asset_id: *asset_id == ASSET_ID,
+					owner: *owner == para_sovereign_account,
+					balance: *balance == fee_amount,
+				},
+				// Asset created
+				RuntimeEvent::Assets(pallet_assets::Event::Created { asset_id, creator, owner }) => {
+					asset_id: *asset_id == new_asset_id,
+					creator: *creator == para_sovereign_account.clone(),
+					owner: *owner == para_sovereign_account,
+				},
+			]
+		);
+	});
+}
