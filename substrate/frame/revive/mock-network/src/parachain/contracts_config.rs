@@ -17,6 +17,7 @@
 use super::{Balances, Runtime, RuntimeCall, RuntimeEvent};
 use crate::parachain::RuntimeHoldReason;
 use frame_support::derive_impl;
+use pallet_revive::precompiles::custom::XCMPrecompile;
 
 #[derive_impl(pallet_revive::config_preludes::TestDefaultConfig)]
 impl pallet_revive::Config for Runtime {
@@ -24,4 +25,5 @@ impl pallet_revive::Config for Runtime {
 	type Currency = Balances;
 	type Time = super::Timestamp;
 	type Xcm = pallet_xcm::Pallet<Self>;
+	type Precompiles = (XCMPrecompile<Self>,);
 }

@@ -98,4 +98,12 @@ impl WeightInfo for ReviveTestWeightInfo {
 	fn claim_assets() -> Weight {
 		Weight::from_parts(100_000_000, 0)
 	}
+
+	fn add_authorized_alias() -> Weight {
+		Weight::from_parts(100_000, 0)
+	}
+
+	fn remove_authorized_alias() -> Weight {
+		Weight::from_parts(100_000, 0)
+	}
 }
