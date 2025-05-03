@@ -94,10 +94,6 @@ fn place_order_run_to_blocknumber(para_id: ParaId, blocknumber: Option<BlockNumb
 	OnDemand::place_order_allow_death(RuntimeOrigin::signed(alice), amt, para_id).unwrap()
 }
 
-fn place_order_run_to_101(para_id: ParaId) {
-	place_order_run_to_blocknumber(para_id, Some(101));
-}
-
 fn place_order(para_id: ParaId) {
 	place_order_run_to_blocknumber(para_id, None);
 }
@@ -354,7 +350,7 @@ fn place_order_with_credits() {
 		assert_eq!(Credits::<Test>::get(alice), initial_credit);
 
 		assert!(!Paras::is_parathread(para_id));
-		let current_block = 100;
+		let mut current_block = 100;
 		run_to_block(current_block, |n| {
 			if n == current_block {
 				Some(Default::default())
@@ -376,6 +372,9 @@ fn place_order_with_credits() {
 			para_id
 		));
 		assert_eq!(Credits::<Test>::get(alice), initial_credit.saturating_sub(spot_price));
+
+		// Async backing:
+		current_block += 2;
 		assert_eq!(
 			OnDemand::peek_order_queue()
 				.pop_assignment_for_cores::<Test>(current_block, 1)
@@ -399,12 +398,12 @@ fn place_order_with_credits() {
 #[test]
 fn pop_assignment_for_cores_works() {
 	new_test_ext(GenesisConfigBuilder::default().build()).execute_with(|| {
-		let para_a = ParaId::from(111);
-		let para_b = ParaId::from(110);
+		let para_a = ParaId::from(110);
+		let para_b = ParaId::from(111);
 		schedule_blank_para(para_a, ParaKind::Parathread);
 		schedule_blank_para(para_b, ParaKind::Parathread);
 
-		let block_num = 11;
+		let mut block_num = 11;
 		run_to_block(block_num, |n| if n == 11 { Some(Default::default()) } else { None });
 
 		// Pop should return none with empty queue
@@ -412,9 +411,13 @@ fn pop_assignment_for_cores_works() {
 
 		// Add enough assignments to the order queue.
 		for _ in 0..2 {
-			place_order(para_a);
+			place_order_run_to_blocknumber(para_a, Some(block_num));
 			place_order(para_b);
+			block_num += 1;
 		}
+
+		// Go back to where first order became effective:
+		let block_num = 11 + 2;
 
 		// Popped assignments should be for the correct paras and cores
 		let mut assignments = OnDemand::pop_assignment_for_cores(block_num, 2);
@@ -436,42 +439,80 @@ fn affinity_prohibits_parallel_scheduling() {
 	new_test_ext(GenesisConfigBuilder::default().build()).execute_with(|| {
 		let para_a = ParaId::from(111);
 		let para_b = ParaId::from(222);
+		let para_c = ParaId::from(333);
 
 		schedule_blank_para(para_a, ParaKind::Parathread);
 		schedule_blank_para(para_b, ParaKind::Parathread);
+		schedule_blank_para(para_c, ParaKind::Parathread);
 
-		let block_num = 11;
-		run_to_block(block_num, |n| if n == 11 { Some(Default::default()) } else { None });
+		let mut block_num = 11;
 
-		// Add 2 assignments for para_a for every para_b.
-		place_order_run_to_101(para_a);
-		place_order_run_to_101(para_a);
-		place_order_run_to_101(para_b);
-
-		// Behaviour with just one core:
-		for (assignment, expected) in (0..4)
-			.map(|_| OnDemand::pop_assignment_for_cores(block_num, 1).next())
-			.zip([Some(para_a), Some(para_a), Some(para_b), None].into_iter())
+		// 2 cores, 3 orders, a twice:
 		{
-			assert_eq!(assignment, expected);
+			place_order_run_to_blocknumber(para_a, Some(block_num));
+			place_order(para_a);
+			place_order(para_b);
+
+			// Advance 2 for async backing:
+			block_num += 2;
+
+			let mut assignments = OnDemand::pop_assignment_for_cores(block_num, 2);
+			assert_eq!(assignments.next(), Some(para_a));
+			// Next should be `b` ... `a` not allowed:
+			assert_eq!(assignments.next(), Some(para_b));
+			assert_eq!(assignments.next(), None);
+			block_num += 1;
+
+			let mut assignments = OnDemand::pop_assignment_for_cores(block_num, 2);
+			// Now we get the second `a`.
+			assert_eq!(assignments.next(), Some(para_a));
+			assert_eq!(assignments.next(), None);
+			block_num += 1;
 		}
 
-		// Add 2 assignments for para_a for every para_b.
-		place_order_run_to_101(para_a);
-		place_order_run_to_101(para_a);
-		place_order_run_to_101(para_b);
+		// 3 cores, 3 orders, a twice:
+		{
+			place_order_run_to_blocknumber(para_a, Some(block_num));
+			place_order(para_a);
+			place_order(para_b);
 
-		// Approximate having 3 cores. CoreIndex 2 should be unable to obtain an assignment
-		let mut assignments = OnDemand::pop_assignment_for_cores(block_num, 3);
-		assert_eq!(assignments.next(), Some(para_a));
-		// No duplicates:
-		assert_eq!(assignments.next(), Some(para_b));
-		assert_eq!(assignments.next(), None);
+			block_num += 2;
 
-		// Should come with next block:
-		let mut assignments = OnDemand::pop_assignment_for_cores(block_num + 1, 3);
-		assert_eq!(assignments.next(), Some(para_a));
-		assert_eq!(assignments.next(), None);
+			let mut assignments = OnDemand::pop_assignment_for_cores(block_num, 3);
+			assert_eq!(assignments.next(), Some(para_a));
+			// Next should be `b` ... `a` not allowed:
+			assert_eq!(assignments.next(), Some(para_b));
+			// 3rd should be None, despite having capacity:
+			assert_eq!(assignments.next(), None);
+
+			block_num += 1;
+			let mut assignments = OnDemand::pop_assignment_for_cores(block_num, 3);
+			// Now we get the second `a`.
+			assert_eq!(assignments.next(), Some(para_a));
+			assert_eq!(assignments.next(), None);
+		}
+
+		// 3 cores, 3 orders, no duplicates (sanity check):
+		{
+			place_order_run_to_blocknumber(para_a, Some(block_num));
+			place_order(para_b);
+			place_order(para_c);
+
+			block_num += 2;
+
+			let mut assignments = OnDemand::pop_assignment_for_cores(block_num, 3);
+			assert_eq!(assignments.next(), Some(para_a));
+			// Next should be `b` ... `a` not allowed:
+			assert_eq!(assignments.next(), Some(para_b));
+			// 3rd should be `c`:
+			assert_eq!(assignments.next(), Some(para_c));
+			assert_eq!(assignments.next(), None);
+
+			block_num += 1;
+			let mut assignments = OnDemand::pop_assignment_for_cores(block_num, 3);
+			assert_eq!(assignments.next(), None);
+		}
+
 	});
 }
 
