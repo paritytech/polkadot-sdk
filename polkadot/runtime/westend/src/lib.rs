@@ -75,8 +75,7 @@ use polkadot_runtime_common::{
 	},
 	paras_registrar, paras_sudo_wrapper, prod_or_fast, slots,
 	traits::OnSwap,
-	BalanceToU256, BlockHashCount, BlockLength, CurrencyToVote, SlowAdjustingFeeUpdate,
-	U256ToBalance,
+	BalanceToU256, BlockHashCount, BlockLength, SlowAdjustingFeeUpdate, U256ToBalance,
 };
 use polkadot_runtime_parachains::{
 	assigner_coretime as parachains_assigner_coretime, configuration as parachains_configuration,
@@ -100,7 +99,7 @@ use sp_consensus_beefy::{
 	ecdsa_crypto::{AuthorityId as BeefyId, Signature as BeefySignature},
 	mmr::{BeefyDataProvider, MmrLeafVersion},
 };
-use sp_core::{ConstBool, ConstU8, OpaqueMetadata, RuntimeDebug, H256};
+use sp_core::{ConstBool, ConstU8, ConstUint, OpaqueMetadata, RuntimeDebug, H256};
 use sp_runtime::{
 	generic, impl_opaque_keys,
 	traits::{
@@ -750,7 +749,8 @@ impl pallet_staking::Config for Runtime {
 	type CurrencyBalance = Balance;
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type UnixTime = Timestamp;
-	type CurrencyToVote = CurrencyToVote;
+	// Westend's total issuance is already more than `u64::MAX`, this will work better.
+	type CurrencyToVote = sp_staking::currency_to_vote::SaturatingCurrencyToVote;
 	type RewardRemainder = ();
 	type RuntimeEvent = RuntimeEvent;
 	type Slash = ();
@@ -1381,6 +1381,9 @@ impl parachains_paras::Config for Runtime {
 	type NextSessionRotation = Babe;
 	type OnNewHead = ();
 	type AssignCoretime = CoretimeAssignmentProvider;
+	type Fungible = Balances;
+	// Per day the cooldown is removed earlier, it should cost 1000.
+	type CooldownRemovalMultiplier = ConstUint<{ 1000 * UNITS / DAYS as u128 }>;
 }
 
 parameter_types! {
