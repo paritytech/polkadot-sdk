@@ -512,6 +512,8 @@ fn spends_creation_works_but_claim_blocked_after_claim_period() {
 			Error::<Test>::InexistentSpend
 		);
 
+		// Check the scheduled call
+		
 		run_to_block(round_info.round_ending_block + 4);
 		println!(
 			"Current block number: {:?}",
