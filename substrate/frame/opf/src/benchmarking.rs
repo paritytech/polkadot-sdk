@@ -46,13 +46,13 @@ pub fn run_to_block<T: Config>(n: ProvidedBlockNumberFor<T>) {
 	while T::BlockNumberProvider::current_block_number() < n {
 		if <T as Config>::BlockNumberProvider::current_block_number() > One::one() {
 			crate::Pallet::<T>::on_finalize(frame_system::Pallet::<T>::block_number());
-			frame_system::Pallet::<T>::on_finalize(frame_system::Pallet::<T>::block_number());			
+			frame_system::Pallet::<T>::on_finalize(frame_system::Pallet::<T>::block_number());
 		}
 		next_block::<T>();
 	}
 }
 
-fn add_whitelisted_project<T: Config>(n: u32, caller: T::AccountId) -> Result<(), &'static str> {
+fn add_whitelisted_project<T: Config>(n: u32) -> Result<(), &'static str> {
 	let mut batch = BoundedVec::<ProjectId<T>, <T as Config>::MaxProjects>::new();
 	for i in 1..=n {
 		let project_id = account("project", i, SEED);
@@ -108,7 +108,7 @@ mod benchmarks {
 		T::NativeBalance::mint_into(&caller, caller_balance)?;
 		let account0: T::AccountId = account("project", r, SEED);
 		let origin = T::AdminOrigin::try_successful_origin().expect("Failed to create origin");
-		add_whitelisted_project::<T>(r, caller.clone())?;
+		add_whitelisted_project::<T>(r)?;
 		assert_eq!(WhiteListedProjectAccounts::<T>::contains_key(account0.clone()), true);
 		#[extrinsic_call]
 		_(origin, account0.clone());
@@ -124,7 +124,7 @@ mod benchmarks {
 		let caller_balance = T::NativeBalance::minimum_balance() * 100000000u32.into();
 		T::NativeBalance::mint_into(&caller, caller_balance)?;
 		let account0: T::AccountId = account("project", r, SEED);
-		add_whitelisted_project::<T>(r, caller.clone())?;
+		add_whitelisted_project::<T>(r)?;
 		assert_eq!(WhiteListedProjectAccounts::<T>::contains_key(account0.clone()), true);
 
 		let _ = assert_eq!(VotingRounds::<T>::get(0).is_some(), true);
@@ -148,7 +148,7 @@ mod benchmarks {
 		let caller_balance = T::NativeBalance::minimum_balance() * 100000000u32.into();
 		T::NativeBalance::mint_into(&caller, caller_balance)?;
 		let account0: T::AccountId = account("project", r, SEED);
-		add_whitelisted_project::<T>(r, caller.clone())?;
+		add_whitelisted_project::<T>(r)?;
 		ensure!(
 			WhiteListedProjectAccounts::<T>::contains_key(account0.clone()),
 			"Project_id not set up correctly."
@@ -179,7 +179,7 @@ mod benchmarks {
 		let caller_balance = T::NativeBalance::minimum_balance() * 100000000u32.into();
 		T::NativeBalance::mint_into(&caller, caller_balance)?;
 		let account0: T::AccountId = account("project", r, SEED);
-		add_whitelisted_project::<T>(r, caller.clone())?;
+		add_whitelisted_project::<T>(r)?;
 		ensure!(
 			WhiteListedProjectAccounts::<T>::contains_key(account0.clone()),
 			"Project_id not set up correctly."
@@ -220,7 +220,7 @@ mod benchmarks {
 		T::NativeBalance::mint_into(&caller1, caller_balance)?;
 		T::NativeBalance::mint_into(&caller2, caller_balance)?;
 		T::NativeBalance::mint_into(&account0, caller_balance)?;
-		add_whitelisted_project::<T>(r, caller0.clone())?;
+		add_whitelisted_project::<T>(r)?;
 		let pot = setup_pot_account::<T>();
 		assert_eq!(T::NativeBalance::balance(&pot) > Zero::zero(), true);
 
@@ -270,18 +270,16 @@ mod benchmarks {
 		run_to_block::<T>(round_end);
 
 		assert_eq!(T::Governance::referendum_count(), r.into(), "referenda not created");
+		// go to claiming period
+		let enactment_period = <T as Config>::EnactmentPeriod::get();
+		println!("Enactment period: {:?}", enactment_period);
+		let when = round_end.saturating_add(enactment_period);
+		run_to_block::<T>(when);
 
 		#[block]
 		{
 			Opf::<T>::on_idle(frame_system::Pallet::<T>::block_number(), Weight::MAX);
 		}
-
-		// go to claiming period
-		let when = round_end.saturating_add(<T as Config>::EnactmentPeriod::get());
-		T::BlockNumberProvider::set_block_number(when);
-		let origin = RawOrigin::Root.into();
-
-		assert_ok!(Opf::<T>::on_registration(origin, account0.clone()));
 		assert_eq!(Spends::<T>::contains_key(&account0), true);
 		Ok(())
 	}
@@ -292,7 +290,7 @@ mod benchmarks {
 		let caller1: T::AccountId = account("caller", 2, SEED);
 		let caller2: T::AccountId = account("caller", 3, SEED);
 		let account0: T::AccountId = account("project", r, SEED);
-		add_whitelisted_project::<T>(r, caller0.clone())?;
+		add_whitelisted_project::<T>(r)?;
 		let pot = setup_pot_account::<T>();
 		assert_eq!(T::NativeBalance::balance(&pot) > Zero::zero(), true);
 
@@ -339,7 +337,6 @@ mod benchmarks {
 		let round_end = round.round_ending_block;
 
 		// go to end of the round
-		let now = T::BlockNumberProvider::current_block_number();
 		let when = round_end.saturating_add(4u32.into());
 		run_to_block::<T>(round_end);
 		assert_eq!(T::Governance::referendum_count(), r.into(), "referenda not created");
@@ -353,8 +350,6 @@ mod benchmarks {
 			Opf::<T>::on_idle(frame_system::Pallet::<T>::block_number(), Weight::MAX);
 		}
 
-		let origin = T::AdminOrigin::try_successful_origin().expect("Failed to create origin");
-		assert_ok!(Opf::<T>::on_registration(origin, account0.clone()));
 		assert_eq!(Spends::<T>::contains_key(&account0), true);
 		let claim = Spends::<T>::get(&account0).unwrap();
 		assert_eq!(claim.claimed, false);

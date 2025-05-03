@@ -145,12 +145,6 @@ fn test_release_voter_funds_success() {
 			true,
 			Conviction::Locked2x
 		));
-
-		let round_info = VotingRounds::<Test>::get(0).unwrap();
-		let project_info = WhiteListedProjectAccounts::<Test>::get(101).unwrap();
-		let referendum_index = project_info.index;
-		let vote_info = Votes::<Test>::get(referendum_index, BOB).unwrap();
-		let unlock_block = vote_info.funds_unlock_block;
 		let now = <Test as Config>::BlockNumberProvider::current_block_number();
 		run_to_block(now + 6);
 
@@ -223,8 +217,6 @@ fn rewards_calculation_works() {
 		let infos = WhiteListedProjectAccounts::<Test>::get(&101).unwrap();
 
 		run_to_block(round_info.round_ending_block);
-		let now = <Test as Config>::BlockNumberProvider::current_block_number();
-		println!("now: {:?}", now);
 		let referendum_info =
 			<Test as Config>::Governance::get_referendum_info(infos.index).unwrap();
 
@@ -504,6 +496,7 @@ fn spends_creation_works_but_claim_blocked_after_claim_period() {
 		// The Spends Storage should be empty
 		assert_eq!(Spends::<Test>::count(), 0);
 
+		// Referendum Infos
 		run_to_block(round_info.round_ending_block);
 
 		// Claim does not work before proposal enactment
@@ -511,14 +504,8 @@ fn spends_creation_works_but_claim_blocked_after_claim_period() {
 			Opf::claim_reward_for(RawOrigin::Signed(EVE).into(), 102),
 			Error::<Test>::InexistentSpend
 		);
-
-		// Check the scheduled call
-		
 		run_to_block(round_info.round_ending_block + 4);
-		println!(
-			"Current block number: {:?}",
-			<Test as Config>::BlockNumberProvider::current_block_number()
-		);
+		// The Spends Storage should be filled
 		let now = <Test as Config>::BlockNumberProvider::current_block_number();
 		let expire = now.saturating_add(<Test as Config>::ClaimingPeriod::get());
 
