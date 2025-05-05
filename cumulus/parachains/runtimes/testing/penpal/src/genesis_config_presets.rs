@@ -49,8 +49,8 @@ fn penpal_parachain_genesis(
 				.into_iter()
 				.map(|(acc, aura)| {
 					(
-						acc.clone(),          // account id
-						acc,                  // validator id
+						acc.clone(),               // account id
+						acc,                       // validator id
 						penpal_session_keys(aura), // session keys
 					)
 				})
@@ -62,7 +62,7 @@ fn penpal_parachain_genesis(
 			assets: vec![(
 				crate::xcm_config::TELEPORTABLE_ASSET_ID,
 				sudo.clone(), // owner
-				false, // is_sufficient
+				false,        // is_sufficient
 				crate::EXISTENTIAL_DEPOSIT,
 			)],
 			metadata: vec![(
@@ -101,19 +101,21 @@ fn penpal_parachain_genesis(
 
 /// Provides the JSON representation of predefined genesis config for given `id`.
 pub fn get_preset(id: &PresetId) -> Option<Vec<u8>> {
-
-	let genesis_fn = |authorities| penpal_parachain_genesis(
-		Sr25519Keyring::Alice.to_account_id(),
-		authorities,
-		Sr25519Keyring::well_known().map(|x| x.to_account_id()).collect(),
-		ENDOWMENT,
-		DEFAULT_PARA_ID,
-	);
+	let genesis_fn = |authorities| {
+		penpal_parachain_genesis(
+			Sr25519Keyring::Alice.to_account_id(),
+			authorities,
+			Sr25519Keyring::well_known().map(|x| x.to_account_id()).collect(),
+			ENDOWMENT,
+			DEFAULT_PARA_ID,
+		)
+	};
 
 	let patch = match id.as_ref() {
-		sp_genesis_builder::DEV_RUNTIME_PRESET => genesis_fn(vec![
-			(Sr25519Keyring::Alice.to_account_id(), Sr25519Keyring::Alice.public().into()),
-		]),
+		sp_genesis_builder::DEV_RUNTIME_PRESET => genesis_fn(vec![(
+			Sr25519Keyring::Alice.to_account_id(),
+			Sr25519Keyring::Alice.public().into(),
+		)]),
 		sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET => genesis_fn(vec![
 			(Sr25519Keyring::Alice.to_account_id(), Sr25519Keyring::Alice.public().into()),
 			(Sr25519Keyring::Bob.to_account_id(), Sr25519Keyring::Bob.public().into()),

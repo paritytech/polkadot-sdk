@@ -35,38 +35,35 @@ fn yap_parachain_genesis(
 	id: ParaId,
 ) -> serde_json::Value {
 	build_struct_json_patch!(RuntimeGenesisConfig {
-		aura: AuraConfig {
-			authorities: invulnerables,
-		},
+		aura: AuraConfig { authorities: invulnerables },
 		balances: BalancesConfig {
 			balances: endowed_accounts.iter().cloned().map(|k| (k, endowment)).collect(),
 		},
 		parachain_info: ParachainInfoConfig { parachain_id: id },
 		polkadot_xcm: PolkadotXcmConfig { safe_xcm_version: Some(SAFE_XCM_VERSION) },
-		sudo: SudoConfig {
-			key: Some(root_key),
-		}
+		sudo: SudoConfig { key: Some(root_key) }
 	})
 }
 
 /// Provides the JSON representation of predefined genesis config for given `id`.
 pub fn get_preset(id: &PresetId) -> Option<Vec<u8>> {
-
-	let genesis_fn = |authorities| rococo_parachain_genesis(
-		Sr25519Keyring::Alice.to_account_id(),
-		authorities,
-		Sr25519Keyring::well_known().map(|x| x.to_account_id()).collect(),
-		ENDOWMENT,
-		DEFAULT_PARA_ID,
-	);
+	let genesis_fn = |authorities| {
+		rococo_parachain_genesis(
+			Sr25519Keyring::Alice.to_account_id(),
+			authorities,
+			Sr25519Keyring::well_known().map(|x| x.to_account_id()).collect(),
+			ENDOWMENT,
+			DEFAULT_PARA_ID,
+		)
+	};
 
 	let patch = match id.as_ref() {
-		sp_genesis_builder::DEV_RUNTIME_PRESET => genesis_fn(vec![
-			Sr25519Keyring::Alice.to_account_id()
-		]),
-		sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET => genesis_fn(vec![
-			(Sr25519Keyring::Alice.to_account_id(), Sr25519Keyring::Bob.public().into()),
-		]),
+		sp_genesis_builder::DEV_RUNTIME_PRESET =>
+			genesis_fn(vec![Sr25519Keyring::Alice.to_account_id()]),
+		sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET => genesis_fn(vec![(
+			Sr25519Keyring::Alice.to_account_id(),
+			Sr25519Keyring::Bob.public().into(),
+		)]),
 		_ => return None,
 	};
 
