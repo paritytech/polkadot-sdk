@@ -41,6 +41,6 @@ impl MaybeEquivalence<H256, Location> for LocationIdConvert {
 	}
 	fn convert_back(lol: &Location) -> Option<H256> {
 		LOCATION_TO_IDENTIFIER
-			.with(|b| b.borrow().get(&lol.encode()).and_then(|id| Option::from(id.clone())))
+			.with(|b| b.borrow().get(&lol.encode()).and_then(|id| Option::from(*id)))
 	}
 }
