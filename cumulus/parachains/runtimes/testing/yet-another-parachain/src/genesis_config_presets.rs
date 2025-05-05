@@ -22,7 +22,7 @@ use frame_support::build_struct_json_patch;
 use parachains_common::{AccountId, AuraId};
 use sp_genesis_builder::PresetId;
 use sp_keyring::Sr25519Keyring;
-use testnet_parachains_constants::rococo::{currency::UNITS as ROC, xcm_version::SAFE_XCM_VERSION};
+use testnet_parachains_constants::rococo::{xcm_version::SAFE_XCM_VERSION};
 
 const DEFAULT_PARA_ID: ParaId = ParaId::new(1000);
 const ENDOWMENT: u128 = 1 << 60;
@@ -35,7 +35,7 @@ fn yap_parachain_genesis(
 	id: ParaId,
 ) -> serde_json::Value {
 	build_struct_json_patch!(RuntimeGenesisConfig {
-		aura: AuraConfig { authorities: invulnerables },
+		aura: AuraConfig { authorities: initial_authorities },
 		balances: BalancesConfig {
 			balances: endowed_accounts.iter().cloned().map(|k| (k, endowment)).collect(),
 		},
@@ -48,7 +48,7 @@ fn yap_parachain_genesis(
 /// Provides the JSON representation of predefined genesis config for given `id`.
 pub fn get_preset(id: &PresetId) -> Option<Vec<u8>> {
 	let genesis_fn = |authorities| {
-		rococo_parachain_genesis(
+		yap_parachain_genesis(
 			Sr25519Keyring::Alice.to_account_id(),
 			authorities,
 			Sr25519Keyring::well_known().map(|x| x.to_account_id()).collect(),
