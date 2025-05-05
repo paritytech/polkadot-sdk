@@ -89,6 +89,7 @@ jobs:
 
       - name: Get original PR number
         if: ${{ !contains(github.event.pull_request.labels.*.name, 'R0-silent') }}
+        shell: bash
         env:
           PR_TITLE: ${{ github.event.pull_request.title }}
         run: |
