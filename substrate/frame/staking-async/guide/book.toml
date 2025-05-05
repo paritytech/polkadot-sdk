@@ -11,6 +11,10 @@ command = "mdbook-mermaid"
 command = "mdbook-last-changed"
 renderer = ["html"]
 
+[preprocessor.toc]
+command = "mdbook-toc"
+renderer = ["html"]
+
 [output.wordcount]
 
 [output.html]

@@ -167,12 +167,14 @@ pub trait ShouldEndSession<BlockNumber> {
 	fn should_end_session(now: BlockNumber) -> bool;
 }
 
+// ANCHOR: periodic_sessions
 /// Ends the session after a fixed period of blocks.
 ///
 /// The first session will have length of `Offset`, and
 /// the following sessions will have length of `Period`.
 /// This may prove nonsensical if `Offset` >= `Period`.
 pub struct PeriodicSessions<Period, Offset>(PhantomData<(Period, Offset)>);
+// ANCHOR_END: periodic_sessions
 
 impl<
 		BlockNumber: Rem<Output = BlockNumber> + Sub<Output = BlockNumber> + Zero + PartialOrd,
@@ -418,19 +420,21 @@ pub mod pallet {
 		/// Its cost must be at most one storage read.
 		type ValidatorIdOf: Convert<Self::AccountId, Option<Self::ValidatorId>>;
 
+		// ANCHOR: session_types
 		/// Indicator for when to end the session.
 		type ShouldEndSession: ShouldEndSession<BlockNumberFor<Self>>;
+
+		/// Handler for how to change a session.
+		type SessionManager: SessionManager<Self::ValidatorId>;
+
+		/// Handler for who to notify when a session has changed.
+		type SessionHandler: SessionHandler<Self::ValidatorId>;
+		// ANCHOR_END: session_types
 
 		/// Something that can predict the next session rotation. This should typically come from
 		/// the same logical unit that provides [`ShouldEndSession`], yet, it gives a best effort
 		/// estimate. It is helpful to implement [`EstimateNextNewSession`].
 		type NextSessionRotation: EstimateNextSessionRotation<BlockNumberFor<Self>>;
-
-		/// Handler for managing new session.
-		type SessionManager: SessionManager<Self::ValidatorId>;
-
-		/// Handler when a session has changed.
-		type SessionHandler: SessionHandler<Self::ValidatorId>;
 
 		/// The keys.
 		type Keys: OpaqueKeys + Member + Parameter + MaybeSerializeDeserialize;

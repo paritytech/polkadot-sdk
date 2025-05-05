@@ -138,6 +138,7 @@ pub mod pallet {
 		#[pallet::no_default_bounds]
 		type CurrencyToVote: sp_staking::currency_to_vote::CurrencyToVote<BalanceOf<Self>>;
 
+		// ANCHOR: election_provider
 		/// Something that provides the election functionality.
 		#[pallet::no_default]
 		type ElectionProvider: ElectionProvider<
@@ -146,6 +147,7 @@ pub mod pallet {
 			// we only accept an election provider that has staking as data provider.
 			DataProvider = Pallet<Self>,
 		>;
+		// ANCHOR_END: election_provider
 
 		/// Something that defines the maximum number of nominations per nominator.
 		#[pallet::no_default_bounds]
