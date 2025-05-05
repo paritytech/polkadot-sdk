@@ -71,8 +71,33 @@ where
 	/// - When the number of authored blocks exceeds velocity limit
 	/// - When parachain slot is ahead of the calculated slot from relay chain
 	fn on_state_proof(state_proof: &RelayChainStateProof) -> (Weight, UnincludedSegmentCapacity) {
+		LolHook::<T, RELAY_CHAIN_SLOT_DURATION_MILLIS, ConstU32<V>, ConstU32<C>>::on_state_proof(
+			state_proof,
+		)
+	}
+}
+
+pub struct LolHook<T, const RELAY_CHAIN_SLOT_DURATION_MILLIS: u32, V: Get<u32>, C: Get<u32>>(
+	PhantomData<(T, V, C)>,
+);
+
+impl<T: pallet::Config, const RELAY_CHAIN_SLOT_DURATION_MILLIS: u32, V: Get<u32>, C: Get<u32>>
+	ConsensusHook for LolHook<T, RELAY_CHAIN_SLOT_DURATION_MILLIS, V, C>
+where
+	<T as pallet_timestamp::Config>::Moment: Into<u64>,
+{
+	/// Consensus hook that performs validations on the provided relay chain state
+	/// proof:
+	/// - Ensures blocks are not produced faster than the specified velocity `V`
+	/// - Verifies parachain slot alignment with relay chain slot
+	///
+	/// # Panics
+	/// - When the relay chain slot from the state is smaller than the slot from the proof
+	/// - When the number of authored blocks exceeds velocity limit
+	/// - When parachain slot is ahead of the calculated slot from relay chain
+	fn on_state_proof(state_proof: &RelayChainStateProof) -> (Weight, UnincludedSegmentCapacity) {
 		// Ensure velocity is non-zero.
-		let velocity = V.max(1);
+		let velocity = V::get().max(1);
 		let relay_chain_slot = state_proof.read_slot().expect("failed to read relay chain slot");
 
 		let (relay_chain_slot, authored_in_relay) = match pallet::RelaySlotInfo::<T>::get() {
@@ -115,7 +140,7 @@ where
 
 		(
 			weight,
-			NonZeroU32::new(core::cmp::max(C, 1))
+			NonZeroU32::new(core::cmp::max(C::get(), 1))
 				.expect("1 is the minimum value and non-zero; qed")
 				.into(),
 		)

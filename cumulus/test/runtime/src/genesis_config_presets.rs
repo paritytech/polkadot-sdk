@@ -16,7 +16,7 @@
 
 use super::{
 	AccountId, AuraConfig, AuraId, BalancesConfig, ParachainInfoConfig, RuntimeGenesisConfig,
-	SudoConfig,
+	SudoConfig, TestPalletConfig,
 };
 use alloc::{vec, vec::Vec};
 
@@ -25,10 +25,13 @@ use frame_support::build_struct_json_patch;
 use sp_genesis_builder::PresetId;
 use sp_keyring::Sr25519Keyring;
 
+const DEV_RELAY_PARENT_OFFSET: &'static str = "relay_parent_offset_dev";
+
 fn cumulus_test_runtime(
 	invulnerables: Vec<AuraId>,
 	endowed_accounts: Vec<AccountId>,
 	id: ParaId,
+	relay_parent_offset: u32,
 ) -> serde_json::Value {
 	build_struct_json_patch!(RuntimeGenesisConfig {
 		balances: BalancesConfig {
@@ -37,15 +40,19 @@ fn cumulus_test_runtime(
 		sudo: SudoConfig { key: Some(Sr25519Keyring::Alice.public().into()) },
 		parachain_info: ParachainInfoConfig { parachain_id: id },
 		aura: AuraConfig { authorities: invulnerables },
+		test_pallet: TestPalletConfig { relay_parent_offset }
 	})
 }
 
-fn testnet_genesis_with_default_endowed(self_para_id: ParaId) -> serde_json::Value {
+fn testnet_genesis_with_default_endowed(
+	self_para_id: ParaId,
+	relay_parent_offset: u32,
+) -> serde_json::Value {
 	let endowed = Sr25519Keyring::well_known().map(|x| x.to_account_id()).collect::<Vec<_>>();
 
 	let invulnerables =
 		Sr25519Keyring::invulnerable().map(|x| x.public().into()).collect::<Vec<_>>();
-	cumulus_test_runtime(invulnerables, endowed, self_para_id)
+	cumulus_test_runtime(invulnerables, endowed, self_para_id, relay_parent_offset)
 }
 
 /// List of supported presets.
@@ -53,6 +60,7 @@ pub fn preset_names() -> Vec<PresetId> {
 	vec![
 		PresetId::from(sp_genesis_builder::DEV_RUNTIME_PRESET),
 		PresetId::from(sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET),
+		PresetId::from(DEV_RELAY_PARENT_OFFSET),
 	]
 }
 
@@ -61,7 +69,8 @@ pub fn get_preset(id: &PresetId) -> Option<Vec<u8>> {
 	let patch = match id.as_ref() {
 		sp_genesis_builder::DEV_RUNTIME_PRESET |
 		sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET =>
-			testnet_genesis_with_default_endowed(100.into()),
+			testnet_genesis_with_default_endowed(100.into(), 0),
+		DEV_RELAY_PARENT_OFFSET => testnet_genesis_with_default_endowed(100.into(), 2),
 		_ => return None,
 	};
 	Some(

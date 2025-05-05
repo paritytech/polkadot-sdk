@@ -48,10 +48,10 @@ async fn slot_based_relay_parent_offset_test() -> Result<(), anyhow::Error> {
 			p.with_id(2400)
 				.with_default_command("test-parachain")
 				.with_default_image(images.cumulus.as_str())
-				.with_chain("relay-parent-offset")
+				.with_chain("elastic-scaling")
 				.with_default_args(vec![
 					"--authoring=slot-based".into(),
-					("-lparachain=debug,aura=debug").into(),
+					("-lparachain=debug,aura=debug,parachain-system=debug").into(),
 				])
 				.with_collator(|n| n.with_name("collator-rp-offset"))
 		})

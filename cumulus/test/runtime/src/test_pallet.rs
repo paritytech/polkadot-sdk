@@ -20,11 +20,12 @@ pub use pallet::*;
 /// Some key that we set in genesis and only read in [`TestOnRuntimeUpgrade`] to ensure that
 /// [`OnRuntimeUpgrade`] works as expected.
 pub const TEST_RUNTIME_UPGRADE_KEY: &[u8] = b"+test_runtime_upgrade_key+";
+pub const RP_OFFSET_KEY: &[u8] = b":RelayParentOffset:";
 
 #[frame_support::pallet(dev_mode)]
 pub mod pallet {
-	use crate::test_pallet::TEST_RUNTIME_UPGRADE_KEY;
-	use frame_support::pallet_prelude::*;
+	use crate::test_pallet::{RP_OFFSET_KEY, TEST_RUNTIME_UPGRADE_KEY};
+	use frame_support::{pallet_prelude::*, StorageHasher};
 	use frame_system::pallet_prelude::*;
 
 	#[pallet::pallet]
@@ -80,12 +81,16 @@ pub mod pallet {
 	pub struct GenesisConfig<T: Config> {
 		#[serde(skip)]
 		pub _config: core::marker::PhantomData<T>,
+		pub relay_parent_offset: u32,
 	}
 
 	#[pallet::genesis_build]
 	impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
 		fn build(&self) {
 			sp_io::storage::set(TEST_RUNTIME_UPGRADE_KEY, &[1, 2, 3, 4]);
+			let key = Twox128::hash(RP_OFFSET_KEY);
+			let offset = self.relay_parent_offset;
+			sp_io::storage::set(&key, &offset.encode());
 		}
 	}
 }
