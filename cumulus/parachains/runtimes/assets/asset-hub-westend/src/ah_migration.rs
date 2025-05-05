@@ -152,12 +152,12 @@ pub enum RcRuntimeCall {
 	// TODO: whitelisted caller
 	#[codec(index = 0u8)]
 	System(frame_system::Call<Runtime>),
-	#[codec(index = 19u8)]
-	Treasury(RcTreasuryCall),
-	#[codec(index = 21u8)]
-	Referenda(pallet_referenda::Call<Runtime>),
-	#[codec(index = 26u8)]
+	#[codec(index = 16u8)]
 	Utility(RcUtilityCall),
+	#[codec(index = 32u8)]
+	Referenda(pallet_referenda::Call<Runtime>),
+	#[codec(index = 37u8)]
+	Treasury(RcTreasuryCall),
 }
 
 /// Relay Chain Treasury Call obtained from cargo expand.
