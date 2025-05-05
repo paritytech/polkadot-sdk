@@ -36,6 +36,75 @@ use std::{
 	marker::PhantomData,
 	path::PathBuf,
 };
+
+// Seal the trait `StatementStoreDefault` to prevent external implementations.
+mod seal {
+	pub trait Sealed {}
+	impl Sealed for super::EnableStatementStoreByDefault {}
+	impl Sealed for super::DisableStatementStoreByDefault {}
+}
+
+/// Enable the statement store by default in the CLI.
+///
+/// This is a flag type that implements the trait [`StatementStoreDefault`].
+pub struct EnableStatementStoreByDefault;
+
+/// Disable the statement store by default in the CLI.
+///
+/// This is a flag type that implements the trait [`StatementStoreDefault`].
+pub struct DisableStatementStoreByDefault;
+
+/// Type used to provide the CLI arguments when statmeent store is enabled by default.
+#[derive(clap::Parser)]
+pub struct EnableStatementStoreByDefaultCliArg {
+	/// Disable the statement store.
+	///
+	/// The statement store is an off-chain data-store for signed statements accessible via RPC
+	/// and OCW.
+	/// It uses the runtime api to get the allowance associated to an account.
+	#[arg(long)]
+	disable_statement_store: bool,
+}
+
+/// Type used to provide the CLI arguments when statmeent store is disabled by default.
+#[derive(clap::Parser)]
+pub struct DisableStatementStoreByDefaultCliArg {
+	/// Enable the statement store.
+	///
+	/// The statement store is an off-chain data-store for signed statements accessible via RPC
+	/// and OCW.
+	/// It uses the runtime api to get the allowance associated to an account.
+	#[arg(long)]
+	enable_statement_store: bool,
+}
+
+/// Trait to specify the default statement store configuration.
+///
+/// Either [`EnableStatementStoreByDefault`] or [`DisableStatementStoreByDefault`].
+pub trait StatementStoreDefault: seal::Sealed {
+	/// The CLI arguments type that is used in the node CLI.
+	type CliArgs: FromArgMatches + clap::Args;
+
+	/// The final statement store configuration from the CLI.
+	fn enable_statement_store(cli_args: &Self::CliArgs) -> bool;
+}
+
+impl StatementStoreDefault for DisableStatementStoreByDefault {
+	type CliArgs = EnableStatementStoreByDefaultCliArg;
+
+	fn enable_statement_store(cli_args: &Self::CliArgs) -> bool {
+		!cli_args.disable_statement_store
+	}
+}
+
+impl StatementStoreDefault for EnableStatementStoreByDefault {
+	type CliArgs = DisableStatementStoreByDefaultCliArg;
+
+	fn enable_statement_store(cli_args: &Self::CliArgs) -> bool {
+		cli_args.enable_statement_store
+	}
+}
+
 /// Trait that can be used to customize some of the customer-facing info related to the node binary
 /// that is being built using this library.
 ///
@@ -66,6 +135,10 @@ pub trait CliConfig {
 
 	/// The starting copyright year of the resulting node binary.
 	fn copyright_start_year() -> u16;
+
+	/// The default statement store configuration: [`EnableStatementStoreByDefault`] or
+	/// [`DisableStatementStoreByDefault`].
+	type StatementStoreDefault: StatementStoreDefault;
 }
 
 /// Sub-commands supported by the collator.
@@ -206,6 +279,11 @@ pub struct Cli<Config: CliConfig> {
 	#[arg(raw = true)]
 	pub relay_chain_args: Vec<String>,
 
+	/// Statement store cli args.
+	// Note: this doc doesn't show up in the CLI, because `flatten` is used. TODO TODO: double check
+	#[clap(flatten)]
+	pub statement_store: <Config::StatementStoreDefault as StatementStoreDefault>::CliArgs,
+
 	#[arg(skip)]
 	pub(crate) _phantom: PhantomData<Config>,
 }
@@ -239,7 +317,9 @@ impl<Config: CliConfig> Cli<Config> {
 				.then(|| AuthoringPolicy::SlotBased)
 				.unwrap_or(self.authoring),
 			export_pov: self.export_pov_to_path.clone(),
-			disable_statement_store: self.disable_statement_store,
+			enable_statement_store: Config::StatementStoreDefault::enable_statement_store(
+				&self.statement_store,
+			),
 			max_pov_percentage: self.run.experimental_max_pov_percentage,
 		}
 	}
