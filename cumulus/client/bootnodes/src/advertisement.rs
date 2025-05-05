@@ -208,7 +208,7 @@ impl BootnodeAdvertisement {
 		if let Some(ref old_current_epoch_key) = self.current_epoch_key {
 			// Readvertise on start of new epoch only.
 			let Some(next_epoch_descriptor) =
-				header.digest().logs.iter().find_map(|v| v.as_next_epoch_descriptor())
+				header.log(|v| v.as_next_epoch_descriptor())
 			else {
 				return;
 			};
