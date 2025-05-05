@@ -1,0 +1,21 @@
+title: Add methods in the statement store RPCs to get the statements and not just
+  the statement data.
+doc:
+- audience:
+  - Node Dev
+  - Runtime Dev
+  description: |-
+    Some statement contain a proof with the signature of the statement, this proof is useful to assert that the statement comes from the expected account.
+
+    Alternatively we can always add some signature inside the encrypted data, but this means we sign 2 times and it isn't necessary in some cases.
+
+    What do you think @arkpar ?
+crates:
+- name: sc-rpc-api
+  bump: minor
+- name: sc-rpc
+  bump: minor
+- name: sc-statement-store
+  bump: minor
+- name: sp-statement-store
+  bump: minor
