@@ -1705,7 +1705,8 @@ where
 		}
 
 		if let Some(BlockGap { start, end, .. }) = info.block_gap {
-			debug!(target: LOG_TARGET, "Starting gap sync #{start} - #{end}");
+			let old_gap = self.gap_sync.take().map(|g| (g.best_queued_number, g.target));
+			debug!(target: LOG_TARGET, "Starting gap sync #{start} - #{end} (old gap best and target: {old_gap:?})");
 			self.gap_sync = Some(GapSync {
 				best_queued_number: start - One::one(),
 				target: end,
