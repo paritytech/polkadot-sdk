@@ -294,6 +294,21 @@ pub mod pallet {
 		}
 	}
 
+	#[pallet::view_functions]
+	impl<T: Config<I>, I: 'static> Pallet<T, I> {
+		/// Get the current `score` of a given account.
+		///
+		/// Returns `(current, real_score)`, the former being the current score that this pallet is
+		/// aware of, which may or may not be up to date, and the latter being the real score, as
+		/// provided by
+		// [`Config::ScoreProvider`].
+		///
+		/// If the two differ, it means this node is eligible for [`Call::rebag`].
+		pub fn scores(who: T::AccountId) -> (Option<T::Score>, Option<T::Score>) {
+			(ListNodes::<T, I>::get(&who).map(|node| node.score), T::ScoreProvider::score(&who))
+		}
+	}
+
 	#[pallet::call]
 	impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		/// Declare that some `dislocated` account has, through rewards or penalties, sufficiently
