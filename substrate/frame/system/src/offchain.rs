@@ -484,6 +484,8 @@ pub trait CreateSignedTransaction<LocalCall>:
 
 /// Interface for creating an inherent; ⚠️  **Deprecated use [`CreateBare`]**.
 ///
+/// This is a deprecated type alias for [`CreateBare`].
+///
 /// Doc for [`CreateBare`]:
 #[deprecated(note = "Use `CreateBare` instead")]
 #[doc(inline)]
