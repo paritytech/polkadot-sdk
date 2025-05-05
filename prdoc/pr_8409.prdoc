@@ -1,12 +1,10 @@
 title: check XCM size in VMP routing
 doc:
-- audience: Todo
+- audience: Runtime Dev
   description: |-
-    Contxt: within AHM, AH and RC need to communicate large-ish payloads of data, such as 1000 validator key and corresponding reward points per session. While the current limits on Polkadot and Kusama allow for such payloads, I am putting the code in place such that we `SendXcm::validate` any message before sending, and based on that, if `MessageSizeExceeded` is returned, we recursively split the messages. This code itself will come in a sparate PR.
-
-    So far, it turned out that in the code bath of a UMP (para -> RC), `validate` actually didn't check the message size. This PR adds this. I am not super familiar yet with this part of the codebase to know where to add unit tests for this, but I can tell that in my ZN experiments, this fixes the issue.
-
-    I was expecting a similar hack to also be needed for DMP (RC -> para), but it seems like this is not needed and in this code-path (based on who is the router: `ChildParachainRouter` in my case).
+    This PR adds the ability for a UMP (para -> relay), when using `UpwardMessageSender` to also
+    check the size of the message within validate. This is exposed into the existing `validate` of
+    `ParentAsUmp`.
 crates:
 - name: cumulus-pallet-parachain-system
   bump: minor
