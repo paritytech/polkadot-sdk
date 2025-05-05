@@ -19,7 +19,7 @@
 use std::{collections::HashMap, fmt::Debug, hash};
 
 use linked_hash_map::LinkedHashMap;
-use log::trace;
+use tracing::trace;
 
 use super::{watcher, BlockHash, ChainApi, ExtrinsicHash};
 
@@ -130,15 +130,24 @@ impl<C: ChainApi, L: EventHandler<C>> EventDispatcher<ExtrinsicHash<C>, C, L> {
 	}
 
 	/// Notify the listeners about the extrinsic broadcast.
-	pub fn broadcasted(&mut self, hash: &ExtrinsicHash<C>, peers: Vec<String>) {
-		trace!(target: LOG_TARGET, "[{:?}] Broadcasted", hash);
-		self.fire(hash, |watcher| watcher.broadcast(peers.clone()));
-		self.event_handler.as_ref().map(|l| l.broadcasted(*hash, peers));
+	pub fn broadcasted(&mut self, tx_hash: &ExtrinsicHash<C>, peers: Vec<String>) {
+		trace!(
+			target: LOG_TARGET,
+			?tx_hash,
+			"Broadcasted."
+		);
+		self.fire(tx_hash, |watcher| watcher.broadcast(peers.clone()));
+		self.event_handler.as_ref().map(|l| l.broadcasted(*tx_hash, peers));
 	}
 
 	/// New transaction was added to the ready pool or promoted from the future pool.
 	pub fn ready(&mut self, tx: &ExtrinsicHash<C>, old: Option<&ExtrinsicHash<C>>) {
-		trace!(target: LOG_TARGET, "[{:?}] Ready (replaced with {:?})", *tx, old);
+		trace!(
+			target: LOG_TARGET,
+			tx_hash = ?*tx,
+			replaced_with = ?old,
+			"Ready."
+		);
 		self.fire(tx, |watcher| watcher.ready());
 		if let Some(old) = old {
 			self.fire(old, |watcher| watcher.usurped(*tx));
@@ -148,24 +157,37 @@ impl<C: ChainApi, L: EventHandler<C>> EventDispatcher<ExtrinsicHash<C>, C, L> {
 	}
 
 	/// New transaction was added to the future pool.
-	pub fn future(&mut self, tx: &ExtrinsicHash<C>) {
-		trace!(target: LOG_TARGET, "[{:?}] Future", tx);
-		self.fire(tx, |watcher| watcher.future());
+	pub fn future(&mut self, tx_hash: &ExtrinsicHash<C>) {
+		trace!(
+			target: LOG_TARGET,
+			?tx_hash,
+			"Future."
+		);
+		self.fire(tx_hash, |watcher| watcher.future());
 
-		self.event_handler.as_ref().map(|l| l.future(*tx));
+		self.event_handler.as_ref().map(|l| l.future(*tx_hash));
 	}
 
 	/// Transaction was dropped from the pool because of enforcing the limit.
-	pub fn limits_enforced(&mut self, tx: &ExtrinsicHash<C>) {
-		trace!(target: LOG_TARGET, "[{:?}] Dropped (limits enforced)", tx);
-		self.fire(tx, |watcher| watcher.limit_enforced());
+	pub fn limits_enforced(&mut self, tx_hash: &ExtrinsicHash<C>) {
+		trace!(
+			target: LOG_TARGET,
+			?tx_hash,
+			"Dropped (limits enforced)."
+		);
+		self.fire(tx_hash, |watcher| watcher.limit_enforced());
 
-		self.event_handler.as_ref().map(|l| l.limits_enforced(*tx));
+		self.event_handler.as_ref().map(|l| l.limits_enforced(*tx_hash));
 	}
 
 	/// Transaction was replaced with other extrinsic.
 	pub fn usurped(&mut self, tx: &ExtrinsicHash<C>, by: &ExtrinsicHash<C>) {
-		trace!(target: LOG_TARGET, "[{:?}] Dropped (replaced with {:?})", tx, by);
+		trace!(
+			target: LOG_TARGET,
+			tx_hash = ?tx,
+			?by,
+			"Dropped (replaced)."
+		);
 		self.fire(tx, |watcher| watcher.usurped(*by));
 
 		self.event_handler.as_ref().map(|l| l.usurped(*tx, *by));
@@ -173,30 +195,43 @@ impl<C: ChainApi, L: EventHandler<C>> EventDispatcher<ExtrinsicHash<C>, C, L> {
 
 	/// Transaction was dropped from the pool because of the failure during the resubmission of
 	/// revalidate transactions or failure during pruning tags.
-	pub fn dropped(&mut self, tx: &ExtrinsicHash<C>) {
-		trace!(target: LOG_TARGET, "[{:?}] Dropped", tx);
-		self.fire(tx, |watcher| watcher.dropped());
-		self.event_handler.as_ref().map(|l| l.dropped(*tx));
+	pub fn dropped(&mut self, tx_hash: &ExtrinsicHash<C>) {
+		trace!(
+			target: LOG_TARGET,
+			   ?tx_hash,
+			"Dropped."
+		);
+		self.fire(tx_hash, |watcher| watcher.dropped());
+		self.event_handler.as_ref().map(|l| l.dropped(*tx_hash));
 	}
 
 	/// Transaction was removed as invalid.
-	pub fn invalid(&mut self, tx: &ExtrinsicHash<C>) {
-		trace!(target: LOG_TARGET, "[{:?}] Extrinsic invalid", tx);
-		self.fire(tx, |watcher| watcher.invalid());
-		self.event_handler.as_ref().map(|l| l.invalid(*tx));
+	pub fn invalid(&mut self, tx_hash: &ExtrinsicHash<C>) {
+		trace!(
+			target: LOG_TARGET,
+			?tx_hash,
+			"Extrinsic invalid."
+		);
+		self.fire(tx_hash, |watcher| watcher.invalid());
+		self.event_handler.as_ref().map(|l| l.invalid(*tx_hash));
 	}
 
 	/// Transaction was pruned from the pool.
-	pub fn pruned(&mut self, block_hash: BlockHash<C>, tx: &ExtrinsicHash<C>) {
-		trace!(target: LOG_TARGET, "[{:?}] Pruned at {:?}", tx, block_hash);
+	pub fn pruned(&mut self, block_hash: BlockHash<C>, tx_hash: &ExtrinsicHash<C>) {
+		trace!(
+			target: LOG_TARGET,
+			?tx_hash,
+			?block_hash,
+			"Pruned at."
+		);
 		// Get the transactions included in the given block hash.
 		let txs = self.finality_watchers.entry(block_hash).or_insert(vec![]);
-		txs.push(*tx);
+		txs.push(*tx_hash);
 		// Current transaction is the last one included.
 		let tx_index = txs.len() - 1;
 
-		self.fire(tx, |watcher| watcher.in_block(block_hash, tx_index));
-		self.event_handler.as_ref().map(|l| l.pruned(*tx, block_hash, tx_index));
+		self.fire(tx_hash, |watcher| watcher.in_block(block_hash, tx_index));
+		self.event_handler.as_ref().map(|l| l.pruned(*tx_hash, block_hash, tx_index));
 
 		while self.finality_watchers.len() > MAX_FINALITY_WATCHERS {
 			if let Some((hash, txs)) = self.finality_watchers.pop_front() {
@@ -221,15 +256,15 @@ impl<C: ChainApi, L: EventHandler<C>> EventDispatcher<ExtrinsicHash<C>, C, L> {
 	/// Notify all watchers that transactions have been finalized
 	pub fn finalized(&mut self, block_hash: BlockHash<C>) {
 		if let Some(hashes) = self.finality_watchers.remove(&block_hash) {
-			for (tx_index, hash) in hashes.into_iter().enumerate() {
-				log::trace!(
+			for (tx_index, tx_hash) in hashes.into_iter().enumerate() {
+				trace!(
 					target: LOG_TARGET,
-					"[{:?}] Sent finalization event (block {:?})",
-					hash,
-					block_hash,
+					?tx_hash,
+					?block_hash,
+					"Sent finalization event."
 				);
-				self.fire(&hash, |watcher| watcher.finalized(block_hash, tx_index));
-				self.event_handler.as_ref().map(|l| l.finalized(hash, block_hash, tx_index));
+				self.fire(&tx_hash, |watcher| watcher.finalized(block_hash, tx_index));
+				self.event_handler.as_ref().map(|l| l.finalized(tx_hash, block_hash, tx_index));
 			}
 		}
 	}

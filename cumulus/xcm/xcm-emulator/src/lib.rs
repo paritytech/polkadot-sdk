@@ -1301,12 +1301,14 @@ macro_rules! assert_expected_events {
 		$(
 			// We'll store a string representation of the first partially matching event.
 			let mut failure_message: Option<String> = None;
+			let mut event_received = false;
 			for index in 0..events.len() {
 				let event = &events[index];
 				match event {
 					$event_pat => {
 						let mut event_meets_conditions = true;
 						let mut conditions_message: Vec<String> = Vec::new();
+						event_received = true;
 
 						$(
 							if !$condition {
@@ -1346,7 +1348,7 @@ macro_rules! assert_expected_events {
 				}
 			}
 
-			if failure_message.is_some() {
+			if !event_received || failure_message.is_some() {
 				// No event matching the pattern was found.
 				messages.push(
 					format!(

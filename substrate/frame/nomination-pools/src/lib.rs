@@ -3980,6 +3980,7 @@ impl<T: Config> Pallet<T> {
 
 			let sum_unbonding_balance = subs.sum_unbonding_balance();
 			let bonded_balance = T::StakeAdapter::active_stake(Pool::from(pool_account.clone()));
+			// TODO: should be total_balance + unclaimed_withdrawals from delegated staking
 			let total_balance = T::StakeAdapter::total_balance(Pool::from(pool_account.clone()))
 				// At the time when StakeAdapter is changed to `DelegateStake` but pool is not yet
 				// migrated, the total balance would be none.

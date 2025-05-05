@@ -40,12 +40,12 @@ async fn sync_backing_test() -> Result<(), anyhow::Error> {
 			(1..5).fold(r, |acc, i| acc.with_node(|node| node.with_name(&format!("validator-{i}"))))
 		})
 		.with_parachain(|p| {
-			p.with_id(2000)
-				.with_default_command("polkadot-parachain")
-				// This must be a very old polkadot-parachain image, pre async backing
+			p.with_id(2500)
+				.with_default_command("test-parachain")
 				.with_default_image(images.cumulus.as_str())
+				.with_chain("sync-backing")
 				.with_default_args(vec![("-lparachain=debug,aura=debug").into()])
-				.with_collator(|n| n.with_name("collator-2000"))
+				.with_collator(|n| n.with_name("collator-2500"))
 		})
 		.build()
 		.map_err(|e| {
@@ -57,14 +57,14 @@ async fn sync_backing_test() -> Result<(), anyhow::Error> {
 	let network = spawn_fn(config).await?;
 
 	let relay_node = network.get_node("validator-0")?;
-	let para_node = network.get_node("collator-2000")?;
+	let para_node = network.get_node("collator-2500")?;
 
 	let relay_client: OnlineClient<PolkadotConfig> = relay_node.wait_client().await?;
 
 	assert_finalized_para_throughput(
 		&relay_client,
 		15,
-		[(ParaId::from(2000), 5..9)].into_iter().collect(),
+		[(ParaId::from(2500), 6..9)].into_iter().collect(),
 	)
 	.await?;
 
