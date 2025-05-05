@@ -26,7 +26,7 @@ mod genesis_config_presets;
 
 extern crate alloc;
 
-use alloc::{vec::Vec};
+use alloc::vec::Vec;
 use cumulus_pallet_parachain_system::RelayNumberMonotonicallyIncreases;
 use polkadot_runtime_common::xcm_sender::NoPriceForMessageDelivery;
 use sp_api::impl_runtime_apis;
