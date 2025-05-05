@@ -131,7 +131,7 @@ where
 	let cli_command = Cli::<CliConfig>::setup_command(cli_command);
 	let matches = cli_command.get_matches();
 
-	let extra_has_subcommands = <Extra as CommandFactory>::command().has_subcommands();
+	let extra_has_subcommands =  Extra::command().has_subcommands();
 
 	if extra_has_subcommands {
 		if let Ok(extra) = Extra::from_arg_matches(&matches) {

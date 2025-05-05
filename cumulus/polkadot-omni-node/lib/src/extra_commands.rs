@@ -53,6 +53,7 @@ use crate::RunConfig;
 ///     pub foo: Option<String>,
 /// }
 ///
+/// #[derive(Parser)]
 /// pub struct FooCommand;
 ///
 /// impl ExtraSubcommand for FooCommand {
