@@ -20,7 +20,7 @@
 ///   [`DefaultExtraSubcommands`] to `run_with_custom_cli`, which injects that one command.
 /// * Binaries that should stay minimal pass [`NoExtraSubcommand`], which requests no extras at
 ///   all.
-use clap::Parser;
+use clap::Subcommand;
 use sc_cli::{ExportChainSpecCmd, Result};
 
 use crate::RunConfig;
@@ -35,7 +35,7 @@ use crate::RunConfig;
 ///
 /// To create your own subcommand:
 ///
-/// 1. Define the subcommand using [`clap::Parser`].
+/// 1. Define the subcommand using [`clap::Subcommand`].
 /// 2. Implement this trait for it.
 /// 3. Use it when running the node via `run_with_custom_cli::<CliConfig,
 ///    YourExtraCommand>(run_config)`
@@ -46,20 +46,15 @@ use crate::RunConfig;
 /// use clap::Parser;
 /// use polkadot_omni_node_lib::{ExtraSubcommand, RunConfig};
 ///
-/// #[derive(Debug, Clone, Parser)]
-/// pub struct FooCmd {
-///     /// Prints a foo message
-///     #[arg(long)]
-///     pub foo: Option<String>,
+/// #[derive(Debug, Clone, Subcommand)]
+/// pub enum ExtraCmd {
+///		NewCmd,
 /// }
 ///
-/// #[derive(Parser)]
-/// pub struct FooCommand;
+/// impl ExtraSubcommand for ExtraCmd {
 ///
-/// impl ExtraSubcommand for FooCommand {
-///
-///   fn handle(cmd: FooCmd, _config: &RunConfig) -> sc_cli::Result<()> {
-///         println!("Hello from Foo! {:?}", cmd.Foo);
+///   fn handle(_cmd: ExtraCmd, _config: &RunConfig) -> sc_cli::Result<()> {
+///         println!("Hello from Extra!");
 ///         Ok(())
 ///     }
 /// }
@@ -69,19 +64,19 @@ use crate::RunConfig;
 ///
 ///
 /// let config = RunConfig::new(...);
-/// run_with_custom_cli::<CliConfig, FooCommand>(config)?;
+/// run_with_custom_cli::<CliConfig, ExtraCmd>(config)?;
 ///
 ///
 /// Running it:
 ///
 /// ```bash
-/// $ your-binary foo --foo bar
-/// Hello from Foo! Some("bar")
+/// $ your-binary new-cmd
+/// Hello from Extra!
 /// ```
 ///
 /// ## Supporting Multiple Subcommands
 ///
-/// You can compose multiple extra commands via an enum. Just derive [`clap::Parser`] and match
+/// You can compose multiple extra commands via an enum. Just derive [`clap::Subcommand`] and match
 /// over the variants in `handle`.
 ///
 ///
@@ -103,7 +98,7 @@ use crate::RunConfig;
 /// }
 
 /// Trait implemented by a set of optional sub‑commands**.
-pub trait ExtraSubcommand: Parser {
+pub trait ExtraSubcommand: Subcommand {
 	/// Handle the command once it's been parsed.
 	fn handle(self, cfg: &RunConfig) -> Result<()>;
 }
@@ -122,7 +117,7 @@ pub trait ExtraSubcommand: Parser {
 /// ```
 ///
 /// Downstream crates may use this enum directly or extend it with their own subcommands.
-#[derive(Debug, Parser)]
+#[derive(Debug, Subcommand)]
 pub enum DefaultExtraSubcommands {
 	/// Export the chain spec to JSON.
 	ExportChainSpec(ExportChainSpecCmd),
@@ -132,8 +127,8 @@ pub enum DefaultExtraSubcommands {
 ///
 /// You can use this by passing [`NoExtraSubcommand`] to `run_with_custom_cli::<CliConfig,
 /// NoExtraSubcommand>()`.
-#[derive(Debug, Parser)]
-pub struct NoExtraSubcommand;
+#[derive(Debug, Subcommand)]
+pub enum NoExtraSubcommand {}
 
 impl ExtraSubcommand for NoExtraSubcommand {
 	fn handle(self, _cfg: &RunConfig) -> Result<()> {

@@ -238,14 +238,15 @@ pub trait SubstrateCli: Sized {
 		full_version.push('\n');
 
 		cmd = cmd
+			.name(Self::executable_name())
 			.version(full_version)
 			.author(Self::author())
 			.about(Self::description())
+			.long_about(Self::description())
 			.after_help(format!("Support: {}", Self::support_url()))
 			.propagate_version(true)
 			.args_conflicts_with_subcommands(true)
-			.subcommand_negates_reqs(true)
-			.allow_external_subcommands(true);
+			.subcommand_negates_reqs(true);
 
 		cmd
 	}

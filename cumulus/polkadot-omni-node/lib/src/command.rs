@@ -30,7 +30,7 @@ use crate::{
 	nodes::DynNodeSpecExt,
 	runtime::BlockNumber,
 };
-use clap::{Args, CommandFactory, FromArgMatches};
+use clap::{CommandFactory, FromArgMatches};
 #[cfg(feature = "runtime-benchmarks")]
 use cumulus_client_service::storage_proof_size::HostFunctions as ReclaimHostFunctions;
 use cumulus_primitives_core::ParaId;
@@ -127,20 +127,22 @@ where
 	CliConfig: crate::cli::CliConfig,
 	Extra: ExtraSubcommand,
 {
-	let cli_command = Cli::<CliConfig>::augment_args(<Extra as CommandFactory>::command());
+	let cli_command = Cli::<CliConfig>::command();
+	let cli_command = Extra::augment_subcommands(cli_command);
 	let cli_command = Cli::<CliConfig>::setup_command(cli_command);
+
+	// Get matches for all CLI, including extra args.
 	let matches = cli_command.get_matches();
 
-	let extra_has_subcommands = Extra::command().has_subcommands();
-
-	if extra_has_subcommands {
-		if let Ok(extra) = Extra::from_arg_matches(&matches) {
-			extra.handle(&cmd_config)?;
-			return Ok(());
-		}
+	// Parse only the part corresponding to the extra args.
+	if let Ok(extra) = Extra::from_arg_matches(&matches) {
+		// Handle the extra, and return - subcommands are self contained,
+		// no need to handle the rest of the CLI or node running.
+		extra.handle(&cmd_config)?;
+		return Ok(())
 	}
 
-	// No extra subcommand matched -> treat it as normal node CLI arguments
+	// If matching on the extra subcommands fails, match on the rest of the node CLI as usual.
 	let mut cli =
 		Cli::<CliConfig>::from_arg_matches(&matches).map_err(|e| sc_cli::Error::Cli(e.into()))?;
 	cli.chain_spec_loader = Some(cmd_config.chain_spec_loader);
