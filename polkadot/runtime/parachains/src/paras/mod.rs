@@ -628,6 +628,7 @@ pub mod pallet {
 		+ shared::Config
 		+ frame_system::offchain::CreateBare<Call<Self>>
 	{
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		#[pallet::constant]

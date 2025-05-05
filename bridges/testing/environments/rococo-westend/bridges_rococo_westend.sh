@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # import common functions
 source "$FRAMEWORK_PATH/utils/bridges.sh"
@@ -227,11 +227,6 @@ function run_messages_relay() {
 }
 
 case "$1" in
-  run-relay)
-    init_wnd_ro
-    init_ro_wnd
-    run_relay
-    ;;
   run-finality-relay)
     init_wnd_ro
     init_ro_wnd
@@ -453,7 +448,6 @@ case "$1" in
   *)
     echo "A command is require. Supported commands for:
     Local (zombienet) run:
-          - run-relay
           - run-finality-relay
           - run-parachains-relay
           - run-messages-relay

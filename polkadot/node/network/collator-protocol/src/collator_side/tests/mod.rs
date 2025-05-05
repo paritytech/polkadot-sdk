@@ -475,7 +475,7 @@ async fn expect_advertise_collation_msg(
 			) => {
 				assert!(any_peers.iter().any(|p| to.contains(p)));
 				match wire_message {
-					Versioned::V2(protocol_v2::CollationProtocol::CollatorProtocol(
+					CollationProtocols::V2(protocol_v2::CollationProtocol::CollatorProtocol(
 						wire_message,
 					)) => {
 						assert_matches!(
@@ -1175,7 +1175,7 @@ fn collators_reject_declare_messages() {
 				virtual_overseer,
 				CollatorProtocolMessage::NetworkBridgeUpdate(NetworkBridgeEvent::PeerMessage(
 					peer,
-					Versioned::V1(protocol_v1::CollatorProtocolMessage::Declare(
+					CollationProtocols::V1(protocol_v1::CollatorProtocolMessage::Declare(
 						collator_pair2.public(),
 						ParaId::from(5),
 						collator_pair2.sign(b"garbage"),

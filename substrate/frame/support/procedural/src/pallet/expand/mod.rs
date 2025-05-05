@@ -80,6 +80,8 @@ pub fn expand(mut def: Def) -> proc_macro2::TokenStream {
 	let doc_only = doc_only::expand_doc_only(&mut def);
 	let composites = composite::expand_composites(&mut def);
 
+	let warnings = def.config.warnings;
+
 	def.item.attrs.insert(
 		0,
 		syn::parse_quote!(
@@ -100,6 +102,9 @@ storage item. Otherwise, all storage items are listed among [*Type Definitions*]
 	);
 
 	let new_items = quote::quote!(
+		#(
+			#warnings
+		)*
 		#metadata_docs
 		#constants
 		#pallet_struct
@@ -124,12 +129,8 @@ storage item. Otherwise, all storage items are listed among [*Type Definitions*]
 		#composites
 	);
 
-	def.item
-		.content
-		.as_mut()
-		.expect("This is checked by parsing")
-		.1
-		.push(syn::Item::Verbatim(new_items));
+	let item = &mut def.item.content.as_mut().expect("This is checked by parsing").1;
+	item.push(syn::Item::Verbatim(new_items));
 
 	def.item.into_token_stream()
 }

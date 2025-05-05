@@ -18,25 +18,27 @@
 //! Convert the IR to V16 metadata.
 
 use crate::{
-	DeprecationInfoIR, DeprecationStatusIR, OuterEnumsIR, PalletAssociatedTypeMetadataIR,
-	PalletCallMetadataIR, PalletConstantMetadataIR, PalletErrorMetadataIR, PalletEventMetadataIR,
-	PalletStorageMetadataIR, PalletViewFunctionMethodMetadataIR,
-	PalletViewFunctionMethodParamMetadataIR, StorageEntryMetadataIR,
+	DeprecationInfoIR, DeprecationStatusIR, PalletAssociatedTypeMetadataIR, PalletCallMetadataIR,
+	PalletConstantMetadataIR, PalletErrorMetadataIR, PalletEventMetadataIR,
+	PalletStorageMetadataIR, PalletViewFunctionMetadataIR, PalletViewFunctionParamMetadataIR,
+	StorageEntryMetadataIR,
 };
 
 use super::types::{
 	ExtrinsicMetadataIR, MetadataIR, PalletMetadataIR, RuntimeApiMetadataIR,
-	RuntimeApiMethodMetadataIR, RuntimeApiMethodParamMetadataIR, TransactionExtensionMetadataIR,
+	RuntimeApiMethodMetadataIR, TransactionExtensionMetadataIR,
 };
 
 use frame_metadata::v16::{
-	CustomMetadata, DeprecationInfo, DeprecationStatus, ExtrinsicMetadata, OuterEnums,
+	CustomMetadata, DeprecationInfo, DeprecationStatus, ExtrinsicMetadata, FunctionParamMetadata,
 	PalletAssociatedTypeMetadata, PalletCallMetadata, PalletConstantMetadata, PalletErrorMetadata,
 	PalletEventMetadata, PalletMetadata, PalletStorageMetadata, PalletViewFunctionMetadata,
-	PalletViewFunctionParamMetadata, RuntimeApiMetadata, RuntimeApiMethodMetadata,
-	RuntimeApiMethodParamMetadata, RuntimeMetadataV16, StorageEntryMetadata,
+	RuntimeApiMetadata, RuntimeApiMethodMetadata, RuntimeMetadataV16, StorageEntryMetadata,
 	TransactionExtensionMetadata,
 };
+
+use codec::Compact;
+use scale_info::form::MetaForm;
 
 impl From<MetadataIR> for RuntimeMetadataV16 {
 	fn from(ir: MetadataIR) -> Self {
@@ -59,6 +61,7 @@ impl From<RuntimeApiMetadataIR> for RuntimeApiMetadata {
 			methods: ir.methods.into_iter().map(Into::into).collect(),
 			docs: ir.docs,
 			deprecation_info: ir.deprecation_info.into(),
+			version: ir.version.into(),
 		}
 	}
 }
@@ -72,12 +75,6 @@ impl From<RuntimeApiMethodMetadataIR> for RuntimeApiMethodMetadata {
 			docs: ir.docs,
 			deprecation_info: ir.deprecation_info.into(),
 		}
-	}
-}
-
-impl From<RuntimeApiMethodParamMetadataIR> for RuntimeApiMethodParamMetadata {
-	fn from(ir: RuntimeApiMethodParamMetadataIR) -> Self {
-		RuntimeApiMethodParamMetadata { name: ir.name, ty: ir.ty }
 	}
 }
 
@@ -145,8 +142,8 @@ impl From<PalletCallMetadataIR> for PalletCallMetadata {
 	}
 }
 
-impl From<PalletViewFunctionMethodMetadataIR> for PalletViewFunctionMetadata {
-	fn from(ir: PalletViewFunctionMethodMetadataIR) -> Self {
+impl From<PalletViewFunctionMetadataIR> for PalletViewFunctionMetadata {
+	fn from(ir: PalletViewFunctionMetadataIR) -> Self {
 		PalletViewFunctionMetadata {
 			name: ir.name,
 			id: ir.id,
@@ -158,9 +155,9 @@ impl From<PalletViewFunctionMethodMetadataIR> for PalletViewFunctionMetadata {
 	}
 }
 
-impl From<PalletViewFunctionMethodParamMetadataIR> for PalletViewFunctionParamMetadata {
-	fn from(ir: PalletViewFunctionMethodParamMetadataIR) -> Self {
-		PalletViewFunctionParamMetadata { name: ir.name, ty: ir.ty }
+impl From<PalletViewFunctionParamMetadataIR> for FunctionParamMetadata<MetaForm> {
+	fn from(ir: PalletViewFunctionParamMetadataIR) -> Self {
+		FunctionParamMetadata { name: ir.name, ty: ir.ty }
 	}
 }
 
@@ -185,7 +182,7 @@ impl From<TransactionExtensionMetadataIR> for TransactionExtensionMetadata {
 impl From<ExtrinsicMetadataIR> for ExtrinsicMetadata {
 	fn from(ir: ExtrinsicMetadataIR) -> Self {
 		// Assume version 0 for all extensions.
-		let indexes = (0..ir.extensions.len()).map(|index| index as u32).collect();
+		let indexes = (0..ir.extensions.len()).map(|index| Compact(index as u32)).collect();
 		let transaction_extensions_by_version = [(0, indexes)].iter().cloned().collect();
 
 		ExtrinsicMetadata {
@@ -194,16 +191,6 @@ impl From<ExtrinsicMetadataIR> for ExtrinsicMetadata {
 			signature_ty: ir.signature_ty,
 			transaction_extensions_by_version,
 			transaction_extensions: ir.extensions.into_iter().map(Into::into).collect(),
-		}
-	}
-}
-
-impl From<OuterEnumsIR> for OuterEnums {
-	fn from(ir: OuterEnumsIR) -> Self {
-		OuterEnums {
-			call_enum_ty: ir.call_enum_ty,
-			event_enum_ty: ir.event_enum_ty,
-			error_enum_ty: ir.error_enum_ty,
 		}
 	}
 }

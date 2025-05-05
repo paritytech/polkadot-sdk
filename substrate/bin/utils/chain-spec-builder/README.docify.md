@@ -15,7 +15,7 @@ for a list of available commands.
 ## Installation
 
 ```bash
-cargo install staging-chain-spec-builder
+cargo install staging-chain-spec-builder --locked
 ```
 
 _Note:_ `chain-spec-builder` binary is published on [crates.io](https://crates.io) under

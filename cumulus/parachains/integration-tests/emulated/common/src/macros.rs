@@ -493,7 +493,7 @@ macro_rules! test_can_estimate_and_pay_exact_fees {
 					(Parent, 100_000_000_000u128),
 				);
 				let origin = OriginCaller::system(RawOrigin::Signed(sender.clone()));
-				let result = Runtime::dry_run_call(origin, call).unwrap();
+				let result = Runtime::dry_run_call(origin, call, xcm::prelude::XCM_VERSION).unwrap();
 				let local_xcm = result.local_xcm.unwrap().clone();
 				let local_xcm_weight = Runtime::query_xcm_weight(local_xcm).unwrap();
 				local_execution_fees = Runtime::query_weight_to_asset_fee(
@@ -638,7 +638,7 @@ macro_rules! test_dry_run_transfer_across_pk_bridge {
 			use frame_support::{dispatch::RawOrigin, traits::fungible};
 			use sp_runtime::AccountId32;
 			use xcm::prelude::*;
-			use xcm_runtime_apis::dry_run::runtime_decl_for_dry_run_api::DryRunApiV1;
+			use xcm_runtime_apis::dry_run::runtime_decl_for_dry_run_api::DryRunApiV2;
 
 			let who = AccountId32::new([1u8; 32]);
 			let transfer_amount = 10_000_000_000_000u128;
@@ -668,7 +668,7 @@ macro_rules! test_dry_run_transfer_across_pk_bridge {
 					fee_asset_item: 0,
 					weight_limit: Unlimited,
 				});
-				let result = Runtime::dry_run_call(OriginCaller::system(RawOrigin::Signed(who)), call).unwrap();
+				let result = Runtime::dry_run_call(OriginCaller::system(RawOrigin::Signed(who)), call, XCM_VERSION).unwrap();
 				// We assert the dry run succeeds and sends only one message to the local bridge hub.
 				assert!(result.execution_result.is_ok());
 				assert_eq!(result.forwarded_xcms.len(), 1);
@@ -741,6 +741,149 @@ macro_rules! test_xcm_fee_querying_apis_work_for_asset_hub {
 				let fee_in_usdt = Runtime::query_weight_to_asset_fee(weight, VersionedAssetId::from(AssetId(usdt)));
 				assert_ok!(fee_in_usdt);
 				assert!(fee_in_usdt.unwrap() > fee_in_wnd);
+			});
+		}
+	};
+}
+
+#[macro_export]
+macro_rules! test_cross_chain_alias {
+	( vec![$( ($sender_para:ty, $receiver_para:ty, $is_teleport:expr, $expected_success:expr) ),+], $origin:expr, $target:expr, $fees:expr ) => {
+		$crate::macros::paste::paste! {
+			$(
+				{
+					use xcm::latest::AssetTransferFilter;
+					let para_destination = <$sender_para>::sibling_location_of(<$receiver_para>::para_id());
+					let account: AccountId = $origin.clone().into();
+					$sender_para::fund_accounts(vec![(account.clone(), $fees * 10)]);
+					let total_fees: Asset = (Location::parent(), $fees).into();
+					let fees: Asset = (Location::parent(), $fees / 2).into();
+
+					let remote_fees = if $is_teleport {
+						Some(AssetTransferFilter::Teleport(fees.clone().into()))
+					} else {
+						let source_para_sa = <$receiver_para>::sovereign_account_id_of(
+							<$receiver_para>::sibling_location_of(<$sender_para>::para_id()),
+						);
+						$receiver_para::fund_accounts(vec![(source_para_sa, $fees * 10)]);
+						Some(AssetTransferFilter::ReserveWithdraw(fees.clone().into()))
+					};
+					<$sender_para>::execute_with(|| {
+						type RuntimeEvent = <$sender_para as $crate::macros::Chain>::RuntimeEvent;
+						let xcm_message = Xcm::<()>(vec![
+							WithdrawAsset(total_fees.into()),
+							PayFees { asset: fees.clone() },
+							InitiateTransfer {
+								destination: para_destination,
+								remote_fees,
+								preserve_origin: true,
+								assets: BoundedVec::new(),
+								remote_xcm: Xcm(vec![
+									// try to alias into `account`
+									AliasOrigin($target.clone().into()),
+									RefundSurplus,
+									DepositAsset {
+										assets: Wild(AllCounted(1)),
+										beneficiary: $target.clone().into(),
+									},
+								]),
+							},
+							RefundSurplus,
+							DepositAsset { assets: Wild(AllCounted(1)), beneficiary: account.clone().into() },
+						]);
+
+						let signed_origin = <$sender_para as Chain>::RuntimeOrigin::signed(account.into());
+						assert_ok!(<$sender_para as [<$sender_para Pallet>]>::PolkadotXcm::execute(
+							signed_origin,
+							bx!(xcm::VersionedXcm::from(xcm_message.into())),
+							Weight::MAX
+						));
+						assert_expected_events!(
+							$sender_para,
+							vec![
+								RuntimeEvent::PolkadotXcm(pallet_xcm::Event::Sent { .. }) => {},
+							]
+						);
+					});
+
+					<$receiver_para>::execute_with(|| {
+						type RuntimeEvent = <$receiver_para as $crate::macros::Chain>::RuntimeEvent;
+						assert_expected_events!(
+							$receiver_para,
+							vec![
+								RuntimeEvent::MessageQueue(pallet_message_queue::Event::Processed {
+									success, ..
+								}) => { success: *success == $expected_success, },
+							]
+						);
+					});
+				}
+			)+
+		}
+	};
+}
+
+/// note: $asset needs to be prefunded outside this function
+#[macro_export]
+macro_rules! create_pool_with_native_on {
+	( $chain:ident, $asset:expr, $is_foreign:expr, $asset_owner:expr ) => {
+		emulated_integration_tests_common::impls::paste::paste! {
+			<$chain>::execute_with(|| {
+				type RuntimeEvent = <$chain as Chain>::RuntimeEvent;
+				let owner = $asset_owner;
+				let signed_owner = <$chain as Chain>::RuntimeOrigin::signed(owner.clone());
+				let native_asset: Location = Parent.into();
+
+				if $is_foreign {
+					assert_ok!(<$chain as [<$chain Pallet>]>::ForeignAssets::mint(
+						signed_owner.clone(),
+						$asset.clone().into(),
+						owner.clone().into(),
+						10_000_000_000_000, // For it to have more than enough.
+					));
+				} else {
+					let asset_id = match $asset.interior.last() {
+						Some(GeneralIndex(id)) => *id as u32,
+						_ => unreachable!(),
+					};
+					assert_ok!(<$chain as [<$chain Pallet>]>::Assets::mint(
+						signed_owner.clone(),
+						asset_id.into(),
+						owner.clone().into(),
+						10_000_000_000_000, // For it to have more than enough.
+					));
+				}
+
+				assert_ok!(<$chain as [<$chain Pallet>]>::AssetConversion::create_pool(
+					signed_owner.clone(),
+					Box::new(native_asset.clone()),
+					Box::new($asset.clone()),
+				));
+
+				assert_expected_events!(
+					$chain,
+					vec![
+						RuntimeEvent::AssetConversion(pallet_asset_conversion::Event::PoolCreated { .. }) => {},
+					]
+				);
+
+				assert_ok!(<$chain as [<$chain Pallet>]>::AssetConversion::add_liquidity(
+					signed_owner,
+					Box::new(native_asset),
+					Box::new($asset),
+					1_000_000_000_000,
+					2_000_000_000_000, // $asset is worth half of native_asset
+					0,
+					0,
+					owner.into()
+				));
+
+				assert_expected_events!(
+					$chain,
+					vec![
+						RuntimeEvent::AssetConversion(pallet_asset_conversion::Event::LiquidityAdded { .. }) => {},
+					]
+				);
 			});
 		}
 	};

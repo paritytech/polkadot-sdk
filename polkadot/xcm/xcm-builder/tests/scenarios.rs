@@ -372,6 +372,7 @@ fn recursive_xcm_execution_fail() {
 	impl xcm_executor::Config for XcmTestConfig {
 		type RuntimeCall = RuntimeCall;
 		type XcmSender = TestXcmRouter;
+		type XcmEventEmitter = ();
 		type AssetTransactor = LocalAssetTransactor;
 		type OriginConverter = ();
 		type IsReserve = ();
@@ -417,6 +418,12 @@ fn recursive_xcm_execution_fail() {
 			Weight::zero(),
 		);
 
-		assert_eq!(outcome, Outcome::Error { error: XcmError::Barrier });
+		assert_eq!(
+			outcome,
+			Outcome::Incomplete {
+				used: Weight::from_parts(3000000000, 3072),
+				error: XcmError::Barrier
+			}
+		);
 	});
 }

@@ -58,23 +58,29 @@ impl Contains<RuntimeCall> for TestBaseCallFilter {
 		}
 	}
 }
+
+parameter_types! {
+	pub static MultisigDepositBase: u64 = 1;
+	pub static MultisigDepositFactor: u64 = 1;
+}
+
 impl Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type RuntimeCall = RuntimeCall;
 	type Currency = Balances;
-	type DepositBase = ConstU64<1>;
-	type DepositFactor = ConstU64<1>;
+	type DepositBase = MultisigDepositBase;
+	type DepositFactor = MultisigDepositFactor;
 	type MaxSignatories = ConstU32<3>;
 	type WeightInfo = ();
 	type BlockNumberProvider = frame_system::Pallet<Test>;
 }
 
-use pallet_balances::Call as BalancesCall;
+use pallet_balances::{Call as BalancesCall, Error as BalancesError};
 
 pub fn new_test_ext() -> TestState {
 	let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 	pallet_balances::GenesisConfig::<Test> {
-		balances: vec![(1, 10), (2, 10), (3, 10), (4, 10), (5, 2)],
+		balances: vec![(1, 10), (2, 10), (3, 10), (4, 5), (5, 2)],
 		..Default::default()
 	}
 	.assimilate_storage(&mut t)
@@ -686,5 +692,316 @@ fn multisig_handles_no_preimage_after_all_approve() {
 			call_weight
 		));
 		assert_eq!(Balances::free_balance(6), 15);
+	});
+}
+
+#[test]
+fn poke_deposit_fails_for_threshold_less_than_two() {
+	new_test_ext().execute_with(|| {
+		let call = call_transfer(6, 15);
+		let hash = blake2_256(&call.encode());
+		assert_noop!(
+			Multisig::poke_deposit(RuntimeOrigin::signed(1), 0, vec![2], hash),
+			Error::<Test>::MinimumThreshold,
+		);
+		assert_noop!(
+			Multisig::poke_deposit(RuntimeOrigin::signed(1), 1, vec![2], hash),
+			Error::<Test>::MinimumThreshold,
+		);
+	});
+}
+
+#[test]
+fn poke_deposit_fails_for_too_incorrect_number_of_signatories() {
+	new_test_ext().execute_with(|| {
+		let call = call_transfer(6, 15);
+		let hash = blake2_256(&call.encode());
+		assert_noop!(
+			Multisig::poke_deposit(RuntimeOrigin::signed(1), 2, vec![], hash),
+			Error::<Test>::TooFewSignatories,
+		);
+		assert_noop!(
+			Multisig::poke_deposit(RuntimeOrigin::signed(1), 2, vec![2, 3, 4, 5], hash),
+			Error::<Test>::TooManySignatories,
+		);
+	});
+}
+
+#[test]
+fn poke_deposit_fails_for_signatories_out_of_order() {
+	new_test_ext().execute_with(|| {
+		let call = call_transfer(6, 15);
+		let hash = blake2_256(&call.encode());
+		let threshold = 2;
+
+		assert_ok!(Multisig::approve_as_multi(
+			RuntimeOrigin::signed(1),
+			threshold,
+			vec![2, 3],
+			None,
+			hash,
+			Weight::zero()
+		));
+
+		assert_noop!(
+			Multisig::poke_deposit(
+				RuntimeOrigin::signed(1),
+				threshold,
+				vec![3, 2], // Unordered
+				hash
+			),
+			Error::<Test>::SignatoriesOutOfOrder
+		);
+	});
+}
+
+#[test]
+fn poke_deposit_fails_for_non_existent_multisig() {
+	new_test_ext().execute_with(|| {
+		assert_noop!(
+			Multisig::poke_deposit(RuntimeOrigin::signed(1), 2, vec![2, 3], [0; 32]),
+			Error::<Test>::NotFound
+		);
+	});
+}
+
+#[test]
+fn poke_deposit_fails_for_non_owner() {
+	new_test_ext().execute_with(|| {
+		let call = call_transfer(6, 15);
+		let hash = blake2_256(&call.encode());
+		let threshold = 2;
+
+		assert_ok!(Multisig::approve_as_multi(
+			RuntimeOrigin::signed(1),
+			threshold,
+			vec![2, 3],
+			None,
+			hash,
+			Weight::zero()
+		));
+
+		// Try to poke from non-owner (account 2)
+		assert_noop!(
+			Multisig::poke_deposit(
+				RuntimeOrigin::signed(2),
+				threshold,
+				vec![1, 3], // Note: signatories adjusted for different caller
+				hash
+			),
+			Error::<Test>::NotOwner
+		);
+	});
+}
+
+#[test]
+fn poke_deposit_charges_fee_when_deposit_unchanged() {
+	new_test_ext().execute_with(|| {
+		let call = call_transfer(6, 15);
+		let hash = blake2_256(&call.encode());
+		let threshold = 2;
+		let other_signatories = vec![2, 3];
+
+		assert_ok!(Multisig::approve_as_multi(
+			RuntimeOrigin::signed(1),
+			threshold,
+			other_signatories.clone(),
+			None,
+			hash,
+			Weight::zero()
+		));
+
+		let initial_deposit = Balances::reserved_balance(1);
+		let initial_free = Balances::free_balance(1);
+
+		// Poke without changing deposit requirements
+		let result =
+			Multisig::poke_deposit(RuntimeOrigin::signed(1), threshold, other_signatories, hash);
+		assert_ok!(result.as_ref());
+		assert_eq!(result.unwrap().pays_fee, Pays::Yes);
+
+		// Verify balances unchanged (except for fee)
+		assert_eq!(Balances::reserved_balance(1), initial_deposit);
+		assert!(Balances::free_balance(1) <= initial_free);
+
+		// Verify no event was emitted
+		assert!(!System::events().iter().any(|record| matches!(
+			record.event,
+			RuntimeEvent::Multisig(Event::DepositPoked { .. })
+		)));
+	});
+}
+
+#[test]
+fn poke_deposit_works_when_deposit_increases() {
+	new_test_ext().execute_with(|| {
+		let call = call_transfer(6, 15);
+		let hash = blake2_256(&call.encode());
+		let threshold = 2;
+		let other_signatories = vec![2, 3];
+
+		assert_ok!(Multisig::approve_as_multi(
+			RuntimeOrigin::signed(1),
+			threshold,
+			other_signatories.clone(),
+			None,
+			hash,
+			Weight::zero()
+		));
+
+		// Record initial balances
+		let initial_deposit = Balances::reserved_balance(1);
+		let initial_free = Balances::free_balance(1);
+		let initial_base: u64 = MultisigDepositBase::get();
+		let initial_factor: u64 = MultisigDepositFactor::get();
+		let threshold_u64: u64 = threshold as u64;
+		let expected_initial_deposit = initial_base + (initial_factor * threshold_u64);
+		assert_eq!(
+			initial_deposit, expected_initial_deposit,
+			"Initial deposit should be 1 + (1 * 2)"
+		);
+
+		// Increase deposit requirements
+		MultisigDepositBase::set(3);
+		MultisigDepositFactor::set(2);
+
+		// Poke the deposit
+		let result =
+			Multisig::poke_deposit(RuntimeOrigin::signed(1), threshold, other_signatories, hash);
+		assert_ok!(result.as_ref());
+		assert_eq!(result.unwrap().pays_fee, Pays::No);
+
+		// New deposit should be 7 (base 3 + factor 2 * threshold 2)
+		let new_base: u64 = MultisigDepositBase::get();
+		let new_factor: u64 = MultisigDepositFactor::get();
+		let expected_new_deposit = new_base + (new_factor * threshold_u64);
+		let deposit_increase = expected_new_deposit.saturating_sub(initial_deposit);
+
+		// Verify exact balance changes
+		assert_eq!(
+			Balances::reserved_balance(1),
+			expected_new_deposit,
+			"Reserved balance should be exactly base(3) + factor(2) * threshold(2) = 7"
+		);
+		assert_eq!(
+			Balances::free_balance(1),
+			initial_free.saturating_sub(deposit_increase),
+			"Free balance should decrease by exactly the deposit increase"
+		);
+
+		// Verify event
+		System::assert_has_event(
+			Event::DepositPoked {
+				who: 1,
+				call_hash: hash,
+				old_deposit: initial_deposit,
+				new_deposit: expected_new_deposit,
+			}
+			.into(),
+		);
+	});
+}
+
+#[test]
+fn poke_deposit_works_when_deposit_decreases() {
+	new_test_ext().execute_with(|| {
+		// Start with higher deposit requirements
+		MultisigDepositBase::set(3);
+		MultisigDepositFactor::set(2);
+
+		let call = call_transfer(6, 15);
+		let hash = blake2_256(&call.encode());
+		let threshold = 2;
+		let other_signatories = vec![2, 3];
+
+		assert_ok!(Multisig::approve_as_multi(
+			RuntimeOrigin::signed(1),
+			threshold,
+			other_signatories.clone(),
+			None,
+			hash,
+			Weight::zero()
+		));
+
+		let initial_deposit = Balances::reserved_balance(1);
+		let initial_free = Balances::free_balance(1);
+
+		// Verify initial deposit calculation (3 + 2 * 2 = 7)
+		let initial_base: u64 = MultisigDepositBase::get();
+		let initial_factor: u64 = MultisigDepositFactor::get();
+		let threshold_u64: u64 = threshold as u64;
+		let expected_initial_deposit = initial_base + (initial_factor * threshold_u64);
+		assert_eq!(
+			initial_deposit, expected_initial_deposit,
+			"Initial deposit should be exactly base(3) + factor(2) * threshold(2) = 7"
+		);
+
+		// Decrease deposit requirements
+		MultisigDepositBase::set(1);
+		MultisigDepositFactor::set(1);
+
+		// Poke the deposit
+		let result =
+			Multisig::poke_deposit(RuntimeOrigin::signed(1), threshold, other_signatories, hash);
+		assert_ok!(result.as_ref());
+		// Doesn't pay fee
+		assert_eq!(result.unwrap().pays_fee, Pays::No);
+
+		// Calculate expected new deposit (1 + 1 * 2 = 3)
+		let new_base: u64 = MultisigDepositBase::get();
+		let new_factor: u64 = MultisigDepositFactor::get();
+		let expected_new_deposit = new_base + (new_factor * threshold_u64);
+		let deposit_decrease = initial_deposit.saturating_sub(expected_new_deposit);
+
+		assert_eq!(
+			Balances::reserved_balance(1),
+			expected_new_deposit,
+			"Reserved balance should be exactly base(1) + factor(1) * threshold(2) = 3"
+		);
+		assert_eq!(
+			Balances::free_balance(1),
+			initial_free.saturating_add(deposit_decrease),
+			"Free balance should increase by exactly the deposit decrease"
+		);
+
+		System::assert_has_event(
+			Event::DepositPoked {
+				who: 1,
+				call_hash: hash,
+				old_deposit: initial_deposit,
+				new_deposit: expected_new_deposit,
+			}
+			.into(),
+		);
+	});
+}
+
+#[test]
+fn poke_deposit_handles_insufficient_balance() {
+	new_test_ext().execute_with(|| {
+		let call = call_transfer(6, 15);
+		let hash = blake2_256(&call.encode());
+		let threshold = 2;
+		let other_signatories = vec![2, 3];
+
+		// Use account 4 which has only 5 balance
+		assert_ok!(Multisig::approve_as_multi(
+			RuntimeOrigin::signed(4),
+			threshold,
+			other_signatories.clone(),
+			None,
+			hash,
+			Weight::zero()
+		));
+
+		// Increase deposit requirement beyond available balance
+		MultisigDepositBase::set(3);
+		MultisigDepositFactor::set(3);
+
+		// Should fail due to insufficient balance
+		assert_noop!(
+			Multisig::poke_deposit(RuntimeOrigin::signed(4), threshold, other_signatories, hash),
+			BalancesError::<Test, _>::InsufficientBalance
+		);
 	});
 }

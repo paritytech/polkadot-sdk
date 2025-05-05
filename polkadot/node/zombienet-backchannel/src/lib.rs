@@ -128,7 +128,7 @@ impl ZombienetBackchannel {
 			tokio::spawn(async move {
 				while let Ok(item) = rx_relay.recv().await {
 					if write
-						.send(Message::Text(serde_json::to_string(&item).unwrap()))
+						.send(Message::Text(serde_json::to_string(&item).unwrap().into()))
 						.await
 						.is_err()
 					{

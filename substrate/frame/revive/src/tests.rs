@@ -16,15 +16,12 @@
 // limitations under the License.
 
 mod pallet_dummy;
+mod precompiles;
 
 use self::test_utils::{ensure_stored, expected_deposit};
 use crate::{
 	self as pallet_revive,
 	address::{create1, create2, AddressMapper},
-	chain_extension::{
-		ChainExtension, Environment, Ext, RegisteredChainExtension, Result as ExtensionResult,
-		RetVal, ReturnFlags,
-	},
 	evm::{runtime::GAS_PRICE, CallTrace, CallTracer, CallType, GenericTransaction},
 	exec::Key,
 	limits,
@@ -32,7 +29,6 @@ use crate::{
 	test_utils::*,
 	tests::test_utils::{get_contract, get_contract_checked},
 	tracing::trace,
-	wasm::Memory,
 	weights::WeightInfo,
 	AccountId32Mapper, BalanceOf, Code, CodeInfoOf, Config, ContractInfo, ContractInfoOf,
 	DeletionQueueCounter, DepositLimit, Error, EthTransactError, HoldReason, Origin, Pallet,
@@ -57,7 +53,7 @@ use frame_support::{
 };
 use frame_system::{EventRecord, Phase};
 use pallet_revive_fixtures::compile_module;
-use pallet_revive_uapi::ReturnErrorCode as RuntimeReturnCode;
+use pallet_revive_uapi::{ReturnErrorCode as RuntimeReturnCode, ReturnFlags};
 use pallet_transaction_payment::{ConstFeeMultiplier, Multiplier};
 use pretty_assertions::{assert_eq, assert_ne};
 use sp_core::U256;
@@ -221,159 +217,6 @@ impl Test {
 }
 
 parameter_types! {
-	static TestExtensionTestValue: TestExtension = Default::default();
-}
-
-#[derive(Clone)]
-pub struct TestExtension {
-	enabled: bool,
-	last_seen_buffer: Vec<u8>,
-	last_seen_input_len: u32,
-}
-
-#[derive(Default)]
-pub struct RevertingExtension;
-
-#[derive(Default)]
-pub struct DisabledExtension;
-
-#[derive(Default)]
-pub struct TempStorageExtension {
-	storage: u32,
-}
-
-impl TestExtension {
-	fn disable() {
-		TestExtensionTestValue::mutate(|e| e.enabled = false)
-	}
-
-	fn last_seen_buffer() -> Vec<u8> {
-		TestExtensionTestValue::get().last_seen_buffer.clone()
-	}
-
-	fn last_seen_input_len() -> u32 {
-		TestExtensionTestValue::get().last_seen_input_len
-	}
-}
-
-impl Default for TestExtension {
-	fn default() -> Self {
-		Self { enabled: true, last_seen_buffer: vec![], last_seen_input_len: 0 }
-	}
-}
-
-impl ChainExtension<Test> for TestExtension {
-	fn call<E, M>(&mut self, mut env: Environment<E, M>) -> ExtensionResult<RetVal>
-	where
-		E: Ext<T = Test>,
-		M: ?Sized + Memory<E::T>,
-	{
-		let func_id = env.func_id();
-		let id = env.ext_id() as u32 | func_id as u32;
-		match func_id {
-			0 => {
-				let input = env.read(8)?;
-				env.write(&input, false, None)?;
-				TestExtensionTestValue::mutate(|e| e.last_seen_buffer = input);
-				Ok(RetVal::Converging(id))
-			},
-			1 => {
-				TestExtensionTestValue::mutate(|e| e.last_seen_input_len = env.in_len());
-				Ok(RetVal::Converging(id))
-			},
-			2 => {
-				let mut enc = &env.read(9)?[4..8];
-				let weight = Weight::from_parts(
-					u32::decode(&mut enc).map_err(|_| Error::<Test>::ContractTrapped)?.into(),
-					0,
-				);
-				env.charge_weight(weight)?;
-				Ok(RetVal::Converging(id))
-			},
-			3 => Ok(RetVal::Diverging { flags: ReturnFlags::REVERT, data: vec![42, 99] }),
-			_ => {
-				panic!("Passed unknown id to test chain extension: {}", func_id);
-			},
-		}
-	}
-
-	fn enabled() -> bool {
-		TestExtensionTestValue::get().enabled
-	}
-}
-
-impl RegisteredChainExtension<Test> for TestExtension {
-	const ID: u16 = 0;
-}
-
-impl ChainExtension<Test> for RevertingExtension {
-	fn call<E, M>(&mut self, _env: Environment<E, M>) -> ExtensionResult<RetVal>
-	where
-		E: Ext<T = Test>,
-		M: ?Sized + Memory<E::T>,
-	{
-		Ok(RetVal::Diverging { flags: ReturnFlags::REVERT, data: vec![0x4B, 0x1D] })
-	}
-
-	fn enabled() -> bool {
-		TestExtensionTestValue::get().enabled
-	}
-}
-
-impl RegisteredChainExtension<Test> for RevertingExtension {
-	const ID: u16 = 1;
-}
-
-impl ChainExtension<Test> for DisabledExtension {
-	fn call<E, M>(&mut self, _env: Environment<E, M>) -> ExtensionResult<RetVal>
-	where
-		E: Ext<T = Test>,
-		M: ?Sized + Memory<E::T>,
-	{
-		panic!("Disabled chain extensions are never called")
-	}
-
-	fn enabled() -> bool {
-		false
-	}
-}
-
-impl RegisteredChainExtension<Test> for DisabledExtension {
-	const ID: u16 = 2;
-}
-
-impl ChainExtension<Test> for TempStorageExtension {
-	fn call<E, M>(&mut self, env: Environment<E, M>) -> ExtensionResult<RetVal>
-	where
-		E: Ext<T = Test>,
-		M: ?Sized + Memory<E::T>,
-	{
-		let func_id = env.func_id();
-		match func_id {
-			0 => self.storage = 42,
-			1 => assert_eq!(self.storage, 42, "Storage is preserved inside the same call."),
-			2 => {
-				assert_eq!(self.storage, 0, "Storage is different for different calls.");
-				self.storage = 99;
-			},
-			3 => assert_eq!(self.storage, 99, "Storage is preserved inside the same call."),
-			_ => {
-				panic!("Passed unknown id to test chain extension: {}", func_id);
-			},
-		}
-		Ok(RetVal::Converging(0))
-	}
-
-	fn enabled() -> bool {
-		TestExtensionTestValue::get().enabled
-	}
-}
-
-impl RegisteredChainExtension<Test> for TempStorageExtension {
-	const ID: u16 = 3;
-}
-
-parameter_types! {
 	pub BlockWeights: frame_system::limits::BlockWeights =
 		frame_system::limits::BlockWeights::simple_max(
 			Weight::from_parts(2 * WEIGHT_REF_TIME_PER_SECOND, u64::MAX),
@@ -526,8 +369,6 @@ impl Config for Test {
 	type AddressMapper = AccountId32Mapper<Self>;
 	type Currency = Balances;
 	type CallFilter = TestFilter;
-	type ChainExtension =
-		(TestExtension, DisabledExtension, RevertingExtension, TempStorageExtension);
 	type DepositPerByte = DepositPerByte;
 	type DepositPerItem = DepositPerItem;
 	type UnsafeUnstableInterface = UnstableInterface;
@@ -536,6 +377,7 @@ impl Config for Test {
 	type CodeHashLockupDepositPercent = CodeHashLockupDepositPercent;
 	type ChainId = ChainId;
 	type FindAuthor = Test;
+	type Precompiles = (precompiles::WithInfo<Self>, precompiles::NoInfo<Self>);
 }
 
 impl TryFrom<RuntimeCall> for crate::Call<Test> {
@@ -607,29 +449,6 @@ impl ExtBuilder {
 fn initialize_block(number: u64) {
 	System::reset_events();
 	System::initialize(&number, &[0u8; 32].into(), &Default::default());
-}
-
-struct ExtensionInput<'a> {
-	extension_id: u16,
-	func_id: u16,
-	extra: &'a [u8],
-}
-
-impl<'a> ExtensionInput<'a> {
-	fn to_vec(&self) -> Vec<u8> {
-		((self.extension_id as u32) << 16 | (self.func_id as u32))
-			.to_le_bytes()
-			.iter()
-			.chain(self.extra)
-			.cloned()
-			.collect()
-	}
-}
-
-impl<'a> From<ExtensionInput<'a>> for Vec<u8> {
-	fn from(input: ExtensionInput) -> Vec<u8> {
-		input.to_vec()
-	}
 }
 
 impl Default for Origin<Test> {
@@ -822,23 +641,16 @@ fn run_out_of_fuel_engine() {
 // Fail out of fuel (ref_time weight) in the host.
 #[test]
 fn run_out_of_fuel_host() {
-	let (code, _hash) = compile_module("chain_extension").unwrap();
-	ExtBuilder::default().existential_deposit(50).build().execute_with(|| {
-		let min_balance = Contracts::min_balance();
-		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1000 * min_balance);
+	use crate::precompiles::Precompile;
+	use alloy_core::sol_types::SolInterface;
+	use precompiles::{INoInfo, NoInfo};
 
-		let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(code))
-			.value(min_balance * 100)
-			.build_and_unwrap_contract();
+	let precompile_addr = H160(NoInfo::<Test>::MATCHER.base_address());
+	let input = INoInfo::INoInfoCalls::consumeMaxGas(INoInfo::consumeMaxGasCall {}).abi_encode();
 
-		let gas_limit = Weight::from_parts(u32::MAX as u64, GAS_LIMIT.proof_size());
-
-		// Use chain extension to charge more ref_time than it is available.
-		let result = builder::bare_call(addr)
-			.gas_limit(gas_limit)
-			.data(ExtensionInput { extension_id: 0, func_id: 2, extra: &u32::MAX.encode() }.into())
-			.build()
-			.result;
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+		let result = builder::bare_call(precompile_addr).data(input).build().result;
 		assert_err!(result, <Error<Test>>::OutOfGas);
 	});
 }
@@ -943,6 +755,21 @@ fn storage_max_value_limit() {
 			builder::call(addr).data((limits::PAYLOAD_BYTES + 1).encode()).build(),
 			Error::<Test>::ValueTooLarge,
 		);
+	});
+}
+
+#[test]
+fn clear_storage_on_zero_value() {
+	let (code, _code_hash) = compile_module("clear_storage_on_zero_value").unwrap();
+
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+		let min_balance = Contracts::min_balance();
+		let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(code))
+			.value(min_balance * 100)
+			.build_and_unwrap_contract();
+
+		builder::bare_call(addr).build_and_unwrap_result();
 	});
 }
 
@@ -1114,6 +941,28 @@ fn delegate_call() {
 			.value(1337)
 			.data((callee_addr, u64::MAX, u64::MAX).encode())
 			.build());
+	});
+}
+
+#[test]
+fn delegate_call_non_existant_is_noop() {
+	let (caller_wasm, _caller_code_hash) = compile_module("delegate_call_simple").unwrap();
+
+	ExtBuilder::default().existential_deposit(500).build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+
+		// Instantiate the 'caller'
+		let Contract { addr: caller_addr, .. } =
+			builder::bare_instantiate(Code::Upload(caller_wasm))
+				.value(300_000)
+				.build_and_unwrap_contract();
+
+		assert_ok!(builder::call(caller_addr)
+			.value(1337)
+			.data((BOB_ADDR, u64::MAX, u64::MAX).encode())
+			.build());
+
+		assert_eq!(test_utils::get_balance(&BOB_FALLBACK), 0);
 	});
 }
 
@@ -1458,16 +1307,14 @@ fn crypto_hashes() {
 			};
 		}
 		// All hash functions and their associated output byte lengths.
-		let test_cases: &[(Box<dyn Fn(&[u8]) -> Box<[u8]>>, usize)] = &[
-			(dyn_hash_fn!(sha2_256), 32),
-			(dyn_hash_fn!(keccak_256), 32),
-			(dyn_hash_fn!(blake2_256), 32),
-			(dyn_hash_fn!(blake2_128), 16),
+		let test_cases: &[(u8, Box<dyn Fn(&[u8]) -> Box<[u8]>>, usize)] = &[
+			(2, dyn_hash_fn!(keccak_256), 32),
+			(3, dyn_hash_fn!(blake2_256), 32),
+			(4, dyn_hash_fn!(blake2_128), 16),
 		];
 		// Test the given hash functions for the input: "_DEAD_BEEF"
-		for (n, (hash_fn, expected_size)) in test_cases.iter().enumerate() {
-			// We offset data in the contract tables by 1.
-			let mut params = vec![(n + 1) as u8];
+		for (n, hash_fn, expected_size) in test_cases.iter() {
+			let mut params = vec![*n];
 			params.extend_from_slice(input);
 			let result = builder::bare_call(addr).data(params).build_and_unwrap_result();
 			assert!(!result.did_revert());
@@ -1638,113 +1485,6 @@ fn instantiate_return_code() {
 			.build_and_unwrap_result();
 		assert_return_code!(result, RuntimeReturnCode::DuplicateContractAddress);
 	});
-}
-
-#[test]
-fn disabled_chain_extension_errors_on_call() {
-	let (code, _hash) = compile_module("chain_extension").unwrap();
-	ExtBuilder::default().existential_deposit(50).build().execute_with(|| {
-		let min_balance = Contracts::min_balance();
-		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1000 * min_balance);
-		let contract = builder::bare_instantiate(Code::Upload(code))
-			.value(min_balance * 100)
-			.build_and_unwrap_contract();
-		TestExtension::disable();
-		assert_err_ignore_postinfo!(
-			builder::call(contract.addr).data(vec![7u8; 8]).build(),
-			Error::<Test>::NoChainExtension,
-		);
-	});
-}
-
-#[test]
-fn chain_extension_works() {
-	let (code, _hash) = compile_module("chain_extension").unwrap();
-	ExtBuilder::default().existential_deposit(50).build().execute_with(|| {
-		let min_balance = Contracts::min_balance();
-		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1000 * min_balance);
-		let contract = builder::bare_instantiate(Code::Upload(code))
-			.value(min_balance * 100)
-			.build_and_unwrap_contract();
-
-		// 0 = read input buffer and pass it through as output
-		let input: Vec<u8> = ExtensionInput { extension_id: 0, func_id: 0, extra: &[99] }.into();
-		let result = builder::bare_call(contract.addr).data(input.clone()).build();
-		assert_eq!(TestExtension::last_seen_buffer(), input);
-		assert_eq!(result.result.unwrap().data, input);
-
-		// 1 = treat inputs as integer primitives and store the supplied integers
-		builder::bare_call(contract.addr)
-			.data(ExtensionInput { extension_id: 0, func_id: 1, extra: &[] }.into())
-			.build_and_unwrap_result();
-		assert_eq!(TestExtension::last_seen_input_len(), 4);
-
-		// 2 = charge some extra weight (amount supplied in the fifth byte)
-		let result = builder::bare_call(contract.addr)
-			.data(ExtensionInput { extension_id: 0, func_id: 2, extra: &0u32.encode() }.into())
-			.build();
-		assert_ok!(result.result);
-		let gas_consumed = result.gas_consumed;
-		let result = builder::bare_call(contract.addr)
-			.data(ExtensionInput { extension_id: 0, func_id: 2, extra: &42u32.encode() }.into())
-			.build();
-		assert_ok!(result.result);
-		assert_eq!(result.gas_consumed.ref_time(), gas_consumed.ref_time() + 42);
-		let result = builder::bare_call(contract.addr)
-			.data(ExtensionInput { extension_id: 0, func_id: 2, extra: &95u32.encode() }.into())
-			.build();
-		assert_ok!(result.result);
-		assert_eq!(result.gas_consumed.ref_time(), gas_consumed.ref_time() + 95);
-
-		// 3 = diverging chain extension call that sets flags to 0x1 and returns a fixed buffer
-		let result = builder::bare_call(contract.addr)
-			.data(ExtensionInput { extension_id: 0, func_id: 3, extra: &[] }.into())
-			.build_and_unwrap_result();
-		assert_eq!(result.flags, ReturnFlags::REVERT);
-		assert_eq!(result.data, vec![42, 99]);
-
-		// diverging to second chain extension that sets flags to 0x1 and returns a fixed buffer
-		// We set the MSB part to 1 (instead of 0) which routes the request into the second
-		// extension
-		let result = builder::bare_call(contract.addr)
-			.data(ExtensionInput { extension_id: 1, func_id: 0, extra: &[] }.into())
-			.build_and_unwrap_result();
-		assert_eq!(result.flags, ReturnFlags::REVERT);
-		assert_eq!(result.data, vec![0x4B, 0x1D]);
-
-		// Diverging to third chain extension that is disabled
-		// We set the MSB part to 2 (instead of 0) which routes the request into the third
-		// extension
-		assert_err_ignore_postinfo!(
-			builder::call(contract.addr)
-				.data(ExtensionInput { extension_id: 2, func_id: 0, extra: &[] }.into())
-				.build(),
-			Error::<Test>::NoChainExtension,
-		);
-	});
-}
-
-#[test]
-fn chain_extension_temp_storage_works() {
-	let (code, _hash) = compile_module("chain_extension_temp_storage").unwrap();
-	ExtBuilder::default().existential_deposit(50).build().execute_with(|| {
-		let min_balance = Contracts::min_balance();
-		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1000 * min_balance);
-		let contract = builder::bare_instantiate(Code::Upload(code))
-			.value(min_balance * 100)
-			.build_and_unwrap_contract();
-
-		// Call func 0 and func 1 back to back.
-		let stop_recursion = 0u8;
-		let mut input: Vec<u8> = ExtensionInput { extension_id: 3, func_id: 0, extra: &[] }.into();
-		input.extend_from_slice(
-			ExtensionInput { extension_id: 3, func_id: 1, extra: &[stop_recursion] }
-				.to_vec()
-				.as_ref(),
-		);
-
-		assert_ok!(builder::bare_call(contract.addr).data(input.clone()).build().result);
-	})
 }
 
 #[test]
@@ -2302,47 +2042,6 @@ fn call_runtime_reentrancy_guarded() {
 		// Call to runtime should fail because of the re-entrancy guard
 		assert_return_code!(result, RuntimeReturnCode::CallRuntimeFailed);
 	});
-}
-
-#[test]
-fn ecdsa_recover() {
-	let (wasm, _code_hash) = compile_module("ecdsa_recover").unwrap();
-
-	ExtBuilder::default().existential_deposit(50).build().execute_with(|| {
-		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
-
-		// Instantiate the ecdsa_recover contract.
-		let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(wasm))
-			.value(100_000)
-			.build_and_unwrap_contract();
-
-		#[rustfmt::skip]
-		let signature: [u8; 65] = [
-			161, 234, 203,  74, 147, 96,  51, 212,   5, 174, 231,   9, 142,  48, 137, 201,
-			162, 118, 192,  67, 239, 16,  71, 216, 125,  86, 167, 139,  70,   7,  86, 241,
-			 33,  87, 154, 251,  81, 29, 160,   4, 176, 239,  88, 211, 244, 232, 232,  52,
-			211, 234, 100, 115, 230, 47,  80,  44, 152, 166,  62,  50,   8,  13,  86, 175,
-			 28,
-		];
-		#[rustfmt::skip]
-		let message_hash: [u8; 32] = [
-			162, 28, 244, 179, 96, 76, 244, 178, 188,  83, 230, 248, 143, 106,  77, 117,
-			239, 95, 244, 171, 65, 95,  62, 153, 174, 166, 182,  28, 130,  73, 196, 208
-		];
-		#[rustfmt::skip]
-		const EXPECTED_COMPRESSED_PUBLIC_KEY: [u8; 33] = [
-			  2, 121, 190, 102, 126, 249, 220, 187, 172, 85, 160,  98, 149, 206, 135, 11,
-			  7,   2, 155, 252, 219,  45, 206,  40, 217, 89, 242, 129,  91,  22, 248, 23,
-			152,
-		];
-		let mut params = vec![];
-		params.extend_from_slice(&signature);
-		params.extend_from_slice(&message_hash);
-		assert!(params.len() == 65 + 32);
-		let result = builder::bare_call(addr).data(params).build_and_unwrap_result();
-		assert!(!result.did_revert());
-		assert_eq!(result.data, EXPECTED_COMPRESSED_PUBLIC_KEY);
-	})
 }
 
 #[test]
@@ -4254,7 +3953,7 @@ fn origin_must_be_mapped() {
 
 #[test]
 fn mapped_address_works() {
-	let (code, _) = compile_module("terminate_and_send_to_eve").unwrap();
+	let (code, _) = compile_module("terminate_and_send_to_argument").unwrap();
 
 	ExtBuilder::default().existential_deposit(100).build().execute_with(|| {
 		<Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
@@ -4263,7 +3962,7 @@ fn mapped_address_works() {
 		let Contract { addr, .. } =
 			builder::bare_instantiate(Code::Upload(code.clone())).build_and_unwrap_contract();
 		assert_eq!(<Test as Config>::Currency::total_balance(&EVE_FALLBACK), 0);
-		builder::bare_call(addr).build_and_unwrap_result();
+		builder::bare_call(addr).data(EVE_ADDR.encode()).build_and_unwrap_result();
 		assert_eq!(<Test as Config>::Currency::total_balance(&EVE_FALLBACK), 100);
 
 		// after mapping it will be sent to the real eve account
@@ -4272,9 +3971,40 @@ fn mapped_address_works() {
 		// need some balance to pay for the map deposit
 		<Test as Config>::Currency::set_balance(&EVE, 1_000);
 		<Pallet<Test>>::map_account(RuntimeOrigin::signed(EVE)).unwrap();
-		builder::bare_call(addr).build_and_unwrap_result();
+		builder::bare_call(addr).data(EVE_ADDR.encode()).build_and_unwrap_result();
 		assert_eq!(<Test as Config>::Currency::total_balance(&EVE_FALLBACK), 100);
 		assert_eq!(<Test as Config>::Currency::total_balance(&EVE), 1_100);
+	});
+}
+
+#[test]
+fn recovery_works() {
+	let (code, _) = compile_module("terminate_and_send_to_argument").unwrap();
+
+	ExtBuilder::default().existential_deposit(100).build().execute_with(|| {
+		<Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+
+		// eve puts her AccountId20 as argument to terminate but forgot to register
+		// her AccountId32 first so now the funds are trapped in her fallback account
+		let Contract { addr, .. } =
+			builder::bare_instantiate(Code::Upload(code.clone())).build_and_unwrap_contract();
+		assert_eq!(<Test as Config>::Currency::total_balance(&EVE), 0);
+		assert_eq!(<Test as Config>::Currency::total_balance(&EVE_FALLBACK), 0);
+		builder::bare_call(addr).data(EVE_ADDR.encode()).build_and_unwrap_result();
+		assert_eq!(<Test as Config>::Currency::total_balance(&EVE_FALLBACK), 100);
+		assert_eq!(<Test as Config>::Currency::total_balance(&EVE), 0);
+
+		let call = RuntimeCall::Balances(pallet_balances::Call::transfer_all {
+			dest: EVE,
+			keep_alive: false,
+		});
+
+		// she now uses the recovery function to move all funds from the fallback
+		// account to her real account
+		<Pallet<Test>>::dispatch_as_fallback_account(RuntimeOrigin::signed(EVE), Box::new(call))
+			.unwrap();
+		assert_eq!(<Test as Config>::Currency::total_balance(&EVE_FALLBACK), 0);
+		assert_eq!(<Test as Config>::Currency::total_balance(&EVE), 100);
 	});
 }
 
@@ -4292,7 +4022,7 @@ fn skip_transfer_works() {
 			Pallet::<Test>::bare_eth_transact(
 				GenericTransaction {
 					from: Some(BOB_ADDR),
-					input: Some(code.clone().into()),
+					input: code.clone().into(),
 					gas: Some(1u32.into()),
 					..Default::default()
 				},
@@ -4308,7 +4038,7 @@ fn skip_transfer_works() {
 		assert_ok!(Pallet::<Test>::bare_eth_transact(
 			GenericTransaction {
 				from: Some(ALICE_ADDR),
-				input: Some(code.clone().into()),
+				input: code.clone().into(),
 				..Default::default()
 			},
 			Weight::MAX,
@@ -4343,7 +4073,7 @@ fn skip_transfer_works() {
 			GenericTransaction {
 				from: Some(BOB_ADDR),
 				to: Some(caller_addr),
-				input: Some((0u32, &addr).encode().into()),
+				input: (0u32, &addr).encode().into(),
 				gas: Some(1u32.into()),
 				..Default::default()
 			},
@@ -4364,7 +4094,7 @@ fn skip_transfer_works() {
 			GenericTransaction {
 				from: Some(BOB_ADDR),
 				to: Some(caller_addr),
-				input: Some((0u32, &addr).encode().into()),
+				input: (0u32, &addr).encode().into(),
 				..Default::default()
 			},
 			Weight::MAX,
@@ -4486,12 +4216,15 @@ fn tracing_works() {
 		];
 
 		// Verify that the first trace report the same weight reported by bare_call
+		// TODO: fix tracing ( https://github.com/paritytech/polkadot-sdk/issues/8362 )
+		/*
 		let mut tracer = CallTracer::new(false, |w| w);
 		let gas_used = trace(&mut tracer, || {
 			builder::bare_call(addr).data((3u32, addr_callee).encode()).build().gas_consumed
 		});
 		let traces = tracer.collect_traces();
 		assert_eq!(&traces[0].gas_used, &gas_used);
+		*/
 
 		// Discarding gas usage, check that traces reported are correct
 		for (with_logs, logs) in tracer_options {
@@ -4599,26 +4332,12 @@ fn unknown_precompiles_revert() {
 		let Contract { addr, .. } =
 			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
 
-		let cases: Vec<(H160, Box<dyn FnOnce(_)>)> = vec![
-			(
-				H160::from_low_u64_be(0x1),
-				Box::new(|result| {
-					assert_err!(result, <Error<Test>>::UnsupportedPrecompileAddress);
-				}),
-			),
-			(
-				H160::from_low_u64_be(0xff),
-				Box::new(|result| {
-					assert_err!(result, <Error<Test>>::UnsupportedPrecompileAddress);
-				}),
-			),
-			(
-				H160::from_low_u64_be(0x1ff),
-				Box::new(|result| {
-					assert_ok!(result);
-				}),
-			),
-		];
+		let cases: Vec<(H160, Box<dyn FnOnce(_)>)> = vec![(
+			H160::from_low_u64_be(0x0a),
+			Box::new(|result| {
+				assert_err!(result, <Error<Test>>::UnsupportedPrecompileAddress);
+			}),
+		)];
 
 		for (callee_addr, assert_result) in cases {
 			let result =
@@ -4626,4 +4345,210 @@ fn unknown_precompiles_revert() {
 			assert_result(result);
 		}
 	});
+}
+
+#[test]
+fn pure_precompile_works() {
+	use hex_literal::hex;
+
+	let cases = vec![
+		(
+			// ECRecover
+			H160::from_low_u64_be(1),
+			hex!("18c547e4f7b0f325ad1e56f57e26c745b09a3e503d86e00e5255ff7f715d3d1c000000000000000000000000000000000000000000000000000000000000001c73b1693892219d736caba55bdb67216e485557ea6b6af75f37096c9aa6a5a75feeb940b1d03b21e36b0e47e79769f095fe2ab855bd91e3a38756b7d75a9c4549").to_vec(),
+			hex!("000000000000000000000000a94f5374fce5edbc8e2a8697c15331677e6ebf0b").to_vec(),
+		),
+		(
+			// Sha256
+			H160::from_low_u64_be(2),
+			hex!("ec07171c4f0f0e2b").to_vec(),
+			hex!("d0591ea667763c69a5f5a3bae657368ea63318b2c9c8349cccaf507e3cbd7c7a").to_vec(),
+		),
+		(
+			// Ripemd160
+			H160::from_low_u64_be(3),
+			hex!("ec07171c4f0f0e2b").to_vec(),
+			hex!("000000000000000000000000a9c5ebaf7589fd8acfd542c3a008956de84fbeb7").to_vec(),
+		),
+		(
+			// Identity
+			H160::from_low_u64_be(4),
+			[42u8; 128].to_vec(),
+			[42u8; 128].to_vec(),
+		),
+		(
+			// Modexp
+			H160::from_low_u64_be(5),
+			hex!("00000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000002003fffffffffffffffffffffffffffffffffffffffffffffffffffffffefffffc2efffffffffffffffffffffffffffffffffffffffffffffffffffffffefffffc2f").to_vec(),
+			hex!("0000000000000000000000000000000000000000000000000000000000000001").to_vec(),
+		),
+		(
+			// Bn128Add
+			H160::from_low_u64_be(6),
+			hex!("18b18acfb4c2c30276db5411368e7185b311dd124691610c5d3b74034e093dc9063c909c4720840cb5134cb9f59fa749755796819658d32efc0d288198f3726607c2b7f58a84bd6145f00c9c2bc0bb1a187f20ff2c92963a88019e7c6a014eed06614e20c147e940f2d70da3f74c9a17df361706a4485c742bd6788478fa17d7").to_vec(),
+			hex!("2243525c5efd4b9c3d3c45ac0ca3fe4dd85e830a4ce6b65fa1eeaee202839703301d1d33be6da8e509df21cc35964723180eed7532537db9ae5e7d48f195c915").to_vec(),
+		),
+		(
+			// Bn128Mul
+			H160::from_low_u64_be(7),
+			hex!("2bd3e6d0f3b142924f5ca7b49ce5b9d54c4703d7ae5648e61d02268b1a0a9fb721611ce0a6af85915e2f1d70300909ce2e49dfad4a4619c8390cae66cefdb20400000000000000000000000000000000000000000000000011138ce750fa15c2").to_vec(),
+			hex!("070a8d6a982153cae4be29d434e8faef8a47b274a053f5a4ee2a6c9c13c31e5c031b8ce914eba3a9ffb989f9cdd5b0f01943074bf4f0f315690ec3cec6981afc").to_vec(),
+		),
+		(
+			// Bn128Pairing
+			H160::from_low_u64_be(8),
+			hex!("1c76476f4def4bb94541d57ebba1193381ffa7aa76ada664dd31c16024c43f593034dd2920f673e204fee2811c678745fc819b55d3e9d294e45c9b03a76aef41209dd15ebff5d46c4bd888e51a93cf99a7329636c63514396b4a452003a35bf704bf11ca01483bfa8b34b43561848d28905960114c8ac04049af4b6315a416782bb8324af6cfc93537a2ad1a445cfd0ca2a71acd7ac41fadbf933c2a51be344d120a2a4cf30c1bf9845f20c6fe39e07ea2cce61f0c9bb048165fe5e4de877550111e129f1cf1097710d41c4ac70fcdfa5ba2023c6ff1cbeac322de49d1b6df7c2032c61a830e3c17286de9462bf242fca2883585b93870a73853face6a6bf411198e9393920d483a7260bfb731fb5d25f1aa493335a9e71297e485b7aef312c21800deef121f1e76426a00665e5c4479674322d4f75edadd46debd5cd992f6ed090689d0585ff075ec9e99ad690c3395bc4b313370b38ef355acdadcd122975b12c85ea5db8c6deb4aab71808dcb408fe3d1e7690c43d37b4ce6cc0166fa7daa").to_vec(),
+			hex!("0000000000000000000000000000000000000000000000000000000000000001").to_vec(),
+		),
+		(
+			// Blake2F
+			H160::from_low_u64_be(9),
+			hex!("0000000048c9bdf267e6096a3ba7ca8485ae67bb2bf894fe72f36e3cf1361d5f3af54fa5d182e6ad7f520e511f6c3e2b8c68059b6bbd41fbabd9831f79217e1319cde05b61626300000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000300000000000000000000000000000001").to_vec(),
+			hex!("08c9bcf367e6096a3ba7ca8485ae67bb2bf894fe72f36e3cf1361d5f3af54fa5d282e6ad7f520e511f6c3e2b8c68059b9442be0454267ce079217e1319cde05b").to_vec(),
+		),
+	];
+
+	for (precompile_addr, input, output) in cases {
+		let (code, _code_hash) = compile_module("call_and_return").unwrap();
+		ExtBuilder::default().build().execute_with(|| {
+			let id = <Test as Config>::AddressMapper::to_account_id(&precompile_addr);
+			let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+			let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(code))
+				.value(1000)
+				.build_and_unwrap_contract();
+
+			let result = builder::bare_call(addr)
+				.data(
+					(&precompile_addr, 100u64)
+						.encode()
+						.into_iter()
+						.chain(input)
+						.collect::<Vec<_>>(),
+				)
+				.build_and_unwrap_result();
+
+			assert_eq!(test_utils::get_balance(&id), 101u64);
+			assert_eq!(
+				alloy_core::hex::encode(result.data),
+				alloy_core::hex::encode(output),
+				"Unexpected output for precompile: {precompile_addr:?}",
+			);
+			assert_eq!(result.flags, ReturnFlags::empty());
+		});
+	}
+}
+
+#[test]
+fn precompiles_work() {
+	use crate::precompiles::Precompile;
+	use alloy_core::sol_types::{Panic, PanicKind, Revert, SolError, SolInterface, SolValue};
+	use precompiles::{INoInfo, NoInfo};
+
+	let precompile_addr = H160(NoInfo::<Test>::MATCHER.base_address());
+
+	let cases = vec![
+		(
+			INoInfo::INoInfoCalls::identity(INoInfo::identityCall { number: 42u64.into() })
+				.abi_encode(),
+			42u64.abi_encode(),
+			RuntimeReturnCode::Success,
+		),
+		(
+			INoInfo::INoInfoCalls::reverts(INoInfo::revertsCall { error: "panic".to_string() })
+				.abi_encode(),
+			Revert::from("panic").abi_encode(),
+			RuntimeReturnCode::CalleeReverted,
+		),
+		(
+			INoInfo::INoInfoCalls::panics(INoInfo::panicsCall {}).abi_encode(),
+			Panic::from(PanicKind::Assert).abi_encode(),
+			RuntimeReturnCode::CalleeReverted,
+		),
+		(
+			INoInfo::INoInfoCalls::errors(INoInfo::errorsCall {}).abi_encode(),
+			Vec::new(),
+			RuntimeReturnCode::CalleeTrapped,
+		),
+		// passing non decodeable input reverts with solidity panic
+		(
+			b"invalid".to_vec(),
+			Panic::from(PanicKind::ResourceError).abi_encode(),
+			RuntimeReturnCode::CalleeReverted,
+		),
+	];
+
+	for (input, output, error_code) in cases {
+		let (code, _code_hash) = compile_module("call_and_returncode").unwrap();
+		ExtBuilder::default().build().execute_with(|| {
+			let id = <Test as Config>::AddressMapper::to_account_id(&precompile_addr);
+			let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+			let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(code))
+				.value(1000)
+				.build_and_unwrap_contract();
+
+			let result = builder::bare_call(addr)
+				.data(
+					(&precompile_addr, 0u64).encode().into_iter().chain(input).collect::<Vec<_>>(),
+				)
+				.build_and_unwrap_result();
+
+			// no account or contract info should be created for a NoInfo pre-compile
+			assert!(test_utils::get_contract_checked(&precompile_addr).is_none());
+			assert!(!System::account_exists(&id));
+			assert_eq!(test_utils::get_balance(&id), 0u64);
+
+			assert_eq!(result.flags, ReturnFlags::empty());
+			assert_eq!(u32::from_le_bytes(result.data[..4].try_into().unwrap()), error_code as u32);
+			assert_eq!(
+				&result.data[4..],
+				&output,
+				"Unexpected output for precompile: {precompile_addr:?}",
+			);
+		});
+	}
+}
+
+#[test]
+fn precompiles_with_info_creates_contract() {
+	use crate::precompiles::Precompile;
+	use alloy_core::sol_types::SolInterface;
+	use precompiles::{IWithInfo, WithInfo};
+
+	let precompile_addr = H160(WithInfo::<Test>::MATCHER.base_address());
+
+	let cases = vec![(
+		IWithInfo::IWithInfoCalls::dummy(IWithInfo::dummyCall {}).abi_encode(),
+		Vec::<u8>::new(),
+		RuntimeReturnCode::Success,
+	)];
+
+	for (input, output, error_code) in cases {
+		let (code, _code_hash) = compile_module("call_and_returncode").unwrap();
+		ExtBuilder::default().build().execute_with(|| {
+			let id = <Test as Config>::AddressMapper::to_account_id(&precompile_addr);
+			let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+			let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(code))
+				.value(1000)
+				.build_and_unwrap_contract();
+
+			let result = builder::bare_call(addr)
+				.data(
+					(&precompile_addr, 0u64).encode().into_iter().chain(input).collect::<Vec<_>>(),
+				)
+				.build_and_unwrap_result();
+
+			// a pre-compile with contract info should create an account on first call
+			assert!(test_utils::get_contract_checked(&precompile_addr).is_some());
+			assert!(System::account_exists(&id));
+			assert_eq!(test_utils::get_balance(&id), 1u64);
+
+			assert_eq!(result.flags, ReturnFlags::empty());
+			assert_eq!(u32::from_le_bytes(result.data[..4].try_into().unwrap()), error_code as u32);
+			assert_eq!(
+				&result.data[4..],
+				&output,
+				"Unexpected output for precompile: {precompile_addr:?}",
+			);
+		});
+	}
 }

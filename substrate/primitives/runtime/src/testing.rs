@@ -212,7 +212,9 @@ impl Header {
 }
 
 /// Testing block
-#[derive(PartialEq, Eq, Clone, Serialize, Debug, Encode, Decode, TypeInfo)]
+#[derive(
+	PartialEq, Eq, Clone, Serialize, Debug, Encode, Decode, DecodeWithMemTracking, TypeInfo,
+)]
 pub struct Block<Xt> {
 	/// Block header
 	pub header: Header,
@@ -227,6 +229,7 @@ impl<Xt> traits::HeaderProvider for Block<Xt> {
 impl<
 		Xt: 'static
 			+ Codec
+			+ DecodeWithMemTracking
 			+ Sized
 			+ Send
 			+ Sync
@@ -273,7 +276,7 @@ where
 pub type TestXt<Call, Extra> = UncheckedExtrinsic<u64, Call, (), Extra>;
 
 /// Wrapper over a `u64` that can be used as a `RuntimeCall`.
-#[derive(PartialEq, Eq, Debug, Clone, Encode, Decode, TypeInfo)]
+#[derive(PartialEq, Eq, Debug, Clone, Encode, Decode, DecodeWithMemTracking, TypeInfo)]
 pub struct MockCallU64(pub u64);
 
 impl Dispatchable for MockCallU64 {

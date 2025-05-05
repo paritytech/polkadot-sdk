@@ -84,26 +84,12 @@ mod example_runtime {
 		type Lookup = IdentityLookup<Self::AccountId>;
 	}
 
-	#[cfg(feature = "runtime-benchmarks")]
-	pub struct BenchmarkHelper;
-	#[cfg(feature = "runtime-benchmarks")]
-	impl pallet_verify_signature::BenchmarkHelper<MultiSignature, AccountId> for BenchmarkHelper {
-		fn create_signature(_entropy: &[u8], msg: &[u8]) -> (MultiSignature, AccountId) {
-			use sp_io::crypto::{sr25519_generate, sr25519_sign};
-			use sp_runtime::traits::IdentifyAccount;
-			let public = sr25519_generate(0.into(), None);
-			let who_account: AccountId = MultiSigner::Sr25519(public).into_account().into();
-			let signature = MultiSignature::Sr25519(sr25519_sign(0.into(), &public, msg).unwrap());
-			(signature, who_account)
-		}
-	}
-
 	impl pallet_verify_signature::Config for Runtime {
 		type Signature = MultiSignature;
 		type AccountIdentifier = MultiSigner;
 		type WeightInfo = ();
 		#[cfg(feature = "runtime-benchmarks")]
-		type BenchmarkHelper = BenchmarkHelper;
+		type BenchmarkHelper = ();
 	}
 
 	/// Type that enables any pallet to ask for a coowner origin.

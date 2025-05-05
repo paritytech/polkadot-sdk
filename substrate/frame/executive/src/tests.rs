@@ -357,7 +357,18 @@ impl frame_system::Config for Runtime {
 	type ExtensionsWeightInfo = MockExtensionsWeights;
 }
 
-#[derive(Encode, Decode, Copy, Clone, Eq, PartialEq, MaxEncodedLen, TypeInfo, RuntimeDebug)]
+#[derive(
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	Copy,
+	Clone,
+	Eq,
+	PartialEq,
+	MaxEncodedLen,
+	TypeInfo,
+	RuntimeDebug,
+)]
 pub enum FreezeReasonId {
 	Foo,
 }

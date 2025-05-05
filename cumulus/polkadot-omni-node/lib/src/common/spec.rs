@@ -32,6 +32,7 @@ use cumulus_primitives_core::{BlockT, ParaId};
 use cumulus_relay_chain_interface::{OverseerHandle, RelayChainInterface};
 use futures::FutureExt;
 use parachains_common::Hash;
+use polkadot_cli::service::IdentifyNetworkBackend;
 use polkadot_primitives::CollatorPair;
 use prometheus_endpoint::Registry;
 use sc_client_api::Backend;
@@ -317,7 +318,7 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 						)),
 						network_provider: Arc::new(network.clone()),
 						is_validator: parachain_config.role.is_authority(),
-						enable_http_requests: false,
+						enable_http_requests: true,
 						custom_extensions: move |_| vec![],
 					})?;
 				task_manager.spawn_handle().spawn(
@@ -459,7 +460,10 @@ where
 		hwbench: Option<HwBench>,
 		node_extra_args: NodeExtraArgs,
 	) -> Pin<Box<dyn Future<Output = sc_service::error::Result<TaskManager>>>> {
-		match parachain_config.network.network_backend {
+		// If the network backend is unspecified, use the default for the given chain.
+		let default_backend = parachain_config.chain_spec.network_backend();
+		let network_backend = parachain_config.network.network_backend.unwrap_or(default_backend);
+		match network_backend {
 			sc_network::config::NetworkBackendType::Libp2p =>
 				<Self as NodeSpec>::start_node::<sc_network::NetworkWorker<_, _>>(
 					parachain_config,

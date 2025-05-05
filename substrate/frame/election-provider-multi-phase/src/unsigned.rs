@@ -850,7 +850,7 @@ impl<T: MinerConfig> Miner<T> {
 			.map_err::<FeasibilityError, _>(Into::into)?;
 
 		// Ensure that assignments is correct.
-		let _ = assignments.iter().try_for_each(|assignment| {
+		assignments.iter().try_for_each(|assignment| {
 			// Check that assignment.who is actually a voter (defensive-only).
 			// NOTE: while using the index map from `voter_index` is better than a blind linear
 			// search, this *still* has room for optimization. Note that we had the index when

@@ -121,6 +121,28 @@ fn m3_2048(bloom: &mut [u8; 256], bytes: &[u8]) {
 }
 
 #[test]
+fn can_deserialize_input_or_data_field_from_generic_transaction() {
+	let cases = [
+		("with input", r#"{"input": "0x01"}"#),
+		("with data", r#"{"data": "0x01"}"#),
+		("with both", r#"{"data": "0x01", "input": "0x01"}"#),
+	];
+
+	for (name, json) in cases {
+		let tx = serde_json::from_str::<GenericTransaction>(json).unwrap();
+		assert_eq!(tx.input.to_vec(), vec![1u8], "{}", name);
+	}
+
+	let err = serde_json::from_str::<GenericTransaction>(r#"{"data": "0x02", "input": "0x01"}"#)
+		.unwrap_err();
+	assert!(
+		err.to_string().starts_with(
+		"Both \"data\" and \"input\" are set and not equal. Please use \"input\" to pass transaction call data"
+		)
+	);
+}
+
+#[test]
 fn logs_bloom_works() {
 	let receipt: ReceiptInfo = serde_json::from_str(
 		r#"
@@ -163,19 +185,23 @@ fn logs_bloom_works() {
 
 impl GenericTransaction {
 	/// Create a new [`GenericTransaction`] from a signed transaction.
-	pub fn from_signed(tx: TransactionSigned, from: Option<H160>) -> Self {
-		Self::from_unsigned(tx.into(), from)
+	pub fn from_signed(tx: TransactionSigned, base_gas_price: U256, from: Option<H160>) -> Self {
+		Self::from_unsigned(tx.into(), base_gas_price, from)
 	}
 
 	/// Create a new [`GenericTransaction`] from a unsigned transaction.
-	pub fn from_unsigned(tx: TransactionUnsigned, from: Option<H160>) -> Self {
+	pub fn from_unsigned(
+		tx: TransactionUnsigned,
+		base_gas_price: U256,
+		from: Option<H160>,
+	) -> Self {
 		use TransactionUnsigned::*;
 		match tx {
 			TransactionLegacyUnsigned(tx) => GenericTransaction {
 				from,
 				r#type: Some(tx.r#type.as_byte()),
 				chain_id: tx.chain_id,
-				input: Some(tx.input),
+				input: tx.input.into(),
 				nonce: Some(tx.nonce),
 				value: Some(tx.value),
 				to: tx.to,
@@ -187,15 +213,15 @@ impl GenericTransaction {
 				from,
 				r#type: Some(tx.r#type.as_byte()),
 				chain_id: Some(tx.chain_id),
-				input: Some(tx.input),
+				input: tx.input.into(),
 				nonce: Some(tx.nonce),
 				value: Some(tx.value),
 				to: Some(tx.to),
 				gas: Some(tx.gas),
 				gas_price: Some(
-					U256::from(crate::GAS_PRICE)
+					base_gas_price
 						.saturating_add(tx.max_priority_fee_per_gas)
-						.max(tx.max_fee_per_blob_gas),
+						.min(tx.max_fee_per_blob_gas),
 				),
 				access_list: Some(tx.access_list),
 				blob_versioned_hashes: tx.blob_versioned_hashes,
@@ -208,15 +234,15 @@ impl GenericTransaction {
 				from,
 				r#type: Some(tx.r#type.as_byte()),
 				chain_id: Some(tx.chain_id),
-				input: Some(tx.input),
+				input: tx.input.into(),
 				nonce: Some(tx.nonce),
 				value: Some(tx.value),
 				to: tx.to,
 				gas: Some(tx.gas),
 				gas_price: Some(
-					U256::from(crate::GAS_PRICE)
+					base_gas_price
 						.saturating_add(tx.max_priority_fee_per_gas)
-						.max(tx.max_fee_per_gas),
+						.min(tx.max_fee_per_gas),
 				),
 				access_list: Some(tx.access_list),
 				max_fee_per_gas: Some(tx.max_fee_per_gas),
@@ -227,7 +253,7 @@ impl GenericTransaction {
 				from,
 				r#type: Some(tx.r#type.as_byte()),
 				chain_id: Some(tx.chain_id),
-				input: Some(tx.input),
+				input: tx.input.into(),
 				nonce: Some(tx.nonce),
 				value: Some(tx.value),
 				to: tx.to,
@@ -245,7 +271,7 @@ impl GenericTransaction {
 			TYPE_LEGACY => Ok(TransactionLegacyUnsigned {
 				r#type: TypeLegacy {},
 				chain_id: self.chain_id,
-				input: self.input.unwrap_or_default(),
+				input: self.input.to_bytes(),
 				nonce: self.nonce.unwrap_or_default(),
 				value: self.value.unwrap_or_default(),
 				to: self.to,
@@ -256,12 +282,12 @@ impl GenericTransaction {
 			TYPE_EIP1559 => Ok(Transaction1559Unsigned {
 				r#type: TypeEip1559 {},
 				chain_id: self.chain_id.unwrap_or_default(),
-				input: self.input.unwrap_or_default(),
+				input: self.input.to_bytes(),
 				nonce: self.nonce.unwrap_or_default(),
 				value: self.value.unwrap_or_default(),
 				to: self.to,
 				gas: self.gas.unwrap_or_default(),
-				gas_price: self.gas_price.unwrap_or_default(),
+				gas_price: self.max_fee_per_gas.unwrap_or_default(),
 				access_list: self.access_list.unwrap_or_default(),
 				max_fee_per_gas: self.max_fee_per_gas.unwrap_or_default(),
 				max_priority_fee_per_gas: self.max_priority_fee_per_gas.unwrap_or_default(),
@@ -270,7 +296,7 @@ impl GenericTransaction {
 			TYPE_EIP2930 => Ok(Transaction2930Unsigned {
 				r#type: TypeEip2930 {},
 				chain_id: self.chain_id.unwrap_or_default(),
-				input: self.input.unwrap_or_default(),
+				input: self.input.to_bytes(),
 				nonce: self.nonce.unwrap_or_default(),
 				value: self.value.unwrap_or_default(),
 				to: self.to,
@@ -282,7 +308,7 @@ impl GenericTransaction {
 			TYPE_EIP4844 => Ok(Transaction4844Unsigned {
 				r#type: TypeEip4844 {},
 				chain_id: self.chain_id.unwrap_or_default(),
-				input: self.input.unwrap_or_default(),
+				input: self.input.to_bytes(),
 				nonce: self.nonce.unwrap_or_default(),
 				value: self.value.unwrap_or_default(),
 				to: self.to.unwrap_or_default(),
@@ -297,4 +323,48 @@ impl GenericTransaction {
 			_ => Err(()),
 		}
 	}
+}
+
+#[test]
+fn from_unsigned_works_for_legacy() {
+	let base_gas_price = U256::from(10);
+	let tx = TransactionUnsigned::from(TransactionLegacyUnsigned {
+		chain_id: Some(U256::from(1)),
+		input: Bytes::from(vec![1u8]),
+		nonce: U256::from(1),
+		value: U256::from(1),
+		to: Some(H160::zero()),
+		gas: U256::from(1),
+		gas_price: U256::from(11),
+		..Default::default()
+	});
+
+	let generic = GenericTransaction::from_unsigned(tx.clone(), base_gas_price, None);
+	assert_eq!(generic.gas_price, Some(U256::from(11)));
+
+	let tx2 = generic.try_into_unsigned().unwrap();
+	assert_eq!(tx, tx2);
+}
+
+#[test]
+fn from_unsigned_works_for_1559() {
+	let base_gas_price = U256::from(10);
+	let tx = TransactionUnsigned::from(Transaction1559Unsigned {
+		chain_id: U256::from(1),
+		input: Bytes::from(vec![1u8]),
+		nonce: U256::from(1),
+		value: U256::from(1),
+		to: Some(H160::zero()),
+		gas: U256::from(1),
+		gas_price: U256::from(20),
+		max_fee_per_gas: U256::from(20),
+		max_priority_fee_per_gas: U256::from(1),
+		..Default::default()
+	});
+
+	let generic = GenericTransaction::from_unsigned(tx.clone(), base_gas_price, None);
+	assert_eq!(generic.gas_price, Some(U256::from(11)));
+
+	let tx2 = generic.try_into_unsigned().unwrap();
+	assert_eq!(tx, tx2);
 }
