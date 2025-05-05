@@ -209,7 +209,7 @@ The guidelines so far have been general in nature, and are applicable to crates 
 pallets.
 
 The following is relevant to how to document parts of a crate that is a pallet. See
-[`pallet-fast-unstake`](/substrate/frame/fast-unstake/src/lib.rs) as one example of adhering these guidelines.
+[`pallet-fast-unstake`](../../substrate/frame/fast-unstake/src/lib.rs) as one example of adhering these guidelines.
 
 ---
 
