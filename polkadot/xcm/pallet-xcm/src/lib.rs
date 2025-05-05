@@ -2956,6 +2956,7 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Computes the weight cost using the provided `WeightTrader`.
+	/// This function is supposed to be used ONLY in `XcmPaymentApi::query_weight_to_asset_fee`.
 	///
 	/// The provided `WeightTrader` must be the same as the one used in the XcmExecutor to ensure
 	/// uniformity in the weight cost calculation.
