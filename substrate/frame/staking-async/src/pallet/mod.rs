@@ -438,7 +438,7 @@ pub mod pallet {
 	/// TWOX-NOTE: SAFE since `AccountId` is a secure hash.
 	#[pallet::storage]
 	pub type Validators<T: Config> =
-		CountedStorageMap<_, Twox64Concat, T::AccountId, ValidatorPrefs, ValueQuery>;
+		CountedStorageMap<_, Twox64Concat, T::AccountId, ValidatorPrefs, OptionQuery>;
 
 	/// The maximum validator count before we stop allowing new validators to join.
 	///
@@ -1570,7 +1570,7 @@ pub mod pallet {
 			let targets: BoundedVec<_, _> = targets
 				.into_iter()
 				.map(|n| {
-					if old.contains(&n) || !Validators::<T>::get(&n).blocked {
+					if old.contains(&n) || !Validators::<T>::get(&n).map_or(false, |prefs| prefs.blocked) {
 						Ok(n)
 					} else {
 						Err(Error::<T>::BadTarget.into())
@@ -2158,14 +2158,16 @@ pub mod pallet {
 		) -> DispatchResult {
 			ensure_signed(origin)?;
 			let min_commission = MinCommission::<T>::get();
-			Validators::<T>::try_mutate_exists(validator_stash, |maybe_prefs| {
-				maybe_prefs
-					.as_mut()
-					.map(|prefs| {
-						(prefs.commission < min_commission)
-							.then(|| prefs.commission = min_commission)
-					})
-					.ok_or(Error::<T>::NotStash)
+			Validators::<T>::try_mutate_exists(&validator_stash, |maybe_prefs| {
+				if let Some(prefs) = maybe_prefs {
+					if prefs.commission < min_commission {
+						prefs.commission = min_commission;
+					}
+					// Explicitly state the error type for the Ok variant.
+					Ok::<(), sp_runtime::DispatchError>(())
+				} else {
+					Err(Error::<T>::NotStash.into())
+				}
 			})?;
 			Ok(())
 		}
