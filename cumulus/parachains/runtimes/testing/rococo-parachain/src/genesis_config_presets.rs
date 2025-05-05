@@ -35,7 +35,7 @@ fn rococo_parachain_genesis(
 	id: ParaId,
 ) -> serde_json::Value {
 	build_struct_json_patch!(RuntimeGenesisConfig {
-		aura: AuraConfig { authorities: invulnerables },
+		aura: AuraConfig { authorities: initial_authorities },
 		balances: BalancesConfig {
 			balances: endowed_accounts.iter().cloned().map(|k| (k, endowment)).collect(),
 		},
@@ -59,11 +59,11 @@ pub fn get_preset(id: &PresetId) -> Option<Vec<u8>> {
 
 	let patch = match id.as_ref() {
 		sp_genesis_builder::DEV_RUNTIME_PRESET =>
-			genesis_fn(vec![Sr25519Keyring::Alice.to_account_id()]),
-		sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET => genesis_fn(vec![(
-			Sr25519Keyring::Alice.to_account_id(),
+			genesis_fn(vec![Sr25519Keyring::Alice.public().into()]),
+		sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET => genesis_fn(vec![
+			Sr25519Keyring::Alice.public().into(),
 			Sr25519Keyring::Bob.public().into(),
-		)]),
+		]),
 		_ => return None,
 	};
 
