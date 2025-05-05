@@ -1757,31 +1757,27 @@ impl<Config: config::Config> XcmExecutor<Config> {
 		context: Option<&XcmContext>,
 	) -> Result<(), XcmError> {
 		let mut failed_deposits = Vec::with_capacity(to_deposit.len());
+
 		for asset in to_deposit.assets_iter() {
 			let deposit_result =
 				Config::AssetTransactor::deposit_asset(&asset, &beneficiary, context);
-
-			// if deposit failed for asset, mark it for retry after depositing the others.
+			// if deposit failed for asset, mark it for retry.
 			if deposit_result.is_err() {
 				failed_deposits.push(asset);
 			}
 		}
 
-		if failed_deposits.len() == to_deposit.len() {
-			tracing::debug!(
-				target: "xcm::execute",
-				?deposit_result,
-				"Deposit for each asset failed, returning the last error as there is no point in retrying any of them",
-			);
-			return deposit_result;
-		}
-		tracing::trace!(target: "xcm::execute", ?failed_deposits, "Deposits to retry");
+		tracing::trace!(
+			target: "xcm::execute",
+			?failed_deposits,
+			"First‐pass failures, about to retry"
+		);
 
 		// retry previously failed deposits, this time short-circuiting on any error.
 		for asset in failed_deposits {
 			if let Err(e) = Config::AssetTransactor::deposit_asset(&asset, &beneficiary, context) {
 				// Ignore dust deposit errors.
-				if !matches!(e, XcmError::FailedToTransactAsset(s) if *s == "BelowMinimum") {
+				if !matches!(e, XcmError::FailedToTransactAsset(s) if *s == *"BelowMinimum") {
 					return Err(e);
 				}
 			}

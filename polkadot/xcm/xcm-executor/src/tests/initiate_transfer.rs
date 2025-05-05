@@ -220,7 +220,7 @@ fn unpaid_transact() {
 }
 
 #[test]
-fn deposit_assets_with_retry_ignores_dust_and_deposits_rest() {
+fn deposit_assets_with_retry_burns_dust_and_deposits_rest() {
 	// fund sender
 	add_asset(SENDER, (Here, 200u128));
 
@@ -242,7 +242,7 @@ fn deposit_assets_with_retry_ignores_dust_and_deposits_rest() {
 		},
 	]);
 
-	let (mut vm, weight) = instantiate_executor_with_ed(SENDER, xcm.clone());
+	let (mut vm, weight) = instantiate_executor(SENDER, xcm.clone());
 
 	let result = vm.bench_process(xcm);
 
@@ -251,18 +251,15 @@ fn deposit_assets_with_retry_ignores_dust_and_deposits_rest() {
 	assert!(matches!(outcome, Outcome::Complete { .. }), "Expected Complete, got {:?}", outcome);
 
 	let here_assets = asset_list(RECIPIENT);
-	assert_eq!(
-		here_assets,
-		vec![legit],
-		"only the ≥ED asset (100) should end up in `Here`"
-	);
+	assert_eq!(here_assets, vec![legit], "only the ≥ED asset (100) should end up in `Here`");
 
+	// dust is burned, so nothing lands in the trap account
 	let trapped = asset_list(TRAPPED_ASSETS);
-	assert_eq!(trapped, vec![dust.clone()], "the <ED asset (5) must have been trapped");
+	assert!(trapped.is_empty(), "dust assets should be silently burned, not trapped");
 }
 
 #[test]
-fn deposit_assets_with_retry_all_dust_traps_all() {
+fn deposit_assets_with_retry_all_dust_are_burned() {
 	// fund sender
 	add_asset(SENDER, (Here, 20u128));
 
@@ -283,7 +280,7 @@ fn deposit_assets_with_retry_all_dust_traps_all() {
 		},
 	]);
 
-	let (mut vm, weight) = instantiate_executor_with_ed(SENDER, xcm.clone());
+	let (mut vm, weight) = instantiate_executor(SENDER, xcm.clone());
 	let result = vm.bench_process(xcm);
 
 	assert!(result.is_ok(), "all-dust deposit must not abort");
@@ -294,11 +291,7 @@ fn deposit_assets_with_retry_all_dust_traps_all() {
 	let received = asset_list(RECIPIENT);
 	assert!(received.is_empty(), "no ≥ED assets, so recipient must get nothing");
 
-	// both dust amounts must be trapped
+	// all dust is burned, trap account stays empty
 	let trapped = asset_list(TRAPPED_ASSETS);
-	assert_eq!(
-		trapped,
-		vec![Asset { id: Here.into(), fun: Fungible(5 + 5) }],
-		"all dust assets (5 + 5) must merged into a single trapped 10"
-	);
+	assert!(trapped.is_empty(), "all dust assets must be burned, not trapped");
 }

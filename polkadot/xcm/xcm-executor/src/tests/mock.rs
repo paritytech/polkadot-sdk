@@ -49,25 +49,13 @@ pub fn instantiate_executor(
 	(vm, weight)
 }
 
-/// Dummy XCVM instance to test deposits under BelowMinimum conditions
-pub fn instantiate_executor_with_ed(
-	origin: impl Into<Location>,
-	message: Xcm<<XcmConfigWithED as Config>::RuntimeCall>,
-) -> (XcmExecutor<XcmConfigWithED>, Weight) {
-	let mut vm = XcmExecutor::<XcmConfigWithED>::new(
-		origin,
-		message.using_encoded(sp_io::hashing::blake2_256),
-	);
-	let weight = XcmExecutor::<XcmConfigWithED>::prepare(message.clone()).unwrap().weight_of();
-	vm.message_weight = weight;
-	(vm, weight)
-}
-
 parameter_types! {
 	pub const MaxAssetsIntoHolding: u32 = 10;
 	pub const BaseXcmWeight: Weight = Weight::from_parts(1, 1);
 	pub const MaxInstructions: u32 = 10;
 	pub UniversalLocation: InteriorLocation = [GlobalConsensus(ByGenesis([0; 32])), Parachain(1000)].into();
+	/// Simulate the chain’s existential deposit.
+	pub const ExistentialDeposit: u128 = 10;
 }
 
 /// Test origin.
@@ -144,6 +132,12 @@ impl TransactAsset for TestAssetTransactor {
 		who: &Location,
 		_context: Option<&XcmContext>,
 	) -> Result<(), XcmError> {
+		if let Fungibility::Fungible(amount) = what.fun {
+			// fail if below the configured existential deposit
+			if amount < ExistentialDeposit::get() {
+				return Err(XcmError::FailedToTransactAsset("BelowMinimum".into()));
+			}
+		}
 		add_asset(who.clone(), what.clone());
 		Ok(())
 	}
@@ -160,33 +154,6 @@ impl TransactAsset for TestAssetTransactor {
 				.try_take(what.clone().into())
 				.map_err(|_| XcmError::NotWithdrawable)
 		})
-	}
-}
-
-/// Dummy Transactor to test deposist under BelowMinimum conditions
-pub struct AssetTransactorWithED;
-impl TransactAsset for AssetTransactorWithED {
-	fn deposit_asset(
-		what: &Asset,
-		who: &Location,
-		_context: Option<&XcmContext>,
-	) -> Result<(), XcmError> {
-		// Simulate existential deposit of 10
-		if let Fungibility::Fungible(amount) = what.fun {
-			if amount < 10 {
-				return Err(XcmError::FailedToTransactAsset("BelowMinimum".into()));
-			}
-		}
-		add_asset(who.clone(), what.clone());
-		Ok(())
-	}
-
-	fn withdraw_asset(
-		what: &Asset,
-		who: &Location,
-		_context: Option<&XcmContext>,
-	) -> Result<AssetsInHolding, XcmError> {
-		TestAssetTransactor::withdraw_asset(what, who, _context)
 	}
 }
 
@@ -331,41 +298,6 @@ impl Config for XcmConfig {
 	type XcmSender = TestSender;
 	type XcmEventEmitter = ();
 	type AssetTransactor = TestAssetTransactor;
-	type OriginConverter = ();
-	type IsReserve = ();
-	type IsTeleporter = ();
-	type UniversalLocation = UniversalLocation;
-	type Barrier = TestBarrier;
-	type Weigher = TestWeigher;
-	type Trader = TestTrader;
-	type ResponseHandler = ();
-	type AssetTrap = TestAssetTrap;
-	type AssetLocker = ();
-	type AssetExchanger = ();
-	type AssetClaims = ();
-	type SubscriptionService = ();
-	type PalletInstancesInfo = ();
-	type MaxAssetsIntoHolding = MaxAssetsIntoHolding;
-	type FeeManager = TestFeeManager;
-	type MessageExporter = ();
-	type UniversalAliases = Nothing;
-	type CallDispatcher = Self::RuntimeCall;
-	type SafeCallFilter = Everything;
-	type Aliasers = Nothing;
-	type TransactionalProcessor = TestTransactionalProcessor;
-	type HrmpNewChannelOpenRequestHandler = ();
-	type HrmpChannelAcceptedHandler = ();
-	type HrmpChannelClosingHandler = ();
-	type XcmRecorder = ();
-}
-
-/// Dummy XcmConfig to test deposists under BelowMinimum conditions
-pub struct XcmConfigWithED;
-impl Config for XcmConfigWithED {
-	type RuntimeCall = TestCall;
-	type XcmSender = TestSender;
-	type XcmEventEmitter = ();
-	type AssetTransactor = AssetTransactorWithED;
 	type OriginConverter = ();
 	type IsReserve = ();
 	type IsTeleporter = ();
