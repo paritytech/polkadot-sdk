@@ -154,18 +154,18 @@ pub trait UpwardMessageSender {
 	/// Send the given UMP message; return the expected number of blocks before the message will
 	/// be dispatched or an error if the message cannot be sent.
 	/// return the hash of the message sent
-	fn send_upward_message(msg: UpwardMessage) -> Result<(u32, XcmHash), MessageSendError>;
+	fn send_upward_message(message: UpwardMessage) -> Result<(u32, XcmHash), MessageSendError>;
 
-	/// Check whether the message size is acceptable for the channel.
-	fn can_send_upward_message(size: usize) -> Result<(), MessageSendError>;
+	/// Pre-check the given UMP message.
+	fn can_send_upward_message(message: &UpwardMessage) -> Result<(), MessageSendError>;
 }
 
 impl UpwardMessageSender for () {
-	fn send_upward_message(_msg: UpwardMessage) -> Result<(u32, XcmHash), MessageSendError> {
+	fn send_upward_message(_message: UpwardMessage) -> Result<(u32, XcmHash), MessageSendError> {
 		Err(MessageSendError::NoChannel)
 	}
 
-	fn can_send_upward_message(_size: usize) -> Result<(), MessageSendError> {
+	fn can_send_upward_message(_message: &UpwardMessage) -> Result<(), MessageSendError> {
 		Err(MessageSendError::Other)
 	}
 }

@@ -78,7 +78,7 @@ where
 			let data = versioned_xcm.encode();
 
 			// Pre-check with our message sender if everything else is okay.
-			T::can_send_upward_message(data.len()).map_err(Self::map_upward_sender_err)?;
+			T::can_send_upward_message(&data).map_err(Self::map_upward_sender_err)?;
 
 			Ok((data, price))
 		} else {
@@ -611,7 +611,7 @@ mod test_xcm_router {
 			Err(MessageSendError::Other)
 		}
 
-		fn can_send_upward_message(_: usize) -> Result<(), MessageSendError> {
+		fn can_send_upward_message(_: &UpwardMessage) -> Result<(), MessageSendError> {
 			Err(MessageSendError::Other)
 		}
 	}

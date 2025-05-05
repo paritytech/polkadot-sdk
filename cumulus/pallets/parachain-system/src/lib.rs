@@ -1649,9 +1649,9 @@ impl<T: Config> UpwardMessageSender for Pallet<T> {
 		Self::send_upward_message(message)
 	}
 
-	fn can_send_upward_message(size: usize) -> Result<(), MessageSendError> {
+	fn can_send_upward_message(message: &UpwardMessage) -> Result<(), MessageSendError> {
 		let cfg = HostConfiguration::<T>::get().ok_or(MessageSendError::Other)?;
-		if size > cfg.max_upward_message_size as usize {
+		if message.len() > cfg.max_upward_message_size as usize {
 			Err(MessageSendError::TooBig)
 		} else {
 			Ok(())

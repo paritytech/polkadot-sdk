@@ -714,7 +714,7 @@ fn send_upwards_message_checks_size_on_validate() {
 		})
 		.add(1, || {
 			assert_eq!(
-				ParachainSystem::can_send_upward_message(129usize),
+				ParachainSystem::can_send_upward_message(vec![0u8; 129].as_ref()),
 				Err(MessageSendError::TooBig)
 			);
 		});
