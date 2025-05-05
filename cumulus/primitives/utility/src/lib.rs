@@ -605,6 +605,9 @@ mod test_xcm_router {
 		fn send_upward_message(_: UpwardMessage) -> Result<(u32, XcmHash), MessageSendError> {
 			Err(MessageSendError::Other)
 		}
+		fn check_size(size: usize) -> Result<(), ()> {
+			todo!("https://github.com/paritytech/polkadot-sdk/pull/8409")
+		}
 	}
 
 	#[test]

@@ -278,7 +278,7 @@ impl pallet_staking_async::Config for Runtime {
 	type MaxInvulnerables = frame_support::traits::ConstU32<20>;
 	type MaxDisabledValidators = ConstU32<100>;
 	type PlanningEraOffset =
-		pallet_staking_async::PlanningEraOffsetOf<Self, RelaySessionDuration, ConstU64<10>>;
+		pallet_staking_async::PlanningEraOffsetOf<Self, RelaySessionDuration, ConstU32<10>>;
 	type RcClientInterface = StakingNextRcClient;
 }
 

@@ -1,6 +1,6 @@
 title: '[AHM] Staking async fixes for XCM and election planning'
 doc:
-- audience: Todo
+- audience: Runtime Dev
   description: |-
     This PR brings a few small fixes related to the XCM messages of stkaing-async, among other small fixes:
 

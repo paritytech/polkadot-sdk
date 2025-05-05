@@ -426,8 +426,8 @@ impl<T: Config> Contains<T::AccountId> for AllStakers<T> {
 
 /// A smart type to determine the [`Config::PlanningEraOffset`], given:
 ///
-/// * Expected relay session duration
-/// * Time taking into consideration for XCM sending
+/// * Expected relay session duration, `RS`
+/// * Time taking into consideration for XCM sending, `S`
 ///
 /// It will use the estimated election duration, the relay session duration, and add one as it knows
 /// the relay chain will want to buffer validators for one session. This is needed because we use
