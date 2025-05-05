@@ -406,8 +406,8 @@ impl Keystore for LocalKeystore {
 			// This is done to give the keystore access to individual keys, this is necessary to avoid
 			// unnecessary host functions for paired keys and re-use host functions implemented for each
 			// element of the pair.
-			self.generate_new::<ecdsa::Pair>(sp_core::testing::ECDSA, Some(&*s)).expect("seed slice is valid");
-			self.generate_new::<bls381::Pair>(sp_core::testing::BLS381, Some(&*s)).expect("seed slice is valid");
+			self.generate_new::<ecdsa::Pair>(key_type, Some(&*s)).expect("seed slice is valid");
+			self.generate_new::<bls381::Pair>(key_type, Some(&*s)).expect("seed slice is valid");
 
 			Ok(pubkey)
 		}
@@ -861,14 +861,14 @@ mod tests {
 	#[test]
 	#[cfg(feature = "bls-experimental")]
 	fn ecdsa_bls381_generate_with_none_works() {
-		use sp_core::testing::{BLS381, ECDSA, ECDSA_BLS381};
+		use sp_core::testing::ECDSA_BLS381;
 
 		let store = LocalKeystore::in_memory();
 		let ecdsa_bls381_key =
 			store.ecdsa_bls381_generate_new(ECDSA_BLS381, None).expect("Cant generate key");
 
-		let ecdsa_keys = store.ecdsa_public_keys(ECDSA);
-		let bls381_keys = store.bls381_public_keys(BLS381);
+		let ecdsa_keys = store.ecdsa_public_keys(ECDSA_BLS381);
+		let bls381_keys = store.bls381_public_keys(ECDSA_BLS381);
 		let ecdsa_bls381_keys = store.ecdsa_bls381_public_keys(ECDSA_BLS381);
 
 		assert_eq!(ecdsa_keys.len(), 1);
@@ -889,15 +889,15 @@ mod tests {
 	#[test]
 	#[cfg(feature = "bls-experimental")]
 	fn ecdsa_bls381_generate_with_seed_works() {
-		use sp_core::testing::{BLS381, ECDSA, ECDSA_BLS381};
+		use sp_core::testing::ECDSA_BLS381;
 
 		let store = LocalKeystore::in_memory();
 		let ecdsa_bls381_key = store
 			.ecdsa_bls381_generate_new(ECDSA_BLS381, Some("//Alice"))
 			.expect("Cant generate key");
 
-		let ecdsa_keys = store.ecdsa_public_keys(ECDSA);
-		let bls381_keys = store.bls381_public_keys(BLS381);
+		let ecdsa_keys = store.ecdsa_public_keys(ECDSA_BLS381);
+		let bls381_keys = store.bls381_public_keys(ECDSA_BLS381);
 		let ecdsa_bls381_keys = store.ecdsa_bls381_public_keys(ECDSA_BLS381);
 
 		assert_eq!(ecdsa_keys.len(), 1);

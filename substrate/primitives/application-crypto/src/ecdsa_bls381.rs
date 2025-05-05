@@ -26,7 +26,6 @@ use sp_core::{
 	crypto::CryptoType,
 	ecdsa, ecdsa_bls381,
 	proof_of_possession::{NonAggregatable, ProofOfPossessionVerifier},
-	testing::{BLS381, ECDSA, ECDSA_BLS381},
 };
 
 mod app {
@@ -60,13 +59,10 @@ impl RuntimePublic for Public {
 	}
 
 	fn generate_proof_of_possession(&mut self, key_type: KeyTypeId) -> Option<Self::Signature> {
-		if key_type != ECDSA_BLS381 {
-			return None
-		}
 		let pub_key_as_bytes = self.to_raw_vec();
 		let (ecdsa_pub_as_bytes, bls381_pub_as_bytes) = split_pub_key_bytes(&pub_key_as_bytes)?;
-		let ecdsa_proof_of_possession = generate_ecdsa_proof_of_possession(ecdsa_pub_as_bytes)?;
-		let bls381_proof_of_possession = generate_bls381_proof_of_possession(bls381_pub_as_bytes)?;
+		let ecdsa_proof_of_possession = generate_ecdsa_proof_of_possession(key_type, ecdsa_pub_as_bytes)?;
+		let bls381_proof_of_possession = generate_bls381_proof_of_possession(key_type, bls381_pub_as_bytes)?;
 		let combined_proof_of_possession_raw = combine_proof_of_possession(&ecdsa_proof_of_possession, &bls381_proof_of_possession)?;
 		Some(Self::Signature::from_raw(combined_proof_of_possession_raw))
 	}
@@ -95,19 +91,21 @@ fn split_pub_key_bytes(
 
 /// Helper: Generate ECDSA proof of possession
 fn generate_ecdsa_proof_of_possession(
+	key_type: KeyTypeId,
 	ecdsa_pub_as_bytes: [u8; ecdsa::PUBLIC_KEY_SERIALIZED_SIZE],
 ) -> Option<ecdsa::Signature> {
 	let ecdsa_pub = ecdsa::Public::from_raw(ecdsa_pub_as_bytes);
 	let proof_of_possession_statement = ecdsa::Pair::proof_of_possession_statement(&ecdsa_pub);
-	sp_io::crypto::ecdsa_sign(ECDSA, &ecdsa_pub, &proof_of_possession_statement)
+	sp_io::crypto::ecdsa_sign(key_type, &ecdsa_pub, &proof_of_possession_statement)
 }
 
 /// Helper: Generate BLS381 proof of possession
 fn generate_bls381_proof_of_possession(
+	key_type: KeyTypeId,
 	bls381_pub_as_bytes: [u8; bls381::PUBLIC_KEY_SERIALIZED_SIZE],
 ) -> Option<bls381::Signature> {
 	let bls381_pub = bls381::Public::from_raw(bls381_pub_as_bytes);
-	sp_io::crypto::bls381_generate_proof_of_possession(BLS381, &bls381_pub)
+	sp_io::crypto::bls381_generate_proof_of_possession(key_type, &bls381_pub)
 }
 
 /// Helper: Combine ECDSA and BLS381 proof_of_possessions into a single raw proof_of_possession

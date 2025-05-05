@@ -49,7 +49,7 @@ use scale_info::TypeInfo;
 use sp_application_crypto::Ss58Codec;
 use sp_keyring::Sr25519Keyring;
 
-use sp_application_crypto::{ecdsa, ed25519, sr25519, RuntimeAppPublic};
+use sp_application_crypto::{ecdsa, ed25519, sr25519, RuntimeAppPublic, RuntimePublic};
 
 #[cfg(feature = "bls-experimental")]
 use sp_application_crypto::{bls381, ecdsa_bls381};
@@ -884,12 +884,17 @@ fn test_bls381_crypto() -> (Bls381Pop, Bls381Public) {
 
 #[cfg(feature = "bls-experimental")]
 fn test_ecdsa_bls381_crypto() -> (EcdsaBls381Pop, EcdsaBls381Public) {
-	let mut public0 = ecdsa_bls381::AppPublic::generate_pair(None);
+	// If the key_type is not declared the automatic used one will be whatever sp_core::testing
+	// for that crypto type is see `RuntimeAppPublic::generate_pair()`
+	let key_type = sp_core::crypto::KeyTypeId(*b"test");
+	// We have to use RuntimePublic Interface instead of RuntimeAppPublic Interface
+	// for generating a pair in order to force key_type..
+	let mut public0 = <ecdsa_bls381::Public as RuntimePublic>::generate_pair(key_type, None);
 
-	let proof_of_possession = public0.generate_proof_of_possession().expect("Cant Generate proof_of_possession for ecdsa_bls381");
+	let proof_of_possession = public0.generate_proof_of_possession(key_type).expect("Cant Generate proof_of_possession for ecdsa_bls381");
 
 	assert!(public0.verify_proof_of_possession(&proof_of_possession));
-	(proof_of_possession, public0)
+	(proof_of_possession.into(), public0.into())
 }
 
 fn test_read_storage() {
