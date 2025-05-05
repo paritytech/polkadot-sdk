@@ -24,6 +24,7 @@ include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
 extern crate alloc;
 
+mod genesis_config_presets;
 mod xcm_config;
 
 use crate::xcm_config::XcmOriginToTransactDispatchOrigin;

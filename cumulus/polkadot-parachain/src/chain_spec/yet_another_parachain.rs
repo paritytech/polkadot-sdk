@@ -92,6 +92,7 @@ pub fn yet_another_parachain_config(
 	.with_name("Yet Another Parachain")
 	.with_id("yet_another_parachain")
 	.with_chain_type(chain_type)
+	.with_genesis_config_preset_name(sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET)
 	.with_genesis_config_patch(serde_json::json!({
 		"balances": {
 			"balances": endowed_accounts.iter().cloned().map(|k| (k, 1u64 << 60)).collect::<Vec<_>>(),
@@ -100,7 +101,6 @@ pub fn yet_another_parachain_config(
 		"parachainInfo": {
 			"parachainId": para_id,
 		},
-		"aura": { "authorities": vec![Into::<AuraId>::into(Keyring::Alice.public()), Keyring::Bob.public().into()] },
 	}))
 	.build()
 }
