@@ -11,7 +11,7 @@
 //! nonces. Each key (bucket) in the storage map contains a 128-bit value that can track 128
 //! individual nonces.
 //!
-//! The implementation efficiently maps an u64 index (nonce) to:
+//! The implementation efficiently maps a u64 index (nonce) to:
 //! 1. A bucket - calculated as `index >> 7` (dividing by 128)
 //! 2. A bit position - calculated as `index & 127` (remainder when dividing by 128)
 //!
