@@ -15,7 +15,6 @@
 // limitations under the License.
 
 use cumulus_primitives_core::ParaId;
-use parachains_common::AccountId;
 use polkadot_omni_node_lib::chain_spec::{Extensions, GenericChainSpec};
 use sc_service::ChainType;
 
@@ -39,7 +38,7 @@ pub fn get_penpal_chain_spec(id: ParaId, relay_chain: &str) -> GenericChainSpec 
 	.with_genesis_config_preset_name(sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET)
 	.with_genesis_config_patch(serde_json::json!({
 		"parachainInfo": {
-			"parachainId": para_id,
+			"parachainId": id,
 		},
 	}))
 	.build()

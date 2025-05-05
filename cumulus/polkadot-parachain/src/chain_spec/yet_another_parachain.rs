@@ -19,7 +19,6 @@ use polkadot_omni_node_lib::chain_spec::{Extensions, GenericChainSpec};
 use sc_chain_spec::ChainType;
 use sp_core::{hex2array, sr25519::Pair as SrPair, Pair};
 use sp_keyring::Sr25519Keyring as Keyring;
-use yet_another_parachain_runtime::AuraId;
 
 const NUM_ACCOUNT_PAIRS: usize = 16000;
 

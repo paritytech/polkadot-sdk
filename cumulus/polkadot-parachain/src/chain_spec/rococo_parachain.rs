@@ -16,7 +16,6 @@
 
 //! ChainSpecs dedicated to Rococo parachain setups (for testing and example purposes)
 
-use crate::chain_spec::SAFE_XCM_VERSION;
 use cumulus_primitives_core::ParaId;
 use hex_literal::hex;
 use parachains_common::AccountId;
@@ -24,7 +23,6 @@ use polkadot_omni_node_lib::chain_spec::{Extensions, GenericChainSpec};
 use rococo_parachain_runtime::AuraId;
 use sc_chain_spec::ChainType;
 use sp_core::crypto::UncheckedInto;
-use sp_keyring::Sr25519Keyring;
 
 pub fn rococo_parachain_local_config() -> GenericChainSpec {
 	GenericChainSpec::builder(
