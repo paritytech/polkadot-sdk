@@ -430,8 +430,8 @@ impl<T: Config> Contains<T::AccountId> for AllStakers<T> {
 /// * Time taking into consideration for XCM sending
 ///
 /// It will use the estimated election duration, the relay session duration, and add one as it knows
-/// the relay chain will want to buffer validators for one session. This is needed because we use this
-/// in our calculation based on the "active era".
+/// the relay chain will want to buffer validators for one session. This is needed because we use
+/// this in our calculation based on the "active era".
 pub struct PlanningEraOffsetOf<T, RS, S>(core::marker::PhantomData<(T, RS, S)>);
 impl<T: Config, RS: Get<BlockNumberFor<T>>, S: Get<BlockNumberFor<T>>> Get<SessionIndex>
 	for PlanningEraOffsetOf<T, RS, S>
