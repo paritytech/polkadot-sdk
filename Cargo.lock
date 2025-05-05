@@ -12653,7 +12653,6 @@ name = "pallet-revive"
 version = "0.1.0"
 dependencies = [
  "alloy-core",
- "alloy-sol-types",
  "array-bytes 6.2.2",
  "assert_matches",
  "derive_more 0.99.17",
@@ -12760,7 +12759,7 @@ dependencies = [
 name = "pallet-revive-mock-network"
 version = "0.1.0"
 dependencies = [
- "alloy-sol-types",
+ "alloy-core",
  "frame-support",
  "frame-system",
  "hex-literal",

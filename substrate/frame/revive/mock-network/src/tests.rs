@@ -20,7 +20,6 @@ use crate::{
 	utils::to_fixed_non_zero, MockNet, ParaA, ParachainBalances, Relay, ALICE, BOB,
 	INITIAL_BALANCE,
 };
-use alloy_sol_types::SolInterface;
 use codec::{Decode, Encode};
 use frame_support::traits::{fungibles::Mutate, Currency};
 use frame_system::RawOrigin;
@@ -28,6 +27,7 @@ use pallet_revive::precompiles::custom::IXcm;
 use pallet_revive::{
 	test_utils::{self, builder::*},
 	Code, DepositLimit, ExecReturnValue,
+	precompiles::alloy::sol_types::SolInterface,
 };
 use pallet_revive_fixtures::compile_module;
 use pallet_revive_uapi::{ReturnErrorCode, ReturnFlags};

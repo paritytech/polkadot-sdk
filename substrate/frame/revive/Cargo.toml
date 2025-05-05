@@ -18,7 +18,6 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 alloy-core = { workspace = true, features = ["sol-types"] }
-alloy-sol-types = { workspace = true }
 codec = { features = ["derive", "max-encoded-len"], workspace = true }
 derive_more = { workspace = true }
 environmental = { workspace = true }
