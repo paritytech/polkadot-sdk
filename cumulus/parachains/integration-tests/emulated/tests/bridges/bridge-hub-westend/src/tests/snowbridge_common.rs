@@ -322,8 +322,22 @@ pub fn create_pools_on_ah() {
 	let ethereum_sovereign = snowbridge_sovereign();
 	AssetHubWestend::fund_accounts(vec![(ethereum_sovereign.clone(), INITIAL_FUND)]);
 	PenpalB::fund_accounts(vec![(ethereum_sovereign.clone(), INITIAL_FUND)]);
-	create_pool_with_native_on!(AssetHubWestend, weth_location(), true, ethereum_sovereign.clone());
-	create_pool_with_native_on!(AssetHubWestend, ethereum(), true, ethereum_sovereign.clone());
+	create_pool_with_native_on!(
+		AssetHubWestend,
+		weth_location(),
+		true,
+		ethereum_sovereign.clone(),
+		1_000_000_000_000,
+		20_000_000_000
+	);
+	create_pool_with_native_on!(
+		AssetHubWestend,
+		ethereum(),
+		true,
+		ethereum_sovereign.clone(),
+		1_000_000_000_000,
+		20_000_000_000
+	);
 }
 
 pub(crate) fn set_up_eth_and_dot_pool() {
