@@ -77,6 +77,9 @@ where
 				.map_err(|()| SendError::ExceedsMaxMessageSize)?;
 			let data = versioned_xcm.encode();
 
+			// check if the `UpwardsMessageSender` may also complain about the size
+			T::check_size(data.len()).map_err(|_| SendError::ExceedsMaxMessageSize)?;
+
 			Ok((data, price))
 		} else {
 			// Anything else is unhandled. This includes a message that is not meant for us.

@@ -32,12 +32,11 @@ use sp_runtime::{
 };
 
 parameter_types! {
-	pub storage SignedPhase: u32 = 3 * MINUTES;
-	pub storage UnsignedPhase: u32 = 1 * MINUTES;
+	pub storage SignedPhase: u32 = 3 * MINUTES / 2;
+	pub storage UnsignedPhase: u32 = 0 * MINUTES;
 	pub storage SignedValidationPhase: u32 = Pages::get() + 1;
 
-	/// Compatible with Polkadot, we allow up to 22_500 nominators to be considered for election
-	pub storage MaxElectingVoters: u32 = 2000;
+	pub storage MaxElectingVoters: u32 = 1000;
 
 	/// Maximum number of validators that we may want to elect. 1000 is the end target.
 	pub const MaxValidatorSet: u32 = 1000;
@@ -58,7 +57,7 @@ parameter_types! {
 	pub MaxBackersPerWinner: u32 = VoterSnapshotPerBlock::get();
 
 	/// Total number of backers per winner across all pages. This is not used in the code yet.
-	pub MaxBackersPerWinnerFinal: u32 = MaxBackersPerWinner::get();
+	pub MaxBackersPerWinnerFinal: u32 = MaxElectingVoters::get();
 
 	/// Size of the exposures. This should be small enough to make the reward payouts feasible.
 	pub const MaxExposurePageSize: u32 = 64;
@@ -237,6 +236,8 @@ impl pallet_staking_async::EraPayout<Balance> for EraPayout {
 parameter_types! {
 	// Six sessions in an era (6 hours).
 	pub const SessionsPerEra: SessionIndex = prod_or_fast!(6, 1);
+	/// Duration of a relay session in our blocks. Needs to be hardcoded per-runtime.
+	pub const RelaySessionDuration: BlockNumber = 10;
 	// 2 eras for unbonding (12 hours).
 	pub const BondingDuration: sp_staking::EraIndex = 2;
 	// 1 era in which slashes can be cancelled (6 hours).
@@ -258,7 +259,7 @@ impl pallet_staking_async::Config for Runtime {
 	type RewardRemainder = ();
 	type Slash = ();
 	type Reward = ();
-	type SessionsPerEra = SessionsPerEra;
+	type RelaySessionsPerEra = SessionsPerEra;
 	type BondingDuration = BondingDuration;
 	type SlashDeferDuration = SlashDeferDuration;
 	type AdminOrigin = EitherOf<EnsureRoot<AccountId>, StakingAdmin>;
@@ -276,7 +277,8 @@ impl pallet_staking_async::Config for Runtime {
 	type WeightInfo = weights::pallet_staking_async::WeightInfo<Runtime>;
 	type MaxInvulnerables = frame_support::traits::ConstU32<20>;
 	type MaxDisabledValidators = ConstU32<100>;
-	type PlanningEraOffset = ConstU32<2>;
+	type PlanningEraOffset =
+		pallet_staking_async::PlanningEraOffsetOf<Self, RelaySessionDuration, ConstU64<10>>;
 	type RcClientInterface = StakingNextRcClient;
 }
 
@@ -303,11 +305,89 @@ use pallet_staking_async_rc_client as rc_client;
 use xcm::latest::{prelude::*, SendXcm};
 
 pub struct XcmToRelayChain<T: SendXcm>(PhantomData<T>);
-impl<T: SendXcm> rc_client::SendToRelayChain for XcmToRelayChain<T> {
-	type AccountId = AccountId;
 
-	/// Send a new validator set report to relay chain.
-	fn validator_set(report: rc_client::ValidatorSetReport<Self::AccountId>) {
+impl<T: SendXcm> XcmToRelayChain<T> {
+	/// Splits a message until it can pas the validation step of `send_xcm`.
+	///
+	/// It consumes a `ValidatorSetReport`, which should be in full, and possibly splits it into a
+	/// splitter vector thereof, returned as `Ok(vec)`. It also converts to results into
+	/// ready-to-send XCM messages.
+	///
+	/// The maximum number of steps taken is optionally limited by `maybe_max_steps`.
+	///
+	/// If validating still fails, due to any other error not taken into account, it return
+	/// `Err(reason)`.
+	///
+	/// Notes: This is a UMP. Current values are:
+	///
+	/// Polkadot: 65531 (64k)
+	/// Kusama: 65531 (64k)
+	/// Westend: 8388608 (8MB)
+	///
+	///
+	/// To test, this in the relay runtime's genesis config, tweak the `max_downward_message_size`
+	/// and `max_upward_message_size` values.
+	///
+	/// TODO: good for now, but can be refactored and reused both in rc and in AH. What we need is:
+	///
+	/// 1. `trait Splittable` over all types that can be sent over XCM and might be big
+	/// 2. `struct StakingXcmSender<T: SendXcm, S: Splittable>>`
+	fn split_until_validated(
+		report: rc_client::ValidatorSetReport<AccountId>,
+		destination: &Location,
+		maybe_max_steps: Option<u32>,
+	) -> Result<Vec<Xcm<()>>, SendError> {
+		let mut chunk_size = report.new_validator_set.len();
+		let mut steps = 0;
+
+		loop {
+			let current_reports = report.clone().split(chunk_size);
+
+			// the first report is the heaviest, the last one might be smaller.
+			let first_report = if let Some(r) = current_reports.first() {
+				r
+			} else {
+				log::debug!(target: "runtime::rc-client", "📨 unexpected: no reports to send");
+				return Ok(vec![]);
+			};
+
+			log::debug!(
+				target: "runtime::rc-client",
+				"📨 step: {:?}, chunk_size: {:?}, report_size: {:?}",
+				steps,
+				chunk_size,
+				first_report.encoded_size(),
+			);
+			let message = Self::message_from_report(first_report.clone());
+			match <T as SendXcm>::validate(&mut Some(destination.clone()), &mut Some(message)) {
+				Ok((_ticket, price)) => {
+					log::debug!(target: "runtime::rc-client", "📨 validated, price: {:?}", price);
+					return Ok(current_reports
+						.into_iter()
+						.map(Self::message_from_report)
+						.collect::<Vec<_>>());
+				},
+				Err(SendError::ExceedsMaxMessageSize) => {
+					log::debug!(target: "runtime::rc-client", "📨 ExceedsMaxMessageSize -- reducing chunk_size");
+					chunk_size = chunk_size.saturating_div(2);
+					steps += 1;
+					if maybe_max_steps.map_or(false, |max_steps| steps > max_steps) {
+						log::error!(target: "runtime::rc-client", "📨 Exceeded max steps");
+						return Err(SendError::ExceedsMaxMessageSize);
+					} else {
+						// try again with the new `chunk_size`
+						continue;
+					}
+				},
+				Err(other) => {
+					log::error!(target: "runtime::rc-client", "📨 other error -- cannot send XCM: {:?}", other);
+					return Err(other);
+				},
+			}
+		}
+	}
+
+	fn message_from_report(report: rc_client::ValidatorSetReport<AccountId>) -> Xcm<()> {
 		let message = Xcm(vec![
 			Instruction::UnpaidExecution {
 				weight_limit: WeightLimit::Unlimited,
@@ -321,16 +401,34 @@ impl<T: SendXcm> rc_client::SendToRelayChain for XcmToRelayChain<T> {
 					.into(),
 			},
 		]);
-		let dest = Location::parent();
-		let result = send_xcm::<T>(dest, message);
+		message
+	}
+}
 
-		match result {
-			Ok(_) => {
-				log::info!(target: "runtime", "Successfully sent validator set report to relay chain")
-			},
-			Err(e) => {
-				log::error!(target: "runtime", "Failed to send validator set report to relay chain: {:?}", e)
-			},
+impl<T: SendXcm> rc_client::SendToRelayChain for XcmToRelayChain<T> {
+	type AccountId = AccountId;
+
+	/// Send a new validator set report to relay chain.
+	fn validator_set(report: rc_client::ValidatorSetReport<Self::AccountId>) {
+		let dest = Location::parent();
+		let messages = if let Ok(r) = Self::split_until_validated(report, &dest, Some(8)) {
+			r
+		} else {
+			log::error!(target: "runtime::rc-client", "📨 Failed to split validator set report");
+			return;
+		};
+
+		for (idx, message) in messages.into_iter().enumerate() {
+			log::debug!(target: "runtime::rc-client", "📨 sending validator set report part {}, message size: {:?}", idx, message.encoded_size());
+			let result = send_xcm::<T>(dest.clone(), message);
+			match result {
+				Ok(_) => {
+					log::debug!(target: "runtime::rc-client", "📨 Successfully sent validator set report part {} to relay chain", idx)
+				},
+				Err(e) => {
+					log::error!(target: "runtime::rc-client", "📨 Failed to send validator set report to relay chain: {:?}", e)
+				},
+			}
 		}
 	}
 }

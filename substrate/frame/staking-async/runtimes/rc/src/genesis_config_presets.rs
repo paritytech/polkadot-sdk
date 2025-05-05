@@ -107,6 +107,7 @@ fn default_parachains_host_configuration(
 		max_head_data_size: 32 * 1024,
 		max_upward_queue_count: 8,
 		max_upward_queue_size: 1024 * 1024,
+		// NOTE: these can be tweaked to mimic the XCM message splitting.
 		max_downward_message_size: 1024 * 1024,
 		max_upward_message_size: 50 * 1024,
 		max_upward_message_num_per_candidate: 5,

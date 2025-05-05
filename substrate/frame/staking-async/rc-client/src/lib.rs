@@ -152,7 +152,7 @@ pub trait SendToRelayChain {
 	fn validator_set(report: ValidatorSetReport<Self::AccountId>);
 }
 
-#[derive(Encode, Decode, DecodeWithMemTracking, Debug, Clone, PartialEq, TypeInfo)]
+#[derive(Encode, Decode, DecodeWithMemTracking, Clone, PartialEq, TypeInfo)]
 /// A report about a new validator set. This is sent from AH -> RC.
 pub struct ValidatorSetReport<AccountId> {
 	/// The new validator set.
@@ -172,6 +172,28 @@ pub struct ValidatorSetReport<AccountId> {
 	pub prune_up_to: Option<SessionIndex>,
 	/// Same semantics as [`SessionReport::leftover`].
 	pub leftover: bool,
+}
+
+impl<AccountId: core::fmt::Debug> core::fmt::Debug for ValidatorSetReport<AccountId> {
+	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+		f.debug_struct("ValidatorSetReport")
+			.field("new_validator_set", &self.new_validator_set)
+			.field("id", &self.id)
+			.field("prune_up_to", &self.prune_up_to)
+			.field("leftover", &self.leftover)
+			.finish()
+	}
+}
+
+impl<AccountId> core::fmt::Display for ValidatorSetReport<AccountId> {
+	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+		f.debug_struct("ValidatorSetReport")
+			.field("new_validator_set", &self.new_validator_set.len())
+			.field("id", &self.id)
+			.field("prune_up_to", &self.prune_up_to)
+			.field("leftover", &self.leftover)
+			.finish()
+	}
 }
 
 impl<AccountId> ValidatorSetReport<AccountId> {
@@ -196,7 +218,7 @@ impl<AccountId> ValidatorSetReport<AccountId> {
 		Ok(self)
 	}
 
-	/// Split self into `count` number of pieces.
+	/// Split self into chunks of `chunk_size` element.
 	pub fn split(self, chunk_size: usize) -> Vec<Self>
 	where
 		AccountId: Clone,
@@ -213,9 +235,7 @@ impl<AccountId> ValidatorSetReport<AccountId> {
 	}
 }
 
-#[derive(
-	Encode, Decode, DecodeWithMemTracking, Debug, Clone, PartialEq, TypeInfo, MaxEncodedLen,
-)]
+#[derive(Encode, Decode, DecodeWithMemTracking, Clone, PartialEq, TypeInfo, MaxEncodedLen)]
 /// The information that is sent from RC -> AH on session end.
 pub struct SessionReport<AccountId> {
 	/// The session that is ending.
@@ -244,6 +264,28 @@ pub struct SessionReport<AccountId> {
 	///
 	/// Upon processing, this should always be true, and it should be ignored.
 	pub leftover: bool,
+}
+
+impl<AccountId: core::fmt::Debug> core::fmt::Debug for SessionReport<AccountId> {
+	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+		f.debug_struct("SessionReport")
+			.field("end_index", &self.end_index)
+			.field("validator_points", &self.validator_points)
+			.field("activation_timestamp", &self.activation_timestamp)
+			.field("leftover", &self.leftover)
+			.finish()
+	}
+}
+
+impl<AccountId> core::fmt::Display for SessionReport<AccountId> {
+	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+		f.debug_struct("SessionReport")
+			.field("end_index", &self.end_index)
+			.field("validator_points", &self.validator_points.len())
+			.field("activation_timestamp", &self.activation_timestamp)
+			.field("leftover", &self.leftover)
+			.finish()
+	}
 }
 
 impl<AccountId> SessionReport<AccountId> {
@@ -435,7 +477,7 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			report: SessionReport<T::AccountId>,
 		) -> DispatchResult {
-			log!(info, "Received session report: {:?}", report);
+			log!(debug, "Received session report: {}", report);
 			T::RelayChainOrigin::ensure_origin_or_root(origin)?;
 
 			match LastSessionReportEndingIndex::<T>::get() {
