@@ -75,6 +75,7 @@ mod stored_map;
 pub use stored_map::{StorageMapShim, StoredMap};
 mod randomness;
 pub use randomness::Randomness;
+pub mod reality;
 
 mod metadata;
 pub use metadata::{

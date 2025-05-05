@@ -1,0 +1,34 @@
+title: '[PoP] Add personhood tracking pallets'
+doc:
+- audience: Runtime Dev
+  description: |-
+    This PR adds the building blocks of a Proof of Personhood system.
+
+    ## `pallet-people`
+
+    The People pallet stores and manages identifiers of individuals who have proven their personhood. It tracks their personal IDs, organizes their cryptographic keys into rings, and allows them to use contextual aliases through authentication in extensions. When transactions include cryptographic proofs of belonging to the people set, the pallet's transaction extension verifies these proofs before allowing the transaction to proceed. This enables other pallets to check if actions come from unique persons while preserving privacy through the ring-based structure.
+
+    The pallet implements the `PeopleTrait` interface and accepts new persons after they prove their uniqueness elsewhere, stores their information, and will support removing persons in the future. While other systems (e.g., wallets) generate the proofs, this pallet handles the storage of all necessary data and verifies the proofs when used.
+
+    People are identified through a new cryptographic primitive, as defined in the `GenerateVerifiable` interface in the `verifiable` crate. People get the privilege of running free transactions for supported calls through a combination of a new `AsPerson` transaction extension and new origin types `PersonalIdentity` and `PersonalAlias`.
+
+    ## `pallet-origin-restriction`
+
+    This pallet tracks certain origin and limits how much total "fee usage" they can accumulate. Usage gradually recovers as blocks pass. This pallet and its associated transaction extension are used to limit the amount of on-chain compute people get when they run free transactions, since the fee model does not apply to them.
+
+    ## `pallet-dummy-dim`
+
+    Allows control of a `PeopleTrait` interface through a privileged origin by simulating a DIM. It is meant only to help in testing scenarios and acts as a control panel for `PeopleTrait` implementers. It is not an official DIM and should not be used in production, but, like `pallet-sudo`, should prove useful on testnets.
+crates:
+- name: pallet-dummy-dim
+  bump: major
+- name: pallet-origin-restriction
+  bump: major
+- name: pallet-people
+  bump: major
+- name: frame-support
+  bump: minor
+- name: frame-system
+  bump: minor
+- name: polkadot-sdk
+  bump: major
