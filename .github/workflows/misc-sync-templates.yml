@@ -179,7 +179,7 @@ jobs:
           echo "$(toml get -r ./runtime/Cargo.toml 'package.name') = { path = \"./runtime\", default-features = false }" >> Cargo.toml
           echo "$(toml get -r ./pallets/template/Cargo.toml 'package.name') = { path = \"./pallets/template\", default-features = false }" >> Cargo.toml
 
-          # Add rofile configurations
+          # Add profile configurations
           cat << EOF >> Cargo.toml
 
           [profile.release]
