@@ -34,15 +34,7 @@ pub fn rococo_parachain_local_config() -> GenericChainSpec {
 	.with_name("Rococo Parachain Local")
 	.with_id("local_testnet")
 	.with_chain_type(ChainType::Local)
-	.with_genesis_config_patch(testnet_genesis(
-		Sr25519Keyring::Alice.to_account_id(),
-		vec![
-			AuraId::from(Sr25519Keyring::Alice.public()),
-			AuraId::from(Sr25519Keyring::Bob.public()),
-		],
-		Sr25519Keyring::well_known().map(|k| k.to_account_id()).collect(),
-		1000.into(),
-	))
+	.with_genesis_config_preset_name(sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET)
 	.build()
 }
 
@@ -55,7 +47,8 @@ pub fn staging_rococo_parachain_local_config() -> GenericChainSpec {
 	.with_name("Staging Rococo Parachain Local")
 	.with_id("staging_testnet")
 	.with_chain_type(ChainType::Live)
-	.with_genesis_config_patch(testnet_genesis(
+	.with_genesis_config_preset_name(sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET)
+	.with_genesis_config_patch(testnet_genesis_patch(
 		hex!["9ed7705e3c7da027ba0583a22a3212042f7e715d3c168ba14f1424e2bc111d00"].into(),
 		vec![
 			// $secret//one
@@ -71,7 +64,7 @@ pub fn staging_rococo_parachain_local_config() -> GenericChainSpec {
 	.build()
 }
 
-pub(crate) fn testnet_genesis(
+pub(crate) fn testnet_genesis_patch(
 	root_key: AccountId,
 	initial_authorities: Vec<AuraId>,
 	endowed_accounts: Vec<AccountId>,
@@ -86,8 +79,5 @@ pub(crate) fn testnet_genesis(
 			"parachainId": id,
 		},
 		"aura": { "authorities": initial_authorities },
-		"polkadotXcm": {
-			"safeXcmVersion": Some(SAFE_XCM_VERSION),
-		},
 	})
 }
