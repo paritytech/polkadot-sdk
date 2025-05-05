@@ -93,6 +93,9 @@ pub trait StatementStore: Send + Sync {
 
 	/// Return the statement and the decrypted data of all known statements whose decryption key is
 	/// identified as `dest`. The key must be available to the client.
+	///
+	/// The result is for each statement: the SCALE-encoded statement concatenated to the
+	/// decrypted data.
 	fn posted_clear_stmt(&self, match_all_topics: &[Topic], dest: [u8; 32])
 		-> Result<Vec<Vec<u8>>>;
 

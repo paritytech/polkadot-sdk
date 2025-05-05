@@ -76,8 +76,8 @@ pub trait StatementApi {
 	/// Return the statement and the decrypted data of all known statements whose decryption key is
 	/// identified as `dest`. The key must be available to the client.
 	///
-	/// This returns the SCALE-encoded statements and then the decrypted data, not just the data as
-	/// in rpc `statement_postedClear`.
+	/// This returns for each statement: the SCALE-encoded statement concatenated to the decrypted
+	/// data. Not just the data as in rpc `statement_postedClear`.
 	#[method(name = "statement_postedClearStatement")]
 	fn posted_clear_stmt(
 		&self,
