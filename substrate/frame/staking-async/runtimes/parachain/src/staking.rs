@@ -307,7 +307,7 @@ use xcm::latest::{prelude::*, SendXcm};
 pub struct XcmToRelayChain<T: SendXcm>(PhantomData<T>);
 
 impl<T: SendXcm> XcmToRelayChain<T> {
-	/// Splits a message until it can pas the validation step of `send_xcm`.
+	/// Splits a message until it can pass the validation step of `send_xcm`.
 	///
 	/// It consumes a `ValidatorSetReport`, which should be in full, and possibly splits it into a
 	/// splitter vector thereof, returned as `Ok(vec)`. It also converts to results into
