@@ -333,12 +333,7 @@ mod tests {
 		.with_name("Dummy local testnet")
 		.with_id(id)
 		.with_chain_type(ChainType::Local)
-		.with_genesis_config_patch(crate::chain_spec::rococo_parachain::testnet_genesis(
-			Sr25519Keyring::Alice.to_account_id(),
-			vec![Sr25519Keyring::Alice.public().into(), Sr25519Keyring::Bob.public().into()],
-			vec![Sr25519Keyring::Bob.to_account_id()],
-			1000.into(),
-		))
+		.with_genesis_config_preset_name(sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET)
 		.build()
 	}
 
