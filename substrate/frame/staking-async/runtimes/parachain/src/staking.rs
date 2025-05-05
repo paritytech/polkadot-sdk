@@ -325,7 +325,7 @@ impl<T: SendXcm> XcmToRelayChain<T> {
 	/// Westend: 8388608 (8MB)
 	///
 	///
-	/// To test, this in the relay runtime's genesis config, tweak the `max_downward_message_size`
+	/// To test this, in the relay runtime's genesis config, tweak the `max_downward_message_size`
 	/// and `max_upward_message_size` values.
 	///
 	/// TODO: good for now, but can be refactored and reused both in rc and in AH. What we need is:
