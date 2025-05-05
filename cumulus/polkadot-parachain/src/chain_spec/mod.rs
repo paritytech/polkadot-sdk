@@ -34,9 +34,6 @@ pub mod people;
 pub mod rococo_parachain;
 pub mod yet_another_parachain;
 
-/// The default XCM version to set in genesis config.
-const SAFE_XCM_VERSION: u32 = xcm::prelude::XCM_VERSION;
-
 /// Extracts the normalized chain id and parachain id from the input chain id.
 /// (H/T to Phala for the idea)
 /// E.g. "penpal-kusama-2004" yields ("penpal-kusama", Some(2004))
