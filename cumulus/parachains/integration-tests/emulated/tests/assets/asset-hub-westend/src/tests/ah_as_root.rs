@@ -17,20 +17,6 @@
 
 use crate::imports::*;
 
-/// System pallet on the Relay Chain for constructing remote calls.
-#[derive(Encode, Decode)]
-enum RelayPallets {
-	#[codec(index = 50)]
-	System(SystemCalls),
-}
-
-/// Call encoding for the calls needed from the Broker pallet.
-#[derive(Encode, Decode)]
-enum SystemCalls {
-	#[codec(index = 1)]
-	Remark(pallet_broker::Schedule),
-}
-
 #[test]
 fn ah_can_transact_as_root_on_relay_chain() {
 	// Encoded `set_storage` call to be executed in Relay Chain
