@@ -968,7 +968,7 @@ fn receive_reserve_asset_deposited_roc_from_asset_hub_rococo_fees_paid_by_suffic
 		foreign_asset_create_params.clone(),
 		1000000000000,
 		|| {
-			setup_pool_for_paying_fees_with_foreign_assets(foreign_asset_create_params);
+			asset_test_utils::test_cases::setup_pool_for_paying_fees_with_foreign_assets::<Runtime, RuntimeOrigin>(ExistentialDeposit::get(), foreign_asset_create_params);
 			bridging_to_asset_hub_rococo()
 		},
 		(

@@ -34,7 +34,6 @@ use asset_test_utils::{
 	ExtBuilder, GovernanceOrigin, SlotDurations,
 };
 use codec::{Decode, Encode};
-use core::ops::Mul;
 use frame_support::{
 	assert_noop, assert_ok, parameter_types,
 	traits::{
@@ -874,7 +873,7 @@ mod asset_hub_rococo_tests {
 			foreign_asset_create_params.clone(),
 			1000000000000,
 			|| {
-				setup_pool_for_paying_fees_with_foreign_assets(foreign_asset_create_params);
+				asset_test_utils::test_cases::setup_pool_for_paying_fees_with_foreign_assets::<Runtime, RuntimeOrigin>(ExistentialDeposit::get(), foreign_asset_create_params);
 				bridging_to_asset_hub_westend()
 			},
 			(
