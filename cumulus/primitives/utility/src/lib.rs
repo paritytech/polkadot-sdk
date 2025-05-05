@@ -77,7 +77,7 @@ where
 				.map_err(|()| SendError::ExceedsMaxMessageSize)?;
 			let data = versioned_xcm.encode();
 
-			// check if the `UpwardsMessageSender` may also complain about the size
+			// Pre-check with our message sender if everything else is okay.
 			T::can_send_upward_message(data.len()).map_err(Self::map_upward_sender_err)?;
 
 			Ok((data, price))
@@ -609,8 +609,8 @@ mod test_xcm_router {
 			Err(MessageSendError::Other)
 		}
 
-		fn can_send_upward_message(size: usize) -> Result<(), ()> {
-			Err(())
+		fn can_send_upward_message(size: usize) -> Result<(), MessageSendError> {
+			Err(MessageSendError::Other)
 		}
 	}
 
