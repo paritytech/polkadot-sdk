@@ -78,8 +78,7 @@ where
 			let data = versioned_xcm.encode();
 
 			// check if the `UpwardsMessageSender` may also complain about the size
-			T::check_size(data.len())
-				.map_err(|_| SendError::ExceedsMaxMessageSize)?;
+			T::can_send_upward_message(data.len()).map_err(Self::map_upward_sender_err)?;
 
 			Ok((data, price))
 		} else {
@@ -91,12 +90,17 @@ where
 	}
 
 	fn deliver(data: Vec<u8>) -> Result<XcmHash, SendError> {
-		let (_, hash) = T::send_upward_message(data).map_err(|e| match e {
+		let (_, hash) = T::send_upward_message(data).map_err(Self::map_upward_sender_err)?;
+		Ok(hash)
+	}
+}
+
+impl<T, W, P> ParentAsUmp<T, W, P> {
+	fn map_upward_sender_err(message_send_error: MessageSendError) -> SendError {
+		match message_send_error {
 			MessageSendError::TooBig => SendError::ExceedsMaxMessageSize,
 			e => SendError::Transport(e.into()),
-		})?;
-
-		Ok(hash)
+		}
 	}
 }
 
@@ -389,8 +393,7 @@ impl<
 		FungiblesAssetMatcher,
 		OnUnbalanced,
 		AccountId,
-	>
-where
+	> where
 	Fungibles::Balance: Into<u128>,
 {
 	fn new() -> Self {
@@ -550,8 +553,7 @@ impl<
 		FungiblesAssetMatcher,
 		OnUnbalanced,
 		AccountId,
-	>
-where
+	> where
 	Fungibles::Balance: Into<u128>,
 {
 	fn drop(&mut self) {
@@ -605,6 +607,10 @@ mod test_xcm_router {
 	impl UpwardMessageSender for OtherErrorUpwardMessageSender {
 		fn send_upward_message(_: UpwardMessage) -> Result<(u32, XcmHash), MessageSendError> {
 			Err(MessageSendError::Other)
+		}
+
+		fn can_send_upward_message(size: usize) -> Result<(), ()> {
+			Err(())
 		}
 	}
 

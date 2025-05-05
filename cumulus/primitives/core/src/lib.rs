@@ -157,7 +157,7 @@ pub trait UpwardMessageSender {
 	fn send_upward_message(msg: UpwardMessage) -> Result<(u32, XcmHash), MessageSendError>;
 
 	/// Check whether the message size is acceptable for the channel.
-	fn check_size(size: usize) -> Result<(), ()>;
+	fn can_send_upward_message(size: usize) -> Result<(), MessageSendError>;
 }
 
 impl UpwardMessageSender for () {
@@ -165,8 +165,8 @@ impl UpwardMessageSender for () {
 		Err(MessageSendError::NoChannel)
 	}
 
-	fn check_size(_size: usize) -> Result<(), ()> {
-		Err(())
+	fn can_send_upward_message(_size: usize) -> Result<(), MessageSendError> {
+		Err(MessageSendError::Other)
 	}
 }
 
