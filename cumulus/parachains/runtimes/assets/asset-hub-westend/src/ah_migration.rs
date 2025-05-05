@@ -93,40 +93,24 @@ impl Convert<RcFreezeReason, RuntimeFreezeReason> for RcToAhFreezeReason {
 	}
 }
 
-/// Relay Chain Proxy Type
-///
-/// Coped from https://github.com/polkadot-fellows/runtimes/blob/dde99603d7dbd6b8bf541d57eb30d9c07a4fce32/relay/polkadot/src/lib.rs#L986-L1010
-#[derive(
-	Encode, Decode, DecodeWithMemTracking, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, Default,
-)]
-pub enum RcProxyType {
-	#[default]
-	Any = 0,
-	NonTransfer = 1,
-	Governance = 2,
-	Staking = 3,
-	SudoBalances = 4,
-	IdentityJudgement = 5,
-	CancelProxy = 6,
-	Auction = 7,
-	NominationPools = 8,
-	ParaRegistration = 9,
-}
+pub type RcProxyType = <westend_runtime::Runtime as pallet_proxy::Config>::ProxyType;
 
 pub struct RcToProxyType;
 impl TryConvert<RcProxyType, ProxyType> for RcToProxyType {
 	fn try_convert(p: RcProxyType) -> Result<ProxyType, RcProxyType> {
+		use westend_runtime::ProxyType::*;
+
 		match p {
-			RcProxyType::Any => Ok(ProxyType::Any),
-			RcProxyType::NonTransfer => Ok(ProxyType::NonTransfer),
-			RcProxyType::Governance => Ok(ProxyType::Governance),
-			RcProxyType::Staking => Ok(ProxyType::Staking),
-			RcProxyType::SudoBalances => Err(p), // Does not exist on AH
-			RcProxyType::IdentityJudgement => Err(p), // Does not exist on AH
-			RcProxyType::CancelProxy => Ok(ProxyType::CancelProxy),
-			RcProxyType::Auction => Err(p), // Does not exist on AH
-			RcProxyType::NominationPools => Ok(ProxyType::NominationPools),
-			RcProxyType::ParaRegistration => Err(p), // Does not exist on AH
+			Any => Ok(ProxyType::Any),
+			NonTransfer => Ok(ProxyType::NonTransfer),
+			Governance => Ok(ProxyType::Governance),
+			Staking => Ok(ProxyType::Staking),
+			SudoBalances => Err(p), 	 // Does not exist on AH
+			IdentityJudgement => Err(p), // Does not exist on AH
+			CancelProxy => Ok(ProxyType::CancelProxy),
+			Auction => Err(p), // Does not exist on AH
+			NominationPools => Ok(ProxyType::NominationPools),
+			ParaRegistration => Err(p), // Does not exist on AH
 		}
 	}
 }

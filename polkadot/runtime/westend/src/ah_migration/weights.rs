@@ -14,7 +14,29 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-//! Asset Hub Migration.
+use crate::*;
+use frame_support::{
+	parameter_types,
+	weights::{constants, RuntimeDbWeight},
+};
 
-pub mod phase1;
-pub mod weights;
+/// DB Weight config trait adapter for AH migrator pallet weights.
+pub trait DbConfig {
+	type DbWeight: Get<RuntimeDbWeight>;
+}
+
+/// DB Weight config type adapter for AH migrator pallet weights.
+pub struct AhDbConfig;
+impl DbConfig for AhDbConfig {
+	type DbWeight = RocksDbWeight;
+}
+
+parameter_types! {
+	/// Asset Hub DB Weights.
+	///
+	/// Copied from `asset_hub_polkadot::weights::RocksDbWeight`.
+	pub const RocksDbWeight: RuntimeDbWeight = RuntimeDbWeight {
+		read: 25_000 * constants::WEIGHT_REF_TIME_PER_NANOS,
+		write: 100_000 * constants::WEIGHT_REF_TIME_PER_NANOS,
+	};
+}
