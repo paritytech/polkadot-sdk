@@ -344,6 +344,7 @@ where
 				unincluded_segment_len = parent.depth,
 				relay_parent = %relay_parent,
 				relay_parent_num = %relay_parent_header.number(),
+				relay_parent_offset,
 				included_hash = %included_header.hash(),
 				included_num = %included_header.number(),
 				parent = %parent_hash,
