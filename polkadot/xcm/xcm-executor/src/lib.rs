@@ -1747,7 +1747,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 	///
 	/// Deposits also proceed without aborting on “below minimum” (dust) errors. This ensures
 	/// that a batch of assets containing some legitimately depositable amounts will succeed
-	/// even if some “dust” amounts fall below the chain’s existential deposit.
+	/// even if some “dust” deposits fall below the chain’s configured minimum balance.
 	///
 	/// This function can write into storage and also return an error at the same time, it should
 	/// always be called within a transactional context.
@@ -1757,21 +1757,13 @@ impl<Config: config::Config> XcmExecutor<Config> {
 		context: Option<&XcmContext>,
 	) -> Result<(), XcmError> {
 		let mut failed_deposits = Vec::with_capacity(to_deposit.len());
-		let deposit_result = Ok(());
-
 		for asset in to_deposit.assets_iter() {
 			let deposit_result =
 				Config::AssetTransactor::deposit_asset(&asset, &beneficiary, context);
 
 			// if deposit failed for asset, mark it for retry after depositing the others.
-			if let Err(e) = &deposit_result {
-				// Gracefully skip dust deposits
-				if Self::is_below_minimum_error(e) {
-					Self::do_handle_below_minimum(&asset, &beneficiary, context);
-					continue;
-				} else {
-					failed_deposits.push(asset);
-				}
+			if deposit_result.is_err() {
+				failed_deposits.push(asset);
 			}
 		}
 
@@ -1787,40 +1779,14 @@ impl<Config: config::Config> XcmExecutor<Config> {
 
 		// retry previously failed deposits, this time short-circuiting on any error.
 		for asset in failed_deposits {
-			let deposit_result =
-				Config::AssetTransactor::deposit_asset(&asset, &beneficiary, context);
-			// Gracefully skip dust deposits
-			if let Err(e) = &deposit_result {
-				if Self::is_below_minimum_error(&e) {
-					Self::do_handle_below_minimum(&asset, &beneficiary, context);
-
-					continue;
-				} else {
-					return Err(*e);
+			if let Err(e) = Config::AssetTransactor::deposit_asset(&asset, &beneficiary, context) {
+				// Ignore dust deposit errors.
+				if !matches!(e, XcmError::FailedToTransactAsset(s) if *s == "BelowMinimum") {
+					return Err(e);
 				}
 			}
 		}
 		Ok(())
-	}
-
-	fn is_below_minimum_error(e: &XcmError) -> bool {
-		matches!(e, XcmError::FailedToTransactAsset(s) if *s == "BelowMinimum")
-	}
-
-	/// Trap a dust asset via the configured `AssetTrap`.
-	fn do_handle_below_minimum(
-		asset: &Asset,
-		beneficiary: &Location,
-		context: Option<&XcmContext>,
-	) {
-		tracing::debug!(
-			target: "xcm::execute",
-			?asset,
-			"Skipping dust asset (BelowMinimum). Trapping instead."
-		);
-		if let Some(ctx) = context {
-			Config::AssetTrap::drop_assets(beneficiary, asset.clone().into(), ctx);
-		}
 	}
 
 	/// Take from transferred `assets` the delivery fee required to send an onward transfer message

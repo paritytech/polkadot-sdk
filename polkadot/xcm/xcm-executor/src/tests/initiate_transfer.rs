@@ -220,14 +220,14 @@ fn unpaid_transact() {
 }
 
 #[test]
-fn deposit_assets_with_retry_skips_dust_and_deposits_legit() {
-	// fund sende
+fn deposit_assets_with_retry_ignores_dust_and_deposits_rest() {
+	// fund sender
 	add_asset(SENDER, (Here, 200u128));
 
-	// a dust amounts, both < ED=10
+	// dust amount (< ED=10)
 	let dust: Asset = (Here, 5u128).into();
 
-	// a legit amount > ED=10
+	// non-dust amount (> ED=10)
 	let legit: Asset = (Here, 100u128).into();
 
 	let xcm = Xcm::<TestCall>(vec![
@@ -253,7 +253,7 @@ fn deposit_assets_with_retry_skips_dust_and_deposits_legit() {
 	let here_assets = asset_list(RECIPIENT);
 	assert_eq!(
 		here_assets,
-		vec![legit.clone()],
+		vec![legit],
 		"only the ≥ED asset (100) should end up in `Here`"
 	);
 
