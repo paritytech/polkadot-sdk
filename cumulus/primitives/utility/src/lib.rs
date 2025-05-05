@@ -609,7 +609,7 @@ mod test_xcm_router {
 			Err(MessageSendError::Other)
 		}
 
-		fn can_send_upward_message(size: usize) -> Result<(), MessageSendError> {
+		fn can_send_upward_message(_: usize) -> Result<(), MessageSendError> {
 			Err(MessageSendError::Other)
 		}
 	}
