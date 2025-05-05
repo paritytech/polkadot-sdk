@@ -298,7 +298,6 @@ mod tests {
 	use super::*;
 	use sc_chain_spec::{ChainSpecExtension, ChainSpecGroup, ChainType, Extension};
 	use serde::{Deserialize, Serialize};
-	use sp_keyring::Sr25519Keyring;
 
 	#[derive(
 		Debug, Clone, PartialEq, Serialize, Deserialize, ChainSpecGroup, ChainSpecExtension, Default,
