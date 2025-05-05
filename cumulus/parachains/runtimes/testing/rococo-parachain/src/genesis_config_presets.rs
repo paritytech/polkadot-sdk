@@ -22,7 +22,8 @@ use frame_support::build_struct_json_patch;
 use parachains_common::{AccountId, AuraId};
 use sp_genesis_builder::PresetId;
 use sp_keyring::Sr25519Keyring;
-use testnet_parachains_constants::rococo::{currency::UNITS as ROC, xcm_version::SAFE_XCM_VERSION};
+
+const SAFE_XCM_VERSION: u32 = xcm::prelude::XCM_VERSION;
 
 const DEFAULT_PARA_ID: ParaId = ParaId::new(1000);
 const ENDOWMENT: u128 = 1 << 60;
