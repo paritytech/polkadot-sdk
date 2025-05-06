@@ -25,7 +25,7 @@ use crate::{
 		types::Block,
 		NodeBlock, NodeExtraArgs,
 	},
-	extra_commands::{DefaultExtraSubcommands, ExtraSubcommand},
+	extra_subcommand::{DefaultExtraSubcommands, ExtraSubcommand},
 	fake_runtime_api,
 	nodes::DynNodeSpecExt,
 	runtime::BlockNumber,

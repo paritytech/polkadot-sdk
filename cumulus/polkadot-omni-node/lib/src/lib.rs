@@ -20,7 +20,7 @@
 pub mod cli;
 mod command;
 mod common;
-pub mod extra_commands;
+pub mod extra_subcommand;
 mod fake_runtime_api;
 mod nodes;
 

@@ -22,7 +22,7 @@
 #![warn(unused_extern_crates)]
 
 use polkadot_omni_node_lib::{
-	chain_spec::DiskChainSpecLoader, extra_commands::NoExtraSubcommand, run_with_custom_cli,
+	chain_spec::DiskChainSpecLoader, extra_subcommand::NoExtraSubcommand, run_with_custom_cli,
 	runtime::DefaultRuntimeResolver, CliConfig as CliConfigT, RunConfig, NODE_VERSION,
 };
 
