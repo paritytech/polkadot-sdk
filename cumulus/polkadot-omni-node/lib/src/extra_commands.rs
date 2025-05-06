@@ -105,18 +105,16 @@ pub trait ExtraSubcommand: Subcommand {
 
 /// Built-in extra subcommands provided by `polkadot-omni-node-lib`.
 ///
-/// Currently, includes:
+/// Currently, it includes:
 /// - `export-chain-spec`
 ///
-/// You can use this by passing [`DefaultExtraSubcommands`] to `run_with_custom_cli::<CliConfig,
-/// DefaultExtraSubcommands>()`. or just calling run::<CliConfig>(config) as this is the default
-/// This enables default support for utilities like:
+/// You can use this by passing [`DefaultExtraSubcommands`] to `run_with_custom_cli`
+/// or by just calling `run` as this is the default.
 ///
+/// This enables default support for utilities like:
 /// ```bash
 /// $ your-binary export-chain-spec --chain westmint
 /// ```
-///
-/// Downstream crates may use this enum directly or extend it with their own subcommands.
 #[derive(Debug, Subcommand)]
 pub enum DefaultExtraSubcommands {
 	/// Export the chain spec to JSON.
@@ -125,8 +123,7 @@ pub enum DefaultExtraSubcommands {
 
 /// No-op subcommand handler. Use this when a binary does not expose any extra subcommands.
 ///
-/// You can use this by passing [`NoExtraSubcommand`] to `run_with_custom_cli::<CliConfig,
-/// NoExtraSubcommand>()`.
+/// You can use this by passing [`NoExtraSubcommand`] to `run_with_custom_cli`.
 #[derive(Debug, Subcommand)]
 pub enum NoExtraSubcommand {}
 

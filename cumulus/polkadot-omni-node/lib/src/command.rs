@@ -109,7 +109,7 @@ pub fn run<CliConfig: crate::cli::CliConfig>(cmd_config: RunConfig) -> Result<()
 /// optional extra sub‑command.
 ///
 /// `run_with_custom_cli` builds the base CLI for the node binary, then asks the
-/// `Extra` type for an optional extra sub‑command via ExtraSubcommand
+/// `Extra` type for an optional extra sub‑command.
 ///
 /// When the user actually invokes that extra sub‑command,
 /// `Extra::from_arg_matches` returns a parsed value which is immediately passed
@@ -119,9 +119,8 @@ pub fn run<CliConfig: crate::cli::CliConfig>(cmd_config: RunConfig) -> Result<()
 /// # Type Parameters
 /// * `CliConfig` – customization trait supplying user‑facing info (name, description, version) for
 ///   the binary.
-/// * `Extra` – an implementation of [`ExtraSubcommand`].  Use *[`DefaultExtraSubcommands`]* in
-///   binaries that want some extra subcommands such as `export‑chain-spec`; use
-///   *[`NoExtraSubcommand`]* when the binary should expose no extra subcommands.
+/// * `Extra` – an implementation of `ExtraSubcommand`. Use *`NoExtraSubcommand`* if the binary
+///   should not expose any extra subcommands.
 pub fn run_with_custom_cli<CliConfig, Extra>(cmd_config: RunConfig) -> Result<()>
 where
 	CliConfig: crate::cli::CliConfig,
