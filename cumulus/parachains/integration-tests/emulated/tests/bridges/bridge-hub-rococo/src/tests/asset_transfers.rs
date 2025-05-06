@@ -363,6 +363,7 @@ fn send_rocs_from_penpal_rococo_through_asset_hub_rococo_to_asset_hub_westend() 
 	let local_asset_hub = PenpalA::sibling_location_of(AssetHubRococo::para_id());
 	let (roc_at_rococo_parachains, roc_at_asset_hub_westend) =
 		set_up_rocs_for_penpal_rococo_through_ahr_to_ahw(&sender, amount);
+	set_up_pool_with_wnd_on_ah_westend(roc_at_asset_hub_westend.clone(), true);
 
 	let sov_ahw_on_ahr = AssetHubRococo::sovereign_account_of_parachain_on_other_global_consensus(
 		ByGenesis(WESTEND_GENESIS_HASH),
