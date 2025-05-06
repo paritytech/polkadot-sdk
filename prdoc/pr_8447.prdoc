@@ -1,6 +1,6 @@
-title: Fix a potential cause of slow parachain blocks.
+title: Fix a potential cause of slow parachain blocks
 doc:
-- audience: node_operator
+- audience: Node Operator
   description: This fix removes a needless reputation change, which might be causing the longer parachain block times on Polkadot.
 crates:
 - name: polkadot-dispute-distribution
