@@ -22,8 +22,8 @@
 #![warn(unused_extern_crates)]
 
 use polkadot_omni_node_lib::{
-	chain_spec::DiskChainSpecLoader, run, runtime::DefaultRuntimeResolver, CliConfig as CliConfigT,
-	RunConfig, NODE_VERSION,
+	chain_spec::DiskChainSpecLoader, cli::DisableStatementStoreByDefault, run,
+	runtime::DefaultRuntimeResolver, CliConfig as CliConfigT, RunConfig, NODE_VERSION,
 };
 
 struct CliConfig;
@@ -45,6 +45,8 @@ impl CliConfigT for CliConfig {
 	fn copyright_start_year() -> u16 {
 		2017
 	}
+
+	type StatementStoreDefault = DisableStatementStoreByDefault;
 }
 
 fn main() -> color_eyre::eyre::Result<()> {
