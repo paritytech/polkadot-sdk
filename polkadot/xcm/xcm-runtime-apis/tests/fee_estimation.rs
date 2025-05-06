@@ -394,7 +394,7 @@ fn dry_run_xcm_common(xcm_version: XcmVersion) {
 			)
 			.unwrap()
 			.unwrap();
-		let expected_msg_id = dry_run_effects.forwarded_topic_id;
+		let expected_msg_id = TopicIdTracker::get("TestXcmSender").into();
 		let expected_xcms = Xcm::<()>::builder_unsafe()
 			.reserve_asset_deposited((
 				(Parent, Parachain(2000)),
