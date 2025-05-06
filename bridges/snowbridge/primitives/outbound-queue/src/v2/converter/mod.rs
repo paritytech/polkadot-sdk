@@ -15,12 +15,11 @@ use frame_support::{
 	traits::{Contains, Get, ProcessMessageError},
 };
 use snowbridge_core::{ParaId, TokenId};
-use sp_core::H256;
 use sp_runtime::traits::MaybeEquivalence;
 use sp_std::{marker::PhantomData, ops::ControlFlow, prelude::*};
 use xcm::prelude::*;
 use xcm_builder::{CreateMatcher, ExporterFor, MatchXcm};
-use xcm_executor::traits::{ConvertLocation, ExportXcm};
+use xcm_executor::traits::ExportXcm;
 
 pub const TARGET: &'static str = "xcm::ethereum_blob_exporter::v2";
 
@@ -30,7 +29,6 @@ pub struct EthereumBlobExporter<
 	UniversalLocation,
 	EthereumNetwork,
 	OutboundQueue,
-	AgentHashedDescription,
 	ConvertAssetId,
 	AssetHubParaId,
 >(
@@ -38,25 +36,16 @@ pub struct EthereumBlobExporter<
 		UniversalLocation,
 		EthereumNetwork,
 		OutboundQueue,
-		AgentHashedDescription,
 		ConvertAssetId,
 		AssetHubParaId,
 	)>,
 );
 
-impl<
-		UniversalLocation,
-		EthereumNetwork,
-		OutboundQueue,
-		AgentHashedDescription,
-		ConvertAssetId,
-		AssetHubParaId,
-	> ExportXcm
+impl<UniversalLocation, EthereumNetwork, OutboundQueue, ConvertAssetId, AssetHubParaId> ExportXcm
 	for EthereumBlobExporter<
 		UniversalLocation,
 		EthereumNetwork,
 		OutboundQueue,
-		AgentHashedDescription,
 		ConvertAssetId,
 		AssetHubParaId,
 	>
@@ -64,7 +53,6 @@ where
 	UniversalLocation: Get<InteriorLocation>,
 	EthereumNetwork: Get<NetworkId>,
 	OutboundQueue: SendMessage,
-	AgentHashedDescription: ConvertLocation<H256>,
 	ConvertAssetId: MaybeEquivalence<TokenId, Location>,
 	AssetHubParaId: Get<ParaId>,
 {

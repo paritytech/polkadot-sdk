@@ -1,0 +1,5 @@
+error: Invalid pallet::call, weight_of_authorize attribute must be used with authorize attribute
+  --> tests/pallet_ui/authorize_weight_but_no_closure.rs:36:33
+   |
+36 |         #[pallet::weight_of_authorize(Weight::zero())]
+   |                                       ^^^^^^
