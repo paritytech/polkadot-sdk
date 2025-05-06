@@ -1373,6 +1373,11 @@ mod benches {
 	);
 }
 
+cumulus_pallet_parachain_system::register_validate_block! {
+	Runtime = Runtime,
+	BlockExecutor = cumulus_pallet_aura_ext::BlockExecutor::<Runtime, Executive>,
+}
+
 impl_runtime_apis! {
 	impl sp_consensus_aura::AuraApi<Block, AuraId> for Runtime {
 		fn slot_duration() -> sp_consensus_aura::SlotDuration {
@@ -2184,7 +2189,9 @@ impl_runtime_apis! {
 					// this is a dev-chain -- no change needed
 				},
 				_ => {
-					panic!("Unrecognized validator count -- genesis-config and this block should match");
+					log::warn!(target: "runtime", "validator count is unexpected {:?}. Setting it to 10.", pallet_staking_async::ValidatorCount::<Runtime>::get());
+					pallet_staking_async::ValidatorCount::<Runtime>::set(10);
+					// panic!("Unrecognized validator count -- genesis-config and this block should match");
 				}
 			}
 
@@ -2208,11 +2215,6 @@ impl_runtime_apis! {
 			PolkadotXcm::is_trusted_teleporter(asset, location)
 		}
 	}
-}
-
-cumulus_pallet_parachain_system::register_validate_block! {
-	Runtime = Runtime,
-	BlockExecutor = cumulus_pallet_aura_ext::BlockExecutor::<Runtime, Executive>,
 }
 
 parameter_types! {
