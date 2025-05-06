@@ -82,13 +82,36 @@ jobs:
           rustup target add wasm32-unknown-unknown --toolchain $TOOLCHAIN
           rustup component add rust-src --toolchain $TOOLCHAIN
 
-      - name: install parity-publish
+      - name: Install parity-publish
         if: ${{ !contains(github.event.pull_request.labels.*.name, 'R0-silent') }}
         # Set the target dir to cache the build.
         run: CARGO_TARGET_DIR=./target/ cargo install parity-publish@0.10.4 --locked -q
 
-      - name: check semver
+      - name: Get original PR number
         if: ${{ !contains(github.event.pull_request.labels.*.name, 'R0-silent') }}
+        shell: bash
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          . ./.github/scripts/common/lib.sh
+          original_pr_number=''
+
+          echo "Checking PR title: $PR_TITLE"
+
+          if [[ "$PR_TITLE" =~ 'Backport' ]]; then
+            # Extracting the original PR number from the backport's PR title
+            original_pr_number=$(extract_pr_number_from_pr_title "$PR_TITLE")
+            echo "Extracted PR number: $original_pr_number"
+          else
+            original_pr_number=${{ github.event.pull_request.number }}
+          fi
+          echo "PR_NUMBER=$original_pr_number" >> $GITHUB_ENV
+
+      - name: Check semver
+        if: ${{ !contains(github.event.pull_request.labels.*.name, 'R0-silent') }}
+        env:
+          PRDOC_EXTRA_ARGS: ${{ env.PRDOC_EXTRA_ARGS }}
+          PR: ${{ env.PR_NUMBER }}
         run: |
           if [ -z "$PR" ]; then
             echo "Skipping master/merge queue"
@@ -113,6 +136,3 @@ jobs:
 
             exit 1
           fi
-        env:
-          PR: ${{ github.event.pull_request.number }}
-          PRDOC_EXTRA_ARGS: ${{ env.PRDOC_EXTRA_ARGS }}
