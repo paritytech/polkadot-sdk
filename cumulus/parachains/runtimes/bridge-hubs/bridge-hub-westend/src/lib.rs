@@ -673,7 +673,7 @@ impl_runtime_apis! {
 	}
 
 	impl cumulus_primitives_core::RelayParentOffsetApi<Block> for Runtime {
-		fn slot_offset() -> u32 {
+		fn relay_parent_offset() -> u32 {
 			0
 		}
 	}

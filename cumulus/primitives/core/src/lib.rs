@@ -390,6 +390,6 @@ sp_api::decl_runtime_apis! {
 	/// but `N` blocks behind the tip. This offset is then enforced by the runtime.
 	pub trait RelayParentOffsetApi {
 		/// Fetch the slot offset that is expected from the relay chain.
-		fn slot_offset() -> u32;
+		fn relay_parent_offset() -> u32;
 	}
 }
