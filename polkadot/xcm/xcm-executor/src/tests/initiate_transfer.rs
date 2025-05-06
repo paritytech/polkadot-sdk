@@ -288,8 +288,12 @@ fn deposit_assets_with_retry_all_dust_are_burned() {
 	let outcome = vm.bench_post_process(weight);
 	assert!(matches!(outcome, Outcome::Complete { .. }));
 
-	// none of the two dust deposits should land in recipient
+	// none of the two dust deposits should land in either recipient
 	let received = asset_list(RECIPIENT);
+	assert!(received.is_empty(), "no ≥ED assets, so recipient must get nothing");
+
+	// none of the two dust deposits should land in either recipient
+	let received = asset_list(RECIPIENT2);
 	assert!(received.is_empty(), "no ≥ED assets, so recipient must get nothing");
 
 	// all dust is burned, trap account stays empty
