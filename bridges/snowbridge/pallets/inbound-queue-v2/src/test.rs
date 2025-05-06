@@ -9,6 +9,7 @@ use snowbridge_inbound_queue_primitives::{v2::Payload, EventProof, Proof};
 use snowbridge_test_utils::mock_xcm::{set_charge_fees_override, set_sender_override};
 use sp_keyring::sr25519::Keyring;
 use sp_runtime::DispatchError;
+use xcm::prelude::*;
 
 #[test]
 fn test_submit_happy_path() {
@@ -212,7 +213,7 @@ fn test_xcm_send_failure() {
 
 		assert_noop!(
 			crate::test::InboundQueue::submit(origin.clone(), Box::new(event.clone())),
-			Error::<Test>::SendFailure
+			DispatchError::Other("SendFailure")
 		);
 	});
 }
@@ -242,7 +243,7 @@ fn test_xcm_send_validate_failure() {
 
 		assert_noop!(
 			crate::test::InboundQueue::submit(origin.clone(), Box::new(event.clone())),
-			Error::<Test>::Unreachable
+			DispatchError::Other("Unreachable")
 		);
 	});
 }
@@ -267,7 +268,7 @@ fn test_xcm_charge_fees_failure() {
 
 		assert_noop!(
 			crate::test::InboundQueue::submit(origin.clone(), Box::new(event.clone())),
-			Error::<Test>::FeesNotMet
+			DispatchError::Other("FeesNotMet")
 		);
 	});
 }

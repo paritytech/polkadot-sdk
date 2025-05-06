@@ -27,7 +27,6 @@ extern crate alloc;
 
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
-pub mod message_processors;
 pub mod weights;
 
 #[cfg(test)]
@@ -43,12 +42,11 @@ use snowbridge_core::{
 	BasicOperatingMode,
 };
 use snowbridge_inbound_queue_primitives::{
-	v2::{ConvertMessage, ConvertMessageError, Message, MessageProcessor},
+	v2::{Message, MessageProcessor},
 	EventProof, VerificationError, Verifier,
 };
 use sp_core::H160;
 use sp_std::prelude::*;
-use xcm::prelude::*;
 
 use bp_relayers::RewardLedger;
 #[cfg(feature = "runtime-benchmarks")]
@@ -118,60 +116,14 @@ pub mod pallet {
 	pub enum Error<T> {
 		/// Message came from an invalid outbound channel on the Ethereum side.
 		InvalidGateway,
-		/// Account could not be converted to bytes
-		InvalidAccount,
 		/// Message has an invalid envelope.
 		InvalidMessage,
 		/// Message has an unexpected nonce.
 		InvalidNonce,
-		/// Fee provided is invalid.
-		InvalidFee,
-		/// Message has an invalid payload.
-		InvalidPayload,
-		/// Message channel is invalid
-		InvalidChannel,
-		/// The max nonce for the type has been reached
-		MaxNonceReached,
-		/// Cannot convert location
-		InvalidAccountConversion,
-		/// Invalid network specified
-		InvalidNetwork,
 		/// Pallet is halted
 		Halted,
-		/// The operation required fees to be paid which the initiator could not meet.
-		FeesNotMet,
-		/// The desired destination was unreachable, generally because there is a no way of routing
-		/// to it.
-		Unreachable,
-		/// There was some other issue (i.e. not to do with routing) in sending the message.
-		/// Perhaps a lack of space for buffering the message.
-		SendFailure,
-		/// Invalid foreign ERC-20 token ID
-		InvalidAsset,
-		/// Cannot reachor a foreign ERC-20 asset location.
-		CannotReanchor,
 		/// Message verification error
 		Verification(VerificationError),
-	}
-
-	impl<T: Config> From<SendError> for Error<T> {
-		fn from(e: SendError) -> Self {
-			match e {
-				SendError::Fees => Error::<T>::FeesNotMet,
-				SendError::NotApplicable => Error::<T>::Unreachable,
-				_ => Error::<T>::SendFailure,
-			}
-		}
-	}
-
-	impl<T: Config> From<ConvertMessageError> for Error<T> {
-		fn from(e: ConvertMessageError) -> Self {
-			match e {
-				ConvertMessageError::InvalidAsset => Error::<T>::InvalidAsset,
-				ConvertMessageError::CannotReanchor => Error::<T>::CannotReanchor,
-				ConvertMessageError::InvalidNetwork => Error::<T>::InvalidNetwork,
-			}
-		}
 	}
 
 	/// StorageMap used for encoding a SparseBitmapImpl that tracks whether a specific nonce has

@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: 2023 Snowfork <hello@snowfork.com>
 use super::*;
 
-use crate::{self as inbound_queue_v2, message_processors::XcmMessageProcessor};
+use crate::{self as inbound_queue_v2};
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use frame_support::{derive_impl, parameter_types, traits::ConstU32};
 use hex_literal::hex;
@@ -11,7 +11,10 @@ use snowbridge_beacon_primitives::{
 	types::deneb, BeaconHeader, ExecutionProof, VersionedExecutionPayloadHeader,
 };
 use snowbridge_core::TokenId;
-use snowbridge_inbound_queue_primitives::{v2::MessageToXcm, Log, Proof, VerificationError};
+use snowbridge_inbound_queue_primitives::{
+	v2::{MessageToXcm, XcmMessageProcessor},
+	Log, Proof, VerificationError,
+};
 use sp_core::H160;
 use sp_runtime::{
 	traits::{IdentityLookup, MaybeEquivalence, TryConvert},
@@ -184,6 +187,8 @@ impl inbound_queue_v2::Config for Test {
 				GatewayAddress,
 				UniversalLocation,
 				AssetHubFromEthereum,
+				AssetHubUniversalLocation,
+				AccountId,
 			>,
 			MockAccountLocationConverter<AccountId>,
 			ConstU32<1000>,

@@ -1,10 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2023 Snowfork <hello@snowfork.com>
+//! Message processor for inbound queue v2
+
 use super::*;
 use frame_support::traits::Get;
 use sp_runtime::{traits::TryConvert, DispatchError};
 use sp_std::marker::PhantomData;
-use xcm::prelude::{ExecuteXcm, Location, Parachain, SendError, SendXcm, XcmHash};
+use xcm::prelude::*;
 
 /// A message processor that converts messages to XCM and forwards them to AssetHub
 /// Generic parameters: T = pallet Config, Sender = XCM sender, Executor = fee handler,
@@ -17,7 +19,7 @@ impl<AccountId, T, Sender, Executor, Converter, AccountToLocation, AssetHubParaI
 	MessageProcessor<AccountId>
 	for XcmMessageProcessor<T, Sender, Executor, Converter, AccountToLocation, AssetHubParaId>
 where
-	T: crate::Config<AccountId = AccountId>,
+	T: frame_system::Config<AccountId = AccountId>,
 	Sender: SendXcm,
 	Executor: ExecuteXcm<T::RuntimeCall>,
 	Converter: ConvertMessage,
@@ -38,7 +40,7 @@ where
 impl<T, Sender, Executor, Converter, AccountToLocation, AssetHubParaId>
 	XcmMessageProcessor<T, Sender, Executor, Converter, AccountToLocation, AssetHubParaId>
 where
-	T: crate::Config,
+	T: frame_system::Config,
 	Sender: SendXcm,
 	Executor: ExecuteXcm<T::RuntimeCall>,
 	Converter: ConvertMessage,
@@ -48,13 +50,24 @@ where
 	/// Process a message and return the message ID
 	pub fn process_xcm(who: T::AccountId, message: Message) -> Result<XcmHash, DispatchError> {
 		// Convert the message to XCM
-		let xcm = Converter::convert(message).map_err(|error| Error::<T>::from(error))?;
+		let xcm = Converter::convert(message).map_err(|error| {
+			tracing::error!(target: LOG_TARGET, ?error, "XCM conversion failed with error");
+			match error {
+				ConvertMessageError::InvalidAsset => DispatchError::Other("InvalidAsset"),
+				ConvertMessageError::CannotReanchor => DispatchError::Other("CannotReanchor"),
+				ConvertMessageError::InvalidNetwork => DispatchError::Other("InvalidNetwork"),
+			}
+		})?;
 
 		// Forward XCM to AssetHub
 		let dest = Location::new(1, [Parachain(AssetHubParaId::get())]);
 		let message_id = Self::send_xcm(dest.clone(), &who, xcm.clone()).map_err(|error| {
 			tracing::error!(target: LOG_TARGET, ?error, ?dest, ?xcm, "XCM send failed with error");
-			Error::<T>::from(error)
+			match error {
+				SendError::Fees => DispatchError::Other("FeesNotMet"),
+				SendError::NotApplicable => DispatchError::Other("Unreachable"),
+				_ => DispatchError::Other("SendFailure"),
+			}
 		})?;
 
 		// Return the message_id
@@ -65,7 +78,7 @@ where
 impl<T, Sender, Executor, Converter, AccountToLocation, AssetHubParaId>
 	XcmMessageProcessor<T, Sender, Executor, Converter, AccountToLocation, AssetHubParaId>
 where
-	T: crate::Config,
+	T: frame_system::Config,
 	Sender: SendXcm,
 	Executor: ExecuteXcm<T::RuntimeCall>,
 	Converter: ConvertMessage,

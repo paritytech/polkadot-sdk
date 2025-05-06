@@ -28,12 +28,13 @@ use pallet_xcm::EnsureXcm;
 use parachains_common::{AccountId, Balance};
 use snowbridge_beacon_primitives::{Fork, ForkVersions};
 use snowbridge_core::{gwei, meth, AllowSiblingsOnly, PricingParameters, Rewards};
-use snowbridge_inbound_queue_primitives::v2::MessageToXcm;
+use snowbridge_inbound_queue_primitives::v2::{
+	MessageToXcm, XcmMessageProcessor as InboundXcmMessageProcessor,
+};
 use snowbridge_outbound_queue_primitives::{
 	v1::{ConstantGasMeter, EthereumBlobExporter},
 	v2::{ConstantGasMeter as ConstantGasMeterV2, EthereumBlobExporter as EthereumBlobExporterV2},
 };
-use snowbridge_pallet_inbound_queue_v2::message_processors::XcmMessageProcessor as InboundXcmMessageProcessor;
 use sp_core::H160;
 use sp_runtime::{
 	traits::{ConstU32, ConstU8, Keccak256},
