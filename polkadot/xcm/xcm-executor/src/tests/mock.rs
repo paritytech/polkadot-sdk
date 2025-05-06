@@ -135,7 +135,7 @@ impl TransactAsset for TestAssetTransactor {
 		if let Fungibility::Fungible(amount) = what.fun {
 			// fail if below the configured existential deposit
 			if amount < ExistentialDeposit::get() {
-				return Err(XcmError::FailedToTransactAsset("BelowMinimum".into()));
+				return Err(XcmError::FailedToTransactAsset(sp_runtime::TokenError::BelowMinimum.into()));
 			}
 		}
 		add_asset(who.clone(), what.clone());

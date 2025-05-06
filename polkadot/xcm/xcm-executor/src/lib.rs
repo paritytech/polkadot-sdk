@@ -1765,7 +1765,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 		}
 
 		tracing::trace!(
-			target: "xcm::execute",
+			target: "xcm::deposit_assets_with_retry",
 			?failed_deposits,
 			"First‐pass failures, about to retry"
 		);
