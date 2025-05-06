@@ -81,7 +81,7 @@ where
 	pub validator_set_count: u32,
 	/// The authority which produced this equivocation.
 	pub offender: Offender,
-	/// Optional hardcoded slash fraction
+	/// Optional slash fraction
 	maybe_slash_fraction: Option<Perbill>,
 }
 
@@ -325,7 +325,7 @@ where
 		reporter: Option<T::AccountId>,
 		evidence: EquivocationEvidenceFor<T>,
 	) -> Result<(), DispatchError> {
-		let hardcoded_slash_fraction = evidence.slash_fraction();
+		let maybe_slash_fraction = evidence.slash_fraction();
 		let reporter = reporter.or_else(|| pallet_authorship::Pallet::<T>::author());
 
 		// We check the equivocation within the context of its set id (and associated session).
@@ -354,7 +354,7 @@ where
 			session_index,
 			validator_set_count: validator_count,
 			offender,
-			maybe_slash_fraction: hardcoded_slash_fraction,
+			maybe_slash_fraction,
 		};
 		R::report_offence(reporter.into_iter().collect(), offence)
 			.map_err(|_| Error::<T>::DuplicateOffenceReport.into())
