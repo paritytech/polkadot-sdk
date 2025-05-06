@@ -12700,7 +12700,6 @@ dependencies = [
  "pallet-timestamp",
  "pallet-transaction-payment",
  "pallet-utility",
- "pallet-xcm",
  "parity-scale-codec",
  "paste",
  "polkavm 0.21.0",
@@ -12728,7 +12727,6 @@ dependencies = [
  "staging-xcm-builder",
  "substrate-bn",
  "subxt-signer 0.38.0",
- "xcm-simulator",
 ]
 
 [[package]]
@@ -12784,10 +12782,8 @@ dependencies = [
 name = "pallet-revive-mock-network"
 version = "0.1.0"
 dependencies = [
- "alloy-core",
  "frame-support",
  "frame-system",
- "hex-literal",
  "pallet-assets",
  "pallet-balances",
  "pallet-message-queue",

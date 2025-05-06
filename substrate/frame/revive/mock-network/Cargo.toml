@@ -13,8 +13,7 @@ workspace = true
 
 [dependencies]
 codec = { features = ["derive", "max-encoded-len"], workspace = true }
-alloy-core = { workspace = true }
-hex-literal = { workspace = true }
+
 frame-support = { workspace = true }
 frame-system = { workspace = true }
 pallet-assets = { workspace = true, default-features = true }
@@ -43,7 +42,6 @@ pallet-revive-fixtures = { workspace = true }
 [features]
 default = ["std"]
 std = [
-	"alloy-core/std",
 	"codec/std",
 	"frame-support/std",
 	"frame-system/std",
