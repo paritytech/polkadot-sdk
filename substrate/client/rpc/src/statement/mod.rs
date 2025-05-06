@@ -85,6 +85,44 @@ impl StatementApiServer for StatementStore {
 			.collect())
 	}
 
+	fn broadcasts_stmt(&self, match_all_topics: Vec<[u8; 32]>) -> RpcResult<Vec<Bytes>> {
+		Ok(self
+			.store
+			.broadcasts_stmt(&match_all_topics)
+			.map_err(|e| Error::StatementStore(e.to_string()))?
+			.into_iter()
+			.map(Into::into)
+			.collect())
+	}
+
+	fn posted_stmt(
+		&self,
+		match_all_topics: Vec<[u8; 32]>,
+		dest: [u8; 32],
+	) -> RpcResult<Vec<Bytes>> {
+		Ok(self
+			.store
+			.posted_stmt(&match_all_topics, dest)
+			.map_err(|e| Error::StatementStore(e.to_string()))?
+			.into_iter()
+			.map(Into::into)
+			.collect())
+	}
+
+	fn posted_clear_stmt(
+		&self,
+		match_all_topics: Vec<[u8; 32]>,
+		dest: [u8; 32],
+	) -> RpcResult<Vec<Bytes>> {
+		Ok(self
+			.store
+			.posted_clear_stmt(&match_all_topics, dest)
+			.map_err(|e| Error::StatementStore(e.to_string()))?
+			.into_iter()
+			.map(Into::into)
+			.collect())
+	}
+
 	fn submit(&self, encoded: Bytes) -> RpcResult<()> {
 		let statement = Decode::decode(&mut &*encoded)
 			.map_err(|e| Error::StatementStore(format!("Error decoding statement: {:?}", e)))?;

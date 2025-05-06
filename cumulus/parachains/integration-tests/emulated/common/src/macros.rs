@@ -827,6 +827,17 @@ macro_rules! test_cross_chain_alias {
 #[macro_export]
 macro_rules! create_pool_with_native_on {
 	( $chain:ident, $asset:expr, $is_foreign:expr, $asset_owner:expr ) => {
+		$crate::create_pool_with_native_on!(
+			$chain,
+			$asset,
+			$is_foreign,
+			$asset_owner,
+			1_000_000_000_000,
+			2_000_000_000_000
+		);
+	};
+
+	( $chain:ident, $asset:expr, $is_foreign:expr, $asset_owner:expr, $native_amount:expr, $asset_amount:expr ) => {
 		emulated_integration_tests_common::impls::paste::paste! {
 			<$chain>::execute_with(|| {
 				type RuntimeEvent = <$chain as Chain>::RuntimeEvent;
@@ -871,8 +882,8 @@ macro_rules! create_pool_with_native_on {
 					signed_owner,
 					Box::new(native_asset),
 					Box::new($asset),
-					1_000_000_000_000,
-					2_000_000_000_000, // $asset is worth half of native_asset
+					$native_amount,
+					$asset_amount,
 					0,
 					0,
 					owner.into()
