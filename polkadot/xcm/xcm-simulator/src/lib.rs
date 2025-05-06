@@ -506,8 +506,8 @@ pub mod helpers {
 			});
 		}
 
-		/// Associates a topic ID with the given chain name, asserting it matches the existing ID if
-		/// present.
+		/// Inserts a topic ID for a chain, asserting it matches the chain's existing ID and global
+		/// unique ID.
 		pub fn insert_and_assert_unique(chain: &str, id: H256) {
 			TRACKED_TOPIC_IDS.with(|b| {
 				let mut map = b.borrow_mut();
@@ -520,6 +520,8 @@ pub mod helpers {
 				}
 				map.insert(chain.to_string(), id);
 			});
+
+			Self::assert_unique();
 		}
 
 		/// Clears all tracked topic IDs, resetting the tracker for a new test.

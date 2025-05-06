@@ -603,9 +603,6 @@ fn transfer_foreign_assets_from_para_to_para_through_asset_hub() {
 	test.set_dispatchable::<PenpalA>(para_to_para_transfer_assets_through_ah);
 	test.assert();
 
-	// assert unique topic across all chains
-	TopicIdTracker::assert_unique();
-
 	// Query final balances
 	let sender_wnds_after = PenpalA::execute_with(|| {
 		type ForeignAssets = <PenpalA as PenpalAPallet>::ForeignAssets;
