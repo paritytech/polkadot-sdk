@@ -82,7 +82,7 @@ where
 	/// The authority which produced this equivocation.
 	pub offender: Offender,
 	/// Optional hardcoded slash fraction
-	hardcoded_slash_fraction: Option<Perbill>,
+	maybe_slash_fraction: Option<Perbill>,
 }
 
 impl<Offender: Clone, N> Offence<Offender> for EquivocationOffence<Offender, N>
@@ -109,7 +109,7 @@ where
 	}
 
 	fn slash_fraction(&self, offenders_count: u32) -> Perbill {
-		if let Some(slash_fraction) = self.hardcoded_slash_fraction {
+		if let Some(slash_fraction) = self.maybe_slash_fraction {
 			return slash_fraction;
 		}
 
@@ -270,7 +270,7 @@ impl<T: Config> EquivocationEvidenceFor<T> {
 		}
 	}
 
-	fn hardcoded_slash_fraction(&self) -> Option<Perbill> {
+	fn slash_fraction(&self) -> Option<Perbill> {
 		match self {
 			EquivocationEvidenceFor::DoubleVotingProof(_, _) => None,
 			EquivocationEvidenceFor::ForkVotingProof(_, _) |
@@ -325,7 +325,7 @@ where
 		reporter: Option<T::AccountId>,
 		evidence: EquivocationEvidenceFor<T>,
 	) -> Result<(), DispatchError> {
-		let hardcoded_slash_fraction = evidence.hardcoded_slash_fraction();
+		let hardcoded_slash_fraction = evidence.slash_fraction();
 		let reporter = reporter.or_else(|| pallet_authorship::Pallet::<T>::author());
 
 		// We check the equivocation within the context of its set id (and associated session).
@@ -354,7 +354,7 @@ where
 			session_index,
 			validator_set_count: validator_count,
 			offender,
-			hardcoded_slash_fraction,
+			maybe_slash_fraction: hardcoded_slash_fraction,
 		};
 		R::report_offence(reporter.into_iter().collect(), offence)
 			.map_err(|_| Error::<T>::DuplicateOffenceReport.into())
