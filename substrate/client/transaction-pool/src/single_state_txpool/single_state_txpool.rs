@@ -594,28 +594,6 @@ impl<N: Clone + Copy + AtLeast32Bit> RevalidationStatus<N> {
 	}
 }
 
-/// Build a map from blocks to their extrinsics.
-pub async fn collect_extrinsics<Block: BlockT, Api: graph::ChainApi<Block = Block>>(
-	blocks: &[HashAndNumber<Block>],
-	api: &Api,
-) -> HashMap<Block::Hash, Vec<RawExtrinsicFor<Api>>> {
-	future::join_all(blocks.iter().map(|hn| async move {
-		(
-			hn.hash,
-			api.block_body(hn.hash)
-				.await
-				.unwrap_or_else(|e| {
-					warn!(target: LOG_TARGET, %e, ": block_body error request");
-					None
-				})
-				.unwrap_or_default(),
-		)
-	}))
-	.await
-	.into_iter()
-	.collect()
-}
-
 /// Prune the known txs from the given pool for the given block.
 ///
 /// Returns the hashes of all transactions included in given block.
@@ -627,9 +605,21 @@ pub async fn prune_known_txs_for_block<
 	at: &HashAndNumber<Block>,
 	api: &Api,
 	pool: &graph::Pool<Api, L>,
-	extrinsics: Vec<RawExtrinsicFor<Api>>,
+	extrinsics: Option<Vec<RawExtrinsicFor<Api>>>,
 	known_provides_tags: Option<Arc<HashMap<ExtrinsicHash<Api>, Vec<Tag>>>>,
 ) -> Vec<ExtrinsicHash<Api>> {
+	let extrinsics = match extrinsics {
+		Some(xts) => xts,
+		None => api
+			.block_body(at.hash)
+			.await
+			.unwrap_or_else(|error| {
+				warn!(target: LOG_TARGET, ?error, "Prune known transactions: error request.");
+				None
+			})
+			.unwrap_or_default(),
+	};
+
 	let hashes = extrinsics.iter().map(|tx| pool.hash_of(tx)).collect::<Vec<_>>();
 
 	let header = match api.block_header(at.hash) {
@@ -687,15 +677,15 @@ where
 			pool.validated_pool().on_block_retracted(retracted.hash);
 		}
 
-		// Collect extrinsics on the enacted path in a map from block hn -> extrinsics.
-		let mut extrinsics = collect_extrinsics(tree_route.enacted(), &*api).await;
 		// We keep track of everything we prune so that later we won't add
 		// transactions with those hashes from the retracted blocks.
 		let mut pruned_log = HashSet::<ExtrinsicHash<PoolApi>>::new();
-		future::join_all(tree_route.enacted().iter().map(|h| {
-			let xts = extrinsics.remove(&h.hash).unwrap_or_else(|| Vec::new());
-			prune_known_txs_for_block(h, &*api, &*pool, xts, None)
-		}))
+		future::join_all(
+			tree_route
+				.enacted()
+				.iter()
+				.map(|h| prune_known_txs_for_block(h, &*api, &*pool, None, None)),
+		)
 		.await
 		.into_iter()
 		.for_each(|enacted_log| {

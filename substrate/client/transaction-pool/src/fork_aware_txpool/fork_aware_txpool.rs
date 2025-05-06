@@ -38,7 +38,7 @@ use crate::{
 	graph::{
 		self,
 		base_pool::{TimedTransactionSource, Transaction},
-		BlockHash, ExtrinsicFor, ExtrinsicHash, IsValidator, Options,
+		BlockHash, ExtrinsicFor, ExtrinsicHash, IsValidator, Options, RawExtrinsicFor,
 	},
 	ReadyIteratorFor, LOG_TARGET,
 };
@@ -1421,6 +1421,29 @@ where
 		self.view_store.provides_tags_from_inactive_views(blocks_hashes, xts_hashes)
 	}
 
+	/// Build a map from blocks to their extrinsics.
+	pub async fn collect_extrinsics(
+		&self,
+		blocks: &[HashAndNumber<Block>],
+	) -> HashMap<Block::Hash, Vec<RawExtrinsicFor<ChainApi>>> {
+		future::join_all(blocks.iter().map(|hn| async move {
+			(
+				hn.hash,
+				self.api
+					.block_body(hn.hash)
+					.await
+					.unwrap_or_else(|e| {
+						warn!(target: LOG_TARGET, %e, ": block_body error request");
+						None
+					})
+					.unwrap_or_default(),
+			)
+		}))
+		.await
+		.into_iter()
+		.collect()
+	}
+
 	/// Updates the view with the transactions from the given tree route.
 	///
 	/// Transactions from the retracted blocks are resubmitted to the given view. Tags for
@@ -1440,7 +1463,7 @@ where
 		let api = self.api.clone();
 
 		// Collect extrinsics on the enacted path in a map from block hn -> extrinsics.
-		let mut extrinsics = crate::collect_extrinsics(tree_route.enacted(), &*self.api).await;
+		let mut extrinsics = self.collect_extrinsics(tree_route.enacted()).await;
 
 		// Create a map from enacted blocks' extrinsics to their `provides`
 		// tags based on inactive views.
@@ -1468,7 +1491,7 @@ where
 						hn,
 						&*api,
 						&view.pool,
-						xts,
+						Some(xts),
 						Some(known_provides_tags),
 					)
 					.await,
