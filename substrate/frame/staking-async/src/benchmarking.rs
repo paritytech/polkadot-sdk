@@ -729,7 +729,7 @@ mod benchmarks {
 		<ErasValidatorPrefs<T>>::insert(
 			current_era,
 			validator.clone(),
-			Validators::<T>::get(&validator),
+			Validators::<T>::get(&validator).unwrap_or_default(),
 		);
 
 		let caller = whitelisted_caller();
@@ -933,7 +933,7 @@ mod benchmarks {
 		// Sanity check
 		assert_eq!(
 			Validators::<T>::get(&stash),
-			ValidatorPrefs { commission: Perbill::from_percent(50), ..Default::default() }
+			Some(ValidatorPrefs { commission: Perbill::from_percent(50), ..Default::default() })
 		);
 
 		// Set the min commission to 75%
@@ -946,7 +946,7 @@ mod benchmarks {
 		// The validators commission has been bumped to 75%
 		assert_eq!(
 			Validators::<T>::get(&stash),
-			ValidatorPrefs { commission: Perbill::from_percent(75), ..Default::default() }
+			Some(ValidatorPrefs { commission: Perbill::from_percent(75), ..Default::default() })
 		);
 
 		Ok(())
