@@ -121,18 +121,6 @@ pub enum DefaultExtraSubcommands {
 	ExportChainSpec(ExportChainSpecCmd),
 }
 
-/// No-op subcommand handler. Use this when a binary does not expose any extra subcommands.
-///
-/// You can use this by passing [`NoExtraSubcommand`] to `run_with_custom_cli`.
-#[derive(Debug, Subcommand)]
-pub enum NoExtraSubcommand {}
-
-impl ExtraSubcommand for NoExtraSubcommand {
-	fn handle(self, _cfg: &RunConfig) -> Result<()> {
-		Ok(())
-	}
-}
-
 impl ExtraSubcommand for DefaultExtraSubcommands {
 	fn handle(self, cfg: &RunConfig) -> Result<()> {
 		match self {
@@ -141,6 +129,18 @@ impl ExtraSubcommand for DefaultExtraSubcommands {
 				cmd.run(spec)?;
 			},
 		}
+		Ok(())
+	}
+}
+
+/// No-op subcommand handler. Use this when a binary does not expose any extra subcommands.
+///
+/// You can use this by passing [`NoExtraSubcommand`] to `run_with_custom_cli`.
+#[derive(Debug, Subcommand)]
+pub enum NoExtraSubcommand {}
+
+impl ExtraSubcommand for NoExtraSubcommand {
+	fn handle(self, _cfg: &RunConfig) -> Result<()> {
 		Ok(())
 	}
 }

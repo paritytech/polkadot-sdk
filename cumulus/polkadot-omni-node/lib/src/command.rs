@@ -25,7 +25,7 @@ use crate::{
 		types::Block,
 		NodeBlock, NodeExtraArgs,
 	},
-	extra_subcommand::{DefaultExtraSubcommands, ExtraSubcommand},
+	extra_subcommand::DefaultExtraSubcommands,
 	fake_runtime_api,
 	nodes::DynNodeSpecExt,
 	runtime::BlockNumber,
@@ -121,20 +121,20 @@ pub fn run<CliConfig: crate::cli::CliConfig>(cmd_config: RunConfig) -> Result<()
 ///   the binary.
 /// * `Extra` – an implementation of `ExtraSubcommand`. Use *`NoExtraSubcommand`* if the binary
 ///   should not expose any extra subcommands.
-pub fn run_with_custom_cli<CliConfig, Extra>(cmd_config: RunConfig) -> Result<()>
+pub fn run_with_custom_cli<CliConfig, ExtraSubcommand>(cmd_config: RunConfig) -> Result<()>
 where
 	CliConfig: crate::cli::CliConfig,
-	Extra: ExtraSubcommand,
+	ExtraSubcommand: crate::extra_subcommand::ExtraSubcommand,
 {
 	let cli_command = Cli::<CliConfig>::command();
-	let cli_command = Extra::augment_subcommands(cli_command);
+	let cli_command = ExtraSubcommand::augment_subcommands(cli_command);
 	let cli_command = Cli::<CliConfig>::setup_command(cli_command);
 
 	// Get matches for all CLI, including extra args.
 	let matches = cli_command.get_matches();
 
 	// Parse only the part corresponding to the extra args.
-	if let Ok(extra) = Extra::from_arg_matches(&matches) {
+	if let Ok(extra) = ExtraSubcommand::from_arg_matches(&matches) {
 		// Handle the extra, and return - subcommands are self contained,
 		// no need to handle the rest of the CLI or node running.
 		extra.handle(&cmd_config)?;
