@@ -914,23 +914,23 @@ where
 	/// blocks.
 	pub(crate) fn provides_tags_from_inactive_views(
 		&self,
-		of_blocks: Vec<&HashAndNumber<Block>>,
-		mut for_xts: Vec<ExtrinsicHash<ChainApi>>,
+		block_hashes: Vec<&HashAndNumber<Block>>,
+		mut xts_hashes: Vec<ExtrinsicHash<ChainApi>>,
 	) -> HashMap<ExtrinsicHash<ChainApi>, Vec<Tag>> {
 		let mut provides_tags_map = HashMap::new();
 
-		of_blocks.into_iter().for_each(|hn| {
+		block_hashes.into_iter().for_each(|hn| {
 			// Get tx provides tags from given view's pool.
 			if let Some((view, _)) = self.get_view_at(hn.hash, true) {
-				let provides_tags = view.pool.validated_pool().extrinsics_tags(&for_xts);
-				let xts_provides_tags = for_xts
+				let provides_tags = view.pool.validated_pool().extrinsics_tags(&xts_hashes);
+				let xts_provides_tags = xts_hashes
 					.iter()
 					.zip(provides_tags.into_iter())
 					.filter_map(|(hash, maybe_tags)| maybe_tags.map(|tags| (*hash, tags)))
 					.collect::<HashMap<ExtrinsicHash<ChainApi>, Vec<Tag>>>();
 
 				// Remove txs that have been resolved.
-				for_xts.retain(|xth| !xts_provides_tags.contains_key(xth));
+				xts_hashes.retain(|xth| !xts_provides_tags.contains_key(xth));
 
 				// Collect the (extrinsic hash, tags) pairs in a map.
 				provides_tags_map.extend(xts_provides_tags);
