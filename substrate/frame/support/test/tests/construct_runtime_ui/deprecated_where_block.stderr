@@ -437,7 +437,7 @@ error[E0277]: the trait bound `Runtime: Config` is not satisfied
 note: required by a bound in `frame_system::Call`
   --> $WORKSPACE/substrate/frame/system/src/lib.rs
    |
-   |     #[pallet::call]
+   |     #[pallet::call(weight = <T as Config>::SystemWeightInfo)]
    |               ^^^^ required by this bound in `Call`
    = note: this error originates in the derive macro `self::sp_api_hidden_includes_construct_runtime::hidden_include::__private::codec::Encode` (in Nightly builds, run with -Z macro-backtrace for more info)
 
@@ -490,7 +490,7 @@ error[E0599]: the method `get_dispatch_info` exists for reference `&Call<Runtime
    |
   ::: $WORKSPACE/substrate/frame/system/src/lib.rs
    |
-   |        #[pallet::call]
+   |        #[pallet::call(weight = <T as Config>::SystemWeightInfo)]
    |                  ---- doesn't satisfy `frame_system::Call<Runtime>: GetDispatchInfo`
    |
    = note: the following trait bounds were not satisfied:
@@ -521,7 +521,7 @@ error[E0599]: the method `is_feeless` exists for reference `&Call<Runtime>`, but
    |
   ::: $WORKSPACE/substrate/frame/system/src/lib.rs
    |
-   |        #[pallet::call]
+   |        #[pallet::call(weight = <T as Config>::SystemWeightInfo)]
    |                  ---- doesn't satisfy `frame_system::Call<Runtime>: CheckIfFeeless`
    |
    = note: the following trait bounds were not satisfied:
@@ -552,7 +552,7 @@ error[E0599]: the method `get_call_name` exists for reference `&Call<Runtime>`, 
    |
   ::: $WORKSPACE/substrate/frame/system/src/lib.rs
    |
-   |        #[pallet::call]
+   |        #[pallet::call(weight = <T as Config>::SystemWeightInfo)]
    |                  ---- doesn't satisfy `frame_system::Call<Runtime>: GetCallName`
    |
    = note: the following trait bounds were not satisfied:
