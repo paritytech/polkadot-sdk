@@ -280,6 +280,14 @@ where
 	/// - If queue is full, drop message and change reputation of sender.
 	async fn dispatch_to_queues(&mut self, req: IncomingRequest<DisputeRequest>) -> JfyiResult<()> {
 		let peer = req.peer;
+
+		gum::trace!(
+			target: LOG_TARGET,
+			?peer,
+			message = ?req.payload,
+			"Incoming dispute message"
+		);
+
 		// Only accept messages from validators, in case there are multiple `AuthorityId`s, we
 		// just take the first one. On session boundaries this might allow validators to double
 		// their rate limit for a short period of time, which seems acceptable.
