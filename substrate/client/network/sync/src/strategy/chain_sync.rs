@@ -1676,6 +1676,8 @@ where
 	/// state for.
 	fn reset_sync_start_point(&mut self) -> Result<(), ClientError> {
 		let info = self.client.info();
+		debug!(target: LOG_TARGET, "Restarting sync with client info {info:?}");
+
 		if matches!(self.mode, ChainSyncMode::LightState { .. }) && info.finalized_state.is_some() {
 			warn!(
 				target: LOG_TARGET,
