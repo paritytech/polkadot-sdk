@@ -884,17 +884,12 @@ fn test_bls381_crypto() -> (Bls381Pop, Bls381Public) {
 
 #[cfg(feature = "bls-experimental")]
 fn test_ecdsa_bls381_crypto() -> (EcdsaBls381Pop, EcdsaBls381Public) {
-	// If the key_type is not declared the automatic used one will be whatever sp_core::testing
-	// for that crypto type is see `RuntimeAppPublic::generate_pair()`
-	let key_type = sp_core::crypto::KeyTypeId(*b"test");
-	// We have to use RuntimePublic Interface instead of RuntimeAppPublic Interface
-	// for generating a pair in order to force key_type..
-	let mut public0 = <ecdsa_bls381::Public as RuntimePublic>::generate_pair(key_type, None);
+	let mut public0 = ecdsa_bls381::AppPublic::generate_pair(None);
 
-	let proof_of_possession = public0.generate_proof_of_possession(key_type).expect("Cant Generate proof_of_possession for ecdsa_bls381");
-
+	let proof_of_possession = public0.generate_proof_of_possession().expect("Cant Generate proof_of_possession for ecdsa_bls381");
 	assert!(public0.verify_proof_of_possession(&proof_of_possession));
-	(proof_of_possession.into(), public0.into())
+
+	(proof_of_possession, public0)
 }
 
 fn test_read_storage() {

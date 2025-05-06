@@ -22,6 +22,7 @@ use sp_application_crypto::{ecdsa_bls381::AppPair, RuntimePublic};
 use sp_core::{
 	ecdsa_bls381::Pair as EcdsaBls381Pair,
 	crypto::ByteArray,
+	testing::ECDSA_BLS381,
 	proof_of_possession::{ProofOfPossessionGenerator, ProofOfPossessionVerifier},
 	Pair,
 };
@@ -36,7 +37,6 @@ fn ecdsa_bls381_works_in_runtime() {
 	sp_tracing::try_init_simple();
 	let keystore = Arc::new(MemoryKeystore::new());
 	let test_client = TestClientBuilder::new().build();
-	let key_type = sp_core::crypto::KeyTypeId(*b"test");
 
 	let mut runtime_api = test_client.runtime_api();
 	runtime_api.register_extension(KeystoreExt::new(keystore.clone()));
@@ -45,7 +45,7 @@ fn ecdsa_bls381_works_in_runtime() {
 		.test_ecdsa_bls381_crypto(test_client.chain_info().genesis_hash)
 		.expect("Tests `ecdsa_bls381` crypto.");
 
-	let supported_keys = keystore.keys(key_type).unwrap();
+	let supported_keys = keystore.keys(ECDSA_BLS381).unwrap();
 	assert!(supported_keys.contains(&public.to_raw_vec()));
 	assert!(supported_keys.len() == 3);
 
