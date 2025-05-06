@@ -122,6 +122,12 @@ pub use sp_runtime::{
 	self, print, traits::Printable, ConsensusEngineId, MAX_MODULE_ERROR_ENCODED_SIZE,
 };
 
+pub use self::migrations::VersionedMigration;
+
+pub use self::weights::constants::{
+	RocksDbWeight, WEIGHT_REF_TIME_PER_MICROS, WEIGHT_REF_TIME_PER_NANOS,
+};
+
 use codec::{Decode, Encode};
 use scale_info::TypeInfo;
 use sp_runtime::TypeId;

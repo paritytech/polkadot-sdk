@@ -16,11 +16,11 @@
 // limitations under the License.
 
 use crate::LOG_TARGET;
-use frame_support::{
+use frame::{
+	deps::{sp_core, sp_io, sp_io::hashing::twox_128},
+	prelude::*,
 	traits::{Get, StorageVersion},
-	weights::Weight,
 };
-use sp_io::hashing::twox_128;
 
 /// The old prefix.
 pub const OLD_PREFIX: &[u8] = b"GrandpaFinality";
@@ -49,10 +49,7 @@ pub fn migrate<T: crate::Config, N: AsRef<str>>(new_pallet_name: N) -> Weight {
 
 	if storage_version <= 3 {
 		log::info!("new prefix: {}", new_pallet_name.as_ref());
-		frame_support::storage::migration::move_pallet(
-			OLD_PREFIX,
-			new_pallet_name.as_ref().as_bytes(),
-		);
+		storage::migration::move_pallet(OLD_PREFIX, new_pallet_name.as_ref().as_bytes());
 
 		StorageVersion::new(4).put::<crate::Pallet<T>>();
 

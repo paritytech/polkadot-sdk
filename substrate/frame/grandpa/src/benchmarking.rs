@@ -16,11 +16,10 @@
 // limitations under the License.
 
 //! Benchmarks for the GRANDPA pallet.
+#![cfg(feature = "runtime-benchmarks")]
 
 use super::*;
-use frame_benchmarking::v2::*;
-use frame_system::RawOrigin;
-use sp_core::H256;
+use frame::{benchmarking::prelude::*, deps::sp_core::H256, prelude::RawOrigin};
 
 #[benchmarks]
 mod benchmarks {

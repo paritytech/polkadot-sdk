@@ -22,32 +22,35 @@
 use crate::{self as pallet_grandpa, AuthorityId, AuthorityList, Config, ConsensusLog};
 use codec::Encode;
 use finality_grandpa;
+use frame::{
+	deps::{
+		sp_core::H256,
+		sp_io::TestExternalities,
+		sp_runtime::{
+			curve::PiecewiseLinear,
+			impl_opaque_keys,
+			testing::{DigestItem, TestXt, UintAuthorityId},
+			traits::ConvertInto,
+			BuildStorage, Perbill,
+		},
+	},
+	testing_prelude::*,
+	traits::{OnFinalize, OnInitialize, OpaqueKeys},
+};
 use frame_election_provider_support::{
 	bounds::{ElectionBounds, ElectionBoundsBuilder},
 	onchain, SequentialPhragmen,
 };
-use frame_support::{
-	derive_impl, parameter_types,
-	traits::{ConstU128, ConstU32, ConstU64, OnFinalize, OnInitialize},
-};
 use pallet_session::historical as pallet_session_historical;
 use sp_consensus_grandpa::{RoundNumber, SetId, GRANDPA_ENGINE_ID};
-use sp_core::{ConstBool, H256};
 use sp_keyring::Ed25519Keyring;
-use sp_runtime::{
-	curve::PiecewiseLinear,
-	impl_opaque_keys,
-	testing::{TestXt, UintAuthorityId},
-	traits::OpaqueKeys,
-	BuildStorage, DigestItem, Perbill,
-};
 use sp_staking::{EraIndex, SessionIndex};
 
 type Block = frame_system::mocking::MockBlock<Test>;
+type BlockNumber = u64;
 
-frame_support::construct_runtime!(
-	pub enum Test
-	{
+construct_runtime!(
+	pub enum Test {
 		System: frame_system,
 		Authorship: pallet_authorship,
 		Timestamp: pallet_timestamp,
@@ -98,7 +101,7 @@ parameter_types! {
 impl pallet_session::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type ValidatorId = u64;
-	type ValidatorIdOf = sp_runtime::traits::ConvertInto;
+	type ValidatorIdOf = ConvertInto;
 	type ShouldEndSession = pallet_session::PeriodicSessions<ConstU64<1>, ConstU64<0>>;
 	type NextSessionRotation = pallet_session::PeriodicSessions<ConstU64<1>, ConstU64<0>>;
 	type SessionManager = pallet_session::historical::NoteHistoricalRoot<Self, Staking>;
@@ -222,11 +225,11 @@ pub fn extract_keyring(id: &AuthorityId) -> Ed25519Keyring {
 	Ed25519Keyring::from_raw_public(raw_public).unwrap()
 }
 
-pub fn new_test_ext(vec: Vec<(u64, u64)>) -> sp_io::TestExternalities {
+pub fn new_test_ext(vec: Vec<(u64, u64)>) -> TestExternalities {
 	new_test_ext_raw_authorities(to_authorities(vec))
 }
 
-pub fn new_test_ext_raw_authorities(authorities: AuthorityList) -> sp_io::TestExternalities {
+pub fn new_test_ext_raw_authorities(authorities: AuthorityList) -> TestExternalities {
 	sp_tracing::try_init_simple();
 	let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 
@@ -276,10 +279,10 @@ pub fn new_test_ext_raw_authorities(authorities: AuthorityList) -> sp_io::TestEx
 
 pub fn start_session(session_index: SessionIndex) {
 	for i in Session::current_index()..session_index {
-		System::on_finalize(System::block_number());
-		Session::on_finalize(System::block_number());
-		Staking::on_finalize(System::block_number());
-		Grandpa::on_finalize(System::block_number());
+		<System as OnFinalize<BlockNumber>>::on_finalize(System::block_number());
+		<Session as OnFinalize<BlockNumber>>::on_finalize(System::block_number());
+		<Staking as OnFinalize<BlockNumber>>::on_finalize(System::block_number());
+		<Grandpa as OnFinalize<BlockNumber>>::on_finalize(System::block_number());
 
 		let parent_hash = if System::block_number() > 1 {
 			let hdr = System::finalize();
@@ -293,10 +296,10 @@ pub fn start_session(session_index: SessionIndex) {
 		System::set_block_number((i + 1).into());
 		Timestamp::set_timestamp(System::block_number() * 6000);
 
-		System::on_initialize(System::block_number());
-		Session::on_initialize(System::block_number());
-		Staking::on_initialize(System::block_number());
-		Grandpa::on_initialize(System::block_number());
+		<System as OnInitialize<BlockNumber>>::on_initialize(System::block_number());
+		<Session as OnInitialize<BlockNumber>>::on_initialize(System::block_number());
+		<Staking as OnInitialize<BlockNumber>>::on_initialize(System::block_number());
+		<Grandpa as OnInitialize<BlockNumber>>::on_initialize(System::block_number());
 	}
 
 	assert_eq!(Session::current_index(), session_index);

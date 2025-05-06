@@ -19,13 +19,11 @@ use crate::{BoundedAuthorityList, Pallet};
 use alloc::vec::Vec;
 use codec::Decode;
 use core::marker::PhantomData;
-use frame_support::{
-	migrations::VersionedMigration,
-	storage,
-	traits::{Get, UncheckedOnRuntimeUpgrade},
-	weights::Weight,
-};
+use frame::{prelude::*, traits::UncheckedOnRuntimeUpgrade};
 use sp_consensus_grandpa::AuthorityList;
+
+#[cfg(feature = "try-runtime")]
+use frame::deps::sp_runtime;
 
 const GRANDPA_AUTHORITIES_KEY: &[u8] = b":grandpa_authorities";
 
@@ -63,15 +61,12 @@ impl<T: crate::Config> UncheckedOnRuntimeUpgrade for UncheckedMigrateImpl<T> {
 	fn post_upgrade(state: Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
 		let len = u32::decode(&mut &state[..]).unwrap();
 
-		frame_support::ensure!(
+		ensure!(
 			len == crate::Pallet::<T>::grandpa_authorities().len() as u32,
 			"Grandpa: pre-migrated and post-migrated list should have the same length"
 		);
 
-		frame_support::ensure!(
-			load_authority_list().is_empty(),
-			"Old authority list shouldn't exist anymore"
-		);
+		ensure!(load_authority_list().is_empty(), "Old authority list shouldn't exist anymore");
 
 		Ok(())
 	}

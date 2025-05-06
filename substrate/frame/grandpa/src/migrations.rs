@@ -15,10 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use frame_support::{
-	traits::{Get, OnRuntimeUpgrade},
-	weights::Weight,
-};
+use frame::{prelude::*, traits::OnRuntimeUpgrade};
 
 use crate::{Config, CurrentSetId, SetIdSession, LOG_TARGET};
 
