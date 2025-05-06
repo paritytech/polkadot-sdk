@@ -512,6 +512,7 @@ pub mod runtime {
 		///
 		/// crucially, this does NOT contain any tx-payment extension.
 		pub type SystemTransactionExtensionsOf<T> = (
+			frame_system::AuthorizeCall<T>,
 			frame_system::CheckNonZeroSender<T>,
 			frame_system::CheckSpecVersion<T>,
 			frame_system::CheckTxVersion<T>,
