@@ -35,37 +35,21 @@ jobs:
           echo "Labels: ${labels}"
           echo "labels=${labels}" >> "$GITHUB_OUTPUT"
 
-<<<<<<< HEAD
           echo "Checking PRdoc version"
           $ENGINE run --rm -v $PWD:/repo $IMAGE --version
-
-      - name: Get PR number
-        if: ${{ github.event.pull_request.number != '' && !contains(steps.get-labels.outputs.labels, 'R0') }}
-=======
       - name: Get Original PR number
         if: ${{ github.event.pull_request.number != '' && !contains(steps.get-labels.outputs.labels, 'R0') }}
         shell: bash
         env:
           PR_TITLE: ${{ github.event.pull_request.title }}
->>>>>>> bf1ca6f ([CI] Adjust `check-semver` job so that it uses original PR number to check prdoc for the backports PRs (#8435))
         run: |
           . ./.github/scripts/common/lib.sh
           original_pr_number=''
           PR_TITLE="${{ github.event.pull_request.title }}"
           if [[ $PR_TITLE =~ 'Backport' ]]; then
             # Extracting the original PR number from the backport's PR title
-<<<<<<< HEAD
-            if [[ $PR_TITLE =~ \#([0-9]+) ]]; then
-              original_pr_number="${BASH_REMATCH[1]}"
-              echo "Extracted PR number: $original_pr_number"
-            else
-              echo "⚠️ The PR title dose not contain original PR number. PR title should be in form: [stableBranchName] Backport #originalPRNumber"
-              exit 1
-            fi
-=======
             original_pr_number=$(extract_pr_number_from_pr_title "$PR_TITLE")
             echo "Extracted PR number: $original_pr_number"
->>>>>>> bf1ca6f ([CI] Adjust `check-semver` job so that it uses original PR number to check prdoc for the backports PRs (#8435))
           else
             original_pr_number=${{ github.event.pull_request.number }}
           fi
