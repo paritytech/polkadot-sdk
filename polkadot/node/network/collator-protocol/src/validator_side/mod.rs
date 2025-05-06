@@ -62,14 +62,16 @@ use super::{modify_reputation, tick_stream, LOG_TARGET};
 
 mod claim_queue_state;
 mod collation;
-mod error;
+pub mod error;
 mod metrics;
 
 use claim_queue_state::ClaimQueueState;
+pub use claim_queue_state::PerLeafClaimQueueState;
+pub use collation::BlockedCollationId;
 use collation::{
-	fetched_collation_sanity_check, BlockedCollationId, CollationEvent, CollationFetchError,
-	CollationFetchRequest, CollationStatus, Collations, FetchedCollation, PendingCollation,
-	PendingCollationFetch, ProspectiveCandidate,
+	fetched_collation_sanity_check, CollationEvent, CollationFetchError, CollationFetchRequest,
+	CollationStatus, Collations, FetchedCollation, PendingCollation, PendingCollationFetch,
+	ProspectiveCandidate,
 };
 use error::{Error, FetchError, Result, SecondingError};
 
@@ -627,7 +629,7 @@ async fn note_good_collation(
 }
 
 /// Notify a collator that its collation got seconded.
-async fn notify_collation_seconded(
+pub async fn notify_collation_seconded(
 	sender: &mut impl overseer::CollatorProtocolSenderTrait,
 	peer_id: PeerId,
 	version: CollationVersion,
@@ -1779,7 +1781,7 @@ async fn dequeue_next_collation_and_fetch<Context>(
 	}
 }
 
-async fn request_persisted_validation_data<Sender>(
+pub async fn request_persisted_validation_data<Sender>(
 	sender: &mut Sender,
 	relay_parent: Hash,
 	para_id: ParaId,
@@ -1800,7 +1802,7 @@ where
 	.map_err(SecondingError::RuntimeApi)
 }
 
-async fn request_prospective_validation_data<Sender>(
+pub async fn request_prospective_validation_data<Sender>(
 	sender: &mut Sender,
 	candidate_relay_parent: Hash,
 	parent_head_data_hash: Hash,

@@ -14,10 +14,18 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use std::num::NonZeroU16;
+use std::{collections::HashSet, num::NonZeroU16};
 
-use polkadot_node_network_protocol::peer_set::CollationVersion;
-use polkadot_primitives::Id as ParaId;
+use polkadot_node_network_protocol::{
+	peer_set::CollationVersion,
+	request_response::{outgoing::RequestError, v2 as request_v2},
+	PeerId,
+};
+use polkadot_node_primitives::PoV;
+use polkadot_primitives::{
+	vstaging::CandidateReceiptV2 as CandidateReceipt, CandidateHash, Hash, HeadData, Id as ParaId,
+	PersistedValidationData,
+};
 
 /// Maximum reputation score.
 pub const MAX_SCORE: u16 = 5000;
@@ -46,6 +54,12 @@ pub const INACTIVITY_DECAY: u16 = 1;
 /// Maximum number of stored peer scores for a paraid. Should be greater than
 /// `CONNECTED_PEERS_PARA_LIMIT`.
 pub const MAX_STORED_SCORES_PER_PARA: u8 = 150;
+
+/// Slashing value for a failed fetch that we can be fairly sure does not happen by accident.
+pub const FAILED_FETCH_SLASH: Score = Score::new(20).expect("20 is less than MAX_SCORE");
+
+/// Slashing value for an invalid collation.
+pub const INVALID_COLLATION_SLASH: Score = Score::new(1000).expect("1000 is less than MAX_SCORE");
 
 /// Reputation score type.
 #[derive(PartialEq, Eq, PartialOrd, Ord, Debug, Clone, Copy, Default)]
@@ -100,6 +114,38 @@ pub enum PeerState {
 	Collating(ParaId),
 }
 
+#[derive(Debug, PartialEq)]
+pub enum TryAcceptOutcome {
+	/// Connection was accepted.
+	Added,
+	/// Connection was accepted, but it replaced the slot(s) of some peers
+	/// This can hold more than one `PeerId` because before receiving the `Declare` message,
+	/// one peer can hold connection slots for multiple paraids.
+	/// The set can also be empty if this peer replaced some other peer's slot but that other peer
+	/// maintained a connection slot for another para (therefore not disconnected).
+	/// The number of peers in the set is bound to the number of scheduled paras.
+	Replaced(HashSet<PeerId>),
+	/// Connection was rejected.
+	Rejected,
+}
+
+impl TryAcceptOutcome {
+	/// TODO
+	pub fn combine(self, other: Self) -> Self {
+		use TryAcceptOutcome::*;
+		match (self, other) {
+			(Added, Added) => Added,
+			(Rejected, Rejected) => Rejected,
+			(Added, Rejected) | (Rejected, Added) => Added,
+			(Replaced(mut replaced_a), Replaced(replaced_b)) => {
+				replaced_a.extend(replaced_b);
+				Replaced(replaced_a)
+			},
+			(_, Replaced(replaced)) | (Replaced(replaced), _) => Replaced(replaced),
+		}
+	}
+}
+
 /// Candidate supplied with a para head it's built on top of.
 #[derive(Debug, Copy, Clone, Hash, Eq, PartialEq)]
 pub struct ProspectiveCandidate {
@@ -120,32 +166,28 @@ pub struct Advertisement {
 	pub peer_id: PeerId,
 	/// Optional candidate hash and parent head-data hash if were
 	/// supplied in advertisement.
-	/// TODO: this needs to be optional (for collator protocol V1)
-	pub prospective_candidate: ProspectiveCandidate,
-}
-
-/// Fetched collation data.
-#[derive(Debug, Clone)]
-pub struct FetchedCollation {
-	/// Candidate receipt.
-	pub candidate_receipt: CandidateReceipt,
-	/// Proof of validity. Wrap it in an Arc to avoid expensive copying
-	pub pov: PoV,
-	/// Optional parachain parent head data.
-	/// Only needed for elastic scaling.
-	pub maybe_parent_head_data: Option<HeadData>,
-	pub parent_head_data_hash: Hash,
-}
-
-pub enum CollationFetchOutcome {
-	TryNew(Score),
-	Success(FetchedCollation),
+	pub prospective_candidate: Option<ProspectiveCandidate>,
 }
 
 pub type CollationFetchResponse = (
 	Advertisement,
 	std::result::Result<request_v2::CollationFetchingResponse, CollationFetchError>,
 );
+
+// Any error that can occur when awaiting a collation fetch response.
+#[derive(Debug, thiserror::Error)]
+pub enum CollationFetchError {
+	#[error("Future was cancelled.")]
+	Cancelled,
+	#[error("{0}")]
+	Request(#[from] RequestError),
+}
+
+pub enum CanSecond {
+	No(Option<Score>),
+	Yes(CandidateReceipt, PoV, PersistedValidationData),
+	BlockedOnParent,
+}
 
 #[cfg(test)]
 mod tests {

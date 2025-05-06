@@ -23,9 +23,9 @@ use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use crate::{
 	validator_side_experimental::{
 		common::{
-			PeerInfo, PeerState, Score, CONNECTED_PEERS_LIMIT, CONNECTED_PEERS_PARA_LIMIT,
-			INACTIVITY_DECAY, MAX_STARTUP_ANCESTRY_LOOKBACK, MAX_STORED_SCORES_PER_PARA,
-			VALID_INCLUDED_CANDIDATE_BUMP,
+			PeerInfo, PeerState, Score, TryAcceptOutcome, CONNECTED_PEERS_LIMIT,
+			CONNECTED_PEERS_PARA_LIMIT, INACTIVITY_DECAY, MAX_STARTUP_ANCESTRY_LOOKBACK,
+			MAX_STORED_SCORES_PER_PARA, VALID_INCLUDED_CANDIDATE_BUMP,
 		},
 		error::{Error, Result},
 	},
@@ -61,34 +61,6 @@ pub struct ReputationUpdate {
 pub enum ReputationUpdateKind {
 	Bump,
 	Slash,
-}
-
-#[derive(Debug, PartialEq)]
-enum TryAcceptOutcome {
-	Added,
-	// This can hold more than one `PeerId` because before receiving the `Declare` message,
-	// one peer can hold connection slots for multiple paraids.
-	// The set can also be empty if this peer replaced some other peer's slot but that other peer
-	// maintained a connection slot for another para (therefore not disconnected).
-	// The number of peers in the set is bound to the number of scheduled paras.
-	Replaced(HashSet<PeerId>),
-	Rejected,
-}
-
-impl TryAcceptOutcome {
-	fn combine(self, other: Self) -> Self {
-		use TryAcceptOutcome::*;
-		match (self, other) {
-			(Added, Added) => Added,
-			(Rejected, Rejected) => Rejected,
-			(Added, Rejected) | (Rejected, Added) => Added,
-			(Replaced(mut replaced_a), Replaced(replaced_b)) => {
-				replaced_a.extend(replaced_b);
-				Replaced(replaced_a)
-			},
-			(_, Replaced(replaced)) | (Replaced(replaced), _) => Replaced(replaced),
-		}
-	}
 }
 
 #[derive(Debug, PartialEq)]
@@ -181,18 +153,19 @@ impl<B: Backend> PeerManager<B> {
 		self.db.prune_paras(registered_paras).await;
 	}
 
-	/// Process a potential change of the scheduled paras.
+	/// Process a potential change of the scheduled paras. Return a record of the disconnected
+	/// peers.
 	pub async fn scheduled_paras_update<Sender: CollatorProtocolSenderTrait>(
 		&mut self,
 		sender: &mut Sender,
 		scheduled_paras: BTreeSet<ParaId>,
-	) {
+	) -> HashSet<PeerId> {
 		let mut prev_scheduled_paras: BTreeSet<_> =
 			self.connected.scheduled_paras().copied().collect();
 
 		if prev_scheduled_paras == scheduled_paras {
 			// Nothing to do if the scheduled paras didn't change.
-			return
+			return HashSet::new()
 		}
 
 		// Recreate the connected peers based on the new schedule and try populating it again based
@@ -237,7 +210,9 @@ impl<B: Backend> PeerManager<B> {
 		}
 
 		// Disconnect peers that couldn't be kept.
-		self.disconnect_peers(sender, peers_to_disconnect).await;
+		self.disconnect_peers(sender, peers_to_disconnect.clone()).await;
+
+		peers_to_disconnect
 	}
 
 	/// Process a declaration message of a peer.
@@ -246,8 +221,8 @@ impl<B: Backend> PeerManager<B> {
 		sender: &mut Sender,
 		peer_id: PeerId,
 		para_id: ParaId,
-	) {
-		let Some(peer_info) = self.connected.peer_info(&peer_id).cloned() else { return };
+	) -> bool {
+		let Some(peer_info) = self.connected.peer_info(&peer_id).cloned() else { return false };
 		let outcome = self.connected.declared(peer_id, para_id);
 
 		match outcome {
@@ -258,6 +233,7 @@ impl<B: Backend> PeerManager<B> {
 					?peer_id,
 					"Peer declared",
 				);
+				true
 			},
 			DeclarationOutcome::Switched(old_para_id) => {
 				gum::debug!(
@@ -265,10 +241,9 @@ impl<B: Backend> PeerManager<B> {
 					?para_id,
 					?old_para_id,
 					?peer_id,
-					"Peer switched collating paraid. Trying to accept it on the new one.",
+					"Peer switched collating paraid. Rejected.",
 				);
-
-				self.try_accept_connection(sender, peer_id, peer_info).await;
+				false
 			},
 			DeclarationOutcome::Rejected => {
 				gum::debug!(
@@ -279,6 +254,7 @@ impl<B: Backend> PeerManager<B> {
 				);
 
 				self.disconnect_peers(sender, [peer_id].into_iter().collect()).await;
+				false
 			},
 		}
 	}
@@ -307,13 +283,13 @@ impl<B: Backend> PeerManager<B> {
 		self.connected.remove(peer_id);
 	}
 
-	/// A connection was made, triage it. Return whether or not is was kept.
+	/// A connection was made, triage it.
 	pub async fn try_accept_connection<Sender: CollatorProtocolSenderTrait>(
 		&mut self,
 		sender: &mut Sender,
 		peer_id: PeerId,
 		peer_info: PeerInfo,
-	) -> bool {
+	) -> TryAcceptOutcome {
 		let db = &self.db;
 		let reputation_query_fn = |peer_id: PeerId, para_id: ParaId| async move {
 			// Go straight to the DB. We only store in-memory the reputations of connected peers.
@@ -322,8 +298,9 @@ impl<B: Backend> PeerManager<B> {
 
 		let outcome = self.connected.try_accept(reputation_query_fn, peer_id, peer_info).await;
 
+		// TODO: move these logs a level up.
 		match outcome {
-			TryAcceptOutcome::Added => true,
+			TryAcceptOutcome::Added => TryAcceptOutcome::Added,
 			TryAcceptOutcome::Replaced(other_peers) => {
 				gum::trace!(
 					target: LOG_TARGET,
@@ -331,8 +308,8 @@ impl<B: Backend> PeerManager<B> {
 					peer_id,
 					&other_peers
 				);
-				self.disconnect_peers(sender, other_peers).await;
-				true
+				self.disconnect_peers(sender, other_peers.clone()).await;
+				TryAcceptOutcome::Replaced(other_peers)
 			},
 			TryAcceptOutcome::Rejected => {
 				gum::debug!(
@@ -341,7 +318,7 @@ impl<B: Backend> PeerManager<B> {
 					"Peer connection was rejected",
 				);
 				self.disconnect_peers(sender, [peer_id].into_iter().collect()).await;
-				false
+				TryAcceptOutcome::Rejected
 			},
 		}
 	}
@@ -351,9 +328,15 @@ impl<B: Backend> PeerManager<B> {
 		self.connected.peer_score(peer_id, para_id)
 	}
 
+	/// Retrieve the peer info associated to this PeerId, if any.
+	pub fn peer_info(&self, peer_id: &PeerId) -> Option<&PeerInfo> {
+		self.connected.peer_info(peer_id)
+	}
+
 	async fn disconnect_peers<Sender: CollatorProtocolSenderTrait>(
 		&self,
 		sender: &mut Sender,
+		// TODO: switch this to some IntoIterator
 		peers: HashSet<PeerId>,
 	) {
 		gum::trace!(

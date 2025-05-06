@@ -17,7 +17,7 @@
 use crate::LOG_TARGET;
 use fatality::Nested;
 use polkadot_node_subsystem::{ChainApiError, SubsystemError};
-use polkadot_node_subsystem_util::runtime;
+use polkadot_node_subsystem_util::{backing_implicit_view, runtime};
 use polkadot_primitives::Hash;
 
 pub type Result<T> = std::result::Result<T, Error>;
@@ -44,6 +44,11 @@ pub enum Error {
 	#[fatal]
 	#[error("Receiving message from overseer failed: {0}")]
 	SubsystemReceive(#[source] SubsystemError),
+	#[error("Unable to retrieve block number for {0:?} from implicit view")]
+	BlockNumberNotFoundInImplicitView(Hash),
+	#[fatal(forward)]
+	#[error("Failed to add leaf to implicit view: {0}")]
+	FailedToActivateLeafInImplicitView(#[from] backing_implicit_view::FetchError),
 }
 
 /// Utility for eating top level errors and log them.

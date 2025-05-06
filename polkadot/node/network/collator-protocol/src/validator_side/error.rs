@@ -19,7 +19,7 @@ use futures::channel::oneshot;
 
 use polkadot_node_subsystem::RuntimeApiError;
 use polkadot_node_subsystem_util::backing_implicit_view;
-use polkadot_primitives::vstaging::CandidateDescriptorVersion;
+use polkadot_primitives::{vstaging::CandidateDescriptorVersion, Hash};
 
 /// General result.
 pub type Result<T> = std::result::Result<T, Error>;
@@ -90,6 +90,12 @@ pub enum SecondingError {
 
 	#[error("Invalid candidate receipt version {0:?}")]
 	InvalidReceiptVersion(CandidateDescriptorVersion),
+
+	#[error("ParaId hash doesn't match the advertisement")]
+	ParaIdMismatch,
+
+	#[error("Collation seconding blocked on parent being seconded: {0}")]
+	BlockedOnParent(Hash),
 }
 
 impl SecondingError {
@@ -104,7 +110,8 @@ impl SecondingError {
 				ParentHeadDataMismatch |
 				InvalidCoreIndex(_, _) |
 				InvalidSessionIndex(_, _) |
-				InvalidReceiptVersion(_)
+				InvalidReceiptVersion(_) |
+				ParaIdMismatch
 		)
 	}
 }

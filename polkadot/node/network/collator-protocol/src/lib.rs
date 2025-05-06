@@ -106,9 +106,6 @@ pub struct CollatorProtocolSubsystem {
 #[overseer::contextbounds(CollatorProtocol, prefix = self::overseer)]
 impl CollatorProtocolSubsystem {
 	/// Start the collator protocol.
-	/// If `id` is `Some` this is a collator side of the protocol.
-	/// If `id` is `None` this is a validator side of the protocol.
-	/// Caller must provide a registry for prometheus metrics.
 	pub fn new(protocol_side: ProtocolSide) -> Self {
 		Self { protocol_side }
 	}

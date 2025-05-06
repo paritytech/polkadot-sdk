@@ -14,7 +14,9 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::validator_side::common::{Advertisement, CollationFetchError, CollationFetchResponse};
+use crate::validator_side_experimental::common::{
+	Advertisement, CollationFetchError, CollationFetchResponse, ProspectiveCandidate,
+};
 use futures::{
 	future::BoxFuture,
 	stream::{FusedStream, FuturesUnordered},
@@ -22,7 +24,8 @@ use futures::{
 	FutureExt,
 };
 use polkadot_node_network_protocol::request_response::{
-	outgoing::Recipient, v2 as request_v2, OutgoingRequest, OutgoingResult,
+	outgoing::Recipient, v1 as request_v1, v2 as request_v2, OutgoingRequest, OutgoingResult,
+	Requests,
 };
 use polkadot_primitives::CandidateHash;
 use std::{collections::HashMap, future::Future, pin::Pin};
@@ -31,48 +34,62 @@ use tokio_util::sync::CancellationToken;
 #[derive(Default)]
 pub struct PendingRequests {
 	futures: FuturesUnordered<CollationFetchRequest>,
-	pub cancellation_tokens: HashMap<CandidateHash, CancellationToken>,
+	cancellation_tokens: HashMap<Advertisement, CancellationToken>,
 }
 
 impl PendingRequests {
-	pub fn contains(&self, candidate_hash: &CandidateHash) -> bool {
-		self.cancellation_tokens.contains_key(candidate_hash)
+	pub fn contains(&self, advertisement: &Advertisement) -> bool {
+		self.cancellation_tokens.contains_key(advertisement)
 	}
 
-	pub fn launch(
-		&mut self,
-		advertisement: &Advertisement,
-	) -> OutgoingRequest<request_v2::CollationFetchingRequest> {
+	pub fn launch(&mut self, advertisement: &Advertisement) -> Requests {
 		let cancellation_token = CancellationToken::new();
-		let (req, response_recv) = OutgoingRequest::new(
-			Recipient::Peer(advertisement.peer_id),
-			request_v2::CollationFetchingRequest {
-				relay_parent: advertisement.relay_parent,
-				para_id: advertisement.para_id,
-				candidate_hash: advertisement.prospective_candidate.candidate_hash,
+
+		let (req, response_recv) = match advertisement.prospective_candidate {
+			None => {
+				let (req, response_recv) = OutgoingRequest::new(
+					Recipient::Peer(advertisement.peer_id),
+					request_v1::CollationFetchingRequest {
+						relay_parent: advertisement.relay_parent,
+						para_id: advertisement.para_id,
+					},
+				);
+				let requests = Requests::CollationFetchingV1(req);
+				(requests, response_recv.boxed())
 			},
-		);
+			Some(ProspectiveCandidate { candidate_hash, .. }) => {
+				let (req, response_recv) = OutgoingRequest::new(
+					Recipient::Peer(advertisement.peer_id),
+					request_v2::CollationFetchingRequest {
+						relay_parent: advertisement.relay_parent,
+						para_id: advertisement.para_id,
+						candidate_hash,
+					},
+				);
+				let requests = Requests::CollationFetchingV2(req);
+				(requests, response_recv.boxed())
+			},
+		};
 
 		self.futures.push(CollationFetchRequest {
 			advertisement: *advertisement,
-			from_collator: response_recv.boxed(),
+			from_collator: response_recv,
 			cancellation_token: cancellation_token.clone(),
 		});
 
-		self.cancellation_tokens
-			.insert(advertisement.prospective_candidate.candidate_hash, cancellation_token);
+		self.cancellation_tokens.insert(*advertisement, cancellation_token);
 
 		req
 	}
 
-	pub fn cancel(&mut self, candidate_hash: &CandidateHash) {
-		if let Some(cancellation_token) = self.cancellation_tokens.remove(candidate_hash) {
+	pub fn cancel(&mut self, advertisement: &Advertisement) {
+		if let Some(cancellation_token) = self.cancellation_tokens.remove(advertisement) {
 			cancellation_token.cancel();
 		}
 	}
 
-	pub fn completed(&mut self, candidate_hash: &CandidateHash) {
-		self.cancellation_tokens.remove(candidate_hash);
+	pub fn completed(&mut self, advertisement: &Advertisement) {
+		self.cancellation_tokens.remove(advertisement);
 	}
 
 	pub fn response_stream(&mut self) -> &mut impl FusedStream<Item = CollationFetchResponse> {
@@ -85,13 +102,12 @@ impl PendingRequests {
 struct CollationFetchRequest {
 	/// Info about the requested collation.
 	advertisement: Advertisement,
-	/// Responses from collator.
+	/// Responses from collator. We can directly use v2 response because the payloads are identical
+	/// for v1 and v2.
 	from_collator: BoxFuture<'static, OutgoingResult<request_v2::CollationFetchingResponse>>,
 	/// Handle used for checking if this request was cancelled.
 	cancellation_token: CancellationToken,
 }
-// TODO: we could augment this with a duration witness, so that once the request finishes, we could
-// punish only collators that waste more than X amount of our time.
 
 impl Future for CollationFetchRequest {
 	type Output = CollationFetchResponse;

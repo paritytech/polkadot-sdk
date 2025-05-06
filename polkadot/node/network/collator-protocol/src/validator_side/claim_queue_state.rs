@@ -252,7 +252,7 @@ impl ClaimQueueState {
 				?para_id,
 				?relay_parent,
 				?candidate_hash,
-				"Hash found in candidates for can't find a claim for it. This should never happen"
+				"Hash found in candidates but can't find a claim for it. This should never happen"
 			);
 
 			return false
@@ -354,6 +354,20 @@ impl ClaimQueueState {
 			{
 				w.claimed = ClaimState::Free;
 				return true
+			}
+		}
+
+		false
+	}
+
+	/// TODO
+	pub(crate) fn release_claim_for_relay_parent(&mut self, relay_parent: &Hash) -> bool {
+		for claim in self.block_state.iter_mut() {
+			if let Some(hash) = claim.hash {
+				if &hash == relay_parent {
+					claim.claimed = ClaimState::Free;
+					return true
+				}
 			}
 		}
 
@@ -647,6 +661,17 @@ impl PerLeafClaimQueueState {
 		let mut result = false;
 		for (_, state) in &mut self.leaves {
 			if state.release_claim(candidate_hash) {
+				result = true;
+			}
+		}
+		result
+	}
+
+	/// TODO
+	pub fn release_claims_for_relay_parent(&mut self, relay_parent: &Hash) -> bool {
+		let mut result = false;
+		for (_, state) in &mut self.leaves {
+			if state.release_claim_for_relay_parent(relay_parent) {
 				result = true;
 			}
 		}
