@@ -471,8 +471,6 @@ validate_stable_tag() {
         exit 1
     fi
 }
-<<<<<<< HEAD
-=======
 
 # Prepare docker stable tag form the polkadot stable tag
 #
@@ -521,4 +519,3 @@ extract_pr_number_from_pr_title() {
   fi
   echo $PR_NUMBER
 }
->>>>>>> bf1ca6f ([CI] Adjust `check-semver` job so that it uses original PR number to check prdoc for the backports PRs (#8435))
