@@ -185,7 +185,7 @@ pub mod pallet {
 	/// StorageMap used for encoding a SparseBitmapImpl that tracks whether a specific nonce has
 	/// been processed or not. Message nonces are unique and never repeated.
 	#[pallet::storage]
-	pub type NonceBitmap<T: Config> = StorageMap<_, Twox64Concat, u128, u128, ValueQuery>;
+	pub type NonceBitmap<T: Config> = StorageMap<_, Twox64Concat, u64, u128, ValueQuery>;
 
 	/// The current operating mode of the pallet.
 	#[pallet::storage]
@@ -233,13 +233,17 @@ pub mod pallet {
 			let (nonce, relayer_fee) = (message.nonce, message.relayer_fee);
 
 			// Verify the message has not been processed
-			ensure!(!Nonce::<T>::get(nonce.into()), Error::<T>::InvalidNonce);
+			ensure!(!Nonce::<T>::get(nonce), Error::<T>::InvalidNonce);
 
 			let xcm =
 				T::MessageConverter::convert(message).map_err(|error| Error::<T>::from(error))?;
 
 			// Forward XCM to AH
 			let dest = Location::new(1, [Parachain(T::AssetHubParaId::get())]);
+
+			// Mark message as received
+			Nonce::<T>::set(nonce);
+
 			let message_id =
 				Self::send_xcm(dest.clone(), &relayer, xcm.clone()).map_err(|error| {
 					tracing::error!(target: LOG_TARGET, ?error, ?dest, ?xcm, "XCM send failed with error");
@@ -254,9 +258,6 @@ pub mod pallet {
 					relayer_fee,
 				);
 			}
-
-			// Mark message as received
-			Nonce::<T>::set(nonce.into());
 
 			Self::deposit_event(Event::MessageReceived { nonce, message_id });
 

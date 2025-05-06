@@ -276,13 +276,19 @@ pub mod pallet {
 	}
 
 	#[pallet::call]
-	impl<T: Config> Pallet<T> {
+	impl<T: Config> Pallet<T>
+	where
+		<T as frame_system::Config>::AccountId: From<[u8; 32]>,
+	{
 		#[pallet::call_index(1)]
 		#[pallet::weight(T::WeightInfo::submit_delivery_receipt())]
 		pub fn submit_delivery_receipt(
 			origin: OriginFor<T>,
 			event: Box<EventProof>,
-		) -> DispatchResult {
+		) -> DispatchResult
+		where
+			<T as frame_system::Config>::AccountId: From<[u8; 32]>,
+		{
 			let relayer = ensure_signed(origin)?;
 
 			// submit message to verifier for verification
@@ -315,7 +321,8 @@ pub mod pallet {
 			Self::deposit_event(Event::MessagesCommitted { root, count });
 		}
 
-		/// Process a message delivered by the MessageQueue pallet
+		/// Process a message delivered by the MessageQueue pallet.
+		/// IMPORTANT!! This method does not roll back storage changes on error.
 		pub(crate) fn do_process_message(
 			_: ProcessMessageOriginOf<T>,
 			mut message: &[u8],
@@ -332,8 +339,6 @@ pub mod pallet {
 				});
 				return Err(Yield);
 			}
-
-			let nonce = Nonce::<T>::get();
 
 			// Decode bytes into Message
 			let Message { origin, id, fee, commands } =
@@ -355,6 +360,16 @@ pub mod pallet {
 					payload: command.abi_encode(),
 				})
 				.collect();
+
+			let nonce = <Nonce<T>>::get().checked_add(1).ok_or_else(|| {
+				Self::deposit_event(Event::MessageRejected {
+					id: None,
+					payload: message.to_vec(),
+					error: Unsupported,
+				});
+				Unsupported
+			})?;
+
 			let outbound_message = OutboundMessage {
 				origin,
 				nonce,
@@ -403,14 +418,7 @@ pub mod pallet {
 			};
 			<PendingOrders<T>>::insert(nonce, order);
 
-			Nonce::<T>::set(nonce.checked_add(1).ok_or_else(|| {
-				Self::deposit_event(Event::MessageRejected {
-					id: Some(id),
-					payload: message.to_vec(),
-					error: Unsupported,
-				});
-				Unsupported
-			})?);
+			<Nonce<T>>::set(nonce);
 
 			Self::deposit_event(Event::MessageAccepted { id, nonce });
 
@@ -421,9 +429,18 @@ pub mod pallet {
 		pub fn process_delivery_receipt(
 			relayer: <T as frame_system::Config>::AccountId,
 			receipt: DeliveryReceipt,
-		) -> DispatchResult {
+		) -> DispatchResult
+		where
+			<T as frame_system::Config>::AccountId: From<[u8; 32]>,
+		{
 			// Verify that the message was submitted from the known Gateway contract
 			ensure!(T::GatewayAddress::get() == receipt.gateway, Error::<T>::InvalidGateway);
+
+			let reward_account = if receipt.reward_address == [0u8; 32] {
+				relayer
+			} else {
+				receipt.reward_address.into()
+			};
 
 			let nonce = receipt.nonce;
 
@@ -431,7 +448,11 @@ pub mod pallet {
 
 			if order.fee > 0 {
 				// Pay relayer reward
-				T::RewardPayment::register_reward(&relayer, T::DefaultRewardKind::get(), order.fee);
+				T::RewardPayment::register_reward(
+					&reward_account,
+					T::DefaultRewardKind::get(),
+					order.fee,
+				);
 			}
 
 			<PendingOrders<T>>::remove(nonce);

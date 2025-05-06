@@ -6,8 +6,10 @@ use crate::{
 use frame_support::{parameter_types, BoundedVec};
 use hex_literal::hex;
 use snowbridge_core::{AgentIdOf, TokenIdOf};
+use sp_core::H256;
 use sp_std::default::Default;
 use xcm::{latest::WESTEND_GENESIS_HASH, prelude::SendError as XcmSendError};
+use xcm_executor::traits::ConvertLocation;
 
 parameter_types! {
 	const MaxMessageSize: u32 = u32::MAX;
@@ -82,7 +84,6 @@ fn exporter_validate_with_unknown_network_yields_not_applicable() {
 			UniversalLocation,
 			BridgedNetwork,
 			MockOkOutboundQueue,
-			AgentIdOf,
 			MockTokenIdConvert,
 			AssetHubParaId,
 		>::validate(network, channel, &mut universal_source, &mut destination, &mut message);
@@ -102,7 +103,6 @@ fn exporter_validate_with_invalid_destination_yields_missing_argument() {
 			UniversalLocation,
 			BridgedNetwork,
 			MockOkOutboundQueue,
-			AgentIdOf,
 			MockTokenIdConvert,
 			AssetHubParaId,
 		>::validate(network, channel, &mut universal_source, &mut destination, &mut message);
@@ -125,7 +125,6 @@ fn exporter_validate_with_x8_destination_yields_not_applicable() {
 			UniversalLocation,
 			BridgedNetwork,
 			MockOkOutboundQueue,
-			AgentIdOf,
 			MockTokenIdConvert,
 			AssetHubParaId,
 		>::validate(network, channel, &mut universal_source, &mut destination, &mut message);
@@ -145,7 +144,6 @@ fn exporter_validate_without_universal_source_yields_missing_argument() {
 			UniversalLocation,
 			BridgedNetwork,
 			MockOkOutboundQueue,
-			AgentIdOf,
 			MockTokenIdConvert,
 			AssetHubParaId,
 		>::validate(network, channel, &mut universal_source, &mut destination, &mut message);
@@ -165,7 +163,6 @@ fn exporter_validate_without_global_universal_location_yields_not_applicable() {
 			UniversalLocation,
 			BridgedNetwork,
 			MockOkOutboundQueue,
-			AgentIdOf,
 			MockTokenIdConvert,
 			AssetHubParaId,
 		>::validate(network, channel, &mut universal_source, &mut destination, &mut message);
@@ -185,7 +182,6 @@ fn exporter_validate_without_global_bridge_location_yields_not_applicable() {
 			UniversalLocation,
 			BridgedNetwork,
 			MockOkOutboundQueue,
-			AgentIdOf,
 			MockTokenIdConvert,
 			AssetHubParaId,
 		>::validate(network, channel, &mut universal_source, &mut destination, &mut message);
@@ -206,7 +202,6 @@ fn exporter_validate_with_remote_universal_source_yields_not_applicable() {
 			UniversalLocation,
 			BridgedNetwork,
 			MockOkOutboundQueue,
-			AgentIdOf,
 			MockTokenIdConvert,
 			AssetHubParaId,
 		>::validate(network, channel, &mut universal_source, &mut destination, &mut message);
@@ -226,7 +221,6 @@ fn exporter_validate_without_para_id_in_source_yields_not_applicable() {
 			UniversalLocation,
 			BridgedNetwork,
 			MockOkOutboundQueue,
-			AgentIdOf,
 			MockTokenIdConvert,
 			AssetHubParaId,
 		>::validate(network, channel, &mut universal_source, &mut destination, &mut message);
@@ -247,7 +241,6 @@ fn exporter_validate_complex_para_id_in_source_yields_not_applicable() {
 			UniversalLocation,
 			BridgedNetwork,
 			MockOkOutboundQueue,
-			AgentIdOf,
 			MockTokenIdConvert,
 			AssetHubParaId,
 		>::validate(network, channel, &mut universal_source, &mut destination, &mut message);
@@ -268,7 +261,6 @@ fn exporter_validate_without_xcm_message_yields_missing_argument() {
 			UniversalLocation,
 			BridgedNetwork,
 			MockOkOutboundQueue,
-			AgentIdOf,
 			MockTokenIdConvert,
 			AssetHubParaId,
 		>::validate(network, channel, &mut universal_source, &mut destination, &mut message);
@@ -317,7 +309,6 @@ fn exporter_validate_with_max_target_fee_yields_unroutable() {
 			UniversalLocation,
 			BridgedNetwork,
 			MockOkOutboundQueue,
-			AgentIdOf,
 			MockTokenIdConvert,
 			AssetHubParaId,
 		>::validate(network, channel, &mut universal_source, &mut destination, &mut message);
@@ -345,7 +336,6 @@ fn exporter_validate_with_unparsable_xcm_yields_unroutable() {
 			UniversalLocation,
 			BridgedNetwork,
 			MockOkOutboundQueue,
-			AgentIdOf,
 			MockTokenIdConvert,
 			AssetHubParaId,
 		>::validate(network, channel, &mut universal_source, &mut destination, &mut message);
@@ -393,7 +383,6 @@ fn exporter_validate_xcm_success_case_1() {
 			UniversalLocation,
 			BridgedNetwork,
 			MockOkOutboundQueue,
-			AgentIdOf,
 			MockTokenIdConvert,
 			AssetHubParaId,
 		>::validate(network, channel, &mut universal_source, &mut destination, &mut message);
@@ -407,7 +396,6 @@ fn exporter_deliver_with_submit_failure_yields_unroutable() {
 		UniversalLocation,
 		BridgedNetwork,
 		MockErrOutboundQueue,
-		AgentIdOf,
 		MockTokenIdConvert,
 		AssetHubParaId,
 	>::deliver((hex!("deadbeef").to_vec(), XcmHash::default()));
@@ -452,7 +440,6 @@ fn exporter_validate_with_invalid_dest_does_not_alter_destination() {
 			UniversalLocation,
 			BridgedNetwork,
 			MockOkOutboundQueue,
-			AgentIdOf,
 			MockTokenIdConvert,
 			AssetHubParaId,
 		>::validate(
@@ -506,7 +493,6 @@ fn exporter_validate_with_invalid_universal_source_does_not_alter_universal_sour
 			UniversalLocation,
 			BridgedNetwork,
 			MockOkOutboundQueue,
-			AgentIdOf,
 			MockTokenIdConvert,
 			AssetHubParaId,
 		>::validate(

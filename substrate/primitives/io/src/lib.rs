@@ -104,7 +104,7 @@ use sp_core::{
 	},
 	sr25519,
 	storage::StateVersion,
-	LogLevel, LogLevelFilter, OpaquePeerId, H256,
+	LogLevelFilter, OpaquePeerId, RuntimeInterfaceLogLevel, H256,
 };
 
 #[cfg(feature = "bls-experimental")]
@@ -1767,7 +1767,7 @@ pub trait Logging {
 	///
 	/// Instead of using directly, prefer setting up `RuntimeLogger` and using `log` macros.
 	fn log(
-		level: PassAs<LogLevel, u8>,
+		level: PassAs<RuntimeInterfaceLogLevel, u8>,
 		target: PassFatPointerAndRead<&str>,
 		message: PassFatPointerAndRead<&[u8]>,
 	) {
@@ -1933,7 +1933,7 @@ pub fn panic(info: &core::panic::PanicInfo) -> ! {
 	}
 	#[cfg(not(feature = "improved_panic_error_reporting"))]
 	{
-		logging::log(LogLevel::Error, "runtime", message.as_bytes());
+		logging::log(RuntimeInterfaceLogLevel::Error, "runtime", message.as_bytes());
 		unreachable();
 	}
 }
@@ -1948,7 +1948,11 @@ pub fn oom(_: core::alloc::Layout) -> ! {
 	}
 	#[cfg(not(feature = "improved_panic_error_reporting"))]
 	{
-		logging::log(LogLevel::Error, "runtime", b"Runtime memory exhausted. Aborting");
+		logging::log(
+			RuntimeInterfaceLogLevel::Error,
+			"runtime",
+			b"Runtime memory exhausted. Aborting",
+		);
 		unreachable();
 	}
 }

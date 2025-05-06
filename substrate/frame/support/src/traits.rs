@@ -106,7 +106,7 @@ mod dispatch;
 #[allow(deprecated)]
 pub use dispatch::EnsureOneOf;
 pub use dispatch::{
-	AsEnsureOriginWithArg, CallerTrait, EitherOf, EitherOfDiverse, EnsureOrigin,
+	AsEnsureOriginWithArg, Authorize, CallerTrait, EitherOf, EitherOfDiverse, EnsureOrigin,
 	EnsureOriginEqualOrHigherPrivilege, EnsureOriginWithArg, MapSuccess, NeverEnsureOrigin,
 	OriginTrait, TryMapSuccess, TryWithMorphedArg, UnfilteredDispatchable,
 };
@@ -119,9 +119,9 @@ pub use preimages::{Bounded, BoundedInline, FetchResult, QueryPreimage, StorePre
 
 mod messages;
 pub use messages::{
-	EnqueueMessage, EnqueueWithOrigin, ExecuteOverweightError, HandleMessage, NoopServiceQueues,
-	ProcessMessage, ProcessMessageError, QueueFootprint, QueuePausedQuery, ServiceQueues,
-	TransformOrigin,
+	BatchFootprint, EnqueueMessage, EnqueueWithOrigin, ExecuteOverweightError, HandleMessage,
+	NoopServiceQueues, ProcessMessage, ProcessMessageError, QueueFootprint, QueueFootprintQuery,
+	QueuePausedQuery, ServiceQueues, TransformOrigin,
 };
 
 mod safe_mode;
