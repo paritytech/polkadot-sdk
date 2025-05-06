@@ -47,7 +47,7 @@ jobs:
           echo "Labels: ${labels}"
           echo "labels=${labels}" >> "$GITHUB_OUTPUT"
 
-      - name: Get OriginalPR number
+      - name: Get Original PR number
         if: ${{ github.event.pull_request.number != '' && !contains(steps.get-labels.outputs.labels, 'R0') }}
         shell: bash
         env:
