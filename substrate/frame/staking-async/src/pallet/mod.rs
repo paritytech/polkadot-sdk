@@ -1570,7 +1570,9 @@ pub mod pallet {
 			let targets: BoundedVec<_, _> = targets
 				.into_iter()
 				.map(|n| {
-					if old.contains(&n) || !Validators::<T>::get(&n).map_or(false, |prefs| prefs.blocked) {
+					if old.contains(&n) ||
+						!Validators::<T>::get(&n).map_or(false, |prefs| prefs.blocked)
+					{
 						Ok(n)
 					} else {
 						Err(Error::<T>::BadTarget.into())
