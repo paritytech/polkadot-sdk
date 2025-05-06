@@ -3,7 +3,7 @@
 //! Converts messages from Solidity ABI-encoding to XCM
 
 use super::{message::*, traits::*};
-use crate::{v2::LOG_TARGET, CallIndex, EthereumLocationsConverterFor};
+use crate::{v2::LOG_TARGET, CallIndex};
 use codec::{Decode, DecodeLimit, Encode};
 use core::marker::PhantomData;
 use frame_support::ensure;
@@ -16,6 +16,8 @@ use xcm::{
 	prelude::{Junction::*, *},
 	MAX_XCM_DECODE_DEPTH,
 };
+use xcm_builder::ExternalConsensusLocationsConverterFor;
+use xcm_executor::traits::ConvertLocation;
 
 const MINIMUM_DEPOSIT: u128 = 1;
 
@@ -54,7 +56,9 @@ pub struct MessageToXcm<
 	ConvertAssetId,
 	GatewayProxyAddress,
 	EthereumUniversalLocation,
-	GlobalAssetHubLocation,
+	AssetHubFromEthereum,
+	AssetHubUniversalLocation,
+	AccountId,
 > {
 	_phantom: PhantomData<(
 		CreateAssetCall,
@@ -64,7 +68,9 @@ pub struct MessageToXcm<
 		ConvertAssetId,
 		GatewayProxyAddress,
 		EthereumUniversalLocation,
-		GlobalAssetHubLocation,
+		AssetHubFromEthereum,
+		AssetHubUniversalLocation,
+		AccountId,
 	)>,
 }
 
@@ -76,7 +82,9 @@ impl<
 		ConvertAssetId,
 		GatewayProxyAddress,
 		EthereumUniversalLocation,
-		GlobalAssetHubLocation,
+		AssetHubFromEthereum,
+		AssetHubUniversalLocation,
+		AccountId,
 	>
 	MessageToXcm<
 		CreateAssetCall,
@@ -86,7 +94,9 @@ impl<
 		ConvertAssetId,
 		GatewayProxyAddress,
 		EthereumUniversalLocation,
-		GlobalAssetHubLocation,
+		AssetHubFromEthereum,
+		AssetHubUniversalLocation,
+		AccountId,
 	>
 where
 	CreateAssetCall: Get<CallIndex>,
@@ -96,7 +106,9 @@ where
 	ConvertAssetId: MaybeEquivalence<TokenId, Location>,
 	GatewayProxyAddress: Get<H160>,
 	EthereumUniversalLocation: Get<InteriorLocation>,
-	GlobalAssetHubLocation: Get<Location>,
+	AssetHubFromEthereum: Get<Location>,
+	AssetHubUniversalLocation: Get<InteriorLocation>,
+	AccountId: Into<[u8; 32]> + From<[u8; 32]> + Clone,
 {
 	/// Parse the message into an intermediate form, with all fields decoded
 	/// and prepared.
@@ -110,7 +122,9 @@ where
 			// Get the claimer from the message,
 			.and_then(|claimer_bytes| Location::decode(&mut claimer_bytes.as_ref()).ok())
 			// or use the Snowbridge sovereign on AH as the fallback claimer.
-			.unwrap_or_else(|| Location::new(0, [AccountId32 { network: None, id: bridge_owner }]));
+			.unwrap_or_else(|| {
+				Location::new(0, [AccountId32 { network: None, id: bridge_owner.clone().into() }])
+			});
 
 		let mut remote_xcm: Xcm<()> = match &message.xcm {
 			XcmPayload::Raw(raw) => Self::decode_raw_xcm(raw),
@@ -152,10 +166,7 @@ where
 					let asset_loc = ConvertAssetId::convert(&token_id)
 						.ok_or(ConvertMessageError::InvalidAsset)?;
 					let reanchored_asset_loc = asset_loc
-						.reanchored(
-							&GlobalAssetHubLocation::get(),
-							&EthereumUniversalLocation::get(),
-						)
+						.reanchored(&AssetHubFromEthereum::get(), &EthereumUniversalLocation::get())
 						.map_err(|_| ConvertMessageError::CannotReanchor)?;
 					let asset: Asset = (reanchored_asset_loc, *value).into();
 					assets.push(AssetTransfer::ReserveWithdraw(asset));
@@ -180,14 +191,15 @@ where
 		Ok(prepared_message)
 	}
 
-	/// Get the bridge owner account ID from the current Ethereum network chain ID.
-	/// Returns an error if the network is not Ethereum.
-	fn bridge_owner() -> Result<[u8; 32], ConvertMessageError> {
-		let chain_id = match EthereumNetwork::get() {
-			NetworkId::Ethereum { chain_id } => chain_id,
-			_ => return Err(ConvertMessageError::InvalidNetwork),
-		};
-		Ok(EthereumLocationsConverterFor::<[u8; 32]>::from_chain_id(&chain_id))
+	/// Get sovereign account of Ethereum on Asset Hub.
+	fn bridge_owner() -> Result<AccountId, ConvertMessageError> {
+		let account =
+			ExternalConsensusLocationsConverterFor::<AssetHubUniversalLocation, AccountId>::convert_location(
+				&Location::new(2, [GlobalConsensus(EthereumNetwork::get())]),
+			)
+			.ok_or(ConvertMessageError::CannotReanchor)?;
+
+		Ok(account)
 	}
 
 	/// Construct the remote XCM needed to create a new asset in the `ForeignAssets` pallet
@@ -196,7 +208,7 @@ where
 		token: &H160,
 		network: super::message::Network,
 		eth_value: u128,
-		bridge_owner: [u8; 32],
+		bridge_owner: AccountId,
 		claimer: Location,
 	) -> Result<Xcm<()>, ConvertMessageError> {
 		let dot_asset = Location::new(1, Here);
@@ -231,11 +243,12 @@ where
 	fn make_create_asset_xcm_for_polkadot(
 		create_call_index: [u8; 2],
 		asset_id: Location,
-		bridge_owner: [u8; 32],
+		bridge_owner: AccountId,
 		dot_fee_asset: xcm::prelude::Asset,
 		eth_asset: xcm::prelude::Asset,
 		claimer: Location,
 	) -> Xcm<()> {
+		let bridge_owner_bytes: [u8; 32] = bridge_owner.into();
 		vec![
 			// Exchange eth for dot to pay the asset creation deposit.
 			ExchangeAsset {
@@ -245,7 +258,10 @@ where
 			},
 			// Deposit the dot deposit into the bridge sovereign account (where the asset
 			// creation fee will be deducted from).
-			DepositAsset { assets: dot_fee_asset.clone().into(), beneficiary: bridge_owner.into() },
+			DepositAsset {
+				assets: dot_fee_asset.clone().into(),
+				beneficiary: bridge_owner_bytes.into(),
+			},
 			// Call to create the asset.
 			Transact {
 				origin_kind: OriginKind::Xcm,
@@ -253,7 +269,7 @@ where
 				call: (
 					create_call_index,
 					asset_id.clone(),
-					MultiAddress::<[u8; 32], ()>::Id(bridge_owner.into()),
+					MultiAddress::<[u8; 32], ()>::Id(bridge_owner_bytes.into()),
 					MINIMUM_DEPOSIT,
 				)
 					.encode()
@@ -292,7 +308,9 @@ impl<
 		ConvertAssetId,
 		GatewayProxyAddress,
 		EthereumUniversalLocation,
-		GlobalAssetHubLocation,
+		AssetHubFromEthereum,
+		AssetHubUniversalLocation,
+		AccountId,
 	> ConvertMessage
 	for MessageToXcm<
 		CreateAssetCall,
@@ -302,7 +320,9 @@ impl<
 		ConvertAssetId,
 		GatewayProxyAddress,
 		EthereumUniversalLocation,
-		GlobalAssetHubLocation,
+		AssetHubFromEthereum,
+		AssetHubUniversalLocation,
+		AccountId,
 	>
 where
 	CreateAssetCall: Get<CallIndex>,
@@ -312,7 +332,9 @@ where
 	ConvertAssetId: MaybeEquivalence<TokenId, Location>,
 	GatewayProxyAddress: Get<H160>,
 	EthereumUniversalLocation: Get<InteriorLocation>,
-	GlobalAssetHubLocation: Get<Location>,
+	AssetHubFromEthereum: Get<Location>,
+	AssetHubUniversalLocation: Get<InteriorLocation>,
+	AccountId: Into<[u8; 32]> + From<[u8; 32]> + Clone,
 {
 	fn convert(message: Message) -> Result<Xcm<()>, ConvertMessageError> {
 		let message = Self::prepare(message)?;
@@ -376,30 +398,25 @@ mod tests {
 	use frame_support::{assert_err, assert_ok, parameter_types};
 	use hex_literal::hex;
 	use snowbridge_core::TokenId;
+	use snowbridge_test_utils::mock_converter::{
+		add_location_override, reanchor_to_ethereum, LocationIdConvert,
+	};
 	use sp_core::{H160, H256};
 	use sp_runtime::traits::MaybeEquivalence;
-	use xcm::opaque::latest::WESTEND_GENESIS_HASH;
 	const GATEWAY_ADDRESS: [u8; 20] = hex!["eda338e4dc46038493b885327842fd3e301cab39"];
 
 	parameter_types! {
-		pub const EthereumNetwork: xcm::v5::NetworkId = xcm::v5::NetworkId::Ethereum { chain_id: 11155111 };
+		pub const EthereumNetwork: xcm::v5::NetworkId = xcm::v5::NetworkId::Ethereum { chain_id: 1 };
 		pub const GatewayAddress: H160 = H160(GATEWAY_ADDRESS);
 		pub InboundQueueLocation: InteriorLocation = [PalletInstance(84)].into();
-		pub UniversalLocation: InteriorLocation =
-			[GlobalConsensus(ByGenesis(WESTEND_GENESIS_HASH)), Parachain(1002)].into();
-		pub AssetHubFromEthereum: Location = Location::new(1,[GlobalConsensus(ByGenesis(WESTEND_GENESIS_HASH)),Parachain(1000)]);
+		pub EthereumUniversalLocation: InteriorLocation =
+			[GlobalConsensus(EthereumNetwork::get())].into();
+		pub AssetHubFromEthereum: Location = Location::new(1,[GlobalConsensus(Polkadot),Parachain(1000)]);
+		pub AssetHubUniversalLocation: InteriorLocation = [GlobalConsensus(Polkadot),Parachain(1000)].into();
 		pub const CreateAssetCall: [u8;2] = [53, 0];
 		pub const CreateAssetDeposit: u128 = 10_000_000_000u128;
-	}
-
-	pub struct MockTokenIdConvert;
-	impl MaybeEquivalence<TokenId, Location> for MockTokenIdConvert {
-		fn convert(_id: &TokenId) -> Option<Location> {
-			Some(Location::parent())
-		}
-		fn convert_back(_loc: &Location) -> Option<TokenId> {
-			None
-		}
+		pub EthereumLocation: Location = Location::new(2,EthereumUniversalLocation::get());
+		pub BridgeHubContext: InteriorLocation = [GlobalConsensus(Polkadot),Parachain(1002)].into();
 	}
 
 	pub struct MockFailedTokenConvert;
@@ -417,10 +434,12 @@ mod tests {
 		CreateAssetDeposit,
 		EthereumNetwork,
 		InboundQueueLocation,
-		MockTokenIdConvert,
+		LocationIdConvert,
 		GatewayAddress,
-		UniversalLocation,
+		EthereumUniversalLocation,
 		AssetHubFromEthereum,
+		AssetHubUniversalLocation,
+		[u8; 32],
 	>;
 
 	type ConverterFailing = MessageToXcm<
@@ -430,8 +449,10 @@ mod tests {
 		InboundQueueLocation,
 		MockFailedTokenConvert,
 		GatewayAddress,
-		UniversalLocation,
+		EthereumUniversalLocation,
 		AssetHubFromEthereum,
+		AssetHubUniversalLocation,
+		[u8; 32],
 	>;
 
 	#[test]
@@ -439,8 +460,13 @@ mod tests {
 		sp_io::TestExternalities::default().execute_with(|| {
 			let origin: H160 = hex!("29e3b139f4393adda86303fcdaa35f60bb7092bf").into();
 			let native_token_id: H160 = hex!("5615deb798bb3e4dfa0139dfa1b3d433cc23b72f").into();
-			let foreign_token_id: H256 =
-				hex!("37a6c666da38711a963d938eafdd09314fd3f95a96a3baffb55f26560f4ecdd8").into();
+			let dot_location = Location::parent();
+			let (foreign_token_id, _) = reanchor_to_ethereum(
+				dot_location.clone(),
+				EthereumLocation::get(),
+				BridgeHubContext::get(),
+			);
+			add_location_override(dot_location, EthereumLocation::get(), BridgeHubContext::get());
 			let beneficiary: Location =
 				hex!("908783d8cd24c9e02cee1d26ab9c46d458621ad0150b626c536a40b9df3f09c6").into();
 			let token_value = 3_000_000_000_000u128;
@@ -544,7 +570,7 @@ mod tests {
 				}
 				if let WithdrawAsset(ref withdraw_assets) = instruction {
 					withdraw_assets_found += 1;
-					let token_asset = Location::new(2, Here);
+					let token_asset = Location::new(1, Here);
 					let token: Asset = (token_asset, token_value).into();
 					let token_assets: Assets = token.into();
 					assert_eq!(token_assets, withdraw_assets.clone());
@@ -579,17 +605,13 @@ mod tests {
 	fn test_message_with_gateway_origin_does_not_descend_origin_into_sender() {
 		let origin: H160 = GatewayAddress::get();
 		let native_token_id: H160 = hex!("5615deb798bb3e4dfa0139dfa1b3d433cc23b72f").into();
-		let foreign_token_id: H256 =
-			hex!("37a6c666da38711a963d938eafdd09314fd3f95a96a3baffb55f26560f4ecdd8").into();
 		let beneficiary =
 			hex!("908783d8cd24c9e02cee1d26ab9c46d458621ad0150b626c536a40b9df3f09c6").into();
 		let message_id: H256 =
 			hex!("8b69c7e376e28114618e829a7ec768dbda28357d359ba417a3bd79b11215059d").into();
 		let token_value = 3_000_000_000_000u128;
-		let assets = vec![
-			EthereumAsset::NativeTokenERC20 { token_id: native_token_id, value: token_value },
-			EthereumAsset::ForeignTokenERC20 { token_id: foreign_token_id, value: token_value },
-		];
+		let assets =
+			vec![EthereumAsset::NativeTokenERC20 { token_id: native_token_id, value: token_value }];
 		let instructions = vec![
 			DepositAsset { assets: Wild(AllCounted(1).into()), beneficiary },
 			SetTopic(message_id.into()),
@@ -673,12 +695,14 @@ mod tests {
 	fn test_invalid_claimer() {
 		sp_io::TestExternalities::default().execute_with(|| {
 			let origin: H160 = hex!("29e3b139f4393adda86303fcdaa35f60bb7092bf").into();
-			let token_id: H256 =
-				hex!("37a6c666da38711a963d938eafdd09314fd3f95a96a3baffb55f26560f4ecdd8").into();
+			let native_token_id: H160 = hex!("5615deb798bb3e4dfa0139dfa1b3d433cc23b72f").into();
 			let beneficiary =
 				hex!("908783d8cd24c9e02cee1d26ab9c46d458621ad0150b626c536a40b9df3f09c6").into();
 			let token_value = 3_000_000_000_000u128;
-			let assets = vec![EthereumAsset::ForeignTokenERC20 { token_id, value: token_value }];
+			let assets = vec![EthereumAsset::NativeTokenERC20 {
+				token_id: native_token_id,
+				value: token_value,
+			}];
 			let instructions =
 				vec![DepositAsset { assets: Wild(AllCounted(1).into()), beneficiary }];
 			let xcm: Xcm<()> = instructions.into();
@@ -725,11 +749,14 @@ mod tests {
 			}
 
 			// actual claimer should default to Snowbridge sovereign account
-			let chain_id = match EthereumNetwork::get() {
-				NetworkId::Ethereum { chain_id } => chain_id,
-				_ => 0,
-			};
-			let bridge_owner = EthereumLocationsConverterFor::<[u8; 32]>::from_chain_id(&chain_id);
+			let bridge_owner = ExternalConsensusLocationsConverterFor::<
+				AssetHubUniversalLocation,
+				[u8; 32],
+			>::convert_location(&Location::new(
+				2,
+				[GlobalConsensus(EthereumNetwork::get())],
+			))
+			.unwrap();
 			assert_eq!(
 				actual_claimer,
 				Some(Location::new(0, [AccountId32 { network: None, id: bridge_owner }]))
@@ -741,10 +768,12 @@ mod tests {
 	fn test_invalid_xcm() {
 		sp_io::TestExternalities::default().execute_with(|| {
 			let origin: H160 = hex!("29e3b139f4393adda86303fcdaa35f60bb7092bf").into();
-			let token_id: H256 =
-				hex!("37a6c666da38711a963d938eafdd09314fd3f95a96a3baffb55f26560f4ecdd8").into();
+			let native_token_id: H160 = hex!("5615deb798bb3e4dfa0139dfa1b3d433cc23b72f").into();
 			let token_value = 3_000_000_000_000u128;
-			let assets = vec![EthereumAsset::ForeignTokenERC20 { token_id, value: token_value }];
+			let assets = vec![EthereumAsset::NativeTokenERC20 {
+				token_id: native_token_id,
+				value: token_value,
+			}];
 			// invalid xcm
 			let versioned_xcm = hex!("8b69c7e376e28114618e829a7ec7").to_vec();
 			let claimer_account = AccountId32 { network: None, id: H256::random().into() };

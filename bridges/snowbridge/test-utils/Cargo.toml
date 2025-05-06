@@ -21,6 +21,7 @@ frame-support = { workspace = true, default-features = true }
 frame-system = { workspace = true, default-features = true }
 log = { workspace = true, default-features = true }
 scale-info = { features = ["derive"], workspace = true, default-features = true }
+snowbridge-core = { workspace = true, default-features = true }
 snowbridge-outbound-queue-primitives = { workspace = true, default-features = true }
 sp-core = { workspace = true, default-features = true }
 xcm = { workspace = true, default-features = true }
@@ -32,6 +33,7 @@ runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
+	"snowbridge-core/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",
 	"xcm-executor/runtime-benchmarks",
 	"xcm/runtime-benchmarks",
