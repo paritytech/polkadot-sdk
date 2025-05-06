@@ -674,10 +674,12 @@ where
 			has_error |= result.is_err();
 
 			match result {
-				Ok(BlockImportStatus::ImportedKnown(number, peer_id)) =>
+				Ok(BlockImportStatus::ImportedKnown(number, peer_id)) => {
 					if let Some(peer) = peer_id {
 						self.update_peer_common_number(&peer, number);
-					},
+					}
+					self.maybe_complete_gap_sync(number);
+				},
 				Ok(BlockImportStatus::ImportedUnknown(number, aux, peer_id)) => {
 					if aux.clear_justification_requests {
 						trace!(
@@ -720,15 +722,8 @@ where
 						self.mode = ChainSyncMode::Full;
 						self.restart();
 					}
-					let gap_sync_complete =
-						self.gap_sync.as_ref().map_or(false, |s| s.target == number);
-					if gap_sync_complete {
-						info!(
-							target: LOG_TARGET,
-							"Block history download is complete."
-						);
-						self.gap_sync = None;
-					}
+
+					self.maybe_complete_gap_sync(number);
 				},
 				Err(BlockImportError::IncompleteHeader(peer_id)) =>
 					if let Some(peer) = peer_id {
@@ -990,6 +985,18 @@ where
 		});
 
 		Ok(sync)
+	}
+
+	/// Complete the gap sync if the target number is reached and there is a gap.
+	fn maybe_complete_gap_sync(&mut self, number: NumberFor<B>) {
+		let gap_sync_complete = self.gap_sync.as_ref().map_or(false, |s| s.target == number);
+		if gap_sync_complete {
+			info!(
+				target: LOG_TARGET,
+				"Block history download is complete."
+			);
+			self.gap_sync = None;
+		}
 	}
 
 	#[must_use]
