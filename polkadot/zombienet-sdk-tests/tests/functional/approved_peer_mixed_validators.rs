@@ -12,6 +12,7 @@ use cumulus_zombienet_sdk_helpers::{assert_finality_lag, assert_finalized_para_t
 use polkadot_primitives::Id as ParaId;
 use serde_json::json;
 use subxt::{OnlineClient, PolkadotConfig};
+use zombienet_orchestrator::network::node::{LogLineCount, LogLineCountOptions};
 use zombienet_sdk::NetworkConfigBuilder;
 
 #[tokio::test(flavor = "multi_thread")]
@@ -111,14 +112,14 @@ async fn approved_peer_mixed_validators_test() -> Result<(), anyhow::Error> {
 	assert_finality_lag(&relay_node.wait_client().await?, 5).await?;
 
 	let old_relay_node = network.get_node("old-validator-9")?;
-	old_relay_node
+	let log_line_count = old_relay_node
 		.wait_log_line_count_with_timeout(
 			"Validation yielded an invalid candidate",
 			false,
-			1_usize,
-			1_u64,
+			LogLineCountOptions::new(|n| n == 1, 1u64, false),
 		)
 		.await?;
+	assert!(matches!(log_line_count, LogLineCount::TargetReached(..)));
 
 	// Check that no disputes are raised.
 	assert!(relay_node

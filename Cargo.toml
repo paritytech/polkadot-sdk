@@ -1447,8 +1447,10 @@ xcm-runtime-apis = { path = "polkadot/xcm/xcm-runtime-apis", default-features = 
 xcm-simulator = { path = "polkadot/xcm/xcm-simulator", default-features = false }
 yet-another-parachain-runtime = { path = "cumulus/parachains/runtimes/testing/yet-another-parachain" }
 zeroize = { version = "1.7.0", default-features = false }
-zombienet-configuration = { version = "0.2.30" }
-zombienet-sdk = { version = "0.2.30" }
+# use git temporarily until released zombienet-sdk does not include https://github.com/paritytech/zombienet-sdk/pull/333
+zombienet-configuration = { git = "https://github.com/paritytech/zombienet-sdk.git", rev = "4b016ce3fbac015b94507fe4554f43832cc49fa3" }
+zombienet-orchestrator = { git = "https://github.com/paritytech/zombienet-sdk.git", rev = "4b016ce3fbac015b94507fe4554f43832cc49fa3" }
+zombienet-sdk = { git = "https://github.com/paritytech/zombienet-sdk.git", rev = "4b016ce3fbac015b94507fe4554f43832cc49fa3" }
 zstd = { version = "0.12.4", default-features = false }
 
 [profile.release]
