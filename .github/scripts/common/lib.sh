@@ -519,8 +519,6 @@ prepare_docker_stable_tag() {
       exit 1
   fi
 }
-<<<<<<< HEAD
-=======
 
 # Parse names of the branches from the github labels based on the pattern
 #
@@ -555,4 +553,3 @@ extract_pr_number_from_pr_title() {
   fi
   echo $PR_NUMBER
 }
->>>>>>> bf1ca6f5 ([CI] Adjust `check-semver` job so that it uses original PR number to check prdoc for the backports PRs (#8435))

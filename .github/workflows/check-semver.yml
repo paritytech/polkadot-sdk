@@ -72,18 +72,11 @@ jobs:
           rustup default $TOOLCHAIN
           rustup component add rust-src --toolchain $TOOLCHAIN
 
-<<<<<<< HEAD
-      - name: install parity-publish
-=======
       - name: Install parity-publish
         if: ${{ !contains(github.event.pull_request.labels.*.name, 'R0-silent') }}
->>>>>>> bf1ca6f5 ([CI] Adjust `check-semver` job so that it uses original PR number to check prdoc for the backports PRs (#8435))
         # Set the target dir to cache the build.
         run: CARGO_TARGET_DIR=./target/ cargo install parity-publish@0.8.0 --locked -q
 
-<<<<<<< HEAD
-      - name: check semver
-=======
       - name: Get original PR number
         if: ${{ !contains(github.event.pull_request.labels.*.name, 'R0-silent') }}
         shell: bash
@@ -109,7 +102,6 @@ jobs:
         env:
           PRDOC_EXTRA_ARGS: ${{ env.PRDOC_EXTRA_ARGS }}
           PR: ${{ env.PR_NUMBER }}
->>>>>>> bf1ca6f5 ([CI] Adjust `check-semver` job so that it uses original PR number to check prdoc for the backports PRs (#8435))
         run: |
           export CARGO_TARGET_DIR=target
           export RUSTFLAGS='-A warnings -A missing_docs'
