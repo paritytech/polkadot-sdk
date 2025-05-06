@@ -488,6 +488,8 @@ pub type Barrier = (
 pub type XcmRouter =
 	EnsureDecodableXcm<(TestPaidForPara3000SendXcm, TestSendXcmErrX8, TestSendXcm)>;
 
+pub type Trader = FixedRateOfFungible<CurrencyPerSecondPerByte, ()>;
+
 pub struct XcmConfig;
 impl xcm_executor::Config for XcmConfig {
 	type RuntimeCall = RuntimeCall;
@@ -506,7 +508,7 @@ impl xcm_executor::Config for XcmConfig {
 	type UniversalLocation = UniversalLocation;
 	type Barrier = Barrier;
 	type Weigher = FixedWeightBounds<BaseXcmWeight, RuntimeCall, MaxInstructions>;
-	type Trader = FixedRateOfFungible<CurrencyPerSecondPerByte, ()>;
+	type Trader = Trader;
 	type ResponseHandler = XcmPallet;
 	type AssetTrap = XcmPallet;
 	type AssetLocker = ();
