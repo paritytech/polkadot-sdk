@@ -1670,6 +1670,7 @@ where
 				executable,
 				salt,
 				input_data: input_data.as_ref(),
+				is_transaction: self.exec_context == ExecContext::Transaction,
 			},
 			value.try_into().map_err(|_| Error::<T>::BalanceConversionFailed)?,
 			gas_limit,
