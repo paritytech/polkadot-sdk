@@ -59,6 +59,7 @@ fn construct_extrinsic(
 	let account_id = sp_core::crypto::AccountId32::from(sender.public());
 	frame_system::BlockHash::<Runtime>::insert(0, Hash::default());
 	let tx_ext: TxExtension = (
+		frame_system::AuthorizeCall::<Runtime>::new(),
 		frame_system::CheckNonZeroSender::<Runtime>::new(),
 		frame_system::CheckSpecVersion::<Runtime>::new(),
 		frame_system::CheckTxVersion::<Runtime>::new(),
