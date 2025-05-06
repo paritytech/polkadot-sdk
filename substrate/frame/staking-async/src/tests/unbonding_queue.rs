@@ -371,6 +371,48 @@ fn correct_unbond_era_is_being_calculated_2() {
 }
 
 #[test]
+fn correct_unbond_era_is_being_calculated_3() {
+	ExtBuilder::default().build_and_execute(|| {
+		assert_ok!(Staking::set_staking_configs(
+			RuntimeOrigin::root(),
+			ConfigOp::Noop,
+			ConfigOp::Noop,
+			ConfigOp::Noop,
+			ConfigOp::Noop,
+			ConfigOp::Noop,
+			ConfigOp::Noop,
+			ConfigOp::Noop,
+			ConfigOp::Set(UnbondingQueueConfig {
+				min_slashable_share: Perbill::from_percent(50),
+				lowest_ratio: Perbill::from_percent(34),
+				unbond_period_lower_bound: 1,
+				back_of_unbonding_queue_era: 0,
+			})
+		));
+
+		// Start at era 1.
+		let current_era = Staking::current_era();
+		assert_eq!(current_era, 1);
+
+		// Set a known minimum lowest stake.
+		assert_ok!(EraLowestRatioTotalStake::<Test>::try_append(1000));
+		assert_eq!(UnbondingQueueParams::<Test>::get().unwrap().back_of_unbonding_queue_era, 0);
+
+		// This test proves that if chunking the total stake to unbond it is possible to yield the
+		// lowest possible delay.
+		// TODO: check this is the right approach.
+		for _ in 0..10 {
+			// Unbond with amount requiring lower bound (delta = 0 → use lower bound 1)
+			let unbond_era = Staking::process_unbond_queue_request(current_era, 100);
+			assert_eq!(unbond_era, 1 + 1); // 2
+
+			// max(current_era, previous_back) + delta = 1 + 0 = 1
+			assert_eq!(UnbondingQueueParams::<Test>::get().unwrap().back_of_unbonding_queue_era, 1);
+		}
+	});
+}
+
+#[test]
 fn correct_unbond_era_is_being_calculated_without_config_set() {
 	ExtBuilder::default().build_and_execute(|| {
 		assert_ok!(Staking::set_staking_configs(
