@@ -1273,3 +1273,71 @@ fn sync_verification_failed_with_gap_filled() {
 		}
 	}
 }
+
+#[test]
+fn sync_gap_filled_regardless_of_blocks_origin() {
+	sp_tracing::try_init_simple();
+
+	let blocks = {
+		let client = TestClientBuilder::new().build();
+		(0..2).map(|_| build_block(&client, None, false)).collect::<Vec<_>>()
+	};
+
+	let client = Arc::new(TestClientBuilder::new().build());
+	let mut sync = ChainSync::new(
+		ChainSyncMode::Full,
+		client.clone(),
+		5,
+		64,
+		ProtocolName::Static(""),
+		Arc::new(MockBlockDownloader::new()),
+		None,
+		std::iter::empty(),
+	)
+	.unwrap();
+
+	let peer_id1 = PeerId::random();
+
+	// BlockImportStatus::ImportedUnknown clears the gap.
+	{
+		// Simulate that we encounter a `VerificationFailed` error while processing the blocks
+		// and the client.info() reports a gap.
+		sync.gap_sync = Some(GapSync {
+			best_queued_number: *blocks[0].header().number(),
+			target: *blocks[0].header().number(),
+			blocks: BlockCollection::new(),
+		});
+
+		// Announce the block as unknown.
+		let results = [(
+			Ok(BlockImportStatus::ImportedUnknown(
+				*blocks[0].header().number(),
+				Default::default(),
+				Some(peer_id1),
+			)),
+			blocks[0].hash(),
+		)];
+		sync.on_blocks_processed(1, 1, results.into_iter().collect());
+		// Ensure the gap is cleared out.
+		assert!(sync.gap_sync.is_none());
+	}
+
+	// BlockImportStatus::ImportedKnown also clears the gap.
+	{
+		sync.gap_sync = Some(GapSync {
+			best_queued_number: *blocks[0].header().number(),
+			target: *blocks[0].header().number(),
+			blocks: BlockCollection::new(),
+		});
+
+		// Announce the block as known.
+		let results = [(
+			Ok(BlockImportStatus::ImportedKnown(*blocks[0].header().number(), Some(peer_id1))),
+			blocks[0].hash(),
+		)];
+
+		sync.on_blocks_processed(1, 1, results.into_iter().collect());
+		// Ensure the gap is cleared out.
+		assert!(sync.gap_sync.is_none());
+	}
+}
