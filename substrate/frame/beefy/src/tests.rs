@@ -319,6 +319,8 @@ fn report_equivocation_current_set_works(
 	hardcoded_slash_fraction: Option<Perbill>,
 ) {
 	let authorities = test_authorities();
+	let initial_balance = 10_000_000;
+	let initial_slashable_balance = 10_000;
 
 	ExtBuilder::default().add_authorities(authorities).build_and_execute(|| {
 		assert_eq!(pallet_staking::CurrentEra::<Test>::get(), Some(0));
@@ -334,12 +336,16 @@ fn report_equivocation_current_set_works(
 
 		// make sure that all validators have the same balance
 		for validator in &validators {
-			assert_eq!(Balances::total_balance(validator), 10_000_000);
-			assert_eq!(Staking::slashable_balance_of(validator), 10_000);
+			assert_eq!(Balances::total_balance(validator), initial_balance);
+			assert_eq!(Staking::slashable_balance_of(validator), initial_slashable_balance);
 
 			assert_eq!(
 				Staking::eras_stakers(1, &validator),
-				pallet_staking::Exposure { total: 10_000, own: 10_000, others: vec![] },
+				pallet_staking::Exposure {
+					total: initial_slashable_balance,
+					own: initial_slashable_balance,
+					others: vec![]
+				},
 			);
 		}
 
@@ -362,20 +368,19 @@ fn report_equivocation_current_set_works(
 		if let Some(slash_fraction) = hardcoded_slash_fraction {
 			assert_eq!(
 				Balances::total_balance(&equivocation_validator_id),
-				10_000_000 - slash_fraction.mul(10_000)
+				initial_balance - slash_fraction.mul(initial_slashable_balance)
 			);
 			assert_eq!(
 				Staking::slashable_balance_of(&equivocation_validator_id),
-				Perbill::from_percent(100).sub(slash_fraction).mul(10_000)
+				Perbill::from_percent(100).sub(slash_fraction).mul(initial_slashable_balance)
 			);
 		} else {
-			assert_eq!(Balances::total_balance(&equivocation_validator_id), 10_000_000 - 10_000);
+			assert_eq!(
+				Balances::total_balance(&equivocation_validator_id),
+				initial_balance - initial_slashable_balance
+			);
 			assert_eq!(Staking::slashable_balance_of(&equivocation_validator_id), 0);
 		}
-		assert_eq!(
-			Staking::eras_stakers(2, &equivocation_validator_id),
-			pallet_staking::Exposure { total: 0, own: 0, others: vec![] },
-		);
 		assert_eq!(
 			Staking::eras_stakers(2, &equivocation_validator_id),
 			pallet_staking::Exposure { total: 0, own: 0, others: vec![] },
@@ -387,12 +392,16 @@ fn report_equivocation_current_set_works(
 				continue
 			}
 
-			assert_eq!(Balances::total_balance(validator), 10_000_000);
-			assert_eq!(Staking::slashable_balance_of(validator), 10_000);
+			assert_eq!(Balances::total_balance(validator), initial_balance);
+			assert_eq!(Staking::slashable_balance_of(validator), initial_slashable_balance);
 
 			assert_eq!(
 				Staking::eras_stakers(2, &validator),
-				pallet_staking::Exposure { total: 10_000, own: 10_000, others: vec![] },
+				pallet_staking::Exposure {
+					total: initial_slashable_balance,
+					own: initial_slashable_balance,
+					others: vec![]
+				},
 			);
 		}
 	});
@@ -403,6 +412,8 @@ fn report_equivocation_old_set_works(
 	hardcoded_slash_fraction: Option<Perbill>,
 ) {
 	let authorities = test_authorities();
+	let initial_balance = 10_000_000;
+	let initial_slashable_balance = 10_000;
 
 	ExtBuilder::default().add_authorities(authorities).build_and_execute(|| {
 		start_era(1);
@@ -424,12 +435,16 @@ fn report_equivocation_old_set_works(
 
 		// make sure that all authorities have the same balance
 		for validator in &validators {
-			assert_eq!(Balances::total_balance(validator), 10_000_000);
-			assert_eq!(Staking::slashable_balance_of(validator), 10_000);
+			assert_eq!(Balances::total_balance(validator), initial_balance);
+			assert_eq!(Staking::slashable_balance_of(validator), initial_slashable_balance);
 
 			assert_eq!(
 				Staking::eras_stakers(2, &validator),
-				pallet_staking::Exposure { total: 10_000, own: 10_000, others: vec![] },
+				pallet_staking::Exposure {
+					total: initial_slashable_balance,
+					own: initial_slashable_balance,
+					others: vec![]
+				},
 			);
 		}
 
@@ -450,14 +465,17 @@ fn report_equivocation_old_set_works(
 		if let Some(slash_fraction) = hardcoded_slash_fraction {
 			assert_eq!(
 				Balances::total_balance(&equivocation_validator_id),
-				10_000_000 - slash_fraction.mul(10_000)
+				initial_balance - slash_fraction.mul(initial_slashable_balance)
 			);
 			assert_eq!(
 				Staking::slashable_balance_of(&equivocation_validator_id),
-				Perbill::from_percent(100).sub(slash_fraction).mul(10_000)
+				Perbill::from_percent(100).sub(slash_fraction).mul(initial_slashable_balance)
 			);
 		} else {
-			assert_eq!(Balances::total_balance(&equivocation_validator_id), 10_000_000 - 10_000);
+			assert_eq!(
+				Balances::total_balance(&equivocation_validator_id),
+				initial_balance - initial_slashable_balance
+			);
 			assert_eq!(Staking::slashable_balance_of(&equivocation_validator_id), 0);
 		}
 		assert_eq!(
@@ -471,12 +489,16 @@ fn report_equivocation_old_set_works(
 				continue
 			}
 
-			assert_eq!(Balances::total_balance(validator), 10_000_000);
-			assert_eq!(Staking::slashable_balance_of(validator), 10_000);
+			assert_eq!(Balances::total_balance(validator), initial_balance);
+			assert_eq!(Staking::slashable_balance_of(validator), initial_slashable_balance);
 
 			assert_eq!(
 				Staking::eras_stakers(3, &validator),
-				pallet_staking::Exposure { total: 10_000, own: 10_000, others: vec![] },
+				pallet_staking::Exposure {
+					total: initial_slashable_balance,
+					own: initial_slashable_balance,
+					others: vec![]
+				},
 			);
 		}
 	});
