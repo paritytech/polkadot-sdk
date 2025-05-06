@@ -1609,10 +1609,10 @@ mod nominate {
 			// Clear events from setup
 			let _ = staking_events_since_last_call();
 			
-			// Test 1: First validator removes the nominator
+			// First validator removes the nominator
 			assert_ok!(Staking::unnominate_blocked(
 				RuntimeOrigin::signed(validator1_stash),
-				<mock::Test as frame_system::Config>::Lookup::unlookup(nominator_stash)
+				vec![<mock::Test as frame_system::Config>::Lookup::unlookup(nominator_stash)]
 			));
 			
 			// Verify that only the first validator was removed from the nominator's targets
@@ -1632,10 +1632,10 @@ mod nominate {
 				]
 			);
 			
-			// Test 2: Second validator removes the nominator
+			// Second validator removes the nominator
 			assert_ok!(Staking::unnominate_blocked(
 				RuntimeOrigin::signed(validator2_stash),
-				<mock::Test as frame_system::Config>::Lookup::unlookup(nominator_stash)
+				vec![<mock::Test as frame_system::Config>::Lookup::unlookup(nominator_stash)]
 			));
 			
 			// Verify that the nominator's targets list is now empty
@@ -1671,7 +1671,7 @@ mod nominate {
 			assert_noop!(
 				Staking::unnominate_blocked(
 					RuntimeOrigin::signed(100), // Not the validator controller
-					<mock::Test as frame_system::Config>::Lookup::unlookup(nominator_stash)
+					vec![<mock::Test as frame_system::Config>::Lookup::unlookup(nominator_stash)]
 				),
 				Error::<Test>::NotController
 			);
@@ -1695,7 +1695,7 @@ mod nominate {
 			assert_noop!(
 				Staking::unnominate_blocked(
 					RuntimeOrigin::signed(validator_stash),
-					<mock::Test as frame_system::Config>::Lookup::unlookup(nominator_stash)
+					vec![<mock::Test as frame_system::Config>::Lookup::unlookup(nominator_stash)]
 				),
 				Error::<Test>::BadTarget
 			);
@@ -1724,7 +1724,7 @@ mod nominate {
 			// Successful case - validator removes a nominator
 			assert_ok!(Staking::unnominate_blocked(
 				RuntimeOrigin::signed(validator_stash),
-				<mock::Test as frame_system::Config>::Lookup::unlookup(nominator_stash)
+				vec![<mock::Test as frame_system::Config>::Lookup::unlookup(nominator_stash)]
 			));
 			
 			// Verify the nominator no longer has validator in their targets
@@ -1764,30 +1764,30 @@ mod nominate {
 				ValidatorPrefs { blocked: true, ..Default::default() }
 			));
 			
-			// Remove the first nominator
-			assert_ok!(Staking::unnominate_blocked(
-				RuntimeOrigin::signed(validator_stash),
-				<mock::Test as frame_system::Config>::Lookup::unlookup(nominator1_stash)
-			));
-			
-			// Verify first nominator was removed but second remains
-			assert_eq!(Nominators::<Test>::get(&nominator1_stash).unwrap().targets, vec![21]);
-			assert_eq!(Nominators::<Test>::get(&nominator2_stash).unwrap().targets, vec![validator_stash]);
-			
-			// Remove the second nominator
+			// Clear events from previous operations
 			let _ = staking_events_since_last_call();
+			
+			// Remove both nominators at once
 			assert_ok!(Staking::unnominate_blocked(
 				RuntimeOrigin::signed(validator_stash),
-				<mock::Test as frame_system::Config>::Lookup::unlookup(nominator2_stash)
+				vec![
+					<mock::Test as frame_system::Config>::Lookup::unlookup(nominator1_stash),
+					<mock::Test as frame_system::Config>::Lookup::unlookup(nominator2_stash)
+				]
 			));
 			
-			// Verify the second nominator was removed
+			// Verify both nominators were removed
+			assert_eq!(Nominators::<Test>::get(&nominator1_stash).unwrap().targets, vec![21]);
 			assert!(Nominators::<Test>::get(&nominator2_stash).unwrap().targets.is_empty());
 			
-			// Verify events were emitted correctly
+			// Verify events were emitted correctly for both nominators
 			assert_eq!(
 				staking_events_since_last_call(),
 				vec![
+					Event::Kicked {
+						nominator: nominator1_stash,
+						stash: validator_stash,
+					},
 					Event::Kicked {
 						nominator: nominator2_stash,
 						stash: validator_stash,
@@ -1812,39 +1812,39 @@ mod nominate {
 			// Should gracefully handle non-existent nominators
 			assert_ok!(Staking::unnominate_blocked(
 				RuntimeOrigin::signed(validator_stash),
-				<mock::Test as frame_system::Config>::Lookup::unlookup(200) // Non-existent nominator
+				vec![<mock::Test as frame_system::Config>::Lookup::unlookup(200)] // Non-existent nominator
 			));
 		});
 	}
 
 	#[test]
 	fn unnominate_blocked_nominator_not_targeting_validator() {
-		ExtBuilder::default().validator_count(4).nominate(true).build_and_execute(|| {
-			// Set up: a blocked validator and a nominator targeting a different validator
-			let validator_stash = 11;
-			let other_validator = 21;
-			let nominator_stash = 102;
-			
-			// Block the validator
-			assert_ok!(Staking::validate(
-				RuntimeOrigin::signed(validator_stash),
-				ValidatorPrefs { blocked: true, ..Default::default() }
-			));
-			
-			// Create a nominator targeting a different validator
-			bond_nominator(nominator_stash, 100, vec![other_validator]);
-			assert_eq!(Nominators::<Test>::get(&nominator_stash).unwrap().targets, vec![other_validator]);
-			
-			// Should handle a nominator that isn't nominating this validator
-			assert_ok!(Staking::unnominate_blocked(
-				RuntimeOrigin::signed(validator_stash),
-				<mock::Test as frame_system::Config>::Lookup::unlookup(nominator_stash)
-			));
-			
-			// The nomination should remain since it wasn't for this validator
-			assert_eq!(Nominators::<Test>::get(&nominator_stash).unwrap().targets, vec![other_validator]);
-		});
-	}
+			ExtBuilder::default().validator_count(4).nominate(true).build_and_execute(|| {
+				// Set up: a blocked validator and a nominator targeting a different validator
+				let validator_stash = 11;
+				let other_validator = 21;
+				let nominator_stash = 102;
+				
+				// Block the validator
+				assert_ok!(Staking::validate(
+					RuntimeOrigin::signed(validator_stash),
+					ValidatorPrefs { blocked: true, ..Default::default() }
+				));
+				
+				// Create a nominator targeting a different validator
+				bond_nominator(nominator_stash, 100, vec![other_validator]);
+				assert_eq!(Nominators::<Test>::get(&nominator_stash).unwrap().targets, vec![other_validator]);
+				
+				// Should handle a nominator that isn't nominating this validator
+				assert_ok!(Staking::unnominate_blocked(
+					RuntimeOrigin::signed(validator_stash),
+					vec![<mock::Test as frame_system::Config>::Lookup::unlookup(nominator_stash)]
+				));
+				
+				// The nomination should remain since it wasn't for this validator
+				assert_eq!(Nominators::<Test>::get(&nominator_stash).unwrap().targets, vec![other_validator]);
+			});
+		}
 }
 
 mod staking_bounds_chill_other {

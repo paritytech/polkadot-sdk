@@ -2008,12 +2008,12 @@ pub mod pallet {
 		///
 		/// The dispatch origin for this call must be _Signed_ by the validator controller.
 		///
-		/// - `nominator`: The nominator stash account that should be removed from nominating this validator.
+		/// - `who`: A list of nominator stash accounts that should be removed from nominating this validator.
 		#[pallet::call_index(22)]
-		#[pallet::weight(T::WeightInfo::kick(1))] // Using kick's weight as an approximation since it's a similar operation
+		#[pallet::weight(T::WeightInfo::kick(who.len() as u32))]
 		pub fn unnominate_blocked(
 			origin: OriginFor<T>,
-			nominator: AccountIdLookupOf<T>,
+			who: Vec<AccountIdLookupOf<T>>,
 		) -> DispatchResult {
 			let controller = ensure_signed(origin)?;
 			let ledger = Self::ledger(Controller(controller))?;
@@ -2025,19 +2025,24 @@ pub mod pallet {
 				
 			ensure!(validator_prefs.blocked, Error::<T>::BadTarget);
 			
-			let nominator_stash = T::Lookup::lookup(nominator)?;
-			
-			Nominators::<T>::mutate(&nominator_stash, |maybe_nom| {
-				if let Some(ref mut nom) = maybe_nom {
-					if let Some(pos) = nom.targets.iter().position(|v| v == stash) {
-						nom.targets.swap_remove(pos);
-						Self::deposit_event(Event::<T>::Kicked {
-							nominator: nominator_stash.clone(),
-							stash: stash.clone(),
-						});
+			for nom_stash in who
+				.into_iter()
+				.map(T::Lookup::lookup)
+				.collect::<Result<Vec<T::AccountId>, _>>()?
+				.into_iter()
+			{
+				Nominators::<T>::mutate(&nom_stash, |maybe_nom| {
+					if let Some(ref mut nom) = maybe_nom {
+						if let Some(pos) = nom.targets.iter().position(|v| v == stash) {
+							nom.targets.swap_remove(pos);
+							Self::deposit_event(Event::<T>::Kicked {
+								nominator: nom_stash.clone(),
+								stash: stash.clone(),
+							});
+						}
 					}
-				}
-			});
+				});
+			}
 
 			Ok(())
 		}
