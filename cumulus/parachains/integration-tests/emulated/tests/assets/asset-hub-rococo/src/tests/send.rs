@@ -13,7 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::imports::*;
+use crate::{create_pool_with_roc_on, imports::*};
 
 /// Relay Chain should be able to execute `Transact` instructions in System Parachain
 /// when `OriginKind::Superuser`.
@@ -139,6 +139,8 @@ fn send_xcm_from_para_to_asset_hub_paying_fee_with_sufficient_asset() {
 	let fee_amount = ASSET_MIN_BALANCE * 1000000;
 	let asset =
 		([PalletInstance(ASSETS_PALLET_ID), GeneralIndex(ASSET_ID.into())], fee_amount).into();
+	let asset_location =
+		Location::new(0, [PalletInstance(ASSETS_PALLET_ID), GeneralIndex(ASSET_ID.into())]);
 
 	let root_origin = <PenpalA as Chain>::RuntimeOrigin::root();
 	let system_para_destination = PenpalA::sibling_location_of(AssetHubRococo::para_id()).into();
@@ -149,6 +151,15 @@ fn send_xcm_from_para_to_asset_hub_paying_fee_with_sufficient_asset() {
 		para_sovereign_account.clone().into(),
 		ASSET_HUB_ROCOCO_ED * 10000000000,
 	)]);
+
+	create_pool_with_roc_on!(
+		AssetHubRococo,
+		asset_location,
+		false,
+		para_sovereign_account.clone(),
+		9_000_000_000_000_000,
+		9_000_000_000_000
+	);
 
 	PenpalA::execute_with(|| {
 		assert_ok!(<PenpalA as PenpalAPallet>::PolkadotXcm::send(
