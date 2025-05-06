@@ -15411,6 +15411,7 @@ dependencies = [
 name = "polkadot-omni-node"
 version = "0.1.0"
 dependencies = [
+ "assert_cmd",
  "color-eyre",
  "polkadot-omni-node-lib",
  "substrate-build-script-utils",
@@ -15529,6 +15530,7 @@ dependencies = [
 name = "polkadot-parachain-bin"
 version = "4.0.0"
 dependencies = [
+ "assert_cmd",
  "asset-hub-rococo-runtime",
  "asset-hub-westend-runtime",
  "bridge-hub-rococo-runtime",
