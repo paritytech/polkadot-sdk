@@ -2002,7 +2002,7 @@ fn fatp_prune_based_on_inactive_views_tags() {
 	assert_pool_status!(header01.hash(), &pool, 0, 0);
 	assert_eq!(api.validation_requests().len(), 0);
 
-	// Submit a tx to the txpool.
+	// Submit two txs to the txpool.
 	let _ = block_on(pool.submit_and_watch(invalid_hash(), SOURCE, xt1.clone())).unwrap();
 	let _ = block_on(pool.submit_and_watch(invalid_hash(), SOURCE, xt2.clone())).unwrap();
 	assert_pool_status!(header01.hash(), &pool, 0, 2);
@@ -2039,7 +2039,7 @@ fn fatp_prune_based_on_inactive_views_tags() {
 	assert_pool_status!(header03a.hash(), &pool, 4, 4);
 	assert_eq!(api.validation_requests().len(), 16);
 
-	// Push the third retracted fork block, containing xt1.
+	// Push the third retracted fork block, containing xt2.
 	let header04a = api.push_block_with_parent(header03a.hash(), vec![xt2.clone()], true);
 	api.set_nonce(header04a.hash(), Alice.into(), 202);
 	let event = new_best_block_event(&pool, Some(header03a.hash()), header04a.hash());
