@@ -428,7 +428,7 @@ pub(crate) mod mock {
 #[cfg(test)]
 mod tests {
 	use super::mock::*;
-	use frame::testing_prelude::{TestExternalities, *};
+	use frame::testing_prelude::*;
 
 	#[test]
 	fn append_works() {
