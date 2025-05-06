@@ -1,0 +1,8 @@
+title: Drop useless rep change.
+doc:
+- audience: Todo
+  description: Not the root cause of the block time issue, but the rep change is certainly
+    not helping.
+crates:
+- name: polkadot-dispute-distribution
+  bump: major
