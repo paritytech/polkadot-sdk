@@ -128,6 +128,18 @@ pub enum DiscoveryEvent {
 		address: Multiaddr,
 	},
 
+	/// `FIND_NODE` query succeeded.
+	FindNodeSuccess {
+		/// Query ID.
+		query_id: QueryId,
+
+		/// Target.
+		target: PeerId,
+
+		/// Found peers.
+		peers: Vec<(PeerId, Vec<Multiaddr>)>,
+	},
+
 	/// `GetRecord` query succeeded.
 	GetRecordSuccess {
 		/// Query ID.
@@ -199,7 +211,7 @@ pub struct Discovery {
 	next_kad_query: Option<Delay>,
 
 	/// Active `FIND_NODE` query if it exists.
-	find_node_query_id: Option<QueryId>,
+	random_walk_query_id: Option<QueryId>,
 
 	/// Pending events.
 	pending_events: VecDeque<DiscoveryEvent>,
@@ -297,7 +309,7 @@ impl Discovery {
 				kademlia_handle,
 				_peerstore_handle,
 				listen_addresses,
-				find_node_query_id: None,
+				random_walk_query_id: None,
 				pending_events: VecDeque::new(),
 				duration_to_next_find_query: Duration::from_secs(1),
 				address_confirmations: LruMap::new(ByLength::new(MAX_EXTERNAL_ADDRESSES)),
@@ -361,6 +373,11 @@ impl Discovery {
 		);
 
 		self.kademlia_handle.add_known_peer(peer, addresses).await;
+	}
+
+	/// Start Kademlia `FIND_NODE` query for `target`.
+	pub async fn find_node(&mut self, target: PeerId) -> QueryId {
+		self.kademlia_handle.find_node(target).await
 	}
 
 	/// Start Kademlia `GET_VALUE` query for `key`.
@@ -540,7 +557,7 @@ impl Stream for Discovery {
 
 					match this.kademlia_handle.try_find_node(peer) {
 						Ok(query_id) => {
-							this.find_node_query_id = Some(query_id);
+							this.random_walk_query_id = Some(query_id);
 							return Poll::Ready(Some(DiscoveryEvent::RandomKademliaStarted))
 						},
 						Err(()) => {
@@ -559,7 +576,9 @@ impl Stream for Discovery {
 		match Pin::new(&mut this.kademlia_handle).poll_next(cx) {
 			Poll::Pending => {},
 			Poll::Ready(None) => return Poll::Ready(None),
-			Poll::Ready(Some(KademliaEvent::FindNodeSuccess { peers, .. })) => {
+			Poll::Ready(Some(KademliaEvent::FindNodeSuccess { query_id, peers, .. }))
+				if Some(query_id) == this.random_walk_query_id =>
+			{
 				// the addresses are already inserted into the DHT and in `TransportManager` so
 				// there is no need to add them again. The found peers must be registered to
 				// `Peerstore` so other protocols are aware of them through `Peerset`.
@@ -569,6 +588,15 @@ impl Stream for Discovery {
 
 				return Poll::Ready(Some(DiscoveryEvent::RoutingTableUpdate {
 					peers: peers.into_iter().map(|(peer, _)| peer).collect(),
+				}))
+			},
+			Poll::Ready(Some(KademliaEvent::FindNodeSuccess { query_id, target, peers })) => {
+				log::trace!(target: LOG_TARGET, "find node query yielded {} peers", peers.len());
+
+				return Poll::Ready(Some(DiscoveryEvent::FindNodeSuccess {
+					query_id,
+					target,
+					peers,
 				}))
 			},
 			Poll::Ready(Some(KademliaEvent::RoutingTableUpdate { peers })) => {
@@ -600,9 +628,9 @@ impl Stream for Discovery {
 			Poll::Ready(Some(KademliaEvent::PutRecordSuccess { query_id, key: _ })) =>
 				return Poll::Ready(Some(DiscoveryEvent::PutRecordSuccess { query_id })),
 			Poll::Ready(Some(KademliaEvent::QueryFailed { query_id })) => {
-				match this.find_node_query_id == Some(query_id) {
+				match this.random_walk_query_id == Some(query_id) {
 					true => {
-						this.find_node_query_id = None;
+						this.random_walk_query_id = None;
 						this.duration_to_next_find_query =
 							cmp::min(this.duration_to_next_find_query * 2, Duration::from_secs(60));
 						this.next_kad_query = Some(Delay::new(this.duration_to_next_find_query));

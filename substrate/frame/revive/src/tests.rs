@@ -4160,7 +4160,7 @@ fn unstable_interface_rejected() {
 fn tracing_works_for_transfers() {
 	ExtBuilder::default().build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000);
-		let mut tracer = CallTracer::new(false, |_| U256::zero());
+		let mut tracer = CallTracer::new(Default::default(), |_| U256::zero());
 		trace(&mut tracer, || {
 			builder::bare_call(BOB_ADDR).value(10_000_000).build_and_unwrap_result();
 		});
@@ -4194,25 +4194,11 @@ fn tracing_works() {
 		let Contract { addr, .. } =
 			builder::bare_instantiate(Code::Upload(code)).value(10_000_000).build_and_unwrap_contract();
 
-		let tracer_options = vec![
-			( false , vec![]),
-			(
-				true ,
-				vec![
-					CallLog {
-						address: addr,
-						topics: Default::default(),
-						data: b"before".to_vec().into(),
-						position: 0,
-					},
-					CallLog {
-						address: addr,
-						topics: Default::default(),
-						data: b"after".to_vec().into(),
-						position: 1,
-					},
-				],
-			),
+
+		let tracer_configs = vec![
+			 CallTracerConfig{ with_logs: false, only_top_call: false},
+			 CallTracerConfig{ with_logs: false, only_top_call: false},
+			 CallTracerConfig{ with_logs: false, only_top_call: true},
 		];
 
 		// Verify that the first trace report the same weight reported by bare_call
@@ -4227,23 +4213,30 @@ fn tracing_works() {
 		*/
 
 		// Discarding gas usage, check that traces reported are correct
-		for (with_logs, logs) in tracer_options {
-			let mut tracer = CallTracer::new(with_logs, |_| U256::zero());
-			trace(&mut tracer, || {
-				builder::bare_call(addr).data((3u32, addr_callee).encode()).build()
-			});
+		for config in tracer_configs {
+			let logs = if config.with_logs {
+				vec![
+					CallLog {
+						address: addr,
+						topics: Default::default(),
+						data: b"before".to_vec().into(),
+						position: 0,
+					},
+					CallLog {
+						address: addr,
+						topics: Default::default(),
+						data: b"after".to_vec().into(),
+						position: 1,
+					},
+				]
+			} else {
+				vec![]
+			};
 
-
-			assert_eq!(
-				tracer.collect_traces(),
-				vec![CallTrace {
-					from: ALICE_ADDR,
-					to: addr,
-					input: (3u32, addr_callee).encode().into(),
-					call_type: Call,
-					logs: logs.clone(),
-					value: Some(U256::from(0)),
-					calls: vec![
+			let calls = if config.only_top_call {
+				vec![]
+			} else {
+				vec![
 						CallTrace {
 							from: addr,
 							to: addr_callee,
@@ -4315,9 +4308,29 @@ fn tracing_works() {
 							],
 							..Default::default()
 						},
-					],
+					]
+			};
+
+			let mut tracer = CallTracer::new(config, |_| U256::zero());
+			trace(&mut tracer, || {
+				builder::bare_call(addr).data((3u32, addr_callee).encode()).build()
+			});
+
+			let traces = tracer.collect_traces();
+			let expected_traces = vec![CallTrace {
+					from: ALICE_ADDR,
+					to: addr,
+					input: (3u32, addr_callee).encode().into(),
+					call_type: Call,
+					logs: logs.clone(),
+					value: Some(U256::from(0)),
+					calls: calls,
 					..Default::default()
-				},]
+				},];
+
+			assert_eq!(
+				traces,
+				expected_traces,
 			);
 		}
 	});

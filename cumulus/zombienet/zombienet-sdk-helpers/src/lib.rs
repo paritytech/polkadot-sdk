@@ -242,6 +242,18 @@ pub async fn wait_for_first_session_change(
 		Block<PolkadotConfig, OnlineClient<PolkadotConfig>>,
 	>,
 ) -> Result<(), anyhow::Error> {
+	wait_for_nth_session_change(blocks_sub, 1).await
+}
+
+/// Wait for the first block with the Nth session change.
+///
+/// The session change is detected by inspecting the events in the block.
+pub async fn wait_for_nth_session_change(
+	blocks_sub: &mut subxt::backend::StreamOfResults<
+		Block<PolkadotConfig, OnlineClient<PolkadotConfig>>,
+	>,
+	mut sessions_to_wait: u32,
+) -> Result<(), anyhow::Error> {
 	let mut waited_block_num = 0;
 	while let Some(block) = blocks_sub.next().await {
 		let block = block?;
@@ -254,14 +266,19 @@ pub async fn wait_for_first_session_change(
 		});
 
 		if is_session_change {
-			return Ok(())
-		}
+			sessions_to_wait -= 1;
+			if sessions_to_wait == 0 {
+				return Ok(())
+			}
 
-		if waited_block_num >= WAIT_MAX_BLOCKS_FOR_SESSION {
-			return Err(anyhow::format_err!("Waited for {WAIT_MAX_BLOCKS_FOR_SESSION}, a new session should have been arrived by now."));
-		}
+			waited_block_num = 0;
+		} else {
+			if waited_block_num >= WAIT_MAX_BLOCKS_FOR_SESSION {
+				return Err(anyhow::format_err!("Waited for {WAIT_MAX_BLOCKS_FOR_SESSION}, a new session should have been arrived by now."));
+			}
 
-		waited_block_num += 1;
+			waited_block_num += 1;
+		}
 	}
 	Ok(())
 }
