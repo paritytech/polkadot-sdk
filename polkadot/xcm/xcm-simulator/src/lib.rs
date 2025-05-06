@@ -88,6 +88,11 @@ pub fn encode_xcm(message: Xcm<()>, message_kind: MessageKind) -> Vec<u8> {
 	}
 }
 
+// TODO: To be removed.
+pub fn fake_message_hash<T>(message: &Xcm<T>) -> XcmHash {
+	message.using_encoded(blake2_256)
+}
+
 /// The macro is implementing upward message passing(UMP) for the provided relay
 /// chain struct. The struct has to provide the XCM configuration for the relay
 /// chain.
