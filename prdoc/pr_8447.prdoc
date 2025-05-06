@@ -1,8 +1,7 @@
-title: Drop useless rep change.
+title: Fix a potential cause of slow parachain blocks.
 doc:
-- audience: Todo
-  description: Not the root cause of the block time issue, but the rep change is certainly
-    not helping.
+- audience: node_operator
+  description: This fix removes a needless reputation change, which might be causing the longer parachain block times on Polkadot.
 crates:
 - name: polkadot-dispute-distribution
   bump: major
