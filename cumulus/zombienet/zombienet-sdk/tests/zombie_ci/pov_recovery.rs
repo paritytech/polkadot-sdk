@@ -80,7 +80,7 @@ async fn pov_recovery() -> Result<(), anyhow::Error> {
 	for name in ["one", "two", "three", "eve", "charlie", "alice"] {
 		let log_line_count = network
 			.get_node(name)?
-			.wait_log_line_count_with_timeout_v2(
+			.wait_log_line_count_with_timeout(
 				"Importing blocks retrieved using pov_recovery",
 				false,
 				options.clone(),
