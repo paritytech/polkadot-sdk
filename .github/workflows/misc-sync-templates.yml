@@ -178,6 +178,20 @@ jobs:
 
           echo "$(toml get -r ./runtime/Cargo.toml 'package.name') = { path = \"./runtime\", default-features = false }" >> Cargo.toml
           echo "$(toml get -r ./pallets/template/Cargo.toml 'package.name') = { path = \"./pallets/template\", default-features = false }" >> Cargo.toml
+
+          # Add profile configurations
+          cat << EOF >> Cargo.toml
+
+          [profile.release]
+          opt-level = 3
+          panic = "unwind"
+
+          [profile.production]
+          codegen-units = 1
+          inherits = "release"
+          lto = true
+          EOF
+
         shell: bash
         working-directory: polkadot-sdk/templates/${{ matrix.template }}/
       - name: Update workspace configuration
