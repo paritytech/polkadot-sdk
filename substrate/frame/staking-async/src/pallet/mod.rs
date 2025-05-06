@@ -1570,7 +1570,9 @@ pub mod pallet {
 			let targets: BoundedVec<_, _> = targets
 				.into_iter()
 				.map(|n| {
-					if old.contains(&n) || !Validators::<T>::get(&n).map_or(false, |prefs| prefs.blocked) {
+					if old.contains(&n) ||
+						!Validators::<T>::get(&n).map_or(false, |prefs| prefs.blocked)
+					{
 						Ok(n)
 					} else {
 						Err(Error::<T>::BadTarget.into())
@@ -2003,12 +2005,13 @@ pub mod pallet {
 
 		/// Remove a nominator from a validator's nominators when the validator is blocked.
 		///
-		/// This function allows validators who have declared themselves as blocked (not accepting 
+		/// This function allows validators who have declared themselves as blocked (not accepting
 		/// nominations) to remove nominators who had previously nominated them.
 		///
 		/// The dispatch origin for this call must be _Signed_ by the validator controller.
 		///
-		/// - `who`: A list of nominator stash accounts that should be removed from nominating this validator.
+		/// - `who`: A list of nominator stash accounts that should be removed from nominating this
+		///   validator.
 		#[pallet::call_index(22)]
 		#[pallet::weight(T::WeightInfo::kick(who.len() as u32))]
 		pub fn unnominate_blocked(
@@ -2018,13 +2021,12 @@ pub mod pallet {
 			let controller = ensure_signed(origin)?;
 			let ledger = Self::ledger(Controller(controller))?;
 			let stash = &ledger.stash;
-			
+
 			// Check if the validator has blocked nominations
-			let validator_prefs = Validators::<T>::get(stash)
-				.ok_or(Error::<T>::NotStash)?;
-				
+			let validator_prefs = Validators::<T>::get(stash).ok_or(Error::<T>::NotStash)?;
+
 			ensure!(validator_prefs.blocked, Error::<T>::BadTarget);
-			
+
 			for nom_stash in who
 				.into_iter()
 				.map(T::Lookup::lookup)
@@ -2269,7 +2271,7 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::update_payee())]
 		pub fn update_payee(
 			origin: OriginFor<T>,
-			 controller: T::AccountId,
+			controller: T::AccountId,
 		) -> DispatchResultWithPostInfo {
 			let _ = ensure_signed(origin)?;
 			let ledger = Self::ledger(StakingAccount::Controller(controller.clone()))?;
