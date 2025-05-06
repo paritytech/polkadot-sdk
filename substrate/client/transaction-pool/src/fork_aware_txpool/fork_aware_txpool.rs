@@ -1482,8 +1482,8 @@ where
 		let mut pruned_log = HashSet::<ExtrinsicHash<ChainApi>>::new();
 		future::join_all(tree_route.enacted().iter().map(|hn| {
 			let api = api.clone();
+			let xts = extrinsics.remove(&hn.hash).unwrap_or_default();
 			let known_provides_tags = known_provides_tags.clone();
-			let xts = extrinsics.remove(&hn.hash).unwrap_or_else(|| Vec::new());
 			async move {
 				(
 					hn,

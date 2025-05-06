@@ -667,6 +667,10 @@ where
 			Some(20u32.into()),
 		);
 
+		// We keep track of everything we prune so that later we won't add
+		// transactions with those hashes from the retracted blocks.
+		let mut pruned_log = HashSet::<ExtrinsicHash<PoolApi>>::new();
+
 		// If there is a tree route, we use this to prune known tx based on the enacted
 		// blocks. Before pruning enacted transactions, we inform the listeners about
 		// retracted blocks and their transactions. This order is important, because
@@ -677,9 +681,6 @@ where
 			pool.validated_pool().on_block_retracted(retracted.hash);
 		}
 
-		// We keep track of everything we prune so that later we won't add
-		// transactions with those hashes from the retracted blocks.
-		let mut pruned_log = HashSet::<ExtrinsicHash<PoolApi>>::new();
 		future::join_all(
 			tree_route
 				.enacted()
