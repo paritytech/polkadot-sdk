@@ -12,7 +12,6 @@ publish = false
 [dependencies]
 anyhow = { workspace = true }
 env_logger = { workspace = true }
-log = { workspace = true }
 tokio = { workspace = true, features = ["rt-multi-thread"] }
 zombienet-sdk = { workspace = true }
 

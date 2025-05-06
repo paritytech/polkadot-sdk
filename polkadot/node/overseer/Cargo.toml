@@ -17,16 +17,17 @@ futures = { workspace = true }
 futures-timer = { workspace = true }
 gum = { workspace = true, default-features = true }
 orchestra = { features = ["futures_channel"], workspace = true }
-parking_lot = { workspace = true, default-features = true }
 polkadot-node-metrics = { workspace = true, default-features = true }
 polkadot-node-network-protocol = { workspace = true, default-features = true }
 polkadot-node-primitives = { workspace = true, default-features = true }
 polkadot-node-subsystem-types = { workspace = true, default-features = true }
 polkadot-primitives = { workspace = true, default-features = true }
 sc-client-api = { workspace = true, default-features = true }
-sp-api = { workspace = true, default-features = true }
 sp-core = { workspace = true, default-features = true }
 tikv-jemalloc-ctl = { optional = true, workspace = true }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+tikv-jemalloc-ctl = { workspace = true }
 
 [dev-dependencies]
 assert_matches = { workspace = true }
@@ -35,10 +36,6 @@ futures = { features = ["thread-pool"], workspace = true }
 metered = { features = ["futures_channel"], workspace = true }
 polkadot-node-subsystem-test-helpers = { workspace = true }
 polkadot-primitives-test-helpers = { workspace = true }
-sp-core = { workspace = true, default-features = true }
-
-[target.'cfg(target_os = "linux")'.dependencies]
-tikv-jemalloc-ctl = "0.5.0"
 
 [features]
 default = ["futures_channel"]

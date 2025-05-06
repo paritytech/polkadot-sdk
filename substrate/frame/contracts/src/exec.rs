@@ -1956,7 +1956,7 @@ mod tests {
 
 		let delegate_ch = MockLoader::insert(Call, move |ctx, _| {
 			assert_eq!(ctx.ext.value_transferred(), value);
-			let _ = ctx.ext.delegate_call(success_ch, Vec::new())?;
+			ctx.ext.delegate_call(success_ch, Vec::new())?;
 			Ok(ExecReturnValue { flags: ReturnFlags::empty(), data: Vec::new() })
 		});
 

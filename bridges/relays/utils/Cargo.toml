@@ -29,10 +29,8 @@ time = { features = ["formatting", "local-offset", "std"], workspace = true }
 tokio = { features = ["rt"], workspace = true, default-features = true }
 
 # Bridge dependencies
-
 bp-runtime = { workspace = true, default-features = true }
 
 # Substrate dependencies
-
 prometheus-endpoint = { workspace = true, default-features = true }
 sp-runtime = { workspace = true, default-features = true }

@@ -6,6 +6,9 @@ max_cache_age = "10d"
 max_redirects = 10
 max_retries = 3
 
+# User agent to send with each request.
+user_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:123.0) Gecko/20100101 Firefox/123.0"
+
 # Exclude localhost et.al.
 exclude_all_private = true
 
@@ -46,8 +49,12 @@ exclude = [
 	"https://w3f.github.io/parachain-implementers-guide/node/index.html",
 	"https://w3f.github.io/parachain-implementers-guide/protocol-chain-selection.html",
 	"https://w3f.github.io/parachain-implementers-guide/runtime/session_info.html",
+	# Genuinely broken, but exist as part of a signed statement. Rarely used, will be
+	# removed at some point.
+	"statement.polkadot.network",
 	# Behind a captcha (code 403):
 	"https://chainlist.org/chain/*",
+	"https://dl.acm.org",
 	"https://iohk.io/en/blog/posts/2023/11/03/partner-chains-are-coming-to-cardano/",
 	"https://polymesh.network",
 	"https://www.reddit.com/r/rust/comments/3spfh1/does_collect_allocate_more_than_once_while/",

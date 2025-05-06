@@ -1,0 +1,36 @@
+[package]
+name = "bp-westend"
+description = "Primitives of Westend runtime."
+version = "0.3.0"
+authors.workspace = true
+edition.workspace = true
+license = "Apache-2.0"
+repository.workspace = true
+
+[package.metadata.polkadot-sdk]
+exclude-from-umbrella = true
+
+[lints]
+workspace = true
+
+[dependencies]
+# Bridge Dependencies
+bp-header-chain = { workspace = true }
+bp-polkadot-core = { workspace = true }
+bp-runtime = { workspace = true }
+
+# Substrate Based Dependencies
+frame-support = { workspace = true }
+sp-api = { workspace = true }
+sp-std = { workspace = true }
+
+[features]
+default = ["std"]
+std = [
+	"bp-header-chain/std",
+	"bp-polkadot-core/std",
+	"bp-runtime/std",
+	"frame-support/std",
+	"sp-api/std",
+	"sp-std/std",
+]

@@ -14,6 +14,9 @@ workspace = true
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
+[package.metadata.polkadot-sdk]
+exclude-from-umbrella = true
+
 [dependencies]
 codec = { features = ["derive"], workspace = true }
 scale-info = { features = ["derive"], workspace = true }
@@ -31,8 +34,9 @@ sp-std = { workspace = true }
 bridge-hub-common = { workspace = true }
 
 ethabi = { workspace = true }
-snowbridge-core = { features = ["serde"], workspace = true }
-snowbridge-outbound-queue-merkle-tree = { workspace = true }
+snowbridge-core = { workspace = true }
+snowbridge-merkle-tree = { workspace = true }
+snowbridge-outbound-queue-primitives = { workspace = true }
 
 [dev-dependencies]
 pallet-message-queue = { workspace = true }
@@ -50,7 +54,8 @@ std = [
 	"scale-info/std",
 	"serde/std",
 	"snowbridge-core/std",
-	"snowbridge-outbound-queue-merkle-tree/std",
+	"snowbridge-merkle-tree/std",
+	"snowbridge-outbound-queue-primitives/std",
 	"sp-arithmetic/std",
 	"sp-core/std",
 	"sp-io/std",

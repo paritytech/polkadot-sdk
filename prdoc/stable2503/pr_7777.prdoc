@@ -1,0 +1,10 @@
+title: '`fatxpool`: report_invalid: do not ban Future/Stale txs from re-entering the
+  view'
+doc:
+- audience: Node Dev
+  description: |-
+    Avoid banning future/stale transactions reported as invalid by the authorship module.
+
+crates:
+- name: sc-transaction-pool
+  bump: minor

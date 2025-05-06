@@ -95,6 +95,9 @@ pub struct Params<BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS> {
 	pub authoring_duration: Duration,
 	/// Whether we should reinitialize the collator config (i.e. we are transitioning to aura).
 	pub reinitialize: bool,
+	/// The maximum percentage of the maximum PoV size that the collator can use.
+	/// It will be removed once <https://github.com/paritytech/polkadot-sdk/issues/6020> is fixed.
+	pub max_pov_percentage: Option<u32>,
 }
 
 /// Run async-backing-friendly Aura.
@@ -132,6 +135,7 @@ where
 pub struct ParamsWithExport<BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS> {
 	/// The parameters.
 	pub params: Params<BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS>,
+
 	/// When set, the collator will export every produced `POV` to this folder.
 	pub export_pov: Option<PathBuf>,
 }
@@ -374,14 +378,14 @@ where
 				)
 				.await;
 
-				let allowed_pov_size = if cfg!(feature = "full-pov-size") {
-					validation_data.max_pov_size
+				let allowed_pov_size = if let Some(max_pov_percentage) = params.max_pov_percentage {
+					validation_data.max_pov_size * max_pov_percentage / 100
 				} else {
-					// Set the block limit to 50% of the maximum PoV size.
+					// Set the block limit to 85% of the maximum PoV size.
 					//
-					// TODO: If we got benchmarking that includes the proof size,
-					// we should be able to use the maximum pov size.
-					validation_data.max_pov_size / 2
+					// Once https://github.com/paritytech/polkadot-sdk/issues/6020 issue is
+					// fixed, the reservation should be removed.
+					validation_data.max_pov_size * 85 / 100
 				} as usize;
 
 				match collator
@@ -395,7 +399,16 @@ where
 					)
 					.await
 				{
-					Ok(Some((collation, block_data, new_block_hash))) => {
+					Ok(Some((collation, block_data))) => {
+						let Some(new_block_header) =
+							block_data.blocks().first().map(|b| b.header().clone())
+						else {
+							tracing::error!(target: crate::LOG_TARGET,  "Produced PoV doesn't contain any blocks");
+							break
+						};
+
+						let new_block_hash = new_block_header.hash();
+
 						// Here we are assuming that the import logic protects against equivocations
 						// and provides sybil-resistance, as it should.
 						collator.collator_service().announce_block(new_block_hash, None);
@@ -405,7 +418,7 @@ where
 								export_pov.clone(),
 								collation.proof_of_validity.clone().into_compressed(),
 								new_block_hash,
-								*block_data.header().number(),
+								*new_block_header.number(),
 								parent_header.clone(),
 								*relay_parent_header.state_root(),
 								*relay_parent_header.number(),
@@ -435,7 +448,7 @@ where
 							.await;
 
 						parent_hash = new_block_hash;
-						parent_header = block_data.into_header();
+						parent_header = new_block_header;
 					},
 					Ok(None) => {
 						tracing::debug!(target: crate::LOG_TARGET, "No block proposal");

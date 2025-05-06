@@ -29,7 +29,7 @@ use super::{
 };
 use crate::{
 	api::FullChainApi,
-	common::tracing_log_xt::log_xt_trace,
+	common::tracing_log_xt::{log_xt_debug, log_xt_trace},
 	enactment_state::{EnactmentAction, EnactmentState},
 	fork_aware_txpool::{
 		dropped_watcher::{DroppedReason, DroppedTransaction},
@@ -891,7 +891,7 @@ where
 		invalid_tx_errors: TxInvalidityReportMap<TxHash<Self>>,
 	) -> Vec<Arc<Self::InPoolTransaction>> {
 		debug!(target: LOG_TARGET, len = ?invalid_tx_errors.len(), "fatp::report_invalid");
-		log_xt_trace!(data: tuple, target:LOG_TARGET, invalid_tx_errors.iter(), "fatp::report_invalid {:?}");
+		log_xt_debug!(data: tuple, target:LOG_TARGET, invalid_tx_errors.iter(), "fatp::report_invalid {:?}");
 		self.metrics
 			.report(|metrics| metrics.reported_invalid_txs.inc_by(invalid_tx_errors.len() as _));
 
