@@ -1570,9 +1570,7 @@ pub mod pallet {
 			let targets: BoundedVec<_, _> = targets
 				.into_iter()
 				.map(|n| {
-					if old.contains(&n) ||
-						!Validators::<T>::get(&n).map_or(false, |prefs| prefs.blocked)
-					{
+					if old.contains(&n) || !Validators::<T>::get(&n).map_or(false, |prefs| prefs.blocked) {
 						Ok(n)
 					} else {
 						Err(Error::<T>::BadTarget.into())
@@ -2003,52 +2001,6 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// Remove a nominator from a validator's nominators when the validator is blocked.
-		///
-		/// This function allows validators who have declared themselves as blocked (not accepting
-		/// nominations) to remove nominators who had previously nominated them.
-		///
-		/// The dispatch origin for this call must be _Signed_ by the validator controller.
-		///
-		/// - `who`: A list of nominator stash accounts that should be removed from nominating this
-		///   validator.
-		#[pallet::call_index(22)]
-		#[pallet::weight(T::WeightInfo::kick(who.len() as u32))]
-		pub fn unnominate_blocked(
-			origin: OriginFor<T>,
-			who: Vec<AccountIdLookupOf<T>>,
-		) -> DispatchResult {
-			let controller = ensure_signed(origin)?;
-			let ledger = Self::ledger(Controller(controller))?;
-			let stash = &ledger.stash;
-
-			// Check if the validator has blocked nominations
-			let validator_prefs = Validators::<T>::get(stash).ok_or(Error::<T>::NotStash)?;
-
-			ensure!(validator_prefs.blocked, Error::<T>::BadTarget);
-
-			for nom_stash in who
-				.into_iter()
-				.map(T::Lookup::lookup)
-				.collect::<Result<Vec<T::AccountId>, _>>()?
-				.into_iter()
-			{
-				Nominators::<T>::mutate(&nom_stash, |maybe_nom| {
-					if let Some(ref mut nom) = maybe_nom {
-						if let Some(pos) = nom.targets.iter().position(|v| v == stash) {
-							nom.targets.swap_remove(pos);
-							Self::deposit_event(Event::<T>::Kicked {
-								nominator: nom_stash.clone(),
-								stash: stash.clone(),
-							});
-						}
-					}
-				});
-			}
-
-			Ok(())
-		}
-
 		/// Update the various staking configurations .
 		///
 		/// * `min_nominator_bond`: The minimum active bond needed to be a nominator.
@@ -2068,7 +2020,7 @@ pub mod pallet {
 		/// to kick people under the new limits, `chill_other` should be called.
 		// We assume the worst case for this call is either: all items are set or all items are
 		// removed.
-		#[pallet::call_index(23)]
+		#[pallet::call_index(22)]
 		#[pallet::weight(
 			T::WeightInfo::set_staking_configs_all_set()
 				.max(T::WeightInfo::set_staking_configs_all_remove())
@@ -2130,7 +2082,7 @@ pub mod pallet {
 		///
 		/// This can be helpful if bond requirements are updated, and we need to remove old users
 		/// who do not satisfy these requirements.
-		#[pallet::call_index(24)]
+		#[pallet::call_index(23)]
 		#[pallet::weight(T::WeightInfo::chill_other())]
 		pub fn chill_other(origin: OriginFor<T>, stash: T::AccountId) -> DispatchResult {
 			// Anyone can call this function.
@@ -2198,7 +2150,7 @@ pub mod pallet {
 		/// Force a validator to have at least the minimum commission. This will not affect a
 		/// validator who already has a commission greater than or equal to the minimum. Any account
 		/// can call this.
-		#[pallet::call_index(25)]
+		#[pallet::call_index(24)]
 		#[pallet::weight(T::WeightInfo::force_apply_min_commission())]
 		pub fn force_apply_min_commission(
 			origin: OriginFor<T>,
@@ -2224,7 +2176,7 @@ pub mod pallet {
 		///
 		/// This call has lower privilege requirements than `set_staking_config` and can be called
 		/// by the `T::AdminOrigin`. Root can always call this.
-		#[pallet::call_index(26)]
+		#[pallet::call_index(25)]
 		#[pallet::weight(T::WeightInfo::set_min_commission())]
 		pub fn set_min_commission(origin: OriginFor<T>, new: Perbill) -> DispatchResult {
 			T::AdminOrigin::ensure_origin(origin)?;
@@ -2249,7 +2201,7 @@ pub mod pallet {
 		/// backing a validator to receive the reward. The nominators are not sorted across pages
 		/// and so it should not be assumed the highest staker would be on the topmost page and vice
 		/// versa. If rewards are not claimed in [`Config::HistoryDepth`] eras, they are lost.
-		#[pallet::call_index(27)]
+		#[pallet::call_index(26)]
 		#[pallet::weight(T::WeightInfo::payout_stakers_alive_staked(T::MaxExposurePageSize::get()))]
 		pub fn payout_stakers_by_page(
 			origin: OriginFor<T>,
@@ -2267,7 +2219,7 @@ pub mod pallet {
 		/// Effects will be felt instantly (as soon as this function is completed successfully).
 		///
 		/// This will waive the transaction fee if the `payee` is successfully migrated.
-		#[pallet::call_index(28)]
+		#[pallet::call_index(27)]
 		#[pallet::weight(T::WeightInfo::update_payee())]
 		pub fn update_payee(
 			origin: OriginFor<T>,
@@ -2298,7 +2250,7 @@ pub mod pallet {
 		/// Effects will be felt instantly (as soon as this function is completed successfully).
 		///
 		/// The dispatch origin must be `T::AdminOrigin`.
-		#[pallet::call_index(29)]
+		#[pallet::call_index(28)]
 		#[pallet::weight(T::WeightInfo::deprecate_controller_batch(controllers.len() as u32))]
 		pub fn deprecate_controller_batch(
 			origin: OriginFor<T>,
@@ -2349,7 +2301,7 @@ pub mod pallet {
 		/// The `maybe_*` input parameters will overwrite the corresponding data and metadata of the
 		/// ledger associated with the stash. If the input parameters are not set, the ledger will
 		/// be reset values from on-chain state.
-		#[pallet::call_index(30)]
+		#[pallet::call_index(29)]
 		#[pallet::weight(T::WeightInfo::restore_ledger())]
 		pub fn restore_ledger(
 			origin: OriginFor<T>,
@@ -2440,7 +2392,7 @@ pub mod pallet {
 		/// stake is removed from the ledger.
 		///
 		/// The fee is waived if the migration is successful.
-		#[pallet::call_index(31)]
+		#[pallet::call_index(30)]
 		#[pallet::weight(T::WeightInfo::migrate_currency())]
 		pub fn migrate_currency(
 			origin: OriginFor<T>,
@@ -2475,7 +2427,7 @@ pub mod pallet {
 		/// ## Future Improvement
 		/// - Implement an **off-chain worker (OCW) task** to automatically apply slashes when there
 		///   is unused block space, improving efficiency.
-		#[pallet::call_index(32)]
+		#[pallet::call_index(31)]
 		#[pallet::weight(T::WeightInfo::apply_slash())]
 		pub fn apply_slash(
 			origin: OriginFor<T>,
@@ -2498,7 +2450,7 @@ pub mod pallet {
 		/// exceeds their actual staked funds. This situation can arise due to cases such as
 		/// external slashing by another pallet, leading to an inconsistency between the ledger
 		/// and the actual stake.
-		#[pallet::call_index(33)]
+		#[pallet::call_index(32)]
 		#[pallet::weight(T::DbWeight::get().reads_writes(2, 1))]
 		pub fn withdraw_overstake(origin: OriginFor<T>, stash: T::AccountId) -> DispatchResult {
 			use sp_runtime::Saturating;
