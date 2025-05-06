@@ -519,8 +519,8 @@ impl<Config: config::Config> XcmExecutor<Config> {
 		);
 		if current_surplus.any_gt(Weight::zero()) {
 			if let Some(w) = self.trader.refund_weight(current_surplus, &self.context) {
-				if !self.holding.contains_asset(&(w.id.clone(), 1).into())
-					&& self.ensure_can_subsume_assets(1).is_err()
+				if !self.holding.contains_asset(&(w.id.clone(), 1).into()) &&
+					self.ensure_can_subsume_assets(1).is_err()
 				{
 					let _ = self
 						.trader
@@ -865,11 +865,10 @@ impl<Config: config::Config> XcmExecutor<Config> {
 						});
 					}
 				},
-				Err(ref mut error) => {
+				Err(ref mut error) =>
 					if let Ok(x) = Config::Weigher::instr_weight(&mut instr) {
 						error.weight.saturating_accrue(x)
-					}
-				},
+					},
 			}
 		}
 		result
@@ -1759,10 +1758,8 @@ impl<Config: config::Config> XcmExecutor<Config> {
 		let mut failed_deposits = Vec::with_capacity(to_deposit.len());
 
 		for asset in to_deposit.assets_iter() {
-			let deposit_result =
-				Config::AssetTransactor::deposit_asset(&asset, &beneficiary, context);
 			// if deposit failed for asset, mark it for retry.
-			if deposit_result.is_err() {
+			if Config::AssetTransactor::deposit_asset(&asset, &beneficiary, context).is_err() {
 				failed_deposits.push(asset);
 			}
 		}

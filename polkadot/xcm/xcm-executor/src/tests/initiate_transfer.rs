@@ -29,6 +29,7 @@ use super::mock::*;
 // The sender and recipient we use across these tests.
 const SENDER: [u8; 32] = [0; 32];
 const RECIPIENT: [u8; 32] = [1; 32];
+const RECIPIENT2: [u8; 32] = [2; 32];
 
 #[test]
 fn clears_origin() {
@@ -224,14 +225,14 @@ fn deposit_assets_with_retry_burns_dust_and_deposits_rest() {
 	// fund sender
 	add_asset(SENDER, (Here, 200u128));
 
-	// dust amount (< ED=10)
-	let dust: Asset = (Here, 5u128).into();
+	// dust amount (< ED=2)
+	let dust: Asset = (Here, 1u128).into();
 
-	// non-dust amount (> ED=10)
+	// non-dust amount (> ED=2)
 	let legit: Asset = (Here, 100u128).into();
 
 	let xcm = Xcm::<TestCall>(vec![
-		WithdrawAsset((Here, 105u128).into()),
+		WithdrawAsset((Here, 101u128).into()),
 		DepositAsset {
 			assets: Definite(Assets::from(vec![dust.clone()])),
 			beneficiary: RECIPIENT.into(),
@@ -263,20 +264,20 @@ fn deposit_assets_with_retry_all_dust_are_burned() {
 	// fund sender
 	add_asset(SENDER, (Here, 20u128));
 
-	// two dust amounts, both < ED=10
-	let d1: Asset = (Here, 5u128).into();
-	let d2: Asset = (Here, 5u128).into();
+	// two dust amounts, both < ED=2
+	let d1: Asset = (Here, 1u128).into();
+	let d2: Asset = (Here, 1u128).into();
 
 	let xcm = Xcm::<TestCall>(vec![
-		// withdraw 5+5 so it succeeds
-		WithdrawAsset((Here, (5u128 + 5u128)).into()),
+		// withdraw 1+1 so it succeeds
+		WithdrawAsset((Here, (1u128 + 1u128)).into()),
 		DepositAsset {
 			assets: Definite(Assets::from(vec![d1.clone()])),
 			beneficiary: RECIPIENT.into(),
 		},
 		DepositAsset {
 			assets: Definite(Assets::from(vec![d2.clone()])),
-			beneficiary: RECIPIENT.into(),
+			beneficiary: RECIPIENT2.into(),
 		},
 	]);
 

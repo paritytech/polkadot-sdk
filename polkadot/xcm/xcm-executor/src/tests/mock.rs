@@ -55,7 +55,7 @@ parameter_types! {
 	pub const MaxInstructions: u32 = 10;
 	pub UniversalLocation: InteriorLocation = [GlobalConsensus(ByGenesis([0; 32])), Parachain(1000)].into();
 	/// Simulate the chain’s existential deposit.
-	pub const ExistentialDeposit: u128 = 10;
+	pub const ExistentialDeposit: u128 = 2;
 }
 
 /// Test origin.
