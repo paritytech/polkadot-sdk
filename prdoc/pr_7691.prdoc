@@ -1,26 +1,67 @@
 title: Ensure Consistent Topic IDs for Traceable Cross-Chain XCM
 doc:
 - audience: Runtime Dev
-  description: |-
-    This PR ensures every XCM processed with the same topic ID across multiple chains to improve traceability.
+  description: "This PR resolves issue #6119 by ensuring consistent topic ID inclusion\
+    \ in all XCM messages processed or sent via `XcmExecutor`, addressing instances\
+    \ where message topics were absent or inconsistent across multiple hops. To guarantee\
+    \ topic assignment and enhance traceability, this PR implements:\n\n* [**`WithUniqueTopic`**](https://paritytech.github.io/polkadot-sdk/master/staging_xcm_builder/struct.WithUniqueTopic.html):\
+    \ This structure automatically appends a unique topic ID to any XCM that does\
+    \ not already contain a `SetTopic` instruction, guaranteeing that every message\
+    \ has an identifier.\n* [**`XcmContext.topic_or_message_id()`**](https://paritytech.github.io/polkadot-sdk/master/staging_xcm/v5/struct.XcmContext.html):\
+    \ The `topic_or_message_id()` function is used to append a `SetTopic` to any outbound\
+    \ XCM that lacks one, ensuring that each message is consistently traceable by\
+    \ falling back to the context\u2019s message ID when no topic is set.\n* **Removal\
+    \ of `forward_id_for`**: The `forward_id_for` function, which was used to derive\
+    \ a new ID based on an original, has been removed as the focus is now on maintaining\
+    \ a consistent topic ID throughout the XCM lifecycle.\n\nTogether, these changes\
+    \ guarantee that all XCMs\u2014whether executed locally or dispatched to other\
+    \ chains\u2014carry an associated topic ID throughout their journey. This significantly\
+    \ improves debugging and observability by enabling comprehensive tracing of message\
+    \ flows within logs and events. This enhancement is particularly beneficial for\
+    \ complex, multi-hop XCM scenarios where topic consistency was previously unreliable,\
+    \ making it easier to follow the path and effects of each cross-chain message."
 crates:
-- name: emulated-integration-tests-common
-  bump: patch
-- name: pallet-xcm
-  bump: patch
-- name: staging-xcm
-  bump: patch
 - name: staging-xcm-builder
   bump: patch
 - name: staging-xcm-executor
+  bump: patch
+- name: xcm-emulator
+  bump: patch
+- name: staging-xcm
+  bump: patch
+- name: pallet-message-queue
+  bump: patch
+- name: snowbridge-pallet-inbound-queue
+  bump: patch
+- name: snowbridge-core
+  bump: patch
+- name: snowbridge-runtime-common
+  bump: patch
+- name: asset-hub-rococo-runtime
+  bump: patch
+- name: asset-hub-westend-runtime
+  bump: patch
+- name: coretime-rococo-runtime
+  bump: patch
+- name: coretime-westend-runtime
+  bump: patch
+- name: cumulus-primitives-utility
+  bump: patch
+- name: polkadot-runtime-parachains
+  bump: patch
+- name: rococo-runtime
+  bump: patch
+- name: westend-runtime
+  bump: patch
+- name: pallet-xcm
+  bump: patch
+- name: emulated-integration-tests-common
+  bump: patch
+- name: pallet-xcm-benchmarks
+  bump: patch
+- name: xcm-simulator-example
   bump: patch
 - name: xcm-runtime-apis
   bump: patch
 - name: xcm-simulator
   bump: patch
-- name: xcm-simulator-example
-  bump: patch
-- name: asset-hub-westend-integration-tests
-  bump: none
-- name: bridge-hub-westend-integration-tests
-  bump: none
