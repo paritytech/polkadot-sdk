@@ -178,9 +178,6 @@ pub(crate) fn assert_bridge_hub_westend_message_accepted(expected_processed: boo
 					) => {},
 				]
 			);
-			let mq_prc_id =
-				find_mq_processed_id::<BridgeHubWestend>().expect("Missing Processed Event");
-			TopicIdTracker::insert("BridgeHubWestend", mq_prc_id.into());
 		} else {
 			assert_expected_events!(
 				BridgeHubWestend,
@@ -192,6 +189,10 @@ pub(crate) fn assert_bridge_hub_westend_message_accepted(expected_processed: boo
 				]
 			);
 		}
+
+		let mq_prc_id =
+			find_mq_processed_id::<BridgeHubWestend>().expect("Missing Processed Event");
+		TopicIdTracker::insert("BridgeHubWestend", mq_prc_id.into());
 	});
 }
 

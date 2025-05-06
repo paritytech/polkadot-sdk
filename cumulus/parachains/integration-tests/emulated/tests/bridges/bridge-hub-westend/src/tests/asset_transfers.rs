@@ -177,6 +177,8 @@ fn send_wnds_usdt_and_weth_from_asset_hub_westend_to_asset_hub_rococo() {
 				) => {},
 			]
 		);
+		let mq_prc_id = find_mq_processed_id::<AssetHubRococo>().expect("Missing Processed Event");
+		TopicIdTracker::insert_and_assert_unique("AssetHubRococo", mq_prc_id);
 	});
 
 	let sender_wnds_after = <AssetHubWestend as Chain>::account_data_of(sender.clone()).free;
@@ -1312,7 +1314,7 @@ fn do_send_pens_and_wnds_from_penpal_westend_via_ahw_to_asset_hub_rococo(
 			);
 
 			let msg_id_sent = find_xcm_sent_message_id::<PenpalB>().expect("Missing Sent Event");
-			TopicIdTracker::insert("PenpalB", msg_id_sent.into());
+			TopicIdTracker::insert_and_assert_unique("PenpalB", msg_id_sent.into());
 
 			result
 		}));
@@ -1320,7 +1322,7 @@ fn do_send_pens_and_wnds_from_penpal_westend_via_ahw_to_asset_hub_rococo(
 			type RuntimeEvent = <AssetHubWestend as Chain>::RuntimeEvent;
 			let mq_prc_id =
 				find_mq_processed_id::<AssetHubWestend>().expect("Missing Processed Event");
-			TopicIdTracker::insert("AssetHubWestend", mq_prc_id.into());
+			TopicIdTracker::insert_and_assert_unique("AssetHubWestend", mq_prc_id.into());
 			let msg_id_sent =
 				find_xcm_sent_message_id::<AssetHubWestend>().expect("Missing Sent Event");
 			TopicIdTracker::insert_and_assert_unique("AssetHubWestend", msg_id_sent.into());
@@ -1461,7 +1463,7 @@ fn send_pens_and_wnds_from_penpal_westend_via_ahw_to_ahr() {
 	AssetHubRococo::execute_with(|| {
 		type RuntimeEvent = <AssetHubRococo as Chain>::RuntimeEvent;
 		let mq_prc_id = find_mq_processed_id::<AssetHubRococo>().expect("Missing Processed Event");
-		TopicIdTracker::insert("AssetHubRococo", mq_prc_id.into());
+		TopicIdTracker::insert_and_assert_unique("AssetHubRococo", mq_prc_id.into());
 		assert_expected_events!(
 			AssetHubRococo,
 			vec![
