@@ -44,7 +44,7 @@ async fn full_node_catching_up() -> Result<(), anyhow::Error> {
 	log::info!("Ensuring none of the consensus hook checks fail");
 	let log_line_count = network
 		.get_node("charlie")?
-		.wait_log_line_count_with_timeout_v2(
+		.wait_log_line_count_with_timeout(
 			"set_validation_data inherent needs to be present in every block",
 			false,
 			LogLineCountOptions::no_occurences_within_timeout(10u64),
