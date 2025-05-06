@@ -1,0 +1,28 @@
+title: Treat BelowMinimum deposit errors as non-fatal and trap dust in XcmExecutor
+doc:
+- audience: Runtime User
+  description: "# Description\n\nThis PR enhances the XCM executor\u2019s `deposit_assets_with_retry`\
+    \ so that **dust deposits** (below the chain\u2019s existential deposit) no longer\
+    \ abort the entire batch.  Instead, any `TokenError::BelowMinimum` is treated\
+    \ as non\u2010fatal: the dust portion is trapped via the configured `AssetTrap`,\
+    \ and the executor continues depositing the rest of the assets.\nOnce this lands,\
+    \ complex XCMs that transfer multiple assets will no longer fail outright when\
+    \ the leftover fee asset after buying execution becomes dust.\n\nFixes issue #4408\n\
+    \n## Integration\n\nNo downstream runtime APIs are changed.  Existing parachain\
+    \ and relay\u2010chain integrations of the XCM executor will automatically benefit\
+    \ from this fix without modification.\nNo deprecation or migration steps are required\
+    \ by users of `XcmExecutor`.\n\n## Review Notes\n\nThe core change is in `deposit_assets_with_retry`:\n\
+    \n1. **Skip & Trap Dust**\n   - On `deposit_asset` error matching `FailedToTransactAsset(\"\
+    BelowMinimum\")`, we now call `do_handle_below_minimum` (which invokes `Config::AssetTrap::drop_assets`)\
+    \ and continue, rather than collecting it as a hard failure.\n\n2. **Retry Logic**\n\
+    \   - We collect all *other* failures, then, if *all* deposits fail for non\u2010\
+    dust reasons, return the last error as before.\n   - Otherwise we retry each collected\
+    \ failure once, again trapping any dust.\n\n3. **Helpers Added**\n   - `is_below_minimum_error(&XcmError)\
+    \ -> bool` for precise detection of dust failures.\n   - `do_handle_below_minimum(&Asset,\
+    \ &Location, Option<&XcmContext>)` which traps the dust.\n\n4. **Tests**\n   Two\
+    \ new unit tests in `xcm-executor/src/tests/initiate_transfer.rs` cover:\n   -\
+    \ Mixed dust + legit batches: dust is trapped and legit succeeds.\n   - All\u2010\
+    dust batches: all dust is summed+trapped, and executor completes successfully."
+crates:
+- name: staging-xcm-executor
+  bump: patch
