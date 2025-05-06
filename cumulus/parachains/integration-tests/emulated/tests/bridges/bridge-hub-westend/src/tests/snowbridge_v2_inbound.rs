@@ -161,6 +161,7 @@ fn send_token_v2() {
 		NativeTokenERC20 { token_id: token.into(), value: token_transfer_value },
 	];
 
+	set_up_eth_and_dot_pool();
 	let topic_id = BridgeHubWestend::execute_with(|| {
 		type RuntimeEvent = <BridgeHubWestend as Chain>::RuntimeEvent;
 		let instructions = vec![
@@ -280,6 +281,7 @@ fn send_weth_v2() {
 		NativeTokenERC20 { token_id: WETH.into(), value: token_transfer_value },
 	];
 
+	set_up_eth_and_dot_pool();
 	BridgeHubWestend::execute_with(|| {
 		type RuntimeEvent = <BridgeHubWestend as Chain>::RuntimeEvent;
 		let instructions = vec![
@@ -769,6 +771,7 @@ fn send_foreign_erc20_token_back_to_polkadot() {
 	.appended_with(asset_id.clone().interior)
 	.unwrap();
 
+	set_up_eth_and_dot_pool();
 	// Register token
 	BridgeHubWestend::execute_with(|| {
 		type RuntimeOrigin = <BridgeHubWestend as Chain>::RuntimeOrigin;
@@ -963,6 +966,7 @@ fn invalid_claimer_does_not_fail_the_message() {
 
 	let origin = H160::random();
 
+	set_up_eth_and_dot_pool();
 	BridgeHubWestend::execute_with(|| {
 		type RuntimeEvent = <BridgeHubWestend as Chain>::RuntimeEvent;
 		let instructions = vec![
