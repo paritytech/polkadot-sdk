@@ -1480,6 +1480,9 @@ fn send_pens_and_wnds_from_penpal_westend_via_ahw_to_ahr() {
 		);
 	});
 
+	// assert unique topic across all chains
+	TopicIdTracker::assert_unique();
+
 	// account balances after
 	let sender_wnds_after = PenpalB::execute_with(|| {
 		type ForeignAssets = <PenpalB as PenpalBPallet>::ForeignAssets;
