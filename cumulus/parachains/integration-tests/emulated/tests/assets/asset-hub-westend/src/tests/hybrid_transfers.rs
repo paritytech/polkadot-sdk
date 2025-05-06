@@ -56,10 +56,10 @@ fn para_to_para_assethub_hop_assertions(t: ParaToParaThroughAHTest) {
 		]
 	);
 
-	let msg_id_sent = find_xcm_sent_message_id::<AssetHubWestend>().expect("Missing Sent Event");
-	TopicIdTracker::insert_and_assert_unique("AssetHubWestends", msg_id_sent.into());
 	let mq_prc_id = find_mq_processed_id::<AssetHubWestend>().expect("Missing Processed Event");
 	TopicIdTracker::insert_and_assert_unique("AssetHubWestend", mq_prc_id);
+	let msg_id_sent = find_xcm_sent_message_id::<AssetHubWestend>().expect("Missing Sent Event");
+	TopicIdTracker::insert_and_assert_unique("AssetHubWestend", msg_id_sent.into());
 }
 
 fn ah_to_para_transfer_assets(t: SystemParaToParaTest) -> DispatchResult {
