@@ -180,7 +180,7 @@ pub mod pallet {
 			ensure!(!Nonce::<T>::get(nonce), Error::<T>::InvalidNonce);
 
 			// Mark message as received
-			Nonce::<T>::set(nonce.into());
+			Nonce::<T>::set(nonce);
 
 			let message_id = T::MessageProcessor::process_message(relayer.clone(), message)?;
 
