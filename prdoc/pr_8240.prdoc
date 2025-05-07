@@ -22,4 +22,4 @@ crates:
 - name: snowbridge-pallet-system-frontend
   bump: patch
 - name: bridge-hub-westend-runtime
-  bump: minor
+  bump: none
