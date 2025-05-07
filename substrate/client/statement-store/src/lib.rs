@@ -707,6 +707,56 @@ impl Store {
 	pub fn as_statement_store_ext(self: Arc<Self>) -> StatementStoreExt {
 		StatementStoreExt::new(self)
 	}
+
+	/// Return information of all known statements whose decryption key is identified as
+	/// `dest`. The key must be available to the client.
+	fn posted_clear_inner<R>(
+		&self,
+		match_all_topics: &[Topic],
+		dest: [u8; 32],
+		// Map the statement and the decrypted data to the desired result.
+		mut map_f: impl FnMut(Statement, Vec<u8>) -> R,
+	) -> Result<Vec<R>> {
+		self.collect_statements(Some(dest), match_all_topics, |statement| {
+			if let (Some(key), Some(_)) = (statement.decryption_key(), statement.data()) {
+				let public: sp_core::ed25519::Public = UncheckedFrom::unchecked_from(key);
+				let public: sp_statement_store::ed25519::Public = public.into();
+				match self.keystore.key_pair::<sp_statement_store::ed25519::Pair>(&public) {
+					Err(e) => {
+						log::debug!(
+							target: LOG_TARGET,
+							"Keystore error: {:?}, for statement {:?}",
+							e,
+							HexDisplay::from(&statement.hash())
+						);
+						None
+					},
+					Ok(None) => {
+						log::debug!(
+							target: LOG_TARGET,
+							"Keystore is missing key for statement {:?}",
+							HexDisplay::from(&statement.hash())
+						);
+						None
+					},
+					Ok(Some(pair)) => match statement.decrypt_private(&pair.into_inner()) {
+						Ok(r) => r.map(|data| map_f(statement, data)),
+						Err(e) => {
+							log::debug!(
+								target: LOG_TARGET,
+								"Decryption error: {:?}, for statement {:?}",
+								e,
+								HexDisplay::from(&statement.hash())
+							);
+							None
+						},
+					},
+				}
+			} else {
+				None
+			}
+		})
+	}
 }
 
 impl StatementStore for Store {
@@ -773,44 +823,34 @@ impl StatementStore for Store {
 	/// Return the decrypted data of all known statements whose decryption key is identified as
 	/// `dest`. The key must be available to the client.
 	fn posted_clear(&self, match_all_topics: &[Topic], dest: [u8; 32]) -> Result<Vec<Vec<u8>>> {
-		self.collect_statements(Some(dest), match_all_topics, |statement| {
-			if let (Some(key), Some(_)) = (statement.decryption_key(), statement.data()) {
-				let public: sp_core::ed25519::Public = UncheckedFrom::unchecked_from(key);
-				let public: sp_statement_store::ed25519::Public = public.into();
-				match self.keystore.key_pair::<sp_statement_store::ed25519::Pair>(&public) {
-					Err(e) => {
-						log::debug!(
-							target: LOG_TARGET,
-							"Keystore error: {:?}, for statement {:?}",
-							e,
-							HexDisplay::from(&statement.hash())
-						);
-						None
-					},
-					Ok(None) => {
-						log::debug!(
-							target: LOG_TARGET,
-							"Keystore is missing key for statement {:?}",
-							HexDisplay::from(&statement.hash())
-						);
-						None
-					},
-					Ok(Some(pair)) => match statement.decrypt_private(&pair.into_inner()) {
-						Ok(r) => r,
-						Err(e) => {
-							log::debug!(
-								target: LOG_TARGET,
-								"Decryption error: {:?}, for statement {:?}",
-								e,
-								HexDisplay::from(&statement.hash())
-							);
-							None
-						},
-					},
-				}
-			} else {
-				None
-			}
+		self.posted_clear_inner(match_all_topics, dest, |_statement, data| data)
+	}
+
+	/// Return all known statements which include all topics and have no `DecryptionKey`
+	/// field.
+	fn broadcasts_stmt(&self, match_all_topics: &[Topic]) -> Result<Vec<Vec<u8>>> {
+		self.collect_statements(None, match_all_topics, |statement| Some(statement.encode()))
+	}
+
+	/// Return all known statements whose decryption key is identified as `dest` (this
+	/// will generally be the public key or a hash thereof for symmetric ciphers, or a hash of the
+	/// private key for symmetric ciphers).
+	fn posted_stmt(&self, match_all_topics: &[Topic], dest: [u8; 32]) -> Result<Vec<Vec<u8>>> {
+		self.collect_statements(Some(dest), match_all_topics, |statement| Some(statement.encode()))
+	}
+
+	/// Return the statement and the decrypted data of all known statements whose decryption key is
+	/// identified as `dest`. The key must be available to the client.
+	fn posted_clear_stmt(
+		&self,
+		match_all_topics: &[Topic],
+		dest: [u8; 32],
+	) -> Result<Vec<Vec<u8>>> {
+		self.posted_clear_inner(match_all_topics, dest, |statement, data| {
+			let mut res = Vec::with_capacity(statement.size_hint() + data.len());
+			statement.encode_to(&mut res);
+			res.extend_from_slice(&data);
+			res
 		})
 	}
 
@@ -931,7 +971,7 @@ impl StatementStore for Store {
 mod tests {
 	use crate::Store;
 	use sc_keystore::Keystore;
-	use sp_core::Pair;
+	use sp_core::{Decode, Encode, Pair};
 	use sp_statement_store::{
 		runtime_api::{InvalidStatement, ValidStatement, ValidateStatement},
 		AccountId, Channel, DecryptionKey, NetworkPriority, Proof, SignatureVerificationResult,
@@ -1292,5 +1332,175 @@ mod tests {
 		store.submit(statement2, StatementSource::Network);
 		let posted_clear = store.posted_clear(&[], public.into()).unwrap();
 		assert_eq!(posted_clear, vec![plain]);
+	}
+
+	#[test]
+	fn broadcasts_stmt_returns_encoded_statements() {
+		let (store, _tmp) = test_store();
+
+		// no key, no topic
+		let s0 = signed_statement_with_topics(0, &[], None);
+		// same, but with a topic = 42
+		let s1 = signed_statement_with_topics(1, &[topic(42)], None);
+		// has a decryption key -> must NOT be returned by broadcasts_stmt
+		let s2 = signed_statement_with_topics(2, &[topic(42)], Some(dec_key(99)));
+
+		for s in [&s0, &s1, &s2] {
+			store.submit(s.clone(), StatementSource::Network);
+		}
+
+		// no topic filter
+		let mut hashes: Vec<_> = store
+			.broadcasts_stmt(&[])
+			.unwrap()
+			.into_iter()
+			.map(|bytes| Statement::decode(&mut &bytes[..]).unwrap().hash())
+			.collect();
+		hashes.sort();
+		let expected_hashes = {
+			let mut e = vec![s0.hash(), s1.hash()];
+			e.sort();
+			e
+		};
+		assert_eq!(hashes, expected_hashes);
+
+		// filter on topic 42
+		let got = store.broadcasts_stmt(&[topic(42)]).unwrap();
+		assert_eq!(got.len(), 1);
+		let st = Statement::decode(&mut &got[0][..]).unwrap();
+		assert_eq!(st.hash(), s1.hash());
+	}
+
+	#[test]
+	fn posted_stmt_returns_encoded_statements_for_dest() {
+		let (store, _tmp) = test_store();
+
+		let public1 = store
+			.keystore
+			.ed25519_generate_new(sp_core::crypto::key_types::STATEMENT, None)
+			.unwrap();
+		let dest: [u8; 32] = public1.into();
+
+		let public2 = store
+			.keystore
+			.ed25519_generate_new(sp_core::crypto::key_types::STATEMENT, None)
+			.unwrap();
+
+		// A statement that does have dec_key = dest
+		let mut s_with_key = statement(1, 1, None, 0);
+		let plain1 = b"The most valuable secret".to_vec();
+		s_with_key.encrypt(&plain1, &public1).unwrap();
+
+		// A statement with a different dec_key
+		let mut s_other_key = statement(2, 2, None, 0);
+		let plain2 = b"The second most valuable secret".to_vec();
+		s_other_key.encrypt(&plain2, &public2).unwrap();
+
+		// Submit them all
+		for s in [&s_with_key, &s_other_key] {
+			store.submit(s.clone(), StatementSource::Network);
+		}
+
+		// posted_stmt should only return the one with dec_key = dest
+		let retrieved = store.posted_stmt(&[], dest).unwrap();
+		assert_eq!(retrieved.len(), 1, "Only one statement has dec_key=dest");
+
+		// Re-decode that returned statement to confirm it is correct
+		let returned_stmt = Statement::decode(&mut &retrieved[0][..]).unwrap();
+		assert_eq!(
+			returned_stmt.hash(),
+			s_with_key.hash(),
+			"Returned statement must match s_with_key"
+		);
+	}
+
+	#[test]
+	fn posted_clear_stmt_returns_statement_followed_by_plain_data() {
+		let (store, _tmp) = test_store();
+
+		let public1 = store
+			.keystore
+			.ed25519_generate_new(sp_core::crypto::key_types::STATEMENT, None)
+			.unwrap();
+		let dest: [u8; 32] = public1.into();
+
+		let public2 = store
+			.keystore
+			.ed25519_generate_new(sp_core::crypto::key_types::STATEMENT, None)
+			.unwrap();
+
+		// A statement that does have dec_key = dest
+		let mut s_with_key = statement(1, 1, None, 0);
+		let plain1 = b"The most valuable secret".to_vec();
+		s_with_key.encrypt(&plain1, &public1).unwrap();
+
+		// A statement with a different dec_key
+		let mut s_other_key = statement(2, 2, None, 0);
+		let plain2 = b"The second most valuable secret".to_vec();
+		s_other_key.encrypt(&plain2, &public2).unwrap();
+
+		// Submit them all
+		for s in [&s_with_key, &s_other_key] {
+			store.submit(s.clone(), StatementSource::Network);
+		}
+
+		// posted_stmt should only return the one with dec_key = dest
+		let retrieved = store.posted_clear_stmt(&[], dest).unwrap();
+		assert_eq!(retrieved.len(), 1, "Only one statement has dec_key=dest");
+
+		// We expect: [ encoded Statement ] + [ the decrypted bytes ]
+		let encoded_stmt = s_with_key.encode();
+		let stmt_len = encoded_stmt.len();
+
+		// 1) statement is first
+		assert_eq!(&retrieved[0][..stmt_len], &encoded_stmt[..]);
+
+		// 2) followed by the decrypted payload
+		let trailing = &retrieved[0][stmt_len..];
+		assert_eq!(trailing, &plain1[..]);
+	}
+
+	#[test]
+	fn posted_clear_returns_plain_data_for_dest_and_topics() {
+		let (store, _tmp) = test_store();
+
+		// prepare two key-pairs
+		let public_dest = store
+			.keystore
+			.ed25519_generate_new(sp_core::crypto::key_types::STATEMENT, None)
+			.unwrap();
+		let dest: [u8; 32] = public_dest.into();
+
+		let public_other = store
+			.keystore
+			.ed25519_generate_new(sp_core::crypto::key_types::STATEMENT, None)
+			.unwrap();
+
+		// statement that SHOULD be returned (matches dest & topic 42)
+		let mut s_good = statement(1, 1, None, 0);
+		let plaintext_good = b"The most valuable secret".to_vec();
+		s_good.encrypt(&plaintext_good, &public_dest).unwrap();
+		s_good.set_topic(0, topic(42));
+
+		// statement that should NOT be returned (same dest but different topic)
+		let mut s_wrong_topic = statement(2, 2, None, 0);
+		s_wrong_topic.encrypt(b"Wrong topic", &public_dest).unwrap();
+		s_wrong_topic.set_topic(0, topic(99));
+
+		// statement that should NOT be returned (different dest)
+		let mut s_other_dest = statement(3, 3, None, 0);
+		s_other_dest.encrypt(b"Other dest", &public_other).unwrap();
+		s_other_dest.set_topic(0, topic(42));
+
+		// submit all
+		for s in [&s_good, &s_wrong_topic, &s_other_dest] {
+			store.submit(s.clone(), StatementSource::Network);
+		}
+
+		// call posted_clear with the topic filter and dest
+		let retrieved = store.posted_clear(&[topic(42)], dest).unwrap();
+
+		// exactly one element, equal to the expected plaintext
+		assert_eq!(retrieved, vec![plaintext_good]);
 	}
 }

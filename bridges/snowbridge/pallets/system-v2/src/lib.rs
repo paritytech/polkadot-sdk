@@ -126,7 +126,7 @@ pub mod pallet {
 		/// - `impl_address`: The address of the implementation contract.
 		/// - `impl_code_hash`: The codehash of the implementation contract.
 		/// - `initializer`: Optionally call an initializer on the implementation contract.
-		#[pallet::call_index(3)]
+		#[pallet::call_index(0)]
 		#[pallet::weight((<T as pallet::Config>::WeightInfo::upgrade(), DispatchClass::Operational))]
 		pub fn upgrade(
 			origin: OriginFor<T>,
@@ -160,7 +160,7 @@ pub mod pallet {
 		/// Fee required: No
 		///
 		/// - `origin`: Must be `GovernanceOrigin`
-		#[pallet::call_index(4)]
+		#[pallet::call_index(1)]
 		#[pallet::weight((<T as pallet::Config>::WeightInfo::set_operating_mode(), DispatchClass::Operational))]
 		pub fn set_operating_mode(origin: OriginFor<T>, mode: OperatingMode) -> DispatchResult {
 			let origin_location = T::GovernanceOrigin::ensure_origin(origin)?;
@@ -180,8 +180,7 @@ pub mod pallet {
 		/// - `sender`: The original sender initiating the call on AH
 		/// - `asset_id`: Location of the asset (relative to this chain)
 		/// - `metadata`: Metadata to include in the instantiated ERC20 contract on Ethereum
-		/// - `fee`: Ether to pay for the execution cost on Ethereum
-		#[pallet::call_index(0)]
+		#[pallet::call_index(2)]
 		#[pallet::weight(<T as pallet::Config>::WeightInfo::register_token())]
 		pub fn register_token(
 			origin: OriginFor<T>,
@@ -227,14 +226,12 @@ pub mod pallet {
 	impl<T: Config> Pallet<T> {
 		/// Send `command` to the Gateway from a specific origin/agent
 		fn send(origin: H256, command: Command, fee: u128) -> DispatchResult {
-			let mut message = Message {
+			let message = Message {
 				origin,
-				id: Default::default(),
+				id: frame_system::unique((origin, &command, fee)).into(),
 				fee,
 				commands: BoundedVec::try_from(vec![command]).unwrap(),
 			};
-			let hash = sp_io::hashing::blake2_256(&message.encode());
-			message.id = hash.into();
 
 			let ticket = <T as pallet::Config>::OutboundQueue::validate(&message)
 				.map_err(|err| Error::<T>::Send(err))?;
