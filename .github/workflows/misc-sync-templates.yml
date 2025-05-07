@@ -246,6 +246,7 @@ jobs:
           codegen-units = 1
           inherits = "release"
           lto = true
+
           EOF
           
         working-directory: "${{ env.template-path }}"
