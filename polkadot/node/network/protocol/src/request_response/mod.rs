@@ -278,6 +278,8 @@ impl Protocol {
 				// faster than that, queue size will stay low anyway, even if not - requesters will
 				// get an immediate error, but if we are slower, requesters will run in a timeout -
 				// wasting precious time.
+
+				// The following represents the old formula for calculating the channel size.
 				let available_bandwidth = 7 * MIN_BANDWIDTH_BYTES / 10;
 				let size = u64::saturating_sub(
 					ATTESTED_CANDIDATE_TIMEOUT.as_millis() as u64 * available_bandwidth /
@@ -288,7 +290,14 @@ impl Protocol {
 					size > 0,
 					"We should have a channel size greater zero, otherwise we won't accept any requests."
 				);
-				size as usize
+
+				// However, we need to bound the channel size to a reasonable value to support
+				// situations where the network is slow and we have a lot of peers. Therefore,
+				// we cap the minimum channel size to 100.
+				std::cmp::max(
+					size as usize,
+					100,
+				)
 			},
 		}
 	}
