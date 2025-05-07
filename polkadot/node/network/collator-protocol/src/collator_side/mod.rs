@@ -360,6 +360,7 @@ async fn distribute_collation<Context>(
 ) -> Result<()> {
 	let candidate_relay_parent = receipt.descriptor.relay_parent();
 	let candidate_hash = receipt.hash();
+	let cores_assigned = has_assigned_cores(&state.implicit_view, &state.per_relay_parent);
 
 	let per_relay_parent = match state.per_relay_parent.get_mut(&candidate_relay_parent) {
 		Some(per_relay_parent) => per_relay_parent,
@@ -472,7 +473,7 @@ async fn distribute_collation<Context>(
 	});
 
 	// Update a set of connected validators if necessary.
-	connect_to_validators(ctx, &state.validator_groups_buf).await;
+	connect_to_validators(ctx, cores_assigned, &state.validator_groups_buf).await;
 
 	if let Some(result_sender) = result_sender {
 		state.collation_result_senders.insert(candidate_hash, result_sender);
@@ -599,14 +600,44 @@ async fn declare<Context>(ctx: &mut Context, state: &mut State, peer: &PeerId) {
 	}
 }
 
+/// Checks whether there are any core assignments for our para on any active relay chain leaves.
+fn has_assigned_cores(
+	implicit_view: &Option<ImplicitView>,
+	per_relay_parent: &HashMap<Hash, PerRelayParent>,
+) -> bool {
+	let Some(implicit_view) = implicit_view else { return false };
+
+	for leaf in implicit_view.leaves() {
+		if let Some(relay_parent) = per_relay_parent.get(leaf) {
+			if !relay_parent.assignments.is_empty() {
+				return true;
+			}
+		}
+	}
+
+	false
+}
+
 /// Updates a set of connected validators based on their advertisement-bits
 /// in a validators buffer.
 #[overseer::contextbounds(CollatorProtocol, prefix = self::overseer)]
 async fn connect_to_validators<Context>(
 	ctx: &mut Context,
+	cores_assigned: bool,
 	validator_groups_buf: &ValidatorGroupsBuffer,
 ) {
-	let validator_ids = validator_groups_buf.validators_to_connect();
+	// If no cores are assigned to the para, we still need to send a ConnectToValidators request to
+	// the network bridge passing an empty list of validator ids. Otherwise, it will keep connecting
+	// to the last requested validators until a new request is issued.
+	let validator_ids =
+		if cores_assigned { validator_groups_buf.validators_to_connect() } else { Vec::new() };
+
+	gum::trace!(
+		target: LOG_TARGET,
+		?cores_assigned,
+		"Sending connection request to validators: {:?}",
+		validator_ids,
+	);
 
 	// ignore address resolution failure
 	// will reissue a new request on new collation
@@ -1441,7 +1472,8 @@ async fn run_inner<Context>(
 				}
 			}
 			_ = reconnect_timeout => {
-				connect_to_validators(&mut ctx, &state.validator_groups_buf).await;
+				let cores_assigned = has_assigned_cores(&state.implicit_view, &state.per_relay_parent);
+				connect_to_validators(&mut ctx, cores_assigned, &state.validator_groups_buf).await;
 
 				gum::trace!(
 					target: LOG_TARGET,
