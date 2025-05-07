@@ -14339,7 +14339,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-dispute-distribution"
-version = "22.0.0"
+version = "22.1.0"
 dependencies = [
  "assert_matches",
  "async-channel 1.9.0",
@@ -27562,7 +27562,7 @@ dependencies = [
 
 [[package]]
 name = "xcm-emulator"
-version = "0.19.1"
+version = "0.19.2"
 dependencies = [
  "array-bytes",
  "cumulus-pallet-parachain-system",
