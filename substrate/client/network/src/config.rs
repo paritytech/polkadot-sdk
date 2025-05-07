@@ -915,11 +915,18 @@ impl<B: BlockT + 'static, H: ExHashT, N: NetworkBackend<B, H>> FullNetworkConfig
 /// Network backend type.
 #[derive(Debug, Clone)]
 pub enum NetworkBackendType {
-	/// Use libp2p for P2P networking.
-	Libp2p,
-
 	/// Use litep2p for P2P networking.
+	///
+	/// This is the preferred option for Substrate-based chains.
 	Litep2p,
+
+	/// Use libp2p for P2P networking.
+	///
+	/// The libp2p is still used for compatibility reasons until the
+	/// ecosystem switches entirely to litep2p. The backend will enter
+	/// a "best-effort" maintenance mode, where only critical issues will
+	/// get fixed. If you are unsure, please use `NetworkBackendType::Litep2p`.
+	Libp2p,
 }
 
 #[cfg(test)]
