@@ -30,7 +30,7 @@ use crate::{
 };
 use bounded_collections::BoundedVec;
 use frame_support::{
-	assert_err_ignore_postinfo, assert_noop, assert_ok,
+	assert_err_ignore_postinfo, assert_noop, assert_ok, assert_storage_noop,
 	traits::{ContainsPair, Currency, Hooks},
 	weights::Weight,
 };
@@ -1742,4 +1742,18 @@ fn deliver_failure_with_expect_error() {
 			assert!(log_capture.contains("xcm::send: XCM failed to deliver with error error=Transport(\"Intentional deliver failure used in tests\")"));
 		})
 	});
+}
+
+#[test]
+fn query_weight_to_asset_fee_noop() {
+	new_test_ext_with_balances(vec![]).execute_with(|| {
+		let weight = Weight::from_parts(4_000_000_000, 3800);
+		let asset_id = AssetId(Location::here());
+
+		assert_storage_noop!(XcmPallet::query_weight_to_asset_fee::<Trader>(
+			weight,
+			asset_id.into()
+		)
+		.unwrap());
+	})
 }
