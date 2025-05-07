@@ -2,10 +2,11 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use anyhow::anyhow;
+use tokio::time::Duration;
 
 use cumulus_zombienet_sdk_helpers::wait_for_nth_session_change;
 use subxt::{OnlineClient, PolkadotConfig};
-use zombienet_orchestrator::network::node::{LogLineCount, LogLineCountOptions};
+use zombienet_orchestrator::network::node::LogLineCountOptions;
 use zombienet_sdk::{NetworkConfig, NetworkConfigBuilder};
 
 async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
@@ -74,17 +75,17 @@ async fn dht_bootnodes_test() -> Result<(), anyhow::Error> {
 		.wait_metric_with_timeout("substrate_sync_peers", |count| count == 1.0, 300u64)
 		.await?;
 
-	let log_line_options = LogLineCountOptions::new(|n| n == 1, 30u64, false);
+	let log_line_options = LogLineCountOptions::new(|n| n == 1, Duration::from_secs(30), false);
 
 	// Make sure the DHT bootnode discovery was successful.
-	let log_line_count = alpha
+	let result = alpha
 		.wait_log_line_count_with_timeout(
 			".* Parachain bootnode discovery on the relay chain DHT succeeded",
 			false,
 			log_line_options.clone(),
 		)
 		.await?;
-	assert!(matches!(log_line_count, LogLineCount::TargetReached(..)));
+	assert!(result.success());
 
 	log::info!(
 		"First two collators successfully connected via DHT bootnodes. \
@@ -108,7 +109,7 @@ async fn dht_bootnodes_test() -> Result<(), anyhow::Error> {
 		.await?;
 
 	// Make sure the DHT bootnode discovery was successful.
-	let log_line_count = gamma
+	let result = gamma
 		.wait_log_line_count_with_timeout(
 			".* Parachain bootnode discovery on the relay chain DHT succeeded",
 			false,
@@ -116,7 +117,7 @@ async fn dht_bootnodes_test() -> Result<(), anyhow::Error> {
 		)
 		.await?;
 
-	assert!(matches!(log_line_count, LogLineCount::TargetReached(..)));
+	assert!(result.success());
 
 	log::info!("Test finished successfully.");
 

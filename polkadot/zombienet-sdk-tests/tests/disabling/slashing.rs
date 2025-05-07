@@ -15,7 +15,7 @@ use serde_json::json;
 use subxt::{OnlineClient, PolkadotConfig};
 use tokio::time::Duration;
 use tokio_util::time::FutureExt;
-use zombienet_orchestrator::network::node::{LogLineCount, LogLineCountOptions};
+use zombienet_orchestrator::network::node::LogLineCountOptions;
 use zombienet_sdk::NetworkConfigBuilder;
 
 #[tokio::test(flavor = "multi_thread")]
@@ -149,14 +149,15 @@ async fn dispute_past_session_slashing() -> Result<(), anyhow::Error> {
 		.await?;
 	log::info!("A dispute has concluded");
 
-	let log_line_count = honest
+	let result = honest
 		.wait_log_line_count_with_timeout(
 			"*Successfully reported pending slash*",
 			true,
-			LogLineCountOptions::new(|n| n == 1, timeout_secs, false),
+			LogLineCountOptions::new(|n| n == 1, Duration::from_secs(timeout_secs), false),
 		)
 		.await?;
-	assert!(matches!(log_line_count, LogLineCount::TargetReached(..)));
+
+	assert!(result.success());
 
 	assert_blocks_are_being_finalized(&relay_client)
 		.timeout(Duration::from_secs(400)) // enough for the aggression to kick in

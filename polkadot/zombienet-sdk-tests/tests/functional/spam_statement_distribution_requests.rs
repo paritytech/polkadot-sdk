@@ -4,12 +4,13 @@
 // Test if parachains progress when group is getting spammed by statement distribution requests.
 
 use anyhow::anyhow;
+use tokio::time::Duration;
 
 use cumulus_zombienet_sdk_helpers::assert_para_throughput;
 use polkadot_primitives::Id as ParaId;
 use serde_json::json;
 use subxt::{OnlineClient, PolkadotConfig};
-use zombienet_orchestrator::network::node::{LogLineCount, LogLineCountOptions};
+use zombienet_orchestrator::network::node::LogLineCountOptions;
 use zombienet_sdk::NetworkConfigBuilder;
 
 #[tokio::test(flavor = "multi_thread")]
@@ -118,14 +119,14 @@ async fn spam_statement_distribution_requests_test() -> Result<(), anyhow::Error
 	.await?;
 
 	// Ensure that malus is already attempting to DoS
-	let log_line_count = malus
+	let result = malus
 		.wait_log_line_count_with_timeout(
 			"*Duplicating AttestedCandidateV2 request*",
 			true,
-			LogLineCountOptions::new(|n| n == 1, 90u64, false),
+			LogLineCountOptions::new(|n| n == 1, Duration::from_secs(90), false),
 		)
 		.await?;
-	assert!(matches!(log_line_count, LogLineCount::TargetReached(..)));
+	assert!(result.success());
 
 	// Ensure parachains made progress.
 	assert_para_throughput(
@@ -136,14 +137,14 @@ async fn spam_statement_distribution_requests_test() -> Result<(), anyhow::Error
 	.await?;
 
 	// Ensure that honest nodes drop extra requests.
-	let log_line_count = honest
+	let result = honest
 		.wait_log_line_count_with_timeout(
 			"*Peer already being served, dropping request*",
 			true,
-			LogLineCountOptions::new(|n| n == 1, 60u64, false),
+			LogLineCountOptions::new(|n| n == 1, Duration::from_secs(60), false),
 		)
 		.await?;
-	assert!(matches!(log_line_count, LogLineCount::TargetReached(..)));
+	assert!(result.success());
 
 	// Check lag - approval
 	honest

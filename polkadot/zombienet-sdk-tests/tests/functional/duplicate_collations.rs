@@ -5,13 +5,14 @@
 // cores, does not break the relay chain and that blocks are included, backed by a normal collator.
 
 use anyhow::anyhow;
+use tokio::time::Duration;
 
 use cumulus_zombienet_sdk_helpers::{assert_finalized_para_throughput, create_assign_core_call};
 use polkadot_primitives::Id as ParaId;
 use serde_json::json;
 use subxt::{OnlineClient, PolkadotConfig};
 use subxt_signer::sr25519::dev;
-use zombienet_orchestrator::network::node::{LogLineCount, LogLineCountOptions};
+use zombienet_orchestrator::network::node::LogLineCountOptions;
 use zombienet_sdk::NetworkConfigBuilder;
 
 const VALIDATOR_COUNT: u8 = 3;
@@ -108,7 +109,7 @@ async fn duplicate_collations_test() -> Result<(), anyhow::Error> {
 		// Since we have this check after the para throughput check, all validators
 		// should have already detected the malicious collator, and all expected logs
 		// should have already appeared, so there is no need to wait more than 1 second.
-		1u64,
+		Duration::from_secs(1),
 		false,
 	);
 	// Verify that all validators detect the malicious collator by checking their logs. This check
@@ -118,7 +119,7 @@ async fn duplicate_collations_test() -> Result<(), anyhow::Error> {
 	for i in 0..VALIDATOR_COUNT {
 		let validator_name = &format!("validator-{}", i);
 		let validator_node = network.get_node(validator_name)?;
-		let log_line_count = validator_node
+		let result = validator_node
 			.wait_log_line_count_with_timeout(
 				"Invalid UMP signals: The core index in commitments doesn't match the one in descriptor",
 				false,
@@ -126,11 +127,7 @@ async fn duplicate_collations_test() -> Result<(), anyhow::Error> {
 			)
 			.await?;
 
-		assert!(
-			matches!(log_line_count, LogLineCount::TargetReached(..)),
-			"Expected log not found for {}",
-			validator_name,
-		);
+		assert!(result.success(), "Expected log not found for {}", validator_name,);
 	}
 
 	log::info!("Test finished successfully");
