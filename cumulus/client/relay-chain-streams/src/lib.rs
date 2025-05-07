@@ -93,25 +93,22 @@ pub async fn pending_candidates(
 					})
 					.map(|candidate| candidate.into_iter().collect::<Vec<_>>())
 			} else {
-				client.candidates_pending_availability(hash, para_id).await.map_err(
-					|e| {
-						tracing::error!(
-							target: LOG_TARGET,
-							error = ?e,
-							"Failed to fetch pending candidates.",
-						)
-					},
-				)
-			};
-
-			let session_index_result =
-				client.session_index_for_child(hash).await.map_err(|e| {
+				client.candidates_pending_availability(hash, para_id).await.map_err(|e| {
 					tracing::error!(
 						target: LOG_TARGET,
 						error = ?e,
-						"Failed to fetch session index.",
+						"Failed to fetch pending candidates.",
 					)
-				});
+				})
+			};
+
+			let session_index_result = client.session_index_for_child(hash).await.map_err(|e| {
+				tracing::error!(
+					target: LOG_TARGET,
+					error = ?e,
+					"Failed to fetch session index.",
+				)
+			});
 
 			if let Ok(candidates) = pending_availability_result {
 				session_index_result.map(|session_index| (candidates, session_index, n)).ok()
