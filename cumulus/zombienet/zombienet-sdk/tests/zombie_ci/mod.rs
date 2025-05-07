@@ -1,3 +1,4 @@
+mod bootnodes;
 mod elastic_scaling;
 mod full_node_catching_up;
 mod pov_recovery;
