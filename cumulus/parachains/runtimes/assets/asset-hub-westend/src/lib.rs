@@ -891,7 +891,7 @@ type ConsensusHook = cumulus_pallet_aura_ext::FixedVelocityConsensusHook<
 impl parachain_info::Config for Runtime {}
 
 parameter_types! {
-	pub MessageQueueServiceWeight: Weight = Perbill::from_percent(35) * RuntimeBlockWeights::get().max_block;
+	pub MessageQueueServiceWeight: Weight = Perbill::from_percent(50) * RuntimeBlockWeights::get().max_block;
 }
 
 impl pallet_message_queue::Config for Runtime {
