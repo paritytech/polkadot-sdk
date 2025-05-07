@@ -216,12 +216,6 @@ where
 			) else {
 				continue;
 			};
-			tracing::debug!(
-				target: LOG_TARGET,
-				timestamp = ?para_slot.timestamp,
-				slot = ?para_slot.slot,
-				"Parachain slot adjusted to relay chain.",
-			);
 
 			let relay_parent = relay_parent_header.hash();
 

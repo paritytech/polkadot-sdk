@@ -130,7 +130,6 @@ async fn collect_relay_storage_proof(
 	}
 
 	if include_next_authorities {
-		tracing::info!("Including next authorities in state proof");
 		relevant_keys.push(relay_well_known_keys::NEXT_AUTHORITIES.to_vec());
 	}
 
