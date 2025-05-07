@@ -7,10 +7,10 @@ use cumulus_zombienet_sdk_helpers::assert_para_throughput;
 
 use polkadot_primitives::Id as ParaId;
 use serde_json::json;
-use std::sync::Arc;
+use std::{sync::Arc, time::Duration};
 use subxt::{OnlineClient, PolkadotConfig};
 use zombienet_configuration::types::Arg;
-use zombienet_orchestrator::network::node::{LogLineCount, LogLineCountOptions};
+use zombienet_orchestrator::network::node::LogLineCountOptions;
 use zombienet_sdk::{LocalFileSystem, Network, NetworkConfigBuilder, RegistrationStrategy};
 
 const PARA_ID: u32 = 2000;
@@ -73,12 +73,12 @@ async fn pov_recovery() -> Result<(), anyhow::Error> {
 	// Wait (up to 10 seconds) until pattern occurs 20 times
 	let options = LogLineCountOptions {
 		predicate: Arc::new(|n| n == 20),
-		timeout_secs: 10u64,
+		timeout: Duration::from_secs(10),
 		wait_until_timeout_elapses: false,
 	};
 
 	for name in ["one", "two", "three", "eve", "charlie", "alice"] {
-		let log_line_count = network
+		let result = network
 			.get_node(name)?
 			.wait_log_line_count_with_timeout(
 				"Importing blocks retrieved using pov_recovery",
@@ -87,7 +87,7 @@ async fn pov_recovery() -> Result<(), anyhow::Error> {
 			)
 			.await?;
 
-		assert!(matches!(log_line_count, LogLineCount::TargetReached(..)));
+		assert!(result.success());
 	}
 
 	Ok(())

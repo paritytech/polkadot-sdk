@@ -1,15 +1,14 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-use std::time::Duration;
-
 use anyhow::anyhow;
+use std::time::Duration;
 
 use cumulus_zombienet_sdk_helpers::assert_para_throughput;
 
 use polkadot_primitives::Id as ParaId;
 use subxt::{OnlineClient, PolkadotConfig};
-use zombienet_orchestrator::network::node::{LogLineCount, LogLineCountOptions};
+use zombienet_orchestrator::network::node::LogLineCountOptions;
 use zombienet_sdk::{LocalFileSystem, Network, NetworkConfigBuilder};
 
 const PARA_ID: u32 = 2000;
@@ -74,15 +73,15 @@ async fn rpc_collator_builds_blocks() -> Result<(), anyhow::Error> {
 	// If below log line occurred 1 or more times then test failed.
 	log::info!("Ensuring none of the consensus hook checks fail");
 	for node in [eve, dave] {
-		let log_line_count = node
+		let result = node
 			.wait_log_line_count_with_timeout(
 				"set_validation_data inherent needs to be present in every block",
 				false,
-				LogLineCountOptions::no_occurences_within_timeout(10u64),
+				LogLineCountOptions::no_occurences_within_timeout(Duration::from_secs(10)),
 			)
 			.await?;
 
-		assert!(matches!(log_line_count, LogLineCount::TargetReached(..)));
+		assert!(result.success());
 	}
 
 	Ok(())
