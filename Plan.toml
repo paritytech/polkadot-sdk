@@ -3312,9 +3312,9 @@ to = "2.0.0"
 [[crate]]
 # cumulus/xcm/xcm-emulator
 name = "xcm-emulator"
-from = "0.19.0"
-to = "0.19.1"
-bump = "minor"
+from = "0.19.1"
+to = "0.19.2"
+bump = "patch"
 reason = "changed"
 
 [[crate]]
@@ -3624,9 +3624,9 @@ reason = "changed"
 [[crate]]
 # polkadot/node/network/dispute-distribution
 name = "polkadot-dispute-distribution"
-from = "21.1.0"
-to = "22.0.0"
-bump = "major"
+from = "22.0.0"
+to = "22.1.0"
+bump = "minor"
 reason = "changed"
 
 [[crate]]
