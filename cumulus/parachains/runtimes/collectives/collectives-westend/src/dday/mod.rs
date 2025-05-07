@@ -34,7 +34,7 @@ use frame_support::{
 };
 use frame_system::pallet_prelude::BlockNumberFor;
 pub use origins::pallet_origins as pallet_dday_origins;
-use pallet_dday_detection::IsStalled;
+use pallet_dday_detection::{EnsureIsStalled, IsStalled};
 use pallet_dday_voting::ProofBlockNumberOf;
 use pallet_referenda::ReferendumIndex;
 use sp_runtime::DispatchError;
@@ -73,7 +73,7 @@ impl pallet_dday_detection::Config<DDayDetectionInstance> for Runtime {
 }
 
 /// Wrapper implementation of `Polling` over `DDayReferenda`, allowing voting only when
-/// `IsAssetHubStalled == true`.
+/// `IsStalled::is_stalled() == true`.
 pub struct AllowPollingWhenAssetHubIsStalled<Chain>(core::marker::PhantomData<Chain>);
 impl<Chain: IsStalled> Polling<pallet_referenda::TallyOf<Runtime, DDayReferendaInstance>>
 	for AllowPollingWhenAssetHubIsStalled<Chain>
@@ -172,13 +172,17 @@ impl pallet_referenda::Config<DDayReferendaInstance> for Runtime {
 	type WeightInfo = weights::pallet_referenda_dday::WeightInfo<Self>;
 	type Scheduler = Scheduler;
 	type Currency = Balances;
-	/// Only rank3+ can start referendum
-	type SubmitOrigin = pallet_ranked_collective::EnsureMember<
-		Runtime,
-		FellowshipCollectiveInstance,
-		{ ranks::DAN_3 },
+	/// Only rank3+ can start the referendum
+	type SubmitOrigin = EnsureIsStalled<
+		DDayDetection,
+		pallet_ranked_collective::EnsureMember<
+			Runtime,
+			FellowshipCollectiveInstance,
+			{ ranks::DAN_3 },
+		>,
+		RuntimeOrigin,
 	>;
-	/// Only rank4+ can cancel/kill referendum
+	/// Only rank4+ can cancel/kill the referendum
 	type CancelOrigin = EitherOf<Architects, Masters>;
 	type KillOrigin = EitherOf<Architects, Masters>;
 	type Slash = ToParentTreasury<WestendTreasuryAccount, LocationToAccountId, Runtime>;
@@ -214,7 +218,7 @@ impl ContainsPair<RuntimeCall, RuntimeOrigin> for ValidProofWhenStalledAssetHub 
 		};
 
 		// Check if the proof is valid (i.e., the AssetHub is stalled,
-		// and the proof is valid according to the stalled state root).
+		// and the proof is valid, according to the stalled state root).
 		DDayVoting::voting_power_of(signed.clone(), proof.clone()).is_ok()
 	}
 }

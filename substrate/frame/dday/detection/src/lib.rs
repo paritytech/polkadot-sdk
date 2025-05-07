@@ -23,8 +23,10 @@
 extern crate alloc;
 
 use frame_support::{
+	impl_ensure_origin_with_arg_ignoring_arg,
 	pallet_prelude::{Decode, DecodeWithMemTracking, Encode, TypeInfo},
 	sp_runtime::Saturating,
+	traits::{EnsureOrigin, EnsureOriginWithArg},
 };
 use frame_system::pallet_prelude::BlockNumberFor;
 use polkadot_primitives::HeadData;
@@ -68,7 +70,7 @@ pub trait IsStalled {
 	fn stalled_head() -> Option<HeadData>;
 }
 
-/// An alias for `KnownHead` type.
+/// An alias for the ` KnownHead ` type.
 pub type KnownHeadOf<T, I> =
 	KnownHead<<T as pallet::Config<I>>::RemoteBlockNumber, BlockNumberFor<T>>;
 
@@ -103,7 +105,7 @@ pub mod pallet {
 	#[pallet::event]
 	#[pallet::generate_deposit(pub fn deposit_event)]
 	pub enum Event<T: Config<I>, I: 'static = ()> {
-		/// A new known head was recorded.
+		/// A new-known head was recorded.
 		NewHead { remote_block_number: T::RemoteBlockNumber },
 	}
 
@@ -179,4 +181,31 @@ pub mod pallet {
 			}
 		}
 	}
+}
+
+/// Guard to ensure that the given origin is a member of the collective. The account ID of the
+/// member is the `Success` value.
+pub struct EnsureIsStalled<Chain, Inner, O>(core::marker::PhantomData<(Chain, Inner, O)>);
+impl<Chain: IsStalled, Inner: EnsureOrigin<O>, O> EnsureOrigin<O>
+	for EnsureIsStalled<Chain, Inner, O>
+{
+	type Success = Inner::Success;
+
+	fn try_origin(o: O) -> Result<Self::Success, O> {
+		if !Chain::is_stalled() {
+			return Err(o);
+		}
+		Inner::try_origin(o)
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn try_successful_origin() -> Result<T::RuntimeOrigin, ()> {
+		Inner::try_successful_origin()
+	}
+}
+
+impl_ensure_origin_with_arg_ignoring_arg! {
+	impl<{ Chain: IsStalled, Inner: EnsureOrigin<O>, O, A }>
+		EnsureOriginWithArg<O, A> for EnsureIsStalled<Chain, Inner, O>
+	{}
 }

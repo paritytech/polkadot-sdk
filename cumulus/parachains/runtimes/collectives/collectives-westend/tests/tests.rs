@@ -44,7 +44,7 @@ use sp_core::{crypto::Ss58Codec, Pair};
 use sp_runtime::{
 	generic::{Era, SignedPayload},
 	transaction_validity::TransactionValidityError,
-	ApplyExtrinsicResult, Either, MultiSignature, Perbill,
+	ApplyExtrinsicResult, DispatchError, Either, MultiSignature, Perbill,
 };
 use testnet_parachains_constants::westend::fee::WeightToFee;
 use xcm::latest::prelude::*;
@@ -277,21 +277,22 @@ fn dday_referenda_and_voting_works() {
 			ExistentialDeposit::get() + SubmissionDeposit::get()
 		));
 
-		// Create DDay referendum.
-		assert_ok!(DDayReferenda::submit(
-			RuntimeOrigin::signed(account_fellow_rank3),
-			Box::new(Origin::Fellows.into()),
-			{
-				// Random call executed when referendum passes.
-				let c =
-					RuntimeCall::System(frame_system::Call::remark_with_event { remark: vec![] });
-				<Preimage as StorePreimage>::bound(c).unwrap()
-			},
-			DispatchTime::At(10),
-		));
-		assert_eq!(ReferendumCount::<Runtime, DDayReferendaInstance>::get(), 1);
-		let referenda_id = ReferendumCount::<Runtime, DDayReferendaInstance>::get() - 1;
-		assert!(ReferendumInfoFor::<Runtime, DDayReferendaInstance>::get(referenda_id).is_some());
+		// Create DDay referendum - error.
+		assert_err!(
+			DDayReferenda::submit(
+				RuntimeOrigin::signed(account_fellow_rank3.clone()),
+				Box::new(Origin::Fellows.into()),
+				{
+					// Random call executed when referendum passes.
+					let c = RuntimeCall::System(frame_system::Call::remark_with_event {
+						remark: vec![],
+					});
+					<Preimage as StorePreimage>::bound(c).unwrap()
+				},
+				DispatchTime::At(10),
+			),
+			DispatchError::BadOrigin,
+		);
 
 		// Prepare sample proofs.
 		let (asset_hub_header, proof, (ss58_account, ss58_account_secret_key), ..) =
@@ -305,20 +306,6 @@ fn dday_referenda_and_voting_works() {
 			proof.clone(),
 		)
 		.expect("valid proof");
-
-		// Err - no AssetHub data synced yet.
-		assert_err!(
-			DDayVoting::vote(
-				RuntimeOrigin::signed(valid_asset_hub_account.clone()),
-				referenda_id,
-				AccountVote::Standard {
-					vote: Vote { aye: true, conviction: Conviction::Locked1x },
-					balance: account_voting_power.account_power
-				},
-				(asset_hub_block_number, proof.clone())
-			),
-			<pallet_dday_voting::Error<Runtime, DDayVotingInstance>>::NotOngoing
-		);
 
 		System::set_block_number(13);
 		// Sync AssetHub header - execute XCM as source origin would do with `Transact ->
@@ -335,12 +322,28 @@ fn dday_referenda_and_voting_works() {
 			None,
 		)
 		.ensure_complete());
-		// Make AssetHub as stalled.
+		// Make AssetHub stalled.
 		assert!(!DDayDetection::is_stalled());
 		System::set_block_number(13 + StalledAssetHubBlockThreshold::get() + 1);
 		assert!(DDayDetection::is_stalled());
 
-		// Err - vote by proof - random account cannot vote
+		// Create DDay referendum.
+		assert_ok!(DDayReferenda::submit(
+			RuntimeOrigin::signed(account_fellow_rank3),
+			Box::new(Origin::Fellows.into()),
+			{
+				// Random call executed when referendum passes.
+				let c =
+					RuntimeCall::System(frame_system::Call::remark_with_event { remark: vec![] });
+				<Preimage as StorePreimage>::bound(c).unwrap()
+			},
+			DispatchTime::At(10),
+		));
+		assert_eq!(ReferendumCount::<Runtime, DDayReferendaInstance>::get(), 1);
+		let referenda_id = ReferendumCount::<Runtime, DDayReferendaInstance>::get() - 1;
+		assert!(ReferendumInfoFor::<Runtime, DDayReferendaInstance>::get(referenda_id).is_some());
+
+		// Err - vote by proof - a random account cannot vote
 		assert_err!(
 			DDayVoting::vote(
 				RuntimeOrigin::signed(AccountId::from([1; 32])), // invalid account
@@ -391,11 +394,11 @@ fn dday_referenda_and_voting_works() {
 					vote: Vote { aye: true, conviction: Conviction::Locked1x },
 					balance: account_voting_power.account_power
 				},
-				proof: (asset_hub_block_number, proof),
+				proof: (asset_hub_block_number, proof.clone()),
 			})
 		));
 
-		// check after - vote is registered and total was recorded from the proof.
+		// check after - vote is registered, and the total was recorded from the proof.
 		{
 			let status = DDayReferenda::ensure_ongoing(referenda_id).expect("ongoing referenda");
 			assert_eq!(status.tally.ayes(status.track), account_voting_power.account_power);
@@ -408,6 +411,23 @@ fn dday_referenda_and_voting_works() {
 			);
 			assert_ok!(DDayReferenda::is_referendum_passing(referenda_id), false);
 		}
+
+		// Make AssetHub not stalled.
+		System::set_block_number(14);
+		assert!(!DDayDetection::is_stalled());
+		// Err - cannot vote, AssetHub is not stalled.
+		assert_err!(
+			DDayVoting::vote(
+				RuntimeOrigin::signed(valid_asset_hub_account.clone()),
+				referenda_id,
+				AccountVote::Standard {
+					vote: Vote { aye: true, conviction: Conviction::Locked1x },
+					balance: account_voting_power.account_power
+				},
+				(asset_hub_block_number, proof.clone())
+			),
+			<pallet_dday_voting::Error<Runtime, DDayVotingInstance>>::NotOngoing
+		);
 	})
 }
 

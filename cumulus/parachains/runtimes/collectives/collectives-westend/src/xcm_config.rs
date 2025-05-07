@@ -139,6 +139,7 @@ parameter_types! {
 	// Fellows pluralistic body.
 	pub const FellowsBodyId: BodyId = BodyId::Technical;
 	// DDay pluralistic body.
+	// TODO: FAIL-CI check usage on the the relaychain here: https://github.com/paritytech/polkadot-sdk/pull/7592
 	pub const DDayBodyId: BodyId = BodyId::Moniker([b'd', b'd', b'a', b'y']);
 }
 
@@ -299,7 +300,7 @@ parameter_types! {
 
 impl pallet_xcm::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	// We only allow to send messages for:
+	// We only allow sending messages for:
 	type SendXcmOrigin = EitherOf<
 		// the Fellows origin
 		EnsureXcmOrigin<RuntimeOrigin, FellowsToPlurality>,
