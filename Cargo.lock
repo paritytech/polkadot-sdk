@@ -137,10 +137,6 @@ dependencies = [
  "const-hex",
  "derive_more",
  "hex-literal",
-<<<<<<< HEAD
-=======
- "indexmap 2.9.0",
->>>>>>> 9869517 (networking: Update litep2p network backend to v0.9.4 (#8373))
  "itoa",
  "proptest",
  "rand 0.8.5",
@@ -167,21 +163,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8a98ad1696a2e17f010ae8e43e9f2a1e930ed176a8e3ff77acfeff6dfb07b42c"
 dependencies = [
  "const-hex",
-<<<<<<< HEAD
  "dunce",
  "heck 0.4.1",
  "proc-macro-error",
  "proc-macro2 1.0.86",
  "quote 1.0.37",
  "syn 2.0.87",
-=======
- "heck 0.5.0",
- "indexmap 2.9.0",
- "proc-macro-error2",
- "proc-macro2 1.0.93",
- "quote 1.0.38",
- "syn 2.0.98",
->>>>>>> 9869517 (networking: Update litep2p network backend to v0.9.4 (#8373))
  "syn-solidity",
  "tiny-keccak",
 ]
@@ -1372,15 +1359,9 @@ checksum = "8b75356056920673b02621b35afd0f7dda9306d03c79a30f5c56c44cf256e3de"
 
 [[package]]
 name = "async-trait"
-<<<<<<< HEAD
-version = "0.1.82"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a27b8a3a6e1a44fa4c8baf1f653e4172e81486d4941f2237e20dc2d0cf4ddff1"
-=======
 version = "0.1.88"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e539d3fca749fcee5236ab05e93a52867dd549cc157c8cb7f99595f3cedffdb5"
->>>>>>> 9869517 (networking: Update litep2p network backend to v0.9.4 (#8373))
 dependencies = [
  "proc-macro2 1.0.86",
  "quote 1.0.37",
@@ -2610,14 +2591,7 @@ checksum = "1fd0f2584146f6f2ef48085050886acf353beff7305ebd1ae69500e27c67f64b"
 name = "bytes"
 version = "1.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-<<<<<<< HEAD
-checksum = "f61dac84819c6588b558454b194026eb1f09c293b9036ae9b159e74e73ab6cf9"
-=======
 checksum = "d71b6127be86fdcfddb610f7182ac57211d4b18a3e9c82eb2d17662f2227ad6a"
-dependencies = [
- "serde",
-]
->>>>>>> 9869517 (networking: Update litep2p network backend to v0.9.4 (#8373))
 
 [[package]]
 name = "bzip2-sys"
@@ -7291,10 +7265,6 @@ dependencies = [
  "ipnet",
  "once_cell",
  "rand 0.8.5",
-<<<<<<< HEAD
-=======
- "socket2 0.5.9",
->>>>>>> 9869517 (networking: Update litep2p network backend to v0.9.4 (#8373))
  "thiserror 1.0.65",
  "tinyvec",
  "tokio",
@@ -8697,7 +8667,7 @@ dependencies = [
  "jsonpath-rust",
  "k8s-openapi",
  "kube-core",
- "pem",
+ "pem 3.0.4",
  "pin-project",
  "rand 0.8.5",
  "rustls 0.21.7",
@@ -8840,15 +8810,9 @@ checksum = "884e2677b40cc8c339eaefcb701c32ef1fd2493d71118dc0ca4b6a736c93bd67"
 
 [[package]]
 name = "libc"
-<<<<<<< HEAD
-version = "0.2.158"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d8adc4bb1803a324070e64a98ae98f38934d91957a99cfb3a43dcbc01bc56439"
-=======
 version = "0.2.172"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d750af042f7ef4f724306de029d18836c26c1765a54a6a3f094cbd23a7267ffa"
->>>>>>> 9869517 (networking: Update litep2p network backend to v0.9.4 (#8373))
 
 [[package]]
 name = "libflate"
@@ -9180,15 +9144,9 @@ dependencies = [
  "parking_lot 0.12.3",
  "quinn 0.10.2",
  "rand 0.8.5",
-<<<<<<< HEAD
  "ring 0.16.20",
  "rustls 0.21.7",
- "socket2 0.5.8",
-=======
- "ring 0.17.8",
- "rustls 0.23.18",
  "socket2 0.5.9",
->>>>>>> 9869517 (networking: Update litep2p network backend to v0.9.4 (#8373))
  "thiserror 1.0.65",
  "tokio",
 ]
@@ -9259,12 +9217,8 @@ dependencies = [
  "libc",
  "libp2p-core",
  "libp2p-identity",
-<<<<<<< HEAD
  "log",
- "socket2 0.5.8",
-=======
  "socket2 0.5.9",
->>>>>>> 9869517 (networking: Update litep2p network backend to v0.9.4 (#8373))
  "tokio",
 ]
 
@@ -9279,13 +9233,8 @@ dependencies = [
  "libp2p-core",
  "libp2p-identity",
  "rcgen",
-<<<<<<< HEAD
  "ring 0.16.20",
  "rustls 0.21.7",
-=======
- "ring 0.17.8",
- "rustls 0.23.18",
->>>>>>> 9869517 (networking: Update litep2p network backend to v0.9.4 (#8373))
  "rustls-webpki 0.101.4",
  "thiserror 1.0.65",
  "x509-parser 0.15.1",
@@ -9543,12 +9492,6 @@ dependencies = [
  "prost 0.13.5",
  "prost-build",
  "rand 0.8.5",
-<<<<<<< HEAD
- "rcgen",
- "ring 0.16.20",
- "rustls 0.20.9",
-=======
->>>>>>> 9869517 (networking: Update litep2p network backend to v0.9.4 (#8373))
  "serde",
  "sha2 0.10.8",
  "simple-dns",
@@ -13652,6 +13595,15 @@ checksum = "19b17cddbe7ec3f8bc800887bab5e717348c95ea2ca0b1bf0837fb964dc67099"
 
 [[package]]
 name = "pem"
+version = "1.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a8835c273a76a90455d7344889b0964598e3316e2a79ede8e36f16bdcf2228b8"
+dependencies = [
+ "base64 0.13.1",
+]
+
+[[package]]
+name = "pem"
 version = "3.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8e459365e590736a54c3fa561947c84837534b8e9af6fc5bf781307e82658fae"
@@ -14003,30 +13955,18 @@ dependencies = [
 
 [[package]]
 name = "pin-project"
-<<<<<<< HEAD
-version = "1.1.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fda4ed1c6c173e3fc7a83629421152e01d7b1f9b7f65fb301e490e8cfc656422"
-=======
 version = "1.1.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "677f1add503faace112b9f1373e43e9e054bfdd22ff1a63c1bc485eaec6a6a8a"
->>>>>>> 9869517 (networking: Update litep2p network backend to v0.9.4 (#8373))
 dependencies = [
  "pin-project-internal",
 ]
 
 [[package]]
 name = "pin-project-internal"
-<<<<<<< HEAD
-version = "1.1.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4359fd9c9171ec6e8c62926d6faaf553a8dc3f64e1507e76da7911b4f6a04405"
-=======
 version = "1.1.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6e918e4ff8c4549eb882f14b3a4bc8c8bc93de829416eacf579f1207a8fbf861"
->>>>>>> 9869517 (networking: Update litep2p network backend to v0.9.4 (#8373))
 dependencies = [
  "proc-macro2 1.0.86",
  "quote 1.0.37",
@@ -16119,7 +16059,7 @@ dependencies = [
  "fatality",
  "futures",
  "futures-timer",
- "indexmap 2.7.1",
+ "indexmap 2.9.0",
  "parity-scale-codec",
  "polkadot-node-network-protocol",
  "polkadot-node-primitives",
@@ -16731,7 +16671,6 @@ dependencies = [
  "smallvec",
  "symbolic-demangle",
  "tempfile",
-<<<<<<< HEAD
  "thiserror 1.0.65",
 ]
 
@@ -16746,9 +16685,6 @@ dependencies = [
  "num",
  "paste",
  "prost 0.11.9",
-=======
- "thiserror 2.0.12",
->>>>>>> 9869517 (networking: Update litep2p network backend to v0.9.4 (#8373))
 ]
 
 [[package]]
@@ -17312,13 +17248,8 @@ dependencies = [
  "quinn-proto 0.11.8",
  "quinn-udp 0.5.4",
  "rustc-hash 2.0.0",
-<<<<<<< HEAD
  "rustls 0.23.14",
- "socket2 0.5.8",
-=======
- "rustls 0.23.18",
  "socket2 0.5.9",
->>>>>>> 9869517 (networking: Update litep2p network backend to v0.9.4 (#8373))
  "thiserror 1.0.65",
  "tokio",
  "tracing",
@@ -17366,7 +17297,7 @@ checksum = "055b4e778e8feb9f93c4e439f71dc2156ef13360b432b799e179a8c4cdf0b1d7"
 dependencies = [
  "bytes",
  "libc",
- "socket2 0.5.8",
+ "socket2 0.5.9",
  "tracing",
  "windows-sys 0.48.0",
 ]
@@ -17560,7 +17491,6 @@ dependencies = [
 
 [[package]]
 name = "rcgen"
-<<<<<<< HEAD
 version = "0.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ffbe84efe2f38dea12e9bfc1f65377fdf03e53a18cb3b995faedf7934c7e785b"
@@ -17574,13 +17504,9 @@ dependencies = [
 [[package]]
 name = "reconnecting-jsonrpsee-ws-client"
 version = "0.4.3"
-=======
-version = "0.11.3"
->>>>>>> 9869517 (networking: Update litep2p network backend to v0.9.4 (#8373))
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "06fa4f17e09edfc3131636082faaec633c7baa269396b4004040bc6c52f49f65"
 dependencies = [
-<<<<<<< HEAD
  "cfg_aliases 0.2.1",
  "finito",
  "futures",
@@ -17589,12 +17515,6 @@ dependencies = [
  "thiserror 1.0.65",
  "tokio",
  "tracing",
-=======
- "pem",
- "ring 0.16.20",
- "time",
- "yasna",
->>>>>>> 9869517 (networking: Update litep2p network backend to v0.9.4 (#8373))
 ]
 
 [[package]]
@@ -20212,10 +20132,6 @@ version = "38.1.0"
 dependencies = [
  "async-trait",
  "futures",
-<<<<<<< HEAD
-=======
- "indexmap 2.9.0",
->>>>>>> 9869517 (networking: Update litep2p network backend to v0.9.4 (#8373))
  "log",
  "parity-scale-codec",
  "serde",
@@ -20268,24 +20184,6 @@ dependencies = [
 ]
 
 [[package]]
-<<<<<<< HEAD
-=======
-name = "scale-decode"
-version = "0.16.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4d78196772d25b90a98046794ce0fe2588b39ebdfbdc1e45b4c6c85dd43bebad"
-dependencies = [
- "parity-scale-codec",
- "primitive-types 0.13.1",
- "scale-bits 0.7.0",
- "scale-decode-derive 0.16.0",
- "scale-type-resolver",
- "smallvec",
- "thiserror 2.0.12",
-]
-
-[[package]]
->>>>>>> 9869517 (networking: Update litep2p network backend to v0.9.4 (#8373))
 name = "scale-decode-derive"
 version = "0.13.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -20313,24 +20211,6 @@ dependencies = [
 ]
 
 [[package]]
-<<<<<<< HEAD
-=======
-name = "scale-encode"
-version = "0.10.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "64901733157f9d25ef86843bd783eda439fac7efb0ad5a615d12d2cf3a29464b"
-dependencies = [
- "parity-scale-codec",
- "primitive-types 0.13.1",
- "scale-bits 0.7.0",
- "scale-encode-derive 0.10.0",
- "scale-type-resolver",
- "smallvec",
- "thiserror 2.0.12",
-]
-
-[[package]]
->>>>>>> 9869517 (networking: Update litep2p network backend to v0.9.4 (#8373))
 name = "scale-encode-derive"
 version = "0.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -20393,22 +20273,6 @@ dependencies = [
 ]
 
 [[package]]
-<<<<<<< HEAD
-=======
-name = "scale-typegen"
-version = "0.10.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dc3173be608895eb117cf397ab4f31f00e2ed2c7af1c6e0b8f5d51d0a0967053"
-dependencies = [
- "proc-macro2 1.0.93",
- "quote 1.0.38",
- "scale-info",
- "syn 2.0.98",
- "thiserror 2.0.12",
-]
-
-[[package]]
->>>>>>> 9869517 (networking: Update litep2p network backend to v0.9.4 (#8373))
 name = "scale-value"
 version = "0.16.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -20426,30 +20290,7 @@ dependencies = [
  "scale-info",
  "scale-type-resolver",
  "serde",
-<<<<<<< HEAD
  "yap",
-=======
- "yap 0.11.0",
-]
-
-[[package]]
-name = "scale-value"
-version = "0.18.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8ca8b26b451ecb7fd7b62b259fa28add63d12ec49bbcac0e01fcb4b5ae0c09aa"
-dependencies = [
- "base58",
- "blake2 0.10.6",
- "either",
- "parity-scale-codec",
- "scale-bits 0.7.0",
- "scale-decode 0.16.0",
- "scale-encode 0.10.0",
- "scale-type-resolver",
- "serde",
- "thiserror 2.0.12",
- "yap 0.12.0",
->>>>>>> 9869517 (networking: Update litep2p network backend to v0.9.4 (#8373))
 ]
 
 [[package]]
@@ -21037,14 +20878,7 @@ dependencies = [
 name = "smallvec"
 version = "1.15.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-<<<<<<< HEAD
-checksum = "3c5e1a9a646d36c3599cd173a41282daf47c44583ad367b8e6837255952e5c67"
-=======
 checksum = "8917285742e9f3e1683f0a9c4e6b57960b7314d0b08d30d1ecd426713ee2eee9"
-dependencies = [
- "serde",
-]
->>>>>>> 9869517 (networking: Update litep2p network backend to v0.9.4 (#8373))
 
 [[package]]
 name = "smol"
@@ -23538,213 +23372,6 @@ dependencies = [
 ]
 
 [[package]]
-<<<<<<< HEAD
-=======
-name = "sqlformat"
-version = "0.2.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7bba3a93db0cc4f7bdece8bb09e77e2e785c20bfebf79eb8340ed80708048790"
-dependencies = [
- "nom",
- "unicode_categories",
-]
-
-[[package]]
-name = "sqlx"
-version = "0.8.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "93334716a037193fac19df402f8571269c84a00852f6a7066b5d2616dcd64d3e"
-dependencies = [
- "sqlx-core",
- "sqlx-macros",
- "sqlx-mysql",
- "sqlx-postgres",
- "sqlx-sqlite",
-]
-
-[[package]]
-name = "sqlx-core"
-version = "0.8.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d4d8060b456358185f7d50c55d9b5066ad956956fddec42ee2e8567134a8936e"
-dependencies = [
- "atoi",
- "byteorder",
- "bytes",
- "crc",
- "crossbeam-queue",
- "either",
- "event-listener 5.3.1",
- "futures-channel",
- "futures-core",
- "futures-intrusive",
- "futures-io",
- "futures-util",
- "hashbrown 0.14.5",
- "hashlink 0.9.1",
- "hex",
- "indexmap 2.9.0",
- "log",
- "memchr",
- "once_cell",
- "paste",
- "percent-encoding",
- "serde",
- "serde_json",
- "sha2 0.10.8",
- "smallvec",
- "sqlformat",
- "thiserror 1.0.65",
- "tokio",
- "tokio-stream",
- "tracing",
- "url",
-]
-
-[[package]]
-name = "sqlx-macros"
-version = "0.8.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cac0692bcc9de3b073e8d747391827297e075c7710ff6276d9f7a1f3d58c6657"
-dependencies = [
- "proc-macro2 1.0.93",
- "quote 1.0.38",
- "sqlx-core",
- "sqlx-macros-core",
- "syn 2.0.98",
-]
-
-[[package]]
-name = "sqlx-macros-core"
-version = "0.8.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1804e8a7c7865599c9c79be146dc8a9fd8cc86935fa641d3ea58e5f0688abaa5"
-dependencies = [
- "dotenvy",
- "either",
- "heck 0.5.0",
- "hex",
- "once_cell",
- "proc-macro2 1.0.93",
- "quote 1.0.38",
- "serde",
- "serde_json",
- "sha2 0.10.8",
- "sqlx-core",
- "sqlx-mysql",
- "sqlx-postgres",
- "sqlx-sqlite",
- "syn 2.0.98",
- "tempfile",
- "tokio",
- "url",
-]
-
-[[package]]
-name = "sqlx-mysql"
-version = "0.8.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "64bb4714269afa44aef2755150a0fc19d756fb580a67db8885608cf02f47d06a"
-dependencies = [
- "atoi",
- "base64 0.22.1",
- "bitflags 2.6.0",
- "byteorder",
- "bytes",
- "crc",
- "digest 0.10.7",
- "dotenvy",
- "either",
- "futures-channel",
- "futures-core",
- "futures-io",
- "futures-util",
- "generic-array 0.14.7",
- "hex",
- "hkdf",
- "hmac 0.12.1",
- "itoa",
- "log",
- "md-5",
- "memchr",
- "once_cell",
- "percent-encoding",
- "rand 0.8.5",
- "rsa",
- "serde",
- "sha1",
- "sha2 0.10.8",
- "smallvec",
- "sqlx-core",
- "stringprep",
- "thiserror 1.0.65",
- "tracing",
- "whoami",
-]
-
-[[package]]
-name = "sqlx-postgres"
-version = "0.8.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6fa91a732d854c5d7726349bb4bb879bb9478993ceb764247660aee25f67c2f8"
-dependencies = [
- "atoi",
- "base64 0.22.1",
- "bitflags 2.6.0",
- "byteorder",
- "crc",
- "dotenvy",
- "etcetera",
- "futures-channel",
- "futures-core",
- "futures-io",
- "futures-util",
- "hex",
- "hkdf",
- "hmac 0.12.1",
- "home",
- "itoa",
- "log",
- "md-5",
- "memchr",
- "once_cell",
- "rand 0.8.5",
- "serde",
- "serde_json",
- "sha2 0.10.8",
- "smallvec",
- "sqlx-core",
- "stringprep",
- "thiserror 1.0.65",
- "tracing",
- "whoami",
-]
-
-[[package]]
-name = "sqlx-sqlite"
-version = "0.8.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d5b2cf34a45953bfd3daaf3db0f7a7878ab9b7a6b91b422d24a7a9e4c857b680"
-dependencies = [
- "atoi",
- "flume",
- "futures-channel",
- "futures-core",
- "futures-executor",
- "futures-intrusive",
- "futures-util",
- "libsqlite3-sys",
- "log",
- "percent-encoding",
- "serde",
- "serde_urlencoded",
- "sqlx-core",
- "tracing",
- "url",
-]
-
-[[package]]
->>>>>>> 9869517 (networking: Update litep2p network backend to v0.9.4 (#8373))
 name = "ss58-registry"
 version = "1.43.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -24454,24 +24081,7 @@ name = "substrate-test-utils"
 version = "3.0.0"
 dependencies = [
  "futures",
-<<<<<<< HEAD
  "sc-service",
-=======
- "futures-util",
- "hex",
- "jsonrpsee",
- "parity-scale-codec",
- "parking_lot 0.12.3",
- "rand 0.9.0",
- "serde",
- "serde_json",
- "subxt 0.40.0",
- "subxt-core 0.40.0",
- "subxt-signer 0.40.0",
- "termplot",
- "thiserror 2.0.12",
- "time",
->>>>>>> 9869517 (networking: Update litep2p network backend to v0.9.4 (#8373))
  "tokio",
  "trybuild",
 ]
@@ -24575,20 +24185,11 @@ dependencies = [
  "serde",
  "serde_json",
  "sp-crypto-hashing 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
-<<<<<<< HEAD
  "subxt-core",
  "subxt-lightclient",
  "subxt-macro",
  "subxt-metadata",
  "thiserror 1.0.65",
-=======
- "subxt-core 0.40.0",
- "subxt-lightclient 0.40.0",
- "subxt-macro 0.40.0",
- "subxt-metadata 0.40.0",
- "thiserror 2.0.12",
- "tokio",
->>>>>>> 9869517 (networking: Update litep2p network backend to v0.9.4 (#8373))
  "tokio-util",
  "tracing",
  "url",
@@ -24612,27 +24213,7 @@ dependencies = [
  "subxt-metadata",
  "syn 2.0.87",
  "thiserror 1.0.65",
-<<<<<<< HEAD
  "tokio",
-=======
-]
-
-[[package]]
-name = "subxt-codegen"
-version = "0.40.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5de8786ebc4be0905fac861c8ce1845e677a96b8ddb209e5c3e0e1f6b804d62f"
-dependencies = [
- "heck 0.5.0",
- "parity-scale-codec",
- "proc-macro2 1.0.93",
- "quote 1.0.38",
- "scale-info",
- "scale-typegen 0.10.0",
- "subxt-metadata 0.40.0",
- "syn 2.0.98",
- "thiserror 2.0.12",
->>>>>>> 9869517 (networking: Update litep2p network backend to v0.9.4 (#8373))
 ]
 
 [[package]]
@@ -24659,13 +24240,8 @@ dependencies = [
  "serde_json",
  "sp-core 31.0.0",
  "sp-crypto-hashing 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
-<<<<<<< HEAD
  "sp-runtime 34.0.0",
  "subxt-metadata",
-=======
- "subxt-metadata 0.40.0",
- "thiserror 2.0.12",
->>>>>>> 9869517 (networking: Update litep2p network backend to v0.9.4 (#8373))
  "tracing",
 ]
 
@@ -24687,26 +24263,6 @@ dependencies = [
 ]
 
 [[package]]
-<<<<<<< HEAD
-=======
-name = "subxt-lightclient"
-version = "0.40.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dcbf1a87957918fcfde2cc2150d792c752acb933f0f83262a8b42d96b8dfcc52"
-dependencies = [
- "futures",
- "futures-util",
- "serde",
- "serde_json",
- "smoldot-light 0.16.2",
- "thiserror 2.0.12",
- "tokio",
- "tokio-stream",
- "tracing",
-]
-
-[[package]]
->>>>>>> 9869517 (networking: Update litep2p network backend to v0.9.4 (#8373))
 name = "subxt-macro"
 version = "0.37.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -24732,10 +24288,6 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "sp-crypto-hashing 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
-<<<<<<< HEAD
-=======
- "thiserror 2.0.12",
->>>>>>> 9869517 (networking: Update litep2p network backend to v0.9.4 (#8373))
 ]
 
 [[package]]
@@ -24758,41 +24310,11 @@ dependencies = [
  "secrecy",
  "sha2 0.10.8",
  "sp-crypto-hashing 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
-<<<<<<< HEAD
  "subxt-core",
-=======
- "subxt-core 0.40.0",
- "thiserror 2.0.12",
->>>>>>> 9869517 (networking: Update litep2p network backend to v0.9.4 (#8373))
  "zeroize",
 ]
 
 [[package]]
-<<<<<<< HEAD
-=======
-name = "subxt-utils-fetchmetadata"
-version = "0.38.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3082b17a86e3c3fe45d858d94d68f6b5247caace193dad6201688f24db8ba9bb"
-dependencies = [
- "hex",
- "parity-scale-codec",
- "thiserror 1.0.65",
-]
-
-[[package]]
-name = "subxt-utils-fetchmetadata"
-version = "0.40.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "721556230144393c58ff3dd2660f734cc792fe19167823b957d6858b15e12362"
-dependencies = [
- "hex",
- "parity-scale-codec",
- "thiserror 2.0.12",
-]
-
-[[package]]
->>>>>>> 9869517 (networking: Update litep2p network backend to v0.9.4 (#8373))
 name = "sval"
 version = "2.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -25417,15 +24939,9 @@ checksum = "1f3ccbac311fea05f86f61904b462b55fb3df8837a366dfc601a0161d0532f20"
 
 [[package]]
 name = "tokio"
-<<<<<<< HEAD
-version = "1.40.0"
+version = "1.45.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e2b070231665d27ad9ec9b8df639893f46727666c6767db40317fbe920a5d998"
-=======
-version = "1.44.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e6b88822cbe49de4185e3a4cbf8321dd487cf5fe0c5c65695fef6346371e9c48"
->>>>>>> 9869517 (networking: Update litep2p network backend to v0.9.4 (#8373))
+checksum = "2513ca694ef9ede0fb23fe71a4ee4107cb102b9dc1930f6d0fd77aae068ae165"
 dependencies = [
  "backtrace",
  "bytes",
@@ -25451,9 +24967,9 @@ dependencies = [
 
 [[package]]
 name = "tokio-macros"
-version = "2.4.0"
+version = "2.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "693d596312e88961bc67d7f1f97af8a70227d9f90c31bba5806eec004978d752"
+checksum = "6e06d43f1345a3bcd39f6a56dbb7dcab2ba47e68e8ac134855e7e2bdbaf8cab8"
 dependencies = [
  "proc-macro2 1.0.86",
  "quote 1.0.37",
@@ -25568,15 +25084,9 @@ dependencies = [
 
 [[package]]
 name = "tokio-util"
-<<<<<<< HEAD
-version = "0.7.11"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9cf6b47b3771c49ac75ad09a6162f53ad4b8088b76ac60e8ec1455b31a189fe1"
-=======
 version = "0.7.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "66a539a9ad6d5d281510d5bd368c973d636c02dbf8a67300bfb6b950696ad7df"
->>>>>>> 9869517 (networking: Update litep2p network backend to v0.9.4 (#8373))
 dependencies = [
  "bytes",
  "futures-core",
@@ -25635,13 +25145,9 @@ version = "0.19.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1b5bb770da30e5cbfde35a2d7b9b8a2c4b8ef89548a7a6aeab5c9a576e3e7421"
 dependencies = [
-<<<<<<< HEAD
- "indexmap 2.7.1",
+ "indexmap 2.9.0",
  "serde",
  "serde_spanned",
-=======
- "indexmap 2.9.0",
->>>>>>> 9869517 (networking: Update litep2p network backend to v0.9.4 (#8373))
  "toml_datetime",
  "winnow 0.5.15",
 ]
@@ -27001,19 +26507,6 @@ dependencies = [
 ]
 
 [[package]]
-<<<<<<< HEAD
-name = "webpki"
-version = "0.22.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ed63aea5ce73d0ff405984102c42de94fc55a6b75765d621c65262469b3c9b53"
-dependencies = [
- "ring 0.17.7",
- "untrusted 0.9.0",
-]
-
-[[package]]
-=======
->>>>>>> 9869517 (networking: Update litep2p network backend to v0.9.4 (#8373))
 name = "webpki-roots"
 version = "0.25.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
