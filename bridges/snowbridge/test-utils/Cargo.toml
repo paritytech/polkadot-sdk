@@ -26,7 +26,8 @@ log = { workspace = true, default-features = true }
 pallet-xcm.default-features = true
 pallet-xcm.workspace = true
 scale-info = { features = ["derive"], workspace = true, default-features = true }
-<<<<<<< HEAD
+snowbridge-core.default-features = true
+snowbridge-core.workspace = true
 snowbridge-outbound-queue-primitives.default-features = true
 snowbridge-outbound-queue-primitives.workspace = true
 sp-core.default-features = true
@@ -39,25 +40,14 @@ xcm-executor.default-features = true
 xcm-executor.workspace = true
 xcm.default-features = true
 xcm.workspace = true
-=======
-snowbridge-core = { workspace = true, default-features = true }
-snowbridge-outbound-queue-primitives = { workspace = true, default-features = true }
-sp-core = { workspace = true, default-features = true }
-xcm = { workspace = true, default-features = true }
-xcm-builder = { workspace = true, default-features = true }
-xcm-executor = { workspace = true, default-features = true }
->>>>>>> 632eed96 (Snowbridge V2 Audit Fixes (#8240))
 
 [features]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
-<<<<<<< HEAD
 	"pallet-xcm/runtime-benchmarks",
-=======
 	"snowbridge-core/runtime-benchmarks",
->>>>>>> 632eed96 (Snowbridge V2 Audit Fixes (#8240))
 	"xcm-builder/runtime-benchmarks",
 	"xcm-executor/runtime-benchmarks",
 	"xcm/runtime-benchmarks",
