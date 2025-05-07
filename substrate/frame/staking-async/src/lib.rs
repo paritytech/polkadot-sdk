@@ -78,7 +78,7 @@ use frame_support::{
 		ConstU32, Contains, Get, LockIdentifier,
 	},
 	BoundedVec, DebugNoBound, DefaultNoBound, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound,
-	WeakBoundedVec,
+	WeakBoundedVec, CloneNoBound
 };
 use ledger::LedgerIntegrityState;
 use scale_info::TypeInfo;
@@ -157,7 +157,7 @@ pub struct ActiveEraInfo {
 ///
 /// This points will be used to reward validators and their respective nominators.
 #[derive(
-	PartialEqNoBound, Encode, Decode, DebugNoBound, TypeInfo, MaxEncodedLen, DefaultNoBound, DecodeWithMemTracking
+	PartialEqNoBound, Encode, Decode, DebugNoBound, TypeInfo, MaxEncodedLen, DefaultNoBound, DecodeWithMemTracking, CloneNoBound
 )]
 #[codec(mel_bound())]
 #[scale_info(skip_type_params(T))]

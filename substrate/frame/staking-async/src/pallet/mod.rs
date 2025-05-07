@@ -513,7 +513,7 @@ pub mod pallet {
 	/// Must contains information for eras for the range:
 	/// `[active_era - bounding_duration; active_era]`
 	#[pallet::storage]
-	pub pub type BondedEras<T: Config> =
+	pub type BondedEras<T: Config> =
 		StorageValue<_, BoundedVec<(EraIndex, SessionIndex), BondedErasBound<T>>, ValueQuery>;
 	
 	// --- AUDIT Note: end of storage items controlled by `Rotator`.
