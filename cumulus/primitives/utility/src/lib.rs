@@ -93,6 +93,13 @@ where
 		let (_, hash) = T::send_upward_message(data).map_err(Self::map_upward_sender_err)?;
 		Ok(hash)
 	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn ensure_successful_delivery(location: Option<Location>) {
+		if location.as_ref().map_or(false, |l| l.contains_parents_only(1)) {
+			T::ensure_successful_delivery();
+		}
+	}
 }
 
 impl<T, W, P> ParentAsUmp<T, W, P> {
@@ -864,6 +871,9 @@ impl<
 		if dest.ne(&Location::parent()) {
 			return (None, None);
 		}
+
+		// Ensure routers
+		XcmConfig::XcmSender::ensure_successful_delivery(Some(Location::parent()));
 
 		let mut fees_mode = None;
 		if !XcmConfig::FeeManager::is_waived(Some(origin_ref), fee_reason) {
