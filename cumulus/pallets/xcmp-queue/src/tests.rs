@@ -997,9 +997,9 @@ fn verify_fee_factor_increase_and_decrease() {
 			// We take 5 100 byte pages
 			XcmpQueue::take_outbound_messages(1);
 		}
-		assert!(DeliveryFeeFactor::<Test>::get(sibling_para_id) < FixedU128::from_float(1.72));
+		assert!(DeliveryFeeFactor::<Test>::get(sibling_para_id) < FixedU128::from_float(1.80));
 		XcmpQueue::take_outbound_messages(1);
-		assert!(DeliveryFeeFactor::<Test>::get(sibling_para_id) < FixedU128::from_float(1.63));
+		assert!(DeliveryFeeFactor::<Test>::get(sibling_para_id) < FixedU128::from_float(1.72));
 	});
 }
 

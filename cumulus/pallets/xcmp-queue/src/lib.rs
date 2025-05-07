@@ -79,7 +79,7 @@ use polkadot_runtime_common::xcm_sender::PriceForMessageDelivery;
 use polkadot_runtime_parachains::FeeTracker;
 use scale_info::TypeInfo;
 use sp_core::MAX_POSSIBLE_ALLOCATION;
-use sp_runtime::{FixedU128, RuntimeDebug, Saturating, WeakBoundedVec};
+use sp_runtime::{FixedU128, RuntimeDebug, WeakBoundedVec};
 use xcm::{latest::prelude::*, VersionedLocation, VersionedXcm, WrapVersion, MAX_XCM_DECODE_DEPTH};
 use xcm_builder::InspectMessageQueues;
 use xcm_executor::traits::ConvertOrigin;
@@ -99,15 +99,8 @@ pub const XCM_BATCH_SIZE: usize = 250;
 
 /// Constants related to delivery fee calculation
 pub mod delivery_fee_constants {
-	use super::FixedU128;
-
 	/// Fees will start increasing when queue is half full
 	pub const THRESHOLD_FACTOR: u32 = 2;
-	/// The base number the delivery fee factor gets multiplied by every time it is increased.
-	/// Also, the number it gets divided by when decreased.
-	pub const EXPONENTIAL_FEE_BASE: FixedU128 = FixedU128::from_rational(105, 100); // 1.05
-	/// The contribution of each KB to a fee factor increase
-	pub const MESSAGE_SIZE_FEE_BASE: FixedU128 = FixedU128::from_rational(1, 1000); // 0.001
 }
 
 #[frame_support::pallet]
@@ -583,9 +576,7 @@ impl<T: Config> Pallet<T> {
 			number_of_pages.saturating_sub(1) * max_message_size as u32 + last_page_size as u32;
 		let threshold = channel_info.max_total_size / delivery_fee_constants::THRESHOLD_FACTOR;
 		if total_size > threshold {
-			let message_size_factor = FixedU128::from((encoded_fragment.len() / 1024) as u128)
-				.saturating_mul(delivery_fee_constants::MESSAGE_SIZE_FEE_BASE);
-			Self::increase_fee_factor(recipient, message_size_factor);
+			Self::increase_fee_factor(recipient, encoded_fragment.len() as u128);
 		}
 
 		Ok(number_of_pages)
@@ -1005,17 +996,24 @@ impl<T: Config> XcmpMessageSource for Pallet<T> {
 				result.push((para_id, page.into_inner()));
 			}
 
-			let max_total_size = match T::ChannelInfo::get_channel_info(para_id) {
-				Some(channel_info) => channel_info.max_total_size,
+			let (max_total_size, max_message_size) = match T::ChannelInfo::get_channel_info(para_id)
+			{
+				Some(channel_info) => (
+					channel_info.max_total_size,
+					channel_info.max_message_size.min(T::MaxPageSize::get()) as usize,
+				),
 				None => {
 					log::warn!("calling `get_channel_info` with no RelevantMessagingState?!");
-					MAX_POSSIBLE_ALLOCATION // We use this as a fallback in case the messaging state is not present
+					// We use this as a fallback in case the messaging state is not present
+					(MAX_POSSIBLE_ALLOCATION, T::MaxPageSize::get() as usize)
 				},
 			};
 			let threshold = max_total_size.saturating_div(delivery_fee_constants::THRESHOLD_FACTOR);
-			let remaining_total_size: usize = (first_index..last_index)
-				.map(|index| OutboundXcmpMessages::<T>::decode_len(para_id, index).unwrap())
-				.sum();
+			// We have to count the total size here since `channel_info.total_size` is not updated
+			// at this point in time. We assume all previous pages are filled, which, in
+			// practice, is not always the case.
+			let num_pages = (last_index - first_index) as usize;
+			let remaining_total_size = num_pages.saturating_mul(max_message_size);
 			if remaining_total_size <= threshold as usize {
 				Self::decrease_fee_factor(para_id);
 			}
@@ -1153,23 +1151,15 @@ impl<T: Config> InspectMessageQueues for Pallet<T> {
 impl<T: Config> FeeTracker for Pallet<T> {
 	type Id = ParaId;
 
+	fn get_min_fee_factor() -> FixedU128 {
+		InitialFactor::get()
+	}
+
 	fn get_fee_factor(id: Self::Id) -> FixedU128 {
 		<DeliveryFeeFactor<T>>::get(id)
 	}
 
-	fn increase_fee_factor(id: Self::Id, message_size_factor: FixedU128) -> FixedU128 {
-		<DeliveryFeeFactor<T>>::mutate(id, |f| {
-			*f = f.saturating_mul(
-				delivery_fee_constants::EXPONENTIAL_FEE_BASE.saturating_add(message_size_factor),
-			);
-			*f
-		})
-	}
-
-	fn decrease_fee_factor(id: Self::Id) -> FixedU128 {
-		<DeliveryFeeFactor<T>>::mutate(id, |f| {
-			*f = InitialFactor::get().max(*f / delivery_fee_constants::EXPONENTIAL_FEE_BASE);
-			*f
-		})
+	fn set_fee_factor(id: Self::Id, val: FixedU128) {
+		<DeliveryFeeFactor<T>>::set(id, val);
 	}
 }
