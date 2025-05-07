@@ -44,9 +44,9 @@ use sp_runtime::traits::Header;
 /// - `expected_number_of_parents`: The expected number of parent headers in the
 ///   `relay_parent_descendants`. A mismatch will cause the function to panic.
 ///
-/// # Panics
+/// # Errors
 ///
-/// This function will panic under the following scenarios:
+/// This function will error under the following scenarios:
 ///
 /// - The number of headers in `relay_parent_descendants` does not match
 ///   `expected_number_of_parents`.

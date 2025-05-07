@@ -301,12 +301,14 @@ where
 				continue;
 			};
 
+			let included_header_hash = included_header.hash();
+
 			let slot_claim = match crate::collators::can_build_upon::<_, _, P>(
 				para_slot.slot,
 				relay_slot,
 				para_slot.timestamp,
 				parent_hash,
-				included_header.hash(),
+				included_header_hash,
 				&*para_client,
 				&keystore,
 			)
@@ -320,7 +322,7 @@ where
 						unincluded_segment_len = parent.depth,
 						relay_parent = %relay_parent,
 						relay_parent_num = %relay_parent_header.number(),
-						included_hash = %included_header.hash(),
+						included_hash = %included_header_hash,
 						included_num = %included_header.number(),
 						parent = %parent_hash,
 						slot = ?para_slot.slot,
@@ -345,7 +347,7 @@ where
 				relay_parent = %relay_parent,
 				relay_parent_num = %relay_parent_header.number(),
 				relay_parent_offset,
-				included_hash = %included_header.hash(),
+				included_hash = %included_header_hash,
 				included_num = %included_header.number(),
 				parent = %parent_hash,
 				slot = ?para_slot.slot,
