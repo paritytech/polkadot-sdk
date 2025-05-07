@@ -785,21 +785,20 @@ impl pallet_staking::Config for Runtime {
 
 #[derive(Encode, Decode)]
 enum AssetHubRuntimePallets<AccountId> {
-	// TODO - AHM: check index
+	// Audit: `StakingNextRcClient` in asset-hub-westend
 	#[codec(index = 89)]
 	RcClient(RcClientCalls<AccountId>),
 }
 
 #[derive(Encode, Decode)]
 enum RcClientCalls<AccountId> {
-	// TODO - AHM: check index
 	#[codec(index = 0)]
 	RelaySessionReport(rc_client::SessionReport<AccountId>),
-	// TODO - AHM: check index
 	#[codec(index = 1)]
 	RelayNewOffence(SessionIndex, Vec<rc_client::Offence<AccountId>>),
 }
 
+// CI-FAIL: @kianenigma port over the new xcm configs from https://github.com/paritytech/polkadot-sdk/pull/8422
 pub struct AssetHubLocation;
 impl Get<Location> for AssetHubLocation {
 	fn get() -> Location {
@@ -871,7 +870,7 @@ impl frame_support::traits::EnsureOrigin<RuntimeOrigin> for EnsureAssetHub {
 	}
 }
 
-// TODO - AHM: this pallet is currently in place, but does nothing. Upon AHM, it should become
+// Note - AHM: this pallet is currently in place, but does nothing. Upon AHM, it should become
 // activated. Note that it is used as `SessionManager`, but since its mode is `Passive`, it will
 // delegate all of its tasks to `Fallback`, which is again `Staking`.
 impl ah_client::Config for Runtime {
