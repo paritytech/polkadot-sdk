@@ -153,8 +153,6 @@ where
 							const CURRENT_SLOT_KEY: [u8;32] = hex!("1cb6f36e027abb2091cfb5110ab5087f06155b3cd9a8c9e5e9a23fd5dc13a5ed");
 							const CURRENT_EPOCH_INDEX: [u8;32] = hex!("1cb6f36e027abb2091cfb5110ab5087f38316cbf8fa0da822a20ac1c55bf1be3");
 
-
-							let _current_code_para_1000: Vec<u8> = hex!("cd710b30bd2eab0352ddcc26417aa194e2d1c22ba0a888147714a3487bd51c63b6ff6f7d467b87a9e8030000").into();
 							let code_refs_prefix = "cd710b30bd2eab0352ddcc26417aa1948c27d984a48a10b1ebf28036a4a4444b";
 							let code_by_hash_ref = "cd710b30bd2eab0352ddcc26417aa194383e6dcb39e0be0a2e6aeb8b94951ab6";
 
@@ -286,14 +284,14 @@ where
 								let genesis_slot_override = calculate_genesis_slot(current_slot_value, current_epoch_value);
 								storage.top.insert(GENESIS_SLOT_KEY.into(), genesis_slot_override.encode());
 								state.key_values.push((GENESIS_SLOT_KEY.into(), genesis_slot_override.encode()));
+							}
 
-								// for now only insert into the relaychain
-								for (k,v) in injects.iter() {
-									debug!(target: LOG_TARGET, "Injecting key: {}", sp_core::hexdisplay::HexDisplay::from(k));
-									debug!(target: LOG_TARGET,"Injecting value: {}", sp_core::hexdisplay::HexDisplay::from(v));
-									storage.top.insert(k.clone(), v.clone());
-									state.key_values.push((k.clone(), v.clone()));
-								}
+							// Injects keys left
+							for (k,v) in injects.iter() {
+								debug!(target: LOG_TARGET, "Injecting key: {}", sp_core::hexdisplay::HexDisplay::from(k));
+								debug!(target: LOG_TARGET,"Injecting value: {}", sp_core::hexdisplay::HexDisplay::from(v));
+								storage.top.insert(k.clone(), v.clone());
+								state.key_values.push((k.clone(), v.clone()));
 							}
 						} else {
 							for parent_storage in &state.parent_storage_keys {
