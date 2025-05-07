@@ -427,8 +427,7 @@ pub mod pallet {
 
 			let maximum_channels = host_config
 				.hrmp_max_message_num_per_candidate
-				.min(<AnnouncedHrmpMessagesPerCandidate<T>>::take())
-				as usize;
+				.min(<AnnouncedHrmpMessagesPerCandidate<T>>::take()) as usize;
 
 			// Note: this internally calls the `GetChannelInfo` implementation for this
 			// pallet, which draws on the `RelevantMessagingState`. That in turn has
@@ -1650,8 +1649,16 @@ impl<T: Config> UpwardMessageSender for Pallet<T> {
 	}
 
 	fn can_send_upward_message(message: &UpwardMessage) -> Result<(), MessageSendError> {
-		let cfg = HostConfiguration::<T>::get().ok_or(MessageSendError::Other)?;
-		if message.len() > cfg.max_upward_message_size as usize {
+		#[cfg(not(feature = "runtime-benchmarks"))]
+		let max_upward_message_size = HostConfiguration::<T>::get()
+			.map(|cfg| cfg.max_upward_message_size)
+			.ok_or(MessageSendError::Other)?;
+		// for benchmarks, if host cfg is not set, we assume no limit on the size.
+		#[cfg(feature = "runtime-benchmarks")]
+		let max_upward_message_size = HostConfiguration::<T>::get()
+			.map(|cfg| cfg.max_upward_message_size)
+			.unwrap_or_else(sp_runtime::traits::Bounded::max_value);
+		if message.len() > max_upward_message_size as usize {
 			Err(MessageSendError::TooBig)
 		} else {
 			Ok(())
