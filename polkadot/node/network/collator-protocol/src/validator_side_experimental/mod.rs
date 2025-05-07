@@ -195,8 +195,8 @@ async fn process_msg<Context>(
 					"Failed to handle incoming network message",
 				);
 			},
-		Seconded(parent, stmt) => {
-			// state.handle_collation_seconded(ctx.sender(), parent, stmt).await;
+		Seconded(_parent, stmt) => {
+			state.handle_collation_seconded(ctx.sender(), stmt).await;
 		},
 		Invalid(_parent, candidate_receipt) => {
 			state.handle_invalid_collation(candidate_receipt).await;

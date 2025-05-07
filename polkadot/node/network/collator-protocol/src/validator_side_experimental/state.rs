@@ -15,6 +15,7 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use crate::{
+	validator_side::notify_collation_seconded,
 	validator_side_experimental::{
 		collation_manager::CollationManager,
 		common::{
@@ -30,6 +31,7 @@ use crate::{
 use fatality::Split;
 use futures::{channel::oneshot, stream::FusedStream};
 use polkadot_node_network_protocol::{peer_set::CollationVersion, OurView, PeerId};
+use polkadot_node_primitives::{SignedFullStatement, Statement};
 use polkadot_node_subsystem::{messages::CandidateBackingMessage, CollatorProtocolSenderTrait};
 use polkadot_primitives::{
 	vstaging::CandidateReceiptV2 as CandidateReceipt, BlockNumber, Hash, Id as ParaId,
@@ -275,10 +277,8 @@ impl<B: Backend> State<B> {
 					?advertisement,
 					"Started seconding"
 				);
-
-				// TODO: mark this claim with the right candidate hash if not already present
 			},
-			CanSecond::No(maybe_slash) => {
+			CanSecond::No(maybe_slash, maybe_output_head_hash) => {
 				if let Some(slash) = maybe_slash {
 					self.peer_manager.slash_reputation(
 						&advertisement.peer_id,
@@ -289,12 +289,12 @@ impl<B: Backend> State<B> {
 
 				self.collation_manager.release_slot(
 					&advertisement.relay_parent,
+					advertisement.para_id,
 					advertisement.prospective_candidate.map(|p| p.candidate_hash).as_ref(),
+					maybe_output_head_hash,
 				);
 			},
-			CanSecond::BlockedOnParent => {
-				// TODO: mark this claim with the right candidate hash if not already present
-			},
+			CanSecond::BlockedOnParent(_) => {},
 		};
 	}
 
@@ -310,7 +310,12 @@ impl<B: Backend> State<B> {
 			"Invalid collation",
 		);
 
-		self.collation_manager.release_slot(&relay_parent, Some(&candidate_hash));
+		self.collation_manager.release_slot(
+			&relay_parent,
+			receipt.descriptor.para_id(),
+			Some(&candidate_hash),
+			Some(receipt.descriptor.para_head()),
+		);
 
 		let Some(peer_id) = self
 			.collation_manager
@@ -331,5 +336,59 @@ impl<B: Backend> State<B> {
 			&receipt.descriptor.para_id(),
 			INVALID_COLLATION_SLASH,
 		);
+	}
+
+	pub async fn handle_collation_seconded<Sender: CollatorProtocolSenderTrait>(
+		&mut self,
+		sender: &mut Sender,
+		statement: SignedFullStatement,
+	) {
+		let receipt = match statement.payload() {
+			Statement::Seconded(receipt) => receipt,
+			Statement::Valid(_) => {
+				gum::warn!(
+					target: LOG_TARGET,
+					?statement,
+					"Seconded message received with a `Valid` statement",
+				);
+				return
+			},
+		};
+
+		let candidate_hash = receipt.hash();
+		let relay_parent = receipt.descriptor.relay_parent();
+		let para_id = receipt.descriptor.para_id();
+
+		gum::debug!(
+			target: LOG_TARGET,
+			?para_id,
+			?relay_parent,
+			?candidate_hash,
+			"Collation seconded",
+		);
+
+		let (Some(peer_id), unblocked_collations) = self
+			.collation_manager
+			.seconded(
+				sender,
+				&relay_parent,
+				&candidate_hash,
+				&para_id,
+				receipt.descriptor.para_head(),
+			)
+			.await
+		else {
+			// TODO: log
+			return
+		};
+
+		let Some(PeerInfo { version, .. }) = self.peer_manager.peer_info(&peer_id) else {
+			// TODO: log
+			return
+		};
+
+		notify_collation_seconded(sender, peer_id, *version, relay_parent, statement).await;
+
+		// TODO: handle unblocked_collations, much like we do in handle_fetched_collation
 	}
 }

@@ -184,9 +184,9 @@ pub enum CollationFetchError {
 }
 
 pub enum CanSecond {
-	No(Option<Score>),
+	No(Option<Score>, Option<Hash>),
 	Yes(CandidateReceipt, PoV, PersistedValidationData),
-	BlockedOnParent,
+	BlockedOnParent(Hash),
 }
 
 #[cfg(test)]

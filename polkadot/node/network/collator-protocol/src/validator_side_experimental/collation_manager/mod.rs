@@ -88,6 +88,8 @@ struct FetchedCollation {
 	pub pov: PoV,
 	/// Optional parachain parent head data.
 	pub maybe_parent_head_data: Option<HeadData>,
+	/// TODO
+	pub maybe_parent_head_data_hash: Option<Hash>,
 }
 
 enum CollationFetchOutcome {
@@ -424,7 +426,7 @@ impl CollationManager {
 				peer_id = ?advertisement.peer_id,
 				"Collation fetch concluded for relay parent out of view"
 			);
-			return CanSecond::No(None)
+			return CanSecond::No(None, None)
 		};
 		let Some(session_info) = self.per_session.get(&per_rp.session_index) else {
 			gum::debug!(
@@ -434,7 +436,7 @@ impl CollationManager {
 				peer_id = ?advertisement.peer_id,
 				"Collation fetch concluded for relay parent whose session index is unknown"
 			);
-			return CanSecond::No(None)
+			return CanSecond::No(None, None)
 		};
 
 		if let Some(advertisements) = per_rp.peer_advertisements.get_mut(&advertisement.peer_id) {
@@ -502,6 +504,9 @@ impl CollationManager {
 					candidate_receipt,
 					pov,
 					maybe_parent_head_data: None,
+					maybe_parent_head_data_hash: advertisement
+						.prospective_candidate
+						.map(|p| p.parent_head_data_hash),
 				})
 			},
 			Ok(request_v2::CollationFetchingResponse::CollationWithParentHeadData {
@@ -521,6 +526,9 @@ impl CollationManager {
 					candidate_receipt: receipt,
 					pov,
 					maybe_parent_head_data: Some(parent_head_data),
+					maybe_parent_head_data_hash: advertisement
+						.prospective_candidate
+						.map(|p| p.parent_head_data_hash),
 				})
 			},
 		};
@@ -533,6 +541,8 @@ impl CollationManager {
 					.fetched_collations
 					.insert(fetched_collation.candidate_receipt.hash(), advertisement.peer_id);
 
+				let output_head_hash = fetched_collation.candidate_receipt.descriptor.para_head();
+
 				// Some initial sanity checks on the fetched collation, based on the advertisement.
 				if let Err(err) = initial_fetched_collation_sanity_check(
 					&advertisement,
@@ -544,7 +554,7 @@ impl CollationManager {
 						"Invalid fetched collation: {}",
 						err
 					);
-					return CanSecond::No(Some(FAILED_FETCH_SLASH))
+					return CanSecond::No(Some(FAILED_FETCH_SLASH), Some(output_head_hash))
 				}
 
 				// Sanity check of the candidate receipt version.
@@ -559,75 +569,21 @@ impl CollationManager {
 						"Failed descriptor version sanity check for fetched collation: {}",
 						err
 					);
-					return CanSecond::No(Some(FAILED_FETCH_SLASH))
+					return CanSecond::No(Some(FAILED_FETCH_SLASH), Some(output_head_hash))
 				}
 
-				match retrieve_pvd(
-					sender,
-					&advertisement,
-					fetched_collation.maybe_parent_head_data.as_ref(),
-					fetched_collation.candidate_receipt.descriptor.para_id(),
-					fetched_collation.candidate_receipt.descriptor.persisted_validation_data_hash(),
-				)
-				.await
-				{
-					Err(error) => match error {
-						SecondingError::BlockedOnParent(parent) => {
-							gum::debug!(
-								target: LOG_TARGET,
-								candidate_hash = ?fetched_collation.candidate_receipt.hash(),
-								relay_parent = ?fetched_collation.candidate_receipt.descriptor.relay_parent(),
-								"Collation having parent head data hash {} is blocked from seconding. Waiting on its parent to be validated.",
-								parent
-							);
-
-							self.blocked_from_seconding
-								.entry(BlockedCollationId {
-									para_id: fetched_collation
-										.candidate_receipt
-										.descriptor
-										.para_id(),
-									parent_head_data_hash: parent,
-								})
-								.or_insert_with(Vec::new)
-								.push(fetched_collation);
-
-							return CanSecond::BlockedOnParent
-						},
-						error if error.is_malicious() => {
-							gum::warn!(
-								target: LOG_TARGET,
-								?advertisement,
-								"Failed persisted validation data checks: {}",
-								error
-							);
-							return CanSecond::No(Some(FAILED_FETCH_SLASH))
-						},
-						err => {
-							gum::warn!(
-								target: LOG_TARGET,
-								?advertisement,
-								"Failed persisted validation data checks: {}",
-								err
-							);
-							return CanSecond::No(None)
-						},
-					},
-					Ok(pvd) => CanSecond::Yes(
-						fetched_collation.candidate_receipt,
-						fetched_collation.pov,
-						pvd,
-					),
-				}
+				self.can_begin_seconding(sender, fetched_collation, true).await
 			},
-			CollationFetchOutcome::Failure(rep_change) => CanSecond::No(rep_change),
+			CollationFetchOutcome::Failure(rep_change) => CanSecond::No(rep_change, None),
 		}
 	}
 
 	pub fn release_slot(
 		&mut self,
 		relay_parent: &Hash,
+		para_id: ParaId,
 		maybe_candidate_hash: Option<&CandidateHash>,
+		maybe_output_head_hash: Option<Hash>,
 	) {
 		if let Some(candidate_hash) = maybe_candidate_hash {
 			if !self.claim_queue_state.release_claims_for_candidate(candidate_hash) {
@@ -648,7 +604,27 @@ impl CollationManager {
 			}
 		}
 
-		// TODO: remove collations that were blocked on this parent.
+		if let Some(output_head_hash) = maybe_output_head_hash {
+			// Remove any collations that were blocked on this parent. TODO: add a log
+			let Some(blocked) = self
+				.blocked_from_seconding
+				.remove(&BlockedCollationId { para_id, parent_head_data_hash: output_head_hash })
+			else {
+				return
+			};
+
+			for collation in blocked {
+				let candidate_hash = collation.candidate_receipt.hash();
+				if !self.claim_queue_state.release_claims_for_candidate(&candidate_hash) {
+					gum::debug!(
+						target: LOG_TARGET,
+						relay_parent = ?collation.candidate_receipt.descriptor.relay_parent(),
+						?candidate_hash,
+						"Could not release slot for candidate, it wasn't claimed",
+					);
+				}
+			}
+		}
 	}
 
 	pub fn get_peer_id_of_fetched_collation(
@@ -662,22 +638,51 @@ impl CollationManager {
 			.copied()
 	}
 
-	// pub fn seconded(
-	// 	&mut self,
-	// 	relay_parent: &Hash,
-	// 	candidate_hash: &CandidateHash,
-	// 	para_id: &ParaId,
-	// ) -> Option<PeerId> {
-	// 	let peer_id = self
-	// 		.per_relay_parent
-	// 		.get(relay_parent)
-	// 		.and_then(|per_rp| per_rp.fetched_collations.get(candidate_hash));
+	pub async fn seconded<Sender: CollatorProtocolSenderTrait>(
+		&mut self,
+		sender: &mut Sender,
+		relay_parent: &Hash,
+		candidate_hash: &CandidateHash,
+		para_id: &ParaId,
+		output_head_hash: Hash,
+	) -> (Option<PeerId>, Vec<CanSecond>) {
+		let peer_id = self
+			.per_relay_parent
+			.get(relay_parent)
+			.and_then(|per_rp| per_rp.fetched_collations.get(candidate_hash))
+			.copied();
 
-	// 	self.claim_queue_state
-	// 		.claim_seconded_slot(candidate_hash, relay_parent, para_id);
+		self.claim_queue_state
+			.claim_seconded_slot(candidate_hash, relay_parent, para_id);
 
-	// 	peer_id.copied()
-	// }
+		let mut unblocked_can_second = vec![];
+
+		// See if we've unblocked other collations here too.
+		if let Some(unblocked) = self.blocked_from_seconding.remove(&BlockedCollationId {
+			para_id: *para_id,
+			parent_head_data_hash: output_head_hash,
+		}) {
+			// TODO: log
+
+			for fetched_collation in unblocked {
+				let can_second = self.can_begin_seconding(sender, fetched_collation, false).await;
+
+				match &can_second {
+					CanSecond::Yes(_, _, _) => {},
+					CanSecond::BlockedOnParent(parent) => {
+						// Not OK. we just got unblocked. We need to release the slot.
+					},
+					CanSecond::No(_, _) => {
+						// Not OK. we just got unblocked. We need to release the slot.
+					},
+				}
+
+				unblocked_can_second.push(can_second)
+			}
+		}
+
+		(peer_id, unblocked_can_second)
+	}
 
 	async fn get_our_core_schedule<Sender: CollatorProtocolSenderTrait>(
 		&mut self,
@@ -733,6 +738,86 @@ impl CollationManager {
 		}
 
 		Ok(self.per_session.get(&index).expect("Just inserted"))
+	}
+
+	async fn can_begin_seconding<Sender: CollatorProtocolSenderTrait>(
+		&mut self,
+		sender: &mut Sender,
+		fetched_collation: FetchedCollation,
+		queue_blocked_collations: bool,
+	) -> CanSecond {
+		let relay_parent = fetched_collation.candidate_receipt.descriptor.relay_parent();
+		let candidate_hash = fetched_collation.candidate_receipt.hash();
+		let output_head_hash = fetched_collation.candidate_receipt.descriptor.para_head();
+
+		let can_second = match fetch_pvd(
+			sender,
+			&fetched_collation.candidate_receipt,
+			fetched_collation.maybe_parent_head_data_hash,
+			fetched_collation.maybe_parent_head_data.clone(),
+		)
+		.await
+		{
+			Err(error) => match error {
+				SecondingError::BlockedOnParent(parent) => {
+					gum::debug!(
+						target: LOG_TARGET,
+						?candidate_hash,
+						?relay_parent,
+						"Collation having parent head data hash {} is blocked from seconding. Waiting on its parent to be validated.",
+						parent
+					);
+
+					if queue_blocked_collations {
+						self.blocked_from_seconding
+							.entry(BlockedCollationId {
+								para_id: fetched_collation.candidate_receipt.descriptor.para_id(),
+								parent_head_data_hash: parent,
+							})
+							.or_insert_with(Vec::new)
+							.push(fetched_collation);
+					}
+
+					// TODO: Mark this claim with the right candidate hash if not already
+					// present (v1 protocol advertisement)
+					// if advertisement.prospective_candidate.is_none() {
+					//
+					// }
+
+					CanSecond::BlockedOnParent(parent)
+				},
+				error if error.is_malicious() => {
+					gum::warn!(
+						target: LOG_TARGET,
+						?candidate_hash,
+						?relay_parent,
+						"Failed persisted validation data checks: {}",
+						error
+					);
+					return CanSecond::No(Some(FAILED_FETCH_SLASH), Some(output_head_hash))
+				},
+				err => {
+					gum::warn!(
+						target: LOG_TARGET,
+						?candidate_hash,
+						?relay_parent,
+						"Failed persisted validation data checks: {}",
+						err
+					);
+					return CanSecond::No(None, Some(output_head_hash))
+				},
+			},
+			Ok(pvd) => {
+				// TODO: Mark this claim with the right candidate hash if not already
+				// present (v1 protocol advertisement)
+				// if advertisement.prospective_candidate.is_none() {
+				//
+				// }
+				CanSecond::Yes(fetched_collation.candidate_receipt, fetched_collation.pov, pvd)
+			},
+		};
+
+		can_second
 	}
 }
 
@@ -882,25 +967,26 @@ fn descriptor_version_sanity_check(
 	}
 }
 
-async fn retrieve_pvd<Sender: CollatorProtocolSenderTrait>(
+async fn fetch_pvd<Sender: CollatorProtocolSenderTrait>(
 	sender: &mut Sender,
-	advertisement: &Advertisement,
-	maybe_parent_head: Option<&HeadData>,
-	para_id: ParaId,
-	pvd_hash: Hash,
+	receipt: &CandidateReceipt,
+	maybe_parent_head_data_hash: Option<Hash>,
+	maybe_parent_head_data: Option<HeadData>,
 ) -> std::result::Result<PersistedValidationData, SecondingError> {
-	let pvd = match advertisement.prospective_candidate {
-		Some(ProspectiveCandidate { parent_head_data_hash, .. }) => {
-			let pvd = request_prospective_validation_data(
+	let para_id = receipt.descriptor.para_id();
+
+	let pvd = match maybe_parent_head_data_hash {
+		Some(parent_head_data_hash) => {
+			let maybe_pvd = request_prospective_validation_data(
 				sender,
-				advertisement.relay_parent,
+				receipt.descriptor.relay_parent(),
 				parent_head_data_hash,
 				para_id,
-				maybe_parent_head.cloned(),
+				maybe_parent_head_data.clone(),
 			)
 			.await?;
 
-			let pvd = match (pvd, maybe_parent_head) {
+			let pvd = match (maybe_pvd, &maybe_parent_head_data) {
 				(None, None) => return Err(SecondingError::BlockedOnParent(parent_head_data_hash)),
 				(Some(pvd), None) => {
 					if parent_head_data_hash != pvd.parent_head.hash() {
@@ -920,14 +1006,17 @@ async fn retrieve_pvd<Sender: CollatorProtocolSenderTrait>(
 			pvd
 		},
 		None => {
-			let pvd =
-				request_persisted_validation_data(sender, advertisement.relay_parent, para_id)
-					.await?;
+			let pvd = request_persisted_validation_data(
+				sender,
+				receipt.descriptor.relay_parent(),
+				para_id,
+			)
+			.await?;
 			pvd.ok_or(SecondingError::PersistedValidationDataNotFound)?
 		},
 	};
 
-	if pvd.hash() != pvd_hash {
+	if pvd.hash() != receipt.descriptor.persisted_validation_data_hash() {
 		return Err(SecondingError::PersistedValidationDataMismatch)
 	}
 
