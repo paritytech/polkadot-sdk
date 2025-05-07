@@ -5066,6 +5066,7 @@ name = "cumulus-zombienet-sdk-helpers"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "cumulus-primitives-core",
  "log",
  "parity-scale-codec",
  "polkadot-primitives",
