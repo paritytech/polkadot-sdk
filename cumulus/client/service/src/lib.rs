@@ -20,7 +20,7 @@
 //! Provides functions for starting a collator node or a normal full node.
 
 use cumulus_client_cli::CollatorOptions;
-use cumulus_client_consensus_common::{finalized_heads, ParachainConsensus};
+use cumulus_client_consensus_common::ParachainConsensus;
 use cumulus_client_network::{AssumeSybilResistance, RequireSecondedInBlockAnnounce};
 use cumulus_client_pov_recovery::{PoVRecovery, RecoveryDelayRange, RecoveryHandle};
 use cumulus_primitives_core::{CollectCollationInfo, ParaId};
@@ -30,9 +30,8 @@ use cumulus_relay_chain_interface::{RelayChainInterface, RelayChainResult};
 use cumulus_relay_chain_minimal_node::{
 	build_minimal_relay_chain_node_light_client, build_minimal_relay_chain_node_with_rpc,
 };
-use cumulus_relay_chain_streams::pending_candidates;
-use futures::{channel::mpsc, select, StreamExt};
-use polkadot_primitives::{CollatorPair, OccupiedCoreAssumption};
+use futures::{channel::mpsc, StreamExt};
+use polkadot_primitives::{vstaging::CandidateEvent, CollatorPair, OccupiedCoreAssumption};
 use prometheus::{Histogram, HistogramOpts, Registry};
 use sc_client_api::{
 	Backend as BackendT, BlockBackend, BlockchainEvents, Finalizer, ProofProvider, UsageProvider,
@@ -52,7 +51,6 @@ use sc_telemetry::{log, TelemetryWorkerHandle};
 use sc_utils::mpsc::TracingUnboundedSender;
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::{HeaderBackend, HeaderMetadata};
-use sp_consensus::SyncOracle;
 use sp_core::{traits::SpawnNamed, Decode};
 use sp_runtime::{
 	traits::{Block as BlockT, BlockIdTo, Header},
@@ -305,9 +303,7 @@ where
 
 	let parachain_informant = parachain_informant::<Block, _>(
 		relay_chain_interface.clone(),
-		sync_service,
 		client.clone(),
-		para_id,
 		prometheus_registry.map(ParachainInformantMetrics::new),
 	);
 	task_manager
@@ -614,103 +610,86 @@ where
 
 async fn parachain_informant<Block: BlockT, Client>(
 	relay_chain_interface: impl RelayChainInterface + Clone,
-	sync_service: Arc<dyn SyncOracle + Send + Sync>,
 	client: Arc<Client>,
-	para_id: ParaId,
 	metrics: Option<ParachainInformantMetrics>,
 ) where
 	Client: HeaderBackend<Block> + Send + Sync + 'static,
 {
-	// Backed blocks.
-	let pending_candidates =
-		match pending_candidates(relay_chain_interface.clone(), para_id, sync_service).await {
-			Ok(pending_candidates_stream) => pending_candidates_stream.fuse(),
-			Err(err) => {
-				log::error!("Unable to retrieve pending candidate stream: {err:?}.");
-				return
-			},
-		};
-	let backed_blocks = pending_candidates.flat_map(|(candidates, _, relay_header)| {
-		futures::stream::iter(candidates.into_iter().filter_map(move |candidate| {
-			let relay_header = relay_header.clone();
-			match Block::Header::decode(&mut &candidate.commitments.head_data.0[..]) {
-				Ok(header) => Some((header, relay_header)),
-				Err(e) => {
-					log::warn!("Failed to decode parachain header from backed block: {e:?}");
-					None
-				},
-			}
-		}))
-	});
-	futures::pin_mut!(backed_blocks);
-
-	// Included blocks.
-	let finalized_heads = match finalized_heads(relay_chain_interface.clone(), para_id).await {
-		Ok(finalized_heads_stream) => finalized_heads_stream.fuse(),
-		Err(err) => {
-			log::error!("Unable to retrieve finalized heads stream: {err:?}.");
-			return
-		},
-	};
-	let included_blocks = finalized_heads.filter_map(|(head, relay_header)| async move {
-		match Block::Header::decode(&mut &head[..]) {
-			Ok(header) => Some((header, relay_header)),
-			Err(e) => {
-				log::warn!("Failed to decode parachain header from finalized block: {e:?}");
-				None
-			},
-		}
-	});
-	futures::pin_mut!(included_blocks);
-
-	let mut last_backed_block: Option<<Block as BlockT>::Header> = None;
+	let mut import_notifications =
+		relay_chain_interface.import_notification_stream().await.unwrap();
 	let mut last_backed_block_time: Option<Instant> = None;
-	let mut last_included_block: Option<<Block as BlockT>::Header> = None;
-	loop {
-		select! {
-			(backed_block, relay_block) = backed_blocks.select_next_some() => {
-				if last_backed_block.as_ref() == Some(&backed_block) {
-					// Ignore duplicate notifications.
-					continue;
-				}
-				log::info!(
-					"New backed block at relay block #{} ({}): #{} ({})",
-					relay_block.number(),
-					relay_block.hash(),
-					backed_block.number(),
-					backed_block.hash(),
-				);
-				let backed_block_time = Instant::now();
-				if let Some(last_backed_block_time) = &last_backed_block_time {
-					let duration = backed_block_time.duration_since(*last_backed_block_time);
-					if let Some(metrics) = &metrics {
-						metrics.parachain_block_authorship_duration.observe(duration.as_secs_f64());
+	while let Some(n) = import_notifications.next().await {
+		let candidate_events = relay_chain_interface.candidate_events(n.hash()).await.unwrap();
+		for event in candidate_events {
+			match event {
+				CandidateEvent::CandidateBacked(receipt, head, _core_index, _group_index) => {
+					let backed_block = match Block::Header::decode(&mut &head.0[..]) {
+						Ok(header) => header,
+						Err(e) => {
+							log::warn!(
+								"Failed to decode parachain header from backed block: {e:?}"
+							);
+							continue
+						},
+					};
+					log::info!(
+						"Candidate #{} ({}) backed with parent {}",
+						backed_block.number(),
+						backed_block.hash(),
+						receipt.descriptor.relay_parent()
+					);
+					let backed_block_time = Instant::now();
+					if let Some(last_backed_block_time) = &last_backed_block_time {
+						let duration = backed_block_time.duration_since(*last_backed_block_time);
+						if let Some(metrics) = &metrics {
+							metrics
+								.parachain_block_authorship_duration
+								.observe(duration.as_secs_f64());
+						}
 					}
-				}
-				last_backed_block_time = Some(backed_block_time);
-				last_backed_block = Some(backed_block.clone());
-			},
-			(included_block, relay_block) = included_blocks.select_next_some() => {
-				if last_included_block.as_ref() == Some(&included_block) {
-					// Ignore duplicate notifications.
-					continue;
-				}
-				log::info!(
-					"New included block at relay block #{} ({}): #{} ({})",
-					relay_block.number(),
-					relay_block.hash(),
-					included_block.number(),
-					included_block.hash(),
-				);
-				if let Some(last_included_block) = &last_included_block {
-					let unincluded_segment_size = client.info().best_number.saturating_sub(*last_included_block.number());
+					last_backed_block_time = Some(backed_block_time);
+				},
+				CandidateEvent::CandidateIncluded(receipt, head, _core_index, _group_index) => {
+					let included_block = match Block::Header::decode(&mut &head.0[..]) {
+						Ok(header) => header,
+						Err(e) => {
+							log::warn!(
+								"Failed to decode parachain header from included block: {e:?}"
+							);
+							continue
+						},
+					};
+					log::info!(
+						"Candidate #{} ({}) included with parent {}",
+						included_block.number(),
+						included_block.hash(),
+						receipt.descriptor.relay_parent()
+					);
+					let unincluded_segment_size =
+						client.info().best_number.saturating_sub(*included_block.number());
 					let unincluded_segment_size: u32 = unincluded_segment_size.saturated_into();
 					if let Some(metrics) = &metrics {
 						metrics.unincluded_segment_size.observe(unincluded_segment_size.into());
 					}
-				}
-				last_included_block = Some(included_block.clone());
-			},
+				},
+				CandidateEvent::CandidateTimedOut(receipt, head, _core_index) => {
+					let header = match Block::Header::decode(&mut &head.0[..]) {
+						Ok(header) => header,
+						Err(e) => {
+							log::warn!(
+								"Failed to decode parachain header from timed out block: {e:?}"
+							);
+							continue
+						},
+					};
+					log::info!(
+						"Candidate #{} ({}) timed out with parent {}",
+						header.number(),
+						header.hash(),
+						receipt.descriptor.relay_parent()
+					);
+				},
+			}
 		}
 	}
 }
