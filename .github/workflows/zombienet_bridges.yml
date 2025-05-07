@@ -54,11 +54,11 @@ jobs:
         run: |
           mkdir -p ./zombienet-logs
           # copy general logs
-          cp -r /tmp/bridges-tests-run-*/logs/* ./zombienet-logs/
+          cp -r /tmp/bridges-tests-run-*/logs/* ./zombienet-logs/ 2>/dev/null || :
           # copy logs of rococo nodes
-          cp -r /tmp/bridges-tests-run-*/bridge_hub_rococo_local_network/*.log ./zombienet-logs/
+          cp -r /tmp/bridges-tests-run-*/bridge_hub_rococo_local_network/*.log ./zombienet-logs/ 2>/dev/null || :
           # copy logs of westend nodes
-          cp -r /tmp/bridges-tests-run-*/bridge_hub_westend_local_network/*.log ./zombienet-logs/
+          cp -r /tmp/bridges-tests-run-*/bridge_hub_westend_local_network/*.log ./zombienet-logs/ 2>/dev/null || :
 
       - name: upload logs
         if: ${{ ! cancelled() }}
