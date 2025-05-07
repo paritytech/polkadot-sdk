@@ -654,7 +654,7 @@ pub struct NetworkConfiguration {
 	pub ipfs_server: bool,
 
 	/// Networking backend used for P2P communication.
-	pub network_backend: Option<NetworkBackendType>,
+	pub network_backend: NetworkBackendType,
 }
 
 impl NetworkConfiguration {
@@ -687,7 +687,7 @@ impl NetworkConfiguration {
 			kademlia_replication_factor: NonZeroUsize::new(DEFAULT_KADEMLIA_REPLICATION_FACTOR)
 				.expect("value is a constant; constant is non-zero; qed."),
 			ipfs_server: false,
-			network_backend: None,
+			network_backend: NetworkBackendType::Libp2p,
 		}
 	}
 
@@ -913,10 +913,9 @@ impl<B: BlockT + 'static, H: ExHashT, N: NetworkBackend<B, H>> FullNetworkConfig
 }
 
 /// Network backend type.
-#[derive(Debug, Clone, Default, Copy)]
+#[derive(Debug, Clone)]
 pub enum NetworkBackendType {
 	/// Use libp2p for P2P networking.
-	#[default]
 	Libp2p,
 
 	/// Use litep2p for P2P networking.
