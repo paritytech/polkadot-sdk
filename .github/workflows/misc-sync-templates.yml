@@ -247,6 +247,7 @@ jobs:
           inherits = "release"
           lto = true
           EOF
+          
         working-directory: "${{ env.template-path }}"
 
       - name: Print the result Cargo.tomls for debugging after copying required workspace dependencies
