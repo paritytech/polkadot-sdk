@@ -1,0 +1,8 @@
+title: 'assert_expected_events macro fix to properly check event was received'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Fixes an issue where assert_expected_events macro doesn't properly verify if the expected event was received
+crates:
+- name: xcm-emulator
+  bump: patch
