@@ -43,7 +43,7 @@ pub async fn pending_candidates(
 	let import_notification_stream = relay_chain_client.import_notification_stream().await?;
 
 	let filtered_stream = import_notification_stream.filter_map(move |n| {
-		let client_for_closure = relay_chain_client.clone();
+		let client = relay_chain_client.clone();
 		let sync_oracle = sync_service.clone();
 		async move {
 			let hash = n.hash();
@@ -56,7 +56,7 @@ pub async fn pending_candidates(
 				return None
 			}
 
-			let runtime_api_version = client_for_closure
+			let runtime_api_version = client
 				.version(hash)
 				.await
 				.map_err(|e| {
@@ -81,7 +81,7 @@ pub async fn pending_candidates(
 				RuntimeApiRequest::CANDIDATES_PENDING_AVAILABILITY_RUNTIME_REQUIREMENT
 			{
 				#[allow(deprecated)]
-				client_for_closure
+				client
 					.candidate_pending_availability(hash, para_id)
 					.await
 					.map_err(|e| {
@@ -93,7 +93,7 @@ pub async fn pending_candidates(
 					})
 					.map(|candidate| candidate.into_iter().collect::<Vec<_>>())
 			} else {
-				client_for_closure.candidates_pending_availability(hash, para_id).await.map_err(
+				client.candidates_pending_availability(hash, para_id).await.map_err(
 					|e| {
 						tracing::error!(
 							target: LOG_TARGET,
@@ -105,7 +105,7 @@ pub async fn pending_candidates(
 			};
 
 			let session_index_result =
-				client_for_closure.session_index_for_child(hash).await.map_err(|e| {
+				client.session_index_for_child(hash).await.map_err(|e| {
 					tracing::error!(
 						target: LOG_TARGET,
 						error = ?e,
