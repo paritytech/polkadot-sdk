@@ -13,7 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{create_pool_with_native_on, imports::*};
+use crate::imports::*;
 use asset_hub_westend_runtime::xcm_config::LocationToAccountId;
 use emulated_integration_tests_common::{
 	snowbridge::{SEPOLIA_ID, WETH},
@@ -322,8 +322,22 @@ pub fn create_pools_on_ah() {
 	let ethereum_sovereign = snowbridge_sovereign();
 	AssetHubWestend::fund_accounts(vec![(ethereum_sovereign.clone(), INITIAL_FUND)]);
 	PenpalB::fund_accounts(vec![(ethereum_sovereign.clone(), INITIAL_FUND)]);
-	create_pool_with_native_on!(AssetHubWestend, weth_location(), true, ethereum_sovereign.clone());
-	create_pool_with_native_on!(AssetHubWestend, ethereum(), true, ethereum_sovereign.clone());
+	create_pool_with_native_on!(
+		AssetHubWestend,
+		weth_location(),
+		true,
+		ethereum_sovereign.clone(),
+		1_000_000_000_000,
+		20_000_000_000
+	);
+	create_pool_with_native_on!(
+		AssetHubWestend,
+		ethereum(),
+		true,
+		ethereum_sovereign.clone(),
+		1_000_000_000_000,
+		20_000_000_000
+	);
 }
 
 pub(crate) fn set_up_eth_and_dot_pool() {
@@ -508,7 +522,7 @@ pub fn register_roc_on_bh() {
 	});
 }
 
-pub(crate) fn asset_hub_westend_location() -> Location {
+pub(crate) fn asset_hub_westend_global_location() -> Location {
 	Location::new(
 		2,
 		[

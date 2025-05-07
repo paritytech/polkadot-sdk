@@ -25,6 +25,7 @@ use parachains_common::AccountId;
 use parachains_runtimes_test_utils::GovernanceOrigin;
 use sp_core::crypto::Ss58Codec;
 use sp_runtime::Either;
+use testnet_parachains_constants::westend::fee::WeightToFee;
 use xcm::latest::prelude::*;
 use xcm_runtime_apis::conversions::LocationToAccountHelper;
 
@@ -146,6 +147,7 @@ fn xcm_payment_api_works() {
 		RuntimeCall,
 		RuntimeOrigin,
 		Block,
+		WeightToFee,
 	>();
 }
 

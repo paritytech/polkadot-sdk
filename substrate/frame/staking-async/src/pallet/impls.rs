@@ -21,7 +21,7 @@ use crate::{
 	asset,
 	election_size_tracker::StaticTracker,
 	log,
-	session_rotation::{self, Eras},
+	session_rotation::{self, Eras, Rotator},
 	slashing,
 	weights::WeightInfo,
 	BalanceOf, Exposure, Forcing, LedgerIntegrityState, MaxNominationsOf, Nominations,
@@ -1096,8 +1096,7 @@ impl<T: Config> rc_client::AHStakingInterface for Pallet<T> {
 			return
 		};
 
-		let active_era_start_session =
-			ErasStartSessionIndex::<T>::get(active_era.index).unwrap_or(0);
+		let active_era_start_session = Rotator::<T>::active_era_start_session_index();
 
 		// Fast path for active-era report - most likely.
 		// `slash_session` cannot be in a future active era. It must be in `active_era` or before.
@@ -1108,8 +1107,7 @@ impl<T: Config> rc_client::AHStakingInterface for Pallet<T> {
 				.iter()
 				// Reverse because it's more likely to find reports from recent eras.
 				.rev()
-				.find(|&(_, sesh)| sesh <= &slash_session)
-				.map(|(era, _)| *era)
+				.find_map(|&(era, sesh)| if sesh <= slash_session { Some(era) } else { None })
 			{
 				Some(era) => era,
 				None => {
@@ -1669,6 +1667,12 @@ impl<T: Config> Pallet<T> {
 	pub(crate) fn do_try_state(_now: BlockNumberFor<T>) -> Result<(), TryRuntimeError> {
 		session_rotation::Rotator::<T>::do_try_state()?;
 		session_rotation::Eras::<T>::do_try_state()?;
+
+		use frame_support::traits::fungible::Inspect;
+		if T::CurrencyToVote::will_downscale(T::Currency::total_issuance()).map_or(false, |x| x) {
+			log!(warn, "total issuance will cause T::CurrencyToVote to downscale -- report to maintainers.")
+		}
+
 		Self::check_ledgers()?;
 		Self::check_bonded_consistency()?;
 		Self::check_payees()?;
