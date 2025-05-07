@@ -1664,7 +1664,7 @@ impl<T: Config> UpwardMessageSender for Pallet<T> {
 		const MAX_CODE_SIZE: u32 = 3 * 1024 * 1024;
 		HostConfiguration::<T>::mutate(|cfg| match cfg {
 			Some(cfg) => cfg.max_upward_message_size = MAX_UPWARD_MESSAGE_SIZE,
-			None => {
+			None =>
 				*cfg = Some(AbridgedHostConfiguration {
 					max_code_size: MAX_CODE_SIZE,
 					max_head_data_size: 32 * 1024,
@@ -1679,8 +1679,7 @@ impl<T: Config> UpwardMessageSender for Pallet<T> {
 						allowed_ancestry_len: 0,
 						max_candidate_depth: 0,
 					},
-				})
-			},
+				}),
 		})
 	}
 }
