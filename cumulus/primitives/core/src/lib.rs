@@ -158,6 +158,10 @@ pub trait UpwardMessageSender {
 
 	/// Pre-check the given UMP message.
 	fn can_send_upward_message(message: &UpwardMessage) -> Result<(), MessageSendError>;
+
+	/// Ensure `[Self::send_upward_message]` is successful when called in benchmarks/tests.
+	#[cfg(any(feature = "std", feature = "runtime-benchmarks", test))]
+	fn ensure_successful_delivery() {}
 }
 
 impl UpwardMessageSender for () {
