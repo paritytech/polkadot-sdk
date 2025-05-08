@@ -458,33 +458,63 @@ where
 
 #[cfg(test)]
 mod tests {
-	use crate::{CallIndex, EthereumLocationsConverterFor};
+	use crate::{
+		v1::{Command, ConvertMessage, Destination, MessageToXcm, MessageV1, VersionedMessage},
+		CallIndex, EthereumLocationsConverterFor,
+	};
 	use frame_support::{assert_ok, parameter_types};
 	use hex_literal::hex;
+	use snowbridge_test_utils::mock_converter::{
+		add_location_override, reanchor_to_ethereum, LocationIdConvert,
+	};
+	use sp_core::H160;
+	use sp_runtime::{
+		traits::{IdentifyAccount, Verify},
+		MultiSignature,
+	};
 	use xcm::prelude::*;
 	use xcm_executor::traits::ConvertLocation;
 
-	const NETWORK: NetworkId = Ethereum { chain_id: 11155111 };
+	pub const CHAIN_ID: u64 = 1;
+	const NETWORK: NetworkId = Ethereum { chain_id: CHAIN_ID };
 
 	parameter_types! {
 		pub EthereumNetwork: NetworkId = NETWORK;
-
 		pub const CreateAssetCall: CallIndex = [1, 1];
 		pub const CreateAssetExecutionFee: u128 = 123;
 		pub const CreateAssetDeposit: u128 = 891;
 		pub const SendTokenExecutionFee: u128 = 592;
+		pub const InboundQueuePalletInstance: u8 = 80;
+		pub EthereumUniversalLocation: InteriorLocation =
+			[GlobalConsensus(NETWORK)].into();
+		pub AssetHubFromEthereum: Location = Location::new(1,[GlobalConsensus(Polkadot),Parachain(1000)]);
+		pub EthereumLocation: Location = Location::new(2,EthereumUniversalLocation::get());
+		pub BridgeHubContext: InteriorLocation = [GlobalConsensus(Polkadot),Parachain(1002)].into();
 	}
+
+	type AccountId = <<MultiSignature as Verify>::Signer as IdentifyAccount>::AccountId;
+	type Balance = u128;
+
+	pub type MessageConverter = MessageToXcm<
+		CreateAssetCall,
+		CreateAssetDeposit,
+		InboundQueuePalletInstance,
+		AccountId,
+		Balance,
+		LocationIdConvert,
+		EthereumUniversalLocation,
+		AssetHubFromEthereum,
+	>;
 
 	#[test]
 	fn test_contract_location_with_network_converts_successfully() {
 		let expected_account: [u8; 32] =
-			hex!("ce796ae65569a670d0c1cc1ac12515a3ce21b5fbf729d63d7b289baad070139d");
+			hex!("204dfe37731e8e2b4866ad0da9a17c49f434542c3477c5f914a3349acd88ba1a");
 		let contract_location = Location::new(2, [GlobalConsensus(NETWORK)]);
 
 		let account =
 			EthereumLocationsConverterFor::<[u8; 32]>::convert_location(&contract_location)
 				.unwrap();
-
 		assert_eq!(account, expected_account);
 	}
 
@@ -527,5 +557,117 @@ mod tests {
 			);
 			assert_eq!(reanchored_asset_with_ethereum_context, asset.clone());
 		}
+	}
+
+	#[test]
+	fn test_convert_send_weth() {
+		const WETH: H160 = H160([0xff; 20]);
+		const AMOUNT: u128 = 1_000_000;
+		const FEE: u128 = 1_000;
+		const ACCOUNT_ID: [u8; 32] = [0xBA; 32];
+		const MESSAGE: VersionedMessage = VersionedMessage::V1(MessageV1 {
+			chain_id: CHAIN_ID,
+			command: Command::SendToken {
+				token: WETH,
+				destination: Destination::AccountId32 { id: ACCOUNT_ID },
+				amount: AMOUNT,
+				fee: FEE,
+			},
+		});
+		let result = MessageConverter::convert([1; 32].into(), MESSAGE);
+		assert_ok!(&result);
+		let (xcm, fee) = result.unwrap();
+		assert_eq!(FEE, fee);
+
+		let expected_assets = ReserveAssetDeposited(
+			vec![Asset {
+				id: AssetId(Location {
+					parents: 2,
+					interior: Junctions::X2(
+						[
+							GlobalConsensus(NETWORK),
+							AccountKey20 { network: None, key: WETH.into() },
+						]
+						.into(),
+					),
+				}),
+				fun: Fungible(AMOUNT),
+			}]
+			.into(),
+		);
+		let actual_assets = xcm.into_iter().find(|x| matches!(x, ReserveAssetDeposited(..)));
+		assert_eq!(actual_assets, Some(expected_assets))
+	}
+
+	#[test]
+	fn test_convert_send_eth() {
+		const ETH: H160 = H160([0x00; 20]);
+		const AMOUNT: u128 = 1_000_000;
+		const FEE: u128 = 1_000;
+		const ACCOUNT_ID: [u8; 32] = [0xBA; 32];
+		const MESSAGE: VersionedMessage = VersionedMessage::V1(MessageV1 {
+			chain_id: CHAIN_ID,
+			command: Command::SendToken {
+				token: ETH,
+				destination: Destination::AccountId32 { id: ACCOUNT_ID },
+				amount: AMOUNT,
+				fee: FEE,
+			},
+		});
+		let result = MessageConverter::convert([1; 32].into(), MESSAGE);
+		assert_ok!(&result);
+		let (xcm, fee) = result.unwrap();
+		assert_eq!(FEE, fee);
+
+		let expected_assets = ReserveAssetDeposited(
+			vec![Asset {
+				id: AssetId(Location {
+					parents: 2,
+					interior: Junctions::X1([GlobalConsensus(NETWORK)].into()),
+				}),
+				fun: Fungible(AMOUNT),
+			}]
+			.into(),
+		);
+		let actual_assets = xcm.into_iter().find(|x| matches!(x, ReserveAssetDeposited(..)));
+		assert_eq!(actual_assets, Some(expected_assets))
+	}
+
+	#[test]
+	fn test_convert_send_dot() {
+		let dot_location = Location::parent();
+		let (token_id, _) = reanchor_to_ethereum(
+			dot_location.clone(),
+			EthereumLocation::get(),
+			BridgeHubContext::get(),
+		);
+		add_location_override(
+			dot_location.clone(),
+			EthereumLocation::get(),
+			BridgeHubContext::get(),
+		);
+		const AMOUNT: u128 = 1_000_000;
+		const FEE: u128 = 1_000;
+		const ACCOUNT_ID: [u8; 32] = [0xBA; 32];
+		let message: VersionedMessage = VersionedMessage::V1(MessageV1 {
+			chain_id: CHAIN_ID,
+			command: Command::SendNativeToken {
+				token_id,
+				destination: Destination::AccountId32 { id: ACCOUNT_ID },
+				amount: AMOUNT,
+				fee: FEE,
+			},
+		});
+
+		let result = MessageConverter::convert([1; 32].into(), message);
+		assert_ok!(&result);
+		let (xcm, fee) = result.unwrap();
+		assert_eq!(FEE, fee);
+
+		let expected_assets = WithdrawAsset(
+			vec![Asset { id: AssetId(Location::parent()), fun: Fungible(AMOUNT) }].into(),
+		);
+		let actual_assets = xcm.into_iter().find(|x| matches!(x, WithdrawAsset(..)));
+		assert_eq!(actual_assets, Some(expected_assets))
 	}
 }

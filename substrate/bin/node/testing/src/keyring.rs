@@ -75,6 +75,7 @@ pub fn session_keys_from_seed(seed: &str) -> SessionKeys {
 /// Returns transaction extra.
 pub fn tx_ext(nonce: Nonce, extra_fee: Balance) -> TxExtension {
 	(
+		frame_system::AuthorizeCall::new(),
 		frame_system::CheckNonZeroSender::new(),
 		frame_system::CheckSpecVersion::new(),
 		frame_system::CheckTxVersion::new(),
