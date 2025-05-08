@@ -45,12 +45,14 @@
 //!
 
 use crate::{
-	helpers_128bit::{multiply_by_rational_with_rounding, sqrt},
+	helpers_128bit::{
+		checked_multiply_by_rational_with_rounding, multiply_by_rational_with_rounding, sqrt,
+	},
 	traits::{
 		Bounded, CheckedAdd, CheckedDiv, CheckedMul, CheckedNeg, CheckedSub, One,
 		SaturatedConversion, Saturating, UniqueSaturatedInto, Zero,
 	},
-	PerThing, Perbill, Rounding, SignedRounding,
+	ArithmeticError, PerThing, Perbill, Rounding, SignedRounding,
 };
 use codec::{CompactAs, Decode, DecodeWithMemTracking, Encode};
 use core::{
@@ -514,6 +516,30 @@ macro_rules! implement_fixed {
 				}
 			}
 
+			/// Checked conversion into a `Perbill` value.
+			///
+			/// Returns `Err(ArithmeticError::Overflow)` if the conversion results in a value
+			/// that cannot be represented by `Perbill` or if an intermediate calculation overflows.
+			pub fn try_into_perbill(self) -> Result<Perbill, ArithmeticError> {
+				if self.0 <= 0 {
+					Ok(Perbill::zero())
+				} else if self.0 >= Self::DIV {
+					Ok(Perbill::one())
+				} else {
+					let value = checked_multiply_by_rational_with_rounding(
+						self.0 as u128,
+						1_000_000_000,
+						Self::DIV as u128,
+						Rounding::NearestPrefDown,
+					)?;
+
+					if value > (u32::MAX as u128) {
+						return Err(ArithmeticError::Overflow)
+					}
+					Ok(Perbill::from_parts(value as u32))
+				}
+			}
+
 			/// Convert into a `float` value.
 			#[cfg(any(feature = "std", test))]
 			pub fn to_float(self) -> f64 {
@@ -708,6 +734,29 @@ macro_rules! implement_fixed {
 					},
 					None => panic!("overflow in from_rational"),
 				}
+			}
+
+			/// Checked calculation of an approximation of a rational with custom rounding.
+			///
+			/// Converts a rational number `a/b` into the fixed-point representation.
+			/// Returns `Err(ArithmeticError::DivisionByZero)` if `b` is zero.
+			/// Returns `Err(ArithmeticError::Overflow)` if any intermediate calculation overflows
+			/// or if the final result does not fit into the fixed-point type.
+			pub fn checked_from_rational_with_rounding(
+				a: u128,
+				b: u128,
+				rounding: Rounding,
+			) -> Result<Self, ArithmeticError> {
+				if b == 0 {
+					return Err(ArithmeticError::DivisionByZero);
+				}
+
+				let value =
+					checked_multiply_by_rational_with_rounding(Self::DIV as u128, a, b, rounding)?;
+
+				let i129_value = I129 { value, negative: false };
+
+				Self::from_i129(i129_value).ok_or(ArithmeticError::Overflow)
 			}
 
 			/// Multiply by another value, returning `None` in the case of an error.

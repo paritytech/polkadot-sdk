@@ -22332,6 +22332,7 @@ dependencies = [
  "fraction",
  "honggfuzz",
  "num-bigint",
+ "num-traits",
  "sp-arithmetic 23.0.0",
 ]
 

@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{biguint::BigUint, helpers_128bit, Rounding};
+use crate::{biguint::BigUint, helpers_128bit::*, ArithmeticError, Rounding};
 use core::cmp::Ordering;
 use num_traits::{Bounded, One, Zero};
 
@@ -149,13 +149,30 @@ impl Rational128 {
 		if den == self.1 {
 			Some(self)
 		} else {
-			helpers_128bit::multiply_by_rational_with_rounding(
+			multiply_by_rational_with_rounding(self.0, den, self.1, Rounding::NearestPrefDown)
+				.map(|n| Self(n, den))
+		}
+	}
+
+	/// Checked conversion of `self` to a similar rational number where denominator is `den`.
+	///
+	/// Returns `Err(ArithmeticError::DivisionByZero)` if `self.d()` is zero.
+	/// Returns `Err(ArithmeticError::Overflow)` if the scaling results in an overflow.
+	pub fn checked_to_den(self, den: u128) -> Result<Self, ArithmeticError> {
+		if self.1 == 0 {
+			return Err(ArithmeticError::DivisionByZero);
+		}
+
+		if den == self.1 {
+			Ok(self)
+		} else {
+			checked_multiply_by_rational_with_rounding(
 				self.0,
 				den,
 				self.1,
 				Rounding::NearestPrefDown,
 			)
-			.map(|n| Self(n, den))
+			.map(|n| Self(n, den)) // Map the Ok value
 		}
 	}
 
@@ -168,13 +185,30 @@ impl Rational128 {
 		if self.1 == other.1 {
 			return Some(self.1)
 		}
-		let g = helpers_128bit::gcd(self.1, other.1);
-		helpers_128bit::multiply_by_rational_with_rounding(
-			self.1,
-			other.1,
-			g,
-			Rounding::NearestPrefDown,
-		)
+		let g = gcd(self.1, other.1);
+		multiply_by_rational_with_rounding(self.1, other.1, g, Rounding::NearestPrefDown)
+	}
+
+	/// Checked calculation of the least common multiple of the denominators of `self` and `other`.
+	///
+	/// Returns `Err(ArithmeticError::DivisionByZero)` if any denominator is zero or if gcd is zero.
+	/// Returns `Err(ArithmeticError::Overflow)` if the LCM calculation overflows.
+	pub fn checked_lcm(&self, other: &Self) -> Result<u128, ArithmeticError> {
+		if self.1 == 0 || other.1 == 0 {
+			return Err(ArithmeticError::DivisionByZero);
+		}
+
+		if self.1 == other.1 {
+			return Ok(self.1);
+		}
+
+		let g = gcd(self.1, other.1);
+		if g == 0 {
+			// This should ideally not happen if denominators are non-zero,
+			// but as a safeguard.
+			return Err(ArithmeticError::DivisionByZero);
+		}
+		checked_multiply_by_rational_with_rounding(self.1, other.1, g, Rounding::NearestPrefDown)
 	}
 
 	/// A saturating add that assumes `self` and `other` have the same denominator.
@@ -197,35 +231,26 @@ impl Rational128 {
 
 	/// Addition. Simply tries to unify the denominators and add the numerators.
 	///
-	/// Overflow might happen during any of the steps. Error is returned in such cases.
-	pub fn checked_add(self, other: Self) -> Result<Self, &'static str> {
-		let lcm = self.lcm(&other).ok_or(0).map_err(|_| "failed to scale to denominator")?;
-		let self_scaled =
-			self.to_den(lcm).ok_or(0).map_err(|_| "failed to scale to denominator")?;
-		let other_scaled =
-			other.to_den(lcm).ok_or(0).map_err(|_| "failed to scale to denominator")?;
-		let n = self_scaled
-			.0
-			.checked_add(other_scaled.0)
-			.ok_or("overflow while adding numerators")?;
-		Ok(Self(n, self_scaled.1))
+	/// Returns `Err(ArithmeticError)` if any step fails due to division by zero or overflow.
+	pub fn checked_add(self, other: Self) -> Result<Self, ArithmeticError> {
+		let lcm = self.checked_lcm(&other)?;
+		let self_scaled = self.checked_to_den(lcm)?;
+		let other_scaled = other.checked_to_den(lcm)?;
+		let n = self_scaled.0.checked_add(other_scaled.0).ok_or(ArithmeticError::Overflow)?;
+		Ok(Self(n, lcm))
 	}
 
 	/// Subtraction. Simply tries to unify the denominators and subtract the numerators.
 	///
-	/// Overflow might happen during any of the steps. None is returned in such cases.
-	pub fn checked_sub(self, other: Self) -> Result<Self, &'static str> {
-		let lcm = self.lcm(&other).ok_or(0).map_err(|_| "failed to scale to denominator")?;
-		let self_scaled =
-			self.to_den(lcm).ok_or(0).map_err(|_| "failed to scale to denominator")?;
-		let other_scaled =
-			other.to_den(lcm).ok_or(0).map_err(|_| "failed to scale to denominator")?;
+	/// Returns `Err(ArithmeticError)` if any step fails due to division by zero or
+	/// overflow/underflow.
+	pub fn checked_sub(self, other: Self) -> Result<Self, ArithmeticError> {
+		let lcm = self.checked_lcm(&other)?;
+		let self_scaled = self.checked_to_den(lcm)?;
+		let other_scaled = other.checked_to_den(lcm)?;
 
-		let n = self_scaled
-			.0
-			.checked_sub(other_scaled.0)
-			.ok_or("overflow while subtracting numerators")?;
-		Ok(Self(n, self_scaled.1))
+		let n = self_scaled.0.checked_sub(other_scaled.0).ok_or(ArithmeticError::Overflow)?; // Underflow is also an Overflow in this context
+		Ok(Self(n, lcm))
 	}
 }
 
@@ -262,9 +287,8 @@ impl Ord for Rational128 {
 			Ordering::Less
 		} else {
 			// Don't even compute gcd.
-			let self_n = helpers_128bit::to_big_uint(self.0) * helpers_128bit::to_big_uint(other.1);
-			let other_n =
-				helpers_128bit::to_big_uint(other.0) * helpers_128bit::to_big_uint(self.1);
+			let self_n = to_big_uint(self.0) * to_big_uint(other.1);
+			let other_n = to_big_uint(other.0) * to_big_uint(self.1);
 			self_n.cmp(&other_n)
 		}
 	}
@@ -276,9 +300,8 @@ impl PartialEq for Rational128 {
 		if self.1 == other.1 {
 			self.0.eq(&other.0)
 		} else {
-			let self_n = helpers_128bit::to_big_uint(self.0) * helpers_128bit::to_big_uint(other.1);
-			let other_n =
-				helpers_128bit::to_big_uint(other.0) * helpers_128bit::to_big_uint(self.1);
+			let self_n = to_big_uint(self.0) * to_big_uint(other.1);
+			let other_n = to_big_uint(other.0) * to_big_uint(self.1);
 			self_n.eq(&other_n)
 		}
 	}
@@ -328,13 +351,13 @@ impl_rrm!(u64, u128);
 
 impl MultiplyRational for u128 {
 	fn multiply_rational(self, n: Self, d: Self, r: Rounding) -> Option<Self> {
-		crate::helpers_128bit::multiply_by_rational_with_rounding(self, n, d, r)
+		multiply_by_rational_with_rounding(self, n, d, r)
 	}
 }
 
 #[cfg(test)]
 mod tests {
-	use super::{helpers_128bit::*, *};
+	use super::{ArithmeticError, *};
 	use static_assertions::const_assert;
 
 	const MAX128: u128 = u128::MAX;
@@ -421,17 +444,16 @@ mod tests {
 		assert_eq!(r(3, 10).checked_add(r(3, 7)).unwrap(), r(51, 70));
 
 		// errors
+		// Note: With checked_lcm and checked_to_den, "failed to scale" should now manifest as
+		// Overflow or DivisionByZero
 		assert_eq!(
 			r(1, MAX128).checked_add(r(1, MAX128 - 1)),
-			Err("failed to scale to denominator"),
+			Err(ArithmeticError::Overflow), // Or DivisionByZero if intermediate scaling implies it
 		);
-		assert_eq!(
-			r(7, MAX128).checked_add(r(MAX128, MAX128)),
-			Err("overflow while adding numerators"),
-		);
+		assert_eq!(r(7, MAX128).checked_add(r(MAX128, MAX128)), Err(ArithmeticError::Overflow),);
 		assert_eq!(
 			r(MAX128, MAX128).checked_add(r(MAX128, MAX128)),
-			Err("overflow while adding numerators"),
+			Err(ArithmeticError::Overflow),
 		);
 	}
 
@@ -442,15 +464,9 @@ mod tests {
 		assert_eq!(r(6, 10).checked_sub(r(3, 7)).unwrap(), r(12, 70));
 
 		// errors
-		assert_eq!(
-			r(2, MAX128).checked_sub(r(1, MAX128 - 1)),
-			Err("failed to scale to denominator"),
-		);
-		assert_eq!(
-			r(7, MAX128).checked_sub(r(MAX128, MAX128)),
-			Err("overflow while subtracting numerators"),
-		);
-		assert_eq!(r(1, 10).checked_sub(r(2, 10)), Err("overflow while subtracting numerators"));
+		assert_eq!(r(2, MAX128).checked_sub(r(1, MAX128 - 1)), Err(ArithmeticError::Overflow),);
+		assert_eq!(r(7, MAX128).checked_sub(r(MAX128, MAX128)), Err(ArithmeticError::Overflow),);
+		assert_eq!(r(1, 10).checked_sub(r(2, 10)), Err(ArithmeticError::Overflow));
 	}
 
 	#[test]
@@ -579,5 +595,51 @@ mod tests {
 			),
 			Some(2596149632101417846585204209223679)
 		);
+	}
+
+	#[test]
+	fn checked_to_den_works() {
+		assert_eq!(r(1, 5).checked_to_den(10), Ok(r(2, 10)));
+		assert_eq!(r(4, 10).checked_to_den(5), Ok(r(2, 5)));
+		assert_eq!(r(MAX128 / 2, MAX128).checked_to_den(10), Ok(r(5, 10)));
+		assert_eq!(r(1, 1).checked_to_den(1), Ok(r(1, 1))); // Same denominator
+		assert_eq!(
+			Rational128::from_unchecked(1, 0).checked_to_den(10),
+			Err(ArithmeticError::DivisionByZero)
+		);
+
+		// Overflow case: self.0 * den overflows u128
+		// (MAX/2) * 3 / 1 -> (MAX/2 * 3) would overflow if den is 3 and self.0 is MAX/2, self.1 is
+		// 1 Need a case where checked_multiply_by_rational_with_rounding returns None
+		// For example, if self.0 * den overflows.
+		// (u128::MAX / 2) * 3 will overflow u128.
+		assert_eq!(r(u128::MAX / 2, 1).checked_to_den(3), Err(ArithmeticError::Overflow));
+		// Another overflow: MAX * 2 / 2 -> intermediate MAX * 2 overflows
+		assert_eq!(r(u128::MAX, 2).checked_to_den(2), Ok(r(u128::MAX, 2)));
+		assert_eq!(r(u128::MAX, 1).checked_to_den(2), Err(ArithmeticError::Overflow));
+	}
+
+	#[test]
+	fn checked_lcm_works() {
+		assert_eq!(r(3, 10).checked_lcm(&r(4, 15)), Ok(30));
+		assert_eq!(r(5, 30).checked_lcm(&r(1, 7)), Ok(210));
+		assert_eq!(r(5, 10).checked_lcm(&r(1, 10)), Ok(10));
+		assert_eq!(r(1, MAX64).checked_lcm(&r(1, MAX64 - 1)), Ok(MAX64 * (MAX64 - 1)));
+		assert_eq!(r(1, 0).checked_lcm(&r(1, 10)), Err(ArithmeticError::DivisionByZero));
+		assert_eq!(r(1, 10).checked_lcm(&r(1, 0)), Err(ArithmeticError::DivisionByZero));
+		assert_eq!(r(1, 0).checked_lcm(&r(1, 0)), Err(ArithmeticError::DivisionByZero));
+		// Overflow case for LCM: (self.1 * other.1) / g overflows u128
+		// MAX128 * MAX128 / 1 would overflow.
+		assert_eq!(
+			r(1, MAX128).checked_lcm(&r(1, MAX128 - 1)), // gcd is 1
+			Err(ArithmeticError::Overflow)
+		);
+		// A slightly less extreme case that might overflow:
+		// (MAX128/2 + 1) and (MAX128/2 + 2) might have a small gcd, leading to large product
+		let d1 = MAX128 / 2 + 1;
+		let d2 = MAX128 - 1;
+		if gcd(d1, d2) == 1 {
+			assert_eq!(r(1, d1).checked_lcm(&r(1, d2)), Err(ArithmeticError::Overflow));
+		}
 	}
 }
