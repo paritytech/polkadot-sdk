@@ -38,6 +38,7 @@ runs:
         echo "COL_IMAGE: $COL_IMAGE"
         echo "POLKADOT_IMAGE: $POLKADOT_IMAGE"
         echo "MALUS_IMAGE: $MALUS_IMAGE"
+        echo "RUN_IN_CI: $RUN_IN_CI"
         echo "Inputs"
         echo "test: $TEST_NAME"
         echo "prefix: $PREFIX"
