@@ -17,7 +17,8 @@
 
 use super::*;
 use crate::{
-	session_rotation::EraElectionPlanner, tests::Test, UnbondingQueueConfig, UnbondingQueueParams,
+	pallet::normalize_era, session_rotation::EraElectionPlanner, tests::Test, UnbondingQueueConfig,
+	UnbondingQueueParams,
 };
 use sp_npos_elections::Support;
 use sp_runtime::{traits::Zero, Perbill};
@@ -41,7 +42,7 @@ fn get_min_lowest_stake_works() {
 					min_slashable_share: Perbill::from_percent(50),
 					lowest_ratio: Perbill::from_percent(34),
 					unbond_period_lower_bound: 1,
-					back_of_unbonding_queue_era: Zero::zero(),
+					back_of_unbonding_queue: Zero::zero(),
 				})
 			));
 
@@ -59,7 +60,7 @@ fn get_min_lowest_stake_works() {
 					min_slashable_share: Perbill::from_percent(50),
 					lowest_ratio: Perbill::from_percent(34),
 					unbond_period_lower_bound: 1,
-					back_of_unbonding_queue_era: Zero::zero(),
+					back_of_unbonding_queue: Zero::zero(),
 				}
 			);
 
@@ -127,7 +128,7 @@ fn get_min_lowest_stake_with_many_validators_works() {
 					min_slashable_share: Perbill::from_percent(50),
 					lowest_ratio: Perbill::from_percent(34),
 					unbond_period_lower_bound: 1,
-					back_of_unbonding_queue_era: Zero::zero(),
+					back_of_unbonding_queue: Zero::zero(),
 				})
 			));
 
@@ -160,7 +161,7 @@ fn calculate_lowest_total_stake_works() {
 				min_slashable_share: Perbill::from_percent(50),
 				lowest_ratio: Perbill::from_percent(34),
 				unbond_period_lower_bound: 1,
-				back_of_unbonding_queue_era: Zero::zero(),
+				back_of_unbonding_queue: Zero::zero(),
 			})
 		));
 
@@ -210,25 +211,25 @@ fn get_unbond_eras_delta_with_zero_max_unstake_works() {
 			min_slashable_share: Perbill::from_percent(50),
 			lowest_ratio: Perbill::from_percent(34),
 			unbond_period_lower_bound: 1,
-			back_of_unbonding_queue_era: 0,
+			back_of_unbonding_queue: 0,
 		};
 
 		// Must be the maximum because the minimum lowest stake is zero, which defaults to
 		// the maximum unbonding period.
 		assert_eq!(EraLowestRatioTotalStake::<Test>::get().into_inner(), vec![]);
-		assert_eq!(Staking::get_unbond_eras_delta(1, config), 3);
+		assert_eq!(Staking::get_unbonding_delta(1, config), 3000000000000);
 
 		let config = UnbondingQueueConfig {
 			min_slashable_share: Perbill::from_percent(0),
 			lowest_ratio: Perbill::from_percent(34),
 			unbond_period_lower_bound: 1,
-			back_of_unbonding_queue_era: 0,
+			back_of_unbonding_queue: 0,
 		};
 
 		// Now the minimum lowest stake is also zero because the slashable share is zero, so
 		// again it must be the maximum unbonding period.
 		assert_ok!(EraLowestRatioTotalStake::<Test>::try_append(1000));
-		assert_eq!(Staking::get_unbond_eras_delta(1, config), 3);
+		assert_eq!(Staking::get_unbonding_delta(1, config), normalize_era(3));
 	});
 }
 
@@ -239,7 +240,7 @@ fn get_unbond_eras_delta_works() {
 			min_slashable_share: Perbill::from_percent(50),
 			lowest_ratio: Perbill::from_percent(34),
 			unbond_period_lower_bound: 1,
-			back_of_unbonding_queue_era: 0,
+			back_of_unbonding_queue: 0,
 		};
 		assert_ok!(Staking::set_staking_configs(
 			RuntimeOrigin::root(),
@@ -263,13 +264,16 @@ fn get_unbond_eras_delta_works() {
 
 		// Test cases with BondingDuration = 3:
 		// 500 / 500 * 3 = 3
-		assert_eq!(Staking::get_unbond_eras_delta(max_unstake, config), 3);
-		// 250 / 500 * 3 = 1.5 → 1
-		assert_eq!(Staking::get_unbond_eras_delta(max_unstake / 2, config), 1);
+		assert_eq!(Staking::get_unbonding_delta(max_unstake, config), normalize_era(3));
+		// 250 / 500 * 3 = 1.5
+		assert_eq!(
+			Staking::get_unbonding_delta(max_unstake / 2, config),
+			normalize_era(1) + 500000000000
+		);
 		// 0 / 500 * 3 = 0
-		assert_eq!(Staking::get_unbond_eras_delta(0, config), 0);
+		assert_eq!(Staking::get_unbonding_delta(0, config), 0);
 		// 1000 / 500 * 3 = 6, but the upper bound is 3
-		assert_eq!(Staking::get_unbond_eras_delta(max_unstake * 2, config), 3);
+		assert_eq!(Staking::get_unbonding_delta(max_unstake * 2, config), normalize_era(3));
 	});
 }
 
@@ -289,7 +293,7 @@ fn correct_unbond_era_is_being_calculated_1() {
 				min_slashable_share: Perbill::from_percent(50),
 				lowest_ratio: Perbill::from_percent(34),
 				unbond_period_lower_bound: 1,
-				back_of_unbonding_queue_era: 0,
+				back_of_unbonding_queue: 0,
 			})
 		));
 
@@ -302,19 +306,28 @@ fn correct_unbond_era_is_being_calculated_1() {
 		// First unbond of 500 (max_unstake is 500, delta = 3).
 		let unbond_era = Staking::process_unbond_queue_request(current_era, 500);
 		assert_eq!(unbond_era, 1 + 3); // 4
-		assert_eq!(UnbondingQueueParams::<Test>::get().unwrap().back_of_unbonding_queue_era, 4);
+		assert_eq!(
+			UnbondingQueueParams::<Test>::get().unwrap().back_of_unbonding_queue,
+			4000000000000
+		);
 
 		// Next unbond of 250 (delta = 3).
 		let unbond_era = Staking::process_unbond_queue_request(current_era, 250);
 		assert_eq!(unbond_era, 1 + 3); // Theoretically it'd be 1 + 4, but the upper bound is 3
-		assert_eq!(UnbondingQueueParams::<Test>::get().unwrap().back_of_unbonding_queue_era, 5);
+		assert_eq!(
+			UnbondingQueueParams::<Test>::get().unwrap().back_of_unbonding_queue,
+			5500000000000
+		);
 
 		// Unbond with amount requiring lower bound (delta = 0 → use upper bound 3 again)
 		let unbond_era = Staking::process_unbond_queue_request(current_era, 100);
 		assert_eq!(unbond_era, 1 + 3); // 4
 
-		// Back remains 5 because delta = 0: new_back = max(1, 5) + 0 = 5
-		assert_eq!(UnbondingQueueParams::<Test>::get().unwrap().back_of_unbonding_queue_era, 5);
+		// delta = 0.6
+		assert_eq!(
+			UnbondingQueueParams::<Test>::get().unwrap().back_of_unbonding_queue,
+			6100000000000
+		);
 	});
 }
 
@@ -334,7 +347,7 @@ fn correct_unbond_era_is_being_calculated_2() {
 				min_slashable_share: Perbill::from_percent(50),
 				lowest_ratio: Perbill::from_percent(34),
 				unbond_period_lower_bound: 1,
-				back_of_unbonding_queue_era: 0,
+				back_of_unbonding_queue: 0,
 			})
 		));
 
@@ -344,71 +357,38 @@ fn correct_unbond_era_is_being_calculated_2() {
 
 		// Set a known minimum lowest stake.
 		assert_ok!(EraLowestRatioTotalStake::<Test>::try_append(1000));
-		assert_eq!(UnbondingQueueParams::<Test>::get().unwrap().back_of_unbonding_queue_era, 0);
+		assert_eq!(UnbondingQueueParams::<Test>::get().unwrap().back_of_unbonding_queue, 0);
 
-		// Unbond with amount requiring lower bound (delta = 0 → use lower bound 1)
-		let unbond_era = Staking::process_unbond_queue_request(current_era, 100);
+		// Unbond with amount requiring lower bound (delta = 0.06 → use lower bound 1)
+		let unbond_era = Staking::process_unbond_queue_request(current_era, 10);
 		assert_eq!(unbond_era, 1 + 1); // 2
 
-		// max(current_era, previous_back) + delta = 1 + 0 = 1
-		assert_eq!(UnbondingQueueParams::<Test>::get().unwrap().back_of_unbonding_queue_era, 1);
+		// max(current_era, previous_back) + delta = 1 + 0.06 = 1.06
+		assert_eq!(
+			UnbondingQueueParams::<Test>::get().unwrap().back_of_unbonding_queue,
+			normalize_era(1) + 60000000000
+		);
 
-		// Next unbond of 250 (delta = 1.5 -> 1).
+		// Next unbond of 250 (delta = 1.5 -> rounding up to 2).
 		let unbond_era = Staking::process_unbond_queue_request(current_era, 250);
-		assert_eq!(unbond_era, 1 + 1); // 2
+		assert_eq!(unbond_era, 1 + 2); // 3
 
-		// max(current_era, previous_back) + delta = 1 + 1 = 2
-		assert_eq!(UnbondingQueueParams::<Test>::get().unwrap().back_of_unbonding_queue_era, 2);
+		// max(current_era, previous_back) + delta = 1.06 + 1.5 = 1 + 1.56
+		assert_eq!(
+			UnbondingQueueParams::<Test>::get().unwrap().back_of_unbonding_queue,
+			normalize_era(1) + 1560000000000
+		);
 
 		// Last unbond of 500 (max_unstake is 500, delta = 3, and it hits the maximum unbonding
 		// period of 3 eras).
 		let unbond_era = Staking::process_unbond_queue_request(current_era, 500);
 		assert_eq!(unbond_era, 1 + 3); // 4
 
-		// max(current_era, previous_back) + delta = 2 + 3 = 5
-		assert_eq!(UnbondingQueueParams::<Test>::get().unwrap().back_of_unbonding_queue_era, 5);
-	});
-}
-
-#[test]
-fn correct_unbond_era_is_being_calculated_3() {
-	ExtBuilder::default().build_and_execute(|| {
-		assert_ok!(Staking::set_staking_configs(
-			RuntimeOrigin::root(),
-			ConfigOp::Noop,
-			ConfigOp::Noop,
-			ConfigOp::Noop,
-			ConfigOp::Noop,
-			ConfigOp::Noop,
-			ConfigOp::Noop,
-			ConfigOp::Noop,
-			ConfigOp::Set(UnbondingQueueConfig {
-				min_slashable_share: Perbill::from_percent(50),
-				lowest_ratio: Perbill::from_percent(34),
-				unbond_period_lower_bound: 1,
-				back_of_unbonding_queue_era: 0,
-			})
-		));
-
-		// Start at era 1.
-		let current_era = Staking::current_era();
-		assert_eq!(current_era, 1);
-
-		// Set a known minimum lowest stake.
-		assert_ok!(EraLowestRatioTotalStake::<Test>::try_append(1000));
-		assert_eq!(UnbondingQueueParams::<Test>::get().unwrap().back_of_unbonding_queue_era, 0);
-
-		// This test proves that if chunking the total stake to unbond it is possible to yield the
-		// lowest possible delay.
-		// TODO: check this is the right approach.
-		for _ in 0..10 {
-			// Unbond with amount requiring lower bound (delta = 0 → use lower bound 1)
-			let unbond_era = Staking::process_unbond_queue_request(current_era, 100);
-			assert_eq!(unbond_era, 1 + 1); // 2
-
-			// max(current_era, previous_back) + delta = 1 + 0 = 1
-			assert_eq!(UnbondingQueueParams::<Test>::get().unwrap().back_of_unbonding_queue_era, 1);
-		}
+		// max(current_era, previous_back) + delta = 2.56 + 3 = 1 + 1.56 + 3
+		assert_eq!(
+			UnbondingQueueParams::<Test>::get().unwrap().back_of_unbonding_queue,
+			normalize_era(1) + 1560000000000 + 3000000000000
+		);
 	});
 }
 

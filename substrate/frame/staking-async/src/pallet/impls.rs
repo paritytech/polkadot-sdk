@@ -71,6 +71,11 @@ use sp_runtime::TryRuntimeError;
 /// invalid (for any reason) the iteration continues. With this constant, we iterate at most 2 * n
 /// times and then give up.
 const NPOS_MAX_ITERATIONS_COEFFICIENT: u32 = 2;
+const PICO_ERA: u128 = 1_000_000_000_000;
+
+pub(crate) fn normalize_era(era: EraIndex) -> u128 {
+	era.saturated_into::<u128>().defensive_saturating_mul(PICO_ERA)
+}
 
 impl<T: Config> Pallet<T> {
 	/// Fetches the ledger associated with a controller or stash account, if any.
@@ -900,15 +905,12 @@ impl<T: Config> Pallet<T> {
 		EraLowestRatioTotalStake::<T>::get().into_iter().min().unwrap_or(Zero::zero())
 	}
 
-	/// Get the unbonding time, in eras, for quick unbond for an unbond request.
+	/// Get the unbonding time, in pico-eras, for quick unbond for an unbond request.
 	///
 	/// We implement the calculation `unbonding_time_delta = new_unbonding_stake / max_unstake *
-	/// upper bound period in blocks.
-	pub fn get_unbond_eras_delta(
-		unbond_stake: BalanceOf<T>,
-		params: UnbondingQueueConfig,
-	) -> EraIndex {
-		let upper_bound: u128 = T::BondingDuration::get().saturated_into();
+	/// upper bound period in pico-eras.
+	pub fn get_unbonding_delta(unbond_stake: BalanceOf<T>, params: UnbondingQueueConfig) -> u128 {
+		let upper_bound = normalize_era(T::BondingDuration::get());
 		let unbond_stake: u128 = unbond_stake.saturated_into();
 
 		// Get the maximum unstake amount for quick unbond time supported at the time of an unbond
@@ -926,32 +928,35 @@ impl<T: Config> Pallet<T> {
 		}
 	}
 
-	/// Gets an unbond era for an unbond request, and updates `back_of_unbonding_queue_era`.
+	/// Gets an unbond era for an unbond request, and updates `back_of_unbonding_queue`.
 	pub(crate) fn process_unbond_queue_request(era: EraIndex, value: BalanceOf<T>) -> EraIndex {
 		if let Some(params) = UnbondingQueueParams::<T>::get() {
 			// Calculate unbonding era based on unbonding queue mechanism.
-			let unbonding_eras_delta: EraIndex = Self::get_unbond_eras_delta(value, params);
+			let unbonding_delta = Self::get_unbonding_delta(value, params);
+			let normalized_era = normalize_era(era);
+			let back_of_unbonding_queue = normalized_era
+				.max(params.back_of_unbonding_queue)
+				.defensive_saturating_add(unbonding_delta);
 
-			let back_of_unbonding_queue_era: EraIndex = era
-				.max(params.back_of_unbonding_queue_era)
-				.defensive_saturating_add(unbonding_eras_delta);
-
-			if back_of_unbonding_queue_era > params.back_of_unbonding_queue_era {
+			if back_of_unbonding_queue > params.back_of_unbonding_queue {
 				// Update unbonding queue params with new `new_back_of_unbonding_queue_era`.
 				UnbondingQueueParams::<T>::set(Some(UnbondingQueueConfig {
-					back_of_unbonding_queue_era,
+					back_of_unbonding_queue,
 					..params
 				}));
 			}
 
-			let unbonding_era: EraIndex = T::BondingDuration::get()
-				.min(
-					back_of_unbonding_queue_era
-						.defensive_saturating_sub(era)
-						.max(params.unbond_period_lower_bound),
-				)
-				.defensive_saturating_add(era);
-			unbonding_era
+			let calculated_era = back_of_unbonding_queue
+				.defensive_saturating_sub(normalized_era)
+				// Normalize to eras. This rounds down the number of eras.
+				.saturating_div(PICO_ERA)
+				.saturated_into::<EraIndex>()
+				// And now round up to be more conservative.
+				.defensive_saturating_add(1);
+			// Apply the min and max boundaries to the calculated era.
+			T::BondingDuration::get()
+				.min(calculated_era.max(params.unbond_period_lower_bound))
+				.defensive_saturating_add(era)
 		} else {
 			// If unbond queue params are not set, return current era plus maximum bonding duration.
 			era.defensive_saturating_add(T::BondingDuration::get())
