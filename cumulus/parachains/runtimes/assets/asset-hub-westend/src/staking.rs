@@ -129,6 +129,7 @@ impl multi_block::Config for Runtime {
 
 	// Dont know about these ones, just making it compile:
 	type AreWeDone = multi_block::RevertToSignedIfNotQueuedOf<Self>;
+	type OnRoundRotation = multi_block::CleanRound<Self>;
 }
 
 impl multi_block::verifier::Config for Runtime {
@@ -455,6 +456,7 @@ where
 			.saturating_sub(1);
 		let tip = 0;
 		let tx_ext = TxExtension::from((
+			frame_system::AuthorizeCall::<Runtime>::new(),
 			frame_system::CheckNonZeroSender::<Runtime>::new(),
 			frame_system::CheckSpecVersion::<Runtime>::new(),
 			frame_system::CheckTxVersion::<Runtime>::new(),
