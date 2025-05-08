@@ -28271,8 +28271,8 @@ dependencies = [
 
 [[package]]
 name = "zombienet-configuration"
-version = "0.2.31"
-source = "git+https://github.com/paritytech/zombienet-sdk.git?rev=395b3f30077acbf10eaa441f8f0b4501cc0335ac#395b3f30077acbf10eaa441f8f0b4501cc0335ac"
+version = "0.2.32"
+source = "git+https://github.com/paritytech/zombienet-sdk.git?branch=main#01aedb90187774b49c3a69b95d5ebb168b36ad58"
 dependencies = [
  "anyhow",
  "lazy_static",
@@ -28291,8 +28291,8 @@ dependencies = [
 
 [[package]]
 name = "zombienet-orchestrator"
-version = "0.2.31"
-source = "git+https://github.com/paritytech/zombienet-sdk.git?rev=395b3f30077acbf10eaa441f8f0b4501cc0335ac#395b3f30077acbf10eaa441f8f0b4501cc0335ac"
+version = "0.2.32"
+source = "git+https://github.com/paritytech/zombienet-sdk.git?branch=main#01aedb90187774b49c3a69b95d5ebb168b36ad58"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -28323,8 +28323,8 @@ dependencies = [
 
 [[package]]
 name = "zombienet-prom-metrics-parser"
-version = "0.2.31"
-source = "git+https://github.com/paritytech/zombienet-sdk.git?rev=395b3f30077acbf10eaa441f8f0b4501cc0335ac#395b3f30077acbf10eaa441f8f0b4501cc0335ac"
+version = "0.2.32"
+source = "git+https://github.com/paritytech/zombienet-sdk.git?branch=main#01aedb90187774b49c3a69b95d5ebb168b36ad58"
 dependencies = [
  "pest",
  "pest_derive",
@@ -28333,8 +28333,8 @@ dependencies = [
 
 [[package]]
 name = "zombienet-provider"
-version = "0.2.31"
-source = "git+https://github.com/paritytech/zombienet-sdk.git?rev=395b3f30077acbf10eaa441f8f0b4501cc0335ac#395b3f30077acbf10eaa441f8f0b4501cc0335ac"
+version = "0.2.32"
+source = "git+https://github.com/paritytech/zombienet-sdk.git?branch=main#01aedb90187774b49c3a69b95d5ebb168b36ad58"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -28363,8 +28363,8 @@ dependencies = [
 
 [[package]]
 name = "zombienet-sdk"
-version = "0.2.31"
-source = "git+https://github.com/paritytech/zombienet-sdk.git?rev=395b3f30077acbf10eaa441f8f0b4501cc0335ac#395b3f30077acbf10eaa441f8f0b4501cc0335ac"
+version = "0.2.32"
+source = "git+https://github.com/paritytech/zombienet-sdk.git?branch=main#01aedb90187774b49c3a69b95d5ebb168b36ad58"
 dependencies = [
  "async-trait",
  "futures",
@@ -28380,8 +28380,8 @@ dependencies = [
 
 [[package]]
 name = "zombienet-support"
-version = "0.2.31"
-source = "git+https://github.com/paritytech/zombienet-sdk.git?rev=395b3f30077acbf10eaa441f8f0b4501cc0335ac#395b3f30077acbf10eaa441f8f0b4501cc0335ac"
+version = "0.2.32"
+source = "git+https://github.com/paritytech/zombienet-sdk.git?branch=main#01aedb90187774b49c3a69b95d5ebb168b36ad58"
 dependencies = [
  "anyhow",
  "async-trait",
