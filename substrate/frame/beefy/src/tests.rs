@@ -16,7 +16,10 @@
 // limitations under the License.
 
 use codec::Encode;
-use std::vec;
+use std::{
+	ops::{Mul, Sub},
+	vec,
+};
 
 use frame_support::{
 	assert_err, assert_ok,
@@ -32,7 +35,7 @@ use sp_consensus_beefy::{
 	},
 	Payload, ValidatorSet, ValidatorSetId, KEY_TYPE as BEEFY_KEY_TYPE,
 };
-use sp_runtime::DigestItem;
+use sp_runtime::{DigestItem, Perbill};
 use sp_session::MembershipProof;
 
 use crate::{self as beefy, mock::*, Call, Config, Error, WeightInfoExt};
@@ -311,8 +314,13 @@ fn report_double_voting(
 	)
 }
 
-fn report_equivocation_current_set_works(mut f: impl ReportEquivocationFn) {
+fn report_equivocation_current_set_works(
+	mut f: impl ReportEquivocationFn,
+	hardcoded_slash_fraction: Option<Perbill>,
+) {
 	let authorities = test_authorities();
+	let initial_balance = 10_000_000;
+	let initial_slashable_balance = 10_000;
 
 	ExtBuilder::default().add_authorities(authorities).build_and_execute(|| {
 		assert_eq!(pallet_staking::CurrentEra::<Test>::get(), Some(0));
@@ -328,12 +336,16 @@ fn report_equivocation_current_set_works(mut f: impl ReportEquivocationFn) {
 
 		// make sure that all validators have the same balance
 		for validator in &validators {
-			assert_eq!(Balances::total_balance(validator), 10_000_000);
-			assert_eq!(Staking::slashable_balance_of(validator), 10_000);
+			assert_eq!(Balances::total_balance(validator), initial_balance);
+			assert_eq!(Staking::slashable_balance_of(validator), initial_slashable_balance);
 
 			assert_eq!(
 				Staking::eras_stakers(1, &validator),
-				pallet_staking::Exposure { total: 10_000, own: 10_000, others: vec![] },
+				pallet_staking::Exposure {
+					total: initial_slashable_balance,
+					own: initial_slashable_balance,
+					others: vec![]
+				},
 			);
 		}
 
@@ -353,8 +365,22 @@ fn report_equivocation_current_set_works(mut f: impl ReportEquivocationFn) {
 		// check that the balance of 0-th validator is slashed 100%.
 		let equivocation_validator_id = validators[equivocation_authority_index];
 
-		assert_eq!(Balances::total_balance(&equivocation_validator_id), 10_000_000 - 10_000);
-		assert_eq!(Staking::slashable_balance_of(&equivocation_validator_id), 0);
+		if let Some(slash_fraction) = hardcoded_slash_fraction {
+			assert_eq!(
+				Balances::total_balance(&equivocation_validator_id),
+				initial_balance - slash_fraction.mul(initial_slashable_balance)
+			);
+			assert_eq!(
+				Staking::slashable_balance_of(&equivocation_validator_id),
+				Perbill::from_percent(100).sub(slash_fraction).mul(initial_slashable_balance)
+			);
+		} else {
+			assert_eq!(
+				Balances::total_balance(&equivocation_validator_id),
+				initial_balance - initial_slashable_balance
+			);
+			assert_eq!(Staking::slashable_balance_of(&equivocation_validator_id), 0);
+		}
 		assert_eq!(
 			Staking::eras_stakers(2, &equivocation_validator_id),
 			pallet_staking::Exposure { total: 0, own: 0, others: vec![] },
@@ -366,19 +392,28 @@ fn report_equivocation_current_set_works(mut f: impl ReportEquivocationFn) {
 				continue
 			}
 
-			assert_eq!(Balances::total_balance(validator), 10_000_000);
-			assert_eq!(Staking::slashable_balance_of(validator), 10_000);
+			assert_eq!(Balances::total_balance(validator), initial_balance);
+			assert_eq!(Staking::slashable_balance_of(validator), initial_slashable_balance);
 
 			assert_eq!(
 				Staking::eras_stakers(2, &validator),
-				pallet_staking::Exposure { total: 10_000, own: 10_000, others: vec![] },
+				pallet_staking::Exposure {
+					total: initial_slashable_balance,
+					own: initial_slashable_balance,
+					others: vec![]
+				},
 			);
 		}
 	});
 }
 
-fn report_equivocation_old_set_works(mut f: impl ReportEquivocationFn) {
+fn report_equivocation_old_set_works(
+	mut f: impl ReportEquivocationFn,
+	hardcoded_slash_fraction: Option<Perbill>,
+) {
 	let authorities = test_authorities();
+	let initial_balance = 10_000_000;
+	let initial_slashable_balance = 10_000;
 
 	ExtBuilder::default().add_authorities(authorities).build_and_execute(|| {
 		start_era(1);
@@ -400,12 +435,16 @@ fn report_equivocation_old_set_works(mut f: impl ReportEquivocationFn) {
 
 		// make sure that all authorities have the same balance
 		for validator in &validators {
-			assert_eq!(Balances::total_balance(validator), 10_000_000);
-			assert_eq!(Staking::slashable_balance_of(validator), 10_000);
+			assert_eq!(Balances::total_balance(validator), initial_balance);
+			assert_eq!(Staking::slashable_balance_of(validator), initial_slashable_balance);
 
 			assert_eq!(
 				Staking::eras_stakers(2, &validator),
-				pallet_staking::Exposure { total: 10_000, own: 10_000, others: vec![] },
+				pallet_staking::Exposure {
+					total: initial_slashable_balance,
+					own: initial_slashable_balance,
+					others: vec![]
+				},
 			);
 		}
 
@@ -423,8 +462,22 @@ fn report_equivocation_old_set_works(mut f: impl ReportEquivocationFn) {
 		// check that the balance of 0-th validator is slashed 100%.
 		let equivocation_validator_id = validators[equivocation_authority_index];
 
-		assert_eq!(Balances::total_balance(&equivocation_validator_id), 10_000_000 - 10_000);
-		assert_eq!(Staking::slashable_balance_of(&equivocation_validator_id), 0);
+		if let Some(slash_fraction) = hardcoded_slash_fraction {
+			assert_eq!(
+				Balances::total_balance(&equivocation_validator_id),
+				initial_balance - slash_fraction.mul(initial_slashable_balance)
+			);
+			assert_eq!(
+				Staking::slashable_balance_of(&equivocation_validator_id),
+				Perbill::from_percent(100).sub(slash_fraction).mul(initial_slashable_balance)
+			);
+		} else {
+			assert_eq!(
+				Balances::total_balance(&equivocation_validator_id),
+				initial_balance - initial_slashable_balance
+			);
+			assert_eq!(Staking::slashable_balance_of(&equivocation_validator_id), 0);
+		}
 		assert_eq!(
 			Staking::eras_stakers(3, &equivocation_validator_id),
 			pallet_staking::Exposure { total: 0, own: 0, others: vec![] },
@@ -436,12 +489,16 @@ fn report_equivocation_old_set_works(mut f: impl ReportEquivocationFn) {
 				continue
 			}
 
-			assert_eq!(Balances::total_balance(validator), 10_000_000);
-			assert_eq!(Staking::slashable_balance_of(validator), 10_000);
+			assert_eq!(Balances::total_balance(validator), initial_balance);
+			assert_eq!(Staking::slashable_balance_of(validator), initial_slashable_balance);
 
 			assert_eq!(
 				Staking::eras_stakers(3, &validator),
-				pallet_staking::Exposure { total: 10_000, own: 10_000, others: vec![] },
+				pallet_staking::Exposure {
+					total: initial_slashable_balance,
+					own: initial_slashable_balance,
+					others: vec![]
+				},
 			);
 		}
 	});
@@ -581,12 +638,12 @@ fn valid_equivocation_reports_dont_pay_fees(mut f: impl ReportEquivocationFn) {
 
 #[test]
 fn report_double_voting_current_set_works() {
-	report_equivocation_current_set_works(report_double_voting);
+	report_equivocation_current_set_works(report_double_voting, None);
 }
 
 #[test]
 fn report_double_voting_old_set_works() {
-	report_equivocation_old_set_works(report_double_voting);
+	report_equivocation_old_set_works(report_double_voting, None);
 }
 
 #[test]
@@ -814,12 +871,12 @@ fn report_fork_voting(
 
 #[test]
 fn report_fork_voting_current_set_works() {
-	report_equivocation_current_set_works(report_fork_voting);
+	report_equivocation_current_set_works(report_fork_voting, Some(Perbill::from_percent(50)));
 }
 
 #[test]
 fn report_fork_voting_old_set_works() {
-	report_equivocation_old_set_works(report_fork_voting);
+	report_equivocation_old_set_works(report_fork_voting, Some(Perbill::from_percent(50)));
 }
 
 #[test]
@@ -1057,12 +1114,15 @@ fn report_future_block_voting(
 
 #[test]
 fn report_future_block_voting_current_set_works() {
-	report_equivocation_current_set_works(report_future_block_voting);
+	report_equivocation_current_set_works(
+		report_future_block_voting,
+		Some(Perbill::from_percent(50)),
+	);
 }
 
 #[test]
 fn report_future_block_voting_old_set_works() {
-	report_equivocation_old_set_works(report_future_block_voting);
+	report_equivocation_old_set_works(report_future_block_voting, Some(Perbill::from_percent(50)));
 }
 
 #[test]

@@ -38,7 +38,10 @@ use sc_consensus::{
 	import_queue::{ImportQueue, ImportQueueService},
 	BlockImport,
 };
-use sc_network::{config::SyncMode, service::traits::NetworkService, NetworkBackend};
+use sc_network::{
+	config::SyncMode, request_responses::IncomingRequest, service::traits::NetworkService,
+	NetworkBackend,
+};
 use sc_network_sync::SyncingService;
 use sc_network_transactions::TransactionsHandlerController;
 use sc_service::{Configuration, SpawnTaskHandle, TaskManager, WarpSyncConfig};
@@ -364,7 +367,12 @@ pub async fn build_relay_chain_interface(
 	task_manager: &mut TaskManager,
 	collator_options: CollatorOptions,
 	hwbench: Option<sc_sysinfo::HwBench>,
-) -> RelayChainResult<(Arc<(dyn RelayChainInterface + 'static)>, Option<CollatorPair>)> {
+) -> RelayChainResult<(
+	Arc<(dyn RelayChainInterface + 'static)>,
+	Option<CollatorPair>,
+	Arc<dyn NetworkService>,
+	async_channel::Receiver<IncomingRequest>,
+)> {
 	match collator_options.relay_chain_mode {
 		cumulus_client_cli::RelayChainMode::Embedded => build_inprocess_relay_chain(
 			relay_chain_config,
