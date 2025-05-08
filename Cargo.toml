@@ -1449,8 +1449,8 @@ yet-another-parachain-runtime = { path = "cumulus/parachains/runtimes/testing/ye
 zeroize = { version = "1.7.0", default-features = false }
 # zombienet-orchestrator = { version = "0.2.32" }
 # zombienet-sdk = { version = "0.2.32" }
-zombienet-orchestrator = { git = "https://github.com/paritytech/zombienet-sdk.git", branch = "fix-bootnodes-external-port" }
-zombienet-sdk = { git = "https://github.com/paritytech/zombienet-sdk.git", branch = "fix-bootnodes-external-port" }
+zombienet-orchestrator = { git = "https://github.com/paritytech/zombienet-sdk.git", branch = "main" }
+zombienet-sdk = { git = "https://github.com/paritytech/zombienet-sdk.git", branch = "main" }
 zstd = { version = "0.12.4", default-features = false }
 
 [profile.release]

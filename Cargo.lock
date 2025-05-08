@@ -28274,7 +28274,7 @@ dependencies = [
 [[package]]
 name = "zombienet-configuration"
 version = "0.2.32"
-source = "git+https://github.com/paritytech/zombienet-sdk.git?branch=fix-bootnodes-external-port#9abf56e1dc195b6d772f051f4a35c1e92f864c9f"
+source = "git+https://github.com/paritytech/zombienet-sdk.git?branch=main#01aedb90187774b49c3a69b95d5ebb168b36ad58"
 dependencies = [
  "anyhow",
  "lazy_static",
@@ -28294,7 +28294,7 @@ dependencies = [
 [[package]]
 name = "zombienet-orchestrator"
 version = "0.2.32"
-source = "git+https://github.com/paritytech/zombienet-sdk.git?branch=fix-bootnodes-external-port#9abf56e1dc195b6d772f051f4a35c1e92f864c9f"
+source = "git+https://github.com/paritytech/zombienet-sdk.git?branch=main#01aedb90187774b49c3a69b95d5ebb168b36ad58"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -28326,7 +28326,7 @@ dependencies = [
 [[package]]
 name = "zombienet-prom-metrics-parser"
 version = "0.2.32"
-source = "git+https://github.com/paritytech/zombienet-sdk.git?branch=fix-bootnodes-external-port#9abf56e1dc195b6d772f051f4a35c1e92f864c9f"
+source = "git+https://github.com/paritytech/zombienet-sdk.git?branch=main#01aedb90187774b49c3a69b95d5ebb168b36ad58"
 dependencies = [
  "pest",
  "pest_derive",
@@ -28336,7 +28336,7 @@ dependencies = [
 [[package]]
 name = "zombienet-provider"
 version = "0.2.32"
-source = "git+https://github.com/paritytech/zombienet-sdk.git?branch=fix-bootnodes-external-port#9abf56e1dc195b6d772f051f4a35c1e92f864c9f"
+source = "git+https://github.com/paritytech/zombienet-sdk.git?branch=main#01aedb90187774b49c3a69b95d5ebb168b36ad58"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -28366,7 +28366,7 @@ dependencies = [
 [[package]]
 name = "zombienet-sdk"
 version = "0.2.32"
-source = "git+https://github.com/paritytech/zombienet-sdk.git?branch=fix-bootnodes-external-port#9abf56e1dc195b6d772f051f4a35c1e92f864c9f"
+source = "git+https://github.com/paritytech/zombienet-sdk.git?branch=main#01aedb90187774b49c3a69b95d5ebb168b36ad58"
 dependencies = [
  "async-trait",
  "futures",
@@ -28383,7 +28383,7 @@ dependencies = [
 [[package]]
 name = "zombienet-support"
 version = "0.2.32"
-source = "git+https://github.com/paritytech/zombienet-sdk.git?branch=fix-bootnodes-external-port#9abf56e1dc195b6d772f051f4a35c1e92f864c9f"
+source = "git+https://github.com/paritytech/zombienet-sdk.git?branch=main#01aedb90187774b49c3a69b95d5ebb168b36ad58"
 dependencies = [
  "anyhow",
  "async-trait",
