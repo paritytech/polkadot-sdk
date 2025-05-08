@@ -953,13 +953,14 @@ impl<T: Config> Pallet<T> {
 				}));
 			}
 
-			let calculated_era = back_of_unbonding_queue
-				.defensive_saturating_sub(normalized_era)
-				// Normalize to eras. This rounds down the number of eras.
+			let normalized_calculated_era =
+				back_of_unbonding_queue.defensive_saturating_sub(normalized_era);
+			let calculated_era = normalized_calculated_era
+				// Normalize to eras.
 				.saturating_div(PICO_ERA)
 				.saturated_into::<EraIndex>()
-				// And now round up to be more conservative.
-				.defensive_saturating_add(1);
+				// And now round up if needed to be more conservative.
+				.defensive_saturating_add((normalized_calculated_era % PICO_ERA != 0) as EraIndex);
 			// Apply the min and max boundaries to the calculated era.
 			T::BondingDuration::get()
 				.min(calculated_era.max(params.unbond_period_lower_bound))
