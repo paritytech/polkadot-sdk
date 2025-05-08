@@ -62,7 +62,7 @@ pub struct ParachainInherentData {
 	/// - the relay dispatch queue sizes
 	/// - the list of egress HRMP channels (in the list of recipients form)
 	/// - the metadata for the egress HRMP channels
-	pub relay_chain_state: sp_trie::StorageProof,
+	pub relay_chain_state: sp_trie::StorageProof, // TODO: how to add here predefined sibling para heads (with state roots)?
 	/// Downward messages in the order they were sent.
 	pub downward_messages: Vec<InboundDownwardMessage>,
 	/// HRMP messages grouped by channels. The messages in the inner vec must be in order they

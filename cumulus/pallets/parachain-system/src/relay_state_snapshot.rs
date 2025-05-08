@@ -293,6 +293,12 @@ impl RelayChainStateProof {
 			.map_err(Error::ParaHead)
 	}
 
+	/// TODO: read from the `RelayChainStateProof` trie
+	pub fn read_sibling_para_head(&self, sibling_para_id: ParaId) -> Result<Option<relay_chain::HeadData>, Error> {
+		read_optional_entry(&self.trie_backend, &relay_chain::well_known_keys::para_head(sibling_para_id))
+			.map_err(Error::ParaHead)
+	}
+
 	/// Read the [`Slot`](relay_chain::Slot) from the relay chain state proof.
 	///
 	/// The slot is slot of the relay chain block this state proof was extracted from.
