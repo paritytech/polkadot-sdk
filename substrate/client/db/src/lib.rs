@@ -64,7 +64,7 @@ use sc_client_api::{
 	blockchain::{BlockGap, BlockGapType},
 	leaves::{FinalizationOutcome, LeafSet},
 	utils::is_descendent_of,
-	IoInfo, MemoryInfo, MemorySize, UsageInfo,
+	Backend as ClientApiBackend, IoInfo, MemoryInfo, MemorySize, UsageInfo,
 };
 use sc_state_db::{IsPruned, LastCanonicalized, StateDb};
 use sp_arithmetic::traits::Saturating;
@@ -320,17 +320,34 @@ pub enum BlocksPruning {
 	/// Keep full block history, of every block that was ever imported.
 	KeepAll,
 	/// Keep full finalized block history.
-	KeepFinalized,
+	KeepFinalized {
+		/// Prune block headers of the displaced branches.
+		prune_headers: bool,
+	},
 	/// Keep N recent finalized blocks.
-	Some(u32),
+	Some {
+		/// Block number.
+		blocks: u32,
+		/// Prune block headers as well.
+		prune_headers: bool,
+	},
 }
 
 impl BlocksPruning {
 	/// True if this is an archive pruning mode (either KeepAll or KeepFinalized).
 	pub fn is_archive(&self) -> bool {
 		match *self {
-			BlocksPruning::KeepAll | BlocksPruning::KeepFinalized => true,
-			BlocksPruning::Some(_) => false,
+			BlocksPruning::KeepAll | BlocksPruning::KeepFinalized { .. } => true,
+			BlocksPruning::Some { .. } => false,
+		}
+	}
+
+	/// True if the block header pruning is enabled.
+	pub fn prune_headers(&self) -> bool {
+		match *self {
+			BlocksPruning::KeepAll => false,
+			BlocksPruning::KeepFinalized { prune_headers } => prune_headers,
+			BlocksPruning::Some { prune_headers, .. } => prune_headers,
 		}
 	}
 }
@@ -660,6 +677,19 @@ impl<Block: BlockT> BlockchainDb<Block> {
 			}
 		}
 		Ok(None)
+	}
+
+	fn prune_block_header(
+		&self,
+		transaction: &mut Transaction<DbHash>,
+		hash: Block::Hash,
+	) -> ClientResult<()> {
+		debug!(target: "blockchain", "Removing block header #{}", hash);
+
+		// Removes block header from the local cache as well
+		self.remove_header_metadata(hash);
+
+		utils::remove_header(transaction, &*self.db, BlockId::<Block>::Hash(hash))
 	}
 }
 
@@ -1150,7 +1180,10 @@ impl<Block: BlockT> Backend<Block> {
 	/// Create new memory-backed client backend for tests.
 	#[cfg(any(test, feature = "test-helpers"))]
 	pub fn new_test(blocks_pruning: u32, canonicalization_delay: u64) -> Self {
-		Self::new_test_with_tx_storage(BlocksPruning::Some(blocks_pruning), canonicalization_delay)
+		Self::new_test_with_tx_storage(
+			BlocksPruning::Some { blocks: blocks_pruning, prune_headers: false },
+			canonicalization_delay,
+		)
 	}
 
 	/// Create new memory-backed client backend for tests.
@@ -1163,8 +1196,8 @@ impl<Block: BlockT> Backend<Block> {
 		let db = sp_database::as_database(db);
 		let state_pruning = match blocks_pruning {
 			BlocksPruning::KeepAll => PruningMode::ArchiveAll,
-			BlocksPruning::KeepFinalized => PruningMode::ArchiveCanonical,
-			BlocksPruning::Some(n) => PruningMode::blocks_pruning(n),
+			BlocksPruning::KeepFinalized { .. } => PruningMode::ArchiveCanonical,
+			BlocksPruning::Some { blocks: n, .. } => PruningMode::blocks_pruning(n),
 		};
 		let db_setting = DatabaseSettings {
 			trie_cache_maximum_size: Some(16 * 1024 * 1024),
@@ -1375,13 +1408,13 @@ impl<Block: BlockT> Backend<Block> {
 		justification: Option<Justification>,
 		current_transaction_justifications: &mut HashMap<Block::Hash, Justification>,
 		remove_displaced: bool,
-	) -> ClientResult<MetaUpdate<Block>> {
+	) -> ClientResult<(MetaUpdate<Block>, Vec<Block::Hash>)> {
 		// TODO: ensure best chain contains this block.
 		let number = *header.number();
 		self.ensure_sequential_finalization(header, last_finalized)?;
 		let with_state = sc_client_api::Backend::have_state_at(self, hash, number);
 
-		self.note_finalized(
+		let pruned_block_headers = self.note_finalized(
 			transaction,
 			header,
 			hash,
@@ -1398,7 +1431,11 @@ impl<Block: BlockT> Backend<Block> {
 			);
 			current_transaction_justifications.insert(hash, justification);
 		}
-		Ok(MetaUpdate { hash, number, is_best: false, is_finalized: true, with_state })
+
+		Ok((
+			MetaUpdate { hash, number, is_best: false, is_finalized: true, with_state },
+			pruned_block_headers,
+		))
 	}
 
 	// performs forced canonicalization with a delay after importing a non-finalized block.
@@ -1457,6 +1494,8 @@ impl<Block: BlockT> Backend<Block> {
 		operation.apply_aux(&mut transaction);
 		operation.apply_offchain(&mut transaction);
 
+		let mut pruned_block_headers = Vec::new();
+
 		let mut meta_updates = Vec::with_capacity(operation.finalized_blocks.len());
 		let (best_num, mut last_finalized_hash, mut last_finalized_num, mut block_gap) = {
 			let meta = self.blockchain.meta.read();
@@ -1470,7 +1509,7 @@ impl<Block: BlockT> Backend<Block> {
 		let mut finalized_blocks = operation.finalized_blocks.into_iter().peekable();
 		while let Some((block_hash, justification)) = finalized_blocks.next() {
 			let block_header = self.blockchain.expect_header(block_hash)?;
-			meta_updates.push(self.finalize_block_with_transaction(
+			let (meta_update, pruned_block_headers_part) = self.finalize_block_with_transaction(
 				&mut transaction,
 				block_hash,
 				&block_header,
@@ -1478,7 +1517,11 @@ impl<Block: BlockT> Backend<Block> {
 				justification,
 				&mut current_transaction_justifications,
 				finalized_blocks.peek().is_none(),
-			)?);
+			)?;
+
+			pruned_block_headers.extend_from_slice(&pruned_block_headers_part);
+			meta_updates.push(meta_update);
+
 			last_finalized_hash = block_hash;
 			last_finalized_num = *block_header.number();
 		}
@@ -1647,7 +1690,7 @@ impl<Block: BlockT> Backend<Block> {
 				// TODO: ensure best chain contains this block.
 				self.ensure_sequential_finalization(header, Some(last_finalized_hash))?;
 				let mut current_transaction_justifications = HashMap::new();
-				self.note_finalized(
+				let pruned_block_headers_part = self.note_finalized(
 					&mut transaction,
 					header,
 					hash,
@@ -1655,6 +1698,7 @@ impl<Block: BlockT> Backend<Block> {
 					&mut current_transaction_justifications,
 					true,
 				)?;
+				pruned_block_headers.extend_from_slice(&pruned_block_headers_part);
 			} else {
 				// canonicalize blocks which are old enough, regardless of finality.
 				self.force_delayed_canonicalize(&mut transaction)?
@@ -1820,6 +1864,11 @@ impl<Block: BlockT> Backend<Block> {
 			}
 		}
 
+		// Clear block headers pruned by the last block finalization.
+		for hash in pruned_block_headers.into_iter() {
+			self.blockchain().prune_block_header(&mut transaction, hash)?;
+		}
+
 		self.storage.db.commit(transaction)?;
 
 		// Apply all in-memory state changes.
@@ -1846,6 +1895,7 @@ impl<Block: BlockT> Backend<Block> {
 	// blocks. Fails if called with a block which was not a child of the last finalized block.
 	/// `remove_displaced` can be set to `false` if this is not the last of many subsequent calls
 	/// for performance reasons.
+	/// Returns a list of hashes of the pruned block headers (can be empty).
 	fn note_finalized(
 		&self,
 		transaction: &mut Transaction<DbHash>,
@@ -1854,7 +1904,8 @@ impl<Block: BlockT> Backend<Block> {
 		with_state: bool,
 		current_transaction_justifications: &mut HashMap<Block::Hash, Justification>,
 		remove_displaced: bool,
-	) -> ClientResult<()> {
+	) -> ClientResult<Vec<Block::Hash>> {
+		let mut pruned_block_headers = Vec::new();
 		let f_num = *f_header.number();
 
 		let lookup_key = utils::number_and_hash_to_lookup_key(f_num, f_hash)?;
@@ -1886,24 +1937,35 @@ impl<Block: BlockT> Backend<Block> {
 			));
 
 			if !matches!(self.blocks_pruning, BlocksPruning::KeepAll) {
-				self.prune_displaced_branches(transaction, &new_displaced)?;
+				let pruned_block_headers_part1 = self.prune_displaced_branches(
+					transaction,
+					&new_displaced,
+					self.blocks_pruning.prune_headers(),
+				)?;
+
+				pruned_block_headers.extend_from_slice(&pruned_block_headers_part1);
 			}
 		}
+		let pruned_block_headers_part2 =
+			self.prune_blocks(transaction, f_num, current_transaction_justifications)?;
 
-		self.prune_blocks(transaction, f_num, current_transaction_justifications)?;
+		pruned_block_headers.extend_from_slice(&pruned_block_headers_part2);
 
-		Ok(())
+		Ok(pruned_block_headers)
 	}
 
+	// Note: returns a list of hashes of the pruned block headers (can be empty).
 	fn prune_blocks(
 		&self,
 		transaction: &mut Transaction<DbHash>,
 		finalized_number: NumberFor<Block>,
 		current_transaction_justifications: &mut HashMap<Block::Hash, Justification>,
-	) -> ClientResult<()> {
-		if let BlocksPruning::Some(blocks_pruning) = self.blocks_pruning {
+	) -> ClientResult<Vec<Block::Hash>> {
+		let mut pruned_block_headers = Vec::new();
+
+		if let BlocksPruning::Some { blocks, prune_headers } = self.blocks_pruning {
 			// Always keep the last finalized block
-			let keep = std::cmp::max(blocks_pruning, 1);
+			let keep = std::cmp::max(blocks, 1);
 			if finalized_number >= keep.into() {
 				let number = finalized_number.saturating_sub(keep.into());
 
@@ -1918,25 +1980,38 @@ impl<Block: BlockT> Backend<Block> {
 					} else {
 						self.blockchain.insert_persisted_justifications_if_pinned(hash)?;
 					}
+
+					if prune_headers {
+						pruned_block_headers.push(hash);
+					}
 				};
 
 				self.prune_block(transaction, BlockId::<Block>::number(number))?;
 			}
 		}
-		Ok(())
+
+		Ok(pruned_block_headers)
 	}
 
 	fn prune_displaced_branches(
 		&self,
 		transaction: &mut Transaction<DbHash>,
 		displaced: &DisplacedLeavesAfterFinalization<Block>,
-	) -> ClientResult<()> {
+		prune_headers: bool,
+	) -> ClientResult<Vec<Block::Hash>> {
+		let mut pruned_block_headers = Vec::new();
+
 		// Discard all blocks from displaced branches
 		for &hash in displaced.displaced_blocks.iter() {
 			self.blockchain.insert_persisted_body_if_pinned(hash)?;
 			self.prune_block(transaction, BlockId::<Block>::hash(hash))?;
+
+			if prune_headers {
+				pruned_block_headers.push(hash);
+			}
 		}
-		Ok(())
+
+		Ok(pruned_block_headers)
 	}
 
 	fn prune_block(
@@ -2175,7 +2250,7 @@ impl<Block: BlockT> sc_client_api::backend::Backend<Block> for Backend<Block> {
 		let header = self.blockchain.expect_header(hash)?;
 
 		let mut current_transaction_justifications = HashMap::new();
-		let m = self.finalize_block_with_transaction(
+		let (m, pruned_block_headers) = self.finalize_block_with_transaction(
 			&mut transaction,
 			hash,
 			&header,
@@ -2185,6 +2260,10 @@ impl<Block: BlockT> sc_client_api::backend::Backend<Block> for Backend<Block> {
 			true,
 		)?;
 
+		// Prune block headers after the block finalization if any.
+		for pruned_block_header in pruned_block_headers.into_iter() {
+			self.blockchain().prune_block_header(&mut transaction, pruned_block_header)?;
+		}
 		self.storage.db.commit(transaction)?;
 		self.blockchain.update_meta(m);
 		Ok(())
@@ -2781,7 +2860,7 @@ pub(crate) mod tests {
 				trie_cache_maximum_size: Some(16 * 1024 * 1024),
 				state_pruning: Some(PruningMode::blocks_pruning(1)),
 				source: DatabaseSource::Custom { db: backing, require_create_flag: false },
-				blocks_pruning: BlocksPruning::KeepFinalized,
+				blocks_pruning: BlocksPruning::KeepFinalized { prune_headers: false },
 			},
 			0,
 		)
@@ -2797,6 +2876,7 @@ pub(crate) mod tests {
 		set_state_data_inner(StateVersion::V0);
 		set_state_data_inner(StateVersion::V1);
 	}
+
 	fn set_state_data_inner(state_version: StateVersion) {
 		let db = Backend::<Block>::new_test(2, 0);
 		let hash = {
@@ -3322,6 +3402,7 @@ pub(crate) mod tests {
 			assert_eq!(displaced.displaced_blocks, vec![c4_hash]);
 		}
 	}
+
 	#[test]
 	fn displaced_leaves_after_finalizing_works() {
 		let backend = Backend::<Block>::new_test(1000, 100);
@@ -3717,8 +3798,11 @@ pub(crate) mod tests {
 
 	#[test]
 	fn prune_blocks_on_finalize() {
-		let pruning_modes =
-			vec![BlocksPruning::Some(2), BlocksPruning::KeepFinalized, BlocksPruning::KeepAll];
+		let pruning_modes = vec![
+			BlocksPruning::Some { blocks: 2, prune_headers: false },
+			BlocksPruning::KeepFinalized { prune_headers: false },
+			BlocksPruning::KeepAll,
+		];
 
 		for pruning_mode in pruning_modes {
 			let backend = Backend::<Block>::new_test_with_tx_storage(pruning_mode, 0);
@@ -3749,7 +3833,7 @@ pub(crate) mod tests {
 			}
 			let bc = backend.blockchain();
 
-			if matches!(pruning_mode, BlocksPruning::Some(_)) {
+			if matches!(pruning_mode, BlocksPruning::Some { .. }) {
 				assert_eq!(None, bc.body(blocks[0]).unwrap());
 				assert_eq!(None, bc.body(blocks[1]).unwrap());
 				assert_eq!(None, bc.body(blocks[2]).unwrap());
@@ -3776,8 +3860,11 @@ pub(crate) mod tests {
 	fn prune_blocks_on_finalize_with_fork() {
 		sp_tracing::try_init_simple();
 
-		let pruning_modes =
-			vec![BlocksPruning::Some(2), BlocksPruning::KeepFinalized, BlocksPruning::KeepAll];
+		let pruning_modes = vec![
+			BlocksPruning::Some { blocks: 2, prune_headers: false },
+			BlocksPruning::KeepFinalized { prune_headers: false },
+			BlocksPruning::KeepAll,
+		];
 
 		for pruning in pruning_modes {
 			let backend = Backend::<Block>::new_test_with_tx_storage(pruning, 10);
@@ -3840,7 +3927,7 @@ pub(crate) mod tests {
 				backend.commit_operation(op).unwrap();
 			}
 
-			if matches!(pruning, BlocksPruning::Some(_)) {
+			if matches!(pruning, BlocksPruning::Some { .. }) {
 				assert_eq!(None, bc.body(blocks[0]).unwrap());
 				assert_eq!(None, bc.body(blocks[1]).unwrap());
 				assert_eq!(None, bc.body(blocks[2]).unwrap());
@@ -3884,7 +3971,10 @@ pub(crate) mod tests {
 		//	\ - 1a - 2a - 3a
 		//	     \ - 2b
 
-		let backend = Backend::<Block>::new_test_with_tx_storage(BlocksPruning::Some(10), 10);
+		let backend = Backend::<Block>::new_test_with_tx_storage(
+			BlocksPruning::Some { blocks: 10, prune_headers: false },
+			10,
+		);
 
 		let make_block = |index, parent, val: u64| {
 			insert_block(
@@ -3940,11 +4030,89 @@ pub(crate) mod tests {
 			Some(vec![UncheckedXt::new_transaction(0x3a.into(), ())]),
 			bc.body(block_3a).unwrap()
 		);
+
+		// Block headers present
+		assert!(bc.header(block_1b).unwrap().is_some());
+		assert!(bc.header(block_2b).unwrap().is_some());
+	}
+
+	#[test]
+	fn prune_blocks_on_finalize_and_reorg_with_block_header_pruning() {
+		//	0 - 1b
+		//	\ - 1a - 2a - 3a
+		//	     \ - 2b
+
+		let backend = Backend::<Block>::new_test_with_tx_storage(
+			BlocksPruning::Some { blocks: 10, prune_headers: true },
+			10,
+		);
+
+		let make_block = |index, parent, val: u64| {
+			insert_block(
+				&backend,
+				index,
+				parent,
+				None,
+				H256::random(),
+				vec![UncheckedXt::new_transaction(val.into(), ())],
+				None,
+			)
+			.unwrap()
+		};
+
+		let block_0 = make_block(0, Default::default(), 0x00);
+		let block_1a = make_block(1, block_0, 0x1a);
+		let block_1b = make_block(1, block_0, 0x1b);
+		let block_2a = make_block(2, block_1a, 0x2a);
+		let block_2b = make_block(2, block_1a, 0x2b);
+		let block_3a = make_block(3, block_2a, 0x3a);
+
+		// Make sure 1b is head
+		let mut op = backend.begin_operation().unwrap();
+		backend.begin_state_operation(&mut op, block_0).unwrap();
+		op.mark_head(block_1b).unwrap();
+		backend.commit_operation(op).unwrap();
+
+		// Finalize 3a
+		let mut op = backend.begin_operation().unwrap();
+		backend.begin_state_operation(&mut op, block_0).unwrap();
+		op.mark_head(block_3a).unwrap();
+		op.mark_finalized(block_1a, None).unwrap();
+		op.mark_finalized(block_2a, None).unwrap();
+		op.mark_finalized(block_3a, None).unwrap();
+		backend.commit_operation(op).unwrap();
+
+		let bc = backend.blockchain();
+		assert_eq!(None, bc.body(block_1b).unwrap());
+		assert_eq!(None, bc.body(block_2b).unwrap());
+		assert_eq!(
+			Some(vec![UncheckedXt::new_transaction(0x00.into(), ())]),
+			bc.body(block_0).unwrap()
+		);
+		assert_eq!(
+			Some(vec![UncheckedXt::new_transaction(0x1a.into(), ())]),
+			bc.body(block_1a).unwrap()
+		);
+		assert_eq!(
+			Some(vec![UncheckedXt::new_transaction(0x2a.into(), ())]),
+			bc.body(block_2a).unwrap()
+		);
+		assert_eq!(
+			Some(vec![UncheckedXt::new_transaction(0x3a.into(), ())]),
+			bc.body(block_3a).unwrap()
+		);
+
+		// Block headers pruned
+		assert_eq!(None, bc.header(block_1b).unwrap());
+		assert_eq!(None, bc.header(block_2b).unwrap());
 	}
 
 	#[test]
 	fn indexed_data_block_body() {
-		let backend = Backend::<Block>::new_test_with_tx_storage(BlocksPruning::Some(1), 10);
+		let backend = Backend::<Block>::new_test_with_tx_storage(
+			BlocksPruning::Some { blocks: 1, prune_headers: false },
+			10,
+		);
 
 		let x0 = UncheckedXt::new_transaction(0.into(), ()).encode();
 		let x1 = UncheckedXt::new_transaction(1.into(), ()).encode();
@@ -3991,7 +4159,10 @@ pub(crate) mod tests {
 
 	#[test]
 	fn index_invalid_size() {
-		let backend = Backend::<Block>::new_test_with_tx_storage(BlocksPruning::Some(1), 10);
+		let backend = Backend::<Block>::new_test_with_tx_storage(
+			BlocksPruning::Some { blocks: 1, prune_headers: false },
+			10,
+		);
 
 		let x0 = UncheckedXt::new_transaction(0.into(), ()).encode();
 		let x1 = UncheckedXt::new_transaction(1.into(), ()).encode();
@@ -4030,7 +4201,10 @@ pub(crate) mod tests {
 
 	#[test]
 	fn renew_transaction_storage() {
-		let backend = Backend::<Block>::new_test_with_tx_storage(BlocksPruning::Some(2), 10);
+		let backend = Backend::<Block>::new_test_with_tx_storage(
+			BlocksPruning::Some { blocks: 2, prune_headers: false },
+			10,
+		);
 		let mut blocks = Vec::new();
 		let mut prev_hash = Default::default();
 		let x1 = UncheckedXt::new_transaction(0.into(), ()).encode();
@@ -4077,7 +4251,10 @@ pub(crate) mod tests {
 
 	#[test]
 	fn remove_leaf_block_works() {
-		let backend = Backend::<Block>::new_test_with_tx_storage(BlocksPruning::Some(2), 10);
+		let backend = Backend::<Block>::new_test_with_tx_storage(
+			BlocksPruning::Some { blocks: 2, prune_headers: false },
+			10,
+		);
 		let mut blocks = Vec::new();
 		let mut prev_hash = Default::default();
 		for i in 0..2 {
@@ -4329,7 +4506,8 @@ pub(crate) mod tests {
 
 	#[test]
 	fn revert_finalized_blocks() {
-		let pruning_modes = [BlocksPruning::Some(10), BlocksPruning::KeepAll];
+		let pruning_modes =
+			[BlocksPruning::Some { blocks: 10, prune_headers: false }, BlocksPruning::KeepAll];
 
 		// we will create a chain with 11 blocks, finalize block #8 and then
 		// attempt to revert 5 blocks.
@@ -4351,7 +4529,7 @@ pub(crate) mod tests {
 			match pruning_mode {
 				// we can only revert to blocks for which we have state, if pruning is enabled
 				// then the last state available will be that of the latest finalized block
-				BlocksPruning::Some(_) => {
+				BlocksPruning::Some { .. } => {
 					assert_eq!(backend.blockchain().info().finalized_number, 8)
 				},
 				// otherwise if we're not doing state pruning we can revert past finalized blocks
@@ -4378,8 +4556,11 @@ pub(crate) mod tests {
 
 	#[test]
 	fn force_delayed_canonicalize_waiting_for_blocks_to_be_finalized() {
-		let pruning_modes =
-			[BlocksPruning::Some(10), BlocksPruning::KeepAll, BlocksPruning::KeepFinalized];
+		let pruning_modes = [
+			BlocksPruning::Some { blocks: 10, prune_headers: false },
+			BlocksPruning::KeepAll,
+			BlocksPruning::KeepFinalized { prune_headers: false },
+		];
 
 		for pruning_mode in pruning_modes {
 			eprintln!("Running with pruning mode: {:?}", pruning_mode);
@@ -4433,7 +4614,7 @@ pub(crate) mod tests {
 				header.hash()
 			};
 
-			if matches!(pruning_mode, BlocksPruning::Some(_)) {
+			if matches!(pruning_mode, BlocksPruning::Some { .. }) {
 				assert_eq!(
 					LastCanonicalized::Block(0),
 					backend.storage.state_db.last_canonicalized()
@@ -4478,7 +4659,7 @@ pub(crate) mod tests {
 				header.hash()
 			};
 
-			if matches!(pruning_mode, BlocksPruning::Some(_)) {
+			if matches!(pruning_mode, BlocksPruning::Some { .. }) {
 				assert_eq!(
 					LastCanonicalized::Block(0),
 					backend.storage.state_db.last_canonicalized()
@@ -4560,7 +4741,7 @@ pub(crate) mod tests {
 				header.hash()
 			};
 
-			if matches!(pruning_mode, BlocksPruning::Some(_)) {
+			if matches!(pruning_mode, BlocksPruning::Some { .. }) {
 				assert_eq!(
 					LastCanonicalized::Block(2),
 					backend.storage.state_db.last_canonicalized()
@@ -4576,7 +4757,10 @@ pub(crate) mod tests {
 
 	#[test]
 	fn test_pinned_blocks_on_finalize() {
-		let backend = Backend::<Block>::new_test_with_tx_storage(BlocksPruning::Some(1), 10);
+		let backend = Backend::<Block>::new_test_with_tx_storage(
+			BlocksPruning::Some { blocks: 1, prune_headers: false },
+			10,
+		);
 		let mut blocks = Vec::new();
 		let mut prev_hash = Default::default();
 
@@ -4781,7 +4965,10 @@ pub(crate) mod tests {
 
 	#[test]
 	fn test_pinned_blocks_on_finalize_with_fork() {
-		let backend = Backend::<Block>::new_test_with_tx_storage(BlocksPruning::Some(1), 10);
+		let backend = Backend::<Block>::new_test_with_tx_storage(
+			BlocksPruning::Some { blocks: 1, prune_headers: false },
+			10,
+		);
 		let mut blocks = Vec::new();
 		let mut prev_hash = Default::default();
 
@@ -4892,5 +5079,223 @@ pub(crate) mod tests {
 		assert!(bc.body(fork_hash_3).unwrap().is_some());
 		backend.unpin_block(fork_hash_3);
 		assert!(bc.body(fork_hash_3).unwrap().is_none());
+	}
+
+	#[test]
+	fn prune_blocks_and_headers_on_finalize() {
+		let pruning_modes = vec![
+			BlocksPruning::Some { blocks: 2, prune_headers: true },
+			BlocksPruning::KeepFinalized { prune_headers: false },
+			BlocksPruning::KeepAll,
+		];
+
+		let block_number = 6usize;
+		for pruning_mode in pruning_modes {
+			let backend = Backend::<Block>::new_test_with_tx_storage(pruning_mode, 0);
+			let mut blocks = Vec::new();
+			let mut prev_hash = Default::default();
+			for i in 0..block_number {
+				let hash = insert_block(
+					&backend,
+					i as u64,
+					prev_hash,
+					None,
+					Default::default(),
+					vec![UncheckedXt::new_transaction((i as u64).into(), ())],
+					None,
+				)
+				.unwrap();
+				blocks.push(hash);
+				prev_hash = hash;
+			}
+
+			{
+				let mut op = backend.begin_operation().unwrap();
+				backend.begin_state_operation(&mut op, blocks[block_number - 1]).unwrap();
+				for i in 1..block_number {
+					op.mark_finalized(blocks[i], None).unwrap();
+				}
+				backend.commit_operation(op).unwrap();
+			}
+			let bc = backend.blockchain();
+
+			if matches!(pruning_mode, BlocksPruning::Some { .. }) {
+				assert_eq!(None, bc.body(blocks[0]).unwrap());
+				assert_eq!(None, bc.body(blocks[1]).unwrap());
+				assert_eq!(None, bc.body(blocks[2]).unwrap());
+				assert_eq!(None, bc.body(blocks[3]).unwrap());
+				assert_eq!(
+					Some(vec![UncheckedXt::new_transaction(0x04.into(), ())]),
+					bc.body(blocks[4]).unwrap()
+				);
+				assert_eq!(
+					Some(vec![UncheckedXt::new_transaction(0x05.into(), ())]),
+					bc.body(blocks[5]).unwrap()
+				);
+			} else {
+				for i in 0..block_number {
+					assert_eq!(
+						Some(vec![UncheckedXt::new_transaction((i as u64).into(), ())]),
+						bc.body(blocks[i]).unwrap()
+					);
+				}
+			}
+
+			let header_pruning = match pruning_mode {
+				BlocksPruning::KeepAll => false,
+				BlocksPruning::KeepFinalized { prune_headers } => prune_headers,
+				BlocksPruning::Some { prune_headers, .. } => prune_headers,
+			};
+
+			assert_eq!(bc.header(blocks[0]).unwrap().is_none(), header_pruning);
+			assert_eq!(bc.header(blocks[1]).unwrap().is_none(), header_pruning);
+			assert_eq!(bc.header(blocks[2]).unwrap().is_none(), header_pruning);
+			assert_eq!(bc.header(blocks[3]).unwrap().is_none(), header_pruning);
+			assert!(bc.header(blocks[4]).unwrap().is_some());
+			assert!(bc.header(blocks[5]).unwrap().is_some());
+		}
+	}
+
+	#[test]
+	fn prune_blocks_and_headers_on_finalize_with_fork() {
+		sp_tracing::try_init_simple();
+		let block_number = 8usize;
+
+		let pruning_modes = vec![
+			BlocksPruning::Some { blocks: 2, prune_headers: true },
+			BlocksPruning::KeepFinalized { prune_headers: true },
+			BlocksPruning::KeepAll,
+		];
+
+		for pruning in pruning_modes {
+			let backend = Backend::<Block>::new_test_with_tx_storage(pruning, 10);
+			let mut blocks = Vec::new();
+			let mut prev_hash = Default::default();
+			for i in 0..block_number {
+				let hash = insert_block(
+					&backend,
+					i as u64,
+					prev_hash,
+					None,
+					Default::default(),
+					vec![UncheckedXt::new_transaction((i as u64).into(), ())],
+					None,
+				)
+				.unwrap();
+				blocks.push(hash);
+				prev_hash = hash;
+			}
+
+			// insert a fork at block 2
+			let fork_hash_root = insert_block(
+				&backend,
+				2,
+				blocks[1],
+				None,
+				H256::random(),
+				vec![UncheckedXt::new_transaction(2.into(), ())],
+				None,
+			)
+			.unwrap();
+			let fork_hash_2 = insert_block(
+				&backend,
+				3,
+				fork_hash_root,
+				None,
+				H256::random(),
+				vec![
+					UncheckedXt::new_transaction(3.into(), ()),
+					UncheckedXt::new_transaction(11.into(), ()),
+				],
+				None,
+			)
+			.unwrap();
+
+			let mut op = backend.begin_operation().unwrap();
+			backend.begin_state_operation(&mut op, blocks[block_number - 1]).unwrap();
+			op.mark_head(blocks[block_number - 1]).unwrap();
+			backend.commit_operation(op).unwrap();
+
+			let bc = backend.blockchain();
+			assert_eq!(
+				Some(vec![UncheckedXt::new_transaction(2.into(), ())]),
+				bc.body(fork_hash_root).unwrap()
+			);
+
+			for i in 1..block_number {
+				let mut op = backend.begin_operation().unwrap();
+				backend.begin_state_operation(&mut op, blocks[block_number - 1]).unwrap();
+				op.mark_finalized(blocks[i], None).unwrap();
+				backend.commit_operation(op).unwrap();
+			}
+
+			if matches!(pruning, BlocksPruning::Some { .. }) {
+				assert_eq!(None, bc.body(blocks[0]).unwrap());
+				assert_eq!(None, bc.body(blocks[1]).unwrap());
+				assert_eq!(None, bc.body(blocks[2]).unwrap());
+				assert_eq!(None, bc.body(blocks[3]).unwrap());
+				assert_eq!(None, bc.body(blocks[4]).unwrap());
+				assert_eq!(None, bc.body(blocks[5]).unwrap());
+
+				assert_eq!(
+					Some(vec![UncheckedXt::new_transaction(6.into(), ())]),
+					bc.body(blocks[6]).unwrap()
+				);
+				assert_eq!(
+					Some(vec![UncheckedXt::new_transaction(7.into(), ())]),
+					bc.body(blocks[7]).unwrap()
+				);
+			} else {
+				for i in 0..block_number {
+					assert_eq!(
+						Some(vec![UncheckedXt::new_transaction((i as u64).into(), ())],),
+						bc.body(blocks[i]).unwrap()
+					);
+				}
+			}
+
+			if matches!(pruning, BlocksPruning::KeepAll) {
+				assert_eq!(
+					Some(vec![UncheckedXt::new_transaction(2.into(), ())]),
+					bc.body(fork_hash_root).unwrap()
+				);
+				assert_eq!(
+					Some(vec![
+						UncheckedXt::new_transaction(3.into(), ()),
+						UncheckedXt::new_transaction(11.into(), ())
+					]),
+					bc.body(fork_hash_2).unwrap()
+				);
+			} else {
+				assert_eq!(None, bc.body(fork_hash_root).unwrap());
+				assert_eq!(None, bc.body(fork_hash_2).unwrap());
+			}
+
+			if matches!(pruning, BlocksPruning::KeepAll) {
+				assert!(bc.header(fork_hash_root).unwrap().is_some());
+				assert!(bc.header(fork_hash_2).unwrap().is_some());
+			} else {
+				assert!(bc.header(fork_hash_root).unwrap().is_none());
+				assert!(bc.header(fork_hash_2).unwrap().is_none());
+			}
+
+			if matches!(pruning, BlocksPruning::Some { .. }) {
+				assert!(bc.header(blocks[0]).unwrap().is_none());
+				assert!(bc.header(blocks[1]).unwrap().is_none());
+				assert!(bc.header(blocks[2]).unwrap().is_none());
+				assert!(bc.header(blocks[3]).unwrap().is_none());
+				assert!(bc.header(blocks[4]).unwrap().is_none());
+				assert!(bc.header(blocks[5]).unwrap().is_none());
+
+				assert!(bc.header(blocks[6]).unwrap().is_some());
+				assert!(bc.header(blocks[7]).unwrap().is_some());
+			} else {
+				for i in 0..block_number {
+					assert!(bc.header(blocks[i]).unwrap().is_some());
+				}
+			}
+
+			assert_eq!(bc.info().best_number, block_number as u64 - 1);
+		}
 	}
 }

@@ -1761,7 +1761,7 @@ fn returns_status_for_pruned_blocks() {
 			DatabaseSettings {
 				trie_cache_maximum_size: Some(1 << 20),
 				state_pruning: Some(PruningMode::blocks_pruning(1)),
-				blocks_pruning: BlocksPruning::KeepFinalized,
+				blocks_pruning: BlocksPruning::KeepFinalized { prune_headers: false },
 				source: DatabaseSource::RocksDb { path: tmp.path().into(), cache_size: 1024 },
 			},
 			u64::MAX,
