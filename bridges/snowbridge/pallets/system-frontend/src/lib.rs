@@ -257,7 +257,10 @@ pub mod pallet {
 			let ether_location = T::EthereumLocation::get();
 			let (tip_asset_location, tip_amount) = match asset {
 				Asset { id: AssetId(ref loc), fun: Fungibility::Fungible(amount) } => (loc, amount),
-				_ => return Err(Error::<T>::UnsupportedAsset.into()),
+				_ => {
+					tracing::error!(target: LOG_TARGET, ?asset, "error matching tip asset");
+					return Err(Error::<T>::UnsupportedAsset.into())
+				}
 			};
 
 			let ether_gained = if *tip_asset_location != ether_location {
@@ -267,7 +270,10 @@ pub mod pallet {
 					ether_location,
 					tip_amount,
 				)
-				.map_err(|_| Error::<T>::SwapError)?
+				.map_err(|e| {
+					tracing::error!(target: LOG_TARGET, ?e, "error swapping asset");
+					Error::<T>::SwapError
+				})?
 			} else {
 				tip_amount
 			};

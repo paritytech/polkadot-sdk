@@ -54,6 +54,8 @@ use xcm_executor::traits::ConvertLocation;
 #[cfg(feature = "runtime-benchmarks")]
 use frame_support::traits::OriginTrait;
 
+pub const LOG_TARGET: &str = "snowbridge-system-v2";
+
 pub type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
 #[cfg(feature = "runtime-benchmarks")]
 pub trait BenchmarkHelper<O>
@@ -261,7 +263,8 @@ pub mod pallet {
 				Outbound(nonce) => <T as pallet::Config>::OutboundQueue::add_tip(nonce, amount),
 			};
 
-			if let Err(_) = result {
+			if let Err(ref e) = result {
+				tracing::error!(target: LOG_TARGET, ?e, ?message_id, ?amount, "error adding tip");
 				LostTips::<T>::mutate(&sender, |lost_tip| {
 					*lost_tip = lost_tip.saturating_add(amount);
 				});
