@@ -250,7 +250,6 @@ impl<B: Backend> State<B> {
 		res: CollationFetchResponse,
 	) {
 		let advertisement = res.0;
-		let relay_parent = advertisement.relay_parent;
 
 		gum::trace!(
 			target: LOG_TARGET,
@@ -265,36 +264,38 @@ impl<B: Backend> State<B> {
 			CanSecond::Yes(candidate_receipt, pov, pvd) => {
 				sender
 					.send_message(CandidateBackingMessage::Second(
-						relay_parent,
+						candidate_receipt.descriptor.relay_parent(),
 						candidate_receipt,
 						pvd,
 						pov,
 					))
 					.await;
 
-				gum::trace!(
+				gum::debug!(
 					target: LOG_TARGET,
 					?advertisement,
 					"Started seconding"
 				);
 			},
-			CanSecond::No(maybe_slash, maybe_output_head_hash) => {
+			CanSecond::No(maybe_slash, reject_info) => {
 				if let Some(slash) = maybe_slash {
 					self.peer_manager.slash_reputation(
-						&advertisement.peer_id,
-						&advertisement.para_id,
+						&reject_info.peer_id,
+						&reject_info.para_id,
 						slash,
 					);
 				}
 
 				self.collation_manager.release_slot(
-					&advertisement.relay_parent,
-					advertisement.para_id,
-					advertisement.prospective_candidate.map(|p| p.candidate_hash).as_ref(),
-					maybe_output_head_hash,
+					&reject_info.relay_parent,
+					reject_info.para_id,
+					reject_info.maybe_candidate_hash.as_ref(),
+					reject_info.maybe_output_head_hash,
 				);
 			},
-			CanSecond::BlockedOnParent(_) => {},
+			CanSecond::BlockedOnParent(_, _) => {
+				// TODO: log
+			},
 		};
 	}
 
@@ -389,6 +390,54 @@ impl<B: Backend> State<B> {
 
 		notify_collation_seconded(sender, peer_id, *version, relay_parent, statement).await;
 
-		// TODO: handle unblocked_collations, much like we do in handle_fetched_collation
+		for can_second_unblocked in unblocked_collations {
+			match can_second_unblocked {
+				CanSecond::Yes(candidate_receipt, pov, pvd) => {
+					let relay_parent = candidate_receipt.descriptor.relay_parent();
+					let candidate_hash = candidate_receipt.hash();
+
+					sender
+						.send_message(CandidateBackingMessage::Second(
+							relay_parent,
+							candidate_receipt,
+							pvd,
+							pov,
+						))
+						.await;
+
+					gum::debug!(
+						target: LOG_TARGET,
+						?relay_parent,
+						?candidate_hash,
+						"Started seconding unblocked collation"
+					);
+				},
+				CanSecond::No(maybe_slash, reject_info) => {
+					if let Some(slash) = maybe_slash {
+						self.peer_manager.slash_reputation(
+							&reject_info.peer_id,
+							&reject_info.para_id,
+							slash,
+						);
+					}
+
+					self.collation_manager.release_slot(
+						&reject_info.relay_parent,
+						reject_info.para_id,
+						reject_info.maybe_candidate_hash.as_ref(),
+						reject_info.maybe_output_head_hash,
+					);
+				},
+				CanSecond::BlockedOnParent(_, reject_info) => {
+					// TODO: log. it was unblocked but somehow it still is blocked
+					self.collation_manager.release_slot(
+						&reject_info.relay_parent,
+						reject_info.para_id,
+						reject_info.maybe_candidate_hash.as_ref(),
+						reject_info.maybe_output_head_hash,
+					);
+				},
+			}
+		}
 	}
 }

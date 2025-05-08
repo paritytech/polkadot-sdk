@@ -219,6 +219,48 @@ impl ClaimQueueState {
 		)
 	}
 
+	pub(crate) fn mark_pending_slot_with_candidate(
+		&mut self,
+		relay_parent: &Hash,
+		para_id: &ParaId,
+		candidate_hash: CandidateHash,
+	) -> bool {
+		if self.candidates.get(relay_parent).map_or(false, |c| c.contains(&candidate_hash)) {
+			// there is already a claim for this candidate - return now
+			gum::trace!(
+				target: LOG_TARGET,
+				?para_id,
+				?relay_parent,
+				?candidate_hash,
+				"Claim already exists"
+			);
+			return true
+		}
+
+		let mut claim_found = false;
+		for info in self.block_state.iter_mut() {
+			if info.hash == Some(*relay_parent) &&
+				info.claim == Some(*para_id) &&
+				info.claimed == ClaimState::Pending(None)
+			{
+				info.claimed = ClaimState::Pending(Some(candidate_hash));
+
+				claim_found = true;
+				break
+			}
+		}
+
+		// Save the candidate hash
+		if claim_found {
+			self.candidates
+				.entry(*relay_parent)
+				.or_insert_with(HashSet::new)
+				.insert(candidate_hash);
+		}
+
+		claim_found
+	}
+
 	/// If there is a pending claim for the candidate at `relay_parent` it is upgraded to seconded.
 	/// Otherwise a new claim is made.
 	pub(crate) fn claim_seconded_at(
@@ -697,13 +739,38 @@ impl PerLeafClaimQueueState {
 	/// TODO
 	pub fn claim_pending_slot(
 		&mut self,
+		candidate_hash: Option<CandidateHash>,
+		relay_parent: &Hash,
+		para_id: &ParaId,
+	) -> bool {
+		let mut result = false;
+		for (leaf, state) in &mut self.leaves {
+			if state.claim_pending_at(relay_parent, para_id, candidate_hash) {
+				result = true;
+			}
+			gum::trace!(
+				target: LOG_TARGET,
+				?leaf,
+				?para_id,
+				?relay_parent,
+				maybe_candidate_hash = ?candidate_hash,
+				result,
+				"claim_pending_slot"
+			);
+		}
+		result
+	}
+
+	/// TODO
+	pub fn mark_pending_slot_with_candidate(
+		&mut self,
 		candidate_hash: &CandidateHash,
 		relay_parent: &Hash,
 		para_id: &ParaId,
 	) -> bool {
 		let mut result = false;
 		for (leaf, state) in &mut self.leaves {
-			if state.claim_pending_at(relay_parent, para_id, Some(*candidate_hash)) {
+			if state.mark_pending_slot_with_candidate(relay_parent, para_id, *candidate_hash) {
 				result = true;
 			}
 			gum::trace!(

@@ -184,9 +184,17 @@ pub enum CollationFetchError {
 }
 
 pub enum CanSecond {
-	No(Option<Score>, Option<Hash>),
+	No(Option<Score>, SecondingRejection),
 	Yes(CandidateReceipt, PoV, PersistedValidationData),
-	BlockedOnParent(Hash),
+	BlockedOnParent(Hash, SecondingRejection),
+}
+
+pub struct SecondingRejection {
+	pub relay_parent: Hash,
+	pub peer_id: PeerId,
+	pub para_id: ParaId,
+	pub maybe_output_head_hash: Option<Hash>,
+	pub maybe_candidate_hash: Option<CandidateHash>,
 }
 
 #[cfg(test)]
