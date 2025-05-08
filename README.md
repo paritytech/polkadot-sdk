@@ -17,11 +17,22 @@ forks](https://img.shields.io/github/forks/paritytech/polkadot-sdk)
 
 </div>
 
-## ⚡ Quickstart
-If you want to get an example node running quickly you can execute the following getting started script:
+## 🚀 Getting Started
 
-```
+We provide two ways to get started with the Polkadot SDK:
+
+### Quick Setup (Environment Only)
+To set up your development environment with the basic dependencies:
+
+```bash
 curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/scripts/getting-started.sh | bash
+```
+
+### Interactive Setup (Recommended)
+To set up your environment AND choose from our pre-configured templates (minimal node, parachain, or solochain):
+
+```bash
+curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/scripts/getting-started-full.sh | bash
 ```
 
 ## 📚 Documentation
