@@ -1927,6 +1927,8 @@ pub mod pallet {
 
 			// NOTE: ledger must be updated prior to calling `Self::weight_of`.
 			ledger.update()?;
+			let current_era = CurrentEra::<T>::get().unwrap_or(0);
+			Self::process_rebond_queue_request(current_era, value);
 			if T::VoterList::contains(&stash) {
 				let _ = T::VoterList::on_update(&stash, Self::weight_of(&stash));
 			}

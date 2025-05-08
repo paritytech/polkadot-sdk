@@ -928,7 +928,14 @@ impl<T: Config> Pallet<T> {
 		}
 	}
 
-	/// Gets an unbond era for an unbond request, and updates `back_of_unbonding_queue`.
+	/// Process an unbonding queue request and calculate the appropriate era when the unbonded
+	/// amount can be withdrawn
+	///
+	/// This function implements the unbonding queue mechanism that allows shorter unbonding periods
+	/// based on the value being unbonded relative to the maximum unstakeable amount.
+	///
+	/// The returned era will be between the minimum unbonding period and the maximum bonding
+	/// duration, based on the unbonding queue calculation.
 	pub(crate) fn process_unbond_queue_request(era: EraIndex, value: BalanceOf<T>) -> EraIndex {
 		if let Some(params) = UnbondingQueueParams::<T>::get() {
 			// Calculate unbonding era based on unbonding queue mechanism.
@@ -960,6 +967,26 @@ impl<T: Config> Pallet<T> {
 		} else {
 			// If unbond queue params are not set, return current era plus maximum bonding duration.
 			era.defensive_saturating_add(T::BondingDuration::get())
+		}
+	}
+
+	/// Process a rebonding queue request by adjusting the `back_of_unbonding_queue` value.
+	///
+	/// This function is called when a staker rebonds their stake, which reduces the effective
+	/// unbonding duration for future unbonding requests.
+	/// It reduces the `back_of_unbonding_queue` value based on the amount being rebonded.
+	pub(crate) fn process_rebond_queue_request(era: EraIndex, value: BalanceOf<T>) {
+		if let Some(params) = UnbondingQueueParams::<T>::get() {
+			let unbonding_delta = Self::get_unbonding_delta(value, params);
+			let normalized_era = normalize_era(era);
+			let back_of_unbonding_queue = params
+				.back_of_unbonding_queue
+				.saturating_sub(unbonding_delta)
+				.max(normalized_era);
+			UnbondingQueueParams::<T>::set(Some(UnbondingQueueConfig {
+				back_of_unbonding_queue,
+				..params
+			}));
 		}
 	}
 }

@@ -421,3 +421,110 @@ fn correct_unbond_era_is_being_calculated_without_config_set() {
 		assert_eq!(Staking::process_unbond_queue_request(current_era, 500), 1 + 3);
 	});
 }
+
+#[test]
+fn rebonding_should_reduce_back_of_unbonding_queue() {
+	ExtBuilder::default().build_and_execute(|| {
+		assert_ok!(Staking::set_staking_configs(
+			RuntimeOrigin::root(),
+			ConfigOp::Noop,
+			ConfigOp::Noop,
+			ConfigOp::Noop,
+			ConfigOp::Noop,
+			ConfigOp::Noop,
+			ConfigOp::Noop,
+			ConfigOp::Noop,
+			ConfigOp::Set(UnbondingQueueConfig {
+				min_slashable_share: Perbill::from_percent(50),
+				lowest_ratio: Perbill::from_percent(34),
+				unbond_period_lower_bound: 1,
+				// Start with the queue in the current era.
+				back_of_unbonding_queue: normalize_era(1),
+			})
+		));
+
+		// Start at era 1 with known minimum lowest stake
+		let current_era = Staking::current_era();
+		assert_eq!(current_era, 1);
+		assert_ok!(EraLowestRatioTotalStake::<Test>::try_append(1000));
+
+		// First unbond of 500 (max_unstake is 500, delta = 3)
+		let unbond_era = Staking::process_unbond_queue_request(current_era, 500);
+		assert_eq!(unbond_era, 1 + 3);
+		assert_eq!(
+			UnbondingQueueParams::<Test>::get().unwrap().back_of_unbonding_queue,
+			normalize_era(1) + normalize_era(3)
+		);
+
+		// Rebond 250 should reduce back_of_unbonding_queue by 1.5 eras.
+		Staking::process_rebond_queue_request(current_era, 250);
+		assert_eq!(
+			UnbondingQueueParams::<Test>::get().unwrap().back_of_unbonding_queue,
+			normalize_era(1) + 1500000000000
+		);
+
+		// Rebond remaining 250 should reduce back_of_unbonding_queue to its original value.
+		Staking::process_rebond_queue_request(current_era, 250);
+		assert_eq!(
+			UnbondingQueueParams::<Test>::get().unwrap().back_of_unbonding_queue,
+			normalize_era(1)
+		);
+	});
+}
+
+#[test]
+fn rebonding_after_one_era_should_reduce_back_of_unbonding_queue() {
+	ExtBuilder::default().build_and_execute(|| {
+		assert_ok!(Staking::set_staking_configs(
+			RuntimeOrigin::root(),
+			ConfigOp::Noop,
+			ConfigOp::Noop,
+			ConfigOp::Noop,
+			ConfigOp::Noop,
+			ConfigOp::Noop,
+			ConfigOp::Noop,
+			ConfigOp::Noop,
+			ConfigOp::Set(UnbondingQueueConfig {
+				min_slashable_share: Perbill::from_percent(50),
+				lowest_ratio: Perbill::from_percent(34),
+				unbond_period_lower_bound: 1,
+				// Start with the queue in the current era.
+				back_of_unbonding_queue: normalize_era(1),
+			})
+		));
+
+		// Start at era 1 with known minimum lowest stake
+		let current_era = Staking::current_era();
+		assert_eq!(current_era, 1);
+		assert_ok!(EraLowestRatioTotalStake::<Test>::try_append(1000));
+
+		// First unbond of 500 (max_unstake is 500, delta = 3)
+		let unbond_era = Staking::process_unbond_queue_request(current_era, 500);
+		assert_eq!(unbond_era, 1 + 3);
+		assert_eq!(
+			UnbondingQueueParams::<Test>::get().unwrap().back_of_unbonding_queue,
+			normalize_era(1) + normalize_era(3)
+		);
+
+		// Now the minimum is 500, not 1000.
+		assert_ok!(EraLowestRatioTotalStake::<Test>::try_append(500));
+
+		// Move to next era.
+		Session::roll_until_active_era(2);
+
+		// Rebond 250 should reduce back_of_unbonding_queue by the maximum of 3 eras, but it gets
+		// limited by the current era.
+		Staking::process_rebond_queue_request(2, 250);
+		assert_eq!(
+			UnbondingQueueParams::<Test>::get().unwrap().back_of_unbonding_queue,
+			normalize_era(2)
+		);
+
+		// Rebond remaining 250 should not reduce more the queue.
+		Staking::process_rebond_queue_request(2, 250);
+		assert_eq!(
+			UnbondingQueueParams::<Test>::get().unwrap().back_of_unbonding_queue,
+			normalize_era(2)
+		);
+	});
+}
