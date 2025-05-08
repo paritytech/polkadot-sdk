@@ -4,6 +4,7 @@ use crate::{mock::*, Error};
 use frame_support::{assert_err, assert_noop, assert_ok};
 use frame_system::RawOrigin;
 use snowbridge_core::{reward::MessageId, AssetMetadata, BasicOperatingMode};
+use snowbridge_test_utils::mock_swap_executor::TRIGGER_SWAP_ERROR_AMOUNT;
 use sp_keyring::sr25519::Keyring;
 use xcm::{
 	latest::{Assets, Error as XcmError, Location},
@@ -187,7 +188,7 @@ fn add_tip_non_ether_asset_succeeds() {
 fn add_tip_unsupported_asset_fails() {
 	new_test_ext().execute_with(|| {
 		let who: AccountId = Keyring::Alice.into();
-		let message_id = MessageId::Inbound(3);
+		let message_id = MessageId::Inbound(1);
 		let asset = Asset {
 			id: AssetId(Location::new(1, [Parachain(4000)])),
 			fun: Fungibility::NonFungible(AssetInstance::Array4([0u8; 4])),
@@ -228,6 +229,23 @@ fn add_tip_origin_not_signed_fails() {
 		assert_noop!(
 			EthereumSystemFrontend::add_tip(RuntimeOrigin::root(), message_id, asset),
 			sp_runtime::DispatchError::BadOrigin
+		);
+	});
+}
+
+#[test]
+fn tip_fails_due_to_swap_error() {
+	new_test_ext().execute_with(|| {
+		let who: AccountId = Keyring::Alice.into();
+		let message_id = MessageId::Inbound(6);
+		let non_ether_location = Location::new(1, [Parachain(3000)]);
+		// Use the special amount 12345 that will trigger a swap error in mock_swap_executor
+		let tip_amount = TRIGGER_SWAP_ERROR_AMOUNT;
+		let asset = Asset::from((non_ether_location.clone(), tip_amount));
+
+		assert_noop!(
+			EthereumSystemFrontend::add_tip(RuntimeOrigin::signed(who), message_id, asset),
+			Error::<Test>::SwapError
 		);
 	});
 }

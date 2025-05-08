@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2023 Snowfork <hello@snowfork.com>
 use crate::{mock::*, DispatchError::BadOrigin, *};
 use frame_support::{assert_noop, assert_ok};
+use snowbridge_test_utils::FAILING_NONCE;
 use sp_keyring::sr25519::Keyring;
 use xcm::{latest::WESTEND_GENESIS_HASH, prelude::*};
 
@@ -201,7 +202,7 @@ fn add_tip_inbound_fails_when_nonce_is_consumed() {
 		let sender: AccountId = Keyring::Alice.into();
 		// In `MockOkInboundQueue`, the mocked implementation returns an error when the nonce is
 		// equal to 3, to simulate an error condition.
-		let message_id = MessageId::Inbound(3u64);
+		let message_id = MessageId::Inbound(FAILING_NONCE);
 		let amount = 1000;
 
 		assert_ok!(EthereumSystemV2::add_tip(origin, sender.clone(), message_id.clone(), amount));
@@ -247,7 +248,7 @@ fn add_tip_outbound_fails_when_pending_order_not_found() {
 		let sender: AccountId = Keyring::Alice.into();
 		// In `MockOkOutboundQueue`, the mocked implementation returns an error when the nonce is
 		// equal to 3, to simulate an error condition.
-		let message_id = MessageId::Outbound(3);
+		let message_id = MessageId::Outbound(FAILING_NONCE);
 		let amount = 500;
 
 		assert_ok!(EthereumSystemV2::add_tip(origin, sender.clone(), message_id.clone(), amount));

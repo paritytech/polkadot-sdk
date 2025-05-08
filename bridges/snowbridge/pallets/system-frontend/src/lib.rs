@@ -260,7 +260,7 @@ pub mod pallet {
 				_ => {
 					tracing::error!(target: LOG_TARGET, ?asset, "error matching tip asset");
 					return Err(Error::<T>::UnsupportedAsset.into())
-				}
+				},
 			};
 
 			let ether_gained = if *tip_asset_location != ether_location {

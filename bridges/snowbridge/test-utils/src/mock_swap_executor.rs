@@ -6,7 +6,12 @@ use pallet_asset_conversion::Swap;
 use xcm::opaque::latest::Location;
 pub struct SwapExecutor;
 
-impl<AccountId> Swap<AccountId> for SwapExecutor {
+pub const TRIGGER_SWAP_ERROR_AMOUNT: u128 = 12345;
+
+impl<AccountId> Swap<AccountId> for SwapExecutor
+where
+	AccountId: AsRef<[u8; 32]>,
+{
 	type Balance = u128;
 	type AssetKind = Location;
 
@@ -17,11 +22,16 @@ impl<AccountId> Swap<AccountId> for SwapExecutor {
 	fn swap_exact_tokens_for_tokens(
 		_sender: AccountId,
 		_path: Vec<Self::AssetKind>,
-		_amount_in: Self::Balance,
+		amount_in: Self::Balance,
 		_amount_out_min: Option<Self::Balance>,
 		_send_to: AccountId,
 		_keep_alive: bool,
 	) -> Result<Self::Balance, DispatchError> {
+		// Special case for testing SwapError:
+		// If amount_in is exactly 12345, return an error
+		if amount_in == TRIGGER_SWAP_ERROR_AMOUNT {
+			return Err(DispatchError::Other("Swap failed for test"));
+		}
 		Ok(1_000_000_000u128)
 	}
 
