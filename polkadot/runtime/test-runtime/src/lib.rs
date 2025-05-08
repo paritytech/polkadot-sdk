@@ -53,7 +53,7 @@ use frame_support::{
 	genesis_builder_helper::{build_state, get_preset},
 	pallet_prelude::Get,
 	parameter_types,
-	traits::{KeyOwnerProofSystem, WithdrawReasons},
+	traits::{KeyOwnerProofSystem, WithdrawReasons, ConstU128},
 	PalletId,
 };
 use pallet_grandpa::{fg_primitives, AuthorityId as GrandpaId};
@@ -309,6 +309,16 @@ impl_opaque_keys! {
 	}
 }
 
+parameter_types! {
+    pub struct SessionKeysHoldReason;
+}
+
+impl Get<RuntimeHoldReason> for SessionKeysHoldReason {
+    fn get() -> RuntimeHoldReason {
+        RuntimeHoldReason::Session(pallet_session::SessionKeysHoldReason)
+    }
+}
+
 impl pallet_session::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type ValidatorId = AccountId;
@@ -320,6 +330,9 @@ impl pallet_session::Config for Runtime {
 	type Keys = SessionKeys;
 	type DisablingStrategy = pallet_session::disabling::UpToLimitWithReEnablingDisablingStrategy;
 	type WeightInfo = ();
+	type Currency = Balances;
+	type HoldReason = SessionKeysHoldReason;
+	type KeyDeposit = ConstU128<{ DOLLARS }>;
 }
 
 impl pallet_session::historical::Config for Runtime {

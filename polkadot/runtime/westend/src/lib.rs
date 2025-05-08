@@ -36,7 +36,7 @@ use frame_support::{
 	pallet_prelude::PhantomData,
 	parameter_types,
 	traits::{
-		fungible::HoldConsideration, tokens::UnityOrOuterConversion, ConstU32, Contains, EitherOf,
+		fungible::HoldConsideration, tokens::UnityOrOuterConversion, ConstU32, ConstU128, Contains, EitherOf,
 		EitherOfDiverse, EnsureOriginWithArg, EverythingBut, FromContains, InstanceFilter,
 		KeyOwnerProofSystem, LinearStoragePrice, Nothing, ProcessMessage, ProcessMessageError,
 		VariantCountOf, WithdrawReasons,
@@ -538,6 +538,9 @@ impl pallet_session::Config for Runtime {
 	type Keys = SessionKeys;
 	type DisablingStrategy = pallet_session::disabling::UpToLimitWithReEnablingDisablingStrategy;
 	type WeightInfo = weights::pallet_session::WeightInfo<Runtime>;
+	type Currency = Balances;
+	type HoldReason = RuntimeHoldReason;
+	type KeyDeposit = ConstU128<{ DOLLARS }>;
 }
 
 impl pallet_session::historical::Config for Runtime {

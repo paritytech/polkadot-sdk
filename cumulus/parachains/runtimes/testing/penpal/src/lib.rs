@@ -761,6 +761,9 @@ impl pallet_session::Config for Runtime {
 	type Keys = SessionKeys;
 	type DisablingStrategy = ();
 	type WeightInfo = ();
+	type Currency = Balances;
+	type HoldReason = RuntimeHoldReason;
+	type KeyDeposit = ConstU128<{ EXISTENTIAL_DEPOSIT }>;
 }
 
 impl pallet_aura::Config for Runtime {
