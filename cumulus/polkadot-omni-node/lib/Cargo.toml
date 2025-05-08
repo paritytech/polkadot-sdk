@@ -80,7 +80,9 @@ substrate-frame-rpc-system = { workspace = true, default-features = true }
 substrate-state-trie-migration-rpc = { workspace = true, default-features = true }
 
 # Polkadot
-polkadot-cli = { workspace = true, default-features = true, features = ["service"] }
+polkadot-cli = { workspace = true, default-features = true, features = [
+	"service",
+] }
 polkadot-primitives = { workspace = true, default-features = true }
 
 # Cumulus

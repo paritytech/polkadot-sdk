@@ -31,8 +31,8 @@
 //! ## Overview
 //!
 //! The pallet is quite unique since it does not expose any `Call`s, `Error`s or `Event`s. All
-//! interaction goes through the implemented [`StorageList`][frame_support::storage::StorageList]
-//! trait.
+//! interaction goes through the implemented
+//! [`StorageList`][frame::deps::frame_support::storage::StorageList] trait.
 //!
 //! A fuzzer for testing is provided in crate `pallet-paged-list-fuzzer`.
 //!
@@ -72,16 +72,12 @@ mod tests;
 extern crate alloc;
 
 use codec::FullCodec;
-use frame_support::{
-	pallet_prelude::StorageList,
-	traits::{PalletInfoAccess, StorageInstance},
-};
+use frame::{prelude::*, traits::StorageInstance};
 pub use paged_list::StoragePagedList;
 
-#[frame_support::pallet]
+#[frame::pallet]
 pub mod pallet {
 	use super::*;
-	use frame_support::pallet_prelude::*;
 
 	#[pallet::pallet]
 	pub struct Pallet<T, I = ()>(_);
