@@ -5,10 +5,12 @@ use snowbridge_core::reward::{AddTip, AddTipError};
 
 pub struct MockOkInboundQueue;
 
+const FAILING_NONCE: u64 = 3;
+
 impl AddTip for MockOkInboundQueue {
 	fn add_tip(nonce: u64, _amount: u128) -> Result<(), AddTipError> {
 		// Force an error condition
-		if nonce == 3 {
+		if nonce == FAILING_NONCE {
 			return Err(AddTipError::NonceConsumed)
 		}
 		Ok(())
