@@ -376,6 +376,10 @@ mod benches {
 		let region = Broker::<T>::do_purchase(caller.clone(), 10_000_000u32.into())
 			.expect("Offer not high enough for configuration.");
 
+		// Worst case has an existing provisional pool assignment.
+		Broker::<T>::do_pool(region, None, caller.clone(), Finality::Provisional)
+			.map_err(|_| BenchmarkError::Weightless)?;
+
 		#[extrinsic_call]
 		_(RawOrigin::Signed(caller), region, 2);
 
@@ -407,6 +411,10 @@ mod benches {
 
 		let region = Broker::<T>::do_purchase(caller.clone(), 10_000_000u32.into())
 			.expect("Offer not high enough for configuration.");
+
+		// Worst case has an existing provisional pool assignment.
+		Broker::<T>::do_pool(region, None, caller.clone(), Finality::Provisional)
+			.map_err(|_| BenchmarkError::Weightless)?;
 
 		#[extrinsic_call]
 		_(RawOrigin::Signed(caller), region, 0x00000_fffff_fffff_00000.into());
@@ -443,6 +451,10 @@ mod benches {
 
 		let region = Broker::<T>::do_purchase(caller.clone(), 10_000_000u32.into())
 			.expect("Offer not high enough for configuration.");
+
+		// Worst case has an existing provisional pool assignment.
+		Broker::<T>::do_pool(region, None, caller.clone(), Finality::Provisional)
+			.map_err(|_| BenchmarkError::Weightless)?;
 
 		#[extrinsic_call]
 		_(RawOrigin::Signed(caller), region, 1000, Provisional);
