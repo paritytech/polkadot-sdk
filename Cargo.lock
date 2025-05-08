@@ -15831,6 +15831,7 @@ dependencies = [
  "cumulus-relay-chain-interface",
  "cumulus-relay-chain-minimal-node",
  "cumulus-relay-chain-rpc-interface",
+ "cumulus-relay-chain-streams",
  "cumulus-test-relay-sproof-builder",
  "emulated-integration-tests-common",
  "fork-tree",
