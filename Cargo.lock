@@ -5083,6 +5083,7 @@ dependencies = [
  "subxt 0.38.1",
  "subxt-signer 0.38.0",
  "tokio",
+ "zombienet-orchestrator",
  "zombienet-sdk",
 ]
 
@@ -16706,6 +16707,7 @@ dependencies = [
  "subxt-signer 0.38.0",
  "tokio",
  "tokio-util",
+ "zombienet-orchestrator",
  "zombienet-sdk",
 ]
 
