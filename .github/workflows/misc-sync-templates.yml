@@ -179,19 +179,6 @@ jobs:
           echo "$(toml get -r ./runtime/Cargo.toml 'package.name') = { path = \"./runtime\", default-features = false }" >> Cargo.toml
           echo "$(toml get -r ./pallets/template/Cargo.toml 'package.name') = { path = \"./pallets/template\", default-features = false }" >> Cargo.toml
 
-          # Add profile configurations
-          cat << EOF >> Cargo.toml
-
-          [profile.release]
-          opt-level = 3
-          panic = "unwind"
-
-          [profile.production]
-          codegen-units = 1
-          inherits = "release"
-          lto = true
-          EOF
-
         shell: bash
         working-directory: polkadot-sdk/templates/${{ matrix.template }}/
       - name: Update workspace configuration
@@ -244,6 +231,24 @@ jobs:
             # And copy the dependency from the monorepo.
             toml get ../polkadot-sdk/Cargo.toml 'workspace.dependencies' --output-toml | grep "^${missing_dep} = " >> Cargo.toml
           done;
+        working-directory: "${{ env.template-path }}"
+
+      - name: Add build profiles
+        run: |
+          # Add profile configurations to resulting Cargo.toml
+          cat << EOF >> Cargo.toml
+
+          [profile.release]
+          opt-level = 3
+          panic = "unwind"
+
+          [profile.production]
+          codegen-units = 1
+          inherits = "release"
+          lto = true
+
+          EOF
+          
         working-directory: "${{ env.template-path }}"
 
       - name: Print the result Cargo.tomls for debugging after copying required workspace dependencies
