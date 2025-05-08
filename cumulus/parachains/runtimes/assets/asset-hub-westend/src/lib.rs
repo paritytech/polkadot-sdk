@@ -170,9 +170,6 @@ parameter_types! {
 		.avg_block_initialization(AVERAGE_ON_INITIALIZE_RATIO)
 		.build_or_panic();
 	pub const SS58Prefix: u8 = 42;
-	pub RandomParaId: ParaId = ParaId::new(43211234);
-	pub RandomParaLocation: Location = ParentThen(Parachain(
-		RandomParaId::get().into()).into()).into();
 }
 
 // Configure FRAME pallets to include in runtime.
@@ -1917,7 +1914,9 @@ impl_runtime_apis! {
 			}
 
 			use cumulus_pallet_session_benchmarking::Pallet as SessionBench;
-			use xcm_config::{MaxAssetsIntoHolding, WestendLocation};
+			use xcm_config::{MaxAssetsIntoHolding, WestendLocation, AssetHubId,
+			AssetHubParaLocation};
+
 			impl cumulus_pallet_session_benchmarking::Config for Runtime {}
 
 			parameter_types! {
@@ -1925,20 +1924,34 @@ impl_runtime_apis! {
 					WestendLocation::get(),
 					ExistentialDeposit::get()
 				).into());
+
+				// reserve-based transfer cases. non-system parachain i.e. id >= 2000
+				pub RandomParaId: ParaId = ParaId::new(3333);
+				pub RandomParaLocation: Location = ParentThen(Parachain(
+					RandomParaId::get().into()).into()).into();
+				pub AssetHubParaId: ParaId = ParaId::new(AssetHubId::get());
 			}
 
 			use pallet_xcm::benchmarking::Pallet as PalletXcmExtrinsicsBenchmark;
 			impl pallet_xcm::benchmarking::Config for Runtime {
-				type DeliveryHelper = polkadot_runtime_common::xcm_sender::ToParachainDeliveryHelper<
+				type DeliveryHelper = (
+				polkadot_runtime_common::xcm_sender::ToParachainDeliveryHelper<
 						xcm_config::XcmConfig,
 						ExistentialDepositAsset,
 						PriceForSiblingParachainDelivery,
 						RandomParaId,
 						ParachainSystem
-					>;
+					>,
+				polkadot_runtime_common::xcm_sender::ToParachainDeliveryHelper<
+						xcm_config::XcmConfig,
+						ExistentialDepositAsset,
+						PriceForSiblingParachainDelivery,
+						AssetHubParaId,
+						ParachainSystem
+					>);
 
 				fn reachable_dest() -> Option<Location> {
-					Some(RandomParaLocation::get())
+					Some(AssetHubParaLocation::get())
 				}
 
 				fn teleportable_asset_and_dest() -> Option<(Asset, Location)> {
@@ -1948,7 +1961,7 @@ impl_runtime_apis! {
 							fun: Fungible(ExistentialDeposit::get()),
 							id: AssetId(WestendLocation::get())
 						},
-						RandomParaLocation::get(),
+						AssetHubParaLocation::get(),
 					))
 				}
 
@@ -1968,7 +1981,7 @@ impl_runtime_apis! {
 					// Transfer to Relay some local AH asset (local-reserve-transfer) while paying
 					// fees using teleported native token.
 					// (We don't care that Relay doesn't accept incoming unknown AH local asset)
-					let dest: Location = Some(RandomParaLocation::get()).unwrap();
+					let dest: Location = Some(AssetHubParaLocation::get()).unwrap();
 
 					let fee_amount = EXISTENTIAL_DEPOSIT;
 					let fee_asset: Asset = (WestendLocation::get(), fee_amount).into();
@@ -2078,14 +2091,14 @@ impl_runtime_apis! {
 				type XcmConfig = xcm_config::XcmConfig;
 				type AccountIdConverter = xcm_config::LocationToAccountId;
 				type DeliveryHelper = polkadot_runtime_common::xcm_sender::ToParachainDeliveryHelper<
-						xcm_config::XcmConfig,
-						ExistentialDepositAsset,
-						PriceForSiblingParachainDelivery,
-						RandomParaId,
-						ParachainSystem
-					>;
+										xcm_config::XcmConfig,
+										ExistentialDepositAsset,
+										PriceForSiblingParachainDelivery,
+										AssetHubParaId,
+										ParachainSystem
+				>;
 				fn valid_destination() -> Result<Location, BenchmarkError> {
-					let dest: Location = Some(RandomParaLocation::get()).unwrap();
+					let dest: Location = Some(AssetHubParaLocation::get()).unwrap();
 					Ok(dest)
 				}
 				fn worst_case_holding(depositable_count: u32) -> XcmAssets {
@@ -2113,14 +2126,14 @@ impl_runtime_apis! {
 
 			parameter_types! {
 				pub TrustedTeleporter: Option<(Location, Asset)> = Some((
-					RandomParaLocation::get(),
+					AssetHubParaLocation::get(),
 					Asset { fun: Fungible(UNITS), id: AssetId(WestendLocation::get()) },
 				));
 				pub const CheckedAccount: Option<(AccountId, xcm_builder::MintLocation)> = None;
 				// AssetHubWestend trusts AssetHubRococo as reserve for ROCs
 				pub TrustedReserve: Option<(Location, Asset)> = Some(
 					(
-						xcm_config::bridging::to_rococo::AssetHubRococo::get(),
+						RandomParaLocation::get(),
 						Asset::from((xcm_config::bridging::to_rococo::RocLocation::get(), 1000000000000 as u128))
 					)
 				);
