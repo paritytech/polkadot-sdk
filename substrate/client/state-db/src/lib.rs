@@ -22,7 +22,6 @@
 //! Canonicalization window tracks a tree of blocks identified by header hash. The in-memory
 //! overlay allows to get any trie node that was inserted in any of the blocks within the window.
 //! The overlay is journaled to the backing database and rebuilt on startup.
-//! There's a limit of 32 blocks that may have the same block number in the canonicalization window.
 //!
 //! Canonicalization function selects one root from the top of the tree and discards all other roots
 //! and their subtrees. Upon canonicalization all trie nodes that were inserted in the block are
@@ -135,8 +134,6 @@ pub enum StateDbError {
 	InvalidParent,
 	/// Invalid pruning mode specified. Contains expected mode.
 	IncompatiblePruningModes { stored: PruningMode, requested: PruningMode },
-	/// Too many unfinalized sibling blocks inserted.
-	TooManySiblingBlocks { number: u64 },
 	/// Trying to insert existing block.
 	BlockAlreadyExists,
 	/// Invalid metadata
@@ -187,9 +184,6 @@ impl fmt::Debug for StateDbError {
 				"Incompatible pruning modes [stored: {:?}; requested: {:?}]",
 				stored, requested
 			),
-			Self::TooManySiblingBlocks { number } => {
-				write!(f, "Too many sibling blocks at #{number} inserted")
-			},
 			Self::BlockAlreadyExists => write!(f, "Block already exists"),
 			Self::Metadata(message) => write!(f, "Invalid metadata: {}", message),
 			Self::BlockUnavailable => {
