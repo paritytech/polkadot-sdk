@@ -18,7 +18,7 @@
 // Migrations for Multisig Pallet
 
 use crate::*;
-use frame::prelude::*;
+use frame::migrations_prelude::*;
 
 pub mod v1 {
 	use super::*;
@@ -36,7 +36,7 @@ pub mod v1 {
 	pub struct MigrateToV1<T>(core::marker::PhantomData<T>);
 	impl<T: Config> OnRuntimeUpgrade for MigrateToV1<T> {
 		#[cfg(feature = "try-runtime")]
-		fn pre_upgrade() -> Result<Vec<u8>, frame::try_runtime::TryRuntimeError> {
+		fn pre_upgrade() -> Result<Vec<u8>, TryRuntimeError> {
 			log!(info, "Number of calls to refund and delete: {}", Calls::<T>::iter().count());
 
 			Ok(Vec::new())
@@ -69,7 +69,7 @@ pub mod v1 {
 		}
 
 		#[cfg(feature = "try-runtime")]
-		fn post_upgrade(_state: Vec<u8>) -> Result<(), frame::try_runtime::TryRuntimeError> {
+		fn post_upgrade(_state: Vec<u8>) -> Result<(), TryRuntimeError> {
 			ensure!(
 				Calls::<T>::iter().count() == 0,
 				"there are some dangling calls that need to be destroyed and refunded"
