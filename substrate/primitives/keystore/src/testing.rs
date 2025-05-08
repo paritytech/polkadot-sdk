@@ -57,9 +57,12 @@ impl MemoryKeystore {
 			.read()
 			.get(&key_type)
 			.map(|keys| {
-				keys.values()
-					.map(|s| T::from_string(s, None).expect("seed slice is valid"))
-					.map(|p| p.public())
+				keys.iter()
+					.filter_map(|(raw_pubkey, s)| {
+						let pair = T::from_string(s, None).expect("seed slice is valid");
+						let pubkey = pair.public();
+						(pubkey.as_slice() == raw_pubkey).then_some(pubkey)
+					})
 					.collect()
 			})
 			.unwrap_or_default()
@@ -565,8 +568,6 @@ mod tests {
 		let bls381_keys = store.bls381_public_keys(ECDSA_BLS381);
 		let ecdsa_bls381_keys = store.ecdsa_bls381_public_keys(ECDSA_BLS381);
 
-		// Why would these values neext to be 3 and not 1 especially because the client keystore
-		// has them at 1????
 		assert_eq!(ecdsa_keys.len(), 1);
 		assert_eq!(bls381_keys.len(), 1);
 		assert_eq!(ecdsa_bls381_keys.len(), 1);
