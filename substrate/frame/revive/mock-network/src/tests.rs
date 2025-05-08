@@ -25,9 +25,9 @@ use frame_support::traits::{fungibles::Mutate, Currency};
 use frame_system::RawOrigin;
 use pallet_revive::precompiles::custom::IXcm;
 use pallet_revive::{
+	precompiles::alloy::sol_types::SolInterface,
 	test_utils::{self, builder::*},
 	Code, DepositLimit, ExecReturnValue,
-	precompiles::alloy::sol_types::SolInterface,
 };
 use pallet_revive_fixtures::compile_module;
 use pallet_revive_uapi::{ReturnErrorCode, ReturnFlags};
@@ -151,7 +151,6 @@ fn test_xcm_execute_reentrant_call() {
 			value: 0u128,
 		});
 
-		// The XCM used to transfer funds to Bob.
 		let message: Xcm<parachain::RuntimeCall> = Xcm::builder_unsafe()
 			.transact(OriginKind::Native, 1_000_000_000, transact_call.encode())
 			.expect_transact_status(MaybeErrorCode::Success)
@@ -207,47 +206,12 @@ fn test_xcm_send() {
 }
 
 #[test]
-fn test_xcm_execute_precompile() {
-	MockNet::reset();
-	let amount: u128 = 10 * CENTS;
-	
-	ParaA::execute_with(|| {
-		let initial_bob_balance = ParachainBalances::free_balance(BOB);
-		let assets: Asset = (Here, amount).into();
-		let beneficiary = AccountId32 { network: None, id: BOB.clone().into() };
-
-		let message: Xcm<()> = Xcm::builder_unsafe()
-			.withdraw_asset(assets.clone())
-			.deposit_asset(assets, beneficiary)
-			.build();
-
-		let xcm_execute_params =
-			IXcm::xcmExecuteCall { message: VersionedXcm::V4(message).encode().into() };
-
-		let call = IXcm::IXcmCalls::xcmExecute(xcm_execute_params);
-		let encoded_call = call.abi_encode();
-		let results = bare_call(to_fixed_non_zero(10)).data(encoded_call).build();
-		let result = match results.result {
-			Ok(value) => value,
-			Err(_) => ExecReturnValue { flags: ReturnFlags::REVERT, data: Vec::new() },
-		};
-
-		let final_bob_balance = ParachainBalances::free_balance(BOB);
-
-		assert!(result.flags != ReturnFlags::REVERT, "Transaction failed");
-		assert_eq!(
-			final_bob_balance,
-			initial_bob_balance + amount,
-			"Bob's balance should increase by the specified amount"
-		);
-	});
-}
-
-#[test]
 fn test_xcm_execute_reentrant_call_via_precompile() {
 	MockNet::reset();
-	
+
 	ParaA::execute_with(|| {
+		let initial_bob_balance = ParachainBalances::free_balance(BOB);
+
 		let transact_call = parachain::RuntimeCall::Contracts(pallet_revive::Call::call {
 			dest: to_fixed_non_zero(10),
 			gas_limit: 1_000_000.into(),
@@ -255,7 +219,7 @@ fn test_xcm_execute_reentrant_call_via_precompile() {
 			data: vec![],
 			value: 0u128,
 		});
-		
+
 		let message: Xcm<parachain::RuntimeCall> = Xcm::builder_unsafe()
 			.transact(OriginKind::Native, 1_000_000_000, transact_call.encode())
 			.expect_transact_status(MaybeErrorCode::Success)
@@ -272,9 +236,14 @@ fn test_xcm_execute_reentrant_call_via_precompile() {
 			Err(_) => ExecReturnValue { flags: ReturnFlags::REVERT, data: Vec::new() },
 		};
 
-		// We expect the call to revert since it's a reentrant call
-		assert_eq!(result.flags, ReturnFlags::REVERT);
-		assert_eq!(ParachainBalances::free_balance(BOB), INITIAL_BALANCE);
+		let final_bob_balance = ParachainBalances::free_balance(BOB);
+
+		assert_eq!(
+			result.flags,
+			ReturnFlags::REVERT,
+			"Expected transaction to revert due to reentrant call"
+		);
+		assert_eq!(final_bob_balance, initial_bob_balance, "Bob's balance should remain unchanged");
 	});
 }
 
@@ -282,12 +251,14 @@ fn test_xcm_execute_reentrant_call_via_precompile() {
 fn test_xcm_execute_incomplete_call_via_precompile() {
 	MockNet::reset();
 	let amount = 10 * CENTS;
-	
+
 	ParaA::execute_with(|| {
+		let initial_bob_balance = ParachainBalances::free_balance(BOB);
+		let initial_alice_balance = ParachainBalances::free_balance(ALICE);
+
 		let assets: Asset = (Here, amount).into();
 		let beneficiary = AccountId32 { network: None, id: BOB.clone().into() };
 
-		// The XCM used to transfer funds to Bob.
 		let message: Xcm<()> = Xcm::builder_unsafe()
 			.withdraw_asset(assets.clone())
 			// This will fail as the contract does not have enough balance to complete both
@@ -302,16 +273,57 @@ fn test_xcm_execute_incomplete_call_via_precompile() {
 
 		let call = IXcm::IXcmCalls::xcmExecute(xcm_execute_params);
 		let encoded_call = call.abi_encode();
-		let results = bare_call(to_fixed_non_zero(10)).data(encoded_call).build();
-		let result = match results.result {
-			Ok(value) => value,
-			Err(_) => ExecReturnValue { flags: ReturnFlags::REVERT, data: Vec::new() },
-		};
-		
-		assert_eq!(results.gas_consumed, results.gas_required);
-		// We expect the call to revert due to insufficient balance
-		assert_eq!(result.flags, ReturnFlags::REVERT);
-		assert_eq!(ParachainBalances::free_balance(BOB), INITIAL_BALANCE);
+		bare_call(to_fixed_non_zero(10)).data(encoded_call).build();
+
+		let final_bob_balance = ParachainBalances::free_balance(BOB);
+		let final_alice_balance = ParachainBalances::free_balance(ALICE);
+
+		assert_eq!(final_bob_balance, initial_bob_balance, "Bob's balance should remain unchanged");
+		assert_eq!(
+			final_alice_balance, initial_alice_balance,
+			"Alice's balance should remain unchanged"
+		);
+	});
+}
+
+#[test]
+fn test_xcm_execute_precompile() {
+	MockNet::reset();
+	let amount: u128 = 10 * CENTS;
+
+	ParaA::execute_with(|| {
+		let initial_alice_balance = ParachainBalances::free_balance(ALICE);
+		let initial_bob_balance = ParachainBalances::free_balance(BOB);
+
+		let assets: Asset = (Here, amount).into();
+		let beneficiary = AccountId32 { network: None, id: BOB.clone().into() };
+
+		let message: Xcm<()> = Xcm::builder_unsafe()
+			.withdraw_asset(assets.clone())
+			.deposit_asset(assets, beneficiary)
+			.build();
+
+		let xcm_execute_params =
+			IXcm::xcmExecuteCall { message: VersionedXcm::V4(message).encode().into() };
+
+		let call = IXcm::IXcmCalls::xcmExecute(xcm_execute_params);
+		let encoded_call = call.abi_encode();
+
+		bare_call(to_fixed_non_zero(10)).data(encoded_call).build();
+
+		let final_alice_balance = ParachainBalances::free_balance(ALICE);
+		let final_bob_balance = ParachainBalances::free_balance(BOB);
+
+		assert_eq!(
+			final_bob_balance,
+			initial_bob_balance + amount,
+			"Bob's balance should increase by the specified amount"
+		);
+		assert_eq!(
+			final_alice_balance,
+			initial_alice_balance - amount,
+			"Alice's balance should decrease by the specified amount"
+		);
 	});
 }
 
@@ -320,7 +332,66 @@ fn test_xcm_send_precompile() {
 	MockNet::reset();
 	let amount = 1_000 * CENTS;
 	let fee: u128 = parachain::estimate_message_fee(4);
-	
+
+	let sovereign_account_id = ParaA::execute_with(|| {
+		let sovereign_account_id = parachain_account_sovereign_account_id(1, ALICE.clone());
+		let initial_sovereign_balance =
+			Relay::execute_with(|| relay_chain::Balances::free_balance(&sovereign_account_id));
+
+		let initial_alice_relay_balance =
+			Relay::execute_with(|| relay_chain::Balances::free_balance(ALICE));
+
+		let dest = VersionedLocation::V4(Parent.into());
+		let assets: Asset = (Here, amount).into();
+		let beneficiary = AccountId32 { network: None, id: ALICE.clone().into() };
+
+		let message: Xcm<()> = Xcm::builder()
+			.withdraw_asset(assets.clone())
+			.buy_execution((Here, fee), Unlimited)
+			.deposit_asset(assets, beneficiary)
+			.build();
+
+		let xcm_send_params = IXcm::xcmSendCall {
+			destination: dest.encode().into(),
+			message: VersionedXcm::V4(message).encode().into(),
+		};
+
+		let call = IXcm::IXcmCalls::xcmSend(xcm_send_params);
+		let encoded_call = call.abi_encode();
+		let results = bare_call(to_fixed_non_zero(10)).data(encoded_call).build();
+		let result = results.result.expect("Transaction should succeed");
+		let mut data = &result.data[..];
+		XcmHash::decode(&mut data).expect("Failed to decode xcm_send message_id");
+		(sovereign_account_id, initial_sovereign_balance, initial_alice_relay_balance)
+	});
+
+	Relay::execute_with(|| {
+		let (sovereign_account_id, initial_sovereign_balance, initial_alice_relay_balance) =
+			sovereign_account_id;
+
+		let final_sovereign_balance = relay_chain::Balances::free_balance(&sovereign_account_id);
+		assert_eq!(
+			final_sovereign_balance,
+			initial_sovereign_balance - amount,
+			"Sovereign account balance should decrease by the amount sent"
+		);
+
+		let final_alice_balance = relay_chain::Balances::free_balance(ALICE);
+		assert_eq!(
+			final_alice_balance,
+			initial_alice_relay_balance + amount - fee,
+			"Alice's balance should increase by amount minus fee"
+		);
+	});
+}
+
+#[test]
+fn test_xcm_send_precompile_via_fixture() {
+	MockNet::reset();
+	let amount = 1_000 * CENTS;
+	let fee: u128 = parachain::estimate_message_fee(4);
+	let Contract { addr, .. } = instantiate_test_contract("call_and_return");
+
 	ParaA::execute_with(|| {
 		let dest = VersionedLocation::V4(Parent.into());
 		let assets: Asset = (Here, amount).into();
@@ -339,7 +410,15 @@ fn test_xcm_send_precompile() {
 
 		let call = IXcm::IXcmCalls::xcmSend(xcm_send_params);
 		let encoded_call = call.abi_encode();
-		let result = bare_call(to_fixed_non_zero(10)).data(encoded_call).build_and_unwrap_result();
+		let result = bare_call(addr)
+			.data(
+				(to_fixed_non_zero(10), 5000u64)
+					.encode()
+					.into_iter()
+					.chain(encoded_call)
+					.collect::<Vec<_>>(),
+			)
+			.build_and_unwrap_result();
 		let mut data = &result.data[..];
 		XcmHash::decode(&mut data).expect("Failed to decode xcm_send message_id");
 	});

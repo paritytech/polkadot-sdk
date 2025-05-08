@@ -31,7 +31,7 @@ pub struct XCMPrecompile<T>(PhantomData<T>);
 
 sol! {
 	/// @title Defines all functions that can be used to interact with XCM
-	/// @author brianspha
+	/// @author Tiago Bandeira
 	/// @dev Parameters MUST use SCALE codec serialisation
 	interface IXcm {
 		/// @notice Execute an XCM message locally with the caller's origin
