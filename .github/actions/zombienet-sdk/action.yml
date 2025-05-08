@@ -68,5 +68,5 @@ runs:
       with:
         name: zombienet-logs-${{ github.job }}-${{ github.sha }}
         path: |
-          /tmp/zombie*/logs/*
+          /tmp/zombie*/*/*.log
 
