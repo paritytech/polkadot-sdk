@@ -21,7 +21,7 @@ use super::*;
 
 #[test]
 fn simple_passing_should_work() {
-	new_test_ext().execute_with(|| {
+	ExtBuilder::default().build_and_execute(|| {
 		let r = Democracy::inject_referendum(
 			2,
 			set_balance_proposal(2),
@@ -40,7 +40,7 @@ fn simple_passing_should_work() {
 
 #[test]
 fn simple_failing_should_work() {
-	new_test_ext().execute_with(|| {
+	ExtBuilder::default().build_and_execute(|| {
 		let r = Democracy::inject_referendum(
 			2,
 			set_balance_proposal(2),
@@ -59,7 +59,7 @@ fn simple_failing_should_work() {
 
 #[test]
 fn ooo_inject_referendums_should_work() {
-	new_test_ext().execute_with(|| {
+	ExtBuilder::default().build_and_execute(|| {
 		let r1 = Democracy::inject_referendum(
 			3,
 			set_balance_proposal(3),
@@ -91,7 +91,7 @@ fn ooo_inject_referendums_should_work() {
 
 #[test]
 fn delayed_enactment_should_work() {
-	new_test_ext().execute_with(|| {
+	ExtBuilder::default().build_and_execute(|| {
 		let r = Democracy::inject_referendum(
 			2,
 			set_balance_proposal(2),
@@ -117,7 +117,7 @@ fn delayed_enactment_should_work() {
 
 #[test]
 fn lowest_unbaked_should_be_sensible() {
-	new_test_ext().execute_with(|| {
+	ExtBuilder::default().build_and_execute(|| {
 		let r1 = Democracy::inject_referendum(
 			3,
 			set_balance_proposal(1),
