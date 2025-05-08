@@ -207,8 +207,8 @@ pub mod prelude {
 		traits::{
 			Contains, Defensive, DefensiveSaturating, EitherOf, EstimateNextSessionRotation,
 			Everything, InsideBoth, InstanceFilter, IsSubType, MapSuccess, NoOpPoll,
-			OnRuntimeUpgrade, OneSessionHandler, RankedMembers, RankedMembersSwapHandler,
-			VariantCount, VariantCountOf,
+			OnRuntimeUpgrade, OneSessionHandler, PalletInfoAccess, RankedMembers,
+			RankedMembersSwapHandler, VariantCount, VariantCountOf,
 		},
 		PalletId,
 	};
@@ -297,6 +297,7 @@ pub mod benchmarking {
 			add_benchmark, benchmarking::add_to_whitelist, v1::account, v2::*, whitelist,
 			whitelisted_caller,
 		};
+		pub use frame_support::traits::UnfilteredDispatchable;
 		pub use frame_system::{Pallet as System, RawOrigin};
 	}
 }
@@ -340,9 +341,11 @@ pub mod testing_prelude {
 	/// Other helper macros from `frame_support` that help with asserting in tests.
 	pub use frame_support::{
 		assert_err, assert_err_ignore_postinfo, assert_error_encoded_size, assert_noop, assert_ok,
-		assert_storage_noop, ensure, hypothetically, storage_alias,
+		assert_storage_noop, defensive, ensure, hypothetically, hypothetically_ok, storage_alias,
+		StorageNoopGuard,
 	};
 
+	pub use frame_support::traits::Everything;
 	pub use frame_system::{self, mocking::*, RunToBlockHooks};
 
 	#[deprecated(note = "Use `frame::testing_prelude::TestState` instead.")]
@@ -512,6 +515,7 @@ pub mod runtime {
 		///
 		/// crucially, this does NOT contain any tx-payment extension.
 		pub type SystemTransactionExtensionsOf<T> = (
+			frame_system::AuthorizeCall<T>,
 			frame_system::CheckNonZeroSender<T>,
 			frame_system::CheckSpecVersion<T>,
 			frame_system::CheckTxVersion<T>,
