@@ -63,7 +63,7 @@ pub enum EthereumSystemCall {
 		asset_id: Box<VersionedLocation>,
 		metadata: AssetMetadata,
 	},
-	#[codec(index = 5)]
+	#[codec(index = 2)]
 	AddTip { sender: AccountIdOf<T>, message_id: MessageId, amount: u128 },
 }
 
