@@ -24,26 +24,25 @@ use alloc::vec::Vec;
 use alloy_core::sol;
 use codec::{DecodeAll, Encode};
 use core::{marker::PhantomData, num::NonZero};
-use log::trace;
 use xcm_builder::{ExecuteController, ExecuteControllerWeightInfo, SendController};
 pub use IXcm::IXcmCalls;
 
 pub struct XCMPrecompile<T>(PhantomData<T>);
 
 sol! {
-    /// @title Defines all functions that can be used to interact with XCM
-    /// @author brianspha
-    /// @dev Parameters MUST use SCALE codec serialisation
-    interface IXcm {
-        /// @notice Execute an XCM message locally with the caller's origin
-        /// @param message The XCM message to send
-        function xcmExecute(bytes calldata message) external;
+	/// @title Defines all functions that can be used to interact with XCM
+	/// @author brianspha
+	/// @dev Parameters MUST use SCALE codec serialisation
+	interface IXcm {
+		/// @notice Execute an XCM message locally with the caller's origin
+		/// @param message The XCM message to send
+		function xcmExecute(bytes calldata message) external;
 
-        /// @notice Send an XCM message to a destination chain
-        /// @param destination The destination location, encoded according to the XCM format
-        /// @param message The XCM message to send
-        function xcmSend(bytes calldata destination, bytes calldata message) external;
-    }
+		/// @notice Send an XCM message to a destination chain
+		/// @param destination The destination location, encoded according to the XCM format
+		/// @param message The XCM message to send
+		function xcmSend(bytes calldata destination, bytes calldata message) external;
+	}
 }
 
 impl<T: Config> Precompile for XCMPrecompile<T> {
@@ -61,7 +60,9 @@ impl<T: Config> Precompile for XCMPrecompile<T> {
 		let origin = env.origin();
 		let xcm_origin = match origin {
 			Origin::Root => frame_system::RawOrigin::Root.into(),
-			Origin::Signed(account_id) => frame_system::RawOrigin::Signed(account_id.clone()).into(),
+			Origin::Signed(account_id) => {
+				frame_system::RawOrigin::Signed(account_id.clone()).into()
+			},
 		};
 
 		match input {
@@ -78,10 +79,7 @@ impl<T: Config> Precompile for XCMPrecompile<T> {
 					final_destination.into(),
 					final_message.into(),
 				)
-				.map(|message_id| {
-					trace!("message_id.encode(): {:?}", &message_id.encode());
-					message_id.encode()
-				})
+				.map(|message_id| message_id.encode())
 				.map_err(|_| {
 					Error::Revert(
 						"XCM send failed: destination or message format may be incompatible".into(),
@@ -94,12 +92,14 @@ impl<T: Config> Precompile for XCMPrecompile<T> {
 
 				let weight_limit =
 					<<T as Config>::Xcm as ExecuteController<_, _>>::WeightInfo::execute();
-				
+
 				<<T as Config>::Xcm>::execute(xcm_origin, final_message.into(), weight_limit)
 					.map(|results| results.encode())
-					.map_err(|_| Error::Revert(
+					.map_err(|_| {
+						Error::Revert(
 						"XCM execute failed: message may be invalid or execution constraints not satisfied".into()
-					))
+					)
+					})
 			},
 		}
 	}
