@@ -61,9 +61,12 @@ impl RuntimePublic for Public {
 	fn generate_proof_of_possession(&mut self, key_type: KeyTypeId) -> Option<Self::Signature> {
 		let pub_key_as_bytes = self.to_raw_vec();
 		let (ecdsa_pub_as_bytes, bls381_pub_as_bytes) = split_pub_key_bytes(&pub_key_as_bytes)?;
-		let ecdsa_proof_of_possession = generate_ecdsa_proof_of_possession(key_type, ecdsa_pub_as_bytes)?;
-		let bls381_proof_of_possession = generate_bls381_proof_of_possession(key_type, bls381_pub_as_bytes)?;
-		let combined_proof_of_possession_raw = combine_proof_of_possession(&ecdsa_proof_of_possession, &bls381_proof_of_possession)?;
+		let ecdsa_proof_of_possession =
+			generate_ecdsa_proof_of_possession(key_type, ecdsa_pub_as_bytes)?;
+		let bls381_proof_of_possession =
+			generate_bls381_proof_of_possession(key_type, bls381_pub_as_bytes)?;
+		let combined_proof_of_possession_raw =
+			combine_proof_of_possession(&ecdsa_proof_of_possession, &bls381_proof_of_possession)?;
 		Some(Self::Signature::from_raw(combined_proof_of_possession_raw))
 	}
 
@@ -114,8 +117,10 @@ fn combine_proof_of_possession(
 	bls381_proof_of_possession: &bls381::Signature,
 ) -> Option<[u8; ecdsa_bls381::SIGNATURE_LEN]> {
 	let mut combined_proof_of_possession_raw = [0u8; ecdsa_bls381::SIGNATURE_LEN];
-	combined_proof_of_possession_raw[..ecdsa::SIGNATURE_SERIALIZED_SIZE].copy_from_slice(ecdsa_proof_of_possession.as_ref());
-	combined_proof_of_possession_raw[ecdsa::SIGNATURE_SERIALIZED_SIZE..].copy_from_slice(bls381_proof_of_possession.as_ref());
+	combined_proof_of_possession_raw[..ecdsa::SIGNATURE_SERIALIZED_SIZE]
+		.copy_from_slice(ecdsa_proof_of_possession.as_ref());
+	combined_proof_of_possession_raw[ecdsa::SIGNATURE_SERIALIZED_SIZE..]
+		.copy_from_slice(bls381_proof_of_possession.as_ref());
 	Some(combined_proof_of_possession_raw)
 }
 

@@ -101,8 +101,13 @@ where
 		proof_of_possession: &Self::Signature,
 		allegedly_possessesd_pubkey: &Self::Public,
 	) -> bool {
-		let proof_of_possession_statement = Self::proof_of_possession_statement(allegedly_possessesd_pubkey);
-		Self::verify(&proof_of_possession, proof_of_possession_statement, allegedly_possessesd_pubkey)
+		let proof_of_possession_statement =
+			Self::proof_of_possession_statement(allegedly_possessesd_pubkey);
+		Self::verify(
+			&proof_of_possession,
+			proof_of_possession_statement,
+			allegedly_possessesd_pubkey,
+		)
 	}
 }
 

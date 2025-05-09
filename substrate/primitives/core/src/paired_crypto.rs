@@ -446,7 +446,9 @@ where
 		let Ok(left_pub) = allegedly_possessed_pubkey.0[..LeftPair::Public::LEN].try_into() else {
 			return false
 		};
-		let Ok(left_proof_of_possession) = proof_of_possession.0[0..LeftPair::Signature::LEN].try_into() else {
+		let Ok(left_proof_of_possession) =
+			proof_of_possession.0[0..LeftPair::Signature::LEN].try_into()
+		else {
 			return false
 		};
 
@@ -457,7 +459,9 @@ where
 		let Ok(right_pub) = allegedly_possessed_pubkey.0[LeftPair::Public::LEN..].try_into() else {
 			return false
 		};
-		let Ok(right_proof_of_possession) = proof_of_possession.0[LeftPair::Signature::LEN..].try_into() else {
+		let Ok(right_proof_of_possession) =
+			proof_of_possession.0[LeftPair::Signature::LEN..].try_into()
+		else {
 			return false
 		};
 		RightPair::verify_proof_of_possession(&right_proof_of_possession, &right_pub)
@@ -712,6 +716,9 @@ mod tests {
 		let other_pair = Pair::from_seed(b"23456789012345678901234567890123");
 		let proof_of_possession = pair.generate_proof_of_possession();
 		assert!(Pair::verify_proof_of_possession(&proof_of_possession, &pair.public()));
-		assert_eq!(Pair::verify_proof_of_possession(&proof_of_possession, &other_pair.public()), false);
+		assert_eq!(
+			Pair::verify_proof_of_possession(&proof_of_possession, &other_pair.public()),
+			false
+		);
 	}
 }

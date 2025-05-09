@@ -20,10 +20,10 @@
 use sp_api::{ApiExt, ProvideRuntimeApi};
 use sp_application_crypto::{ecdsa_bls381::AppPair, RuntimePublic};
 use sp_core::{
-	ecdsa_bls381::Pair as EcdsaBls381Pair,
 	crypto::ByteArray,
-	testing::ECDSA_BLS381,
+	ecdsa_bls381::Pair as EcdsaBls381Pair,
 	proof_of_possession::{ProofOfPossessionGenerator, ProofOfPossessionVerifier},
+	testing::ECDSA_BLS381,
 	Pair,
 };
 use sp_keystore::{testing::MemoryKeystore, Keystore, KeystoreExt};
@@ -57,5 +57,8 @@ fn ecdsa_bls381_client_proof_of_possession_verified_by_runtime_public() {
 	let (mut test_pair, _) = EcdsaBls381Pair::generate();
 
 	let client_generated_proof_of_possession = test_pair.generate_proof_of_possession();
-	assert!(RuntimePublic::verify_proof_of_possession(&test_pair.public(), &client_generated_proof_of_possession));
+	assert!(RuntimePublic::verify_proof_of_possession(
+		&test_pair.public(),
+		&client_generated_proof_of_possession
+	));
 }

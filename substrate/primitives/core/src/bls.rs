@@ -266,14 +266,16 @@ where
 		allegedly_possessed_pubkey: &Self::Public,
 	) -> bool {
 		let Ok(proof_of_possession) =
-			NuggetBLSnCPPoP::<T>::from_bytes(proof_of_possession.as_ref()) else {
-				return false
-			};
+			NuggetBLSnCPPoP::<T>::from_bytes(proof_of_possession.as_ref())
+		else {
+			return false
+		};
 
 		let Ok(allegedly_possessed_pubkey_as_bls_pubkey) =
-			DoublePublicKey::<T>::from_bytes(allegedly_possessed_pubkey.as_ref()) else {
-				return false
-			};
+			DoublePublicKey::<T>::from_bytes(allegedly_possessed_pubkey.as_ref())
+		else {
+			return false
+		};
 
 		BlsProofOfPossession::<T, Sha256, _>::verify(
 			&proof_of_possession,
@@ -635,7 +637,10 @@ mod tests {
 		let mut pair = Pair::<E>::from_seed(b"12345678901234567890123456789012");
 		let other_pair = Pair::<E>::from_seed(b"23456789012345678901234567890123");
 		let proof_of_possession = pair.generate_proof_of_possession();
-		assert_eq!(Pair::<E>::verify_proof_of_possession(&proof_of_possession, &other_pair.public()), false);
+		assert_eq!(
+			Pair::<E>::verify_proof_of_possession(&proof_of_possession, &other_pair.public()),
+			false
+		);
 	}
 
 	#[test]

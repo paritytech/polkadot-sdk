@@ -104,7 +104,8 @@ pub trait RuntimePublic: Sized {
 	///
 	/// The private key will be requested from the keystore using the given key type.
 	///
-	/// Returns the proof of possession as a signature or `None` if it failed or is not able to do so.
+	/// Returns the proof of possession as a signature or `None` if it failed or is not able to do
+	/// so.
 	fn generate_proof_of_possession(&mut self, key_type: KeyTypeId) -> Option<Self::Signature>;
 
 	/// Verify that the given proof of possession is valid for the corresponding public key.
@@ -147,7 +148,8 @@ pub trait RuntimeAppPublic: Sized {
 	///
 	/// The private key will be requested from the keystore using the given key type.
 	///
-	/// Returns the proof of possession as a signature or `None` if it failed or is not able to do so.
+	/// Returns the proof of possession as a signature or `None` if it failed or is not able to do
+	/// so.
 	fn generate_proof_of_possession(&mut self) -> Option<Self::Signature>;
 
 	/// Verify that the given proof of possession is valid for the corresponding public key.
@@ -191,12 +193,18 @@ where
 	}
 
 	fn generate_proof_of_possession(&mut self) -> Option<Self::Signature> {
-		<<T as AppPublic>::Generic as RuntimePublic>::generate_proof_of_possession(self.as_mut(), Self::ID)
-			.map(|s| s.into())
+		<<T as AppPublic>::Generic as RuntimePublic>::generate_proof_of_possession(
+			self.as_mut(),
+			Self::ID,
+		)
+		.map(|s| s.into())
 	}
 
 	fn verify_proof_of_possession(&self, pop: &Self::Signature) -> bool {
-		<<T as AppPublic>::Generic as RuntimePublic>::verify_proof_of_possession(self.as_ref(), pop.as_ref())
+		<<T as AppPublic>::Generic as RuntimePublic>::verify_proof_of_possession(
+			self.as_ref(),
+			pop.as_ref(),
+		)
 	}
 
 	fn to_raw_vec(&self) -> Vec<u8> {

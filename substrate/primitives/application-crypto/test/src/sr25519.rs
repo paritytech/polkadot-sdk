@@ -55,5 +55,8 @@ fn sr25519_client_proof_of_possession_verified_by_runtime_public() {
 	let (mut test_pair, _) = Sr25519Pair::generate();
 
 	let client_generated_proof_of_possession = test_pair.generate_proof_of_possession();
-	assert!(RuntimePublic::verify_proof_of_possession(&test_pair.public(), &client_generated_proof_of_possession));
+	assert!(RuntimePublic::verify_proof_of_possession(
+		&test_pair.public(),
+		&client_generated_proof_of_possession
+	));
 }
