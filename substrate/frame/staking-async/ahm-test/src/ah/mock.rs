@@ -269,6 +269,7 @@ impl multi_block::Config for Runtime {
 	type VoterSnapshotPerBlock = VoterSnapshotPerBlock;
 	type Verifier = MultiBlockVerifier;
 	type AreWeDone = multi_block::ProceedRegardlessOf<Self>;
+	type OnRoundRotation = multi_block::CleanRound<Self>;
 	type WeightInfo = multi_block::weights::AllZeroWeights;
 }
 
