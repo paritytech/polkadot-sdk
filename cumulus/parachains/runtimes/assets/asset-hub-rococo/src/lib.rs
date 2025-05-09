@@ -1708,7 +1708,7 @@ impl_runtime_apis! {
 				pub RandomParaId: ParaId = ParaId::new(3333);
 				pub RandomParaLocation: Location = ParentThen(Parachain(
 					RandomParaId::get().into()).into()).into();
-				pub AssetHubParaId: ParaId = ParaId::new(AssetHubId);
+				pub AssetHubParaId: ParaId = ParaId::new(AssetHubId::get());
 			}
 
 			use pallet_xcm::benchmarking::Pallet as PalletXcmExtrinsicsBenchmark;
@@ -1873,7 +1873,8 @@ impl_runtime_apis! {
 						ParachainSystem
 					>;
 				fn valid_destination() -> Result<Location, BenchmarkError> {
-					Ok(AssetHubParaLocation::get())
+					let dest: Location = Some(AssetHubParaLocation::get()).unwrap();
+					Ok(dest)
 				}
 				fn worst_case_holding(depositable_count: u32) -> XcmAssets {
 					// A mix of fungible, non-fungible, and concrete assets.

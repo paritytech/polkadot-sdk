@@ -1981,7 +1981,7 @@ impl_runtime_apis! {
 					// Transfer to Relay some local AH asset (local-reserve-transfer) while paying
 					// fees using teleported native token.
 					// (We don't care that Relay doesn't accept incoming unknown AH local asset)
-					let dest: Location = Some(AssetHubParaLocation::get()).unwrap();
+					let dest: Location = AssetHubParaLocation::get();
 
 					let fee_amount = EXISTENTIAL_DEPOSIT;
 					let fee_asset: Asset = (WestendLocation::get(), fee_amount).into();
