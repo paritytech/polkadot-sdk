@@ -400,7 +400,7 @@ mod benchmarks {
 		let root = sp_io::storage::root(sp_runtime::StateVersion::V1);
 
 		if root != expected {
-			panic!("Benchmarking root hash mismatch. Update the expected value with the new root hash if you added a pallet or changed the genesis config.\nReplace:\n  {} with\n  {}\nin the runtime config.", hex::encode(expected), hex::encode(root));
+			panic!("Benchmarking root hash mismatch. Update the expected value with the new root hash if you added a pallet or changed the genesis config.\nReplace:\n  {} with\n  {}\nin the runtime config.", array_bytes::bytes2hex("", expected), array_bytes::bytes2hex("", root));
 		}
 
 		sp_io::storage::set(b"pre", b"value");
