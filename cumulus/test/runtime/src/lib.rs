@@ -38,6 +38,10 @@ pub mod sync_backing {
 }
 
 mod genesis_config_presets;
+pub use genesis_config_presets::{
+	DEV_ELASTIC_SCALING, DEV_ELASTIC_SCALING_500MS, DEV_ELASTIC_SCALING_MULTI_BLOCK_SLOT,
+	DEV_RELAY_PARENT_OFFSET, DEV_SYNC_BACKING,
+};
 mod test_pallet;
 
 extern crate alloc;

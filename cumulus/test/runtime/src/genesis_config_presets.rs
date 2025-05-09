@@ -25,11 +25,12 @@ use frame_support::build_struct_json_patch;
 use sp_genesis_builder::PresetId;
 use sp_keyring::Sr25519Keyring;
 
-const DEV_RELAY_PARENT_OFFSET: &'static str = "relay_parent_offset_dev";
-const DEV_ELASTIC_SCALING: &'static str = "dev_elastic_scaling";
-const DEV_ELASTIC_SCALING_500MS: &'static str = "dev_elastic_scaling_500ms";
-const DEV_ELASTIC_SCALING_MULTI_BLOCK_SLOT: &'static str = "dev_elastic_scaling_multi_block_slot";
-const DEV_SYNC_BACKING: &'static str = "dev_sync_backing";
+pub const DEV_RELAY_PARENT_OFFSET: &'static str = "relay_parent_offset_dev";
+pub const DEV_ELASTIC_SCALING: &'static str = "dev_elastic_scaling";
+pub const DEV_ELASTIC_SCALING_500MS: &'static str = "dev_elastic_scaling_500ms";
+pub const DEV_ELASTIC_SCALING_MULTI_BLOCK_SLOT: &'static str =
+	"dev_elastic_scaling_multi_block_slot";
+pub const DEV_SYNC_BACKING: &'static str = "dev_sync_backing";
 
 fn testnet_genesis_with_default_endowed(
 	self_para_id: ParaId,

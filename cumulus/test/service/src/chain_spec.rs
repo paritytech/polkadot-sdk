@@ -126,7 +126,7 @@ pub fn get_relay_parent_offset_chain_spec(id: Option<ParaId>) -> ChainSpec {
 		id,
 		Default::default(),
 		cumulus_test_runtime::WASM_BINARY.expect("WASM binary was not built, please build it!"),
-		Some("relay_parent_offset_dev"),
+		Some(cumulus_test_runtime::DEV_RELAY_PARENT_OFFSET),
 	)
 }
 /// Get the chain spec for a specific parachain ID.
@@ -135,7 +135,7 @@ pub fn get_elastic_scaling_500ms_chain_spec(id: Option<ParaId>) -> ChainSpec {
 		id,
 		Default::default(),
 		cumulus_test_runtime::WASM_BINARY.expect("WASM binary was not built, please build it!"),
-		Some("dev_elastic_scaling_500ms"),
+		Some(cumulus_test_runtime::DEV_ELASTIC_SCALING_500MS),
 	)
 }
 
@@ -146,7 +146,7 @@ pub fn get_elastic_scaling_mvp_chain_spec(id: Option<ParaId>) -> ChainSpec {
 		Default::default(),
 		cumulus_test_runtime::elastic_scaling_mvp::WASM_BINARY
 			.expect("WASM binary was not built, please build it!"),
-		Some("dev_elastic_scaling"),
+		Some(cumulus_test_runtime::DEV_ELASTIC_SCALING),
 	)
 }
 
@@ -155,7 +155,7 @@ pub fn get_elastic_scaling_multi_block_slot_chain_spec(id: Option<ParaId>) -> Ch
 		id,
 		Default::default(),
 		cumulus_test_runtime::WASM_BINARY.expect("WASM binary was not built, please build it!"),
-		Some("dev_elastic_scaling_multi_block_slot"),
+		Some(cumulus_test_runtime::DEV_ELASTIC_SCALING_MULTI_BLOCK_SLOT),
 	)
 }
 
@@ -165,6 +165,6 @@ pub fn get_sync_backing_chain_spec(id: Option<ParaId>) -> ChainSpec {
 		Default::default(),
 		cumulus_test_runtime::sync_backing::WASM_BINARY
 			.expect("WASM binary was not built, please build it!"),
-		None,
+		Some(cumulus_test_runtime::DEV_SYNC_BACKING),
 	)
 }
