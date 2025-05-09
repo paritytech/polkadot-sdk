@@ -178,8 +178,6 @@ pub struct UnbondingQueueConfig {
 	pub lowest_ratio: Perbill,
 	/// The minimum unbonding time, in eras, for an active stake.
 	pub unbond_period_lower_bound: EraIndex,
-	/// The pico-era when all the existing unbonders have unbonded.
-	pub back_of_unbonding_queue: u128,
 }
 
 /// Reward points of an era. Used to split era total payout between validators.

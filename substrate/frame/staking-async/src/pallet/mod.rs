@@ -814,6 +814,9 @@ pub mod pallet {
 	pub type EraLowestRatioTotalStake<T: Config> =
 		StorageValue<_, BoundedVec<BalanceOf<T>, T::BondingDuration>, ValueQuery>;
 
+	#[pallet::storage]
+	pub type BackOfUnbondingQueue<T: Config> = StorageValue<_, u128, ValueQuery>;
+
 	/// Parameters for the unbonding queue mechanism.
 	#[pallet::storage]
 	pub type UnbondingQueueParams<T: Config> = StorageValue<_, UnbondingQueueConfig, OptionQuery>;

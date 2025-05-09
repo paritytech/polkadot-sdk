@@ -20,8 +20,8 @@ use frame::{arithmetic::SaturatedConversion, prelude::Perbill};
 use frame_support::{assert_noop, assert_ok};
 use pallet_election_provider_multi_block::{Event as ElectionEvent, Phase};
 use pallet_staking_async::{
-	session_rotation::Rotator, ActiveEra, ActiveEraInfo, CurrentEra, EraLowestRatioTotalStake,
-	Event as StakingEvent, UnbondingQueueParams,
+	session_rotation::Rotator, ActiveEra, ActiveEraInfo, BackOfUnbondingQueue, CurrentEra,
+	EraLowestRatioTotalStake, Event as StakingEvent, UnbondingQueueParams,
 };
 use pallet_staking_async_rc_client as rc_client;
 use pallet_staking_async_rc_client::ValidatorSetReport;
@@ -212,8 +212,8 @@ fn on_receive_session_report() {
 		assert_eq!(EraLowestRatioTotalStake::<T>::get().into_inner(), vec![100]);
 		assert_eq!(Staking::get_min_lowest_stake(), 100);
 		// Now if unbonding a very small amount, the lowest possible delay is applied.
+		assert_eq!(BackOfUnbondingQueue::<T>::get(), 0);
 		let config = UnbondingQueueParams::<T>::get().unwrap();
-		assert_eq!(config.back_of_unbonding_queue, 0);
 		assert_eq!(Staking::get_unbonding_delta(1, config), 60000000000);
 		// If attempting to unbond a big amount, the maximum delay is applied.
 		assert_eq!(

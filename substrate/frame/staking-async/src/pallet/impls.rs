@@ -892,10 +892,8 @@ impl<T: Config> Pallet<T> {
 		}
 	}
 
-	/// Gets the lowest of the lowest validator stake entries for the last upper bound eras.
+	/// Gets the lowest validator stake entries for the last upper-bound eras.
 	pub fn get_min_lowest_stake() -> BalanceOf<T> {
-		// Find the minimum total stake of the lowest portion validators over the configured number
-		// of eras.
 		EraLowestRatioTotalStake::<T>::get().into_iter().min().unwrap_or(Zero::zero())
 	}
 
@@ -936,16 +934,9 @@ impl<T: Config> Pallet<T> {
 			let unbonding_delta = Self::get_unbonding_delta(value, params);
 			let normalized_era = normalize_era(era);
 			let back_of_unbonding_queue = normalized_era
-				.max(params.back_of_unbonding_queue)
+				.max(BackOfUnbondingQueue::<T>::get())
 				.defensive_saturating_add(unbonding_delta);
-
-			if back_of_unbonding_queue > params.back_of_unbonding_queue {
-				// Update unbonding queue params with new `new_back_of_unbonding_queue_era`.
-				UnbondingQueueParams::<T>::set(Some(UnbondingQueueConfig {
-					back_of_unbonding_queue,
-					..params
-				}));
-			}
+			BackOfUnbondingQueue::<T>::set(back_of_unbonding_queue);
 
 			let normalized_calculated_era =
 				back_of_unbonding_queue.defensive_saturating_sub(normalized_era);
@@ -974,14 +965,10 @@ impl<T: Config> Pallet<T> {
 		if let Some(params) = UnbondingQueueParams::<T>::get() {
 			let unbonding_delta = Self::get_unbonding_delta(value, params);
 			let normalized_era = normalize_era(era);
-			let back_of_unbonding_queue = params
-				.back_of_unbonding_queue
+			let back_of_unbonding_queue = BackOfUnbondingQueue::<T>::get()
 				.saturating_sub(unbonding_delta)
 				.max(normalized_era);
-			UnbondingQueueParams::<T>::set(Some(UnbondingQueueConfig {
-				back_of_unbonding_queue,
-				..params
-			}));
+			BackOfUnbondingQueue::<T>::set(back_of_unbonding_queue);
 		}
 	}
 }

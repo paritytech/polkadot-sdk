@@ -34,7 +34,6 @@ fn set_staking_configs_works() {
 				min_slashable_share: Perbill::from_percent(50),
 				lowest_ratio: Perbill::from_percent(34),
 				unbond_period_lower_bound: 1,
-				back_of_unbonding_queue: Zero::zero(),
 			})
 		));
 		assert_eq!(MinNominatorBond::<Test>::get(), 1_500);
@@ -50,7 +49,6 @@ fn set_staking_configs_works() {
 				min_slashable_share: Perbill::from_percent(50),
 				lowest_ratio: Perbill::from_percent(34),
 				unbond_period_lower_bound: 1,
-				back_of_unbonding_queue: Zero::zero(),
 			})
 		);
 
