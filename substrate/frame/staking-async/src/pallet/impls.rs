@@ -1568,9 +1568,6 @@ impl<T: Config> StakingInterface for Pallet<T> {
 	fn bonding_duration() -> EraIndex {
 		T::BondingDuration::get()
 	}
-	fn max_bonding_duration(_value: Self::Balance) -> EraIndex {
-		T::BondingDuration::get()
-	}
 
 	fn current_era() -> EraIndex {
 		CurrentEra::<T>::get().unwrap_or(Zero::zero())
