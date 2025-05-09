@@ -1,7 +1,7 @@
-title: `FeeTracker` deduplications
+title: FeeTracker deduplications
 doc:
 - audience: Runtime Dev
-  description: This PR refactors the `FeeTracker` trait in order to make it more reusable.
+  description: This PR refactors the FeeTracker trait in order to make it more reusable.
 crates:
 - name: pallet-xcm-bridge-hub-router
   bump: minor
