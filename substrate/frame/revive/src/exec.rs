@@ -614,7 +614,7 @@ enum FrameArgs<'a, T: Config, E> {
 		salt: Option<&'a [u8; 32]>,
 		/// The input data is used in the contract address derivation of the new contract.
 		input_data: &'a [u8],
-		is_transaction: bool,
+		exec_context: ExecContext,
 	},
 }
 
@@ -815,7 +815,7 @@ where
 				executable,
 				salt,
 				input_data: input_data.as_ref(),
-				is_transaction: exec_context == ExecContext::Transaction,
+				exec_context,
 			},
 			Origin::from_account_id(origin),
 			gas_meter,
@@ -848,7 +848,7 @@ where
 			gas_meter,
 			storage_meter,
 			value.into(),
-			false,
+			ExecContext::DryRun { skip_transfer: false },
 		)
 		.unwrap()
 		.unwrap();
@@ -1121,11 +1121,12 @@ where
 
 				let ed = <Contracts<T>>::min_balance();
 				frame.nested_storage.record_charge(&StorageDeposit::Charge(ed));
+
 				match self.exec_context {
-					ExecContext::DryRun => {
+					ExecContext::DryRun { skip_transfer: true } => {
 						T::Currency::set_balance(account_id, ed);
 					},
-					ExecContext::Transaction => {
+					_ => {
 						T::Currency::transfer(origin, account_id, ed, Preservation::Preserve)?;
 					},
 				}
@@ -1670,7 +1671,7 @@ where
 				executable,
 				salt,
 				input_data: input_data.as_ref(),
-				is_transaction: self.exec_context == ExecContext::Transaction,
+				exec_context: self.exec_context,
 			},
 			value.try_into().map_err(|_| Error::<T>::BalanceConversionFailed)?,
 			gas_limit,

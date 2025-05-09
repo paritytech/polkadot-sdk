@@ -270,6 +270,7 @@ where
 			Code::Upload(module.code),
 			data,
 			salt,
+			crate::ExecContext::DryRun { skip_transfer: true },
 		);
 
 		let address = outcome.result?.addr;

@@ -518,7 +518,7 @@ pub mod pallet {
 		Transaction,
 
 		/// A dry run execution (through RPC), where the nonce has not been incremented.
-		DryRun,
+		DryRun { skip_transfer: bool },
 	}
 
 	/// A mapping from a contract's code hash to its code.
@@ -1117,7 +1117,6 @@ where
 			} else {
 				StorageMeter::new(&instantiate_origin, storage_deposit_limit, value)?
 			};
-
 			let result = ExecStack::<T, WasmBlob<T>>::run_instantiate(
 				instantiate_account,
 				executable,
@@ -1169,14 +1168,14 @@ where
 		let from = tx.from.unwrap_or_default();
 		let origin = T::AddressMapper::to_account_id(&from);
 
-		let exec_context =
-			if tx.gas.is_some() { ExecContext::Transaction } else { ExecContext::DryRun };
-
 		let storage_deposit_limit = if tx.gas.is_some() {
 			DepositLimit::Balance(BalanceOf::<T>::max_value())
 		} else {
 			DepositLimit::Unchecked
 		};
+
+		let exec_context =
+			ExecContext::DryRun { skip_transfer: storage_deposit_limit.is_unchecked() };
 
 		if tx.nonce.is_none() {
 			tx.nonce = Some(<System<T>>::account_nonce(&origin).into());
@@ -1300,7 +1299,7 @@ where
 					Code::Upload(code.to_vec()),
 					data.to_vec(),
 					None,
-					ExecContext::DryRun,
+					exec_context,
 				);
 
 				let returned_data = match result.result {
