@@ -558,6 +558,9 @@ pub mod pallet {
 		/// New session has happened. Note that the argument is the session index, not the
 		/// block number as the type might suggest.
 		NewSession { session_index: SessionIndex },
+		/// The `NewSession` event in the current block also implies a new validator set to be
+		/// queued.
+		NewQueued,
 		/// Validator has been disabled.
 		ValidatorDisabled { validator: T::ValidatorId },
 		/// Validator has been re-enabled.
@@ -686,7 +689,7 @@ impl<T: Config> Pallet<T> {
 		if changed {
 			log!(trace, "resetting disabled validators");
 			// reset disabled validators if active set was changed
-			DisabledValidators::<T>::take();
+			DisabledValidators::<T>::kill();
 		}
 
 		// Increment session index.
@@ -708,6 +711,7 @@ impl<T: Config> Pallet<T> {
 				// NOTE: as per the documentation on `OnSessionEnding`, we consider
 				// the validator set as having changed even if the validators are the
 				// same as before, as underlying economic conditions may have changed.
+				Self::deposit_event(Event::<T>::NewQueued);
 				(validators, true)
 			} else {
 				(Validators::<T>::get(), false)
@@ -733,14 +737,19 @@ impl<T: Config> Pallet<T> {
 					}
 				}
 			};
-			let queued_amalgamated = next_validators
-				.into_iter()
-				.filter_map(|a| {
-					let k = Self::load_keys(&a)?;
-					check_next_changed(&k);
-					Some((a, k))
-				})
-				.collect::<Vec<_>>();
+			let queued_amalgamated =
+				next_validators
+					.into_iter()
+					.filter_map(|a| {
+						let k =
+							Self::load_keys(&a).or_else(|| {
+								log!(warn, "failed to load session key for {:?}, skipping for next session, maybe you need to set session keys for them?", a);
+								None
+							})?;
+						check_next_changed(&k);
+						Some((a, k))
+					})
+					.collect::<Vec<_>>();
 
 			(queued_amalgamated, changed)
 		};
@@ -881,7 +890,7 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
-	fn load_keys(v: &T::ValidatorId) -> Option<T::Keys> {
+	pub fn load_keys(v: &T::ValidatorId) -> Option<T::Keys> {
 		NextKeys::<T>::get(v)
 	}
 
@@ -937,7 +946,7 @@ impl<T: Config> Pallet<T> {
 				Err(index) => {
 					log!(trace, "disabling validator {:?}", i);
 					Self::deposit_event(Event::ValidatorDisabled {
-						validator: Validators::<T>::get()[index as usize].clone(),
+						validator: Validators::<T>::get()[i as usize].clone(),
 					});
 					disabled.insert(index, (i, severity));
 					T::SessionHandler::on_disabled(i);
@@ -954,19 +963,6 @@ impl<T: Config> Pallet<T> {
 		Self::disable_index_with_severity(i, default_severity)
 	}
 
-	/// Disable the validator identified by `c`. (If using with the staking pallet,
-	/// this would be their *stash* account.)
-	///
-	/// Returns `false` either if the validator could not be found or it was already
-	/// disabled.
-	pub fn disable(c: &T::ValidatorId) -> bool {
-		Validators::<T>::get()
-			.iter()
-			.position(|i| i == c)
-			.map(|i| Self::disable_index(i as u32))
-			.unwrap_or(false)
-	}
-
 	/// Re-enable the validator of index `i`, returns `false` if the validator was not disabled.
 	pub fn reenable_index(i: u32) -> bool {
 		if i >= Validators::<T>::decode_len().defensive_unwrap_or(0) as u32 {
@@ -977,7 +973,7 @@ impl<T: Config> Pallet<T> {
 			if let Ok(index) = disabled.binary_search_by_key(&i, |(index, _)| *index) {
 				log!(trace, "reenabling validator {:?}", i);
 				Self::deposit_event(Event::ValidatorReenabled {
-					validator: Validators::<T>::get()[index as usize].clone(),
+					validator: Validators::<T>::get()[i as usize].clone(),
 				});
 				disabled.remove(index);
 				return true;
@@ -995,9 +991,15 @@ impl<T: Config> Pallet<T> {
 	/// Report an offence for the given validator and let disabling strategy decide
 	/// what changes to disabled validators should be made.
 	pub fn report_offence(validator: T::ValidatorId, severity: OffenceSeverity) {
-		log!(trace, "reporting offence for {:?} with {:?}", validator, severity);
 		let decision =
 			T::DisablingStrategy::decision(&validator, severity, &DisabledValidators::<T>::get());
+		log!(
+			debug,
+			"reporting offence for {:?} with {:?}, decision: {:?}",
+			validator,
+			severity,
+			decision
+		);
 
 		// Disable
 		if let Some(offender_idx) = decision.disable {

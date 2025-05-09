@@ -447,6 +447,12 @@ macro_rules! parameter_types_impl_thread_local {
 						Self::set($value);
 						current
 					}
+
+					/// Kill/reset the value to whatever was set at first.
+					#[allow(unused)]
+					pub fn reset() {
+						Self::set($value);
+					}
 				}
 			)*
 		}
@@ -850,7 +856,6 @@ macro_rules! assert_error_encoded_size {
 ///
 /// Returns the original result of the closure.
 #[macro_export]
-#[cfg(feature = "experimental")]
 macro_rules! hypothetically {
 	( $e:expr ) => {
 		$crate::storage::transactional::with_transaction(|| -> $crate::__private::TransactionOutcome<Result<_, $crate::__private::DispatchError>> {
@@ -864,7 +869,6 @@ macro_rules! hypothetically {
 ///
 /// Reverts any storage changes made by the closure.
 #[macro_export]
-#[cfg(feature = "experimental")]
 macro_rules! hypothetically_ok {
 	($e:expr $(, $args:expr)* $(,)?) => {
 		$crate::assert_ok!($crate::hypothetically!($e) $(, $args)*);
@@ -908,7 +912,7 @@ pub mod pallet_prelude {
 			StorageList,
 		},
 		traits::{
-			BuildGenesisConfig, ConstU32, ConstUint, EnsureOrigin, Get, GetDefault,
+			Authorize, BuildGenesisConfig, ConstU32, ConstUint, EnsureOrigin, Get, GetDefault,
 			GetStorageVersion, Hooks, IsType, OriginTrait, PalletInfoAccess, StorageInfoTrait,
 			StorageVersion, Task, TypedGet,
 		},
@@ -924,12 +928,13 @@ pub mod pallet_prelude {
 	pub use sp_runtime::{
 		traits::{
 			CheckedAdd, CheckedConversion, CheckedDiv, CheckedMul, CheckedShl, CheckedShr,
-			CheckedSub, MaybeSerializeDeserialize, Member, One, ValidateUnsigned, Zero,
+			CheckedSub, MaybeSerializeDeserialize, Member, One, ValidateResult, ValidateUnsigned,
+			Zero,
 		},
 		transaction_validity::{
 			InvalidTransaction, TransactionLongevity, TransactionPriority, TransactionSource,
-			TransactionTag, TransactionValidity, TransactionValidityError, UnknownTransaction,
-			ValidTransaction,
+			TransactionTag, TransactionValidity, TransactionValidityError,
+			TransactionValidityWithRefund, UnknownTransaction, ValidTransaction,
 		},
 		DispatchError, RuntimeDebug, MAX_MODULE_ERROR_ENCODED_SIZE,
 	};
@@ -2681,7 +2686,8 @@ pub mod pallet_macros {
 	pub use frame_support_procedural::storage;
 
 	pub use frame_support_procedural::{
-		task_condition, task_index, task_list, task_weight, tasks_experimental,
+		authorize, task_condition, task_index, task_list, task_weight, tasks_experimental,
+		weight_of_authorize,
 	};
 
 	/// Allows a pallet to declare a type as an origin.

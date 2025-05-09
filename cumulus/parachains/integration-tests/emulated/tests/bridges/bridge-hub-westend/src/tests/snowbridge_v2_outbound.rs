@@ -105,7 +105,7 @@ fn send_weth_from_asset_hub_to_ethereum() {
 		let reward_account = AssetHubWestendReceiver::get();
 		let receipt = DeliveryReceipt {
 			gateway: EthereumGatewayAddress::get(),
-			nonce: 0,
+			nonce: 1,
 			reward_address: reward_account.into(),
 			topic: H256::zero(),
 			success: true,
@@ -264,7 +264,7 @@ fn transfer_relay_token_from_ah() {
 		let reward_account = AssetHubWestendReceiver::get();
 		let receipt = DeliveryReceipt {
 			gateway: EthereumGatewayAddress::get(),
-			nonce: 0,
+			nonce: 1,
 			reward_address: reward_account.into(),
 			topic: H256::zero(),
 			success: true,
@@ -351,7 +351,7 @@ fn send_weth_and_dot_from_asset_hub_to_ethereum() {
 		let reward_account = AssetHubWestendReceiver::get();
 		let receipt = DeliveryReceipt {
 			gateway: EthereumGatewayAddress::get(),
-			nonce: 0,
+			nonce: 1,
 			reward_address: reward_account.into(),
 			topic: H256::zero(),
 			success: true,
@@ -447,7 +447,7 @@ fn transact_with_agent_from_asset_hub() {
 		let reward_account = AssetHubWestendReceiver::get();
 		let receipt = DeliveryReceipt {
 			gateway: EthereumGatewayAddress::get(),
-			nonce: 0,
+			nonce: 1,
 			reward_address: reward_account.into(),
 			topic: H256::zero(),
 			success: true,
@@ -531,7 +531,7 @@ fn transact_with_agent_from_asset_hub_without_any_asset_transfer() {
 		let reward_account = AssetHubWestendReceiver::get();
 		let receipt = DeliveryReceipt {
 			gateway: EthereumGatewayAddress::get(),
-			nonce: 0,
+			nonce: 1,
 			reward_address: reward_account.into(),
 			success: true,
 			topic: Default::default(),
@@ -648,7 +648,7 @@ fn register_token_from_penpal() {
 		let reward_account = AssetHubWestendReceiver::get();
 		let receipt = DeliveryReceipt {
 			gateway: EthereumGatewayAddress::get(),
-			nonce: 0,
+			nonce: 1,
 			reward_address: reward_account.into(),
 			topic: H256::zero(),
 			success: true,

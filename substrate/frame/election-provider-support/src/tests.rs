@@ -18,10 +18,12 @@
 //! Tests for solution-type.
 
 #![cfg(test)]
-
-use crate::{mock::*, IndexAssignment, NposSolution};
+use crate::{
+	mock::*, BoundedSupport, BoundedSupports, IndexAssignment, NposSolution, TryFromOtherBounds,
+};
 use frame_support::traits::ConstU32;
 use rand::SeedableRng;
+use sp_npos_elections::{Support, Supports};
 
 mod solution_type {
 	use super::*;
@@ -451,4 +453,101 @@ fn index_assignments_generate_same_solution_as_plain_assignments() {
 	let index_compact = index_assignments.as_slice().try_into().unwrap();
 
 	assert_eq!(solution, index_compact);
+}
+
+#[test]
+fn try_from_other_bounds_works() {
+	let bounded: BoundedSupports<u32, ConstU32<2>, ConstU32<2>> = vec![
+		(1, Support { total: 100, voters: vec![(1, 50), (2, 50)] }),
+		(2, Support { total: 100, voters: vec![(1, 50), (2, 50)] }),
+	]
+	.try_into()
+	.unwrap();
+
+	// either of the bounds are smaller, won't convert
+	assert!(BoundedSupports::<u32, ConstU32<1>, ConstU32<2>>::try_from_other_bounds(
+		bounded.clone()
+	)
+	.is_err());
+	assert!(BoundedSupports::<u32, ConstU32<2>, ConstU32<1>>::try_from_other_bounds(
+		bounded.clone()
+	)
+	.is_err());
+
+	// bounds are equal, will convert
+	assert!(BoundedSupports::<u32, ConstU32<2>, ConstU32<2>>::try_from_other_bounds(
+		bounded.clone()
+	)
+	.is_ok());
+
+	// bounds are larger, will convert
+	assert!(BoundedSupports::<u32, ConstU32<3>, ConstU32<2>>::try_from_other_bounds(
+		bounded.clone()
+	)
+	.is_ok());
+	assert!(BoundedSupports::<u32, ConstU32<3>, ConstU32<3>>::try_from_other_bounds(
+		bounded.clone()
+	)
+	.is_ok());
+}
+
+#[test]
+fn support_sorted_truncate_from_works() {
+	let support = Support { total: 100, voters: vec![(1, 50), (2, 30), (3, 20)] };
+
+	let (bounded, backers_removed) =
+		BoundedSupport::<u32, ConstU32<1>>::sorted_truncate_from(support.clone());
+	assert_eq!(bounded, Support { total: 50, voters: vec![(1, 50)] }.try_into().unwrap());
+	assert_eq!(backers_removed, 2);
+
+	let (bounded, backers_removed) =
+		BoundedSupport::<u32, ConstU32<2>>::sorted_truncate_from(support.clone());
+	assert_eq!(bounded, Support { total: 80, voters: vec![(1, 50), (2, 30)] }.try_into().unwrap());
+	assert_eq!(backers_removed, 1);
+
+	let (bounded, backers_removed) =
+		BoundedSupport::<u32, ConstU32<3>>::sorted_truncate_from(support.clone());
+	assert_eq!(
+		bounded,
+		Support { total: 100, voters: vec![(1, 50), (2, 30), (3, 20)] }
+			.try_into()
+			.unwrap()
+	);
+	assert_eq!(backers_removed, 0);
+
+	let (bounded, backers_removed) =
+		BoundedSupport::<u32, ConstU32<4>>::sorted_truncate_from(support.clone());
+	assert_eq!(
+		bounded,
+		Support { total: 100, voters: vec![(1, 50), (2, 30), (3, 20)] }
+			.try_into()
+			.unwrap()
+	);
+	assert_eq!(backers_removed, 0);
+}
+
+#[test]
+fn supports_sorted_truncate_from_works() {
+	let supports: Supports<u32> = vec![
+		(1, Support { total: 303, voters: vec![(100, 100), (101, 101), (102, 102)] }),
+		(2, Support { total: 201, voters: vec![(100, 100), (101, 101)] }),
+		(3, Support { total: 406, voters: vec![(100, 100), (101, 101), (102, 102), (103, 103)] }),
+	];
+
+	let (bounded, winners_removed, backers_removed) =
+		BoundedSupports::<u32, ConstU32<2>, ConstU32<2>>::sorted_truncate_from(supports);
+	// we trim 2 as it has least total support, and trim backers based on stake.
+	assert_eq!(
+		bounded
+			.clone()
+			.into_iter()
+			.map(|(k, v)| (k, Support { total: v.total, voters: v.voters.into_inner() }))
+			.collect::<Vec<_>>(),
+		vec![
+			(3, Support { total: 205, voters: vec![(103, 103), (102, 102)] }),
+			(1, Support { total: 203, voters: vec![(102, 102), (101, 101)] })
+		]
+	);
+	assert_eq!(winners_removed, 1);
+	assert_eq!(backers_removed, 3);
 }

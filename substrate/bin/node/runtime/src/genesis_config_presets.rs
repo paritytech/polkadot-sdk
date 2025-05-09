@@ -41,11 +41,6 @@ use sp_runtime::Perbill;
 pub const ENDOWMENT: Balance = 10_000_000 * DOLLARS;
 pub const STASH: Balance = ENDOWMENT / 1000;
 
-pub struct StakingPlaygroundConfig {
-	pub validator_count: u32,
-	pub minimum_validator_count: u32,
-}
-
 /// The staker type as supplied ot the Staking config.
 pub type Staker = (AccountId, AccountId, Balance, StakerStatus<AccountId>);
 
@@ -55,15 +50,9 @@ pub fn kitchensink_genesis(
 	root_key: AccountId,
 	endowed_accounts: Vec<AccountId>,
 	stakers: Vec<Staker>,
-	staking_playground_config: Option<StakingPlaygroundConfig>,
 ) -> serde_json::Value {
-	let (validator_count, min_validator_count) = match staking_playground_config {
-		Some(c) => (c.validator_count, c.minimum_validator_count),
-		None => {
-			let authorities_count = initial_authorities.len() as u32;
-			(authorities_count, authorities_count)
-		},
-	};
+	let validator_count = initial_authorities.len() as u32;
+	let minimum_validator_count = validator_count;
 
 	let collective = collective(&endowed_accounts);
 
@@ -80,7 +69,7 @@ pub fn kitchensink_genesis(
 		},
 		staking: StakingConfig {
 			validator_count,
-			minimum_validator_count: min_validator_count,
+			minimum_validator_count,
 			invulnerables: initial_authorities
 				.iter()
 				.map(|x| x.0.clone())
@@ -126,7 +115,6 @@ pub fn get_preset(id: &PresetId) -> Option<Vec<u8>> {
 			alice.clone(),
 			endowed,
 			vec![validator(alice_stash.clone())],
-			None,
 		),
 		sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET => kitchensink_genesis(
 			vec![
@@ -138,7 +126,6 @@ pub fn get_preset(id: &PresetId) -> Option<Vec<u8>> {
 			alice,
 			endowed,
 			vec![validator(alice_stash), validator(bob_stash)],
-			None,
 		),
 		_ => return None,
 	};
