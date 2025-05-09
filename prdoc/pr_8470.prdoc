@@ -5,7 +5,8 @@ doc:
     Stabilizing the FRAME umbrella crate, which is no longer marked as experimental. 
     Improving the related documentation, including README and maintenance notes.
 
-    After integrating the FRAME umbrella crate in 15-20 pallets as tracked in #6504 and modifying it in the process, it has reached a good level of stability and it can be easily used for pallet development.
+    After integrating the FRAME umbrella crate in 17 pallets as May 9 2025 and modifying it in the process (see #6504),
+    it is now stable and it can be used for pallet development.
 
     Key improvements:
     - Enhanced documentation with clear usage guidelines
