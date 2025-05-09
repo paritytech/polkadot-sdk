@@ -450,6 +450,7 @@ pub struct ExtBuilder {
 	stakes: BTreeMap<AccountId, Balance>,
 	stakers: Vec<(AccountId, Balance, StakerStatus<AccountId>)>,
 	flush_events: bool,
+	unbonding_queue_config: Option<UnbondingQueueConfig>,
 }
 
 impl Default for ExtBuilder {
@@ -466,6 +467,7 @@ impl Default for ExtBuilder {
 			stakes: Default::default(),
 			stakers: Default::default(),
 			flush_events: true,
+			unbonding_queue_config: None,
 		}
 	}
 }
@@ -578,6 +580,13 @@ impl ExtBuilder {
 		SkipTryStateCheck::set(!enable);
 		self
 	}
+	pub(crate) fn set_unbonding_queue_config(
+		mut self,
+		config: Option<UnbondingQueueConfig>,
+	) -> Self {
+		self.unbonding_queue_config = config;
+		self
+	}
 	fn build(self) -> sp_io::TestExternalities {
 		sp_tracing::try_init_simple();
 		let mut storage = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
@@ -648,6 +657,7 @@ impl ExtBuilder {
 			slash_reward_fraction: Perbill::from_percent(10),
 			min_nominator_bond: self.min_nominator_bond,
 			min_validator_bond: self.min_validator_bond,
+			unbonding_queue_config: self.unbonding_queue_config,
 			..Default::default()
 		}
 		.assimilate_storage(&mut storage);
