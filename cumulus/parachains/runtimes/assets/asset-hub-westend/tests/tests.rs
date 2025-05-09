@@ -50,7 +50,7 @@ use parachains_common::{AccountId, AssetIdForTrustBackedAssets, AuraId, Balance}
 use sp_consensus_aura::SlotDuration;
 use sp_core::crypto::Ss58Codec;
 use sp_runtime::{traits::MaybeEquivalence, Either};
-use std::{convert::Into, ops::Mul};
+use std::convert::Into;
 use testnet_parachains_constants::westend::{consensus::*, currency::UNITS, fee::WeightToFee};
 use xcm::latest::{
 	prelude::{Assets as XcmAssets, *},
@@ -89,52 +89,6 @@ fn slot_durations() -> SlotDurations {
 		relay: SlotDuration::from_millis(RELAY_CHAIN_SLOT_DURATION_MILLIS.into()),
 		para: SlotDuration::from_millis(SLOT_DURATION),
 	}
-}
-
-fn setup_pool_for_paying_fees_with_foreign_assets(
-	(foreign_asset_owner, foreign_asset_id_location, foreign_asset_id_minimum_balance): (
-		AccountId,
-		xcm::v5::Location,
-		Balance,
-	),
-) {
-	let existential_deposit = ExistentialDeposit::get();
-
-	// setup a pool to pay fees with `foreign_asset_id_location` tokens
-	let pool_owner: AccountId = [14u8; 32].into();
-	let native_asset = xcm::v5::Location::parent();
-	let pool_liquidity: Balance =
-		existential_deposit.max(foreign_asset_id_minimum_balance).mul(100_000);
-
-	let _ = Balances::force_set_balance(
-		RuntimeOrigin::root(),
-		pool_owner.clone().into(),
-		(existential_deposit + pool_liquidity).mul(2).into(),
-	);
-
-	assert_ok!(ForeignAssets::mint(
-		RuntimeOrigin::signed(foreign_asset_owner),
-		foreign_asset_id_location.clone().into(),
-		pool_owner.clone().into(),
-		(foreign_asset_id_minimum_balance + pool_liquidity).mul(2).into(),
-	));
-
-	assert_ok!(AssetConversion::create_pool(
-		RuntimeOrigin::signed(pool_owner.clone()),
-		Box::new(native_asset.clone().into()),
-		Box::new(foreign_asset_id_location.clone().into())
-	));
-
-	assert_ok!(AssetConversion::add_liquidity(
-		RuntimeOrigin::signed(pool_owner.clone()),
-		Box::new(native_asset.into()),
-		Box::new(foreign_asset_id_location.into()),
-		pool_liquidity,
-		pool_liquidity,
-		1,
-		1,
-		pool_owner,
-	));
 }
 
 #[test]
@@ -944,7 +898,7 @@ fn receive_reserve_asset_deposited_roc_from_asset_hub_rococo_fees_paid_by_pool_s
 			1000000000000,
 			|| {
 				// setup pool for paying fees to touch `SwapFirstAssetTrader`
-				setup_pool_for_paying_fees_with_foreign_assets(foreign_asset_create_params);
+				asset_test_utils::test_cases::setup_pool_for_paying_fees_with_foreign_assets::<Runtime, RuntimeOrigin>(ExistentialDeposit::get(), foreign_asset_create_params);
 				// staking pot account for collecting local native fees from `BuyExecution`
 				let _ = Balances::force_set_balance(RuntimeOrigin::root(), StakingPot::get().into(), ExistentialDeposit::get());
 				// prepare bridge configuration
@@ -1014,7 +968,7 @@ fn receive_reserve_asset_deposited_roc_from_asset_hub_rococo_fees_paid_by_suffic
 		foreign_asset_create_params.clone(),
 		1000000000000,
 		|| {
-			setup_pool_for_paying_fees_with_foreign_assets(foreign_asset_create_params);
+			asset_test_utils::test_cases::setup_pool_for_paying_fees_with_foreign_assets::<Runtime, RuntimeOrigin>(ExistentialDeposit::get(), foreign_asset_create_params);
 			bridging_to_asset_hub_rococo()
 		},
 		(
@@ -1423,13 +1377,24 @@ fn xcm_payment_api_works() {
 		RuntimeCall,
 		RuntimeOrigin,
 		Block,
+		WeightToFee,
 	>();
 	asset_test_utils::test_cases::xcm_payment_api_with_pools_works::<
 		Runtime,
 		RuntimeCall,
 		RuntimeOrigin,
 		Block,
+		WeightToFee,
 	>();
+
+	asset_test_utils::test_cases::xcm_payment_api_foreign_asset_pool_works::<
+		Runtime,
+		RuntimeCall,
+		RuntimeOrigin,
+		LocationToAccountId,
+		Block,
+		WeightToFee,
+	>(ExistentialDeposit::get(), ROCOCO_GENESIS_HASH);
 }
 
 #[test]
