@@ -1,0 +1,16 @@
+title: '[pallet-revive] rpc server add dev docker file'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Add a development docker for pallet-revive eth-rpc
+
+     Tested with
+    ```
+    docker build --platform linux/amd64 \
+        -f substrate/frame/revive/rpc/dockerfiles/eth-rpc/Dockerfile.dev \ 
+        -t eth-rpc:latest-dev .
+    docker run eth-rpc:latest-dev
+    ```
+crates:
+- name: pallet-revive-eth-rpc
+  bump: minor
