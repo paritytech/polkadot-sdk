@@ -44,7 +44,7 @@ pub const INHERENT_IDENTIFIER: InherentIdentifier = *b"sysi1337";
 /// Legacy ParachainInherentData that is kept around for backward compatibility.
 /// Can be removed once we can safely assume that parachain nodes provide the
 /// `relay_parent_descendants` field.
-pub mod legacy {
+pub mod v0 {
 	use alloc::{collections::BTreeMap, vec::Vec};
 	use cumulus_primitives_core::{
 		InboundDownwardMessage, InboundHrmpMessage, ParaId, PersistedValidationData,
@@ -116,7 +116,7 @@ pub struct ParachainInherentData {
 	pub relay_parent_descendants: Vec<RelayHeader>,
 }
 
-impl Into<ParachainInherentData> for legacy::ParachainInherentData {
+impl Into<ParachainInherentData> for v0::ParachainInherentData {
 	fn into(self) -> ParachainInherentData {
 		ParachainInherentData {
 			validation_data: self.validation_data,
@@ -196,5 +196,35 @@ impl MessageQueueChain {
 	/// This is agreed to be the zero hash for an empty chain.
 	pub fn head(&self) -> RelayHash {
 		self.0
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use codec::{Decode, Encode};
+	use cumulus_test_relay_sproof_builder::RelayStateSproofBuilder;
+
+	/// Nodes might build a new inherent-data version and pass it to an
+	/// old runtime, so the old version needs to decode from the new one.
+	#[test]
+	fn v0_decodes_from_current() {
+		let sproof_builder = RelayStateSproofBuilder {
+			para_id: 2000.into(),
+			included_para_head: None,
+			..Default::default()
+		};
+		let (_, proof) = sproof_builder.into_state_root_and_proof();
+		let new_inherent = ParachainInherentData {
+			validation_data: Default::default(),
+			relay_chain_state: proof,
+			downward_messages: vec![],
+			horizontal_messages: Default::default(),
+			relay_parent_descendants: vec![],
+		};
+		let encoded = new_inherent.encode();
+
+		v0::ParachainInherentData::decode(&mut encoded.as_slice())
+			.expect("Unable to decode legacy inherent data from current!");
 	}
 }
