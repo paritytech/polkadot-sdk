@@ -514,7 +514,7 @@ impl PalletCmd {
 						Ok(Ok(b)) => b,
 					};
 
-					batches_db.extend(batch.clone());
+					batches_db.extend(batch);
 				}
 				// Finally run a bunch of loops to get extrinsic timing information.
 				for r in 0..self.external_repeat {
