@@ -1706,9 +1706,8 @@ impl_runtime_apis! {
 
 				// reserve-based transfer cases. non-system parachain i.e. id >= 2000
 				pub RandomParaId: ParaId = ParaId::new(3333);
-				pub RandomParaLocation: Location = Location::new(
-					1, [Parachain(RandomId::get())]);
-
+				pub RandomParaLocation: Location = ParentThen(Parachain(
+					RandomParaId::get().into()).into()).into();
 				pub AssetHubParaId: ParaId = ParaId::new(AssetHubId);
 			}
 

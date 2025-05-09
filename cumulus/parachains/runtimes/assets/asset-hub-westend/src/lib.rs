@@ -1926,11 +1926,9 @@ impl_runtime_apis! {
 				).into());
 
 				// reserve-based transfer cases. non-system parachain i.e. id >= 2000
-				pub RandomId: u32 = 3333;
 				pub RandomParaId: ParaId = ParaId::new(3333);
-				pub RandomParaLocation: Location = Location::new(
-					1, [Parachain(RandomId::get())]);
-
+				pub RandomParaLocation: Location = ParentThen(Parachain(
+					RandomParaId::get().into()).into()).into();
 				pub AssetHubParaId: ParaId = ParaId::new(AssetHubId::get());
 			}
 
@@ -2093,12 +2091,12 @@ impl_runtime_apis! {
 				type XcmConfig = xcm_config::XcmConfig;
 				type AccountIdConverter = xcm_config::LocationToAccountId;
 				type DeliveryHelper = polkadot_runtime_common::xcm_sender::ToParachainDeliveryHelper<
-						xcm_config::XcmConfig,
-						ExistentialDepositAsset,
-						PriceForSiblingParachainDelivery,
-						AssetHubParaId,
-						ParachainSystem
-					>;
+										xcm_config::XcmConfig,
+										ExistentialDepositAsset,
+										PriceForSiblingParachainDelivery,
+										AssetHubParaId,
+										ParachainSystem
+				>;
 				fn valid_destination() -> Result<Location, BenchmarkError> {
 					let dest: Location = Some(AssetHubParaLocation::get()).unwrap();
 					Ok(dest)
@@ -2133,10 +2131,10 @@ impl_runtime_apis! {
 				));
 				pub const CheckedAccount: Option<(AccountId, xcm_builder::MintLocation)> = None;
 				// AssetHubWestend trusts AssetHubRococo as reserve for ROCs
-				pub TrustedReserve: Option<(Location, Asset)> = Some((
-						xcm_config::bridging::to_rococo::AssetHubRococo::get(),
-						Asset::from((
-						xcm_config::bridging::to_rococo::RocLocation::get(), 1000000000000 as u128))
+				pub TrustedReserve: Option<(Location, Asset)> = Some(
+					(
+						RandomParaLocation::get(),
+						Asset::from((xcm_config::bridging::to_rococo::RocLocation::get(), 1000000000000 as u128))
 					)
 				);
 			}
