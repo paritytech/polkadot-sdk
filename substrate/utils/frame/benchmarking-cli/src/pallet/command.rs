@@ -537,7 +537,9 @@ impl PalletCmd {
 						"dispatch a benchmark",
 					) {
 						Err(e) => {
-							return Err(format!("Benchmark {pallet}::{extrinsic} failed: {e}").into());
+							return Err(
+								format!("Benchmark {pallet}::{extrinsic} failed: {e}").into()
+							);
 						},
 						Ok(Err(e)) => {
 							return Err(
@@ -661,10 +663,11 @@ impl PalletCmd {
 		let included = extrinsic_filter.is_empty() ||
 			extrinsic_filter == "*" ||
 			extrinsics.contains(&&extrinsic[..]);
-		
-		let excluded = self.excluded_extrinsics().iter().any(|(p, e)| {
-			p.as_bytes() == pallet && e.as_bytes() == extrinsic
-		});
+
+		let excluded = self
+			.excluded_extrinsics()
+			.iter()
+			.any(|(p, e)| p.as_bytes() == pallet && e.as_bytes() == extrinsic);
 
 		included && !excluded
 	}
@@ -672,7 +675,7 @@ impl PalletCmd {
 	/// All `(pallet, extrinsic)` tuples that are excluded from the benchmarks.
 	fn excluded_extrinsics(&self) -> Vec<(String, String)> {
 		let mut excluded = Vec::new();
-		
+
 		for e in &self.exclude_extrinsics {
 			let splits = e.split("::").collect::<Vec<_>>();
 			if splits.len() != 2 {
