@@ -35,7 +35,7 @@ jobs:
 
   validate-inputs:
     needs: [check-synchronization, sync-forks]
-    if: ${{ needs.check-synchronization.outputs.checks_passed  == 'true' }} || ${{ needs.sync-forks.outputs.branches_synced == 'true' }}
+    if: ${{ !(needs.check-synchronization.outputs.checks_passed == 'false') || needs.sync-forks.outputs.branches_synced == 'true' }}
     runs-on: ubuntu-latest
     outputs:
         release_tag: ${{ steps.validate_inputs.outputs.release_tag }}
