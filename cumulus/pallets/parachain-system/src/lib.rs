@@ -700,9 +700,9 @@ pub mod pallet {
 				},
 				Some(relay_chain::UpgradeGoAhead::GoAhead) => {
 					assert!(
-                        <PendingValidationCode<T>>::exists(),
-                        "No new validation function found in storage, GoAhead signal is not expected",
-                    );
+						<PendingValidationCode<T>>::exists(),
+						"No new validation function found in storage, GoAhead signal is not expected",
+					);
 					let validation_code = <PendingValidationCode<T>>::take();
 
 					frame_system::Pallet::<T>::update_code_in_storage(&validation_code);
@@ -1093,7 +1093,7 @@ impl<T: Config> GetChannelInfo for Pallet<T> {
 		let channels = match RelevantMessagingState::<T>::get() {
 			None => {
 				log::warn!("calling `get_channel_status` with no RelevantMessagingState?!");
-				return ChannelStatus::Closed;
+				return ChannelStatus::Closed
 			},
 			Some(d) => d.egress_channels,
 		};
@@ -1110,7 +1110,7 @@ impl<T: Config> GetChannelInfo for Pallet<T> {
 		let meta = &channels[index].1;
 		if meta.msg_count + 1 > meta.max_capacity {
 			// The channel is at its capacity. Skip it for now.
-			return ChannelStatus::Full;
+			return ChannelStatus::Full
 		}
 		let max_size_now = meta.max_total_size - meta.total_size;
 		let max_size_ever = meta.max_message_size;
@@ -1819,13 +1819,13 @@ impl<T: Config> BlockNumberProvider for RelaychainDataProvider<T> {
 	#[cfg(feature = "runtime-benchmarks")]
 	fn set_block_number(block: Self::BlockNumber) {
 		let mut validation_data = ValidationData::<T>::get().unwrap_or_else(||
-            // PersistedValidationData does not impl default in non-std
-            PersistedValidationData {
-                parent_head: vec![].into(),
-                relay_parent_number: Default::default(),
-                max_pov_size: Default::default(),
-                relay_parent_storage_root: Default::default(),
-            });
+			// PersistedValidationData does not impl default in non-std
+			PersistedValidationData {
+				parent_head: vec![].into(),
+				relay_parent_number: Default::default(),
+				max_pov_size: Default::default(),
+				relay_parent_storage_root: Default::default(),
+			});
 		validation_data.relay_parent_number = block;
 		ValidationData::<T>::put(validation_data)
 	}

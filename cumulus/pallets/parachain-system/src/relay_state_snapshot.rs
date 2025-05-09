@@ -297,6 +297,7 @@ impl RelayChainStateProof {
 			.map_err(Error::ParaHead)
 	}
 
+	/// Read relay chain authorities.
 	pub fn read_authorities(
 		&self,
 	) -> Result<Vec<(sp_consensus_babe::AuthorityId, sp_consensus_babe::BabeAuthorityWeight)>, Error>
@@ -305,6 +306,7 @@ impl RelayChainStateProof {
 			.map_err(Error::Authorities)
 	}
 
+	/// Read relay chain authorities for the next epoch.
 	pub fn read_next_authorities(
 		&self,
 	) -> Result<
