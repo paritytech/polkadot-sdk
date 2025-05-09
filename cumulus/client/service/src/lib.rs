@@ -619,10 +619,19 @@ async fn parachain_informant<Block: BlockT, Client>(
 		relay_chain_interface.import_notification_stream().await.unwrap();
 	let mut last_backed_block_time: Option<Instant> = None;
 	while let Some(n) = import_notifications.next().await {
-		let candidate_events = relay_chain_interface.candidate_events(n.hash()).await.unwrap();
+		let candidate_events = match relay_chain_interface.candidate_events(n.hash()).await {
+			Ok(candidate_events) => candidate_events,
+			Err(e) => {
+				log::warn!("Failed to get candidate events for block {}: {e:?}", n.hash());
+				continue
+			},
+		};
+		let mut backed_candidates = Vec::new();
+		let mut included_candidates = Vec::new();
+		let mut timed_out_candidates = Vec::new();
 		for event in candidate_events {
 			match event {
-				CandidateEvent::CandidateBacked(receipt, head, _core_index, _group_index) => {
+				CandidateEvent::CandidateBacked(_, head, _, _) => {
 					let backed_block = match Block::Header::decode(&mut &head.0[..]) {
 						Ok(header) => header,
 						Err(e) => {
@@ -632,12 +641,6 @@ async fn parachain_informant<Block: BlockT, Client>(
 							continue
 						},
 					};
-					log::info!(
-						"Candidate #{} ({}) backed with parent {}",
-						backed_block.number(),
-						backed_block.hash(),
-						receipt.descriptor.relay_parent()
-					);
 					let backed_block_time = Instant::now();
 					if let Some(last_backed_block_time) = &last_backed_block_time {
 						let duration = backed_block_time.duration_since(*last_backed_block_time);
@@ -648,8 +651,9 @@ async fn parachain_informant<Block: BlockT, Client>(
 						}
 					}
 					last_backed_block_time = Some(backed_block_time);
+					backed_candidates.push(backed_block);
 				},
-				CandidateEvent::CandidateIncluded(receipt, head, _core_index, _group_index) => {
+				CandidateEvent::CandidateIncluded(_, head, _, _) => {
 					let included_block = match Block::Header::decode(&mut &head.0[..]) {
 						Ok(header) => header,
 						Err(e) => {
@@ -659,21 +663,16 @@ async fn parachain_informant<Block: BlockT, Client>(
 							continue
 						},
 					};
-					log::info!(
-						"Candidate #{} ({}) included with parent {}",
-						included_block.number(),
-						included_block.hash(),
-						receipt.descriptor.relay_parent()
-					);
 					let unincluded_segment_size =
 						client.info().best_number.saturating_sub(*included_block.number());
 					let unincluded_segment_size: u32 = unincluded_segment_size.saturated_into();
 					if let Some(metrics) = &metrics {
 						metrics.unincluded_segment_size.observe(unincluded_segment_size.into());
 					}
+					included_candidates.push(included_block);
 				},
-				CandidateEvent::CandidateTimedOut(receipt, head, _core_index) => {
-					let header = match Block::Header::decode(&mut &head.0[..]) {
+				CandidateEvent::CandidateTimedOut(_, head, _) => {
+					let timed_out_block = match Block::Header::decode(&mut &head.0[..]) {
 						Ok(header) => header,
 						Err(e) => {
 							log::warn!(
@@ -682,14 +681,42 @@ async fn parachain_informant<Block: BlockT, Client>(
 							continue
 						},
 					};
-					log::info!(
-						"Candidate #{} ({}) timed out with parent {}",
-						header.number(),
-						header.hash(),
-						receipt.descriptor.relay_parent()
-					);
+					timed_out_candidates.push(timed_out_block);
 				},
 			}
+		}
+		let mut log_parts = Vec::new();
+		if !backed_candidates.is_empty() {
+			let backed_candidates = backed_candidates
+				.into_iter()
+				.map(|c| format!("#{} ({})", c.number(), c.hash()))
+				.collect::<Vec<_>>()
+				.join(", ");
+			log_parts.push(format!("backed: {}", backed_candidates));
+		};
+		if !included_candidates.is_empty() {
+			let included_candidates = included_candidates
+				.into_iter()
+				.map(|c| format!("#{} ({})", c.number(), c.hash()))
+				.collect::<Vec<_>>()
+				.join(", ");
+			log_parts.push(format!("included: {}", included_candidates));
+		};
+		if !timed_out_candidates.is_empty() {
+			let timed_out_candidates = timed_out_candidates
+				.into_iter()
+				.map(|c| format!("#{} ({})", c.number(), c.hash()))
+				.collect::<Vec<_>>()
+				.join(", ");
+			log_parts.push(format!("timed out: {}", timed_out_candidates));
+		};
+		if !log_parts.is_empty() {
+			log::info!(
+				"Update at relay chain block #{} ({}) - {}",
+				n.number(),
+				n.hash(),
+				log_parts.join(", ")
+			);
 		}
 	}
 }
