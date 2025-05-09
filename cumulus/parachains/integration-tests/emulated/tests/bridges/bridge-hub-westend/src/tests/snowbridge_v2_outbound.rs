@@ -227,7 +227,7 @@ pub fn add_tip_from_asset_hub_user_origin() {
 	});
 
 	// Add the tip.
-	let tip_message_id = MessageId::Outbound(0);
+	let tip_message_id = MessageId::Outbound(1);
 
 	let dot = Location::new(1, Here);
 	AssetHubWestend::execute_with(|| {

@@ -57,13 +57,13 @@ pub enum BridgeHubRuntime<T: frame_system::Config> {
 /// Call indices for dispatchables within `snowbridge-pallet-system-v2`
 #[derive(Encode, Decode, Debug, PartialEq, Clone, TypeInfo)]
 pub enum EthereumSystemCall<T: frame_system::Config> {
-	#[codec(index = 1)]
+	#[codec(index = 2)]
 	RegisterToken {
 		sender: Box<VersionedLocation>,
 		asset_id: Box<VersionedLocation>,
 		metadata: AssetMetadata,
 	},
-	#[codec(index = 2)]
+	#[codec(index = 3)]
 	AddTip { sender: AccountIdOf<T>, message_id: MessageId, amount: u128 },
 }
 
