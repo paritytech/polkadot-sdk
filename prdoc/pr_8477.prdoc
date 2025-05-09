@@ -1,17 +1,17 @@
-title: FeeTracker deduplications
+title: `FeeTracker` deduplications
 doc:
 - audience: Runtime Dev
-  description: Closes https://github.com/paritytech/polkadot-sdk/issues/8462
+  description: This PR refactors the `FeeTracker` trait in order to make it more reusable.
 crates:
 - name: pallet-xcm-bridge-hub-router
-  bump: patch
+  bump: minor
 - name: cumulus-pallet-parachain-system
-  bump: patch
+  bump: major
 - name: cumulus-pallet-xcmp-queue
-  bump: patch
+  bump: major
 - name: polkadot-runtime-parachains
-  bump: patch
+  bump: major
 - name: polkadot-runtime-common
   bump: patch
 - name: yet-another-parachain-runtime
-  bump: patch
+  bump: none
