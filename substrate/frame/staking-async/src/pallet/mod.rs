@@ -1416,7 +1416,7 @@ pub mod pallet {
 				// Calculate unbonding era based on unbonding queue mechanism.
 				let era = Self::process_unbond_queue_request(current_era, value);
 
-				if let Some(chunk) = ledger.unlocking.last_mut().filter(|chunk| chunk.era == era) {
+				if let Some(chunk) = ledger.unlocking.iter_mut().find(|chunk| chunk.era == era) {
 					// To keep the chunk count down, we only keep one chunk per era. Since
 					// `unlocking` is a FiFo queue, if a chunk exists for `era` we know that it will
 					// be the last one.

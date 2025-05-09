@@ -528,3 +528,76 @@ fn rebonding_after_one_era_should_reduce_back_of_unbonding_queue() {
 		);
 	});
 }
+
+#[test]
+fn rebonding_after_one_era_and_unbonding_should_place_the_new_unbond_era_in_the_queue() {
+	ExtBuilder::default().build_and_execute(|| {
+		assert_ok!(Staking::set_staking_configs(
+			RuntimeOrigin::root(),
+			ConfigOp::Noop,
+			ConfigOp::Noop,
+			ConfigOp::Noop,
+			ConfigOp::Noop,
+			ConfigOp::Noop,
+			ConfigOp::Noop,
+			ConfigOp::Noop,
+			ConfigOp::Set(UnbondingQueueConfig {
+				min_slashable_share: Perbill::from_percent(50),
+				lowest_ratio: Perbill::from_percent(34),
+				unbond_period_lower_bound: 1,
+				// Start with the queue in the current era.
+				back_of_unbonding_queue: normalize_era(1),
+			})
+		));
+
+		// Start at era 1 with known minimum lowest stake
+		let current_era = Staking::current_era();
+		assert_eq!(current_era, 1);
+		assert_ok!(EraLowestRatioTotalStake::<Test>::try_append(1000));
+
+		// First unbond
+		assert_eq!(
+			StakingLedger::<Test>::get(StakingAccount::Stash(11))
+				.unwrap()
+				.unlocking
+				.into_inner(),
+			vec![]
+		);
+		assert_ok!(Staking::unbond(RuntimeOrigin::signed(11), 10));
+		assert_eq!(
+			StakingLedger::<Test>::get(StakingAccount::Stash(11))
+				.unwrap()
+				.unlocking
+				.into_inner(),
+			vec![UnlockChunk { value: 10, era: 2 }]
+		);
+
+		// Second unbond
+		assert_ok!(Staking::unbond(RuntimeOrigin::signed(11), 500));
+		assert_eq!(
+			StakingLedger::<Test>::get(StakingAccount::Stash(11))
+				.unwrap()
+				.unlocking
+				.into_inner(),
+			vec![UnlockChunk { value: 10, era: 2 }, UnlockChunk { value: 500, era: 4 }]
+		);
+
+		assert_ok!(Staking::rebond(RuntimeOrigin::signed(11), 490));
+		assert_eq!(
+			StakingLedger::<Test>::get(StakingAccount::Stash(11))
+				.unwrap()
+				.unlocking
+				.into_inner(),
+			vec![UnlockChunk { value: 10, era: 2 }, UnlockChunk { value: 10, era: 4 }]
+		);
+
+		assert_ok!(Staking::unbond(RuntimeOrigin::signed(11), 10));
+		assert_eq!(
+			StakingLedger::<Test>::get(StakingAccount::Stash(11))
+				.unwrap()
+				.unlocking
+				.into_inner(),
+			vec![UnlockChunk { value: 20, era: 2 }, UnlockChunk { value: 10, era: 4 }]
+		);
+	});
+}
