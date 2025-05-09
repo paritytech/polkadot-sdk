@@ -111,39 +111,44 @@ fn ah_to_ah_open_close_bridge_works() {
 
 #[test]
 fn para_to_para_open_close_bridge_works() {
-	let para_sovereign_account = AssetHubWestend::sovereign_account_id_of(
+	let penpal_a_para_sovereign_account = AssetHubWestend::sovereign_account_id_of(
 		AssetHubWestend::sibling_location_of(PenpalA::para_id()),
 	);
 	let fee_amount = ASSET_HUB_WESTEND_ED * 1000;
-	let system_asset = (Parent, fee_amount).into();
+	let system_asset = (Parent, fee_amount);
 
 	let call = bp_asset_hub_westend::Call::XcmOverAssetHubRococo(
-		bp_xcm_bridge::XcmBridgeCall::open_bridge(
-			Box::new(AssetHubWestendUniversalLocation::get().into()),
-			None,
-		),
-	);
+		bp_xcm_bridge::XcmBridgeCall::open_bridge {
+			bridge_destination_universal_location: Box::new(PenpalBUniversalLocation::get().into()),
+			maybe_notify: None,
+		},
+	).encode();
+
+	// wrap the call as paid execution 
 	let xcm = xcm_transact_paid_execution(
-		call,
+		call.into(),
 		OriginKind::Xcm,
-		system_asset,
-		para_sovereign_account.clone(),
+		system_asset.into(),
+		penpal_a_para_sovereign_account,
 	);
-	// send XCM from Penpal to AssetHub
-	let asset_hub_destination = PenpalA::sibling_location_of(AssetHubWestend::para_id()).into();
-	let westend_bridge_opened_lane_id = PenpalA::execute_with(|| {
+	// send XCM from PenpalA to the AssetHubWestend
+	let system_para_destination = PenpalA::sibling_location_of(AssetHubWestend::para_id());
+	PenpalA::execute_with(|| {
 		let root_origin = <PenpalA as Chain>::RuntimeOrigin::root();
 		assert_ok!(<PenpalA as PenpalAPallet>::PolkadotXcm::send(
 			root_origin,
-			bx!(asset_hub_destination),
+			bx!(system_para_destination.into()),
 			bx!(xcm),
 		));
 
 		PenpalA::assert_xcm_pallet_sent();
+	});
 
+	let penpal_a_bridge_opened_lane_id = AssetHubWestend::execute_with(|| {
 		// check BridgeOpened event on AssetHubWestend
 		let events = AssetHubWestend::events();
 		type RuntimeEventWestend = <AssetHubWestend as Chain>::RuntimeEvent;
+		AssetHubWestend::assert_xcmp_queue_success(None);
 		events.iter().find_map(|event| {
 			if let RuntimeEventWestend::XcmOverAssetHubRococo(
 				pallet_xcm_bridge::Event::BridgeOpened { lane_id, .. },
@@ -156,5 +161,5 @@ fn para_to_para_open_close_bridge_works() {
 		})
 	});
 
-	assert!(westend_bridge_opened_lane_id.is_some(), "Westend BridgeOpened event not found");
+	assert!(penpal_a_bridge_opened_lane_id.is_some(), "PenpalA BridgeOpened event not found");
 }

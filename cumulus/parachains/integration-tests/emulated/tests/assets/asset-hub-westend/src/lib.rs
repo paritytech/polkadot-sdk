@@ -80,6 +80,7 @@ mod imports {
 		collectives_westend_emulated_chain::CollectivesWestendParaPallet as CollectivesWestendPallet,
 		coretime_westend_emulated_chain::CoretimeWestendParaPallet as CoretimeWestendPallet,
 		penpal_emulated_chain::{
+			genesis::{PenpalAUniversalLocation, PenpalBUniversalLocation},
 			penpal_runtime::xcm_config::{
 				CustomizableAssetFromSystemAssetHub as PenpalCustomizableAssetFromSystemAssetHub,
 				LocalReservableFromAssetHub as PenpalLocalReservableFromAssetHub,
