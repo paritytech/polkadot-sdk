@@ -19,7 +19,6 @@
 #![recursion_limit = "256"]
 
 // Make the WASM binary available.
-use sp_core::TypedGet;
 #[cfg(feature = "std")]
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
@@ -28,28 +27,9 @@ pub mod wasm_spec_version_incremented {
 	include!(concat!(env!("OUT_DIR"), "/wasm_binary_spec_version_incremented.rs"));
 }
 
-pub mod relay_parent_offset {
-	#[cfg(feature = "std")]
-	include!(concat!(env!("OUT_DIR"), "/wasm_binary_relay_parent_offset.rs"));
-}
-
-pub mod elastic_scaling_500ms {
-	#[cfg(feature = "std")]
-	include!(concat!(env!("OUT_DIR"), "/wasm_binary_elastic_scaling_500ms.rs"));
-}
 pub mod elastic_scaling_mvp {
 	#[cfg(feature = "std")]
 	include!(concat!(env!("OUT_DIR"), "/wasm_binary_elastic_scaling_mvp.rs"));
-}
-
-pub mod elastic_scaling {
-	#[cfg(feature = "std")]
-	include!(concat!(env!("OUT_DIR"), "/wasm_binary_elastic_scaling.rs"));
-}
-
-pub mod elastic_scaling_multi_block_slot {
-	#[cfg(feature = "std")]
-	include!(concat!(env!("OUT_DIR"), "/wasm_binary_elastic_scaling_multi_block_slot.rs"));
 }
 
 pub mod sync_backing {
@@ -118,37 +98,9 @@ impl_opaque_keys! {
 /// The para-id used in this runtime.
 pub const PARACHAIN_ID: u32 = 100;
 
-#[cfg(all(
-	feature = "elastic-scaling-multi-block-slot",
-	not(any(feature = "elastic-scaling", feature = "elastic-scaling-500ms",))
-))]
-pub const BLOCK_PROCESSING_VELOCITY: u32 = 6;
-
-#[cfg(all(
-	feature = "elastic-scaling-500ms",
-	not(any(feature = "elastic-scaling", feature = "elastic-scaling-multi-block-slot",))
-))]
-pub const BLOCK_PROCESSING_VELOCITY: u32 = 12;
-
-#[cfg(any(feature = "elastic-scaling"))]
-pub const BLOCK_PROCESSING_VELOCITY: u32 = 3;
-
-#[cfg(not(any(
-	feature = "elastic-scaling",
-	feature = "elastic-scaling-500ms",
-	feature = "elastic-scaling-multi-block-slot",
-)))]
-pub const BLOCK_PROCESSING_VELOCITY: u32 = 1;
-
-#[cfg(feature = "sync-backing")]
-const UNINCLUDED_SEGMENT_CAPACITY: u32 = 1;
-
-// The `+2` shouldn't be needed, https://github.com/paritytech/polkadot-sdk/issues/5260
-#[cfg(not(feature = "sync-backing"))]
-const UNINCLUDED_SEGMENT_CAPACITY: u32 = BLOCK_PROCESSING_VELOCITY * 2;
-
 #[cfg(feature = "sync-backing")]
 pub const SLOT_DURATION: u64 = 12000;
+
 #[cfg(not(feature = "sync-backing"))]
 pub const SLOT_DURATION: u64 = 6000;
 
@@ -224,6 +176,7 @@ const MAXIMUM_BLOCK_WEIGHT: Weight = Weight::from_parts(
 parameter_types! {
 	pub storage RelayParentOffset: u32 = 0;
 	pub storage Velocity: u32 = 3;
+	pub storage UnincludedSegment: u32 = 3;
 	pub const BlockHashCount: BlockNumber = 250;
 	pub const Version: RuntimeVersion = VERSION;
 	pub RuntimeBlockLength: BlockLength =
@@ -344,11 +297,11 @@ impl pallet_glutton::Config for Runtime {
 	type WeightInfo = pallet_glutton::weights::SubstrateWeight<Runtime>;
 }
 
-type ConsensusHook = cumulus_pallet_aura_ext::consensus_hook::LolHook<
+type ConsensusHook = cumulus_pallet_aura_ext::consensus_hook::non_const::FixedVelocityConsensusHook<
 	Runtime,
 	RELAY_CHAIN_SLOT_DURATION_MILLIS,
 	Velocity,
-	UNINCLUDED_SEGMENT_CAPACITY,
+	UnincludedSegment,
 >;
 impl cumulus_pallet_parachain_system::Config for Runtime {
 	type WeightInfo = ();

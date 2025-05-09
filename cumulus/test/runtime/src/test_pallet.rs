@@ -21,10 +21,15 @@ pub use pallet::*;
 /// [`OnRuntimeUpgrade`] works as expected.
 pub const TEST_RUNTIME_UPGRADE_KEY: &[u8] = b"+test_runtime_upgrade_key+";
 pub const RP_OFFSET_KEY: &[u8] = b":RelayParentOffset:";
+pub const UNINCLUDED_SEGMENT_KEY: &[u8] = b":UnincludedSegment:";
+
+pub const VELOCITY_KEY: &[u8] = b":Velocity:";
 
 #[frame_support::pallet(dev_mode)]
 pub mod pallet {
-	use crate::test_pallet::{RP_OFFSET_KEY, TEST_RUNTIME_UPGRADE_KEY};
+	use crate::test_pallet::{
+		RP_OFFSET_KEY, TEST_RUNTIME_UPGRADE_KEY, UNINCLUDED_SEGMENT_KEY, VELOCITY_KEY,
+	};
 	use frame_support::{pallet_prelude::*, StorageHasher};
 	use frame_system::pallet_prelude::*;
 
@@ -82,15 +87,22 @@ pub mod pallet {
 		#[serde(skip)]
 		pub _config: core::marker::PhantomData<T>,
 		pub relay_parent_offset: u32,
+		pub unincluded_segment: u32,
+		pub velocity: u32,
 	}
 
 	#[pallet::genesis_build]
 	impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
 		fn build(&self) {
 			sp_io::storage::set(TEST_RUNTIME_UPGRADE_KEY, &[1, 2, 3, 4]);
-			let key = Twox128::hash(RP_OFFSET_KEY);
-			let offset = self.relay_parent_offset;
-			sp_io::storage::set(&key, &offset.encode());
+			set_storage(RP_OFFSET_KEY, self.relay_parent_offset);
+			set_storage(UNINCLUDED_SEGMENT_KEY, self.unincluded_segment);
+			set_storage(VELOCITY_KEY, self.velocity);
 		}
+	}
+
+	fn set_storage(key: &[u8], value: impl Encode) {
+		let key_hashed = Twox128::hash(key);
+		sp_io::storage::set(&key_hashed, &value.encode());
 	}
 }

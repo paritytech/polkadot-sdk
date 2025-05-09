@@ -115,9 +115,8 @@ pub fn get_elastic_scaling_chain_spec(id: Option<ParaId>) -> ChainSpec {
 	get_chain_spec_with_extra_endowed(
 		id,
 		Default::default(),
-		cumulus_test_runtime::elastic_scaling::WASM_BINARY
-			.expect("WASM binary was not built, please build it!"),
-		None,
+		cumulus_test_runtime::WASM_BINARY.expect("WASM binary was not built, please build it!"),
+		Some("dev_elastic_scaling"),
 	)
 }
 
@@ -126,8 +125,7 @@ pub fn get_relay_parent_offset_chain_spec(id: Option<ParaId>) -> ChainSpec {
 	get_chain_spec_with_extra_endowed(
 		id,
 		Default::default(),
-		cumulus_test_runtime::elastic_scaling::WASM_BINARY
-			.expect("WASM binary was not built, please build it!"),
+		cumulus_test_runtime::WASM_BINARY.expect("WASM binary was not built, please build it!"),
 		Some("relay_parent_offset_dev"),
 	)
 }
@@ -136,9 +134,8 @@ pub fn get_elastic_scaling_500ms_chain_spec(id: Option<ParaId>) -> ChainSpec {
 	get_chain_spec_with_extra_endowed(
 		id,
 		Default::default(),
-		cumulus_test_runtime::elastic_scaling_500ms::WASM_BINARY
-			.expect("WASM binary was not built, please build it!"),
-		None,
+		cumulus_test_runtime::WASM_BINARY.expect("WASM binary was not built, please build it!"),
+		Some("dev_elastic_scaling_500ms"),
 	)
 }
 
@@ -149,7 +146,7 @@ pub fn get_elastic_scaling_mvp_chain_spec(id: Option<ParaId>) -> ChainSpec {
 		Default::default(),
 		cumulus_test_runtime::elastic_scaling_mvp::WASM_BINARY
 			.expect("WASM binary was not built, please build it!"),
-		None,
+		Some("dev_elastic_scaling"),
 	)
 }
 
@@ -157,9 +154,8 @@ pub fn get_elastic_scaling_multi_block_slot_chain_spec(id: Option<ParaId>) -> Ch
 	get_chain_spec_with_extra_endowed(
 		id,
 		Default::default(),
-		cumulus_test_runtime::elastic_scaling_multi_block_slot::WASM_BINARY
-			.expect("WASM binary was not built, please build it!"),
-		None,
+		cumulus_test_runtime::WASM_BINARY.expect("WASM binary was not built, please build it!"),
+		Some("dev_elastic_scaling_multi_block_slot"),
 	)
 }
 
