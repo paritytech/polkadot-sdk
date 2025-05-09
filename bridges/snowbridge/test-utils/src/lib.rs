@@ -4,4 +4,5 @@ pub mod mock_origin;
 
 pub mod mock_outbound_queue;
 
+pub mod mock_converter;
 pub mod mock_xcm;
