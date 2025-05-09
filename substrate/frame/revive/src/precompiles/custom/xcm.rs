@@ -27,7 +27,7 @@ use core::{marker::PhantomData, num::NonZero};
 use xcm_builder::{ExecuteController, ExecuteControllerWeightInfo, SendController};
 pub use IXcm::IXcmCalls;
 
-pub struct XCMPrecompile<T>(PhantomData<T>);
+pub struct XcmPrecompile<T>(PhantomData<T>);
 
 sol! {
 	/// @title Defines all functions that can be used to interact with XCM
@@ -45,10 +45,9 @@ sol! {
 	}
 }
 
-impl<T: Config> Precompile for XCMPrecompile<T> {
+impl<T: Config> Precompile for XcmPrecompile<T> {
 	type T = T;
 	const MATCHER: AddressMatcher = AddressMatcher::Fixed(NonZero::new(10).unwrap());
-	// We don't need to set this to true since we are forwarding any state changing ops to the xcm pallet
 	const HAS_CONTRACT_INFO: bool = false;
 	type Interface = IXcm::IXcmCalls;
 
@@ -109,6 +108,6 @@ impl<T: Config> Precompile for XCMPrecompile<T> {
 		_input: &Self::Interface,
 		_env: &mut impl ExtWithInfo<T = Self::T>,
 	) -> Result<Vec<u8>, Error> {
-		Err(Error::Revert("call_with_info not implemented for XCMPrecompile".into()))
+		Err(Error::Revert("call_with_info not implemented for XcmPrecompile".into()))
 	}
 }

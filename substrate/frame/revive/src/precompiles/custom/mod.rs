@@ -16,4 +16,4 @@
 // limitations under the License.
 
 mod xcm;
-pub use xcm::{IXcm, IXcmCalls, XCMPrecompile};
+pub use xcm::{IXcm, IXcmCalls, XcmPrecompile};
