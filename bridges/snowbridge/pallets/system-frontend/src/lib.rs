@@ -54,7 +54,7 @@ pub enum BridgeHubRuntime {
 /// Call indices for dispatchables within `snowbridge-pallet-system-v2`
 #[derive(Encode, Decode, Debug, PartialEq, Clone, TypeInfo)]
 pub enum EthereumSystemCall {
-	#[codec(index = 0)]
+	#[codec(index = 2)]
 	RegisterToken {
 		sender: Box<VersionedLocation>,
 		asset_id: Box<VersionedLocation>,
@@ -79,6 +79,7 @@ pub mod pallet {
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		/// Origin check for XCM locations that can register token

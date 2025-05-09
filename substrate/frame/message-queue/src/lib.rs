@@ -206,15 +206,15 @@ pub mod weights;
 extern crate alloc;
 
 use alloc::{vec, vec::Vec};
-use codec::{Codec, Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
+use codec::{Codec, ConstEncodedLen, Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use core::{fmt::Debug, ops::Deref};
 use frame_support::{
 	defensive,
 	pallet_prelude::*,
 	traits::{
-		Defensive, DefensiveSaturating, DefensiveTruncateFrom, EnqueueMessage,
+		BatchFootprint, Defensive, DefensiveSaturating, DefensiveTruncateFrom, EnqueueMessage,
 		ExecuteOverweightError, Footprint, ProcessMessage, ProcessMessageError, QueueFootprint,
-		QueuePausedQuery, ServiceQueues,
+		QueueFootprintQuery, QueuePausedQuery, ServiceQueues,
 	},
 	BoundedSlice, CloneNoBound, DefaultNoBound,
 };
@@ -243,6 +243,8 @@ pub struct ItemHeader<Size> {
 	is_processed: bool,
 }
 
+impl<Size: ConstEncodedLen> ConstEncodedLen for ItemHeader<Size> {} // marker
+
 /// A page of messages. Pages always contain at least one item.
 #[derive(
 	CloneNoBound, Encode, Decode, RuntimeDebugNoBound, DefaultNoBound, TypeInfo, MaxEncodedLen,
@@ -264,7 +266,7 @@ pub struct Page<Size: Into<u32> + Debug + Clone + Default, HeapSize: Get<Size>> 
 	first: Size,
 	/// The heap-offset of the header of the last message item in this page.
 	last: Size,
-	/// The heap. If `self.offset == self.heap.len()` then the page is empty and should be deleted.
+	/// The heap.
 	heap: BoundedVec<u8, IntoU32<HeapSize, Size>>,
 }
 
@@ -272,6 +274,8 @@ impl<
 		Size: BaseArithmetic + Unsigned + Copy + Into<u32> + Codec + MaxEncodedLen + Debug + Default,
 		HeapSize: Get<Size>,
 	> Page<Size, HeapSize>
+where
+	ItemHeader<Size>: ConstEncodedLen,
 {
 	/// Create a [`Page`] from one unprocessed message.
 	fn from_message<T: Config>(message: BoundedSlice<u8, MaxMessageLenOf<T>>) -> Self {
@@ -294,21 +298,38 @@ impl<
 		}
 	}
 
+	/// The heap position where a new message can be appended to the current page.
+	fn heap_pos(&self) -> usize {
+		// The heap is actually a `Vec`, so the place where we can append data
+		// is the end of the `Vec`.
+		self.heap.len()
+	}
+
+	/// Check if a message can be appended to the current page at the provided heap position.
+	///
+	/// On success, returns the resulting position in the page where a new payload can be
+	/// appended.
+	fn can_append_message_at(pos: usize, message_len: usize) -> Result<usize, ()> {
+		let header_size = ItemHeader::<Size>::max_encoded_len();
+		let data_len = header_size.saturating_add(message_len);
+		let heap_size = HeapSize::get().into() as usize;
+		let new_pos = pos.saturating_add(data_len);
+		if new_pos <= heap_size {
+			Ok(new_pos)
+		} else {
+			Err(())
+		}
+	}
+
 	/// Try to append one message to a page.
 	fn try_append_message<T: Config>(
 		&mut self,
 		message: BoundedSlice<u8, MaxMessageLenOf<T>>,
 	) -> Result<(), ()> {
-		let pos = self.heap.len();
-		let payload_len = message.len();
-		let data_len = ItemHeader::<Size>::max_encoded_len().saturating_add(payload_len);
-		let payload_len = payload_len.saturated_into();
+		let pos = self.heap_pos();
+		Self::can_append_message_at(pos, message.len())?;
+		let payload_len = message.len().saturated_into();
 		let header = ItemHeader::<Size> { payload_len, is_processed: false };
-		let heap_size: u32 = HeapSize::get().into();
-		if (heap_size as usize).saturating_sub(self.heap.len()) < data_len {
-			// Can't fit.
-			return Err(())
-		}
 
 		let mut heap = core::mem::take(&mut self.heap).into_inner();
 		header.using_encoded(|h| heap.extend_from_slice(h));
@@ -484,6 +505,7 @@ pub mod pallet {
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
 		/// The overarching event type.
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		/// Weight information for extrinsics in this pallet.
@@ -510,6 +532,7 @@ pub mod pallet {
 			+ Encode
 			+ Decode
 			+ MaxEncodedLen
+			+ ConstEncodedLen
 			+ TypeInfo
 			+ Default;
 
@@ -700,7 +723,7 @@ pub mod pallet {
 			message_origin: MessageOriginOf<T>,
 			page_index: PageIndex,
 		) -> DispatchResult {
-			let _ = ensure_signed(origin)?;
+			ensure_signed(origin)?;
 			Self::do_reap_page(&message_origin, page_index)
 		}
 
@@ -729,7 +752,7 @@ pub mod pallet {
 			index: T::Size,
 			weight_limit: Weight,
 		) -> DispatchResultWithPostInfo {
-			let _ = ensure_signed(origin)?;
+			ensure_signed(origin)?;
 			let actual_weight =
 				Self::do_execute_overweight(message_origin, page, index, weight_limit)?;
 			Ok(Some(actual_weight).into())
@@ -1796,6 +1819,61 @@ impl<T: Config> EnqueueMessage<MessageOriginOf<T>> for Pallet<T> {
 			Self::ready_ring_unknit(&origin, neighbours);
 		}
 		BookStateFor::<T>::insert(&origin, &book_state);
+	}
+}
+
+impl<T: Config> QueueFootprintQuery<MessageOriginOf<T>> for Pallet<T> {
+	type MaxMessageLen =
+		MaxMessageLen<<T::MessageProcessor as ProcessMessage>::Origin, T::Size, T::HeapSize>;
+
+	fn get_batches_footprints<'a>(
+		origin: MessageOriginOf<T>,
+		msgs: impl Iterator<Item = BoundedSlice<'a, u8, Self::MaxMessageLen>>,
+		total_pages_limit: u32,
+	) -> Vec<BatchFootprint> {
+		let mut batches_footprints = vec![];
+
+		let mut new_pages_count = 0;
+		let mut total_pages_count = 0;
+		let mut current_page_pos: usize = T::HeapSize::get().into() as usize;
+
+		let book = BookStateFor::<T>::get(&origin);
+		if book.end > book.begin {
+			total_pages_count = book.end - book.begin;
+			if let Some(page) = Pages::<T>::get(origin, book.end - 1) {
+				current_page_pos = page.heap_pos();
+			}
+		}
+
+		let mut msgs = msgs.enumerate().peekable();
+		let mut total_msgs_size = 0;
+		while let Some((idx, msg)) = msgs.peek() {
+			if total_pages_count > total_pages_limit {
+				return batches_footprints;
+			}
+
+			match Page::<T::Size, T::HeapSize>::can_append_message_at(current_page_pos, msg.len()) {
+				Ok(new_pos) => {
+					total_msgs_size += msg.len();
+					current_page_pos = new_pos;
+					batches_footprints.push(BatchFootprint {
+						msgs_count: idx + 1,
+						size_in_bytes: total_msgs_size,
+						new_pages_count,
+					});
+					msgs.next();
+				},
+				Err(_) => {
+					// Would not fit into the current page.
+					// We start a new one and try again in the next iteration.
+					new_pages_count += 1;
+					total_pages_count += 1;
+					current_page_pos = 0;
+				},
+			}
+		}
+
+		batches_footprints
 	}
 
 	fn footprint(origin: MessageOriginOf<T>) -> QueueFootprint {
