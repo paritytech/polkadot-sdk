@@ -36,29 +36,9 @@ jobs:
           echo "VERSION=${REF_SLUG}-${COMMIT_SHA_SHORT}" >> $GITHUB_OUTPUT
           echo "set VERSION=${VERSION}"
 
-  build_docker:
-    name: Build docker images
-    runs-on: parity-large
-    needs: [set-variables]
-    env:
-      VERSION: ${{ needs.set-variables.outputs.VERSION }}
-    steps:
-      - name: Check out the repo
-        uses: actions/checkout@v4
-
-      - name: Build eth-rpc Docker image
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: ./substrate/frame/revive/rpc/dockerfiles/eth-rpc/Dockerfile
-          push: false
-          tags: |
-            ${{ env.ETH_RPC_IMAGE_NAME }}:${{ env.VERSION }}
-
-  build_push_docker:
+  build:
     name: Build and push docker images
     runs-on: parity-large
-    if: github.ref == 'refs/heads/master'
     needs: [set-variables]
     env:
       VERSION: ${{ needs.set-variables.outputs.VERSION }}
@@ -66,17 +46,27 @@ jobs:
       - name: Check out the repo
         uses: actions/checkout@v4
 
-      - name: Log in to Docker Hub
+      - name: Login to Docker Hub
+        if: github.ref == 'refs/heads/master'
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.PARITYPR_DOCKERHUB_USERNAME }}
           password: ${{ secrets.PARITYPR_DOCKERHUB_PASSWORD }}
 
-      - name: Build eth-rpc Docker image
+      - name: Build eth-rpc production Docker image
         uses: docker/build-push-action@v6
         with:
           context: .
-          file: ./substrate/frame/revive/rpc/dockerfiles/eth-rpc/Dockerfile
-          push: true
+          file: ./substrate/frame/revive/rpc/dockerfiles/eth-rpc/Dockerfile.prod
+          push: ${{ github.ref == 'refs/heads/master' }}
           tags: |
             ${{ env.ETH_RPC_IMAGE_NAME }}:${{ env.VERSION }}
+
+      - name: Build eth-rpc development Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./substrate/frame/revive/rpc/dockerfiles/eth-rpc/Dockerfile.dev
+          push: ${{ github.ref == 'refs/heads/master' }}
+          tags: |
+            ${{ env.ETH_RPC_IMAGE_NAME }}:${{ env.VERSION }}-dev
