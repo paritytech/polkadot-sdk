@@ -550,7 +550,6 @@ jobs:
       MALUS_IMAGE: "${{ needs.preflight.outputs.TEMP_IMAGES_BASE }}/malus:${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"
       RUST_LOG: ${{ needs.preflight.outputs.RUST_LOG }}
       ZOMBIE_PROVIDER: ${{ needs.preflight.outputs.ZOMBIE_PROVIDER }}
-      RUN_IN_CI: ${{ needs.preflight.outputs.RUN_IN_CI }}
 
     steps:
       - name: Checkout
@@ -579,7 +578,6 @@ jobs:
       CUMULUS_IMAGE: "${{ needs.preflight.outputs.TEMP_IMAGES_BASE }}/test-parachain:${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"
       RUST_LOG: ${{ needs.preflight.outputs.RUST_LOG }}
       ZOMBIE_PROVIDER: ${{ needs.preflight.outputs.ZOMBIE_PROVIDER }}
-      RUN_IN_CI: ${{ needs.preflight.outputs.RUN_IN_CI }}
 
     steps:
       - name: Checkout
@@ -608,7 +606,6 @@ jobs:
       CUMULUS_IMAGE: "${{ needs.preflight.outputs.TEMP_IMAGES_BASE }}/test-parachain:${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"
       RUST_LOG: ${{ needs.preflight.outputs.RUST_LOG }}
       ZOMBIE_PROVIDER: ${{ needs.preflight.outputs.ZOMBIE_PROVIDER }}
-      RUN_IN_CI: ${{ needs.preflight.outputs.RUN_IN_CI }}
 
     steps:
       - name: Checkout
@@ -637,7 +634,6 @@ jobs:
       CUMULUS_IMAGE: "${{ needs.preflight.outputs.TEMP_IMAGES_BASE }}/polkadot-parachain-debug:${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"
       RUST_LOG: ${{ needs.preflight.outputs.RUST_LOG }}
       ZOMBIE_PROVIDER: ${{ needs.preflight.outputs.ZOMBIE_PROVIDER }}
-      RUN_IN_CI: ${{ needs.preflight.outputs.RUN_IN_CI }}
 
     steps:
       - name: Checkout
@@ -666,7 +662,6 @@ jobs:
       CUMULUS_IMAGE: "${{ needs.preflight.outputs.TEMP_IMAGES_BASE }}/colander:${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"
       RUST_LOG: ${{ needs.preflight.outputs.RUST_LOG }}
       ZOMBIE_PROVIDER: ${{ needs.preflight.outputs.ZOMBIE_PROVIDER }}
-      RUN_IN_CI: ${{ needs.preflight.outputs.RUN_IN_CI }}
 
     steps:
       - name: Checkout
@@ -695,7 +690,6 @@ jobs:
       CUMULUS_IMAGE: "${{ needs.preflight.outputs.TEMP_IMAGES_BASE }}/test-parachain:${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"
       RUST_LOG: ${{ needs.preflight.outputs.RUST_LOG }}
       ZOMBIE_PROVIDER: ${{ needs.preflight.outputs.ZOMBIE_PROVIDER }}
-      RUN_IN_CI: ${{ needs.preflight.outputs.RUN_IN_CI }}
 
     steps:
       - name: Checkout
@@ -725,7 +719,6 @@ jobs:
       CUMULUS_IMAGE: "${{ needs.preflight.outputs.TEMP_IMAGES_BASE }}/polkadot-parachain-debug:${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"
       RUST_LOG: ${{ needs.preflight.outputs.RUST_LOG }}
       ZOMBIE_PROVIDER: ${{ needs.preflight.outputs.ZOMBIE_PROVIDER }}
-      RUN_IN_CI: ${{ needs.preflight.outputs.RUN_IN_CI }}
 
     steps:
       - name: Checkout
@@ -755,7 +748,6 @@ jobs:
       CUMULUS_IMAGE: "${{ needs.preflight.outputs.TEMP_IMAGES_BASE }}/polkadot-parachain-debug:${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"
       RUST_LOG: ${{ needs.preflight.outputs.RUST_LOG }}
       ZOMBIE_PROVIDER: ${{ needs.preflight.outputs.ZOMBIE_PROVIDER }}
-      RUN_IN_CI: ${{ needs.preflight.outputs.RUN_IN_CI }}
 
     steps:
       - name: Checkout
@@ -786,7 +778,6 @@ jobs:
       MALUS_IMAGE: "${{ needs.preflight.outputs.TEMP_IMAGES_BASE }}/malus:${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"
       RUST_LOG: ${{ needs.preflight.outputs.RUST_LOG }}
       ZOMBIE_PROVIDER: ${{ needs.preflight.outputs.ZOMBIE_PROVIDER }}
-      RUN_IN_CI: ${{ needs.preflight.outputs.RUN_IN_CI }}
 
     steps:
       - name: Checkout
@@ -817,7 +808,6 @@ jobs:
       MALUS_IMAGE: "${{ needs.preflight.outputs.TEMP_IMAGES_BASE }}/malus:${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"
       RUST_LOG: ${{ needs.preflight.outputs.RUST_LOG }}
       ZOMBIE_PROVIDER: ${{ needs.preflight.outputs.ZOMBIE_PROVIDER }}
-      RUN_IN_CI: ${{ needs.preflight.outputs.RUN_IN_CI }}
 
     steps:
       - name: Checkout
@@ -846,7 +836,6 @@ jobs:
       MALUS_IMAGE: "${{ needs.preflight.outputs.TEMP_IMAGES_BASE }}/malus:${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"
       RUST_LOG: ${{ needs.preflight.outputs.RUST_LOG }}
       ZOMBIE_PROVIDER: ${{ needs.preflight.outputs.ZOMBIE_PROVIDER }}
-      RUN_IN_CI: ${{ needs.preflight.outputs.RUN_IN_CI }}
 
     steps:
       - name: Checkout
@@ -877,7 +866,6 @@ jobs:
       COL_IMAGE: "${{ needs.preflight.outputs.TEMP_IMAGES_BASE }}/colander:${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"
       RUST_LOG: ${{ needs.preflight.outputs.RUST_LOG }}
       ZOMBIE_PROVIDER: ${{ needs.preflight.outputs.ZOMBIE_PROVIDER }}
-      RUN_IN_CI: ${{ needs.preflight.outputs.RUN_IN_CI }}
 
     steps:
       - name: Checkout
