@@ -348,33 +348,6 @@ impl<T: Config> Pallet<T> {
 				}
 
 				if now >= round_ending_block {
-					if now >= round_ending_block.saturating_add(enactment_period) {
-						for project_id in projects_submitted {
-							let infos = WhiteListedProjectAccounts::<T>::get(&project_id);
-							if let Some(project_infos) = infos {
-								let ref_index = project_infos.index;
-								let referendum_infos =
-									T::Governance::get_referendum_info(ref_index.into()).unwrap();
-								let referendum_status =
-									T::Governance::handle_referendum_info(referendum_infos);
-								if let Some(referendum_status) = referendum_status {
-									match referendum_status {
-										ReferendumStates::Approved
-											if !project_infos.spend_created =>
-										{
-											let call = Call::<T>::on_registration {
-												project_id: project_id.clone(),
-											};
-											let _ = call
-												.dispatch_bypass_filter(RawOrigin::Root.into())
-												.map_err(|_| Error::<T>::FailedToDispatchCall);
-										},
-										_ => {},
-									}
-								}
-							}
-						}
-					}
 
 					// Emmit event
 					Self::deposit_event(Event::<T>::VoteActionLocked {

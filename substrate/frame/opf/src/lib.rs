@@ -564,9 +564,17 @@ pub mod pallet {
 		#[pallet::call_index(6)]
 		#[pallet::weight(<T as Config>::WeightInfo::on_registration(T::MaxProjects::get()))]
 		pub fn on_registration(origin: OriginFor<T>, project_id: ProjectId<T>) -> DispatchResult {
-			let _who = T::AdminOrigin::ensure_origin(origin.clone())?;
+			let _who = ensure_signed(origin.clone())?;
 			let mut infos = WhiteListedProjectAccounts::<T>::get(project_id.clone())
 				.ok_or(Error::<T>::NoProjectAvailable)?;
+
+				let round_index = NextVotingRoundNumber::<T>::get();
+				let current_round_index = round_index.saturating_sub(1);
+				let round_infos =
+					VotingRounds::<T>::get(current_round_index).ok_or(Error::<T>::InvalidResult)?;
+			let min_enactment_periods_u128 = round_infos.time_periods.ok_or(Error::<T>::InvalidResult)?.min_enactment_period;
+			let min_enactment_periods = min_enactment_periods_u128.try_into().map_err(|_| Error::<T>::InvalidResult)?;
+			let spend_valid_from = round_infos.round_ending_block.saturating_add(min_enactment_periods);
 
 			let ref_index = infos.index;
 			let amount = infos.amount;
@@ -586,7 +594,7 @@ pub mod pallet {
 							*val = Some(infos.clone())
 						});
 						// create a spend for project to be rewarded
-						let new_spend = SpendInfo::<T>::new(&infos);
+						let new_spend = SpendInfo::<T>::new(&infos, spend_valid_from);
 						Self::deposit_event(Event::ProjectFundingAccepted { project_id, amount });
 						Self::deposit_event(Event::SpendCreated {
 							amount: new_spend.amount,

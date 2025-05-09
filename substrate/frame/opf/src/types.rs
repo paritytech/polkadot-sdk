@@ -136,11 +136,10 @@ pub struct SpendInfo<T: Config> {
 }
 
 impl<T: Config> SpendInfo<T> {
-	pub fn new(whitelisted: &ProjectInfo<T>) -> Self {
+	pub fn new(whitelisted: &ProjectInfo<T>, valid_from: ProvidedBlockNumberFor<T>) -> Self {
 		let amount = whitelisted.amount;
 		let whitelisted_project = whitelisted.clone();
 		let claimed = false;
-		let valid_from = T::BlockNumberProvider::current_block_number();
 		let expire = valid_from.saturating_add(T::ClaimingPeriod::get());
 
 		let spend = SpendInfo { amount, valid_from, whitelisted_project, claimed, expire };
