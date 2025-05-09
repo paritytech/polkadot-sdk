@@ -485,8 +485,8 @@ impl pallet_session::Config for Runtime {
 	type DisablingStrategy = ();
 	type WeightInfo = weights::pallet_session::WeightInfo<Runtime>;
 	type Currency = Balances;
-	type HoldReason = RuntimeHoldReason;
-	type KeyDeposit = ConstU128<{ DOLLARS }>;
+	type RuntimeHoldReason = RuntimeHoldReason;
+	type KeyDeposit = ConstU128<0>;
 }
 
 pub struct FullIdentificationOf;

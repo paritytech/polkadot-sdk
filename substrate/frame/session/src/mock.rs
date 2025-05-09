@@ -81,34 +81,6 @@ impl OpaqueKeys for PreUpgradeMockSessionKeys {
 
 type Block = frame_system::mocking::MockBlock<Test>;
 
-#[derive(
-	Copy,
-	Clone,
-	Eq,
-	PartialEq,
-	Ord,
-	PartialOrd,
-	Encode,
-	Decode,
-	RuntimeDebug,
-	MaxEncodedLen,
-	TypeInfo,
-	codec::DecodeWithMemTracking,
-)]
-pub enum MockHoldReason {
-	SessionKeys,
-}
-
-impl VariantCount for MockHoldReason {
-	const VARIANT_COUNT: u32 = 1;
-}
-
-impl Get<MockHoldReason> for MockHoldReason {
-	fn get() -> MockHoldReason {
-		MockHoldReason::SessionKeys
-	}
-}
-
 #[cfg(feature = "historical")]
 frame_support::construct_runtime!(
 	pub enum Test
@@ -318,8 +290,8 @@ impl Config for Test {
 		disabling::UpToLimitWithReEnablingDisablingStrategy<DISABLING_LIMIT_FACTOR>;
 	type WeightInfo = ();
 	type Currency = pallet_balances::Pallet<Test>;
-	type HoldReason = MockHoldReason;
 	type KeyDeposit = KeyDeposit;
+	type RuntimeHoldReason = RuntimeHoldReason;
 }
 
 #[cfg(feature = "historical")]
@@ -337,7 +309,7 @@ impl pallet_balances::Config for Test {
 	type AccountStore = System;
 	type MaxReserves = ConstU32<2>;
 	type ReserveIdentifier = ();
-	type RuntimeHoldReason = MockHoldReason;
+	type RuntimeHoldReason = RuntimeHoldReason;
 	type RuntimeFreezeReason = ();
 	type FreezeIdentifier = ();
 	type MaxFreezes = ConstU32<0>;

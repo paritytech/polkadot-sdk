@@ -130,7 +130,7 @@ use frame_support::{
 	ensure,
 	traits::{
 		fungible::{
-			hold::{Inspect as HoldInspect, Mutate as HoldMutate},
+			hold::Mutate as HoldMutate,
 			Inspect,
 		},
 		Defensive, EstimateNextNewSession, EstimateNextSessionRotation, FindAuthor, Get,
@@ -409,7 +409,6 @@ pub mod pallet {
 		codec::Encode,
 		codec::Decode,
 		codec::MaxEncodedLen,
-		scale_info::TypeInfo,
 		Debug,
 		PartialEq,
 		Eq,
@@ -459,12 +458,11 @@ pub mod pallet {
 		type WeightInfo: WeightInfo;
 
 		/// The currency type for placing holds when setting keys.
-		type Currency: HoldMutate<Self::AccountId> + Inspect<Self::AccountId>;
+		type Currency: Inspect<Self::AccountId>
+			+ HoldMutate<Self::AccountId, Reason = Self::RuntimeHoldReason>;
 
-		/// The hold reason type.
-		type HoldReason: Get<<Self::Currency as HoldInspect<Self::AccountId>>::Reason>
-			+ TypeInfo
-			+ 'static;
+		/// The hold reason when settings keys
+		type RuntimeHoldReason: From<HoldReason>;
 
 		/// The amount to be held when setting keys.
 		#[pallet::constant]
@@ -547,6 +545,14 @@ pub mod pallet {
 
 			T::SessionManager::start_session(0);
 		}
+	}
+
+	/// A reason for the pallet placing a hold on funds.
+	#[pallet::composite_enum]
+	pub enum HoldReason {
+		// Funds are held when settings keys
+		#[codec(index = 0)]
+		SettingKeys,
 	}
 
 	/// The current set of validators.
@@ -863,7 +869,7 @@ impl<T: Config> Pallet<T> {
 		// The hold call itself will return an error if funds are insufficient.
 		if old_keys.is_none() {
 			let deposit = T::KeyDeposit::get();
-			let reason = T::HoldReason::get();
+			let reason = &HoldReason::SettingKeys.into();
 			T::Currency::hold(&reason, account, deposit)?;
 
 			let assertion = frame_system::Pallet::<T>::inc_consumers(account).is_ok();
@@ -928,7 +934,7 @@ impl<T: Config> Pallet<T> {
 		}
 
 		// Release the deposit from hold
-		let reason = T::HoldReason::get();
+		let reason = &HoldReason::SettingKeys.into();
 
 		// Use release_all to handle the case where the exact amount might not be available
 		let _ = T::Currency::release_all(
