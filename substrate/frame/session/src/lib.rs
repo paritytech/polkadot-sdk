@@ -246,6 +246,7 @@ impl<
 	}
 }
 
+// ANCHOR: trait_session_manager
 /// A trait for managing creation of new validator set.
 pub trait SessionManager<ValidatorId> {
 	/// Plan a new session, and optionally provide the new validator set.
@@ -279,6 +280,7 @@ pub trait SessionManager<ValidatorId> {
 	/// The session start to be used for validation.
 	fn start_session(start_index: SessionIndex);
 }
+// ANCHOR_END: trait_session_manager
 
 impl<A> SessionManager<A> for () {
 	fn new_session(_: SessionIndex) -> Option<Vec<A>> {

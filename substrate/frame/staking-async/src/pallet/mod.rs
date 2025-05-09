@@ -187,7 +187,12 @@ pub mod pallet {
 		#[pallet::no_default_bounds]
 		type Reward: OnUnbalanced<PositiveImbalanceOf<Self>>;
 
-		/// Number of sessions per era.
+		// ANCHOR: era_config
+		/// Desired number of sessions per era.
+		///
+		/// This value acts as a target rather than a strict guarantee. To maintain the intended
+		/// cadence, ensure that `PlanningEraOffset` is set appropriately. If an election is delayed
+		/// or fails unexpectedly, the era duration may extend beyond this target.
 		#[pallet::constant]
 		type SessionsPerEra: Get<SessionIndex>;
 
@@ -207,6 +212,7 @@ pub mod pallet {
 		///   0`, meaning it starts at the very beginning of the era.
 		#[pallet::constant]
 		type PlanningEraOffset: Get<SessionIndex>;
+		// ANCHOR_END: era_config
 
 		/// Number of eras that staked funds must remain bonded for.
 		#[pallet::constant]
