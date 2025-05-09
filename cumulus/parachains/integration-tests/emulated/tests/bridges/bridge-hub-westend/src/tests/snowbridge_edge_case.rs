@@ -13,14 +13,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{
-	imports::*,
-	tests::{
-		snowbridge::{CHAIN_ID, WETH},
-		snowbridge_common::*,
-	},
-};
+use crate::{imports::*, tests::snowbridge_common::*};
 use bridge_hub_westend_runtime::xcm_config::LocationToAccountId;
+use emulated_integration_tests_common::snowbridge::{SEPOLIA_ID, WETH};
 use snowbridge_core::AssetMetadata;
 use snowbridge_pallet_system::Error;
 use testnet_parachains_constants::westend::snowbridge::EthereumNetwork;
@@ -71,7 +66,7 @@ fn user_send_message_directly_bypass_exporter_from_ah_will_fail() {
 				WithdrawAsset(local_fee_asset.clone().into()),
 				BuyExecution { fees: local_fee_asset.clone(), weight_limit: Unlimited },
 				ExportMessage {
-					network: Ethereum { chain_id: CHAIN_ID },
+					network: Ethereum { chain_id: SEPOLIA_ID },
 					destination: Here,
 					xcm: Xcm(vec![
 						WithdrawAsset(weth_asset.clone().into()),
@@ -218,7 +213,7 @@ fn export_from_system_parachain_but_not_root_will_fail() {
 				WithdrawAsset(local_fee_asset.clone().into()),
 				BuyExecution { fees: local_fee_asset.clone(), weight_limit: Unlimited },
 				ExportMessage {
-					network: Ethereum { chain_id: CHAIN_ID },
+					network: Ethereum { chain_id: SEPOLIA_ID },
 					destination: Here,
 					xcm: Xcm(vec![
 						WithdrawAsset(weth_asset.clone().into()),
@@ -272,7 +267,7 @@ fn export_from_non_system_parachain_will_fail() {
 				WithdrawAsset(local_fee_asset.clone().into()),
 				BuyExecution { fees: local_fee_asset.clone(), weight_limit: Unlimited },
 				ExportMessage {
-					network: Ethereum { chain_id: CHAIN_ID },
+					network: Ethereum { chain_id: SEPOLIA_ID },
 					destination: Here,
 					xcm: Xcm(vec![
 						WithdrawAsset(weth_asset.clone().into()),

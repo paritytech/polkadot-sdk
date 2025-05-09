@@ -294,7 +294,7 @@ impl GasMeter for ConstantGasMeter {
 				// the the initializer is called.
 				50_000 + initializer.maximum_required_gas
 			},
-			Command::UnlockNativeToken { .. } => 100_000,
+			Command::UnlockNativeToken { .. } => 200_000,
 			Command::RegisterForeignToken { .. } => 1_200_000,
 			Command::MintForeignToken { .. } => 100_000,
 			Command::CallContract { gas: gas_limit, .. } => *gas_limit,

@@ -200,53 +200,53 @@ pub trait TypeId {
 /// A log level matching the one from `log` crate.
 ///
 /// Used internally by `sp_io::logging::log` method.
-#[derive(Encode, Decode, Copy, Clone)]
-pub enum LogLevel {
+#[derive(Copy, Clone)]
+pub enum RuntimeInterfaceLogLevel {
 	/// `Error` log level.
-	Error = 1_isize,
+	Error = 0_isize,
 	/// `Warn` log level.
-	Warn = 2_isize,
+	Warn = 1_isize,
 	/// `Info` log level.
-	Info = 3_isize,
+	Info = 2_isize,
 	/// `Debug` log level.
-	Debug = 4_isize,
+	Debug = 3_isize,
 	/// `Trace` log level.
-	Trace = 5_isize,
+	Trace = 4_isize,
 }
 
-impl TryFrom<u8> for LogLevel {
+impl TryFrom<u8> for RuntimeInterfaceLogLevel {
 	type Error = ();
 	fn try_from(value: u8) -> Result<Self, ()> {
 		match value {
-			1 => Ok(Self::Error),
-			2 => Ok(Self::Warn),
-			3 => Ok(Self::Info),
-			4 => Ok(Self::Debug),
-			5 => Ok(Self::Trace),
+			0 => Ok(Self::Error),
+			1 => Ok(Self::Warn),
+			2 => Ok(Self::Info),
+			3 => Ok(Self::Debug),
+			4 => Ok(Self::Trace),
 			_ => Err(()),
 		}
 	}
 }
 
-impl From<LogLevel> for u8 {
-	fn from(value: LogLevel) -> Self {
+impl From<RuntimeInterfaceLogLevel> for u8 {
+	fn from(value: RuntimeInterfaceLogLevel) -> Self {
 		value as Self
 	}
 }
 
-impl From<u32> for LogLevel {
+impl From<u32> for RuntimeInterfaceLogLevel {
 	fn from(val: u32) -> Self {
 		match val {
-			x if x == LogLevel::Warn as u32 => LogLevel::Warn,
-			x if x == LogLevel::Info as u32 => LogLevel::Info,
-			x if x == LogLevel::Debug as u32 => LogLevel::Debug,
-			x if x == LogLevel::Trace as u32 => LogLevel::Trace,
-			_ => LogLevel::Error,
+			x if x == RuntimeInterfaceLogLevel::Warn as u32 => RuntimeInterfaceLogLevel::Warn,
+			x if x == RuntimeInterfaceLogLevel::Info as u32 => RuntimeInterfaceLogLevel::Info,
+			x if x == RuntimeInterfaceLogLevel::Debug as u32 => RuntimeInterfaceLogLevel::Debug,
+			x if x == RuntimeInterfaceLogLevel::Trace as u32 => RuntimeInterfaceLogLevel::Trace,
+			_ => RuntimeInterfaceLogLevel::Error,
 		}
 	}
 }
 
-impl From<log::Level> for LogLevel {
+impl From<log::Level> for RuntimeInterfaceLogLevel {
 	fn from(l: log::Level) -> Self {
 		use log::Level::*;
 		match l {
@@ -259,9 +259,9 @@ impl From<log::Level> for LogLevel {
 	}
 }
 
-impl From<LogLevel> for log::Level {
-	fn from(l: LogLevel) -> Self {
-		use self::LogLevel::*;
+impl From<RuntimeInterfaceLogLevel> for log::Level {
+	fn from(l: RuntimeInterfaceLogLevel) -> Self {
+		use self::RuntimeInterfaceLogLevel::*;
 		match l {
 			Error => Self::Error,
 			Warn => Self::Warn,

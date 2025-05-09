@@ -111,7 +111,7 @@ impl<T: crate::Config<I>, I: 'static> OnRuntimeUpgrade for AddScore<T, I> {
 				prev: node.prev,
 				next: node.next,
 				bag_upper: node.bag_upper,
-				score,
+				score: score.unwrap_or_default(),
 				_phantom: node._phantom,
 			};
 

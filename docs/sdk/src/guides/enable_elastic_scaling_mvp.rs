@@ -1,12 +1,12 @@
 //! # Enable elastic scaling MVP for a parachain
 //!
 //! <div class="warning">This guide assumes full familiarity with Asynchronous Backing and its
-//! terminology, as defined in <a href="https://wiki.polkadot.network/docs/maintain-guides-async-backing">the Polkadot Wiki</a>.
+//! terminology, as defined in <a href="https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/guides/async_backing_guide/index.html">the Polkadot SDK Docs</a>.
 //! Furthermore, the parachain should have already been upgraded according to the guide.</div>
 //!
 //! ## Quick introduction to elastic scaling
 //!
-//! [Elastic scaling](https://polkadot.network/blog/elastic-scaling-streamling-growth-on-polkadot)
+//! [Elastic scaling](https://polkadot.com/blog/elastic-scaling-streamling-growth-on-polkadot)
 //! is a feature that will enable parachains to seamlessly scale up/down the number of used cores.
 //! This can be desirable in order to increase the compute or storage throughput of a parachain or
 //! to lower the latency between a transaction being submitted and it getting built in a parachain
