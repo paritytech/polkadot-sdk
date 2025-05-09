@@ -174,8 +174,7 @@ where
 
 			// Ensure PNA already registered
 			let token_id = TokenIdOf::convert_location(&asset_id).ok_or(InvalidAsset)?;
-			let expected_asset_id = ConvertAssetId::convert(&token_id).ok_or(InvalidAsset)?;
-			ensure!(asset_id == expected_asset_id, InvalidAsset);
+			ConvertAssetId::convert(&token_id).ok_or(InvalidAsset)?;
 
 			commands.push(Command::MintForeignToken { token_id, recipient, amount });
 		}
