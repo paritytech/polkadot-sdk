@@ -62,6 +62,21 @@ runs:
           ls -ltr ./artifacts
           cargo nextest run --archive-file ./artifacts/${PREFIX}-zombienet-tests.tar.zst --no-capture -- ${TEST_NAME}
 
+    - name: temp
+      shell: bash
+      run: |
+          pwd
+          echo ===
+          ls -ltr .
+          echo ====
+          ls -ltr /tmp/
+          echo ====
+          ls -ltr /tmp/zombie*
+          echo ====
+          ls -ltr /tmp/zombie*/*
+          echo ====
+          ls -ltr /tmp/zombie*/*/*.log
+
     - name: upload_logs
       uses: actions/upload-artifact@v4
       if: ${{ ! cancelled() }}
