@@ -304,7 +304,7 @@ where
 	let parachain_informant = parachain_informant::<Block, _>(
 		relay_chain_interface.clone(),
 		client.clone(),
-		prometheus_registry.map(ParachainInformantMetrics::new),
+		prometheus_registry.map(ParachainInformantMetrics::new).transpose()?,
 	);
 	task_manager
 		.spawn_handle()
@@ -615,8 +615,13 @@ async fn parachain_informant<Block: BlockT, Client>(
 ) where
 	Client: HeaderBackend<Block> + Send + Sync + 'static,
 {
-	let mut import_notifications =
-		relay_chain_interface.import_notification_stream().await.unwrap();
+	let mut import_notifications = match relay_chain_interface.import_notification_stream().await {
+		Ok(import_notifications) => import_notifications,
+		Err(e) => {
+			log::error!("Failed to get import notification stream: {e:?}. Parachain informant will not run!");
+			return
+		},
+	};
 	let mut last_backed_block_time: Option<Instant> = None;
 	while let Some(n) = import_notifications.next().await {
 		let candidate_events = match relay_chain_interface.candidate_events(n.hash()).await {
@@ -727,23 +732,19 @@ struct ParachainInformantMetrics {
 }
 
 impl ParachainInformantMetrics {
-	fn new(prometheus_registry: &Registry) -> Self {
+	fn new(prometheus_registry: &Registry) -> prometheus::Result<Self> {
 		let parachain_block_authorship_duration = Histogram::with_opts(HistogramOpts::new(
 			"parachain_block_authorship_duration",
 			"Time between parachain blocks getting backed by the relaychain",
-		))
-		.unwrap();
-		prometheus_registry
-			.register(Box::new(parachain_block_authorship_duration.clone()))
-			.unwrap();
+		))?;
+		prometheus_registry.register(Box::new(parachain_block_authorship_duration.clone()))?;
 
 		let unincluded_segment_size = Histogram::with_opts(HistogramOpts::new(
 			"parachain_unincluded_segment_size",
 			"Number of blocks between the last backed block and the last included block",
-		))
-		.unwrap();
-		prometheus_registry.register(Box::new(unincluded_segment_size.clone())).unwrap();
+		))?;
+		prometheus_registry.register(Box::new(unincluded_segment_size.clone()))?;
 
-		Self { parachain_block_authorship_duration, unincluded_segment_size }
+		Ok(Self { parachain_block_authorship_duration, unincluded_segment_size })
 	}
 }
