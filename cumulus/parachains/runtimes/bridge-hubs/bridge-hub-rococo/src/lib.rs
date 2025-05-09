@@ -63,7 +63,7 @@ use frame_support::{
 	dispatch::DispatchClass,
 	genesis_builder_helper::{build_state, get_preset},
 	parameter_types,
-	traits::{ConstBool, ConstU32, ConstU64, ConstU8, Get, TransformOrigin},
+	traits::{ConstBool, ConstU32, ConstU64, ConstU8, ConstU128, Get, TransformOrigin},
 	weights::{ConstantMultiplier, Weight, WeightToFee as _},
 	PalletId,
 };
@@ -503,6 +503,9 @@ impl pallet_session::Config for Runtime {
 	type Keys = SessionKeys;
 	type DisablingStrategy = ();
 	type WeightInfo = weights::pallet_session::WeightInfo<Runtime>;
+	type Currency = Balances;
+	type RuntimeHoldReason = RuntimeHoldReason;
+	type KeyDeposit = ConstU128<0>;
 }
 
 impl pallet_aura::Config for Runtime {
