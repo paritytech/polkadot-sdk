@@ -30,8 +30,6 @@ runs:
     - name: common_vars
       shell: bash
       env:
-        # zombienet-sdk expects RUN_IN_CI to be set when running in CI
-        RUN_IN_CI: 1
         TEST_NAME: ${{ inputs.test }}
         PREFIX: ${{ inputs.prefix }}
       run: |
@@ -58,6 +56,8 @@ runs:
     - name: zombie_test
       shell: bash
       env:
+        # zombienet-sdk expects RUN_IN_CI to be set when running in CI
+        RUN_IN_CI: 1
         TEST_NAME: ${{ inputs.test }}
         PREFIX: ${{ inputs.prefix }}
       run: |
