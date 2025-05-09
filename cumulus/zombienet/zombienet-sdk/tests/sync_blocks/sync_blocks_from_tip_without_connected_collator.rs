@@ -13,11 +13,6 @@ const BEST_BLOCK_METRIC: &str = "block_height{status=\"best\"}";
 
 #[tokio::test(flavor = "multi_thread")]
 async fn sync_blocks_from_tip_without_connected_collator() -> Result<(), anyhow::Error> {
-	let _ = env_logger::try_init_from_env(
-		env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
-	);
-
-	log::info!("Spawning network");
 	let network = initialize_network().await?;
 
 	let relay_alice = network.get_node("alice")?;
@@ -49,6 +44,11 @@ async fn sync_blocks_from_tip_without_connected_collator() -> Result<(), anyhow:
 }
 
 async fn initialize_network() -> Result<Network<LocalFileSystem>, anyhow::Error> {
+	let _ = env_logger::try_init_from_env(
+		env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
+	);
+	log::info!("Spawning network");
+
 	let images = zombienet_sdk::environment::get_images_from_env();
 	log::info!("Using images: {images:?}");
 
