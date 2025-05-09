@@ -11,13 +11,16 @@
 
 </div>
 
-`polkadot-sdk-frame` is an umbrella crate for the [FRAME](https://docs.polkadot.com/polkadot-protocol/glossary/#frame-framework-for-runtime-aggregation-of-modularized-entities) framework. It simplifies building FRAME pallets and runtimes by re-exporting all the necessary components for pallet development.
+`polkadot-sdk-frame` is an umbrella crate for the
+[FRAME](https://docs.polkadot.com/polkadot-protocol/glossary/#frame-framework-for-runtime-aggregation-of-modularized-entities)
+framework. It simplifies building FRAME pallets and runtimes by re-exporting all the necessary components for pallet development.
 
 Outside the Polkadot SDK, `polkadot-sdk-frame` should be imported through the main Polkadot SDK [`umbrella crate`](../../../umbrella/src/lib.rs).
 
 ## 💻 Usage
 
-The main intended use of this crate is through **Preludes**, which re-export most of the components needed for pallet development. The available preludes are:
+The main intended use of this crate is through **Preludes**, which re-export most of the components needed for pallet
+development. The available preludes are:
 
 - `prelude`: main prelude for pallet development, containing essential types and traits
 - `testing_prelude`: testing utilities and helpers for writing pallet tests
@@ -25,7 +28,9 @@ The main intended use of this crate is through **Preludes**, which re-export mos
 - `benchmarking::prelude`: benchmarking components for performance testing
 - `weights_prelude`: components for the auto-generated `weight.rs` files
 
-If you need specific dependencies that aren't included in the preludes, you can use the `deps` module to access all FRAME and substrate dependencies directly. However, we strongly recommend checking the preludes and domain-specific modules first, as they provide a more organized and maintainable way to access these dependencies.
+If you need specific dependencies that aren't included in the preludes, you can use the `deps` module to access all
+FRAME and Substrate dependencies directly. However, we strongly recommend checking the preludes and domain-specific
+modules first, as they provide a more organized and maintainable way to access these dependencies.
 
 ### 📚 Documentation
 

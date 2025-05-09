@@ -20,8 +20,7 @@ The crate is organized into three main sections:
    - `derive`
    - ...
 
-3. **Direct dependencies**: Access to all FRAME and substrate dependencies via `deps`
-
+3. **Direct dependencies**: Access to all FRAME and Substrate dependencies via `deps`
 
 ## Design Principles
 
@@ -36,7 +35,7 @@ The crate is organized into three main sections:
    - This enables the `#[frame::pallet] mod pallet { .. }` syntax
 
 3. **Module Organization**:
-   - Create domain-specific modules (e.g., `hashing`) and add them to preludes when appropriate 
+   - Create domain-specific modules (e.g., `hashing`) and add them to preludes when appropriate
    - Keep items out of preludes if they are specific to a single pallet, even if they're in `frame-support`/`sp-runtime`
    - Currency-related traits are kept separate to encourage deliberate choice between alternatives
    - `runtime::apis` should expose all common runtime APIs needed by FRAME-based runtimes
@@ -51,7 +50,8 @@ The crate is organized into three main sections:
 2. **Modifying Existing Re-exports**:
    - Maintain backward compatibility
    - Update documentation to reflect changes
-   - Consider the impact on dependent crates, since this may affect multiple pallets that already rely on the FRAME umbrella crate
+   - Consider the impact on dependent crates, since this may affect multiple pallets that already rely on the FRAME
+   umbrella crate
 
 3. **Testing**:
    - Ensure all examples in documentation still work
