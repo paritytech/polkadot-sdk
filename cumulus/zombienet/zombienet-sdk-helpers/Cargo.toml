@@ -15,4 +15,5 @@ polkadot-primitives = { workspace = true, default-features = true }
 cumulus-primitives-core = { workspace = true, default-features = true }
 subxt = { workspace = true, features = ["native"] }
 tokio = { workspace = true, features = ["rt-multi-thread", "macros", "time"] }
+futures = { workspace = true }
 

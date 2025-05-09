@@ -4,6 +4,7 @@
 use anyhow::anyhow;
 use codec::{Compact, Decode};
 use cumulus_primitives_core::{relay_chain, rpsr_digest::RPSR_CONSENSUS_ID};
+use futures::StreamExt;
 use polkadot_primitives::{vstaging::CandidateReceiptV2, Id as ParaId};
 use std::{
 	cmp::max,
@@ -88,9 +89,10 @@ pub async fn assert_relay_parent_offset(
 	block_limit: u32,
 ) -> Result<(), anyhow::Error> {
 	let mut relay_block_stream = relay_client.blocks().subscribe_all().await?;
-	let mut para_block_stream = para_client.blocks().subscribe_all().await?;
+
+	// First parachain header #0 does not contains RSPR digest item.
+	let mut para_block_stream = para_client.blocks().subscribe_all().await?.skip(1);
 	let mut highest_block_seen = 0;
-	let mut first_block_without_digest_seen = false;
 	let mut num_blocks_seen = 0;
 	loop {
 		tokio::select! {
@@ -101,12 +103,7 @@ pub async fn assert_relay_parent_offset(
 				let logs = &para_block.header().digest.logs;
 
 				let Some((_, relay_parent_number)): Option<(H256, u32)> = logs.iter().find_map(extract_relay_parent_storage_root) else {
-					log::debug!("No RPSR digest found in header #{}", para_block.number());
-					if first_block_without_digest_seen {
-						return Err(anyhow!("No RPSR digest found in header #{}", para_block.number()));
-					}
-					first_block_without_digest_seen = true;
-					continue;
+					return Err(anyhow!("No RPSR digest found in header #{}", para_block.number()));
 				};
 				log::debug!("Parachain block #{} was built on relay parent #{relay_parent_number}, highest seen was {highest_block_seen}", para_block.number());
 				assert!(highest_block_seen < offset || relay_parent_number <= highest_block_seen.saturating_sub(offset), "Relay parent is not at the correct offset! relay_parent: #{relay_parent_number} highest_seen_relay_block: #{highest_block_seen}");

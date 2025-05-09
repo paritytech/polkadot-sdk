@@ -5068,6 +5068,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "cumulus-primitives-core",
+ "futures",
  "log",
  "parity-scale-codec",
  "polkadot-primitives",
