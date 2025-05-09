@@ -1,0 +1,17 @@
+title: FeeTracker deduplications
+doc:
+- audience: Runtime Dev
+  description: Closes https://github.com/paritytech/polkadot-sdk/issues/8462
+crates:
+- name: pallet-xcm-bridge-hub-router
+  bump: patch
+- name: cumulus-pallet-parachain-system
+  bump: patch
+- name: cumulus-pallet-xcmp-queue
+  bump: patch
+- name: polkadot-runtime-parachains
+  bump: patch
+- name: polkadot-runtime-common
+  bump: patch
+- name: yet-another-parachain-runtime
+  bump: patch
