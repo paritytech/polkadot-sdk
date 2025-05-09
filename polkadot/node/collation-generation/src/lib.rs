@@ -512,13 +512,7 @@ impl SessionInfoCache {
 		let node_features =
 			request_node_features(relay_parent, session_index, sender).await.await??;
 
-		let info = PerSessionInfo {
-			v2_receipts: node_features
-				.get(FeatureIndex::CandidateReceiptV2 as usize)
-				.map(|b| *b)
-				.unwrap_or(false),
-			n_validators,
-		};
+		let info = PerSessionInfo { v2_receipts: false, n_validators };
 		self.0.insert(session_index, info);
 		Ok(self.0.get(&session_index).expect("Just inserted").clone())
 	}
