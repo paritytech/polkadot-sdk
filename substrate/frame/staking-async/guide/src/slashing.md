@@ -19,34 +19,34 @@ These offences are propagated to `pallet-offences`, where they are verified for 
 
 ### RC-side Actions
 
-- The offending validator is **disabled** via `pallet-session` if the offence occured in the current active era.
+- The offending validator is **disabled** via `pallet-session` if the offence occurred in the current active era.
 - The offence, along with the computed slash fraction, is **dispatched** as an XCM message to the Asset Hub (`pallet-staking-async-rc-client`) for further handling.
 
 ## Offence Queue and Slash Computation (Asset Hub)
 
-📥 **Offence Queue**  
+**Offence Queue**  
 - Offences are enqueued for processing in subsequent blocks.  
 - Only one validator page (i.e. a bounded set of nominators) is processed per block.
 
-🧮 **Slash Computation**  
+**Slash Computation**  
 - Each offence is evaluated against the highest slash applied to the validator within the same era.
 - If the offence is a **repeat** and has a **lower or equal** `slash_perbill`, it is ignored.
 - If it has a **higher** `slash_perbill`, it is processed and replaces the previous one.
 
-📊 **Priority Rule**  
+**Priority Rule**  
 - Offences from **older eras** are always prioritized over more recent ones.
 
 ## Slash Application
 
-💸 **Slash Schedule**  
+**Slash Schedule**  
 - Slashes are deferred by `SlashDeferDuration` eras.
 - For example, slashes from offence era _X_ begin applying in era _X + 27_.
 
-📦 **Paged Application**  
+**Paged Application**  
 - A single validator’s slashes may span multiple pages, each covering a subset of nominators.
 - There are maximum of 64 nominators per Page.
 
-🔁 **Application Loop**  
+**Application Loop**  
 - One page is attempted per block over a full era as a system function.
   If not all slashes are applied within the era (which is unlikely), the system will no longer attempt to apply them automatically. However, they can still be applied manually via the fee-less `Staking::apply_slash` extrinsic.
 
@@ -54,3 +54,5 @@ These offences are propagated to `pallet-offences`, where they are verified for 
 
 - Improve efficiency by dynamically adjusting how many pages are processed per block, based on weight.
 - Add restrictions to prevent unbonding if a nominator has a pending slash.
+
+// TODO @ank4n: link all code paths. 
