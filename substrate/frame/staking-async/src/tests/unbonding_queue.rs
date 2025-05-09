@@ -26,8 +26,11 @@ use sp_runtime::{traits::Zero, Perbill};
 #[test]
 fn get_min_lowest_stake_works() {
 	ExtBuilder::default()
-		.set_status(31, StakerStatus::<AccountId>::Validator)
+		.set_stake(11, 10_000)
+		.set_stake(21, 11_000)
+		.set_stake(31, 400)
 		.validator_count(3)
+		.nominate(false)
 		.build_and_execute(|| {
 			assert_ok!(Staking::set_staking_configs(
 				RuntimeOrigin::root(),
@@ -46,46 +49,43 @@ fn get_min_lowest_stake_works() {
 				})
 			));
 
-			// Check the era we are working with.
+			// Initial conditions.
+			assert_eq!(Staking::current_era(), 1);
+			assert_eq!(EraLowestRatioTotalStake::<T>::get().into_inner(), vec![]);
 			assert_eq!(Staking::get_min_lowest_stake(), 0);
+
+			// Setup to nominate.
+			assert_ok!(Staking::bond(RuntimeOrigin::signed(999), 100, RewardDestination::Stash));
+			assert_ok!(Staking::nominate(RuntimeOrigin::signed(999), vec![31]));
+
+			// Era 1 -> 2
 			Session::roll_until_active_era(2);
-			let current_era = Staking::current_era();
-			assert_eq!(current_era, 2);
+			assert_eq!(EraLowestRatioTotalStake::<T>::get().into_inner(), vec![500]);
 			assert_eq!(Staking::get_min_lowest_stake(), 500);
 
-			// Start initial era and verify setup.
-			assert_eq!(
-				UnbondingQueueParams::<Test>::get().unwrap(),
-				UnbondingQueueConfig {
-					min_slashable_share: Perbill::from_percent(50),
-					lowest_ratio: Perbill::from_percent(34),
-					unbond_period_lower_bound: 1,
-					back_of_unbonding_queue: Zero::zero(),
-				}
-			);
+			// Era 2 -> 3
+			assert_ok!(Staking::bond_extra(RuntimeOrigin::signed(999), 100));
+			Session::roll_until_active_era(3);
+			assert_eq!(EraLowestRatioTotalStake::<T>::get().into_inner(), vec![500, 600]);
+			assert_eq!(Staking::get_min_lowest_stake(), 500);
 
-			// Populate some `EraLowestRatioTotalStake` entries to test the function.
-			let bonding_duration = <Test as Config>::BondingDuration::get();
-			for i in current_era + 1..bonding_duration {
-				assert_ok!(Staking::bond_extra(RuntimeOrigin::signed(11), 100));
-				assert_ok!(Staking::bond_extra(RuntimeOrigin::signed(21), 100));
-				assert_ok!(Staking::bond_extra(RuntimeOrigin::signed(31), 100));
-				assert_eq!(Staking::get_min_lowest_stake(), 500);
-				Session::roll_until_active_era(i + 1);
-				assert_eq!(Staking::get_min_lowest_stake(), 500);
-			}
+			// Era 3 -> 4
+			assert_ok!(Staking::bond_extra(RuntimeOrigin::signed(999), 100));
+			Session::roll_until_active_era(4);
+			assert_eq!(EraLowestRatioTotalStake::<T>::get().into_inner(), vec![500, 600, 700]);
+			assert_eq!(Staking::get_min_lowest_stake(), 500);
 
-			// After this the lowest value will have been removed, and next iterations the
-			// number will increase by 100 each era.
-			let current_era = Staking::current_era();
-			for i in current_era + 1..bonding_duration {
-				assert_ok!(Staking::bond_extra(RuntimeOrigin::signed(11), 100));
-				assert_ok!(Staking::bond_extra(RuntimeOrigin::signed(21), 100));
-				assert_ok!(Staking::bond_extra(RuntimeOrigin::signed(31), 100));
-				assert_eq!(Staking::get_min_lowest_stake(), (500 + 100 * (i - 1)).into());
-				Session::roll_until_active_era(i + 1);
-				assert_eq!(Staking::get_min_lowest_stake(), (500 + 100 * i).into());
-			}
+			// Era 4 -> 5
+			assert_ok!(Staking::bond_extra(RuntimeOrigin::signed(999), 100));
+			Session::roll_until_active_era(5);
+			assert_eq!(EraLowestRatioTotalStake::<T>::get().into_inner(), vec![600, 700, 800]);
+			assert_eq!(Staking::get_min_lowest_stake(), 600);
+
+			// Era 5 -> 6
+			assert_ok!(Staking::bond_extra(RuntimeOrigin::signed(999), 100));
+			Session::roll_until_active_era(6);
+			assert_eq!(EraLowestRatioTotalStake::<T>::get().into_inner(), vec![700, 800, 900]);
+			assert_eq!(Staking::get_min_lowest_stake(), 700);
 		});
 }
 

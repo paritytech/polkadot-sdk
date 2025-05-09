@@ -886,9 +886,7 @@ pub mod pallet {
 			if let Some(x) = self.max_nominator_count {
 				MaxNominatorsCount::<T>::put(x);
 			}
-			if let Some(x) = self.unbonding_queue_config {
-				UnbondingQueueParams::<T>::put(x);
-			}
+			UnbondingQueueParams::<T>::set(self.unbonding_queue_config);
 
 			for &(ref stash, balance, ref status) in &self.stakers {
 				crate::log!(

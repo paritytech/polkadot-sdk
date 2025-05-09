@@ -870,17 +870,17 @@ impl<T: Config> Pallet<T> {
 		if let Some(params) = UnbondingQueueParams::<T>::get() {
 			// Determine the total stake from the lowest portion of validators and persist for the
 			// era.
-			let mut exposures: Vec<_> =
+			let mut total_stake: Vec<_> =
 				ElectableStashes::<T>::get().into_iter().map(|(_, b)| b).collect();
 			let validators_to_check =
-				(params.lowest_ratio * exposures.len() as u32).max(1) as usize;
+				(params.lowest_ratio * total_stake.len() as u32).max(1) as usize;
 
 			// Sort exposure total stake by the lowest first, and truncate to the lowest portion.
-			exposures.sort();
-			exposures.truncate(validators_to_check);
+			total_stake.sort();
+			total_stake.truncate(validators_to_check);
 
 			// Calculate the total stake of the lowest portion validators.
-			let total_stake = exposures.into_iter().sum();
+			let total_stake = total_stake.into_iter().sum();
 
 			// Store the total stake of the lowest portion validators for the planned era.
 			EraLowestRatioTotalStake::<T>::mutate(|lower_ratio| {
