@@ -16,11 +16,8 @@
 // limitations under the License.
 
 use super::*;
-use crate::{
-	pallet::normalize_era, session_rotation::EraElectionPlanner, tests::Test, UnbondingQueueConfig,
-	UnbondingQueueParams,
-};
-use sp_npos_elections::Support;
+use crate::{pallet::normalize_era, tests::Test, UnbondingQueueConfig, UnbondingQueueParams};
+use frame_support::traits::fungible::Inspect;
 use sp_runtime::Perbill;
 
 #[test]
@@ -145,58 +142,72 @@ fn get_min_lowest_stake_with_many_validators_works() {
 
 #[test]
 fn calculate_lowest_total_stake_works() {
-	ExtBuilder::default().has_stakers(false).build_and_execute(|| {
-		assert_ok!(Staking::set_staking_configs(
-			RuntimeOrigin::root(),
-			ConfigOp::Noop,
-			ConfigOp::Noop,
-			ConfigOp::Noop,
-			ConfigOp::Noop,
-			ConfigOp::Noop,
-			ConfigOp::Noop,
-			ConfigOp::Noop,
-			ConfigOp::Set(UnbondingQueueConfig {
-				min_slashable_share: Perbill::from_percent(50),
-				lowest_ratio: Perbill::from_percent(34),
-				unbond_period_lower_bound: 1,
-			})
-		));
+	ExtBuilder::default()
+		.has_stakers(false)
+		.validator_count(4)
+		.build_and_execute(|| {
+			assert_ok!(Staking::set_staking_configs(
+				RuntimeOrigin::root(),
+				ConfigOp::Noop,
+				ConfigOp::Noop,
+				ConfigOp::Noop,
+				ConfigOp::Noop,
+				ConfigOp::Noop,
+				ConfigOp::Noop,
+				ConfigOp::Noop,
+				ConfigOp::Set(UnbondingQueueConfig {
+					min_slashable_share: Perbill::from_percent(50),
+					lowest_ratio: Perbill::from_percent(34),
+					unbond_period_lower_bound: 1,
+				})
+			));
 
-		Session::roll_until_active_era(4);
-		assert_eq!(current_era(), 4);
-		// There are no stakers
-		assert_eq!(EraLowestRatioTotalStake::<Test>::get().into_inner(), vec![0, 0, 0]);
-		assert_eq!(Staking::get_min_lowest_stake(), 0);
+			Session::roll_until_active_era(4);
+			assert_eq!(current_era(), 4);
+			// There are no stakers
+			assert_eq!(EraLowestRatioTotalStake::<Test>::get().into_inner(), vec![0, 0, 0]);
+			assert_eq!(Staking::get_min_lowest_stake(), 0);
+			let ed = Balances::minimum_balance();
 
-		// Create validators with different stakes for the next era.
-		let exposures = to_bounded_supports(vec![
-			(1, Support { total: 1000, voters: vec![] }),
-			(2, Support { total: 2000, voters: vec![] }),
-			(3, Support { total: 3000, voters: vec![] }),
-			(4, Support { total: 4000, voters: vec![] }),
-		]);
+			// Validator 1
+			assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), 1, 1000 + ed));
+			assert_ok!(Staking::bond(RuntimeOrigin::signed(1), 1000, RewardDestination::Stash));
+			assert_ok!(Staking::validate(RuntimeOrigin::signed(1), ValidatorPrefs::default()));
 
-		// Trigger new era to calculate the lowest proportion.
-		assert_ok!(EraElectionPlanner::<T>::do_elect_paged_inner(
-			exposures.clone().try_into().unwrap()
-		));
-		Session::roll_until_active_era(5);
-		assert_eq!(EraLowestRatioTotalStake::<Test>::get().into_inner(), vec![0, 0, 1000]);
-		// The lowest proportion is 33% of 4 validators ~ 1.32.
-		// Hence, the lowest 1 validator with 1000.
-		assert_eq!(Staking::get_min_lowest_stake(), 0);
+			// Validator 2
+			assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), 2, 2000 + ed));
+			assert_ok!(Staking::bond(RuntimeOrigin::signed(2), 2000, RewardDestination::Stash));
+			assert_ok!(Staking::validate(RuntimeOrigin::signed(2), ValidatorPrefs::default()));
 
-		assert_ok!(EraElectionPlanner::<Test>::do_elect_paged_inner(exposures.clone()));
-		Session::roll_until_active_era(6);
-		assert_eq!(EraLowestRatioTotalStake::<Test>::get().into_inner(), vec![0, 1000, 1000]);
-		assert_eq!(Staking::get_min_lowest_stake(), 0);
+			// Validator 3
+			assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), 3, 3000 + ed));
+			assert_ok!(Staking::bond(RuntimeOrigin::signed(3), 3000, RewardDestination::Stash));
+			assert_ok!(Staking::validate(RuntimeOrigin::signed(3), ValidatorPrefs::default()));
 
-		// Ensure old entry is pruned after bonding duration (3 eras).
-		assert_ok!(EraElectionPlanner::<Test>::do_elect_paged_inner(exposures.clone()));
-		Session::roll_until_active_era(7);
-		assert_eq!(EraLowestRatioTotalStake::<Test>::get().into_inner(), vec![1000, 1000, 1000]);
-		assert_eq!(Staking::get_min_lowest_stake(), 1000);
-	});
+			// Validator 4
+			assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), 4, 4000 + ed));
+			assert_ok!(Staking::bond(RuntimeOrigin::signed(4), 4000, RewardDestination::Stash));
+			assert_ok!(Staking::validate(RuntimeOrigin::signed(4), ValidatorPrefs::default()));
+
+			// Trigger new era to calculate the lowest proportion.
+			Session::roll_until_active_era(5);
+			assert_eq!(EraLowestRatioTotalStake::<Test>::get().into_inner(), vec![0, 0, 1000]);
+			// The lowest proportion is 33% of 4 validators ~ 1.32.
+			// Hence, the lowest 1 validator with 1000.
+			assert_eq!(Staking::get_min_lowest_stake(), 0);
+
+			Session::roll_until_active_era(6);
+			assert_eq!(EraLowestRatioTotalStake::<Test>::get().into_inner(), vec![0, 1000, 1000]);
+			assert_eq!(Staking::get_min_lowest_stake(), 0);
+
+			// Ensure old entry is pruned after bonding duration (3 eras).
+			Session::roll_until_active_era(7);
+			assert_eq!(
+				EraLowestRatioTotalStake::<Test>::get().into_inner(),
+				vec![1000, 1000, 1000]
+			);
+			assert_eq!(Staking::get_min_lowest_stake(), 1000);
+		});
 }
 
 #[test]
