@@ -295,16 +295,19 @@ fn correct_unbond_era_is_being_calculated_1() {
 		assert_ok!(EraLowestRatioTotalStake::<Test>::try_append(1000));
 
 		// First unbond of 500 (max_unstake is 500, delta = 3).
+		assert_eq!(Staking::get_unbonding_duration(500), 3);
 		let unbond_era = Staking::process_unbond_queue_request(current_era, 500);
 		assert_eq!(unbond_era, 1 + 3); // 4
 		assert_eq!(BackOfUnbondingQueue::<Test>::get(), 4000000000000);
 
 		// Next unbond of 250 (delta = 3).
+		assert_eq!(Staking::get_unbonding_duration(250), 3);
 		let unbond_era = Staking::process_unbond_queue_request(current_era, 250);
-		assert_eq!(unbond_era, 1 + 3); // Theoretically it'd be 1 + 4, but the upper bound is 3
+		assert_eq!(unbond_era, 1 + 3); // 4
 		assert_eq!(BackOfUnbondingQueue::<Test>::get(), 5500000000000);
 
 		// Unbond with amount requiring lower bound (delta = 0 → use upper bound 3 again)
+		assert_eq!(Staking::get_unbonding_duration(100), 3);
 		let unbond_era = Staking::process_unbond_queue_request(current_era, 100);
 		assert_eq!(unbond_era, 1 + 3); // 4
 
@@ -341,6 +344,7 @@ fn correct_unbond_era_is_being_calculated_2() {
 		assert_eq!(BackOfUnbondingQueue::<Test>::get(), 0);
 
 		// Unbond with amount requiring lower bound (delta = 0.06 → use lower bound 1)
+		assert_eq!(Staking::get_unbonding_duration(10), 1);
 		let unbond_era = Staking::process_unbond_queue_request(current_era, 10);
 		assert_eq!(unbond_era, 1 + 1); // 2
 
@@ -348,6 +352,7 @@ fn correct_unbond_era_is_being_calculated_2() {
 		assert_eq!(BackOfUnbondingQueue::<Test>::get(), normalize_era(1) + 60000000000);
 
 		// Next unbond of 250 (delta = 1.5 -> rounding up to 2).
+		assert_eq!(Staking::get_unbonding_duration(250), 2);
 		let unbond_era = Staking::process_unbond_queue_request(current_era, 250);
 		assert_eq!(unbond_era, 1 + 2); // 3
 
@@ -356,6 +361,7 @@ fn correct_unbond_era_is_being_calculated_2() {
 
 		// Last unbond of 500 (max_unstake is 500, delta = 3, and it hits the maximum unbonding
 		// period of 3 eras).
+		assert_eq!(Staking::get_unbonding_duration(500), 3);
 		let unbond_era = Staking::process_unbond_queue_request(current_era, 500);
 		assert_eq!(unbond_era, 1 + 3); // 4
 
@@ -391,8 +397,13 @@ fn correct_unbond_era_is_being_calculated_without_config_set() {
 		assert_ok!(EraLowestRatioTotalStake::<Test>::try_append(1000));
 
 		// Regardless of the amount, the unbonding era should be +3.
+		assert_eq!(Staking::get_unbonding_duration(100), 3);
 		assert_eq!(Staking::process_unbond_queue_request(current_era, 100), 1 + 3);
+
+		assert_eq!(Staking::get_unbonding_duration(100), 3);
 		assert_eq!(Staking::process_unbond_queue_request(current_era, 250), 1 + 3);
+
+		assert_eq!(Staking::get_unbonding_duration(100), 3);
 		assert_eq!(Staking::process_unbond_queue_request(current_era, 500), 1 + 3);
 	});
 }

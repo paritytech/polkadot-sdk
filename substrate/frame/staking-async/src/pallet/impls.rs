@@ -920,15 +920,14 @@ impl<T: Config> Pallet<T> {
 		}
 	}
 
-	/// Process an unbonding queue request and calculate the appropriate era when the unbonded
-	/// amount can be withdrawn
+	/// Calculates the unbonding era and the resulting back of the unbonding queue position for an
+	/// unbonding request.
 	///
-	/// This function implements the unbonding queue mechanism that allows shorter unbonding periods
-	/// based on the value being unbonded relative to the maximum unstakeable amount.
-	///
-	/// The returned era will be between the minimum unbonding period and the maximum bonding
-	/// duration, based on the unbonding queue calculation.
-	pub(crate) fn process_unbond_queue_request(era: EraIndex, value: BalanceOf<T>) -> EraIndex {
+	/// Returns tuple of (calculated_era, back_of_queue_position)
+	pub(crate) fn calculate_unbonding_queue_request(
+		era: EraIndex,
+		value: BalanceOf<T>,
+	) -> (EraIndex, Option<u128>) {
 		if let Some(params) = UnbondingQueueParams::<T>::get() {
 			// Calculate unbonding era based on unbonding queue mechanism.
 			let unbonding_delta = Self::get_unbonding_delta(value, params);
@@ -936,7 +935,6 @@ impl<T: Config> Pallet<T> {
 			let back_of_unbonding_queue = normalized_era
 				.max(BackOfUnbondingQueue::<T>::get())
 				.defensive_saturating_add(unbonding_delta);
-			BackOfUnbondingQueue::<T>::set(back_of_unbonding_queue);
 
 			let normalized_calculated_era =
 				back_of_unbonding_queue.defensive_saturating_sub(normalized_era);
@@ -947,13 +945,33 @@ impl<T: Config> Pallet<T> {
 				// And now round up if needed to be more conservative.
 				.defensive_saturating_add((normalized_calculated_era % PICO_ERA != 0) as EraIndex);
 			// Apply the min and max boundaries to the calculated era.
-			T::BondingDuration::get()
-				.min(calculated_era.max(params.unbond_period_lower_bound))
-				.defensive_saturating_add(era)
+			(
+				T::BondingDuration::get()
+					.min(calculated_era.max(params.unbond_period_lower_bound))
+					.defensive_saturating_add(era),
+				Some(back_of_unbonding_queue),
+			)
 		} else {
 			// If unbond queue params are not set, return current era plus maximum bonding duration.
-			era.defensive_saturating_add(T::BondingDuration::get())
+			(era.defensive_saturating_add(T::BondingDuration::get()), None)
 		}
+	}
+
+	/// Process an unbonding queue request and calculate the appropriate era when the unbonded
+	/// amount can be withdrawn
+	///
+	/// This function implements the unbonding queue mechanism that allows shorter unbonding periods
+	/// based on the value being unbonded relative to the maximum unstakeable amount.
+	///
+	/// The returned era will be between the minimum unbonding period and the maximum bonding
+	/// duration, based on the unbonding queue calculation.
+	pub(crate) fn process_unbond_queue_request(era: EraIndex, value: BalanceOf<T>) -> EraIndex {
+		let (era, maybe_back_of_unbonding_queue) =
+			Self::calculate_unbonding_queue_request(era, value);
+		if let Some(back_of_unbonding_queue) = maybe_back_of_unbonding_queue {
+			BackOfUnbondingQueue::<T>::put(back_of_unbonding_queue);
+		}
+		era
 	}
 
 	/// Process a rebonding queue request by adjusting the `back_of_unbonding_queue` value.

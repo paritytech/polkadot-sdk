@@ -2474,4 +2474,18 @@ pub mod pallet {
 			Ok(())
 		}
 	}
+
+	#[pallet::view_functions]
+	impl<T: Config> Pallet<T> {
+		/// Returns the duration in ras that funds will be locked for unbonding.
+		///
+		/// The duration may vary based on the amount being unbonded and current queue parameters.
+		/// For instance, larger amounts may need to wait longer.
+		pub fn get_unbonding_duration(amount: BalanceOf<T>) -> EraIndex {
+			let current_era = CurrentEra::<T>::get().unwrap_or(0);
+			Self::calculate_unbonding_queue_request(current_era, amount)
+				.0
+				.saturating_sub(current_era)
+		}
+	}
 }
