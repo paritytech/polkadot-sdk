@@ -21,17 +21,11 @@ use std::{
 	sync::Arc,
 };
 
-use futures::{
-	channel::{mpsc, oneshot},
-	FutureExt, StreamExt,
-};
+use futures::{channel::mpsc, FutureExt, StreamExt};
 
 use sc_keystore::LocalKeystore;
 
-use polkadot_node_primitives::{
-	disputes::ValidCandidateVotes, CandidateVotes, DisputeStatus, SignedDisputeStatement,
-	Timestamp, DISPUTE_WINDOW,
-};
+use polkadot_node_primitives::{SignedDisputeStatement, Timestamp, DISPUTE_WINDOW};
 use polkadot_node_subsystem::{
 	messages::{
 		ApprovalVotingMessage, ApprovalVotingParallelMessage, BlockDescription,

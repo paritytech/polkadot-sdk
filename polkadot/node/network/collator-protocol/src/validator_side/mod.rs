@@ -49,10 +49,9 @@ use polkadot_node_subsystem::{
 use polkadot_node_subsystem_util::{
 	backing_implicit_view::View as ImplicitView,
 	reputation::{ReputationAggregator, REPUTATION_CHANGE_INTERVAL},
-	request_claim_queue, request_node_features, request_session_index_for_child,
+	request_claim_queue, request_session_index_for_child,
 };
 use polkadot_primitives::{
-	node_features,
 	vstaging::{CandidateDescriptorV2, CandidateDescriptorVersion},
 	CandidateHash, CollatorId, CoreIndex, Hash, HeadData, Id as ParaId, OccupiedCoreAssumption,
 	PersistedValidationData, SessionIndex,
@@ -75,9 +74,6 @@ use collation::{
 	CollationStatus, Collations, FetchedCollation, PendingCollation, PendingCollationFetch,
 	ProspectiveCandidate,
 };
-
-#[cfg(test)]
-mod tests;
 
 pub use metrics::Metrics;
 
