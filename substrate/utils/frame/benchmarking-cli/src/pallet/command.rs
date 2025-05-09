@@ -661,16 +661,27 @@ impl PalletCmd {
 		let included = extrinsic_filter.is_empty() ||
 			extrinsic_filter == "*" ||
 			extrinsics.contains(&&extrinsic[..]);
-		let excluded = self.exclude_extrinsics.iter().any(|e| {
-			let splits = e.split("::").collect::<Vec<_>>();
-			if splits.len() != 2 {
-				panic!("Invalid argument for '--exclude-extrinsic'. Expected format: 'Pallet::Extrinsic' but got '{}'", e);
-			}
-			let (p, e) = (splits[0], splits[1]);
+		
+		let excluded = self.excluded_extrinsics().iter().any(|(p, e)| {
 			p.as_bytes() == pallet && e.as_bytes() == extrinsic
 		});
 
 		included && !excluded
+	}
+
+	/// All `(pallet, extrinsic)` tuples that are excluded from the benchmarks.
+	fn excluded_extrinsics(&self) -> Vec<(String, String)> {
+		let mut excluded = Vec::new();
+		
+		for e in &self.exclude_extrinsics {
+			let splits = e.split("::").collect::<Vec<_>>();
+			if splits.len() != 2 {
+				panic!("Invalid argument for '--exclude-extrinsics'. Expected format: 'pallet::extrinsic' but got '{}'", e);
+			}
+			excluded.push((splits[0].to_string(), splits[1].to_string()));
+		}
+
+		excluded
 	}
 
 	/// Execute a state machine and decode its return value as `R`.
