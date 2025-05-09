@@ -1,0 +1,37 @@
+title: add checked functions and extend fuzzer coverage
+doc:
+  - audience: Runtime Dev
+    description: |
+      Changes:
+      - `helpers_128bit.rs`:
+        - Added `checked_multiply_by_rational_with_rounding`.
+        - Proper use of `ArithmeticError`.
+        - Added test for introduced checked versions.
+      - `per_things.rs`:
+        - Added `checked_*` versions of `square`, `mul_floor`, `mul_ceil`, `overflow_prune_mul`, `rational_mul_correction` `saturating_reciprocal_mul`, `saturating_reciprocal_mul_floor`, `saturating_reciprocal_mul_ceil` and `from_rational_with_rounding` to the `PerThing` trait and their implementations within `implement_per_thing` the macro where it applies.
+        - Added additional `checked_int_div` and `checked_div_with_rounding`.
+        - Added tests for the newly `checked_*` additions in `checked_reciprocal_mul_works`, `checked_from_rational_works`, `checked_arithmetic_works` and `checked_int_div_works`.
+        - Proper use of `ArithmeticError`.
+        - Added test for introduced checked versions.
+      - `fixed_point.rs`:
+        - Added `try_into_perbill` which is a checked version of `into_perbill`.
+        - Added checked version of `from_rational_with_rounding`.
+        - Proper use of `ArithmeticError`.
+      - `rational.rs`:
+        - Added `checked_to_den` and `checked_lcm`.
+        - Updated `checked_add` and `checked_sub` to follow the pattern of other checked versions.
+        - Simplified import of `helpers_128bit`.
+        - Proper use of `ArithmeticError`.
+        - Added test for introduced checked versions.
+      - `fuzzing`:
+        - `per_thing_checked_arith.rs`: Covers general `PerThing` checked arithmetic operations (`checked_mul_floor`, `checked_mul_ceil`, reciprocal multiplications, `checked_square`, `checked_div_with_rounding`, `checked_int_div`).
+        - `fixed_utils.rs`: Covers `FixedPointNumber` utility functions (`trunc`, `frac`, `ceil`, `floor`, `round`).
+        - `fixed_to_perbill.rs`: Covers conversions of `try_into_perbill`
+        - `fixed_to_perthing.rs`: Covers conversions of `try_into_perthing`.
+        - `fixed_rounding_ops.rs`: Specifically fuzzes `const_checked_mul_with_rounding` and `checked_rounding_div` for `FixedPointNumber` types, testing all 8 `SignedRounding` modes.
+        - `per_thing_checked_from_rational.rs`: Covers `PerThing::checked_from_rational_with_rounding` comparing against the non-checked version and validating error handling.
+        - `fixed_checked_ops.rs`: Covers core `FixedPointNumber` checked arithmetic operations (`add`, `sub`, `mul`, `div`, `from_integer`, `from_rational`, `mul_int`, `div_int`, `sqrt`) for `FixedI64`, `FixedU64`, `FixedI128`, and `FixedU128`, using `BigInt` for oracle comparisons and overflow detection.
+        - `checked_mul_by_rational.rs`: Covers `helpers_128bit::checked_multiply_by_rational_with_rounding` with different rounding modes and error conditions (DivisionByZero, Overflow).
+crates:
+  - name: sp-arithmetic
+    bump: minor
