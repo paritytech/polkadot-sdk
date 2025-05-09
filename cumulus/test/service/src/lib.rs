@@ -809,10 +809,13 @@ impl TestNodeBuilder {
 
 /// Create a Cumulus `Configuration`.
 ///
-/// By default an in-memory socket will be used, therefore you need to provide nodes if you want the
-/// node to be connected to other nodes. If `nodes_exclusive` is `true`, the node will only connect
-/// to the given `nodes` and not to any other node. The `storage_update_func` can be used to make
-/// adjustments to the runtime genesis.
+/// By default a TCP socket will be used, therefore you need to provide nodes if you want the
+/// node to be connected to other nodes.
+///
+/// If `nodes_exclusive` is `true`, the node will only connect to the given `nodes` and not to any
+/// other node.
+///
+/// The `storage_update_func` can be used to make adjustments to the runtime genesis.
 pub fn node_config(
 	storage_update_func: impl Fn(),
 	tokio_handle: tokio::runtime::Handle,
@@ -855,11 +858,12 @@ pub fn node_config(
 
 	network_config.allow_non_globals_in_dht = true;
 
-	network_config
-		.listen_addresses
-		.push(multiaddr::Protocol::Memory(rand::random()).into());
-
-	network_config.transport = TransportConfig::MemoryOnly;
+	let addr: multiaddr::Multiaddr = format!("/ip4/0.0.0.0/tcp/{}", rand::random::<u16>())
+		.parse()
+		.expect("valid address; qed");
+	network_config.listen_addresses.push(addr.clone());
+	network_config.transport =
+		TransportConfig::Normal { enable_mdns: false, allow_private_ip: true };
 
 	Ok(Configuration {
 		impl_name: "cumulus-test-node".to_string(),

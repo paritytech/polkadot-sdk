@@ -150,7 +150,7 @@ pub fn test_prometheus_config(port: u16) -> PrometheusConfig {
 
 /// Create a Polkadot `Configuration`.
 ///
-/// By default an in-memory socket will be used, therefore you need to provide boot
+/// By default a TCP socket will be used, therefore you need to provide boot
 /// nodes if you want the future node to be connected to other nodes.
 ///
 /// The `storage_update_func` function will be executed in an externalities provided environment
@@ -183,12 +183,13 @@ pub fn node_config(
 
 	network_config.allow_non_globals_in_dht = true;
 
-	let addr: multiaddr::Multiaddr = multiaddr::Protocol::Memory(rand::random()).into();
+	let addr: multiaddr::Multiaddr = format!("/ip4/0.0.0.0/tcp/{}", rand::random::<u16>())
+		.parse()
+		.expect("valid address; qed");
 	network_config.listen_addresses.push(addr.clone());
-
 	network_config.public_addresses.push(addr);
-
-	network_config.transport = TransportConfig::MemoryOnly;
+	network_config.transport =
+		TransportConfig::Normal { enable_mdns: false, allow_private_ip: true };
 
 	Configuration {
 		impl_name: "polkadot-test-node".to_string(),
