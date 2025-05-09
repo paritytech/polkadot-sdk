@@ -469,12 +469,12 @@ impl PalletCmd {
 						"dispatch a benchmark",
 					) {
 						Err(e) => {
-							log::error!(target: LOG_TARGET, "Error executing and verifying runtime benchmark: {}", e);
+							log::error!(target: LOG_TARGET, "Benchmark {pallet}::{extrinsic} failed: {e}");
 							failed.push((pallet.clone(), extrinsic.clone()));
 							continue 'outer
 						},
 						Ok(Err(e)) => {
-							log::error!(target: LOG_TARGET, "Error executing and verifying runtime benchmark: {}", e);
+							log::error!(target: LOG_TARGET, "Benchmark {pallet}::{extrinsic} failed: {e}");
 							failed.push((pallet.clone(), extrinsic.clone()));
 							continue 'outer
 						},
@@ -502,12 +502,12 @@ impl PalletCmd {
 						"dispatch a benchmark",
 					) {
 						Err(e) => {
-							log::error!(target: LOG_TARGET, "Error executing runtime benchmark: {}", e);
+							log::error!(target: LOG_TARGET, "Benchmark {pallet}::{extrinsic} failed: {e}");
 							failed.push((pallet.clone(), extrinsic.clone()));
 							continue 'outer
 						},
 						Ok(Err(e)) => {
-							log::error!(target: LOG_TARGET, "Benchmark {pallet}::{extrinsic} failed: {e}",);
+							log::error!(target: LOG_TARGET, "Benchmark {pallet}::{extrinsic} failed: {e}");
 							failed.push((pallet.clone(), extrinsic.clone()));
 							continue 'outer
 						},
@@ -537,11 +537,11 @@ impl PalletCmd {
 						"dispatch a benchmark",
 					) {
 						Err(e) => {
-							return Err(format!("Error executing runtime benchmark: {e}",).into());
+							return Err(format!("Benchmark {pallet}::{extrinsic} failed: {e}").into());
 						},
 						Ok(Err(e)) => {
 							return Err(
-								format!("Benchmark {pallet}::{extrinsic} failed: {e}",).into()
+								format!("Benchmark {pallet}::{extrinsic} failed: {e}").into()
 							);
 						},
 						Ok(Ok(b)) => b,
@@ -629,7 +629,7 @@ impl PalletCmd {
 			.collect();
 
 		if benchmarks_to_run.is_empty() {
-			return Err("No benchmarks found which match your input.".into())
+			return Err("No benchmarks found which match your input. Try `--list --all` to list all available benchmarks.".into())
 		}
 
 		Ok(benchmarks_to_run)
