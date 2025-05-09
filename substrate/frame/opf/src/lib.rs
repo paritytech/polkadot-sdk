@@ -281,8 +281,10 @@ pub mod pallet {
 		NotEnoughFunds,
 		/// This referendum does not exists
 		ReferendumNotFound,
-
+		/// The dispatch call failed
 		FailedToDispatchCall,
+		/// The reward has already been claimed
+		AlreadyClaimed,
 	}
 
 	#[pallet::hooks]
@@ -532,6 +534,7 @@ pub mod pallet {
 			let now = T::BlockNumberProvider::current_block_number();
 			let mut info = Spends::<T>::get(&project_id).ok_or(Error::<T>::InexistentSpend)?;
 			Self::pot_check(info.amount)?;
+			ensure!(info.claimed == false, Error::<T>::AlreadyClaimed);
 
 			if now >= info.expire {
 				Spends::<T>::remove(&project_id);

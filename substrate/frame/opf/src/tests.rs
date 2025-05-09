@@ -531,6 +531,7 @@ fn spends_creation_works_but_claim_blocked_after_claim_period() {
 		let balance_101_before = <Test as Config>::NativeBalance::balance(&101);
 		// Claim works
 		assert_ok!(Opf::claim_reward_for(RawOrigin::Signed(EVE).into(), 101));
+		assert_noop!(Opf::claim_reward_for(RawOrigin::Signed(EVE).into(), 101), Error::<Test>::AlreadyClaimed);
 		let balance_101_after = <Test as Config>::NativeBalance::balance(&101);
 
 		assert_eq!(balance_101_before < balance_101_after, true);
