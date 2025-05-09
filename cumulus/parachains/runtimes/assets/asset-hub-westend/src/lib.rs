@@ -1916,6 +1916,7 @@ impl_runtime_apis! {
 			use cumulus_pallet_session_benchmarking::Pallet as SessionBench;
 			use xcm_config::{MaxAssetsIntoHolding, WestendLocation, AssetHubId,
 			AssetHubParaLocation};
+			use xcm_config::bridging::to_rococo::{RandomParaLocation, RandomId};
 
 			impl cumulus_pallet_session_benchmarking::Config for Runtime {}
 
@@ -1926,9 +1927,7 @@ impl_runtime_apis! {
 				).into());
 
 				// reserve-based transfer cases. non-system parachain i.e. id >= 2000
-				pub RandomParaId: ParaId = ParaId::new(3333);
-				pub RandomParaLocation: Location = ParentThen(Parachain(
-					RandomParaId::get().into()).into()).into();
+				pub RandomParaId: ParaId = ParaId::new(RandomId::get());
 				pub AssetHubParaId: ParaId = ParaId::new(AssetHubId::get());
 			}
 
@@ -1967,12 +1966,8 @@ impl_runtime_apis! {
 
 				fn reserve_transferable_asset_and_dest() -> Option<(Asset, Location)> {
 					Some((
-						Asset {
-							fun: Fungible(ExistentialDeposit::get()),
-							id: AssetId(WestendLocation::get())
-						},
-						// AH can reserve transfer native token to some random parachain.
-						RandomParaLocation::get(),
+						Asset { fun: Fungible(ExistentialDeposit::get()), id: AssetId(Parent.into()) },
+						ParentThen(Parachain(RandomParaId::get().into()).into()).into(),
 					))
 				}
 
@@ -2098,8 +2093,8 @@ impl_runtime_apis! {
 										ParachainSystem
 				>;
 				fn valid_destination() -> Result<Location, BenchmarkError> {
-					let dest: Location = Some(AssetHubParaLocation::get()).unwrap();
-					Ok(dest)
+					ParachainSystem::open_outbound_hrmp_channel_for_benchmarks_or_tests(AssetHubParaId::get());
+					Ok(AssetHubParaLocation::get())
 				}
 				fn worst_case_holding(depositable_count: u32) -> XcmAssets {
 					// A mix of fungible, non-fungible, and concrete assets.
@@ -2236,15 +2231,20 @@ impl_runtime_apis! {
 				}
 
 				fn transact_origin_and_runtime_call() -> Result<(Location, RuntimeCall), BenchmarkError> {
-					Ok((WestendLocation::get(), frame_system::Call::remark_with_event { remark: vec![] }.into()))
+					ParachainSystem::open_outbound_hrmp_channel_for_benchmarks_or_tests(AssetHubParaId::get());
+					Ok((
+						AssetHubParaLocation::get(),
+						frame_system::Call::remark_with_event { remark: vec![] }.into()
+					))
 				}
 
 				fn subscribe_origin() -> Result<Location, BenchmarkError> {
-					Ok(WestendLocation::get())
+					ParachainSystem::open_outbound_hrmp_channel_for_benchmarks_or_tests(AssetHubParaId::get());
+					Ok(AssetHubParaLocation::get())
 				}
 
 				fn claimable_asset() -> Result<(Location, Location, XcmAssets), BenchmarkError> {
-					let origin = WestendLocation::get();
+					let origin = AssetHubParaLocation::get();
 					let assets: XcmAssets = (AssetId(WestendLocation::get()), 1_000 * UNITS).into();
 					let ticket = Location { parents: 0, interior: Here };
 					Ok((origin, ticket, assets))
