@@ -114,6 +114,11 @@ fn para_to_para_open_close_bridge_works() {
 	let penpal_a_para_sovereign_account = AssetHubWestend::sovereign_account_id_of(
 		AssetHubWestend::sibling_location_of(PenpalA::para_id()),
 	);
+	AssetHubWestend::fund_accounts(vec![(
+		penpal_a_para_sovereign_account.clone().into(),
+		ASSET_HUB_WESTEND_ED * 10000000000,  // <- enough money for paid execution and for bridge deposit
+	)]);
+
 	let fee_amount = ASSET_HUB_WESTEND_ED * 1000;
 	let system_asset = (Parent, fee_amount);
 
@@ -162,4 +167,63 @@ fn para_to_para_open_close_bridge_works() {
 	});
 
 	assert!(penpal_a_bridge_opened_lane_id.is_some(), "PenpalA BridgeOpened event not found");
+
+	let penpal_b_para_sovereign_account = AssetHubRococo::sovereign_account_id_of(
+		AssetHubRococo::sibling_location_of(PenpalB::para_id()),
+	);
+	AssetHubRococo::fund_accounts(vec![(
+		penpal_b_para_sovereign_account.clone().into(),
+		ASSET_HUB_WESTEND_ED * 10000000000,  // <- enough money for paid execution and for bridge deposit
+	)]);
+
+	let fee_amount = ASSET_HUB_WESTEND_ED * 1000;
+	let system_asset = (Parent, fee_amount);
+
+	let call = bp_asset_hub_rococo::Call::XcmOverAssetHubWestend(
+		bp_xcm_bridge::XcmBridgeCall::open_bridge {
+			bridge_destination_universal_location: Box::new(PenpalAUniversalLocation::get().into()),
+			maybe_notify: None,
+		},
+	).encode();
+
+	// wrap the call as paid execution 
+	let xcm = xcm_transact_paid_execution(
+		call.into(),
+		OriginKind::Xcm,
+		system_asset.into(),
+		penpal_b_para_sovereign_account,
+	);
+	// send XCM from PenpalB to the AssetHubRococo
+	let system_para_destination = PenpalB::sibling_location_of(AssetHubRococo::para_id());
+	PenpalB::execute_with(|| {
+		let root_origin = <PenpalB as Chain>::RuntimeOrigin::root();
+		assert_ok!(<PenpalB as PenpalBPallet>::PolkadotXcm::send(
+			root_origin,
+			bx!(system_para_destination.into()),
+			bx!(xcm),
+		));
+
+		PenpalB::assert_xcm_pallet_sent();
+	});
+
+	let penpal_b_bridge_opened_lane_id = AssetHubRococo::execute_with(|| {
+		// check BridgeOpened event on AssetHubRococo
+		let events = AssetHubRococo::events();
+		type RuntimeEventRococo = <AssetHubRococo as Chain>::RuntimeEvent;
+		AssetHubRococo::assert_xcmp_queue_success(None);
+		events.iter().find_map(|event| {
+			if let RuntimeEventRococo::XcmOverAssetHubWestend(
+				pallet_xcm_bridge::Event::BridgeOpened { lane_id, .. },
+			) = event
+			{
+				Some(*lane_id)
+			} else {
+				None
+			}
+		})
+	});
+
+	assert!(penpal_b_bridge_opened_lane_id.is_some(), "PenpalB BridgeOpened event not found");
+
+	assert_eq!(penpal_a_bridge_opened_lane_id, penpal_b_bridge_opened_lane_id);
 }

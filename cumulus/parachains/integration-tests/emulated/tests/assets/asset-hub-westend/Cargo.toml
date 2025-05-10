@@ -44,6 +44,7 @@ westend-system-emulated-network = { workspace = true }
 
 # Bridge
 bp-asset-hub-westend = { workspace = true }
+bp-asset-hub-rococo = { workspace = true }
 bp-xcm-bridge = { workspace = true }
 pallet-xcm-bridge = { workspace = true }
 
