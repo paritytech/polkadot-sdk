@@ -544,8 +544,7 @@ fn spends_creation_works_but_claim_blocked_after_claim_period() {
 			project_id: 101,
 		})]);
 
-
-		/*et spend_102 = Spends::<Test>::get(102).unwrap();
+		/*let spend_102 = Spends::<Test>::get(102).unwrap();
 		run_to_block(spend_102.expire);
 		assert_ok!(Opf::claim_reward_for(RawOrigin::Signed(EVE).into(), 102));
 		// Claim does not work but returns an event instead of an error

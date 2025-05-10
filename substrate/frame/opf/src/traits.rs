@@ -16,8 +16,7 @@
 // limitations under the License.
 
 pub use super::*;
-use frame_support::traits::{ReservableCurrency, VoteTally};
-use pallet_referenda::{Deposit, TallyOf, TracksInfo};
+use pallet_referenda::TracksInfo;
 
 /// Trait for managing referendums in a Substrate-based blockchain.
 ///
@@ -398,74 +397,36 @@ where
 	}
 
 	fn submit_proposal(
-		who: AccountIdOf<T>,
+		caller: AccountIdOf<T>,
 		proposal: Self::Proposal,
-	) -> Result<u32, DispatchError> {
+	) -> Result<u32, DispatchError>  {
 		let enactment_moment = DispatchTime::After(0u32.into());
 		let proposal_origin0 = RawOrigin::Root.into();
 		let proposal_origin = Box::new(proposal_origin0);
-		if let (Some(preimage_len), Some(proposal_len)) =
-			(proposal.lookup_hash().and_then(|h| Self::Preimages::len(&h)), proposal.lookup_len())
-		{
-			if preimage_len != proposal_len {
-				return Err(
-					pallet_referenda::Error::<T, I>::PreimageStoredWithDifferentLength.into()
-				);
+		let origin = RawOrigin::Signed(caller.clone()).into();
+		pallet_referenda::Pallet::<T, I>::submit(
+			origin,
+			proposal_origin,
+			proposal,
+			enactment_moment,
+		)
+		.map_err(|_| DispatchError::Other("Failed to submit proposal"))?;
+		let index = pallet_referenda::ReferendumCount::<T, I>::get()-1;
+		
+		let refer = pallet_referenda::ReferendumInfoFor::<T, I>::get(index)
+			.ok_or_else(|| DispatchError::Other("No referendum info found here"))?;
+		let now = T::BlockNumberProvider::current_block_number();
+		let infos = match refer {
+			pallet_referenda::ReferendumInfoOf::<T, I>::Ongoing(x) => Some(x.submitted),
+			_ => None,
+		};
+		if let Some(submitted_when) = infos {
+			if submitted_when != now {
+				return Err(DispatchError::Other("Referendum is not yet started"));
 			}
 		}
-		let track = T::Tracks::track_for(&proposal_origin)
-			.map_err(|_| pallet_referenda::Error::<T, I>::NoTrack)?;
-		T::Currency::reserve(&who, T::SubmissionDeposit::get())?;
-		let amount = T::SubmissionDeposit::get();
-		let submission_deposit = Deposit { who, amount };
-		let index = pallet_referenda::ReferendumCount::<T, I>::mutate(|x| {
-			let r = *x;
-			*x += 1;
-			r
-		});
-		let now = T::BlockNumberProvider::current_block_number();
-		let nudge_call =
-			T::Preimages::bound(<<T as pallet_referenda::Config<I>>::RuntimeCall>::from(
-				pallet_referenda::Call::nudge_referendum { index },
-			))?;
-
-		let alarm_interval = T::AlarmInterval::get().max(One::one());
-		// Alarm must go off no earlier than `when`.
-		// This rounds `when` upwards to the next multiple of `alarm_interval`.
-		let when0 = now.saturating_add(T::UndecidingTimeout::get());
-		let when = (when0.saturating_add(alarm_interval.saturating_sub(One::one())) /
-			alarm_interval)
-			.saturating_mul(alarm_interval);
-		let result = T::Scheduler::schedule(
-			DispatchTime::At(when),
-			None,
-			128u8,
-			frame_system::RawOrigin::Root.into(),
-			nudge_call,
-		);
-		if let Err(_e) = result {
-			return Err(DispatchError::Other("SchedulerError"));
-		}
-		let alarm = result.ok().map(|x| (when, x));
-
-		let status = pallet_referenda::ReferendumStatus {
-			track,
-			origin: *proposal_origin,
-			proposal: proposal.clone(),
-			enactment: enactment_moment,
-			submitted: now,
-			submission_deposit,
-			decision_deposit: None,
-			deciding: None,
-			tally: TallyOf::<T, I>::new(track),
-			in_queue: false,
-			alarm,
-		};
-		pallet_referenda::ReferendumInfoFor::<T, I>::insert(
-			index,
-			Self::ReferendumInfo::Ongoing(status),
-		);
 		Ok(index)
+
 	}
 
 	fn get_referendum_info(index: Self::Index) -> Option<Self::ReferendumInfo> {

@@ -534,7 +534,7 @@ pub mod pallet {
 			let now = T::BlockNumberProvider::current_block_number();
 			let mut info = Spends::<T>::get(&project_id).ok_or(Error::<T>::InexistentSpend)?;
 			Self::pot_check(info.amount)?;
-			ensure!(info.claimed == false, Error::<T>::AlreadyClaimed);
+			ensure!(!info.claimed, Error::<T>::AlreadyClaimed);
 
 			if now >= info.expire {
 				Spends::<T>::remove(&project_id);
@@ -568,13 +568,16 @@ pub mod pallet {
 			let mut infos = WhiteListedProjectAccounts::<T>::get(project_id.clone())
 				.ok_or(Error::<T>::NoProjectAvailable)?;
 
-				let round_index = NextVotingRoundNumber::<T>::get();
-				let current_round_index = round_index.saturating_sub(1);
-				let round_infos =
-					VotingRounds::<T>::get(current_round_index).ok_or(Error::<T>::InvalidResult)?;
-			let min_enactment_periods_u128 = round_infos.time_periods.ok_or(Error::<T>::InvalidResult)?.min_enactment_period;
-			let min_enactment_periods = min_enactment_periods_u128.try_into().map_err(|_| Error::<T>::InvalidResult)?;
-			let spend_valid_from = round_infos.round_ending_block.saturating_add(min_enactment_periods);
+			let round_index = NextVotingRoundNumber::<T>::get();
+			let current_round_index = round_index.saturating_sub(1);
+			let round_infos =
+				VotingRounds::<T>::get(current_round_index).ok_or(Error::<T>::InvalidResult)?;
+			let min_enactment_periods_u128 =
+				round_infos.time_periods.ok_or(Error::<T>::InvalidResult)?.min_enactment_period;
+			let min_enactment_periods =
+				min_enactment_periods_u128.try_into().map_err(|_| Error::<T>::InvalidResult)?;
+			let spend_valid_from =
+				round_infos.round_ending_block.saturating_add(min_enactment_periods);
 
 			let ref_index = infos.index;
 			let amount = infos.amount;

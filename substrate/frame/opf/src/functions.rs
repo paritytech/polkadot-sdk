@@ -322,13 +322,10 @@ impl<T: Config> Pallet<T> {
 			if round_infos.round_ending_block != round_infos.round_starting_block {
 				let round_ending_block = round_infos.round_ending_block;
 				let mut prep_period = 0;
-				let mut min_enactment_period = 0;
 				if let Some(period) = round_infos.time_periods {
 					prep_period = period.prepare_period;
-					min_enactment_period = period.min_enactment_period;
 				}
 				let prepare_period = Self::convert_u128_to_block_number(prep_period);
-				let enactment_period = Self::convert_u128_to_block_number(min_enactment_period);
 				let decision_block =
 					round_infos.round_starting_block.saturating_add(prepare_period);
 				let projects_submitted = round_infos.projects_submitted.clone();
@@ -348,7 +345,6 @@ impl<T: Config> Pallet<T> {
 				}
 
 				if now >= round_ending_block {
-
 					// Emmit event
 					Self::deposit_event(Event::<T>::VoteActionLocked {
 						round_number: round_infos.round_number,
