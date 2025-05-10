@@ -19,7 +19,7 @@ use alloy_core::{
 	primitives::U256,
 	sol_types::{sol_data, SolType},
 };
-use frame_support::traits::fungibles;
+use frame_support::traits::{fungible, fungibles};
 use pallet_revive::{Code, DepositLimit, InstantiateReturnValue};
 use pallet_revive_fixtures::compile_module;
 use sp_core::{crypto::get_public_from_string_or_panic, sr25519};
@@ -1464,7 +1464,7 @@ fn reserve_withdraw_from_untrusted_reserve_fails() {
 }
 
 #[test]
-fn can_withdraw_and_deposit_erc20() {
+fn withdraw_and_deposit_erc20s() {
 	let sender = AssetHubWestendSender::get();
 	let beneficiary = AssetHubWestendReceiver::get();
 	let checking_account = asset_hub_westend_runtime::xcm_config::CheckingAccount::get();
@@ -1478,10 +1478,12 @@ fn can_withdraw_and_deposit_erc20() {
 		(checking_account.clone(), initial_wnd_amount),
 	]);
 
-	AssetHubWestend::execute_with(|| {
+	let erc20_transfer_amount = 100u128;
+	let erc20_address = AssetHubWestend::execute_with(|| {
 		type RuntimeCall = <AssetHubWestend as Chain>::RuntimeCall;
 		type RuntimeOrigin = <AssetHubWestend as Chain>::RuntimeOrigin;
 		type PolkadotXcm = <AssetHubWestend as AssetHubWestendPallet>::PolkadotXcm;
+		type Balances = <AssetHubWestend as AssetHubWestendPallet>::Balances;
 		type Contracts = <AssetHubWestend as AssetHubWestendPallet>::Contracts;
 
 		// We need to map all accounts.
@@ -1506,8 +1508,12 @@ fn can_withdraw_and_deposit_erc20() {
 			unreachable!("contract should initialize")
 		};
 
+		let sender_balance_before =
+			<Balances as fungible::Inspect<_>>::balance(&sender);
+
 		let erc20_transfer_amount = 100u128;
 		let wnd_amount_for_fees = 1_000_000_000_000u128;
+		// Actual XCM to execute locally.
 		let message = Xcm::<RuntimeCall>::builder()
 			.withdraw_asset((Parent, wnd_amount_for_fees))
 			.pay_fees((Parent, wnd_amount_for_fees))
@@ -1518,10 +1524,15 @@ fn can_withdraw_and_deposit_erc20() {
 			.deposit_asset(AllCounted(1), beneficiary.clone())
 			.build();
 		assert_ok!(PolkadotXcm::execute(
-			RuntimeOrigin::signed(sender),
+			RuntimeOrigin::signed(sender.clone()),
 			Box::new(VersionedXcm::V5(message)),
-			Weight::from_parts(2_000_000_000, 200_000),
+			Weight::from_parts(3_500_000_000, 30_000),
 		));
+
+		// Revive is not taking any fees.
+		let sender_balance_after =
+			<Balances as fungible::Inspect<_>>::balance(&sender);
+		assert_eq!(sender_balance_after, sender_balance_before - wnd_amount_for_fees);
 
 		// Beneficiary receives the ERC20.
 		let beneficiary_amount =

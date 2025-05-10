@@ -149,7 +149,7 @@ where
 		let checking_account_eth = T::AddressMapper::to_address(&T::CheckingAccount::get());
 		let checking_address = Address::from(Into::<[u8; 20]>::into(checking_account_eth));
 		let data = transferCall { to: checking_address, value: EU256::from(amount) }.abi_encode();
-		let ContractResult { result, .. } = Self::bare_call(
+		let ContractResult { result, gas_consumed, .. } = Self::bare_call(
 			T::RuntimeOrigin::signed(who.clone()),
 			asset,
 			BalanceOf::<T>::zero(),
@@ -157,6 +157,7 @@ where
 			DepositLimit::Unchecked,
 			data,
 		);
+		log::trace!(target: "whatiwant", "{gas_consumed}");
 		if let Ok(return_value) = result {
 			let has_reverted = return_value.flags.contains(ReturnFlags::REVERT);
 			if has_reverted {
