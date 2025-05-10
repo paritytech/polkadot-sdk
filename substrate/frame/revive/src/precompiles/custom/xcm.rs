@@ -1,20 +1,3 @@
-// This file is part of Substrate.
-
-// Copyright (C) Parity Technologies (UK) Ltd.
-// SPDX-License-Identifier: Apache-2.0
-
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-// 	http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-
 use crate::Origin;
 use crate::{
 	precompiles::{AddressMatcher, Error, Ext, ExtWithInfo, Precompile},
@@ -24,6 +7,7 @@ use alloc::vec::Vec;
 use alloy_core::sol;
 use codec::{DecodeAll, Encode};
 use core::{marker::PhantomData, num::NonZero};
+use log::error;
 use xcm_builder::{ExecuteController, ExecuteControllerWeightInfo, SendController};
 pub use IXcm::IXcmCalls;
 
@@ -57,7 +41,7 @@ impl<T: Config> Precompile for XcmPrecompile<T> {
 		env: &mut impl Ext<T = Self::T>,
 	) -> Result<Vec<u8>, Error> {
 		let origin = env.origin();
-		let xcm_origin = match origin {
+		let frame_origin = match origin {
 			Origin::Root => frame_system::RawOrigin::Root.into(),
 			Origin::Signed(account_id) => {
 				frame_system::RawOrigin::Signed(account_id.clone()).into()
@@ -66,39 +50,49 @@ impl<T: Config> Precompile for XcmPrecompile<T> {
 
 		match input {
 			IXcmCalls::xcmSend(IXcm::xcmSendCall { destination, message }) => {
-				let final_destination =
-					xcm::VersionedLocation::decode_all(&mut &destination[..])
-						.map_err(|_| Error::Revert("Invalid destination format".into()))?;
+				let final_destination = xcm::VersionedLocation::decode_all(&mut &destination[..])
+					.map_err(|e| {
+					error!("XCM send failed: Invalid destination format. Error: {:?}", e);
+					Error::Revert("Invalid destination format".into())
+				})?;
 
 				let final_message = xcm::VersionedXcm::<()>::decode_all(&mut &message[..])
-					.map_err(|_| Error::Revert("Invalid message format".into()))?;
+					.map_err(|e| {
+						error!("XCM send failed: Invalid message format. Error: {:?}", e);
+						Error::Revert("Invalid message format".into())
+					})?;
 
 				<<T as Config>::Xcm>::send(
-					xcm_origin,
+					frame_origin,
 					final_destination.into(),
 					final_message.into(),
 				)
 				.map(|message_id| message_id.encode())
-				.map_err(|_| {
+				.map_err(|e| {
+					error!("XCM send failed: destination or message format may be incompatible. Error: {:?}", e);
 					Error::Revert(
 						"XCM send failed: destination or message format may be incompatible".into(),
 					)
 				})
 			},
 			IXcmCalls::xcmExecute(IXcm::xcmExecuteCall { message }) => {
-				let final_message = xcm::VersionedXcm::decode_all(&mut &message[..])
-					.map_err(|_| Error::Revert("Invalid message format".into()))?;
+				let final_message =
+					xcm::VersionedXcm::decode_all(&mut &message[..]).map_err(|e| {
+						error!("XCM execute failed: Invalid message format. Error: {:?}", e);
+						Error::Revert("Invalid message format".into())
+					})?;
 
 				let weight_limit =
 					<<T as Config>::Xcm as ExecuteController<_, _>>::WeightInfo::execute();
 
-				<<T as Config>::Xcm>::execute(xcm_origin, final_message.into(), weight_limit)
-					.map(|results| results.encode())
-					.map_err(|_| {
-						Error::Revert(
-						"XCM execute failed: message may be invalid or execution constraints not satisfied".into()
-					)
-					})
+				<<T as Config>::Xcm>::execute(frame_origin, final_message.into(), weight_limit)
+                    .map(|results| results.encode())
+                    .map_err(|e| {
+                        error!("XCM execute failed: message may be invalid or execution constraints not satisfied. Error: {:?}", e);
+                        Error::Revert(
+                        "XCM execute failed: message may be invalid or execution constraints not satisfied".into()
+                    )
+                    })
 			},
 		}
 	}
