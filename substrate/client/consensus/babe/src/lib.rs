@@ -1630,11 +1630,12 @@ where
 				});
 			}
 
-			aux_schema::write_block_weight(hash, total_weight, |values| {
-				block
-					.auxiliary
-					.extend(values.iter().map(|(k, v)| (k.to_vec(), Some(v.to_vec()))))
-			});
+			// aux_schema::write_block_weight(hash, total_weight, |values| {
+			// 	block
+			// 		.auxiliary
+			// 		.extend(values.iter().map(|(k, v)| (k.to_vec(), Some(v.to_vec()))))
+			// });
+			self.epoch_changes.update_block_weight(hash, total_weight);
 
 			// The fork choice rule is that we pick the heaviest chain (i.e.
 			// more primary blocks), if there's a tie we go with the longest
@@ -1647,13 +1648,16 @@ where
 					// so we don't need to cover again here.
 					parent_weight
 				} else {
-					aux_schema::load_block_weight(&*self.client, last_best)
-						.map_err(|e| ConsensusError::ChainLookup(e.to_string()))?
-						.ok_or_else(|| {
-							ConsensusError::ChainLookup(
-								"No block weight for parent header.".to_string(),
-							)
-						})?
+					// aux_schema::load_block_weight(&*self.client, last_best)
+					// 	.map_err(|e| ConsensusError::ChainLookup(e.to_string()))?
+					// 	.ok_or_else(|| {
+					// 		ConsensusError::ChainLookup(
+					// 			"No block weight for parent header.".to_string(),
+					// 		)
+					// 	})?
+					self.epoch_changes.get_block_weight(last_best).ok_or_else(|| {
+						ConsensusError::ChainLookup("No block weight for parent header".to_string()),
+					})?
 				};
 
 				Some(ForkChoiceStrategy::Custom(if total_weight > last_best_weight {
