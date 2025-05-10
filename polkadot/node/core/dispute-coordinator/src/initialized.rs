@@ -957,7 +957,7 @@ impl Initialized {
 		now: Timestamp,
 	) -> FatalResult<ImportStatementsResult> {
 		if self.emergency_no_disputes_mode {
-			gum::warn!(target: LOG_TARGET, "Dispute import skipped due to emergency mode");
+			gum::debug!(target: LOG_TARGET, "Dispute import skipped due to emergency mode");
 			return Ok(ImportStatementsResult::ValidImport)
 		}
 
@@ -1450,7 +1450,7 @@ impl Initialized {
 		now: Timestamp,
 	) -> Result<()> {
 		if self.emergency_no_disputes_mode {
-			gum::warn!(target: LOG_TARGET, "issue_local_statement skipped due to emergency mode");
+			gum::debug!(target: LOG_TARGET, "issue_local_statement skipped due to emergency mode");
 			return Ok(());
 		}
 
