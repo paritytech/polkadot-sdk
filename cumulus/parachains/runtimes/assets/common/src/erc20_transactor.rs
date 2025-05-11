@@ -79,6 +79,7 @@ where
 		tracing::trace!(target: "xcm::transactor::erc20::withdraw", ?gas_consumed, "Gas consumed by withdraw_asset");
 		// We need to return this surplus for the executor to allow refunding it.
 		let surplus = GasLimit::get().saturating_sub(gas_consumed);
+		tracing::trace!(target: "xcm::transactor::erc20::withdraw", ?surplus, "GasLimit - gas_consumed");
 		if let Ok(return_value) = result {
 			tracing::trace!(target: "xcm::transactor::erc20::withdraw", ?return_value, "Return value by withdraw_asset");
 			let has_reverted = return_value.flags.contains(ReturnFlags::REVERT);
@@ -130,6 +131,7 @@ where
 		tracing::trace!(target: "xcm::transactor::erc20::deposit", ?gas_consumed, "Gas consumed");
 		// We need to return this surplus for the executor to allow refunding it.
 		let surplus = GasLimit::get().saturating_sub(gas_consumed);
+		tracing::trace!(target: "xcm::transactor::erc20::deposit", ?surplus, "GasLimit - gas_consumed");
 		if let Ok(return_value) = result {
 			tracing::trace!(target: "xcm::transactor::erc20::deposit", ?return_value, "Return value");
 			let has_reverted = return_value.flags.contains(ReturnFlags::REVERT);

@@ -1521,17 +1521,22 @@ fn withdraw_and_deposit_erc20s() {
 				erc20_transfer_amount,
 			))
 			.deposit_asset(AllCounted(1), beneficiary.clone())
+			.refund_surplus()
+			.deposit_asset(AllCounted(1), sender.clone())
 			.build();
 		assert_ok!(PolkadotXcm::execute(
 			RuntimeOrigin::signed(sender.clone()),
 			Box::new(VersionedXcm::V5(message)),
-			Weight::from_parts(2_000_000_000, 120_000),
+			Weight::from_parts(2_500_000_000, 120_000),
 		));
+
+		// Taken from running the test.
+		let refunded_amount = 900_289_000_000;
 
 		// Revive is not taking any fees.
 		let sender_balance_after =
 			<Balances as fungible::Inspect<_>>::balance(&sender);
-		assert_eq!(sender_balance_after, sender_balance_before - wnd_amount_for_fees);
+		assert_eq!(sender_balance_after, sender_balance_before - wnd_amount_for_fees + refunded_amount);
 
 		// Beneficiary receives the ERC20.
 		let beneficiary_amount =
