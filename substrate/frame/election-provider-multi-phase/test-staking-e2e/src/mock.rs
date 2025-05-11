@@ -57,7 +57,7 @@ use std::sync::Arc;
 use crate::{log, log_current_time};
 use frame_support::{
 	derive_impl,
-	traits::{ConstU128, Nothing},
+	traits::{ConstU64, Nothing},
 };
 
 pub const INIT_TIMESTAMP: BlockNumber = 30_000;
@@ -150,7 +150,7 @@ impl pallet_session::Config for Runtime {
 	type WeightInfo = ();
 	type Currency = Balances;
 	type RuntimeHoldReason = RuntimeHoldReason;
-	type KeyDeposit = ConstU128<0>;
+	type KeyDeposit = ConstU64<0>;
 }
 impl pallet_session::historical::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
@@ -193,7 +193,7 @@ parameter_types! {
 impl pallet_election_provider_multi_phase::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Currency = Balances;
-	type EstimateCallFee = frame_support::traits::ConstU64<8>;
+	type EstimateCallFee = ConstU64<8>;
 	type SignedPhase = SignedPhase;
 	type UnsignedPhase = UnsignedPhase;
 	type BetterSignedThreshold = ();
