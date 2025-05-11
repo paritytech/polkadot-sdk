@@ -52,7 +52,7 @@ use frame_support::{
 	construct_runtime, derive_impl,
 	genesis_builder_helper::{build_state, get_preset},
 	parameter_types,
-	traits::{KeyOwnerProofSystem, WithdrawReasons, ConstU128},
+	traits::{ConstU128, KeyOwnerProofSystem, WithdrawReasons},
 	PalletId,
 };
 use pallet_grandpa::{fg_primitives, AuthorityId as GrandpaId};
@@ -78,7 +78,7 @@ use polkadot_runtime_common::{
 use polkadot_runtime_parachains::reward_points::RewardValidatorsWithEraPoints;
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_consensus_beefy::ecdsa_crypto::{AuthorityId as BeefyId, Signature as BeefySignature};
-use sp_core::{ConstBool, ConstU32, ConstUint, OpaqueMetadata, Get};
+use sp_core::{ConstBool, ConstU32, ConstUint, Get, OpaqueMetadata};
 use sp_mmr_primitives as mmr;
 use sp_runtime::{
 	curve::PiecewiseLinear,

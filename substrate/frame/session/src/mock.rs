@@ -34,10 +34,7 @@ use frame_support::{
 	derive_impl,
 	pallet_prelude::*,
 	parameter_types,
-	traits::{
-		ConstU32, ConstU64,
-		 VariantCount, 
-	},
+	traits::{ConstU32, ConstU64, VariantCount},
 };
 use scale_info::TypeInfo;
 use sp_runtime::traits::{Convert, OpaqueKeys};

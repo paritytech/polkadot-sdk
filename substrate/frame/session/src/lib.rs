@@ -129,10 +129,7 @@ use frame_support::{
 	dispatch::DispatchResult,
 	ensure,
 	traits::{
-		fungible::{
-			hold::Mutate as HoldMutate,
-			Inspect,
-		},
+		fungible::{hold::Mutate as HoldMutate, Inspect},
 		Defensive, EstimateNextNewSession, EstimateNextSessionRotation, FindAuthor, Get,
 		OneSessionHandler, ValidatorRegistration, ValidatorSet,
 	},
@@ -405,15 +402,7 @@ pub mod pallet {
 	pub struct Pallet<T>(_);
 
 	/// A simple identifier for session keys hold reason.
-	#[derive(
-		codec::Encode,
-		codec::Decode,
-		codec::MaxEncodedLen,
-		Debug,
-		PartialEq,
-		Eq,
-		Clone,
-	)]
+	#[derive(codec::Encode, codec::Decode, codec::MaxEncodedLen, Debug, PartialEq, Eq, Clone)]
 	pub struct SessionKeysHoldReason;
 
 	#[pallet::config]

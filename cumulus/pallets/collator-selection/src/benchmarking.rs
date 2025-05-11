@@ -90,7 +90,10 @@ fn register_candidates<T: Config>(count: u32) {
 	assert!(CandidacyBond::<T>::get() > 0u32.into(), "Bond cannot be zero!");
 
 	for who in candidates {
-		<T as pallet::Config>::Currency::make_free_balance_be(&who, CandidacyBond::<T>::get() * 3u32.into());
+		<T as pallet::Config>::Currency::make_free_balance_be(
+			&who,
+			CandidacyBond::<T>::get() * 3u32.into(),
+		);
 		<CollatorSelection<T>>::register_as_candidate(RawOrigin::Signed(who).into()).unwrap();
 	}
 }
@@ -226,7 +229,8 @@ mod benchmarks {
 		c: Linear<0, { T::MaxCandidates::get() }>,
 		k: Linear<0, { T::MaxCandidates::get() }>,
 	) -> Result<(), BenchmarkError> {
-		let initial_bond_amount: BalanceOf<T> = <T as pallet::Config>::Currency::minimum_balance() * 2u32.into();
+		let initial_bond_amount: BalanceOf<T> =
+			<T as pallet::Config>::Currency::minimum_balance() * 2u32.into();
 		CandidacyBond::<T>::put(initial_bond_amount);
 		register_validators::<T>(c);
 		register_candidates::<T>(c);
@@ -264,8 +268,8 @@ mod benchmarks {
 		let caller = CandidateList::<T>::get()[0].who.clone();
 		v2::whitelist!(caller);
 
-		let bond_amount: BalanceOf<T> =
-			<T as pallet::Config>::Currency::minimum_balance() + <T as pallet::Config>::Currency::minimum_balance();
+		let bond_amount: BalanceOf<T> = <T as pallet::Config>::Currency::minimum_balance() +
+			<T as pallet::Config>::Currency::minimum_balance();
 
 		#[extrinsic_call]
 		_(RawOrigin::Signed(caller.clone()), bond_amount);
