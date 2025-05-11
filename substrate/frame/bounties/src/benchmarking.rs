@@ -279,13 +279,11 @@ benchmarks_instance_pallet! {
 		let old_deposit = T::Currency::reserved_balance(&caller);
 		// Modify the description to be maximum length
 		let max_description: Vec<u8> = vec![0; T::MaximumReasonLength::get() as usize];
-		let bounded_description: BoundedVec<u8, T::MaximumReasonLength> = max_description.try_into()
-			.expect("description length was set to T::MaximumReasonLength; qed");
-		BountyDescriptions::<T, I>::insert(bounty_id, bounded_description);
+		let bounded_description: BoundedVec<u8, T::MaximumReasonLength> = max_description.try_into().unwrap();
+		BountyDescriptions::<T, I>::insert(bounty_id, &bounded_description);
 
 		// Ensure caller has enough balance for new deposit
-		let new_deposit = T::BountyDepositBase::get()
-			.saturating_add(T::DataDepositPerByte::get().saturating_mul((T::MaximumReasonLength::get()).into()));
+		let new_deposit = Bounties::<T, I>::calculate_bounty_deposit(&bounded_description);
 		let required_balance = new_deposit.saturating_add(minimum_balance::<T, I>());
 		T::Currency::make_free_balance_be(&caller, required_balance);
 

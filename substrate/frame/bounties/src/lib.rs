@@ -897,10 +897,9 @@ pub mod pallet {
 
 		/// Poke the deposit reserved for creating a bounty proposal.
 		///
-		/// This can be used by accounts to possibly lower their locked amount.
+		/// This can be used by accounts to update their reserved amount.
 		///
-		/// The dispatch origin for this call must be _Signed_ and must be the proposer of the
-		/// bounty.
+		/// The dispatch origin for this call must be _Signed_.
 		///
 		/// Parameters:
 		/// - `bounty_id`: The bounty id for which to adjust the deposit.
@@ -917,9 +916,9 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			#[pallet::compact] bounty_id: BountyIndex,
 		) -> DispatchResultWithPostInfo {
-			let who = ensure_signed(origin)?;
+			ensure_signed(origin)?;
 
-			let deposit_updated = Self::poke_bounty_deposit(bounty_id, who)?;
+			let deposit_updated = Self::poke_bounty_deposit(bounty_id)?;
 
 			Ok(if deposit_updated { Pays::No } else { Pays::Yes }.into())
 		}
@@ -1060,16 +1059,12 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	/// Returns true if the deposit was updated and false otherwise.
 	fn poke_bounty_deposit(
 		bounty_id: BountyIndex,
-		who: T::AccountId,
 	) -> Result<bool, DispatchError> {
 		let mut bounty = Bounties::<T, I>::get(bounty_id).ok_or(Error::<T, I>::InvalidIndex)?;
 		let bounty_description =
 			BountyDescriptions::<T, I>::get(bounty_id).ok_or(Error::<T, I>::InvalidIndex)?;
 		// ensure that the bounty status is proposed.
 		ensure!(bounty.status == BountyStatus::Proposed, Error::<T, I>::UnexpectedStatus);
-
-		// ensure that bounty proposer is the origin for this call.
-		ensure!(bounty.proposer == who, Error::<T, I>::NotProposer);
 
 		let new_bond = Self::calculate_bounty_deposit(&bounty_description);
 		let old_bond = bounty.bond;
@@ -1078,10 +1073,10 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		}
 		if new_bond > old_bond {
 			let extra = new_bond.saturating_sub(old_bond);
-			T::Currency::reserve(&who, extra)?;
+			T::Currency::reserve(&bounty.proposer, extra)?;
 		} else {
 			let excess = old_bond.saturating_sub(new_bond);
-			let remaining_unreserved = T::Currency::unreserve(&who, excess);
+			let remaining_unreserved = T::Currency::unreserve(&bounty.proposer, excess);
 			if !remaining_unreserved.is_zero() {
 				defensive!(
 					"Failed to unreserve full amount. (Requested, Actual)",
@@ -1094,7 +1089,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
 		Self::deposit_event(Event::<T, I>::DepositPoked {
 			bounty_id,
-			proposer: who,
+			proposer: bounty.proposer,
 			old_deposit: old_bond,
 			new_deposit: new_bond,
 		});
