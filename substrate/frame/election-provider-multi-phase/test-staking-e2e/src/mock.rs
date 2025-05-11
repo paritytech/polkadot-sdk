@@ -55,7 +55,10 @@ use parking_lot::RwLock;
 use std::sync::Arc;
 
 use crate::{log, log_current_time};
-use frame_support::{derive_impl, traits::Nothing};
+use frame_support::{
+	derive_impl,
+	traits::{ConstU128, Nothing},
+};
 
 pub const INIT_TIMESTAMP: BlockNumber = 30_000;
 pub const BLOCK_TIME: BlockNumber = 1000;
@@ -145,6 +148,9 @@ impl pallet_session::Config for Runtime {
 		SLASHING_DISABLING_FACTOR,
 	>;
 	type WeightInfo = ();
+	type Currency = Balances;
+	type RuntimeHoldReason = RuntimeHoldReason;
+	type KeyDeposit = ConstU128<0>;
 }
 impl pallet_session::historical::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
