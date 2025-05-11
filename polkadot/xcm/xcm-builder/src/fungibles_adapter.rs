@@ -44,7 +44,7 @@ impl<
 		from: &Location,
 		to: &Location,
 		_context: &XcmContext,
-	) -> result::Result<(xcm_executor::AssetsInHolding, Weight), XcmError> {
+	) -> result::Result<xcm_executor::AssetsInHolding, XcmError> {
 		tracing::trace!(
 			target: "xcm::fungibles_adapter",
 			?what, ?from, ?to,
@@ -60,7 +60,7 @@ impl<
 			tracing::debug!(target: "xcm::fungibles_adapter", error = ?e, ?asset_id, ?source, ?dest, ?amount, "Failed internal transfer asset");
 			XcmError::FailedToTransactAsset(e.into())
 		})?;
-		Ok((what.clone().into(), Weight::zero()))
+		Ok(what.clone().into())
 	}
 }
 
@@ -271,7 +271,7 @@ impl<
 		}
 	}
 
-	fn deposit_asset(what: &Asset, who: &Location, _context: Option<&XcmContext>) -> result::Result<Weight, XcmError> {
+	fn deposit_asset(what: &Asset, who: &Location, _context: Option<&XcmContext>) -> XcmResult {
 		tracing::trace!(
 			target: "xcm::fungibles_adapter",
 			?what, ?who,
@@ -283,14 +283,14 @@ impl<
 			.ok_or(MatchError::AccountIdConversionFailed)?;
 		Assets::mint_into(asset_id, &who, amount)
 			.map_err(|e| XcmError::FailedToTransactAsset(e.into()))?;
-		Ok(Weight::zero())
+		Ok(())
 	}
 
 	fn withdraw_asset(
 		what: &Asset,
 		who: &Location,
 		_maybe_context: Option<&XcmContext>,
-	) -> result::Result<(xcm_executor::AssetsInHolding, Weight), XcmError> {
+	) -> result::Result<xcm_executor::AssetsInHolding, XcmError> {
 		tracing::trace!(
 			target: "xcm::fungibles_adapter",
 			?what, ?who,
@@ -302,7 +302,7 @@ impl<
 			.ok_or(MatchError::AccountIdConversionFailed)?;
 		Assets::burn_from(asset_id, &who, amount, Expendable, Exact, Polite)
 			.map_err(|e| XcmError::FailedToTransactAsset(e.into()))?;
-		Ok((what.clone().into(), Weight::zero()))
+		Ok(what.clone().into())
 	}
 }
 
@@ -369,7 +369,7 @@ impl<
 		>::check_out(dest, what, context)
 	}
 
-	fn deposit_asset(what: &Asset, who: &Location, context: Option<&XcmContext>) -> result::Result<Weight, XcmError> {
+	fn deposit_asset(what: &Asset, who: &Location, context: Option<&XcmContext>) -> XcmResult {
 		FungiblesMutateAdapter::<
 			Assets,
 			Matcher,
@@ -384,7 +384,7 @@ impl<
 		what: &Asset,
 		who: &Location,
 		maybe_context: Option<&XcmContext>,
-	) -> result::Result<(xcm_executor::AssetsInHolding, Weight), XcmError> {
+	) -> result::Result<xcm_executor::AssetsInHolding, XcmError> {
 		FungiblesMutateAdapter::<
 			Assets,
 			Matcher,
@@ -400,7 +400,7 @@ impl<
 		from: &Location,
 		to: &Location,
 		context: &XcmContext,
-	) -> result::Result<(xcm_executor::AssetsInHolding, Weight), XcmError> {
+	) -> result::Result<xcm_executor::AssetsInHolding, XcmError> {
 		FungiblesTransferAdapter::<Assets, Matcher, AccountIdConverter, AccountId>::internal_transfer_asset(
 			what, from, to, context
 		)

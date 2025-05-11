@@ -893,7 +893,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 				Config::TransactionalProcessor::process(|| {
 					// Take `assets` from the origin account (on-chain)...
 					for asset in assets.inner() {
-						let (_, surplus) = Config::AssetTransactor::withdraw_asset(
+						let (_, surplus) = Config::AssetTransactor::withdraw_asset_with_surplus(
 							asset,
 							origin,
 							Some(&self.context),
@@ -1763,7 +1763,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 
 		let mut deposit_result = Ok(Weight::zero());
 		for asset in to_deposit.assets_iter() {
-			deposit_result = Config::AssetTransactor::deposit_asset(&asset, &beneficiary, context);
+			deposit_result = Config::AssetTransactor::deposit_asset_with_surplus(&asset, &beneficiary, context);
 			// if deposit failed for asset, mark it for retry after depositing the others.
 			if deposit_result.is_err() {
 				failed_deposits.push(asset);
@@ -1782,7 +1782,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 		let mut total_surplus = Weight::zero();
 		// retry previously failed deposits, this time short-circuiting on any error.
 		for asset in failed_deposits {
-			let surplus = Config::AssetTransactor::deposit_asset(&asset, &beneficiary, context)?;
+			let surplus = Config::AssetTransactor::deposit_asset_with_surplus(&asset, &beneficiary, context)?;
 			total_surplus.saturating_accrue(surplus);
 		}
 		Ok(total_surplus)

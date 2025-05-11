@@ -53,7 +53,7 @@ where
 		// TODO.
 	}
 
-	fn withdraw_asset(
+	fn withdraw_asset_with_surplus(
 		what: &Asset,
 		who: &Location,
 		_context: Option<&XcmContext>,
@@ -104,7 +104,7 @@ where
 		}
 	}
 
-	fn deposit_asset(
+	fn deposit_asset_with_surplus(
 		what: &Asset,
 		who: &Location,
 		_context: Option<&XcmContext>,

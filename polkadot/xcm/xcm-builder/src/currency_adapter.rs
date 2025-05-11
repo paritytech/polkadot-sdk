@@ -21,7 +21,7 @@
 use super::MintLocation;
 use core::{marker::PhantomData, result};
 use frame_support::traits::{ExistenceRequirement::AllowDeath, Get, WithdrawReasons};
-use sp_runtime::{traits::CheckedSub, Weight};
+use sp_runtime::traits::CheckedSub;
 use xcm::latest::{Asset, Error as XcmError, Location, Result, XcmContext};
 use xcm_executor::{
 	traits::{ConvertLocation, MatchesFungible, TransactAsset},
@@ -194,21 +194,21 @@ impl<
 		}
 	}
 
-	fn deposit_asset(what: &Asset, who: &Location, _context: Option<&XcmContext>) -> result::Result<Weight, XcmError> {
+	fn deposit_asset(what: &Asset, who: &Location, _context: Option<&XcmContext>) -> Result {
 		tracing::trace!(target: "xcm::currency_adapter", ?what, ?who, "deposit_asset");
 		// Check we handle this asset.
 		let amount = Matcher::matches_fungible(&what).ok_or(Error::AssetNotHandled)?;
 		let who =
 			AccountIdConverter::convert_location(who).ok_or(Error::AccountIdConversionFailed)?;
 		let _imbalance = Currency::deposit_creating(&who, amount);
-		Ok(Weight::zero())
+		Ok(())
 	}
 
 	fn withdraw_asset(
 		what: &Asset,
 		who: &Location,
 		_maybe_context: Option<&XcmContext>,
-	) -> result::Result<(AssetsInHolding, Weight), XcmError> {
+	) -> result::Result<AssetsInHolding, XcmError> {
 		tracing::trace!(target: "xcm::currency_adapter", ?what, ?who, "withdraw_asset");
 		// Check we handle this asset.
 		let amount = Matcher::matches_fungible(what).ok_or(Error::AssetNotHandled)?;
@@ -216,7 +216,7 @@ impl<
 			AccountIdConverter::convert_location(who).ok_or(Error::AccountIdConversionFailed)?;
 		let _ = Currency::withdraw(&who, amount, WithdrawReasons::TRANSFER, AllowDeath)
 			.map_err(|e| XcmError::FailedToTransactAsset(e.into()))?;
-		Ok((what.clone().into(), Weight::zero()))
+		Ok(what.clone().into())
 	}
 
 	fn internal_transfer_asset(
@@ -224,7 +224,7 @@ impl<
 		from: &Location,
 		to: &Location,
 		_context: &XcmContext,
-	) -> result::Result<(AssetsInHolding, Weight), XcmError> {
+	) -> result::Result<AssetsInHolding, XcmError> {
 		tracing::trace!(target: "xcm::currency_adapter", ?asset, ?from, ?to, "internal_transfer_asset");
 		let amount = Matcher::matches_fungible(asset).ok_or(Error::AssetNotHandled)?;
 		let from =
@@ -233,6 +233,6 @@ impl<
 			AccountIdConverter::convert_location(to).ok_or(Error::AccountIdConversionFailed)?;
 		Currency::transfer(&from, &to, amount, AllowDeath)
 			.map_err(|e| XcmError::FailedToTransactAsset(e.into()))?;
-		Ok((asset.clone().into(), Weight::zero()))
+		Ok(asset.clone().into())
 	}
 }

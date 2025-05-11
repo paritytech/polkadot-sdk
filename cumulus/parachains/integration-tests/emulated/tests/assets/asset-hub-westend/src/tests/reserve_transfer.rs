@@ -1478,8 +1478,7 @@ fn withdraw_and_deposit_erc20s() {
 		(checking_account.clone(), initial_wnd_amount),
 	]);
 
-	let erc20_transfer_amount = 100u128;
-	let erc20_address = AssetHubWestend::execute_with(|| {
+	AssetHubWestend::execute_with(|| {
 		type RuntimeCall = <AssetHubWestend as Chain>::RuntimeCall;
 		type RuntimeOrigin = <AssetHubWestend as Chain>::RuntimeOrigin;
 		type PolkadotXcm = <AssetHubWestend as AssetHubWestendPallet>::PolkadotXcm;

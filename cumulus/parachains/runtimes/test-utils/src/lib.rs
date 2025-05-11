@@ -385,7 +385,7 @@ impl<XcmConfig: xcm_executor::Config, AllPalletsWithoutSystem>
 		from: Location,
 		to: Location,
 		(asset, amount): (Location, u128),
-	) -> Result<(AssetsInHolding, Weight), XcmError> {
+	) -> Result<AssetsInHolding, XcmError> {
 		<XcmConfig::AssetTransactor as TransactAsset>::transfer_asset(
 			&Asset { id: AssetId(asset), fun: Fungible(amount) },
 			&from,
