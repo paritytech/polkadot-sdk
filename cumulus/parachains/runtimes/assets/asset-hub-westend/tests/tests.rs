@@ -1787,3 +1787,27 @@ fn governance_authorize_upgrade_works() {
 		RuntimeOrigin,
 	>(GovernanceOrigin::Location(GovernanceLocation::get())));
 }
+
+
+#[test]
+fn weight_of_message_increases_when_dealing_with_erc20s() {
+	use xcm::VersionedXcm;
+	use xcm_runtime_apis::fees::runtime_decl_for_xcm_payment_api::XcmPaymentApiV1;
+	let message = Xcm::<()>::builder_unsafe()
+		.withdraw_asset((Parent, 100u128))
+		.build();
+	let versioned = VersionedXcm::<()>::V5(message);
+	let regular_asset_weight = Runtime::query_xcm_weight(versioned).unwrap();
+
+	let message = Xcm::<()>::builder_unsafe()
+		.withdraw_asset((AccountKey20 { network: None, key: [1u8; 20] }, 100u128))
+		.build();
+	let versioned = VersionedXcm::<()>::V5(message);
+	let weight = Runtime::query_xcm_weight(versioned).unwrap();
+	assert!(
+		weight.ref_time() > regular_asset_weight.ref_time()
+			// The proof size really blows up.
+			&& weight.proof_size() > 10 * regular_asset_weight.proof_size()
+	);
+	assert_eq!(weight, crate::xcm_config::ERC20TransferGasLimit::get());
+}
