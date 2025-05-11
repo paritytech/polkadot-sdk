@@ -78,14 +78,15 @@ pub trait TransactAsset {
 
 	/// Deposit the `what` asset into the account of `who`.
 	///
-	/// Return the difference between the worst-case weight and the actual weight consumed.
-	/// This can be zero most of the time unless there's some metering involved.
-	///
 	/// Implementations should return `XcmError::FailedToTransactAsset` if deposit failed.
-	fn deposit_asset(_what: &Asset, _who: &Location, _context: Option<&XcmContext>) -> Result<(), XcmError> {
+	fn deposit_asset(_what: &Asset, _who: &Location, _context: Option<&XcmContext>) -> XcmResult {
 		Err(XcmError::Unimplemented)
 	}
 
+	/// Identical to `deposit_asset` but returning the surplus, if any.
+	///
+	/// Return the difference between the worst-case weight and the actual weight consumed.
+	/// This can be zero most of the time unless there's some metering involved.
 	fn deposit_asset_with_surplus(what: &Asset, who: &Location, context: Option<&XcmContext>) -> Result<Weight, XcmError> {
 		let result = Self::deposit_asset(what, who, context);
 		result.map(|()| Weight::zero())
@@ -139,6 +140,11 @@ pub trait TransactAsset {
 		Err(XcmError::Unimplemented)
 	}
 
+	/// Identical to `internal_transfer_asset` but returning the surplus, if any.
+	///
+	/// The surplus is the difference between the worst-case weight and the actual
+	/// consumed weight.
+	/// This can be zero usually if there's no metering involved.
 	fn internal_transfer_asset_with_surplus(
 		asset: &Asset,
 		from: &Location,
@@ -170,6 +176,11 @@ pub trait TransactAsset {
 		}
 	}
 
+	/// Identical to `transfer_asset` but returning the surplus, if any.
+	///
+	/// The surplus is the difference between the worst-case weight and the actual
+	/// consumed weight.
+	/// This can be zero usually if there's no metering involved.
 	fn transfer_asset_with_surplus(
 		asset: &Asset,
 		from: &Location,
@@ -237,7 +248,7 @@ impl TransactAsset for Tuple {
 		)* );
 	}
 
-	fn deposit_asset(what: &Asset, who: &Location, context: Option<&XcmContext>) -> Result<(), XcmError> {
+	fn deposit_asset(what: &Asset, who: &Location, context: Option<&XcmContext>) -> XcmResult {
 		for_tuples!( #(
 			match Tuple::deposit_asset(what, who, context) {
 				Err(XcmError::AssetNotFound) | Err(XcmError::Unimplemented) => (),
