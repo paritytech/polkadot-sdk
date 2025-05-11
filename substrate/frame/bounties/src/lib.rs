@@ -1057,9 +1057,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	/// Helper function to poke the deposit reserved for proposing a bounty.
 	///
 	/// Returns true if the deposit was updated and false otherwise.
-	fn poke_bounty_deposit(
-		bounty_id: BountyIndex,
-	) -> Result<bool, DispatchError> {
+	fn poke_bounty_deposit(bounty_id: BountyIndex) -> Result<bool, DispatchError> {
 		let mut bounty = Bounties::<T, I>::get(bounty_id).ok_or(Error::<T, I>::InvalidIndex)?;
 		let bounty_description =
 			BountyDescriptions::<T, I>::get(bounty_id).ok_or(Error::<T, I>::InvalidIndex)?;

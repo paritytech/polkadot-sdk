@@ -1493,7 +1493,8 @@ fn poke_deposit_fails_for_insufficient_balance() {
 		assert_ok!(Bounties::propose_bounty(RuntimeOrigin::signed(0), 50, description.clone()));
 
 		// BountyDepositBase (80) + DataDepositPerByte (1) * description.len() (5)
-		let deposit = pallet_bounties::Pallet::<Test>::calculate_bounty_deposit(&bounded_description);
+		let deposit =
+			pallet_bounties::Pallet::<Test>::calculate_bounty_deposit(&bounded_description);
 
 		// Verify initial state
 		assert_eq!(Balances::reserved_balance(0), deposit);
@@ -1678,7 +1679,7 @@ fn poke_deposit_works_for_deposit_increase() {
 		let bounty_id = 0;
 		let proposer = 0;
 		let description = b"12345".to_vec();
-		let bounded_description = description.clone().try_into().unwrap();	
+		let bounded_description = description.clone().try_into().unwrap();
 		let deposit = Bounties::calculate_bounty_deposit(&bounded_description);
 		let mut bounty = Bounty {
 			proposer,
@@ -1790,7 +1791,7 @@ fn poke_deposit_works_for_non_proposer() {
 		let non_proposer = 1;
 		let description = b"12345".to_vec();
 		let bounded_description = description.clone().try_into().unwrap();
-		
+
 		DataDepositPerByte::set(2);
 		let deposit = Bounties::calculate_bounty_deposit(&bounded_description);
 		let mut bounty = Bounty {
