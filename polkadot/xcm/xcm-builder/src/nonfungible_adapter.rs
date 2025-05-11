@@ -51,7 +51,7 @@ where
 		from: &Location,
 		to: &Location,
 		context: &XcmContext,
-	) -> result::Result<xcm_executor::AssetsInHolding, XcmError> {
+	) -> result::Result<(xcm_executor::AssetsInHolding, Weight), XcmError> {
 		tracing::trace!(
 			target: LOG_TARGET,
 			?what,
@@ -68,7 +68,7 @@ where
 			tracing::debug!(target: LOG_TARGET, ?e, ?instance, ?destination, "Failed to transfer non-fungible asset");
 			XcmError::FailedToTransactAsset(e.into())
 		})?;
-		Ok(what.clone().into())
+		Ok((what.clone().into(), Weight::zero()))
 	}
 }
 
@@ -210,7 +210,7 @@ where
 		}
 	}
 
-	fn deposit_asset(what: &Asset, who: &Location, context: Option<&XcmContext>) -> XcmResult {
+	fn deposit_asset(what: &Asset, who: &Location, context: Option<&XcmContext>) -> result::Result<Weight, XcmError> {
 		tracing::trace!(
 			target: LOG_TARGET,
 			?what,
@@ -225,14 +225,15 @@ where
 		NonFungible::mint_into(&instance, &who).map_err(|e| {
 			tracing::debug!(target: LOG_TARGET, ?e, ?instance, ?who, "Failed to mint asset");
 			XcmError::FailedToTransactAsset(e.into())
-		})
+		})?;
+		Ok(Weight::zero())
 	}
 
 	fn withdraw_asset(
 		what: &Asset,
 		who: &Location,
 		maybe_context: Option<&XcmContext>,
-	) -> result::Result<xcm_executor::AssetsInHolding, XcmError> {
+	) -> result::Result<(xcm_executor::AssetsInHolding, Weight), XcmError> {
 		tracing::trace!(
 			target: LOG_TARGET,
 			?what,
@@ -248,7 +249,7 @@ where
 			tracing::debug!(target: LOG_TARGET, ?e, ?instance, ?who, "Failed to burn asset");
 			XcmError::FailedToTransactAsset(e.into())
 		})?;
-		Ok(what.clone().into())
+		Ok((what.clone().into(), Weight::zero()))
 	}
 }
 
@@ -313,7 +314,7 @@ where
 		>::check_out(dest, what, context)
 	}
 
-	fn deposit_asset(what: &Asset, who: &Location, context: Option<&XcmContext>) -> XcmResult {
+	fn deposit_asset(what: &Asset, who: &Location, context: Option<&XcmContext>) -> result::Result<Weight, XcmError> {
 		NonFungibleMutateAdapter::<
 			NonFungible,
 			Matcher,
@@ -327,7 +328,7 @@ where
 		what: &Asset,
 		who: &Location,
 		maybe_context: Option<&XcmContext>,
-	) -> result::Result<xcm_executor::AssetsInHolding, XcmError> {
+	) -> result::Result<(xcm_executor::AssetsInHolding, Weight), XcmError> {
 		NonFungibleMutateAdapter::<
 			NonFungible,
 			Matcher,
@@ -342,7 +343,7 @@ where
 		from: &Location,
 		to: &Location,
 		context: &XcmContext,
-	) -> result::Result<xcm_executor::AssetsInHolding, XcmError> {
+	) -> result::Result<(xcm_executor::AssetsInHolding, Weight), XcmError> {
 		NonFungibleTransferAdapter::<NonFungible, Matcher, AccountIdConverter, AccountId>::transfer_asset(
 			what, from, to, context,
 		)

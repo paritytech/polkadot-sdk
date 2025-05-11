@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::AssetsInHolding;
+use crate::{AssetsInHolding, Weight};
 use core::result::Result;
 use xcm::latest::{Asset, Error as XcmError, Location, Result as XcmResult, XcmContext};
 
@@ -78,13 +78,20 @@ pub trait TransactAsset {
 
 	/// Deposit the `what` asset into the account of `who`.
 	///
+	/// Return the difference between the worst-case weight and the actual weight consumed.
+	/// This can be zero most of the time unless there's some metering involved.
+	///
 	/// Implementations should return `XcmError::FailedToTransactAsset` if deposit failed.
-	fn deposit_asset(_what: &Asset, _who: &Location, _context: Option<&XcmContext>) -> XcmResult {
+	fn deposit_asset(_what: &Asset, _who: &Location, _context: Option<&XcmContext>) -> Result<Weight, XcmError> {
 		Err(XcmError::Unimplemented)
 	}
 
-	/// Withdraw the given asset from the consensus system. Return the actual asset(s) withdrawn,
-	/// which should always be equal to `_what`.
+	/// Withdraw the given asset from the consensus system.
+	///
+	/// Return the actual asset(s) withdrawn,
+	/// which should always be equal to `_what`, alongside the difference between the worst-case
+	/// weight and the actual weight consumed. The last part can be zero most of the time unless
+	/// there's some metering involved.
 	///
 	/// The XCM `_maybe_context` parameter may be `None` when the caller of `withdraw_asset` is
 	/// outside of the context of a currently-executing XCM. An example will be the `charge_fees`
@@ -95,7 +102,7 @@ pub trait TransactAsset {
 		_what: &Asset,
 		_who: &Location,
 		_maybe_context: Option<&XcmContext>,
-	) -> Result<AssetsInHolding, XcmError> {
+	) -> Result<(AssetsInHolding, Weight), XcmError> {
 		Err(XcmError::Unimplemented)
 	}
 
@@ -113,7 +120,7 @@ pub trait TransactAsset {
 		_from: &Location,
 		_to: &Location,
 		_context: &XcmContext,
-	) -> Result<AssetsInHolding, XcmError> {
+	) -> Result<(AssetsInHolding, Weight), XcmError> {
 		Err(XcmError::Unimplemented)
 	}
 
@@ -126,13 +133,14 @@ pub trait TransactAsset {
 		from: &Location,
 		to: &Location,
 		context: &XcmContext,
-	) -> Result<AssetsInHolding, XcmError> {
+	) -> Result<(AssetsInHolding, Weight), XcmError> {
 		match Self::internal_transfer_asset(asset, from, to, context) {
 			Err(XcmError::AssetNotFound | XcmError::Unimplemented) => {
-				let assets = Self::withdraw_asset(asset, from, Some(context))?;
+				let (assets, withdraw_surplus) = Self::withdraw_asset(asset, from, Some(context))?;
 				// Not a very forgiving attitude; once we implement roll-backs then it'll be nicer.
-				Self::deposit_asset(asset, to, Some(context))?;
-				Ok(assets)
+				let deposit_surplus = Self::deposit_asset(asset, to, Some(context))?;
+				let total_surplus = withdraw_surplus.saturating_add(deposit_surplus);
+				Ok((assets, total_surplus))
 			},
 			result => result,
 		}
@@ -187,7 +195,7 @@ impl TransactAsset for Tuple {
 		)* );
 	}
 
-	fn deposit_asset(what: &Asset, who: &Location, context: Option<&XcmContext>) -> XcmResult {
+	fn deposit_asset(what: &Asset, who: &Location, context: Option<&XcmContext>) -> Result<Weight, XcmError> {
 		for_tuples!( #(
 			match Tuple::deposit_asset(what, who, context) {
 				Err(XcmError::AssetNotFound) | Err(XcmError::Unimplemented) => (),
@@ -208,7 +216,7 @@ impl TransactAsset for Tuple {
 		what: &Asset,
 		who: &Location,
 		maybe_context: Option<&XcmContext>,
-	) -> Result<AssetsInHolding, XcmError> {
+	) -> Result<(AssetsInHolding, Weight), XcmError> {
 		for_tuples!( #(
 			match Tuple::withdraw_asset(what, who, maybe_context) {
 				Err(XcmError::AssetNotFound) | Err(XcmError::Unimplemented) => (),
@@ -230,7 +238,7 @@ impl TransactAsset for Tuple {
 		from: &Location,
 		to: &Location,
 		context: &XcmContext,
-	) -> Result<AssetsInHolding, XcmError> {
+	) -> Result<(AssetsInHolding, Weight), XcmError> {
 		for_tuples!( #(
 			match Tuple::internal_transfer_asset(what, from, to, context) {
 				Err(XcmError::AssetNotFound) | Err(XcmError::Unimplemented) => (),

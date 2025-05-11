@@ -1317,11 +1317,15 @@ dependencies = [
 name = "assets-common"
 version = "0.7.0"
 dependencies = [
+ "alloy-core",
  "cumulus-primitives-core",
  "frame-support",
+ "frame-system",
  "impl-trait-for-tuples",
  "pallet-asset-conversion",
  "pallet-assets",
+ "pallet-revive",
+ "pallet-revive-uapi",
  "pallet-xcm",
  "parachains-common",
  "parity-scale-codec",

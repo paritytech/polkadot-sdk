@@ -363,7 +363,7 @@ fn do_notify_revenue<T: Config>(when: BlockNumber, raw_revenue: Balance) -> Resu
 				},
 			)?;
 
-		let withdrawn = T::AssetTransactor::withdraw_asset(&asset, &on_demand_pot, None)?;
+		let (withdrawn, _) = T::AssetTransactor::withdraw_asset(&asset, &on_demand_pot, None)?;
 
 		T::AssetTransactor::can_check_out(&dest, &asset, &dummy_xcm_context)?;
 

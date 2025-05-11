@@ -1499,7 +1499,7 @@ fn withdraw_and_deposit_erc20s() {
 			RuntimeOrigin::signed(sender.clone()),
 			0,
 			Weight::from_parts(2_000_000_000, 200_000),
-			DepositLimit::Unchecked, // TODO: This shouldn't be unchecked.
+			DepositLimit::Unchecked,
 			Code::Upload(code),
 			constructor_data,
 			None,
@@ -1526,7 +1526,7 @@ fn withdraw_and_deposit_erc20s() {
 		assert_ok!(PolkadotXcm::execute(
 			RuntimeOrigin::signed(sender.clone()),
 			Box::new(VersionedXcm::V5(message)),
-			Weight::from_parts(3_500_000_000, 30_000),
+			Weight::from_parts(2_000_000_000, 120_000),
 		));
 
 		// Revive is not taking any fees.

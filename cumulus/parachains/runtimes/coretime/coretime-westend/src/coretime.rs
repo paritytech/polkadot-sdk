@@ -56,7 +56,7 @@ fn burn_at_relay(stash: &AccountId, value: Balance) -> Result<(), XcmError> {
 	let asset = Asset { id: AssetId(Location::parent()), fun: Fungible(value) };
 	let dummy_xcm_context = XcmContext { origin: None, message_id: [0; 32], topic: None };
 
-	let withdrawn = AssetTransactor::withdraw_asset(&asset, &stash_location, None)?;
+	let (withdrawn, _) = AssetTransactor::withdraw_asset(&asset, &stash_location, None)?;
 
 	AssetTransactor::can_check_out(&dest, &asset, &dummy_xcm_context)?;
 

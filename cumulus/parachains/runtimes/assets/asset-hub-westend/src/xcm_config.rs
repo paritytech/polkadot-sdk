@@ -16,7 +16,7 @@
 use super::{
 	AccountId, AllPalletsWithSystem, Assets, Authorship, Balance, Balances, BaseDeliveryFee,
 	CollatorSelection, DepositPerByte, DepositPerItem, FeeAssetId, ForeignAssets,
-	ForeignAssetsInstance, ParachainInfo, ParachainSystem, PolkadotXcm, PoolAssets, Revive,
+	ForeignAssetsInstance, ParachainInfo, ParachainSystem, PolkadotXcm, PoolAssets,
 	Runtime, RuntimeCall, RuntimeEvent, RuntimeHoldReason, RuntimeOrigin, ToRococoXcmRouter,
 	TransactionByteFee, TrustBackedAssetsInstance, Uniques, WeightToFee, XcmpQueue,
 };
@@ -211,20 +211,18 @@ pub type PoolFungiblesTransactor = FungiblesAdapter<
 	CheckingAccount,
 >;
 
+parameter_types! {
+	/// Taken from the real gas of a standard ERC20 transfer call.
+	pub const ERC20TransferGasLimit: Weight = Weight::from_parts(700_000_000, 100_000);
+}
+
 /// Transactor for ERC20 tokens.
-pub type ERC20Transactor = FungiblesAdapter<
-	// Use this fungibles implementation:
-	Revive,
-	// Match ERC20 tokens.
+pub type ERC20Transactor = assets_common::ERC20Transactor<
+	Runtime,
 	assets_common::ERC20Matcher,
-	// Convert an XCM Location into a local account id:
 	LocationToAccountId,
-	// Our chain's account ID type (we can't get away without mentioning it explicitly):
-	AccountId,
-	// We don't need to check teleports here.
-	NoChecking,
-	// The account to use for tracking teleports.
-	CheckingAccount,
+	ERC20TransferGasLimit,
+	AccountId
 >;
 
 /// Means for transacting assets on this chain.
