@@ -113,6 +113,11 @@ impl frame_system::Config for Runtime {
 	type Block = Block;
 }
 
+#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
+impl pallet_balances::Config for Runtime {
+	type AccountStore = System;
+}
+
 parameter_types! {
 	pub const Period: u64 = 1;
 	pub const Offset: u64 = 0;
