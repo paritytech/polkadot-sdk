@@ -1107,11 +1107,10 @@ impl<Config: config::Config> XcmExecutor<Config> {
 			},
 			DepositAsset { assets, beneficiary } => {
 				let old_holding = self.holding.clone();
-				let mut total_surplus = Weight::zero();
 				let result = Config::TransactionalProcessor::process(|| {
 					let deposited = self.holding.saturating_take(assets);
 					let surplus = Self::deposit_assets_with_retry(&deposited, &beneficiary, Some(&self.context))?;
-					total_surplus.saturating_accrue(surplus);
+					self.total_surplus.saturating_accrue(surplus);
 					Ok(())
 				});
 				if Config::TransactionalProcessor::IS_TRANSACTIONAL && result.is_err() {
