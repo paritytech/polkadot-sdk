@@ -52,15 +52,20 @@ construct_runtime!(
 	{
 		System: frame_system,
 		Session: pallet_session,
+		Balances: pallet_balances,
 		Mmr: pallet_mmr,
 		Beefy: pallet_beefy,
 		BeefyMmr: pallet_beefy_mmr,
 	}
 );
-
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
 	type Block = Block;
+}
+
+#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
+impl pallet_balances::Config for Test {
+	type AccountStore = System;
 }
 
 impl pallet_session::Config for Test {

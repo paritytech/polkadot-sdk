@@ -17,7 +17,7 @@ use super::*;
 use crate as collator_selection;
 use frame_support::{
 	derive_impl, ord_parameter_types, parameter_types,
-	traits::{ConstBool, ConstU128, ConstU32, ConstU64, FindAuthor, ValidatorRegistration},
+	traits::{ConstBool, ConstU32, ConstU64, FindAuthor, ValidatorRegistration},
 	PalletId,
 };
 use frame_system as system;
@@ -142,7 +142,7 @@ impl pallet_session::Config for Test {
 	type WeightInfo = ();
 	type Currency = Balances;
 	type RuntimeHoldReason = RuntimeHoldReason;
-	type KeyDeposit = ConstU128<0>;
+	type KeyDeposit = ConstU64<0>;
 }
 
 ord_parameter_types! {
