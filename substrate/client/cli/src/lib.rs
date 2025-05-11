@@ -125,21 +125,7 @@ pub trait SubstrateCli: Sized {
 		I::Item: Into<std::ffi::OsString> + Clone,
 	{
 		let app = <Self as CommandFactory>::command();
-
-		let mut full_version = Self::impl_version();
-		full_version.push('\n');
-
-		let name = Self::executable_name();
-		let author = Self::author();
-		let about = Self::description();
-		let app = app
-			.name(name)
-			.author(author)
-			.about(about)
-			.version(full_version)
-			.propagate_version(true)
-			.args_conflicts_with_subcommands(true)
-			.subcommand_negates_reqs(true);
+		let app = Self::setup_command(app);
 
 		let matches = app.try_get_matches_from(iter).unwrap_or_else(|e| e.exit());
 
@@ -167,14 +153,7 @@ pub trait SubstrateCli: Sized {
 		I::Item: Into<std::ffi::OsString> + Clone,
 	{
 		let app = <Self as CommandFactory>::command();
-
-		let mut full_version = Self::impl_version();
-		full_version.push('\n');
-
-		let name = Self::executable_name();
-		let author = Self::author();
-		let about = Self::description();
-		let app = app.name(name).author(author).about(about).version(full_version);
+		let app = Self::setup_command(app);
 
 		let matches = app.try_get_matches_from(iter)?;
 
@@ -248,5 +227,27 @@ pub trait SubstrateCli: Sized {
 		})?;
 
 		Runner::new(config, tokio_runtime, signals)
+	}
+	/// Augments a `clap::Command` with standard metadata like name, version, author, description,
+	/// etc.
+	///
+	/// This is used internally in `from_iter`, `try_from_iter` and can be used externally
+	/// to manually set up a command with Substrate CLI defaults.
+	fn setup_command(mut cmd: clap::Command) -> clap::Command {
+		let mut full_version = Self::impl_version();
+		full_version.push('\n');
+
+		cmd = cmd
+			.name(Self::executable_name())
+			.version(full_version)
+			.author(Self::author())
+			.about(Self::description())
+			.long_about(Self::description())
+			.after_help(format!("Support: {}", Self::support_url()))
+			.propagate_version(true)
+			.args_conflicts_with_subcommands(true)
+			.subcommand_negates_reqs(true);
+
+		cmd
 	}
 }
