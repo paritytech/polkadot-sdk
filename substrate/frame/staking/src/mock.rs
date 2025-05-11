@@ -25,8 +25,8 @@ use frame_election_provider_support::{
 use frame_support::{
 	assert_ok, derive_impl, ord_parameter_types, parameter_types,
 	traits::{
-		ConstU64, EitherOfDiverse, FindAuthor, Get, Imbalance, OnUnbalanced, OneSessionHandler,
-		RewardsReporter,
+		ConstU128, ConstU64, EitherOfDiverse, FindAuthor, Get, Imbalance, OnUnbalanced,
+		OneSessionHandler, RewardsReporter,
 	},
 	weights::constants::RocksDbWeight,
 };
@@ -151,6 +151,9 @@ impl pallet_session::Config for Test {
 	type DisablingStrategy =
 		pallet_session::disabling::UpToLimitWithReEnablingDisablingStrategy<DISABLING_LIMIT_FACTOR>;
 	type WeightInfo = ();
+	type Currency = Balances;
+	type RuntimeHoldReason = RuntimeHoldReason;
+	type KeyDeposit = ConstU128<0>;
 }
 
 impl pallet_session::historical::Config for Test {

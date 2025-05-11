@@ -25,7 +25,7 @@ use frame_election_provider_support::{
 };
 use frame_support::{
 	derive_impl, parameter_types,
-	traits::{ConstBool, ConstU32, ConstU64, OneSessionHandler},
+	traits::{ConstBool, ConstU128, ConstU32, ConstU64, OneSessionHandler},
 };
 use pallet_staking::{BalanceOf, StakerStatus};
 use sp_runtime::{curve::PiecewiseLinear, testing::UintAuthorityId, traits::Zero, BuildStorage};
@@ -168,6 +168,9 @@ impl pallet_session::Config for Test {
 	type NextSessionRotation = pallet_session::PeriodicSessions<Period, Offset>;
 	type DisablingStrategy = ();
 	type WeightInfo = ();
+	type Currency = Balances;
+	type RuntimeHoldReason = RuntimeHoldReason;
+	type KeyDeposit = ConstU128<0>;
 }
 
 impl pallet_timestamp::Config for Test {

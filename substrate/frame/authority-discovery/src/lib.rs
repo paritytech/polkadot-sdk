@@ -171,7 +171,10 @@ mod tests {
 	use super::*;
 	use crate as pallet_authority_discovery;
 	use alloc::vec;
-	use frame_support::{derive_impl, parameter_types, traits::ConstU32};
+	use frame_support::{
+		derive_impl, parameter_types,
+		traits::{ConstU128, ConstU32},
+	};
 	use sp_application_crypto::Pair;
 	use sp_authority_discovery::AuthorityPair;
 	use sp_core::crypto::key_types;
@@ -212,6 +215,9 @@ mod tests {
 		type NextSessionRotation = pallet_session::PeriodicSessions<Period, Offset>;
 		type DisablingStrategy = ();
 		type WeightInfo = ();
+		type Currency = Balances;
+		type RuntimeHoldReason = RuntimeHoldReason;
+		type KeyDeposit = ConstU128<0>;
 	}
 
 	pub type BlockNumber = u64;
