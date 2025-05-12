@@ -734,14 +734,14 @@ struct ParachainInformantMetrics {
 impl ParachainInformantMetrics {
 	fn new(prometheus_registry: &Registry) -> prometheus::Result<Self> {
 		let parachain_block_authorship_duration = Histogram::with_opts(HistogramOpts::new(
-			"parachain_block_authorship_duration",
+			"parachain_block_backed_duration",
 			"Time between parachain blocks getting backed by the relaychain",
 		))?;
 		prometheus_registry.register(Box::new(parachain_block_authorship_duration.clone()))?;
 
 		let unincluded_segment_size = Histogram::with_opts(HistogramOpts::new(
 			"parachain_unincluded_segment_size",
-			"Number of blocks between the last backed block and the last included block",
+			"Number of blocks between best block and last included block",
 		))?;
 		prometheus_registry.register(Box::new(unincluded_segment_size.clone()))?;
 
