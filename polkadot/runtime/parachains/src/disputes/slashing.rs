@@ -64,7 +64,7 @@ use alloc::{
 	vec::Vec,
 };
 use polkadot_primitives::{
-	slashing::{DisputeProof, DisputesTimeSlot, PendingSlashes, SlashingOffenceKind},
+	slashing::{DisputeProof, DisputesTimeSlot, PendingSlashes, DisputeOffenceKind},
 	CandidateHash, SessionIndex, ValidatorId, ValidatorIndex,
 };
 use scale_info::TypeInfo;
@@ -117,7 +117,7 @@ pub struct SlashingOffence<KeyOwnerIdentification> {
 	/// this offence.
 	pub slash_fraction: Perbill,
 	/// The type of slashing offence.
-	pub kind: SlashingOffenceKind,
+	pub kind: DisputeOffenceKind,
 }
 
 impl<Offender> Offence<Offender> for SlashingOffence<Offender>
@@ -155,13 +155,13 @@ impl<KeyOwnerIdentification> SlashingOffence<KeyOwnerIdentification> {
 		candidate_hash: CandidateHash,
 		validator_set_count: ValidatorSetCount,
 		offenders: Vec<KeyOwnerIdentification>,
-		kind: SlashingOffenceKind,
+		kind: DisputeOffenceKind,
 	) -> Self {
 		let time_slot = DisputesTimeSlot::new(session_index, candidate_hash);
 		let slash_fraction = match kind {
-			SlashingOffenceKind::ForInvalidBacked => SLASH_FOR_INVALID_BACKED,
-			SlashingOffenceKind::ForInvalidApproved => SLASH_FOR_INVALID_APPROVED,
-			SlashingOffenceKind::AgainstValid => SLASH_AGAINST_VALID,
+			DisputeOffenceKind::ForInvalidBacked => SLASH_FOR_INVALID_BACKED,
+			DisputeOffenceKind::ForInvalidApproved => SLASH_FOR_INVALID_APPROVED,
+			DisputeOffenceKind::AgainstValid => SLASH_AGAINST_VALID,
 		};
 		Self { time_slot, validator_set_count, offenders, slash_fraction, kind }
 	}
@@ -215,7 +215,7 @@ where
 	fn do_punish(
 		session_index: SessionIndex,
 		candidate_hash: CandidateHash,
-		kind: SlashingOffenceKind,
+		kind: DisputeOffenceKind,
 		losers: impl IntoIterator<Item = ValidatorIndex>,
 	) {
 		let losers: BTreeSet<_> = losers.into_iter().collect();
@@ -271,8 +271,8 @@ where
 		losers: impl IntoIterator<Item = ValidatorIndex>,
 		backers: impl IntoIterator<Item = ValidatorIndex>,
 	) {
-		Self::do_punish(session_index, candidate_hash, SlashingOffenceKind::ForInvalidBacked, backers);
-		Self::do_punish(session_index, candidate_hash, SlashingOffenceKind::ForInvalidApproved, losers);
+		Self::do_punish(session_index, candidate_hash, DisputeOffenceKind::ForInvalidBacked, backers);
+		Self::do_punish(session_index, candidate_hash, DisputeOffenceKind::ForInvalidApproved, losers);
 	}
 
 	fn punish_against_valid(
@@ -281,7 +281,7 @@ where
 		losers: impl IntoIterator<Item = ValidatorIndex>,
 		_backers: impl IntoIterator<Item = ValidatorIndex>,
 	) {
-		let kind = SlashingOffenceKind::AgainstValid;
+		let kind = DisputeOffenceKind::AgainstValid;
 		Self::do_punish(session_index, candidate_hash, kind, losers);
 	}
 
@@ -583,9 +583,9 @@ impl<T: Config> Pallet<T> {
 			let longevity = <T::HandleReports as HandleReports<T>>::ReportLongevity::get();
 
 			let tag_prefix = match dispute_proof.kind {
-				SlashingOffenceKind::ForInvalidBacked => "DisputeForInvalidBacked",
-				SlashingOffenceKind::ForInvalidApproved => "DisputeForInvalidApproved",
-				SlashingOffenceKind::AgainstValid => "DisputeAgainstValid",
+				DisputeOffenceKind::ForInvalidBacked => "DisputeForInvalidBacked",
+				DisputeOffenceKind::ForInvalidApproved => "DisputeForInvalidApproved",
+				DisputeOffenceKind::AgainstValid => "DisputeAgainstValid",
 			};
 
 			ValidTransaction::with_tag_prefix(tag_prefix)
