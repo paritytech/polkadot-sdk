@@ -1,5 +1,7 @@
 title: Reorganize AH transfer tests
 doc:
 - audience: Runtime Dev
-  description: 'Resolves #7389 '
-crates: []
+  description: Reorganize tests for cross-chain transfers.
+crates:
+- name: asset-hub-westend-integration-tests
+  bump: patch
