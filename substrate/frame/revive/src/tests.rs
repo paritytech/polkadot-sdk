@@ -4168,13 +4168,13 @@ fn tracing_works_for_transfers() {
 		let trace = tracer.collect_trace();
 		assert_eq!(
 			trace,
-			CallTrace {
+			Some(CallTrace {
 				from: ALICE_ADDR,
 				to: BOB_ADDR,
 				value: Some(U256::from(10_000_000)),
 				call_type: CallType::Call,
 				..Default::default()
-			}
+			})
 		)
 	});
 }
@@ -4317,7 +4317,7 @@ fn tracing_works() {
 			});
 
 			let trace = tracer.collect_trace();
-			let expected_traces = CallTrace {
+			let expected_trace = CallTrace {
 					from: ALICE_ADDR,
 					to: addr,
 					input: (3u32, addr_callee).encode().into(),
@@ -4329,8 +4329,8 @@ fn tracing_works() {
 				};
 
 			assert_eq!(
-				traces,
-				expected_traces,
+				trace,
+				expected_trace.into(),
 			);
 		}
 	});
