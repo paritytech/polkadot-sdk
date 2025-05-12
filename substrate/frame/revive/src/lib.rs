@@ -21,14 +21,15 @@
 #![cfg_attr(feature = "runtime-benchmarks", recursion_limit = "1024")]
 
 extern crate alloc;
+
 mod address;
 mod benchmarking;
+mod call_builder;
 mod exec;
 mod gas;
 mod impl_fungibles;
 mod limits;
 mod primitives;
-mod pure_precompiles;
 mod storage;
 mod transient_storage;
 mod wasm;
@@ -36,8 +37,8 @@ mod wasm;
 #[cfg(test)]
 mod tests;
 
-pub mod chain_extension;
 pub mod evm;
+pub mod precompiles;
 pub mod test_utils;
 pub mod tracing;
 pub mod weights;
@@ -92,9 +93,9 @@ pub use weights::WeightInfo;
 #[cfg(doc)]
 pub use crate::wasm::SyscallDoc;
 
-type TrieId = BoundedVec<u8, ConstU32<128>>;
-type BalanceOf<T> =
+pub type BalanceOf<T> =
 	<<T as Config>::Currency as Inspect<<T as frame_system::Config>::AccountId>>::Balance;
+type TrieId = BoundedVec<u8, ConstU32<128>>;
 type CodeVec = BoundedVec<u8, ConstU32<{ limits::code::BLOB_BYTES }>>;
 type ImmutableData = BoundedVec<u8, ConstU32<{ limits::IMMUTABLE_BYTES }>>;
 
@@ -189,8 +190,11 @@ pub mod pallet {
 		type WeightInfo: WeightInfo;
 
 		/// Type that allows the runtime authors to add new host functions for a contract to call.
+		///
+		/// Pass in a tuple of types that implement [`precompiles::Precompile`].
 		#[pallet::no_default_bounds]
-		type ChainExtension: chain_extension::ChainExtension<Self> + Default;
+		#[allow(private_bounds)]
+		type Precompiles: precompiles::Precompiles<Self>;
 
 		/// Find the author of the current block.
 		type FindAuthor: FindAuthor<Self::AccountId>;
@@ -355,7 +359,7 @@ pub mod pallet {
 			#[inject_runtime_type]
 			type RuntimeCall = ();
 			type CallFilter = ();
-			type ChainExtension = ();
+			type Precompiles = ();
 			type CodeHashLockupDepositPercent = CodeHashLockupDepositPercent;
 			type DepositPerByte = DepositPerByte;
 			type DepositPerItem = DepositPerItem;
@@ -426,10 +430,6 @@ pub mod pallet {
 		InputForwarded = 0x0E,
 		/// The amount of topics passed to `seal_deposit_events` exceeds the limit.
 		TooManyTopics = 0x0F,
-		/// The chain does not provide a chain extension. Calling the chain extension results
-		/// in this error. Note that this usually  shouldn't happen as deploying such contracts
-		/// is rejected.
-		NoChainExtension = 0x10,
 		/// Failed to decode the XCM program.
 		XCMDecodeFailed = 0x11,
 		/// A contract with the same AccountId already exists.
@@ -504,8 +504,6 @@ pub mod pallet {
 		RefcountOverOrUnderflow = 0x2E,
 		/// Unsupported precompile address
 		UnsupportedPrecompileAddress = 0x2F,
-		/// Precompile Error
-		PrecompileFailure = 0x30,
 	}
 
 	/// A reason for the pallet contracts placing a hold on funds.
@@ -943,6 +941,7 @@ pub mod pallet {
 				<CodeInfo<T>>::increment_refcount(code_hash)?;
 				<CodeInfo<T>>::decrement_refcount(contract.code_hash)?;
 				contract.code_hash = code_hash;
+
 				Ok(())
 			})
 		}
@@ -1413,6 +1412,19 @@ where
 		Ok(maybe_value)
 	}
 
+	/// Query storage of a specified contract under a specified variable-sized key.
+	pub fn get_storage_var_key(address: H160, key: Vec<u8>) -> GetStorageResult {
+		let contract_info =
+			ContractInfoOf::<T>::get(&address).ok_or(ContractAccessError::DoesntExist)?;
+
+		let maybe_value = contract_info.read(
+			&Key::try_from_var(key)
+				.map_err(|_| ContractAccessError::KeyDecodingFailed)?
+				.into(),
+		);
+		Ok(maybe_value)
+	}
+
 	/// Uploads new code and returns the Wasm blob and deposit amount collected.
 	fn try_upload_code(
 		origin: T::AccountId,
@@ -1557,6 +1569,15 @@ sp_api::decl_runtime_apis! {
 			key: [u8; 32],
 		) -> GetStorageResult;
 
+		/// Query a given variable-sized storage key in a given contract.
+		///
+		/// Returns `Ok(Some(Vec<u8>))` if the storage value exists under the given key in the
+		/// specified account and `Ok(None)` if it doesn't. If the account specified by the address
+		/// doesn't exist, or doesn't have a contract then `Err` is returned.
+		fn get_storage_var_key(
+			address: H160,
+			key: Vec<u8>,
+		) -> GetStorageResult;
 
 		/// Traces the execution of an entire block and returns call traces.
 		///
