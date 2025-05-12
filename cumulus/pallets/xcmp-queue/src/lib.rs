@@ -996,24 +996,17 @@ impl<T: Config> XcmpMessageSource for Pallet<T> {
 				result.push((para_id, page.into_inner()));
 			}
 
-			let (max_total_size, max_message_size) = match T::ChannelInfo::get_channel_info(para_id)
-			{
-				Some(channel_info) => (
-					channel_info.max_total_size,
-					channel_info.max_message_size.min(T::MaxPageSize::get()) as usize,
-				),
+			let max_total_size = match T::ChannelInfo::get_channel_info(para_id) {
+				Some(channel_info) => channel_info.max_total_size,
 				None => {
 					log::warn!("calling `get_channel_info` with no RelevantMessagingState?!");
-					// We use this as a fallback in case the messaging state is not present
-					(MAX_POSSIBLE_ALLOCATION, T::MaxPageSize::get() as usize)
+					MAX_POSSIBLE_ALLOCATION // We use this as a fallback in case the messaging state is not present
 				},
 			};
 			let threshold = max_total_size.saturating_div(delivery_fee_constants::THRESHOLD_FACTOR);
-			// We have to count the total size here since `channel_info.total_size` is not updated
-			// at this point in time. We assume all previous pages are filled, which, in
-			// practice, is not always the case.
-			let num_pages = (last_index - first_index) as usize;
-			let remaining_total_size = num_pages.saturating_mul(max_message_size);
+			let remaining_total_size: usize = (first_index..last_index)
+				.map(|index| OutboundXcmpMessages::<T>::decode_len(para_id, index).unwrap())
+				.sum();
 			if remaining_total_size <= threshold as usize {
 				Self::decrease_fee_factor(para_id);
 			}
