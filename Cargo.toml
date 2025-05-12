@@ -1447,8 +1447,8 @@ xcm-runtime-apis = { path = "polkadot/xcm/xcm-runtime-apis", default-features = 
 xcm-simulator = { path = "polkadot/xcm/xcm-simulator", default-features = false }
 yet-another-parachain-runtime = { path = "cumulus/parachains/runtimes/testing/yet-another-parachain" }
 zeroize = { version = "1.7.0", default-features = false }
-zombienet-configuration = { version = "0.2.30" }
-zombienet-sdk = { version = "0.2.30" }
+zombienet-orchestrator = { version = "0.3.0" }
+zombienet-sdk = { version = "0.3.0" }
 zstd = { version = "0.12.4", default-features = false }
 
 [profile.release]
