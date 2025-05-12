@@ -57,7 +57,7 @@ use polkadot_runtime_parachains::FeeTracker;
 use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{Block as BlockT, BlockNumberProvider, Hash, One},
-	BoundedSlice, FixedU128, RuntimeDebug, Saturating,
+	BoundedSlice, FixedU128, RuntimeDebug,
 };
 use xcm::{latest::XcmHash, VersionedLocation, VersionedXcm, MAX_XCM_DECODE_DEPTH};
 use xcm_builder::InspectMessageQueues;
@@ -177,17 +177,10 @@ impl CheckAssociatedRelayNumber for RelayNumberMonotonicallyIncreases {
 pub type MaxDmpMessageLenOf<T> = <<T as Config>::DmpQueue as HandleMessage>::MaxMessageLen;
 
 pub mod ump_constants {
-	use super::FixedU128;
-
 	/// `host_config.max_upward_queue_size / THRESHOLD_FACTOR` is the threshold after which delivery
 	/// starts getting exponentially more expensive.
 	/// `2` means the price starts to increase when queue is half full.
 	pub const THRESHOLD_FACTOR: u32 = 2;
-	/// The base number the delivery fee factor gets multiplied by every time it is increased.
-	/// Also the number it gets divided by when decreased.
-	pub const EXPONENTIAL_FEE_BASE: FixedU128 = FixedU128::from_rational(105, 100); // 1.05
-	/// The base number message size in KB is multiplied by before increasing the fee factor.
-	pub const MESSAGE_SIZE_FEE_BASE: FixedU128 = FixedU128::from_rational(1, 1000); // 0.001
 }
 
 /// Trait for selecting the next core to build the candidate for.
@@ -1015,25 +1008,16 @@ impl<T: Config> Pallet<T> {
 impl<T: Config> FeeTracker for Pallet<T> {
 	type Id = ();
 
-	fn get_fee_factor(_: Self::Id) -> FixedU128 {
+	fn get_min_fee_factor() -> FixedU128 {
+		UpwardInitialDeliveryFeeFactor::get()
+	}
+
+	fn get_fee_factor(_id: Self::Id) -> FixedU128 {
 		UpwardDeliveryFeeFactor::<T>::get()
 	}
 
-	fn increase_fee_factor(_: Self::Id, message_size_factor: FixedU128) -> FixedU128 {
-		<UpwardDeliveryFeeFactor<T>>::mutate(|f| {
-			*f = f.saturating_mul(
-				ump_constants::EXPONENTIAL_FEE_BASE.saturating_add(message_size_factor),
-			);
-			*f
-		})
-	}
-
-	fn decrease_fee_factor(_: Self::Id) -> FixedU128 {
-		<UpwardDeliveryFeeFactor<T>>::mutate(|f| {
-			*f =
-				UpwardInitialDeliveryFeeFactor::get().max(*f / ump_constants::EXPONENTIAL_FEE_BASE);
-			*f
-		})
+	fn set_fee_factor(_id: Self::Id, val: FixedU128) {
+		UpwardDeliveryFeeFactor::<T>::set(val);
 	}
 }
 
@@ -1613,9 +1597,7 @@ impl<T: Config> Pallet<T> {
 			let total_size: usize = pending_messages.iter().map(UpwardMessage::len).sum();
 			if total_size > threshold as usize {
 				// We increase the fee factor by a factor based on the new message's size in KB
-				let message_size_factor = FixedU128::from((message_len / 1024) as u128)
-					.saturating_mul(ump_constants::MESSAGE_SIZE_FEE_BASE);
-				Self::increase_fee_factor((), message_size_factor);
+				Self::increase_fee_factor((), message_len as u128);
 			}
 		} else {
 			// This storage field should carry over from the previous block. So if it's None
