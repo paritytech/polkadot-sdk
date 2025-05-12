@@ -6651,6 +6651,17 @@ dependencies = [
 
 [[package]]
 name = "frame-metadata"
+version = "21.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "20dfd1d7eae1d94e32e869e2fb272d81f52dd8db57820a373adb83ea24d7d862"
+dependencies = [
+ "cfg-if",
+ "parity-scale-codec",
+ "scale-info",
+]
+
+[[package]]
+name = "frame-metadata"
 version = "22.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2753bc34b8cf637f58a4f7c3fcd54e8e588503bc9bba449bd8f5a1ab202b0172"
@@ -9924,7 +9935,7 @@ checksum = "b3e3e3f549d27d2dc054372f320ddf68045a833fab490563ff70d4cf1b9d91ea"
 dependencies = [
  "array-bytes 9.1.2",
  "blake3",
- "frame-metadata 22.0.0",
+ "frame-metadata 21.0.0",
  "parity-scale-codec",
  "scale-decode 0.16.0",
  "scale-info",
@@ -25711,9 +25722,9 @@ checksum = "1f3ccbac311fea05f86f61904b462b55fb3df8837a366dfc601a0161d0532f20"
 
 [[package]]
 name = "tokio"
-version = "1.44.2"
+version = "1.45.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e6b88822cbe49de4185e3a4cbf8321dd487cf5fe0c5c65695fef6346371e9c48"
+checksum = "2513ca694ef9ede0fb23fe71a4ee4107cb102b9dc1930f6d0fd77aae068ae165"
 dependencies = [
  "backtrace",
  "bytes",
@@ -28271,9 +28282,9 @@ dependencies = [
 
 [[package]]
 name = "zombienet-configuration"
-version = "0.2.30"
+version = "0.2.32"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f23f5abe2a83faf76fe4d6c2243c495bd7fd75c3b1a66657e99db173b7418839"
+checksum = "cfe174bf123bb66a83612ae0f2307f78212028c0a6f7e97dc38942635db25fbb"
 dependencies = [
  "anyhow",
  "lazy_static",
@@ -28292,9 +28303,9 @@ dependencies = [
 
 [[package]]
 name = "zombienet-orchestrator"
-version = "0.2.30"
+version = "0.2.32"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6b882fa555eddda618be464ea2ce47de4e4e9142581eced19de4b12d0ace3198"
+checksum = "de7706041733e2a3d2af5290f49c95f1c053ccd29feb5824ca0e8810fe16bb82"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -28325,9 +28336,9 @@ dependencies = [
 
 [[package]]
 name = "zombienet-prom-metrics-parser"
-version = "0.2.30"
+version = "0.2.32"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9ca98a24687ebd7fc06872ef872f1be8c003bd0d20f285091f45c24e9bec9973"
+checksum = "d6533dbc8dc4ef77e38a9a0a524e9bf0178c4a5f9465c54a3b2af9833fd21416"
 dependencies = [
  "pest",
  "pest_derive",
@@ -28336,9 +28347,9 @@ dependencies = [
 
 [[package]]
 name = "zombienet-provider"
-version = "0.2.30"
+version = "0.2.32"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8c65a3e3e07ab327e54be1668272ef2575a9c54aa4beb0d1e453df5046073772"
+checksum = "2e3c28b0d17a10dabcaf757ac6719038e573a78deba1219a7d0d5ce85da48cf8"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -28367,9 +28378,9 @@ dependencies = [
 
 [[package]]
 name = "zombienet-sdk"
-version = "0.2.30"
+version = "0.2.32"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a8ece725021717cc70b7f35c9f95819d03fd7818a596560c4d02dda8731f25e3"
+checksum = "5b4205397931ab9c4a08ce11b8b2d07f5f41bb367fda2d8dd5949683bc2af471"
 dependencies = [
  "async-trait",
  "futures",
@@ -28385,17 +28396,19 @@ dependencies = [
 
 [[package]]
 name = "zombienet-support"
-version = "0.2.30"
+version = "0.2.32"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e42dcf18237dbd576d7696e331085222c144e89ebe71b462f616a9147f8162bb"
+checksum = "e9e5746b85976434d812154160891fd3ff9d5befda0eedf596e9bfcf68706b67"
 dependencies = [
  "anyhow",
  "async-trait",
  "futures",
+ "lazy_static",
  "nix 0.29.0",
  "rand 0.8.5",
  "regex",
  "reqwest",
+ "serde_json",
  "thiserror 1.0.65",
  "tokio",
  "tracing",
