@@ -136,19 +136,19 @@ impl<T: Config> Precompile for XcmPrecompile<T> {
 			IXcmCalls::weightMessage(IXcm::weightMessageCall { message }) => {
 				let converted_message = xcm::VersionedXcm::decode_all(&mut &message[..])
 					.map_err(|error| {
-						error!("XCM execute failed: Invalid message format. Error: {error:?}");
-						Error::Revert("Invalid message format".into())
+						error!("XCM weightMessage: Invalid message format. Error: {error:?}");
+						Error::Revert("XCM weightMessage: Invalid message format".into())
 					})?;
 					
 				let mut final_message = converted_message.try_into().map_err(|e| {
-					error!("XCM weightMessage: Conversion to Xcm failed. Error: {e:?}");
-					Error::Revert("Conversion to Xcm failed".into())
+					error!("XCM weightMessage: Conversion to Xcm failed with Error: {e:?}");
+					Error::Revert("XCM weightMessage: Conversion to Xcm failed".into())
 				})?;
 				
 				let weight = <<T as Config>::XcmWeigher>::weight(&mut final_message)
 					.map_err(|e| {
 						error!("XCM weightMessage: Failed to calculate weight. Error: {e:?}");
-						Error::Revert("XCM weightMessage".into())
+						Error::Revert("XCM weightMessage: Failed to calculate weight".into())
 					})?;
 
 				Ok(weight.encode())
