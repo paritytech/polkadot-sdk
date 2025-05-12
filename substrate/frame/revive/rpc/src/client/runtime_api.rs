@@ -33,6 +33,7 @@ use subxt::OnlineClient;
 pub struct RuntimeApi(subxt::runtime_api::RuntimeApi<SrcChainConfig, OnlineClient<SrcChainConfig>>);
 
 impl RuntimeApi {
+	/// Create a ne instance.
 	pub fn new(
 		api: subxt::runtime_api::RuntimeApi<SrcChainConfig, OnlineClient<SrcChainConfig>>,
 	) -> Self {
@@ -83,6 +84,7 @@ impl RuntimeApi {
 		Ok(nonce.into())
 	}
 
+	/// Get the gas price
 	pub async fn gas_price(&self) -> Result<U256, ClientError> {
 		let payload = subxt_client::apis().revive_api().gas_price();
 		let gas_price = self.0.call(payload).await?;

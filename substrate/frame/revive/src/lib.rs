@@ -1388,6 +1388,7 @@ where
 		GAS_PRICE.into()
 	}
 
+	/// Build an EVM tracer from the given tracer type.
 	pub fn evm_tracer(tracer_type: TracerType) -> Tracer {
 		match tracer_type {
 			TracerType::CallTracer(config) => CallTracer::new(

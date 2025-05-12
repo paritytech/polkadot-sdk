@@ -1,4 +1,3 @@
-#![allow(unused)]
 // This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
