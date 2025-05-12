@@ -25,23 +25,21 @@ use storage_api::StorageApi;
 
 use crate::{
 	subxt_client::{self, revive::calls::types::EthTransact, SrcChainConfig},
-	BlockInfoProvider, BlockTag, Bytes, FeeHistoryProvider, ReceiptProvider,
-	SubxtBlockInfoProvider, TracerType, TransactionInfo, H160, LOG_TARGET,
+	BlockInfoProvider, BlockTag, FeeHistoryProvider, ReceiptProvider, SubxtBlockInfoProvider,
+	TracerType, TransactionInfo, LOG_TARGET,
 };
-use codec::{Decode, Encode};
-use futures::{stream, StreamExt};
 use jsonrpsee::types::{error::CALL_EXECUTION_FAILED_CODE, ErrorObjectOwned};
 use pallet_revive::{
 	evm::{
 		decode_revert_reason, Block, BlockNumberOrTag, BlockNumberOrTagOrHash, FeeHistoryResult,
 		Filter, GenericTransaction, Log, ReceiptInfo, SyncingProgress, SyncingStatus, Trace,
-		TracerConfig, TransactionSigned, TransactionTrace, H256, U256,
+		TransactionSigned, TransactionTrace, H256, U256,
 	},
 	EthTransactError,
 };
-use sp_runtime::{traits::Block as BlockT, OpaqueExtrinsic};
+use sp_runtime::traits::Block as BlockT;
 use sp_weights::Weight;
-use std::{collections::BTreeMap, ops::Range, sync::Arc, time::Duration};
+use std::{ops::Range, sync::Arc, time::Duration};
 use subxt::{
 	backend::{
 		legacy::{rpc_methods::SystemHealth, LegacyRpcMethods},

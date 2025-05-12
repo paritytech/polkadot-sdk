@@ -18,9 +18,9 @@
 //! and is used by the rpc server to query and send transactions to the substrate chain.
 
 use crate::{
-	client::{Balance, Config},
+	client::Balance,
 	subxt_client::{self, SrcChainConfig},
-	ClientError, TracerConfig, H256, LOG_TARGET,
+	ClientError, LOG_TARGET,
 };
 use pallet_revive::{
 	evm::{GenericTransaction, Trace, H160, U256},
@@ -56,7 +56,7 @@ impl RuntimeApi {
 	) -> Result<Option<Vec<u8>>, ClientError> {
 		let contract_address = contract_address.0.into();
 		let payload = subxt_client::apis().revive_api().get_storage(contract_address, key);
-		let result = self.0.call(payload).await?.map_err(|err| ClientError::ContractNotFound)?;
+		let result = self.0.call(payload).await?.map_err(|_| ClientError::ContractNotFound)?;
 		Ok(result)
 	}
 

@@ -24,13 +24,12 @@ async fn main() -> anyhow::Result<()> {
 	let client = Arc::new(HttpClientBuilder::default().build("http://localhost:8545")?);
 
 	let alith = Account::default();
-	let alith_address = alith.address();
 	let ethan = Account::from(subxt_signer::eth::dev::ethan());
 	let value = 1_000_000_000_000_000_000_000u128.into();
 
 	let print_balance = || async {
 		let balance = client.get_balance(alith_address, BlockTag::Latest.into()).await?;
-		println!("Alith     {:?} balance: {balance:?}", alith_address);
+		println!("Alith     {:?} balance: {balance:?}", alith.address());
 		let balance = client.get_balance(ethan.address(), BlockTag::Latest.into()).await?;
 		println!("ethan {:?} balance: {balance:?}", ethan.address());
 		anyhow::Result::<()>::Ok(())
