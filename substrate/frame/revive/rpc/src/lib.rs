@@ -311,7 +311,7 @@ impl EthRpcServer for EthRpcServerImpl {
 	) -> RpcResult<Bytes> {
 		let hash = self.client.block_hash_for_tag(block).await?;
 		let runtime_api = self.client.runtime_api(hash);
-		let bytes = runtime_api.get_storage(address, storage_slot.to_little_endian()).await?;
+		let bytes = runtime_api.get_storage(address, storage_slot.to_big_endian()).await?;
 		Ok(bytes.unwrap_or_default().into())
 	}
 
