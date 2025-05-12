@@ -3,13 +3,9 @@ doc:
 - audience: Runtime Dev
   description: 'Implements the unbonding queue for fast unbonding'
 crates:
-- name: pallet-nomination-pools
-  bump: major
 - name: pallet-staking-async-parachain-runtime
-  bump: major
+  bump: patch
 - name: pallet-staking-async
   bump: major
-- name: pallet-staking
-  bump: major
 - name: sp-staking
-  bump: major
+  bump: patch
