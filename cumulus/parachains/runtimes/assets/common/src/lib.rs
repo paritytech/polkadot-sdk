@@ -35,7 +35,7 @@ use core::{cmp::PartialEq, marker::PhantomData};
 use frame_support::traits::{Contains, Equals, EverythingBut};
 use parachains_common::{AssetIdForTrustBackedAssets, CollectionId, ItemId};
 use sp_core::H160;
-use sp_runtime::traits::{MaybeEquivalence, TryConvertInto};
+use sp_runtime::traits::{Get, MaybeEquivalence, TryConvertInto};
 use xcm::prelude::*;
 use xcm_builder::{
 	AsPrefixedGeneralIndex, MatchedConvertedConcreteId, StartsWith, WithLatestLocationConverter,
@@ -137,29 +137,41 @@ impl Contains<Location> for IsAccountKey20 {
 	}
 }
 
-/// Fallible converter from a location to a `H160` that matches only if
-/// the location has no parents and only an `AccountKey20` junction.
-pub struct AccountKey20ToH160;
-impl MaybeEquivalence<Location, H160> for AccountKey20ToH160 {
+/// `Contains<Location>` implementation that matches locations with no parents,
+/// a `PalletInstance` and an `AccountKey20` junction.
+pub struct IsLocalPalletAccountKey20<PalletInstance>(PhantomData<PalletInstance>);
+impl<PalletInstance: Get<u8>> Contains<Location> for IsLocalPalletAccountKey20<PalletInstance> {
+	fn contains(location: &Location) -> bool {
+		matches!(location.unpack(), (0, [PalletInstance(pi), AccountKey20 { .. }]) if *pi == PalletInstance::get())
+	}
+}
+
+/// Fallible converter from a location to a `H160` that matches any location ending with
+/// an `AccountKey20` junction.
+pub struct TerminalAccountKey20ToH160;
+impl MaybeEquivalence<Location, H160> for TerminalAccountKey20ToH160 {
 	fn convert(location: &Location) -> Option<H160> {
-		match location.unpack() {
-			(0, [AccountKey20 { key, .. }]) => Some((*key).into()),
+		let (_, interior) = location.unpack();
+		match interior.last() {
+			Some(AccountKey20 { key, .. }) => Some((*key).into()),
 			_ => None,
 		}
 	}
 
-	fn convert_back(key: &H160) -> Option<Location> {
-		Some(Location::new(0, [AccountKey20 { key: (*key).into(), network: None }]))
+	fn convert_back(_: &H160) -> Option<Location> {
+		None
 	}
 }
 
 /// [`xcm_executor::MatchesFungibles`] implementation that matches
 /// ERC20 tokens.
-pub type ERC20Matcher = MatchedConvertedConcreteId<
+pub type ERC20Matcher<PalletInstance> = MatchedConvertedConcreteId<
 	H160,
 	u128, // TODO: Do we do u128 for ERC20s?
-	IsAccountKey20,
-	AccountKey20ToH160,
+	// Use pallet identifier of pallet-revive + AccountKey20 for EVM ERC20s, using bare
+	// AccountKey20 doesn't allow for potentially multiple H160 SCs pallets on Asset Hub.
+	IsLocalPalletAccountKey20<PalletInstance>,
+	TerminalAccountKey20ToH160,
 	JustTry,
 >;
 

@@ -16,8 +16,8 @@
 use super::{
 	AccountId, AllPalletsWithSystem, Assets, Balance, Balances, BaseDeliveryFee, CollatorSelection,
 	DepositPerByte, DepositPerItem, FeeAssetId, ForeignAssets, ParachainInfo, ParachainSystem,
-	PolkadotXcm, PoolAssets, Runtime, RuntimeCall, RuntimeEvent, RuntimeHoldReason, RuntimeOrigin,
-	ToRococoXcmRouter, TransactionByteFee, Uniques, WeightToFee, XcmpQueue,
+	PolkadotXcm, PoolAssets, Revive, Runtime, RuntimeCall, RuntimeEvent, RuntimeHoldReason,
+	RuntimeOrigin, ToRococoXcmRouter, TransactionByteFee, Uniques, WeightToFee, XcmpQueue,
 };
 use assets_common::{
 	matching::{FromSiblingParachain, IsForeignConcreteAsset, ParentLocation},
@@ -79,6 +79,7 @@ parameter_types! {
 		PalletInstance(<PoolAssets as PalletInfoAccess>::index() as u8).into();
 	pub UniquesPalletLocation: Location =
 		PalletInstance(<Uniques as PalletInfoAccess>::index() as u8).into();
+	pub RevivePalletIndex: u8 = <Revive as PalletInfoAccess>::index() as u8;
 	pub CheckingAccount: AccountId = PolkadotXcm::check_account();
 	pub StakingPot: AccountId = CollatorSelection::account_id();
 	pub TreasuryAccount: AccountId = TREASURY_PALLET_ID.into_account_truncating();
@@ -217,7 +218,7 @@ parameter_types! {
 /// Transactor for ERC20 tokens.
 pub type ERC20Transactor = assets_common::ERC20Transactor<
 	Runtime,
-	assets_common::ERC20Matcher,
+	assets_common::ERC20Matcher<RevivePalletIndex>,
 	LocationToAccountId,
 	ERC20TransferGasLimit,
 	AccountId,
