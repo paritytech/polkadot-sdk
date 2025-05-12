@@ -125,6 +125,15 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 		Ok(())
 	}
 
+	/// Check if the block is before the earliest block.
+	pub fn is_before_earliest_block(&self, at: &BlockNumberOrTag) -> bool {
+		match at {
+			BlockNumberOrTag::U256(block_number) =>
+				self.receipt_extractor.is_before_earliest_block(block_number.as_u32()),
+			BlockNumberOrTag::BlockTag(_) => false,
+		}
+	}
+
 	/// Fetch receipts from the given block.
 	pub async fn receipts_from_block(
 		&self,
@@ -141,7 +150,7 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 
 	/// Insert receipts into the provider.
 	///
-	/// Note: Can be merged into `insert_block_receipts` once https://github.com/paritytech/subxt/issues/1883 is fixed and subxt let
+	/// Note: Can be merged into `insert_block_receipts` once <https://github.com/paritytech/subxt/issues/1883> is fixed and subxt let
 	/// us create Mock `SubstrateBlock`
 	async fn insert(
 		&self,
