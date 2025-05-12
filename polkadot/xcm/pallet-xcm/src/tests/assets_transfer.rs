@@ -1435,16 +1435,7 @@ fn remote_asset_reserve_and_remote_fee_reserve_call<Call>(
 		assert_eq!(AssetsPallet::active_issuance(usdc_id_location.clone()), expected_usdc_issuance);
 
 		// Verify sent XCM program
-		let expected_hash = last_events(2)
-			.iter()
-			.find_map(|event| {
-				if let RuntimeEvent::XcmPallet(crate::Event::Sent { message_id, .. }) = event {
-					Some(*message_id)
-				} else {
-					None
-				}
-			})
-			.expect("Missing XcmPallet::Sent event in last two events");
+		let expected_hash = find_xcm_sent_message_id().expect("Missing XcmPallet::Sent event");
 		assert_eq!(
 			sent_xcm(),
 			vec![(

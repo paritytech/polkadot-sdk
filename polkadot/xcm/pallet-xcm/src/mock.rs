@@ -746,3 +746,18 @@ pub(crate) fn new_test_ext_with_balances_and_xcm_version(
 pub(crate) fn fake_message_hash<T>(message: &Xcm<T>) -> XcmHash {
 	message.using_encoded(sp_io::hashing::blake2_256)
 }
+
+/// Finds the message ID of the first `Event::Sent` event in the runtime's events.
+pub(crate) fn find_xcm_sent_message_id<T>() -> Option<XcmHash>
+where
+	T: pallet_xcm::Config,
+	RuntimeEvent: TryInto<pallet_xcm::Event<T>> + Clone,
+{
+	System::events().iter().find_map(|event| {
+		if let Ok(pallet_xcm::Event::Sent { message_id, .. }) = event.event.clone().try_into() {
+			Some(message_id)
+		} else {
+			None
+		}
+	})
+}
