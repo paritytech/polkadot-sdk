@@ -34,9 +34,9 @@ use futures::{stream, StreamExt};
 use jsonrpsee::types::{error::CALL_EXECUTION_FAILED_CODE, ErrorObjectOwned};
 use pallet_revive::{
 	evm::{
-		decode_revert_reason, Block, BlockNumberOrTag, BlockNumberOrTagOrHash, Filter,
-		GenericTransaction, Log, ReceiptInfo, SyncingProgress, SyncingStatus, Trace, TracerConfig,
-		TransactionSigned, TransactionTrace, H256, U256,
+		decode_revert_reason, Block, BlockNumberOrTag, BlockNumberOrTagOrHash, FeeHistoryResult,
+		Filter, GenericTransaction, Log, ReceiptInfo, SyncingProgress, SyncingStatus, Trace,
+		TracerConfig, TransactionSigned, TransactionTrace, H256, U256,
 	},
 	EthTransactError,
 };
@@ -629,10 +629,30 @@ impl Client {
 		runtime_api.trace_call(transaction, config.clone()).await
 	}
 
-	/// Get the EVM block for the given hash.
+	/// Get the EVM block for the given Substrate block.
 	pub async fn evm_block(
 		&self,
 		block: Arc<SubstrateBlock>,
+		hydrated_transactions: bool,
+	) -> Block {
+		let (signed_txs, receipts): (Vec<_>, Vec<_>) = self
+			.receipt_provider
+			.receipts_from_block(&block)
+			.await
+			.unwrap_or_default()
+			.into_iter()
+			.unzip();
+		return self
+			.evm_block_from_receipts(&block, &receipts, signed_txs, hydrated_transactions)
+			.await
+	}
+
+	/// Get the EVM block for the given block and receipts.
+	pub async fn evm_block_from_receipts(
+		&self,
+		block: &SubstrateBlock,
+		receipts: &[ReceiptInfo],
+		signed_txs: Vec<TransactionSigned>,
 		hydrated_transactions: bool,
 	) -> Block {
 		let runtime_api = RuntimeApi::new(self.api.runtime_api().at(block.hash()));
