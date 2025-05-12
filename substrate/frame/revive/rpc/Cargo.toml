@@ -25,6 +25,7 @@ pallet-revive = { workspace = true, default-features = true }
 prometheus-endpoint = { workspace = true, default-features = true }
 rlp = { workspace = true }
 sc-cli = { workspace = true, default-features = true }
+sp-rpc = { workspace = true, default-features = true }
 sc-rpc = { workspace = true, default-features = true }
 sc-rpc-api = { workspace = true, default-features = true }
 sc-service = { workspace = true, default-features = true }
@@ -38,6 +39,7 @@ subxt = { workspace = true, default-features = true, features = ["reconnecting-r
 subxt-signer = { workspace = true, features = ["unstable-eth"] }
 thiserror = { workspace = true }
 tokio = { workspace = true, features = ["full"] }
+serde_json = { workspace = true }
 
 [dev-dependencies]
 env_logger = { workspace = true }

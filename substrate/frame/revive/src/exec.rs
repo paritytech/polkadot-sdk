@@ -83,11 +83,6 @@ pub enum Key {
 
 impl Key {
 	/// Reference to the raw unhashed key.
-	///
-	/// # Note
-	///
-	/// Only used by benchmarking in order to generate storage collisions on purpose.
-	#[cfg(feature = "runtime-benchmarks")]
 	pub fn unhashed(&self) -> &[u8] {
 		match self {
 			Key::Fix(v) => v.as_ref(),
@@ -1863,7 +1858,12 @@ where
 	}
 
 	fn balance_of(&self, address: &H160) -> U256 {
-		self.account_balance(&<Self::T as Config>::AddressMapper::to_account_id(address))
+		let balance =
+			self.account_balance(&<Self::T as Config>::AddressMapper::to_account_id(address));
+		if_tracing(|tracer| {
+			tracer.balance_read(address, balance);
+		});
+		balance
 	}
 
 	fn value_transferred(&self) -> U256 {
