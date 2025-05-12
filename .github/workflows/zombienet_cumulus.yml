@@ -329,6 +329,7 @@ jobs:
       CUMULUS_IMAGE: "${{ needs.preflight.outputs.TEMP_IMAGES_BASE }}/test-parachain:${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"
       RUST_LOG: ${{ needs.preflight.outputs.RUST_LOG }}
       ZOMBIE_PROVIDER: ${{ needs.preflight.outputs.ZOMBIE_PROVIDER }}
+      RUN_IN_CI: ${{ needs.preflight.outputs.RUN_IN_CI }}
       # don't retry sdk tests
       NEXTEST_RETRIES: 0
 
@@ -355,6 +356,8 @@ jobs:
         run: |
           echo "POLKADOT_IMAGE: $POLKADOT_IMAGE"
           echo "CUMULUS_IMAGE: $CUMULUS_IMAGE"
+          echo "RUN_IN_CI: $RUN_IN_CI"
+
           ls -ltr ./artifacts
           # use spot by default
           export X_INFRA_INSTANCE=spot
