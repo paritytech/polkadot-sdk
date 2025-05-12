@@ -88,7 +88,6 @@ pub fn encode_xcm(message: Xcm<()>, message_kind: MessageKind) -> Vec<u8> {
 	}
 }
 
-// TODO: To be removed.
 pub fn fake_message_hash<T>(message: &Xcm<T>) -> XcmHash {
 	message.using_encoded(blake2_256)
 }
