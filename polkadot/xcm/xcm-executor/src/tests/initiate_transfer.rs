@@ -29,6 +29,7 @@ use super::mock::*;
 // The sender and recipient we use across these tests.
 const SENDER: [u8; 32] = [0; 32];
 const RECIPIENT: [u8; 32] = [1; 32];
+const RECIPIENT2: [u8; 32] = [2; 32];
 
 #[test]
 fn clears_origin() {
@@ -217,4 +218,85 @@ fn unpaid_transact() {
 	let mut instructions = sent_message.inner().iter();
 	assert!(matches!(instructions.next().unwrap(), UnpaidExecution { .. }));
 	assert!(matches!(instructions.next().unwrap(), Transact { .. }));
+}
+
+#[test]
+fn deposit_assets_with_retry_burns_dust_and_deposits_rest() {
+	// fund sender
+	add_asset(SENDER, (Here, 200u128));
+
+	// dust amount (< ED=2)
+	let dust: Asset = (Here, 1u128).into();
+
+	// non-dust amount (> ED=2)
+	let legit: Asset = (Here, 100u128).into();
+
+	let xcm = Xcm::<TestCall>(vec![
+		WithdrawAsset((Here, 101u128).into()),
+		DepositAsset {
+			assets: Definite(Assets::from(vec![dust.clone()])),
+			beneficiary: RECIPIENT.into(),
+		},
+		DepositAsset {
+			assets: Definite(Assets::from(vec![legit.clone()])),
+			beneficiary: RECIPIENT.into(),
+		},
+	]);
+
+	let (mut vm, weight) = instantiate_executor(SENDER, xcm.clone());
+
+	let result = vm.bench_process(xcm);
+
+	assert!(result.is_ok(), "XCM execution must succeed even if one deposit is dust");
+	let outcome = vm.bench_post_process(weight);
+	assert!(matches!(outcome, Outcome::Complete { .. }), "Expected Complete, got {:?}", outcome);
+
+	let here_assets = asset_list(RECIPIENT);
+	assert_eq!(here_assets, vec![legit], "only the ≥ED asset (100) should end up in `Here`");
+
+	// dust is burned, so nothing lands in the trap account
+	let trapped = asset_list(TRAPPED_ASSETS);
+	assert!(trapped.is_empty(), "dust assets should be silently burned, not trapped");
+}
+
+#[test]
+fn deposit_assets_with_retry_all_dust_are_burned() {
+	// fund sender
+	add_asset(SENDER, (Here, 20u128));
+
+	// two dust amounts, both < ED=2
+	let d1: Asset = (Here, 1u128).into();
+	let d2: Asset = (Here, 1u128).into();
+
+	let xcm = Xcm::<TestCall>(vec![
+		// withdraw 1+1 so it succeeds
+		WithdrawAsset((Here, (1u128 + 1u128)).into()),
+		DepositAsset {
+			assets: Definite(Assets::from(vec![d1.clone()])),
+			beneficiary: RECIPIENT.into(),
+		},
+		DepositAsset {
+			assets: Definite(Assets::from(vec![d2.clone()])),
+			beneficiary: RECIPIENT2.into(),
+		},
+	]);
+
+	let (mut vm, weight) = instantiate_executor(SENDER, xcm.clone());
+	let result = vm.bench_process(xcm);
+
+	assert!(result.is_ok(), "all-dust deposit must not abort");
+	let outcome = vm.bench_post_process(weight);
+	assert!(matches!(outcome, Outcome::Complete { .. }));
+
+	// none of the two dust deposits should land in either recipient
+	let received = asset_list(RECIPIENT);
+	assert!(received.is_empty(), "no ≥ED assets, so recipient must get nothing");
+
+	// none of the two dust deposits should land in either recipient
+	let received = asset_list(RECIPIENT2);
+	assert!(received.is_empty(), "no ≥ED assets, so recipient must get nothing");
+
+	// all dust is burned, trap account stays empty
+	let trapped = asset_list(TRAPPED_ASSETS);
+	assert!(trapped.is_empty(), "all dust assets must be burned, not trapped");
 }
