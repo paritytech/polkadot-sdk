@@ -25,8 +25,7 @@
 //!
 //! Use `alloy` through our re-export in this module to implement Eth ABI.
 
-mod builtin;
-pub mod custom;
+pub mod builtin;
 
 mod tests;
 

@@ -267,6 +267,10 @@ pub mod pallet {
 			BlockNumberFor<Self>,
 		>;
 
+		/// The weigher used to calculate XCM execution costs
+		#[pallet::no_default_bounds]
+		type XcmWeigher: xcm_executor::traits::WeightBounds<<Self as frame_system::Config>::RuntimeCall>;
+
 		/// The amount of memory in bytes that parachain nodes a lot to the runtime.
 		///
 		/// This is used in [`Pallet::integrity_test`] to make sure that the runtime has enough
@@ -355,6 +359,7 @@ pub mod pallet {
 			type RuntimeCall = ();
 			type CallFilter = ();
 			type Precompiles = ();
+			type XcmWeigher = Self;
 			type CodeHashLockupDepositPercent = CodeHashLockupDepositPercent;
 			type DepositPerByte = DepositPerByte;
 			type DepositPerItem = DepositPerItem;

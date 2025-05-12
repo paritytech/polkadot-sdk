@@ -23,9 +23,9 @@ use crate::{
 use codec::{Decode, Encode};
 use frame_support::traits::{fungibles::Mutate, Currency};
 use frame_system::RawOrigin;
-use pallet_revive::precompiles::custom::IXcm;
 use pallet_revive::{
 	precompiles::alloy::sol_types::SolInterface,
+	precompiles::builtin::xcm::IXcm,
 	test_utils::{self, builder::*},
 	Code, DepositLimit, ExecReturnValue,
 };
@@ -64,6 +64,7 @@ fn instantiate_test_contract(name: &str) -> Contract<parachain::Runtime> {
 		parachain::Balances::make_free_balance_be(&contract.account_id, INITIAL_BALANCE);
 		parachain::Assets::mint_into(0u32.into(), &contract.account_id, INITIAL_BALANCE).unwrap();
 	});
+
 	Relay::execute_with(|| {
 		let sovereign_account =
 			parachain_account_sovereign_account_id(1u32, contract.account_id.clone());
@@ -225,8 +226,28 @@ fn test_xcm_execute_reentrant_call_via_precompile() {
 			.expect_transact_status(MaybeErrorCode::Success)
 			.build();
 
-		let xcm_execute_params =
-			IXcm::xcmExecuteCall { message: VersionedXcm::V4(message).encode().into() };
+		let weight_params = IXcm::weightMessageCall {
+			message: VersionedXcm::V4(message.clone()).encode().into(),
+		};
+		let weight_call = IXcm::IXcmCalls::weightMessage(weight_params);
+		let xcm_weight_results =
+			bare_call(to_fixed_non_zero(10)).data(weight_call.abi_encode()).build();
+
+		let result = match xcm_weight_results.result {
+			Ok(value) => value,
+			Err(_) => ExecReturnValue { flags: ReturnFlags::REVERT, data: Vec::new() },
+		};
+
+		let weight: Weight =
+			Weight::decode(&mut &result.data[..]).expect("Failed to decode weight");
+
+		let xcm_execute_params = IXcm::xcmExecuteCall {
+			message: VersionedXcm::V4(message).encode().into(),
+			weightLimit: IXcm::WeightLimit {
+				proofSize: weight.proof_size(),
+				refTime: weight.ref_time(),
+			},
+		};
 
 		let call = IXcm::IXcmCalls::xcmExecute(xcm_execute_params);
 		let encoded_call = call.abi_encode();
@@ -243,7 +264,10 @@ fn test_xcm_execute_reentrant_call_via_precompile() {
 			ReturnFlags::REVERT,
 			"Expected transaction to revert due to reentrant call"
 		);
-		assert_eq!(final_bob_balance, initial_bob_balance, "Bob's balance should remain unchanged");
+		assert_eq!(
+			final_bob_balance, initial_bob_balance,
+			"Bob's balance should remain unchanged"
+		);
 	});
 }
 
@@ -268,8 +292,29 @@ fn test_xcm_execute_incomplete_call_via_precompile() {
 			.deposit_asset(assets, beneficiary)
 			.build();
 
-		let xcm_execute_params =
-			IXcm::xcmExecuteCall { message: VersionedXcm::V4(message).encode().into() };
+		// First, calculate the weight of the XCM message
+		let weight_params = IXcm::weightMessageCall {
+			message: VersionedXcm::V4(message.clone()).encode().into(),
+		};
+		let weight_call = IXcm::IXcmCalls::weightMessage(weight_params);
+		let xcm_weight_results =
+			bare_call(to_fixed_non_zero(10)).data(weight_call.abi_encode()).build();
+
+		let weight_result = match xcm_weight_results.result {
+			Ok(value) => value,
+			Err(_) => ExecReturnValue { flags: ReturnFlags::REVERT, data: Vec::new() },
+		};
+
+		let weight: Weight =
+			Weight::decode(&mut &weight_result.data[..]).expect("Failed to decode weight");
+
+		let xcm_execute_params = IXcm::xcmExecuteCall {
+			message: VersionedXcm::V4(message).encode().into(),
+			weightLimit: IXcm::WeightLimit {
+				proofSize: weight.proof_size(),
+				refTime: weight.ref_time(),
+			},
+		};
 
 		let call = IXcm::IXcmCalls::xcmExecute(xcm_execute_params);
 		let encoded_call = call.abi_encode();
@@ -278,7 +323,10 @@ fn test_xcm_execute_incomplete_call_via_precompile() {
 		let final_bob_balance = ParachainBalances::free_balance(BOB);
 		let final_alice_balance = ParachainBalances::free_balance(ALICE);
 
-		assert_eq!(final_bob_balance, initial_bob_balance, "Bob's balance should remain unchanged");
+		assert_eq!(
+			final_bob_balance, initial_bob_balance,
+			"Bob's balance should remain unchanged"
+		);
 		assert_eq!(
 			final_alice_balance, initial_alice_balance,
 			"Alice's balance should remain unchanged"
@@ -303,8 +351,28 @@ fn test_xcm_execute_precompile() {
 			.deposit_asset(assets, beneficiary)
 			.build();
 
-		let xcm_execute_params =
-			IXcm::xcmExecuteCall { message: VersionedXcm::V4(message).encode().into() };
+		let weight_params = IXcm::weightMessageCall {
+			message: VersionedXcm::V4(message.clone()).encode().into(),
+		};
+		let weight_call = IXcm::IXcmCalls::weightMessage(weight_params);
+		let xcm_weight_results =
+			bare_call(to_fixed_non_zero(10)).data(weight_call.abi_encode()).build();
+
+		let weight_result = match xcm_weight_results.result {
+			Ok(value) => value,
+			Err(_) => ExecReturnValue { flags: ReturnFlags::REVERT, data: Vec::new() },
+		};
+
+		let weight: Weight =
+			Weight::decode(&mut &weight_result.data[..]).expect("Failed to decode weight");
+
+		let xcm_execute_params = IXcm::xcmExecuteCall {
+			message: VersionedXcm::V4(message).encode().into(),
+			weightLimit: IXcm::WeightLimit {
+				proofSize: weight.proof_size(),
+				refTime: weight.ref_time(),
+			},
+		};
 
 		let call = IXcm::IXcmCalls::xcmExecute(xcm_execute_params);
 		let encoded_call = call.abi_encode();
@@ -362,6 +430,7 @@ fn test_xcm_send_precompile() {
 		let result = results.result.expect("Transaction should succeed");
 		let mut data = &result.data[..];
 		XcmHash::decode(&mut data).expect("Failed to decode xcm_send message_id");
+
 		(sovereign_account_id, initial_sovereign_balance, initial_alice_relay_balance)
 	});
 
@@ -419,6 +488,7 @@ fn test_xcm_send_precompile_via_fixture() {
 					.collect::<Vec<_>>(),
 			)
 			.build_and_unwrap_result();
+
 		let mut data = &result.data[..];
 		XcmHash::decode(&mut data).expect("Failed to decode xcm_send message_id");
 	});

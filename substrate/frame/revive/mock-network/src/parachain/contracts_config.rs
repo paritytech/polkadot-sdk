@@ -15,9 +15,16 @@
 // along with Substrate.  If not, see <http://www.gnu.org/licenses/>.
 
 use super::{Balances, Runtime, RuntimeCall, RuntimeEvent};
-use crate::parachain::RuntimeHoldReason;
+use crate::parachain::{RuntimeHoldReason,parameter_types};
 use frame_support::derive_impl;
-use pallet_revive::precompiles::custom::XcmPrecompile;
+use pallet_revive::precompiles::builtin::xcm::XcmPrecompile;
+use xcm_builder::{FixedWeightBounds};
+use crate::parachain::{MaxInstructions}; 
+use xcm::latest::Weight;
+
+parameter_types! {
+	pub const BaseXcmWeight: xcm::latest::Weight = Weight::from_parts(100_000_000, 2_000);
+}
 
 #[derive_impl(pallet_revive::config_preludes::TestDefaultConfig)]
 impl pallet_revive::Config for Runtime {
@@ -26,4 +33,5 @@ impl pallet_revive::Config for Runtime {
 	type Time = super::Timestamp;
 	type Xcm = pallet_xcm::Pallet<Self>;
 	type Precompiles = (XcmPrecompile<Self>,);
+	type XcmWeigher = FixedWeightBounds<BaseXcmWeight, RuntimeCall, MaxInstructions>;
 }

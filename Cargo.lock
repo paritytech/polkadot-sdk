@@ -12723,6 +12723,7 @@ dependencies = [
  "sp-tracing 16.0.0",
  "staging-xcm",
  "staging-xcm-builder",
+ "staging-xcm-executor",
  "substrate-bn",
  "subxt-signer 0.38.0",
 ]

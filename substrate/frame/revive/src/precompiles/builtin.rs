@@ -23,6 +23,7 @@ mod modexp;
 mod point_eval;
 mod ripemd160;
 mod sha256;
+pub mod xcm;
 
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
