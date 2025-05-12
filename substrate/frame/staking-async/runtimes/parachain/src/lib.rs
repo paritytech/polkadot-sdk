@@ -928,6 +928,7 @@ impl pallet_aura::Config for Runtime {
 parameter_types! {
 	pub const PotId: PalletId = PalletId(*b"PotStake");
 	pub const SessionLength: BlockNumber = 6 * HOURS;
+	pub const CollatorUnbondingPeriod: u32 = 24 * HOURS;
 }
 
 pub type CollatorSelectionUpdateOrigin = EnsureRoot<AccountId>;
@@ -942,6 +943,7 @@ impl pallet_collator_selection::Config for Runtime {
 	type MaxInvulnerables = ConstU32<20>;
 	// should be a multiple of session or things will get inconsistent
 	type KickThreshold = Period;
+	type UnbondingPeriod = CollatorUnbondingPeriod;
 	type ValidatorId = <Self as frame_system::Config>::AccountId;
 	type ValidatorIdOf = pallet_collator_selection::IdentityCollator;
 	type ValidatorRegistration = Session;
