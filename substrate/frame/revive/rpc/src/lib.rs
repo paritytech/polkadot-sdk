@@ -31,7 +31,6 @@ pub mod cli;
 pub mod client;
 pub mod example;
 pub mod subxt_client;
-// mod tracing_event;
 
 #[cfg(test)]
 mod tests;

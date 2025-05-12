@@ -26,8 +26,8 @@ use storage_api::StorageApi;
 
 use crate::{
 	subxt_client::{self, revive::calls::types::EthTransact, SrcChainConfig},
-	BlockInfoProvider, BlockTag, Bytes, PrestateTraceInfo, ReceiptProvider, SubxtBlockInfoProvider,
-	TracerType, TransactionInfo, H160, LOG_TARGET,
+	BlockInfoProvider, BlockTag, Bytes, ReceiptProvider, SubxtBlockInfoProvider, TracerType,
+	TransactionInfo, H160, LOG_TARGET,
 };
 use codec::{Decode, Encode};
 use futures::{stream, StreamExt};
@@ -35,8 +35,8 @@ use jsonrpsee::types::{error::CALL_EXECUTION_FAILED_CODE, ErrorObjectOwned};
 use pallet_revive::{
 	evm::{
 		decode_revert_reason, Block, BlockNumberOrTag, BlockNumberOrTagOrHash, Filter,
-		GenericTransaction, Log, PrestateTrace, PrestateTracerConfig, ReceiptInfo, SyncingProgress,
-		SyncingStatus, Trace, TracerConfig, TransactionSigned, TransactionTrace, H256, U256,
+		GenericTransaction, Log, ReceiptInfo, SyncingProgress, SyncingStatus, Trace, TracerConfig,
+		TransactionSigned, TransactionTrace, H256, U256,
 	},
 	EthTransactError,
 };
