@@ -270,9 +270,12 @@ where
 		candidate_hash: CandidateHash,
 		losers: impl IntoIterator<Item = ValidatorIndex>,
 		backers: impl IntoIterator<Item = ValidatorIndex>,
-	) {
+	) {	
+		let backers_vec: Vec<_> = backers.into_iter().collect();
+		let filtered_losers = losers.into_iter().filter(|loser| !backers_vec.contains(loser));
+	
 		Self::do_punish(session_index, candidate_hash, DisputeOffenceKind::ForInvalidBacked, backers);
-		Self::do_punish(session_index, candidate_hash, DisputeOffenceKind::ForInvalidApproved, losers);
+		Self::do_punish(session_index, candidate_hash, DisputeOffenceKind::ForInvalidApproved, filtered_losers);
 	}
 
 	fn punish_against_valid(
@@ -281,8 +284,7 @@ where
 		losers: impl IntoIterator<Item = ValidatorIndex>,
 		_backers: impl IntoIterator<Item = ValidatorIndex>,
 	) {
-		let kind = DisputeOffenceKind::AgainstValid;
-		Self::do_punish(session_index, candidate_hash, kind, losers);
+		Self::do_punish(session_index, candidate_hash, DisputeOffenceKind::AgainstValid, losers);
 	}
 
 	fn initializer_initialize(now: BlockNumberFor<T>) -> Weight {
