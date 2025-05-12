@@ -22,8 +22,8 @@ pallet-asset-rewards = { workspace = true }
 pallet-assets = { workspace = true }
 pallet-balances = { workspace = true }
 pallet-message-queue = { workspace = true }
-pallet-treasury = { workspace = true }
 pallet-revive = { workspace = true }
+pallet-treasury = { workspace = true }
 sp-core = { workspace = true }
 sp-runtime = { workspace = true }
 
@@ -44,5 +44,5 @@ parachains-common = { workspace = true, default-features = true }
 westend-system-emulated-network = { workspace = true }
 
 [dev-dependencies]
-sp-tracing = { features = ["test-utils"], workspace = true, default-features = true }
 pallet-revive-fixtures = { workspace = true, default-features = true }
+sp-tracing = { features = ["test-utils"], workspace = true, default-features = true }
