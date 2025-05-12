@@ -29,6 +29,7 @@ use crate::{
 	VersionNotifiers, VersionNotifyTargets, WeightInfo,
 };
 use bounded_collections::BoundedVec;
+use codec::Encode;
 use frame_support::{
 	assert_err_ignore_postinfo, assert_noop, assert_ok, assert_storage_noop,
 	traits::{ContainsPair, Currency, Hooks},
@@ -45,7 +46,6 @@ use xcm_executor::{
 	traits::{Properties, QueryHandler, QueryResponseStatus, ShouldExecute},
 	XcmExecutor,
 };
-use xcm_simulator::helpers::TopicIdTracker;
 
 const ALICE: AccountId = AccountId::new([0u8; 32]);
 const BOB: AccountId = AccountId::new([1u8; 32]);
@@ -1656,7 +1656,6 @@ fn execute_initiate_transfer_and_check_sent_event() {
 		tracing::{subscriber, Level},
 	};
 
-	TopicIdTracker::reset();
 	let (log_capture, subscriber) = init_log_capture(Level::TRACE, true);
 	subscriber::with_default(subscriber, || {
 		let balances = vec![(ALICE, INITIAL_BALANCE)];
@@ -1681,7 +1680,27 @@ fn execute_initiate_transfer_and_check_sent_event() {
 			);
 			assert_ok!(result);
 
-			let sent_msg_id: XcmHash = TopicIdTracker::get("TestSendXcm").into();
+			let message: Xcm<()> = Xcm(vec![InitiateReserveWithdraw {
+				assets: Wild(All),
+				reserve: Location { parents: 1, interior: Here },
+				xcm: Xcm(vec![
+					BuyExecution {
+						fees: Asset {
+							id: AssetId(Location { parents: 1, interior: Here }),
+							fun: Fungible(SEND_AMOUNT),
+						},
+						weight_limit: Unlimited,
+					},
+					DepositAsset {
+						assets: Wild(All),
+						beneficiary: Location {
+							parents: 1,
+							interior: AccountId32 { network: None, id: [1; 32] }.into(),
+						},
+					},
+				]),
+			}]);
+			let sent_msg_id = VersionedXcm::from(message).using_encoded(sp_io::hashing::blake2_256);
 			let sent_message: Xcm<()> = Xcm(vec![
 				WithdrawAsset(Assets::new()),
 				ClearOrigin,

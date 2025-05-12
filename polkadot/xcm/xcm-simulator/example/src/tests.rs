@@ -19,7 +19,7 @@ use crate::*;
 use codec::Encode;
 use frame_support::{assert_ok, weights::Weight};
 use xcm::latest::QueryResponseInfo;
-use xcm_simulator::{helpers::TopicIdTracker, mock_message_queue::ReceivedDmp, TestExt};
+use xcm_simulator::{mock_message_queue::ReceivedDmp, TestExt};
 
 // Helper function for forming buy execution message
 fn buy_execution<C>(fees: impl Into<Asset>) -> Instruction<C> {
@@ -527,6 +527,7 @@ fn query_holding() {
 	let query_id_set = 1234;
 
 	// Send a message which fully succeeds on the relay chain
+	let mut expected_hash = None;
 	ParaA::execute_with(|| {
 		let message = Xcm(vec![
 			WithdrawAsset((Here, send_amount).into()),
@@ -543,7 +544,9 @@ fn query_holding() {
 		]);
 		// Send withdraw and deposit with query holding
 		assert_ok!(ParachainPalletXcm::send_xcm(Here, Parent, message.clone(),));
+		expected_hash = Some(VersionedXcm::from(message).using_encoded(sp_core::blake2_256));
 	});
+	let expected_hash = expected_hash.expect("No expected hash");
 
 	// Check that transfer was executed
 	Relay::execute_with(|| {
@@ -570,7 +573,7 @@ fn query_holding() {
 					max_weight: Weight::from_parts(1_000_000_000, 1024 * 1024),
 					querier: Some(Here.into()),
 				},
-				SetTopic(TopicIdTracker::get("Relay").into()),
+				SetTopic(expected_hash),
 			])],
 		);
 	});

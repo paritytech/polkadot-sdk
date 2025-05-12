@@ -306,8 +306,6 @@ macro_rules! decl_test_network {
 				$crate::RELAY_MESSAGE_BUS.with(|b| b.replace(VecDeque::new()));
 				// Reset parachain message bus.
 				$crate::PARA_MESSAGE_BUS.with(|b| b.replace(VecDeque::new()));
-				// Reset tracked topic IDs.
-				$crate::helpers::TopicIdTracker::reset();
 				<$relay_chain>::reset_ext();
 				$( <$parachain>::reset_ext(); )*
 			}
@@ -449,7 +447,6 @@ macro_rules! decl_test_network {
 			) -> Result<$crate::XcmHash, $crate::SendError> {
 				let hash = $crate::helpers::derive_topic_id(&pair.1);
 				$crate::RELAY_MESSAGE_BUS.with(|b| b.borrow_mut().push_back(pair));
-				$crate::helpers::TopicIdTracker::insert(stringify!($relay_chain), hash.into());
 				Ok(hash)
 			}
 		}

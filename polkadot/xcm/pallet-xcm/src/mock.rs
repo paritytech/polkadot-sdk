@@ -46,7 +46,7 @@ use xcm_executor::{
 	traits::{Identity, JustTry},
 	XcmExecutor,
 };
-use xcm_simulator::helpers::{derive_topic_id, TopicIdTracker};
+use xcm_simulator::helpers::derive_topic_id;
 
 use crate::{self as pallet_xcm, TestWeightInfo};
 
@@ -193,7 +193,6 @@ impl SendXcm for TestSendXcm {
 		}
 		let hash = derive_topic_id(&message);
 		SENT_XCM.with(|q| q.borrow_mut().push(pair));
-		TopicIdTracker::insert("TestSendXcm", hash.into());
 		Ok(hash)
 	}
 }
@@ -247,7 +246,6 @@ impl SendXcm for TestPaidForPara3000SendXcm {
 	fn deliver(pair: (Location, Xcm<()>)) -> Result<XcmHash, SendError> {
 		let hash = derive_topic_id(&pair.1);
 		SENT_XCM.with(|q| q.borrow_mut().push(pair));
-		TopicIdTracker::insert("Para3000", hash.into());
 		Ok(hash)
 	}
 }
