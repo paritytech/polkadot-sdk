@@ -866,7 +866,7 @@ where
 		storage_meter: &'a mut storage::meter::Meter<T>,
 		value: U256,
 		exec_context: ExecContext,
-	) -> Result<Option<(Self, ExecutableOrPrecompile<T, E, Self>)>, ExecError>  {
+	) -> Result<Option<(Self, ExecutableOrPrecompile<T, E, Self>)>, ExecError> {
 		origin.ensure_mapped()?;
 		let Some((first_frame, executable)) = Self::new_frame(
 			args,
@@ -974,38 +974,38 @@ where
 
 				(dest, contract, executable, delegated_call, ExportedFunction::Call)
 			},
-				FrameArgs::Instantiate { sender, executable, salt, input_data, is_transaction } => {
-					let deployer = T::AddressMapper::to_address(&sender);
-					let account_nonce = <System<T>>::account_nonce(&sender);
-					let address = if let Some(salt) = salt {
-						address::create2(&deployer, executable.code(), input_data, salt)
-					} else {
-						use sp_runtime::Saturating;
-						address::create1(
-							&deployer,
-							// the Nonce from the origin has been incremented pre-dispatch, so we
-							// need to subtract 1 to get the nonce at the time of the call.
-							if origin_is_caller && is_transaction {
-								account_nonce.saturating_sub(1u32.into()).saturated_into()
-							} else {
-								account_nonce.saturated_into()
-							},
-						)
-					};
-					let contract = ContractInfo::new(
-						&address,
-						<System<T>>::account_nonce(&sender),
-						*executable.code_hash(),
-					)?;
-					(
-						T::AddressMapper::to_fallback_account_id(&address),
-						CachedContract::Cached(contract),
-						ExecutableOrPrecompile::Executable(executable),
-						None,
-						ExportedFunction::Constructor,
+			FrameArgs::Instantiate { sender, executable, salt, input_data, exec_context } => {
+				let deployer = T::AddressMapper::to_address(&sender);
+				let account_nonce = <System<T>>::account_nonce(&sender);
+				let address = if let Some(salt) = salt {
+					address::create2(&deployer, executable.code(), input_data, salt)
+				} else {
+					use sp_runtime::Saturating;
+					address::create1(
+						&deployer,
+						// the Nonce from the origin has been incremented pre-dispatch, so we
+						// need to subtract 1 to get the nonce at the time of the call.
+						if origin_is_caller && matches!(exec_context, ExecContext::Transaction) {
+							account_nonce.saturating_sub(1u32.into()).saturated_into()
+						} else {
+							account_nonce.saturated_into()
+						},
 					)
-				},
-			};
+				};
+				let contract = ContractInfo::new(
+					&address,
+					<System<T>>::account_nonce(&sender),
+					*executable.code_hash(),
+				)?;
+				(
+					T::AddressMapper::to_fallback_account_id(&address),
+					CachedContract::Cached(contract),
+					ExecutableOrPrecompile::Executable(executable),
+					None,
+					ExportedFunction::Constructor,
+				)
+			},
+		};
 
 		let frame = Frame {
 			delegate,
