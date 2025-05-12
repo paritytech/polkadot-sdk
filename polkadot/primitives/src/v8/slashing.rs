@@ -23,7 +23,7 @@ use scale_info::TypeInfo;
 
 /// The kind of the dispute offence.
 #[derive(PartialEq, Eq, Clone, Copy, Encode, Decode, TypeInfo, Debug)]
-pub enum SlashingOffenceKind {
+pub enum DisputeOffenceKind {
 	/// A severe offence when a validator backed an invalid block
 	/// (backing only)
 	#[codec(index = 0)]
@@ -33,7 +33,7 @@ pub enum SlashingOffenceKind {
 	#[codec(index = 1)]
 	ForInvalidApproved,
 	/// A minor offence when a validator disputed a valid block.
-	/// (dispute vote only)
+	/// (approval checking and dispute vote only)
 	#[codec(index = 2)]
 	AgainstValid,
 }
@@ -63,7 +63,7 @@ pub struct DisputeProof {
 	/// Time slot when the dispute occurred.
 	pub time_slot: DisputesTimeSlot,
 	/// The dispute outcome.
-	pub kind: SlashingOffenceKind,
+	pub kind: DisputeOffenceKind,
 	/// The index of the validator who lost a dispute.
 	pub validator_index: ValidatorIndex,
 	/// The parachain session key of the validator.
@@ -78,7 +78,7 @@ pub struct PendingSlashes {
 	/// slashes.
 	pub keys: BTreeMap<ValidatorIndex, ValidatorId>,
 	/// The dispute outcome.
-	pub kind: SlashingOffenceKind,
+	pub kind: DisputeOffenceKind,
 }
 
 // TODO: can we reuse this type between BABE, GRANDPA and disputes?
