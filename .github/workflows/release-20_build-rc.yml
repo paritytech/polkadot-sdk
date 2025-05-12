@@ -22,6 +22,8 @@ on:
 jobs:
   check-synchronization:
     uses: paritytech-release/sync-workflows/.github/workflows/check-syncronization.yml@ep-add-sync-confirmation
+    secrets:
+      fork_writer_app_key: ${{ secrets.UPSTREAM_CONTENT_SYNC_APP_KEY }}
 
   validate-inputs:
     needs: [check-synchronization]
