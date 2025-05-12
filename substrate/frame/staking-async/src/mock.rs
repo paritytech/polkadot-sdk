@@ -443,7 +443,7 @@ pub struct ExtBuilder {
 	validator_count: u32,
 	invulnerables: BoundedVec<AccountId, <Test as Config>::MaxInvulnerables>,
 	has_stakers: bool,
-	pub min_nominator_bond: Balance,
+	min_nominator_bond: Balance,
 	min_validator_bond: Balance,
 	balance_factor: Balance,
 	status: BTreeMap<AccountId, StakerStatus<AccountId>>,
@@ -580,11 +580,16 @@ impl ExtBuilder {
 		SkipTryStateCheck::set(!enable);
 		self
 	}
-	pub(crate) fn set_unbonding_queue_config(
-		mut self,
-		config: Option<UnbondingQueueConfig>,
-	) -> Self {
-		self.unbonding_queue_config = config;
+	pub(crate) fn has_unbonding_queue_config(mut self, has: bool) -> Self {
+		self.unbonding_queue_config = if has {
+			Some(UnbondingQueueConfig {
+				min_slashable_share: Perbill::from_percent(50),
+				lowest_ratio: Perbill::from_percent(34),
+				unbond_period_lower_bound: 1,
+			})
+		} else {
+			None
+		};
 		self
 	}
 	fn build(self) -> sp_io::TestExternalities {
