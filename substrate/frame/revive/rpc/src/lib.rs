@@ -41,6 +41,9 @@ pub use block_info_provider::*;
 mod receipt_provider;
 pub use receipt_provider::*;
 
+mod fee_history_provider;
+pub use fee_history_provider::*;
+
 mod receipt_extractor;
 pub use receipt_extractor::*;
 
@@ -329,7 +332,7 @@ impl EthRpcServer for EthRpcServerImpl {
 			return Ok(None);
 		};
 
-		Ok(Some(TransactionInfo::new(receipt, signed_tx)))
+		Ok(Some(TransactionInfo::new(&receipt, signed_tx)))
 	}
 
 	async fn get_transaction_by_block_number_and_index(
@@ -351,7 +354,7 @@ impl EthRpcServer for EthRpcServerImpl {
 		let receipt = self.client.receipt(&transaction_hash).await;
 		let signed_tx = self.client.signed_tx_by_hash(&transaction_hash).await;
 		if let (Some(receipt), Some(signed_tx)) = (receipt, signed_tx) {
-			return Ok(Some(TransactionInfo::new(receipt, signed_tx)));
+			return Ok(Some(TransactionInfo::new(&receipt, signed_tx)));
 		}
 
 		Ok(None)
@@ -373,5 +376,16 @@ impl EthRpcServer for EthRpcServerImpl {
 		let rustc_version = env!("RUSTC_VERSION");
 		let target = env!("TARGET");
 		Ok(format!("eth-rpc/{git_revision}/{target}/{rustc_version}"))
+	}
+
+	async fn fee_history(
+		&self,
+		block_count: U256,
+		newest_block: BlockNumberOrTag,
+		reward_percentiles: Option<Vec<f64>>,
+	) -> RpcResult<FeeHistoryResult> {
+		let block_count: u32 = block_count.try_into().map_err(|_| EthRpcError::ConversionError)?;
+		let result = self.client.fee_history(block_count, newest_block, reward_percentiles).await?;
+		Ok(result)
 	}
 }

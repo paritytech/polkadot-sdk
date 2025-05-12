@@ -54,6 +54,8 @@ parameter_types! {
 	pub const BaseXcmWeight: Weight = Weight::from_parts(1, 1);
 	pub const MaxInstructions: u32 = 10;
 	pub UniversalLocation: InteriorLocation = [GlobalConsensus(ByGenesis([0; 32])), Parachain(1000)].into();
+	/// Simulate the chain’s existential deposit.
+	pub const ExistentialDeposit: u128 = 2;
 }
 
 /// Test origin.
@@ -130,6 +132,14 @@ impl TransactAsset for TestAssetTransactor {
 		who: &Location,
 		_context: Option<&XcmContext>,
 	) -> Result<(), XcmError> {
+		if let Fungibility::Fungible(amount) = what.fun {
+			// fail if below the configured existential deposit
+			if amount < ExistentialDeposit::get() {
+				return Err(XcmError::FailedToTransactAsset(
+					sp_runtime::TokenError::BelowMinimum.into(),
+				));
+			}
+		}
 		add_asset(who.clone(), what.clone());
 		Ok(())
 	}

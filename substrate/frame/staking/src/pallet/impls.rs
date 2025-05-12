@@ -1361,7 +1361,7 @@ impl<T: Config> Pallet<T> {
 					// Defer to end of some `slash_defer_duration` from now.
 					log!(
 						debug,
-						"deferring slash of {:?}% happened in {:?} (reported in {:?}) to {:?}",
+						"deferring slash of {:?} happened in {:?} (reported in {:?}) to {:?}",
 						slash_fraction,
 						slash_era,
 						active_era,
@@ -2212,6 +2212,11 @@ impl<T: Config> Pallet<T> {
 				.all(|x| <Nominators<T>>::contains_key(&x) || <Validators<T>>::contains_key(&x)),
 			"VoterList contains non-staker"
 		);
+
+		use frame_support::traits::fungible::Inspect;
+		if T::CurrencyToVote::will_downscale(T::Currency::total_issuance()).map_or(false, |x| x) {
+			log!(warn, "total issuance will cause T::CurrencyToVote to downscale -- report to maintainers.")
+		}
 
 		Self::check_ledgers()?;
 		Self::check_bonded_consistency()?;

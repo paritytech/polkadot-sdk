@@ -37,7 +37,6 @@ use subxt::OnlineClient;
 type FetchGasPriceFn = Arc<
 	dyn Fn(H256) -> Pin<Box<dyn Future<Output = Result<U256, ClientError>> + Send>> + Send + Sync,
 >;
-
 /// Utility to extract receipts from extrinsics.
 #[derive(Clone)]
 pub struct ReceiptExtractor {
