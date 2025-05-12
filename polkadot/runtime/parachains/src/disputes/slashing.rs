@@ -102,10 +102,10 @@ impl<const M: u32> BenchmarkingConfiguration for BenchConfig<M> {
 	const MAX_VALIDATORS: u32 = M;
 }
 
-/// An offence that is filed when a series of validators who lost a dispute.
+/// An offence that is filed against the validators that lost a dispute.
 #[derive(TypeInfo)]
 #[cfg_attr(feature = "std", derive(Clone, PartialEq, Eq))]
-pub struct SlashingOffence<KeyOwnerIdentification> {
+pub struct SlashingDisputeOffence<KeyOwnerIdentification> {
 	/// The size of the validator set in that session.
 	pub validator_set_count: ValidatorSetCount,
 	/// Should be unique per dispute.
@@ -120,7 +120,7 @@ pub struct SlashingOffence<KeyOwnerIdentification> {
 	pub kind: DisputeOffenceKind,
 }
 
-impl<Offender> Offence<Offender> for SlashingOffence<Offender>
+impl<Offender> Offence<Offender> for SlashingDisputeOffence<Offender>
 where
 	Offender: Clone,
 {
@@ -149,7 +149,7 @@ where
 	}
 }
 
-impl<KeyOwnerIdentification> SlashingOffence<KeyOwnerIdentification> {
+impl<KeyOwnerIdentification> SlashingDisputeOffence<KeyOwnerIdentification> {
 	fn new(
 		session_index: SessionIndex,
 		candidate_hash: CandidateHash,
@@ -231,7 +231,7 @@ where
 		let maybe_offenders = Self::maybe_identify_validators(session_index, losers.iter().cloned());
 		if let Some(offenders) = maybe_offenders {
 			let validator_set_count = session_info.discovery_keys.len() as ValidatorSetCount;
-			let offence = SlashingOffence::new(
+			let offence = SlashingDisputeOffence::new(
 				session_index,
 				candidate_hash,
 				validator_set_count,
@@ -309,7 +309,7 @@ pub trait HandleReports<T: Config> {
 
 	/// Report an offence.
 	fn report_offence(
-		offence: SlashingOffence<T::KeyOwnerIdentification>,
+		offence: SlashingDisputeOffence<T::KeyOwnerIdentification>,
 	) -> Result<(), OffenceError>;
 
 	/// Returns true if the offenders at the given time slot has already been
@@ -331,7 +331,7 @@ impl<T: Config> HandleReports<T> for () {
 	type ReportLongevity = ();
 
 	fn report_offence(
-		_offence: SlashingOffence<T::KeyOwnerIdentification>,
+		_offence: SlashingDisputeOffence<T::KeyOwnerIdentification>,
 	) -> Result<(), OffenceError> {
 		Ok(())
 	}
@@ -491,7 +491,7 @@ pub mod pallet {
 
 			<UnappliedSlashes<T>>::try_mutate_exists(&session_index, &candidate_hash, try_remove)?;
 
-			let offence = SlashingOffence::new(
+			let offence = SlashingDisputeOffence::new(
 				session_index,
 				candidate_hash,
 				validator_set_count,
@@ -655,14 +655,14 @@ where
 	R: ReportOffence<
 		T::AccountId,
 		T::KeyOwnerIdentification,
-		SlashingOffence<T::KeyOwnerIdentification>,
+		SlashingDisputeOffence<T::KeyOwnerIdentification>,
 	>,
 	L: Get<u64>,
 {
 	type ReportLongevity = L;
 
 	fn report_offence(
-		offence: SlashingOffence<T::KeyOwnerIdentification>,
+		offence: SlashingDisputeOffence<T::KeyOwnerIdentification>,
 	) -> Result<(), OffenceError> {
 		let reporters = Vec::new();
 		R::report_offence(reporters, offence)
@@ -675,7 +675,7 @@ where
 		<R as ReportOffence<
 			T::AccountId,
 			T::KeyOwnerIdentification,
-			SlashingOffence<T::KeyOwnerIdentification>,
+			SlashingDisputeOffence<T::KeyOwnerIdentification>,
 		>>::is_known_offence(offenders, time_slot)
 	}
 
