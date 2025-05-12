@@ -161,7 +161,7 @@ impl EthRpcServer for EthRpcServerImpl {
 		transaction: GenericTransaction,
 		block: Option<BlockNumberOrTagOrHash>,
 	) -> RpcResult<Bytes> {
-		let hash = self.client.block_hash_for_tag(block.unwrap_or_default().into()).await?;
+		let hash = self.client.block_hash_for_tag(block.unwrap_or_default()).await?;
 		let runtime_api = self.client.runtime_api(hash);
 		let dry_run = runtime_api.dry_run(transaction).await?;
 		Ok(dry_run.data.into())
