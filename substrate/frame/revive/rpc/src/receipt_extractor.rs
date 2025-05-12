@@ -37,7 +37,6 @@ use subxt::OnlineClient;
 type FetchGasPriceFn = Arc<
 	dyn Fn(H256) -> Pin<Box<dyn Future<Output = Result<U256, ClientError>> + Send>> + Send + Sync,
 >;
-
 /// Utility to extract receipts from extrinsics.
 #[derive(Clone)]
 pub struct ReceiptExtractor {
@@ -60,7 +59,7 @@ async fn native_to_eth_ratio(api: &OnlineClient<SrcChainConfig>) -> Result<u32, 
 impl ReceiptExtractor {
 	/// Check if the block is before the earliest block.
 	pub fn is_before_earliest_block(&self, block_number: SubstrateBlockNumber) -> bool {
-		return block_number < self.earliest_receipt_block.unwrap_or_default();
+		block_number < self.earliest_receipt_block.unwrap_or_default()
 	}
 
 	/// Create a new `ReceiptExtractor` with the given native to eth ratio.

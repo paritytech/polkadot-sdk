@@ -44,8 +44,8 @@ pub mod weights;
 
 use crate::{
 	evm::{
-		runtime::GAS_PRICE, CallTracer, GasEncoder, GenericTransaction, PrestateTracer, Trace,
-		Tracer, TracerType, TYPE_EIP1559,
+		runtime::GAS_PRICE, CallTracer, GasEncoder, GenericTransaction, Trace, Tracer, TracerType,
+		TYPE_EIP1559,
 	},
 	exec::{AccountIdOf, ExecError, Executable, Key, Stack as ExecStack},
 	gas::GasMeter,
@@ -1408,7 +1408,8 @@ where
 		GAS_PRICE.into()
 	}
 
-	pub fn evm_tracer(tracer_type: TracerType) -> Tracer<T> {
+	/// Build an EVM tracer from the given tracer type.
+	pub fn evm_tracer(tracer_type: TracerType) -> Tracer {
 		match tracer_type {
 			TracerType::CallTracer(config) => CallTracer::new(
 				config.unwrap_or_default(),
@@ -1639,9 +1640,6 @@ sp_api::decl_runtime_apis! {
 
 		/// The address of the validator that produced the current block.
 		fn coinbase() -> Option<H160>;
-
-		/// Get the address of the given AccountID32
-		fn to_address(account: [u8; 32]) -> H160;
 
 	}
 }

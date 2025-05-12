@@ -18,13 +18,13 @@
 //! and is used by the rpc server to query and send transactions to the substrate chain.
 
 use crate::{
-    client::{Balance, Config},
-    subxt_client::{self, SrcChainConfig},
-    ClientError, TracerConfig, H256, LOG_TARGET,
+	client::Balance,
+	subxt_client::{self, SrcChainConfig},
+	ClientError, LOG_TARGET,
 };
 use pallet_revive::{
-    evm::{GenericTransaction, Trace, H160, U256},
-    EthTransactInfo,
+	evm::{GenericTransaction, Trace, H160, U256},
+	EthTransactInfo,
 };
 use subxt::OnlineClient;
 
@@ -33,121 +33,118 @@ use subxt::OnlineClient;
 pub struct RuntimeApi(subxt::runtime_api::RuntimeApi<SrcChainConfig, OnlineClient<SrcChainConfig>>);
 
 impl RuntimeApi {
-    pub fn new(
-        api: subxt::runtime_api::RuntimeApi<SrcChainConfig, OnlineClient<SrcChainConfig>>,
-    ) -> Self {
-        Self(api)
-    }
+	/// Create a ne instance.
+	pub fn new(
+		api: subxt::runtime_api::RuntimeApi<SrcChainConfig, OnlineClient<SrcChainConfig>>,
+	) -> Self {
+		Self(api)
+	}
 
-    pub async fn to_address(&self, account_id: [u8; 32]) -> Result<H160, ClientError> {
-        let payload = subxt_client::apis().revive_api().to_address(account_id);
-        let address = self.0.call(payload).await?.0;
-        Ok(address.into())
-    }
+	/// Get the balance of the given address.
+	pub async fn balance(&self, address: H160) -> Result<U256, ClientError> {
+		let address = address.0.into();
+		let payload = subxt_client::apis().revive_api().balance(address);
+		let balance = self.0.call(payload).await?;
+		Ok(*balance)
+	}
 
-    /// Get the balance of the given address.
-    pub async fn balance(&self, address: H160) -> Result<U256, ClientError> {
-        let address = address.0.into();
-        let payload = subxt_client::apis().revive_api().balance(address);
-        let balance = self.0.call(payload).await?;
-        Ok(*balance)
-    }
+	/// Get the contract storage for the given contract address and key.
+	pub async fn get_storage(
+		&self,
+		contract_address: H160,
+		key: [u8; 32],
+	) -> Result<Option<Vec<u8>>, ClientError> {
+		let contract_address = contract_address.0.into();
+		let payload = subxt_client::apis().revive_api().get_storage(contract_address, key);
+		let result = self.0.call(payload).await?.map_err(|_| ClientError::ContractNotFound)?;
+		Ok(result)
+	}
 
-    /// Get the contract storage for the given contract address and key.
-    pub async fn get_storage(
-        &self,
-        contract_address: H160,
-        key: [u8; 32],
-    ) -> Result<Option<Vec<u8>>, ClientError> {
-        let contract_address = contract_address.0.into();
-        let payload = subxt_client::apis().revive_api().get_storage(contract_address, key);
-        let result = self.0.call(payload).await?.map_err(|err| ClientError::ContractNotFound)?;
-        Ok(result)
-    }
+	/// Dry run a transaction and returns the [`EthTransactInfo`] for the transaction.
+	pub async fn dry_run(
+		&self,
+		tx: GenericTransaction,
+	) -> Result<EthTransactInfo<Balance>, ClientError> {
+		let payload = subxt_client::apis().revive_api().eth_transact(tx.into());
+		let result = self.0.call(payload).await?;
+		match result {
+			Err(err) => {
+				log::debug!(target: LOG_TARGET, "Dry run failed {err:?}");
+				Err(ClientError::TransactError(err.0))
+			},
+			Ok(result) => Ok(result.0),
+		}
+	}
 
-    /// Dry run a transaction and returns the [`EthTransactInfo`] for the transaction.
-    pub async fn dry_run(
-        &self,
-        tx: GenericTransaction,
-    ) -> Result<EthTransactInfo<Balance>, ClientError> {
-        let payload = subxt_client::apis().revive_api().eth_transact(tx.into());
-        let result = self.0.call(payload).await?;
-        match result {
-            Err(err) => {
-                log::debug!(target: LOG_TARGET, "Dry run failed {err:?}");
-                Err(ClientError::TransactError(err.0))
-            }
-            Ok(result) => Ok(result.0),
-        }
-    }
+	/// Get the nonce of the given address.
+	pub async fn nonce(&self, address: H160) -> Result<U256, ClientError> {
+		let address = address.0.into();
+		let payload = subxt_client::apis().revive_api().nonce(address);
+		let nonce = self.0.call(payload).await?;
+		Ok(nonce.into())
+	}
 
-    /// Get the nonce of the given address.
-    pub async fn nonce(&self, address: H160) -> Result<U256, ClientError> {
-        let address = address.0.into();
-        let payload = subxt_client::apis().revive_api().nonce(address);
-        let nonce = self.0.call(payload).await?;
-        Ok(nonce.into())
-    }
+	/// Get the gas price
+	pub async fn gas_price(&self) -> Result<U256, ClientError> {
+		let payload = subxt_client::apis().revive_api().gas_price();
+		let gas_price = self.0.call(payload).await?;
+		Ok(*gas_price)
+	}
 
-    pub async fn gas_price(&self) -> Result<U256, ClientError> {
-        let payload = subxt_client::apis().revive_api().gas_price();
-        let gas_price = self.0.call(payload).await?;
-        Ok(*gas_price)
-    }
+	/// Convert a weight to a fee.
+	pub async fn block_gas_limit(&self) -> Result<U256, ClientError> {
+		let payload = subxt_client::apis().revive_api().block_gas_limit();
+		let gas_limit = self.0.call(payload).await?;
+		Ok(*gas_limit)
+	}
 
-    /// Convert a weight to a fee.
-    pub async fn block_gas_limit(&self) -> Result<U256, ClientError> {
-        let payload = subxt_client::apis().revive_api().block_gas_limit();
-        let gas_limit = self.0.call(payload).await?;
-        Ok(*gas_limit)
-    }
+	/// Get the trace for the given transaction index in the given block.
+	pub async fn trace_tx(
+		&self,
+		block: sp_runtime::generic::Block<
+			sp_runtime::generic::Header<u32, sp_runtime::traits::BlakeTwo256>,
+			sp_runtime::OpaqueExtrinsic,
+		>,
+		transaction_index: u32,
+		tracer_type: crate::TracerType,
+	) -> Result<Trace, ClientError> {
+		let payload = subxt_client::apis().revive_api().trace_tx(
+			block.into(),
+			transaction_index,
+			tracer_type.into(),
+		);
 
-    /// Get the trace for the given transaction index in the given block.
-    pub async fn trace_tx(
-        &self,
-        block: sp_runtime::generic::Block<
-            sp_runtime::generic::Header<u32, sp_runtime::traits::BlakeTwo256>,
-            sp_runtime::OpaqueExtrinsic,
-        >,
-        transaction_index: u32,
-        tracer_type: crate::TracerType,
-    ) -> Result<Trace, ClientError> {
-        let payload = subxt_client::apis().revive_api().trace_tx(
-            block.into(),
-            transaction_index,
-            tracer_type.into(),
-        );
+		let trace = self.0.call(payload).await?.ok_or(ClientError::EthExtrinsicNotFound)?.0;
+		Ok(trace)
+	}
 
-        let trace = self.0.call(payload).await?.ok_or(ClientError::EthExtrinsicNotFound)?.0;
-        Ok(trace)
-    }
+	/// Get the trace for the given block.
+	pub async fn trace_block(
+		&self,
+		block: sp_runtime::generic::Block<
+			sp_runtime::generic::Header<u32, sp_runtime::traits::BlakeTwo256>,
+			sp_runtime::OpaqueExtrinsic,
+		>,
+		tracer_type: crate::TracerType,
+	) -> Result<Vec<(u32, Trace)>, ClientError> {
+		let payload =
+			subxt_client::apis().revive_api().trace_block(block.into(), tracer_type.into());
 
-    /// Get the trace for the given block.
-    pub async fn trace_block(
-        &self,
-        block: sp_runtime::generic::Block<
-            sp_runtime::generic::Header<u32, sp_runtime::traits::BlakeTwo256>,
-            sp_runtime::OpaqueExtrinsic,
-        >,
-        tracer_type: crate::TracerType,
-    ) -> Result<Vec<(u32, Trace)>, ClientError> {
-        let payload =
-            subxt_client::apis().revive_api().trace_block(block.into(), tracer_type.into());
+		let traces = self.0.call(payload).await?.into_iter().map(|(idx, t)| (idx, t.0)).collect();
+		Ok(traces)
+	}
 
-        let traces = self.0.call(payload).await?.into_iter().map(|(idx, t)| (idx, t.0)).collect();
-        Ok(traces)
-    }
+	/// Get the trace for the given call.
+	pub async fn trace_call(
+		&self,
+		transaction: GenericTransaction,
+		tracer_type: crate::TracerType,
+	) -> Result<Trace, ClientError> {
+		let payload = subxt_client::apis()
+			.revive_api()
+			.trace_call(transaction.into(), tracer_type.into());
 
-    /// Get the trace for the given call.
-    pub async fn trace_call(
-        &self,
-        transaction: GenericTransaction,
-        tracer_type: crate::TracerType,
-    ) -> Result<Trace, ClientError> {
-        let payload =
-            subxt_client::apis().revive_api().trace_call(transaction.into(), tracer_type.into());
-
-        let trace = self.0.call(payload).await?.map_err(|err| ClientError::TransactError(err.0))?;
-        Ok(trace.0)
-    }
+		let trace = self.0.call(payload).await?.map_err(|err| ClientError::TransactError(err.0))?;
+		Ok(trace.0)
+	}
 }

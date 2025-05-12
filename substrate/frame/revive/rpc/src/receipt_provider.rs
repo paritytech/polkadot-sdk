@@ -108,10 +108,10 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 		log::debug!(target: LOG_TARGET, "Removing block hashes: {block_hashes:?}");
 
 		let placeholders = vec!["?"; block_hashes.len()].join(", ");
-		let sql = format!("DELETE FROM transaction_hashes WHERE block_hash in ({})", placeholders);
+		let sql = format!("DELETE FROM transaction_hashes WHERE block_hash in ({placeholders})");
 		let mut delete_tx_query = sqlx::query(&sql);
 
-		let sql = format!("DELETE FROM logs WHERE block_hash in ({})", placeholders);
+		let sql = format!("DELETE FROM logs WHERE block_hash in ({placeholders})");
 		let mut delete_logs_query = sqlx::query(&sql);
 
 		for block_hash in block_hashes {
@@ -143,9 +143,13 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 	}
 
 	/// Extract and insert receipts from the given block.
-	pub async fn insert_block_receipts(&self, block: &SubstrateBlock) -> Result<(), ClientError> {
+	pub async fn insert_block_receipts(
+		&self,
+		block: &SubstrateBlock,
+	) -> Result<Vec<(TransactionSigned, ReceiptInfo)>, ClientError> {
 		let receipts = self.receipts_from_block(block).await?;
-		self.insert(block, &receipts).await
+		self.insert(block, &receipts).await?;
+		Ok(receipts)
 	}
 
 	/// Insert receipts into the provider.
