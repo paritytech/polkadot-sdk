@@ -85,7 +85,6 @@ fn staking_async_parachain_genesis(params: GenesisParams) -> serde_json::Value {
 				min_slashable_share: Perbill::from_percent(50),
 				lowest_ratio: Perbill::from_percent(34),
 				unbond_period_lower_bound: 0,
-				back_of_unbonding_queue: 0,
 			}),
 			..Default::default()
 		}
