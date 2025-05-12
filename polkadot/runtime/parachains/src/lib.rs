@@ -57,25 +57,64 @@ extern crate alloc;
 pub use origin::{ensure_parachain, Origin};
 pub use paras::{ParaLifecycle, UpgradeStrategy};
 use polkadot_primitives::{HeadData, Id as ParaId, ValidationCode};
+use sp_arithmetic::traits::Saturating;
 use sp_runtime::{DispatchResult, FixedU128};
 
 /// Trait for tracking message delivery fees on a transport protocol.
 pub trait FeeTracker {
 	/// Type used for assigning different fee factors to different destinations
-	type Id;
-	/// Returns the evolving exponential fee factor which will be used to calculate the delivery
-	/// fees.
+	type Id: Copy;
+
+	/// The factor that is used to increase the current message fee factor when the transport
+	/// protocol is experiencing some lags.
+	const EXPONENTIAL_FEE_BASE: FixedU128 = FixedU128::from_rational(105, 100); // 1.05
+	/// The factor that is used to increase the current message fee factor for every sent kilobyte.
+	const MESSAGE_SIZE_FEE_BASE: FixedU128 = FixedU128::from_rational(1, 1000); // 0.001
+
+	fn get_min_fee_factor() -> FixedU128;
+
+	/// Returns the current message fee factor.
 	fn get_fee_factor(id: Self::Id) -> FixedU128;
+
+	/// Sets the current message fee factor.
+	fn set_fee_factor(id: Self::Id, val: FixedU128);
+
+	fn do_increase_fee_factor(fee_factor: &mut FixedU128, message_size: u128) {
+		let message_size_factor = FixedU128::from(message_size.saturating_div(1024))
+			.saturating_mul(Self::MESSAGE_SIZE_FEE_BASE);
+		*fee_factor = fee_factor
+			.saturating_mul(Self::EXPONENTIAL_FEE_BASE.saturating_add(message_size_factor));
+	}
+
 	/// Increases the delivery fee factor by a factor based on message size and records the result.
-	///
-	/// Returns the new delivery fee factor after the increase.
-	fn increase_fee_factor(id: Self::Id, message_size_factor: FixedU128) -> FixedU128;
+	fn increase_fee_factor(id: Self::Id, message_size: u128) {
+		let mut fee_factor = Self::get_fee_factor(id);
+		Self::do_increase_fee_factor(&mut fee_factor, message_size);
+		Self::set_fee_factor(id, fee_factor);
+	}
+
+	fn do_decrease_fee_factor(fee_factor: &mut FixedU128) -> bool {
+		let min_fee_factor = Self::get_min_fee_factor();
+
+		if *fee_factor == min_fee_factor {
+			return false;
+		}
+
+		*fee_factor = min_fee_factor.max(*fee_factor / Self::EXPONENTIAL_FEE_BASE);
+		true
+	}
+
 	/// Decreases the delivery fee factor by a constant factor and records the result.
 	///
 	/// Does not reduce the fee factor below the initial value, which is currently set as 1.
 	///
-	/// Returns the new delivery fee factor after the decrease.
-	fn decrease_fee_factor(id: Self::Id) -> FixedU128;
+	/// Returns `true` if the fee factor was actually decreased, `false` otherwise.
+	fn decrease_fee_factor(id: Self::Id) -> bool {
+		let mut fee_factor = Self::get_fee_factor(id);
+		let res = Self::do_decrease_fee_factor(&mut fee_factor);
+		Self::set_fee_factor(id, fee_factor);
+		res
+	}
 }
 
 /// Schedule a para to be initialized at the start of the next session with the given genesis data.
