@@ -63,43 +63,43 @@ where
 			target: "xcm::transactor::erc20::withdraw",
 			?what, ?who,
 		);
-		let checking_account_eth = T::AddressMapper::to_address(&T::CheckingAccount::get());
-		let checking_address = Address::from(Into::<[u8; 20]>::into(checking_account_eth));
+		let (asset_id, amount) = Matcher::matches_fungibles(what)?;
 		let who = AccountIdConverter::convert_location(who)
 			.ok_or(MatchError::AccountIdConversionFailed)?;
-		let (asset_id, amount) = Matcher::matches_fungibles(what)?;
+		let checking_account_eth = T::AddressMapper::to_address(&T::CheckingAccount::get());
+		let checking_address = Address::from(Into::<[u8; 20]>::into(checking_account_eth));
+		let gas_limit = GasLimit::get();
 		let data = IERC20::transferCall { to: checking_address, value: EU256::from(amount) }.abi_encode();
 		let ContractResult { result, gas_consumed, .. } = pallet_revive::Pallet::<T>::bare_call(
 			T::RuntimeOrigin::signed(who.clone()),
 			asset_id,
 			BalanceOf::<T>::zero(),
-			GasLimit::get(),
+			gas_limit,
 			DepositLimit::Unchecked,
 			data,
 		);
-		tracing::trace!(target: "xcm::transactor::erc20::withdraw", ?gas_consumed, "Gas consumed by withdraw_asset");
 		// We need to return this surplus for the executor to allow refunding it.
-		let surplus = GasLimit::get().saturating_sub(gas_consumed);
-		tracing::trace!(target: "xcm::transactor::erc20::withdraw", ?surplus, "GasLimit - gas_consumed");
+		let surplus = gas_limit.saturating_sub(gas_consumed);
+		tracing::trace!(target: "xcm::transactor::erc20::withdraw", ?gas_consumed, ?surplus, "Gas consumed");
 		if let Ok(return_value) = result {
 			tracing::trace!(target: "xcm::transactor::erc20::withdraw", ?return_value, "Return value by withdraw_asset");
 			if return_value.did_revert() {
-				tracing::error!(target: "xcm::transactor::erc20::withdraw", "ERC20 contract reverted");
+				tracing::debug!(target: "xcm::transactor::erc20::withdraw", "ERC20 contract reverted");
 				Err(XcmError::FailedToTransactAsset("ERC20 contract reverted"))
 			} else {
 				let is_success = bool::abi_decode(&return_value.data, false).map_err(|error| {
-					tracing::error!(target: "xcm::transactor::erc20::withdraw", "ERC20 contract result couldn't decode");
-					Err(XcmError::FailedToTransactAsset("ERC20 contract result couldn't decode"))
+					tracing::debug!(target: "xcm::transactor::erc20::withdraw", ?error, "ERC20 contract result couldn't decode");
+					XcmError::FailedToTransactAsset("ERC20 contract result couldn't decode")
 				})?;
 				if is_success {
 					Ok((what.clone().into(), surplus))
 				} else {
-					tracing::error!(target: "xcm::transactor::erc20::withdraw", "ERC20 contract transfer failed");
+					tracing::debug!(target: "xcm::transactor::erc20::withdraw", "contract transfer failed");
 					Err(XcmError::FailedToTransactAsset("ERC20 contract transfer failed"))
 				}
 			}
 		} else {
-			tracing::error!(target: "xcm::transactor::erc20::withdraw", ?result, "An error occured in ERC20Transactor::withdraw_asset");
+			tracing::debug!(target: "xcm::transactor::erc20::withdraw", ?result, "Error");
 			// This error could've been duplicate smart contract, out of gas, etc.
 			// If the issue is gas, there's nothing the user can change in the XCM
 			// that will make this work since there's a hardcoded gas limit.
@@ -116,43 +116,43 @@ where
 			target: "xcm::transactor::erc20::deposit",
 			?what, ?who,
 		);
+		let (asset_id, amount) = Matcher::matches_fungibles(what)?;
 		let who = AccountIdConverter::convert_location(who)
 			.ok_or(MatchError::AccountIdConversionFailed)?;
 		let eth_address = T::AddressMapper::to_address(&who);
 		let address = Address::from(Into::<[u8; 20]>::into(eth_address));
-		let (asset_id, amount) = Matcher::matches_fungibles(what)?;
 		let data = IERC20::transferCall { to: address, value: EU256::from(amount) }.abi_encode();
+		let gas_limit = GasLimit::get();
 		let ContractResult { result, gas_consumed, .. } = pallet_revive::Pallet::<T>::bare_call(
 			T::RuntimeOrigin::signed(T::CheckingAccount::get()),
 			asset_id,
 			BalanceOf::<T>::zero(),
-			GasLimit::get(),
+			gas_limit,
 			DepositLimit::Unchecked,
 			data,
 		);
-		tracing::trace!(target: "xcm::transactor::erc20::deposit", ?gas_consumed, "Gas consumed");
 		// We need to return this surplus for the executor to allow refunding it.
-		let surplus = GasLimit::get().saturating_sub(gas_consumed);
-		tracing::trace!(target: "xcm::transactor::erc20::deposit", ?surplus, "GasLimit - gas_consumed");
+		let surplus = gas_limit.saturating_sub(gas_consumed);
+		tracing::trace!(target: "xcm::transactor::erc20::deposit", ?gas_consumed, ?surplus, "Gas consumed");
 		if let Ok(return_value) = result {
 			tracing::trace!(target: "xcm::transactor::erc20::deposit", ?return_value, "Return value");
 			if return_value.did_revert() {
-				tracing::error!(target: "xcm::transactor::erc20::deposit", "Contract reverted");
+				tracing::debug!(target: "xcm::transactor::erc20::deposit", "Contract reverted");
 				Err(XcmError::FailedToTransactAsset("ERC20 contract reverted"))
 			} else {
 				let is_success = bool::abi_decode(&return_value.data, false).map_err(|error| {
-					tracing::error!(target: "xcm::transactor::erc20::deposit", "ERC20 contract result couldn't decode");
-					Err(XcmError::FailedToTransactAsset("ERC20 contract result couldn't decode"))
+					tracing::debug!(target: "xcm::transactor::erc20::deposit", ?error, "ERC20 contract result couldn't decode");
+					XcmError::FailedToTransactAsset("ERC20 contract result couldn't decode")
 				})?;
 				if is_success {
 					Ok(surplus)
 				} else {
-					tracing::error!(target: "xcm::transactor::erc20::deposit", "Transfer failed");
+					tracing::debug!(target: "xcm::transactor::erc20::deposit", "contract transfer failed");
 					Err(XcmError::FailedToTransactAsset("ERC20 contract transfer failed"))
 				}
 			}
 		} else {
-			tracing::error!(target: "xcm::transactor::erc20::deposit", ?result, "An error occured");
+			tracing::debug!(target: "xcm::transactor::erc20::deposit", ?result, "Error");
 			// This error could've been duplicate smart contract, out of gas, etc.
 			// If the issue is gas, there's nothing the user can change in the XCM
 			// that will make this work since there's a hardcoded gas limit.

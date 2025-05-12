@@ -1530,7 +1530,7 @@ fn withdraw_and_deposit_erc20s() {
 		));
 
 		// Taken from running the test.
-		let refunded_amount = 905_979_000_000;
+		let refunded_amount = 926_576_000_000;
 
 		// Revive is not taking any fees.
 		let sender_balance_after = <Balances as fungible::Inspect<_>>::balance(&sender);

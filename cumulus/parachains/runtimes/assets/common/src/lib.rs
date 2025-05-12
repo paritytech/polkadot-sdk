@@ -137,8 +137,17 @@ impl Contains<Location> for IsAccountKey20 {
 	}
 }
 
-/// Fallible converter from a location to a `H160` that matches only if
-/// the location has no parents and only an `AccountKey20` junction.
+/// `Contains<Location>` implementation that matches locations with no parents,
+/// a `PalletInstance` and an `AccountKey20` junction.
+pub struct IsLocalAccountKey20;
+impl Contains<Location> for IsLocalAccountKey20 {
+	fn contains(location: &Location) -> bool {
+		matches!(location.unpack(), (0, [AccountKey20 { .. }]))
+	}
+}
+
+/// Fallible converter from a location to a `H160` that matches any location ending with
+/// an `AccountKey20` junction.
 pub struct AccountKey20ToH160;
 impl MaybeEquivalence<Location, H160> for AccountKey20ToH160 {
 	fn convert(location: &Location) -> Option<H160> {
@@ -157,8 +166,8 @@ impl MaybeEquivalence<Location, H160> for AccountKey20ToH160 {
 /// ERC20 tokens.
 pub type ERC20Matcher = MatchedConvertedConcreteId<
 	H160,
-	u128, // TODO: Do we do u128 for ERC20s?
-	IsAccountKey20,
+	u128,
+	IsLocalAccountKey20,
 	AccountKey20ToH160,
 	JustTry,
 >;

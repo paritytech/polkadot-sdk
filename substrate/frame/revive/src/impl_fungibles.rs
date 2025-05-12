@@ -28,7 +28,6 @@ use frame_support::traits::tokens::{
 	fungibles, DepositConsequence, Fortitude, Precision, Preservation, Provenance,
 	WithdrawConsequence,
 };
-use pallet_revive_uapi::ReturnFlags;
 use sp_core::U256;
 
 use super::*;
@@ -170,7 +169,7 @@ where
 				let is_success =
 					bool::abi_decode(&return_value.data, false).expect("Failed to ABI decode");
 				if is_success {
-					let balance = Self::balance(asset_id, who);
+					let balance = <Self as fungibles::Inspect<_>>::balance(asset_id, who);
 					Ok(balance)
 				} else {
 					Err("Contract transfer failed".into())
@@ -204,7 +203,7 @@ where
 				let is_success =
 					bool::abi_decode(&return_value.data, false).expect("Failed to ABI decode");
 				if is_success {
-					let balance = Self::balance(asset_id, who);
+					let balance = <Self as fungibles::Inspect<_>>::balance(asset_id, who);
 					Ok(balance)
 				} else {
 					Err("Contract transfer failed".into())
