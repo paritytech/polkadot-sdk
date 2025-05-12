@@ -298,8 +298,11 @@ impl<Hash: hash::Hash + Member + Serialize, Ex> ReadyTransactions<Hash, Ex> {
 				// remove from unlocks
 				for tag in &tx.transaction.transaction.requires {
 					if let Some(hash) = self.provided_tags.get(tag) {
-						if let Some(tx) = ready.get_mut(hash) {
-							remove_item(&mut tx.unlocks, hash);
+						if let Some(tx_unlocking) = ready.get_mut(hash) {
+							remove_item(
+								&mut tx_unlocking.unlocks,
+								&tx.transaction.transaction.hash,
+							);
 						}
 					}
 				}
