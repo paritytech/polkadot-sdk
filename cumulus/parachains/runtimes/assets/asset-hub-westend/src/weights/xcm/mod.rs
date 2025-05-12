@@ -16,9 +16,12 @@
 mod pallet_xcm_benchmarks_fungible;
 mod pallet_xcm_benchmarks_generic;
 
-use crate::{xcm_config::{ERC20TransferGasLimit, MaxAssetsIntoHolding}, Runtime};
-use assets_common::IsAccountKey20;
+use crate::{
+	xcm_config::{ERC20TransferGasLimit, MaxAssetsIntoHolding},
+	Runtime,
+};
 use alloc::vec::Vec;
+use assets_common::IsAccountKey20;
 use frame_support::{traits::Contains, weights::Weight};
 use pallet_xcm_benchmarks_fungible::WeightInfo as XcmFungibleWeight;
 use pallet_xcm_benchmarks_generic::WeightInfo as XcmGeneric;

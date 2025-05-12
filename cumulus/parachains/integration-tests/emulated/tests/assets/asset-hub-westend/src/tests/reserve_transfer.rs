@@ -1507,8 +1507,7 @@ fn withdraw_and_deposit_erc20s() {
 			unreachable!("contract should initialize")
 		};
 
-		let sender_balance_before =
-			<Balances as fungible::Inspect<_>>::balance(&sender);
+		let sender_balance_before = <Balances as fungible::Inspect<_>>::balance(&sender);
 
 		let erc20_transfer_amount = 100u128;
 		let wnd_amount_for_fees = 1_000_000_000_000u128;
@@ -1534,9 +1533,11 @@ fn withdraw_and_deposit_erc20s() {
 		let refunded_amount = 900_289_000_000;
 
 		// Revive is not taking any fees.
-		let sender_balance_after =
-			<Balances as fungible::Inspect<_>>::balance(&sender);
-		assert_eq!(sender_balance_after, sender_balance_before - wnd_amount_for_fees + refunded_amount);
+		let sender_balance_after = <Balances as fungible::Inspect<_>>::balance(&sender);
+		assert_eq!(
+			sender_balance_after,
+			sender_balance_before - wnd_amount_for_fees + refunded_amount
+		);
 
 		// Beneficiary receives the ERC20.
 		let beneficiary_amount =

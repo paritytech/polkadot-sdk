@@ -4,13 +4,19 @@ use alloy_core::{
 	sol_types::*,
 };
 use core::marker::PhantomData;
-use frame_support::{pallet_prelude::Zero, traits::{OriginTrait, fungible::Inspect}};
+use frame_support::{
+	pallet_prelude::Zero,
+	traits::{fungible::Inspect, OriginTrait},
+};
 use pallet_revive::{AddressMapper, ContractResult, DepositLimit, MomentOf};
 use pallet_revive_uapi::ReturnFlags;
 use sp_core::{Get, H160, H256, U256};
 use sp_runtime::Weight;
-use xcm_executor::{AssetsInHolding, traits::{MatchesFungibles, TransactAsset, Error as MatchError, ConvertLocation}};
 use xcm::latest::prelude::*;
+use xcm_executor::{
+	traits::{ConvertLocation, Error as MatchError, MatchesFungibles, TransactAsset},
+	AssetsInHolding,
+};
 
 // ERC20 interface.
 sol! {
@@ -19,21 +25,25 @@ sol! {
 	function transfer(address to, uint256 value) public virtual returns (bool);
 }
 
-type BalanceOf<T> = <<T as pallet_revive::Config>::Currency as Inspect<<T as frame_system::Config>::AccountId>>::Balance;
+type BalanceOf<T> = <<T as pallet_revive::Config>::Currency as Inspect<
+	<T as frame_system::Config>::AccountId,
+>>::Balance;
 
-pub struct ERC20Transactor<T, Matcher, AccountIdConverter, GasLimit, AccountId>(PhantomData<(T, Matcher, AccountIdConverter, GasLimit, AccountId)>);
+pub struct ERC20Transactor<T, Matcher, AccountIdConverter, GasLimit, AccountId>(
+	PhantomData<(T, Matcher, AccountIdConverter, GasLimit, AccountId)>,
+);
 
 impl<
-	AccountId: Eq + Clone,
-	T: pallet_revive::Config<AccountId = AccountId>,
-	AccountIdConverter: ConvertLocation<AccountId>,
-	Matcher: MatchesFungibles<H160, u128>,
-	GasLimit: Get<Weight>,
-> TransactAsset for ERC20Transactor<T, Matcher, AccountIdConverter, GasLimit, AccountId>
+		AccountId: Eq + Clone,
+		T: pallet_revive::Config<AccountId = AccountId>,
+		AccountIdConverter: ConvertLocation<AccountId>,
+		Matcher: MatchesFungibles<H160, u128>,
+		GasLimit: Get<Weight>,
+	> TransactAsset for ERC20Transactor<T, Matcher, AccountIdConverter, GasLimit, AccountId>
 where
 	BalanceOf<T>: Into<U256> + TryFrom<U256>,
 	MomentOf<T>: Into<U256>,
-	T::Hash: frame_support::traits::IsType<H256>
+	T::Hash: frame_support::traits::IsType<H256>,
 {
 	fn can_check_in(_origin: &Location, _what: &Asset, _context: &XcmContext) -> XcmResult {
 		// TODO.

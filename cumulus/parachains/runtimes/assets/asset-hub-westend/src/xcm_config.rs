@@ -220,7 +220,7 @@ pub type ERC20Transactor = assets_common::ERC20Transactor<
 	assets_common::ERC20Matcher,
 	LocationToAccountId,
 	ERC20TransferGasLimit,
-	AccountId
+	AccountId,
 >;
 
 /// Means for transacting assets on this chain.

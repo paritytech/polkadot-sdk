@@ -87,7 +87,11 @@ pub trait TransactAsset {
 	///
 	/// Return the difference between the worst-case weight and the actual weight consumed.
 	/// This can be zero most of the time unless there's some metering involved.
-	fn deposit_asset_with_surplus(what: &Asset, who: &Location, context: Option<&XcmContext>) -> Result<Weight, XcmError> {
+	fn deposit_asset_with_surplus(
+		what: &Asset,
+		who: &Location,
+		context: Option<&XcmContext>,
+	) -> Result<Weight, XcmError> {
 		let result = Self::deposit_asset(what, who, context);
 		result.map(|()| Weight::zero())
 	}
@@ -189,7 +193,8 @@ pub trait TransactAsset {
 	) -> Result<(AssetsInHolding, Weight), XcmError> {
 		match Self::internal_transfer_asset_with_surplus(asset, from, to, context) {
 			Err(XcmError::AssetNotFound | XcmError::Unimplemented) => {
-				let (assets, withdraw_surplus) = Self::withdraw_asset_with_surplus(asset, from, Some(context))?;
+				let (assets, withdraw_surplus) =
+					Self::withdraw_asset_with_surplus(asset, from, Some(context))?;
 				// Not a very forgiving attitude; once we implement roll-backs then it'll be nicer.
 				let deposit_surplus = Self::deposit_asset_with_surplus(asset, to, Some(context))?;
 				let total_surplus = withdraw_surplus.saturating_add(deposit_surplus);
@@ -265,7 +270,11 @@ impl TransactAsset for Tuple {
 		Err(XcmError::AssetNotFound)
 	}
 
-	fn deposit_asset_with_surplus(what: &Asset, who: &Location, context: Option<&XcmContext>) -> Result<Weight, XcmError> {
+	fn deposit_asset_with_surplus(
+		what: &Asset,
+		who: &Location,
+		context: Option<&XcmContext>,
+	) -> Result<Weight, XcmError> {
 		for_tuples!( #(
 			match Tuple::deposit_asset_with_surplus(what, who, context) {
 				Err(XcmError::AssetNotFound) | Err(XcmError::Unimplemented) => (),

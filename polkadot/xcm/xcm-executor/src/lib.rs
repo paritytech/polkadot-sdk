@@ -1775,7 +1775,8 @@ impl<Config: config::Config> XcmExecutor<Config> {
 		let mut failed_deposits = Vec::with_capacity(to_deposit.len());
 
 		for asset in to_deposit.assets_iter() {
-			let deposit_result = Config::AssetTransactor::deposit_asset_with_surplus(&asset, &beneficiary, context);
+			let deposit_result =
+				Config::AssetTransactor::deposit_asset_with_surplus(&asset, &beneficiary, context);
 			// if deposit failed for asset, mark it for retry after depositing the others.
 			if deposit_result.is_err() {
 				failed_deposits.push(asset);
@@ -1791,7 +1792,8 @@ impl<Config: config::Config> XcmExecutor<Config> {
 		let mut total_surplus = Weight::zero();
 		// retry previously failed deposits, this time short-circuiting on any error.
 		for asset in failed_deposits {
-			let result = Config::AssetTransactor::deposit_asset_with_surplus(&asset, &beneficiary, context);
+			let result =
+				Config::AssetTransactor::deposit_asset_with_surplus(&asset, &beneficiary, context);
 
 			match result {
 				Ok(surplus) => {
