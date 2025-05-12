@@ -151,6 +151,8 @@ impl InspectMessageQueues for TestXcmSender {
 	}
 }
 
+// TODO: To be removed
+#[allow(dead_code)]
 pub(crate) fn fake_message_hash<Call>(message: &Xcm<Call>) -> XcmHash {
 	message.using_encoded(sp_io::hashing::blake2_256)
 }
