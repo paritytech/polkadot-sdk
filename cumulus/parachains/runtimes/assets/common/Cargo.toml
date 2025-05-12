@@ -54,6 +54,7 @@ std = [
 	"parachains-common/std",
 	"scale-info/std",
 	"sp-api/std",
+	"sp-core/std",
 	"sp-runtime/std",
 	"tracing/std",
 	"xcm-builder/std",
