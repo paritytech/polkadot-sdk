@@ -21,14 +21,14 @@
 //! 
 //! A dispute should always result in a slashing offence. There are 3 possible
 //! slash types:
-//! - `BackedInvalid`: A major offence when a validator backed an
+//! - `ForInvalidBacked`: A major offence when a validator backed an
 //! invalid block. Main source of economic security.
-//! - `ForInvalid`: A medium offence when a validator approved (NOT backed) an
+//! - `ForInvalidApproved`: A medium offence when a validator approved (NOT backed) an
 //! invalid block. Protects from lazy validators.
 //! - `AgainstValid`: A minor offence when a validator disputed a valid block.
 //! Protects from spam attacks.
 //! 
-//! Past session slashing:
+//! Past session slashing edgecase:
 //! 
 //! The `offences` pallet from Substrate provides us with a way to do both.
 //! Currently, the interface expects us to provide staking information including
