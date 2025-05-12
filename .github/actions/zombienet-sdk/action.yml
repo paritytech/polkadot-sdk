@@ -38,6 +38,7 @@ runs:
         echo "COL_IMAGE: $COL_IMAGE"
         echo "POLKADOT_IMAGE: $POLKADOT_IMAGE"
         echo "MALUS_IMAGE: $MALUS_IMAGE"
+        echo "RUN_IN_CI: $RUN_IN_CI"
         echo "Inputs"
         echo "test: $TEST_NAME"
         echo "prefix: $PREFIX"
@@ -55,6 +56,8 @@ runs:
     - name: zombie_test
       shell: bash
       env:
+        # zombienet-sdk expects RUN_IN_CI to be set when running in CI
+        RUN_IN_CI: 1
         TEST_NAME: ${{ inputs.test }}
         PREFIX: ${{ inputs.prefix }}
       run: |
