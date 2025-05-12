@@ -122,6 +122,7 @@ pub fn create_extrinsic(
 	let tip = 0;
 	let tx_ext: kitchensink_runtime::TxExtension =
 		(
+			frame_system::AuthorizeCall::<kitchensink_runtime::Runtime>::new(),
 			frame_system::CheckNonZeroSender::<kitchensink_runtime::Runtime>::new(),
 			frame_system::CheckSpecVersion::<kitchensink_runtime::Runtime>::new(),
 			frame_system::CheckTxVersion::<kitchensink_runtime::Runtime>::new(),
@@ -138,12 +139,14 @@ pub fn create_extrinsic(
 				>::from(tip, None),
 			),
 			frame_metadata_hash_extension::CheckMetadataHash::new(false),
+			frame_system::WeightReclaim::<kitchensink_runtime::Runtime>::new(),
 		);
 
 	let raw_payload = kitchensink_runtime::SignedPayload::from_raw(
 		function.clone(),
 		tx_ext.clone(),
 		(
+			(),
 			(),
 			kitchensink_runtime::VERSION.spec_version,
 			kitchensink_runtime::VERSION.transaction_version,
@@ -153,6 +156,7 @@ pub fn create_extrinsic(
 			(),
 			(),
 			None,
+			(),
 		),
 	);
 	let signature = raw_payload.using_encoded(|e| sender.sign(e));
@@ -816,7 +820,7 @@ pub fn new_full(config: Configuration, cli: Cli) -> Result<TaskManager, ServiceE
 	let mixnet_config = cli.mixnet_params.config(config.role.is_authority());
 	let database_path = config.database.path().map(Path::to_path_buf);
 
-	let task_manager = match config.network.network_backend {
+	let task_manager = match config.network.network_backend.unwrap_or_default() {
 		sc_network::config::NetworkBackendType::Libp2p => {
 			let task_manager = new_full_base::<sc_network::NetworkWorker<_, _>>(
 				config,
@@ -1050,6 +1054,7 @@ mod tests {
 					value: amount,
 				});
 
+				let authorize_call = frame_system::AuthorizeCall::new();
 				let check_non_zero_sender = frame_system::CheckNonZeroSender::new();
 				let check_spec_version = frame_system::CheckSpecVersion::new();
 				let check_tx_version = frame_system::CheckTxVersion::new();
@@ -1060,8 +1065,10 @@ mod tests {
 				let tx_payment = pallet_skip_feeless_payment::SkipCheckIfFeeless::from(
 					pallet_asset_conversion_tx_payment::ChargeAssetTxPayment::from(0, None),
 				);
+				let weight_reclaim = frame_system::WeightReclaim::new();
 				let metadata_hash = frame_metadata_hash_extension::CheckMetadataHash::new(false);
 				let tx_ext: TxExtension = (
+					authorize_call,
 					check_non_zero_sender,
 					check_spec_version,
 					check_tx_version,
@@ -1071,11 +1078,13 @@ mod tests {
 					check_weight,
 					tx_payment,
 					metadata_hash,
+					weight_reclaim,
 				);
 				let raw_payload = SignedPayload::from_raw(
 					function,
 					tx_ext,
 					(
+						(),
 						(),
 						spec_version,
 						transaction_version,
@@ -1085,6 +1094,7 @@ mod tests {
 						(),
 						(),
 						None,
+						(),
 					),
 				);
 				let signature = raw_payload.using_encoded(|payload| signer.sign(payload));

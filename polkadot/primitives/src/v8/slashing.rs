@@ -18,11 +18,11 @@
 
 use crate::{CandidateHash, SessionIndex, ValidatorId, ValidatorIndex};
 use alloc::{collections::btree_map::BTreeMap, vec::Vec};
-use codec::{Decode, Encode};
+use codec::{Decode, DecodeWithMemTracking, Encode};
 use scale_info::TypeInfo;
 
 /// The kind of the dispute offence.
-#[derive(PartialEq, Eq, Clone, Copy, Encode, Decode, TypeInfo, Debug)]
+#[derive(PartialEq, Eq, Clone, Copy, Encode, Decode, DecodeWithMemTracking, TypeInfo, Debug)]
 pub enum DisputeOffenceKind {
 	/// A severe offence when a validator backed an invalid block
 	/// (backing only)
@@ -40,7 +40,9 @@ pub enum DisputeOffenceKind {
 
 /// Timeslots should uniquely identify offences and are used for the offence
 /// deduplication.
-#[derive(Eq, PartialEq, Ord, PartialOrd, Clone, Encode, Decode, TypeInfo, Debug)]
+#[derive(
+	Eq, PartialEq, Ord, PartialOrd, Clone, Encode, Decode, DecodeWithMemTracking, TypeInfo, Debug,
+)]
 pub struct DisputesTimeSlot {
 	// The order of the fields matters for `derive(Ord)`.
 	/// Session index when the candidate was backed/included.
@@ -58,7 +60,7 @@ impl DisputesTimeSlot {
 
 /// We store most of the information about a lost dispute on chain. This struct
 /// is required to identify and verify it.
-#[derive(PartialEq, Eq, Clone, Encode, Decode, TypeInfo, Debug)]
+#[derive(PartialEq, Eq, Clone, Encode, Decode, DecodeWithMemTracking, TypeInfo, Debug)]
 pub struct DisputeProof {
 	/// Time slot when the dispute occurred.
 	pub time_slot: DisputesTimeSlot,

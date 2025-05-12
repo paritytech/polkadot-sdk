@@ -28,7 +28,7 @@ use async_trait::async_trait;
 use sc_transaction_pool_api::{
 	ChainEvent, ImportNotificationStream, LocalTransactionFor, LocalTransactionPool,
 	MaintainedTransactionPool, PoolStatus, ReadyTransactions, TransactionFor, TransactionPool,
-	TransactionSource, TransactionStatusStreamFor, TxHash,
+	TransactionSource, TransactionStatusStreamFor, TxHash, TxInvalidityReportMap,
 };
 use sp_runtime::traits::Block as BlockT;
 use std::{collections::HashMap, pin::Pin, sync::Arc};
@@ -107,8 +107,12 @@ where
 		self.0.ready()
 	}
 
-	fn remove_invalid(&self, hashes: &[TxHash<Self>]) -> Vec<Arc<Self::InPoolTransaction>> {
-		self.0.remove_invalid(hashes)
+	fn report_invalid(
+		&self,
+		at: Option<<Self::Block as BlockT>::Hash>,
+		invalid_tx_errors: TxInvalidityReportMap<TxHash<Self>>,
+	) -> Vec<Arc<Self::InPoolTransaction>> {
+		self.0.report_invalid(at, invalid_tx_errors)
 	}
 
 	fn futures(&self) -> Vec<Self::InPoolTransaction> {

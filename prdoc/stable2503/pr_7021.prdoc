@@ -1,0 +1,8 @@
+title: Improve remote externalities logging
+doc:
+- audience: Node Dev
+  description: |-
+    Automatically detect if current env is tty. If not disable the spinner logging.
+crates:
+- name: frame-remote-externalities
+  bump: patch

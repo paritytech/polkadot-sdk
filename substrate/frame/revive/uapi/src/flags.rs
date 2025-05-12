@@ -38,7 +38,7 @@ bitflags! {
 		///
 		/// A forwarding call will consume the current contracts input. Any attempt to
 		/// access the input after this call returns will lead to [`Error::InputForwarded`].
-		/// It does not matter if this is due to calling `seal_input` or trying another
+		/// It does not matter if this is due to calling `call_data_copy` or trying another
 		/// forwarding call. Consider using [`Self::CLONE_INPUT`] in order to preserve
 		/// the input.
 		const FORWARD_INPUT = 0b0000_0001;

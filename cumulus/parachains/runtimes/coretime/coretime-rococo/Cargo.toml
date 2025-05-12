@@ -11,15 +11,12 @@ repository.workspace = true
 [lints]
 workspace = true
 
-[build-dependencies]
-substrate-wasm-builder = { optional = true, workspace = true, default-features = true }
-
 [dependencies]
 codec = { features = ["derive"], workspace = true }
-hex-literal = { workspace = true, default-features = true }
 log = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 serde = { optional = true, features = ["derive"], workspace = true, default-features = true }
+serde_json = { features = ["alloc"], workspace = true }
 
 # Substrate
 frame-benchmarking = { optional = true, workspace = true }
@@ -33,8 +30,8 @@ frame-try-runtime = { optional = true, workspace = true }
 pallet-aura = { workspace = true }
 pallet-authorship = { workspace = true }
 pallet-balances = { workspace = true }
-pallet-message-queue = { workspace = true }
 pallet-broker = { workspace = true }
+pallet-message-queue = { workspace = true }
 pallet-multisig = { workspace = true }
 pallet-proxy = { workspace = true }
 pallet-session = { workspace = true }
@@ -47,8 +44,9 @@ sp-api = { workspace = true }
 sp-block-builder = { workspace = true }
 sp-consensus-aura = { workspace = true }
 sp-core = { workspace = true }
-sp-inherents = { workspace = true }
 sp-genesis-builder = { workspace = true }
+sp-inherents = { workspace = true }
+sp-keyring = { workspace = true }
 sp-offchain = { workspace = true }
 sp-runtime = { workspace = true }
 sp-session = { workspace = true }
@@ -71,12 +69,12 @@ xcm-runtime-apis = { workspace = true }
 cumulus-pallet-aura-ext = { workspace = true }
 cumulus-pallet-parachain-system = { workspace = true }
 cumulus-pallet-session-benchmarking = { workspace = true }
+cumulus-pallet-weight-reclaim = { workspace = true }
 cumulus-pallet-xcm = { workspace = true }
 cumulus-pallet-xcmp-queue = { workspace = true }
 cumulus-primitives-aura = { workspace = true }
 cumulus-primitives-core = { workspace = true }
 cumulus-primitives-utility = { workspace = true }
-cumulus-primitives-storage-weight-reclaim = { workspace = true }
 pallet-collator-selection = { workspace = true }
 parachain-info = { workspace = true }
 parachains-common = { workspace = true }
@@ -85,6 +83,9 @@ testnet-parachains-constants = { features = ["rococo"], workspace = true }
 [dev-dependencies]
 parachains-runtimes-test-utils = { workspace = true }
 
+[build-dependencies]
+substrate-wasm-builder = { optional = true, workspace = true, default-features = true }
+
 [features]
 default = ["std"]
 std = [
@@ -92,11 +93,11 @@ std = [
 	"cumulus-pallet-aura-ext/std",
 	"cumulus-pallet-parachain-system/std",
 	"cumulus-pallet-session-benchmarking/std",
+	"cumulus-pallet-weight-reclaim/std",
 	"cumulus-pallet-xcm/std",
 	"cumulus-pallet-xcmp-queue/std",
 	"cumulus-primitives-aura/std",
 	"cumulus-primitives-core/std",
-	"cumulus-primitives-storage-weight-reclaim/std",
 	"cumulus-primitives-utility/std",
 	"frame-benchmarking?/std",
 	"frame-executive/std",
@@ -131,12 +132,14 @@ std = [
 	"rococo-runtime-constants/std",
 	"scale-info/std",
 	"serde",
+	"serde_json/std",
 	"sp-api/std",
 	"sp-block-builder/std",
 	"sp-consensus-aura/std",
 	"sp-core/std",
 	"sp-genesis-builder/std",
 	"sp-inherents/std",
+	"sp-keyring/std",
 	"sp-offchain/std",
 	"sp-runtime/std",
 	"sp-session/std",
@@ -150,10 +153,10 @@ std = [
 	"xcm-runtime-apis/std",
 	"xcm/std",
 ]
-
 runtime-benchmarks = [
 	"cumulus-pallet-parachain-system/runtime-benchmarks",
 	"cumulus-pallet-session-benchmarking/runtime-benchmarks",
+	"cumulus-pallet-weight-reclaim/runtime-benchmarks",
 	"cumulus-pallet-xcmp-queue/runtime-benchmarks",
 	"cumulus-primitives-core/runtime-benchmarks",
 	"cumulus-primitives-utility/runtime-benchmarks",
@@ -180,11 +183,12 @@ runtime-benchmarks = [
 	"xcm-builder/runtime-benchmarks",
 	"xcm-executor/runtime-benchmarks",
 	"xcm-runtime-apis/runtime-benchmarks",
+	"xcm/runtime-benchmarks",
 ]
-
 try-runtime = [
 	"cumulus-pallet-aura-ext/try-runtime",
 	"cumulus-pallet-parachain-system/try-runtime",
+	"cumulus-pallet-weight-reclaim/try-runtime",
 	"cumulus-pallet-xcm/try-runtime",
 	"cumulus-pallet-xcmp-queue/try-runtime",
 	"frame-executive/try-runtime",
@@ -209,7 +213,6 @@ try-runtime = [
 	"polkadot-runtime-common/try-runtime",
 	"sp-runtime/try-runtime",
 ]
-
 fast-runtime = [
 	"rococo-runtime-constants/fast-runtime",
 ]

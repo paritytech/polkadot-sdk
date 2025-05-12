@@ -44,7 +44,7 @@
 
 use crate::{
 	configuration::{self, HostConfiguration},
-	initializer, FeeTracker,
+	initializer, paras, FeeTracker,
 };
 use alloc::vec::Vec;
 use core::fmt;
@@ -72,12 +72,15 @@ const MESSAGE_SIZE_FEE_BASE: FixedU128 = FixedU128::from_rational(1, 1000); // 0
 pub enum QueueDownwardMessageError {
 	/// The message being sent exceeds the configured max message size.
 	ExceedsMaxMessageSize,
+	/// The destination is unknown.
+	Unroutable,
 }
 
 impl From<QueueDownwardMessageError> for SendError {
 	fn from(err: QueueDownwardMessageError) -> Self {
 		match err {
 			QueueDownwardMessageError::ExceedsMaxMessageSize => SendError::ExceedsMaxMessageSize,
+			QueueDownwardMessageError::Unroutable => SendError::Unroutable,
 		}
 	}
 }
@@ -116,7 +119,7 @@ pub mod pallet {
 	pub struct Pallet<T>(_);
 
 	#[pallet::config]
-	pub trait Config: frame_system::Config + configuration::Config {}
+	pub trait Config: frame_system::Config + configuration::Config + paras::Config {}
 
 	/// The downward messages addressed for a certain para.
 	#[pallet::storage]
@@ -200,6 +203,11 @@ impl<T: Config> Pallet<T> {
 			return Err(QueueDownwardMessageError::ExceedsMaxMessageSize)
 		}
 
+		// If the head exists, we assume the parachain is legit and exists.
+		if !paras::Heads::<T>::contains_key(para) {
+			return Err(QueueDownwardMessageError::Unroutable)
+		}
+
 		Ok(())
 	}
 
@@ -217,14 +225,7 @@ impl<T: Config> Pallet<T> {
 		msg: DownwardMessage,
 	) -> Result<(), QueueDownwardMessageError> {
 		let serialized_len = msg.len() as u32;
-		if serialized_len > config.max_downward_message_size {
-			return Err(QueueDownwardMessageError::ExceedsMaxMessageSize)
-		}
-
-		// Hard limit on Queue size
-		if Self::dmq_length(para) > Self::dmq_max_length(config.max_downward_message_size) {
-			return Err(QueueDownwardMessageError::ExceedsMaxMessageSize)
-		}
+		Self::can_queue_downward_message(config, &para, &msg)?;
 
 		let inbound =
 			InboundDownwardMessage { msg, sent_at: frame_system::Pallet::<T>::block_number() };
@@ -336,6 +337,15 @@ impl<T: Config> Pallet<T> {
 	) -> Vec<InboundDownwardMessage<BlockNumberFor<T>>> {
 		DownwardMessageQueues::<T>::get(&recipient)
 	}
+
+	/// Make the parachain reachable for downward messages.
+	///
+	/// Only useable in benchmarks or tests.
+	#[cfg(any(feature = "runtime-benchmarks", feature = "std"))]
+	pub fn make_parachain_reachable(para: impl Into<ParaId>) {
+		let para = para.into();
+		crate::paras::Heads::<T>::insert(para, para.encode());
+	}
 }
 
 impl<T: Config> FeeTracker for Pallet<T> {
@@ -357,5 +367,12 @@ impl<T: Config> FeeTracker for Pallet<T> {
 			*f = InitialFactor::get().max(*f / EXPONENTIAL_FEE_BASE);
 			*f
 		})
+	}
+}
+
+#[cfg(feature = "runtime-benchmarks")]
+impl<T: Config> crate::EnsureForParachain for Pallet<T> {
+	fn ensure(para: ParaId) {
+		Self::make_parachain_reachable(para);
 	}
 }

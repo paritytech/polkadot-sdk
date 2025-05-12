@@ -32,7 +32,6 @@ xcm-builder = { workspace = true }
 
 [dev-dependencies]
 sp-io = { workspace = true, default-features = true }
-sp-std = { workspace = true, default-features = true }
 
 [features]
 default = ["std"]
@@ -56,6 +55,7 @@ runtime-benchmarks = [
 	"frame-system/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",
+	"xcm/runtime-benchmarks",
 ]
 try-runtime = [
 	"frame-support/try-runtime",

@@ -169,11 +169,16 @@ where
 		]);
 
 		// send
-		let _ = <pallet_xcm::Pallet<Runtime>>::send(
+		<pallet_xcm::Pallet<Runtime>>::send(
 			RawOrigin::Root.into(),
 			Box::new(VersionedLocation::from(destination)),
 			Box::new(VersionedXcm::from(program)),
 		)?;
 		Ok(())
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn ensure_successful_identity_reaping(_: &AccountId, _: u32, _: u32) {
+		crate::Dmp::make_parachain_reachable(1004);
 	}
 }

@@ -20,10 +20,10 @@ bp-messages = { workspace = true }
 bp-runtime = { workspace = true }
 
 # Substrate Dependencies
-sp-std = { workspace = true }
-sp-io = { workspace = true }
-sp-core = { workspace = true }
 frame-support = { workspace = true }
+sp-core = { workspace = true }
+sp-io = { workspace = true }
+sp-std = { workspace = true }
 
 # Polkadot Dependencies
 xcm = { workspace = true }

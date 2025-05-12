@@ -1,18 +1,18 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
+// SPDX-License-Identifier: Apache-2.0
 
-// Cumulus is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-
-// Cumulus is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License for more details.
-
-// You should have received a copy of the GNU General Public License
-// along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// 	http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 use crate::{
 	cli::{Cli, RelayChainCli, Subcommand},
@@ -25,19 +25,23 @@ use crate::{
 		types::Block,
 		NodeBlock, NodeExtraArgs,
 	},
+	extra_subcommand::DefaultExtraSubcommands,
 	fake_runtime_api,
 	nodes::DynNodeSpecExt,
 	runtime::BlockNumber,
 };
+use clap::{CommandFactory, FromArgMatches};
 #[cfg(feature = "runtime-benchmarks")]
 use cumulus_client_service::storage_proof_size::HostFunctions as ReclaimHostFunctions;
 use cumulus_primitives_core::ParaId;
 use frame_benchmarking_cli::{BenchmarkCmd, SUBSTRATE_REFERENCE_HARDWARE};
 use log::info;
-use sc_cli::{Result, SubstrateCli};
+use sc_cli::{CliConfiguration, Result, SubstrateCli};
 use sp_runtime::traits::AccountIdConversion;
 #[cfg(feature = "runtime-benchmarks")]
 use sp_runtime::traits::HashingFor;
+
+const DEFAULT_DEV_BLOCK_TIME_MS: u64 = 3000;
 
 /// Structure that can be used in order to provide customizers for different functionalities of the
 /// node binary that is being built using this library.
@@ -49,12 +53,12 @@ pub struct RunConfig {
 }
 
 impl RunConfig {
-	/// Create a new `RunConfig`
+	/// Creates a new `RunConfig` instance.
 	pub fn new(
 		runtime_resolver: Box<dyn RuntimeResolver>,
 		chain_spec_loader: Box<dyn LoadSpec>,
 	) -> Self {
-		RunConfig { chain_spec_loader, runtime_resolver }
+		RunConfig { runtime_resolver, chain_spec_loader }
 	}
 }
 
@@ -98,9 +102,51 @@ fn new_node_spec(
 
 /// Parse command line arguments into service configuration.
 pub fn run<CliConfig: crate::cli::CliConfig>(cmd_config: RunConfig) -> Result<()> {
-	let mut cli = Cli::<CliConfig>::from_args();
+	run_with_custom_cli::<CliConfig, DefaultExtraSubcommands>(cmd_config)
+}
+
+/// Parse command‑line arguments into service configuration and inject an
+/// optional extra sub‑command.
+///
+/// `run_with_custom_cli` builds the base CLI for the node binary, then asks the
+/// `Extra` type for an optional extra sub‑command.
+///
+/// When the user actually invokes that extra sub‑command,
+/// `Extra::from_arg_matches` returns a parsed value which is immediately passed
+/// to `extra.handle(&cfg)` and the process exits.  Otherwise control falls
+/// through to the normal node‑startup / utility sub‑command match.
+///
+/// # Type Parameters
+/// * `CliConfig` – customization trait supplying user‑facing info (name, description, version) for
+///   the binary.
+/// * `Extra` – an implementation of `ExtraSubcommand`. Use *`NoExtraSubcommand`* if the binary
+///   should not expose any extra subcommands.
+pub fn run_with_custom_cli<CliConfig, ExtraSubcommand>(cmd_config: RunConfig) -> Result<()>
+where
+	CliConfig: crate::cli::CliConfig,
+	ExtraSubcommand: crate::extra_subcommand::ExtraSubcommand,
+{
+	let cli_command = Cli::<CliConfig>::command();
+	let cli_command = ExtraSubcommand::augment_subcommands(cli_command);
+	let cli_command = Cli::<CliConfig>::setup_command(cli_command);
+
+	// Get matches for all CLI, including extra args.
+	let matches = cli_command.get_matches();
+
+	// Parse only the part corresponding to the extra args.
+	if let Ok(extra) = ExtraSubcommand::from_arg_matches(&matches) {
+		// Handle the extra, and return - subcommands are self contained,
+		// no need to handle the rest of the CLI or node running.
+		extra.handle(&cmd_config)?;
+		return Ok(())
+	}
+
+	// If matching on the extra subcommands fails, match on the rest of the node CLI as usual.
+	let mut cli =
+		Cli::<CliConfig>::from_arg_matches(&matches).map_err(|e| sc_cli::Error::Cli(e.into()))?;
 	cli.chain_spec_loader = Some(cmd_config.chain_spec_loader);
 
+	#[allow(deprecated)]
 	match &cli.subcommand {
 		Some(Subcommand::BuildSpec(cmd)) => {
 			let runner = cli.create_runner(cmd)?;
@@ -146,6 +192,9 @@ pub fn run<CliConfig: crate::cli::CliConfig>(cmd_config: RunConfig) -> Result<()
 				node.prepare_revert_cmd(config, cmd)
 			})
 		},
+		Some(Subcommand::ChainSpecBuilder(cmd)) =>
+			cmd.run().map_err(|err| sc_cli::Error::Application(err.into())),
+
 		Some(Subcommand::PurgeChain(cmd)) => {
 			let runner = cli.create_runner(cmd)?;
 			let polkadot_cli =
@@ -221,6 +270,14 @@ pub fn run<CliConfig: crate::cli::CliConfig>(cmd_config: RunConfig) -> Result<()
 				RelayChainCli::<CliConfig>::new(runner.config(), cli.relay_chain_args.iter());
 			let collator_options = cli.run.collator_options();
 
+			if cli.experimental_use_slot_based {
+				log::warn!(
+					"Deprecated: The flag --experimental-use-slot-based is no longer \
+				supported. Please use --authoring slot-based instead. This feature will be removed \
+				after May 2025."
+				);
+			}
+
 			runner.run_node_until_exit(|config| async move {
 				let node_spec =
 					new_node_spec(&config, &cmd_config.runtime_resolver, &cli.node_extra_args())?;
@@ -230,10 +287,19 @@ pub fn run<CliConfig: crate::cli::CliConfig>(cmd_config: RunConfig) -> Result<()
 						.ok_or("Could not find parachain extension in chain-spec.")?,
 				);
 
+				if cli.run.base.is_dev()? {
+					// Set default dev block time to 3000ms if not set.
+					// TODO: take block time from AURA config if set.
+					let dev_block_time = cli.dev_block_time.unwrap_or(DEFAULT_DEV_BLOCK_TIME_MS);
+					return node_spec
+						.start_manual_seal_node(config, para_id, dev_block_time)
+						.map_err(Into::into);
+				}
+
 				if let Some(dev_block_time) = cli.dev_block_time {
 					return node_spec
 						.start_manual_seal_node(config, para_id, dev_block_time)
-						.map_err(Into::into)
+						.map_err(Into::into);
 				}
 
 				// If Statemint (Statemine, Westmint, Rockmine) DB exists and we're using the

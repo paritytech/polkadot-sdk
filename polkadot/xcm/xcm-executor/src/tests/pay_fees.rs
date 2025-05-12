@@ -78,6 +78,7 @@ fn works_for_delivery_fees() {
 	// Build xcm.
 	let xcm = Xcm::<TestCall>::builder()
 		.withdraw_asset((Here, 100u128))
+		// We load `10` plancks to pay for fees.
 		.pay_fees((Here, 10u128))
 		// Send a bunch of messages, each charging delivery fees.
 		.report_error(query_response_info.clone())
@@ -213,6 +214,36 @@ fn putting_all_assets_in_pay_fees() {
 }
 
 #[test]
+fn putting_more_than_available_fails() {
+	// Make sure the sender has enough funds to withdraw.
+	add_asset(SENDER, (Here, 100u128));
+
+	// Build xcm.
+	let xcm = Xcm::<TestCall>::builder()
+		.withdraw_asset((Here, 100u128))
+		.pay_fees((Here, 200u128)) // 200% destined for fees, there's not even that much!
+		.deposit_asset(All, RECIPIENT)
+		.build();
+
+	let (mut vm, weight) = instantiate_executor(SENDER, xcm.clone());
+
+	// Program fails.
+	assert!(vm.bench_process(xcm).is_err());
+
+	// Everything is left in the `holding` register.
+	assert_eq!(get_first_fungible(vm.holding()).unwrap(), (Here, 100u128).into());
+	// Nothing in the `fees` register.
+	assert_eq!(get_first_fungible(vm.fees()), None);
+
+	// The recipient received no assets since message failed.
+	assert_eq!(asset_list(RECIPIENT), []);
+
+	// Leftover assets get trapped.
+	assert!(vm.bench_post_process(weight).ensure_complete().is_ok());
+	assert_eq!(asset_list(TRAPPED_ASSETS), [(Here, 100u128).into()]);
+}
+
+#[test]
 fn refunding_too_early() {
 	// Make sure the sender has enough funds to withdraw.
 	add_asset(SENDER, (Here, 100u128));
@@ -254,4 +285,59 @@ fn refunding_too_early() {
 
 	// No messages were "sent".
 	assert_eq!(sent_xcm(), Vec::new());
+}
+
+#[test]
+fn pay_fees_is_processed_only_once() {
+	// Make sure the sender has enough funds to withdraw.
+	add_asset(SENDER, (Here, 100u128));
+
+	let xcm = Xcm::<TestCall>::builder()
+		.withdraw_asset((Here, 100u128))
+		.pay_fees((Here, 10u128))
+		// Will both be a noop.
+		.pay_fees((Parent, 10u128))
+		.pay_fees((Here, 200u128))
+		.deposit_asset(All, RECIPIENT)
+		.build();
+
+	let (mut vm, weight) = instantiate_executor(SENDER, xcm.clone());
+
+	// Program runs successfully.
+	assert!(vm.bench_process(xcm).is_ok());
+
+	// Nothing left in the `holding` register.
+	assert_eq!(get_first_fungible(vm.holding()), None);
+	// Only the first `PayFees` was executed and execution fees are 4,
+	// so there are 6 fees left in the `fees` register.
+	assert_eq!(get_first_fungible(vm.fees()).unwrap(), (Here, 6u128).into());
+
+	// Leftover fees get trapped.
+	assert!(vm.bench_post_process(weight).ensure_complete().is_ok());
+	assert_eq!(asset_list(TRAPPED_ASSETS), [(Here, 6u128).into()]);
+}
+
+#[test]
+fn already_paid_fees_rolls_back_on_error() {
+	// Make sure the sender has enough funds to withdraw.
+	add_asset(SENDER, (Here, 100u128));
+
+	let xcm = Xcm::<TestCall>::builder()
+		.withdraw_asset((Here, 100u128))
+		.pay_fees((Here, 200u128))
+		.deposit_asset(All, RECIPIENT)
+		.build();
+
+	let (mut vm, _) = instantiate_executor(SENDER, xcm.clone());
+
+	// Program fails.
+	assert!(vm.bench_process(xcm).is_err());
+
+	// Everything left in the `holding` register.
+	assert_eq!(get_first_fungible(vm.holding()).unwrap(), (Here, 100u128).into());
+	// Nothing in the `fees` register.
+	assert_eq!(get_first_fungible(vm.fees()), None);
+
+	// Already paid fees is false.
+	assert_eq!(vm.already_paid_fees(), false);
 }

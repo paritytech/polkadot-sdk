@@ -60,6 +60,11 @@ impl<Inner: SendXcm> SendXcm for WithUniqueTopic<Inner> {
 		Inner::deliver(ticket)?;
 		Ok(unique_id)
 	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn ensure_successful_delivery(location: Option<Location>) {
+		Inner::ensure_successful_delivery(location);
+	}
 }
 impl<Inner: InspectMessageQueues> InspectMessageQueues for WithUniqueTopic<Inner> {
 	fn clear_messages() {
@@ -104,8 +109,10 @@ impl<Inner: SendXcm, TopicSource: SourceTopic> SendXcm for WithTopicSource<Inner
 			message.0.push(SetTopic(unique_id));
 			unique_id
 		};
-		let (ticket, assets) = Inner::validate(destination, &mut Some(message))
-			.map_err(|_| SendError::NotApplicable)?;
+		let (ticket, assets) = Inner::validate(destination, &mut Some(message.clone())).map_err(|e| {
+			tracing::debug!(target: "xcm::validate::WithTopicSource", ?destination, ?message, error = ?e, "Failed to validate");
+			SendError::NotApplicable
+		})?;
 		Ok(((ticket, unique_id), assets))
 	}
 
@@ -113,6 +120,11 @@ impl<Inner: SendXcm, TopicSource: SourceTopic> SendXcm for WithTopicSource<Inner
 		let (ticket, unique_id) = ticket;
 		Inner::deliver(ticket)?;
 		Ok(unique_id)
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn ensure_successful_delivery(location: Option<Location>) {
+		Inner::ensure_successful_delivery(location);
 	}
 }
 
@@ -197,10 +209,12 @@ impl<Inner: SendXcm> SendXcm for EnsureDecodableXcm<Inner> {
 	) -> SendResult<Self::Ticket> {
 		if let Some(msg) = message {
 			let versioned_xcm = VersionedXcm::<()>::from(msg.clone());
-			if versioned_xcm.validate_xcm_nesting().is_err() {
-				log::error!(
+			if versioned_xcm.check_is_decodable().is_err() {
+				tracing::debug!(
 					target: "xcm::validate_xcm_nesting",
-					"EnsureDecodableXcm validate_xcm_nesting error for \nversioned_xcm: {versioned_xcm:?}\nbased on xcm: {msg:?}"
+					?versioned_xcm,
+					?msg,
+					"EnsureDecodableXcm `validate_xcm_nesting` failed"
 				);
 				return Err(SendError::Transport("EnsureDecodableXcm validate_xcm_nesting error"))
 			}
@@ -210,5 +224,10 @@ impl<Inner: SendXcm> SendXcm for EnsureDecodableXcm<Inner> {
 
 	fn deliver(ticket: Self::Ticket) -> Result<XcmHash, SendError> {
 		Inner::deliver(ticket)
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn ensure_successful_delivery(location: Option<Location>) {
+		Inner::ensure_successful_delivery(location);
 	}
 }

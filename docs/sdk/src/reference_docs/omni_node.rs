@@ -177,9 +177,25 @@
 //! [This](https://github.com/paritytech/polkadot-sdk/issues/5565) future improvement to OmniNode
 //! aims to make such checks automatic.
 //!
+//! ### Runtime conventions
+//!
+//! The Omni Node needs to make some assumptions about the runtime. During startup, the node fetches
+//! the runtime metadata and asserts that the runtime represents a compatible parachain.
+//! The checks are best effort and will generate warning level logs in the Omni Node log file on
+//! failure.
+//!
+//! The list of checks may evolve in the future and for now only few rules are implemented:
+//! * runtimes must define a type for [`cumulus-pallet-parachain-system`], which is recommended to
+//!   be named as `ParachainSystem`.
+//! * runtimes must define a type for [`frame-system`] pallet, which is recommended to be named as
+//!   `System`. The configured [`block number`] here will be used by Omni Node to configure AURA
+//!   accordingly.
 //!
 //! [`templates`]: crate::polkadot_sdk::templates
 //! [`parachain-template`]: https://github.com/paritytech/polkadot-sdk-parachain-template
 //! [`--dev-block-time`]: polkadot_omni_node_lib::cli::Cli::dev_block_time
 //! [`polkadot-omni-node`]: https://crates.io/crates/polkadot-omni-node
 //! [`chain-spec-builder`]: https://crates.io/crates/staging-chain-spec-builder
+//! [`cumulus-pallet-parachain-system`]: https://docs.rs/cumulus-pallet-parachain-system/latest/cumulus_pallet_parachain_system/
+//! [`frame-system`]: https://docs.rs/frame-system/latest/frame_system/
+//! [`block number`]: https://docs.rs/frame-system/latest/frame_system/pallet/storage_types/struct.Number.html

@@ -19,7 +19,6 @@
 
 use super::*;
 use frame_support::traits::OnRuntimeUpgrade;
-use frame_system::pallet_prelude::BlockNumberFor;
 
 #[cfg(feature = "try-runtime")]
 use sp_runtime::TryRuntimeError;

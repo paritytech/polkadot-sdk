@@ -19,7 +19,7 @@ Compile & install via `cargo`:
 
 ```bash
 # Assuming ~/.cargo/bin is on the PATH
-cargo install polkadot-omni-node
+cargo install polkadot-omni-node --locked
 ```
 
 ## Usage
@@ -34,7 +34,7 @@ The interface mandates the runtime to expose a [`named-preset`](https://docs.rs/
 Install it with `cargo` like bellow :
 
 ```bash
-cargo install staging-chain-spec-builder
+cargo install staging-chain-spec-builder --locked
 ```
 
 ### 2. Generate a chain spec
@@ -49,10 +49,10 @@ chain-spec-builder create --relay-chain <relay_chain_id> --para-id <id> -r <runt
 
 ### 3. Run Omni Node
 
-And now with the generated chain spec we can start Omni Node like so:
+And now with the generated chain spec we can start the node in development mode like so:
 
 ```bash
-polkadot-omni-node --chain <chain_spec.json>
+polkadot-omni-node --dev --chain <chain_spec.json>
 ```
 
 ## Useful links

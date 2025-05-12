@@ -1,0 +1,57 @@
+[package]
+name = "pallet-example-view-functions"
+version = "1.0.0"
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+homepage.workspace = true
+repository.workspace = true
+description = "Pallet to demonstrate the usage of view functions to query pallet state"
+
+[lints]
+workspace = true
+
+[package.metadata.docs.rs]
+targets = ["x86_64-unknown-linux-gnu"]
+
+[dependencies]
+codec = { default-features = false, workspace = true }
+frame-metadata = { features = ["current"], workspace = true }
+log = { workspace = true }
+scale-info = { default-features = false, features = ["derive"], workspace = true }
+
+frame-support = { default-features = false, workspace = true }
+frame-system = { default-features = false, workspace = true }
+
+sp-core = { default-features = false, workspace = true }
+sp-io = { default-features = false, workspace = true }
+sp-metadata-ir = { default-features = false, workspace = true }
+sp-runtime = { default-features = false, workspace = true }
+
+[dev-dependencies]
+pretty_assertions = { workspace = true }
+
+[features]
+default = ["std"]
+std = [
+	"codec/std",
+	"frame-metadata/std",
+	"frame-support/std",
+	"frame-system/std",
+	"log/std",
+	"scale-info/std",
+	"sp-core/std",
+	"sp-io/std",
+	"sp-metadata-ir/std",
+	"sp-runtime/std",
+]
+runtime-benchmarks = [
+	"frame-support/runtime-benchmarks",
+	"frame-system/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+]
+try-runtime = [
+	"frame-support/try-runtime",
+	"frame-system/try-runtime",
+	"sp-runtime/try-runtime",
+]

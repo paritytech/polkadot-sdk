@@ -2,8 +2,8 @@
 //!
 //! The Polkadot SDK Developer Documentation.
 //!
-//! This crate is a *minimal*, but *always-accurate* source of information for those wishing to
-//! build on the Polkadot SDK.
+//! This crate is a *minimal*, *always-accurate* and low level source of truth about Polkadot-SDK.
+//! For more high level docs, please go to [docs.polkadot.com](https://docs.polkadot.com).
 //!
 //! ## Getting Started
 //!
@@ -23,6 +23,8 @@
 #![doc = simple_mermaid::mermaid!("../../mermaid/IA.mmd")]
 #![warn(rustdoc::broken_intra_doc_links)]
 #![warn(rustdoc::private_intra_doc_links)]
+// Frame macros reference features which this crate does not have
+#![allow(unexpected_cfgs)]
 #![doc(html_favicon_url = "https://polkadot.com/favicon.ico")]
 #![doc(
 	html_logo_url = "https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/docs/images/Polkadot_Logo_Horizontal_Pink_White.png"

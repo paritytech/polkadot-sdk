@@ -553,7 +553,7 @@ impl ExtBuilder {
 		sp_tracing::try_init_simple();
 		self.set_associated_consts();
 		let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
-		pallet_balances::GenesisConfig::<Test> { balances: vec![] }
+		pallet_balances::GenesisConfig::<Test> { balances: vec![], ..Default::default() }
 			.assimilate_storage(&mut t)
 			.unwrap();
 		let mut ext = sp_io::TestExternalities::new(t);
@@ -589,7 +589,7 @@ struct ExtensionInput<'a> {
 
 impl<'a> ExtensionInput<'a> {
 	fn to_vec(&self) -> Vec<u8> {
-		((self.extension_id as u32) << 16 | (self.func_id as u32))
+		(((self.extension_id as u32) << 16) | (self.func_id as u32))
 			.to_le_bytes()
 			.iter()
 			.chain(self.extra)

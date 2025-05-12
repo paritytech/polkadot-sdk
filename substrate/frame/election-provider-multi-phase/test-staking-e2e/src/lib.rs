@@ -16,11 +16,14 @@
 // limitations under the License.
 
 #![cfg(test)]
+
+// We do not declare all features used by `construct_runtime`
+#[allow(unexpected_cfgs)]
 mod mock;
 
 pub(crate) const LOG_TARGET: &str = "tests::e2e-epm";
 
-use frame_support::{assert_err, assert_noop, assert_ok};
+use frame_support::{assert_err, assert_ok};
 use mock::*;
 use pallet_timestamp::Now;
 use sp_core::Get;
@@ -170,7 +173,7 @@ fn mass_slash_doesnt_enter_emergency_phase() {
 		}
 
 		// Ensure no more than disabling limit of validators (default 1/3) is disabled
-		let disabling_limit = pallet_staking::UpToLimitWithReEnablingDisablingStrategy::<
+		let disabling_limit = pallet_session::disabling::UpToLimitWithReEnablingDisablingStrategy::<
 			SLASHING_DISABLING_FACTOR,
 		>::disable_limit(active_set_size_before_slash);
 		assert!(disabled.len() == disabling_limit);
@@ -250,18 +253,8 @@ fn ledger_consistency_active_balance_below_ed() {
 	execute_with(ext, || {
 		assert_eq!(Staking::ledger(11.into()).unwrap().active, 1000);
 
-		// unbonding total of active stake fails because the active ledger balance would fall
-		// below the `MinNominatorBond`.
-		assert_noop!(
-			Staking::unbond(RuntimeOrigin::signed(11), 1000),
-			Error::<Runtime>::InsufficientBond
-		);
-
-		// however, chilling works as expected.
-		assert_ok!(Staking::chill(RuntimeOrigin::signed(11)));
-
-		// now unbonding the full active balance works, since remainder of the active balance is
-		// not enforced to be below `MinNominatorBond` if the stash has been chilled.
+		// unbonding total of active stake passes because chill occurs implicitly when unbonding
+		// full amount.
 		assert_ok!(Staking::unbond(RuntimeOrigin::signed(11), 1000));
 
 		// the active balance of the ledger entry is 0, while total balance is 1000 until
@@ -327,8 +320,8 @@ fn automatic_unbonding_pools() {
 		assert_eq!(<Runtime as pallet_nomination_pools::Config>::MaxUnbonding::get(), 1);
 
 		// init state of pool members.
-		let init_stakeable_balance_2 = pallet_staking::asset::stakeable_balance::<Runtime>(&2);
-		let init_stakeable_balance_3 = pallet_staking::asset::stakeable_balance::<Runtime>(&3);
+		let init_free_balance_2 = Balances::free_balance(2);
+		let init_free_balance_3 = Balances::free_balance(3);
 
 		let pool_bonded_account = Pools::generate_bonded_account(1);
 
@@ -378,7 +371,7 @@ fn automatic_unbonding_pools() {
 		System::reset_events();
 
 		let staked_before_withdraw_pool = staked_amount_for(pool_bonded_account);
-		assert_eq!(pallet_staking::asset::stakeable_balance::<Runtime>(&pool_bonded_account), 26);
+		assert_eq!(delegated_balance_for(pool_bonded_account), 5 + 10 + 10);
 
 		// now unbonding 3 will work, although the pool's ledger still has the unlocking chunks
 		// filled up.
@@ -390,13 +383,13 @@ fn automatic_unbonding_pools() {
 			[
 				// auto-withdraw happened as expected to release 2's unbonding funds, but the funds
 				// were not transferred to 2 and stay in the pool's transferrable balance instead.
-				pallet_staking::Event::Withdrawn { stash: 7939698191839293293, amount: 10 },
-				pallet_staking::Event::Unbonded { stash: 7939698191839293293, amount: 10 }
+				pallet_staking::Event::Withdrawn { stash: pool_bonded_account, amount: 10 },
+				pallet_staking::Event::Unbonded { stash: pool_bonded_account, amount: 10 }
 			]
 		);
 
 		// balance of the pool remains the same, it hasn't withdraw explicitly from the pool yet.
-		assert_eq!(pallet_staking::asset::stakeable_balance::<Runtime>(&pool_bonded_account), 26);
+		assert_eq!(delegated_balance_for(pool_bonded_account), 25);
 		// but the locked amount in the pool's account decreases due to the auto-withdraw:
 		assert_eq!(staked_before_withdraw_pool - 10, staked_amount_for(pool_bonded_account));
 
@@ -405,12 +398,12 @@ fn automatic_unbonding_pools() {
 
 		// however, note that the withdrawing from the pool still works for 2, the funds are taken
 		// from the pool's non staked balance.
-		assert_eq!(pallet_staking::asset::stakeable_balance::<Runtime>(&pool_bonded_account), 26);
-		assert_eq!(pallet_staking::asset::staked::<Runtime>(&pool_bonded_account), 15);
+		assert_eq!(delegated_balance_for(pool_bonded_account), 25);
+		assert_eq!(staked_amount_for(pool_bonded_account), 15);
 		assert_ok!(Pools::withdraw_unbonded(RuntimeOrigin::signed(2), 2, 10));
-		assert_eq!(pallet_staking::asset::stakeable_balance::<Runtime>(&pool_bonded_account), 16);
+		assert_eq!(delegated_balance_for(pool_bonded_account), 15);
 
-		assert_eq!(pallet_staking::asset::stakeable_balance::<Runtime>(&2), 20);
+		assert_eq!(Balances::free_balance(2), 20);
 		assert_eq!(TotalValueLocked::<Runtime>::get(), 15);
 
 		// 3 cannot withdraw yet.
@@ -429,15 +422,9 @@ fn automatic_unbonding_pools() {
 		assert_ok!(Pools::withdraw_unbonded(RuntimeOrigin::signed(3), 3, 10));
 
 		// final conditions are the expected.
-		assert_eq!(pallet_staking::asset::stakeable_balance::<Runtime>(&pool_bonded_account), 6); // 5 init bonded + ED
-		assert_eq!(
-			pallet_staking::asset::stakeable_balance::<Runtime>(&2),
-			init_stakeable_balance_2
-		);
-		assert_eq!(
-			pallet_staking::asset::stakeable_balance::<Runtime>(&3),
-			init_stakeable_balance_3
-		);
+		assert_eq!(delegated_balance_for(pool_bonded_account), 5); // 5 init bonded
+		assert_eq!(Balances::free_balance(2), init_free_balance_2);
+		assert_eq!(Balances::free_balance(3), init_free_balance_3);
 
 		assert_eq!(TotalValueLocked::<Runtime>::get(), init_tvl);
 	});

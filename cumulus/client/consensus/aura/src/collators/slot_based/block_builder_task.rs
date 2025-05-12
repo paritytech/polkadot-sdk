@@ -1,5 +1,6 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
+// SPDX-License-Identifier: GPL-3.0-or-later WITH Classpath-exception-2.0
 
 // Cumulus is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -8,11 +9,11 @@
 
 // Cumulus is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 // GNU General Public License for more details.
 
 // You should have received a copy of the GNU General Public License
-// along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
+// along with Cumulus. If not, see <https://www.gnu.org/licenses/>.
 
 use codec::{Codec, Encode};
 
@@ -23,32 +24,33 @@ use cumulus_primitives_aura::AuraUnincludedSegmentApi;
 use cumulus_primitives_core::{GetCoreSelectorApi, PersistedValidationData};
 use cumulus_relay_chain_interface::RelayChainInterface;
 
-use polkadot_primitives::{
-	vstaging::{ClaimQueueOffset, CoreSelector, DEFAULT_CLAIM_QUEUE_OFFSET},
-	BlockId, CoreIndex, Hash as RelayHash, Header as RelayHeader, Id as ParaId,
-	OccupiedCoreAssumption,
-};
-
-use futures::prelude::*;
-use sc_client_api::{backend::AuxStore, BlockBackend, BlockOf, UsageProvider};
-use sc_consensus::BlockImport;
-use sp_api::{ApiExt, ProvideRuntimeApi};
-use sp_application_crypto::AppPublic;
-use sp_blockchain::HeaderBackend;
-use sp_consensus_aura::{AuraApi, Slot};
-use sp_core::{crypto::Pair, U256};
-use sp_inherents::CreateInherentDataProviders;
-use sp_keystore::KeystorePtr;
-use sp_runtime::traits::{Block as BlockT, Header as HeaderT, Member, One};
-use sp_timestamp::Timestamp;
-use std::{collections::BTreeSet, sync::Arc, time::Duration};
+use polkadot_primitives::{Block as RelayBlock, Id as ParaId};
 
 use super::CollatorMessage;
 use crate::{
 	collator::{self as collator_util},
-	collators::{check_validation_code_or_log, cores_scheduled_for_para},
+	collators::{
+		check_validation_code_or_log,
+		slot_based::{
+			core_selector,
+			relay_chain_data_cache::{RelayChainData, RelayChainDataCache},
+			slot_timer::SlotTimer,
+		},
+	},
 	LOG_TARGET,
 };
+use futures::prelude::*;
+use sc_client_api::{backend::AuxStore, BlockBackend, BlockOf, UsageProvider};
+use sc_consensus::BlockImport;
+use sp_api::ProvideRuntimeApi;
+use sp_application_crypto::AppPublic;
+use sp_blockchain::HeaderBackend;
+use sp_consensus_aura::AuraApi;
+use sp_core::crypto::Pair;
+use sp_inherents::CreateInherentDataProviders;
+use sp_keystore::KeystorePtr;
+use sp_runtime::traits::{Block as BlockT, Header as HeaderT, Member};
+use std::{sync::Arc, time::Duration};
 
 /// Parameters for [`run_block_builder`].
 pub struct BuilderTaskParams<
@@ -88,71 +90,19 @@ pub struct BuilderTaskParams<
 	pub authoring_duration: Duration,
 	/// Channel to send built blocks to the collation task.
 	pub collator_sender: sc_utils::mpsc::TracingUnboundedSender<CollatorMessage<Block>>,
-	/// Drift every slot by this duration.
+	/// Slot duration of the relay chain.
+	pub relay_chain_slot_duration: Duration,
+	/// Offset all time operations by this duration.
+	///
 	/// This is a time quantity that is subtracted from the actual timestamp when computing
 	/// the time left to enter a new slot. In practice, this *left-shifts* the clock time with the
 	/// intent to keep our "clock" slightly behind the relay chain one and thus reducing the
 	/// likelihood of encountering unfavorable notification arrival timings (i.e. we don't want to
 	/// wait for relay chain notifications because we woke up too early).
-	pub slot_drift: Duration,
-}
-
-#[derive(Debug)]
-struct SlotInfo {
-	pub timestamp: Timestamp,
-	pub slot: Slot,
-}
-
-#[derive(Debug)]
-struct SlotTimer<Block, Client, P> {
-	client: Arc<Client>,
-	drift: Duration,
-	_marker: std::marker::PhantomData<(Block, Box<dyn Fn(P) + Send + Sync + 'static>)>,
-}
-
-/// Returns current duration since Unix epoch.
-fn duration_now() -> Duration {
-	use std::time::SystemTime;
-	let now = SystemTime::now();
-	now.duration_since(SystemTime::UNIX_EPOCH).unwrap_or_else(|e| {
-		panic!("Current time {:?} is before Unix epoch. Something is wrong: {:?}", now, e)
-	})
-}
-
-/// Returns the duration until the next slot from now.
-fn time_until_next_slot(slot_duration: Duration, drift: Duration) -> Duration {
-	let now = duration_now().as_millis() - drift.as_millis();
-
-	let next_slot = (now + slot_duration.as_millis()) / slot_duration.as_millis();
-	let remaining_millis = next_slot * slot_duration.as_millis() - now;
-	Duration::from_millis(remaining_millis as u64)
-}
-
-impl<Block, Client, P> SlotTimer<Block, Client, P>
-where
-	Block: BlockT,
-	Client: ProvideRuntimeApi<Block> + Send + Sync + 'static + UsageProvider<Block>,
-	Client::Api: AuraApi<Block, P::Public>,
-	P: Pair,
-	P::Public: AppPublic + Member + Codec,
-	P::Signature: TryFrom<Vec<u8>> + Member + Codec,
-{
-	pub fn new_with_drift(client: Arc<Client>, drift: Duration) -> Self {
-		Self { client, drift, _marker: Default::default() }
-	}
-
-	/// Returns a future that resolves when the next slot arrives.
-	pub async fn wait_until_next_slot(&self) -> Result<SlotInfo, ()> {
-		let Ok(slot_duration) = crate::slot_duration(&*self.client) else {
-			tracing::error!(target: crate::LOG_TARGET, "Failed to fetch slot duration from runtime.");
-			return Err(())
-		};
-
-		let time_until_next_slot = time_until_next_slot(slot_duration.as_duration(), self.drift);
-		tokio::time::sleep(time_until_next_slot).await;
-		let timestamp = sp_timestamp::Timestamp::current();
-		Ok(SlotInfo { slot: Slot::from_timestamp(timestamp, slot_duration), timestamp })
-	}
+	pub slot_offset: Duration,
+	/// The maximum percentage of the maximum PoV size that the collator can use.
+	/// It will be removed once https://github.com/paritytech/polkadot-sdk/issues/6020 is fixed.
+	pub max_pov_percentage: Option<u32>,
 }
 
 /// Run block-builder.
@@ -198,11 +148,17 @@ where
 			collator_sender,
 			code_hash_provider,
 			authoring_duration,
+			relay_chain_slot_duration,
 			para_backend,
-			slot_drift,
+			slot_offset,
+			max_pov_percentage,
 		} = params;
 
-		let slot_timer = SlotTimer::<_, _, P>::new_with_drift(para_client.clone(), slot_drift);
+		let mut slot_timer = SlotTimer::<_, _, P>::new_with_offset(
+			para_client.clone(),
+			slot_offset,
+			relay_chain_slot_duration,
+		);
 
 		let mut collator = {
 			let params = collator_util::Params {
@@ -218,11 +174,11 @@ where
 			collator_util::Collator::<Block, P, _, _, _, _, _>::new(params)
 		};
 
-		let mut relay_chain_fetcher = RelayChainCachingFetcher::new(relay_client.clone(), para_id);
+		let mut relay_chain_data_cache = RelayChainDataCache::new(relay_client.clone(), para_id);
 
 		loop {
 			// We wait here until the next slot arrives.
-			let Ok(para_slot) = slot_timer.wait_until_next_slot().await else {
+			let Some(para_slot) = slot_timer.wait_until_next_slot().await else {
 				return;
 			};
 
@@ -242,7 +198,7 @@ where
 
 			// Retrieve the core selector.
 			let (core_selector, claim_queue_offset) =
-				match core_selector(&*para_client, &parent).await {
+				match core_selector(&*para_client, parent.hash, *parent.header.number()) {
 					Ok(core_selector) => core_selector,
 					Err(err) => {
 						tracing::trace!(
@@ -259,7 +215,7 @@ where
 				max_pov_size,
 				scheduled_cores,
 				claimed_cores,
-			}) = relay_chain_fetcher
+			}) = relay_chain_data_cache
 				.get_mut_relay_chain_data(relay_parent, claim_queue_offset)
 				.await
 			else {
@@ -277,6 +233,8 @@ where
 					scheduled_cores
 				);
 			}
+
+			slot_timer.update_scheduling(scheduled_cores.len() as u32);
 
 			let core_selector = core_selector.0 as usize % scheduled_cores.len();
 			let Some(core_index) = scheduled_cores.get(core_selector) else {
@@ -300,8 +258,17 @@ where
 			// on-chain data.
 			collator.collator_service().check_block_status(parent_hash, &parent_header);
 
+			let Ok(relay_slot) =
+				sc_consensus_babe::find_pre_digest::<RelayBlock>(relay_parent_header)
+					.map(|babe_pre_digest| babe_pre_digest.slot())
+			else {
+				tracing::error!(target: crate::LOG_TARGET, "Relay chain does not contain babe slot. This should never happen.");
+				continue;
+			};
+
 			let slot_claim = match crate::collators::can_build_upon::<_, _, P>(
 				para_slot.slot,
+				relay_slot,
 				para_slot.timestamp,
 				parent_hash,
 				included_block,
@@ -376,14 +343,14 @@ where
 			)
 			.await;
 
-			let allowed_pov_size = if cfg!(feature = "full-pov-size") {
-				validation_data.max_pov_size
+			let allowed_pov_size = if let Some(max_pov_percentage) = max_pov_percentage {
+				validation_data.max_pov_size * max_pov_percentage / 100
 			} else {
-				// Set the block limit to 50% of the maximum PoV size.
+				// Set the block limit to 85% of the maximum PoV size.
 				//
-				// TODO: If we got benchmarking that includes the proof size,
-				// we should be able to use the maximum pov size.
-				validation_data.max_pov_size / 2
+				// Once https://github.com/paritytech/polkadot-sdk/issues/6020 issue is
+				// fixed, this should be removed.
+				validation_data.max_pov_size * 85 / 100
 			} as usize;
 
 			let Ok(Some(candidate)) = collator
@@ -412,126 +379,11 @@ where
 				parachain_candidate: candidate,
 				validation_code_hash,
 				core_index: *core_index,
+				max_pov_size: validation_data.max_pov_size,
 			}) {
 				tracing::error!(target: crate::LOG_TARGET, ?err, "Unable to send block to collation task.");
 				return
 			}
 		}
-	}
-}
-
-/// Contains relay chain data necessary for parachain block building.
-#[derive(Clone)]
-struct RelayChainData {
-	/// Current relay chain parent header.
-	pub relay_parent_header: RelayHeader,
-	/// The cores on which the para is scheduled at the configured claim queue offset.
-	pub scheduled_cores: Vec<CoreIndex>,
-	/// Maximum configured PoV size on the relay chain.
-	pub max_pov_size: u32,
-	/// The claimed cores at a relay parent.
-	pub claimed_cores: BTreeSet<CoreIndex>,
-}
-
-/// Simple helper to fetch relay chain data and cache it based on the current relay chain best block
-/// hash.
-struct RelayChainCachingFetcher<RI> {
-	relay_client: RI,
-	para_id: ParaId,
-	last_data: Option<(RelayHash, RelayChainData)>,
-}
-
-impl<RI> RelayChainCachingFetcher<RI>
-where
-	RI: RelayChainInterface + Clone + 'static,
-{
-	pub fn new(relay_client: RI, para_id: ParaId) -> Self {
-		Self { relay_client, para_id, last_data: None }
-	}
-
-	/// Fetch required [`RelayChainData`] from the relay chain.
-	/// If this data has been fetched in the past for the incoming hash, it will reuse
-	/// cached data.
-	pub async fn get_mut_relay_chain_data(
-		&mut self,
-		relay_parent: RelayHash,
-		claim_queue_offset: ClaimQueueOffset,
-	) -> Result<&mut RelayChainData, ()> {
-		match &self.last_data {
-			Some((last_seen_hash, _)) if *last_seen_hash == relay_parent => {
-				tracing::trace!(target: crate::LOG_TARGET, %relay_parent, "Using cached data for relay parent.");
-				Ok(&mut self.last_data.as_mut().expect("last_data is Some").1)
-			},
-			_ => {
-				tracing::trace!(target: crate::LOG_TARGET, %relay_parent, "Relay chain best block changed, fetching new data from relay chain.");
-				let data = self.update_for_relay_parent(relay_parent, claim_queue_offset).await?;
-				self.last_data = Some((relay_parent, data));
-				Ok(&mut self.last_data.as_mut().expect("last_data was just set above").1)
-			},
-		}
-	}
-
-	/// Fetch fresh data from the relay chain for the given relay parent hash.
-	async fn update_for_relay_parent(
-		&self,
-		relay_parent: RelayHash,
-		claim_queue_offset: ClaimQueueOffset,
-	) -> Result<RelayChainData, ()> {
-		let scheduled_cores = cores_scheduled_for_para(
-			relay_parent,
-			self.para_id,
-			&self.relay_client,
-			claim_queue_offset,
-		)
-		.await;
-
-		let Ok(Some(relay_parent_header)) =
-			self.relay_client.header(BlockId::Hash(relay_parent)).await
-		else {
-			tracing::warn!(target: crate::LOG_TARGET, "Unable to fetch latest relay chain block header.");
-			return Err(())
-		};
-
-		let max_pov_size = match self
-			.relay_client
-			.persisted_validation_data(relay_parent, self.para_id, OccupiedCoreAssumption::Included)
-			.await
-		{
-			Ok(None) => return Err(()),
-			Ok(Some(pvd)) => pvd.max_pov_size,
-			Err(err) => {
-				tracing::error!(target: crate::LOG_TARGET, ?err, "Failed to gather information from relay-client");
-				return Err(())
-			},
-		};
-
-		Ok(RelayChainData {
-			relay_parent_header,
-			scheduled_cores,
-			max_pov_size,
-			claimed_cores: BTreeSet::new(),
-		})
-	}
-}
-
-async fn core_selector<Block: BlockT, Client>(
-	para_client: &Client,
-	parent: &consensus_common::PotentialParent<Block>,
-) -> Result<(CoreSelector, ClaimQueueOffset), sp_api::ApiError>
-where
-	Client: ProvideRuntimeApi<Block> + Send + Sync,
-	Client::Api: GetCoreSelectorApi<Block>,
-{
-	let block_hash = parent.hash;
-	let runtime_api = para_client.runtime_api();
-
-	if runtime_api.has_api::<dyn GetCoreSelectorApi<Block>>(block_hash)? {
-		Ok(runtime_api.core_selector(block_hash)?)
-	} else {
-		let next_block_number: U256 = (*parent.header.number() + One::one()).into();
-
-		// If the runtime API does not support the core selector API, fallback to some default
-		// values.
-		Ok((CoreSelector(next_block_number.byte(0)), ClaimQueueOffset(DEFAULT_CLAIM_QUEUE_OFFSET)))
 	}
 }

@@ -32,9 +32,9 @@ use litep2p::{
 		libp2p::{
 			identify::{Config as IdentifyConfig, IdentifyEvent},
 			kademlia::{
-				Config as KademliaConfig, ConfigBuilder as KademliaConfigBuilder,
-				IncomingRecordValidationMode, KademliaEvent, KademliaHandle, QueryId, Quorum,
-				Record, RecordKey, RecordsType,
+				Config as KademliaConfig, ConfigBuilder as KademliaConfigBuilder, ContentProvider,
+				IncomingRecordValidationMode, KademliaEvent, KademliaHandle, PeerRecord, QueryId,
+				Quorum, Record, RecordKey,
 			},
 			ping::{Config as PingConfig, PingEvent},
 		},
@@ -50,6 +50,7 @@ use schnellru::{ByLength, LruMap};
 use std::{
 	cmp,
 	collections::{HashMap, HashSet, VecDeque},
+	iter,
 	num::NonZeroUsize,
 	pin::Pin,
 	sync::Arc,
@@ -72,11 +73,9 @@ const GET_RECORD_REDUNDANCY_FACTOR: usize = 4;
 /// The maximum number of tracked external addresses we allow.
 const MAX_EXTERNAL_ADDRESSES: u32 = 32;
 
-/// Minimum number of confirmations received before an address is verified.
-///
-/// Note: all addresses are confirmed by libp2p on the first encounter. This aims to make
-/// addresses a bit more robust.
-const MIN_ADDRESS_CONFIRMATIONS: usize = 2;
+/// Number of times observed address is received from different peers before it is confirmed as
+/// external.
+const MIN_ADDRESS_CONFIRMATIONS: usize = 3;
 
 /// Discovery events.
 #[derive(Debug)]
@@ -129,19 +128,45 @@ pub enum DiscoveryEvent {
 		address: Multiaddr,
 	},
 
-	/// Record was found from the DHT.
-	GetRecordSuccess {
+	/// `FIND_NODE` query succeeded.
+	FindNodeSuccess {
 		/// Query ID.
 		query_id: QueryId,
 
-		/// Records.
-		records: RecordsType,
+		/// Target.
+		target: PeerId,
+
+		/// Found peers.
+		peers: Vec<(PeerId, Vec<Multiaddr>)>,
+	},
+
+	/// `GetRecord` query succeeded.
+	GetRecordSuccess {
+		/// Query ID.
+		query_id: QueryId,
+	},
+
+	/// Record was found from the DHT.
+	GetRecordPartialResult {
+		/// Query ID.
+		query_id: QueryId,
+
+		/// Record.
+		record: PeerRecord,
 	},
 
 	/// Record was successfully stored on the DHT.
 	PutRecordSuccess {
 		/// Query ID.
 		query_id: QueryId,
+	},
+
+	/// Providers were successfully retrieved.
+	GetProvidersSuccess {
+		/// Query ID.
+		query_id: QueryId,
+		/// Found providers sorted by distance to provided key.
+		providers: Vec<ContentProvider>,
 	},
 
 	/// Query failed.
@@ -186,7 +211,7 @@ pub struct Discovery {
 	next_kad_query: Option<Delay>,
 
 	/// Active `FIND_NODE` query if it exists.
-	find_node_query_id: Option<QueryId>,
+	random_walk_query_id: Option<QueryId>,
 
 	/// Pending events.
 	pending_events: VecDeque<DiscoveryEvent>,
@@ -246,7 +271,7 @@ impl Discovery {
 		_peerstore_handle: Arc<dyn PeerStoreProvider>,
 	) -> (Self, PingConfig, IdentifyConfig, KademliaConfig, Option<MdnsConfig>) {
 		let (ping_config, ping_event_stream) = PingConfig::default();
-		let user_agent = format!("{} ({})", config.client_version, config.node_name);
+		let user_agent = format!("{} ({}) (litep2p)", config.client_version, config.node_name);
 
 		let (identify_config, identify_event_stream) =
 			IdentifyConfig::new("/substrate/1.0".to_string(), Some(user_agent));
@@ -284,7 +309,7 @@ impl Discovery {
 				kademlia_handle,
 				_peerstore_handle,
 				listen_addresses,
-				find_node_query_id: None,
+				random_walk_query_id: None,
 				pending_events: VecDeque::new(),
 				duration_to_next_find_query: Duration::from_secs(1),
 				address_confirmations: LruMap::new(ByLength::new(MAX_EXTERNAL_ADDRESSES)),
@@ -350,6 +375,11 @@ impl Discovery {
 		self.kademlia_handle.add_known_peer(peer, addresses).await;
 	}
 
+	/// Start Kademlia `FIND_NODE` query for `target`.
+	pub async fn find_node(&mut self, target: PeerId) -> QueryId {
+		self.kademlia_handle.find_node(target).await
+	}
+
 	/// Start Kademlia `GET_VALUE` query for `key`.
 	pub async fn get_value(&mut self, key: KademliaKey) -> QueryId {
 		self.kademlia_handle
@@ -405,6 +435,21 @@ impl Discovery {
 				expires,
 			})
 			.await;
+	}
+
+	/// Start providing `key`.
+	pub async fn start_providing(&mut self, key: KademliaKey) {
+		self.kademlia_handle.start_providing(key.into()).await;
+	}
+
+	/// Stop providing `key`.
+	pub async fn stop_providing(&mut self, key: KademliaKey) {
+		self.kademlia_handle.stop_providing(key.into()).await;
+	}
+
+	/// Get providers for `key`.
+	pub async fn get_providers(&mut self, key: KademliaKey) -> QueryId {
+		self.kademlia_handle.get_providers(key.into()).await
 	}
 
 	/// Check if the observed address is a known address.
@@ -480,7 +525,7 @@ impl Discovery {
 					.flatten()
 					.flatten();
 
-				self.address_confirmations.insert(address.clone(), Default::default());
+				self.address_confirmations.insert(address.clone(), iter::once(peer).collect());
 
 				return (false, oldest)
 			},
@@ -512,7 +557,7 @@ impl Stream for Discovery {
 
 					match this.kademlia_handle.try_find_node(peer) {
 						Ok(query_id) => {
-							this.find_node_query_id = Some(query_id);
+							this.random_walk_query_id = Some(query_id);
 							return Poll::Ready(Some(DiscoveryEvent::RandomKademliaStarted))
 						},
 						Err(()) => {
@@ -531,7 +576,9 @@ impl Stream for Discovery {
 		match Pin::new(&mut this.kademlia_handle).poll_next(cx) {
 			Poll::Pending => {},
 			Poll::Ready(None) => return Poll::Ready(None),
-			Poll::Ready(Some(KademliaEvent::FindNodeSuccess { peers, .. })) => {
+			Poll::Ready(Some(KademliaEvent::FindNodeSuccess { query_id, peers, .. }))
+				if Some(query_id) == this.random_walk_query_id =>
+			{
 				// the addresses are already inserted into the DHT and in `TransportManager` so
 				// there is no need to add them again. The found peers must be registered to
 				// `Peerstore` so other protocols are aware of them through `Peerset`.
@@ -543,6 +590,15 @@ impl Stream for Discovery {
 					peers: peers.into_iter().map(|(peer, _)| peer).collect(),
 				}))
 			},
+			Poll::Ready(Some(KademliaEvent::FindNodeSuccess { query_id, target, peers })) => {
+				log::trace!(target: LOG_TARGET, "find node query yielded {} peers", peers.len());
+
+				return Poll::Ready(Some(DiscoveryEvent::FindNodeSuccess {
+					query_id,
+					target,
+					peers,
+				}))
+			},
 			Poll::Ready(Some(KademliaEvent::RoutingTableUpdate { peers })) => {
 				log::trace!(target: LOG_TARGET, "routing table update, discovered {} peers", peers.len());
 
@@ -550,20 +606,31 @@ impl Stream for Discovery {
 					peers: peers.into_iter().collect(),
 				}))
 			},
-			Poll::Ready(Some(KademliaEvent::GetRecordSuccess { query_id, records })) => {
+			Poll::Ready(Some(KademliaEvent::GetRecordSuccess { query_id })) => {
 				log::trace!(
 					target: LOG_TARGET,
-					"`GET_RECORD` succeeded for {query_id:?}: {records:?}",
+					"`GET_RECORD` succeeded for {query_id:?}",
 				);
 
-				return Poll::Ready(Some(DiscoveryEvent::GetRecordSuccess { query_id, records }));
+				return Poll::Ready(Some(DiscoveryEvent::GetRecordSuccess { query_id }));
+			},
+			Poll::Ready(Some(KademliaEvent::GetRecordPartialResult { query_id, record })) => {
+				log::trace!(
+					target: LOG_TARGET,
+					"`GET_RECORD` intermediary succeeded for {query_id:?}: {record:?}",
+				);
+
+				return Poll::Ready(Some(DiscoveryEvent::GetRecordPartialResult {
+					query_id,
+					record,
+				}));
 			},
 			Poll::Ready(Some(KademliaEvent::PutRecordSuccess { query_id, key: _ })) =>
 				return Poll::Ready(Some(DiscoveryEvent::PutRecordSuccess { query_id })),
 			Poll::Ready(Some(KademliaEvent::QueryFailed { query_id })) => {
-				match this.find_node_query_id == Some(query_id) {
+				match this.random_walk_query_id == Some(query_id) {
 					true => {
-						this.find_node_query_id = None;
+						this.random_walk_query_id = None;
 						this.duration_to_next_find_query =
 							cmp::min(this.duration_to_next_find_query * 2, Duration::from_secs(60));
 						this.next_kad_query = Some(Delay::new(this.duration_to_next_find_query));
@@ -581,8 +648,22 @@ impl Stream for Discovery {
 
 				return Poll::Ready(Some(DiscoveryEvent::IncomingRecord { record }))
 			},
-			// Content provider events are ignored for now.
-			Poll::Ready(Some(KademliaEvent::GetProvidersSuccess { .. })) |
+			Poll::Ready(Some(KademliaEvent::GetProvidersSuccess {
+				provided_key,
+				providers,
+				query_id,
+			})) => {
+				log::trace!(
+					target: LOG_TARGET,
+					"`GET_PROVIDERS` for {query_id:?} with {provided_key:?} yielded {providers:?}",
+				);
+
+				return Poll::Ready(Some(DiscoveryEvent::GetProvidersSuccess {
+					query_id,
+					providers,
+				}))
+			},
+			// We do not validate incoming providers.
 			Poll::Ready(Some(KademliaEvent::IncomingProvider { .. })) => {},
 		}
 

@@ -43,9 +43,9 @@ mod imports {
 			TestArgs, TestContext, TestExt,
 		},
 		xcm_helpers::{
-			get_amount_from_versioned_assets, non_fee_asset, xcm_transact_paid_execution,
+			fee_asset, get_amount_from_versioned_assets, non_fee_asset, xcm_transact_paid_execution,
 		},
-		ASSETS_PALLET_ID, RESERVABLE_ASSET_ID, XCM_V3,
+		PenpalATeleportableAssetLocation, ASSETS_PALLET_ID, RESERVABLE_ASSET_ID, XCM_V3,
 	};
 	pub use parachains_common::Balance;
 	pub use rococo_system_emulated_network::{
@@ -53,7 +53,7 @@ mod imports {
 			asset_hub_rococo_runtime::{
 				self,
 				xcm_config::{
-					self as ahr_xcm_config, TokenLocation as RelayLocation,
+					self as ahr_xcm_config, TokenLocation as RelayLocation, TreasuryAccount,
 					XcmConfig as AssetHubRococoXcmConfig,
 				},
 				AssetConversionOrigin as AssetHubRococoAssetConversionOrigin,
@@ -76,10 +76,11 @@ mod imports {
 			genesis::ED as ROCOCO_ED,
 			rococo_runtime::{
 				governance as rococo_governance,
+				governance::pallet_custom_origins::Origin::Treasurer,
 				xcm_config::{
 					UniversalLocation as RococoUniversalLocation, XcmConfig as RococoXcmConfig,
 				},
-				OriginCaller as RococoOriginCaller,
+				Dmp, OriginCaller as RococoOriginCaller,
 			},
 			RococoRelayPallet as RococoPallet,
 		},

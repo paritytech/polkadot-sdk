@@ -44,12 +44,15 @@ use substrate_test_runtime_client::{
 	Sr25519Keyring::*,
 };
 use substrate_test_runtime_transaction_pool::{uxt, TestApi};
+use tracing::{debug, trace};
+
+type Pool<Api> = sc_transaction_pool::Pool<Api, ()>;
 
 const LOG_TARGET: &str = "txpool";
 
 fn pool() -> (Pool<TestApi>, Arc<TestApi>) {
 	let api = Arc::new(TestApi::with_alice_nonce(209));
-	(Pool::new(Default::default(), true.into(), api.clone()), api)
+	(Pool::new_with_staticly_sized_rotator(Default::default(), true.into(), api.clone()), api)
 }
 
 fn maintained_pool() -> (BasicPool<TestApi, Block>, Arc<TestApi>, futures::executor::ThreadPool) {
@@ -121,7 +124,7 @@ fn early_nonce_should_be_culled() {
 	block_on(pool.submit_one(&api.expect_hash_and_number(0), TSOURCE, uxt(Alice, 208).into()))
 		.unwrap();
 
-	log::debug!("-> {:?}", pool.validated_pool().status());
+	debug!(target: LOG_TARGET, pool_status = ?pool.validated_pool().status(), "Validated pool status");
 	let pending: Vec<_> = pool
 		.validated_pool()
 		.ready()
@@ -158,6 +161,7 @@ fn prune_tags_should_work() {
 	let (pool, api) = pool();
 	let hash209 =
 		block_on(pool.submit_one(&api.expect_hash_and_number(0), TSOURCE, uxt(Alice, 209).into()))
+			.map(|o| o.hash())
 			.unwrap();
 	block_on(pool.submit_one(&api.expect_hash_and_number(0), TSOURCE, uxt(Alice, 210).into()))
 		.unwrap();
@@ -184,10 +188,13 @@ fn prune_tags_should_work() {
 fn should_ban_invalid_transactions() {
 	let (pool, api) = pool();
 	let uxt = Arc::from(uxt(Alice, 209));
-	let hash =
-		block_on(pool.submit_one(&api.expect_hash_and_number(0), TSOURCE, uxt.clone())).unwrap();
+	let hash = block_on(pool.submit_one(&api.expect_hash_and_number(0), TSOURCE, uxt.clone()))
+		.unwrap()
+		.hash();
 	pool.validated_pool().remove_invalid(&[hash]);
-	block_on(pool.submit_one(&api.expect_hash_and_number(0), TSOURCE, uxt.clone())).unwrap_err();
+	block_on(pool.submit_one(&api.expect_hash_and_number(0), TSOURCE, uxt.clone()))
+		.map(|_| ())
+		.unwrap_err();
 
 	// when
 	let pending: Vec<_> = pool
@@ -198,7 +205,9 @@ fn should_ban_invalid_transactions() {
 	assert_eq!(pending, Vec::<Nonce>::new());
 
 	// then
-	block_on(pool.submit_one(&api.expect_hash_and_number(0), TSOURCE, uxt.clone())).unwrap_err();
+	block_on(pool.submit_one(&api.expect_hash_and_number(0), TSOURCE, uxt.clone()))
+		.map(|_| ())
+		.unwrap_err();
 }
 
 #[test]
@@ -224,7 +233,7 @@ fn should_correctly_prune_transactions_providing_more_than_one_tag() {
 	api.set_valid_modifier(Box::new(|v: &mut ValidTransaction| {
 		v.provides.push(vec![155]);
 	}));
-	let pool = Pool::new(Default::default(), true.into(), api.clone());
+	let pool = Pool::new_with_staticly_sized_rotator(Default::default(), true.into(), api.clone());
 	let xt0 = Arc::from(uxt(Alice, 209));
 	block_on(pool.submit_one(&api.expect_hash_and_number(0), TSOURCE, xt0.clone()))
 		.expect("1. Imported");
@@ -591,7 +600,7 @@ fn fork_aware_finalization() {
 		canon_watchers.push((watcher, header.hash()));
 		assert_eq!(pool.status().ready, 1);
 
-		log::trace!(target: LOG_TARGET, ">> B1: {:?} {:?}", header.hash(), header);
+		trace!(target: LOG_TARGET, hash = ?header.hash(), header = ?header, ">> B1");
 		let event = ChainEvent::NewBestBlock { hash: header.hash(), tree_route: None };
 		b1 = header.hash();
 		block_on(pool.maintain(event));
@@ -610,7 +619,7 @@ fn fork_aware_finalization() {
 		))
 		.expect("1. Imported");
 		assert_eq!(pool.status().ready, 1);
-		log::trace!(target: LOG_TARGET, ">> C2: {:?} {:?}", header.hash(), header);
+		trace!(target: LOG_TARGET, hash = ?header.hash(), header = ?header, ">> C2");
 		let event = ChainEvent::NewBestBlock { hash: header.hash(), tree_route: None };
 		c2 = header.hash();
 		block_on(pool.maintain(event));
@@ -628,7 +637,7 @@ fn fork_aware_finalization() {
 		assert_eq!(pool.status().ready, 1);
 		let header = api.push_block_with_parent(c2, vec![from_bob.clone()], true);
 
-		log::trace!(target: LOG_TARGET, ">> D2: {:?} {:?}", header.hash(), header);
+		trace!(target: LOG_TARGET, hash = ?header.hash(), header = ?header, ">> D2");
 		let event = ChainEvent::NewBestBlock { hash: header.hash(), tree_route: None };
 		d2 = header.hash();
 		block_on(pool.maintain(event));
@@ -645,7 +654,7 @@ fn fork_aware_finalization() {
 		.expect("1.Imported");
 		assert_eq!(pool.status().ready, 1);
 		let header = api.push_block_with_parent(b1, vec![from_charlie.clone()], true);
-		log::trace!(target: LOG_TARGET, ">> C1: {:?} {:?}", header.hash(), header);
+		trace!(target: LOG_TARGET, hash = ?header.hash(), header = ?header, ">> C1");
 		c1 = header.hash();
 		canon_watchers.push((watcher, header.hash()));
 		let event = block_event_with_retracted(header.clone(), d2, api);
@@ -663,7 +672,7 @@ fn fork_aware_finalization() {
 			.expect("1. Imported");
 		assert_eq!(pool.status().ready, 3);
 		let header = api.push_block_with_parent(c1, vec![xt.clone()], true);
-		log::trace!(target: LOG_TARGET, ">> D1: {:?} {:?}", header.hash(), header);
+		trace!(target: LOG_TARGET, hash = ?header.hash(), header = ?header, ">> D1");
 		d1 = header.hash();
 		canon_watchers.push((w, header.hash()));
 
@@ -679,7 +688,7 @@ fn fork_aware_finalization() {
 	// block E1
 	{
 		let header = api.push_block_with_parent(d1, vec![from_dave, from_bob], true);
-		log::trace!(target: LOG_TARGET, ">> E1: {:?} {:?}", header.hash(), header);
+		trace!(target: LOG_TARGET, hash = ?header.hash(), header = ?header, ">> E1");
 		e1 = header.hash();
 		let event = ChainEvent::NewBestBlock { hash: header.hash(), tree_route: None };
 		block_on(pool.maintain(event));
@@ -1108,7 +1117,7 @@ fn stale_transactions_are_pruned() {
 	block_on(pool.maintain(block_event(header)));
 	// The imported transactions have a different hash and should not evict our initial
 	// transactions.
-	log::debug!("-> {:?}", pool.status());
+	debug!(target: LOG_TARGET, status = ?pool.status(), "Pool status");
 	assert_eq!(pool.status().future, 3);
 
 	// Import enough blocks to make our transactions stale
@@ -1210,7 +1219,7 @@ fn switching_fork_with_finalized_works() {
 		.expect("1. Imported");
 		let header = api.push_block_with_parent(a_header.hash(), vec![from_alice.clone()], true);
 		assert_eq!(pool.status().ready, 1);
-		log::trace!(target: LOG_TARGET, ">> B1: {:?} {:?}", header.hash(), header);
+		trace!(target: LOG_TARGET, hash = ?header.hash(), header = ?header, ">> B1");
 		b1_header = header;
 	}
 
@@ -1229,7 +1238,7 @@ fn switching_fork_with_finalized_works() {
 		);
 		assert_eq!(pool.status().ready, 2);
 
-		log::trace!(target: LOG_TARGET, ">> B2: {:?} {:?}", header.hash(), header);
+		trace!(target: LOG_TARGET, hash = ?header.hash(), header = ?header, ">> B2");
 		b2_header = header;
 	}
 
@@ -1293,7 +1302,7 @@ fn switching_fork_multiple_times_works() {
 		.expect("1. Imported");
 		let header = api.push_block_with_parent(a_header.hash(), vec![from_alice.clone()], true);
 		assert_eq!(pool.status().ready, 1);
-		log::trace!(target: LOG_TARGET, ">> B1: {:?} {:?}", header.hash(), header);
+		trace!(target: LOG_TARGET, hash = ?header.hash(), header = ?header, ">> B1");
 		b1_header = header;
 	}
 
@@ -1312,7 +1321,7 @@ fn switching_fork_multiple_times_works() {
 		);
 		assert_eq!(pool.status().ready, 2);
 
-		log::trace!(target: LOG_TARGET, ">> B2: {:?} {:?}", header.hash(), header);
+		trace!(target: LOG_TARGET, hash = ?header.hash(), header = ?header, ">> B2");
 		b2_header = header;
 	}
 
@@ -1411,7 +1420,7 @@ fn two_blocks_delayed_finalization_works() {
 		let header = api.push_block_with_parent(a_header.hash(), vec![from_alice.clone()], true);
 		assert_eq!(pool.status().ready, 1);
 
-		log::trace!(target: LOG_TARGET, ">> B1: {:?} {:?}", header.hash(), header);
+		trace!(target: LOG_TARGET, hash = ?header.hash(), header = ?header, ">> B1");
 		b1_header = header;
 	}
 
@@ -1426,7 +1435,7 @@ fn two_blocks_delayed_finalization_works() {
 		let header = api.push_block_with_parent(b1_header.hash(), vec![from_bob.clone()], true);
 		assert_eq!(pool.status().ready, 2);
 
-		log::trace!(target: LOG_TARGET, ">> C1: {:?} {:?}", header.hash(), header);
+		trace!(target: LOG_TARGET, hash = ?header.hash(), header = ?header, ">> C1");
 		c1_header = header;
 	}
 
@@ -1441,7 +1450,7 @@ fn two_blocks_delayed_finalization_works() {
 		let header = api.push_block_with_parent(c1_header.hash(), vec![from_charlie.clone()], true);
 		assert_eq!(pool.status().ready, 3);
 
-		log::trace!(target: LOG_TARGET, ">> D1: {:?} {:?}", header.hash(), header);
+		trace!(target: LOG_TARGET, hash = ?header.hash(), header = ?header, ">> D1");
 		d1_header = header;
 	}
 
@@ -1527,7 +1536,7 @@ fn delayed_finalization_does_not_retract() {
 		let header = api.push_block_with_parent(a_header.hash(), vec![from_alice.clone()], true);
 		assert_eq!(pool.status().ready, 1);
 
-		log::trace!(target: LOG_TARGET, ">> B1: {:?} {:?}", header.hash(), header);
+		trace!(target: LOG_TARGET, hash = ?header.hash(), header = ?header, ">> B1");
 		b1_header = header;
 	}
 
@@ -1542,7 +1551,7 @@ fn delayed_finalization_does_not_retract() {
 		let header = api.push_block_with_parent(b1_header.hash(), vec![from_bob.clone()], true);
 		assert_eq!(pool.status().ready, 2);
 
-		log::trace!(target: LOG_TARGET, ">> C1: {:?} {:?}", header.hash(), header);
+		trace!(target: LOG_TARGET, hash = ?header.hash(), header = ?header, ">> C1");
 		c1_header = header;
 	}
 
@@ -1625,7 +1634,7 @@ fn best_block_after_finalization_does_not_retract() {
 		let header = api.push_block_with_parent(a_header.hash(), vec![from_alice.clone()], true);
 		assert_eq!(pool.status().ready, 1);
 
-		log::trace!(target: LOG_TARGET, ">> B1: {:?} {:?}", header.hash(), header);
+		trace!(target: LOG_TARGET, hash = ?header.hash(), header = ?header, ">> B1");
 		b1_header = header;
 	}
 
@@ -1640,7 +1649,7 @@ fn best_block_after_finalization_does_not_retract() {
 		let header = api.push_block_with_parent(b1_header.hash(), vec![from_bob.clone()], true);
 		assert_eq!(pool.status().ready, 2);
 
-		log::trace!(target: LOG_TARGET, ">> C1: {:?} {:?}", header.hash(), header);
+		trace!(target: LOG_TARGET, hash = ?header.hash(), header = ?header, ">> C1");
 		c1_header = header;
 	}
 

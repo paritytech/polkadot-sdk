@@ -85,7 +85,6 @@ where
 		match self.format {
 			ExtrinsicFormat::Bare => {
 				let inherent_validation = I::validate_unsigned(source, &self.function)?;
-				#[allow(deprecated)]
 				let legacy_validation = Extension::bare_validate(&self.function, info, len)?;
 				Ok(legacy_validation.combine_with(inherent_validation))
 			},

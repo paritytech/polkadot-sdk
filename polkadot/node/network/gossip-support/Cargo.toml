@@ -12,12 +12,11 @@ repository.workspace = true
 workspace = true
 
 [dependencies]
+sc-network = { workspace = true, default-features = true }
 sp-application-crypto = { workspace = true, default-features = true }
-sp-keystore = { workspace = true, default-features = true }
 sp-core = { workspace = true, default-features = true }
 sp-crypto-hashing = { workspace = true, default-features = true }
-sc-network = { workspace = true, default-features = true }
-sc-network-common = { workspace = true, default-features = true }
+sp-keystore = { workspace = true, default-features = true }
 
 polkadot-node-network-protocol = { workspace = true, default-features = true }
 polkadot-node-subsystem = { workspace = true, default-features = true }
@@ -26,15 +25,15 @@ polkadot-primitives = { workspace = true, default-features = true }
 
 futures = { workspace = true }
 futures-timer = { workspace = true }
+gum = { workspace = true, default-features = true }
 rand = { workspace = true }
 rand_chacha = { workspace = true }
-gum = { workspace = true, default-features = true }
 
 [dev-dependencies]
-sp-keyring = { workspace = true, default-features = true }
-sp-consensus-babe = { workspace = true, default-features = true }
-sp-tracing = { workspace = true, default-features = true }
 sp-authority-discovery = { workspace = true, default-features = true }
+sp-consensus-babe = { workspace = true, default-features = true }
+sp-keyring = { workspace = true, default-features = true }
+sp-tracing = { workspace = true, default-features = true }
 
 polkadot-node-subsystem-test-helpers = { workspace = true }
 

@@ -5,7 +5,7 @@ use crate::config;
 use frame_support::{derive_impl, dispatch::DispatchResult, parameter_types};
 use pallet_timestamp;
 use snowbridge_beacon_primitives::{Fork, ForkVersions};
-use snowbridge_core::inbound::{Log, Proof};
+use snowbridge_verification_primitives::{Log, Proof};
 use sp_std::default::Default;
 use std::{fs::File, path::PathBuf};
 
@@ -88,7 +88,7 @@ pub fn load_sync_committee_update_period_0_newer_fixture() -> Box<
 
 pub fn get_message_verification_payload() -> (Log, Proof) {
 	let inbound_fixture = snowbridge_pallet_ethereum_client_fixtures::make_inbound_fixture();
-	(inbound_fixture.message.event_log, inbound_fixture.message.proof)
+	(inbound_fixture.event.event_log, inbound_fixture.event.proof)
 }
 
 frame_support::construct_runtime!(
@@ -130,8 +130,12 @@ parameter_types! {
 			epoch: 0,
 		},
 		deneb: Fork {
-			version: [4, 0, 0, 0], // 0x90000073
+			version: [4, 0, 0, 0], // 0x04000000
 			epoch: 0,
+		},
+		electra: Fork {
+			version: [5, 0, 0, 0], // 0x05000000
+			epoch: 80000000000,
 		}
 	};
 }

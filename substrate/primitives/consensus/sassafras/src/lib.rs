@@ -24,7 +24,7 @@
 extern crate alloc;
 
 use alloc::vec::Vec;
-use codec::{Decode, Encode, MaxEncodedLen};
+use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 use sp_core::crypto::KeyTypeId;
 use sp_runtime::{ConsensusEngineId, RuntimeDebug};
@@ -86,7 +86,17 @@ pub type Randomness = [u8; RANDOMNESS_LENGTH];
 ///
 /// Mostly tweaks to the ticketing system parameters.
 #[derive(
-	Copy, Clone, PartialEq, Eq, Encode, Decode, RuntimeDebug, MaxEncodedLen, TypeInfo, Default,
+	Copy,
+	Clone,
+	PartialEq,
+	Eq,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	RuntimeDebug,
+	MaxEncodedLen,
+	TypeInfo,
+	Default,
 )]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct EpochConfiguration {

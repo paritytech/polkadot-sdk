@@ -21,14 +21,13 @@ bp-parachains = { workspace = true }
 bp-runtime = { workspace = true }
 
 # Substrate Dependencies
-frame-system = { workspace = true }
 frame-support = { workspace = true }
+frame-system = { workspace = true }
 pallet-utility = { workspace = true }
 sp-runtime = { workspace = true }
 sp-std = { workspace = true }
 
 [dev-dependencies]
-hex = { workspace = true, default-features = true }
 hex-literal = { workspace = true, default-features = true }
 
 [features]

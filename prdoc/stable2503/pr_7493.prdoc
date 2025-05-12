@@ -1,0 +1,9 @@
+title: '[pallet-revive] fix eth-rpc indexing'
+doc:
+- audience: Runtime Dev
+  description: |-
+    - Fix a deadlock on the RWLock cache
+    -  Remove eth-indexer, we won't need it anymore, the indexing will be started from within eth-rpc directly
+crates:
+- name: pallet-revive-eth-rpc
+  bump: minor

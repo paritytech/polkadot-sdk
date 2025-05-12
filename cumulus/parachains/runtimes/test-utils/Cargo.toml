@@ -21,33 +21,27 @@ pallet-balances = { workspace = true }
 pallet-session = { workspace = true }
 pallet-timestamp = { workspace = true }
 sp-consensus-aura = { workspace = true }
+sp-core = { workspace = true }
 sp-io = { workspace = true }
 sp-runtime = { workspace = true }
 sp-tracing = { workspace = true, default-features = true }
-sp-core = { workspace = true }
 
 # Cumulus
 cumulus-pallet-parachain-system = { workspace = true }
 cumulus-pallet-xcmp-queue = { workspace = true }
-pallet-collator-selection = { workspace = true }
-parachain-info = { workspace = true }
-parachains-common = { workspace = true }
 cumulus-primitives-core = { workspace = true }
 cumulus-primitives-parachain-inherent = { workspace = true }
 cumulus-test-relay-sproof-builder = { workspace = true }
+pallet-collator-selection = { workspace = true }
+parachain-info = { workspace = true }
+parachains-common = { workspace = true }
 
 # Polkadot
+pallet-xcm = { workspace = true }
+polkadot-parachain-primitives = { workspace = true }
 xcm = { workspace = true }
 xcm-executor = { workspace = true }
-pallet-xcm = { workspace = true }
 xcm-runtime-apis = { workspace = true }
-polkadot-parachain-primitives = { workspace = true }
-
-[dev-dependencies]
-hex-literal = { workspace = true, default-features = true }
-
-[build-dependencies]
-substrate-wasm-builder = { workspace = true, default-features = true }
 
 [features]
 default = ["std"]

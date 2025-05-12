@@ -15,10 +15,10 @@ workspace = true
 proc-macro = true
 
 [dependencies]
-syn = { workspace = true }
+proc-macro-crate = { workspace = true }
 proc-macro2 = { workspace = true }
 quote = { workspace = true }
-proc-macro-crate = { workspace = true }
+syn = { workspace = true }
 
 [features]
 default = ["std"]
