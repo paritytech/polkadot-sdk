@@ -131,9 +131,6 @@ pub enum ClientError {
 	/// The contract was not found.
 	#[error("Contract not found")]
 	ContractNotFound,
-	/// Failed to get the tracing data.
-	#[error("tracing failed")]
-	TracingFailed(String),
 	#[error("No Ethereum extrinsic found")]
 	EthExtrinsicNotFound,
 	/// The transaction fee could not be found
