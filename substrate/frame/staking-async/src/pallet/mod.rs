@@ -618,7 +618,8 @@ pub mod pallet {
 	impl<T: Config> Get<u32> for ErasClaimedRewardsBound<T> {
 		fn get() -> u32 {
 			let max_total_nominators_per_validator =
-				<T::ElectionProvider as ElectionProvider>::MaxBackersPerWinner::get();
+				<T::ElectionProvider as ElectionProvider>::MaxBackersPerWinner::get() *
+					<T::ElectionProvider as ElectionProvider>::Pages::get();
 			let exposure_page_size = T::MaxExposurePageSize::get();
 			max_total_nominators_per_validator
 				.saturating_div(exposure_page_size)
