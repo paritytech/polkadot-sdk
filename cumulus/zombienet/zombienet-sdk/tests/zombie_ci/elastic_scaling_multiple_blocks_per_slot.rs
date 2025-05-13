@@ -21,7 +21,7 @@ const PARA_ID: u32 = 2400;
 /// **Note:** The runtime in use here has 6s slot duration, so multiple blocks will be produced per
 /// slot.
 #[tokio::test(flavor = "multi_thread")]
-async fn elastic_scaling_multiple_block_per_slot() -> Result<(), anyhow::Error> {
+async fn elastic_scaling_multiple_blocks_per_slot() -> Result<(), anyhow::Error> {
 	let _ = env_logger::try_init_from_env(
 		env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
 	);
