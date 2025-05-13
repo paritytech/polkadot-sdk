@@ -633,12 +633,6 @@ impl_runtime_apis! {
 			}
 		}
 
-		fn to_address(
-			account: [u8; 32],
-		) -> H160 {
-			<Runtime as pallet_revive::Config>::AddressMapper::to_address(&account.into())
-		}
-
 		fn coinbase() -> Option<H160> {
 			Revive::coinbase()
 		}

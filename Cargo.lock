@@ -12748,9 +12748,11 @@ dependencies = [
  "sc-rpc",
  "sc-rpc-api",
  "sc-service",
+ "serde_json",
  "sp-arithmetic 23.0.0",
  "sp-core 28.0.0",
  "sp-crypto-hashing 0.1.0",
+ "sp-rpc",
  "sp-runtime 31.0.1",
  "sp-weights 27.0.0",
  "sqlx",
@@ -18075,6 +18077,30 @@ checksum = "52e44394d2086d010551b14b53b1f24e31647570cd1deb0379e2c21b329aba00"
 dependencies = [
  "hostname",
  "quick-error",
+]
+
+[[package]]
+name = "revive-dev-node"
+version = "0.0.0"
+dependencies = [
+ "clap",
+ "docify",
+ "futures",
+ "futures-timer",
+ "jsonrpsee",
+ "polkadot-sdk 0.1.0",
+ "revive-dev-runtime",
+]
+
+[[package]]
+name = "revive-dev-runtime"
+version = "0.0.0"
+dependencies = [
+ "array-bytes 6.2.2",
+ "parity-scale-codec",
+ "polkadot-sdk 0.1.0",
+ "scale-info",
+ "serde_json",
 ]
 
 [[package]]

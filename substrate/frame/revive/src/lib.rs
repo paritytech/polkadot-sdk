@@ -44,8 +44,8 @@ pub mod weights;
 
 use crate::{
 	evm::{
-		runtime::GAS_PRICE, CallTracer, GasEncoder, GenericTransaction, Trace, Tracer, TracerType,
-		TYPE_EIP1559,
+		runtime::GAS_PRICE, CallTracer, GasEncoder, GenericTransaction, PrestateTracer, Trace,
+		Tracer, TracerType, TYPE_EIP1559,
 	},
 	exec::{AccountIdOf, ExecError, Executable, Key, Stack as ExecStack},
 	gas::GasMeter,
@@ -1409,7 +1409,7 @@ where
 	}
 
 	/// Build an EVM tracer from the given tracer type.
-	pub fn evm_tracer(tracer_type: TracerType) -> Tracer {
+	pub fn evm_tracer(tracer_type: TracerType) -> Tracer<T> {
 		match tracer_type {
 			TracerType::CallTracer(config) => CallTracer::new(
 				config.unwrap_or_default(),
