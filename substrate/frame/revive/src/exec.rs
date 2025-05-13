@@ -16,7 +16,17 @@
 // limitations under the License.
 
 use crate::{
-	address::{self, AddressMapper}, gas::GasMeter, limits, precompiles::{All as AllPrecompiles, Instance as PrecompileInstance, Precompiles}, primitives::{ExecReturnValue, StorageDeposit}, runtime_decl_for_revive_api::{Decode, Encode, RuntimeDebugNoBound, TypeInfo}, storage::{self, meter::Diff, WriteOutcome}, tracing::if_tracing, transient_storage::TransientStorage, BalanceOf, CodeInfo, CodeInfoOf, Config, ContractInfo, ContractInfoOf, ConversionPrecision, Error, Event, ExecContext, ImmutableData, ImmutableDataOf, Pallet as Contracts
+	address::{self, AddressMapper},
+	gas::GasMeter,
+	limits,
+	precompiles::{All as AllPrecompiles, Instance as PrecompileInstance, Precompiles},
+	primitives::{ExecReturnValue, StorageDeposit},
+	runtime_decl_for_revive_api::{Decode, Encode, RuntimeDebugNoBound, TypeInfo},
+	storage::{self, meter::Diff, WriteOutcome},
+	tracing::if_tracing,
+	transient_storage::TransientStorage,
+	BalanceOf, CodeInfo, CodeInfoOf, Config, ContractInfo, ContractInfoOf, ConversionPrecision,
+	Error, Event, ExecContext, ImmutableData, ImmutableDataOf, Pallet as Contracts,
 };
 use alloc::vec::Vec;
 use core::{fmt::Debug, marker::PhantomData, mem};
@@ -837,7 +847,7 @@ where
 			gas_meter,
 			storage_meter,
 			value.into(),
-			ExecContext::DryRun{skip_transfer: false},
+			ExecContext::DryRun { skip_transfer: false },
 		)
 		.unwrap()
 		.unwrap();
