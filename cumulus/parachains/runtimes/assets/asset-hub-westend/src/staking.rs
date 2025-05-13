@@ -59,7 +59,7 @@ parameter_types! {
 	);
 
 	/// validate up to 4 signed solution. Each solution.
-	pub storage SignedValidationPhase: u32 = Pages::get() * 4;
+	pub storage SignedValidationPhase: u32 = prod_or_fast!(Pages::get() * 4, Pages::get());
 
 	/// In each page, we may observe up to all of the validators.
 	pub storage MaxWinnersPerPage: u32 = MaxValidatorSet::get();
@@ -108,11 +108,10 @@ impl onchain::Config for OnChainSeqPhragmen {
 	type MaxWinnersPerPage = MaxWinnersPerPage;
 }
 
-parameter_types! {
+ord_parameter_types! {
 	// https://westend.subscan.io/account/5GBoBNFP9TA7nAk82i6SUZJimerbdhxaRgyC2PVcdYQMdb8e
 	pub const WestendStakingMiner: AccountId = AccountId::from(hex_literal::hex!("b65991822483a6c3bd24b1dcf6afd3e270525da1f9c8c22a4373d1e1079e236a"));
 }
-
 
 impl multi_block::Config for Runtime {
 	type Pages = Pages;
@@ -122,7 +121,7 @@ impl multi_block::Config for Runtime {
 	type VoterSnapshotPerBlock = VoterSnapshotPerBlock;
 	type TargetSnapshotPerBlock = TargetSnapshotPerBlock;
 	type AdminOrigin =
-		EitherOf<EnsureRoot<AccountId>, EnsureSignedBy<WestendStakingMiner, AccountId>>;
+		EitherOfDiverse<EnsureRoot<AccountId>, EnsureSignedBy<WestendStakingMiner, AccountId>>;
 	type DataProvider = Staking;
 	type MinerConfig = Self;
 	type Verifier = MultiBlockVerifier;
@@ -172,10 +171,9 @@ impl multi_block::signed::Config for Runtime {
 parameter_types! {
 	/// Priority of the offchain miner transactions.
 	pub MinerTxPriority: TransactionPriority = TransactionPriority::max_value() / 2;
-	/// Try and run the OCW miner 4 times during the unisgned phase.
+	/// Try and run the OCW miner 4 times during the unsigned phase.
 	pub OffchainRepeat: BlockNumber = UnsignedPhase::get() / 4;
-	/// Ask OCW miner for just a 2, out of the 32, page solution.
-	pub storage MinerPages: u32 = 2;
+	pub storage MinerPages: u32 = 0;
 }
 
 impl multi_block::unsigned::Config for Runtime {

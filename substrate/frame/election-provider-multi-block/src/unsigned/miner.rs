@@ -124,6 +124,8 @@ pub enum OffchainMinerError<T: Config> {
 	SolutionCallInvalid,
 	/// Failed to store a solution.
 	FailedToStoreSolution,
+	/// Cannot mine a solution with zero pages.
+	ZeroPages,
 }
 
 impl<T: Config> From<MinerError<T::MinerConfig>> for OffchainMinerError<T> {
@@ -720,6 +722,9 @@ impl<T: Config> OffchainWorkerMiner<T> {
 		pages: PageIndex,
 		do_reduce: bool,
 	) -> Result<PagedRawSolution<T::MinerConfig>, OffchainMinerError<T>> {
+		if pages.is_zero() {
+			return Err(OffchainMinerError::<T>::ZeroPages);
+		}
 		let (voter_pages, all_targets, desired_targets) = Self::fetch_snapshot(pages)?;
 		let round = crate::Pallet::<T>::round();
 		BaseMiner::<T::MinerConfig>::mine_solution(MineInput {

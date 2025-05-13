@@ -733,7 +733,7 @@ impl pallet_staking::EraPayout<Balance> for EraPayout {
 
 parameter_types! {
 	// Six sessions in an era (6 hours).
-	pub const SessionsPerEra: SessionIndex = prod_or_fast!(6, 1);
+	pub const SessionsPerEra: SessionIndex = prod_or_fast!(6, 2);
 	// 2 eras for unbonding (12 hours).
 	pub const BondingDuration: EraIndex = 2;
 	// 1 era in which slashes can be cancelled (6 hours).
