@@ -1632,15 +1632,9 @@ impl<T: Config> UpwardMessageSender for Pallet<T> {
 	}
 
 	fn can_send_upward_message(message: &UpwardMessage) -> Result<(), MessageSendError> {
-		#[cfg(not(feature = "runtime-benchmarks"))]
 		let max_upward_message_size = HostConfiguration::<T>::get()
 			.map(|cfg| cfg.max_upward_message_size)
 			.ok_or(MessageSendError::Other)?;
-		// for benchmarks, if host cfg is not set, we assume no limit on the size.
-		#[cfg(feature = "runtime-benchmarks")]
-		let max_upward_message_size = HostConfiguration::<T>::get()
-			.map(|cfg| cfg.max_upward_message_size)
-			.unwrap_or_else(sp_runtime::traits::Bounded::max_value);
 		if message.len() > max_upward_message_size as usize {
 			Err(MessageSendError::TooBig)
 		} else {
