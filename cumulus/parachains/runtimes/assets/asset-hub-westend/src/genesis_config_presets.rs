@@ -60,20 +60,6 @@ fn asset_hub_westend_genesis(
 		},
 		polkadot_xcm: PolkadotXcmConfig { safe_xcm_version: Some(SAFE_XCM_VERSION) },
 		staking: StakingConfig {
-			// westend wishes for 16 validators.
-			stakers: vec![
-				(
-					Sr25519Keyring::Alice.to_account_id(),
-					ASSET_HUB_WESTEND_ED * 1000_000,
-					pallet_staking_async::StakerStatus::Validator
-				),
-				(
-					Sr25519Keyring::Bob.to_account_id(),
-					ASSET_HUB_WESTEND_ED * 1000_000,
-					pallet_staking_async::StakerStatus::Validator
-				)
-			],
-			validator_count: 16,
 			dev_stakers,
 			..Default::default()
 		}
@@ -88,7 +74,7 @@ mod preset_names {
 /// Provides the JSON representation of predefined genesis config for given `id`.
 pub fn get_preset(id: &PresetId) -> Option<Vec<u8>> {
 	use preset_names::*;
-	let dev_stakers = Some((0, 25_000));
+	let dev_stakers = None;
 	let patch = match id.as_ref() {
 		PRESET_GENESIS => asset_hub_westend_genesis(
 			// initial collators.

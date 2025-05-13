@@ -51,7 +51,7 @@ parameter_types! {
 	// 10 mins for each pages
 	pub storage SignedPhase: u32 = prod_or_fast!(
 		10 * MINUTES,
-		1 * MINUTES
+		4 * MINUTES
 	);
 	pub storage UnsignedPhase: u32 = prod_or_fast!(
 		10 * MINUTES,
