@@ -12253,7 +12253,7 @@ dependencies = [
 name = "pallet-meta-tx"
 version = "0.1.0"
 dependencies = [
- "docify 0.4.1",
+ "docify",
  "frame-benchmarking",
  "frame-support",
  "frame-system",
