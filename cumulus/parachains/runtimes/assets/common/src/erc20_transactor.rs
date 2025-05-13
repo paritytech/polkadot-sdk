@@ -20,8 +20,8 @@ type BalanceOf<T> = <<T as pallet_revive::Config>::Currency as Inspect<
 	<T as frame_system::Config>::AccountId,
 >>::Balance;
 
-pub struct ERC20Transactor<T, Matcher, AccountIdConverter, GasLimit, AccountId, CheckingAccount>(
-	PhantomData<(T, Matcher, AccountIdConverter, GasLimit, AccountId, CheckingAccount)>,
+pub struct ERC20Transactor<T, Matcher, AccountIdConverter, GasLimit, AccountId, TransfersCheckingAccount>(
+	PhantomData<(T, Matcher, AccountIdConverter, GasLimit, AccountId, TransfersCheckingAccount)>,
 );
 
 impl<
@@ -30,8 +30,8 @@ impl<
 		AccountIdConverter: ConvertLocation<AccountId>,
 		Matcher: MatchesFungibles<H160, u128>,
 		GasLimit: Get<Weight>,
-		CheckingAccount: Get<AccountId>,
-	> TransactAsset for ERC20Transactor<T, Matcher, AccountIdConverter, GasLimit, AccountId, CheckingAccount>
+		TransfersCheckingAccount: Get<AccountId>,
+	> TransactAsset for ERC20Transactor<T, Matcher, AccountIdConverter, GasLimit, AccountId, TransfersCheckingAccount>
 where
 	BalanceOf<T>: Into<U256> + TryFrom<U256>,
 	MomentOf<T>: Into<U256>,
@@ -67,7 +67,7 @@ where
 		let (asset_id, amount) = Matcher::matches_fungibles(what)?;
 		let who = AccountIdConverter::convert_location(who)
 			.ok_or(MatchError::AccountIdConversionFailed)?;
-		let checking_account_eth = T::AddressMapper::to_address(&CheckingAccount::get());
+		let checking_account_eth = T::AddressMapper::to_address(&TransfersCheckingAccount::get());
 		let checking_address = Address::from(Into::<[u8; 20]>::into(checking_account_eth));
 		let gas_limit = GasLimit::get();
 		let data = IERC20::transferCall { to: checking_address, value: EU256::from(amount) }.abi_encode();
@@ -125,7 +125,7 @@ where
 		let data = IERC20::transferCall { to: address, value: EU256::from(amount) }.abi_encode();
 		let gas_limit = GasLimit::get();
 		let ContractResult { result, gas_consumed, .. } = pallet_revive::Pallet::<T>::bare_call(
-			T::RuntimeOrigin::signed(CheckingAccount::get()),
+			T::RuntimeOrigin::signed(TransfersCheckingAccount::get()),
 			asset_id,
 			BalanceOf::<T>::zero(),
 			gas_limit,

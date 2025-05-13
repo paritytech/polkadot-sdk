@@ -213,17 +213,23 @@ pub type PoolFungiblesTransactor = FungiblesAdapter<
 parameter_types! {
 	/// Taken from the real gas of a standard ERC20 transfer call.
 	pub const ERC20TransferGasLimit: Weight = Weight::from_parts(700_000_000, 100_000);
-	pub ERC20CheckingAccount: AccountId = PalletId(*b"py/revch").into_account_truncating();
+	pub ERC20TransfersCheckingAccount: AccountId = PalletId(*b"py/revch").into_account_truncating();
 }
 
 /// Transactor for ERC20 tokens.
 pub type ERC20Transactor = assets_common::ERC20Transactor<
+	// We need this for accessing pallet-revive.
 	Runtime,
+	// The matcher for smart contracts.
 	assets_common::ERC20Matcher,
+	// How to convert from a location to an account id.
 	LocationToAccountId,
+	// The maximum gas that can be used by a standard ERC20 transfer.
 	ERC20TransferGasLimit,
+	// We're generic over this so we can't escape specifying it.
 	AccountId,
-	CheckingAccount,
+	// Checking account for ERC20 transfers.
+	ERC20TransfersCheckingAccount,
 >;
 
 /// Means for transacting assets on this chain.

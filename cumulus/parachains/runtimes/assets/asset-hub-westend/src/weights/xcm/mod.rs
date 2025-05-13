@@ -21,7 +21,7 @@ use crate::{
 	Runtime,
 };
 use alloc::vec::Vec;
-use assets_common::IsAccountKey20;
+use assets_common::IsLocalAccountKey20;
 use frame_support::{traits::Contains, weights::Weight};
 use pallet_xcm_benchmarks_fungible::WeightInfo as XcmFungibleWeight;
 use pallet_xcm_benchmarks_generic::WeightInfo as XcmGeneric;
@@ -68,7 +68,7 @@ impl WeighAsset for Asset {
 		// If the asset is a smart contract ERC20, then we know the gas limit,
 		// else we return the weight that was passed in, that's already
 		// the worst case for non-ERC20 assets.
-		if IsAccountKey20::contains(&self.id.0) {
+		if IsLocalAccountKey20::contains(&self.id.0) {
 			ERC20TransferGasLimit::get()
 		} else {
 			weight
