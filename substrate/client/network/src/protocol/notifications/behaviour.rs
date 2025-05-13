@@ -18,7 +18,9 @@
 
 use crate::{
 	protocol::notifications::{
-		handler::{self, NotificationsSink, NotifsHandler, NotifsHandlerIn, NotifsHandlerOut},
+		handler::{
+			self, CloseReason, NotificationsSink, NotifsHandler, NotifsHandlerIn, NotifsHandlerOut,
+		},
 		service::{NotificationCommand, ProtocolHandle, ValidationCallResult},
 	},
 	protocol_controller::{self, IncomingIndex, Message, SetId},
@@ -399,6 +401,14 @@ pub enum NotificationsOut {
 		/// Message that has been received.
 		message: BytesMut,
 	},
+
+	/// The remote peer misbehaved by sent a message on an outbound substream.
+	ProtocolMisbehavior {
+		/// Id of the peer the message came from.
+		peer_id: PeerId,
+		/// Peerset set ID the substream is tied to.
+		set_id: SetId,
+	},
 }
 
 impl Notifications {
@@ -703,7 +713,7 @@ impl Notifications {
 					self.events.push_back(ToSwarm::NotifyHandler {
 						peer_id,
 						handler: NotifyHandler::One(*connec_id),
-						event: NotifsHandlerIn::Open { protocol_index: set_id.into() },
+						event: NotifsHandlerIn::Open { protocol_index: set_id.into(), peer_id },
 					});
 					*connec_state = ConnectionState::Opening;
 					*occ_entry.into_mut() = PeerState::Enabled { connections };
@@ -1062,7 +1072,10 @@ impl Notifications {
 					self.events.push_back(ToSwarm::NotifyHandler {
 						peer_id: incoming.peer_id,
 						handler: NotifyHandler::One(*connec_id),
-						event: NotifsHandlerIn::Open { protocol_index: incoming.set_id.into() },
+						event: NotifsHandlerIn::Open {
+							protocol_index: incoming.set_id.into(),
+							peer_id: incoming.peer_id,
+						},
 					});
 					*connec_state = ConnectionState::Opening;
 				}
@@ -1260,7 +1273,10 @@ impl NetworkBehaviour for Notifications {
 							self.events.push_back(ToSwarm::NotifyHandler {
 								peer_id,
 								handler: NotifyHandler::One(connection_id),
-								event: NotifsHandlerIn::Open { protocol_index: set_id.into() },
+								event: NotifsHandlerIn::Open {
+									protocol_index: set_id.into(),
+									peer_id,
+								},
 							});
 
 							let mut connections = SmallVec::new();
@@ -1762,7 +1778,10 @@ impl NetworkBehaviour for Notifications {
 								self.events.push_back(ToSwarm::NotifyHandler {
 									peer_id,
 									handler: NotifyHandler::One(connection_id),
-									event: NotifsHandlerIn::Open { protocol_index: set_id.into() },
+									event: NotifsHandlerIn::Open {
+										protocol_index: set_id.into(),
+										peer_id,
+									},
 								});
 								*connec_state = ConnectionState::Opening;
 							} else {
@@ -1849,7 +1868,10 @@ impl NetworkBehaviour for Notifications {
 								self.events.push_back(ToSwarm::NotifyHandler {
 									peer_id,
 									handler: NotifyHandler::One(connection_id),
-									event: NotifsHandlerIn::Open { protocol_index: set_id.into() },
+									event: NotifsHandlerIn::Open {
+										protocol_index: set_id.into(),
+										peer_id,
+									},
 								});
 								*connec_state = ConnectionState::Opening;
 
@@ -1887,7 +1909,7 @@ impl NetworkBehaviour for Notifications {
 				};
 			},
 
-			NotifsHandlerOut::CloseDesired { protocol_index } => {
+			NotifsHandlerOut::CloseDesired { protocol_index, reason } => {
 				let set_id = SetId::from(protocol_index);
 
 				trace!(target: LOG_TARGET,
@@ -1902,6 +1924,12 @@ impl NetworkBehaviour for Notifications {
 					debug_assert!(false);
 					return
 				};
+
+				if reason == CloseReason::ProtocolMisbehavior {
+					self.events.push_back(ToSwarm::GenerateEvent(
+						NotificationsOut::ProtocolMisbehavior { peer_id, set_id },
+					));
+				}
 
 				match mem::replace(entry.get_mut(), PeerState::Poisoned) {
 					// Enabled => Enabled | Disabled
@@ -2336,7 +2364,7 @@ impl NetworkBehaviour for Notifications {
 						self.events.push_back(ToSwarm::NotifyHandler {
 							peer_id,
 							handler: NotifyHandler::One(*connec_id),
-							event: NotifsHandlerIn::Open { protocol_index: set_id.into() },
+							event: NotifsHandlerIn::Open { protocol_index: set_id.into(), peer_id },
 						});
 						*connec_state = ConnectionState::Opening;
 						*peer_state = PeerState::Enabled { connections: mem::take(connections) };

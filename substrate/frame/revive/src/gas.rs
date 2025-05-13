@@ -73,11 +73,12 @@ impl<T: Config> EngineMeter<T> {
 
 	/// How much ref time does each PolkaVM gas correspond to.
 	fn ref_time_per_fuel() -> u64 {
-		// We execute 6 different instructions therefore we have to divide the actual
-		// computed gas costs by 6 to have a rough estimate as to how expensive each
-		// single executed instruction is going to be.
-		let instr_cost = T::WeightInfo::instr(1).saturating_sub(T::WeightInfo::instr(0)).ref_time();
-		instr_cost / 6
+		let loop_iteration =
+			T::WeightInfo::instr(1).saturating_sub(T::WeightInfo::instr(0)).ref_time();
+		let empty_loop_iteration = T::WeightInfo::instr_empty_loop(1)
+			.saturating_sub(T::WeightInfo::instr_empty_loop(0))
+			.ref_time();
+		loop_iteration.saturating_sub(empty_loop_iteration)
 	}
 }
 

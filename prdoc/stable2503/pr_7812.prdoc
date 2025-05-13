@@ -1,0 +1,13 @@
+title: '`apply_authorized_upgrade`: Remote authorization if the version check fails'
+doc:
+- audience: Runtime User
+  description: |-
+    This pr ensures that we remove the authorization for a runtime upgrade if the version check failed. 
+    If that check is failing, it means that the runtime upgrade is invalid and the check will never succeed.
+
+    Besides that the pr is doing some clean ups.
+crates:
+- name: cumulus-pallet-parachain-system
+  bump: major
+- name: frame-system
+  bump: major

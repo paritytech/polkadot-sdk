@@ -79,7 +79,7 @@ pub trait WeightInfo {
 	fn set_active() -> Weight;
 	fn induct() -> Weight;
 	fn promote() -> Weight;
-	fn promote_fast(r: u32, ) -> Weight;
+	fn promote_fast(r: u16, ) -> Weight;
 	fn offboard() -> Weight;
 	fn import() -> Weight;
 	fn import_member() -> Weight;
@@ -225,7 +225,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Storage: `RankedCollective::IdToIndex` (r:0 w:9)
 	/// Proof: `RankedCollective::IdToIndex` (`max_values`: None, `max_size`: Some(54), added: 2529, mode: `MaxEncodedLen`)
 	/// The range of component `r` is `[1, 9]`.
-	fn promote_fast(r: u32, ) -> Weight {
+	fn promote_fast(r: u16, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `16665`
 		//  Estimated: `19894 + r * (2489 ±0)`
@@ -447,7 +447,7 @@ impl WeightInfo for () {
 	/// Storage: `RankedCollective::IdToIndex` (r:0 w:9)
 	/// Proof: `RankedCollective::IdToIndex` (`max_values`: None, `max_size`: Some(54), added: 2529, mode: `MaxEncodedLen`)
 	/// The range of component `r` is `[1, 9]`.
-	fn promote_fast(r: u32, ) -> Weight {
+	fn promote_fast(r: u16, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `16665`
 		//  Estimated: `19894 + r * (2489 ±0)`

@@ -189,7 +189,7 @@ pub mod prelude {
 	/// `frame_system`'s parent crate, which is mandatory in all pallets build with this crate.
 	///
 	/// Conveniently, the keyword `frame_system` is in scope as one uses `use
-	/// polkadot_sdk_frame::prelude::*`
+	/// polkadot_sdk_frame::prelude::*`.
 	#[doc(inline)]
 	pub use frame_system;
 
@@ -199,13 +199,18 @@ pub mod prelude {
 	#[doc(no_inline)]
 	pub use frame_support::pallet_prelude::*;
 
-	/// Dispatch types from `frame-support`, other fundamental traits
+	/// Dispatch types from `frame-support`, other fundamental traits.
 	#[doc(no_inline)]
 	pub use frame_support::dispatch::{GetDispatchInfo, PostDispatchInfo};
-	pub use frame_support::traits::{
-		Contains, EitherOf, EstimateNextSessionRotation, Everything, IsSubType, MapSuccess,
-		NoOpPoll, OnRuntimeUpgrade, OneSessionHandler, RankedMembers, RankedMembersSwapHandler,
-		VariantCount, VariantCountOf,
+	pub use frame_support::{
+		defensive, defensive_assert,
+		traits::{
+			Contains, Defensive, DefensiveSaturating, EitherOf, EstimateNextSessionRotation,
+			Everything, InsideBoth, InstanceFilter, IsSubType, MapSuccess, NoOpPoll,
+			OnRuntimeUpgrade, OneSessionHandler, PalletInfoAccess, RankedMembers,
+			RankedMembersSwapHandler, VariantCount, VariantCountOf,
+		},
+		PalletId,
 	};
 
 	/// Pallet prelude of `frame-system`.
@@ -220,8 +225,10 @@ pub mod prelude {
 	#[doc(no_inline)]
 	pub use super::derive::*;
 
-	/// All hashing related things
+	/// All hashing related things.
 	pub use super::hashing::*;
+
+	pub use crate::transaction::*;
 
 	/// All account related things.
 	pub use super::account::*;
@@ -229,11 +236,15 @@ pub mod prelude {
 	/// All arithmetic types and traits used for safe math.
 	pub use super::arithmetic::*;
 
+	/// All token related types and traits.
+	pub use super::token::*;
+
 	/// Runtime traits
 	#[doc(no_inline)]
 	pub use sp_runtime::traits::{
-		BlockNumberProvider, Bounded, Convert, DispatchInfoOf, Dispatchable, ReduceBy,
-		ReplaceWithDefault, SaturatedConversion, Saturating, StaticLookup, TrailingZeroInput,
+		AccountIdConversion, BlockNumberProvider, Bounded, Convert, ConvertBack, DispatchInfoOf,
+		Dispatchable, ReduceBy, ReplaceWithDefault, SaturatedConversion, Saturating, StaticLookup,
+		TrailingZeroInput,
 	};
 
 	/// Bounded storage related types.
@@ -281,9 +292,13 @@ pub mod benchmarking {
 	}
 
 	pub mod prelude {
-		pub use super::shared::*;
 		pub use crate::prelude::*;
-		pub use frame_benchmarking::v2::*;
+		pub use frame_benchmarking::{
+			add_benchmark, benchmarking::add_to_whitelist, v1::account, v2::*, whitelist,
+			whitelisted_caller,
+		};
+		pub use frame_support::traits::UnfilteredDispatchable;
+		pub use frame_system::{Pallet as System, RawOrigin};
 	}
 }
 
@@ -326,9 +341,11 @@ pub mod testing_prelude {
 	/// Other helper macros from `frame_support` that help with asserting in tests.
 	pub use frame_support::{
 		assert_err, assert_err_ignore_postinfo, assert_error_encoded_size, assert_noop, assert_ok,
-		assert_storage_noop, ensure, hypothetically, storage_alias,
+		assert_storage_noop, defensive, ensure, hypothetically, hypothetically_ok, storage_alias,
+		StorageNoopGuard,
 	};
 
+	pub use frame_support::traits::Everything;
 	pub use frame_system::{self, mocking::*, RunToBlockHooks};
 
 	#[deprecated(note = "Use `frame::testing_prelude::TestState` instead.")]
@@ -498,6 +515,7 @@ pub mod runtime {
 		///
 		/// crucially, this does NOT contain any tx-payment extension.
 		pub type SystemTransactionExtensionsOf<T> = (
+			frame_system::AuthorizeCall<T>,
 			frame_system::CheckNonZeroSender<T>,
 			frame_system::CheckSpecVersion<T>,
 			frame_system::CheckTxVersion<T>,
@@ -537,6 +555,20 @@ pub mod arithmetic {
 	pub use sp_arithmetic::{traits::*, *};
 }
 
+/// All token related types and traits.
+pub mod token {
+	pub use frame_support::traits::{
+		tokens,
+		tokens::{
+			currency, fungible, fungibles, imbalance, nonfungible, nonfungible_v2, nonfungibles,
+			nonfungibles_v2, pay, AssetId, BalanceStatus, DepositConsequence, ExistenceRequirement,
+			Fortitude, Pay, Precision, Preservation, Provenance, WithdrawConsequence,
+			WithdrawReasons,
+		},
+		OnUnbalanced,
+	};
+}
+
 /// All derive macros used in frame.
 ///
 /// This is already part of the [`prelude`].
@@ -548,12 +580,35 @@ pub mod derive {
 		PartialOrdNoBound, RuntimeDebugNoBound,
 	};
 	pub use scale_info::TypeInfo;
+	pub use serde;
+	/// The `serde` `Serialize`/`Deserialize` derive macros and traits.
+	///
+	/// You will either need to add `serde` as a dependency in your crate's `Cargo.toml`
+	/// or specify the `#[serde(crate = "PATH_TO_THIS_CRATE::serde")]` attribute that points
+	/// to the path where serde can be found.
+	pub use serde::{Deserialize, Serialize};
 	pub use sp_runtime::RuntimeDebug;
 }
 
 pub mod hashing {
 	pub use sp_core::{hashing::*, H160, H256, H512, U256, U512};
 	pub use sp_runtime::traits::{BlakeTwo256, Hash, Keccak256};
+}
+
+// Systems involved in transaction execution in the runtime.
+///
+/// This is already part of the [`prelude`].
+pub mod transaction {
+	pub use frame_support::traits::{CallMetadata, GetCallMetadata};
+	pub use sp_runtime::{
+		generic::ExtensionVersion,
+		impl_tx_ext_default,
+		traits::{
+			AsTransactionAuthorizedOrigin, DispatchTransaction, TransactionExtension,
+			ValidateResult,
+		},
+		transaction_validity::{InvalidTransaction, ValidTransaction},
+	};
 }
 
 /// All account management related traits.

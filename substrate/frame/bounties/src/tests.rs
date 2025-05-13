@@ -137,14 +137,14 @@ parameter_types! {
 	pub const CuratorDepositMultiplier: Permill = Permill::from_percent(50);
 	pub const CuratorDepositMax: Balance = 1_000;
 	pub const CuratorDepositMin: Balance = 3;
-
+	pub static BountyUpdatePeriod: u64 = 20;
 }
 
 impl Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type BountyDepositBase = ConstU64<80>;
 	type BountyDepositPayoutDelay = ConstU64<3>;
-	type BountyUpdatePeriod = ConstU64<20>;
+	type BountyUpdatePeriod = BountyUpdatePeriod;
 	type CuratorDepositMultiplier = CuratorDepositMultiplier;
 	type CuratorDepositMax = CuratorDepositMax;
 	type CuratorDepositMin = CuratorDepositMin;
@@ -160,7 +160,7 @@ impl Config<Instance1> for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type BountyDepositBase = ConstU64<80>;
 	type BountyDepositPayoutDelay = ConstU64<3>;
-	type BountyUpdatePeriod = ConstU64<20>;
+	type BountyUpdatePeriod = BountyUpdatePeriod;
 	type CuratorDepositMultiplier = CuratorDepositMultiplier;
 	type CuratorDepositMax = CuratorDepositMax;
 	type CuratorDepositMin = CuratorDepositMin;
@@ -1414,5 +1414,70 @@ fn approve_bounty_with_curator_proposed_unassign_works() {
 			}
 		);
 		assert_eq!(last_event(), BountiesEvent::CuratorUnassigned { bounty_id: 0 });
+	});
+}
+
+#[test]
+fn accept_curator_sets_update_due_correctly() {
+	ExtBuilder::default().build_and_execute(|| {
+		// Given (BountyUpdatePeriod = 20)
+		let bounty_id = 0;
+		let proposer = 0;
+		let fee = 10;
+		let curator = 4;
+		Balances::make_free_balance_be(&Treasury::account_id(), 101);
+		Balances::make_free_balance_be(&curator, 12);
+		assert_ok!(Bounties::propose_bounty(
+			RuntimeOrigin::signed(proposer),
+			50,
+			b"12345".to_vec()
+		));
+		assert_ok!(Bounties::approve_bounty(RuntimeOrigin::root(), 0));
+		go_to_block(4);
+		assert_ok!(Bounties::propose_curator(RuntimeOrigin::root(), bounty_id, curator, fee));
+
+		// When
+		assert_ok!(Bounties::accept_curator(RuntimeOrigin::signed(curator), bounty_id));
+
+		// Then
+		assert_eq!(
+			pallet_bounties::Bounties::<Test>::get(bounty_id).unwrap().status,
+			BountyStatus::Active { curator, update_due: 24 }
+		);
+
+		// Given (BountyUpdatePeriod = BlockNumber::max_value())
+		BountyUpdatePeriod::set(BlockNumberFor::<Test>::max_value());
+		Balances::make_free_balance_be(&Treasury1::account_id(), 101);
+		assert_ok!(Bounties1::propose_bounty(
+			RuntimeOrigin::signed(proposer),
+			50,
+			b"12345".to_vec()
+		));
+		assert_ok!(Bounties1::approve_bounty(RuntimeOrigin::root(), bounty_id));
+		go_to_block(6);
+		<Treasury1 as OnInitialize<u64>>::on_initialize(6);
+		assert_ok!(Bounties1::propose_curator(RuntimeOrigin::root(), bounty_id, curator, fee));
+
+		// When
+		assert_ok!(Bounties1::accept_curator(RuntimeOrigin::signed(curator), bounty_id));
+
+		// Then
+		assert_eq!(
+			pallet_bounties::Bounties::<Test, Instance1>::get(bounty_id).unwrap().status,
+			BountyStatus::Active { curator, update_due: BlockNumberFor::<Test>::max_value() }
+		);
+
+		// When
+		assert_ok!(Bounties1::extend_bounty_expiry(
+			RuntimeOrigin::signed(curator),
+			bounty_id,
+			Vec::new()
+		));
+
+		// Then
+		assert_eq!(
+			pallet_bounties::Bounties::<Test, Instance1>::get(bounty_id).unwrap().status,
+			BountyStatus::Active { curator, update_due: BlockNumberFor::<Test>::max_value() }
+		);
 	});
 }

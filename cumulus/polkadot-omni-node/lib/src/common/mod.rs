@@ -26,6 +26,7 @@ pub mod runtime;
 pub mod spec;
 pub mod types;
 
+use crate::cli::AuthoringPolicy;
 use cumulus_primitives_core::{CollectCollationInfo, GetCoreSelectorApi};
 use sc_client_db::DbHash;
 use sc_offchain::OffchainWorkerApi;
@@ -45,7 +46,7 @@ pub trait NodeBlock:
 {
 	type BoundedFromStrErr: Debug;
 	type BoundedNumber: FromStr<Err = Self::BoundedFromStrErr> + BlockNumber;
-	type BoundedHeader: HeaderT<Number = Self::BoundedNumber> + Unpin;
+	type BoundedHeader: HeaderT<Number = Self::BoundedNumber, Hash = DbHash> + Unpin;
 }
 
 impl<T> NodeBlock for T
@@ -104,8 +105,15 @@ where
 
 /// Extra args that are passed when creating a new node spec.
 pub struct NodeExtraArgs {
-	pub use_slot_based_consensus: bool,
+	/// The authoring policy to use.
+	///
+	/// Can be used to influence details of block production.
+	pub authoring_policy: AuthoringPolicy,
 
 	/// If set, each `PoV` build by the node will be exported to this folder.
 	pub export_pov: Option<PathBuf>,
+
+	/// The maximum percentage of the maximum PoV size that the collator can use.
+	/// It will be removed once <https://github.com/paritytech/polkadot-sdk/issues/6020> is fixed.
+	pub max_pov_percentage: Option<u32>,
 }

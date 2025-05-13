@@ -30,7 +30,7 @@
 extern crate alloc;
 
 use alloc::{collections::btree_map::BTreeMap, vec, vec::Vec};
-use codec::{Decode, Encode};
+use codec::{Decode, DecodeLimit, Encode};
 use core::{cmp, marker::PhantomData};
 use cumulus_primitives_core::{
 	relay_chain::{
@@ -55,12 +55,11 @@ use frame_system::{ensure_none, ensure_root, pallet_prelude::HeaderFor};
 use polkadot_parachain_primitives::primitives::RelayChainBlockNumber;
 use polkadot_runtime_parachains::FeeTracker;
 use scale_info::TypeInfo;
-use sp_core::U256;
 use sp_runtime::{
 	traits::{Block as BlockT, BlockNumberProvider, Hash, One},
-	BoundedSlice, FixedU128, RuntimeDebug, Saturating,
+	BoundedSlice, FixedU128, RuntimeDebug,
 };
-use xcm::{latest::XcmHash, VersionedLocation, VersionedXcm};
+use xcm::{latest::XcmHash, VersionedLocation, VersionedXcm, MAX_XCM_DECODE_DEPTH};
 use xcm_builder::InspectMessageQueues;
 
 mod benchmarking;
@@ -178,17 +177,10 @@ impl CheckAssociatedRelayNumber for RelayNumberMonotonicallyIncreases {
 pub type MaxDmpMessageLenOf<T> = <<T as Config>::DmpQueue as HandleMessage>::MaxMessageLen;
 
 pub mod ump_constants {
-	use super::FixedU128;
-
 	/// `host_config.max_upward_queue_size / THRESHOLD_FACTOR` is the threshold after which delivery
 	/// starts getting exponentially more expensive.
 	/// `2` means the price starts to increase when queue is half full.
 	pub const THRESHOLD_FACTOR: u32 = 2;
-	/// The base number the delivery fee factor gets multiplied by every time it is increased.
-	/// Also the number it gets divided by when decreased.
-	pub const EXPONENTIAL_FEE_BASE: FixedU128 = FixedU128::from_rational(105, 100); // 1.05
-	/// The base number message size in KB is multiplied by before increasing the fee factor.
-	pub const MESSAGE_SIZE_FEE_BASE: FixedU128 = FixedU128::from_rational(1, 1000); // 0.001
 }
 
 /// Trait for selecting the next core to build the candidate for.
@@ -204,15 +196,16 @@ pub struct DefaultCoreSelector<T>(PhantomData<T>);
 
 impl<T: frame_system::Config> SelectCore for DefaultCoreSelector<T> {
 	fn selected_core() -> (CoreSelector, ClaimQueueOffset) {
-		let core_selector: U256 = frame_system::Pallet::<T>::block_number().into();
+		let core_selector = frame_system::Pallet::<T>::block_number().using_encoded(|b| b[0]);
 
-		(CoreSelector(core_selector.byte(0)), ClaimQueueOffset(DEFAULT_CLAIM_QUEUE_OFFSET))
+		(CoreSelector(core_selector), ClaimQueueOffset(DEFAULT_CLAIM_QUEUE_OFFSET))
 	}
 
 	fn select_next_core() -> (CoreSelector, ClaimQueueOffset) {
-		let core_selector: U256 = (frame_system::Pallet::<T>::block_number() + One::one()).into();
+		let core_selector =
+			(frame_system::Pallet::<T>::block_number() + One::one()).using_encoded(|b| b[0]);
 
-		(CoreSelector(core_selector.byte(0)), ClaimQueueOffset(DEFAULT_CLAIM_QUEUE_OFFSET))
+		(CoreSelector(core_selector), ClaimQueueOffset(DEFAULT_CLAIM_QUEUE_OFFSET))
 	}
 }
 
@@ -221,15 +214,16 @@ pub struct LookaheadCoreSelector<T>(PhantomData<T>);
 
 impl<T: frame_system::Config> SelectCore for LookaheadCoreSelector<T> {
 	fn selected_core() -> (CoreSelector, ClaimQueueOffset) {
-		let core_selector: U256 = frame_system::Pallet::<T>::block_number().into();
+		let core_selector = frame_system::Pallet::<T>::block_number().using_encoded(|b| b[0]);
 
-		(CoreSelector(core_selector.byte(0)), ClaimQueueOffset(1))
+		(CoreSelector(core_selector), ClaimQueueOffset(1))
 	}
 
 	fn select_next_core() -> (CoreSelector, ClaimQueueOffset) {
-		let core_selector: U256 = (frame_system::Pallet::<T>::block_number() + One::one()).into();
+		let core_selector =
+			(frame_system::Pallet::<T>::block_number() + One::one()).using_encoded(|b| b[0]);
 
-		(CoreSelector(core_selector.byte(0)), ClaimQueueOffset(1))
+		(CoreSelector(core_selector), ClaimQueueOffset(1))
 	}
 }
 
@@ -247,6 +241,7 @@ pub mod pallet {
 	#[pallet::config]
 	pub trait Config: frame_system::Config<OnSetCode = ParachainSetCode<Self>> {
 		/// The overarching event type.
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		/// Something which can be notified when the validation data is set.
@@ -485,6 +480,9 @@ pub mod pallet {
 			// like for example from scheduler, we only kill the storage entry if it was not yet
 			// updated in the current block.
 			if !<DidSetValidationCode<T>>::get() {
+				// NOTE: Killing here is required to at least include the trie nodes down to the key
+				// in the proof. Because this value will be read in `validate_block` and thus,
+				// needs to be reachable by the proof.
 				NewValidationCode::<T>::kill();
 				weight += T::DbWeight::get().writes(1);
 			}
@@ -507,10 +505,25 @@ pub mod pallet {
 
 			// Remove the validation from the old block.
 			ValidationData::<T>::kill();
+			// NOTE: Killing here is required to at least include the trie nodes down to the key in
+			// the proof. Because this value will be read in `validate_block` and thus, needs to
+			// be reachable by the proof.
 			ProcessedDownwardMessages::<T>::kill();
+			// NOTE: Killing here is required to at least include the trie nodes down to the key in
+			// the proof. Because this value will be read in `validate_block` and thus, needs to
+			// be reachable by the proof.
 			HrmpWatermark::<T>::kill();
+			// NOTE: Killing here is required to at least include the trie nodes down to the key in
+			// the proof. Because this value will be read in `validate_block` and thus, needs to
+			// be reachable by the proof.
 			UpwardMessages::<T>::kill();
+			// NOTE: Killing here is required to at least include the trie nodes down to the key in
+			// the proof. Because this value will be read in `validate_block` and thus, needs to
+			// be reachable by the proof.
 			HrmpOutboundMessages::<T>::kill();
+			// NOTE: Killing here is required to at least include the trie nodes down to the key in
+			// the proof. Because this value will be read in `validate_block` and thus, needs to
+			// be reachable by the proof.
 			CustomValidationHeadData::<T>::kill();
 
 			weight += T::DbWeight::get().writes(6);
@@ -553,6 +566,16 @@ pub mod pallet {
 
 			// Always try to read `UpgradeGoAhead` in `on_finalize`.
 			weight += T::DbWeight::get().reads(1);
+
+			// Post a digest that contains the information for selecting a core.
+			let selected_core = T::SelectCore::selected_core();
+			frame_system::Pallet::<T>::deposit_log(
+				cumulus_primitives_core::CumulusDigestItem::SelectCore {
+					selector: selected_core.0,
+					claim_queue_offset: selected_core.1,
+				}
+				.to_digest_item(),
+			);
 
 			weight
 		}
@@ -752,10 +775,6 @@ pub mod pallet {
 		HostConfigurationNotAvailable,
 		/// No validation function upgrade is currently scheduled.
 		NotScheduled,
-		/// No code upgrade has been authorized.
-		NothingAuthorized,
-		/// The given code upgrade has not been authorized.
-		Unauthorized,
 	}
 
 	/// Latest included block descendants the runtime accepted. In other words, these are
@@ -989,25 +1008,16 @@ impl<T: Config> Pallet<T> {
 impl<T: Config> FeeTracker for Pallet<T> {
 	type Id = ();
 
-	fn get_fee_factor(_: Self::Id) -> FixedU128 {
+	fn get_min_fee_factor() -> FixedU128 {
+		UpwardInitialDeliveryFeeFactor::get()
+	}
+
+	fn get_fee_factor(_id: Self::Id) -> FixedU128 {
 		UpwardDeliveryFeeFactor::<T>::get()
 	}
 
-	fn increase_fee_factor(_: Self::Id, message_size_factor: FixedU128) -> FixedU128 {
-		<UpwardDeliveryFeeFactor<T>>::mutate(|f| {
-			*f = f.saturating_mul(
-				ump_constants::EXPONENTIAL_FEE_BASE.saturating_add(message_size_factor),
-			);
-			*f
-		})
-	}
-
-	fn decrease_fee_factor(_: Self::Id) -> FixedU128 {
-		<UpwardDeliveryFeeFactor<T>>::mutate(|f| {
-			*f =
-				UpwardInitialDeliveryFeeFactor::get().max(*f / ump_constants::EXPONENTIAL_FEE_BASE);
-			*f
-		})
+	fn set_fee_factor(_id: Self::Id, val: FixedU128) {
+		UpwardDeliveryFeeFactor::<T>::set(val);
 	}
 }
 
@@ -1587,9 +1597,7 @@ impl<T: Config> Pallet<T> {
 			let total_size: usize = pending_messages.iter().map(UpwardMessage::len).sum();
 			if total_size > threshold as usize {
 				// We increase the fee factor by a factor based on the new message's size in KB
-				let message_size_factor = FixedU128::from((message_len / 1024) as u128)
-					.saturating_mul(ump_constants::MESSAGE_SIZE_FEE_BASE);
-				Self::increase_fee_factor((), message_size_factor);
+				Self::increase_fee_factor((), message_len as u128);
 			}
 		} else {
 			// This storage field should carry over from the previous block. So if it's None
@@ -1634,7 +1642,13 @@ impl<T: Config> InspectMessageQueues for Pallet<T> {
 
 		let messages: Vec<VersionedXcm<()>> = PendingUpwardMessages::<T>::get()
 			.iter()
-			.map(|encoded_message| VersionedXcm::<()>::decode(&mut &encoded_message[..]).unwrap())
+			.map(|encoded_message| {
+				VersionedXcm::<()>::decode_all_with_depth_limit(
+					MAX_XCM_DECODE_DEPTH,
+					&mut &encoded_message[..],
+				)
+				.unwrap()
+			})
 			.collect();
 
 		if messages.is_empty() {

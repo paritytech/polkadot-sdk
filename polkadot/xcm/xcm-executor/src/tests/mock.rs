@@ -17,7 +17,7 @@
 //! Mock types and XcmConfig for all executor unit tests.
 
 use alloc::collections::btree_map::BTreeMap;
-use codec::{Decode, Encode};
+use codec::{Decode, DecodeWithMemTracking, Encode};
 use core::cell::RefCell;
 use frame_support::{
 	dispatch::{DispatchInfo, DispatchResultWithPostInfo, GetDispatchInfo, PostDispatchInfo},
@@ -54,6 +54,8 @@ parameter_types! {
 	pub const BaseXcmWeight: Weight = Weight::from_parts(1, 1);
 	pub const MaxInstructions: u32 = 10;
 	pub UniversalLocation: InteriorLocation = [GlobalConsensus(ByGenesis([0; 32])), Parachain(1000)].into();
+	/// Simulate the chain’s existential deposit.
+	pub const ExistentialDeposit: u128 = 2;
 }
 
 /// Test origin.
@@ -64,7 +66,9 @@ pub struct TestOrigin;
 ///
 /// Doesn't dispatch anything, has an empty implementation of [`Dispatchable`] that
 /// just returns `Ok` with an empty [`PostDispatchInfo`].
-#[derive(Debug, Encode, Decode, Eq, PartialEq, Clone, Copy, scale_info::TypeInfo)]
+#[derive(
+	Debug, Encode, Decode, DecodeWithMemTracking, Eq, PartialEq, Clone, Copy, scale_info::TypeInfo,
+)]
 pub struct TestCall;
 impl Dispatchable for TestCall {
 	type RuntimeOrigin = TestOrigin;
@@ -128,6 +132,14 @@ impl TransactAsset for TestAssetTransactor {
 		who: &Location,
 		_context: Option<&XcmContext>,
 	) -> Result<(), XcmError> {
+		if let Fungibility::Fungible(amount) = what.fun {
+			// fail if below the configured existential deposit
+			if amount < ExistentialDeposit::get() {
+				return Err(XcmError::FailedToTransactAsset(
+					sp_runtime::TokenError::BelowMinimum.into(),
+				));
+			}
+		}
 		add_asset(who.clone(), what.clone());
 		Ok(())
 	}
@@ -286,6 +298,7 @@ pub struct XcmConfig;
 impl Config for XcmConfig {
 	type RuntimeCall = TestCall;
 	type XcmSender = TestSender;
+	type XcmEventEmitter = ();
 	type AssetTransactor = TestAssetTransactor;
 	type OriginConverter = ();
 	type IsReserve = ();

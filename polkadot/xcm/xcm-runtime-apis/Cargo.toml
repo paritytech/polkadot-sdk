@@ -21,7 +21,6 @@ xcm = { workspace = true }
 xcm-executor = { workspace = true }
 
 [dev-dependencies]
-frame-executive = { workspace = true }
 frame-system = { workspace = true }
 hex-literal = { workspace = true }
 log = { workspace = true }
@@ -37,7 +36,6 @@ xcm-executor = { workspace = true }
 default = ["std"]
 std = [
 	"codec/std",
-	"frame-executive/std",
 	"frame-support/std",
 	"frame-system/std",
 	"log/std",

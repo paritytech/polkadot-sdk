@@ -14,7 +14,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#![allow(useless_deprecated, deprecated, clippy::deprecated_semver)]
+#![allow(useless_deprecated)]
 
 use std::collections::BTreeMap;
 
@@ -60,6 +60,7 @@ pub mod pallet {
 	{
 		type Balance: Parameter + Default + TypeInfo;
 
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 	}
 
@@ -152,19 +153,16 @@ frame_support::construct_runtime!(
 
 #[test]
 fn pallet_metadata() {
-	use sp_metadata_ir::{DeprecationInfoIR, DeprecationStatusIR};
+	use sp_metadata_ir::{EnumDeprecationInfoIR, VariantDeprecationInfoIR};
 	let pallets = Runtime::metadata_ir().pallets;
 	let example = pallets[0].clone();
 	{
 		// Example pallet events are partially and fully deprecated
 		let meta = example.event.unwrap();
 		assert_eq!(
-			DeprecationInfoIR::VariantsDeprecated(BTreeMap::from([
-				(codec::Compact(0), DeprecationStatusIR::Deprecated { note: "first", since: None }),
-				(
-					codec::Compact(1),
-					DeprecationStatusIR::Deprecated { note: "second", since: None }
-				)
+			EnumDeprecationInfoIR(BTreeMap::from([
+				(0, VariantDeprecationInfoIR::Deprecated { note: "first", since: None }),
+				(1, VariantDeprecationInfoIR::Deprecated { note: "second", since: None })
 			])),
 			meta.deprecation_info
 		);

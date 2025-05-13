@@ -7,13 +7,13 @@ use hex_literal::hex;
 use snowbridge_beacon_primitives::{
 	types::deneb, AncestryProof, BeaconHeader, ExecutionProof, VersionedExecutionPayloadHeader,
 };
-use snowbridge_core::inbound::{InboundQueueFixture, Log, Message, Proof};
+use snowbridge_inbound_queue_primitives::{EventFixture, EventProof, Log, Proof};
 use sp_core::U256;
 use sp_std::vec;
 
-pub fn make_send_native_eth_message() -> InboundQueueFixture {
-	InboundQueueFixture {
-        message: Message {
+pub fn make_send_native_eth_message() -> EventFixture {
+	EventFixture {
+        event: EventProof {
             event_log: 	Log {
                 address: hex!("87d1f7fdfee7f651fabc8bfcb6e086c278b77a7d").into(),
                 topics: vec![
