@@ -15,19 +15,20 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use alloc::vec::Vec;
-use alloy_core::sol;
-use codec::{DecodeAll, Encode};
-use core::{marker::PhantomData, num::NonZero};
-use log::error;
-use sp_runtime::Weight;
-use xcm_builder::{ExecuteController, SendController};
-use xcm_executor::traits::WeightBounds;
 use crate::Origin;
 use crate::{
 	precompiles::{AddressMatcher, Error, Ext, ExtWithInfo, Precompile},
 	Config,
 };
+use alloc::vec::Vec;
+use alloy_core::sol;
+use codec::{Encode, DecodeAll};
+use core::{marker::PhantomData, num::NonZero};
+use log::error;
+use sp_runtime::Weight;
+use xcm_builder::{ExecuteController, SendController};
+use xcm_executor::traits::WeightBounds;
+use alloy_core::sol_types::SolValue;
 
 pub use IXcm::IXcmCalls;
 
@@ -42,7 +43,7 @@ sol! {
 			uint64 refTime;
 			uint64 proofSize;
 		}
-		
+
 		/// @notice Execute an XCM message locally with the caller's origin
 		/// @param message The XCM message to send
 		/// @param weight The maximum amount of weight to be used to execute the message
@@ -83,9 +84,9 @@ impl<T: Config> Precompile for XcmPrecompile<T> {
 			IXcmCalls::xcmSend(IXcm::xcmSendCall { destination, message }) => {
 				let final_destination = xcm::VersionedLocation::decode_all(&mut &destination[..])
 					.map_err(|e| {
-						error!("XCM send failed: Invalid destination format. Error: {e:?}");
-						Error::Revert("Invalid destination format".into())
-					})?;
+					error!("XCM send failed: Invalid destination format. Error: {e:?}");
+					Error::Revert("Invalid destination format".into())
+				})?;
 
 				let final_message = xcm::VersionedXcm::<()>::decode_all(&mut &message[..])
 					.map_err(|e| {
@@ -105,14 +106,13 @@ impl<T: Config> Precompile for XcmPrecompile<T> {
 						Error: {e:?}"
 					);
 					Error::Revert(
-						"XCM send failed: destination or message format may be incompatible"
-							.into(),
+						"XCM send failed: destination or message format may be incompatible".into(),
 					)
 				})
 			},
 			IXcmCalls::xcmExecute(IXcm::xcmExecuteCall { message, weight }) => {
-				let final_message = xcm::VersionedXcm::decode_all(&mut &message[..])
-					.map_err(|e| {
+				let final_message =
+					xcm::VersionedXcm::decode_all(&mut &message[..]).map_err(|e| {
 						error!("XCM execute failed: Invalid message format. Error: {e:?}");
 						Error::Revert("Invalid message format".into())
 					})?;
@@ -134,24 +134,27 @@ impl<T: Config> Precompile for XcmPrecompile<T> {
 					})
 			},
 			IXcmCalls::weightMessage(IXcm::weightMessageCall { message }) => {
-				let converted_message = xcm::VersionedXcm::decode_all(&mut &message[..])
-					.map_err(|error| {
+				let converted_message =
+					xcm::VersionedXcm::decode_all(&mut &message[..]).map_err(|error| {
 						error!("XCM weightMessage: Invalid message format. Error: {error:?}");
 						Error::Revert("XCM weightMessage: Invalid message format".into())
 					})?;
-					
+
 				let mut final_message = converted_message.try_into().map_err(|e| {
 					error!("XCM weightMessage: Conversion to Xcm failed with Error: {e:?}");
 					Error::Revert("XCM weightMessage: Conversion to Xcm failed".into())
 				})?;
-				
-				let weight = <<T as Config>::XcmWeigher>::weight(&mut final_message)
-					.map_err(|e| {
+
+				let weight =
+					<<T as Config>::XcmWeigher>::weight(&mut final_message).map_err(|e| {
 						error!("XCM weightMessage: Failed to calculate weight. Error: {e:?}");
 						Error::Revert("XCM weightMessage: Failed to calculate weight".into())
 					})?;
 
-				Ok(weight.encode())
+				let final_weight =
+					IXcm::Weight { proofSize: weight.proof_size(), refTime: weight.ref_time() };
+
+				Ok(final_weight.abi_encode())
 			},
 		}
 	}
@@ -161,8 +164,6 @@ impl<T: Config> Precompile for XcmPrecompile<T> {
 		_input: &Self::Interface,
 		_env: &mut impl ExtWithInfo<T = Self::T>,
 	) -> Result<Vec<u8>, Error> {
-		Err(Error::Revert(
-			"call_with_info not implemented for XcmPrecompile".into(),
-		))
+		Err(Error::Revert("call_with_info not implemented for XcmPrecompile".into()))
 	}
 }

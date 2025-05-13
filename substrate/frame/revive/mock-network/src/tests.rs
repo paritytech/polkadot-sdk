@@ -23,7 +23,7 @@ use codec::{Decode, Encode};
 use frame_support::traits::{fungibles::Mutate, Currency};
 use frame_system::RawOrigin;
 use pallet_revive::{
-	precompiles::alloy::sol_types::SolInterface,
+	precompiles::alloy::sol_types::{SolInterface, SolValue},
 	precompiles::builtin::xcm::IXcm,
 	test_utils::{self, builder::*},
 	Code, DepositLimit, ExecReturnValue,
@@ -239,18 +239,16 @@ fn test_xcm_execute_reentrant_call_via_precompile() {
 		let xcm_weight_results =
 			bare_call(to_fixed_non_zero(10)).data(weight_call.abi_encode()).build();
 
-		let result = match xcm_weight_results.result {
+		let weight_result = match xcm_weight_results.result {
 			Ok(value) => value,
 			Err(_) => ExecReturnValue { flags: ReturnFlags::REVERT, data: Vec::new() },
 		};
 
-		let weight: Weight =
-			Weight::decode(&mut &result.data[..]).expect("Failed to decode weight");
+		let weight: IXcm::Weight =
+			IXcm::Weight::abi_decode(&weight_result.data[..], true).expect("Failed to weight");
 
-		let xcm_execute_params = IXcm::xcmExecuteCall {
-			message: VersionedXcm::V4(message).encode().into(),
-			weight: IXcm::Weight { proofSize: weight.proof_size(), refTime: weight.ref_time() },
-		};
+		let xcm_execute_params =
+			IXcm::xcmExecuteCall { message: VersionedXcm::V4(message).encode().into(), weight };
 
 		let call = IXcm::IXcmCalls::xcmExecute(xcm_execute_params);
 		let encoded_call = call.abi_encode();
@@ -304,13 +302,11 @@ fn test_xcm_execute_incomplete_call_via_precompile() {
 			Err(_) => ExecReturnValue { flags: ReturnFlags::REVERT, data: Vec::new() },
 		};
 
-		let weight: Weight =
-			Weight::decode(&mut &weight_result.data[..]).expect("Failed to decode weight");
+		let weight: IXcm::Weight =
+			IXcm::Weight::abi_decode(&weight_result.data[..], true).expect("Failed to weight");
 
-		let xcm_execute_params = IXcm::xcmExecuteCall {
-			message: VersionedXcm::V4(message).encode().into(),
-			weight: IXcm::Weight { proofSize: weight.proof_size(), refTime: weight.ref_time() },
-		};
+		let xcm_execute_params =
+			IXcm::xcmExecuteCall { message: VersionedXcm::V4(message).encode().into(), weight };
 
 		let call = IXcm::IXcmCalls::xcmExecute(xcm_execute_params);
 		let encoded_call = call.abi_encode();
@@ -355,13 +351,11 @@ fn test_xcm_execute_precompile() {
 			Err(_) => ExecReturnValue { flags: ReturnFlags::REVERT, data: Vec::new() },
 		};
 
-		let weight: Weight =
-			Weight::decode(&mut &weight_result.data[..]).expect("Failed to decode weight");
+		let weight: IXcm::Weight =
+			IXcm::Weight::abi_decode(&weight_result.data[..], true).expect("Failed to weight");
 
-		let xcm_execute_params = IXcm::xcmExecuteCall {
-			message: VersionedXcm::V4(message).encode().into(),
-			weight: IXcm::Weight { proofSize: weight.proof_size(), refTime: weight.ref_time() },
-		};
+		let xcm_execute_params =
+			IXcm::xcmExecuteCall { message: VersionedXcm::V4(message).encode().into(), weight };
 
 		let call = IXcm::IXcmCalls::xcmExecute(xcm_execute_params);
 		let encoded_call = call.abi_encode();
