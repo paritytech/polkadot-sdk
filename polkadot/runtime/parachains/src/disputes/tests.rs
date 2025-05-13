@@ -920,8 +920,8 @@ mod unconfirmed_disputes {
 
 // tests for:
 // * provide_multi_dispute: with success scenario
-// * disputes: correctness of datas
-// * could_be_invalid: correctness of datas
+// * disputes: correctness of data
+// * could_be_invalid: correctness of data
 // * ensure rewards and punishment are correctly called.
 #[test]
 fn test_provide_multi_dispute_success_and_other() {

@@ -271,11 +271,8 @@ where
 		losers: impl IntoIterator<Item = ValidatorIndex>,
 		backers: impl IntoIterator<Item = ValidatorIndex>,
 	) {	
-		let backers_vec: Vec<_> = backers.into_iter().collect();
-		let filtered_losers = losers.into_iter().filter(|loser| !backers_vec.contains(loser));
-	
 		Self::do_punish(session_index, candidate_hash, DisputeOffenceKind::ForInvalidBacked, backers);
-		Self::do_punish(session_index, candidate_hash, DisputeOffenceKind::ForInvalidApproved, filtered_losers);
+		Self::do_punish(session_index, candidate_hash, DisputeOffenceKind::ForInvalidApproved, losers);
 	}
 
 	fn punish_against_valid(
