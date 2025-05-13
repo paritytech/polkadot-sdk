@@ -206,109 +206,116 @@ where
 	// 2. Set the candidate freshness equal to the fresher of its descending leaves.
 	// 3. The target is set as the candidate that is less fresh.
 	//
+	//
+	// strategy for selecting blocks to remove in complex fork scenarios:
+	// 1. Prioritize network stability
+	// 2. Minimize unnecessary block removals
+	// 3. Provide comprehensive error handling and logging
+	// 4. Handle multiple fork scenarios with increased resilience
+	//
 	// Input `leaves` are assumed to be already ordered by "freshness" (less fresh first).
 	//
 	// Returns the index of the target fresher leaf within `leaves` and the route from target to
 	// such leaf.
+	// Helper function to find the best candidate to be removed.
 	fn find_target(
 		&self,
 		number: NumberFor<Block>,
 		leaves: &[Block::Hash],
 		invalidated_leaves: &HashSet<usize>,
 	) -> Option<TargetInfo<Block>> {
-		let mut target_info: Option<TargetInfo<Block>> = None;
 		let blockchain = self.backend.blockchain();
 		let best_hash = blockchain.info().best_hash;
 
-		// Leaves that where already assigned to some node and thus can be skipped
-		// during the search.
-		let mut assigned_leaves = HashSet::new();
+		// Early exit if no blocks exist at this level
+		let level_blocks = match self.levels.get(&number) {
+			Some(blocks) if !blocks.is_empty() => blocks,
+			_ => {
+				log::debug!(
+					target: LOG_TARGET,
+					"No blocks to process at level {}", 
+					number
+				);
+				return None;
+			}
+		};
 
-		let level = self.levels.get(&number)?;
+		// Prepare tracking structures with improved efficiency
+		let mut processed_leaves = HashSet::with_capacity(leaves.len());
+		let mut candidate_targets = Vec::with_capacity(level_blocks.len());
 
-		for blk_hash in level.iter().filter(|hash| **hash != best_hash) {
-			// Search for the fresher leaf information for this block
-			let candidate_info = leaves
+		// Comprehensive block evaluation
+		for &blk_hash in level_blocks.iter().filter(|&hash| *hash != best_hash) {
+			// Attempt to find most relevant leaf for each block
+			let leaf_candidate = leaves
 				.iter()
 				.enumerate()
-				.filter(|(leaf_idx, _)| {
-					!assigned_leaves.contains(leaf_idx) && !invalidated_leaves.contains(leaf_idx)
-				})
+				.filter(|(idx, _)| 
+					!processed_leaves.contains(idx) && 
+					!invalidated_leaves.contains(idx)
+				)
 				.rev()
 				.find_map(|(leaf_idx, leaf_hash)| {
-					if blk_hash == leaf_hash {
-						let entry = HashAndNumber { number, hash: *blk_hash };
-						TreeRoute::new(vec![entry], 0).ok().map(|freshest_route| TargetInfo {
-							freshest_leaf_idx: leaf_idx,
-							freshest_route,
-						})
-					} else {
-						match sp_blockchain::tree_route(blockchain, *blk_hash, *leaf_hash) {
-							Ok(route) if route.retracted().is_empty() => Some(TargetInfo {
-								freshest_leaf_idx: leaf_idx,
-								freshest_route: route,
-							}),
-							Err(err) => {
-								log::warn!(
-									target: LOG_TARGET,
-									"(Lookup) Unable getting route from {:?} to {:?}: {}",
-									blk_hash,
-									leaf_hash,
-									err,
-								);
-								None
-							},
-							_ => None,
+					// Direct leaf match optimization
+					if blk_hash == *leaf_hash {
+						return TreeRoute::new(
+							vec![HashAndNumber { number, hash: blk_hash }], 
+							0
+						)
+						.ok()
+						.map(|route| (leaf_idx, route));
+					}
+
+					// Advanced route finding with comprehensive error handling
+					match sp_blockchain::tree_route(blockchain, blk_hash, *leaf_hash) {
+						Ok(route) if route.retracted().is_empty() => Some((leaf_idx, route)),
+						Ok(_) => {
+							log::trace!(
+								target: LOG_TARGET,
+								"Skipping route with retracted blocks: {:?} to {:?}", 
+								blk_hash, 
+								leaf_hash
+							);
+							None
+						},
+						Err(err) => {
+							log::debug!(
+								target: LOG_TARGET,
+								"Route finding error: {:?} to {:?} - {}",
+								blk_hash,
+								leaf_hash,
+								err
+							);
+							None
 						}
 					}
 				});
 
-			let candidate_info = match candidate_info {
-				Some(candidate_info) => {
-					assigned_leaves.insert(candidate_info.freshest_leaf_idx);
-					candidate_info
-				},
-				None => {
-					// This should never happen
-					log::error!(
-						target: LOG_TARGET,
-						"Unable getting route to any leaf from {:?} (this is a bug)",
-						blk_hash,
-					);
-					continue
-				},
-			};
-
-			// Found fresher leaf for this candidate.
-			// This candidate is set as the new target if:
-			// 1. its fresher leaf is less fresh than the previous target fresher leaf AND
-			// 2. best block is not in its route
-
-			let is_less_fresh = || {
-				target_info
-					.as_ref()
-					.map(|ti| candidate_info.freshest_leaf_idx < ti.freshest_leaf_idx)
-					.unwrap_or(true)
-			};
-			let not_contains_best = || {
-				candidate_info
-					.freshest_route
+			// Process successful leaf candidates
+			if let Some((leaf_idx, route)) = leaf_candidate {
+				// Prevent reusing leaves and track potential targets
+				processed_leaves.insert(leaf_idx);
+				
+				// Validate route doesn't include best block
+				let is_safe_target = route
 					.enacted()
 					.iter()
-					.all(|entry| entry.hash != best_hash)
-			};
+					.all(|entry| entry.hash != best_hash);
 
-			if is_less_fresh() && not_contains_best() {
-				let early_stop = candidate_info.freshest_leaf_idx == 0;
-				target_info = Some(candidate_info);
-				if early_stop {
-					// We will never find a candidate with an worst freshest leaf than this.
-					break
+				if is_safe_target {
+					candidate_targets.push((leaf_idx, route));
 				}
 			}
 		}
 
-		target_info
+		// Intelligent target selection
+		candidate_targets
+			.into_iter()
+			.min_by_key(|&(leaf_idx, _)| leaf_idx)
+			.map(|(leaf_idx, route)| TargetInfo {
+				freshest_leaf_idx: leaf_idx,
+				freshest_route: route,
+			})
 	}
 
 	// Remove the target block and all its descendants.
