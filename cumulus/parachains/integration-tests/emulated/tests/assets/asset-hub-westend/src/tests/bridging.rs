@@ -116,7 +116,8 @@ fn para_to_para_open_close_bridge_works() {
 	);
 	AssetHubWestend::fund_accounts(vec![(
 		penpal_a_para_sovereign_account.clone().into(),
-		ASSET_HUB_WESTEND_ED * 10000000000,  // <- enough money for paid execution and for bridge deposit
+		ASSET_HUB_WESTEND_ED * 10000000000, /* <- enough money for paid execution and for bridge
+		                                     * deposit */
 	)]);
 
 	let fee_amount = ASSET_HUB_WESTEND_ED * 1000;
@@ -127,9 +128,10 @@ fn para_to_para_open_close_bridge_works() {
 			bridge_destination_universal_location: Box::new(PenpalBUniversalLocation::get().into()),
 			maybe_notify: None,
 		},
-	).encode();
+	)
+	.encode();
 
-	// wrap the call as paid execution 
+	// wrap the call as paid execution
 	let xcm = xcm_transact_paid_execution(
 		call.into(),
 		OriginKind::Xcm,
@@ -173,10 +175,11 @@ fn para_to_para_open_close_bridge_works() {
 	);
 	AssetHubRococo::fund_accounts(vec![(
 		penpal_b_para_sovereign_account.clone().into(),
-		ASSET_HUB_WESTEND_ED * 10000000000,  // <- enough money for paid execution and for bridge deposit
+		ASSET_HUB_ROCOCO_ED * 10000000000, /* <- enough money for paid execution and for bridge
+		                                    * deposit */
 	)]);
 
-	let fee_amount = ASSET_HUB_WESTEND_ED * 1000;
+	let fee_amount = ASSET_HUB_ROCOCO_ED * 1000;
 	let system_asset = (Parent, fee_amount);
 
 	let call = bp_asset_hub_rococo::Call::XcmOverAssetHubWestend(
@@ -184,9 +187,10 @@ fn para_to_para_open_close_bridge_works() {
 			bridge_destination_universal_location: Box::new(PenpalAUniversalLocation::get().into()),
 			maybe_notify: None,
 		},
-	).encode();
+	)
+	.encode();
 
-	// wrap the call as paid execution 
+	// wrap the call as paid execution
 	let xcm = xcm_transact_paid_execution(
 		call.into(),
 		OriginKind::Xcm,
