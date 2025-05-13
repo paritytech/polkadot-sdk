@@ -685,6 +685,15 @@ pub enum ProxyType {
 	///
 	/// Contains the `NominationPools` and `Utility` pallets.
 	NominationPools,
+
+	/// Placeholder variant to track the state before the Asset Hub Migration.
+	OldSudoBalances,
+	/// Placeholder variant to track the state before the Asset Hub Migration.
+	OldIdentityJudgement,
+	/// Placeholder variant to track the state before the Asset Hub Migration.
+	OldAuction,
+	/// Placeholder variant to track the state before the Asset Hub Migration.
+	OldParaRegistration,
 }
 impl Default for ProxyType {
 	fn default() -> Self {

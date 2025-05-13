@@ -105,12 +105,12 @@ impl TryConvert<RcProxyType, ProxyType> for RcToProxyType {
 			NonTransfer => Ok(ProxyType::NonTransfer),
 			Governance => Ok(ProxyType::Governance),
 			Staking => Ok(ProxyType::Staking),
-			SudoBalances => Err(p), 	 // Does not exist on AH
-			IdentityJudgement => Err(p), // Does not exist on AH
+			SudoBalances => Ok(ProxyType::OldSudoBalances), 	 // Does not exist on AH
+			IdentityJudgement => Ok(ProxyType::OldIdentityJudgement), // Does not exist on AH
 			CancelProxy => Ok(ProxyType::CancelProxy),
-			Auction => Err(p), // Does not exist on AH
+			Auction => Ok(ProxyType::OldAuction), // Does not exist on AH
 			NominationPools => Ok(ProxyType::NominationPools),
-			ParaRegistration => Err(p), // Does not exist on AH
+			ParaRegistration => Ok(ProxyType::OldParaRegistration), // Does not exist on AH
 		}
 	}
 }
