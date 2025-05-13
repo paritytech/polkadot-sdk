@@ -143,8 +143,18 @@ substrate-wasm-builder = { optional = true, workspace = true, default-features =
 
 [features]
 default = ["std", "ahm-westend"]
-ahm-westend = ["ahm-staking-migration"]
-ahm-staking-migration = []
+ahm-westend = [
+	"ahm-staking-migration",
+	"pallet-ah-migrator/ahm-westend",
+	"pallet-ah-ops/ahm-westend",
+	"pallet-rc-migrator/ahm-westend",
+	"westend-runtime/ahm-westend"
+]
+ahm-staking-migration = [
+	"pallet-ah-migrator/ahm-staking-migration",
+	"pallet-rc-migrator/ahm-staking-migration",
+	"westend-runtime/ahm-staking-migration"
+]
 runtime-benchmarks = [
 	"assets-common/runtime-benchmarks",
 	"cumulus-pallet-parachain-system/runtime-benchmarks",
@@ -209,6 +219,11 @@ runtime-benchmarks = [
 	"xcm-executor/runtime-benchmarks",
 	"xcm-runtime-apis/runtime-benchmarks",
 	"xcm/runtime-benchmarks",
+	"pallet-rc-migrator/runtime-benchmarks",
+	"pallet-staking-async/runtime-benchmarks",
+	"pallet-staking-async-rc-client/runtime-benchmarks",
+	"westend-runtime/runtime-benchmarks",
+	"westend-runtime-constants/runtime-benchmarks"
 ]
 try-runtime = [
 	"cumulus-pallet-aura-ext/try-runtime",
@@ -268,7 +283,10 @@ try-runtime = [
 	"snowbridge-pallet-system-frontend/try-runtime",
 	"snowbridge-runtime-common/try-runtime",
 	"sp-runtime/try-runtime",
-	"pallet-staking-async-rc-client/try-runtime"
+	"pallet-staking-async-rc-client/try-runtime",
+	"pallet-rc-migrator/try-runtime",
+	"pallet-staking-async/try-runtime",
+	"westend-runtime/try-runtime"
 ]
 std = [
 	"assets-common/std",
@@ -378,7 +396,10 @@ std = [
 	"xcm-executor/std",
 	"xcm-runtime-apis/std",
 	"xcm/std",
-	"pallet-staking-async-rc-client/std"
+	"pallet-staking-async-rc-client/std",
+	"pallet-rc-migrator/std",
+	"pallet-staking-async/std",
+	"westend-runtime/std"
 ]
 
 fast-runtime = []

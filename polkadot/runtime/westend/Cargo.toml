@@ -134,8 +134,15 @@ substrate-wasm-builder = { workspace = true, default-features = true }
 [features]
 default = ["std", "ahm-westend"]
 no_std = []
-ahm-westend = ["ahm-staking-migration"]
-ahm-staking-migration = []
+ahm-westend = [
+	"ahm-staking-migration",
+	"pallet-ah-migrator/ahm-westend",
+	"pallet-rc-migrator/ahm-westend"
+]
+ahm-staking-migration = [
+	"pallet-ah-migrator/ahm-staking-migration",
+	"pallet-rc-migrator/ahm-staking-migration"
+]
 std = [
 	"binary-merkle-tree/std",
 	"bitvec/std",
@@ -236,6 +243,7 @@ std = [
 	"xcm-executor/std",
 	"xcm-runtime-apis/std",
 	"xcm/std",
+	"pallet-ah-migrator/std"
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
@@ -296,6 +304,8 @@ runtime-benchmarks = [
 	"xcm-executor/runtime-benchmarks",
 	"xcm-runtime-apis/runtime-benchmarks",
 	"xcm/runtime-benchmarks",
+	"pallet-ah-migrator/runtime-benchmarks",
+	"westend-runtime-constants/runtime-benchmarks"
 ]
 try-runtime = [
 	"frame-election-provider-support/try-runtime",
@@ -350,6 +360,7 @@ try-runtime = [
 	"polkadot-runtime-common/try-runtime",
 	"polkadot-runtime-parachains/try-runtime",
 	"sp-runtime/try-runtime",
+	"pallet-ah-migrator/try-runtime"
 ]
 
 # Enable the metadata hash generation in the wasm builder.
