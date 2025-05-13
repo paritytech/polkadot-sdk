@@ -92,8 +92,7 @@ pub trait TransactAsset {
 		who: &Location,
 		context: Option<&XcmContext>,
 	) -> Result<Weight, XcmError> {
-		let result = Self::deposit_asset(what, who, context);
-		result.map(|()| Weight::zero())
+		Self::deposit_asset(what, who, context).map(|()| Weight::zero())
 	}
 
 	/// Withdraw the given asset from the consensus system.
