@@ -567,16 +567,25 @@ pub(crate) async fn handle_active_leaves_update<Context>(
 
 	for new_relay_parent in new_relay_parents.iter().cloned() {
 		let disabled_validators: HashSet<_> =
-			polkadot_node_subsystem_util::request_disabled_validators(
+			match polkadot_node_subsystem_util::request_disabled_validators(
 				new_relay_parent,
 				ctx.sender(),
 			)
 			.await
 			.await
 			.map_err(JfyiError::RuntimeApiUnavailable)?
-			.map_err(JfyiError::FetchDisabledValidators)?
-			.into_iter()
-			.collect();
+			.map_err(JfyiError::FetchDisabledValidators)
+			{
+				Ok(disabled_validators) => disabled_validators.into_iter().collect(),
+				Err(e) => {
+					gum::warn!(
+						target: LOG_TARGET,
+						relay_parent = ?new_relay_parent,
+						"Failed to fetch disabled validators: {e}"
+					);
+					continue
+				},
+			};
 
 		let session_index = polkadot_node_subsystem_util::request_session_index_for_child(
 			new_relay_parent,
