@@ -2,7 +2,7 @@ title: parachain informant
 doc:
 - audience: Node Operator
   description: Closes https://github.com/paritytech/polkadot-sdk/issues/8216. Adds parachain_block_authorship_duration and parachain_unincluded_segment_size parachain metrics.
-- audience: Runtime Dev
+- audience: Node Dev
   description: Adds a new `cumulus-relay-chain-streams` crate to make it easier to reuse relay chain streams.
 crates:
 - name: cumulus-client-consensus-common
@@ -22,8 +22,6 @@ crates:
 - name: cumulus-relay-chain-rpc-interface
   bump: patch
 - name: cumulus-client-network
-  bump: none
-- name: yet-another-parachain-runtime
   bump: none
 - name: polkadot-sdk
   bump: patch
