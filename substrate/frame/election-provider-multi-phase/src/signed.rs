@@ -21,7 +21,7 @@ use core::marker::PhantomData;
 
 use crate::{
 	unsigned::MinerConfig, Config, ElectionCompute, Pallet, QueuedSolution, RawSolution,
-	ReadySolution, SignedSubmissionIndices, SignedSubmissionNextIndex, SignedSubmissionsMap,
+	ReadySolutionOf, SignedSubmissionIndices, SignedSubmissionNextIndex, SignedSubmissionsMap,
 	SnapshotMetadata, SolutionOf, SolutionOrSnapshotSize, Weight, WeightInfo,
 };
 use alloc::{
@@ -490,7 +490,7 @@ impl<T: Config> Pallet<T> {
 	///
 	/// Infallible
 	pub fn finalize_signed_phase_accept_solution(
-		ready_solution: ReadySolution<T::AccountId, T::MaxWinners>,
+		ready_solution: ReadySolutionOf<T::MinerConfig>,
 		who: &T::AccountId,
 		deposit: BalanceOf<T>,
 		call_fee: BalanceOf<T>,
@@ -566,9 +566,9 @@ impl<T: Config> Pallet<T> {
 mod tests {
 	use super::*;
 	use crate::{
-		mock::*, CurrentPhase, ElectionBoundsBuilder, ElectionCompute, ElectionError, Error, Event,
-		Perbill, Phase, Round,
+		mock::*, CurrentPhase, ElectionCompute, ElectionError, Error, Event, Perbill, Phase, Round,
 	};
+	use frame_election_provider_support::bounds::ElectionBoundsBuilder;
 	use frame_support::{assert_noop, assert_ok, assert_storage_noop};
 	use sp_runtime::Percent;
 

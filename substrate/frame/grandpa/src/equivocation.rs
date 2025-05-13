@@ -177,7 +177,7 @@ where
 		evidence: (EquivocationProof<T::Hash, BlockNumberFor<T>>, T::KeyOwnerProof),
 	) -> Result<(), DispatchError> {
 		let (equivocation_proof, key_owner_proof) = evidence;
-		let reporter = reporter.or_else(|| <pallet_authorship::Pallet<T>>::author());
+		let reporter = reporter.or_else(|| pallet_authorship::Pallet::<T>::author());
 		let offender = equivocation_proof.offender().clone();
 
 		// We check the equivocation within the context of its set id (and

@@ -27,7 +27,7 @@ use bp_runtime::{
 	BasicOperatingMode, BlockNumberOf, Chain, HashOf, HasherOf, HeaderOf, RawStorageProof,
 	StorageProofChecker, StorageProofError, UnderlyingChainProvider,
 };
-use codec::{Codec, Decode, Encode, EncodeLike, MaxEncodedLen};
+use codec::{Codec, Decode, DecodeWithMemTracking, Encode, EncodeLike, MaxEncodedLen};
 use core::{clone::Clone, cmp::Eq, default::Default, fmt::Debug};
 use frame_support::PalletError;
 use scale_info::TypeInfo;
@@ -46,7 +46,9 @@ pub mod justification;
 pub mod storage_keys;
 
 /// Header chain error.
-#[derive(Clone, Decode, Encode, Eq, PartialEq, PalletError, Debug, TypeInfo)]
+#[derive(
+	Clone, Decode, DecodeWithMemTracking, Encode, Eq, PartialEq, PalletError, Debug, TypeInfo,
+)]
 pub enum HeaderChainError {
 	/// Header with given hash is missing from the chain.
 	UnknownHeader,
@@ -101,7 +103,9 @@ pub trait Parameter: Codec + EncodeLike + Clone + Eq + Debug + TypeInfo {}
 impl<T> Parameter for T where T: Codec + EncodeLike + Clone + Eq + Debug + TypeInfo {}
 
 /// A GRANDPA Authority List and ID.
-#[derive(Default, Encode, Eq, Decode, RuntimeDebug, PartialEq, Clone, TypeInfo)]
+#[derive(
+	Default, Encode, Eq, Decode, DecodeWithMemTracking, RuntimeDebug, PartialEq, Clone, TypeInfo,
+)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct AuthoritySet {
 	/// List of GRANDPA authorities for the current round.
@@ -121,7 +125,17 @@ impl AuthoritySet {
 ///
 /// The bridge needs to know where to start its sync from, and this provides that initial context.
 #[derive(
-	Default, Encode, Decode, RuntimeDebug, PartialEq, Eq, Clone, TypeInfo, Serialize, Deserialize,
+	Default,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	RuntimeDebug,
+	PartialEq,
+	Eq,
+	Clone,
+	TypeInfo,
+	Serialize,
+	Deserialize,
 )]
 pub struct InitializationData<H: HeaderT> {
 	/// The header from which we should start syncing.
@@ -189,7 +203,7 @@ impl<Number: Codec> ConsensusLogReader for GrandpaConsensusLogReader<Number> {
 }
 
 /// The finality-related info associated to a header.
-#[derive(Encode, Decode, Debug, PartialEq, Clone, TypeInfo)]
+#[derive(Encode, Decode, DecodeWithMemTracking, Debug, PartialEq, Clone, TypeInfo)]
 pub struct HeaderFinalityInfo<FinalityProof, FinalityVerificationContext> {
 	/// The header finality proof.
 	pub finality_proof: FinalityProof,

@@ -27,7 +27,7 @@ use alloc::vec::Vec;
 use sp_core::sr25519::vrf::VrfSignature;
 use sp_runtime::{DigestItem, RuntimeDebug};
 
-use codec::{Decode, Encode, MaxEncodedLen};
+use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 
 /// Raw BABE primary slot assignment pre-digest.
@@ -139,7 +139,15 @@ pub struct NextEpochDescriptor {
 /// Information about the next epoch config, if changed. This is broadcast in the first
 /// block of the epoch, and applies using the same rules as `NextEpochDescriptor`.
 #[derive(
-	Decode, Encode, PartialEq, Eq, Clone, RuntimeDebug, MaxEncodedLen, scale_info::TypeInfo,
+	Decode,
+	DecodeWithMemTracking,
+	Encode,
+	PartialEq,
+	Eq,
+	Clone,
+	RuntimeDebug,
+	MaxEncodedLen,
+	scale_info::TypeInfo,
 )]
 pub enum NextConfigDescriptor {
 	/// Version 1.

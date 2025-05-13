@@ -1,0 +1,9 @@
+title: '[pallet-revive] Bump asset-hub westend spec version'
+doc:
+- audience: Runtime Dev
+  description: Bump asset-hub westend spec version
+crates:
+- name: asset-hub-westend-runtime
+  bump: minor
+- name: pallet-revive-eth-rpc
+  bump: minor

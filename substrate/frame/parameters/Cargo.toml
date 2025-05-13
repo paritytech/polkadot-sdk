@@ -9,22 +9,21 @@ edition.workspace = true
 
 [dependencies]
 codec = { features = ["max-encoded-len"], workspace = true }
-scale-info = { features = ["derive"], workspace = true }
-paste = { workspace = true }
-serde = { features = ["derive"], optional = true, workspace = true, default-features = true }
 docify = { workspace = true }
+paste = { workspace = true }
+scale-info = { features = ["derive"], workspace = true }
+serde = { features = ["derive"], optional = true, workspace = true, default-features = true }
 
+frame-benchmarking = { optional = true, workspace = true }
 frame-support = { features = ["experimental"], workspace = true }
 frame-system = { workspace = true }
 sp-core = { workspace = true }
 sp-runtime = { workspace = true }
-frame-benchmarking = { optional = true, workspace = true }
 
 [dev-dependencies]
-sp-core = { features = ["std"], workspace = true, default-features = true }
-sp-io = { features = ["std"], workspace = true, default-features = true }
-pallet-example-basic = { features = ["std"], workspace = true, default-features = true }
-pallet-balances = { features = ["std"], workspace = true, default-features = true }
+pallet-balances = { workspace = true, default-features = true }
+pallet-example-basic = { workspace = true, default-features = true }
+sp-io = { workspace = true, default-features = true }
 
 [features]
 default = ["std"]

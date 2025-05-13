@@ -1,0 +1,13 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: "Add support for feature pallet_balances/insecure_zero_ed in benchmarks and testing"
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Currently benchmarks and tests on pallet_balances would fail when the feature insecure_zero_ed is enabled. This PR allows to run such benchmark and tests keeping into account the fact that accounts would not be deleted when their balance goes below a threshold.
+
+crates:
+  - name: pallet-balances
+    bump: patch

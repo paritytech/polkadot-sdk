@@ -1,0 +1,9 @@
+title: Update merkleized-metadata to 0.2.0
+doc:
+- audience: Node Dev
+  description: |-
+    0.1.2 was yanked as it was breaking semver.
+crates: 
+  - name: substrate-wasm-builder
+    bump: patch
+    validate: false

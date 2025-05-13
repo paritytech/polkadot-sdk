@@ -31,6 +31,7 @@ pub fn genesis() -> Storage {
 		system: people_rococo_runtime::SystemConfig::default(),
 		balances: people_rococo_runtime::BalancesConfig {
 			balances: accounts::init_balances().iter().cloned().map(|k| (k, ED * 4096)).collect(),
+			..Default::default()
 		},
 		parachain_info: people_rococo_runtime::ParachainInfoConfig {
 			parachain_id: ParaId::from(PARA_ID),

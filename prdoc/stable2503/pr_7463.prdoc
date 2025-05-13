@@ -1,0 +1,17 @@
+title: '[pallet-revive] tx fee fixes'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Apply some fixes to properly estimate ethereum tx fees:
+
+    - Set the `extension_weight` on the dispatch_info to properly calculate the fee with pallet_transaction_payment
+    - Expose the gas_price through Runtime API, just in case we decide to tweak the value in future updates, it should be read from the chain rather than be a shared constant exposed by the crate
+    - add a `evm_gas_to_fee` utility function to properly convert gas to substrate fee
+    - Fix some minor gas encoding for edge cases
+crates:
+- name: asset-hub-westend-runtime
+  bump: minor
+- name: pallet-revive-eth-rpc
+  bump: minor
+- name: pallet-revive
+  bump: minor

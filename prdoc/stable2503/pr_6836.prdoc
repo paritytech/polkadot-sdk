@@ -1,0 +1,17 @@
+title: '[pallet-revive-eth-rpc] persist eth transaction hash'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Add an option to persist EVM transaction hash to a SQL db.
+    This make it possible to run a full archive ETH RPC node (assuming the substrate node is also a full archive node)
+
+    Some queries such as eth_getTransactionByHash,  eth_getBlockTransactionCountByHash, and other need to work with a transaction hash index, which is not available in Substrate and need to be stored by the eth-rpc proxy.
+
+    The refactoring break down the Client  into a `BlockInfoProvider` and `ReceiptProvider`
+    - BlockInfoProvider does not need any persistence data, as we can fetch all block info from the source substrate chain
+    - ReceiptProvider comes in two flavor,
+      - An in memory cache implementation - This is the one we had so far.
+      - A DB implementation - This one persist rows with the block_hash, the transaction_index and the transaction_hash, so that we can later fetch the block and extrinsic for that receipt and reconstruct the ReceiptInfo object.
+crates:
+- name: pallet-revive-eth-rpc
+  bump: minor

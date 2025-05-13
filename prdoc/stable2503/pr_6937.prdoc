@@ -1,0 +1,12 @@
+title: '[pallet-revive] bump polkavm to 0.18'
+doc:
+- audience: Runtime Dev
+  description: Update to the latest polkavm version, containing a linker fix I need
+    for revive.
+crates:
+- name: pallet-revive
+  bump: patch
+- name: pallet-revive-fixtures
+  bump: patch
+- name: pallet-revive-uapi
+  bump: patch

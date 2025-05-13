@@ -14,13 +14,14 @@
 // limitations under the License.
 
 use crate::imports::*;
-use frame_support::traits::ProcessMessageError;
 
 use codec::Encode;
 use frame_support::sp_runtime::traits::Dispatchable;
 use parachains_common::AccountId;
 use people_westend_runtime::people::IdentityInfo;
-use westend_runtime::governance::pallet_custom_origins::Origin::GeneralAdmin as GeneralAdminOrigin;
+use westend_runtime::{
+	governance::pallet_custom_origins::Origin::GeneralAdmin as GeneralAdminOrigin, Dmp,
+};
 use westend_system_emulated_network::people_westend_emulated_chain::people_westend_runtime;
 
 use pallet_identity::Data;
@@ -38,6 +39,8 @@ fn relay_commands_add_registrar() {
 		type RuntimeEvent = <Westend as Chain>::RuntimeEvent;
 		type PeopleCall = <PeopleWestend as Chain>::RuntimeCall;
 		type PeopleRuntime = <PeopleWestend as Chain>::Runtime;
+
+		Dmp::make_parachain_reachable(1004);
 
 		let add_registrar_call =
 			PeopleCall::Identity(pallet_identity::Call::<PeopleRuntime>::add_registrar {
@@ -102,6 +105,8 @@ fn relay_commands_add_registrar_wrong_origin() {
 			type PeopleCall = <PeopleWestend as Chain>::RuntimeCall;
 			type PeopleRuntime = <PeopleWestend as Chain>::Runtime;
 
+			Dmp::make_parachain_reachable(1004);
+
 			let add_registrar_call =
 				PeopleCall::Identity(pallet_identity::Call::<PeopleRuntime>::add_registrar {
 					account: registrar.into(),
@@ -135,7 +140,7 @@ fn relay_commands_add_registrar_wrong_origin() {
 				assert_expected_events!(
 					PeopleWestend,
 					vec![
-						RuntimeEvent::MessageQueue(pallet_message_queue::Event::ProcessingFailed { error: ProcessMessageError::Unsupported, .. }) => {},
+						RuntimeEvent::MessageQueue(pallet_message_queue::Event::Processed { success: false, .. }) => {},
 					]
 				);
 			} else {
@@ -190,6 +195,8 @@ fn relay_commands_kill_identity() {
 		type PeopleCall = <PeopleWestend as Chain>::RuntimeCall;
 		type RuntimeEvent = <Westend as Chain>::RuntimeEvent;
 		type PeopleRuntime = <PeopleWestend as Chain>::Runtime;
+
+		Dmp::make_parachain_reachable(1004);
 
 		let kill_identity_call =
 			PeopleCall::Identity(pallet_identity::Call::<PeopleRuntime>::kill_identity {
@@ -253,6 +260,8 @@ fn relay_commands_kill_identity_wrong_origin() {
 			type RuntimeEvent = <Westend as Chain>::RuntimeEvent;
 			type PeopleRuntime = <PeopleWestend as Chain>::Runtime;
 
+			Dmp::make_parachain_reachable(1004);
+
 			let kill_identity_call =
 				PeopleCall::Identity(pallet_identity::Call::<PeopleRuntime>::kill_identity {
 					target: people_westend_runtime::MultiAddress::Id(PeopleWestend::account_id_of(
@@ -302,6 +311,8 @@ fn relay_commands_add_remove_username_authority() {
 		type RuntimeEvent = <Westend as Chain>::RuntimeEvent;
 		type PeopleCall = <PeopleWestend as Chain>::RuntimeCall;
 		type PeopleRuntime = <PeopleWestend as Chain>::Runtime;
+
+		Dmp::make_parachain_reachable(1004);
 
 		let add_username_authority =
 			PeopleCall::Identity(pallet_identity::Call::<PeopleRuntime>::add_username_authority {
@@ -384,13 +395,15 @@ fn relay_commands_add_remove_username_authority() {
 		);
 	});
 
-	// Now, remove the username authority with another priviledged XCM call.
+	// Now, remove the username authority with another privileged XCM call.
 	Westend::execute_with(|| {
 		type Runtime = <Westend as Chain>::Runtime;
 		type RuntimeCall = <Westend as Chain>::RuntimeCall;
 		type RuntimeEvent = <Westend as Chain>::RuntimeEvent;
 		type PeopleCall = <PeopleWestend as Chain>::RuntimeCall;
 		type PeopleRuntime = <PeopleWestend as Chain>::Runtime;
+
+		Dmp::make_parachain_reachable(1004);
 
 		let remove_username_authority = PeopleCall::Identity(pallet_identity::Call::<
 			PeopleRuntime,
@@ -455,6 +468,8 @@ fn relay_commands_add_remove_username_authority_wrong_origin() {
 			type PeopleCall = <PeopleWestend as Chain>::RuntimeCall;
 			type PeopleRuntime = <PeopleWestend as Chain>::Runtime;
 
+			Dmp::make_parachain_reachable(1004);
+
 			let add_username_authority = PeopleCall::Identity(pallet_identity::Call::<
 				PeopleRuntime,
 			>::add_username_authority {
@@ -502,6 +517,8 @@ fn relay_commands_add_remove_username_authority_wrong_origin() {
 				authority: people_westend_runtime::MultiAddress::Id(people_westend_alice.clone()),
 				suffix: b"suffix1".into(),
 			});
+
+			Dmp::make_parachain_reachable(1004);
 
 			let remove_authority_xcm_msg =
 				RuntimeCall::XcmPallet(pallet_xcm::Call::<Runtime>::send {

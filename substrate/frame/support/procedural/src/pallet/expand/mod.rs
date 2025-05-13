@@ -35,6 +35,7 @@ mod tasks;
 mod tt_default_parts;
 mod type_value;
 mod validate_unsigned;
+mod view_functions;
 mod warnings;
 
 use crate::pallet::Def;
@@ -66,17 +67,20 @@ pub fn expand(mut def: Def) -> proc_macro2::TokenStream {
 	let error = error::expand_error(&mut def);
 	let event = event::expand_event(&mut def);
 	let storages = storage::expand_storages(&mut def);
+	let view_functions = view_functions::expand_view_functions(&def);
 	let inherents = inherent::expand_inherents(&mut def);
 	let instances = instances::expand_instances(&mut def);
 	let hooks = hooks::expand_hooks(&mut def);
 	let genesis_build = genesis_build::expand_genesis_build(&mut def);
 	let genesis_config = genesis_config::expand_genesis_config(&mut def);
 	let type_values = type_value::expand_type_values(&mut def);
-	let origins = origin::expand_origins(&mut def);
+	let origin = origin::expand_origin(&mut def);
 	let validate_unsigned = validate_unsigned::expand_validate_unsigned(&mut def);
 	let tt_default_parts = tt_default_parts::expand_tt_default_parts(&mut def);
 	let doc_only = doc_only::expand_doc_only(&mut def);
 	let composites = composite::expand_composites(&mut def);
+
+	let warnings = def.config.warnings;
 
 	def.item.attrs.insert(
 		0,
@@ -98,6 +102,9 @@ storage item. Otherwise, all storage items are listed among [*Type Definitions*]
 	);
 
 	let new_items = quote::quote!(
+		#(
+			#warnings
+		)*
 		#metadata_docs
 		#constants
 		#pallet_struct
@@ -108,25 +115,22 @@ storage item. Otherwise, all storage items are listed among [*Type Definitions*]
 		#error
 		#event
 		#storages
+		#view_functions
 		#inherents
 		#instances
 		#hooks
 		#genesis_build
 		#genesis_config
 		#type_values
-		#origins
+		#origin
 		#validate_unsigned
 		#tt_default_parts
 		#doc_only
 		#composites
 	);
 
-	def.item
-		.content
-		.as_mut()
-		.expect("This is checked by parsing")
-		.1
-		.push(syn::Item::Verbatim(new_items));
+	let item = &mut def.item.content.as_mut().expect("This is checked by parsing").1;
+	item.push(syn::Item::Verbatim(new_items));
 
 	def.item.into_token_stream()
 }

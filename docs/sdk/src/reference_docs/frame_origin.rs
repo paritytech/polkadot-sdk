@@ -167,7 +167,17 @@ pub mod pallet_with_custom_origin {
 	#[docify::export(custom_origin)]
 	/// A dummy custom origin.
 	#[pallet::origin]
-	#[derive(PartialEq, Eq, Clone, RuntimeDebug, Encode, Decode, TypeInfo, MaxEncodedLen)]
+	#[derive(
+		PartialEq,
+		Eq,
+		Clone,
+		RuntimeDebug,
+		Encode,
+		Decode,
+		DecodeWithMemTracking,
+		TypeInfo,
+		MaxEncodedLen,
+	)]
 	pub enum Origin {
 		/// If all holders of a particular NFT have agreed upon this.
 		AllNftHolders,
@@ -231,7 +241,7 @@ pub mod pallet_with_external_origin {
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
 		pub fn externally_checked_ext(origin: OriginFor<T>) -> DispatchResult {
-			let _ = T::ExternalOrigin::ensure_origin(origin)?;
+			T::ExternalOrigin::ensure_origin(origin)?;
 			todo!();
 		}
 	}

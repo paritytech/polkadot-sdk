@@ -25,7 +25,7 @@ extern crate alloc;
 use core::result::Result;
 
 use alloc::vec::Vec;
-use codec::{Decode, Encode};
+use codec::{Decode, DecodeWithMemTracking, Encode};
 use sp_inherents::{InherentData, InherentIdentifier, IsFatalError};
 use sp_runtime::traits::{Block as BlockT, NumberFor};
 
@@ -54,7 +54,7 @@ impl IsFatalError for InherentError {
 
 /// Holds a chunk of data retrieved from storage along with
 /// a proof that the data was stored at that location in the trie.
-#[derive(Encode, Decode, Clone, PartialEq, Debug, scale_info::TypeInfo)]
+#[derive(Encode, Decode, DecodeWithMemTracking, Clone, PartialEq, Debug, scale_info::TypeInfo)]
 pub struct TransactionStorageProof {
 	/// Data chunk that is proved to exist.
 	pub chunk: Vec<u8>,
@@ -189,10 +189,8 @@ pub mod registration {
 		let mut target_chunk_key = Default::default();
 		let mut chunk_proof = Default::default();
 
-		let total_chunks: u64 = transactions
-			.iter()
-			.map(|t| ((t.len() + CHUNK_SIZE - 1) / CHUNK_SIZE) as u64)
-			.sum();
+		let total_chunks: u64 =
+			transactions.iter().map(|t| t.len().div_ceil(CHUNK_SIZE) as u64).sum();
 		let mut buf = [0u8; 8];
 		buf.copy_from_slice(&random_hash[0..8]);
 		let random_u64 = u64::from_be_bytes(buf);

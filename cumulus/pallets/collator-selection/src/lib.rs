@@ -141,6 +141,7 @@ pub mod pallet {
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
 		/// Overarching event type.
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		/// The currency mechanism.
@@ -150,22 +151,27 @@ pub mod pallet {
 		type UpdateOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
 		/// Account Identifier from which the internal Pot is generated.
+		#[pallet::constant]
 		type PotId: Get<PalletId>;
 
 		/// Maximum number of candidates that we should have.
 		///
 		/// This does not take into account the invulnerables.
+		#[pallet::constant]
 		type MaxCandidates: Get<u32>;
 
 		/// Minimum number eligible collators. Should always be greater than zero. This includes
 		/// Invulnerable collators. This ensures that there will always be one collator who can
 		/// produce a block.
+		#[pallet::constant]
 		type MinEligibleCollators: Get<u32>;
 
 		/// Maximum number of invulnerables.
+		#[pallet::constant]
 		type MaxInvulnerables: Get<u32>;
 
 		// Will be kicked if block is not produced in threshold.
+		#[pallet::constant]
 		type KickThreshold: Get<BlockNumberFor<Self>>;
 
 		/// A stable ID for a validator.
@@ -181,6 +187,14 @@ pub mod pallet {
 
 		/// The weight information of this pallet.
 		type WeightInfo: WeightInfo;
+	}
+
+	#[pallet::extra_constants]
+	impl<T: Config> Pallet<T> {
+		/// Gets this pallet's derived pot account.
+		fn pot_account() -> T::AccountId {
+			Self::account_id()
+		}
 	}
 
 	/// Basic information about a collation candidate.

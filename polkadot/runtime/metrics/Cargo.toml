@@ -12,10 +12,10 @@ repository.workspace = true
 workspace = true
 
 [dependencies]
-sp-tracing = { workspace = true }
 codec = { workspace = true }
-polkadot-primitives = { workspace = true }
 frame-benchmarking = { optional = true, workspace = true }
+polkadot-primitives = { workspace = true }
+sp-tracing = { workspace = true }
 
 bs58 = { features = ["alloc"], workspace = true }
 

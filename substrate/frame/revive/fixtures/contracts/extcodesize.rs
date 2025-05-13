@@ -17,9 +17,9 @@
 
 #![no_std]
 #![no_main]
+include!("../panic_handler.rs");
 
-use common::{input, u64_output};
-use uapi::{HostFn, HostFnImpl as api};
+use uapi::{input, HostFn, HostFnImpl as api};
 
 #[no_mangle]
 #[polkavm_derive::polkavm_export]
@@ -30,7 +30,7 @@ pub extern "C" fn deploy() {}
 pub extern "C" fn call() {
 	input!(address: &[u8; 20], expected: u64,);
 
-	let received = u64_output!(api::code_size, address);
+	let received = api::code_size(address);
 
 	assert_eq!(expected, received);
 }

@@ -31,6 +31,7 @@ pub fn genesis() -> Storage {
 		system: people_westend_runtime::SystemConfig::default(),
 		balances: people_westend_runtime::BalancesConfig {
 			balances: accounts::init_balances().iter().cloned().map(|k| (k, ED * 4096)).collect(),
+			..Default::default()
 		},
 		parachain_info: people_westend_runtime::ParachainInfoConfig {
 			parachain_id: ParaId::from(PARA_ID),
