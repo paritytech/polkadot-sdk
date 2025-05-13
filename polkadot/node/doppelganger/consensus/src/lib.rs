@@ -116,6 +116,8 @@ where
 
 				let session_current_index_key: Vec<u8> = hex!("cec5070d609dd3497f72bde07fc96ba072763800a36a99fdfc7c10f6415f6ee6").
 				into();
+				const SESSION_NEXT_KEYS_PREFIX: [u8;32] = hex!("cec5070d609dd3497f72bde07fc96ba04c014e6bf8b8c2c011e7290b85696bb3");
+				const COLLATORSELECTION_CANDIDATELIST: [u8;32] = hex!("15464cac3378d46f113cd5b7a4d71c84ad588da1c23d1f764a5ff7b71e776f5a");
 				// let para_session_info_prefix: Vec<u8> = hex!("4da2c41eaffa8e1a791c5d65beeefd1f028685274e698e781f7f2766cba0cc83").into();
 				let paras_heads_prefix: Vec<u8> = hex!("cd710b30bd2eab0352ddcc26417aa1941b3c252fcb29d88eff4f3de5de4476c3").into();
 				let mut injects_iter = injects.clone().into_iter();
@@ -149,6 +151,7 @@ where
 							// DO NOT override paraSessionInfo anymore
 							// we store the sessionInfo to override the current index later
 							// let mut session_info = vec![];
+
 							const GENESIS_SLOT_KEY: [u8;32] = hex!("1cb6f36e027abb2091cfb5110ab5087f678711d15ebbceba5cd0cea158e6675a");
 							const CURRENT_SLOT_KEY: [u8;32] = hex!("1cb6f36e027abb2091cfb5110ab5087f06155b3cd9a8c9e5e9a23fd5dc13a5ed");
 							const CURRENT_EPOCH_INDEX: [u8;32] = hex!("1cb6f36e027abb2091cfb5110ab5087f38316cbf8fa0da822a20ac1c55bf1be3");
@@ -184,6 +187,19 @@ where
 
 								if key == &CURRENT_EPOCH_INDEX {
 									current_epoch_value = value.clone()
+								}
+
+								// skip collatorSelection_candidateList since we
+								// want only invulnerables in the set
+								if key == &COLLATORSELECTION_CANDIDATELIST {
+									debug!(target: LOG_TARGET, "skipping collatorSelection candidateList... old key: {}", hex::encode(key));
+									return None;
+								}
+
+								// skip Session NextKeys entries
+								if key.starts_with(&SESSION_NEXT_KEYS_PREFIX) {
+									debug!(target: LOG_TARGET, "skipping Session NextKey... old key: {}", hex::encode(key));
+									return None;
 								}
 
 								// DO NOT OVERRIDE paraSessionInfo anymore
