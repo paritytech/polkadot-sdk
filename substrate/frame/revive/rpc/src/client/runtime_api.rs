@@ -31,7 +31,7 @@ use subxt::OnlineClient;
 pub struct RuntimeApi(subxt::runtime_api::RuntimeApi<SrcChainConfig, OnlineClient<SrcChainConfig>>);
 
 impl RuntimeApi {
-	/// Create a ne instance.
+	/// Create a new instance.
 	pub fn new(
 		api: subxt::runtime_api::RuntimeApi<SrcChainConfig, OnlineClient<SrcChainConfig>>,
 	) -> Self {
