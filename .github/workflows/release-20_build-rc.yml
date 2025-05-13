@@ -40,7 +40,7 @@ jobs:
         id: validate_inputs
         run: |
           . ./.github/scripts/common/lib.sh
-          #test
+
           RELEASE_TAG=$(validate_stable_tag ${{ inputs.release_tag }})
           echo "release_tag=${RELEASE_TAG}" >> $GITHUB_OUTPUT
 
