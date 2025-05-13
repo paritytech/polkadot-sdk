@@ -705,6 +705,7 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
 	fn filter(&self, c: &RuntimeCall) -> bool {
 		match self {
 			ProxyType::Any => true,
+			ProxyType::OldSudoBalances | ProxyType::OldIdentityJudgement | ProxyType::OldAuction | ProxyType::OldParaRegistration => false,
 			ProxyType::NonTransfer => !matches!(
 				c,
 				RuntimeCall::Balances { .. } |
