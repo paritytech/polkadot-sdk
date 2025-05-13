@@ -46,7 +46,7 @@ sol! {
 		/// @notice Execute an XCM message locally with the caller's origin
 		/// @param message The XCM message to send
 		/// @param maxWeight The maximum amount of weight to be used to execute the message
-		function xcmExecute(bytes calldata message, WeightLimit memory weightLimit) external;
+		function xcmExecute(bytes calldata message, WeightLimit calldata weightLimit) external;
 
 		/// @notice Send an XCM message to a destination chain
 		/// @param destination The destination location, encoded according to the XCM format
@@ -56,7 +56,7 @@ sol! {
 		/// @notice Given a message estimate the weight cost
 		/// @param message The XCM message to send
 		/// @returns weight estimated for sending the message
-		function weightMessage(bytes memory message) external view returns(WeightLimit weight);
+		function weightMessage(bytes calldata message) external view returns(WeightLimit weight);
 	}
 }
 

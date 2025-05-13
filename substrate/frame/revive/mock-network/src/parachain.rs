@@ -19,7 +19,7 @@
 mod contracts_config;
 use crate::{
 	mocks::msg_queue::pallet as mock_msg_queue,
-	primitives::{AccountId, AssetIdForAssets, Balance}, weight_info::ReviveTestWeightInfo,
+	primitives::{AccountId, AssetIdForAssets, Balance}
 };
 use core::marker::PhantomData;
 use frame_support::{
@@ -324,7 +324,7 @@ impl pallet_xcm::Config for Runtime {
 	type MaxLockers = ConstU32<8>;
 	type MaxRemoteLockConsumers = ConstU32<0>;
 	type RemoteLockConsumerIdentifier = ();
-	type WeightInfo = ReviveTestWeightInfo;
+	type WeightInfo = pallet_xcm::TestWeightInfo;
 	type AdminOrigin = EnsureRoot<AccountId>;
 	// Aliasing is disabled: xcm_executor::Config::Aliasers is set to `Nothing`.
 	type AuthorizedAliasConsideration = Disabled;
