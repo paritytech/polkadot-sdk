@@ -28,7 +28,7 @@ async fn rpc_collator_builds_blocks() -> Result<(), anyhow::Error> {
 	let alice_client: OnlineClient<PolkadotConfig> = alice.wait_client().await?;
 
 	log::info!("Ensuring parachain is registered");
-	assert_para_throughput(&alice_client, 2, [(ParaId::from(PARA_ID), 2..3)].into_iter().collect())
+	assert_para_throughput(&alice_client, 3, [(ParaId::from(PARA_ID), 2..4)].into_iter().collect())
 		.await?;
 
 	let dave = network.get_node("dave")?;
