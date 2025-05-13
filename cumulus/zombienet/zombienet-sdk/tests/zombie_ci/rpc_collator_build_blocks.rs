@@ -58,7 +58,7 @@ async fn rpc_collator_builds_blocks() -> Result<(), anyhow::Error> {
 	network.get_node("three")?.restart(Some(Duration::from_secs(20))).await?;
 
 	log::info!("Checking if dave is up");
-	assert!(wait_node_is_up(&dave, 10u64).await.is_ok());
+	assert!(wait_node_is_up(dave, 10u64).await.is_ok());
 
 	log::info!("Ensuring dave reports expected block height");
 	assert!(dave

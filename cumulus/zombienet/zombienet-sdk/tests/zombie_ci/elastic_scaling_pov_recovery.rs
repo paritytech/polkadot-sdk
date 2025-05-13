@@ -37,10 +37,10 @@ async fn elastic_scaling_pov_recovery() -> Result<(), anyhow::Error> {
 	let collator_elastic = network.get_node("collator-elastic")?;
 
 	log::info!("Checking if alice is up");
-	assert!(wait_node_is_up(&alice, 20u64).await.is_ok());
+	assert!(wait_node_is_up(alice, 20u64).await.is_ok());
 
 	log::info!("Checking if collator-elastic is up");
-	assert!(wait_node_is_up(&collator_elastic, 20u64).await.is_ok());
+	assert!(wait_node_is_up(collator_elastic, 20u64).await.is_ok());
 
 	log::info!("Assigning cores for the parachain");
 	let assign_cores_call = create_assign_core_call(&[(0, PARA_ID), (1, PARA_ID)]);

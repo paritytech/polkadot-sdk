@@ -222,6 +222,5 @@ fn build_collator_args(in_args: Vec<Arg>) -> Vec<Arg> {
 		("--reserved-nodes", "{{ZOMBIE:ferdie:multiaddr}}").into(),
 	];
 
-	let args = [start_args, in_args, remaining_args].concat();
-	args
+	[start_args, in_args, remaining_args].concat()
 }
