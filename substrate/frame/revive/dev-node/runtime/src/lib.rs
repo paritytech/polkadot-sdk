@@ -330,6 +330,7 @@ impl pallet_revive::Config for Runtime {
 	type ChainId = ConstU64<420_420_420>;
 	type CodeHashLockupDepositPercent = CodeHashLockupDepositPercent;
 	type Currency = Balances;
+	type NativeToEthRatio = ConstU32<1_000_000>;
 	type Time = Timestamp;
 }
 
