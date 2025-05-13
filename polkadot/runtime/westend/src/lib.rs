@@ -880,7 +880,7 @@ impl ah_client::Config for Runtime {
 	type AdminOrigin = EnsureRoot<AccountId>;
 	type SessionInterface = Self;
 	type SendToAssetHub = XcmToAssetHub<crate::xcm_config::XcmRouter>;
-	type MinimumValidatorSetSize = ConstU32<4>;
+	type MinimumValidatorSetSize = ConstU32<1>;
 	type UnixTime = Timestamp;
 	type PointsPerBlock = ConstU32<20>;
 	type Fallback = Staking;
