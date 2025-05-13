@@ -515,7 +515,7 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type BondedEras<T: Config> =
 		StorageValue<_, BoundedVec<(EraIndex, SessionIndex), BondedErasBound<T>>, ValueQuery>;
-	
+
 	// --- AUDIT Note: end of storage items controlled by `Rotator`.
 
 	/// Summary of validator exposure at a given era.
@@ -961,11 +961,17 @@ pub mod pallet {
 					})
 					.collect::<Vec<_>>();
 
+				let existing_validators = Validators::<T>::iter_keys().collect::<Vec<_>>();
+
 				(0..nominators).for_each(|index| {
 					let derivation = base_derivation.replace("{}", &format!("nominator{}", index));
 					let who = Self::generate_endowed_bonded_account(&derivation, &mut rng);
 
 					let random_nominations = validators
+						.clone()
+						.into_iter()
+						.chain(existing_validators.clone())
+						.collect::<Vec<_>>()
 						.choose_multiple(&mut rng, MaxNominationsOf::<T>::get() as usize)
 						.map(|v| v.clone())
 						.collect::<Vec<_>>();

@@ -124,6 +124,8 @@ pub enum OffchainMinerError<T: Config> {
 	SolutionCallInvalid,
 	/// Failed to store a solution.
 	FailedToStoreSolution,
+	/// Cannot mine a solution with zero pages.
+	ZeroPages,
 }
 
 impl<T: Config> From<MinerError<T::MinerConfig>> for OffchainMinerError<T> {
@@ -189,11 +191,10 @@ pub trait MinerConfig {
 	///
 	/// Should equal to the onchain value set in `Verifier::Config`.
 	type MaxBackersPerWinnerFinal: Get<u32>;
-	/// Maximum number of backers, per winner, per page.
-
-	/// Maximum number of pages that we may compute.
+	/// **Maximum** number of pages that we may compute.
 	///
 	/// Must be the same as configured in the [`crate::Config`].
+	/// TODO: rename to `MaxPages` for more clarity. Won't do now to not break the miner right before WND migration.
 	type Pages: Get<u32>;
 	/// Maximum number of voters per snapshot page.
 	///
@@ -721,6 +722,9 @@ impl<T: Config> OffchainWorkerMiner<T> {
 		pages: PageIndex,
 		do_reduce: bool,
 	) -> Result<PagedRawSolution<T::MinerConfig>, OffchainMinerError<T>> {
+		if pages.is_zero() {
+			return Err(OffchainMinerError::<T>::ZeroPages);
+		}
 		let (voter_pages, all_targets, desired_targets) = Self::fetch_snapshot(pages)?;
 		let round = crate::Pallet::<T>::round();
 		BaseMiner::<T::MinerConfig>::mine_solution(MineInput {
