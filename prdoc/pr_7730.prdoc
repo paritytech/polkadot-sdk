@@ -2,11 +2,11 @@ title: Nest errors in pallet-xcm
 doc:
 - audience: Runtime Dev
   description: |-
-    Errors in pallet-xcm are very bad. You execute something and all you get is `LocalExecutionIncomplete`. That's it, nothing else. You don't know if you had insufficient balance, if your account didn't convert, nothing.
-
-    One thing we can do to improve this is to nest the error from the executor inside of `LocalExecutionIncomplete`. That way, we can provide more information in the event of an error. Errors in FRAME are 4 bytes long and right now we're only using one of them. By using more bytes we can have nested enums that give the end user (or application) a better error.
-
-    Still, in order to make this really good, we would need to rework the errors themselves. For example, `FailedToTransactAsset` takes a string that we can't encode in less than 4 bytes. So we need to change that or convert that to a relevant enum that we can provide in the error.
+    To address the issue of vague `LocalExecutionIncomplete` errors in `pallet-xcm`, the PR introduces `LocalExecutionIncompleteWithError(ExecutionError)`, which nests a compact `ExecutionError` enum—aligned with `XcmError` and excluding strings like in `FailedToTransactAsset`: to provide detailed error information within FRAME's 4-byte limit. This enhances error reporting by specifying causes like insufficient balance or asset transaction failures, with strings logged for debugging.
 crates:
 - name: pallet-xcm
   bump: patch
+- name: asset-hub-westend-integration-tests
+  bump: none
+- name: bridge-hub-westend-integration-tests
+  bump: none
