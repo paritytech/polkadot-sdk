@@ -1695,7 +1695,7 @@ impl OffchainDisabledValidators {
 
 		// Process concluded disputes to identify validators that should be disabled
 		for ((session, candidate_hash), dispute_status) in disputes {
-		    let session = *session;
+			let session = *session;
 			// Only process concluded disputes
 			if !dispute_status.has_concluded_for() && !dispute_status.has_concluded_against() {
 				continue;
@@ -1712,14 +1712,19 @@ impl OffchainDisabledValidators {
 
 			// Process votes based on dispute outcome
 			if dispute_status.has_concluded_for() {
-				// Dispute concluded with candidate being valid - track validators that voted against
+				// Dispute concluded with candidate being valid - track validators that voted
+				// against
 				for (validator_index, _) in votes.invalid.iter() {
 					disabled_validators.insert_against_valid(session, *validator_index);
 				}
 			} else if dispute_status.has_concluded_against() {
 				// Dispute concluded with candidate being invalid - track validators that voted for
 				for (validator_index, (kind, _)) in votes.valid.raw().iter() {
-					let is_backer = matches!(kind, ValidDisputeStatementKind::BackingValid(_) | ValidDisputeStatementKind::BackingSeconded(_));
+					let is_backer = matches!(
+						kind,
+						ValidDisputeStatementKind::BackingValid(_) |
+							ValidDisputeStatementKind::BackingSeconded(_)
+					);
 					disabled_validators.insert_for_invalid(session, *validator_index, is_backer);
 				}
 			}
@@ -1728,7 +1733,7 @@ impl OffchainDisabledValidators {
 		disabled_validators
 	}
 
-    /// Prune state for ancient disputes.
+	/// Prune state for ancient disputes.
 	pub fn prune_old(&mut self, up_to_excluding: SessionIndex) {
 		// split_off returns everything after the given key, including the key.
 		let mut relevant = self.per_session.split_off(&up_to_excluding);

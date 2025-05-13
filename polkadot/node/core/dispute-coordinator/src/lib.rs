@@ -311,17 +311,15 @@ impl DisputeCoordinatorSubsystem {
 		// Initialize offchain disabled validators from recent disputes
 		let offchain_disabled_validators = initialized::OffchainDisabledValidators::new_from_state(
 			&recent_disputes,
-			|session, candidate_hash| {
-				match overlay_db.load_candidate_votes(session, candidate_hash) {
-					Ok(Some(votes)) => Some(votes.into()),
-					_ => None,
-				}
+			|session, candidate_hash| match overlay_db.load_candidate_votes(session, candidate_hash)
+			{
+				Ok(Some(votes)) => Some(votes.into()),
+				_ => None,
 			},
 			earliest_session,
 		);
 
 		let active_disputes = get_active_with_status(recent_disputes.into_iter(), now);
-
 
 		let mut gap_in_cache = false;
 		// Cache the sessions. A failure to fetch a session here is not that critical so we
@@ -344,10 +342,7 @@ impl DisputeCoordinatorSubsystem {
 		}
 
 		// Prune obsolete disputes:
-		db::v1::note_earliest_session(
-			overlay_db,
-			earliest_session,
-		)?;
+		db::v1::note_earliest_session(overlay_db, earliest_session)?;
 
 		let mut participation_requests = Vec::new();
 		let mut spam_disputes: UnconfirmedDisputes = UnconfirmedDisputes::new();
