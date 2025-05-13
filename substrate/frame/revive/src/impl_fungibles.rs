@@ -22,7 +22,6 @@
 
 use alloy_core::{
 	primitives::{Address, U256 as EU256},
-	sol,
 	sol_types::*,
 };
 use frame_support::traits::tokens::{
@@ -33,13 +32,7 @@ use pallet_revive_uapi::ReturnFlags;
 use sp_core::U256;
 
 use super::*;
-
-// ERC20 interface.
-sol! {
-	function totalSupply() public view virtual returns (uint256);
-	function balanceOf(address account) public view virtual returns (uint256);
-	function transfer(address to, uint256 value) public virtual returns (bool);
-}
+use crate::erc20::IERC20;
 
 impl<T: Config> fungibles::Inspect<<T as frame_system::Config>::AccountId> for Pallet<T>
 where
@@ -54,7 +47,7 @@ where
 
 	// Need to call a view function here.
 	fn total_issuance(asset_id: Self::AssetId) -> Self::Balance {
-		let data = totalSupplyCall {}.abi_encode();
+		let data = IERC20::totalSupplyCall {}.abi_encode();
 		let ContractResult { result, .. } = Self::bare_call(
 			T::RuntimeOrigin::signed(T::CheckingAccount::get()),
 			asset_id,
@@ -63,9 +56,15 @@ where
 			DepositLimit::Unchecked,
 			data,
 		);
-		EU256::abi_decode(&result.unwrap().data, true)
-			.expect("Failed to ABI decode")
-			.to::<u128>()
+		if let Ok(return_value) = result {
+			if let Ok(eu256) = EU256::abi_decode(&return_value.data, false) {
+				eu256.to::<u128>()
+			} else {
+				0
+			}
+		} else {
+			0
+		}
 	}
 
 	fn minimum_balance(_: Self::AssetId) -> Self::Balance {
@@ -82,7 +81,7 @@ where
 	fn balance(asset_id: Self::AssetId, account_id: &T::AccountId) -> Self::Balance {
 		let eth_address = T::AddressMapper::to_address(account_id);
 		let address = Address::from(Into::<[u8; 20]>::into(eth_address));
-		let data = balanceOfCall { account: address }.abi_encode();
+		let data = IERC20::balanceOfCall { account: address }.abi_encode();
 		let ContractResult { result, .. } = Self::bare_call(
 			T::RuntimeOrigin::signed(account_id.clone()),
 			asset_id,
@@ -91,9 +90,15 @@ where
 			DepositLimit::Unchecked,
 			data,
 		);
-		EU256::abi_decode(&result.unwrap().data, true)
-			.expect("Failed to ABI decode")
-			.to::<u128>()
+		if let Ok(return_value) = result {
+			if let Ok(eu256) = EU256::abi_decode(&return_value.data, false) {
+				eu256.to::<u128>()
+			} else {
+				0
+			}
+		} else {
+			0
+		}
 	}
 
 	fn reducible_balance(
@@ -139,7 +144,7 @@ where
 	T::Hash: frame_support::traits::IsType<H256>,
 {
 	fn burn_from(
-		asset: Self::AssetId,
+		asset_id: Self::AssetId,
 		who: &T::AccountId,
 		amount: Self::Balance,
 		_: Preservation,
@@ -148,10 +153,10 @@ where
 	) -> Result<Self::Balance, DispatchError> {
 		let checking_account_eth = T::AddressMapper::to_address(&T::CheckingAccount::get());
 		let checking_address = Address::from(Into::<[u8; 20]>::into(checking_account_eth));
-		let data = transferCall { to: checking_address, value: EU256::from(amount) }.abi_encode();
+		let data = IERC20::transferCall { to: checking_address, value: EU256::from(amount) }.abi_encode();
 		let ContractResult { result, gas_consumed, .. } = Self::bare_call(
 			T::RuntimeOrigin::signed(who.clone()),
-			asset,
+			asset_id,
 			BalanceOf::<T>::zero(),
 			Weight::from_parts(1_000_000_000, 100_000),
 			DepositLimit::Unchecked,
@@ -159,58 +164,54 @@ where
 		);
 		log::trace!(target: "whatiwant", "{gas_consumed}");
 		if let Ok(return_value) = result {
-			let has_reverted = return_value.flags.contains(ReturnFlags::REVERT);
-			if has_reverted {
-				// TODO: Can actually match errors from contract call
-				// to provide better errors here.
-				Err(DispatchError::Unavailable)
+			if return_value.did_revert() {
+				Err("Contract reverted".into())
 			} else {
 				let is_success =
-					bool::abi_decode(&return_value.data, true).expect("Failed to ABI decode");
+					bool::abi_decode(&return_value.data, false).expect("Failed to ABI decode");
 				if is_success {
-					// TODO: Should return the balance left in `who`.
-					Ok(0)
+					let balance = Self::balance(asset_id, who);
+					Ok(balance)
 				} else {
-					// TODO: Can actually match errors from contract call
-					// to provide better errors here.
-					Err(DispatchError::Unavailable)
+					Err("Contract transfer failed".into())
 				}
 			}
 		} else {
-			Err(DispatchError::Unavailable)
+			Err("Contract out of gas".into())
 		}
 	}
 
 	fn mint_into(
-		asset: Self::AssetId,
+		asset_id: Self::AssetId,
 		who: &T::AccountId,
 		amount: Self::Balance,
 	) -> Result<Self::Balance, DispatchError> {
 		let eth_address = T::AddressMapper::to_address(who);
 		let address = Address::from(Into::<[u8; 20]>::into(eth_address));
-		let data = transferCall { to: address, value: EU256::from(amount) }.abi_encode();
+		let data = IERC20::transferCall { to: address, value: EU256::from(amount) }.abi_encode();
 		let ContractResult { result, .. } = Self::bare_call(
 			T::RuntimeOrigin::signed(T::CheckingAccount::get()),
-			asset,
+			asset_id,
 			BalanceOf::<T>::zero(),
 			Weight::from_parts(1_000_000_000, 100_000),
 			DepositLimit::Unchecked,
 			data,
 		);
 		if let Ok(return_value) = result {
-			// Ok(0)
-			let is_success =
-				bool::abi_decode(&return_value.data, false).expect("Failed to ABI decode");
-			if is_success {
-				// TODO: Should return the balance left in `who`.
-				Ok(0)
+			if return_value.did_revert() {
+				Err("Contract reverted".into())
 			} else {
-				// TODO: Can actually match errors from contract call
-				// to provide better errors here.
-				Err(DispatchError::Unavailable)
+				let is_success =
+					bool::abi_decode(&return_value.data, false).expect("Failed to ABI decode");
+				if is_success {
+					let balance = Self::balance(asset_id, who);
+					Ok(balance)
+				} else {
+					Err("Contract transfer failed".into())
+				}
 			}
 		} else {
-			Err(DispatchError::Unavailable)
+			Err("Contract out of gas".into())
 		}
 	}
 }
@@ -284,7 +285,7 @@ mod tests {
 			.data(constructor_data)
 			.build_and_unwrap_contract();
 			let result = BareCallBuilder::<Test>::bare_call(RuntimeOrigin::signed(ALICE), addr)
-				.data(totalSupplyCall {}.abi_encode())
+				.data(IERC20::totalSupplyCall {}.abi_encode())
 				.build_and_unwrap_result();
 			let balance =
 				EU256::abi_decode(&result.data, true).expect("Failed to decode ABI response");

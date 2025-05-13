@@ -42,6 +42,7 @@ pub mod precompiles;
 pub mod test_utils;
 pub mod tracing;
 pub mod weights;
+pub mod erc20;
 
 use crate::{
 	evm::{

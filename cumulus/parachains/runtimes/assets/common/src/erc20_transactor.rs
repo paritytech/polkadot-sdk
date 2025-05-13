@@ -1,6 +1,5 @@
 use alloy_core::{
 	primitives::{Address, U256 as EU256},
-	sol,
 	sol_types::*,
 };
 use core::marker::PhantomData;
@@ -8,8 +7,7 @@ use frame_support::{
 	pallet_prelude::Zero,
 	traits::{fungible::Inspect, OriginTrait},
 };
-use pallet_revive::{AddressMapper, ContractResult, DepositLimit, MomentOf};
-use pallet_revive_uapi::ReturnFlags;
+use pallet_revive::{AddressMapper, ContractResult, DepositLimit, MomentOf, erc20::IERC20};
 use sp_core::{Get, H160, H256, U256};
 use sp_runtime::Weight;
 use xcm::latest::prelude::*;
@@ -17,13 +15,6 @@ use xcm_executor::{
 	traits::{ConvertLocation, Error as MatchError, MatchesFungibles, TransactAsset},
 	AssetsInHolding,
 };
-
-// ERC20 interface.
-sol! {
-	function totalSupply() public view virtual returns (uint256);
-	function balanceOf(address account) public view virtual returns (uint256);
-	function transfer(address to, uint256 value) public virtual returns (bool);
-}
 
 type BalanceOf<T> = <<T as pallet_revive::Config>::Currency as Inspect<
 	<T as frame_system::Config>::AccountId,
@@ -77,7 +68,7 @@ where
 		let who = AccountIdConverter::convert_location(who)
 			.ok_or(MatchError::AccountIdConversionFailed)?;
 		let (asset_id, amount) = Matcher::matches_fungibles(what)?;
-		let data = transferCall { to: checking_address, value: EU256::from(amount) }.abi_encode();
+		let data = IERC20::transferCall { to: checking_address, value: EU256::from(amount) }.abi_encode();
 		let ContractResult { result, gas_consumed, .. } = pallet_revive::Pallet::<T>::bare_call(
 			T::RuntimeOrigin::signed(who.clone()),
 			asset_id,
@@ -92,13 +83,14 @@ where
 		tracing::trace!(target: "xcm::transactor::erc20::withdraw", ?surplus, "GasLimit - gas_consumed");
 		if let Ok(return_value) = result {
 			tracing::trace!(target: "xcm::transactor::erc20::withdraw", ?return_value, "Return value by withdraw_asset");
-			let has_reverted = return_value.flags.contains(ReturnFlags::REVERT);
-			if has_reverted {
+			if return_value.did_revert() {
 				tracing::error!(target: "xcm::transactor::erc20::withdraw", "ERC20 contract reverted");
 				Err(XcmError::FailedToTransactAsset("ERC20 contract reverted"))
 			} else {
-				let is_success =
-					bool::abi_decode(&return_value.data, true).expect("Failed to ABI decode");
+				let is_success = bool::abi_decode(&return_value.data, false).map_err(|error| {
+					tracing::error!(target: "xcm::transactor::erc20::withdraw", "ERC20 contract result couldn't decode");
+					Err(XcmError::FailedToTransactAsset("ERC20 contract result couldn't decode"))
+				})?;
 				if is_success {
 					Ok((what.clone().into(), surplus))
 				} else {
@@ -129,7 +121,7 @@ where
 		let eth_address = T::AddressMapper::to_address(&who);
 		let address = Address::from(Into::<[u8; 20]>::into(eth_address));
 		let (asset_id, amount) = Matcher::matches_fungibles(what)?;
-		let data = transferCall { to: address, value: EU256::from(amount) }.abi_encode();
+		let data = IERC20::transferCall { to: address, value: EU256::from(amount) }.abi_encode();
 		let ContractResult { result, gas_consumed, .. } = pallet_revive::Pallet::<T>::bare_call(
 			T::RuntimeOrigin::signed(T::CheckingAccount::get()),
 			asset_id,
@@ -144,13 +136,14 @@ where
 		tracing::trace!(target: "xcm::transactor::erc20::deposit", ?surplus, "GasLimit - gas_consumed");
 		if let Ok(return_value) = result {
 			tracing::trace!(target: "xcm::transactor::erc20::deposit", ?return_value, "Return value");
-			let has_reverted = return_value.flags.contains(ReturnFlags::REVERT);
-			if has_reverted {
+			if return_value.did_revert() {
 				tracing::error!(target: "xcm::transactor::erc20::deposit", "Contract reverted");
 				Err(XcmError::FailedToTransactAsset("ERC20 contract reverted"))
 			} else {
-				let is_success =
-					bool::abi_decode(&return_value.data, false).expect("Failed to ABI decode");
+				let is_success = bool::abi_decode(&return_value.data, false).map_err(|error| {
+					tracing::error!(target: "xcm::transactor::erc20::deposit", "ERC20 contract result couldn't decode");
+					Err(XcmError::FailedToTransactAsset("ERC20 contract result couldn't decode"))
+				})?;
 				if is_success {
 					Ok(surplus)
 				} else {
