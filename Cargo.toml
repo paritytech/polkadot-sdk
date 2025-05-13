@@ -1447,9 +1447,13 @@ xcm-runtime-apis = { path = "polkadot/xcm/xcm-runtime-apis", default-features = 
 xcm-simulator = { path = "polkadot/xcm/xcm-simulator", default-features = false }
 yet-another-parachain-runtime = { path = "cumulus/parachains/runtimes/testing/yet-another-parachain" }
 zeroize = { version = "1.7.0", default-features = false }
-zombienet-configuration = { version = "0.3.0" }
-zombienet-orchestrator = { version = "0.3.0" }
-zombienet-sdk = { version = "0.3.0" }
+# zombienet-configuration = { version = "0.3.0" }
+# zombienet-orchestrator = { version = "0.3.0" }
+# zombienet-sdk = { version = "0.3.0" }
+# TODO: switch to crates once https://github.com/paritytech/zombienet-sdk/pull/341 is released
+zombienet-configuration = { git = "https://github.com/paritytech/zombienet-sdk.git", rev = "906ed938a2d8eab561c826dafc4e9f5ec1e7a322" }
+zombienet-orchestrator = { git = "https://github.com/paritytech/zombienet-sdk.git", rev = "906ed938a2d8eab561c826dafc4e9f5ec1e7a322" }
+zombienet-sdk = { git = "https://github.com/paritytech/zombienet-sdk.git", rev = "906ed938a2d8eab561c826dafc4e9f5ec1e7a322" }
 zstd = { version = "0.12.4", default-features = false }
 
 [profile.release]
