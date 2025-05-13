@@ -1361,7 +1361,7 @@ impl<T: Config> Pallet<T> {
 					// Defer to end of some `slash_defer_duration` from now.
 					log!(
 						debug,
-						"deferring slash of {:?}% happened in {:?} (reported in {:?}) to {:?}",
+						"deferring slash of {:?} happened in {:?} (reported in {:?}) to {:?}",
 						slash_fraction,
 						slash_era,
 						active_era,
