@@ -38,7 +38,7 @@ sol! {
 	/// @author Tiago Bandeira
 	/// @dev Parameters MUST use SCALE codec serialisation
 	interface IXcm {
-		struct WeightLimit {
+		struct Weight {
 			uint64 refTime;
 			uint64 proofSize;
 		}
@@ -46,7 +46,7 @@ sol! {
 		/// @notice Execute an XCM message locally with the caller's origin
 		/// @param message The XCM message to send
 		/// @param maxWeight The maximum amount of weight to be used to execute the message
-		function xcmExecute(bytes calldata message, WeightLimit calldata weightLimit) external;
+		function xcmExecute(bytes calldata message, Weight calldata weight) external;
 
 		/// @notice Send an XCM message to a destination chain
 		/// @param destination The destination location, encoded according to the XCM format
@@ -56,7 +56,7 @@ sol! {
 		/// @notice Given a message estimate the weight cost
 		/// @param message The XCM message to send
 		/// @returns weight estimated for sending the message
-		function weightMessage(bytes calldata message) external view returns(WeightLimit weight);
+		function weightMessage(bytes calldata message) external view returns(Weight weight);
 	}
 }
 
@@ -110,14 +110,14 @@ impl<T: Config> Precompile for XcmPrecompile<T> {
 					)
 				})
 			},
-			IXcmCalls::xcmExecute(IXcm::xcmExecuteCall { message, weightLimit }) => {
+			IXcmCalls::xcmExecute(IXcm::xcmExecuteCall { message, weight }) => {
 				let final_message = xcm::VersionedXcm::decode_all(&mut &message[..])
 					.map_err(|e| {
 						error!("XCM execute failed: Invalid message format. Error: {e:?}");
 						Error::Revert("Invalid message format".into())
 					})?;
 
-				let weight = Weight::from_parts(weightLimit.refTime, weightLimit.proofSize);
+				let weight = Weight::from_parts(weight.refTime, weight.proofSize);
 
 				<<T as Config>::Xcm>::execute(frame_origin, final_message.into(), weight)
 					.map(|results| results.encode())

@@ -243,7 +243,7 @@ fn test_xcm_execute_reentrant_call_via_precompile() {
 
 		let xcm_execute_params = IXcm::xcmExecuteCall {
 			message: VersionedXcm::V4(message).encode().into(),
-			weightLimit: IXcm::WeightLimit {
+			weight: IXcm::Weight {
 				proofSize: weight.proof_size(),
 				refTime: weight.ref_time(),
 			},
@@ -310,7 +310,7 @@ fn test_xcm_execute_incomplete_call_via_precompile() {
 
 		let xcm_execute_params = IXcm::xcmExecuteCall {
 			message: VersionedXcm::V4(message).encode().into(),
-			weightLimit: IXcm::WeightLimit {
+			weight: IXcm::Weight {
 				proofSize: weight.proof_size(),
 				refTime: weight.ref_time(),
 			},
@@ -368,7 +368,7 @@ fn test_xcm_execute_precompile() {
 
 		let xcm_execute_params = IXcm::xcmExecuteCall {
 			message: VersionedXcm::V4(message).encode().into(),
-			weightLimit: IXcm::WeightLimit {
+			weight: IXcm::Weight {
 				proofSize: weight.proof_size(),
 				refTime: weight.ref_time(),
 			},
