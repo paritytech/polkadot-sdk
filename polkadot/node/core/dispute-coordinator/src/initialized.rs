@@ -1720,11 +1720,7 @@ impl OffchainDisabledValidators {
 			} else if dispute_status.has_concluded_against() {
 				// Dispute concluded with candidate being invalid - track validators that voted for
 				for (validator_index, (kind, _)) in votes.valid.raw().iter() {
-					let is_backer = matches!(
-						kind,
-						ValidDisputeStatementKind::BackingValid(_) |
-							ValidDisputeStatementKind::BackingSeconded(_)
-					);
+					let is_backer = kind.is_backing();
 					disabled_validators.insert_for_invalid(session, *validator_index, is_backer);
 				}
 			}
