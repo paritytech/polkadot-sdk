@@ -69,8 +69,8 @@ async fn rpc_collator_builds_blocks() -> Result<(), anyhow::Error> {
 		.await
 		.is_ok());
 
-	// We want to make sure that none of the consensus hook checks fail, even if the chain makes progress.
-	// If below log line occurred 1 or more times then test failed.
+	// We want to make sure that none of the consensus hook checks fail, even if the chain makes
+	// progress. If below log line occurred 1 or more times then test failed.
 	log::info!("Ensuring none of the consensus hook checks fail");
 	for node in [eve, dave] {
 		let result = node

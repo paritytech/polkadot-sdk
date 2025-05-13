@@ -87,8 +87,8 @@ async fn elastic_scaling_pov_recovery() -> Result<(), anyhow::Error> {
 		.await
 		.is_ok());
 
-	// We want to make sure that none of the consensus hook checks fail, even if the chain makes progress.
-	// If below log line occurred 1 or more times then test failed.
+	// We want to make sure that none of the consensus hook checks fail, even if the chain makes
+	// progress. If below log line occurred 1 or more times then test failed.
 	log::info!("Ensuring none of the consensus hook checks fail");
 	let result = collator_elastic
 		.wait_log_line_count_with_timeout(
