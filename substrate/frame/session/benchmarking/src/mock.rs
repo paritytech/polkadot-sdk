@@ -25,7 +25,7 @@ use frame_election_provider_support::{
 };
 use frame_support::{
 	derive_impl, parameter_types,
-	traits::{ConstU128, ConstU32, ConstU64},
+	traits::{ConstU32, ConstU64},
 };
 use sp_runtime::{traits::IdentityLookup, BuildStorage, KeyTypeId};
 
@@ -108,7 +108,7 @@ impl pallet_session::Config for Test {
 	type WeightInfo = ();
 	type Currency = Balances;
 	type RuntimeHoldReason = RuntimeHoldReason;
-	type KeyDeposit = ConstU128<0>;
+	type KeyDeposit = ConstU64<0>;
 }
 pallet_staking_reward_curve::build! {
 	const I_NPOS: sp_runtime::curve::PiecewiseLinear<'static> = curve!(
