@@ -19,7 +19,6 @@ frame-benchmarking = { optional = true, workspace = true }
 frame-support = { workspace = true }
 frame-system = { workspace = true }
 log = { workspace = true }
-pallet-balances = { workspace = true }
 pallet-beefy = { workspace = true }
 pallet-mmr = { workspace = true }
 pallet-session = { workspace = true }
@@ -33,6 +32,7 @@ sp-runtime = { workspace = true }
 sp-state-machine = { workspace = true }
 
 [dev-dependencies]
+pallet-balances = { workspace = true }
 array-bytes = { workspace = true, default-features = true }
 sp-staking = { workspace = true, default-features = true }
 
