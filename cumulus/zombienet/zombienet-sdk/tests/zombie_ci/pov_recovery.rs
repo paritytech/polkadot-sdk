@@ -156,7 +156,6 @@ async fn initialize_network() -> Result<Network<LocalFileSystem>, anyhow::Error>
 				.with_default_image(images.cumulus.as_str())
 				.with_collator(|c| {
 					c.with_name("bob")
-						.with_p2p_port(55915)
 						.validator(true)
 						.with_args(vec!["--disable-block-announcements".into()])
 				})
