@@ -1,0 +1,44 @@
+title: 'statement-distribution: skip leafs where we can''t fetch the state'
+doc:
+- audience: Node Dev
+  description: "Observed during https://github.com/paritytech/polkadot-sdk/issues/8414\
+    \ on polkadot and https://github.com/paritytech/polkadot-sdk/issues/8481 on kusama,\
+    \ that in the presence of disputes, backing starts to lag, this happens because\
+    \ statement-distribution tries to fetch the disabled validators for leafs that\
+    \ have been discarded:\n\nLogs kusama:  https://grafana.teleport.parity.io/goto/7CB8AI-Ng?orgId=1\n\
+    ```\nDEBUG tokio-runtime-worker parachain::statement-distribution: error=FetchDisabledValidators(NotSupported\
+    \ { runtime_api_name: \"disabled_validators\" })\n```\n\nLogs from polkadot incident\
+    \ https://github.com/paritytech/polkadot-sdk/issues/8414#issuecomment-2855958086:\n\
+    ```\n2025-05-06 16:39:36 \U0001F3C6 Imported #25889143 (0x4ea4\u20268ee8 \u2192\
+    \ 0xe88b\u202612ff)\n2025-05-06 16:39:36 cannot query the runtime API version:\
+    \ Api called for an unknown Block: State already discarded for 0x0b157597a3703df7237ddec737da2ff8149d51c2b99245f1293b2b86fa9b4a0c\
+    \ api=\"disabled_validators\"\n2025-05-06 16:39:39 \U0001F4A4 Idle (28 peers),\
+    \ best: #25889143 (0xe88b\u202612ff), finalized #25889140 (0x34e4\u2026298d),\
+    \ \u2B07 2.4MiB/s \u2B06 943.2kiB/s\n2025-05-06 16:39:42 \U0001F3C6 Imported #25889144\
+    \ (0xe88b\u202612ff \u2192 0x9af4\u2026db4b)\n2025-05-06 16:39:42 cannot query\
+    \ the runtime API version: Api called for an unknown Block: State already discarded\
+    \ for 0x0b157597a3703df7237ddec737da2ff8149d51c2b99245f1293b2b86fa9b4a0c api=\"\
+    disabled_validators\"\n2025-05-06 16:39:44 \U0001F4A4 Idle (28 peers), best: #25889144\
+    \ (0x9af4\u2026db4b), finalized #25889141 (0x8634\u20261521), \u2B07 2.2MiB/s\
+    \ \u2B06 816.5kiB/s\n2025-05-06 16:39:48 \U0001F3C6 Imported #25889145 (0x9af4\u2026\
+    db4b \u2192 0x19a6\u2026cef3)\n2025-05-06 16:39:48 cannot query the runtime API\
+    \ version: Api called for an unknown Block: State already discarded for 0x0b157597a3703df7237ddec737da2ff8149d51c2b99245f1293b2b86fa9b4a0c\
+    \ api=\"disabled_validators\"\n2025-05-06 16:39:49 \U0001F4A4 Idle (28 peers),\
+    \ best: #25889145 (0x19a6\u2026cef3), finalized #25889141 (0x8634\u20261521),\
+    \ \u2B07 1.7MiB/s \u2B06 526.6kiB/s\n2025-05-06 16:39:54 \U0001F3C6 Imported #25889146\
+    \ (0x19a6\u2026cef3 \u2192 0x4f7a\u20269d2c)\n```\n\n## Root-cause\n1. Relay-chain\
+    \ has forks something like this.\n```\nA -> B -> C -> D -> F\n| -> E\n```\n\n\
+    2. Relay-chain finalises block C.\n3. New block F is created and statement-distribution\
+    \ receives ActiveLeave update for it.\n4. This logic  https://github.com/paritytech/polkadot-sdk/blob/c679ed79a1de575d4c3d5b8878b3e401b024f2f2/polkadot/node/network/statement-distribution/src/v2/mod.rs#L566\
+    \ returns all possible leafs `E` included, [because of this](https://github.com/paritytech/polkadot-sdk/blob/c679ed79a1de575d4c3d5b8878b3e401b024f2f2/polkadot/node/subsystem-util/src/backing_implicit_view.rs#L272)\n\
+    5. E has been discarded and request fails here: https://github.com/paritytech/polkadot-sdk/blob/c679ed79a1de575d4c3d5b8878b3e401b024f2f2/polkadot/node/network/statement-distribution/src/v2/mod.rs#L577.\n\
+    6. At first error we bail-out so the active leafs for `E` is not properly process,\
+    \ so no candidate will be backed that is based on `E`\n7.  This continues on until\
+    \ a new block is finalized and `E` gets cleanup because it falls behind.\n\n##\
+    \ Fix\n\nThe proposed fix is to not  fail hard on this type of errors and continue\
+    \ with the processing.\n\n## Open questions\nWhy does this appear only when there\
+    \ are a lot of disputes in the system, instead of every time there is a fork ?\
+    \ My theory is that disputes impact somehow the order of some blocks getting discarded."
+crates:
+- name: polkadot-statement-distribution
+  bump: patch
