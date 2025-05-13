@@ -133,15 +133,10 @@ fn process_message_fails_on_max_nonce_reached() {
 
 		match last_event {
 			mock::RuntimeEvent::OutboundQueue(Event::MessageRejected {
-				id: Some(id),
+				id: None,
 				payload: _,
 				error: ProcessMessageError::Unsupported,
-			}) => {
-				assert_eq!(
-					id,
-					hex!("0000000000000000000000000000000000000000000000000000000000000001").into()
-				);
-			},
+			}) => {},
 			_ => {
 				panic!("Expected Event::MessageRejected(Unsupported) but got {:?}", last_event);
 			},
