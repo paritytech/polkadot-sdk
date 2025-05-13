@@ -17,7 +17,6 @@ use tokio::time::Duration;
 use tokio_util::time::FutureExt;
 use zombienet_sdk::NetworkConfigBuilder;
 
-#[ignore]
 #[tokio::test(flavor = "multi_thread")]
 async fn dispute_past_session_slashing() -> Result<(), anyhow::Error> {
 	let _ = env_logger::try_init_from_env(

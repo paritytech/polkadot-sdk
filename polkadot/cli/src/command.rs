@@ -190,11 +190,6 @@ where
 
 	set_default_ss58_version(chain_spec);
 
-	if chain_spec.is_polkadot() {
-		info!("This binary is meant to be used on Kusama only!");
-		return Err(Error::Other("This binary is meant to be used on Kusama only!".into()))
-	}
-
 	if chain_spec.is_kusama() {
 		info!("----------------------------");
 		info!("This chain is not in any way");
