@@ -165,10 +165,10 @@ pub enum CallType {
 #[derive(TypeInfo, From, Encode, Decode, Serialize, Deserialize, Clone, Debug, Eq, PartialEq)]
 #[serde(untagged)]
 pub enum Trace {
-	/// A prestate trace.
-	Prestate(PrestateTrace),
 	/// A call trace.
 	Call(CallTrace),
+	/// A prestate trace.
+	Prestate(PrestateTrace),
 }
 
 /// A prestate Trace
