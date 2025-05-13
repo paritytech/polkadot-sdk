@@ -125,7 +125,7 @@ fn test_exchange_asset(
 		} else {
 			assert_err_ignore_postinfo!(
 				result,
-				pallet_xcm::Error::<Runtime>::LocalExecutionIncomplete
+				pallet_xcm::Error::<Runtime>::LocalExecutionIncompleteWithError
 			);
 			assert_eq!(
 				foreign_balance_after, foreign_balance_before,

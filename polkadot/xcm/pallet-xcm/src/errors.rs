@@ -21,7 +21,9 @@ use frame_support::PalletError;
 use scale_info::TypeInfo;
 use xcm::latest::Error as XcmError;
 
-#[derive(Copy, Clone, Encode, Decode, DecodeWithMemTracking, Eq, PartialEq, Debug, TypeInfo, PalletError)]
+#[derive(
+	Copy, Clone, Encode, Decode, DecodeWithMemTracking, Eq, PartialEq, Debug, TypeInfo, PalletError,
+)]
 pub enum ExecutionError {
 	// Errors that happen due to instructions being executed. These alone are defined in the
 	// XCM specification.
@@ -122,49 +124,49 @@ pub enum ExecutionError {
 }
 
 impl From<XcmError> for ExecutionError {
-    fn from(error: XcmError) -> Self {
-        match error {
-        	XcmError::Overflow => Self::Overflow,
-        	XcmError::Unimplemented => Self::Unimplemented,
-        	XcmError::UntrustedReserveLocation => Self::UntrustedReserveLocation,
-        	XcmError::UntrustedTeleportLocation => Self::UntrustedTeleportLocation,
-        	XcmError::LocationFull => Self::LocationFull,
-        	XcmError::LocationNotInvertible => Self::LocationNotInvertible,
-        	XcmError::BadOrigin => Self::BadOrigin,
-        	XcmError::InvalidLocation => Self::InvalidLocation,
-        	XcmError::AssetNotFound => Self::AssetNotFound,
-        	XcmError::FailedToTransactAsset(_) => Self::FailedToTransactAsset,
-        	XcmError::NotWithdrawable => Self::NotWithdrawable,
-        	XcmError::LocationCannotHold => Self::LocationCannotHold,
-        	XcmError::ExceedsMaxMessageSize => Self::ExceedsMaxMessageSize,
-        	XcmError::DestinationUnsupported => Self::DestinationUnsupported,
-        	XcmError::Transport(_) => Self::Transport,
-        	XcmError::Unroutable => Self::Unroutable,
-        	XcmError::UnknownClaim => Self::UnknownClaim,
-        	XcmError::FailedToDecode => Self::FailedToDecode,
-        	XcmError::MaxWeightInvalid => Self::MaxWeightInvalid,
-        	XcmError::NotHoldingFees => Self::NotHoldingFees,
-        	XcmError::TooExpensive => Self::TooExpensive,
-        	XcmError::Trap(_) => Self::Trap,
-        	XcmError::ExpectationFalse => Self::ExpectationFalse,
-        	XcmError::PalletNotFound => Self::PalletNotFound,
-        	XcmError::NameMismatch => Self::NameMismatch,
-        	XcmError::VersionIncompatible => Self::VersionIncompatible,
-        	XcmError::HoldingWouldOverflow => Self::HoldingWouldOverflow,
-        	XcmError::ExportError => Self::ExportError,
-        	XcmError::ReanchorFailed => Self::ReanchorFailed,
-        	XcmError::NoDeal => Self::NoDeal,
-        	XcmError::FeesNotMet => Self::FeesNotMet,
-        	XcmError::LockError => Self::LockError,
-        	XcmError::NoPermission => Self::NoPermission,
-        	XcmError::Unanchored => Self::Unanchored,
-        	XcmError::NotDepositable => Self::NotDepositable,
-        	XcmError::TooManyAssets => Self::TooManyAssets,
-        	XcmError::UnhandledXcmVersion => Self::UnhandledXcmVersion,
-        	XcmError::WeightLimitReached(_) => Self::WeightLimitReached,
-        	XcmError::Barrier => Self::Barrier,
-        	XcmError::WeightNotComputable => Self::WeightNotComputable,
-        	XcmError::ExceedsStackLimit => Self::ExceedsStackLimit,
-        }
-    }
+	fn from(error: XcmError) -> Self {
+		match error {
+			XcmError::Overflow => Self::Overflow,
+			XcmError::Unimplemented => Self::Unimplemented,
+			XcmError::UntrustedReserveLocation => Self::UntrustedReserveLocation,
+			XcmError::UntrustedTeleportLocation => Self::UntrustedTeleportLocation,
+			XcmError::LocationFull => Self::LocationFull,
+			XcmError::LocationNotInvertible => Self::LocationNotInvertible,
+			XcmError::BadOrigin => Self::BadOrigin,
+			XcmError::InvalidLocation => Self::InvalidLocation,
+			XcmError::AssetNotFound => Self::AssetNotFound,
+			XcmError::FailedToTransactAsset(_) => Self::FailedToTransactAsset,
+			XcmError::NotWithdrawable => Self::NotWithdrawable,
+			XcmError::LocationCannotHold => Self::LocationCannotHold,
+			XcmError::ExceedsMaxMessageSize => Self::ExceedsMaxMessageSize,
+			XcmError::DestinationUnsupported => Self::DestinationUnsupported,
+			XcmError::Transport(_) => Self::Transport,
+			XcmError::Unroutable => Self::Unroutable,
+			XcmError::UnknownClaim => Self::UnknownClaim,
+			XcmError::FailedToDecode => Self::FailedToDecode,
+			XcmError::MaxWeightInvalid => Self::MaxWeightInvalid,
+			XcmError::NotHoldingFees => Self::NotHoldingFees,
+			XcmError::TooExpensive => Self::TooExpensive,
+			XcmError::Trap(_) => Self::Trap,
+			XcmError::ExpectationFalse => Self::ExpectationFalse,
+			XcmError::PalletNotFound => Self::PalletNotFound,
+			XcmError::NameMismatch => Self::NameMismatch,
+			XcmError::VersionIncompatible => Self::VersionIncompatible,
+			XcmError::HoldingWouldOverflow => Self::HoldingWouldOverflow,
+			XcmError::ExportError => Self::ExportError,
+			XcmError::ReanchorFailed => Self::ReanchorFailed,
+			XcmError::NoDeal => Self::NoDeal,
+			XcmError::FeesNotMet => Self::FeesNotMet,
+			XcmError::LockError => Self::LockError,
+			XcmError::NoPermission => Self::NoPermission,
+			XcmError::Unanchored => Self::Unanchored,
+			XcmError::NotDepositable => Self::NotDepositable,
+			XcmError::TooManyAssets => Self::TooManyAssets,
+			XcmError::UnhandledXcmVersion => Self::UnhandledXcmVersion,
+			XcmError::WeightLimitReached(_) => Self::WeightLimitReached,
+			XcmError::Barrier => Self::Barrier,
+			XcmError::WeightNotComputable => Self::WeightNotComputable,
+			XcmError::ExceedsStackLimit => Self::ExceedsStackLimit,
+		}
+	}
 }
