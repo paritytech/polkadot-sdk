@@ -24,14 +24,24 @@ use alloy_core::{
 	primitives::{Address, U256 as EU256},
 	sol_types::*,
 };
-use frame_support::traits::tokens::{
+use frame_support::{PalletId, traits::tokens::{
 	fungibles, DepositConsequence, Fortitude, Precision, Preservation, Provenance,
 	WithdrawConsequence,
-};
+}};
 use sp_core::U256;
+use sp_runtime::traits::AccountIdConversion;
 
 use super::*;
 use crate::erc20::IERC20;
+
+impl<T: Config> Pallet<T> {
+	// Test checking account for the `fungibles::*` implementation.
+	//
+	// Still needs to be mapped in tests for it to be usable.
+	fn checking_account() -> <T as frame_system::Config>::AccountId {
+		PalletId(*b"py/revch").into_account_truncating()
+	}
+}
 
 impl<T: Config> fungibles::Inspect<<T as frame_system::Config>::AccountId> for Pallet<T>
 where
@@ -48,7 +58,7 @@ where
 	fn total_issuance(asset_id: Self::AssetId) -> Self::Balance {
 		let data = IERC20::totalSupplyCall {}.abi_encode();
 		let ContractResult { result, .. } = Self::bare_call(
-			T::RuntimeOrigin::signed(T::CheckingAccount::get()),
+			T::RuntimeOrigin::signed(Self::checking_account()),
 			asset_id,
 			BalanceOf::<T>::zero(),
 			Weight::from_parts(1_000_000_000, 100_000),
@@ -150,7 +160,7 @@ where
 		_: Precision,
 		_: Fortitude,
 	) -> Result<Self::Balance, DispatchError> {
-		let checking_account_eth = T::AddressMapper::to_address(&T::CheckingAccount::get());
+		let checking_account_eth = T::AddressMapper::to_address(&Self::checking_account());
 		let checking_address = Address::from(Into::<[u8; 20]>::into(checking_account_eth));
 		let data = IERC20::transferCall { to: checking_address, value: EU256::from(amount) }.abi_encode();
 		let ContractResult { result, gas_consumed, .. } = Self::bare_call(
@@ -189,7 +199,7 @@ where
 		let address = Address::from(Into::<[u8; 20]>::into(eth_address));
 		let data = IERC20::transferCall { to: address, value: EU256::from(amount) }.abi_encode();
 		let ContractResult { result, .. } = Self::bare_call(
-			T::RuntimeOrigin::signed(T::CheckingAccount::get()),
+			T::RuntimeOrigin::signed(Self::checking_account()),
 			asset_id,
 			BalanceOf::<T>::zero(),
 			Weight::from_parts(1_000_000_000, 100_000),
@@ -363,7 +373,7 @@ mod tests {
 	#[test]
 	fn mint_into_impl_works() {
 		ExtBuilder::default().existential_deposit(1).build().execute_with(|| {
-			let checking_account = <Test as pallet::Config>::CheckingAccount::get();
+			let checking_account = pallet_revive::Pallet::<Test>::checking_account();
 			let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
 			let _ = <Test as Config>::Currency::set_balance(&checking_account, 1_000_000);
 			let (code, _) = compile_module("erc20").unwrap();

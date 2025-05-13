@@ -24,6 +24,7 @@ use assets_common::{
 	TrustBackedAssetsAsLocation,
 };
 use frame_support::{
+	PalletId,
 	parameter_types,
 	traits::{
 		fungible::HoldConsideration,
@@ -212,6 +213,7 @@ pub type PoolFungiblesTransactor = FungiblesAdapter<
 parameter_types! {
 	/// Taken from the real gas of a standard ERC20 transfer call.
 	pub const ERC20TransferGasLimit: Weight = Weight::from_parts(700_000_000, 100_000);
+	pub ERC20CheckingAccount: AccountId = PalletId(*b"py/revch").into_account_truncating();
 }
 
 /// Transactor for ERC20 tokens.
@@ -221,6 +223,7 @@ pub type ERC20Transactor = assets_common::ERC20Transactor<
 	LocationToAccountId,
 	ERC20TransferGasLimit,
 	AccountId,
+	CheckingAccount,
 >;
 
 /// Means for transacting assets on this chain.
