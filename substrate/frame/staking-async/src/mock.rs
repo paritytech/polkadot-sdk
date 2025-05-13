@@ -769,18 +769,7 @@ pub(crate) fn add_slash(who: AccountId) {
 	);
 }
 
-pub(crate) fn add_slash_in_era(who: AccountId, era: EraIndex) {
-	let _ = <Staking as rc_client::AHStakingInterface>::on_new_offences(
-		Rotator::<T>::era_start_session_index(era).unwrap(),
-		vec![rc_client::Offence {
-			offender: who,
-			reporters: vec![],
-			slash_fraction: Perbill::from_percent(10),
-		}],
-	);
-}
-
-pub(crate) fn add_slash_in_era_with_value(who: AccountId, era: EraIndex, p: Perbill) {
+pub(crate) fn add_slash_in_era(who: AccountId, era: EraIndex, p: Perbill) {
 	let _ = <Staking as rc_client::AHStakingInterface>::on_new_offences(
 		Rotator::<T>::era_start_session_index(era).unwrap(),
 		vec![rc_client::Offence { offender: who, reporters: vec![], slash_fraction: p }],
