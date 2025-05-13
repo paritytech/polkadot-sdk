@@ -3,6 +3,7 @@
 
 use anyhow::anyhow;
 
+use crate::utils::BEST_BLOCK_METRIC;
 use cumulus_zombienet_sdk_helpers::assert_para_throughput;
 
 use polkadot_primitives::Id as ParaId;
@@ -14,7 +15,6 @@ use zombienet_orchestrator::network::node::LogLineCountOptions;
 use zombienet_sdk::{LocalFileSystem, Network, NetworkConfigBuilder, RegistrationStrategy};
 
 const PARA_ID: u32 = 2000;
-const BEST_BLOCK_METRIC: &str = "block_height{status=\"best\"}";
 
 // This tests makes sure that the recovering nodes are able to see all relay-chain
 // notifications containing the candidates to recover.

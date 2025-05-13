@@ -4,6 +4,7 @@
 use anyhow::anyhow;
 use std::time::Duration;
 
+use crate::utils::{wait_node_is_up, BEST_BLOCK_METRIC};
 use cumulus_zombienet_sdk_helpers::assert_para_throughput;
 
 use polkadot_primitives::Id as ParaId;
@@ -12,7 +13,6 @@ use zombienet_orchestrator::network::node::LogLineCountOptions;
 use zombienet_sdk::{LocalFileSystem, Network, NetworkConfigBuilder};
 
 const PARA_ID: u32 = 2000;
-const BEST_BLOCK_METRIC: &str = "block_height{status=\"best\"}";
 
 // This tests makes sure that ...
 #[tokio::test(flavor = "multi_thread")]
@@ -58,10 +58,7 @@ async fn rpc_collator_builds_blocks() -> Result<(), anyhow::Error> {
 	network.get_node("three")?.restart(Some(Duration::from_secs(20))).await?;
 
 	log::info!("Checking if dave is up");
-	assert!(dave
-		.wait_metric_with_timeout("process_start_time_seconds", |b| b >= 1.0, 10u64)
-		.await
-		.is_ok());
+	assert!(wait_node_is_up(&dave, 10u64).await.is_ok());
 
 	log::info!("Ensuring dave reports expected block height");
 	assert!(dave

@@ -3,3 +3,6 @@
 
 #[cfg(feature = "zombie-ci")]
 mod zombie_ci;
+
+#[cfg(feature = "zombie-ci")]
+mod utils;

@@ -3,7 +3,9 @@
 
 use anyhow::anyhow;
 
+use crate::utils::BEST_BLOCK_METRIC;
 use cumulus_zombienet_sdk_helpers::assert_para_throughput;
+
 use polkadot_primitives::Id as ParaId;
 use subxt::{OnlineClient, PolkadotConfig};
 use zombienet_configuration::types::AssetLocation;
@@ -13,7 +15,6 @@ use zombienet_sdk::{
 };
 
 const PARA_ID: u32 = 2000;
-const BEST_BLOCK_METRIC: &str = "block_height{status=\"best\"}";
 const WASM_WITH_SPEC_VERSION_INCREMENTED: &str =
 	"/tmp/wasm_binary_spec_version_incremented.rs.compact.compressed.wasm";
 

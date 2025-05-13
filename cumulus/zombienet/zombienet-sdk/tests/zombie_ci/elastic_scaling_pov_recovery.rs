@@ -4,7 +4,9 @@
 use anyhow::anyhow;
 use std::{sync::Arc, time::Duration};
 
+use crate::utils::{wait_node_is_up, BEST_BLOCK_METRIC};
 use cumulus_zombienet_sdk_helpers::{assert_para_throughput, create_assign_core_call};
+
 use polkadot_primitives::Id as ParaId;
 use serde_json::json;
 use subxt::{OnlineClient, PolkadotConfig};
@@ -13,7 +15,6 @@ use zombienet_orchestrator::network::node::LogLineCountOptions;
 use zombienet_sdk::{NetworkConfig, NetworkConfigBuilder, RegistrationStrategy};
 
 const PARA_ID: u32 = 2100;
-const BEST_BLOCK_METRIC: &str = "block_height{status=\"best\"}";
 
 /// This test spawns a parachain network.
 /// Initially, one core is assigned. We expect the parachain to produce 1 block per relay.
@@ -33,18 +34,13 @@ async fn elastic_scaling_pov_recovery() -> Result<(), anyhow::Error> {
 	let mut network = spawn_fn(config).await?;
 
 	let alice = network.get_node("alice")?;
+	let collator_elastic = network.get_node("collator-elastic")?;
+
 	log::info!("Checking if alice is up");
-	assert!(alice
-		.wait_metric_with_timeout("process_start_time_seconds", |b| b >= 1.0, 20u64)
-		.await
-		.is_ok());
+	assert!(wait_node_is_up(&alice, 20u64).await.is_ok());
 
 	log::info!("Checking if collator-elastic is up");
-	let collator_elastic = network.get_node("collator-elastic")?;
-	assert!(collator_elastic
-		.wait_metric_with_timeout("process_start_time_seconds", |b| b >= 1.0, 20u64)
-		.await
-		.is_ok());
+	assert!(wait_node_is_up(&collator_elastic, 20u64).await.is_ok());
 
 	log::info!("Assigning cores for the parachain");
 	let assign_cores_call = create_assign_core_call(&[(0, PARA_ID), (1, PARA_ID)]);
