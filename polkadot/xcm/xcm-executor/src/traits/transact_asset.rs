@@ -121,8 +121,7 @@ pub trait TransactAsset {
 		who: &Location,
 		maybe_context: Option<&XcmContext>,
 	) -> Result<(AssetsInHolding, Weight), XcmError> {
-		let result = Self::withdraw_asset(what, who, maybe_context);
-		result.map(|assets| (assets, Weight::zero()))
+		Self::withdraw_asset(what, who, maybe_context).map(|assets| (assets, Weight::zero()))
 	}
 
 	/// Move an `asset` `from` one location in `to` another location.
