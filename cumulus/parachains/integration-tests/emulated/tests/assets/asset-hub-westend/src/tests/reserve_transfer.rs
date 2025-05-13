@@ -19,7 +19,7 @@ use alloy_core::{
 	primitives::U256,
 	sol_types::{sol_data, SolType},
 };
-use frame_support::traits::{fungible, fungibles};
+use frame_support::{traits::{fungible, fungibles}};
 use pallet_revive::{Code, DepositLimit, InstantiateReturnValue};
 use pallet_revive_fixtures::compile_module;
 use sp_core::{crypto::get_public_from_string_or_panic, sr25519};
@@ -1543,5 +1543,114 @@ fn withdraw_and_deposit_erc20s() {
 		let beneficiary_amount =
 			<Contracts as fungibles::Inspect<_>>::balance(erc20_address, &beneficiary);
 		assert_eq!(beneficiary_amount, erc20_transfer_amount);
+	});
+}
+
+#[test]
+fn non_existent_erc20_will_error() {
+	let sender = AssetHubWestendSender::get();
+	let beneficiary = AssetHubWestendReceiver::get();
+	let checking_account = asset_hub_westend_runtime::xcm_config::CheckingAccount::get();
+
+	// We need to give enough funds for every account involved so they
+	// can call `Contracts::map_account`.
+	let initial_wnd_amount = 10_000_000_000_000u128;
+	AssetHubWestend::fund_accounts(vec![
+		(sender.clone(), initial_wnd_amount),
+		(beneficiary.clone(), initial_wnd_amount),
+		(checking_account.clone(), initial_wnd_amount),
+	]);
+
+	// We try to withdraw an ERC20 token but the address doesn't exist.
+	let non_existent_contract_address = [1u8; 20];
+	AssetHubWestend::execute_with(|| {
+		type RuntimeCall = <AssetHubWestend as Chain>::RuntimeCall;
+		type RuntimeOrigin = <AssetHubWestend as Chain>::RuntimeOrigin;
+		type PolkadotXcm = <AssetHubWestend as AssetHubWestendPallet>::PolkadotXcm;
+		type Contracts = <AssetHubWestend as AssetHubWestendPallet>::Contracts;
+
+		// We need to map all accounts.
+		assert_ok!(Contracts::map_account(RuntimeOrigin::signed(checking_account.clone())));
+		assert_ok!(Contracts::map_account(RuntimeOrigin::signed(sender.clone())));
+		assert_ok!(Contracts::map_account(RuntimeOrigin::signed(beneficiary.clone())));
+
+		let wnd_amount_for_fees = 1_000_000_000_000u128;
+		let erc20_transfer_amount = 100u128;
+		let message = Xcm::<RuntimeCall>::builder()
+			.withdraw_asset((Parent, wnd_amount_for_fees))
+			.pay_fees((Parent, wnd_amount_for_fees))
+			.withdraw_asset((
+				AccountKey20 { key: non_existent_contract_address, network: None },
+				erc20_transfer_amount,
+			))
+			.deposit_asset(AllCounted(1), beneficiary.clone())
+			.build();
+		// Execution fails but doesn't panic.
+		assert!(PolkadotXcm::execute(
+			RuntimeOrigin::signed(sender.clone()),
+			Box::new(VersionedXcm::V5(message)),
+			Weight::from_parts(2_500_000_000, 120_000),
+		).is_err());
+	});
+}
+
+#[test]
+fn smart_contract_not_erc20_will_error() {
+	let sender = AssetHubWestendSender::get();
+	let beneficiary = AssetHubWestendReceiver::get();
+	let checking_account = asset_hub_westend_runtime::xcm_config::CheckingAccount::get();
+
+	// We need to give enough funds for every account involved so they
+	// can call `Contracts::map_account`.
+	let initial_wnd_amount = 10_000_000_000_000u128;
+	AssetHubWestend::fund_accounts(vec![
+		(sender.clone(), initial_wnd_amount),
+		(beneficiary.clone(), initial_wnd_amount),
+		(checking_account.clone(), initial_wnd_amount),
+	]);
+
+	AssetHubWestend::execute_with(|| {
+		type RuntimeCall = <AssetHubWestend as Chain>::RuntimeCall;
+		type RuntimeOrigin = <AssetHubWestend as Chain>::RuntimeOrigin;
+		type PolkadotXcm = <AssetHubWestend as AssetHubWestendPallet>::PolkadotXcm;
+		type Contracts = <AssetHubWestend as AssetHubWestendPallet>::Contracts;
+
+		// We need to map all accounts.
+		assert_ok!(Contracts::map_account(RuntimeOrigin::signed(checking_account.clone())));
+		assert_ok!(Contracts::map_account(RuntimeOrigin::signed(sender.clone())));
+		assert_ok!(Contracts::map_account(RuntimeOrigin::signed(beneficiary.clone())));
+
+		let (code, _) = compile_module("dummy").unwrap();
+
+		let result = Contracts::bare_instantiate(
+			RuntimeOrigin::signed(sender.clone()),
+			0,
+			Weight::from_parts(2_000_000_000, 200_000),
+			DepositLimit::Unchecked,
+			Code::Upload(code),
+			Vec::new(),
+			None,
+		);
+		let Ok(InstantiateReturnValue { addr: non_erc20_address, .. }) = result.result else {
+			unreachable!("contract should initialize")
+		};
+
+		let wnd_amount_for_fees = 1_000_000_000_000u128;
+		let erc20_transfer_amount = 100u128;
+		let message = Xcm::<RuntimeCall>::builder()
+			.withdraw_asset((Parent, wnd_amount_for_fees))
+			.pay_fees((Parent, wnd_amount_for_fees))
+			.withdraw_asset((
+				AccountKey20 { key: non_erc20_address.into(), network: None },
+				erc20_transfer_amount,
+			))
+			.deposit_asset(AllCounted(1), beneficiary.clone())
+			.build();
+		// Execution fails but doesn't panic.
+		assert!(PolkadotXcm::execute(
+			RuntimeOrigin::signed(sender.clone()),
+			Box::new(VersionedXcm::V5(message)),
+			Weight::from_parts(2_500_000_000, 120_000),
+		).is_err());
 	});
 }
