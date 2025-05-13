@@ -22,7 +22,6 @@ frame-support = { workspace = true }
 frame-system = { workspace = true }
 log = { workspace = true }
 pallet-authorship = { workspace = true }
-pallet-balances = { workspace = true }
 scale-info = { features = ["derive", "serde"], workspace = true }
 sp-application-crypto = { features = ["serde"], workspace = true }
 sp-core = { features = ["serde"], workspace = true }
@@ -32,6 +31,7 @@ sp-staking = { features = ["serde"], workspace = true }
 
 [dev-dependencies]
 pallet-session = { workspace = true, default-features = true }
+pallet-balances = { workspace = true }
 
 [features]
 default = ["std"]

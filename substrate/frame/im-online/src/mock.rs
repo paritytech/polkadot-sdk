@@ -110,6 +110,7 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Runtime {
+	type AccountData = pallet_balances::AccountData<u64>;
 	type Block = Block;
 }
 
@@ -137,7 +138,7 @@ impl pallet_session::Config for Runtime {
 	type WeightInfo = ();
 	type Currency = Balances;
 	type RuntimeHoldReason = RuntimeHoldReason;
-	type KeyDeposit = ConstU128<0>;
+	type KeyDeposit = ConstU64<0>;
 }
 
 impl pallet_session::historical::Config for Runtime {
