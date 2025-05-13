@@ -11,5 +11,5 @@ doc:
       to operate the protocol under the hood even without the respective handle.
 
 crates:
-  - name: sc-network
+  - name: cumulus-relay-chain-minimal-node
     bump: minor
