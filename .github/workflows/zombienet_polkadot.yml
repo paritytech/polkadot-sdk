@@ -719,6 +719,7 @@ jobs:
       CUMULUS_IMAGE: "${{ needs.preflight.outputs.TEMP_IMAGES_BASE }}/polkadot-parachain-debug:${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"
       RUST_LOG: ${{ needs.preflight.outputs.RUST_LOG }}
       ZOMBIE_PROVIDER: ${{ needs.preflight.outputs.ZOMBIE_PROVIDER }}
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -747,6 +748,7 @@ jobs:
       CUMULUS_IMAGE: "${{ needs.preflight.outputs.TEMP_IMAGES_BASE }}/polkadot-parachain-debug:${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"
       RUST_LOG: ${{ needs.preflight.outputs.RUST_LOG }}
       ZOMBIE_PROVIDER: ${{ needs.preflight.outputs.ZOMBIE_PROVIDER }}
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -776,6 +778,7 @@ jobs:
       MALUS_IMAGE: "${{ needs.preflight.outputs.TEMP_IMAGES_BASE }}/malus:${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"
       RUST_LOG: ${{ needs.preflight.outputs.RUST_LOG }}
       ZOMBIE_PROVIDER: ${{ needs.preflight.outputs.ZOMBIE_PROVIDER }}
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -818,7 +821,7 @@ jobs:
           ref-slug: ${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
           test: "functional::spam_statement_distribution_requests::spam_statement_distribution_requests_test"
           prefix: "polkadot"
-  
+
   zombienet-polkadot-approval-voting-coalescing:
     needs: [preflight]
     if: ${{ (needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_polkadot) &&  ! contains(needs.preflight.outputs.FLAKY_TESTS, 'zombienet-polkadot-approval-voting-coalescing') }}
