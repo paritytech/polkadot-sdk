@@ -173,7 +173,7 @@ mod tests {
 	use alloc::vec;
 	use frame_support::{
 		derive_impl, parameter_types,
-		traits::{ConstU128, ConstU32},
+		traits::{ConstU32, ConstU64},
 	};
 	use sp_application_crypto::Pair;
 	use sp_authority_discovery::AuthorityPair;
@@ -192,6 +192,7 @@ mod tests {
 		{
 			System: frame_system,
 			Session: pallet_session,
+			Balances: pallet_balances,
 			AuthorityDiscovery: pallet_authority_discovery,
 		}
 	);
@@ -217,7 +218,7 @@ mod tests {
 		type WeightInfo = ();
 		type Currency = Balances;
 		type RuntimeHoldReason = RuntimeHoldReason;
-		type KeyDeposit = ConstU128<0>;
+		type KeyDeposit = ConstU64<0>;
 	}
 
 	pub type BlockNumber = u64;
@@ -232,6 +233,12 @@ mod tests {
 		type AccountId = AuthorityId;
 		type Lookup = IdentityLookup<Self::AccountId>;
 		type Block = Block;
+		type AccountData = pallet_balances::AccountData<u64>;
+	}
+
+	#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
+	impl pallet_balances::Config for Test {
+		type AccountStore = System;
 	}
 
 	pub struct TestSessionHandler;
