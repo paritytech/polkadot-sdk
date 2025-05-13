@@ -20,13 +20,19 @@
 extern crate alloc;
 
 use super::*;
-use crate::Pallet;
 use frame_benchmarking::v2::*;
 use frame_support::dispatch::{DispatchInfo, PostDispatchInfo};
 use frame_system::{EventRecord, RawOrigin};
-use sp_runtime::traits::{AsTransactionAuthorizedOrigin, DispatchTransaction, Dispatchable};
+use sp_runtime::traits::{AsTransactionAuthorizedOrigin, DispatchTransaction, Dispatchable, Bounded};
 
-fn assert_last_event<T: Config>(generic_event: <T as Config>::RuntimeEvent) {
+pub struct Pallet<T: Config>(crate::Pallet<T>);
+pub trait Config: crate::Config {
+	fn setup_benchmark_environment() {
+		
+	}
+}
+
+fn assert_last_event<T: crate::Config>(generic_event: <T as crate::Config>::RuntimeEvent) {
 	let events = frame_system::Pallet::<T>::events();
 	let system_event: <T as frame_system::Config>::RuntimeEvent = generic_event.into();
 	// compare to the last event record
@@ -44,10 +50,11 @@ mod benchmarks {
 
 	#[benchmark]
 	fn charge_transaction_payment() {
+		T::setup_benchmark_environment();
 		let caller: T::AccountId = account("caller", 0, 0);
 		<T::OnChargeTransaction as OnChargeTransaction<T>>::endow_account(
 			&caller,
-			<T::OnChargeTransaction as OnChargeTransaction<T>>::minimum_balance() * 1000u32.into(),
+			BalanceOf::<T>::max_value() / 2u32.into(),
 		);
 		let tip = <T::OnChargeTransaction as OnChargeTransaction<T>>::minimum_balance();
 		let ext: ChargeTransactionPayment<T> = ChargeTransactionPayment::from(tip);
@@ -76,7 +83,7 @@ mod benchmarks {
 		}
 
 		post_info.actual_weight.as_mut().map(|w| w.saturating_accrue(extension_weight));
-		let actual_fee = Pallet::<T>::compute_actual_fee(10, &info, &post_info, tip);
+		let actual_fee = crate::Pallet::<T>::compute_actual_fee(10, &info, &post_info, tip);
 		assert_last_event::<T>(
 			Event::<T>::TransactionFeePaid { who: caller, actual_fee, tip }.into(),
 		);
