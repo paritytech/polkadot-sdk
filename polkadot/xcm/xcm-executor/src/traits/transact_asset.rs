@@ -169,7 +169,6 @@ pub trait TransactAsset {
 		match Self::internal_transfer_asset(asset, from, to, context) {
 			Err(XcmError::AssetNotFound | XcmError::Unimplemented) => {
 				let assets = Self::withdraw_asset(asset, from, Some(context))?;
-				// Not a very forgiving attitude; once we implement roll-backs then it'll be nicer.
 				Self::deposit_asset(asset, to, Some(context))?;
 				Ok(assets)
 			},
@@ -192,7 +191,6 @@ pub trait TransactAsset {
 			Err(XcmError::AssetNotFound | XcmError::Unimplemented) => {
 				let (assets, withdraw_surplus) =
 					Self::withdraw_asset_with_surplus(asset, from, Some(context))?;
-				// Not a very forgiving attitude; once we implement roll-backs then it'll be nicer.
 				let deposit_surplus = Self::deposit_asset_with_surplus(asset, to, Some(context))?;
 				let total_surplus = withdraw_surplus.saturating_add(deposit_surplus);
 				Ok((assets, total_surplus))

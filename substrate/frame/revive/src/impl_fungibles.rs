@@ -19,6 +19,8 @@
 //!
 //! This is meant to allow ERC20 tokens stored on this pallet to be used with
 //! the fungibles traits.
+//! This is only meant for tests since gas limits are not taken into account,
+//! the feature flags make sure of that.
 
 use alloy_core::{
 	primitives::{Address, U256 as EU256},
@@ -77,7 +79,7 @@ where
 	}
 
 	fn minimum_balance(_: Self::AssetId) -> Self::Balance {
-		// TODO: ERC20s don't have this concept.
+		// ERC20s don't have this concept.
 		1
 	}
 

@@ -1,3 +1,21 @@
+// Copyright (C) Parity Technologies (UK) Ltd.
+// This file is part of Polkadot.
+
+// Polkadot is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+
+// Polkadot is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+
+// You should have received a copy of the GNU General Public License
+// along with Polkadot. If not, see <http://www.gnu.org/licenses/>.
+
+//! The ERC20 Asset Transactor.
+
 use alloy_core::{
 	primitives::{Address, U256 as EU256},
 	sol_types::*,
@@ -20,6 +38,7 @@ type BalanceOf<T> = <<T as pallet_revive::Config>::Currency as Inspect<
 	<T as frame_system::Config>::AccountId,
 >>::Balance;
 
+/// An Asset Transactor that deals with ERC20 tokens.
 pub struct ERC20Transactor<T, Matcher, AccountIdConverter, GasLimit, AccountId, TransfersCheckingAccount>(
 	PhantomData<(T, Matcher, AccountIdConverter, GasLimit, AccountId, TransfersCheckingAccount)>,
 );
@@ -67,9 +86,12 @@ where
 		let (asset_id, amount) = Matcher::matches_fungibles(what)?;
 		let who = AccountIdConverter::convert_location(who)
 			.ok_or(MatchError::AccountIdConversionFailed)?;
+		// We need to map the 32 byte checking account to a 20 byte account.
 		let checking_account_eth = T::AddressMapper::to_address(&TransfersCheckingAccount::get());
 		let checking_address = Address::from(Into::<[u8; 20]>::into(checking_account_eth));
 		let gas_limit = GasLimit::get();
+		// To withdraw, we actually transfer to the checking account.
+		// We do this using the solidity ERC20 interface.
 		let data = IERC20::transferCall { to: checking_address, value: EU256::from(amount) }.abi_encode();
 		let ContractResult { result, gas_consumed, .. } = pallet_revive::Pallet::<T>::bare_call(
 			T::RuntimeOrigin::signed(who.clone()),
@@ -120,8 +142,11 @@ where
 		let (asset_id, amount) = Matcher::matches_fungibles(what)?;
 		let who = AccountIdConverter::convert_location(who)
 			.ok_or(MatchError::AccountIdConversionFailed)?;
+		// We need to map the 32 byte beneficiary account to a 20 byte account.
 		let eth_address = T::AddressMapper::to_address(&who);
 		let address = Address::from(Into::<[u8; 20]>::into(eth_address));
+		// To deposit, we actually transfer from the checking account to the beneficiary.
+		// We do this using the solidity ERC20 interface.
 		let data = IERC20::transferCall { to: address, value: EU256::from(amount) }.abi_encode();
 		let gas_limit = GasLimit::get();
 		let ContractResult { result, gas_consumed, .. } = pallet_revive::Pallet::<T>::bare_call(
