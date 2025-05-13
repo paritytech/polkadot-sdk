@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2023 Snowfork <hello@snowfork.com>
-use crate::{mock::*, Error};
+use crate::{mock::*, DispatchError::Other, Error};
 use frame_support::{assert_err, assert_noop, assert_ok};
 use frame_system::RawOrigin;
 use snowbridge_core::{reward::MessageId, AssetMetadata, BasicOperatingMode};
@@ -245,7 +245,7 @@ fn tip_fails_due_to_swap_error() {
 
 		assert_noop!(
 			EthereumSystemFrontend::add_tip(RuntimeOrigin::signed(who), message_id, asset),
-			Error::<Test>::SwapError
+			Other("Swap failed for test")
 		);
 	});
 }
