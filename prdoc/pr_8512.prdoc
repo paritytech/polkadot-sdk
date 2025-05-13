@@ -1,0 +1,21 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Stabilize V16 metadata
+
+doc:
+  - audience: Node Dev
+    description: |
+      Metadata V16 is stabilized. V16 metadata exposes information about Pallet View Functions and V5 transactions,
+      and can be obtained, where applicable, by using the Runtime APIs `Metadata_metadata_at_version(16)`.
+
+crates:
+  - name: sp-metadata-ir
+    bump: major
+  # These depend on the above and came up in Check semver CI check:
+  - name: frame-support
+    bump: major
+  - name: substrate-wasm-builder
+    bump: major
+  - name: pallet-example-view-functions
+    bump: major
