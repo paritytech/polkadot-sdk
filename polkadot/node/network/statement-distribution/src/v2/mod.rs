@@ -566,6 +566,10 @@ pub(crate) async fn handle_active_leaves_update<Context>(
 		state.implicit_view.all_allowed_relay_parents().cloned().collect::<Vec<_>>();
 
 	for new_relay_parent in new_relay_parents.iter().cloned() {
+		if state.per_relay_parent.contains_key(&new_relay_parent) {
+			continue
+		}
+
 		let disabled_validators: HashSet<_> =
 			match polkadot_node_subsystem_util::request_disabled_validators(
 				new_relay_parent,
@@ -660,10 +664,6 @@ pub(crate) async fn handle_active_leaves_update<Context>(
 				?disabled_validators,
 				"Disabled validators detected"
 			);
-		}
-
-		if state.per_relay_parent.contains_key(&new_relay_parent) {
-			continue
 		}
 
 		let group_rotation_info =
