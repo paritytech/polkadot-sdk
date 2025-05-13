@@ -32,6 +32,7 @@ use crate::{
 use fatality::{Nested, Split};
 use futures::{channel::oneshot, stream::FusedStream};
 use polkadot_node_network_protocol::{
+	peer_set::CollationVersion,
 	request_response::{outgoing::RequestError, v2 as request_v2, Requests},
 	OurView, PeerId, View,
 };
@@ -153,6 +154,13 @@ impl CollationManager {
 			.cloned()
 			.collect::<Vec<_>>();
 
+		gum::trace!(
+			target: LOG_TARGET,
+			?added,
+			?removed,
+			"CollationManager: Processing view update"
+		);
+
 		for leaf in added.iter() {
 			if let Err(err) = self
 				.implicit_view
@@ -167,6 +175,12 @@ impl CollationManager {
 
 		for leaf in removed {
 			let deactivated_ancestry = self.implicit_view.deactivate_leaf(leaf);
+
+			gum::trace!(
+				target: LOG_TARGET,
+				?deactivated_ancestry,
+				"CollationManager: Removing relay parents from implicit view"
+			);
 
 			// Remove the fetching collations and advertisements for the deactivated RPs.
 			for deactivated in deactivated_ancestry.iter() {
@@ -183,7 +197,7 @@ impl CollationManager {
 				.remove_pruned_ancestors(&deactivated_ancestry.into_iter().collect());
 		}
 
-		// Remove blocked seconding requests that left the view.
+		// Remove blocked seconding requests that left the view. TODO: need to release any claims?
 		self.blocked_from_seconding.retain(|_, collations| {
 			collations.retain(|collation| {
 				self.per_relay_parent
@@ -306,83 +320,58 @@ impl CollationManager {
 		Ok(())
 	}
 
-	// pub async fn try_launch_fetch_requests<Sender: CollatorProtocolSenderTrait>(
-	// 	&mut self,
-	// 	sender: &mut Sender,
-	// 	peer_manager: &PeerManager,
-	// ) {
-	// 	// Advertisements and collations are up to date.
-	// 	// Claim queue states for leaves are also up to date.
-	// 	// Launch requests when it makes sense.
-	// 	let mut requests = vec![];
-	// 	let leaves: Vec<_> = self.claim_queue_state.leaves().copied().collect();
-	// 	let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis();
+	pub fn try_making_new_fetch_requests<RepQueryFn: Fn(&PeerId, &ParaId) -> Option<Score>>(
+		&mut self,
+		connected_rep_query_fn: RepQueryFn,
+	) -> Vec<Requests> {
+		// Advertisements and collations are up to date.
+		// Claim queue states for leaves are also up to date.
+		// Launch requests when it makes sense.
+		let mut requests = vec![];
+		let leaves: Vec<_> = self.claim_queue_state.leaves().copied().collect();
 
-	// 	for leaf in leaves {
-	// 		let free_slots = self.claim_queue_state.free_slots(&leaf);
-	// 		let Some(parents) = self.implicit_view.known_allowed_relay_parents_under(&leaf, None)
-	// 		else {
-	// 			continue
-	// 		};
+		for leaf in leaves {
+			let free_slots = self.claim_queue_state.free_slots(&leaf);
+			let Some(parents) = self.implicit_view.known_allowed_relay_parents_under(&leaf, None)
+			else {
+				continue
+			};
 
-	// 		'per_slot: for para_id in free_slots {
-	// 			// Try picking an advertisement. I'd like this to be a separate method but
-	// 			// compiler gets confused with ownership.
-	// 			for parent in parents {
-	// 				let Some(per_rp) = self.per_relay_parent.get(parent) else { continue };
+			'per_slot: for para_id in free_slots {
+				// Try picking an advertisement. I'd like this to be a separate method but
+				// compiler gets confused with ownership.
+				for parent in parents {
+					let Some(per_rp) = self.per_relay_parent.get(parent) else { continue };
 
-	// 				for advertisement in per_rp.eligible_advertisements(&para_id).filter(|adv| {
-	// 					!self.fetching.contains(&adv.prospective_candidate.candidate_hash)
-	// 				}) {
-	// 					let Some(peer_rep) =
-	// 						peer_manager.connected_peer_rep(&para_id, &advertisement.peer_id)
-	// 					else {
-	// 						// Is the peer no longer connected? Impossible, as its advertisements
-	// 						// should no longer exist.
-	// 						continue
-	// 					};
-	// 					let Some(advertisement_timestamp) =
-	// 						per_rp.advertisement_timestamps.get(advertisement)
-	// 					else {
-	// 						continue
-	// 					};
+					for advertisement in per_rp
+						.eligible_advertisements(&para_id)
+						.filter(|adv| !self.fetching.contains(&adv))
+					{
+						let Some(_peer_rep) =
+							connected_rep_query_fn(&advertisement.peer_id, &advertisement.para_id)
+						else {
+							// Is the peer no longer connected? Impossible, as its advertisements
+							// should no longer exist.
+							continue
+						};
 
-	// 					let doesnt_have_better_peers = false;
-	// 					let time_since_advertisement = now.saturating_sub(*advertisement_timestamp);
-	// 					if peer_rep >= INSTANT_FETCH_REP_THRESHOLD ||
-	// 						time_since_advertisement >= UNDER_THRESHOLD_FETCH_DELAY ||
-	// 						doesnt_have_better_peers
-	// 					{
-	// 						// This here may also claim a slot of another leaf if eligible.
-	// 						if self.claim_queue_state.claim_pending_slot(
-	// 							&advertisement.prospective_candidate.candidate_hash,
-	// 							&advertisement.relay_parent,
-	// 							&para_id,
-	// 						) {
-	// 							let req = self.fetching.launch(&advertisement);
-	// 							requests.push(Requests::CollationFetchingV2(req));
-	// 							continue 'per_slot
-	// 						}
-	// 					} else {
-	// 						gum::debug!(
-	// 							target: LOG_TARGET,
-	// 							"Skipping advertisement, as the peer doesn't have a high enough reputation to warrant
-	// a fetch now" 						);
-	// 					}
-	// 				}
-	// 			}
-	// 		}
-	// 	}
+						// This here may also claim a slot of another leaf if eligible.
+						if self.claim_queue_state.claim_pending_slot(
+							advertisement.prospective_candidate.map(|p| p.candidate_hash),
+							&advertisement.relay_parent,
+							&para_id,
+						) {
+							let req = self.fetching.launch(&advertisement);
+							requests.push(req);
+							continue 'per_slot
+						}
+					}
+				}
+			}
+		}
 
-	// 	if !requests.is_empty() {
-	// 		sender
-	// 			.send_message(NetworkBridgeTxMessage::SendRequests(
-	// 				requests,
-	// 				IfDisconnected::ImmediateError,
-	// 			))
-	// 			.await;
-	// 	}
-	// }
+		requests
+	}
 
 	pub fn remove_peers(&mut self, peers_to_remove: HashSet<PeerId>) {
 		if peers_to_remove.is_empty() {
@@ -580,8 +569,6 @@ impl CollationManager {
 			para_id: *para_id,
 			parent_head_data_hash: output_head_hash,
 		}) {
-			// TODO: log
-
 			for fetched_collation in unblocked {
 				let reject_info = SecondingRejection {
 					relay_parent: fetched_collation.candidate_receipt.descriptor.relay_parent(),
@@ -616,7 +603,7 @@ impl CollationManager {
 		let session_info = self.get_session_info(sender, parent, session_index).await?;
 		let mut rotation_info = session_info.group_rotation_info.clone();
 
-		rotation_info.now = block_number;
+		rotation_info.now = block_number + 1;
 
 		let core_now = if let Some(group) =
 			polkadot_node_subsystem_util::signing_key_and_index(&session_info.validators, keystore)
@@ -771,20 +758,21 @@ impl PerRelayParent {
 		self.peer_advertisements.values().map(|adv| adv.advertisements.iter()).flatten()
 	}
 
-	// fn eligible_advertisements<'a>(
-	// 	&'a self,
-	// 	para_id: &'a ParaId,
-	// ) -> impl Iterator<Item = &'a Advertisement> + 'a {
-	// 	self.advertisements
-	// 		.values()
-	// 		.map(|list| list.iter())
-	// 		.flatten()
-	// 		.filter(move |adv| {
-	// 			(&adv.para_id == para_id) &&
-	// 			// We can be pretty sure that this is true
-	// 			!self.fetched_collations.contains_key(&adv.prospective_candidate.candidate_hash)
-	// 		})
-	// }
+	fn eligible_advertisements<'a>(
+		&'a self,
+		para_id: &'a ParaId,
+	) -> impl Iterator<Item = &'a Advertisement> + 'a {
+		self.peer_advertisements
+			.values()
+			.map(|list| list.advertisements.iter())
+			.flatten()
+			.filter(move |adv| {
+				// We could instead directly look at only the declared peerids.
+				(&adv.para_id == para_id) &&
+				// We can be pretty sure that this is true
+				!adv.prospective_candidate.map(|p| self.fetched_collations.contains_key(&p.candidate_hash)).unwrap_or(false)
+			})
+	}
 }
 
 #[derive(Default)]

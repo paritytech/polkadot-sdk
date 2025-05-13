@@ -82,7 +82,15 @@ async fn initialize<Context>(
 ) -> FatalResult<Option<State<Db>>> {
 	loop {
 		let first_leaf = match wait_for_first_leaf(ctx).await? {
-			Some(activated_leaf) => activated_leaf,
+			Some(activated_leaf) => {
+				gum::debug!(
+					target: LOG_TARGET,
+					number = activated_leaf.number,
+					hash = ?activated_leaf.hash,
+					"Got the first active leaf notification, trying to initialize subsystem."
+				);
+				activated_leaf
+			},
 			None => return Ok(None),
 		};
 
@@ -155,10 +163,12 @@ async fn run_inner<Context>(mut ctx: Context, mut state: State<Db>) -> FatalResu
 
 		// Now try triggering advertisement fetching, if we have room in any of the active leaves
 		// (any of them are in Waiting state).
-		// TODO: we could optimise to not always re-run this code. Have the other functions return
-		// whether or not we should attempt launching fetch requests. However, most messages could
-		// indeed trigger a new legitimate request so it's probably not worth optimising.
-		// state.try_launch_fetch_requests(ctx.sender()).await;
+		// We could optimise to not always re-run this code (have the other functions return
+		// whether or not we should attempt launching fetch requests) However, most messages could
+		// indeed trigger a new legitimate request.
+		// Also, it takes constant time to run because we only try launching new requests for
+		// unfulfilled claims. It's probably not worth optimising.
+		state.try_launch_new_fetch_requests(ctx.sender()).await;
 	}
 
 	Ok(())

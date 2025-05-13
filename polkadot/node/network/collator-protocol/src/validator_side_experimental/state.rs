@@ -32,7 +32,10 @@ use fatality::Split;
 use futures::{channel::oneshot, stream::FusedStream};
 use polkadot_node_network_protocol::{peer_set::CollationVersion, OurView, PeerId};
 use polkadot_node_primitives::{SignedFullStatement, Statement};
-use polkadot_node_subsystem::{messages::CandidateBackingMessage, CollatorProtocolSenderTrait};
+use polkadot_node_subsystem::{
+	messages::{CandidateBackingMessage, IfDisconnected, NetworkBridgeTxMessage},
+	CollatorProtocolSenderTrait,
+};
 use polkadot_primitives::{
 	vstaging::CandidateReceiptV2 as CandidateReceipt, BlockNumber, Hash, Id as ParaId,
 };
@@ -64,16 +67,33 @@ impl<B: Backend> State<B> {
 		peer_id: PeerId,
 		version: CollationVersion,
 	) {
-		if let TryAcceptOutcome::Replaced(disconnected_peers) = self
+		let outcome = self
 			.peer_manager
 			.try_accept_connection(
 				sender,
 				peer_id,
 				PeerInfo { version, state: PeerState::Connected },
 			)
-			.await
-		{
-			self.collation_manager.remove_peers(disconnected_peers);
+			.await;
+
+		match outcome {
+			TryAcceptOutcome::Added => {},
+			TryAcceptOutcome::Replaced(other_peers) => {
+				gum::trace!(
+					target: LOG_TARGET,
+					"Peer {:?} replaced the connection slots of other peers: {:?}",
+					peer_id,
+					&other_peers
+				);
+				self.collation_manager.remove_peers(other_peers);
+			},
+			TryAcceptOutcome::Rejected => {
+				gum::debug!(
+					target: LOG_TARGET,
+					?peer_id,
+					"Peer connection was rejected. Going to disconnect",
+				);
+			},
 		}
 	}
 
@@ -178,6 +198,14 @@ impl<B: Backend> State<B> {
 		relay_parent: Hash,
 		maybe_prospective_candidate: Option<ProspectiveCandidate>,
 	) {
+		gum::debug!(
+			target: LOG_TARGET,
+			?relay_parent,
+			?maybe_prospective_candidate,
+			?peer_id,
+			"Received advertisement",
+		);
+
 		let Some(PeerInfo { state, .. }) = self.peer_manager.peer_info(&peer_id) else {
 			gum::warn!(
 				target: LOG_TARGET,
@@ -251,7 +279,7 @@ impl<B: Backend> State<B> {
 	) {
 		let advertisement = res.0;
 
-		gum::trace!(
+		gum::debug!(
 			target: LOG_TARGET,
 			?advertisement,
 			"Collation fetch attempt finished: {:?}",
@@ -293,9 +321,7 @@ impl<B: Backend> State<B> {
 					reject_info.maybe_output_head_hash,
 				);
 			},
-			CanSecond::BlockedOnParent(_, _) => {
-				// TODO: log
-			},
+			CanSecond::BlockedOnParent(_, _) => {},
 		};
 	}
 
@@ -368,7 +394,7 @@ impl<B: Backend> State<B> {
 			"Collation seconded",
 		);
 
-		let (Some(peer_id), unblocked_collations) = self
+		let (peer_id, unblocked_collations) = self
 			.collation_manager
 			.seconded(
 				sender,
@@ -377,18 +403,23 @@ impl<B: Backend> State<B> {
 				&para_id,
 				receipt.descriptor.para_head(),
 			)
-			.await
-		else {
-			// TODO: log
-			return
-		};
+			.await;
 
-		let Some(PeerInfo { version, .. }) = self.peer_manager.peer_info(&peer_id) else {
-			// TODO: log
-			return
-		};
+		if let Some((peer_id, PeerInfo { version, .. })) = peer_id
+			.and_then(|peer_id| self.peer_manager.peer_info(&peer_id).map(|info| (peer_id, info)))
+		{
+			notify_collation_seconded(sender, peer_id, *version, relay_parent, statement).await;
+		}
 
-		notify_collation_seconded(sender, peer_id, *version, relay_parent, statement).await;
+		if !unblocked_collations.is_empty() {
+			gum::debug!(
+				target: LOG_TARGET,
+				?relay_parent,
+				?candidate_hash,
+				"Seconded candidate unblocked {} collations",
+				unblocked_collations.len(),
+			);
+		}
 
 		for can_second_unblocked in unblocked_collations {
 			match can_second_unblocked {
@@ -413,6 +444,13 @@ impl<B: Backend> State<B> {
 					);
 				},
 				CanSecond::No(maybe_slash, reject_info) => {
+					gum::warn!(
+						target: LOG_TARGET,
+						relay_parent = ?reject_info.relay_parent,
+						maybe_candidate_hash = ?reject_info.maybe_candidate_hash,
+						"Cannot second unblocked collation"
+					);
+
 					if let Some(slash) = maybe_slash {
 						self.peer_manager.slash_reputation(
 							&reject_info.peer_id,
@@ -429,7 +467,13 @@ impl<B: Backend> State<B> {
 					);
 				},
 				CanSecond::BlockedOnParent(_, reject_info) => {
-					// TODO: log. it was unblocked but somehow it still is blocked
+					gum::warn!(
+						target: LOG_TARGET,
+						relay_parent = ?reject_info.relay_parent,
+						maybe_candidate_hash = ?reject_info.maybe_candidate_hash,
+						"Cannot second unblocked collation even though its parent was just seconded"
+					);
+
 					self.collation_manager.release_slot(
 						&reject_info.relay_parent,
 						reject_info.para_id,
@@ -438,6 +482,34 @@ impl<B: Backend> State<B> {
 					);
 				},
 			}
+		}
+	}
+
+	pub async fn try_launch_new_fetch_requests<Sender: CollatorProtocolSenderTrait>(
+		&mut self,
+		sender: &mut Sender,
+	) {
+		let peer_manager = &self.peer_manager;
+		let connected_rep_query_fn = move |peer_id: &PeerId, para_id: &ParaId| {
+			peer_manager.connected_peer_score(peer_id, para_id)
+		};
+
+		let requests = self.collation_manager.try_making_new_fetch_requests(connected_rep_query_fn);
+
+		if !requests.is_empty() {
+			gum::debug!(
+				target: LOG_TARGET,
+				?requests,
+				"Sending {} collation fetch requests",
+				requests.len()
+			);
+
+			sender
+				.send_message(NetworkBridgeTxMessage::SendRequests(
+					requests,
+					IfDisconnected::ImmediateError,
+				))
+				.await;
 		}
 	}
 }

@@ -100,6 +100,15 @@ impl<B: Backend> PeerManager<B> {
 		let processed_finalized_block_number =
 			instance.db.processed_finalized_block_number().await.unwrap_or_default();
 
+		gum::trace!(
+			target: LOG_TARGET,
+			scheduled_paras = ?instance.connected.scheduled_paras().collect::<Vec<_>>(),
+			latest_finalized_block_number,
+			?latest_finalized_block_hash,
+			processed_finalized_block_number,
+			"PeerManager startup"
+		);
+
 		let bumps = extract_reputation_bumps_on_new_finalized_block(
 			sender,
 			processed_finalized_block_number,
@@ -298,25 +307,13 @@ impl<B: Backend> PeerManager<B> {
 
 		let outcome = self.connected.try_accept(reputation_query_fn, peer_id, peer_info).await;
 
-		// TODO: move these logs a level up.
 		match outcome {
 			TryAcceptOutcome::Added => TryAcceptOutcome::Added,
 			TryAcceptOutcome::Replaced(other_peers) => {
-				gum::trace!(
-					target: LOG_TARGET,
-					"Peer {:?} replaced the connection slots of other peers: {:?}",
-					peer_id,
-					&other_peers
-				);
 				self.disconnect_peers(sender, other_peers.clone()).await;
 				TryAcceptOutcome::Replaced(other_peers)
 			},
 			TryAcceptOutcome::Rejected => {
-				gum::debug!(
-					target: LOG_TARGET,
-					?peer_id,
-					"Peer connection was rejected",
-				);
 				self.disconnect_peers(sender, [peer_id].into_iter().collect()).await;
 				TryAcceptOutcome::Rejected
 			},
