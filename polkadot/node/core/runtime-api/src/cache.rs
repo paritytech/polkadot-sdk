@@ -110,7 +110,7 @@ impl Default for RequestResultCache {
 			key_ownership_proof: LruMap::new(ByLength::new(DEFAULT_CACHE_CAP)),
 			minimum_backing_votes: LruMap::new(ByLength::new(DEFAULT_CACHE_CAP)),
 			approval_voting_params: LruMap::new(ByLength::new(DEFAULT_CACHE_CAP)),
-			disabled_validators: LruMap::new(ByLength::new(DEFAULT_CACHE_CAP)),
+			disabled_validators: LruMap::new(ByLength::new(10)),
 			para_backing_state: LruMap::new(ByLength::new(DEFAULT_CACHE_CAP)),
 			async_backing_params: LruMap::new(ByLength::new(DEFAULT_CACHE_CAP)),
 			node_features: LruMap::new(ByLength::new(DEFAULT_CACHE_CAP)),
