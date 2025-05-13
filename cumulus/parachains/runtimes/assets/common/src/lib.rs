@@ -128,15 +128,6 @@ pub type ForeignAssetsConvertedConcreteId<
 	BalanceConverter,
 >;
 
-/// `Contains<Location>` implementation that matches locations with no parents
-/// and only an `AccountKey20` junction.
-pub struct IsAccountKey20;
-impl Contains<Location> for IsAccountKey20 {
-	fn contains(location: &Location) -> bool {
-		matches!(location.unpack(), (0, [AccountKey20 { .. }]))
-	}
-}
-
 /// `Contains<Location>` implementation that matches locations with no parents,
 /// a `PalletInstance` and an `AccountKey20` junction.
 pub struct IsLocalAccountKey20;
