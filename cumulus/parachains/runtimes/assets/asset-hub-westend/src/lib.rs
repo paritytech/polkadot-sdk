@@ -191,6 +191,7 @@ parameter_types! {
 // Configure FRAME pallets to include in runtime.
 #[derive_impl(frame_system::config_preludes::ParaChainDefaultConfig)]
 impl frame_system::Config for Runtime {
+	type BaseCallFilter = AhMigrator;
 	type BlockWeights = RuntimeBlockWeights;
 	type BlockLength = RuntimeBlockLength;
 	type AccountId = AccountId;
@@ -1309,8 +1310,8 @@ impl pallet_ah_migrator::Config for Runtime {
 	type Preimage = Preimage;
 	type SendXcm = xcm_config::XcmRouter;
 	type AhWeightInfo = weights::pallet_ah_migrator::WeightInfo<Runtime>;
-	type AhIntraMigrationCalls = frame_support::traits::Everything; // TODO
-	type AhPostMigrationCalls = frame_support::traits::Everything; // TODO
+	type AhIntraMigrationCalls = ah_migration::CallsEnabledDuringMigration;
+	type AhPostMigrationCalls = ah_migration::CallsEnabledAfterMigration;
 	type RcStakingMessage =
 		pallet_rc_migrator::staking::message::RcStakingMessageOf<westend_runtime::Runtime>;
 }

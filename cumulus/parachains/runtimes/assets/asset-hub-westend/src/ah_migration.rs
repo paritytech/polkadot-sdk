@@ -21,6 +21,10 @@ use polkadot_runtime_common::impls::{LocatableAssetConverter, VersionedLocatable
 use sp_runtime::traits::{Convert, TryConvert};
 use xcm::latest::prelude::*;
 
+pub mod call_filter;
+
+pub use call_filter::*;
+
 /// Relay Chain Hold Reason
 #[derive(
 	Encode,

@@ -54,7 +54,7 @@ impl<T: Config> Pallet<T> {
 		// Translate the incoming ones from RC
 		let mut proxies = proxy.proxies.into_iter().enumerate().filter_map(|(i, p)| {
 			let Ok(proxy_type) = T::RcToProxyType::try_convert(p.proxy_type.clone()) else {
-				log::info!(target: LOG_TARGET, "Dropping unsupported proxy kind of '{:?}' at index {} for {}", p.proxy_type, i, proxy.delegator.to_polkadot_ss58());
+				log::error!(target: LOG_TARGET, "Dropping unsupported proxy kind of '{:?}' at index {} for {}", p.proxy_type, i, proxy.delegator.to_polkadot_ss58());
 				// TODO unreserve deposit
 				return None;
 			};
