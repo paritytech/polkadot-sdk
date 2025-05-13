@@ -1697,11 +1697,11 @@ impl OffchainDisabledValidators {
 		for ((session, candidate_hash), dispute_status) in disputes {
 			let session = *session;
 			// Only process concluded disputes
-			if !dispute_status.has_concluded_for() && !dispute_status.has_concluded_against() {
-				continue;
+			if dispute_status.concluded_at().is_none() {
+				continue
 			}
 			if session < earliest_session {
-				continue;
+				continue
 			}
 
 			// Get votes for this dispute
