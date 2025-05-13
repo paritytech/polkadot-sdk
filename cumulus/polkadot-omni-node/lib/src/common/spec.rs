@@ -425,13 +425,9 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 			Ok(task_manager)
 		};
 
-		Box::pin(Instrument::instrument(
-			fut,
-			sc_tracing::tracing::info_span!(
-				sc_tracing::logging::PREFIX_LOG_SPAN,
-				name = "Parachain"
-			),
-		))
+		// More helpful logs since Relaychain is already prefixed.
+		// Setting here `Parachain` would overwrite the `Relaychain` prefix.
+		Box::pin(fut)
 	}
 }
 
