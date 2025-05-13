@@ -31,12 +31,9 @@ use sp_staking::SessionIndex;
 use sp_state_machine::BasicExternalities;
 
 use frame_support::{
-	derive_impl,
-	pallet_prelude::*,
-	parameter_types,
-	traits::{ConstU32, ConstU64, VariantCount},
+	derive_impl, parameter_types,
+	traits::{ConstU32, ConstU64},
 };
-use scale_info::TypeInfo;
 use sp_runtime::traits::{Convert, OpaqueKeys};
 
 impl_opaque_keys! {
