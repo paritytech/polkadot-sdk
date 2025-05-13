@@ -858,7 +858,7 @@ pub fn node_config(
 
 	network_config.allow_non_globals_in_dht = true;
 
-	let addr: multiaddr::Multiaddr = format!("/ip4/0.0.0.0/tcp/{}", rand::random::<u16>())
+	let addr: multiaddr::Multiaddr = format!("/ip4/127.0.0.1/tcp/{}", rand::random::<u16>())
 		.parse()
 		.expect("valid address; qed");
 	network_config.listen_addresses.push(addr.clone());
