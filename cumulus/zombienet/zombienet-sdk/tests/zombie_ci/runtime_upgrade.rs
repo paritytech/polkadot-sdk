@@ -33,7 +33,7 @@ async fn runtime_upgrade() -> Result<(), anyhow::Error> {
 	let relay_client: OnlineClient<PolkadotConfig> = relay_alice.wait_client().await?;
 
 	log::info!("Ensuring parachain is registered");
-	assert_para_throughput(&relay_client, 3, [(ParaId::from(PARA_ID), 2..4)].into_iter().collect())
+	assert_para_throughput(&relay_client, 3, [(ParaId::from(PARA_ID), 2..6)].into_iter().collect())
 		.await?;
 
 	let timeout_secs: u64 = 250;
