@@ -19,7 +19,7 @@ use alloy_core::{
 	primitives::U256,
 	sol_types::{sol_data, SolType},
 };
-use frame_support::{traits::{fungible, fungibles}};
+use frame_support::traits::{fungible, fungibles};
 use pallet_revive::{Code, DepositLimit, InstantiateReturnValue};
 use pallet_revive_fixtures::compile_module;
 use sp_core::{crypto::get_public_from_string_or_panic, sr25519};
@@ -1590,7 +1590,8 @@ fn non_existent_erc20_will_error() {
 			RuntimeOrigin::signed(sender.clone()),
 			Box::new(VersionedXcm::V5(message)),
 			Weight::from_parts(2_500_000_000, 120_000),
-		).is_err());
+		)
+		.is_err());
 	});
 }
 
@@ -1651,6 +1652,7 @@ fn smart_contract_not_erc20_will_error() {
 			RuntimeOrigin::signed(sender.clone()),
 			Box::new(VersionedXcm::V5(message)),
 			Weight::from_parts(2_500_000_000, 120_000),
-		).is_err());
+		)
+		.is_err());
 	});
 }

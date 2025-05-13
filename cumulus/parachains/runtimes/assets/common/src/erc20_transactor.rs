@@ -25,7 +25,7 @@ use frame_support::{
 	pallet_prelude::Zero,
 	traits::{fungible::Inspect, OriginTrait},
 };
-use pallet_revive::{AddressMapper, ContractResult, DepositLimit, MomentOf, erc20::IERC20};
+use pallet_revive::{erc20::IERC20, AddressMapper, ContractResult, DepositLimit, MomentOf};
 use sp_core::{Get, H160, H256, U256};
 use sp_runtime::Weight;
 use xcm::latest::prelude::*;
@@ -39,9 +39,14 @@ type BalanceOf<T> = <<T as pallet_revive::Config>::Currency as Inspect<
 >>::Balance;
 
 /// An Asset Transactor that deals with ERC20 tokens.
-pub struct ERC20Transactor<T, Matcher, AccountIdConverter, GasLimit, AccountId, TransfersCheckingAccount>(
-	PhantomData<(T, Matcher, AccountIdConverter, GasLimit, AccountId, TransfersCheckingAccount)>,
-);
+pub struct ERC20Transactor<
+	T,
+	Matcher,
+	AccountIdConverter,
+	GasLimit,
+	AccountId,
+	TransfersCheckingAccount,
+>(PhantomData<(T, Matcher, AccountIdConverter, GasLimit, AccountId, TransfersCheckingAccount)>);
 
 impl<
 		AccountId: Eq + Clone,
@@ -50,7 +55,8 @@ impl<
 		Matcher: MatchesFungibles<H160, u128>,
 		GasLimit: Get<Weight>,
 		TransfersCheckingAccount: Get<AccountId>,
-	> TransactAsset for ERC20Transactor<T, Matcher, AccountIdConverter, GasLimit, AccountId, TransfersCheckingAccount>
+	> TransactAsset
+	for ERC20Transactor<T, Matcher, AccountIdConverter, GasLimit, AccountId, TransfersCheckingAccount>
 where
 	BalanceOf<T>: Into<U256> + TryFrom<U256>,
 	MomentOf<T>: Into<U256>,
@@ -92,7 +98,8 @@ where
 		let gas_limit = GasLimit::get();
 		// To withdraw, we actually transfer to the checking account.
 		// We do this using the solidity ERC20 interface.
-		let data = IERC20::transferCall { to: checking_address, value: EU256::from(amount) }.abi_encode();
+		let data =
+			IERC20::transferCall { to: checking_address, value: EU256::from(amount) }.abi_encode();
 		let ContractResult { result, gas_consumed, .. } = pallet_revive::Pallet::<T>::bare_call(
 			T::RuntimeOrigin::signed(who.clone()),
 			asset_id,

@@ -33,17 +33,17 @@ mod storage;
 mod transient_storage;
 mod wasm;
 
-#[cfg(test)]
-mod tests;
 #[cfg(any(feature = "std", feature = "runtime-benchmarks", test))]
 mod impl_fungibles;
+#[cfg(test)]
+mod tests;
 
+pub mod erc20;
 pub mod evm;
 pub mod precompiles;
 pub mod test_utils;
 pub mod tracing;
 pub mod weights;
-pub mod erc20;
 
 use crate::{
 	evm::{

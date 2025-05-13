@@ -153,7 +153,8 @@ pub trait TransactAsset {
 		to: &Location,
 		context: &XcmContext,
 	) -> Result<(AssetsInHolding, Weight), XcmError> {
-		Self::internal_transfer_asset(asset, from, to, context).map(|assets| (assets, Weight::zero()))
+		Self::internal_transfer_asset(asset, from, to, context)
+			.map(|assets| (assets, Weight::zero()))
 	}
 
 	/// Move an `asset` `from` one location in `to` another location.

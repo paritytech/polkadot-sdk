@@ -26,10 +26,13 @@ use alloy_core::{
 	primitives::{Address, U256 as EU256},
 	sol_types::*,
 };
-use frame_support::{PalletId, traits::tokens::{
-	fungibles, DepositConsequence, Fortitude, Precision, Preservation, Provenance,
-	WithdrawConsequence,
-}};
+use frame_support::{
+	traits::tokens::{
+		fungibles, DepositConsequence, Fortitude, Precision, Preservation, Provenance,
+		WithdrawConsequence,
+	},
+	PalletId,
+};
 use sp_core::U256;
 use sp_runtime::traits::AccountIdConversion;
 
@@ -164,7 +167,8 @@ where
 	) -> Result<Self::Balance, DispatchError> {
 		let checking_account_eth = T::AddressMapper::to_address(&Self::checking_account());
 		let checking_address = Address::from(Into::<[u8; 20]>::into(checking_account_eth));
-		let data = IERC20::transferCall { to: checking_address, value: EU256::from(amount) }.abi_encode();
+		let data =
+			IERC20::transferCall { to: checking_address, value: EU256::from(amount) }.abi_encode();
 		let ContractResult { result, gas_consumed, .. } = Self::bare_call(
 			T::RuntimeOrigin::signed(who.clone()),
 			asset_id,
