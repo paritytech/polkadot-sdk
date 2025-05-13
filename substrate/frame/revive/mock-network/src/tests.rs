@@ -16,9 +16,8 @@
 // limitations under the License.
 
 use crate::{
-	parachain, parachain_account_sovereign_account_id, primitives::CENTS, relay_chain,
-	utils::to_fixed_non_zero, MockNet, ParaA, ParachainBalances, Relay, ALICE, BOB,
-	INITIAL_BALANCE,
+	parachain, parachain_account_sovereign_account_id, primitives::CENTS, relay_chain, MockNet,
+	ParaA, ParachainBalances, Relay, ALICE, BOB, INITIAL_BALANCE,
 };
 use codec::{Decode, Encode};
 use frame_support::traits::{fungibles::Mutate, Currency};
@@ -72,6 +71,14 @@ fn instantiate_test_contract(name: &str) -> Contract<parachain::Runtime> {
 	});
 
 	contract
+}
+
+fn to_fixed_non_zero(precompile_id: u16) -> H160 {
+	let mut address = [0u8; 20];
+	address[16] = (precompile_id >> 8) as u8;
+	address[17] = (precompile_id & 0xFF) as u8;
+
+	H160::from(address)
 }
 
 #[test]
@@ -226,9 +233,8 @@ fn test_xcm_execute_reentrant_call_via_precompile() {
 			.expect_transact_status(MaybeErrorCode::Success)
 			.build();
 
-		let weight_params = IXcm::weightMessageCall {
-			message: VersionedXcm::V4(message.clone()).encode().into(),
-		};
+		let weight_params =
+			IXcm::weightMessageCall { message: VersionedXcm::V4(message.clone()).encode().into() };
 		let weight_call = IXcm::IXcmCalls::weightMessage(weight_params);
 		let xcm_weight_results =
 			bare_call(to_fixed_non_zero(10)).data(weight_call.abi_encode()).build();
@@ -243,10 +249,7 @@ fn test_xcm_execute_reentrant_call_via_precompile() {
 
 		let xcm_execute_params = IXcm::xcmExecuteCall {
 			message: VersionedXcm::V4(message).encode().into(),
-			weight: IXcm::Weight {
-				proofSize: weight.proof_size(),
-				refTime: weight.ref_time(),
-			},
+			weight: IXcm::Weight { proofSize: weight.proof_size(), refTime: weight.ref_time() },
 		};
 
 		let call = IXcm::IXcmCalls::xcmExecute(xcm_execute_params);
@@ -264,10 +267,7 @@ fn test_xcm_execute_reentrant_call_via_precompile() {
 			ReturnFlags::REVERT,
 			"Expected transaction to revert due to reentrant call"
 		);
-		assert_eq!(
-			final_bob_balance, initial_bob_balance,
-			"Bob's balance should remain unchanged"
-		);
+		assert_eq!(final_bob_balance, initial_bob_balance, "Bob's balance should remain unchanged");
 	});
 }
 
@@ -293,9 +293,8 @@ fn test_xcm_execute_incomplete_call_via_precompile() {
 			.build();
 
 		// First, calculate the weight of the XCM message
-		let weight_params = IXcm::weightMessageCall {
-			message: VersionedXcm::V4(message.clone()).encode().into(),
-		};
+		let weight_params =
+			IXcm::weightMessageCall { message: VersionedXcm::V4(message.clone()).encode().into() };
 		let weight_call = IXcm::IXcmCalls::weightMessage(weight_params);
 		let xcm_weight_results =
 			bare_call(to_fixed_non_zero(10)).data(weight_call.abi_encode()).build();
@@ -310,10 +309,7 @@ fn test_xcm_execute_incomplete_call_via_precompile() {
 
 		let xcm_execute_params = IXcm::xcmExecuteCall {
 			message: VersionedXcm::V4(message).encode().into(),
-			weight: IXcm::Weight {
-				proofSize: weight.proof_size(),
-				refTime: weight.ref_time(),
-			},
+			weight: IXcm::Weight { proofSize: weight.proof_size(), refTime: weight.ref_time() },
 		};
 
 		let call = IXcm::IXcmCalls::xcmExecute(xcm_execute_params);
@@ -323,10 +319,7 @@ fn test_xcm_execute_incomplete_call_via_precompile() {
 		let final_bob_balance = ParachainBalances::free_balance(BOB);
 		let final_alice_balance = ParachainBalances::free_balance(ALICE);
 
-		assert_eq!(
-			final_bob_balance, initial_bob_balance,
-			"Bob's balance should remain unchanged"
-		);
+		assert_eq!(final_bob_balance, initial_bob_balance, "Bob's balance should remain unchanged");
 		assert_eq!(
 			final_alice_balance, initial_alice_balance,
 			"Alice's balance should remain unchanged"
@@ -351,9 +344,8 @@ fn test_xcm_execute_precompile() {
 			.deposit_asset(assets, beneficiary)
 			.build();
 
-		let weight_params = IXcm::weightMessageCall {
-			message: VersionedXcm::V4(message.clone()).encode().into(),
-		};
+		let weight_params =
+			IXcm::weightMessageCall { message: VersionedXcm::V4(message.clone()).encode().into() };
 		let weight_call = IXcm::IXcmCalls::weightMessage(weight_params);
 		let xcm_weight_results =
 			bare_call(to_fixed_non_zero(10)).data(weight_call.abi_encode()).build();
@@ -368,10 +360,7 @@ fn test_xcm_execute_precompile() {
 
 		let xcm_execute_params = IXcm::xcmExecuteCall {
 			message: VersionedXcm::V4(message).encode().into(),
-			weight: IXcm::Weight {
-				proofSize: weight.proof_size(),
-				refTime: weight.ref_time(),
-			},
+			weight: IXcm::Weight { proofSize: weight.proof_size(), refTime: weight.ref_time() },
 		};
 
 		let call = IXcm::IXcmCalls::xcmExecute(xcm_execute_params);

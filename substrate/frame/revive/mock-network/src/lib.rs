@@ -18,7 +18,6 @@ pub mod mocks;
 pub mod parachain;
 pub mod primitives;
 pub mod relay_chain;
-pub mod utils;
 #[cfg(test)]
 mod tests;
 
