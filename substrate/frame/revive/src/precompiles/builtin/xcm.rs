@@ -45,7 +45,7 @@ sol! {
 		
 		/// @notice Execute an XCM message locally with the caller's origin
 		/// @param message The XCM message to send
-		/// @param maxWeight The maximum amount of weight to be used to execute the message
+		/// @param weight The maximum amount of weight to be used to execute the message
 		function xcmExecute(bytes calldata message, Weight calldata weight) external;
 
 		/// @notice Send an XCM message to a destination chain
