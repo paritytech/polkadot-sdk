@@ -49,9 +49,9 @@ pub fn fetch_latest_metadata_from_code_blob<HF: HostFunctions>(
 			let latest_stable = supported_versions
 				.into_iter()
 				// version >=16 metadata is not supported by the version of Subxt in use here yet,
-				// so restrict to fetching v15 metadata until Subxt is updated to 0.42, which depends
-				// on frame-metadata 23 and can decode the newly stable V16 metadata.
-				.filter(|v| *v != u32::MAX && *v < 16) 
+				// so restrict to fetching v15 metadata until Subxt is updated to 0.42, which
+				// depends on frame-metadata 23 and can decode the newly stable V16 metadata.
+				.filter(|v| *v != u32::MAX && *v < 16)
 				.max()
 				.ok_or(Error::StableMetadataVersionNotFound)?;
 
