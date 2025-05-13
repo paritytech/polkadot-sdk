@@ -30,8 +30,8 @@ sp-runtime = { features = ["serde"], workspace = true }
 sp-staking = { features = ["serde"], workspace = true }
 
 [dev-dependencies]
-pallet-session = { workspace = true, default-features = true }
 pallet-balances = { workspace = true }
+pallet-session = { workspace = true, default-features = true }
 
 [features]
 default = ["std"]

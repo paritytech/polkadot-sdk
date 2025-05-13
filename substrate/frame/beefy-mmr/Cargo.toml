@@ -32,8 +32,8 @@ sp-runtime = { workspace = true }
 sp-state-machine = { workspace = true }
 
 [dev-dependencies]
-pallet-balances = { workspace = true }
 array-bytes = { workspace = true, default-features = true }
+pallet-balances = { workspace = true }
 sp-staking = { workspace = true, default-features = true }
 
 [features]
