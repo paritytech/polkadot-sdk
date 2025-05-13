@@ -188,6 +188,12 @@ pub struct BatchesFootprints {
 }
 
 impl BatchesFootprints {
+	/// Appends a batch footprint to the back of the collection.
+	///
+	/// The new footprint represents a batch that includes all the messages contained by the
+	/// previous batches plus the provided `msg`. If `new_page` is true, we will consider that
+	/// the provided `msg` is appended to a new message queue page. Otherwise, we consider
+	/// that it is appended to the current page.
 	pub fn push(&mut self, msg: &[u8], new_page: bool) {
 		let previous_footprint =
 			self.footprints.last().map(|footprint| *footprint).unwrap_or_default();
