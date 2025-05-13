@@ -608,6 +608,7 @@ where
 	Err("Stopping following imported blocks. Could not determine parachain target block".into())
 }
 
+/// Task for logging candidate events and some related metrics.
 async fn parachain_informant<Block: BlockT, Client>(
 	relay_chain_interface: impl RelayChainInterface + Clone,
 	client: Arc<Client>,
@@ -650,9 +651,7 @@ async fn parachain_informant<Block: BlockT, Client>(
 					if let Some(last_backed_block_time) = &last_backed_block_time {
 						let duration = backed_block_time.duration_since(*last_backed_block_time);
 						if let Some(metrics) = &metrics {
-							metrics
-								.parachain_block_authorship_duration
-								.observe(duration.as_secs_f64());
+							metrics.parachain_block_backed_duration.observe(duration.as_secs_f64());
 						}
 					}
 					last_backed_block_time = Some(backed_block_time);
@@ -727,7 +726,9 @@ async fn parachain_informant<Block: BlockT, Client>(
 }
 
 struct ParachainInformantMetrics {
-	parachain_block_authorship_duration: Histogram,
+	/// Time between parachain blocks getting backed by the relaychain.
+	parachain_block_backed_duration: Histogram,
+	/// Number of blocks between best block and last included block.
 	unincluded_segment_size: Histogram,
 }
 
@@ -745,6 +746,9 @@ impl ParachainInformantMetrics {
 		))?;
 		prometheus_registry.register(Box::new(unincluded_segment_size.clone()))?;
 
-		Ok(Self { parachain_block_authorship_duration, unincluded_segment_size })
+		Ok(Self {
+			parachain_block_backed_duration: parachain_block_authorship_duration,
+			unincluded_segment_size,
+		})
 	}
 }
