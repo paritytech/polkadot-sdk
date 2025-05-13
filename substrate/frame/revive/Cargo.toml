@@ -64,7 +64,7 @@ subxt-signer = { workspace = true, optional = true, features = [
 ] }
 xcm = { workspace = true }
 xcm-builder = { workspace = true }
-xcm-executor = { workspace = true, default-features = true }
+xcm-executor = { workspace = true }
 
 [dev-dependencies]
 array-bytes = { workspace = true, default-features = true }
@@ -83,7 +83,7 @@ pallet-utility = { workspace = true, default-features = true }
 sp-keystore = { workspace = true, default-features = true }
 sp-tracing = { workspace = true, default-features = true }
 xcm-builder = { workspace = true, default-features = true }
-xcm-executor = { workspace = true, default-features = true }
+xcm-executor = { workspace = true }
 
 [features]
 default = ["std"]
@@ -147,7 +147,6 @@ runtime-benchmarks = [
 	"sp-runtime/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",
 	"xcm/runtime-benchmarks",
-	"xcm-executor/std",
 ]
 try-runtime = [
 	"frame-support/try-runtime",

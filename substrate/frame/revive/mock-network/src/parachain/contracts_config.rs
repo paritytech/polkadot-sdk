@@ -18,8 +18,8 @@ use super::{Balances, Runtime, RuntimeCall, RuntimeEvent};
 use crate::parachain::{RuntimeHoldReason,parameter_types};
 use frame_support::derive_impl;
 use pallet_revive::precompiles::builtin::xcm::XcmPrecompile;
-use xcm_builder::{FixedWeightBounds};
-use crate::parachain::{MaxInstructions}; 
+use xcm_builder::FixedWeightBounds;
+use crate::parachain::MaxInstructions; 
 use xcm::latest::Weight;
 
 parameter_types! {
