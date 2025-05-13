@@ -18,9 +18,6 @@
 
 use super::*;
 use crate::*;
-use assert_matches::assert_matches;
-use codec::Encode;
-use futures::Future;
 use polkadot_node_network_protocol::{
 	grid_topology::TopologyPeerInfo,
 	request_response::{outgoing::Recipient, ReqProtocolNames},
@@ -36,18 +33,21 @@ use polkadot_node_subsystem::messages::{
 use polkadot_node_subsystem_test_helpers as test_helpers;
 use polkadot_node_subsystem_util::TimeoutExt;
 use polkadot_primitives::{
-	node_features::FeatureIndex,
 	vstaging::CommittedCandidateReceiptV2 as CommittedCandidateReceipt, AssignmentPair, Block,
 	BlockNumber, GroupRotationInfo, HeadData, Header, IndexedVec, NodeFeatures,
 	PersistedValidationData, SessionIndex, SessionInfo, ValidatorPair,
 	DEFAULT_SCHEDULING_LOOKAHEAD,
 };
-use polkadot_primitives_test_helpers::rand::{Rng, SeedableRng};
 use sc_keystore::LocalKeystore;
 use sc_network::ProtocolName;
 use sp_application_crypto::Pair as PairT;
 use sp_authority_discovery::AuthorityPair as AuthorityDiscoveryPair;
 use sp_keyring::Sr25519Keyring;
+
+use assert_matches::assert_matches;
+use codec::Encode;
+use futures::Future;
+use polkadot_primitives_test_helpers::rand::{Rng, SeedableRng};
 use test_helpers::mock::new_leaf;
 
 use std::sync::Arc;

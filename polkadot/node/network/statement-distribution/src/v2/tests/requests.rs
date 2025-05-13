@@ -32,7 +32,6 @@ use rstest::rstest;
 #[rstest]
 #[case(false)]
 #[case(true)]
-#[ignore]
 fn cluster_peer_allowed_to_send_incomplete_statements(#[case] allow_v2_descriptors: bool) {
 	let group_size = 3;
 	let config = TestConfig {
@@ -945,7 +944,6 @@ fn peer_reported_for_providing_statements_with_invalid_signatures() {
 	});
 }
 
-#[ignore]
 #[test]
 fn peer_reported_for_invalid_v2_descriptor() {
 	let group_size = 3;
@@ -1227,7 +1225,6 @@ fn peer_reported_for_invalid_v2_descriptor() {
 #[rstest]
 #[case(false)]
 #[case(true)]
-#[ignore]
 // Test if v2 descriptors are filtered and peers punished if the node feature is disabled.
 // Also test if the peer is rewarded for providing v2 descriptor if the node feature is enabled.
 fn v2_descriptors_filtered(#[case] allow_v2_descriptors: bool) {
