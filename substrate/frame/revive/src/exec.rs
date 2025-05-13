@@ -847,7 +847,7 @@ where
 			gas_meter,
 			storage_meter,
 			value.into(),
-			ExecContext::DryRun { skip_transfer: false },
+			ExecContext::Transaction,
 		)
 		.unwrap()
 		.unwrap();
