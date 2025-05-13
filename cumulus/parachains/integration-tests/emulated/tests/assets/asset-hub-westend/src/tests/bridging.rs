@@ -169,7 +169,7 @@ fn para_to_para_open_close_bridge_works() {
 	assert!(penpal_a_bridge_opened_lane_id.is_some(), "PenpalA BridgeOpened event not found");
 
 	let penpal_b_para_sovereign_account = AssetHubRococo::sovereign_account_id_of(
-		AssetHubRococo::sibling_location_of(PenpalB::para_id()),
+		AssetHubRococo::sibling_location_of(PenpalBRococo::para_id()),
 	);
 	AssetHubRococo::fund_accounts(vec![(
 		penpal_b_para_sovereign_account.clone().into(),
@@ -193,17 +193,18 @@ fn para_to_para_open_close_bridge_works() {
 		system_asset.into(),
 		penpal_b_para_sovereign_account,
 	);
-	// send XCM from PenpalB to the AssetHubRococo
-	let system_para_destination = PenpalB::sibling_location_of(AssetHubRococo::para_id());
-	PenpalB::execute_with(|| {
-		let root_origin = <PenpalB as Chain>::RuntimeOrigin::root();
-		assert_ok!(<PenpalB as PenpalBPallet>::PolkadotXcm::send(
+	// send XCM from PenpalBRococo to the AssetHubRococo
+	let system_para_destination = PenpalBRococo::sibling_location_of(AssetHubRococo::para_id());
+	PenpalBRococo::execute_with(|| {
+		let root_origin = <PenpalBRococo as Chain>::RuntimeOrigin::root();
+		let sent = <PenpalBRococo as PenpalBPallet>::PolkadotXcm::send(
 			root_origin,
 			bx!(system_para_destination.into()),
 			bx!(xcm),
-		));
+		);
+		assert_ok!(sent);
 
-		PenpalB::assert_xcm_pallet_sent();
+		PenpalBRococo::assert_xcm_pallet_sent();
 	});
 
 	let penpal_b_bridge_opened_lane_id = AssetHubRococo::execute_with(|| {

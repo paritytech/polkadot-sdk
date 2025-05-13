@@ -53,11 +53,11 @@ mod imports {
 		asset_hub_rococo_emulated_chain::{
 			genesis::{
 				AssetHubRococoUniversalLocation,
-				ED as ASSET_HUB_ROCOCO_ED,
 			},
 			AssetHubRococoParaPallet as AssetHubRococoPallet, AssetHubRococoRuntimeOrigin,
 		},
 		AssetHubRococoPara as AssetHubRococo,
+		PenpalBPara as PenpalBRococo,
 	};
 	pub use westend_system_emulated_network::{
 		asset_hub_westend_emulated_chain::{
