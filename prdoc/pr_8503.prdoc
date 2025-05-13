@@ -1,7 +1,7 @@
 title: "populate disabled dispute state on startup"
 
 doc:
-  - audience: [Node Operator]
+  - audience: Node Operator
     description: |-
       Populating off-chain disabled state on startup from the disputes database
       makes the disputes spam handling more resilient wrt. validator restarts.
