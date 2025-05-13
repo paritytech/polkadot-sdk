@@ -68,7 +68,7 @@ parameter_types! {
 	pub storage MaxBackersPerWinner: u32 = VoterSnapshotPerBlock::get();
 
 	/// Total number of backers per winner across all pages.
-	pub storage MaxBackersPerWinnerFinal: u32 = VoterSnapshotPerBlock::get();
+	pub storage MaxBackersPerWinnerFinal: u32 = MaxElectingVoters::get();
 
 	/// Size of the exposures. This should be small enough to make the reward payouts feasible.
 	pub storage MaxExposurePageSize: u32 = 64;
