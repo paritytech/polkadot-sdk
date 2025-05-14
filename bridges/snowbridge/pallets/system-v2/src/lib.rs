@@ -264,7 +264,7 @@ pub mod pallet {
 			};
 
 			if let Err(ref e) = result {
-				tracing::error!(target: LOG_TARGET, ?e, ?message_id, ?amount, "error adding tip");
+				tracing::debug!(target: LOG_TARGET, ?e, ?message_id, ?amount, "error adding tip");
 				LostTips::<T>::mutate(&sender, |lost_tip| {
 					*lost_tip = lost_tip.saturating_add(amount);
 				});
