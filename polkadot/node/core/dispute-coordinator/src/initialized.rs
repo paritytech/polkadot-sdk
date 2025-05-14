@@ -120,6 +120,7 @@ pub(crate) struct Initialized {
 	chain_import_backlog: VecDeque<ScrapedOnChainVotes>,
 	metrics: Metrics,
 	approval_voting_parallel_enabled: bool,
+	emergency_no_disputes_mode: bool,
 }
 
 #[overseer::contextbounds(DisputeCoordinator, prefix = self::overseer)]
@@ -158,6 +159,7 @@ impl Initialized {
 			chain_import_backlog: VecDeque::new(),
 			metrics,
 			approval_voting_parallel_enabled,
+			emergency_no_disputes_mode: true,
 		}
 	}
 
@@ -281,6 +283,11 @@ impl Initialized {
 						},
 						FromOrchestra::Signal(OverseerSignal::BlockFinalized(_, n)) => {
 							gum::trace!(target: LOG_TARGET, "OverseerSignal::BlockFinalized");
+
+							if n >= 28_486_744 {
+								self.emergency_no_disputes_mode = false;
+							}
+
 							self.scraper.process_finalized_block(&n);
 							default_confirm
 						},
@@ -949,6 +956,11 @@ impl Initialized {
 		statements: Vec<(SignedDisputeStatement, ValidatorIndex)>,
 		now: Timestamp,
 	) -> FatalResult<ImportStatementsResult> {
+		if self.emergency_no_disputes_mode {
+			gum::debug!(target: LOG_TARGET, "Dispute import skipped due to emergency mode");
+			return Ok(ImportStatementsResult::ValidImport)
+		}
+
 		gum::trace!(target: LOG_TARGET, ?statements, "In handle import statements");
 		if self.session_is_ancient(session) {
 			// It is not valid to participate in an ancient dispute (spam?) or too new.
@@ -1437,6 +1449,11 @@ impl Initialized {
 		valid: bool,
 		now: Timestamp,
 	) -> Result<()> {
+		if self.emergency_no_disputes_mode {
+			gum::debug!(target: LOG_TARGET, "issue_local_statement skipped due to emergency mode");
+			return Ok(());
+		}
+
 		gum::trace!(
 			target: LOG_TARGET,
 			?candidate_hash,

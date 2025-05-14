@@ -44,13 +44,11 @@ use polkadot_node_subsystem::{
 	SubsystemContext, SubsystemError, SubsystemResult, SubsystemSender,
 };
 use polkadot_node_subsystem_util::{
-	request_claim_queue, request_node_features, request_persisted_validation_data,
-	request_session_index_for_child, request_validation_code_hash, request_validators,
-	runtime::ClaimQueueSnapshot,
+	request_claim_queue, request_persisted_validation_data, request_session_index_for_child,
+	request_validation_code_hash, request_validators, runtime::ClaimQueueSnapshot,
 };
 use polkadot_primitives::{
 	collator_signature_payload,
-	node_features::FeatureIndex,
 	vstaging::{
 		transpose_claim_queue, CandidateDescriptorV2, CandidateReceiptV2 as CandidateReceipt,
 		ClaimQueueOffset, CommittedCandidateReceiptV2, TransposedClaimQueue,
@@ -63,9 +61,6 @@ use sp_core::crypto::Pair;
 use std::{collections::HashSet, sync::Arc};
 
 mod error;
-
-#[cfg(test)]
-mod tests;
 
 mod metrics;
 use self::metrics::Metrics;
@@ -509,16 +504,7 @@ impl SessionInfoCache {
 		let n_validators =
 			request_validators(relay_parent, &mut sender.clone()).await.await??.len();
 
-		let node_features =
-			request_node_features(relay_parent, session_index, sender).await.await??;
-
-		let info = PerSessionInfo {
-			v2_receipts: node_features
-				.get(FeatureIndex::CandidateReceiptV2 as usize)
-				.map(|b| *b)
-				.unwrap_or(false),
-			n_validators,
-		};
+		let info = PerSessionInfo { v2_receipts: false, n_validators };
 		self.0.insert(session_index, info);
 		Ok(self.0.get(&session_index).expect("Just inserted").clone())
 	}
