@@ -100,15 +100,7 @@ pub struct StakingLedger<T: Config> {
 	pub controller: Option<T::AccountId>,
 }
 
-/// The ledger of a (bonded) stash.
-///
-/// Note: All the reads and mutations to the [`Ledger`], [`Bonded`] and [`Payee`] storage items
-/// *MUST* be performed through the methods exposed by this struct, to ensure the consistency of
-/// ledger's data and corresponding staking lock
-///
-/// TODO: move struct definition and full implementation into `/src/ledger.rs`. Currently
-/// leaving here to enforce a clean PR diff, given how critical this logic is. Tracking issue
-/// <https://github.com/paritytech/substrate/issues/14749>.
+/// Copy of `StakingLedger` without the `T` param and `Config` bound.
 #[derive(
 	PartialEqNoBound, EqNoBound, CloneNoBound, Encode, Decode, DebugNoBound, TypeInfo, MaxEncodedLen, DecodeWithMemTracking
 )]
