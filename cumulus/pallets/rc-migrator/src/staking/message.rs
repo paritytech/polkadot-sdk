@@ -162,7 +162,7 @@ pub type RcStakingMessageOf<T> = RcStakingMessage<
 pub type AhEquivalentStakingMessageOf<T> = RcStakingMessage<
 	<T as frame_system::Config>::AccountId,
 	<T as pallet_staking_async::Config>::CurrencyBalance,
-	pallet_staking_async::StakingLedger<T>,
+	pallet_staking_async::ledger::StakingLedger2Of<T>,
 	pallet_staking_async::NominationsOf<T>,
 	pallet_staking_async::EraRewardPoints<
 		<T as frame_system::Config>::AccountId,

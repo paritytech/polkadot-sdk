@@ -72,7 +72,8 @@ impl<T: Config> Pallet<T> {
 			},
 			Ledger { controller, ledger } => {
 				log::debug!(target: LOG_TARGET, "Integrating Ledger of controller {:?}", controller);
-				pallet_staking_async::Ledger::<T>::insert(controller, ledger);
+				//pallet_staking_async::Ledger::<T>::insert(controller, ledger);
+				todo!()
 			},
 			Payee { stash, payment } => {
 				log::debug!(target: LOG_TARGET, "Integrating Payee of stash {:?}", stash);
