@@ -325,6 +325,17 @@ impl DisputeCoordinatorSubsystem {
 		// Cache the sessions. A failure to fetch a session here is not that critical so we
 		// won't abort the initialization
 		for idx in earliest_session..=highest_session {
+			// Print disabled validators on startup if any
+			let disabled: Vec<u32> = offchain_disabled_validators.iter(idx).map(|i| i.0).collect();
+			if !disabled.is_empty() {
+				gum::info!(
+					target: LOG_TARGET,
+					disabled = ?disabled,
+					session = idx,
+					"Detected disabled validators on startup",
+				);
+			}
+
 			if let Err(e) = runtime_info
 				.get_session_info_by_index(ctx.sender(), initial_head.hash, idx)
 				.await
