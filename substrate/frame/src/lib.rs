@@ -100,7 +100,7 @@
 //! The preludes have overlapping imports for convenience:
 //! - `testing_prelude` includes `prelude` and `runtime::prelude`
 //! - `runtime::prelude` includes `prelude`
-//! - `benchmarking` includes `prelude`
+//! - `benchmarking::prelude` includes `prelude`
 //!
 //! ## Naming
 //!
