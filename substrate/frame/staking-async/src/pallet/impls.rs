@@ -24,7 +24,7 @@ use crate::{
 	session_rotation::{self, Eras, Rotator},
 	slashing::OffenceRecord,
 	weights::WeightInfo,
-	BalanceOf, Exposure, Forcing, LedgerIntegrityState, MaxNominationsOf, Nominations,
+	BalanceOf, Exposure, Forcing, LedgerIntegrityState, MaxNominationsOf, Nominations, NominationsOf,
 	NominationsQuota, PositiveImbalanceOf, RewardDestination, SnapshotStatus, StakingLedger,
 	ValidatorPrefs, STAKING_ID,
 };
@@ -652,7 +652,7 @@ impl<T: Config> Pallet<T> {
 	/// NOTE: you must ALWAYS use this function to add nominator or update their targets. Any access
 	/// to `Nominators` or `VoterList` outside of this function is almost certainly
 	/// wrong.
-	pub fn do_add_nominator(who: &T::AccountId, nominations: Nominations<T>) {
+	pub fn do_add_nominator(who: &T::AccountId, nominations: NominationsOf<T>) {
 		if !Nominators::<T>::contains_key(who) {
 			// maybe update sorted list.
 			let _ = T::VoterList::on_insert(who.clone(), Self::weight_of(who))

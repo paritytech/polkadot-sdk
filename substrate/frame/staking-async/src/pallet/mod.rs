@@ -20,7 +20,7 @@
 use crate::{
 	asset, slashing, weights::WeightInfo, AccountIdLookupOf, ActiveEraInfo, BalanceOf, EraPayout,
 	EraRewardPoints, EraRewardPointsOf, ExposurePage, Forcing, LedgerIntegrityState, MaxNominationsOf,
-	NegativeImbalanceOf, Nominations, NominationsQuota, PositiveImbalanceOf, RewardDestination,
+	NegativeImbalanceOf, Nominations, NominationsOf, NominationsQuota, PositiveImbalanceOf, RewardDestination,
 	StakingLedger, UnappliedSlash, UnappliedSlashOf, UnlockChunk, ValidatorPrefs,
 };
 use alloc::{format, vec::Vec};
@@ -462,7 +462,7 @@ pub mod pallet {
 	/// TWOX-NOTE: SAFE since `AccountId` is a secure hash.
 	#[pallet::storage]
 	pub type Nominators<T: Config> =
-		CountedStorageMap<_, Twox64Concat, T::AccountId, Nominations<T>>;
+		CountedStorageMap<_, Twox64Concat, T::AccountId, NominationsOf<T>>;
 
 	/// Stakers whose funds are managed by other pallets.
 	///

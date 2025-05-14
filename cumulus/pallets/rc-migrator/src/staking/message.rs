@@ -163,7 +163,7 @@ pub type AhEquivalentStakingMessageOf<T> = RcStakingMessage<
 	<T as frame_system::Config>::AccountId,
 	<T as pallet_staking_async::Config>::CurrencyBalance,
 	pallet_staking_async::StakingLedger<T>,
-	pallet_staking_async::Nominations<T>,
+	pallet_staking_async::NominationsOf<T>,
 	pallet_staking_async::EraRewardPoints<
 		<T as frame_system::Config>::AccountId,
 		<T as pallet_staking_async::Config>::MaxValidatorSet,
@@ -200,7 +200,7 @@ pub struct StakingValues<Balance> {
 pub type RcStakingValuesOf<T> = StakingValues<<T as pallet_staking::Config>::CurrencyBalance>;
 pub type AhStakingValuesOf<T> = StakingValues<<T as pallet_staking_async::Config>::CurrencyBalance>;
 
-impl<T, Ah> IntoAh<pallet_staking::StakingLedger<T>, pallet_staking_async::StakingLedger<Ah>>
+/*impl<T, Ah> IntoAh<pallet_staking::StakingLedger<T>, pallet_staking_async::StakingLedger<Ah>>
 	for pallet_staking::StakingLedger<T>
 where
 	T: pallet_staking::Config,
@@ -225,7 +225,7 @@ where
 
 // NominationsQuota is an associated trait - not a type, therefore more mental gymnastics are needed
 impl<T, Ah, SNomQuota, SSNomQuota>
-	IntoAh<pallet_staking::Nominations<T>, pallet_staking_async::Nominations<Ah>>
+	IntoAh<pallet_staking::Nominations<T>, pallet_staking_async::NominationsOf<Ah>>
 	for pallet_staking::Nominations<T>
 where
 	T: pallet_staking::Config<NominationsQuota = SNomQuota>,
@@ -242,7 +242,7 @@ where
 {
 	fn intoAh(
 		nominations: pallet_staking::Nominations<T>,
-	) -> pallet_staking_async::Nominations<Ah> {
+	) -> pallet_staking_async::NominationsOf<Ah> {
 		pallet_staking_async::Nominations {
 			targets: nominations.targets,
 			submitted_in: nominations.submitted_in,
@@ -318,6 +318,25 @@ impl<Balance: HasCompact + MaxEncodedLen>
 	}
 }
 
+impl IntoAh<pallet_staking::Forcing, pallet_staking_async::Forcing> for pallet_staking::Forcing {
+	fn intoAh(forcing: pallet_staking::Forcing) -> pallet_staking_async::Forcing {
+		match forcing {
+			pallet_staking::Forcing::NotForcing => pallet_staking_async::Forcing::NotForcing,
+			pallet_staking::Forcing::ForceNew => pallet_staking_async::Forcing::ForceNew,
+			pallet_staking::Forcing::ForceNone => pallet_staking_async::Forcing::ForceNone,
+			pallet_staking::Forcing::ForceAlways => pallet_staking_async::Forcing::ForceAlways,
+		}
+	}
+}
+
+impl IntoAh<pallet_staking::ActiveEraInfo, pallet_staking_async::ActiveEraInfo>
+	for pallet_staking::ActiveEraInfo
+{
+	fn intoAh(active_era: pallet_staking::ActiveEraInfo) -> pallet_staking_async::ActiveEraInfo {
+		pallet_staking_async::ActiveEraInfo { index: active_era.index, start: active_era.start }
+	}
+}
+
 // StakingLedger requires a T instead of having a `StakingLedgerOf` :(
 impl<T, Ah, SNomQuota, SSNomQuota> IntoAh<RcStakingMessageOf<T>, AhEquivalentStakingMessageOf<Ah>>
 	for RcStakingMessageOf<T>
@@ -387,7 +406,7 @@ where
 				NominatorSlashInEra { era, validator, slash },
 		}
 	}
-}
+}*/
 
 impl<T: pallet_staking::Config> StakingMigrator<T> {
 	pub fn take_values() -> RcStakingValuesOf<T> {
@@ -426,34 +445,17 @@ impl<T: pallet_staking_async::Config> StakingMigrator<T> {
 		MinCommission::<T>::put(&values.min_commission);
 		MaxValidatorsCount::<T>::set(values.max_validators_count);
 		MaxNominatorsCount::<T>::set(values.max_nominators_count);
-		let active_era = values.active_era.map(pallet_staking::ActiveEraInfo::intoAh);
+		todo!();
+		//let active_era = todo!();//values.active_era.map(pallet_staking::ActiveEraInfo::intoAh);
 
-		ActiveEra::<T>::set(active_era.clone());
-		CurrentEra::<T>::set(active_era.map(|a| a.index));
-		ForceEra::<T>::put(pallet_staking::Forcing::intoAh(values.force_era));
+		//ActiveEra::<T>::set(active_era.clone());
+		//CurrentEra::<T>::set(active_era.map(|a| a.index));
+		//ForceEra::<T>::put(pallet_staking::Forcing::intoAh(values.force_era));
+		todo!();
 		MaxStakedRewards::<T>::set(values.max_staked_rewards);
 		SlashRewardFraction::<T>::set(values.slash_reward_fraction);
 		CanceledSlashPayout::<T>::set(values.canceled_slash_payout);
 		// CurrentPlannedSession is not migrated
 		ChillThreshold::<T>::set(values.chill_threshold);
-	}
-}
-
-impl IntoAh<pallet_staking::Forcing, pallet_staking_async::Forcing> for pallet_staking::Forcing {
-	fn intoAh(forcing: pallet_staking::Forcing) -> pallet_staking_async::Forcing {
-		match forcing {
-			pallet_staking::Forcing::NotForcing => pallet_staking_async::Forcing::NotForcing,
-			pallet_staking::Forcing::ForceNew => pallet_staking_async::Forcing::ForceNew,
-			pallet_staking::Forcing::ForceNone => pallet_staking_async::Forcing::ForceNone,
-			pallet_staking::Forcing::ForceAlways => pallet_staking_async::Forcing::ForceAlways,
-		}
-	}
-}
-
-impl IntoAh<pallet_staking::ActiveEraInfo, pallet_staking_async::ActiveEraInfo>
-	for pallet_staking::ActiveEraInfo
-{
-	fn intoAh(active_era: pallet_staking::ActiveEraInfo) -> pallet_staking_async::ActiveEraInfo {
-		pallet_staking_async::ActiveEraInfo { index: active_era.index, start: active_era.start }
 	}
 }

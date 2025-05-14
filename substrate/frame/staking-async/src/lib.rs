@@ -242,13 +242,16 @@ pub enum SnapshotStatus<AccountId> {
 
 /// A record of the nominations made by a specific account.
 #[derive(
-	PartialEqNoBound, EqNoBound, Clone, Encode, Decode, RuntimeDebugNoBound, TypeInfo, MaxEncodedLen, DecodeWithMemTracking
+	PartialEqNoBound, EqNoBound, CloneNoBound, Encode, Decode, RuntimeDebugNoBound, TypeInfo, MaxEncodedLen, DecodeWithMemTracking
 )]
-#[codec(mel_bound())]
-#[scale_info(skip_type_params(T))]
-pub struct Nominations<T: Config> {
+#[scale_info(skip_type_params(MaxNominations))]
+pub struct Nominations<AccountId, MaxNominations>
+where
+	AccountId: MaxEncodedLen + Clone + PartialEq + Eq + Debug,
+	MaxNominations: Get<u32>,
+{
 	/// The targets of nomination.
-	pub targets: BoundedVec<T::AccountId, MaxNominationsOf<T>>,
+	pub targets: BoundedVec<AccountId, MaxNominations>,
 	/// The era the nominations were submitted.
 	///
 	/// Except for initial nominations which are considered submitted at era 0.
@@ -259,6 +262,10 @@ pub struct Nominations<T: Config> {
 	/// NOTE: this for future proofing and is thus far not used.
 	pub suppressed: bool,
 }
+pub type NominationsOf<T> = Nominations<
+	<T as frame_system::Config>::AccountId,
+	MaxNominationsOf<T>,
+>;
 
 /// Facade struct to encapsulate `PagedExposureMetadata` and a single page of `ExposurePage`.
 ///
