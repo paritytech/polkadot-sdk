@@ -233,33 +233,43 @@ pub struct StakingValues<Balance> {
 pub type RcStakingValuesOf<T> = StakingValues<<T as pallet_staking::Config>::CurrencyBalance>;
 pub type AhStakingValuesOf<T> = StakingValues<<T as pallet_staking_async::Config>::CurrencyBalance>;
 
-/*
-impl<Balance: HasCompact + MaxEncodedLen>
-	IntoAh<pallet_staking::UnlockChunk<Balance>, pallet_staking_async::UnlockChunk<Balance>>
-	for pallet_staking::UnlockChunk<Balance>
+impl<Rc: pallet_staking::Config>
+	IntoAh<pallet_staking::UnlockChunk<BalanceOf<Rc>>, pallet_staking_async::UnlockChunk<BalanceOf<Rc>>>
+	for MessageTranslator<Rc>
 {
 	fn intoAh(
-		chunk: pallet_staking::UnlockChunk<Balance>,
-	) -> pallet_staking_async::UnlockChunk<Balance> {
+		chunk: pallet_staking::UnlockChunk<BalanceOf<Rc>>,
+	) -> pallet_staking_async::UnlockChunk<BalanceOf<Rc>> {
 		pallet_staking_async::UnlockChunk { value: chunk.value, era: chunk.era }
 	}
 }
 
-impl<T, Ah> IntoAh<pallet_staking::StakingLedger<T>, pallet_staking_async::StakingLedger<Ah>>
-	for pallet_staking::StakingLedger<T>
+impl<Rc> IntoAh<
+	pallet_staking::StakingLedger<Rc>,
+	pallet_staking_async::ledger::StakingLedger2<
+		AccountIdOf<Rc>,
+		BalanceOf<Rc>,
+		ConstU32<32>, // <T as pallet_staking_async::Config>::MaxUnlockingChunks,
+	>
+>
+	for MessageTranslator<Rc>
 where
-	T: pallet_staking::Config,
-	Ah: pallet_staking_async::Config<AccountId = AccountIdOf<T>, CurrencyBalance = BalanceOf<T>>,
+	Rc: pallet_staking::Config,
 {
-	fn intoAh(ledger: pallet_staking::StakingLedger<T>) -> pallet_staking_async::StakingLedger<Ah> {
-		pallet_staking_async::StakingLedger {
+	fn intoAh(ledger: pallet_staking::StakingLedger<Rc>) -> pallet_staking_async::ledger::StakingLedger2<
+		AccountIdOf<Rc>,
+		BalanceOf<Rc>,
+		ConstU32<32>, // <T as pallet_staking_async::Config>::MaxUnlockingChunks,
+	>
+	{
+		pallet_staking_async::ledger::StakingLedger2 {
 			stash: ledger.stash,
 			total: ledger.total,
 			active: ledger.active,
 			unlocking: ledger
 				.unlocking
 				.into_iter()
-				.map(pallet_staking::UnlockChunk::intoAh)
+				.map(MessageTranslator::<Rc>::intoAh)
 				.collect::<Vec<_>>()
 				.defensive_truncate_into(),
 			// legacy_claimed_rewards not migrated
@@ -268,6 +278,7 @@ where
 	}
 }
 
+/*
 // NominationsQuota is an associated trait - not a type, therefore more mental gymnastics are needed
 impl<T, Ah, SNomQuota, SSNomQuota>
 	IntoAh<pallet_staking::Nominations<T>, pallet_staking_async::NominationsOf<Ah>>
