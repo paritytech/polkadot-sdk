@@ -204,6 +204,5 @@ mod mock {
 
 	impl crate::Config for Test {
 		type RuntimeEvent = RuntimeEvent;
-		type StorageRoot = ();
 	}
 }

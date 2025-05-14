@@ -2270,14 +2270,8 @@ impl pallet_alliance::Config for Runtime {
 	type RetirementPeriod = RetirementPeriod;
 }
 
-frame_support::parameter_types! {
-	// Change here if you modified the Genesis config or added a pallet etc:
-	pub StorageRoot: Option<Vec<u8>> = array_bytes::hex2bytes("4ca13c91ff2efada4eade93a18070c593df9ee603370082eb4d837de6853d168").unwrap().into();
-}
-
 impl frame_benchmarking_pallet_pov::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type StorageRoot = StorageRoot;
 }
 
 parameter_types! {

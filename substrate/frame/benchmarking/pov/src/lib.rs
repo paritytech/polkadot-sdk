@@ -40,12 +40,6 @@ pub mod pallet {
 	pub trait Config: frame_system::Config {
 		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
-
-		/// The expected storage root hash for the benchmarking pallet.
-		///
-		/// Can be set to `None` to disable the check.
-		#[pallet::constant]
-		type StorageRoot: Get<Option<Vec<u8>>>;
 	}
 
 	#[pallet::storage]

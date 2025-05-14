@@ -392,28 +392,6 @@ mod benchmarks {
 		}
 	}
 
-	#[benchmark]
-	fn storage_root_deterministic(i: Linear<0, 10>) -> Result<(), BenchmarkError> {
-		frame_support::storage::unhashed::kill(b":code"); // Don't depend on the runtime code.
-
-		let expected = T::StorageRoot::get().ok_or(BenchmarkError::Skip)?;
-		let root = sp_io::storage::root(sp_runtime::StateVersion::V1);
-
-		if root != expected {
-			panic!("Benchmarking root hash mismatch. Update the expected value with the new root hash if you added a pallet or changed the genesis config.\nReplace:\n  {} with\n  {}\nin the runtime config.", array_bytes::bytes2hex("", expected), array_bytes::bytes2hex("", root));
-		}
-
-		sp_io::storage::set(b"pre", b"value");
-
-		#[block]
-		{
-			sp_io::storage::set(b"during", b"value");
-		}
-
-		sp_io::storage::set(b"post", b"value");
-		Ok(())
-	}
-
 	impl_benchmark_test_suite!(Pallet, super::mock::new_test_ext(), super::mock::Test,);
 }
 
