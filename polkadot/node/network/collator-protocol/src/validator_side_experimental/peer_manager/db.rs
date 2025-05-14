@@ -15,7 +15,7 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use crate::validator_side_experimental::{
-	common::{Score, INACTIVITY_DECAY},
+	common::Score,
 	peer_manager::{backend::Backend, ReputationUpdate, ReputationUpdateKind},
 };
 use async_trait::async_trait;

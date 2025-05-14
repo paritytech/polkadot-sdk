@@ -46,7 +46,8 @@ use polkadot_node_subsystem_util::{
 	request_candidate_events, request_candidates_pending_availability, runtime::recv_runtime,
 };
 use polkadot_primitives::{
-	vstaging::CandidateEvent, BlockNumber, CandidateHash, Hash, Id as ParaId,
+	vstaging::{CandidateDescriptorVersion, CandidateEvent},
+	BlockNumber, CandidateHash, Hash, Id as ParaId,
 };
 
 #[derive(Debug, PartialEq, Clone)]
@@ -410,7 +411,7 @@ async fn extract_reputation_bumps_on_new_finalized_block<Sender: CollatorProtoco
 ) -> Result<BTreeMap<ParaId, HashMap<PeerId, Score>>> {
 	if latest_finalized_block_number < processed_finalized_block_number {
 		// Shouldn't be possible, but in this case there is no other initialisation needed.
-		gum::info!(
+		gum::warn!(
 			target: LOG_TARGET,
 			latest_finalized_block_number,
 			?latest_finalized_block_hash,
@@ -443,7 +444,7 @@ async fn extract_reputation_bumps_on_new_finalized_block<Sender: CollatorProtoco
 		ancestry_len
 	);
 
-	let mut candidates_per_rp: HashMap<Hash, BTreeMap<ParaId, HashSet<CandidateHash>>> =
+	let mut v2_candidates_per_rp: HashMap<Hash, BTreeMap<ParaId, HashSet<CandidateHash>>> =
 		HashMap::with_capacity(ancestors.len());
 
 	for i in 1..ancestors.len() {
@@ -453,21 +454,22 @@ async fn extract_reputation_bumps_on_new_finalized_block<Sender: CollatorProtoco
 
 		for event in candidate_events {
 			if let CandidateEvent::CandidateIncluded(receipt, _, _, _) = event {
-				let para_id = receipt.descriptor.para_id();
-				let candidate_hash = receipt.hash();
-				candidates_per_rp
-					.entry(parent_rp)
-					.or_default()
-					.entry(para_id)
-					.or_default()
-					.insert(candidate_hash);
+				// Only v2 receipts can contain UMP signals.
+				if receipt.descriptor.version() == CandidateDescriptorVersion::V2 {
+					v2_candidates_per_rp
+						.entry(parent_rp)
+						.or_default()
+						.entry(receipt.descriptor.para_id())
+						.or_default()
+						.insert(receipt.hash());
+				}
 			}
 		}
 	}
 
 	// This could be removed if we implemented https://github.com/paritytech/polkadot-sdk/issues/7732.
 	let mut updates: BTreeMap<ParaId, HashMap<PeerId, Score>> = BTreeMap::new();
-	for (rp, per_para) in candidates_per_rp {
+	for (rp, per_para) in v2_candidates_per_rp {
 		for (para_id, included_candidates) in per_para {
 			let candidates_pending_availability =
 				recv_runtime(request_candidates_pending_availability(rp, para_id, sender).await)
