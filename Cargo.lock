@@ -4276,6 +4276,7 @@ dependencies = [
  "cumulus-client-pov-recovery",
  "cumulus-primitives-core",
  "cumulus-relay-chain-interface",
+ "cumulus-relay-chain-streams",
  "cumulus-test-client",
  "cumulus-test-relay-sproof-builder",
  "dyn-clone",
@@ -4399,6 +4400,7 @@ dependencies = [
  "async-trait",
  "cumulus-primitives-core",
  "cumulus-relay-chain-interface",
+ "cumulus-relay-chain-streams",
  "cumulus-test-client",
  "futures",
  "futures-timer",
@@ -4439,8 +4441,10 @@ dependencies = [
  "cumulus-relay-chain-inprocess-interface",
  "cumulus-relay-chain-interface",
  "cumulus-relay-chain-minimal-node",
+ "cumulus-relay-chain-streams",
  "futures",
  "polkadot-primitives",
+ "prometheus",
  "sc-client-api",
  "sc-consensus",
  "sc-network",
@@ -4888,6 +4892,19 @@ dependencies = [
  "tokio-util",
  "tracing",
  "url",
+]
+
+[[package]]
+name = "cumulus-relay-chain-streams"
+version = "0.7.0"
+dependencies = [
+ "cumulus-relay-chain-interface",
+ "futures",
+ "polkadot-node-subsystem",
+ "polkadot-primitives",
+ "sp-api 26.0.0",
+ "sp-consensus",
+ "tracing",
 ]
 
 [[package]]
@@ -14637,6 +14654,7 @@ name = "polkadot-collator-protocol"
 version = "7.0.0"
 dependencies = [
  "assert_matches",
+ "async-trait",
  "bitvec",
  "fatality",
  "futures",
@@ -14659,6 +14677,7 @@ dependencies = [
  "sp-runtime 31.0.1",
  "sp-tracing 16.0.0",
  "thiserror 1.0.65",
+ "tokio",
  "tokio-util",
  "tracing-gum",
 ]
@@ -15816,6 +15835,7 @@ dependencies = [
  "cumulus-relay-chain-interface",
  "cumulus-relay-chain-minimal-node",
  "cumulus-relay-chain-rpc-interface",
+ "cumulus-relay-chain-streams",
  "cumulus-test-relay-sproof-builder",
  "emulated-integration-tests-common",
  "fork-tree",
