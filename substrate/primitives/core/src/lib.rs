@@ -61,7 +61,6 @@ pub use paste;
 mod address_uri;
 pub mod defer;
 pub mod hash;
-#[cfg(not(substrate_runtime))]
 mod hasher;
 pub mod offchain;
 pub mod testing;
@@ -90,7 +89,6 @@ pub use self::{
 };
 pub use crypto::{ByteArray, DeriveJunction, Pair, Public};
 
-#[cfg(not(substrate_runtime))]
 pub use self::hasher::blake2::Blake2Hasher;
 #[cfg(not(substrate_runtime))]
 pub use self::hasher::keccak::KeccakHasher;

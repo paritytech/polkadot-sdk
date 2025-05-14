@@ -33,7 +33,9 @@ sp-runtime = { workspace = true }
 sp-state-machine = { workspace = true }
 sp-std = { workspace = true }
 sp-trie = { workspace = true }
+sp-api = { workspace = true }
 sp-version = { workspace = true }
+sp-crypto-hashing = { workspace = true }
 
 # Polkadot
 polkadot-parachain-primitives = { features = ["wasm-api"], workspace = true }
@@ -91,6 +93,7 @@ std = [
 	"sp-std/std",
 	"sp-tracing/std",
 	"sp-trie/std",
+	"sp-api/std",
 	"trie-db/std",
 	"xcm-builder/std",
 	"xcm/std",

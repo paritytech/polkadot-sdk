@@ -34,12 +34,16 @@ use frame_support::{
 	traits::{ExecuteBlock, ExtrinsicCall, Get, IsSubType},
 	BoundedVec,
 };
-use sp_core::storage::{ChildInfo, StateVersion};
+use sp_core::{
+	sr25519,
+	storage::{ChildInfo, StateVersion},
+	Pair, H256,
+};
 use sp_externalities::{set_and_run_with_externalities, Externalities};
 use sp_io::KillStorageResult;
 use sp_runtime::traits::{Block as BlockT, ExtrinsicLike, HashingFor, Header as HeaderT};
 use sp_state_machine::OverlayedChanges;
-use sp_trie::ProofSizeProvider;
+use sp_trie::{LayoutV0, LayoutV1, ProofSizeProvider, TrieConfiguration};
 use trie_recorder::SizeOnlyRecorderProvider;
 
 type Ext<'a, Block, Backend> = sp_state_machine::Ext<'a, HashingFor<Block>, Backend>;
@@ -96,8 +100,16 @@ where
 	B::Extrinsic: ExtrinsicCall,
 	<B::Extrinsic as ExtrinsicCall>::Call: IsSubType<crate::Call<PSC>>,
 {
+	sp_runtime::runtime_logger::RuntimeLogger::init();
 	let _guard = (
 		// Replace storage calls with our own implementations
+		sp_io::hashing::host_blake2_256.replace_implementation(host_blake2_256),
+		sp_io::hashing::host_blake2_128.replace_implementation(host_blake2_128),
+		sp_io::hashing::host_twox_128.replace_implementation(host_twox_128),
+		sp_io::hashing::host_twox_64.replace_implementation(host_twox_64),
+		sp_io::crypto::host_sr25519_verify.replace_implementation(host_sr25519_verify),
+		sp_io::trie::host_blake2_256_ordered_root
+			.replace_implementation(host_blake2_256_ordered_root),
 		sp_io::storage::host_read.replace_implementation(host_storage_read),
 		sp_io::storage::host_set.replace_implementation(host_storage_set),
 		sp_io::storage::host_get.replace_implementation(host_storage_get),
@@ -137,8 +149,11 @@ where
 			.replace_implementation(host_storage_proof_size),
 	);
 
+	log::error!("HEY");
+
 	let block_data = codec::decode_from_bytes::<ParachainBlockData<B>>(block_data)
 		.expect("Invalid parachain block data");
+	log::error!("HEY5");
 
 	let mut parent_header =
 		codec::decode_from_bytes::<B::Header>(parachain_head.clone()).expect("Invalid parent head");
@@ -154,6 +169,7 @@ where
 		parent_header.hash(),
 		"Parachain head needs to be the parent of the first block"
 	);
+	log::error!("HEY3");
 
 	let mut processed_downward_messages = 0;
 	let mut upward_messages = BoundedVec::default();
@@ -170,6 +186,7 @@ where
 		Err(_) => panic!("Compact proof decoding failure."),
 	};
 
+	log::error!("HEY4");
 	core::mem::drop(proof);
 
 	let cache_provider = trie_cache::CacheProvider::new();
@@ -190,6 +207,8 @@ where
 	let execute_backend = sp_state_machine::TrieBackendBuilder::wrap(&backend)
 		.with_recorder(execute_recorder.clone())
 		.build();
+
+	log::error!("HEY2");
 
 	// We let all blocks contribute to the same overlay. Data written by a previous block will be
 	// directly accessible without going to the db.
@@ -537,3 +556,30 @@ fn host_default_child_storage_next_key(storage_key: &[u8], key: &[u8]) -> Option
 fn host_offchain_index_set(_key: &[u8], _value: &[u8]) {}
 
 fn host_offchain_index_clear(_key: &[u8]) {}
+
+fn host_blake2_256(data: &[u8]) -> [u8; 32] {
+	sp_crypto_hashing::blake2_256(data)
+}
+
+fn host_blake2_128(data: &[u8]) -> [u8; 16] {
+	sp_crypto_hashing::blake2_128(data)
+}
+
+fn host_twox_128(data: &[u8]) -> [u8; 16] {
+	sp_crypto_hashing::twox_128(data)
+}
+
+fn host_twox_64(data: &[u8]) -> [u8; 8] {
+	sp_crypto_hashing::twox_64(data)
+}
+
+fn host_sr25519_verify(sig: &sr25519::Signature, msg: &[u8], pub_key: &sr25519::Public) -> bool {
+	sr25519::Pair::verify(sig, msg, pub_key)
+}
+
+fn host_blake2_256_ordered_root(input: Vec<Vec<u8>>, version: StateVersion) -> H256 {
+	match version {
+		StateVersion::V0 => LayoutV0::<sp_core::Blake2Hasher>::ordered_trie_root(input),
+		StateVersion::V1 => LayoutV1::<sp_core::Blake2Hasher>::ordered_trie_root(input),
+	}
+}

@@ -120,6 +120,10 @@ pub fn register_validate_block(input: proc_macro::TokenStream) -> proc_macro::To
 				use super::*;
 
 				#[no_mangle]
+                #[cfg_attr(
+                	any(target_arch = "riscv32", target_arch = "riscv64"),
+                	#crate_::validate_block::sp_api::__private::polkavm_export(abi = #crate_::validate_block::sp_api::__private::polkavm_abi)
+                )]
 				unsafe fn validate_block(arguments: *mut u8, arguments_len: usize) -> u64 {
 					// We convert the `arguments` into a boxed slice and then into `Bytes`.
 					let args = #crate_::validate_block::Box::from_raw(

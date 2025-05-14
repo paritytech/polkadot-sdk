@@ -24,6 +24,7 @@ use sc_executor_common::{
 use sp_wasm_interface::{
 	Function, FunctionContext, HostFunctions, Pointer, Value, ValueType, WordSize,
 };
+use sp_runtime_interface::unpack_ptr_and_len;
 
 #[repr(transparent)]
 pub struct InstancePre(polkavm::InstancePre<(), String>);
@@ -111,8 +112,10 @@ impl WasmInstance for Instance {
 			Err(CallError::NotEnoughGas) => unreachable!("gas metering is never enabled"),
 		};
 
-		let result_pointer = self.0.reg(Reg::A0);
-		let result_length = self.0.reg(Reg::A1);
+		let result = self.0.reg(Reg::A0);
+
+		let (result_pointer, result_length) = dbg!(unpack_ptr_and_len(result));
+
 		let output = match self.0.read_memory(result_pointer as u32, result_length as u32) {
 			Ok(output) => output,
 			Err(error) => {
