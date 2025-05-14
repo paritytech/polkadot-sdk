@@ -68,12 +68,13 @@ pub enum EthereumSystemCall<T: frame_system::Config> {
 }
 
 #[cfg(feature = "runtime-benchmarks")]
-pub trait BenchmarkHelper<O>
+pub trait BenchmarkHelper<O, AccountId>
 where
 	O: OriginTrait,
 {
 	fn make_xcm_origin(location: Location) -> O;
 	fn initialize_storage(asset_location: Location, asset_owner: Location);
+	fn setup_pools(caller: AccountId, asset: Location);
 }
 
 #[frame_support::pallet]
@@ -125,7 +126,7 @@ pub mod pallet {
 
 		/// A set of helper functions for benchmarking.
 		#[cfg(feature = "runtime-benchmarks")]
-		type Helper: BenchmarkHelper<Self::RuntimeOrigin>;
+		type Helper: BenchmarkHelper<Self::RuntimeOrigin, Self::AccountId>;
 	}
 
 	#[pallet::event]

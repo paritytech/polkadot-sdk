@@ -13,21 +13,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#[cfg(not(feature = "runtime-benchmarks"))]
+use crate::xcm_config::XcmRouter;
 use crate::{
 	weights, xcm_config,
 	xcm_config::{
-		LocationToAccountId, TrustBackedAssetsPalletLocation, UniversalLocation, XcmConfig,
+		AssetTransactors, LocationToAccountId, TrustBackedAssetsPalletLocation, UniversalLocation,
+		XcmConfig,
 	},
-	AccountId, Assets, ForeignAssets, Runtime, RuntimeEvent,
-};
-#[cfg(not(feature = "runtime-benchmarks"))]
-use crate::{
-	xcm_config::{AssetTransactors, XcmRouter},
-	AssetConversion,
+	AccountId, AssetConversion, Assets, ForeignAssets, Runtime, RuntimeEvent,
 };
 use assets_common::{matching::FromSiblingParachain, AssetIdForTrustBackedAssetsConvert};
 #[cfg(feature = "runtime-benchmarks")]
-use benchmark_helpers::{DoNothingRouter, DoNothingSwap, SuccessfulTransactor};
+use benchmark_helpers::DoNothingRouter;
 use frame_support::{parameter_types, traits::EitherOf};
 use frame_system::EnsureRootWithSuccess;
 use parachains_common::AssetIdForTrustBackedAssets;
@@ -38,16 +36,14 @@ use xcm_executor::XcmExecutor;
 
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmark_helpers {
-	use crate::{xcm_config::LocationToAccountId, ForeignAssets, RuntimeOrigin};
-	use alloc::vec::Vec;
-	use codec::Encode;
-	use frame_support::pallet_prelude::DispatchError;
-	use pallet_asset_conversion::Swap;
-	use xcm::prelude::*;
-	use xcm_executor::{
-		traits::{ConvertLocation, TransactAsset},
-		AssetsInHolding,
+	use crate::{
+		xcm_config::LocationToAccountId, AccountId, AssetConversion, Balances, ForeignAssets,
+		RuntimeOrigin,
 	};
+	use alloc::boxed::Box;
+	use codec::Encode;
+	use xcm::prelude::*;
+	use xcm_executor::traits::ConvertLocation;
 
 	pub struct DoNothingRouter;
 	impl SendXcm for DoNothingRouter {
@@ -65,7 +61,7 @@ pub mod benchmark_helpers {
 		}
 	}
 
-	impl snowbridge_pallet_system_frontend::BenchmarkHelper<RuntimeOrigin> for () {
+	impl snowbridge_pallet_system_frontend::BenchmarkHelper<RuntimeOrigin, AccountId> for () {
 		fn make_xcm_origin(location: Location) -> RuntimeOrigin {
 			RuntimeOrigin::from(pallet_xcm::Origin::Xcm(location))
 		}
@@ -81,73 +77,58 @@ pub mod benchmark_helpers {
 			)
 			.unwrap()
 		}
-	}
 
-	pub struct DoNothingSwap;
-	impl Swap<crate::AccountId> for DoNothingSwap {
-		type Balance = u128;
-		type AssetKind = Location;
+		fn setup_pools(caller: AccountId, asset: Location) {
+			// Prefund the caller's account with DOT
+			Balances::force_set_balance(RuntimeOrigin::root(), caller.into(), 10_000_000_000_000)
+				.unwrap();
 
-		fn max_path_len() -> u32 {
-			8
-		}
+			let asset_owner = LocationToAccountId::convert_location(&asset).unwrap();
+			ForeignAssets::force_create(
+				RuntimeOrigin::root(),
+				asset.clone(),
+				asset_owner.clone().into(),
+				true,
+				1,
+			)
+			.unwrap();
 
-		fn swap_exact_tokens_for_tokens(
-			_sender: crate::AccountId,
-			_path: Vec<Self::AssetKind>,
-			amount_in: Self::Balance,
-			amount_out_min: Option<Self::Balance>,
-			_send_to: crate::AccountId,
-			_keep_alive: bool,
-		) -> Result<Self::Balance, DispatchError> {
-			Ok(amount_out_min.unwrap_or(amount_in))
-		}
+			let signed_owner = RuntimeOrigin::signed(asset_owner.clone());
 
-		fn swap_tokens_for_exact_tokens(
-			_sender: crate::AccountId,
-			_path: Vec<Self::AssetKind>,
-			amount_out: Self::Balance,
-			_amount_in_max: Option<Self::Balance>,
-			_send_to: crate::AccountId,
-			_keep_alive: bool,
-		) -> Result<Self::Balance, DispatchError> {
-			Ok(amount_out)
-		}
-	}
+			// Prefund the asset owner's account with DOT and Ether to create the pools
+			ForeignAssets::mint(
+				signed_owner.clone(),
+				asset.clone().into(),
+				asset_owner.clone().into(),
+				10_000_000_000_000,
+			)
+			.unwrap();
+			Balances::force_set_balance(
+				RuntimeOrigin::root(),
+				asset_owner.clone().into(),
+				10_000_000_000_000,
+			)
+			.unwrap();
 
-	pub struct SuccessfulTransactor;
-	impl TransactAsset for SuccessfulTransactor {
-		fn can_check_in(_origin: &Location, _what: &Asset, _context: &XcmContext) -> XcmResult {
-			Ok(())
-		}
-
-		fn can_check_out(_dest: &Location, _what: &Asset, _context: &XcmContext) -> XcmResult {
-			Ok(())
-		}
-
-		fn deposit_asset(
-			_what: &Asset,
-			_who: &Location,
-			_context: Option<&XcmContext>,
-		) -> XcmResult {
-			Ok(())
-		}
-
-		fn withdraw_asset(
-			_what: &Asset,
-			_who: &Location,
-			_context: Option<&XcmContext>,
-		) -> Result<AssetsInHolding, XcmError> {
-			Ok(AssetsInHolding::default())
-		}
-
-		fn internal_transfer_asset(
-			_what: &Asset,
-			_from: &Location,
-			_to: &Location,
-			_context: &XcmContext,
-		) -> Result<AssetsInHolding, XcmError> {
-			Ok(AssetsInHolding::default())
+			// Create the pool so the swap will succeed
+			let native_asset: Location = Parent.into();
+			AssetConversion::create_pool(
+				signed_owner.clone(),
+				Box::new(native_asset.clone()),
+				Box::new(asset.clone()),
+			)
+			.unwrap();
+			AssetConversion::add_liquidity(
+				signed_owner,
+				Box::new(native_asset),
+				Box::new(asset),
+				1_000_000_000_000,
+				2_000_000_000_000,
+				0,
+				0,
+				asset_owner.into(),
+			)
+			.unwrap();
 		}
 	}
 }
@@ -196,18 +177,12 @@ impl snowbridge_pallet_system_frontend::Config for Runtime {
 	type XcmSender = XcmRouter;
 	#[cfg(feature = "runtime-benchmarks")]
 	type XcmSender = DoNothingRouter;
-	#[cfg(not(feature = "runtime-benchmarks"))]
 	type AssetTransactor = AssetTransactors;
-	#[cfg(feature = "runtime-benchmarks")]
-	type AssetTransactor = SuccessfulTransactor;
 	type EthereumLocation = FeeAsset;
 	type XcmExecutor = XcmExecutor<XcmConfig>;
 	type BridgeHubLocation = BridgeHubLocation;
 	type UniversalLocation = UniversalLocation;
 	type PalletLocation = SystemFrontendPalletLocation;
-	#[cfg(not(feature = "runtime-benchmarks"))]
 	type Swap = AssetConversion;
-	#[cfg(feature = "runtime-benchmarks")]
-	type Swap = DoNothingSwap;
 	type BackendWeightInfo = weights::snowbridge_pallet_system_backend::WeightInfo<Runtime>;
 }

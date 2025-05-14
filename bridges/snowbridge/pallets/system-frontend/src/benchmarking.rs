@@ -36,9 +36,12 @@ mod benchmarks {
 	fn add_tip() -> Result<(), BenchmarkError> {
 		let caller: T::AccountId = whitelisted_caller();
 
+		let ether = T::EthereumLocation::get();
+		T::Helper::setup_pools(caller.clone(), ether.clone());
+
 		let message_id = MessageId::Inbound(1);
 		let dot = Location::new(1, Here);
-		let asset = Asset::from((dot, 1_000_000_000u128));
+		let asset = Asset::from((dot, 1_000_000_00u128));
 
 		#[extrinsic_call]
 		_(RawOrigin::Signed(caller.clone()), message_id, asset);
