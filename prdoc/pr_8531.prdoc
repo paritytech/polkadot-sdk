@@ -9,10 +9,14 @@ crates:
 - name: pallet-bridge-parachains
   bump: major
 - name: bp-parachains
-  bump: major
+  bump: minor
 - name: bp-polkadot-core
-  bump: major
+  bump: minor
 - name: bridge-hub-rococo-runtime
-  bump: major
+  bump: minor
 - name: bridge-hub-westend-runtime
-  bump: major
+  bump: minor
+- name: bridge-runtime-common
+  bump: minor
+- name: pallet-bridge-relayers
+  bump: minor    
