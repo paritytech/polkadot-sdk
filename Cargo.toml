@@ -76,6 +76,7 @@ members = [
 	"cumulus/client/relay-chain-interface",
 	"cumulus/client/relay-chain-minimal-node",
 	"cumulus/client/relay-chain-rpc-interface",
+	"cumulus/client/relay-chain-streams",
 	"cumulus/client/service",
 	"cumulus/pallets/aura-ext",
 	"cumulus/pallets/collator-selection",
@@ -753,6 +754,7 @@ cumulus-relay-chain-inprocess-interface = { path = "cumulus/client/relay-chain-i
 cumulus-relay-chain-interface = { path = "cumulus/client/relay-chain-interface", default-features = false }
 cumulus-relay-chain-minimal-node = { path = "cumulus/client/relay-chain-minimal-node", default-features = false }
 cumulus-relay-chain-rpc-interface = { path = "cumulus/client/relay-chain-rpc-interface", default-features = false }
+cumulus-relay-chain-streams = { path = "cumulus/client/relay-chain-streams", default-features = false }
 cumulus-test-client = { path = "cumulus/test/client" }
 cumulus-test-relay-sproof-builder = { path = "cumulus/test/relay-sproof-builder", default-features = false }
 cumulus-test-runtime = { path = "cumulus/test/runtime" }
