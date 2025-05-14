@@ -117,7 +117,7 @@ impl<T: Config> Precompile for XcmPrecompile<T> {
 					})?;
 
 				let weight = Weight::from_parts(weight.refTime, weight.proofSize);
-				env.gas_meter_mut().charge(RuntimeCosts::CallRuntime(weight.clone()))?;
+				env.gas_meter_mut().charge(RuntimeCosts::CallXcmExecute(weight.clone()))?;
 
 				<<T as Config>::Xcm>::execute(frame_origin, final_message.into(), weight)
 					.map(|results| results.encode())
