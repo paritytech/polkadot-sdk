@@ -164,10 +164,10 @@ pub type AhEquivalentStakingMessageOf<T> = RcStakingMessage<
 	<T as pallet_staking_async::Config>::CurrencyBalance,
 	pallet_staking_async::StakingLedger<T>,
 	pallet_staking_async::Nominations<T>,
-	pallet_staking_async::EraRewardPoints<T>,
+	pallet_staking_async::EraRewardPointsOf<T>,
 	pallet_staking_async::RewardDestination<<T as frame_system::Config>::AccountId>,
 	pallet_staking_async::ValidatorPrefs,
-	pallet_staking_async::UnappliedSlash<T>,
+	pallet_staking_async::UnappliedSlashOf<T>,
 >;
 
 #[derive(Encode, Decode, DecodeWithMemTracking, TypeInfo, RuntimeDebug, Clone, PartialEq, Eq)]
@@ -244,20 +244,20 @@ where
 	}
 }
 
-impl<AccountId: Ord, Ah: pallet_staking_async::Config<AccountId = AccountId>>
-	IntoAh<pallet_staking::EraRewardPoints<AccountId>, pallet_staking_async::EraRewardPoints<Ah>>
+impl<AccountId, MaxValidatorSet>
+	IntoAh<pallet_staking::EraRewardPoints<AccountId>, pallet_staking_async::EraRewardPoints<AccountId, MaxValidatorSet>>
 	for pallet_staking::EraRewardPoints<AccountId>
 where
-	AccountId: Ord,
-	Ah: pallet_staking_async::Config<AccountId = AccountId>,
+	AccountId: MaxEncodedLen + Clone + PartialEq + Eq + Debug + Ord,
+	MaxValidatorSet: Get<u32>,
 {
 	fn intoAh(
 		points: pallet_staking::EraRewardPoints<AccountId>,
-	) -> pallet_staking_async::EraRewardPoints<Ah> {
+	) -> pallet_staking_async::EraRewardPoints<AccountId, MaxValidatorSet> {
 		let bounded = points
 			.individual
 			.into_iter()
-			.take(<Ah as pallet_staking_async::Config>::MaxValidatorSet::get() as usize)
+			.take(<MaxValidatorSet as Get<u32>>::get() as usize)
 			.collect::<BTreeMap<_, _>>();
 		pallet_staking_async::EraRewardPoints {
 			total: points.total,
