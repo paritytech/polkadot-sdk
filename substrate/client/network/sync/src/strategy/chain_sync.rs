@@ -678,7 +678,7 @@ where
 					if let Some(peer) = peer_id {
 						self.update_peer_common_number(&peer, number);
 					}
-					self.maybe_complete_gap_sync(number);
+					self.complete_gap_if_target(number);
 				},
 				Ok(BlockImportStatus::ImportedUnknown(number, aux, peer_id)) => {
 					if aux.clear_justification_requests {
@@ -723,7 +723,7 @@ where
 						self.restart();
 					}
 
-					self.maybe_complete_gap_sync(number);
+					self.complete_gap_if_target(number);
 				},
 				Err(BlockImportError::IncompleteHeader(peer_id)) =>
 					if let Some(peer) = peer_id {
@@ -988,7 +988,7 @@ where
 	}
 
 	/// Complete the gap sync if the target number is reached and there is a gap.
-	fn maybe_complete_gap_sync(&mut self, number: NumberFor<B>) {
+	fn complete_gap_if_target(&mut self, number: NumberFor<B>) {
 		let gap_sync_complete = self.gap_sync.as_ref().map_or(false, |s| s.target == number);
 		if gap_sync_complete {
 			info!(
