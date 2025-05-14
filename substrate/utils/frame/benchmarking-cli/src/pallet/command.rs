@@ -924,7 +924,9 @@ impl PalletCmd {
 		for SelectedBenchmark { pallet, extrinsic, pov_modes, .. } in benchmarks {
 			for (pallet_storage, mode) in pov_modes {
 				let mode = PovEstimationMode::from_str(&mode)?;
-				let splits = pallet_storage.replace(" ", "").split("::").collect::<Vec<_>>();
+				let pallet_storage = pallet_storage.replace(" ", "");
+				let splits = pallet_storage.split("::").collect::<Vec<_>>();
+
 				if splits.is_empty() || splits.len() > 2 {
 					return Err(format!(
 						"Expected 'Pallet::Storage' as storage name but got: {}",
