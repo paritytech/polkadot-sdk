@@ -2946,6 +2946,7 @@ fn block_hash_returns_proper_values() {
 				&mut storage_meter,
 				U256::zero(),
 				vec![0],
+				false,
 			),
 			Ok(_)
 		);
