@@ -839,6 +839,7 @@ node = [
 	"cumulus-relay-chain-interface",
 	"cumulus-relay-chain-minimal-node",
 	"cumulus-relay-chain-rpc-interface",
+	"cumulus-relay-chain-streams",
 	"cumulus-test-relay-sproof-builder",
 	"emulated-integration-tests-common",
 	"fork-tree",
@@ -2192,6 +2193,11 @@ path = "../cumulus/client/relay-chain-minimal-node"
 default-features = false
 optional = true
 path = "../cumulus/client/relay-chain-rpc-interface"
+
+[dependencies.cumulus-relay-chain-streams]
+default-features = false
+optional = true
+path = "../cumulus/client/relay-chain-streams"
 
 [dependencies.cumulus-test-relay-sproof-builder]
 default-features = false
