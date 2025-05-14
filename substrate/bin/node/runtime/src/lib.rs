@@ -85,7 +85,7 @@ use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 use pallet_nfts::PalletFeatures;
 use pallet_nis::WithMaximumOf;
 use pallet_nomination_pools::PoolId;
-use pallet_revive::{evm::runtime::EthExtra, AddressMapper};
+use pallet_revive::{evm::runtime::EthExtra, AddressMapper, IncrementOnce};
 use pallet_session::historical as pallet_session_historical;
 use sp_core::U256;
 use sp_runtime::traits::TransactionExtension;
@@ -3432,7 +3432,6 @@ impl_runtime_apis! {
 				gas_limit.unwrap_or(RuntimeBlockWeights::get().max_block),
 				pallet_revive::DepositLimit::Balance(storage_deposit_limit.unwrap_or(u128::MAX)),
 				input_data,
-				pallet_revive::ExecContext::Transaction,
 			)
 		}
 
@@ -3454,7 +3453,7 @@ impl_runtime_apis! {
 				code,
 				data,
 				salt,
-				pallet_revive::ExecContext::Transaction,
+				IncrementOnce::AlreadyIncremented,
 			)
 		}
 

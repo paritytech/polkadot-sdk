@@ -62,7 +62,7 @@ use frame_system::{
 };
 use pallet_asset_conversion_tx_payment::SwapAssetAdapter;
 use pallet_nfts::{DestroyWitness, PalletFeatures};
-use pallet_revive::{evm::runtime::EthExtra, AddressMapper};
+use pallet_revive::{evm::runtime::EthExtra, AddressMapper, IncrementOnce};
 use pallet_xcm::EnsureXcm;
 use parachains_common::{
 	impls::DealWithFees, message_queue::*, AccountId, AssetIdForTrustBackedAssets, AuraId, Balance,
@@ -2353,7 +2353,6 @@ impl_runtime_apis! {
 				gas_limit.unwrap_or(blockweights.max_block),
 				pallet_revive::DepositLimit::Balance(storage_deposit_limit.unwrap_or(u128::MAX)),
 				input_data,
-				pallet_revive::ExecContext::Transaction,
 			)
 		}
 
@@ -2376,7 +2375,7 @@ impl_runtime_apis! {
 				code,
 				data,
 				salt,
-				pallet_revive::ExecContext::Transaction,
+				IncrementOnce::AlreadyIncremented,
 			)
 		}
 

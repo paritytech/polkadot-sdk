@@ -219,7 +219,7 @@ fn it_works() {
 				&mut storage_meter,
 				value.into(),
 				vec![],
-				ExecContext::Transaction,
+				false,
 			),
 			Ok(_)
 		);
@@ -311,7 +311,7 @@ fn correct_transfer_on_call() {
 			&mut storage_meter,
 			value.into(),
 			vec![],
-			ExecContext::Transaction,
+			false,
 		)
 		.unwrap();
 
@@ -350,7 +350,7 @@ fn correct_transfer_on_delegate_call() {
 			&mut storage_meter,
 			value.into(),
 			vec![],
-			ExecContext::Transaction,
+			false,
 		));
 
 		assert_eq!(get_balance(&ALICE), 100 - value);
@@ -384,7 +384,7 @@ fn delegate_call_missing_contract() {
 			&mut storage_meter,
 			U256::zero(),
 			vec![],
-			ExecContext::Transaction,
+			false,
 		));
 
 		// add missing contract code
@@ -396,7 +396,7 @@ fn delegate_call_missing_contract() {
 			&mut storage_meter,
 			U256::zero(),
 			vec![],
-			ExecContext::Transaction,
+			false,
 		));
 	});
 }
@@ -424,7 +424,7 @@ fn changes_are_reverted_on_failing_call() {
 			&mut storage_meter,
 			55u64.into(),
 			vec![],
-			ExecContext::Transaction,
+			false,
 		)
 		.unwrap();
 
@@ -473,7 +473,7 @@ fn output_is_returned_on_success() {
 			&mut storage_meter,
 			U256::zero(),
 			vec![],
-			ExecContext::Transaction,
+			false,
 		);
 
 		let output = result.unwrap();
@@ -502,7 +502,7 @@ fn output_is_returned_on_failure() {
 			&mut storage_meter,
 			U256::zero(),
 			vec![],
-			ExecContext::Transaction,
+			false,
 		);
 
 		let output = result.unwrap();
@@ -531,7 +531,7 @@ fn input_data_to_call() {
 			&mut storage_meter,
 			U256::zero(),
 			vec![1, 2, 3, 4],
-			ExecContext::Transaction,
+			false,
 		);
 		assert_matches!(result, Ok(_));
 	});
@@ -565,7 +565,8 @@ fn input_data_to_instantiate() {
 				min_balance.into(),
 				vec![1, 2, 3, 4],
 				Some(&[0; 32]),
-				ExecContext::Transaction,
+				false,
+				IncrementOnce::AlreadyIncremented,
 			);
 			assert_matches!(result, Ok(_));
 		});
@@ -619,7 +620,7 @@ fn max_depth() {
 			&mut storage_meter,
 			value.into(),
 			vec![],
-			ExecContext::Transaction,
+			false,
 		);
 
 		assert_matches!(result, Ok(_));
@@ -681,7 +682,7 @@ fn caller_returns_proper_values() {
 			&mut storage_meter,
 			U256::zero(),
 			vec![],
-			ExecContext::Transaction,
+			false,
 		);
 
 		assert_matches!(result, Ok(_));
@@ -744,7 +745,7 @@ fn origin_returns_proper_values() {
 			&mut storage_meter,
 			U256::zero(),
 			vec![],
-			ExecContext::Transaction,
+			false,
 		);
 
 		assert_matches!(result, Ok(_));
@@ -776,7 +777,7 @@ fn is_contract_returns_proper_values() {
 			&mut storage_meter,
 			U256::zero(),
 			vec![],
-			ExecContext::Transaction,
+			false,
 		);
 		assert_matches!(result, Ok(_));
 	});
@@ -810,7 +811,7 @@ fn to_account_id_returns_proper_values() {
 			&mut storage_meter,
 			U256::zero(),
 			vec![0],
-			ExecContext::Transaction,
+			false,
 		);
 		assert_matches!(result, Ok(_));
 	});
@@ -847,7 +848,7 @@ fn code_hash_returns_proper_values() {
 			&mut storage_meter,
 			U256::zero(),
 			vec![0],
-			ExecContext::Transaction,
+			false,
 		);
 		assert_matches!(result, Ok(_));
 	});
@@ -873,7 +874,7 @@ fn own_code_hash_returns_proper_values() {
 			&mut storage_meter,
 			U256::zero(),
 			vec![0],
-			ExecContext::Transaction,
+			false,
 		);
 		assert_matches!(result, Ok(_));
 	});
@@ -909,7 +910,7 @@ fn caller_is_origin_returns_proper_values() {
 			&mut storage_meter,
 			U256::zero(),
 			vec![0],
-			ExecContext::Transaction,
+			false,
 		);
 		assert_matches!(result, Ok(_));
 	});
@@ -935,7 +936,7 @@ fn root_caller_succeeds() {
 			&mut storage_meter,
 			U256::zero(),
 			vec![0],
-			ExecContext::Transaction,
+			false,
 		);
 		assert_matches!(result, Ok(_));
 	});
@@ -961,7 +962,7 @@ fn root_caller_does_not_succeed_when_value_not_zero() {
 			&mut storage_meter,
 			1u64.into(),
 			vec![0],
-			ExecContext::Transaction,
+			false,
 		);
 		assert_matches!(result, Err(_));
 	});
@@ -997,7 +998,7 @@ fn root_caller_succeeds_with_consecutive_calls() {
 			&mut storage_meter,
 			U256::zero(),
 			vec![0],
-			ExecContext::Transaction,
+			false,
 		);
 		assert_matches!(result, Ok(_));
 	});
@@ -1042,7 +1043,7 @@ fn address_returns_proper_values() {
 			&mut storage_meter,
 			U256::zero(),
 			vec![],
-			ExecContext::Transaction,
+			false,
 		);
 
 		assert_matches!(result, Ok(_));
@@ -1068,7 +1069,8 @@ fn refuse_instantiate_with_value_below_existential_deposit() {
 				U256::zero(), // <- zero value
 				vec![],
 				Some(&[0; 32]),
-				ExecContext::Transaction,
+				false,
+				IncrementOnce::AlreadyIncremented,
 			),
 			Err(_)
 		);
@@ -1103,7 +1105,8 @@ fn instantiation_work_with_success_output() {
 					min_balance.into(),
 					vec![],
 					Some(&[0 ;32]),
-					ExecContext::Transaction,
+					false,
+					IncrementOnce::AlreadyIncremented,
 				),
 				Ok((address, ref output)) if output.data == vec![80, 65, 83, 83] => address
 			);
@@ -1149,7 +1152,8 @@ fn instantiation_fails_with_failing_output() {
 					min_balance.into(),
 					vec![],
 					Some(&[0; 32]),
-					ExecContext::Transaction,
+					false,
+					IncrementOnce::AlreadyIncremented,
 				),
 				Ok((address, ref output)) if output.data == vec![70, 65, 73, 76] => address
 			);
@@ -1211,7 +1215,7 @@ fn instantiation_from_contract() {
 					&mut storage_meter,
 					(min_balance * 10).into(),
 					vec![],
-					ExecContext::Transaction,
+					false,
 				),
 				Ok(_)
 			);
@@ -1277,7 +1281,7 @@ fn instantiation_traps() {
 					&mut storage_meter,
 					U256::zero(),
 					vec![],
-					ExecContext::Transaction,
+					false,
 				),
 				Ok(_)
 			);
@@ -1312,7 +1316,8 @@ fn termination_from_instantiate_fails() {
 					100u64.into(),
 					vec![],
 					Some(&[0; 32]),
-					ExecContext::Transaction,
+					false,
+					IncrementOnce::AlreadyIncremented,
 				),
 				Err(ExecError {
 					error: Error::<Test>::TerminatedInConstructor.into(),
@@ -1379,7 +1384,7 @@ fn in_memory_changes_not_discarded() {
 			&mut storage_meter,
 			U256::zero(),
 			vec![0],
-			ExecContext::Transaction,
+			false,
 		);
 		assert_matches!(result, Ok(_));
 	});
@@ -1440,7 +1445,8 @@ fn recursive_call_during_constructor_is_balance_transfer() {
 				10u64.into(),
 				vec![],
 				Some(&[0; 32]),
-				ExecContext::Transaction,
+				false,
+				IncrementOnce::AlreadyIncremented,
 			);
 			assert_matches!(result, Ok(_));
 		});
@@ -1486,7 +1492,7 @@ fn cannot_send_more_balance_than_available_to_self() {
 				&mut storage_meter,
 				U256::zero(),
 				vec![],
-				ExecContext::Transaction,
+				false,
 			)
 			.unwrap();
 		});
@@ -1518,7 +1524,7 @@ fn call_reentry_direct_recursion() {
 			&mut storage_meter,
 			U256::zero(),
 			CHARLIE_ADDR.as_bytes().to_vec(),
-			ExecContext::Transaction,
+			false,
 		));
 
 		// Calling into oneself fails
@@ -1530,7 +1536,7 @@ fn call_reentry_direct_recursion() {
 				&mut storage_meter,
 				U256::zero(),
 				BOB_ADDR.as_bytes().to_vec(),
-				ExecContext::Transaction,
+				false,
 			)
 			.map_err(|e| e.error),
 			<Error<Test>>::ReentranceDenied,
@@ -1580,7 +1586,7 @@ fn call_deny_reentry() {
 				&mut storage_meter,
 				U256::zero(),
 				vec![0],
-				ExecContext::Transaction,
+				false,
 			)
 			.map_err(|e| e.error),
 			<Error<Test>>::ReentranceDenied,
@@ -1614,7 +1620,7 @@ fn call_runtime_works() {
 			&mut storage_meter,
 			U256::zero(),
 			vec![],
-			ExecContext::Transaction,
+			false,
 		)
 		.unwrap();
 
@@ -1686,7 +1692,7 @@ fn call_runtime_filter() {
 			&mut storage_meter,
 			U256::zero(),
 			vec![],
-			ExecContext::Transaction,
+			false,
 		)
 		.unwrap();
 
@@ -1801,7 +1807,8 @@ fn nonce() {
 				(min_balance * 100).into(),
 				vec![],
 				Some(&[0; 32]),
-				ExecContext::Transaction,
+				false,
+				IncrementOnce::AlreadyIncremented,
 			)
 			.ok();
 			assert_eq!(System::account_nonce(&ALICE), 0);
@@ -1814,7 +1821,8 @@ fn nonce() {
 				(min_balance * 100).into(),
 				vec![],
 				Some(&[0; 32]),
-				ExecContext::Transaction,
+				false,
+				IncrementOnce::AlreadyIncremented,
 			));
 			assert_eq!(System::account_nonce(&ALICE), 1);
 
@@ -1826,7 +1834,8 @@ fn nonce() {
 				(min_balance * 200).into(),
 				vec![],
 				Some(&[0; 32]),
-				ExecContext::Transaction,
+				false,
+				IncrementOnce::AlreadyIncremented,
 			));
 			assert_eq!(System::account_nonce(&ALICE), 2);
 
@@ -1838,7 +1847,8 @@ fn nonce() {
 				(min_balance * 200).into(),
 				vec![],
 				Some(&[0; 32]),
-				ExecContext::Transaction,
+				false,
+				IncrementOnce::AlreadyIncremented,
 			));
 			assert_eq!(System::account_nonce(&ALICE), 3);
 		});
@@ -1906,7 +1916,7 @@ fn set_storage_works() {
 			&mut storage_meter,
 			U256::zero(),
 			vec![],
-			ExecContext::Transaction,
+			false,
 		));
 	});
 }
@@ -2005,7 +2015,7 @@ fn set_storage_varsized_key_works() {
 			&mut storage_meter,
 			U256::zero(),
 			vec![],
-			ExecContext::Transaction,
+			false,
 		));
 	});
 }
@@ -2044,7 +2054,7 @@ fn get_storage_works() {
 			&mut storage_meter,
 			U256::zero(),
 			vec![],
-			ExecContext::Transaction,
+			false,
 		));
 	});
 }
@@ -2083,7 +2093,7 @@ fn get_storage_size_works() {
 			&mut storage_meter,
 			U256::zero(),
 			vec![],
-			ExecContext::Transaction,
+			false,
 		));
 	});
 }
@@ -2133,7 +2143,7 @@ fn get_storage_varsized_key_works() {
 			&mut storage_meter,
 			U256::zero(),
 			vec![],
-			ExecContext::Transaction,
+			false,
 		));
 	});
 }
@@ -2183,7 +2193,7 @@ fn get_storage_size_varsized_key_works() {
 			&mut storage_meter,
 			U256::zero(),
 			vec![],
-			ExecContext::Transaction,
+			false,
 		));
 	});
 }
@@ -2258,7 +2268,7 @@ fn set_transient_storage_works() {
 			&mut storage_meter,
 			U256::zero(),
 			vec![],
-			ExecContext::Transaction,
+			false,
 		));
 	});
 }
@@ -2328,7 +2338,7 @@ fn get_transient_storage_works() {
 			&mut storage_meter,
 			U256::zero(),
 			vec![0],
-			ExecContext::Transaction,
+			false,
 		);
 		assert_matches!(result, Ok(_));
 	});
@@ -2366,7 +2376,7 @@ fn get_transient_storage_size_works() {
 			&mut storage_meter,
 			U256::zero(),
 			vec![],
-			ExecContext::Transaction,
+			false,
 		));
 	});
 }
@@ -2428,7 +2438,7 @@ fn rollback_transient_storage_works() {
 			&mut storage_meter,
 			U256::zero(),
 			vec![0],
-			ExecContext::Transaction,
+			false,
 		);
 		assert_matches!(result, Ok(_));
 	});
@@ -2459,7 +2469,7 @@ fn ecdsa_to_eth_address_returns_proper_value() {
 			&mut storage_meter,
 			U256::zero(),
 			vec![],
-			ExecContext::Transaction,
+			false,
 		);
 		assert_matches!(result, Ok(_));
 	});
@@ -2532,7 +2542,7 @@ fn last_frame_output_works_on_instantiate() {
 				&mut storage_meter,
 				U256::zero(),
 				vec![],
-				ExecContext::Transaction,
+				false,
 			)
 			.unwrap()
 		});
@@ -2600,7 +2610,7 @@ fn last_frame_output_works_on_nested_call() {
 			&mut storage_meter,
 			U256::zero(),
 			vec![0],
-			ExecContext::Transaction,
+			false,
 		);
 		assert_matches!(result, Ok(_));
 	});
@@ -2668,7 +2678,7 @@ fn last_frame_output_is_always_reset() {
 			&mut storage_meter,
 			U256::zero(),
 			vec![],
-			ExecContext::Transaction,
+			false,
 		);
 		assert_matches!(result, Ok(_));
 	});
@@ -2716,7 +2726,7 @@ fn immutable_data_access_checks_work() {
 				&mut storage_meter,
 				U256::zero(),
 				vec![],
-				ExecContext::Transaction,
+				false,
 			)
 			.unwrap()
 		});
@@ -2785,7 +2795,7 @@ fn correct_immutable_data_in_delegate_call() {
 				&mut storage_meter,
 				U256::zero(),
 				vec![],
-				ExecContext::Transaction,
+				false,
 			)
 			.unwrap()
 		});
@@ -2824,7 +2834,8 @@ fn immutable_data_set_overrides() {
 				U256::zero(),
 				vec![],
 				None,
-				ExecContext::Transaction,
+				false,
+				IncrementOnce::AlreadyIncremented,
 			)
 			.unwrap()
 			.0;
@@ -2836,7 +2847,7 @@ fn immutable_data_set_overrides() {
 				&mut storage_meter,
 				U256::zero(),
 				vec![],
-				ExecContext::Transaction,
+				false,
 			)
 			.unwrap()
 		});
@@ -2880,7 +2891,7 @@ fn immutable_data_set_errors_with_empty_data() {
 				&mut storage_meter,
 				U256::zero(),
 				vec![],
-				ExecContext::Transaction,
+				false,
 			)
 			.unwrap()
 		});
@@ -2935,7 +2946,6 @@ fn block_hash_returns_proper_values() {
 				&mut storage_meter,
 				U256::zero(),
 				vec![0],
-				ExecContext::Transaction,
 			),
 			Ok(_)
 		);
