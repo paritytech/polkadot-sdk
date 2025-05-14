@@ -976,8 +976,7 @@ pub use polkadot_runtime_metrics;
 #[cfg(feature = "polkadot-runtime-parachains")]
 pub use polkadot_runtime_parachains;
 
-/// Experimental: The single package to get you started with building frame pallets and
-/// runtimes.
+/// The single package to get you started with building frame pallets and runtimes.
 #[cfg(feature = "polkadot-sdk-frame")]
 pub use polkadot_sdk_frame;
 
