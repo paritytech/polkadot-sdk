@@ -331,7 +331,7 @@ pub mod pallet {
 				swap_path,
 				tip_amount,
 				None,
-				who.clone(),
+				who,
 				true,
 			)?;
 
