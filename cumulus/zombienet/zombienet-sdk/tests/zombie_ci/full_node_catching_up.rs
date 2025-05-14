@@ -14,7 +14,8 @@ use zombienet_sdk::{LocalFileSystem, Network, NetworkConfigBuilder};
 
 const PARA_ID: u32 = 2000;
 
-// This tests makes sure that ...
+// This tests makes sure that parachain full nodes are synchronizing with the validator
+// and report expected block height.
 #[tokio::test(flavor = "multi_thread")]
 async fn full_node_catching_up() -> Result<(), anyhow::Error> {
 	let _ = env_logger::try_init_from_env(

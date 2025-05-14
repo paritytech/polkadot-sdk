@@ -16,11 +16,8 @@ use zombienet_sdk::{NetworkConfig, NetworkConfigBuilder, RegistrationStrategy};
 
 const PARA_ID: u32 = 2100;
 
-/// This test spawns a parachain network.
-/// Initially, one core is assigned. We expect the parachain to produce 1 block per relay.
-/// As we increase the number of cores via `assign_core`, we expect the block pace to increase too.
-/// **Note:** The runtime in use here has 6s slot duration, so multiple blocks will be produced per
-/// slot.
+/// This test checks if parachain node is importing blocks using PoV recovery even
+/// after more cores have been assigned for the parachain.
 #[tokio::test(flavor = "multi_thread")]
 async fn elastic_scaling_pov_recovery() -> Result<(), anyhow::Error> {
 	let _ = env_logger::try_init_from_env(

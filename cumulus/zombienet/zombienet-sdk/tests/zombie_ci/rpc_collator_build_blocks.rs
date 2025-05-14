@@ -14,7 +14,7 @@ use zombienet_sdk::{LocalFileSystem, Network, NetworkConfigBuilder};
 
 const PARA_ID: u32 = 2000;
 
-// This tests makes sure that ...
+// This tests makes sure that RPC collator is able to build blocks
 #[tokio::test(flavor = "multi_thread")]
 async fn rpc_collator_builds_blocks() -> Result<(), anyhow::Error> {
 	let _ = env_logger::try_init_from_env(
