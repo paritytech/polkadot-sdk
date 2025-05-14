@@ -446,9 +446,14 @@ impl<T: Config> PalletMigration for StakingMigrator<T> {
 		}
 
 		// Translate from Rc to Ah staking message
-		let mut translated = Vec::new();
-		for message in messages {
-			//translated.push(T::RcStakingMessage::intoAh(message));
+		let mut translated = XcmBatchAndMeter::new_from_config::<T>();
+		translated.batch_weight = messages.batch_weight; // stupid
+		translated.batch_weight = messages.batch_weight;
+		translated.tracked_batch_count = messages.tracked_batch_count;
+		translated.accumulated_weight = messages.accumulated_weight;
+		for message in messages.batch.sized_batches.iter() {
+			//let t: RcEquivalentStakingMessageOf<T> = message.into();
+			//translated.push(t);
 		}
 
 		if !messages.is_empty() {

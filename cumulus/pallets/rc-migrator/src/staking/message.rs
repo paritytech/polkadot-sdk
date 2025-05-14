@@ -184,6 +184,32 @@ pub type AhEquivalentStakingMessageOf<T> = RcStakingMessage<
 	>,
 >;
 
+// translated version of `AhEquivalentStakingMessageOf`
+pub type RcEquivalentStakingMessageOf<T> = RcStakingMessage<
+	<T as frame_system::Config>::AccountId,
+	<T as pallet_staking::Config>::CurrencyBalance,
+	pallet_staking_async::ledger::StakingLedger2<
+		<T as frame_system::Config>::AccountId,
+		pallet_staking::BalanceOf<T>,
+		ConstU32<32>, // <T as pallet_staking_async::Config>::MaxUnlockingChunks,
+	>,
+	pallet_staking_async::Nominations<
+		<T as frame_system::Config>::AccountId,
+		ConstU32<16>, //pallet_staking_async::MaxNominationsOf<T>,
+	>,
+	pallet_staking_async::EraRewardPoints<
+		<T as frame_system::Config>::AccountId,
+		ConstU32<1000>, // <T as pallet_staking_async::Config>::MaxValidatorSet,
+	>,
+	pallet_staking_async::RewardDestination<<T as frame_system::Config>::AccountId>,
+	pallet_staking_async::ValidatorPrefs,
+	pallet_staking_async::UnappliedSlash<
+		<T as frame_system::Config>::AccountId,
+		<T as pallet_staking::Config>::CurrencyBalance,
+		ConstU32<1000>, // <T as pallet_staking_async::Config>::MaxValidatorSet,
+	>,
+>;
+
 #[derive(Encode, Decode, DecodeWithMemTracking, TypeInfo, RuntimeDebug, Clone, PartialEq, Eq)]
 pub struct StakingValues<Balance> {
 	pub validator_count: u32,
@@ -207,7 +233,19 @@ pub struct StakingValues<Balance> {
 pub type RcStakingValuesOf<T> = StakingValues<<T as pallet_staking::Config>::CurrencyBalance>;
 pub type AhStakingValuesOf<T> = StakingValues<<T as pallet_staking_async::Config>::CurrencyBalance>;
 
-/*impl<T, Ah> IntoAh<pallet_staking::StakingLedger<T>, pallet_staking_async::StakingLedger<Ah>>
+/*
+impl<Balance: HasCompact + MaxEncodedLen>
+	IntoAh<pallet_staking::UnlockChunk<Balance>, pallet_staking_async::UnlockChunk<Balance>>
+	for pallet_staking::UnlockChunk<Balance>
+{
+	fn intoAh(
+		chunk: pallet_staking::UnlockChunk<Balance>,
+	) -> pallet_staking_async::UnlockChunk<Balance> {
+		pallet_staking_async::UnlockChunk { value: chunk.value, era: chunk.era }
+	}
+}
+
+impl<T, Ah> IntoAh<pallet_staking::StakingLedger<T>, pallet_staking_async::StakingLedger<Ah>>
 	for pallet_staking::StakingLedger<T>
 where
 	T: pallet_staking::Config,
@@ -312,16 +350,6 @@ impl IntoAh<pallet_staking::ValidatorPrefs, pallet_staking_async::ValidatorPrefs
 			commission: prefs.commission,
 			blocked: prefs.blocked,
 		}
-	}
-}
-impl<Balance: HasCompact + MaxEncodedLen>
-	IntoAh<pallet_staking::UnlockChunk<Balance>, pallet_staking_async::UnlockChunk<Balance>>
-	for pallet_staking::UnlockChunk<Balance>
-{
-	fn intoAh(
-		chunk: pallet_staking::UnlockChunk<Balance>,
-	) -> pallet_staking_async::UnlockChunk<Balance> {
-		pallet_staking_async::UnlockChunk { value: chunk.value, era: chunk.era }
 	}
 }
 
