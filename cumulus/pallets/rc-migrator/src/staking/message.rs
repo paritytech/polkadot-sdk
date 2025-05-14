@@ -278,36 +278,34 @@ where
 	}
 }
 
-/*
 // NominationsQuota is an associated trait - not a type, therefore more mental gymnastics are needed
-impl<T, Ah, SNomQuota, SSNomQuota>
-	IntoAh<pallet_staking::Nominations<T>, pallet_staking_async::NominationsOf<Ah>>
-	for pallet_staking::Nominations<T>
-where
-	T: pallet_staking::Config<NominationsQuota = SNomQuota>,
-	Ah: pallet_staking_async::Config<
-		AccountId = AccountIdOf<T>,
-		CurrencyBalance = BalanceOf<T>,
-		NominationsQuota = SSNomQuota,
+impl<Rc: pallet_staking::Config> IntoAh<
+	pallet_staking::Nominations<Rc>,
+	pallet_staking_async::Nominations<
+		AccountIdOf<Rc>,
+		ConstU32<16>, //pallet_staking_async::MaxNominationsOf<T>,
 	>,
-	SNomQuota: pallet_staking::NominationsQuota<BalanceOf<T>>,
-	SSNomQuota: pallet_staking_async::NominationsQuota<
-		pallet_staking_async::BalanceOf<Ah>,
-		MaxNominations = SNomQuota::MaxNominations,
-	>,
+>
+	for MessageTranslator<Rc>
 {
 	fn intoAh(
-		nominations: pallet_staking::Nominations<T>,
-	) -> pallet_staking_async::NominationsOf<Ah> {
+		nominations: pallet_staking::Nominations<Rc>,
+	) -> pallet_staking_async::Nominations<
+		AccountIdOf<Rc>,
+		ConstU32<16>, //pallet_staking_async::MaxNominationsOf<T>,
+	>
+	{
+		let targets = nominations.targets.into_inner().try_into().defensive().unwrap_or_default(); // FIXME
+
 		pallet_staking_async::Nominations {
-			targets: nominations.targets,
+			targets: targets,
 			submitted_in: nominations.submitted_in,
 			suppressed: nominations.suppressed,
 		}
 	}
 }
 
-impl<AccountId, MaxValidatorSet>
+/*impl<AccountId, MaxValidatorSet>
 	IntoAh<pallet_staking::EraRewardPoints<AccountId>, pallet_staking_async::EraRewardPoints<AccountId, MaxValidatorSet>>
 	for pallet_staking::EraRewardPoints<AccountId>
 where
