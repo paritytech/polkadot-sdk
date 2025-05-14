@@ -63,21 +63,21 @@ where
 	T::Hash: frame_support::traits::IsType<H256>,
 {
 	fn can_check_in(_origin: &Location, _what: &Asset, _context: &XcmContext) -> XcmResult {
-		// TODO.
-		Ok(())
+		// We don't support teleports.
+		Err(XcmError::Unimplemented)
 	}
 
 	fn check_in(_origin: &Location, _what: &Asset, _context: &XcmContext) {
-		// TODO.
+		// We don't support teleports.
 	}
 
 	fn can_check_out(_destination: &Location, _what: &Asset, _context: &XcmContext) -> XcmResult {
-		// TODO.
-		Ok(())
+		// We don't support teleports.
+		Err(XcmError::Unimplemented)
 	}
 
 	fn check_out(_destination: &Location, _what: &Asset, _context: &XcmContext) {
-		// TODO.
+		// We don't support teleports.
 	}
 
 	fn withdraw_asset_with_surplus(
