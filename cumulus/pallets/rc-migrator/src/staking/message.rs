@@ -389,24 +389,12 @@ impl<Rc: pallet_staking::Config>
 	}
 }
 
-/*
-// StakingLedger requires a T instead of having a `StakingLedgerOf` :(
-impl<T, Ah, SNomQuota, SSNomQuota> IntoAh<RcStakingMessageOf<T>, AhEquivalentStakingMessageOf<Ah>>
-	for RcStakingMessageOf<T>
+impl<Rc> IntoAh<RcStakingMessageOf<Rc>, RcEquivalentStakingMessageOf<Rc>>
+	for MessageTranslator<Rc>
 where
-	T: pallet_staking::Config<NominationsQuota = SNomQuota>,
-	Ah: pallet_staking_async::Config<
-		NominationsQuota = SSNomQuota,
-		CurrencyBalance = BalanceOf<T>,
-		AccountId = AccountIdOf<T>,
-	>,
-	SNomQuota: pallet_staking::NominationsQuota<BalanceOf<T>>,
-	SSNomQuota: pallet_staking_async::NominationsQuota<
-		pallet_staking_async::BalanceOf<Ah>,
-		MaxNominations = SNomQuota::MaxNominations,
-	>,
+	Rc: pallet_staking::Config,
 {
-	fn intoAh(message: RcStakingMessageOf<T>) -> AhEquivalentStakingMessageOf<Ah> {
+	fn intoAh(message: RcStakingMessageOf<Rc>) -> RcEquivalentStakingMessageOf<Rc> {
 		use RcStakingMessage::*;
 		match message {
 			// It looks like nothing happens here, but it does. We swap the omitted generics of
@@ -415,13 +403,13 @@ where
 			Invulnerables(invulnerables) => Invulnerables(invulnerables),
 			Bonded { stash, controller } => Bonded { stash, controller },
 			Ledger { controller, ledger } =>
-				Ledger { controller, ledger: pallet_staking::StakingLedger::intoAh(ledger) },
+				Ledger { controller, ledger: MessageTranslator::<Rc>::intoAh(ledger) },
 			Payee { stash, payment } =>
-				Payee { stash, payment: pallet_staking::RewardDestination::intoAh(payment) },
+				Payee { stash, payment: MessageTranslator::<Rc>::intoAh(payment) },
 			Validators { stash, validators } =>
-				Validators { stash, validators: pallet_staking::ValidatorPrefs::intoAh(validators) },
+				Validators { stash, validators: MessageTranslator::<Rc>::intoAh(validators) },
 			Nominators { stash, nominations } =>
-				Nominators { stash, nominations: pallet_staking::Nominations::intoAh(nominations) },
+				Nominators { stash, nominations: MessageTranslator::<Rc>::intoAh(nominations) },
 			VirtualStakers(staker) => VirtualStakers(staker),
 			ErasStakersOverview { era, validator, exposure } =>
 				ErasStakersOverview { era, validator, exposure },
@@ -432,11 +420,11 @@ where
 			ErasValidatorPrefs { era, validator, prefs } => ErasValidatorPrefs {
 				era,
 				validator,
-				prefs: pallet_staking::ValidatorPrefs::intoAh(prefs),
+				prefs: MessageTranslator::<Rc>::intoAh(prefs),
 			},
 			ErasValidatorReward { era, reward } => ErasValidatorReward { era, reward },
 			ErasRewardPoints { era, points } =>
-				ErasRewardPoints { era, points: pallet_staking::EraRewardPoints::intoAh(points) },
+				ErasRewardPoints { era, points: MessageTranslator::<Rc>::intoAh(points) },
 			ErasTotalStake { era, total_stake } => ErasTotalStake { era, total_stake },
 			UnappliedSlashes { era, slash } => {
 				// Translate according to https://github.com/paritytech/polkadot-sdk/blob/43ea306f6307dff908551cb91099ef6268502ee0/substrate/frame/staking/src/migrations.rs#L94-L108
@@ -459,7 +447,7 @@ where
 				NominatorSlashInEra { era, validator, slash },
 		}
 	}
-}*/
+}
 
 impl<T: pallet_staking::Config> StakingMigrator<T> {
 	pub fn take_values() -> RcStakingValuesOf<T> {
@@ -498,7 +486,7 @@ impl<T: pallet_staking_async::Config> StakingMigrator<T> {
 		MinCommission::<T>::put(&values.min_commission);
 		MaxValidatorsCount::<T>::set(values.max_validators_count);
 		MaxNominatorsCount::<T>::set(values.max_nominators_count);
-		todo!();
+		todo!("heyy test");
 		//let active_era = todo!();//values.active_era.map(pallet_staking::ActiveEraInfo::intoAh);
 
 		//ActiveEra::<T>::set(active_era.clone());
@@ -514,14 +502,3 @@ impl<T: pallet_staking_async::Config> StakingMigrator<T> {
 }
 
 pub struct MessageTranslator<Rc>(core::marker::PhantomData<Rc>);
-
-impl<Rc> IntoAh<RcStakingMessageOf<Rc>, RcEquivalentStakingMessageOf<Rc>>
-	for MessageTranslator<Rc>
-where
-	Rc: pallet_staking::Config,
-{
-	fn intoAh(message: RcStakingMessageOf<Rc>) -> RcEquivalentStakingMessageOf<Rc> {
-		use RcStakingMessage::*;
-		todo!()
-	}
-}
