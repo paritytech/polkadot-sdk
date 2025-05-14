@@ -18,6 +18,7 @@ subxt = { workspace = true }
 subxt-signer = { workspace = true }
 tokio = { workspace = true, features = ["rt-multi-thread"] }
 zombienet-sdk = { workspace = true }
+zombienet-orchestrator = { workspace = true }
 cumulus-zombienet-sdk-helpers = { workspace = true }
 
 [features]
