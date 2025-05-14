@@ -824,6 +824,7 @@ runtime = [
 node = [
 	"asset-test-utils",
 	"bridge-hub-test-utils",
+	"cumulus-client-bootnodes",
 	"cumulus-client-cli",
 	"cumulus-client-collator",
 	"cumulus-client-consensus-aura",
@@ -2116,6 +2117,11 @@ path = "../cumulus/parachains/runtimes/assets/test-utils"
 default-features = false
 optional = true
 path = "../cumulus/parachains/runtimes/bridge-hubs/test-utils"
+
+[dependencies.cumulus-client-bootnodes]
+default-features = false
+optional = true
+path = "../cumulus/client/bootnodes"
 
 [dependencies.cumulus-client-cli]
 default-features = false
