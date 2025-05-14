@@ -327,3 +327,21 @@ fn test_add_tip_fails_no_pending_order() {
 		assert_noop!(OutboundQueue::add_tip(nonce, amount), AddTipError::UnknownMessage);
 	});
 }
+
+#[test]
+fn test_add_tip_fails_amount_zero() {
+	new_tester().execute_with(|| {
+		let nonce = 1;
+		let initial_fee = 1000;
+		let zero_amount = 0;
+		let current_block = System::block_number();
+		let order = PendingOrder { nonce, fee: initial_fee, block_number: current_block };
+		PendingOrders::<Test>::insert(nonce, order);
+		
+		assert_noop!(OutboundQueue::add_tip(nonce, zero_amount), AddTipError::AmountZero);
+		
+		// Verify the original fee is unchanged
+		let order_after = PendingOrders::<Test>::get(nonce).unwrap();
+		assert_eq!(order_after.fee, initial_fee);
+	});
+}

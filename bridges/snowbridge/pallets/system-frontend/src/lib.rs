@@ -169,6 +169,8 @@ pub mod pallet {
 		SwapError,
 		/// Ether could not be burned.
 		BurnError,
+		/// The tip provided is zero.
+		TipAmountZero,
 	}
 
 	impl<T: Config> From<SendError> for Error<T> {
@@ -262,6 +264,8 @@ pub mod pallet {
 					return Err(Error::<T>::UnsupportedAsset.into())
 				},
 			};
+
+			ensure!(tip_amount > 0, Error::<T>::TipAmountZero);
 
 			let ether_gained = if *tip_asset_location != ether_location {
 				Self::swap_and_burn(

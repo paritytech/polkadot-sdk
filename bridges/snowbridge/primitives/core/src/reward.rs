@@ -33,6 +33,7 @@ pub enum MessageId {
 pub enum AddTipError {
 	NonceConsumed,
 	UnknownMessage,
+	AmountZero,
 }
 
 /// Trait to add a tip for a nonce.

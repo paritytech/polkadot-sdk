@@ -468,6 +468,7 @@ pub mod pallet {
 
 	impl<T: Config> AddTip for Pallet<T> {
 		fn add_tip(nonce: u64, amount: u128) -> Result<(), AddTipError> {
+			ensure!(amount > 0, AddTipError::AmountZero);
 			PendingOrders::<T>::try_mutate_exists(nonce, |maybe_order| -> Result<(), AddTipError> {
 				match maybe_order {
 					Some(order) => {

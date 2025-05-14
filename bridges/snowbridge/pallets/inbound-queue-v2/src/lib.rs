@@ -298,6 +298,7 @@ pub mod pallet {
 
 	impl<T: Config> AddTip for Pallet<T> {
 		fn add_tip(nonce: u64, amount: u128) -> Result<(), AddTipError> {
+			ensure!(amount > 0, AddTipError::AmountZero);
 			// If the nonce is already processed, return an error
 			ensure!(!Nonce::<T>::get(nonce.into()), AddTipError::NonceConsumed);
 			// Otherwise add the tip.

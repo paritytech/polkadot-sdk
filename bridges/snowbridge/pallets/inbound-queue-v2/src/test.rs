@@ -378,3 +378,14 @@ fn test_add_tip_nonce_consumed() {
 		assert_eq!(Tips::<Test>::get(nonce), None);
 	});
 }
+
+#[test]
+fn test_add_tip_amount_zero() {
+	new_tester().execute_with(|| {
+		let nonce: u64 = 30;
+		let amount: u128 = 0;
+
+		assert_noop!(InboundQueue::add_tip(nonce, amount), AddTipError::AmountZero);
+		assert_eq!(Tips::<Test>::get(nonce), None);
+	});
+}
