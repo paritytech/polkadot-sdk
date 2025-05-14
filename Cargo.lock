@@ -14637,6 +14637,7 @@ name = "polkadot-collator-protocol"
 version = "7.0.0"
 dependencies = [
  "assert_matches",
+ "async-trait",
  "bitvec",
  "fatality",
  "futures",
@@ -14659,6 +14660,7 @@ dependencies = [
  "sp-runtime 31.0.1",
  "sp-tracing 16.0.0",
  "thiserror 1.0.65",
+ "tokio",
  "tokio-util",
  "tracing-gum",
 ]
