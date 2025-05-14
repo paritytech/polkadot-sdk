@@ -16,12 +16,12 @@ crates:
   # Limit to fetching at latest v15 metadata:
   - name: sc-runtime-utilities
     bump: patch
-  # Use newer frame-metadata; should be no observable change but CI wants minor:
+  # Use newer frame-metadata; should be no observable change (CI wants minor):
   - name: substrate-wasm-builder
     bump: minor
-  # frame-metadata bumped in this and exposed but via hidden docs. No code changes needed:
+  # frame-metadata bumped in this and exposed but via hidden docs. No code changes needed (CI wants minor):
   - name: frame-support
-    bump: patch
-  # Uses newer frame-support / metadata-ir but no code change needed:
+    bump: minor
+  # Uses newer frame-support / metadata-ir but no code change needed (CI wants minor):
   - name: pallet-example-view-functions
-    bump: patch
+    bump: minor
