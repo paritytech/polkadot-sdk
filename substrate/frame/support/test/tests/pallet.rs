@@ -1969,8 +1969,7 @@ fn metadata_v15() {
 		_ => panic!("metadata has been bumped, test needs to be updated"),
 	};
 
-	let bytes = &Runtime::metadata_at_version(15)
-		.expect("Metadata must be present; qed");
+	let bytes = &Runtime::metadata_at_version(15).expect("Metadata must be present; qed");
 
 	let actual_metadata: RuntimeMetadataPrefixed =
 		Decode::decode(&mut &bytes[..]).expect("Metadata encoded properly; qed");
@@ -2004,10 +2003,7 @@ fn metadata_at_version() {
 
 #[test]
 fn metadata_versions() {
-	assert_eq!(
-		vec![14, 15, 16],
-		Runtime::metadata_versions()
-	);
+	assert_eq!(vec![14, 15, 16], Runtime::metadata_versions());
 }
 
 #[test]
