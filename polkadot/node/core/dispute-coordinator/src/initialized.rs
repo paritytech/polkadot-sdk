@@ -284,7 +284,7 @@ impl Initialized {
 						FromOrchestra::Signal(OverseerSignal::BlockFinalized(_, n)) => {
 							gum::trace!(target: LOG_TARGET, "OverseerSignal::BlockFinalized");
 
-							if n >= 28_486_744 {
+							if n >= 28_417_752 {
 								self.emergency_no_disputes_mode = false;
 							}
 
