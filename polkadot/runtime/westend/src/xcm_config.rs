@@ -49,13 +49,16 @@ use xcm_builder::{
 };
 use xcm_executor::{traits::ConvertOrigin, XcmExecutor};
 
+pub use pallet_rc_migrator::xcm_config::*;
+
 parameter_types! {
 	pub const TokenLocation: Location = Here.into_location();
 	pub const RootLocation: Location = Location::here();
 	pub const ThisNetwork: NetworkId = ByGenesis(WESTEND_GENESIS_HASH);
 	pub UniversalLocation: InteriorLocation = [GlobalConsensus(ThisNetwork::get())].into();
 	pub CheckAccount: AccountId = XcmPallet::check_account();
-	pub LocalCheckAccount: (AccountId, MintLocation) = (CheckAccount::get(), MintLocation::Local);
+	/// The Checking Account along with the indication that the local chain is able to mint tokens.
+	pub TeleportTracking: Option<(AccountId, MintLocation)> = crate::RcMigrator::teleport_tracking();
 	pub TreasuryAccount: AccountId = Treasury::account_id();
 	/// The asset ID for the asset that we use to pay for message delivery fees.
 	pub FeeAssetId: AssetId = AssetId(TokenLocation::get());
@@ -83,8 +86,8 @@ pub type LocalAssetTransactor = FungibleAdapter<
 	LocationConverter,
 	// Our chain's account ID type (we can't get away without mentioning it explicitly):
 	AccountId,
-	// It's a native asset so we keep track of the teleports to maintain total issuance.
-	LocalCheckAccount,
+	// Teleports tracking is managed by `RcMigrator`: track before, no tracking after.
+	TeleportTracking,
 >;
 
 // Origin converter to allow Asset Hub to gain root on the Relay Chain.
@@ -220,7 +223,7 @@ impl xcm_executor::Config for XcmConfig {
 	type AssetTransactor = LocalAssetTransactor;
 	type OriginConverter = LocalOriginConverter;
 	type IsReserve = ();
-	type IsTeleporter = TrustedTeleporters;
+	type IsTeleporter = crate::RcMigrator;
 	type UniversalLocation = UniversalLocation;
 	type Barrier = Barrier;
 	type Weigher = WeightInfoBounds<

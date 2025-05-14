@@ -15,10 +15,11 @@
 
 use super::{
 	AccountId, AllPalletsWithSystem, Assets, Authorship, Balance, Balances, BaseDeliveryFee,
-	CollatorSelection, DepositPerByte, DepositPerItem, FeeAssetId, FellowshipAdmin, ForeignAssets, ForeignAssetsInstance,
-	GeneralAdmin, ParachainInfo, ParachainSystem, PolkadotXcm, PoolAssets, Runtime, RuntimeCall,
-	RuntimeEvent, RuntimeOrigin,RuntimeHoldReason, StakingAdmin, ToRococoXcmRouter, TransactionByteFee, Treasurer,
-	TrustBackedAssetsInstance, Uniques, WeightToFee, XcmpQueue
+	CollatorSelection, DepositPerByte, DepositPerItem, FeeAssetId, FellowshipAdmin, ForeignAssets,
+	ForeignAssetsInstance, GeneralAdmin, ParachainInfo, ParachainSystem, PolkadotXcm, PoolAssets,
+	Runtime, RuntimeCall, RuntimeEvent, RuntimeHoldReason, RuntimeOrigin, StakingAdmin,
+	ToRococoXcmRouter, TransactionByteFee, Treasurer, TrustBackedAssetsInstance, Uniques,
+	WeightToFee, XcmpQueue,
 };
 use assets_common::{
 	matching::{FromSiblingParachain, IsForeignConcreteAsset, ParentLocation},
@@ -54,9 +55,9 @@ use xcm_builder::{
 	AllowTopLevelPaidExecutionFrom, DenyRecursively, DenyReserveTransferToRelayChain, DenyThenTry,
 	DescribeAllTerminal, DescribeFamily, EnsureXcmOrigin, ExternalConsensusLocationsConverterFor,
 	FrameTransactionalProcessor, FungibleAdapter, FungiblesAdapter, HashedDescription, IsConcrete,
-	LocalMint, MatchedConvertedConcreteId, NetworkExportTableItem, NoChecking, NonFungiblesAdapter,
-	OriginToPluralityVoice, ParentAsSuperuser, ParentIsPreset, RelayChainAsNative,
-	SendXcmFeeToAccount, SiblingParachainAsNative, SiblingParachainConvertsVia,
+	LocalMint, MatchedConvertedConcreteId, MintLocation, NetworkExportTableItem, NoChecking,
+	NonFungiblesAdapter, OriginToPluralityVoice, ParentAsSuperuser, ParentIsPreset,
+	RelayChainAsNative, SendXcmFeeToAccount, SiblingParachainAsNative, SiblingParachainConvertsVia,
 	SignedAccountId32AsNative, SignedToAccountId32, SingleAssetExchangeAdapter,
 	SovereignPaidRemoteExporter, SovereignSignedViaLocation, StartsWith,
 	StartsWithExplicitGlobalConsensus, TakeWeightCredit, TrailingSetTopicAsId, UsingComponents,
@@ -87,6 +88,8 @@ parameter_types! {
 	pub TreasuryAccount: AccountId = TREASURY_PALLET_ID.into_account_truncating();
 	pub RelayTreasuryLocation: Location = (Parent, PalletInstance(westend_runtime_constants::TREASURY_PALLET_ID)).into();
 	pub const GovernanceLocation: Location = Location::parent();
+	/// The Checking Account along with the indication that the local chain is able to mint tokens.
+	pub TeleportTracking: Option<(AccountId, MintLocation)> = crate::AhMigrator::teleport_tracking();
 }
 
 /// Type for specifying how a `Location` can be converted into an `AccountId`. This is used
@@ -115,8 +118,8 @@ pub type FungibleTransactor = FungibleAdapter<
 	LocationToAccountId,
 	// Our chain's account ID type (we can't get away without mentioning it explicitly):
 	AccountId,
-	// We don't track any teleports of `Balances`.
-	(),
+	// Teleports tracking is managed by `AhMigrator`: no tracking before, track after.
+	TeleportTracking,
 >;
 
 /// `AssetId`/`Balance` converter for `TrustBackedAssets`.
@@ -330,15 +333,6 @@ pub type WaivedLocations = (
 	LocalPlurality,
 );
 
-/// Cases where a remote origin is accepted as trusted Teleporter for a given asset:
-///
-/// - WND with the parent Relay Chain and sibling system parachains; and
-/// - Sibling parachains' assets from where they originate (as `ForeignCreators`).
-pub type TrustedTeleporters = (
-	ConcreteAssetFromSystem<WestendLocation>,
-	IsForeignConcreteAsset<FromSiblingParachain<parachain_info::Pallet<Runtime>>>,
-);
-
 /// Defines origin aliasing rules for this chain.
 ///
 /// - Allow any origin to alias into a child sub-location (equivalent to DescendOrigin),
@@ -382,7 +376,7 @@ impl xcm_executor::Config for XcmConfig {
 		bridging::to_rococo::RococoAssetFromAssetHubRococo,
 		bridging::to_ethereum::EthereumAssetFromEthereum,
 	);
-	type IsTeleporter = TrustedTeleporters;
+	type IsTeleporter = crate::AhMigrator;
 	type UniversalLocation = UniversalLocation;
 	type Barrier = Barrier;
 	type Weigher = WeightInfoBounds<
