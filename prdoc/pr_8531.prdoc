@@ -2,11 +2,6 @@ title: Added `OnNewHead` to `pallet-bridge-parachains`
 doc:
 - audience: Runtime Dev
   description: |-
-    Relates to: https://github.com/paritytech/polkadot-sdk/pull/8326
-    Relates to: https://github.com/paritytech/polkadot-sdk/pull/6675
-
-    (Extracted from https://github.com/paritytech/polkadot-sdk/pull/8325)
-
     This PR introduces a new `OnNewHead` hook for `pallet-bridge-parachains`, which is triggered when a new parachain head is relayed.
 
     It will be used in conjunction with the [syncing mechanism](https://github.com/paritytech/polkadot-sdk/pull/8326), which sends relayed AssetHubRococo headers with `state_root`s to AssetHubWestend for message proof verification.
