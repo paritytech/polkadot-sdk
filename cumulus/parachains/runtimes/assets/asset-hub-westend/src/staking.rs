@@ -34,13 +34,13 @@ use westend_runtime_constants::time::EPOCH_DURATION_IN_SLOTS;
 
 parameter_types! {
 	/// Number of election pages that we operate upon. 32 * 6s block = 192s 3.2min stanpshot
-	pub storage Pages: u32 = 32;
+	pub Pages: u32 = 32;
 
 	/// Compatible with Polkadot, we allow up to 22_500 nominators to be considered for election
-	pub storage MaxElectingVoters: u32 = 22_500;
+	pub MaxElectingVoters: u32 = 22_500;
 
 	/// Maximum number of validators that we may want to elect. 1000 is the end target.
-	pub const MaxValidatorSet: u32 = 1000;
+	pub MaxValidatorSet: u32 = 1000;
 
 	/// Number of nominators per page of the snapshot, and consequently number of backers in the solution.
 	pub VoterSnapshotPerBlock: u32 = MaxElectingVoters::get() / Pages::get();
@@ -49,29 +49,29 @@ parameter_types! {
 	pub TargetSnapshotPerBlock: u32 = MaxValidatorSet::get();
 
 	// 10 mins for each pages
-	pub storage SignedPhase: u32 = prod_or_fast!(
+	pub SignedPhase: u32 = prod_or_fast!(
 		10 * MINUTES,
 		4 * MINUTES
 	);
-	pub storage UnsignedPhase: u32 = prod_or_fast!(
+	pub UnsignedPhase: u32 = prod_or_fast!(
 		10 * MINUTES,
 		(1 * MINUTES)
 	);
 
 	/// validate up to 4 signed solution. Each solution.
-	pub storage SignedValidationPhase: u32 = prod_or_fast!(Pages::get() * 4, Pages::get());
+	pub SignedValidationPhase: u32 = prod_or_fast!(Pages::get() * 4, Pages::get());
 
 	/// In each page, we may observe up to all of the validators.
-	pub storage MaxWinnersPerPage: u32 = MaxValidatorSet::get();
+	pub MaxWinnersPerPage: u32 = MaxValidatorSet::get();
 
 	/// In each page of the election, we allow up to all of the nominators of that page to be present.
-	pub storage MaxBackersPerWinner: u32 = VoterSnapshotPerBlock::get();
+	pub MaxBackersPerWinner: u32 = VoterSnapshotPerBlock::get();
 
 	/// Total number of backers per winner across all pages.
-	pub storage MaxBackersPerWinnerFinal: u32 = MaxElectingVoters::get();
+	pub MaxBackersPerWinnerFinal: u32 = MaxElectingVoters::get();
 
 	/// Size of the exposures. This should be small enough to make the reward payouts feasible.
-	pub storage MaxExposurePageSize: u32 = 64;
+	pub MaxExposurePageSize: u32 = 64;
 
 	/// Each solution is considered "better" if it is 0.01% better.
 	pub SolutionImprovementThreshold: Perbill = Perbill::from_rational(1u32, 10_000);
@@ -173,7 +173,7 @@ parameter_types! {
 	pub MinerTxPriority: TransactionPriority = TransactionPriority::max_value() / 2;
 	/// Try and run the OCW miner 4 times during the unsigned phase.
 	pub OffchainRepeat: BlockNumber = UnsignedPhase::get() / 4;
-	pub storage MinerPages: u32 = 0;
+	pub MinerPages: u32 = 1;
 }
 
 impl multi_block::unsigned::Config for Runtime {
