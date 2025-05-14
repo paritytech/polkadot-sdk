@@ -1,0 +1,9 @@
+title: Bump emulated-integration-tests-common to publish latest changes
+doc:
+- audience: Runtime Dev
+  description: |-
+    Add automatic code to open DMP channel between parachains and relay chain to the runtime emulated tests macros.
+
+crates:
+- name: emulated-integration-tests-common
+  bump: patch 
