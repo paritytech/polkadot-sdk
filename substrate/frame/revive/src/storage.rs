@@ -161,14 +161,12 @@ impl<T: Config> ContractInfo<T> {
 		take: bool,
 	) -> Result<WriteOutcome, DispatchError> {
 		let hashed_key = key.hash();
-		let result = self.write_raw(&hashed_key, new_value.as_deref(), storage_meter, take);
-
 		if_tracing(|t| {
-			if let Ok(outcome) = &result {
-				t.storage_write(key, new_value.as_deref(), outcome);
-			}
+			let old = child::get_raw(&self.child_trie_info(), hashed_key.as_slice());
+			t.storage_write(key, old, new_value.as_deref());
 		});
-		return result
+
+		self.write_raw(&hashed_key, new_value.as_deref(), storage_meter, take)
 	}
 
 	/// Update a storage entry into a contract's kv storage.

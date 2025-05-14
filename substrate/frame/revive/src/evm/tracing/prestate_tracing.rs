@@ -16,12 +16,11 @@
 // limitations under the License.
 use crate::{
 	evm::{Bytes, PrestateTrace, PrestateTraceInfo, PrestateTracerConfig},
-	storage::WriteOutcome,
 	tracing::Tracing,
 	BalanceOf, Bounded, Config, ContractInfoOf, ExecReturnValue, Key, MomentOf, Pallet,
 	PristineCode, Weight,
 };
-use alloc::collections::BTreeMap;
+use alloc::{collections::BTreeMap, vec::Vec};
 use sp_core::{H160, H256, U256};
 
 /// A tracer that traces the prestate.
@@ -32,6 +31,10 @@ pub struct PrestateTracer<T> {
 
 	/// The current address of the contract's which storage is being accessed.
 	current_addr: H160,
+
+	/// A list of addresses that will be touched during the execution (e.g origin, coinbase,
+	/// treasury).
+	addrs: Vec<H160>,
 
 	// pre / post state
 	trace: (BTreeMap<H160, PrestateTraceInfo>, BTreeMap<H160, PrestateTraceInfo>),
@@ -58,7 +61,6 @@ impl<T> PrestateTracer<T> {
 	pub fn collect_trace(&mut self) -> PrestateTrace {
 		let trace = core::mem::take(&mut self.trace);
 		let (mut pre, post) = trace;
-		// TODO collect the balance of the caller
 
 		// without any write
 
@@ -79,12 +81,29 @@ impl<T> PrestateTracer<T> {
 	}
 }
 
-impl<T: Config> PrestateTracer<T> {
+impl<T: Config> PrestateTracer<T>
+where
+	BalanceOf<T>: Into<U256> + TryFrom<U256> + Bounded,
+	MomentOf<T>: Into<U256>,
+	T::Hash: frame_support::traits::IsType<H256>,
+	T::Nonce: Into<u32>,
+{
+	/// Get the code of the contract.
 	fn bytecode(address: &H160) -> Option<Bytes> {
-		use alloc::vec::Vec;
 		let code_hash = ContractInfoOf::<T>::get(address)?.code_hash;
 		let code: Vec<u8> = PristineCode::<T>::get(&code_hash)?.into();
 		return Some(code.into())
+	}
+
+	/// Set the PrestateTraceInfo for the given address.
+	fn prestate_info(addr: &H160, balance: U256, disable_code: bool) -> PrestateTraceInfo {
+		let mut info = PrestateTraceInfo::default();
+		info.balance = Some(balance);
+		info.nonce = Some(Pallet::<T>::evm_nonce(addr));
+		if !disable_code {
+			info.code = Self::bytecode(addr);
+		}
+		info
 	}
 }
 
@@ -95,6 +114,11 @@ where
 	T::Hash: frame_support::traits::IsType<H256>,
 	T::Nonce: Into<u32>,
 {
+	fn watch_address(&mut self, addr: &H160) {
+		self.balance_read(addr, Pallet::<T>::evm_balance(addr));
+		self.addrs.push(*addr);
+	}
+
 	fn enter_child_span(
 		&mut self,
 		from: H160,
@@ -105,21 +129,16 @@ where
 		_input: &[u8],
 		_gas: Weight,
 	) {
+		let disable_code = self.config.disable_code;
 		self.trace.0.entry(from).or_insert_with_key(|addr| {
-			let mut info = PrestateTraceInfo::default();
-			info.balance = Some(Pallet::<T>::evm_balance(addr));
-			info.nonce = Some(Pallet::<T>::evm_nonce(addr));
-			info.code = Self::bytecode(addr);
-			info
+			Self::prestate_info(addr, Pallet::<T>::evm_balance(addr), disable_code)
 		});
 
-		self.trace.0.entry(to).or_insert_with_key(|addr| {
-			let mut info = PrestateTraceInfo::default();
-			info.balance = Some(Pallet::<T>::evm_balance(addr));
-			info.nonce = Some(Pallet::<T>::evm_nonce(addr));
-			info.code = Self::bytecode(addr);
-			info
-		});
+		if to != H160::zero() {
+			self.trace.0.entry(to).or_insert_with_key(|addr| {
+				Self::prestate_info(addr, Pallet::<T>::evm_balance(&addr), disable_code)
+			});
+		}
 
 		if !is_delegate_call {
 			self.current_addr = to;
@@ -141,21 +160,31 @@ where
 		let nonce = Some(Pallet::<T>::evm_nonce(addr));
 		post_info.nonce = if nonce != pre_info.nonce { nonce } else { None };
 
-		let code = Self::bytecode(addr);
-		post_info.code = if code != pre_info.code { code } else { None };
+		if !self.config.disable_code {
+			let code = Self::bytecode(addr);
+			post_info.code = if code != pre_info.code { code } else { None };
+		}
 	}
 
-	fn storage_write(&mut self, key: &Key, value: Option<&[u8]>, _outcome: &WriteOutcome) {
-		if !self.config.diff_mode {
-			return;
-		}
+	fn storage_write(&mut self, key: &Key, old_value: Option<Vec<u8>>, new_value: Option<&[u8]>) {
+		let key = Bytes::from(key.unhashed().to_vec());
 
 		self.trace
-			.1
+			.0
 			.entry(self.current_addr)
 			.or_default()
 			.storage
-			.insert(key.unhashed().to_vec().into(), value.map(|v| v.to_vec().into()));
+			.entry(key.clone())
+			.or_insert_with(|| old_value.map(Into::into));
+
+		if self.config.diff_mode {
+			self.trace
+				.1
+				.entry(self.current_addr)
+				.or_default()
+				.storage
+				.insert(key, new_value.map(|v| v.to_vec().into()));
+		}
 	}
 
 	fn storage_read(&mut self, key: &Key, value: Option<&[u8]>) {
@@ -166,5 +195,12 @@ where
 			.storage
 			.entry(key.unhashed().to_vec().into())
 			.or_insert_with(|| value.map(|v| v.to_vec().into()));
+	}
+
+	fn balance_read(&mut self, addr: &H160, value: U256) {
+		self.trace
+			.0
+			.entry(addr.clone())
+			.or_insert_with_key(|addr| Self::prestate_info(addr, value, self.config.disable_code));
 	}
 }

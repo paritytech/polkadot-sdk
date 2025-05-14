@@ -96,6 +96,12 @@ impl RuntimeApi {
 		Ok(*gas_limit)
 	}
 
+	pub async fn coinbase(&self) -> Result<Option<H160>, ClientError> {
+		let payload = subxt_client::apis().revive_api().coinbase();
+		let coinbase = self.0.call(payload).await?;
+		Ok(coinbase)
+	}
+
 	/// Get the trace for the given transaction index in the given block.
 	pub async fn trace_tx(
 		&self,

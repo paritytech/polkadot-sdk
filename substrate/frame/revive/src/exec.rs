@@ -767,7 +767,6 @@ where
 		)? {
 			stack.run(executable, input_data).map(|_| stack.first_frame.last_frame_output)
 		} else {
-			let result = Self::transfer_from_origin(&origin, &origin, &dest, value);
 			if_tracing(|t| {
 				t.enter_child_span(
 					origin.account_id().map(T::AddressMapper::to_address).unwrap_or_default(),
@@ -778,10 +777,13 @@ where
 					&input_data,
 					Weight::zero(),
 				);
-				match result {
-					Ok(ref output) => t.exit_child_span(&output, Weight::zero()),
-					Err(e) => t.exit_child_span_with_error(e.error.into(), Weight::zero()),
-				}
+			});
+
+			let result = Self::transfer_from_origin(&origin, &origin, &dest, value);
+
+			if_tracing(|t| match result {
+				Ok(ref output) => t.exit_child_span(&output, Weight::zero()),
+				Err(e) => t.exit_child_span_with_error(e.error.into(), Weight::zero()),
 			});
 
 			result
@@ -1738,6 +1740,18 @@ where
 			)? {
 				self.run(executable, input_data)
 			} else {
+				if_tracing(|t| {
+					t.enter_child_span(
+						T::AddressMapper::to_address(self.account_id()),
+						T::AddressMapper::to_address(&dest),
+						false,
+						is_read_only,
+						value,
+						&input_data,
+						Weight::zero(),
+					);
+				});
+
 				let result = if is_read_only && value.is_zero() {
 					Ok(Default::default())
 				} else if is_read_only {
@@ -1751,21 +1765,11 @@ where
 					)
 				};
 
-				if_tracing(|t| {
-					t.enter_child_span(
-						T::AddressMapper::to_address(self.account_id()),
-						T::AddressMapper::to_address(&dest),
-						false,
-						is_read_only,
-						value,
-						&input_data,
-						Weight::zero(),
-					);
-					match result {
-						Ok(ref output) => t.exit_child_span(&output, Weight::zero()),
-						Err(e) => t.exit_child_span_with_error(e.error.into(), Weight::zero()),
-					}
+				if_tracing(|t| match result {
+					Ok(ref output) => t.exit_child_span(&output, Weight::zero()),
+					Err(e) => t.exit_child_span_with_error(e.error.into(), Weight::zero()),
 				});
+
 				result.map(|_| ())
 			}
 		};

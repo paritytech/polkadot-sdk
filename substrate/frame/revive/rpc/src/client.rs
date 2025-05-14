@@ -681,6 +681,7 @@ impl Client {
 
 		Block {
 			hash: block.hash(),
+			miner: runtime_api.coinbase().await.ok().flatten().unwrap_or_default(),
 			parent_hash,
 			state_root,
 			transactions_root: extrinsics_root,

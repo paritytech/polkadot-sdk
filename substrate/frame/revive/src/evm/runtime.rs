@@ -300,12 +300,12 @@ pub trait EthExtra {
 			InvalidTransaction::Call
 		})?;
 
-		let signer = tx.recover_eth_address().map_err(|err| {
+		let signer_addr = tx.recover_eth_address().map_err(|err| {
 			log::debug!(target: LOG_TARGET, "Failed to recover signer: {err:?}");
 			InvalidTransaction::BadProof
 		})?;
 
-		let signer = <Self::Config as Config>::AddressMapper::to_fallback_account_id(&signer);
+		let signer = <Self::Config as Config>::AddressMapper::to_fallback_account_id(&signer_addr);
 		let GenericTransaction { nonce, chain_id, to, value, input, gas, gas_price, .. } =
 			GenericTransaction::from_signed(tx, crate::GAS_PRICE.into(), None);
 
@@ -396,6 +396,10 @@ pub trait EthExtra {
 			Pallet::<Self::Config>::evm_gas_to_fee(gas, gas_price.saturating_sub(GAS_PRICE.into()))
 				.unwrap_or_default()
 				.min(actual_fee);
+
+		crate::tracing::if_tracing(|tracer| {
+			tracer.watch_address(&signer_addr);
+		});
 
 		log::debug!(target: LOG_TARGET, "Created checked Ethereum transaction with nonce: {nonce:?} and tip: {tip:?}");
 		Ok(CheckedExtrinsic {
