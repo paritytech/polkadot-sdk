@@ -34,11 +34,12 @@ impl<T: Config> Pallet<T> {
 		});
 
 		for message in messages {
-			let translated = T::RcStakingMessage::intoAh(message);
+			/*let translated = T::RcStakingMessage::intoAh(message);
 			match Self::do_receive_staking_message(translated) {
 				Ok(_) => good += 1,
 				Err(_) => bad += 1,
-			}
+			}*/
+			todo!()
 		}
 
 		Self::deposit_event(Event::BatchProcessed {
@@ -130,7 +131,8 @@ impl<T: Config> Pallet<T> {
 			UnappliedSlashes { era, slash } => {
 				log::debug!(target: LOG_TARGET, "Integrating UnappliedSlashes of era {:?}", era);
 				let slash_key = (slash.validator.clone(), Perbill::from_percent(99), 9999);
-				pallet_staking_async::UnappliedSlashes::<T>::insert(era, slash_key, slash);
+				//pallet_staking_async::UnappliedSlashes::<T>::insert(era, slash_key, slash); FIXME
+				todo!()
 			},
 			BondedEras(bonded_eras) => {
 				log::warn!(target: LOG_TARGET, "Integrating BondedEras");

@@ -326,7 +326,7 @@ pub mod pallet {
 		/// We need to inject this here to be able to convert it. The message type is require to
 		/// also be able to convert messages from Relay to Asset Hub format.
 		#[cfg(feature = "ahm-staking-migration")]
-		type RcStakingMessage: Parameter + IntoAh<Self::RcStakingMessage, AhEquivalentStakingMessageOf<Self>>;
+		type RcStakingMessage: Parameter;
 	}
 
 	/// RC accounts that failed to migrate when were received on the Asset Hub.

@@ -1316,7 +1316,7 @@ impl pallet_ah_migrator::Config for Runtime {
 	type AhIntraMigrationCalls = ah_migration::CallsEnabledDuringMigration;
 	type AhPostMigrationCalls = ah_migration::CallsEnabledAfterMigration;
 	type RcStakingMessage =
-		pallet_rc_migrator::staking::message::RcStakingMessageOf<westend_runtime::Runtime>;
+		pallet_rc_migrator::staking::message::AhEquivalentStakingMessageOf<Runtime>;
 }
 
 impl pallet_sudo::Config for Runtime {

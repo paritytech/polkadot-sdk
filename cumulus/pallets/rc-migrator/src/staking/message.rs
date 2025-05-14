@@ -164,10 +164,17 @@ pub type AhEquivalentStakingMessageOf<T> = RcStakingMessage<
 	<T as pallet_staking_async::Config>::CurrencyBalance,
 	pallet_staking_async::StakingLedger<T>,
 	pallet_staking_async::Nominations<T>,
-	pallet_staking_async::EraRewardPointsOf<T>,
+	pallet_staking_async::EraRewardPoints<
+		<T as frame_system::Config>::AccountId,
+		<T as pallet_staking_async::Config>::MaxValidatorSet,
+	>,
 	pallet_staking_async::RewardDestination<<T as frame_system::Config>::AccountId>,
 	pallet_staking_async::ValidatorPrefs,
-	pallet_staking_async::UnappliedSlashOf<T>,
+	pallet_staking_async::UnappliedSlash<
+		<T as frame_system::Config>::AccountId,
+		<T as pallet_staking_async::Config>::CurrencyBalance,
+		<T as pallet_staking_async::Config>::MaxValidatorSet,
+	>,
 >;
 
 #[derive(Encode, Decode, DecodeWithMemTracking, TypeInfo, RuntimeDebug, Clone, PartialEq, Eq)]
