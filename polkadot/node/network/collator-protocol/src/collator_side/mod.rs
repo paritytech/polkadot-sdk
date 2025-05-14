@@ -884,8 +884,11 @@ async fn handle_incoming_peer_message<Context>(
 			);
 
 			// If we are declared to, this is another collator, and we should disconnect.
-			ctx.send_message(NetworkBridgeTxMessage::DisconnectPeer(origin, PeerSet::Collation))
-				.await;
+			ctx.send_message(NetworkBridgeTxMessage::DisconnectPeers(
+				vec![origin],
+				PeerSet::Collation,
+			))
+			.await;
 		},
 		CollationProtocols::V1(V1::AdvertiseCollation(_)) |
 		CollationProtocols::V2(V2::AdvertiseCollation { .. }) => {
@@ -899,8 +902,11 @@ async fn handle_incoming_peer_message<Context>(
 				.await;
 
 			// If we are advertised to, this is another collator, and we should disconnect.
-			ctx.send_message(NetworkBridgeTxMessage::DisconnectPeer(origin, PeerSet::Collation))
-				.await;
+			ctx.send_message(NetworkBridgeTxMessage::DisconnectPeers(
+				vec![origin],
+				PeerSet::Collation,
+			))
+			.await;
 		},
 		CollationProtocols::V1(V1::CollationSeconded(relay_parent, statement)) => {
 			// Impossible, we no longer accept connections on v1.
@@ -1174,8 +1180,8 @@ async fn handle_network_msg<Context>(
 				);
 
 				// V1 no longer supported, we should disconnect.
-				ctx.send_message(NetworkBridgeTxMessage::DisconnectPeer(
-					peer_id,
+				ctx.send_message(NetworkBridgeTxMessage::DisconnectPeers(
+					vec![peer_id],
 					PeerSet::Collation,
 				))
 				.await;
