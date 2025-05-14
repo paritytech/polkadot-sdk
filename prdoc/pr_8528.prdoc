@@ -9,12 +9,12 @@ doc:
     The minimal fee factor should always be 1
 crates:
 - name: pallet-xcm-bridge-hub-router
-  bump: patch
+  bump: major
 - name: cumulus-pallet-parachain-system
-  bump: patch
+  bump: major
 - name: cumulus-pallet-xcmp-queue
-  bump: patch
+  bump: major
 - name: polkadot-runtime-common
   bump: patch
 - name: polkadot-runtime-parachains
-  bump: patch
+  bump: major
