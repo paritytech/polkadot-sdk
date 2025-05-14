@@ -16,7 +16,7 @@
 
 //! Implementation of `ProcessMessage` for an `ExecuteXcm` implementation.
 
-use codec::{Decode, FullCodec, MaxEncodedLen};
+use codec::{Decode, DecodeLimit, FullCodec, MaxEncodedLen};
 use core::{fmt::Debug, marker::PhantomData};
 use frame_support::{
 	dispatch::GetDispatchInfo,
@@ -24,7 +24,7 @@ use frame_support::{
 };
 use scale_info::TypeInfo;
 use sp_weights::{Weight, WeightMeter};
-use xcm::prelude::*;
+use xcm::{prelude::*, MAX_XCM_DECODE_DEPTH};
 
 const LOG_TARGET: &str = "xcm::process-message";
 
@@ -47,7 +47,11 @@ impl<
 		meter: &mut WeightMeter,
 		id: &mut XcmHash,
 	) -> Result<bool, ProcessMessageError> {
-		let versioned_message = VersionedXcm::<Call>::decode(&mut &message[..]).map_err(|e| {
+		let versioned_message = VersionedXcm::<Call>::decode_all_with_depth_limit(
+			MAX_XCM_DECODE_DEPTH,
+			&mut &message[..],
+		)
+		.map_err(|e| {
 			tracing::trace!(
 				target: LOG_TARGET,
 				?e,
@@ -147,9 +151,11 @@ mod tests {
 	#[test]
 	fn process_message_trivial_fails() {
 		// Trap makes it fail.
-		assert!(!process(v3_xcm(false)).unwrap());
-		assert!(!process(v4_xcm(false)).unwrap());
-		assert!(!process(v5_xcm(false)).unwrap());
+		sp_io::TestExternalities::default().execute_with(|| {
+			assert!(!process(v3_xcm(false)).unwrap());
+			assert!(!process(v4_xcm(false)).unwrap());
+			assert!(!process(v5_xcm(false)).unwrap());
+		});
 	}
 
 	#[test]
@@ -201,26 +207,28 @@ mod tests {
 
 	#[test]
 	fn process_message_overweight_fails() {
-		for msg in [v4_xcm(true), v4_xcm(false), v4_xcm(false), v3_xcm(false)] {
-			let msg = &msg.encode()[..];
+		sp_io::TestExternalities::default().execute_with(|| {
+			for msg in [v4_xcm(true), v4_xcm(false), v4_xcm(false), v3_xcm(false)] {
+				let msg = &msg.encode()[..];
 
-			// Errors if we stay below a weight limit of 1000.
-			for i in 0..10 {
-				let meter = &mut WeightMeter::with_limit((i * 10).into());
+				// Errors if we stay below a weight limit of 1000.
+				for i in 0..10 {
+					let meter = &mut WeightMeter::with_limit((i * 10).into());
+					let mut id = [0; 32];
+					assert_err!(
+						Processor::process_message(msg, ORIGIN, meter, &mut id),
+						Overweight(1000.into())
+					);
+					assert_eq!(meter.consumed(), 0.into());
+				}
+
+				// Works with a limit of 1000.
+				let meter = &mut WeightMeter::with_limit(1000.into());
 				let mut id = [0; 32];
-				assert_err!(
-					Processor::process_message(msg, ORIGIN, meter, &mut id),
-					Overweight(1000.into())
-				);
-				assert_eq!(meter.consumed(), 0.into());
+				assert_ok!(Processor::process_message(msg, ORIGIN, meter, &mut id));
+				assert_eq!(meter.consumed(), 1000.into());
 			}
-
-			// Works with a limit of 1000.
-			let meter = &mut WeightMeter::with_limit(1000.into());
-			let mut id = [0; 32];
-			assert_ok!(Processor::process_message(msg, ORIGIN, meter, &mut id));
-			assert_eq!(meter.consumed(), 1000.into());
-		}
+		});
 	}
 
 	fn v3_xcm(success: bool) -> VersionedXcm<RuntimeCall> {

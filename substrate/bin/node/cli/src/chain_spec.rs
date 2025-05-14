@@ -22,10 +22,11 @@ use polkadot_sdk::*;
 
 use crate::chain_spec::sc_service::Properties;
 use kitchensink_runtime::{
-	genesis_config_presets::{session_keys, Staker, StakingPlaygroundConfig, STASH},
+	genesis_config_presets::{Staker, ENDOWMENT, STASH},
 	wasm_binary_unwrap, Block, MaxNominations, StakerStatus,
 };
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
+use pallet_revive::is_eth_derived;
 use sc_chain_spec::ChainSpecExtension;
 use sc_service::ChainType;
 use sc_telemetry::TelemetryEndpoints;
@@ -209,10 +210,10 @@ fn configure_accounts_for_staging_testnet() -> (
 	(initial_authorities, root_key, endowed_accounts)
 }
 
-fn staging_testnet_config_genesis() -> serde_json::Value {
+fn staging_testnet_genesis_patch() -> serde_json::Value {
 	let (initial_authorities, root_key, endowed_accounts) =
 		configure_accounts_for_staging_testnet();
-	testnet_genesis(initial_authorities, vec![], root_key, endowed_accounts)
+	testnet_genesis_patch(initial_authorities, vec![], root_key, endowed_accounts)
 }
 
 /// Staging testnet config.
@@ -221,7 +222,8 @@ pub fn staging_testnet_config() -> ChainSpec {
 		.with_name("Staging Testnet")
 		.with_id("staging_testnet")
 		.with_chain_type(ChainType::Live)
-		.with_genesis_config_patch(staging_testnet_config_genesis())
+		.with_genesis_config_preset_name(sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET)
+		.with_genesis_config_patch(staging_testnet_genesis_patch())
 		.with_telemetry_endpoints(
 			TelemetryEndpoints::new(vec![(STAGING_TELEMETRY_URL.to_string(), 0)])
 				.expect("Staging telemetry url is valid; qed"),
@@ -296,7 +298,7 @@ fn configure_accounts(
 }
 
 /// Helper function to create RuntimeGenesisConfig json patch for testing.
-pub fn testnet_genesis(
+pub fn testnet_genesis_patch(
 	initial_authorities: Vec<(
 		AccountId,
 		AccountId,
@@ -314,56 +316,87 @@ pub fn testnet_genesis(
 	let (initial_authorities, endowed_accounts, stakers) =
 		configure_accounts(initial_authorities, initial_nominators, endowed_accounts, STASH);
 
-	let staking_playground_config = if cfg!(feature = "staking-playground") {
-		Some(get_staking_playground_config())
-	} else {
-		None
-	};
+	let validator_count = initial_authorities.len();
+	let minimum_validator_count = validator_count;
 
-	// Todo: After #7748 is done, we can refactor this to avoid
-	// calling into the native runtime.
-	kitchensink_runtime::genesis_config_presets::kitchensink_genesis(
-		initial_authorities
+	let collective = collective(&endowed_accounts);
+
+	serde_json::json!({
+		"balances": {
+			"balances": endowed_accounts.iter().cloned().map(|x| (x, ENDOWMENT)).collect::<Vec<_>>()
+		},
+		"session": {
+			"keys": initial_authorities
 			.iter()
 			.map(|x| {
 				(
 					x.0.clone(),
 					// stash account is controller
 					x.0.clone(),
-					session_keys(
+					session_keys_json(
 						x.2.clone(),
 						x.3.clone(),
 						x.4.clone(),
 						x.5.clone(),
 						x.6.clone(),
 						x.7.clone(),
-					),
+					)
 				)
 			})
-			.collect(),
-		root_key,
-		endowed_accounts,
-		stakers,
-		staking_playground_config,
-	)
+			.collect::<Vec<_>>()
+		},
+		"elections": {
+			"members": collective.iter().cloned().map(|member| (member, STASH)).collect::<Vec<_>>(),
+		},
+		"technicalCommittee": {
+			"members": collective,
+		},
+		"staking": {
+			"validatorCount": validator_count,
+			"minimumValidatorCount": minimum_validator_count,
+			"invulnerables": initial_authorities
+				.iter()
+				.map(|x| x.0.clone())
+				.collect::<Vec<_>>(),
+			"stakers": stakers,
+		},
+		"sudo": {
+			"key": root_key,
+		},
+		"revive": {
+			"mappedAccounts": endowed_accounts.iter().filter(|x| ! is_eth_derived(x)).cloned().collect::<Vec<_>>()
+		}
+	})
 }
 
-fn get_staking_playground_config() -> StakingPlaygroundConfig {
-	let random_validators =
-		std::option_env!("VALIDATORS").map(|s| s.parse::<u32>().unwrap()).unwrap_or(100);
-	let random_nominators = std::option_env!("NOMINATORS")
-		.map(|s| s.parse::<u32>().unwrap())
-		.unwrap_or(3000);
+/// Creates the session keys as defined by the runtime.
+fn session_keys_json(
+	grandpa: GrandpaId,
+	babe: BabeId,
+	im_online: ImOnlineId,
+	authority_discovery: AuthorityDiscoveryId,
+	mixnet: MixnetId,
+	beefy: BeefyId,
+) -> serde_json::Value {
+	serde_json::json!({
+		"authority_discovery": authority_discovery,
+		"babe": babe,
+		"beefy": beefy,
+		"grandpa": grandpa,
+		"im_online": im_online,
+		"mixnet": mixnet
+	})
+}
 
-	let validator_count = std::option_env!("VALIDATOR_COUNT")
-		.map(|v| v.parse::<u32>().unwrap())
-		.unwrap_or(100);
-
-	StakingPlaygroundConfig {
-		dev_stakers: (random_validators, random_nominators),
-		validator_count,
-		minimum_validator_count: 10,
-	}
+/// Extract some accounts from endowed to be put into the collective.
+fn collective(endowed: &[AccountId]) -> Vec<AccountId> {
+	const MAX_COLLECTIVE_SIZE: usize = 50;
+	let endowed_accounts_count = endowed.len();
+	endowed
+		.iter()
+		.take((endowed_accounts_count.div_ceil(2)).min(MAX_COLLECTIVE_SIZE))
+		.cloned()
+		.collect()
 }
 
 fn props() -> Properties {

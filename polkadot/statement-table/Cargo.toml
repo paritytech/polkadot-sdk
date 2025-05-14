@@ -15,4 +15,3 @@ workspace = true
 codec = { features = ["derive"], workspace = true }
 gum = { workspace = true, default-features = true }
 polkadot-primitives = { workspace = true, default-features = true }
-sp-core = { workspace = true, default-features = true }

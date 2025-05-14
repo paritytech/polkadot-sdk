@@ -22,6 +22,7 @@ targets = ["wasm32-unknown-unknown", "x86_64-unknown-linux-gnu"]
 
 [dependencies]
 codec = { features = ["derive"], workspace = true }
+regex = { workspace = true, optional = true }
 tracing = { workspace = true }
 tracing-core = { workspace = true }
 tracing-subscriber = { workspace = true, optional = true, features = [
@@ -40,4 +41,4 @@ std = [
 	"tracing/std",
 	"with-tracing",
 ]
-test-utils = ["std"]
+test-utils = ["regex", "regex/std", "std"]

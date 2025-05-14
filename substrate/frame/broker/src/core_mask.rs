@@ -89,7 +89,7 @@ impl From<u128> for CoreMask {
 }
 impl From<CoreMask> for u128 {
 	fn from(x: CoreMask) -> Self {
-		x.0.into_iter().fold(0u128, |a, i| a << 8 | i as u128)
+		x.0.into_iter().fold(0u128, |a, i| (a << 8) | i as u128)
 	}
 }
 impl BitAnd<Self> for CoreMask {

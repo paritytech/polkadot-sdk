@@ -1,0 +1,73 @@
+title: AHM Multi-block staking election pallet
+doc:
+- audience: Runtime Dev
+  description: |
+    NOTE: This is reverted in #7939.
+    ## Multi Block Election Pallet
+
+    This PR adds the first iteration of the multi-block staking pallet.
+
+    From this point onwards, the staking and its election provider pallets are being customized to work in AssetHub. While usage in solo-chains is still possible, it is not longer the main focus of this pallet. For a safer usage, please fork and user an older version of this pallet.
+crates:
+- name: pallet-election-provider-multi-block
+  bump: major
+- name: frame-election-provider-support
+  bump: major
+- name: frame-election-provider-solution-type
+  bump: major
+- name: sp-npos-elections
+  bump: major
+- name: sp-staking
+  bump: major
+- name: pallet-staking
+  bump: major
+- name: pallet-election-provider-multi-phase
+  bump: major
+- name: westend-runtime
+  bump: major
+- name: pallet-delegated-staking
+  bump: major
+- name: pallet-fast-unstake
+  bump: major
+- name: pallet-session-benchmarking
+  bump: major
+- name: sc-consensus-grandpa
+  bump: major
+- name: pallet-babe
+  bump: major
+- name: pallet-beefy
+  bump: major
+- name: pallet-grandpa
+  bump: major
+- name: pallet-nomination-pools
+  bump: major
+- name: pallet-root-offences
+  bump: major
+- name: pallet-nomination-pools-benchmarking
+  bump: major
+- name: pallet-offences-benchmarking
+  bump: major
+- name: cumulus-pov-validator
+  bump: major
+- name: polkadot-sdk
+  bump: major
+- name: asset-hub-rococo-runtime
+  bump: major
+- name: pallet-bags-list
+  bump: major
+- name: frame-benchmarking
+  bump: major
+- name: frame-support-procedural
+  bump: major
+- name: frame-support
+  bump: major
+- name: frame-benchmarking-cli
+  bump: major
+- name: polkadot-runtime-common
+  bump: major
+- name: pallet-elections-phragmen
+  bump: major
+- name: pallet-election-provider-support-benchmarking
+  bump: major
+- name: pallet-session
+  bump: major

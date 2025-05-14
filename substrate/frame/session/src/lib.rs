@@ -138,12 +138,15 @@ use frame_support::{
 use frame_system::pallet_prelude::BlockNumberFor;
 use sp_runtime::{
 	traits::{AtLeast32BitUnsigned, Convert, Member, One, OpaqueKeys, Zero},
-	ConsensusEngineId, DispatchError, KeyTypeId, Perbill, Permill, RuntimeAppPublic,
+	ConsensusEngineId, DispatchError, KeyTypeId, Permill, RuntimeAppPublic,
 };
 use sp_staking::{offence::OffenceSeverity, SessionIndex};
 
 pub use pallet::*;
 pub use weights::WeightInfo;
+
+#[cfg(any(feature = "try-runtime"))]
+use sp_runtime::TryRuntimeError;
 
 pub(crate) const LOG_TARGET: &str = "runtime::session";
 
@@ -400,6 +403,7 @@ pub mod pallet {
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
 		/// The overarching event type.
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		/// A stable ID for a validator.
@@ -554,6 +558,9 @@ pub mod pallet {
 		/// New session has happened. Note that the argument is the session index, not the
 		/// block number as the type might suggest.
 		NewSession { session_index: SessionIndex },
+		/// The `NewSession` event in the current block also implies a new validator set to be
+		/// queued.
+		NewQueued,
 		/// Validator has been disabled.
 		ValidatorDisabled { validator: T::ValidatorId },
 		/// Validator has been re-enabled.
@@ -589,6 +596,11 @@ pub mod pallet {
 				// cache.
 				Weight::zero()
 			}
+		}
+
+		#[cfg(feature = "try-runtime")]
+		fn try_state(_n: BlockNumberFor<T>) -> Result<(), TryRuntimeError> {
+			Self::do_try_state()
 		}
 	}
 
@@ -675,20 +687,21 @@ impl<T: Config> Pallet<T> {
 		Validators::<T>::put(&validators);
 
 		if changed {
+			log!(trace, "resetting disabled validators");
 			// reset disabled validators if active set was changed
-			DisabledValidators::<T>::take();
+			DisabledValidators::<T>::kill();
 		}
 
 		// Increment session index.
 		let session_index = session_index + 1;
 		CurrentIndex::<T>::put(session_index);
 		T::SessionManager::start_session(session_index);
-		log::trace!(target: "runtime::session", "starting_session {:?}", session_index);
+		log!(trace, "starting_session {:?}", session_index);
 
 		// Get next validator set.
 		let maybe_next_validators = T::SessionManager::new_session(session_index + 1);
-		log::trace!(
-			target: "runtime::session",
+		log!(
+			trace,
 			"planning_session {:?} with {:?} validators",
 			session_index + 1,
 			maybe_next_validators.as_ref().map(|v| v.len())
@@ -698,6 +711,7 @@ impl<T: Config> Pallet<T> {
 				// NOTE: as per the documentation on `OnSessionEnding`, we consider
 				// the validator set as having changed even if the validators are the
 				// same as before, as underlying economic conditions may have changed.
+				Self::deposit_event(Event::<T>::NewQueued);
 				(validators, true)
 			} else {
 				(Validators::<T>::get(), false)
@@ -723,14 +737,19 @@ impl<T: Config> Pallet<T> {
 					}
 				}
 			};
-			let queued_amalgamated = next_validators
-				.into_iter()
-				.filter_map(|a| {
-					let k = Self::load_keys(&a)?;
-					check_next_changed(&k);
-					Some((a, k))
-				})
-				.collect::<Vec<_>>();
+			let queued_amalgamated =
+				next_validators
+					.into_iter()
+					.filter_map(|a| {
+						let k =
+							Self::load_keys(&a).or_else(|| {
+								log!(warn, "failed to load session key for {:?}, skipping for next session, maybe you need to set session keys for them?", a);
+								None
+							})?;
+						check_next_changed(&k);
+						Some((a, k))
+					})
+					.collect::<Vec<_>>();
 
 			(queued_amalgamated, changed)
 		};
@@ -743,38 +762,6 @@ impl<T: Config> Pallet<T> {
 
 		// Tell everyone about the new session keys.
 		T::SessionHandler::on_new_session::<T::Keys>(changed, &session_keys, &queued_amalgamated);
-	}
-
-	/// Disable the validator of index `i`, returns `false` if the validator was already disabled.
-	///
-	/// Note: This sets the OffenceSeverity to the lowest value.
-	pub fn disable_index(i: u32) -> bool {
-		if i >= Validators::<T>::decode_len().defensive_unwrap_or(0) as u32 {
-			return false
-		}
-
-		DisabledValidators::<T>::mutate(|disabled| {
-			if let Err(index) = disabled.binary_search_by_key(&i, |(index, _)| *index) {
-				disabled.insert(index, (i, OffenceSeverity(Perbill::zero())));
-				T::SessionHandler::on_disabled(i);
-				return true
-			}
-
-			false
-		})
-	}
-
-	/// Disable the validator identified by `c`. (If using with the staking pallet,
-	/// this would be their *stash* account.)
-	///
-	/// Returns `false` either if the validator could not be found or it was already
-	/// disabled.
-	pub fn disable(c: &T::ValidatorId) -> bool {
-		Validators::<T>::get()
-			.iter()
-			.position(|i| i == c)
-			.map(|i| Self::disable_index(i as u32))
-			.unwrap_or(false)
 	}
 
 	/// Upgrade the key type from some old type to a new type. Supports adding
@@ -903,7 +890,7 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
-	fn load_keys(v: &T::ValidatorId) -> Option<T::Keys> {
+	pub fn load_keys(v: &T::ValidatorId) -> Option<T::Keys> {
 		NextKeys::<T>::get(v)
 	}
 
@@ -928,45 +915,111 @@ impl<T: Config> Pallet<T> {
 		KeyOwner::<T>::remove((id, key_data));
 	}
 
-	pub fn report_offence(validator: T::ValidatorId, severity: OffenceSeverity) {
+	/// Disable the validator of index `i` with a specified severity,
+	/// returns `false` if the validator is not found.
+	///
+	/// Note: If validator is already disabled, the severity will
+	/// be updated if the new one is higher.
+	pub fn disable_index_with_severity(i: u32, severity: OffenceSeverity) -> bool {
+		if i >= Validators::<T>::decode_len().defensive_unwrap_or(0) as u32 {
+			return false;
+		}
+
 		DisabledValidators::<T>::mutate(|disabled| {
-			let decision = T::DisablingStrategy::decision(&validator, severity, &disabled);
-
-			if let Some(offender_idx) = decision.disable {
-				// Check if the offender is already disabled
-				match disabled.binary_search_by_key(&offender_idx, |(index, _)| *index) {
-					// Offender is already disabled, update severity if the new one is higher
-					Ok(index) => {
-						let (_, old_severity) = &mut disabled[index];
-						if severity > *old_severity {
-							*old_severity = severity;
-						}
-					},
-					Err(index) => {
-						// Offender is not disabled, add to `DisabledValidators` and disable it
-						disabled.insert(index, (offender_idx, severity));
-						// let the session handlers know that a validator got disabled
-						T::SessionHandler::on_disabled(offender_idx);
-
-						// Emit event that a validator got disabled
-						Self::deposit_event(Event::ValidatorDisabled {
-							validator: validator.clone(),
-						});
-					},
-				}
+			match disabled.binary_search_by_key(&i, |(index, _)| *index) {
+				// Validator is already disabled, update severity if the new one is higher
+				Ok(index) => {
+					let current_severity = &mut disabled[index].1;
+					if severity > *current_severity {
+						log!(
+							trace,
+							"updating disablement severity of validator {:?} from {:?} to {:?}",
+							i,
+							*current_severity,
+							severity
+						);
+						*current_severity = severity;
+					}
+					true
+				},
+				// Validator is not disabled, add to `DisabledValidators` and disable it
+				Err(index) => {
+					log!(trace, "disabling validator {:?}", i);
+					Self::deposit_event(Event::ValidatorDisabled {
+						validator: Validators::<T>::get()[i as usize].clone(),
+					});
+					disabled.insert(index, (i, severity));
+					T::SessionHandler::on_disabled(i);
+					true
+				},
 			}
+		})
+	}
 
-			if let Some(reenable_idx) = decision.reenable {
-				// Remove the validator from `DisabledValidators` and re-enable it.
-				if let Ok(index) = disabled.binary_search_by_key(&reenable_idx, |(index, _)| *index)
-				{
-					disabled.remove(index);
-					// Emit event that a validator got re-enabled
-					let reenabled_stash = Validators::<T>::get()[reenable_idx as usize].clone();
-					Self::deposit_event(Event::ValidatorReenabled { validator: reenabled_stash });
-				}
+	/// Disable the validator of index `i` with a default severity (defaults to most severe),
+	/// returns `false` if the validator is not found.
+	pub fn disable_index(i: u32) -> bool {
+		let default_severity = OffenceSeverity::default();
+		Self::disable_index_with_severity(i, default_severity)
+	}
+
+	/// Re-enable the validator of index `i`, returns `false` if the validator was not disabled.
+	pub fn reenable_index(i: u32) -> bool {
+		if i >= Validators::<T>::decode_len().defensive_unwrap_or(0) as u32 {
+			return false;
+		}
+
+		DisabledValidators::<T>::mutate(|disabled| {
+			if let Ok(index) = disabled.binary_search_by_key(&i, |(index, _)| *index) {
+				log!(trace, "reenabling validator {:?}", i);
+				Self::deposit_event(Event::ValidatorReenabled {
+					validator: Validators::<T>::get()[i as usize].clone(),
+				});
+				disabled.remove(index);
+				return true;
 			}
-		});
+			false
+		})
+	}
+
+	/// Convert a validator ID to an index.
+	/// (If using with the staking pallet, this would be their *stash* account.)
+	pub fn validator_id_to_index(id: &T::ValidatorId) -> Option<u32> {
+		Validators::<T>::get().iter().position(|i| i == id).map(|i| i as u32)
+	}
+
+	/// Report an offence for the given validator and let disabling strategy decide
+	/// what changes to disabled validators should be made.
+	pub fn report_offence(validator: T::ValidatorId, severity: OffenceSeverity) {
+		let decision =
+			T::DisablingStrategy::decision(&validator, severity, &DisabledValidators::<T>::get());
+		log!(
+			debug,
+			"reporting offence for {:?} with {:?}, decision: {:?}",
+			validator,
+			severity,
+			decision
+		);
+
+		// Disable
+		if let Some(offender_idx) = decision.disable {
+			Self::disable_index_with_severity(offender_idx, severity);
+		}
+
+		// Re-enable
+		if let Some(reenable_idx) = decision.reenable {
+			Self::reenable_index(reenable_idx);
+		}
+	}
+
+	#[cfg(any(test, feature = "try-runtime"))]
+	pub fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
+		// Ensure that the validators are sorted
+		ensure!(
+			DisabledValidators::<T>::get().windows(2).all(|pair| pair[0].0 <= pair[1].0),
+			"DisabledValidators is not sorted"
+		);
+		Ok(())
 	}
 }
 

@@ -409,8 +409,8 @@ pub enum NetworkBridgeTxMessage {
 	/// Report a peer for their actions.
 	ReportPeer(ReportPeerMessage),
 
-	/// Disconnect a peer from the given peer-set without affecting their reputation.
-	DisconnectPeer(PeerId, PeerSet),
+	/// Disconnect peers from the given peer-set without affecting their reputation.
+	DisconnectPeers(Vec<PeerId>, PeerSet),
 
 	/// Send a message to one or more peers on the validation peer-set.
 	SendValidationMessage(Vec<PeerId>, net_protocol::VersionedValidationProtocol),
@@ -778,6 +778,9 @@ pub enum RuntimeApiRequest {
 	/// Get the lookahead from the scheduler params.
 	/// `V12`
 	SchedulingLookahead(SessionIndex, RuntimeApiSender<u32>),
+	/// Get the maximum uncompressed code size.
+	/// `V12`
+	ValidationCodeBombLimit(SessionIndex, RuntimeApiSender<u32>),
 }
 
 impl RuntimeApiRequest {
@@ -819,11 +822,14 @@ impl RuntimeApiRequest {
 	/// `candidates_pending_availability`
 	pub const CANDIDATES_PENDING_AVAILABILITY_RUNTIME_REQUIREMENT: u32 = 11;
 
+	/// `ValidationCodeBombLimit`
+	pub const VALIDATION_CODE_BOMB_LIMIT_RUNTIME_REQUIREMENT: u32 = 12;
+
 	/// `backing_constraints`
-	pub const CONSTRAINTS_RUNTIME_REQUIREMENT: u32 = 12;
+	pub const CONSTRAINTS_RUNTIME_REQUIREMENT: u32 = 13;
 
 	/// `SchedulingLookahead`
-	pub const SCHEDULING_LOOKAHEAD_RUNTIME_REQUIREMENT: u32 = 12;
+	pub const SCHEDULING_LOOKAHEAD_RUNTIME_REQUIREMENT: u32 = 13;
 }
 
 /// A message to the Runtime API subsystem.

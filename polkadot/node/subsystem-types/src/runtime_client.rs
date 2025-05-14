@@ -353,6 +353,10 @@ pub trait RuntimeApiSubsystemClient {
 	// === v12 ===
 	/// Fetch the scheduling lookahead value
 	async fn scheduling_lookahead(&self, at: Hash) -> Result<u32, ApiError>;
+
+	// === v12 ===
+	/// Fetch the maximum uncompressed code size.
+	async fn validation_code_bomb_limit(&self, at: Hash) -> Result<u32, ApiError>;
 }
 
 /// Default implementation of [`RuntimeApiSubsystemClient`] using the client.
@@ -641,6 +645,10 @@ where
 
 	async fn scheduling_lookahead(&self, at: Hash) -> Result<u32, ApiError> {
 		self.client.runtime_api().scheduling_lookahead(at)
+	}
+
+	async fn validation_code_bomb_limit(&self, at: Hash) -> Result<u32, ApiError> {
+		self.client.runtime_api().validation_code_bomb_limit(at)
 	}
 }
 

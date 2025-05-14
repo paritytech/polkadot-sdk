@@ -52,6 +52,8 @@ pub use storage_proof::{
 };
 pub use storage_types::BoundedStorageValue;
 
+extern crate alloc;
+
 pub mod extensions;
 pub mod messages;
 
@@ -61,6 +63,13 @@ mod storage_types;
 
 // Re-export macro to avoid include paste dependency everywhere
 pub use sp_runtime::paste;
+
+// Re-export for usage in macro.
+#[doc(hidden)]
+pub mod private {
+	#[doc(hidden)]
+	pub use alloc::vec::Vec;
+}
 
 /// Use this when something must be shared among all instances.
 pub const NO_INSTANCE_ID: ChainId = [0, 0, 0, 0];
@@ -424,6 +433,20 @@ pub trait OwnedBridgeModule<T: frame_system::Config> {
 		Self::OperatingModeStorage::put(operating_mode);
 		log::info!(target: Self::LOG_TARGET, "Setting operating mode to {:?}.", operating_mode);
 		Ok(())
+	}
+
+	/// Pallet owner has a right to halt all module operations and then resume it. If it is `None`,
+	/// then there are no direct ways to halt/resume module operations, but other runtime methods
+	/// may still be used to do that (i.e. democracy::referendum to update halt flag directly
+	/// or call the `set_operating_mode`).
+	fn module_owner() -> Option<T::AccountId> {
+		Self::OwnerStorage::get()
+	}
+
+	/// The current operating mode of the module.
+	/// Depending on the mode either all, some, or no transactions will be allowed.
+	fn operating_mode() -> Self::OperatingMode {
+		Self::OperatingModeStorage::get()
 	}
 }
 

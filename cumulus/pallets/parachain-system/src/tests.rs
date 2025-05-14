@@ -1170,15 +1170,14 @@ fn receive_hrmp_many() {
 #[test]
 fn upgrade_version_checks_should_work() {
 	use codec::Encode;
-	use sp_runtime::DispatchErrorWithPostInfo;
 	use sp_version::RuntimeVersion;
 
 	let test_data = vec![
-		("test", 0, 1, Err(frame_system::Error::<Test>::SpecVersionNeedsToIncrease)),
-		("test", 1, 0, Err(frame_system::Error::<Test>::SpecVersionNeedsToIncrease)),
-		("test", 1, 1, Err(frame_system::Error::<Test>::SpecVersionNeedsToIncrease)),
-		("test", 1, 2, Err(frame_system::Error::<Test>::SpecVersionNeedsToIncrease)),
-		("test2", 1, 1, Err(frame_system::Error::<Test>::InvalidSpecName)),
+		("test", 0, 1, frame_system::Error::<Test>::SpecVersionNeedsToIncrease),
+		("test", 1, 0, frame_system::Error::<Test>::SpecVersionNeedsToIncrease),
+		("test", 1, 1, frame_system::Error::<Test>::SpecVersionNeedsToIncrease),
+		("test", 1, 2, frame_system::Error::<Test>::SpecVersionNeedsToIncrease),
+		("test2", 1, 1, frame_system::Error::<Test>::InvalidSpecName),
 	];
 
 	for (spec_name, spec_version, impl_version, expected) in test_data.into_iter() {
@@ -1193,13 +1192,21 @@ fn upgrade_version_checks_should_work() {
 		let mut ext = new_test_ext();
 		ext.register_extension(sp_core::traits::ReadRuntimeVersionExt::new(read_runtime_version));
 		ext.execute_with(|| {
+			System::set_block_number(1);
+
 			let new_code = vec![1, 2, 3, 4];
 			let new_code_hash = H256(sp_crypto_hashing::blake2_256(&new_code));
 
 			let _authorize = System::authorize_upgrade(RawOrigin::Root.into(), new_code_hash);
-			let res = System::apply_authorized_upgrade(RawOrigin::None.into(), new_code);
+			assert_ok!(System::apply_authorized_upgrade(RawOrigin::None.into(), new_code));
 
-			assert_eq!(expected.map_err(DispatchErrorWithPostInfo::from), res);
+			System::assert_last_event(
+				frame_system::Event::RejectedInvalidAuthorizedUpgrade {
+					code_hash: new_code_hash,
+					error: expected.into(),
+				}
+				.into(),
+			);
 		});
 	}
 }

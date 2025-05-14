@@ -626,6 +626,9 @@ pub struct NetworkConfiguration {
 	/// Maximum number of blocks per request.
 	pub max_blocks_per_request: u32,
 
+	/// Number of peers that need to be connected before warp sync is started.
+	pub min_peers_to_start_warp_sync: Option<usize>,
+
 	/// Initial syncing mode.
 	pub sync_mode: SyncMode,
 
@@ -651,7 +654,7 @@ pub struct NetworkConfiguration {
 	pub ipfs_server: bool,
 
 	/// Networking backend used for P2P communication.
-	pub network_backend: NetworkBackendType,
+	pub network_backend: Option<NetworkBackendType>,
 }
 
 impl NetworkConfiguration {
@@ -676,6 +679,7 @@ impl NetworkConfiguration {
 			transport: TransportConfig::Normal { enable_mdns: false, allow_private_ip: true },
 			max_parallel_downloads: 5,
 			max_blocks_per_request: 64,
+			min_peers_to_start_warp_sync: None,
 			sync_mode: SyncMode::Full,
 			enable_dht_random_walk: true,
 			allow_non_globals_in_dht: false,
@@ -683,7 +687,7 @@ impl NetworkConfiguration {
 			kademlia_replication_factor: NonZeroUsize::new(DEFAULT_KADEMLIA_REPLICATION_FACTOR)
 				.expect("value is a constant; constant is non-zero; qed."),
 			ipfs_server: false,
-			network_backend: NetworkBackendType::Libp2p,
+			network_backend: None,
 		}
 	}
 
@@ -909,9 +913,10 @@ impl<B: BlockT + 'static, H: ExHashT, N: NetworkBackend<B, H>> FullNetworkConfig
 }
 
 /// Network backend type.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default, Copy)]
 pub enum NetworkBackendType {
 	/// Use libp2p for P2P networking.
+	#[default]
 	Libp2p,
 
 	/// Use litep2p for P2P networking.
