@@ -554,6 +554,15 @@ where
 				"fatp::ready_at_light"
 			);
 			Box::new(tmp_view.pool.validated_pool().ready())
+		} else if let Some((most_recent_view, _)) = self
+			.view_store
+			.most_recent_view
+			.read()
+			.and_then(|at| self.view_store.get_view_at(at, true))
+		{
+			// Fall-back for the case of not having a valid view we could use
+			// for getting a ready transactions set.
+			Box::new(most_recent_view.pool.validated_pool().ready())
 		} else {
 			let empty: ReadyIteratorFor<ChainApi> = Box::new(std::iter::empty());
 			debug!(

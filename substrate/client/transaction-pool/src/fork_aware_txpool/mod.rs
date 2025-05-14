@@ -209,7 +209,7 @@
 //! ### Light maintain
 //! The [maintain](#maintain) procedure can sometimes be quite heavy, and it may not be accomplished
 //! within the time window expected by the block builder. On top of that block builder may want to
-//! build few blocks in the raw, not giving the pool enough time to accomplish possible ongoing
+//! build few blocks in the row, not giving the pool enough time to accomplish possible ongoing
 //! maintain process.
 //!
 //! To address this, there is a [light version][`ready_at_light`] of the maintain procedure. It
