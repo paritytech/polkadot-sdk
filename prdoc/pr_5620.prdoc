@@ -1,0 +1,13 @@
+title: "New NFT traits: granular and abstract interface"
+
+doc:
+- audience: Runtime Dev
+  description: |-
+    This PR introduces a new set of traits that represent different asset operations in a granular and abstract way.
+    The new abstractions provide an interface for collections and tokens for use in general and XCM contexts.
+
+crates:
+- name: frame-support
+  bump: minor
+- name: pallet-uniques
+  bump: minor

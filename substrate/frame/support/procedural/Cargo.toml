@@ -37,6 +37,7 @@ syn = { features = ["full", "parsing", "visit-mut"], workspace = true }
 
 [dev-dependencies]
 codec = { features = ["derive", "max-encoded-len"], workspace = true, default-features = true }
+frame-benchmarking = { workspace = true, default-features = true }
 frame-support = { workspace = true, default-features = true }
 frame-system = { workspace = true, default-features = true }
 pretty_assertions = { workspace = true }
@@ -50,6 +51,7 @@ sp-runtime = { features = ["serde"], workspace = true, default-features = true }
 default = ["std"]
 std = [
 	"codec/std",
+	"frame-benchmarking/std",
 	"frame-support/std",
 	"frame-system/std",
 	"scale-info/std",
