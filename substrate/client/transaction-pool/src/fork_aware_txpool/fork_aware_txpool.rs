@@ -560,8 +560,10 @@ where
 			.read()
 			.and_then(|at| self.view_store.get_view_at(at, true))
 		{
-			// Fall-back for the case of not having a valid view we could use
-			// for getting a ready transactions set.
+			// Fallback for the case of not having a best view to use
+			// for getting a ready transactions set. Even if the ready txs provided by the most
+			// rcent view are invalid or already included in the blocks, some of them might still
+			// be valid for `at` hash.
 			Box::new(most_recent_view.pool.validated_pool().ready())
 		} else {
 			let empty: ReadyIteratorFor<ChainApi> = Box::new(std::iter::empty());
