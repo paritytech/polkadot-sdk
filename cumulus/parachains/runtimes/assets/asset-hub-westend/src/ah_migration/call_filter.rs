@@ -91,7 +91,7 @@ pub fn call_allowed_status(call: &<Runtime as frame_system::Config>::RuntimeCall
 		NominationPools(..) => OFF,
 		ParachainInfo(..) => OFF, /* Empty call enum, see https://github.com/paritytech/polkadot-sdk/issues/8222 */
 		ParachainSystem(..) => ON, // Only inherent and root calls
-		PolkadotXcm(..) => OFF,
+		PolkadotXcm(..) => ON,
 		PoolAssets(..) => ON,
 		Preimage(..) => OFF,
 		Proxy(..) => OFF,
