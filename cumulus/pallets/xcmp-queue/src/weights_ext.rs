@@ -17,7 +17,7 @@
 
 use crate::weights::WeightInfo;
 
-use frame_support::weights::Weight;
+use frame_support::{traits::BatchFootprint, weights::Weight};
 use sp_runtime::SaturatedConversion;
 
 #[cfg(any(feature = "runtime-benchmarks", feature = "std"))]
@@ -31,23 +31,18 @@ pub trait WeightInfoExt: WeightInfo {
 		Self::enqueue_n_full_pages(0)
 	}
 
-	fn enqueue_xcmp_messages(
-		new_pages_count: u32,
-		first_page_pos: u32,
-		message_count: usize,
-		size_in_bytes: usize,
-	) -> Weight {
-		let message_count = message_count.saturated_into();
-		let size_in_bytes = size_in_bytes.saturated_into();
+	fn enqueue_xcmp_messages(first_page_pos: u32, batch_footprint: &BatchFootprint) -> Weight {
+		let message_count = batch_footprint.msgs_count.saturated_into();
+		let size_in_bytes = batch_footprint.size_in_bytes.saturated_into();
 
 		// The cost of adding `n` empty pages on the message queue.
 		let pages_overhead = {
 			let full_message_overhead = Self::enqueue_n_full_pages(1)
 				.saturating_sub(Self::enqueue_n_empty_xcmp_messages(1));
 			let n_full_messages_overhead =
-				full_message_overhead.saturating_mul(new_pages_count as u64);
+				full_message_overhead.saturating_mul(batch_footprint.new_pages_count as u64);
 
-			Self::enqueue_n_full_pages(new_pages_count)
+			Self::enqueue_n_full_pages(batch_footprint.new_pages_count)
 				.saturating_sub(Self::enqueue_n_full_pages(0))
 				.saturating_sub(n_full_messages_overhead)
 		};
@@ -82,9 +77,11 @@ pub trait WeightInfoExt: WeightInfo {
 		assert!(err_margin < 100);
 		let err_margin = err_margin as u64;
 
-		let estimated_weight = Self::uncached_enqueue_xcmp_messages().saturating_add(
-			Self::enqueue_xcmp_messages(0, get_average_page_pos(MaxMessageLen::get()), 1000, 3000),
-		);
+		let estimated_weight =
+			Self::uncached_enqueue_xcmp_messages().saturating_add(Self::enqueue_xcmp_messages(
+				get_average_page_pos(MaxMessageLen::get()),
+				&BatchFootprint { msgs_count: 1000, size_in_bytes: 3000, new_pages_count: 0 },
+			));
 		let actual_weight = Self::enqueue_1000_small_xcmp_messages();
 
 		// Check that the ref_time diff is less than {err_margin}%

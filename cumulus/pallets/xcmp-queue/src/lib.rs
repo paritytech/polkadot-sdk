@@ -649,10 +649,8 @@ impl<T: Config> Pallet<T> {
 
 		let best_batch_footprint = batches_footprints.search_best_by(|batch_info| {
 			let required_weight = T::WeightInfo::enqueue_xcmp_messages(
-				batch_info.new_pages_count,
 				batches_footprints.first_page_pos.saturated_into(),
-				batch_info.msgs_count,
-				batch_info.size_in_bytes,
+				batch_info,
 			);
 
 			match meter.can_consume(required_weight) {
@@ -662,10 +660,8 @@ impl<T: Config> Pallet<T> {
 		});
 
 		meter.consume(T::WeightInfo::enqueue_xcmp_messages(
-			best_batch_footprint.new_pages_count,
 			batches_footprints.first_page_pos.saturated_into(),
-			best_batch_footprint.msgs_count,
-			best_batch_footprint.size_in_bytes,
+			best_batch_footprint,
 		));
 		T::XcmpQueue::enqueue_messages(
 			xcms.iter()

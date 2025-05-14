@@ -183,6 +183,14 @@ pub struct BatchFootprint {
 /// of a bigger batch.
 #[derive(Default, RuntimeDebug)]
 pub struct BatchesFootprints {
+	/// The position in the first available MQ page where the batch will start being appended.
+	///
+	/// The messages in the batch will be enqueued to the message queue. Since the message queue is
+	/// organized in pages, the messages may be enqueued across multiple contiguous pages.
+	/// The position where we start appending messages to the first available MQ page is of
+	/// particular importance since it impacts the performance of the enqueuing operation.
+	/// That's because the first page has to be decoded first. This is not needed for the following
+	/// pages.
 	pub first_page_pos: usize,
 	pub footprints: Vec<BatchFootprint>,
 }
