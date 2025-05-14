@@ -730,6 +730,13 @@ impl<T: Config> AccountsMigrator<T> {
 		);
 		RcAccounts::<T>::insert(&on_demand_pallet_account, AccountState::Preserve);
 
+		weight += T::DbWeight::get().writes(1);
+		// sudo proxy ss58: 5FRzwC892cofttMft53kuwEuBLjbM5kWwGz3Qcy2So238QMY
+		let sudo: T::AccountId =
+			hex_literal::hex!("94f257f089856233d2fe5f4ea69734372e9edfdbd44d21cb9001ed456117f301")
+				.into();
+		RcAccounts::<T>::insert(&sudo, AccountState::Preserve);
+
 		weight
 	}
 
