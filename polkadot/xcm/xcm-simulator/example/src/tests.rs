@@ -527,8 +527,7 @@ fn query_holding() {
 	let query_id_set = 1234;
 
 	// Send a message which fully succeeds on the relay chain
-	let mut expected_hash = None;
-	ParaA::execute_with(|| {
+	let expected_hash = ParaA::execute_with(|| {
 		let message = Xcm(vec![
 			WithdrawAsset((Here, send_amount).into()),
 			buy_execution((Here, send_amount)),
@@ -544,9 +543,9 @@ fn query_holding() {
 		]);
 		// Send withdraw and deposit with query holding
 		assert_ok!(ParachainPalletXcm::send_xcm(Here, Parent, message.clone(),));
-		expected_hash = Some(VersionedXcm::from(message).using_encoded(sp_core::blake2_256));
+
+		VersionedXcm::from(message).using_encoded(sp_core::blake2_256)
 	});
-	let expected_hash = expected_hash.expect("No expected hash");
 
 	// Check that transfer was executed
 	Relay::execute_with(|| {
