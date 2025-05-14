@@ -95,16 +95,6 @@ pub(crate) fn build_collator_network<Network: NetworkBackend<Block, Hash>>(
 	// possible, but we also take the extra harm-prevention measure to execute the networking
 	// future using `spawn_blocking`.
 	spawn_handle.spawn_blocking("network-worker", Some("networking"), async move {
-<<<<<<< HEAD
-		if network_start_rx.await.is_err() {
-			tracing::warn!(
-				"The NetworkStart returned as part of `build_network` has been silently dropped"
-			);
-			// This `return` might seem unnecessary, but we don't want to make it look like
-			// everything is working as normal even though the user is clearly misusing the API.
-			return
-		}
-=======
 		// The notification service must be kept alive to allow litep2p to handle
 		// requests under the hood. It has been noted that without the notification
 		// service of the `/block-announces/1` protocol, collators are not advertised
@@ -117,9 +107,15 @@ pub(crate) fn build_collator_network<Network: NetworkBackend<Block, Hash>>(
 		// notification protocol. The downstream effect of this is that the full node
 		// would ban and disconnect the the minimal relay chain node.
 		let _notification_service = notification_service;
-		network_worker.run().await;
-	});
->>>>>>> 1849b35 (cumulus/fix: Allow block-announce to exist in the background of minimal relay chains (#8514))
+
+		if network_start_rx.await.is_err() {
+			tracing::warn!(
+				"The NetworkStart returned as part of `build_network` has been silently dropped"
+			);
+			// This `return` might seem unnecessary, but we don't want to make it look like
+			// everything is working as normal even though the user is clearly misusing the API.
+			return
+		}
 
 		network_worker.run().await;
 	});
