@@ -19,6 +19,7 @@
 use crate::{
 	mock::*,
 	tests::{ALICE, BOB, FEE_AMOUNT, INITIAL_BALANCE, SEND_AMOUNT},
+	xcm_helpers::find_xcm_sent_message_id,
 	DispatchResult, OriginFor,
 };
 use frame_support::{
@@ -1434,7 +1435,8 @@ fn remote_asset_reserve_and_remote_fee_reserve_call<Call>(
 		assert_eq!(AssetsPallet::active_issuance(usdc_id_location.clone()), expected_usdc_issuance);
 
 		// Verify sent XCM program
-		let expected_hash = find_xcm_sent_message_id().expect("Missing XcmPallet::Sent event");
+		let expected_hash =
+			find_xcm_sent_message_id(last_events(2)).expect("Missing XcmPallet::Sent event");
 		assert_eq!(
 			sent_xcm(),
 			vec![(

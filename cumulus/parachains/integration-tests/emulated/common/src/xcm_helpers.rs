@@ -108,11 +108,5 @@ where
 	<C as Chain>::Runtime: pallet_xcm::Config,
 	C::RuntimeEvent: TryInto<pallet_xcm::Event<<C as Chain>::Runtime>> + Clone,
 {
-	C::events().iter().find_map(|event| {
-		if let Ok(pallet_xcm::Event::Sent { message_id, .. }) = event.clone().try_into() {
-			Some(message_id)
-		} else {
-			None
-		}
-	})
+	pallet_xcm::xcm_helpers::find_xcm_sent_message_id(C::events())
 }
