@@ -23,8 +23,10 @@ use codec::{Decode, Encode};
 use frame_support::traits::{fungibles::Mutate, Currency};
 use frame_system::RawOrigin;
 use pallet_revive::{
-	precompiles::alloy::sol_types::{SolInterface, SolValue},
-	precompiles::builtin::xcm::IXcm,
+	precompiles::{
+		alloy::sol_types::{SolInterface, SolValue},
+		builtin::xcm::IXcm,
+	},
 	test_utils::{self, builder::*},
 	Code, DepositLimit, ExecReturnValue,
 };

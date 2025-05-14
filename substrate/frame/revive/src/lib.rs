@@ -269,7 +269,9 @@ pub mod pallet {
 
 		/// The weigher used to calculate XCM execution costs
 		#[pallet::no_default_bounds]
-		type XcmWeigher: xcm_executor::traits::WeightBounds<<Self as frame_system::Config>::RuntimeCall>;
+		type XcmWeigher: xcm_executor::traits::WeightBounds<
+			<Self as frame_system::Config>::RuntimeCall,
+		>;
 
 		/// The amount of memory in bytes that parachain nodes a lot to the runtime.
 		///

@@ -15,20 +15,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::Origin;
 use crate::{
 	precompiles::{AddressMatcher, Error, Ext, ExtWithInfo, Precompile},
-	Config,
+	Config, Origin,
 };
 use alloc::vec::Vec;
-use alloy_core::sol;
-use codec::{Encode, DecodeAll};
+use alloy_core::{sol, sol_types::SolValue};
+use codec::{DecodeAll, Encode};
 use core::{marker::PhantomData, num::NonZero};
 use log::error;
 use sp_runtime::Weight;
 use xcm_builder::{ExecuteController, SendController};
 use xcm_executor::traits::WeightBounds;
-use alloy_core::sol_types::SolValue;
 
 pub use IXcm::IXcmCalls;
 
@@ -75,9 +73,8 @@ impl<T: Config> Precompile for XcmPrecompile<T> {
 		let origin = env.caller();
 		let frame_origin = match origin {
 			Origin::Root => frame_system::RawOrigin::Root.into(),
-			Origin::Signed(account_id) => {
-				frame_system::RawOrigin::Signed(account_id.clone()).into()
-			},
+			Origin::Signed(account_id) =>
+				frame_system::RawOrigin::Signed(account_id.clone()).into(),
 		};
 
 		match input {

@@ -88,7 +88,6 @@ xcm-executor = { workspace = true }
 [features]
 default = ["std"]
 std = [
-	"xcm-executor/std",
 	"alloy-core/std",
 	"codec/std",
 	"environmental/std",
@@ -126,6 +125,7 @@ std = [
 	"sp-runtime/std",
 	"subxt-signer",
 	"xcm-builder/std",
+	"xcm-executor/std",
 	"xcm/std",
 ]
 runtime-benchmarks = [
