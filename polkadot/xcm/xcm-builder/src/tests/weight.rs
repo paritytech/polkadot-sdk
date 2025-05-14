@@ -153,10 +153,19 @@ fn errors_should_return_unused_weight() {
 
 #[test]
 fn weight_bounds_should_respect_instructions_limit() {
+	use sp_tracing::capture_test_logs;
+	use tracing::log::Level;
+
+	sp_tracing::init_for_tests();
 	MaxInstructions::set(3);
-	let mut message = Xcm(vec![ClearOrigin; 4]);
 	// 4 instructions are too many.
-	assert_eq!(<TestConfig as Config>::Weigher::weight(&mut message), Err(()));
+	let log_capture = capture_test_logs!(Level::TRACE, {
+		let mut message = Xcm(vec![ClearOrigin; 4]);
+		assert_eq!(<TestConfig as Config>::Weigher::weight(&mut message), Err(()));
+	});
+	assert!(log_capture.contains(
+		"Weight calculation failed for message error=NoDeal instructions_left=3 message_length=4"
+	));
 
 	let mut message =
 		Xcm(vec![SetErrorHandler(Xcm(vec![ClearOrigin])), SetAppendix(Xcm(vec![ClearOrigin]))]);
