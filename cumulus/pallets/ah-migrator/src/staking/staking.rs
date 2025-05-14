@@ -106,10 +106,9 @@ impl<T: Config> Pallet<T> {
 
 				if rewards.len() > pallet_staking_async::ErasClaimedRewardsBound::<T>::get() as usize {
 					log::error!(target: LOG_TARGET, "Truncating ClaimedRewards {:?}/{:?} from {} to {}", validator, era, rewards.len(), pallet_staking_async::ErasClaimedRewardsBound::<T>::get());
+					//defensive!("ClaimedRewards should fit");
 				}
-
-				let bounded: BoundedVec::<_, pallet_staking_async::ErasClaimedRewardsBound<T>> = rewards.defensive_truncate_into();
-				let weak_bounded = WeakBoundedVec::force_from(bounded.into_inner(), None);
+				let weak_bounded = WeakBoundedVec::force_from(rewards, Some("ClaimedRewards should fit"));
 				pallet_staking_async::ErasClaimedRewards::<T>::insert(era, validator, weak_bounded);
 			},
 			ErasValidatorPrefs { era, validator, prefs } => {
