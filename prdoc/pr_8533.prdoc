@@ -1,22 +1,7 @@
-title: '`fatxpool`: add fallback for ready at light'
+title: '`fatxpool`:  add fallback for ready at light'
 doc:
-- audience: Todo
-  description: |-
-    # Description
-
-    Proposing a new block on top of an existing block considers the best ready transactions provided by the txpool. Whenever the given parent hash to build on top is part of a fork up to the finalized block which has no best block notified to the pool, it might be the case that the proposer will rely on `ready_at_light` (due to various reason not in our control), and when that's the case, the ready transactions set will be empty.
-
-    This PR adds a fallback for the `ready_at_light` where we consider the ready txs of the most recent view processed by the txpool, even if those txs might be invalid
-
-    Closes #8213
-
-    ## Integration
-
-    N/A
-
-    ## Review Notes
-
-    In terms of testing, I updated an existing test which already exercises `ready_at_light` in the scope of the newly added fallback.
+- audience: Node Dev 
+  description: Add fallback for `ready_at_light` for the case of not finding a best view that can be used to return a set of ready transactions.	
 crates:
 - name: sc-transaction-pool
   bump: major
