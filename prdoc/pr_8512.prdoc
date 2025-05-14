@@ -25,3 +25,6 @@ crates:
   # Uses newer frame-support / metadata-ir but no code change needed (CI wants minor):
   - name: pallet-example-view-functions
     bump: minor
+  # Avoid fetching V16 metadata:
+  - name: frame-benchmarking-cli
+    bump: minor
