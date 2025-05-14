@@ -45,8 +45,8 @@ async fn pov_recovery() -> Result<(), anyhow::Error> {
 	log::info!("Ensuring parachain is registered");
 	assert_para_throughput(
 		&relay_client,
-		10,
-		[(ParaId::from(PARA_ID), 2..15)].into_iter().collect(),
+		20,
+		[(ParaId::from(PARA_ID), 2..40)].into_iter().collect(),
 	)
 	.await?;
 
