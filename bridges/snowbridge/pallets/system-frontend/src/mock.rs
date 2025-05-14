@@ -51,12 +51,14 @@ impl pallet_xcm_origin::Config for Test {
 }
 
 #[cfg(feature = "runtime-benchmarks")]
-impl BenchmarkHelper<RuntimeOrigin> for () {
+impl BenchmarkHelper<RuntimeOrigin, AccountId> for () {
 	fn make_xcm_origin(location: Location) -> RuntimeOrigin {
 		RuntimeOrigin::from(pallet_xcm_origin::Origin(location))
 	}
 
 	fn initialize_storage(_: Location, _: Location) {}
+
+	fn setup_pools(_: AccountId, _: Location) {}
 }
 
 parameter_types! {

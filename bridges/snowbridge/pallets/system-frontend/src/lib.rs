@@ -275,9 +275,8 @@ pub mod pallet {
 					ether_location,
 					tip_amount,
 				)
-				.map_err(|e| {
+				.inspect_err(|&e| {
 					tracing::debug!(target: LOG_TARGET, ?e, "error swapping asset");
-					e
 				})?
 			} else {
 				tip_amount
