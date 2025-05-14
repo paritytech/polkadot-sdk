@@ -320,13 +320,6 @@ pub mod pallet {
 
 		/// Calls that are allowed after the migration finished.
 		type AhPostMigrationCalls: Contains<<Self as frame_system::Config>::RuntimeCall>;
-
-		/// Messaging type that the staking migration uses.
-		///
-		/// We need to inject this here to be able to convert it. The message type is require to
-		/// also be able to convert messages from Relay to Asset Hub format.
-		#[cfg(feature = "ahm-staking-migration")]
-		type RcStakingMessage: Parameter;
 	}
 
 	/// RC accounts that failed to migrate when were received on the Asset Hub.
@@ -852,7 +845,7 @@ pub mod pallet {
 		#[pallet::weight({1})] // TODO: weight
 		pub fn receive_staking_messages(
 			origin: OriginFor<T>,
-			messages: Vec<T::RcStakingMessage>,
+			messages: Vec<AhEquivalentStakingMessageOf<T>>,
 		) -> DispatchResult {
 			ensure_root(origin)?;
 

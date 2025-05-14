@@ -445,9 +445,15 @@ impl<T: Config> PalletMigration for StakingMigrator<T> {
 			};
 		}
 
+		// Translate from Rc to Ah staking message
+		let mut translated = Vec::new();
+		for message in messages {
+			//translated.push(T::RcStakingMessage::intoAh(message));
+		}
+
 		if !messages.is_empty() {
 			Pallet::<T>::send_chunked_xcm(
-				messages,
+				translated,
 				|messages| types::AhMigratorCall::<T>::ReceiveStakingMessages { messages },
 				|_len| Weight::from_all(1),
 			)?;

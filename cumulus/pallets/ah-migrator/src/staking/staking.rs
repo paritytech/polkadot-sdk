@@ -25,7 +25,7 @@ impl<T: Config> Pallet<T> {
 
 	pub fn staking_migration_finish_hook() {}
 
-	pub fn do_receive_staking_messages(messages: Vec<T::RcStakingMessage>) -> Result<(), Error<T>> {
+	pub fn do_receive_staking_messages(messages: Vec<AhEquivalentStakingMessageOf<T>>) -> Result<(), Error<T>> {
 		let (mut good, mut bad) = (0, 0);
 		log::info!(target: LOG_TARGET, "Integrating {} StakingMessages", messages.len());
 		Self::deposit_event(Event::BatchReceived {
@@ -34,11 +34,11 @@ impl<T: Config> Pallet<T> {
 		});
 
 		for message in messages {
-			/*let translated = T::RcStakingMessage::intoAh(message);
-			match Self::do_receive_staking_message(translated) {
+			//let translated = T::RcStakingMessage::intoAh(message);
+			match Self::do_receive_staking_message(message) {
 				Ok(_) => good += 1,
 				Err(_) => bad += 1,
-			}*/
+			}
 		}
 
 		Self::deposit_event(Event::BatchProcessed {
