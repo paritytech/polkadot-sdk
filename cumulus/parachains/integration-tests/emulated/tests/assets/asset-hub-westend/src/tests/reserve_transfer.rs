@@ -1467,7 +1467,8 @@ fn reserve_withdraw_from_untrusted_reserve_fails() {
 fn withdraw_and_deposit_erc20s() {
 	let sender = AssetHubWestendSender::get();
 	let beneficiary = AssetHubWestendReceiver::get();
-	let checking_account = asset_hub_westend_runtime::xcm_config::CheckingAccount::get();
+	let checking_account =
+		asset_hub_westend_runtime::xcm_config::ERC20TransfersCheckingAccount::get();
 
 	// We need to give enough funds for every account involved so they
 	// can call `Contracts::map_account`.

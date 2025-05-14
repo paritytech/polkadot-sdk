@@ -43,7 +43,7 @@ impl<T: Config> Pallet<T> {
 	// Test checking account for the `fungibles::*` implementation.
 	//
 	// Still needs to be mapped in tests for it to be usable.
-	fn checking_account() -> <T as frame_system::Config>::AccountId {
+	pub fn checking_account() -> <T as frame_system::Config>::AccountId {
 		PalletId(*b"py/revch").into_account_truncating()
 	}
 }
@@ -379,7 +379,7 @@ mod tests {
 	#[test]
 	fn mint_into_impl_works() {
 		ExtBuilder::default().existential_deposit(1).build().execute_with(|| {
-			let checking_account = pallet_revive::Pallet::<Test>::checking_account();
+			let checking_account = Pallet::<Test>::checking_account();
 			let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
 			let _ = <Test as Config>::Currency::set_balance(&checking_account, 1_000_000);
 			let (code, _) = compile_module("erc20").unwrap();
