@@ -39,7 +39,6 @@ impl<T: Config> Pallet<T> {
 				Ok(_) => good += 1,
 				Err(_) => bad += 1,
 			}*/
-			todo!()
 		}
 
 		Self::deposit_event(Event::BatchProcessed {
@@ -85,6 +84,13 @@ impl<T: Config> Pallet<T> {
 			},
 			Nominators { stash, nominations } => {
 				log::debug!(target: LOG_TARGET, "Integrating Nominators of stash {:?}", stash);
+				let targets: BoundedVec::<_, _> = nominations.targets.into_inner().defensive_truncate_into();
+				let nominations = pallet_staking_async::Nominations {
+					targets,
+					submitted_in: nominations.submitted_in,
+					suppressed: nominations.suppressed,
+				};
+
 				pallet_staking_async::Nominators::<T>::insert(stash, nominations);
 			},
 			VirtualStakers(staker) => {
@@ -123,6 +129,12 @@ impl<T: Config> Pallet<T> {
 			},
 			ErasRewardPoints { era, points } => {
 				log::debug!(target: LOG_TARGET, "Integrating ErasRewardPoints of era {:?}", era);
+				let individual = BoundedBTreeMap::try_from(points.individual.into_inner()).defensive().unwrap_or_default(); // FIXME
+				let points = pallet_staking_async::EraRewardPoints {
+					total: points.total,
+					individual,
+				};
+				
 				pallet_staking_async::ErasRewardPoints::<T>::insert(era, points);
 			},
 			ErasTotalStake { era, total_stake } => {
@@ -132,8 +144,16 @@ impl<T: Config> Pallet<T> {
 			UnappliedSlashes { era, slash } => {
 				log::debug!(target: LOG_TARGET, "Integrating UnappliedSlashes of era {:?}", era);
 				let slash_key = (slash.validator.clone(), Perbill::from_percent(99), 9999);
-				//pallet_staking_async::UnappliedSlashes::<T>::insert(era, slash_key, slash); FIXME
-				todo!()
+
+				let slash = pallet_staking_async::UnappliedSlash {
+					validator: slash.validator,
+					own: slash.own,
+					others: WeakBoundedVec::force_from(slash.others.into_inner(), Some("UnappliedSlashes should fit")),
+					reporter: slash.reporter,
+					payout: slash.payout,
+				};
+
+				pallet_staking_async::UnappliedSlashes::<T>::insert(era, slash_key, slash);
 			},
 			BondedEras(bonded_eras) => {
 				log::warn!(target: LOG_TARGET, "Integrating BondedEras");

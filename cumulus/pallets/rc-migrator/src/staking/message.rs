@@ -165,22 +165,22 @@ pub type AhEquivalentStakingMessageOf<T> = RcStakingMessage<
 	pallet_staking_async::ledger::StakingLedger2<
 		<T as frame_system::Config>::AccountId,
 		pallet_staking_async::BalanceOf<T>,
-		<T as pallet_staking_async::Config>::MaxUnlockingChunks,
+		ConstU32<32>, // <T as pallet_staking_async::Config>::MaxUnlockingChunks,
 	>,
 	pallet_staking_async::Nominations<
 		<T as frame_system::Config>::AccountId,
-		pallet_staking_async::MaxNominationsOf<T>,
+		ConstU32<16>, //pallet_staking_async::MaxNominationsOf<T>,
 	>,
 	pallet_staking_async::EraRewardPoints<
 		<T as frame_system::Config>::AccountId,
-		<T as pallet_staking_async::Config>::MaxValidatorSet,
+		ConstU32<1000>, // <T as pallet_staking_async::Config>::MaxValidatorSet,
 	>,
 	pallet_staking_async::RewardDestination<<T as frame_system::Config>::AccountId>,
 	pallet_staking_async::ValidatorPrefs,
 	pallet_staking_async::UnappliedSlash<
 		<T as frame_system::Config>::AccountId,
 		<T as pallet_staking_async::Config>::CurrencyBalance,
-		<T as pallet_staking_async::Config>::MaxValidatorSet,
+		ConstU32<1000>, // <T as pallet_staking_async::Config>::MaxValidatorSet,
 	>,
 >;
 
