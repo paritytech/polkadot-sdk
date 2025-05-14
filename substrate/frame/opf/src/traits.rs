@@ -399,7 +399,7 @@ where
 	fn submit_proposal(
 		caller: AccountIdOf<T>,
 		proposal: Self::Proposal,
-	) -> Result<u32, DispatchError>  {
+	) -> Result<u32, DispatchError> {
 		let enactment_moment = DispatchTime::After(0u32.into());
 		let proposal_origin0 = RawOrigin::Root.into();
 		let proposal_origin = Box::new(proposal_origin0);
@@ -411,8 +411,8 @@ where
 			enactment_moment,
 		)
 		.map_err(|_| DispatchError::Other("Failed to submit proposal"))?;
-		let index = pallet_referenda::ReferendumCount::<T, I>::get()-1;
-		
+		let index = pallet_referenda::ReferendumCount::<T, I>::get() - 1;
+
 		let refer = pallet_referenda::ReferendumInfoFor::<T, I>::get(index)
 			.ok_or_else(|| DispatchError::Other("No referendum info found here"))?;
 		let now = T::BlockNumberProvider::current_block_number();
@@ -426,7 +426,6 @@ where
 			}
 		}
 		Ok(index)
-
 	}
 
 	fn get_referendum_info(index: Self::Index) -> Option<Self::ReferendumInfo> {

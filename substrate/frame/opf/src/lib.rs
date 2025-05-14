@@ -351,9 +351,7 @@ pub mod pallet {
 					.ok_or(Error::<T>::NoProjectAvailable)?;
 				new_infos.index = referendum_index;
 
-				WhiteListedProjectAccounts::<T>::mutate(project_id, |value| {
-					*value = Some(new_infos);
-				});
+				WhiteListedProjectAccounts::<T>::insert(project_id, new_infos);
 				let time_periods = T::Governance::get_time_periods(referendum_index.into())?;
 				let enactment_period_128 = time_periods.min_enactment_period;
 				let round_period_128 =
@@ -369,7 +367,7 @@ pub mod pallet {
 			}
 			round_infos.projects_submitted =
 				projects_submitted.clone().try_into().map_err(|_| Error::<T>::InvalidResult)?;
-			VotingRounds::<T>::mutate(current_round_index, |round| *round = Some(round_infos));
+				VotingRounds::<T>::insert(current_round_index, round_infos); 
 
 			Self::deposit_event(Event::Projectslisted { projects_id: projects_submitted });
 			Ok(())
@@ -379,17 +377,16 @@ pub mod pallet {
 		///
 		/// ## Dispatch Origin
 		///
-		/// Must be signed
+		/// Must be admin origin or root
 		///
 		/// ## Details
 		///
 		/// From this extrinsic only Root can de-list a project.
 		///
 		/// ### Parameters
-		/// - `project_id`: The account that will receive the reward.
+		/// - `project_id`: The project that is unregistered  .
 		///
 		/// ### Errors
-		/// - [`Error::<T>::NoProjectAvailable`]: No project found under this project_id
 		///  
 		/// ## Events
 		/// Emits [`Event::<T>::ProjectUnlisted`].
@@ -542,23 +539,19 @@ pub mod pallet {
 					expired_when: info.expire,
 					project_id: project_id.clone(),
 				});
-				return Ok(());
-			}
-			if now < info.expire {
+				Ok(())
+			} else {
 				// transfer the funds
-				Spends::<T>::mutate(project_id.clone(), |val| {
-					info.claimed = true;
-					*val = Some(info.clone())
-				});
+				info.claimed = true;
+				Spends::<T>::insert(project_id.clone(), info.clone());
 				Self::spend(info.amount, project_id.clone())?;
 				Self::deposit_event(Event::RewardClaimed {
 					amount: info.amount,
 					project_id: project_id.clone(),
 				});
 				WhiteListedProjectAccounts::<T>::remove(&project_id);
-				return Ok(());
+				Ok(())
 			}
-			Ok(())
 		}
 
 		#[pallet::call_index(6)]
