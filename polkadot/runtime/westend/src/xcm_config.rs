@@ -47,7 +47,7 @@ use xcm_builder::{
 	TrailingSetTopicAsId, UsingComponents, WeightInfoBounds, WithComputedOrigin, WithUniqueTopic,
 	XcmFeeManagerFromComponents,
 };
-use xcm_executor::{traits::ConvertOrigin, XcmExecutor};
+use xcm_executor::XcmExecutor;
 
 pub use pallet_rc_migrator::xcm_config::*;
 
