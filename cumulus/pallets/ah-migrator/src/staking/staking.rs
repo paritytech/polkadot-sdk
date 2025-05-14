@@ -145,14 +145,6 @@ impl<T: Config> Pallet<T> {
 				log::debug!(target: LOG_TARGET, "Integrating NominatorSlashInEra {:?}/{:?}", validator, era);
 				pallet_staking_async::NominatorSlashInEra::<T>::insert(era, validator, slash);
 			},
-			SlashingSpans { account, spans } => {
-				log::debug!(target: LOG_TARGET, "Integrating SlashingSpans {:?}", account);
-				pallet_staking_async::SlashingSpans::<T>::insert(account, spans);
-			},
-			SpanSlash { account, span, slash } => {
-				log::debug!(target: LOG_TARGET, "Integrating SpanSlash {:?}/{:?}", account, span);
-				pallet_staking_async::SpanSlash::<T>::insert((account, span), slash);
-			},
 		}
 
 		Ok(())

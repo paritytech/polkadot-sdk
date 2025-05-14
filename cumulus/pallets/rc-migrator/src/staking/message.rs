@@ -51,12 +51,10 @@ pub enum RcStakingMessage<
 	Balance,
 	StakingLedger,
 	Nominations,
-	SpanRecord,
 	EraRewardPoints,
 	RewardDestination,
 	ValidatorPrefs,
 	UnappliedSlash,
-	SlashingSpans,
 >
 // We do not want to pull in the Config trait; hence this
 where
@@ -64,12 +62,10 @@ where
 	Balance: HasCompact + MaxEncodedLen + Debug + PartialEq + Clone,
 	StakingLedger: Debug + PartialEq + Clone,
 	Nominations: Debug + PartialEq + Clone,
-	SpanRecord: Debug + PartialEq + Clone,
 	EraRewardPoints: Debug + PartialEq + Clone,
 	RewardDestination: Debug + PartialEq + Clone,
 	ValidatorPrefs: Debug + PartialEq + Clone,
 	UnappliedSlash: Debug + PartialEq + Clone,
-	SlashingSpans: Debug + PartialEq + Clone,
 {
 	Values(StakingValues<Balance>),
 	Invulnerables(Vec<AccountId>),
@@ -143,15 +139,6 @@ where
 		validator: AccountId,
 		slash: Balance,
 	},
-	SlashingSpans {
-		account: AccountId,
-		spans: SlashingSpans,
-	},
-	SpanSlash {
-		account: AccountId,
-		span: SpanIndex,
-		slash: SpanRecord,
-	},
 }
 
 /// Untranslated message for the staking migration.
@@ -160,7 +147,6 @@ pub type RcStakingMessageOf<T> = RcStakingMessage<
 	<T as pallet_staking::Config>::CurrencyBalance,
 	pallet_staking::StakingLedger<T>,
 	pallet_staking::Nominations<T>,
-	pallet_staking::slashing::SpanRecord<<T as pallet_staking::Config>::CurrencyBalance>,
 	pallet_staking::EraRewardPoints<<T as frame_system::Config>::AccountId>,
 	pallet_staking::RewardDestination<<T as frame_system::Config>::AccountId>,
 	pallet_staking::ValidatorPrefs,
@@ -168,7 +154,6 @@ pub type RcStakingMessageOf<T> = RcStakingMessage<
 		<T as frame_system::Config>::AccountId,
 		<T as pallet_staking::Config>::CurrencyBalance,
 	>,
-	pallet_staking::slashing::SlashingSpans,
 >;
 
 /// Translated staking message that the Asset Hub can understand.
@@ -179,14 +164,10 @@ pub type AhEquivalentStakingMessageOf<T> = RcStakingMessage<
 	<T as pallet_staking_async::Config>::CurrencyBalance,
 	pallet_staking_async::StakingLedger<T>,
 	pallet_staking_async::Nominations<T>,
-	pallet_staking_async::slashing::SpanRecord<
-		<T as pallet_staking_async::Config>::CurrencyBalance,
-	>,
 	pallet_staking_async::EraRewardPoints<T>,
 	pallet_staking_async::RewardDestination<<T as frame_system::Config>::AccountId>,
 	pallet_staking_async::ValidatorPrefs,
 	pallet_staking_async::UnappliedSlash<T>,
-	pallet_staking_async::slashing::SlashingSpans,
 >;
 
 #[derive(Encode, Decode, DecodeWithMemTracking, TypeInfo, RuntimeDebug, Clone, PartialEq, Eq)]
@@ -263,22 +244,6 @@ where
 	}
 }
 
-impl<Balance>
-	IntoAh<
-		pallet_staking::slashing::SpanRecord<Balance>,
-		pallet_staking_async::slashing::SpanRecord<Balance>,
-	> for pallet_staking::slashing::SpanRecord<Balance>
-{
-	fn intoAh(
-		record: pallet_staking::slashing::SpanRecord<Balance>,
-	) -> pallet_staking_async::slashing::SpanRecord<Balance> {
-		pallet_staking_async::slashing::SpanRecord {
-			slashed: record.slashed,
-			paid_out: record.paid_out,
-		}
-	}
-}
-
 impl<AccountId: Ord, Ah: pallet_staking_async::Config<AccountId = AccountId>>
 	IntoAh<pallet_staking::EraRewardPoints<AccountId>, pallet_staking_async::EraRewardPoints<Ah>>
 	for pallet_staking::EraRewardPoints<AccountId>
@@ -346,20 +311,6 @@ impl<Balance: HasCompact + MaxEncodedLen>
 	}
 }
 
-impl IntoAh<pallet_staking::slashing::SlashingSpans, pallet_staking_async::slashing::SlashingSpans>
-	for pallet_staking::slashing::SlashingSpans
-{
-	fn intoAh(
-		spans: pallet_staking::slashing::SlashingSpans,
-	) -> pallet_staking_async::slashing::SlashingSpans {
-		pallet_staking_async::slashing::SlashingSpans {
-			span_index: spans.span_index,
-			last_start: spans.last_start,
-			last_nonzero_slash: spans.last_nonzero_slash,
-			prior: spans.prior,
-		}
-	}
-}
 // StakingLedger requires a T instead of having a `StakingLedgerOf` :(
 impl<T, Ah, SNomQuota, SSNomQuota> IntoAh<RcStakingMessageOf<T>, AhEquivalentStakingMessageOf<Ah>>
 	for RcStakingMessageOf<T>
@@ -427,15 +378,6 @@ where
 				ValidatorSlashInEra { era, validator, slash },
 			NominatorSlashInEra { era, validator, slash } =>
 				NominatorSlashInEra { era, validator, slash },
-			SlashingSpans { account, spans } => SlashingSpans {
-				account,
-				spans: pallet_staking::slashing::SlashingSpans::intoAh(spans),
-			},
-			SpanSlash { account, span, slash } => SpanSlash {
-				account,
-				span,
-				slash: pallet_staking::slashing::SpanRecord::intoAh(slash),
-			},
 		}
 	}
 }
