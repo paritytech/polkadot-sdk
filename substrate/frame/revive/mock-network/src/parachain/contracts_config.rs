@@ -15,12 +15,11 @@
 // along with Substrate.  If not, see <http://www.gnu.org/licenses/>.
 
 use super::{Balances, Runtime, RuntimeCall, RuntimeEvent};
-use crate::parachain::{RuntimeHoldReason,parameter_types};
+use crate::parachain::{parameter_types, MaxInstructions, RuntimeHoldReason};
 use frame_support::derive_impl;
-use pallet_revive::precompiles::builtin::xcm::XcmPrecompile;
-use xcm_builder::FixedWeightBounds;
-use crate::parachain::MaxInstructions; 
+use pallet_revive::precompiles::XcmPrecompile;
 use xcm::latest::Weight;
+use xcm_builder::FixedWeightBounds;
 
 parameter_types! {
 	pub const BaseXcmWeight: xcm::latest::Weight = Weight::from_parts(100_000_000, 2_000);

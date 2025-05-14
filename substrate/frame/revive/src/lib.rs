@@ -41,6 +41,7 @@ pub mod precompiles;
 pub mod test_utils;
 pub mod tracing;
 pub mod weights;
+pub use precompiles::{IXcm, XcmPrecompile};
 
 use crate::{
 	evm::{
@@ -269,7 +270,9 @@ pub mod pallet {
 
 		/// The weigher used to calculate XCM execution costs
 		#[pallet::no_default_bounds]
-		type XcmWeigher: xcm_executor::traits::WeightBounds<<Self as frame_system::Config>::RuntimeCall>;
+		type XcmWeigher: xcm_executor::traits::WeightBounds<
+			<Self as frame_system::Config>::RuntimeCall,
+		>;
 
 		/// The amount of memory in bytes that parachain nodes a lot to the runtime.
 		///
@@ -359,7 +362,7 @@ pub mod pallet {
 			type RuntimeCall = ();
 			type CallFilter = ();
 			type Precompiles = ();
-			type XcmWeigher = Self;
+			type XcmWeigher = ();
 			type CodeHashLockupDepositPercent = CodeHashLockupDepositPercent;
 			type DepositPerByte = DepositPerByte;
 			type DepositPerItem = DepositPerItem;

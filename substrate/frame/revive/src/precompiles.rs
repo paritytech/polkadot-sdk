@@ -26,6 +26,8 @@
 //! Use `alloy` through our re-export in this module to implement Eth ABI.
 
 pub mod builtin;
+mod xcm;
+pub use xcm::{IXcm, XcmPrecompile};
 
 mod tests;
 

@@ -15,21 +15,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::Origin;
 use crate::{
 	precompiles::{AddressMatcher, Error, Ext, ExtWithInfo, Precompile},
-	Config,
+	Config, Origin, RuntimeCosts,
 };
 use alloc::vec::Vec;
-use alloy_core::sol;
-use codec::{Encode, DecodeAll};
+use alloy_core::{sol, sol_types::SolValue};
+use codec::{DecodeAll, Encode};
 use core::{marker::PhantomData, num::NonZero};
 use log::error;
 use sp_runtime::Weight;
-use xcm_builder::{ExecuteController, SendController};
+use xcm_builder::{ExecuteController, SendController, SendControllerWeightInfo};
 use xcm_executor::traits::WeightBounds;
-use alloy_core::sol_types::SolValue;
-
 pub use IXcm::IXcmCalls;
 
 pub struct XcmPrecompile<T>(PhantomData<T>);
@@ -57,7 +54,7 @@ sol! {
 		/// @notice Given a message estimate the weight cost
 		/// @param message The XCM message to send
 		/// @returns weight estimated for sending the message
-		function weightMessage(bytes calldata message) external view returns(Weight weight);
+		function weighMessage(bytes calldata message) external view returns(Weight weight);
 	}
 }
 
@@ -75,9 +72,8 @@ impl<T: Config> Precompile for XcmPrecompile<T> {
 		let origin = env.caller();
 		let frame_origin = match origin {
 			Origin::Root => frame_system::RawOrigin::Root.into(),
-			Origin::Signed(account_id) => {
-				frame_system::RawOrigin::Signed(account_id.clone()).into()
-			},
+			Origin::Signed(account_id) =>
+				frame_system::RawOrigin::Signed(account_id.clone()).into(),
 		};
 
 		match input {
@@ -93,6 +89,9 @@ impl<T: Config> Precompile for XcmPrecompile<T> {
 						error!("XCM send failed: Invalid message format. Error: {e:?}");
 						Error::Revert("Invalid message format".into())
 					})?;
+
+				let weight = <<T as Config>::Xcm as SendController<_>>::WeightInfo::send();
+				env.gas_meter_mut().charge(RuntimeCosts::CallRuntime(weight))?;
 
 				<<T as Config>::Xcm>::send(
 					frame_origin,
@@ -118,6 +117,7 @@ impl<T: Config> Precompile for XcmPrecompile<T> {
 					})?;
 
 				let weight = Weight::from_parts(weight.refTime, weight.proofSize);
+				env.gas_meter_mut().charge(RuntimeCosts::CallRuntime(weight.clone()))?;
 
 				<<T as Config>::Xcm>::execute(frame_origin, final_message.into(), weight)
 					.map(|results| results.encode())
@@ -133,22 +133,22 @@ impl<T: Config> Precompile for XcmPrecompile<T> {
 						)
 					})
 			},
-			IXcmCalls::weightMessage(IXcm::weightMessageCall { message }) => {
+			IXcmCalls::weighMessage(IXcm::weighMessageCall { message }) => {
 				let converted_message =
 					xcm::VersionedXcm::decode_all(&mut &message[..]).map_err(|error| {
-						error!("XCM weightMessage: Invalid message format. Error: {error:?}");
-						Error::Revert("XCM weightMessage: Invalid message format".into())
+						error!("XCM weighMessage: Invalid message format. Error: {error:?}");
+						Error::Revert("XCM weighMessage: Invalid message format".into())
 					})?;
 
 				let mut final_message = converted_message.try_into().map_err(|e| {
-					error!("XCM weightMessage: Conversion to Xcm failed with Error: {e:?}");
-					Error::Revert("XCM weightMessage: Conversion to Xcm failed".into())
+					error!("XCM weighMessage: Conversion to Xcm failed with Error: {e:?}");
+					Error::Revert("XCM weighMessage: Conversion to Xcm failed".into())
 				})?;
 
 				let weight =
 					<<T as Config>::XcmWeigher>::weight(&mut final_message).map_err(|e| {
-						error!("XCM weightMessage: Failed to calculate weight. Error: {e:?}");
-						Error::Revert("XCM weightMessage: Failed to calculate weight".into())
+						error!("XCM weighMessage: Failed to calculate weight. Error: {e:?}");
+						Error::Revert("XCM weighMessage: Failed to calculate weight".into())
 					})?;
 
 				let final_weight =

@@ -12781,6 +12781,7 @@ dependencies = [
 name = "pallet-revive-mock-network"
 version = "0.1.0"
 dependencies = [
+ "alloy-core",
  "frame-support",
  "frame-system",
  "pallet-assets",

@@ -35,6 +35,7 @@ xcm = { workspace = true }
 xcm-builder = { workspace = true, default-features = true }
 xcm-executor = { workspace = true }
 xcm-simulator = { workspace = true, default-features = true }
+alloy-core = { workspace = true, features = ["sol-types"] }
 
 [dev-dependencies]
 pallet-revive-fixtures = { workspace = true }
@@ -42,6 +43,7 @@ pallet-revive-fixtures = { workspace = true }
 [features]
 default = ["std"]
 std = [
+	"alloy-core/std",
 	"codec/std",
 	"frame-support/std",
 	"frame-system/std",

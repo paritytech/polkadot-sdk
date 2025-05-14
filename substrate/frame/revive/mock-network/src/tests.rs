@@ -19,14 +19,13 @@ use crate::{
 	parachain, parachain_account_sovereign_account_id, primitives::CENTS, relay_chain, MockNet,
 	ParaA, ParachainBalances, Relay, ALICE, BOB, INITIAL_BALANCE,
 };
+use alloy_core::sol_types::{SolInterface, SolValue};
 use codec::{Decode, Encode};
 use frame_support::traits::{fungibles::Mutate, Currency};
 use frame_system::RawOrigin;
 use pallet_revive::{
-	precompiles::alloy::sol_types::{SolInterface, SolValue},
-	precompiles::builtin::xcm::IXcm,
 	test_utils::{self, builder::*},
-	Code, DepositLimit, ExecReturnValue,
+	Code, DepositLimit, ExecReturnValue, IXcm,
 };
 use pallet_revive_fixtures::compile_module;
 use pallet_revive_uapi::{ReturnErrorCode, ReturnFlags};
@@ -234,8 +233,8 @@ fn test_xcm_execute_reentrant_call_via_precompile() {
 			.build();
 
 		let weight_params =
-			IXcm::weightMessageCall { message: VersionedXcm::V4(message.clone()).encode().into() };
-		let weight_call = IXcm::IXcmCalls::weightMessage(weight_params);
+			IXcm::weighMessageCall { message: VersionedXcm::V4(message.clone()).encode().into() };
+		let weight_call = IXcm::IXcmCalls::weighMessage(weight_params);
 		let xcm_weight_results =
 			bare_call(to_fixed_non_zero(10)).data(weight_call.abi_encode()).build();
 
@@ -292,8 +291,8 @@ fn test_xcm_execute_incomplete_call_via_precompile() {
 
 		// First, calculate the weight of the XCM message
 		let weight_params =
-			IXcm::weightMessageCall { message: VersionedXcm::V4(message.clone()).encode().into() };
-		let weight_call = IXcm::IXcmCalls::weightMessage(weight_params);
+			IXcm::weighMessageCall { message: VersionedXcm::V4(message.clone()).encode().into() };
+		let weight_call = IXcm::IXcmCalls::weighMessage(weight_params);
 		let xcm_weight_results =
 			bare_call(to_fixed_non_zero(10)).data(weight_call.abi_encode()).build();
 
@@ -341,8 +340,8 @@ fn test_xcm_execute_precompile() {
 			.build();
 
 		let weight_params =
-			IXcm::weightMessageCall { message: VersionedXcm::V4(message.clone()).encode().into() };
-		let weight_call = IXcm::IXcmCalls::weightMessage(weight_params);
+			IXcm::weighMessageCall { message: VersionedXcm::V4(message.clone()).encode().into() };
+		let weight_call = IXcm::IXcmCalls::weighMessage(weight_params);
 		let xcm_weight_results =
 			bare_call(to_fixed_non_zero(10)).data(weight_call.abi_encode()).build();
 
