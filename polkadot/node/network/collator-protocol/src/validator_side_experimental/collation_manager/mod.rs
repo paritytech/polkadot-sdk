@@ -23,6 +23,7 @@ use crate::{
 		common::{
 			Advertisement, CanSecond, CollationFetchError, CollationFetchResponse,
 			ProspectiveCandidate, Score, SecondingRejection, FAILED_FETCH_SLASH,
+			INSTANT_FETCH_REP_THRESHOLD, UNDER_THRESHOLD_FETCH_DELAY,
 		},
 		error::{Error, FatalResult, Result},
 		peer_manager::PeerManager,
@@ -274,6 +275,8 @@ impl CollationManager {
 			return Err(AdvertisementError::OutOfOurView)
 		};
 
+		let now = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_millis();
+
 		let mut peer_advertisements = per_rp
 			.peer_advertisements
 			.entry(advertisement.peer_id)
@@ -315,6 +318,7 @@ impl CollationManager {
 			return Err(AdvertisementError::BlockedByBacking)
 		}
 
+		per_rp.advertisement_timestamps.insert(advertisement, now);
 		peer_advertisements.advertisements.insert(advertisement);
 
 		Ok(())
@@ -324,6 +328,8 @@ impl CollationManager {
 		&mut self,
 		connected_rep_query_fn: RepQueryFn,
 	) -> Vec<Requests> {
+		let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis();
+
 		// Advertisements and collations are up to date.
 		// Claim queue states for leaves are also up to date.
 		// Launch requests when it makes sense.
@@ -337,35 +343,62 @@ impl CollationManager {
 				continue
 			};
 
-			'per_slot: for para_id in free_slots {
+			for para_id in free_slots {
 				// Try picking an advertisement. I'd like this to be a separate method but
 				// compiler gets confused with ownership.
-				for parent in parents {
-					let Some(per_rp) = self.per_relay_parent.get(parent) else { continue };
+				let Some((advertisement, peer_rep)) = self
+					.per_relay_parent
+					.values()
+					.map(|per_rp| per_rp.eligible_advertisements(&para_id))
+					.flatten()
+					.filter_map(|adv| {
+						(!self.fetching.contains(&adv)).then(|| {
+							(
+								adv,
+								connected_rep_query_fn(&adv.peer_id, &adv.para_id)
+									.unwrap_or_default(),
+							)
+						})
+					})
+					.max_by_key(|(adv, score)| *score)
+				else {
+					continue
+				};
 
-					for advertisement in per_rp
-						.eligible_advertisements(&para_id)
-						.filter(|adv| !self.fetching.contains(&adv))
-					{
-						let Some(_peer_rep) =
-							connected_rep_query_fn(&advertisement.peer_id, &advertisement.para_id)
-						else {
-							// Is the peer no longer connected? Impossible, as its advertisements
-							// should no longer exist.
-							continue
-						};
+				let Some(per_rp) = self.per_relay_parent.get(&advertisement.relay_parent) else {
+					continue
+				};
 
-						// This here may also claim a slot of another leaf if eligible.
-						if self.claim_queue_state.claim_pending_slot(
-							advertisement.prospective_candidate.map(|p| p.candidate_hash),
-							&advertisement.relay_parent,
-							&para_id,
-						) {
-							let req = self.fetching.launch(&advertisement);
-							requests.push(req);
-							continue 'per_slot
-						}
+				let Some(advertisement_timestamp) =
+					per_rp.advertisement_timestamps.get(advertisement)
+				else {
+					continue
+				};
+
+				// TODO: look up in the db.
+				let doesnt_have_better_peers = false;
+				let time_since_advertisement = now.saturating_sub(*advertisement_timestamp);
+				if peer_rep >= INSTANT_FETCH_REP_THRESHOLD ||
+					time_since_advertisement >= UNDER_THRESHOLD_FETCH_DELAY ||
+					doesnt_have_better_peers
+				{
+					// This here may also claim a slot of another leaf if eligible.
+					if self.claim_queue_state.claim_pending_slot(
+						advertisement.prospective_candidate.map(|p| p.candidate_hash),
+						&advertisement.relay_parent,
+						&para_id,
+					) {
+						let req = self.fetching.launch(&advertisement);
+						// TODO: log details of request and peer.
+						requests.push(req);
+						continue
 					}
+				} else {
+					gum::debug!(
+						target: LOG_TARGET,
+						?time_since_advertisement,
+						"Skipping advertisement, as the peer doesn't have a high enough reputation to warrant a fetch now"
+					);
 				}
 			}
 		}
@@ -383,6 +416,8 @@ impl CollationManager {
 			for per_rp in self.per_relay_parent.values_mut() {
 				if let Some(removed_advertisements) = per_rp.peer_advertisements.remove(&peer) {
 					for advertisement in removed_advertisements.advertisements {
+						per_rp.advertisement_timestamps.remove(&advertisement);
+
 						if self.fetching.contains(&advertisement) {
 							self.fetching.cancel(&advertisement);
 							cancelled_fetches.push(advertisement);
@@ -422,6 +457,13 @@ impl CollationManager {
 			);
 			return CanSecond::No(None, reject_info)
 		};
+
+		if let Some(advertisements) = per_rp.peer_advertisements.get_mut(&advertisement.peer_id) {
+			advertisements.advertisements.remove(&advertisement);
+		}
+
+		per_rp.advertisement_timestamps.remove(&advertisement);
+
 		let Some(session_info) = self.per_session.get(&per_rp.session_index) else {
 			gum::debug!(
 				target: LOG_TARGET,
@@ -432,10 +474,6 @@ impl CollationManager {
 			);
 			return CanSecond::No(None, reject_info)
 		};
-
-		if let Some(advertisements) = per_rp.peer_advertisements.get_mut(&advertisement.peer_id) {
-			advertisements.advertisements.remove(&advertisement);
-		}
 
 		let res = process_collation_fetch_result(res);
 
@@ -736,6 +774,7 @@ impl CollationManager {
 
 struct PerRelayParent {
 	peer_advertisements: HashMap<PeerId, PeerAdvertisements>,
+	advertisement_timestamps: HashMap<Advertisement, u128>,
 	// advertisement_timestamps: HashMap<Advertisement, u128>,
 	// Only kept to make sure that we don't re-request the same collations and so that we know who
 	// to punish for supplying an invalid collation.
@@ -750,6 +789,7 @@ impl PerRelayParent {
 			session_index,
 			core_index,
 			peer_advertisements: Default::default(),
+			advertisement_timestamps: Default::default(),
 			fetched_collations: Default::default(),
 		}
 	}

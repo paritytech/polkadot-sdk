@@ -61,6 +61,12 @@ pub const FAILED_FETCH_SLASH: Score = Score::new(20).expect("20 is less than MAX
 /// Slashing value for an invalid collation.
 pub const INVALID_COLLATION_SLASH: Score = Score::new(1000).expect("1000 is less than MAX_SCORE");
 
+/// Minimum reputation threshold that warrants an instant fetch.
+pub const INSTANT_FETCH_REP_THRESHOLD: Score = Score::new(1000).expect("20 is less than MAX_SCORE");
+
+// In millis
+pub const UNDER_THRESHOLD_FETCH_DELAY: u128 = 2000;
+
 /// Reputation score type.
 #[derive(PartialEq, Eq, PartialOrd, Ord, Debug, Clone, Copy, Default)]
 pub struct Score(u16);
