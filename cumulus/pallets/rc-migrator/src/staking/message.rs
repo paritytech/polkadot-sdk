@@ -148,12 +148,12 @@ pub type RcStakingMessageOf<T> = RcStakingMessage<
 	pallet_staking::StakingLedger<T>,
 	pallet_staking::Nominations<T>,
 	pallet_staking::EraRewardPoints<<T as frame_system::Config>::AccountId>,
-	pallet_staking::RewardDestination<<T as frame_system::Config>::AccountId>,
-	pallet_staking::ValidatorPrefs,
+	pallet_staking::RewardDestination<<T as frame_system::Config>::AccountId>, // encodes the same as AH
+	pallet_staking::ValidatorPrefs, // encodes the same as AH
 	pallet_staking::UnappliedSlash<
 		<T as frame_system::Config>::AccountId,
 		<T as pallet_staking::Config>::CurrencyBalance,
-	>,
+	>, // encodes the same as AH
 >;
 
 /// Translated staking message that the Asset Hub can understand.

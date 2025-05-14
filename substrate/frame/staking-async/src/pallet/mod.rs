@@ -21,7 +21,7 @@ use crate::{
 	asset, slashing, weights::WeightInfo, AccountIdLookupOf, ActiveEraInfo, BalanceOf, EraPayout,
 	EraRewardPoints, ExposurePage, Forcing, LedgerIntegrityState, MaxNominationsOf,
 	NegativeImbalanceOf, Nominations, NominationsQuota, PositiveImbalanceOf, RewardDestination,
-	StakingLedger, UnappliedSlash, UnlockChunk, ValidatorPrefs,
+	StakingLedger, UnappliedSlash, UnappliedSlashOf, UnlockChunk, ValidatorPrefs,
 };
 use alloc::{format, vec::Vec};
 use codec::Codec;
@@ -754,7 +754,7 @@ pub mod pallet {
 		Twox64Concat,
 		// Unique key for unapplied slashes: (validator, slash fraction, page index).
 		(T::AccountId, Perbill, u32),
-		UnappliedSlash<T>,
+		UnappliedSlashOf<T>,
 		OptionQuery,
 	>;
 

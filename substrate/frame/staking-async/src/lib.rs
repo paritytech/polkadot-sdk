@@ -69,7 +69,8 @@ pub mod slashing;
 pub mod weights;
 
 extern crate alloc;
-use alloc::{vec, vec::Vec};
+
+use alloc::{vec, vec::Vec, fmt::Debug};
 use codec::{Decode, DecodeWithMemTracking, Encode, HasCompact, MaxEncodedLen};
 use frame_election_provider_support::ElectionProvider;
 use frame_support::{
@@ -302,19 +303,30 @@ impl<AccountId, Balance: HasCompact + Copy + AtLeast32BitUnsigned + codec::MaxEn
 /// A pending slash record. The value of the slash has been computed but not applied yet,
 /// rather deferred for several eras.
 #[derive(Encode, Decode, RuntimeDebugNoBound, TypeInfo, MaxEncodedLen, PartialEqNoBound, CloneNoBound, DecodeWithMemTracking)]
-#[scale_info(skip_type_params(T))]
-pub struct UnappliedSlash<T: Config> {
+#[scale_info(skip_type_params(MaxExposurePageSize))]
+pub struct UnappliedSlash<AccountId, Balance, MaxExposurePageSize>
+where
+	AccountId: MaxEncodedLen + Clone + PartialEq + Eq + Debug,
+	Balance: HasCompact + MaxEncodedLen + Clone + PartialEq + Eq + Debug,
+	MaxExposurePageSize: Get<u32>,
+{
 	/// The stash ID of the offending validator.
-	pub validator: T::AccountId,
+	pub validator: AccountId,
 	/// The validator's own slash.
-	pub own: BalanceOf<T>,
+	pub own: Balance,
 	/// All other slashed stakers and amounts.
-	pub others: WeakBoundedVec<(T::AccountId, BalanceOf<T>), T::MaxExposurePageSize>,
+	pub others: WeakBoundedVec<(AccountId, Balance), MaxExposurePageSize>,
 	/// Reporters of the offence; bounty payout recipients.
-	pub reporter: Option<T::AccountId>,
+	pub reporter: Option<AccountId>,
 	/// The amount of payout.
-	pub payout: BalanceOf<T>,
+	pub payout: Balance,
 }
+
+pub type UnappliedSlashOf<T> = UnappliedSlash<
+	<T as frame_system::Config>::AccountId,
+	BalanceOf<T>,
+	<T as Config>::MaxExposurePageSize,
+>;
 
 /// Something that defines the maximum number of nominations per nominator based on a curve.
 ///
