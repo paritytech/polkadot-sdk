@@ -38,7 +38,7 @@ use crate::{
 	graph::{
 		self,
 		base_pool::{TimedTransactionSource, Transaction},
-		BlockHash, ExtrinsicFor, ExtrinsicHash, IsValidator, Options,
+		BlockHash, ExtrinsicFor, ExtrinsicHash, IsValidator, Options, RawExtrinsicFor,
 	},
 	ReadyIteratorFor, LOG_TARGET,
 };
@@ -61,7 +61,7 @@ use sp_core::traits::SpawnEssentialNamed;
 use sp_runtime::{
 	generic::BlockId,
 	traits::{Block as BlockT, NumberFor},
-	transaction_validity::{TransactionValidityError, ValidTransaction},
+	transaction_validity::{TransactionTag as Tag, TransactionValidityError, ValidTransaction},
 	Saturating,
 };
 use std::{
@@ -1395,6 +1395,55 @@ where
 		}
 	}
 
+	/// Attempts to search the view store for the `provides` tags of enacted
+	/// transactions associated with the specified `tree_route`.
+	///
+	/// The 'provides' tags of transactions from enacted blocks are searched
+	/// in inactive views. Found `provide` tags are intended to serve as cache,
+	/// helping to avoid unnecessary revalidations during pruning.
+	async fn collect_provides_tags_from_view_store(
+		&self,
+		tree_route: &TreeRoute<Block>,
+		xts_hashes: Vec<ExtrinsicHash<ChainApi>>,
+	) -> HashMap<ExtrinsicHash<ChainApi>, Vec<Tag>> {
+		let blocks_hashes = tree_route
+			.retracted()
+			.iter()
+			// Skip the tip of the retracted fork, since it has an active view.
+			.skip(1)
+			// Skip also the tip of the enacted fork, since it has an active view too.
+			.chain(
+				std::iter::once(tree_route.common_block())
+					.chain(tree_route.enacted().iter().rev().skip(1)),
+			)
+			.collect::<Vec<&HashAndNumber<Block>>>();
+
+		self.view_store.provides_tags_from_inactive_views(blocks_hashes, xts_hashes)
+	}
+
+	/// Build a map from blocks to their extrinsics.
+	pub async fn collect_extrinsics(
+		&self,
+		blocks: &[HashAndNumber<Block>],
+	) -> HashMap<Block::Hash, Vec<RawExtrinsicFor<ChainApi>>> {
+		future::join_all(blocks.iter().map(|hn| async move {
+			(
+				hn.hash,
+				self.api
+					.block_body(hn.hash)
+					.await
+					.unwrap_or_else(|e| {
+						warn!(target: LOG_TARGET, %e, ": block_body error request");
+						None
+					})
+					.unwrap_or_default(),
+			)
+		}))
+		.await
+		.into_iter()
+		.collect()
+	}
+
 	/// Updates the view with the transactions from the given tree route.
 	///
 	/// Transactions from the retracted blocks are resubmitted to the given view. Tags for
@@ -1413,13 +1462,41 @@ where
 		);
 		let api = self.api.clone();
 
+		// Collect extrinsics on the enacted path in a map from block hn -> extrinsics.
+		let mut extrinsics = self.collect_extrinsics(tree_route.enacted()).await;
+
+		// Create a map from enacted blocks' extrinsics to their `provides`
+		// tags based on inactive views.
+		let known_provides_tags = Arc::new(
+			self.collect_provides_tags_from_view_store(
+				tree_route,
+				extrinsics.values().flatten().map(|tx| view.pool.hash_of(tx)).collect(),
+			)
+			.await,
+		);
+
+		debug!(target: LOG_TARGET, "update_view_with_fork: txs to tags map length: {}", known_provides_tags.len());
+
 		// We keep track of everything we prune so that later we won't add
 		// transactions with those hashes from the retracted blocks.
 		let mut pruned_log = HashSet::<ExtrinsicHash<ChainApi>>::new();
-
 		future::join_all(tree_route.enacted().iter().map(|hn| {
 			let api = api.clone();
-			async move { (hn, crate::prune_known_txs_for_block(hn, &*api, &view.pool).await) }
+			let xts = extrinsics.remove(&hn.hash).unwrap_or_default();
+			let known_provides_tags = known_provides_tags.clone();
+			async move {
+				(
+					hn,
+					crate::prune_known_txs_for_block(
+						hn,
+						&*api,
+						&view.pool,
+						Some(xts),
+						Some(known_provides_tags),
+					)
+					.await,
+				)
+			}
 		}))
 		.await
 		.into_iter()
