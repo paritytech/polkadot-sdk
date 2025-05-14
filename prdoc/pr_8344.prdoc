@@ -2,15 +2,14 @@ title: 'XCMP weight metering: account for the MQ page position'
 doc:
 - audience: Runtime Dev
   description: |-
-    Related to https://github.com/paritytech/polkadot-sdk/issues/8308
-    Follow-up for https://github.com/paritytech/polkadot-sdk/pull/8021
+    This PR introduces some XCMP weight metering improvements.
 crates:
 - name: cumulus-pallet-xcmp-queue
-  bump: patch
+  bump: major
 - name: pallet-message-queue
   bump: patch
 - name: frame-support
-  bump: patch
+  bump: major
 - name: asset-hub-rococo-runtime
   bump: patch
 - name: asset-hub-westend-runtime
