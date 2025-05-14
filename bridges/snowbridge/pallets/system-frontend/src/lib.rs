@@ -334,7 +334,7 @@ pub mod pallet {
 				who.clone(),
 				swap_path,
 				tip_amount,
-				None,
+				None, // No minimum amount required
 				who,
 				true,
 			)?;
