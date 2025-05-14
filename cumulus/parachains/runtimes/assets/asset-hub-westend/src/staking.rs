@@ -40,7 +40,7 @@ parameter_types! {
 	pub MaxElectingVoters: u32 = 22_500;
 
 	/// Maximum number of validators that we may want to elect. 1000 is the end target.
-	pub MaxValidatorSet: u32 = 1000;
+	pub const MaxValidatorSet: u32 = 1000;
 
 	/// Number of nominators per page of the snapshot, and consequently number of backers in the solution.
 	pub VoterSnapshotPerBlock: u32 = MaxElectingVoters::get() / Pages::get();
@@ -49,17 +49,17 @@ parameter_types! {
 	pub TargetSnapshotPerBlock: u32 = MaxValidatorSet::get();
 
 	// 10 mins for each pages
-	pub SignedPhase: u32 = prod_or_fast!(
+	pub storage SignedPhase: u32 = prod_or_fast!(
 		10 * MINUTES,
 		4 * MINUTES
 	);
-	pub UnsignedPhase: u32 = prod_or_fast!(
+	pub storage UnsignedPhase: u32 = prod_or_fast!(
 		10 * MINUTES,
 		(1 * MINUTES)
 	);
 
 	/// validate up to 4 signed solution. Each solution.
-	pub SignedValidationPhase: u32 = prod_or_fast!(Pages::get() * 4, Pages::get());
+	pub storage SignedValidationPhase: u32 = prod_or_fast!(Pages::get() * 4, Pages::get());
 
 	/// In each page, we may observe up to all of the validators.
 	pub MaxWinnersPerPage: u32 = MaxValidatorSet::get();
@@ -173,7 +173,7 @@ parameter_types! {
 	pub MinerTxPriority: TransactionPriority = TransactionPriority::max_value() / 2;
 	/// Try and run the OCW miner 4 times during the unsigned phase.
 	pub OffchainRepeat: BlockNumber = UnsignedPhase::get() / 4;
-	pub MinerPages: u32 = 1;
+	pub storage MinerPages: u32 = 2;
 }
 
 impl multi_block::unsigned::Config for Runtime {
