@@ -337,9 +337,9 @@ fn test_add_tip_fails_amount_zero() {
 		let current_block = System::block_number();
 		let order = PendingOrder { nonce, fee: initial_fee, block_number: current_block };
 		PendingOrders::<Test>::insert(nonce, order);
-		
+
 		assert_noop!(OutboundQueue::add_tip(nonce, zero_amount), AddTipError::AmountZero);
-		
+
 		// Verify the original fee is unchanged
 		let order_after = PendingOrders::<Test>::get(nonce).unwrap();
 		assert_eq!(order_after.fee, initial_fee);
