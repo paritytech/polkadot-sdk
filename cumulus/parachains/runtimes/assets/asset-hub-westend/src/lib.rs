@@ -706,7 +706,10 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
 	fn filter(&self, c: &RuntimeCall) -> bool {
 		match self {
 			ProxyType::Any => true,
-			ProxyType::OldSudoBalances | ProxyType::OldIdentityJudgement | ProxyType::OldAuction | ProxyType::OldParaRegistration => false,
+			ProxyType::OldSudoBalances |
+			ProxyType::OldIdentityJudgement |
+			ProxyType::OldAuction |
+			ProxyType::OldParaRegistration => false,
 			ProxyType::NonTransfer => !matches!(
 				c,
 				RuntimeCall::Balances { .. } |
@@ -1316,6 +1319,32 @@ impl pallet_ah_migrator::Config for Runtime {
 		pallet_rc_migrator::staking::message::RcStakingMessageOf<westend_runtime::Runtime>;
 }
 
+impl pallet_sudo::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type RuntimeCall = RuntimeCall;
+	type WeightInfo = weights::pallet_sudo::WeightInfo<Runtime>;
+}
+
+/// Set the sudo key migration.
+pub struct SetSudoKey;
+impl frame_support::traits::OnRuntimeUpgrade for SetSudoKey {
+	fn on_runtime_upgrade() -> Weight {
+		use sp_core::crypto::Ss58Codec;
+
+		match AccountId::from_ss58check("5FRzwC892cofttMft53kuwEuBLjbM5kWwGz3Qcy2So238QMY") {
+			Ok(a) => {
+				log::info!("Setting sudo key");
+				pallet_sudo::Key::<Runtime>::put(a);
+			},
+			Err(_) => {
+				log::error!("Failed to set sudo key");
+			},
+		};
+
+		<Runtime as frame_system::Config>::DbWeight::get().reads_writes(0, 1)
+	}
+}
+
 // Create the runtime by composing the FRAME pallets that were previously configured.
 construct_runtime!(
 	pub enum Runtime
@@ -1330,6 +1359,7 @@ construct_runtime!(
 		MultiBlockMigrations: pallet_migrations = 6,
 		Preimage: pallet_preimage = 7,
 		Scheduler: pallet_scheduler = 8,
+		Sudo: pallet_sudo = 9,
 
 		// Monetary stuff.
 		Balances: pallet_balances = 10,
@@ -1489,6 +1519,7 @@ pub type Migrations = (
 		Runtime,
 		pallet_session::migrations::v1::InitOffenceSeverity<Runtime>,
 	>,
+	SetSudoKey,
 	// permanent
 	pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
 	cumulus_pallet_aura_ext::migration::MigrateV0ToV1<Runtime>,

@@ -59,10 +59,7 @@ fn asset_hub_westend_genesis(
 				.collect(),
 		},
 		polkadot_xcm: PolkadotXcmConfig { safe_xcm_version: Some(SAFE_XCM_VERSION) },
-		staking: StakingConfig {
-			dev_stakers,
-			..Default::default()
-		}
+		staking: StakingConfig { dev_stakers, ..Default::default() }
 	})
 }
 

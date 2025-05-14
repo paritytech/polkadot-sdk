@@ -101,7 +101,7 @@ pub fn call_allowed_status(call: &<Runtime as frame_system::Config>::RuntimeCall
 		// Claims(..) => (OFF, OFF), // Not on Westend.
 		Vesting(..) => (OFF, OFF),
 		Utility(..) => (OFF, ON), // batching etc
-		Proxy(..) => (OFF, ON),
+		Proxy(..) => (ON, ON),
 		Multisig(..) => (OFF, ON),
 		// Bounties(..) => (OFF, OFF), // Not on Westend.
 		// ChildBounties(..) => (OFF, OFF), // Not on Westend.
@@ -137,7 +137,7 @@ pub fn call_allowed_status(call: &<Runtime as frame_system::Config>::RuntimeCall
 		Coretime(coretime::Call::<Runtime>::request_revenue_at { .. }) => (OFF, ON),
 		Coretime(..) => (ON, ON),
 		// StateTrieMigration(..) => (OFF, OFF), // Not on Westend.
-		XcmPallet(..) => (OFF, ON), /* TODO allow para origins and root to call this during the migration, see https://github.com/polkadot-fellows/runtimes/pull/559#discussion_r1928789463 */
+		XcmPallet(..) => (ON, ON), /* TODO allow para origins and root to call this during the migration, see https://github.com/polkadot-fellows/runtimes/pull/559#discussion_r1928789463 */
 		MessageQueue(..) => (ON, ON), // TODO think about this
 		AssetRate(..) => (OFF, OFF),
 		Beefy(..) => (OFF, ON), /* TODO @claravanstaden @bkontur */
