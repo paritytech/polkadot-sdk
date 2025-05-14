@@ -494,3 +494,16 @@ impl<T: pallet_staking_async::Config> StakingMigrator<T> {
 		ChillThreshold::<T>::set(values.chill_threshold);
 	}
 }
+
+pub struct MessageTranslator<Rc>(core::marker::PhantomData<Rc>);
+
+impl<Rc> IntoAh<RcStakingMessageOf<Rc>, RcEquivalentStakingMessageOf<Rc>>
+	for MessageTranslator<Rc>
+where
+	Rc: pallet_staking::Config,
+{
+	fn intoAh(message: RcStakingMessageOf<Rc>) -> RcEquivalentStakingMessageOf<Rc> {
+		use RcStakingMessage::*;
+		todo!()
+	}
+}
