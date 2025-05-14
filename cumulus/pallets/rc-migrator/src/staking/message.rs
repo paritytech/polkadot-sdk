@@ -305,37 +305,40 @@ impl<Rc: pallet_staking::Config> IntoAh<
 	}
 }
 
-/*impl<AccountId, MaxValidatorSet>
-	IntoAh<pallet_staking::EraRewardPoints<AccountId>, pallet_staking_async::EraRewardPoints<AccountId, MaxValidatorSet>>
-	for pallet_staking::EraRewardPoints<AccountId>
-where
-	AccountId: MaxEncodedLen + Clone + PartialEq + Eq + Debug + Ord,
-	MaxValidatorSet: Get<u32>,
+impl<Rc: pallet_staking::Config>
+	IntoAh<
+		pallet_staking::EraRewardPoints<AccountIdOf<Rc>>,
+		pallet_staking_async::EraRewardPoints<
+			<Rc as frame_system::Config>::AccountId,
+			ConstU32<1000>, // <T as pallet_staking_async::Config>::MaxValidatorSet,
+		>,
+	>
+	for MessageTranslator<Rc>
 {
 	fn intoAh(
-		points: pallet_staking::EraRewardPoints<AccountId>,
-	) -> pallet_staking_async::EraRewardPoints<AccountId, MaxValidatorSet> {
-		let bounded = points
-			.individual
-			.into_iter()
-			.take(<MaxValidatorSet as Get<u32>>::get() as usize)
-			.collect::<BTreeMap<_, _>>();
+		points: pallet_staking::EraRewardPoints<AccountIdOf<Rc>>,
+	) -> pallet_staking_async::EraRewardPoints<
+		AccountIdOf<Rc>,
+		ConstU32<1000>, // <T as pallet_staking_async::Config>::MaxValidatorSet,
+	>
+	{
+		let individual = points.individual.try_into().defensive().unwrap_or_default(); // FIXME
 		pallet_staking_async::EraRewardPoints {
 			total: points.total,
-			individual: BoundedBTreeMap::try_from(bounded).defensive().unwrap_or_default(),
+			individual: individual,
 		}
 	}
 }
 
-impl<AccountId>
+impl<Rc: pallet_staking::Config>
 	IntoAh<
-		pallet_staking::RewardDestination<AccountId>,
-		pallet_staking_async::RewardDestination<AccountId>,
-	> for pallet_staking::RewardDestination<AccountId>
+		pallet_staking::RewardDestination<AccountIdOf<Rc>>,
+		pallet_staking_async::RewardDestination<AccountIdOf<Rc>>,
+	> for MessageTranslator<Rc>
 {
 	fn intoAh(
-		destination: pallet_staking::RewardDestination<AccountId>,
-	) -> pallet_staking_async::RewardDestination<AccountId> {
+		destination: pallet_staking::RewardDestination<AccountIdOf<Rc>>,
+	) -> pallet_staking_async::RewardDestination<AccountIdOf<Rc>> {
 		match destination {
 			pallet_staking::RewardDestination::Staked =>
 				pallet_staking_async::RewardDestination::Staked,
@@ -351,8 +354,11 @@ impl<AccountId>
 	}
 }
 
-impl IntoAh<pallet_staking::ValidatorPrefs, pallet_staking_async::ValidatorPrefs>
-	for pallet_staking::ValidatorPrefs
+impl<Rc: pallet_staking::Config>
+	IntoAh<
+		pallet_staking::ValidatorPrefs,
+		pallet_staking_async::ValidatorPrefs
+	> for MessageTranslator<Rc>
 {
 	fn intoAh(prefs: pallet_staking::ValidatorPrefs) -> pallet_staking_async::ValidatorPrefs {
 		pallet_staking_async::ValidatorPrefs {
@@ -362,7 +368,9 @@ impl IntoAh<pallet_staking::ValidatorPrefs, pallet_staking_async::ValidatorPrefs
 	}
 }
 
-impl IntoAh<pallet_staking::Forcing, pallet_staking_async::Forcing> for pallet_staking::Forcing {
+impl<Rc: pallet_staking::Config>
+	IntoAh<pallet_staking::Forcing, pallet_staking_async::Forcing> for MessageTranslator<Rc>
+{
 	fn intoAh(forcing: pallet_staking::Forcing) -> pallet_staking_async::Forcing {
 		match forcing {
 			pallet_staking::Forcing::NotForcing => pallet_staking_async::Forcing::NotForcing,
@@ -373,14 +381,15 @@ impl IntoAh<pallet_staking::Forcing, pallet_staking_async::Forcing> for pallet_s
 	}
 }
 
-impl IntoAh<pallet_staking::ActiveEraInfo, pallet_staking_async::ActiveEraInfo>
-	for pallet_staking::ActiveEraInfo
+impl<Rc: pallet_staking::Config>
+	IntoAh<pallet_staking::ActiveEraInfo, pallet_staking_async::ActiveEraInfo> for MessageTranslator<Rc>
 {
 	fn intoAh(active_era: pallet_staking::ActiveEraInfo) -> pallet_staking_async::ActiveEraInfo {
 		pallet_staking_async::ActiveEraInfo { index: active_era.index, start: active_era.start }
 	}
 }
 
+/*
 // StakingLedger requires a T instead of having a `StakingLedgerOf` :(
 impl<T, Ah, SNomQuota, SSNomQuota> IntoAh<RcStakingMessageOf<T>, AhEquivalentStakingMessageOf<Ah>>
 	for RcStakingMessageOf<T>
