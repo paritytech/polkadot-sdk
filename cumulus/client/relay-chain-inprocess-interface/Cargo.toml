@@ -32,6 +32,7 @@ sp-state-machine = { workspace = true, default-features = true }
 
 # Polkadot
 polkadot-cli = { features = ["cli"], workspace = true }
+polkadot-primitives = { workspace = true, default-features = true }
 polkadot-service = { workspace = true, default-features = true }
 
 # Cumulus
