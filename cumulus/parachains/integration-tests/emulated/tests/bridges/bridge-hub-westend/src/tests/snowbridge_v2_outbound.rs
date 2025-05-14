@@ -296,7 +296,7 @@ pub fn tip_to_invalid_nonce_is_added_to_lost_tips() {
 			sp_runtime::AccountId32,
 		>(relayer.into());
 		// Assert a tip was added to storage.
-		assert_gt!(relayer_lost_tip, 0);
+		assert!(relayer_lost_tip > 0);
 	});
 }
 
