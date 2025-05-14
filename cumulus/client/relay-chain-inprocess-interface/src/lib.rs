@@ -35,6 +35,7 @@ use cumulus_primitives_core::{
 };
 use cumulus_relay_chain_interface::{RelayChainError, RelayChainInterface, RelayChainResult};
 use futures::{FutureExt, Stream, StreamExt};
+use polkadot_primitives::vstaging::CandidateEvent;
 use polkadot_service::{
 	builder::PolkadotServiceBuilder, CollatorOverseerGen, CollatorPair, Configuration, FullBackend,
 	FullClient, Handle, NewFull, NewFullParams, TaskManager,
@@ -327,6 +328,10 @@ impl RelayChainInterface for RelayChainInProcessInterface {
 
 	async fn scheduling_lookahead(&self, hash: PHash) -> RelayChainResult<u32> {
 		Ok(self.full_client.runtime_api().scheduling_lookahead(hash)?)
+	}
+
+	async fn candidate_events(&self, hash: PHash) -> RelayChainResult<Vec<CandidateEvent>> {
+		Ok(self.full_client.runtime_api().candidate_events(hash)?)
 	}
 }
 
