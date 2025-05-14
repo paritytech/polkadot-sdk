@@ -69,8 +69,6 @@ pub enum StakingStage<AccountId> {
 	BondedEras,
 	ValidatorSlashInEra(Option<(EraIndex, AccountId)>),
 	NominatorSlashInEra(Option<(EraIndex, AccountId)>),
-	SlashingSpans(Option<AccountId>),
-	SpanSlash(Option<(AccountId, SpanIndex)>),
 	Finished,
 }
 
@@ -437,37 +435,6 @@ impl<T: Config> PalletMigration for StakingMigrator<T> {
 								slash,
 							});
 							StakingStage::NominatorSlashInEra(Some((era, validator)))
-						},
-						None => StakingStage::SlashingSpans(None),
-					}
-				},
-				StakingStage::SlashingSpans(account) => {
-					let mut iter = resume::<pallet_staking::SlashingSpans<T>, _, _>(account);
-
-					match iter.next() {
-						Some((account, spans)) => {
-							pallet_staking::SlashingSpans::<T>::remove(&account);
-							messages.push(RcStakingMessage::SlashingSpans {
-								account: account.clone(),
-								spans,
-							});
-							StakingStage::SlashingSpans(Some(account))
-						},
-						None => StakingStage::SpanSlash(None),
-					}
-				},
-				StakingStage::SpanSlash(next) => {
-					let mut iter = resume::<pallet_staking::SpanSlash<T>, _, _>(next);
-
-					match iter.next() {
-						Some(((account, span), slash)) => {
-							pallet_staking::SpanSlash::<T>::remove((&account, &span));
-							messages.push(RcStakingMessage::SpanSlash {
-								account: account.clone(),
-								span,
-								slash,
-							});
-							StakingStage::SpanSlash(Some((account, span)))
 						},
 						None => StakingStage::Finished,
 					}
