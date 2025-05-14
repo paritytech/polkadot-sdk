@@ -48,9 +48,6 @@ pub mod weights;
 
 mod mock;
 
-/// Minimal delivery fee factor.
-pub const MINIMAL_DELIVERY_FEE_FACTOR: FixedU128 = FixedU128::from_u32(1);
-
 /// Maximal size of the XCM message that may be sent over bridge.
 ///
 /// This should be less than the maximal size, allowed by the messages pallet, because
@@ -436,10 +433,6 @@ impl<T: Config<I>, I: 'static> InspectMessageQueues for Pallet<T, I> {
 impl<T: Config<I>, I: 'static> FeeTracker for Pallet<T, I> {
 	type Id = ();
 
-	fn get_min_fee_factor() -> FixedU128 {
-		MINIMAL_DELIVERY_FEE_FACTOR
-	}
-
 	fn get_fee_factor(_id: Self::Id) -> FixedU128 {
 		Self::bridge().delivery_fee_factor
 	}
@@ -459,6 +452,7 @@ mod tests {
 
 	use frame_support::traits::Hooks;
 	use frame_system::{EventRecord, Phase};
+	use polkadot_runtime_parachains::MIN_FEE_FACTOR;
 	use sp_runtime::traits::One;
 
 	fn congested_bridge(delivery_fee_factor: FixedU128) -> BridgeState {
@@ -472,10 +466,7 @@ mod tests {
 	#[test]
 	fn initial_fee_factor_is_one() {
 		run_test(|| {
-			assert_eq!(
-				Bridge::<TestRuntime, ()>::get(),
-				uncongested_bridge(MINIMAL_DELIVERY_FEE_FACTOR),
-			);
+			assert_eq!(Bridge::<TestRuntime, ()>::get(), uncongested_bridge(MIN_FEE_FACTOR),);
 		})
 	}
 
@@ -513,16 +504,13 @@ mod tests {
 			Bridge::<TestRuntime, ()>::put(uncongested_bridge(initial_fee_factor));
 
 			// it should eventually decrease to one
-			while XcmBridgeHubRouter::bridge().delivery_fee_factor > MINIMAL_DELIVERY_FEE_FACTOR {
+			while XcmBridgeHubRouter::bridge().delivery_fee_factor > MIN_FEE_FACTOR {
 				XcmBridgeHubRouter::on_initialize(One::one());
 			}
 
 			// verify that it doesn't decrease anymore
 			XcmBridgeHubRouter::on_initialize(One::one());
-			assert_eq!(
-				XcmBridgeHubRouter::bridge(),
-				uncongested_bridge(MINIMAL_DELIVERY_FEE_FACTOR)
-			);
+			assert_eq!(XcmBridgeHubRouter::bridge(), uncongested_bridge(MIN_FEE_FACTOR));
 
 			// check emitted event
 			let first_system_event = System::events().first().cloned();
@@ -710,7 +698,7 @@ mod tests {
 	#[test]
 	fn sent_message_increases_factor_if_bridge_has_reported_congestion() {
 		run_test(|| {
-			Bridge::<TestRuntime, ()>::put(congested_bridge(MINIMAL_DELIVERY_FEE_FACTOR));
+			Bridge::<TestRuntime, ()>::put(congested_bridge(MIN_FEE_FACTOR));
 
 			let old_bridge = XcmBridgeHubRouter::bridge();
 			assert_ok!(send_xcm::<XcmBridgeHubRouter>(

@@ -58,7 +58,15 @@ pub use origin::{ensure_parachain, Origin};
 pub use paras::{ParaLifecycle, UpgradeStrategy};
 use polkadot_primitives::{HeadData, Id as ParaId, ValidationCode};
 use sp_arithmetic::traits::Saturating;
+use sp_core::parameter_types;
 use sp_runtime::{DispatchResult, FixedU128};
+
+/// Default minimal delivery fee factor.
+pub const MIN_FEE_FACTOR: FixedU128 = FixedU128::from_u32(1);
+
+parameter_types! {
+	pub MinFeeFactor: FixedU128 = MIN_FEE_FACTOR;
+}
 
 /// Trait for tracking message delivery fees on a transport protocol.
 pub trait FeeTracker {
@@ -70,8 +78,6 @@ pub trait FeeTracker {
 	const EXPONENTIAL_FEE_BASE: FixedU128 = FixedU128::from_rational(105, 100); // 1.05
 	/// The factor that is used to increase the current message fee factor for every sent kilobyte.
 	const MESSAGE_SIZE_FEE_BASE: FixedU128 = FixedU128::from_rational(1, 1000); // 0.001
-
-	fn get_min_fee_factor() -> FixedU128;
 
 	/// Returns the current message fee factor.
 	fn get_fee_factor(id: Self::Id) -> FixedU128;
@@ -94,13 +100,11 @@ pub trait FeeTracker {
 	}
 
 	fn do_decrease_fee_factor(fee_factor: &mut FixedU128) -> bool {
-		let min_fee_factor = Self::get_min_fee_factor();
-
-		if *fee_factor == min_fee_factor {
+		if *fee_factor == MIN_FEE_FACTOR {
 			return false;
 		}
 
-		*fee_factor = min_fee_factor.max(*fee_factor / Self::EXPONENTIAL_FEE_BASE);
+		*fee_factor = MIN_FEE_FACTOR.max(*fee_factor / Self::EXPONENTIAL_FEE_BASE);
 		true
 	}
 

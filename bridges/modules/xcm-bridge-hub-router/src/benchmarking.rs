@@ -18,9 +18,10 @@
 
 #![cfg(feature = "runtime-benchmarks")]
 
-use crate::{Bridge, BridgeState, Call, MINIMAL_DELIVERY_FEE_FACTOR};
+use crate::{Bridge, BridgeState, Call};
 use frame_benchmarking::{benchmarks_instance_pallet, BenchmarkError};
 use frame_support::traits::{EnsureOrigin, Get, Hooks, UnfilteredDispatchable};
+use polkadot_runtime_parachains::MIN_FEE_FACTOR;
 use sp_runtime::traits::Zero;
 use xcm::prelude::*;
 
@@ -47,7 +48,7 @@ benchmarks_instance_pallet! {
 	on_initialize_when_non_congested {
 		Bridge::<T, I>::put(BridgeState {
 			is_congested: false,
-			delivery_fee_factor: MINIMAL_DELIVERY_FEE_FACTOR + MINIMAL_DELIVERY_FEE_FACTOR,
+			delivery_fee_factor: MIN_FEE_FACTOR + MIN_FEE_FACTOR,
 		});
 	}: {
 		crate::Pallet::<T, I>::on_initialize(Zero::zero())
@@ -56,7 +57,7 @@ benchmarks_instance_pallet! {
 	on_initialize_when_congested {
 		Bridge::<T, I>::put(BridgeState {
 			is_congested: false,
-			delivery_fee_factor: MINIMAL_DELIVERY_FEE_FACTOR + MINIMAL_DELIVERY_FEE_FACTOR,
+			delivery_fee_factor: MIN_FEE_FACTOR + MIN_FEE_FACTOR,
 		});
 		let _ = T::ensure_bridged_target_destination()?;
 		T::make_congested();
