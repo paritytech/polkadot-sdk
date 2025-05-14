@@ -258,7 +258,7 @@ pub mod pallet {
 			let (tip_asset_location, tip_amount) = match asset {
 				Asset { id: AssetId(ref loc), fun: Fungibility::Fungible(amount) } => (loc, amount),
 				_ => {
-					tracing::error!(target: LOG_TARGET, ?asset, "error matching tip asset");
+					tracing::debug!(target: LOG_TARGET, ?asset, "error matching tip asset");
 					return Err(Error::<T>::UnsupportedAsset.into())
 				},
 			};
