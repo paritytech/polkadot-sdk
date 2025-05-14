@@ -22,7 +22,7 @@ use crate::{
 	election_size_tracker::StaticTracker,
 	log,
 	session_rotation::{self, Eras, Rotator},
-	slashing,
+	slashing::OffenceRecord,
 	weights::WeightInfo,
 	BalanceOf, Exposure, Forcing, LedgerIntegrityState, MaxNominationsOf, Nominations,
 	NominationsQuota, PositiveImbalanceOf, RewardDestination, SnapshotStatus, StakingLedger,
@@ -58,7 +58,6 @@ use sp_staking::{
 
 use super::pallet::*;
 
-use crate::slashing::OffenceRecord;
 #[cfg(feature = "try-runtime")]
 use frame_support::ensure;
 #[cfg(any(test, feature = "try-runtime"))]
@@ -186,10 +185,7 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
-	pub(super) fn do_withdraw_unbonded(
-		controller: &T::AccountId,
-		num_slashing_spans: u32,
-	) -> Result<Weight, DispatchError> {
+	pub(super) fn do_withdraw_unbonded(controller: &T::AccountId) -> Result<Weight, DispatchError> {
 		let mut ledger = Self::ledger(Controller(controller.clone()))?;
 		let (stash, old_total) = (ledger.stash.clone(), ledger.total);
 		if let Some(current_era) = CurrentEra::<T>::get() {
@@ -203,15 +199,15 @@ impl<T: Config> Pallet<T> {
 				// This account must have called `unbond()` with some value that caused the active
 				// portion to fall below existential deposit + will have no more unlocking chunks
 				// left. We can now safely remove all staking-related information.
-				Self::kill_stash(&ledger.stash, num_slashing_spans)?;
+				Self::kill_stash(&ledger.stash)?;
 
-				T::WeightInfo::withdraw_unbonded_kill(num_slashing_spans)
+				T::WeightInfo::withdraw_unbonded_kill()
 			} else {
 				// This was the consequence of a partial unbond. just update the ledger and move on.
 				ledger.update()?;
 
 				// This is only an update, so we use less overall weight.
-				T::WeightInfo::withdraw_unbonded_update(num_slashing_spans)
+				T::WeightInfo::withdraw_unbonded_update()
 			};
 
 		// `old_total` should never be less than the new total because
@@ -440,9 +436,7 @@ impl<T: Config> Pallet<T> {
 	/// This is called:
 	/// - after a `withdraw_unbonded()` call that frees all of a stash's bonded balance.
 	/// - through `reap_stash()` if the balance has fallen to zero (through slashing).
-	pub(crate) fn kill_stash(stash: &T::AccountId, num_slashing_spans: u32) -> DispatchResult {
-		slashing::clear_stash_metadata::<T>(&stash, num_slashing_spans)?;
-
+	pub(crate) fn kill_stash(stash: &T::AccountId) -> DispatchResult {
 		// removes controller from `Bonded` and staking ledger from `Ledger`, as well as reward
 		// setting of the stash in `Payee`.
 		StakingLedger::<T>::kill(&stash)?;
@@ -1507,10 +1501,10 @@ impl<T: Config> StakingInterface for Pallet<T> {
 
 	fn withdraw_unbonded(
 		who: Self::AccountId,
-		num_slashing_spans: u32,
+		_num_slashing_spans: u32,
 	) -> Result<bool, DispatchError> {
 		let ctrl = Self::bonded(&who).ok_or(Error::<T>::NotStash)?;
-		Self::withdraw_unbonded(RawOrigin::Signed(ctrl.clone()).into(), num_slashing_spans)
+		Self::withdraw_unbonded(RawOrigin::Signed(ctrl.clone()).into(), 0)
 			.map(|_| !StakingLedger::<T>::is_bonded(StakingAccount::Controller(ctrl)))
 			.map_err(|with_post| with_post.error)
 	}
@@ -1542,9 +1536,7 @@ impl<T: Config> StakingInterface for Pallet<T> {
 	}
 
 	fn force_unstake(who: Self::AccountId) -> sp_runtime::DispatchResult {
-		let num_slashing_spans =
-			SlashingSpans::<T>::get(&who).map_or(0, |s| s.iter().count() as u32);
-		Self::force_unstake(RawOrigin::Root.into(), who.clone(), num_slashing_spans)
+		Self::force_unstake(RawOrigin::Root.into(), who.clone(), 0)
 	}
 
 	fn is_exposed_in_era(who: &Self::AccountId, era: &EraIndex) -> bool {

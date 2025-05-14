@@ -65,7 +65,6 @@ pub type SnowbridgeExporterV2 = EthereumBlobExporterV2<
 	UniversalLocation,
 	EthereumNetwork,
 	snowbridge_pallet_outbound_queue_v2::Pallet<Runtime>,
-	snowbridge_core::AgentIdOf,
 	EthereumSystemV2,
 	AssetHubParaId,
 >;
@@ -84,6 +83,7 @@ parameter_types! {
 		multiplier: FixedU128::from_rational(1, 1),
 	};
 	pub AssetHubFromEthereum: Location = Location::new(1, [GlobalConsensus(RelayNetwork::get()), Parachain(ASSET_HUB_ID)]);
+	pub AssetHubUniversalLocation: InteriorLocation = [GlobalConsensus(RelayNetwork::get()), Parachain(ASSET_HUB_ID)].into();
 	pub AssetHubLocation: Location = Location::new(1, [Parachain(ASSET_HUB_ID)]);
 	pub EthereumUniversalLocation: InteriorLocation = [GlobalConsensus(EthereumNetwork::get())].into();
 	pub InboundQueueV2Location: InteriorLocation = [PalletInstance(INBOUND_QUEUE_PALLET_INDEX_V2)].into();
@@ -144,6 +144,8 @@ impl snowbridge_pallet_inbound_queue_v2::Config for Runtime {
 		EthereumGatewayAddress,
 		EthereumUniversalLocation,
 		AssetHubFromEthereum,
+		AssetHubUniversalLocation,
+		AccountId,
 	>;
 	type AccountToLocation = xcm_builder::AliasesIntoAccountId32<
 		xcm_config::RelayNetwork,

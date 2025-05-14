@@ -36,7 +36,10 @@ parachains-common = { workspace = true, default-features = true }
 penpal-runtime = { workspace = true }
 people-rococo-runtime = { workspace = true }
 people-westend-runtime = { workspace = true }
-polkadot-omni-node-lib = { features = ["rococo-native", "westend-native"], workspace = true }
+polkadot-omni-node-lib = { features = [
+	"rococo-native",
+	"westend-native",
+], workspace = true }
 rococo-parachain-runtime = { workspace = true }
 
 # Substrate
@@ -54,6 +57,9 @@ xcm = { workspace = true, default-features = true }
 cumulus-client-consensus-aura = { workspace = true }
 cumulus-primitives-core = { workspace = true, default-features = true }
 yet-another-parachain-runtime = { workspace = true }
+
+[dev-dependencies]
+assert_cmd = { workspace = true }
 
 [build-dependencies]
 substrate-build-script-utils = { workspace = true, default-features = true }
