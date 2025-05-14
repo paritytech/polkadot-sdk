@@ -29,6 +29,8 @@
 use std::{
 	cmp::Ordering,
 	collections::{HashMap, HashSet},
+	future::Future,
+	pin::Pin,
 	sync::{
 		atomic::{self, AtomicU64},
 		Arc,
@@ -39,7 +41,7 @@ use std::{
 use futures::FutureExt;
 use itertools::Itertools;
 use parking_lot::RwLock;
-use tracing::{debug, trace};
+use tracing::{debug, info, trace};
 
 use sc_transaction_pool_api::{TransactionPriority, TransactionSource};
 use sp_blockchain::HashAndNumber;
@@ -51,15 +53,16 @@ use sp_runtime::{
 use crate::{
 	common::tracing_log_xt::log_xt_trace,
 	graph,
-	graph::{base_pool::TimedTransactionSource, tracked_map::Size, ExtrinsicFor, ExtrinsicHash},
+	graph::{base_pool::TimedTransactionSource, ExtrinsicFor, ExtrinsicHash},
 	LOG_TARGET,
 };
 
 use super::{
-	metrics::MetricsLink as PrometheusMetrics,
-	multi_view_listener::MultiViewListener,
-	view_store::{ViewStore, ViewStoreSubmitOutcome},
+	metrics::MetricsLink as PrometheusMetrics, multi_view_listener::MultiViewListener,
+	view_store::ViewStore,
 };
+
+mod tx_mem_pool_map;
 
 /// The minimum interval between single transaction revalidations. Given in blocks.
 pub(crate) const TXMEMPOOL_REVALIDATION_PERIOD: u64 = 10;
@@ -175,7 +178,7 @@ where
 	}
 }
 
-impl<ChainApi, Block> Size for Arc<TxInMemPool<ChainApi, Block>>
+impl<ChainApi, Block> tx_mem_pool_map::Size for Arc<TxInMemPool<ChainApi, Block>>
 where
 	Block: BlockT,
 	ChainApi: graph::ChainApi<Block = Block> + 'static,
@@ -186,7 +189,10 @@ where
 }
 
 type InternalTxMemPoolMap<ChainApi, Block> =
-	graph::tracked_map::TrackedMap<ExtrinsicHash<ChainApi>, Arc<TxInMemPool<ChainApi, Block>>>;
+	tx_mem_pool_map::TrackedMap<ExtrinsicHash<ChainApi>, Arc<TxInMemPool<ChainApi, Block>>>;
+
+/// Internal task for bridging sync and async code.
+pub type TxMemPoolTask = Pin<Box<dyn Future<Output = ()> + Send>>;
 
 /// An intermediary transactions buffer.
 ///
@@ -209,6 +215,9 @@ where
 	///
 	/// Provides a side-channel allowing to send per-transaction state changes notification.
 	listener: Arc<MultiViewListener<ChainApi>>,
+
+	/// Channel used to send the requests from the sync code.
+	sync_channel: tokio::sync::mpsc::Sender<TxMemPoolSyncRequest<ChainApi, Block>>,
 
 	///  A map that stores the transactions currently in the memory pool.
 	///
@@ -257,15 +266,21 @@ where
 		metrics: PrometheusMetrics,
 		max_transactions_count: usize,
 		max_transactions_total_bytes: usize,
-	) -> Self {
-		Self {
-			api,
-			listener,
-			transactions: Default::default(),
-			metrics,
-			max_transactions_count,
-			max_transactions_total_bytes,
-		}
+	) -> (Self, TxMemPoolTask) {
+		let (sync_channel, rx) = tokio::sync::mpsc::channel(1);
+		let task = Self::sync_bridge_task(rx);
+		(
+			Self {
+				api,
+				listener,
+				sync_channel,
+				transactions: Default::default(),
+				metrics,
+				max_transactions_count,
+				max_transactions_total_bytes,
+			},
+			task.boxed(),
+		)
 	}
 
 	/// Creates a new `TxMemPool` instance for testing purposes.
@@ -275,34 +290,38 @@ where
 		max_transactions_count: usize,
 		max_transactions_total_bytes: usize,
 	) -> Self {
+		let (sync_channel, _) = tokio::sync::mpsc::channel(1);
 		Self {
 			api,
 			listener: Arc::from(MultiViewListener::new_with_worker(Default::default()).0),
 			transactions: Default::default(),
 			metrics: Default::default(),
+			sync_channel,
 			max_transactions_count,
 			max_transactions_total_bytes,
 		}
 	}
 
 	/// Retrieves a transaction by its hash if it exists in the memory pool.
-	pub(super) fn get_by_hash(
+	pub(super) async fn get_by_hash(
 		&self,
 		hash: ExtrinsicHash<ChainApi>,
 	) -> Option<Arc<TxInMemPool<ChainApi, Block>>> {
-		self.transactions.read().get(&hash).map(Clone::clone)
+		self.transactions.read().await.get(&hash).map(Clone::clone)
 	}
 
 	/// Returns a tuple with the count of unwatched and watched transactions in the memory pool.
-	pub fn unwatched_and_watched_count(&self) -> (usize, usize) {
-		let transactions = self.transactions.read();
+	pub async fn unwatched_and_watched_count(&self) -> (usize, usize) {
+		//todo!
+		let transactions = self.transactions.read().await;
 		let watched_count = transactions.values().filter(|t| t.is_watched()).count();
 		(transactions.len() - watched_count, watched_count)
 	}
 
 	/// Returns a total number of transactions kept within mempool.
 	pub fn len(&self) -> usize {
-		self.transactions.read().len()
+		//todo: maybe assert to check inner maps/atomic alignment?
+		self.transactions.len()
 	}
 
 	/// Returns the number of bytes used by all extrinsics in the the pool.
@@ -319,12 +338,12 @@ where
 
 	/// Attempts to insert a transaction into the memory pool, ensuring it does not
 	/// exceed the maximum allowed transaction count.
-	fn try_insert(
+	async fn try_insert(
 		&self,
 		tx_hash: ExtrinsicHash<ChainApi>,
 		tx: TxInMemPool<ChainApi, Block>,
 	) -> Result<InsertionInfo<ExtrinsicHash<ChainApi>>, sc_transaction_pool_api::error::Error> {
-		let mut transactions = self.transactions.write();
+		let mut transactions = self.transactions.write().await;
 
 		let bytes = self.transactions.bytes();
 
@@ -362,7 +381,7 @@ where
 	///
 	/// Returns a `Result` containing `InsertionInfo` if the new transaction is successfully
 	/// inserted; otherwise, returns an appropriate error indicating the failure.
-	pub(super) fn try_insert_with_replacement(
+	pub(super) async fn try_insert_with_replacement(
 		&self,
 		new_tx: ExtrinsicFor<ChainApi>,
 		priority: TransactionPriority,
@@ -375,7 +394,7 @@ where
 			return Err(sc_transaction_pool_api::error::Error::ImmediatelyDropped);
 		}
 
-		let mut transactions = self.transactions.write();
+		let mut transactions = self.transactions.write().await;
 
 		if transactions.contains_key(&hash) {
 			return Err(sc_transaction_pool_api::error::Error::AlreadyImported(Box::new(hash)));
@@ -434,44 +453,47 @@ where
 	///
 	/// Returns the vector of results for each transaction, the order corresponds to the input
 	/// vector.
-	pub(super) fn extend_unwatched(
+	pub(super) async fn extend_unwatched(
 		&self,
 		source: TransactionSource,
 		xts: &[ExtrinsicFor<ChainApi>],
 	) -> Vec<Result<InsertionInfo<ExtrinsicHash<ChainApi>>, sc_transaction_pool_api::error::Error>>
 	{
-		let result = xts
-			.iter()
-			.map(|xt| {
-				let (hash, length) = self.api.hash_and_length(&xt);
+		let mut result = Vec::with_capacity(xts.len());
+		//todo: parrallel and join_all.
+		for xt in xts {
+			let (hash, length) = self.api.hash_and_length(&xt);
+			result.push(
 				self.try_insert(hash, TxInMemPool::new_unwatched(source, xt.clone(), length))
-			})
-			.collect::<Vec<_>>();
+					.await,
+			);
+		}
 		result
 	}
 
 	/// Adds a new watched transaction to the memory pool if it does not exceed the maximum allowed
 	/// transaction count.
-	pub(super) fn push_watched(
+	pub(super) async fn push_watched(
 		&self,
 		source: TransactionSource,
 		xt: ExtrinsicFor<ChainApi>,
 	) -> Result<InsertionInfo<ExtrinsicHash<ChainApi>>, sc_transaction_pool_api::error::Error> {
 		let (hash, length) = self.api.hash_and_length(&xt);
 		self.try_insert(hash, TxInMemPool::new_watched(source, xt.clone(), length))
+			.await
 	}
 
 	/// Clones and returns a `HashMap` of references to all transactions in the memory pool.
-	pub(super) fn clone_transactions(
+	pub(super) async fn clone_transactions(
 		&self,
 	) -> HashMap<ExtrinsicHash<ChainApi>, Arc<TxInMemPool<ChainApi, Block>>> {
-		self.transactions.clone_map()
+		self.transactions.clone_map().await
 	}
 
 	/// Removes transactions with given hashes from the memory pool.
-	pub(super) fn remove_transactions(&self, tx_hashes: &[ExtrinsicHash<ChainApi>]) {
+	pub(super) async fn remove_transactions(&self, tx_hashes: &[ExtrinsicHash<ChainApi>]) {
 		log_xt_trace!(target: LOG_TARGET, tx_hashes, "mempool::remove_transaction");
-		let mut transactions = self.transactions.write();
+		let mut transactions = self.transactions.write().await;
 		for tx_hash in tx_hashes {
 			transactions.remove(tx_hash);
 		}
@@ -489,7 +511,7 @@ where
 		let start = Instant::now();
 
 		let (count, input) = {
-			let transactions = self.transactions.clone_map();
+			let transactions = self.transactions.clone_map().await;
 
 			(
 				transactions.len(),
@@ -563,7 +585,7 @@ where
 			"purge_finalized_transactions"
 		);
 		log_xt_trace!(target: LOG_TARGET, finalized_xts, "purged finalized transactions");
-		let mut transactions = self.transactions.write();
+		let mut transactions = self.transactions.write().await;
 		finalized_xts.iter().for_each(|t| {
 			transactions.remove(t);
 		});
@@ -590,7 +612,7 @@ where
 		}
 
 		{
-			let mut transactions = self.transactions.write();
+			let mut transactions = self.transactions.write().await;
 			invalid_hashes_subtrees.iter().for_each(|tx_hash| {
 				transactions.remove(&tx_hash);
 			});
@@ -619,32 +641,242 @@ where
 
 	/// Updates the priority of transaction stored in mempool using provided view_store submission
 	/// outcome.
-	pub(super) fn update_transaction_priority(&self, outcome: &ViewStoreSubmitOutcome<ChainApi>) {
-		outcome.priority().map(|priority| {
-			self.transactions
-				.write()
-				.get_mut(&outcome.hash())
-				.map(|p| *p.priority.write() = Some(priority))
-		});
+	pub(super) async fn update_transaction_priority2(
+		&self,
+		hash: ExtrinsicHash<ChainApi>,
+		prio: Option<TransactionPriority>,
+	) {
+		if let Some(priority) = prio {
+			let mut transactions = self.transactions.write().await;
+
+			if let Some(t) = transactions.get_mut(&hash) {
+				*t.priority.write() = Some(priority);
+			}
+		}
 	}
 
 	/// Counts the number of transactions in the provided iterator of hashes
 	/// that are not known to the pool.
-	pub(super) fn count_unknown_transactions<'a>(
+	pub(super) async fn count_unknown_transactions<'a>(
 		&self,
 		hashes: impl Iterator<Item = &'a ExtrinsicHash<ChainApi>>,
 	) -> usize {
-		let transactions = self.transactions.read();
+		let transactions = self.transactions.read().await;
 		hashes.filter(|tx_hash| !transactions.contains_key(tx_hash)).count()
+	}
+}
+
+/// Convenient return type of extend_unwatched
+type ExtendUnwatchedResult<ChainApi> =
+	Vec<Result<InsertionInfo<ExtrinsicHash<ChainApi>>, sc_transaction_pool_api::error::Error>>;
+
+/// Convenient return type of try_insert_with_replacement
+type TryInsertWithReplacementResult<ChainApi> =
+	Result<InsertionInfo<ExtrinsicHash<ChainApi>>, sc_transaction_pool_api::error::Error>;
+
+/// Helper enum defining what requests can be made from sync code.
+enum TxMemPoolSyncRequest<ChainApi, Block>
+where
+	Block: BlockT,
+	ChainApi: graph::ChainApi<Block = Block> + 'static,
+{
+	RemoveTransactions(
+		Arc<TxMemPool<ChainApi, Block>>,
+		Vec<ExtrinsicHash<ChainApi>>,
+		tokio::sync::oneshot::Sender<()>,
+	),
+	ExtendUnwatched(
+		Arc<TxMemPool<ChainApi, Block>>,
+		TransactionSource,
+		Vec<ExtrinsicFor<ChainApi>>,
+		tokio::sync::oneshot::Sender<ExtendUnwatchedResult<ChainApi>>,
+	),
+	UpdateTransactionPriority2(
+		Arc<TxMemPool<ChainApi, Block>>,
+		ExtrinsicHash<ChainApi>,
+		Option<TransactionPriority>,
+		tokio::sync::oneshot::Sender<()>,
+	),
+	TryInsertWithReplacement(
+		Arc<TxMemPool<ChainApi, Block>>,
+		ExtrinsicFor<ChainApi>,
+		TransactionPriority,
+		TransactionSource,
+		bool,
+		tokio::sync::oneshot::Sender<TryInsertWithReplacementResult<ChainApi>>,
+	),
+}
+
+impl<ChainApi, Block> TxMemPoolSyncRequest<ChainApi, Block>
+where
+	Block: BlockT,
+	ChainApi: graph::ChainApi<Block = Block> + 'static,
+{
+	fn remove_transactions(
+		mempool: Arc<TxMemPool<ChainApi, Block>>,
+		hashes: Vec<ExtrinsicHash<ChainApi>>,
+	) -> (tokio::sync::oneshot::Receiver<()>, Self) {
+		let (tx, rx) = tokio::sync::oneshot::channel();
+		(rx, Self::RemoveTransactions(mempool, hashes, tx))
+	}
+
+	fn extend_unwatched(
+		mempool: Arc<TxMemPool<ChainApi, Block>>,
+		source: TransactionSource,
+		xts: Vec<ExtrinsicFor<ChainApi>>,
+	) -> (tokio::sync::oneshot::Receiver<ExtendUnwatchedResult<ChainApi>>, Self) {
+		let (tx, rx) = tokio::sync::oneshot::channel();
+		(rx, Self::ExtendUnwatched(mempool, source, xts, tx))
+	}
+
+	fn update_transaction_priority2(
+		mempool: Arc<TxMemPool<ChainApi, Block>>,
+		hash: ExtrinsicHash<ChainApi>,
+		prio: Option<TransactionPriority>,
+	) -> (tokio::sync::oneshot::Receiver<()>, Self) {
+		let (tx, rx) = tokio::sync::oneshot::channel();
+		(rx, Self::UpdateTransactionPriority2(mempool, hash, prio, tx))
+	}
+
+	fn try_insert_with_replacement(
+		mempool: Arc<TxMemPool<ChainApi, Block>>,
+		new_tx: ExtrinsicFor<ChainApi>,
+		priority: TransactionPriority,
+		source: TransactionSource,
+		watched: bool,
+	) -> (tokio::sync::oneshot::Receiver<TryInsertWithReplacementResult<ChainApi>>, Self) {
+		let (tx, rx) = tokio::sync::oneshot::channel();
+		(rx, Self::TryInsertWithReplacement(mempool, new_tx, priority, source, watched, tx))
+	}
+}
+
+impl<ChainApi, Block> TxMemPool<ChainApi, Block>
+where
+	Block: BlockT,
+	ChainApi: graph::ChainApi<Block = Block> + 'static,
+	<Block as BlockT>::Hash: Unpin,
+{
+	async fn sync_bridge_task(
+		mut rx: tokio::sync::mpsc::Receiver<TxMemPoolSyncRequest<ChainApi, Block>>,
+	) {
+		loop {
+			tokio::select! {
+				request = rx.recv() => {
+					match request {
+						Some(request) => Self::handle_request(request).await,
+						None => {
+							info!(target: LOG_TARGET, "txmempool loop terminated");
+							break;
+						},
+					}
+				}
+			}
+		}
+	}
+
+	async fn handle_request(request: TxMemPoolSyncRequest<ChainApi, Block>) {
+		match request {
+			TxMemPoolSyncRequest::RemoveTransactions(mempool, hashes, tx) => {
+				mempool.remove_transactions(&hashes).await;
+				if let Err(error) = tx.send(()) {
+					debug!(target: LOG_TARGET, ?error, "RemoveTransaction: sending response failed");
+				}
+			},
+			TxMemPoolSyncRequest::ExtendUnwatched(mempool, source, txs, tx) => {
+				let result = mempool.extend_unwatched(source, &txs).await;
+				if let Err(error) = tx.send(result) {
+					debug!(target: LOG_TARGET, ?error, "ExtendUnwatched: sending response failed");
+				}
+			},
+			TxMemPoolSyncRequest::UpdateTransactionPriority2(mempool, hash, prio, tx) => {
+				let result = mempool.update_transaction_priority2(hash, prio).await;
+				if let Err(error) = tx.send(result) {
+					debug!(target: LOG_TARGET, ?error, "UpdateTransactionPriority2: sending response failed");
+				}
+			},
+			TxMemPoolSyncRequest::TryInsertWithReplacement(
+				mempool,
+				new_tx,
+				priority,
+				source,
+				watched,
+				tx,
+			) => {
+				let result =
+					mempool.try_insert_with_replacement(new_tx, priority, source, watched).await;
+				if let Err(error) = tx.send(result) {
+					debug!(target: LOG_TARGET, ?error, "TryInsertWithReplacementSync: sending response failed");
+				}
+			},
+		}
+	}
+
+	pub(super) fn try_insert_with_replacement_sync(
+		self: Arc<Self>,
+		new_tx: ExtrinsicFor<ChainApi>,
+		priority: TransactionPriority,
+		source: TransactionSource,
+		watched: bool,
+	) -> Result<InsertionInfo<ExtrinsicHash<ChainApi>>, sc_transaction_pool_api::error::Error> {
+		let (response, request) = TxMemPoolSyncRequest::try_insert_with_replacement(
+			self.clone(),
+			new_tx,
+			priority,
+			source,
+			watched,
+		);
+		//todo: handle error (print)
+		let _ = self.sync_channel.blocking_send(request);
+		//todo: can we just expect here?
+		response.blocking_recv().expect("xxx")
+	}
+
+	pub(super) fn extend_unwatched_sync(
+		self: Arc<Self>,
+		source: TransactionSource,
+		xts: Vec<ExtrinsicFor<ChainApi>>,
+	) -> Vec<Result<InsertionInfo<ExtrinsicHash<ChainApi>>, sc_transaction_pool_api::error::Error>>
+	{
+		let (response, request) = TxMemPoolSyncRequest::extend_unwatched(self.clone(), source, xts);
+		//todo: handle error (print)
+		let _ = self.sync_channel.blocking_send(request);
+		response.blocking_recv().expect("xxx")
+	}
+
+	pub(super) fn remove_transactions_sync(
+		self: Arc<Self>,
+		tx_hashes: Vec<ExtrinsicHash<ChainApi>>,
+	) {
+		let (response, request) =
+			TxMemPoolSyncRequest::remove_transactions(self.clone(), tx_hashes);
+		//todo: handle error (print)
+		let _ = self.sync_channel.blocking_send(request);
+		response.blocking_recv().expect("xxx")
+	}
+
+	pub(super) fn update_transaction_priority2_sync(
+		self: Arc<Self>,
+		hash: ExtrinsicHash<ChainApi>,
+		prio: Option<TransactionPriority>,
+	) {
+		let (response, request) =
+			TxMemPoolSyncRequest::update_transaction_priority2(self.clone(), hash, prio);
+		//todo: handle error (print)
+		let _ = self.sync_channel.blocking_send(request);
+		response.blocking_recv().expect("xxx")
 	}
 }
 
 #[cfg(test)]
 mod tx_mem_pool_tests {
+	use futures::future::join_all;
 	use substrate_test_runtime::{AccountId, Extrinsic, ExtrinsicBuilder, Transfer, H256};
 	use substrate_test_runtime_client::Sr25519Keyring::*;
 
-	use crate::{common::tests::TestApi, graph::ChainApi};
+	use crate::{
+		common::tests::TestApi, fork_aware_txpool::view_store::ViewStoreSubmitOutcome,
+		graph::ChainApi,
+	};
 
 	use super::*;
 
@@ -657,15 +889,15 @@ mod tx_mem_pool_tests {
 		})
 	}
 
-	#[test]
-	fn extend_unwatched_obeys_limit() {
+	#[tokio::test]
+	async fn extend_unwatched_obeys_limit() {
 		let max = 10;
 		let api = Arc::from(TestApi::default());
 		let mempool = TxMemPool::new_test(api, max, usize::MAX);
 
 		let xts = (0..max + 1).map(|x| Arc::from(uxt(x as _))).collect::<Vec<_>>();
 
-		let results = mempool.extend_unwatched(TransactionSource::External, &xts);
+		let results = mempool.extend_unwatched(TransactionSource::External, &xts).await;
 		assert!(results.iter().take(max).all(Result::is_ok));
 		assert!(matches!(
 			results.into_iter().last().unwrap().unwrap_err(),
@@ -673,8 +905,8 @@ mod tx_mem_pool_tests {
 		));
 	}
 
-	#[test]
-	fn extend_unwatched_detects_already_imported() {
+	#[tokio::test]
+	async fn extend_unwatched_detects_already_imported() {
 		sp_tracing::try_init_simple();
 		let max = 10;
 		let api = Arc::from(TestApi::default());
@@ -683,7 +915,7 @@ mod tx_mem_pool_tests {
 		let mut xts = (0..max - 1).map(|x| Arc::from(uxt(x as _))).collect::<Vec<_>>();
 		xts.push(xts.iter().last().unwrap().clone());
 
-		let results = mempool.extend_unwatched(TransactionSource::External, &xts);
+		let results = mempool.extend_unwatched(TransactionSource::External, &xts).await;
 		assert!(results.iter().take(max - 1).all(Result::is_ok));
 		assert!(matches!(
 			results.into_iter().last().unwrap().unwrap_err(),
@@ -691,33 +923,33 @@ mod tx_mem_pool_tests {
 		));
 	}
 
-	#[test]
-	fn push_obeys_limit() {
+	#[tokio::test]
+	async fn push_obeys_limit() {
 		let max = 10;
 		let api = Arc::from(TestApi::default());
 		let mempool = TxMemPool::new_test(api, max, usize::MAX);
 
 		let xts = (0..max).map(|x| Arc::from(uxt(x as _))).collect::<Vec<_>>();
 
-		let results = mempool.extend_unwatched(TransactionSource::External, &xts);
+		let results = mempool.extend_unwatched(TransactionSource::External, &xts).await;
 		assert!(results.iter().all(Result::is_ok));
 
 		let xt = Arc::from(uxt(98));
-		let result = mempool.push_watched(TransactionSource::External, xt);
+		let result = mempool.push_watched(TransactionSource::External, xt).await;
 		assert!(matches!(
 			result.unwrap_err(),
 			sc_transaction_pool_api::error::Error::ImmediatelyDropped
 		));
 		let xt = Arc::from(uxt(99));
-		let mut result = mempool.extend_unwatched(TransactionSource::External, &[xt]);
+		let mut result = mempool.extend_unwatched(TransactionSource::External, &[xt]).await;
 		assert!(matches!(
 			result.pop().unwrap().unwrap_err(),
 			sc_transaction_pool_api::error::Error::ImmediatelyDropped
 		));
 	}
 
-	#[test]
-	fn push_detects_already_imported() {
+	#[tokio::test]
+	async fn push_detects_already_imported() {
 		let max = 10;
 		let api = Arc::from(TestApi::default());
 		let mempool = TxMemPool::new_test(api, 2 * max, usize::MAX);
@@ -726,39 +958,38 @@ mod tx_mem_pool_tests {
 		let xt0 = xts.iter().last().unwrap().clone();
 		let xt1 = xts.iter().next().unwrap().clone();
 
-		let results = mempool.extend_unwatched(TransactionSource::External, &xts);
+		let results = mempool.extend_unwatched(TransactionSource::External, &xts).await;
 		assert!(results.iter().all(Result::is_ok));
 
-		let result = mempool.push_watched(TransactionSource::External, xt0);
+		let result = mempool.push_watched(TransactionSource::External, xt0).await;
 		assert!(matches!(
 			result.unwrap_err(),
 			sc_transaction_pool_api::error::Error::AlreadyImported(_)
 		));
-		let mut result = mempool.extend_unwatched(TransactionSource::External, &[xt1]);
+		let mut result = mempool.extend_unwatched(TransactionSource::External, &[xt1]).await;
 		assert!(matches!(
 			result.pop().unwrap().unwrap_err(),
 			sc_transaction_pool_api::error::Error::AlreadyImported(_)
 		));
 	}
 
-	#[test]
-	fn count_works() {
+	#[tokio::test]
+	async fn count_works() {
 		let max = 100;
 		let api = Arc::from(TestApi::default());
 		let mempool = TxMemPool::new_test(api, max, usize::MAX);
 
 		let xts0 = (0..10).map(|x| Arc::from(uxt(x as _))).collect::<Vec<_>>();
 
-		let results = mempool.extend_unwatched(TransactionSource::External, &xts0);
+		let results = mempool.extend_unwatched(TransactionSource::External, &xts0).await;
 		assert!(results.iter().all(Result::is_ok));
 
 		let xts1 = (0..5).map(|x| Arc::from(uxt(2 * x))).collect::<Vec<_>>();
-		let results = xts1
-			.into_iter()
-			.map(|t| mempool.push_watched(TransactionSource::External, t))
-			.collect::<Vec<_>>();
+		let results =
+			xts1.into_iter().map(|t| mempool.push_watched(TransactionSource::External, t));
+		let results = join_all(results).await;
 		assert!(results.iter().all(Result::is_ok));
-		assert_eq!(mempool.unwatched_and_watched_count(), (10, 5));
+		assert_eq!(mempool.unwatched_and_watched_count().await, (10, 5));
 	}
 
 	/// size of large extrinsic
@@ -768,8 +999,8 @@ mod tx_mem_pool_tests {
 		ExtrinsicBuilder::new_include_data(vec![x as u8; 1024]).build()
 	}
 
-	#[test]
-	fn push_obeys_size_limit() {
+	#[tokio::test]
+	async fn push_obeys_size_limit() {
 		sp_tracing::try_init_simple();
 		let max = 10;
 		let api = Arc::from(TestApi::default());
@@ -779,27 +1010,27 @@ mod tx_mem_pool_tests {
 
 		let total_xts_bytes = xts.iter().fold(0, |r, x| r + api.hash_and_length(&x).1);
 
-		let results = mempool.extend_unwatched(TransactionSource::External, &xts);
+		let results = mempool.extend_unwatched(TransactionSource::External, &xts).await;
 		assert!(results.iter().all(Result::is_ok));
 		assert_eq!(mempool.bytes(), total_xts_bytes);
 
 		let xt = Arc::from(large_uxt(98));
-		let result = mempool.push_watched(TransactionSource::External, xt);
+		let result = mempool.push_watched(TransactionSource::External, xt).await;
 		assert!(matches!(
 			result.unwrap_err(),
 			sc_transaction_pool_api::error::Error::ImmediatelyDropped
 		));
 
 		let xt = Arc::from(large_uxt(99));
-		let mut result = mempool.extend_unwatched(TransactionSource::External, &[xt]);
+		let mut result = mempool.extend_unwatched(TransactionSource::External, &[xt]).await;
 		assert!(matches!(
 			result.pop().unwrap().unwrap_err(),
 			sc_transaction_pool_api::error::Error::ImmediatelyDropped
 		));
 	}
 
-	#[test]
-	fn replacing_txs_works_for_same_tx_size() {
+	#[tokio::test]
+	async fn replacing_txs_works_for_same_tx_size() {
 		sp_tracing::try_init_simple();
 		let max = 10;
 		let api = Arc::from(TestApi::default());
@@ -811,7 +1042,7 @@ mod tx_mem_pool_tests {
 		let hi_prio = u64::MAX;
 
 		let total_xts_bytes = xts.iter().fold(0, |r, x| r + api.hash_and_length(&x).1);
-		let (submit_outcomes, hashes): (Vec<_>, Vec<_>) = xts
+		let (submit_outcomes, hashes): (Vec<ViewStoreSubmitOutcome<TestApi>>, Vec<_>) = xts
 			.iter()
 			.map(|t| {
 				let h = api.hash_and_length(t).0;
@@ -819,26 +1050,27 @@ mod tx_mem_pool_tests {
 			})
 			.unzip();
 
-		let results = mempool.extend_unwatched(TransactionSource::External, &xts);
+		let results = mempool.extend_unwatched(TransactionSource::External, &xts).await;
 		assert!(results.iter().all(Result::is_ok));
 		assert_eq!(mempool.bytes(), total_xts_bytes);
 
-		submit_outcomes
-			.into_iter()
-			.for_each(|o| mempool.update_transaction_priority(&o));
+		for o in submit_outcomes {
+			mempool.update_transaction_priority2(o.hash(), o.priority()).await;
+		}
 
 		let xt = Arc::from(large_uxt(98));
 		let hash = api.hash_and_length(&xt).0;
 		let result = mempool
 			.try_insert_with_replacement(xt, hi_prio, TransactionSource::External, false)
+			.await
 			.unwrap();
 
 		assert_eq!(result.hash, hash);
 		assert_eq!(result.removed, hashes[0..1]);
 	}
 
-	#[test]
-	fn replacing_txs_removes_proper_size_of_txs() {
+	#[tokio::test]
+	async fn replacing_txs_removes_proper_size_of_txs() {
 		sp_tracing::try_init_simple();
 		let max = 10;
 		let api = Arc::from(TestApi::default());
@@ -850,7 +1082,7 @@ mod tx_mem_pool_tests {
 		let hi_prio = u64::MAX;
 
 		let total_xts_bytes = xts.iter().fold(0, |r, x| r + api.hash_and_length(&x).1);
-		let (submit_outcomes, hashes): (Vec<_>, Vec<_>) = xts
+		let (submit_outcomes, hashes): (Vec<ViewStoreSubmitOutcome<TestApi>>, Vec<_>) = xts
 			.iter()
 			.map(|t| {
 				let h = api.hash_and_length(t).0;
@@ -858,14 +1090,14 @@ mod tx_mem_pool_tests {
 			})
 			.unzip();
 
-		let results = mempool.extend_unwatched(TransactionSource::External, &xts);
+		let results = mempool.extend_unwatched(TransactionSource::External, &xts).await;
 		assert!(results.iter().all(Result::is_ok));
 		assert_eq!(mempool.bytes(), total_xts_bytes);
 		assert_eq!(total_xts_bytes, max * LARGE_XT_SIZE);
 
-		submit_outcomes
-			.into_iter()
-			.for_each(|o| mempool.update_transaction_priority(&o));
+		for o in submit_outcomes {
+			mempool.update_transaction_priority2(o.hash(), o.priority()).await;
+		}
 
 		//this one should drop 2 xts (size: 1130):
 		let xt = Arc::from(ExtrinsicBuilder::new_include_data(vec![98 as u8; 1025]).build());
@@ -873,14 +1105,15 @@ mod tx_mem_pool_tests {
 		assert_eq!(length, 1130);
 		let result = mempool
 			.try_insert_with_replacement(xt, hi_prio, TransactionSource::External, false)
+			.await
 			.unwrap();
 
 		assert_eq!(result.hash, hash);
 		assert_eq!(result.removed, hashes[0..2]);
 	}
 
-	#[test]
-	fn replacing_txs_removes_proper_size_and_prios() {
+	#[tokio::test]
+	async fn replacing_txs_removes_proper_size_and_prios() {
 		sp_tracing::try_init_simple();
 		const COUNT: usize = 10;
 		let api = Arc::from(TestApi::default());
@@ -891,7 +1124,7 @@ mod tx_mem_pool_tests {
 		let hi_prio = u64::MAX;
 
 		let total_xts_bytes = xts.iter().fold(0, |r, x| r + api.hash_and_length(&x).1);
-		let (submit_outcomes, hashes): (Vec<_>, Vec<_>) = xts
+		let (submit_outcomes, hashes): (Vec<ViewStoreSubmitOutcome<TestApi>>, Vec<_>) = xts
 			.iter()
 			.enumerate()
 			.map(|(prio, t)| {
@@ -900,13 +1133,13 @@ mod tx_mem_pool_tests {
 			})
 			.unzip();
 
-		let results = mempool.extend_unwatched(TransactionSource::External, &xts);
+		let results = mempool.extend_unwatched(TransactionSource::External, &xts).await;
 		assert!(results.iter().all(Result::is_ok));
 		assert_eq!(mempool.bytes(), total_xts_bytes);
 
-		submit_outcomes
-			.into_iter()
-			.for_each(|o| mempool.update_transaction_priority(&o));
+		for o in submit_outcomes {
+			mempool.update_transaction_priority2(o.hash(), o.priority()).await;
+		}
 
 		//this one should drop 3 xts (each of size 1129)
 		let xt = Arc::from(ExtrinsicBuilder::new_include_data(vec![98 as u8; 2154]).build());
@@ -915,14 +1148,15 @@ mod tx_mem_pool_tests {
 		assert_eq!(length, 2 * LARGE_XT_SIZE + 1);
 		let result = mempool
 			.try_insert_with_replacement(xt, hi_prio, TransactionSource::External, false)
+			.await
 			.unwrap();
 
 		assert_eq!(result.hash, hash);
 		assert!(result.removed.iter().eq(hashes[COUNT - 3..COUNT].iter().rev()));
 	}
 
-	#[test]
-	fn replacing_txs_skips_lower_prio_tx() {
+	#[tokio::test]
+	async fn replacing_txs_skips_lower_prio_tx() {
 		sp_tracing::try_init_simple();
 		const COUNT: usize = 10;
 		let api = Arc::from(TestApi::default());
@@ -934,7 +1168,7 @@ mod tx_mem_pool_tests {
 		let low_prio = 10u64;
 
 		let total_xts_bytes = xts.iter().fold(0, |r, x| r + api.hash_and_length(&x).1);
-		let submit_outcomes = xts
+		let submit_outcomes: Vec<ViewStoreSubmitOutcome<TestApi>> = xts
 			.iter()
 			.map(|t| {
 				let h = api.hash_and_length(t).0;
@@ -942,17 +1176,18 @@ mod tx_mem_pool_tests {
 			})
 			.collect::<Vec<_>>();
 
-		let results = mempool.extend_unwatched(TransactionSource::External, &xts);
+		let results = mempool.extend_unwatched(TransactionSource::External, &xts).await;
 		assert!(results.iter().all(Result::is_ok));
 		assert_eq!(mempool.bytes(), total_xts_bytes);
 
-		submit_outcomes
-			.into_iter()
-			.for_each(|o| mempool.update_transaction_priority(&o));
+		for o in submit_outcomes {
+			mempool.update_transaction_priority2(o.hash(), o.priority()).await;
+		}
 
 		let xt = Arc::from(large_uxt(98));
-		let result =
-			mempool.try_insert_with_replacement(xt, low_prio, TransactionSource::External, false);
+		let result = mempool
+			.try_insert_with_replacement(xt, low_prio, TransactionSource::External, false)
+			.await;
 
 		// lower prio tx is rejected immediately
 		assert!(matches!(
@@ -961,8 +1196,8 @@ mod tx_mem_pool_tests {
 		));
 	}
 
-	#[test]
-	fn replacing_txs_is_skipped_if_prios_are_not_set() {
+	#[tokio::test]
+	async fn replacing_txs_is_skipped_if_prios_are_not_set() {
 		sp_tracing::try_init_simple();
 		const COUNT: usize = 10;
 		let api = Arc::from(TestApi::default());
@@ -974,7 +1209,7 @@ mod tx_mem_pool_tests {
 
 		let total_xts_bytes = xts.iter().fold(0, |r, x| r + api.hash_and_length(&x).1);
 
-		let results = mempool.extend_unwatched(TransactionSource::External, &xts);
+		let results = mempool.extend_unwatched(TransactionSource::External, &xts).await;
 		assert!(results.iter().all(Result::is_ok));
 		assert_eq!(mempool.bytes(), total_xts_bytes);
 
@@ -984,8 +1219,9 @@ mod tx_mem_pool_tests {
 		// overhead is 105, thus length: 105 + 2154
 		assert_eq!(length, 2 * LARGE_XT_SIZE + 1);
 
-		let result =
-			mempool.try_insert_with_replacement(xt, hi_prio, TransactionSource::External, false);
+		let result = mempool
+			.try_insert_with_replacement(xt, hi_prio, TransactionSource::External, false)
+			.await;
 
 		// we did not update priorities (update_transaction_priority was not called):
 		assert!(matches!(
