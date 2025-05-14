@@ -49,12 +49,6 @@ parameter_types! {
 	storage UpdateStorageVersion: bool = false;
 }
 
-/// Latest stable metadata version used for testing.
-const LATEST_METADATA_VERSION: u32 = 15;
-
-/// Unstable metadata version.
-const UNSTABLE_METADATA_VERSION: u32 = u32::MAX;
-
 pub struct SomeType1;
 impl From<SomeType1> for u64 {
 	fn from(_t: SomeType1) -> Self {
@@ -1500,7 +1494,7 @@ fn pallet_item_docs_in_metadata() {
 
 #[test]
 #[allow(deprecated)]
-fn metadata() {
+fn metadata_v15() {
 	use codec::Decode;
 	use frame_metadata::{v15::*, *};
 
@@ -1975,7 +1969,7 @@ fn metadata() {
 		_ => panic!("metadata has been bumped, test needs to be updated"),
 	};
 
-	let bytes = &Runtime::metadata_at_version(LATEST_METADATA_VERSION)
+	let bytes = &Runtime::metadata_at_version(15)
 		.expect("Metadata must be present; qed");
 
 	let actual_metadata: RuntimeMetadataPrefixed =
@@ -2011,7 +2005,7 @@ fn metadata_at_version() {
 #[test]
 fn metadata_versions() {
 	assert_eq!(
-		vec![14, LATEST_METADATA_VERSION, UNSTABLE_METADATA_VERSION],
+		vec![14, 15, 16],
 		Runtime::metadata_versions()
 	);
 }
