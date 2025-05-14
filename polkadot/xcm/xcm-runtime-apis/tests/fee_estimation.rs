@@ -46,7 +46,6 @@ use mock::{
 #[test]
 fn fee_estimation_for_teleport() {
 	sp_tracing::init_for_tests();
-	TopicIdTracker::reset();
 	let who = 1; // AccountId = u64.
 	let balances = vec![(who, 100 + DeliveryFees::get() + ExistentialDeposit::get())];
 	let assets = vec![(1, who, 50)];
@@ -206,7 +205,6 @@ fn dry_run_reserve_asset_transfer_common(
 	dry_run_call: impl FnOnce(&TestClient, OriginCaller, RuntimeCall) -> CallDryRunEffects<RuntimeEvent>,
 ) {
 	sp_tracing::init_for_tests();
-	TopicIdTracker::reset();
 	let who = 1; // AccountId = u64.
 			  // Native token used for fees.
 	let balances = vec![(who, DeliveryFees::get() + ExistentialDeposit::get())];
