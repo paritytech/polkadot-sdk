@@ -160,14 +160,21 @@ pub struct ActiveEraInfo {
 #[derive(
 	PartialEqNoBound, Encode, Decode, DebugNoBound, TypeInfo, MaxEncodedLen, DefaultNoBound, DecodeWithMemTracking, CloneNoBound
 )]
-#[codec(mel_bound())]
-#[scale_info(skip_type_params(T))]
-pub struct EraRewardPoints<T: Config> {
+#[scale_info(skip_type_params(MaxValidatorSet))]
+pub struct EraRewardPoints<AccountId, MaxValidatorSet>
+where
+	AccountId: MaxEncodedLen + Clone + PartialEq + Eq + Debug + Ord,
+	MaxValidatorSet: Get<u32>,
+{
 	/// Total number of points. Equals the sum of reward points for each validator.
 	pub total: RewardPoint,
 	/// The reward points earned by a given validator.
-	pub individual: BoundedBTreeMap<T::AccountId, RewardPoint, T::MaxValidatorSet>,
+	pub individual: BoundedBTreeMap<AccountId, RewardPoint, MaxValidatorSet>,
 }
+pub type EraRewardPointsOf<T> = EraRewardPoints<
+	<T as frame_system::Config>::AccountId,
+	<T as Config>::MaxValidatorSet,
+>;
 
 /// A destination account for payment.
 #[derive(
