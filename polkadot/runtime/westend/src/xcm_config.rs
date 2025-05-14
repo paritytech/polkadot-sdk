@@ -91,6 +91,8 @@ pub type LocalAssetTransactor = FungibleAdapter<
 >;
 
 type LocalOriginConverter = (
+	// Asset Hub can gain root on the relay chain.
+	LocationAsSuperuser<Equals<AssetHub>, RuntimeOrigin>,
 	// If the origin kind is `Sovereign`, then return a `Signed` origin with the account determined
 	// by the `LocationConverter` converter.
 	SovereignSignedViaLocation<LocationConverter, RuntimeOrigin>,
@@ -102,8 +104,6 @@ type LocalOriginConverter = (
 	SignedAccountId32AsNative<ThisNetwork, RuntimeOrigin>,
 	// Xcm origins can be represented natively under the Xcm pallet's Xcm origin.
 	XcmPassthrough<RuntimeOrigin>,
-	// Asset Hub can gain root on the relay chain.
-	LocationAsSuperuser<Equals<AssetHub>, RuntimeOrigin>,
 );
 
 pub type PriceForChildParachainDelivery =

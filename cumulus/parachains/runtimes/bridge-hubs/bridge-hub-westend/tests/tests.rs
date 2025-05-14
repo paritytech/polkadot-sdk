@@ -782,13 +782,12 @@ fn governance_authorize_upgrade_works() {
 		>(GovernanceOrigin::Location(Location::new(1, Parachain(12334)))),
 		Either::Right(XcmError::Barrier)
 	);
-	// no - AssetHub
-	assert_err!(
+	// ok - AssetHub
+	assert_ok!(
 		parachains_runtimes_test_utils::test_cases::can_governance_authorize_upgrade::<
 			Runtime,
 			RuntimeOrigin,
-		>(GovernanceOrigin::Location(Location::new(1, Parachain(ASSET_HUB_ID)))),
-		Either::Right(XcmError::Barrier)
+		>(GovernanceOrigin::Location(Location::new(1, Parachain(ASSET_HUB_ID))))
 	);
 	// no - Collectives
 	assert_err!(
@@ -815,6 +814,8 @@ fn governance_authorize_upgrade_works() {
 		Runtime,
 		RuntimeOrigin,
 	>(GovernanceOrigin::Location(Location::parent())));
+
+	// ok - governance location
 	assert_ok!(parachains_runtimes_test_utils::test_cases::can_governance_authorize_upgrade::<
 		Runtime,
 		RuntimeOrigin,
