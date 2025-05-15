@@ -60,7 +60,7 @@ use sp_blockchain::{HashAndNumber, TreeRoute};
 use sp_core::traits::SpawnEssentialNamed;
 use sp_runtime::{
 	generic::BlockId,
-	traits::{Block as BlockT, NumberFor},
+	traits::{Block as BlockT, Header, NumberFor},
 	transaction_validity::{TransactionTag as Tag, TransactionValidityError, ValidTransaction},
 	Saturating,
 };
@@ -487,35 +487,61 @@ where
 			"fatp::ready_at_light"
 		);
 
-		let Ok(block_number) = self.api.resolve_block_number(at) else {
+		// Return an empty ready transactions set if we can not find the number of `at` block hash.
+		let Ok(at_number) = self.api.resolve_block_number(at) else {
 			return Box::new(std::iter::empty())
 		};
 
-		let best_result = {
-			api.tree_route(self.enactment_state.lock().recent_finalized_block(), at).map(
-				|tree_route| {
-					if let Some((index, view)) =
-						tree_route.enacted().iter().enumerate().rev().skip(1).find_map(|(i, b)| {
-							self.view_store.get_view_at(b.hash, true).map(|(view, _)| (i, view))
-						}) {
-						let e = tree_route.enacted()[index..].to_vec();
-						(TreeRoute::new(e, 0).ok(), Some(view))
-					} else {
-						(None, None)
-					}
-				},
-			)
+		let mut to_process = Vec::new();
+		let mut best_view = None;
+		let mut tmp_at_number = at_number;
+		let mut tmp_at = at;
+
+		// Return an empty ready transaction set if we can't find a finalized block to report to,
+		// given we can not look for a view that can provide an approximate ready transaction set
+		// on the fork ending with `at` up to the finalized block.
+		let last_finalized = self.enactment_state.lock().recent_finalized_block();
+		let Ok(last_finalized_number) = self.api.resolve_block_number(last_finalized) else {
+			return Box::new(std::iter::empty())
 		};
 
-		if let Ok((Some(best_tree_route), Some(best_view))) = best_result {
+		// Search for a view that can be used to get and return an approximate ready
+		// transaction set.
+		while tmp_at_number > last_finalized_number {
+			// Found a view, now prune its pool based on the blocks in `to_process`.
+			if let Some((view, _)) = self.view_store.get_view_at(tmp_at, true) {
+				best_view = Some(view);
+				break;
+			}
+
+			to_process.push(tmp_at);
+			if let Ok(tmp_at_header) = self.api.block_header(tmp_at) {
+				let Some(parent_number) = tmp_at_header.and_then(|header| {
+					tmp_at = *header.parent_hash();
+					self.api.resolve_block_number(*header.parent_hash()).ok()
+				}) else {
+					break;
+				};
+
+				tmp_at_number = parent_number;
+			} else {
+				// Not finding the header of any block on the fork means we can not continue looking
+				// for a view up to the finalized block, so we break early.
+				break;
+			}
+		}
+
+		// Prune all txs from the best view found, considering the extrinsics part of the blocks
+		// that are more recent than the view itself.
+		if let Some(view) = best_view {
 			let (tmp_view, _, _): (View<ChainApi>, _, _) =
-				View::new_from_other(&best_view, &HashAndNumber { hash: at, number: block_number });
+				View::new_from_other(&view, &HashAndNumber { hash: at, number: at_number });
 
 			let mut all_extrinsics = vec![];
 
-			for h in best_tree_route.enacted() {
+			for h in to_process {
 				let extrinsics = api
-					.block_body(h.hash)
+					.block_body(h)
 					.await
 					.unwrap_or_else(|error| {
 						warn!(
@@ -546,7 +572,7 @@ where
 			debug!(
 				target: LOG_TARGET,
 				?at,
-				best_view_hash = ?best_view.at.hash,
+				best_view_hash = ?view.at.hash,
 				before_count,
 				to_be_removed = all_extrinsics.len(),
 				after_count,
