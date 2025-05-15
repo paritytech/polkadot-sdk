@@ -919,7 +919,6 @@ pub mod pallet {
 				<CodeInfo<T>>::increment_refcount(code_hash)?;
 				<CodeInfo<T>>::decrement_refcount(contract.code_hash)?;
 				contract.code_hash = code_hash;
-
 				Ok(())
 			})
 		}
