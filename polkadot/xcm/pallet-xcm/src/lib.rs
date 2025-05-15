@@ -686,7 +686,10 @@ pub mod pallet {
 		AliasNotFound,
 		/// Local XCM execution incomplete with error.
 		#[codec(index = 28)]
-		LocalExecutionIncompleteWithError(ExecutionError),
+		LocalExecutionIncompleteWithError {
+			error: ExecutionError,
+			index: u8,
+		},
 	}
 
 	impl<T: Config> From<SendError> for Error<T> {

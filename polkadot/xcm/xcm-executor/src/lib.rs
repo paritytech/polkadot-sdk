@@ -279,6 +279,7 @@ impl<Config: config::Config> ExecuteXcm<Config::RuntimeCall> for XcmExecutor<Con
 			return Outcome::Incomplete {
 				used: xcm_weight,         // Weight consumed before the error
 				error: XcmError::Barrier, // The error that occurred
+				index: 0,
 			};
 		}
 
@@ -410,15 +411,15 @@ impl<Config: config::Config> XcmExecutor<Config> {
 			None => Outcome::Complete { used: weight_used },
 			// TODO: #2841 #REALWEIGHT We should deduct the cost of any instructions following
 			// the error which didn't end up being executed.
-			Some((_i, e)) => {
+			Some((index, error)) => {
 				tracing::trace!(
 					target: "xcm::post_process",
-					instruction = ?_i,
-					error = ?e,
+					instruction = ?index,
+					?error,
 					original_origin = ?self.original_origin,
 					"Execution failed",
 				);
-				Outcome::Incomplete { used: weight_used, error: e }
+				Outcome::Incomplete { used: weight_used, error, index }
 			},
 		}
 	}

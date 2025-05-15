@@ -246,17 +246,17 @@ pub enum Outcome {
 	Complete { used: Weight },
 	/// Execution started, but did not complete successfully due to the given error; given weight
 	/// was used.
-	Incomplete { used: Weight, error: Error },
+	Incomplete { used: Weight, error: Error, index: u8 },
 	/// Execution did not start due to the given error.
-	Error { error: Error },
+	Error { error: Error, index: u8 },
 }
 
 impl Outcome {
-	pub fn ensure_complete(self) -> Result {
+	pub fn ensure_complete(self) -> Result<(), (u8, Error)> {
 		match self {
 			Outcome::Complete { .. } => Ok(()),
-			Outcome::Incomplete { error, .. } => Err(error),
-			Outcome::Error { error, .. } => Err(error),
+			Outcome::Incomplete { error, index, .. } => Err(error),
+			Outcome::Error { error, index, .. } => Err(error),
 		}
 	}
 	pub fn ensure_execution(self) -> result::Result<Weight, Error> {
