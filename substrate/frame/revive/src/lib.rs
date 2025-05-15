@@ -363,7 +363,7 @@ pub mod pallet {
 			type Xcm = ();
 			type RuntimeMemory = ConstU32<{ 128 * 1024 * 1024 }>;
 			type PVFMemory = ConstU32<{ 512 * 1024 * 1024 }>;
-			type ChainId = ConstU64<42>;
+			type ChainId = ConstU64<0>;
 			type NativeToEthRatio = ConstU32<1>;
 			type EthGasEncoder = ();
 			type FindAuthor = ();
