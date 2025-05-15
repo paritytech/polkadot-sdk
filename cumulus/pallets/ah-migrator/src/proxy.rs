@@ -160,7 +160,7 @@ use std::collections::BTreeMap;
 impl<T, RcProxyType> crate::types::AhMigrationCheck for ProxyBasicChecks<T, RcProxyType>
 where
 	T: Config,
-	RcProxyType: Into<T::RcProxyType> + Clone + core::fmt::Debug + Encode,
+	RcProxyType: Clone + core::fmt::Debug + Encode,
 {
 	type RcPrePayload = BTreeMap<AccountId32, Vec<(RcProxyType, AccountId32)>>; // Map of Delegator -> (Kind, Delegatee)
 	type AhPrePayload =
@@ -202,7 +202,9 @@ where
 
 			// All RC delegations that could be translated are still here
 			for rc_pre_d in &rc_pre.get(delegator).cloned().unwrap_or_default() {
-				let translated: T::RcProxyType = rc_pre_d.0.clone().into();
+				let proxy_type_encoded = rc_pre_d.0.clone().encode();
+				let translated: T::RcProxyType =
+					T::RcProxyType::decode(&mut &proxy_type_encoded[..]).unwrap();
 				let Ok(translated_kind) = T::RcToProxyType::try_convert(translated.clone()) else {
 					// Best effort sanity checking that only Auction and ParaRegistration dont work
 					#[cfg(feature = "ahm-polkadot")]
