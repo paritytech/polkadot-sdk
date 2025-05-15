@@ -101,7 +101,6 @@ pallet-xcm = { workspace = true }
 pallet-xcm-benchmarks = { optional = true, workspace = true }
 polkadot-parachain-primitives = { workspace = true }
 polkadot-runtime-common = { workspace = true }
-westend-runtime = { workspace = true }
 westend-runtime-constants = { workspace = true }
 xcm = { workspace = true }
 xcm-builder = { workspace = true }
@@ -149,12 +148,10 @@ ahm-westend = [
 	"pallet-ah-migrator/ahm-westend",
 	"pallet-ah-ops/ahm-westend",
 	"pallet-rc-migrator/ahm-westend",
-	"westend-runtime/ahm-westend"
 ]
 ahm-staking-migration = [
 	"pallet-ah-migrator/ahm-staking-migration",
 	"pallet-rc-migrator/ahm-staking-migration",
-	"westend-runtime/ahm-staking-migration"
 ]
 runtime-benchmarks = [
 	"assets-common/runtime-benchmarks",
@@ -224,7 +221,6 @@ runtime-benchmarks = [
 	"pallet-rc-migrator/runtime-benchmarks",
 	"pallet-staking-async/runtime-benchmarks",
 	"pallet-staking-async-rc-client/runtime-benchmarks",
-	"westend-runtime/runtime-benchmarks",
 	"westend-runtime-constants/runtime-benchmarks"
 ]
 try-runtime = [
@@ -289,7 +285,6 @@ try-runtime = [
 	"pallet-staking-async-rc-client/try-runtime",
 	"pallet-rc-migrator/try-runtime",
 	"pallet-staking-async/try-runtime",
-	"westend-runtime/try-runtime"
 ]
 std = [
 	"assets-common/std",
@@ -403,7 +398,6 @@ std = [
 	"pallet-staking-async-rc-client/std",
 	"pallet-rc-migrator/std",
 	"pallet-staking-async/std",
-	"westend-runtime/std"
 ]
 
 fast-runtime = []
