@@ -69,7 +69,8 @@ pub mod slashing;
 pub mod weights;
 
 extern crate alloc;
-use alloc::{vec, vec::Vec};
+
+use alloc::{vec, vec::Vec, fmt::Debug};
 use codec::{Decode, DecodeWithMemTracking, Encode, HasCompact, MaxEncodedLen};
 use frame_election_provider_support::ElectionProvider;
 use frame_support::{
@@ -159,14 +160,21 @@ pub struct ActiveEraInfo {
 #[derive(
 	PartialEqNoBound, Encode, Decode, DebugNoBound, TypeInfo, MaxEncodedLen, DefaultNoBound, DecodeWithMemTracking, CloneNoBound
 )]
-#[codec(mel_bound())]
-#[scale_info(skip_type_params(T))]
-pub struct EraRewardPoints<T: Config> {
+#[scale_info(skip_type_params(MaxValidatorSet))]
+pub struct EraRewardPoints<AccountId, MaxValidatorSet>
+where
+	AccountId: MaxEncodedLen + Clone + PartialEq + Eq + Debug + Ord,
+	MaxValidatorSet: Get<u32>,
+{
 	/// Total number of points. Equals the sum of reward points for each validator.
 	pub total: RewardPoint,
 	/// The reward points earned by a given validator.
-	pub individual: BoundedBTreeMap<T::AccountId, RewardPoint, T::MaxValidatorSet>,
+	pub individual: BoundedBTreeMap<AccountId, RewardPoint, MaxValidatorSet>,
 }
+pub type EraRewardPointsOf<T> = EraRewardPoints<
+	<T as frame_system::Config>::AccountId,
+	<T as Config>::MaxValidatorSet,
+>;
 
 /// A destination account for payment.
 #[derive(
@@ -234,13 +242,16 @@ pub enum SnapshotStatus<AccountId> {
 
 /// A record of the nominations made by a specific account.
 #[derive(
-	PartialEqNoBound, EqNoBound, Clone, Encode, Decode, RuntimeDebugNoBound, TypeInfo, MaxEncodedLen, DecodeWithMemTracking
+	PartialEqNoBound, EqNoBound, CloneNoBound, Encode, Decode, RuntimeDebugNoBound, TypeInfo, MaxEncodedLen, DecodeWithMemTracking
 )]
-#[codec(mel_bound())]
-#[scale_info(skip_type_params(T))]
-pub struct Nominations<T: Config> {
+#[scale_info(skip_type_params(MaxNominations))]
+pub struct Nominations<AccountId, MaxNominations>
+where
+	AccountId: MaxEncodedLen + Clone + PartialEq + Eq + Debug,
+	MaxNominations: Get<u32>,
+{
 	/// The targets of nomination.
-	pub targets: BoundedVec<T::AccountId, MaxNominationsOf<T>>,
+	pub targets: BoundedVec<AccountId, MaxNominations>,
 	/// The era the nominations were submitted.
 	///
 	/// Except for initial nominations which are considered submitted at era 0.
@@ -251,6 +262,10 @@ pub struct Nominations<T: Config> {
 	/// NOTE: this for future proofing and is thus far not used.
 	pub suppressed: bool,
 }
+pub type NominationsOf<T> = Nominations<
+	<T as frame_system::Config>::AccountId,
+	MaxNominationsOf<T>,
+>;
 
 /// Facade struct to encapsulate `PagedExposureMetadata` and a single page of `ExposurePage`.
 ///
@@ -302,19 +317,30 @@ impl<AccountId, Balance: HasCompact + Copy + AtLeast32BitUnsigned + codec::MaxEn
 /// A pending slash record. The value of the slash has been computed but not applied yet,
 /// rather deferred for several eras.
 #[derive(Encode, Decode, RuntimeDebugNoBound, TypeInfo, MaxEncodedLen, PartialEqNoBound, CloneNoBound, DecodeWithMemTracking)]
-#[scale_info(skip_type_params(T))]
-pub struct UnappliedSlash<T: Config> {
+#[scale_info(skip_type_params(MaxExposurePageSize))]
+pub struct UnappliedSlash<AccountId, Balance, MaxExposurePageSize>
+where
+	AccountId: MaxEncodedLen + Clone + PartialEq + Eq + Debug,
+	Balance: HasCompact + MaxEncodedLen + Clone + PartialEq + Eq + Debug,
+	MaxExposurePageSize: Get<u32>,
+{
 	/// The stash ID of the offending validator.
-	pub validator: T::AccountId,
+	pub validator: AccountId,
 	/// The validator's own slash.
-	pub own: BalanceOf<T>,
+	pub own: Balance,
 	/// All other slashed stakers and amounts.
-	pub others: WeakBoundedVec<(T::AccountId, BalanceOf<T>), T::MaxExposurePageSize>,
+	pub others: WeakBoundedVec<(AccountId, Balance), MaxExposurePageSize>,
 	/// Reporters of the offence; bounty payout recipients.
-	pub reporter: Option<T::AccountId>,
+	pub reporter: Option<AccountId>,
 	/// The amount of payout.
-	pub payout: BalanceOf<T>,
+	pub payout: Balance,
 }
+
+pub type UnappliedSlashOf<T> = UnappliedSlash<
+	<T as frame_system::Config>::AccountId,
+	BalanceOf<T>,
+	<T as Config>::MaxExposurePageSize,
+>;
 
 /// Something that defines the maximum number of nominations per nominator based on a curve.
 ///

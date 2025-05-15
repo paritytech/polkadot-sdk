@@ -19,9 +19,9 @@
 
 use crate::{
 	asset, slashing, weights::WeightInfo, AccountIdLookupOf, ActiveEraInfo, BalanceOf, EraPayout,
-	EraRewardPoints, ExposurePage, Forcing, LedgerIntegrityState, MaxNominationsOf,
-	NegativeImbalanceOf, Nominations, NominationsQuota, PositiveImbalanceOf, RewardDestination,
-	StakingLedger, UnappliedSlash, UnlockChunk, ValidatorPrefs,
+	EraRewardPoints, EraRewardPointsOf, ExposurePage, Forcing, LedgerIntegrityState, MaxNominationsOf,
+	NegativeImbalanceOf, Nominations, NominationsOf, NominationsQuota, PositiveImbalanceOf, RewardDestination,
+	StakingLedger, UnappliedSlash, UnappliedSlashOf, UnlockChunk, ValidatorPrefs,
 };
 use alloc::{format, vec::Vec};
 use codec::Codec;
@@ -462,7 +462,7 @@ pub mod pallet {
 	/// TWOX-NOTE: SAFE since `AccountId` is a secure hash.
 	#[pallet::storage]
 	pub type Nominators<T: Config> =
-		CountedStorageMap<_, Twox64Concat, T::AccountId, Nominations<T>>;
+		CountedStorageMap<_, Twox64Concat, T::AccountId, NominationsOf<T>>;
 
 	/// Stakers whose funds are managed by other pallets.
 	///
@@ -666,7 +666,7 @@ pub mod pallet {
 	/// If reward hasn't been set or has been removed then 0 reward is returned.
 	#[pallet::storage]
 	pub type ErasRewardPoints<T: Config> =
-		StorageMap<_, Twox64Concat, EraIndex, EraRewardPoints<T>, ValueQuery>;
+		StorageMap<_, Twox64Concat, EraIndex, EraRewardPointsOf<T>, ValueQuery>;
 
 	/// The total amount staked for the last [`Config::HistoryDepth`] eras.
 	/// If total hasn't been set or has been removed then 0 stake is returned.
@@ -754,7 +754,7 @@ pub mod pallet {
 		Twox64Concat,
 		// Unique key for unapplied slashes: (validator, slash fraction, page index).
 		(T::AccountId, Perbill, u32),
-		UnappliedSlash<T>,
+		UnappliedSlashOf<T>,
 		OptionQuery,
 	>;
 
