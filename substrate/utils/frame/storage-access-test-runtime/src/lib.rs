@@ -43,13 +43,14 @@ include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
 /// Parameters for benchmarking storage access on block validation.
 ///
-/// On dry-run, the storage access is not performed.
+/// On dry-run, the storage access is not performed to measure the cost of the runtime call.
 #[derive(Decode, Clone)]
 #[cfg_attr(feature = "std", derive(Encode))]
 pub struct StorageAccessParams<B: traits::Block> {
 	pub state_root: B::Hash,
 	pub storage_proof: CompactProof,
 	pub payload: StorageAccessPayload,
+	/// On dry-run, we don't read/write to the storage.
 	pub is_dry_run: bool,
 }
 
@@ -63,6 +64,7 @@ pub enum StorageAccessPayload {
 }
 
 impl<B: traits::Block> StorageAccessParams<B> {
+	/// Create a new params for reading from the storage.
 	pub fn new_read(
 		state_root: B::Hash,
 		storage_proof: CompactProof,
@@ -76,6 +78,7 @@ impl<B: traits::Block> StorageAccessParams<B> {
 		}
 	}
 
+	/// Create a new params for writing to the storage.
 	pub fn new_write(
 		state_root: B::Hash,
 		storage_proof: CompactProof,
@@ -89,6 +92,7 @@ impl<B: traits::Block> StorageAccessParams<B> {
 		}
 	}
 
+	/// Create a dry-run version of the params.
 	pub fn as_dry_run(&self) -> Self {
 		Self {
 			state_root: self.state_root,
