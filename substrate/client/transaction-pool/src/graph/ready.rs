@@ -802,6 +802,7 @@ mod tests {
 		let mut it = ready.get();
 		let tx1 = it.next().unwrap();
 		let tx2 = it.next().unwrap();
+		let tx3 = it.next().unwrap();
 		let lock = ready.ready.read();
 		let tx1_unlocks = &lock.get(&tx1.hash).unwrap().unlocks;
 		assert_eq!(tx1_unlocks[0], tx2.hash);
@@ -809,6 +810,9 @@ mod tests {
 
 		// then consider tx2 invalid, and hence, remove it.
 		let removed = ready.remove_subtree(&[tx2.hash]);
+		assert_eq!(removed.len(), 2);
+		assert_eq!(removed[0].hash, tx2.hash);
+		assert_eq!(removed[1].hash, tx3.hash);
 		let lock = ready.ready.read();
 		let tx1_unlocks = &lock.get(&tx1.hash).unwrap().unlocks;
 		assert!(!tx1_unlocks.contains(&tx2.hash));
