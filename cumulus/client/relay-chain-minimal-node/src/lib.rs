@@ -241,7 +241,7 @@ async fn new_minimal_relay_chain<Block: BlockT, Network: NetworkBackend<RelayBlo
 	.collect::<std::collections::HashMap<PeerSet, Box<dyn sc_network::NotificationService>>>();
 
 	let request_protocol_names = ReqProtocolNames::new(genesis_hash, config.chain_spec.fork_id());
-	let (collation_req_v1_receiver, collation_req_v2_receiver, available_data_req_receiver) =
+	let (collation_req_v2_receiver, available_data_req_receiver) =
 		build_request_response_protocol_receivers(&request_protocol_names, &mut net_config);
 
 	let (cfg, paranode_rx) = bootnode_request_response_config::<_, _, Network>(
@@ -277,7 +277,6 @@ async fn new_minimal_relay_chain<Block: BlockT, Network: NetworkBackend<RelayBlo
 		network_service: network.clone(),
 		sync_service,
 		authority_discovery_service,
-		collation_req_v1_receiver,
 		collation_req_v2_receiver,
 		available_data_req_receiver,
 		registry: prometheus_registry,
@@ -302,13 +301,9 @@ fn build_request_response_protocol_receivers<
 	request_protocol_names: &ReqProtocolNames,
 	config: &mut FullNetworkConfiguration<Block, <Block as BlockT>::Hash, Network>,
 ) -> (
-	IncomingRequestReceiver<v1::CollationFetchingRequest>,
 	IncomingRequestReceiver<v2::CollationFetchingRequest>,
 	IncomingRequestReceiver<v1::AvailableDataFetchingRequest>,
 ) {
-	let (collation_req_v1_receiver, cfg) =
-		IncomingRequest::get_config_receiver::<_, Network>(request_protocol_names);
-	config.add_request_response_protocol(cfg);
 	let (collation_req_v2_receiver, cfg) =
 		IncomingRequest::get_config_receiver::<_, Network>(request_protocol_names);
 	config.add_request_response_protocol(cfg);
@@ -321,5 +316,5 @@ fn build_request_response_protocol_receivers<
 	let cfg =
 		Protocol::ChunkFetchingV2.get_outbound_only_config::<_, Network>(request_protocol_names);
 	config.add_request_response_protocol(cfg);
-	(collation_req_v1_receiver, collation_req_v2_receiver, available_data_req_receiver)
+	(collation_req_v2_receiver, available_data_req_receiver)
 }
