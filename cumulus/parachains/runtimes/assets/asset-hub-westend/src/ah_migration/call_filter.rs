@@ -123,7 +123,13 @@ pub fn call_allowed_status(call: &<Runtime as frame_system::Config>::RuntimeCall
 		/* Exhaustive match. Compiler ensures that we did not miss any. */
 	};
 
-	// All pallets are enabled on Asset Hub after the migration :)
-	let after_migration = ON;
+	let after_migration = match call {
+		Staking(..) => OFF,
+		NominationPools(..) => OFF,
+		FastUnstake(..) => OFF,
+		VoterList(..) => OFF,
+		_ => ON,
+	};
+
 	(during_migration, after_migration)
 }
