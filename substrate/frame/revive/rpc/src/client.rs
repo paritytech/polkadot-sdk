@@ -328,11 +328,12 @@ impl Client {
 				},
 			};
 
-			log::trace!(target: "eth-rpc::subscription", "⏳ Processing {subscription_type:?} block: {}", block.number());
+			let block_number = block.number();
+			log::trace!(target: "eth-rpc::subscription", "⏳ Processing {subscription_type:?} block: {block_number}");
 			if let Err(err) = callback(block).await {
-				log::error!(target: LOG_TARGET, "Failed to process block: {err:?}");
+				log::error!(target: LOG_TARGET, "Failed to process block {block_number}: {err:?}");
 			} else {
-				log::trace!(target: "eth-rpc::subscription", "✅ Processed {subscription_type:?} block: {}", block.number());
+				log::trace!(target: "eth-rpc::subscription", "✅ Processed {subscription_type:?} block: {block_number}");
 			}
 		}
 
