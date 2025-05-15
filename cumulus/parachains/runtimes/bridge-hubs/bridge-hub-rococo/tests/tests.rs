@@ -140,6 +140,7 @@ mod bridge_hub_westend_tests {
 		BridgeHubWestendLocation, WestendGlobalConsensusNetwork,
 		WithBridgeHubWestendMessagesInstance, XcmOverBridgeHubWestendInstance,
 	};
+	use cumulus_primitives_core::UpwardMessageSender;
 
 	// Random para id of sibling chain used in tests.
 	pub const SIBLING_PARACHAIN_ID: u32 = 2053;
@@ -386,7 +387,7 @@ mod bridge_hub_westend_tests {
 					_ => None,
 				}
 			}),
-			|| (),
+			|| <ParachainSystem as UpwardMessageSender>::ensure_successful_delivery(),
 		)
 	}
 
@@ -533,6 +534,7 @@ mod bridge_hub_bulletin_tests {
 		RococoBulletinGlobalConsensusNetwork, RococoBulletinGlobalConsensusNetworkLocation,
 		WithRococoBulletinMessagesInstance, XcmOverPolkadotBulletinInstance,
 	};
+	use cumulus_primitives_core::UpwardMessageSender;
 
 	// Random para id of sibling chain used in tests.
 	pub const SIBLING_PEOPLE_PARACHAIN_ID: u32 =
@@ -668,7 +670,7 @@ mod bridge_hub_bulletin_tests {
 					_ => None,
 				}
 			}),
-			|| (),
+			|| <ParachainSystem as UpwardMessageSender>::ensure_successful_delivery(),
 		)
 	}
 
