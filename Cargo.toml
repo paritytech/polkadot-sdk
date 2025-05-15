@@ -1451,9 +1451,9 @@ zeroize = { version = "1.7.0", default-features = false }
 # zombienet-orchestrator = { version = "0.3.0" }
 # zombienet-sdk = { version = "0.3.0" }
 # TODO: switch to crates once https://github.com/paritytech/zombienet-sdk/pull/341 is released
-zombienet-configuration = { git = "https://github.com/paritytech/zombienet-sdk.git", rev = "906ed938a2d8eab561c826dafc4e9f5ec1e7a322" }
-zombienet-orchestrator = { git = "https://github.com/paritytech/zombienet-sdk.git", rev = "906ed938a2d8eab561c826dafc4e9f5ec1e7a322" }
-zombienet-sdk = { git = "https://github.com/paritytech/zombienet-sdk.git", rev = "906ed938a2d8eab561c826dafc4e9f5ec1e7a322" }
+zombienet-configuration = { git = "https://github.com/paritytech/zombienet-sdk.git", rev = "fab198c7c9fb31515043eb44de5d469b91fee7a6" }
+zombienet-orchestrator = { git = "https://github.com/paritytech/zombienet-sdk.git", rev = "fab198c7c9fb31515043eb44de5d469b91fee7a6" }
+zombienet-sdk = { git = "https://github.com/paritytech/zombienet-sdk.git", rev = "fab198c7c9fb31515043eb44de5d469b91fee7a6" }
 zstd = { version = "0.12.4", default-features = false }
 
 [profile.release]
