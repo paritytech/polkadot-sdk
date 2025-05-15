@@ -793,7 +793,7 @@ mod tests {
 	}
 
 	#[test]
-	fn should_remove_tx_from_unlocks_set_of_its_parent {
+	fn should_remove_tx_from_unlocks_set_of_its_parent() {
 		// given
 		let mut ready = ReadyTransactions::default();
 		populate_pool(&mut ready);
