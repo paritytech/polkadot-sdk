@@ -791,4 +791,26 @@ mod tests {
 		assert_eq!(it.next().as_ref().map(data), Some(7));
 		assert_eq!(it.next().as_ref().map(data), None);
 	}
+
+	#[test]
+	fn should_remove_tx_from_unlocks_set_of_its_parent {
+		// given
+		let mut ready = ReadyTransactions::default();
+		populate_pool(&mut ready);
+
+		// when
+		let mut it = ready.get();
+		let tx1 = it.next().unwrap();
+		let tx2 = it.next().unwrap();
+		let lock = ready.ready.read();
+		let tx1_unlocks = &lock.get(&tx1.hash).unwrap().unlocks;
+		assert_eq!(tx1_unlocks[0], tx2.hash);
+		drop(lock);
+
+		// then consider tx2 invalid, and hence, remove it.
+		let removed = ready.remove_subtree(&[tx2.hash]);
+		let lock = ready.ready.read();
+		let tx1_unlocks = &lock.get(&tx1.hash).unwrap().unlocks;
+		assert!(!tx1_unlocks.contains(&tx2.hash));
+	}
 }
