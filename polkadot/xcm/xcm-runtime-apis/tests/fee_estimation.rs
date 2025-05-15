@@ -27,10 +27,10 @@ use xcm_runtime_apis::{
 
 mod mock;
 use mock::{
-	fake_message_hash, new_test_ext_with_balances, new_test_ext_with_balances_and_assets,
-	DeliveryFees, ExistentialDeposit, HereLocation, OriginCaller, RuntimeCall, RuntimeEvent,
-	TestClient,
+	new_test_ext_with_balances, new_test_ext_with_balances_and_assets, DeliveryFees,
+	ExistentialDeposit, HereLocation, OriginCaller, RuntimeCall, RuntimeEvent, TestClient,
 };
+use xcm_simulator::helpers::derive_topic_id;
 
 // Scenario: User `1` in the local chain (id 2000) wants to transfer assets to account `[0u8; 32]`
 // on "AssetHub". He wants to make sure he has enough for fees, so before he calls the
@@ -129,7 +129,7 @@ fn fee_estimation_for_teleport() {
 					origin: AccountIndex64 { index: 1, network: None }.into(),
 					destination: (Parent, Parachain(1000)).into(),
 					message: send_message.clone(),
-					message_id: fake_message_hash(&send_message),
+					message_id: derive_topic_id(&send_message),
 				}),
 			]
 		);
@@ -287,7 +287,7 @@ fn dry_run_reserve_asset_transfer_common(
 					origin: AccountIndex64 { index: 1, network: None }.into(),
 					destination: send_destination.clone(),
 					message: send_message.clone(),
-					message_id: fake_message_hash(&send_message),
+					message_id: derive_topic_id(&send_message),
 				}),
 			]
 		);
@@ -377,7 +377,7 @@ fn dry_run_xcm_common(xcm_version: XcmVersion) {
 		.buy_execution((Here, execution_fees), Unlimited)
 		.deposit_reserve_asset(AllCounted(1), (Parent, Parachain(2100)), inner_xcm.clone())
 		.build();
-	let expected_msg_id = fake_message_hash(&xcm);
+	let expected_msg_id = derive_topic_id(&xcm);
 	let balances = vec![(
 		who,
 		transfer_amount + execution_fees + DeliveryFees::get() + ExistentialDeposit::get(),
