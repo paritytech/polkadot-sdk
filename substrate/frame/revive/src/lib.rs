@@ -551,24 +551,6 @@ pub mod pallet {
 	#[pallet::storage]
 	pub(crate) type OriginalAccount<T: Config> = StorageMap<_, Identity, H160, AccountId32>;
 
-	#[pallet::genesis_config]
-	#[derive(frame_support::DefaultNoBound)]
-	pub struct GenesisConfig<T: Config> {
-		/// Genesis mapped accounts
-		pub mapped_accounts: Vec<T::AccountId>,
-	}
-
-	#[pallet::genesis_build]
-	impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
-		fn build(&self) {
-			for id in &self.mapped_accounts {
-				if let Err(err) = T::AddressMapper::map(id) {
-					log::error!(target: LOG_TARGET, "Failed to map account {id:?}: {err:?}");
-				}
-			}
-		}
-	}
-
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn on_idle(_block: BlockNumberFor<T>, limit: Weight) -> Weight {
