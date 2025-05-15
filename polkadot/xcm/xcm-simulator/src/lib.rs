@@ -514,16 +514,6 @@ pub mod helpers {
 			});
 		}
 
-		/// Retrieves the tracked topic ID for the specified chain.
-		pub fn get(chain: &str) -> H256 {
-			TRACKED_TOPIC_IDS.with(|b| {
-				b.borrow()
-					.get(chain)
-					.cloned()
-					.expect(&format!("Expected a tracked topic ID for chain '{}'", chain))
-			})
-		}
-
 		/// Associates a topic ID with the given chain name in the tracker.
 		pub fn insert(chain: &str, id: H256) {
 			TRACKED_TOPIC_IDS.with(|b| {
