@@ -513,11 +513,15 @@ pub mod pallet {
 	}
 
 	#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-	pub enum IncrementOnce {
+	pub enum NonceAlreadyIncremented {
 		/// Indicates that the nonce has not been incremented yet.
+		///
+		/// This happens when the instantiation is triggered by a dry-run or another contract.
 		No,
 		/// Indicates that the nonce has already been incremented.
-		AlreadyIncremented,
+		///
+		/// This happens when the instantiation is triggered by a transaction.
+		Yes,
 	}
 
 	/// A mapping from a contract's code hash to its code.
@@ -802,7 +806,7 @@ pub mod pallet {
 				Code::Existing(code_hash),
 				data,
 				salt,
-				IncrementOnce::AlreadyIncremented,
+				NonceAlreadyIncremented::Yes,
 			);
 			if let Ok(retval) = &output.result {
 				if retval.result.did_revert() {
@@ -867,7 +871,7 @@ pub mod pallet {
 				Code::Upload(code),
 				data,
 				salt,
-				IncrementOnce::AlreadyIncremented,
+				NonceAlreadyIncremented::Yes,
 			);
 			if let Ok(retval) = &output.result {
 				if retval.result.did_revert() {
@@ -1081,7 +1085,7 @@ where
 		code: Code,
 		data: Vec<u8>,
 		salt: Option<[u8; 32]>,
-		increment_once: IncrementOnce,
+		nonce_already_incremented: NonceAlreadyIncremented,
 	) -> ContractResult<InstantiateReturnValue, BalanceOf<T>> {
 		let mut gas_meter = GasMeter::new(gas_limit);
 		let mut storage_deposit = Default::default();
@@ -1124,7 +1128,7 @@ where
 				data,
 				salt.as_ref(),
 				unchecked_deposit_limit,
-				increment_once,
+				nonce_already_incremented,
 			);
 			storage_deposit = storage_meter
 				.try_into_deposit(&instantiate_origin, unchecked_deposit_limit)?
@@ -1294,7 +1298,7 @@ where
 					Code::Upload(code.to_vec()),
 					data.to_vec(),
 					None,
-					IncrementOnce::No,
+					NonceAlreadyIncremented::No,
 				);
 
 				let returned_data = match result.result {

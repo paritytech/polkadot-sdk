@@ -33,7 +33,8 @@ use crate::{
 	transient_storage::MeterEntry,
 	wasm::{PreparedCall, Runtime},
 	BalanceOf, Code, CodeInfoOf, Config, ContractInfo, ContractInfoOf, DepositLimit, Error,
-	GasMeter, IncrementOnce, MomentOf, Origin, Pallet as Contracts, PristineCode, WasmBlob, Weight,
+	GasMeter, MomentOf, NonceAlreadyIncremented, Origin, Pallet as Contracts, PristineCode,
+	WasmBlob, Weight,
 };
 use alloc::{vec, vec::Vec};
 use frame_support::{storage::child, traits::fungible::Mutate};
@@ -270,7 +271,7 @@ where
 			Code::Upload(module.code),
 			data,
 			salt,
-			IncrementOnce::No,
+			NonceAlreadyIncremented::No,
 		);
 
 		let address = outcome.result?.addr;
