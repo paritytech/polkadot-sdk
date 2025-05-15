@@ -88,8 +88,6 @@ pub use xcm_executor::traits::ConvertLocation;
 
 pub type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
 
-use xcm_simulator::helpers::TopicIdCaptor;
-
 thread_local! {
 	/// Downward messages, each message is: `(to_para_id, [(relay_block_number, msg)])`
 	#[allow(clippy::type_complexity)]
@@ -1585,7 +1583,6 @@ where
 	pub hops_dispatchable: HashMap<String, fn(Self) -> DispatchResult>,
 	pub hops_calls: HashMap<String, Origin::RuntimeCall>,
 	pub args: Args,
-	pub topic_id_captor: TopicIdCaptor,
 	_marker: PhantomData<(Destination, Hops)>,
 }
 
@@ -1616,7 +1613,6 @@ where
 			hops_dispatchable: Default::default(),
 			hops_calls: Default::default(),
 			args: test_args.args,
-			topic_id_captor: TopicIdCaptor::new(),
 			_marker: Default::default(),
 		}
 	}

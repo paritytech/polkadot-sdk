@@ -14,8 +14,9 @@
 // limitations under the License.
 
 use crate::{create_pool_with_wnd_on, foreign_balance_on, imports::*};
-use emulated_integration_tests_common::xcm_helpers::{
-	find_mq_processed_id, find_xcm_sent_message_id,
+use emulated_integration_tests_common::{
+	xcm_helpers::{find_mq_processed_id, find_xcm_sent_message_id},
+	xcm_simulator::helpers::TopicIdTracker,
 };
 use sp_core::{crypto::get_public_from_string_or_panic, sr25519};
 use westend_system_emulated_network::westend_emulated_chain::westend_runtime::Dmp;
@@ -416,7 +417,7 @@ fn relay_to_para_assets_receiver_assertions(t: RelayToParaTest) {
 	);
 }
 
-pub fn para_to_para_through_hop_sender_assertions<Hop: Clone>(mut t: Test<PenpalA, PenpalB, Hop>) {
+pub fn para_to_para_through_hop_sender_assertions<Hop: Clone>(t: Test<PenpalA, PenpalB, Hop>) {
 	type RuntimeEvent = <PenpalA as Chain>::RuntimeEvent;
 	PenpalA::assert_xcm_pallet_attempted_complete(None);
 
@@ -439,8 +440,7 @@ pub fn para_to_para_through_hop_sender_assertions<Hop: Clone>(mut t: Test<Penpal
 	}
 
 	let msg_sent_id = find_xcm_sent_message_id::<PenpalA>().expect("Missing Sent Event");
-	t.topic_id_captor.capture_and_assert_unique("PenpalA", msg_sent_id.into());
-	println!("para_to_para_through_hop_sender_assertions->msg_sent_id: {:?}", msg_sent_id);
+	TopicIdTracker::insert_and_assert_unique("PenpalA", msg_sent_id.into());
 }
 
 fn para_to_para_relay_hop_assertions(t: ParaToParaThroughRelayTest) {
@@ -498,9 +498,7 @@ fn para_to_para_asset_hub_hop_assertions(t: ParaToParaThroughAHTest) {
 	);
 }
 
-pub fn para_to_para_through_hop_receiver_assertions<Hop: Clone>(
-	mut t: Test<PenpalA, PenpalB, Hop>,
-) {
+pub fn para_to_para_through_hop_receiver_assertions<Hop: Clone>(t: Test<PenpalA, PenpalB, Hop>) {
 	type RuntimeEvent = <PenpalB as Chain>::RuntimeEvent;
 
 	PenpalB::assert_xcmp_queue_success(None);
@@ -518,8 +516,7 @@ pub fn para_to_para_through_hop_receiver_assertions<Hop: Clone>(
 	}
 
 	let mq_prc_id = find_mq_processed_id::<PenpalB>().expect("Missing Processed Event");
-	t.topic_id_captor.capture_and_assert_unique("PenpalB", mq_prc_id);
-	println!("para_to_para_through_hop_receiver_assertions->mq_prc_id: {:?}", mq_prc_id);
+	TopicIdTracker::insert_and_assert_unique("PenpalB", mq_prc_id);
 }
 
 fn relay_to_para_reserve_transfer_assets(t: RelayToParaTest) -> DispatchResult {

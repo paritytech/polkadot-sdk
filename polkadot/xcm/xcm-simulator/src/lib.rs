@@ -539,13 +539,6 @@ pub mod helpers {
 			});
 		}
 
-		/// Associates a topic ID with the given chain name in the tracker.
-		pub fn insert(chain: &str, id: H256) {
-			TRACKED_TOPIC_IDS.with(|b| {
-				b.borrow_mut().capture(chain, id);
-			});
-		}
-
 		/// Inserts a topic ID for a chain, asserting it matches the chain's existing ID and global
 		/// unique ID.
 		pub fn insert_and_assert_unique(chain: &str, id: H256) {
