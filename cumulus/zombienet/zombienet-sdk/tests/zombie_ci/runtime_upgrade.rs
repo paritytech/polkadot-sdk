@@ -29,30 +29,23 @@ async fn runtime_upgrade() -> Result<(), anyhow::Error> {
 	log::info!("Spawning network");
 	let network = initialize_network().await?;
 
-	let relay_alice = network.get_node("alice")?;
-	let relay_client: OnlineClient<PolkadotConfig> = relay_alice.wait_client().await?;
+	let alice = network.get_node("alice")?;
+	let alice_client: OnlineClient<PolkadotConfig> = alice.wait_client().await?;
 
 	log::info!("Ensuring parachain is registered");
 	assert_para_throughput(
-		&relay_client,
+		&alice_client,
 		20,
 		[(ParaId::from(PARA_ID), 2..40)].into_iter().collect(),
 	)
 	.await?;
 
 	let timeout_secs: u64 = 250;
-	let para_charlie = network.get_node("charlie")?;
+	let charlie = network.get_node("charlie")?;
 
-	log::info!("Checking block production");
-	assert!(para_charlie
-		.wait_metric_with_timeout(BEST_BLOCK_METRIC, |b| b >= 5.0, timeout_secs)
-		.await
-		.is_ok());
-
-	let para_client: OnlineClient<PolkadotConfig> =
-		network.get_node("charlie")?.wait_client().await?;
-
-	let current_spec_version = para_client.backend().current_runtime_version().await?.spec_version;
+	let charlie_client: OnlineClient<PolkadotConfig> = charlie.wait_client().await?;
+	let current_spec_version =
+		charlie_client.backend().current_runtime_version().await?.spec_version;
 	log::info!("Current runtime spec version {current_spec_version}");
 
 	log::info!("Performing runtime upgrade");
@@ -60,20 +53,28 @@ async fn runtime_upgrade() -> Result<(), anyhow::Error> {
 		.parachain(PARA_ID)
 		.unwrap()
 		.perform_runtime_upgrade(
-			para_charlie,
+			charlie,
 			RuntimeUpgradeOptions::new(AssetLocation::from(WASM_WITH_SPEC_VERSION_INCREMENTED)),
 		)
 		.await?;
 
+	let current_best_block = charlie.reports(BEST_BLOCK_METRIC).await?;
+	log::info!("Current parachain best block {current_best_block}");
+
 	log::info!("Checking block production");
 	assert!(network
 		.get_node("dave")?
-		.wait_metric_with_timeout(BEST_BLOCK_METRIC, |b| b >= 20.0, timeout_secs)
+		.wait_metric_with_timeout(
+			BEST_BLOCK_METRIC,
+			|b| b >= current_best_block + 10.0,
+			timeout_secs
+		)
 		.await
 		.is_ok());
 
 	let incremented_spec_version =
-		para_client.backend().current_runtime_version().await?.spec_version;
+		charlie_client.backend().current_runtime_version().await?.spec_version;
+
 	log::info!("Incremented runtime spec version {incremented_spec_version}");
 
 	assert_eq!(
