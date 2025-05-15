@@ -20,6 +20,9 @@ use crate::{
 		*,
 	},
 	tests::{
+		assert_bridge_hub_rococo_message_received, assert_bridge_hub_westend_message_accepted,
+		asset_hub_rococo_location, asset_hub_westend_global_location, bridged_wnd_at_ah_rococo,
+		create_foreign_on_ah_rococo,
 		penpal_emulated_chain::penpal_runtime,
 		snowbridge_common::{
 			bridged_roc_at_ah_westend, ethereum, register_roc_on_bh, snowbridge_sovereign,
@@ -27,7 +30,10 @@ use crate::{
 		snowbridge_v2_outbound_from_rococo::create_foreign_on_ah_westend,
 	},
 };
-use asset_hub_westend_runtime::xcm_config::bridging::to_ethereum::DefaultBridgeHubEthereumBaseFee;
+use asset_hub_westend_runtime::xcm_config::{
+	bridging::to_ethereum::DefaultBridgeHubEthereumBaseFee,
+	UniversalLocation as AssetHubWestendUniversalLocation,
+};
 use bridge_hub_westend_runtime::{
 	bridge_to_ethereum_config::EthereumGatewayAddress, EthereumBeaconClient, EthereumInboundQueue,
 };
@@ -50,6 +56,7 @@ use snowbridge_inbound_queue_primitives::{
 use snowbridge_pallet_inbound_queue_fixtures::send_native_eth::make_send_native_eth_message;
 use sp_core::{H160, H256};
 use testnet_parachains_constants::westend::snowbridge::EthereumNetwork;
+use xcm_builder::ExternalConsensusLocationsConverterFor;
 use xcm_executor::traits::ConvertLocation;
 
 const INITIAL_FUND: u128 = 5_000_000_000_000;
@@ -148,7 +155,7 @@ fn send_weth_token_from_ethereum_to_asset_hub() {
 			command: Command::SendToken {
 				token: WETH.into(),
 				destination: Destination::AccountId32 { id: AssetHubWestendSender::get().into() },
-				amount: 1_000_000,
+				amount: TOKEN_AMOUNT,
 				fee: XCM_FEE,
 			},
 		});
@@ -252,7 +259,7 @@ fn send_weth_from_ethereum_to_penpal() {
 					id: PenpalBReceiver::get().into(),
 					fee: XCM_FEE,
 				},
-				amount: 1_000_000,
+				amount: TOKEN_AMOUNT,
 				fee: XCM_FEE,
 			},
 		});
@@ -500,7 +507,7 @@ fn send_weth_from_ethereum_to_asset_hub_with_fee(account_id: [u8; 32], fee: u128
 			command: Command::SendToken {
 				token: WETH.into(),
 				destination: Destination::AccountId32 { id: account_id },
-				amount: 1_000_000,
+				amount: TOKEN_AMOUNT,
 				fee,
 			},
 		});
@@ -1158,6 +1165,326 @@ fn transfer_ah_token() {
 					if *owner == AssetHubWestendReceiver::get()
 			)),
 			"Token minted to beneficiary."
+		);
+	});
+}
+
+// Tests a full cycle of transferring weth from Ethereum to AHW, to AHR using the P<>K bridge,
+// and back again to Ethereum. The transaction is done in 2 transaction hops, per direction.
+#[test]
+fn send_weth_from_ethereum_to_ahw_to_ahr_back_to_ahw_and_ethereum() {
+	let sender = AssetHubWestendSender::get();
+	BridgeHubWestend::fund_para_sovereign(AssetHubWestend::para_id(), INITIAL_FUND);
+	BridgeHubRococo::fund_para_sovereign(AssetHubRococo::para_id(), INITIAL_FUND);
+	let ethereum_destination =
+		Location::new(2, [GlobalConsensus(Ethereum { chain_id: SEPOLIA_ID })]);
+	let ethereum_sovereign: AccountId = AssetHubWestend::execute_with(|| {
+		ExternalConsensusLocationsConverterFor::<
+			AssetHubWestendUniversalLocation,
+			[u8; 32],
+		>::convert_location(&ethereum_destination.clone())
+			.unwrap()
+			.into()
+	});
+	AssetHubWestend::fund_accounts(vec![
+		(ethereum_sovereign, INITIAL_FUND),
+		// to pay fees to AHR
+		(sender.clone(), INITIAL_FUND),
+	]);
+
+	let bridged_wnd_at_asset_hub_rococo = bridged_wnd_at_ah_rococo();
+
+	create_foreign_on_ah_rococo(bridged_wnd_at_asset_hub_rococo.clone(), true);
+	create_pool_with_native_on!(
+		AssetHubRococo,
+		bridged_wnd_at_asset_hub_rococo.clone(),
+		true,
+		AssetHubRococoSender::get()
+	);
+
+	// set XCM versions
+	BridgeHubWestend::force_xcm_version(asset_hub_westend_global_location(), XCM_VERSION);
+	BridgeHubWestend::force_xcm_version(asset_hub_rococo_location(), XCM_VERSION);
+	AssetHubWestend::force_xcm_version(asset_hub_rococo_location(), XCM_VERSION);
+	AssetHubRococo::force_xcm_version(asset_hub_westend_global_location(), XCM_VERSION);
+	BridgeHubRococo::force_xcm_version(asset_hub_westend_global_location(), XCM_VERSION);
+	BridgeHubRococo::force_xcm_version(asset_hub_rococo_location(), XCM_VERSION);
+
+	// Bridge token from Ethereum to AHP
+	BridgeHubWestend::execute_with(|| {
+		type RuntimeEvent = <BridgeHubWestend as Chain>::RuntimeEvent;
+
+		// Construct SendToken message and sent to inbound queue
+		let message = VersionedMessage::V1(MessageV1 {
+			chain_id: SEPOLIA_ID,
+			command: Command::SendToken {
+				token: WETH.into(),
+				destination: Destination::AccountId32 { id: sender.clone().into() },
+				amount: TOKEN_AMOUNT,
+				fee: XCM_FEE,
+			},
+		});
+		// Convert the message to XCM
+		let message_id: H256 = [1; 32].into();
+		let (xcm, _) = EthereumInboundQueue::do_convert(message_id, message).unwrap();
+		// Send the XCM
+		let _ = EthereumInboundQueue::send_xcm(xcm, AssetHubWestend::para_id()).unwrap();
+
+		// Check that the message was sent
+		assert_expected_events!(
+			BridgeHubWestend,
+			vec![
+				RuntimeEvent::XcmpQueue(cumulus_pallet_xcmp_queue::Event::XcmpMessageSent { .. }) => {},
+			]
+		);
+	});
+
+	AssetHubWestend::execute_with(|| {
+		type RuntimeEvent = <AssetHubWestend as Chain>::RuntimeEvent;
+
+		// Check that the token was received and issued as a foreign asset on AssetHub
+		assert_expected_events!(
+			AssetHubWestend,
+			vec![
+				RuntimeEvent::ForeignAssets(pallet_assets::Event::Issued { .. }) => {},
+			]
+		);
+	});
+
+	let beneficiary =
+		Location::new(0, [AccountId32 { network: None, id: AssetHubRococoReceiver::get().into() }]);
+	let weth_location = Location::new(
+		2,
+		[GlobalConsensus(EthereumNetwork::get()), AccountKey20 { network: None, key: WETH }],
+	);
+	let fee: Location = Parent.into(); // Dot
+	let fees_asset: AssetId = fee.clone().into();
+	let custom_xcm_on_dest = Xcm::<()>(vec![DepositAsset {
+		assets: Wild(AllCounted(2)),
+		beneficiary: beneficiary.clone(),
+	}]);
+
+	let assets: Assets =
+		vec![(weth_location.clone(), TOKEN_AMOUNT).into(), (fee, XCM_FEE * 3).into()].into();
+
+	assert_ok!(AssetHubWestend::execute_with(|| {
+		<AssetHubWestend as AssetHubWestendPallet>::PolkadotXcm::transfer_assets_using_type_and_then(
+			<AssetHubWestend as Chain>::RuntimeOrigin::signed(sender.clone()),
+			bx!(asset_hub_rococo_location().into()),
+			bx!(assets.clone().into()),
+			bx!(TransferType::LocalReserve),
+			bx!(fees_asset.clone().into()),
+			bx!(TransferType::LocalReserve),
+			bx!(VersionedXcm::from(custom_xcm_on_dest.clone())),
+			WeightLimit::Unlimited,
+		)
+	}));
+
+	AssetHubWestend::execute_with(|| {
+		type RuntimeEvent = <AssetHubWestend as Chain>::RuntimeEvent;
+
+		let events = AssetHubWestend::events();
+		// Check that no assets were trapped
+		assert!(
+			!events.iter().any(|event| matches!(
+				event,
+				RuntimeEvent::PolkadotXcm(pallet_xcm::Event::AssetsTrapped { .. })
+			)),
+			"Assets were trapped, should not happen."
+		);
+	});
+
+	assert_bridge_hub_westend_message_accepted(true);
+	assert_bridge_hub_rococo_message_received();
+
+	AssetHubRococo::execute_with(|| {
+		type RuntimeEvent = <AssetHubRococo as Chain>::RuntimeEvent;
+
+		// Check that the token was received and issued as a foreign asset on AssetHub
+		assert_expected_events!(
+			AssetHubRococo,
+			vec![
+				// Token was issued to beneficiary
+				RuntimeEvent::ForeignAssets(pallet_assets::Event::Issued { asset_id, owner, .. }) => {
+					asset_id: *asset_id == weth_location,
+					owner: *owner == AssetHubRococoReceiver::get().into(),
+				},
+			]
+		);
+
+		let events = AssetHubRococo::events();
+		// Check that no assets were trapped
+		assert!(
+			!events.iter().any(|event| matches!(
+				event,
+				RuntimeEvent::PolkadotXcm(pallet_xcm::Event::AssetsTrapped { .. })
+			)),
+			"Assets were trapped, should not happen."
+		);
+	});
+
+	let beneficiary = Location::new(
+		0,
+		[AccountId32 { network: None, id: AssetHubWestendReceiver::get().into() }],
+	);
+	let fee = bridged_wnd_at_asset_hub_rococo;
+	let fees_asset: AssetId = fee.clone().into();
+	let custom_xcm_on_dest =
+		Xcm::<()>(vec![DepositAsset { assets: Wild(AllCounted(2)), beneficiary }]);
+	let assethub_location = BridgeHubWestend::sibling_location_of(AssetHubWestend::para_id());
+	let assethub_sovereign = BridgeHubWestend::sovereign_account_id_of(assethub_location);
+
+	let assets: Assets =
+		vec![(weth_location.clone(), TOKEN_AMOUNT).into(), (fee, XCM_FEE).into()].into();
+
+	// Transfer the token back to Westend.
+	assert_ok!(AssetHubRococo::execute_with(|| {
+		<AssetHubRococo as AssetHubRococoPallet>::PolkadotXcm::transfer_assets_using_type_and_then(
+			<AssetHubRococo as Chain>::RuntimeOrigin::signed(AssetHubRococoReceiver::get()),
+			bx!(asset_hub_westend_global_location().into()),
+			bx!(assets.into()),
+			bx!(TransferType::DestinationReserve),
+			bx!(fees_asset.into()),
+			bx!(TransferType::DestinationReserve),
+			bx!(VersionedXcm::from(custom_xcm_on_dest)),
+			WeightLimit::Unlimited,
+		)
+	}));
+
+	BridgeHubRococo::execute_with(|| {
+		type RuntimeEvent = <BridgeHubRococo as Chain>::RuntimeEvent;
+		assert_expected_events!(
+			BridgeHubRococo,
+			vec![
+				// pay for bridge fees
+				RuntimeEvent::Balances(pallet_balances::Event::Burned { .. }) => {},
+				// message exported
+				RuntimeEvent::BridgeWestendMessages(
+					pallet_bridge_messages::Event::MessageAccepted { .. }
+				) => {},
+				// message processed successfully
+				RuntimeEvent::MessageQueue(
+					pallet_message_queue::Event::Processed { success: true, .. }
+				) => {},
+			]
+		);
+	});
+
+	BridgeHubWestend::execute_with(|| {
+		type RuntimeEvent = <BridgeHubWestend as Chain>::RuntimeEvent;
+		assert_expected_events!(
+			BridgeHubWestend,
+			vec![
+				// message sent to destination
+				RuntimeEvent::XcmpQueue(
+					cumulus_pallet_xcmp_queue::Event::XcmpMessageSent { .. }
+				) => {},
+			]
+		);
+	});
+
+	AssetHubWestend::execute_with(|| {
+		type RuntimeEvent = <AssetHubWestend as Chain>::RuntimeEvent;
+
+		// Check that the token was received and issued as a foreign asset on AssetHub
+		assert_expected_events!(
+			AssetHubWestend,
+			vec![
+				// Token was issued to beneficiary
+				RuntimeEvent::ForeignAssets(pallet_assets::Event::Issued { asset_id, owner, .. }) => {
+					asset_id: *asset_id == weth_location,
+					owner: *owner == AssetHubWestendReceiver::get().into(),
+				},
+			]
+		);
+
+		let events = AssetHubWestend::events();
+		// Check that no assets were trapped
+		assert!(
+			!events.iter().any(|event| matches!(
+				event,
+				RuntimeEvent::PolkadotXcm(pallet_xcm::Event::AssetsTrapped { .. })
+			)),
+			"Assets were trapped, should not happen."
+		);
+	});
+
+	// Transfer the token back to Ethereum.
+	AssetHubWestend::execute_with(|| {
+		type RuntimeOrigin = <AssetHubWestend as Chain>::RuntimeOrigin;
+
+		let assets = vec![Asset {
+			id: AssetId(Location::new(
+				2,
+				[
+					GlobalConsensus(Ethereum { chain_id: SEPOLIA_ID }),
+					AccountKey20 { network: None, key: WETH },
+				],
+			)),
+			fun: Fungible(TOKEN_AMOUNT),
+		}];
+
+		let versioned_assets = VersionedAssets::from(Assets::from(assets));
+
+		let destination = VersionedLocation::from(Location::new(
+			2,
+			[GlobalConsensus(Ethereum { chain_id: SEPOLIA_ID })],
+		));
+
+		let beneficiary = VersionedLocation::from(Location::new(
+			0,
+			[AccountKey20 { network: None, key: ETHEREUM_DESTINATION_ADDRESS.into() }],
+		));
+
+		let free_balance_before =
+			<AssetHubWestend as AssetHubWestendPallet>::Balances::free_balance(
+				AssetHubWestendReceiver::get(),
+			);
+		// Send the Weth back to Ethereum
+		<AssetHubWestend as AssetHubWestendPallet>::PolkadotXcm::limited_reserve_transfer_assets(
+			RuntimeOrigin::signed(AssetHubWestendReceiver::get()),
+			Box::new(destination),
+			Box::new(beneficiary),
+			Box::new(versioned_assets),
+			0,
+			Unlimited,
+		)
+		.unwrap();
+		let free_balance_after = <AssetHubWestend as AssetHubWestendPallet>::Balances::free_balance(
+			AssetHubWestendReceiver::get(),
+		);
+		// Assert at least DefaultBridgeHubEthereumBaseFee charged from the sender
+		let free_balance_diff = free_balance_before - free_balance_after;
+		assert!(free_balance_diff > DefaultBridgeHubEthereumBaseFee::get());
+	});
+
+	BridgeHubWestend::execute_with(|| {
+		use bridge_hub_westend_runtime::xcm_config::TreasuryAccount;
+		type RuntimeEvent = <BridgeHubWestend as Chain>::RuntimeEvent;
+		// Check that the transfer token back to Ethereum message was queue in the Ethereum
+		// Outbound Queue
+		assert_expected_events!(
+			BridgeHubWestend,
+			vec![RuntimeEvent::EthereumOutboundQueue(snowbridge_pallet_outbound_queue::Event::MessageQueued{ .. }) => {},]
+		);
+		let events = BridgeHubWestend::events();
+		// Check that the local fee was credited to the Snowbridge sovereign account
+		assert!(
+			events.iter().any(|event| matches!(
+				event,
+				RuntimeEvent::Balances(pallet_balances::Event::Minted { who, amount: _amount })
+					if *who == TreasuryAccount::get().into()
+			)),
+			"Snowbridge sovereign takes local fee."
+		);
+		// Check that the remote fee was credited to the AssetHub sovereign account
+		assert!(
+			events.iter().any(|event| matches!(
+				event,
+				RuntimeEvent::Balances(pallet_balances::Event::Minted { who, amount: _amount })
+					if *who == assethub_sovereign
+			)),
+			"AssetHub sovereign takes remote fee."
 		);
 	});
 }
