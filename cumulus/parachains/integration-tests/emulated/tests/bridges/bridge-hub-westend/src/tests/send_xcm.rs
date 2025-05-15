@@ -177,8 +177,8 @@ fn xcm_persists_set_topic_across_hops() {
 				bx!(xcm),
 			));
 
-			let msg_id_sent = find_xcm_sent_message_id::<Westend>().expect("Missing Sent Event");
-			topic_id_captor.capture("Westend", msg_id_sent.into());
+			let msg_sent_id = find_xcm_sent_message_id::<Westend>().expect("Missing Sent Event");
+			topic_id_captor.capture("Westend", msg_sent_id.into());
 		});
 
 		BridgeHubWestend::execute_with(|| {
