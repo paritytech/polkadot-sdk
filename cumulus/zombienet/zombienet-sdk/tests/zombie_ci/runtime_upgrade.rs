@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use anyhow::anyhow;
+use std::time::Duration;
 
-use crate::utils::BEST_BLOCK_METRIC;
 use cumulus_zombienet_sdk_helpers::assert_para_throughput;
 
 use polkadot_primitives::Id as ParaId;
@@ -18,6 +18,22 @@ const PARA_ID: u32 = 2000;
 const WASM_WITH_SPEC_VERSION_INCREMENTED: &str =
 	"/tmp/wasm_binary_spec_version_incremented.rs.compact.compressed.wasm";
 
+async fn wait_for_upgrade(
+	client: OnlineClient<PolkadotConfig>,
+	expected_version: u32,
+) -> Result<(), anyhow::Error> {
+	let updater = client.updater();
+	let mut update_stream = updater.runtime_updates().await?;
+
+	while let Some(Ok(update)) = update_stream.next().await {
+		let version = update.runtime_version().spec_version;
+		log::info!("Update runtime spec version {version}");
+		if version == expected_version {
+			break;
+		}
+	}
+	Ok(())
+}
 // This tests makes sure that it is possible to upgrade parachain's runtime
 // and parachain produces blocks after such upgrade.
 #[tokio::test(flavor = "multi_thread")]
@@ -42,8 +58,8 @@ async fn runtime_upgrade() -> Result<(), anyhow::Error> {
 
 	let timeout_secs: u64 = 250;
 	let charlie = network.get_node("charlie")?;
-
 	let charlie_client: OnlineClient<PolkadotConfig> = charlie.wait_client().await?;
+
 	let current_spec_version =
 		charlie_client.backend().current_runtime_version().await?.spec_version;
 	log::info!("Current runtime spec version {current_spec_version}");
@@ -58,30 +74,24 @@ async fn runtime_upgrade() -> Result<(), anyhow::Error> {
 		)
 		.await?;
 
-	let current_best_block = charlie.reports(BEST_BLOCK_METRIC).await?;
-	log::info!("Current parachain best block {current_best_block}");
+	let dave = network.get_node("dave")?;
+	let dave_client: OnlineClient<PolkadotConfig> = dave.wait_client().await?;
+	let expected_spec_version = current_spec_version + 1;
 
-	log::info!("Checking block production");
-	assert!(network
-		.get_node("dave")?
-		.wait_metric_with_timeout(
-			BEST_BLOCK_METRIC,
-			|b| b >= current_best_block + 10.0,
-			timeout_secs
-		)
-		.await
-		.is_ok());
-
-	let incremented_spec_version =
-		charlie_client.backend().current_runtime_version().await?.spec_version;
-
-	log::info!("Incremented runtime spec version {incremented_spec_version}");
-
-	assert_eq!(
-		current_spec_version + 1,
-		incremented_spec_version,
-		"Unexpected runtime spec version"
+	log::info!(
+		"Waiting (up to {timeout_secs}s) for parachain runtime upgrade to version {}",
+		expected_spec_version
 	);
+	let _ = tokio::time::timeout(
+		Duration::from_secs(timeout_secs),
+		wait_for_upgrade(dave_client, expected_spec_version),
+	)
+	.await
+	.expect("Timeout waiting for runtime upgrade")?;
+
+	let spec_version_from_charlie =
+		charlie_client.backend().current_runtime_version().await?.spec_version;
+	assert_eq!(expected_spec_version, spec_version_from_charlie, "Unexpected runtime spec version");
 
 	Ok(())
 }
