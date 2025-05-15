@@ -202,6 +202,10 @@ pub use cumulus_relay_chain_minimal_node;
 #[cfg(feature = "cumulus-relay-chain-rpc-interface")]
 pub use cumulus_relay_chain_rpc_interface;
 
+/// Cumulus client common relay chain streams.
+#[cfg(feature = "cumulus-relay-chain-streams")]
+pub use cumulus_relay_chain_streams;
+
 /// Mocked relay state proof builder for testing Cumulus.
 #[cfg(feature = "cumulus-test-relay-sproof-builder")]
 pub use cumulus_test_relay_sproof_builder;
