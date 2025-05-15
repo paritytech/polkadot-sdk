@@ -468,8 +468,13 @@ pub mod helpers {
 		if let Some(SetTopic(topic_id)) = message.last() {
 			*topic_id
 		} else {
-			message.using_encoded(blake2_256)
+			fake_message_hash(message)
 		}
+	}
+
+	/// Computes a fake topic ID by hashing the encoded XCM message.
+	pub fn fake_message_hash<T>(message: &Xcm<T>) -> XcmHash {
+		message.using_encoded(blake2_256)
 	}
 
 	/// A test utility for capturing XCM topic IDs
