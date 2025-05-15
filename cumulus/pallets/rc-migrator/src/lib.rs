@@ -60,6 +60,7 @@ pub mod xcm_config;
 
 pub use weights::*;
 
+use sp_runtime::traits::Hash;
 use crate::{
 	accounts::MigratedBalances,
 	types::{MigrationFinishedData, XcmBatch, XcmBatchAndMeter},
@@ -535,6 +536,10 @@ pub mod pallet {
 	/// keep this number low to not accidentally overload the asset hub.
 	#[pallet::storage]
 	pub type DmpDataMessageCounts<T: Config> = StorageValue<_, (u32, u32), ValueQuery>;
+
+	#[pallet::storage]
+	#[pallet::unbounded]
+	pub type DmpMessagesFailed<T: Config> = StorageMap<_, Twox64Concat, T::Hash, Xcm<()>, OptionQuery>;
 
 	/// Alias for `Paras` from `paras_registrar`.
 	///
@@ -1583,6 +1588,8 @@ pub mod pallet {
 					Location::new(0, [Junction::Parachain(1000)]),
 					message.clone(),
 				) {
+					let message_hash = T::Hashing::hash_of(&message);
+					DmpMessagesFailed::<T>::insert(&message_hash, message);
 					log::error!(target: LOG_TARGET, "Error while sending XCM message: {:?}", err);
 					return Err(Error::XcmError);
 				} else {
