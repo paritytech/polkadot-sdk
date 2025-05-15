@@ -97,12 +97,40 @@ impl Convert<RcFreezeReason, RuntimeFreezeReason> for RcToAhFreezeReason {
 	}
 }
 
-pub type RcProxyType = <westend_runtime::Runtime as pallet_proxy::Config>::ProxyType;
+#[derive(
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	Clone,
+	PartialEq,
+	Eq,
+	RuntimeDebug,
+	TypeInfo,
+	MaxEncodedLen,
+)]
+pub enum RcProxyType {
+	Any,
+	NonTransfer,
+	Governance,
+	Staking,
+	SudoBalances,
+	IdentityJudgement,
+	CancelProxy,
+	Auction,
+	NominationPools,
+	ParaRegistration,
+}
+
+impl Default for RcProxyType {
+	fn default() -> Self {
+		RcProxyType::Any
+	}
+}
 
 pub struct RcToProxyType;
 impl TryConvert<RcProxyType, ProxyType> for RcToProxyType {
 	fn try_convert(p: RcProxyType) -> Result<ProxyType, RcProxyType> {
-		use westend_runtime::ProxyType::*;
+		use RcProxyType::*;
 
 		match p {
 			Any => Ok(ProxyType::Any),

@@ -106,7 +106,7 @@ pub enum AhMigratorCall<T: Config> {
 	},
 	#[codec(index = 30)]
 	#[cfg(feature = "ahm-staking-migration")] // Staking migration not yet enabled
-	ReceiveStakingMessages { messages: Vec<staking::RcStakingMessageOf<T>> },
+	ReceiveStakingMessages { messages: Vec<staking::message::RcEquivalentStakingMessageOf<T>> },
 	#[codec(index = 101)]
 	StartMigration,
 	#[codec(index = 110)]
@@ -219,7 +219,7 @@ impl<Status: MigrationStatus, Default: Get<Weight>> Get<Weight> for ZeroWeightOr
 /// remain within the maximum allowed XCM size.
 pub struct XcmBatch<T: Encode> {
 	/// Collection of batches with their sizes and messages
-	sized_batches: VecDeque<(u32, Vec<T>)>,
+	pub sized_batches: VecDeque<(u32, Vec<T>)>,
 }
 
 impl<T: Encode> XcmBatch<T> {
@@ -308,13 +308,13 @@ impl<T: Encode> Into<XcmBatch<T>> for XcmBatchAndMeter<T> {
 /// for batch processing operations.
 pub struct XcmBatchAndMeter<T: Encode> {
 	/// The underlying batch of XCM messages
-	batch: XcmBatch<T>,
+	pub batch: XcmBatch<T>,
 	/// The weight cost for processing a single batch
-	batch_weight: Weight,
+	pub batch_weight: Weight,
 	/// The number of batches that have been accounted for in the accumulated weight
-	tracked_batch_count: u32,
+	pub tracked_batch_count: u32,
 	/// The total accumulated weight for all tracked batches
-	accumulated_weight: Weight,
+	pub accumulated_weight: Weight,
 }
 
 impl<T: Encode> XcmBatchAndMeter<T> {

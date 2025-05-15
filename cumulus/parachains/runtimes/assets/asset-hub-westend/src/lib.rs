@@ -1315,8 +1315,6 @@ impl pallet_ah_migrator::Config for Runtime {
 	type AhWeightInfo = weights::pallet_ah_migrator::WeightInfo<Runtime>;
 	type AhIntraMigrationCalls = ah_migration::CallsEnabledDuringMigration;
 	type AhPostMigrationCalls = ah_migration::CallsEnabledAfterMigration;
-	type RcStakingMessage =
-		pallet_rc_migrator::staking::message::RcStakingMessageOf<westend_runtime::Runtime>;
 }
 
 impl pallet_sudo::Config for Runtime {

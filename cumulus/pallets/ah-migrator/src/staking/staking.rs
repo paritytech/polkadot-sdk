@@ -25,7 +25,7 @@ impl<T: Config> Pallet<T> {
 
 	pub fn staking_migration_finish_hook() {}
 
-	pub fn do_receive_staking_messages(messages: Vec<T::RcStakingMessage>) -> Result<(), Error<T>> {
+	pub fn do_receive_staking_messages(messages: Vec<AhEquivalentStakingMessageOf<T>>) -> Result<(), Error<T>> {
 		let (mut good, mut bad) = (0, 0);
 		log::info!(target: LOG_TARGET, "Integrating {} StakingMessages", messages.len());
 		Self::deposit_event(Event::BatchReceived {
@@ -34,8 +34,8 @@ impl<T: Config> Pallet<T> {
 		});
 
 		for message in messages {
-			let translated = T::RcStakingMessage::intoAh(message);
-			match Self::do_receive_staking_message(translated) {
+			//let translated = T::RcStakingMessage::intoAh(message);
+			match Self::do_receive_staking_message(message) {
 				Ok(_) => good += 1,
 				Err(_) => bad += 1,
 			}
@@ -71,6 +71,15 @@ impl<T: Config> Pallet<T> {
 			},
 			Ledger { controller, ledger } => {
 				log::debug!(target: LOG_TARGET, "Integrating Ledger of controller {:?}", controller);
+				let unlocking = ledger.unlocking.into_inner().defensive_truncate_into();
+				let ledger = pallet_staking_async::StakingLedger {
+					stash: ledger.stash,
+					total: ledger.total,
+					active: ledger.active,
+					unlocking: unlocking,
+					controller: ledger.controller,
+				};
+				
 				pallet_staking_async::Ledger::<T>::insert(controller, ledger);
 			},
 			Payee { stash, payment } => {
@@ -83,6 +92,13 @@ impl<T: Config> Pallet<T> {
 			},
 			Nominators { stash, nominations } => {
 				log::debug!(target: LOG_TARGET, "Integrating Nominators of stash {:?}", stash);
+				let targets: BoundedVec::<_, _> = nominations.targets.into_inner().defensive_truncate_into();
+				let nominations = pallet_staking_async::Nominations {
+					targets,
+					submitted_in: nominations.submitted_in,
+					suppressed: nominations.suppressed,
+				};
+
 				pallet_staking_async::Nominators::<T>::insert(stash, nominations);
 			},
 			VirtualStakers(staker) => {
@@ -121,6 +137,12 @@ impl<T: Config> Pallet<T> {
 			},
 			ErasRewardPoints { era, points } => {
 				log::debug!(target: LOG_TARGET, "Integrating ErasRewardPoints of era {:?}", era);
+				let individual = BoundedBTreeMap::try_from(points.individual.into_inner()).defensive().unwrap_or_default(); // FIXME
+				let points = pallet_staking_async::EraRewardPoints {
+					total: points.total,
+					individual,
+				};
+				
 				pallet_staking_async::ErasRewardPoints::<T>::insert(era, points);
 			},
 			ErasTotalStake { era, total_stake } => {
@@ -130,6 +152,15 @@ impl<T: Config> Pallet<T> {
 			UnappliedSlashes { era, slash } => {
 				log::debug!(target: LOG_TARGET, "Integrating UnappliedSlashes of era {:?}", era);
 				let slash_key = (slash.validator.clone(), Perbill::from_percent(99), 9999);
+
+				let slash = pallet_staking_async::UnappliedSlash {
+					validator: slash.validator,
+					own: slash.own,
+					others: WeakBoundedVec::force_from(slash.others.into_inner(), Some("UnappliedSlashes should fit")),
+					reporter: slash.reporter,
+					payout: slash.payout,
+				};
+
 				pallet_staking_async::UnappliedSlashes::<T>::insert(era, slash_key, slash);
 			},
 			BondedEras(bonded_eras) => {

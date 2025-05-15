@@ -43,7 +43,7 @@
 use crate::{
 	asset, log, session_rotation::Eras, BalanceOf, Config, NegativeImbalanceOf,
 	NominatorSlashInEra, OffenceQueue, OffenceQueueEras, PagedExposure, Pallet, Perbill,
-	ProcessingOffence, SlashRewardFraction, UnappliedSlash, UnappliedSlashes, ValidatorSlashInEra,
+	ProcessingOffence, SlashRewardFraction, UnappliedSlash, UnappliedSlashOf, UnappliedSlashes, ValidatorSlashInEra,
 	WeightInfo,
 };
 use alloc::vec::Vec;
@@ -298,7 +298,7 @@ pub(crate) fn process_offence<T: Config>() -> Weight {
 /// to be set at a higher level, if any.
 ///
 /// If `nomintors_only` is set to `true`, only the nominator slashes will be computed.
-pub(crate) fn compute_slash<T: Config>(params: SlashParams<T>) -> Option<UnappliedSlash<T>> {
+pub(crate) fn compute_slash<T: Config>(params: SlashParams<T>) -> Option<UnappliedSlashOf<T>> {
 	let (val_slashed, mut reward_payout) = slash_validator::<T>(params.clone());
 
 	let mut nominators_slashed = Vec::new();
@@ -439,7 +439,7 @@ pub fn do_slash<T: Config>(
 }
 
 /// Apply a previously-unapplied slash.
-pub(crate) fn apply_slash<T: Config>(unapplied_slash: UnappliedSlash<T>, slash_era: EraIndex) {
+pub(crate) fn apply_slash<T: Config>(unapplied_slash: UnappliedSlashOf<T>, slash_era: EraIndex) {
 	let mut slashed_imbalance = NegativeImbalanceOf::<T>::zero();
 	let mut reward_payout = unapplied_slash.payout;
 

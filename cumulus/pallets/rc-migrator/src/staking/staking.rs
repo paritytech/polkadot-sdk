@@ -445,9 +445,19 @@ impl<T: Config> PalletMigration for StakingMigrator<T> {
 			};
 		}
 
+		// Translate from Rc to Ah staking message
+		let mut translated = XcmBatchAndMeter::new_from_config::<T>();
+		translated.batch_weight = messages.batch_weight; // stupid
+		translated.batch_weight = messages.batch_weight;
+		translated.tracked_batch_count = messages.tracked_batch_count;
+		translated.accumulated_weight = messages.accumulated_weight;
+		translated.batch.sized_batches = messages.batch.sized_batches.clone().into_iter().map(|(i, batch)| {
+			(i, batch.into_iter().map(|message| crate::staking::message::MessageTranslator::<T>::intoAh(message)).collect())
+		}).collect();
+
 		if !messages.is_empty() {
 			Pallet::<T>::send_chunked_xcm(
-				messages,
+				translated,
 				|messages| types::AhMigratorCall::<T>::ReceiveStakingMessages { messages },
 				|_len| Weight::from_all(1),
 			)?;

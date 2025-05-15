@@ -86,7 +86,7 @@ impl TryConvert<asset_hub_polkadot_runtime::ProxyType, Permission> for Permissio
 			Governance => Permission::Governance,
 			Staking => Permission::Staking,
 			CancelProxy => Permission::CancelProxy,
-			Auction => Permission::Auction,
+			Auction => Permission::Auction, // FIXME
 		})
 	}
 }
