@@ -151,6 +151,7 @@ impl InspectMessageQueues for TestXcmSender {
 	}
 }
 
+#[cfg(test)]
 pub(crate) fn fake_message_hash<Call>(message: &Xcm<Call>) -> XcmHash {
 	message.using_encoded(sp_io::hashing::blake2_256)
 }
