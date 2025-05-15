@@ -472,6 +472,30 @@ pub mod helpers {
 		}
 	}
 
+	/// A test utility for capturing XCM topic IDs
+	pub struct TopicIdCaptor {
+		ids: HashMap<String, H256>,
+	}
+	impl TopicIdCaptor {
+		/// Initialises a new topic ID captor.
+		pub fn new() -> Self {
+			TopicIdCaptor { ids: HashMap::new() }
+		}
+
+		/// Captures a topic ID with the given chain name in the captor.
+		pub fn capture(&mut self, chain: &str, id: H256) {
+			self.ids.insert(chain.to_string(), id);
+		}
+
+		/// Retrieves the captured topic ID for the specified chain.
+		pub fn get(&self, chain: &str) -> H256 {
+			self.ids
+				.get(chain)
+				.cloned()
+				.expect(&format!("Expected a captured topic ID for chain '{}'", chain))
+		}
+	}
+
 	/// A test utility for tracking XCM topic IDs
 	pub struct TopicIdTracker;
 	impl TopicIdTracker {
