@@ -4423,16 +4423,16 @@ fn tracing_works_for_transfers() {
 			builder::bare_call(BOB_ADDR).value(10_000_000).build_and_unwrap_result();
 		});
 
-		let traces = tracer.collect_traces();
+		let trace = tracer.collect_trace();
 		assert_eq!(
-			traces,
-			vec![CallTrace {
+			trace,
+			Some(CallTrace {
 				from: ALICE_ADDR,
 				to: BOB_ADDR,
 				value: Some(U256::from(10_000_000)),
 				call_type: CallType::Call,
 				..Default::default()
-			},]
+			})
 		)
 	});
 }
@@ -4452,10 +4452,27 @@ fn tracing_works() {
 		let Contract { addr, .. } =
 			builder::bare_instantiate(Code::Upload(code)).value(10_000_000).build_and_unwrap_contract();
 
-		let tracer_options = vec![
-			( false , vec![]),
-			(
-				true ,
+
+		let tracer_configs = vec![
+			 CallTracerConfig{ with_logs: false, only_top_call: false},
+			 CallTracerConfig{ with_logs: false, only_top_call: false},
+			 CallTracerConfig{ with_logs: false, only_top_call: true},
+		];
+
+		// Verify that the first trace report the same weight reported by bare_call
+		// TODO: fix tracing ( https://github.com/paritytech/polkadot-sdk/issues/8362 )
+		/*
+		let mut tracer = CallTracer::new(false, |w| w);
+		let gas_used = trace(&mut tracer, || {
+			builder::bare_call(addr).data((3u32, addr_callee).encode()).build().gas_consumed
+		});
+		let trace = tracer.collect_trace().unwrap();
+		assert_eq!(&trace.gas_used, &gas_used);
+		*/
+
+		// Discarding gas usage, check that traces reported are correct
+		for config in tracer_configs {
+			let logs = if config.with_logs {
 				vec![
 					CallLog {
 						address: addr,
@@ -4570,9 +4587,29 @@ fn tracing_works() {
 							],
 							..Default::default()
 						},
-					],
+					]
+			};
+
+			let mut tracer = CallTracer::new(config, |_| U256::zero());
+			trace(&mut tracer, || {
+				builder::bare_call(addr).data((3u32, addr_callee).encode()).build()
+			});
+
+			let trace = tracer.collect_trace();
+			let expected_trace = CallTrace {
+					from: ALICE_ADDR,
+					to: addr,
+					input: (3u32, addr_callee).encode().into(),
+					call_type: Call,
+					logs: logs.clone(),
+					value: Some(U256::from(0)),
+					calls: calls,
 					..Default::default()
-				},]
+				};
+
+			assert_eq!(
+				trace,
+				expected_trace.into(),
 			);
 		}
 	});
