@@ -25,6 +25,7 @@ comfy-table = { workspace = true }
 cumulus-client-parachain-inherent = { workspace = true, default-features = true }
 cumulus-primitives-proof-size-hostfunction = { workspace = true, default-features = true }
 frame-benchmarking = { workspace = true, default-features = true }
+frame-storage-access-test-runtime = { workspace = true, default-features = true }
 frame-support = { workspace = true, default-features = true }
 frame-system = { workspace = true, default-features = true }
 gethostname = { workspace = true }
@@ -32,6 +33,7 @@ handlebars = { workspace = true }
 itertools = { workspace = true }
 linked-hash-map = { workspace = true }
 log = { workspace = true, default-features = true }
+polkadot-node-core-pvf-common = { workspace = true }
 polkadot-parachain-primitives = { workspace = true, default-features = true }
 polkadot-primitives = { workspace = true, default-features = true }
 rand = { features = ["small_rng"], workspace = true, default-features = true }
@@ -42,6 +44,8 @@ sc-cli = { workspace = true, default-features = false }
 sc-client-api = { workspace = true, default-features = true }
 sc-client-db = { workspace = true, default-features = false }
 sc-executor = { workspace = true, default-features = true }
+sc-executor-common = { workspace = true }
+sc-executor-wasmtime = { workspace = true }
 sc-runtime-utilities = { workspace = true, default-features = true }
 sc-service = { workspace = true, default-features = false }
 sc-sysinfo = { workspace = true, default-features = true }
@@ -82,6 +86,7 @@ westend-runtime = { workspace = true, default-features = true }
 default = []
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
+	"frame-storage-access-test-runtime/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
 	"polkadot-parachain-primitives/runtime-benchmarks",

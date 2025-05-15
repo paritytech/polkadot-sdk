@@ -74,7 +74,11 @@ impl TemplateData {
 			.unwrap_or_default();
 
 		Ok(TemplateData {
-			db_name: format!("{}", cfg.database),
+			db_name: if params.on_block_validation {
+				String::from("ValidationMemoryDb")
+			} else {
+				format!("{}", cfg.database)
+			},
 			runtime_name: cfg.chain_spec.name().into(),
 			version: VERSION.into(),
 			date: chrono::Utc::now().format("%Y-%m-%d (Y/M/D)").to_string(),
@@ -141,7 +145,10 @@ impl TemplateData {
 		};
 
 		if path.is_dir() || path.as_os_str().is_empty() {
-			path.push(format!("{}_weights", self.db_name.to_lowercase()));
+			path.push(format!(
+				"{}_weights",
+				self.db_name.to_lowercase().replace("validation", "validation_")
+			));
 			path.set_extension("rs");
 		}
 		path

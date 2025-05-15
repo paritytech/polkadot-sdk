@@ -144,13 +144,19 @@ pub struct StorageParams {
 	#[arg(long, default_value = "false")]
 	pub disable_pov_recorder: bool,
 
-	/// The batch size for the write benchmark.
+	/// The batch size for the read/write benchmark.
 	///
 	/// Since the write size needs to also include the cost of computing the storage root, which is
 	/// done once at the end of the block, the batch size is used to simulate multiple writes in a
 	/// block.
 	#[arg(long, default_value_t = 100_000)]
 	pub batch_size: usize,
+
+	/// Run the benchmark on block validation.
+	///
+	/// PoV recorder must be activated to provide a storage proof for block validation at runtime.
+	#[arg(long, default_value_t = false, conflicts_with = "disable_pov_recorder")]
+	pub on_block_validation: bool,
 }
 
 impl StorageCmd {
