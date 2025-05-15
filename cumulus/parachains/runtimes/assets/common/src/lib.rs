@@ -153,7 +153,7 @@ impl MaybeEquivalence<Location, H160> for AccountKey20ToH160 {
 	}
 }
 
-/// [`xcm_executor::MatchesFungibles`] implementation that matches
+/// [`xcm_executor::traits::MatchesFungibles`] implementation that matches
 /// ERC20 tokens.
 pub type ERC20Matcher =
 	MatchedConvertedConcreteId<H160, u128, IsLocalAccountKey20, AccountKey20ToH160, JustTry>;
