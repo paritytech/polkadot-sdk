@@ -2329,6 +2329,7 @@ fn fatp_ready_light_long_fork_retracted_works() {
 	let header03b = api.push_block_with_parent(header02b.hash(), vec![xt2.clone()], true);
 
 	let mut ready_iterator = pool.ready_at_light(header03b.hash()).now_or_never().unwrap();
+	assert!(ready_iterator.next().is_none());
 
 	let event = new_best_block_event(&pool, Some(header01a.hash()), header01b.hash());
 	block_on(pool.maintain(event));
