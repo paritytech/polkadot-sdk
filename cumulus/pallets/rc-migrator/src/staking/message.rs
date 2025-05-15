@@ -368,8 +368,7 @@ impl<Rc: pallet_staking::Config>
 	}
 }
 
-impl<Rc: pallet_staking::Config>
-	IntoAh<pallet_staking::Forcing, pallet_staking_async::Forcing> for MessageTranslator<Rc>
+impl IntoAh<pallet_staking::Forcing, pallet_staking_async::Forcing> for MessageTranslator<()>
 {
 	fn intoAh(forcing: pallet_staking::Forcing) -> pallet_staking_async::Forcing {
 		match forcing {
@@ -381,8 +380,7 @@ impl<Rc: pallet_staking::Config>
 	}
 }
 
-impl<Rc: pallet_staking::Config>
-	IntoAh<pallet_staking::ActiveEraInfo, pallet_staking_async::ActiveEraInfo> for MessageTranslator<Rc>
+impl IntoAh<pallet_staking::ActiveEraInfo, pallet_staking_async::ActiveEraInfo> for MessageTranslator<()>
 {
 	fn intoAh(active_era: pallet_staking::ActiveEraInfo) -> pallet_staking_async::ActiveEraInfo {
 		pallet_staking_async::ActiveEraInfo { index: active_era.index, start: active_era.start }
@@ -476,6 +474,7 @@ impl<T: pallet_staking::Config> StakingMigrator<T> {
 
 impl<T: pallet_staking_async::Config> StakingMigrator<T> {
 	pub fn put_values(values: AhStakingValuesOf<T>) {
+		use IntoAh;
 		use pallet_staking_async::*;
 
 		ValidatorCount::<T>::put(&values.validator_count);
@@ -486,13 +485,11 @@ impl<T: pallet_staking_async::Config> StakingMigrator<T> {
 		MinCommission::<T>::put(&values.min_commission);
 		MaxValidatorsCount::<T>::set(values.max_validators_count);
 		MaxNominatorsCount::<T>::set(values.max_nominators_count);
-		todo!("heyy test");
-		//let active_era = todo!();//values.active_era.map(pallet_staking::ActiveEraInfo::intoAh);
+		let active_era = values.active_era.map(|v| MessageTranslator::<()>::intoAh(v));
 
-		//ActiveEra::<T>::set(active_era.clone());
-		//CurrentEra::<T>::set(active_era.map(|a| a.index));
-		//ForceEra::<T>::put(pallet_staking::Forcing::intoAh(values.force_era));
-		todo!();
+		ActiveEra::<T>::set(active_era.clone());
+		CurrentEra::<T>::set(active_era.map(|a| a.index));
+		ForceEra::<T>::put(MessageTranslator::<()>::intoAh(values.force_era));
 		MaxStakedRewards::<T>::set(values.max_staked_rewards);
 		SlashRewardFraction::<T>::set(values.slash_reward_fraction);
 		CanceledSlashPayout::<T>::set(values.canceled_slash_payout);

@@ -71,8 +71,16 @@ impl<T: Config> Pallet<T> {
 			},
 			Ledger { controller, ledger } => {
 				log::debug!(target: LOG_TARGET, "Integrating Ledger of controller {:?}", controller);
-				//pallet_staking_async::Ledger::<T>::insert(controller, ledger);
-				todo!()
+				let unlocking = ledger.unlocking.into_inner().defensive_truncate_into();
+				let ledger = pallet_staking_async::StakingLedger {
+					stash: ledger.stash,
+					total: ledger.total,
+					active: ledger.active,
+					unlocking: ledger.unlocking,
+					controller: ledger.controller,
+				};
+				
+				pallet_staking_async::Ledger::<T>::insert(controller, ledger);
 			},
 			Payee { stash, payment } => {
 				log::debug!(target: LOG_TARGET, "Integrating Payee of stash {:?}", stash);
