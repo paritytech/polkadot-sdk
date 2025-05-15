@@ -21,6 +21,7 @@ use cumulus_primitives_core::{
 	relay_chain::Hash as RHash, ParachainBlockData, PersistedValidationData,
 };
 use cumulus_primitives_parachain_inherent::ParachainInherentData;
+
 use polkadot_parachain_primitives::primitives::{
 	HeadData, RelayChainBlockNumber, ValidationResult,
 };
