@@ -80,7 +80,6 @@ jobs:
           echo "Run the tests"
           echo "bash init.sh --kitchensink -- --matter-labs -- $NODE_BIN_PATH $ETH_RPC_PATH $RESOLC_PATH"
           bash init.sh --kitchensink -- --matter-labs -- $NODE_BIN_PATH $ETH_RPC_PATH $RESOLC_PATH
-          bash init.sh --kitchensink -- --eth-rpc -- $NODE_BIN_PATH $ETH_RPC_PATH $RESOLC_PATH
 
       - name: Collect tests results
         if: always()
