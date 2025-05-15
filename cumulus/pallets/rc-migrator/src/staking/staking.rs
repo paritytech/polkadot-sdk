@@ -456,7 +456,7 @@ impl<T: Config> PalletMigration for StakingMigrator<T> {
 		}).collect();
 
 		if !messages.is_empty() {
-			Pallet::<T>::send_chunked_xcm(
+			Pallet::<T>::send_chunked_xcm_and_track(
 				translated,
 				|messages| types::AhMigratorCall::<T>::ReceiveStakingMessages { messages },
 				|_len| Weight::from_all(1),
