@@ -76,7 +76,7 @@ impl<T: Config> Pallet<T> {
 					stash: ledger.stash,
 					total: ledger.total,
 					active: ledger.active,
-					unlocking: ledger.unlocking,
+					unlocking: unlocking,
 					controller: ledger.controller,
 				};
 				
