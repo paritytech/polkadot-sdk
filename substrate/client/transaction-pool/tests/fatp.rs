@@ -2312,6 +2312,53 @@ fn fatp_ready_light_long_fork_retracted_works() {
 	let xt3 = uxt(Dave, 200);
 	let xt4 = uxt(Eve, 200);
 
+	let submissions = vec![pool.submit_at(
+		genesis,
+		SOURCE,
+		vec![xt0.clone(), xt1.clone(), xt2.clone(), xt3.clone()],
+	)];
+	let results = block_on(futures::future::join_all(submissions));
+	assert!(results.iter().all(|r| { r.is_ok() }));
+
+	let header01a = api.push_block_with_parent(genesis, vec![xt4.clone()], true);
+	let event = new_best_block_event(&pool, Some(genesis), header01a.hash());
+	block_on(pool.maintain(event));
+
+	let header01b = api.push_block_with_parent(genesis, vec![xt0.clone()], true);
+	let header02b = api.push_block_with_parent(header01b.hash(), vec![xt1.clone()], true);
+	let header03b = api.push_block_with_parent(header02b.hash(), vec![xt2.clone()], true);
+
+	let mut ready_iterator = pool.ready_at_light(header03b.hash()).now_or_never().unwrap();
+
+	let event = new_best_block_event(&pool, Some(header01a.hash()), header01b.hash());
+	block_on(pool.maintain(event));
+
+	let mut ready_iterator = pool.ready_at_light(header03b.hash()).now_or_never().unwrap();
+	let ready01 = ready_iterator.next();
+	assert_eq!(ready01.unwrap().hash, api.hash_and_length(&xt3).0);
+	let ready02 = ready_iterator.next();
+	assert_eq!(ready02.unwrap().hash, api.hash_and_length(&xt4).0);
+	assert!(ready_iterator.next().is_none());
+}
+
+#[test]
+fn fatp_ready_light_fallback_gets_triggered() {
+	sp_tracing::try_init_simple();
+
+	let (pool, api, _) = pool();
+	api.set_nonce(api.genesis_hash(), Bob.into(), 200);
+	api.set_nonce(api.genesis_hash(), Charlie.into(), 200);
+	api.set_nonce(api.genesis_hash(), Dave.into(), 200);
+	api.set_nonce(api.genesis_hash(), Eve.into(), 200);
+
+	let genesis = api.genesis_hash();
+
+	let xt0 = uxt(Alice, 200);
+	let xt1 = uxt(Bob, 200);
+	let xt2 = uxt(Charlie, 200);
+	let xt3 = uxt(Dave, 200);
+	let xt4 = uxt(Eve, 200);
+
 	let submissions = vec![pool.submit_at(genesis, SOURCE, vec![xt0.clone(), xt1.clone()])];
 	let results = block_on(futures::future::join_all(submissions));
 	assert!(results.iter().all(|r| { r.is_ok() }));
