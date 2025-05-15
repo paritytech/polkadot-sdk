@@ -473,13 +473,26 @@ pub mod helpers {
 	}
 
 	/// A test utility for capturing XCM topic IDs
+	#[derive(Clone)]
 	pub struct TopicIdCaptor {
 		ids: HashMap<String, H256>,
 	}
 	impl TopicIdCaptor {
-		/// Initialises a new topic ID captor.
+		/// Initialises a new, empty topic ID captor.
 		pub fn new() -> Self {
 			TopicIdCaptor { ids: HashMap::new() }
+		}
+
+		/// Asserts that exactly one unique topic ID is present across all captured entries.
+		pub fn assert_unique(&self) {
+			let unique_ids: HashSet<_> = self.ids.values().collect();
+			assert_eq!(
+				unique_ids.len(),
+				1,
+				"Expected exactly one topic ID, found {}: {:?}",
+				unique_ids.len(),
+				unique_ids
+			);
 		}
 
 		/// Captures a topic ID with the given chain name in the captor.
@@ -487,11 +500,25 @@ pub mod helpers {
 			self.ids.insert(chain.to_string(), id);
 		}
 
+		/// Captures a topic ID for a given chain and then asserts global uniqueness.
+		pub fn capture_and_assert_unique(&mut self, chain: &str, id: H256) {
+			if let Some(existing_id) = self.ids.get(chain) {
+				assert_eq!(
+					id, *existing_id,
+					"Topic ID mismatch for chain '{}': expected {:?}, got {:?}",
+					id, existing_id, chain
+				);
+			} else {
+				self.capture(chain, id);
+			}
+			self.assert_unique();
+		}
+
 		/// Retrieves the captured topic ID for the specified chain.
 		pub fn get(&self, chain: &str) -> H256 {
 			self.ids
 				.get(chain)
-				.cloned()
+				.copied()
 				.expect(&format!("Expected a captured topic ID for chain '{}'", chain))
 		}
 	}
