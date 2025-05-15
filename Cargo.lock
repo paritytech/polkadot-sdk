@@ -2633,6 +2633,7 @@ dependencies = [
  "snowbridge-pallet-outbound-queue",
  "snowbridge-pallet-outbound-queue-v2",
  "snowbridge-pallet-system",
+ "snowbridge-pallet-system-v2",
  "sp-core 28.0.0",
  "sp-io 30.0.0",
  "sp-runtime 31.0.1",
@@ -21859,6 +21860,7 @@ dependencies = [
  "snowbridge-core",
  "snowbridge-merkle-tree",
  "snowbridge-outbound-queue-primitives",
+ "snowbridge-test-utils",
  "snowbridge-verification-primitives",
  "sp-arithmetic 23.0.0",
  "sp-core 28.0.0",
@@ -21904,6 +21906,7 @@ dependencies = [
  "frame-support",
  "frame-system",
  "log",
+ "pallet-asset-conversion",
  "pallet-balances",
  "parity-scale-codec",
  "scale-info",
@@ -21911,6 +21914,7 @@ dependencies = [
  "snowbridge-test-utils",
  "sp-core 28.0.0",
  "sp-io 30.0.0",
+ "sp-keyring",
  "sp-runtime 31.0.1",
  "sp-std 14.0.0",
  "staging-xcm",
@@ -21941,6 +21945,7 @@ dependencies = [
  "sp-std 14.0.0",
  "staging-xcm",
  "staging-xcm-executor",
+ "tracing",
 ]
 
 [[package]]
@@ -22017,10 +22022,13 @@ dependencies = [
 name = "snowbridge-test-utils"
 version = "0.1.0"
 dependencies = [
+ "bp-relayers",
  "frame-benchmarking",
  "frame-support",
  "frame-system",
  "log",
+ "pallet-asset-conversion",
+ "pallet-xcm",
  "parity-scale-codec",
  "scale-info",
  "snowbridge-core",
