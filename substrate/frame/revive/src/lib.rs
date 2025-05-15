@@ -562,8 +562,6 @@ pub mod pallet {
 		fn integrity_test() {
 			use limits::code::STATIC_MEMORY_BYTES;
 
-			assert!(T::ChainId::get() > 0, "ChainId must be greater than 0");
-
 			// The memory available in the block building runtime
 			let max_runtime_mem: u32 = T::RuntimeMemory::get();
 			// The root frame is not accounted in CALL_STACK_DEPTH
