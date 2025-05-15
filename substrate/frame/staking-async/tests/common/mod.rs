@@ -2,11 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use anyhow::anyhow;
-use sp_runtime::{AccountId32, Perbill};
+use sp_runtime::AccountId32;
 use subxt::{
 	dynamic::{self, Value},
 	ext::scale_value::{At, Composite, ValueDef},
-	utils::Static,
 	OnlineClient, PolkadotConfig,
 };
 use subxt_signer::sr25519::dev;
@@ -274,6 +273,44 @@ pub async fn activate_ah_client(
 	let mode_value = Value::variant("Active", Composite::unnamed(vec![]));
 	let set_validator_count = dynamic::tx("StakingAsyncAhClient", "set_mode", vec![mode_value]);
 	let sudo = dynamic::tx("Sudo", "sudo", vec![set_validator_count.into_value()]);
+	let alice = dev::alice();
+
+	rc_client
+		.tx()
+		.sign_and_submit_then_watch_default(&sudo, &alice)
+		.await?
+		.wait_for_finalized_success()
+		.await?;
+	Ok(())
+}
+
+pub async fn create_offence(rc_client: &OnlineClient<PolkadotConfig>) -> Result<(), anyhow::Error> {
+	let offender_id = AccountId32::new([5; 32]);
+	let slash = 50;
+	let offenders =
+		vec![Value::unnamed_composite(vec![Value::from_bytes(&offender_id), Value::u128(slash)])];
+	let exposure = Value::named_composite(vec![
+		("total".to_string(), Value::u128(10_000)),
+		("own".to_string(), Value::u128(10_000)),
+		(
+			"others".to_string(),
+			Value::unnamed_composite(vec![Value::named_composite([
+				("who".to_string(), Value::from_bytes(offender_id)),
+				("value".to_string(), Value::u128(10_000)),
+			])]),
+		),
+	]);
+
+	let create_offence = dynamic::tx(
+		"RootOffences",
+		"create_offence",
+		vec![
+			Value::unnamed_composite(offenders), /* offenders */
+			Value::unnamed_variant("Some", vec![Value::unnamed_composite(vec![exposure])]), /* maybe_identification */
+			Value::unnamed_variant("Some", vec![Value::u128(1)]), /* maybe_session_index */
+		],
+	);
+	let sudo = dynamic::tx("Sudo", "sudo", vec![create_offence.into_value()]);
 	let alice = dev::alice();
 
 	rc_client
