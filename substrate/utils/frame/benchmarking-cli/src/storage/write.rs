@@ -239,7 +239,7 @@ impl StorageCmd {
 	{
 		let recorder = (!self.params.disable_pov_recorder).then(|| Default::default());
 		let trie = DbStateBuilder::<HashingFor<Block>>::new(storage.clone(), original_root)
-			.with_optional_cache(shared_trie_cache.map(|c| c.local_cache()))
+			.with_optional_cache(shared_trie_cache.map(|c| c.local_cache_trusted()))
 			.with_optional_recorder(recorder.clone())
 			.build();
 
