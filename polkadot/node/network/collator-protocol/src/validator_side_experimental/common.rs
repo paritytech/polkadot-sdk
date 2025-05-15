@@ -14,10 +14,18 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use std::num::NonZeroU16;
+use std::{collections::HashSet, num::NonZeroU16};
 
-use polkadot_node_network_protocol::peer_set::CollationVersion;
-use polkadot_primitives::Id as ParaId;
+use polkadot_node_network_protocol::{
+	peer_set::CollationVersion,
+	request_response::{outgoing::RequestError, v2 as request_v2},
+	PeerId,
+};
+use polkadot_node_primitives::PoV;
+use polkadot_primitives::{
+	vstaging::CandidateReceiptV2 as CandidateReceipt, CandidateHash, Hash, HeadData, Id as ParaId,
+	PersistedValidationData,
+};
 
 /// Maximum reputation score.
 pub const MAX_SCORE: u16 = 5000;
@@ -46,6 +54,19 @@ pub const INACTIVITY_DECAY: u16 = 1;
 /// Maximum number of stored peer scores for a paraid. Should be greater than
 /// `CONNECTED_PEERS_PARA_LIMIT`.
 pub const MAX_STORED_SCORES_PER_PARA: u8 = 150;
+
+/// Slashing value for a failed fetch that we can be fairly sure does not happen by accident.
+pub const FAILED_FETCH_SLASH: Score = Score::new(20).expect("20 is less than MAX_SCORE");
+
+/// Slashing value for an invalid collation.
+pub const INVALID_COLLATION_SLASH: Score = Score::new(1000).expect("1000 is less than MAX_SCORE");
+
+/// Minimum reputation threshold that warrants an instant fetch.
+pub const INSTANT_FETCH_REP_THRESHOLD: Score = Score::new(1000).expect("20 is less than MAX_SCORE");
+
+// In millis
+pub const UNDER_THRESHOLD_FETCH_DELAY: u128 = 2000;
+
 /// Reputation score type.
 #[derive(PartialEq, Eq, PartialOrd, Ord, Debug, Clone, Copy, Default)]
 pub struct Score(u16);
@@ -97,6 +118,89 @@ pub enum PeerState {
 	Connected,
 	/// Peer has declared.
 	Collating(ParaId),
+}
+
+#[derive(Debug, PartialEq)]
+pub enum TryAcceptOutcome {
+	/// Connection was accepted.
+	Added,
+	/// Connection was accepted, but it replaced the slot(s) of some peers
+	/// This can hold more than one `PeerId` because before receiving the `Declare` message,
+	/// one peer can hold connection slots for multiple paraids.
+	/// The set can also be empty if this peer replaced some other peer's slot but that other peer
+	/// maintained a connection slot for another para (therefore not disconnected).
+	/// The number of peers in the set is bound to the number of scheduled paras.
+	Replaced(HashSet<PeerId>),
+	/// Connection was rejected.
+	Rejected,
+}
+
+impl TryAcceptOutcome {
+	/// TODO
+	pub fn combine(self, other: Self) -> Self {
+		use TryAcceptOutcome::*;
+		match (self, other) {
+			(Added, Added) => Added,
+			(Rejected, Rejected) => Rejected,
+			(Added, Rejected) | (Rejected, Added) => Added,
+			(Replaced(mut replaced_a), Replaced(replaced_b)) => {
+				replaced_a.extend(replaced_b);
+				Replaced(replaced_a)
+			},
+			(_, Replaced(replaced)) | (Replaced(replaced), _) => Replaced(replaced),
+		}
+	}
+}
+
+/// Candidate supplied with a para head it's built on top of.
+#[derive(Debug, Copy, Clone, Hash, Eq, PartialEq)]
+pub struct ProspectiveCandidate {
+	/// Candidate hash.
+	pub candidate_hash: CandidateHash,
+	/// Parent head-data hash as supplied in advertisement.
+	pub parent_head_data_hash: Hash,
+}
+
+/// Identifier of a collation being requested.
+#[derive(Debug, Copy, Clone, Hash, Eq, PartialEq)]
+pub struct Advertisement {
+	/// Candidate's relay parent.
+	pub relay_parent: Hash,
+	/// Parachain id.
+	pub para_id: ParaId,
+	/// Peer that advertised this collation.
+	pub peer_id: PeerId,
+	/// Optional candidate hash and parent head-data hash if were
+	/// supplied in advertisement.
+	pub prospective_candidate: Option<ProspectiveCandidate>,
+}
+
+pub type CollationFetchResponse = (
+	Advertisement,
+	std::result::Result<request_v2::CollationFetchingResponse, CollationFetchError>,
+);
+
+// Any error that can occur when awaiting a collation fetch response.
+#[derive(Debug, thiserror::Error)]
+pub enum CollationFetchError {
+	#[error("Future was cancelled.")]
+	Cancelled,
+	#[error("{0}")]
+	Request(#[from] RequestError),
+}
+
+pub enum CanSecond {
+	No(Option<Score>, SecondingRejection),
+	Yes(CandidateReceipt, PoV, PersistedValidationData),
+	BlockedOnParent(Hash, SecondingRejection),
+}
+
+pub struct SecondingRejection {
+	pub relay_parent: Hash,
+	pub peer_id: PeerId,
+	pub para_id: ParaId,
+	pub maybe_output_head_hash: Option<Hash>,
+	pub maybe_candidate_hash: Option<CandidateHash>,
 }
 
 #[cfg(test)]

@@ -243,7 +243,7 @@ pub struct Collations {
 }
 
 impl Collations {
-	pub(super) fn new(group_assignments: &Vec<ParaId>) -> Self {
+	pub(super) fn new<'a>(group_assignments: impl Iterator<Item = &'a ParaId> + 'a) -> Self {
 		let mut candidates_state = BTreeMap::<ParaId, CandidatesStatePerPara>::new();
 
 		for para_id in group_assignments {
@@ -290,7 +290,7 @@ impl Collations {
 	/// fulfilled.
 	pub(super) fn pick_a_collation_to_fetch(
 		&mut self,
-		unfulfilled_claim_queue_entries: Vec<ParaId>,
+		unfulfilled_claim_queue_entries: VecDeque<ParaId>,
 	) -> Option<(PendingCollation, CollatorId)> {
 		gum::trace!(
 			target: LOG_TARGET,

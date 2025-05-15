@@ -44,16 +44,6 @@ pub struct View {
 	collating_for: Option<ParaId>,
 }
 
-impl View {
-	/// Create a new empty view.
-	/// If `collating_for` is `Some`, the node is a collator and is only interested in the allowed
-	/// relay parents of a single paraid. When this is true, prospective-parachains is no longer
-	/// queried.
-	pub fn new(collating_for: Option<ParaId>) -> Self {
-		Self { leaves: Default::default(), block_info_storage: Default::default(), collating_for }
-	}
-}
-
 impl Default for View {
 	fn default() -> Self {
 		Self::new(None)
@@ -144,6 +134,19 @@ impl From<BlockInfoProspectiveParachains> for RelayChainBlockInfo {
 }
 
 impl View {
+	/// Create a new empty view.
+	/// If `collating_for` is `Some`, the node is a collator and is only interested in the allowed
+	/// relay parents of a single paraid. When this is true, prospective-parachains is no longer
+	/// queried.
+	pub fn new(collating_for: Option<ParaId>) -> Self {
+		Self { leaves: Default::default(), block_info_storage: Default::default(), collating_for }
+	}
+
+	/// Get the block number of this relay parent, if present.
+	pub fn get_block_number(&self, hash: &Hash) -> Option<BlockNumber> {
+		self.block_info_storage.get(hash).map(|info| info.block_number)
+	}
+
 	/// Get an iterator over active leaves in the view.
 	pub fn leaves(&self) -> impl Iterator<Item = &Hash> {
 		self.leaves.keys()
