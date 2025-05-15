@@ -60,17 +60,18 @@ impl StorageCmd {
 		let original_root = *header.state_root();
 
 		info!("Preparing keys from block {}", best_hash);
-		let build_trie_backend =
-			|storage: Arc<dyn sp_state_machine::Storage<HashingFor<Block>>>,
-			 original_root,
-			 enable_pov_recorder: bool| {
-				let pov_recorder = enable_pov_recorder.then(|| Default::default());
+		let build_trie_backend = |storage: Arc<
+			dyn sp_state_machine::Storage<HashingFor<Block>>,
+		>,
+		                          original_root,
+		                          enable_pov_recorder: bool| {
+			let pov_recorder = enable_pov_recorder.then(|| Default::default());
 
-				DbStateBuilder::<HashingFor<Block>>::new(storage.clone(), original_root)
-					.with_optional_cache(shared_trie_cache.as_ref().map(|c| c.local_cache()))
-					.with_optional_recorder(pov_recorder)
-					.build()
-			};
+			DbStateBuilder::<HashingFor<Block>>::new(storage.clone(), original_root)
+				.with_optional_cache(shared_trie_cache.as_ref().map(|c| c.local_cache_trusted()))
+				.with_optional_recorder(pov_recorder)
+				.build()
+		};
 
 		let trie =
 			build_trie_backend(storage.clone(), original_root, !self.params.disable_pov_recorder);

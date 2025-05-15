@@ -43,7 +43,7 @@ use polkadot_service::{
 use sc_cli::{RuntimeVersion, SubstrateCli};
 use sc_client_api::{
 	blockchain::BlockStatus, Backend, BlockchainEvents, HeaderBackend, ImportNotifications,
-	StorageProof,
+	StorageProof, TrieCacheContext,
 };
 use sc_network::{
 	config::NetworkBackendType,
@@ -225,7 +225,7 @@ impl RelayChainInterface for RelayChainInProcessInterface {
 		relay_parent: PHash,
 		key: &[u8],
 	) -> RelayChainResult<Option<StorageValue>> {
-		let state = self.backend.state_at(relay_parent)?;
+		let state = self.backend.state_at(relay_parent, TrieCacheContext::Untrusted)?;
 		state.storage(key).map_err(RelayChainError::GenericError)
 	}
 
@@ -234,7 +234,7 @@ impl RelayChainInterface for RelayChainInProcessInterface {
 		relay_parent: PHash,
 		relevant_keys: &Vec<Vec<u8>>,
 	) -> RelayChainResult<StorageProof> {
-		let state_backend = self.backend.state_at(relay_parent)?;
+		let state_backend = self.backend.state_at(relay_parent, TrieCacheContext::Untrusted)?;
 
 		sp_state_machine::prove_read(state_backend, relevant_keys)
 			.map_err(RelayChainError::StateMachineError)
