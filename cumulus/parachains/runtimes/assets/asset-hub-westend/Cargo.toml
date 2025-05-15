@@ -202,6 +202,7 @@ try-runtime = [
 	"snowbridge-pallet-system-frontend/try-runtime",
 	"snowbridge-runtime-common/try-runtime",
 	"sp-runtime/try-runtime",
+	"assets-common/try-runtime",
 ]
 std = [
 	"assets-common/std",
