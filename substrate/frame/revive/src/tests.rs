@@ -4165,16 +4165,16 @@ fn tracing_works_for_transfers() {
 			builder::bare_call(BOB_ADDR).value(10_000_000).build_and_unwrap_result();
 		});
 
-		let traces = tracer.collect_traces();
+		let trace = tracer.collect_trace();
 		assert_eq!(
-			traces,
-			vec![CallTrace {
+			trace,
+			Some(CallTrace {
 				from: ALICE_ADDR,
 				to: BOB_ADDR,
 				value: Some(U256::from(10_000_000)),
 				call_type: CallType::Call,
 				..Default::default()
-			},]
+			})
 		)
 	});
 }
@@ -4208,8 +4208,8 @@ fn tracing_works() {
 		let gas_used = trace(&mut tracer, || {
 			builder::bare_call(addr).data((3u32, addr_callee).encode()).build().gas_consumed
 		});
-		let traces = tracer.collect_traces();
-		assert_eq!(&traces[0].gas_used, &gas_used);
+		let trace = tracer.collect_trace().unwrap();
+		assert_eq!(&trace.gas_used, &gas_used);
 		*/
 
 		// Discarding gas usage, check that traces reported are correct
@@ -4316,8 +4316,8 @@ fn tracing_works() {
 				builder::bare_call(addr).data((3u32, addr_callee).encode()).build()
 			});
 
-			let traces = tracer.collect_traces();
-			let expected_traces = vec![CallTrace {
+			let trace = tracer.collect_trace();
+			let expected_trace = CallTrace {
 					from: ALICE_ADDR,
 					to: addr,
 					input: (3u32, addr_callee).encode().into(),
@@ -4326,11 +4326,11 @@ fn tracing_works() {
 					value: Some(U256::from(0)),
 					calls: calls,
 					..Default::default()
-				},];
+				};
 
 			assert_eq!(
-				traces,
-				expected_traces,
+				trace,
+				expected_trace.into(),
 			);
 		}
 	});
