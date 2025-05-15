@@ -460,7 +460,7 @@ pub mod helpers {
 
 	thread_local! {
 		/// Tracked XCM topic IDs, mapped by chain name.
-		static TRACKED_TOPIC_IDS: RefCell<HashMap<String, H256>> = RefCell::new(HashMap::new());
+		static TRACKED_TOPIC_IDS: RefCell<TopicIdCaptor> = RefCell::new(TopicIdCaptor::new());
 	}
 
 	/// Derives a topic ID for an XCM in tests.
@@ -521,6 +521,11 @@ pub mod helpers {
 				.copied()
 				.expect(&format!("Expected a captured topic ID for chain '{}'", chain))
 		}
+
+		/// Clears all captured topic IDs
+		pub fn reset(&mut self) {
+			self.ids.clear();
+		}
 	}
 
 	/// A test utility for tracking XCM topic IDs
@@ -529,22 +534,15 @@ pub mod helpers {
 		/// Asserts that exactly one topic ID is tracked across all chains.
 		pub fn assert_unique() {
 			TRACKED_TOPIC_IDS.with(|b| {
-				let map = b.borrow();
-				let ids: HashSet<_> = map.values().collect();
-				assert_eq!(
-					ids.len(),
-					1,
-					"Expected exactly one topic ID, found {}: {:?}",
-					ids.len(),
-					ids
-				);
+				let captor = b.borrow();
+				captor.assert_unique();
 			});
 		}
 
 		/// Associates a topic ID with the given chain name in the tracker.
 		pub fn insert(chain: &str, id: H256) {
 			TRACKED_TOPIC_IDS.with(|b| {
-				b.borrow_mut().insert(chain.to_string(), id);
+				b.borrow_mut().capture(chain, id);
 			});
 		}
 
@@ -552,15 +550,8 @@ pub mod helpers {
 		/// unique ID.
 		pub fn insert_and_assert_unique(chain: &str, id: H256) {
 			TRACKED_TOPIC_IDS.with(|b| {
-				let mut map = b.borrow_mut();
-				if let Some(existing_id) = map.get(chain) {
-					assert_eq!(
-						id, *existing_id,
-						"New topic ID {:?} does not match existing ID {:?} for chain '{}'",
-						id, existing_id, chain
-					);
-				}
-				map.insert(chain.to_string(), id);
+				let mut captor = b.borrow_mut();
+				captor.capture_and_assert_unique(chain, id);
 			});
 
 			Self::assert_unique();
@@ -568,7 +559,7 @@ pub mod helpers {
 
 		/// Clears all tracked topic IDs, resetting the tracker for a new test.
 		pub fn reset() {
-			TRACKED_TOPIC_IDS.with(|b| b.borrow_mut().clear());
+			TRACKED_TOPIC_IDS.with(|b| b.borrow_mut().reset());
 		}
 	}
 }
