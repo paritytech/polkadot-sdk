@@ -1,0 +1,21 @@
+title: Add debug logging to `WeightBounds` for XCM weight failures
+doc:
+- audience: Runtime Dev
+  description: "This PR **partially addresses** #8419 by improving traceability for\
+    \ XCM weight calculation failures in `WeightInfoBounds` and `FixedWeightBounds`.\
+    \ It replaces opaque `Result<Weight, ()>` returns with `xcm::latest::Error` internally,\
+    \ and adds `debug` logs in `weight` and `instr_weight` to surface context around\
+    \ failures (e.g. `FailedToDecode`, `MaxWeightInvalid`, `NoDeal`).\n\n## **Why\
+    \ change**\n\nThe vague \"Failed to prepare message\" error in #8419 makes debugging\
+    \ extremely difficult. The current implementation drops detailed errors and omits\
+    \ log context, especially for cases like decoding `Transact` instructions or violating\
+    \ instruction count limits.\n\n## **How change**\n\n* Internally uses `Result<Weight,\
+    \ xcm::latest::Error>` for:\n    - Instruction decoding failures \u2192 `FailedToDecode`\n\
+    \    - Message/instruction weight overflows \u2192 `MaxWeightInvalid`\n    - Excessive\
+    \ instruction count \u2192 `NoDeal`\n* Adds structured `debug` logs in:\n    -\
+    \ `weight`: logs error type, instructions remaining, message length\n    - `instr_weight`:\
+    \ logs error type, instruction, and limit\n* Keeps outer unchanged: still returns\
+    \ `Result<Weight, ()>` from `WeightBounds` trait"
+crates:
+- name: staging-xcm-builder
+  bump: patch
