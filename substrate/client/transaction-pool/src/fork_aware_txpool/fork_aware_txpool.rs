@@ -587,7 +587,7 @@ where
 			.and_then(|at| self.view_store.get_view_at(at, true))
 		{
 			// Fallback for the case when `at` is not on the already known fork.
-			// Falls back to the most recent view, which may include txs which 
+			// Falls back to the most recent view, which may include txs which
 			// are invalid or already included in the blocks but can still yield a
 			// partially valid ready set, which is still better than including nothing.
 			Box::new(most_recent_view.pool.validated_pool().ready())
