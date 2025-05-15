@@ -15,22 +15,25 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use clap::{Args, Parser};
+use log::info;
+use pyroscope::PyroscopeAgent;
+use pyroscope_pprofrs::{pprof_backend, PprofConfig};
+use rand::prelude::*;
 use sc_cli::{CliConfiguration, DatabaseParams, PruningParams, Result, SharedParams};
 use sc_client_api::{Backend as ClientBackend, StorageProvider, UsageProvider};
 use sc_client_db::DbHash;
 use sc_service::Configuration;
+use serde::Serialize;
 use sp_api::CallApiAt;
 use sp_blockchain::HeaderBackend;
 use sp_database::{ColumnId, Database};
-use sp_runtime::traits::{Block as BlockT, HashingFor};
+use sp_runtime::{
+	generic::BlockId,
+	traits::{Block as BlockT, HashingFor},
+};
 use sp_state_machine::Storage;
 use sp_storage::{ChildInfo, ChildType, PrefixedStorageKey, StateVersion};
-
-use clap::{Args, Parser};
-use log::info;
-use rand::prelude::*;
-use serde::Serialize;
-use sp_runtime::generic::BlockId;
 use std::{fmt::Debug, path::PathBuf, sync::Arc};
 
 use super::template::TemplateData;
@@ -39,6 +42,18 @@ use crate::shared::{new_rng, HostInfoParams, WeightParams};
 /// Benchmark the storage speed of a chain snapshot.
 #[derive(Debug, Parser)]
 pub struct StorageCmd {
+	#[clap(long, default_value_t = false)]
+	/// Enable CPU Profiling with Pyroscope
+	pub profile: bool,
+
+	#[clap(long, requires = "profile", default_value_t = String::from("http://localhost:4040"))]
+	/// Pyroscope Server URL
+	pub pyroscope_url: String,
+
+	#[clap(long, requires = "profile", default_value_t = 113)]
+	/// Pyroscope Sample Rate
+	pub pyroscope_sample_rate: u32,
+
 	#[allow(missing_docs)]
 	#[clap(flatten)]
 	pub shared_params: SharedParams,
@@ -164,6 +179,19 @@ impl StorageCmd {
 
 		if !self.params.skip_read {
 			self.bench_warmup(&client)?;
+			let agent_running = if self.profile {
+				let agent = PyroscopeAgent::builder(self.pyroscope_url.as_str(), "benchmarkingx")
+					.backend(pprof_backend(
+						PprofConfig::new().sample_rate(self.pyroscope_sample_rate),
+					))
+					.build()
+					.expect("To no fail");
+
+				Some(agent.start().expect("To not fail"))
+			} else {
+				None
+			};
+
 			let record = self.bench_read(client.clone(), shared_trie_cache.clone())?;
 			if let Some(path) = &self.params.json_read_path {
 				record.save_json(&cfg, path, "read")?;
@@ -175,6 +203,20 @@ impl StorageCmd {
 
 		if !self.params.skip_write {
 			self.bench_warmup(&client)?;
+
+			let agent_running = if self.profile {
+				let agent = PyroscopeAgent::builder(self.pyroscope_url.as_str(), "benchmarkingx")
+					.backend(pprof_backend(
+						PprofConfig::new().sample_rate(self.pyroscope_sample_rate),
+					))
+					.build()
+					.expect("To no fail");
+
+				Some(agent.start().expect("To not fail"))
+			} else {
+				None
+			};
+
 			let record = self.bench_write(client, db, storage, shared_trie_cache)?;
 			if let Some(path) = &self.params.json_write_path {
 				record.save_json(&cfg, path, "write")?;

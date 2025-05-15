@@ -69,6 +69,9 @@ subxt = { workspace = true, features = ["native"] }
 subxt-signer = { workspace = true, features = ["unstable-eth"] }
 thiserror = { workspace = true }
 thousands = { workspace = true }
+pyroscope = { workspace = true }
+pyroscope_pprofrs = { workspace = true }
+
 
 [dev-dependencies]
 cumulus-test-runtime = { workspace = true, default-features = true }

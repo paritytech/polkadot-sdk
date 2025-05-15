@@ -6483,6 +6483,8 @@ dependencies = [
  "parity-scale-codec",
  "polkadot-parachain-primitives",
  "polkadot-primitives",
+ "pyroscope",
+ "pyroscope_pprofrs",
  "rand 0.8.5",
  "rand_pcg",
  "sc-block-builder",

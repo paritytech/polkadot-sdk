@@ -112,7 +112,8 @@ impl BenchCli {
 		if !is_valgrind_running && self.cache_misses {
 			return valgrind::relaunch_in_valgrind_mode()
 		}
-
+		println!("WTF");
+		
 		let agent_running = if self.profile {
 			let agent = PyroscopeAgent::builder(self.pyroscope_url.as_str(), "subsystem-bench")
 				.backend(pprof_backend(PprofConfig::new().sample_rate(self.pyroscope_sample_rate)))
@@ -122,6 +123,8 @@ impl BenchCli {
 		} else {
 			None
 		};
+
+		println!("OOPS");
 
 		let test_sequence = TestSequence::new_from_file(Path::new(&self.path))
 			.expect("File exists")
