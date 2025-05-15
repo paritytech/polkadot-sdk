@@ -344,8 +344,10 @@ impl CollationManager {
 			};
 
 			for para_id in free_slots {
-				// Try picking an advertisement. I'd like this to be a separate method but
-				// compiler gets confused with ownership.
+				// TODO: look up in the db.
+				let highest_rep_of_para = Score::default();
+
+				// Try picking an advertisement.
 				let Some((advertisement, peer_rep)) = self
 					.per_relay_parent
 					.values()
@@ -375,8 +377,7 @@ impl CollationManager {
 					continue
 				};
 
-				// TODO: look up in the db.
-				let doesnt_have_better_peers = false;
+				let doesnt_have_better_peers = peer_rep >= highest_rep_of_para;
 				let time_since_advertisement = now.saturating_sub(*advertisement_timestamp);
 				if peer_rep >= INSTANT_FETCH_REP_THRESHOLD ||
 					time_since_advertisement >= UNDER_THRESHOLD_FETCH_DELAY ||

@@ -2173,7 +2173,7 @@ fn unfulfilled_claim_queue_entries(relay_parent: &Hash, state: &State) -> Result
 	// 3rd spot from the claim queue but it should be good enough.
 	let unfulfilled_entries = claim_queue_states
 		.iter_mut()
-		.map(|cq| cq.get_pending_at(relay_parent))
+		.map(|cq| cq.get_free_at(relay_parent))
 		.max_by(|a, b| a.len().cmp(&b.len()))
 		.unwrap_or_default();
 
