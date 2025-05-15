@@ -1425,8 +1425,8 @@ pub mod pallet {
 					Self::transition(MigrationStage::SignalMigrationFinish);
 				},
 				MigrationStage::SignalMigrationFinish => {
-					#[cfg(feature = "ahm-staking-migration")]
-					pallet_staking_async_ah_client::Pallet::<T>::on_migration_end();
+					// #[cfg(feature = "ahm-staking-migration")]
+					// pallet_staking_async_ah_client::Pallet::<T>::on_migration_end();
 
 					// Send finish message to AH, TODO: weight
 					let tracker = RcMigratedBalance::<T>::get();
