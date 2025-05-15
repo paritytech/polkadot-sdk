@@ -27,7 +27,6 @@
 //!   such transaction could not be present in the newly created view.
 
 use std::{
-	cmp::Ordering,
 	collections::{HashMap, HashSet},
 	future::Future,
 	pin::Pin,
@@ -178,6 +177,31 @@ where
 	}
 }
 
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+pub struct PriorityOpt(pub Option<TransactionPriority>);
+
+impl Ord for PriorityOpt {
+	fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+		match (&self.0, &other.0) {
+			(Some(a), Some(b)) => a.cmp(b),
+			(Some(_), None) => std::cmp::Ordering::Less,
+			(None, Some(_)) => std::cmp::Ordering::Greater,
+			(None, None) => std::cmp::Ordering::Equal,
+		}
+	}
+}
+impl From<Option<TransactionPriority>> for PriorityOpt {
+	fn from(value: Option<TransactionPriority>) -> Self {
+		PriorityOpt(value)
+	}
+}
+
+impl PartialOrd for PriorityOpt {
+	fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+		Some(self.cmp(other))
+	}
+}
+
 impl<ChainApi, Block> tx_mem_pool_map::Size for Arc<TxInMemPool<ChainApi, Block>>
 where
 	Block: BlockT,
@@ -188,8 +212,28 @@ where
 	}
 }
 
-type InternalTxMemPoolMap<ChainApi, Block> =
-	tx_mem_pool_map::TrackedMap<ExtrinsicHash<ChainApi>, Arc<TxInMemPool<ChainApi, Block>>>;
+impl<ChainApi, Block> tx_mem_pool_map::PriorityAndTimestamp for Arc<TxInMemPool<ChainApi, Block>>
+where
+	Block: BlockT,
+	ChainApi: graph::ChainApi<Block = Block> + 'static,
+{
+	type Priority = PriorityOpt;
+	type Timestamp = Option<Instant>;
+
+	fn priority(&self) -> Self::Priority {
+		TxInMemPool::priority(self).into()
+	}
+
+	fn timestamp(&self) -> Self::Timestamp {
+		self.source().timestamp
+	}
+}
+
+type InternalTxMemPoolMap<ChainApi, Block> = tx_mem_pool_map::TrackedMap<
+	ExtrinsicHash<ChainApi>,
+	tx_mem_pool_map::PriorityKey<PriorityOpt, Option<Instant>>,
+	Arc<TxInMemPool<ChainApi, Block>>,
+>;
 
 /// Internal task for bridging sync and async code.
 pub type TxMemPoolTask = Pin<Box<dyn Future<Output = ()> + Send>>;
@@ -290,7 +334,8 @@ where
 		max_transactions_count: usize,
 		max_transactions_total_bytes: usize,
 	) -> Self {
-		let (sync_channel, _) = tokio::sync::mpsc::channel(1);
+		let (sync_channel, rx) = tokio::sync::mpsc::channel(1);
+		tokio::spawn(Self::sync_bridge_task(rx));
 		Self {
 			api,
 			listener: Arc::from(MultiViewListener::new_with_worker(Default::default()).0),
@@ -400,53 +445,23 @@ where
 			return Err(sc_transaction_pool_api::error::Error::AlreadyImported(Box::new(hash)));
 		}
 
-		let mut sorted = transactions
-			.iter()
-			.filter_map(|(h, v)| v.priority().map(|_| (*h, v.clone())))
-			.collect::<Vec<_>>();
-
 		// When pushing higher prio transaction, we need to find a number of lower prio txs, such
 		// that the sum of their bytes is ge then size of new tx. Otherwise we could overflow size
 		// limits. Naive way to do it - rev-sort by priority and eat the tail.
 
 		// reverse (oldest, lowest prio last)
-		sorted.sort_by(|(_, a), (_, b)| match b.priority().cmp(&a.priority()) {
-			Ordering::Equal => match (a.source.timestamp, b.source.timestamp) {
-				(Some(a), Some(b)) => b.cmp(&a),
-				_ => Ordering::Equal,
-			},
-			ordering => ordering,
-		});
-
-		let mut total_size_removed = 0usize;
-		let mut to_be_removed = vec![];
-		let free_bytes = self.max_transactions_total_bytes - self.transactions.bytes();
-
-		loop {
-			let Some((worst_hash, worst_tx)) = sorted.pop() else {
-				return Err(sc_transaction_pool_api::error::Error::ImmediatelyDropped);
-			};
-
-			if worst_tx.priority() >= new_tx.priority() {
-				return Err(sc_transaction_pool_api::error::Error::ImmediatelyDropped);
-			}
-
-			total_size_removed += worst_tx.bytes;
-			to_be_removed.push(worst_hash);
-
-			if free_bytes + total_size_removed >= new_tx.bytes {
-				break;
-			}
-		}
-
 		let source = new_tx.source();
-		transactions.insert(hash, Arc::from(new_tx));
-		for worst_hash in &to_be_removed {
-			transactions.remove(worst_hash);
-		}
+		let new_tx = Arc::new(new_tx);
+		let insertion_result = transactions.try_insert_with_replacement(
+			self.max_transactions_total_bytes,
+			hash,
+			new_tx,
+		);
 		debug_assert!(!self.is_limit_exceeded(transactions.len(), self.transactions.bytes()));
-
-		Ok(InsertionInfo::new_with_removed(hash, source, to_be_removed))
+		match insertion_result {
+			None => Err(sc_transaction_pool_api::error::Error::ImmediatelyDropped),
+			Some(to_be_removed) => Ok(InsertionInfo::new_with_removed(hash, source, to_be_removed)),
+		}
 	}
 
 	/// Adds a new unwatched transactions to the internal buffer not exceeding the limit.
@@ -487,6 +502,7 @@ where
 	pub(super) async fn clone_transactions(
 		&self,
 	) -> HashMap<ExtrinsicHash<ChainApi>, Arc<TxInMemPool<ChainApi, Block>>> {
+		// todo!()
 		self.transactions.clone_map().await
 	}
 
@@ -512,7 +528,7 @@ where
 
 		let (count, input) = {
 			let transactions = self.transactions.clone_map().await;
-
+			//todo - check if we can do better?
 			(
 				transactions.len(),
 				transactions
@@ -649,9 +665,9 @@ where
 		if let Some(priority) = prio {
 			let mut transactions = self.transactions.write().await;
 
-			if let Some(t) = transactions.get_mut(&hash) {
+			transactions.update_item(&hash, |t| {
 				*t.priority.write() = Some(priority);
-			}
+			});
 		}
 	}
 
@@ -975,19 +991,29 @@ mod tx_mem_pool_tests {
 
 	#[tokio::test]
 	async fn count_works() {
+		sp_tracing::try_init_simple();
+		trace!(target:LOG_TARGET,line=line!(),"xxx");
+
 		let max = 100;
 		let api = Arc::from(TestApi::default());
 		let mempool = TxMemPool::new_test(api, max, usize::MAX);
+		trace!(target:LOG_TARGET,line=line!(),"xxx");
 
 		let xts0 = (0..10).map(|x| Arc::from(uxt(x as _))).collect::<Vec<_>>();
+		trace!(target:LOG_TARGET,line=line!(),"xxx");
 
 		let results = mempool.extend_unwatched(TransactionSource::External, &xts0).await;
+		trace!(target:LOG_TARGET,line=line!(),"xxx");
 		assert!(results.iter().all(Result::is_ok));
+		trace!(target:LOG_TARGET,line=line!(),"xxx");
 
 		let xts1 = (0..5).map(|x| Arc::from(uxt(2 * x))).collect::<Vec<_>>();
+		trace!(target:LOG_TARGET,line=line!(),"xxx");
 		let results =
 			xts1.into_iter().map(|t| mempool.push_watched(TransactionSource::External, t));
+		trace!(target:LOG_TARGET,line=line!(),"xxx");
 		let results = join_all(results).await;
+		trace!(target:LOG_TARGET,line=line!(),"xxx");
 		assert!(results.iter().all(Result::is_ok));
 		assert_eq!(mempool.unwatched_and_watched_count().await, (10, 5));
 	}
@@ -1199,6 +1225,7 @@ mod tx_mem_pool_tests {
 	#[tokio::test]
 	async fn replacing_txs_is_skipped_if_prios_are_not_set() {
 		sp_tracing::try_init_simple();
+		trace!(target:LOG_TARGET,"xxxxxxxxxX");
 		const COUNT: usize = 10;
 		let api = Arc::from(TestApi::default());
 		let mempool = TxMemPool::new_test(api.clone(), usize::MAX, COUNT * LARGE_XT_SIZE);

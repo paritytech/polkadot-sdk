@@ -1399,6 +1399,7 @@ where
 		);
 		let included_xts = self.txs_included_since_finalized(&view.at).await;
 
+		//todo: remove this clone :)
 		let (hashes, xts_filtered): (Vec<_>, Vec<_>) = self
 			.mempool
 			.clone_transactions()
