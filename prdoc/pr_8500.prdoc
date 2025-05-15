@@ -1,0 +1,25 @@
+title: 'txpool: fix tx removal from unlocks set'
+doc:
+- audience: Todo
+  description: |-
+    # Description
+
+    Removing a tx subtree means partly removing some txs from the unlocks set of other txs. This logic is buggy and the PR attempts to fix it.
+
+    Closes #8498
+
+    ## Integration
+
+    N/A
+
+    ## Review Notes
+
+    This doesn't seem to be an important bug. Unit tests for txpool still pass after the fix, so txpool behavior isn't changing much.
+
+    ### TODOs
+
+    - [x] test with a heavy load test (5 millions txs) - all txs were validated successfully
+    - [x] added a unit test
+crates:
+- name: sc-transaction-pool
+  bump: major
