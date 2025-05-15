@@ -60,9 +60,6 @@ use polkadot_primitives::{HeadData, Id as ParaId, ValidationCode};
 use sp_arithmetic::traits::Saturating;
 use sp_runtime::{traits::Get, DispatchResult, FixedU128};
 
-// /// Minimal delivery fee factor.
-// pub const DEFAULT_MIN_FEE_FACTOR: FixedU128 = FixedU128::from_u32(1);
-
 /// Trait for tracking message delivery fees on a transport protocol.
 pub trait FeeTracker {
 	/// Type used for assigning different fee factors to different destinations
@@ -97,10 +94,13 @@ pub trait FeeTracker {
 	}
 
 	fn do_decrease_fee_factor(fee_factor: &mut FixedU128) -> bool {
+		const { assert!(Self::EXPONENTIAL_FEE_BASE.into_inner() >= FixedU128::from_u32(1).into_inner()) }
+
 		if *fee_factor == Self::MIN_FEE_FACTOR {
 			return false;
 		}
 
+		// This should never lead to a panic because of the static assert above.
 		*fee_factor = Self::MIN_FEE_FACTOR.max(*fee_factor / Self::EXPONENTIAL_FEE_BASE);
 		true
 	}
