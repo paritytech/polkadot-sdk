@@ -279,12 +279,20 @@ impl<B: Backend> State<B> {
 	) {
 		let advertisement = res.0;
 
-		gum::debug!(
-			target: LOG_TARGET,
-			?advertisement,
-			"Collation fetch attempt finished: {:?}",
-			res
-		);
+		if let Err(err) = &res.1 {
+			gum::debug!(
+				target: LOG_TARGET,
+				?advertisement,
+				"Collation fetch attempt failed: {}",
+				err
+			);
+		} else {
+			gum::debug!(
+				target: LOG_TARGET,
+				?advertisement,
+				"Collation fetch attempt succeeded",
+			);
+		}
 
 		let can_second = self.collation_manager.completed_fetch(sender, res).await;
 
