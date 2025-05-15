@@ -796,8 +796,7 @@ impl PerLeafClaimQueueState {
 	pub fn all_assignments(&self) -> BTreeSet<ParaId> {
 		self.leaves
 			.values()
-			.map(|claim_queue_state| claim_queue_state.all_assignments())
-			.flatten()
+			.flat_map(|claim_queue_state| claim_queue_state.all_assignments())
 			.copied()
 			.collect()
 	}

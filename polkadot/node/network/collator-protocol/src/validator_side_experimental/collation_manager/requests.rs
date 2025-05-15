@@ -120,13 +120,13 @@ impl Future for CollationFetchRequest {
 		};
 
 		if cancelled {
-			return Poll::Ready((self.advertisement.clone(), Err(CollationFetchError::Cancelled)))
+			return Poll::Ready((self.advertisement, Err(CollationFetchError::Cancelled)))
 		}
 
 		let res = self
 			.from_collator
 			.poll_unpin(cx)
-			.map(|res| (self.advertisement.clone(), res.map_err(CollationFetchError::Request)));
+			.map(|res| (self.advertisement, res.map_err(CollationFetchError::Request)));
 
 		res
 	}

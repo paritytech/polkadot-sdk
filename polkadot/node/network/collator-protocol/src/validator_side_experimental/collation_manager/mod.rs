@@ -351,8 +351,7 @@ impl CollationManager {
 				let Some((advertisement, peer_rep)) = self
 					.per_relay_parent
 					.values()
-					.map(|per_rp| per_rp.eligible_advertisements(&para_id))
-					.flatten()
+					.flat_map(|per_rp| per_rp.eligible_advertisements(&para_id))
 					.filter_map(|adv| {
 						(!self.fetching.contains(&adv)).then(|| {
 							(
@@ -796,7 +795,7 @@ impl PerRelayParent {
 	}
 
 	fn all_advertisements(&self) -> impl Iterator<Item = &Advertisement> {
-		self.peer_advertisements.values().map(|adv| adv.advertisements.iter()).flatten()
+		self.peer_advertisements.values().flat_map(|adv| adv.advertisements.iter())
 	}
 
 	fn eligible_advertisements<'a>(
@@ -805,8 +804,7 @@ impl PerRelayParent {
 	) -> impl Iterator<Item = &'a Advertisement> + 'a {
 		self.peer_advertisements
 			.values()
-			.map(|list| list.advertisements.iter())
-			.flatten()
+			.flat_map(|list| list.advertisements.iter())
 			.filter(move |adv| {
 				// We could instead directly look at only the declared peerids.
 				(&adv.para_id == para_id) &&
