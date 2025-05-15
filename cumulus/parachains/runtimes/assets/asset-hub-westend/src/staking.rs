@@ -252,7 +252,7 @@ impl pallet_staking_async::EraPayout<Balance> for EraPayout {
 
 parameter_types! {
 	// Six sessions in an era (6 hours).
-	pub const SessionsPerEra: SessionIndex = prod_or_fast!(6, 1);
+	pub const RelaySessionsPerEra: SessionIndex = prod_or_fast!(6, 2);
 	// 2 eras for unbonding (12 hours).
 	pub const BondingDuration: sp_staking::EraIndex = 2;
 	// 1 era in which slashes can be cancelled (6 hours).
@@ -260,6 +260,7 @@ parameter_types! {
 	pub const MaxControllersInDeprecationBatch: u32 = 751;
 	// alias for 16, which is the max nominations per nominator in the runtime.
 	pub const MaxNominations: u32 = <NposCompactSolution16 as frame_election_provider_support::NposSolution>::LIMIT as u32;
+	pub storage PlanningEraOffset: u32 = prod_or_fast!(2, 1);
 }
 
 impl pallet_staking_async::Config for Runtime {
@@ -272,7 +273,7 @@ impl pallet_staking_async::Config for Runtime {
 	type RewardRemainder = ();
 	type Slash = ();
 	type Reward = ();
-	type SessionsPerEra = SessionsPerEra;
+	type SessionsPerEra = RelaySessionsPerEra;
 	type BondingDuration = BondingDuration;
 	type SlashDeferDuration = SlashDeferDuration;
 	type AdminOrigin = EitherOf<EnsureRoot<AccountId>, StakingAdmin>;
@@ -290,7 +291,7 @@ impl pallet_staking_async::Config for Runtime {
 	type WeightInfo = ();
 	type MaxInvulnerables = frame_support::traits::ConstU32<20>;
 	type MaxDisabledValidators = ConstU32<100>;
-	type PlanningEraOffset = ConstU32<2>;
+	type PlanningEraOffset = PlanningEraOffset;
 	type RcClientInterface = StakingNextRcClient;
 }
 
