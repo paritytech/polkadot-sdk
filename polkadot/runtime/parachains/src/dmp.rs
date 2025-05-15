@@ -44,7 +44,7 @@
 
 use crate::{
 	configuration::{self, HostConfiguration},
-	initializer, paras, FeeTracker, MinFeeFactor,
+	initializer, paras, FeeTracker, GetMinFeeFactor,
 };
 use alloc::vec::Vec;
 use core::fmt;
@@ -143,7 +143,7 @@ pub mod pallet {
 	/// The factor to multiply the base delivery fee by.
 	#[pallet::storage]
 	pub(crate) type DeliveryFeeFactor<T: Config> =
-		StorageMap<_, Twox64Concat, ParaId, FixedU128, ValueQuery, MinFeeFactor>;
+		StorageMap<_, Twox64Concat, ParaId, FixedU128, ValueQuery, GetMinFeeFactor<Pallet<T>>>;
 }
 /// Routines and getters related to downward message passing.
 impl<T: Config> Pallet<T> {

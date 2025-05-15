@@ -26,7 +26,6 @@ use frame_support::{
 	StorageNoopGuard,
 };
 use mock::{new_test_ext, ParachainSystem, RuntimeOrigin as Origin, Test, XcmpQueue};
-use polkadot_runtime_parachains::MIN_FEE_FACTOR;
 use sp_runtime::traits::{BadOrigin, Zero};
 use std::iter::{once, repeat};
 use xcm::{MAX_INSTRUCTIONS_TO_DECODE, MAX_XCM_DECODE_DEPTH};
@@ -940,8 +939,8 @@ fn verify_fee_factor_increase_and_decrease() {
 	xcmp_message.extend(versioned_xcm.encode());
 
 	new_test_ext().execute_with(|| {
-		let initial = MIN_FEE_FACTOR;
-		assert_eq!(DeliveryFeeFactor::<Test>::get(sibling_para_id), initial);
+		let initial = Pallet::<Test>::MIN_FEE_FACTOR;
+		assert_eq!(Pallet::<Test>::get_fee_factor(sibling_para_id), initial);
 
 		// Open channel so messages can actually be sent
 		ParachainSystem::open_custom_outbound_hrmp_channel_for_benchmarks_or_tests(
