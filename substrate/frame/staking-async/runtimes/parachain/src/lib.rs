@@ -2178,7 +2178,12 @@ impl_runtime_apis! {
 					// this is a kusama-like chain
 					crate::staking::MaxElectingVoters::set(&12_500);
 					crate::staking::Pages::set(&16);
-				}
+				},
+				16 => {
+					log::info!(target: "runtime", "detected a westend-like chain during `build_state`");
+					crate::staking::MaxElectingVoters::set(&22_500);
+					crate::staking::Pages::set(&32);
+				},
 				10 => {
 					log::info!(target: "runtime", "detected a dev chain during `build_state`");
 					// this is a dev-chain -- no change needed

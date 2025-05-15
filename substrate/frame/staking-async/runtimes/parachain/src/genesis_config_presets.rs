@@ -108,6 +108,11 @@ pub fn get_preset(id: &PresetId) -> Option<Vec<u8>> {
 			dev_and_testnet_params.dev_stakers = Some((4_000, 20_000));
 			staking_async_parachain_genesis(dev_and_testnet_params)
 		},
+		"wnd_size" => {
+			dev_and_testnet_params.validator_count = 16;
+			dev_and_testnet_params.dev_stakers = Some((2_000, 25_000));
+			staking_async_parachain_genesis(dev_and_testnet_params)
+		},
 		"dot_size" => {
 			dev_and_testnet_params.validator_count = 500;
 			dev_and_testnet_params.dev_stakers = Some((2_000, 25_000));
@@ -130,5 +135,6 @@ pub fn preset_names() -> Vec<PresetId> {
 		PresetId::from(sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET),
 		PresetId::from("ksm_size"),
 		PresetId::from("dot_size"),
+		PresetId::from("wnd_size"),
 	]
 }

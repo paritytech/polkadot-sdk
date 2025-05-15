@@ -13098,6 +13098,7 @@ dependencies = [
  "frame-election-provider-support",
  "frame-executive",
  "frame-metadata-hash-extension",
+ "frame-remote-externalities",
  "frame-support",
  "frame-system",
  "frame-system-benchmarking",
@@ -13174,6 +13175,7 @@ dependencies = [
  "sp-staking",
  "sp-std 14.0.0",
  "sp-storage 19.0.0",
+ "sp-tracing 16.0.0",
  "sp-transaction-pool",
  "sp-version 29.0.0",
  "staging-parachain-info",
@@ -13182,6 +13184,7 @@ dependencies = [
  "staging-xcm-executor",
  "substrate-wasm-builder",
  "testnet-parachains-constants",
+ "tokio",
  "westend-runtime-constants",
  "xcm-runtime-apis",
 ]

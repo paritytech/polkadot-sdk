@@ -49,7 +49,7 @@ parameter_types! {
 	pub VoterSnapshotPerBlock: u32 = MaxElectingVoters::get() / Pages::get();
 
 	/// Number of validators per page of the snapshot.
-	pub const TargetSnapshotPerBlock: u32 = MaxValidatorSet::get();
+	pub const TargetSnapshotPerBlock: u32 = 4000;
 
 	/// In each page, we may observe up to all of the validators.
 	pub const MaxWinnersPerPage: u32 = MaxValidatorSet::get();
@@ -472,5 +472,111 @@ where
 {
 	fn create_inherent(call: RuntimeCall) -> UncheckedExtrinsic {
 		UncheckedExtrinsic::new_bare(call)
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use remote_externalities::{
+		Builder, Mode, OfflineConfig, OnlineConfig, SnapshotConfig, Transport,
+	};
+	use std::env::var;
+
+	fn s(number: u128) -> String {
+		let s = number.to_string();
+		let mut result = String::new();
+		let mut count = 0;
+
+		for (i, c) in s.chars().rev().enumerate() {
+			if count == 3 && i != 0 {
+				result.push(',');
+				count = 0;
+			}
+			result.push(c);
+			count += 1;
+		}
+
+		format!("{}", result.chars().rev().collect::<String>())
+	}
+
+	const DOT: u128 = 10u128.pow(10);
+	const KSM: u128 = 10u128.pow(12);
+
+	fn pretty_score(score: sp_npos_elections::ElectionScore) -> String {
+		format!(
+			"({}, {}, {})",
+			s(score.minimal_stake / DOT),
+			s(score.sum_stake / DOT),
+			s(score.sum_stake_squared / DOT)
+		)
+	}
+
+	/// Run it like:
+	///
+	/// ```text
+	/// RUST_BACKTRACE=full \
+	/// 	RUST_LOG=remote-ext=info,runtime::staking-async=debug \
+	/// 	REMOTE_TESTS=1 \
+	/// 	WS=ws://127.0.0.1:9999 \
+	/// 	cargo test --release -p pallet-staking-async-parachain-runtime \
+	/// 	--features try-runtime run_try
+	/// ```
+	///
+	/// Just replace the node with your local node.
+	///
+	/// Pass `SNAP=polkadot` or similar to store and reuse a snapshot.
+	#[tokio::test]
+	async fn run_election() {
+		if var("REMOTE_TESTS").is_err() {
+			return;
+		}
+
+		sp_tracing::try_init_simple();
+		let transport: Transport =
+			var("WS").unwrap_or("wss://westend-rpc.polkadot.io:443".to_string()).into();
+		let maybe_state_snapshot: Option<SnapshotConfig> = var("SNAP").map(|s| s.into()).ok();
+		// You can use this if you want to scrape smaller set of pallets, but they the name must
+		// match the runtime.
+		let _pallets = vec!["VoterList", "Staking"]
+			.into_iter()
+			.map(|x| x.to_string())
+			.collect::<Vec<_>>();
+		let mut ext = Builder::<Block>::default()
+			.mode(if let Some(state_snapshot) = maybe_state_snapshot {
+				Mode::OfflineOrElseOnline(
+					OfflineConfig { state_snapshot: state_snapshot.clone() },
+					OnlineConfig {
+						transport,
+						hashed_prefixes: vec![vec![]],
+						state_snapshot: Some(state_snapshot),
+						..Default::default()
+					},
+				)
+			} else {
+				Mode::Online(OnlineConfig {
+					hashed_prefixes: vec![vec![]],
+					transport,
+					..Default::default()
+				})
+			})
+			.build()
+			.await
+			.unwrap();
+		ext.execute_with(|| {
+			// TODO: ideally we would set these values with subxt?
+			MaxElectingVoters::set(&22_500);
+			Pages::set(&32);
+
+			// fetch snapshot and so on.
+			pallet_election_provider_multi_block::Pallet::<Runtime>::temp_asap();
+
+			for i in 1..=Pages::get() {
+				use pallet_election_provider_multi_block::unsigned::miner;
+				let result = miner::OffchainWorkerMiner::<Runtime>::mine_solution(i, true).unwrap();
+				let score = result.score;
+				log::info!(target: "runtime", "pages: {:?}, Score: {:?}", i, pretty_score(score));
+			}
+		});
 	}
 }

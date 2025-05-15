@@ -1345,6 +1345,14 @@ impl<T: Config> Pallet<T> {
 		snapshot + signed + signed_validation + unsigned
 	}
 
+	pub fn temp_asap() {
+		// prepare our snapshot so we can "hopefully" run a fallback.
+		Self::create_targets_snapshot().unwrap();
+		for p in (Self::lsp()..=Self::msp()).rev() {
+			Self::create_voters_snapshot_paged(p).unwrap()
+		}
+	}
+
 	#[cfg(any(test, feature = "runtime-benchmarks", feature = "try-runtime"))]
 	pub(crate) fn do_try_state(_: BlockNumberFor<T>) -> Result<(), &'static str> {
 		Snapshot::<T>::sanity_check()

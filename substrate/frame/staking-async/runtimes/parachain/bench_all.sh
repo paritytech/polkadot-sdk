@@ -40,6 +40,12 @@ run_benchmark() {
     --output "$output_file"
 }
 
+run_benchmark "pallet_staking_async" "wnd_size"
+run_benchmark "pallet_election_provider_multi_block" "wnd_size"
+run_benchmark "pallet_election_provider_multi_block_signed" "wnd_size"
+run_benchmark "pallet_election_provider_multi_block_unsigned" "wnd_size"
+run_benchmark "pallet_election_provider_multi_block_verifier" "wnd_size"
+
 run_benchmark "pallet_staking_async" "dot_size"
 run_benchmark "pallet_election_provider_multi_block" "dot_size"
 run_benchmark "pallet_election_provider_multi_block_signed" "dot_size"
