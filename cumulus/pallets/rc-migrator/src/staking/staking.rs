@@ -100,7 +100,7 @@ impl<T: Config> PalletMigration for StakingMigrator<T> {
 				}
 			}
 
-			if messages.len() > 10_000 {
+			if messages.len() > 500 {
 				log::warn!("Weight allowed very big batch, stopping");
 				break;
 			}
