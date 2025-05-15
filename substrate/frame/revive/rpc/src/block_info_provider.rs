@@ -106,6 +106,12 @@ impl BlockInfoProvider for SubxtBlockInfoProvider {
 		&self,
 		block_number: SubstrateBlockNumber,
 	) -> Result<Option<Arc<SubstrateBlock>>, ClientError> {
+		if block_number == self.latest_block().await.number() {
+			return Ok(Some(self.latest_block().await));
+		} else if block_number == self.latest_finalized_block().await.number() {
+			return Ok(Some(self.latest_finalized_block().await));
+		}
+
 		let Some(hash) = self.rpc.chain_get_block_hash(Some(block_number.into())).await? else {
 			return Ok(None);
 		};
