@@ -606,6 +606,19 @@ pub mod pallet {
 			Self::update_msg_processed_count(count);
 			Ok(())
 		}
+
+		/// Update the total number of XCM messages sent and processed by the Asset Hub.
+		#[pallet::call_index(4)]
+		#[pallet::weight(T::RcWeightInfo::update_ah_msg_processed_count())]
+		pub fn update_ah_msg_counts(
+			origin: OriginFor<T>,
+			sent: u32,
+			processed: u32,
+		) -> DispatchResult {
+			<T as Config>::ManagerOrigin::ensure_origin(origin)?;
+			DmpDataMessageCounts::<T>::put((sent, processed));
+			Ok(())
+		}
 	}
 
 	#[pallet::hooks]
