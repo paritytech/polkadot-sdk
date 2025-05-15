@@ -2375,7 +2375,7 @@ impl_runtime_apis! {
 				code,
 				data,
 				salt,
-				NonceAlreadyIncremented::Yes,
+				NonceAlreadyIncremented::No,
 			)
 		}
 

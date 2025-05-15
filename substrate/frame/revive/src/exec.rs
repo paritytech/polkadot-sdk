@@ -992,9 +992,7 @@ where
 						&deployer,
 						// the Nonce from the origin has been incremented pre-dispatch, so we
 						// need to subtract 1 to get the nonce at the time of the call.
-						if origin_is_caller &&
-							matches!(nonce_already_incremented, NonceAlreadyIncremented::Yes)
-						{
+						if matches!(nonce_already_incremented, NonceAlreadyIncremented::Yes) {
 							account_nonce.saturating_sub(1u32.into()).saturated_into()
 						} else {
 							account_nonce.saturated_into()
