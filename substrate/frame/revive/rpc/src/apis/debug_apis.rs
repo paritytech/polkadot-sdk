@@ -42,7 +42,7 @@ pub trait DebugRpc {
 		&self,
 		transaction_hash: H256,
 		tracer_config: TracerConfig,
-	) -> RpcResult<CallTrace>;
+	) -> RpcResult<Trace>;
 
 	/// Dry run a call and returns the transaction's traces.
 	///
@@ -55,7 +55,7 @@ pub trait DebugRpc {
 		transaction: GenericTransaction,
 		block: BlockNumberOrTag,
 		tracer_config: TracerConfig,
-	) -> RpcResult<CallTrace>;
+	) -> RpcResult<Trace>;
 }
 
 pub struct DebugRpcServerImpl {
@@ -93,20 +93,17 @@ impl DebugRpcServer for DebugRpcServerImpl {
 		block: BlockNumberOrTag,
 		tracer_config: TracerConfig,
 	) -> RpcResult<Vec<TransactionTrace>> {
-		with_timeout(tracer_config.timeout, self.client.trace_block_by_number(block, tracer_config))
-			.await
+		let TracerConfig { config, timeout } = tracer_config;
+		with_timeout(timeout, self.client.trace_block_by_number(block, config)).await
 	}
 
 	async fn trace_transaction(
 		&self,
 		transaction_hash: H256,
 		tracer_config: TracerConfig,
-	) -> RpcResult<CallTrace> {
-		with_timeout(
-			tracer_config.timeout,
-			self.client.trace_transaction(transaction_hash, tracer_config),
-		)
-		.await
+	) -> RpcResult<Trace> {
+		let TracerConfig { config, timeout } = tracer_config;
+		with_timeout(timeout, self.client.trace_transaction(transaction_hash, config)).await
 	}
 
 	async fn trace_call(
@@ -114,11 +111,8 @@ impl DebugRpcServer for DebugRpcServerImpl {
 		transaction: GenericTransaction,
 		block: BlockNumberOrTag,
 		tracer_config: TracerConfig,
-	) -> RpcResult<CallTrace> {
-		with_timeout(
-			tracer_config.timeout,
-			self.client.trace_call(transaction, block, tracer_config),
-		)
-		.await
+	) -> RpcResult<Trace> {
+		let TracerConfig { config, timeout } = tracer_config;
+		with_timeout(timeout, self.client.trace_call(transaction, block, config)).await
 	}
 }
