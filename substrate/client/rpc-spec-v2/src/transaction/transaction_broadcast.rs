@@ -226,20 +226,22 @@ where
 		let pool = self.pool.clone();
 		// The future expected by the executor must be `Future<Output = ()>` instead of
 		// `Future<Output = Result<(), Aborted>>`.
-		let fut = fut.map(move |result| {
-			// Connection space is cleaned when this object is dropped.
-			drop(reserved_identifier);
+		let fut = fut.then(move |result| {
+			async move {
+				// Connection space is cleaned when this object is dropped.
+				drop(reserved_identifier);
 
-			// Remove the entry from the broadcast IDs map.
-			let Some(broadcast_state) = broadcast_ids.write().remove(&drop_id) else { return };
+				// Remove the entry from the broadcast IDs map.
+				let Some(broadcast_state) = broadcast_ids.write().remove(&drop_id) else { return };
 
-			// The broadcast was not stopped.
-			if result.is_ok() {
-				return
+				// The broadcast was not stopped.
+				if result.is_ok() {
+					return
+				}
+
+				// Best effort pool removal (tx can already be finalized).
+				pool.report_invalid(None, [(broadcast_state.tx_hash, None)].into()).await;
 			}
-
-			// Best effort pool removal (tx can already be finalized).
-			pool.report_invalid(None, [(broadcast_state.tx_hash, None)].into());
 		});
 
 		// Keep track of this entry and the abortable handle.
