@@ -519,9 +519,9 @@ pub mod helpers {
 		}
 	}
 
-	/// A test utility for tracking XCM topic IDs
-	pub struct TopicIdTrackerWrapper;
-	impl TopicIdTrackerWrapper {
+	/// A global test utility for tracking XCM topic IDs across chains.
+	pub struct GlobalTopicIdTracker;
+	impl GlobalTopicIdTracker {
 		/// Asserts that exactly one topic ID is tracked across all chains.
 		pub fn assert_unique() {
 			TRACKED_TOPIC_IDS.with(|b| {
