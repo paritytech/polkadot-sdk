@@ -13,11 +13,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use emulated_integration_tests_common::{
-	xcm_helpers::{find_mq_processed_id, find_xcm_sent_message_id},
-	xcm_simulator::helpers::TopicIdCaptor,
+use emulated_integration_tests_common::xcm_helpers::{
+	find_mq_processed_id, find_xcm_sent_message_id,
 };
 use rococo_westend_system_emulated_network::westend_emulated_chain::westend_runtime::Dmp;
+use std::collections::HashMap;
 
 use crate::tests::*;
 
@@ -153,7 +153,7 @@ fn send_xcm_through_opened_lane_with_different_xcm_version_on_hops_works() {
 fn xcm_persists_set_topic_across_hops() {
 	for test_topic_id in [Some([42; 32]), None] {
 		// Reset tracked topic state before each run
-		let mut topic_id_captor = TopicIdCaptor::new();
+		let mut tracked_topic_ids = HashMap::new();
 
 		// Prepare test input
 		let sudo_origin = <Westend as Chain>::RuntimeOrigin::root();
@@ -178,20 +178,20 @@ fn xcm_persists_set_topic_across_hops() {
 			));
 
 			let msg_sent_id = find_xcm_sent_message_id::<Westend>().expect("Missing Sent Event");
-			topic_id_captor.capture("Westend", msg_sent_id.into());
+			tracked_topic_ids.insert("Westend", msg_sent_id.into());
 		});
 
 		BridgeHubWestend::execute_with(|| {
 			let mq_prc_id =
 				find_mq_processed_id::<BridgeHubWestend>().expect("Missing Processed Event");
-			topic_id_captor.capture("BridgeHubWestend", mq_prc_id);
+			tracked_topic_ids.insert("BridgeHubWestend", mq_prc_id);
 		});
 
 		// Assert exactly one consistent topic ID across all hops
-		let topic_id = topic_id_captor.get("Westend");
-		assert_eq!(topic_id_captor.get("BridgeHubWestend"), topic_id);
+		let topic_id = tracked_topic_ids.get("Westend");
+		assert_eq!(tracked_topic_ids.get("BridgeHubWestend"), topic_id);
 		if let Some(expected) = test_topic_id {
-			assert_eq!(topic_id, expected.into());
+			assert_eq!(topic_id, Some(&expected.into()));
 		}
 	}
 }
