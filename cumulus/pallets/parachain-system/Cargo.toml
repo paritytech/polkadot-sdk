@@ -19,7 +19,7 @@ impl-trait-for-tuples = { workspace = true }
 log = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 trie-db = { workspace = true }
-
+hashbrown = "0.15.3"
 # Substrate
 frame-benchmarking = { optional = true, workspace = true }
 frame-support = { workspace = true }
