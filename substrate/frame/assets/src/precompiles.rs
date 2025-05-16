@@ -8,7 +8,6 @@ use alloy::{
 };
 pub use pallet_revive::{precompiles::*, AddressMapper};
 use sp_core::{H160, H256};
-use sp_runtime::traits::StaticLookup;
 
 alloy::sol!("src/precompiles/IERC20.sol");
 use IERC20::{IERC20Events, *};
@@ -89,7 +88,7 @@ where
 
 		match input {
 			IERC20Calls::transfer(call) => Self::transfer(asset_id, call, env),
-			IERC20Calls::totalSupply(call) => Self::total_supply(asset_id, call, env),
+			IERC20Calls::totalSupply(call) => Self::total_supply(asset_id, env),
 			IERC20Calls::balanceOf(call) => Self::balance_of(asset_id, call, env),
 			IERC20Calls::allowance(call) => Self::allowance(asset_id, call, env),
 			IERC20Calls::approve(call) => Self::approve(asset_id, call, env),
@@ -181,7 +180,6 @@ where
 	/// Execute the total supply call.
 	fn total_supply(
 		asset_id: <Runtime as Config<Instance>>::AssetId,
-		call: &totalSupplyCall,
 		env: &mut impl Ext<T = Runtime>,
 	) -> Result<Vec<u8>, Error> {
 		use frame_support::traits::fungibles::Inspect;
@@ -230,6 +228,7 @@ where
 		call: &approveCall,
 		env: &mut impl Ext<T = Runtime>,
 	) -> Result<Vec<u8>, Error> {
+		env.charge(<Runtime as Config<Instance>>::WeightInfo::approve_transfer())?;
 		let owner = Self::caller(env)?;
 
 		let spender = call.spender.into_array().into();
@@ -262,6 +261,10 @@ where
 		call: &transferFromCall,
 		env: &mut impl Ext<T = Runtime>,
 	) -> Result<Vec<u8>, Error> {
+		env.charge(<Runtime as Config<Instance>>::WeightInfo::transfer_approved())?;
+		let spender = Self::caller(env)?;
+		let spender = <Runtime as pallet_revive::Config>::AddressMapper::to_account_id(&spender);
+
 		let from = call.from.into_array().into();
 		let from = <Runtime as pallet_revive::Config>::AddressMapper::to_account_id(&from);
 
@@ -271,18 +274,9 @@ where
 		crate::Pallet::<Runtime, Instance>::do_transfer_approved(
 			asset_id,
 			&from,
+			&spender,
 			&to,
 			Self::to_balance(call.value.clone())?,
-		)?;
-
-		Self::call_runtime(
-			env,
-			Call::<Runtime, Instance>::transfer_approved {
-				id: asset_id.into(),
-				owner: <Runtime as frame_system::Config>::Lookup::unlookup(from),
-				destination: <Runtime as frame_system::Config>::Lookup::unlookup(to),
-				amount: Self::to_balance(call.value)?,
-			},
 		)?;
 
 		Self::deposit_event(
@@ -302,7 +296,9 @@ where
 mod test {
 	use super::*;
 	use crate::{
-		mock::{new_test_ext, Assets, Balances, ERC20Config, RuntimeOrigin, System, Test},
+		mock::{
+			new_test_ext, Assets, Balances, ERC20Config, RuntimeEvent, RuntimeOrigin, System, Test,
+		},
 		precompiles::alloy::hex,
 	};
 	use alloy::primitives::U256;
@@ -310,6 +306,16 @@ mod test {
 	use pallet_revive::DepositLimit;
 	use sp_core::H160;
 	use sp_runtime::Weight;
+
+	fn assert_contract_event(contract: H160, event: IERC20Events) {
+		let (topics, data) = event.into_log_data().split();
+		let topics = topics.into_iter().map(|v| H256(v.0)).collect::<Vec<_>>();
+		System::assert_has_event(RuntimeEvent::Revive(pallet_revive::Event::ContractEmitted {
+			contract,
+			data: data.to_vec(),
+			topics,
+		}));
+	}
 
 	#[test]
 	fn asset_id_extractor_works() {
@@ -329,20 +335,20 @@ mod test {
 	fn precompile_transfer_works() {
 		new_test_ext().execute_with(|| {
 			let asset_id = 0u32;
-			let asset_addr =
-				hex::const_decode_to_array(b"0000000000000000000000000000000001200000").unwrap();
+			let asset_addr = H160::from(
+				hex::const_decode_to_array(b"0000000000000000000000000000000001200000").unwrap(),
+			);
 
-			let owner = 1;
+			let from = 1;
 			let to = 2;
 
-			Balances::make_free_balance_be(&owner, 100);
+			Balances::make_free_balance_be(&from, 100);
 			Balances::make_free_balance_be(&to, 100);
 
+			let from_addr = <Test as pallet_revive::Config>::AddressMapper::to_address(&from);
 			let to_addr = <Test as pallet_revive::Config>::AddressMapper::to_address(&to);
-			assert_ok!(Assets::force_create(RuntimeOrigin::root(), asset_id, owner, true, 1));
-			assert_ok!(Assets::mint(RuntimeOrigin::signed(owner), asset_id, owner, 100));
-
-			System::reset_events();
+			assert_ok!(Assets::force_create(RuntimeOrigin::root(), asset_id, from, true, 1));
+			assert_ok!(Assets::mint(RuntimeOrigin::signed(from), asset_id, from, 100));
 
 			let data =
 				IERC20::transferCall { to: to_addr.0.into(), value: U256::from(10) }.abi_encode();
@@ -356,7 +362,176 @@ mod test {
 				data,
 			);
 
-			dbg!(System::events());
+			assert_contract_event(
+				asset_addr,
+				IERC20Events::Transfer(IERC20::Transfer {
+					from: from_addr.0.into(),
+					to: to_addr.0.into(),
+					value: U256::from(10),
+				}),
+			);
+
+			assert_eq!(Assets::balance(asset_id, from), 90);
+			assert_eq!(Assets::balance(asset_id, to), 10);
+		});
+	}
+
+	#[test]
+	fn total_supply_works() {
+		new_test_ext().execute_with(|| {
+			let asset_id = 0u32;
+			let asset_addr =
+				hex::const_decode_to_array(b"0000000000000000000000000000000001200000").unwrap();
+
+			Balances::make_free_balance_be(&1, 100);
+			assert_ok!(Assets::force_create(RuntimeOrigin::root(), asset_id, 1, true, 1));
+			assert_ok!(Assets::mint(RuntimeOrigin::signed(1), asset_id, 1, 1000));
+
+			let data = IERC20::totalSupplyCall {}.abi_encode();
+
+			let data = pallet_revive::Pallet::<Test>::bare_call(
+				RuntimeOrigin::signed(1),
+				H160::from(asset_addr),
+				0u64,
+				Weight::MAX,
+				DepositLimit::Unchecked,
+				data,
+			)
+			.result
+			.unwrap()
+			.data;
+
+			let ret = IERC20::totalSupplyCall::abi_decode_returns(&data).unwrap();
+			assert_eq!(ret, U256::from(1000));
+		});
+	}
+
+	#[test]
+	fn balance_of_works() {
+		new_test_ext().execute_with(|| {
+			let asset_id = 0u32;
+			let asset_addr =
+				hex::const_decode_to_array(b"0000000000000000000000000000000001200000").unwrap();
+
+			Balances::make_free_balance_be(&1, 100);
+			assert_ok!(Assets::force_create(RuntimeOrigin::root(), asset_id, 1, true, 1));
+			assert_ok!(Assets::mint(RuntimeOrigin::signed(1), asset_id, 1, 1000));
+
+			let account = <Test as pallet_revive::Config>::AddressMapper::to_address(&1).0.into();
+			let data = IERC20::balanceOfCall { account }.abi_encode();
+
+			let data = pallet_revive::Pallet::<Test>::bare_call(
+				RuntimeOrigin::signed(1),
+				H160::from(asset_addr),
+				0u64,
+				Weight::MAX,
+				DepositLimit::Unchecked,
+				data,
+			)
+			.result
+			.unwrap()
+			.data;
+
+			let ret = IERC20::balanceOfCall::abi_decode_returns(&data).unwrap();
+			assert_eq!(ret, U256::from(1000));
+		});
+	}
+
+	#[test]
+	fn approval_works() {
+		use frame_support::traits::fungibles::approvals::Inspect;
+
+		new_test_ext().execute_with(|| {
+			let asset_id = 0u32;
+			let asset_addr = H160::from(
+				hex::const_decode_to_array(b"0000000000000000000000000000000001200000").unwrap(),
+			);
+
+			let owner = 1;
+			let spender = 2;
+			let other = 3;
+
+			Balances::make_free_balance_be(&owner, 100);
+			Balances::make_free_balance_be(&spender, 100);
+			Balances::make_free_balance_be(&other, 100);
+
+			let owner_addr = <Test as pallet_revive::Config>::AddressMapper::to_address(&owner);
+			let spender_addr = <Test as pallet_revive::Config>::AddressMapper::to_address(&spender);
+			let other_addr = <Test as pallet_revive::Config>::AddressMapper::to_address(&other);
+
+			assert_ok!(Assets::force_create(RuntimeOrigin::root(), asset_id, owner, true, 1));
+			assert_ok!(Assets::mint(RuntimeOrigin::signed(owner), asset_id, owner, 100));
+
+			let data =
+				IERC20::approveCall { spender: spender_addr.0.into(), value: U256::from(25) }
+					.abi_encode();
+
+			pallet_revive::Pallet::<Test>::bare_call(
+				RuntimeOrigin::signed(owner),
+				H160::from(asset_addr),
+				0u64,
+				Weight::MAX,
+				DepositLimit::Unchecked,
+				data,
+			);
+
+			assert_contract_event(
+				asset_addr,
+				IERC20Events::Approval(IERC20::Approval {
+					owner: owner_addr.0.into(),
+					spender: spender_addr.0.into(),
+					value: U256::from(25),
+				}),
+			);
+
+			let data = IERC20::allowanceCall {
+				owner: owner_addr.0.into(),
+				spender: spender_addr.0.into(),
+			}
+			.abi_encode();
+
+			let data = pallet_revive::Pallet::<Test>::bare_call(
+				RuntimeOrigin::signed(owner),
+				H160::from(asset_addr),
+				0u64,
+				Weight::MAX,
+				DepositLimit::Unchecked,
+				data,
+			)
+			.result
+			.unwrap()
+			.data;
+
+			let ret = IERC20::allowanceCall::abi_decode_returns(&data).unwrap();
+			assert_eq!(ret, U256::from(25));
+
+			let data = IERC20::transferFromCall {
+				from: owner_addr.0.into(),
+				to: other_addr.0.into(),
+				value: U256::from(10),
+			}
+			.abi_encode();
+
+			pallet_revive::Pallet::<Test>::bare_call(
+				RuntimeOrigin::signed(spender),
+				H160::from(asset_addr),
+				0u64,
+				Weight::MAX,
+				DepositLimit::Unchecked,
+				data,
+			);
+			assert_eq!(Assets::balance(asset_id, owner), 90);
+			assert_eq!(Assets::allowance(asset_id, &owner, &spender), 15);
+			assert_eq!(Assets::balance(asset_id, other), 10);
+
+			assert_contract_event(
+				asset_addr,
+				IERC20Events::Transfer(IERC20::Transfer {
+					from: owner_addr.0.into(),
+					to: other_addr.0.into(),
+					value: U256::from(10),
+				}),
+			);
 		});
 	}
 }
