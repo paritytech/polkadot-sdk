@@ -3,17 +3,7 @@ title: Make `WeightBounds` return `Result<Weight, XcmError>` to surface XCM weig
 doc:
 - audience: Runtime Dev
   description: |-
-    This PR **continues** the work in #8535 and **partially addresses** #8419 by updating the return types in `WeightBounds` (specifically `weight` and `instr_weight`) to return `Result<Weight, XcmError>`. This allows downstream callers to access detailed error context for XCM weight calculation failures.
-
-    ## **Why change**
-
-    Previously, XCM weight calculation errors were surfaced only as `Result<Weight, ()>`, losing valuable error information and forcing all upstream consumers to treat them as opaque failures. This blocked structured error handling and obscured debugging, especially in message preparation and error handler setup.
-
-    ## **How change**
-
-    * Changes `WeightBounds::weight` and `instr_weight` to return `Result<Weight, XcmError>` instead of `Result<Weight, ()>`.
-    * Ensures consumers (e.g., `XcmExecutor`, `ExecuteXcm`) propagate or handle these structured errors correctly.
-    * Builds on #8535, which first converted internal logic to return `XcmError` and added tracing logs.
+    Improved XCM weight calculation by returning detailed errors instead of opaque results. Failures like decoding errors, instruction overflows, or exceeding limits are now logged with context to aid debugging. This enhances traceability when messages fail to prepare or execute.
 crates:
 - name: staging-xcm-builder
   bump: patch
