@@ -41,7 +41,7 @@ impl<T: Get<Weight>, C: Decode + GetDispatchInfo, M: Get<u32>> WeightBounds<C>
 	fn weight(message: &mut Xcm<C>) -> Result<Weight, XcmError> {
 		tracing::trace!(target: "xcm::weight", ?message, "FixedWeightBounds");
 		let mut instructions_left = M::get();
-		Self::weight_with_limit(message, &mut instructions_left).map_err(|error| {
+		Self::weight_with_limit(message, &mut instructions_left).inspect_err(|&error| {
 			tracing::debug!(
 				target: "xcm::weight",
 				?error,
@@ -49,12 +49,11 @@ impl<T: Get<Weight>, C: Decode + GetDispatchInfo, M: Get<u32>> WeightBounds<C>
 				message_length = ?message.0.len(),
 				"Weight calculation failed for message"
 			);
-			error
 		})
 	}
 	fn instr_weight(instruction: &mut Instruction<C>) -> Result<Weight, XcmError> {
 		let mut max_value = u32::MAX;
-		Self::instr_weight_with_limit(instruction, &mut max_value).map_err(|error| {
+		Self::instr_weight_with_limit(instruction, &mut max_value).inspect_err(|&error| {
 			tracing::debug!(
 				target: "xcm::weight",
 				?error,
@@ -62,7 +61,6 @@ impl<T: Get<Weight>, C: Decode + GetDispatchInfo, M: Get<u32>> WeightBounds<C>
 				instrs_limit = ?max_value,
 				"Weight calculation failed for instruction"
 			);
-			error
 		})
 	}
 }
@@ -109,7 +107,7 @@ where
 	fn weight(message: &mut Xcm<C>) -> Result<Weight, XcmError> {
 		tracing::trace!(target: "xcm::weight", ?message, "WeightInfoBounds");
 		let mut instructions_left = M::get();
-		Self::weight_with_limit(message, &mut instructions_left).map_err(|error| {
+		Self::weight_with_limit(message, &mut instructions_left).inspect_err(|&error| {
 			tracing::debug!(
 				target: "xcm::weight",
 				?error,
@@ -117,12 +115,11 @@ where
 				message_length = ?message.0.len(),
 				"Weight calculation failed for message"
 			);
-			error
 		})
 	}
 	fn instr_weight(instruction: &mut Instruction<C>) -> Result<Weight, XcmError> {
 		let mut max_value = u32::MAX;
-		Self::instr_weight_with_limit(instruction, &mut max_value).map_err(|error| {
+		Self::instr_weight_with_limit(instruction, &mut max_value).inspect_err(|&error| {
 			tracing::debug!(
 				target: "xcm::weight",
 				?error,
@@ -130,7 +127,6 @@ where
 				instrs_limit = ?max_value,
 				"Weight calculation failed for instruction"
 			);
-			error
 		})
 	}
 }
