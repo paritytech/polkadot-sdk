@@ -118,6 +118,7 @@ pub trait FeeTracker {
 	}
 }
 
+/// Helper struct used for accessing `FeeTracker::MIN_FEE_FACTOR`
 pub struct GetMinFeeFactor<T>(core::marker::PhantomData<T>);
 
 impl<T: FeeTracker> Get<FixedU128> for GetMinFeeFactor<T> {

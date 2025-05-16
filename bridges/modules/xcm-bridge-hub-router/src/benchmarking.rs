@@ -22,7 +22,7 @@ use crate::{Bridge, BridgeState, Call};
 use frame_benchmarking::{benchmarks_instance_pallet, BenchmarkError};
 use frame_support::traits::{EnsureOrigin, Get, Hooks, UnfilteredDispatchable};
 use polkadot_runtime_parachains::FeeTracker;
-use sp_runtime::traits::Zero;
+use sp_runtime::{traits::Zero, Saturating};
 use xcm::prelude::*;
 
 /// Pallet we're benchmarking here.
@@ -48,7 +48,7 @@ benchmarks_instance_pallet! {
 	on_initialize_when_non_congested {
 		Bridge::<T, I>::put(BridgeState {
 			is_congested: false,
-			delivery_fee_factor: crate::Pallet::<T, I>::MIN_FEE_FACTOR.mul(2.into()),
+			delivery_fee_factor: crate::Pallet::<T, I>::MIN_FEE_FACTOR.saturating_mul(2.into()),
 		});
 	}: {
 		crate::Pallet::<T, I>::on_initialize(Zero::zero())
@@ -57,7 +57,7 @@ benchmarks_instance_pallet! {
 	on_initialize_when_congested {
 		Bridge::<T, I>::put(BridgeState {
 			is_congested: false,
-			delivery_fee_factor: crate::Pallet::<T, I>::MIN_FEE_FACTOR.mul(2.into()),
+			delivery_fee_factor: crate::Pallet::<T, I>::MIN_FEE_FACTOR.saturating_mul(2.into()),
 		});
 		let _ = T::ensure_bridged_target_destination()?;
 		T::make_congested();
