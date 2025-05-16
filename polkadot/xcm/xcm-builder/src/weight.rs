@@ -70,8 +70,9 @@ impl<T: Get<Weight>, C: Decode + GetDispatchInfo, M: Get<u32>> WeightBounds<C>
 impl<T: Get<Weight>, C: Decode + GetDispatchInfo, M> FixedWeightBounds<T, C, M> {
 	fn weight_with_limit(message: &mut Xcm<C>, instrs_limit: &mut u32) -> Result<Weight, XcmError> {
 		let mut r: Weight = Weight::zero();
-		*instrs_limit =
-			instrs_limit.checked_sub(message.0.len() as u32).ok_or_else(|| XcmError::NoDeal)?;
+		*instrs_limit = instrs_limit
+			.checked_sub(message.0.len() as u32)
+			.ok_or_else(|| XcmError::NoDeal)?;
 		for instruction in message.0.iter_mut() {
 			r = r
 				.checked_add(&Self::instr_weight_with_limit(instruction, instrs_limit)?)
@@ -143,8 +144,9 @@ where
 {
 	fn weight_with_limit(message: &mut Xcm<C>, instrs_limit: &mut u32) -> Result<Weight, XcmError> {
 		let mut r: Weight = Weight::zero();
-		*instrs_limit =
-			instrs_limit.checked_sub(message.0.len() as u32).ok_or_else(|| XcmError::NoDeal)?;
+		*instrs_limit = instrs_limit
+			.checked_sub(message.0.len() as u32)
+			.ok_or_else(|| XcmError::NoDeal)?;
 		for instruction in message.0.iter_mut() {
 			r = r
 				.checked_add(&Self::instr_weight_with_limit(instruction, instrs_limit)?)
