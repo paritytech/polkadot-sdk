@@ -7,11 +7,11 @@ use alloy::{
 	sol_types::{Revert, SolCall},
 };
 pub use pallet_revive::{precompiles::*, AddressMapper};
-use sp_core::H256;
+use sp_core::{H160, H256};
 use sp_runtime::traits::StaticLookup;
 
 alloy::sol!("src/precompiles/IERC20.sol");
-use IERC20::*;
+use IERC20::{IERC20Events, *};
 
 /// Mean of extracting the asset id from the precompile address.
 pub trait AssetIdExtractor {
@@ -76,8 +76,6 @@ pub struct ERC20<Runtime, PrecompileConfig, Instance> {
 	_phantom: PhantomData<(Runtime, PrecompileConfig, Instance)>,
 }
 
-const BALANCE_CONVERSION_FAILED: &str = "Balance conversion failed";
-
 impl<Runtime, PrecompileConfig, Instance: 'static> Precompile
 	for ERC20<Runtime, PrecompileConfig, Instance>
 where
@@ -123,47 +121,66 @@ where
 	alloy::primitives::U256: From<<Runtime as Config<Instance>>::Balance>
 		+ TryInto<<Runtime as Config<Instance>>::Balance>,
 {
+	/// Get the caller as an `H160` address.
+	fn caller(env: &mut impl ExtWithInfo<T = Runtime>) -> Result<H160, Error> {
+		env.caller()
+			.account_id()
+			.map(<Runtime as pallet_revive::Config>::AddressMapper::to_address)
+			.map_err(|_| Error::Revert(Revert { reason: "Invalid caller".into() }))
+	}
+
+	/// Convert a `U256` value to the balance type of the pallet.
+	fn balance(
+		value: alloy::primitives::U256,
+	) -> Result<<Runtime as Config<Instance>>::Balance, Error> {
+		value
+			.try_into()
+			.map_err(|_| Error::Revert(Revert { reason: "Balance conversion failed".into() }))
+	}
+
+	fn call_runtime(
+		env: &mut impl ExtWithInfo<T = Runtime>,
+		call: Call<Runtime, Instance>,
+	) -> Result<(), Error> {
+		env.call_runtime(call.into()).map_err(|err| Error::Error(err.error.into()))?;
+		Ok(())
+	}
+
+	/// Deposit an event to the runtime.
+	fn deposit_event(env: &mut impl ExtWithInfo<T = Runtime>, event: IERC20Events) {
+		let (topics, data) = event.into_log_data().split();
+		let topics = topics.into_iter().map(|v| H256(v.0)).collect::<Vec<_>>();
+		env.deposit_event(topics, data.to_vec());
+	}
+
 	fn transfer(
 		asset_id: <Runtime as Config<Instance>>::AssetId,
 		call: &transferCall,
 		env: &mut impl ExtWithInfo<T = Runtime>,
 	) -> Result<Vec<u8>, Error> {
-		let transferCall { to, value } = call;
+		let from = Self::caller(env)?;
+		let dest = <Runtime as pallet_revive::Config>::AddressMapper::to_account_id(
+			&call.to.into_array().into(),
+		);
 
-		// TODO: Are we ok using the 0 address for root call?
-		let from = env
-			.caller()
-			.account_id()
-			.map(<Runtime as pallet_revive::Config>::AddressMapper::to_address)
-			.unwrap_or_default();
-
-		let dest = to.into_array().into();
-		let dest = <Runtime as pallet_revive::Config>::AddressMapper::to_account_id(&dest);
-		let amount: <Runtime as Config<Instance>>::Balance = value
-			.clone()
-			.try_into()
-			.map_err(|_| Error::Revert(Revert { reason: BALANCE_CONVERSION_FAILED.into() }))?;
-
-		let call: <Runtime as pallet_revive::Config>::RuntimeCall =
+		Self::call_runtime(
+			env,
 			Call::<Runtime, Instance>::transfer {
 				id: asset_id.into(),
 				target: <Runtime as frame_system::Config>::Lookup::unlookup(dest),
-				amount,
-			}
-			.into();
+				amount: Self::balance(call.value.clone())?,
+			},
+		)?;
 
-		env.call_runtime(call).map_err(|err| Error::Error(err.error.into()))?;
+		Self::deposit_event(
+			env,
+			IERC20Events::Transfer(IERC20::Transfer {
+				from: from.0.into(),
+				to: call.to,
+				value: call.value,
+			}),
+		);
 
-		let (topics, data) = IERC20::IERC20Events::Transfer(IERC20::Transfer {
-			from: from.0.into(),
-			to: *to,
-			value: *value,
-		})
-		.into_log_data()
-		.split();
-		let topics = topics.into_iter().map(|v| H256(v.0)).collect::<Vec<_>>();
-		let data: Vec<u8> = data.to_vec();
-		env.deposit_event(topics, data);
 		return Ok(transferCall::abi_encode_returns(&true));
 	}
 
@@ -212,23 +229,30 @@ where
 		call: &approveCall,
 		env: &mut impl ExtWithInfo<T = Runtime>,
 	) -> Result<Vec<u8>, Error> {
+		let owner = Self::caller(env)?;
+
 		let spender = call.spender.into_array().into();
 		let spender = <Runtime as pallet_revive::Config>::AddressMapper::to_account_id(&spender);
 
-		let amount: <Runtime as Config<Instance>>::Balance = call
-			.value
-			.try_into()
-			.map_err(|_| Error::Revert(Revert { reason: BALANCE_CONVERSION_FAILED.into() }))?;
-
-		let call: <Runtime as pallet_revive::Config>::RuntimeCall =
+		let value: <Runtime as Config<Instance>>::Balance = Self::balance(call.value)?;
+		Self::call_runtime(
+			env,
 			Call::<Runtime, Instance>::approve_transfer {
 				id: asset_id.into(),
 				delegate: <Runtime as frame_system::Config>::Lookup::unlookup(spender),
-				amount,
-			}
-			.into();
+				amount: value,
+			},
+		)?;
 
-		env.call_runtime(call).map_err(|err| Error::Error(err.error.into()))?;
+		Self::deposit_event(
+			env,
+			IERC20Events::Approval(IERC20::Approval {
+				owner: owner.0.into(),
+				spender: call.spender,
+				value: call.value,
+			}),
+		);
+
 		return Ok(approveCall::abi_encode_returns(&true));
 	}
 
@@ -243,21 +267,25 @@ where
 		let to = call.to.into_array().into();
 		let to = <Runtime as pallet_revive::Config>::AddressMapper::to_account_id(&to);
 
-		let amount: <Runtime as Config<Instance>>::Balance = call
-			.value
-			.try_into()
-			.map_err(|_| Error::Revert(Revert { reason: BALANCE_CONVERSION_FAILED.into() }))?;
-
-		let call: <Runtime as pallet_revive::Config>::RuntimeCall =
+		Self::call_runtime(
+			env,
 			Call::<Runtime, Instance>::transfer_approved {
 				id: asset_id.into(),
 				owner: <Runtime as frame_system::Config>::Lookup::unlookup(from),
 				destination: <Runtime as frame_system::Config>::Lookup::unlookup(to),
-				amount,
-			}
-			.into();
+				amount: Self::balance(call.value)?,
+			},
+		)?;
 
-		env.call_runtime(call).map_err(|err| Error::Error(err.error.into()))?;
+		Self::deposit_event(
+			env,
+			IERC20Events::Transfer(IERC20::Transfer {
+				from: call.from,
+				to: call.to,
+				value: call.value,
+			}),
+		);
+
 		return Ok(transferFromCall::abi_encode_returns(&true));
 	}
 }
