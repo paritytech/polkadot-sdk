@@ -450,7 +450,9 @@ where
 		let mut input = CountedInput::new(input);
 
 		let preamble = Decode::decode(&mut input)?;
-		let function = Call::decode_with_mem_limit(&mut input, MAX_CALL_SIZE)?;
+		// Adds 1 byte to the `MAX_CALL_SIZE` as the decoding fails exactly at the given value and
+		// the maximum should be allowed to fit in.
+		let function = Call::decode_with_mem_limit(&mut input, MAX_CALL_SIZE.saturating_add(1))?;
 
 		if input.count() != expected_length.0 as u64 {
 			return Err("Invalid length prefix".into())

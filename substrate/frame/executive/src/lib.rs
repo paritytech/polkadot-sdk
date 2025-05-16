@@ -695,8 +695,8 @@ where
 			if let Err(e) = apply_extrinsic(uxt, is_inherent) {
 				log::error!(
 					target: LOG_TARGET,
-					"Transaction failed due to {:?}. Aborting the rest of the block execution.",
-					e,
+					"Transaction({idx}) failed due to {e:?}. \
+					Aborting the rest of the block execution.",
 				);
 				return Err(ExecutiveError::ApplyExtrinsic(e.into()));
 			}
