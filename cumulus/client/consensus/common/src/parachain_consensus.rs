@@ -15,6 +15,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus. If not, see <https://www.gnu.org/licenses/>.
 
+use cumulus_relay_chain_streams::{finalized_heads, new_best_heads};
 use sc_client_api::{
 	Backend, BlockBackend, BlockImportNotification, BlockchainEvents, Finalizer, UsageProvider,
 };
@@ -25,12 +26,12 @@ use sp_consensus::{BlockOrigin, BlockStatus};
 use sp_runtime::traits::{Block as BlockT, Header as HeaderT};
 
 use cumulus_client_pov_recovery::{RecoveryKind, RecoveryRequest};
-use cumulus_relay_chain_interface::{RelayChainInterface, RelayChainResult};
+use cumulus_relay_chain_interface::RelayChainInterface;
 
-use polkadot_primitives::{Hash as PHash, Id as ParaId, OccupiedCoreAssumption};
+use polkadot_primitives::Id as ParaId;
 
 use codec::Decode;
-use futures::{channel::mpsc::Sender, pin_mut, select, FutureExt, Stream, StreamExt};
+use futures::{channel::mpsc::Sender, pin_mut, select, FutureExt, StreamExt};
 
 use std::sync::Arc;
 
@@ -120,7 +121,7 @@ where
 		select! {
 			fin = finalized_heads.next() => {
 				match fin {
-					Some(finalized_head) =>
+					Some((finalized_head, _)) =>
 						handle_new_finalized_head(&parachain, finalized_head, &mut last_seen_finalized_hashes),
 					None => {
 						tracing::debug!(target: LOG_TARGET, "Stopping following finalized head.");
@@ -465,44 +466,4 @@ where
 			"Failed to set new best block.",
 		);
 	}
-}
-
-/// Returns a stream that will yield best heads for the given `para_id`.
-async fn new_best_heads(
-	relay_chain: impl RelayChainInterface + Clone,
-	para_id: ParaId,
-) -> RelayChainResult<impl Stream<Item = Vec<u8>>> {
-	let new_best_notification_stream =
-		relay_chain.new_best_notification_stream().await?.filter_map(move |n| {
-			let relay_chain = relay_chain.clone();
-			async move { parachain_head_at(&relay_chain, n.hash(), para_id).await.ok().flatten() }
-		});
-
-	Ok(new_best_notification_stream)
-}
-
-/// Returns a stream that will yield finalized heads for the given `para_id`.
-async fn finalized_heads(
-	relay_chain: impl RelayChainInterface + Clone,
-	para_id: ParaId,
-) -> RelayChainResult<impl Stream<Item = Vec<u8>>> {
-	let finality_notification_stream =
-		relay_chain.finality_notification_stream().await?.filter_map(move |n| {
-			let relay_chain = relay_chain.clone();
-			async move { parachain_head_at(&relay_chain, n.hash(), para_id).await.ok().flatten() }
-		});
-
-	Ok(finality_notification_stream)
-}
-
-/// Returns head of the parachain at the given relay chain block.
-async fn parachain_head_at(
-	relay_chain: &impl RelayChainInterface,
-	at: PHash,
-	para_id: ParaId,
-) -> RelayChainResult<Option<Vec<u8>>> {
-	relay_chain
-		.persisted_validation_data(at, para_id, OccupiedCoreAssumption::TimedOut)
-		.await
-		.map(|s| s.map(|s| s.parent_head.0))
 }

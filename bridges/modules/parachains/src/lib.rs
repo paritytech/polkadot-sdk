@@ -32,7 +32,7 @@ use bp_parachains::{
 	ParaInfo, ParaStoredHeaderData, RelayBlockHash, RelayBlockHasher, RelayBlockNumber,
 	SubmitParachainHeadsInfo,
 };
-use bp_polkadot_core::parachains::{ParaHash, ParaHeadsProof, ParaId};
+use bp_polkadot_core::parachains::{ParaHash, ParaHead, ParaHeadsProof, ParaId};
 use bp_runtime::{Chain, HashOf, HeaderId, HeaderIdOf, Parachain};
 use frame_support::{dispatch::PostDispatchInfo, DefaultNoBound};
 use pallet_bridge_grandpa::SubmitFinalityProofHelper;
@@ -76,7 +76,7 @@ struct UpdateParachainHeadArtifacts {
 pub mod pallet {
 	use super::*;
 	use bp_parachains::{
-		BestParaHeadHash, ImportedParaHeadsKeyProvider, ParaStoredHeaderDataBuilder,
+		BestParaHeadHash, ImportedParaHeadsKeyProvider, OnNewHead, ParaStoredHeaderDataBuilder,
 		ParasInfoKeyProvider,
 	};
 	use bp_runtime::{
@@ -252,6 +252,9 @@ pub mod pallet {
 		/// that exceeds this bound.
 		#[pallet::constant]
 		type MaxParaHeadDataSize: Get<u32>;
+
+		/// Runtime hook for when a parachain head is updated.
+		type OnNewHead: OnNewHead;
 	}
 
 	/// Optional pallet owner.
@@ -538,6 +541,7 @@ pub mod pallet {
 							HeaderId(relay_block_number, relay_block_hash),
 							parachain_head_data,
 							parachain_head_hash,
+							parachain_head,
 						)?;
 
 						if is_free {
@@ -638,6 +642,7 @@ pub mod pallet {
 			new_at_relay_block: HeaderId<RelayBlockHash, RelayBlockNumber>,
 			new_head_data: ParaStoredHeaderData,
 			new_head_hash: ParaHash,
+			new_head: ParaHead,
 		) -> Result<UpdateParachainHeadArtifacts, ()> {
 			// check if head has been already updated at better relay chain block. Without this
 			// check, we may import heads in random order
@@ -699,7 +704,7 @@ pub mod pallet {
 				next_imported_hash_position,
 				new_head_hash,
 			);
-			ImportedParaHeads::<T, I>::insert(parachain, new_head_hash, updated_head_data);
+			ImportedParaHeads::<T, I>::insert(parachain, new_head_hash, &updated_head_data);
 			log::trace!(
 				target: LOG_TARGET,
 				"Updated head of parachain {:?} to {} at relay block {}",
@@ -707,6 +712,9 @@ pub mod pallet {
 				new_head_hash,
 				new_at_relay_block.0,
 			);
+
+			// trigger callback
+			T::OnNewHead::on_new_head(parachain, &new_head);
 
 			// remove old head
 			let prune_happened = head_hash_to_prune.is_ok();
@@ -815,6 +823,7 @@ pub fn initialize_for_benchmarks<T: Config<I>, I: 'static, PC: Parachain<Hash = 
 		relay_head.id(),
 		updated_head_data,
 		parachain_head.hash(),
+		parachain_head,
 	)
 	.expect("failed to insert parachain head in benchmarks");
 }
