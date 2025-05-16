@@ -1028,12 +1028,12 @@ mod tests {
 	fn max_call_heap_size_should_be_checked() {
 		// Should be able to decode an `UncheckedExtrinsic` that contains a call with
 		// heap size < `MAX_CALL_HEAP_SIZE`
-		let ux = Ex::new_bare(vec![0u8; DEFAULT_MAX_CALL_SIZE - 1].into());
+		let ux = Ex::new_bare(vec![0u8; DEFAULT_MAX_CALL_SIZE].into());
 		let encoded = ux.encode();
 		assert_eq!(Ex::decode(&mut &encoded[..]), Ok(ux));
 
 		// Otherwise should fail
-		let ux = Ex::new_bare(vec![0u8; DEFAULT_MAX_CALL_SIZE].into());
+		let ux = Ex::new_bare(vec![0u8; DEFAULT_MAX_CALL_SIZE + 1].into());
 		let encoded = ux.encode();
 		assert_eq!(
 			Ex::decode(&mut &encoded[..]).unwrap_err().to_string(),
