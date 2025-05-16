@@ -508,10 +508,5 @@ pub mod helpers {
 			}
 			self.assert_unique();
 		}
-
-		/// Clears all captured topic IDs
-		pub fn reset(&mut self) {
-			self.ids.clear();
-		}
 	}
 }

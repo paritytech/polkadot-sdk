@@ -27,7 +27,7 @@ pub use std::{
 	fmt,
 	marker::PhantomData,
 	ops::Deref,
-	sync::{LazyLock, Mutex},
+	sync::{Arc, LazyLock, Mutex},
 };
 
 // Substrate
@@ -86,8 +86,6 @@ pub use xcm::latest::prelude::{
 };
 pub use xcm_executor::traits::ConvertLocation;
 use xcm_simulator::helpers::TopicIdTracker;
-
-use std::sync::Arc;
 
 pub type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
 
