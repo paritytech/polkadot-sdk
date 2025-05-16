@@ -1647,7 +1647,7 @@ mod tests {
 			);
 			cleanup(bridge_id, vec![lane_id, lane_id_mismatch]);
 
-			// ok state
+			// ok state with old XCM version
 			test_bridge_state(
 				bridge_id,
 				Bridge {
