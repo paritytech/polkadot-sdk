@@ -25,7 +25,7 @@ use alloc::vec::Vec;
 use codec::{Decode, Encode};
 use sp_core::storage::ChildInfo;
 use sp_runtime::traits;
-use sp_trie::CompactProof;
+use sp_trie::StorageProof;
 
 #[cfg(all(not(feature = "std"), feature = "runtime-benchmarks"))]
 use {
@@ -48,7 +48,7 @@ include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 #[cfg_attr(feature = "std", derive(Encode))]
 pub struct StorageAccessParams<B: traits::Block> {
 	pub state_root: B::Hash,
-	pub storage_proof: CompactProof,
+	pub storage_proof: StorageProof,
 	pub payload: StorageAccessPayload,
 	/// On dry-run, we don't read/write to the storage.
 	pub is_dry_run: bool,
@@ -67,7 +67,7 @@ impl<B: traits::Block> StorageAccessParams<B> {
 	/// Create a new params for reading from the storage.
 	pub fn new_read(
 		state_root: B::Hash,
-		storage_proof: CompactProof,
+		storage_proof: StorageProof,
 		payload: Vec<(Vec<u8>, Option<ChildInfo>)>,
 	) -> Self {
 		Self {
@@ -81,7 +81,7 @@ impl<B: traits::Block> StorageAccessParams<B> {
 	/// Create a new params for writing to the storage.
 	pub fn new_write(
 		state_root: B::Hash,
-		storage_proof: CompactProof,
+		storage_proof: StorageProof,
 		payload: (Vec<(Vec<u8>, Vec<u8>)>, Option<ChildInfo>),
 	) -> Self {
 		Self {
@@ -112,12 +112,8 @@ pub fn proceed_storage_access<B: traits::Block>(mut params: &[u8]) {
 	let StorageAccessParams { state_root, storage_proof, payload, is_dry_run } =
 		StorageAccessParams::<B>::decode(&mut params)
 			.expect("Invalid arguments to `validate_block`.");
-	// Create the db
-	let db = match storage_proof.to_memory_db(Some(&state_root)) {
-		Ok((db, _)) => db,
-		Err(_) => panic!("Compact proof decoding failure."),
-	};
 
+	let db = storage_proof.into_memory_db();
 	let recorder = SizeOnlyRecorderProvider::<traits::HashingFor<B>>::default();
 	let cache_provider = CacheProvider::new();
 	let backend = TrieBackendBuilder::new_with_cache(db, state_root, cache_provider)

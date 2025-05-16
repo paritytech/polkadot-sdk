@@ -326,10 +326,9 @@ impl StorageCmd {
 			storage_proof.len(),
 			storage_proof.clone().encoded_compact_size::<HashingFor<Block>>(*root)
 		);
-		let compact = storage_proof.into_compact_proof::<HashingFor<Block>>(*root).unwrap();
 		let params = StorageAccessParams::<Block>::new_write(
 			*root,
-			compact,
+			storage_proof,
 			(changes, maybe_child_info.cloned()),
 		);
 

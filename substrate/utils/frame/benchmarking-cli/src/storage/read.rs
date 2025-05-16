@@ -224,8 +224,7 @@ fn measure_on_block_validation<B: BlockT + Debug>(
 	let batch_size = on_validation_batch.len();
 	let wasm_module = get_wasm_module();
 	let mut instance = wasm_module.new_instance().unwrap();
-	let compact = storage_proof.into_compact_proof::<HashingFor<B>>(root).unwrap();
-	let params = StorageAccessParams::<B>::new_read(root, compact, on_validation_batch);
+	let params = StorageAccessParams::<B>::new_read(root, storage_proof, on_validation_batch);
 	let dry_run_encoded = params.as_dry_run().encode();
 	let encoded = params.encode();
 
