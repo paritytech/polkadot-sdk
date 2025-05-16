@@ -26,6 +26,9 @@ use frame_support::{
 
 const DEFAULT_PROOF_SIZE: u64 = 64 * 1024;
 
+/// Number of supported XCM versions (latest - 2).
+pub const SUPPORTED_VERSIONS_COUNT: u32 = 2;
+
 /// Utilities for handling XCM version migration for the relevant data.
 pub mod data {
 	use crate::*;
@@ -473,6 +476,11 @@ impl<T: Config> OnRuntimeUpgrade for MigrateToLatestXcmVersion<T> {
 		let latest = CurrentXcmVersion::get();
 		Pallet::<T>::migrate_data_to_xcm_version(&mut weight, latest);
 
+		// Update SafeXcmVersion to latest - SUPPORTED_VERSIONS_COUNT
+		let safe_version = latest.saturating_sub(SUPPORTED_VERSIONS_COUNT);
+		SafeXcmVersion::<T>::set(Some(safe_version));
+		weight.saturating_accrue(T::DbWeight::get().writes(1));
+
 		weight
 	}
 
@@ -482,6 +490,11 @@ impl<T: Config> OnRuntimeUpgrade for MigrateToLatestXcmVersion<T> {
 		const LOG_TARGET: &str = "runtime::xcm::pallet_xcm::migrate_to_latest";
 
 		let latest = CurrentXcmVersion::get();
+		let safe_version = latest.saturating_sub(SUPPORTED_VERSIONS_COUNT);
+
+		// Ensure SafeXcmVersion is updated correctly
+		let stored_safe = SafeXcmVersion::<T>::get();
+		ensure!(stored_safe == Some(safe_version), "SafeXcmVersion must be latest - SUPPORTED_VERSIONS_COUNT");
 
 		let number_of_queries_to_migrate = crate::Queries::<T>::iter()
 			.filter(|(id, data)| {
@@ -540,3 +553,6 @@ impl<T: Config> OnRuntimeUpgrade for MigrateToLatestXcmVersion<T> {
 		Ok(())
 	}
 }
+
+/// NB: By convention, the last three XCM versions are supported (latest - 2).
+/// SafeXcmVersion must always be latest - SUPPORTED_VERSIONS_COUNT.
