@@ -494,13 +494,13 @@ pub mod helpers {
 			);
 		}
 
-		/// Captures a topic ID with the given chain name in the captor.
-		pub fn capture(&mut self, chain: &str, id: H256) {
+		/// Inserts a topic ID with the given chain name in the captor.
+		pub fn insert(&mut self, chain: &str, id: H256) {
 			self.ids.insert(chain.to_string(), id);
 		}
 
-		/// Captures a topic ID for a given chain and then asserts global uniqueness.
-		pub fn capture_and_assert_unique(&mut self, chain: &str, id: H256) {
+		/// Inserts a topic ID for a given chain and then asserts global uniqueness.
+		pub fn insert_and_assert_unique(&mut self, chain: &str, id: H256) {
 			if let Some(existing_id) = self.ids.get(chain) {
 				assert_eq!(
 					id, *existing_id,
@@ -508,7 +508,7 @@ pub mod helpers {
 					id, existing_id, chain
 				);
 			} else {
-				self.capture(chain, id);
+				self.insert(chain, id);
 			}
 			self.assert_unique();
 		}
@@ -530,11 +530,11 @@ pub mod helpers {
 			});
 		}
 
-		/// Captures a topic ID for a chain and asserts both per-chain and global uniqueness.
-		pub fn capture_and_assert_unique(chain: &str, id: H256) {
+		/// Inserts a topic ID for a chain and asserts both per-chain and global uniqueness.
+		pub fn insert_and_assert_unique(chain: &str, id: H256) {
 			TRACKED_TOPIC_IDS.with(|b| {
 				let mut captor = b.borrow_mut();
-				captor.capture_and_assert_unique(chain, id);
+				captor.insert_and_assert_unique(chain, id);
 			});
 		}
 
