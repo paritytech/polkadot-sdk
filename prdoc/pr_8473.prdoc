@@ -1,0 +1,10 @@
+title: 'Snowbridge: Remove asset location check'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Since the TokenIdOf conversion is XCM version-agnostic and we store the TokenId as the key in storage,
+    checking whether the key exists is sufficient to verify if the token is registered.
+    There is no need to verify the asset location.
+crates:
+- name: snowbridge-outbound-queue-primitives
+  bump: patch
