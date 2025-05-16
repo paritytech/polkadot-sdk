@@ -173,8 +173,8 @@ parameter_types! {
 type ConsensusHook = cumulus_pallet_aura_ext::FixedVelocityConsensusHook<
 	Runtime,
 	RELAY_CHAIN_SLOT_DURATION_MILLIS,
-	3,
-	9,
+	BLOCK_PROCESSING_VELOCITY,
+	UNINCLUDED_SEGMENT_CAPACITY,
 >;
 
 impl cumulus_pallet_parachain_system::Config for Runtime {
@@ -236,7 +236,7 @@ impl pallet_aura::Config for Runtime {
 	type DisabledValidators = ();
 	type MaxAuthorities = ConstU32<100_000>;
 	type AllowMultipleBlocksPerSlot = ConstBool<true>;
-	type SlotDuration = ConstU64<2000>;
+	type SlotDuration = ConstU64<SLOT_DURATION>;
 }
 
 impl pallet_glutton::Config for Runtime {
