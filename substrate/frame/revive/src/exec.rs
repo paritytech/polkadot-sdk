@@ -877,7 +877,6 @@ where
 			storage_meter,
 			BalanceOf::<T>::max_value(),
 			false,
-			true,
 		)?
 		else {
 			return Ok(None);
@@ -911,7 +910,6 @@ where
 		storage_meter: &mut storage::meter::GenericMeter<T, S>,
 		deposit_limit: BalanceOf<T>,
 		read_only: bool,
-		origin_is_caller: bool,
 	) -> Result<Option<(Frame<T>, ExecutableOrPrecompile<T, E, Self>)>, ExecError> {
 		let (account_id, contract_info, executable, delegate, entry_point) = match frame_args {
 			FrameArgs::Call { dest, cached_info, delegated_call } => {
@@ -1068,7 +1066,6 @@ where
 			nested_storage,
 			deposit_limit,
 			read_only,
-			false,
 		)? {
 			self.frames.try_push(frame).map_err(|_| Error::<T>::MaxCallDepthReached)?;
 			Ok(Some(executable))
