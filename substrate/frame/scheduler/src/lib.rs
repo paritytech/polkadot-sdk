@@ -418,13 +418,11 @@ pub mod pallet {
 
 		#[cfg(feature = "std")]
 		fn integrity_test() {
-			fn lookup_weight<T: Config>(s: u32) -> Weight {
+			/// Calculate the maximum weight that a lookup of a given size can take.
+			fn lookup_weight<T: Config>(s: usize) -> Weight {
 				T::WeightInfo::service_agendas_base() +
 					T::WeightInfo::service_agenda_base(T::MaxScheduledPerBlock::get()) +
-					T::WeightInfo::service_task_base() +
-					T::WeightInfo::service_task_fetched(s) +
-					T::WeightInfo::service_task_named() +
-					T::WeightInfo::service_task_periodic()
+					T::WeightInfo::service_task(Some(s), true, true)
 			}
 
 			let limit = sp_runtime::Perbill::from_percent(90) * T::MaximumWeight::get();
