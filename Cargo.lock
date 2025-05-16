@@ -1182,7 +1182,7 @@ dependencies = [
 
 [[package]]
 name = "asset-hub-westend-runtime"
-version = "0.29.2"
+version = "0.30.0"
 dependencies = [
  "asset-test-utils",
  "assets-common",
@@ -4792,7 +4792,7 @@ dependencies = [
 
 [[package]]
 name = "cumulus-relay-chain-minimal-node"
-version = "0.23.0"
+version = "0.23.1"
 dependencies = [
  "array-bytes",
  "async-trait",
@@ -11285,7 +11285,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-beefy"
-version = "41.1.0"
+version = "41.1.1"
 dependencies = [
  "frame-election-provider-support",
  "frame-support",
@@ -12644,7 +12644,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-revive"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "alloy-core",
  "array-bytes",
@@ -12702,7 +12702,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-revive-eth-rpc"
-version = "0.4.0"
+version = "0.5.0"
 dependencies = [
  "anyhow",
  "clap",
@@ -12752,7 +12752,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-revive-mock-network"
-version = "0.4.0"
+version = "0.5.0"
 dependencies = [
  "frame-support",
  "frame-system",
@@ -12915,7 +12915,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-session"
-version = "40.0.0"
+version = "40.0.1"
 dependencies = [
  "frame-support",
  "frame-system",
@@ -13728,7 +13728,7 @@ dependencies = [
 
 [[package]]
 name = "penpal-runtime"
-version = "0.28.1"
+version = "0.29.0"
 dependencies = [
  "assets-common",
  "cumulus-pallet-aura-ext",
@@ -14686,7 +14686,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-node-core-dispute-coordinator"
-version = "22.0.0"
+version = "22.0.1"
 dependencies = [
  "assert_matches",
  "fatality",
@@ -16099,7 +16099,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-statement-distribution"
-version = "22.0.0"
+version = "22.0.1"
 dependencies = [
  "arrayvec 0.7.4",
  "assert_matches",
@@ -21232,7 +21232,7 @@ dependencies = [
 
 [[package]]
 name = "snowbridge-core"
-version = "0.13.1"
+version = "0.13.2"
 dependencies = [
  "bp-relayers",
  "ethabi-decode",
@@ -21275,7 +21275,7 @@ dependencies = [
 
 [[package]]
 name = "snowbridge-inbound-queue-primitives"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "alloy-core",
  "frame-support",
@@ -21460,7 +21460,7 @@ dependencies = [
 
 [[package]]
 name = "snowbridge-pallet-inbound-queue-v2"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "alloy-core",
  "bp-relayers",
@@ -21527,7 +21527,7 @@ dependencies = [
 
 [[package]]
 name = "snowbridge-pallet-outbound-queue-v2"
-version = "0.2.1"
+version = "0.2.2"
 dependencies = [
  "alloy-core",
  "bp-relayers",
@@ -21584,7 +21584,7 @@ dependencies = [
 
 [[package]]
 name = "snowbridge-pallet-system-frontend"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -21607,7 +21607,7 @@ dependencies = [
 
 [[package]]
 name = "snowbridge-pallet-system-v2"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -23874,7 +23874,7 @@ dependencies = [
 
 [[package]]
 name = "staging-xcm-executor"
-version = "19.1.0"
+version = "19.1.1"
 dependencies = [
  "environmental",
  "frame-benchmarking",
