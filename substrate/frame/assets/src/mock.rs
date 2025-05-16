@@ -20,6 +20,7 @@
 use super::*;
 use crate as pallet_assets;
 
+use crate::precompiles::ERC20;
 use codec::Encode;
 use frame_support::{
 	assert_ok, construct_runtime, derive_impl, parameter_types,
@@ -55,7 +56,6 @@ impl pallet_balances::Config for Test {
 	type AccountStore = System;
 }
 
-use crate::precompiles::ERC20;
 make_precompile_assets_config!(ERC20Config, 0x0120);
 
 #[derive_impl(pallet_revive::config_preludes::TestDefaultConfig)]

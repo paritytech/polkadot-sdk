@@ -154,6 +154,7 @@ where
 	}
 }
 
+/// An account mapper that can be used for testing u64 account ids.
 pub struct TestAccountMapper<T>(PhantomData<T>);
 
 impl<T> AddressMapper<T> for TestAccountMapper<T>
