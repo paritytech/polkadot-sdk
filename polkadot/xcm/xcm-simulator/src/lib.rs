@@ -473,6 +473,7 @@ pub mod helpers {
 	}
 
 	/// A test utility for tracking XCM topic IDs
+	#[derive(Clone)]
 	pub struct TopicIdTracker {
 		ids: HashMap<String, H256>,
 	}
@@ -525,16 +526,16 @@ pub mod helpers {
 		/// Asserts that exactly one topic ID is tracked across all chains.
 		pub fn assert_unique() {
 			TRACKED_TOPIC_IDS.with(|b| {
-				let captor = b.borrow();
-				captor.assert_unique();
+				let tracker = b.borrow();
+				tracker.assert_unique();
 			});
 		}
 
 		/// Inserts a topic ID for a chain and asserts both per-chain and global uniqueness.
 		pub fn insert_and_assert_unique(chain: &str, id: H256) {
 			TRACKED_TOPIC_IDS.with(|b| {
-				let mut captor = b.borrow_mut();
-				captor.insert_and_assert_unique(chain, id);
+				let mut tracker = b.borrow_mut();
+				tracker.insert_and_assert_unique(chain, id);
 			});
 		}
 
