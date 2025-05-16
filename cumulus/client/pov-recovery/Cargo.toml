@@ -38,6 +38,7 @@ polkadot-primitives = { workspace = true, default-features = true }
 async-trait = { workspace = true }
 cumulus-primitives-core = { workspace = true, default-features = true }
 cumulus-relay-chain-interface = { workspace = true, default-features = true }
+cumulus-relay-chain-streams = { workspace = true, default-features = true }
 
 [dev-dependencies]
 assert_matches = { workspace = true }

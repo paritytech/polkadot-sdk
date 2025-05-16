@@ -447,6 +447,7 @@ where
 		relay_chain_slot_duration,
 		recovery_handle,
 		sync_service: sync_service.clone(),
+		prometheus_registry: None,
 	})?;
 
 	if let Some(collator_key) = collator_key {
