@@ -478,7 +478,6 @@ pub mod helpers {
 	}
 
 	/// A test utility for capturing XCM topic IDs
-	#[derive(Clone)]
 	pub struct TopicIdCaptor {
 		ids: HashMap<String, H256>,
 	}
@@ -519,14 +518,6 @@ pub mod helpers {
 			self.assert_unique();
 		}
 
-		/// Retrieves the captured topic ID for the specified chain.
-		pub fn get(&self, chain: &str) -> H256 {
-			self.ids
-				.get(chain)
-				.copied()
-				.expect(&format!("Expected a captured topic ID for chain '{}'", chain))
-		}
-
 		/// Clears all captured topic IDs
 		pub fn reset(&mut self) {
 			self.ids.clear();
@@ -544,15 +535,12 @@ pub mod helpers {
 			});
 		}
 
-		/// Inserts a topic ID for a chain, asserting it matches the chain's existing ID and global
-		/// unique ID.
-		pub fn insert_and_assert_unique(chain: &str, id: H256) {
+		/// Captures a topic ID for a chain and asserts both per-chain and global uniqueness.
+		pub fn capture_and_assert_unique(chain: &str, id: H256) {
 			TRACKED_TOPIC_IDS.with(|b| {
 				let mut captor = b.borrow_mut();
 				captor.capture_and_assert_unique(chain, id);
 			});
-
-			Self::assert_unique();
 		}
 
 		/// Clears all tracked topic IDs, resetting the tracker for a new test.
