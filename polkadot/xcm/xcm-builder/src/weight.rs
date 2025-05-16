@@ -28,7 +28,7 @@ use frame_support::{
 	},
 };
 use sp_runtime::traits::{SaturatedConversion, Saturating, Zero};
-use xcm::latest::{prelude::*, Error, GetWeight, Weight};
+use xcm::latest::{prelude::*, GetWeight, Weight};
 use xcm_executor::{
 	traits::{WeightBounds, WeightTrader},
 	AssetsInHolding,
@@ -68,32 +68,32 @@ impl<T: Get<Weight>, C: Decode + GetDispatchInfo, M: Get<u32>> WeightBounds<C>
 }
 
 impl<T: Get<Weight>, C: Decode + GetDispatchInfo, M> FixedWeightBounds<T, C, M> {
-	fn weight_with_limit(message: &mut Xcm<C>, instrs_limit: &mut u32) -> Result<Weight, Error> {
+	fn weight_with_limit(message: &mut Xcm<C>, instrs_limit: &mut u32) -> Result<Weight, XcmError> {
 		let mut r: Weight = Weight::zero();
 		*instrs_limit =
-			instrs_limit.checked_sub(message.0.len() as u32).ok_or_else(|| Error::NoDeal)?;
+			instrs_limit.checked_sub(message.0.len() as u32).ok_or_else(|| XcmError::NoDeal)?;
 		for instruction in message.0.iter_mut() {
 			r = r
 				.checked_add(&Self::instr_weight_with_limit(instruction, instrs_limit)?)
-				.ok_or_else(|| Error::MaxWeightInvalid)?;
+				.ok_or_else(|| XcmError::MaxWeightInvalid)?;
 		}
 		Ok(r)
 	}
 	fn instr_weight_with_limit(
 		instruction: &mut Instruction<C>,
 		instrs_limit: &mut u32,
-	) -> Result<Weight, Error> {
+	) -> Result<Weight, XcmError> {
 		let instr_weight = match instruction {
 			Transact { ref mut call, .. } =>
 				call.ensure_decoded()
-					.map_err(|_| Error::FailedToDecode)?
+					.map_err(|_| XcmError::FailedToDecode)?
 					.get_dispatch_info()
 					.call_weight,
 			SetErrorHandler(xcm) | SetAppendix(xcm) | ExecuteWithOrigin { xcm, .. } =>
 				Self::weight_with_limit(xcm, instrs_limit)?,
 			_ => Weight::zero(),
 		};
-		T::get().checked_add(&instr_weight).ok_or_else(|| Error::MaxWeightInvalid)
+		T::get().checked_add(&instr_weight).ok_or_else(|| XcmError::MaxWeightInvalid)
 	}
 }
 
@@ -141,25 +141,25 @@ where
 	M: Get<u32>,
 	Instruction<C>: xcm::latest::GetWeight<W>,
 {
-	fn weight_with_limit(message: &mut Xcm<C>, instrs_limit: &mut u32) -> Result<Weight, Error> {
+	fn weight_with_limit(message: &mut Xcm<C>, instrs_limit: &mut u32) -> Result<Weight, XcmError> {
 		let mut r: Weight = Weight::zero();
 		*instrs_limit =
-			instrs_limit.checked_sub(message.0.len() as u32).ok_or_else(|| Error::NoDeal)?;
+			instrs_limit.checked_sub(message.0.len() as u32).ok_or_else(|| XcmError::NoDeal)?;
 		for instruction in message.0.iter_mut() {
 			r = r
 				.checked_add(&Self::instr_weight_with_limit(instruction, instrs_limit)?)
-				.ok_or_else(|| Error::MaxWeightInvalid)?;
+				.ok_or_else(|| XcmError::MaxWeightInvalid)?;
 		}
 		Ok(r)
 	}
 	fn instr_weight_with_limit(
 		instruction: &mut Instruction<C>,
 		instrs_limit: &mut u32,
-	) -> Result<Weight, Error> {
+	) -> Result<Weight, XcmError> {
 		let instr_weight = match instruction {
 			Transact { ref mut call, .. } =>
 				call.ensure_decoded()
-					.map_err(|_| Error::FailedToDecode)?
+					.map_err(|_| XcmError::FailedToDecode)?
 					.get_dispatch_info()
 					.call_weight,
 			SetErrorHandler(xcm) | SetAppendix(xcm) => Self::weight_with_limit(xcm, instrs_limit)?,
@@ -168,7 +168,7 @@ where
 		instruction
 			.weight()
 			.checked_add(&instr_weight)
-			.ok_or_else(|| Error::MaxWeightInvalid)
+			.ok_or_else(|| XcmError::MaxWeightInvalid)
 	}
 }
 
