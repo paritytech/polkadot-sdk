@@ -469,12 +469,59 @@ where
 		self.view_store.futures_at(at)
 	}
 
+	/// Searches in the view store for a view by iterating through the fork of
+	/// the `at` block, up to the last finalized block.
+	///
+	/// Returns with a pair of a maybe view and a set of enacted blocks (possibly empty if no view
+	/// is found), usually starting at the last known block of the fork, up to the block
+	/// corresponding to the found view.
+	fn find_best_view(
+		&self,
+		at: &HashAndNumber<Block>,
+	) -> (Option<Arc<View<ChainApi>>>, Vec<Block::Hash>) {
+		let mut enacted_blocks = Vec::new();
+		let mut best_view = None;
+
+		let mut at_hash = at.hash;
+		let mut at_number = at.number;
+
+		let last_finalized = self.enactment_state.lock().recent_finalized_block();
+		let Some(last_finalized_number) = self.api.resolve_block_number(last_finalized).ok() else {
+			return (None, Vec::new());
+		};
+
+		// Search for a view that can be used to get and return an approximate ready
+		// transaction set.
+		while at_number > last_finalized_number {
+			// Found a view, stop searching..
+			if let Some((view, _)) = self.view_store.get_view_at(at_hash, true) {
+				best_view = Some(view);
+				break;
+			}
+
+			enacted_blocks.push(at_hash);
+
+			// Move up into the fork. Return with no view or enacted blocks list if
+			// we can't access the header of the current block.
+			let Some(header) = self.api.block_header(at_hash).ok().flatten() else {
+				return (None, Vec::new());
+			};
+			at_hash = *header.parent_hash();
+			at_number = at_number.saturating_sub(1u32.into());
+		}
+
+		return (best_view, enacted_blocks);
+	}
+
 	/// Returns a best-effort set of ready transactions for a given block, without executing full
 	/// maintain process.
 	///
 	/// The method attempts to build a temporary view and create an iterator of ready transactions
 	/// for a specific `at` hash. If a valid view is found, it collects and prunes
-	/// transactions already included in the blocks and returns the valid set.
+	/// transactions already included in the blocks and returns the valid set. Not finding a view
+	/// returns with the ready transaction set found in the most recent view processed by the
+	/// fork-aware txpool. Not being able to query for block number for the provided `at` block hash
+	/// results in returning an empty transaction set.
 	///
 	/// Pruning is just rebuilding the underlying transactions graph, no validations are executed,
 	/// so this process shall be fast.
@@ -487,60 +534,20 @@ where
 			"fatp::ready_at_light"
 		);
 
-		// Return an empty ready transactions set if we can not find the number of `at` block hash.
+		// Return an empty ready txs set if we can not resolve `at` block number.
 		let Ok(at_number) = self.api.resolve_block_number(at) else {
-			return Box::new(std::iter::empty())
+			return Box::new(std::iter::empty());
 		};
-
-		let mut to_process = Vec::new();
-		let mut best_view = None;
-		let mut tmp_at_number = at_number;
-		let mut tmp_at = at;
-
-		// Return an empty ready transaction set if we can't find a finalized block to report to,
-		// given we can not look for a view that can provide an approximate ready transaction set
-		// on the fork ending with `at` up to the finalized block.
-		let last_finalized = self.enactment_state.lock().recent_finalized_block();
-		let Ok(last_finalized_number) = self.api.resolve_block_number(last_finalized) else {
-			return Box::new(std::iter::empty())
-		};
-
-		// Search for a view that can be used to get and return an approximate ready
-		// transaction set.
-		while tmp_at_number > last_finalized_number {
-			// Found a view, stop searching..
-			if let Some((view, _)) = self.view_store.get_view_at(tmp_at, true) {
-				best_view = Some(view);
-				break;
-			}
-
-			to_process.push(tmp_at);
-			// Move up the hierarchy by getting the parent block.
-			if let Ok(tmp_at_header) = self.api.block_header(tmp_at) {
-				let Some(parent_number) = tmp_at_header.and_then(|header| {
-					tmp_at = *header.parent_hash();
-					self.api.resolve_block_number(*header.parent_hash()).ok()
-				}) else {
-					break;
-				};
-
-				tmp_at_number = parent_number;
-			} else {
-				// Not finding the header of any block on the fork means we can not continue looking
-				// for a view up to the finalized block, so we break early.
-				break;
-			}
-		}
 
 		// Prune all txs from the best view found, considering the extrinsics part of the blocks
 		// that are more recent than the view itself.
-		if let Some(view) = best_view {
-			let (tmp_view, _, _): (View<ChainApi>, _, _) =
-				View::new_from_other(&view, &HashAndNumber { hash: at, number: at_number });
+		let at_hn = HashAndNumber { hash: at, number: at_number };
+		if let (Some(view), enacted_blocks) = self.find_best_view(&at_hn) {
+			let (tmp_view, _, _): (View<ChainApi>, _, _) = View::new_from_other(&view, &at_hn);
 
 			let mut all_extrinsics = vec![];
 
-			for h in to_process {
+			for h in enacted_blocks {
 				let extrinsics = api
 					.block_body(h)
 					.await
