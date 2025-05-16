@@ -126,9 +126,9 @@ where
 	S: Ord,
 {
 	/// HashMap storing transactions by unique key for quick access.
-	txs_by_hashes: HashMap<K, V>,
+	items_by_hashes: HashMap<K, V>,
 	/// BTreeMap ordering transactions for prioritized access based on sort key.
-	txs_by_priority: BTreeMap<SortKey<S, K>, V>,
+	items_by_priority: BTreeMap<SortKey<S, K>, V>,
 }
 
 /// Core structure for storing and managing transactions in TxMemPool.
@@ -158,46 +158,7 @@ where
 	S: Ord,
 {
 	fn default() -> Self {
-		Self { txs_by_hashes: Default::default(), txs_by_priority: Default::default() }
-	}
-}
-
-// todo: is it needed?
-// impl<K, V> Clone for InnerStorage<K, V>
-// where
-//     K: Ord + Clone,
-//     V: Clone,
-// {
-//     fn clone(&self) -> Self {
-//         Self {
-//             txs_by_hashes: self.txs_by_hashes.clone(),
-//             txs_by_priority: self.txs_by_priority.clone(),
-//         }
-//     }
-// }
-
-// todo: is it needed? improve it maybe?
-impl<K, S, V> TrackedMap<K, S, V>
-where
-	K: Ord + Clone,
-	S: Ord,
-	V: Clone,
-{
-	/// Clone the inner map.
-	pub async fn clone_map(&self) -> HashMap<K, V> {
-		self.index.read().await.clone_map()
-	}
-}
-
-impl<K, S, V> InnerStorage<K, S, V>
-where
-	K: Ord + Clone,
-	S: Ord,
-	V: Clone,
-{
-	//todo we should not clone this, should be some smart filtering (maybe via closure?)
-	pub fn clone_map(&self) -> HashMap<K, V> {
-		self.txs_by_hashes.clone()
+		Self { items_by_hashes: Default::default(), items_by_priority: Default::default() }
 	}
 }
 
@@ -208,29 +169,43 @@ where
 {
 	/// Retrieves a reference to the value corresponding to the key, if present.
 	pub fn get(&self, key: &K) -> Option<&V> {
-		self.txs_by_hashes.get(key)
+		self.items_by_hashes.get(key)
 	}
 
 	/// Checks if the map contains the specified key.
 	pub fn contains_key(&self, key: &K) -> bool {
-		self.txs_by_hashes.contains_key(key)
+		self.items_by_hashes.contains_key(key)
 	}
 
 	/// Returns an iterator over the values in the map.
 	pub fn values(&self) -> std::collections::hash_map::Values<K, V> {
-		self.txs_by_hashes.values()
+		self.items_by_hashes.values()
 	}
 
 	/// Returns the number of elements in the map.
 	pub fn len(&self) -> usize {
-		debug_assert_eq!(self.txs_by_hashes.len(), self.txs_by_priority.len());
-		self.txs_by_hashes.len()
+		debug_assert_eq!(self.items_by_hashes.len(), self.items_by_priority.len());
+		self.items_by_hashes.len()
 	}
 
 	/// Removes and returns the first entry in the priority map, if it exists (testing only).
 	#[cfg(test)]
 	pub fn pop_first(&mut self) -> Option<V> {
-		self.txs_by_priority.pop_first().map(|(_, v)| v)
+		self.items_by_priority.pop_first().map(|(_, v)| v)
+	}
+
+	pub fn with_items<F, R>(&self, f: F) -> R
+	where
+		F: Fn(std::collections::hash_map::Iter<K, V>) -> R,
+	{
+		f(self.items_by_hashes.iter())
+	}
+
+	pub fn with_items2<F, R>(&self, f: F) -> R
+	where
+		for<'a> F: Fn(Box<dyn Iterator<Item = (&'a K, &'a V)> + 'a>) -> R,
+	{
+		f(Box::new(self.items_by_hashes.iter()))
 	}
 }
 
@@ -244,23 +219,23 @@ where
 {
 	/// Inserts a key-value pair into the map, ordering by priority.
 	pub fn insert(&mut self, key: K, val: V) -> Option<V> {
-		let r = self.txs_by_hashes.insert(key, val.clone());
+		let r = self.items_by_hashes.insert(key, val.clone());
 
 		if let Some(ref removed) = r {
-			let a = self.txs_by_priority.remove(&SortKey::new(&key, removed));
+			let a = self.items_by_priority.remove(&SortKey::new(&key, removed));
 			// debug_assert_eq!(r, a);
 		}
-		let a = self.txs_by_priority.insert(SortKey::new(&key, &val), val);
+		let a = self.items_by_priority.insert(SortKey::new(&key, &val), val);
 		// debug_assert!(a.is_none());
 		r
 	}
 
 	/// Removes a key-value pair from the map based on the key.
 	pub fn remove(&mut self, key: &K) -> Option<V> {
-		let r = self.txs_by_hashes.remove(key);
+		let r = self.items_by_hashes.remove(key);
 		let _ = r.as_ref().map(|r| {
 			let k = SortKey::new(key, r);
-			let a = self.txs_by_priority.remove(&k);
+			let a = self.items_by_priority.remove(&k);
 			// debug_assert_eq!(r.clone(), a.expect("item should be in both mapts. qed."));
 		});
 		r
@@ -273,15 +248,15 @@ where
 	where
 		F: FnOnce(&mut V),
 	{
-		let item = self.txs_by_hashes.get_mut(key)?;
+		let item = self.items_by_hashes.get_mut(key)?;
 
 		let old_key = SortKey::new(key, item);
 		f(item);
 		let new_key = SortKey::new(key, item);
 
 		if old_key != new_key {
-			self.txs_by_priority.remove(&old_key);
-			self.txs_by_priority.insert(new_key, item.clone());
+			self.items_by_priority.remove(&old_key);
+			self.items_by_priority.insert(new_key, item.clone());
 		}
 
 		Some(())
@@ -298,8 +273,11 @@ where
 	/// Attempts to insert an item with replacement based on free space and priority.
 	/// Returns the total size in bytes of removed items, and their keys.
 	///
+	/// Insertion always results with other item's removal, the len bound is kept elsewhere
+	///
+	/// (todo which may required some cleanup)
+	///
 	/// If nothing was inserted `(None,0)` is returned.
-	/// If item was inserted and nothing was removed `(Some(vec![]),0)` is returned.
 	pub fn try_insert_with_replacement(
 		&mut self,
 		free_bytes: usize,
@@ -317,13 +295,8 @@ where
 			return (None, 0);
 		}
 
-		if free_bytes >= item.size() {
-			self.insert(key, item);
-			return (Some(to_be_removed), total_size_removed);
-		}
-
 		for (SortKey(PriorityKey(worst_priority, worst_timestamp), worst_key), worst_item) in
-			&self.txs_by_priority
+			&self.items_by_priority
 		{
 			if *worst_priority > item.priority() {
 				return (None, 0);
@@ -372,11 +345,6 @@ where
 	/// Current tracked length of the content.
 	pub fn len(&self) -> usize {
 		std::cmp::max(self.length.load(AtomicOrdering::Relaxed), 0) as usize
-	}
-
-	/// Checks if the map is empty.
-	pub fn is_empty(&self) -> bool {
-		self.len() == 0
 	}
 
 	/// Current sum of content length.
@@ -432,9 +400,18 @@ where
 		self.inner_guard.len()
 	}
 
-	/// Checks if the map is empty.
-	pub fn is_empty(&self) -> bool {
-		self.len() == 0
+	pub fn with_items<F, R>(&self, f: F) -> R
+	where
+		F: Fn(std::collections::hash_map::Iter<K, V>) -> R,
+	{
+		self.inner_guard.with_items(f)
+	}
+
+	pub fn with_items2<F, R>(&self, f: F) -> R
+	where
+		for<'a> F: Fn(Box<dyn Iterator<Item = (&'a K, &'a V)> + 'a>) -> R,
+	{
+		self.inner_guard.with_items2(f)
 	}
 }
 
@@ -524,37 +501,12 @@ where
 		self.inner_guard.len()
 	}
 
-	pub fn is_empty(&mut self) -> bool {
-		self.len() == 0
-	}
-
 	#[cfg(test)]
 	pub fn pop_first(&mut self) -> Option<V> {
 		self.inner_guard.pop_first()
 	}
 }
 
-// // todo: instead of clone_map
-// // impl<H, V> TrackedMap<H, V>
-// // where
-// //     H: Eq + std::hash::Hash + Clone,
-// //     V: Clone + HasPriorityAndTimestamp,
-// // {
-// //     pub async fn get_filtered_transactions<F>(&self, filter: F) -> Vec<V>
-// //     where
-// //         F: Fn(&V) -> bool,
-// //     {
-// //         let storage = self.index.read().await;
-// //
-// //         storage
-// //             .txs_by_hashes
-// //             .values()
-// //             .filter(|v| filter(v))
-// //             .cloned()
-// //             .collect()
-// //     }
-// // }
-//
 #[cfg(test)]
 mod tests {
 	use test_case::test_case;
@@ -665,12 +617,13 @@ mod tests {
 		assert_eq!(map.read().await.len(), 0);
 	}
 
+	//todo: rsrust
 	#[test_case(20, 30, 50, 50, 100, 3, 100, 2, 100)]
 	#[test_case(2, 46, 50, 3, 100, 3, 98, 3, 99)]
-	#[test_case(2, 46, 50, 2, 100, 3, 98, 4, 100)]
+	#[test_case(2, 46, 50, 2, 100, 3, 98, 3, 98)]
 	#[test_case(2, 47, 50, 4, 100, 3, 99, 2, 54)]
 	#[test_case(1, 47, 50, 99, 100, 3, 98, 1, 99)]
-	#[test_case(1, 1, 1, 2, 100, 3, 3, 4, 5)]
+	#[test_case(1, 1, 1, 2, 100, 3, 3, 3, 4)] //always remove
 	#[test_case(20, 30, 40, 150, 100, 3, 90, 3, 90)]
 	#[test_case(10, 20, 30, 80, 100, 3, 60, 1, 80)]
 	#[tokio::test]
