@@ -22,7 +22,7 @@
 use super::*;
 
 use frame_benchmarking::v2::*;
-use frame_support::traits::{Get, UnfilteredDispatchable};
+use frame_support::traits::UnfilteredDispatchable;
 use frame_system::{Pallet as System, RawOrigin};
 use sp_runtime::traits::Hash;
 
