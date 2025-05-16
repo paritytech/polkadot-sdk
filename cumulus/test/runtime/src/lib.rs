@@ -206,7 +206,7 @@ const MAXIMUM_BLOCK_WEIGHT: Weight = Weight::from_parts(
 );
 
 parameter_types! {
-	pub const BlockHashCount: BlockNumber = 250;
+	pub const BlockHashCount: BlockNumber = 4096;
 	pub const Version: RuntimeVersion = VERSION;
 	pub RuntimeBlockLength: BlockLength =
 		BlockLength::max_with_normal_ratio(5 * 1024 * 1024, NORMAL_DISPATCH_RATIO);
@@ -334,25 +334,22 @@ pub struct MultipleBlocksPerPoVCoreSelector;
 
 impl SelectCore for MultipleBlocksPerPoVCoreSelector {
 	fn selected_core() -> (CoreSelector, ClaimQueueOffset) {
-		let core_selector = (System::block_number().saturating_sub(1) / BlocksPerPoV::get())
-			.using_encoded(|b| b[0]);
-
-		(CoreSelector(core_selector), ClaimQueueOffset(0))
+		(CoreSelector(0), ClaimQueueOffset(0))
 	}
 
 	fn select_next_core() -> (CoreSelector, ClaimQueueOffset) {
 		let core_selector =
 			((System::block_number()) / BlocksPerPoV::get()).using_encoded(|b| b[0]);
 
-		(CoreSelector(core_selector), ClaimQueueOffset(0))
+		(CoreSelector(0), ClaimQueueOffset(0))
 	}
 }
 
 type ConsensusHook = cumulus_pallet_aura_ext::FixedVelocityConsensusHook<
 	Runtime,
 	RELAY_CHAIN_SLOT_DURATION_MILLIS,
-	BLOCK_PROCESSING_VELOCITY,
-	UNINCLUDED_SEGMENT_CAPACITY,
+	24,
+	32,
 >;
 impl cumulus_pallet_parachain_system::Config for Runtime {
 	type WeightInfo = ();

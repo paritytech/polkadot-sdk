@@ -33,6 +33,7 @@ use polkadot_parachain_primitives::primitives::ValidationResult;
 use relay_chain::vstaging::{UMPSignal, UMP_SEPARATOR};
 use sc_consensus::{BlockImport, BlockImportParams, ForkChoiceStrategy};
 use sp_api::{ApiExt, Core, ProofRecorder, ProvideRuntimeApi};
+use sp_consensus_slots::SlotDuration;
 use sp_core::H256;
 use sp_runtime::traits::{BlakeTwo256, Block as BlockT, Header as HeaderT};
 use sp_trie::{proof_size_extension::ProofSizeExt, recorder::IgnoredNodes, StorageProof};
@@ -101,7 +102,7 @@ fn create_test_client() -> (Client, Header) {
 fn create_elastic_scaling_test_client(blocks_per_pov: u32) -> (Client, Header) {
 	let mut builder = TestClientBuilder::new();
 	builder.genesis_init_mut().wasm = Some(
-		test_runtime::elastic_scaling_multi_block_slot::WASM_BINARY
+		test_runtime::elastic_scaling_500ms::WASM_BINARY
 			.expect("You need to build the WASM binaries to run the tests!")
 			.to_vec(),
 	);
@@ -156,14 +157,25 @@ fn build_multiple_blocks_with_witness(
 	num_blocks: u32,
 	extra_extrinsics: impl Fn(u32) -> Vec<UncheckedExtrinsic>,
 ) -> TestBlockData {
-	let timestamp = std::time::SystemTime::now()
-		.duration_since(std::time::SystemTime::UNIX_EPOCH)
-		.expect("Time is always after UNIX_EPOCH; qed")
-		.as_millis() as u64;
 	let parent_head_root = *parent_head.state_root();
 	sproof_builder.para_id = test_runtime::PARACHAIN_ID.into();
 	sproof_builder.included_para_head = Some(HeadData(parent_head.encode()));
-	sproof_builder.current_slot = (timestamp / 6000).into();
+
+	let timestamp = if sproof_builder.current_slot == 0u64 {
+		let timestamp = std::time::SystemTime::now()
+			.duration_since(std::time::SystemTime::UNIX_EPOCH)
+			.expect("Time is always after UNIX_EPOCH; qed")
+			.as_millis() as u64;
+		sproof_builder.current_slot = (timestamp / 6000).into();
+
+		timestamp
+	} else {
+		sproof_builder
+			.current_slot
+			.timestamp(SlotDuration::from_millis(6000))
+			.unwrap()
+			.as_millis()
+	};
 
 	let validation_data = PersistedValidationData {
 		relay_parent_number: 1,
@@ -515,7 +527,7 @@ fn state_changes_in_multiple_blocks_are_applied_in_exact_order() {
 			&client,
 			Alice.into(),
 			TestPalletCall::store_values_in_map { max_key: 4095 },
-			Some(0), // Nonce 0 for Alice
+			Some(0),
 		)],
 		genesis_head.clone(),
 		RelayStateSproofBuilder { current_slot: 1.into(), ..Default::default() },
@@ -539,7 +551,7 @@ fn state_changes_in_multiple_blocks_are_applied_in_exact_order() {
 					&client,
 					Bob.into(), // Use Bob to avoid nonce conflicts with Alice
 					TestPalletCall::remove_value_from_map { key: key_to_remove },
-					Some(i), // Nonce `i` for Bob
+					Some(i),
 				)]
 			},
 		);
