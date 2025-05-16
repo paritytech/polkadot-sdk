@@ -17,13 +17,14 @@
 mod mock;
 
 use mock::{
-	fake_message_hash, kusama_like_with_balances, AccountId, Balance, Balances, BaseXcmWeight,
-	System, XcmConfig, CENTS,
+	kusama_like_with_balances, AccountId, Balance, Balances, BaseXcmWeight, System, XcmConfig,
+	CENTS,
 };
 use polkadot_parachain_primitives::primitives::Id as ParaId;
 use sp_runtime::traits::AccountIdConversion;
 use xcm::latest::{prelude::*, Error::UntrustedTeleportLocation};
 use xcm_executor::XcmExecutor;
+use xcm_simulator::fake_message_hash;
 
 pub const ALICE: AccountId = AccountId::new([0u8; 32]);
 pub const PARA_ID: u32 = 2000;

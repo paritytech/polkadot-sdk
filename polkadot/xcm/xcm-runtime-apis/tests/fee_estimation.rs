@@ -30,7 +30,7 @@ use mock::{
 	new_test_ext_with_balances, new_test_ext_with_balances_and_assets, DeliveryFees,
 	ExistentialDeposit, HereLocation, OriginCaller, RuntimeCall, RuntimeEvent, TestClient,
 };
-use xcm_simulator::helpers::fake_message_hash;
+use xcm_simulator::fake_message_hash;
 
 // Scenario: User `1` in the local chain (id 2000) wants to transfer assets to account `[0u8; 32]`
 // on "AssetHub". He wants to make sure he has enough for fees, so before he calls the

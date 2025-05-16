@@ -472,11 +472,6 @@ pub mod helpers {
 		}
 	}
 
-	/// Computes a fake topic ID by hashing the encoded XCM message.
-	pub fn fake_message_hash<T>(message: &Xcm<T>) -> XcmHash {
-		message.using_encoded(blake2_256)
-	}
-
 	/// A test utility for capturing XCM topic IDs
 	pub struct TopicIdCaptor {
 		ids: HashMap<String, H256>,

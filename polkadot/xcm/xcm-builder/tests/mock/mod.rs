@@ -14,7 +14,6 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use codec::Encode;
 use core::cell::RefCell;
 use frame_support::{
 	construct_runtime, derive_impl, parameter_types,
@@ -256,8 +255,4 @@ pub fn kusama_like_with_balances(balances: Vec<(AccountId, Balance)>) -> sp_io::
 	let mut ext = sp_io::TestExternalities::new(t);
 	ext.execute_with(|| System::set_block_number(1));
 	ext
-}
-
-pub fn fake_message_hash<T>(message: &Xcm<T>) -> XcmHash {
-	message.using_encoded(sp_io::hashing::blake2_256)
 }

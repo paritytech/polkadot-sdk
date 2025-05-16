@@ -31,6 +31,7 @@ use polkadot_parachain_primitives::primitives::Id as ParaId;
 use sp_runtime::traits::AccountIdConversion;
 use xcm::prelude::*;
 use xcm_executor::traits::ConvertLocation;
+use xcm_simulator::fake_message_hash;
 
 /// Test `limited_teleport_assets`
 ///
