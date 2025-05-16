@@ -1,6 +1,6 @@
 #![allow(unused_variables)]
 
-use crate::{Call, Config, PhantomData};
+use crate::{weights::WeightInfo, Call, Config, PhantomData};
 use alloc::vec::Vec;
 use alloy::{
 	primitives::IntoLogData,
@@ -138,6 +138,7 @@ where
 			.map_err(|_| Error::Revert(Revert { reason: "Balance conversion failed".into() }))
 	}
 
+	/// Call the runtime with the given call.
 	fn call_runtime(
 		env: &mut impl ExtWithInfo<T = Runtime>,
 		call: Call<Runtime, Instance>,
@@ -153,6 +154,7 @@ where
 		env.deposit_event(topics, data.to_vec());
 	}
 
+	/// Execute the transfer call.
 	fn transfer(
 		asset_id: <Runtime as Config<Instance>>::AssetId,
 		call: &transferCall,
@@ -184,35 +186,39 @@ where
 		return Ok(transferCall::abi_encode_returns(&true));
 	}
 
+	/// Execute the total supply call.
 	fn total_supply(
 		asset_id: <Runtime as Config<Instance>>::AssetId,
 		call: &totalSupplyCall,
 		env: &mut impl ExtWithInfo<T = Runtime>,
 	) -> Result<Vec<u8>, Error> {
-		// TODO add benchmark
 		use frame_support::traits::fungibles::Inspect;
+		env.charge(<Runtime as Config<Instance>>::WeightInfo::total_issuance())?;
+
 		let value = crate::Pallet::<Runtime, Instance>::total_issuance(asset_id);
 		return Ok(totalSupplyCall::abi_encode_returns(&value.into()));
 	}
 
+	/// Execute the balance_of call.
 	fn balance_of(
 		asset_id: <Runtime as Config<Instance>>::AssetId,
 		call: &balanceOfCall,
 		env: &mut impl ExtWithInfo<T = Runtime>,
 	) -> Result<Vec<u8>, Error> {
-		// TODO add benchmark
+		env.charge(<Runtime as Config<Instance>>::WeightInfo::balance())?;
 		let account = call.account.into_array().into();
 		let account = <Runtime as pallet_revive::Config>::AddressMapper::to_account_id(&account);
 		let value = crate::Pallet::<Runtime, Instance>::balance(asset_id, account);
 		return Ok(balanceOfCall::abi_encode_returns(&value.into()));
 	}
 
+	/// Execute the allowance call.
 	fn allowance(
 		asset_id: <Runtime as Config<Instance>>::AssetId,
 		call: &allowanceCall,
 		env: &mut impl ExtWithInfo<T = Runtime>,
 	) -> Result<Vec<u8>, Error> {
-		// TODO add benchmark
+		env.charge(<Runtime as Config<Instance>>::WeightInfo::allowance())?;
 		use frame_support::traits::fungibles::approvals::Inspect;
 		let owner = call.owner.into_array().into();
 		let owner = <Runtime as pallet_revive::Config>::AddressMapper::to_account_id(&owner);
@@ -224,6 +230,7 @@ where
 		return Ok(balanceOfCall::abi_encode_returns(&value.into()));
 	}
 
+	/// Execute the approve call.
 	fn approve(
 		asset_id: <Runtime as Config<Instance>>::AssetId,
 		call: &approveCall,
@@ -256,6 +263,7 @@ where
 		return Ok(approveCall::abi_encode_returns(&true));
 	}
 
+	/// Execute the transfer_from call.
 	fn transfer_from(
 		asset_id: <Runtime as Config<Instance>>::AssetId,
 		call: &transferFromCall,

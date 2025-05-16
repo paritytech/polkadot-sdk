@@ -72,6 +72,9 @@ use core::marker::PhantomData;
 
 /// Weight functions needed for `pallet_assets`.
 pub trait WeightInfo {
+	fn total_issuance() -> Weight { Weight::zero() }
+	fn balance() -> Weight { Weight::zero() }
+	fn allowance() -> Weight { Weight::zero() }
 	fn create() -> Weight;
 	fn force_create() -> Weight;
 	fn start_destroy() -> Weight;
