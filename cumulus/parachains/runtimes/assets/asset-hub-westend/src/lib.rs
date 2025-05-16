@@ -2413,20 +2413,19 @@ impl_runtime_apis! {
 
 		fn trace_block(
 			block: Block,
-			config: pallet_revive::evm::TracerConfig
-		) -> Vec<(u32, pallet_revive::evm::CallTrace)> {
+			tracer_type: pallet_revive::evm::TracerType,
+		) -> Vec<(u32, pallet_revive::evm::Trace)> {
 			use pallet_revive::tracing::trace;
-			let mut tracer = config.build(Revive::evm_gas_from_weight);
+			let mut tracer = Revive::evm_tracer(tracer_type);
 			let mut traces = vec![];
 			let (header, extrinsics) = block.deconstruct();
-
 			Executive::initialize_block(&header);
 			for (index, ext) in extrinsics.into_iter().enumerate() {
-				trace(&mut tracer, || {
+				trace(tracer.as_tracing(), || {
 					let _ = Executive::apply_extrinsic(ext);
 				});
 
-				if let Some(tx_trace) = tracer.collect_traces().pop() {
+				if let Some(tx_trace) = tracer.collect_trace() {
 					traces.push((index as u32, tx_trace));
 				}
 			}
@@ -2437,16 +2436,16 @@ impl_runtime_apis! {
 		fn trace_tx(
 			block: Block,
 			tx_index: u32,
-			config: pallet_revive::evm::TracerConfig
-		) -> Option<pallet_revive::evm::CallTrace> {
+			tracer_type: pallet_revive::evm::TracerType,
+		) -> Option<pallet_revive::evm::Trace> {
 			use pallet_revive::tracing::trace;
-			let mut tracer = config.build(Revive::evm_gas_from_weight);
+			let mut tracer = Revive::evm_tracer(tracer_type);
 			let (header, extrinsics) = block.deconstruct();
 
 			Executive::initialize_block(&header);
 			for (index, ext) in extrinsics.into_iter().enumerate() {
 				if index as u32 == tx_index {
-					trace(&mut tracer, || {
+				trace(tracer.as_tracing(), || {
 						let _ = Executive::apply_extrinsic(ext);
 					});
 					break;
@@ -2455,24 +2454,25 @@ impl_runtime_apis! {
 				}
 			}
 
-			tracer.collect_traces().pop()
+			tracer.collect_trace()
 		}
 
 		fn trace_call(
 			tx: pallet_revive::evm::GenericTransaction,
-			config: pallet_revive::evm::TracerConfig)
-			-> Result<pallet_revive::evm::CallTrace, pallet_revive::EthTransactError>
+			tracer_type: pallet_revive::evm::TracerType,
+			)
+			-> Result<pallet_revive::evm::Trace, pallet_revive::EthTransactError>
 		{
 			use pallet_revive::tracing::trace;
-			let mut tracer = config.build(Revive::evm_gas_from_weight);
-			let result = trace(&mut tracer, || Self::eth_transact(tx));
+			let mut tracer = Revive::evm_tracer(tracer_type);
+			let result = trace(tracer.as_tracing(), || Self::eth_transact(tx));
 
-			if let Some(trace) = tracer.collect_traces().pop() {
+			if let Some(trace) = tracer.collect_trace() {
 				Ok(trace)
 			} else if let Err(err) = result {
 				Err(err)
 			} else {
-				Ok(Default::default())
+				Ok(tracer.empty_trace())
 			}
 		}
 	}

@@ -44,7 +44,8 @@ pub mod weights;
 
 use crate::{
 	evm::{
-		runtime::GAS_PRICE, CallTrace, GasEncoder, GenericTransaction, TracerConfig, TYPE_EIP1559,
+		runtime::GAS_PRICE, CallTracer, GasEncoder, GenericTransaction, Trace, Tracer, TracerType,
+		TYPE_EIP1559,
 	},
 	exec::{AccountIdOf, ExecError, Executable, Key, Stack as ExecStack},
 	gas::GasMeter,
@@ -367,7 +368,7 @@ pub mod pallet {
 			type Xcm = ();
 			type RuntimeMemory = ConstU32<{ 128 * 1024 * 1024 }>;
 			type PVFMemory = ConstU32<{ 512 * 1024 * 1024 }>;
-			type ChainId = ConstU64<0>;
+			type ChainId = ConstU64<42>;
 			type NativeToEthRatio = ConstU32<1>;
 			type EthGasEncoder = ();
 			type FindAuthor = ();
@@ -578,6 +579,8 @@ pub mod pallet {
 
 		fn integrity_test() {
 			use limits::code::STATIC_MEMORY_BYTES;
+
+			assert!(T::ChainId::get() > 0, "ChainId must be greater than 0");
 
 			// The memory available in the block building runtime
 			let max_runtime_mem: u32 = T::RuntimeMemory::get();
@@ -1385,6 +1388,17 @@ where
 		GAS_PRICE.into()
 	}
 
+	/// Build an EVM tracer from the given tracer type.
+	pub fn evm_tracer(tracer_type: TracerType) -> Tracer {
+		match tracer_type {
+			TracerType::CallTracer(config) => CallTracer::new(
+				config.unwrap_or_default(),
+				Self::evm_gas_from_weight as fn(Weight) -> U256,
+			)
+			.into(),
+		}
+	}
+
 	/// A generalized version of [`Self::upload_code`].
 	///
 	/// It is identical to [`Self::upload_code`] and only differs in the information it returns.
@@ -1582,8 +1596,8 @@ sp_api::decl_runtime_apis! {
 		/// See eth-rpc `debug_traceBlockByNumber` for usage.
 		fn trace_block(
 			block: Block,
-			config: TracerConfig
-		) -> Vec<(u32, CallTrace)>;
+			config: TracerType
+		) -> Vec<(u32, Trace)>;
 
 		/// Traces the execution of a specific transaction within a block.
 		///
@@ -1594,13 +1608,13 @@ sp_api::decl_runtime_apis! {
 		fn trace_tx(
 			block: Block,
 			tx_index: u32,
-			config: TracerConfig
-		) -> Option<CallTrace>;
+			config: TracerType
+		) -> Option<Trace>;
 
 		/// Dry run and return the trace of the given call.
 		///
 		/// See eth-rpc `debug_traceCall` for usage.
-		fn trace_call(tx: GenericTransaction, config: TracerConfig) -> Result<CallTrace, EthTransactError>;
+		fn trace_call(tx: GenericTransaction, config: TracerType) -> Result<Trace, EthTransactError>;
 
 	}
 }
