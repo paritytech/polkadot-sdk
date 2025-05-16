@@ -860,7 +860,7 @@ fn do_try_state_works() {
 					bridge_destination_universal_location.clone(),
 				)),
 				state: BridgeState::Opened,
-				deposit: Some(Deposit::new(bridge_owner_account, Zero::zero())),
+				deposit: Some(Deposit::new(bridge_owner_account.clone(), Zero::zero())),
 				lane_id,
 				maybe_notify: None,
 			},
@@ -869,6 +869,30 @@ fn do_try_state_works() {
 			Some(TryRuntimeError::Other("Outbound lane not found!")),
 		);
 		cleanup(bridge_id, vec![lane_id, lane_id_mismatch]);
+
+		// ok state with old XCM version
+		test_bridge_state(
+			bridge_id,
+			Bridge {
+				bridge_origin_relative_location: Box::new(VersionedLocation::from(
+					bridge_origin_relative_location.clone(),
+				).into_version(XCM_VERSION - 1).unwrap()),
+				bridge_origin_universal_location: Box::new(VersionedInteriorLocation::from(
+					bridge_origin_universal_location.clone(),
+				).into_version(XCM_VERSION - 1).unwrap()),
+				bridge_destination_universal_location: Box::new(VersionedInteriorLocation::from(
+					bridge_destination_universal_location.clone(),
+				).into_version(XCM_VERSION - 1).unwrap()),
+				state: BridgeState::Opened,
+				deposit: Some(Deposit::new(bridge_owner_account, Zero::zero())),
+				lane_id,
+				maybe_notify: None,
+			},
+			(lane_id, bridge_id),
+			(lane_id, lane_id),
+			None,
+		);
+		cleanup(bridge_id, vec![lane_id]);
 
 		// missing bridge for inbound lane
 		let lanes_manager = LanesManagerOf::<TestRuntime, ()>::new();
