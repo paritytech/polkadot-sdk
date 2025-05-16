@@ -1630,6 +1630,42 @@ impl<T: Config> UpwardMessageSender for Pallet<T> {
 	fn send_upward_message(message: UpwardMessage) -> Result<(u32, XcmHash), MessageSendError> {
 		Self::send_upward_message(message)
 	}
+
+	fn can_send_upward_message(message: &UpwardMessage) -> Result<(), MessageSendError> {
+		let max_upward_message_size = HostConfiguration::<T>::get()
+			.map(|cfg| cfg.max_upward_message_size)
+			.ok_or(MessageSendError::Other)?;
+		if message.len() > max_upward_message_size as usize {
+			Err(MessageSendError::TooBig)
+		} else {
+			Ok(())
+		}
+	}
+
+	#[cfg(any(feature = "std", feature = "runtime-benchmarks", test))]
+	fn ensure_successful_delivery() {
+		const MAX_UPWARD_MESSAGE_SIZE: u32 = 65_531 * 3;
+		const MAX_CODE_SIZE: u32 = 3 * 1024 * 1024;
+		HostConfiguration::<T>::mutate(|cfg| match cfg {
+			Some(cfg) => cfg.max_upward_message_size = MAX_UPWARD_MESSAGE_SIZE,
+			None =>
+				*cfg = Some(AbridgedHostConfiguration {
+					max_code_size: MAX_CODE_SIZE,
+					max_head_data_size: 32 * 1024,
+					max_upward_queue_count: 8,
+					max_upward_queue_size: 1024 * 1024,
+					max_upward_message_size: MAX_UPWARD_MESSAGE_SIZE,
+					max_upward_message_num_per_candidate: 2,
+					hrmp_max_message_num_per_candidate: 2,
+					validation_upgrade_cooldown: 2,
+					validation_upgrade_delay: 2,
+					async_backing_params: relay_chain::AsyncBackingParams {
+						allowed_ancestry_len: 0,
+						max_candidate_depth: 0,
+					},
+				}),
+		})
+	}
 }
 
 impl<T: Config> InspectMessageQueues for Pallet<T> {

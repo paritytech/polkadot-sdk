@@ -17,18 +17,24 @@
 
 ///! Provides the [`SharedNodeCache`], the [`SharedValueCache`] and the [`SharedTrieCache`]
 ///! that combines both caches and is exported to the outside.
-use super::{CacheSize, NodeCached};
+use super::{
+	metrics::Metrics, CacheSize, LocalNodeCacheConfig, LocalNodeCacheLimiter,
+	LocalValueCacheConfig, LocalValueCacheLimiter, NodeCached, TrieHitStats, TrieHitStatsSnapshot,
+};
+use crate::cache::LOG_TARGET;
+use core::{hash::Hash, time::Duration};
 use hash_db::Hasher;
 use nohash_hasher::BuildNoHashHasher;
 use parking_lot::{Mutex, RwLock, RwLockWriteGuard};
+use prometheus_endpoint::Registry;
 use schnellru::LruMap;
 use std::{
 	collections::{hash_map::Entry as SetEntry, HashMap},
 	hash::{BuildHasher, Hasher as _},
 	sync::{Arc, LazyLock},
+	time::Instant,
 };
 use trie_db::{node::NodeOwned, CachedValue};
-
 static RANDOM_STATE: LazyLock<ahash::RandomState> = LazyLock::new(|| {
 	use rand::Rng;
 	let mut rng = rand::thread_rng();
@@ -266,20 +272,25 @@ impl<H: AsRef<[u8]> + Eq + std::hash::Hash> SharedNodeCache<H> {
 	}
 
 	/// Update the cache with the `list` of nodes which were either newly added or accessed.
-	pub fn update(&mut self, list: impl IntoIterator<Item = (H, NodeCached<H>)>) {
+	pub fn update(
+		&mut self,
+		list: impl IntoIterator<Item = (H, NodeCached<H>)>,
+		config: &LocalNodeCacheConfig,
+		metrics: &Option<Metrics>,
+	) {
 		let mut access_count = 0;
 		let mut add_count = 0;
 
 		self.lru.limiter_mut().items_evicted = 0;
 		self.lru.limiter_mut().max_items_evicted =
-			self.lru.len() * 100 / super::SHARED_NODE_CACHE_MAX_REPLACE_PERCENT;
+			self.lru.len() * 100 / config.shared_node_cache_max_replace_percent;
 
 		for (key, cached_node) in list {
 			if cached_node.is_from_shared_cache {
 				if self.lru.get(&key).is_some() {
 					access_count += 1;
 
-					if access_count >= super::SHARED_NODE_CACHE_MAX_PROMOTED_KEYS {
+					if access_count >= config.shared_node_cache_max_promoted_keys {
 						// Stop when we've promoted a large enough number of items.
 						break
 					}
@@ -296,6 +307,11 @@ impl<H: AsRef<[u8]> + Eq + std::hash::Hash> SharedNodeCache<H> {
 				break
 			}
 		}
+
+		metrics.as_ref().map(|m| {
+			m.observe_node_cache_inline_size(self.lru.memory_usage());
+			m.observe_node_cache_heap_size(self.lru.limiter().heap_size);
+		});
 
 		tracing::debug!(
 			target: super::LOG_TARGET,
@@ -509,6 +525,8 @@ impl<H: Eq + std::hash::Hash + Clone + Copy + AsRef<[u8]>> SharedValueCache<H> {
 		&mut self,
 		added: impl IntoIterator<Item = (ValueCacheKey<H>, CachedValue<H>)>,
 		accessed: impl IntoIterator<Item = ValueCacheKeyHash>,
+		config: &LocalValueCacheConfig,
+		metrics: &Option<Metrics>,
 	) {
 		let mut access_count = 0;
 		let mut add_count = 0;
@@ -531,7 +549,7 @@ impl<H: Eq + std::hash::Hash + Clone + Copy + AsRef<[u8]>> SharedValueCache<H> {
 
 		self.lru.limiter_mut().items_evicted = 0;
 		self.lru.limiter_mut().max_items_evicted =
-			self.lru.len() * 100 / super::SHARED_VALUE_CACHE_MAX_REPLACE_PERCENT;
+			self.lru.len() * 100 / config.shared_value_cache_max_replace_percent;
 
 		for (key, value) in added {
 			self.lru.insert(key, value);
@@ -542,6 +560,11 @@ impl<H: Eq + std::hash::Hash + Clone + Copy + AsRef<[u8]>> SharedValueCache<H> {
 				break
 			}
 		}
+
+		metrics.as_ref().map(|m| {
+			m.observe_value_cache_inline_size(self.lru.memory_usage());
+			m.observe_value_cache_heap_size(self.lru.limiter().heap_size);
+		});
 
 		tracing::debug!(
 			target: super::LOG_TARGET,
@@ -569,6 +592,9 @@ impl<H: Eq + std::hash::Hash + Clone + Copy + AsRef<[u8]>> SharedValueCache<H> {
 pub(super) struct SharedTrieCacheInner<H: Hasher> {
 	node_cache: SharedNodeCache<H::Out>,
 	value_cache: SharedValueCache<H::Out>,
+	stats: TrieHitStats,
+	metrics: Option<Metrics>,
+	previous_stats_dump: Instant,
 }
 
 impl<H: Hasher> SharedTrieCacheInner<H> {
@@ -593,6 +619,21 @@ impl<H: Hasher> SharedTrieCacheInner<H> {
 	pub(super) fn node_cache_mut(&mut self) -> &mut SharedNodeCache<H::Out> {
 		&mut self.node_cache
 	}
+
+	pub(super) fn metrics(&self) -> Option<&Metrics> {
+		self.metrics.as_ref()
+	}
+
+	/// Returns a mutable reference to the [`TrieHitStats`].
+	pub(super) fn stats_add_snapshot(&mut self, snapshot: &TrieHitStatsSnapshot) {
+		self.stats.add_snapshot(&snapshot);
+		// Print trie cache stats every 60 seconds.
+		if self.previous_stats_dump.elapsed() > Duration::from_secs(60) {
+			self.previous_stats_dump = Instant::now();
+			let snapshot = self.stats.snapshot();
+			tracing::trace!(target: LOG_TARGET, node_cache = %snapshot.node_cache, value_cache = %snapshot.value_cache, "Shared trie cache stats");
+		}
+	}
 }
 
 /// The shared trie cache.
@@ -614,7 +655,7 @@ impl<H: Hasher> Clone for SharedTrieCache<H> {
 
 impl<H: Hasher> SharedTrieCache<H> {
 	/// Create a new [`SharedTrieCache`].
-	pub fn new(cache_size: CacheSize) -> Self {
+	pub fn new(cache_size: CacheSize, metrics_registry: Option<&Registry>) -> Self {
 		let total_budget = cache_size.0;
 
 		// Split our memory budget between the two types of caches.
@@ -659,21 +700,77 @@ impl<H: Hasher> SharedTrieCache<H> {
 					value_cache_max_inline_size,
 					value_cache_max_heap_size,
 				),
+				stats: Default::default(),
+				previous_stats_dump: Instant::now(),
+				metrics: metrics_registry.and_then(|registry| Metrics::register(registry).ok()),
 			})),
 		}
 	}
 
 	/// Create a new [`LocalTrieCache`](super::LocalTrieCache) instance from this shared cache.
-	pub fn local_cache(&self) -> super::LocalTrieCache<H> {
+	pub fn local_cache_untrusted(&self) -> super::LocalTrieCache<H> {
+		let local_value_cache_config = LocalValueCacheConfig::untrusted();
+		let local_node_cache_config = LocalNodeCacheConfig::untrusted();
+		tracing::debug!(
+			target: super::LOG_TARGET,
+			"Configuring a local un-trusted cache"
+		);
+
 		super::LocalTrieCache {
 			shared: self.clone(),
-			node_cache: Default::default(),
-			value_cache: Default::default(),
-			shared_value_cache_access: Mutex::new(super::ValueAccessSet::with_hasher(
-				schnellru::ByLength::new(super::SHARED_VALUE_CACHE_MAX_PROMOTED_KEYS),
+			node_cache: Mutex::new(LruMap::new(LocalNodeCacheLimiter::new(
+				local_node_cache_config,
+			))),
+			value_cache: Mutex::new(LruMap::with_hasher(
+				LocalValueCacheLimiter::new(local_value_cache_config),
 				Default::default(),
 			)),
+			shared_value_cache_access: Mutex::new(super::ValueAccessSet::with_hasher(
+				schnellru::ByLength::new(
+					local_value_cache_config.shared_value_cache_max_promoted_keys,
+				),
+				Default::default(),
+			)),
+			value_cache_config: local_value_cache_config,
+			node_cache_config: local_node_cache_config,
 			stats: Default::default(),
+			trusted: false,
+		}
+	}
+
+	/// Creates a TrieCache that allows the local_caches to grow to indefinitely.
+	///
+	/// This is safe to be used only for trusted paths because it removes all limits on cache
+	/// growth and promotion, which could lead to excessive memory usage if used in untrusted or
+	/// uncontrolled environments. It is intended for scenarios like block authoring or importing,
+	/// where the operations are bounded already and there are no risks of unbounded memory usage.
+	pub fn local_cache_trusted(&self) -> super::LocalTrieCache<H> {
+		tracing::debug!(
+			target: super::LOG_TARGET,
+			"Configuring a local trusted cache"
+		);
+		let local_value_cache_config = LocalValueCacheConfig::trusted();
+		let local_node_cache_config = LocalNodeCacheConfig::trusted();
+
+		super::LocalTrieCache {
+			shared: self.clone(),
+			node_cache: Mutex::new(LruMap::new(LocalNodeCacheLimiter::new(
+				super::LocalNodeCacheConfig::trusted(),
+			))),
+			value_cache: Mutex::new(LruMap::with_hasher(
+				LocalValueCacheLimiter::new(super::LocalValueCacheConfig::trusted()),
+				Default::default(),
+			)),
+			shared_value_cache_access: Mutex::new(super::ValueAccessSet::with_hasher(
+				schnellru::ByLength::new(
+					local_value_cache_config.shared_value_cache_max_promoted_keys,
+				),
+				Default::default(),
+			)),
+			value_cache_config: local_value_cache_config,
+			node_cache_config: local_node_cache_config,
+			stats: Default::default(),
+			trusted: true,
 		}
 	}
 
@@ -770,6 +867,8 @@ mod tests {
 				(ValueCacheKey::new_value(&key[..], root1), CachedValue::NonExisting),
 			],
 			vec![],
+			&LocalValueCacheConfig::untrusted(),
+			&None,
 		);
 
 		// Ensure that the basics are working
@@ -788,7 +887,12 @@ mod tests {
 		assert_eq!(cache.lru.limiter().heap_size, 10);
 
 		// Just accessing a key should not change anything on the size and number of entries.
-		cache.update(vec![], vec![ValueCacheKey::hash_data(&key[..], &root0)]);
+		cache.update(
+			vec![],
+			vec![ValueCacheKey::hash_data(&key[..], &root0)],
+			&LocalValueCacheConfig::untrusted(),
+			&None,
+		);
 		assert_eq!(1, cache.lru.limiter_mut().known_storage_keys.len());
 		assert_eq!(
 			3,
@@ -810,6 +914,8 @@ mod tests {
 				(ValueCacheKey::new_value(&key[..], root0), CachedValue::NonExisting),
 			],
 			vec![],
+			&LocalValueCacheConfig::untrusted(),
+			&None,
 		);
 		assert_eq!(1, cache.lru.limiter_mut().known_storage_keys.len());
 		assert_eq!(
@@ -832,6 +938,8 @@ mod tests {
 				.map(|i| vec![i; 10])
 				.map(|key| (ValueCacheKey::new_value(&key[..], root0), CachedValue::NonExisting)),
 			vec![],
+			&LocalValueCacheConfig::untrusted(),
+			&None,
 		);
 
 		assert_eq!(cache.lru.limiter().items_evicted, 2);
@@ -856,6 +964,8 @@ mod tests {
 		cache.update(
 			vec![(ValueCacheKey::new_value(vec![10; 10], root0), CachedValue::NonExisting)],
 			vec![],
+			&LocalValueCacheConfig::untrusted(),
+			&None,
 		);
 
 		assert!(cache.lru.limiter_mut().known_storage_keys.get_key_value(&key[..]).is_none());
