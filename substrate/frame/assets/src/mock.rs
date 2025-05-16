@@ -36,6 +36,7 @@ construct_runtime!(
 		System: frame_system,
 		Balances: pallet_balances,
 		Assets: pallet_assets,
+		Revive: pallet_revive,
 	}
 );
 
@@ -52,6 +53,16 @@ impl frame_system::Config for Test {
 #[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for Test {
 	type AccountStore = System;
+}
+
+use crate::precompiles::ERC20;
+make_precompile_assets_config!(ERC20Config, 0x0120);
+
+#[derive_impl(pallet_revive::config_preludes::TestDefaultConfig)]
+impl pallet_revive::Config for Test {
+	type AddressMapper = pallet_revive::TestAccountMapper<Self>;
+	type Currency = Balances;
+	type Precompiles = (ERC20<Self, ERC20Config>,);
 }
 
 pub struct AssetsCallbackHandle;
