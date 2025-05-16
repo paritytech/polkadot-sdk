@@ -61,7 +61,6 @@ pub use sp_crypto_hashing::blake2_256;
 pub use sp_io::TestExternalities;
 pub use sp_runtime::BoundedSlice;
 pub use sp_tracing;
-use std::sync::Arc;
 
 // Cumulus
 pub use cumulus_pallet_parachain_system::{
@@ -80,13 +79,15 @@ pub use polkadot_runtime_parachains::inclusion::{AggregateMessageOrigin, UmpQueu
 
 // Polkadot
 pub use polkadot_parachain_primitives::primitives::RelayChainBlockNumber;
-use sp_core::{crypto::AccountId32, H256};
+use sp_core::crypto::AccountId32;
 pub use xcm::latest::prelude::{
 	AccountId32 as AccountId32Junction, Ancestor, Assets, Here, Location,
 	Parachain as ParachainJunction, Parent, WeightLimit, XcmHash,
 };
 pub use xcm_executor::traits::ConvertLocation;
 use xcm_simulator::helpers::TopicIdTracker;
+
+use std::sync::Arc;
 
 pub type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
 
