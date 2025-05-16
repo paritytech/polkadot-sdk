@@ -515,6 +515,7 @@ where
 			}
 
 			to_process.push(tmp_at);
+			// Move up the hierarchy by getting the parent block.
 			if let Ok(tmp_at_header) = self.api.block_header(tmp_at) {
 				let Some(parent_number) = tmp_at_header.and_then(|header| {
 					tmp_at = *header.parent_hash();
