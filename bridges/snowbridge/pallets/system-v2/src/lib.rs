@@ -31,7 +31,14 @@ pub use weights::*;
 
 use frame_support::{pallet_prelude::*, traits::EnsureOrigin};
 use frame_system::pallet_prelude::*;
-use snowbridge_core::{AgentIdOf as LocationHashOf, AssetMetadata, TokenId, TokenIdOf};
+pub use pallet::*;
+use snowbridge_core::{
+	reward::{
+		AddTip, MessageId,
+		MessageId::{Inbound, Outbound},
+	},
+	AgentIdOf as LocationHashOf, AssetMetadata, TokenId, TokenIdOf,
+};
 use snowbridge_outbound_queue_primitives::{
 	v2::{Command, Initializer, Message, SendMessage},
 	OperatingMode, SendError,
@@ -47,7 +54,7 @@ use xcm_executor::traits::ConvertLocation;
 #[cfg(feature = "runtime-benchmarks")]
 use frame_support::traits::OriginTrait;
 
-pub use pallet::*;
+pub const LOG_TARGET: &str = "snowbridge-system-v2";
 
 pub type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
 #[cfg(feature = "runtime-benchmarks")]
@@ -69,16 +76,14 @@ pub mod pallet {
 	pub trait Config: frame_system::Config + snowbridge_pallet_system::Config {
 		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
-
-		/// Send messages to Ethereum
-		type OutboundQueue: SendMessage;
-
+		/// Send messages to Ethereum and add additional relayer rewards if deposited
+		type OutboundQueue: SendMessage + AddTip;
+		/// Add to the relayer reward for a specific message
+		type InboundQueue: AddTip;
 		/// Origin check for XCM locations that transact with this pallet
 		type FrontendOrigin: EnsureOrigin<Self::RuntimeOrigin, Success = Location>;
-
 		/// Origin for governance calls
 		type GovernanceOrigin: EnsureOrigin<Self::RuntimeOrigin, Success = Location>;
-
 		type WeightInfo: WeightInfo;
 		#[cfg(feature = "runtime-benchmarks")]
 		type Helper: BenchmarkHelper<Self::RuntimeOrigin>;
@@ -98,6 +103,19 @@ pub mod pallet {
 			/// ID of Polkadot-native token on Ethereum
 			foreign_token_id: H256,
 		},
+		/// A tip was processed for an inbound or outbound message, for relayer incentivization.
+		/// It could have succeeded or failed (and then added to LostTips).
+		TipProcessed {
+			/// The original sender of the tip (who deposited the funds).
+			sender: AccountIdOf<T>,
+			/// The Inbound/Outbound message nonce
+			message_id: MessageId,
+			/// The tip amount in ether.
+			amount: u128,
+			/// Whether the tip was added successfully. If the tip was added for a nonce
+			/// that was already consumed, the tip will be added to LostTips.
+			success: bool,
+		},
 	}
 
 	#[pallet::error]
@@ -114,6 +132,14 @@ pub mod pallet {
 		/// parameters.
 		InvalidUpgradeParameters,
 	}
+
+	/// Relayer reward tips that were paid by the user to incentivize the processing of their
+	/// message, but then could not be added to their message reward (e.g. the nonce was already
+	/// processed or their order could not be found). Capturing the lost tips here supports
+	/// implementing a recovery method in the future.
+	#[pallet::storage]
+	pub type LostTips<T: Config> =
+		StorageMap<_, Blake2_128Concat, AccountIdOf<T>, u128, ValueQuery>;
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
@@ -217,6 +243,38 @@ pub mod pallet {
 			Self::deposit_event(Event::<T>::RegisterToken {
 				location: location.into(),
 				foreign_token_id: token_id,
+			});
+
+			Ok(())
+		}
+
+		#[pallet::call_index(3)]
+		#[pallet::weight(<T as pallet::Config>::WeightInfo::add_tip())]
+		pub fn add_tip(
+			origin: OriginFor<T>,
+			sender: AccountIdOf<T>,
+			message_id: MessageId,
+			amount: u128,
+		) -> DispatchResult {
+			T::FrontendOrigin::ensure_origin(origin)?;
+
+			let result = match message_id {
+				Inbound(nonce) => <T as pallet::Config>::InboundQueue::add_tip(nonce, amount),
+				Outbound(nonce) => <T as pallet::Config>::OutboundQueue::add_tip(nonce, amount),
+			};
+
+			if let Err(ref e) = result {
+				tracing::debug!(target: LOG_TARGET, ?e, ?message_id, ?amount, "error adding tip");
+				LostTips::<T>::mutate(&sender, |lost_tip| {
+					*lost_tip = lost_tip.saturating_add(amount);
+				});
+			}
+
+			Self::deposit_event(Event::<T>::TipProcessed {
+				sender,
+				message_id,
+				amount,
+				success: result.is_ok(),
 			});
 
 			Ok(())

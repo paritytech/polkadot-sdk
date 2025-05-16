@@ -150,7 +150,9 @@ impl EthRpcServer for EthRpcServerImpl {
 		transaction: GenericTransaction,
 		block: Option<BlockNumberOrTag>,
 	) -> RpcResult<U256> {
-		let dry_run = self.client.dry_run(transaction, block.unwrap_or_default().into()).await?;
+		let hash = self.client.block_hash_for_tag(block.unwrap_or_default().into()).await?;
+		let runtime_api = self.client.runtime_api(hash);
+		let dry_run = runtime_api.dry_run(transaction).await?;
 		Ok(dry_run.eth_gas)
 	}
 
@@ -159,10 +161,9 @@ impl EthRpcServer for EthRpcServerImpl {
 		transaction: GenericTransaction,
 		block: Option<BlockNumberOrTagOrHash>,
 	) -> RpcResult<Bytes> {
-		let dry_run = self
-			.client
-			.dry_run(transaction, block.unwrap_or_else(|| BlockTag::Latest.into()))
-			.await?;
+		let hash = self.client.block_hash_for_tag(block.unwrap_or_default()).await?;
+		let runtime_api = self.client.runtime_api(hash);
+		let dry_run = runtime_api.dry_run(transaction).await?;
 		Ok(dry_run.data.into())
 	}
 
@@ -227,7 +228,9 @@ impl EthRpcServer for EthRpcServerImpl {
 	}
 
 	async fn get_balance(&self, address: H160, block: BlockNumberOrTagOrHash) -> RpcResult<U256> {
-		let balance = self.client.balance(address, &block).await?;
+		let hash = self.client.block_hash_for_tag(block).await?;
+		let runtime_api = self.client.runtime_api(hash);
+		let balance = runtime_api.balance(address).await?;
 		Ok(balance)
 	}
 
@@ -236,7 +239,9 @@ impl EthRpcServer for EthRpcServerImpl {
 	}
 
 	async fn gas_price(&self) -> RpcResult<U256> {
-		Ok(self.client.gas_price(&BlockTag::Latest.into()).await?)
+		let hash = self.client.block_hash_for_tag(BlockTag::Latest.into()).await?;
+		let runtime_api = self.client.runtime_api(hash);
+		Ok(runtime_api.gas_price().await?)
 	}
 
 	async fn max_priority_fee_per_gas(&self) -> RpcResult<U256> {
@@ -246,8 +251,9 @@ impl EthRpcServer for EthRpcServerImpl {
 	}
 
 	async fn get_code(&self, address: H160, block: BlockNumberOrTagOrHash) -> RpcResult<Bytes> {
-		let code = self.client.get_contract_code(&address, block).await?;
-		Ok(code.into())
+		let hash = self.client.block_hash_for_tag(block).await?;
+		let code = self.client.storage_api(hash).get_contract_code(&address).await?;
+		Ok(code.unwrap_or_default().into())
 	}
 
 	async fn accounts(&self) -> RpcResult<Vec<H160>> {
@@ -303,8 +309,10 @@ impl EthRpcServer for EthRpcServerImpl {
 		storage_slot: U256,
 		block: BlockNumberOrTagOrHash,
 	) -> RpcResult<Bytes> {
-		let bytes = self.client.get_contract_storage(address, storage_slot, block).await?;
-		Ok(bytes.into())
+		let hash = self.client.block_hash_for_tag(block).await?;
+		let runtime_api = self.client.runtime_api(hash);
+		let bytes = runtime_api.get_storage(address, storage_slot.to_big_endian()).await?;
+		Ok(bytes.unwrap_or_default().into())
 	}
 
 	async fn get_transaction_by_block_hash_and_index(
@@ -357,7 +365,9 @@ impl EthRpcServer for EthRpcServerImpl {
 		address: H160,
 		block: BlockNumberOrTagOrHash,
 	) -> RpcResult<U256> {
-		let nonce = self.client.nonce(address, block).await?;
+		let hash = self.client.block_hash_for_tag(block).await?;
+		let runtime_api = self.client.runtime_api(hash);
+		let nonce = runtime_api.nonce(address).await?;
 		Ok(nonce)
 	}
 
