@@ -1653,21 +1653,6 @@ where
 	}
 }
 
-impl<Origin, Destination, Hops, Args> Test<Origin, Destination, Hops, Args>
-where
-	Args: Clone,
-	Origin: Chain + Clone,
-	Destination: Chain + Clone,
-	Origin::RuntimeOrigin: OriginTrait<AccountId = AccountIdOf<Origin::Runtime>> + Clone,
-	Destination::RuntimeOrigin: OriginTrait<AccountId = AccountIdOf<Destination::Runtime>> + Clone,
-	Hops: Clone,
-{
-	/// Inserts a topic ID for a specific chain and asserts it remains globally unique.
-	pub fn insert_unique_topic_id(&mut self, chain: &str, id: H256) {
-		self.topic_id_tracker.lock().unwrap().insert_and_assert_unique(chain, id);
-	}
-}
-
 pub mod helpers {
 	use super::*;
 

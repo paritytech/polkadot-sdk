@@ -458,11 +458,6 @@ pub mod helpers {
 	use sp_runtime::testing::H256;
 	use std::collections::{HashMap, HashSet};
 
-	thread_local! {
-		/// Tracked XCM topic IDs, mapped by chain name.
-		static TRACKED_TOPIC_IDS: RefCell<TopicIdTracker> = RefCell::new(TopicIdTracker::new());
-	}
-
 	/// Derives a topic ID for an XCM in tests.
 	pub fn derive_topic_id<T>(message: &Xcm<T>) -> XcmHash {
 		if let Some(SetTopic(topic_id)) = message.last() {
@@ -517,31 +512,6 @@ pub mod helpers {
 		/// Clears all captured topic IDs
 		pub fn reset(&mut self) {
 			self.ids.clear();
-		}
-	}
-
-	/// A global test utility for tracking XCM topic IDs across chains.
-	pub struct GlobalTopicIdTracker;
-	impl GlobalTopicIdTracker {
-		/// Asserts that exactly one topic ID is tracked across all chains.
-		pub fn assert_unique() {
-			TRACKED_TOPIC_IDS.with(|b| {
-				let tracker = b.borrow();
-				tracker.assert_unique();
-			});
-		}
-
-		/// Inserts a topic ID for a chain and asserts both per-chain and global uniqueness.
-		pub fn insert_and_assert_unique(chain: &str, id: H256) {
-			TRACKED_TOPIC_IDS.with(|b| {
-				let mut tracker = b.borrow_mut();
-				tracker.insert_and_assert_unique(chain, id);
-			});
-		}
-
-		/// Clears all tracked topic IDs, resetting the tracker for a new test.
-		pub fn reset() {
-			TRACKED_TOPIC_IDS.with(|b| b.borrow_mut().reset());
 		}
 	}
 }
