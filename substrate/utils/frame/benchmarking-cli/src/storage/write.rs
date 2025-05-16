@@ -333,27 +333,37 @@ impl StorageCmd {
 			(changes, maybe_child_info.cloned()),
 		);
 
-		debug!("validate_block with {} keys", batch_size);
+		let mut durations_in_nanos = Vec::new();
 		let wasm_module = get_wasm_module();
 		let mut instance = wasm_module.new_instance().unwrap();
-
-		// Dry run to get the time it takes without storage access
 		let dry_run_encoded = params.as_dry_run().encode();
-		let dry_run_start = Instant::now();
-		instance.call_export("validate_block", &dry_run_encoded).unwrap();
-		let dry_run_elapsed = dry_run_start.elapsed();
-		debug!("validate_block dry-run time {:?}", dry_run_elapsed);
-
 		let encoded = params.encode();
-		let start = Instant::now();
-		instance.call_export("validate_block", &encoded).unwrap();
-		let elapsed = start.elapsed();
-		debug!("validate_block time {:?}", elapsed);
+
+		for i in 1..=self.params.on_block_validation_rounds {
+			info!(
+				"validate_block with {} keys, round {}/{}",
+				batch_size, i, self.params.on_block_validation_rounds
+			);
+
+			// Dry run to get the time it takes without storage access
+			let dry_run_start = Instant::now();
+			instance.call_export("validate_block", &dry_run_encoded).unwrap();
+			let dry_run_elapsed = dry_run_start.elapsed();
+			debug!("validate_block dry-run time {:?}", dry_run_elapsed);
+
+			let start = Instant::now();
+			instance.call_export("validate_block", &encoded).unwrap();
+			let elapsed = start.elapsed();
+			debug!("validate_block time {:?}", elapsed);
+
+			durations_in_nanos
+				.push((elapsed - dry_run_elapsed).as_nanos() as u64 / batch_size as u64);
+		}
 
 		let result = (
 			average_len,
 			std::time::Duration::from_nanos(
-				(elapsed - dry_run_elapsed).as_nanos() as u64 / batch_size as u64,
+				durations_in_nanos.iter().sum::<u64>() / durations_in_nanos.len() as u64,
 			),
 		);
 

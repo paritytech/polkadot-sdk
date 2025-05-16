@@ -142,6 +142,12 @@ pub struct StorageParams {
 	/// PoV recorder must be activated to provide a storage proof for block validation at runtime.
 	#[arg(long, default_value_t = false, conflicts_with = "disable_pov_recorder")]
 	pub on_block_validation: bool,
+
+	/// Number of rounds to run the benchmark on block validation.
+	///
+	/// We need to run the benchmark several times to avoid fluctuations during runtime setup.
+	#[arg(long, default_value_t = 5, requires = "on_block_validation")]
+	pub on_block_validation_rounds: u32,
 }
 
 impl StorageCmd {

@@ -121,6 +121,7 @@ impl StorageCmd {
 					*root,
 					storage_proof,
 					on_validation_batch.clone(),
+					self.params.on_block_validation_rounds,
 				);
 				record.append(on_validation_size / on_validation_batch.len(), elapsed)?;
 
@@ -166,6 +167,7 @@ impl StorageCmd {
 						*root,
 						storage_proof,
 						on_validation_batch.clone(),
+						self.params.on_block_validation_rounds,
 					);
 					record.append(on_validation_size / on_validation_batch.len(), elapsed)?;
 
@@ -212,6 +214,7 @@ fn measure_on_block_validation<B: BlockT + Debug>(
 	root: B::Hash,
 	storage_proof: StorageProof,
 	on_validation_batch: Vec<(Vec<u8>, Option<ChildInfo>)>,
+	rounds: u32,
 ) -> std::time::Duration {
 	debug!(
 		"POV: len {:?} {:?}",
@@ -219,26 +222,33 @@ fn measure_on_block_validation<B: BlockT + Debug>(
 		storage_proof.clone().encoded_compact_size::<HashingFor<B>>(root)
 	);
 	let batch_size = on_validation_batch.len();
-	debug!("validate_block with {} keys", batch_size);
 	let wasm_module = get_wasm_module();
 	let mut instance = wasm_module.new_instance().unwrap();
 	let compact = storage_proof.into_compact_proof::<HashingFor<B>>(root).unwrap();
 	let params = StorageAccessParams::<B>::new_read(root, compact, on_validation_batch);
-
-	// Dry run to get the time it takes without storage access
 	let dry_run_encoded = params.as_dry_run().encode();
-	let dry_run_start = Instant::now();
-	instance.call_export("validate_block", &dry_run_encoded).unwrap();
-	let dry_run_elapsed = dry_run_start.elapsed();
-	debug!("validate_block dry-run time {:?}", dry_run_elapsed);
-
 	let encoded = params.encode();
-	let start = Instant::now();
-	instance.call_export("validate_block", &encoded).unwrap();
-	let elapsed = start.elapsed();
-	debug!("validate_block time {:?}", elapsed);
+
+	let mut durations_in_nanos = Vec::new();
+
+	for i in 1..=rounds {
+		info!("validate_block with {} keys, round {}/{}", batch_size, i, rounds);
+
+		// Dry run to get the time it takes without storage access
+		let dry_run_start = Instant::now();
+		instance.call_export("validate_block", &dry_run_encoded).unwrap();
+		let dry_run_elapsed = dry_run_start.elapsed();
+		debug!("validate_block dry-run time {:?}", dry_run_elapsed);
+
+		let start = Instant::now();
+		instance.call_export("validate_block", &encoded).unwrap();
+		let elapsed = start.elapsed();
+		debug!("validate_block time {:?}", elapsed);
+
+		durations_in_nanos.push((elapsed - dry_run_elapsed).as_nanos() as u64 / batch_size as u64);
+	}
 
 	std::time::Duration::from_nanos(
-		(elapsed - dry_run_elapsed).as_nanos() as u64 / batch_size as u64,
+		durations_in_nanos.iter().sum::<u64>() / durations_in_nanos.len() as u64,
 	)
 }
