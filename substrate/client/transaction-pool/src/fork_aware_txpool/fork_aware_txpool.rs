@@ -508,7 +508,7 @@ where
 		// Search for a view that can be used to get and return an approximate ready
 		// transaction set.
 		while tmp_at_number > last_finalized_number {
-			// Found a view, now prune its pool based on the blocks in `to_process`.
+			// Found a view, stop searching..
 			if let Some((view, _)) = self.view_store.get_view_at(tmp_at, true) {
 				best_view = Some(view);
 				break;
