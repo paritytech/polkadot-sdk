@@ -460,7 +460,7 @@ pub mod helpers {
 
 	thread_local! {
 		/// Tracked XCM topic IDs, mapped by chain name.
-		static TRACKED_TOPIC_IDS: RefCell<TopicIdCaptor> = RefCell::new(TopicIdCaptor::new());
+		static TRACKED_TOPIC_IDS: RefCell<TopicIdTracker> = RefCell::new(TopicIdTracker::new());
 	}
 
 	/// Derives a topic ID for an XCM in tests.
@@ -472,14 +472,14 @@ pub mod helpers {
 		}
 	}
 
-	/// A test utility for capturing XCM topic IDs
-	pub struct TopicIdCaptor {
+	/// A test utility for tracking XCM topic IDs
+	pub struct TopicIdTracker {
 		ids: HashMap<String, H256>,
 	}
-	impl TopicIdCaptor {
-		/// Initialises a new, empty topic ID captor.
+	impl TopicIdTracker {
+		/// Initialises a new, empty topic ID tracker.
 		pub fn new() -> Self {
-			TopicIdCaptor { ids: HashMap::new() }
+			TopicIdTracker { ids: HashMap::new() }
 		}
 
 		/// Asserts that exactly one unique topic ID is present across all captured entries.
@@ -520,8 +520,8 @@ pub mod helpers {
 	}
 
 	/// A test utility for tracking XCM topic IDs
-	pub struct TopicIdTracker;
-	impl TopicIdTracker {
+	pub struct TopicIdTrackerWrapper;
+	impl TopicIdTrackerWrapper {
 		/// Asserts that exactly one topic ID is tracked across all chains.
 		pub fn assert_unique() {
 			TRACKED_TOPIC_IDS.with(|b| {

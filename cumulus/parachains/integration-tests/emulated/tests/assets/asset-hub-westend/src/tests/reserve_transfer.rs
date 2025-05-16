@@ -16,7 +16,7 @@
 use crate::{create_pool_with_wnd_on, foreign_balance_on, imports::*};
 use emulated_integration_tests_common::{
 	xcm_helpers::{find_mq_processed_id, find_xcm_sent_message_id},
-	xcm_simulator::helpers::TopicIdTracker,
+	xcm_simulator::helpers::TopicIdTrackerWrapper,
 };
 use sp_core::{crypto::get_public_from_string_or_panic, sr25519};
 use westend_system_emulated_network::westend_emulated_chain::westend_runtime::Dmp;
@@ -440,7 +440,7 @@ pub fn para_to_para_through_hop_sender_assertions<Hop: Clone>(t: Test<PenpalA, P
 	}
 
 	let msg_sent_id = find_xcm_sent_message_id::<PenpalA>().expect("Missing Sent Event");
-	TopicIdTracker::insert_and_assert_unique("PenpalA", msg_sent_id.into());
+	TopicIdTrackerWrapper::insert_and_assert_unique("PenpalA", msg_sent_id.into());
 }
 
 fn para_to_para_relay_hop_assertions(t: ParaToParaThroughRelayTest) {
@@ -516,7 +516,7 @@ pub fn para_to_para_through_hop_receiver_assertions<Hop: Clone>(t: Test<PenpalA,
 	}
 
 	let mq_prc_id = find_mq_processed_id::<PenpalB>().expect("Missing Processed Event");
-	TopicIdTracker::insert_and_assert_unique("PenpalB", mq_prc_id);
+	TopicIdTrackerWrapper::insert_and_assert_unique("PenpalB", mq_prc_id);
 }
 
 fn relay_to_para_reserve_transfer_assets(t: RelayToParaTest) -> DispatchResult {
