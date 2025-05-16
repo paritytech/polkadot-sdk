@@ -6526,7 +6526,6 @@ dependencies = [
 name = "frame-benchmarking-pallet-pov"
 version = "18.0.0"
 dependencies = [
- "array-bytes 6.2.2",
  "frame-benchmarking",
  "frame-support",
  "frame-system",
