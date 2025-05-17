@@ -2298,7 +2298,7 @@ pub mod pallet {
 		/// # Emits
 		/// - `ValidatorWhitelistUpdated { stash, whitelisted: true }`
 		#[pallet::call_index(30)]
-		#[pallet::weight(T::WeightInfo::set_validator_count())]
+		#[pallet::weight(T::WeightInfo::add_to_validator_whitelist())]
 		pub fn add_to_validator_whitelist(
 			origin: OriginFor<T>,
 			stash: T::AccountId,
@@ -2324,7 +2324,7 @@ pub mod pallet {
 		/// # Emits
 		/// - `ValidatorWhitelistUpdated { stash, whitelisted: false }`
 		#[pallet::call_index(31)]
-		#[pallet::weight(T::WeightInfo::set_validator_count())]
+		#[pallet::weight(T::WeightInfo::remove_from_validator_whitelist())]
 		pub fn remove_from_validator_whitelist(
 			origin: OriginFor<T>,
 			stash: T::AccountId,
@@ -2350,7 +2350,7 @@ pub mod pallet {
 		/// # Emits
 		/// - `ValidatorWhitelistToggled { is_enabled }`
 		#[pallet::call_index(32)]
-		#[pallet::weight(T::WeightInfo::set_validator_count())]
+		#[pallet::weight(T::WeightInfo::set_is_validator_whitelist_enabled())]
 		pub fn set_is_validator_whitelist_enabled(
 			origin: OriginFor<T>,
 			is_enabled: bool,
