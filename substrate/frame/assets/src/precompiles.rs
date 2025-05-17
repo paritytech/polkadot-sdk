@@ -97,6 +97,9 @@ where
 	}
 }
 
+const ERR_INVALID_CALLER: &str = "Invalid caller";
+const ERR_BALANCE_CONVERSION_FAILED: &str = "Balance conversion failed";
+
 impl<Runtime, PrecompileConfig, Instance: 'static> ERC20<Runtime, PrecompileConfig, Instance>
 where
 	PrecompileConfig: AssetPrecompileConfig,
@@ -114,7 +117,7 @@ where
 		env.caller()
 			.account_id()
 			.map(<Runtime as pallet_revive::Config>::AddressMapper::to_address)
-			.map_err(|_| Error::Revert(Revert { reason: "Invalid caller".into() }))
+			.map_err(|_| Error::Revert(Revert { reason: ERR_INVALID_CALLER.into() }))
 	}
 
 	/// Convert a `U256` value to the balance type of the pallet.
@@ -123,7 +126,7 @@ where
 	) -> Result<<Runtime as Config<Instance>>::Balance, Error> {
 		value
 			.try_into()
-			.map_err(|_| Error::Revert(Revert { reason: "Balance conversion failed".into() }))
+			.map_err(|_| Error::Revert(Revert { reason: ERR_BALANCE_CONVERSION_FAILED.into() }))
 	}
 
 	/// Convert a balance to a `U256` value.
@@ -132,7 +135,7 @@ where
 		value: <Runtime as Config<Instance>>::Balance,
 	) -> Result<alloy::primitives::U256, Error> {
 		Ok(alloy::primitives::U256::try_from(value)
-			.map_err(|_| Error::Revert(Revert { reason: "Balance conversion failed".into() }))?)
+			.map_err(|_| Error::Revert(Revert { reason: ERR_BALANCE_CONVERSION_FAILED.into() }))?)
 	}
 
 	/// Deposit an event to the runtime.
