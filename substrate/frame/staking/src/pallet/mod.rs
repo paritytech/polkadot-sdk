@@ -349,6 +349,16 @@ pub mod pallet {
 		}
 	}
 
+	/// Whitelist of accounts that are allowed to become validators
+	#[pallet::storage]
+	#[pallet::getter(fn validator_whitelist)]
+	pub type ValidatorWhitelist<T: Config> = StorageMap<_, Blake2_128Concat, T::AccountId, bool, ValueQuery>;
+
+	/// A flag that indicates whether the validator whitelist is enabled
+	#[pallet::storage]
+	#[pallet::getter(fn is_validator_whitelist_enabled)]
+	pub type IsValidatorWhitelistEnabled<T> = StorageValue<_, bool, ValueQuery>;
+
 	/// The ideal number of active validators.
 	#[pallet::storage]
 	#[pallet::getter(fn validator_count)]
@@ -903,6 +913,10 @@ pub mod pallet {
 		ForceEra { mode: Forcing },
 		/// Report of a controller batch deprecation.
 		ControllerBatchDeprecated { failures: u32 },
+		/// A stash has been added or removed from the validator whitelist
+		ValidatorWhitelistUpdated { stash: T::AccountId, whitelisted: bool },
+		/// The validator whitelist has been enabled or disabled
+		ValidatorWhitelistToggled { is_enabled: bool },
 	}
 
 	#[pallet::error]
@@ -974,6 +988,8 @@ pub mod pallet {
 		NotEnoughFunds,
 		/// Operation not allowed for virtual stakers.
 		VirtualStakerNotAllowed,
+		/// The caller (staker) is not part of the validator whitelist.
+		StakerNotWhitelisted,
 	}
 
 	#[pallet::hooks]
@@ -1261,6 +1277,12 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::validate())]
 		pub fn validate(origin: OriginFor<T>, prefs: ValidatorPrefs) -> DispatchResult {
 			let controller = ensure_signed(origin)?;
+
+			// Only whitelisted stakers can become validators.
+			ensure!(
+				IsValidatorWhitelistEnabled::<T>::get() && !ValidatorWhitelist::<T>::get(&controller),
+				Error::<T>::StakerNotWhitelisted
+			);
 
 			let ledger = Self::ledger(Controller(controller))?;
 
@@ -2250,6 +2272,84 @@ pub mod pallet {
 				Self::inspect_bond_state(&stash) == Ok(LedgerIntegrityState::Ok),
 				Error::<T>::BadState
 			);
+			Ok(())
+		}
+
+		/// Adds the given account to the validator whitelist.
+		///
+		/// This call can only be dispatched by the `Root` origin. On success, the
+		/// provided `stash` account will be marked as whitelisted in `ValidatorWhitelist`.
+		///
+		/// # Parameters
+		/// - `origin`: Must be `Root`.
+		/// - `stash`: The account to add to the validator whitelist.
+		///
+		/// # Errors
+		/// - `BadOrigin`: If the caller is not `Root`.
+		/// 
+		/// # Emits
+		/// - `ValidatorWhitelistUpdated { stash, whitelisted: true }`
+		#[pallet::call_index(30)]
+		#[pallet::weight(T::WeightInfo::set_validator_count())]
+		pub fn add_to_validator_whitelist(
+			origin: OriginFor<T>,
+			stash: T::AccountId,
+		) -> DispatchResult {
+			ensure_root(origin)?;
+			ValidatorWhitelist::<T>::insert(&stash, true);
+			Self::deposit_event(Event::<T>::ValidatorWhitelistUpdated { stash, whitelisted: true });
+			Ok(())
+		}
+
+		/// Removes the given account from the validator whitelist.
+		///
+		/// This call can only be dispatched by the `Root` origin. On success, the
+		/// provided `stash` account will be removed from `ValidatorWhitelist`.
+		///
+		/// # Parameters
+		/// - `origin`: Must be `Root`.
+		/// - `stash`: The account to remove from the validator whitelist.
+		///
+		/// # Errors
+		/// - `BadOrigin`: If the caller is not `Root`.
+		///
+		/// # Emits
+		/// - `ValidatorWhitelistUpdated { stash, whitelisted: false }`
+		#[pallet::call_index(31)]
+		#[pallet::weight(T::WeightInfo::set_validator_count())]
+		pub fn remove_from_validator_whitelist(
+			origin: OriginFor<T>,
+			stash: T::AccountId,
+		) -> DispatchResult {
+			ensure_root(origin)?;
+			ValidatorWhitelist::<T>::remove(&stash);
+			Self::deposit_event(Event::<T>::ValidatorWhitelistUpdated { stash, whitelisted: false });
+			Ok(())
+		}
+
+		/// Enable or disable the validator whitelist feature.
+		///
+		/// This call can only be dispatched by the `Root` origin. On success, the
+		/// boolean flag `IsValidatorWhitelistEnabled` will be set to `is_enabled`.
+		///
+		/// # Parameters
+		/// - `origin`: Must be `Root`.
+		/// - `is_enabled`: `true` to enable the whitelist, `false` to disable it.
+		///
+		/// # Errors
+		/// - `BadOrigin`: If the caller is not `Root`.
+		///
+		/// # Emits
+		/// - `ValidatorWhitelistToggled { is_enabled }`
+		#[pallet::call_index(32)]
+		#[pallet::weight(T::WeightInfo::set_validator_count())]
+		pub fn set_is_validator_whitelist_enabled(
+			origin: OriginFor<T>,
+			is_enabled: bool,
+		) -> DispatchResult {
+			ensure_root(origin)?;
+			IsValidatorWhitelistEnabled::<T>::put(is_enabled);
+			Self::deposit_event(Event::<T>::ValidatorWhitelistToggled { is_enabled });
 			Ok(())
 		}
 	}
