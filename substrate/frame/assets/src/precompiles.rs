@@ -1,4 +1,19 @@
-#![allow(unused_variables)]
+// This file is part of Substrate.
+
+// Copyright (C) Parity Technologies (UK) Ltd.
+// SPDX-License-Identifier: Apache-2.0
+
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// 	http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 use crate::{weights::WeightInfo, Call, Config, PhantomData, TransferFlags};
 use alloc::vec::Vec;
@@ -88,7 +103,7 @@ where
 
 		match input {
 			IERC20Calls::transfer(call) => Self::transfer(asset_id, call, env),
-			IERC20Calls::totalSupply(call) => Self::total_supply(asset_id, env),
+			IERC20Calls::totalSupply(_) => Self::total_supply(asset_id, env),
 			IERC20Calls::balanceOf(call) => Self::balance_of(asset_id, call, env),
 			IERC20Calls::allowance(call) => Self::allowance(asset_id, call, env),
 			IERC20Calls::approve(call) => Self::approve(asset_id, call, env),
@@ -233,11 +248,8 @@ where
 	) -> Result<Vec<u8>, Error> {
 		env.charge(<Runtime as Config<Instance>>::WeightInfo::approve_transfer())?;
 		let owner = Self::caller(env)?;
-
 		let spender = call.spender.into_array().into();
 		let spender = <Runtime as pallet_revive::Config>::AddressMapper::to_account_id(&spender);
-
-		let value: <Runtime as Config<Instance>>::Balance = Self::to_balance(call.value)?;
 
 		crate::Pallet::<Runtime, Instance>::do_approve_transfer(
 			asset_id,
