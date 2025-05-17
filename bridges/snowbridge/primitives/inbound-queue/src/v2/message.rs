@@ -149,7 +149,7 @@ impl TryFrom<&Log> for Message {
 		let topics: Vec<B256> = log.topics.iter().map(|x| B256::from_slice(x.as_ref())).collect();
 
 		// Decode the Solidity event from raw logs
-		let event = IGatewayV2::OutboundMessageAccepted::decode_raw_log(topics, &log.data, true)
+		let event = IGatewayV2::OutboundMessageAccepted::decode_raw_log(topics, &log.data)
 			.map_err(|_| MessageDecodeError)?;
 
 		let payload = event.payload;
