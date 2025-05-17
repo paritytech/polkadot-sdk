@@ -134,8 +134,8 @@ where
 	fn to_u256(
 		value: <Runtime as Config<Instance>>::Balance,
 	) -> Result<alloy::primitives::U256, Error> {
-		Ok(alloy::primitives::U256::try_from(value)
-			.map_err(|_| Error::Revert(Revert { reason: ERR_BALANCE_CONVERSION_FAILED.into() }))?)
+		alloy::primitives::U256::try_from(value)
+			.map_err(|_| Error::Revert(Revert { reason: ERR_BALANCE_CONVERSION_FAILED.into() }))
 	}
 
 	/// Deposit an event to the runtime.
@@ -163,7 +163,7 @@ where
 			asset_id,
 			&<Runtime as pallet_revive::Config>::AddressMapper::to_account_id(&from),
 			&dest,
-			Self::to_balance(call.value.clone())?,
+			Self::to_balance(call.value)?,
 			None,
 			f,
 		)?;
@@ -243,7 +243,7 @@ where
 			asset_id,
 			&<Runtime as pallet_revive::Config>::AddressMapper::to_account_id(&owner),
 			&spender,
-			Self::to_balance(call.value.clone())?,
+			Self::to_balance(call.value)?,
 		)?;
 
 		Self::deposit_event(
@@ -279,7 +279,7 @@ where
 			&from,
 			&spender,
 			&to,
-			Self::to_balance(call.value.clone())?,
+			Self::to_balance(call.value)?,
 		)?;
 
 		Self::deposit_event(
