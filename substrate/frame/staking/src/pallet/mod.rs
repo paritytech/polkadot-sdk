@@ -31,7 +31,7 @@ use frame_support::{
 	weights::Weight,
 	BoundedVec,
 };
-use frame_system::{ensure_root, ensure_signed, pallet_prelude::*};
+use frame_system::{ensure_root, ensure_signed, pallet_prelude::*, EnsureRoot};
 use sp_runtime::{
 	traits::{SaturatedConversion, StaticLookup, Zero},
 	ArithmeticError, Perbill, Percent,
@@ -63,7 +63,6 @@ pub(crate) const SPECULATIVE_NUM_SPANS: u32 = 32;
 #[frame_support::pallet]
 pub mod pallet {
 	use frame_election_provider_support::ElectionDataProvider;
-
 	use crate::{BenchmarkingConfig, PagedExposureMetadata};
 
 	use super::*;
@@ -988,8 +987,8 @@ pub mod pallet {
 		NotEnoughFunds,
 		/// Operation not allowed for virtual stakers.
 		VirtualStakerNotAllowed,
-		/// The caller (staker) is not part of the validator whitelist.
-		StakerNotWhitelisted,
+		/// The caller is not part of the validator whitelist.
+		NotWhitelisted,
 	}
 
 	#[pallet::hooks]
@@ -1280,8 +1279,8 @@ pub mod pallet {
 
 			// Only whitelisted stakers can become validators.
 			ensure!(
-				IsValidatorWhitelistEnabled::<T>::get() && !ValidatorWhitelist::<T>::get(&controller),
-				Error::<T>::StakerNotWhitelisted
+				!IsValidatorWhitelistEnabled::<T>::get() || ValidatorWhitelist::<T>::get(&controller),
+				Error::<T>::NotWhitelisted
 			);
 
 			let ledger = Self::ledger(Controller(controller))?;
@@ -1961,7 +1960,7 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::chill_other())]
 		pub fn chill_other(origin: OriginFor<T>, stash: T::AccountId) -> DispatchResult {
 			// Anyone can call this function.
-			let caller = ensure_signed(origin)?;
+			let caller = ensure_signed_or_root(origin.clone())?;
 			let ledger = Self::ledger(Stash(stash.clone()))?;
 			let controller = ledger
 				.controller()
@@ -1984,14 +1983,23 @@ pub mod pallet {
 			//   determine this is a person that should be chilled because they have not met the
 			//   threshold bond required.
 			//
+			// Or
+			//
+			// The caller has root access.
+			//
 			// Otherwise, if caller is the same as the controller, this is just like `chill`.
+
+			if EnsureRoot::<T::AccountId>::try_origin(origin).is_ok() {
+				Self::chill_stash(&stash);
+				return Ok(())
+			}
 
 			if Nominators::<T>::contains_key(&stash) && Nominators::<T>::get(&stash).is_none() {
 				Self::chill_stash(&stash);
 				return Ok(())
 			}
 
-			if caller != controller {
+			if caller != Some(controller) {
 				let threshold = ChillThreshold::<T>::get().ok_or(Error::<T>::CannotChillOther)?;
 				let min_active_bond = if Nominators::<T>::contains_key(&stash) {
 					let max_nominator_count =
