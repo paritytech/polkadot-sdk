@@ -66,7 +66,7 @@ fn set_staking_configs_works() {
 		assert_eq!(MaxStakedRewards::<Test>::get(), Some(Percent::from_percent(0)));
 
 		// noop does nothing
-		assert_storage_noop!(assert_ok!(Staking::set_staking_configs(
+		assert_ok!(Staking::set_staking_configs(
 			RuntimeOrigin::root(),
 			ConfigOp::Noop,
 			ConfigOp::Noop,
@@ -75,7 +75,14 @@ fn set_staking_configs_works() {
 			ConfigOp::Noop,
 			ConfigOp::Noop,
 			ConfigOp::Noop
-		)));
+		));
+		assert_eq!(MinNominatorBond::<Test>::get(), 1_500);
+		assert_eq!(MinValidatorBond::<Test>::get(), 2_000);
+		assert_eq!(MaxNominatorsCount::<Test>::get(), Some(10));
+		assert_eq!(MaxValidatorsCount::<Test>::get(), Some(20));
+		assert_eq!(ChillThreshold::<Test>::get(), Some(Percent::from_percent(75)));
+		assert_eq!(MinCommission::<Test>::get(), Perbill::from_percent(0));
+		assert_eq!(MaxStakedRewards::<Test>::get(), Some(Percent::from_percent(0)));
 
 		// removing works
 		assert_ok!(Staking::set_staking_configs(
@@ -3383,6 +3390,7 @@ fn slash_kicks_validators_not_nominators_and_disables_nominator_for_kicked_valid
 			assert_eq!(
 				staking_events_since_last_call(),
 				vec![
+					Event::NewEra { index: 0, start: 30000 },
 					Event::StakersElected,
 					Event::EraPaid { era_index: 0, validator_payout: 11075, remainder: 33225 },
 					Event::SlashReported {
@@ -3455,6 +3463,7 @@ fn non_slashable_offence_disables_validator() {
 			assert_eq!(
 				staking_events_since_last_call(),
 				vec![
+					Event::NewEra { index: 0, start: 30000 },
 					Event::StakersElected,
 					Event::EraPaid { era_index: 0, validator_payout: 11075, remainder: 33225 },
 					Event::SlashReported {
@@ -3517,6 +3526,7 @@ fn slashing_independent_of_disabling_validator() {
 			assert_eq!(
 				staking_events_since_last_call(),
 				vec![
+					Event::NewEra { index: 0, start: 30000 },
 					Event::StakersElected,
 					Event::EraPaid { era_index: 0, validator_payout: 11075, remainder: 33225 },
 					Event::SlashReported {
@@ -5496,7 +5506,8 @@ mod election_data_provider {
 			// election
 			run_to_block(20);
 			assert_eq!(Staking::next_election_prediction(System::block_number()), 45);
-			assert_eq!(staking_events().len(), 1);
+			assert_eq!(staking_events().len(), 2);
+			assert_eq!(*staking_events().first().unwrap(), Event::NewEra { index: 0, start: 30000 });
 			assert_eq!(*staking_events().last().unwrap(), Event::StakersElected);
 
 			for b in 21..45 {
@@ -5507,7 +5518,8 @@ mod election_data_provider {
 			// election
 			run_to_block(45);
 			assert_eq!(Staking::next_election_prediction(System::block_number()), 70);
-			assert_eq!(staking_events().len(), 3);
+			assert_eq!(staking_events().len(), 5);
+			assert_eq!(staking_events()[3], Event::NewEra { index: 1, start: 55000 });
 			assert_eq!(*staking_events().last().unwrap(), Event::StakersElected);
 
 			Staking::force_no_eras(RuntimeOrigin::root()).unwrap();
@@ -5530,7 +5542,7 @@ mod election_data_provider {
 			MinimumValidatorCount::<Test>::put(2);
 			run_to_block(55);
 			assert_eq!(Staking::next_election_prediction(System::block_number()), 55 + 25);
-			assert_eq!(staking_events().len(), 10);
+			assert_eq!(staking_events().len(), 13);
 			assert_eq!(
 				*staking_events().last().unwrap(),
 				Event::ForceEra { mode: Forcing::NotForcing }
