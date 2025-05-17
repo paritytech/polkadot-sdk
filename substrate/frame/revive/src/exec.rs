@@ -229,6 +229,9 @@ pub trait Ext: PrecompileWithInfoExt {
 	///
 	/// Note: Requires &mut self to access the contract info.
 	fn set_immutable_data(&mut self, data: ImmutableData) -> Result<(), DispatchError>;
+
+	/// Call some dispatchable and return the result.
+	fn call_runtime(&self, call: <Self::T as Config>::RuntimeCall) -> DispatchResultWithPostInfo;
 }
 
 /// Environment functions which are available to pre-compiles with `HAS_CONTRACT_INFO = true`.
@@ -426,9 +429,6 @@ pub trait PrecompileExt: sealing::Sealed {
 
 	/// Returns a mutable reference to the output of the last executed call frame.
 	fn last_frame_output_mut(&mut self) -> &mut ExecReturnValue;
-
-	/// Call some dispatchable and return the result.
-	fn call_runtime(&self, call: <Self::T as Config>::RuntimeCall) -> DispatchResultWithPostInfo;
 }
 
 /// Describes the different functions that can be exported by an [`Executable`].
@@ -1578,6 +1578,12 @@ where
 		Ok(())
 	}
 
+	fn call_runtime(&self, call: <Self::T as Config>::RuntimeCall) -> DispatchResultWithPostInfo {
+		let mut origin: T::RuntimeOrigin = RawOrigin::Signed(self.account_id().clone()).into();
+		origin.add_filter(T::CallFilter::contains);
+		call.dispatch(origin)
+	}
+
 	fn immutable_data_len(&mut self) -> u32 {
 		self.top_frame_mut().contract_info().immutable_data_len()
 	}
@@ -1952,12 +1958,6 @@ where
 
 	fn last_frame_output_mut(&mut self) -> &mut ExecReturnValue {
 		&mut self.top_frame_mut().last_frame_output
-	}
-
-	fn call_runtime(&self, call: <Self::T as Config>::RuntimeCall) -> DispatchResultWithPostInfo {
-		let mut origin: T::RuntimeOrigin = RawOrigin::Signed(self.account_id().clone()).into();
-		origin.add_filter(T::CallFilter::contains);
-		call.dispatch(origin)
 	}
 }
 
