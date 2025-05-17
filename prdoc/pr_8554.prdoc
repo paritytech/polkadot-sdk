@@ -1,0 +1,23 @@
+title: pallet-assets ERC20 precompile
+doc:
+- audience: Runtime Dev
+  description: |-
+    Add ERC20 precompile for pallet-asset.
+
+    Since there can be multiple instance of pallet-assets the Precompile is implemented for an `AssetPrecompileConfig` that defines the address range to match and how to extract the asset_id from the address.
+
+    For now I have only created one `AssetIdExtractor` that pull u32 asset id encoded on the address.
+    Follow up PR will define another stateful extractor to extract it from storage for foreign assets.
+
+    Other solidity traits will follow up as well in follow up PRs
+crates:
+- name: pallet-assets
+  bump: patch
+- name: pallet-revive
+  bump: patch
+- name: snowbridge-pallet-inbound-queue
+  bump: patch
+- name: snowbridge-inbound-queue-primitives
+  bump: patch
+- name: snowbridge-outbound-queue-primitives
+  bump: patch
