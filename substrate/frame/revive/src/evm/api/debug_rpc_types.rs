@@ -15,9 +15,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::evm::{Bytes, CallTracer};
+use crate::evm::Bytes;
 use alloc::{string::String, vec::Vec};
 use codec::{Decode, Encode};
+use derive_more::From;
 use scale_info::TypeInfo;
 use serde::{Deserialize, Serialize};
 use sp_core::{H160, H256, U256};
@@ -25,10 +26,9 @@ use sp_core::{H160, H256, U256};
 /// The type of tracer to use.
 /// Only "callTracer" is supported for now.
 #[derive(TypeInfo, Debug, Clone, Encode, Decode, Serialize, Deserialize, PartialEq)]
-#[serde(tag = "tracer", content = "tracerConfig")]
+#[serde(tag = "tracer", content = "tracerConfig", rename_all = "camelCase")]
 pub enum TracerType {
 	/// A tracer that traces calls.
-	#[serde(rename = "callTracer")]
 	CallTracer(Option<CallTracerConfig>),
 }
 
@@ -45,12 +45,12 @@ impl Default for TracerType {
 }
 
 /// Tracer configuration used to trace calls.
-#[derive(TypeInfo, Debug, Clone, Encode, Default, Decode, PartialEq)]
+#[derive(TypeInfo, Debug, Clone, Default, PartialEq)]
 #[cfg_attr(feature = "std", derive(Deserialize, Serialize), serde(rename_all = "camelCase"))]
 pub struct TracerConfig {
 	/// The tracer type.
 	#[cfg_attr(feature = "std", serde(flatten, default))]
-	config: TracerType,
+	pub config: TracerType,
 
 	/// Timeout for the tracer.
 	#[cfg_attr(feature = "std", serde(with = "humantime_serde", default))]
@@ -59,30 +59,18 @@ pub struct TracerConfig {
 
 /// The configuration for the call tracer.
 #[derive(Clone, Debug, Decode, Serialize, Deserialize, Encode, PartialEq, TypeInfo)]
-#[serde(default)]
+#[serde(default, rename_all = "camelCase")]
 pub struct CallTracerConfig {
 	/// Whether to include logs in the trace.
-	#[serde(rename = "withLogs")]
 	pub with_logs: bool,
 
 	/// Whether to only include the top-level calls in the trace.
-	#[serde(rename = "onlyTopCall")]
 	pub only_top_call: bool,
 }
 
 impl Default for CallTracerConfig {
 	fn default() -> Self {
-		CallTracerConfig { with_logs: true, only_top_call: false }
-	}
-}
-
-impl TracerConfig {
-	/// Build the tracer associated to this config.
-	pub fn build<G>(self, gas_mapper: G) -> CallTracer<U256, G> {
-		match self.config {
-			TracerType::CallTracer(config) =>
-				CallTracer::new(config.unwrap_or_default(), gas_mapper),
-		}
+		Self { with_logs: true, only_top_call: false }
 	}
 }
 
@@ -145,6 +133,14 @@ pub enum CallType {
 	StaticCall,
 	/// A delegate call.
 	DelegateCall,
+}
+
+/// A Trace
+#[derive(TypeInfo, From, Encode, Decode, Serialize, Deserialize, Clone, Debug, Eq, PartialEq)]
+#[serde(untagged)]
+pub enum Trace {
+	/// A call trace.
+	Call(CallTrace),
 }
 
 /// A smart contract execution call trace.
@@ -212,5 +208,5 @@ pub struct TransactionTrace {
 	pub tx_hash: H256,
 	/// The trace of the transaction.
 	#[serde(rename = "result")]
-	pub trace: CallTrace,
+	pub trace: Trace,
 }
