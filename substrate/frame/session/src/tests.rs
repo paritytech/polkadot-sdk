@@ -470,7 +470,7 @@ fn test_migration_v1() {
 #[test]
 fn set_keys_should_fail_with_insufficient_funds() {
 	new_test_ext().execute_with(|| {
-		// Account 999 is mocked to have ExistentialDeposit but insufficient funds
+		// Account 999 is mocked to have KeyDeposit -1
 		let account_id = 999;
 		let keys = MockSessionKeys { dummy: UintAuthorityId(account_id).into() };
 		frame_system::Pallet::<Test>::inc_providers(&account_id);

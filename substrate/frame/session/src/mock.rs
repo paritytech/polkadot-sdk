@@ -30,10 +30,7 @@ use sp_runtime::{impl_opaque_keys, testing::UintAuthorityId, BuildStorage};
 use sp_staking::SessionIndex;
 use sp_state_machine::BasicExternalities;
 
-use frame_support::{
-	derive_impl, parameter_types,
-	traits::ConstU64,
-};
+use frame_support::{derive_impl, parameter_types, traits::ConstU64};
 use sp_runtime::traits::{Convert, OpaqueKeys};
 
 impl_opaque_keys! {
@@ -217,7 +214,7 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 			(3, 100),
 			(4, 100),
 			(69, 100),
-			(999, ExistentialDeposit::get()),
+			(999, KeyDeposit::get() - 1),
 			(1000, 100),
 		],
 		dev_accounts: None,
