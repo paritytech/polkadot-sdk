@@ -28,7 +28,9 @@ jobs:
   # More info can be found here: https://github.com/paritytech/polkadot/pull/5865
   check-runtime-migration:
     runs-on: ${{ needs.preflight.outputs.RUNNER }}
-    if: ${{ needs.preflight.outputs.changes_rust }}
+    # TODO re-enable westend state is fully broken since we dropped some messages on latest upgrade
+    if: false
+    # if: ${{ needs.preflight.outputs.changes_rust }}
     # We need to set this to rather long to allow the snapshot to be created, but the average time
     # should be much lower.
     timeout-minutes: 60
