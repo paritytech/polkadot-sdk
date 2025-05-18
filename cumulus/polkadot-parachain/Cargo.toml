@@ -101,6 +101,7 @@ try-runtime = [
 	"penpal-runtime/try-runtime",
 	"people-rococo-runtime/try-runtime",
 	"people-westend-runtime/try-runtime",
+	"parachains-common/try-runtime"
 ]
 fast-runtime = [
 	"bridge-hub-rococo-runtime/fast-runtime",

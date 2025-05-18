@@ -304,6 +304,7 @@ try-runtime = [
 	"snowbridge-pallet-system/try-runtime",
 	"snowbridge-runtime-common/try-runtime",
 	"sp-runtime/try-runtime",
+	"parachains-common/try-runtime"
 ]
 fast-runtime = []
 

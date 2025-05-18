@@ -320,6 +320,7 @@ try-runtime = [
 	"snowbridge-pallet-system/try-runtime",
 	"snowbridge-runtime-common/try-runtime",
 	"sp-runtime/try-runtime",
+	"parachains-common/try-runtime"
 ]
 
 # A feature that should be enabled when the runtime should be built for on-chain

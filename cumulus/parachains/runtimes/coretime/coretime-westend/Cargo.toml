@@ -212,6 +212,7 @@ try-runtime = [
 	"parachain-info/try-runtime",
 	"polkadot-runtime-common/try-runtime",
 	"sp-runtime/try-runtime",
+	"parachains-common/try-runtime"
 ]
 fast-runtime = [
 	"westend-runtime-constants/fast-runtime",
