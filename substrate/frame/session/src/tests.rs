@@ -480,7 +480,7 @@ fn set_keys_should_fail_with_insufficient_funds() {
 		});
 
 		// Attempt to set keys with an account that has insufficient funds
-		let res = Session::set_keys(RuntimeOrigin::signed(account_id), keys, vec![]);
+		assert_err!(Session::set_keys(RuntimeOrigin::signed(account_id), keys, vec![], sp_runtime::TokenError::FundsUnavailable), );
 		// Should fail with Err(Token(FundsUnavailable)) from `pallet-balances`
 		assert_noop!(res, sp_runtime::TokenError::FundsUnavailable);
 	});
