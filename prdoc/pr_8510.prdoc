@@ -1,0 +1,9 @@
+title: 'statement-distribution: skip leafs where we can''t fetch the state'
+doc:
+- audience: Node Dev
+  description: |
+    Fix statement-distribution to not exit early when it cannot process one of the hashes
+    in handle_active_leaves.
+crates:
+- name: polkadot-statement-distribution
+  bump: patch
