@@ -25,8 +25,8 @@ use frame_election_provider_support::{
 use frame_support::{
 	assert_ok, derive_impl, ord_parameter_types, parameter_types,
 	traits::{
-		ConstU64, EitherOfDiverse, FindAuthor, Get, Imbalance, OnUnbalanced,
-		OneSessionHandler, RewardsReporter,
+		ConstU64, EitherOfDiverse, FindAuthor, Get, Imbalance, OnUnbalanced, OneSessionHandler,
+		RewardsReporter,
 	},
 	weights::constants::RocksDbWeight,
 };

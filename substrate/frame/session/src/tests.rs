@@ -30,7 +30,7 @@ use sp_core::crypto::key_types::DUMMY;
 use sp_runtime::{testing::UintAuthorityId, Perbill};
 
 use frame_support::{
-	assert_noop, assert_ok, assert_err,
+	assert_err, assert_noop, assert_ok,
 	traits::{ConstU64, OnInitialize},
 };
 
@@ -481,7 +481,10 @@ fn set_keys_should_fail_with_insufficient_funds() {
 
 		// Attempt to set keys with an account that has insufficient funds
 		// Should fail with Err(Token(FundsUnavailable)) from `pallet-balances`
-		assert_err!(Session::set_keys(RuntimeOrigin::signed(account_id), keys, vec![]), sp_runtime::TokenError::FundsUnavailable);
+		assert_err!(
+			Session::set_keys(RuntimeOrigin::signed(account_id), keys, vec![]),
+			sp_runtime::TokenError::FundsUnavailable
+		);
 	});
 }
 

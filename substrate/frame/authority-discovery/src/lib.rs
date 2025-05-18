@@ -171,10 +171,7 @@ mod tests {
 	use super::*;
 	use crate as pallet_authority_discovery;
 	use alloc::vec;
-	use frame_support::{
-		derive_impl, parameter_types,
-		traits::ConstU32,
-	};
+	use frame_support::{derive_impl, parameter_types, traits::ConstU32};
 	use sp_application_crypto::Pair;
 	use sp_authority_discovery::AuthorityPair;
 	use sp_core::crypto::key_types;
