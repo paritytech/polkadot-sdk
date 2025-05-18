@@ -88,15 +88,15 @@ runtime-benchmarks = [
 ]
 
 try-runtime = [
-	"pallet-collator-selection/try-runtime",
-	"parachain-info/try-runtime",
-	"pallet-xcm/try-runtime",
-	"pallet-assets/try-runtime",
-	"pallet-authorship/try-runtime",
-	"pallet-balances/try-runtime",
-	"pallet-message-queue/try-runtime",
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
 	"pallet-asset-tx-payment/try-runtime",
-	"sp-runtime/try-runtime"
+	"pallet-assets/try-runtime",
+	"pallet-authorship/try-runtime",
+	"pallet-balances/try-runtime",
+	"pallet-collator-selection/try-runtime",
+	"pallet-message-queue/try-runtime",
+	"pallet-xcm/try-runtime",
+	"parachain-info/try-runtime",
+	"sp-runtime/try-runtime",
 ]
