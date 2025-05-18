@@ -52,7 +52,7 @@ use frame_support::{
 	construct_runtime, derive_impl,
 	genesis_builder_helper::{build_state, get_preset},
 	parameter_types,
-	traits::{ConstU128, KeyOwnerProofSystem, WithdrawReasons},
+	traits::{KeyOwnerProofSystem, WithdrawReasons},
 	PalletId,
 };
 use pallet_grandpa::{fg_primitives, AuthorityId as GrandpaId};
@@ -341,7 +341,7 @@ impl pallet_session::Config for Runtime {
 	type WeightInfo = ();
 	type Currency = Balances;
 	type RuntimeHoldReason = RuntimeHoldReason;
-	type KeyDeposit = ConstU128<0>;
+	type KeyDeposit = ();
 }
 
 impl pallet_session::historical::Config for Runtime {

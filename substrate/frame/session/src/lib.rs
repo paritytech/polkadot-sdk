@@ -854,7 +854,7 @@ impl<T: Config> Pallet<T> {
 		// The hold call itself will return an error if funds are insufficient.
 		if old_keys.is_none() {
 			let deposit = T::KeyDeposit::get();
-			let reason = &HoldReason::SettingKeys.into();
+			let reason = &HoldReason::Keys.into();
 			T::Currency::hold(&reason, account, deposit)?;
 
 			let assertion = frame_system::Pallet::<T>::inc_consumers(account).is_ok();
@@ -919,7 +919,7 @@ impl<T: Config> Pallet<T> {
 		}
 
 		// Release the deposit from hold
-		let reason = &HoldReason::SettingKeys.into();
+		let reason = &HoldReason::Keys.into();
 
 		// Use release_all to handle the case where the exact amount might not be available
 		let _ = T::Currency::release_all(

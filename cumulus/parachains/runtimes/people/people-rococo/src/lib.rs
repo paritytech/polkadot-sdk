@@ -35,7 +35,7 @@ use frame_support::{
 	genesis_builder_helper::{build_state, get_preset},
 	parameter_types,
 	traits::{
-		ConstBool, ConstU128, ConstU32, ConstU64, ConstU8, EitherOfDiverse, Everything,
+		ConstBool, ConstU32, ConstU64, ConstU8, EitherOfDiverse, Everything,
 		InstanceFilter, TransformOrigin,
 	},
 	weights::{ConstantMultiplier, Weight},
@@ -369,7 +369,7 @@ impl pallet_session::Config for Runtime {
 	type WeightInfo = weights::pallet_session::WeightInfo<Runtime>;
 	type Currency = Balances;
 	type RuntimeHoldReason = RuntimeHoldReason;
-	type KeyDeposit = ConstU128<0>;
+	type KeyDeposit = ();
 }
 
 impl pallet_aura::Config for Runtime {

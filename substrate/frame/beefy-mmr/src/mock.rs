@@ -82,7 +82,7 @@ impl pallet_session::Config for Test {
 	type WeightInfo = ();
 	type Currency = Balances;
 	type RuntimeHoldReason = RuntimeHoldReason;
-	type KeyDeposit = ConstU64<0>;
+	type KeyDeposit = ();
 }
 
 pub type MmrLeaf = sp_consensus_beefy::mmr::MmrLeaf<

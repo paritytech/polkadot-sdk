@@ -25,7 +25,7 @@ use frame_election_provider_support::{
 use frame_support::{
 	assert_ok, derive_impl, ord_parameter_types, parameter_types,
 	traits::{
-		ConstU128, ConstU64, EitherOfDiverse, FindAuthor, Get, Imbalance, OnUnbalanced,
+		ConstU64, EitherOfDiverse, FindAuthor, Get, Imbalance, OnUnbalanced,
 		OneSessionHandler, RewardsReporter,
 	},
 	weights::constants::RocksDbWeight,
@@ -153,7 +153,7 @@ impl pallet_session::Config for Test {
 	type WeightInfo = ();
 	type Currency = Balances;
 	type RuntimeHoldReason = RuntimeHoldReason;
-	type KeyDeposit = ConstU128<0>;
+	type KeyDeposit = ();
 }
 
 impl pallet_session::historical::Config for Test {

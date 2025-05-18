@@ -173,7 +173,7 @@ mod tests {
 	use alloc::vec;
 	use frame_support::{
 		derive_impl, parameter_types,
-		traits::{ConstU32, ConstU64},
+		traits::ConstU32,
 	};
 	use sp_application_crypto::Pair;
 	use sp_authority_discovery::AuthorityPair;
@@ -218,7 +218,7 @@ mod tests {
 		type WeightInfo = ();
 		type Currency = Balances;
 		type RuntimeHoldReason = RuntimeHoldReason;
-		type KeyDeposit = ConstU64<0>;
+		type KeyDeposit = ();
 	}
 
 	pub type BlockNumber = u64;

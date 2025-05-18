@@ -37,7 +37,7 @@ use frame_support::{
 	dispatch::DispatchClass,
 	parameter_types,
 	traits::{
-		ConstBool, ConstU128, ConstU32, ConstU64, ConstU8, EitherOfDiverse, TransformOrigin,
+		ConstBool, ConstU32, ConstU64, ConstU8, EitherOfDiverse, TransformOrigin,
 		VariantCountOf,
 	},
 	weights::{ConstantMultiplier, Weight},
@@ -279,7 +279,7 @@ impl pallet_session::Config for Runtime {
 	type WeightInfo = ();
 	type Currency = Balances;
 	type RuntimeHoldReason = RuntimeHoldReason;
-	type KeyDeposit = ConstU128<0>;
+	type KeyDeposit = ();
 }
 
 #[docify::export(aura_config)]

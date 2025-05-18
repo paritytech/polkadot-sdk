@@ -188,7 +188,7 @@ impl pallet_session::Config for Test {
 	type WeightInfo = ();
 	type Currency = Balances;
 	type RuntimeHoldReason = RuntimeHoldReason;
-	type KeyDeposit = ConstU128<0>;
+	type KeyDeposit = ();
 }
 
 impl pallet_session::historical::Config for Test {
