@@ -501,19 +501,13 @@ fn set_keys_should_reserve_funds() {
 			m.insert(account_id, account_id);
 		});
 
-		// Check the reserved balance before setting keys
-		let reserved_balance_before = Balances::reserved_balance(&account_id);
-
-		// Ensure system providers are properly set for the test account
-		frame_system::Pallet::<Test>::inc_providers(&account_id);
-
 		// Set keys and check the operation succeeds
 		let res = Session::set_keys(RuntimeOrigin::signed(account_id), keys, vec![]);
 		assert_ok!(res);
 
 		// Check that the funds were reserved
-		let reserved_balance_after = Balances::reserved_balance(&account_id);
-		assert_eq!(reserved_balance_after, reserved_balance_before + deposit);
+		let reserved_balance = Balances::reserved_balance(&account_id);
+		assert_eq!(reserved_balance, deposit);
 	});
 }
 
