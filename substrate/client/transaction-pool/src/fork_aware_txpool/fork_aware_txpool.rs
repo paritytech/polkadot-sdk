@@ -503,7 +503,7 @@ where
 
 			// Move up into the fork. Return with no view and an empty enacted blocks
 			// list if we can't access the header of the current block.
-			let header = self.api.block_header(at_hash).ok().flatten() else {
+			let Some(header) = self.api.block_header(at_hash).ok().flatten() else {
 				return (None, Vec::new());
 			};
 			at_hash = *header.parent_hash();
