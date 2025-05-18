@@ -541,7 +541,7 @@ pub mod pallet {
 	pub enum HoldReason {
 		// Funds are held when settings keys
 		#[codec(index = 0)]
-		SettingKeys,
+		Keys,
 	}
 
 	/// The current set of validators.
