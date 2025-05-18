@@ -299,10 +299,7 @@ impl<Hash: hash::Hash + Member + Serialize, Ex> ReadyTransactions<Hash, Ex> {
 				for tag in &tx.transaction.transaction.requires {
 					if let Some(hash) = self.provided_tags.get(tag) {
 						if let Some(tx_unlocking) = ready.get_mut(hash) {
-							remove_item(
-								&mut tx_unlocking.unlocks,
-								&tx.transaction.transaction.hash,
-							);
+							remove_item(&mut tx_unlocking.unlocks, &tx_hash);
 						}
 					}
 				}
@@ -805,16 +802,23 @@ mod tests {
 		let tx3 = it.next().unwrap();
 		let lock = ready.ready.read();
 		let tx1_unlocks = &lock.get(&tx1.hash).unwrap().unlocks;
+
+		// There are two tags provided by tx1 and required by tx2.
 		assert_eq!(tx1_unlocks[0], tx2.hash);
+		assert_eq!(tx1_unlocks[1], tx2.hash);
+		assert_eq!(tx1_unlocks[2], tx3.hash);
 		drop(lock);
 
 		// then consider tx2 invalid, and hence, remove it.
 		let removed = ready.remove_subtree(&[tx2.hash]);
 		assert_eq!(removed.len(), 2);
 		assert_eq!(removed[0].hash, tx2.hash);
+		// tx3 is removed too, since it requires tx2 provides tags.
 		assert_eq!(removed[1].hash, tx3.hash);
+
 		let lock = ready.ready.read();
 		let tx1_unlocks = &lock.get(&tx1.hash).unwrap().unlocks;
 		assert!(!tx1_unlocks.contains(&tx2.hash));
+		assert!(!tx1_unlocks.contains(&tx3.hash));
 	}
 }
