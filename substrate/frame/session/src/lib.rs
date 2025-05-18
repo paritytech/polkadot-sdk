@@ -401,10 +401,6 @@ pub mod pallet {
 	#[pallet::without_storage_info]
 	pub struct Pallet<T>(_);
 
-	/// A simple identifier for session keys hold reason.
-	#[derive(codec::Encode, codec::Decode, codec::MaxEncodedLen, Debug, PartialEq, Eq, Clone)]
-	pub struct SessionKeysHoldReason;
-
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
 		/// The overarching event type.
