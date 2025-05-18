@@ -17,15 +17,13 @@ mod aliases;
 mod claim_assets;
 mod exchange_asset;
 mod fellowship_treasury;
-mod hybrid_transfers;
-mod reserve_transfer;
 mod reward_pool;
 mod send;
 mod set_asset_claimer;
 mod set_xcm_versions;
 mod swap;
-mod teleport;
 mod transact;
+mod transfer;
 mod treasury;
 mod xcm_fee_estimation;
 
