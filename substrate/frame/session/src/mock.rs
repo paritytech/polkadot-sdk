@@ -103,6 +103,7 @@ parameter_types! {
 	pub static SessionChanged: bool = false;
 	pub static TestSessionChanged: bool = false;
 	pub static Disabled: bool = false;
+	// Stores if `on_before_session_end` was called
 	pub static BeforeSessionEndCalled: bool = false;
 	pub static ValidatorAccounts: BTreeMap<u64, u64> = BTreeMap::new();
 	pub static CurrencyBalance: u64 = 100;
@@ -160,6 +161,8 @@ impl SessionManager<u64> for TestSessionManager {
 				Some(v.clone())
 			})
 		} else if Disabled::mutate(|l| std::mem::replace(&mut *l, false)) {
+			// If there was a disabled validator, underlying conditions have changed
+			// so we return `Some`.
 			Some(Validators::get().clone())
 		} else {
 			None
@@ -263,6 +266,8 @@ impl Convert<u64, Option<u64>> for TestValidatorIdOf {
 	}
 }
 
+// Disabling threshold for `UpToLimitDisablingStrategy` and
+// `UpToLimitWithReEnablingDisablingStrategy``
 pub(crate) const DISABLING_LIMIT_FACTOR: usize = 3;
 
 impl Config for Test {

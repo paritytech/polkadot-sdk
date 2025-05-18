@@ -678,7 +678,6 @@ impl_opaque_keys! {
 	}
 }
 
-// Then update the pallet_session::Config implementation
 impl pallet_session::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type ValidatorId = <Self as frame_system::Config>::AccountId;
@@ -2821,7 +2820,7 @@ pub type SignedBlock = generic::SignedBlock<Block>;
 pub type BlockId = generic::BlockId<Block>;
 /// The TransactionExtension to the basic transaction logic.
 ///
-/// When you change this, you **MUST** modify [`sign`] in `bin/node/testing/src/keyring.rs!
+/// When you change this, you **MUST** modify [`sign`] in `bin/node/testing/src/keyring.rs`!
 ///
 /// [`sign`]: <../../testing/src/keyring.rs.html>
 pub type TxExtension = (

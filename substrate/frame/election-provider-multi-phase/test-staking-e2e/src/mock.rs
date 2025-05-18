@@ -55,10 +55,7 @@ use parking_lot::RwLock;
 use std::sync::Arc;
 
 use crate::{log, log_current_time};
-use frame_support::{
-	derive_impl,
-	traits::{ConstU64, Nothing},
-};
+use frame_support::{derive_impl, traits::Nothing};
 
 pub const INIT_TIMESTAMP: BlockNumber = 30_000;
 pub const BLOCK_TIME: BlockNumber = 1000;
@@ -193,7 +190,7 @@ parameter_types! {
 impl pallet_election_provider_multi_phase::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Currency = Balances;
-	type EstimateCallFee = ConstU64<8>;
+	type EstimateCallFee = frame_support::traits::ConstU64<8>;
 	type SignedPhase = SignedPhase;
 	type UnsignedPhase = UnsignedPhase;
 	type BetterSignedThreshold = ();
