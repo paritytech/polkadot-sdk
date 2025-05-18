@@ -274,11 +274,11 @@ impl Client {
 
 		loop {
 			let block_number = block.number();
-			log::trace!(target: LOG_TARGET, "Processing past block #{block_number}");
+			log::trace!(target: "eth-rpc::subscription", "Processing past block #{block_number}");
 
 			let parent_hash = block.header().parent_hash;
 			callback(block.clone()).await.inspect_err(|err| {
-				log::error!(target: LOG_TARGET, "Failed to process past block #{block_number}: {err:?}");
+				log::error!(target: "eth-rpc::subscription", "Failed to process past block #{block_number}: {err:?}");
 			})?;
 
 			if range.start < block_number {
@@ -328,9 +328,12 @@ impl Client {
 				},
 			};
 
-			log::trace!(target: LOG_TARGET, "Processing {subscription_type:?} block: {}", block.number());
+			let block_number = block.number();
+			log::trace!(target: "eth-rpc::subscription", "⏳ Processing {subscription_type:?} block: {block_number}");
 			if let Err(err) = callback(block).await {
-				log::error!(target: LOG_TARGET, "Failed to process block: {err:?}");
+				log::error!(target: LOG_TARGET, "Failed to process block {block_number}: {err:?}");
+			} else {
+				log::trace!(target: "eth-rpc::subscription", "✅ Processed {subscription_type:?} block: {block_number}");
 			}
 		}
 
@@ -438,15 +441,21 @@ impl Client {
 		self.receipt_provider.receipt_by_hash(tx_hash).await
 	}
 
+	pub async fn sync_state(
+		&self,
+	) -> Result<sc_rpc::system::SyncState<SubstrateBlockNumber>, ClientError> {
+		let client = RpcClient::new(self.rpc_client.clone());
+		let sync_state: sc_rpc::system::SyncState<SubstrateBlockNumber> =
+			client.request("system_syncState", Default::default()).await?;
+		Ok(sync_state)
+	}
+
 	/// Get the syncing status of the chain.
 	pub async fn syncing(&self) -> Result<SyncingStatus, ClientError> {
 		let health = self.rpc.system_health().await?;
 
 		let status = if health.is_syncing {
-			let client = RpcClient::new(self.rpc_client.clone());
-			let sync_state: sc_rpc::system::SyncState<SubstrateBlockNumber> =
-				client.request("system_syncState", Default::default()).await?;
-
+			let sync_state = self.sync_state().await?;
 			SyncingProgress {
 				current_block: Some(sync_state.current_block.into()),
 				highest_block: Some(sync_state.highest_block.into()),
