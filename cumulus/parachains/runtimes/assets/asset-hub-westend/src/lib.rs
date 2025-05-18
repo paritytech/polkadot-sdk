@@ -2848,3 +2848,222 @@ fn ensure_key_ss58() {
 		AccountId::from_ss58check("5F4EbSkZz18X36xhbsjvDNs6NuZ82HyYtq5UiJ1h9SBHJXZD").unwrap();
 	assert_eq!(acc, RootMigController::sorted_members()[0]);
 }
+
+#[cfg(all(test, feature = "try-runtime"))]
+mod remote_tests {
+	use super::*;
+	use frame_support::traits::{TryState, TryStateSelect::All};
+	use frame_try_runtime::{runtime_decl_for_try_runtime::TryRuntime, UpgradeCheckSelect};
+	use remote_externalities::{
+		Builder, Mode, OfflineConfig, OnlineConfig, SnapshotConfig, Transport,
+	};
+	use std::env::var;
+	use sp_core::H256;
+	use frame_support::storage::StorageValue;
+
+	#[tokio::test]
+	async fn ahm_fix_storage() {
+		sp_tracing::try_init_simple();
+		let transport: Transport =
+			var("WS").unwrap_or("wss://westend-asset-hub-rpc.polkadot.io:443".to_string()).into();
+		let maybe_snap: Option<SnapshotConfig> = var("SNAP").map(|s| s.into()).ok();
+		let online_config = OnlineConfig {
+				// https://assethub-westend.subscan.io/block/11736080?tab=event
+				at: Some(H256::from_slice(&hex::decode("f61aa8d80607c4c84aa16cd15781b0f779768842b3e5603c578baac03e418661").unwrap())),
+				transport: transport.clone(),
+				state_snapshot: maybe_snap.clone(),
+				pallets: vec![
+					"Staking".into(),
+					"NominationPools".into(),
+					"FastUnstake".into(),
+					"Referenda".into(),
+				],
+				child_trie: false,
+				..Default::default()
+		};
+
+		let mut ext = Builder::<Block>::default()
+			.mode(if let Some(state_snapshot) = maybe_snap {
+				Mode::OfflineOrElseOnline(
+					OfflineConfig { state_snapshot: state_snapshot.clone() },
+					online_config,
+				)
+			} else {
+				Mode::Online(online_config)
+			})
+			.build()
+			.await
+			.unwrap();
+		ext.execute_with(||
+			{
+
+				println!("\n**Staking**\n");
+
+				let validator_count = pallet_staking_async::ValidatorCount::<Runtime>::get();
+				println!(
+					"\nValidatorCount: \nKey: {:?} \nValue (decoded): {:?} \nValue (encoded): {:?}\n",
+					hex::encode(pallet_staking_async::ValidatorCount::<Runtime>::hashed_key()),
+					validator_count,
+					hex::encode(validator_count.encode())
+				);
+
+				let invulnerables = pallet_staking_async::Invulnerables::<Runtime>::get();
+				println!(
+					"\nInvulnerables: \nKey: {:?} \nValue (decoded): {:?} \nValue (encoded): {:?}\n",
+					hex::encode(pallet_staking_async::Invulnerables::<Runtime>::hashed_key()),
+					invulnerables,
+					hex::encode(invulnerables.encode())
+				);
+
+				let min_nominator_bond = pallet_staking_async::MinNominatorBond::<Runtime>::get();
+				println!(
+					"\nMinNominatorBond: \nKey: {:?} \nValue (decoded): {:?} \nValue (encoded): {:?}\n",
+					hex::encode(pallet_staking_async::MinNominatorBond::<Runtime>::hashed_key()),
+					min_nominator_bond,
+					hex::encode(min_nominator_bond.encode())
+				);
+
+				let min_validator_bond = pallet_staking_async::MinValidatorBond::<Runtime>::get();
+				println!(
+					"\nMinValidatorBond: \nKey: {:?} \nValue (decoded): {:?} \nValue (encoded): {:?}\n",
+					hex::encode(pallet_staking_async::MinValidatorBond::<Runtime>::hashed_key()),
+					min_validator_bond,
+					hex::encode(min_validator_bond.encode())
+				);
+
+				let minimum_active_stake = pallet_staking_async::MinimumActiveStake::<Runtime>::get();
+				println!(
+					"\nMinimumActiveStake: \nKey: {:?} \nValue (decoded): {:?} \nValue (encoded): {:?}\n",
+					hex::encode(pallet_staking_async::MinimumActiveStake::<Runtime>::hashed_key()),
+					minimum_active_stake,
+					hex::encode(minimum_active_stake.encode())
+				);
+
+				let max_validators_count = pallet_staking_async::MaxValidatorsCount::<Runtime>::get();
+				println!(
+					"\nMaxValidatorsCount: \nKey: {:?} \nValue (decoded): {:?} \nValue (encoded): {:?}\n",
+					hex::encode(pallet_staking_async::MaxValidatorsCount::<Runtime>::hashed_key()),
+					max_validators_count,
+					hex::encode(max_validators_count.encode())
+				);
+
+				let max_nominators_count = pallet_staking_async::MaxNominatorsCount::<Runtime>::get();
+				println!(
+					"\nMaxNominatorsCount: \nKey: {:?} \nValue (decoded): {:?} \nValue (encoded): {:?}\n",
+					hex::encode(pallet_staking_async::MaxNominatorsCount::<Runtime>::hashed_key()),
+					max_nominators_count,
+					hex::encode(max_nominators_count.encode())
+				);
+
+				let current_era = pallet_staking_async::CurrentEra::<Runtime>::get();
+				println!(
+					"\nCurrentEra: \nKey: {:?} \nValue (decoded): {:?} \nValue (encoded): {:?}\n",
+					hex::encode(pallet_staking_async::CurrentEra::<Runtime>::hashed_key()),
+					current_era,
+					hex::encode(current_era.encode())
+				);
+
+				let active_era = pallet_staking_async::ActiveEra::<Runtime>::get();
+				println!(
+					"\nActiveEra: \nKey: {:?} \nValue (decoded): {:?} \nValue (encoded): {:?}\n",
+					hex::encode(pallet_staking_async::ActiveEra::<Runtime>::hashed_key()),
+					active_era,
+					hex::encode(active_era.encode())
+				);
+
+				let bonded_eras = pallet_staking_async::BondedEras::<Runtime>::get();
+				println!(
+					"\nBondedEras: \nKey: {:?} \nValue (decoded): {:?} \nValue (encoded): {:?}\n",
+					hex::encode(pallet_staking_async::BondedEras::<Runtime>::hashed_key()),
+					bonded_eras,
+					hex::encode(bonded_eras.encode())
+				);
+
+				let slash_reward_fraction = pallet_staking_async::SlashRewardFraction::<Runtime>::get();
+				println!(
+					"\nSlashRewardFraction: \nKey: {:?} \nValue (decoded): {:?} \nValue (encoded): {:?}\n",
+					hex::encode(pallet_staking_async::SlashRewardFraction::<Runtime>::hashed_key()),
+					slash_reward_fraction,
+					hex::encode(slash_reward_fraction.encode())
+				);
+
+				println!("\n**Nomination Pool**\n");
+				let total_value_locked = pallet_nomination_pools::TotalValueLocked::<Runtime>::get();
+				println!(
+					"\nTotalValueLocked: \nKey: {:?} \nValue (decoded): {:?} \nValue (encoded): {:?}\n",
+					hex::encode(pallet_nomination_pools::TotalValueLocked::<Runtime>::hashed_key()),
+					total_value_locked,
+					hex::encode(total_value_locked.encode())
+				);
+
+				let min_join_bond = pallet_nomination_pools::MinJoinBond::<Runtime>::get();
+				println!(
+					"\nMinJoinBond: \nKey: {:?} \nValue (decoded): {:?} \nValue (encoded): {:?}\n",
+					hex::encode(pallet_nomination_pools::MinJoinBond::<Runtime>::hashed_key()),
+					min_join_bond,
+					hex::encode(min_join_bond.encode())
+				);
+
+				let min_create_bond = pallet_nomination_pools::MinCreateBond::<Runtime>::get();
+				println!(
+					"\nMinCreateBond: \nKey: {:?} \nValue (decoded): {:?} \nValue (encoded): {:?}\n",
+					hex::encode(pallet_nomination_pools::MinCreateBond::<Runtime>::hashed_key()),
+					min_create_bond,
+					hex::encode(min_create_bond.encode())
+				);
+
+				let max_pools = pallet_nomination_pools::MaxPools::<Runtime>::get();
+				println!(
+					"\nMaxPools: \nKey: {:?} \nValue (decoded): {:?} \nValue (encoded): {:?}\n",
+					hex::encode(pallet_nomination_pools::MaxPools::<Runtime>::hashed_key()),
+					max_pools,
+					hex::encode(max_pools.encode())
+				);
+
+				let max_pool_members = pallet_nomination_pools::MaxPoolMembers::<Runtime>::get();
+				println!(
+					"\nMaxPoolMembers: \nKey: {:?} \nValue (decoded): {:?} \nValue (encoded): {:?}\n",
+					hex::encode(pallet_nomination_pools::MaxPoolMembers::<Runtime>::hashed_key()),
+					max_pool_members,
+					hex::encode(max_pool_members.encode())
+				);
+
+				let global_max_commission = pallet_nomination_pools::GlobalMaxCommission::<Runtime>::get();
+				println!(
+					"\nGlobalMaxCommission: \nKey: {:?} \nValue (decoded): {:?} \nValue (encoded): {:?}\n",
+					hex::encode(pallet_nomination_pools::GlobalMaxCommission::<Runtime>::hashed_key()),
+					global_max_commission,
+					hex::encode(global_max_commission.encode())
+				);
+
+				let last_pool_id = pallet_nomination_pools::LastPoolId::<Runtime>::get();
+				println!(
+					"\nLastPoolId: \nKey: {:?} \nValue (decoded): {:?} \nValue (encoded): {:?}\n",
+					hex::encode(pallet_nomination_pools::LastPoolId::<Runtime>::hashed_key()),
+					last_pool_id,
+					hex::encode(last_pool_id.encode())
+				);
+
+				println!("\n**Fast Unstake**\n");
+				let eras_to_check_per_block = pallet_fast_unstake::ErasToCheckPerBlock::<Runtime>::get();
+				println!(
+					"\nErasToCheckPerBlock: \nKey: {:?} \nValue (decoded): {:?} \nValue (encoded): {:?}\n",
+					hex::encode(pallet_fast_unstake::ErasToCheckPerBlock::<Runtime>::hashed_key()),
+					eras_to_check_per_block,
+					hex::encode(eras_to_check_per_block.encode())
+				);
+
+				println!("\n**Referenda**\n");
+				let referendum_count = pallet_referenda::ReferendumCount::<Runtime>::get();
+				println!(
+					"\nReferendumCount: \nKey: {:?} \nValue (decoded): {:?} \nValue (encoded): {:?}\n",
+					hex::encode(pallet_referenda::ReferendumCount::<Runtime>::hashed_key()),
+					referendum_count,
+					hex::encode(referendum_count.encode())
+				);
+
+
+			}
+		);
+	}
+}
