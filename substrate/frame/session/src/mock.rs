@@ -32,7 +32,7 @@ use sp_state_machine::BasicExternalities;
 
 use frame_support::{
 	derive_impl, parameter_types,
-	traits::{ConstU32, ConstU64},
+	traits::ConstU64,
 };
 use sp_runtime::traits::{Convert, OpaqueKeys};
 
@@ -297,18 +297,7 @@ impl crate::historical::Config for Test {
 
 #[derive_impl(pallet_balances::config_preludes::TestDefaultConfig as pallet_balances::DefaultConfig)]
 impl pallet_balances::Config for Test {
-	type Balance = u64;
-	type DustRemoval = ();
-	type ExistentialDeposit = ExistentialDeposit;
 	type AccountStore = System;
-	type MaxReserves = ConstU32<2>;
-	type ReserveIdentifier = ();
 	type RuntimeHoldReason = RuntimeHoldReason;
-	type RuntimeFreezeReason = ();
-	type FreezeIdentifier = ();
-	type MaxFreezes = ConstU32<0>;
-	type WeightInfo = ();
-	type MaxLocks = ConstU32<50>;
-	type DoneSlashHandler = ();
 	type RuntimeEvent = RuntimeEvent;
 }
