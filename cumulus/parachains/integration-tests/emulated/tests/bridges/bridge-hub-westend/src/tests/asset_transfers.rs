@@ -19,10 +19,9 @@ use emulated_integration_tests_common::{
 	xcm_helpers::{find_mq_processed_id, find_xcm_sent_message_id},
 	xcm_simulator::helpers::TopicIdTracker,
 };
-use sp_core::H256;
 use xcm::latest::AssetTransferFilter;
 
-fn send_assets_over_bridge<F: FnOnce()>(send_fn: F) -> H256 {
+fn send_assets_over_bridge<F: FnOnce()>(send_fn: F) {
 	// fund the AHW's SA on BHW for paying bridge delivery fees
 	BridgeHubWestend::fund_para_sovereign(AssetHubWestend::para_id(), 10_000_000_000_000u128);
 
@@ -36,10 +35,8 @@ fn send_assets_over_bridge<F: FnOnce()>(send_fn: F) -> H256 {
 	send_fn();
 
 	// process and verify intermediary hops
-	let mq_prc_id = assert_bridge_hub_westend_message_accepted(true);
+	assert_bridge_hub_westend_message_accepted(true);
 	assert_bridge_hub_rococo_message_received();
-
-	mq_prc_id
 }
 
 fn set_up_wnds_for_penpal_westend_through_ahw_to_ahr(
@@ -1236,7 +1233,7 @@ fn do_send_pens_and_wnds_from_penpal_westend_via_ahw_to_asset_hub_rococo(
 ) {
 	let (wnds_id, wnds_amount) = wnds;
 	let (pens_id, pens_amount) = pens;
-	let mq_prc_id = send_assets_over_bridge(|| {
+	send_assets_over_bridge(|| {
 		let sov_penpal_on_ahw = AssetHubWestend::sovereign_account_id_of(
 			AssetHubWestend::sibling_location_of(PenpalB::para_id()),
 		);
@@ -1361,8 +1358,13 @@ fn do_send_pens_and_wnds_from_penpal_westend_via_ahw_to_asset_hub_rococo(
 				]
 			);
 		});
+
+		BridgeHubWestend::ext_wrapper(|| {
+			let mq_prc_id =
+				find_mq_processed_id::<BridgeHubWestend>().expect("Missing Processed Event");
+			topic_id_tracker.insert_and_assert_unique("BridgeHubWestend", mq_prc_id);
+		});
 	});
-	topic_id_tracker.insert_and_assert_unique("BridgeHubWestend", mq_prc_id);
 }
 
 /// Transfer "PEN"s plus "WND"s from PenpalWestend to AssetHubWestend, over bridge to
