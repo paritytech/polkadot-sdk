@@ -410,6 +410,7 @@ pub mod pallet {
 		+ pallet_nomination_pools::Config<BlockNumberProvider = frame_system::Pallet<Self>>
 		+ pallet_fast_unstake::Config
 		+ pallet_bags_list::Config<pallet_bags_list::Instance1>
+		+ pallet_delegated_staking::Config
 		+ pallet_scheduler::Config<BlockNumberProvider = frame_system::Pallet<Self>>
 		+ pallet_vesting::Config
 		+ pallet_indices::Config
@@ -464,7 +465,7 @@ pub mod pallet {
 		type OnDemandPalletId: Get<PalletId>;
 		/// Maximum number of unprocessed DMP messages allowed before the RC migrator temporarily
 		/// pauses sending data messages to the Asset Hub.
-		/// 
+		///
 		/// The Asset Hub confirms processed message counts back to this pallet. Due to async backing,
 		/// there is typically a delay of 1-2 blocks before these confirmations are received by the
 		/// RC migrator.
@@ -1375,7 +1376,7 @@ pub mod pallet {
 							Err(e) => TransactionOutcome::Rollback(Err(e)),
 						}
 					})
-					.expect("Always returning Ok; qed");	
+					.expect("Always returning Ok; qed");
 
 					match res {
 						Ok(None) => {

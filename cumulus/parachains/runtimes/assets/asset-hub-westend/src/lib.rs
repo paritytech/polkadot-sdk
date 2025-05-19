@@ -739,8 +739,7 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
 						RuntimeCall::Utility { .. } |
 						RuntimeCall::Multisig { .. } |
 						RuntimeCall::NftFractionalization { .. } |
-						RuntimeCall::Nfts { .. } |
-						RuntimeCall::Uniques { .. }
+						RuntimeCall::Nfts { .. } | RuntimeCall::Uniques { .. }
 				)
 			},
 			ProxyType::AssetOwner => matches!(
@@ -826,8 +825,7 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
 				matches!(
 					c,
 					RuntimeCall::Staking(..) |
-						RuntimeCall::Session(..) |
-						RuntimeCall::Utility(..) |
+						RuntimeCall::Session(..) | RuntimeCall::Utility(..) |
 						RuntimeCall::NominationPools(..) |
 						RuntimeCall::FastUnstake(..) |
 						RuntimeCall::VoterList(..)
@@ -2847,4 +2845,86 @@ fn ensure_key_ss58() {
 	let acc =
 		AccountId::from_ss58check("5F4EbSkZz18X36xhbsjvDNs6NuZ82HyYtq5UiJ1h9SBHJXZD").unwrap();
 	assert_eq!(acc, RootMigController::sorted_members()[0]);
+}
+
+#[cfg(test)]
+pub mod remote_tests {
+	use super::{Block, Runtime, RuntimeCall};
+	use codec::Encode;
+	use remote_externalities::{
+		Builder, Mode, OfflineConfig, OnlineConfig, SnapshotConfig, Transport,
+	};
+	use std::env::var;
+
+	#[tokio::test]
+	async fn delegated_staking_manual_with_sudo() {
+		sp_tracing::try_init_simple();
+		// WAH block before the migration
+		let at =
+			Some("0xd653600210afe2227318a26209faeb7f7899c7c901718d41d9a03881044d71f2".to_string());
+		let pallets = vec!["DelegatedStaking".to_string()];
+		let transport: Transport =
+			var("WS").unwrap_or("wss://westend-rpc.dwellir.com".to_string()).into();
+
+		let snap_config: SnapshotConfig = "wnd.snap".to_string().into();
+		let mode = Mode::OfflineOrElseOnline(
+			OfflineConfig { state_snapshot: snap_config.clone() },
+			OnlineConfig {
+				transport: transport.clone(),
+				pallets,
+				state_snapshot: Some(snap_config),
+				..Default::default()
+			},
+		);
+
+		Builder::<Block>::default().mode(mode).build().await.unwrap().execute_with(|| {
+			let delegators: Vec<frame_system::KeyValue> = pallet_delegated_staking::Delegators::<
+				Runtime,
+			>::iter()
+			.map(|(k, v)| {
+				(pallet_delegated_staking::Delegators::<Runtime>::hashed_key_for(k), v.encode())
+			})
+			.collect();
+			let agents: Vec<frame_system::KeyValue> =
+				pallet_delegated_staking::Agents::<Runtime>::iter()
+					.map(|(k, v)| {
+						(pallet_delegated_staking::Agents::<Runtime>::hashed_key_for(k), v.encode())
+					})
+					.collect();
+
+			let counters = vec![
+				(
+					pallet_delegated_staking::Agents::<Runtime>::counter_storage_final_key()
+						.to_vec(),
+					pallet_delegated_staking::Agents::<Runtime>::count().encode(),
+				),
+				(
+					pallet_delegated_staking::Delegators::<Runtime>::counter_storage_final_key()
+						.to_vec(),
+					pallet_delegated_staking::Delegators::<Runtime>::count().encode(),
+				),
+			];
+			let items = [&counters[..], &delegators[..], &agents[..]].concat();
+			log::info!(
+				target: "runtime",
+				"Delegators: {:?}, Agents: {:?}, Items: {:?}",
+				delegators.len(),
+				agents.len(),
+				items.len()
+			);
+
+			items.chunks(512).enumerate().for_each(|(idx, chunk)| {
+				log::info!(target: "runtime", "creating call with {} items.", chunk.len());
+				let syscall = RuntimeCall::System(frame_system::Call::<Runtime>::set_storage {
+					items: chunk.to_vec(),
+				});
+				let call = RuntimeCall::Sudo(pallet_sudo::Call::<Runtime>::sudo {
+					call: Box::new(syscall),
+				});
+				let encoded = call.encode();
+				let hex = hex::encode(encoded);
+				std::fs::write(format!("call_{:?}.txt", idx), format!("0x{}", hex));
+			});
+		});
+	}
 }

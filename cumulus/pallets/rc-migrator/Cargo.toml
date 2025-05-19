@@ -25,6 +25,7 @@ pallet-balances = { workspace = true }
 pallet-bags-list = { workspace = true }
 pallet-bounties = { workspace = true }
 pallet-conviction-voting = { workspace = true }
+pallet-delegated-staking = { workspace = true }
 pallet-scheduler = { workspace = true }
 pallet-staking = { workspace = true }
 pallet-staking-async = { workspace = true } # Only on westend
