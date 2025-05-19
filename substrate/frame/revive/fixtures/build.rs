@@ -198,7 +198,7 @@ fn post_process(input_path: &Path, output_path: &Path) -> Result<()> {
 	Ok(())
 }
 
-fn move_files(entries: Vec<String>, output_directory: &Path) -> Result<()> {
+fn copy_to_output_directory(entries: Vec<String>, output_directory: &Path) -> Result<()> {
 	for entry in entries {
 		let file_path = Path::new(&entry);
 		let output_path = output_directory.join(file_path.file_name().expect("entry is path; qed"));
@@ -326,7 +326,7 @@ pub fn main() -> Result<()> {
 	create_cargo_toml(&fixtures_dir, rust_entries.iter(), &build_dir)?;
 	invoke_build(&build_dir)?;
 	write_output(&build_dir, &out_dir, rust_entries)?;
-	move_files(pvm_entries, &out_dir)?;
+	copy_to_output_directory(pvm_entries, &out_dir)?;
 
 	Ok(())
 }
