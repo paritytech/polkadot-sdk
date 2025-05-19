@@ -114,7 +114,11 @@ fn errors_should_return_unused_weight() {
 	);
 	assert_eq!(
 		r,
-		Outcome::Incomplete { used: Weight::from_parts(30, 30), error: XcmError::NotWithdrawable }
+		Outcome::Incomplete {
+			used: Weight::from_parts(30, 30),
+			error: XcmError::NotWithdrawable,
+			index: 0
+		}
 	);
 	assert_eq!(asset_list(AccountIndex64 { index: 3, network: None }), vec![(Here, 10u128).into()]);
 	assert_eq!(asset_list(Here), vec![(Here, 1u128).into()]);
@@ -129,7 +133,11 @@ fn errors_should_return_unused_weight() {
 	);
 	assert_eq!(
 		r,
-		Outcome::Incomplete { used: Weight::from_parts(20, 20), error: XcmError::NotWithdrawable }
+		Outcome::Incomplete {
+			used: Weight::from_parts(20, 20),
+			error: XcmError::NotWithdrawable,
+			index: 0
+		}
 	);
 	assert_eq!(asset_list(AccountIndex64 { index: 3, network: None }), vec![(Here, 11u128).into()]);
 	assert_eq!(asset_list(Here), vec![]);
@@ -144,7 +152,11 @@ fn errors_should_return_unused_weight() {
 	);
 	assert_eq!(
 		r,
-		Outcome::Incomplete { used: Weight::from_parts(10, 10), error: XcmError::NotWithdrawable }
+		Outcome::Incomplete {
+			used: Weight::from_parts(10, 10),
+			error: XcmError::NotWithdrawable,
+			index: 0
+		}
 	);
 	assert_eq!(asset_list(AccountIndex64 { index: 3, network: None }), vec![(Here, 11u128).into()]);
 	assert_eq!(asset_list(Here), vec![]);
