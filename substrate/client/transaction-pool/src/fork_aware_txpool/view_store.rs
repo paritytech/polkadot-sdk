@@ -338,12 +338,12 @@ where
 		self.active_views.read().is_empty() && self.inactive_views.read().is_empty()
 	}
 
-	/// Searches in the view store for first view by iterating through the fork of
-	/// the `at` block, up to the provided block number.
+	/// Searches in the view store for the first descendant view by iterating through the fork of
+	/// the `at` block, up to the provided `block_number`.
 	///
 	/// Returns with a maybe pair of a view and a set of enacted blocks when the first view is
 	/// found.
-	pub(super) fn find_view_upto_block_number(
+	pub(super) fn find_view_descendent_upto_number(
 		&self,
 		at: &HashAndNumber<Block>,
 		block_number: <<Block as BlockT>::Header as Header>::Number,

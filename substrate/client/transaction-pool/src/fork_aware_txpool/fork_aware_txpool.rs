@@ -506,7 +506,7 @@ where
 		// Prune all txs from the best view found, considering the extrinsics part of the blocks
 		// that are more recent than the view itself.
 		if let Some((view, enacted_blocks)) =
-			self.view_store.find_view_upto_block_number(&at_hn, last_finalized_number)
+			self.view_store.find_view_descendent_upto_number(&at_hn, last_finalized_number)
 		{
 			let (tmp_view, _, _): (View<ChainApi>, _, _) = View::new_from_other(&view, &at_hn);
 
