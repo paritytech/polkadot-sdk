@@ -182,7 +182,7 @@ pub struct UnbondingQueueConfig {
 
 /// Reward points of an era. Used to split era total payout between validators.
 ///
-/// This points will be used to reward validators and their respective nominators.
+/// These points will be used to reward validators and their respective nominators.
 #[derive(
 	PartialEqNoBound, Encode, Decode, DebugNoBound, TypeInfo, MaxEncodedLen, DefaultNoBound,
 )]
