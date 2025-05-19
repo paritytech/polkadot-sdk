@@ -966,7 +966,7 @@ impl PalletCmd {
 		ignore_unknown_pov_mode: bool,
 	) -> Result<()> {
 		// Check that all PoV modes are valid pallet storage keys
-		for (pallet, storage) in pov_modes.values().map(|i| i.keys()).flatten() {
+		for (pallet, storage) in pov_modes.values().flat_map(|i| i.keys()) {
 			let (mut found_pallet, mut found_storage) = (false, false);
 
 			for info in storage_info {
