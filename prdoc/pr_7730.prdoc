@@ -10,11 +10,11 @@ crates:
   bump: patch
 - name: parachains-runtimes-test-utils
   bump: patch
+- name: staging-xcm
+  bump: patch
 - name: staging-xcm-builder
   bump: patch
-- name: xcm
-  bump: patch
-- name: xcm-executor
+- name: staging-xcm-executor
   bump: patch
 - name: asset-hub-westend-integration-tests
   bump: none
