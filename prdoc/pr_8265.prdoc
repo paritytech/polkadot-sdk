@@ -40,3 +40,5 @@ crates:
   bump: patch
 - name: pallet-staking
   bump: patch
+- name: frame-omni-bencher
+  bump: minor
