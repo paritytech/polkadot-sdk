@@ -6697,17 +6697,6 @@ dependencies = [
 
 [[package]]
 name = "frame-metadata"
-version = "22.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2753bc34b8cf637f58a4f7c3fcd54e8e588503bc9bba449bd8f5a1ab202b0172"
-dependencies = [
- "cfg-if",
- "parity-scale-codec",
- "scale-info",
-]
-
-[[package]]
-name = "frame-metadata"
 version = "23.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d8c26fcb0454397c522c05fdad5380c4e622f8a875638af33bff5a320d1fc965"
@@ -9981,7 +9970,7 @@ checksum = "b3e3e3f549d27d2dc054372f320ddf68045a833fab490563ff70d4cf1b9d91ea"
 dependencies = [
  "array-bytes 9.1.2",
  "blake3",
- "frame-metadata 22.0.0",
+ "frame-metadata 23.0.0",
  "parity-scale-codec",
  "scale-decode 0.16.0",
  "scale-info",
