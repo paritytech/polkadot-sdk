@@ -24,6 +24,7 @@
 #[cfg(feature = "std")]
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
+mod bridge_to_ethereum_config;
 mod genesis_config_presets;
 mod weights;
 pub mod xcm_config;
@@ -35,6 +36,7 @@ use assets_common::{
 	local_and_foreign_assets::{LocalFromLeft, TargetFromLeft},
 	AssetIdForPoolAssets, AssetIdForPoolAssetsConvert, AssetIdForTrustBackedAssetsConvert,
 };
+use bp_asset_hub_westend::CreateForeignAssetDeposit;
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use cumulus_pallet_parachain_system::RelayNumberMonotonicallyIncreases;
 use cumulus_primitives_core::{AggregateMessageOrigin, ClaimQueueOffset, CoreSelector, ParaId};
@@ -51,7 +53,7 @@ use frame_support::{
 		AsEnsureOriginWithArg, ConstBool, ConstU128, ConstU32, ConstU64, ConstU8,
 		ConstantStoragePrice, Equals, InstanceFilter, Nothing, TransformOrigin,
 	},
-	weights::{ConstantMultiplier, Weight, WeightToFee as _},
+	weights::{ConstantMultiplier, Weight},
 	BoundedVec, PalletId,
 };
 use frame_system::{
@@ -110,7 +112,7 @@ use frame_support::traits::PalletInfoAccess;
 #[cfg(feature = "runtime-benchmarks")]
 use xcm::latest::prelude::{
 	Asset, Assets as XcmAssets, Fungible, Here, InteriorLocation, Junction, Junction::*, Location,
-	NetworkId, NonFungible, Parent, ParentThen, Response, XCM_VERSION,
+	NetworkId, NonFungible, Parent, ParentThen, Response, WeightLimit, XCM_VERSION,
 };
 
 use xcm_runtime_apis::{
@@ -132,7 +134,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: alloc::borrow::Cow::Borrowed("westmint"),
 	impl_name: alloc::borrow::Cow::Borrowed("westmint"),
 	authoring_version: 1,
-	spec_version: 1_017_007,
+	spec_version: 1_018_006,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 16,
@@ -513,8 +515,7 @@ impl pallet_asset_conversion_ops::Config for Runtime {
 }
 
 parameter_types! {
-	// we just reuse the same deposits
-	pub const ForeignAssetsAssetDeposit: Balance = AssetDeposit::get();
+	pub const ForeignAssetsAssetDeposit: Balance = CreateForeignAssetDeposit::get();
 	pub const ForeignAssetsAssetAccountDeposit: Balance = AssetAccountDeposit::get();
 	pub const ForeignAssetsApprovalDeposit: Balance = ApprovalDeposit::get();
 	pub const ForeignAssetsAssetsStringLimit: u32 = AssetsStringLimit::get();
@@ -1077,7 +1078,7 @@ impl pallet_revive::Config for Runtime {
 	type DepositPerByte = DepositPerByte;
 	type WeightPrice = pallet_transaction_payment::Pallet<Self>;
 	type WeightInfo = pallet_revive::weights::SubstrateWeight<Self>;
-	type ChainExtension = ();
+	type Precompiles = ();
 	type AddressMapper = pallet_revive::AccountId32Mapper<Self>;
 	type RuntimeMemory = ConstU32<{ 128 * 1024 * 1024 }>;
 	type PVFMemory = ConstU32<{ 512 * 1024 * 1024 }>;
@@ -1091,17 +1092,6 @@ impl pallet_revive::Config for Runtime {
 	type NativeToEthRatio = ConstU32<1_000_000>; // 10^(18 - 12) Eth is 10^18, Native is 10^12.
 	type EthGasEncoder = ();
 	type FindAuthor = <Runtime as pallet_authorship::Config>::FindAuthor;
-}
-
-impl TryFrom<RuntimeCall> for pallet_revive::Call<Runtime> {
-	type Error = ();
-
-	fn try_from(value: RuntimeCall) -> Result<Self, Self::Error> {
-		match value {
-			RuntimeCall::Revive(call) => Ok(call),
-			_ => Err(()),
-		}
-	}
 }
 
 parameter_types! {
@@ -1156,6 +1146,8 @@ construct_runtime!(
 		// Bridge utilities.
 		ToRococoXcmRouter: pallet_xcm_bridge_hub_router::<Instance1> = 34,
 		MessageQueue: pallet_message_queue = 35,
+		// Snowbridge
+		SnowbridgeSystemFrontend: snowbridge_pallet_system_frontend = 36,
 
 		// Handy utilities.
 		Utility: pallet_utility = 40,
@@ -1198,6 +1190,7 @@ pub type BlockId = generic::BlockId<Block>;
 pub type TxExtension = cumulus_pallet_weight_reclaim::StorageWeightReclaim<
 	Runtime,
 	(
+		frame_system::AuthorizeCall<Runtime>,
 		frame_system::CheckNonZeroSender<Runtime>,
 		frame_system::CheckSpecVersion<Runtime>,
 		frame_system::CheckTxVersion<Runtime>,
@@ -1220,6 +1213,7 @@ impl EthExtra for EthExtraImpl {
 
 	fn get_eth_extension(nonce: u32, tip: Balance) -> Self::Extension {
 		(
+			frame_system::AuthorizeCall::<Runtime>::new(),
 			frame_system::CheckNonZeroSender::<Runtime>::new(),
 			frame_system::CheckSpecVersion::<Runtime>::new(),
 			frame_system::CheckTxVersion::<Runtime>::new(),
@@ -1484,6 +1478,7 @@ mod benches {
 		[pallet_xcm_benchmarks::fungible, XcmBalances]
 		[pallet_xcm_benchmarks::generic, XcmGeneric]
 		[cumulus_pallet_weight_reclaim, WeightReclaim]
+		[snowbridge_pallet_system_frontend, SnowbridgeSystemFrontend]
 	);
 }
 
@@ -1688,33 +1683,11 @@ impl_runtime_apis! {
 		}
 
 		fn query_weight_to_asset_fee(weight: Weight, asset: VersionedAssetId) -> Result<u128, XcmPaymentApiError> {
-			let native_asset = xcm_config::WestendLocation::get();
-			let fee_in_native = WeightToFee::weight_to_fee(&weight);
-			let latest_asset_id: Result<AssetId, ()> = asset.clone().try_into();
-			match latest_asset_id {
-				Ok(asset_id) if asset_id.0 == native_asset => {
-					// for native asset
-					Ok(fee_in_native)
-				},
-				Ok(asset_id) => {
-					// Try to get current price of `asset_id` in `native_asset`.
-					if let Ok(Some(swapped_in_native)) = assets_common::PoolAdapter::<Runtime>::quote_price_tokens_for_exact_tokens(
-							asset_id.0.clone(),
-							native_asset,
-							fee_in_native,
-							true, // We include the fee.
-						) {
-						Ok(swapped_in_native)
-					} else {
-						log::trace!(target: "xcm::xcm_runtime_apis", "query_weight_to_asset_fee - unhandled asset_id: {asset_id:?}!");
-						Err(XcmPaymentApiError::AssetNotFound)
-					}
-				},
-				Err(_) => {
-					log::trace!(target: "xcm::xcm_runtime_apis", "query_weight_to_asset_fee - failed to convert asset: {asset:?}!");
-					Err(XcmPaymentApiError::VersionedConversionFailed)
-				}
-			}
+			use crate::xcm_config::XcmConfig;
+
+			type Trader = <XcmConfig as xcm_executor::Config>::Trader;
+
+			PolkadotXcm::query_weight_to_asset_fee::<Trader>(weight, asset)
 		}
 
 		fn query_xcm_weight(message: VersionedXcm<()>) -> Result<Weight, XcmPaymentApiError> {
@@ -1745,6 +1718,30 @@ impl_runtime_apis! {
 				AccountId,
 				xcm_config::LocationToAccountId,
 			>::convert_location(location)
+		}
+	}
+
+	impl xcm_runtime_apis::trusted_query::TrustedQueryApi<Block> for Runtime {
+		fn is_trusted_reserve(asset: VersionedAsset, location: VersionedLocation) -> xcm_runtime_apis::trusted_query::XcmTrustedQueryResult {
+			PolkadotXcm::is_trusted_reserve(asset, location)
+		}
+		fn is_trusted_teleporter(asset: VersionedAsset, location: VersionedLocation) -> xcm_runtime_apis::trusted_query::XcmTrustedQueryResult {
+			PolkadotXcm::is_trusted_teleporter(asset, location)
+		}
+	}
+
+	impl xcm_runtime_apis::authorized_aliases::AuthorizedAliasersApi<Block> for Runtime {
+		fn authorized_aliasers(target: VersionedLocation) -> Result<
+			Vec<xcm_runtime_apis::authorized_aliases::OriginAliaser>,
+			xcm_runtime_apis::authorized_aliases::Error
+		> {
+			PolkadotXcm::authorized_aliasers(target)
+		}
+		fn is_authorized_alias(origin: VersionedLocation, target: VersionedLocation) -> Result<
+			bool,
+			xcm_runtime_apis::authorized_aliases::Error
+		> {
+			PolkadotXcm::is_authorized_alias(origin, target)
 		}
 	}
 
@@ -2162,7 +2159,54 @@ impl_runtime_apis! {
 				}
 
 				fn worst_case_asset_exchange() -> Result<(XcmAssets, XcmAssets), BenchmarkError> {
-					Err(BenchmarkError::Skip)
+					let native_asset_location = WestendLocation::get();
+					let native_asset_id = AssetId(native_asset_location.clone());
+					let (account, _) = pallet_xcm_benchmarks::account_and_location::<Runtime>(1);
+					let origin = RuntimeOrigin::signed(account.clone());
+					let asset_location = Location::new(1, [Parachain(2001)]);
+					let asset_id = AssetId(asset_location.clone());
+
+					assert_ok!(<Balances as fungible::Mutate<_>>::mint_into(
+						&account,
+						ExistentialDeposit::get() + (1_000 * UNITS)
+					));
+
+					assert_ok!(ForeignAssets::force_create(
+						RuntimeOrigin::root(),
+						asset_location.clone().into(),
+						account.clone().into(),
+						true,
+						1,
+					));
+
+					assert_ok!(ForeignAssets::mint(
+						origin.clone(),
+						asset_location.clone().into(),
+						account.clone().into(),
+						3_000 * UNITS,
+					));
+
+					assert_ok!(AssetConversion::create_pool(
+						origin.clone(),
+						native_asset_location.clone().into(),
+						asset_location.clone().into(),
+					));
+
+					assert_ok!(AssetConversion::add_liquidity(
+						origin,
+						native_asset_location.into(),
+						asset_location.into(),
+						1_000 * UNITS,
+						2_000 * UNITS,
+						1,
+						1,
+						account.into(),
+					));
+
+					let give_assets: XcmAssets = (native_asset_id, 500 * UNITS).into();
+					let receive_assets: XcmAssets = (asset_id, 660 * UNITS).into();
+
+					Ok((give_assets, receive_assets))
 				}
 
 				fn universal_alias() -> Result<(Location, Junction), BenchmarkError> {
@@ -2185,11 +2229,11 @@ impl_runtime_apis! {
 					Ok((origin, ticket, assets))
 				}
 
-				fn fee_asset() -> Result<Asset, BenchmarkError> {
-					Ok(Asset {
+				fn worst_case_for_trader() -> Result<(Asset, WeightLimit), BenchmarkError> {
+					Ok((Asset {
 						id: AssetId(WestendLocation::get()),
 						fun: Fungible(1_000 * UNITS),
-					})
+					}, WeightLimit::Limited(Weight::from_parts(5000, 5000))))
 				}
 
 				fn unlockable_asset() -> Result<(Location, Location, Asset), BenchmarkError> {
@@ -2242,15 +2286,6 @@ impl_runtime_apis! {
 
 		fn preset_names() -> Vec<sp_genesis_builder::PresetId> {
 			genesis_config_presets::preset_names()
-		}
-	}
-
-	impl xcm_runtime_apis::trusted_query::TrustedQueryApi<Block> for Runtime {
-		fn is_trusted_reserve(asset: VersionedAsset, location: VersionedLocation) -> xcm_runtime_apis::trusted_query::XcmTrustedQueryResult {
-			PolkadotXcm::is_trusted_reserve(asset, location)
-		}
-		fn is_trusted_teleporter(asset: VersionedAsset, location: VersionedLocation) -> xcm_runtime_apis::trusted_query::XcmTrustedQueryResult {
-			PolkadotXcm::is_trusted_teleporter(asset, location)
 		}
 	}
 
@@ -2355,22 +2390,31 @@ impl_runtime_apis! {
 			)
 		}
 
+		fn get_storage_var_key(
+			address: H160,
+			key: Vec<u8>,
+		) -> pallet_revive::GetStorageResult {
+			Revive::get_storage_var_key(
+				address,
+				key
+			)
+		}
+
 		fn trace_block(
 			block: Block,
-			config: pallet_revive::evm::TracerConfig
-		) -> Vec<(u32, pallet_revive::evm::CallTrace)> {
+			tracer_type: pallet_revive::evm::TracerType,
+		) -> Vec<(u32, pallet_revive::evm::Trace)> {
 			use pallet_revive::tracing::trace;
-			let mut tracer = config.build(Revive::evm_gas_from_weight);
+			let mut tracer = Revive::evm_tracer(tracer_type);
 			let mut traces = vec![];
 			let (header, extrinsics) = block.deconstruct();
-
 			Executive::initialize_block(&header);
 			for (index, ext) in extrinsics.into_iter().enumerate() {
-				trace(&mut tracer, || {
+				trace(tracer.as_tracing(), || {
 					let _ = Executive::apply_extrinsic(ext);
 				});
 
-				if let Some(tx_trace) = tracer.collect_traces().pop() {
+				if let Some(tx_trace) = tracer.collect_trace() {
 					traces.push((index as u32, tx_trace));
 				}
 			}
@@ -2381,16 +2425,16 @@ impl_runtime_apis! {
 		fn trace_tx(
 			block: Block,
 			tx_index: u32,
-			config: pallet_revive::evm::TracerConfig
-		) -> Option<pallet_revive::evm::CallTrace> {
+			tracer_type: pallet_revive::evm::TracerType,
+		) -> Option<pallet_revive::evm::Trace> {
 			use pallet_revive::tracing::trace;
-			let mut tracer = config.build(Revive::evm_gas_from_weight);
+			let mut tracer = Revive::evm_tracer(tracer_type);
 			let (header, extrinsics) = block.deconstruct();
 
 			Executive::initialize_block(&header);
 			for (index, ext) in extrinsics.into_iter().enumerate() {
 				if index as u32 == tx_index {
-					trace(&mut tracer, || {
+				trace(tracer.as_tracing(), || {
 						let _ = Executive::apply_extrinsic(ext);
 					});
 					break;
@@ -2399,24 +2443,25 @@ impl_runtime_apis! {
 				}
 			}
 
-			tracer.collect_traces().pop()
+			tracer.collect_trace()
 		}
 
 		fn trace_call(
 			tx: pallet_revive::evm::GenericTransaction,
-			config: pallet_revive::evm::TracerConfig)
-			-> Result<pallet_revive::evm::CallTrace, pallet_revive::EthTransactError>
+			tracer_type: pallet_revive::evm::TracerType,
+			)
+			-> Result<pallet_revive::evm::Trace, pallet_revive::EthTransactError>
 		{
 			use pallet_revive::tracing::trace;
-			let mut tracer = config.build(Revive::evm_gas_from_weight);
-			let result = trace(&mut tracer, || Self::eth_transact(tx));
+			let mut tracer = Revive::evm_tracer(tracer_type);
+			let result = trace(tracer.as_tracing(), || Self::eth_transact(tx));
 
-			if let Some(trace) = tracer.collect_traces().pop() {
+			if let Some(trace) = tracer.collect_trace() {
 				Ok(trace)
 			} else if let Err(err) = result {
 				Err(err)
 			} else {
-				Ok(Default::default())
+				Ok(tracer.empty_trace())
 			}
 		}
 	}

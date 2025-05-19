@@ -447,6 +447,7 @@ where
 		relay_chain_slot_duration,
 		recovery_handle,
 		sync_service: sync_service.clone(),
+		prometheus_registry: None,
 	})?;
 
 	if let Some(collator_key) = collator_key {
@@ -508,6 +509,7 @@ where
 					block_import_handle: slot_based_handle,
 					spawner: task_manager.spawn_handle(),
 					export_pov: None,
+					max_pov_percentage: None,
 				};
 
 				slot_based::run::<Block, AuthorityPair, _, _, _, _, _, _, _, _, _>(params);
@@ -534,6 +536,7 @@ where
 					collator_service,
 					authoring_duration: Duration::from_millis(2000),
 					reinitialize: false,
+					max_pov_percentage: None,
 				};
 
 				let fut = aura::run::<Block, AuthorityPair, _, _, _, _, _, _, _, _>(params);
@@ -753,7 +756,11 @@ impl TestNodeBuilder {
 			false,
 		);
 
-		let collator_options = CollatorOptions { relay_chain_mode: self.relay_chain_mode };
+		let collator_options = CollatorOptions {
+			relay_chain_mode: self.relay_chain_mode,
+			embedded_dht_bootnode: true,
+			dht_bootnode_discovery: true,
+		};
 
 		relay_chain_config.network.node_name =
 			format!("{} (relay chain)", relay_chain_config.network.node_name);
@@ -972,6 +979,7 @@ pub fn construct_extrinsic(
 		.unwrap_or(2) as u64;
 	let tip = 0;
 	let tx_ext: runtime::TxExtension = (
+		frame_system::AuthorizeCall::<runtime::Runtime>::new(),
 		frame_system::CheckNonZeroSender::<runtime::Runtime>::new(),
 		frame_system::CheckSpecVersion::<runtime::Runtime>::new(),
 		frame_system::CheckGenesis::<runtime::Runtime>::new(),
@@ -987,7 +995,7 @@ pub fn construct_extrinsic(
 	let raw_payload = runtime::SignedPayload::from_raw(
 		function.clone(),
 		tx_ext.clone(),
-		((), runtime::VERSION.spec_version, genesis_block, current_block_hash, (), (), ()),
+		((), (), runtime::VERSION.spec_version, genesis_block, current_block_hash, (), (), ()),
 	);
 	let signature = raw_payload.using_encoded(|e| caller.sign(e));
 	runtime::UncheckedExtrinsic::new_signed(

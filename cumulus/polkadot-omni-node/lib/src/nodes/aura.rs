@@ -363,6 +363,7 @@ where
 			block_import_handle,
 			spawner: task_manager.spawn_handle(),
 			export_pov: node_extra_args.export_pov,
+			max_pov_percentage: node_extra_args.max_pov_percentage,
 		};
 
 		// We have a separate function only to be able to use `docify::export` on this piece of
@@ -487,6 +488,7 @@ where
 				collator_service,
 				authoring_duration: Duration::from_millis(2000),
 				reinitialize: false,
+				max_pov_percentage: node_extra_args.max_pov_percentage,
 			},
 		};
 

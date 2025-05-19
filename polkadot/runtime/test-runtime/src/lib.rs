@@ -79,7 +79,7 @@ use polkadot_runtime_common::{
 use polkadot_runtime_parachains::reward_points::RewardValidatorsWithEraPoints;
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_consensus_beefy::ecdsa_crypto::{AuthorityId as BeefyId, Signature as BeefySignature};
-use sp_core::{ConstBool, ConstU32, OpaqueMetadata};
+use sp_core::{ConstBool, ConstU32, ConstUint, OpaqueMetadata};
 use sp_mmr_primitives as mmr;
 use sp_runtime::{
 	curve::PiecewiseLinear,
@@ -199,6 +199,26 @@ where
 	}
 }
 
+impl<C> frame_system::offchain::CreateAuthorizedTransaction<C> for Runtime
+where
+	RuntimeCall: From<C>,
+{
+	fn create_extension() -> Self::Extension {
+		(
+			frame_system::AuthorizeCall::<Runtime>::new(),
+			frame_system::CheckNonZeroSender::<Runtime>::new(),
+			frame_system::CheckSpecVersion::<Runtime>::new(),
+			frame_system::CheckTxVersion::<Runtime>::new(),
+			frame_system::CheckGenesis::<Runtime>::new(),
+			frame_system::CheckMortality::<Runtime>::from(generic::Era::Immortal),
+			frame_system::CheckNonce::<Runtime>::from(0),
+			frame_system::CheckWeight::<Runtime>::new(),
+			pallet_transaction_payment::ChargeTransactionPayment::<Runtime>::from(0),
+			frame_system::WeightReclaim::<Runtime>::new(),
+		)
+	}
+}
+
 parameter_types! {
 	pub storage EpochDuration: u64 = EPOCH_DURATION_IN_SLOTS as u64;
 	pub storage ExpectedBlockTime: Moment = MILLISECS_PER_BLOCK;
@@ -312,7 +332,7 @@ impl_opaque_keys! {
 impl pallet_session::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type ValidatorId = AccountId;
-	type ValidatorIdOf = pallet_staking::StashOf<Self>;
+	type ValidatorIdOf = sp_runtime::traits::ConvertInto;
 	type ShouldEndSession = Babe;
 	type NextSessionRotation = Babe;
 	type SessionManager = Staking;
@@ -323,8 +343,9 @@ impl pallet_session::Config for Runtime {
 }
 
 impl pallet_session::historical::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
 	type FullIdentification = ();
-	type FullIdentificationOf = pallet_staking::NullIdentity;
+	type FullIdentificationOf = pallet_staking::UnitIdentificationOf<Self>;
 }
 
 pallet_staking_reward_curve::build! {
@@ -403,8 +424,6 @@ impl pallet_staking::Config for Runtime {
 	type EventListeners = ();
 	type WeightInfo = ();
 	type MaxValidatorSet = MaxAuthorities;
-	type MaxInvulnerables = ConstU32<20>;
-	type MaxDisabledValidators = ConstU32<100>;
 	type Filter = frame_support::traits::Nothing;
 }
 
@@ -442,6 +461,7 @@ where
 		let current_block = System::block_number().saturated_into::<u64>().saturating_sub(1);
 		let tip = 0;
 		let tx_ext: TxExtension = (
+			frame_system::AuthorizeCall::<Runtime>::new(),
 			frame_system::CheckNonZeroSender::<Runtime>::new(),
 			frame_system::CheckSpecVersion::<Runtime>::new(),
 			frame_system::CheckTxVersion::<Runtime>::new(),
@@ -535,7 +555,7 @@ impl parachains_shared::Config for Runtime {
 impl parachains_inclusion::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type DisputesHandler = ParasDisputes;
-	type RewardValidators = RewardValidatorsWithEraPoints<Runtime>;
+	type RewardValidators = RewardValidatorsWithEraPoints<Runtime, Staking>;
 	type MessageQueue = ();
 	type WeightInfo = ();
 }
@@ -591,6 +611,8 @@ impl parachains_paras::Config for Runtime {
 	type NextSessionRotation = Babe;
 	type OnNewHead = ();
 	type AssignCoretime = CoretimeAssignmentProvider;
+	type Fungible = Balances;
+	type CooldownRemovalMultiplier = ConstUint<1>;
 }
 
 parameter_types! {
@@ -698,6 +720,7 @@ pub mod pallet_test_notifier {
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config + pallet_xcm::Config {
+		#[allow(deprecated)]
 		type RuntimeEvent: IsType<<Self as frame_system::Config>::RuntimeEvent> + From<Event<Self>>;
 		type RuntimeOrigin: IsType<<Self as frame_system::Config>::RuntimeOrigin>
 			+ Into<Result<pallet_xcm::Origin, <Self as Config>::RuntimeOrigin>>;
@@ -836,6 +859,7 @@ pub type SignedBlock = generic::SignedBlock<Block>;
 pub type BlockId = generic::BlockId<Block>;
 /// The extension to the basic transaction logic.
 pub type TxExtension = (
+	frame_system::AuthorizeCall<Runtime>,
 	frame_system::CheckNonZeroSender<Runtime>,
 	frame_system::CheckSpecVersion<Runtime>,
 	frame_system::CheckTxVersion<Runtime>,
@@ -939,7 +963,7 @@ sp_api::impl_runtime_apis! {
 		}
 	}
 
-	#[api_version(12)]
+	#[api_version(13)]
 	impl polkadot_primitives::runtime_api::ParachainHost<Block> for Runtime {
 		fn validators() -> Vec<ValidatorId> {
 			runtime_impl::validators::<Runtime>()

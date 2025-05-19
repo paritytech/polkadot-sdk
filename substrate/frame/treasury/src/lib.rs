@@ -18,7 +18,7 @@
 //! > Made with *Substrate*, for *Polkadot*.
 //!
 //! [![github]](https://github.com/paritytech/substrate/frame/fast-unstake) -
-//! [![polkadot]](https://polkadot.network)
+//! [![polkadot]](https://polkadot.com)
 //!
 //! [polkadot]: https://img.shields.io/badge/polkadot-E6007A?style=for-the-badge&logo=polkadot&logoColor=white
 //! [github]: https://img.shields.io/badge/github-8da0cb?style=for-the-badge&labelColor=555555&logo=github
@@ -218,6 +218,7 @@ pub mod pallet {
 		type RejectOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
 		/// The overarching event type.
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self, I>>
 			+ IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
@@ -743,6 +744,7 @@ pub mod pallet {
 				.map_err(|_| Error::<T, I>::PayoutError)?;
 
 			spend.status = PaymentState::Attempted { id };
+			spend.expire_at = now.saturating_add(T::PayoutPeriod::get());
 			Spends::<T, I>::insert(index, spend);
 
 			Self::deposit_event(Event::<T, I>::Paid { index, payment_id: id });

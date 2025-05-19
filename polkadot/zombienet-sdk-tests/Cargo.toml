@@ -20,10 +20,12 @@ subxt = { workspace = true }
 subxt-signer = { workspace = true }
 tokio = { workspace = true, features = ["rt-multi-thread"] }
 tokio-util = { workspace = true, features = ["time"] }
+zombienet-orchestrator = { workspace = true }
 zombienet-sdk = { workspace = true }
 
 [features]
 zombie-metadata = []
+zombie-ci = []
 
 [build-dependencies]
 substrate-build-script-utils = { workspace = true, default-features = true }

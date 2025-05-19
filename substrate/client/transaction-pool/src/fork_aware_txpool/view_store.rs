@@ -34,7 +34,9 @@ use crate::{
 };
 use itertools::Itertools;
 use parking_lot::RwLock;
-use sc_transaction_pool_api::{error::Error as PoolError, PoolStatus, TxInvalidityReportMap};
+use sc_transaction_pool_api::{
+	error::Error as PoolError, PoolStatus, TransactionTag as Tag, TxInvalidityReportMap,
+};
 use sp_blockchain::{HashAndNumber, TreeRoute};
 use sp_runtime::{
 	generic::BlockId,
@@ -647,8 +649,7 @@ where
 	///
 	/// Invalid future and stale transaction will be removed only from given `at` view, and will be
 	/// kept in the view_store. Such transaction will not be reported in returned vector. They
-	/// also will not be banned from re-entering the pool (however can be rejected from re-entring
-	/// the view). No event will be triggered.
+	/// also will not be banned from re-entering the pool. No event will be triggered.
 	///
 	/// For other errors, the transaction will be removed from the view_store, and it will be
 	/// included in the returned vector. Additionally, transactions provided as input will be banned
@@ -685,7 +686,7 @@ where
 		// be in the pool.
 		at.map(|at| {
 			self.get_view_at(at, true)
-				.map(|(view, _)| view.remove_subtree(&remove_from_view, |_, _| {}))
+				.map(|(view, _)| view.remove_subtree(&remove_from_view, false, |_, _| {}))
 		});
 
 		let mut removed = vec![];
@@ -757,7 +758,7 @@ where
 					));
 				},
 				PreInsertAction::RemoveSubtree(ref removal) => {
-					view.remove_subtree(&[removal.xt_hash], &*removal.listener_action);
+					view.remove_subtree(&[removal.xt_hash], true, &*removal.listener_action);
 				},
 			}
 		}
@@ -862,7 +863,7 @@ where
 			.iter()
 			.chain(self.inactive_views.read().iter())
 			.filter(|(_, view)| view.is_imported(&xt_hash))
-			.flat_map(|(_, view)| view.remove_subtree(&[xt_hash], &listener_action))
+			.flat_map(|(_, view)| view.remove_subtree(&[xt_hash], true, &listener_action))
 			.filter_map(|xt| seen.insert(xt.hash).then(|| xt.clone()))
 			.collect();
 
@@ -907,5 +908,35 @@ where
 				self.dropped_stream_controller.remove_view(view);
 			}
 		}
+	}
+
+	/// Returns provides tags of given transactions in the views associated to the given set of
+	/// blocks.
+	pub(crate) fn provides_tags_from_inactive_views(
+		&self,
+		block_hashes: Vec<&HashAndNumber<Block>>,
+		mut xts_hashes: Vec<ExtrinsicHash<ChainApi>>,
+	) -> HashMap<ExtrinsicHash<ChainApi>, Vec<Tag>> {
+		let mut provides_tags_map = HashMap::new();
+
+		block_hashes.into_iter().for_each(|hn| {
+			// Get tx provides tags from given view's pool.
+			if let Some((view, _)) = self.get_view_at(hn.hash, true) {
+				let provides_tags = view.pool.validated_pool().extrinsics_tags(&xts_hashes);
+				let xts_provides_tags = xts_hashes
+					.iter()
+					.zip(provides_tags.into_iter())
+					.filter_map(|(hash, maybe_tags)| maybe_tags.map(|tags| (*hash, tags)))
+					.collect::<HashMap<ExtrinsicHash<ChainApi>, Vec<Tag>>>();
+
+				// Remove txs that have been resolved.
+				xts_hashes.retain(|xth| !xts_provides_tags.contains_key(xth));
+
+				// Collect the (extrinsic hash, tags) pairs in a map.
+				provides_tags_map.extend(xts_provides_tags);
+			}
+		});
+
+		provides_tags_map
 	}
 }
