@@ -1657,3 +1657,66 @@ fn smart_contract_not_erc20_will_error() {
 		.is_err());
 	});
 }
+
+#[test]
+fn smart_contract_returns_more_data_handled_gracefully() {
+	let sender = AssetHubWestendSender::get();
+	let beneficiary = AssetHubWestendReceiver::get();
+	let checking_account = asset_hub_westend_runtime::xcm_config::CheckingAccount::get();
+
+	// We need to give enough funds for every account involved so they
+	// can call `Contracts::map_account`.
+	let initial_wnd_amount = 10_000_000_000_000u128;
+	AssetHubWestend::fund_accounts(vec![
+		(sender.clone(), initial_wnd_amount),
+		(beneficiary.clone(), initial_wnd_amount),
+		(checking_account.clone(), initial_wnd_amount),
+	]);
+
+	AssetHubWestend::execute_with(|| {
+		type RuntimeCall = <AssetHubWestend as Chain>::RuntimeCall;
+		type RuntimeOrigin = <AssetHubWestend as Chain>::RuntimeOrigin;
+		type PolkadotXcm = <AssetHubWestend as AssetHubWestendPallet>::PolkadotXcm;
+		type Contracts = <AssetHubWestend as AssetHubWestendPallet>::Contracts;
+
+		// We need to map all accounts.
+		assert_ok!(Contracts::map_account(RuntimeOrigin::signed(checking_account.clone())));
+		assert_ok!(Contracts::map_account(RuntimeOrigin::signed(sender.clone())));
+		assert_ok!(Contracts::map_account(RuntimeOrigin::signed(beneficiary.clone())));
+
+		// This contract implements the ERC20 interface for `transfer` except it returns a uint256.
+		let (code, _) = compile_module("fake_erc20").unwrap();
+
+		let result = Contracts::bare_instantiate(
+			RuntimeOrigin::signed(sender.clone()),
+			0,
+			Weight::from_parts(2_000_000_000, 200_000),
+			DepositLimit::Unchecked,
+			Code::Upload(code),
+			Vec::new(),
+			None,
+		);
+		let Ok(InstantiateReturnValue { addr: non_erc20_address, .. }) = result.result else {
+			unreachable!("contract should initialize")
+		};
+
+		let wnd_amount_for_fees = 1_000_000_000_000u128;
+		let erc20_transfer_amount = 100u128;
+		let message = Xcm::<RuntimeCall>::builder()
+			.withdraw_asset((Parent, wnd_amount_for_fees))
+			.pay_fees((Parent, wnd_amount_for_fees))
+			.withdraw_asset((
+				AccountKey20 { key: non_erc20_address.into(), network: None },
+				erc20_transfer_amount,
+			))
+			.deposit_asset(AllCounted(1), beneficiary.clone())
+			.build();
+		// Execution fails but doesn't panic.
+		assert!(PolkadotXcm::execute(
+			RuntimeOrigin::signed(sender.clone()),
+			Box::new(VersionedXcm::V5(message)),
+			Weight::from_parts(2_500_000_000, 120_000),
+		)
+		.is_err());
+	});
+}
