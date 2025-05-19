@@ -905,7 +905,7 @@ pub mod pallet {
 		///
 		/// Only the `ManagerOrigin` can call this function.
 		#[pallet::call_index(111)]
-		#[pallet::weight(Weight::from_parts(1_000_000_000, 0))] // Set appropriate weight
+		#[pallet::weight(T::AhWeightInfo::receive_liquid_accounts(1))]
 		pub fn fix_misplaced_hold(
 			origin: OriginFor<T>,
 			account: T::AccountId,
