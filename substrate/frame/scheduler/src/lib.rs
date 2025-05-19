@@ -415,6 +415,27 @@ pub mod pallet {
 			Self::service_agendas(&mut weight_counter, now, u32::MAX);
 			weight_counter.consumed()
 		}
+
+		#[cfg(feature = "std")]
+		fn integrity_test() {
+			/// Calculate the maximum weight that a lookup of a given size can take.
+			fn lookup_weight<T: Config>(s: usize) -> Weight {
+				T::WeightInfo::service_agendas_base() +
+					T::WeightInfo::service_agenda_base(T::MaxScheduledPerBlock::get()) +
+					T::WeightInfo::service_task(Some(s), true, true)
+			}
+
+			let limit = sp_runtime::Perbill::from_percent(90) * T::MaximumWeight::get();
+
+			let small_lookup = lookup_weight::<T>(128);
+			assert!(small_lookup.all_lte(limit), "Must be possible to submit a small lookup");
+
+			let medium_lookup = lookup_weight::<T>(1024);
+			assert!(medium_lookup.all_lte(limit), "Must be possible to submit a medium lookup");
+
+			let large_lookup = lookup_weight::<T>(1024 * 1024);
+			assert!(large_lookup.all_lte(limit), "Must be possible to submit a large lookup");
+		}
 	}
 
 	#[pallet::call]
