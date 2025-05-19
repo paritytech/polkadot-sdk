@@ -19,7 +19,7 @@ use super::xcm_helpers;
 use crate::{assert_matches_reserve_asset_deposited_instructions, get_fungible_delivery_fees};
 use codec::Encode;
 use core::ops::Mul;
-use cumulus_primitives_core::XcmpMessageSource;
+use cumulus_primitives_core::{UpwardMessageSender, XcmpMessageSource};
 use frame_support::{
 	assert_noop, assert_ok,
 	traits::{
@@ -171,6 +171,8 @@ pub fn teleports_for_native_asset_works<
 
 			// 2. try to teleport asset back to the relaychain
 			{
+				<cumulus_pallet_parachain_system::Pallet<Runtime> as UpwardMessageSender>::ensure_successful_delivery();
+
 				let dest = Location::parent();
 				let mut dest_beneficiary = Location::parent()
 					.appended_with(AccountId32 {
