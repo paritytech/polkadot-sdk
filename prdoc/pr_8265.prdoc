@@ -33,12 +33,10 @@ crates:
 - name: frame-benchmarking-cli
   bump: major
 - name: frame-support-procedural
-  bump: major
-- name: westend-runtime
-  bump: major
+  bump: patch
 - name: frame-benchmarking-pallet-pov
-  bump: major
+  bump: patch
 - name: frame-benchmarking
-  bump: major
+  bump: patch
 - name: pallet-staking
-  bump: major
+  bump: patch
