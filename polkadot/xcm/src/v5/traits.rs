@@ -252,7 +252,7 @@ pub enum Outcome {
 }
 
 impl Outcome {
-	pub fn ensure_complete(self) -> Result<(), (u8, Error)> {
+	pub fn ensure_complete(self) -> Result {
 		match self {
 			Outcome::Complete { .. } => Ok(()),
 			Outcome::Incomplete { error, index, .. } => Err(error),
@@ -278,7 +278,7 @@ impl Outcome {
 
 impl From<Error> for Outcome {
 	fn from(error: Error) -> Self {
-		Self::Error { error }
+		Self::Error { error, index: 0 }
 	}
 }
 
@@ -305,11 +305,11 @@ pub trait ExecuteXcm<Call> {
 	) -> Outcome {
 		let pre = match Self::prepare(message) {
 			Ok(x) => x,
-			Err(_) => return Outcome::Error { error: Error::WeightNotComputable },
+			Err(_) => return Outcome::Error { error: Error::WeightNotComputable, index: 0 },
 		};
 		let xcm_weight = pre.weight_of();
 		if xcm_weight.any_gt(weight_limit) {
-			return Outcome::Error { error: Error::WeightLimitReached(xcm_weight) }
+			return Outcome::Error { error: Error::WeightLimitReached(xcm_weight), index: 0 }
 		}
 		Self::execute(origin, pre, id, weight_credit)
 	}
