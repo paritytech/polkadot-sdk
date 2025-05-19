@@ -64,7 +64,8 @@ impl Entry {
 /// Collects all contract entries from the given source directory.
 ///
 /// Returns a list of all rust contracts that need to be compiled to PVM
-/// and a list of all contracts already in PVM bytecode.
+/// and a list of all contracts already in PVM bytecode which just need
+/// to be copied.
 fn collect_entries(contracts_dir: &Path) -> (Vec<Entry>, Vec<String>) {
 	fs::read_dir(contracts_dir).expect("src dir exists; qed").fold(
 		(Vec::new(), Vec::new()),
@@ -201,8 +202,8 @@ fn move_files(entries: Vec<String>, output_directory: &Path) -> Result<()> {
 	for entry in entries {
 		let file_path = Path::new(&entry);
 		let output_path = output_directory.join(file_path.file_name().expect("entry is path; qed"));
-		fs::rename(Path::new(&entry), &output_path)
-			.with_context(|| format!("Failed to move {entry:?} to {output_path:?}"))?;
+		fs::copy(Path::new(&entry), &output_path)
+			.with_context(|| format!("Failed to copy {entry:?} to {output_path:?}"))?;
 	}
 	Ok(())
 }
