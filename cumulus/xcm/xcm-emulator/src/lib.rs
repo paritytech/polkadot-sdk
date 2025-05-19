@@ -79,7 +79,7 @@ pub use polkadot_runtime_parachains::inclusion::{AggregateMessageOrigin, UmpQueu
 
 // Polkadot
 pub use polkadot_parachain_primitives::primitives::RelayChainBlockNumber;
-use sp_core::crypto::AccountId32;
+use sp_core::{crypto::AccountId32, H256};
 pub use xcm::latest::prelude::{
 	AccountId32 as AccountId32Junction, Ancestor, Assets, Here, Location,
 	Parachain as ParachainJunction, Parent, WeightLimit, XcmHash,
@@ -1592,6 +1592,24 @@ where
 impl<Origin, Destination, Hops, Args> Test<Origin, Destination, Hops, Args>
 where
 	Args: Clone,
+	Origin: Chain + Clone,
+	Destination: Chain + Clone,
+	Origin::RuntimeOrigin: OriginTrait<AccountId = AccountIdOf<Origin::Runtime>> + Clone,
+	Destination::RuntimeOrigin: OriginTrait<AccountId = AccountIdOf<Destination::Runtime>> + Clone,
+	Hops: Clone,
+{
+	/// Asserts that a single unique topic ID exists across all chains.
+	pub fn assert_unique_topic_id(&self) {
+		self.topic_id_tracker.lock().unwrap().assert_unique();
+	}
+	/// Inserts a topic ID for a specific chain and asserts it remains globally unique.
+	pub fn insert_unique_topic_id(&mut self, chain: &str, id: H256) {
+		self.topic_id_tracker.lock().unwrap().insert_and_assert_unique(chain, id);
+	}
+}
+impl<Origin, Destination, Hops, Args> Test<Origin, Destination, Hops, Args>
+where
+	Args: Clone,
 	Origin: Chain + Clone + CheckAssertion<Origin, Destination, Hops, Args>,
 	Destination: Chain + Clone + CheckAssertion<Origin, Destination, Hops, Args>,
 	Origin::RuntimeOrigin: OriginTrait<AccountId = AccountIdOf<Origin::Runtime>> + Clone,
@@ -1640,10 +1658,6 @@ where
 		Hops::check_assertion(self.clone());
 		Destination::check_assertion(self.clone());
 		Self::update_balances(self);
-	}
-	/// Asserts that a single unique topic ID exists across all chains.
-	pub fn assert_unique_topic_id(&self) {
-		self.topic_id_tracker.lock().unwrap().assert_unique();
 	}
 	/// Updates sender and receiver balances
 	fn update_balances(&mut self) {

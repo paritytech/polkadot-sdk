@@ -24,7 +24,7 @@ use crate::{
 	tests::teleport::do_bidirectional_teleport_foreign_assets_between_para_and_asset_hub_using_xt,
 };
 
-fn para_to_para_assethub_hop_assertions(t: ParaToParaThroughAHTest) {
+fn para_to_para_assethub_hop_assertions(mut t: ParaToParaThroughAHTest) {
 	type RuntimeEvent = <AssetHubWestend as Chain>::RuntimeEvent;
 	let sov_penpal_a_on_ah = AssetHubWestend::sovereign_account_id_of(
 		AssetHubWestend::sibling_location_of(PenpalA::para_id()),
@@ -56,15 +56,17 @@ fn para_to_para_assethub_hop_assertions(t: ParaToParaThroughAHTest) {
 	);
 
 	let mq_prc_id = find_mq_processed_id::<AssetHubWestend>().expect("Missing Processed Event");
-	t.topic_id_tracker
-		.lock()
-		.unwrap()
-		.insert_and_assert_unique("AssetHubWestend", mq_prc_id);
+	// t.topic_id_tracker
+	// 	.lock()
+	// 	.unwrap()
+	// 	.insert_and_assert_unique("AssetHubWestend", mq_prc_id);
+	t.insert_unique_topic_id("AssetHubWestend", mq_prc_id);
 	let msg_sent_id = find_xcm_sent_message_id::<AssetHubWestend>().expect("Missing Sent Event");
-	t.topic_id_tracker
-		.lock()
-		.unwrap()
-		.insert_and_assert_unique("AssetHubWestend", msg_sent_id.into());
+	// t.topic_id_tracker
+	// 	.lock()
+	// 	.unwrap()
+	// 	.insert_and_assert_unique("AssetHubWestend", msg_sent_id.into());
+	t.insert_unique_topic_id("AssetHubWestend", msg_sent_id.into());
 }
 
 fn ah_to_para_transfer_assets(t: SystemParaToParaTest) -> DispatchResult {
@@ -106,6 +108,7 @@ fn para_to_ah_transfer_assets(t: ParaToSystemParaTest) -> DispatchResult {
 }
 
 fn para_to_para_transfer_assets_through_ah(t: ParaToParaThroughAHTest) -> DispatchResult {
+	let mut t_clone = t.clone();
 	let fee_idx = t.args.fee_asset_item as usize;
 	let fee: Asset = t.args.assets.inner().get(fee_idx).cloned().unwrap();
 	let asset_hub_location: Location = PenpalA::sibling_location_of(AssetHubWestend::para_id());
@@ -125,10 +128,11 @@ fn para_to_para_transfer_assets_through_ah(t: ParaToParaThroughAHTest) -> Dispat
 	);
 
 	let msg_sent_id = find_xcm_sent_message_id::<PenpalA>().expect("Missing Sent Event");
-	t.topic_id_tracker
-		.lock()
-		.unwrap()
-		.insert_and_assert_unique("PenpalA", msg_sent_id.into());
+	// t.topic_id_tracker
+	// 	.lock()
+	// 	.unwrap()
+	// 	.insert_and_assert_unique("PenpalA", msg_sent_id.into());
+	t_clone.insert_unique_topic_id("PenpalA", msg_sent_id.into());
 
 	result
 }
