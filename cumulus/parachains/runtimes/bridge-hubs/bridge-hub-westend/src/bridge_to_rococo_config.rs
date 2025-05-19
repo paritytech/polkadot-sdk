@@ -126,6 +126,7 @@ impl pallet_bridge_parachains::Config<BridgeParachainRococoInstance> for Runtime
 		SingleParaStoredHeaderDataBuilder<bp_bridge_hub_rococo::BridgeHubRococo>;
 	type HeadsToKeep = ParachainHeadsToKeep;
 	type MaxParaHeadDataSize = MaxRococoParaHeadDataSize;
+	type OnNewHead = ();
 }
 
 /// Add XCM messages support for BridgeHubWestend to support Westend->Rococo XCM messages

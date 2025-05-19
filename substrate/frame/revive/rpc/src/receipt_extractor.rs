@@ -57,6 +57,11 @@ async fn native_to_eth_ratio(api: &OnlineClient<SrcChainConfig>) -> Result<u32, 
 }
 
 impl ReceiptExtractor {
+	/// Check if the block is before the earliest block.
+	pub fn is_before_earliest_block(&self, block_number: SubstrateBlockNumber) -> bool {
+		block_number < self.earliest_receipt_block.unwrap_or_default()
+	}
+
 	/// Create a new `ReceiptExtractor` with the given native to eth ratio.
 	pub async fn new(
 		api: OnlineClient<SrcChainConfig>,
@@ -182,11 +187,8 @@ impl ReceiptExtractor {
 		&self,
 		block: &SubstrateBlock,
 	) -> Result<Vec<(TransactionSigned, ReceiptInfo)>, ClientError> {
-		if let Some(earliest_receipt_block) = self.earliest_receipt_block {
-			if block.number() < earliest_receipt_block {
-				log::trace!(target: LOG_TARGET, "Block number {block_number} is less than earliest receipt block {earliest_receipt_block}. Skipping.", block_number = block.number(), earliest_receipt_block = earliest_receipt_block);
-				return Ok(vec![]);
-			}
+		if self.is_before_earliest_block(block.number()) {
+			return Ok(vec![]);
 		}
 
 		// Filter extrinsics from pallet_revive

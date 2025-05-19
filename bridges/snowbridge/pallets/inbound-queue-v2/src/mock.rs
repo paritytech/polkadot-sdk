@@ -3,10 +3,8 @@
 use super::*;
 
 use crate::{self as inbound_queue_v2};
-use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use frame_support::{derive_impl, parameter_types, traits::ConstU32};
 use hex_literal::hex;
-use scale_info::TypeInfo;
 use snowbridge_beacon_primitives::{
 	types::deneb, BeaconHeader, ExecutionProof, VersionedExecutionPayloadHeader,
 };
@@ -23,6 +21,7 @@ use sp_runtime::{
 use sp_std::{convert::From, default::Default, marker::PhantomData};
 use xcm::{opaque::latest::WESTEND_GENESIS_HASH, prelude::*};
 type Block = frame_system::mocking::MockBlock<Test>;
+use snowbridge_test_utils::mock_rewards::{BridgeReward, MockRewardLedger};
 pub use snowbridge_test_utils::mock_xcm::{MockXcmExecutor, MockXcmSender};
 
 frame_support::construct_runtime!(
@@ -170,6 +169,11 @@ impl inbound_queue_v2::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type Verifier = MockVerifier;
 	type RewardPayment = ();
+impl inbound_queue_v2::Config for Test {
+	type RuntimeEvent = RuntimeEvent;
+	type Verifier = MockVerifier;
+	type XcmSender = MockXcmSender;
+	type XcmExecutor = MockXcmExecutor;
 	type GatewayAddress = GatewayAddress;
 	// Passively test that the implementation of MessageProcessor trait works correctly for tuple
 	type MessageProcessor = (
@@ -200,6 +204,7 @@ impl inbound_queue_v2::Config for Test {
 	type WeightInfo = ();
 	type RewardKind = BridgeReward;
 	type DefaultRewardKind = SnowbridgeReward;
+	type RewardPayment = MockRewardLedger;
 }
 
 pub fn setup() {

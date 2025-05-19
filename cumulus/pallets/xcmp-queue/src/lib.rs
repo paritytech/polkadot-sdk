@@ -76,10 +76,10 @@ use frame_support::{
 };
 use pallet_message_queue::OnQueueChanged;
 use polkadot_runtime_common::xcm_sender::PriceForMessageDelivery;
-use polkadot_runtime_parachains::FeeTracker;
+use polkadot_runtime_parachains::{FeeTracker, GetMinFeeFactor};
 use scale_info::TypeInfo;
 use sp_core::MAX_POSSIBLE_ALLOCATION;
-use sp_runtime::{FixedU128, RuntimeDebug, Saturating, WeakBoundedVec};
+use sp_runtime::{FixedU128, RuntimeDebug, WeakBoundedVec};
 use xcm::{latest::prelude::*, VersionedLocation, VersionedXcm, WrapVersion, MAX_XCM_DECODE_DEPTH};
 use xcm_builder::InspectMessageQueues;
 use xcm_executor::traits::ConvertOrigin;
@@ -99,15 +99,8 @@ pub const XCM_BATCH_SIZE: usize = 250;
 
 /// Constants related to delivery fee calculation
 pub mod delivery_fee_constants {
-	use super::FixedU128;
-
 	/// Fees will start increasing when queue is half full
 	pub const THRESHOLD_FACTOR: u32 = 2;
-	/// The base number the delivery fee factor gets multiplied by every time it is increased.
-	/// Also, the number it gets divided by when decreased.
-	pub const EXPONENTIAL_FEE_BASE: FixedU128 = FixedU128::from_rational(105, 100); // 1.05
-	/// The contribution of each KB to a fee factor increase
-	pub const MESSAGE_SIZE_FEE_BASE: FixedU128 = FixedU128::from_rational(1, 1000); // 0.001
 }
 
 #[frame_support::pallet]
@@ -365,16 +358,10 @@ pub mod pallet {
 	#[pallet::storage]
 	pub(super) type QueueSuspended<T: Config> = StorageValue<_, bool, ValueQuery>;
 
-	/// Initialization value for the DeliveryFee factor.
-	#[pallet::type_value]
-	pub fn InitialFactor() -> FixedU128 {
-		FixedU128::from_u32(1)
-	}
-
 	/// The factor to multiply the base delivery fee by.
 	#[pallet::storage]
 	pub(super) type DeliveryFeeFactor<T: Config> =
-		StorageMap<_, Twox64Concat, ParaId, FixedU128, ValueQuery, InitialFactor>;
+		StorageMap<_, Twox64Concat, ParaId, FixedU128, ValueQuery, GetMinFeeFactor<Pallet<T>>>;
 }
 
 #[derive(Copy, Clone, Eq, PartialEq, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
@@ -583,9 +570,7 @@ impl<T: Config> Pallet<T> {
 			number_of_pages.saturating_sub(1) * max_message_size as u32 + last_page_size as u32;
 		let threshold = channel_info.max_total_size / delivery_fee_constants::THRESHOLD_FACTOR;
 		if total_size > threshold {
-			let message_size_factor = FixedU128::from((encoded_fragment.len() / 1024) as u128)
-				.saturating_mul(delivery_fee_constants::MESSAGE_SIZE_FEE_BASE);
-			Self::increase_fee_factor(recipient, message_size_factor);
+			Self::increase_fee_factor(recipient, encoded_fragment.len() as u128);
 		}
 
 		Ok(number_of_pages)
@@ -1157,19 +1142,7 @@ impl<T: Config> FeeTracker for Pallet<T> {
 		<DeliveryFeeFactor<T>>::get(id)
 	}
 
-	fn increase_fee_factor(id: Self::Id, message_size_factor: FixedU128) -> FixedU128 {
-		<DeliveryFeeFactor<T>>::mutate(id, |f| {
-			*f = f.saturating_mul(
-				delivery_fee_constants::EXPONENTIAL_FEE_BASE.saturating_add(message_size_factor),
-			);
-			*f
-		})
-	}
-
-	fn decrease_fee_factor(id: Self::Id) -> FixedU128 {
-		<DeliveryFeeFactor<T>>::mutate(id, |f| {
-			*f = InitialFactor::get().max(*f / delivery_fee_constants::EXPONENTIAL_FEE_BASE);
-			*f
-		})
+	fn set_fee_factor(id: Self::Id, val: FixedU128) {
+		<DeliveryFeeFactor<T>>::set(id, val);
 	}
 }
