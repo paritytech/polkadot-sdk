@@ -37,20 +37,27 @@ pub use cumulus_primitives_core::AggregateMessageOrigin as CumulusAggregateMessa
 pub use frame_support::{
 	assert_ok,
 	sp_runtime::{
+<<<<<<< HEAD
 		traits::{Dispatchable, Header as HeaderT},
 		DispatchResult,
+=======
+		traits::{Convert, Dispatchable, Header as HeaderT, Zero},
+		Digest, DispatchResult,
+>>>>>>> 4962d65a (`xcm-emulator` improved callback triggering (`on_initialize`, `on_finalize`, `on_idle`, `OnSystemEvent`). (#8083))
 	},
 	traits::{
-		EnqueueMessage, ExecuteOverweightError, Get, Hooks, OnInitialize, OriginTrait,
-		ProcessMessage, ProcessMessageError, ServiceQueues,
+		EnqueueMessage, ExecuteOverweightError, Get, Hooks, OnFinalize, OnIdle, OnInitialize,
+		OriginTrait, ProcessMessage, ProcessMessageError, ServiceQueues,
 	},
 	weights::{Weight, WeightMeter},
 };
 pub use frame_system::{
-	pallet_prelude::BlockNumberFor, Config as SystemConfig, Pallet as SystemPallet,
+	limits::BlockWeights as BlockWeightsLimits, pallet_prelude::BlockNumberFor,
+	Config as SystemConfig, Pallet as SystemPallet,
 };
 pub use pallet_balances::AccountData;
 pub use pallet_message_queue;
+pub use pallet_timestamp::Call as TimestampCall;
 pub use sp_arithmetic::traits::Bounded;
 pub use sp_core::{
 	crypto::get_public_from_string_or_panic, parameter_types, sr25519, storage::Storage, Pair,
@@ -61,7 +68,9 @@ pub use sp_runtime::BoundedSlice;
 pub use sp_tracing;
 
 // Cumulus
-pub use cumulus_pallet_parachain_system::Pallet as ParachainSystemPallet;
+pub use cumulus_pallet_parachain_system::{
+	Call as ParachainSystemCall, Pallet as ParachainSystemPallet,
+};
 pub use cumulus_primitives_core::{
 	relay_chain::{BlockNumber as RelayBlockNumber, HeadData, HrmpChannelId},
 	AbridgedHrmpChannel, DmpMessageHandler, ParaId, PersistedValidationData, XcmpMessageHandler,
@@ -264,6 +273,10 @@ pub trait Parachain: Chain {
 	type ParachainInfo: Get<ParaId>;
 	type ParachainSystem;
 	type MessageProcessor: ProcessMessage + ServiceQueues;
+<<<<<<< HEAD
+=======
+	type DigestProvider: Convert<BlockNumberFor<Self::Runtime>, Digest>;
+>>>>>>> 4962d65a (`xcm-emulator` improved callback triggering (`on_initialize`, `on_finalize`, `on_idle`, `OnSystemEvent`). (#8083))
 
 	fn init();
 
@@ -643,7 +656,8 @@ macro_rules! decl_test_parachains {
 				// We run an empty block during initialisation to open HRMP channels
 				// and have them ready for the next block
 				fn init() {
-					use $crate::{Chain, HeadData, Network, Hooks, Encode, Parachain, TestExt};
+					use $crate::{Chain, TestExt};
+
 					// Initialize the thread local variable
 					$crate::paste::paste! {
 						[<LOCAL_EXT_ $name:upper>].with(|v| *v.borrow_mut() = Self::build_new_ext($genesis));
@@ -657,7 +671,13 @@ macro_rules! decl_test_parachains {
 				}
 
 				fn new_block() {
+<<<<<<< HEAD
 					use $crate::{Chain, HeadData, Network, Hooks, Encode, Parachain, TestExt};
+=======
+					use $crate::{
+						Dispatchable, Chain, Convert, TestExt, Zero,
+					};
+>>>>>>> 4962d65a (`xcm-emulator` improved callback triggering (`on_initialize`, `on_finalize`, `on_idle`, `OnSystemEvent`). (#8083))
 
 					let para_id = Self::para_id().into();
 
@@ -677,22 +697,56 @@ macro_rules! decl_test_parachains {
 							.expect("network not initialized?")
 							.clone()
 						);
+<<<<<<< HEAD
 						<Self as Chain>::System::initialize(&block_number, &parent_head_data.hash(), &Default::default());
 						<<Self as Parachain>::ParachainSystem as Hooks<$crate::BlockNumberFor<Self::Runtime>>>::on_initialize(block_number);
+=======
 
-						let _ = <Self as Parachain>::ParachainSystem::set_validation_data(
-							<Self as Chain>::RuntimeOrigin::none(),
-							N::hrmp_channel_parachain_inherent_data(para_id, relay_block_number, parent_head_data),
+						// Initialze `System`.
+						let digest = <Self as Parachain>::DigestProvider::convert(block_number);
+						<Self as Chain>::System::initialize(&block_number, &parent_head_data.hash(), &digest);
+>>>>>>> 4962d65a (`xcm-emulator` improved callback triggering (`on_initialize`, `on_finalize`, `on_idle`, `OnSystemEvent`). (#8083))
+
+						// Process `on_initialize` for all pallets except `System`.
+						let _ = $runtime::AllPalletsWithoutSystem::on_initialize(block_number);
+
+						// Process parachain inherents:
+
+						// 1. inherent: cumulus_pallet_parachain_system::Call::set_validation_data
+						let set_validation_data: <Self as Chain>::RuntimeCall = $crate::ParachainSystemCall::set_validation_data {
+							data: N::hrmp_channel_parachain_inherent_data(para_id, relay_block_number, parent_head_data),
+						}.into();
+						$crate::assert_ok!(
+							set_validation_data.dispatch(<Self as Chain>::RuntimeOrigin::none())
+						);
+
+						// 2. inherent: pallet_timestamp::Call::set (we expect the parachain has `pallet_timestamp`)
+						let timestamp_set: <Self as Chain>::RuntimeCall = $crate::TimestampCall::set {
+							// We need to satisfy `pallet_timestamp::on_finalize`.
+							now: Zero::zero(),
+						}.into();
+						$crate::assert_ok!(
+							timestamp_set.dispatch(<Self as Chain>::RuntimeOrigin::none())
 						);
 					});
 				}
 
 				fn finalize_block() {
-					use $crate::{Chain, Encode, Hooks, Network, Parachain, TestExt};
+					use $crate::{BlockWeightsLimits, Chain, OnFinalize, OnIdle, SystemConfig, TestExt, Weight};
 
 					Self::ext_wrapper(|| {
 						let block_number = <Self as Chain>::System::block_number();
-						<Self as Parachain>::ParachainSystem::on_finalize(block_number);
+
+						// Process `on_idle` for all pallets.
+						let weight = <Self as Chain>::System::block_weight();
+						let max_weight: Weight = <<<Self as Chain>::Runtime as SystemConfig>::BlockWeights as frame_support::traits::Get<BlockWeightsLimits>>::get().max_block;
+						let remaining_weight = max_weight.saturating_sub(weight.total());
+						if remaining_weight.all_gt(Weight::zero()) {
+							let _ = $runtime::AllPalletsWithSystem::on_idle(block_number, remaining_weight);
+						}
+
+						// Process `on_finalize` for all pallets except `System`.
+						$runtime::AllPalletsWithoutSystem::on_finalize(block_number);
 					});
 
 					Self::set_last_head();
@@ -700,7 +754,7 @@ macro_rules! decl_test_parachains {
 
 
 				fn set_last_head() {
-					use $crate::{Chain, Encode, HeadData, Network, Parachain, TestExt};
+					use $crate::{Chain, Encode, HeadData, TestExt};
 
 					let para_id = Self::para_id().into();
 
@@ -1150,7 +1204,7 @@ macro_rules! decl_test_networks {
 
 					$crate::ParachainInherentData {
 						validation_data: $crate::PersistedValidationData {
-							parent_head: Default::default(),
+							parent_head: parent_head_data.clone(),
 							relay_parent_number,
 							relay_parent_storage_root: relay_storage_root,
 							max_pov_size: Default::default(),
