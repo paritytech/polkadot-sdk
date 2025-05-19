@@ -4,6 +4,8 @@ doc:
   description: |-
     To address the issue of vague `LocalExecutionIncomplete` errors in `pallet-xcm`, the PR introduces `LocalExecutionIncompleteWithError(ExecutionError)`, which nests a compact `ExecutionError` enum—aligned with `XcmError` and excluding strings like in `FailedToTransactAsset`: to provide detailed error information within FRAME's 4-byte limit. This enhances error reporting by specifying causes like insufficient balance or asset transaction failures, with strings logged for debugging.
 crates:
+- name: emulated-integration-tests-common
+  bump: patch
 - name: pallet-xcm
   bump: patch
 - name: parachains-runtimes-test-utils
