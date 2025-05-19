@@ -1,0 +1,9 @@
+title: '[pallet-revive-rpc] quick fixes'
+doc:
+- audience: Runtime Dev
+  description: 'A few quick fixes for pallet-revive eth-rpc
+
+    '
+crates:
+- name: pallet-revive-eth-rpc
+  bump: patch
