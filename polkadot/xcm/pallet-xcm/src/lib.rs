@@ -357,7 +357,6 @@ pub mod pallet {
 				))
 			})()
 			.map_err(|e: DispatchError| {
-				tracing::error!(target: "xcm::pallet_xcm::execute", error=?e, "XCM execution failed to dispatch");
 				e.with_weight(<Self::WeightInfo as ExecuteControllerWeightInfo>::execute())
 			})?;
 
