@@ -1,0 +1,20 @@
+title: 'FeeTracker: remove `get_min_fee_factor()`'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Related to https://github.com/paritytech/polkadot-sdk/issues/8462
+
+    Follow-up for https://github.com/paritytech/polkadot-sdk/pull/8477
+
+    The minimal fee factor should always be 1
+crates:
+- name: pallet-xcm-bridge-hub-router
+  bump: major
+- name: cumulus-pallet-parachain-system
+  bump: major
+- name: cumulus-pallet-xcmp-queue
+  bump: major
+- name: polkadot-runtime-common
+  bump: patch
+- name: polkadot-runtime-parachains
+  bump: major

@@ -34,15 +34,21 @@
 //!
 //! This crate is organized into 3 stages:
 //!
-//! 1. preludes: `prelude`, `testing_prelude` and `runtime::prelude`, `benchmarking`,
-//!    `weights_prelude`, `try_runtime`.
-//! 2. domain-specific modules: `traits`, `hashing`, `arithmetic` and `derive`.
+//! 1. preludes: `prelude`, `testing_prelude`, `runtime::prelude`, `benchmarking::prelude`, and
+//!    `weights_prelude`.
+//! 2. domain-specific modules, like `traits`, `hashing`, `arithmetic` and `derive`.
 //! 3. Accessing frame/substrate dependencies directly: `deps`.
 //!
-//! The main intended use of this crate is for it to be used with the former, preludes:
+//! The main intended use of this crate is through preludes, which re-export most of the components
+//! needed for pallet development. Domain-specific modules serve as a backup for organization, and
+//! `deps` provides direct access to all dependencies if needed.
+//!
+//!
+//! ### Example Usage
 //!
 //! ```
 //! use polkadot_sdk_frame as frame;
+//!
 //! #[frame::pallet]
 //! pub mod pallet {
 //! 	# use polkadot_sdk_frame as frame;
@@ -74,11 +80,10 @@
 //! }
 //! ```
 //!
-//! If not in preludes, one can look into the domain-specific modules. Finally, if an import is
-//! still not feasible, one can look into `deps`.
+//! ### Features
 //!
-//! This crate also uses a `runtime` feature to include all of the types and tools needed to build
-//! FRAME-based runtimes. So, if you want to build a runtime with this, import it as
+//! This crate uses a `runtime` feature to include all types and tools needed to build FRAME-based
+//! runtimes. For runtime development, import it as:
 //!
 //! ```text
 //! polkadot-sdk-frame = { version = "foo", features = ["runtime"] }
@@ -90,10 +95,12 @@
 //! polkadot-sdk-frame = { version = "foo" }
 //! ```
 //!
-//! Notice that the preludes overlap since they have imports in common. More in detail:
-//! - `testing_prelude` brings in frame `prelude` and `runtime::prelude`;
-//! - `runtime::prelude` brings in frame `prelude`;
-//! - `benchmarking` brings in frame `prelude`.
+//! ### Prelude Relationships
+//!
+//! The preludes have overlapping imports for convenience:
+//! - `testing_prelude` includes `prelude` and `runtime::prelude`
+//! - `runtime::prelude` includes `prelude`
+//! - `benchmarking::prelude` includes `prelude`
 //!
 //! ## Naming
 //!
@@ -125,29 +132,7 @@
 //!
 //! ## Documentation
 //!
-//! See [`polkadot_sdk::frame`](../polkadot_sdk_docs/polkadot_sdk/frame_runtime/index.html).
-//!
-//! ## WARNING: Experimental
-//!
-//! **This crate and all of its content is experimental, and should not yet be used in production.**
-//!
-//! ## Maintenance Note
-//!
-//! > Notes for the maintainers of this crate, describing how the re-exports and preludes should
-//! > work.
-//!
-//! * Preludes should be extensive. The goal of this pallet is to be ONLY used with the preludes.
-//!   The domain-specific modules are just a backup, aiming to keep things organized. Don't hesitate
-//!   in adding more items to the main prelude.
-//! * The only non-module, non-prelude items exported from the top level crate is the `pallet`
-//!   macro, such that we can have the `#[frame::pallet] mod pallet { .. }` syntax working.
-//! * In most cases, you might want to create a domain-specific module, but also add it to the
-//!   preludes, such as `hashing`.
-//! * The only items that should NOT be in preludes are those that have been placed in
-//!   `frame-support`/`sp-runtime`, but in truth are related to just one pallet.
-//! * The currency related traits are kept out of the preludes to encourage a deliberate choice of
-//!   one over the other.
-//! * `runtime::apis` should expose all common runtime APIs that all FRAME-based runtimes need.
+//! For more detailed documentation and examples, see [`polkadot_sdk_frame`](https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_frame/index.html).
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -225,12 +210,13 @@ pub mod prelude {
 	#[doc(no_inline)]
 	pub use super::derive::*;
 
-	/// All hashing related things.
+	/// All hashing related components.
 	pub use super::hashing::*;
 
+	/// All transaction related components.
 	pub use crate::transaction::*;
 
-	/// All account related things.
+	/// All account related components.
 	pub use super::account::*;
 
 	/// All arithmetic types and traits used for safe math.
@@ -550,7 +536,7 @@ pub mod traits {
 
 /// The arithmetic types used for safe math.
 ///
-/// This is already part of the [`prelude`].
+/// This is already part of the main [`prelude`].
 pub mod arithmetic {
 	pub use sp_arithmetic::{traits::*, *};
 }
@@ -571,7 +557,7 @@ pub mod token {
 
 /// All derive macros used in frame.
 ///
-/// This is already part of the [`prelude`].
+/// This is already part of the main [`prelude`].
 pub mod derive {
 	pub use codec::{Decode, Encode};
 	pub use core::fmt::Debug;
@@ -590,6 +576,9 @@ pub mod derive {
 	pub use sp_runtime::RuntimeDebug;
 }
 
+/// All hashing related components.
+///
+/// This is already part of the main [`prelude`].
 pub mod hashing {
 	pub use sp_core::{hashing::*, H160, H256, H512, U256, U512};
 	pub use sp_runtime::traits::{BlakeTwo256, Hash, Keccak256};
@@ -624,13 +613,14 @@ pub mod account {
 /// Access to all of the dependencies of this crate. In case the prelude re-exports are not enough,
 /// this module can be used.
 ///
-/// Note for maintainers: Any time one uses this module to access a dependency, you can have a
-/// moment to think about whether this item could have been placed in any of the other modules and
-/// preludes in this crate. In most cases, hopefully the answer is yes.
+/// Note: Before using these direct dependencies, please check if the item you need is available
+/// through the preludes or domain-specific modules, as they provide a more organized and
+/// maintainable way to access these dependencies.
 pub mod deps {
-	// TODO: It would be great to somehow instruct RA to prefer *not* suggesting auto-imports from
-	// these. For example, we prefer `polkadot_sdk_frame::derive::CloneNoBound` rather than
-	// `polkadot_sdk_frame::deps::frame_support::CloneNoBound`.
+	// Notes for maintainers: Any time one uses this module to access a dependency, you can have a
+	// moment to think about whether this item could have been placed in any of the other modules
+	// and preludes in this crate. In most cases, hopefully the answer is yes.
+
 	pub use frame_support;
 	pub use frame_system;
 
