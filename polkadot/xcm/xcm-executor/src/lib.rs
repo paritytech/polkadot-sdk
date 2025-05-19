@@ -297,12 +297,6 @@ impl<Config: config::Config> ExecuteXcm<Config::RuntimeCall> for XcmExecutor<Con
 			}
 		}
 
-
-
-		if Config::XcmRecorder::should_record() {
-			Config::XcmRecorder::record_last_event();
-		}
-
 		vm.post_process(xcm_weight)
 	}
 
