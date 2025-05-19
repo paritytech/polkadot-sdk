@@ -909,8 +909,8 @@ pub mod pallet {
 		pub fn fix_misplaced_hold(
 			origin: OriginFor<T>,
 			account: T::AccountId,
-			staking_hold: T::Balance,
 			delegation_hold: T::Balance,
+			staking_hold: T::Balance,
 			preimage_hold: T::Balance,
 		) -> DispatchResult {
 			<T as Config>::ManagerOrigin::ensure_origin(origin)?;
@@ -957,6 +957,14 @@ pub mod pallet {
 				&account,
 				Precision::BestEffort,
 			)?;
+
+			log::info!(
+				target: LOG_TARGET,
+				"Released {:?} from preimage hold. New total hold would be {:?}",
+				released_amount,
+				delegation_hold + staking_hold + preimage_hold
+			);
+			// debug_assert_eq!(released_amount, delegation_hold + staking_hold + preimage_hold);
 
 			// and then update hold with priority: delegation > staking > preimage.
 			update_hold(delegation_hold, delegation_hold_reason)?;

@@ -2890,10 +2890,29 @@ mod remote_tests {
 			.unwrap();
 		ext.execute_with(||
 		{
-			// go through all pool accounts and set hold.
-			// get pool id, pool member, calculate balance, set hold.
+			use scale_info::prelude::collections::HashMap;
+			// account -> (delegation_hold, staking_hold)
+			let mut map: HashMap<AccountId, (Balance, Balance)> = HashMap::new();
 
-			// go through all staking accounts and set hold.
+			// go through all pool accounts and read hold amount.
+			pallet_nomination_pools::PoolMembers::<Runtime>::iter_keys().for_each(|member| {
+				let member_balance = pallet_nomination_pools::Pallet::<Runtime>::api_member_total_balance(member.clone());
+				map.insert(member.clone(), (member_balance, 0));
+			});
+
+			// go through all staking accounts and read hold amount.
+			pallet_staking_async::Ledger::<Runtime>::iter().for_each(|(_, ledger)| {
+				let account = ledger.stash;
+				let balance = ledger.total;
+				map.insert(account.clone(), (map.get(&account.clone()).unwrap_or(&(0, 0)).0, balance));
+			});
+
+			map.iter().for_each(|(account, (delegation_hold, staking_hold))| {
+				// in prod, we will also get the correct preimage balance, but for this test we can just check staking and pool which should be enough.
+				let result = AhMigrator::fix_misplaced_hold(RuntimeOrigin::root(), account.clone(), *delegation_hold, *staking_hold, 0);
+				println!("Account: {:?}, Delegation hold: {:?}, Staking hold: {:?}, Result: {:?}", account, delegation_hold, staking_hold, result);
+			});
+
 			AllPalletsWithSystem::try_state(System::block_number(), All).unwrap();
 		}
 		);
