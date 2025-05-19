@@ -23,13 +23,13 @@ use crate::{
 	migration::data::NeedsMigration,
 	mock::*,
 	pallet::{LockedFungibles, RemoteLockedFungibles, SupportedVersion},
+	xcm_helpers::find_xcm_sent_message_id,
 	AssetTraps, AuthorizedAliasers, Config, CurrentMigration, Error, ExecuteControllerWeightInfo,
 	LatestVersionedLocation, MaxAuthorizedAliases, Pallet, Queries, QueryStatus, RecordedXcm,
 	RemoteLockedFungibleRecord, ShouldRecordXcm, VersionDiscoveryQueue, VersionMigrationStage,
 	VersionNotifiers, VersionNotifyTargets, WeightInfo,
 };
 use bounded_collections::BoundedVec;
-use codec::Encode;
 use frame_support::{
 	assert_err_ignore_postinfo, assert_noop, assert_ok, assert_storage_noop,
 	traits::{ContainsPair, Currency, Hooks},
@@ -1681,27 +1681,7 @@ fn execute_initiate_transfer_and_check_sent_event() {
 			);
 			assert_ok!(result);
 
-			let message: Xcm<()> = Xcm(vec![InitiateReserveWithdraw {
-				assets: Wild(All),
-				reserve: Location { parents: 1, interior: Here },
-				xcm: Xcm(vec![
-					BuyExecution {
-						fees: Asset {
-							id: AssetId(Location { parents: 1, interior: Here }),
-							fun: Fungible(SEND_AMOUNT),
-						},
-						weight_limit: Unlimited,
-					},
-					DepositAsset {
-						assets: Wild(All),
-						beneficiary: Location {
-							parents: 1,
-							interior: AccountId32 { network: None, id: [1; 32] }.into(),
-						},
-					},
-				]),
-			}]);
-			let sent_msg_id = VersionedXcm::from(message).using_encoded(sp_io::hashing::blake2_256);
+			let sent_msg_id = find_xcm_sent_message_id::<Test>(all_events()).unwrap();
 			let sent_message: Xcm<()> = Xcm(vec![
 				WithdrawAsset(Assets::new()),
 				ClearOrigin,

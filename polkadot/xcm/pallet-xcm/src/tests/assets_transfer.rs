@@ -31,7 +31,6 @@ use polkadot_parachain_primitives::primitives::Id as ParaId;
 use sp_runtime::traits::AccountIdConversion;
 use xcm::prelude::*;
 use xcm_executor::traits::ConvertLocation;
-use xcm_simulator::fake_message_hash;
 
 /// Test `limited_teleport_assets`
 ///
@@ -1437,7 +1436,7 @@ fn remote_asset_reserve_and_remote_fee_reserve_call<Call>(
 
 		// Verify sent XCM program
 		let expected_hash =
-			find_xcm_sent_message_id(last_events(2)).expect("Missing XcmPallet::Sent event");
+			find_xcm_sent_message_id::<Test>(all_events()).expect("Missing XcmPallet::Sent event");
 		assert_eq!(
 			sent_xcm(),
 			vec![(
@@ -2531,44 +2530,7 @@ fn remote_asset_reserve_and_remote_fee_reserve_paid_call<Call>(
 		let foreign_id_location_reanchored =
 			foreign_asset_id_location.clone().reanchored(&dest, &context).unwrap();
 		let dest_reanchored = dest.reanchored(&reserve_location, &context).unwrap();
-		let local_xcm: Xcm<Call> = Xcm(vec![
-			WithdrawAsset(Assets::from(vec![Asset {
-				id: AssetId(foreign_asset_id_location.clone()),
-				fun: Fungible(SEND_AMOUNT),
-			}])),
-			SetFeesMode { jit_withdraw: true },
-			InitiateReserveWithdraw {
-				assets: Wild(AllCounted(1)),
-				reserve: reserve_location.clone(),
-				xcm: Xcm(vec![
-					BuyExecution {
-						fees: Asset {
-							id: AssetId(Location { parents: 0, interior: Here }),
-							fun: Fungible(SEND_AMOUNT / 2),
-						},
-						weight_limit: Unlimited,
-					},
-					DepositReserveAsset {
-						assets: Wild(AllCounted(1)),
-						dest: dest_reanchored.clone(),
-						xcm: Xcm(vec![
-							BuyExecution {
-								fees: Asset {
-									id: AssetId(foreign_id_location_reanchored.clone()),
-									fun: Fungible(SEND_AMOUNT / 2),
-								},
-								weight_limit: Unlimited,
-							},
-							DepositAsset {
-								assets: Wild(AllCounted(1)),
-								beneficiary: beneficiary.clone(),
-							},
-						]),
-					},
-				]),
-			},
-		]);
-		let sent_msg_id = fake_message_hash(&local_xcm);
+		let sent_msg_id = find_xcm_sent_message_id::<Test>(all_events()).unwrap();
 		let sent_message = Xcm(vec![
 			WithdrawAsset((Location::here(), SEND_AMOUNT).into()),
 			ClearOrigin,
