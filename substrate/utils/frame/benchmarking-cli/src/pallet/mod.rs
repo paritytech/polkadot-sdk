@@ -133,6 +133,10 @@ pub struct PalletCmd {
 	#[arg(long, default_value("max-encoded-len"), value_enum)]
 	pub default_pov_mode: command::PovEstimationMode,
 
+	/// Ignore the error when PoV modes reference unknown storage items or pallets.
+	#[arg(long)]
+	pub ignore_unknown_pov_mode: bool,
+
 	/// Set the heap pages while running benchmarks. If not set, the default value from the client
 	/// is used.
 	#[arg(long)]
