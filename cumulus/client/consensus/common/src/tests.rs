@@ -35,7 +35,7 @@ use cumulus_test_client::{
 use cumulus_test_relay_sproof_builder::RelayStateSproofBuilder;
 use futures::{channel::mpsc, executor::block_on, select, FutureExt, Stream, StreamExt};
 use futures_timer::Delay;
-use polkadot_primitives::HeadData;
+use polkadot_primitives::{vstaging::CandidateEvent, HeadData};
 use sc_client_api::{Backend as _, UsageProvider};
 use sc_consensus::{BlockImport, BlockImportParams, ForkChoiceStrategy};
 use sp_blockchain::Backend as BlockchainBackend;
@@ -287,6 +287,10 @@ impl RelayChainInterface for Relaychain {
 	}
 
 	async fn scheduling_lookahead(&self, _: PHash) -> RelayChainResult<u32> {
+		unimplemented!("Not needed for test")
+	}
+
+	async fn candidate_events(&self, _: PHash) -> RelayChainResult<Vec<CandidateEvent>> {
 		unimplemented!("Not needed for test")
 	}
 }
