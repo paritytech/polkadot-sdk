@@ -1855,6 +1855,78 @@ fn nonce() {
 }
 
 #[test]
+fn nonce_already_incremented_works() {
+	let simple_constructor = MockLoader::insert(Constructor, |_, _| exec_success());
+
+	ExtBuilder::default()
+		.with_code_hashes(MockLoader::code_hashes())
+		.build()
+		.execute_with(|| {
+			let min_balance = <Test as Config>::Currency::minimum_balance();
+
+			// Set up initial state
+			set_balance(&ALICE, min_balance * 1000);
+
+			frame_system::Account::<Test>::mutate(&ALICE, |account| {
+				account.nonce = 5;
+			});
+
+			let origin = Origin::from_account_id(ALICE);
+			let mut storage_meter =
+				storage::meter::Meter::new(&origin, deposit_limit::<Test>(), min_balance).unwrap();
+
+			let mut gas_meter_1 = GasMeter::<Test>::new(GAS_LIMIT);
+			let executable_1 =
+				MockExecutable::from_storage(simple_constructor, &mut gas_meter_1).unwrap();
+
+			let (address_yes, _) = MockStack::run_instantiate(
+				ALICE,
+				executable_1,
+				&mut gas_meter_1,
+				&mut storage_meter,
+				min_balance.into(),
+				vec![],
+				None,
+				false,
+				NonceAlreadyIncremented::Yes,
+			)
+			.unwrap();
+
+			frame_system::Account::<Test>::mutate(&ALICE, |account| {
+				account.nonce = 5;
+			});
+
+			let mut gas_meter_2 = GasMeter::<Test>::new(GAS_LIMIT);
+			let executable_2 =
+				MockExecutable::from_storage(simple_constructor, &mut gas_meter_2).unwrap();
+
+			let (address_no, _) = MockStack::run_instantiate(
+				ALICE,
+				executable_2,
+				&mut gas_meter_2,
+				&mut storage_meter,
+				min_balance.into(),
+				vec![],
+				None,
+				false,
+				NonceAlreadyIncremented::No,
+			)
+			.unwrap();
+
+			assert_ne!(address_yes, address_no);
+
+			let deployer = <Test as Config>::AddressMapper::to_address(&ALICE);
+			let expected_address_yes = address::create1(&deployer, 4);
+			let expected_address_no = address::create1(&deployer, 5);
+
+			assert_eq!(address_yes, expected_address_yes);
+			assert_eq!(address_no, expected_address_no);
+
+			assert_eq!(System::account_nonce(&ALICE), 6);
+		});
+}
+
+#[test]
 fn set_storage_works() {
 	let code_hash = MockLoader::insert(Call, |ctx, _| {
 		// Write
