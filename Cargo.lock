@@ -10999,6 +10999,7 @@ dependencies = [
  "pallet-balances",
  "pallet-bounties",
  "pallet-conviction-voting",
+ "pallet-delegated-staking",
  "pallet-fast-unstake",
  "pallet-indices",
  "pallet-message-queue",
