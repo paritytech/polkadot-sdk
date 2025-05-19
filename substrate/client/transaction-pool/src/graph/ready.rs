@@ -800,6 +800,7 @@ mod tests {
 		let tx1 = it.next().unwrap();
 		let tx2 = it.next().unwrap();
 		let tx3 = it.next().unwrap();
+		let tx4 = it.next().unwrap();
 		let lock = ready.ready.read();
 		let tx1_unlocks = &lock.get(&tx1.hash).unwrap().unlocks;
 
@@ -807,6 +808,7 @@ mod tests {
 		assert_eq!(tx1_unlocks[0], tx2.hash);
 		assert_eq!(tx1_unlocks[1], tx2.hash);
 		assert_eq!(tx1_unlocks[2], tx3.hash);
+		assert_eq!(tx1_unlocks[4], tx4.hash);
 		drop(lock);
 
 		// then consider tx2 invalid, and hence, remove it.
@@ -820,5 +822,6 @@ mod tests {
 		let tx1_unlocks = &lock.get(&tx1.hash).unwrap().unlocks;
 		assert!(!tx1_unlocks.contains(&tx2.hash));
 		assert!(!tx1_unlocks.contains(&tx3.hash));
+		assert!(tx1_unlocks.contains(&tx4.hash));
 	}
 }
