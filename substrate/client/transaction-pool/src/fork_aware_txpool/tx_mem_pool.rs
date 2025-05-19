@@ -27,7 +27,7 @@
 //!   such transaction could not be present in the newly created view.
 
 use std::{
-	collections::{HashMap, HashSet},
+	collections::HashSet,
 	future::Future,
 	pin::Pin,
 	sync::{
@@ -40,7 +40,7 @@ use std::{
 use futures::FutureExt;
 use itertools::Itertools;
 use parking_lot::RwLock;
-use tracing::{debug, info, trace};
+use tracing::{debug, trace};
 
 use sc_transaction_pool_api::{TransactionPriority, TransactionSource};
 use sp_blockchain::HashAndNumber;
@@ -74,7 +74,6 @@ pub(crate) const TXMEMPOOL_MAX_REVALIDATION_BATCH_SIZE: usize = 1000;
 pub const TXMEMPOOL_TRANSACTION_LIMIT_MULTIPLIER: usize = 4;
 
 /// Represents the transaction in the intermediary buffer.
-#[derive(Debug)]
 pub(crate) struct TxInMemPool<ChainApi, Block>
 where
 	Block: BlockT,
@@ -177,10 +176,43 @@ where
 	}
 }
 
-#[derive(Debug, Clone, Copy, Eq, PartialEq)]
-pub struct PriorityOpt(pub Option<TransactionPriority>);
+impl<ChainApi, Block> std::fmt::Debug for TxInMemPool<ChainApi, Block>
+where
+	Block: BlockT,
+	ChainApi: graph::ChainApi<Block = Block> + 'static,
+{
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		f.debug_struct("TxInMemPool")
+			.field("watched", &self.watched)
+			.field("tx", &"...")
+			.field("bytes", &self.bytes)
+			.field("source", &self.source)
+			.field("validated_at", &self.validated_at)
+			.field("priority", &self.priority)
+			.finish()
+	}
+}
 
-impl Ord for PriorityOpt {
+impl<ChainApi, Block> std::cmp::PartialEq for TxInMemPool<ChainApi, Block>
+where
+	Block: BlockT,
+	ChainApi: graph::ChainApi<Block = Block> + 'static,
+{
+	fn eq(&self, other: &Self) -> bool {
+		self.watched == other.watched &&
+			self.tx == other.tx &&
+			self.bytes == other.bytes &&
+			self.source == other.source &&
+			*self.priority.read() == *other.priority.read() &&
+			self.validated_at.load(atomic::Ordering::Relaxed) ==
+				other.validated_at.load(atomic::Ordering::Relaxed)
+	}
+}
+
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+struct MempoolTxPriority(pub Option<TransactionPriority>);
+
+impl Ord for MempoolTxPriority {
 	fn cmp(&self, other: &Self) -> std::cmp::Ordering {
 		match (&self.0, &other.0) {
 			(Some(a), Some(b)) => a.cmp(b),
@@ -190,13 +222,13 @@ impl Ord for PriorityOpt {
 		}
 	}
 }
-impl From<Option<TransactionPriority>> for PriorityOpt {
+impl From<Option<TransactionPriority>> for MempoolTxPriority {
 	fn from(value: Option<TransactionPriority>) -> Self {
-		PriorityOpt(value)
+		MempoolTxPriority(value)
 	}
 }
 
-impl PartialOrd for PriorityOpt {
+impl PartialOrd for MempoolTxPriority {
 	fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
 		Some(self.cmp(other))
 	}
@@ -217,7 +249,7 @@ where
 	Block: BlockT,
 	ChainApi: graph::ChainApi<Block = Block> + 'static,
 {
-	type Priority = PriorityOpt;
+	type Priority = MempoolTxPriority;
 	type Timestamp = Option<Instant>;
 
 	fn priority(&self) -> Self::Priority {
@@ -231,7 +263,7 @@ where
 
 type InternalTxMemPoolMap<ChainApi, Block> = tx_mem_pool_map::TrackedMap<
 	ExtrinsicHash<ChainApi>,
-	tx_mem_pool_map::PriorityKey<PriorityOpt, Option<Instant>>,
+	tx_mem_pool_map::PriorityKey<MempoolTxPriority, Option<Instant>>,
 	Arc<TxInMemPool<ChainApi, Block>>,
 >;
 
@@ -498,12 +530,23 @@ where
 			.await
 	}
 
-	/// Clones and returns a `HashMap` of references to all transactions in the memory pool.
-	pub(super) async fn clone_transactions(
-		&self,
-	) -> HashMap<ExtrinsicHash<ChainApi>, Arc<TxInMemPool<ChainApi, Block>>> {
-		// todo!()
-		self.transactions.clone_map().await
+	/// Provides read-only access to all transctions via an iterator.
+	///
+	/// This function allows to iterate over all stored transaction without cloning.
+	/// The provided closure receives an iterator over references to keys and values.
+	///
+	/// Note: Typically some filtering should be applied and required items can be cloned and return
+	/// outside the closure if required. Transacaction are `Arc` so clone shall be cheap.
+	pub(super) async fn with_transactions<F, R>(&self, f: F) -> R
+	where
+		F: Fn(
+			std::collections::hash_map::Iter<
+				ExtrinsicHash<ChainApi>,
+				Arc<TxInMemPool<ChainApi, Block>>,
+			>,
+		) -> R,
+	{
+		self.transactions.read().await.with_items(f)
 	}
 
 	/// Removes transactions with given hashes from the memory pool.
@@ -527,20 +570,21 @@ where
 		let start = Instant::now();
 
 		let (count, input) = {
-			let transactions = self.transactions.clone_map().await;
-			//todo - check if we can do better?
 			(
-				transactions.len(),
-				transactions
-					.into_iter()
-					.filter(|xt| {
+				self.transactions.len(),
+				self.with_transactions(|iter| {
+					iter.filter(|(_, xt)| {
 						let finalized_block_number = finalized_block.number.into().as_u64();
-						xt.1.validated_at.load(atomic::Ordering::Relaxed) +
+						xt.validated_at.load(atomic::Ordering::Relaxed) +
 							TXMEMPOOL_REVALIDATION_PERIOD <
 							finalized_block_number
 					})
-					.sorted_by_key(|tx| tx.1.validated_at.load(atomic::Ordering::Relaxed))
-					.take(TXMEMPOOL_MAX_REVALIDATION_BATCH_SIZE),
+					.sorted_by_key(|(_, tx)| tx.validated_at.load(atomic::Ordering::Relaxed))
+					.take(TXMEMPOOL_MAX_REVALIDATION_BATCH_SIZE)
+					.map(|(k, v)| (*k, v.clone()))
+					.collect::<Vec<_>>()
+				})
+				.await,
 			)
 		};
 

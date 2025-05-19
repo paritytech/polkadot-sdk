@@ -34,7 +34,7 @@ use std::{
 use tokio::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 
 /// Something that can report its size.
-pub trait Size {
+pub(super) trait Size {
 	fn size(&self) -> usize;
 }
 
@@ -42,7 +42,7 @@ pub trait Size {
 ///
 /// `PriorityAndTimestamp` defines methods to access the priority and timestamp,
 /// facilitating sorting in structures like `TrackedMap`.
-pub trait PriorityAndTimestamp {
+pub(super) trait PriorityAndTimestamp {
 	type Priority: Ord;
 	type Timestamp: Ord;
 
@@ -200,13 +200,6 @@ where
 	{
 		f(self.items_by_hashes.iter())
 	}
-
-	pub fn with_items2<F, R>(&self, f: F) -> R
-	where
-		for<'a> F: Fn(Box<dyn Iterator<Item = (&'a K, &'a V)> + 'a>) -> R,
-	{
-		f(Box::new(self.items_by_hashes.iter()))
-	}
 }
 
 impl<K, A, B, V> InnerStorage<K, PriorityKey<A, B>, V>
@@ -215,7 +208,7 @@ where
 	A: Ord,
 	B: Ord,
 	V: Clone + PriorityAndTimestamp<Priority = A, Timestamp = B>,
-	// V: std::cmp::PartialEq + std::fmt::Debug,
+	V: std::cmp::PartialEq + std::fmt::Debug,
 {
 	/// Inserts a key-value pair into the map, ordering by priority.
 	pub fn insert(&mut self, key: K, val: V) -> Option<V> {
@@ -223,10 +216,10 @@ where
 
 		if let Some(ref removed) = r {
 			let a = self.items_by_priority.remove(&SortKey::new(&key, removed));
-			// debug_assert_eq!(r, a);
+			debug_assert_eq!(r, a);
 		}
 		let a = self.items_by_priority.insert(SortKey::new(&key, &val), val);
-		// debug_assert!(a.is_none());
+		debug_assert!(a.is_none());
 		r
 	}
 
@@ -236,7 +229,7 @@ where
 		let _ = r.as_ref().map(|r| {
 			let k = SortKey::new(key, r);
 			let a = self.items_by_priority.remove(&k);
-			// debug_assert_eq!(r.clone(), a.expect("item should be in both mapts. qed."));
+			debug_assert_eq!(r.clone(), a.expect("item should be in both mapts. qed."));
 		});
 		r
 	}
@@ -269,6 +262,7 @@ where
 	A: Ord + std::fmt::Debug,
 	B: Ord + std::fmt::Debug,
 	V: Clone + PriorityAndTimestamp<Priority = A, Timestamp = B> + Size,
+	V: std::cmp::PartialEq + std::fmt::Debug,
 {
 	/// Attempts to insert an item with replacement based on free space and priority.
 	/// Returns the total size in bytes of removed items, and their keys.
@@ -406,13 +400,6 @@ where
 	{
 		self.inner_guard.with_items(f)
 	}
-
-	pub fn with_items2<F, R>(&self, f: F) -> R
-	where
-		for<'a> F: Fn(Box<dyn Iterator<Item = (&'a K, &'a V)> + 'a>) -> R,
-	{
-		self.inner_guard.with_items2(f)
-	}
 }
 
 pub struct TrackedMapWriteAccess<'a, K, S, V>
@@ -431,6 +418,7 @@ where
 	A: Ord + std::fmt::Debug,
 	B: Ord + std::fmt::Debug,
 	V: Clone + PriorityAndTimestamp<Priority = A, Timestamp = B> + Size,
+	V: std::cmp::PartialEq + std::fmt::Debug,
 {
 	/// Insert value and return previous (if any).
 	pub fn insert(&mut self, key: K, val: V) -> Option<V> {
