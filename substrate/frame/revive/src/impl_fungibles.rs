@@ -39,6 +39,8 @@ use sp_runtime::traits::AccountIdConversion;
 use super::*;
 use ethereum_standards::IERC20;
 
+const GAS_LIMIT: Weight = Weight::from_parts(1_000_000_000, 100_000);
+
 impl<T: Config> Pallet<T> {
 	// Test checking account for the `fungibles::*` implementation.
 	//
@@ -66,7 +68,7 @@ where
 			T::RuntimeOrigin::signed(Self::checking_account()),
 			asset_id,
 			BalanceOf::<T>::zero(),
-			Weight::from_parts(1_000_000_000, 100_000),
+			GAS_LIMIT,
 			DepositLimit::Balance(
 				<<T as pallet::Config>::Currency as fungible::Inspect<_>>::total_issuance(),
 			),
@@ -102,7 +104,7 @@ where
 			T::RuntimeOrigin::signed(account_id.clone()),
 			asset_id,
 			BalanceOf::<T>::zero(),
-			Weight::from_parts(1_000_000_000, 100_000),
+			GAS_LIMIT,
 			DepositLimit::Balance(
 				<<T as pallet::Config>::Currency as fungible::Inspect<_>>::total_issuance(),
 			),
@@ -177,7 +179,7 @@ where
 			T::RuntimeOrigin::signed(who.clone()),
 			asset_id,
 			BalanceOf::<T>::zero(),
-			Weight::from_parts(1_000_000_000, 100_000),
+			GAS_LIMIT,
 			DepositLimit::Balance(
 				<<T as pallet::Config>::Currency as fungible::Inspect<_>>::total_issuance(),
 			),
@@ -214,7 +216,7 @@ where
 			T::RuntimeOrigin::signed(Self::checking_account()),
 			asset_id,
 			BalanceOf::<T>::zero(),
-			Weight::from_parts(1_000_000_000, 100_000),
+			GAS_LIMIT,
 			DepositLimit::Balance(
 				<<T as pallet::Config>::Currency as fungible::Inspect<_>>::total_issuance(),
 			),
