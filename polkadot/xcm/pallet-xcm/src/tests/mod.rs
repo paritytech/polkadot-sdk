@@ -656,7 +656,10 @@ fn trapped_assets_can_be_claimed() {
 				]))),
 				weight
 			),
-			Error::<Test>::LocalExecutionIncompleteWithError(XcmError::UnknownClaim.into())
+			Error::<Test>::LocalExecutionIncompleteWithError {
+				index: 0,
+				error: XcmError::UnknownClaim.into()
+			}
 		);
 	});
 }
@@ -753,9 +756,10 @@ fn incomplete_execute_reverts_side_effects() {
 					pays_fee: frame_support::dispatch::Pays::Yes,
 				},
 				error: sp_runtime::DispatchError::from(
-					Error::<Test>::LocalExecutionIncompleteWithError(
-						XcmError::FailedToTransactAsset("").into()
-					)
+					Error::<Test>::LocalExecutionIncompleteWithError {
+						index: 3,
+						error: XcmError::FailedToTransactAsset("").into()
+					}
 				)
 			})
 		);

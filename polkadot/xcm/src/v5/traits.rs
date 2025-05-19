@@ -252,11 +252,11 @@ pub enum Outcome {
 }
 
 impl Outcome {
-	pub fn ensure_complete(self) -> Result {
+	pub fn ensure_complete(self) -> result::Result<(), (u8, Error)> {
 		match self {
 			Outcome::Complete { .. } => Ok(()),
-			Outcome::Incomplete { error, index, .. } => Err(error),
-			Outcome::Error { error, index, .. } => Err(error),
+			Outcome::Incomplete { error, index, .. } => Err((index, error)),
+			Outcome::Error { error, index, .. } => Err((index, error)),
 		}
 	}
 	pub fn ensure_execution(self) -> result::Result<Weight, Error> {
