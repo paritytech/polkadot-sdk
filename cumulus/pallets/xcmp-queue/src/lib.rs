@@ -76,7 +76,7 @@ use frame_support::{
 };
 use pallet_message_queue::OnQueueChanged;
 use polkadot_runtime_common::xcm_sender::PriceForMessageDelivery;
-use polkadot_runtime_parachains::FeeTracker;
+use polkadot_runtime_parachains::{FeeTracker, GetMinFeeFactor};
 use scale_info::TypeInfo;
 use sp_core::MAX_POSSIBLE_ALLOCATION;
 use sp_runtime::{FixedU128, RuntimeDebug, WeakBoundedVec};
@@ -358,16 +358,10 @@ pub mod pallet {
 	#[pallet::storage]
 	pub(super) type QueueSuspended<T: Config> = StorageValue<_, bool, ValueQuery>;
 
-	/// Initialization value for the DeliveryFee factor.
-	#[pallet::type_value]
-	pub fn InitialFactor() -> FixedU128 {
-		FixedU128::from_u32(1)
-	}
-
 	/// The factor to multiply the base delivery fee by.
 	#[pallet::storage]
 	pub(super) type DeliveryFeeFactor<T: Config> =
-		StorageMap<_, Twox64Concat, ParaId, FixedU128, ValueQuery, InitialFactor>;
+		StorageMap<_, Twox64Concat, ParaId, FixedU128, ValueQuery, GetMinFeeFactor<Pallet<T>>>;
 }
 
 #[derive(Copy, Clone, Eq, PartialEq, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
@@ -1143,10 +1137,6 @@ impl<T: Config> InspectMessageQueues for Pallet<T> {
 
 impl<T: Config> FeeTracker for Pallet<T> {
 	type Id = ParaId;
-
-	fn get_min_fee_factor() -> FixedU128 {
-		InitialFactor::get()
-	}
 
 	fn get_fee_factor(id: Self::Id) -> FixedU128 {
 		<DeliveryFeeFactor<T>>::get(id)
