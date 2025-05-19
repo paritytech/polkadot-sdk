@@ -113,50 +113,54 @@ pub fn proceed_storage_access<B: traits::Block>(mut params: &[u8]) {
 		StorageAccessParams::<B>::decode(&mut params)
 			.expect("Invalid arguments to `validate_block`.");
 	// Create the db
-	let db = match storage_proof.to_memory_db(Some(&state_root)) {
+	let mut db = match storage_proof.to_memory_db(Some(&state_root)) {
 		Ok((db, _)) => db,
 		Err(_) => panic!("Compact proof decoding failure."),
 	};
 
-	let recorder = SizeOnlyRecorderProvider::<traits::HashingFor<B>>::default();
-	let cache_provider = CacheProvider::new();
-	let backend = TrieBackendBuilder::new_with_cache(db, state_root, cache_provider)
-		.with_recorder(recorder)
-		.build();
+	for i in 1..400 {
+		let recorder = SizeOnlyRecorderProvider::<traits::HashingFor<B>>::default();
+		let cache_provider = CacheProvider::new();
+		let backend = TrieBackendBuilder::new_with_cache(db, state_root, cache_provider)
+			.with_recorder(recorder)
+			.build();
 
-	if is_dry_run {
-		return;
-	}
+		if is_dry_run {
+			return;
+		}
 
-	match payload {
-		StorageAccessPayload::Read(keys) =>
-			for (key, maybe_child_info) in keys {
+		match &payload {
+			StorageAccessPayload::Read(ref keys) =>
+				for (key, maybe_child_info) in keys {
+					match maybe_child_info {
+						Some(child_info) => {
+							let _ = backend
+								.child_storage(&child_info, key.as_ref())
+								.expect("Key not found")
+								.ok_or("Value unexpectedly empty");
+						},
+						None => {
+							let _ = backend
+								.storage(key.as_ref())
+								.expect("Key not found")
+								.ok_or("Value unexpectedly empty");
+						},
+					}
+				},
+			StorageAccessPayload::Write((changes, maybe_child_info)) => {
+				let delta = changes.iter().map(|(key, value)| (key.as_ref(), Some(value.as_ref())));
 				match maybe_child_info {
 					Some(child_info) => {
-						let _ = backend
-							.child_storage(&child_info, key.as_ref())
-							.expect("Key not found")
-							.ok_or("Value unexpectedly empty");
+						backend.child_storage_root(&child_info, delta, StateVersion::V1);
 					},
 					None => {
-						let _ = backend
-							.storage(key.as_ref())
-							.expect("Key not found")
-							.ok_or("Value unexpectedly empty");
+						backend.storage_root(delta, StateVersion::V1);
 					},
 				}
 			},
-		StorageAccessPayload::Write((changes, maybe_child_info)) => {
-			let delta = changes.iter().map(|(key, value)| (key.as_ref(), Some(value.as_ref())));
-			match maybe_child_info {
-				Some(child_info) => {
-					backend.child_storage_root(&child_info, delta, StateVersion::V1);
-				},
-				None => {
-					backend.storage_root(delta, StateVersion::V1);
-				},
-			}
-		},
+		}
+
+		db = backend.essence.storage;
 	}
 }
 
