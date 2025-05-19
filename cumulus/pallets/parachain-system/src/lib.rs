@@ -53,7 +53,7 @@ use frame_support::{
 };
 use frame_system::{ensure_none, ensure_root, pallet_prelude::HeaderFor};
 use polkadot_parachain_primitives::primitives::RelayChainBlockNumber;
-use polkadot_runtime_parachains::FeeTracker;
+use polkadot_runtime_parachains::{FeeTracker, GetMinFeeFactor};
 use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{Block as BlockT, BlockNumberProvider, Hash, One},
@@ -920,16 +920,10 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type PendingUpwardMessages<T: Config> = StorageValue<_, Vec<UpwardMessage>, ValueQuery>;
 
-	/// Initialization value for the delivery fee factor for UMP.
-	#[pallet::type_value]
-	pub fn UpwardInitialDeliveryFeeFactor() -> FixedU128 {
-		FixedU128::from_u32(1)
-	}
-
 	/// The factor to multiply the base delivery fee by for UMP.
 	#[pallet::storage]
 	pub type UpwardDeliveryFeeFactor<T: Config> =
-		StorageValue<_, FixedU128, ValueQuery, UpwardInitialDeliveryFeeFactor>;
+		StorageValue<_, FixedU128, ValueQuery, GetMinFeeFactor<Pallet<T>>>;
 
 	/// The number of HRMP messages we observed in `on_initialize` and thus used that number for
 	/// announcing the weight of `on_initialize` and `on_finalize`.
@@ -1007,10 +1001,6 @@ impl<T: Config> Pallet<T> {
 
 impl<T: Config> FeeTracker for Pallet<T> {
 	type Id = ();
-
-	fn get_min_fee_factor() -> FixedU128 {
-		UpwardInitialDeliveryFeeFactor::get()
-	}
 
 	fn get_fee_factor(_id: Self::Id) -> FixedU128 {
 		UpwardDeliveryFeeFactor::<T>::get()

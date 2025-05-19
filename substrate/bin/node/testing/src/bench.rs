@@ -53,7 +53,7 @@ use sp_core::{
 use sp_crypto_hashing::blake2_256;
 use sp_inherents::InherentData;
 use sp_runtime::{
-	generic::{self, ExtrinsicFormat, Preamble, EXTRINSIC_FORMAT_VERSION},
+	generic::{self, ExtrinsicFormat, Preamble},
 	traits::{Block as BlockT, IdentifyAccount, Verify},
 	OpaqueExtrinsic,
 };
@@ -587,26 +587,21 @@ impl BenchKeyring {
 						key.sign(b)
 					}
 				});
-				generic::UncheckedExtrinsic {
-					preamble: Preamble::Signed(
-						sp_runtime::MultiAddress::Id(signed),
-						signature,
-						tx_ext,
-					),
-					function: payload.0,
-				}
+				generic::UncheckedExtrinsic::new_signed(
+					payload.0,
+					sp_runtime::MultiAddress::Id(signed),
+					signature,
+					tx_ext,
+				)
 				.into()
 			},
-			ExtrinsicFormat::Bare => generic::UncheckedExtrinsic {
-				preamble: Preamble::Bare(EXTRINSIC_FORMAT_VERSION),
-				function: xt.function,
-			}
-			.into(),
-			ExtrinsicFormat::General(ext_version, tx_ext) => generic::UncheckedExtrinsic {
-				preamble: sp_runtime::generic::Preamble::General(ext_version, tx_ext),
-				function: xt.function,
-			}
-			.into(),
+			ExtrinsicFormat::Bare => generic::UncheckedExtrinsic::new_bare(xt.function).into(),
+			ExtrinsicFormat::General(ext_version, tx_ext) =>
+				generic::UncheckedExtrinsic::from_parts(
+					xt.function,
+					Preamble::General(ext_version, tx_ext),
+				)
+				.into(),
 		}
 	}
 
