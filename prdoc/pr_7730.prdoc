@@ -16,6 +16,8 @@ crates:
   bump: patch
 - name: staging-xcm-executor
   bump: patch
+- name: xcm-simulator
+  bump: patch
 - name: asset-hub-westend-integration-tests
   bump: none
 - name: bridge-hub-westend-integration-tests
