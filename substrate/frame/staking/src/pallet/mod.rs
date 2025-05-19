@@ -797,10 +797,13 @@ pub mod pallet {
 					RewardDestination::Staked,
 				));
 				frame_support::assert_ok!(match status {
-					crate::StakerStatus::Validator => <Pallet<T>>::validate(
-						T::RuntimeOrigin::from(Some(stash.clone()).into()),
-						Default::default(),
-					),
+					crate::StakerStatus::Validator => {
+						ValidatorWhitelist::<T>::insert(stash.clone(), true);
+						<Pallet<T>>::validate(
+							T::RuntimeOrigin::from(Some(stash.clone()).into()),
+							Default::default(),
+						)
+					},
 					crate::StakerStatus::Nominator(votes) => <Pallet<T>>::nominate(
 						T::RuntimeOrigin::from(Some(stash.clone()).into()),
 						votes.iter().map(|l| T::Lookup::unlookup(l.clone())).collect(),
