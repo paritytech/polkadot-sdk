@@ -155,6 +155,11 @@ pub mod rococo {
 			ChainType::Local => sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET,
 			_ => panic!("chain_type: {chain_type:?} not supported here!"),
 		})
+		.with_genesis_config_patch(serde_json::json!({
+			"parachainInfo": {
+				"parachainId": para_id,
+			},
+		}))
 		.with_properties(properties)
 		.build()
 	}
@@ -195,6 +200,11 @@ pub mod westend {
 			ChainType::Local => sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET,
 			_ => panic!("chain_type: {chain_type:?} not supported here!"),
 		})
+		.with_genesis_config_patch(serde_json::json!({
+			"parachainInfo": {
+				"parachainId": para_id,
+			},
+		}))
 		.with_properties(properties)
 		.build()
 	}

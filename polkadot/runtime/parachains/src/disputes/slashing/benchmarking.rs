@@ -82,6 +82,11 @@ where
 
 	pallet_session::Pallet::<T>::on_initialize(BlockNumberFor::<T>::one());
 	initializer::Pallet::<T>::on_initialize(BlockNumberFor::<T>::one());
+
+	// signal to `pallet-staking`'s `ElectionProvider` to be ready asap.
+	use frame_election_provider_support::ElectionProvider;
+	<<T as pallet_staking::Config>::ElectionProvider as ElectionProvider>::asap();
+
 	// skip sessions until the new validator set is enacted
 	while pallet_session::Pallet::<T>::validators().len() < n as usize {
 		pallet_session::Pallet::<T>::rotate_session();

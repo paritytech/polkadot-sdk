@@ -21,11 +21,17 @@ use crate::{
 	backend::Backend, trie_backend::TrieBackend, StorageCollection, StorageKey, StorageValue,
 	TrieBackendBuilder,
 };
+use alloc::{collections::BTreeMap, vec::Vec};
 use codec::Codec;
 use hash_db::Hasher;
 use sp_core::storage::{ChildInfo, StateVersion, Storage};
 use sp_trie::{empty_trie_root, LayoutV1, PrefixedMemoryDB};
-use std::collections::{BTreeMap, HashMap};
+
+#[cfg(feature = "std")]
+use std::collections::HashMap as MapType;
+
+#[cfg(not(feature = "std"))]
+use alloc::collections::BTreeMap as MapType;
 
 /// Create a new empty instance of in-memory backend.
 pub fn new_in_mem<H>() -> TrieBackend<PrefixedMemoryDB<H>, H>
@@ -110,14 +116,14 @@ where
 	}
 }
 
-impl<H: Hasher> From<(HashMap<Option<ChildInfo>, BTreeMap<StorageKey, StorageValue>>, StateVersion)>
+impl<H: Hasher> From<(MapType<Option<ChildInfo>, BTreeMap<StorageKey, StorageValue>>, StateVersion)>
 	for TrieBackend<PrefixedMemoryDB<H>, H>
 where
 	H::Out: Codec + Ord,
 {
 	fn from(
 		(inner, state_version): (
-			HashMap<Option<ChildInfo>, BTreeMap<StorageKey, StorageValue>>,
+			MapType<Option<ChildInfo>, BTreeMap<StorageKey, StorageValue>>,
 			StateVersion,
 		),
 	) -> Self {
@@ -138,7 +144,7 @@ where
 	H::Out: Codec + Ord,
 {
 	fn from((inners, state_version): (Storage, StateVersion)) -> Self {
-		let mut inner: HashMap<Option<ChildInfo>, BTreeMap<StorageKey, StorageValue>> = inners
+		let mut inner: MapType<Option<ChildInfo>, BTreeMap<StorageKey, StorageValue>> = inners
 			.children_default
 			.into_values()
 			.map(|c| (Some(c.child_info), c.data))
@@ -154,7 +160,7 @@ where
 	H::Out: Codec + Ord,
 {
 	fn from((inner, state_version): (BTreeMap<StorageKey, StorageValue>, StateVersion)) -> Self {
-		let mut expanded = HashMap::new();
+		let mut expanded = MapType::new();
 		expanded.insert(None, inner);
 		(expanded, state_version).into()
 	}
@@ -168,8 +174,8 @@ where
 	fn from(
 		(inner, state_version): (Vec<(Option<ChildInfo>, StorageCollection)>, StateVersion),
 	) -> Self {
-		let mut expanded: HashMap<Option<ChildInfo>, BTreeMap<StorageKey, StorageValue>> =
-			HashMap::new();
+		let mut expanded: MapType<Option<ChildInfo>, BTreeMap<StorageKey, StorageValue>> =
+			MapType::new();
 		for (child_info, key_values) in inner {
 			let entry = expanded.entry(child_info).or_default();
 			for (key, value) in key_values {

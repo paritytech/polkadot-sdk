@@ -222,6 +222,7 @@ pub mod pallet {
 	#[pallet::config]
 	pub trait Config: frame_system::Config + Sized {
 		type WeightInfo: WeightInfo;
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		/// The Scheduler.
@@ -1722,13 +1723,13 @@ impl<T: Config> Pallet<T> {
 	) -> Result<(), BadOrigin> {
 		match threshold {
 			VoteThreshold::SuperMajorityApprove => {
-				let _ = T::ExternalOrigin::ensure_origin(origin)?;
+				T::ExternalOrigin::ensure_origin(origin)?;
 			},
 			VoteThreshold::SuperMajorityAgainst => {
-				let _ = T::ExternalDefaultOrigin::ensure_origin(origin)?;
+				T::ExternalDefaultOrigin::ensure_origin(origin)?;
 			},
 			VoteThreshold::SimpleMajority => {
-				let _ = T::ExternalMajorityOrigin::ensure_origin(origin)?;
+				T::ExternalMajorityOrigin::ensure_origin(origin)?;
 			},
 		};
 		Ok(())

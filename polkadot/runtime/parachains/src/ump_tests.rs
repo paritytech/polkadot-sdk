@@ -28,7 +28,7 @@ use crate::{
 use frame_support::{
 	assert_noop, assert_ok,
 	pallet_prelude::*,
-	traits::{EnqueueMessage, ExecuteOverweightError, ServiceQueues},
+	traits::{ExecuteOverweightError, QueueFootprintQuery, ServiceQueues},
 	weights::Weight,
 };
 use polkadot_primitives::{

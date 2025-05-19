@@ -67,6 +67,7 @@ pub mod pallet {
 	#[pallet::config]
 	pub trait Config<I: 'static = ()>: frame_system::Config {
 		/// The overarching event type.
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self, I>>
 			+ IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
@@ -244,7 +245,7 @@ pub mod pallet {
 
 			let mut members = Members::<T, I>::get();
 			let location = members.binary_search(&remove).ok().ok_or(Error::<T, I>::NotMember)?;
-			let _ = members.binary_search(&add).err().ok_or(Error::<T, I>::AlreadyMember)?;
+			members.binary_search(&add).err().ok_or(Error::<T, I>::AlreadyMember)?;
 			members[location] = add.clone();
 			members.sort();
 
@@ -300,7 +301,7 @@ pub mod pallet {
 			let mut members = Members::<T, I>::get();
 			let members_length = members.len() as u32;
 			let location = members.binary_search(&remove).ok().ok_or(Error::<T, I>::NotMember)?;
-			let _ = members.binary_search(&new).err().ok_or(Error::<T, I>::AlreadyMember)?;
+			members.binary_search(&new).err().ok_or(Error::<T, I>::AlreadyMember)?;
 			members[location] = new.clone();
 			members.sort();
 
