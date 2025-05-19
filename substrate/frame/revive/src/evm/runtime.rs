@@ -27,7 +27,7 @@ use alloc::vec::Vec;
 use codec::{Decode, DecodeWithMemTracking, Encode};
 use frame_support::{
 	dispatch::{DispatchInfo, GetDispatchInfo},
-	traits::{ExtrinsicCall, InherentBuilder, SignedTransactionBuilder},
+	traits::{InherentBuilder, IsSubType, SignedTransactionBuilder},
 };
 use pallet_transaction_payment::OnChargeTransaction;
 use scale_info::{StaticTypeInfo, TypeInfo};
@@ -35,7 +35,7 @@ use sp_core::{Get, H256, U256};
 use sp_runtime::{
 	generic::{self, CheckedExtrinsic, ExtrinsicFormat},
 	traits::{
-		self, Checkable, Dispatchable, ExtrinsicLike, ExtrinsicMetadata, IdentifyAccount, Member,
+		Checkable, Dispatchable, ExtrinsicCall, ExtrinsicLike, ExtrinsicMetadata,
 		TransactionExtension,
 	},
 	transaction_validity::{InvalidTransaction, TransactionValidityError},
@@ -118,7 +118,6 @@ impl<Address: TypeInfo, Signature: TypeInfo, E: EthExtra> ExtrinsicCall
 	}
 }
 
-use sp_runtime::traits::MaybeDisplay;
 type OnChargeTransactionBalanceOf<T> = <<T as pallet_transaction_payment::Config>::OnChargeTransaction as OnChargeTransaction<T>>::Balance;
 
 impl<LookupSource, Signature, E, Lookup> Checkable<Lookup>
@@ -131,27 +130,24 @@ where
 	OnChargeTransactionBalanceOf<E::Config>: Into<BalanceOf<E::Config>>,
 	BalanceOf<E::Config>: Into<U256> + TryFrom<U256>,
 	MomentOf<E::Config>: Into<U256>,
-	CallOf<E::Config>: From<crate::Call<E::Config>> + TryInto<crate::Call<E::Config>>,
+	CallOf<E::Config>: From<crate::Call<E::Config>> + IsSubType<crate::Call<E::Config>>,
 	<E::Config as frame_system::Config>::Hash: frame_support::traits::IsType<H256>,
 
 	// required by Checkable for `generic::UncheckedExtrinsic`
-	LookupSource: Member + MaybeDisplay,
-	CallOf<E::Config>: Encode + Member + Dispatchable,
-	Signature: Member + traits::Verify,
-	<Signature as traits::Verify>::Signer: IdentifyAccount<AccountId = AccountIdOf<E::Config>>,
-	E::Extension: Encode + TransactionExtension<CallOf<E::Config>>,
-	Lookup: traits::Lookup<Source = LookupSource, Target = AccountIdOf<E::Config>>,
+	generic::UncheckedExtrinsic<LookupSource, CallOf<E::Config>, Signature, E::Extension>:
+		Checkable<
+			Lookup,
+			Checked = CheckedExtrinsic<AccountIdOf<E::Config>, CallOf<E::Config>, E::Extension>,
+		>,
 {
 	type Checked = CheckedExtrinsic<AccountIdOf<E::Config>, CallOf<E::Config>, E::Extension>;
 
 	fn check(self, lookup: &Lookup) -> Result<Self::Checked, TransactionValidityError> {
 		if !self.0.is_signed() {
-			if let Ok(call) = self.0.function.clone().try_into() {
-				if let crate::Call::eth_transact { payload } = call {
-					let checked = E::try_into_checked_extrinsic(payload, self.encoded_size())?;
-					return Ok(checked)
-				};
-			}
+			if let Some(crate::Call::eth_transact { payload }) = self.0.function.is_sub_type() {
+				let checked = E::try_into_checked_extrinsic(payload.to_vec(), self.encoded_size())?;
+				return Ok(checked)
+			};
 		}
 		self.0.check(lookup)
 	}
@@ -417,7 +413,7 @@ mod test {
 	use frame_support::{error::LookupError, traits::fungible::Mutate};
 	use pallet_revive_fixtures::compile_module;
 	use sp_runtime::{
-		traits::{Checkable, DispatchTransaction},
+		traits::{self, Checkable, DispatchTransaction},
 		MultiAddress, MultiSignature,
 	};
 	type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
