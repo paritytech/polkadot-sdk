@@ -6,6 +6,12 @@ doc:
 crates:
 - name: pallet-xcm
   bump: patch
+- name: parachains-runtimes-test-utils
+  bump: patch
+- name: staging-xcm-builder
+  bump: patch
+- name: xcm
+  bump: patch
 - name: xcm-executor
   bump: patch
 - name: asset-hub-westend-integration-tests
