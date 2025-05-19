@@ -64,16 +64,16 @@ use frame_support::{
 	pallet_prelude::*,
 	storage::{transactional::with_transaction_opaque_err, TransactionOutcome},
 	traits::{
-		fungible::{Inspect, InspectFreeze, Mutate, MutateFreeze, MutateHold, Unbalanced},
+		fungible::{
+			Inspect, InspectFreeze, InspectHold, Mutate, MutateFreeze, MutateHold, Unbalanced,
+		},
 		fungibles::{Inspect as FungiblesInspect, Mutate as FungiblesMutate},
-		tokens::{Fortitude, Pay, Preservation},
+		tokens::{Fortitude, Pay, Precision, Preservation},
 		Contains, Defensive, DefensiveTruncateFrom, LockableCurrency, OriginTrait, QueryPreimage,
 		ReservableCurrency, StorePreimage, VariantCount, WithdrawReasons as LockWithdrawReasons,
 	},
 };
-use frame_support::traits::fungible::InspectHold;
 use frame_system::pallet_prelude::*;
-use frame_support::traits::tokens::Precision;
 use pallet_balances::{AccountData, Reasons as LockReasons};
 
 #[cfg(not(feature = "ahm-westend"))]
@@ -916,11 +916,14 @@ pub mod pallet {
 			<T as Config>::ManagerOrigin::ensure_origin(origin)?;
 
 			let staking_hold_reason = pallet_staking_async::HoldReason::Staking.into();
-			let delegation_hold_reason = pallet_delegated_staking::HoldReason::StakingDelegation.into();
+			let delegation_hold_reason =
+				pallet_delegated_staking::HoldReason::StakingDelegation.into();
 			let preimage_hold_reason = pallet_preimage::HoldReason::Preimage.into();
 
-			// fail early if no preimage hold, since we know this is the hold reason incorrectly set.
-			let existing_preimage_hold = <T as pallet::Config>::Currency::balance_on_hold(&preimage_hold_reason, &account);
+			// fail early if no preimage hold, since we know this is the hold reason incorrectly
+			// set.
+			let existing_preimage_hold =
+				<T as pallet::Config>::Currency::balance_on_hold(&preimage_hold_reason, &account);
 			ensure!(existing_preimage_hold > 0, Error::<T>::NoMisplacedHoldFound);
 
 			let update_hold = |hold_amount: T::Balance, hold_reason| -> DispatchResult {
@@ -928,14 +931,14 @@ pub mod pallet {
 					return Ok(());
 				}
 
-				let max_hold = <T as pallet::Config>::Currency::reducible_balance(&account, Preservation::Preserve, Fortitude::Polite);
+				let max_hold = <T as pallet::Config>::Currency::reducible_balance(
+					&account,
+					Preservation::Preserve,
+					Fortitude::Polite,
+				);
 				let to_hold = hold_amount.min(max_hold);
 				if to_hold > 0 {
-					<T as pallet::Config>::Currency::set_on_hold(
-						&hold_reason,
-						&account,
-						to_hold,
-					)
+					<T as pallet::Config>::Currency::set_on_hold(&hold_reason, &account, to_hold)
 				} else {
 					Err(Error::<T>::NoFreeBalanceToHold.into())
 				}
