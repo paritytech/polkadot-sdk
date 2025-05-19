@@ -902,20 +902,26 @@ pub mod pallet {
 		}
 
 		fn on_finalize(_: BlockNumberFor<T>) {
-			let (processed, _) = DmpDataMessageCounts::<T>::get();
-			if processed == 0 {
-				return;
+			let stage = AhMigrationStage::<T>::get();
+
+			if stage.is_ongoing() {
+				// send the number of processed messages to the Relay Chain.
+				let (processed, _) = DmpDataMessageCounts::<T>::get();
+				if processed == 0 {
+					return;
+				}
+				log::info!(
+					target: LOG_TARGET,
+					"Sending XCM message to update XCM data message processed count: {}",
+					processed
+				);
+				let res =
+					Self::send_xcm(types::RcMigratorCall::UpdateAhMsgProcessedCount(processed));
+				defensive_assert!(
+					res.is_ok(),
+					"Failed to send XCM message to update XCM data message processed count"
+				);
 			}
-			log::info!(
-				target: LOG_TARGET,
-				"Sending XCM message to update XCM data message processed count: {}",
-				processed
-			);
-			let res = Self::send_xcm(types::RcMigratorCall::UpdateAhMsgProcessedCount(processed));
-			defensive_assert!(
-				res.is_ok(),
-				"Failed to send XCM message to update XCM data message processed count"
-			);
 		}
 	}
 
