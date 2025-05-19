@@ -159,7 +159,9 @@ async fn send_5m_from_many_accounts_to_parachain() {
 	assert_eq!(finalized_txs, 5_000_000);
 }
 
-/// Internal test that allows to observe how transcactions are gossiped in the network. Requires external tool to track transactions presence at nodes. Was used to evaluate some metrics of existing transaction protocol.
+/// Internal test that allows to observe how transcactions are gossiped in the network. Requires
+/// external tool to track transactions presence at nodes. Was used to evaluate some metrics of
+/// existing transaction protocol.
 #[tokio::test(flavor = "multi_thread")]
 #[ignore]
 async fn gossiping() {
