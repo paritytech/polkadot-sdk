@@ -40,7 +40,7 @@ use sc_transaction_pool_api::{
 use sp_blockchain::{HashAndNumber, TreeRoute};
 use sp_runtime::{
 	generic::BlockId,
-	traits::{Block as BlockT, Saturating},
+	traits::{Block as BlockT, Header, Saturating},
 	transaction_validity::{InvalidTransaction, TransactionValidityError},
 };
 use std::{
@@ -336,6 +336,40 @@ where
 	/// Returns true if there are no active views.
 	pub(super) fn is_empty(&self) -> bool {
 		self.active_views.read().is_empty() && self.inactive_views.read().is_empty()
+	}
+
+	/// Searches in the view store for first view by iterating through the fork of
+	/// the `at` block, up to the provided block number.
+	///
+	/// Returns with a maybe pair of a view and a set of enacted blocks when the first view is
+	/// found.
+	pub(super) fn find_view_upto_block_number(
+		&self,
+		at: &HashAndNumber<Block>,
+		block_number: <<Block as BlockT>::Header as Header>::Number,
+	) -> Option<(Arc<View<ChainApi>>, Vec<Block::Hash>)> {
+		let mut enacted_blocks = Vec::new();
+		let mut at_hash = at.hash;
+		let mut at_number = at.number;
+
+		// Search for a view that can be used to get and return an approximate ready
+		// transaction set.
+		while at_number > block_number {
+			// Found a view, stop searching..
+			if let Some((view, _)) = self.get_view_at(at_hash, true) {
+				return Some((view, enacted_blocks));
+			}
+
+			enacted_blocks.push(at_hash);
+
+			// Move up into the fork. Return with no view and an empty enacted blocks
+			// list if we can't access the header of the current block.
+			let header = self.api.block_header(at_hash).ok().flatten()?;
+			at_hash = *header.parent_hash();
+			at_number = at_number.saturating_sub(1u32.into());
+		}
+
+		return None;
 	}
 
 	/// Finds the best existing active view to clone from along the path.
