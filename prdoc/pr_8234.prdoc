@@ -6,7 +6,7 @@ title: Set a memory limit when decoding an `UncheckedExtrinsic`
 doc:
   - audience: Runtime Dev
     description: |
-      This PR sets a 8 MiB heap memory limit when decoding an `UncheckedExtrinsic`.
+      This PR sets a 16 MiB heap memory limit when decoding an `UncheckedExtrinsic`.
       The `ExtrinsicCall` trait has been moved from `frame-support` to `sp-runtime`.
       The `EnsureInherentsAreFirst` trait has been removed and the checking logic has been moved to `frame-executive`.
 
@@ -23,3 +23,7 @@ crates:
     bump: minor
   - name: pallet-revive
     bump: minor
+  - name: asset-hub-westend-runtime
+    bump: patch
+  - name: penpal-runtime
+    bump: patch
