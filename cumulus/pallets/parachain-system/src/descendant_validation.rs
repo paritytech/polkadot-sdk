@@ -75,8 +75,6 @@ pub(crate) fn verify_relay_parent_descendants<H: Header>(
 
 	let mut next_expected_parent_hash = None;
 
-	let mut required_next_authorities = false;
-
 	// Verify that the state root of the first block is the same as the one
 	// from the relay parent. In the PVF, we don't have the relay parent header hash
 	// available, so we need to use the storage root here to establish a chain.
@@ -95,7 +93,7 @@ pub(crate) fn verify_relay_parent_descendants<H: Header>(
 		let relay_number = *current_header.number();
 
 		// Verify that the blocks actually form a chain
-		if let Some(expected_hash) = next_expected_hash {
+		if let Some(expected_hash) = next_expected_parent_hash {
 			if *current_header.parent_hash() != expected_hash {
 				return Err(RelayParentVerificationError::InvalidChainSequence {
 					expected: expected_hash,
@@ -104,17 +102,22 @@ pub(crate) fn verify_relay_parent_descendants<H: Header>(
 				});
 			}
 		}
-		next_expected_hash = Some(sealed_header_hash);
+		next_expected_parent_hash = Some(sealed_header_hash);
 
 		log::debug!(target: crate::LOG_TARGET, "Validating header #{relay_number:?} ({sealed_header_hash:?})");
-		let Ok((authority_index, next_epoch_descriptor)) = find_authority_idx_epoch_digest(&current_header).or_or(RelayParentVerificationError::MissingPredigest { hash: sealed_header_hash })?;
+		let (authority_index, next_epoch_descriptor) =
+			find_authority_idx_epoch_digest(&current_header).map_err(|_| {
+				RelayParentVerificationError::MissingPredigest { hash: sealed_header_hash }
+			})?;
 
 		// Once we have seen a next epoch descriptor, we must always use the authorities of the
 		// next epoch.If the relay parent contains epoch descriptor, we shall not rotate
 		// authorities. As in that case the authorities in the state proof reflect the
 		// new authorities already.
 		if let Some(descriptor) = next_epoch_descriptor {
-			if counter != 0 {
+			// If the relay parent itself contains the epoch change, we must _not_ use the next
+			// authorities, as they have already been rotated in storage.k
+			if index != 0 {
 				let Some(next_authorities) = maybe_next_authorities else {
 					return Err(RelayParentVerificationError::MissingNextEpochAuthorities {
 						number: relay_number,
@@ -131,7 +134,6 @@ pub(crate) fn verify_relay_parent_descendants<H: Header>(
 				// have been signed by a current authority, we can use it for further epochs.
 				current_authorities = next_authorities;
 				maybe_next_authorities = Some(descriptor.authorities);
-				required_next_authorities = true;
 			}
 		}
 
