@@ -8,6 +8,10 @@ crates:
   bump: patch
 - name: pallet-xcm
   bump: patch
+- name: pallet-contracts-mock-network
+  bump: patch
+- name: pallet-revive-mock-network
+  bump: patch
 - name: parachains-runtimes-test-utils
   bump: patch
 - name: staging-xcm
@@ -17,6 +21,8 @@ crates:
 - name: staging-xcm-executor
   bump: patch
 - name: xcm-simulator
+  bump: patch
+- name: xcm-simulator-fuzzer
   bump: patch
 - name: asset-hub-westend-integration-tests
   bump: none
