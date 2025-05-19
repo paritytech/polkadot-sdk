@@ -44,7 +44,7 @@
 
 use crate::{
 	configuration::{self, HostConfiguration},
-	initializer, paras, FeeTracker,
+	initializer, paras, FeeTracker, GetMinFeeFactor,
 };
 use alloc::vec::Vec;
 use core::fmt;
@@ -140,16 +140,10 @@ pub mod pallet {
 	pub(crate) type DownwardMessageQueueHeads<T: Config> =
 		StorageMap<_, Twox64Concat, ParaId, Hash, ValueQuery>;
 
-	/// Initialization value for the DeliveryFee factor.
-	#[pallet::type_value]
-	pub fn InitialFactor() -> FixedU128 {
-		FixedU128::from_u32(1)
-	}
-
 	/// The factor to multiply the base delivery fee by.
 	#[pallet::storage]
 	pub(crate) type DeliveryFeeFactor<T: Config> =
-		StorageMap<_, Twox64Concat, ParaId, FixedU128, ValueQuery, InitialFactor>;
+		StorageMap<_, Twox64Concat, ParaId, FixedU128, ValueQuery, GetMinFeeFactor<Pallet<T>>>;
 }
 /// Routines and getters related to downward message passing.
 impl<T: Config> Pallet<T> {
@@ -346,10 +340,6 @@ impl<T: Config> Pallet<T> {
 
 impl<T: Config> FeeTracker for Pallet<T> {
 	type Id = ParaId;
-
-	fn get_min_fee_factor() -> FixedU128 {
-		InitialFactor::get()
-	}
 
 	fn get_fee_factor(id: Self::Id) -> FixedU128 {
 		DeliveryFeeFactor::<T>::get(id)
