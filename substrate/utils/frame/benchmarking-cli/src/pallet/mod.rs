@@ -46,9 +46,10 @@ pub enum ListOutput {
 /// Benchmark the extrinsic weight of FRAME Pallets.
 #[derive(Debug, clap::Parser)]
 pub struct PalletCmd {
-	/// Select a FRAME Pallet to benchmark, or `*` for all (in which case `extrinsic` must be `*`).
-	#[arg(short, long, value_parser = parse_pallet_name, required_unless_present_any = ["list", "json_input", "all"], default_value_if("all", "true", Some("*".into())))]
-	pub pallet: Option<String>,
+	/// Select a FRAME Pallets to benchmark, or `*` for all (in which case `extrinsic` must be
+	/// `*`).
+	#[arg(short, long, alias = "pallet", num_args = 1.., value_delimiter = ',', value_parser = parse_pallet_name, required_unless_present_any = ["list", "json_input", "all"], default_value_if("all", "true", Some("*".into())))]
+	pub pallets: Vec<String>,
 
 	/// Select an extrinsic inside the pallet to benchmark, or `*` or 'all' for all.
 	#[arg(short, long, required_unless_present_any = ["list", "json_input", "all"], default_value_if("all", "true", Some("*".into())))]
@@ -57,6 +58,12 @@ pub struct PalletCmd {
 	/// Comma separated list of pallets that should be excluded from the benchmark.
 	#[arg(long, value_parser, num_args = 1.., value_delimiter = ',')]
 	pub exclude_pallets: Vec<String>,
+
+	/// Comma separated list of `pallet::extrinsic` combinations that should not be run.
+	///
+	/// Example: `frame_system::remark,pallet_balances::transfer_keep_alive`
+	#[arg(long, value_parser, num_args = 1.., value_delimiter = ',')]
+	pub exclude_extrinsics: Vec<String>,
 
 	/// Run benchmarks for all pallets and extrinsics.
 	///
