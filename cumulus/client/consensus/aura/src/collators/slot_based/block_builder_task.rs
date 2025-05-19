@@ -445,8 +445,7 @@ fn adjust_para_to_relay_parent_slot(
 		.ok()?;
 	let new_slot = Slot::from_timestamp(
 		relay_slot
-			.timestamp(SlotDuration::from_millis(relay_chain_slot_duration.as_millis() as u64))
-			.unwrap(),
+			.timestamp(SlotDuration::from_millis(relay_chain_slot_duration.as_millis() as u64))?,
 		para_slot_duration,
 	);
 	let para_slot = SlotInfo { slot: new_slot, timestamp: new_slot.timestamp(para_slot_duration)? };

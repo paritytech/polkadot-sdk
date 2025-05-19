@@ -53,7 +53,7 @@ use sp_runtime::traits::Header;
 /// - No authorities are provided in the state proof.
 /// - The state root of the provided relay parent does not match the expected value.
 /// - A relay header does not contain a BABE pre-digest.
-/// - A header is found with an invalid seal signature, or the authorities required to verify the
+/// - A header with an invalid seal signature is found, or the authorities required to verify the
 ///   signature are missing (current or next epoch).
 pub(crate) fn verify_relay_parent_descendants<H: Header>(
 	relay_state_proof: &RelayChainStateProof,
@@ -73,7 +73,7 @@ pub(crate) fn verify_relay_parent_descendants<H: Header>(
 	};
 	let mut maybe_next_authorities = relay_state_proof.read_next_authorities().ok().flatten();
 
-	let mut next_expected_hash = None;
+	let mut next_expected_parent_hash = None;
 
 	let mut required_next_authorities = false;
 
@@ -89,7 +89,7 @@ pub(crate) fn verify_relay_parent_descendants<H: Header>(
 		}
 	};
 
-	for (counter, mut current_header) in relay_parent_descendants.into_iter().enumerate() {
+	for (index, mut current_header) in relay_parent_descendants.into_iter().enumerate() {
 		// Hash calculated while seal is intact
 		let sealed_header_hash = current_header.hash();
 		let relay_number = *current_header.number();
@@ -107,11 +107,7 @@ pub(crate) fn verify_relay_parent_descendants<H: Header>(
 		next_expected_hash = Some(sealed_header_hash);
 
 		log::debug!(target: crate::LOG_TARGET, "Validating header #{relay_number:?} ({sealed_header_hash:?})");
-		let Ok((authority_index, next_epoch_descriptor)) =
-			find_authority_idx_epoch_digest(&current_header)
-		else {
-			return Err(RelayParentVerificationError::MissingPredigest { hash: sealed_header_hash });
-		};
+		let Ok((authority_index, next_epoch_descriptor)) = find_authority_idx_epoch_digest(&current_header).or_or(RelayParentVerificationError::MissingPredigest { hash: sealed_header_hash })?;
 
 		// Once we have seen a next epoch descriptor, we must always use the authorities of the
 		// next epoch.If the relay parent contains epoch descriptor, we shall not rotate
@@ -144,10 +140,10 @@ pub(crate) fn verify_relay_parent_descendants<H: Header>(
 		};
 
 		let Some(seal) = current_header.digest_mut().pop() else {
-			return Err(RelayParentVerificationError::MissingSeal { hash: current_header.hash() })
+			return Err(RelayParentVerificationError::MissingSeal { hash: sealed_header_hash })
 		};
 		let Some(signature) = seal.as_babe_seal() else {
-			return Err(RelayParentVerificationError::InvalidSeal { hash: current_header.hash() })
+			return Err(RelayParentVerificationError::InvalidSeal { hash: sealed_header_hash })
 		};
 
 		if !AuthorityPair::verify(&signature, current_header.hash(), &authority_id.0) {
@@ -159,15 +155,6 @@ pub(crate) fn verify_relay_parent_descendants<H: Header>(
 		log::debug!(target: crate::LOG_TARGET, "Validated header #{relay_number:?} ({sealed_header_hash:?})");
 	}
 
-	// There was no session change announced in the relay parent descendants.
-	// However, the node side provided the next authorities in the inherent state proof.
-	// This wastes some PoV space and indicates a bug in the node.
-	if !required_next_authorities && maybe_next_authorities.is_some() {
-		log::warn!(
-			"There was no epoch change in the relay parent or its descendants, \
-				but next authority was part of the storage proof. This wastes PoV space."
-		);
-	}
 	Ok(())
 }
 
