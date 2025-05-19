@@ -914,7 +914,6 @@ pub mod pallet {
 			preimage_hold: T::Balance,
 		) -> DispatchResult {
 			<T as Config>::ManagerOrigin::ensure_origin(origin)?;
-
 			let staking_hold_reason = pallet_staking_async::HoldReason::Staking.into();
 			let delegation_hold_reason =
 				pallet_delegated_staking::HoldReason::StakingDelegation.into();
@@ -926,34 +925,6 @@ pub mod pallet {
 				<T as pallet::Config>::Currency::balance_on_hold(&preimage_hold_reason, &account);
 			ensure!(existing_preimage_hold > 0, Error::<T>::NoMisplacedHoldFound);
 
-			let update_hold = |hold_amount: T::Balance, hold_reason| -> DispatchResult {
-				if hold_amount == 0 {
-					return Ok(());
-				}
-
-				let max_hold = <T as pallet::Config>::Currency::reducible_balance(
-					&account,
-					Preservation::Preserve,
-					Fortitude::Polite,
-				);
-				let to_hold = hold_amount.min(max_hold);
-
-				if to_hold < hold_amount {
-					log::warn!(
-						target: LOG_TARGET,
-						"Could not hold full amount {:?}, holding {:?} instead",
-						hold_amount,
-						to_hold,
-					);
-				}
-
-				if to_hold > 0 {
-					<T as pallet::Config>::Currency::set_on_hold(&hold_reason, &account, to_hold)
-				} else {
-					Err(Error::<T>::NoFreeBalanceToHold.into())
-				}
-			};
-
 			// since we know preimage holds are incorrectly set, first we release preimage.
 			let released_amount = <T as pallet::Config>::Currency::release_all(
 				&preimage_hold_reason,
@@ -961,18 +932,96 @@ pub mod pallet {
 				Precision::BestEffort,
 			)?;
 
-			log::info!(
-				target: LOG_TARGET,
-				"Released {:?} from preimage hold. New total hold would be {:?}",
-				released_amount,
-				delegation_hold + staking_hold + preimage_hold
-			);
 			// debug_assert_eq!(released_amount, delegation_hold + staking_hold + preimage_hold);
 
 			// and then update hold with priority: delegation > staking > preimage.
-			update_hold(delegation_hold, delegation_hold_reason)?;
-			update_hold(staking_hold, staking_hold_reason)?;
-			update_hold(preimage_hold, preimage_hold_reason)?;
+			// 1. Delegation: These have extra provider, so we can hold everything including ED.
+			if delegation_hold > 0 {
+				let max_hold = <T as pallet::Config>::Currency::reducible_balance(
+					&account,
+					Preservation::Expendable,
+					Fortitude::Polite,
+				);
+				if delegation_hold > max_hold {
+					log::warn!(
+						target: LOG_TARGET,
+						"Account: {:?} \n\tCan not hold full delegation amount {:?}. Holding {:?} instead.",
+						&account,
+						delegation_hold,
+						max_hold,
+					);
+
+					let delegation_hold = max_hold;
+				}
+
+				<T as pallet::Config>::Currency::set_on_hold(
+					&delegation_hold_reason,
+					&account,
+					delegation_hold,
+				)?;
+			}
+
+			// 2. Staking:
+			if staking_hold > 0 {
+				let max_hold = <T as pallet::Config>::Currency::reducible_balance(
+					&account,
+					Preservation::Preserve,
+					Fortitude::Polite,
+				);
+				if staking_hold > max_hold {
+					log::warn!(
+						target: LOG_TARGET,
+						"Account: {:?} \n\tCan not hold full staking amount {:?}. Holding {:?} instead.",
+						&account,
+						staking_hold,
+						max_hold,
+					);
+
+					let staking_hold = max_hold;
+				}
+
+				<T as pallet::Config>::Currency::set_on_hold(
+					&staking_hold_reason,
+					&account,
+					staking_hold,
+				)?;
+			}
+
+			// 3. Preimage:
+			if preimage_hold > 0 {
+				let max_hold = <T as pallet::Config>::Currency::reducible_balance(
+					&account,
+					Preservation::Preserve,
+					Fortitude::Polite,
+				);
+				if preimage_hold > max_hold {
+					log::warn!(
+						target: LOG_TARGET,
+						"Account: {:?} \n\tCan not hold full preimage hold amount {:?}. Holding {:?} instead.",
+						&account,
+						preimage_hold,
+						max_hold,
+					);
+
+					let preimage_hold = max_hold;
+				}
+
+				<T as pallet::Config>::Currency::set_on_hold(
+					&preimage_hold_reason,
+					&account,
+					preimage_hold,
+				)?;
+			}
+
+			// if released_amount != delegation_hold + staking_hold + preimage_hold {
+			// 	log::warn!(
+			// 		target: LOG_TARGET,
+			// 		"Account: {:?} \n\tReleased amount {:?} does not match the sum of all holds {:?}.",
+			// 		&account,
+			// 		released_amount,
+			// 		delegation_hold + staking_hold + preimage_hold,
+			// 	);
+			// }
 
 			Ok(())
 		}
