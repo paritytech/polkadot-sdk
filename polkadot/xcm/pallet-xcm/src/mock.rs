@@ -690,12 +690,18 @@ impl super::benchmarking::Config for Test {
 	}
 }
 
-pub(crate) fn last_event() -> RuntimeEvent {
-	System::events().pop().expect("RuntimeEvent expected").event
+pub(crate) fn all_events() -> Vec<RuntimeEvent> {
+	System::events().into_iter().map(|e| e.event).collect()
 }
 
 pub(crate) fn last_events(n: usize) -> Vec<RuntimeEvent> {
-	System::events().into_iter().map(|e| e.event).rev().take(n).rev().collect()
+	let all_events = all_events();
+	let split_idx = all_events.len().saturating_sub(n);
+	all_events.split_at(split_idx).1.to_vec()
+}
+
+pub(crate) fn last_event() -> RuntimeEvent {
+	last_events(1).pop().expect("RuntimeEvent expected")
 }
 
 pub(crate) fn buy_execution<C>(fees: impl Into<Asset>) -> Instruction<C> {

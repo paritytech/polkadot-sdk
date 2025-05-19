@@ -91,10 +91,10 @@ pub fn get_amount_from_versioned_assets(assets: VersionedAssets) -> u128 {
 pub fn find_mq_processed_id<C: Chain>() -> Option<H256>
 where
 	<C as Chain>::Runtime: pallet_message_queue::Config,
-	C::RuntimeEvent: TryInto<pallet_message_queue::Event<<C as Chain>::Runtime>> + Clone,
+	C::RuntimeEvent: TryInto<pallet_message_queue::Event<<C as Chain>::Runtime>>,
 {
-	C::events().iter().find_map(|event| {
-		if let Ok(pallet_message_queue::Event::Processed { id, .. }) = event.clone().try_into() {
+	C::events().into_iter().find_map(|event| {
+		if let Ok(pallet_message_queue::Event::Processed { id, .. }) = event.try_into() {
 			Some(id)
 		} else {
 			None
@@ -103,10 +103,12 @@ where
 }
 
 /// Helper method to find the message ID of the first `Event::Sent` event in the chain's events.
-pub fn find_xcm_sent_message_id<C: Chain>() -> Option<XcmHash>
+pub fn find_xcm_sent_message_id<
+	C: Chain<RuntimeEvent = <<C as Chain>::Runtime as pallet_xcm::Config>::RuntimeEvent>,
+>() -> Option<XcmHash>
 where
-	<C as Chain>::Runtime: pallet_xcm::Config,
-	C::RuntimeEvent: TryInto<pallet_xcm::Event<<C as Chain>::Runtime>> + Clone,
+	C::Runtime: pallet_xcm::Config,
+	C::RuntimeEvent: TryInto<pallet_xcm::Event<C::Runtime>>,
 {
-	pallet_xcm::xcm_helpers::find_xcm_sent_message_id(C::events())
+	pallet_xcm::xcm_helpers::find_xcm_sent_message_id::<<C as Chain>::Runtime>(C::events())
 }

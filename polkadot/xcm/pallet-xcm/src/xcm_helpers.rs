@@ -16,14 +16,15 @@
 use xcm::latest::XcmHash;
 
 /// Finds the message ID of the first `XcmPallet::Sent` event in the given events.
-pub fn find_xcm_sent_message_id<T, E, I>(events: I) -> Option<XcmHash>
+pub fn find_xcm_sent_message_id<T>(
+	events: impl IntoIterator<Item = <T as crate::Config>::RuntimeEvent>,
+) -> Option<XcmHash>
 where
 	T: crate::Config,
-	E: TryInto<crate::Event<T>> + Clone,
-	I: IntoIterator<Item = E>,
+	<T as crate::Config>::RuntimeEvent: TryInto<crate::Event<T>>,
 {
 	events.into_iter().find_map(|event| {
-		if let Ok(crate::Event::Sent { message_id, .. }) = event.clone().try_into() {
+		if let Ok(crate::Event::Sent { message_id, .. }) = event.try_into() {
 			Some(message_id)
 		} else {
 			None
