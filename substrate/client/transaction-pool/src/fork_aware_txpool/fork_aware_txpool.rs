@@ -490,27 +490,24 @@ where
 			"fatp::ready_at_light"
 		);
 
-		// Return an empty ready txs set if we can not resolve `at` block number.
-		let Ok(at_number) = self.api.resolve_block_number(at) else {
-			return Box::new(std::iter::empty());
-		};
-
-		let at_hn = HashAndNumber { hash: at, number: at_number };
-		let descendent_view_and_enacted_blocks = self
+		let at_number = self.api.resolve_block_number(at).ok();
+		let finalized_number = self
 			.api
 			.resolve_block_number(self.enactment_state.lock().recent_finalized_block())
-			.ok()
-			.and_then(|last_finalized_number| {
-				self.view_store.find_view_descendent_upto_number(&at_hn, last_finalized_number)
-			});
+			.ok();
 
 		// Prune all txs from the best view found, considering the extrinsics part of the blocks
 		// that are more recent than the view itself.
-		if let Some((view, enacted_blocks)) = descendent_view_and_enacted_blocks {
+		if let Some((view, enacted_blocks, at_hn)) = at_number.and_then(|at_number| {
+			let at_hn = HashAndNumber { hash: at, number: at_number };
+			finalized_number.and_then(|finalized_number| {
+				self.view_store
+					.find_view_descendent_upto_number(&at_hn, finalized_number)
+					.map(|(view, enacted_blocks)| (view, enacted_blocks, at_hn))
+			})
+		}) {
 			let (tmp_view, _, _): (View<ChainApi>, _, _) = View::new_from_other(&view, &at_hn);
-
 			let mut all_extrinsics = vec![];
-
 			for h in enacted_blocks {
 				let extrinsics = api
 					.block_body(h)

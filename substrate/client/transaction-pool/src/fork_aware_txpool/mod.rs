@@ -213,11 +213,12 @@
 //! maintain process.
 //!
 //! To address this, there is a [light version][`ready_at_light`] of the maintain procedure. It
-//! [finds the best view][find_best_view], clones it and prunes all the transactions that were
-//! included in enacted part of [tree route][`TreeRoute`] from the base view to the block at which a
-//! ready iterator was requested. No new [transaction validations][runtime_api::validate] are
-//! required to accomplish it. If no view is found, it will return the ready transactions of the
-//! most recent view processed by the transaction pool.
+//! [finds the first descendent view][`find_view_descendent_upto_number`] up to the recent finalized
+//! block, clones it and prunes all the transactions that were included in enacted part of the
+//! traversed route, from the base view to the block at which a ready iterator was requested. No
+//! new [transaction validations][runtime_api::validate] are required to accomplish it. If no view
+//! is found, it will return the ready transactions of the most recent view processed by the
+//! transaction pool.
 //!
 //! ### Providing ready transactions: `ready_at`
 //! The asynchronous [`ready_at`] function resolves to the [ready transactions
@@ -315,6 +316,7 @@
 //! [`ViewStore`]: crate::fork_aware_txpool::view_store::ViewStore
 //! [`finish_background_revalidations`]: crate::fork_aware_txpool::view_store::ViewStore::finish_background_revalidations
 //! [find_best_view]: crate::fork_aware_txpool::view_store::ViewStore::find_best_view
+//! [`find_view_descendent_upto_number`]: crate::fork_aware_txpool::view_store::ViewStore::find_view_descendent_upto_number
 //! [`active_views`]: crate::fork_aware_txpool::view_store::ViewStore::active_views
 //! [`inactive_views`]: crate::fork_aware_txpool::view_store::ViewStore::inactive_views
 //! [`TxMemPool`]: crate::fork_aware_txpool::tx_mem_pool::TxMemPool
