@@ -416,6 +416,15 @@ impl Peerset {
 		// if some connected peer gets banned.
 		peerstore_handle.register_protocol(Arc::new(PeersetHandle { tx: cmd_tx.clone() }));
 
+		log::debug!(
+			target: LOG_TARGET,
+			"{}: creating new peerset with max_outbound {} and max_inbound {} and reserved_only {}",
+			protocol,
+			max_out,
+			max_in,
+			reserved_only,
+		);
+
 		(
 			Self {
 				protocol,
@@ -575,6 +584,17 @@ impl Peerset {
 
 		let state = self.peers.entry(peer).or_insert(PeerState::Disconnected);
 		let is_reserved_peer = self.reserved_peers.contains(&peer);
+
+		if self.reserved_only && !is_reserved_peer {
+			log::debug!(
+				target: LOG_TARGET,
+				"{}: rejecting non-reserved peer {peer:?} in reserved-only mode (prev state: {state:?})",
+				self.protocol,
+			);
+
+			*state = PeerState::Disconnected;
+			return ValidationResult::Reject;
+		}
 
 		match state {
 			// disconnected peers proceed directly to inbound slot allocation
