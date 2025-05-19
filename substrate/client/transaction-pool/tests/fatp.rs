@@ -2329,9 +2329,8 @@ fn fatp_ready_light_long_fork_retracted_works() {
 	let header03b = api.push_block_with_parent(header02b.hash(), vec![xt2.clone()], true);
 
 	// Returns the most recent view (`header01a`) ready transactions set.
-	let mut ready_iterator = pool.ready_at_light(header03b.hash()).now_or_never().unwrap();
+	let ready_iterator = pool.ready_at_light(header03b.hash()).now_or_never().unwrap();
 	assert_eq!(ready_iterator.count(), 4);
-	assert!(ready_iterator.next().is_none());
 
 	let event = new_best_block_event(&pool, Some(header01a.hash()), header01b.hash());
 	block_on(pool.maintain(event));
@@ -2374,10 +2373,8 @@ fn fatp_ready_light_fallback_gets_triggered() {
 	// Call `ready_at_light` at genesis direct descendent, even if not notified as best or
 	// finalized. Should still return ready txs based on the most recent view processed by the
 	// txpool.
-	let mut ready_iterator = pool.ready_at_light(header01b.hash()).now_or_never().unwrap();
-	assert!(ready_iterator.next().is_some());
-	assert!(ready_iterator.next().is_some());
-	assert!(ready_iterator.next().is_none());
+	let ready_iterator = pool.ready_at_light(header01b.hash()).now_or_never().unwrap();
+	assert_eq!(ready_iterator.count(), 2);
 
 	let header02b = api.push_block_with_parent(header01b.hash(), vec![xt1.clone()], true);
 	let header03b = api.push_block_with_parent(header02b.hash(), vec![xt2.clone()], true);
@@ -2395,12 +2392,8 @@ fn fatp_ready_light_fallback_gets_triggered() {
 	// Calling `ready_at_light` now on the last block of a fork, with no block notified as best.
 	// We should still get the ready txs from the most recent view processed by the txpool,
 	// but now with a few more txs which were submitted previously.
-	let mut ready_iterator = pool.ready_at_light(header03b.hash()).now_or_never().unwrap();
-	assert!(ready_iterator.next().is_some());
-	assert!(ready_iterator.next().is_some());
-	assert!(ready_iterator.next().is_some());
-	assert!(ready_iterator.next().is_some());
-	assert!(ready_iterator.next().is_none());
+	let ready_iterator = pool.ready_at_light(header03b.hash()).now_or_never().unwrap();
+	assert_eq!(ready_iterator.count(), 4);
 
 	let event = new_best_block_event(&pool, Some(header01a.hash()), header01b.hash());
 	block_on(pool.maintain(event));
