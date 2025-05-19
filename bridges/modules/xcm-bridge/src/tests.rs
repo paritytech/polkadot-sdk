@@ -874,15 +874,21 @@ fn do_try_state_works() {
 		test_bridge_state(
 			bridge_id,
 			Bridge {
-				bridge_origin_relative_location: Box::new(VersionedLocation::from(
-					bridge_origin_relative_location.clone(),
-				).into_version(XCM_VERSION - 1).unwrap()),
-				bridge_origin_universal_location: Box::new(VersionedInteriorLocation::from(
-					bridge_origin_universal_location.clone(),
-				).into_version(XCM_VERSION - 1).unwrap()),
-				bridge_destination_universal_location: Box::new(VersionedInteriorLocation::from(
-					bridge_destination_universal_location.clone(),
-				).into_version(XCM_VERSION - 1).unwrap()),
+				bridge_origin_relative_location: Box::new(
+					VersionedLocation::from(bridge_origin_relative_location.clone())
+						.into_version(XCM_VERSION - 1)
+						.unwrap(),
+				),
+				bridge_origin_universal_location: Box::new(
+					VersionedInteriorLocation::from(bridge_origin_universal_location.clone())
+						.into_version(XCM_VERSION - 1)
+						.unwrap(),
+				),
+				bridge_destination_universal_location: Box::new(
+					VersionedInteriorLocation::from(bridge_destination_universal_location.clone())
+						.into_version(XCM_VERSION - 1)
+						.unwrap(),
+				),
 				state: BridgeState::Opened,
 				deposit: Some(Deposit::new(bridge_owner_account, Zero::zero())),
 				lane_id,

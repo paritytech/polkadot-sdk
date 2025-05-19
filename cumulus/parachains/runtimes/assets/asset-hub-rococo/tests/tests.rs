@@ -1114,7 +1114,7 @@ mod asset_hub_rococo_tests {
 			Box::new(bridging::to_westend::AssetHubWestend::get()),
 			XCM_VERSION,
 		)
-			.expect("version saved!");
+		.expect("version saved!");
 		TestBridgingConfig {
 			bridged_network: bridging::to_westend::WestendNetwork::get(),
 			// Local AH para_id.
@@ -1134,7 +1134,10 @@ mod asset_hub_rococo_tests {
 
 	#[test]
 	fn receive_reserve_asset_deposited_wnd_from_asset_hub_westend_fees_paid_by_pool_swap_works() {
-		fn test_with(bridging_cfg: impl Fn() -> TestBridgingConfig, bridge_instance: InteriorLocation) {
+		fn test_with(
+			bridging_cfg: impl Fn() -> TestBridgingConfig,
+			bridge_instance: InteriorLocation,
+		) {
 			const BLOCK_AUTHOR_ACCOUNT: [u8; 32] = [13; 32];
 			let block_author_account = AccountId::from(BLOCK_AUTHOR_ACCOUNT);
 			let staking_pot = StakingPot::get();
@@ -1207,9 +1210,21 @@ mod asset_hub_rococo_tests {
 		}
 
 		// The bridge with BHs is working.
-		test_with(bridging_to_asset_hub_westend, [PalletInstance(bp_bridge_hub_rococo::WITH_BRIDGE_ROCOCO_TO_WESTEND_MESSAGES_PALLET_INDEX)].into());
+		test_with(
+			bridging_to_asset_hub_westend,
+			[PalletInstance(
+				bp_bridge_hub_rococo::WITH_BRIDGE_ROCOCO_TO_WESTEND_MESSAGES_PALLET_INDEX,
+			)]
+			.into(),
+		);
 		// The bridge with direct AHs is working.
-		test_with(direct_bridging_to_asset_hub_westend, [PalletInstance(bp_asset_hub_rococo::WITH_BRIDGE_ROCOCO_TO_WESTEND_MESSAGES_PALLET_INDEX)].into());
+		test_with(
+			direct_bridging_to_asset_hub_westend,
+			[PalletInstance(
+				bp_asset_hub_rococo::WITH_BRIDGE_ROCOCO_TO_WESTEND_MESSAGES_PALLET_INDEX,
+			)]
+			.into(),
+		);
 	}
 
 	#[test]
