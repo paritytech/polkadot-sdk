@@ -6,6 +6,7 @@ mod elastic_scaling_multiple_blocks_per_slot;
 mod elastic_scaling_pov_recovery;
 mod elastic_scaling_slot_based_authoring;
 mod full_node_catching_up;
+mod migrate_solo;
 mod pov_recovery;
 mod rpc_collator_build_blocks;
 mod runtime_upgrade;
