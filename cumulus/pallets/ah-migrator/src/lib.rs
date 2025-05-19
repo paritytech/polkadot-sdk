@@ -937,6 +937,13 @@ pub mod pallet {
 					Fortitude::Polite,
 				);
 				let to_hold = hold_amount.min(max_hold);
+				log::warn!(
+					target: LOG_TARGET,
+					"Could not hold full amount {:?}, holding {:?} instead",
+					hold_amount,
+					to_hold,
+				);
+
 				if to_hold > 0 {
 					<T as pallet::Config>::Currency::set_on_hold(&hold_reason, &account, to_hold)
 				} else {

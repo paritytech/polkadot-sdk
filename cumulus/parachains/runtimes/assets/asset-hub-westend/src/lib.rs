@@ -2848,3 +2848,54 @@ fn ensure_key_ss58() {
 		AccountId::from_ss58check("5F4EbSkZz18X36xhbsjvDNs6NuZ82HyYtq5UiJ1h9SBHJXZD").unwrap();
 	assert_eq!(acc, RootMigController::sorted_members()[0]);
 }
+
+#[cfg(all(test, feature = "try-runtime"))]
+mod remote_tests {
+	use super::*;
+	use frame_support::traits::{TryState, TryStateSelect::All};
+	use frame_try_runtime::{runtime_decl_for_try_runtime::TryRuntime, UpgradeCheckSelect};
+	use remote_externalities::{
+		Builder, Mode, OfflineConfig, OnlineConfig, SnapshotConfig, Transport,
+	};
+	use std::env::var;
+	use sp_core::H256;
+	use frame_support::storage::StorageValue;
+
+	#[tokio::test]
+	async fn ahm_fix_holds() {
+		sp_tracing::try_init_simple();
+		let transport: Transport =
+			var("WS").unwrap_or("wss://westend-asset-hub-rpc.polkadot.io:443".to_string()).into();
+		let maybe_snap: Option<SnapshotConfig> = var("SNAP").map(|s| s.into()).ok();
+		let online_config = OnlineConfig {
+			// https://assethub-westend.subscan.io/block/11736080?tab=event
+			// at: Some(H256::from_slice(&hex::decode("f61aa8d80607c4c84aa16cd15781b0f779768842b3e5603c578baac03e418661").unwrap())),
+			transport: transport.clone(),
+			state_snapshot: maybe_snap.clone(),
+			child_trie: false,
+			..Default::default()
+		};
+
+		let mut ext = Builder::<Block>::default()
+			.mode(if let Some(state_snapshot) = maybe_snap {
+				Mode::OfflineOrElseOnline(
+					OfflineConfig { state_snapshot: state_snapshot.clone() },
+					online_config,
+				)
+			} else {
+				Mode::Online(online_config)
+			})
+			.build()
+			.await
+			.unwrap();
+		ext.execute_with(||
+		{
+			// go through all pool accounts and set hold.
+			// get pool id, pool member, calculate balance, set hold.
+
+			// go through all staking accounts and set hold.
+			AllPalletsWithSystem::try_state(System::block_number(), All).unwrap();
+		}
+		);
+	}
+}
