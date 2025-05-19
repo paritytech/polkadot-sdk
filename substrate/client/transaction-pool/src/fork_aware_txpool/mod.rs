@@ -214,7 +214,7 @@
 //!
 //! To address this, there is a [light version][`ready_at_light`] of the maintain procedure. It
 //! [finds the best view][find_best_view], clones it and prunes all the transactions that were
-//! included in enacted part of [tree route][`TreeRoute`] from the best view to the block at which a
+//! included in enacted part of [tree route][`TreeRoute`] from the base view to the block at which a
 //! ready iterator was requested. No new [transaction validations][runtime_api::validate] are
 //! required to accomplish it. If no view is found, it will return the ready transactions of the
 //! most recent view processed by the transaction pool.
