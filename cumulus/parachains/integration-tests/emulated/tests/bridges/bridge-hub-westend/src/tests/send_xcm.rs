@@ -181,7 +181,7 @@ fn xcm_persists_set_topic_across_hops() {
 			tracked_topic_ids.insert("Westend", msg_sent_id.into());
 		});
 
-		BridgeHubWestend::ext_wrapper(|| {
+		BridgeHubWestend::execute_with(|| {
 			let mq_prc_id =
 				find_mq_processed_id::<BridgeHubWestend>().expect("Missing Processed Event");
 			tracked_topic_ids.insert("BridgeHubWestend", mq_prc_id);
