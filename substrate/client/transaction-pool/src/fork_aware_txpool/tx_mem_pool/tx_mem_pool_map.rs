@@ -120,7 +120,7 @@ where
 /// `InnerStorage` uses `HashMap` for fast access by key and `BTreeMap` for
 /// efficient priority ordering.
 #[derive(Debug)]
-struct InnerStorage<K, S, V>
+struct IndexedStorage<K, S, V>
 where
 	K: Ord,
 	S: Ord,
@@ -139,20 +139,20 @@ where
 ///
 /// Size reported might be slightly off and only approximately true.
 #[derive(Debug)]
-pub struct TrackedMap<K, S, V>
+pub struct SizeTrackedStore<K, S, V>
 where
 	K: Ord,
 	S: Ord,
 {
 	/// Internal storage maintaining transaction entries.
-	index: Arc<RwLock<InnerStorage<K, S, V>>>,
+	index: Arc<RwLock<IndexedStorage<K, S, V>>>,
 	/// Atomic counter tracking the total size, in bytes, of all transactions.
 	bytes: AtomicIsize,
 	/// Atomic counter maintaining the count of transactions.
 	length: AtomicIsize,
 }
 
-impl<K, S, V> Default for InnerStorage<K, S, V>
+impl<K, S, V> Default for IndexedStorage<K, S, V>
 where
 	K: Ord,
 	S: Ord,
@@ -162,7 +162,7 @@ where
 	}
 }
 
-impl<K, S, V> InnerStorage<K, S, V>
+impl<K, S, V> IndexedStorage<K, S, V>
 where
 	K: Ord + std::hash::Hash,
 	S: Ord,
@@ -202,7 +202,7 @@ where
 	}
 }
 
-impl<K, A, B, V> InnerStorage<K, PriorityKey<A, B>, V>
+impl<K, A, B, V> IndexedStorage<K, PriorityKey<A, B>, V>
 where
 	K: Ord + std::hash::Hash + Copy,
 	A: Ord,
@@ -256,7 +256,7 @@ where
 	}
 }
 
-impl<K, A, B, V> InnerStorage<K, PriorityKey<A, B>, V>
+impl<K, A, B, V> IndexedStorage<K, PriorityKey<A, B>, V>
 where
 	K: Ord + std::hash::Hash + Copy + std::fmt::Debug,
 	A: Ord + std::fmt::Debug,
@@ -321,17 +321,21 @@ where
 	}
 }
 
-impl<K, S, V> Default for TrackedMap<K, S, V>
+impl<K, S, V> Default for SizeTrackedStore<K, S, V>
 where
 	K: Ord,
 	S: Ord,
 {
 	fn default() -> Self {
-		Self { index: Arc::new(InnerStorage::default().into()), bytes: 0.into(), length: 0.into() }
+		Self {
+			index: Arc::new(IndexedStorage::default().into()),
+			bytes: 0.into(),
+			length: 0.into(),
+		}
 	}
 }
 //
-impl<K, S, V> TrackedMap<K, S, V>
+impl<K, S, V> SizeTrackedStore<K, S, V>
 where
 	K: Ord,
 	S: Ord,
@@ -366,7 +370,7 @@ where
 	K: Ord,
 	S: Ord,
 {
-	inner_guard: RwLockReadGuard<'a, InnerStorage<K, S, V>>,
+	inner_guard: RwLockReadGuard<'a, IndexedStorage<K, S, V>>,
 }
 
 impl<K, S, V> TrackedMapReadAccess<'_, K, S, V>
@@ -409,7 +413,7 @@ where
 {
 	bytes: &'a AtomicIsize,
 	length: &'a AtomicIsize,
-	inner_guard: RwLockWriteGuard<'a, InnerStorage<K, S, V>>,
+	inner_guard: RwLockWriteGuard<'a, IndexedStorage<K, S, V>>,
 }
 
 impl<K, A, B, V> TrackedMapWriteAccess<'_, K, PriorityKey<A, B>, V>
@@ -534,7 +538,7 @@ mod tests {
 
 	#[tokio::test]
 	async fn basic() {
-		let map = TrackedMap::default();
+		let map = SizeTrackedStore::default();
 
 		let i0 = TestItem::new(1, 0, 10);
 		let i1 = TestItem::new(2, 0, 11);
@@ -559,7 +563,7 @@ mod tests {
 
 	#[tokio::test]
 	async fn insert_same_hash() {
-		let map = TrackedMap::default();
+		let map = SizeTrackedStore::default();
 
 		let i0 = TestItem::new(1, 0, 10);
 		let i1 = TestItem::new(2, 0, 11);
@@ -598,7 +602,7 @@ mod tests {
 
 	#[tokio::test]
 	async fn remove_non_existent() {
-		let map = TrackedMap::<_, _, TestItem>::default();
+		let map = SizeTrackedStore::<_, _, TestItem>::default();
 		map.write().await.remove(&0xa);
 		assert_eq!(map.bytes(), 0);
 		assert_eq!(map.len(), 0);
@@ -627,7 +631,7 @@ mod tests {
 		expected_len_after: usize,
 		expected_bytes_after: usize,
 	) {
-		let map = TrackedMap::default();
+		let map = SizeTrackedStore::default();
 
 		let i0 = TestItem::new(1, 0, i0_bytes);
 		let i1 = TestItem::new(2, 0, i1_bytes);
@@ -650,7 +654,7 @@ mod tests {
 
 	#[tokio::test]
 	async fn try_insert_with_replacement_items() {
-		let map = TrackedMap::default();
+		let map = SizeTrackedStore::default();
 
 		let i0 = TestItem::new(1, 0, 20);
 		let i1 = TestItem::new(2, 0, 30);
@@ -681,7 +685,7 @@ mod tests {
 
 	#[tokio::test]
 	async fn try_insert_with_replacement_works_known_key_reject() {
-		let map = TrackedMap::default();
+		let map = SizeTrackedStore::default();
 
 		let i0 = TestItem::new(1, 0, 20);
 		let i1 = TestItem::new(2, 0, 30);
@@ -714,7 +718,7 @@ mod tests {
 
 	#[tokio::test]
 	async fn try_insert_with_replacement_zero_size_reject() {
-		let map = TrackedMap::default();
+		let map = SizeTrackedStore::default();
 
 		let i0 = TestItem::new(1, 0, 20);
 		let i1 = TestItem::new(2, 0, 30);
@@ -744,7 +748,7 @@ mod tests {
 
 	#[tokio::test]
 	async fn sorting_works() {
-		let map = TrackedMap::default();
+		let map = SizeTrackedStore::default();
 
 		let i0 = TestItem::new(1, 0, 10);
 		let i1 = TestItem::new(1, 1, 10);
@@ -769,7 +773,7 @@ mod tests {
 
 	#[tokio::test]
 	async fn update_item() {
-		let map = TrackedMap::default();
+		let map = SizeTrackedStore::default();
 
 		let i0 = TestItem::new(1, 0, 20);
 		let i1 = TestItem::new(2, 0, 30);
