@@ -467,10 +467,7 @@ fn calling_payment_api_with_a_lower_version_works() {
 
 #[test]
 fn dry_run_error_event_check() {
-	use frame_support::{
-		dispatch::DispatchErrorWithPostInfo,
-		sp_runtime::{DispatchError, ModuleError},
-	};
+	use frame_support::sp_runtime::{DispatchError, ModuleError};
 	use sp_tracing::{capture_test_logs, tracing::Level};
 
 	let who = 1;
