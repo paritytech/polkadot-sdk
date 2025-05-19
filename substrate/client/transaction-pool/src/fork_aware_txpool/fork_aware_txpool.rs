@@ -496,18 +496,17 @@ where
 		};
 
 		let at_hn = HashAndNumber { hash: at, number: at_number };
-		let last_finalized = self.enactment_state.lock().recent_finalized_block();
-		// Return an empty ready txs set as well if we can not resolve the recent finalized block
-		// number.
-		let Some(last_finalized_number) = self.api.resolve_block_number(last_finalized).ok() else {
-			return Box::new(std::iter::empty());
-		};
+		let descendent_view_and_enacted_blocks = self
+			.api
+			.resolve_block_number(self.enactment_state.lock().recent_finalized_block())
+			.ok()
+			.and_then(|last_finalized_number| {
+				self.view_store.find_view_descendent_upto_number(&at_hn, last_finalized_number)
+			});
 
 		// Prune all txs from the best view found, considering the extrinsics part of the blocks
 		// that are more recent than the view itself.
-		if let Some((view, enacted_blocks)) =
-			self.view_store.find_view_descendent_upto_number(&at_hn, last_finalized_number)
-		{
+		if let Some((view, enacted_blocks)) = descendent_view_and_enacted_blocks {
 			let (tmp_view, _, _): (View<ChainApi>, _, _) = View::new_from_other(&view, &at_hn);
 
 			let mut all_extrinsics = vec![];
