@@ -315,15 +315,17 @@ where
 					&backend,
 					<PSC as frame_system::Config>::Version::get().state_version(),
 				)
-				.unwrap();
+				.expect("Failed to get drain storage changes from the overlay.");
 
 			drop(backend);
 
-			changes.transaction.drain().into_iter().for_each(|(_, (v, c))| {
-				if c > 0 {
-					db.insert(EMPTY_PREFIX, &v);
+			// We just forward the changes directly to our db.
+			changes.transaction.drain().into_iter().for_each(|(_, (value, count))| {
+				// We only care about inserts and not deletes.
+				if count > 0 {
+					db.insert(EMPTY_PREFIX, &value);
 
-					let hash = HashingFor::<B>::hash(&v);
+					let hash = HashingFor::<B>::hash(&value);
 					seen_nodes.borrow_mut().insert(hash);
 				}
 			});
