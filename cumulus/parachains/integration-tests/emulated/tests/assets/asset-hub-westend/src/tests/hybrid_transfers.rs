@@ -56,16 +56,8 @@ fn para_to_para_assethub_hop_assertions(mut t: ParaToParaThroughAHTest) {
 	);
 
 	let mq_prc_id = find_mq_processed_id::<AssetHubWestend>().expect("Missing Processed Event");
-	// t.topic_id_tracker
-	// 	.lock()
-	// 	.unwrap()
-	// 	.insert_and_assert_unique("AssetHubWestend", mq_prc_id);
 	t.insert_unique_topic_id("AssetHubWestend", mq_prc_id);
 	let msg_sent_id = find_xcm_sent_message_id::<AssetHubWestend>().expect("Missing Sent Event");
-	// t.topic_id_tracker
-	// 	.lock()
-	// 	.unwrap()
-	// 	.insert_and_assert_unique("AssetHubWestend", msg_sent_id.into());
 	t.insert_unique_topic_id("AssetHubWestend", msg_sent_id.into());
 }
 
@@ -128,10 +120,6 @@ fn para_to_para_transfer_assets_through_ah(t: ParaToParaThroughAHTest) -> Dispat
 	);
 
 	let msg_sent_id = find_xcm_sent_message_id::<PenpalA>().expect("Missing Sent Event");
-	// t.topic_id_tracker
-	// 	.lock()
-	// 	.unwrap()
-	// 	.insert_and_assert_unique("PenpalA", msg_sent_id.into());
 	t_clone.insert_unique_topic_id("PenpalA", msg_sent_id.into());
 
 	result

@@ -421,10 +421,6 @@ pub fn para_to_para_through_hop_sender_assertions<Hop: Clone>(mut t: Test<Penpal
 	PenpalA::assert_xcm_pallet_attempted_complete(None);
 
 	let msg_sent_id = find_xcm_sent_message_id::<PenpalA>().expect("Missing Sent Event");
-	// t.topic_id_tracker
-	// 	.lock()
-	// 	.unwrap()
-	// 	.insert_and_assert_unique("PenpalA", msg_sent_id.into());
 	t.insert_unique_topic_id("PenpalA", msg_sent_id.into());
 
 	for asset in t.args.assets.into_inner() {
@@ -509,10 +505,6 @@ pub fn para_to_para_through_hop_receiver_assertions<Hop: Clone>(
 	PenpalB::assert_xcmp_queue_success(None);
 
 	let mq_prc_id = find_mq_processed_id::<PenpalB>().expect("Missing Processed Event");
-	// t.topic_id_tracker
-	// 	.lock()
-	// 	.unwrap()
-	// 	.insert_and_assert_unique("PenpalB", mq_prc_id);
 	t.insert_unique_topic_id("PenpalB", mq_prc_id);
 
 	for asset in t.args.assets.into_inner().into_iter() {
