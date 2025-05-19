@@ -532,7 +532,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 						target: "xcm::refund_surplus",
 						"error: HoldingWouldOverflow",
 					);
-					return Err(XcmError::HoldingWouldOverflow)
+					return Err(XcmError::HoldingWouldOverflow);
 				}
 				self.total_refunded.saturating_accrue(current_surplus);
 				self.holding.subsume_assets(w.into());
@@ -552,7 +552,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 
 	fn take_fee(&mut self, fees: Assets, reason: FeeReason) -> XcmResult {
 		if Config::FeeManager::is_waived(self.origin_ref(), reason.clone()) {
-			return Ok(())
+			return Ok(());
 		}
 		tracing::trace!(
 			target: "xcm::fees",
@@ -830,7 +830,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 					let inst_res = recursion_count::using_once(&mut 1, || {
 						recursion_count::with(|count| {
 							if *count > RECURSION_LIMIT {
-								return None
+								return None;
 							}
 							*count = count.saturating_add(1);
 							Some(())
@@ -1744,6 +1744,10 @@ impl<Config: config::Config> XcmExecutor<Config> {
 	/// Most common transient error is: `beneficiary` account does not yet exist and the first
 	/// asset(s) in the (sorted) list does not satisfy ED, but a subsequent one in the list does.
 	///
+	/// Deposits also proceed without aborting on “below minimum” (dust) errors. This ensures
+	/// that a batch of assets containing some legitimately depositable amounts will succeed
+	/// even if some “dust” deposits fall below the chain’s configured minimum balance.
+	///
 	/// This function can write into storage and also return an error at the same time, it should
 	/// always be called within a transactional context.
 	fn deposit_assets_with_retry(
@@ -1753,27 +1757,31 @@ impl<Config: config::Config> XcmExecutor<Config> {
 	) -> Result<(), XcmError> {
 		let mut failed_deposits = Vec::with_capacity(to_deposit.len());
 
-		let mut deposit_result = Ok(());
 		for asset in to_deposit.assets_iter() {
-			deposit_result = Config::AssetTransactor::deposit_asset(&asset, &beneficiary, context);
-			// if deposit failed for asset, mark it for retry after depositing the others.
-			if deposit_result.is_err() {
+			// if deposit failed for asset, mark it for retry.
+			if Config::AssetTransactor::deposit_asset(&asset, &beneficiary, context).is_err() {
 				failed_deposits.push(asset);
 			}
 		}
-		if failed_deposits.len() == to_deposit.len() {
-			tracing::debug!(
-				target: "xcm::execute",
-				?deposit_result,
-				"Deposit for each asset failed, returning the last error as there is no point in retrying any of them",
-			);
-			return deposit_result;
-		}
-		tracing::trace!(target: "xcm::execute", ?failed_deposits, "Deposits to retry");
+
+		tracing::trace!(
+			target: "xcm::deposit_assets_with_retry",
+			?failed_deposits,
+			"First‐pass failures, about to retry"
+		);
 
 		// retry previously failed deposits, this time short-circuiting on any error.
 		for asset in failed_deposits {
-			Config::AssetTransactor::deposit_asset(&asset, &beneficiary, context)?;
+			if let Err(e) = Config::AssetTransactor::deposit_asset(&asset, &beneficiary, context) {
+				// Ignore dust deposit errors.
+				if !matches!(
+					e,
+					XcmError::FailedToTransactAsset(s)
+						if *s == *<&'static str>::from(sp_runtime::TokenError::BelowMinimum)
+				) {
+					return Err(e);
+				}
+			}
 		}
 		Ok(())
 	}
