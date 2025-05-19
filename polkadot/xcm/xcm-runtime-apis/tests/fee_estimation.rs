@@ -466,7 +466,7 @@ fn calling_payment_api_with_a_lower_version_works() {
 }
 
 #[test]
-fn dry_run_error_event_check() {
+fn dry_run_logs_expected_error() {
 	use frame_support::sp_runtime::{DispatchError, ModuleError};
 	use sp_tracing::{capture_test_logs, tracing::Level};
 
@@ -477,6 +477,7 @@ fn dry_run_error_event_check() {
 		let client = TestClient;
 		let runtime_api = client.runtime_api();
 		sp_tracing::init_for_tests();
+		// This call is expected to fail due to insufficient funds for the asset being transferred.
 		let xcm_call = RuntimeCall::XcmPallet(pallet_xcm::Call::transfer_assets {
 			dest: VersionedLocation::from((Parent, Parachain(1000))).into(),
 			beneficiary: VersionedLocation::from(AccountId32 { id: [0u8; 32], network: None })
@@ -503,7 +504,7 @@ fn dry_run_error_event_check() {
 			assert_eq!(err_msg, "LocalExecutionIncomplete");
 			assert!(dry_run_effects.emitted_events.is_empty());
 		});
-		assert!(log_capture.contains("xcm::pallet_xcm::execute_xcm_transfer: origin=Location"));
+		assert!(log_capture.contains("FailedToTransactAsset(\"Funds are unavailable\")"));
 		assert!(log_capture.contains("XCM execution failed with error with outcome: Incomplete"));
 	});
 }
