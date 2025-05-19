@@ -495,16 +495,15 @@ fn dry_run_error_event_check() {
 				.dry_run_call(H256::zero(), origin, xcm_call, XCM_VERSION)
 				.unwrap()
 				.unwrap();
-			if let Err(DispatchErrorWithPostInfo {
-				error: DispatchError::Module(ModuleError { message: Some(err_msg), .. }),
-				..
-			}) = dry_run_effects.execution_result
-			{
-				assert_eq!(err_msg, "LocalExecutionIncomplete");
-			} else {
-				assert!(false, "Expected LocalExecutionIncomplete error");
-			}
-			sp_tracing::tracing::debug!("dry_run_effects.emitted_events={:?}", dry_run_effects.emitted_events);
+			let err_msg = dry_run_effects
+				.execution_result
+				.err()
+				.and_then(|e| match &e.error {
+					DispatchError::Module(ModuleError { message: Some(msg), .. }) => Some(*msg),
+					_ => None,
+				})
+				.expect("Expected Module error with message 'LocalExecutionIncomplete'");
+			assert_eq!(err_msg, "LocalExecutionIncomplete");
 			assert!(dry_run_effects.emitted_events.is_empty());
 		});
 		assert!(log_capture.contains("xcm::pallet_xcm::execute_xcm_transfer: origin=Location"));
