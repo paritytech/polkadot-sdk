@@ -19,6 +19,7 @@ use emulated_integration_tests_common::{
 	xcm_helpers::{find_mq_processed_id, find_xcm_sent_message_id},
 	xcm_simulator::helpers::TopicIdTracker,
 };
+use sp_core::H256;
 use xcm::latest::AssetTransferFilter;
 
 fn send_assets_over_bridge<F: FnOnce()>(send_fn: F) -> H256 {

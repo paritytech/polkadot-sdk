@@ -14,7 +14,11 @@
 // limitations under the License.
 
 use crate::imports::*;
-use emulated_integration_tests_common::snowbridge::{SEPOLIA_ID, WETH};
+use emulated_integration_tests_common::{
+	snowbridge::{SEPOLIA_ID, WETH},
+	xcm_helpers::find_mq_processed_id,
+};
+use sp_core::H256;
 
 mod aliases;
 mod asset_transfers;
@@ -154,7 +158,7 @@ pub(crate) fn send_assets_from_asset_hub_westend(
 	})
 }
 
-pub(crate) fn assert_bridge_hub_westend_message_accepted(expected_processed: bool) {
+pub(crate) fn assert_bridge_hub_westend_message_accepted(expected_processed: bool) -> H256 {
 	BridgeHubWestend::execute_with(|| {
 		type RuntimeEvent = <BridgeHubWestend as Chain>::RuntimeEvent;
 
@@ -185,7 +189,9 @@ pub(crate) fn assert_bridge_hub_westend_message_accepted(expected_processed: boo
 				]
 			);
 		}
-	});
+
+		find_mq_processed_id::<BridgeHubWestend>().expect("Missing Processed Event")
+	})
 }
 
 pub(crate) fn assert_bridge_hub_rococo_message_received() {
