@@ -144,7 +144,7 @@ async fn send_5m_from_many_accounts_to_parachain() {
 	// Create future & ready txs executors.
 	let ws = net.node_rpc_uri("charlie").unwrap();
 	let executor = default_zn_scenario_builder(&net)
-		.with_rpc_uri(ws.clone())
+		.with_rpc_uri(ws)
 		.with_start_id(0)
 		.with_last_id(999)
 		.with_txs_count(5_000)
@@ -169,10 +169,10 @@ async fn gossiping() {
 	// Wait for the parachain collator to start block production.
 	net.wait_for_block_production("a00").await.unwrap();
 
-	// Create future & ready txs executors.
+	// Create the txs executor.
 	let ws = net.node_rpc_uri("a00").unwrap();
 	let executor = default_zn_scenario_builder(&net)
-		.with_rpc_uri(ws.clone())
+		.with_rpc_uri(ws)
 		.with_start_id(0)
 		.with_last_id(999)
 		.with_executor_id("txs-executor".to_string())
