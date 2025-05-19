@@ -1,8 +1,9 @@
-title: Test Captured Logs in Dry Run Flow to Improve XCM Debugging
+title: Add Test to Validate Log Capture in XCM Dry Run Flow
 doc:
 - audience: Runtime Dev
-  description: This PR enhances the observability of the XCM dry-run flow by adding
-    a test case that captures debug log messages during execution.
+  description: This PR adds a test case to validate that debug logs are captured during
+    XCM dry-run execution. This ensures error details can be inspected even when events
+    are not retained.
 crates:
 - name: xcm-runtime-apis
   bump: patch
