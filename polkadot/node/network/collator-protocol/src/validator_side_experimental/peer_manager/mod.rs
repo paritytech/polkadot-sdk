@@ -24,7 +24,8 @@ use crate::{
 	validator_side_experimental::{
 		common::{
 			PeerInfo, PeerState, Score, CONNECTED_PEERS_LIMIT, CONNECTED_PEERS_PARA_LIMIT,
-			INACTIVITY_DECAY, MAX_STARTUP_ANCESTRY_LOOKBACK, VALID_INCLUDED_CANDIDATE_BUMP,
+			INACTIVITY_DECAY, MAX_STARTUP_ANCESTRY_LOOKBACK, MAX_STORED_SCORES_PER_PARA,
+			VALID_INCLUDED_CANDIDATE_BUMP,
 		},
 		error::{Error, Result},
 	},
@@ -49,6 +50,7 @@ use polkadot_primitives::{
 	BlockNumber, CandidateHash, Hash, Id as ParaId,
 };
 
+#[derive(Debug, PartialEq, Clone)]
 pub struct ReputationUpdate {
 	pub peer_id: PeerId,
 	pub para_id: ParaId,
@@ -56,6 +58,7 @@ pub struct ReputationUpdate {
 	pub kind: ReputationUpdateKind,
 }
 
+#[derive(Debug, PartialEq, Clone)]
 pub enum ReputationUpdateKind {
 	Bump,
 	Slash,
@@ -109,7 +112,7 @@ impl<B: Backend> PeerManager<B> {
 		scheduled_paras: BTreeSet<ParaId>,
 	) -> Result<Self> {
 		// Open the Db.
-		let db = B::new().await;
+		let db = B::new(MAX_STORED_SCORES_PER_PARA).await;
 
 		let mut instance = Self {
 			db,
