@@ -131,7 +131,6 @@ async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 	//   - recovery-target
 	//     - full node
 	//   - collator-elastic
-	//     - full node
 	//     - collator which is the only one producing blocks
 	NetworkConfigBuilder::new()
 		.with_relaychain(|r| {

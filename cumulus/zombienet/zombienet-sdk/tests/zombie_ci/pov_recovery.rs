@@ -112,6 +112,7 @@ async fn initialize_network() -> Result<Network<LocalFileSystem>, anyhow::Error>
 	//     - will need to recover the pov blocks through availability recovery
 	//   - charlie
 	//     - full node
+	//     - will need to recover the pov blocks through availability recovery
 	//   - eve
 	//     - collator which doesn't produce blocks
 	//     - it fails recovery from time to time to test retries
