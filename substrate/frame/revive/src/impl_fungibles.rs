@@ -28,7 +28,7 @@ use alloy_core::{
 };
 use frame_support::{
 	traits::tokens::{
-		fungibles, DepositConsequence, Fortitude, Precision, Preservation, Provenance,
+		fungible, fungibles, DepositConsequence, Fortitude, Precision, Preservation, Provenance,
 		WithdrawConsequence,
 	},
 	PalletId,
@@ -67,7 +67,9 @@ where
 			asset_id,
 			BalanceOf::<T>::zero(),
 			Weight::from_parts(1_000_000_000, 100_000),
-			DepositLimit::Unchecked,
+			DepositLimit::Balance(
+				<<T as pallet::Config>::Currency as fungible::Inspect<_>>::total_issuance(),
+			),
 			data,
 		);
 		if let Ok(return_value) = result {
@@ -101,7 +103,9 @@ where
 			asset_id,
 			BalanceOf::<T>::zero(),
 			Weight::from_parts(1_000_000_000, 100_000),
-			DepositLimit::Unchecked,
+			DepositLimit::Balance(
+				<<T as pallet::Config>::Currency as fungible::Inspect<_>>::total_issuance(),
+			),
 			data,
 		);
 		if let Ok(return_value) = result {
@@ -174,7 +178,9 @@ where
 			asset_id,
 			BalanceOf::<T>::zero(),
 			Weight::from_parts(1_000_000_000, 100_000),
-			DepositLimit::Unchecked,
+			DepositLimit::Balance(
+				<<T as pallet::Config>::Currency as fungible::Inspect<_>>::total_issuance(),
+			),
 			data,
 		);
 		log::trace!(target: "whatiwant", "{gas_consumed}");
@@ -209,7 +215,9 @@ where
 			asset_id,
 			BalanceOf::<T>::zero(),
 			Weight::from_parts(1_000_000_000, 100_000),
-			DepositLimit::Unchecked,
+			DepositLimit::Balance(
+				<<T as pallet::Config>::Currency as fungible::Inspect<_>>::total_issuance(),
+			),
 			data,
 		);
 		if let Ok(return_value) = result {

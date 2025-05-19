@@ -211,8 +211,9 @@ pub type PoolFungiblesTransactor = FungiblesAdapter<
 >;
 
 parameter_types! {
-	/// Taken from the real gas of a standard ERC20 transfer call.
+	/// Taken from the real gas and deposits of a standard ERC20 transfer call.
 	pub const ERC20TransferGasLimit: Weight = Weight::from_parts(700_000_000, 100_000);
+	pub const ERC20TransferStorageDepositLimit: Balance = 10_200_000_000;
 	pub ERC20TransfersCheckingAccount: AccountId = PalletId(*b"py/revch").into_account_truncating();
 }
 
@@ -226,6 +227,8 @@ pub type ERC20Transactor = assets_common::ERC20Transactor<
 	LocationToAccountId,
 	// The maximum gas that can be used by a standard ERC20 transfer.
 	ERC20TransferGasLimit,
+	// The maximum storage deposit that can be used by a standard ERC20 transfer.
+	ERC20TransferStorageDepositLimit,
 	// We're generic over this so we can't escape specifying it.
 	AccountId,
 	// Checking account for ERC20 transfers.

@@ -45,9 +45,20 @@ pub struct ERC20Transactor<
 	Matcher,
 	AccountIdConverter,
 	GasLimit,
+	StorageDepositLimit,
 	AccountId,
 	TransfersCheckingAccount,
->(PhantomData<(T, Matcher, AccountIdConverter, GasLimit, AccountId, TransfersCheckingAccount)>);
+>(
+	PhantomData<(
+		T,
+		Matcher,
+		AccountIdConverter,
+		GasLimit,
+		StorageDepositLimit,
+		AccountId,
+		TransfersCheckingAccount,
+	)>,
+);
 
 impl<
 		AccountId: Eq + Clone,
@@ -55,9 +66,18 @@ impl<
 		AccountIdConverter: ConvertLocation<AccountId>,
 		Matcher: MatchesFungibles<H160, u128>,
 		GasLimit: Get<Weight>,
+		StorageDepositLimit: Get<BalanceOf<T>>,
 		TransfersCheckingAccount: Get<AccountId>,
 	> TransactAsset
-	for ERC20Transactor<T, Matcher, AccountIdConverter, GasLimit, AccountId, TransfersCheckingAccount>
+	for ERC20Transactor<
+		T,
+		Matcher,
+		AccountIdConverter,
+		GasLimit,
+		StorageDepositLimit,
+		AccountId,
+		TransfersCheckingAccount,
+	>
 where
 	BalanceOf<T>: Into<U256> + TryFrom<U256>,
 	MomentOf<T>: Into<U256>,
@@ -107,7 +127,7 @@ where
 				asset_id,
 				BalanceOf::<T>::zero(),
 				gas_limit,
-				DepositLimit::Unchecked,
+				DepositLimit::Balance(StorageDepositLimit::get()),
 				data,
 			);
 		// We need to return this surplus for the executor to allow refunding it.
@@ -165,7 +185,7 @@ where
 				asset_id,
 				BalanceOf::<T>::zero(),
 				gas_limit,
-				DepositLimit::Unchecked,
+				DepositLimit::Balance(StorageDepositLimit::get()),
 				data,
 			);
 		// We need to return this surplus for the executor to allow refunding it.

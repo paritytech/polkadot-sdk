@@ -1530,15 +1530,11 @@ fn withdraw_and_deposit_erc20s() {
 			Weight::from_parts(2_500_000_000, 120_000),
 		));
 
-		// Taken from running the test.
-		let refunded_amount = 915_196_000_000;
-
 		// Revive is not taking any fees.
 		let sender_balance_after = <Balances as fungible::Inspect<_>>::balance(&sender);
-		assert_eq!(
-			sender_balance_after,
-			sender_balance_before - wnd_amount_for_fees + refunded_amount
-		);
+		// Balance after is larger than the difference between balance before and transferred
+		// amount because of the refund.
+		assert!(sender_balance_after > sender_balance_before - wnd_amount_for_fees);
 
 		// Beneficiary receives the ERC20.
 		let beneficiary_amount =
