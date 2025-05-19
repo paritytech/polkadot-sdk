@@ -301,6 +301,15 @@ pub mod pallet {
 		/// Select core.
 		type SelectCore: SelectCore;
 
+		/// The offset at which parachain blocks should be authored. This setting directly impacts
+		/// the number of descendant headers that are expected in the `set_validation_data`
+		/// inherent.
+		///
+		/// For any setting `N` larger than zero, the inherent expects that the inherent includes
+		/// the relay parent plus `N` descendants. These headers are required to validate that new
+		/// parachain blocks are authored at the correct offset.
+		///
+		/// If set to 0, this config has no impact.
 		type RelayParentOffset: Get<u32>;
 	}
 

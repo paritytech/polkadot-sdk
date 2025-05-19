@@ -12,12 +12,15 @@
 //! ## Background
 //! Each parachain block has a relay parent, which is a relay chain block that provides context to
 //! our parachain block. The constraints the relay chain imposes on our parachain can cause forks
-//! under certain conditions. With asynchronous-backing enabled chains, the node side was building
-//! blocks on all relay chain forks. This meant that no matter which fork of the relay chain
-//! ultimately progressed, the parachain would have a block ready for most of them. The situation
+//! under certain conditions. With asynchronous-backing enabled chains, the node side is building
+//! blocks on all relay chain forks. This means that no matter which fork of the relay chain
+//! ultimately progressed, the parachain would have a block ready for that fork. The situation
 //! changes when parachains want to produce blocks at a faster cadence. In a scenario where a
 //! parachain might author on 3 cores with elastic scaling, it is not possible to author on all
-//! relay chain forks. This limitation necessitates a strategic approach to building blocks.
+//! relay chain forks. The time constraints do not allow it. Building on two forks would result in 6
+//! blocks. The authoring of these blocks would consume more time than we have available before the
+//! next relay chain block arrives. This limitation requires a more fork-resistant approach to
+//! block-building.
 //!
 //! ## Impact of Forks
 //! When a relay chain fork occurs and the parachain builds on a fork that will not be extended in
@@ -43,7 +46,8 @@
 //!                               --- D' --- E'
 //! Parachain:            X(A) - Y (B) - Z (on C, fork already resolved)
 //! ```
-//!
+//! **Note:** It is possible that relay chain forks extend over more than 1-2 blocks. However, it is
+//! unlikely.
 //! ## Tradeoffs
 //! Fork-free parachains come with a few tradeoffs:
 //! - The latency of incoming XCM messages will be delayed by `N * 6s`, where `N` is the number of

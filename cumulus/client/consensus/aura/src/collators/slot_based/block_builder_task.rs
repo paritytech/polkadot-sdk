@@ -184,7 +184,8 @@ where
 
 		loop {
 			// We wait here until the next slot arrives.
-			let Some(_) = slot_timer.wait_until_next_slot().await else {
+			let Ok(_) = slot_timer.wait_until_next_slot().await else {
+				tracing::error!(target: LOG_TARGET, "Unable to wait for next slot.");
 				return;
 			};
 
