@@ -2960,7 +2960,7 @@ mod remote_tests {
 					});
 				});
 
-			// AllPalletsWithSystem::try_state(System::block_number(), All).unwrap();
+			AllPalletsWithSystem::try_state(System::block_number(), All).unwrap();
 
 			println!("Summary: {:?} success, {:?} failed", success, failed);
 		});

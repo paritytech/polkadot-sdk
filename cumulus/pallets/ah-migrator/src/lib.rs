@@ -940,7 +940,7 @@ pub mod pallet {
 				let max_hold = <T as pallet::Config>::Currency::reducible_balance(
 					&account,
 					Preservation::Expendable,
-					Fortitude::Polite,
+					Fortitude::Force,
 				);
 				if delegation_hold > max_hold {
 					log::warn!(
@@ -966,15 +966,16 @@ pub mod pallet {
 				let max_hold = <T as pallet::Config>::Currency::reducible_balance(
 					&account,
 					Preservation::Preserve,
-					Fortitude::Polite,
+					Fortitude::Force,
 				);
 				if staking_hold > max_hold {
 					log::warn!(
 						target: LOG_TARGET,
-						"Account: {:?} \n\tCan not hold full staking amount {:?}. Holding {:?} instead.",
+						"Account: {:?} \n\tCan not hold full staking amount {:?}. Holding {:?} instead. Delegation hold was: {:?}",
 						&account,
 						staking_hold,
 						max_hold,
+						delegation_hold,
 					);
 
 					let staking_hold = max_hold;
@@ -992,7 +993,7 @@ pub mod pallet {
 				let max_hold = <T as pallet::Config>::Currency::reducible_balance(
 					&account,
 					Preservation::Preserve,
-					Fortitude::Polite,
+					Fortitude::Force,
 				);
 				if preimage_hold > max_hold {
 					log::warn!(
@@ -1012,16 +1013,6 @@ pub mod pallet {
 					preimage_hold,
 				)?;
 			}
-
-			// if released_amount != delegation_hold + staking_hold + preimage_hold {
-			// 	log::warn!(
-			// 		target: LOG_TARGET,
-			// 		"Account: {:?} \n\tReleased amount {:?} does not match the sum of all holds {:?}.",
-			// 		&account,
-			// 		released_amount,
-			// 		delegation_hold + staking_hold + preimage_hold,
-			// 	);
-			// }
 
 			Ok(())
 		}
