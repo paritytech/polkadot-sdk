@@ -1,9 +1,11 @@
-title: '[pallet-revive-rpc] quick fixes'
+title: '[pallet-revive] rename DepositLimit::Unchecked & minor code cleanup '
 doc:
 - audience: Runtime Dev
-  description: 'A few quick fixes for pallet-revive eth-rpc
-
-    '
+  description: |-
+    minor cleanups for pallet-revive eth-rpc
+    rename DepositLimit::Unchecked to DepositLimit::UnsafeOnlyForDryRun
 crates:
 - name: pallet-revive-eth-rpc
+  bump: patch
+- name: pallet-revive
   bump: patch
