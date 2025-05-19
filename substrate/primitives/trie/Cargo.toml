@@ -27,6 +27,7 @@ hash-db = { workspace = true }
 memory-db = { workspace = true }
 nohash-hasher = { optional = true, workspace = true }
 parking_lot = { optional = true, workspace = true, default-features = true }
+prometheus-endpoint = { optional = true, workspace = true, default-features = true }
 rand = { optional = true, workspace = true, default-features = true }
 scale-info = { features = ["derive"], workspace = true }
 schnellru = { optional = true, workspace = true }
@@ -53,6 +54,7 @@ std = [
 	"memory-db/std",
 	"nohash-hasher",
 	"parking_lot",
+	"prometheus-endpoint",
 	"rand",
 	"scale-info/std",
 	"schnellru",
