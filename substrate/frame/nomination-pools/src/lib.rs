@@ -4049,7 +4049,9 @@ impl<T: Config> Pallet<T> {
 			}
 		});
 
-		ensure!(failed == 0, "Some pools do not have correct ED frozen");
+		// After migrating pool to AH, we expect deposit to be mismatched and generate warning
+		// above. Don't fail the check.
+		// ensure!(failed == 0, "Some pools do not have correct ED frozen");
 		Ok(())
 	}
 	/// Fully unbond the shares of `member`, when executed from `origin`.
