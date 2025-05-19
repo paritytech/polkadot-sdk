@@ -26,28 +26,30 @@
 //!   it), while on other forks tx can be valid. Depending on which view is chosen to be cloned,
 //!   such transaction could not be present in the newly created view.
 
-use std::{
-	collections::HashSet,
-	future::Future,
-	pin::Pin,
-	sync::{
-		atomic::{self, AtomicU64},
-		Arc,
-	},
-	time::Instant,
-};
-
-use futures::FutureExt;
+use futures::{future::join_all, FutureExt};
 use itertools::Itertools;
 use parking_lot::RwLock;
-use tracing::{debug, trace};
-
 use sc_transaction_pool_api::{TransactionPriority, TransactionSource};
 use sp_blockchain::HashAndNumber;
 use sp_runtime::{
 	traits::Block as BlockT,
 	transaction_validity::{InvalidTransaction, TransactionValidityError},
 };
+use std::{
+	collections::HashSet,
+	future::Future,
+	pin::Pin,
+	sync::{
+		atomic::{self, AtomicU64},
+		mpsc::{
+			channel as sync_bridge_channel, Receiver as SyncBridgeReceiver,
+			Sender as SyncBridgeSender,
+		},
+		Arc,
+	},
+	time::Instant,
+};
+use tracing::{debug, trace};
 
 use crate::{
 	common::tracing_log_xt::log_xt_trace,
@@ -72,6 +74,8 @@ pub(crate) const TXMEMPOOL_MAX_REVALIDATION_BATCH_SIZE: usize = 1000;
 /// The maximum number of transactions kept in the mem pool. Given as multiple of
 /// the view's total limit.
 pub const TXMEMPOOL_TRANSACTION_LIMIT_MULTIPLIER: usize = 4;
+
+const SYNC_BRIDGE_EXPECT: &str = "The mempool blocking task shall not be terminated. qed.";
 
 /// Represents the transaction in the intermediary buffer.
 pub(crate) struct TxInMemPool<ChainApi, Block>
@@ -261,14 +265,16 @@ where
 	}
 }
 
-type InternalTxMemPoolMap<ChainApi, Block> = tx_mem_pool_map::TrackedMap<
+type InternalTxMemPoolMap<ChainApi, Block> = tx_mem_pool_map::SizeTrackedStore<
 	ExtrinsicHash<ChainApi>,
 	tx_mem_pool_map::PriorityKey<MempoolTxPriority, Option<Instant>>,
 	Arc<TxInMemPool<ChainApi, Block>>,
 >;
 
-/// Internal task for bridging sync and async code.
-pub type TxMemPoolTask = Pin<Box<dyn Future<Output = ()> + Send>>;
+/// Internal (blocking) task for bridging sync and async code.
+///
+/// Should be polled in blocking task.
+pub type TxMemPoolBlockingTask = Pin<Box<dyn Future<Output = ()> + Send>>;
 
 /// An intermediary transactions buffer.
 ///
@@ -293,7 +299,7 @@ where
 	listener: Arc<MultiViewListener<ChainApi>>,
 
 	/// Channel used to send the requests from the sync code.
-	sync_channel: tokio::sync::mpsc::Sender<TxMemPoolSyncRequest<ChainApi, Block>>,
+	sync_channel: SyncBridgeSender<TxMemPoolSyncRequest<ChainApi, Block>>,
 
 	///  A map that stores the transactions currently in the memory pool.
 	///
@@ -342,8 +348,8 @@ where
 		metrics: PrometheusMetrics,
 		max_transactions_count: usize,
 		max_transactions_total_bytes: usize,
-	) -> (Self, TxMemPoolTask) {
-		let (sync_channel, rx) = tokio::sync::mpsc::channel(1);
+	) -> (Self, TxMemPoolBlockingTask) {
+		let (sync_channel, rx) = sync_bridge_channel();
 		let task = Self::sync_bridge_task(rx);
 		(
 			Self {
@@ -366,8 +372,8 @@ where
 		max_transactions_count: usize,
 		max_transactions_total_bytes: usize,
 	) -> Self {
-		let (sync_channel, rx) = tokio::sync::mpsc::channel(1);
-		tokio::spawn(Self::sync_bridge_task(rx));
+		let (sync_channel, rx) = sync_bridge_channel();
+		tokio::task::spawn_blocking(move || Self::sync_bridge_task(rx));
 		Self {
 			api,
 			listener: Arc::from(MultiViewListener::new_with_worker(Default::default()).0),
@@ -389,7 +395,6 @@ where
 
 	/// Returns a tuple with the count of unwatched and watched transactions in the memory pool.
 	pub async fn unwatched_and_watched_count(&self) -> (usize, usize) {
-		//todo!
 		let transactions = self.transactions.read().await;
 		let watched_count = transactions.values().filter(|t| t.is_watched()).count();
 		(transactions.len() - watched_count, watched_count)
@@ -397,7 +402,6 @@ where
 
 	/// Returns a total number of transactions kept within mempool.
 	pub fn len(&self) -> usize {
-		//todo: maybe assert to check inner maps/atomic alignment?
 		self.transactions.len()
 	}
 
@@ -506,16 +510,17 @@ where
 		xts: &[ExtrinsicFor<ChainApi>],
 	) -> Vec<Result<InsertionInfo<ExtrinsicHash<ChainApi>>, sc_transaction_pool_api::error::Error>>
 	{
-		let mut result = Vec::with_capacity(xts.len());
-		//todo: parrallel and join_all.
-		for xt in xts {
-			let (hash, length) = self.api.hash_and_length(&xt);
-			result.push(
-				self.try_insert(hash, TxInMemPool::new_unwatched(source, xt.clone(), length))
-					.await,
-			);
-		}
-		result
+		let insert_futures = xts.into_iter().map(|xt| {
+			let source = source.clone();
+			let api = self.api.clone();
+			let xt = xt.clone();
+			async move {
+				let (hash, length) = api.hash_and_length(&xt);
+				self.try_insert(hash, TxInMemPool::new_unwatched(source, xt, length)).await
+			}
+		});
+
+		join_all(insert_futures).await
 	}
 
 	/// Adds a new watched transaction to the memory pool if it does not exceed the maximum allowed
@@ -743,19 +748,19 @@ where
 	RemoveTransactions(
 		Arc<TxMemPool<ChainApi, Block>>,
 		Vec<ExtrinsicHash<ChainApi>>,
-		tokio::sync::oneshot::Sender<()>,
+		SyncBridgeSender<()>,
 	),
 	ExtendUnwatched(
 		Arc<TxMemPool<ChainApi, Block>>,
 		TransactionSource,
 		Vec<ExtrinsicFor<ChainApi>>,
-		tokio::sync::oneshot::Sender<ExtendUnwatchedResult<ChainApi>>,
+		SyncBridgeSender<ExtendUnwatchedResult<ChainApi>>,
 	),
 	UpdateTransactionPriority2(
 		Arc<TxMemPool<ChainApi, Block>>,
 		ExtrinsicHash<ChainApi>,
 		Option<TransactionPriority>,
-		tokio::sync::oneshot::Sender<()>,
+		SyncBridgeSender<()>,
 	),
 	TryInsertWithReplacement(
 		Arc<TxMemPool<ChainApi, Block>>,
@@ -763,7 +768,7 @@ where
 		TransactionPriority,
 		TransactionSource,
 		bool,
-		tokio::sync::oneshot::Sender<TryInsertWithReplacementResult<ChainApi>>,
+		SyncBridgeSender<TryInsertWithReplacementResult<ChainApi>>,
 	),
 }
 
@@ -775,8 +780,8 @@ where
 	fn remove_transactions(
 		mempool: Arc<TxMemPool<ChainApi, Block>>,
 		hashes: Vec<ExtrinsicHash<ChainApi>>,
-	) -> (tokio::sync::oneshot::Receiver<()>, Self) {
-		let (tx, rx) = tokio::sync::oneshot::channel();
+	) -> (SyncBridgeReceiver<()>, Self) {
+		let (tx, rx) = sync_bridge_channel();
 		(rx, Self::RemoveTransactions(mempool, hashes, tx))
 	}
 
@@ -784,8 +789,8 @@ where
 		mempool: Arc<TxMemPool<ChainApi, Block>>,
 		source: TransactionSource,
 		xts: Vec<ExtrinsicFor<ChainApi>>,
-	) -> (tokio::sync::oneshot::Receiver<ExtendUnwatchedResult<ChainApi>>, Self) {
-		let (tx, rx) = tokio::sync::oneshot::channel();
+	) -> (SyncBridgeReceiver<ExtendUnwatchedResult<ChainApi>>, Self) {
+		let (tx, rx) = sync_bridge_channel();
 		(rx, Self::ExtendUnwatched(mempool, source, xts, tx))
 	}
 
@@ -793,8 +798,8 @@ where
 		mempool: Arc<TxMemPool<ChainApi, Block>>,
 		hash: ExtrinsicHash<ChainApi>,
 		prio: Option<TransactionPriority>,
-	) -> (tokio::sync::oneshot::Receiver<()>, Self) {
-		let (tx, rx) = tokio::sync::oneshot::channel();
+	) -> (SyncBridgeReceiver<()>, Self) {
+		let (tx, rx) = sync_bridge_channel();
 		(rx, Self::UpdateTransactionPriority2(mempool, hash, prio, tx))
 	}
 
@@ -804,8 +809,8 @@ where
 		priority: TransactionPriority,
 		source: TransactionSource,
 		watched: bool,
-	) -> (tokio::sync::oneshot::Receiver<TryInsertWithReplacementResult<ChainApi>>, Self) {
-		let (tx, rx) = tokio::sync::oneshot::channel();
+	) -> (SyncBridgeReceiver<TryInsertWithReplacementResult<ChainApi>>, Self) {
+		let (tx, rx) = sync_bridge_channel();
 		(rx, Self::TryInsertWithReplacement(mempool, new_tx, priority, source, watched, tx))
 	}
 }
@@ -816,21 +821,9 @@ where
 	ChainApi: graph::ChainApi<Block = Block> + 'static,
 	<Block as BlockT>::Hash: Unpin,
 {
-	async fn sync_bridge_task(
-		mut rx: tokio::sync::mpsc::Receiver<TxMemPoolSyncRequest<ChainApi, Block>>,
-	) {
-		loop {
-			tokio::select! {
-				request = rx.recv() => {
-					match request {
-						Some(request) => Self::handle_request(request).await,
-						None => {
-							info!(target: LOG_TARGET, "txmempool loop terminated");
-							break;
-						},
-					}
-				}
-			}
+	async fn sync_bridge_task(rx: SyncBridgeReceiver<TxMemPoolSyncRequest<ChainApi, Block>>) {
+		for request in rx {
+			Self::handle_request(request).await;
 		}
 	}
 
@@ -885,10 +878,8 @@ where
 			source,
 			watched,
 		);
-		//todo: handle error (print)
-		let _ = self.sync_channel.blocking_send(request);
-		//todo: can we just expect here?
-		response.blocking_recv().expect("xxx")
+		let _ = self.sync_channel.send(request);
+		response.recv().expect(SYNC_BRIDGE_EXPECT)
 	}
 
 	pub(super) fn extend_unwatched_sync(
@@ -898,9 +889,8 @@ where
 	) -> Vec<Result<InsertionInfo<ExtrinsicHash<ChainApi>>, sc_transaction_pool_api::error::Error>>
 	{
 		let (response, request) = TxMemPoolSyncRequest::extend_unwatched(self.clone(), source, xts);
-		//todo: handle error (print)
-		let _ = self.sync_channel.blocking_send(request);
-		response.blocking_recv().expect("xxx")
+		let _ = self.sync_channel.send(request);
+		response.recv().expect(SYNC_BRIDGE_EXPECT)
 	}
 
 	pub(super) fn remove_transactions_sync(
@@ -909,9 +899,8 @@ where
 	) {
 		let (response, request) =
 			TxMemPoolSyncRequest::remove_transactions(self.clone(), tx_hashes);
-		//todo: handle error (print)
-		let _ = self.sync_channel.blocking_send(request);
-		response.blocking_recv().expect("xxx")
+		let _ = self.sync_channel.send(request);
+		response.recv().expect(SYNC_BRIDGE_EXPECT)
 	}
 
 	pub(super) fn update_transaction_priority2_sync(
@@ -921,9 +910,8 @@ where
 	) {
 		let (response, request) =
 			TxMemPoolSyncRequest::update_transaction_priority2(self.clone(), hash, prio);
-		//todo: handle error (print)
-		let _ = self.sync_channel.blocking_send(request);
-		response.blocking_recv().expect("xxx")
+		let _ = self.sync_channel.send(request);
+		response.recv().expect(SYNC_BRIDGE_EXPECT)
 	}
 }
 

@@ -198,7 +198,7 @@ where
 		best_block_hash: Block::Hash,
 		finalized_hash: Block::Hash,
 		finality_timeout_threshold: Option<usize>,
-	) -> (Self, ForkAwareTxPoolTask) {
+	) -> (Self, [ForkAwareTxPoolTask; 2]) {
 		Self::new_test_with_limits(
 			pool_api,
 			best_block_hash,
@@ -220,7 +220,7 @@ where
 		future_limits: crate::PoolLimit,
 		mempool_max_transactions_count: usize,
 		finality_timeout_threshold: Option<usize>,
-	) -> (Self, ForkAwareTxPoolTask) {
+	) -> (Self, [ForkAwareTxPoolTask; 2]) {
 		let (listener, listener_task) = MultiViewListener::new_with_worker(Default::default());
 		let listener = Arc::new(listener);
 
@@ -254,7 +254,6 @@ where
 				_ = listener_task => {},
 				_ = import_notification_sink_task => {},
 				_ = dropped_monitor_task => {}
-				_ = mempool_task => {},
 			}
 		}
 		.boxed();
@@ -281,7 +280,7 @@ where
 					.unwrap_or(FINALITY_TIMEOUT_THRESHOLD),
 				included_transactions: Default::default(),
 			},
-			combined_tasks,
+			[combined_tasks, mempool_task],
 		)
 	}
 
@@ -363,7 +362,7 @@ where
 		let (import_notification_sink, import_notification_sink_task) =
 			MultiViewImportNotificationSink::new_with_worker();
 
-		let (mempool, mempool_task) = TxMemPool::new(
+		let (mempool, blocking_mempool_task) = TxMemPool::new(
 			pool_api.clone(),
 			listener.clone(),
 			metrics.clone(),
@@ -392,11 +391,15 @@ where
 				_ = import_notification_sink_task => {},
 				_ = dropped_monitor_task => {}
 				_ = event_metrics_task => {},
-				_ = mempool_task => {},
 			}
 		}
 		.boxed();
 		spawner.spawn_essential("txpool-background", Some("transaction-pool"), combined_tasks);
+		spawner.spawn_essential_blocking(
+			"txpool-background",
+			Some("transaction-pool"),
+			blocking_mempool_task,
+		);
 
 		Self {
 			mempool,
@@ -460,9 +463,6 @@ where
 	///
 	/// Intended for use in unit tests.
 	pub async fn mempool_len(&self) -> (usize, usize) {
-		//todo:
-		// - tests - should we block_on ?
-		// - maybe additional counter?
 		self.mempool.unwatched_and_watched_count().await
 	}
 
@@ -1399,14 +1399,15 @@ where
 		);
 		let included_xts = self.txs_included_since_finalized(&view.at).await;
 
-		//todo: remove this clone :)
 		let (hashes, xts_filtered): (Vec<_>, Vec<_>) = self
 			.mempool
-			.clone_transactions()
+			.with_transactions(|iter| {
+				iter.filter(|(hash, _)| !view.is_imported(&hash) && !included_xts.contains(&hash))
+					.map(|(k, v)| (*k, v.clone()))
+					.collect::<HashMap<_, _>>()
+			})
 			.await
 			.into_iter()
-			.filter(|(hash, _)| !view.is_imported(hash))
-			.filter(|(hash, _)| !included_xts.contains(&hash))
 			.map(|(tx_hash, tx)| (tx_hash, (tx.source(), tx.tx())))
 			.unzip();
 
