@@ -17,7 +17,7 @@ use super::{
 	AccountId, AllPalletsWithSystem, Assets, Balance, Balances, BaseDeliveryFee, CollatorSelection,
 	FeeAssetId, ForeignAssets, ParachainInfo, ParachainSystem, PolkadotXcm, PoolAssets, Runtime,
 	RuntimeCall, RuntimeEvent, RuntimeHoldReason, RuntimeOrigin, ToWestendXcmRouter,
-	TransactionByteFee, Uniques, WeightToFee, XcmpQueue,
+	TransactionByteFee, Uniques, WeightToFee, XcmpQueue
 };
 use assets_common::{
 	matching::{FromNetwork, FromSiblingParachain, IsForeignConcreteAsset, ParentLocation},
@@ -67,6 +67,9 @@ parameter_types! {
 	pub const RootLocation: Location = Location::here();
 	pub const TokenLocation: Location = Location::parent();
 	pub const RelayNetwork: NetworkId = NetworkId::ByGenesis(ROCOCO_GENESIS_HASH);
+	pub AssetHubId: u32 = 1441;
+	pub AssetHubParaLocation: Location = ParentThen(Parachain(
+		AssetHubId::get().into()).into()).into();
 	pub RelayChainOrigin: RuntimeOrigin = cumulus_pallet_xcm::Origin::Relay.into();
 	pub UniversalLocation: InteriorLocation =
 		[GlobalConsensus(RelayNetwork::get()), Parachain(ParachainInfo::parachain_id().into())].into();

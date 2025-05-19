@@ -16,7 +16,7 @@
 use super::{
 	AccountId, AllPalletsWithSystem, Balance, Balances, ParachainInfo, ParachainSystem,
 	PolkadotXcm, Runtime, RuntimeCall, RuntimeEvent, RuntimeHoldReason, RuntimeOrigin, WeightToFee,
-	XcmpQueue,
+	XcmpQueue, RandomParaLocation
 };
 use crate::{TransactionByteFee, CENTS};
 use frame_support::{
@@ -232,6 +232,7 @@ impl xcm_executor::Config for XcmConfig {
 	// People does not recognize a reserve location for any asset. Users must teleport WND
 	// where allowed (e.g. with the Relay Chain).
 	type IsReserve = ();
+
 	type IsTeleporter = TrustedTeleporters;
 	type UniversalLocation = UniversalLocation;
 	type Barrier = Barrier;

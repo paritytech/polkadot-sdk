@@ -16,8 +16,8 @@
 
 use super::{
 	AccountId, AllPalletsWithSystem, Balance, Balances, BaseDeliveryFee, FeeAssetId, ParachainInfo,
-	ParachainSystem, PolkadotXcm, Runtime, RuntimeCall, RuntimeEvent, RuntimeHoldReason,
-	RuntimeOrigin, TransactionByteFee, WeightToFee, XcmOverBridgeHubRococo, XcmpQueue,
+	ParachainSystem, PolkadotXcm, Runtime, RuntimeCall, RuntimeEvent, RuntimeHoldReason, RuntimeOrigin,
+  TransactionByteFee, WeightToFee, XcmOverBridgeHubRococo, XcmpQueue, RandomParaLocation
 };
 use crate::bridge_to_ethereum_config::{AssetHubLocation, SnowbridgeFrontendLocation};
 use bridge_hub_common::DenyExportMessageFrom;
@@ -189,7 +189,7 @@ pub type WaivedLocations = (
 
 /// Cases where a remote origin is accepted as trusted Teleporter for a given asset:
 /// - NativeToken with the parent Relay Chain and sibling parachains.
-pub type TrustedTeleporters = ConcreteAssetFromSystem<WestendLocation>;
+pub type TrustedTeleporters = ConcreteAssetFromSystem<RandomParaLocation>;
 
 /// Defines origin aliasing rules for this chain.
 ///

@@ -1697,33 +1697,40 @@ impl_runtime_apis! {
 				Config as XcmBridgeHubRouterConfig,
 			};
 
+			use xcm_config::{AssetHubId, AssetHubParaLocation};
 			parameter_types! {
 				pub ExistentialDepositAsset: Option<Asset> = Some((
 					TokenLocation::get(),
 					ExistentialDeposit::get()
 				).into());
-				pub const RandomParaId: ParaId = ParaId::new(43211234);
+
+				// reserve-based transfer cases. non-system parachain i.e. id >= 2000
+				pub RandomParaId: ParaId = ParaId::new(3333);
+				pub RandomParaLocation: Location = ParentThen(Parachain(
+					RandomParaId::get().into()).into()).into();
+				pub AssetHubParaId: ParaId = ParaId::new(AssetHubId::get());
 			}
 
 			use pallet_xcm::benchmarking::Pallet as PalletXcmExtrinsicsBenchmark;
 			impl pallet_xcm::benchmarking::Config for Runtime {
 				type DeliveryHelper = (
-					cumulus_primitives_utility::ToParentDeliveryHelper<
-						xcm_config::XcmConfig,
-						ExistentialDepositAsset,
-						xcm_config::PriceForParentDelivery,
-					>,
-					polkadot_runtime_common::xcm_sender::ToParachainDeliveryHelper<
+				polkadot_runtime_common::xcm_sender::ToParachainDeliveryHelper<
 						xcm_config::XcmConfig,
 						ExistentialDepositAsset,
 						PriceForSiblingParachainDelivery,
 						RandomParaId,
-						ParachainSystem,
-					>
-				);
+						ParachainSystem
+					>,
+				polkadot_runtime_common::xcm_sender::ToParachainDeliveryHelper<
+						xcm_config::XcmConfig,
+						ExistentialDepositAsset,
+						PriceForSiblingParachainDelivery,
+						AssetHubParaId,
+						ParachainSystem
+					>);
 
 				fn reachable_dest() -> Option<Location> {
-					Some(Parent.into())
+					Some(AssetHubParaLocation::get())
 				}
 
 				fn teleportable_asset_and_dest() -> Option<(Asset, Location)> {
@@ -1731,9 +1738,9 @@ impl_runtime_apis! {
 					Some((
 						Asset {
 							fun: Fungible(ExistentialDeposit::get()),
-							id: AssetId(Parent.into())
+							id: AssetId(TokenLocation::get())
 						},
-						Parent.into(),
+						AssetHubParaLocation::get(),
 					))
 				}
 
@@ -1741,10 +1748,10 @@ impl_runtime_apis! {
 					Some((
 						Asset {
 							fun: Fungible(ExistentialDeposit::get()),
-							id: AssetId(Parent.into())
+							id: AssetId(TokenLocation::get())
 						},
 						// AH can reserve transfer native token to some random parachain.
-						ParentThen(Parachain(RandomParaId::get().into()).into()).into(),
+						RandomParaLocation::get(),
 					))
 				}
 
@@ -1753,10 +1760,10 @@ impl_runtime_apis! {
 					// Transfer to Relay some local AH asset (local-reserve-transfer) while paying
 					// fees using teleported native token.
 					// (We don't care that Relay doesn't accept incoming unknown AH local asset)
-					let dest = Parent.into();
+					let dest = AssetHubParaLocation::get();
 
 					let fee_amount = EXISTENTIAL_DEPOSIT;
-					let fee_asset: Asset = (Location::parent(), fee_amount).into();
+					let fee_asset: Asset = (TokenLocation::get(), fee_amount).into();
 
 					let who = frame_benchmarking::whitelisted_caller();
 					// Give some multiple of the existential deposit
@@ -1858,13 +1865,16 @@ impl_runtime_apis! {
 			impl pallet_xcm_benchmarks::Config for Runtime {
 				type XcmConfig = xcm_config::XcmConfig;
 				type AccountIdConverter = xcm_config::LocationToAccountId;
-				type DeliveryHelper = cumulus_primitives_utility::ToParentDeliveryHelper<
-					xcm_config::XcmConfig,
-					ExistentialDepositAsset,
-					xcm_config::PriceForParentDelivery,
-				>;
+				type DeliveryHelper = polkadot_runtime_common::xcm_sender::ToParachainDeliveryHelper<
+						xcm_config::XcmConfig,
+						ExistentialDepositAsset,
+						PriceForSiblingParachainDelivery,
+						AssetHubParaId,
+						ParachainSystem
+					>;
 				fn valid_destination() -> Result<Location, BenchmarkError> {
-					Ok(TokenLocation::get())
+					let dest: Location = Some(AssetHubParaLocation::get()).unwrap();
+					Ok(dest)
 				}
 				fn worst_case_holding(depositable_count: u32) -> XcmAssets {
 					// A mix of fungible, non-fungible, and concrete assets.
@@ -1890,15 +1900,15 @@ impl_runtime_apis! {
 			}
 
 			parameter_types! {
-				pub const TrustedTeleporter: Option<(Location, Asset)> = Some((
-					TokenLocation::get(),
+				pub TrustedTeleporter: Option<(Location, Asset)> = Some((
+					AssetHubParaLocation::get(),
 					Asset { fun: Fungible(UNITS), id: AssetId(TokenLocation::get()) },
 				));
 				pub const CheckedAccount: Option<(AccountId, xcm_builder::MintLocation)> = None;
 				// AssetHubRococo trusts AssetHubWestend as reserve for WNDs
 				pub TrustedReserve: Option<(Location, Asset)> = Some(
 					(
-						xcm_config::bridging::to_westend::AssetHubWestend::get(),
+						RandomParaLocation::get(),
 						Asset::from((xcm_config::bridging::to_westend::WndLocation::get(), 1000000000000 as u128))
 					)
 				);
