@@ -21,7 +21,7 @@ use emulated_integration_tests_common::{
 };
 use xcm::latest::AssetTransferFilter;
 
-fn send_assets_over_bridge<F: FnOnce()>(send_fn: F) {
+fn send_assets_over_bridge<F: FnOnce()>(send_fn: F) -> H256 {
 	// fund the AHW's SA on BHW for paying bridge delivery fees
 	BridgeHubWestend::fund_para_sovereign(AssetHubWestend::para_id(), 10_000_000_000_000u128);
 
@@ -35,8 +35,10 @@ fn send_assets_over_bridge<F: FnOnce()>(send_fn: F) {
 	send_fn();
 
 	// process and verify intermediary hops
-	assert_bridge_hub_westend_message_accepted(true);
+	let mq_prc_id = assert_bridge_hub_westend_message_accepted(true);
 	assert_bridge_hub_rococo_message_received();
+
+	mq_prc_id
 }
 
 fn set_up_wnds_for_penpal_westend_through_ahw_to_ahr(
@@ -1233,7 +1235,7 @@ fn do_send_pens_and_wnds_from_penpal_westend_via_ahw_to_asset_hub_rococo(
 ) {
 	let (wnds_id, wnds_amount) = wnds;
 	let (pens_id, pens_amount) = pens;
-	send_assets_over_bridge(|| {
+	let mq_prc_id = send_assets_over_bridge(|| {
 		let sov_penpal_on_ahw = AssetHubWestend::sovereign_account_id_of(
 			AssetHubWestend::sibling_location_of(PenpalB::para_id()),
 		);
@@ -1330,11 +1332,6 @@ fn do_send_pens_and_wnds_from_penpal_westend_via_ahw_to_asset_hub_rococo(
 
 			result
 		}));
-		// BridgeHubWestend::ext_wrapper(|| {
-		// 	let mq_prc_id =
-		// 		find_mq_processed_id::<BridgeHubWestend>().expect("Missing Processed Event");
-		// 	topic_id_tracker.insert_and_assert_unique("BridgeHubWestend", mq_prc_id);
-		// });
 		AssetHubWestend::execute_with(|| {
 			type RuntimeEvent = <AssetHubWestend as Chain>::RuntimeEvent;
 			let mq_prc_id =
@@ -1363,12 +1360,8 @@ fn do_send_pens_and_wnds_from_penpal_westend_via_ahw_to_asset_hub_rococo(
 				]
 			);
 		});
-		// BridgeHubWestend::ext_wrapper(|| {
-		// 	let mq_prc_id =
-		// 		find_mq_processed_id::<BridgeHubWestend>().expect("Missing Processed Event");
-		// 	topic_id_tracker.insert_and_assert_unique("BridgeHubWestend", mq_prc_id);
-		// });
 	});
+	topic_id_tracker.insert_and_assert_unique("BridgeHubWestend", mq_prc_id);
 }
 
 /// Transfer "PEN"s plus "WND"s from PenpalWestend to AssetHubWestend, over bridge to
@@ -1481,11 +1474,6 @@ fn send_pens_and_wnds_from_penpal_westend_via_ahw_to_ahr() {
 		(wnd_at_westend_parachains.clone(), wnds_to_send),
 		(pens_location_on_penpal.try_into().unwrap(), pens_to_send),
 	);
-	// BridgeHubWestend::ext_wrapper(|| {
-	// 	let mq_prc_id =
-	// 		find_mq_processed_id::<BridgeHubWestend>().expect("Missing Processed Event");
-	// 	topic_id_tracker.insert_and_assert_unique("BridgeHubWestend", mq_prc_id);
-	// });
 
 	let wnd = Location::new(2, [GlobalConsensus(ByGenesis(WESTEND_GENESIS_HASH))]);
 	AssetHubRococo::execute_with(|| {
