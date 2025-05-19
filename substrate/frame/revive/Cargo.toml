@@ -37,6 +37,7 @@ rand_pcg = { workspace = true, optional = true }
 rlp = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 serde = { features = ["alloc", "derive"], workspace = true, default-features = false }
+ethereum-standards = { workspace = true }
 
 # Polkadot SDK Dependencies
 bn = { workspace = true }

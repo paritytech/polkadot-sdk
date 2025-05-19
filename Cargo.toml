@@ -122,6 +122,7 @@ members = [
 	"cumulus/parachains/runtimes/assets/asset-hub-westend",
 	"cumulus/parachains/runtimes/assets/asset-hub-westend/bridge-primitives",
 	"cumulus/parachains/runtimes/assets/common",
+	"cumulus/parachains/runtimes/assets/ethereum_standards",
 	"cumulus/parachains/runtimes/assets/test-utils",
 	"cumulus/parachains/runtimes/bridge-hubs/bridge-hub-rococo",
 	"cumulus/parachains/runtimes/bridge-hubs/bridge-hub-rococo/bridge-primitives",
@@ -648,6 +649,7 @@ asset-hub-westend-emulated-chain = { path = "cumulus/parachains/integration-test
 asset-hub-westend-runtime = { path = "cumulus/parachains/runtimes/assets/asset-hub-westend" }
 asset-test-utils = { path = "cumulus/parachains/runtimes/assets/test-utils", default-features = false }
 assets-common = { path = "cumulus/parachains/runtimes/assets/common", default-features = false }
+ethereum-standards = { path = "cumulus/parachains/runtimes/assets/ethereum_standards" }
 async-channel = { version = "1.8.0" }
 async-std = { version = "1.9.0" }
 async-trait = { version = "0.1.88" }

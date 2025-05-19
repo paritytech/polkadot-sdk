@@ -38,7 +38,6 @@ mod impl_fungibles;
 #[cfg(test)]
 mod tests;
 
-pub mod erc20;
 pub mod evm;
 pub mod precompiles;
 pub mod test_utils;

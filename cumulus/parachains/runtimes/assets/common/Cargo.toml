@@ -38,6 +38,7 @@ xcm-executor = { workspace = true }
 # Cumulus
 cumulus-primitives-core = { workspace = true }
 parachains-common = { workspace = true }
+ethereum-standards = { workspace = true }
 
 [features]
 default = ["std"]

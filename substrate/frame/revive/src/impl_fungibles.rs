@@ -37,7 +37,7 @@ use sp_core::U256;
 use sp_runtime::traits::AccountIdConversion;
 
 use super::*;
-use crate::erc20::IERC20;
+use ethereum_standards::IERC20;
 
 impl<T: Config> Pallet<T> {
 	// Test checking account for the `fungibles::*` implementation.
