@@ -649,7 +649,6 @@ asset-hub-westend-emulated-chain = { path = "cumulus/parachains/integration-test
 asset-hub-westend-runtime = { path = "cumulus/parachains/runtimes/assets/asset-hub-westend" }
 asset-test-utils = { path = "cumulus/parachains/runtimes/assets/test-utils", default-features = false }
 assets-common = { path = "cumulus/parachains/runtimes/assets/common", default-features = false }
-ethereum-standards = { path = "cumulus/parachains/runtimes/assets/ethereum_standards" }
 async-channel = { version = "1.8.0" }
 async-std = { version = "1.9.0" }
 async-trait = { version = "0.1.88" }
@@ -658,6 +657,7 @@ backoff = { version = "0.4" }
 backtrace = { version = "0.3.71" }
 binary-merkle-tree = { path = "substrate/utils/binary-merkle-tree", default-features = false }
 bincode = { version = "1.3.3" }
+ethereum-standards = { path = "cumulus/parachains/runtimes/assets/ethereum_standards" }
 # personal fork here as workaround for: https://github.com/rust-bitcoin/rust-bip39/pull/64
 bip39 = { package = "parity-bip39", version = "2.0.1", default-features = false }
 bitflags = { version = "1.3.2" }

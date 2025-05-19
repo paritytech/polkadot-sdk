@@ -37,8 +37,8 @@ xcm-executor = { workspace = true }
 
 # Cumulus
 cumulus-primitives-core = { workspace = true }
-parachains-common = { workspace = true }
 ethereum-standards = { workspace = true }
+parachains-common = { workspace = true }
 
 [features]
 default = ["std"]
@@ -77,5 +77,11 @@ runtime-benchmarks = [
 	"xcm/runtime-benchmarks",
 ]
 try-runtime = [
+	"frame-support/try-runtime",
+	"frame-system/try-runtime",
+	"pallet-asset-conversion/try-runtime",
+	"pallet-assets/try-runtime",
 	"pallet-revive/try-runtime",
+	"pallet-xcm/try-runtime",
+	"sp-runtime/try-runtime",
 ]

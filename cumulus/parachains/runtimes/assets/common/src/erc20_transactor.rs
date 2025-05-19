@@ -21,12 +21,12 @@ use alloy_core::{
 	sol_types::*,
 };
 use core::marker::PhantomData;
+use ethereum_standards::IERC20;
 use frame_support::{
 	pallet_prelude::Zero,
 	traits::{fungible::Inspect, OriginTrait},
 };
 use pallet_revive::{AddressMapper, ContractResult, DepositLimit, MomentOf};
-use ethereum_standards::IERC20;
 use sp_core::{Get, H160, H256, U256};
 use sp_runtime::Weight;
 use xcm::latest::prelude::*;
