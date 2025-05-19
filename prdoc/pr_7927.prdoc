@@ -1,0 +1,12 @@
+title: Capture Logs in Dry Run Flow to Improve XCM Debugging
+doc:
+- audience: Runtime Dev
+  description: This PR enhances the observability of the XCM dry-run flow by adding
+    a test case that captures debug log messages during execution.
+crates:
+- name: pallet-xcm
+  bump: patch
+- name: xcm-runtime-apis
+  bump: patch
+- name: staging-xcm-executor
+  bump: patch
