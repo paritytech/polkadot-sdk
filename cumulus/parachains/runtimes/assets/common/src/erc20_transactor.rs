@@ -101,17 +101,18 @@ where
 		// We do this using the solidity ERC20 interface.
 		let data =
 			IERC20::transferCall { to: checking_address, value: EU256::from(amount) }.abi_encode();
-		let ContractResult { result, gas_consumed, .. } = pallet_revive::Pallet::<T>::bare_call(
-			T::RuntimeOrigin::signed(who.clone()),
-			asset_id,
-			BalanceOf::<T>::zero(),
-			gas_limit,
-			DepositLimit::Unchecked,
-			data,
-		);
+		let ContractResult { result, gas_consumed, storage_deposit, .. } =
+			pallet_revive::Pallet::<T>::bare_call(
+				T::RuntimeOrigin::signed(who.clone()),
+				asset_id,
+				BalanceOf::<T>::zero(),
+				gas_limit,
+				DepositLimit::Unchecked,
+				data,
+			);
 		// We need to return this surplus for the executor to allow refunding it.
 		let surplus = gas_limit.saturating_sub(gas_consumed);
-		tracing::trace!(target: "xcm::transactor::erc20::withdraw", ?gas_consumed, ?surplus, "Gas consumed");
+		tracing::trace!(target: "xcm::transactor::erc20::withdraw", ?gas_consumed, ?surplus, ?storage_deposit);
 		if let Ok(return_value) = result {
 			tracing::trace!(target: "xcm::transactor::erc20::withdraw", ?return_value, "Return value by withdraw_asset");
 			if return_value.did_revert() {
@@ -123,6 +124,7 @@ where
 					XcmError::FailedToTransactAsset("ERC20 contract result couldn't decode")
 				})?;
 				if is_success {
+					tracing::trace!(target: "xcm::transactor::erc20::withdraw", "ERC20 contract was successful");
 					Ok((what.clone().into(), surplus))
 				} else {
 					tracing::debug!(target: "xcm::transactor::erc20::withdraw", "contract transfer failed");
@@ -157,17 +159,18 @@ where
 		// We do this using the solidity ERC20 interface.
 		let data = IERC20::transferCall { to: address, value: EU256::from(amount) }.abi_encode();
 		let gas_limit = GasLimit::get();
-		let ContractResult { result, gas_consumed, .. } = pallet_revive::Pallet::<T>::bare_call(
-			T::RuntimeOrigin::signed(TransfersCheckingAccount::get()),
-			asset_id,
-			BalanceOf::<T>::zero(),
-			gas_limit,
-			DepositLimit::Unchecked,
-			data,
-		);
+		let ContractResult { result, gas_consumed, storage_deposit, .. } =
+			pallet_revive::Pallet::<T>::bare_call(
+				T::RuntimeOrigin::signed(TransfersCheckingAccount::get()),
+				asset_id,
+				BalanceOf::<T>::zero(),
+				gas_limit,
+				DepositLimit::Unchecked,
+				data,
+			);
 		// We need to return this surplus for the executor to allow refunding it.
 		let surplus = gas_limit.saturating_sub(gas_consumed);
-		tracing::trace!(target: "xcm::transactor::erc20::deposit", ?gas_consumed, ?surplus, "Gas consumed");
+		tracing::trace!(target: "xcm::transactor::erc20::deposit", ?gas_consumed, ?surplus, ?storage_deposit);
 		if let Ok(return_value) = result {
 			tracing::trace!(target: "xcm::transactor::erc20::deposit", ?return_value, "Return value");
 			if return_value.did_revert() {
@@ -179,6 +182,7 @@ where
 					XcmError::FailedToTransactAsset("ERC20 contract result couldn't decode")
 				})?;
 				if is_success {
+					tracing::trace!(target: "xcm::transactor::erc20::deposit", "ERC20 contract was successful");
 					Ok(surplus)
 				} else {
 					tracing::debug!(target: "xcm::transactor::erc20::deposit", "contract transfer failed");

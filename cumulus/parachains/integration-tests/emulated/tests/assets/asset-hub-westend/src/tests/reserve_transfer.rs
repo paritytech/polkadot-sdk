@@ -1499,7 +1499,7 @@ fn withdraw_and_deposit_erc20s() {
 			RuntimeOrigin::signed(sender.clone()),
 			0,
 			Weight::from_parts(2_000_000_000, 200_000),
-			DepositLimit::Unchecked,
+			DepositLimit::Balance(Balance::MAX),
 			Code::Upload(code),
 			constructor_data,
 			None,
@@ -1531,7 +1531,7 @@ fn withdraw_and_deposit_erc20s() {
 		));
 
 		// Taken from running the test.
-		let refunded_amount = 926_576_000_000;
+		let refunded_amount = 915_196_000_000;
 
 		// Revive is not taking any fees.
 		let sender_balance_after = <Balances as fungible::Inspect<_>>::balance(&sender);
@@ -1551,7 +1551,8 @@ fn withdraw_and_deposit_erc20s() {
 fn non_existent_erc20_will_error() {
 	let sender = AssetHubWestendSender::get();
 	let beneficiary = AssetHubWestendReceiver::get();
-	let checking_account = asset_hub_westend_runtime::xcm_config::CheckingAccount::get();
+	let checking_account =
+		asset_hub_westend_runtime::xcm_config::ERC20TransfersCheckingAccount::get();
 
 	// We need to give enough funds for every account involved so they
 	// can call `Contracts::map_account`.
@@ -1600,7 +1601,8 @@ fn non_existent_erc20_will_error() {
 fn smart_contract_not_erc20_will_error() {
 	let sender = AssetHubWestendSender::get();
 	let beneficiary = AssetHubWestendReceiver::get();
-	let checking_account = asset_hub_westend_runtime::xcm_config::CheckingAccount::get();
+	let checking_account =
+		asset_hub_westend_runtime::xcm_config::ERC20TransfersCheckingAccount::get();
 
 	// We need to give enough funds for every account involved so they
 	// can call `Contracts::map_account`.
@@ -1628,7 +1630,7 @@ fn smart_contract_not_erc20_will_error() {
 			RuntimeOrigin::signed(sender.clone()),
 			0,
 			Weight::from_parts(2_000_000_000, 200_000),
-			DepositLimit::Unchecked,
+			DepositLimit::Balance(Balance::MAX),
 			Code::Upload(code),
 			Vec::new(),
 			None,
@@ -1658,11 +1660,14 @@ fn smart_contract_not_erc20_will_error() {
 	});
 }
 
+// Here the contract returns a number but because it can be cast to true
+// it still succeeds.
 #[test]
-fn smart_contract_returns_more_data_handled_gracefully() {
+fn smart_contract_returns_more_data_but_still_succeeds() {
 	let sender = AssetHubWestendSender::get();
 	let beneficiary = AssetHubWestendReceiver::get();
-	let checking_account = asset_hub_westend_runtime::xcm_config::CheckingAccount::get();
+	let checking_account =
+		asset_hub_westend_runtime::xcm_config::ERC20TransfersCheckingAccount::get();
 
 	// We need to give enough funds for every account involved so they
 	// can call `Contracts::map_account`.
@@ -1687,13 +1692,80 @@ fn smart_contract_returns_more_data_handled_gracefully() {
 		// This contract implements the ERC20 interface for `transfer` except it returns a uint256.
 		let (code, _) = compile_module("fake_erc20").unwrap();
 
+		let initial_amount_u256 = U256::from(1_000_000_000_000u128);
+		let constructor_data = sol_data::Uint::<256>::abi_encode(&initial_amount_u256);
 		let result = Contracts::bare_instantiate(
 			RuntimeOrigin::signed(sender.clone()),
 			0,
 			Weight::from_parts(2_000_000_000, 200_000),
-			DepositLimit::Unchecked,
+			DepositLimit::Balance(Balance::MAX),
 			Code::Upload(code),
-			Vec::new(),
+			constructor_data,
+			None,
+		);
+		let Ok(InstantiateReturnValue { addr: non_erc20_address, .. }) = result.result else {
+			unreachable!("contract should initialize")
+		};
+
+		let wnd_amount_for_fees = 1_000_000_000_000u128;
+		let erc20_transfer_amount = 100u128;
+		let message = Xcm::<RuntimeCall>::builder()
+			.withdraw_asset((Parent, wnd_amount_for_fees))
+			.pay_fees((Parent, wnd_amount_for_fees))
+			.withdraw_asset((
+				AccountKey20 { key: non_erc20_address.into(), network: None },
+				erc20_transfer_amount,
+			))
+			.deposit_asset(AllCounted(1), beneficiary.clone())
+			.build();
+		// Execution fails but doesn't panic.
+		assert_ok!(PolkadotXcm::execute(
+			RuntimeOrigin::signed(sender.clone()),
+			Box::new(VersionedXcm::V5(message)),
+			Weight::from_parts(2_500_000_000, 120_000),
+		));
+	});
+}
+
+#[test]
+fn expensive_erc20_runs_out_of_gas() {
+	let sender = AssetHubWestendSender::get();
+	let beneficiary = AssetHubWestendReceiver::get();
+	let checking_account =
+		asset_hub_westend_runtime::xcm_config::ERC20TransfersCheckingAccount::get();
+
+	// We need to give enough funds for every account involved so they
+	// can call `Contracts::map_account`.
+	let initial_wnd_amount = 10_000_000_000_000u128;
+	AssetHubWestend::fund_accounts(vec![
+		(sender.clone(), initial_wnd_amount),
+		(beneficiary.clone(), initial_wnd_amount),
+		(checking_account.clone(), initial_wnd_amount),
+	]);
+
+	AssetHubWestend::execute_with(|| {
+		type RuntimeCall = <AssetHubWestend as Chain>::RuntimeCall;
+		type RuntimeOrigin = <AssetHubWestend as Chain>::RuntimeOrigin;
+		type PolkadotXcm = <AssetHubWestend as AssetHubWestendPallet>::PolkadotXcm;
+		type Contracts = <AssetHubWestend as AssetHubWestendPallet>::Contracts;
+
+		// We need to map all accounts.
+		assert_ok!(Contracts::map_account(RuntimeOrigin::signed(checking_account.clone())));
+		assert_ok!(Contracts::map_account(RuntimeOrigin::signed(sender.clone())));
+		assert_ok!(Contracts::map_account(RuntimeOrigin::signed(beneficiary.clone())));
+
+		// This contract does a lot more storage writes in `transfer`.
+		let (code, _) = compile_module("expensive_erc20").unwrap();
+
+		let initial_amount_u256 = U256::from(1_000_000_000_000u128);
+		let constructor_data = sol_data::Uint::<256>::abi_encode(&initial_amount_u256);
+		let result = Contracts::bare_instantiate(
+			RuntimeOrigin::signed(sender.clone()),
+			0,
+			Weight::from_parts(2_000_000_000, 200_000),
+			DepositLimit::Balance(Balance::MAX),
+			Code::Upload(code),
+			constructor_data,
 			None,
 		);
 		let Ok(InstantiateReturnValue { addr: non_erc20_address, .. }) = result.result else {
