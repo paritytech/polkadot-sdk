@@ -15858,6 +15858,7 @@ dependencies = [
  "cumulus-relay-chain-streams",
  "cumulus-test-relay-sproof-builder",
  "emulated-integration-tests-common",
+ "ethereum-standards",
  "fork-tree",
  "frame-benchmarking",
  "frame-benchmarking-cli",
