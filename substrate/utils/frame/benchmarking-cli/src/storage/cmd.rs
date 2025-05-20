@@ -146,7 +146,7 @@ pub struct StorageParams {
 	/// Number of rounds to run the benchmark on block validation.
 	///
 	/// We need to run the benchmark several times to avoid fluctuations during runtime setup.
-	#[arg(long, default_value_t = 5, requires = "on_block_validation")]
+	#[arg(long, default_value_t = 20, requires = "on_block_validation")]
 	pub on_block_validation_rounds: u32,
 }
 
