@@ -20,6 +20,7 @@ use crate::{
 	address::AddressMapper, AccountIdOf, BalanceOf, Code, Config, ContractResult, DepositLimit,
 	ExecReturnValue, InstantiateReturnValue, OriginFor, Pallet, Weight,
 };
+use alloc::{vec, vec::Vec};
 use frame_support::pallet_prelude::DispatchResultWithPostInfo;
 use paste::paste;
 use sp_core::H160;
@@ -146,7 +147,10 @@ builder!(
 
 	/// Build the instantiate call and unwrap the account id.
 	pub fn build_and_unwrap_contract(self) -> Contract<T> {
-		let addr = self.build().result.unwrap().addr;
+		let result = self.build().result.unwrap();
+		assert!(!result.result.did_revert(), "instantiation did revert");
+
+		let addr = result.addr;
 		let account_id = T::AddressMapper::to_account_id(&addr);
 		Contract{ account_id,  addr }
 	}

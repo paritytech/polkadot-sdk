@@ -14,7 +14,7 @@ ws_port = 9955
 
 [[parachains]]
 id = 1000
-chain_spec_path = "<path/to/chain_spec.json>"
+chain_spec_path = "./dev_chain_spec.json"
 
 [parachains.collator]
 name = "charlie"

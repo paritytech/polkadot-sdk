@@ -17,6 +17,9 @@ targets = ["x86_64-unknown-linux-gnu"]
 [lib]
 proc-macro = true
 
+[[example]]
+name = "proc_main"
+
 [dependencies]
 Inflector = { workspace = true }
 cfg-expr = { workspace = true }
@@ -33,33 +36,26 @@ sp-crypto-hashing = { workspace = true }
 syn = { features = ["full", "parsing", "visit-mut"], workspace = true }
 
 [dev-dependencies]
-codec = { features = [
-	"derive",
-	"max-encoded-len",
-], workspace = true }
-frame-support = { workspace = true }
-frame-system = { workspace = true }
+codec = { features = ["derive", "max-encoded-len"], workspace = true, default-features = true }
+frame-benchmarking = { workspace = true, default-features = true }
+frame-support = { workspace = true, default-features = true }
+frame-system = { workspace = true, default-features = true }
 pretty_assertions = { workspace = true }
 regex = { workspace = true }
-scale-info = { features = ["derive"], workspace = true }
-sp-core = { workspace = true }
-sp-io = { workspace = true }
-sp-metadata-ir = { workspace = true }
-sp-runtime = { features = [
-	"serde",
-], workspace = true }
-static_assertions = { workspace = true }
+scale-info = { features = ["derive"], workspace = true, default-features = true }
+sp-io = { workspace = true, default-features = true }
+sp-metadata-ir = { workspace = true, default-features = true }
+sp-runtime = { features = ["serde"], workspace = true, default-features = true }
 
 [features]
 default = ["std"]
 std = [
 	"codec/std",
+	"frame-benchmarking/std",
 	"frame-support/std",
 	"frame-system/std",
 	"scale-info/std",
-	"sp-core/std",
 	"sp-crypto-hashing/std",
-	"sp-io/std",
 	"sp-metadata-ir/std",
 	"sp-runtime/std",
 ]
@@ -69,6 +65,3 @@ experimental = []
 # pallets in a runtime grows. Does increase the compile time!
 tuples-96 = []
 tuples-128 = []
-
-[[example]]
-name = "proc_main"

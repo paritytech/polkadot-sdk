@@ -71,7 +71,7 @@ git_show_log() {
 # 1_012_000 or 1_012_001 if SUFFIX is set
 function get_spec_version() {
     INPUT=$1
-    SUFFIX=${SUFFIX:-000} #this variable makes it possible to set a specific ruuntime version like 93826 it can be intialised as sestem variable
+    SUFFIX=${SUFFIX:-000} #this variable makes it possible to set a specific runtime version like 93826 it can be initialised as system variable
     [[ $INPUT =~ .*([0-9]+\.[0-9]+\.[0-9]{1,2}).* ]]
     VERSION="${BASH_REMATCH[1]}"
     MATCH="${BASH_REMATCH[0]}"

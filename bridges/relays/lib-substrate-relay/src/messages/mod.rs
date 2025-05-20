@@ -820,6 +820,7 @@ mod tests {
 	}
 
 	// mock runtime with `pallet_bridge_messages`
+	#[allow(unexpected_cfgs)]
 	mod mock {
 		use super::super::*;
 		use bp_messages::{target_chain::ForbidInboundMessages, HashedLaneId};
@@ -974,7 +975,6 @@ mod tests {
 			}
 		}
 		impl relay_substrate_client::ChainWithMessages for ThisChain {
-			const WITH_CHAIN_RELAYERS_PALLET_NAME: Option<&'static str> = None;
 			const TO_CHAIN_MESSAGE_DETAILS_METHOD: &'static str = "";
 			const FROM_CHAIN_MESSAGE_DETAILS_METHOD: &'static str = "";
 		}
@@ -1010,7 +1010,6 @@ mod tests {
 			}
 		}
 		impl relay_substrate_client::ChainWithMessages for BridgedChain {
-			const WITH_CHAIN_RELAYERS_PALLET_NAME: Option<&'static str> = None;
 			const TO_CHAIN_MESSAGE_DETAILS_METHOD: &'static str = "";
 			const FROM_CHAIN_MESSAGE_DETAILS_METHOD: &'static str = "";
 		}

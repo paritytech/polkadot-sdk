@@ -112,7 +112,7 @@ struct Metrics {
 
 impl Metrics {
 	fn register(r: &Registry, major_syncing: Arc<AtomicBool>) -> Result<Self, PrometheusError> {
-		let _ = MajorSyncingGauge::register(r, major_syncing)?;
+		MajorSyncingGauge::register(r, major_syncing)?;
 		Ok(Self {
 			peers: {
 				let g = Gauge::new("substrate_sync_peers", "Number of peers we sync with")?;
@@ -657,8 +657,10 @@ where
 				self.strategy.set_sync_fork_request(peers, &hash, number);
 			},
 			ToServiceCommand::EventStream(tx) => {
-				let _ = tx
-					.unbounded_send(SyncEvent::InitialPeers(self.peers.keys().cloned().collect()));
+				// Let a new subscriber know about already connected peers.
+				for peer_id in self.peers.keys() {
+					let _ = tx.unbounded_send(SyncEvent::PeerConnected(*peer_id));
+				}
 				self.event_streams.push(tx);
 			},
 			ToServiceCommand::RequestJustification(hash, number) =>

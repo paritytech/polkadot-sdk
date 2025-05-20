@@ -24,6 +24,7 @@ pub mod matching;
 pub mod runtime_api;
 
 extern crate alloc;
+extern crate core;
 
 use crate::matching::{LocalLocationPattern, ParentLocation};
 use alloc::vec::Vec;

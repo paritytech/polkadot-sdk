@@ -33,21 +33,20 @@ use polkadot_primitives::{
 	node_features::FeatureIndex,
 	slashing,
 	vstaging::{CandidateEvent, CoreState, OccupiedCore, ScrapedOnChainVotes},
-	AsyncBackingParams, CandidateHash, CoreIndex, EncodeAs, ExecutorParams, GroupIndex,
-	GroupRotationInfo, Hash, Id as ParaId, IndexedVec, NodeFeatures, SessionIndex, SessionInfo,
-	Signed, SigningContext, UncheckedSigned, ValidationCode, ValidationCodeHash, ValidatorId,
-	ValidatorIndex, LEGACY_MIN_BACKING_VOTES,
+	CandidateHash, CoreIndex, EncodeAs, ExecutorParams, GroupIndex, GroupRotationInfo, Hash,
+	Id as ParaId, IndexedVec, NodeFeatures, SessionIndex, SessionInfo, Signed, SigningContext,
+	UncheckedSigned, ValidationCode, ValidationCodeHash, ValidatorId, ValidatorIndex,
+	DEFAULT_SCHEDULING_LOOKAHEAD,
 };
 
 use std::collections::{BTreeMap, VecDeque};
 
 use crate::{
-	has_required_runtime, request_async_backing_params, request_availability_cores,
-	request_candidate_events, request_claim_queue, request_disabled_validators,
-	request_from_runtime, request_key_ownership_proof, request_on_chain_votes,
-	request_session_executor_params, request_session_index_for_child, request_session_info,
-	request_submit_report_dispute_lost, request_unapplied_slashes, request_validation_code_by_hash,
-	request_validator_groups,
+	request_availability_cores, request_candidate_events, request_claim_queue,
+	request_disabled_validators, request_from_runtime, request_key_ownership_proof,
+	request_node_features, request_on_chain_votes, request_session_executor_params,
+	request_session_index_for_child, request_session_info, request_submit_report_dispute_lost,
+	request_unapplied_slashes, request_validation_code_by_hash, request_validator_groups,
 };
 
 /// Errors that can happen on runtime fetches.
@@ -203,7 +202,7 @@ impl RuntimeInfo {
 			Some(result) => Ok(result),
 			None => {
 				let disabled_validators =
-					get_disabled_validators_with_fallback(sender, relay_parent).await?;
+					request_disabled_validators(relay_parent, sender).await.await??;
 				self.disabled_validators_cache.insert(relay_parent, disabled_validators.clone());
 				Ok(disabled_validators)
 			},
@@ -236,9 +235,8 @@ impl RuntimeInfo {
 
 			let validator_info = self.get_validator_info(&session_info)?;
 
-			let node_features = request_node_features(parent, session_index, sender)
-				.await?
-				.unwrap_or(NodeFeatures::EMPTY);
+			let node_features =
+				request_node_features(parent, session_index, sender).await.await??;
 			let last_set_index = node_features.iter_ones().last().unwrap_or_default();
 			if last_set_index >= FeatureIndex::FirstUnassigned as usize {
 				gum::warn!(target: LOG_TARGET, "Runtime requires feature bit {} that node doesn't support, please upgrade node version", last_set_index);
@@ -469,122 +467,6 @@ where
 	.await
 }
 
-/// Prospective parachains mode of a relay parent. Defined by
-/// the Runtime API version.
-///
-/// Needed for the period of transition to asynchronous backing.
-#[derive(Debug, Copy, Clone)]
-pub enum ProspectiveParachainsMode {
-	/// Runtime API without support of `async_backing_params`: no prospective parachains.
-	Disabled,
-	/// v6 runtime API: prospective parachains.
-	Enabled {
-		/// The maximum number of para blocks between the para head in a relay parent
-		/// and a new candidate. Restricts nodes from building arbitrary long chains
-		/// and spamming other validators.
-		max_candidate_depth: usize,
-		/// How many ancestors of a relay parent are allowed to build candidates on top
-		/// of.
-		allowed_ancestry_len: usize,
-	},
-}
-
-impl ProspectiveParachainsMode {
-	/// Returns `true` if mode is enabled, `false` otherwise.
-	pub fn is_enabled(&self) -> bool {
-		matches!(self, ProspectiveParachainsMode::Enabled { .. })
-	}
-}
-
-/// Requests prospective parachains mode for a given relay parent based on
-/// the Runtime API version.
-pub async fn prospective_parachains_mode<Sender>(
-	sender: &mut Sender,
-	relay_parent: Hash,
-) -> Result<ProspectiveParachainsMode>
-where
-	Sender: SubsystemSender<RuntimeApiMessage>,
-{
-	let result = recv_runtime(request_async_backing_params(relay_parent, sender).await).await;
-
-	if let Err(error::Error::RuntimeRequest(RuntimeApiError::NotSupported { runtime_api_name })) =
-		&result
-	{
-		gum::trace!(
-			target: LOG_TARGET,
-			?relay_parent,
-			"Prospective parachains are disabled, {} is not supported by the current Runtime API",
-			runtime_api_name,
-		);
-
-		Ok(ProspectiveParachainsMode::Disabled)
-	} else {
-		let AsyncBackingParams { max_candidate_depth, allowed_ancestry_len } = result?;
-		Ok(ProspectiveParachainsMode::Enabled {
-			max_candidate_depth: max_candidate_depth as _,
-			allowed_ancestry_len: allowed_ancestry_len as _,
-		})
-	}
-}
-
-/// Request the min backing votes value.
-/// Prior to runtime API version 6, just return a hardcoded constant.
-pub async fn request_min_backing_votes(
-	parent: Hash,
-	session_index: SessionIndex,
-	sender: &mut impl overseer::SubsystemSender<RuntimeApiMessage>,
-) -> Result<u32> {
-	let min_backing_votes_res = recv_runtime(
-		request_from_runtime(parent, sender, |tx| {
-			RuntimeApiRequest::MinimumBackingVotes(session_index, tx)
-		})
-		.await,
-	)
-	.await;
-
-	if let Err(Error::RuntimeRequest(RuntimeApiError::NotSupported { .. })) = min_backing_votes_res
-	{
-		gum::trace!(
-			target: LOG_TARGET,
-			?parent,
-			"Querying the backing threshold from the runtime is not supported by the current Runtime API",
-		);
-
-		Ok(LEGACY_MIN_BACKING_VOTES)
-	} else {
-		min_backing_votes_res
-	}
-}
-
-/// Request the node features enabled in the runtime.
-/// Pass in the session index for caching purposes, as it should only change on session boundaries.
-/// Prior to runtime API version 9, just return `None`.
-pub async fn request_node_features(
-	parent: Hash,
-	session_index: SessionIndex,
-	sender: &mut impl overseer::SubsystemSender<RuntimeApiMessage>,
-) -> Result<Option<NodeFeatures>> {
-	let res = recv_runtime(
-		request_from_runtime(parent, sender, |tx| {
-			RuntimeApiRequest::NodeFeatures(session_index, tx)
-		})
-		.await,
-	)
-	.await;
-
-	if let Err(Error::RuntimeRequest(RuntimeApiError::NotSupported { .. })) = res {
-		gum::trace!(
-			target: LOG_TARGET,
-			?parent,
-			"Querying the node features from the runtime is not supported by the current Runtime API",
-		);
-
-		Ok(None)
-	} else {
-		res.map(Some)
-	}
-}
-
 /// A snapshot of the runtime claim queue at an arbitrary relay chain block.
 #[derive(Default)]
 pub struct ClaimQueueSnapshot(pub BTreeMap<CoreIndex, VecDeque<ParaId>>);
@@ -627,55 +509,73 @@ impl ClaimQueueSnapshot {
 	}
 }
 
-// TODO: https://github.com/paritytech/polkadot-sdk/issues/1940
-/// Returns disabled validators list if the runtime supports it. Otherwise logs a debug messages and
-/// returns an empty vec.
-/// Once runtime ver `DISABLED_VALIDATORS_RUNTIME_REQUIREMENT` is released remove this function and
-/// replace all usages with `request_disabled_validators`
-pub async fn get_disabled_validators_with_fallback<Sender: SubsystemSender<RuntimeApiMessage>>(
-	sender: &mut Sender,
-	relay_parent: Hash,
-) -> Result<Vec<ValidatorIndex>> {
-	let disabled_validators = if has_required_runtime(
-		sender,
-		relay_parent,
-		RuntimeApiRequest::DISABLED_VALIDATORS_RUNTIME_REQUIREMENT,
-	)
-	.await
-	{
-		request_disabled_validators(relay_parent, sender)
-			.await
-			.await
-			.map_err(Error::RuntimeRequestCanceled)??
-	} else {
-		gum::debug!(target: LOG_TARGET, "Runtime doesn't support `DisabledValidators` - continuing with an empty disabled validators set");
-		vec![]
-	};
-
-	Ok(disabled_validators)
-}
-
-/// Checks if the runtime supports `request_claim_queue` and attempts to fetch the claim queue.
-/// Returns `ClaimQueueSnapshot` or `None` if claim queue API is not supported by runtime.
-/// Any specific `RuntimeApiError` is bubbled up to the caller.
+/// Fetch the claim queue and wrap it into a helpful `ClaimQueueSnapshot`
 pub async fn fetch_claim_queue(
 	sender: &mut impl SubsystemSender<RuntimeApiMessage>,
 	relay_parent: Hash,
-) -> Result<Option<ClaimQueueSnapshot>> {
-	if has_required_runtime(
-		sender,
-		relay_parent,
-		RuntimeApiRequest::CLAIM_QUEUE_RUNTIME_REQUIREMENT,
+) -> Result<ClaimQueueSnapshot> {
+	let cq = request_claim_queue(relay_parent, sender)
+		.await
+		.await
+		.map_err(Error::RuntimeRequestCanceled)??;
+
+	Ok(cq.into())
+}
+
+/// Returns the lookahead from the scheduler params if the runtime supports it,
+/// or default value if scheduling lookahead API is not supported by runtime.
+pub async fn fetch_scheduling_lookahead(
+	parent: Hash,
+	session_index: SessionIndex,
+	sender: &mut impl overseer::SubsystemSender<RuntimeApiMessage>,
+) -> Result<u32> {
+	let res = recv_runtime(
+		request_from_runtime(parent, sender, |tx| {
+			RuntimeApiRequest::SchedulingLookahead(session_index, tx)
+		})
+		.await,
 	)
-	.await
-	{
-		let res = request_claim_queue(relay_parent, sender)
-			.await
-			.await
-			.map_err(Error::RuntimeRequestCanceled)??;
-		Ok(Some(res.into()))
+	.await;
+
+	if let Err(Error::RuntimeRequest(RuntimeApiError::NotSupported { .. })) = res {
+		gum::trace!(
+			target: LOG_TARGET,
+			?parent,
+			"Querying the scheduling lookahead from the runtime is not supported by the current Runtime API, falling back to default value of {}",
+			DEFAULT_SCHEDULING_LOOKAHEAD
+		);
+
+		Ok(DEFAULT_SCHEDULING_LOOKAHEAD)
 	} else {
-		gum::trace!(target: LOG_TARGET, "Runtime doesn't support `request_claim_queue`");
-		Ok(None)
+		res
+	}
+}
+
+/// Fetch the validation code bomb limit from the runtime.
+pub async fn fetch_validation_code_bomb_limit(
+	parent: Hash,
+	session_index: SessionIndex,
+	sender: &mut impl overseer::SubsystemSender<RuntimeApiMessage>,
+) -> Result<u32> {
+	let res = recv_runtime(
+		request_from_runtime(parent, sender, |tx| {
+			RuntimeApiRequest::ValidationCodeBombLimit(session_index, tx)
+		})
+		.await,
+	)
+	.await;
+
+	if let Err(Error::RuntimeRequest(RuntimeApiError::NotSupported { .. })) = res {
+		gum::trace!(
+			target: LOG_TARGET,
+			?parent,
+			"Querying the validation code bomb limit from the runtime is not supported by the current Runtime API",
+		);
+
+		// TODO: Remove this once runtime API version 12 is released.
+		#[allow(deprecated)]
+		Ok(polkadot_node_primitives::VALIDATION_CODE_BOMB_LIMIT as u32)
+	} else {
+		res
 	}
 }

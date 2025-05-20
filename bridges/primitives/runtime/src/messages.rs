@@ -16,13 +16,13 @@
 
 //! Primitives that may be used by different message delivery and dispatch mechanisms.
 
-use codec::{Decode, Encode};
+use codec::{Decode, DecodeWithMemTracking, Encode};
 use frame_support::weights::Weight;
 use scale_info::TypeInfo;
 use sp_runtime::RuntimeDebug;
 
 /// Message dispatch result.
-#[derive(Encode, Decode, RuntimeDebug, Clone, PartialEq, Eq, TypeInfo)]
+#[derive(Encode, Decode, DecodeWithMemTracking, RuntimeDebug, Clone, PartialEq, Eq, TypeInfo)]
 pub struct MessageDispatchResult<DispatchLevelResult> {
 	/// Unspent dispatch weight. This weight that will be deducted from total delivery transaction
 	/// weight, thus reducing the transaction cost. This shall not be zero in (at least) two cases:

@@ -30,6 +30,7 @@ pub mod pallet_assets_pool;
 pub mod pallet_balances;
 pub mod pallet_collator_selection;
 pub mod pallet_message_queue;
+pub mod pallet_migrations;
 pub mod pallet_multisig;
 pub mod pallet_nft_fractionalization;
 pub mod pallet_nfts;
@@ -43,6 +44,8 @@ pub mod pallet_xcm;
 pub mod pallet_xcm_bridge_hub_router;
 pub mod paritydb_weights;
 pub mod rocksdb_weights;
+pub mod snowbridge_pallet_system_backend;
+pub mod snowbridge_pallet_system_frontend;
 pub mod xcm;
 
 pub use block_weights::constants::BlockExecutionWeight;

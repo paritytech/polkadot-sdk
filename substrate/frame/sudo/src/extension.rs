@@ -16,13 +16,14 @@
 // limitations under the License.
 
 use crate::{Config, Key};
-use codec::{Decode, Encode};
+use alloc::vec;
+use codec::{Decode, DecodeWithMemTracking, Encode};
 use core::{fmt, marker::PhantomData};
 use frame_support::{dispatch::DispatchInfo, ensure, pallet_prelude::TransactionSource};
 use scale_info::TypeInfo;
 use sp_runtime::{
 	impl_tx_ext_default,
-	traits::{AsSystemOriginSigner, DispatchInfoOf, Dispatchable, TransactionExtension},
+	traits::{AsSystemOriginSigner, DispatchInfoOf, Dispatchable, Hash, TransactionExtension},
 	transaction_validity::{
 		InvalidTransaction, TransactionPriority, TransactionValidityError, UnknownTransaction,
 		ValidTransaction,
@@ -31,13 +32,13 @@ use sp_runtime::{
 
 /// Ensure that signed transactions are only valid if they are signed by sudo account.
 ///
-/// In the initial phase of a chain without any tokens you can not prevent accounts from sending
+/// In the initial phase of a chain without any tokens you cannot prevent accounts from sending
 /// transactions.
 /// These transactions would enter the transaction pool as the succeed the validation, but would
 /// fail on applying them as they are not allowed/disabled/whatever. This would be some huge dos
 /// vector to any kind of chain. This extension solves the dos vector by preventing any kind of
 /// transaction entering the pool as long as it is not signed by the sudo account.
-#[derive(Clone, Eq, PartialEq, Encode, Decode, TypeInfo)]
+#[derive(Clone, Eq, PartialEq, Encode, Decode, DecodeWithMemTracking, TypeInfo)]
 #[scale_info(skip_type_params(T))]
 pub struct CheckOnlySudoAccount<T: Config + Send + Sync>(PhantomData<T>);
 
@@ -89,7 +90,7 @@ where
 	fn validate(
 		&self,
 		origin: <<T as frame_system::Config>::RuntimeCall as Dispatchable>::RuntimeOrigin,
-		_call: &<T as frame_system::Config>::RuntimeCall,
+		call: &<T as frame_system::Config>::RuntimeCall,
 		info: &DispatchInfoOf<<T as frame_system::Config>::RuntimeCall>,
 		_len: usize,
 		_self_implicit: Self::Implicit,
@@ -110,6 +111,7 @@ where
 		Ok((
 			ValidTransaction {
 				priority: info.total_weight().ref_time() as TransactionPriority,
+				provides: vec![(who, T::Hashing::hash_of(call)).encode()],
 				..Default::default()
 			},
 			(),

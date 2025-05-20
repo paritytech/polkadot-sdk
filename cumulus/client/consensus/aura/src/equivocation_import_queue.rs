@@ -1,5 +1,6 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
+// SPDX-License-Identifier: GPL-3.0-or-later WITH Classpath-exception-2.0
 
 // Cumulus is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -8,11 +9,11 @@
 
 // Cumulus is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 // GNU General Public License for more details.
 
 // You should have received a copy of the GNU General Public License
-// along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
+// along with Cumulus. If not, see <https://www.gnu.org/licenses/>.
 
 /// An import queue which provides some equivocation resistance with lenient trait bounds.
 ///
@@ -68,12 +69,41 @@ impl NaiveEquivocationDefender {
 	}
 }
 
-struct Verifier<P, Client, Block, CIDP> {
+/// A parachain block import verifier that checks for equivocation limits within each slot.
+pub struct Verifier<P, Client, Block, CIDP> {
 	client: Arc<Client>,
 	create_inherent_data_providers: CIDP,
 	defender: Mutex<NaiveEquivocationDefender>,
 	telemetry: Option<TelemetryHandle>,
 	_phantom: std::marker::PhantomData<fn() -> (Block, P)>,
+}
+
+impl<P, Client, Block, CIDP> Verifier<P, Client, Block, CIDP>
+where
+	P: Pair,
+	P::Signature: Codec,
+	P::Public: Codec + Debug,
+	Block: BlockT,
+	Client: ProvideRuntimeApi<Block> + Send + Sync,
+	<Client as ProvideRuntimeApi<Block>>::Api: BlockBuilderApi<Block> + AuraApi<Block, P::Public>,
+
+	CIDP: CreateInherentDataProviders<Block, ()>,
+{
+	/// Creates a new Verifier instance for handling parachain block import verification in Aura
+	/// consensus.
+	pub fn new(
+		client: Arc<Client>,
+		inherent_data_provider: CIDP,
+		telemetry: Option<TelemetryHandle>,
+	) -> Self {
+		Self {
+			client,
+			create_inherent_data_providers: inherent_data_provider,
+			defender: Mutex::new(NaiveEquivocationDefender::default()),
+			telemetry,
+			_phantom: std::marker::PhantomData,
+		}
+	}
 }
 
 #[async_trait::async_trait]

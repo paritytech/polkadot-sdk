@@ -1,5 +1,6 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
+// SPDX-License-Identifier: GPL-3.0-or-later WITH Classpath-exception-2.0
 
 // Cumulus is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -8,11 +9,11 @@
 
 // Cumulus is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 // GNU General Public License for more details.
 
 // You should have received a copy of the GNU General Public License
-// along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
+// along with Cumulus. If not, see <https://www.gnu.org/licenses/>.
 
 //! Cumulus Collator implementation for Substrate.
 
@@ -31,7 +32,7 @@ use polkadot_node_subsystem::messages::{CollationGenerationMessage, CollatorProt
 use polkadot_overseer::Handle as OverseerHandle;
 use polkadot_primitives::{CollatorPair, Id as ParaId};
 
-use codec::{Decode, Encode};
+use codec::Decode;
 use futures::prelude::*;
 use std::sync::Arc;
 
@@ -120,13 +121,7 @@ where
 
 		let (collation, b) = self.service.build_collation(&last_head, block_hash, candidate)?;
 
-		tracing::info!(
-			target: LOG_TARGET,
-			"PoV size {{ header: {}kb, extrinsics: {}kb, storage_proof: {}kb }}",
-			b.header().encode().len() as f64 / 1024f64,
-			b.extrinsics().encode().len() as f64 / 1024f64,
-			b.storage_proof().encode().len() as f64 / 1024f64,
-		);
+		b.log_size_info();
 
 		if let MaybeCompressedPoV::Compressed(ref pov) = collation.proof_of_validity {
 			tracing::info!(
@@ -336,6 +331,7 @@ pub fn start_collator_sync<Block, RA, BS, Spawner>(
 mod tests {
 	use super::*;
 	use async_trait::async_trait;
+	use codec::Encode;
 	use cumulus_client_consensus_common::ParachainCandidate;
 	use cumulus_primitives_core::ParachainBlockData;
 	use cumulus_test_client::{
@@ -458,10 +454,10 @@ mod tests {
 		let block =
 			ParachainBlockData::<Block>::decode(&mut &decompressed[..]).expect("Is a valid block");
 
-		assert_eq!(1, *block.header().number());
+		assert_eq!(1, *block.blocks()[0].header().number());
 
 		// Ensure that we did not include `:code` in the proof.
-		let proof = block.storage_proof();
+		let proof = block.proof().clone();
 
 		let backend = sp_state_machine::create_proof_check_backend::<BlakeTwo256>(
 			*header.state_root(),

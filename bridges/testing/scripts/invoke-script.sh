@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 INVOKE_LOG=`mktemp -p $TEST_FOLDER invoke.XXXXX`
 

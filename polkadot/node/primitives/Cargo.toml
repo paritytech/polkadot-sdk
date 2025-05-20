@@ -25,14 +25,9 @@ serde = { features = ["derive"], workspace = true, default-features = true }
 sp-application-crypto = { workspace = true, default-features = true }
 sp-consensus-babe = { workspace = true, default-features = true }
 sp-consensus-slots = { workspace = true }
-sp-core = { workspace = true, default-features = true }
 sp-keystore = { workspace = true, default-features = true }
 sp-maybe-compressed-blob = { workspace = true, default-features = true }
-sp-runtime = { workspace = true, default-features = true }
 thiserror = { workspace = true }
 
 [target.'cfg(not(target_os = "unknown"))'.dependencies]
-zstd = { version = "0.12.4", default-features = false }
-
-[dev-dependencies]
-polkadot-erasure-coding = { workspace = true, default-features = true }
+zstd = { workspace = true, default-features = false }

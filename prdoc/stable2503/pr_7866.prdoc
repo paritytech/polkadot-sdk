@@ -1,0 +1,29 @@
+title: Make litep2p the default backend in Kusama
+
+doc:
+  - audience: Node Operator
+    description: |
+      This PR makes the litep2p backend the default network backend in Kusama, but also for system chains.
+      We performed a gradual rollout in Kusama by asking validators to manually switch to litep2p.
+      The rollout went smoothly, with 250 validators running litep2p without issues. This PR represents the next step in testing the backend at scale.
+
+  - audience: Node Dev
+    description: |
+      A new trait `IdentifyNetworkBackend` is introduced for the polkadot-service. The purpose of the trait
+      is to specify the default network backend for individual chains. For Kusama based chains, the default
+      is now litep2p. For other chains, the default remains unchanged to libp2p.
+      The network backend field of the network configuration is made optional to accomodate for this change.
+
+crates:
+  - name: sc-network
+    bump: minor
+  - name: sc-network-types
+    bump: minor
+  - name: polkadot-service
+    bump: minor
+  - name: sc-cli
+    bump: patch
+  - name: cumulus-relay-chain-minimal-node
+    bump: patch
+  - name: polkadot-omni-node-lib
+    bump: patch

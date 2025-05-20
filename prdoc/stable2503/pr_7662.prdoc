@@ -1,0 +1,26 @@
+title: 'pallet_revive: Change address derivation to use hashing'
+doc:
+- audience: Runtime Dev
+  description: |-
+    ## Motivation
+
+    Internal auditors recommended to not truncate Polkadot Addresses when deriving Ethereum addresses from it. Reasoning is that they are raw public keys where truncating could lead to collisions when weaknesses in those curves are discovered in the future. Additionally,  some pallets generate account addresses in a way where only the suffix we were truncating contains any entropy. The changes in this PR act as a safe guard against those two points.
+
+    ## Changes made
+
+    We change the `to_address` function to first hash the AccountId32 and then use trailing 20 bytes as `AccountId20`. If the `AccountId32` ends with 12x 0xEE we keep our current behaviour of just truncating those trailing bytes.
+
+    ## Security Discussion
+
+    This will allow us to still recover the original `AccountId20` because those are constructed by just adding those 12 bytes. Please note that generating an ed25519 key pair where the trailing 12 bytes are 0xEE is theoretically possible as 96bits is not a huge search space. However, this cannot be used as an attack vector. It will merely allow this address to interact with `pallet_revive` without registering as the fallback account is the same as the actual address. The ultimate vanity address. In practice, this is not relevant since the 0xEE addresses are not valid public keys for sr25519 which is used almost everywhere.
+
+    tl:dr: We keep truncating in case of an Ethereum address derived account id. This is safe as those are already derived via keccak. In every other case where we have to assume that the account id might be a public key. Therefore we first hash and then take the trailing bytes.
+
+    ## Do we need a Migration for Westend
+
+    No. We changed the name of the mapping. This means the runtime will not try to read the old data. Ethereum keys are unaffected by this change. We just advise people to re-register their AccountId32 in case they need to use it as it is a very small circle of users (just 3 addresses registered). This will not cause disturbance on Westend.
+crates:
+- name: pallet-revive
+  bump: major
+- name: pallet-revive-fixtures
+  bump: major

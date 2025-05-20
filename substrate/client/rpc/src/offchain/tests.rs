@@ -35,9 +35,14 @@ fn local_storage_should_work() {
 		Ok(())
 	);
 	assert_matches!(
-		offchain.get_local_storage(&ext, StorageKind::PERSISTENT, key),
+		offchain.get_local_storage(&ext, StorageKind::PERSISTENT, key.clone()),
 		Ok(Some(ref v)) if *v == value
 	);
+	assert_matches!(
+		offchain.clear_local_storage(&ext, StorageKind::PERSISTENT, key.clone()),
+		Ok(())
+	);
+	assert_matches!(offchain.get_local_storage(&ext, StorageKind::PERSISTENT, key), Ok(None));
 }
 
 #[test]
@@ -51,6 +56,12 @@ fn offchain_calls_considered_unsafe() {
 
 	assert_matches!(
 		offchain.set_local_storage(&ext, StorageKind::PERSISTENT, key.clone(), value.clone()),
+		Err(Error::UnsafeRpcCalled(e)) => {
+			assert_eq!(e.to_string(), "RPC call is unsafe to be called externally")
+		}
+	);
+	assert_matches!(
+		offchain.clear_local_storage(&ext, StorageKind::PERSISTENT, key.clone()),
 		Err(Error::UnsafeRpcCalled(e)) => {
 			assert_eq!(e.to_string(), "RPC call is unsafe to be called externally")
 		}

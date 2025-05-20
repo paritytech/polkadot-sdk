@@ -18,8 +18,8 @@
 //! This module contains functions to meter the storage deposit.
 
 use crate::{
-	storage::ContractInfo, AccountIdOf, BalanceOf, CodeInfo, Config, Error, HoldReason, Inspect,
-	Origin, Pallet, StorageDeposit as Deposit, System, LOG_TARGET,
+	storage::ContractInfo, AccountIdOf, BalanceOf, Config, Error, HoldReason, Inspect, Origin,
+	StorageDeposit as Deposit, System, LOG_TARGET,
 };
 use alloc::vec::Vec;
 use core::{fmt::Debug, marker::PhantomData};
@@ -404,49 +404,26 @@ impl<T: Config, E: Ext<T>> RawMeter<T, E, Nested> {
 		};
 	}
 
-	/// Adds a deposit charge.
+	/// Adds a charge without recording it in the contract info.
 	///
 	/// Use this method instead of [`Self::charge`] when the charge is not the result of a storage
-	/// change. This is the case when a `delegate_dependency` is added or removed, or when the
-	/// `code_hash` is updated. [`Self::charge`] cannot be used here because we keep track of the
-	/// deposit charge separately from the storage charge.
+	/// change within the contract's child trie. This is the case when when the `code_hash` is
+	/// updated. [`Self::charge`] cannot be used here because we keep track of the deposit charge
+	/// separately from the storage charge.
+	///
+	/// If this functions is used the amount of the charge has to be stored by the caller somewhere
+	/// alese in order to be able to refund it.
 	pub fn charge_deposit(&mut self, contract: T::AccountId, amount: DepositOf<T>) {
-		self.total_deposit = self.total_deposit.saturating_add(&amount);
+		self.record_charge(&amount);
 		self.charges.push(Charge { contract, amount, state: ContractState::Alive });
 	}
 
-	/// Charges from `origin` a storage deposit for contract instantiation.
+	/// Record a charge that has taken place externally.
 	///
-	/// This immediately transfers the balance in order to create the account.
-	pub fn charge_instantiate(
-		&mut self,
-		origin: &T::AccountId,
-		contract: &T::AccountId,
-		contract_info: &mut ContractInfo<T>,
-		code_info: &CodeInfo<T>,
-		skip_transfer: bool,
-	) -> Result<(), DispatchError> {
-		debug_assert!(matches!(self.contract_state(), ContractState::Alive));
-
-		// We need to make sure that the contract's account exists.
-		let ed = Pallet::<T>::min_balance();
-		self.total_deposit = Deposit::Charge(ed);
-		if skip_transfer {
-			T::Currency::set_balance(contract, ed);
-		} else {
-			T::Currency::transfer(origin, contract, ed, Preservation::Preserve)?;
-		}
-
-		// A consumer is added at account creation and removed it on termination, otherwise the
-		// runtime could remove the account. As long as a contract exists its account must exist.
-		// With the consumer, a correct runtime cannot remove the account.
-		System::<T>::inc_consumers(contract)?;
-
-		let deposit = contract_info.update_base_deposit(&code_info);
-		let deposit = Deposit::Charge(deposit);
-
-		self.charge_deposit(contract.clone(), deposit);
-		Ok(())
+	/// This will not perform a charge. It just records it to reflect it in the
+	/// total amount of storage required for a transaction.
+	pub fn record_charge(&mut self, amount: &DepositOf<T>) {
+		self.total_deposit = self.total_deposit.saturating_add(&amount);
 	}
 
 	/// Call to tell the meter that the currently executing contract was terminated.
@@ -660,7 +637,6 @@ mod tests {
 			storage_byte_deposit: info.bytes_deposit,
 			storage_item_deposit: info.items_deposit,
 			storage_base_deposit: Default::default(),
-			delegate_dependencies: Default::default(),
 			immutable_data_len: info.immutable_data_len,
 		}
 	}

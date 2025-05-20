@@ -31,7 +31,7 @@ use sp_runtime::{
 #[derive(Clone, Eq, PartialEq, Encode, Decode, RuntimeDebug, TypeInfo)]
 pub enum DepositLimit<Balance> {
 	/// Allows bypassing all balance transfer checks.
-	Unchecked,
+	UnsafeOnlyForDryRun,
 
 	/// Specifies a maximum allowable balance for a deposit.
 	Balance(Balance),
@@ -40,7 +40,7 @@ pub enum DepositLimit<Balance> {
 impl<T> DepositLimit<T> {
 	pub fn is_unchecked(&self) -> bool {
 		match self {
-			Self::Unchecked => true,
+			Self::UnsafeOnlyForDryRun => true,
 			_ => false,
 		}
 	}
@@ -106,6 +106,14 @@ pub struct EthTransactInfo<Balance> {
 pub enum EthTransactError {
 	Data(Vec<u8>),
 	Message(String),
+}
+
+/// Precision used for converting between Native and EVM balances.
+pub enum ConversionPrecision {
+	/// Exact conversion without any rounding.
+	Exact,
+	/// Conversion that rounds up to the nearest whole number.
+	RoundUp,
 }
 
 /// Result type of a `bare_code_upload` call.

@@ -34,8 +34,8 @@ use polkadot_node_network_protocol::{
 		outgoing::{Recipient, RequestError},
 		v1 as request_v1, v2 as request_v2, OutgoingRequest, Requests,
 	},
-	v1 as protocol_v1, v2 as protocol_v2, OurView, PeerId, UnifiedReputationChange as Rep,
-	Versioned, View,
+	v1 as protocol_v1, v2 as protocol_v2, CollationProtocols, OurView, PeerId,
+	UnifiedReputationChange as Rep, View,
 };
 use polkadot_node_primitives::{SignedFullStatement, Statement};
 use polkadot_node_subsystem::{
@@ -49,33 +49,29 @@ use polkadot_node_subsystem::{
 use polkadot_node_subsystem_util::{
 	backing_implicit_view::View as ImplicitView,
 	reputation::{ReputationAggregator, REPUTATION_CHANGE_INTERVAL},
-	request_async_backing_params, request_claim_queue, request_session_index_for_child,
-	runtime::{recv_runtime, request_node_features},
+	request_claim_queue, request_node_features, request_session_index_for_child,
 };
 use polkadot_primitives::{
 	node_features,
 	vstaging::{CandidateDescriptorV2, CandidateDescriptorVersion},
-	AsyncBackingParams, CandidateHash, CollatorId, CoreIndex, Hash, HeadData, Id as ParaId,
-	OccupiedCoreAssumption, PersistedValidationData, SessionIndex,
+	CandidateHash, CollatorId, CoreIndex, Hash, HeadData, Id as ParaId, OccupiedCoreAssumption,
+	PersistedValidationData, SessionIndex,
 };
-
-use crate::error::{Error, FetchError, Result, SecondingError};
-
-use self::collation::BlockedCollationId;
-
-use self::claim_queue_state::ClaimQueueState;
 
 use super::{modify_reputation, tick_stream, LOG_TARGET};
 
 mod claim_queue_state;
 mod collation;
+mod error;
 mod metrics;
 
+use claim_queue_state::ClaimQueueState;
 use collation::{
-	fetched_collation_sanity_check, CollationEvent, CollationFetchError, CollationFetchRequest,
-	CollationStatus, Collations, FetchedCollation, PendingCollation, PendingCollationFetch,
-	ProspectiveCandidate,
+	fetched_collation_sanity_check, BlockedCollationId, CollationEvent, CollationFetchError,
+	CollationFetchRequest, CollationStatus, Collations, FetchedCollation, PendingCollation,
+	PendingCollationFetch, ProspectiveCandidate,
 };
+use error::{Error, FetchError, Result, SecondingError};
 
 #[cfg(test)]
 mod tests;
@@ -166,7 +162,7 @@ impl PeerData {
 	fn update_view(
 		&mut self,
 		implicit_view: &ImplicitView,
-		active_leaves: &HashMap<Hash, AsyncBackingParams>,
+		active_leaves: &HashSet<Hash>,
 		new_view: View,
 	) {
 		let old_view = std::mem::replace(&mut self.view, new_view);
@@ -191,7 +187,7 @@ impl PeerData {
 	fn prune_old_advertisements(
 		&mut self,
 		implicit_view: &ImplicitView,
-		active_leaves: &HashMap<Hash, AsyncBackingParams>,
+		active_leaves: &HashSet<Hash>,
 	) {
 		if let PeerState::Collating(ref mut peer_state) = self.state {
 			peer_state.advertisements.retain(|hash, _| {
@@ -215,7 +211,7 @@ impl PeerData {
 		on_relay_parent: Hash,
 		candidate_hash: Option<CandidateHash>,
 		implicit_view: &ImplicitView,
-		active_leaves: &HashMap<Hash, AsyncBackingParams>,
+		active_leaves: &HashSet<Hash>,
 		per_relay_parent: &PerRelayParent,
 	) -> std::result::Result<(CollatorId, ParaId), InsertAdvertisementError> {
 		match self.state {
@@ -365,10 +361,10 @@ struct State {
 	/// ancestry of some active leaf, then it does support prospective parachains.
 	implicit_view: ImplicitView,
 
-	/// All active leaves observed by us. This mapping works as a replacement for
+	/// All active leaves observed by us. This works as a replacement for
 	/// [`polkadot_node_network_protocol::View`] and can be dropped once the transition
 	/// to asynchronous backing is done.
-	active_leaves: HashMap<Hash, AsyncBackingParams>,
+	active_leaves: HashSet<Hash>,
 
 	/// State tracked per relay parent.
 	per_relay_parent: HashMap<Hash, PerRelayParent>,
@@ -465,10 +461,10 @@ impl State {
 fn is_relay_parent_in_implicit_view(
 	relay_parent: &Hash,
 	implicit_view: &ImplicitView,
-	active_leaves: &HashMap<Hash, AsyncBackingParams>,
+	active_leaves: &HashSet<Hash>,
 	para_id: ParaId,
 ) -> bool {
-	active_leaves.iter().any(|(hash, _)| {
+	active_leaves.iter().any(|hash| {
 		implicit_view
 			.known_allowed_relay_parents_under(hash, Some(para_id))
 			.unwrap_or_default()
@@ -574,7 +570,7 @@ fn collator_peer_id(
 
 async fn disconnect_peer(sender: &mut impl overseer::CollatorProtocolSenderTrait, peer_id: PeerId) {
 	sender
-		.send_message(NetworkBridgeTxMessage::DisconnectPeer(peer_id, PeerSet::Collation))
+		.send_message(NetworkBridgeTxMessage::DisconnectPeers(vec![peer_id], PeerSet::Collation))
 		.await
 }
 
@@ -640,12 +636,14 @@ async fn notify_collation_seconded(
 ) {
 	let statement = statement.into();
 	let wire_message = match version {
-		CollationVersion::V1 => Versioned::V1(protocol_v1::CollationProtocol::CollatorProtocol(
-			protocol_v1::CollatorProtocolMessage::CollationSeconded(relay_parent, statement),
-		)),
-		CollationVersion::V2 => Versioned::V2(protocol_v2::CollationProtocol::CollatorProtocol(
-			protocol_v2::CollatorProtocolMessage::CollationSeconded(relay_parent, statement),
-		)),
+		CollationVersion::V1 =>
+			CollationProtocols::V1(protocol_v1::CollationProtocol::CollatorProtocol(
+				protocol_v1::CollatorProtocolMessage::CollationSeconded(relay_parent, statement),
+			)),
+		CollationVersion::V2 =>
+			CollationProtocols::V2(protocol_v2::CollationProtocol::CollatorProtocol(
+				protocol_v2::CollatorProtocolMessage::CollationSeconded(relay_parent, statement),
+			)),
 	};
 	sender
 		.send_message(NetworkBridgeTxMessage::SendCollationMessage(vec![peer_id], wire_message))
@@ -760,16 +758,18 @@ async fn process_incoming_peer_message<Context>(
 	ctx: &mut Context,
 	state: &mut State,
 	origin: PeerId,
-	msg: Versioned<protocol_v1::CollatorProtocolMessage, protocol_v2::CollatorProtocolMessage>,
+	msg: CollationProtocols<
+		protocol_v1::CollatorProtocolMessage,
+		protocol_v2::CollatorProtocolMessage,
+	>,
 ) {
 	use protocol_v1::CollatorProtocolMessage as V1;
 	use protocol_v2::CollatorProtocolMessage as V2;
 	use sp_runtime::traits::AppVerify;
 
 	match msg {
-		Versioned::V1(V1::Declare(collator_id, para_id, signature)) |
-		Versioned::V2(V2::Declare(collator_id, para_id, signature)) |
-		Versioned::V3(V2::Declare(collator_id, para_id, signature)) => {
+		CollationProtocols::V1(V1::Declare(collator_id, para_id, signature)) |
+		CollationProtocols::V2(V2::Declare(collator_id, para_id, signature)) => {
 			if collator_peer_id(&state.peer_data, &collator_id).is_some() {
 				modify_reputation(
 					&mut state.reputation,
@@ -866,7 +866,7 @@ async fn process_incoming_peer_message<Context>(
 				disconnect_peer(ctx.sender(), origin).await;
 			}
 		},
-		Versioned::V1(V1::AdvertiseCollation(relay_parent)) =>
+		CollationProtocols::V1(V1::AdvertiseCollation(relay_parent)) =>
 			if let Err(err) =
 				handle_advertisement(ctx.sender(), state, relay_parent, origin, None).await
 			{
@@ -882,12 +882,7 @@ async fn process_incoming_peer_message<Context>(
 					modify_reputation(&mut state.reputation, ctx.sender(), origin, rep).await;
 				}
 			},
-		Versioned::V3(V2::AdvertiseCollation {
-			relay_parent,
-			candidate_hash,
-			parent_head_data_hash,
-		}) |
-		Versioned::V2(V2::AdvertiseCollation {
+		CollationProtocols::V2(V2::AdvertiseCollation {
 			relay_parent,
 			candidate_hash,
 			parent_head_data_hash,
@@ -915,9 +910,8 @@ async fn process_incoming_peer_message<Context>(
 				}
 			}
 		},
-		Versioned::V1(V1::CollationSeconded(..)) |
-		Versioned::V2(V2::CollationSeconded(..)) |
-		Versioned::V3(V2::CollationSeconded(..)) => {
+		CollationProtocols::V1(V1::CollationSeconded(..)) |
+		CollationProtocols::V2(V2::CollationSeconded(..)) => {
 			gum::warn!(
 				target: LOG_TARGET,
 				peer_id = ?origin,
@@ -1118,8 +1112,7 @@ where
 {
 	let peer_data = state.peer_data.get_mut(&peer_id).ok_or(AdvertisementError::UnknownPeer)?;
 
-	if peer_data.version == CollationVersion::V1 && !state.active_leaves.contains_key(&relay_parent)
-	{
+	if peer_data.version == CollationVersion::V1 && !state.active_leaves.contains(&relay_parent) {
 		return Err(AdvertisementError::ProtocolMisuse)
 	}
 
@@ -1274,8 +1267,8 @@ where
 {
 	let current_leaves = state.active_leaves.clone();
 
-	let removed = current_leaves.iter().filter(|(h, _)| !view.contains(h));
-	let added = view.iter().filter(|h| !current_leaves.contains_key(h));
+	let removed = current_leaves.iter().filter(|h| !view.contains(h));
+	let added = view.iter().filter(|h| !current_leaves.contains(h));
 
 	for leaf in added {
 		let session_index = request_session_index_for_child(*leaf, sender)
@@ -1283,12 +1276,10 @@ where
 			.await
 			.map_err(Error::CancelledSessionIndex)??;
 
-		let async_backing_params =
-			recv_runtime(request_async_backing_params(*leaf, sender).await).await?;
-
 		let v2_receipts = request_node_features(*leaf, session_index, sender)
-			.await?
-			.unwrap_or_default()
+			.await
+			.await
+			.map_err(Error::CancelledNodeFeatures)??
 			.get(node_features::FeatureIndex::CandidateReceiptV2 as usize)
 			.map(|b| *b)
 			.unwrap_or(false);
@@ -1306,7 +1297,7 @@ where
 			continue
 		};
 
-		state.active_leaves.insert(*leaf, async_backing_params);
+		state.active_leaves.insert(*leaf);
 		state.per_relay_parent.insert(*leaf, per_relay_parent);
 
 		state
@@ -1340,7 +1331,7 @@ where
 		}
 	}
 
-	for (removed, _) in removed {
+	for removed in removed {
 		gum::trace!(
 			target: LOG_TARGET,
 			?view,
@@ -1609,7 +1600,7 @@ pub(crate) async fn run<Context>(
 	keystore: KeystorePtr,
 	eviction_policy: crate::CollatorEvictionPolicy,
 	metrics: Metrics,
-) -> std::result::Result<(), crate::error::FatalError> {
+) -> std::result::Result<(), std::convert::Infallible> {
 	run_inner(
 		ctx,
 		keystore,
@@ -1629,7 +1620,7 @@ async fn run_inner<Context>(
 	metrics: Metrics,
 	reputation: ReputationAggregator,
 	reputation_interval: Duration,
-) -> std::result::Result<(), crate::error::FatalError> {
+) -> std::result::Result<(), std::convert::Infallible> {
 	let new_reputation_delay = || futures_timer::Delay::new(reputation_interval).fuse();
 	let mut reputation_delay = new_reputation_delay();
 

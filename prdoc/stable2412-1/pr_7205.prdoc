@@ -1,0 +1,10 @@
+title: 'Collator: Fix `can_build_upon` by always allowing to build on included block'
+doc:
+- audience: Node Dev
+  description: |-
+    Fixes a bug introduced in #6825.
+    We should always allow building on the included block of parachains. In situations where the unincluded segment
+    is full, but the included block moved to the most recent block, building was wrongly disallowed.
+crates:
+- name: cumulus-client-consensus-aura
+  bump: minor

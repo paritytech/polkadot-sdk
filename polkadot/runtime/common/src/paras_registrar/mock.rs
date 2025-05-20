@@ -24,7 +24,7 @@ use frame_support::{derive_impl, parameter_types};
 use frame_system::limits;
 use polkadot_primitives::{Balance, BlockNumber, MAX_CODE_SIZE};
 use polkadot_runtime_parachains::{configuration, origin, shared};
-use sp_core::H256;
+use sp_core::{ConstUint, H256};
 use sp_io::TestExternalities;
 use sp_keyring::Sr25519Keyring;
 use sp_runtime::{
@@ -129,6 +129,8 @@ impl paras::Config for Test {
 	type NextSessionRotation = crate::mock::TestNextSessionRotation;
 	type OnNewHead = ();
 	type AssignCoretime = ();
+	type Fungible = Balances;
+	type CooldownRemovalMultiplier = ConstUint<1>;
 }
 
 impl configuration::Config for Test {
@@ -166,6 +168,7 @@ pub fn new_test_ext() -> TestExternalities {
 
 	pallet_balances::GenesisConfig::<Test> {
 		balances: vec![(1, 10_000_000), (2, 10_000_000), (3, 10_000_000)],
+		..Default::default()
 	}
 	.assimilate_storage(&mut t)
 	.unwrap();

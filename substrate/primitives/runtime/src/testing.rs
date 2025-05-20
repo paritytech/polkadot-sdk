@@ -18,7 +18,7 @@
 //! Testing utilities.
 
 use crate::{
-	codec::{Codec, Decode, Encode, MaxEncodedLen},
+	codec::{Codec, Decode, DecodeWithMemTracking, Encode, MaxEncodedLen},
 	generic::{self, UncheckedExtrinsic},
 	scale_info::TypeInfo,
 	traits::{self, BlakeTwo256, Dispatchable, OpaqueKeys},
@@ -42,6 +42,7 @@ use std::{cell::RefCell, fmt::Debug};
 	Clone,
 	Encode,
 	Decode,
+	DecodeWithMemTracking,
 	Debug,
 	Hash,
 	Serialize,
@@ -165,7 +166,19 @@ impl traits::Verify for UintAuthorityId {
 }
 
 /// A dummy signature type, to match `UintAuthorityId`.
-#[derive(Eq, PartialEq, Clone, Debug, Hash, Serialize, Deserialize, Encode, Decode, TypeInfo)]
+#[derive(
+	Eq,
+	PartialEq,
+	Clone,
+	Debug,
+	Hash,
+	Serialize,
+	Deserialize,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	TypeInfo,
+)]
 pub struct TestSignature(pub u64, pub Vec<u8>);
 
 impl traits::Verify for TestSignature {
@@ -199,7 +212,9 @@ impl Header {
 }
 
 /// Testing block
-#[derive(PartialEq, Eq, Clone, Serialize, Debug, Encode, Decode, TypeInfo)]
+#[derive(
+	PartialEq, Eq, Clone, Serialize, Debug, Encode, Decode, DecodeWithMemTracking, TypeInfo,
+)]
 pub struct Block<Xt> {
 	/// Block header
 	pub header: Header,
@@ -214,6 +229,7 @@ impl<Xt> traits::HeaderProvider for Block<Xt> {
 impl<
 		Xt: 'static
 			+ Codec
+			+ DecodeWithMemTracking
 			+ Sized
 			+ Send
 			+ Sync
@@ -260,7 +276,7 @@ where
 pub type TestXt<Call, Extra> = UncheckedExtrinsic<u64, Call, (), Extra>;
 
 /// Wrapper over a `u64` that can be used as a `RuntimeCall`.
-#[derive(PartialEq, Eq, Debug, Clone, Encode, Decode, TypeInfo)]
+#[derive(PartialEq, Eq, Debug, Clone, Encode, Decode, DecodeWithMemTracking, TypeInfo)]
 pub struct MockCallU64(pub u64);
 
 impl Dispatchable for MockCallU64 {

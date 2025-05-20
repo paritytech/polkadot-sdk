@@ -17,7 +17,7 @@
 
 use crate::Config;
 use alloc::vec;
-use codec::{Decode, Encode};
+use codec::{Decode, DecodeWithMemTracking, Encode};
 use frame_support::{
 	dispatch::DispatchInfo, pallet_prelude::TransactionSource, RuntimeDebugNoBound,
 };
@@ -46,7 +46,7 @@ use sp_weights::Weight;
 /// step. This means that other extensions ahead of `CheckNonce` in the pipeline must not alter the
 /// nonce during their own preparation step, or else the transaction may be rejected during dispatch
 /// or lead to an inconsistent account state.
-#[derive(Encode, Decode, Clone, Eq, PartialEq, TypeInfo)]
+#[derive(Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, TypeInfo)]
 #[scale_info(skip_type_params(T))]
 pub struct CheckNonce<T: Config>(#[codec(compact)] pub T::Nonce);
 

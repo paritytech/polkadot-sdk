@@ -357,7 +357,18 @@ impl frame_system::Config for Runtime {
 	type ExtensionsWeightInfo = MockExtensionsWeights;
 }
 
-#[derive(Encode, Decode, Copy, Clone, Eq, PartialEq, MaxEncodedLen, TypeInfo, RuntimeDebug)]
+#[derive(
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	Copy,
+	Clone,
+	Eq,
+	PartialEq,
+	MaxEncodedLen,
+	TypeInfo,
+	RuntimeDebug,
+)]
 pub enum FreezeReasonId {
 	Foo,
 }
@@ -451,6 +462,7 @@ parameter_types! {
 }
 
 type TxExtension = (
+	frame_system::AuthorizeCall<Runtime>,
 	frame_system::CheckEra<Runtime>,
 	frame_system::CheckNonce<Runtime>,
 	frame_system::CheckWeight<Runtime>,
@@ -560,6 +572,7 @@ impl MultiStepMigrator for MockedModeGetter {
 
 fn tx_ext(nonce: u64, fee: Balance) -> TxExtension {
 	(
+		frame_system::AuthorizeCall::<Runtime>::new(),
 		frame_system::CheckEra::from(Era::Immortal),
 		frame_system::CheckNonce::from(nonce),
 		frame_system::CheckWeight::new(),
@@ -576,7 +589,7 @@ fn call_transfer(dest: u64, value: u64) -> RuntimeCall {
 #[test]
 fn balance_transfer_dispatch_works() {
 	let mut t = frame_system::GenesisConfig::<Runtime>::default().build_storage().unwrap();
-	pallet_balances::GenesisConfig::<Runtime> { balances: vec![(1, 211)] }
+	pallet_balances::GenesisConfig::<Runtime> { balances: vec![(1, 211)], ..Default::default() }
 		.assimilate_storage(&mut t)
 		.unwrap();
 	let xt = UncheckedXt::new_signed(call_transfer(2, 69), 1, 1.into(), tx_ext(0, 0));
@@ -598,9 +611,12 @@ fn balance_transfer_dispatch_works() {
 
 fn new_test_ext(balance_factor: Balance) -> sp_io::TestExternalities {
 	let mut t = frame_system::GenesisConfig::<Runtime>::default().build_storage().unwrap();
-	pallet_balances::GenesisConfig::<Runtime> { balances: vec![(1, 111 * balance_factor)] }
-		.assimilate_storage(&mut t)
-		.unwrap();
+	pallet_balances::GenesisConfig::<Runtime> {
+		balances: vec![(1, 111 * balance_factor)],
+		..Default::default()
+	}
+	.assimilate_storage(&mut t)
+	.unwrap();
 	let mut ext: sp_io::TestExternalities = t.into();
 	ext.execute_with(|| {
 		SystemCallbacksCalled::set(0);
@@ -610,9 +626,12 @@ fn new_test_ext(balance_factor: Balance) -> sp_io::TestExternalities {
 
 fn new_test_ext_v0(balance_factor: Balance) -> sp_io::TestExternalities {
 	let mut t = frame_system::GenesisConfig::<Runtime>::default().build_storage().unwrap();
-	pallet_balances::GenesisConfig::<Runtime> { balances: vec![(1, 111 * balance_factor)] }
-		.assimilate_storage(&mut t)
-		.unwrap();
+	pallet_balances::GenesisConfig::<Runtime> {
+		balances: vec![(1, 111 * balance_factor)],
+		..Default::default()
+	}
+	.assimilate_storage(&mut t)
+	.unwrap();
 	(t, sp_runtime::StateVersion::V0).into()
 }
 
@@ -1279,7 +1298,7 @@ fn try_execute_block_works() {
 /// Same as `extrinsic_while_exts_forbidden_errors` but using the try-runtime function.
 #[test]
 #[cfg(feature = "try-runtime")]
-#[should_panic = "Only inherents allowed"]
+#[should_panic = "Only inherents are allowed in this block"]
 fn try_execute_tx_forbidden_errors() {
 	let xt1 = UncheckedXt::new_bare(RuntimeCall::Custom(custom::Call::inherent {}));
 	let xt2 = UncheckedXt::new_signed(call_transfer(33, 0), 1, 1.into(), tx_ext(0, 0));
@@ -1306,64 +1325,78 @@ fn try_execute_tx_forbidden_errors() {
 	});
 }
 
-/// Check that `ensure_inherents_are_first` reports the correct indices.
+/// Test if `apply_extrinsics` validates if the inherents are first.
 #[test]
-fn ensure_inherents_are_first_works() {
+fn apply_extrinsics_checks_inherents_are_first() {
 	let in1 = UncheckedXt::new_bare(RuntimeCall::Custom(custom::Call::inherent {}));
 	let in2 = UncheckedXt::new_bare(RuntimeCall::Custom2(custom2::Call::inherent {}));
 	let xt2 = UncheckedXt::new_signed(call_transfer(33, 0), 1, 1.into(), tx_ext(0, 0));
 
-	// Mocked empty header:
-	let header = new_test_ext(1).execute_with(|| {
-		Executive::initialize_block(&Header::new_from_number(1));
-		Executive::finalize_block()
-	});
-
 	new_test_ext(1).execute_with(|| {
-		assert_ok!(Runtime::ensure_inherents_are_first(&Block::new(header.clone(), vec![]),), 0);
 		assert_ok!(
-			Runtime::ensure_inherents_are_first(&Block::new(header.clone(), vec![xt2.clone()]),),
-			0
+			Executive::apply_extrinsics(
+				ExtrinsicInclusionMode::AllExtrinsics,
+				[].into_iter(),
+				|_, _| Ok(Ok(()))
+			),
+			()
 		);
 		assert_ok!(
-			Runtime::ensure_inherents_are_first(&Block::new(header.clone(), vec![in1.clone()])),
-			1
+			Executive::apply_extrinsics(
+				ExtrinsicInclusionMode::AllExtrinsics,
+				[xt2.clone()].into_iter(),
+				|_, _| Ok(Ok(()))
+			),
+			()
 		);
 		assert_ok!(
-			Runtime::ensure_inherents_are_first(&Block::new(
-				header.clone(),
-				vec![in1.clone(), xt2.clone()]
-			),),
-			1
+			Executive::apply_extrinsics(
+				ExtrinsicInclusionMode::AllExtrinsics,
+				[in1.clone()].into_iter(),
+				|_, _| Ok(Ok(()))
+			),
+			()
 		);
 		assert_ok!(
-			Runtime::ensure_inherents_are_first(&Block::new(
-				header.clone(),
-				vec![in2.clone(), in1.clone(), xt2.clone()]
-			),),
-			2
+			Executive::apply_extrinsics(
+				ExtrinsicInclusionMode::AllExtrinsics,
+				[in1.clone(), xt2.clone()].into_iter(),
+				|_, _| Ok(Ok(()))
+			),
+			()
+		);
+		assert_ok!(
+			Executive::apply_extrinsics(
+				ExtrinsicInclusionMode::AllExtrinsics,
+				[in2.clone(), in1.clone(), xt2.clone()].into_iter(),
+				|_, _| Ok(Ok(()))
+			),
+			()
 		);
 
-		assert_eq!(
-			Runtime::ensure_inherents_are_first(&Block::new(
-				header.clone(),
-				vec![xt2.clone(), in1.clone()]
-			),),
-			Err(1)
+		assert_err!(
+			Executive::apply_extrinsics(
+				ExtrinsicInclusionMode::AllExtrinsics,
+				[xt2.clone(), in1.clone()].into_iter(),
+				|_, _| Ok(Ok(()))
+			),
+			ExecutiveError::InvalidInherentPosition(1)
 		);
-		assert_eq!(
-			Runtime::ensure_inherents_are_first(&Block::new(
-				header.clone(),
-				vec![xt2.clone(), xt2.clone(), in1.clone()]
-			),),
-			Err(2)
+		assert_err!(
+			Executive::apply_extrinsics(
+				ExtrinsicInclusionMode::AllExtrinsics,
+				[xt2.clone(), xt2.clone(), in1.clone()].into_iter(),
+				|_, _| Ok(Ok(()))
+			),
+			ExecutiveError::InvalidInherentPosition(2)
 		);
-		assert_eq!(
-			Runtime::ensure_inherents_are_first(&Block::new(
-				header.clone(),
-				vec![xt2.clone(), xt2.clone(), xt2.clone(), in2.clone()]
-			),),
-			Err(3)
+		assert_err!(
+			Executive::apply_extrinsics(
+				ExtrinsicInclusionMode::AllExtrinsics,
+				[xt2.clone(), xt2.clone(), xt2.clone(), in2.clone()].into_iter(),
+				|_, _| Ok(Ok(()))
+			),
+			ExecutiveError::InvalidInherentPosition(3)
 		);
 	});
 }
@@ -1421,7 +1454,7 @@ fn callbacks_in_block_execution_works_inner(mbms_active: bool) {
 
 			match header {
 				Err(e) => {
-					let err = e.downcast::<&str>().unwrap();
+					let err = e.downcast::<String>().unwrap();
 					assert_eq!(*err, "Only inherents are allowed in this block");
 					assert!(
 						MbmActive::get() && n_tx > 0,

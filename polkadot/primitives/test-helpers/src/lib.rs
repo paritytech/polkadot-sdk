@@ -381,22 +381,30 @@ pub struct TestCandidateBuilder {
 	pub pov_hash: Hash,
 	pub relay_parent: Hash,
 	pub commitments_hash: Hash,
+	pub core_index: CoreIndex,
 }
 
 impl std::default::Default for TestCandidateBuilder {
 	fn default() -> Self {
 		let zeros = Hash::zero();
-		Self { para_id: 0.into(), pov_hash: zeros, relay_parent: zeros, commitments_hash: zeros }
+		Self {
+			para_id: 0.into(),
+			pov_hash: zeros,
+			relay_parent: zeros,
+			commitments_hash: zeros,
+			core_index: CoreIndex(0),
+		}
 	}
 }
 
 impl TestCandidateBuilder {
 	/// Build a `CandidateReceipt`.
 	pub fn build(self) -> CandidateReceiptV2 {
-		let mut descriptor = dummy_candidate_descriptor(self.relay_parent);
-		descriptor.para_id = self.para_id;
-		descriptor.pov_hash = self.pov_hash;
-		CandidateReceipt { descriptor, commitments_hash: self.commitments_hash }.into()
+		let mut descriptor = dummy_candidate_descriptor_v2(self.relay_parent);
+		descriptor.set_para_id(self.para_id);
+		descriptor.set_pov_hash(self.pov_hash);
+		descriptor.set_core_index(self.core_index);
+		CandidateReceiptV2 { descriptor, commitments_hash: self.commitments_hash }
 	}
 }
 

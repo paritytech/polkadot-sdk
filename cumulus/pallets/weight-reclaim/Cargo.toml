@@ -27,7 +27,7 @@ frame-system = { workspace = true }
 
 # Other dependencies
 codec = { features = ["derive"], workspace = true }
-derivative = { features = ["use_core"], workspace = true }
+derive-where = { workspace = true }
 docify = { workspace = true }
 log = { workspace = true, default-features = true }
 scale-info = { features = ["derive"], workspace = true }

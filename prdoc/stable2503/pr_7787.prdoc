@@ -1,0 +1,11 @@
+title: Add asset-hub-next as a trusted teleporter
+doc:
+- audience: Runtime Dev
+  description: |-
+    Asset Hub Next has been deployed on Westend as parachain 1100, but it's not yet a trusted teleporter.
+    This minimal PR adds it in stable2412 so that it can be deployed right away without waiting for the rest of the release to be finalised and deployed.
+crates:
+- name: westend-runtime-constants
+  bump: patch
+- name: westend-runtime
+  bump: patch

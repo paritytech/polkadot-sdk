@@ -20,7 +20,7 @@ use alloc::{
 	vec::{IntoIter, Vec},
 };
 use bitvec::{field::BitField, slice::BitSlice, vec::BitVec};
-use codec::{Decode, Encode};
+use codec::{Decode, DecodeWithMemTracking, Encode};
 use core::{
 	marker::PhantomData,
 	slice::{Iter, IterMut},
@@ -117,7 +117,19 @@ pub trait TypeIndex {
 
 /// Index of the validator is used as a lightweight replacement of the `ValidatorId` when
 /// appropriate.
-#[derive(Eq, Ord, PartialEq, PartialOrd, Copy, Clone, Encode, Decode, TypeInfo, RuntimeDebug)]
+#[derive(
+	Eq,
+	Ord,
+	PartialEq,
+	PartialOrd,
+	Copy,
+	Clone,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	TypeInfo,
+	RuntimeDebug,
+)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize, Hash))]
 pub struct ValidatorIndex(pub u32);
 
@@ -426,7 +438,7 @@ pub const MAX_HEAD_DATA_SIZE: u32 = 1 * 1024 * 1024;
 /// * checking updates to this stored runtime configuration do not exceed this limit
 /// * when detecting a PoV decompression bomb in the client
 // NOTE: This value is used in the runtime so be careful when changing it.
-pub const MAX_POV_SIZE: u32 = 5 * 1024 * 1024;
+pub const MAX_POV_SIZE: u32 = 10 * 1024 * 1024;
 
 /// Default queue size we use for the on-demand order book.
 ///
@@ -443,6 +455,9 @@ pub const ON_DEMAND_MAX_QUEUE_MAX_SIZE: u32 = 1_000_000_000;
 /// Backing votes threshold used from the host prior to runtime API version 6 and from the runtime
 /// prior to v9 configuration migration.
 pub const LEGACY_MIN_BACKING_VOTES: u32 = 2;
+
+/// Default value for `SchedulerParams.lookahead`
+pub const DEFAULT_SCHEDULING_LOOKAHEAD: u32 = 3;
 
 // The public key of a keypair used by a validator for determining assignments
 /// to approve included parachain candidates.
@@ -658,7 +673,7 @@ impl Ord for CommittedCandidateReceipt {
 /// The `PersistedValidationData` should be relatively lightweight primarily because it is
 /// constructed during inclusion for each candidate and therefore lies on the critical path of
 /// inclusion.
-#[derive(PartialEq, Eq, Clone, Encode, Decode, TypeInfo, RuntimeDebug)]
+#[derive(PartialEq, Eq, Clone, Encode, Decode, DecodeWithMemTracking, TypeInfo, RuntimeDebug)]
 #[cfg_attr(feature = "std", derive(Default))]
 pub struct PersistedValidationData<H = Hash, N = BlockNumber> {
 	/// The parent head-data.
@@ -679,7 +694,7 @@ impl<H: Encode, N: Encode> PersistedValidationData<H, N> {
 }
 
 /// Commitments made in a `CandidateReceipt`. Many of these are outputs of validation.
-#[derive(PartialEq, Eq, Clone, Encode, Decode, TypeInfo, RuntimeDebug)]
+#[derive(PartialEq, Eq, Clone, Encode, Decode, DecodeWithMemTracking, TypeInfo, RuntimeDebug)]
 #[cfg_attr(feature = "std", derive(Default, Hash))]
 pub struct CandidateCommitments<N = BlockNumber> {
 	/// Messages destined to be interpreted by the Relay chain itself.
@@ -707,7 +722,7 @@ impl CandidateCommitments {
 /// A bitfield concerning availability of backed candidates.
 ///
 /// Every bit refers to an availability core index.
-#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
+#[derive(PartialEq, Eq, Clone, Encode, Decode, DecodeWithMemTracking, RuntimeDebug, TypeInfo)]
 pub struct AvailabilityBitfield(pub BitVec<u8, bitvec::order::Lsb0>);
 
 impl From<BitVec<u8, bitvec::order::Lsb0>> for AvailabilityBitfield {
@@ -739,9 +754,8 @@ pub struct BackedCandidate<H = Hash> {
 	candidate: CommittedCandidateReceipt<H>,
 	/// The validity votes themselves, expressed as signatures.
 	validity_votes: Vec<ValidityAttestation>,
-	/// The indices of the validators within the group, expressed as a bitfield. May be extended
-	/// beyond the backing group size to contain the assigned core index, if ElasticScalingMVP is
-	/// enabled.
+	/// The indices of the validators within the group, expressed as a bitfield. Is extended
+	/// beyond the backing group size to contain the assigned core index.
 	validator_indices: BitVec<u8, bitvec::order::Lsb0>,
 }
 
@@ -751,12 +765,10 @@ impl<H> BackedCandidate<H> {
 		candidate: CommittedCandidateReceipt<H>,
 		validity_votes: Vec<ValidityAttestation>,
 		validator_indices: BitVec<u8, bitvec::order::Lsb0>,
-		core_index: Option<CoreIndex>,
+		core_index: CoreIndex,
 	) -> Self {
 		let mut instance = Self { candidate, validity_votes, validator_indices };
-		if let Some(core_index) = core_index {
-			instance.inject_core_index(core_index);
-		}
+		instance.inject_core_index(core_index);
 		instance
 	}
 
@@ -799,20 +811,13 @@ impl<H> BackedCandidate<H> {
 	/// Get a copy of the validator indices and the assumed core index, if any.
 	pub fn validator_indices_and_core_index(
 		&self,
-		core_index_enabled: bool,
 	) -> (&BitSlice<u8, bitvec::order::Lsb0>, Option<CoreIndex>) {
-		// This flag tells us if the block producers must enable Elastic Scaling MVP hack.
-		// It extends `BackedCandidate::validity_indices` to store a 8 bit core index.
-		if core_index_enabled {
-			let core_idx_offset = self.validator_indices.len().saturating_sub(8);
-			if core_idx_offset > 0 {
-				let (validator_indices_slice, core_idx_slice) =
-					self.validator_indices.split_at(core_idx_offset);
-				return (
-					validator_indices_slice,
-					Some(CoreIndex(core_idx_slice.load::<u8>() as u32)),
-				);
-			}
+		// `BackedCandidate::validity_indices` are extended to store a 8 bit core index.
+		let core_idx_offset = self.validator_indices.len().saturating_sub(8);
+		if core_idx_offset > 0 {
+			let (validator_indices_slice, core_idx_slice) =
+				self.validator_indices.split_at(core_idx_offset);
+			return (validator_indices_slice, Some(CoreIndex(core_idx_slice.load::<u8>() as u32)));
 		}
 
 		(&self.validator_indices, None)
@@ -916,7 +921,18 @@ pub fn check_candidate_backing<H: AsRef<[u8]> + Clone + Encode + core::fmt::Debu
 
 /// The unique (during session) index of a core.
 #[derive(
-	Encode, Decode, Default, PartialOrd, Ord, Eq, PartialEq, Clone, Copy, TypeInfo, RuntimeDebug,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	Default,
+	PartialOrd,
+	Ord,
+	Eq,
+	PartialEq,
+	Clone,
+	Copy,
+	TypeInfo,
+	RuntimeDebug,
 )]
 #[cfg_attr(feature = "std", derive(Hash))]
 pub struct CoreIndex(pub u32);
@@ -934,7 +950,20 @@ impl TypeIndex for CoreIndex {
 }
 
 /// The unique (during session) index of a validator group.
-#[derive(Encode, Decode, Default, Clone, Copy, Debug, PartialEq, Eq, TypeInfo, PartialOrd, Ord)]
+#[derive(
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	Default,
+	Clone,
+	Copy,
+	Debug,
+	PartialEq,
+	Eq,
+	TypeInfo,
+	PartialOrd,
+	Ord,
+)]
 #[cfg_attr(feature = "std", derive(Hash))]
 pub struct GroupIndex(pub u32);
 
@@ -1232,6 +1261,7 @@ impl<'a> ApprovalVoteMultipleCandidates<'a> {
 	PartialEq,
 	Encode,
 	Decode,
+	DecodeWithMemTracking,
 	TypeInfo,
 	serde::Serialize,
 	serde::Deserialize,
@@ -1414,7 +1444,7 @@ impl From<ConsensusLog> for sp_runtime::DigestItem {
 /// A statement about a candidate, to be used within the dispute resolution process.
 ///
 /// Statements are either in favor of the candidate's validity or against it.
-#[derive(Encode, Decode, Clone, PartialEq, RuntimeDebug, TypeInfo)]
+#[derive(Encode, Decode, DecodeWithMemTracking, Clone, PartialEq, RuntimeDebug, TypeInfo)]
 pub enum DisputeStatement {
 	/// A valid statement, of the given kind.
 	#[codec(index = 0)]
@@ -1508,7 +1538,7 @@ impl DisputeStatement {
 }
 
 /// Different kinds of statements of validity on  a candidate.
-#[derive(Encode, Decode, Clone, PartialEq, RuntimeDebug, TypeInfo)]
+#[derive(Encode, Decode, DecodeWithMemTracking, Clone, PartialEq, RuntimeDebug, TypeInfo)]
 pub enum ValidDisputeStatementKind {
 	/// An explicit statement issued as part of a dispute.
 	#[codec(index = 0)]
@@ -1544,7 +1574,7 @@ impl ValidDisputeStatementKind {
 }
 
 /// Different kinds of statements of invalidity on a candidate.
-#[derive(Encode, Decode, Copy, Clone, PartialEq, RuntimeDebug, TypeInfo)]
+#[derive(Encode, Decode, DecodeWithMemTracking, Copy, Clone, PartialEq, RuntimeDebug, TypeInfo)]
 pub enum InvalidDisputeStatementKind {
 	/// An explicit statement issued as part of a dispute.
 	#[codec(index = 0)]
@@ -1572,7 +1602,7 @@ impl ExplicitDisputeStatement {
 }
 
 /// A set of statements about a specific candidate.
-#[derive(Encode, Decode, Clone, PartialEq, RuntimeDebug, TypeInfo)]
+#[derive(Encode, Decode, DecodeWithMemTracking, Clone, PartialEq, RuntimeDebug, TypeInfo)]
 pub struct DisputeStatementSet {
 	/// The candidate referenced by this set.
 	pub candidate_hash: CandidateHash,
@@ -1652,7 +1682,7 @@ pub struct InherentData<HDR: HeaderT = Header> {
 
 /// An either implicit or explicit attestation to the validity of a parachain
 /// candidate.
-#[derive(Clone, Eq, PartialEq, Decode, Encode, RuntimeDebug, TypeInfo)]
+#[derive(Clone, Eq, PartialEq, Decode, DecodeWithMemTracking, Encode, RuntimeDebug, TypeInfo)]
 pub enum ValidityAttestation {
 	/// Implicit validity attestation by issuing.
 	/// This corresponds to issuance of a `Candidate` statement.
@@ -1941,7 +1971,7 @@ pub struct SessionInfo {
 
 /// A statement from the specified validator whether the given validation code passes PVF
 /// pre-checking or not anchored to the given session index.
-#[derive(Encode, Decode, Clone, PartialEq, RuntimeDebug, TypeInfo)]
+#[derive(Encode, Decode, DecodeWithMemTracking, Clone, PartialEq, RuntimeDebug, TypeInfo)]
 pub struct PvfCheckStatement {
 	/// `true` if the subject passed pre-checking and `false` otherwise.
 	pub accept: bool,
@@ -2001,7 +2031,19 @@ impl<T: Encode> WellKnownKey<T> {
 }
 
 /// Type discriminator for PVF preparation.
-#[derive(Encode, Decode, TypeInfo, Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	TypeInfo,
+	Clone,
+	Copy,
+	Debug,
+	PartialEq,
+	Eq,
+	Serialize,
+	Deserialize,
+)]
 pub enum PvfPrepKind {
 	/// For prechecking requests.
 	Precheck,
@@ -2011,7 +2053,19 @@ pub enum PvfPrepKind {
 }
 
 /// Type discriminator for PVF execution.
-#[derive(Encode, Decode, TypeInfo, Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	TypeInfo,
+	Clone,
+	Copy,
+	Debug,
+	PartialEq,
+	Eq,
+	Serialize,
+	Deserialize,
+)]
 pub enum PvfExecKind {
 	/// For backing requests.
 	Backing,
@@ -2061,6 +2115,7 @@ pub mod node_features {
 	PartialEq,
 	Encode,
 	Decode,
+	DecodeWithMemTracking,
 	TypeInfo,
 	serde::Serialize,
 	serde::Deserialize,
@@ -2132,11 +2187,13 @@ impl<BlockNumber: Default + From<u32>> Default for SchedulerParams<BlockNumber> 
 }
 
 #[cfg(test)]
+/// Test helpers
 pub mod tests {
 	use super::*;
 	use bitvec::bitvec;
 	use sp_core::sr25519;
 
+	/// Create a dummy committed candidate receipt
 	pub fn dummy_committed_candidate_receipt() -> CommittedCandidateReceipt {
 		let zeros = Hash::zero();
 
@@ -2244,60 +2301,35 @@ pub mod tests {
 			dummy_committed_candidate_receipt(),
 			vec![],
 			initial_validator_indices.clone(),
-			None,
+			CoreIndex(10),
 		);
 
-		// No core index supplied, ElasticScalingMVP is off.
-		let (validator_indices, core_index) = candidate.validator_indices_and_core_index(false);
+		// No core index supplied.
+		candidate
+			.set_validator_indices_and_core_index(initial_validator_indices.clone().into(), None);
+		let (validator_indices, core_index) = candidate.validator_indices_and_core_index();
 		assert_eq!(validator_indices, initial_validator_indices.as_bitslice());
 		assert!(core_index.is_none());
 
-		// No core index supplied, ElasticScalingMVP is on. Still, decoding will be ok if backing
-		// group size is <= 8, to give a chance to parachains that don't have multiple cores
-		// assigned.
-		let (validator_indices, core_index) = candidate.validator_indices_and_core_index(true);
-		assert_eq!(validator_indices, initial_validator_indices.as_bitslice());
-		assert!(core_index.is_none());
-
-		let encoded_validator_indices = candidate.validator_indices.clone();
-		candidate.set_validator_indices_and_core_index(validator_indices.into(), core_index);
-		assert_eq!(candidate.validator_indices, encoded_validator_indices);
-
-		// No core index supplied, ElasticScalingMVP is on. Decoding is corrupted if backing group
+		// No core index supplied. Decoding is corrupted if backing group
 		// size larger than 8.
-		let candidate = BackedCandidate::new(
-			dummy_committed_candidate_receipt(),
-			vec![],
-			bitvec![u8, bitvec::order::Lsb0; 0, 1, 0, 1, 0, 1, 0, 1, 0],
+		candidate.set_validator_indices_and_core_index(
+			bitvec![u8, bitvec::order::Lsb0; 0, 1, 0, 1, 0, 1, 0, 1, 0].into(),
 			None,
 		);
-		let (validator_indices, core_index) = candidate.validator_indices_and_core_index(true);
+
+		let (validator_indices, core_index) = candidate.validator_indices_and_core_index();
 		assert_eq!(validator_indices, bitvec![u8, bitvec::order::Lsb0; 0].as_bitslice());
 		assert!(core_index.is_some());
 
-		// Core index supplied, ElasticScalingMVP is off. Core index will be treated as normal
-		// validator indices. Runtime will check against this.
-		let candidate = BackedCandidate::new(
-			dummy_committed_candidate_receipt(),
-			vec![],
-			bitvec![u8, bitvec::order::Lsb0; 0, 1, 0, 1],
-			Some(CoreIndex(10)),
-		);
-		let (validator_indices, core_index) = candidate.validator_indices_and_core_index(false);
-		assert_eq!(
-			validator_indices,
-			bitvec![u8, bitvec::order::Lsb0; 0, 1, 0, 1, 0, 1, 0, 1, 0, 0, 0, 0]
-		);
-		assert!(core_index.is_none());
-
-		// Core index supplied, ElasticScalingMVP is on.
+		// Core index supplied.
 		let mut candidate = BackedCandidate::new(
 			dummy_committed_candidate_receipt(),
 			vec![],
 			bitvec![u8, bitvec::order::Lsb0; 0, 1, 0, 1],
-			Some(CoreIndex(10)),
+			CoreIndex(10),
 		);
-		let (validator_indices, core_index) = candidate.validator_indices_and_core_index(true);
+		let (validator_indices, core_index) = candidate.validator_indices_and_core_index();
 		assert_eq!(validator_indices, bitvec![u8, bitvec::order::Lsb0; 0, 1, 0, 1]);
 		assert_eq!(core_index, Some(CoreIndex(10)));
 
