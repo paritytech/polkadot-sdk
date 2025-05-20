@@ -1472,7 +1472,7 @@ mod base_miner {
 						// voter 6 (index 1) is backing 40 (index 3).
 						// voter 8 (index 3) is backing 10 (index 0)
 						votes1: vec![(1, 3), (3, 0)],
-						// voter 5 (index 0) is backing 40 (index 10) and 10 (index 0)
+						// voter 5 (index 0) is backing 40 (index 3) and 10 (index 0)
 						votes2: vec![(0, [(0, PerU16::from_parts(32768))], 3)],
 						..Default::default()
 					},

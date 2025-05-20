@@ -41,8 +41,13 @@ parking_lot = { workspace = true, default-features = true }
 rand = { workspace = true, default-features = true }
 sp-npos-elections = { workspace = true }
 sp-tracing = { workspace = true, default-features = true }
+# todo move to remote mining feature
+remote-externalities = { workspace = true, default-features = true }
+tokio = { features = ["macros"], workspace = true, default-features = true }
+hex = { workspace = true, default-features = true }
 
 [features]
+remote-mining = []
 default = ["std"]
 std = [
 	"codec/std",
