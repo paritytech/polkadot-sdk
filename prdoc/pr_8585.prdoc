@@ -1,0 +1,16 @@
+title: fix epmb solution duplicate issue + add remote mining apparatus to epm
+doc:
+- audience: Todo
+  description: Backports a part of https://github.com/paritytech/polkadot-sdk/pull/8422
+    to master so it can be included in ongoing releases sooner.
+crates:
+- name: pallet-election-provider-multi-block
+  bump: patch
+- name: pallet-election-provider-multi-phase
+  bump: patch
+- name: frame-election-provider-solution-type
+  bump: patch
+- name: frame-election-provider-support
+  bump: patch
+- name: sp-npos-elections
+  bump: patch
