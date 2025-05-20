@@ -20,7 +20,7 @@
 //! Run like this:
 //!
 //! ```ignire
-//! RUST_LOG=remote-ext=info,runtime::election-provider=debug cargo test --release -p pallet-election-provider-multi-phase mine_for_ -- --test-threads 1
+//! RUST_LOG=remote-ext=info,runtime::election-provider=debug cargo test --release --features remote-mining -p pallet-election-provider-multi-phase mine_for_ -- --test-threads 1
 //! ```
 //!
 //! See the comments below on how to feed specific hash.

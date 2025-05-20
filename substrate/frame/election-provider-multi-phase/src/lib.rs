@@ -279,7 +279,7 @@ use sp_runtime::TryRuntimeError;
 mod benchmarking;
 #[cfg(test)]
 mod mock;
-#[cfg(test)]
+#[cfg(all(test, feature = "remote-mining"))]
 mod remote_mining;
 #[macro_use]
 pub mod helpers;
