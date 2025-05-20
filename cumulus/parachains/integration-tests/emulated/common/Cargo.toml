@@ -36,9 +36,11 @@ pallet-bridge-messages.default-features = true
 pallet-bridge-messages.workspace = true
 pallet-message-queue.default-features = true
 pallet-message-queue.workspace = true
-pallet-xcm = { features = ["test-utils"], workspace = true, default-features = true }
 pallet-xcm-bridge-hub.default-features = true
 pallet-xcm-bridge-hub.workspace = true
+pallet-xcm.features = ["test-utils"]
+pallet-xcm.default-features = true
+pallet-xcm.workspace = true
 parachains-common.default-features = true
 parachains-common.workspace = true
 paste = { workspace = true, default-features = true }
@@ -62,8 +64,9 @@ sp-keyring.default-features = true
 sp-keyring.workspace = true
 sp-runtime.default-features = true
 sp-runtime.workspace = true
-xcm.default-features = true
-xcm.workspace = true
 xcm-emulator.default-features = true
 xcm-emulator.workspace = true
-xcm-simulator = { workspace = true, default-features = true }
+xcm-simulator.default-features = true
+xcm-simulator.workspace = true
+xcm.default-features = true
+xcm.workspace = true
