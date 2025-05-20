@@ -393,19 +393,6 @@ fn dry_run_xcm_common(xcm_version: XcmVersion) {
 			)
 			.unwrap()
 			.unwrap();
-<<<<<<< HEAD
-=======
-		let expected_xcms = Xcm::<()>::builder_unsafe()
-			.reserve_asset_deposited((
-				(Parent, Parachain(2000)),
-				transfer_amount + execution_fees - DeliveryFees::get(),
-			))
-			.clear_origin()
-			.buy_execution((Here, 1u128), Unlimited)
-			.deposit_asset(AllCounted(1), [0u8; 32])
-			.set_topic(expected_msg_id)
-			.build();
->>>>>>> 803b3463 (Ensure Consistent Topic IDs for Traceable Cross-Chain XCM (#7691))
 		assert_eq!(
 			dry_run_effects.forwarded_xcms,
 			vec![(
