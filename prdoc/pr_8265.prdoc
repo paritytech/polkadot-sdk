@@ -31,7 +31,7 @@ doc:
     This one needs fixing but is not breaking the other ones anymore.
 crates:
 - name: frame-benchmarking-cli
-  bump: major
+  bump: minor
 - name: frame-support-procedural
   bump: patch
 - name: frame-benchmarking-pallet-pov
