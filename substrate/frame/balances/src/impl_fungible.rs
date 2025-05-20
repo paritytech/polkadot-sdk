@@ -219,7 +219,7 @@ impl<T: Config<I>, I: 'static> fungible::MutateHold<T::AccountId> for Pallet<T, 
 	}
 	fn done_burn_held(reason: &Self::Reason, who: &T::AccountId, amount: Self::Balance) {
 		Self::deposit_event(Event::<T, I>::BurnedHeld {
-			reason: reason.clone(),
+			reason: *reason,
 			who: who.clone(),
 			amount,
 		});
@@ -232,7 +232,7 @@ impl<T: Config<I>, I: 'static> fungible::MutateHold<T::AccountId> for Pallet<T, 
 	) {
 		// Emit on-hold transfer event
 		Self::deposit_event(Event::<T, I>::TransferOnHold {
-			reason: reason.clone(),
+			reason: *reason,
 			source: source.clone(),
 			dest: dest.clone(),
 			amount,
@@ -245,7 +245,7 @@ impl<T: Config<I>, I: 'static> fungible::MutateHold<T::AccountId> for Pallet<T, 
 		transferred: Self::Balance,
 	) {
 		Self::deposit_event(Event::<T, I>::TransferAndHold {
-			reason: reason.clone(),
+			reason: *reason,
 			source: source.clone(),
 			dest: dest.clone(),
 			transferred,
