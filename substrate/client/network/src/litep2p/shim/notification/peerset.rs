@@ -139,7 +139,7 @@ impl From<Direction> for traits::Direction {
 }
 
 /// Open result for a fully-opened connection.
-#[derive(PartialEq, Eq)]
+#[derive(PartialEq, Eq, Debug)]
 pub enum OpenResult {
 	/// Accept the connection.
 	Accept {
@@ -956,6 +956,12 @@ impl Peerset {
 		&self.peers
 	}
 
+	/// Get reference to known peers.
+	#[cfg(test)]
+	pub fn peers_mut(&mut self) -> &mut HashMap<PeerId, PeerState> {
+		&mut self.peers
+	}
+
 	/// Get reference to reserved peers.
 	#[cfg(test)]
 	pub fn reserved_peers(&self) -> &HashSet<PeerId> {
@@ -979,6 +985,8 @@ impl Stream for Peerset {
 		}
 
 		if let Poll::Ready(Some(action)) = Pin::new(&mut self.cmd_rx).poll_next(cx) {
+			log::trace!(target: LOG_TARGET, "{}: received command {action:?}", self.protocol);
+
 			match action {
 				PeersetCommand::DisconnectPeer { peer } if !self.reserved_peers.contains(&peer) =>
 					match self.peers.remove(&peer) {
