@@ -22,7 +22,6 @@ use crate::{
 	migration::data::NeedsMigration,
 	mock::*,
 	pallet::{LockedFungibles, RemoteLockedFungibles, SupportedVersion},
-	xcm_helpers::find_xcm_sent_message_id,
 	AssetTraps, Config, CurrentMigration, Error, ExecuteControllerWeightInfo,
 	LatestVersionedLocation, Pallet, Queries, QueryStatus, RecordedXcm, RemoteLockedFungibleRecord,
 	ShouldRecordXcm, VersionDiscoveryQueue, VersionMigrationStage, VersionNotifiers,

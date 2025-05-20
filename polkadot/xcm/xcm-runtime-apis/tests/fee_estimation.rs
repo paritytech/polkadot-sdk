@@ -377,7 +377,6 @@ fn dry_run_xcm_common(xcm_version: XcmVersion) {
 		.buy_execution((Here, execution_fees), Unlimited)
 		.deposit_reserve_asset(AllCounted(1), (Parent, Parachain(2100)), inner_xcm.clone())
 		.build();
-	let expected_msg_id = fake_message_hash(&xcm);
 	let balances = vec![(
 		who,
 		transfer_amount + execution_fees + DeliveryFees::get() + ExistentialDeposit::get(),

@@ -2504,28 +2504,6 @@ fn remote_asset_reserve_and_remote_fee_reserve_paid_call<Call>(
 			return;
 		}
 
-		let context = UniversalLocation::get();
-		let foreign_id_location_reanchored =
-			foreign_asset_id_location.clone().reanchored(&dest, &context).unwrap();
-		let dest_reanchored = dest.reanchored(&reserve_location, &context).unwrap();
-		let sent_msg_id = find_xcm_sent_message_id::<Test>(all_events()).unwrap();
-		let sent_message = Xcm(vec![
-			WithdrawAsset((Location::here(), SEND_AMOUNT).into()),
-			ClearOrigin,
-			buy_execution((Location::here(), SEND_AMOUNT / 2)),
-			DepositReserveAsset {
-				assets: Wild(AllCounted(1)),
-				// final destination is `dest` as seen by `reserve`
-				dest: dest_reanchored,
-				// message sent onward to `dest`
-				xcm: Xcm(vec![
-					buy_execution((foreign_id_location_reanchored, SEND_AMOUNT / 2)),
-					DepositAsset { assets: AllCounted(1).into(), beneficiary },
-				]),
-			},
-			SetTopic(sent_msg_id),
-		]);
-
 		let mut last_events = last_events(7).into_iter();
 		// asset events
 		// forceCreate
