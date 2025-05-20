@@ -749,7 +749,6 @@ mod tests {
 					);
 					Ok((slot,))
 				}),
-				CheckForEquivocation::Yes,
 				None,
 				CompatibilityMode::None,
 			)

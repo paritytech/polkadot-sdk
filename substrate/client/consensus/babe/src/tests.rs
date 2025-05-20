@@ -88,8 +88,8 @@ impl<Block: BlockT, ExtraArgs: Send + 'static>
 
 	async fn create_inherent_data_providers(
 		&self,
-		parent: Block::Hash,
-		extra_args: ExtraArgs,
+		_parent: Block::Hash,
+		_extra_args: ExtraArgs,
 	) -> Result<Self::InherentDataProviders, Box<dyn std::error::Error + Send + Sync>> {
 		let slot = InherentDataProvider::from_timestamp_and_slot_duration(
 			Timestamp::current(),
@@ -204,9 +204,6 @@ pub struct BabeTestNet {
 
 type TestHeader = <TestBlock as BlockT>::Header;
 
-type TestSelectChain =
-	substrate_test_runtime_client::LongestChain<substrate_test_runtime_client::Backend, TestBlock>;
-
 pub struct TestVerifier {
 	inner: BabeVerifier<TestBlock, PeersFullClient, CreateInherentDataProviders>,
 	mutator: Mutator,
@@ -271,8 +268,6 @@ impl TestNetFactory for BabeTestNet {
 	}
 
 	fn make_verifier(&self, client: PeersClient, maybe_link: &Option<PeerData>) -> Self::Verifier {
-		use substrate_test_runtime_client::DefaultTestClientBuilderExt;
-
 		let client = client.as_client();
 		trace!(target: LOG_TARGET, "Creating a verifier");
 
