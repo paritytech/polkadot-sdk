@@ -7,22 +7,22 @@ doc:
     This PR is the first step to enable that change, by moving `check_inherents` (and equivocation checks) from the `verify` to the `import_block` step (because `verify` does runtime checks that can potentially be expensive, and we don't really need to do those before re-broadcasting).
 crates:
 - name: cumulus-client-consensus-aura
-  bump: minor
+  bump: major
 - name: polkadot-omni-node-lib
   bump: minor
 - name: polkadot-service
-  bump: minor
+  bump: major
 - name: sc-consensus-aura
-  bump: minor
+  bump: major
 - name: sc-consensus-babe
-  bump: minor
+  bump: major
 - name: sc-consensus-babe-rpc
-  bump: minor
+  bump: patch
 - name: sc-consensus
-  bump: minor
+  bump: patch
 - name: sc-consensus-slots
-  bump: minor
+  bump: patch
 - name: sc-network-sync
-  bump: minor
+  bump: patch
 - name: sp-consensus
-  bump: minor
+  bump: major
