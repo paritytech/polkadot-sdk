@@ -4582,6 +4582,7 @@ fn nonce_incremented_dry_run_vs_execute() {
 		// stimulate a dry run
 		let dry_run_result = builder::bare_instantiate(Code::Upload(wasm.clone()))
 			.nonce_already_incremented(crate::NonceAlreadyIncremented::No)
+			.salt(None)
 			.build();
 
 		let dry_run_addr = dry_run_result.result.unwrap().addr;
@@ -4597,7 +4598,7 @@ fn nonce_incremented_dry_run_vs_execute() {
 		});
 
 		// stimulate an actual execution
-		let exec_result = builder::bare_instantiate(Code::Upload(wasm.clone())).build();
+		let exec_result = builder::bare_instantiate(Code::Upload(wasm.clone())).salt(None).build();
 
 		let exec_addr = exec_result.result.unwrap().addr;
 
