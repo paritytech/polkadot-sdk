@@ -53,13 +53,13 @@ sp-consensus = { workspace = true, default-features = true }
 sp-consensus-aura = { workspace = true, default-features = true }
 sp-core = { workspace = true, default-features = true }
 sp-genesis-builder = { workspace = true, default-features = true }
+sp-inherents = { workspace = true }
 sp-io = { workspace = true, default-features = true }
 sp-keyring = { workspace = true, default-features = true }
 sp-runtime = { workspace = true }
 sp-state-machine = { workspace = true, default-features = true }
 sp-timestamp = { workspace = true, default-features = true }
 sp-tracing = { workspace = true, default-features = true }
-sp-inherents = { workspace = true }
 substrate-test-client = { workspace = true }
 
 # Polkadot
