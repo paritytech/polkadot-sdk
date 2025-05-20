@@ -92,8 +92,11 @@ pub fn enable_for_worker(worker_info: &WorkerInfo) -> Result<()> {
 		WorkerKind::Prepare => {
 			vec![(worker_info.worker_dir_path.to_owned(), AccessFs::WriteFile.into())]
 		},
-		WorkerKind::Execute => {
+		WorkerKind::ExecuteWasm => {
 			vec![(worker_info.worker_dir_path.to_owned(), AccessFs::ReadFile.into())]
+		},
+		WorkerKind::ExecutePvm => {
+			unimplemented!("PVM workers do not need landlock");
 		},
 		WorkerKind::CheckPivotRoot =>
 			panic!("this should only be passed for checking pivot_root; qed"),

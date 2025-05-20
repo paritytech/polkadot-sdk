@@ -199,26 +199,22 @@ pub(crate) fn create_and_compile(
 	let blob_name =
 		blob_out_name_override.unwrap_or_else(|| get_blob_name(target, &wasm_project_cargo_toml));
 
-	let (final_blob_binary, bloaty_blob_binary) = match target {
-		RuntimeTarget::Wasm => {
-			let out_path = project.join(format!("{blob_name}.wasm"));
-			fs::copy(raw_blob_path, &out_path).expect("copying the runtime blob should never fail");
-
-			maybe_compact_and_compress_wasm(
-				&wasm_project_cargo_toml,
-				&project,
-				WasmBinaryBloaty(out_path),
-				&blob_name,
-				check_for_runtime_version_section,
-				&build_config,
-			)
-		},
-		RuntimeTarget::Riscv => {
-			let out_path = project.join(format!("{blob_name}.polkavm"));
-			fs::copy(raw_blob_path, &out_path).expect("copying the runtime blob should never fail");
-			(None, WasmBinaryBloaty(out_path))
-		},
+	let out_path = match target {
+		RuntimeTarget::Wasm => project.join(format!("{blob_name}.wasm")),
+		RuntimeTarget::Riscv => project.join(format!("{blob_name}.polkavm")),
 	};
+
+	fs::copy(raw_blob_path, &out_path).expect("copying the runtime blob should never fail");
+
+	let (final_blob_binary, bloaty_blob_binary) = maybe_compact_and_compress_wasm(
+		target,
+		&wasm_project_cargo_toml,
+		&project,
+		WasmBinaryBloaty(out_path),
+		&blob_name,
+		check_for_runtime_version_section,
+		&build_config,
+	);
 
 	generate_rerun_if_changed_instructions(
 		orig_project_cargo_toml,
@@ -236,6 +232,7 @@ pub(crate) fn create_and_compile(
 }
 
 fn maybe_compact_and_compress_wasm(
+	target: RuntimeTarget,
 	wasm_project_cargo_toml: &Path,
 	project: &Path,
 	bloaty_blob_binary: WasmBinaryBloaty,
@@ -243,38 +240,48 @@ fn maybe_compact_and_compress_wasm(
 	check_for_runtime_version_section: bool,
 	build_config: &BuildConfiguration,
 ) -> (Option<WasmBinary>, WasmBinaryBloaty) {
-	// Try to compact and compress the bloaty blob, if the *outer* profile wants it.
-	//
-	// This is because, by default the inner profile will be set to `Release` even when the outer
-	// profile is `Debug`, because the blob built in `Debug` profile is too slow for normal
-	// development activities.
-	let (compact_blob_path, compact_compressed_blob_path) =
-		if build_config.outer_build_profile.wants_compact() {
-			let compact_blob_path = compact_wasm(&project, blob_name, &bloaty_blob_binary);
-			let compact_compressed_blob_path =
-				compact_blob_path.as_ref().and_then(|p| try_compress_blob(&p.0, blob_name));
-			(compact_blob_path, compact_compressed_blob_path)
-		} else {
-			// We at least want to lower the `sign-ext` code to `mvp`.
-			wasm_opt::OptimizationOptions::new_opt_level_0()
-				.add_pass(wasm_opt::Pass::SignextLowering)
-				.run(bloaty_blob_binary.bloaty_path(), bloaty_blob_binary.bloaty_path())
-				.expect("Failed to lower sign-ext in WASM binary.");
+	match target {
+		RuntimeTarget::Wasm => {
+			// Try to compact and compress the bloaty blob, if the *outer* profile wants it.
+			//
+			// This is because, by default the inner profile will be set to `Release` even when the
+			// outer profile is `Debug`, because the blob built in `Debug` profile is too slow
+			// for normal development activities.
+			let (compact_blob_path, compact_compressed_blob_path) =
+				if build_config.outer_build_profile.wants_compact() {
+					let compact_blob_path = compact_wasm(&project, blob_name, &bloaty_blob_binary);
+					let compact_compressed_blob_path = compact_blob_path
+						.as_ref()
+						.and_then(|p| try_compress_blob_as(target, &p.0, blob_name));
+					(compact_blob_path, compact_compressed_blob_path)
+				} else {
+					// We at least want to lower the `sign-ext` code to `mvp`.
+					wasm_opt::OptimizationOptions::new_opt_level_0()
+						.add_pass(wasm_opt::Pass::SignextLowering)
+						.run(bloaty_blob_binary.bloaty_path(), bloaty_blob_binary.bloaty_path())
+						.expect("Failed to lower sign-ext in WASM binary.");
 
-			(None, None)
-		};
+					(None, None)
+				};
 
-	if check_for_runtime_version_section {
-		ensure_runtime_version_wasm_section_exists(bloaty_blob_binary.bloaty_path());
+			if check_for_runtime_version_section {
+				ensure_runtime_version_wasm_section_exists(bloaty_blob_binary.bloaty_path());
+			}
+
+			let final_blob_binary = compact_compressed_blob_path.or(compact_blob_path);
+
+			final_blob_binary
+				.as_ref()
+				.map(|binary| copy_blob_to_target_directory(wasm_project_cargo_toml, binary));
+
+			(final_blob_binary, bloaty_blob_binary)
+		},
+		RuntimeTarget::Riscv => {
+			let compressed =
+				try_compress_blob_as(target, bloaty_blob_binary.bloaty_path(), blob_name);
+			(compressed, bloaty_blob_binary)
+		},
 	}
-
-	let final_blob_binary = compact_compressed_blob_path.or(compact_blob_path);
-
-	final_blob_binary
-		.as_ref()
-		.map(|binary| copy_blob_to_target_directory(wasm_project_cargo_toml, binary));
-
-	(final_blob_binary, bloaty_blob_binary)
 }
 
 /// Ensures that the `runtime_version` section exists in the given blob.
@@ -1004,6 +1011,7 @@ fn build_bloaty_blob(
 
 				let mut config = polkavm_linker::Config::default();
 				config.set_strip(true); // TODO: This shouldn't always be done.
+				config.set_optimize(false);
 
 				let program = match polkavm_linker::program_from_elf(config, &blob_bytes) {
 					Ok(program) => program,
@@ -1048,16 +1056,28 @@ fn compact_wasm(
 	Some(WasmBinary(wasm_compact_path))
 }
 
-fn try_compress_blob(compact_blob_path: &Path, out_name: &str) -> Option<WasmBinary> {
+fn try_compress_blob_as(
+	target: RuntimeTarget,
+	compact_blob_path: &Path,
+	out_name: &str,
+) -> Option<WasmBinary> {
 	use sp_maybe_compressed_blob::CODE_BLOB_BOMB_LIMIT;
 
 	let project = compact_blob_path.parent().expect("blob path should have a parent directory");
-	let compact_compressed_blob_path =
-		project.join(format!("{}.compact.compressed.wasm", out_name));
+	let compact_compressed_blob_path = match target {
+		RuntimeTarget::Wasm => project.join(format!("{}.compact.compressed.wasm", out_name)),
+		RuntimeTarget::Riscv => project.join(format!("{}.compressed.polkavm", out_name)),
+	};
 
 	let start = std::time::Instant::now();
 	let data = fs::read(compact_blob_path).expect("Failed to read WASM binary");
-	if let Some(compressed) = sp_maybe_compressed_blob::compress(&data, CODE_BLOB_BOMB_LIMIT) {
+	let blob_type = match target {
+		RuntimeTarget::Wasm => sp_maybe_compressed_blob::MaybeCompressedBlobType::Legacy,
+		RuntimeTarget::Riscv => sp_maybe_compressed_blob::MaybeCompressedBlobType::Pvm,
+	};
+	if let Some(compressed) =
+		sp_maybe_compressed_blob::compress_as(blob_type, &data, CODE_BLOB_BOMB_LIMIT)
+	{
 		fs::write(&compact_compressed_blob_path, &compressed[..])
 			.expect("Failed to write WASM binary");
 
