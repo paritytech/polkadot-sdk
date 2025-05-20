@@ -494,8 +494,30 @@ impl Peerset {
 
 				return OpenResult::Reject
 			},
+			// On the `report_substream_opened` call, the peer was rejected either because:
+			// - the protocol operates in the reserved-only mode and the peer is not a reserved peer
+			// - there are no slots available for the peer
+			// - the peer is banned
+			//
+			// For the first case, the peer is marked as disconnected and the substream is rejected.
+			// However, litep2p will still report the substream as opened.
+			PeerState::Disconnected => {
+				log::debug!(
+					target: LOG_TARGET,
+					"{}: substream opened for a peer that was previously rejected {peer:?}",
+					self.protocol,
+				);
+				return OpenResult::Reject
+			},
 			state => {
-				panic!("{}: invalid state for open substream {peer:?} {state:?}", self.protocol);
+				log::error!(
+					target: LOG_TARGET,
+					"{}: substream opened for a peer in invalid state {peer:?}: {state:?}",
+					self.protocol,
+				);
+
+				debug_assert!(false);
+				return OpenResult::Reject;
 			},
 		}
 	}
