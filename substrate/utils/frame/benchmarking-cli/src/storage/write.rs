@@ -359,8 +359,9 @@ impl StorageCmd {
 			let elapsed = start.elapsed();
 			debug!("validate_block time {:?}", elapsed);
 
-			durations_in_nanos
-				.push((elapsed - dry_run_elapsed).as_nanos() as u64 / batch_size as u64);
+			durations_in_nanos.push(
+				elapsed.saturating_sub(dry_run_elapsed).as_nanos() as u64 / batch_size as u64,
+			);
 		}
 
 		let result = (

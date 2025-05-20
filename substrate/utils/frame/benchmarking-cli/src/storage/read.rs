@@ -250,7 +250,8 @@ fn measure_on_block_validation<B: BlockT + Debug>(
 		let elapsed = start.elapsed();
 		debug!("validate_block time {:?}", elapsed);
 
-		durations_in_nanos.push((elapsed - dry_run_elapsed).as_nanos() as u64 / batch_size as u64);
+		durations_in_nanos
+			.push(elapsed.saturating_sub(dry_run_elapsed).as_nanos() as u64 / batch_size as u64);
 	}
 
 	std::time::Duration::from_nanos(
