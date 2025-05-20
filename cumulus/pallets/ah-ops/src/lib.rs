@@ -51,6 +51,11 @@ use frame_system::pallet_prelude::*;
 use pallet_balances::AccountData;
 use sp_runtime::{traits::BlockNumberProvider, AccountId32};
 use sp_std::prelude::*;
+use frame_support::traits::tokens::IdAmount;
+use frame_support::traits::tokens::Precision;
+use pallet_balances::BalanceLock;
+use frame_support::traits::fungible::Inspect;
+use frame_support::traits::tokens::Fortitude;
 
 /// The log target of this pallet.
 pub const LOG_TARGET: &str = "runtime::ah-migrator";
@@ -171,6 +176,14 @@ pub mod pallet {
 		NotYet,
 		/// Not all contributions are withdrawn.
 		ContributionsRemaining,
+		/// Passed account IDs are not matching unmigrated child and sibling accounts.
+		WrongSovereignTranslation,
+		/// Account cannot be migrated since it is not a sovereign parachain account.
+		NotSovereign,
+		/// Internal error, please bug report.
+		InternalError,
+		/// The migrated account would get reaped in the process.
+		WouldReap,
 	}
 
 	#[pallet::event]
@@ -189,6 +202,16 @@ pub mod pallet {
 			para_id: ParaId,
 			remaining: BalanceOf<T>,
 		},
+
+		/// A sovereign parachain account has been migrated from its child to sibling representation.
+		SovereignMigrated {
+			/// The parachain ID that had its account migrated.
+			para_id: ParaId,
+			/// The old account that was migrated out of.
+			from: T::AccountId,
+			/// The new account that was migrated into.
+			to: T::AccountId
+		}
 	}
 
 	#[pallet::pallet]
@@ -259,6 +282,25 @@ pub mod pallet {
 			let depositor = depositor.unwrap_or(sender);
 
 			Self::do_unreserve_crowdloan_reserve(block, depositor, para_id).map_err(Into::into)
+		}
+
+		/// Try to migrate a parachain sovereign child account to its respective sibling.
+		///
+		/// Takes the old and new account and migrates it only if they are as expected. An event of
+		/// `SovereignMigrated` will be emitted if the account was migrated successfully.
+		///
+		/// Callable by any signed origin.
+		#[pallet::call_index(3)]
+		#[pallet::weight(T::DbWeight::get().reads_writes(15, 15)
+					.saturating_add(Weight::from_parts(0, 50_000)))]
+		pub fn migrate_parachain_sovereign_acc(
+			origin: OriginFor<T>,
+			from: T::AccountId,
+			to: T::AccountId,
+		) -> DispatchResult {
+			let sender = ensure_signed(origin)?;
+
+			Self::do_migrate_parachain_sovereign_acc(&from, &to).map_err(Into::into)
 		}
 	}
 
@@ -348,6 +390,106 @@ pub mod pallet {
 		fn contributions_withdrawn(block: BlockNumberFor<T>, para_id: ParaId) -> bool {
 			let mut contrib_iter = RcCrowdloanContribution::<T>::iter_prefix((block, para_id));
 			contrib_iter.next().is_none()
+		}
+
+		pub fn do_migrate_parachain_sovereign_acc(
+			from: &T::AccountId,
+			to: &T::AccountId,
+		) -> Result<(), Error<T>> {
+			if frame_system::Account::<T>::get(from) == Default::default() {
+				// Nothing to do if the account does not exist
+				return Ok(());
+			}
+
+			pallet_balances::Pallet::<T>::ensure_upgraded(from);
+
+			let (expected_to, para_id) = pallet_rc_migrator::accounts::try_translate_rc_sovereign_to_ah(from)
+				.defensive()
+				.map_err(|_| Error::<T>::InternalError)?
+				.ok_or(Error::<T>::NotSovereign)?;
+			ensure!(expected_to == *to, Error::<T>::WrongSovereignTranslation);
+
+			// Release all locks
+			let locks: Vec<BalanceLock<T::Balance>> =
+			pallet_balances::Locks::<T>::get(&from).into_inner();
+			for lock in &locks {
+				let () = <T as Config>::Currency::remove_lock(lock.id, &from);
+			}
+
+			// Thaw all the freezes
+			let freezes: Vec<IdAmount<T::FreezeIdentifier, T::Balance>> =
+			pallet_balances::Freezes::<T>::get(&from).into();
+
+			for freeze in &freezes {
+				let () = <T as Config>::Currency::thaw(&freeze.id, &from).defensive_unwrap_or_default();
+			}
+
+			// Release all holds
+			let holds: Vec<IdAmount<T::RuntimeHoldReason, T::Balance>> =
+		pallet_balances::Holds::<T>::get(&from).into();
+
+			for IdAmount { id, amount } in &holds {
+				let _ = <T as Config>::Currency::release(id, &from, *amount, Precision::Exact).defensive();
+			}
+
+			// Unreserve unnamed reserves
+			let unnamed_reserve = <T as Config>::Currency::reserved_balance(&from);
+			let missing = <T as Config>::Currency::unreserve(&from, unnamed_reserve);
+			defensive_assert!(missing == 0, "Should have unreserved the full amount");
+
+			// Set consumer refs to zero
+			let consumers = frame_system::Pallet::<T>::consumers(&from);
+			frame_system::Account::<T>::mutate(&from, |acc| {
+				acc.consumers = 0;
+			});
+			// We dont handle sufficients and there should be none
+			ensure!(frame_system::Pallet::<T>::sufficients(&from) == 0, Error::<T>::InternalError);
+
+			// Now the actual balance
+			let total = <T as Config>::Currency::total_balance(&from);
+			let reducible = <T as Config>::Currency::reducible_balance(
+				&from,
+				Preservation::Expendable,
+				Fortitude::Polite,
+			);
+			defensive_assert!(total >= <T as Config>::Currency::minimum_balance(), "Must have at least ED");
+			defensive_assert!(total == reducible, "Total balance should be reducible");
+			<T as Config>::Currency::transfer(&from, &to, total, Preservation::Expendable);
+
+			// Apply consumer refs
+			frame_system::Account::<T>::mutate(&to, |acc| {
+				acc.consumers += consumers;
+			});
+
+			// Reapply the holds
+			for hold in &holds {
+				<T as Config>::Currency::hold(&hold.id, &to, hold.amount);
+			}
+
+			// Reapply the reserve
+			<T as Config>::Currency::reserve(&to, unnamed_reserve);
+
+			// Reapply the locks
+			for lock in &locks {
+				let reasons = pallet_rc_migrator::types::map_lock_reason(lock.reasons);
+				<T as Config>::Currency::set_lock(lock.id, &to, lock.amount, reasons);
+			}
+			// Reapply the freezes
+			for freeze in &freezes {
+				<T as Config>::Currency::set_freeze(&freeze.id, &to, freeze.amount);
+			}
+
+			defensive_assert!(frame_system::Account::<T>::get(&from) == Default::default(), "Must reap old account");
+			// If new account would die from this, then lets rather not do it and check it manually.
+			ensure!(frame_system::Account::<T>::get(to) != Default::default(), Error::<T>::WouldReap);
+
+			Self::deposit_event(Event::SovereignMigrated {
+				para_id: (para_id as u32).into(),
+				from: from.clone(),
+				to: to.clone(),
+			});
+
+			Ok(())
 		}
 	}
 }

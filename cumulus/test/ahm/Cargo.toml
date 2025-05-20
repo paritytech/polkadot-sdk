@@ -113,9 +113,14 @@ ahm-polkadot = [
 ]
 
 # This will be changed by our porting script
-stable2503 = ["pallet-ah-migrator/stable2503", "pallet-rc-migrator/stable2503"]
+stable2503 = [
+	"pallet-ah-migrator/stable2503",
+	"pallet-rc-migrator/stable2503",
+	"pallet-ah-ops/stable2503"
+]
 ahm-staking-migration = [
 	"pallet-ah-migrator/ahm-staking-migration",
 	"pallet-rc-migrator/ahm-staking-migration",
-	"asset-hub-westend-runtime/ahm-staking-migration"
+	"asset-hub-westend-runtime/ahm-staking-migration",
+	"pallet-ah-ops/ahm-staking-migration"
 ]

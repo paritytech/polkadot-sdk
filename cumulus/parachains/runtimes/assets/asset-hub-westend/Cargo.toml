@@ -152,6 +152,7 @@ ahm-westend = [
 ahm-staking-migration = [
 	"pallet-ah-migrator/ahm-staking-migration",
 	"pallet-rc-migrator/ahm-staking-migration",
+	"pallet-ah-ops/ahm-staking-migration"
 ]
 runtime-benchmarks = [
 	"assets-common/runtime-benchmarks",

@@ -131,7 +131,7 @@ impl<T: Config> Pallet<T> {
 				lock.id,
 				&who,
 				lock.amount,
-				types::map_lock_reason(lock.reasons),
+				pallet_rc_migrator::types::map_lock_reason(lock.reasons),
 			);
 		}
 

@@ -19,6 +19,7 @@ scale-info = { workspace = true, features = ["derive"] }
 sp-runtime = { workspace = true }
 sp-std = { workspace = true }
 frame-benchmarking = { workspace = true, optional = true }
+pallet-rc-migrator = { workspace = true }
 
 [features]
 default = ["std"]
@@ -34,6 +35,7 @@ std = [
 	"scale-info/std",
 	"sp-runtime/std",
 	"sp-std/std",
+	"pallet-rc-migrator/std"
 ]
 runtime-benchmarks = [
 	"cumulus-primitives-core/runtime-benchmarks",
@@ -43,6 +45,7 @@ runtime-benchmarks = [
 	"pallet-balances/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
+	"pallet-rc-migrator/runtime-benchmarks"
 ]
 try-runtime = [
 	"frame-support/try-runtime",
@@ -50,6 +53,17 @@ try-runtime = [
 	"pallet-balances/try-runtime",
 	"pallet-timestamp/try-runtime",
 	"sp-runtime/try-runtime",
+	"pallet-rc-migrator/try-runtime"
 ]
-ahm-polkadot = []
-ahm-westend = []
+ahm-polkadot = [
+	"pallet-rc-migrator/ahm-polkadot"
+]
+ahm-westend = [
+	"pallet-rc-migrator/ahm-westend"
+]
+ahm-staking-migration = [
+	"pallet-rc-migrator/ahm-staking-migration"
+]
+stable2503 = [
+	"pallet-rc-migrator/stable2503"
+]
