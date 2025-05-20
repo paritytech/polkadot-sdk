@@ -30,11 +30,12 @@ sp-keyring = { workspace = true, default-features = true }
 sp-runtime = { workspace = true, default-features = true }
 
 # Polkadot
-pallet-xcm = { workspace = true, default-features = true }
+pallet-xcm = { features = ["test-utils"], workspace = true, default-features = true }
 polkadot-parachain-primitives = { workspace = true, default-features = true }
 polkadot-primitives = { workspace = true, default-features = true }
 polkadot-runtime-parachains = { workspace = true, default-features = true }
 xcm = { workspace = true, default-features = true }
+xcm-simulator = { workspace = true, default-features = true }
 
 # Cumulus
 asset-test-utils = { workspace = true, default-features = true }
