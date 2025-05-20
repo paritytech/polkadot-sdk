@@ -28512,3 +28512,13 @@ dependencies = [
  "libc",
  "pkg-config",
 ]
+
+[[patch.unused]]
+name = "parity-scale-codec"
+version = "3.6.12"
+source = "git+https://github.com/paritytech/parity-scale-codec?branch=gui-parity-scale-codec-test-polkadot-sdk#d1f8afebca02a9128981644169096ebf14b100c9"
+
+[[patch.unused]]
+name = "parity-scale-codec-derive"
+version = "3.6.12"
+source = "git+https://github.com/paritytech/parity-scale-codec?branch=gui-parity-scale-codec-test-polkadot-sdk#d1f8afebca02a9128981644169096ebf14b100c9"

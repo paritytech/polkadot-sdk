@@ -1529,3 +1529,7 @@ wasmi = { opt-level = 3 }
 x25519-dalek = { opt-level = 3 }
 yamux = { opt-level = 3 }
 zeroize = { opt-level = 3 }
+
+[patch.crates-io]
+parity-scale-codec = { git = "https://github.com/paritytech/parity-scale-codec", branch = "small_fixes" }
+parity-scale-codec-derive = { git = "https://github.com/paritytech/parity-scale-codec", branch = "small_fixes" }
