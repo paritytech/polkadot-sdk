@@ -21,20 +21,17 @@ use alloc::{collections::btree_map::BTreeMap, vec::Vec};
 use codec::{Decode, DecodeWithMemTracking, Encode};
 use scale_info::TypeInfo;
 
-/// The kind of the dispute offence.
+/// The kind of the slashing offence (those come from disputes).
+/// 
+/// Notes:
+/// Will soon be be replaced by the expanded `DisputeOffenceKind` enum.
 #[derive(PartialEq, Eq, Clone, Copy, Encode, Decode, DecodeWithMemTracking, TypeInfo, Debug)]
-pub enum DisputeOffenceKind {
-	/// A severe offence when a validator backed an invalid block
-	/// (backing only)
+pub enum SlashingOffenceKind {
+	/// A severe offence when a validator backed an invalid block.
 	#[codec(index = 0)]
-	ForInvalidBacked,
-	/// A medium offence when a validator approved an invalid block
-	/// (approval checking and dispute vote only)
-	#[codec(index = 1)]
-	ForInvalidApproved,
+	ForInvalid,
 	/// A minor offence when a validator disputed a valid block.
-	/// (approval checking and dispute vote only)
-	#[codec(index = 2)]
+	#[codec(index = 1)]
 	AgainstValid,
 }
 

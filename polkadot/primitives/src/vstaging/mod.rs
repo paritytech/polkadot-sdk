@@ -1036,7 +1036,7 @@ pub fn transpose_claim_queue(
 }
 
 #[cfg(test)]
-mod tests {
+mod candidate_receipt_tests {
 	use super::*;
 	use crate::{
 		v8::{
@@ -1502,4 +1502,22 @@ mod tests {
 
 		assert_eq!(old_ccr_hash, new_ccr.hash());
 	}
+}
+
+// Approval Slashes primitives
+/// The kind of the dispute offence.
+#[derive(PartialEq, Eq, Clone, Copy, Encode, Decode, DecodeWithMemTracking, TypeInfo, Debug)]
+pub enum DisputeOffenceKind {
+	/// A severe offence when a validator backed an invalid block
+	/// (backing only)
+	#[codec(index = 0)]
+	ForInvalidBacked,
+	/// A medium offence when a validator approved an invalid block
+	/// (approval checking and dispute vote only)
+	#[codec(index = 1)]
+	ForInvalidApproved,
+	/// A minor offence when a validator disputed a valid block.
+	/// (approval checking and dispute vote only)
+	#[codec(index = 2)]
+	AgainstValid,
 }
