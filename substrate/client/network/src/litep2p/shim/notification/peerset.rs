@@ -494,13 +494,7 @@ impl Peerset {
 
 				return OpenResult::Reject
 			},
-			// On the `report_substream_opened` call, the peer was rejected either because:
-			// - the protocol operates in the reserved-only mode and the peer is not a reserved peer
-			// - there are no slots available for the peer
-			// - the peer is banned
-			//
-			// For the first case, the peer is marked as disconnected and the substream is rejected.
-			// However, litep2p will still report the substream as opened.
+			// The peer was already rejected by the `report_inbound_substream` call.
 			PeerState::Disconnected => {
 				log::debug!(
 					target: LOG_TARGET,
@@ -647,9 +641,8 @@ impl Peerset {
 				}
 
 				// The peer remains in the `PeerStat::Backoff` state until the current timer
-				// expires. This simplifies the transitions, as a `PeerState::Rejected` would
-				// enter into the `PeerState::Backoff` state after the
-				// `report_substream_opened` call.
+				// expires. Then, the peer will be in the disconnected state, subject to further
+				// rejection if the peer is not reserved by then.
 				if should_reject {
 					return ValidationResult::Reject
 				}
@@ -689,20 +682,9 @@ impl Peerset {
 				return ValidationResult::Accept;
 			},
 			PeerState::Canceled { direction } => {
-				if should_reject {
-					log::trace!(
-						target: LOG_TARGET,
-						"{}: rejecting inbound substream from {peer:?} ({direction:?}) in reserved-only mode that was marked canceled",
-						self.protocol,
-					);
-
-					// The state must be kept as the peer might count towards the outbound slot.
-					return ValidationResult::Reject
-				}
-
 				log::trace!(
 					target: LOG_TARGET,
-					"{}: {peer:?} is canceled, rejecting substream",
+					"{}: {peer:?} is canceled, rejecting substream should_reject={should_reject}",
 					self.protocol,
 				);
 
