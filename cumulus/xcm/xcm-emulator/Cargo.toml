@@ -55,8 +55,8 @@ sp-runtime.default-features = true
 sp-runtime.workspace = true
 sp-tracing.default-features = true
 sp-tracing.workspace = true
+xcm.default-features = true
+xcm.workspace = true
 xcm-executor.default-features = true
 xcm-executor.workspace = true
 xcm-simulator = { workspace = true, default-features = true }
-xcm.default-features = true
-xcm.workspace = true
