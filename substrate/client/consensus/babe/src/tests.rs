@@ -440,7 +440,7 @@ async fn authoring_blocks() {
 }
 
 #[tokio::test]
-#[should_panic(expected = "valid babe headers must contain a predigest")]
+#[should_panic(expected = "importing block failed: Other(NoPreRuntimeDigest)")]
 async fn rejects_missing_inherent_digest() {
 	run_one_test(|header: &mut TestHeader, stage| {
 		let v = std::mem::take(&mut header.digest_mut().logs);
