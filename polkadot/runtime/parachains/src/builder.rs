@@ -34,7 +34,7 @@ use frame_support::pallet_prelude::*;
 use frame_system::pallet_prelude::*;
 use polkadot_primitives::{
 	vstaging::{
-		BackedCandidate, CandidateDescriptorV2, ClaimQueueOffset,
+		ApprovedPeerId, BackedCandidate, CandidateDescriptorV2, ClaimQueueOffset,
 		CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreSelector,
 		InherentData as ParachainsInherentData, UMPSignal, UMP_SEPARATOR,
 	},
@@ -144,6 +144,8 @@ pub(crate) struct BenchBuilder<T: paras_inherent::Config> {
 	unavailable_cores: Vec<u32>,
 	/// Use v2 candidate descriptor.
 	candidate_descriptor_v2: bool,
+	/// Send an approved peer ump signal. Only useful for v2 descriptors
+	approved_peer_signal: Option<ApprovedPeerId>,
 	/// Apply custom changes to generated candidates
 	candidate_modifier: Option<CandidateModifier<T::Hash>>,
 	_phantom: core::marker::PhantomData<T>,
@@ -180,6 +182,7 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 			code_upgrade: None,
 			unavailable_cores: vec![],
 			candidate_descriptor_v2: false,
+			approved_peer_signal: None,
 			candidate_modifier: None,
 			_phantom: core::marker::PhantomData::<T>,
 		}
@@ -292,6 +295,12 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 	/// Toggle usage of v2 candidate descriptors.
 	pub(crate) fn set_candidate_descriptor_v2(mut self, enable: bool) -> Self {
 		self.candidate_descriptor_v2 = enable;
+		self
+	}
+
+	/// Set an approved peer to be sent as a UMP signal. Only used for v2 descriptors
+	pub(crate) fn set_approved_peer_signal(mut self, peer_id: ApprovedPeerId) -> Self {
+		self.approved_peer_signal = Some(peer_id);
 		self
 	}
 
@@ -736,6 +745,12 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 								)
 								.encode(),
 							);
+
+							if let Some(approved_peer_signal) = &self.approved_peer_signal {
+								candidate.commitments.upward_messages.force_push(
+									UMPSignal::ApprovedPeer(approved_peer_signal.clone()).encode(),
+								);
+							}
 						}
 
 						// Maybe apply the candidate modifier

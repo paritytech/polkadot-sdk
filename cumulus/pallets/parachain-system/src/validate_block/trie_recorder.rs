@@ -198,11 +198,11 @@ mod tests {
 			let recorder_for_test: SizeOnlyRecorderProvider<sp_core::Blake2Hasher> =
 				SizeOnlyRecorderProvider::default();
 			let reference_cache: SharedTrieCache<sp_core::Blake2Hasher> =
-				SharedTrieCache::new(CacheSize::new(1024 * 5));
+				SharedTrieCache::new(CacheSize::new(1024 * 5), None);
 			let cache_for_test: SharedTrieCache<sp_core::Blake2Hasher> =
-				SharedTrieCache::new(CacheSize::new(1024 * 5));
+				SharedTrieCache::new(CacheSize::new(1024 * 5), None);
 			{
-				let local_cache = cache_for_test.local_cache();
+				let local_cache = cache_for_test.local_cache_untrusted();
 				let mut trie_cache_for_reference = local_cache.as_trie_db_cache(root);
 				let mut reference_trie_recorder = reference_recorder.as_trie_recorder(root);
 				let reference_trie =
@@ -211,7 +211,7 @@ mod tests {
 						.with_cache(&mut trie_cache_for_reference)
 						.build();
 
-				let local_cache_for_test = reference_cache.local_cache();
+				let local_cache_for_test = reference_cache.local_cache_untrusted();
 				let mut trie_cache_for_test = local_cache_for_test.as_trie_db_cache(root);
 				let mut trie_recorder_under_test = recorder_for_test.as_trie_recorder(root);
 				let test_trie =

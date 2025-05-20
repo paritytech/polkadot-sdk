@@ -31,6 +31,7 @@ use sc_transaction_pool_api::{
 use std::thread::sleep;
 use substrate_test_runtime_client::Sr25519Keyring::*;
 use substrate_test_runtime_transaction_pool::uxt;
+use tracing::debug;
 
 #[test]
 fn fatp_limits_no_views_mempool_count() {
@@ -260,14 +261,14 @@ fn fatp_limits_watcher_mempool_doesnt_prevent_dropping() {
 	assert_pool_status!(header01.hash(), &pool, 2, 0);
 
 	let xt0_status = futures::executor::block_on_stream(xt0_watcher).take(2).collect::<Vec<_>>();
-	log::debug!("xt0_status: {:#?}", xt0_status);
+	debug!(target: LOG_TARGET, ?xt0_status, "xt0_status");
 	assert_eq!(xt0_status, vec![TransactionStatus::Ready, TransactionStatus::Dropped]);
 	let xt1_status = futures::executor::block_on_stream(xt1_watcher).take(1).collect::<Vec<_>>();
 
 	assert_eq!(xt1_status, vec![TransactionStatus::Ready]);
 
 	let xt2_status = futures::executor::block_on_stream(xt2_watcher).take(1).collect::<Vec<_>>();
-	log::debug!("xt2_status: {:#?}", xt2_status);
+	debug!(target: LOG_TARGET, ?xt2_status, "xt2_status");
 
 	assert_eq!(xt2_status, vec![TransactionStatus::Ready]);
 }

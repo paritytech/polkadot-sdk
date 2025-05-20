@@ -3,10 +3,8 @@
 use super::*;
 
 use crate::{self as inbound_queue_v2};
-use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use frame_support::{derive_impl, parameter_types, traits::ConstU32};
 use hex_literal::hex;
-use scale_info::TypeInfo;
 use snowbridge_beacon_primitives::{
 	types::deneb, BeaconHeader, ExecutionProof, VersionedExecutionPayloadHeader,
 };
@@ -20,6 +18,7 @@ use sp_runtime::{
 use sp_std::{convert::From, default::Default, marker::PhantomData};
 use xcm::{opaque::latest::WESTEND_GENESIS_HASH, prelude::*};
 type Block = frame_system::mocking::MockBlock<Test>;
+use snowbridge_test_utils::mock_rewards::{BridgeReward, MockRewardLedger};
 pub use snowbridge_test_utils::mock_xcm::{MockXcmExecutor, MockXcmSender};
 
 frame_support::construct_runtime!(
@@ -101,41 +100,10 @@ parameter_types! {
 	pub UniversalLocation: InteriorLocation =
 		[GlobalConsensus(ByGenesis(WESTEND_GENESIS_HASH)), Parachain(1002)].into();
 	pub AssetHubFromEthereum: Location = Location::new(1,[GlobalConsensus(ByGenesis(WESTEND_GENESIS_HASH)),Parachain(1000)]);
+	pub AssetHubUniversalLocation: InteriorLocation = [GlobalConsensus(ByGenesis(WESTEND_GENESIS_HASH)), Parachain(1000)].into();
 	pub SnowbridgeReward: BridgeReward = BridgeReward::Snowbridge;
 	pub const CreateAssetCall: [u8;2] = [53, 0];
 	pub const CreateAssetDeposit: u128 = 10_000_000_000u128;
-}
-
-/// Showcasing that we can handle multiple different rewards with the same pallet.
-#[derive(
-	Clone,
-	Copy,
-	Debug,
-	Decode,
-	Encode,
-	DecodeWithMemTracking,
-	Eq,
-	MaxEncodedLen,
-	PartialEq,
-	TypeInfo,
-)]
-pub enum BridgeReward {
-	/// Rewards for Snowbridge.
-	Snowbridge,
-}
-
-parameter_types! {
-	pub static RegisteredRewardsCount: u128 = 0;
-}
-
-impl RewardLedger<<mock::Test as frame_system::Config>::AccountId, BridgeReward, u128> for () {
-	fn register_reward(
-		_relayer: &<mock::Test as frame_system::Config>::AccountId,
-		_reward: BridgeReward,
-		_reward_balance: u128,
-	) {
-		RegisteredRewardsCount::set(RegisteredRewardsCount::get().saturating_add(1));
-	}
 }
 
 impl inbound_queue_v2::Config for Test {
@@ -143,7 +111,6 @@ impl inbound_queue_v2::Config for Test {
 	type Verifier = MockVerifier;
 	type XcmSender = MockXcmSender;
 	type XcmExecutor = MockXcmExecutor;
-	type RewardPayment = ();
 	type GatewayAddress = GatewayAddress;
 	type AssetHubParaId = ConstU32<1000>;
 	type MessageConverter = MessageToXcm<
@@ -155,6 +122,8 @@ impl inbound_queue_v2::Config for Test {
 		GatewayAddress,
 		UniversalLocation,
 		AssetHubFromEthereum,
+		AssetHubUniversalLocation,
+		AccountId,
 	>;
 	#[cfg(feature = "runtime-benchmarks")]
 	type Helper = Test;
@@ -162,6 +131,7 @@ impl inbound_queue_v2::Config for Test {
 	type AccountToLocation = MockAccountLocationConverter<AccountId>;
 	type RewardKind = BridgeReward;
 	type DefaultRewardKind = SnowbridgeReward;
+	type RewardPayment = MockRewardLedger;
 }
 
 pub fn setup() {

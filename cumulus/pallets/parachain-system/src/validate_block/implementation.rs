@@ -27,7 +27,7 @@ use alloc::vec::Vec;
 use codec::{Decode, Encode};
 use cumulus_primitives_core::relay_chain::vstaging::{UMPSignal, UMP_SEPARATOR};
 use frame_support::{
-	traits::{ExecuteBlock, ExtrinsicCall, Get, IsSubType},
+	traits::{ExecuteBlock, Get, IsSubType},
 	BoundedVec,
 };
 use polkadot_parachain_primitives::primitives::{
@@ -36,7 +36,9 @@ use polkadot_parachain_primitives::primitives::{
 use sp_core::storage::{ChildInfo, StateVersion};
 use sp_externalities::{set_and_run_with_externalities, Externalities};
 use sp_io::KillStorageResult;
-use sp_runtime::traits::{Block as BlockT, ExtrinsicLike, HashingFor, Header as HeaderT};
+use sp_runtime::traits::{
+	Block as BlockT, ExtrinsicCall, ExtrinsicLike, HashingFor, Header as HeaderT,
+};
 use sp_state_machine::OverlayedChanges;
 use sp_trie::ProofSizeProvider;
 use trie_recorder::SizeOnlyRecorderProvider;
@@ -303,6 +305,7 @@ where
 
 	if !upward_message_signals.is_empty() {
 		let mut selected_core: Option<(CoreSelector, ClaimQueueOffset)> = None;
+		let mut approved_peer = None;
 
 		upward_message_signals.iter().for_each(|s| {
 			match UMPSignal::decode(&mut &s[..]).expect("Failed to decode `UMPSignal`") {
@@ -316,6 +319,17 @@ where
 					Some(_) => {},
 					None => {
 						selected_core = Some((selector, offset));
+					},
+				},
+				UMPSignal::ApprovedPeer(new_approved_peer) => match &approved_peer {
+					Some(approved_peer) if *approved_peer != new_approved_peer => {
+						panic!(
+							"All `ApprovedPeer` signals need to select the same peer_id: {new_approved_peer:?} vs {approved_peer:?}",
+						)
+					},
+					Some(_) => {},
+					None => {
+						approved_peer = Some(new_approved_peer);
 					},
 				},
 			}
