@@ -12,4 +12,18 @@ doc:
 
 crates:
   - name: sc-network
+    bump: minor
+  - name: sc-cli
+    bump: patch
+  - name: sc-network-types
+    bump: minor
+  - name: polkadot-service
+    bump: minor
+  - name: sc-offchain
+    bump: patch
+  - name: cumulus-relay-chain-minimal-node
+    bump: patch
+  - name: cumulus-relay-chain-inprocess-interface
+    bump: patch
+  - name: polkadot-omni-node-lib
     bump: patch
