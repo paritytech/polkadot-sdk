@@ -2503,7 +2503,7 @@ fn remote_asset_reserve_and_remote_fee_reserve_paid_call<Call>(
 			// short-circuit here for tests where we expect failure
 			return;
 		}
-		
+
 		let context = UniversalLocation::get();
 		let foreign_id_location_reanchored =
 			foreign_asset_id_location.clone().reanchored(&dest, &context).unwrap();
