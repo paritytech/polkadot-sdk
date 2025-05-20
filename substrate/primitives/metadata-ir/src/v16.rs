@@ -18,10 +18,10 @@
 //! Convert the IR to V16 metadata.
 
 use crate::{
-	DeprecationInfoIR, DeprecationStatusIR, PalletAssociatedTypeMetadataIR, PalletCallMetadataIR,
-	PalletConstantMetadataIR, PalletErrorMetadataIR, PalletEventMetadataIR,
+	EnumDeprecationInfoIR, ItemDeprecationInfoIR, PalletAssociatedTypeMetadataIR,
+	PalletCallMetadataIR, PalletConstantMetadataIR, PalletErrorMetadataIR, PalletEventMetadataIR,
 	PalletStorageMetadataIR, PalletViewFunctionMetadataIR, PalletViewFunctionParamMetadataIR,
-	StorageEntryMetadataIR,
+	StorageEntryMetadataIR, VariantDeprecationInfoIR,
 };
 
 use super::types::{
@@ -30,11 +30,11 @@ use super::types::{
 };
 
 use frame_metadata::v16::{
-	CustomMetadata, DeprecationInfo, DeprecationStatus, ExtrinsicMetadata, FunctionParamMetadata,
-	PalletAssociatedTypeMetadata, PalletCallMetadata, PalletConstantMetadata, PalletErrorMetadata,
-	PalletEventMetadata, PalletMetadata, PalletStorageMetadata, PalletViewFunctionMetadata,
-	RuntimeApiMetadata, RuntimeApiMethodMetadata, RuntimeMetadataV16, StorageEntryMetadata,
-	TransactionExtensionMetadata,
+	CustomMetadata, EnumDeprecationInfo, ExtrinsicMetadata, FunctionParamMetadata,
+	ItemDeprecationInfo, PalletAssociatedTypeMetadata, PalletCallMetadata, PalletConstantMetadata,
+	PalletErrorMetadata, PalletEventMetadata, PalletMetadata, PalletStorageMetadata,
+	PalletViewFunctionMetadata, RuntimeApiMetadata, RuntimeApiMethodMetadata, RuntimeMetadataV16,
+	StorageEntryMetadata, TransactionExtensionMetadata, VariantDeprecationInfo,
 };
 
 use codec::Compact;
@@ -44,7 +44,7 @@ impl From<MetadataIR> for RuntimeMetadataV16 {
 	fn from(ir: MetadataIR) -> Self {
 		RuntimeMetadataV16::new(
 			ir.pallets.into_iter().map(Into::into).collect(),
-			ir.extrinsic.into(),
+			ir.extrinsic.into_v16_with_call_ty(ir.outer_enums.call_enum_ty),
 			ir.apis.into_iter().map(Into::into).collect(),
 			ir.outer_enums.into(),
 			// Substrate does not collect yet the custom metadata fields.
@@ -179,42 +179,48 @@ impl From<TransactionExtensionMetadataIR> for TransactionExtensionMetadata {
 	}
 }
 
-impl From<ExtrinsicMetadataIR> for ExtrinsicMetadata {
-	fn from(ir: ExtrinsicMetadataIR) -> Self {
+impl ExtrinsicMetadataIR {
+	fn into_v16_with_call_ty(self, call_ty: scale_info::MetaType) -> ExtrinsicMetadata {
 		// Assume version 0 for all extensions.
-		let indexes = (0..ir.extensions.len()).map(|index| Compact(index as u32)).collect();
+		let indexes = (0..self.extensions.len()).map(|index| Compact(index as u32)).collect();
 		let transaction_extensions_by_version = [(0, indexes)].iter().cloned().collect();
 
 		ExtrinsicMetadata {
-			versions: ir.versions,
-			address_ty: ir.address_ty,
-			signature_ty: ir.signature_ty,
+			versions: self.versions,
+			address_ty: self.address_ty,
+			call_ty,
+			signature_ty: self.signature_ty,
 			transaction_extensions_by_version,
-			transaction_extensions: ir.extensions.into_iter().map(Into::into).collect(),
+			transaction_extensions: self.extensions.into_iter().map(Into::into).collect(),
 		}
 	}
 }
 
-impl From<DeprecationStatusIR> for DeprecationStatus {
-	fn from(ir: DeprecationStatusIR) -> Self {
+impl From<EnumDeprecationInfoIR> for EnumDeprecationInfo {
+	fn from(ir: EnumDeprecationInfoIR) -> Self {
+		EnumDeprecationInfo(ir.0.into_iter().map(|(key, value)| (key, value.into())).collect())
+	}
+}
+
+impl From<VariantDeprecationInfoIR> for VariantDeprecationInfo {
+	fn from(ir: VariantDeprecationInfoIR) -> Self {
 		match ir {
-			DeprecationStatusIR::NotDeprecated => DeprecationStatus::NotDeprecated,
-			DeprecationStatusIR::DeprecatedWithoutNote => DeprecationStatus::DeprecatedWithoutNote,
-			DeprecationStatusIR::Deprecated { since, note } =>
-				DeprecationStatus::Deprecated { since, note },
+			VariantDeprecationInfoIR::DeprecatedWithoutNote =>
+				VariantDeprecationInfo::DeprecatedWithoutNote,
+			VariantDeprecationInfoIR::Deprecated { note, since } =>
+				VariantDeprecationInfo::Deprecated { note, since },
 		}
 	}
 }
 
-impl From<DeprecationInfoIR> for DeprecationInfo {
-	fn from(ir: DeprecationInfoIR) -> Self {
+impl From<ItemDeprecationInfoIR> for ItemDeprecationInfo {
+	fn from(ir: ItemDeprecationInfoIR) -> Self {
 		match ir {
-			DeprecationInfoIR::NotDeprecated => DeprecationInfo::NotDeprecated,
-			DeprecationInfoIR::ItemDeprecated(status) =>
-				DeprecationInfo::ItemDeprecated(status.into()),
-			DeprecationInfoIR::VariantsDeprecated(btree) => DeprecationInfo::VariantsDeprecated(
-				btree.into_iter().map(|(key, value)| (key.0, value.into())).collect(),
-			),
+			ItemDeprecationInfoIR::NotDeprecated => ItemDeprecationInfo::NotDeprecated,
+			ItemDeprecationInfoIR::DeprecatedWithoutNote =>
+				ItemDeprecationInfo::DeprecatedWithoutNote,
+			ItemDeprecationInfoIR::Deprecated { note, since } =>
+				ItemDeprecationInfo::Deprecated { note, since },
 		}
 	}
 }
