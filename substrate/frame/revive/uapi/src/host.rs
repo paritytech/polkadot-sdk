@@ -480,33 +480,6 @@ pub trait HostFn: private::Sealed {
 	#[unstable_hostfn]
 	fn call_chain_extension(func_id: u32, input: &[u8], output: Option<&mut &mut [u8]>) -> u32;
 
-	/// Call some dispatchable of the runtime.
-	///
-	/// # Parameters
-	///
-	/// - `call`: The call data.
-	///
-	/// # Return
-	///
-	/// Returns `Error::Success` when the dispatchable was successfully executed and
-	/// returned `Ok`. When the dispatchable was executed but returned an error
-	/// `Error::CallRuntimeFailed` is returned. The full error is not
-	/// provided because it is not guaranteed to be stable.
-	///
-	/// # Comparison with `ChainExtension`
-	///
-	/// Just as a chain extension this API allows the runtime to extend the functionality
-	/// of contracts. While making use of this function is generally easier it cannot be
-	/// used in all cases. Consider writing a chain extension if you need to do perform
-	/// one of the following tasks:
-	///
-	/// - Return data.
-	/// - Provide functionality **exclusively** to contracts.
-	/// - Provide custom weights.
-	/// - Avoid the need to keep the `Call` data structure stable.
-	#[unstable_hostfn]
-	fn call_runtime(call: &[u8]) -> Result;
-
 	/// Checks whether the caller of the current contract is the origin of the whole call stack.
 	///
 	/// Prefer this over [`is_contract()`][`Self::is_contract`] when checking whether your contract

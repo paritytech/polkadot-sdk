@@ -29,20 +29,18 @@ use crate::{
 	Config, Error, LOG_TARGET, SENTINEL,
 };
 use alloc::{vec, vec::Vec};
-use codec::{Decode, DecodeLimit, Encode};
+use codec::Encode;
 use core::{fmt, marker::PhantomData, mem};
 use frame_support::{
-	dispatch::DispatchInfo, ensure, pallet_prelude::DispatchResultWithPostInfo, parameter_types,
-	traits::Get, weights::Weight,
+	ensure,
+	traits::Get,
+	weights::Weight,
 };
 use pallet_revive_proc_macro::define_env;
 use pallet_revive_uapi::{CallFlags, ReturnErrorCode, ReturnFlags, StorageFlags};
 use sp_core::{H160, H256, U256};
 use sp_io::hashing::{blake2_128, blake2_256, keccak_256};
 use sp_runtime::{DispatchError, RuntimeDebug};
-
-/// The maximum nesting depth a contract can use when encoding types.
-const MAX_DECODE_NESTING: u32 = 256;
 
 /// Abstraction over the memory access within syscalls.
 ///
@@ -114,23 +112,6 @@ pub trait Memory<T: Config> {
 		let mut code_hash = H256::default();
 		self.read_into_buf(ptr, code_hash.as_bytes_mut())?;
 		Ok(code_hash)
-	}
-
-	/// Read designated chunk from the sandbox memory and attempt to decode into the specified type.
-	///
-	/// Returns `Err` if one of the following conditions occurs:
-	///
-	/// - requested buffer is not within the bounds of the sandbox memory.
-	/// - the buffer contents cannot be decoded as the required type.
-	///
-	/// # Note
-	///
-	/// Make sure to charge a proportional amount of weight if `len` is not fixed.
-	fn read_as_unbounded<D: Decode>(&self, ptr: u32, len: u32) -> Result<D, DispatchError> {
-		let buf = self.read(ptr, len)?;
-		let decoded = D::decode_all_with_depth_limit(MAX_DECODE_NESTING, &mut buf.as_ref())
-			.map_err(|_| DispatchError::from(Error::<T>::DecodingFailed))?;
-		Ok(decoded)
 	}
 }
 
@@ -214,11 +195,6 @@ impl<T: Config> PolkaVmInstance<T> for polkavm::RawInstance {
 	fn write_output(&mut self, output: u64) {
 		self.set_reg(polkavm::Reg::A0, output);
 	}
-}
-
-parameter_types! {
-	/// Getter types used by [`crate::SyscallDoc:call_runtime`]
-	const CallRuntimeFailed: ReturnErrorCode = ReturnErrorCode::CallRuntimeFailed;
 }
 
 impl From<&ExecReturnValue> for ReturnErrorCode {
@@ -390,8 +366,6 @@ pub enum RuntimeCosts {
 	EcdsaRecovery,
 	/// Weight of calling `seal_sr25519_verify` for the given input size.
 	Sr25519Verify(u32),
-	/// Weight charged for calling into the runtime.
-	CallRuntime(Weight),
 	/// Weight of calling `seal_set_code_hash`
 	SetCodeHash,
 	/// Weight of calling `ecdsa_to_eth_address`
@@ -538,7 +512,6 @@ impl<T: Config> Token<T> for RuntimeCosts {
 			HashBlake128(len) => T::WeightInfo::seal_hash_blake2_128(len),
 			EcdsaRecovery => T::WeightInfo::ecdsa_recover(),
 			Sr25519Verify(len) => T::WeightInfo::seal_sr25519_verify(len),
-			CallRuntime(weight) => weight,
 			SetCodeHash => T::WeightInfo::seal_set_code_hash(),
 			EcdsaToEthAddress => T::WeightInfo::seal_ecdsa_to_eth_address(),
 			GetImmutableData(len) => T::WeightInfo::seal_get_immutable_data(len),
@@ -713,27 +686,6 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 	/// refunded to match the actual amount.
 	fn adjust_gas(&mut self, charged: ChargedAmount, actual_costs: RuntimeCosts) {
 		self.ext.gas_meter_mut().adjust_gas(charged, actual_costs);
-	}
-
-	/// Charge, Run and adjust gas, for executing the given dispatchable.
-	fn call_dispatchable<ErrorReturnCode: Get<ReturnErrorCode>>(
-		&mut self,
-		dispatch_info: DispatchInfo,
-		runtime_cost: impl Fn(Weight) -> RuntimeCosts,
-		run: impl FnOnce(&mut Self) -> DispatchResultWithPostInfo,
-	) -> Result<ReturnErrorCode, TrapReason> {
-		use frame_support::dispatch::extract_actual_weight;
-		let charged = self.charge_gas(runtime_cost(dispatch_info.call_weight))?;
-		let result = run(self);
-		let actual_weight = extract_actual_weight(&result, &dispatch_info);
-		self.adjust_gas(charged, runtime_cost(actual_weight));
-		match result {
-			Ok(_) => Ok(ReturnErrorCode::Success),
-			Err(e) => {
-				log::debug!(target: LOG_TARGET, "call failed with: {e:?}");
-				Ok(ErrorReturnCode::get())
-			},
-		}
 	}
 
 	/// Write the given buffer and its length to the designated locations in sandbox memory and
@@ -1937,25 +1889,6 @@ pub mod env {
 	fn ref_time_left(&mut self, memory: &mut M) -> Result<u64, TrapReason> {
 		self.charge_gas(RuntimeCosts::RefTimeLeft)?;
 		Ok(self.ext.gas_meter().gas_left().ref_time())
-	}
-
-	/// Call some dispatchable of the runtime.
-	/// See [`frame_support::traits::call_runtime`].
-	#[mutating]
-	fn call_runtime(
-		&mut self,
-		memory: &mut M,
-		call_ptr: u32,
-		call_len: u32,
-	) -> Result<ReturnErrorCode, TrapReason> {
-		use frame_support::dispatch::GetDispatchInfo;
-		self.charge_gas(RuntimeCosts::CopyFromContract(call_len))?;
-		let call: <E::T as Config>::RuntimeCall = memory.read_as_unbounded(call_ptr, call_len)?;
-		self.call_dispatchable::<CallRuntimeFailed>(
-			call.get_dispatch_info(),
-			RuntimeCosts::CallRuntime,
-			|runtime| runtime.ext.call_runtime(call),
-		)
 	}
 
 	/// Checks whether the caller of the current contract is the origin of the whole call stack.

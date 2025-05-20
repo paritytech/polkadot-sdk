@@ -137,7 +137,6 @@ mod sys {
 			out_ptr: *mut u8,
 			out_len_ptr: *mut u32,
 		) -> ReturnCode;
-		pub fn call_runtime(call_ptr: *const u8, call_len: u32) -> ReturnCode;
 		pub fn sr25519_verify(
 			signature_ptr: *const u8,
 			pub_key_ptr: *const u8,
@@ -484,12 +483,6 @@ impl HostFn for HostFnImpl {
 	fn call_data_copy(output: &mut [u8], offset: u32) {
 		let len = output.len() as u32;
 		unsafe { sys::call_data_copy(output.as_mut_ptr(), len, offset) };
-	}
-
-	#[unstable_hostfn]
-	fn call_runtime(call: &[u8]) -> Result {
-		let ret_code = unsafe { sys::call_runtime(call.as_ptr(), call.len() as u32) };
-		ret_code.into()
 	}
 
 	#[unstable_hostfn]
