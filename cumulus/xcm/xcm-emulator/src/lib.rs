@@ -20,6 +20,7 @@ pub use array_bytes;
 pub use codec::{Decode, Encode, EncodeLike, MaxEncodedLen};
 pub use log;
 pub use paste;
+use std::sync::Arc;
 pub use std::{
 	any::type_name,
 	collections::HashMap,
@@ -29,7 +30,6 @@ pub use std::{
 	ops::Deref,
 	sync::{LazyLock, Mutex},
 };
-use std::sync::Arc;
 
 // Substrate
 pub use alloc::collections::vec_deque::VecDeque;
