@@ -33,6 +33,8 @@ mod storage;
 mod transient_storage;
 mod wasm;
 
+#[cfg(any(feature = "std", feature = "runtime-benchmarks", test))]
+mod impl_fungibles;
 #[cfg(test)]
 mod tests;
 

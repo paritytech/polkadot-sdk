@@ -1162,6 +1162,7 @@ dependencies = [
 name = "asset-hub-westend-integration-tests"
 version = "1.0.0"
 dependencies = [
+ "alloy-core",
  "assert_matches",
  "asset-test-utils",
  "cumulus-pallet-parachain-system",
@@ -1173,6 +1174,8 @@ dependencies = [
  "pallet-assets",
  "pallet-balances",
  "pallet-message-queue",
+ "pallet-revive",
+ "pallet-revive-fixtures",
  "pallet-treasury",
  "pallet-xcm",
  "parachains-common",
@@ -1314,16 +1317,22 @@ dependencies = [
 name = "assets-common"
 version = "0.7.0"
 dependencies = [
+ "alloy-core",
  "cumulus-primitives-core",
+ "ethereum-standards",
  "frame-support",
+ "frame-system",
  "impl-trait-for-tuples",
  "pallet-asset-conversion",
  "pallet-assets",
+ "pallet-revive",
+ "pallet-revive-uapi",
  "pallet-xcm",
  "parachains-common",
  "parity-scale-codec",
  "scale-info",
  "sp-api 26.0.0",
+ "sp-core 28.0.0",
  "sp-runtime 31.0.1",
  "staging-xcm",
  "staging-xcm-builder",
@@ -6037,6 +6046,13 @@ dependencies = [
  "impl-serde 0.5.0",
  "scale-info",
  "tiny-keccak",
+]
+
+[[package]]
+name = "ethereum-standards"
+version = "0.1.0"
+dependencies = [
+ "alloy-core",
 ]
 
 [[package]]
@@ -12697,6 +12713,7 @@ dependencies = [
  "assert_matches",
  "derive_more 0.99.17",
  "environmental",
+ "ethereum-standards",
  "ethereum-types",
  "frame-benchmarking",
  "frame-support",
@@ -15841,6 +15858,7 @@ dependencies = [
  "cumulus-relay-chain-streams",
  "cumulus-test-relay-sproof-builder",
  "emulated-integration-tests-common",
+ "ethereum-standards",
  "fork-tree",
  "frame-benchmarking",
  "frame-benchmarking-cli",

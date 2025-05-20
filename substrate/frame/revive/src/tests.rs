@@ -352,6 +352,7 @@ where
 }
 parameter_types! {
 	pub static UnstableInterface: bool = true;
+	pub CheckingAccount: AccountId32 = BOB.clone();
 }
 
 impl FindAuthor<<Test as frame_system::Config>::AccountId> for Test {
@@ -423,9 +424,13 @@ impl ExtBuilder {
 		sp_tracing::try_init_simple();
 		self.set_associated_consts();
 		let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
-		pallet_balances::GenesisConfig::<Test> { balances: vec![], ..Default::default() }
-			.assimilate_storage(&mut t)
-			.unwrap();
+		let checking_account = Pallet::<Test>::checking_account();
+		pallet_balances::GenesisConfig::<Test> {
+			balances: vec![(checking_account.clone(), 1_000_000_000_000)],
+			..Default::default()
+		}
+		.assimilate_storage(&mut t)
+		.unwrap();
 		let mut ext = sp_io::TestExternalities::new(t);
 		ext.register_extension(KeystoreExt::new(MemoryKeystore::new()));
 		ext.execute_with(|| {
@@ -441,6 +446,9 @@ impl ExtBuilder {
 			for code_hash in self.code_hashes {
 				CodeInfoOf::<Test>::insert(code_hash, crate::CodeInfo::new(ALICE));
 			}
+		});
+		ext.execute_with(|| {
+			assert_ok!(Pallet::<Test>::map_account(RuntimeOrigin::signed(checking_account)));
 		});
 		ext
 	}

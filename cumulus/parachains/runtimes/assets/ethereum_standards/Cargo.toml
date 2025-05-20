@@ -1,0 +1,15 @@
+[package]
+name = "ethereum-standards"
+version = "0.1.0"
+authors.workspace = true
+edition.workspace = true
+description = "Interfaces for Ethereum standards"
+license = "Apache-2.0"
+homepage.workspace = true
+repository.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+alloy-core = { workspace = true, features = ["sol-types"] }
