@@ -83,7 +83,6 @@ westend-runtime = { workspace = true, default-features = true }
 default = []
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
-	"frame-storage-access-test-runtime/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
 	"polkadot-parachain-primitives/runtime-benchmarks",

@@ -26,7 +26,10 @@ substrate-wasm-builder = { optional = true, workspace = true, default-features =
 
 [features]
 default = ["std"]
-no_std = []
+no_std = [
+	"cumulus-pallet-parachain-system/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+]
 std = [
 	"codec/std",
 	"cumulus-pallet-parachain-system/std",
@@ -35,8 +38,4 @@ std = [
 	"sp-state-machine/std",
 	"sp-trie/std",
 	"substrate-wasm-builder",
-]
-runtime-benchmarks = [
-	"cumulus-pallet-parachain-system/runtime-benchmarks",
-	"sp-runtime/runtime-benchmarks",
 ]

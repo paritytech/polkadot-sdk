@@ -27,7 +27,7 @@ use sp_core::storage::ChildInfo;
 use sp_runtime::traits;
 use sp_trie::StorageProof;
 
-#[cfg(all(not(feature = "std"), feature = "runtime-benchmarks"))]
+#[cfg(all(not(feature = "std")))]
 use {
 	cumulus_pallet_parachain_system::validate_block::{
 		trie_cache::CacheProvider, trie_recorder::SizeOnlyRecorderProvider,
@@ -107,7 +107,7 @@ impl<B: traits::Block> StorageAccessParams<B> {
 ///
 /// Only performs the storage access, this is used to benchmark the storage access cost.
 #[doc(hidden)]
-#[cfg(all(not(feature = "std"), feature = "runtime-benchmarks"))]
+#[cfg(all(not(feature = "std")))]
 pub fn proceed_storage_access<B: traits::Block>(mut params: &[u8]) {
 	let StorageAccessParams { state_root, storage_proof, payload, is_dry_run } =
 		StorageAccessParams::<B>::decode(&mut params)
@@ -171,7 +171,7 @@ pub fn oom(_: core::alloc::Layout) -> ! {
 	core::intrinsics::abort();
 }
 
-#[cfg(all(not(feature = "std"), feature = "runtime-benchmarks"))]
+#[cfg(all(not(feature = "std")))]
 #[no_mangle]
 pub extern "C" fn validate_block(params: *const u8, len: usize) -> u64 {
 	type Block = generic::Block<generic::Header<u32, traits::BlakeTwo256>, OpaqueExtrinsic>;
