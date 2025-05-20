@@ -99,6 +99,7 @@ fn unbalanced_trait_set_balance_works() {
 		);
 
 		assert_ok!(<Balances as fungible::MutateHold<_>>::release(&TestId::Foo, &1337, 60, Exact));
+		System::assert_last_event(RuntimeEvent::Balances(crate::Event::Released { reason: TestId::Foo, who: 1337, amount: 60 }));
 		assert_eq!(<Balances as fungible::InspectHold<_>>::balance_on_hold(&TestId::Foo, &1337), 0);
 		assert_eq!(<Balances as fungible::InspectHold<_>>::total_balance_on_hold(&1337), 0);
 	});
@@ -252,6 +253,73 @@ fn frozen_hold_balance_cannot_be_moved_without_force() {
 				e
 			);
 			assert_ok!(Balances::transfer_on_hold(&TestId::Foo, &1, &2, 1, Exact, Free, Force));
+
+			assert_eq!(
+				events(),
+				[
+					RuntimeEvent::Balances(crate::Event::Frozen { who: 1, amount: 10 }),
+					RuntimeEvent::Balances(crate::Event::Held {
+						reason: TestId::Foo,
+						who: 1,
+						amount: 9
+					}),
+					RuntimeEvent::Balances(crate::Event::TransferOnHold {
+						reason: TestId::Foo,
+						source: 1,
+						dest: 2,
+						amount: 1
+					})
+				]
+			);
+
+			assert_eq!(Balances::total_balance(&2), 21);
+		});
+}
+
+#[test]
+fn transfer_and_hold() {
+	ExtBuilder::default()
+		.existential_deposit(1)
+		.monied(true)
+		.build_and_execute_with(|| {
+			let reason = TestId::Foo;
+
+			// Freeze 9 units in source account (Account 1)
+			assert_ok!(Balances::hold(&reason, &1, 7));
+			assert_ok!(Balances::hold(&reason, &2, 2));
+
+			// Verify reducible balance
+			assert_eq!(Balances::reducible_total_balance_on_hold(&1, Force), 7);
+
+			// Force transfer_and_hold should succeed
+			assert_ok!(Balances::transfer_and_hold(&reason, &1, &2, 1, Exact, Preserve, Polite));
+
+			// Verify state changes
+			assert_eq!(Balances::free_balance(1), 2);
+			assert_eq!(Balances::balance_on_hold(&reason, &2), 3);
+			assert_eq!(Balances::total_balance(&2), 21);
+
+			assert_eq!(
+				events(),
+				[
+					RuntimeEvent::Balances(crate::Event::Held {
+						reason: reason.clone(),
+						who: 1,
+						amount: 7
+					}),
+					RuntimeEvent::Balances(crate::Event::Held {
+						reason: TestId::Foo,
+						who: 2,
+						amount: 2
+					}),
+					RuntimeEvent::Balances(crate::Event::TransferAndHold {
+						reason: TestId::Foo,
+						source: 1,
+						dest: 2,
+						transferred: 1
+					})
+				]
+			);
 		});
 }
 
@@ -653,7 +721,21 @@ fn lone_hold_consideration_works() {
 			assert_eq!(Balances::balance_on_hold(&TestId::Foo, &who), 10);
 
 			assert_ok!(Balances::hold(&TestId::Foo, &who, 5));
-			assert_eq!(events(), [RuntimeEvent::Balances(crate::Event::Held { reason: TestId::Foo, who: who.clone(), amount: 10 }), RuntimeEvent::Balances(crate::Event::Held { reason: TestId::Foo, who: who.clone(), amount: 5 })]);
+			assert_eq!(
+				events(),
+				[
+					RuntimeEvent::Balances(crate::Event::Held {
+						reason: TestId::Foo,
+						who: who.clone(),
+						amount: 10
+					}),
+					RuntimeEvent::Balances(crate::Event::Held {
+						reason: TestId::Foo,
+						who: who.clone(),
+						amount: 5
+					})
+				]
+			);
 			assert_eq!(Balances::balance_on_hold(&TestId::Foo, &who), 15);
 
 			let ticket = ticket.update(&who, Footprint::from_parts(4, 1)).unwrap();

@@ -335,18 +335,37 @@ pub mod pallet {
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config<I>, I: 'static = ()> {
 		/// An account was created with some free balance.
-		Endowed { account: T::AccountId, free_balance: T::Balance },
+		Endowed {
+			account: T::AccountId,
+			free_balance: T::Balance,
+		},
 		/// An account was removed whose balance was non-zero but below ExistentialDeposit,
 		/// resulting in an outright loss.
-		DustLost { account: T::AccountId, amount: T::Balance },
+		DustLost {
+			account: T::AccountId,
+			amount: T::Balance,
+		},
 		/// Transfer succeeded.
-		Transfer { from: T::AccountId, to: T::AccountId, amount: T::Balance },
+		Transfer {
+			from: T::AccountId,
+			to: T::AccountId,
+			amount: T::Balance,
+		},
 		/// A balance was set by root.
-		BalanceSet { who: T::AccountId, free: T::Balance },
+		BalanceSet {
+			who: T::AccountId,
+			free: T::Balance,
+		},
 		/// Some balance was reserved (moved from free to reserved).
-		Reserved { who: T::AccountId, amount: T::Balance },
+		Reserved {
+			who: T::AccountId,
+			amount: T::Balance,
+		},
 		/// Some balance was unreserved (moved from reserved to free).
-		Unreserved { who: T::AccountId, amount: T::Balance },
+		Unreserved {
+			who: T::AccountId,
+			amount: T::Balance,
+		},
 		/// Some balance was moved from the reserve of the first account to the second account.
 		/// Final argument indicates the destination balance type.
 		ReserveRepatriated {
@@ -356,43 +375,115 @@ pub mod pallet {
 			destination_status: Status,
 		},
 		/// Some amount was deposited (e.g. for transaction fees).
-		Deposit { who: T::AccountId, amount: T::Balance },
+		Deposit {
+			who: T::AccountId,
+			amount: T::Balance,
+		},
 		/// Some amount was withdrawn from the account (e.g. for transaction fees).
-		Withdraw { who: T::AccountId, amount: T::Balance },
+		Withdraw {
+			who: T::AccountId,
+			amount: T::Balance,
+		},
 		/// Some amount was removed from the account (e.g. for misbehavior).
-		Slashed { who: T::AccountId, amount: T::Balance },
+		Slashed {
+			who: T::AccountId,
+			amount: T::Balance,
+		},
 		/// Some amount was minted into an account.
-		Minted { who: T::AccountId, amount: T::Balance },
+		Minted {
+			who: T::AccountId,
+			amount: T::Balance,
+		},
 		/// Some credit was balanced and added to the TotalIssuance.
-		MintedCredit { amount: T::Balance },
+		MintedCredit {
+			amount: T::Balance,
+		},
 		/// Some amount was burned from an account.
-		Burned { who: T::AccountId, amount: T::Balance },
+		Burned {
+			who: T::AccountId,
+			amount: T::Balance,
+		},
 		/// Some debt has been dropped from the Total Issuance.
-		BurnedDebt { amount: T::Balance }, 
+		BurnedDebt {
+			amount: T::Balance,
+		},
 		/// Some amount was suspended from an account (it can be restored later).
-		Suspended { who: T::AccountId, amount: T::Balance },
+		Suspended {
+			who: T::AccountId,
+			amount: T::Balance,
+		},
 		/// Some amount was restored into an account.
-		Restored { who: T::AccountId, amount: T::Balance },
+		Restored {
+			who: T::AccountId,
+			amount: T::Balance,
+		},
 		/// An account was upgraded.
-		Upgraded { who: T::AccountId },
+		Upgraded {
+			who: T::AccountId,
+		},
 		/// Total issuance was increased by `amount`, creating a credit to be balanced.
-		Issued { amount: T::Balance },
+		Issued {
+			amount: T::Balance,
+		},
 		/// Total issuance was decreased by `amount`, creating a debt to be balanced.
-		Rescinded { amount: T::Balance },
+		Rescinded {
+			amount: T::Balance,
+		},
 		/// Some balance was locked.
-		Locked { who: T::AccountId, amount: T::Balance },
+		Locked {
+			who: T::AccountId,
+			amount: T::Balance,
+		},
 		/// Some balance was unlocked.
-		Unlocked { who: T::AccountId, amount: T::Balance },
+		Unlocked {
+			who: T::AccountId,
+			amount: T::Balance,
+		},
 		/// Some balance was frozen.
-		Frozen { who: T::AccountId, amount: T::Balance },
+		Frozen {
+			who: T::AccountId,
+			amount: T::Balance,
+		},
 		/// Some balance was thawed.
-		Thawed { who: T::AccountId, amount: T::Balance },
+		Thawed {
+			who: T::AccountId,
+			amount: T::Balance,
+		},
 		/// The `TotalIssuance` was forcefully changed.
-		TotalIssuanceForced { old: T::Balance, new: T::Balance },
+		TotalIssuanceForced {
+			old: T::Balance,
+			new: T::Balance,
+		},
 		/// Some balance was placed on hold.
-		Held { reason: T::RuntimeHoldReason, who: T::AccountId, amount: T::Balance },
+		Held {
+			reason: T::RuntimeHoldReason,
+			who: T::AccountId,
+			amount: T::Balance,
+		},
+
+		BurnedHeld {
+			reason: T::RuntimeHoldReason,
+			who: T::AccountId,
+			amount: T::Balance,
+		},
+		TransferOnHold {
+			reason: T::RuntimeHoldReason,
+			source: T::AccountId,
+			dest: T::AccountId,
+			amount: T::Balance,
+		},
+		TransferAndHold {
+			reason: T::RuntimeHoldReason,
+			source: T::AccountId,
+			dest: T::AccountId,
+			transferred: T::Balance,
+		},
 		/// Some balance was released from hold.
-		Released { reason: T::RuntimeHoldReason, who: T::AccountId, amount: T::Balance }
+		Released {
+			reason: T::RuntimeHoldReason,
+			who: T::AccountId,
+			amount: T::Balance,
+		},
 	}
 
 	#[pallet::error]

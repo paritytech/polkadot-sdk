@@ -212,11 +212,45 @@ impl<T: Config<I>, I: 'static> fungible::Mutate<T::AccountId> for Pallet<T, I> {
 
 impl<T: Config<I>, I: 'static> fungible::MutateHold<T::AccountId> for Pallet<T, I> {
 	fn done_hold(reason: &Self::Reason, who: &T::AccountId, amount: Self::Balance) {
-        Self::deposit_event(Event::<T, I>::Held { reason: *reason, who: who.clone(), amount });
-    }
-    fn done_release(reason: &Self::Reason, who: &T::AccountId, amount: Self::Balance) {
-        Self::deposit_event(Event::<T, I>::Released { reason: *reason, who: who.clone(), amount });
-    }
+		Self::deposit_event(Event::<T, I>::Held { reason: *reason, who: who.clone(), amount });
+	}
+	fn done_release(reason: &Self::Reason, who: &T::AccountId, amount: Self::Balance) {
+		Self::deposit_event(Event::<T, I>::Released { reason: *reason, who: who.clone(), amount });
+	}
+	fn done_burn_held(reason: &Self::Reason, who: &T::AccountId, amount: Self::Balance) {
+		Self::deposit_event(Event::<T, I>::BurnedHeld {
+			reason: reason.clone(),
+			who: who.clone(),
+			amount,
+		});
+	}
+	fn done_transfer_on_hold(
+		reason: &Self::Reason,
+		source: &T::AccountId,
+		dest: &T::AccountId,
+		amount: Self::Balance,
+	) {
+		// Emit on-hold transfer event
+		Self::deposit_event(Event::<T, I>::TransferOnHold {
+			reason: reason.clone(),
+			source: source.clone(),
+			dest: dest.clone(),
+			amount,
+		});
+	}
+	fn done_transfer_and_hold(
+		reason: &Self::Reason,
+		source: &T::AccountId,
+		dest: &T::AccountId,
+		transferred: Self::Balance,
+	) {
+		Self::deposit_event(Event::<T, I>::TransferAndHold {
+			reason: reason.clone(),
+			source: source.clone(),
+			dest: dest.clone(),
+			transferred,
+		})
+	}
 }
 
 impl<T: Config<I>, I: 'static> fungible::InspectHold<T::AccountId> for Pallet<T, I> {
