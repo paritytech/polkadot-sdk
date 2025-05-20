@@ -162,5 +162,6 @@ pub fn get_sync_backing_chain_spec(id: Option<ParaId>) -> ChainSpec {
 		Default::default(),
 		cumulus_test_runtime::sync_backing::WASM_BINARY
 			.expect("WASM binary was not built, please build it!"),
+		None,
 	)
 }

@@ -33,6 +33,7 @@ use polkadot_parachain_primitives::primitives::ValidationResult;
 use relay_chain::vstaging::{UMPSignal, UMP_SEPARATOR};
 use sc_consensus::{BlockImport, BlockImportParams, ForkChoiceStrategy};
 use sp_api::{ApiExt, Core, ProofRecorder, ProvideRuntimeApi};
+use sp_consensus_slots::SlotDuration;
 use sp_core::H256;
 use sp_runtime::traits::{BlakeTwo256, Block as BlockT, Header as HeaderT};
 use sp_trie::{proof_size_extension::ProofSizeExt, recorder::IgnoredNodes, StorageProof};
@@ -101,7 +102,7 @@ fn create_test_client() -> (Client, Header) {
 fn create_elastic_scaling_test_client(blocks_per_pov: u32) -> (Client, Header) {
 	let mut builder = TestClientBuilder::new();
 	builder.genesis_init_mut().wasm = Some(
-		test_runtime::elastic_scaling_multi_block_slot::WASM_BINARY
+		test_runtime::elastic_scaling_500ms::WASM_BINARY
 			.expect("You need to build the WASM binaries to run the tests!")
 			.to_vec(),
 	);
@@ -156,14 +157,25 @@ fn build_multiple_blocks_with_witness(
 	num_blocks: u32,
 	extra_extrinsics: impl Fn(u32) -> Vec<UncheckedExtrinsic>,
 ) -> TestBlockData {
-	let timestamp = std::time::SystemTime::now()
-		.duration_since(std::time::SystemTime::UNIX_EPOCH)
-		.expect("Time is always after UNIX_EPOCH; qed")
-		.as_millis() as u64;
 	let parent_head_root = *parent_head.state_root();
 	sproof_builder.para_id = test_runtime::PARACHAIN_ID.into();
 	sproof_builder.included_para_head = Some(HeadData(parent_head.encode()));
-	sproof_builder.current_slot = (timestamp / 6000).into();
+
+	let timestamp = if sproof_builder.current_slot == 0u64 {
+		let timestamp = std::time::SystemTime::now()
+			.duration_since(std::time::SystemTime::UNIX_EPOCH)
+			.expect("Time is always after UNIX_EPOCH; qed")
+			.as_millis() as u64;
+		sproof_builder.current_slot = (timestamp / 6000).into();
+
+		timestamp
+	} else {
+		sproof_builder
+			.current_slot
+			.timestamp(SlotDuration::from_millis(6000))
+			.unwrap()
+			.as_millis()
+	};
 
 	let validation_data = PersistedValidationData {
 		relay_parent_number: 1,
@@ -218,11 +230,10 @@ fn build_multiple_blocks_with_witness(
 		})
 		.unwrap();
 
-		ignored_nodes.extend(&IgnoredNodes::from_storage_proof::<BlakeTwo256>(
+		ignored_nodes.extend(IgnoredNodes::from_storage_proof::<BlakeTwo256>(
 			&built_block.proof.clone().unwrap(),
 		));
-		ignored_nodes
-			.extend(&IgnoredNodes::from_memory_db(built_block.storage_changes.transaction));
+		ignored_nodes.extend(IgnoredNodes::from_memory_db(built_block.storage_changes.transaction));
 		proof = StorageProof::merge([proof, built_block.proof.unwrap()]);
 
 		parent_head = built_block.block.header.clone();
@@ -504,11 +515,66 @@ fn validate_block_works_with_child_tries() {
 }
 
 #[test]
+fn state_changes_in_multiple_blocks_are_applied_in_exact_order() {
+	sp_tracing::try_init_simple();
+
+	let blocks_per_pov = 12;
+	let (client, genesis_head) = create_elastic_scaling_test_client(blocks_per_pov);
+
+	// 1. Build the initial block that stores values in the map.
+	let TestBlockData { block: initial_block_data, .. } = build_block_with_witness(
+		&client,
+		vec![generate_extrinsic_with_pair(
+			&client,
+			Alice.into(),
+			TestPalletCall::store_values_in_map { max_key: 4095 },
+			Some(0),
+		)],
+		genesis_head.clone(),
+		RelayStateSproofBuilder { current_slot: 1.into(), ..Default::default() },
+	);
+
+	let initial_block = initial_block_data.blocks()[0].clone();
+	futures::executor::block_on(client.import(BlockOrigin::Own, initial_block.clone())).unwrap();
+	let initial_block_header = initial_block.header().clone();
+
+	// 2. Build the PoV block that removes values from the map.
+	let TestBlockData { block: pov_block_data, validation_data: pov_validation_data } =
+		build_multiple_blocks_with_witness(
+			&client,
+			initial_block_header.clone(), // Start building PoV from the initial block's header
+			RelayStateSproofBuilder { current_slot: 2.into(), ..Default::default() },
+			blocks_per_pov,
+			|i| {
+				// Each block `i` (0-11) removes key `116 + i`.
+				let key_to_remove = 116 + i;
+				vec![generate_extrinsic_with_pair(
+					&client,
+					Bob.into(), // Use Bob to avoid nonce conflicts with Alice
+					TestPalletCall::remove_value_from_map { key: key_to_remove },
+					Some(i),
+				)]
+			},
+		);
+
+	// 3. Validate the PoV.
+	let sealed_pov_block = seal_block(pov_block_data, &client);
+	let final_pov_header = sealed_pov_block.blocks().last().unwrap().header().clone();
+	let res_header = call_validate_block_elastic_scaling(
+		initial_block_header, // The parent is the head of the initial block before the PoV
+		sealed_pov_block,
+		pov_validation_data.relay_parent_storage_root,
+	)
+	.expect("Calls `validate_block` after building the PoV");
+	assert_eq!(final_pov_header, res_header);
+}
+
+#[test]
 #[cfg(feature = "experimental-ump-signals")]
 fn validate_block_handles_ump_signal() {
 	sp_tracing::try_init_simple();
 
-	let (client, parent_head) = create_elastic_scaling_test_client();
+	let (client, parent_head) = create_elastic_scaling_test_client(1);
 	let extra_extrinsics =
 		vec![transfer(&client, Alice, Bob, 69), transfer(&client, Bob, Charlie, 100)];
 
