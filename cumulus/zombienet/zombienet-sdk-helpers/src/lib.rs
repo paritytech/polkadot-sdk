@@ -9,8 +9,13 @@ use std::{
 	ops::Range,
 };
 use subxt::{
-	blocks::Block, events::Events, ext::scale_value::value, tx::DynamicPayload, utils::H256,
-	OnlineClient, PolkadotConfig,
+	blocks::Block,
+	config::ExtrinsicParams,
+	events::Events,
+	ext::scale_value::value,
+	tx::{signer::Signer, DynamicPayload, TxStatus},
+	utils::H256,
+	Config, OnlineClient, PolkadotConfig,
 };
 use tokio::{
 	join,
@@ -85,7 +90,7 @@ pub async fn assert_finalized_para_throughput(
 
 		// Do not count blocks with session changes, no backed blocks there.
 		if is_session_change {
-			continue
+			continue;
 		}
 
 		current_block_count += 1;
@@ -268,7 +273,7 @@ pub async fn wait_for_nth_session_change(
 		if is_session_change {
 			sessions_to_wait -= 1;
 			if sessions_to_wait == 0 {
-				return Ok(())
+				return Ok(());
 			}
 
 			waited_block_num = 0;
@@ -318,4 +323,67 @@ pub async fn assert_blocks_are_being_finalized(
 	assert!(second_measurement > first_measurement);
 
 	Ok(())
+}
+
+pub async fn submit_extrinsic_and_wait_for_finalization_success<C: Config, S: Signer<C>>(
+	client: &OnlineClient<C>,
+	call: &DynamicPayload,
+	signer: &S,
+) -> Result<(), anyhow::Error>
+where
+	<C::ExtrinsicParams as ExtrinsicParams<C>>::Params: Default,
+{
+	let mut tx = client.tx().sign_and_submit_then_watch_default(call, signer).await?;
+
+	// Below we use the low level API to replicate the `wait_for_in_block` behaviour
+	// which was removed in subxt 0.33.0. See https://github.com/paritytech/subxt/pull/1237.
+	while let Some(status) = tx.next().await {
+		let status = status?;
+		log::debug!("tx status = {:?}", status);
+		match &status {
+			TxStatus::InBestBlock(tx_in_block) | TxStatus::InFinalizedBlock(tx_in_block) => {
+				let _result = tx_in_block.wait_for_success().await?;
+				let block_status =
+					if status.as_finalized().is_some() { "Finalized" } else { "Best" };
+				log::info!("[{}] In block: {:#?}", block_status, tx_in_block.block_hash());
+			},
+			TxStatus::Error { message }
+			| TxStatus::Invalid { message }
+			| TxStatus::Dropped { message } => {
+				return Err(anyhow::format_err!("Error submitting tx: {message}"));
+			},
+			_ => continue,
+		}
+	}
+	Ok(())
+}
+
+pub async fn submit_extrinsic_and_wait_for_finalization_success_with_timeout<
+	C: Config,
+	S: Signer<C>,
+>(
+	client: &OnlineClient<C>,
+	call: &DynamicPayload,
+	signer: &S,
+	timeout_secs: impl Into<u64>,
+) -> Result<(), anyhow::Error>
+where
+	<C::ExtrinsicParams as ExtrinsicParams<C>>::Params: Default,
+{
+	let secs = timeout_secs.into();
+	let res = tokio::time::timeout(
+		Duration::from_secs(secs),
+		submit_extrinsic_and_wait_for_finalization_success(client, call, signer),
+	)
+	.await;
+
+	if let Ok(inner_res) = res {
+		match inner_res {
+			Ok(_) => Ok(()),
+			Err(e) => Err(anyhow!("Error waiting for metric: {}", e)),
+		}
+	} else {
+		// timeout
+		Err(anyhow!("Timeout ({secs}), waiting for extrinsic finalization"))
+	}
 }
