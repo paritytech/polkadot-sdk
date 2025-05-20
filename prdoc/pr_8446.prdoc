@@ -1,0 +1,28 @@
+title: check inherents and equivocations in `import_block`
+doc:
+- audience: Node Operator
+  description: |-
+    When importing blocks, there are essentially two steps: `verify` and `import_block`. With https://github.com/paritytech/polkadot-sdk/issues/65, we would like to re-broadcast blocks between these two steps (i.e. basically right after `verify`).
+
+    This PR is the first step to enable that change, by moving `check_inherents` (and equivocation checks) from the `verify` to the `import_block` step (because `verify` does runtime checks that can potentially be expensive, and we don't really need to do those before re-broadcasting).
+crates:
+- name: cumulus-client-consensus-aura
+  bump: minor
+- name: polkadot-omni-node-lib
+  bump: minor
+- name: polkadot-service
+  bump: minor
+- name: sc-consensus-aura
+  bump: minor
+- name: sc-consensus-babe
+  bump: minor
+- name: sc-consensus-babe-rpc
+  bump: minor
+- name: sc-consensus
+  bump: minor
+- name: sc-consensus-slots
+  bump: minor
+- name: sc-network-sync
+  bump: minor
+- name: sp-consensus
+  bump: minor
