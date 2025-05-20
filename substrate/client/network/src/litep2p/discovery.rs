@@ -235,11 +235,6 @@ pub struct Discovery {
 
 	/// Delay to next `FIND_NODE` query.
 	duration_to_next_find_query: Duration,
-
-	/// True if the random walks are enabled.
-	///
-	/// This flag is false when the node is set with the `--reserved-only` flag.
-	enable_dht_random_walk: bool,
 }
 
 /// Legacy (fallback) Kademlia protocol name based on `protocol_id`.
@@ -327,7 +322,6 @@ impl Discovery {
 					genesis_hash,
 					fork_id,
 				)]),
-				enable_dht_random_walk: config.enable_dht_random_walk,
 			},
 			ping_config,
 			identify_config,
@@ -541,48 +535,6 @@ impl Discovery {
 
 		(false, None)
 	}
-
-	/// Start the next random walk query if:
-	///  - the random walk is enabled by the network config
-	///  - the next kademlia delay has elapsed
-	///
-	/// Returns `Some` if a new query was started, `None` otherwise.
-	fn poll_next_random_walk(&mut self, cx: &mut Context<'_>) -> Option<DiscoveryEvent> {
-		if !self.enable_dht_random_walk {
-			// Random walks are not enabled.
-			return None;
-		}
-
-		if let Some(mut delay) = self.next_kad_query.take() {
-			match delay.poll_unpin(cx) {
-				Poll::Pending => {
-					self.next_kad_query = Some(delay);
-				},
-				Poll::Ready(()) => {
-					let peer = PeerId::random();
-
-					log::trace!(target: LOG_TARGET, "start next kademlia query for {peer:?}");
-
-					match self.kademlia_handle.try_find_node(peer) {
-						Ok(query_id) => {
-							self.random_walk_query_id = Some(query_id);
-							return Some(DiscoveryEvent::RandomKademliaStarted)
-						},
-						Err(()) => {
-							self.duration_to_next_find_query = cmp::min(
-								self.duration_to_next_find_query * 2,
-								Duration::from_secs(60),
-							);
-							self.next_kad_query =
-								Some(Delay::new(self.duration_to_next_find_query));
-						},
-					}
-				},
-			}
-		}
-
-		None
-	}
 }
 
 impl Stream for Discovery {
@@ -595,9 +547,32 @@ impl Stream for Discovery {
 			return Poll::Ready(Some(event))
 		}
 
-		// If configured start the next random walk query.
-		if let Some(event) = this.poll_next_random_walk(cx) {
-			return Poll::Ready(Some(event))
+		if let Some(mut delay) = this.next_kad_query.take() {
+			match delay.poll_unpin(cx) {
+				Poll::Pending => {
+					this.next_kad_query = Some(delay);
+				},
+				Poll::Ready(()) => {
+					let peer = PeerId::random();
+
+					log::trace!(target: LOG_TARGET, "start next kademlia query for {peer:?}");
+
+					match this.kademlia_handle.try_find_node(peer) {
+						Ok(query_id) => {
+							this.random_walk_query_id = Some(query_id);
+							return Poll::Ready(Some(DiscoveryEvent::RandomKademliaStarted))
+						},
+						Err(()) => {
+							this.duration_to_next_find_query = cmp::min(
+								this.duration_to_next_find_query * 2,
+								Duration::from_secs(60),
+							);
+							this.next_kad_query =
+								Some(Delay::new(this.duration_to_next_find_query));
+						},
+					}
+				},
+			}
 		}
 
 		match Pin::new(&mut this.kademlia_handle).poll_next(cx) {
