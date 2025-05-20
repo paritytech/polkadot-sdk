@@ -224,29 +224,26 @@ pub mod pallet {
 			// Mark message as received
 			Nonce::<T>::set(nonce);
 
-			match T::MessageProcessor::process_message(relayer.clone(), message) {
-				Ok(message_id) => {
-					// Pay relayer reward if needed
-					if !relayer_fee.is_zero() {
-						T::RewardPayment::register_reward(
-							&relayer,
-							T::DefaultRewardKind::get(),
-							relayer_fee,
-						);
-					}
+			let message_id = T::MessageProcessor::process_message(relayer.clone(), message)
+				.map_err(|e| match e {
+					MessageProcessorError::ProcessMessageError(e) => e,
+					MessageProcessorError::ConvertMessageError(e) => Error::<T>::from(e).into(),
+					MessageProcessorError::SendMessageError(e) => Error::<T>::from(e).into(),
+				})?;
 
-					// Emit event with the message_id
-					Self::deposit_event(Event::MessageReceived { nonce, message_id });
-
-					Ok(())
-				},
-				Err(e) => match e {
-					MessageProcessorError::ProcessMessageError(e) => Err(e),
-					MessageProcessorError::ConvertMessageError(e) =>
-						Err(Error::<T>::from(e).into()),
-					MessageProcessorError::SendMessageError(e) => Err(Error::<T>::from(e).into()),
-				},
+			// Pay relayer reward if needed
+			if !relayer_fee.is_zero() {
+				T::RewardPayment::register_reward(
+					&relayer,
+					T::DefaultRewardKind::get(),
+					relayer_fee,
+				);
 			}
+
+			// Emit event with the message_id
+			Self::deposit_event(Event::MessageReceived { nonce, message_id });
+
+			Ok(())
 		}
 	}
 
