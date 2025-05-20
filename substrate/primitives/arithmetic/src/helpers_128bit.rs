@@ -21,7 +21,7 @@
 //! assumptions of a bigger type (u128) being available, or simply create a per-thing and use the
 //! multiplication implementation provided there.
 
-use crate::{biguint, Rounding};
+use crate::{biguint, ArithmeticError, Rounding};
 use core::cmp::{max, min};
 
 /// Helper gcd function used in Rational128 implementation.
@@ -214,6 +214,40 @@ pub const fn multiply_by_rational_with_rounding(
 	Some(result)
 }
 
+/// Returns `a * b / c` or `Err` in the case of error.
+/// - `ArithmeticError::Overflow` if the intermediate value overflows 256 bits or the final value
+///   overflows 128 bits.
+/// - `ArithmeticError::DivisionByZero` if `c` is zero.
+pub const fn checked_multiply_by_rational_with_rounding(
+	a: u128,
+	b: u128,
+	c: u128,
+	r: Rounding,
+) -> Result<u128, ArithmeticError> {
+	use double128::Double128;
+	if c == 0 {
+		return Err(ArithmeticError::DivisionByZero)
+	}
+	let (result, remainder) = Double128::product_of(a, b).div(c);
+	let mut result: u128 = match result.try_into_u128() {
+		Ok(v) => v,
+		Err(_) => return Err(ArithmeticError::Overflow),
+	};
+	if match r {
+		Rounding::Up => remainder > 0,
+		// cannot be `(c + 1) / 2` since `c` might be `max_value` and overflow.
+		Rounding::NearestPrefUp => remainder >= c / 2 + c % 2,
+		Rounding::NearestPrefDown => remainder > c / 2,
+		Rounding::Down => false,
+	} {
+		result = match result.checked_add(1) {
+			Some(v) => v,
+			None => return Err(ArithmeticError::Overflow),
+		};
+	}
+	Ok(result)
+}
+
 pub const fn sqrt(mut n: u128) -> u128 {
 	// Modified from https://github.com/derekdreery/integer-sqrt-rs (Apache/MIT).
 	if n == 0 {
@@ -244,6 +278,8 @@ pub const fn sqrt(mut n: u128) -> u128 {
 #[cfg(test)]
 mod tests {
 	use super::*;
+	use crate::ArithmeticError;
+	use checked_multiply_by_rational_with_rounding as cmulrat;
 	use codec::{Decode, Encode};
 	use multiply_by_rational_with_rounding as mulrat;
 	use Rounding::*;
@@ -304,5 +340,15 @@ mod tests {
 			let d = x.max(y) - x.min(y);
 			assert_eq!(d, 0);
 		}
+	}
+
+	#[test]
+	fn checked_multiply_by_rational_with_rounding_works() {
+		assert_eq!(cmulrat(10, 5, 2, Down), Ok(25));
+		assert_eq!(cmulrat(10, 5, 0, Down), Err(ArithmeticError::DivisionByZero));
+		assert_eq!(cmulrat(MAX, 2, 1, Down), Err(ArithmeticError::Overflow));
+		assert_eq!(cmulrat(MAX, 1, 2, Up), Ok(MAX / 2 + 1));
+		// MAX * 1 / 1 = MAX. Remainder is 0, so rounding Up doesn't add 1. No overflow.
+		assert_eq!(cmulrat(MAX, 1, 1, Up), Ok(MAX));
 	}
 }
