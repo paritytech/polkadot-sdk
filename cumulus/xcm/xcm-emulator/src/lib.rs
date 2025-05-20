@@ -27,8 +27,9 @@ pub use std::{
 	fmt,
 	marker::PhantomData,
 	ops::Deref,
-	sync::{Arc, LazyLock, Mutex},
+	sync::{LazyLock, Mutex},
 };
+use std::sync::Arc;
 
 // Substrate
 pub use alloc::collections::vec_deque::VecDeque;
