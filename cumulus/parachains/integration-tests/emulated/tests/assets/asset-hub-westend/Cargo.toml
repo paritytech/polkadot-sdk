@@ -41,6 +41,7 @@ emulated-integration-tests-common = { workspace = true }
 parachains-common = { workspace = true, default-features = true }
 rococo-system-emulated-network = { workspace = true }
 westend-system-emulated-network = { workspace = true }
+rococo-westend-system-emulated-network = { workspace = true }
 
 # Bridge
 bp-asset-hub-westend = { workspace = true }
