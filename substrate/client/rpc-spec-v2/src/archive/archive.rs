@@ -22,6 +22,7 @@ use crate::{
 	archive::{
 		archive_storage::ArchiveStorageDiff,
 		error::{Error as ArchiveError, Infallible},
+		types::MethodResult,
 		ArchiveApiServer,
 	},
 	common::{
@@ -30,7 +31,7 @@ use crate::{
 		},
 		storage::{QueryResult, StorageSubscriptionClient},
 	},
-	hex_string, MethodResult, SubscriptionTaskExecutor,
+	hex_string, SubscriptionTaskExecutor,
 };
 
 use codec::Encode;

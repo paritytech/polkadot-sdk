@@ -42,10 +42,7 @@ emulated-integration-tests-common = { workspace = true }
 parachains-common = { workspace = true, default-features = true }
 rococo-system-emulated-network = { workspace = true }
 rococo-westend-system-emulated-network = { workspace = true }
-testnet-parachains-constants = { features = [
-	"rococo",
-	"westend",
-], workspace = true, default-features = true }
+testnet-parachains-constants = { features = ["rococo", "westend"], workspace = true, default-features = true }
 
 # Snowbridge
 snowbridge-inbound-queue-primitives = { workspace = true }

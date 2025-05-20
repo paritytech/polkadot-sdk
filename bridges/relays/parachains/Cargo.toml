@@ -18,7 +18,6 @@ log = { workspace = true }
 relay-utils = { workspace = true }
 
 # Bridge dependencies
-
 bp-polkadot-core = { workspace = true, default-features = true }
 relay-substrate-client = { workspace = true }
 

@@ -434,7 +434,7 @@ fn test_main_loop_forwards_correctly() {
 					signature: dummy_signature(),
 				},
 			];
-			let expected_msg = polkadot_node_network_protocol::Versioned::V3(
+			let expected_msg = polkadot_node_network_protocol::ValidationProtocols::V3(
 				polkadot_node_network_protocol::v3::ApprovalDistributionMessage::Approvals(
 					approvals.clone(),
 				),
@@ -770,7 +770,7 @@ fn test_peer_view_is_prioritized_when_unread_messages_in_the_queue() {
 					signature: dummy_signature(),
 				},
 			];
-			let expected_msg = polkadot_node_network_protocol::Versioned::V3(
+			let expected_msg = polkadot_node_network_protocol::ValidationProtocols::V3(
 				polkadot_node_network_protocol::v3::ApprovalDistributionMessage::Approvals(
 					approvals.clone(),
 				),
@@ -848,13 +848,13 @@ fn test_peer_view_is_prioritized_when_unread_messages_in_the_queue() {
 // Test validator_index_for_msg with empty messages.
 #[test]
 fn test_validator_index_with_empty_message() {
-	let result = validator_index_for_msg(polkadot_node_network_protocol::Versioned::V3(
+	let result = validator_index_for_msg(polkadot_node_network_protocol::ValidationProtocols::V3(
 		polkadot_node_network_protocol::v3::ApprovalDistributionMessage::Assignments(vec![]),
 	));
 
 	assert_eq!(result, (None, Some(vec![])));
 
-	let result = validator_index_for_msg(polkadot_node_network_protocol::Versioned::V3(
+	let result = validator_index_for_msg(polkadot_node_network_protocol::ValidationProtocols::V3(
 		polkadot_node_network_protocol::v3::ApprovalDistributionMessage::Approvals(vec![]),
 	));
 
@@ -865,7 +865,7 @@ fn test_validator_index_with_empty_message() {
 #[test]
 fn test_validator_index_with_all_messages_from_the_same_validator() {
 	let validator_index = ValidatorIndex(3);
-	let v3_assignment = polkadot_node_network_protocol::Versioned::V3(
+	let v3_assignment = polkadot_node_network_protocol::ValidationProtocols::V3(
 		polkadot_node_network_protocol::v3::ApprovalDistributionMessage::Assignments(vec![
 			(
 				fake_assignment_cert_v2(H256::random(), validator_index, CoreIndex(1).into()),
@@ -881,7 +881,7 @@ fn test_validator_index_with_all_messages_from_the_same_validator() {
 
 	assert_eq!(result, (Some((validator_index, v3_assignment)), None));
 
-	let v3_approval = polkadot_node_network_protocol::Versioned::V3(
+	let v3_approval = polkadot_node_network_protocol::ValidationProtocols::V3(
 		polkadot_node_network_protocol::v3::ApprovalDistributionMessage::Approvals(vec![
 			IndirectSignedApprovalVoteV2 {
 				block_hash: H256::random(),
@@ -920,7 +920,7 @@ fn test_validator_index_with_messages_from_different_validators() {
 		),
 	];
 
-	let v3_assignment = polkadot_node_network_protocol::Versioned::V3(
+	let v3_assignment = polkadot_node_network_protocol::ValidationProtocols::V3(
 		polkadot_node_network_protocol::v3::ApprovalDistributionMessage::Assignments(
 			assignments.clone(),
 		),
@@ -935,7 +935,7 @@ fn test_validator_index_with_messages_from_different_validators() {
 		assert_eq!(validator_index, assignments[index].0.validator);
 		assert_eq!(
 			message,
-			polkadot_node_network_protocol::Versioned::V3(
+			polkadot_node_network_protocol::ValidationProtocols::V3(
 				polkadot_node_network_protocol::v3::ApprovalDistributionMessage::Assignments(
 					assignments.get(index).into_iter().cloned().collect(),
 				),
@@ -957,7 +957,7 @@ fn test_validator_index_with_messages_from_different_validators() {
 			signature: dummy_signature(),
 		},
 	];
-	let v3_approvals = polkadot_node_network_protocol::Versioned::V3(
+	let v3_approvals = polkadot_node_network_protocol::ValidationProtocols::V3(
 		polkadot_node_network_protocol::v3::ApprovalDistributionMessage::Approvals(
 			approvals.clone(),
 		),
@@ -972,7 +972,7 @@ fn test_validator_index_with_messages_from_different_validators() {
 		assert_eq!(validator_index, approvals[index].validator);
 		assert_eq!(
 			message,
-			polkadot_node_network_protocol::Versioned::V3(
+			polkadot_node_network_protocol::ValidationProtocols::V3(
 				polkadot_node_network_protocol::v3::ApprovalDistributionMessage::Approvals(
 					approvals.get(index).into_iter().cloned().collect(),
 				),

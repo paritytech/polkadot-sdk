@@ -28,8 +28,8 @@ use polkadot_node_network_protocol::{
 		IncomingRequest, IncomingRequestReceiver, Requests,
 		MAX_PARALLEL_ATTESTED_CANDIDATE_REQUESTS,
 	},
-	v2::{self as protocol_v2, StatementFilter},
-	v3 as protocol_v3, IfDisconnected, PeerId, UnifiedReputationChange as Rep, Versioned, View,
+	v3::{self as protocol_v3, StatementFilter},
+	IfDisconnected, PeerId, UnifiedReputationChange as Rep, ValidationProtocols, View,
 };
 use polkadot_node_primitives::{
 	SignedFullStatementWithPVD, StatementWithPVD as FullStatementWithPVD,
@@ -138,8 +138,8 @@ const COST_INACCURATE_ADVERTISEMENT: Rep =
 	Rep::CostMajor("Peer advertised a candidate inaccurately");
 const COST_UNSUPPORTED_DESCRIPTOR_VERSION: Rep =
 	Rep::CostMajor("Candidate Descriptor version is not supported");
-const COST_INVALID_CORE_INDEX: Rep =
-	Rep::CostMajor("Candidate Descriptor contains an invalid core index");
+const COST_INVALID_UMP_SIGNALS: Rep =
+	Rep::CostMajor("Candidate Descriptor contains invalid ump signals");
 const COST_INVALID_SESSION_INDEX: Rep =
 	Rep::CostMajor("Candidate Descriptor contains an invalid session index");
 
@@ -514,13 +514,6 @@ pub(crate) async fn handle_network_update<Context>(
 			) =>
 				handle_incoming_acknowledgement(ctx, state, peer_id, inner, reputation, metrics)
 					.await,
-			_ => {
-				gum::warn!(
-					target: LOG_TARGET,
-					peer_id = %peer_id,
-					"Received statement distribution message with unsupported protocol version",
-				);
-			},
 		},
 		NetworkBridgeEvent::PeerViewChange(peer_id, view) =>
 			handle_peer_view_update(ctx, state, peer_id, view, metrics).await,
@@ -555,6 +548,143 @@ pub(crate) async fn handle_network_update<Context>(
 	}
 }
 
+#[overseer::contextbounds(StatementDistribution, prefix=self::overseer)]
+async fn handle_active_leaf_update<Context>(
+	ctx: &mut Context,
+	state: &mut State,
+	new_relay_parent: Hash,
+) -> JfyiErrorResult<()> {
+	let disabled_validators: HashSet<_> =
+		polkadot_node_subsystem_util::request_disabled_validators(new_relay_parent, ctx.sender())
+			.await
+			.await
+			.map_err(JfyiError::RuntimeApiUnavailable)?
+			.map_err(JfyiError::FetchDisabledValidators)?
+			.into_iter()
+			.collect();
+
+	let session_index = polkadot_node_subsystem_util::request_session_index_for_child(
+		new_relay_parent,
+		ctx.sender(),
+	)
+	.await
+	.await
+	.map_err(JfyiError::RuntimeApiUnavailable)?
+	.map_err(JfyiError::FetchSessionIndex)?;
+
+	if !state.per_session.contains_key(&session_index) {
+		let session_info = polkadot_node_subsystem_util::request_session_info(
+			new_relay_parent,
+			session_index,
+			ctx.sender(),
+		)
+		.await
+		.await
+		.map_err(JfyiError::RuntimeApiUnavailable)?
+		.map_err(JfyiError::FetchSessionInfo)?;
+
+		let session_info = match session_info {
+			None => {
+				gum::warn!(
+					target: LOG_TARGET,
+					relay_parent = ?new_relay_parent,
+					"No session info available for current session"
+				);
+
+				return Ok(())
+			},
+			Some(s) => s,
+		};
+
+		let minimum_backing_votes =
+			request_min_backing_votes(new_relay_parent, session_index, ctx.sender())
+				.await
+				.await
+				.map_err(JfyiError::RuntimeApiUnavailable)?
+				.map_err(JfyiError::FetchMinimumBackingVotes)?;
+		let node_features = request_node_features(new_relay_parent, session_index, ctx.sender())
+			.await
+			.await
+			.map_err(JfyiError::RuntimeApiUnavailable)?
+			.map_err(JfyiError::FetchNodeFeatures)?;
+		let mut per_session_state = PerSessionState::new(
+			session_info,
+			&state.keystore,
+			minimum_backing_votes,
+			node_features
+				.get(FeatureIndex::CandidateReceiptV2 as usize)
+				.map(|b| *b)
+				.unwrap_or(false),
+		);
+		if let Some(topology) = state.unused_topologies.remove(&session_index) {
+			per_session_state.supply_topology(&topology.topology, topology.local_index);
+		}
+		state.per_session.insert(session_index, per_session_state);
+	}
+
+	let per_session = state
+		.per_session
+		.get_mut(&session_index)
+		.expect("either existed or just inserted; qed");
+
+	if !disabled_validators.is_empty() {
+		gum::debug!(
+			target: LOG_TARGET,
+			relay_parent = ?new_relay_parent,
+			?session_index,
+			?disabled_validators,
+			"Disabled validators detected"
+		);
+	}
+
+	let group_rotation_info =
+		polkadot_node_subsystem_util::request_validator_groups(new_relay_parent, ctx.sender())
+			.await
+			.await
+			.map_err(JfyiError::RuntimeApiUnavailable)?
+			.map_err(JfyiError::FetchValidatorGroups)?
+			.1;
+
+	let claim_queue = ClaimQueueSnapshot(
+		polkadot_node_subsystem_util::request_claim_queue(new_relay_parent, ctx.sender())
+			.await
+			.await
+			.map_err(JfyiError::RuntimeApiUnavailable)?
+			.map_err(JfyiError::FetchClaimQueue)?,
+	);
+
+	let (groups_per_para, assignments_per_group) = determine_group_assignments(
+		per_session.groups.all().len(),
+		group_rotation_info,
+		&claim_queue,
+	)
+	.await;
+
+	let local_validator = per_session.local_validator.and_then(|v| {
+		if let LocalValidatorIndex::Active(idx) = v {
+			find_active_validator_state(idx, &per_session.groups, &assignments_per_group)
+		} else {
+			Some(LocalValidatorState { grid_tracker: GridTracker::default(), active: None })
+		}
+	});
+
+	let transposed_cq = transpose_claim_queue(claim_queue.0);
+
+	state.per_relay_parent.insert(
+		new_relay_parent,
+		PerRelayParentState {
+			local_validator,
+			statement_store: StatementStore::new(&per_session.groups),
+			session: session_index,
+			groups_per_para,
+			disabled_validators,
+			transposed_cq,
+			assignments_per_group,
+		},
+	);
+	Ok(())
+}
+
 /// Called on new leaf updates.
 #[overseer::contextbounds(StatementDistribution, prefix=self::overseer)]
 pub(crate) async fn handle_active_leaves_update<Context>(
@@ -573,142 +703,19 @@ pub(crate) async fn handle_active_leaves_update<Context>(
 		state.implicit_view.all_allowed_relay_parents().cloned().collect::<Vec<_>>();
 
 	for new_relay_parent in new_relay_parents.iter().cloned() {
-		let disabled_validators: HashSet<_> =
-			polkadot_node_subsystem_util::request_disabled_validators(
-				new_relay_parent,
-				ctx.sender(),
-			)
-			.await
-			.await
-			.map_err(JfyiError::RuntimeApiUnavailable)?
-			.map_err(JfyiError::FetchDisabledValidators)?
-			.into_iter()
-			.collect();
-
-		let session_index = polkadot_node_subsystem_util::request_session_index_for_child(
-			new_relay_parent,
-			ctx.sender(),
-		)
-		.await
-		.await
-		.map_err(JfyiError::RuntimeApiUnavailable)?
-		.map_err(JfyiError::FetchSessionIndex)?;
-
-		if !state.per_session.contains_key(&session_index) {
-			let session_info = polkadot_node_subsystem_util::request_session_info(
-				new_relay_parent,
-				session_index,
-				ctx.sender(),
-			)
-			.await
-			.await
-			.map_err(JfyiError::RuntimeApiUnavailable)?
-			.map_err(JfyiError::FetchSessionInfo)?;
-
-			let session_info = match session_info {
-				None => {
-					gum::warn!(
-						target: LOG_TARGET,
-						relay_parent = ?new_relay_parent,
-						"No session info available for current session"
-					);
-
-					continue
-				},
-				Some(s) => s,
-			};
-
-			let minimum_backing_votes =
-				request_min_backing_votes(new_relay_parent, session_index, ctx.sender())
-					.await
-					.await
-					.map_err(JfyiError::RuntimeApiUnavailable)?
-					.map_err(JfyiError::FetchMinimumBackingVotes)?;
-			let node_features =
-				request_node_features(new_relay_parent, session_index, ctx.sender())
-					.await
-					.await
-					.map_err(JfyiError::RuntimeApiUnavailable)?
-					.map_err(JfyiError::FetchNodeFeatures)?;
-			let mut per_session_state = PerSessionState::new(
-				session_info,
-				&state.keystore,
-				minimum_backing_votes,
-				node_features
-					.get(FeatureIndex::CandidateReceiptV2 as usize)
-					.map(|b| *b)
-					.unwrap_or(false),
-			);
-			if let Some(topology) = state.unused_topologies.remove(&session_index) {
-				per_session_state.supply_topology(&topology.topology, topology.local_index);
-			}
-			state.per_session.insert(session_index, per_session_state);
-		}
-
-		let per_session = state
-			.per_session
-			.get_mut(&session_index)
-			.expect("either existed or just inserted; qed");
-
-		if !disabled_validators.is_empty() {
-			gum::debug!(
-				target: LOG_TARGET,
-				relay_parent = ?new_relay_parent,
-				?session_index,
-				?disabled_validators,
-				"Disabled validators detected"
-			);
-		}
-
 		if state.per_relay_parent.contains_key(&new_relay_parent) {
 			continue
 		}
 
-		let group_rotation_info =
-			polkadot_node_subsystem_util::request_validator_groups(new_relay_parent, ctx.sender())
-				.await
-				.await
-				.map_err(JfyiError::RuntimeApiUnavailable)?
-				.map_err(JfyiError::FetchValidatorGroups)?
-				.1;
-
-		let claim_queue = ClaimQueueSnapshot(
-			polkadot_node_subsystem_util::request_claim_queue(new_relay_parent, ctx.sender())
-				.await
-				.await
-				.map_err(JfyiError::RuntimeApiUnavailable)?
-				.map_err(JfyiError::FetchClaimQueue)?,
-		);
-
-		let (groups_per_para, assignments_per_group) = determine_group_assignments(
-			per_session.groups.all().len(),
-			group_rotation_info,
-			&claim_queue,
-		)
-		.await;
-
-		let local_validator = per_session.local_validator.and_then(|v| {
-			if let LocalValidatorIndex::Active(idx) = v {
-				find_active_validator_state(idx, &per_session.groups, &assignments_per_group)
-			} else {
-				Some(LocalValidatorState { grid_tracker: GridTracker::default(), active: None })
-			}
-		});
-
-		let transposed_cq = transpose_claim_queue(claim_queue.0);
-
-		state.per_relay_parent.insert(
-			new_relay_parent,
-			PerRelayParentState {
-				local_validator,
-				statement_store: StatementStore::new(&per_session.groups),
-				session: session_index,
-				groups_per_para,
-				disabled_validators,
-				transposed_cq,
-				assignments_per_group,
-			},
-		);
+		if let Err(err) = handle_active_leaf_update(ctx, state, new_relay_parent).await {
+			gum::warn!(
+				target: LOG_TARGET,
+				relay_parent = ?new_relay_parent,
+				error = ?err,
+				"Failed to handle active leaf update"
+			);
+			continue
+		}
 	}
 
 	gum::debug!(
@@ -924,7 +931,7 @@ fn pending_statement_network_message(
 			.map(|signed| {
 				protocol_v3::StatementDistributionMessage::Statement(relay_parent, signed)
 			})
-			.map(|msg| (vec![peer.0], Versioned::V3(msg).into())),
+			.map(|msg| (vec![peer.0], ValidationProtocols::V3(msg).into())),
 	}
 }
 
@@ -1021,7 +1028,7 @@ async fn send_pending_grid_messages<Context>(
 
 		match kind {
 			grid::ManifestKind::Full => {
-				let manifest = protocol_v2::BackedCandidateManifest {
+				let manifest = protocol_v3::BackedCandidateManifest {
 					relay_parent,
 					candidate_hash,
 					group_index,
@@ -1045,7 +1052,7 @@ async fn send_pending_grid_messages<Context>(
 				match peer_id.1 {
 					ValidationVersion::V3 => messages.push((
 						vec![peer_id.0],
-						Versioned::V3(
+						ValidationProtocols::V3(
 							protocol_v3::StatementDistributionMessage::BackedCandidateManifest(
 								manifest,
 							),
@@ -1421,7 +1428,7 @@ async fn circulate_statement<Context>(
 
 		ctx.send_message(NetworkBridgeTxMessage::SendValidationMessage(
 			statement_to_v3_peers,
-			Versioned::V3(protocol_v3::StatementDistributionMessage::Statement(
+			ValidationProtocols::V3(protocol_v3::StatementDistributionMessage::Statement(
 				relay_parent,
 				statement.as_unchecked().clone(),
 			))
@@ -1963,7 +1970,7 @@ async fn provide_candidate_to_grid<Context>(
 		filter.clone(),
 	);
 
-	let manifest = protocol_v2::BackedCandidateManifest {
+	let manifest = protocol_v3::BackedCandidateManifest {
 		relay_parent,
 		candidate_hash,
 		group_index,
@@ -1971,7 +1978,7 @@ async fn provide_candidate_to_grid<Context>(
 		parent_head_data_hash: confirmed_candidate.parent_head_data_hash(),
 		statement_knowledge: filter.clone(),
 	};
-	let acknowledgement = protocol_v2::BackedCandidateAcknowledgement {
+	let acknowledgement = protocol_v3::BackedCandidateAcknowledgement {
 		candidate_hash,
 		statement_knowledge: filter.clone(),
 	};
@@ -2030,9 +2037,9 @@ async fn provide_candidate_to_grid<Context>(
 
 		ctx.send_message(NetworkBridgeTxMessage::SendValidationMessage(
 			manifest_peers_v3,
-			Versioned::V3(protocol_v3::StatementDistributionMessage::BackedCandidateManifest(
-				manifest,
-			))
+			ValidationProtocols::V3(
+				protocol_v3::StatementDistributionMessage::BackedCandidateManifest(manifest),
+			)
 			.into(),
 		))
 		.await;
@@ -2050,9 +2057,9 @@ async fn provide_candidate_to_grid<Context>(
 
 		ctx.send_message(NetworkBridgeTxMessage::SendValidationMessage(
 			ack_peers_v3,
-			Versioned::V3(protocol_v3::StatementDistributionMessage::BackedCandidateKnown(
-				acknowledgement,
-			))
+			ValidationProtocols::V3(
+				protocol_v3::StatementDistributionMessage::BackedCandidateKnown(acknowledgement),
+			)
 			.into(),
 		))
 		.await;
@@ -2409,7 +2416,7 @@ fn post_acknowledgement_statement_messages(
 			false,
 		);
 		match peer.1.into() {
-			ValidationVersion::V3 => messages.push(Versioned::V3(
+			ValidationVersion::V3 => messages.push(ValidationProtocols::V3(
 				protocol_v3::StatementDistributionMessage::Statement(
 					relay_parent,
 					statement.as_unchecked().clone(),
@@ -2427,7 +2434,7 @@ async fn handle_incoming_manifest<Context>(
 	ctx: &mut Context,
 	state: &mut State,
 	peer: PeerId,
-	manifest: net_protocol::v2::BackedCandidateManifest,
+	manifest: net_protocol::v3::BackedCandidateManifest,
 	reputation: &mut ReputationAggregator,
 	metrics: &Metrics,
 ) {
@@ -2541,7 +2548,7 @@ fn acknowledgement_and_statement_messages(
 		Some(l) => l,
 	};
 
-	let acknowledgement = protocol_v2::BackedCandidateAcknowledgement {
+	let acknowledgement = protocol_v3::BackedCandidateAcknowledgement {
 		candidate_hash,
 		statement_knowledge: local_knowledge.clone(),
 	};
@@ -2549,9 +2556,9 @@ fn acknowledgement_and_statement_messages(
 	let mut messages = match peer.1 {
 		ValidationVersion::V3 => vec![(
 			vec![peer.0],
-			Versioned::V3(protocol_v3::StatementDistributionMessage::BackedCandidateKnown(
-				acknowledgement,
-			))
+			ValidationProtocols::V3(
+				protocol_v3::StatementDistributionMessage::BackedCandidateKnown(acknowledgement),
+			)
 			.into(),
 		)],
 	};
@@ -2585,7 +2592,7 @@ async fn handle_incoming_acknowledgement<Context>(
 	ctx: &mut Context,
 	state: &mut State,
 	peer: PeerId,
-	acknowledgement: net_protocol::v2::BackedCandidateAcknowledgement,
+	acknowledgement: net_protocol::v3::BackedCandidateAcknowledgement,
 	reputation: &mut ReputationAggregator,
 	metrics: &Metrics,
 ) {

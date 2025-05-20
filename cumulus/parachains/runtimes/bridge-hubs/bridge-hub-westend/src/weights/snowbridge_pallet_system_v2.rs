@@ -96,4 +96,15 @@ impl<T: frame_system::Config> snowbridge_pallet_system_v2::WeightInfo for Weight
 			.saturating_add(T::DbWeight::get().reads(4))
 			.saturating_add(T::DbWeight::get().writes(3))
 	}
+
+	fn add_tip() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `80`
+		//  Estimated: `3517`
+		// Minimum execution time: 30_000_000 picoseconds.
+		Weight::from_parts(30_000_000, 0)
+			.saturating_add(Weight::from_parts(0, 3517))
+			.saturating_add(T::DbWeight::get().reads(4))
+			.saturating_add(T::DbWeight::get().writes(3))
+	}
 }

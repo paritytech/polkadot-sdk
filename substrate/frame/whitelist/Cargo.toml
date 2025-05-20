@@ -28,8 +28,6 @@ default = ["std"]
 std = [
 	"codec/std",
 	"frame/std",
-	"pallet-balances/std",
-	"pallet-preimage/std",
 	"scale-info/std",
 ]
 runtime-benchmarks = [

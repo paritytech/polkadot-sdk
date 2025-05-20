@@ -16,9 +16,6 @@ workspace = true
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
-[build-dependencies]
-prost-build = { workspace = true }
-
 [dependencies]
 async-trait = { workspace = true }
 codec = { workspace = true }
@@ -45,3 +42,6 @@ thiserror = { workspace = true }
 quickcheck = { workspace = true }
 sp-tracing = { workspace = true, default-features = true }
 substrate-test-runtime-client = { workspace = true }
+
+[build-dependencies]
+prost-build = { workspace = true }

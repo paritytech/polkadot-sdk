@@ -18,8 +18,9 @@
 //! Traits for encoding data related to pallet's storage items.
 
 use alloc::{collections::btree_set::BTreeSet, vec, vec::Vec};
-use codec::{Encode, FullCodec, MaxEncodedLen};
+use codec::{Decode, Encode, FullCodec, MaxEncodedLen};
 use core::marker::PhantomData;
+use frame_support::CloneNoBound;
 use impl_trait_for_tuples::impl_for_tuples;
 use scale_info::TypeInfo;
 pub use sp_core::storage::TrackedStorageKey;
@@ -210,6 +211,23 @@ where
 	fn convert(_: Footprint) -> Balance {
 		Price::get()
 	}
+}
+
+/// Placeholder marking functionality disabled. Useful for disabling various (sub)features.
+#[derive(CloneNoBound, Debug, Encode, Eq, Decode, TypeInfo, MaxEncodedLen, PartialEq)]
+pub struct Disabled;
+impl<A, F> Consideration<A, F> for Disabled {
+	fn new(_: &A, _: F) -> Result<Self, DispatchError> {
+		Err(DispatchError::Other("Disabled"))
+	}
+	fn update(self, _: &A, _: F) -> Result<Self, DispatchError> {
+		Err(DispatchError::Other("Disabled"))
+	}
+	fn drop(self, _: &A) -> Result<(), DispatchError> {
+		Ok(())
+	}
+	#[cfg(feature = "runtime-benchmarks")]
+	fn ensure_successful(_: &A, _: F) {}
 }
 
 /// Some sort of cost taken from account temporarily in order to offset the cost to the chain of

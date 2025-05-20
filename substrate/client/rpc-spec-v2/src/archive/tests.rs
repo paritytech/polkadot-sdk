@@ -17,12 +17,13 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 use crate::{
+	archive::MethodResult,
 	common::events::{
 		ArchiveStorageDiffEvent, ArchiveStorageDiffItem, ArchiveStorageDiffOperationType,
 		ArchiveStorageDiffResult, ArchiveStorageDiffType, ArchiveStorageEvent, StorageQuery,
 		StorageQueryType, StorageResult, StorageResultType,
 	},
-	hex_string, MethodResult,
+	hex_string,
 };
 
 use super::{archive::Archive, *};

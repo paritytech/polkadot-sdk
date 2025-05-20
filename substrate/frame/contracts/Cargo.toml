@@ -24,9 +24,7 @@ log = { workspace = true }
 paste = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 serde = { optional = true, features = ["derive"], workspace = true, default-features = true }
-smallvec = { features = [
-	"const_generics",
-], workspace = true }
+smallvec = { features = ["const_generics"], workspace = true }
 wasmi = { workspace = true }
 
 # Only used in benchmarking to generate contract code

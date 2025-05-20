@@ -8,3 +8,4 @@ RUN_IN_CI=1
 KUBERNETES_CPU_REQUEST=512m
 KUBERNETES_MEMORY_REQUEST=1Gi
 TEMP_IMAGES_BASE=europe-docker.pkg.dev/parity-ci-2024/temp-images
+FLAKY_TESTS="zombienet-polkadot-coretime-revenue, zombienet-polkadot-smoke-0003-deregister-register-validator"

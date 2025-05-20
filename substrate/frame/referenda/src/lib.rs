@@ -144,6 +144,7 @@ pub mod pallet {
 			+ From<Call<Self, I>>
 			+ IsType<<Self as frame_system::Config>::RuntimeCall>
 			+ From<frame_system::Call<Self>>;
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self, I>>
 			+ IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		/// Weight information for extrinsics in this pallet.

@@ -11,9 +11,6 @@ repository.workspace = true
 [lints]
 workspace = true
 
-[build-dependencies]
-substrate-wasm-builder = { optional = true, workspace = true, default-features = true }
-
 [dependencies]
 codec = { features = ["derive"], workspace = true }
 log = { workspace = true }
@@ -86,6 +83,9 @@ testnet-parachains-constants = { features = ["rococo"], workspace = true }
 [dev-dependencies]
 parachains-runtimes-test-utils = { workspace = true }
 
+[build-dependencies]
+substrate-wasm-builder = { optional = true, workspace = true, default-features = true }
+
 [features]
 default = ["std"]
 std = [
@@ -153,7 +153,6 @@ std = [
 	"xcm-runtime-apis/std",
 	"xcm/std",
 ]
-
 runtime-benchmarks = [
 	"cumulus-pallet-parachain-system/runtime-benchmarks",
 	"cumulus-pallet-session-benchmarking/runtime-benchmarks",
@@ -186,7 +185,6 @@ runtime-benchmarks = [
 	"xcm-runtime-apis/runtime-benchmarks",
 	"xcm/runtime-benchmarks",
 ]
-
 try-runtime = [
 	"cumulus-pallet-aura-ext/try-runtime",
 	"cumulus-pallet-parachain-system/try-runtime",
@@ -215,7 +213,6 @@ try-runtime = [
 	"polkadot-runtime-common/try-runtime",
 	"sp-runtime/try-runtime",
 ]
-
 fast-runtime = [
 	"rococo-runtime-constants/fast-runtime",
 ]

@@ -65,7 +65,6 @@ std = [
 	"scale-info/std",
 	"serde/std",
 	"sp-application-crypto/std",
-	"sp-core/std",
 	"sp-io/std",
 	"sp-npos-elections/std",
 	"sp-runtime/std",

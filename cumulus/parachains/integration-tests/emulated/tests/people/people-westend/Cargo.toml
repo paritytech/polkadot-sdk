@@ -7,6 +7,9 @@ license = "Apache-2.0"
 description = "People Westend runtime integration tests with xcm-emulator"
 publish = false
 
+[lints]
+workspace = true
+
 [dependencies]
 codec = { workspace = true }
 

@@ -63,11 +63,7 @@ sp-version = { workspace = true }
 sp-weights = { workspace = true }
 
 # num-traits feature needed for dex integer sq root:
-primitive-types = { features = [
-	"codec",
-	"num-traits",
-	"scale-info",
-], workspace = true }
+primitive-types = { features = ["codec", "num-traits", "scale-info"], workspace = true }
 
 # Polkadot
 pallet-xcm = { workspace = true }
@@ -102,7 +98,6 @@ bp-asset-hub-westend = { workspace = true }
 bp-bridge-hub-rococo = { workspace = true }
 bp-bridge-hub-westend = { workspace = true }
 pallet-xcm-bridge-hub-router = { workspace = true }
-snowbridge-inbound-queue-primitives = { workspace = true }
 
 [dev-dependencies]
 asset-test-utils = { workspace = true, default-features = true }
@@ -148,7 +143,6 @@ runtime-benchmarks = [
 	"parachains-common/runtime-benchmarks",
 	"polkadot-parachain-primitives/runtime-benchmarks",
 	"polkadot-runtime-common/runtime-benchmarks",
-	"snowbridge-inbound-queue-primitives/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",
 	"xcm-executor/runtime-benchmarks",
@@ -248,7 +242,6 @@ std = [
 	"rococo-runtime-constants/std",
 	"scale-info/std",
 	"serde_json/std",
-	"snowbridge-inbound-queue-primitives/std",
 	"sp-api/std",
 	"sp-block-builder/std",
 	"sp-consensus-aura/std",

@@ -22,13 +22,14 @@ doc = false
 [dependencies]
 async-trait = { workspace = true }
 bincode = { workspace = true }
+bitvec = { workspace = true, default-features = true }
 clap = { features = ["derive"], workspace = true }
 color-eyre = { workspace = true }
 colored = { workspace = true }
 futures = { workspace = true }
 gum = { workspace = true, default-features = true }
 hex = { workspace = true, default-features = true }
-jemalloc_pprof = { workspace = true, optional = true }
+kvdb-memorydb = { workspace = true }
 polkadot-availability-bitfield-distribution = { workspace = true, default-features = true }
 polkadot-availability-distribution = { workspace = true, default-features = true }
 polkadot-availability-recovery = { features = ["subsystem-benchmarks"], workspace = true, default-features = true }
@@ -42,8 +43,6 @@ polkadot-overseer = { workspace = true, default-features = true }
 polkadot-primitives = { workspace = true, features = ["test"] }
 polkadot-statement-distribution = { workspace = true, default-features = true }
 # `rand` only supports uniform distribution, we need normal distribution for latency.
-bitvec = { workspace = true, default-features = true }
-kvdb-memorydb = { workspace = true }
 rand = { workspace = true, default-features = true }
 rand_distr = { workspace = true }
 sc-keystore = { workspace = true, default-features = true }
@@ -88,6 +87,5 @@ strum = { features = ["derive"], workspace = true, default-features = true }
 [features]
 default = []
 memprofile = [
-	"dep:jemalloc_pprof",
 	"dep:tikv-jemallocator",
 ]

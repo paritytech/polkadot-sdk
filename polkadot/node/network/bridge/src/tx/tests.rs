@@ -30,7 +30,7 @@ use codec::DecodeAll;
 use polkadot_node_network_protocol::{
 	peer_set::PeerSetProtocolNames,
 	request_response::{outgoing::Requests, ReqProtocolNames},
-	v1 as protocol_v1, v3 as protocol_v3, ObservedRole, Versioned,
+	v1 as protocol_v1, v3 as protocol_v3, CollationProtocols, ObservedRole, ValidationProtocols,
 };
 use polkadot_node_subsystem::{FromOrchestra, OverseerSignal};
 use polkadot_node_subsystem_test_helpers::TestSubsystemContextHandle;
@@ -311,7 +311,7 @@ fn send_messages_to_peers() {
 				.send(FromOrchestra::Communication {
 					msg: NetworkBridgeTxMessage::SendValidationMessage(
 						vec![peer],
-						Versioned::V3(message_v1.clone()),
+						ValidationProtocols::V3(message_v1.clone()),
 					),
 				})
 				.timeout(TIMEOUT)
@@ -348,7 +348,7 @@ fn send_messages_to_peers() {
 				.send(FromOrchestra::Communication {
 					msg: NetworkBridgeTxMessage::SendCollationMessage(
 						vec![peer],
-						Versioned::V1(message_v1.clone()),
+						CollationProtocols::V1(message_v1.clone()),
 					),
 				})
 				.await;

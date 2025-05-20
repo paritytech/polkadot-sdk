@@ -31,8 +31,7 @@ use polkadot_node_network_protocol::{
 	self as net_protocol, filter_by_peer_version,
 	grid_topology::{RandomRouting, RequiredRouting, SessionGridTopologies, SessionGridTopology},
 	peer_set::MAX_NOTIFICATION_SIZE,
-	v1 as protocol_v1, v2 as protocol_v2, v3 as protocol_v3, PeerId,
-	UnifiedReputationChange as Rep, Versioned, View,
+	v3 as protocol_v3, PeerId, UnifiedReputationChange as Rep, ValidationProtocols, View,
 };
 use polkadot_node_primitives::{
 	approval::{
@@ -1126,11 +1125,7 @@ impl State {
 		runtime_api_sender: &mut RA,
 		metrics: &Metrics,
 		peer_id: PeerId,
-		msg: Versioned<
-			protocol_v1::ApprovalDistributionMessage,
-			protocol_v2::ApprovalDistributionMessage,
-			protocol_v3::ApprovalDistributionMessage,
-		>,
+		msg: ValidationProtocols<protocol_v3::ApprovalDistributionMessage>,
 		rng: &mut R,
 		assignment_criteria: &(impl AssignmentCriteria + ?Sized),
 		clock: &(impl Clock + ?Sized),
@@ -1142,7 +1137,9 @@ impl State {
 		R: CryptoRng + Rng,
 	{
 		match msg {
-			Versioned::V3(protocol_v3::ApprovalDistributionMessage::Assignments(assignments)) => {
+			ValidationProtocols::V3(protocol_v3::ApprovalDistributionMessage::Assignments(
+				assignments,
+			)) => {
 				gum::trace!(
 					target: LOG_TARGET,
 					peer_id = %peer_id,
@@ -1166,7 +1163,9 @@ impl State {
 				)
 				.await;
 			},
-			Versioned::V3(protocol_v3::ApprovalDistributionMessage::Approvals(approvals)) => {
+			ValidationProtocols::V3(protocol_v3::ApprovalDistributionMessage::Approvals(
+				approvals,
+			)) => {
 				let sanitized_approvals =
 					self.sanitize_v2_approvals(peer_id, network_sender, approvals).await;
 				self.process_incoming_approvals(
@@ -1179,13 +1178,6 @@ impl State {
 					session_info_provider,
 				)
 				.await;
-			},
-			_ => {
-				gum::warn!(
-					target: LOG_TARGET,
-					peer_id = %peer_id,
-					"Received approval distribution message with unsupported protocol version",
-				);
 			},
 		}
 	}
@@ -2863,7 +2855,7 @@ async fn send_assignments_batched_inner(
 	sender
 		.send_message(NetworkBridgeTxMessage::SendValidationMessage(
 			peers,
-			Versioned::V3(protocol_v3::ValidationProtocol::ApprovalDistribution(
+			ValidationProtocols::V3(protocol_v3::ValidationProtocol::ApprovalDistribution(
 				protocol_v3::ApprovalDistributionMessage::Assignments(batch.into_iter().collect()),
 			)),
 		))
@@ -2915,7 +2907,7 @@ pub(crate) async fn send_approvals_batched(
 			sender
 				.send_message(NetworkBridgeTxMessage::SendValidationMessage(
 					v3_peers.clone(),
-					Versioned::V3(protocol_v3::ValidationProtocol::ApprovalDistribution(
+					ValidationProtocols::V3(protocol_v3::ValidationProtocol::ApprovalDistribution(
 						protocol_v3::ApprovalDistributionMessage::Approvals(batch),
 					)),
 				))
