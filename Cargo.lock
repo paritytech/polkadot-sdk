@@ -2625,6 +2625,7 @@ dependencies = [
  "snowbridge-pallet-outbound-queue",
  "snowbridge-pallet-outbound-queue-v2",
  "snowbridge-pallet-system",
+ "snowbridge-pallet-system-v2",
  "sp-core 28.0.0",
  "sp-io 30.0.0",
  "sp-runtime 31.0.1",
@@ -4276,6 +4277,7 @@ dependencies = [
  "cumulus-client-pov-recovery",
  "cumulus-primitives-core",
  "cumulus-relay-chain-interface",
+ "cumulus-relay-chain-streams",
  "cumulus-test-client",
  "cumulus-test-relay-sproof-builder",
  "dyn-clone",
@@ -4399,6 +4401,7 @@ dependencies = [
  "async-trait",
  "cumulus-primitives-core",
  "cumulus-relay-chain-interface",
+ "cumulus-relay-chain-streams",
  "cumulus-test-client",
  "futures",
  "futures-timer",
@@ -4439,8 +4442,10 @@ dependencies = [
  "cumulus-relay-chain-inprocess-interface",
  "cumulus-relay-chain-interface",
  "cumulus-relay-chain-minimal-node",
+ "cumulus-relay-chain-streams",
  "futures",
  "polkadot-primitives",
+ "prometheus",
  "sc-client-api",
  "sc-consensus",
  "sc-network",
@@ -4888,6 +4893,19 @@ dependencies = [
  "tokio-util",
  "tracing",
  "url",
+]
+
+[[package]]
+name = "cumulus-relay-chain-streams"
+version = "0.7.0"
+dependencies = [
+ "cumulus-relay-chain-interface",
+ "futures",
+ "polkadot-node-subsystem",
+ "polkadot-primitives",
+ "sp-api 26.0.0",
+ "sp-consensus",
+ "tracing",
 ]
 
 [[package]]
@@ -5804,6 +5822,7 @@ dependencies = [
  "sp-runtime 31.0.1",
  "staging-xcm",
  "xcm-emulator",
+ "xcm-simulator",
 ]
 
 [[package]]
@@ -6652,9 +6671,9 @@ dependencies = [
 
 [[package]]
 name = "frame-metadata"
-version = "22.0.0"
+version = "23.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2753bc34b8cf637f58a4f7c3fcd54e8e588503bc9bba449bd8f5a1ab202b0172"
+checksum = "d8c26fcb0454397c522c05fdad5380c4e622f8a875638af33bff5a320d1fc965"
 dependencies = [
  "cfg-if",
  "parity-scale-codec",
@@ -6669,7 +6688,7 @@ dependencies = [
  "array-bytes 6.2.2",
  "const-hex",
  "docify",
- "frame-metadata 22.0.0",
+ "frame-metadata 23.0.0",
  "frame-support",
  "frame-system",
  "log",
@@ -6735,7 +6754,7 @@ dependencies = [
  "bitflags 1.3.2",
  "docify",
  "environmental",
- "frame-metadata 22.0.0",
+ "frame-metadata 23.0.0",
  "frame-support-procedural",
  "frame-system",
  "impl-trait-for-tuples",
@@ -6824,7 +6843,7 @@ version = "3.0.0"
 dependencies = [
  "frame-benchmarking",
  "frame-executive",
- "frame-metadata 22.0.0",
+ "frame-metadata 23.0.0",
  "frame-support",
  "frame-support-test-pallet",
  "frame-system",
@@ -9925,7 +9944,7 @@ checksum = "b3e3e3f549d27d2dc054372f320ddf68045a833fab490563ff70d4cf1b9d91ea"
 dependencies = [
  "array-bytes 9.1.2",
  "blake3",
- "frame-metadata 22.0.0",
+ "frame-metadata 23.0.0",
  "parity-scale-codec",
  "scale-decode 0.16.0",
  "scale-info",
@@ -12034,7 +12053,7 @@ dependencies = [
 name = "pallet-example-view-functions"
 version = "1.0.0"
 dependencies = [
- "frame-metadata 22.0.0",
+ "frame-metadata 23.0.0",
  "frame-support",
  "frame-system",
  "log",
@@ -12748,9 +12767,11 @@ dependencies = [
  "sc-rpc",
  "sc-rpc-api",
  "sc-service",
+ "serde_json",
  "sp-arithmetic 23.0.0",
  "sp-core 28.0.0",
  "sp-crypto-hashing 0.1.0",
+ "sp-rpc",
  "sp-runtime 31.0.1",
  "sp-weights 27.0.0",
  "sqlx",
@@ -13671,6 +13692,7 @@ dependencies = [
  "staging-xcm-executor",
  "tracing",
  "xcm-runtime-apis",
+ "xcm-simulator",
 ]
 
 [[package]]
@@ -14637,6 +14659,7 @@ name = "polkadot-collator-protocol"
 version = "7.0.0"
 dependencies = [
  "assert_matches",
+ "async-trait",
  "bitvec",
  "fatality",
  "futures",
@@ -14659,6 +14682,7 @@ dependencies = [
  "sp-runtime 31.0.1",
  "sp-tracing 16.0.0",
  "thiserror 1.0.65",
+ "tokio",
  "tokio-util",
  "tracing-gum",
 ]
@@ -15816,6 +15840,7 @@ dependencies = [
  "cumulus-relay-chain-interface",
  "cumulus-relay-chain-minimal-node",
  "cumulus-relay-chain-rpc-interface",
+ "cumulus-relay-chain-streams",
  "cumulus-test-relay-sproof-builder",
  "emulated-integration-tests-common",
  "fork-tree",
@@ -19068,6 +19093,7 @@ dependencies = [
  "sp-state-machine 0.35.0",
  "sp-tracing 16.0.0",
  "sp-trie 29.0.0",
+ "substrate-prometheus-endpoint",
  "substrate-test-runtime-client",
  "tempfile",
 ]
@@ -21830,6 +21856,7 @@ dependencies = [
  "snowbridge-core",
  "snowbridge-merkle-tree",
  "snowbridge-outbound-queue-primitives",
+ "snowbridge-test-utils",
  "snowbridge-verification-primitives",
  "sp-arithmetic 23.0.0",
  "sp-core 28.0.0",
@@ -21875,6 +21902,7 @@ dependencies = [
  "frame-support",
  "frame-system",
  "log",
+ "pallet-asset-conversion",
  "pallet-balances",
  "parity-scale-codec",
  "scale-info",
@@ -21882,6 +21910,7 @@ dependencies = [
  "snowbridge-test-utils",
  "sp-core 28.0.0",
  "sp-io 30.0.0",
+ "sp-keyring",
  "sp-runtime 31.0.1",
  "sp-std 14.0.0",
  "staging-xcm",
@@ -21912,6 +21941,7 @@ dependencies = [
  "sp-std 14.0.0",
  "staging-xcm",
  "staging-xcm-executor",
+ "tracing",
 ]
 
 [[package]]
@@ -21988,10 +22018,13 @@ dependencies = [
 name = "snowbridge-test-utils"
 version = "0.1.0"
 dependencies = [
+ "bp-relayers",
  "frame-benchmarking",
  "frame-support",
  "frame-system",
  "log",
+ "pallet-asset-conversion",
+ "pallet-xcm",
  "parity-scale-codec",
  "scale-info",
  "snowbridge-core",
@@ -23000,7 +23033,7 @@ dependencies = [
 name = "sp-metadata-ir"
 version = "0.6.0"
 dependencies = [
- "frame-metadata 22.0.0",
+ "frame-metadata 23.0.0",
  "parity-scale-codec",
  "scale-info",
 ]
@@ -23562,6 +23595,7 @@ dependencies = [
  "sp-core 28.0.0",
  "sp-externalities 0.25.0",
  "sp-runtime 31.0.1",
+ "substrate-prometheus-endpoint",
  "thiserror 1.0.65",
  "tracing",
  "trie-bench",
@@ -24148,6 +24182,7 @@ dependencies = [
  "staging-xcm",
  "staging-xcm-executor",
  "tracing",
+ "xcm-simulator",
 ]
 
 [[package]]
@@ -24669,7 +24704,7 @@ dependencies = [
  "cargo_metadata",
  "console",
  "filetime",
- "frame-metadata 22.0.0",
+ "frame-metadata 23.0.0",
  "jobserver",
  "merkleized-metadata",
  "parity-scale-codec",
@@ -27896,6 +27931,7 @@ dependencies = [
  "sp-tracing 16.0.0",
  "staging-xcm",
  "staging-xcm-executor",
+ "xcm-simulator",
 ]
 
 [[package]]
@@ -27955,6 +27991,7 @@ dependencies = [
  "staging-xcm",
  "staging-xcm-builder",
  "staging-xcm-executor",
+ "xcm-simulator",
 ]
 
 [[package]]

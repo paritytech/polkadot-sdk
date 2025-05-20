@@ -44,7 +44,7 @@ impl From<MetadataIR> for RuntimeMetadataV16 {
 	fn from(ir: MetadataIR) -> Self {
 		RuntimeMetadataV16::new(
 			ir.pallets.into_iter().map(Into::into).collect(),
-			ir.extrinsic.into(),
+			ir.extrinsic.into_v16_with_call_ty(ir.outer_enums.call_enum_ty),
 			ir.apis.into_iter().map(Into::into).collect(),
 			ir.outer_enums.into(),
 			// Substrate does not collect yet the custom metadata fields.
@@ -179,18 +179,19 @@ impl From<TransactionExtensionMetadataIR> for TransactionExtensionMetadata {
 	}
 }
 
-impl From<ExtrinsicMetadataIR> for ExtrinsicMetadata {
-	fn from(ir: ExtrinsicMetadataIR) -> Self {
+impl ExtrinsicMetadataIR {
+	fn into_v16_with_call_ty(self, call_ty: scale_info::MetaType) -> ExtrinsicMetadata {
 		// Assume version 0 for all extensions.
-		let indexes = (0..ir.extensions.len()).map(|index| Compact(index as u32)).collect();
+		let indexes = (0..self.extensions.len()).map(|index| Compact(index as u32)).collect();
 		let transaction_extensions_by_version = [(0, indexes)].iter().cloned().collect();
 
 		ExtrinsicMetadata {
-			versions: ir.versions,
-			address_ty: ir.address_ty,
-			signature_ty: ir.signature_ty,
+			versions: self.versions,
+			address_ty: self.address_ty,
+			call_ty,
+			signature_ty: self.signature_ty,
 			transaction_extensions_by_version,
-			transaction_extensions: ir.extensions.into_iter().map(Into::into).collect(),
+			transaction_extensions: self.extensions.into_iter().map(Into::into).collect(),
 		}
 	}
 }
