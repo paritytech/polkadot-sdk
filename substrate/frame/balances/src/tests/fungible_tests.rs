@@ -356,6 +356,69 @@ fn burn_held() {
 }
 
 #[test]
+fn negative_imbalance_drop_handled_correctly() {
+	ExtBuilder::default().build_and_execute_with(|| {
+		let account = 1;
+		let initial_balance = 100;
+		let withdraw_amount = 50;
+
+		// Set initial balance and total issuance
+		Balances::set_balance(&account, initial_balance);
+		assert_eq!(Balances::total_issuance(), initial_balance);
+
+		// Withdraw using fungible::Balanced to create a NegativeImbalance
+		let negative_imb = <Balances as fungible::Balanced<_>>::withdraw(
+			&account,
+			withdraw_amount,
+			Exact,
+			Expendable,
+			Polite,
+		)
+		.expect("Withdraw failed");
+
+		// Verify balance decreased but total issuance remains unchanged
+		assert_eq!(Balances::free_balance(&account), initial_balance - withdraw_amount);
+		assert_eq!(Balances::total_issuance(), initial_balance);
+
+		// Drop the NegativeImbalance, triggering HandleImbalanceDrop
+		drop(negative_imb);
+
+		// Check total issuance decreased and event emitted
+		assert_eq!(Balances::total_issuance(), initial_balance - withdraw_amount);
+		System::assert_last_event(RuntimeEvent::Balances(crate::Event::BurnedDebt {
+			amount: withdraw_amount,
+		}));
+	});
+}
+
+#[test]
+fn positive_imbalance_drop_handled_correctly() {
+	ExtBuilder::default().build_and_execute_with(|| {
+		let account = 1;
+		let deposit_amount = 50;
+		let initial_issuance = Balances::total_issuance();
+
+		// Deposit using fungible::Balanced to create a PositiveImbalance
+		let positive_imb =
+			<Balances as fungible::Balanced<_>>::deposit(&account, deposit_amount, Exact)
+				.expect("Deposit failed");
+
+		// Verify balance increased but total issuance remains unchanged
+		assert_eq!(Balances::free_balance(&account), deposit_amount);
+		assert_eq!(Balances::total_issuance(), initial_issuance);
+
+		// Drop the PositiveImbalance, triggering HandleImbalanceDrop
+		drop(positive_imb);
+
+		// Check total issuance increased and event emitted
+		assert_eq!(Balances::total_issuance(), initial_issuance + deposit_amount);
+		System::assert_last_event(RuntimeEvent::Balances(crate::Event::MintedCredit {
+			amount: deposit_amount,
+		}));
+	});
+}
+
+#[test]
 fn frozen_hold_balance_best_effort_transfer_works() {
 	ExtBuilder::default()
 		.existential_deposit(1)
