@@ -18,7 +18,7 @@
 //! > Made with *Substrate*, for *Polkadot*.
 //!
 //! [![github]](https://github.com/paritytech/polkadot-sdk/tree/master/substrate/frame/scheduler) -
-//! [![polkadot]](https://polkadot.network)
+//! [![polkadot]](https://polkadot.com)
 //!
 //! [polkadot]: https://img.shields.io/badge/polkadot-E6007A?style=for-the-badge&logo=polkadot&logoColor=white
 //! [github]: https://img.shields.io/badge/github-8da0cb?style=for-the-badge&labelColor=555555&logo=github
@@ -414,6 +414,27 @@ pub mod pallet {
 			let mut weight_counter = WeightMeter::with_limit(T::MaximumWeight::get());
 			Self::service_agendas(&mut weight_counter, now, u32::MAX);
 			weight_counter.consumed()
+		}
+
+		#[cfg(feature = "std")]
+		fn integrity_test() {
+			/// Calculate the maximum weight that a lookup of a given size can take.
+			fn lookup_weight<T: Config>(s: usize) -> Weight {
+				T::WeightInfo::service_agendas_base() +
+					T::WeightInfo::service_agenda_base(T::MaxScheduledPerBlock::get()) +
+					T::WeightInfo::service_task(Some(s), true, true)
+			}
+
+			let limit = sp_runtime::Perbill::from_percent(90) * T::MaximumWeight::get();
+
+			let small_lookup = lookup_weight::<T>(128);
+			assert!(small_lookup.all_lte(limit), "Must be possible to submit a small lookup");
+
+			let medium_lookup = lookup_weight::<T>(1024);
+			assert!(medium_lookup.all_lte(limit), "Must be possible to submit a medium lookup");
+
+			let large_lookup = lookup_weight::<T>(1024 * 1024);
+			assert!(large_lookup.all_lte(limit), "Must be possible to submit a large lookup");
 		}
 	}
 

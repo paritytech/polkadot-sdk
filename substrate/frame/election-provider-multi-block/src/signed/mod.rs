@@ -886,6 +886,17 @@ pub mod pallet {
 		}
 	}
 
+	#[pallet::view_functions]
+	impl<T: Config> Pallet<T> {
+		/// Get the deposit amount that will be held for a solution of `pages`.
+		///
+		/// This allows an offchain application to know what [`Config::DepositPerPage`] and
+		/// [`Config::DepositBase`] are doing under the hood.
+		pub fn deposit_for(pages: u32) -> BalanceOf<T> {
+			Submissions::<T>::deposit_for(pages as usize)
+		}
+	}
+
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn on_initialize(_: BlockNumberFor<T>) -> Weight {
