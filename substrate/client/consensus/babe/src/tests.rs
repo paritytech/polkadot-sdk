@@ -19,6 +19,7 @@
 //! BABE testsuite
 
 use super::*;
+use async_trait::async_trait;
 use authorship::claim_slot;
 use sc_block_builder::{BlockBuilder, BlockBuilderBuilder};
 use sc_client_api::{BlockchainEvents, Finalizer};
@@ -43,6 +44,7 @@ use sp_runtime::{
 };
 use sp_timestamp::Timestamp;
 use std::{cell::RefCell, task::Poll, time::Duration};
+use substrate_test_runtime_client::DefaultTestClientBuilderExt;
 
 type Item = DigestItem;
 
@@ -63,10 +65,39 @@ enum Stage {
 
 type Mutator = Arc<dyn Fn(&mut TestHeader, Stage) + Send + Sync>;
 
-type BabeBlockImport =
-	PanickingBlockImport<crate::BabeBlockImport<TestBlock, TestClient, Arc<TestClient>>>;
+type BabeBlockImport = PanickingBlockImport<
+	crate::BabeBlockImport<
+		TestBlock,
+		TestClient,
+		Arc<TestClient>,
+		CreateInherentDataProviders,
+		sc_consensus::LongestChain<substrate_test_runtime_client::Backend, Block>,
+	>,
+>;
 
 const SLOT_DURATION_MS: u64 = 1000;
+
+#[derive(Debug, Clone)]
+pub struct CreateInherentDataProviders;
+
+#[async_trait]
+impl<Block: BlockT, ExtraArgs: Send + 'static>
+	sp_inherents::CreateInherentDataProviders<Block, ExtraArgs> for CreateInherentDataProviders
+{
+	type InherentDataProviders = (InherentDataProvider,);
+
+	async fn create_inherent_data_providers(
+		&self,
+		parent: Block::Hash,
+		extra_args: ExtraArgs,
+	) -> Result<Self::InherentDataProviders, Box<dyn std::error::Error + Send + Sync>> {
+		let slot = InherentDataProvider::from_timestamp_and_slot_duration(
+			Timestamp::current(),
+			SlotDuration::from_millis(SLOT_DURATION_MS),
+		);
+		Ok((slot,))
+	}
+}
 
 #[derive(Clone)]
 struct DummyFactory {
@@ -177,18 +208,7 @@ type TestSelectChain =
 	substrate_test_runtime_client::LongestChain<substrate_test_runtime_client::Backend, TestBlock>;
 
 pub struct TestVerifier {
-	inner: BabeVerifier<
-		TestBlock,
-		PeersFullClient,
-		TestSelectChain,
-		Box<
-			dyn CreateInherentDataProviders<
-				TestBlock,
-				(),
-				InherentDataProviders = (InherentDataProvider,),
-			>,
-		>,
-	>,
+	inner: BabeVerifier<TestBlock, PeersFullClient, CreateInherentDataProviders>,
 	mutator: Mutator,
 }
 
@@ -228,8 +248,16 @@ impl TestNetFactory for BabeTestNet {
 		let client = client.as_client();
 
 		let config = crate::configuration(&*client).expect("config available");
-		let (block_import, link) = crate::block_import(config, client.clone(), client.clone())
-			.expect("can initialize block-import");
+		let (_, longest_chain) = TestClientBuilder::new().build_with_longest_chain();
+		let (block_import, link) = crate::block_import(
+			config,
+			client.clone(),
+			client.clone(),
+			CreateInherentDataProviders,
+			longest_chain,
+			OffchainTransactionPoolFactory::new(RejectAllTxPool::default()),
+		)
+		.expect("can initialize block-import");
 
 		let block_import = PanickingBlockImport(block_import);
 
@@ -253,25 +281,13 @@ impl TestNetFactory for BabeTestNet {
 			.as_ref()
 			.expect("babe link always provided to verifier instantiation");
 
-		let (_, longest_chain) = TestClientBuilder::new().build_with_longest_chain();
-
 		TestVerifier {
 			inner: BabeVerifier {
 				client: client.clone(),
-				select_chain: longest_chain,
-				create_inherent_data_providers: Box::new(|_, _| async {
-					let slot = InherentDataProvider::from_timestamp_and_slot_duration(
-						Timestamp::current(),
-						SlotDuration::from_millis(SLOT_DURATION_MS),
-					);
-					Ok((slot,))
-				}),
+				create_inherent_data_providers: CreateInherentDataProviders,
 				config: data.link.config.clone(),
 				epoch_changes: data.link.epoch_changes.clone(),
 				telemetry: None,
-				offchain_tx_pool_factory: OffchainTransactionPoolFactory::new(
-					RejectAllTxPool::default(),
-				),
 			},
 			mutator: MUTATOR.with(|m| m.borrow().clone()),
 		}

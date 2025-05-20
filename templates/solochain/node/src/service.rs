@@ -109,7 +109,6 @@ pub fn new_partial(config: &Configuration) -> Result<Service, ServiceError> {
 			},
 			spawner: &task_manager.spawn_essential_handle(),
 			registry: config.prometheus_registry(),
-			check_for_equivocation: Default::default(),
 			telemetry: telemetry.as_ref().map(|x| x.handle()),
 			compatibility_mode: Default::default(),
 		})?;

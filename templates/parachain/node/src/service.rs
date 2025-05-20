@@ -9,7 +9,7 @@ use parachain_template_runtime::{
 	opaque::{Block, Hash},
 };
 
-use polkadot_sdk::*;
+use polkadot_sdk::{sc_consensus_aura::CreateInherentDataProvidersForAuraViaRuntime, *};
 
 // Cumulus Imports
 use cumulus_client_bootnodes::{start_bootnode_tasks, StartBootnodeTasksParams};
@@ -203,7 +203,9 @@ fn start_consensus(
 	);
 
 	let params = AuraParams {
-		create_inherent_data_providers: move |_, ()| async move { Ok(()) },
+		create_inherent_data_providers: CreateInherentDataProvidersForAuraViaRuntime::new(
+			client.clone(),
+		),
 		block_import,
 		para_client: client.clone(),
 		para_backend: backend,

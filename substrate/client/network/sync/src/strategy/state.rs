@@ -37,7 +37,7 @@ use sc_consensus::{BlockImportError, BlockImportStatus, IncomingBlock};
 use sc_network::{IfDisconnected, ProtocolName};
 use sc_network_common::sync::message::BlockAnnounce;
 use sc_network_types::PeerId;
-use sp_consensus::BlockOrigin;
+use sp_consensus::{BlockOrigin, Error as ConsensusError};
 use sp_runtime::{
 	traits::{Block as BlockT, Header, NumberFor},
 	Justifications, SaturatedConversion,
@@ -272,10 +272,24 @@ impl<B: BlockT> StateStrategy<B> {
 		if !results.is_empty() {
 			// We processed the target block
 			results.iter().filter_map(|result| result.as_ref().err()).for_each(|e| {
-				error!(
-					target: LOG_TARGET,
-					"Failed to import target block with state: {e:?}."
-				);
+				match e {
+					BlockImportError::Other(
+						ConsensusError::InvalidInherents(_) |
+						ConsensusError::InvalidInherentsUnhandled(_),
+					) => {
+						// Ignore inherents errors.
+						trace!(
+							target: LOG_TARGET,
+							"Failed to import target block due to invalid inherent transactions: {e:?}."
+						);
+					},
+					_ => {
+						error!(
+							target: LOG_TARGET,
+							"Failed to import target block with state: {e:?}."
+						);
+					},
+				}
 			});
 			self.succeeded |= results.into_iter().any(|result| result.is_ok());
 			self.actions.push(SyncingAction::Finished);

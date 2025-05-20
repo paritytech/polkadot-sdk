@@ -32,6 +32,7 @@ sc-consensus = { workspace = true, default-features = true }
 sc-consensus-epochs = { workspace = true, default-features = true }
 sc-consensus-slots = { workspace = true, default-features = true }
 sc-telemetry = { workspace = true, default-features = true }
+sp-timestamp = { workspace = true, default-features = true }
 sc-transaction-pool-api = { workspace = true, default-features = true }
 sp-api = { workspace = true, default-features = true }
 sp-application-crypto = { workspace = true, default-features = true }
@@ -51,7 +52,6 @@ thiserror = { workspace = true }
 sc-block-builder = { workspace = true, default-features = true }
 sc-network-test = { workspace = true }
 sp-keyring = { workspace = true, default-features = true }
-sp-timestamp = { workspace = true, default-features = true }
 sp-tracing = { workspace = true, default-features = true }
 substrate-test-runtime-client = { workspace = true }
 tokio = { workspace = true, default-features = true }

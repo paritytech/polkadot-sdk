@@ -57,8 +57,7 @@ pub mod standalone;
 
 pub use crate::standalone::{find_pre_digest, slot_duration};
 pub use import_queue::{
-	build_verifier, import_queue, AuraVerifier, BuildVerifierParams, CheckForEquivocation,
-	ImportQueueParams,
+	build_verifier, import_queue, AuraVerifier, BuildVerifierParams, ImportQueueParams,
 };
 pub use sc_consensus_slots::SlotProportion;
 pub use sp_consensus::SyncOracle;
@@ -504,7 +503,8 @@ impl<B: BlockT> From<crate::standalone::PreDigestLookupError> for Error<B> {
 	}
 }
 
-fn authorities<A, B, C>(
+#[doc(hidden)]
+pub fn authorities<A, B, C>(
 	client: &C,
 	parent_hash: B::Hash,
 	context_block_number: NumberFor<B>,
@@ -542,6 +542,96 @@ where
 		.authorities(parent_hash)
 		.ok()
 		.ok_or(ConsensusError::InvalidAuthoritiesSet)
+}
+
+/// Create inherent data providers for AURA.
+#[derive(Debug, Clone)]
+pub struct CreateInherentDataProvidersForAura {
+	slot_duration: sp_consensus_aura::SlotDuration,
+}
+
+impl CreateInherentDataProvidersForAura {
+	/// Create a new instance of `CreateInherentDataProvidersForAura`.
+	pub fn new(slot_duration: sp_consensus_aura::SlotDuration) -> Self {
+		Self { slot_duration }
+	}
+}
+
+#[async_trait::async_trait]
+impl<Block: BlockT, ExtraArgs: Send + 'static>
+	sp_inherents::CreateInherentDataProviders<Block, ExtraArgs>
+	for CreateInherentDataProvidersForAura
+{
+	type InherentDataProviders =
+		(sp_consensus_aura::inherents::InherentDataProvider, sp_timestamp::InherentDataProvider);
+
+	/// Create the inherent data providers at the given `parent` block using the given `extra_args`.
+	async fn create_inherent_data_providers(
+		&self,
+		_parent: Block::Hash,
+		_extra_args: ExtraArgs,
+	) -> Result<Self::InherentDataProviders, Box<dyn std::error::Error + Send + Sync>> {
+		let timestamp = sp_timestamp::InherentDataProvider::from_system_time();
+		let slot =
+			sp_consensus_aura::inherents::InherentDataProvider::from_timestamp_and_slot_duration(
+				*timestamp,
+				self.slot_duration,
+			);
+		Ok((slot, timestamp))
+	}
+}
+
+// TODO Question: is this needed? Or can I just use
+// let slot_duration = sc_consensus_aura::slot_duration(&*client)?;
+// let cidp = CreateInherentDataProvidersForAura::new(slot_duration);
+// Like I do in the cumulus test service?
+/// Create inherent data providers for AURA, using the runtime API to fetch slot durations.
+#[derive(Debug)]
+pub struct CreateInherentDataProvidersForAuraViaRuntime<C, A> {
+	client: Arc<C>,
+	_phantom: PhantomData<A>,
+}
+
+impl<C, A> CreateInherentDataProvidersForAuraViaRuntime<C, A> {
+	/// Create a new instance of `CreateInherentDataProvidersForAura`.
+	pub fn new(client: Arc<C>) -> Self {
+		Self { client, _phantom: Default::default() }
+	}
+}
+
+impl<C, A> Clone for CreateInherentDataProvidersForAuraViaRuntime<C, A> {
+	fn clone(&self) -> Self {
+		Self { client: self.client.clone(), _phantom: Default::default() }
+	}
+}
+
+#[async_trait::async_trait]
+impl<A, C, Block: BlockT, ExtraArgs: Send + 'static>
+	sp_inherents::CreateInherentDataProviders<Block, ExtraArgs>
+	for CreateInherentDataProvidersForAuraViaRuntime<C, A>
+where
+	A: Codec + Send + Sync,
+	C: ProvideRuntimeApi<Block> + Send + Sync,
+	C::Api: AuraApi<Block, A>,
+{
+	type InherentDataProviders =
+		(sp_consensus_aura::inherents::InherentDataProvider, sp_timestamp::InherentDataProvider);
+
+	/// Create the inherent data providers at the given `parent` block using the given `extra_args`.
+	async fn create_inherent_data_providers(
+		&self,
+		parent: Block::Hash,
+		_extra_args: ExtraArgs,
+	) -> Result<Self::InherentDataProviders, Box<dyn std::error::Error + Send + Sync>> {
+		let slot_duration = crate::standalone::slot_duration_at(self.client.as_ref(), parent)?;
+		let timestamp = sp_timestamp::InherentDataProvider::from_system_time();
+		let slot =
+			sp_consensus_aura::inherents::InherentDataProvider::from_timestamp_and_slot_duration(
+				*timestamp,
+				slot_duration,
+			);
+		Ok((slot, timestamp))
+	}
 }
 
 #[cfg(test)]

@@ -32,6 +32,7 @@
 //! The main limitation is block propagation time - i.e. the new blocks created by an author
 //! must be propagated to the next author before their turn.
 
+use super::ValidatingBlockImport;
 use codec::{Codec, Encode};
 use cumulus_client_collator::service::ServiceInterface as CollatorServiceInterface;
 use cumulus_client_consensus_common::{self as consensus_common, ParachainBlockImportMarker};
@@ -46,6 +47,8 @@ use polkadot_overseer::Handle as OverseerHandle;
 use polkadot_primitives::{
 	vstaging::DEFAULT_CLAIM_QUEUE_OFFSET, CollatorPair, Id as ParaId, OccupiedCoreAssumption,
 };
+use sc_consensus_slots::InherentDataProviderExt;
+use sp_block_builder::BlockBuilder;
 
 use crate::{collator as collator_util, export_pov_to_path};
 use futures::prelude::*;
@@ -114,17 +117,20 @@ where
 		+ Send
 		+ Sync
 		+ 'static,
-	Client::Api:
-		AuraApi<Block, P::Public> + CollectCollationInfo<Block> + AuraUnincludedSegmentApi<Block>,
+	Client::Api: BlockBuilder<Block>
+		+ AuraApi<Block, P::Public>
+		+ CollectCollationInfo<Block>
+		+ AuraUnincludedSegmentApi<Block>,
 	Backend: sc_client_api::Backend<Block> + 'static,
 	RClient: RelayChainInterface + Clone + 'static,
-	CIDP: CreateInherentDataProviders<Block, ()> + 'static,
-	CIDP::InherentDataProviders: Send,
+	CIDP: CreateInherentDataProviders<Block, ()> + Clone + 'static,
+	CIDP::InherentDataProviders: InherentDataProviderExt + Send,
 	BI: BlockImport<Block> + ParachainBlockImportMarker + Send + Sync + 'static,
+	BI::Error: Into<sp_consensus::Error>,
 	Proposer: ProposerInterface<Block> + Send + Sync + 'static,
 	CS: CollatorServiceInterface<Block> + Send + Sync + 'static,
 	CHP: consensus_common::ValidationCodeHashProvider<Block::Hash> + Send + 'static,
-	P: Pair,
+	P: Pair + Send + Sync + 'static,
 	P::Public: AppPublic + Member + Codec,
 	P::Signature: TryFrom<Vec<u8>> + Member + Codec,
 {
@@ -166,17 +172,20 @@ where
 		+ Send
 		+ Sync
 		+ 'static,
-	Client::Api:
-		AuraApi<Block, P::Public> + CollectCollationInfo<Block> + AuraUnincludedSegmentApi<Block>,
+	Client::Api: BlockBuilder<Block>
+		+ AuraApi<Block, P::Public>
+		+ CollectCollationInfo<Block>
+		+ AuraUnincludedSegmentApi<Block>,
 	Backend: sc_client_api::Backend<Block> + 'static,
 	RClient: RelayChainInterface + Clone + 'static,
-	CIDP: CreateInherentDataProviders<Block, ()> + 'static,
-	CIDP::InherentDataProviders: Send,
+	CIDP: CreateInherentDataProviders<Block, ()> + Clone + 'static,
+	CIDP::InherentDataProviders: InherentDataProviderExt + Send + Sync,
 	BI: BlockImport<Block> + ParachainBlockImportMarker + Send + Sync + 'static,
+	BI::Error: Into<sp_consensus::Error>,
 	Proposer: ProposerInterface<Block> + Send + Sync + 'static,
 	CS: CollatorServiceInterface<Block> + Send + Sync + 'static,
 	CHP: consensus_common::ValidationCodeHashProvider<Block::Hash> + Send + 'static,
-	P: Pair,
+	P: Pair + Send + Sync + 'static,
 	P::Public: AppPublic + Member + Codec,
 	P::Signature: TryFrom<Vec<u8>> + Member + Codec,
 {
@@ -205,8 +214,14 @@ where
 
 		let mut collator = {
 			let params = collator_util::Params {
-				create_inherent_data_providers: params.create_inherent_data_providers,
-				block_import: params.block_import,
+				create_inherent_data_providers: params.create_inherent_data_providers.clone(),
+				block_import: ValidatingBlockImport::<_, _, _, _, P>::new(
+					params.block_import,
+					params.para_client.clone(),
+					params.create_inherent_data_providers.clone(),
+					Default::default(),
+					Default::default(),
+				),
 				relay_client: params.relay_client.clone(),
 				keystore: params.keystore.clone(),
 				para_id: params.para_id,

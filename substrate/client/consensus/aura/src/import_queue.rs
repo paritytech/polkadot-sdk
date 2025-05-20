@@ -23,23 +23,23 @@ use crate::{
 	LOG_TARGET,
 };
 use codec::Codec;
-use log::{debug, info, trace};
+use log::{debug, trace};
 use prometheus_endpoint::Registry;
 use sc_client_api::{backend::AuxStore, BlockOf, UsageProvider};
 use sc_consensus::{
 	block_import::{BlockImport, BlockImportParams, ForkChoiceStrategy},
 	import_queue::{BasicQueue, BoxJustificationImport, DefaultImportQueue, Verifier},
 };
-use sc_consensus_slots::{check_equivocation, CheckedHeader, InherentDataProviderExt};
+use sc_consensus_slots::{CheckedHeader, InherentDataProviderExt};
 use sc_telemetry::{telemetry, TelemetryHandle, CONSENSUS_DEBUG, CONSENSUS_TRACE};
 use sp_api::{ApiExt, ProvideRuntimeApi};
 use sp_block_builder::BlockBuilder as BlockBuilderApi;
 use sp_blockchain::HeaderBackend;
 use sp_consensus::Error as ConsensusError;
-use sp_consensus_aura::{inherents::AuraInherentData, AuraApi};
+use sp_consensus_aura::AuraApi;
 use sp_consensus_slots::Slot;
 use sp_core::crypto::Pair;
-use sp_inherents::{CreateInherentDataProviders, InherentDataProvider as _};
+use sp_inherents::CreateInherentDataProviders;
 use sp_runtime::{
 	traits::{Block as BlockT, Header, NumberFor},
 	DigestItem,
@@ -52,12 +52,10 @@ use std::{fmt::Debug, marker::PhantomData, sync::Arc};
 ///
 /// This digest item will always return `Some` when used with `as_aura_seal`.
 fn check_header<C, B: BlockT, P: Pair>(
-	client: &C,
 	slot_now: Slot,
 	header: B::Header,
 	hash: B::Hash,
 	authorities: &[AuthorityId<P>],
-	check_for_equivocation: CheckForEquivocation,
 ) -> Result<CheckedHeader<B::Header, (Slot, DigestItem)>, Error<B>>
 where
 	P::Public: Codec,
@@ -68,26 +66,7 @@ where
 		crate::standalone::check_header_slot_and_seal::<B, P>(slot_now, header, authorities);
 
 	match check_result {
-		Ok((header, slot, seal)) => {
-			let expected_author = crate::standalone::slot_author::<P>(slot, &authorities);
-			let should_equiv_check = check_for_equivocation.check_for_equivocation();
-			if let (true, Some(expected)) = (should_equiv_check, expected_author) {
-				if let Some(equivocation_proof) =
-					check_equivocation(client, slot_now, slot, &header, expected)
-						.map_err(Error::Client)?
-				{
-					info!(
-						target: LOG_TARGET,
-						"Slot author is equivocating at slot {} with headers {:?} and {:?}",
-						slot,
-						equivocation_proof.first_header.hash(),
-						equivocation_proof.second_header.hash(),
-					);
-				}
-			}
-
-			Ok(CheckedHeader::Checked(header, (slot, seal)))
-		},
+		Ok((header, slot, seal)) => Ok(CheckedHeader::Checked(header, (slot, seal))),
 		Err(SealVerificationError::Deferred(header, slot)) =>
 			Ok(CheckedHeader::Deferred(header, slot)),
 		Err(SealVerificationError::Unsealed) => Err(Error::HeaderUnsealed(hash)),
@@ -102,7 +81,6 @@ where
 pub struct AuraVerifier<C, P, CIDP, N> {
 	client: Arc<C>,
 	create_inherent_data_providers: CIDP,
-	check_for_equivocation: CheckForEquivocation,
 	telemetry: Option<TelemetryHandle>,
 	compatibility_mode: CompatibilityMode<N>,
 	_phantom: PhantomData<fn() -> P>,
@@ -112,53 +90,16 @@ impl<C, P, CIDP, N> AuraVerifier<C, P, CIDP, N> {
 	pub(crate) fn new(
 		client: Arc<C>,
 		create_inherent_data_providers: CIDP,
-		check_for_equivocation: CheckForEquivocation,
 		telemetry: Option<TelemetryHandle>,
 		compatibility_mode: CompatibilityMode<N>,
 	) -> Self {
 		Self {
 			client,
 			create_inherent_data_providers,
-			check_for_equivocation,
 			telemetry,
 			compatibility_mode,
 			_phantom: PhantomData,
 		}
-	}
-}
-
-impl<C, P, CIDP, N> AuraVerifier<C, P, CIDP, N>
-where
-	CIDP: Send,
-{
-	async fn check_inherents<B: BlockT>(
-		&self,
-		block: B,
-		at_hash: B::Hash,
-		inherent_data: sp_inherents::InherentData,
-		create_inherent_data_providers: CIDP::InherentDataProviders,
-	) -> Result<(), Error<B>>
-	where
-		C: ProvideRuntimeApi<B>,
-		C::Api: BlockBuilderApi<B>,
-		CIDP: CreateInherentDataProviders<B, ()>,
-	{
-		let inherent_res = self
-			.client
-			.runtime_api()
-			.check_inherents(at_hash, block, inherent_data)
-			.map_err(|e| Error::Client(e.into()))?;
-
-		if !inherent_res.ok() {
-			for (i, e) in inherent_res.into_errors() {
-				match create_inherent_data_providers.try_handle_error(&i, &e).await {
-					Some(res) => res.map_err(Error::Inherent)?,
-					None => return Err(Error::UnknownInherentError(i)),
-				}
-			}
-		}
-
-		Ok(())
 	}
 }
 
@@ -205,57 +146,16 @@ where
 			.await
 			.map_err(|e| Error::<B>::Client(sp_blockchain::Error::Application(e)))?;
 
-		let mut inherent_data = create_inherent_data_providers
-			.create_inherent_data()
-			.await
-			.map_err(Error::<B>::Inherent)?;
-
 		let slot_now = create_inherent_data_providers.slot();
 
 		// we add one to allow for some small drift.
 		// FIXME #1019 in the future, alter this queue to allow deferring of
 		// headers
-		let checked_header = check_header::<C, B, P>(
-			&self.client,
-			slot_now + 1,
-			block.header,
-			hash,
-			&authorities[..],
-			self.check_for_equivocation,
-		)
-		.map_err(|e| e.to_string())?;
+		let checked_header =
+			check_header::<C, B, P>(slot_now + 1, block.header, hash, &authorities[..])
+				.map_err(|e| e.to_string())?;
 		match checked_header {
-			CheckedHeader::Checked(pre_header, (slot, seal)) => {
-				// if the body is passed through, we need to use the runtime
-				// to check that the internally-set timestamp in the inherents
-				// actually matches the slot set in the seal.
-				if let Some(inner_body) = block.body.take() {
-					let new_block = B::new(pre_header.clone(), inner_body);
-
-					inherent_data.aura_replace_inherent_data(slot);
-
-					// skip the inherents verification if the runtime API is old or not expected to
-					// exist.
-					if self
-						.client
-						.runtime_api()
-						.has_api_with::<dyn BlockBuilderApi<B>, _>(parent_hash, |v| v >= 2)
-						.map_err(|e| e.to_string())?
-					{
-						self.check_inherents(
-							new_block.clone(),
-							parent_hash,
-							inherent_data,
-							create_inherent_data_providers,
-						)
-						.await
-						.map_err(|e| e.to_string())?;
-					}
-
-					let (_, inner_body) = new_block.deconstruct();
-					block.body = Some(inner_body);
-				}
-
+			CheckedHeader::Checked(pre_header, (_, seal)) => {
 				trace!(target: LOG_TARGET, "Checked {:?}; importing.", pre_header);
 				telemetry!(
 					self.telemetry;
@@ -287,30 +187,6 @@ where
 	}
 }
 
-/// Should we check for equivocation of a block author?
-#[derive(Debug, Clone, Copy)]
-pub enum CheckForEquivocation {
-	/// Yes, check for equivocation.
-	///
-	/// This is the default setting for this.
-	Yes,
-	/// No, don't check for equivocation.
-	No,
-}
-
-impl CheckForEquivocation {
-	/// Should we check for equivocation?
-	fn check_for_equivocation(self) -> bool {
-		matches!(self, Self::Yes)
-	}
-}
-
-impl Default for CheckForEquivocation {
-	fn default() -> Self {
-		Self::Yes
-	}
-}
-
 /// Parameters of [`import_queue`].
 pub struct ImportQueueParams<'a, Block: BlockT, I, C, S, CIDP> {
 	/// The block import to use.
@@ -325,8 +201,6 @@ pub struct ImportQueueParams<'a, Block: BlockT, I, C, S, CIDP> {
 	pub spawner: &'a S,
 	/// The prometheus registry.
 	pub registry: Option<&'a Registry>,
-	/// Should we check for equivocation?
-	pub check_for_equivocation: CheckForEquivocation,
 	/// Telemetry instance used to report telemetry metrics.
 	pub telemetry: Option<TelemetryHandle>,
 	/// Compatibility mode that should be used.
@@ -344,7 +218,6 @@ pub fn import_queue<P, Block, I, C, S, CIDP>(
 		create_inherent_data_providers,
 		spawner,
 		registry,
-		check_for_equivocation,
 		telemetry,
 		compatibility_mode,
 	}: ImportQueueParams<Block, I, C, S, CIDP>,
@@ -371,7 +244,6 @@ where
 	let verifier = build_verifier::<P, _, _, _>(BuildVerifierParams {
 		client,
 		create_inherent_data_providers,
-		check_for_equivocation,
 		telemetry,
 		compatibility_mode,
 	});
@@ -385,8 +257,6 @@ pub struct BuildVerifierParams<C, CIDP, N> {
 	pub client: Arc<C>,
 	/// Something that can create the inherent data providers.
 	pub create_inherent_data_providers: CIDP,
-	/// Should we check for equivocation?
-	pub check_for_equivocation: CheckForEquivocation,
 	/// Telemetry instance used to report telemetry metrics.
 	pub telemetry: Option<TelemetryHandle>,
 	/// Compatibility mode that should be used.
@@ -400,7 +270,6 @@ pub fn build_verifier<P, C, CIDP, N>(
 	BuildVerifierParams {
 		client,
 		create_inherent_data_providers,
-		check_for_equivocation,
 		telemetry,
 		compatibility_mode,
 	}: BuildVerifierParams<C, CIDP, N>,
@@ -408,7 +277,6 @@ pub fn build_verifier<P, C, CIDP, N>(
 	AuraVerifier::<_, P, _, _>::new(
 		client,
 		create_inherent_data_providers,
-		check_for_equivocation,
 		telemetry,
 		compatibility_mode,
 	)

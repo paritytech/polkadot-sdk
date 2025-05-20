@@ -60,17 +60,16 @@ use sc_consensus::{
 	import_queue::{BasicQueue, Verifier as VerifierT},
 	BlockImportParams, DefaultImportQueue,
 };
+use sc_consensus_aura::CreateInherentDataProvidersForAuraViaRuntime;
 use sc_service::{Configuration, Error, TaskManager};
 use sc_telemetry::TelemetryHandle;
 use sc_transaction_pool::TransactionPoolHandle;
 use sp_api::ProvideRuntimeApi;
-use sp_core::traits::SpawnNamed;
+use sp_consensus_aura::AuraApi;
+use sp_core::{traits::SpawnNamed, Pair};
 use sp_inherents::CreateInherentDataProviders;
 use sp_keystore::KeystorePtr;
-use sp_runtime::{
-	app_crypto::AppCrypto,
-	traits::{Block as BlockT, Header as HeaderT},
-};
+use sp_runtime::traits::{Block as BlockT, Header as HeaderT, NumberFor};
 use std::{marker::PhantomData, sync::Arc, time::Duration};
 
 struct Verifier<Block, Client, AuraId> {
@@ -122,20 +121,17 @@ where
 		telemetry_handle: Option<TelemetryHandle>,
 		task_manager: &TaskManager,
 	) -> sc_service::error::Result<DefaultImportQueue<Block>> {
-		let inherent_data_providers =
-			move |_, _| async move { Ok(sp_timestamp::InherentDataProvider::from_system_time()) };
 		let registry = config.prometheus_registry();
 		let spawner = task_manager.spawn_essential_handle();
 
 		let relay_chain_verifier =
 			Box::new(RelayChainVerifier::new(client.clone(), |_, _| async { Ok(()) }));
 
-		let equivocation_aura_verifier =
-			EquivocationVerifier::<<AuraId as AppCrypto>::Pair, _, _, _>::new(
-				client.clone(),
-				inherent_data_providers,
-				telemetry_handle,
-			);
+		let equivocation_aura_verifier = EquivocationVerifier::<AuraId::BoundedPair, _, _, _>::new(
+			client.clone(),
+			move |_, _| async move { Ok(sp_timestamp::InherentDataProvider::from_system_time()) },
+			telemetry_handle,
+		);
 
 		let verifier = Verifier {
 			client,
@@ -217,6 +213,7 @@ where
 		+ pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi<Block, Balance>
 		+ substrate_frame_rpc_system::AccountNonceApi<Block, AccountId, Nonce>,
 	AuraId: AuraIdT + Sync,
+	AuraId::BoundedPair: Send + Sync,
 {
 	if extra_args.authoring_policy == AuthoringPolicy::SlotBased {
 		Box::new(AuraNode::<
@@ -248,6 +245,7 @@ where
 	RuntimeApi: ConstructNodeRuntimeApi<Block, ParachainClient<Block, RuntimeApi>>,
 	RuntimeApi::RuntimeApi: AuraRuntimeApi<Block, AuraId>,
 	AuraId: AuraIdT + Sync,
+	AuraId::BoundedPair: Send + Sync,
 {
 	#[docify::export_content]
 	fn launch_slot_based_collator<CIDP, CHP, Proposer, CS, Spawner>(
@@ -259,6 +257,12 @@ where
 					Block,
 					Arc<ParachainClient<Block, RuntimeApi>>,
 					ParachainClient<Block, RuntimeApi>,
+					CreateInherentDataProvidersForAuraViaRuntime<
+						ParachainClient<Block, RuntimeApi>,
+						<AuraId::BoundedPair as Pair>::Public,
+					>,
+					AuraId::BoundedPair,
+					NumberFor<Block>,
 				>,
 			>,
 			CIDP,
@@ -278,7 +282,7 @@ where
 		CS: CollatorServiceInterface<Block> + Send + Sync + Clone + 'static,
 		Spawner: SpawnNamed,
 	{
-		slot_based::run::<Block, <AuraId as AppCrypto>::Pair, _, _, _, _, _, _, _, _, _>(
+		slot_based::run::<Block, AuraId::BoundedPair, _, _, _, _, _, _, _, _, _>(
 			params_with_export,
 		);
 	}
@@ -292,6 +296,12 @@ impl<Block: BlockT<Hash = DbHash>, RuntimeApi, AuraId>
 			Block,
 			Arc<ParachainClient<Block, RuntimeApi>>,
 			ParachainClient<Block, RuntimeApi>,
+			CreateInherentDataProvidersForAuraViaRuntime<
+				ParachainClient<Block, RuntimeApi>,
+				<AuraId::BoundedPair as Pair>::Public,
+			>,
+			AuraId::BoundedPair,
+			NumberFor<Block>,
 		>,
 		SlotBasedBlockImportHandle<Block>,
 	> for StartSlotBasedAuraConsensus<Block, RuntimeApi, AuraId>
@@ -299,6 +309,7 @@ where
 	RuntimeApi: ConstructNodeRuntimeApi<Block, ParachainClient<Block, RuntimeApi>>,
 	RuntimeApi::RuntimeApi: AuraRuntimeApi<Block, AuraId>,
 	AuraId: AuraIdT + Sync,
+	AuraId::BoundedPair: Send + Sync,
 {
 	fn start_consensus(
 		client: Arc<ParachainClient<Block, RuntimeApi>>,
@@ -308,6 +319,12 @@ where
 				Block,
 				Arc<ParachainClient<Block, RuntimeApi>>,
 				ParachainClient<Block, RuntimeApi>,
+				CreateInherentDataProvidersForAuraViaRuntime<
+					ParachainClient<Block, RuntimeApi>,
+					<AuraId::BoundedPair as Pair>::Public,
+				>,
+				AuraId::BoundedPair,
+				NumberFor<Block>,
 			>,
 		>,
 		prometheus_registry: Option<&Registry>,
@@ -343,7 +360,9 @@ where
 
 		let client_for_aura = client.clone();
 		let params = SlotBasedParams {
-			create_inherent_data_providers: move |_, ()| async move { Ok(()) },
+			create_inherent_data_providers: CreateInherentDataProvidersForAuraViaRuntime::new(
+				client.clone(),
+			),
 			block_import,
 			para_client: client.clone(),
 			para_backend: backend.clone(),
@@ -380,19 +399,33 @@ impl<Block: BlockT<Hash = DbHash>, RuntimeApi, AuraId> InitBlockImport<Block, Ru
 where
 	RuntimeApi: ConstructNodeRuntimeApi<Block, ParachainClient<Block, RuntimeApi>>,
 	RuntimeApi::RuntimeApi: AuraRuntimeApi<Block, AuraId>,
+	RuntimeApi::BoundedRuntimeApi: AuraApi<Block, <AuraId::BoundedPair as Pair>::Public>,
 	AuraId: AuraIdT + Sync,
+	AuraId::BoundedPair: Send + Sync,
 {
 	type BlockImport = SlotBasedBlockImport<
 		Block,
 		Arc<ParachainClient<Block, RuntimeApi>>,
 		ParachainClient<Block, RuntimeApi>,
+		sc_consensus_aura::CreateInherentDataProvidersForAuraViaRuntime<
+			ParachainClient<Block, RuntimeApi>,
+			<AuraId::BoundedPair as Pair>::Public,
+		>,
+		AuraId::BoundedPair,
+		NumberFor<Block>,
 	>;
 	type BlockImportAuxiliaryData = SlotBasedBlockImportHandle<Block>;
 
 	fn init_block_import(
 		client: Arc<ParachainClient<Block, RuntimeApi>>,
 	) -> sc_service::error::Result<(Self::BlockImport, Self::BlockImportAuxiliaryData)> {
-		Ok(SlotBasedBlockImport::new(client.clone(), client))
+		Ok(SlotBasedBlockImport::new(
+			client.clone(),
+			client.clone(),
+			CreateInherentDataProvidersForAuraViaRuntime::new(client),
+			Default::default(),
+			Default::default(),
+		))
 	}
 }
 
@@ -431,6 +464,7 @@ where
 	RuntimeApi: ConstructNodeRuntimeApi<Block, ParachainClient<Block, RuntimeApi>>,
 	RuntimeApi::RuntimeApi: AuraRuntimeApi<Block, AuraId>,
 	AuraId: AuraIdT + Sync,
+	AuraId::BoundedPair: Send + Sync + 'static,
 {
 	fn start_consensus(
 		client: Arc<ParachainClient<Block, RuntimeApi>>,
@@ -468,7 +502,9 @@ where
 		let params = aura::ParamsWithExport {
 			export_pov: node_extra_args.export_pov,
 			params: AuraParams {
-				create_inherent_data_providers: move |_, ()| async move { Ok(()) },
+				create_inherent_data_providers: CreateInherentDataProvidersForAuraViaRuntime::new(
+					client.clone(),
+				),
 				block_import,
 				para_client: client.clone(),
 				para_backend: backend,
@@ -494,10 +530,8 @@ where
 
 		let fut = async move {
 			wait_for_aura(client).await;
-			aura::run_with_export::<Block, <AuraId as AppCrypto>::Pair, _, _, _, _, _, _, _, _>(
-				params,
-			)
-			.await;
+			aura::run_with_export::<Block, AuraId::BoundedPair, _, _, _, _, _, _, _, _>(params)
+				.await;
 		};
 		task_manager.spawn_essential_handle().spawn("aura", None, fut);
 

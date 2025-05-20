@@ -190,6 +190,8 @@ pub fn new_partial(
 					Block,
 					FullClient,
 					FullBeefyBlockImport<FullGrandpaBlockImport>,
+					sc_consensus_babe::CreateInherentDataProvidersForBabe,
+					FullSelectChain,
 				>,
 				grandpa::LinkHalf<Block, FullClient, FullSelectChain>,
 				sc_consensus_babe::BabeLink<Block>,
@@ -259,35 +261,28 @@ pub fn new_partial(
 			config.prometheus_registry().cloned(),
 		);
 
+	let babe_config = sc_consensus_babe::configuration(&*client)?;
+	let slot_duration = babe_config.slot_duration();
 	let (block_import, babe_link) = sc_consensus_babe::block_import(
-		sc_consensus_babe::configuration(&*client)?,
+		babe_config,
 		beefy_block_import,
 		client.clone(),
+		sc_consensus_babe::CreateInherentDataProvidersForBabe::new(slot_duration),
+		select_chain.clone(),
+		OffchainTransactionPoolFactory::new(transaction_pool.clone()),
 	)?;
 
-	let slot_duration = babe_link.config().slot_duration();
 	let (import_queue, babe_worker_handle) =
 		sc_consensus_babe::import_queue(sc_consensus_babe::ImportQueueParams {
 			link: babe_link.clone(),
 			block_import: block_import.clone(),
 			justification_import: Some(Box::new(justification_import)),
 			client: client.clone(),
-			select_chain: select_chain.clone(),
-			create_inherent_data_providers: move |_, ()| async move {
-				let timestamp = sp_timestamp::InherentDataProvider::from_system_time();
-
-				let slot =
-				sp_consensus_babe::inherents::InherentDataProvider::from_timestamp_and_slot_duration(
-					*timestamp,
-					slot_duration,
-				);
-
-				Ok((slot, timestamp))
-			},
+			create_inherent_data_providers:
+				sc_consensus_babe::CreateInherentDataProvidersForBabe::new(slot_duration),
 			spawner: &task_manager.spawn_essential_handle(),
 			registry: config.prometheus_registry(),
 			telemetry: telemetry.as_ref().map(|x| x.handle()),
-			offchain_tx_pool_factory: OffchainTransactionPoolFactory::new(transaction_pool.clone()),
 		})?;
 
 	let import_setup = (block_import, grandpa_link, babe_link, beefy_voter_links);
@@ -408,6 +403,8 @@ pub fn new_full_base<N: NetworkBackend<Block, <Block as BlockT>::Hash>>(
 			Block,
 			FullClient,
 			FullBeefyBlockImport<FullGrandpaBlockImport>,
+			sc_consensus_babe::CreateInherentDataProvidersForBabe,
+			FullSelectChain,
 		>,
 		&sc_consensus_babe::BabeLink<Block>,
 	),
@@ -923,7 +920,7 @@ mod tests {
 						config,
 						None,
 						false,
-						|block_import: &sc_consensus_babe::BabeBlockImport<Block, _, _>,
+						|block_import: &sc_consensus_babe::BabeBlockImport<Block, _, _, _, _>,
 						 babe_link: &sc_consensus_babe::BabeLink<Block>| {
 							setup_handles = Some((block_import.clone(), babe_link.clone()));
 						},

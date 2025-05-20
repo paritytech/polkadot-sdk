@@ -23,6 +23,7 @@
 //!
 //! For more information about AuRa, the Substrate crate should be checked.
 
+use super::ValidatingBlockImport;
 use codec::{Codec, Decode};
 use cumulus_client_collator::{
 	relay_chain_driven::CollationRequest, service::ServiceInterface as CollatorServiceInterface,
@@ -39,8 +40,10 @@ use polkadot_primitives::{CollatorPair, Id as ParaId, ValidationCode};
 use futures::{channel::mpsc::Receiver, prelude::*};
 use sc_client_api::{backend::AuxStore, BlockBackend, BlockOf};
 use sc_consensus::BlockImport;
+use sc_consensus_slots::InherentDataProviderExt;
 use sp_api::{CallApiAt, ProvideRuntimeApi};
 use sp_application_crypto::AppPublic;
+use sp_block_builder::BlockBuilder;
 use sp_blockchain::HeaderBackend;
 use sp_consensus_aura::AuraApi;
 use sp_core::crypto::Pair;
@@ -101,14 +104,15 @@ where
 		+ Send
 		+ Sync
 		+ 'static,
-	Client::Api: AuraApi<Block, P::Public> + CollectCollationInfo<Block>,
+	Client::Api: BlockBuilder<Block> + AuraApi<Block, P::Public> + CollectCollationInfo<Block>,
 	RClient: RelayChainInterface + Send + Clone + 'static,
-	CIDP: CreateInherentDataProviders<Block, ()> + Send + 'static,
-	CIDP::InherentDataProviders: Send,
+	CIDP: CreateInherentDataProviders<Block, ()> + Clone + Send + 'static,
+	CIDP::InherentDataProviders: InherentDataProviderExt + Send + Sync,
 	BI: BlockImport<Block> + ParachainBlockImportMarker + Send + Sync + 'static,
+	BI::Error: Into<sp_consensus::Error>,
 	Proposer: ProposerInterface<Block> + Send + Sync + 'static,
 	CS: CollatorServiceInterface<Block> + Send + Sync + 'static,
-	P: Pair,
+	P: Pair + Sync + Send + 'static,
 	P::Public: AppPublic + Member + Codec,
 	P::Signature: TryFrom<Vec<u8>> + Member + Codec,
 {
@@ -126,8 +130,14 @@ where
 
 		let mut collator = {
 			let params = collator_util::Params {
-				create_inherent_data_providers: params.create_inherent_data_providers,
-				block_import: params.block_import,
+				create_inherent_data_providers: params.create_inherent_data_providers.clone(),
+				block_import: ValidatingBlockImport::<_, _, _, _, P>::new(
+					params.block_import,
+					params.para_client.clone(),
+					params.create_inherent_data_providers.clone(),
+					Default::default(),
+					Default::default(),
+				),
 				relay_client: params.relay_client.clone(),
 				keystore: params.keystore.clone(),
 				para_id: params.para_id,

@@ -59,6 +59,7 @@ sp-runtime = { workspace = true }
 sp-state-machine = { workspace = true, default-features = true }
 sp-timestamp = { workspace = true, default-features = true }
 sp-tracing = { workspace = true, default-features = true }
+sp-inherents = { workspace = true }
 substrate-test-client = { workspace = true }
 
 # Polkadot
