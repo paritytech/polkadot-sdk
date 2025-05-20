@@ -1,16 +1,20 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::utils::BEST_BLOCK_METRIC;
 use anyhow::anyhow;
-use cumulus_zombienet_sdk_helpers::assert_para_throughput;
 use serde_json::json;
 use std::path::Path;
+
+use cumulus_zombienet_sdk_helpers::assert_para_throughput;
+use polkadot_primitives::Id as ParaId;
+use subxt::{
+	dynamic::Value,
+	tx::{DynamicPayload, TxStatus},
+	OnlineClient, PolkadotConfig, SubstrateConfig,
+};
 use subxt_signer::sr25519::dev;
 
-use polkadot_primitives::Id as ParaId;
-use subxt::{dynamic::Value, tx::DynamicPayload, OnlineClient, PolkadotConfig, SubstrateConfig};
-
+use crate::utils::BEST_BLOCK_METRIC;
 use zombienet_sdk::{LocalFileSystem, Network, NetworkConfigBuilder, RegistrationStrategy};
 
 const PARA_ID: u32 = 2000;
@@ -76,13 +80,31 @@ async fn migrate_solo_to_para() -> Result<(), anyhow::Error> {
 	let call = create_migrate_solo_to_para_call(base_dir, "2000-1").await?;
 	let dave_client: OnlineClient<SubstrateConfig> = dave.wait_client().await?;
 
-	let _ = dave_client
+	let mut tx = dave_client
 		.tx()
 		.sign_and_submit_then_watch_default(&call, &dev::alice())
-		.await
-		.inspect(|_| log::info!("Tx send, waiting for finalization"))?
-		.wait_for_finalized_success()
 		.await?;
+
+	// Below we use the low level API to replicate the `wait_for_in_block` behaviour
+	// which was removed in subxt 0.33.0. See https://github.com/paritytech/subxt/pull/1237.
+	while let Some(status) = tx.next().await {
+		let status = status?;
+		log::debug!("tx status = {:?}", status);
+		match &status {
+			TxStatus::InBestBlock(tx_in_block) | TxStatus::InFinalizedBlock(tx_in_block) => {
+				let _result = tx_in_block.wait_for_success().await?;
+				let block_status =
+					if status.as_finalized().is_some() { "Finalized" } else { "Best" };
+				log::info!("[{}] In block: {:#?}", block_status, tx_in_block.block_hash());
+			},
+			TxStatus::Error { message }
+			| TxStatus::Invalid { message }
+			| TxStatus::Dropped { message } => {
+				return Err(anyhow::format_err!("Error submitting tx: {message}"));
+			},
+			_ => continue,
+		}
+	}
 
 	// solo node should produce blocks now
 	log::info!("Ensuring eve reports expected block height");
