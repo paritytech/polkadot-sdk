@@ -99,7 +99,11 @@ fn unbalanced_trait_set_balance_works() {
 		);
 
 		assert_ok!(<Balances as fungible::MutateHold<_>>::release(&TestId::Foo, &1337, 60, Exact));
-		System::assert_last_event(RuntimeEvent::Balances(crate::Event::Released { reason: TestId::Foo, who: 1337, amount: 60 }));
+		System::assert_last_event(RuntimeEvent::Balances(crate::Event::Released {
+			reason: TestId::Foo,
+			who: 1337,
+			amount: 60,
+		}));
 		assert_eq!(<Balances as fungible::InspectHold<_>>::balance_on_hold(&TestId::Foo, &1337), 0);
 		assert_eq!(<Balances as fungible::InspectHold<_>>::total_balance_on_hold(&1337), 0);
 	});
@@ -284,7 +288,7 @@ fn transfer_and_hold() {
 		.build_and_execute_with(|| {
 			let reason = TestId::Foo;
 
-			// Freeze 9 units in source account (Account 1)
+			// Freeze 7 units in source account (Account 1)
 			assert_ok!(Balances::hold(&reason, &1, 7));
 			assert_ok!(Balances::hold(&reason, &2, 2));
 
@@ -320,6 +324,34 @@ fn transfer_and_hold() {
 					})
 				]
 			);
+		});
+}
+
+#[test]
+fn burn_held() {
+	ExtBuilder::default()
+		.existential_deposit(1)
+		.monied(true)
+		.build_and_execute_with(|| {
+			let account = 1;
+			let reason = TestId::Foo;
+
+			assert_ok!(Balances::hold(&reason, &account, 5));
+
+			// Burn the held funds
+			assert_ok!(Balances::burn_held(&reason, &account, 4, Exact, Polite));
+
+			// Check that the BurnedHeld event is emitted with correct parameters
+			System::assert_last_event(RuntimeEvent::Balances(crate::Event::BurnedHeld {
+				reason: reason.clone(),
+				who: account,
+				amount: 4,
+			}));
+
+			// Verify the held balance is removed and total balance is updated
+			assert_eq!(Balances::balance_on_hold(&reason, &account), 1);
+			assert_eq!(Balances::total_balance(&account), 6);
+			assert_eq!(Balances::total_issuance(), 106);
 		});
 }
 
