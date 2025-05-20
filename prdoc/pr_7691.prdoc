@@ -15,7 +15,7 @@ crates:
 - name: staging-xcm-executor
   bump: patch
 - name: xcm-emulator
-  bump: minor
+  bump: major
   validate: false
 - name: xcm-runtime-apis
   bump: patch
