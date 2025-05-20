@@ -217,28 +217,6 @@ jobs:
           local-dir: "${{ env.LOCAL_DIR }}/functional"
   #
   #
-  zombienet-polkadot-functional-0013-systematic-chunk-recovery:
-    needs: [preflight]
-    if: ${{ (needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_polkadot) &&  ! contains(needs.preflight.outputs.FLAKY_TESTS, 'zombienet-polkadot-functional-0013-systematic-chunk-recovery') }}
-    runs-on: ${{ needs.preflight.outputs.ZOMBIENET_RUNNER }} # NOTE: should be zombienet-arc-runner (without quotes)
-    timeout-minutes: 60
-    container:
-      image: ${{ needs.preflight.outputs.ZOMBIENET_IMAGE }}
-    env:
-      ZOMBIENET_INTEGRATION_TEST_IMAGE: "${{ needs.preflight.outputs.TEMP_IMAGES_BASE }}/polkadot-debug:${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"
-      COL_IMAGE: "${{ needs.preflight.outputs.TEMP_IMAGES_BASE }}/colander:${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"
-      DEBUG: ${{ needs.preflight.outputs.DEBUG }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: zombienet_test
-        uses: ./.github/actions/zombienet
-        with:
-          test: "0013-systematic-chunk-recovery.zndsl"
-          local-dir: "${{ env.LOCAL_DIR }}/functional"
-  #
-  #
   zombienet-polkadot-functional-0014-chunk-fetching-network-compatibility:
     needs: [preflight]
     if: ${{ (needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_polkadot) &&  ! contains(needs.preflight.outputs.FLAKY_TESTS, 'zombienet-polkadot-functional-0014-chunk-fetching-network-compatibility') }}
@@ -878,4 +856,32 @@ jobs:
           build-id: ${{ needs.preflight.outputs.BUILD_RUN_ID }}
           ref-slug: ${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
           test: "functional::approved_peer_mixed_validators::approved_peer_mixed_validators_test"
+          prefix: "polkadot"
+  #
+  #
+  zombienet-polkadot-systematic-chunk-recovery:
+    needs: [preflight]
+    if: ${{ (needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_polkadot) &&  ! contains(needs.preflight.outputs.FLAKY_TESTS, 'zombienet-polkadot-functional-async-backing-6-seconds-rate') }}
+    runs-on: ${{ needs.preflight.outputs.ZOMBIENET_RUNNER }} # NOTE: should be zombienet-arc-runner (without quotes)
+    timeout-minutes: 60
+    container:
+      image: ${{ needs.preflight.outputs.ZOMBIENET_IMAGE }}
+    env:
+      # sdk tests are looking for POLKADOT_IMAGE
+      POLKADOT_IMAGE: "${{ needs.preflight.outputs.TEMP_IMAGES_BASE }}/polkadot-debug:${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"
+      CUMULUS_IMAGE: "${{ needs.preflight.outputs.TEMP_IMAGES_BASE }}/polkadot-parachain-debug:${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"
+      RUST_LOG: ${{ needs.preflight.outputs.RUST_LOG }}
+      ZOMBIE_PROVIDER: ${{ needs.preflight.outputs.ZOMBIE_PROVIDER }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: zombienet_test
+        uses: ./.github/actions/zombienet-sdk
+        with:
+          gh-token: ${{ secrets.GITHUB_TOKEN }}
+          build-id: ${{ needs.preflight.outputs.BUILD_RUN_ID }}
+          ref-slug: ${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
+          test: "functional::systematic_chunk_recovery::systematic_chunk_recovery_test"
           prefix: "polkadot"
