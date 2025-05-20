@@ -10,13 +10,13 @@ use snowbridge_beacon_primitives::{
 };
 use snowbridge_core::TokenId;
 use snowbridge_inbound_queue_primitives::{
-	v2::{MessageToXcm, XcmMessageProcessor},
+	v2::{MessageProcessorError, MessageToXcm, XcmMessageProcessor},
 	Log, Proof, VerificationError,
 };
 use sp_core::H160;
 use sp_runtime::{
 	traits::{IdentityLookup, MaybeEquivalence, TryConvert},
-	BuildStorage, DispatchError,
+	BuildStorage,
 };
 use sp_std::{convert::From, default::Default, marker::PhantomData};
 use xcm::{opaque::latest::WESTEND_GENESIS_HASH, prelude::*};
@@ -109,38 +109,6 @@ parameter_types! {
 	pub const CreateAssetDeposit: u128 = 10_000_000_000u128;
 }
 
-/// Showcasing that we can handle multiple different rewards with the same pallet.
-#[derive(
-	Clone,
-	Copy,
-	Debug,
-	Decode,
-	Encode,
-	DecodeWithMemTracking,
-	Eq,
-	MaxEncodedLen,
-	PartialEq,
-	TypeInfo,
-)]
-pub enum BridgeReward {
-	/// Rewards for Snowbridge.
-	Snowbridge,
-}
-
-parameter_types! {
-	pub static RegisteredRewardsCount: u128 = 0;
-}
-
-impl RewardLedger<<mock::Test as frame_system::Config>::AccountId, BridgeReward, u128> for () {
-	fn register_reward(
-		_relayer: &<mock::Test as frame_system::Config>::AccountId,
-		_reward: BridgeReward,
-		_reward_balance: u128,
-	) {
-		RegisteredRewardsCount::set(RegisteredRewardsCount::get().saturating_add(1));
-	}
-}
-
 pub struct DummyPrefix;
 
 impl MessageProcessor<AccountId> for DummyPrefix {
@@ -148,7 +116,10 @@ impl MessageProcessor<AccountId> for DummyPrefix {
 		false
 	}
 
-	fn process_message(_relayer: AccountId, _message: Message) -> Result<[u8; 32], DispatchError> {
+	fn process_message(
+		_relayer: AccountId,
+		_message: Message,
+	) -> Result<[u8; 32], MessageProcessorError> {
 		panic!("DummyPrefix::process_message shouldn't be called");
 	}
 }
@@ -160,7 +131,10 @@ impl MessageProcessor<AccountId> for DummySuffix {
 		true
 	}
 
-	fn process_message(_relayer: AccountId, _message: Message) -> Result<[u8; 32], DispatchError> {
+	fn process_message(
+		_relayer: AccountId,
+		_message: Message,
+	) -> Result<[u8; 32], MessageProcessorError> {
 		panic!("DummySuffix::process_message shouldn't be called");
 	}
 }
@@ -168,12 +142,6 @@ impl MessageProcessor<AccountId> for DummySuffix {
 impl inbound_queue_v2::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type Verifier = MockVerifier;
-	type RewardPayment = ();
-impl inbound_queue_v2::Config for Test {
-	type RuntimeEvent = RuntimeEvent;
-	type Verifier = MockVerifier;
-	type XcmSender = MockXcmSender;
-	type XcmExecutor = MockXcmExecutor;
 	type GatewayAddress = GatewayAddress;
 	// Passively test that the implementation of MessageProcessor trait works correctly for tuple
 	type MessageProcessor = (

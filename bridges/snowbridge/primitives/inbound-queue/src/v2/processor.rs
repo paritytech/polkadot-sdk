@@ -4,7 +4,7 @@
 
 use super::*;
 use frame_support::traits::Get;
-use sp_runtime::{traits::TryConvert, DispatchError};
+use sp_runtime::traits::TryConvert;
 use sp_std::marker::PhantomData;
 use xcm::prelude::*;
 
@@ -30,7 +30,10 @@ where
 		true
 	}
 
-	fn process_message(relayer: AccountId, message: Message) -> Result<[u8; 32], DispatchError> {
+	fn process_message(
+		relayer: AccountId,
+		message: Message,
+	) -> Result<[u8; 32], MessageProcessorError> {
 		// Process the message and return its ID
 		let id = Self::process_xcm(relayer, message)?;
 		Ok(id)
@@ -48,26 +51,21 @@ where
 	AssetHubParaId: Get<u32>,
 {
 	/// Process a message and return the message ID
-	pub fn process_xcm(who: T::AccountId, message: Message) -> Result<XcmHash, DispatchError> {
+	pub fn process_xcm(
+		who: T::AccountId,
+		message: Message,
+	) -> Result<XcmHash, MessageProcessorError> {
 		// Convert the message to XCM
 		let xcm = Converter::convert(message).map_err(|error| {
 			tracing::error!(target: LOG_TARGET, ?error, "XCM conversion failed with error");
-			match error {
-				ConvertMessageError::InvalidAsset => DispatchError::Other("InvalidAsset"),
-				ConvertMessageError::CannotReanchor => DispatchError::Other("CannotReanchor"),
-				ConvertMessageError::InvalidNetwork => DispatchError::Other("InvalidNetwork"),
-			}
+			MessageProcessorError::ConvertMessageError(error)
 		})?;
 
 		// Forward XCM to AssetHub
 		let dest = Location::new(1, [Parachain(AssetHubParaId::get())]);
 		let message_id = Self::send_xcm(dest.clone(), &who, xcm.clone()).map_err(|error| {
 			tracing::error!(target: LOG_TARGET, ?error, ?dest, ?xcm, "XCM send failed with error");
-			match error {
-				SendError::Fees => DispatchError::Other("FeesNotMet"),
-				SendError::NotApplicable => DispatchError::Other("Unreachable"),
-				_ => DispatchError::Other("SendFailure"),
-			}
+			MessageProcessorError::SendMessageError(error)
 		})?;
 
 		// Return the message_id

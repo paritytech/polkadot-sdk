@@ -41,13 +41,14 @@ snowbridge-pallet-inbound-queue-v2-fixtures = { optional = true, workspace = tru
 
 bp-relayers = { workspace = true }
 
+xcm = { workspace = true }
+
 [dev-dependencies]
 frame-benchmarking = { workspace = true, default-features = true }
 hex-literal = { workspace = true, default-features = true }
 snowbridge-test-utils = { workspace = true }
 sp-keyring = { workspace = true, default-features = true }
 
-xcm = { workspace = true }
 xcm-builder = { workspace = true }
 xcm-executor = { workspace = true }
 

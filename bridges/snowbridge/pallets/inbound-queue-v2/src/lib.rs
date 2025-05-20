@@ -44,13 +44,12 @@ use snowbridge_core::{
 	BasicOperatingMode,
 };
 use snowbridge_inbound_queue_primitives::{
-	v2::{Message, MessageProcessor},
+	v2::{ConvertMessageError, Message, MessageProcessor, MessageProcessorError},
 	EventProof, VerificationError, Verifier,
 };
 use sp_core::H160;
 use sp_std::prelude::*;
-use bp_relayers::RewardLedger;
-use xcm::prelude::{ExecuteXcm, Junction::*, Location, SendXcm, *};
+use xcm::latest::SendError;
 
 #[cfg(feature = "runtime-benchmarks")]
 use {snowbridge_beacon_primitives::BeaconHeader, sp_core::H256};
@@ -123,10 +122,44 @@ pub mod pallet {
 		InvalidMessage,
 		/// Message has an unexpected nonce.
 		InvalidNonce,
+		/// Invalid network specified
+		InvalidNetwork,
 		/// Pallet is halted
 		Halted,
+		/// The operation required fees to be paid which the initiator could not meet.
+		FeesNotMet,
+		/// The desired destination was unreachable, generally because there is a no way of routing
+		/// to it.
+		Unreachable,
+		/// There was some other issue (i.e. not to do with routing) in sending the message.
+		/// Perhaps a lack of space for buffering the message.
+		SendFailure,
+		/// Invalid foreign ERC-20 token ID
+		InvalidAsset,
+		/// Cannot reachor a foreign ERC-20 asset location.
+		CannotReanchor,
 		/// Message verification error
 		Verification(VerificationError),
+	}
+
+	impl<T: Config> From<SendError> for Error<T> {
+		fn from(e: SendError) -> Self {
+			match e {
+				SendError::Fees => Error::<T>::FeesNotMet,
+				SendError::NotApplicable => Error::<T>::Unreachable,
+				_ => Error::<T>::SendFailure,
+			}
+		}
+	}
+
+	impl<T: Config> From<ConvertMessageError> for Error<T> {
+		fn from(e: ConvertMessageError) -> Self {
+			match e {
+				ConvertMessageError::InvalidAsset => Error::<T>::InvalidAsset,
+				ConvertMessageError::CannotReanchor => Error::<T>::CannotReanchor,
+				ConvertMessageError::InvalidNetwork => Error::<T>::InvalidNetwork,
+			}
+		}
 	}
 
 	/// StorageMap used for encoding a SparseBitmapImpl that tracks whether a specific nonce has
@@ -191,21 +224,29 @@ pub mod pallet {
 			// Mark message as received
 			Nonce::<T>::set(nonce);
 
-			let message_id = T::MessageProcessor::process_message(relayer.clone(), message)?;
+			match T::MessageProcessor::process_message(relayer.clone(), message) {
+				Ok(message_id) => {
+					// Pay relayer reward if needed
+					if !relayer_fee.is_zero() {
+						T::RewardPayment::register_reward(
+							&relayer,
+							T::DefaultRewardKind::get(),
+							relayer_fee,
+						);
+					}
 
-			// Pay relayer reward if needed
-			if !relayer_fee.is_zero() {
-				T::RewardPayment::register_reward(
-					&relayer,
-					T::DefaultRewardKind::get(),
-					relayer_fee,
-				);
+					// Emit event with the message_id
+					Self::deposit_event(Event::MessageReceived { nonce, message_id });
+
+					Ok(())
+				},
+				Err(e) => match e {
+					MessageProcessorError::ProcessMessageError(e) => Err(e),
+					MessageProcessorError::ConvertMessageError(e) =>
+						Err(Error::<T>::from(e).into()),
+					MessageProcessorError::SendMessageError(e) => Err(Error::<T>::from(e).into()),
+				},
 			}
-
-			// Emit event with the message_id
-			Self::deposit_event(Event::MessageReceived { nonce, message_id });
-
-			Ok(())
 		}
 	}
 

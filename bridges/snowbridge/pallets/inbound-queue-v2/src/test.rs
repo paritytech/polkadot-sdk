@@ -216,7 +216,7 @@ fn test_xcm_send_failure() {
 
 		assert_noop!(
 			crate::test::InboundQueue::submit(origin.clone(), Box::new(event.clone())),
-			DispatchError::Other("SendFailure")
+			Error::<Test>::SendFailure
 		);
 	});
 }
@@ -246,7 +246,7 @@ fn test_xcm_send_validate_failure() {
 
 		assert_noop!(
 			crate::test::InboundQueue::submit(origin.clone(), Box::new(event.clone())),
-			DispatchError::Other("Unreachable")
+			Error::<Test>::Unreachable
 		);
 	});
 }
@@ -271,7 +271,7 @@ fn test_xcm_charge_fees_failure() {
 
 		assert_noop!(
 			crate::test::InboundQueue::submit(origin.clone(), Box::new(event.clone())),
-			DispatchError::Other("FeesNotMet")
+			Error::<Test>::FeesNotMet
 		);
 	});
 }
