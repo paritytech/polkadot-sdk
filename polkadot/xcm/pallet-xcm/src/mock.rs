@@ -179,18 +179,7 @@ impl SendXcm for TestSendXcm {
 		Ok((pair, Assets::new()))
 	}
 	fn deliver(pair: (Location, Xcm<()>)) -> Result<XcmHash, SendError> {
-<<<<<<< HEAD
-		let hash = fake_message_hash(&pair.1);
-=======
-		let message = pair.1.clone();
-		if message
-			.iter()
-			.any(|instr| matches!(instr, ExpectError(Some((1, XcmError::Unimplemented)))))
-		{
-			return Err(SendError::Transport("Intentional deliver failure used in tests".into()));
-		}
-		let hash = derive_topic_id(&message);
->>>>>>> 803b3463 (Ensure Consistent Topic IDs for Traceable Cross-Chain XCM (#7691))
+		let hash = derive_topic_id(&pair.1);
 		SENT_XCM.with(|q| q.borrow_mut().push(pair));
 		Ok(hash)
 	}

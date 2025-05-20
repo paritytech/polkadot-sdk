@@ -30,18 +30,8 @@ pallet-assets = { path = "../../../substrate/frame/assets", default-features = f
 xcm-executor = { path = "../xcm-executor", package = "staging-xcm-executor", default-features = false }
 frame-executive = { path = "../../../substrate/frame/executive", default-features = false }
 log = { workspace = true }
-<<<<<<< HEAD
 sp-tracing = { default-features = true, path = "../../../substrate/primitives/tracing" }
-=======
-pallet-assets = { workspace = true }
-pallet-balances = { workspace = true }
-pallet-xcm = { workspace = true }
-sp-io = { workspace = true }
-sp-tracing = { workspace = true, default-features = true }
-xcm-builder = { workspace = true }
-xcm-executor = { workspace = true }
 xcm-simulator = { workspace = true, default-features = true }
->>>>>>> 803b3463 (Ensure Consistent Topic IDs for Traceable Cross-Chain XCM (#7691))
 
 [features]
 default = ["std"]

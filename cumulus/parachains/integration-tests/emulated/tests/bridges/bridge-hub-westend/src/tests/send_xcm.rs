@@ -13,15 +13,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-<<<<<<< HEAD
-=======
 use emulated_integration_tests_common::xcm_helpers::{
 	find_mq_processed_id, find_xcm_sent_message_id,
 };
 use rococo_westend_system_emulated_network::westend_emulated_chain::westend_runtime::Dmp;
 use std::collections::HashMap;
 
->>>>>>> 803b3463 (Ensure Consistent Topic IDs for Traceable Cross-Chain XCM (#7691))
 use crate::tests::*;
 
 #[test]

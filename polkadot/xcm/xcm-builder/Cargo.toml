@@ -29,7 +29,6 @@ polkadot-parachain-primitives.workspace = true
 [dev-dependencies]
 sp-core = { default-features = true, path = "../../../substrate/primitives/core" }
 primitive-types = { features = ["codec", "num-traits", "scale-info"], workspace = true }
-<<<<<<< HEAD
 pallet-balances = { default-features = true, path = "../../../substrate/frame/balances" }
 pallet-xcm = { default-features = true, path = "../pallet-xcm" }
 pallet-salary = { default-features = true, path = "../../../substrate/frame/salary" }
@@ -38,9 +37,7 @@ polkadot-primitives = { default-features = true, path = "../../primitives" }
 polkadot-runtime-parachains = { default-features = true, path = "../../runtime/parachains" }
 assert_matches = { workspace = true }
 polkadot-test-runtime = { path = "../../runtime/test-runtime" }
-=======
 xcm-simulator = { workspace = true, default-features = true }
->>>>>>> 803b3463 (Ensure Consistent Topic IDs for Traceable Cross-Chain XCM (#7691))
 
 [features]
 default = ["std"]

@@ -23556,11 +23556,7 @@ dependencies = [
  "sp-weights 31.0.0",
  "staging-xcm",
  "staging-xcm-executor",
-<<<<<<< HEAD
-=======
- "tracing",
  "xcm-simulator",
->>>>>>> 803b3463 (Ensure Consistent Topic IDs for Traceable Cross-Chain XCM (#7691))
 ]
 
 [[package]]

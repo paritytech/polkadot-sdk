@@ -13,16 +13,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-<<<<<<< HEAD
 use crate::{create_pool_with_native_on, tests::*};
-=======
-use crate::tests::{snowbridge_common::snowbridge_sovereign, *};
 use emulated_integration_tests_common::{
 	macros::Dmp,
 	xcm_helpers::{find_mq_processed_id, find_xcm_sent_message_id},
 	xcm_simulator::helpers::TopicIdTracker,
 };
->>>>>>> 803b3463 (Ensure Consistent Topic IDs for Traceable Cross-Chain XCM (#7691))
 use xcm::latest::AssetTransferFilter;
 
 fn send_assets_over_bridge<F: FnOnce()>(send_fn: F) {
@@ -553,8 +549,6 @@ fn send_back_rocs_from_penpal_westend_through_asset_hub_westend_to_asset_hub_roc
 }
 
 #[test]
-<<<<<<< HEAD
-=======
 fn send_back_rocs_from_penpal_westend_through_asset_hub_westend_to_asset_hub_rococo_to_penpal_rococo(
 ) {
 	let roc_at_westend_parachains = bridged_roc_at_ah_westend();
@@ -934,7 +928,6 @@ fn send_back_rocs_from_penpal_westend_through_asset_hub_westend_to_asset_hub_roc
 }
 
 #[test]
->>>>>>> 803b3463 (Ensure Consistent Topic IDs for Traceable Cross-Chain XCM (#7691))
 fn dry_run_transfer_to_rococo_sends_xcm_to_bridge_hub() {
 	test_dry_run_transfer_across_pk_bridge!(
 		AssetHubWestend,

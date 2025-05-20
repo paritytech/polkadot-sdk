@@ -13,18 +13,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-<<<<<<< HEAD
-=======
-use emulated_integration_tests_common::xcm_helpers::{
-	find_mq_processed_id, find_xcm_sent_message_id,
-};
-use westend_system_emulated_network::westend_emulated_chain::westend_runtime::Dmp;
-
->>>>>>> 803b3463 (Ensure Consistent Topic IDs for Traceable Cross-Chain XCM (#7691))
 use super::reserve_transfer::*;
 use crate::{
 	imports::*,
 	tests::teleport::do_bidirectional_teleport_foreign_assets_between_para_and_asset_hub_using_xt,
+};
+use emulated_integration_tests_common::xcm_helpers::{
+	find_mq_processed_id, find_xcm_sent_message_id,
 };
 
 fn para_to_para_assethub_hop_assertions(mut t: ParaToParaThroughAHTest) {

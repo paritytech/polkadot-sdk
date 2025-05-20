@@ -22,18 +22,11 @@ use crate::{
 	migration::data::NeedsMigration,
 	mock::*,
 	pallet::{LockedFungibles, RemoteLockedFungibles, SupportedVersion},
-<<<<<<< HEAD
+	xcm_helpers::find_xcm_sent_message_id,
 	AssetTraps, Config, CurrentMigration, Error, ExecuteControllerWeightInfo,
 	LatestVersionedLocation, Pallet, Queries, QueryStatus, RecordedXcm, RemoteLockedFungibleRecord,
 	ShouldRecordXcm, VersionDiscoveryQueue, VersionMigrationStage, VersionNotifiers,
 	VersionNotifyTargets, WeightInfo,
-=======
-	xcm_helpers::find_xcm_sent_message_id,
-	AssetTraps, AuthorizedAliasers, Config, CurrentMigration, Error, ExecuteControllerWeightInfo,
-	LatestVersionedLocation, MaxAuthorizedAliases, Pallet, Queries, QueryStatus, RecordedXcm,
-	RemoteLockedFungibleRecord, ShouldRecordXcm, VersionDiscoveryQueue, VersionMigrationStage,
-	VersionNotifiers, VersionNotifyTargets, WeightInfo,
->>>>>>> 803b3463 (Ensure Consistent Topic IDs for Traceable Cross-Chain XCM (#7691))
 };
 use bounded_collections::BoundedVec;
 use frame_support::{
@@ -1465,8 +1458,6 @@ fn record_xcm_works() {
 		assert_eq!(RecordedXcm::<Test>::get(), Some(message.into()));
 	});
 }
-<<<<<<< HEAD
-=======
 
 #[test]
 fn execute_initiate_transfer_and_check_sent_event() {
@@ -1579,4 +1570,3 @@ fn query_weight_to_asset_fee_noop() {
 		.unwrap());
 	})
 }
->>>>>>> 803b3463 (Ensure Consistent Topic IDs for Traceable Cross-Chain XCM (#7691))

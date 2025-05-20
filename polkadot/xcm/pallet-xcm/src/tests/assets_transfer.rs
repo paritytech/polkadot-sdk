@@ -2503,9 +2503,7 @@ fn remote_asset_reserve_and_remote_fee_reserve_paid_call<Call>(
 			// short-circuit here for tests where we expect failure
 			return;
 		}
-
-<<<<<<< HEAD
-=======
+		
 		let context = UniversalLocation::get();
 		let foreign_id_location_reanchored =
 			foreign_asset_id_location.clone().reanchored(&dest, &context).unwrap();
@@ -2528,7 +2526,6 @@ fn remote_asset_reserve_and_remote_fee_reserve_paid_call<Call>(
 			SetTopic(sent_msg_id),
 		]);
 
->>>>>>> 803b3463 (Ensure Consistent Topic IDs for Traceable Cross-Chain XCM (#7691))
 		let mut last_events = last_events(7).into_iter();
 		// asset events
 		// forceCreate
