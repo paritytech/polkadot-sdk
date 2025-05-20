@@ -22,10 +22,20 @@ crates:
 - name: assets-common
   bump: minor
 - name: asset-hub-westend-runtime
-  bump: major
+  bump: minor
 - name: pallet-revive
-  bump: major
+  bump: minor
 - name: penpal-runtime
-  bump: major
+  bump: patch
 - name: staging-xcm-executor
+  bump: minor
+- name: polkadot-sdk
+  bump: minor
+- name: ethereum-standards
+  bump: minor
+- name: pallet-revive-fixtures
+  bump: minor
+- name: asset-hub-rococo-runtime
+  bump: patch
+- name: pallet-staking-async-parachain-runtime
   bump: patch
