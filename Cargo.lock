@@ -12740,8 +12740,6 @@ dependencies = [
  "sp-keystore 0.34.0",
  "sp-runtime 31.0.1",
  "sp-tracing 16.0.0",
- "staging-xcm",
- "staging-xcm-builder",
  "substrate-bn",
  "subxt-signer 0.38.0",
 ]
@@ -12795,35 +12793,6 @@ dependencies = [
  "sp-core 28.0.0",
  "sp-io 30.0.0",
  "toml 0.8.19",
-]
-
-[[package]]
-name = "pallet-revive-mock-network"
-version = "0.1.0"
-dependencies = [
- "frame-support",
- "frame-system",
- "pallet-assets",
- "pallet-balances",
- "pallet-message-queue",
- "pallet-revive",
- "pallet-revive-fixtures",
- "pallet-revive-uapi",
- "pallet-timestamp",
- "pallet-xcm",
- "parity-scale-codec",
- "polkadot-parachain-primitives",
- "polkadot-primitives",
- "polkadot-runtime-parachains",
- "scale-info",
- "sp-core 28.0.0",
- "sp-io 30.0.0",
- "sp-runtime 31.0.1",
- "sp-tracing 16.0.0",
- "staging-xcm",
- "staging-xcm-builder",
- "staging-xcm-executor",
- "xcm-simulator",
 ]
 
 [[package]]
@@ -15940,7 +15909,6 @@ dependencies = [
  "pallet-remark",
  "pallet-revive",
  "pallet-revive-eth-rpc",
- "pallet-revive-mock-network",
  "pallet-revive-proc-macro",
  "pallet-revive-uapi",
  "pallet-root-offences",

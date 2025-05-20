@@ -708,41 +708,6 @@ pub trait HostFn: private::Sealed {
 	/// - `output`: A reference to the output data buffer to write the weight left.
 	#[unstable_hostfn]
 	fn weight_left(output: &mut &mut [u8]);
-
-	/// Execute an XCM program locally, using the contract's address as the origin.
-	/// This is equivalent to dispatching `pallet_xcm::execute` through call_runtime, except that
-	/// the function is called directly instead of being dispatched.
-	///
-	/// # Parameters
-	///
-	/// - `msg`: The message, should be decodable as a [VersionedXcm](https://paritytech.github.io/polkadot-sdk/master/staging_xcm/enum.VersionedXcm.html),
-	///   traps otherwise.
-	/// - `output`: A reference to the output data buffer to write the [Outcome](https://paritytech.github.io/polkadot-sdk/master/staging_xcm/v3/enum.Outcome.html)
-	///
-	/// # Return
-	///
-	/// Returns `Error::Success` when the XCM execution attempt is successful. When the XCM
-	/// execution fails, `ReturnCode::XcmExecutionFailed` is returned
-	#[unstable_hostfn]
-	fn xcm_execute(msg: &[u8]) -> Result;
-
-	/// Send an XCM program from the contract to the specified destination.
-	/// This is equivalent to dispatching `pallet_xcm::send` through `call_runtime`, except that
-	/// the function is called directly instead of being dispatched.
-	///
-	/// # Parameters
-	///
-	/// - `dest`: The XCM destination, should be decodable as [VersionedLocation](https://paritytech.github.io/polkadot-sdk/master/staging_xcm/enum.VersionedLocation.html),
-	///   traps otherwise.
-	/// - `msg`: The message, should be decodable as a [VersionedXcm](https://paritytech.github.io/polkadot-sdk/master/staging_xcm/enum.VersionedXcm.html),
-	///   traps otherwise.
-	///
-	/// # Return
-	///
-	/// Returns `ReturnCode::Success` when the message was successfully sent. When the XCM
-	/// execution fails, `ReturnErrorCode::XcmSendFailed` is returned.
-	#[unstable_hostfn]
-	fn xcm_send(dest: &[u8], msg: &[u8], output: &mut [u8; 32]) -> Result;
 }
 
 mod private {

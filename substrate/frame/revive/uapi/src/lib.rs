@@ -111,13 +111,9 @@ define_error_codes! {
 	EcdsaRecoveryFailed = 7,
 	/// sr25519 signature verification failed.
 	Sr25519VerifyFailed = 8,
-	/// The `xcm_execute` call failed.
-	XcmExecutionFailed = 9,
-	/// The `xcm_send` call failed.
-	XcmSendFailed = 10,
 	/// Contract instantiation failed because the address already exists.
 	/// Occurs when instantiating the same contract with the same salt more than once.
-	DuplicateContractAddress = 11,
+	DuplicateContractAddress = 9,
 }
 
 /// The raw return code returned by the host side.

@@ -28,7 +28,7 @@ use crate::{
 	weights::WeightInfo,
 	Config, Error, LOG_TARGET, SENTINEL,
 };
-use alloc::{boxed::Box, vec, vec::Vec};
+use alloc::{vec, vec::Vec};
 use codec::{Decode, DecodeLimit, Encode};
 use core::{fmt, marker::PhantomData, mem};
 use frame_support::{
@@ -40,8 +40,6 @@ use pallet_revive_uapi::{CallFlags, ReturnErrorCode, ReturnFlags, StorageFlags};
 use sp_core::{H160, H256, U256};
 use sp_io::hashing::{blake2_128, blake2_256, keccak_256};
 use sp_runtime::{DispatchError, RuntimeDebug};
-
-type CallOf<T> = <T as frame_system::Config>::RuntimeCall;
 
 /// The maximum nesting depth a contract can use when encoding types.
 const MAX_DECODE_NESTING: u32 = 256;
@@ -221,8 +219,6 @@ impl<T: Config> PolkaVmInstance<T> for polkavm::RawInstance {
 parameter_types! {
 	/// Getter types used by [`crate::SyscallDoc:call_runtime`]
 	const CallRuntimeFailed: ReturnErrorCode = ReturnErrorCode::CallRuntimeFailed;
-	/// Getter types used by [`crate::SyscallDoc::xcm_execute`]
-	const XcmExecutionFailed: ReturnErrorCode = ReturnErrorCode::XcmExecutionFailed;
 }
 
 impl From<&ExecReturnValue> for ReturnErrorCode {
@@ -396,8 +392,6 @@ pub enum RuntimeCosts {
 	Sr25519Verify(u32),
 	/// Weight charged for calling into the runtime.
 	CallRuntime(Weight),
-	/// Weight charged for calling xcm_execute.
-	CallXcmExecute(Weight),
 	/// Weight of calling `seal_set_code_hash`
 	SetCodeHash,
 	/// Weight of calling `ecdsa_to_eth_address`
@@ -467,7 +461,6 @@ macro_rules! cost_args {
 impl<T: Config> Token<T> for RuntimeCosts {
 	fn influence_lowest_gas_limit(&self) -> bool {
 		match self {
-			&Self::CallXcmExecute(_) => false,
 			_ => true,
 		}
 	}
@@ -545,7 +538,7 @@ impl<T: Config> Token<T> for RuntimeCosts {
 			HashBlake128(len) => T::WeightInfo::seal_hash_blake2_128(len),
 			EcdsaRecovery => T::WeightInfo::ecdsa_recover(),
 			Sr25519Verify(len) => T::WeightInfo::seal_sr25519_verify(len),
-			CallRuntime(weight) | CallXcmExecute(weight) => weight,
+			CallRuntime(weight) => weight,
 			SetCodeHash => T::WeightInfo::seal_set_code_hash(),
 			EcdsaToEthAddress => T::WeightInfo::seal_ecdsa_to_eth_address(),
 			GetImmutableData(len) => T::WeightInfo::seal_get_immutable_data(len),
@@ -2173,80 +2166,6 @@ pub mod env {
 			false,
 			already_charged,
 		)?)
-	}
-
-	/// Execute an XCM program locally, using the contract's address as the origin.
-	/// See [`pallet_revive_uapi::HostFn::execute_xcm`].
-	#[mutating]
-	fn xcm_execute(
-		&mut self,
-		memory: &mut M,
-		msg_ptr: u32,
-		msg_len: u32,
-	) -> Result<ReturnErrorCode, TrapReason> {
-		use frame_support::dispatch::DispatchInfo;
-		use xcm::VersionedXcm;
-		use xcm_builder::{ExecuteController, ExecuteControllerWeightInfo};
-
-		self.charge_gas(RuntimeCosts::CopyFromContract(msg_len))?;
-		let message: VersionedXcm<CallOf<E::T>> = memory.read_as_unbounded(msg_ptr, msg_len)?;
-
-		let execute_weight =
-			<<E::T as Config>::Xcm as ExecuteController<_, _>>::WeightInfo::execute();
-		let weight = self.ext.gas_meter().gas_left().max(execute_weight);
-		let dispatch_info = DispatchInfo { call_weight: weight, ..Default::default() };
-
-		self.call_dispatchable::<XcmExecutionFailed>(
-			dispatch_info,
-			RuntimeCosts::CallXcmExecute,
-			|runtime| {
-				let origin = crate::RawOrigin::Signed(runtime.ext.account_id().clone()).into();
-				let weight_used = <<E::T as Config>::Xcm>::execute(
-					origin,
-					Box::new(message),
-					weight.saturating_sub(execute_weight),
-				)?;
-
-				Ok(Some(weight_used.saturating_add(execute_weight)).into())
-			},
-		)
-	}
-
-	/// Send an XCM program from the contract to the specified destination.
-	/// See [`pallet_revive_uapi::HostFn::send_xcm`].
-	#[mutating]
-	fn xcm_send(
-		&mut self,
-		memory: &mut M,
-		dest_ptr: u32,
-		dest_len: u32,
-		msg_ptr: u32,
-		msg_len: u32,
-		output_ptr: u32,
-	) -> Result<ReturnErrorCode, TrapReason> {
-		use xcm::{VersionedLocation, VersionedXcm};
-		use xcm_builder::{SendController, SendControllerWeightInfo};
-
-		self.charge_gas(RuntimeCosts::CopyFromContract(dest_len))?;
-		let dest: VersionedLocation = memory.read_as_unbounded(dest_ptr, dest_len)?;
-
-		self.charge_gas(RuntimeCosts::CopyFromContract(msg_len))?;
-		let message: VersionedXcm<()> = memory.read_as_unbounded(msg_ptr, msg_len)?;
-
-		let weight = <<E::T as Config>::Xcm as SendController<_>>::WeightInfo::send();
-		self.charge_gas(RuntimeCosts::CallRuntime(weight))?;
-		let origin = crate::RawOrigin::Signed(self.ext.account_id().clone()).into();
-
-		match <<E::T as Config>::Xcm>::send(origin, dest.into(), message.into()) {
-			Ok(message_id) => {
-				memory.write(output_ptr, &message_id.encode())?;
-				Ok(ReturnErrorCode::Success)
-			},
-			Err(e) => {
-				log::debug!(target: LOG_TARGET, "seal0::xcm_send failed with: {e:?}");
-				Ok(ReturnErrorCode::XcmSendFailed)
-			},
-		}
 	}
 
 	/// Retrieves the account id for a specified contract address.
