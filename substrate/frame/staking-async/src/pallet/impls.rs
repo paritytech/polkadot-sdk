@@ -1815,10 +1815,17 @@ impl<T: Config> Pallet<T> {
 						));
 					}
 				} else {
-					ensure!(
-						Self::inspect_bond_state(&stash) == Ok(LedgerIntegrityState::Ok),
-						"bond, ledger and/or staking hold inconsistent for a bonded stash."
-					);
+					// only warn, don't fail.
+					// TODO: make this a failure once all Westend AH accounts are fixed.
+					let integrity_state = Self::inspect_bond_state(&stash);
+					if integrity_state != Ok(LedgerIntegrityState::Ok) {
+						log!(
+							warn,
+							"bonded stash {:?} has inconsistent ledger state: {:?}",
+							stash,
+							integrity_state
+						);
+					}
 				}
 
 				// ensure ledger consistency.

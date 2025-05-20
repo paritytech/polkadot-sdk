@@ -59,7 +59,22 @@ fn asset_hub_westend_genesis(
 				.collect(),
 		},
 		polkadot_xcm: PolkadotXcmConfig { safe_xcm_version: Some(SAFE_XCM_VERSION) },
-		staking: StakingConfig { dev_stakers, ..Default::default() }
+		staking: StakingConfig {
+			stakers: vec![
+				(
+					Sr25519Keyring::AliceStash.to_account_id(),
+					1000 * ASSET_HUB_WESTEND_ED,
+					pallet_staking_async::StakerStatus::Validator,
+				),
+				(
+					Sr25519Keyring::BobStash.to_account_id(),
+					1000 * ASSET_HUB_WESTEND_ED,
+					pallet_staking_async::StakerStatus::Validator,
+				),
+			],
+			dev_stakers,
+			..Default::default()
+		}
 	})
 }
 
@@ -71,7 +86,7 @@ mod preset_names {
 /// Provides the JSON representation of predefined genesis config for given `id`.
 pub fn get_preset(id: &PresetId) -> Option<Vec<u8>> {
 	use preset_names::*;
-	let dev_stakers = None;
+	let dev_stakers = Some((0, 25_000));
 	let patch = match id.as_ref() {
 		PRESET_GENESIS => asset_hub_westend_genesis(
 			// initial collators.

@@ -60,6 +60,7 @@ pub mod xcm_config;
 
 pub use weights::*;
 
+use sp_runtime::traits::Hash;
 use crate::{
 	accounts::MigratedBalances,
 	types::{MigrationFinishedData, XcmBatch, XcmBatchAndMeter},
@@ -536,6 +537,10 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type DmpDataMessageCounts<T: Config> = StorageValue<_, (u32, u32), ValueQuery>;
 
+	#[pallet::storage]
+	#[pallet::unbounded]
+	pub type DmpMessagesFailed<T: Config> = StorageMap<_, Twox64Concat, T::Hash, Xcm<()>, OptionQuery>;
+
 	/// Alias for `Paras` from `paras_registrar`.
 	///
 	/// The fields of the type stored in the original storage item are private, so we define the
@@ -604,6 +609,19 @@ pub mod pallet {
 		pub fn update_ah_msg_processed_count(origin: OriginFor<T>, count: u32) -> DispatchResult {
 			<T as Config>::ManagerOrigin::ensure_origin(origin)?;
 			Self::update_msg_processed_count(count);
+			Ok(())
+		}
+
+		/// Update the total number of XCM messages sent and processed by the Asset Hub.
+		#[pallet::call_index(4)]
+		#[pallet::weight(T::RcWeightInfo::update_ah_msg_processed_count())]
+		pub fn update_ah_msg_counts(
+			origin: OriginFor<T>,
+			sent: u32,
+			processed: u32,
+		) -> DispatchResult {
+			<T as Config>::ManagerOrigin::ensure_origin(origin)?;
+			DmpDataMessageCounts::<T>::put((sent, processed));
 			Ok(())
 		}
 	}
@@ -1412,8 +1430,8 @@ pub mod pallet {
 					Self::transition(MigrationStage::SignalMigrationFinish);
 				},
 				MigrationStage::SignalMigrationFinish => {
-					#[cfg(feature = "ahm-staking-migration")]
-					pallet_staking_async_ah_client::Pallet::<T>::on_migration_end();
+					// #[cfg(feature = "ahm-staking-migration")]
+					// pallet_staking_async_ah_client::Pallet::<T>::on_migration_end();
 
 					// Send finish message to AH, TODO: weight
 					let tracker = RcMigratedBalance::<T>::get();
@@ -1570,6 +1588,8 @@ pub mod pallet {
 					Location::new(0, [Junction::Parachain(1000)]),
 					message.clone(),
 				) {
+					let message_hash = T::Hashing::hash_of(&message);
+					DmpMessagesFailed::<T>::insert(&message_hash, message);
 					log::error!(target: LOG_TARGET, "Error while sending XCM message: {:?}", err);
 					return Err(Error::XcmError);
 				} else {

@@ -737,6 +737,12 @@ impl<T: Config> AccountsMigrator<T> {
 				.into();
 		RcAccounts::<T>::insert(&sudo, AccountState::Preserve);
 
+		// alice -- the sudo account in westend dev chains -- noop for production.
+		let alice =
+			T::AccountId::from_ss58check("5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY")
+				.unwrap();
+		RcAccounts::<T>::insert(&alice, AccountState::Preserve);
+
 		weight
 	}
 
