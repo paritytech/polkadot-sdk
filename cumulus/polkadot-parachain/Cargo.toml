@@ -98,6 +98,7 @@ try-runtime = [
 	"coretime-rococo-runtime/try-runtime",
 	"coretime-westend-runtime/try-runtime",
 	"glutton-westend-runtime/try-runtime",
+	"parachains-common/try-runtime",
 	"penpal-runtime/try-runtime",
 	"people-rococo-runtime/try-runtime",
 	"people-westend-runtime/try-runtime",

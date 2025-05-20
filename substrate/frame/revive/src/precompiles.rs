@@ -192,7 +192,7 @@ pub trait Precompile {
 	///
 	/// Have a look at [`ExtWithInfo`] to learn about the additional APIs that a contract info
 	/// unlocks.
-	const HAS_CONTRACT_INFO: bool;
+	const HAS_CONTRACT_INFO: bool = false;
 
 	/// Entry point for your pre-compile when `HAS_CONTRACT_INFO = false`.
 	#[allow(unused_variables)]
@@ -353,7 +353,7 @@ impl<P: BuiltinPrecompile> PrimitivePrecompile for P {
 		input: Vec<u8>,
 		env: &mut impl Ext<T = Self::T>,
 	) -> Result<Vec<u8>, Error> {
-		let call = <Self as BuiltinPrecompile>::Interface::abi_decode(&input, true)
+		let call = <Self as BuiltinPrecompile>::Interface::abi_decode(&input)
 			.map_err(|_| Error::Panic(PanicKind::ResourceError))?;
 		<Self as BuiltinPrecompile>::call(address, &call, env)
 	}
@@ -363,7 +363,7 @@ impl<P: BuiltinPrecompile> PrimitivePrecompile for P {
 		input: Vec<u8>,
 		env: &mut impl ExtWithInfo<T = Self::T>,
 	) -> Result<Vec<u8>, Error> {
-		let call = <Self as BuiltinPrecompile>::Interface::abi_decode(&input, true)
+		let call = <Self as BuiltinPrecompile>::Interface::abi_decode(&input)
 			.map_err(|_| Error::Panic(PanicKind::ResourceError))?;
 		<Self as BuiltinPrecompile>::call_with_info(address, &call, env)
 	}

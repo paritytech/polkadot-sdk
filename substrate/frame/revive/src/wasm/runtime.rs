@@ -396,6 +396,8 @@ pub enum RuntimeCosts {
 	Sr25519Verify(u32),
 	/// Weight charged for calling into the runtime.
 	CallRuntime(Weight),
+	/// Weight charged by a precompile.
+	Precompile(Weight),
 	/// Weight charged for calling xcm_execute.
 	CallXcmExecute(Weight),
 	/// Weight of calling `seal_set_code_hash`
@@ -545,7 +547,7 @@ impl<T: Config> Token<T> for RuntimeCosts {
 			HashBlake128(len) => T::WeightInfo::seal_hash_blake2_128(len),
 			EcdsaRecovery => T::WeightInfo::ecdsa_recover(),
 			Sr25519Verify(len) => T::WeightInfo::seal_sr25519_verify(len),
-			CallRuntime(weight) | CallXcmExecute(weight) => weight,
+			Precompile(weight) | CallRuntime(weight) | CallXcmExecute(weight) => weight,
 			SetCodeHash => T::WeightInfo::seal_set_code_hash(),
 			EcdsaToEthAddress => T::WeightInfo::seal_ecdsa_to_eth_address(),
 			GetImmutableData(len) => T::WeightInfo::seal_get_immutable_data(len),

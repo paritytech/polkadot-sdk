@@ -14,14 +14,17 @@
 // You should have received a copy of the GNU General Public License
 // along with Substrate.  If not, see <http://www.gnu.org/licenses/>.
 
-use super::{Balances, Runtime, RuntimeCall, RuntimeEvent};
+use super::{AccountId, Balances, Runtime, RuntimeCall, RuntimeEvent};
 use crate::parachain::RuntimeHoldReason;
 use frame_support::derive_impl;
+use frame_system::EnsureSigned;
 
 #[derive_impl(pallet_revive::config_preludes::TestDefaultConfig)]
 impl pallet_revive::Config for Runtime {
 	type AddressMapper = pallet_revive::AccountId32Mapper<Self>;
 	type Currency = Balances;
+	type UploadOrigin = EnsureSigned<AccountId>;
+	type InstantiateOrigin = EnsureSigned<AccountId>;
 	type Time = super::Timestamp;
 	type Xcm = pallet_xcm::Pallet<Self>;
 }
