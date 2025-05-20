@@ -286,28 +286,34 @@ fn transfer_and_hold() {
 		.existential_deposit(1)
 		.monied(true)
 		.build_and_execute_with(|| {
-			let reason = TestId::Foo;
-
 			// Freeze 7 units in source account (Account 1)
-			assert_ok!(Balances::hold(&reason, &1, 7));
-			assert_ok!(Balances::hold(&reason, &2, 2));
+			assert_ok!(Balances::hold(&TestId::Foo, &1, 7));
+			assert_ok!(Balances::hold(&TestId::Foo, &2, 2));
 
 			// Verify reducible balance
 			assert_eq!(Balances::reducible_total_balance_on_hold(&1, Force), 7);
 
 			// Force transfer_and_hold should succeed
-			assert_ok!(Balances::transfer_and_hold(&reason, &1, &2, 1, Exact, Preserve, Polite));
+			assert_ok!(Balances::transfer_and_hold(
+				&TestId::Foo,
+				&1,
+				&2,
+				1,
+				Exact,
+				Preserve,
+				Polite
+			));
 
 			// Verify state changes
 			assert_eq!(Balances::free_balance(1), 2);
-			assert_eq!(Balances::balance_on_hold(&reason, &2), 3);
+			assert_eq!(Balances::balance_on_hold(&TestId::Foo, &2), 3);
 			assert_eq!(Balances::total_balance(&2), 21);
 
 			assert_eq!(
 				events(),
 				[
 					RuntimeEvent::Balances(crate::Event::Held {
-						reason: reason.clone(),
+						reason: TestId::Foo,
 						who: 1,
 						amount: 7
 					}),
@@ -334,22 +340,21 @@ fn burn_held() {
 		.monied(true)
 		.build_and_execute_with(|| {
 			let account = 1;
-			let reason = TestId::Foo;
 
-			assert_ok!(Balances::hold(&reason, &account, 5));
+			assert_ok!(Balances::hold(&TestId::Foo, &account, 5));
 
 			// Burn the held funds
-			assert_ok!(Balances::burn_held(&reason, &account, 4, Exact, Polite));
+			assert_ok!(Balances::burn_held(&TestId::Foo, &account, 4, Exact, Polite));
 
 			// Check that the BurnedHeld event is emitted with correct parameters
 			System::assert_last_event(RuntimeEvent::Balances(crate::Event::BurnedHeld {
-				reason: reason.clone(),
+				reason: TestId::Foo,
 				who: account,
 				amount: 4,
 			}));
 
 			// Verify the held balance is removed and total balance is updated
-			assert_eq!(Balances::balance_on_hold(&reason, &account), 1);
+			assert_eq!(Balances::balance_on_hold(&TestId::Foo, &account), 1);
 			assert_eq!(Balances::total_balance(&account), 6);
 			assert_eq!(Balances::total_issuance(), 106);
 		});
