@@ -1,6 +1,6 @@
 [package]
 name = "frame-omni-bencher"
-version = "0.11.0"
+version = "0.11.1"
 description = "Freestanding benchmark runner for any Polkadot runtime."
 authors.workspace = true
 edition.workspace = true
