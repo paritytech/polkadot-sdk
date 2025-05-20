@@ -16,6 +16,7 @@ crates:
   bump: patch
 - name: xcm-emulator
   bump: minor
+  validate: false
 - name: xcm-runtime-apis
   bump: patch
 - name: xcm-simulator
