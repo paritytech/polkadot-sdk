@@ -85,7 +85,7 @@ pub async fn assert_finalized_para_throughput(
 
 		// Do not count blocks with session changes, no backed blocks there.
 		if is_session_change {
-			continue
+			continue;
 		}
 
 		current_block_count += 1;
@@ -268,7 +268,7 @@ pub async fn wait_for_nth_session_change(
 		if is_session_change {
 			sessions_to_wait -= 1;
 			if sessions_to_wait == 0 {
-				return Ok(())
+				return Ok(());
 			}
 
 			waited_block_num = 0;
@@ -318,4 +318,67 @@ pub async fn assert_blocks_are_being_finalized(
 	assert!(second_measurement > first_measurement);
 
 	Ok(())
+}
+
+/// Wait for block height, which is backed by relay client for given para id and
+/// which matches given predicate.
+async fn wait_para_block_height(
+	relay_client: &OnlineClient<PolkadotConfig>,
+	para_id: ParaId,
+	predicate: impl Fn(u32) -> bool,
+) -> Result<bool, anyhow::Error> {
+	let mut blocks_sub = relay_client.blocks().subscribe_all().await?;
+	while let Some(block) = blocks_sub.next().await {
+		let block = block?;
+		let block_number = Into::<u32>::into(block.number());
+
+		let events = block.events().await?;
+		let receipts = find_event_and_decode_fields::<CandidateReceiptV2<H256>>(
+			&events,
+			"ParaInclusion",
+			"CandidateBacked",
+		)?;
+
+		for receipt in receipts {
+			if para_id == receipt.descriptor.para_id() {
+				log::debug!(
+					"Block backed for para_id {para_id} at relay: #{} ({})",
+					block.number(),
+					block.hash()
+				);
+				if predicate(block_number) {
+					log::info!("Finished condition: block_height: {block_number}",);
+					return Ok(true);
+				}
+			}
+		}
+	}
+	Ok(false)
+}
+
+/// Wait until timeout elapses for block height, which is backed by relay client for given para id and
+/// which matches given predicate.
+pub async fn wait_para_block_height_timeout(
+	relay_client: &OnlineClient<PolkadotConfig>,
+	para_id: ParaId,
+	predicate: impl Fn(u32) -> bool,
+	timeout_secs: impl Into<u64>,
+) -> Result<bool, anyhow::Error> {
+	let secs = timeout_secs.into();
+	let res = tokio::time::timeout(
+		Duration::from_secs(secs),
+		wait_para_block_height(relay_client, para_id, predicate),
+	)
+	.await;
+
+	if let Ok(inner_res) = res {
+		match inner_res {
+			Ok(res) => Ok(res),
+			Err(e) => Err(anyhow!("Error waiting for metric: {}", e)),
+		}
+	} else {
+		// timeout
+		log::info!("Timeout ({secs}), waiting for para id {para_id} block height");
+		Ok(false)
+	}
 }
