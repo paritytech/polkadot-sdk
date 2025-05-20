@@ -470,12 +470,12 @@ impl PalletCmd {
 						"dispatch a benchmark",
 					) {
 						Err(e) => {
-							log::error!(target: LOG_TARGET, "Error executing and verifying runtime benchmark: {}", e);
+							log::error!(target: LOG_TARGET, "Benchmark {pallet}::{extrinsic} failed: {e}");
 							failed.push((pallet.clone(), extrinsic.clone()));
 							continue 'outer
 						},
 						Ok(Err(e)) => {
-							log::error!(target: LOG_TARGET, "Error executing and verifying runtime benchmark: {}", e);
+							log::error!(target: LOG_TARGET, "Benchmark {pallet}::{extrinsic} failed: {e}");
 							failed.push((pallet.clone(), extrinsic.clone()));
 							continue 'outer
 						},
@@ -491,7 +491,7 @@ impl PalletCmd {
 						_,
 					>(
 						StateMachine::new(
-							state, // todo remove tracking
+							state,
 							&mut Default::default(),
 							&executor,
 							"Benchmark_dispatch_benchmark",
@@ -503,12 +503,12 @@ impl PalletCmd {
 						"dispatch a benchmark",
 					) {
 						Err(e) => {
-							log::error!(target: LOG_TARGET, "Error executing runtime benchmark: {}", e);
+							log::error!(target: LOG_TARGET, "Benchmark {pallet}::{extrinsic} failed: {e}");
 							failed.push((pallet.clone(), extrinsic.clone()));
 							continue 'outer
 						},
 						Ok(Err(e)) => {
-							log::error!(target: LOG_TARGET, "Benchmark {pallet}::{extrinsic} failed: {e}",);
+							log::error!(target: LOG_TARGET, "Benchmark {pallet}::{extrinsic} failed: {e}");
 							failed.push((pallet.clone(), extrinsic.clone()));
 							continue 'outer
 						},
@@ -538,11 +538,13 @@ impl PalletCmd {
 						"dispatch a benchmark",
 					) {
 						Err(e) => {
-							return Err(format!("Error executing runtime benchmark: {e}",).into());
+							return Err(
+								format!("Benchmark {pallet}::{extrinsic} failed: {e}").into()
+							);
 						},
 						Ok(Err(e)) => {
 							return Err(
-								format!("Benchmark {pallet}::{extrinsic} failed: {e}",).into()
+								format!("Benchmark {pallet}::{extrinsic} failed: {e}").into()
 							);
 						},
 						Ok(Ok(b)) => b,
@@ -590,20 +592,11 @@ impl PalletCmd {
 	}
 
 	fn select_benchmarks_to_run(&self, list: Vec<BenchmarkList>) -> Result<Vec<SelectedBenchmark>> {
-		let extrinsic = self.extrinsic.clone().unwrap_or_default();
-		let extrinsic_split: Vec<&str> = extrinsic.split(',').collect();
-		let extrinsics: Vec<_> = extrinsic_split.iter().map(|x| x.trim().as_bytes()).collect();
-
 		// Use the benchmark list and the user input to determine the set of benchmarks to run.
 		let mut benchmarks_to_run = Vec::new();
 		list.iter().filter(|item| self.pallet_selected(&item.pallet)).for_each(|item| {
 			for benchmark in &item.benchmarks {
-				let benchmark_name = &benchmark.name;
-				if extrinsic.is_empty() ||
-					extrinsic.as_bytes() == &b"*"[..] ||
-					extrinsic.as_bytes() == &b"all"[..] ||
-					extrinsics.contains(&&benchmark_name[..])
-				{
+				if self.extrinsic_selected(&item.pallet, &benchmark.name) {
 					benchmarks_to_run.push((
 						item.pallet.clone(),
 						item.instance.clone(),
@@ -639,7 +632,7 @@ impl PalletCmd {
 			.collect();
 
 		if benchmarks_to_run.is_empty() {
-			return Err("No benchmarks found which match your input.".into())
+			return Err("No benchmarks found which match your input. Try `--list --all` to list all available benchmarks.".into())
 		}
 
 		Ok(benchmarks_to_run)
@@ -647,15 +640,52 @@ impl PalletCmd {
 
 	/// Whether this pallet should be run.
 	fn pallet_selected(&self, pallet: &Vec<u8>) -> bool {
-		let include = self.pallet.clone().unwrap_or_default();
+		let include = self.pallets.clone();
 
 		let included = include.is_empty() ||
-			include == "*" ||
-			include == "all" ||
-			include.as_bytes() == pallet;
+			include.iter().any(|p| p.as_bytes() == pallet) ||
+			include.iter().any(|p| p == "*") ||
+			include.iter().any(|p| p == "all");
 		let excluded = self.exclude_pallets.iter().any(|p| p.as_bytes() == pallet);
 
 		included && !excluded
+	}
+
+	/// Whether this extrinsic should be run.
+	fn extrinsic_selected(&self, pallet: &Vec<u8>, extrinsic: &Vec<u8>) -> bool {
+		if !self.pallet_selected(pallet) {
+			return false;
+		}
+
+		let extrinsic_filter = self.extrinsic.clone().unwrap_or_default();
+		let extrinsic_split: Vec<&str> = extrinsic_filter.split(',').collect();
+		let extrinsics: Vec<_> = extrinsic_split.iter().map(|x| x.trim().as_bytes()).collect();
+
+		let included = extrinsic_filter.is_empty() ||
+			extrinsic_filter == "*" ||
+			extrinsics.contains(&&extrinsic[..]);
+
+		let excluded = self
+			.excluded_extrinsics()
+			.iter()
+			.any(|(p, e)| p.as_bytes() == pallet && e.as_bytes() == extrinsic);
+
+		included && !excluded
+	}
+
+	/// All `(pallet, extrinsic)` tuples that are excluded from the benchmarks.
+	fn excluded_extrinsics(&self) -> Vec<(String, String)> {
+		let mut excluded = Vec::new();
+
+		for e in &self.exclude_extrinsics {
+			let splits = e.split("::").collect::<Vec<_>>();
+			if splits.len() != 2 {
+				panic!("Invalid argument for '--exclude-extrinsics'. Expected format: 'pallet::extrinsic' but got '{}'", e);
+			}
+			excluded.push((splits[0].to_string(), splits[1].to_string()));
+		}
+
+		excluded
 	}
 
 	/// Execute a state machine and decode its return value as `R`.
