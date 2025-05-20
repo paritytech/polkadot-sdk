@@ -141,7 +141,7 @@ pub enum Error {
 	/// A duplicate voter was detected.
 	DuplicateVoter,
 	/// A duplicate target was detected.
-	DuplicateTarget
+	DuplicateTarget,
 }
 
 /// A type which is used in the API of this crate as a numeric weight of a vote, most often the
