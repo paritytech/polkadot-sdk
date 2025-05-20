@@ -5,19 +5,21 @@ doc:
     This PR ensures every XCM processed with the same topic ID across multiple chains to improve traceability.
 crates:
 - name: emulated-integration-tests-common
-  bump: patch
+  bump: minor
 - name: pallet-xcm
   bump: patch
 - name: staging-xcm
-  bump: patch
+  bump: minor
 - name: staging-xcm-builder
   bump: patch
 - name: staging-xcm-executor
   bump: patch
 - name: xcm-runtime-apis
   bump: patch
-- name: xcm-simulator
+- name: xcm-emulator
   bump: patch
+- name: xcm-simulator
+  bump: minor
 - name: xcm-simulator-example
   bump: patch
 - name: asset-hub-westend-integration-tests
