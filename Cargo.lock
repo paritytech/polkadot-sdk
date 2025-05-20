@@ -5776,6 +5776,7 @@ dependencies = [
  "sp-runtime 41.1.0",
  "staging-xcm",
  "xcm-emulator",
+ "xcm-simulator",
 ]
 
 [[package]]
@@ -13346,6 +13347,7 @@ dependencies = [
  "staging-xcm-executor",
  "tracing",
  "xcm-runtime-apis",
+ "xcm-simulator",
 ]
 
 [[package]]
@@ -23870,6 +23872,7 @@ dependencies = [
  "staging-xcm",
  "staging-xcm-executor",
  "tracing",
+ "xcm-simulator",
 ]
 
 [[package]]
@@ -27604,6 +27607,7 @@ dependencies = [
  "sp-tracing 17.1.0",
  "staging-xcm",
  "staging-xcm-executor",
+ "xcm-simulator",
 ]
 
 [[package]]
@@ -27664,6 +27668,7 @@ dependencies = [
  "staging-xcm",
  "staging-xcm-builder",
  "staging-xcm-executor",
+ "xcm-simulator",
 ]
 
 [[package]]

@@ -26,6 +26,8 @@ mod mock;
 mod tests;
 
 pub mod migration;
+#[cfg(any(test, feature = "test-utils"))]
+pub mod xcm_helpers;
 
 extern crate alloc;
 

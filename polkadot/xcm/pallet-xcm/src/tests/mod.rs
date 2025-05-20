@@ -23,6 +23,7 @@ use crate::{
 	migration::data::NeedsMigration,
 	mock::*,
 	pallet::{LockedFungibles, RemoteLockedFungibles, SupportedVersion},
+	xcm_helpers::find_xcm_sent_message_id,
 	AssetTraps, AuthorizedAliasers, Config, CurrentMigration, Error, ExecuteControllerWeightInfo,
 	LatestVersionedLocation, MaxAuthorizedAliases, Pallet, Queries, QueryStatus, RecordedXcm,
 	RemoteLockedFungibleRecord, ShouldRecordXcm, VersionDiscoveryQueue, VersionMigrationStage,
@@ -45,6 +46,7 @@ use xcm_executor::{
 	traits::{Properties, QueryHandler, QueryResponseStatus, ShouldExecute},
 	XcmExecutor,
 };
+use xcm_simulator::fake_message_hash;
 
 const ALICE: AccountId = AccountId::new([0u8; 32]);
 const BOB: AccountId = AccountId::new([1u8; 32]);
@@ -1679,17 +1681,18 @@ fn execute_initiate_transfer_and_check_sent_event() {
 			);
 			assert_ok!(result);
 
+			let sent_msg_id = find_xcm_sent_message_id::<Test>(all_events()).unwrap();
 			let sent_message: Xcm<()> = Xcm(vec![
 				WithdrawAsset(Assets::new()),
 				ClearOrigin,
 				BuyExecution { fees: fee_asset.clone(), weight_limit: Unlimited },
 				DepositAsset { assets: All.into(), beneficiary: beneficiary.clone() },
+				SetTopic(sent_msg_id),
 			]);
 			assert!(log_capture
 				.contains(format!("xcm::send: Sending msg msg={:?}", sent_message).as_str()));
 
 			let origin: Location = AccountId32 { network: None, id: ALICE.into() }.into();
-			let sent_msg_id = fake_message_hash(&sent_message);
 			assert_eq!(
 				last_events(2),
 				vec![
@@ -1738,7 +1741,7 @@ fn deliver_failure_with_expect_error() {
 			assert!(result.is_err());
 
 			// Check logs for send attempt and failure
-			assert!(log_capture.contains("xcm::send: Sending msg msg=Xcm([WithdrawAsset(Assets([])), ClearOrigin, ExpectError(Some((1, Unimplemented)))])"));
+			assert!(log_capture.contains("xcm::send: Sending msg msg=Xcm([WithdrawAsset(Assets([])), ClearOrigin, ExpectError(Some((1, Unimplemented))), SetTopic("));
 			assert!(log_capture.contains("xcm::send: XCM failed to deliver with error error=Transport(\"Intentional deliver failure used in tests\")"));
 		})
 	});
