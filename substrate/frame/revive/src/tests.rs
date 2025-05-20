@@ -4580,16 +4580,10 @@ fn nonce_incremented_dry_run_vs_execute() {
 		});
 
 		// stimulate a dry run
-		let dry_run_result = Contracts::bare_instantiate(
-			RuntimeOrigin::signed(ALICE),
-			0,
-			GAS_LIMIT,
-			DepositLimit::Balance(deposit_limit::<Test>()),
-			Code::Upload(wasm.clone()),
-			vec![],
-			None, // Use create1
-			crate::NonceAlreadyIncremented::No,
-		);
+		let dry_run_result = builder::bare_instantiate(Code::Upload(wasm.clone()))
+			.salt(None)
+			.nonce_already_incremented(crate::NonceAlreadyIncremented::No)
+			.build();
 
 		let dry_run_addr = dry_run_result.result.unwrap().addr;
 
@@ -4604,16 +4598,7 @@ fn nonce_incremented_dry_run_vs_execute() {
 		});
 
 		// stimulate an actual execution
-		let exec_result = Contracts::bare_instantiate(
-			RuntimeOrigin::signed(ALICE),
-			0,
-			GAS_LIMIT,
-			DepositLimit::Balance(deposit_limit::<Test>()),
-			Code::Upload(wasm.clone()),
-			vec![],
-			None,
-			crate::NonceAlreadyIncremented::Yes,
-		);
+		let exec_result = builder::bare_instantiate(Code::Upload(wasm.clone())).salt(None).build();
 
 		let exec_addr = exec_result.result.unwrap().addr;
 
