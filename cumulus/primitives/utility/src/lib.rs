@@ -77,8 +77,8 @@ where
 				.map_err(|()| SendError::ExceedsMaxMessageSize)?;
 			let data = versioned_xcm.encode();
 
-			// check if the `UpwardsMessageSender` may also complain about the size
-			T::check_size(data.len()).map_err(|_| SendError::ExceedsMaxMessageSize)?;
+			// Pre-check with our message sender if everything else is okay.
+			T::can_send_upward_message(&data).map_err(Self::map_upward_sender_err)?;
 
 			Ok((data, price))
 		} else {
@@ -90,12 +90,24 @@ where
 	}
 
 	fn deliver(data: Vec<u8>) -> Result<XcmHash, SendError> {
-		let (_, hash) = T::send_upward_message(data).map_err(|e| match e {
+		let (_, hash) = T::send_upward_message(data).map_err(Self::map_upward_sender_err)?;
+		Ok(hash)
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn ensure_successful_delivery(location: Option<Location>) {
+		if location.as_ref().map_or(false, |l| l.contains_parents_only(1)) {
+			T::ensure_successful_delivery();
+		}
+	}
+}
+
+impl<T, W, P> ParentAsUmp<T, W, P> {
+	fn map_upward_sender_err(message_send_error: MessageSendError) -> SendError {
+		match message_send_error {
 			MessageSendError::TooBig => SendError::ExceedsMaxMessageSize,
 			e => SendError::Transport(e.into()),
-		})?;
-
-		Ok(hash)
+		}
 	}
 }
 
@@ -599,14 +611,15 @@ mod test_xcm_router {
 		}
 	}
 
-	/// Impl [`UpwardMessageSender`] that return `Other` error
-	struct OtherErrorUpwardMessageSender;
-	impl UpwardMessageSender for OtherErrorUpwardMessageSender {
+	/// Impl [`UpwardMessageSender`] that return `Ok` for `can_send_upward_message`.
+	struct CanSendUpwardMessageSender;
+	impl UpwardMessageSender for CanSendUpwardMessageSender {
 		fn send_upward_message(_: UpwardMessage) -> Result<(u32, XcmHash), MessageSendError> {
 			Err(MessageSendError::Other)
 		}
-		fn check_size(size: usize) -> Result<(), ()> {
-			todo!("https://github.com/paritytech/polkadot-sdk/pull/8409")
+
+		fn can_send_upward_message(_: &UpwardMessage) -> Result<(), MessageSendError> {
+			Ok(())
 		}
 	}
 
@@ -647,7 +660,7 @@ mod test_xcm_router {
 		let dest = (Parent, Here);
 		let mut dest_wrapper = Some(dest.clone().into());
 		let mut msg_wrapper = Some(message.clone());
-		assert!(<ParentAsUmp<(), (), ()> as SendXcm>::validate(
+		assert!(<ParentAsUmp<CanSendUpwardMessageSender, (), ()> as SendXcm>::validate(
 			&mut dest_wrapper,
 			&mut msg_wrapper
 		)
@@ -661,7 +674,7 @@ mod test_xcm_router {
 		assert_eq!(
 			Err(SendError::Transport("Other")),
 			send_xcm::<(
-				ParentAsUmp<OtherErrorUpwardMessageSender, (), ()>,
+				ParentAsUmp<CanSendUpwardMessageSender, (), ()>,
 				OkFixedXcmHashWithAssertingRequiredInputsSender
 			)>(dest.into(), message)
 		);
@@ -671,7 +684,7 @@ mod test_xcm_router {
 	fn parent_as_ump_validate_nested_xcm_works() {
 		let dest = Parent;
 
-		type Router = ParentAsUmp<(), (), ()>;
+		type Router = ParentAsUmp<CanSendUpwardMessageSender, (), ()>;
 
 		// Message that is not too deeply nested:
 		let mut good = Xcm(vec![ClearOrigin]);
@@ -858,6 +871,9 @@ impl<
 		if dest.ne(&Location::parent()) {
 			return (None, None);
 		}
+
+		// Ensure routers
+		XcmConfig::XcmSender::ensure_successful_delivery(Some(Location::parent()));
 
 		let mut fees_mode = None;
 		if !XcmConfig::FeeManager::is_waived(Some(origin_ref), fee_reason) {
