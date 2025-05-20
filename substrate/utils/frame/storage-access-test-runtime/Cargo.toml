@@ -15,9 +15,9 @@ workspace = true
 
 [dependencies]
 codec = { features = ["derive"], workspace = true }
-cumulus-pallet-parachain-system = { workspace = true, optional = true }
+cumulus-pallet-parachain-system = { workspace = true, features = ["runtime-benchmarks"] }
 sp-core = { workspace = true }
-sp-runtime = { workspace = true }
+sp-runtime = { workspace = true, features = ["runtime-benchmarks"] }
 sp-state-machine = { workspace = true }
 sp-trie = { workspace = true }
 
@@ -26,10 +26,7 @@ substrate-wasm-builder = { optional = true, workspace = true, default-features =
 
 [features]
 default = ["std"]
-no_std = [
-	"cumulus-pallet-parachain-system/runtime-benchmarks",
-	"sp-runtime/runtime-benchmarks",
-]
+no_std = []
 std = [
 	"codec/std",
 	"cumulus-pallet-parachain-system/std",
