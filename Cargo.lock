@@ -1065,6 +1065,7 @@ dependencies = [
  "bp-asset-hub-westend",
  "bp-bridge-hub-rococo",
  "bp-bridge-hub-westend",
+ "bp-xcm-bridge",
  "cumulus-pallet-aura-ext",
  "cumulus-pallet-parachain-system",
  "cumulus-pallet-session-benchmarking",
@@ -1107,7 +1108,7 @@ dependencies = [
  "pallet-utility",
  "pallet-xcm",
  "pallet-xcm-benchmarks",
- "pallet-xcm-bridge-hub-router",
+ "pallet-xcm-bridge-router",
  "parachains-common",
  "parachains-runtimes-test-utils",
  "parity-scale-codec",
@@ -1198,6 +1199,7 @@ dependencies = [
  "bp-asset-hub-westend",
  "bp-bridge-hub-rococo",
  "bp-bridge-hub-westend",
+ "bp-xcm-bridge",
  "cumulus-pallet-aura-ext",
  "cumulus-pallet-parachain-system",
  "cumulus-pallet-session-benchmarking",
@@ -1244,7 +1246,7 @@ dependencies = [
  "pallet-utility",
  "pallet-xcm",
  "pallet-xcm-benchmarks",
- "pallet-xcm-bridge-hub-router",
+ "pallet-xcm-bridge-router",
  "parachains-common",
  "parachains-runtimes-test-utils",
  "parity-scale-codec",
@@ -1298,6 +1300,7 @@ dependencies = [
  "pallet-timestamp",
  "pallet-xcm",
  "pallet-xcm-bridge-hub-router",
+ "pallet-xcm-bridge-router",
  "parachains-common",
  "parachains-runtimes-test-utils",
  "parity-scale-codec",
@@ -2076,7 +2079,7 @@ dependencies = [
  "bp-bridge-hub-cumulus",
  "bp-messages",
  "bp-runtime",
- "bp-xcm-bridge-hub-router",
+ "bp-xcm-bridge-router",
  "frame-support",
  "parity-scale-codec",
  "scale-info",
@@ -2093,7 +2096,7 @@ dependencies = [
  "bp-bridge-hub-cumulus",
  "bp-messages",
  "bp-runtime",
- "bp-xcm-bridge-hub-router",
+ "bp-xcm-bridge-router",
  "frame-support",
  "parity-scale-codec",
  "scale-info",
@@ -2142,7 +2145,7 @@ dependencies = [
  "bp-bridge-hub-cumulus",
  "bp-messages",
  "bp-runtime",
- "bp-xcm-bridge-hub",
+ "bp-xcm-bridge",
  "frame-support",
  "parity-scale-codec",
  "sp-api 26.0.0",
@@ -2157,7 +2160,7 @@ dependencies = [
  "bp-bridge-hub-cumulus",
  "bp-messages",
  "bp-runtime",
- "bp-xcm-bridge-hub",
+ "bp-xcm-bridge",
  "frame-support",
  "parity-scale-codec",
  "sp-api 26.0.0",
@@ -2336,6 +2339,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "bp-xcm-bridge"
+version = "0.2.0"
+dependencies = [
+ "bp-messages",
+ "bp-runtime",
+ "frame-support",
+ "impl-trait-for-tuples",
+ "parity-scale-codec",
+ "scale-info",
+ "serde",
+ "sp-core 28.0.0",
+ "sp-io 30.0.0",
+ "sp-std 14.0.0",
+ "staging-xcm",
+]
+
+[[package]]
 name = "bp-xcm-bridge-hub"
 version = "0.2.0"
 dependencies = [
@@ -2354,6 +2374,17 @@ dependencies = [
 [[package]]
 name = "bp-xcm-bridge-hub-router"
 version = "0.6.0"
+dependencies = [
+ "parity-scale-codec",
+ "scale-info",
+ "sp-core 28.0.0",
+ "sp-runtime 31.0.1",
+ "staging-xcm",
+]
+
+[[package]]
+name = "bp-xcm-bridge-router"
+version = "0.1.0"
 dependencies = [
  "parity-scale-codec",
  "scale-info",
@@ -2448,7 +2479,7 @@ dependencies = [
  "bp-rococo",
  "bp-runtime",
  "bp-westend",
- "bp-xcm-bridge-hub-router",
+ "bp-xcm-bridge-router",
  "bridge-hub-common",
  "bridge-hub-test-utils",
  "bridge-runtime-common",
@@ -2488,7 +2519,7 @@ dependencies = [
  "pallet-utility",
  "pallet-xcm",
  "pallet-xcm-benchmarks",
- "pallet-xcm-bridge-hub",
+ "pallet-xcm-bridge",
  "parachains-common",
  "parachains-runtimes-test-utils",
  "parity-scale-codec",
@@ -2561,6 +2592,7 @@ dependencies = [
  "pallet-timestamp",
  "pallet-utility",
  "pallet-xcm",
+ "pallet-xcm-bridge",
  "pallet-xcm-bridge-hub",
  "parachains-common",
  "parachains-runtimes-test-utils",
@@ -2652,7 +2684,7 @@ dependencies = [
  "bp-rococo",
  "bp-runtime",
  "bp-westend",
- "bp-xcm-bridge-hub-router",
+ "bp-xcm-bridge-router",
  "bridge-hub-common",
  "bridge-hub-test-utils",
  "bridge-runtime-common",
@@ -2691,7 +2723,7 @@ dependencies = [
  "pallet-utility",
  "pallet-xcm",
  "pallet-xcm-benchmarks",
- "pallet-xcm-bridge-hub",
+ "pallet-xcm-bridge",
  "parachains-common",
  "parachains-runtimes-test-utils",
  "parity-scale-codec",
@@ -4624,6 +4656,7 @@ name = "cumulus-pallet-xcmp-queue"
 version = "0.7.1"
 dependencies = [
  "bounded-collections",
+ "bp-xcm-bridge",
  "bp-xcm-bridge-hub-router",
  "cumulus-pallet-parachain-system",
  "cumulus-primitives-core",
@@ -5795,7 +5828,7 @@ version = "3.0.0"
 dependencies = [
  "asset-test-utils",
  "bp-messages",
- "bp-xcm-bridge-hub",
+ "bp-xcm-bridge",
  "cumulus-pallet-parachain-system",
  "cumulus-pallet-xcmp-queue",
  "cumulus-primitives-core",
@@ -5806,6 +5839,7 @@ dependencies = [
  "pallet-bridge-messages",
  "pallet-message-queue",
  "pallet-xcm",
+ "pallet-xcm-bridge",
  "pallet-xcm-bridge-hub",
  "parachains-common",
  "parity-scale-codec",
@@ -13712,6 +13746,34 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-xcm-bridge"
+version = "0.1.0"
+dependencies = [
+ "bp-header-chain",
+ "bp-messages",
+ "bp-runtime",
+ "bp-xcm-bridge",
+ "bp-xcm-bridge-router",
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "log",
+ "pallet-balances",
+ "pallet-bridge-messages",
+ "pallet-xcm-bridge-router",
+ "parity-scale-codec",
+ "polkadot-parachain-primitives",
+ "scale-info",
+ "sp-core 28.0.0",
+ "sp-io 30.0.0",
+ "sp-runtime 31.0.1",
+ "sp-std 14.0.0",
+ "staging-xcm",
+ "staging-xcm-builder",
+ "staging-xcm-executor",
+]
+
+[[package]]
 name = "pallet-xcm-bridge-hub"
 version = "0.2.0"
 dependencies = [
@@ -13749,6 +13811,26 @@ dependencies = [
  "log",
  "parity-scale-codec",
  "polkadot-runtime-parachains",
+ "scale-info",
+ "sp-core 28.0.0",
+ "sp-io 30.0.0",
+ "sp-runtime 31.0.1",
+ "sp-std 14.0.0",
+ "staging-xcm",
+ "staging-xcm-builder",
+]
+
+[[package]]
+name = "pallet-xcm-bridge-router"
+version = "0.1.0"
+dependencies = [
+ "bp-xcm-bridge",
+ "bp-xcm-bridge-router",
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "log",
+ "parity-scale-codec",
  "scale-info",
  "sp-core 28.0.0",
  "sp-io 30.0.0",
@@ -15801,8 +15883,10 @@ dependencies = [
  "bp-relayers",
  "bp-runtime",
  "bp-test-utils",
+ "bp-xcm-bridge",
  "bp-xcm-bridge-hub",
  "bp-xcm-bridge-hub-router",
+ "bp-xcm-bridge-router",
  "bridge-hub-common",
  "bridge-hub-test-utils",
  "bridge-runtime-common",
@@ -15978,8 +16062,10 @@ dependencies = [
  "pallet-whitelist",
  "pallet-xcm",
  "pallet-xcm-benchmarks",
+ "pallet-xcm-bridge",
  "pallet-xcm-bridge-hub",
  "pallet-xcm-bridge-hub-router",
+ "pallet-xcm-bridge-router",
  "parachains-common",
  "parachains-runtimes-test-utils",
  "polkadot-approval-distribution",
