@@ -576,14 +576,25 @@ impl Peerset {
 			PeerState::Closing { .. } | PeerState::Connected { .. } => {
 				log::debug!(target: LOG_TARGET, "{}: reserved peer {peer:?} disconnected", self.protocol);
 			},
+			PeerState::Disconnected => {
+				log::debug!(
+					target: LOG_TARGET,
+					"{}: substream closed for a peer that was previously rejected {peer:?}",
+					self.protocol,
+				);
+			},
 			state => {
 				log::warn!(target: LOG_TARGET, "{}: invalid state for disconnected peer {peer:?}: {state:?}", self.protocol);
 				debug_assert!(false);
 			},
 		}
-		*state = PeerState::Backoff;
 
-		self.connected_peers.fetch_sub(1usize, Ordering::Relaxed);
+		// Rejected peers do not count towards slot allocation.
+		if !matches!(state, PeerState::Disconnected) {
+			self.connected_peers.fetch_sub(1usize, Ordering::Relaxed);
+		}
+
+		*state = PeerState::Backoff;
 		self.pending_backoffs.push(Box::pin(async move {
 			Delay::new(DEFAULT_BACKOFF).await;
 			(peer, DISCONNECT_ADJUSTMENT)
@@ -607,23 +618,24 @@ impl Peerset {
 		let state = self.peers.entry(peer).or_insert(PeerState::Disconnected);
 		let is_reserved_peer = self.reserved_peers.contains(&peer);
 
-		if self.reserved_only && !is_reserved_peer {
-			log::debug!(
-				target: LOG_TARGET,
-				"{}: rejecting non-reserved peer {peer:?} in reserved-only mode (prev state: {state:?})",
-				self.protocol,
-			);
-
-			*state = PeerState::Disconnected;
-			return ValidationResult::Reject;
-		}
+		// Check if this is a non-reserved peer and if the protocol is in reserved-only mode.
+		let should_reject = self.reserved_only && !is_reserved_peer;
 
 		match state {
 			// disconnected peers proceed directly to inbound slot allocation
-			PeerState::Disconnected => {},
+			PeerState::Disconnected =>
+				if should_reject {
+					log::trace!(
+						target: LOG_TARGET,
+						"{}: rejecting non-reserved peer {peer:?} in reserved-only mode (prev state: {state:?})",
+						self.protocol,
+					);
+
+					return ValidationResult::Reject
+				},
 			// peer is backed off but if it can be accepted (either a reserved peer or inbound slot
 			// available), accept the peer and then just ignore the back-off timer when it expires
-			PeerState::Backoff =>
+			PeerState::Backoff => {
 				if !is_reserved_peer && self.num_in == self.max_in {
 					log::trace!(
 						target: LOG_TARGET,
@@ -632,7 +644,17 @@ impl Peerset {
 					);
 
 					return ValidationResult::Reject
-				},
+				}
+
+				// The peer remains in the `PeerStat::Backoff` state until the current timer
+				// expires. This simplifies the transitions, as a `PeerState::Rejected` would
+				// enter into the `PeerState::Backoff` state after the
+				// `report_substream_opened` call.
+				if should_reject {
+					return ValidationResult::Reject
+				}
+			},
+
 			// `Peerset` had initiated an outbound substream but litep2p had received an inbound
 			// substream before the command to open the substream was received, meaning local and
 			// remote desired to open a connection at the same time. Since outbound substreams
@@ -647,6 +669,17 @@ impl Peerset {
 			// inbound substreams, that system has to be kept working for the time being. Once that
 			// issue is fixed, this approach can be re-evaluated if need be.
 			PeerState::Opening { direction: Direction::Outbound(reserved) } => {
+				if should_reject {
+					log::trace!(
+						target: LOG_TARGET,
+						"{}: rejecting inbound substream from {peer:?} ({reserved:?}) in reserved-only mode that was marked outbound",
+						self.protocol,
+					);
+
+					*state = PeerState::Canceled { direction: Direction::Outbound(*reserved) };
+					return ValidationResult::Reject
+				}
+
 				log::trace!(
 					target: LOG_TARGET,
 					"{}: inbound substream received for {peer:?} ({reserved:?}) that was marked outbound",
@@ -656,6 +689,17 @@ impl Peerset {
 				return ValidationResult::Accept;
 			},
 			PeerState::Canceled { direction } => {
+				if should_reject {
+					log::trace!(
+						target: LOG_TARGET,
+						"{}: rejecting inbound substream from {peer:?} ({direction:?}) in reserved-only mode that was marked canceled",
+						self.protocol,
+					);
+
+					// The state must be kept as the peer might count towards the outbound slot.
+					return ValidationResult::Reject
+				}
+
 				log::trace!(
 					target: LOG_TARGET,
 					"{}: {peer:?} is canceled, rejecting substream",
