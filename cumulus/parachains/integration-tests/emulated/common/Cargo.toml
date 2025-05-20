@@ -36,14 +36,10 @@ pallet-bridge-messages.default-features = true
 pallet-bridge-messages.workspace = true
 pallet-message-queue.default-features = true
 pallet-message-queue.workspace = true
-pallet-xcm-bridge-hub.default-features = true
-pallet-xcm-bridge-hub.workspace = true
-pallet-xcm.default-features = true
-pallet-xcm.workspace = true
+pallet-xcm = { features = ["test-utils"], workspace = true, default-features = true }
 parachains-common.default-features = true
 parachains-common.workspace = true
 paste = { workspace = true, default-features = true }
-<<<<<<< HEAD
 polkadot-parachain-primitives.default-features = true
 polkadot-parachain-primitives.workspace = true
 polkadot-primitives.default-features = true
@@ -66,42 +62,6 @@ sp-runtime.default-features = true
 sp-runtime.workspace = true
 xcm-emulator.default-features = true
 xcm-emulator.workspace = true
+xcm-simulator = { workspace = true, default-features = true }
 xcm.default-features = true
 xcm.workspace = true
-=======
-
-# Substrate
-frame-support = { workspace = true, default-features = true }
-pallet-assets = { workspace = true, default-features = true }
-pallet-balances = { workspace = true, default-features = true }
-pallet-message-queue = { workspace = true, default-features = true }
-sc-consensus-grandpa = { workspace = true, default-features = true }
-sp-authority-discovery = { workspace = true, default-features = true }
-sp-consensus-babe = { workspace = true, default-features = true }
-sp-consensus-beefy = { workspace = true, default-features = true }
-sp-core = { workspace = true, default-features = true }
-sp-keyring = { workspace = true, default-features = true }
-sp-runtime = { workspace = true, default-features = true }
-
-# Polkadot
-pallet-xcm = { features = ["test-utils"], workspace = true, default-features = true }
-polkadot-parachain-primitives = { workspace = true, default-features = true }
-polkadot-primitives = { workspace = true, default-features = true }
-polkadot-runtime-parachains = { workspace = true, default-features = true }
-xcm = { workspace = true, default-features = true }
-xcm-simulator = { workspace = true, default-features = true }
-
-# Cumulus
-asset-test-utils = { workspace = true, default-features = true }
-cumulus-pallet-parachain-system = { workspace = true, default-features = true }
-cumulus-pallet-xcmp-queue = { workspace = true, default-features = true }
-cumulus-primitives-core = { workspace = true, default-features = true }
-parachains-common = { workspace = true, default-features = true }
-xcm-emulator = { workspace = true, default-features = true }
-
-# Bridges
-bp-messages = { workspace = true, default-features = true }
-bp-xcm-bridge-hub = { workspace = true, default-features = true }
-pallet-bridge-messages = { workspace = true, default-features = true }
-pallet-xcm-bridge-hub = { workspace = true, default-features = true }
->>>>>>> 803b3463 (Ensure Consistent Topic IDs for Traceable Cross-Chain XCM (#7691))

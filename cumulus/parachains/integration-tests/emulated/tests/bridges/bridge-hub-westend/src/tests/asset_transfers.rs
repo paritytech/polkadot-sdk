@@ -13,17 +13,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-<<<<<<< HEAD
-use crate::{create_pool_with_native_on, tests::*};
-use emulated_integration_tests_common::macros::Dmp;
-=======
 use crate::tests::{snowbridge_common::snowbridge_sovereign, *};
 use emulated_integration_tests_common::{
 	macros::Dmp,
 	xcm_helpers::{find_mq_processed_id, find_xcm_sent_message_id},
 	xcm_simulator::helpers::TopicIdTracker,
 };
->>>>>>> 803b3463 (Ensure Consistent Topic IDs for Traceable Cross-Chain XCM (#7691))
 use xcm::latest::AssetTransferFilter;
 
 fn send_assets_over_bridge<F: FnOnce()>(send_fn: F) {

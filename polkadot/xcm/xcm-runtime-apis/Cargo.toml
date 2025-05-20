@@ -24,7 +24,6 @@ frame-executive = { default-features = false, workspace = true }
 frame-system = { default-features = false, workspace = true }
 hex-literal = { workspace = true }
 log = { workspace = true }
-<<<<<<< HEAD
 pallet-assets = { default-features = false, workspace = true }
 pallet-balances = { default-features = false, workspace = true }
 pallet-xcm = { default-features = false, workspace = true }
@@ -32,16 +31,7 @@ sp-io = { default-features = false, workspace = true }
 sp-tracing = { default-features = true, workspace = true }
 xcm-builder = { default-features = false, workspace = true }
 xcm-executor = { default-features = false, workspace = true }
-=======
-pallet-assets = { workspace = true }
-pallet-balances = { workspace = true }
-pallet-xcm = { workspace = true }
-sp-io = { workspace = true }
-sp-tracing = { workspace = true, default-features = true }
-xcm-builder = { workspace = true }
-xcm-executor = { workspace = true }
 xcm-simulator = { workspace = true, default-features = true }
->>>>>>> 803b3463 (Ensure Consistent Topic IDs for Traceable Cross-Chain XCM (#7691))
 
 [features]
 default = ["std"]
