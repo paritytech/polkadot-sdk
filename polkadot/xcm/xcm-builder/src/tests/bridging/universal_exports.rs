@@ -83,7 +83,11 @@ fn sovereign_paid_remote_exporter_produces_xcm_which_does_not_trap_assets() {
 	);
 	assert_eq!(
 		r,
-		Outcome::Incomplete { used: Weight::from_parts(50, 50), error: XcmError::Unroutable }
+		Outcome::Incomplete {
+			used: Weight::from_parts(50, 50),
+			error: XcmError::Unroutable,
+			index: 0
+		}
 	);
 	// check empty trapped assets
 	assert!(TrappedAssets::get().is_empty());

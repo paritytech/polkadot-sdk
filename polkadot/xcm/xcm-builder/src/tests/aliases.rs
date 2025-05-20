@@ -76,7 +76,11 @@ fn alias_origin_should_work() {
 	);
 	assert_eq!(
 		r,
-		Outcome::Incomplete { used: Weight::from_parts(10, 10), error: XcmError::NoPermission }
+		Outcome::Incomplete {
+			used: Weight::from_parts(10, 10),
+			error: XcmError::NoPermission,
+			index: 0
+		}
 	);
 
 	let r = XcmExecutor::<TestConfig>::prepare_and_execute(

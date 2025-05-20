@@ -37,7 +37,11 @@ fn simple_version_subscriptions_should_work() {
 			weight_limit,
 			Weight::zero(),
 		),
-		Outcome::Incomplete { used: Weight::from_parts(20, 20), error: XcmError::Barrier }
+		Outcome::Incomplete {
+			used: Weight::from_parts(20, 20),
+			error: XcmError::Barrier,
+			index: 0
+		}
 	);
 
 	// this case fails because the additional `SetAppendix` instruction is not allowed in the
@@ -50,7 +54,11 @@ fn simple_version_subscriptions_should_work() {
 			weight_limit,
 			Weight::zero(),
 		),
-		Outcome::Incomplete { used: Weight::from_parts(20, 20), error: XcmError::Barrier }
+		Outcome::Incomplete {
+			used: Weight::from_parts(20, 20),
+			error: XcmError::Barrier,
+			index: 0
+		}
 	);
 
 	let message = Xcm::<TestCall>(vec![SubscribeVersion {
@@ -68,7 +76,11 @@ fn simple_version_subscriptions_should_work() {
 	);
 	assert_eq!(
 		r,
-		Outcome::Incomplete { used: Weight::from_parts(10, 10), error: XcmError::Barrier }
+		Outcome::Incomplete {
+			used: Weight::from_parts(10, 10),
+			error: XcmError::Barrier,
+			index: 0
+		}
 	);
 
 	let r = XcmExecutor::<TestConfig>::prepare_and_execute(
@@ -104,7 +116,11 @@ fn version_subscription_instruction_should_work() {
 	);
 	assert_eq!(
 		r,
-		Outcome::Incomplete { used: Weight::from_parts(20, 20), error: XcmError::BadOrigin }
+		Outcome::Incomplete {
+			used: Weight::from_parts(20, 20),
+			error: XcmError::BadOrigin,
+			index: 0
+		}
 	);
 
 	let message = Xcm::<TestCall>(vec![
@@ -144,7 +160,11 @@ fn simple_version_unsubscriptions_should_work() {
 	);
 	assert_eq!(
 		r,
-		Outcome::Incomplete { used: Weight::from_parts(20, 20), error: XcmError::Barrier }
+		Outcome::Incomplete {
+			used: Weight::from_parts(20, 20),
+			error: XcmError::Barrier,
+			index: 0
+		}
 	);
 
 	let origin = Parachain(1000);
@@ -160,7 +180,11 @@ fn simple_version_unsubscriptions_should_work() {
 	);
 	assert_eq!(
 		r,
-		Outcome::Incomplete { used: Weight::from_parts(10, 10), error: XcmError::Barrier }
+		Outcome::Incomplete {
+			used: Weight::from_parts(10, 10),
+			error: XcmError::Barrier,
+			index: 0
+		}
 	);
 
 	let r = XcmExecutor::<TestConfig>::prepare_and_execute(
@@ -196,7 +220,11 @@ fn version_unsubscription_instruction_should_work() {
 	);
 	assert_eq!(
 		r,
-		Outcome::Incomplete { used: Weight::from_parts(20, 20), error: XcmError::BadOrigin }
+		Outcome::Incomplete {
+			used: Weight::from_parts(20, 20),
+			error: XcmError::BadOrigin,
+			index: 0
+		}
 	);
 
 	// Fine to do it when origin is untouched.

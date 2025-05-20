@@ -226,7 +226,7 @@ where
 /// `frame_system::Call::authorize_upgrade` from governance system.
 pub fn can_governance_authorize_upgrade<Runtime, RuntimeOrigin>(
 	governance_origin: GovernanceOrigin<RuntimeOrigin>,
-) -> Result<(), Either<DispatchError, XcmError>>
+) -> Result<(), Either<DispatchError, (u8, XcmError)>>
 where
 	Runtime: BasicParachainRuntime
 		+ frame_system::Config<RuntimeOrigin = RuntimeOrigin, AccountId = AccountId>,

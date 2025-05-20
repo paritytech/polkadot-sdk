@@ -39,7 +39,11 @@ fn universal_origin_should_work() {
 	);
 	assert_eq!(
 		r,
-		Outcome::Incomplete { used: Weight::from_parts(10, 10), error: XcmError::InvalidLocation }
+		Outcome::Incomplete {
+			used: Weight::from_parts(10, 10),
+			error: XcmError::InvalidLocation,
+			index: 0
+		}
 	);
 
 	let message = Xcm(vec![
@@ -56,7 +60,11 @@ fn universal_origin_should_work() {
 	);
 	assert_eq!(
 		r,
-		Outcome::Incomplete { used: Weight::from_parts(20, 20), error: XcmError::NotWithdrawable }
+		Outcome::Incomplete {
+			used: Weight::from_parts(20, 20),
+			error: XcmError::NotWithdrawable,
+			index: 0
+		}
 	);
 
 	add_asset((Ancestor(2), GlobalConsensus(Kusama)), (Parent, 100));
@@ -130,7 +138,11 @@ fn unpaid_execution_should_work() {
 	);
 	assert_eq!(
 		r,
-		Outcome::Incomplete { used: Weight::from_parts(10, 10), error: XcmError::BadOrigin }
+		Outcome::Incomplete {
+			used: Weight::from_parts(10, 10),
+			error: XcmError::BadOrigin,
+			index: 0
+		}
 	);
 	let r = XcmExecutor::<TestConfig>::prepare_and_execute(
 		Parachain(2),
@@ -141,7 +153,11 @@ fn unpaid_execution_should_work() {
 	);
 	assert_eq!(
 		r,
-		Outcome::Incomplete { used: Weight::from_parts(10, 10), error: XcmError::Barrier }
+		Outcome::Incomplete {
+			used: Weight::from_parts(10, 10),
+			error: XcmError::Barrier,
+			index: 0
+		}
 	);
 
 	let message = Xcm(vec![UnpaidExecution {

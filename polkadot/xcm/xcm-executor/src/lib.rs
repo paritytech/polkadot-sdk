@@ -233,10 +233,7 @@ impl<Config: config::Config> ExecuteXcm<Config::RuntimeCall> for XcmExecutor<Con
 	) -> Result<Self::Prepared, Xcm<Config::RuntimeCall>> {
 		match Config::Weigher::weight(&mut message) {
 			Ok(weight) => Ok(WeighedMessage(weight, message)),
-			Err(_) => {
-				tracing::debug!(target: "xcm::prepare", "Failed to prepare message due to uncomputable weight");
-				Err(message)
-			},
+			Err(_) => Err(message),
 		}
 	}
 	fn execute(
@@ -419,7 +416,11 @@ impl<Config: config::Config> XcmExecutor<Config> {
 					original_origin = ?self.original_origin,
 					"Execution failed",
 				);
-				Outcome::Incomplete { used: weight_used, error, index }
+				Outcome::Incomplete {
+					used: weight_used,
+					error,
+					index: index.try_into().unwrap_or(0),
+				}
 			},
 		}
 	}
