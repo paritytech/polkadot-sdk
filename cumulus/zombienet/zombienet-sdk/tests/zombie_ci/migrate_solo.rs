@@ -84,7 +84,7 @@ async fn migrate_solo_to_para() -> Result<(), anyhow::Error> {
 		.wait_for_finalized_success()
 		.await?;
 
-	// solo node should not produce blocks
+	// solo node should produce blocks now
 	log::info!("Ensuring eve reports expected block height");
 	assert!(eve
 		.wait_metric_with_timeout(BEST_BLOCK_METRIC, |b| b == 10.0, 250u64)
