@@ -34,7 +34,7 @@ pub(crate) fn get_wasm_module() -> Box<dyn sc_executor_common::wasm_runtime::Was
 	let blob = sc_executor_common::runtime_blob::RuntimeBlob::uncompress_if_needed(
 		WASM_BINARY.expect("You need to build the WASM binaries to run the benchmark!"),
 	)
-	.unwrap();
+	.expect("Failed to create runtime blob");
 
 	let extra_heap_pages = 4096;
 	// polkadot_node_core_pvf_common::executor_interface::DEFAULT_HEAP_PAGES_ESTIMATE

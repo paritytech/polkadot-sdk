@@ -334,7 +334,7 @@ impl StorageCmd {
 
 		let mut durations_in_nanos = Vec::new();
 		let wasm_module = get_wasm_module();
-		let mut instance = wasm_module.new_instance().unwrap();
+		let mut instance = wasm_module.new_instance().expect("Failed to create wasm instance");
 		let dry_run_encoded = params.as_dry_run().encode();
 		let encoded = params.encode();
 
@@ -346,12 +346,16 @@ impl StorageCmd {
 
 			// Dry run to get the time it takes without storage access
 			let dry_run_start = Instant::now();
-			instance.call_export("validate_block", &dry_run_encoded).unwrap();
+			instance
+				.call_export("validate_block", &dry_run_encoded)
+				.expect("Failed to call validate_block");
 			let dry_run_elapsed = dry_run_start.elapsed();
 			debug!("validate_block dry-run time {:?}", dry_run_elapsed);
 
 			let start = Instant::now();
-			instance.call_export("validate_block", &encoded).unwrap();
+			instance
+				.call_export("validate_block", &encoded)
+				.expect("Failed to call validate_block");
 			let elapsed = start.elapsed();
 			debug!("validate_block time {:?}", elapsed);
 

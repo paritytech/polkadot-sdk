@@ -61,6 +61,7 @@ impl StorageCmd {
 		let mut keys: Vec<_> = client.storage_keys(best_hash, None, None)?.collect();
 		let (mut rng, _) = new_rng(None);
 		keys.shuffle(&mut rng);
+		assert!(keys.len() > 0, "Can't process benchmarking with empty storage");
 
 		let mut child_nodes = Vec::new();
 		// Interesting part here:
@@ -84,7 +85,7 @@ impl StorageCmd {
 		let mut on_validation_batch = vec![];
 		let mut on_validation_size = 0;
 
-		let last_key = keys.last().unwrap();
+		let last_key = keys.last().expect("Checked above to be non-empty");
 		for key in keys.as_slice() {
 			match (self.params.include_child_trees, self.is_child_key(key.clone().0)) {
 				(true, Some(info)) => {
@@ -140,7 +141,8 @@ impl StorageCmd {
 			child_nodes.shuffle(&mut rng);
 
 			info!("Reading {} child keys", child_nodes.len());
-			let (last_child_key, last_child_info) = child_nodes.last().unwrap();
+			let (last_child_key, last_child_info) =
+				child_nodes.last().expect("Checked above to be non-empty");
 			for (key, info) in child_nodes.as_slice() {
 				on_validation_batch.push((key.0.clone(), Some(info.clone())));
 				let start = Instant::now();
@@ -223,7 +225,7 @@ fn measure_on_block_validation<B: BlockT + Debug>(
 	);
 	let batch_size = on_validation_batch.len();
 	let wasm_module = get_wasm_module();
-	let mut instance = wasm_module.new_instance().unwrap();
+	let mut instance = wasm_module.new_instance().expect("Failed to create wasm instance");
 	let params = StorageAccessParams::<B>::new_read(root, storage_proof, on_validation_batch);
 	let dry_run_encoded = params.as_dry_run().encode();
 	let encoded = params.encode();
@@ -235,12 +237,16 @@ fn measure_on_block_validation<B: BlockT + Debug>(
 
 		// Dry run to get the time it takes without storage access
 		let dry_run_start = Instant::now();
-		instance.call_export("validate_block", &dry_run_encoded).unwrap();
+		instance
+			.call_export("validate_block", &dry_run_encoded)
+			.expect("Failed to call validate_block");
 		let dry_run_elapsed = dry_run_start.elapsed();
 		debug!("validate_block dry-run time {:?}", dry_run_elapsed);
 
 		let start = Instant::now();
-		instance.call_export("validate_block", &encoded).unwrap();
+		instance
+			.call_export("validate_block", &encoded)
+			.expect("Failed to call validate_block");
 		let elapsed = start.elapsed();
 		debug!("validate_block time {:?}", elapsed);
 
