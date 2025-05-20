@@ -22,10 +22,18 @@ use crate::{
 	migration::data::NeedsMigration,
 	mock::*,
 	pallet::{LockedFungibles, RemoteLockedFungibles, SupportedVersion},
+<<<<<<< HEAD
 	AssetTraps, Config, CurrentMigration, Error, ExecuteControllerWeightInfo,
 	LatestVersionedLocation, Pallet, Queries, QueryStatus, RecordedXcm, RemoteLockedFungibleRecord,
 	ShouldRecordXcm, VersionDiscoveryQueue, VersionMigrationStage, VersionNotifiers,
 	VersionNotifyTargets, WeightInfo,
+=======
+	xcm_helpers::find_xcm_sent_message_id,
+	AssetTraps, AuthorizedAliasers, Config, CurrentMigration, Error, ExecuteControllerWeightInfo,
+	LatestVersionedLocation, MaxAuthorizedAliases, Pallet, Queries, QueryStatus, RecordedXcm,
+	RemoteLockedFungibleRecord, ShouldRecordXcm, VersionDiscoveryQueue, VersionMigrationStage,
+	VersionNotifiers, VersionNotifyTargets, WeightInfo,
+>>>>>>> 803b3463 (Ensure Consistent Topic IDs for Traceable Cross-Chain XCM (#7691))
 };
 use bounded_collections::BoundedVec;
 use frame_support::{
@@ -41,6 +49,7 @@ use xcm_executor::{
 	traits::{Properties, QueryHandler, QueryResponseStatus, ShouldExecute},
 	XcmExecutor,
 };
+use xcm_simulator::fake_message_hash;
 
 const ALICE: AccountId = AccountId::new([0u8; 32]);
 const BOB: AccountId = AccountId::new([1u8; 32]);
@@ -1456,3 +1465,118 @@ fn record_xcm_works() {
 		assert_eq!(RecordedXcm::<Test>::get(), Some(message.into()));
 	});
 }
+<<<<<<< HEAD
+=======
+
+#[test]
+fn execute_initiate_transfer_and_check_sent_event() {
+	use crate::Event;
+	use sp_tracing::{
+		test_log_capture::init_log_capture,
+		tracing::{subscriber, Level},
+	};
+
+	let (log_capture, subscriber) = init_log_capture(Level::TRACE, true);
+	subscriber::with_default(subscriber, || {
+		let balances = vec![(ALICE, INITIAL_BALANCE)];
+		new_test_ext_with_balances(balances).execute_with(|| {
+			let beneficiary: Location =
+				Location::new(1, [AccountId32 { network: None, id: BOB.into() }]);
+			let fee_asset: Asset = (Parent, SEND_AMOUNT).into();
+
+			let message = Xcm(vec![InitiateReserveWithdraw {
+				assets: Wild(All),
+				reserve: Parent.into(),
+				xcm: Xcm(vec![
+					BuyExecution { fees: fee_asset.clone(), weight_limit: Unlimited },
+					DepositAsset { assets: All.into(), beneficiary: beneficiary.clone() },
+				]),
+			}]);
+
+			let result = XcmPallet::execute(
+				RuntimeOrigin::signed(ALICE),
+				Box::new(VersionedXcm::from(message.clone())),
+				BaseXcmWeight::get() * 3,
+			);
+			assert_ok!(result);
+
+			let sent_msg_id = find_xcm_sent_message_id::<Test>(all_events()).unwrap();
+			let sent_message: Xcm<()> = Xcm(vec![
+				WithdrawAsset(Assets::new()),
+				ClearOrigin,
+				BuyExecution { fees: fee_asset.clone(), weight_limit: Unlimited },
+				DepositAsset { assets: All.into(), beneficiary: beneficiary.clone() },
+				SetTopic(sent_msg_id),
+			]);
+			assert!(log_capture
+				.contains(format!("xcm::send: Sending msg msg={:?}", sent_message).as_str()));
+
+			let origin: Location = AccountId32 { network: None, id: ALICE.into() }.into();
+			assert_eq!(
+				last_events(2),
+				vec![
+					RuntimeEvent::XcmPallet(Event::Sent {
+						origin,
+						destination: Parent.into(),
+						message: Xcm::default(),
+						message_id: sent_msg_id,
+					}),
+					RuntimeEvent::XcmPallet(Event::Attempted {
+						outcome: Outcome::Complete { used: Weight::from_parts(1_000, 1_000) }
+					}),
+				]
+			);
+		})
+	});
+}
+
+#[test]
+fn deliver_failure_with_expect_error() {
+	use sp_tracing::{
+		test_log_capture::init_log_capture,
+		tracing::{subscriber, Level},
+	};
+
+	let (log_capture, subscriber) = init_log_capture(Level::TRACE, true);
+	subscriber::with_default(subscriber, || {
+		let balances = vec![(ALICE, INITIAL_BALANCE)];
+
+		new_test_ext_with_balances(balances).execute_with(|| {
+			let message = Xcm(vec![InitiateReserveWithdraw {
+				assets: Wild(All),
+				reserve: Parent.into(),
+				xcm: Xcm(vec![
+					ExpectError(Some((1, xcm::latest::Error::Unimplemented)))
+				]),
+			}]);
+
+			let result = XcmPallet::execute(
+				RuntimeOrigin::signed(ALICE),
+				Box::new(VersionedXcm::from(message.clone())),
+				BaseXcmWeight::get() * 3,
+			);
+
+			// Expect an error from the send operation
+			assert!(result.is_err());
+
+			// Check logs for send attempt and failure
+			assert!(log_capture.contains("xcm::send: Sending msg msg=Xcm([WithdrawAsset(Assets([])), ClearOrigin, ExpectError(Some((1, Unimplemented))), SetTopic("));
+			assert!(log_capture.contains("xcm::send: XCM failed to deliver with error error=Transport(\"Intentional deliver failure used in tests\")"));
+		})
+	});
+}
+
+#[test]
+fn query_weight_to_asset_fee_noop() {
+	new_test_ext_with_balances(vec![]).execute_with(|| {
+		let weight = Weight::from_parts(4_000_000_000, 3800);
+		let asset_id = AssetId(Location::here());
+
+		assert_storage_noop!(XcmPallet::query_weight_to_asset_fee::<Trader>(
+			weight,
+			asset_id.into()
+		)
+		.unwrap());
+	})
+}
+>>>>>>> 803b3463 (Ensure Consistent Topic IDs for Traceable Cross-Chain XCM (#7691))

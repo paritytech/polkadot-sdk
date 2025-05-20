@@ -241,6 +241,7 @@ impl<Config: config::Config> ExecuteXcm<Config::RuntimeCall> for XcmExecutor<Con
 			target: "xcm::execute",
 			?origin,
 			?message,
+			?id,
 			?weight_credit,
 			"Executing message",
 		);
@@ -429,6 +430,14 @@ impl<Config: config::Config> XcmExecutor<Config> {
 		msg: Xcm<()>,
 		reason: FeeReason,
 	) -> Result<XcmHash, XcmError> {
+		let mut msg = msg;
+		// Only the last `SetTopic` instruction is considered relevant. If the message does not end
+		// with it, a `topic_or_message_id()` from the context is appended to it. This behaviour is
+		// then consistent with `WithUniqueTopic`.
+		if !matches!(msg.last(), Some(SetTopic(_))) {
+			let topic_id = self.context.topic_or_message_id();
+			msg.0.push(SetTopic(topic_id.into()));
+		}
 		tracing::trace!(
 			target: "xcm::send",
 			?msg,
@@ -438,7 +447,32 @@ impl<Config: config::Config> XcmExecutor<Config> {
 		);
 		let (ticket, fee) = validate_send::<Config::XcmSender>(dest, msg)?;
 		self.take_fee(fee, reason)?;
+<<<<<<< HEAD
 		Config::XcmSender::deliver(ticket).map_err(Into::into)
+=======
+		match Config::XcmSender::deliver(ticket) {
+			Ok(message_id) => {
+				Config::XcmEventEmitter::emit_sent_event(
+					self.original_origin.clone(),
+					dest,
+					None, /* Avoid logging the full XCM message to prevent inconsistencies and
+					       * reduce storage usage. */
+					message_id,
+				);
+				Ok(message_id)
+			},
+			Err(error) => {
+				tracing::debug!(target: "xcm::send", ?error, "XCM failed to deliver with error");
+				Config::XcmEventEmitter::emit_send_failure_event(
+					self.original_origin.clone(),
+					dest,
+					error.clone(),
+					self.context.topic_or_message_id(),
+				);
+				Err(error.into())
+			},
+		}
+>>>>>>> 803b3463 (Ensure Consistent Topic IDs for Traceable Cross-Chain XCM (#7691))
 	}
 
 	/// Remove the registered error handler and return it. Do not refund its weight.
@@ -821,8 +855,21 @@ impl<Config: config::Config> XcmExecutor<Config> {
 
 						self.process_instruction(instr)
 					});
+<<<<<<< HEAD
 					if let Err(e) = inst_res {
 						tracing::trace!(target: "xcm::execute", "!!! ERROR: {:?}", e);
+=======
+					if let Err(error) = inst_res {
+						tracing::debug!(
+							target: "xcm::process",
+							?error, "XCM execution failed at instruction index={i}"
+						);
+						Config::XcmEventEmitter::emit_process_failure_event(
+							self.original_origin.clone(),
+							error,
+							self.context.topic_or_message_id(),
+						);
+>>>>>>> 803b3463 (Ensure Consistent Topic IDs for Traceable Cross-Chain XCM (#7691))
 						*r = Err(ExecutorError {
 							index: i as u32,
 							xcm_error: e,
