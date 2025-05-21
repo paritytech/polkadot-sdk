@@ -204,28 +204,32 @@ struct PeerData {
 	unknown_heads: LruMap<Hash, (), ByLength>,
 }
 
-/// A type wrapping a collation and it's designated core index.
-struct CollationWithCoreIndex(Collation, CoreIndex, Option<CollationStats>);
+/// A type wrapping a collation, it's designated core index and stats.
+struct CollationData {
+	collation: Collation,
+	core_index: CoreIndex,
+	stats: Option<CollationStats>,
+}
 
-impl CollationWithCoreIndex {
+impl CollationData {
 	/// Returns inner collation ref.
 	pub fn collation(&self) -> &Collation {
-		&self.0
+		&self.collation
 	}
 
 	/// Returns inner collation mut ref.
 	pub fn collation_mut(&mut self) -> &mut Collation {
-		&mut self.0
+		&mut self.collation
 	}
 
 	/// Returns inner core index.
 	pub fn core_index(&self) -> &CoreIndex {
-		&self.1
+		&self.core_index
 	}
 
 	/// Takes the stats and returns them.
 	pub fn take_stats(&mut self) -> Option<CollationStats> {
-		self.2.take()
+		self.stats.take()
 	}
 }
 
@@ -234,7 +238,7 @@ struct PerRelayParent {
 	/// on top of this relay parent.
 	validator_group: HashMap<CoreIndex, ValidatorGroup>,
 	/// Distributed collations.
-	collations: HashMap<CandidateHash, CollationWithCoreIndex>,
+	collations: HashMap<CandidateHash, CollationData>,
 	/// Number of assignments per core
 	assignments: HashMap<CoreIndex, usize>,
 	/// The relay parent block number
@@ -513,13 +517,18 @@ async fn distribute_collation<Context>(
 	let para_head = receipt.descriptor.para_head();
 	per_relay_parent.collations.insert(
 		candidate_hash,
-		CollationWithCoreIndex(
-			Collation { receipt, pov, parent_head_data, status: CollationStatus::Created },
+		CollationData {
+			collation: Collation {
+				receipt,
+				pov,
+				parent_head_data,
+				status: CollationStatus::Created,
+			},
 			core_index,
-			per_relay_parent
+			stats: per_relay_parent
 				.block_number
 				.map(|n| CollationStats::new(para_head, n, &state.metrics)),
-		),
+		},
 	);
 
 	// The leaf should be present in the allowed ancestry of some leaf.
@@ -1440,7 +1449,7 @@ async fn handle_our_view_change<Context>(
 
 fn process_out_of_view_collation(
 	collation_tracker: &mut CollationTracker,
-	mut collation_with_core: CollationWithCoreIndex,
+	mut collation_with_core: CollationData,
 ) {
 	let collation = collation_with_core.collation();
 	let candidate_hash: CandidateHash = collation.receipt.hash();
