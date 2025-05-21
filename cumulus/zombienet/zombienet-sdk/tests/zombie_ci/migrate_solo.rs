@@ -3,16 +3,15 @@
 
 use anyhow::anyhow;
 use serde_json::json;
-use std::path::Path;
+use std::{path::Path, str::FromStr};
 
 use polkadot_primitives::Id as ParaId;
+use sp_core::{hexdisplay::AsBytesRef, Bytes};
 use subxt::{dynamic::Value, tx::DynamicPayload, OnlineClient, PolkadotConfig, SubstrateConfig};
 use subxt_signer::sr25519::dev;
 
 use crate::utils::BEST_BLOCK_METRIC;
-use cumulus_zombienet_sdk_helpers::{
-	assert_para_throughput, submit_extrinsic_and_wait_for_finalization_success,
-};
+use cumulus_zombienet_sdk_helpers::assert_para_throughput;
 use zombienet_sdk::{LocalFileSystem, Network, NetworkConfigBuilder, RegistrationStrategy};
 
 const PARA_ID: u32 = 2000;
@@ -23,13 +22,12 @@ async fn create_migrate_solo_to_para_call(
 ) -> Result<DynamicPayload, anyhow::Error> {
 	let file_path = Path::new(base_dir).join(solo_dir).join("genesis-state");
 
-	let genesis_state = std::fs::read(file_path)?;
+	// genesis state is stored as hex string
+	let genesis_state = std::fs::read_to_string(file_path)?;
+	let genesis_head = Value::from_bytes(Bytes::from_str(&genesis_state)?.as_bytes_ref());
 
-	let call = subxt::dynamic::tx(
-		"TestPallet",
-		"set_custom_validation_head_data",
-		vec![Value::from_bytes(genesis_state)],
-	);
+	let call =
+		subxt::dynamic::tx("TestPallet", "set_custom_validation_head_data", vec![genesis_head]);
 	Ok(call)
 }
 
@@ -73,21 +71,31 @@ async fn migrate_solo_to_para() -> Result<(), anyhow::Error> {
 		.is_ok());
 
 	log::info!("Migrating solo to para");
-	// dave: js-script ./migrate_solo_to_para.js with "dave,2000-1,eve" within 200 seconds
-	// after migration solo should start producing blocks and dave should stop
 	let call = create_migrate_solo_to_para_call(base_dir, "2000-1").await?;
 	let dave_client: OnlineClient<SubstrateConfig> = dave.wait_client().await?;
 
-	assert!(submit_extrinsic_and_wait_for_finalization_success(&dave_client, &call, &dev::alice())
+	// Don't wait for finalization. dave will be disconnected after transaction success and it won't
+	// be able to get its status
+	let res = dave_client.tx().sign_and_submit_then_watch_default(&call, &dev::alice()).await;
+	assert!(res.is_ok(), "Extrinsic failed to submit: {:?}", res.unwrap_err());
+
+	// eve (solo node) should produce blocks now
+	log::info!("Ensuring eve reports expected block height");
+	assert!(eve
+		.wait_metric_with_timeout(BEST_BLOCK_METRIC, |b| b == 5.0, 200u64)
 		.await
 		.is_ok());
 
-	// solo node should produce blocks now
+	let dave_best_block = dave.reports(BEST_BLOCK_METRIC).await?;
+
 	log::info!("Ensuring eve reports expected block height");
 	assert!(eve
-		.wait_metric_with_timeout(BEST_BLOCK_METRIC, |b| b == 10.0, 250u64)
+		.wait_metric_with_timeout(BEST_BLOCK_METRIC, |b| b == 10.0, 50u64)
 		.await
 		.is_ok());
+
+	log::info!("Ensuring dave no longer produces blocks");
+	assert_eq!(dave_best_block, dave.reports(BEST_BLOCK_METRIC).await?);
 
 	Ok(())
 }
@@ -148,7 +156,6 @@ async fn initialize_network() -> Result<Network<LocalFileSystem>, anyhow::Error>
 			anyhow!("config errs: {errs}")
 		})?;
 
-	log::info!("parachains config = {:#?}", config.parachains());
 	// Spawn network
 	let spawn_fn = zombienet_sdk::environment::get_spawn_fn();
 	let network = spawn_fn(config).await?;

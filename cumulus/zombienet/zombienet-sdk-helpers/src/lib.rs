@@ -339,7 +339,6 @@ where
 	// which was removed in subxt 0.33.0. See https://github.com/paritytech/subxt/pull/1237.
 	while let Some(status) = tx.next().await {
 		let status = status?;
-		log::debug!("tx status = {:?}", status);
 		match &status {
 			TxStatus::InBestBlock(tx_in_block) | TxStatus::InFinalizedBlock(tx_in_block) => {
 				let _result = tx_in_block.wait_for_success().await?;
