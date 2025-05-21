@@ -15,7 +15,6 @@
 
 use crate::{create_pool_with_native_on, tests::*};
 use emulated_integration_tests_common::{
-	macros::Dmp,
 	xcm_helpers::{find_mq_processed_id, find_xcm_sent_message_id},
 	xcm_simulator::helpers::TopicIdTracker,
 };

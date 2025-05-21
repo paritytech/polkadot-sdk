@@ -16,7 +16,6 @@
 use emulated_integration_tests_common::xcm_helpers::{
 	find_mq_processed_id, find_xcm_sent_message_id,
 };
-use rococo_westend_system_emulated_network::westend_emulated_chain::westend_runtime::Dmp;
 use std::collections::HashMap;
 
 use crate::tests::*;
