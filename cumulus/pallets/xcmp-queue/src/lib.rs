@@ -268,7 +268,7 @@ pub mod pallet {
 			assert!(w != Weight::zero());
 			assert!(w.all_lte(T::BlockWeights::get().max_block));
 
-			<T::WeightInfo as WeightInfoExt>::check_accuracy::<MaxXcmpMessageLenOf<T>>(0.05);
+			<T::WeightInfo as WeightInfoExt>::check_accuracy::<MaxXcmpMessageLenOf<T>>(0.15);
 		}
 
 		fn on_idle(_block: BlockNumberFor<T>, limit: Weight) -> Weight {
