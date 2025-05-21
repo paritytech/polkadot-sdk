@@ -607,6 +607,12 @@ pub mod bridging {
 					PalletInstance(bp_bridge_hub_rococo::WITH_BRIDGE_ROCOCO_TO_WESTEND_MESSAGES_PALLET_INDEX)
 				]
 			);
+			pub LocalBridge: Location = Location::new(
+				0,
+				[
+					PalletInstance(bp_asset_hub_rococo::WITH_BRIDGE_ROCOCO_TO_WESTEND_MESSAGES_PALLET_INDEX)
+				]
+			);
 
 			pub const WestendNetwork: NetworkId = NetworkId::ByGenesis(WESTEND_GENESIS_HASH);
 			pub const EthereumNetwork: NetworkId = NetworkId::Ethereum { chain_id: 11155111 };
@@ -638,7 +644,10 @@ pub mod bridging {
 			/// Universal aliases
 			pub UniversalAliases: BTreeSet<(Location, Junction)> = BTreeSet::from_iter(
 				alloc::vec![
-					(SiblingBridgeHubWithBridgeHubWestendInstance::get(), GlobalConsensus(WestendNetwork::get()))
+					// The bridge over BridgeHubs (legacy).
+					(SiblingBridgeHubWithBridgeHubWestendInstance::get(), GlobalConsensus(WestendNetwork::get())),
+					// The direct bridge over AssetHubs.
+					(LocalBridge::get(), GlobalConsensus(WestendNetwork::get()))
 				]
 			);
 		}

@@ -1176,6 +1176,7 @@ asset_test_utils::include_create_and_manage_foreign_assets_for_local_consensus_p
 	})
 );
 
+/// The bridge over BridgeHubs: AHW <-> BHW <-> BHR <-> AHR
 fn bridging_to_asset_hub_rococo() -> TestBridgingConfig {
 	let _ = PolkadotXcm::force_xcm_version(
 		RuntimeOrigin::root(),
@@ -1187,6 +1188,24 @@ fn bridging_to_asset_hub_rococo() -> TestBridgingConfig {
 		bridged_network: bridging::to_rococo::RococoNetwork::get(),
 		local_bridge_hub_para_id: bridging::SiblingBridgeHubParaId::get(),
 		local_bridge_hub_location: bridging::SiblingBridgeHub::get(),
+		bridged_target_location: bridging::to_rococo::AssetHubRococo::get(),
+	}
+}
+
+/// The direct bridge over AssetHubs: AHW <-> AHR
+fn direct_bridging_to_asset_hub_rococo() -> TestBridgingConfig {
+	let _ = PolkadotXcm::force_xcm_version(
+		RuntimeOrigin::root(),
+		Box::new(bridging::to_rococo::AssetHubRococo::get()),
+		XCM_VERSION,
+	)
+		.expect("version saved!");
+	TestBridgingConfig {
+		bridged_network: bridging::to_rococo::RococoNetwork::get(),
+		// Local AH para_id.
+		local_bridge_hub_para_id: bp_asset_hub_westend::ASSET_HUB_WESTEND_PARACHAIN_ID,
+		// The bridge is deployed `Here` on the AH chain.
+		local_bridge_hub_location: Location::here(),
 		bridged_target_location: bridging::to_rococo::AssetHubRococo::get(),
 	}
 }
@@ -1226,21 +1245,22 @@ fn limited_reserve_transfer_assets_for_native_asset_to_asset_hub_rococo_works() 
 
 #[test]
 fn receive_reserve_asset_deposited_roc_from_asset_hub_rococo_fees_paid_by_pool_swap_works() {
-	const BLOCK_AUTHOR_ACCOUNT: [u8; 32] = [13; 32];
-	let block_author_account = AccountId::from(BLOCK_AUTHOR_ACCOUNT);
-	let staking_pot = StakingPot::get();
+	fn test_with(bridging_cfg: impl Fn() -> TestBridgingConfig, bridge_instance: InteriorLocation) {
+		const BLOCK_AUTHOR_ACCOUNT: [u8; 32] = [13; 32];
+		let block_author_account = AccountId::from(BLOCK_AUTHOR_ACCOUNT);
+		let staking_pot = StakingPot::get();
 
-	let foreign_asset_id_location = xcm::v5::Location::new(
-		2,
-		[xcm::v5::Junction::GlobalConsensus(xcm::v5::NetworkId::ByGenesis(ROCOCO_GENESIS_HASH))],
-	);
-	let foreign_asset_id_minimum_balance = 1_000_000_000;
-	// sovereign account as foreign asset owner (can be whoever for this scenario)
-	let foreign_asset_owner = LocationToAccountId::convert_location(&Location::parent()).unwrap();
-	let foreign_asset_create_params =
-		(foreign_asset_owner, foreign_asset_id_location.clone(), foreign_asset_id_minimum_balance);
+		let foreign_asset_id_location = xcm::v5::Location::new(
+			2,
+			[xcm::v5::Junction::GlobalConsensus(xcm::v5::NetworkId::ByGenesis(ROCOCO_GENESIS_HASH))],
+		);
+		let foreign_asset_id_minimum_balance = 1_000_000_000;
+		// sovereign account as a foreign asset owner (can be whoever for this scenario)
+		let foreign_asset_owner = LocationToAccountId::convert_location(&Location::parent()).unwrap();
+		let foreign_asset_create_params =
+			(foreign_asset_owner, foreign_asset_id_location.clone(), foreign_asset_id_minimum_balance);
 
-	asset_test_utils::test_cases_over_bridge::receive_reserve_asset_deposited_from_different_consensus_works::<
+		asset_test_utils::test_cases_over_bridge::receive_reserve_asset_deposited_from_different_consensus_works::<
 			Runtime,
 			AllPalletsWithoutSystem,
 			XcmConfig,
@@ -1259,10 +1279,10 @@ fn receive_reserve_asset_deposited_roc_from_asset_hub_rococo_fees_paid_by_pool_s
 				// staking pot account for collecting local native fees from `BuyExecution`
 				let _ = Balances::force_set_balance(RuntimeOrigin::root(), StakingPot::get().into(), ExistentialDeposit::get());
 				// prepare bridge configuration
-				bridging_to_asset_hub_rococo()
+				bridging_cfg()
 			},
 			(
-				[PalletInstance(bp_bridge_hub_westend::WITH_BRIDGE_WESTEND_TO_ROCOCO_MESSAGES_PALLET_INDEX)].into(),
+				bridge_instance,
 				GlobalConsensus(ByGenesis(ROCOCO_GENESIS_HASH)),
 				[Parachain(1000)].into()
 			),
@@ -1293,6 +1313,12 @@ fn receive_reserve_asset_deposited_roc_from_asset_hub_rococo_fees_paid_by_pool_s
 				);
 			}
 		)
+	}
+
+	// The bridge with BHs is working.
+	test_with(bridging_to_asset_hub_rococo, [PalletInstance(bp_bridge_hub_westend::WITH_BRIDGE_WESTEND_TO_ROCOCO_MESSAGES_PALLET_INDEX)].into());
+	// The bridge with direct AHs is working.
+	test_with(direct_bridging_to_asset_hub_rococo, [PalletInstance(bp_asset_hub_westend::WITH_BRIDGE_WESTEND_TO_ROCOCO_MESSAGES_PALLET_INDEX)].into());
 }
 
 #[test]
