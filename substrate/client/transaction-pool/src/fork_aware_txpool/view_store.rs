@@ -742,10 +742,15 @@ where
 	///
 	/// After application, all already processed replacements are removed.
 	async fn apply_pending_tx_replacements(&self, view: Arc<View<ChainApi>>) {
+		let start = Instant::now();
 		let mut futures = vec![];
+		let mut replace_count = 0;
+		let mut remove_count = 0;
+
 		for replacement in self.pending_txs_tasks.read().values() {
 			match replacement.action {
 				PreInsertAction::SubmitTx(ref submission) => {
+					replace_count += 1;
 					let xt_hash = self.api.hash_and_length(&submission.xt).0;
 					futures.push(self.replace_transaction_in_view(
 						view.clone(),
@@ -755,12 +760,22 @@ where
 					));
 				},
 				PreInsertAction::RemoveSubtree(ref removal) => {
+					remove_count += 1;
 					view.remove_subtree(&[removal.xt_hash], true, &*removal.listener_action);
 				},
 			}
 		}
-		let _results = futures::future::join_all(futures).await;
-		self.pending_txs_tasks.write().retain(|_, r| r.processed);
+		let _ = futures::future::join_all(futures).await;
+		self.pending_txs_tasks.write().retain(|_, r| !r.processed);
+		debug!(
+			target: LOG_TARGET,
+			at_hash = ?view.at.hash,
+			replace_count,
+			remove_count,
+			duration = ?start.elapsed(),
+			count = ?self.pending_txs_tasks.read().len(),
+			"apply_pending_tx_replacements"
+		);
 	}
 
 	/// Submits `xt` to the given view.
