@@ -262,6 +262,8 @@ pub mod pallet {
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn integrity_test() {
+			ensure!(!T::MaxPageSize::get().is_zero(), "MaxPageSize too low");
+
 			let w = Self::on_idle_weight();
 			assert!(w != Weight::zero());
 			assert!(w.all_lte(T::BlockWeights::get().max_block));
