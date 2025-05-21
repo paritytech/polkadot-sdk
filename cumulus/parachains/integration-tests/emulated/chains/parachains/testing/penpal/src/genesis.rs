@@ -18,8 +18,6 @@ use frame_support::parameter_types;
 use sp_core::storage::Storage;
 use sp_keyring::Sr25519Keyring as Keyring;
 
-use xcm::latest::{prelude::*, ROCOCO_GENESIS_HASH, WESTEND_GENESIS_HASH};
-
 // Cumulus
 use emulated_integration_tests_common::{
 	accounts, build_genesis_storage, collators, SAFE_XCM_VERSION,
@@ -35,10 +33,6 @@ pub const USDT_ED: Balance = 70_000;
 parameter_types! {
 	pub PenpalSudoAccount: AccountId = Keyring::Alice.to_account_id();
 	pub PenpalAssetOwner: AccountId = PenpalSudoAccount::get();
-	pub WestendGlobalConsensusNetwork: NetworkId = NetworkId::ByGenesis(WESTEND_GENESIS_HASH);
-	pub PenpalAUniversalLocation: InteriorLocation = [GlobalConsensus(WestendGlobalConsensusNetwork::get()), Parachain(PARA_ID_A)].into();
-	pub RococoGlobalConsensusNetwork: NetworkId = NetworkId::ByGenesis(ROCOCO_GENESIS_HASH);
-	pub PenpalBUniversalLocation: InteriorLocation = [GlobalConsensus(RococoGlobalConsensusNetwork::get()), Parachain(PARA_ID_B)].into();
 }
 
 pub fn genesis(para_id: u32) -> Storage {

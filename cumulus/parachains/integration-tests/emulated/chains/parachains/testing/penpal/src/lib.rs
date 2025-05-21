@@ -15,7 +15,7 @@
 
 pub use penpal_runtime::{self, xcm_config::RelayNetworkId as PenpalRelayNetworkId};
 
-pub mod genesis;
+mod genesis;
 pub use genesis::{genesis, PenpalAssetOwner, PenpalSudoAccount, ED, PARA_ID_A, PARA_ID_B};
 
 // Substrate

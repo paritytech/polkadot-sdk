@@ -670,6 +670,11 @@ pub mod pallet {
 				.into()),
 			}
 		}
+
+		/// Get the bridge deposit amount required to open a new bridge.
+		pub fn bridge_deposit() -> BalanceOf<ThisChainOf<T, I>> {
+			T::BridgeDeposit::get()
+		}
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
