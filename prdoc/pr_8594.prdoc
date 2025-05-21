@@ -1,0 +1,25 @@
+title: 'omni-node: fix `benchmark pallet` to work with `--runtime`'
+doc:
+- audience: Todo
+  description: |-
+    # Description
+
+    The PR fixes the logic so that `polkadot-omni-node benchmark pallet` subcommand pulls in the appropriate arguments, while not needing to instatiate the full node configuration, which requires always passing `--chain` flag.
+
+    ## Integration
+
+    Developers will be able to use `polkadot-omni-node benchmark pallet` with `--runtime` flag, same as `frame-omni-bencher`.
+
+    ## Review Notes
+
+    Did a few things in this PR:
+    - made `polkadot-omni-node benchmark pallet` not require always the `--chain` flag
+    - removed the deprecated `run` method for `benchmark pallet`
+    - removed the check that disallows the chain flag from `frame-omni-bencher` since it is allowed and usable
+crates:
+- name: polkadot-omni-node-lib
+  bump: major
+- name: frame-benchmarking-cli
+  bump: major
+- name: frame-omni-bencher
+  bump: major
