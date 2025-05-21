@@ -998,17 +998,8 @@ pub mod pallet {
 			cumulus_primitives_parachain_inherent::INHERENT_IDENTIFIER;
 
 		fn create_inherent(data: &InherentData) -> Option<Self::Call> {
-			let mut data: ParachainInherentData = {
-				match data.get_data(&Self::INHERENT_IDENTIFIER).ok().flatten() {
-					Some(data) => data,
-					None => {
-						// If decoding of parachain inherent data fails, we try to decode
-						// the old variant without the relay parent descendants.
-						let data: v0::ParachainInherentData =
-							data.get_data(&Self::INHERENT_IDENTIFIER).ok().flatten().expect("validation function params are always injected into inherent data; qed");
-						data.into()
-					},
-				}
+			if let Some(mut data: v0::ParachainInherentData) = data.get_data(&Self::INHERENT_IDENTIFIER).ok().flatten() {
+				Some(Call::set_validation_data { data: data.into() })
 			};
 
 			Self::drop_processed_messages_from_inherent(&mut data);

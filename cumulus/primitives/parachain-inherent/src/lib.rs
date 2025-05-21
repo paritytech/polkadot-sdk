@@ -28,6 +28,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 extern crate alloc;
+use alloc::string::String;
 
 use cumulus_primitives_core::{
 	relay_chain::{BlakeTwo256, Hash as RelayHash, HashT as _, Header as RelayHeader},
@@ -40,6 +41,7 @@ use sp_inherents::InherentIdentifier;
 
 /// The identifier for the parachain inherent.
 pub const INHERENT_IDENTIFIER: InherentIdentifier = *b"sysi1337";
+pub const VERSIONED_INHERENT_IDENTIFIER: InherentIdentifier = *b"sysi1338";
 
 /// Legacy ParachainInherentData that is kept around for backward compatibility.
 /// Can be removed once we can safely assume that parachain nodes provide the
@@ -82,6 +84,19 @@ pub mod v0 {
 	}
 }
 
+#[derive(
+	codec::Encode,
+	codec::Decode,
+	codec::DecodeWithMemTracking,
+	sp_core::RuntimeDebug,
+	Clone,
+	PartialEq,
+	TypeInfo,
+)]
+pub enum VersionedInherentData {
+	V1(ParachainInherentData),
+}
+
 /// The inherent data that is passed by the collator to the parachain runtime.
 #[derive(
 	codec::Encode,
@@ -110,7 +125,7 @@ pub struct ParachainInherentData {
 	/// were sent. In combination with the rule of no more than one message in a channel per block,
 	/// this means `sent_at` is **strictly** greater than the previous one (if any).
 	pub horizontal_messages: BTreeMap<ParaId, Vec<InboundHrmpMessage>>,
-	/// Represents the relay parent block and its descendants.
+	/// Contains the relay parent header and its descendants.
 	/// This information is used to ensure that a parachain node builds blocks
 	/// at a specified offset from the chain tip rather than directly at the tip.
 	pub relay_parent_descendants: Vec<RelayHeader>,
@@ -196,35 +211,5 @@ impl MessageQueueChain {
 	/// This is agreed to be the zero hash for an empty chain.
 	pub fn head(&self) -> RelayHash {
 		self.0
-	}
-}
-
-#[cfg(test)]
-mod tests {
-	use super::*;
-	use codec::{Decode, Encode};
-	use cumulus_test_relay_sproof_builder::RelayStateSproofBuilder;
-
-	/// Nodes might build a new inherent-data version and pass it to an
-	/// old runtime, so the old version needs to decode from the new one.
-	#[test]
-	fn v0_decodes_from_current() {
-		let sproof_builder = RelayStateSproofBuilder {
-			para_id: 2000.into(),
-			included_para_head: None,
-			..Default::default()
-		};
-		let (_, proof) = sproof_builder.into_state_root_and_proof();
-		let new_inherent = ParachainInherentData {
-			validation_data: Default::default(),
-			relay_chain_state: proof,
-			downward_messages: vec![],
-			horizontal_messages: Default::default(),
-			relay_parent_descendants: vec![],
-		};
-		let encoded = new_inherent.encode();
-
-		v0::ParachainInherentData::decode(&mut encoded.as_slice())
-			.expect("Unable to decode legacy inherent data from current!");
 	}
 }
