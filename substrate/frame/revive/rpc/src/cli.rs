@@ -229,7 +229,9 @@ pub fn run(cmd: CliCommand) -> anyhow::Result<()> {
 				tokio::try_join!(fut1, fut2).map(|_| ())
 			};
 
-			panic!("Block subscription task failed: {res:?}",)
+			if let Err(err) = res {
+				panic!("Block subscription task failed: {res:?}",)
+			}
 		});
 
 	task_manager.keep_alive(rpc_server_handle);
