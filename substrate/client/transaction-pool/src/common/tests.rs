@@ -19,6 +19,7 @@
 //! Testing related primitives for internal usage in this crate.
 
 use crate::graph::{BlockHash, ChainApi, ExtrinsicFor, NumberFor, RawExtrinsicFor};
+use async_trait::async_trait;
 use codec::Encode;
 use parking_lot::Mutex;
 use sc_transaction_pool_api::error;
@@ -66,6 +67,7 @@ impl TestApi {
 	}
 }
 
+#[async_trait]
 impl ChainApi for TestApi {
 	type Block = Block;
 	type Error = error::Error;
@@ -73,12 +75,12 @@ impl ChainApi for TestApi {
 	type BodyFuture = futures::future::Ready<error::Result<Option<Vec<Extrinsic>>>>;
 
 	/// Verify extrinsic at given block.
-	fn validate_transaction(
+	async fn validate_transaction(
 		&self,
 		at: <Self::Block as BlockT>::Hash,
 		_source: TransactionSource,
 		uxt: ExtrinsicFor<Self>,
-	) -> Self::ValidationFuture {
+	) -> Result<TransactionValidity, error::Error> {
 		let uxt = (*uxt).clone();
 		self.validation_requests.lock().push(uxt.clone());
 		let hash = self.hash_and_length(&uxt).0;
@@ -155,7 +157,7 @@ impl ChainApi for TestApi {
 			_ => unimplemented!(),
 		};
 
-		futures::future::ready(Ok(res))
+		Ok(res)
 	}
 
 	fn validate_transaction_blocking(
