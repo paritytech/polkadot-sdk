@@ -347,19 +347,18 @@ impl Client {
 		subscription_type: SubscriptionType,
 	) -> Result<(), ClientError> {
 		log::info!(target: LOG_TARGET, "🔌 Subscribing to new blocks ({subscription_type:?})");
-		return self
-			.subscribe_new_blocks(subscription_type, |block| async {
-				let (signed_txs, receipts): (Vec<_>, Vec<_>) =
-					self.receipt_provider.insert_block_receipts(&block).await?.into_iter().unzip();
+		self.subscribe_new_blocks(subscription_type, |block| async {
+			let (signed_txs, receipts): (Vec<_>, Vec<_>) =
+				self.receipt_provider.insert_block_receipts(&block).await?.into_iter().unzip();
 
-				let evm_block =
-					self.evm_block_from_receipts(&block, &receipts, signed_txs, false).await;
-				self.block_provider.update_latest(block, subscription_type).await;
+			let evm_block =
+				self.evm_block_from_receipts(&block, &receipts, signed_txs, false).await;
+			self.block_provider.update_latest(block, subscription_type).await;
 
-				self.fee_history_provider.update_fee_history(&evm_block, &receipts).await;
-				Ok(())
-			})
-			.await;
+			self.fee_history_provider.update_fee_history(&evm_block, &receipts).await;
+			Ok(())
+		})
+		.await
 	}
 
 	/// Cache old blocks up to the given block number.
