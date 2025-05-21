@@ -35,6 +35,11 @@ pallet-election-provider-support-benchmarking = { optional = true, workspace = t
 rand = { features = ["alloc", "small_rng"], optional = true, workspace = true }
 strum = { features = ["derive"], optional = true, workspace = true }
 
+# optional for remote testing
+hex = { workspace = true, default-features = true, optional = true }
+remote-externalities = { workspace = true, default-features = true, optional = true }
+tokio = { features = ["macros"], workspace = true, default-features = true, optional = true }
+
 [dev-dependencies]
 parking_lot = { workspace = true, default-features = true }
 rand = { workspace = true, default-features = true }
@@ -45,7 +50,9 @@ sp-tracing = { default-features = true, path = "../../primitives/tracing" }
 pallet-balances = { default-features = true, path = "../balances" }
 frame-benchmarking = { default-features = true, path = "../benchmarking" }
 
+
 [features]
+remote-mining = ["hex", "remote-externalities", "tokio"]
 default = ["std"]
 std = [
 	"codec/std",
