@@ -20,7 +20,9 @@ use super::{
 	RuntimeOrigin, TransactionByteFee, WeightToFee, XcmOverBridgeHubRococo, XcmpQueue,
 };
 use crate::bridge_to_ethereum_config::{AssetHubLocation, SnowbridgeFrontendLocation};
-use bridge_hub_common::DenyExportMessageFrom;
+use bridge_hub_common::{
+	barriers::AllowExplicitUnpaidExecutionFromAssetHubExportToEthereum, DenyExportMessageFrom,
+};
 use frame_support::{
 	parameter_types,
 	traits::{
@@ -166,6 +168,10 @@ pub type Barrier = TrailingSetTopicAsId<
 						Equals<RelayTreasuryLocation>,
 						Equals<SnowbridgeFrontendLocation>,
 					)>,
+					AllowExplicitUnpaidExecutionFromAssetHubExportToEthereum<
+						Equals<AssetHubLocation>,
+						EthereumNetwork,
+					>,
 					// Subscriptions for version tracking are OK.
 					AllowSubscriptionsFrom<ParentRelayOrSiblingParachains>,
 					// HRMP notifications from the relay chain are OK.
