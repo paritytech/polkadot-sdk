@@ -585,6 +585,21 @@ pub(crate) mod pallet {
 	#[pallet::pallet]
 	pub struct Pallet<T>(PhantomData<T>);
 
+	#[pallet::genesis_config]
+	#[derive(frame_support::DefaultNoBound)]
+	pub struct GenesisConfig<T: Config> {
+		/// Initial value for [`MinimumScore`]
+		pub(crate) minimum_score: ElectionScore,
+		_marker: PhantomData<T>,
+	}
+
+	#[pallet::genesis_build]
+	impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
+		fn build(&self) {
+			MinimumScore::<T>::put(self.minimum_score);
+		}
+	}
+
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {}
 
