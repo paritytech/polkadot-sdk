@@ -1870,8 +1870,6 @@ mod tests {
 	}
 
 	#[test]
-<<<<<<< HEAD
-=======
 	fn mine_solution_always_respects_max_backers_per_winner() {
 		use crate::mock::MaxBackersPerWinner;
 		use frame_election_provider_support::BoundedSupport;
@@ -2059,7 +2057,6 @@ mod tests {
 	}
 
 	#[test]
->>>>>>> 5d71d47 (fix epmb solution duplicate issue + add remote mining apparatus to epm (#8585))
 	fn trim_assignments_length_does_not_modify_when_short_enough() {
 		ExtBuilder::default().build_and_execute(|| {
 			roll_to_unsigned();
