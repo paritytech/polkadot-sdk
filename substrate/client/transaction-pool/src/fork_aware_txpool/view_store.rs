@@ -166,7 +166,7 @@ where
 	///
 	/// Provides a side-channel allowing to send per-transaction state changes notification.
 	pub(super) listener: Arc<MultiViewListener<ChainApi>>,
-	/// Most recent block processed by tx-pool. Used in the API functions that were not changed to
+	/// Most recent view processed by tx-pool. Used in the API functions that were not changed to
 	/// add `at` parameter.
 	pub(super) most_recent_view: RwLock<Option<Arc<View<ChainApi>>>>,
 	/// The controller of multi view dropped stream.
