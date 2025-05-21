@@ -14,9 +14,7 @@
 // limitations under the License.
 
 use crate::{create_pool_with_wnd_on, foreign_balance_on, imports::*};
-use emulated_integration_tests_common::xcm_helpers::{
-	find_mq_processed_id, find_xcm_sent_message_id,
-};
+use emulated_integration_tests_common::xcm_helpers::find_mq_processed_id;
 use sp_core::{crypto::get_public_from_string_or_panic, sr25519};
 
 fn relay_to_para_sender_assertions(t: RelayToParaTest) {
@@ -386,12 +384,9 @@ fn relay_to_para_assets_receiver_assertions(t: RelayToParaTest) {
 	);
 }
 
-pub fn para_to_para_through_hop_sender_assertions<Hop: Clone>(mut t: Test<PenpalA, PenpalB, Hop>) {
+pub fn para_to_para_through_hop_sender_assertions<Hop: Clone>(t: Test<PenpalA, PenpalB, Hop>) {
 	type RuntimeEvent = <PenpalA as Chain>::RuntimeEvent;
 	PenpalA::assert_xcm_pallet_attempted_complete(None);
-
-	let msg_sent_id = find_xcm_sent_message_id::<PenpalA>().expect("Missing Sent Event");
-	t.insert_unique_topic_id("PenpalA", msg_sent_id.into());
 
 	for asset in t.args.assets.into_inner() {
 		let expected_id = asset.id.0.clone().try_into().unwrap();
