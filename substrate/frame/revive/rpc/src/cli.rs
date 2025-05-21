@@ -230,7 +230,7 @@ pub fn run(cmd: CliCommand) -> anyhow::Result<()> {
 			};
 
 			if let Err(err) = res {
-				panic!("Block subscription task failed: {res:?}",)
+				panic!("Block subscription task failed: {err:?}",)
 			}
 		});
 
