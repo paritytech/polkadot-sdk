@@ -4,8 +4,6 @@ doc:
   description: |
     Prevents the NPoS election process from accepting duplicate voters and targets.
 crates:
-- name: pallet-election-provider-multi-block
-  bump: patch
 - name: pallet-election-provider-multi-phase
   bump: minor
 - name: frame-election-provider-solution-type
