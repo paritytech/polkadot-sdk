@@ -231,12 +231,10 @@ where
 			match cmd {
 				#[cfg(feature = "runtime-benchmarks")]
 				BenchmarkCmd::Pallet(cmd) => {
-					let chain = cli
-						.run
-						.base
+					let chain = cmd
 						.shared_params
 						.chain
-						.clone()
+						.as_ref()
 						.and_then(|chain| cli.load_spec(&chain).ok());
 					cmd.run_with_spec::<HashingFor<Block<u32>>, ReclaimHostFunctions>(chain)
 				},
