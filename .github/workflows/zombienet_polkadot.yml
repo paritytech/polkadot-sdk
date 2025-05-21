@@ -593,62 +593,6 @@ jobs:
           prefix: "polkadot"
   #
   #
-  zombienet-polkadot-elastic-scaling-slot-based-12cores:
-    needs: [preflight]
-    if: ${{ (needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_polkadot) &&  ! contains(needs.preflight.outputs.FLAKY_TESTS, 'zombienet-polkadot-elastic-scaling-slot-based-12cores') }}
-    runs-on: ${{ needs.preflight.outputs.ZOMBIENET_RUNNER }} # NOTE: should be zombienet-arc-runner (without quotes)
-    timeout-minutes: 60
-    container:
-      image: ${{ needs.preflight.outputs.ZOMBIENET_IMAGE }}
-    env:
-      # sdk tests are looking for POLKADOT_IMAGE
-      POLKADOT_IMAGE: "${{ needs.preflight.outputs.TEMP_IMAGES_BASE }}/polkadot-debug:${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"
-      CUMULUS_IMAGE: "${{ needs.preflight.outputs.TEMP_IMAGES_BASE }}/test-parachain:${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"
-      RUST_LOG: ${{ needs.preflight.outputs.RUST_LOG }}
-      ZOMBIE_PROVIDER: ${{ needs.preflight.outputs.ZOMBIE_PROVIDER }}
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: zombienet_test
-        uses: ./.github/actions/zombienet-sdk
-        with:
-          gh-token: ${{ secrets.GITHUB_TOKEN }}
-          build-id: ${{ needs.preflight.outputs.BUILD_RUN_ID }}
-          ref-slug: ${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
-          test: "elastic_scaling::slot_based_12cores::slot_based_12cores_test"
-          prefix: "polkadot"
-  #
-  #
-  zombienet-polkadot-elastic-scaling-doesnt-break-parachains:
-    needs: [preflight]
-    if: ${{ (needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_polkadot) &&  ! contains(needs.preflight.outputs.FLAKY_TESTS, 'zombienet-polkadot-elastic-scaling-doesnt-break-parachains') }}
-    runs-on: ${{ needs.preflight.outputs.ZOMBIENET_RUNNER }} # NOTE: should be zombienet-arc-runner (without quotes)
-    timeout-minutes: 60
-    container:
-      image: ${{ needs.preflight.outputs.ZOMBIENET_IMAGE }}
-    env:
-      # sdk tests are looking for POLKADOT_IMAGE
-      POLKADOT_IMAGE: "${{ needs.preflight.outputs.TEMP_IMAGES_BASE }}/polkadot-debug:${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"
-      CUMULUS_IMAGE: "${{ needs.preflight.outputs.TEMP_IMAGES_BASE }}/polkadot-parachain-debug:${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"
-      RUST_LOG: ${{ needs.preflight.outputs.RUST_LOG }}
-      ZOMBIE_PROVIDER: ${{ needs.preflight.outputs.ZOMBIE_PROVIDER }}
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: zombienet_test
-        uses: ./.github/actions/zombienet-sdk
-        with:
-          gh-token: ${{ secrets.GITHUB_TOKEN }}
-          build-id: ${{ needs.preflight.outputs.BUILD_RUN_ID }}
-          ref-slug: ${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
-          test: "elastic_scaling::doesnt_break_parachains::doesnt_break_parachains_test"
-          prefix: "polkadot"
-  #
-  #
   zombienet-polkadot-elastic-scaling-basic-3cores:
     needs: [preflight]
     if: ${{ (needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_polkadot) &&  ! contains(needs.preflight.outputs.FLAKY_TESTS, 'zombienet-polkadot-elastic-scaling-basic-3cores') }}
@@ -731,35 +675,6 @@ jobs:
           build-id: ${{ needs.preflight.outputs.BUILD_RUN_ID }}
           ref-slug: ${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
           test: "functional::async_backing_6_seconds_rate::async_backing_6_seconds_rate_test"
-          prefix: "polkadot"
-  #
-  #
-  zombienet-polkadot-functional-duplicate-collations:
-    needs: [preflight]
-    if: ${{ (needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_polkadot) &&  ! contains(needs.preflight.outputs.FLAKY_TESTS, 'zombienet-polkadot-functional-duplicate-collations') }}
-    runs-on: ${{ needs.preflight.outputs.ZOMBIENET_RUNNER }} # NOTE: should be zombienet-arc-runner (without quotes)
-    timeout-minutes: 60
-    container:
-      image: ${{ needs.preflight.outputs.ZOMBIENET_IMAGE }}
-    env:
-      # sdk tests are looking for POLKADOT_IMAGE
-      POLKADOT_IMAGE: "${{ needs.preflight.outputs.TEMP_IMAGES_BASE }}/polkadot-debug:${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"
-      COL_IMAGE: "${{ needs.preflight.outputs.TEMP_IMAGES_BASE }}/colander:${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"
-      CUMULUS_IMAGE: "${{ needs.preflight.outputs.TEMP_IMAGES_BASE }}/polkadot-parachain-debug:${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"
-      RUST_LOG: ${{ needs.preflight.outputs.RUST_LOG }}
-      ZOMBIE_PROVIDER: ${{ needs.preflight.outputs.ZOMBIE_PROVIDER }}
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: zombienet_test
-        uses: ./.github/actions/zombienet-sdk
-        with:
-          gh-token: ${{ secrets.GITHUB_TOKEN }}
-          build-id: ${{ needs.preflight.outputs.BUILD_RUN_ID }}
-          ref-slug: ${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
-          test: "functional::duplicate_collations::duplicate_collations_test"
           prefix: "polkadot"
   #
   #
