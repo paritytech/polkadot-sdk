@@ -226,7 +226,7 @@ impl metrics::Metrics for Metrics {
 	}
 }
 
-// Equal to allowed ancestry len + 1
+// Equal to claim queue length.
 pub(crate) const MAX_BACKING_DELAY: BlockNumber = 3;
 // Paras availability period. In practice, candidates time out in exceptional situations.
 pub(crate) const MAX_AVAILABILITY_DELAY: BlockNumber = 10;

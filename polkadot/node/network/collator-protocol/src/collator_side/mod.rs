@@ -40,8 +40,7 @@ use polkadot_node_network_protocol::{
 use polkadot_node_primitives::{CollationSecondedSignal, PoV, Statement};
 use polkadot_node_subsystem::{
 	messages::{
-		ChainApiMessage, CollatorProtocolMessage, NetworkBridgeEvent, NetworkBridgeTxMessage,
-		ParentHeadData,
+		CollatorProtocolMessage, NetworkBridgeEvent, NetworkBridgeTxMessage, ParentHeadData,
 	},
 	overseer, FromOrchestra, OverseerSignal,
 };
@@ -238,10 +237,16 @@ struct PerRelayParent {
 	collations: HashMap<CandidateHash, CollationWithCoreIndex>,
 	/// Number of assignments per core
 	assignments: HashMap<CoreIndex, usize>,
+	/// The relay parent block number
+	block_number: Option<BlockNumber>,
 }
 
 impl PerRelayParent {
-	fn new(para_id: ParaId, claim_queue: ClaimQueueSnapshot) -> Self {
+	fn new(
+		para_id: ParaId,
+		claim_queue: ClaimQueueSnapshot,
+		block_number: Option<BlockNumber>,
+	) -> Self {
 		let assignments =
 			claim_queue.iter_all_claims().fold(HashMap::new(), |mut acc, (core, claims)| {
 				let n_claims = claims.iter().filter(|para| para == &&para_id).count();
@@ -251,7 +256,12 @@ impl PerRelayParent {
 				acc
 			});
 
-		Self { validator_group: HashMap::default(), collations: HashMap::new(), assignments }
+		Self {
+			validator_group: HashMap::default(),
+			collations: HashMap::new(),
+			assignments,
+			block_number,
+		}
 	}
 }
 
@@ -506,8 +516,8 @@ async fn distribute_collation<Context>(
 		CollationWithCoreIndex(
 			Collation { receipt, pov, parent_head_data, status: CollationStatus::Created },
 			core_index,
-			get_block_number(ctx, candidate_relay_parent)
-				.await
+			per_relay_parent
+				.block_number
 				.map(|n| CollationStats::new(para_head, n, &state.metrics)),
 		),
 	);
@@ -1102,19 +1112,6 @@ async fn handle_incoming_request<Context>(
 	Ok(())
 }
 
-// Returns the block number for a given block hash if found.
-#[overseer::contextbounds(CollatorProtocol, prefix = self::overseer)]
-async fn get_block_number<Context>(ctx: &mut Context, block_hash: Hash) -> Option<BlockNumber> {
-	let (tx, rx) = oneshot::channel();
-
-	ctx.send_message(ChainApiMessage::BlockNumber(block_hash, tx)).await;
-
-	match rx.await {
-		Ok(Ok(Some(number))) => Some(number),
-		Ok(Ok(None)) | Ok(Err(_)) | Err(_) => None,
-	}
-}
-
 /// Peer's view has changed. Send advertisements for new relay parents
 /// if there're any.
 #[overseer::contextbounds(CollatorProtocol, prefix = self::overseer)]
@@ -1278,22 +1275,22 @@ async fn process_block_events<Context>(
 	ctx: &mut Context,
 	collation_tracker: &mut CollationTracker,
 	leaf: Hash,
+	maybe_block_number: Option<BlockNumber>,
 	para_id: ParaId,
 	metrics: &Metrics,
-) -> Result<()> {
+) {
 	if let Ok(events) = get_candidate_events(ctx.sender(), leaf).await {
-		let maybe_block_number = get_block_number(ctx, leaf).await;
-
-		// This should not happen. If it does this log message explains why
-		// metrics and logs are missing for the candidates under this block.
-		if maybe_block_number.is_none() {
+		let Some(block_number) = maybe_block_number else {
+			// This should not happen. If it does this log message explains why
+			// metrics and logs are missing for the candidates under this block.
 			gum::debug!(
 				target: crate::LOG_TARGET_STATS,
 				relay_block = ?leaf,
 				?para_id,
 				"Failed to get relay chain block number",
 			);
-		}
+			return
+		};
 
 		for ev in events {
 			match ev {
@@ -1301,9 +1298,6 @@ async fn process_block_events<Context>(
 					if receipt.descriptor.para_id() != para_id {
 						continue
 					}
-
-					let Some(block_number) = maybe_block_number else { continue };
-
 					collation_tracker.collation_included(block_number, leaf, receipt, metrics);
 				},
 				CandidateEvent::CandidateBacked(receipt, _, _, _) => {
@@ -1327,7 +1321,6 @@ async fn process_block_events<Context>(
 			}
 		}
 	}
-	Ok(())
 }
 
 /// Handles our view changes.
@@ -1345,15 +1338,21 @@ async fn handle_our_view_change<Context>(
 	let added: Vec<_> = view.iter().filter(|h| !implicit_view.contains_leaf(h)).collect();
 
 	for leaf in added {
+		let block_number = implicit_view.block_number(leaf);
 		let claim_queue: ClaimQueueSnapshot = fetch_claim_queue(ctx.sender(), *leaf).await?;
-		state.per_relay_parent.insert(*leaf, PerRelayParent::new(para_id, claim_queue));
+		state
+			.per_relay_parent
+			.insert(*leaf, PerRelayParent::new(para_id, claim_queue, block_number));
 
-		if let Err(err) =
-			process_block_events(ctx, &mut state.collation_tracker, *leaf, para_id, &state.metrics)
-				.await
-		{
-			gum::debug!(target: LOG_TARGET_STATS, ?err,  "Failed to process block events");
-		}
+		process_block_events(
+			ctx,
+			&mut state.collation_tracker,
+			*leaf,
+			block_number,
+			para_id,
+			&state.metrics,
+		)
+		.await;
 
 		implicit_view
 			.activate_leaf(ctx.sender(), *leaf)
@@ -1373,11 +1372,13 @@ async fn handle_our_view_change<Context>(
 			.collect::<Vec<_>>();
 
 		for block_hash in allowed_ancestry {
+			let block_number = implicit_view.block_number(block_hash);
+
 			if state.per_relay_parent.get(block_hash).is_none() {
 				let claim_queue = fetch_claim_queue(ctx.sender(), *block_hash).await?;
 				state
 					.per_relay_parent
-					.insert(*block_hash, PerRelayParent::new(para_id, claim_queue));
+					.insert(*block_hash, PerRelayParent::new(para_id, claim_queue, block_number));
 			}
 
 			let per_relay_parent =
@@ -1403,12 +1404,13 @@ async fn handle_our_view_change<Context>(
 		// If the leaf is deactivated it still may stay in the view as a part
 		// of implicit ancestry. Only update the state after the hash is actually
 		// pruned from the block info storage.
+		let maybe_block_number = implicit_view.block_number(&leaf);
 		let pruned = implicit_view.deactivate_leaf(leaf);
 
 		for removed in &pruned {
 			gum::debug!(target: LOG_TARGET, relay_parent = ?removed, "Removing relay parent because our view changed.");
 
-			if let Some(block_number) = get_block_number(ctx, *removed).await {
+			if let Some(block_number) = maybe_block_number {
 				let expired_collations = state.collation_tracker.drain_expired(block_number);
 				process_expired_collations(expired_collations, *removed, para_id, &state.metrics);
 			}
