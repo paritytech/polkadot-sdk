@@ -92,7 +92,11 @@ fn benchmark_block_validation(c: &mut Criterion) {
 	let mut test_client_builder = TestClientBuilder::with_default_backend();
 	let genesis_init = test_client_builder.genesis_init_mut();
 	*genesis_init =
-		cumulus_test_client::GenesisParameters { endowed_accounts: account_ids, wasm: None };
+		cumulus_test_client::GenesisParameters {
+			endowed_accounts: account_ids,
+			wasm: None,
+			blocks_per_pov: None,
+		};
 	let client = test_client_builder.build_with_native_executor(None).0;
 
 	let (max_transfer_count, extrinsics) = create_extrinsics(&client, &src_accounts, &dst_accounts);

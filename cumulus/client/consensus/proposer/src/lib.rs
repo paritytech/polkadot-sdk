@@ -21,13 +21,16 @@
 //! This utility is designed to be composed within any collator consensus algorithm.
 
 use async_trait::async_trait;
-
 use cumulus_primitives_parachain_inherent::ParachainInherentData;
-use sp_consensus::{EnableProofRecording, Environment, Proposal, Proposer as SubstrateProposer};
+use sc_basic_authorship::{ProposeArgs, ProposerFactory};
+use sc_block_builder::BlockBuilderApi;
+use sc_transaction_pool_api::TransactionPool;
+use sp_api::{ApiExt, CallApiAt, ProvideRuntimeApi};
+use sp_blockchain::HeaderBackend;
+use sp_consensus::{EnableProofRecording, Environment, Proposal};
 use sp_inherents::InherentData;
 use sp_runtime::{traits::Block as BlockT, Digest};
 use sp_state_machine::StorageProof;
-
 use std::{fmt::Debug, time::Duration};
 
 /// Errors that can occur when proposing a parachain block.
@@ -80,39 +83,24 @@ pub trait ProposerInterface<Block: BlockT> {
 	) -> Result<Option<Proposal<Block, StorageProof>>, Error>;
 }
 
-/// A simple wrapper around a Substrate proposer for creating collations.
-pub struct Proposer<B, T> {
-	inner: T,
-	_marker: std::marker::PhantomData<B>,
-}
-
-impl<B, T> Proposer<B, T> {
-	/// Create a new Cumulus [`Proposer`].
-	pub fn new(inner: T) -> Self {
-		Proposer { inner, _marker: std::marker::PhantomData }
-	}
-}
-
 #[async_trait]
-impl<B, T> ProposerInterface<B> for Proposer<B, T>
+impl<Block, A, C> ProposerInterface<Block> for ProposerFactory<A, C, EnableProofRecording>
 where
-	B: sp_runtime::traits::Block,
-	T: Environment<B> + Send,
-	T::Error: Send + Sync + 'static,
-	T::Proposer: SubstrateProposer<B, ProofRecording = EnableProofRecording, Proof = StorageProof>,
-	<T::Proposer as SubstrateProposer<B>>::Error: Send + Sync + 'static,
+	A: TransactionPool<Block = Block> + 'static,
+	C: HeaderBackend<Block> + ProvideRuntimeApi<Block> + CallApiAt<Block> + Send + Sync + 'static,
+	C::Api: ApiExt<Block> + BlockBuilderApi<Block>,
+	Block: sp_runtime::traits::Block,
 {
 	async fn propose(
 		&mut self,
-		parent_header: &B::Header,
+		parent_header: &Block::Header,
 		paras_inherent_data: &ParachainInherentData,
 		other_inherent_data: InherentData,
 		inherent_digests: Digest,
 		max_duration: Duration,
 		block_size_limit: Option<usize>,
-	) -> Result<Option<Proposal<B, StorageProof>>, Error> {
+	) -> Result<Option<Proposal<Block, StorageProof>>, Error> {
 		let proposer = self
-			.inner
 			.init(parent_header)
 			.await
 			.map_err(|e| Error::proposer_creation(anyhow::Error::new(e)))?;
@@ -126,7 +114,13 @@ where
 			.map_err(|e| Error::proposing(anyhow::Error::new(e)))?;
 
 		proposer
-			.propose(inherent_data, inherent_digests, max_duration, block_size_limit)
+			.propose(ProposeArgs {
+				inherent_data,
+				inherent_digests,
+				max_duration,
+				block_size_limit,
+				ignored_nodes_by_proof_recording: None,
+			})
 			.await
 			.map(Some)
 			.map_err(|e| Error::proposing(anyhow::Error::new(e)).into())
