@@ -4623,6 +4623,7 @@ dependencies = [
 name = "cumulus-pallet-xcmp-queue"
 version = "0.7.1"
 dependencies = [
+ "approx",
  "bounded-collections",
  "bp-xcm-bridge-hub-router",
  "cumulus-pallet-parachain-system",
