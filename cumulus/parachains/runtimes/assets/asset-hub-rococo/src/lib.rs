@@ -2065,5 +2065,5 @@ fn check_xcmp_weight_info_accuracy() {
 
 	<weights::cumulus_pallet_xcmp_queue::WeightInfo<Runtime> as WeightInfoExt>::check_accuracy::<
 		MaxXcmpMessageLenOf<Runtime>,
-	>(5);
+	>(0.05);
 }

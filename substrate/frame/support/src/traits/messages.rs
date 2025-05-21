@@ -217,7 +217,7 @@ impl BatchesFootprints {
 		});
 	}
 
-	/// Gets the biggest batch for witch the comparator function returns `Ordering::Less`.
+	/// Gets the biggest batch for which the comparator function returns `Ordering::Less`.
 	pub fn search_best_by<F>(&self, f: F) -> &BatchFootprint
 	where
 		F: FnMut(&BatchFootprint) -> Ordering,

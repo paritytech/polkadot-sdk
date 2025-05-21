@@ -73,9 +73,8 @@ pub trait WeightInfoExt: WeightInfo {
 	}
 
 	#[cfg(feature = "std")]
-	fn check_accuracy<MaxMessageLen: bounded_collections::Get<u32>>(err_margin: u8) {
-		assert!(err_margin < 100);
-		let err_margin = err_margin as u64;
+	fn check_accuracy<MaxMessageLen: bounded_collections::Get<u32>>(err_margin: f64) {
+		assert!(err_margin < 1f64);
 
 		let estimated_weight =
 			Self::uncached_enqueue_xcmp_messages().saturating_add(Self::enqueue_xcmp_messages(
@@ -84,10 +83,12 @@ pub trait WeightInfoExt: WeightInfo {
 			));
 		let actual_weight = Self::enqueue_1000_small_xcmp_messages();
 
-		// Check that the ref_time diff is less than {err_margin}%
-		let diff_ref_time = estimated_weight.ref_time().abs_diff(actual_weight.ref_time());
-		assert!(diff_ref_time < estimated_weight.ref_time() * err_margin / 100);
-		assert!(diff_ref_time < actual_weight.ref_time() * err_margin / 100);
+		// Check that the ref_time diff is less than err_margin
+		approx::assert_relative_eq!(
+			estimated_weight.ref_time() as f64,
+			actual_weight.ref_time() as f64,
+			max_relative = err_margin
+		);
 	}
 }
 
@@ -100,8 +101,12 @@ mod tests {
 
 	#[test]
 	fn check_weight_info_ext_accuracy() {
-		// The `MaxMessageLen` was manually copied from `asset-hub-westend-runtime`.
+		// The `MaxMessageLen` was manually copied from the `HeapSize` field of the
+		// `asset-hub-westend-runtime`:
+		// https://github.com/paritytech/polkadot-sdk/blob/4173aac8abc7e518d4048306c18d4f2176241206/cumulus/parachains/runtimes/assets/asset-hub-westend/src/lib.rs#L827
 		// It needs to be updated manually in case it changes.
-		<() as WeightInfoExt>::check_accuracy::<ConstU32<{ 103 * 1024 }>>(5);
+		// This is a good-enough approximation. To make it 100% accurate, we would need to subtract
+		// the item size. But this is negligible.
+		<() as WeightInfoExt>::check_accuracy::<ConstU32<{ 103 * 1024 }>>(0.05);
 	}
 }
