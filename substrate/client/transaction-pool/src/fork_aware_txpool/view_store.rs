@@ -168,7 +168,7 @@ where
 	pub(super) listener: Arc<MultiViewListener<ChainApi>>,
 	/// Most recent block processed by tx-pool. Used in the API functions that were not changed to
 	/// add `at` parameter.
-	pub(super) most_recent_view: RwLock<Option<Block::Hash>>,
+	pub(super) most_recent_view: RwLock<Option<Arc<View<ChainApi>>>>,
 	/// The controller of multi view dropped stream.
 	pub(super) dropped_stream_controller: MultiViewDroppedWatcherController<ChainApi>,
 	/// The map used to synchronize replacement of transactions between maintain and dropped
@@ -378,12 +378,8 @@ where
 	/// The iterator for future transactions is returned if the most recently notified best block,
 	/// for which maintain process was accomplished, exists.
 	pub(super) fn ready(&self) -> ReadyIteratorFor<ChainApi> {
-		let ready_iterator = self
-			.most_recent_view
-			.read()
-			.map(|at| self.get_view_at(at, true))
-			.flatten()
-			.map(|(v, _)| v.pool.validated_pool().ready());
+		let ready_iterator =
+			self.most_recent_view.read().as_ref().map(|v| v.pool.validated_pool().ready());
 
 		if let Some(ready_iterator) = ready_iterator {
 			return Box::new(ready_iterator)
@@ -401,7 +397,8 @@ where
 	) -> Vec<Transaction<ExtrinsicHash<ChainApi>, ExtrinsicFor<ChainApi>>> {
 		self.most_recent_view
 			.read()
-			.map(|at| self.futures_at(at))
+			.as_ref()
+			.map(|view| self.futures_at(view.at.hash))
 			.flatten()
 			.unwrap_or_default()
 	}
@@ -510,7 +507,7 @@ where
 					});
 				});
 			active_views.insert(view.at.hash, view.clone());
-			most_recent_view_lock.replace(view.at.hash);
+			most_recent_view_lock.replace(view.clone());
 		};
 		trace!(
 			target: LOG_TARGET,
