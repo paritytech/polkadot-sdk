@@ -5083,7 +5083,7 @@ dependencies = [
  "log",
  "parity-scale-codec",
  "polkadot-primitives",
- "subxt 0.38.1",
+ "subxt 0.41.0",
  "tokio",
 ]
 
@@ -5098,8 +5098,8 @@ dependencies = [
  "polkadot-primitives",
  "serde",
  "serde_json",
- "subxt 0.38.1",
- "subxt-signer 0.38.0",
+ "subxt 0.41.0",
+ "subxt-signer 0.41.0",
  "tokio",
  "zombienet-orchestrator",
  "zombienet-sdk",
@@ -6515,8 +6515,8 @@ dependencies = [
  "sp-version 29.0.0",
  "sp-wasm-interface 20.0.0",
  "substrate-test-runtime",
- "subxt 0.38.1",
- "subxt-signer 0.38.0",
+ "subxt 0.41.0",
+ "subxt-signer 0.41.0",
  "thiserror 1.0.65",
  "thousands",
  "westend-runtime",
@@ -12742,7 +12742,7 @@ dependencies = [
  "staging-xcm",
  "staging-xcm-builder",
  "substrate-bn",
- "subxt-signer 0.38.0",
+ "subxt-signer 0.41.0",
 ]
 
 [[package]]
@@ -12777,8 +12777,8 @@ dependencies = [
  "static_init",
  "substrate-cli-test-utils",
  "substrate-prometheus-endpoint",
- "subxt 0.38.1",
- "subxt-signer 0.38.0",
+ "subxt 0.41.0",
+ "subxt-signer 0.41.0",
  "thiserror 1.0.65",
  "tokio",
 ]
@@ -15511,7 +15511,7 @@ dependencies = [
  "substrate-frame-rpc-system",
  "substrate-prometheus-endpoint",
  "substrate-state-trie-migration-rpc",
- "subxt-metadata 0.38.0",
+ "subxt-metadata 0.41.0",
  "tokio",
  "wait-timeout",
 ]
@@ -16727,8 +16727,8 @@ dependencies = [
  "serde_json",
  "substrate-build-script-utils",
  "subwasmlib",
- "subxt 0.38.1",
- "subxt-signer 0.38.0",
+ "subxt 0.41.0",
+ "subxt-signer 0.41.0",
  "tokio",
  "tokio-util",
  "zombienet-orchestrator",
@@ -20101,7 +20101,7 @@ dependencies = [
  "sp-state-machine 0.35.0",
  "sp-version 29.0.0",
  "sp-wasm-interface 20.0.0",
- "subxt 0.38.1",
+ "subxt 0.41.0",
  "thiserror 1.0.65",
 ]
 
@@ -24089,7 +24089,7 @@ dependencies = [
  "sp-keyring",
  "staging-node-inspect",
  "substrate-cli-test-utils",
- "subxt-signer 0.38.0",
+ "subxt-signer 0.41.0",
  "tempfile",
  "tokio",
  "tokio-util",
@@ -24774,7 +24774,6 @@ dependencies = [
  "async-trait",
  "derive-where",
  "either",
- "finito",
  "frame-metadata 17.0.0",
  "futures",
  "hex",
@@ -25035,6 +25034,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4ba7494d250d65dc3439365ac5e8e0fbb9c3992e6e84b7aa01d69e082249b8b8"
 dependencies = [
  "derive-where",
+ "finito",
  "frame-metadata 20.0.0",
  "futures",
  "hex",
@@ -25047,6 +25047,7 @@ dependencies = [
  "subxt-core 0.41.0",
  "subxt-lightclient 0.41.0",
  "thiserror 2.0.12",
+ "tokio",
  "tokio-util",
  "tracing",
  "url",
@@ -25059,13 +25060,11 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1e7a336d6a1f86f126100a4a717be58352de4c8214300c4f7807f974494efdb9"
 dependencies = [
  "base64 0.22.1",
- "bip32",
  "bip39",
  "cfg-if",
  "crypto_secretbox",
  "hex",
  "hmac 0.12.1",
- "keccak-hash",
  "parity-scale-codec",
  "pbkdf2",
  "polkadot-sdk 0.7.0",

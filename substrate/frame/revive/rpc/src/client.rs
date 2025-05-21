@@ -28,7 +28,11 @@ use crate::{
 	BlockInfoProvider, BlockTag, FeeHistoryProvider, ReceiptProvider, SubxtBlockInfoProvider,
 	TracerType, TransactionInfo, LOG_TARGET,
 };
-use jsonrpsee::types::{error::CALL_EXECUTION_FAILED_CODE, ErrorObjectOwned};
+use jsonrpsee::{
+	core::traits::ToRpcParams,
+	rpc_params,
+	types::{error::CALL_EXECUTION_FAILED_CODE, ErrorObjectOwned},
+};
 use pallet_revive::{
 	evm::{
 		decode_revert_reason, Block, BlockNumberOrTag, BlockNumberOrTagOrHash, FeeHistoryResult,
@@ -49,7 +53,6 @@ use subxt::{
 		},
 	},
 	config::Header,
-	error::RpcError,
 	Config, OnlineClient,
 };
 use thiserror::Error;
@@ -83,17 +86,14 @@ pub enum SubscriptionType {
 }
 
 /// Unwrap the original `jsonrpsee::core::client::Error::Call` error.
-fn unwrap_call_err(err: &subxt::error::RpcError) -> Option<ErrorObjectOwned> {
+fn unwrap_call_err(
+	err: &Box<dyn std::error::Error + Send + Sync + 'static>,
+) -> Option<ErrorObjectOwned> {
 	use subxt::backend::rpc::reconnecting_rpc_client;
-	match err {
-		subxt::error::RpcError::ClientError(err) => {
-			match err.downcast_ref::<reconnecting_rpc_client::Error>() {
-				Some(reconnecting_rpc_client::Error::RpcError(
-					jsonrpsee::core::client::Error::Call(err),
-				)) => Some(err.clone().into_owned()),
-				_ => None,
-			}
-		},
+	match err.downcast_ref::<reconnecting_rpc_client::Error>() {
+		Some(reconnecting_rpc_client::Error::RpcError(jsonrpsee::core::client::Error::Call(
+			err,
+		))) => Some(err.clone().into_owned()),
 		_ => None,
 	}
 }
@@ -107,9 +107,8 @@ pub enum ClientError {
 	/// A [`subxt::Error`] wrapper error.
 	#[error(transparent)]
 	SubxtError(#[from] subxt::Error),
-	/// A [`RpcError`] wrapper error.
 	#[error(transparent)]
-	RpcError(#[from] RpcError),
+	RpcError(#[from] subxt::ext::subxt_rpcs::Error),
 	/// A [`sqlx::Error`] wrapper error.
 	#[error(transparent)]
 	SqlxError(#[from] sqlx::Error),
@@ -148,7 +147,10 @@ const REVERT_CODE: i32 = 3;
 impl From<ClientError> for ErrorObjectOwned {
 	fn from(err: ClientError) -> Self {
 		match err {
-			ClientError::SubxtError(subxt::Error::Rpc(err)) | ClientError::RpcError(err) => {
+			ClientError::SubxtError(subxt::Error::Rpc(subxt::error::RpcError::ClientError(
+				subxt::ext::subxt_rpcs::Error::Client(err),
+			))) |
+			ClientError::RpcError(subxt::ext::subxt_rpcs::Error::Client(err)) => {
 				if let Some(err) = unwrap_call_err(&err) {
 					return err;
 				}
@@ -554,11 +556,8 @@ impl Client {
 		>,
 		ClientError,
 	> {
-		let res = self
-			.rpc_client
-			.request("chain_getBlock".to_string(), subxt::rpc_params![block_hash].build())
-			.await
-			.unwrap();
+		let params = rpc_params![block_hash].to_rpc_params().unwrap_or_default();
+		let res = self.rpc_client.request("chain_getBlock".to_string(), params).await.unwrap();
 
 		let signed_block: sp_runtime::generic::SignedBlock<
 			sp_runtime::generic::Block<
