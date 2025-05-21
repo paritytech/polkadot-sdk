@@ -259,7 +259,6 @@ where
 					// The command needs the full node configuration because it uses the node
 					// client and the database API, storage and shared_trie_cache. It requires
 					// the `--chain` flag to be passed.
-
 					let runner = cli.create_runner(cmd)?;
 					runner.sync_run(|config| {
 						let node = new_node_spec(
