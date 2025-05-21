@@ -226,9 +226,9 @@ pub mod pallet {
 
 			let message_id = T::MessageProcessor::process_message(relayer.clone(), message)
 				.map_err(|e| match e {
-					MessageProcessorError::ProcessMessageError(e) => e,
-					MessageProcessorError::ConvertMessageError(e) => Error::<T>::from(e).into(),
-					MessageProcessorError::SendMessageError(e) => Error::<T>::from(e).into(),
+					MessageProcessorError::ProcessMessage(e) => e,
+					MessageProcessorError::ConvertMessage(e) => Error::<T>::from(e).into(),
+					MessageProcessorError::SendMessage(e) => Error::<T>::from(e).into(),
 				})?;
 
 			// Pay relayer reward if needed

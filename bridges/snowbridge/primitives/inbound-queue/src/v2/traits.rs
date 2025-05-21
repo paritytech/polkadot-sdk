@@ -27,11 +27,11 @@ pub enum ConvertMessageError {
 #[derive(Clone, RuntimeDebug, PartialEq)]
 pub enum MessageProcessorError {
 	/// Message processing failed.
-	ProcessMessageError(DispatchError),
+	ProcessMessage(DispatchError),
 	/// Message conversion failed.
-	ConvertMessageError(ConvertMessageError),
+	ConvertMessage(ConvertMessageError),
 	/// Message sending failed.
-	SendMessageError(SendError),
+	SendMessage(SendError),
 }
 
 /// Trait to define the logic for checking and processing inbound messages.
@@ -73,7 +73,7 @@ impl<AccountId> MessageProcessor<AccountId> for Tuple {
 			}
 		)* );
 
-		Err(MessageProcessorError::ProcessMessageError(DispatchError::Other(
+		Err(MessageProcessorError::ProcessMessage(DispatchError::Other(
 			"No handler found for message!",
 		)))
 	}

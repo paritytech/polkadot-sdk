@@ -58,14 +58,14 @@ where
 		// Convert the message to XCM
 		let xcm = Converter::convert(message).map_err(|error| {
 			tracing::error!(target: LOG_TARGET, ?error, "XCM conversion failed with error");
-			MessageProcessorError::ConvertMessageError(error)
+			MessageProcessorError::ConvertMessage(error)
 		})?;
 
 		// Forward XCM to AssetHub
 		let dest = Location::new(1, [Parachain(AssetHubParaId::get())]);
 		let message_id = Self::send_xcm(dest.clone(), &who, xcm.clone()).map_err(|error| {
 			tracing::error!(target: LOG_TARGET, ?error, ?dest, ?xcm, "XCM send failed with error");
-			MessageProcessorError::SendMessageError(error)
+			MessageProcessorError::SendMessage(error)
 		})?;
 
 		// Return the message_id
