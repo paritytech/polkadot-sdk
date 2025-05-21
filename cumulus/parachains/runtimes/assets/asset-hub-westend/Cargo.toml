@@ -404,6 +404,7 @@ std = [
 	"pallet-staking-async-rc-client/std",
 	"pallet-rc-migrator/std",
 	"pallet-staking-async/std",
+	"hex/std"
 ]
 
 fast-runtime = []
