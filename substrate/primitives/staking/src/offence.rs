@@ -130,6 +130,7 @@ impl<Reporter, Offender, O: Offence<Offender>> ReportOffence<Reporter, Offender,
 	}
 }
 
+// ANCHOR: trait_on_offence_handler
 /// A trait to take action on an offence.
 ///
 /// Used to decouple the module that handles offences and
@@ -157,7 +158,7 @@ pub trait OnOffenceHandler<Reporter, Offender, Res> {
 		session: SessionIndex,
 	) -> Res;
 }
-
+// ANCHOR_END: trait_on_offence_handler
 impl<Reporter, Offender, Res: Default> OnOffenceHandler<Reporter, Offender, Res> for () {
 	fn on_offence(
 		_offenders: &[OffenceDetails<Reporter, Offender>],

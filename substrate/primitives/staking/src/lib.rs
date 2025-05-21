@@ -380,6 +380,7 @@ pub struct IndividualExposure<AccountId, Balance: HasCompact> {
 	RuntimeDebug,
 	TypeInfo,
 )]
+// ANCHOR: exposure
 pub struct Exposure<AccountId, Balance: HasCompact> {
 	/// The total balance backing this validator.
 	#[codec(compact)]
@@ -390,6 +391,7 @@ pub struct Exposure<AccountId, Balance: HasCompact> {
 	/// The portions of nominators stashes that are exposed.
 	pub others: Vec<IndividualExposure<AccountId, Balance>>,
 }
+// ANCHOR_END: exposure
 
 impl<AccountId, Balance: Default + HasCompact> Default for Exposure<AccountId, Balance> {
 	fn default() -> Self {
