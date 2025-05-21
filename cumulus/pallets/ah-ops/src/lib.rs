@@ -325,7 +325,7 @@ pub mod pallet {
 			Self::do_migrate_parachain_sovereign_acc(&from, &to).map_err(Into::into)
 		}
 
-
+		/// Force unreserve a named or unnamed reserve.
 		#[pallet::call_index(4)]
 		#[pallet::weight(T::DbWeight::get().reads_writes(15, 15)
 					.saturating_add(Weight::from_parts(0, 50_000)))]
