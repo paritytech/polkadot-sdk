@@ -7,10 +7,10 @@ crates:
 - name: pallet-election-provider-multi-block
   bump: patch
 - name: pallet-election-provider-multi-phase
-  bump: patch
+  bump: minor
 - name: frame-election-provider-solution-type
   bump: patch
 - name: frame-election-provider-support
   bump: patch
 - name: sp-npos-elections
-  bump: patch
+  bump: major
