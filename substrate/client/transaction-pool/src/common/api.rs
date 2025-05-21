@@ -19,15 +19,9 @@
 //! Chain api required for the transaction pool.
 
 use crate::LOG_TARGET;
+use async_trait::async_trait;
 use codec::Encode;
-use futures::{
-	channel::{mpsc, oneshot},
-	future::{ready, Future, FutureExt, Ready},
-	lock::Mutex,
-	SinkExt, StreamExt,
-};
-use std::{marker::PhantomData, pin::Pin, sync::Arc};
-
+use futures::future::{ready, Future, FutureExt, Ready};
 use prometheus_endpoint::Registry as PrometheusRegistry;
 use sc_client_api::{blockchain::HeaderBackend, BlockBackend};
 use sp_api::{ApiExt, ProvideRuntimeApi};
@@ -39,13 +33,15 @@ use sp_runtime::{
 	transaction_validity::{TransactionSource, TransactionValidity},
 };
 use sp_transaction_pool::runtime_api::TaggedTransactionQueue;
+use std::{marker::PhantomData, pin::Pin, sync::Arc, time::Instant};
+use tokio::sync::{mpsc, oneshot, Mutex};
 
 use super::{
 	error::{self, Error},
 	metrics::{ApiMetrics, ApiMetricsExt},
 };
 use crate::graph;
-use tracing::{trace, warn};
+use tracing::{instrument, trace, warn, Level};
 
 /// The transaction pool logic for full client.
 pub struct FullChainApi<Client, Block> {
@@ -66,7 +62,7 @@ fn spawn_validation_pool_task(
 		Some("transaction-pool"),
 		async move {
 			loop {
-				let task = receiver.lock().await.next().await;
+				let task = receiver.lock().await.recv().await;
 				match task {
 					None => return,
 					Some(task) => task.await,
@@ -96,7 +92,7 @@ impl<Client, Block> FullChainApi<Client, Block> {
 			Ok(api) => Some(Arc::new(api)),
 		});
 
-		let (sender, receiver) = mpsc::channel(0);
+		let (sender, receiver) = mpsc::channel(1);
 
 		let receiver = Arc::new(Mutex::new(receiver));
 		spawn_validation_pool_task("transaction-pool-task-0", receiver.clone(), spawner);
@@ -106,6 +102,7 @@ impl<Client, Block> FullChainApi<Client, Block> {
 	}
 }
 
+#[async_trait]
 impl<Client, Block> graph::ChainApi for FullChainApi<Client, Block>
 where
 	Block: BlockT,
@@ -127,40 +124,38 @@ where
 		ready(self.client.block_body(hash).map_err(error::Error::from))
 	}
 
-	fn validate_transaction(
+	#[instrument(level = Level::TRACE, skip_all, target = "txpool", name = "api::validate_transaction")]
+	async fn validate_transaction(
 		&self,
 		at: <Self::Block as BlockT>::Hash,
 		source: TransactionSource,
 		uxt: graph::ExtrinsicFor<Self>,
-	) -> Self::ValidationFuture {
+	) -> Result<TransactionValidity, Self::Error> {
 		let (tx, rx) = oneshot::channel();
 		let client = self.client.clone();
-		let mut validation_pool = self.validation_pool.clone();
+		let validation_pool = self.validation_pool.clone();
 		let metrics = self.metrics.clone();
 
-		async move {
-			metrics.report(|m| m.validations_scheduled.inc());
+		metrics.report(|m| m.validations_scheduled.inc());
 
-			{
-				validation_pool
-					.send(
-						async move {
-							let res = validate_transaction_blocking(&*client, at, source, uxt);
-							let _ = tx.send(res);
-							metrics.report(|m| m.validations_finished.inc());
-						}
-						.boxed(),
-					)
-					.await
-					.map_err(|e| Error::RuntimeApi(format!("Validation pool down: {:?}", e)))?;
-			}
-
-			match rx.await {
-				Ok(r) => r,
-				Err(_) => Err(Error::RuntimeApi("Validation was canceled".into())),
-			}
+		{
+			validation_pool
+				.send(
+					async move {
+						let res = validate_transaction_blocking(&*client, at, source, uxt);
+						let _ = tx.send(res);
+						metrics.report(|m| m.validations_finished.inc());
+					}
+					.boxed(),
+				)
+				.await
+				.map_err(|e| Error::RuntimeApi(format!("Validation pool down: {:?}", e)))?;
 		}
-		.boxed()
+
+		match rx.await {
+			Ok(r) => r,
+			Err(_) => Err(Error::RuntimeApi("Validation was canceled".into())),
+		}
 	}
 
 	/// Validates a transaction by calling into the runtime.
