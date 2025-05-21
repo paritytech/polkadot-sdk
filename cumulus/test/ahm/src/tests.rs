@@ -43,11 +43,10 @@ use asset_hub_polkadot_runtime::Runtime as AssetHub;
 use cumulus_pallet_parachain_system::PendingUpwardMessages;
 use cumulus_primitives_core::{BlockT, InboundDownwardMessage, Junction, Location, ParaId};
 use frame_support::{
-	hypothetically,
-	assert_err,
+	assert_err, defensive, hypothetically,
 	traits::{
 		fungible::Inspect, schedule::DispatchTime, Currency, ExistenceRequirement,
-		ReservableCurrency,
+		InspectLockableCurrency, LockableCurrency, ReservableCurrency, WithdrawReasons,
 	},
 };
 use frame_system::pallet_prelude::BlockNumberFor;
@@ -72,10 +71,6 @@ use std::{
 };
 use xcm::latest::*;
 use xcm_emulator::{assert_ok, ConvertLocation, WeightMeter};
-use frame_support::traits::LockableCurrency;
-use frame_support::traits::WithdrawReasons;
-use frame_support::traits::InspectLockableCurrency;
-use frame_support::defensive;
 
 type RcChecks = (
 	SanityChecks,
@@ -256,7 +251,10 @@ fn sovereign_account_translation() {
 		let rc_acc = AccountId32::from_str(rc_acc).unwrap();
 		let ah_acc = AccountId32::from_str(ah_acc).unwrap();
 
-		let (translated, _para_id) = pallet_rc_migrator::accounts::try_translate_rc_sovereign_to_ah(&rc_acc).unwrap().unwrap();
+		let (translated, _para_id) =
+			pallet_rc_migrator::accounts::try_translate_rc_sovereign_to_ah(&rc_acc)
+				.unwrap()
+				.unwrap();
 		assert_eq!(translated, ah_acc);
 	}
 
@@ -272,7 +270,8 @@ fn sovereign_account_translation() {
 	for rc_acc in bad_cases {
 		let rc_acc = AccountId32::from_str(rc_acc).unwrap();
 
-		let translated = pallet_rc_migrator::accounts::try_translate_rc_sovereign_to_ah(&rc_acc).unwrap();
+		let translated =
+			pallet_rc_migrator::accounts::try_translate_rc_sovereign_to_ah(&rc_acc).unwrap();
 		assert!(translated.is_none());
 	}
 }
@@ -286,14 +285,22 @@ async fn print_sovereign_account_translation() {
 
 	rc.execute_with(|| {
 		for para_id in paras_registrar::Paras::<Polkadot>::iter_keys().collect::<Vec<_>>() {
-			let rc_acc = xcm_builder::ChildParachainConvertsVia::<ParaId, AccountId32>::convert_location(&Location::new(0, Junction::Parachain(para_id.into()))).unwrap();
+			let rc_acc =
+				xcm_builder::ChildParachainConvertsVia::<ParaId, AccountId32>::convert_location(
+					&Location::new(0, Junction::Parachain(para_id.into())),
+				)
+				.unwrap();
 
-			let (ah_acc, para_id) = pallet_rc_migrator::accounts::try_translate_rc_sovereign_to_ah(&rc_acc).unwrap().unwrap();
+			let (ah_acc, para_id) =
+				pallet_rc_migrator::accounts::try_translate_rc_sovereign_to_ah(&rc_acc)
+					.unwrap()
+					.unwrap();
 			rc_to_ah.insert(rc_acc, (ah_acc, para_id));
 		}
 
 		for account in frame_system::Account::<Polkadot>::iter_keys() {
-			let translated = pallet_rc_migrator::accounts::try_translate_rc_sovereign_to_ah(&account).unwrap();
+			let translated =
+				pallet_rc_migrator::accounts::try_translate_rc_sovereign_to_ah(&account).unwrap();
 
 			if let Some((ah_acc, para_id)) = translated {
 				if !rc_to_ah.contains_key(&account) {
@@ -328,22 +335,27 @@ fn translate_sovereign_acc_good() {
 		const LID: [u8; 8] = *b"lockID00";
 
 		// Test for Para 2030
-		let from = AccountId32::from_str("5Ec4AhPax3JR2qp8L9F1NiC8yjQcQAK1JmU5Nyyu3MXHPCmc").unwrap();
+		let from =
+			AccountId32::from_str("5Ec4AhPax3JR2qp8L9F1NiC8yjQcQAK1JmU5Nyyu3MXHPCmc").unwrap();
 		let to = AccountId32::from_str("5Eg2fntQ2mVKASYGt9C6VMXxED5v7aN7NR7WdwWPv5YrEjkb").unwrap();
 
 		// Works if the account does not exist
 		hypothetically!({
-			pallet_ah_ops::Pallet::<AssetHub>::do_migrate_parachain_sovereign_acc(&from, &to).unwrap();
+			pallet_ah_ops::Pallet::<AssetHub>::do_migrate_parachain_sovereign_acc(&from, &to)
+				.unwrap();
 			// Also twice
-			pallet_ah_ops::Pallet::<AssetHub>::do_migrate_parachain_sovereign_acc(&from, &to).unwrap();
+			pallet_ah_ops::Pallet::<AssetHub>::do_migrate_parachain_sovereign_acc(&from, &to)
+				.unwrap();
 		});
 
 		// But also if it exists
 		<AssetHub as pallet_ah_ops::Config>::Currency::make_free_balance_be(&from, balance);
 		hypothetically!({
-			pallet_ah_ops::Pallet::<AssetHub>::do_migrate_parachain_sovereign_acc(&from, &to).unwrap();
+			pallet_ah_ops::Pallet::<AssetHub>::do_migrate_parachain_sovereign_acc(&from, &to)
+				.unwrap();
 			// Also twice
-			pallet_ah_ops::Pallet::<AssetHub>::do_migrate_parachain_sovereign_acc(&from, &to).unwrap();
+			pallet_ah_ops::Pallet::<AssetHub>::do_migrate_parachain_sovereign_acc(&from, &to)
+				.unwrap();
 
 			// Balance was moved
 			assert_eq!(<AssetHub as pallet_ah_ops::Config>::Currency::free_balance(&from), 0);
@@ -351,17 +363,29 @@ fn translate_sovereign_acc_good() {
 		});
 
 		// Can also have locks
-		<AssetHub as pallet_ah_ops::Config>::Currency::set_lock(LID, &from, lock, WithdrawReasons::FEE);
+		<AssetHub as pallet_ah_ops::Config>::Currency::set_lock(
+			LID,
+			&from,
+			lock,
+			WithdrawReasons::FEE,
+		);
 		hypothetically!({
-			pallet_ah_ops::Pallet::<AssetHub>::do_migrate_parachain_sovereign_acc(&from, &to).unwrap();
+			pallet_ah_ops::Pallet::<AssetHub>::do_migrate_parachain_sovereign_acc(&from, &to)
+				.unwrap();
 
 			// Balance was moved
 			assert_eq!(<AssetHub as pallet_ah_ops::Config>::Currency::free_balance(&from), 0);
 			assert_eq!(<AssetHub as pallet_ah_ops::Config>::Currency::free_balance(&to), balance);
 
 			// Lock was moved
-			assert_eq!(<AssetHub as pallet_ah_ops::Config>::Currency::balance_locked(LID, &from), 0);
-			assert_eq!(<AssetHub as pallet_ah_ops::Config>::Currency::balance_locked(LID, &to), lock);
+			assert_eq!(
+				<AssetHub as pallet_ah_ops::Config>::Currency::balance_locked(LID, &from),
+				0
+			);
+			assert_eq!(
+				<AssetHub as pallet_ah_ops::Config>::Currency::balance_locked(LID, &to),
+				lock
+			);
 		});
 	});
 }
@@ -370,9 +394,12 @@ fn translate_sovereign_acc_good() {
 #[ignore]
 // Needs a post-migration snapshot of AH (no RC snapshot needed):
 // Either use `tasty.limo/uploads/ah-westend-2025-05-19.snap.lz4` or DL with:
-// `try-runtime create-snapshot --uri wss://westend-asset-hub-rpc.polkadot.io ah-westend.snap --at 0x1314f3a6f7032c98cc9e2f39780edc25597bada9cfd6541e2bd19520d4a0c2c2`
+// `try-runtime create-snapshot --uri wss://westend-asset-hub-rpc.polkadot.io ah-westend.snap --at
+// 0x1314f3a6f7032c98cc9e2f39780edc25597bada9cfd6541e2bd19520d4a0c2c2`
 async fn translate_sovereign_all_good() {
-	let mut ah = remote_ext_test_setup::<asset_hub_polkadot_runtime::Block>("SNAP_AH").await.unwrap();
+	let mut ah = remote_ext_test_setup::<asset_hub_polkadot_runtime::Block>("SNAP_AH")
+		.await
+		.unwrap();
 
 	ah.execute_with(|| {
 		let mut migrated = 0;
@@ -380,30 +407,62 @@ async fn translate_sovereign_all_good() {
 		for child_acc in frame_system::Account::<AssetHub>::iter_keys() {
 			let old_child = frame_system::Account::<AssetHub>::get(&child_acc);
 
-			let Some((sibl_acc, para_id)) = pallet_rc_migrator::accounts::try_translate_rc_sovereign_to_ah(&child_acc).unwrap() else {
+			let Some((sibl_acc, para_id)) =
+				pallet_rc_migrator::accounts::try_translate_rc_sovereign_to_ah(&child_acc).unwrap()
+			else {
 				continue;
 			};
 			let old_sibl = frame_system::Account::<AssetHub>::get(&sibl_acc);
 
-			let () = pallet_ah_ops::Pallet::<AssetHub>::do_migrate_parachain_sovereign_acc(&child_acc, &sibl_acc).unwrap();
-			
-			assert_eq!(frame_system::Account::<AssetHub>::get(&child_acc), Default::default(), "Child gone");
-			assert!(frame_system::Account::<AssetHub>::get(&sibl_acc) != Default::default(), "Sibling created");
+			let () = pallet_ah_ops::Pallet::<AssetHub>::do_migrate_parachain_sovereign_acc(
+				&child_acc, &sibl_acc,
+			)
+			.unwrap();
+
+			assert_eq!(
+				frame_system::Account::<AssetHub>::get(&child_acc),
+				Default::default(),
+				"Child gone"
+			);
+			assert!(
+				frame_system::Account::<AssetHub>::get(&sibl_acc) != Default::default(),
+				"Sibling created"
+			);
 
 			let new_sibl = frame_system::Account::<AssetHub>::get(&sibl_acc);
 			if old_child != new_sibl && old_child == Default::default() {
-				log::warn!("Sovereign mapping was not 1-to-1:\n\t{:?}\n\t{:?}", old_child, new_sibl);
+				log::warn!(
+					"Sovereign mapping was not 1-to-1:\n\t{:?}\n\t{:?}",
+					old_child,
+					new_sibl
+				);
 			}
 
 			// No total balance is lost
-			assert!(new_sibl.data.free + new_sibl.data.reserved >= old_child.data.free + old_child.data.reserved, "Total balance preserved");
+			assert!(
+				new_sibl.data.free + new_sibl.data.reserved >=
+					old_child.data.free + old_child.data.reserved,
+				"Total balance preserved"
+			);
 			// No reserved balance is lost
-			assert!(new_sibl.data.reserved >= old_child.data.reserved, "Reserved balance preserved");
+			assert!(
+				new_sibl.data.reserved >= old_child.data.reserved,
+				"Reserved balance preserved"
+			);
 			// No free balance is lost
 			assert!(new_sibl.data.free >= old_child.data.free, "Free balance preserved");
 
-			let fmt_old_sibl = if old_sibl == Default::default() { "0".into() } else { format!("{:?}", old_sibl) };
-			log::info!("Migrated para {} account from {} to {}\n\t  {:?}\n\t+ {}\n\t= {:?}", para_id, child_acc, sibl_acc, old_child, fmt_old_sibl, new_sibl);
+			let fmt_old_sibl =
+				if old_sibl == Default::default() { "0".into() } else { format!("{:?}", old_sibl) };
+			log::info!(
+				"Migrated para {} account from {} to {}\n\t  {:?}\n\t+ {}\n\t= {:?}",
+				para_id,
+				child_acc,
+				sibl_acc,
+				old_child,
+				fmt_old_sibl,
+				new_sibl
+			);
 
 			migrated += 1;
 		}

@@ -42,20 +42,15 @@ use cumulus_primitives_core::ParaId;
 use frame_support::{
 	pallet_prelude::*,
 	traits::{
-		fungible::{InspectFreeze, Mutate, MutateFreeze, MutateHold, Unbalanced},
-		tokens::Preservation,
+		fungible::{Inspect, InspectFreeze, Mutate, MutateFreeze, MutateHold, Unbalanced},
+		tokens::{Fortitude, IdAmount, Precision, Preservation},
 		Defensive, LockableCurrency, ReservableCurrency,
 	},
 };
 use frame_system::pallet_prelude::*;
-use pallet_balances::AccountData;
+use pallet_balances::{AccountData, BalanceLock};
 use sp_runtime::{traits::BlockNumberProvider, AccountId32};
 use sp_std::prelude::*;
-use frame_support::traits::tokens::IdAmount;
-use frame_support::traits::tokens::Precision;
-use pallet_balances::BalanceLock;
-use frame_support::traits::fungible::Inspect;
-use frame_support::traits::tokens::Fortitude;
 
 /// The log target of this pallet.
 pub const LOG_TARGET: &str = "runtime::ah-migrator";
@@ -211,29 +206,22 @@ pub mod pallet {
 			remaining: BalanceOf<T>,
 		},
 
-		/// A sovereign parachain account has been migrated from its child to sibling representation.
+		/// A sovereign parachain account has been migrated from its child to sibling
+		/// representation.
 		SovereignMigrated {
 			/// The parachain ID that had its account migrated.
 			para_id: ParaId,
 			/// The old account that was migrated out of.
 			from: T::AccountId,
 			/// The new account that was migrated into.
-			to: T::AccountId
+			to: T::AccountId,
 		},
 
 		/// An amount of fungible balance was put on hold.
-		HoldPlaced {
-			account: T::AccountId,
-			amount: BalanceOf<T>,
-			reason: T::RuntimeHoldReason,
-		},
+		HoldPlaced { account: T::AccountId, amount: BalanceOf<T>, reason: T::RuntimeHoldReason },
 
 		/// An amount of fungible balance was released from its hold.
-		HoldReleased {
-			account: T::AccountId,
-			amount: BalanceOf<T>,
-			reason: T::RuntimeHoldReason,
-		},
+		HoldReleased { account: T::AccountId, amount: BalanceOf<T>, reason: T::RuntimeHoldReason },
 	}
 
 	#[pallet::pallet]
@@ -440,33 +428,36 @@ pub mod pallet {
 
 			pallet_balances::Pallet::<T>::ensure_upgraded(from);
 
-			let (expected_to, para_id) = pallet_rc_migrator::accounts::try_translate_rc_sovereign_to_ah(from)
-				.defensive()
-				.map_err(|_| Error::<T>::InternalError)?
-				.ok_or(Error::<T>::NotSovereign)?;
+			let (expected_to, para_id) =
+				pallet_rc_migrator::accounts::try_translate_rc_sovereign_to_ah(from)
+					.defensive()
+					.map_err(|_| Error::<T>::InternalError)?
+					.ok_or(Error::<T>::NotSovereign)?;
 			ensure!(expected_to == *to, Error::<T>::WrongSovereignTranslation);
 
 			// Release all locks
 			let locks: Vec<BalanceLock<T::Balance>> =
-			pallet_balances::Locks::<T>::get(&from).into_inner();
+				pallet_balances::Locks::<T>::get(&from).into_inner();
 			for lock in &locks {
 				let () = <T as Config>::Currency::remove_lock(lock.id, &from);
 			}
 
 			// Thaw all the freezes
 			let freezes: Vec<IdAmount<T::FreezeIdentifier, T::Balance>> =
-			pallet_balances::Freezes::<T>::get(&from).into();
+				pallet_balances::Freezes::<T>::get(&from).into();
 
 			for freeze in &freezes {
-				let () = <T as Config>::Currency::thaw(&freeze.id, &from).map_err(|_| Error::<T>::FailedToThaw)?;
+				let () = <T as Config>::Currency::thaw(&freeze.id, &from)
+					.map_err(|_| Error::<T>::FailedToThaw)?;
 			}
 
 			// Release all holds
 			let holds: Vec<IdAmount<T::RuntimeHoldReason, T::Balance>> =
-		pallet_balances::Holds::<T>::get(&from).into();
+				pallet_balances::Holds::<T>::get(&from).into();
 
 			for IdAmount { id, amount } in &holds {
-				let _ = <T as Config>::Currency::release(id, &from, *amount, Precision::Exact).map_err(|_| Error::<T>::FailedToReleaseHold)?;
+				let _ = <T as Config>::Currency::release(id, &from, *amount, Precision::Exact)
+					.map_err(|_| Error::<T>::FailedToReleaseHold)?;
 				Self::deposit_event(Event::HoldReleased {
 					account: from.clone(),
 					amount: *amount,
@@ -494,7 +485,10 @@ pub mod pallet {
 				Preservation::Expendable,
 				Fortitude::Polite,
 			);
-			defensive_assert!(total >= <T as Config>::Currency::minimum_balance(), "Must have at least ED");
+			defensive_assert!(
+				total >= <T as Config>::Currency::minimum_balance(),
+				"Must have at least ED"
+			);
 			defensive_assert!(total == reducible, "Total balance should be reducible");
 
 			// Now the actual balance transfer to the new account
@@ -507,7 +501,8 @@ pub mod pallet {
 
 			// Reapply the holds
 			for hold in &holds {
-				<T as Config>::Currency::hold(&hold.id, &to, hold.amount).map_err(|_| Error::<T>::FailedToPutHold)?;
+				<T as Config>::Currency::hold(&hold.id, &to, hold.amount)
+					.map_err(|_| Error::<T>::FailedToPutHold)?;
 				// Somehow there are no events for this being emitted... so we emit our own.
 				Self::deposit_event(Event::HoldPlaced {
 					account: to.clone(),
@@ -526,12 +521,19 @@ pub mod pallet {
 			}
 			// Reapply the freezes
 			for freeze in &freezes {
-				<T as Config>::Currency::set_freeze(&freeze.id, &to, freeze.amount).map_err(|_| Error::<T>::FailedToSetFreeze)?;
+				<T as Config>::Currency::set_freeze(&freeze.id, &to, freeze.amount)
+					.map_err(|_| Error::<T>::FailedToSetFreeze)?;
 			}
 
-			defensive_assert!(frame_system::Account::<T>::get(&from) == Default::default(), "Must reap old account");
+			defensive_assert!(
+				frame_system::Account::<T>::get(&from) == Default::default(),
+				"Must reap old account"
+			);
 			// If new account would die from this, then lets rather not do it and check it manually.
-			ensure!(frame_system::Account::<T>::get(to) != Default::default(), Error::<T>::WouldReap);
+			ensure!(
+				frame_system::Account::<T>::get(to) != Default::default(),
+				Error::<T>::WouldReap
+			);
 
 			Self::deposit_event(Event::SovereignMigrated {
 				para_id: (para_id as u32).into(),
@@ -548,11 +550,12 @@ pub mod pallet {
 			reason: Option<T::RuntimeHoldReason>,
 		) -> Result<(), Error<T>> {
 			if let Some(reason) = reason {
-				<T as Config>::Currency::release(&reason, &account, amount, Precision::Exact).map_err(|_| Error::<T>::FailedToReleaseHold)?;
+				<T as Config>::Currency::release(&reason, &account, amount, Precision::Exact)
+					.map_err(|_| Error::<T>::FailedToReleaseHold)?;
 				Self::deposit_event(Event::HoldReleased {
 					account: account.clone(),
-					amount: amount,
-					reason: reason,
+					amount,
+					reason,
 				});
 			} else {
 				let _remaining = <T as Config>::Currency::unreserve(&account, amount);

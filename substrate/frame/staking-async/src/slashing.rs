@@ -43,11 +43,11 @@
 use crate::{
 	asset, log, session_rotation::Eras, BalanceOf, Config, NegativeImbalanceOf,
 	NominatorSlashInEra, OffenceQueue, OffenceQueueEras, PagedExposure, Pallet, Perbill,
-	ProcessingOffence, SlashRewardFraction, UnappliedSlash, UnappliedSlashOf, UnappliedSlashes, ValidatorSlashInEra,
-	WeightInfo,
+	ProcessingOffence, SlashRewardFraction, UnappliedSlash, UnappliedSlashOf, UnappliedSlashes,
+	ValidatorSlashInEra, WeightInfo,
 };
 use alloc::vec::Vec;
-use codec::{Decode, Encode, MaxEncodedLen, DecodeWithMemTracking};
+use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use frame_support::{
 	ensure,
 	traits::{Defensive, DefensiveSaturating, Get, Imbalance, OnUnbalanced},

@@ -9,45 +9,45 @@ repository.workspace = true
 
 [dependencies]
 codec = { workspace = true, features = ["max-encoded-len"] }
-scale-info = { workspace = true, features = ["derive"] }
-serde = { features = ["derive"], optional = true, workspace = true }
-log = { workspace = true }
-impl-trait-for-tuples = { workspace = true }
 frame-benchmarking = { workspace = true, optional = true }
+frame-election-provider-support = { workspace = true }
 frame-support = { workspace = true, features = ["experimental"] }
 frame-system = { workspace = true }
-sp-core = { workspace = true }
-sp-runtime = { workspace = true }
-sp-std = { workspace = true }
-sp-io = { workspace = true }
+hex-literal = { workspace = true }
+impl-trait-for-tuples = { workspace = true }
+log = { workspace = true }
 pallet-asset-rate = { workspace = true }
-pallet-balances = { workspace = true }
 pallet-bags-list = { workspace = true }
+pallet-balances = { workspace = true }
 pallet-bounties = { workspace = true }
 pallet-conviction-voting = { workspace = true }
-pallet-scheduler = { workspace = true }
-pallet-staking = { workspace = true }
-pallet-staking-async = { workspace = true } # Only on westend
-pallet-staking-async-ah-client = { workspace = true } # Only on westend
-pallet-proxy = { workspace = true }
+pallet-fast-unstake = { workspace = true }
 pallet-indices = { workspace = true }
 pallet-multisig = { workspace = true }
-pallet-preimage = { workspace = true }
-pallet-treasury = { workspace = true }
-pallet-fast-unstake = { workspace = true }
-pallet-referenda = { workspace = true }
-pallet-vesting = { workspace = true }
 pallet-nomination-pools = { workspace = true }
+pallet-preimage = { workspace = true }
+pallet-proxy = { workspace = true }
+pallet-referenda = { workspace = true }
+pallet-scheduler = { workspace = true }
+pallet-staking = { workspace = true }
+pallet-staking-async = { workspace = true }                          # Only on westend
+pallet-staking-async-ah-client = { workspace = true }                # Only on westend
+pallet-treasury = { workspace = true }
+pallet-vesting = { workspace = true }
+polkadot-parachain-primitives = { workspace = true }
 polkadot-runtime-common = { workspace = true }
 polkadot-runtime-parachains = { workspace = true }
-polkadot-parachain-primitives = { workspace = true }
+scale-info = { workspace = true, features = ["derive"] }
+serde = { features = ["derive"], optional = true, workspace = true }
+sp-core = { workspace = true }
+sp-io = { workspace = true }
+sp-runtime = { workspace = true }
+sp-staking = { workspace = true }
+sp-std = { workspace = true }
 westend-runtime-constants = { workspace = true }
-hex-literal = { workspace = true }
 xcm = { workspace = true }
 xcm-builder = { workspace = true }
 xcm-executor = { workspace = true }
-sp-staking = { workspace = true }
-frame-election-provider-support = { workspace = true }
 
 [features]
 default = ["std"]
@@ -71,29 +71,29 @@ std = [
 	"pallet-proxy/std",
 	"pallet-referenda/std",
 	"pallet-scheduler/std",
+	"pallet-staking-async-ah-client/std",
+	"pallet-staking-async/std",
 	"pallet-staking/std",
 	"pallet-treasury/std",
 	"pallet-vesting/std",
 	"polkadot-parachain-primitives/std",
 	"polkadot-runtime-common/std",
-	"westend-runtime-constants/std",
-	"westend-runtime-constants/std",
 	"polkadot-runtime-parachains/std",
 	"scale-info/std",
 	"serde",
+	"serde?/std",
 	"sp-core/std",
 	"sp-io/std",
 	"sp-runtime/std",
 	"sp-staking/std",
 	"sp-std/std",
+	"westend-runtime-constants/std",
+	"westend-runtime-constants/std",
 	"xcm-builder/std",
 	"xcm-builder/std",
 	"xcm-executor/std",
 	"xcm-executor/std",
 	"xcm/std",
-	"pallet-staking-async/std",
-	"pallet-staking-async-ah-client/std",
-	"serde?/std"
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
@@ -119,15 +119,15 @@ runtime-benchmarks = [
 	"polkadot-parachain-primitives/runtime-benchmarks",
 	"polkadot-runtime-common/runtime-benchmarks",
 
+	"pallet-staking-async-ah-client/runtime-benchmarks",
+	"pallet-staking-async/runtime-benchmarks",
 	"polkadot-runtime-parachains/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"sp-staking/runtime-benchmarks",
+	"westend-runtime-constants/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",
 	"xcm-executor/runtime-benchmarks",
-	"pallet-staking-async/runtime-benchmarks",
-	"pallet-staking-async-ah-client/runtime-benchmarks",
 	"xcm/runtime-benchmarks",
-	"westend-runtime-constants/runtime-benchmarks"
 ]
 try-runtime = [
 	"frame-election-provider-support/try-runtime",
@@ -146,14 +146,14 @@ try-runtime = [
 	"pallet-proxy/try-runtime",
 	"pallet-referenda/try-runtime",
 	"pallet-scheduler/try-runtime",
+	"pallet-staking-async-ah-client/try-runtime",
+	"pallet-staking-async/try-runtime",
 	"pallet-staking/try-runtime",
 	"pallet-treasury/try-runtime",
 	"pallet-vesting/try-runtime",
 	"polkadot-runtime-common/try-runtime",
 	"polkadot-runtime-parachains/try-runtime",
 	"sp-runtime/try-runtime",
-	"pallet-staking-async/try-runtime",
-	"pallet-staking-async-ah-client/try-runtime"
 ]
 
 ahm-polkadot = []

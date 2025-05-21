@@ -51,8 +51,8 @@ frame-metadata-hash-extension = { workspace = true }
 frame-support = { features = ["experimental", "tuples-96"], workspace = true }
 frame-system = { workspace = true }
 frame-system-rpc-runtime-api = { workspace = true }
-pallet-asset-rate = { workspace = true }
 pallet-ah-migrator = { workspace = true }
+pallet-asset-rate = { workspace = true }
 pallet-authority-discovery = { workspace = true }
 pallet-authorship = { workspace = true }
 pallet-babe = { workspace = true }
@@ -132,16 +132,16 @@ tokio = { features = ["macros"], workspace = true, default-features = true }
 substrate-wasm-builder = { workspace = true, default-features = true }
 
 [features]
-default = ["std", "ahm-westend"]
+default = ["ahm-westend", "std"]
 no_std = []
 ahm-westend = [
 	"ahm-staking-migration",
 	"pallet-ah-migrator/ahm-westend",
-	"pallet-rc-migrator/ahm-westend"
+	"pallet-rc-migrator/ahm-westend",
 ]
 ahm-staking-migration = [
 	"pallet-ah-migrator/ahm-staking-migration",
-	"pallet-rc-migrator/ahm-staking-migration"
+	"pallet-rc-migrator/ahm-staking-migration",
 ]
 std = [
 	"binary-merkle-tree/std",
@@ -157,6 +157,7 @@ std = [
 	"frame-system/std",
 	"frame-try-runtime/std",
 	"log/std",
+	"pallet-ah-migrator/std",
 	"pallet-asset-rate/std",
 	"pallet-authority-discovery/std",
 	"pallet-authorship/std",
@@ -243,7 +244,6 @@ std = [
 	"xcm-executor/std",
 	"xcm-runtime-apis/std",
 	"xcm/std",
-	"pallet-ah-migrator/std"
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
@@ -251,6 +251,7 @@ runtime-benchmarks = [
 	"frame-support/runtime-benchmarks",
 	"frame-system-benchmarking/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
+	"pallet-ah-migrator/runtime-benchmarks",
 	"pallet-asset-rate/runtime-benchmarks",
 	"pallet-babe/runtime-benchmarks",
 	"pallet-bags-list/runtime-benchmarks",
@@ -300,12 +301,11 @@ runtime-benchmarks = [
 	"polkadot-runtime-parachains/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"sp-staking/runtime-benchmarks",
+	"westend-runtime-constants/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",
 	"xcm-executor/runtime-benchmarks",
 	"xcm-runtime-apis/runtime-benchmarks",
 	"xcm/runtime-benchmarks",
-	"pallet-ah-migrator/runtime-benchmarks",
-	"westend-runtime-constants/runtime-benchmarks"
 ]
 try-runtime = [
 	"frame-election-provider-support/try-runtime",
@@ -314,6 +314,7 @@ try-runtime = [
 	"frame-system/try-runtime",
 	"frame-try-runtime",
 	"frame-try-runtime/try-runtime",
+	"pallet-ah-migrator/try-runtime",
 	"pallet-asset-rate/try-runtime",
 	"pallet-authority-discovery/try-runtime",
 	"pallet-authorship/try-runtime",
@@ -360,7 +361,6 @@ try-runtime = [
 	"polkadot-runtime-common/try-runtime",
 	"polkadot-runtime-parachains/try-runtime",
 	"sp-runtime/try-runtime",
-	"pallet-ah-migrator/try-runtime"
 ]
 
 # Enable the metadata hash generation in the wasm builder.

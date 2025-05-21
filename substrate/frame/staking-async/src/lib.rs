@@ -70,7 +70,7 @@ pub mod weights;
 
 extern crate alloc;
 
-use alloc::{vec, vec::Vec, fmt::Debug};
+use alloc::{fmt::Debug, vec, vec::Vec};
 use codec::{Decode, DecodeWithMemTracking, Encode, HasCompact, MaxEncodedLen};
 use frame_election_provider_support::ElectionProvider;
 use frame_support::{
@@ -78,8 +78,8 @@ use frame_support::{
 		tokens::fungible::{Credit, Debt},
 		ConstU32, Contains, Get, LockIdentifier,
 	},
-	BoundedVec, DebugNoBound, DefaultNoBound, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound,
-	WeakBoundedVec, CloneNoBound
+	BoundedVec, CloneNoBound, DebugNoBound, DefaultNoBound, EqNoBound, PartialEqNoBound,
+	RuntimeDebugNoBound, WeakBoundedVec,
 };
 use ledger::LedgerIntegrityState;
 use scale_info::TypeInfo;
@@ -158,7 +158,15 @@ pub struct ActiveEraInfo {
 ///
 /// This points will be used to reward validators and their respective nominators.
 #[derive(
-	PartialEqNoBound, Encode, Decode, DebugNoBound, TypeInfo, MaxEncodedLen, DefaultNoBound, DecodeWithMemTracking, CloneNoBound
+	PartialEqNoBound,
+	Encode,
+	Decode,
+	DebugNoBound,
+	TypeInfo,
+	MaxEncodedLen,
+	DefaultNoBound,
+	DecodeWithMemTracking,
+	CloneNoBound,
 )]
 #[scale_info(skip_type_params(MaxValidatorSet))]
 pub struct EraRewardPoints<AccountId, MaxValidatorSet>
@@ -171,10 +179,8 @@ where
 	/// The reward points earned by a given validator.
 	pub individual: BoundedBTreeMap<AccountId, RewardPoint, MaxValidatorSet>,
 }
-pub type EraRewardPointsOf<T> = EraRewardPoints<
-	<T as frame_system::Config>::AccountId,
-	<T as Config>::MaxValidatorSet,
->;
+pub type EraRewardPointsOf<T> =
+	EraRewardPoints<<T as frame_system::Config>::AccountId, <T as Config>::MaxValidatorSet>;
 
 /// A destination account for payment.
 #[derive(
@@ -242,7 +248,15 @@ pub enum SnapshotStatus<AccountId> {
 
 /// A record of the nominations made by a specific account.
 #[derive(
-	PartialEqNoBound, EqNoBound, CloneNoBound, Encode, Decode, RuntimeDebugNoBound, TypeInfo, MaxEncodedLen, DecodeWithMemTracking
+	PartialEqNoBound,
+	EqNoBound,
+	CloneNoBound,
+	Encode,
+	Decode,
+	RuntimeDebugNoBound,
+	TypeInfo,
+	MaxEncodedLen,
+	DecodeWithMemTracking,
 )]
 #[scale_info(skip_type_params(MaxNominations))]
 pub struct Nominations<AccountId, MaxNominations>
@@ -262,10 +276,8 @@ where
 	/// NOTE: this for future proofing and is thus far not used.
 	pub suppressed: bool,
 }
-pub type NominationsOf<T> = Nominations<
-	<T as frame_system::Config>::AccountId,
-	MaxNominationsOf<T>,
->;
+pub type NominationsOf<T> =
+	Nominations<<T as frame_system::Config>::AccountId, MaxNominationsOf<T>>;
 
 /// Facade struct to encapsulate `PagedExposureMetadata` and a single page of `ExposurePage`.
 ///
@@ -316,7 +328,16 @@ impl<AccountId, Balance: HasCompact + Copy + AtLeast32BitUnsigned + codec::MaxEn
 
 /// A pending slash record. The value of the slash has been computed but not applied yet,
 /// rather deferred for several eras.
-#[derive(Encode, Decode, RuntimeDebugNoBound, TypeInfo, MaxEncodedLen, PartialEqNoBound, CloneNoBound, DecodeWithMemTracking)]
+#[derive(
+	Encode,
+	Decode,
+	RuntimeDebugNoBound,
+	TypeInfo,
+	MaxEncodedLen,
+	PartialEqNoBound,
+	CloneNoBound,
+	DecodeWithMemTracking,
+)]
 #[scale_info(skip_type_params(MaxExposurePageSize))]
 pub struct UnappliedSlash<AccountId, Balance, MaxExposurePageSize>
 where

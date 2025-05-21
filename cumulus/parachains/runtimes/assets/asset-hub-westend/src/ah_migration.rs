@@ -81,10 +81,9 @@ impl Convert<RcHoldReason, RuntimeHoldReason> for RcToAhHoldReason {
 	fn convert(rc_hold_reason: RcHoldReason) -> RuntimeHoldReason {
 		match rc_hold_reason {
 			RcHoldReason::Preimage(inner) => RuntimeHoldReason::Preimage(inner),
-			RcHoldReason::DelegatedStaking(inner) => {
-				RuntimeHoldReason::DelegatedStaking(inner)
-			},
-			RcHoldReason::Staking(_) => RuntimeHoldReason::Staking(pallet_staking_async::HoldReason::Staking),
+			RcHoldReason::DelegatedStaking(inner) => RuntimeHoldReason::DelegatedStaking(inner),
+			RcHoldReason::Staking(_) =>
+				RuntimeHoldReason::Staking(pallet_staking_async::HoldReason::Staking),
 		}
 	}
 }

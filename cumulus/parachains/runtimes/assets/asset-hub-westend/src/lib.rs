@@ -738,7 +738,8 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
 						RuntimeCall::Utility { .. } |
 						RuntimeCall::Multisig { .. } |
 						RuntimeCall::NftFractionalization { .. } |
-						RuntimeCall::Nfts { .. } | RuntimeCall::Uniques { .. }
+						RuntimeCall::Nfts { .. } |
+						RuntimeCall::Uniques { .. }
 				)
 			},
 			ProxyType::AssetOwner => matches!(
@@ -824,7 +825,8 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
 				matches!(
 					c,
 					RuntimeCall::Staking(..) |
-						RuntimeCall::Session(..) | RuntimeCall::Utility(..) |
+						RuntimeCall::Session(..) |
+						RuntimeCall::Utility(..) |
 						RuntimeCall::NominationPools(..) |
 						RuntimeCall::FastUnstake(..) |
 						RuntimeCall::VoterList(..)
@@ -2910,7 +2912,9 @@ mod remote_tests {
 							account.clone(),
 						);
 
-					let delegation_hold = if is_pool_member_unmigrated { 0 } else {
+					let delegation_hold = if is_pool_member_unmigrated {
+						0
+					} else {
 						pallet_nomination_pools::Pallet::<Runtime>::api_member_total_balance(
 							account.clone(),
 						)

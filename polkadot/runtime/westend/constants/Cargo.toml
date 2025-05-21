@@ -44,8 +44,8 @@ runtime-benchmarks = [
 	"polkadot-primitives/runtime-benchmarks",
 	"polkadot-runtime-common/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
+	"xcm-builder/runtime-benchmarks",
 	"xcm/runtime-benchmarks",
-	"xcm-builder/runtime-benchmarks"
 ]
 # Set timing constants (e.g. session period) to faster versions to speed up testing.
 fast-runtime = []
