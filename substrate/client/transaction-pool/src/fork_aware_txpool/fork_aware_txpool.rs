@@ -962,7 +962,8 @@ where
 		self.view_store
 			.most_recent_view
 			.read()
-			.map(|hash| self.view_store.status()[&hash].clone())
+			.as_ref()
+			.map(|v| v.status())
 			.unwrap_or(PoolStatus { ready: 0, ready_bytes: 0, future: 0, future_bytes: 0 })
 	}
 
@@ -990,15 +991,16 @@ where
 	/// block (for which maintain process was accomplished).
 	// todo [#5491]: api change: we probably should have at here?
 	fn ready_transaction(&self, tx_hash: &TxHash<Self>) -> Option<Arc<Self::InPoolTransaction>> {
-		let most_recent_view = self.view_store.most_recent_view.read();
-		let result = most_recent_view
+		let most_recent_view_hash =
+			self.view_store.most_recent_view.read().as_ref().map(|v| v.at.hash);
+		let result = most_recent_view_hash
 			.map(|block_hash| self.view_store.ready_transaction(block_hash, tx_hash))
 			.flatten();
 		trace!(
 			target: LOG_TARGET,
 			?tx_hash,
 			is_ready = result.is_some(),
-			?most_recent_view,
+			most_recent_view = ?most_recent_view_hash,
 			"ready_transaction"
 		);
 		result
@@ -1709,16 +1711,13 @@ where
 		watched: bool,
 		xt: ExtrinsicFor<ChainApi>,
 	) -> Result<InsertionInfo<ExtrinsicHash<ChainApi>>, TxPoolApiError> {
-		let at = self
+		let best_view = self
 			.view_store
 			.most_recent_view
 			.read()
-			.ok_or(TxPoolApiError::ImmediatelyDropped)?;
-
-		let (best_view, _) = self
-			.view_store
-			.get_view_at(at, false)
-			.ok_or(TxPoolApiError::ImmediatelyDropped)?;
+			.as_ref()
+			.ok_or(TxPoolApiError::ImmediatelyDropped)?
+			.clone();
 
 		let (xt_hash, validated_tx) = best_view
 			.pool
@@ -1751,7 +1750,10 @@ where
 			.view_store
 			.most_recent_view
 			.read()
-			.ok_or(TxPoolApiError::ImmediatelyDropped)?;
+			.as_ref()
+			.ok_or(TxPoolApiError::ImmediatelyDropped)?
+			.at
+			.hash;
 
 		let ValidTransaction { priority, .. } = self
 			.api
