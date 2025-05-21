@@ -1,0 +1,10 @@
+title: '[pallet-revive] make subscription task panic on error'
+doc:
+- audience: Runtime Dev
+  description: 'subscription task are "essential tasks" and the service should go
+    down when they fail.
+
+    '
+crates:
+- name: pallet-revive-eth-rpc
+  bump: patch
