@@ -22,6 +22,7 @@ pallet-balances = { workspace = true }
 pallet-bags-list = { workspace = true }
 pallet-bounties = { workspace = true }
 pallet-conviction-voting = { workspace = true }
+pallet-delegated-staking = { workspace = true }
 pallet-fast-unstake = { workspace = true }
 pallet-multisig = { workspace = true }
 pallet-indices = { workspace = true }
@@ -79,6 +80,7 @@ std = [
 	"pallet-balances/std",
 	"pallet-bounties/std",
 	"pallet-conviction-voting/std",
+	"pallet-delegated-staking/std",
 	"pallet-fast-unstake/std",
 	"pallet-indices/std",
 	"pallet-message-queue/std",
@@ -131,6 +133,7 @@ runtime-benchmarks = [
 	"pallet-balances/runtime-benchmarks",
 	"pallet-bounties/runtime-benchmarks",
 	"pallet-conviction-voting/runtime-benchmarks",
+	"pallet-delegated-staking/runtime-benchmarks",
 	"pallet-fast-unstake/runtime-benchmarks",
 	"pallet-indices/runtime-benchmarks",
 	"pallet-message-queue/runtime-benchmarks",
@@ -171,6 +174,7 @@ try-runtime = [
 	"pallet-balances/try-runtime",
 	"pallet-bounties/try-runtime",
 	"pallet-conviction-voting/try-runtime",
+	"pallet-delegated-staking/try-runtime",
 	"pallet-fast-unstake/try-runtime",
 	"pallet-indices/try-runtime",
 	"pallet-message-queue/try-runtime",

@@ -64,9 +64,11 @@ use frame_support::{
 	pallet_prelude::*,
 	storage::{transactional::with_transaction_opaque_err, TransactionOutcome},
 	traits::{
-		fungible::{Inspect, InspectFreeze, Mutate, MutateFreeze, MutateHold, Unbalanced},
+		fungible::{
+			Inspect, InspectFreeze, InspectHold, Mutate, MutateFreeze, MutateHold, Unbalanced,
+		},
 		fungibles::{Inspect as FungiblesInspect, Mutate as FungiblesMutate},
-		tokens::{Fortitude, Pay, Preservation},
+		tokens::{Fortitude, Pay, Precision, Preservation},
 		Contains, Defensive, DefensiveTruncateFrom, LockableCurrency, OriginTrait, QueryPreimage,
 		ReservableCurrency, StorePreimage, VariantCount, WithdrawReasons as LockWithdrawReasons,
 	},
@@ -231,7 +233,7 @@ pub mod pallet {
 + pallet_staking_async::Config // Only on westend
 + pallet_staking_async_rc_client::Config // Only on westend
 	{
-		type RuntimeHoldReason: Parameter + VariantCount;
+		type RuntimeHoldReason: Parameter + VariantCount + From<pallet_preimage::HoldReason> + From<pallet_staking_async::HoldReason> + From<pallet_delegated_staking::HoldReason>;
 		/// The overarching event type.
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		/// The origin that can perform permissioned operations like setting the migration stage.
@@ -370,6 +372,10 @@ pub mod pallet {
 		/// Vector did not fit into its compile-time bound.
 		FailedToBoundVector,
 		Unreachable,
+		/// No misplaced hold found.
+		NoMisplacedHoldFound,
+		/// No free balance to hold.
+		NoFreeBalanceToHold,
 	}
 
 	#[pallet::event]
@@ -892,6 +898,123 @@ pub mod pallet {
 			<T as Config>::ManagerOrigin::ensure_origin(origin)?;
 
 			Self::migration_finish_hook(data).map_err(Into::into)
+		}
+
+		/// Fix hold reasons that were incorrectly assigned during migration.
+		/// This should only be used post-migration to repair bad hold reasons.
+		///
+		/// Only the `ManagerOrigin` can call this function.
+		#[pallet::call_index(111)]
+		#[pallet::weight(T::AhWeightInfo::receive_liquid_accounts(1))]
+		pub fn fix_misplaced_hold(
+			origin: OriginFor<T>,
+			account: T::AccountId,
+			delegation_hold: T::Balance,
+			staking_hold: T::Balance,
+			preimage_hold: T::Balance,
+		) -> DispatchResult {
+			<T as Config>::ManagerOrigin::ensure_origin(origin)?;
+			let staking_hold_reason = pallet_staking_async::HoldReason::Staking.into();
+			let delegation_hold_reason =
+				pallet_delegated_staking::HoldReason::StakingDelegation.into();
+			let preimage_hold_reason = pallet_preimage::HoldReason::Preimage.into();
+
+			// fail early if no preimage hold, since we know this is the hold reason incorrectly
+			// set.
+			let existing_preimage_hold =
+				<T as pallet::Config>::Currency::balance_on_hold(&preimage_hold_reason, &account);
+			ensure!(existing_preimage_hold > 0, Error::<T>::NoMisplacedHoldFound);
+
+			// since we know preimage holds are incorrectly set, first we release preimage.
+			let released_amount = <T as pallet::Config>::Currency::release_all(
+				&preimage_hold_reason,
+				&account,
+				Precision::BestEffort,
+			)?;
+
+			// debug_assert_eq!(released_amount, delegation_hold + staking_hold + preimage_hold);
+
+			// and then update hold with priority: delegation > staking > preimage.
+			// 1. Delegation: These have extra provider, so we can hold everything including ED.
+			if delegation_hold > 0 {
+				let max_hold = <T as pallet::Config>::Currency::reducible_balance(
+					&account,
+					Preservation::Expendable,
+					Fortitude::Force,
+				);
+				if delegation_hold > max_hold {
+					log::warn!(
+						target: LOG_TARGET,
+						"Account: {:?} \n\tCan not hold full delegation amount {:?}. Holding {:?} instead.",
+						&account,
+						delegation_hold,
+						max_hold,
+					);
+
+					let delegation_hold = max_hold;
+				}
+
+				<T as pallet::Config>::Currency::set_on_hold(
+					&delegation_hold_reason,
+					&account,
+					delegation_hold,
+				)?;
+			}
+
+			// 2. Staking:
+			if staking_hold > 0 {
+				let max_hold = <T as pallet::Config>::Currency::reducible_balance(
+					&account,
+					Preservation::Preserve,
+					Fortitude::Force,
+				);
+				if staking_hold > max_hold {
+					log::warn!(
+						target: LOG_TARGET,
+						"Account: {:?} \n\tCan not hold full staking amount {:?}. Holding {:?} instead. Delegation hold was: {:?}",
+						&account,
+						staking_hold,
+						max_hold,
+						delegation_hold,
+					);
+
+					let staking_hold = max_hold;
+				}
+
+				<T as pallet::Config>::Currency::set_on_hold(
+					&staking_hold_reason,
+					&account,
+					staking_hold,
+				)?;
+			}
+
+			// 3. Preimage:
+			if preimage_hold > 0 {
+				let max_hold = <T as pallet::Config>::Currency::reducible_balance(
+					&account,
+					Preservation::Preserve,
+					Fortitude::Force,
+				);
+				if preimage_hold > max_hold {
+					log::warn!(
+						target: LOG_TARGET,
+						"Account: {:?} \n\tCan not hold full preimage hold amount {:?}. Holding {:?} instead.",
+						&account,
+						preimage_hold,
+						max_hold,
+					);
+
+					let preimage_hold = max_hold;
+				}
+
+				<T as pallet::Config>::Currency::set_on_hold(
+					&preimage_hold_reason,
+					&account,
+					preimage_hold,
+				)?;
+			}
+
+			Ok(())
 		}
 	}
 
