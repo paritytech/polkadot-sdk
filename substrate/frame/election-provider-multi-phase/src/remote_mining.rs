@@ -19,7 +19,7 @@
 //!
 //! Run like this:
 //!
-//! ```ignire
+//! ```ignore
 //! RUST_LOG=remote-ext=info,runtime::election-provider=debug cargo test --release --features remote-mining -p pallet-election-provider-multi-phase mine_for_ -- --test-threads 1
 //! ```
 //!
