@@ -1585,7 +1585,7 @@ where
 	pub hops_dispatchable: HashMap<String, fn(Self) -> DispatchResult>,
 	pub hops_calls: HashMap<String, Origin::RuntimeCall>,
 	pub args: Args,
-	pub topic_id_tracker: Arc<Mutex<TopicIdTracker>>,
+	topic_id_tracker: Arc<Mutex<TopicIdTracker>>,
 	_marker: PhantomData<(Destination, Hops)>,
 }
 
