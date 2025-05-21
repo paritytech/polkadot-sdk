@@ -283,7 +283,7 @@ where
 				},
 				#[allow(unreachable_patterns)]
 				_ => Err("Benchmarking sub-command unsupported or compilation feature missing. \
-					Make sure to compile with --features=runtime-benchmarks \
+					Make sure to compile omni-node with --features=runtime-benchmarks \
 					to enable all supported benchmarks."
 					.into()),
 			}
