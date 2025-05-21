@@ -98,6 +98,7 @@ fn para_to_ah_transfer_assets(t: ParaToSystemParaTest) -> DispatchResult {
 }
 
 fn para_to_para_transfer_assets_through_ah(t: ParaToParaThroughAHTest) -> DispatchResult {
+	let mut test = t.clone();
 	let fee_idx = t.args.fee_asset_item as usize;
 	let fee: Asset = t.args.assets.inner().get(fee_idx).cloned().unwrap();
 	let asset_hub_location: Location = PenpalA::sibling_location_of(AssetHubWestend::para_id());
@@ -117,10 +118,7 @@ fn para_to_para_transfer_assets_through_ah(t: ParaToParaThroughAHTest) -> Dispat
 	);
 
 	let msg_sent_id = find_xcm_sent_message_id::<PenpalA>().expect("Missing Sent Event");
-	t.topic_id_tracker
-		.lock()
-		.unwrap()
-		.insert_and_assert_unique("PenpalA", msg_sent_id.into());
+	test.insert_unique_topic_id("PenpalA", msg_sent_id.into());
 
 	result
 }

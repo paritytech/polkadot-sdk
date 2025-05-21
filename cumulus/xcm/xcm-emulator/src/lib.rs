@@ -20,6 +20,7 @@ pub use array_bytes;
 pub use codec::{Decode, Encode, EncodeLike, MaxEncodedLen};
 pub use log;
 pub use paste;
+use std::sync::Arc;
 pub use std::{
 	any::type_name,
 	collections::HashMap,
@@ -27,7 +28,7 @@ pub use std::{
 	fmt,
 	marker::PhantomData,
 	ops::Deref,
-	sync::{Arc, LazyLock, Mutex},
+	sync::{LazyLock, Mutex},
 };
 
 // Substrate
@@ -1546,7 +1547,7 @@ where
 	pub hops_dispatchable: HashMap<String, fn(Self) -> DispatchResult>,
 	pub hops_calls: HashMap<String, Origin::RuntimeCall>,
 	pub args: Args,
-	pub topic_id_tracker: Arc<Mutex<TopicIdTracker>>,
+	topic_id_tracker: Arc<Mutex<TopicIdTracker>>,
 	_marker: PhantomData<(Destination, Hops)>,
 }
 
