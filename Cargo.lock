@@ -6553,9 +6553,9 @@ dependencies = [
 
 [[package]]
 name = "frame-decode"
-version = "0.7.0"
+version = "0.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "50c554ce2394e2c04426a070b4cb133c72f6f14c86b665f4e13094addd8e8958"
+checksum = "a7cb8796f93fa038f979a014234d632e9688a120e745f936e2635123c77537f7"
 dependencies = [
  "frame-metadata 20.0.0",
  "parity-scale-codec",
@@ -20605,9 +20605,9 @@ dependencies = [
 
 [[package]]
 name = "scale-typegen"
-version = "0.11.0"
+version = "0.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6aebea322734465f39e4ad8100e1f9708c6c6c325d92b8780015d30c44fae791"
+checksum = "05c61b6b706a3eaad63b506ab50a1d2319f817ae01cf753adcc3f055f9f0fcd6"
 dependencies = [
  "proc-macro2 1.0.95",
  "quote 1.0.40",
@@ -24875,7 +24875,7 @@ dependencies = [
  "proc-macro2 1.0.95",
  "quote 1.0.40",
  "scale-info",
- "scale-typegen 0.11.0",
+ "scale-typegen 0.11.1",
  "subxt-metadata 0.41.0",
  "syn 2.0.98",
  "thiserror 2.0.12",
@@ -24919,7 +24919,7 @@ dependencies = [
  "base58",
  "blake2 0.10.6",
  "derive-where",
- "frame-decode 0.7.0",
+ "frame-decode 0.7.1",
  "frame-metadata 20.0.0",
  "hashbrown 0.14.5",
  "hex",
@@ -25000,7 +25000,7 @@ dependencies = [
  "parity-scale-codec",
  "proc-macro-error2",
  "quote 1.0.40",
- "scale-typegen 0.11.0",
+ "scale-typegen 0.11.1",
  "subxt-codegen 0.41.0",
  "subxt-utils-fetchmetadata 0.41.0",
  "syn 2.0.98",
@@ -25026,7 +25026,7 @@ version = "0.41.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fff4591673600c4388e21305788282414d26c791b4dee21b7cb0b19c10076f98"
 dependencies = [
- "frame-decode 0.7.0",
+ "frame-decode 0.7.1",
  "frame-metadata 20.0.0",
  "hashbrown 0.14.5",
  "parity-scale-codec",
