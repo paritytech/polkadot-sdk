@@ -34,6 +34,7 @@ pallet-assets = { default-features = true, workspace = true }
 polkadot-parachain-primitives = { default-features = true, workspace = true }
 polkadot-runtime-parachains = { default-features = true, workspace = true }
 sp-tracing = { features = ["test-utils"], default-features = true, workspace = true }
+xcm-simulator = { workspace = true, default-features = true }
 
 [features]
 default = ["std"]
@@ -69,6 +70,7 @@ runtime-benchmarks = [
 	"xcm-runtime-apis/runtime-benchmarks",
 	"xcm/runtime-benchmarks",
 ]
+test-utils = ["std"]
 try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
