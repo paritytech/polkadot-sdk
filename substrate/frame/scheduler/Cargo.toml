@@ -1,6 +1,6 @@
 [package]
 name = "pallet-scheduler"
-version = "40.1.0"
+version = "40.2.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"

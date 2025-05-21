@@ -941,7 +941,7 @@ dependencies = [
 
 [[package]]
 name = "asset-hub-westend-runtime"
-version = "0.27.3"
+version = "0.27.4"
 dependencies = [
  "asset-test-utils",
  "assets-common",
@@ -4618,7 +4618,7 @@ dependencies = [
 
 [[package]]
 name = "cumulus-relay-chain-minimal-node"
-version = "0.22.1"
+version = "0.22.2"
 dependencies = [
  "array-bytes",
  "async-trait",
@@ -5515,7 +5515,7 @@ dependencies = [
 
 [[package]]
 name = "emulated-integration-tests-common"
-version = "19.0.2"
+version = "19.1.0"
 dependencies = [
  "asset-test-utils",
  "bp-messages",
@@ -6146,7 +6146,7 @@ checksum = "6c2141d6d6c8512188a7891b4b01590a45f6dac67afb4f255c4124dbb86d4eaa"
 
 [[package]]
 name = "frame-benchmarking"
-version = "39.0.0"
+version = "39.1.0"
 dependencies = [
  "array-bytes",
  "frame-support",
@@ -6172,7 +6172,7 @@ dependencies = [
 
 [[package]]
 name = "frame-benchmarking-cli"
-version = "46.1.0"
+version = "46.2.0"
 dependencies = [
  "Inflector",
  "array-bytes",
@@ -6249,7 +6249,7 @@ dependencies = [
 
 [[package]]
 name = "frame-election-provider-solution-type"
-version = "14.0.1"
+version = "14.0.2"
 dependencies = [
  "frame-election-provider-support",
  "frame-support",
@@ -6265,7 +6265,7 @@ dependencies = [
 
 [[package]]
 name = "frame-election-provider-support"
-version = "39.0.0"
+version = "39.0.1"
 dependencies = [
  "frame-election-provider-solution-type",
  "frame-support",
@@ -11150,7 +11150,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-beefy"
-version = "40.1.0"
+version = "40.1.1"
 dependencies = [
  "frame-election-provider-support",
  "frame-support",
@@ -11677,7 +11677,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-election-provider-multi-phase"
-version = "38.1.0"
+version = "38.2.0"
 dependencies = [
  "frame-benchmarking",
  "frame-election-provider-support",
@@ -12770,7 +12770,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-scheduler"
-version = "40.1.0"
+version = "40.2.0"
 dependencies = [
  "docify",
  "frame-benchmarking",
@@ -13229,7 +13229,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-xcm"
-version = "18.1.0"
+version = "18.1.1"
 dependencies = [
  "bounded-collections",
  "frame-benchmarking",
@@ -13274,7 +13274,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-xcm-bridge-hub"
-version = "0.14.2"
+version = "0.14.3"
 dependencies = [
  "bp-header-chain",
  "bp-messages",
@@ -19411,7 +19411,7 @@ dependencies = [
 
 [[package]]
 name = "sc-network"
-version = "0.48.3"
+version = "0.48.4"
 dependencies = [
  "array-bytes",
  "assert_matches",
@@ -22539,7 +22539,7 @@ dependencies = [
 
 [[package]]
 name = "sp-npos-elections"
-version = "35.0.0"
+version = "35.1.0"
 dependencies = [
  "parity-scale-codec",
  "rand 0.8.5",
@@ -23506,7 +23506,7 @@ version = "2.0.0"
 
 [[package]]
 name = "staging-xcm"
-version = "15.0.3"
+version = "15.1.0"
 dependencies = [
  "array-bytes",
  "bounded-collections",
@@ -23529,7 +23529,7 @@ dependencies = [
 
 [[package]]
 name = "staging-xcm-builder"
-version = "18.2.0"
+version = "18.2.1"
 dependencies = [
  "assert_matches",
  "frame-support",
@@ -23561,7 +23561,7 @@ dependencies = [
 
 [[package]]
 name = "staging-xcm-executor"
-version = "18.0.2"
+version = "18.0.3"
 dependencies = [
  "environmental",
  "frame-benchmarking",
@@ -26546,7 +26546,7 @@ dependencies = [
 
 [[package]]
 name = "westend-runtime"
-version = "21.1.0"
+version = "21.2.0"
 dependencies = [
  "approx",
  "binary-merkle-tree",
@@ -27145,7 +27145,7 @@ dependencies = [
 
 [[package]]
 name = "xcm-emulator"
-version = "0.17.1"
+version = "0.17.2"
 dependencies = [
  "array-bytes",
  "cumulus-pallet-parachain-system",
@@ -27217,7 +27217,7 @@ dependencies = [
 
 [[package]]
 name = "xcm-runtime-apis"
-version = "0.5.2"
+version = "0.5.3"
 dependencies = [
  "frame-executive",
  "frame-support",
@@ -27241,7 +27241,7 @@ dependencies = [
 
 [[package]]
 name = "xcm-simulator"
-version = "18.0.0"
+version = "18.1.0"
 dependencies = [
  "frame-support",
  "frame-system",
@@ -27262,7 +27262,7 @@ dependencies = [
 
 [[package]]
 name = "xcm-simulator-example"
-version = "18.0.0"
+version = "18.0.1"
 dependencies = [
  "frame-support",
  "frame-system",
