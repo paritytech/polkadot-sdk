@@ -827,7 +827,9 @@ fn test_ed25519_crypto() -> (ed25519::AppSignature, ed25519::AppPublic, Ed25519P
 	assert!(all.contains(&public1));
 	assert!(all.contains(&public2));
 
-	let proof_of_possession = public0.generate_proof_of_possession().expect("Cant generate proof_of_possession for ed25519");
+	let proof_of_possession = public0
+		.generate_proof_of_possession()
+		.expect("Cant generate proof_of_possession for ed25519");
 	assert!(public0.verify_proof_of_possession(&proof_of_possession));
 
 	let signature = public0.sign(&"ed25519").expect("Generates a valid `ed25519` signature.");
@@ -845,7 +847,9 @@ fn test_sr25519_crypto() -> (sr25519::AppSignature, sr25519::AppPublic, Sr25519P
 	assert!(all.contains(&public1));
 	assert!(all.contains(&public2));
 
-	let proof_of_possession = public0.generate_proof_of_possession().expect("Cant generate proof_of_possession for sr25519");
+	let proof_of_possession = public0
+		.generate_proof_of_possession()
+		.expect("Cant generate proof_of_possession for sr25519");
 	assert!(public0.verify_proof_of_possession(&proof_of_possession));
 
 	let signature = public0.sign(&"sr25519").expect("Generates a valid `sr25519` signature.");
@@ -863,7 +867,9 @@ fn test_ecdsa_crypto() -> (ecdsa::AppSignature, ecdsa::AppPublic, EcdsaPop) {
 	assert!(all.contains(&public1));
 	assert!(all.contains(&public2));
 
-	let proof_of_possession = public0.generate_proof_of_possession().expect("Cant generate proof_of_possession for ecdsa");
+	let proof_of_possession = public0
+		.generate_proof_of_possession()
+		.expect("Cant generate proof_of_possession for ecdsa");
 	assert!(public0.verify_proof_of_possession(&proof_of_possession));
 
 	let signature = public0.sign(&"ecdsa").expect("Generates a valid `ecdsa` signature.");
@@ -876,7 +882,9 @@ fn test_ecdsa_crypto() -> (ecdsa::AppSignature, ecdsa::AppPublic, EcdsaPop) {
 fn test_bls381_crypto() -> (Bls381Pop, Bls381Public) {
 	let mut public0 = bls381::AppPublic::generate_pair(None);
 
-	let proof_of_possession = public0.generate_proof_of_possession().expect("Cant generate proof_of_possession for bls381");
+	let proof_of_possession = public0
+		.generate_proof_of_possession()
+		.expect("Cant generate proof_of_possession for bls381");
 	assert!(public0.verify_proof_of_possession(&proof_of_possession));
 
 	(proof_of_possession, public0)
@@ -886,7 +894,9 @@ fn test_bls381_crypto() -> (Bls381Pop, Bls381Public) {
 fn test_ecdsa_bls381_crypto() -> (EcdsaBls381Pop, EcdsaBls381Public) {
 	let mut public0 = ecdsa_bls381::AppPublic::generate_pair(None);
 
-	let proof_of_possession = public0.generate_proof_of_possession().expect("Cant Generate proof_of_possession for ecdsa_bls381");
+	let proof_of_possession = public0
+		.generate_proof_of_possession()
+		.expect("Cant Generate proof_of_possession for ecdsa_bls381");
 	assert!(public0.verify_proof_of_possession(&proof_of_possession));
 
 	(proof_of_possession, public0)
