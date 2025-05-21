@@ -219,7 +219,7 @@ mod feasibility_check {
 		ExtBuilder::verifier().pages(1).build_and_execute(|| {
 			roll_to_snapshot_created();
 
-			// A bad solution with duplicate targets for a signle voter in votes2.
+			// A bad solution with duplicate targets for a single voter in votes2.
 			let faulty_page = TestNposSolution {
 				// 50% to 0, and then the rest to 0 again, not valid.
 				votes2: vec![(0, [(0, PerU16::from_percent(50))], 0)],

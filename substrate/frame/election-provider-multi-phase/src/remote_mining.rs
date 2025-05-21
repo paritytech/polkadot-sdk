@@ -211,7 +211,7 @@ async fn mine_for_polkadot() {
 	// good way to find good block hashes: https://polkadot.subscan.io/event?page=1&time_dimension=date&module=electionprovidermultiphase&event_id=solutionstored
 	// we are just looking for blocks with snapshot present, that's all.
 	let block_hash_str = std::option_env!("BLOCK_HASH")
-		// // known good polkadot hash
+		// known good polkadot hash
 		.unwrap_or("047f1f5b1081fdaa72c9224d0ea302553738556758dc53269b1bfe6a069986bb")
 		.to_string();
 	let block_hash = H256::from_slice(hex::decode(block_hash_str).unwrap().as_ref());
