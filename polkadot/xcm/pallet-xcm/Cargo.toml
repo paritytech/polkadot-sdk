@@ -1,6 +1,6 @@
 [package]
 name = "pallet-xcm"
-version = "18.1.0"
+version = "18.1.1"
 description = "A pallet for handling XCM programs."
 authors.workspace = true
 edition.workspace = true
@@ -31,7 +31,7 @@ pallet-balances = { optional = true, workspace = true }
 pallet-assets = { default-features = true, path = "../../../substrate/frame/assets" }
 polkadot-runtime-parachains = { default-features = true, path = "../../runtime/parachains" }
 polkadot-parachain-primitives = { default-features = true, path = "../../parachain" }
-xcm-simulator = { workspace = true, default-features = true }
+xcm-simulator = { default-features = true, path = "../xcm-simulator" }
 
 [features]
 default = ["std"]

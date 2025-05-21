@@ -4,7 +4,7 @@ description = "Tools & types for building with XCM and its executor."
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
-version = "18.2.0"
+version = "18.2.1"
 
 [lints]
 workspace = true
@@ -37,7 +37,7 @@ polkadot-primitives = { default-features = true, path = "../../primitives" }
 polkadot-runtime-parachains = { default-features = true, path = "../../runtime/parachains" }
 assert_matches = { workspace = true }
 polkadot-test-runtime = { path = "../../runtime/test-runtime" }
-xcm-simulator = { workspace = true, default-features = true }
+xcm-simulator = { default-features = true, path = "../xcm-simulator" }
 
 [features]
 default = ["std"]

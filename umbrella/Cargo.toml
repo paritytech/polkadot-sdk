@@ -1168,7 +1168,7 @@ version = "0.18.1"
 path = "../substrate/frame/benchmarking"
 default-features = false
 optional = true
-version = "39.0.0"
+version = "39.1.0"
 
 [dependencies.frame-benchmarking-pallet-pov]
 path = "../substrate/frame/benchmarking/pov"
@@ -1180,13 +1180,13 @@ version = "29.0.0"
 path = "../substrate/frame/election-provider-support/solution-type"
 default-features = false
 optional = true
-version = "14.0.1"
+version = "14.0.2"
 
 [dependencies.frame-election-provider-support]
 path = "../substrate/frame/election-provider-support"
 default-features = false
 optional = true
-version = "39.0.0"
+version = "39.0.1"
 
 [dependencies.frame-executive]
 path = "../substrate/frame/executive"
@@ -1336,7 +1336,7 @@ version = "40.1.0"
 path = "../substrate/frame/beefy"
 default-features = false
 optional = true
-version = "40.1.0"
+version = "40.1.1"
 
 [dependencies.pallet-beefy-mmr]
 path = "../substrate/frame/beefy-mmr"
@@ -1456,7 +1456,7 @@ version = "21.1.0"
 path = "../substrate/frame/election-provider-multi-phase"
 default-features = false
 optional = true
-version = "38.1.0"
+version = "38.2.0"
 
 [dependencies.pallet-election-provider-support-benchmarking]
 path = "../substrate/frame/election-provider-support/benchmarking"
@@ -1690,7 +1690,7 @@ version = "24.0.0"
 path = "../substrate/frame/scheduler"
 default-features = false
 optional = true
-version = "40.1.0"
+version = "40.2.0"
 
 [dependencies.pallet-scored-pool]
 path = "../substrate/frame/scored-pool"
@@ -1840,7 +1840,7 @@ version = "38.1.0"
 path = "../polkadot/xcm/pallet-xcm"
 default-features = false
 optional = true
-version = "18.1.0"
+version = "18.1.1"
 
 [dependencies.pallet-xcm-benchmarks]
 path = "../polkadot/xcm/pallet-xcm-benchmarks"
@@ -1852,7 +1852,7 @@ version = "18.1.1"
 path = "../bridges/modules/xcm-bridge-hub"
 default-features = false
 optional = true
-version = "0.14.2"
+version = "0.14.3"
 
 [dependencies.pallet-xcm-bridge-hub-router]
 path = "../bridges/modules/xcm-bridge-hub-router"
@@ -2170,7 +2170,7 @@ version = "35.0.0"
 path = "../substrate/primitives/npos-elections"
 default-features = false
 optional = true
-version = "35.0.0"
+version = "35.1.0"
 
 [dependencies.sp-offchain]
 path = "../substrate/primitives/offchain"
@@ -2296,19 +2296,19 @@ version = "0.18.0"
 path = "../polkadot/xcm"
 default-features = false
 optional = true
-version = "15.0.3"
+version = "15.1.0"
 
 [dependencies.staging-xcm-builder]
 path = "../polkadot/xcm/xcm-builder"
 default-features = false
 optional = true
-version = "18.2.0"
+version = "18.2.1"
 
 [dependencies.staging-xcm-executor]
 path = "../polkadot/xcm/xcm-executor"
 default-features = false
 optional = true
-version = "18.0.2"
+version = "18.0.3"
 
 [dependencies.substrate-bip39]
 path = "../substrate/utils/substrate-bip39"
@@ -2338,7 +2338,7 @@ version = "11.0.1"
 path = "../polkadot/xcm/xcm-runtime-apis"
 default-features = false
 optional = true
-version = "0.5.2"
+version = "0.5.3"
 
 [dependencies.asset-test-utils]
 path = "../cumulus/parachains/runtimes/assets/test-utils"
@@ -2428,7 +2428,7 @@ version = "0.21.0"
 path = "../cumulus/client/relay-chain-minimal-node"
 default-features = false
 optional = true
-version = "0.22.1"
+version = "0.22.2"
 
 [dependencies.cumulus-relay-chain-rpc-interface]
 path = "../cumulus/client/relay-chain-rpc-interface"
@@ -2446,7 +2446,7 @@ version = "0.17.0"
 path = "../cumulus/parachains/integration-tests/emulated/common"
 default-features = false
 optional = true
-version = "19.0.2"
+version = "19.1.0"
 
 [dependencies.fork-tree]
 path = "../substrate/utils/fork-tree"
@@ -2458,7 +2458,7 @@ version = "13.0.1"
 path = "../substrate/utils/frame/benchmarking-cli"
 default-features = false
 optional = true
-version = "46.1.0"
+version = "46.2.0"
 
 [dependencies.frame-remote-externalities]
 path = "../substrate/utils/frame/remote-externalities"
@@ -2920,7 +2920,7 @@ version = "0.18.0"
 path = "../substrate/client/network"
 default-features = false
 optional = true
-version = "0.48.3"
+version = "0.48.4"
 
 [dependencies.sc-network-common]
 path = "../substrate/client/network/common"
@@ -3196,13 +3196,13 @@ version = "17.0.0"
 path = "../cumulus/xcm/xcm-emulator"
 default-features = false
 optional = true
-version = "0.17.1"
+version = "0.17.2"
 
 [dependencies.xcm-simulator]
 path = "../polkadot/xcm/xcm-simulator"
 default-features = false
 optional = true
-version = "18.0.0"
+version = "18.1.0"
 
 [package.metadata.docs.rs]
 features = ["node", "runtime-full"]
