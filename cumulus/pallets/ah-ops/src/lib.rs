@@ -324,6 +324,21 @@ pub mod pallet {
 
 			Self::do_migrate_parachain_sovereign_acc(&from, &to).map_err(Into::into)
 		}
+
+
+		#[pallet::call_index(4)]
+		#[pallet::weight(T::DbWeight::get().reads_writes(15, 15)
+					.saturating_add(Weight::from_parts(0, 50_000)))]
+		pub fn force_unreserve(
+			origin: OriginFor<T>,
+			account: T::AccountId,
+			amount: BalanceOf<T>,
+			reason: Option<T::RuntimeHoldReason>,
+		) -> DispatchResult {
+			ensure_root(origin)?;
+
+			Self::do_force_unreserve(account, amount, reason).map_err(Into::into)
+		}
 	}
 
 	impl<T: Config> Pallet<T> {
@@ -523,6 +538,25 @@ pub mod pallet {
 				from: from.clone(),
 				to: to.clone(),
 			});
+
+			Ok(())
+		}
+
+		pub fn do_force_unreserve(
+			account: T::AccountId,
+			amount: BalanceOf<T>,
+			reason: Option<T::RuntimeHoldReason>,
+		) -> Result<(), Error<T>> {
+			if let Some(reason) = reason {
+				<T as Config>::Currency::release(&reason, &account, amount, Precision::Exact).map_err(|_| Error::<T>::FailedToReleaseHold)?;
+				Self::deposit_event(Event::HoldReleased {
+					account: account.clone(),
+					amount: amount,
+					reason: reason,
+				});
+			} else {
+				let _remaining = <T as Config>::Currency::unreserve(&account, amount);
+			}
 
 			Ok(())
 		}
