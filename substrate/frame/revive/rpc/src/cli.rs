@@ -222,12 +222,14 @@ pub fn run(cmd: CliCommand) -> anyhow::Result<()> {
 			let fut1 = client.subscribe_and_cache_new_blocks(SubscriptionType::BestBlocks);
 			let fut2 = client.subscribe_and_cache_new_blocks(SubscriptionType::FinalizedBlocks);
 
-			if let Some(index_last_n_blocks) = index_last_n_blocks {
+			let res = if let Some(index_last_n_blocks) = index_last_n_blocks {
 				let fut3 = client.subscribe_and_cache_blocks(index_last_n_blocks);
-				tokio::join!(fut1, fut2, fut3);
+				tokio::try_join!(fut1, fut2, fut3).map(|_| ())
 			} else {
-				tokio::join!(fut1, fut2);
-			}
+				tokio::try_join!(fut1, fut2).map(|_| ())
+			};
+
+			panic!("Block subscription task failed: {res:?}",)
 		});
 
 	task_manager.keep_alive(rpc_server_handle);

@@ -329,6 +329,7 @@ impl Client {
 			};
 
 			let block_number = block.number();
+
 			log::trace!(target: "eth-rpc::subscription", "⏳ Processing {subscription_type:?} block: {block_number}");
 			if let Err(err) = callback(block).await {
 				log::error!(target: LOG_TARGET, "Failed to process block {block_number}: {err:?}");
@@ -342,9 +343,12 @@ impl Client {
 	}
 
 	/// Start the block subscription, and populate the block cache.
-	pub async fn subscribe_and_cache_new_blocks(&self, subscription_type: SubscriptionType) {
+	pub async fn subscribe_and_cache_new_blocks(
+		&self,
+		subscription_type: SubscriptionType,
+	) -> Result<(), ClientError> {
 		log::info!(target: LOG_TARGET, "🔌 Subscribing to new blocks ({subscription_type:?})");
-		let res = self
+		return self
 			.subscribe_new_blocks(subscription_type, |block| async {
 				let (signed_txs, receipts): (Vec<_>, Vec<_>) =
 					self.receipt_provider.insert_block_receipts(&block).await?.into_iter().unzip();
@@ -357,29 +361,24 @@ impl Client {
 				Ok(())
 			})
 			.await;
-
-		if let Err(err) = res {
-			log::error!(target: LOG_TARGET, "Block subscription error: {err:?}");
-		}
 	}
 
 	/// Cache old blocks up to the given block number.
-	pub async fn subscribe_and_cache_blocks(&self, index_last_n_blocks: SubstrateBlockNumber) {
+	pub async fn subscribe_and_cache_blocks(
+		&self,
+		index_last_n_blocks: SubstrateBlockNumber,
+	) -> Result<(), ClientError> {
 		let last = self.latest_block().await.number().saturating_sub(1);
 		let range = last.saturating_sub(index_last_n_blocks)..last;
 		log::info!(target: LOG_TARGET, "🗄️ Indexing past blocks in range {range:?}");
-		let res = self
-			.subscribe_past_blocks(range, |block| async move {
-				self.receipt_provider.insert_block_receipts(&block).await?;
-				Ok(())
-			})
-			.await;
+		self.subscribe_past_blocks(range, |block| async move {
+			self.receipt_provider.insert_block_receipts(&block).await?;
+			Ok(())
+		})
+		.await?;
 
-		if let Err(err) = res {
-			log::error!(target: LOG_TARGET, "Past Block subscription error: {err:?}");
-		} else {
-			log::info!(target: LOG_TARGET, "🗄️ Finished indexing past blocks");
-		}
+		log::info!(target: LOG_TARGET, "🗄️ Finished indexing past blocks");
+		Ok(())
 	}
 
 	/// Get the block hash for the given block number or tag.
@@ -624,7 +623,7 @@ impl Client {
 	pub async fn trace_call(
 		&self,
 		transaction: GenericTransaction,
-		block: BlockNumberOrTag,
+		block: BlockNumberOrTagOrHash,
 		config: TracerType,
 	) -> Result<Trace, ClientError> {
 		let block_hash = self.block_hash_for_tag(block.into()).await?;
