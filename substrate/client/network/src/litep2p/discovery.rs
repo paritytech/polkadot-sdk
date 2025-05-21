@@ -71,7 +71,7 @@ const MDNS_QUERY_INTERVAL: Duration = Duration::from_secs(30);
 const GET_RECORD_REDUNDANCY_FACTOR: usize = 4;
 
 /// The maximum number of tracked external addresses we allow.
-const MAX_EXTERNAL_ADDRESSES: u32 = 32;
+const MAX_EXTERNAL_ADDRESSES: u32 = 64;
 
 /// Number of times observed address is received from different peers before it is confirmed as
 /// external.
