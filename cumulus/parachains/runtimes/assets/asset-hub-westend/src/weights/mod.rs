@@ -46,8 +46,9 @@ pub mod paritydb_weights;
 pub mod rocksdb_weights;
 pub mod snowbridge_pallet_system_backend;
 pub mod snowbridge_pallet_system_frontend;
+pub mod validation_memorydb_weights;
 pub mod xcm;
 
 pub use block_weights::constants::BlockExecutionWeight;
 pub use extrinsic_weights::constants::ExtrinsicBaseWeight;
-pub use rocksdb_weights::constants::RocksDbWeight;
+pub use validation_memorydb_weights::constants::ValidationMemoryDbWeight;
