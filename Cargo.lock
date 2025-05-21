@@ -24996,7 +24996,7 @@ dependencies = [
  "parity-scale-codec",
  "proc-macro-error2",
  "quote 1.0.40",
- "scale-typegen 0.11.0",
+ "scale-typegen 0.11.1",
  "subxt-codegen 0.41.0",
  "subxt-utils-fetchmetadata 0.41.0",
  "syn 2.0.98",
