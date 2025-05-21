@@ -1321,6 +1321,7 @@ mod tests {
 	use sp_core::hash::H256;
 	use std::{collections::HashSet, task::Poll, time::Duration};
 
+	#[cfg(ignore_flaky_test)] // https://github.com/paritytech/polkadot-sdk/issues/48
 	#[tokio::test]
 	async fn discovery_working() {
 		let mut first_swarm_peer_id_and_addr = None;
