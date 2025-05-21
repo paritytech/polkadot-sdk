@@ -145,10 +145,7 @@ impl TemplateData {
 		};
 
 		if path.is_dir() || path.as_os_str().is_empty() {
-			path.push(format!(
-				"{}_weights",
-				self.db_name.to_lowercase().replace("validation", "validation_")
-			));
+			path.push(format!("{}_weights", self.db_name.to_lowercase()));
 			path.set_extension("rs");
 		}
 		path
