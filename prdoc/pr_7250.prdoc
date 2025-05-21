@@ -7,17 +7,9 @@ doc:
   - audience: Runtime Developers
     description: |
       This PR improves accounting by implementing missing events for hold, release, credit drops and debt drop operation:
-      - **Emit events** for hold-related operations (`Held`, `Released`, `BurnedHeld`, `TransferOnHold`, `TransferAndHold`, `BurnedDebt`, `MintedCredit`).
-      - **Adjust total issuance** automatically when `PositiveImbalance` or `NegativeImbalance` are dropped via the `HandleImbalanceDrop` trait.
-      - **Complete `fungible::MutateHold` implementation** to ensure proper event emission during hold operations.
-
-      ### Key Changes:
-      1. **Event Emission**:
-         - `Held`, `Released`, `BurnedHeld`, `TransferOnHold`, and `TransferAndHold` events track hold operations.
-         - `BurnedDebt` (negative imbalance) and `MintedCredit` (positive imbalance) events signal total issuance changes.
-      2. **Total Issuance Handling**:
-         - Dropping a `NegativeImbalance` decreases total issuance via `BurnedDebt`.
-         - Dropping a `PositiveImbalance` increases total issuance via `MintedCredit`.
+      - Emit events for hold-related operations (`Held`, `Released`, `BurnedHeld`, `TransferOnHold`, `TransferAndHold`, `BurnedDebt`, `MintedCredit`).
+      - Adjust total issuance automatically when `PositiveImbalance` or `NegativeImbalance` are dropped via the `HandleImbalanceDrop` trait.
+      - Complete `fungible::MutateHold` implementation** to ensure proper event emission during hold operations.
 
 crates:
   - name: frame-balances
