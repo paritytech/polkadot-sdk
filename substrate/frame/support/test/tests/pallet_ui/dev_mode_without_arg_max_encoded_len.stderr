@@ -30,8 +30,6 @@ error[E0277]: the trait bound `Vec<u8>: MaxEncodedLen` is not satisfied
 28 |       #[pallet::pallet]
    |  _______________^
 29 | |     pub struct Pallet<T>(_);
-30 | |
-31 | |     // Your Pallet's configuration trait, representing custom external types and interfaces.
 ...  |
 35 | |     #[pallet::storage]
 36 | |     type MyStorage<T: Config> = StorageValue<_, Vec<u8>>;

@@ -12,7 +12,6 @@ error: use of deprecated constant `WhereSection::_w`:
 22 | |         Block = Block,
 23 | |         NodeBlock = Block,
 ...  |
-27 | |     }
 28 | | }
    | |_^
    |
@@ -28,7 +27,6 @@ error[E0277]: the trait bound `Runtime: Config` is not satisfied
 22 | |         Block = Block,
 23 | |         NodeBlock = Block,
 ...  |
-27 | |     }
 28 | | }
    | |_^ the trait `Config` is not implemented for `Runtime`
    |
@@ -42,7 +40,6 @@ error[E0277]: the trait bound `Runtime: Config` is not satisfied
 22 | |         Block = Block,
 23 | |         NodeBlock = Block,
 ...  |
-27 | |     }
 28 | | }
    | |_^ the trait `Config` is not implemented for `Runtime`
    |
@@ -69,7 +66,6 @@ error[E0277]: the trait bound `RawOrigin<_>: TryFrom<OriginCaller>` is not satis
 22 | |         Block = Block,
 23 | |         NodeBlock = Block,
 ...  |
-27 | |     }
 28 | | }
    | |_^ the trait `TryFrom<OriginCaller>` is not implemented for `RawOrigin<_>`
    |
@@ -84,7 +80,6 @@ error[E0277]: the trait bound `Runtime: Config` is not satisfied
 22 | |         Block = Block,
 23 | |         NodeBlock = Block,
 ...  |
-27 | |     }
 28 | | }
    | |_^ the trait `Config` is not implemented for `Runtime`
    |
@@ -112,7 +107,6 @@ error[E0277]: the trait bound `Runtime: Config` is not satisfied
 22 | |         Block = Block,
 23 | |         NodeBlock = Block,
 ...  |
-27 | |     }
 28 | | }
    | |_^ the trait `Config` is not implemented for `Runtime`
    |
@@ -131,7 +125,6 @@ error[E0369]: binary operation `==` cannot be applied to type `&frame_system::Ev
 22 | |         Block = Block,
 23 | |         NodeBlock = Block,
 ...  |
-27 | |     }
 28 | | }
    | |_^
    |
@@ -156,7 +149,6 @@ error[E0277]: the trait bound `Runtime: Config` is not satisfied
 22 | |         Block = Block,
 23 | |         NodeBlock = Block,
 ...  |
-27 | |     }
 28 | | }
    | |_^ the trait `Config` is not implemented for `Runtime`
    |
@@ -175,7 +167,6 @@ error[E0277]: the trait bound `frame_system::Event<Runtime>: Encode` is not sati
 22 | |         Block = Block,
 23 | |         NodeBlock = Block,
 ...  |
-27 | |     }
 28 | | }
    | |_^ the trait `Encode` is not implemented for `frame_system::Event<Runtime>`
    |
@@ -190,7 +181,6 @@ error[E0277]: the trait bound `Runtime: Config` is not satisfied
 22 | |         Block = Block,
 23 | |         NodeBlock = Block,
 ...  |
-27 | |     }
 28 | | }
    | |_^ the trait `Config` is not implemented for `Runtime`
    |
@@ -209,7 +199,6 @@ error[E0277]: the trait bound `frame_system::Event<Runtime>: Decode` is not sati
 22 | |         Block = Block,
 23 | |         NodeBlock = Block,
 ...  |
-27 | |     }
 28 | | }
    | |_^ the trait `Decode` is not implemented for `frame_system::Event<Runtime>`
    |
@@ -235,7 +224,6 @@ error[E0277]: the trait bound `Runtime: Config` is not satisfied
 22 | |         Block = Block,
 23 | |         NodeBlock = Block,
 ...  |
-27 | |     }
 28 | | }
    | |_^ the trait `Config` is not implemented for `Runtime`
    |
@@ -254,7 +242,6 @@ error[E0277]: the trait bound `Runtime: Config` is not satisfied
 22 | |         Block = Block,
 23 | |         NodeBlock = Block,
 ...  |
-27 | |     }
 28 | | }
    | |_^ the trait `Config` is not implemented for `Runtime`
    |
@@ -273,7 +260,6 @@ error[E0277]: the trait bound `Runtime: Config` is not satisfied
 22 | |         Block = Block,
 23 | |         NodeBlock = Block,
 ...  |
-27 | |     }
 28 | | }
    | |_^ the trait `Config` is not implemented for `Runtime`
    |
@@ -293,7 +279,6 @@ error[E0277]: the trait bound `Runtime: Config` is not satisfied
 22 | |         Block = Block,
 23 | |         NodeBlock = Block,
 ...  |
-27 | |     }
 28 | | }
    | |_^ the trait `Config` is not implemented for `Runtime`
    |
@@ -308,7 +293,6 @@ error[E0277]: the trait bound `Runtime: Config` is not satisfied
 22 | |         Block = Block,
 23 | |         NodeBlock = Block,
 ...  |
-27 | |     }
 28 | | }
    | |_^ the trait `Config` is not implemented for `Runtime`
    |
@@ -322,7 +306,6 @@ error[E0277]: the trait bound `Runtime: Config` is not satisfied
 22 | |         Block = Block,
 23 | |         NodeBlock = Block,
 ...  |
-27 | |     }
 28 | | }
    | |_^ the trait `Config` is not implemented for `Runtime`
    |
@@ -342,7 +325,6 @@ error[E0277]: the trait bound `Runtime: Config` is not satisfied
 22 | |         Block = Block,
 23 | |         NodeBlock = Block,
 ...  |
-27 | |     }
 28 | | }
    | |_^ the trait `Config` is not implemented for `Runtime`
    |
@@ -358,7 +340,6 @@ error[E0277]: the trait bound `Runtime: Config` is not satisfied
 22 | |         Block = Block,
 23 | |         NodeBlock = Block,
 ...  |
-27 | |     }
 28 | | }
    | |_^ the trait `Config` is not implemented for `Runtime`
    |
@@ -374,7 +355,6 @@ error[E0277]: the trait bound `Runtime: Config` is not satisfied
 22 | |         Block = Block,
 23 | |         NodeBlock = Block,
 ...  |
-27 | |     }
 28 | | }
    | |_^ the trait `Config` is not implemented for `Runtime`
    |
@@ -390,7 +370,6 @@ error[E0369]: binary operation `==` cannot be applied to type `&frame_system::Ca
 22 | |         Block = Block,
 23 | |         NodeBlock = Block,
 ...  |
-27 | |     }
 28 | | }
    | |_^
    |
@@ -415,7 +394,6 @@ error[E0277]: the trait bound `frame_system::Call<Runtime>: Encode` is not satis
 22 | |         Block = Block,
 23 | |         NodeBlock = Block,
 ...  |
-27 | |     }
 28 | | }
    | |_^ the trait `Encode` is not implemented for `frame_system::Call<Runtime>`
    |
@@ -430,7 +408,6 @@ error[E0277]: the trait bound `Runtime: Config` is not satisfied
 22 | |         Block = Block,
 23 | |         NodeBlock = Block,
 ...  |
-27 | |     }
 28 | | }
    | |_^ the trait `Config` is not implemented for `Runtime`
    |
@@ -449,7 +426,6 @@ error[E0277]: the trait bound `frame_system::Call<Runtime>: Decode` is not satis
 22 | |         Block = Block,
 23 | |         NodeBlock = Block,
 ...  |
-27 | |     }
 28 | | }
    | |_^ the trait `Decode` is not implemented for `frame_system::Call<Runtime>`
    |
@@ -464,7 +440,6 @@ error[E0277]: the trait bound `Runtime: Config` is not satisfied
 22 | |         Block = Block,
 23 | |         NodeBlock = Block,
 ...  |
-27 | |     }
 28 | | }
    | |_^ the trait `Config` is not implemented for `Runtime`
    |
@@ -484,7 +459,6 @@ error[E0599]: the method `get_dispatch_info` exists for reference `&Call<Runtime
 22 | |          Block = Block,
 23 | |          NodeBlock = Block,
 ...  |
-27 | |      }
 28 | |  }
    | |__^ method cannot be called on `&Call<Runtime>` due to unsatisfied trait bounds
    |
@@ -515,7 +489,6 @@ error[E0599]: the method `is_feeless` exists for reference `&Call<Runtime>`, but
 22 | |          Block = Block,
 23 | |          NodeBlock = Block,
 ...  |
-27 | |      }
 28 | |  }
    | |__^ method cannot be called on `&Call<Runtime>` due to unsatisfied trait bounds
    |
@@ -546,7 +519,6 @@ error[E0599]: the method `get_call_name` exists for reference `&Call<Runtime>`, 
 22 | |          Block = Block,
 23 | |          NodeBlock = Block,
 ...  |
-27 | |      }
 28 | |  }
    | |__^ method cannot be called on `&Call<Runtime>` due to unsatisfied trait bounds
    |
@@ -586,7 +558,6 @@ error[E0599]: the function or associated item `storage_metadata` exists for stru
 22 | |          Block = Block,
 23 | |          NodeBlock = Block,
 ...  |
-27 | |      }
 28 | |  }
    | |__^ function or associated item cannot be called on `Pallet<Runtime>` due to unsatisfied trait bounds
    |
@@ -611,7 +582,6 @@ error[E0599]: the function or associated item `call_functions` exists for struct
 22 | |          Block = Block,
 23 | |          NodeBlock = Block,
 ...  |
-27 | |      }
 28 | |  }
    | |__^ function or associated item cannot be called on `Pallet<Runtime>` due to unsatisfied trait bounds
    |
@@ -636,7 +606,6 @@ error[E0599]: the function or associated item `pallet_view_functions_metadata` e
 22 | |          Block = Block,
 23 | |          NodeBlock = Block,
 ...  |
-27 | |      }
 28 | |  }
    | |__^ function or associated item cannot be called on `Pallet<Runtime>` due to unsatisfied trait bounds
    |
@@ -661,7 +630,6 @@ error[E0599]: the variant or associated item `event_metadata` exists for enum `E
 22 | |          Block = Block,
 23 | |          NodeBlock = Block,
 ...  |
-27 | |      }
 28 | |  }
    | |__^ variant or associated item cannot be called on `Event<Runtime>` due to unsatisfied trait bounds
    |
@@ -686,7 +654,6 @@ error[E0599]: the function or associated item `pallet_constants_metadata` exists
 22 | |          Block = Block,
 23 | |          NodeBlock = Block,
 ...  |
-27 | |      }
 28 | |  }
    | |__^ function or associated item cannot be called on `Pallet<Runtime>` due to unsatisfied trait bounds
    |
@@ -711,7 +678,6 @@ error[E0599]: the function or associated item `error_metadata` exists for struct
 22 | |          Block = Block,
 23 | |          NodeBlock = Block,
 ...  |
-27 | |      }
 28 | |  }
    | |__^ function or associated item cannot be called on `Pallet<Runtime>` due to unsatisfied trait bounds
    |
@@ -736,7 +702,6 @@ error[E0599]: the function or associated item `pallet_documentation_metadata` ex
 22 | |          Block = Block,
 23 | |          NodeBlock = Block,
 ...  |
-27 | |      }
 28 | |  }
    | |__^ function or associated item cannot be called on `Pallet<Runtime>` due to unsatisfied trait bounds
    |
@@ -761,7 +726,6 @@ error[E0599]: the function or associated item `pallet_associated_types_metadata`
 22 | |          Block = Block,
 23 | |          NodeBlock = Block,
 ...  |
-27 | |      }
 28 | |  }
    | |__^ function or associated item cannot be called on `Pallet<Runtime>` due to unsatisfied trait bounds
    |
@@ -782,7 +746,6 @@ error[E0277]: the trait bound `Runtime: Config` is not satisfied
 22 | |         Block = Block,
 23 | |         NodeBlock = Block,
 ...  |
-27 | |     }
 28 | | }
    | |_^ the trait `Config` is not implemented for `Runtime`
    |
@@ -806,7 +769,6 @@ error[E0277]: the trait bound `Runtime: Config` is not satisfied
 22 | |         Block = Block,
 23 | |         NodeBlock = Block,
 ...  |
-27 | |     }
 28 | | }
    | |_^ the trait `Config` is not implemented for `Runtime`
    |
@@ -825,7 +787,6 @@ error[E0277]: the trait bound `Runtime: Config` is not satisfied
 22 | |         Block = Block,
 23 | |         NodeBlock = Block,
 ...  |
-27 | |     }
 28 | | }
    | |_^ the trait `Config` is not implemented for `Runtime`
    |
@@ -844,7 +805,6 @@ error[E0277]: the trait bound `Runtime: Config` is not satisfied
 22 | |         Block = Block,
 23 | |         NodeBlock = Block,
 ...  |
-27 | |     }
 28 | | }
    | |_^ the trait `Config` is not implemented for `Runtime`
    |
@@ -863,7 +823,6 @@ error[E0277]: the trait bound `Runtime: Config` is not satisfied
 22 | |         Block = Block,
 23 | |         NodeBlock = Block,
 ...  |
-27 | |     }
 28 | | }
    | |_^ the trait `Config` is not implemented for `Runtime`
    |
@@ -890,10 +849,13 @@ error[E0282]: type annotations needed
 22 | |         Block = Block,
 23 | |         NodeBlock = Block,
 ...  |
-27 | |     }
 28 | | }
    | |_^ cannot infer type
    |
    = note: this error originates in the macro `frame_support::construct_runtime` (in Nightly builds, run with -Z macro-backtrace for more info)
 
-error: internal compiler error: compiler/rustc_middle/src/ty/normalize_erasing_regions.rs:168:90: Failed to normalize std::rc::Rc<std::boxed::Box<dyn [Binder { value: Trait(std::ops::Fn<(&<Runtime as frame_system::Config>::RuntimeCall,)>), bound_vars: [Region(BrAnon)] }, Binder { value: Projection(Output = bool), bound_vars: [Region(BrAnon)] }] + '{erased}, std::alloc::Global>, std::alloc::Global>, maybe try to call `try_normalize_erasing_regions` instead
+error: internal compiler error: compiler/rustc_middle/src/ty/normalize_erasing_regions.rs:169:13: Failed to normalize std::rc::Rc<std::boxed::Box<dyn [Binder { value: Trait(std::ops::Fn<(&<Runtime as frame_system::Config>::RuntimeCall,)>), bound_vars: [Region(BrAnon)] }, Binder { value: Projection(Output = bool), bound_vars: [Region(BrAnon)] }] + '{erased}, std::alloc::Global>, std::alloc::Global> in typing_env=TypingEnv { typing_mode: PostAnalysis, param_env: ParamEnv { caller_bounds: [Binder { value: TraitPredicate(<impl Into<Self> as std::convert::Into<RuntimeOrigin>>, polarity:Positive), bound_vars: [] }, Binder { value: TraitPredicate(<impl Into<Self> as std::marker::Sized>, polarity:Positive), bound_vars: [] }] } }, maybe try to call `try_normalize_erasing_regions` instead
+
+error: internal compiler error: compiler/rustc_middle/src/ty/normalize_erasing_regions.rs:169:13: Failed to normalize std::rc::Rc<std::boxed::Box<dyn [Binder { value: Trait(std::ops::Fn<(&<Runtime as frame_system::Config>::RuntimeCall,)>), bound_vars: [Region(BrAnon)] }, Binder { value: Projection(Output = bool), bound_vars: [Region(BrAnon)] }] + '{erased}, std::alloc::Global>, std::alloc::Global> in typing_env=TypingEnv { typing_mode: PostAnalysis, param_env: ParamEnv { caller_bounds: [] } }, maybe try to call `try_normalize_erasing_regions` instead
+
+error: internal compiler error: compiler/rustc_middle/src/ty/normalize_erasing_regions.rs:169:13: Failed to normalize std::rc::Rc<std::boxed::Box<dyn [Binder { value: Trait(std::ops::Fn<(&<Runtime as frame_system::Config>::RuntimeCall,)>), bound_vars: [Region(BrAnon)] }, Binder { value: Projection(Output = bool), bound_vars: [Region(BrAnon)] }] + '{erased}, std::alloc::Global>, std::alloc::Global> in typing_env=TypingEnv { typing_mode: PostAnalysis, param_env: ParamEnv { caller_bounds: [Binder { value: ProjectionPredicate(AliasTerm { args: [impl FnOnce(Self::PalletsOrigin) -> Result<R, Self::PalletsOrigin>/#1, (OriginCaller,)], def_id: DefId(2:3806 ~ core[b495]::ops::function::FnOnce::Output), .. }, Term::Ty(std::result::Result<R/#0, OriginCaller>)), bound_vars: [] }, Binder { value: TraitPredicate(<impl FnOnce(Self::PalletsOrigin) -> Result<R, Self::PalletsOrigin> as std::ops::FnOnce<(OriginCaller,)>>, polarity:Positive), bound_vars: [] }, Binder { value: TraitPredicate(<impl FnOnce(Self::PalletsOrigin) -> Result<R, Self::PalletsOrigin> as std::marker::Sized>, polarity:Positive), bound_vars: [] }, Binder { value: TraitPredicate(<R as std::marker::Sized>, polarity:Positive), bound_vars: [] }] } }, maybe try to call `try_normalize_erasing_regions` instead
