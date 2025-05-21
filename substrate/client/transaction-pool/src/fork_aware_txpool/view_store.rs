@@ -40,7 +40,7 @@ use sc_transaction_pool_api::{
 use sp_blockchain::{HashAndNumber, TreeRoute};
 use sp_runtime::{
 	generic::BlockId,
-	traits::{Block as BlockT, Header, Saturating},
+	traits::{Block as BlockT, Header, One, Saturating},
 	transaction_validity::{InvalidTransaction, TransactionValidityError},
 };
 use std::{
@@ -366,7 +366,7 @@ where
 			// list if we can't access the header of the current block.
 			let header = self.api.block_header(at_hash).ok().flatten()?;
 			at_hash = *header.parent_hash();
-			at_number = at_number.saturating_sub(1u32.into());
+			at_number = at_number.saturating_sub(One::one());
 		}
 
 		return None;
