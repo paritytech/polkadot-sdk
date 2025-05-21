@@ -458,9 +458,9 @@ where
 /// These are stored together because they are often accessed together.
 #[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, Default, TypeInfo)]
 #[scale_info(skip_type_params(T))]
-pub struct RoundSnapshot<AccountId, DataProvider> {
+pub struct RoundSnapshot<AccountId, VoterType> {
 	/// All of the voters.
-	pub voters: Vec<DataProvider>,
+	pub voters: Vec<VoterType>,
 	/// All of the targets.
 	pub targets: Vec<AccountId>,
 }

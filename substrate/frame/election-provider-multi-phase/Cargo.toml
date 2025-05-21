@@ -45,6 +45,7 @@ sp-tracing = { default-features = true, path = "../../primitives/tracing" }
 pallet-balances = { default-features = true, path = "../balances" }
 frame-benchmarking = { default-features = true, path = "../benchmarking" }
 
+
 [features]
 default = ["std"]
 std = [
