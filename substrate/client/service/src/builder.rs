@@ -32,7 +32,8 @@ use prometheus_endpoint::Registry;
 use sc_chain_spec::{get_extension, ChainSpec};
 use sc_client_api::{
 	execution_extensions::ExecutionExtensions, proof_provider::ProofProvider, BadBlocks,
-	BlockBackend, BlockchainEvents, ExecutorProvider, ForkBlocks, StorageProvider, UsageProvider,
+	BlockBackend, BlockchainEvents, ExecutorProvider, ForkBlocks, KeysIter, StorageProvider,
+	TrieCacheContext, UsageProvider,
 };
 use sc_client_db::{Backend, BlocksPruning, DatabaseSettings, PruningMode};
 use sc_consensus::import_queue::{ImportQueue, ImportQueueService};
@@ -265,7 +266,8 @@ where
 		)?;
 
 		if config.warm_up_trie_cache {
-			warm_up_trie_cache(&client)?;
+			let storage_root = client.usage_info().chain.best_hash;
+			warm_up_trie_cache(backend.clone(), storage_root)?;
 		}
 
 		client
@@ -281,17 +283,16 @@ fn child_info(key: Vec<u8>) -> Option<ChildInfo> {
 	})
 }
 
-fn warm_up_trie_cache<TBl, TRtApi, TExec>(
-	client: &TFullClient<TBl, TRtApi, TExec>,
-) -> Result<(), Error>
-where
-	TBl: BlockT,
-	TExec: CodeExecutor + RuntimeVersionOf,
-{
-	let storage_root = client.usage_info().chain.best_hash;
-	let keys = client.storage_keys(storage_root, None, None)?.collect::<Vec<_>>();
-	let percentages = (1..=10).map(|i| (i * keys.len() / 10, i * 10)).collect::<Vec<_>>();
+fn warm_up_trie_cache<TBl: BlockT>(
+	backend: Arc<TFullBackend<TBl>>,
+	storage_root: TBl::Hash,
+) -> Result<(), Error> {
+	use sc_client_api::backend::Backend;
+	use sp_state_machine::Backend as StateBackend;
+	let state = || backend.state_at(storage_root, TrieCacheContext::Untrusted);
+	let keys = KeysIter::<_, TBl>::new(state()?, None, None)?.collect::<Vec<_>>();
 
+	let percentages = (1..=10).map(|i| (i * keys.len() / 10, i * 10)).collect::<Vec<_>>();
 	info!("Populating trie cache started",);
 	let mut keys_count = 0;
 	let mut child_keys_count = 0;
@@ -301,21 +302,16 @@ where
 		}
 		match child_info(key.0.clone()) {
 			Some(info) => {
-				for child_key in
-					client.child_storage_keys(storage_root, info.clone(), None, None)?
+				for child_key in KeysIter::<_, TBl>::new_child(state()?, info.clone(), None, None)?
 				{
-					if client
-						.child_storage(storage_root, &info, &child_key)
-						.unwrap_or_default()
-						.is_none()
-					{
+					if state()?.child_storage(&info, &child_key.0).unwrap_or_default().is_none() {
 						debug!("Child storage value unexpectedly empty: {child_key:?}");
 					}
 					child_keys_count += 1;
 				}
 			},
 			None => {
-				if client.storage(storage_root, &key).expect("Checked above to exist").is_none() {
+				if state()?.storage(&key.0).expect("Checked above to exist").is_none() {
 					debug!("Storage value unexpectedly empty: {key:?}");
 				}
 				keys_count += 1;
