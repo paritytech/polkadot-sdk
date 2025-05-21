@@ -6,10 +6,11 @@ title: Add Missing Events for Balances Pallet
 doc:
   - audience: Runtime Developers
     description: |
-      This PR improves accounting by implementing missing events for hold, release, credit drops and debt drop operation:
-      - Emit events for hold-related operations (`Held`, `Released`, `BurnedHeld`, `TransferOnHold`, `TransferAndHold`, `BurnedDebt`, `MintedCredit`).
-      - Adjust total issuance automatically when `PositiveImbalance` or `NegativeImbalance` are dropped via the `HandleImbalanceDrop` trait.
-      - Complete `fungible::MutateHold` implementation** to ensure proper event emission during hold operations.
+        This PR improves accounting by implementing missing events for hold, release, credit drops and debt drop operation:
+
+        Emit events for hold-related operations (`Held`, `Released`, `BurnedHeld`, `TransferOnHold`, `TransferAndHold`, `BurnedDebt`, `MintedCredit`).
+
+        Adjust total issuance automatically when `PositiveImbalance` or `NegativeImbalance` are dropped via the `HandleImbalanceDrop` trait.
 
 crates:
   - name: frame-balances
