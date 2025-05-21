@@ -112,10 +112,10 @@ where
 	///
 	/// `ready_iterator` is a closure that generates the result data to be sent to the pollers.
 	fn trigger(&mut self, at: Block::Hash, ready_iterator: impl Fn() -> T) {
-		trace!(target: LOG_TARGET, ?at, keys = ?self.pollers.keys(), "fatp::trigger");
+		debug!(target: LOG_TARGET, ?at, keys = ?self.pollers.keys(), "fatp::trigger");
 		let Some(pollers) = self.pollers.remove(&at) else { return };
 		pollers.into_iter().for_each(|p| {
-			debug!(target: LOG_TARGET, "trigger ready signal at block {}", at);
+			debug!(target: LOG_TARGET, "fatp::trigger trigger ready signal at block {}", at);
 			let _ = p.send(ready_iterator());
 		});
 	}
@@ -488,7 +488,7 @@ where
 	pub async fn ready_at_light(&self, at: Block::Hash) -> ReadyIteratorFor<ChainApi> {
 		let start = Instant::now();
 		let api = self.api.clone();
-		trace!(
+		debug!(
 			target: LOG_TARGET,
 			?at,
 			"fatp::ready_at_light"
@@ -733,7 +733,7 @@ where
 		xts: Vec<TransactionFor<Self>>,
 	) -> Result<Vec<Result<TxHash<Self>, Self::Error>>, Self::Error> {
 		let view_store = self.view_store.clone();
-		debug!(
+		trace!(
 			target: LOG_TARGET,
 			count = xts.len(),
 			active_views_count = self.active_views_count(),
@@ -1055,7 +1055,7 @@ where
 		_at: Block::Hash,
 		xt: sc_transaction_pool_api::LocalTransactionFor<Self>,
 	) -> Result<Self::Hash, Self::Error> {
-		debug!(
+		trace!(
 			target: LOG_TARGET,
 			active_views_count = self.active_views_count(),
 			"fatp::submit_local"
@@ -1119,7 +1119,7 @@ where
 		};
 
 		if self.has_view(&hash_and_number.hash) {
-			trace!(
+			debug!(
 				target: LOG_TARGET,
 				?hash_and_number,
 				"view already exists for block"
@@ -1318,7 +1318,7 @@ where
 			return txs.clone()
 		};
 
-		trace!(
+		debug!(
 			target: LOG_TARGET,
 			?at,
 			"fetch_block_transactions from api"
@@ -1642,6 +1642,7 @@ where
 	/// - executing the on finalized procedure for the view store,
 	/// - purging finalized transactions from the mempool and triggering mempool revalidation,
 	async fn handle_finalized(&self, finalized_hash: Block::Hash, tree_route: &[Block::Hash]) {
+		let start = Instant::now();
 		let finalized_number = self.api.block_id_to_number(&BlockId::Hash(finalized_hash));
 		debug!(
 			target: LOG_TARGET,
@@ -1670,7 +1671,7 @@ where
 				)
 				.await;
 		} else {
-			trace!(
+			debug!(
 				target: LOG_TARGET,
 				?finalized_number,
 				"handle_finalized: revalidation/cleanup skipped: could not resolve finalized block number"
@@ -1683,6 +1684,7 @@ where
 			target: LOG_TARGET,
 			active_views_count = self.active_views_count(),
 			included_transactions_len = ?self.included_transactions.lock().len(),
+			duration = ?start.elapsed(),
 			"handle_finalized after"
 		);
 	}
@@ -1833,7 +1835,7 @@ where
 
 		match result {
 			Err(error) => {
-				trace!(
+				debug!(
 					target: LOG_TARGET,
 					%error,
 					"enactment_state::update error"
@@ -1860,7 +1862,7 @@ where
 			ChainEvent::Finalized { hash, ref tree_route } => {
 				self.handle_finalized(hash, tree_route).await;
 
-				trace!(
+				debug!(
 					target: LOG_TARGET,
 					?tree_route,
 					?prev_finalized_block,

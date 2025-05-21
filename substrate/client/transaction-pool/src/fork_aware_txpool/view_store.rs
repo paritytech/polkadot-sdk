@@ -423,7 +423,7 @@ where
 		finalized_hash: Block::Hash,
 		tree_route: &[Block::Hash],
 	) -> Vec<ExtrinsicHash<ChainApi>> {
-		trace!(
+		debug!(
 			target: LOG_TARGET,
 			?finalized_hash,
 			?tree_route,
@@ -628,7 +628,7 @@ where
 				.collect::<Vec<_>>()
 		};
 		futures::future::join_all(finish_revalidation_futures).await;
-		trace!(
+		debug!(
 			target: LOG_TARGET,
 			duration = ?start.elapsed(),
 			"finish_background_revalidations"

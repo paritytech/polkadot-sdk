@@ -379,7 +379,7 @@ impl<B: ChainApi, L: EventHandler<B>> ValidatedPool<B, L> {
 		if ready_limit.is_exceeded(status.ready, status.ready_bytes) ||
 			future_limit.is_exceeded(status.future, status.future_bytes)
 		{
-			debug!(
+			trace!(
 				target: LOG_TARGET,
 				ready_count = ready_limit.count,
 				ready_kb = ready_limit.total_bytes / 1024,
