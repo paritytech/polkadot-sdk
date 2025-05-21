@@ -618,7 +618,12 @@ impl<T: MinerConfig> Miner<T> {
 		let is_trimmed =
 			TrimmingStatus { weight: weight_trimmed, length: length_trimmed, edges: edges_trimmed };
 
-		log_no_system!(debug, "feasible solution mined: trimmed? {:?}, scscore: {:?}", is_trimmed, score);
+		log_no_system!(
+			debug,
+			"feasible solution mined: trimmed? {:?}, scscore: {:?}",
+			is_trimmed,
+			score
+		);
 		Ok((solution, score, size, is_trimmed))
 	}
 

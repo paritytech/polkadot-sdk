@@ -252,20 +252,15 @@ mod solution_type {
 		let target_at = |a: u16| -> Option<AccountId> { Some(a as AccountId) };
 
 		// case 1: duplicate target in votes2.
-		let solution = TestSolution {
-			votes2: vec![(0, [(1, p(50))], 1)],
-			..Default::default()
-		};
+		let solution = TestSolution { votes2: vec![(0, [(1, p(50))], 1)], ..Default::default() };
 		assert_eq!(
 			solution.into_assignment(&voter_at, &target_at).unwrap_err(),
 			NposError::DuplicateTarget,
 		);
 
 		// case 2: duplicate target in votes3.
-		let solution = TestSolution {
-			votes3: vec![(0, [(1, p(25)), (2, p(50))], 1)],
-			..Default::default()
-		};
+		let solution =
+			TestSolution { votes3: vec![(0, [(1, p(25)), (2, p(50))], 1)], ..Default::default() };
 		assert_eq!(
 			solution.into_assignment(&voter_at, &target_at).unwrap_err(),
 			NposError::DuplicateTarget,
