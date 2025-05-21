@@ -23,7 +23,7 @@ pub mod constants {
 
 	parameter_types! {
 		{{#if (eq db_name "InMemoryDb")}}
-		/// `ValidationMemoryDb` weights are measured in the context of the validation functions.
+		/// `InMemoryDb` weights are measured in the context of the validation functions.
 		/// To avoid submitting overweight blocks to the relay chain this is the configuration
 		/// parachains should use.
 		{{else if (eq db_name "ParityDb")}}
