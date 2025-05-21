@@ -14,6 +14,7 @@
 // limitations under the License.
 
 use crate::{create_pool_with_wnd_on, foreign_balance_on, imports::*};
+use emulated_integration_tests_common::xcm_helpers::find_mq_processed_id;
 use sp_core::{crypto::get_public_from_string_or_panic, sr25519};
 
 fn relay_to_para_sender_assertions(t: RelayToParaTest) {
@@ -468,10 +469,16 @@ fn para_to_para_asset_hub_hop_assertions(t: ParaToParaThroughAHTest) {
 	);
 }
 
-pub fn para_to_para_through_hop_receiver_assertions<Hop: Clone>(t: Test<PenpalA, PenpalB, Hop>) {
+pub fn para_to_para_through_hop_receiver_assertions<Hop: Clone>(
+	mut t: Test<PenpalA, PenpalB, Hop>,
+) {
 	type RuntimeEvent = <PenpalB as Chain>::RuntimeEvent;
 
 	PenpalB::assert_xcmp_queue_success(None);
+
+	let mq_prc_id = find_mq_processed_id::<PenpalB>().expect("Missing Processed Event");
+	t.insert_unique_topic_id("PenpalB", mq_prc_id);
+
 	for asset in t.args.assets.into_inner().into_iter() {
 		let expected_id = asset.id.0.try_into().unwrap();
 		assert_expected_events!(

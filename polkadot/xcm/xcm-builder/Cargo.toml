@@ -37,6 +37,7 @@ polkadot-primitives = { default-features = true, path = "../../primitives" }
 polkadot-runtime-parachains = { default-features = true, path = "../../runtime/parachains" }
 assert_matches = { workspace = true }
 polkadot-test-runtime = { path = "../../runtime/test-runtime" }
+xcm-simulator = { workspace = true, default-features = true }
 
 [features]
 default = ["std"]

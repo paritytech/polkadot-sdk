@@ -53,6 +53,7 @@ xcm.workspace = true
 xcm.default-features = true
 xcm-executor.workspace = true
 xcm-executor.default-features = true
+xcm-simulator = { workspace = true, default-features = true }
 polkadot-primitives.workspace = true
 polkadot-primitives.default-features = true
 polkadot-parachain-primitives.workspace = true

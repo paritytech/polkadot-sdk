@@ -58,7 +58,7 @@ fn clears_origin() {
 
 	let (dest, sent_message) = sent_xcm().pop().unwrap();
 	assert_eq!(dest, Parent.into());
-	assert_eq!(sent_message.len(), 5);
+	assert_eq!(sent_message.len(), 6);
 	let mut instr = sent_message.inner().iter();
 	assert!(matches!(instr.next().unwrap(), ReserveAssetDeposited(..)));
 	assert!(matches!(instr.next().unwrap(), PayFees { .. }));
@@ -95,7 +95,7 @@ fn preserves_origin() {
 
 	let (dest, sent_message) = sent_xcm().pop().unwrap();
 	assert_eq!(dest, Parent.into());
-	assert_eq!(sent_message.len(), 5);
+	assert_eq!(sent_message.len(), 6);
 	let mut instr = sent_message.inner().iter();
 	assert!(matches!(instr.next().unwrap(), ReserveAssetDeposited(..)));
 	assert!(matches!(instr.next().unwrap(), PayFees { .. }));
@@ -136,7 +136,7 @@ fn unpaid_execution_goes_after_origin_alteration() {
 
 	let (destination, sent_message) = sent_xcm().pop().unwrap();
 	assert_eq!(destination, Parent.into());
-	assert_eq!(sent_message.len(), 5);
+	assert_eq!(sent_message.len(), 6);
 	let mut instructions = sent_message.inner().iter();
 	assert!(matches!(instructions.next().unwrap(), ReserveAssetDeposited(..)));
 	assert!(matches!(
@@ -177,7 +177,7 @@ fn no_alias_origin_if_root() {
 
 	let (destination, sent_message) = sent_xcm().pop().unwrap();
 	assert_eq!(destination, Parent.into());
-	assert_eq!(sent_message.len(), 4);
+	assert_eq!(sent_message.len(), 5);
 	let mut instructions = sent_message.inner().iter();
 	assert!(matches!(instructions.next().unwrap(), ReserveAssetDeposited(..)));
 	assert!(matches!(instructions.next().unwrap(), UnpaidExecution { .. }));
@@ -213,7 +213,7 @@ fn unpaid_transact() {
 
 	let (destination, sent_message) = sent_xcm().pop().unwrap();
 	assert_eq!(destination, to_another_system_para);
-	assert_eq!(sent_message.len(), 2);
+	assert_eq!(sent_message.len(), 3);
 	let mut instructions = sent_message.inner().iter();
 	assert!(matches!(instructions.next().unwrap(), UnpaidExecution { .. }));
 	assert!(matches!(instructions.next().unwrap(), Transact { .. }));

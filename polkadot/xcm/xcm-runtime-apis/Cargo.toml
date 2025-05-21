@@ -31,6 +31,7 @@ xcm-executor = { path = "../xcm-executor", package = "staging-xcm-executor", def
 frame-executive = { path = "../../../substrate/frame/executive", default-features = false }
 log = { workspace = true }
 sp-tracing = { default-features = true, path = "../../../substrate/primitives/tracing" }
+xcm-simulator = { workspace = true, default-features = true }
 
 [features]
 default = ["std"]

@@ -178,10 +178,6 @@ impl<T: Get<Vec<NetworkExportTableItem>>> ExporterFor for NetworkExportTable<T> 
 	}
 }
 
-pub fn forward_id_for(original_id: &XcmHash) -> XcmHash {
-	(b"forward_id_for", original_id).using_encoded(sp_io::hashing::blake2_256)
-}
-
 /// Implementation of `SendXcm` which wraps the message inside an `ExportMessage` instruction
 /// and sends it to a destination known to be able to handle it.
 ///
@@ -232,7 +228,7 @@ impl<Bridges: ExporterFor, Router: SendXcm, UniversalLocation: Get<InteriorLocat
 		// `xcm` should already end with `SetTopic` - if it does, then extract and derive into
 		// an onward topic ID.
 		let maybe_forward_id = match xcm.last() {
-			Some(SetTopic(t)) => Some(forward_id_for(t)),
+			Some(SetTopic(t)) => Some(*t),
 			_ => None,
 		};
 
@@ -308,7 +304,7 @@ impl<Bridges: ExporterFor, Router: SendXcm, UniversalLocation: Get<InteriorLocat
 		// `xcm` should already end with `SetTopic` - if it does, then extract and derive into
 		// an onward topic ID.
 		let maybe_forward_id = match xcm.last() {
-			Some(SetTopic(t)) => Some(forward_id_for(t)),
+			Some(SetTopic(t)) => Some(*t),
 			_ => None,
 		};
 

@@ -42,14 +42,14 @@ polkadot-runtime-parachains.workspace = true
 polkadot-runtime-parachains.default-features = true
 xcm.workspace = true
 xcm.default-features = true
-pallet-xcm.workspace = true
-pallet-xcm.default-features = true
+pallet-xcm = { features = ["test-utils"], workspace = true, default-features = true }
 parachains-common.workspace = true
 parachains-common.default-features = true
 cumulus-primitives-core.workspace = true
 cumulus-primitives-core.default-features = true
 xcm-emulator.workspace = true
 xcm-emulator.default-features = true
+xcm-simulator = { workspace = true, default-features = true }
 cumulus-pallet-xcmp-queue.workspace = true
 cumulus-pallet-xcmp-queue.default-features = true
 cumulus-pallet-parachain-system.workspace = true

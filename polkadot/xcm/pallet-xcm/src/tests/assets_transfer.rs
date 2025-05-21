@@ -30,6 +30,7 @@ use polkadot_parachain_primitives::primitives::Id as ParaId;
 use sp_runtime::traits::AccountIdConversion;
 use xcm::prelude::*;
 use xcm_executor::traits::ConvertLocation;
+use xcm_simulator::fake_message_hash;
 
 /// Test `limited_teleport_assets`
 ///
@@ -1434,6 +1435,44 @@ fn remote_asset_reserve_and_remote_fee_reserve_call<Call>(
 		assert_eq!(AssetsPallet::active_issuance(usdc_id_location.clone()), expected_usdc_issuance);
 
 		// Verify sent XCM program
+		let local_xcm: Xcm<Call> = Xcm(vec![
+			WithdrawAsset(Assets::from(vec![Asset {
+				id: AssetId(usdc_id_location.clone()),
+				fun: Fungible(SEND_AMOUNT),
+			}])),
+			SetFeesMode { jit_withdraw: true },
+			InitiateReserveWithdraw {
+				assets: Wild(AllCounted(1)),
+				reserve: Parachain(USDC_RESERVE_PARA_ID).into(),
+				xcm: Xcm(vec![
+					BuyExecution {
+						fees: Asset {
+							id: AssetId(Location {
+								parents: 0,
+								interior: USDC_INNER_JUNCTION.into(),
+							}),
+							fun: Fungible(SEND_AMOUNT / 2),
+						},
+						weight_limit: Unlimited,
+					},
+					DepositReserveAsset {
+						assets: Wild(AllCounted(1)),
+						dest: Location::new(1, Parachain(OTHER_PARA_ID)),
+						xcm: Xcm(vec![
+							BuyExecution {
+								fees: expected_fee_on_dest.clone(),
+								weight_limit: Unlimited,
+							},
+							DepositAsset {
+								assets: Wild(AllCounted(1)),
+								beneficiary: beneficiary.clone(),
+							},
+						]),
+					},
+				]),
+			},
+		]);
+		let expected_hash = fake_message_hash(&local_xcm);
 		assert_eq!(
 			sent_xcm(),
 			vec![(
@@ -1452,7 +1491,8 @@ fn remote_asset_reserve_and_remote_fee_reserve_call<Call>(
 							buy_limited_execution(expected_fee_on_dest, Unlimited),
 							DepositAsset { assets: AllCounted(1).into(), beneficiary }
 						])
-					}
+					},
+					SetTopic(expected_hash),
 				])
 			)],
 		);
@@ -2500,6 +2540,65 @@ fn remote_asset_reserve_and_remote_fee_reserve_paid_call<Call>(
 			return;
 		}
 
+		let context = UniversalLocation::get();
+		let foreign_id_location_reanchored =
+			foreign_asset_id_location.clone().reanchored(&dest, &context).unwrap();
+		let dest_reanchored = dest.reanchored(&reserve_location, &context).unwrap();
+		let local_xcm: Xcm<Call> = Xcm(vec![
+			WithdrawAsset(Assets::from(vec![Asset {
+				id: AssetId(foreign_asset_id_location.clone()),
+				fun: Fungible(SEND_AMOUNT),
+			}])),
+			SetFeesMode { jit_withdraw: true },
+			InitiateReserveWithdraw {
+				assets: Wild(AllCounted(1)),
+				reserve: reserve_location.clone(),
+				xcm: Xcm(vec![
+					BuyExecution {
+						fees: Asset {
+							id: AssetId(Location { parents: 0, interior: Here }),
+							fun: Fungible(SEND_AMOUNT / 2),
+						},
+						weight_limit: Unlimited,
+					},
+					DepositReserveAsset {
+						assets: Wild(AllCounted(1)),
+						dest: dest_reanchored.clone(),
+						xcm: Xcm(vec![
+							BuyExecution {
+								fees: Asset {
+									id: AssetId(foreign_id_location_reanchored.clone()),
+									fun: Fungible(SEND_AMOUNT / 2),
+								},
+								weight_limit: Unlimited,
+							},
+							DepositAsset {
+								assets: Wild(AllCounted(1)),
+								beneficiary: beneficiary.clone(),
+							},
+						]),
+					},
+				]),
+			},
+		]);
+		let sent_msg_id = fake_message_hash(&local_xcm);
+		let sent_message = Xcm(vec![
+			WithdrawAsset((Location::here(), SEND_AMOUNT).into()),
+			ClearOrigin,
+			buy_execution((Location::here(), SEND_AMOUNT / 2)),
+			DepositReserveAsset {
+				assets: Wild(AllCounted(1)),
+				// final destination is `dest` as seen by `reserve`
+				dest: dest_reanchored,
+				// message sent onward to `dest`
+				xcm: Xcm(vec![
+					buy_execution((foreign_id_location_reanchored, SEND_AMOUNT / 2)),
+					DepositAsset { assets: AllCounted(1).into(), beneficiary },
+				]),
+			},
+			SetTopic(sent_msg_id),
+		]);
+
 		let mut last_events = last_events(7).into_iter();
 		// asset events
 		// forceCreate
@@ -2542,37 +2641,15 @@ fn remote_asset_reserve_and_remote_fee_reserve_paid_call<Call>(
 			AssetsPallet::total_issuance(foreign_asset_id_location.clone()),
 			expected_issuance
 		);
-		assert_eq!(
-			AssetsPallet::active_issuance(foreign_asset_id_location.clone()),
-			expected_issuance
-		);
-
-		let context = UniversalLocation::get();
-		let foreign_id_location_reanchored =
-			foreign_asset_id_location.reanchored(&dest, &context).unwrap();
-		let dest_reanchored = dest.reanchored(&reserve_location, &context).unwrap();
+		assert_eq!(AssetsPallet::active_issuance(foreign_asset_id_location), expected_issuance);
 
 		// Verify sent XCM program
 		assert_eq!(
 			sent_xcm(),
 			vec![(
-				reserve_location,
 				// `assets` are burned on source and withdrawn from SA in remote reserve chain
-				Xcm(vec![
-					WithdrawAsset((Location::here(), SEND_AMOUNT).into()),
-					ClearOrigin,
-					buy_execution((Location::here(), SEND_AMOUNT / 2)),
-					DepositReserveAsset {
-						assets: Wild(AllCounted(1)),
-						// final destination is `dest` as seen by `reserve`
-						dest: dest_reanchored,
-						// message sent onward to `dest`
-						xcm: Xcm(vec![
-							buy_execution((foreign_id_location_reanchored, SEND_AMOUNT / 2)),
-							DepositAsset { assets: AllCounted(1).into(), beneficiary }
-						])
-					}
-				])
+				reserve_location,
+				sent_message,
 			)]
 		);
 	});
