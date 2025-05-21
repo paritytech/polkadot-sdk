@@ -792,7 +792,7 @@ where
 		// the returned vector.
 		//
 		// For each successful insertion into the mempool, the corresponding
-		// view_store submission result needs to be examined:
+		// view_store submission result needs to be examined (merged_results):
 		// - If there is an error during view_store submission, the transaction is removed from
 		// the mempool, and the final result recorded in the vector for this transaction is the
 		// view_store submission error.
@@ -801,60 +801,33 @@ where
 		// mempool.
 		//
 		// Finally, it collects the hashes of updated transactions or submission errors (either
-		// from the mempool or view_store) into a returned vector.
+		// from the mempool or view_store) into a returned vector (final_results).
 		const RESULTS_ASSUMPTION : &str =
 			"The number of Ok results in mempool is exactly the same as the size of view_store submission result. qed.";
-		let results = mempool_results.into_iter().map(|result| {
+		let merged_results = mempool_results.into_iter().map(|result| {
 			result.map_err(Into::into).and_then(|insertion| {
 				Ok((insertion.hash, submission_results.next().expect(RESULTS_ASSUMPTION)))
 			})
 		});
 
-		let mut results2 = vec![];
-		for r in results {
+		let mut final_results = vec![];
+		for r in merged_results {
 			match r {
 				Ok((hash, submission_result)) => match submission_result {
 					Ok(r) => {
-						mempool.update_transaction_priority2(r.hash(), r.priority()).await;
-						results2.push(Ok(r.hash()));
+						mempool.update_transaction_priority(r.hash(), r.priority()).await;
+						final_results.push(Ok(r.hash()));
 					},
 					Err(e) => {
 						mempool.remove_transactions(&[hash]).await;
-						results2.push(Err(e));
+						final_results.push(Err(e));
 					},
 				},
-				Err(e) => results2.push(Err(e)),
+				Err(e) => final_results.push(Err(e)),
 			}
 		}
 
-		// let results = results.map(|r| r.and_then(|r| r.1));
-
-		// .inspect_err(|_| {
-		// 						let mempool = mempool.clone();
-		// 						async move {
-		// 							mempool.remove_transactions(&[insertion.hash]).await;
-		// 						};
-		//
-		// 			});
-
-		// let results = results2
-		// 	.into_iter()
-		// 	.map(|submission_result| {
-		// 		let mempool = mempool.clone();
-		// 		async move {
-		// 			match submission_result {
-		// 				Ok(r) => {
-		// 					mempool.update_transaction_priority(&r).await;
-		// 					Ok(r.hash())
-		// 				},
-		// 				Err(e) => Err(e),
-		// 			}
-		// 		}
-		// 	})
-		// 	.collect::<Vec<_>>();
-
-		// Ok(futures::future::join_all(results).await)
-		Ok(results2)
+		Ok(final_results)
 	}
 
 	/// Submits a single transaction and returns a future resolving to the submission results.
@@ -914,7 +887,7 @@ where
 			},
 			Ok(mut outcome) => {
 				self.mempool
-					.update_transaction_priority2(outcome.hash(), outcome.priority())
+					.update_transaction_priority(outcome.hash(), outcome.priority())
 					.await;
 				Ok(outcome.expect_watcher())
 			},
@@ -1087,7 +1060,7 @@ where
 			.map(|outcome| {
 				self.mempool
 					.clone()
-					.update_transaction_priority2_sync(outcome.hash(), outcome.priority());
+					.update_transaction_priority_sync(outcome.hash(), outcome.priority());
 				outcome.hash()
 			})
 			.or_else(|_| Ok(insertion.hash))
@@ -1422,7 +1395,7 @@ where
 				if let Ok(outcome) = result {
 					Ok(self
 						.mempool
-						.update_transaction_priority2(outcome.hash(), outcome.priority())
+						.update_transaction_priority(outcome.hash(), outcome.priority())
 						.await)
 				} else {
 					Err(tx_hash)

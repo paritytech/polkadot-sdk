@@ -706,7 +706,7 @@ where
 
 	/// Updates the priority of transaction stored in mempool using provided view_store submission
 	/// outcome.
-	pub(super) async fn update_transaction_priority2(
+	pub(super) async fn update_transaction_priority(
 		&self,
 		hash: ExtrinsicHash<ChainApi>,
 		prio: Option<TransactionPriority>,
@@ -756,7 +756,7 @@ where
 		Vec<ExtrinsicFor<ChainApi>>,
 		SyncBridgeSender<ExtendUnwatchedResult<ChainApi>>,
 	),
-	UpdateTransactionPriority2(
+	UpdateTransactionPriority(
 		Arc<TxMemPool<ChainApi, Block>>,
 		ExtrinsicHash<ChainApi>,
 		Option<TransactionPriority>,
@@ -794,13 +794,13 @@ where
 		(rx, Self::ExtendUnwatched(mempool, source, xts, tx))
 	}
 
-	fn update_transaction_priority2(
+	fn update_transaction_priority(
 		mempool: Arc<TxMemPool<ChainApi, Block>>,
 		hash: ExtrinsicHash<ChainApi>,
 		prio: Option<TransactionPriority>,
 	) -> (SyncBridgeReceiver<()>, Self) {
 		let (tx, rx) = sync_bridge_channel();
-		(rx, Self::UpdateTransactionPriority2(mempool, hash, prio, tx))
+		(rx, Self::UpdateTransactionPriority(mempool, hash, prio, tx))
 	}
 
 	fn try_insert_with_replacement(
@@ -841,8 +841,8 @@ where
 					debug!(target: LOG_TARGET, ?error, "ExtendUnwatched: sending response failed");
 				}
 			},
-			TxMemPoolSyncRequest::UpdateTransactionPriority2(mempool, hash, prio, tx) => {
-				let result = mempool.update_transaction_priority2(hash, prio).await;
+			TxMemPoolSyncRequest::UpdateTransactionPriority(mempool, hash, prio, tx) => {
+				let result = mempool.update_transaction_priority(hash, prio).await;
 				if let Err(error) = tx.send(result) {
 					debug!(target: LOG_TARGET, ?error, "UpdateTransactionPriority2: sending response failed");
 				}
@@ -903,13 +903,13 @@ where
 		response.recv().expect(SYNC_BRIDGE_EXPECT)
 	}
 
-	pub(super) fn update_transaction_priority2_sync(
+	pub(super) fn update_transaction_priority_sync(
 		self: Arc<Self>,
 		hash: ExtrinsicHash<ChainApi>,
 		prio: Option<TransactionPriority>,
 	) {
 		let (response, request) =
-			TxMemPoolSyncRequest::update_transaction_priority2(self.clone(), hash, prio);
+			TxMemPoolSyncRequest::update_transaction_priority(self.clone(), hash, prio);
 		let _ = self.sync_channel.send(request);
 		response.recv().expect(SYNC_BRIDGE_EXPECT)
 	}
@@ -1113,7 +1113,7 @@ mod tx_mem_pool_tests {
 		assert_eq!(mempool.bytes(), total_xts_bytes);
 
 		for o in submit_outcomes {
-			mempool.update_transaction_priority2(o.hash(), o.priority()).await;
+			mempool.update_transaction_priority(o.hash(), o.priority()).await;
 		}
 
 		let xt = Arc::from(large_uxt(98));
@@ -1154,7 +1154,7 @@ mod tx_mem_pool_tests {
 		assert_eq!(total_xts_bytes, max * LARGE_XT_SIZE);
 
 		for o in submit_outcomes {
-			mempool.update_transaction_priority2(o.hash(), o.priority()).await;
+			mempool.update_transaction_priority(o.hash(), o.priority()).await;
 		}
 
 		//this one should drop 2 xts (size: 1130):
@@ -1196,7 +1196,7 @@ mod tx_mem_pool_tests {
 		assert_eq!(mempool.bytes(), total_xts_bytes);
 
 		for o in submit_outcomes {
-			mempool.update_transaction_priority2(o.hash(), o.priority()).await;
+			mempool.update_transaction_priority(o.hash(), o.priority()).await;
 		}
 
 		//this one should drop 3 xts (each of size 1129)
@@ -1239,7 +1239,7 @@ mod tx_mem_pool_tests {
 		assert_eq!(mempool.bytes(), total_xts_bytes);
 
 		for o in submit_outcomes {
-			mempool.update_transaction_priority2(o.hash(), o.priority()).await;
+			mempool.update_transaction_priority(o.hash(), o.priority()).await;
 		}
 
 		let xt = Arc::from(large_uxt(98));
@@ -1257,7 +1257,6 @@ mod tx_mem_pool_tests {
 	#[tokio::test]
 	async fn replacing_txs_is_skipped_if_prios_are_not_set() {
 		sp_tracing::try_init_simple();
-		trace!(target:LOG_TARGET,"xxxxxxxxxX");
 		const COUNT: usize = 10;
 		let api = Arc::from(TestApi::default());
 		let mempool = TxMemPool::new_test(api.clone(), usize::MAX, COUNT * LARGE_XT_SIZE);

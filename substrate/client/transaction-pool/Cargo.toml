@@ -40,7 +40,6 @@ sp-crypto-hashing = { workspace = true, default-features = true }
 sp-runtime = { workspace = true, default-features = true }
 sp-tracing = { workspace = true, default-features = true }
 sp-transaction-pool = { workspace = true, default-features = true }
-test-case = "3.3.1"
 thiserror = { workspace = true }
 tokio = { workspace = true, default-features = true, features = ["macros", "time"] }
 tokio-stream = { workspace = true }
@@ -50,6 +49,7 @@ tracing = { workspace = true, default-features = true }
 anyhow = { workspace = true }
 assert_matches = { workspace = true }
 criterion = { workspace = true, default-features = true }
+rstest = { workspace = true }
 sc-block-builder = { workspace = true, default-features = true }
 sp-consensus = { workspace = true, default-features = true }
 substrate-test-runtime = { workspace = true }

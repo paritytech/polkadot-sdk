@@ -501,7 +501,7 @@ where
 
 #[cfg(test)]
 mod tests {
-	use test_case::test_case;
+	use rstest::rstest;
 
 	use super::*;
 
@@ -609,27 +609,27 @@ mod tests {
 		assert_eq!(map.read().await.len(), 0);
 	}
 
-	//todo: rsrust
-	#[test_case(20, 30, 50, 50, 100, 3, 100, 2, 100)]
-	#[test_case(2, 46, 50, 3, 100, 3, 98, 3, 99)]
-	#[test_case(2, 46, 50, 2, 100, 3, 98, 3, 98)]
-	#[test_case(2, 47, 50, 4, 100, 3, 99, 2, 54)]
-	#[test_case(1, 47, 50, 99, 100, 3, 98, 1, 99)]
-	#[test_case(1, 1, 1, 2, 100, 3, 3, 3, 4)] //always remove
-	#[test_case(20, 30, 40, 150, 100, 3, 90, 3, 90)]
-	#[test_case(10, 20, 30, 80, 100, 3, 60, 1, 80)]
+	#[rstest]
+	#[case(20, 30, 50, 50, 100, 3, 100, 2, 100)]
+	#[case(2, 46, 50, 3, 100, 3, 98, 3, 99)]
+	#[case(2, 46, 50, 2, 100, 3, 98, 3, 98)]
+	#[case(2, 47, 50, 4, 100, 3, 99, 2, 54)]
+	#[case(1, 47, 50, 99, 100, 3, 98, 1, 99)]
+	#[case(1, 1, 1, 2, 100, 3, 3, 3, 4)] //always remove
+	#[case(20, 30, 40, 150, 100, 3, 90, 3, 90)]
+	#[case(10, 20, 30, 80, 100, 3, 60, 1, 80)]
 	#[tokio::test]
 	#[allow(clippy::too_many_arguments)]
 	async fn try_insert_with_replacement_works_param2(
-		i0_bytes: usize,
-		i1_bytes: usize,
-		i2_bytes: usize,
-		i3_bytes: usize,
-		max_bytes: usize,
-		expected_len_before: usize,
-		expected_bytes_before: usize,
-		expected_len_after: usize,
-		expected_bytes_after: usize,
+		#[case] i0_bytes: usize,
+		#[case] i1_bytes: usize,
+		#[case] i2_bytes: usize,
+		#[case] i3_bytes: usize,
+		#[case] max_bytes: usize,
+		#[case] expected_len_before: usize,
+		#[case] expected_bytes_before: usize,
+		#[case] expected_len_after: usize,
+		#[case] expected_bytes_after: usize,
 	) {
 		let map = SizeTrackedStore::default();
 
