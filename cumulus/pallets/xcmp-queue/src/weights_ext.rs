@@ -20,7 +20,6 @@ use crate::weights::WeightInfo;
 use frame_support::{traits::BatchFootprint, weights::Weight};
 use sp_runtime::SaturatedConversion;
 
-#[cfg(any(feature = "runtime-benchmarks", feature = "std"))]
 pub(crate) fn get_average_page_pos(max_message_len: u32) -> u32 {
 	max_message_len / 2
 }
@@ -72,7 +71,6 @@ pub trait WeightInfoExt: WeightInfo {
 			.saturating_add(pos_overhead)
 	}
 
-	#[cfg(feature = "std")]
 	fn check_accuracy<MaxMessageLen: bounded_collections::Get<u32>>(err_margin: f64) {
 		assert!(err_margin < 1f64);
 
@@ -93,20 +91,3 @@ pub trait WeightInfoExt: WeightInfo {
 }
 
 impl<T: WeightInfo> WeightInfoExt for T {}
-
-#[cfg(test)]
-mod tests {
-	use super::*;
-	use bounded_collections::ConstU32;
-
-	#[test]
-	fn check_weight_info_ext_accuracy() {
-		// The `MaxMessageLen` was manually copied from the `HeapSize` field of the
-		// `asset-hub-westend-runtime`:
-		// https://github.com/paritytech/polkadot-sdk/blob/4173aac8abc7e518d4048306c18d4f2176241206/cumulus/parachains/runtimes/assets/asset-hub-westend/src/lib.rs#L827
-		// It needs to be updated manually in case it changes.
-		// This is a good-enough approximation. To make it 100% accurate, we would need to subtract
-		// the item size. But this is negligible.
-		<() as WeightInfoExt>::check_accuracy::<ConstU32<{ 103 * 1024 }>>(0.05);
-	}
-}

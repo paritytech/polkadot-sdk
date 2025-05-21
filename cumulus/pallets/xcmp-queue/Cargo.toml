@@ -35,7 +35,7 @@ xcm-executor = { workspace = true }
 cumulus-primitives-core = { workspace = true }
 
 # Optional import for weight accuracy testing
-approx = { optional = true, workspace = true }
+approx = { workspace = true }
 # Optional import for benchmarking
 bounded-collections = { workspace = true }
 frame-benchmarking = { optional = true, workspace = true }
