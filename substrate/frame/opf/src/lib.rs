@@ -333,16 +333,26 @@ pub mod pallet {
 			round_infos.batch_submitted = true;
 
 			let mut round_ending_block = round_infos.round_ending_block;
-			let mut projects_submitted: Vec<ProjectId<T>> = vec![];
+			let mut whitelisted_accounts: Vec<ProjectId<T>> = vec![];
+			for project in WhiteListedProjectAccounts::<T>::iter() {
+				whitelisted_accounts.push(project.0.clone());
+			}
+
+			// Remove duplicates if any
+			whitelisted_accounts.sort();
+			whitelisted_accounts.dedup();
 
 			for project_id in &projects_id {
 				ProjectInfo::<T>::new(project_id.clone());
+				whitelisted_accounts.push(project_id.clone());
 				// Check if the project is already submitted
 				ensure!(
 					!round_infos.projects_submitted.contains(project_id),
 					Error::<T>::SubmittedProjectId
 				);
-				projects_submitted.push(project_id.clone());
+			}
+
+			for project_id in &whitelisted_accounts {
 				// Prepare the proposal call
 				let call = Call::<T>::on_registration { project_id: project_id.clone() };
 
@@ -366,10 +376,10 @@ pub mod pallet {
 				}
 			}
 			round_infos.projects_submitted =
-				projects_submitted.clone().try_into().map_err(|_| Error::<T>::InvalidResult)?;
-				VotingRounds::<T>::insert(current_round_index, round_infos); 
+				whitelisted_accounts.clone().try_into().map_err(|_| Error::<T>::InvalidResult)?;
+			VotingRounds::<T>::insert(current_round_index, round_infos);
 
-			Self::deposit_event(Event::Projectslisted { projects_id: projects_submitted });
+			Self::deposit_event(Event::Projectslisted { projects_id: whitelisted_accounts });
 			Ok(())
 		}
 
@@ -549,7 +559,6 @@ pub mod pallet {
 					amount: info.amount,
 					project_id: project_id.clone(),
 				});
-				WhiteListedProjectAccounts::<T>::remove(&project_id);
 				Ok(())
 			}
 		}
@@ -586,9 +595,7 @@ pub mod pallet {
 						let remaining_balance = balance.saturating_sub(infos.amount);
 						ensure!(remaining_balance > minimum_balance, Error::<T>::NotEnoughFunds);
 						infos.spend_created = true;
-						WhiteListedProjectAccounts::<T>::mutate(project_id.clone(), |val| {
-							*val = Some(infos.clone())
-						});
+						WhiteListedProjectAccounts::<T>::insert(&project_id, &infos);
 						// create a spend for project to be rewarded
 						let new_spend = SpendInfo::<T>::new(&infos, spend_valid_from);
 						Self::deposit_event(Event::ProjectFundingAccepted { project_id, amount });
