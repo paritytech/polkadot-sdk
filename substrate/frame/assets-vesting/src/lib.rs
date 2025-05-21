@@ -160,7 +160,7 @@ pub mod pallet {
 				// Total genesis `balance` minus `liquid` equals assets frozen for vesting
 				let frozen = balance.saturating_sub(liquid);
 				let length_as_balance = T::BlockNumberToBalance::convert(length);
-				let per_block = frozen / length_as_balance.max(One::one());
+				let per_block = (frozen / length_as_balance.max(One::one())).max(One::one());
 
 				let vesting_info = VestingInfo::new(frozen, per_block, begin);
 				if !vesting_info.is_valid() {
