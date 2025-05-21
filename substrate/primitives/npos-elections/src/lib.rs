@@ -127,6 +127,15 @@ pub enum Error {
 	InvalidSupportEdge,
 	/// The number of voters is bigger than the `MaxVoters` bound.
 	TooManyVoters,
+<<<<<<< HEAD
+=======
+	/// Some bounds were exceeded when converting election types.
+	BoundsExceeded,
+	/// A duplicate voter was detected.
+	DuplicateVoter,
+	/// A duplicate target was detected.
+	DuplicateTarget,
+>>>>>>> 5d71d474 (fix epmb solution duplicate issue + add remote mining apparatus to epm (#8585))
 }
 
 /// A type which is used in the API of this crate as a numeric weight of a vote, most often the

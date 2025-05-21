@@ -31,6 +31,11 @@ sp-npos-elections.workspace = true
 sp-runtime.workspace = true
 strum = { features = ["derive"], optional = true, workspace = true }
 
+# optional for remote testing
+hex = { workspace = true, default-features = true, optional = true }
+remote-externalities = { workspace = true, default-features = true, optional = true }
+tokio = { features = ["macros"], workspace = true, default-features = true, optional = true }
+
 [dev-dependencies]
 frame-benchmarking = { default-features = true, workspace = true }
 pallet-balances = { default-features = true, workspace = true }
@@ -41,7 +46,9 @@ sp-io = { default-features = true, workspace = true }
 sp-npos-elections = { default-features = false, workspace = true }
 sp-tracing = { default-features = true, workspace = true }
 
+
 [features]
+remote-mining = ["hex", "remote-externalities", "tokio"]
 default = ["std"]
 std = [
 	"codec/std",
