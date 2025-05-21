@@ -11865,8 +11865,10 @@ version = "27.0.0"
 dependencies = [
  "frame-benchmarking",
  "frame-election-provider-support",
+ "frame-remote-externalities",
  "frame-support",
  "frame-system",
+ "hex",
  "log",
  "pallet-balances",
  "parity-scale-codec",
@@ -11880,6 +11882,7 @@ dependencies = [
  "sp-runtime 31.0.1",
  "sp-tracing 16.0.0",
  "strum 0.26.3",
+ "tokio",
 ]
 
 [[package]]
