@@ -71,7 +71,6 @@ impl TestApi {
 impl ChainApi for TestApi {
 	type Block = Block;
 	type Error = error::Error;
-	type ValidationFuture = futures::future::Ready<error::Result<TransactionValidity>>;
 	type BodyFuture = futures::future::Ready<error::Result<Option<Vec<Extrinsic>>>>;
 
 	/// Verify extrinsic at given block.

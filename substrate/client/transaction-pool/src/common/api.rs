@@ -116,8 +116,6 @@ where
 {
 	type Block = Block;
 	type Error = error::Error;
-	type ValidationFuture =
-		Pin<Box<dyn Future<Output = error::Result<TransactionValidity>> + Send>>;
 	type BodyFuture = Ready<error::Result<Option<Vec<<Self::Block as BlockT>::Extrinsic>>>>;
 
 	fn block_body(&self, hash: Block::Hash) -> Self::BodyFuture {
