@@ -1,4 +1,4 @@
-title: Bridges small nits/improvements
+title: "Introduce `pallet-assets-vesting`"
 doc:
 - audience: Runtime Dev
   description: |
