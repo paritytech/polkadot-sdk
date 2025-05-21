@@ -31,6 +31,7 @@ sp-io = { default-features = false, workspace = true }
 sp-tracing = { default-features = true, workspace = true }
 xcm-builder = { default-features = false, workspace = true }
 xcm-executor = { default-features = false, workspace = true }
+xcm-simulator = { workspace = true, default-features = true }
 
 [features]
 default = ["std"]

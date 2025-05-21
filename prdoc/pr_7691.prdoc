@@ -1,0 +1,28 @@
+title: Ensure Consistent Topic IDs for Traceable Cross-Chain XCM
+doc:
+- audience: Runtime Dev
+  description: |-
+    This PR ensures every XCM processed with the same topic ID across multiple chains to improve traceability.
+crates:
+- name: emulated-integration-tests-common
+  bump: minor
+- name: pallet-xcm
+  bump: patch
+- name: staging-xcm
+  bump: minor
+- name: staging-xcm-builder
+  bump: patch
+- name: staging-xcm-executor
+  bump: patch
+- name: xcm-emulator
+  bump: minor
+- name: xcm-runtime-apis
+  bump: patch
+- name: xcm-simulator
+  bump: minor
+- name: xcm-simulator-example
+  bump: patch
+- name: asset-hub-westend-integration-tests
+  bump: none
+- name: bridge-hub-westend-integration-tests
+  bump: none

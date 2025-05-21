@@ -39,6 +39,7 @@ polkadot-primitives = { default-features = true, workspace = true }
 polkadot-runtime-parachains = { default-features = true, workspace = true }
 polkadot-test-runtime = { workspace = true }
 primitive-types = { features = ["codec", "num-traits", "scale-info"], workspace = true }
+xcm-simulator = { workspace = true, default-features = true }
 
 [features]
 default = ["std"]
