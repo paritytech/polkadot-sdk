@@ -11680,10 +11680,8 @@ version = "38.1.0"
 dependencies = [
  "frame-benchmarking",
  "frame-election-provider-support",
- "frame-remote-externalities",
  "frame-support",
  "frame-system",
- "hex",
  "log",
  "pallet-balances",
  "pallet-election-provider-support-benchmarking",
@@ -11698,7 +11696,6 @@ dependencies = [
  "sp-runtime 40.1.0",
  "sp-tracing 17.0.1",
  "strum 0.26.3",
- "tokio",
 ]
 
 [[package]]
