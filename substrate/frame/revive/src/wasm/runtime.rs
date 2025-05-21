@@ -31,11 +31,7 @@ use crate::{
 use alloc::{vec, vec::Vec};
 use codec::Encode;
 use core::{fmt, marker::PhantomData, mem};
-use frame_support::{
-	ensure,
-	traits::Get,
-	weights::Weight,
-};
+use frame_support::{ensure, traits::Get, weights::Weight};
 use pallet_revive_proc_macro::define_env;
 use pallet_revive_uapi::{CallFlags, ReturnErrorCode, ReturnFlags, StorageFlags};
 use sp_core::{H160, H256, U256};
