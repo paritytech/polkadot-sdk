@@ -622,7 +622,7 @@ impl Client {
 	pub async fn trace_call(
 		&self,
 		transaction: GenericTransaction,
-		block: BlockNumberOrTagOrHash,
+		block: BlockNumberOrTag,
 		config: TracerType,
 	) -> Result<Trace, ClientError> {
 		let block_hash = self.block_hash_for_tag(block.into()).await?;
