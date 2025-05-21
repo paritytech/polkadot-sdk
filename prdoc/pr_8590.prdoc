@@ -2,14 +2,7 @@ title: '[stable2503] Backport #8546'
 doc:
 - audience: Runtime Dev
   description: |-
-    Backport #8546 into `stable2503` from rosarp.
-
-    See the [documentation](https://github.com/paritytech/polkadot-sdk/blob/master/docs/BACKPORT.md) on how to use this bot.
-
-    <!--
-      # To be used by other automation, do not modify:
-      original-pr-number: #${pull_number}
-    -->
+    Improve try-state for pallet-xcm-bridge-hub, it removes `try_as` and uses `try_into` implementation instead.
 crates:
 - name: pallet-xcm-bridge-hub
   bump: patch
