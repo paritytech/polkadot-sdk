@@ -73,7 +73,7 @@ pub(crate) const TXMEMPOOL_MAX_REVALIDATION_BATCH_SIZE: usize = 1000;
 
 /// The maximum number of transactions kept in the mem pool. Given as multiple of
 /// the view's total limit.
-pub const TXMEMPOOL_TRANSACTION_LIMIT_MULTIPLIER: usize = 4;
+pub const TXMEMPOOL_TRANSACTION_LIMIT_MULTIPLIER: usize = 2;
 
 const SYNC_BRIDGE_EXPECT: &str = "The mempool blocking task shall not be terminated. qed.";
 
