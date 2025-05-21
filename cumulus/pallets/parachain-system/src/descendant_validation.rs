@@ -20,10 +20,9 @@ use crate::{
 use alloc::vec::Vec;
 use sp_consensus_babe::{
 	digests::{CompatibleDigestItem, NextEpochDescriptor},
-	AuthorityIndex, AuthorityPair,
+	AuthorityIndex,
 };
-use sp_core::Pair;
-use sp_runtime::traits::Header;
+use sp_runtime::{traits::Header, RuntimeAppPublic};
 
 /// Verifies that the provided relay parent descendants form a valid chain
 /// and are signed by relay chain authorities. If relay chain descendants shall be checked,
@@ -106,7 +105,7 @@ pub(crate) fn verify_relay_parent_descendants<H: Header>(
 
 		log::debug!(target: crate::LOG_TARGET, "Validating header #{relay_number:?} ({sealed_header_hash:?})");
 		let (authority_index, next_epoch_descriptor) =
-			find_authority_idx_epoch_digest(&current_header).map_err(|_| {
+			find_authority_idx_epoch_digest(&current_header).ok_or_else(|| {
 				RelayParentVerificationError::MissingPredigest { hash: sealed_header_hash }
 			})?;
 
@@ -148,7 +147,7 @@ pub(crate) fn verify_relay_parent_descendants<H: Header>(
 			return Err(RelayParentVerificationError::InvalidSeal { hash: sealed_header_hash })
 		};
 
-		if !AuthorityPair::verify(&signature, current_header.hash(), &authority_id.0) {
+		if !authority_id.0.verify(&current_header.hash(), &signature) {
 			return Err(RelayParentVerificationError::InvalidSignature {
 				number: relay_number,
 				hash: sealed_header_hash,
@@ -168,7 +167,7 @@ pub(crate) fn verify_relay_parent_descendants<H: Header>(
 ///   following signatures against the new authorities.
 pub fn find_authority_idx_epoch_digest<H: Header>(
 	header: &H,
-) -> Result<(AuthorityIndex, Option<NextEpochDescriptor>), ()> {
+) -> Option<(AuthorityIndex, Option<NextEpochDescriptor>)> {
 	let mut babe_pre_digest = None;
 	let mut next_epoch_digest = None;
 	for log in header.digest().logs() {
@@ -181,7 +180,7 @@ pub fn find_authority_idx_epoch_digest<H: Header>(
 		}
 	}
 
-	babe_pre_digest.map_or_else(|| Err(()), |pd| Ok((pd.authority_index(), next_epoch_digest)))
+	babe_pre_digest.map(|pd| (pd.authority_index(), next_epoch_digest))
 }
 
 /// Errors that can occur during descendant validation
