@@ -586,8 +586,8 @@ unexpected_cfgs = { level = "warn", check-cfg = [
 	'cfg(build_profile, values("debug", "release"))',
 	'cfg(enable_alloc_error_handler)',
 	'cfg(fuzzing)',
+	'cfg(ignore_flaky_test)',
 	'cfg(substrate_runtime)',
-	'cfg(ignore_flaky_test)'
 ] }
 
 [workspace.lints.clippy]
