@@ -17,7 +17,7 @@
 
 use codec::Encode;
 use frame_storage_access_test_runtime::StorageAccessParams;
-use log::{debug, info, warn};
+use log::{debug, info};
 use rand::prelude::*;
 use sc_cli::{Error, Result};
 use sc_client_api::{Backend as ClientBackend, StorageProvider, UsageProvider};
@@ -45,10 +45,13 @@ impl StorageCmd {
 		BA: ClientBackend<B>,
 		<<B as BlockT>::Header as HeaderT>::Number: From<u32>,
 	{
-		if self.params.on_block_validation &&
-			self.params.batch_size > MAX_BATCH_SIZE_FOR_BLOCK_VALIDATION
-		{
-			warn!(
+		if self.params.is_validate_block_mode() {
+			assert!(
+				!self.params.disable_pov_recorder,
+				"PoV recorder must be activated to provide a storage proof for block validation at runtime."
+			);
+			assert!(
+				self.params.batch_size <= MAX_BATCH_SIZE_FOR_BLOCK_VALIDATION,
 				"Batch size is too large. This may cause problems with runtime memory allocation. Better set batch size to {} or less.",
 				MAX_BATCH_SIZE_FOR_BLOCK_VALIDATION
 			);
@@ -103,7 +106,7 @@ impl StorageCmd {
 						.expect("Checked above to exist")
 						.ok_or("Value unexpectedly empty")?;
 					on_validation_size += v.len();
-					if !self.params.on_block_validation {
+					if self.params.is_import_block_mode() {
 						record.append(v.len(), start.elapsed())?;
 					}
 				},
@@ -112,17 +115,17 @@ impl StorageCmd {
 			let is_batch_full = read_in_batch >= self.params.batch_size || key == last_key;
 
 			// Read keys on block validation
-			if is_batch_full && self.params.on_block_validation {
+			if is_batch_full && self.params.is_validate_block_mode() {
 				let root = backend.root();
 				let storage_proof = recorder
 					.clone()
 					.map(|r| r.drain_storage_proof())
 					.expect("Storage proof must exist for block validation");
-				let elapsed = measure_on_block_validation::<B>(
+				let elapsed = measure_block_validation::<B>(
 					*root,
 					storage_proof,
 					on_validation_batch.clone(),
-					self.params.on_block_validation_rounds,
+					self.params.validate_block_rounds,
 				);
 				record.append(on_validation_size / on_validation_batch.len(), elapsed)?;
 
@@ -151,7 +154,7 @@ impl StorageCmd {
 					.expect("Checked above to exist")
 					.ok_or("Value unexpectedly empty")?;
 				on_validation_size += v.len();
-				if !self.params.on_block_validation {
+				if self.params.is_import_block_mode() {
 					record.append(v.len(), start.elapsed())?;
 				}
 				read_in_batch += 1;
@@ -159,17 +162,17 @@ impl StorageCmd {
 					(last_child_key == key && last_child_info == info);
 
 				// Read child keys on block validation
-				if is_batch_full && self.params.on_block_validation {
+				if is_batch_full && self.params.is_validate_block_mode() {
 					let root = backend.root();
 					let storage_proof = recorder
 						.clone()
 						.map(|r| r.drain_storage_proof())
 						.expect("Storage proof must exist for block validation");
-					let elapsed = measure_on_block_validation::<B>(
+					let elapsed = measure_block_validation::<B>(
 						*root,
 						storage_proof,
 						on_validation_batch.clone(),
-						self.params.on_block_validation_rounds,
+						self.params.validate_block_rounds,
 					);
 					record.append(on_validation_size / on_validation_batch.len(), elapsed)?;
 
@@ -212,7 +215,7 @@ impl StorageCmd {
 	}
 }
 
-fn measure_on_block_validation<B: BlockT + Debug>(
+fn measure_block_validation<B: BlockT + Debug>(
 	root: B::Hash,
 	storage_proof: StorageProof,
 	on_validation_batch: Vec<(Vec<u8>, Option<ChildInfo>)>,

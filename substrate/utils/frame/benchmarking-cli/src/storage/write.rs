@@ -58,10 +58,13 @@ impl StorageCmd {
 		BA: ClientBackend<Block>,
 		C: UsageProvider<Block> + HeaderBackend<Block> + StorageProvider<Block, BA>,
 	{
-		if self.params.on_block_validation &&
-			self.params.batch_size > MAX_BATCH_SIZE_FOR_BLOCK_VALIDATION
-		{
-			warn!(
+		if self.params.is_validate_block_mode() {
+			assert!(
+				!self.params.disable_pov_recorder,
+				"PoV recorder must be activated to provide a storage proof for block validation at runtime."
+			);
+			assert!(
+				self.params.batch_size <= MAX_BATCH_SIZE_FOR_BLOCK_VALIDATION,
 				"Batch size is too large. This may cause problems with runtime memory allocation. Better set batch size to {} or less.",
 				MAX_BATCH_SIZE_FOR_BLOCK_VALIDATION
 			);
@@ -86,7 +89,7 @@ impl StorageCmd {
 		kvs.shuffle(&mut rng);
 		info!("Writing {} keys in batches of {}", kvs.len(), self.params.batch_size);
 		let remainder = kvs.len() % self.params.batch_size;
-		if self.params.on_block_validation && remainder != 0 {
+		if self.params.is_validate_block_mode() && remainder != 0 {
 			info!("Remaining `{remainder}` keys will be skipped");
 		}
 
@@ -132,8 +135,8 @@ impl StorageCmd {
 					}
 
 					// Write each value in one commit.
-					let (size, duration) = if self.params.on_block_validation {
-						self.measure_per_key_amortised_write_cost_on_block_validation::<Block, H>(
+					let (size, duration) = if self.params.is_validate_block_mode() {
+						self.measure_per_key_amortised_validate_block_write_cost::<Block, H>(
 							original_root,
 							&storage,
 							shared_trie_cache.as_ref(),
@@ -141,7 +144,7 @@ impl StorageCmd {
 							None,
 						)?
 					} else {
-						self.measure_per_key_amortised_write_cost::<Block, H>(
+						self.measure_per_key_amortised_import_block_write_cost::<Block, H>(
 							original_root,
 							&storage,
 							shared_trie_cache.as_ref(),
@@ -197,8 +200,8 @@ impl StorageCmd {
 							continue
 						}
 
-						let (size, duration) = if self.params.on_block_validation {
-							self.measure_per_key_amortised_write_cost_on_block_validation::<Block, H>(
+						let (size, duration) = if self.params.is_validate_block_mode() {
+							self.measure_per_key_amortised_validate_block_write_cost::<Block, H>(
 								original_root,
 								&storage,
 								shared_trie_cache.as_ref(),
@@ -206,7 +209,7 @@ impl StorageCmd {
 								None,
 							)?
 						} else {
-							self.measure_per_key_amortised_write_cost::<Block, H>(
+							self.measure_per_key_amortised_import_block_write_cost::<Block, H>(
 								original_root,
 								&storage,
 								shared_trie_cache.as_ref(),
@@ -248,7 +251,7 @@ impl StorageCmd {
 
 	/// Measures write benchmark
 	/// if `child_info` exist then it means this is a child tree key
-	fn measure_per_key_amortised_write_cost<Block, H>(
+	fn measure_per_key_amortised_import_block_write_cost<Block, H>(
 		&self,
 		original_root: Block::Hash,
 		storage: &Arc<dyn sp_state_machine::Storage<HashingFor<Block>>>,
@@ -295,7 +298,7 @@ impl StorageCmd {
 
 	/// Measures write benchmark on block validation
 	/// if `child_info` exist then it means this is a child tree key
-	fn measure_per_key_amortised_write_cost_on_block_validation<Block, H>(
+	fn measure_per_key_amortised_validate_block_write_cost<Block, H>(
 		&self,
 		original_root: Block::Hash,
 		storage: &Arc<dyn sp_state_machine::Storage<HashingFor<Block>>>,
@@ -338,10 +341,10 @@ impl StorageCmd {
 		let dry_run_encoded = params.as_dry_run().encode();
 		let encoded = params.encode();
 
-		for i in 1..=self.params.on_block_validation_rounds {
+		for i in 1..=self.params.validate_block_rounds {
 			info!(
 				"validate_block with {} keys, round {}/{}",
-				batch_size, i, self.params.on_block_validation_rounds
+				batch_size, i, self.params.validate_block_rounds
 			);
 
 			// Dry run to get the time it takes without storage access

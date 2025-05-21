@@ -74,7 +74,7 @@ impl TemplateData {
 			.unwrap_or_default();
 
 		Ok(TemplateData {
-			db_name: if params.on_block_validation {
+			db_name: if params.is_validate_block_mode() {
 				String::from("ValidationMemoryDb")
 			} else {
 				format!("{}", cfg.database)
