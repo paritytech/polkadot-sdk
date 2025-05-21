@@ -67,8 +67,8 @@ k256 = { features = ["alloc", "ecdsa"], workspace = true }
 secp256k1 = { features = ["alloc", "recovery"], optional = true, workspace = true }
 
 # bls crypto
-w3f-bls = { optional = true, workspace = true }
 sha2 = { optional = true, workspace = true }
+w3f-bls = { optional = true, workspace = true }
 
 # bandersnatch crypto
 ark-vrf = { optional = true, workspace = true, features = ["bandersnatch", "ring"] }
@@ -116,13 +116,13 @@ std = [
 	"secp256k1/global-context",
 	"secp256k1/std",
 	"serde/std",
+	"sha2?/std",
 	"sp-crypto-hashing/std",
 	"sp-debug-derive/std",
 	"sp-externalities/std",
 	"sp-runtime-interface/std",
 	"sp-std/std",
 	"sp-storage/std",
-        "sha2?/std",
 	"ss58-registry/std",
 	"substrate-bip39/std",
 	"thiserror",
