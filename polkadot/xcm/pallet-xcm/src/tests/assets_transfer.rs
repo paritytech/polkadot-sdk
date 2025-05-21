@@ -19,6 +19,7 @@
 use crate::{
 	mock::*,
 	tests::{ALICE, BOB, FEE_AMOUNT, INITIAL_BALANCE, SEND_AMOUNT},
+	xcm_helpers::find_xcm_sent_message_id,
 	DispatchResult, OriginFor,
 };
 use frame_support::{
@@ -1434,6 +1435,8 @@ fn remote_asset_reserve_and_remote_fee_reserve_call<Call>(
 		assert_eq!(AssetsPallet::active_issuance(usdc_id_location.clone()), expected_usdc_issuance);
 
 		// Verify sent XCM program
+		let expected_hash =
+			find_xcm_sent_message_id::<Test>(all_events()).expect("Missing XcmPallet::Sent event");
 		assert_eq!(
 			sent_xcm(),
 			vec![(
@@ -1452,7 +1455,8 @@ fn remote_asset_reserve_and_remote_fee_reserve_call<Call>(
 							buy_limited_execution(expected_fee_on_dest, Unlimited),
 							DepositAsset { assets: AllCounted(1).into(), beneficiary }
 						])
-					}
+					},
+					SetTopic(expected_hash),
 				])
 			)],
 		);
@@ -2526,6 +2530,7 @@ fn remote_asset_reserve_and_remote_fee_reserve_paid_call<Call>(
 		let foreign_id_location_reanchored =
 			foreign_asset_id_location.clone().reanchored(&dest, &context).unwrap();
 		let dest_reanchored = dest.reanchored(&reserve_location, &context).unwrap();
+		let sent_msg_id = find_xcm_sent_message_id::<Test>(all_events()).unwrap();
 		let sent_message = Xcm(vec![
 			WithdrawAsset((Location::here(), SEND_AMOUNT).into()),
 			ClearOrigin,
@@ -2540,8 +2545,8 @@ fn remote_asset_reserve_and_remote_fee_reserve_paid_call<Call>(
 					DepositAsset { assets: AllCounted(1).into(), beneficiary },
 				]),
 			},
+			SetTopic(sent_msg_id),
 		]);
-		let sent_msg_id = fake_message_hash(&sent_message);
 
 		let mut last_events = last_events(7).into_iter();
 		// asset events
