@@ -2860,6 +2860,7 @@ mod remote_tests {
 	use sp_core::H256;
 	use std::env::var;
 
+	#[ignore] // to be run manually
 	#[tokio::test]
 	async fn ahm_fix_holds() {
 		sp_tracing::try_init_simple();
@@ -2896,8 +2897,9 @@ mod remote_tests {
 
 			let preimage_hold_reason: RuntimeHoldReason =
 				pallet_preimage::HoldReason::Preimage.into();
-			let mut success = 0;
-			let mut failed = 0;
+			// Account, DelegationHold, StakingHold
+			let mut success_calls: Vec<(AccountId, Balance, Balance)> = vec![];
+			let mut failed_calls: Vec<(AccountId, Balance, Balance)> = vec![];
 			// go through all accounts that have holds.
 			pallet_balances::Holds::<Runtime>::iter()
 				.filter(|(_account, holds)| {
@@ -2936,30 +2938,28 @@ mod remote_tests {
 						return;
 					}
 
-					// in prod, we will also get the correct preimage balance, but for this test we
-					// can just set staking and pool which should be enough.
 					let _ = AhMigrator::fix_misplaced_hold(
 						RuntimeOrigin::root(),
 						account.clone(),
 						delegation_hold,
 						staking_hold,
-						0,
 					)
 					.map(|_| {
-						success += 1;
+						success_calls.push((account.clone(), delegation_hold, staking_hold));
 					})
 					.map_err(|e| {
-						println!(
-							"Account: {:?}, Delegation hold: {:?}, Staking hold: {:?}, Err: {:?}",
-							account, delegation_hold, staking_hold, e
-						);
-						failed += 1;
+						failed_calls.push((account.clone(), delegation_hold, staking_hold));
 					});
 				});
 
 			AllPalletsWithSystem::try_state(System::block_number(), All).unwrap();
 
-			println!("Summary: {:?} success, {:?} failed", success, failed);
+			println!("Summary: {:?} success, {:?} failed", success_calls.len(), failed_calls.len());
+
+			println!("account, delegation_hold, staking_hold");
+			for call in success_calls.iter() {
+				println!("{:?}, {:?}, {:?}", call.0, call.1, call.2);
+			}
 		});
 	}
 }
