@@ -38,11 +38,9 @@ use cumulus_client_consensus_proposer::Proposer;
 use cumulus_test_runtime::{Hash, Header, NodeBlock as Block, RuntimeApi};
 use prometheus::Registry;
 use runtime::AccountId;
-use sc_consensus_aura::{
-	CreateInherentDataProvidersForAura, CreateInherentDataProvidersForAuraViaRuntime,
-};
 use sc_executor::{HeapAllocStrategy, WasmExecutor, DEFAULT_HEAP_ALLOC_STRATEGY};
 use sp_consensus_aura::sr25519::AuthorityPair;
+use sp_inherents::CreateInherentDataProviders;
 use std::{
 	collections::HashSet,
 	future::Future,
@@ -142,7 +140,16 @@ pub type ParachainBlockImport = TParachainBlockImport<
 		Block,
 		Arc<Client>,
 		Client,
-		CreateInherentDataProvidersForAura,
+		Arc<
+			dyn CreateInherentDataProviders<
+				Block,
+				(),
+				InherentDataProviders = (
+					sp_consensus_aura::inherents::InherentDataProvider,
+					sp_timestamp::InherentDataProvider,
+				),
+			>,
+		>,
 		AuthorityPair,
 		NumberFor<Block>,
 	>,
@@ -237,7 +244,24 @@ pub fn new_partial(
 	let (block_import, slot_based_handle) = SlotBasedBlockImport::new(
 		client.clone(),
 		client.clone(),
-		CreateInherentDataProvidersForAura::new(slot_duration),
+		Arc::new(move |_, _| async move {
+			let timestamp = sp_timestamp::InherentDataProvider::from_system_time();
+			let slot = sp_consensus_aura::inherents::InherentDataProvider::from_timestamp_and_slot_duration(
+				*timestamp,
+				slot_duration,
+			);
+			Ok((slot, timestamp))
+		})
+			as Arc<
+				dyn CreateInherentDataProviders<
+					Block,
+					(),
+					InherentDataProviders = (
+						sp_consensus_aura::inherents::InherentDataProvider,
+						sp_timestamp::InherentDataProvider,
+					),
+				>,
+			>,
 		Default::default(),
 		Default::default(),
 	);
@@ -258,7 +282,24 @@ pub fn new_partial(
 		ImportQueueParams {
 			block_import: block_import.clone(),
 			client: client.clone(),
-			create_inherent_data_providers: CreateInherentDataProvidersForAura::new(slot_duration),
+			create_inherent_data_providers: Arc::new(move |_, _| async move {
+				let timestamp = sp_timestamp::InherentDataProvider::from_system_time();
+				let slot = sp_consensus_aura::inherents::InherentDataProvider::from_timestamp_and_slot_duration(
+					*timestamp,
+					slot_duration,
+				);
+				Ok((slot, timestamp))
+			})
+				as Arc<
+					dyn CreateInherentDataProviders<
+						Block,
+						(),
+						InherentDataProviders = (
+							sp_consensus_aura::inherents::InherentDataProvider,
+							sp_timestamp::InherentDataProvider,
+						),
+					>,
+				>,
 			spawner: &task_manager.spawn_essential_handle(),
 			registry: None,
 			telemetry: None,
@@ -522,9 +563,32 @@ where
 				slot_based::run::<Block, AuthorityPair, _, _, _, _, _, _, _, _, _>(params);
 			} else {
 				tracing::info!(target: LOG_TARGET, "Starting block authoring with lookahead collator.");
+				let client_for_closure = client.clone();
 				let params = AuraParams {
-					create_inherent_data_providers:
-						CreateInherentDataProvidersForAuraViaRuntime::new(client.clone()),
+					create_inherent_data_providers: Arc::new(move |parent, _| {
+						let slot_duration = sc_consensus_aura::standalone::slot_duration_at(
+							client_for_closure.as_ref(),
+							parent,
+						);
+						let timestamp = sp_timestamp::InherentDataProvider::from_system_time();
+						let slot = slot_duration.map(|slot_duration| {
+							sp_consensus_aura::inherents::InherentDataProvider::from_timestamp_and_slot_duration(
+								*timestamp,
+								slot_duration,
+							)
+						});
+						async move { Ok((slot?, timestamp)) }
+					})
+						as Arc<
+							dyn CreateInherentDataProviders<
+								Block,
+								(),
+								InherentDataProviders = (
+									sp_consensus_aura::inherents::InherentDataProvider,
+									sp_timestamp::InherentDataProvider,
+								),
+							>,
+						>,
 					block_import,
 					para_client: client.clone(),
 					para_backend: backend.clone(),

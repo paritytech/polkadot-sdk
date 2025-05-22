@@ -19,7 +19,6 @@
 //! BABE testsuite
 
 use super::*;
-use async_trait::async_trait;
 use authorship::claim_slot;
 use sc_block_builder::{BlockBuilder, BlockBuilderBuilder};
 use sc_client_api::{BlockchainEvents, Finalizer};
@@ -70,34 +69,18 @@ type BabeBlockImport = PanickingBlockImport<
 		TestBlock,
 		TestClient,
 		Arc<TestClient>,
-		CreateInherentDataProviders,
+		Arc<
+			dyn CreateInherentDataProviders<
+				TestBlock,
+				(),
+				InherentDataProviders = (InherentDataProvider,),
+			>,
+		>,
 		sc_consensus::LongestChain<substrate_test_runtime_client::Backend, Block>,
 	>,
 >;
 
 const SLOT_DURATION_MS: u64 = 1000;
-
-#[derive(Debug, Clone)]
-pub struct CreateInherentDataProviders;
-
-#[async_trait]
-impl<Block: BlockT, ExtraArgs: Send + 'static>
-	sp_inherents::CreateInherentDataProviders<Block, ExtraArgs> for CreateInherentDataProviders
-{
-	type InherentDataProviders = (InherentDataProvider,);
-
-	async fn create_inherent_data_providers(
-		&self,
-		_parent: Block::Hash,
-		_extra_args: ExtraArgs,
-	) -> Result<Self::InherentDataProviders, Box<dyn std::error::Error + Send + Sync>> {
-		let slot = InherentDataProvider::from_timestamp_and_slot_duration(
-			Timestamp::current(),
-			SlotDuration::from_millis(SLOT_DURATION_MS),
-		);
-		Ok((slot,))
-	}
-}
 
 #[derive(Clone)]
 struct DummyFactory {
@@ -205,7 +188,17 @@ pub struct BabeTestNet {
 type TestHeader = <TestBlock as BlockT>::Header;
 
 pub struct TestVerifier {
-	inner: BabeVerifier<TestBlock, PeersFullClient, CreateInherentDataProviders>,
+	inner: BabeVerifier<
+		TestBlock,
+		PeersFullClient,
+		Box<
+			dyn CreateInherentDataProviders<
+				TestBlock,
+				(),
+				InherentDataProviders = (InherentDataProvider,),
+			>,
+		>,
+	>,
 	mutator: Mutator,
 }
 
@@ -250,7 +243,20 @@ impl TestNetFactory for BabeTestNet {
 			config,
 			client.clone(),
 			client.clone(),
-			CreateInherentDataProviders,
+			Arc::new(move |_, _| async {
+				let slot = InherentDataProvider::from_timestamp_and_slot_duration(
+					Timestamp::current(),
+					SlotDuration::from_millis(SLOT_DURATION_MS),
+				);
+				Ok((slot,))
+			})
+				as Arc<
+					dyn CreateInherentDataProviders<
+						TestBlock,
+						(),
+						InherentDataProviders = (InherentDataProvider,),
+					>,
+				>,
 			longest_chain,
 			OffchainTransactionPoolFactory::new(RejectAllTxPool::default()),
 		)
@@ -279,7 +285,13 @@ impl TestNetFactory for BabeTestNet {
 		TestVerifier {
 			inner: BabeVerifier {
 				client: client.clone(),
-				create_inherent_data_providers: CreateInherentDataProviders,
+				create_inherent_data_providers: Box::new(move |_, _| async {
+					let slot = InherentDataProvider::from_timestamp_and_slot_duration(
+						Timestamp::current(),
+						SlotDuration::from_millis(SLOT_DURATION_MS),
+					);
+					Ok((slot,))
+				}),
 				config: data.link.config.clone(),
 				epoch_changes: data.link.epoch_changes.clone(),
 				telemetry: None,

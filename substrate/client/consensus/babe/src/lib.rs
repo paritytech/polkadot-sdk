@@ -1970,39 +1970,3 @@ where
 		client.insert_aux(values, weight_keys.iter())
 	})
 }
-
-/// Create inherent data providers for BABE.
-#[derive(Debug, Clone)]
-pub struct CreateInherentDataProvidersForBabe {
-	slot_duration: sp_consensus_slots::SlotDuration,
-}
-
-impl CreateInherentDataProvidersForBabe {
-	/// Create a new instance of `InherentDataProvidersFromTimestampAndSlotDuration`.
-	pub fn new(slot_duration: sp_consensus_slots::SlotDuration) -> Self {
-		CreateInherentDataProvidersForBabe { slot_duration }
-	}
-}
-
-#[async_trait::async_trait]
-impl<Block: BlockT, ExtraArgs: Send + 'static> CreateInherentDataProviders<Block, ExtraArgs>
-	for CreateInherentDataProvidersForBabe
-{
-	type InherentDataProviders =
-		(sp_consensus_babe::inherents::InherentDataProvider, sp_timestamp::InherentDataProvider);
-
-	/// Create the inherent data providers at the given `parent` block using the given `extra_args`.
-	async fn create_inherent_data_providers(
-		&self,
-		_parent: Block::Hash,
-		_extra_args: ExtraArgs,
-	) -> Result<Self::InherentDataProviders, Box<dyn std::error::Error + Send + Sync>> {
-		let timestamp = sp_timestamp::InherentDataProvider::from_system_time();
-		let slot =
-			sp_consensus_babe::inherents::InherentDataProvider::from_timestamp_and_slot_duration(
-				*timestamp,
-				self.slot_duration,
-			);
-		Ok((slot, timestamp))
-	}
-}

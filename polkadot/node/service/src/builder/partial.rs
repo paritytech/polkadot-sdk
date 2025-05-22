@@ -30,6 +30,7 @@ use sc_telemetry::{Telemetry, TelemetryWorker, TelemetryWorkerHandle};
 use sc_transaction_pool_api::OffchainTransactionPoolFactory;
 use sp_consensus::SelectChain;
 use sp_consensus_beefy::ecdsa_crypto;
+use sp_inherents::CreateInherentDataProviders;
 use std::sync::Arc;
 
 type FullSelectChain = relay_chain_selection::SelectRelayChain<FullBackend>;
@@ -64,7 +65,16 @@ pub(crate) type PolkadotPartialComponents<ChainSelection> = sc_service::PartialC
 					FullGrandpaBlockImport<ChainSelection>,
 					ecdsa_crypto::AuthorityId,
 				>,
-				sc_consensus_babe::CreateInherentDataProvidersForBabe,
+				Arc<
+					dyn CreateInherentDataProviders<
+						Block,
+						(),
+						InherentDataProviders = (
+							sp_consensus_babe::inherents::InherentDataProvider,
+							sp_timestamp::InherentDataProvider,
+						),
+					>,
+				>,
 				ChainSelection,
 			>,
 			sc_consensus_grandpa::LinkHalf<Block, FullClient, ChainSelection>,
@@ -191,7 +201,24 @@ where
 		babe_config.clone(),
 		beefy_block_import,
 		client.clone(),
-		sc_consensus_babe::CreateInherentDataProvidersForBabe::new(slot_duration),
+		Arc::new(move |_, _| async move {
+			let timestamp = sp_timestamp::InherentDataProvider::from_system_time();
+			let slot = sp_consensus_babe::inherents::InherentDataProvider::from_timestamp_and_slot_duration(
+				*timestamp,
+				slot_duration,
+			);
+			Ok((slot, timestamp))
+		})
+			as Arc<
+				dyn CreateInherentDataProviders<
+					Block,
+					(),
+					InherentDataProviders = (
+						sp_consensus_babe::inherents::InherentDataProvider,
+						sp_timestamp::InherentDataProvider,
+					),
+				>,
+			>,
 		select_chain.clone(),
 		OffchainTransactionPoolFactory::new(transaction_pool.clone()),
 	)?;
@@ -202,8 +229,24 @@ where
 			block_import: block_import.clone(),
 			justification_import: Some(Box::new(justification_import)),
 			client: client.clone(),
-			create_inherent_data_providers:
-				sc_consensus_babe::CreateInherentDataProvidersForBabe::new(slot_duration),
+			create_inherent_data_providers: Arc::new(move |_, _| async move {
+				let timestamp = sp_timestamp::InherentDataProvider::from_system_time();
+				let slot = sp_consensus_babe::inherents::InherentDataProvider::from_timestamp_and_slot_duration(
+					*timestamp,
+					slot_duration,
+				);
+				Ok((slot, timestamp))
+			})
+				as Arc<
+					dyn CreateInherentDataProviders<
+						Block,
+						(),
+						InherentDataProviders = (
+							sp_consensus_babe::inherents::InherentDataProvider,
+							sp_timestamp::InherentDataProvider,
+						),
+					>,
+				>,
 			spawner: &task_manager.spawn_essential_handle(),
 			registry: config.prometheus_registry(),
 			telemetry: telemetry.as_ref().map(|x| x.handle()),

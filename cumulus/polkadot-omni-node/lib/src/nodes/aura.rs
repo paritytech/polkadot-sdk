@@ -60,7 +60,6 @@ use sc_consensus::{
 	import_queue::{BasicQueue, Verifier as VerifierT},
 	BlockImportParams, DefaultImportQueue,
 };
-use sc_consensus_aura::CreateInherentDataProvidersForAuraViaRuntime;
 use sc_service::{Configuration, Error, TaskManager};
 use sc_telemetry::TelemetryHandle;
 use sc_transaction_pool::TransactionPoolHandle;
@@ -257,9 +256,15 @@ where
 					Block,
 					Arc<ParachainClient<Block, RuntimeApi>>,
 					ParachainClient<Block, RuntimeApi>,
-					CreateInherentDataProvidersForAuraViaRuntime<
-						ParachainClient<Block, RuntimeApi>,
-						<AuraId::BoundedPair as Pair>::Public,
+					Arc<
+						dyn CreateInherentDataProviders<
+							Block,
+							(),
+							InherentDataProviders = (
+								sp_consensus_aura::inherents::InherentDataProvider,
+								sp_timestamp::InherentDataProvider,
+							),
+						>,
 					>,
 					AuraId::BoundedPair,
 					NumberFor<Block>,
@@ -296,9 +301,15 @@ impl<Block: BlockT<Hash = DbHash>, RuntimeApi, AuraId>
 			Block,
 			Arc<ParachainClient<Block, RuntimeApi>>,
 			ParachainClient<Block, RuntimeApi>,
-			CreateInherentDataProvidersForAuraViaRuntime<
-				ParachainClient<Block, RuntimeApi>,
-				<AuraId::BoundedPair as Pair>::Public,
+			Arc<
+				dyn CreateInherentDataProviders<
+					Block,
+					(),
+					InherentDataProviders = (
+						sp_consensus_aura::inherents::InherentDataProvider,
+						sp_timestamp::InherentDataProvider,
+					),
+				>,
 			>,
 			AuraId::BoundedPair,
 			NumberFor<Block>,
@@ -319,9 +330,15 @@ where
 				Block,
 				Arc<ParachainClient<Block, RuntimeApi>>,
 				ParachainClient<Block, RuntimeApi>,
-				CreateInherentDataProvidersForAuraViaRuntime<
-					ParachainClient<Block, RuntimeApi>,
-					<AuraId::BoundedPair as Pair>::Public,
+				Arc<
+					dyn CreateInherentDataProviders<
+						Block,
+						(),
+						InherentDataProviders = (
+							sp_consensus_aura::inherents::InherentDataProvider,
+							sp_timestamp::InherentDataProvider,
+						),
+					>,
 				>,
 				AuraId::BoundedPair,
 				NumberFor<Block>,
@@ -359,10 +376,32 @@ where
 		);
 
 		let client_for_aura = client.clone();
+		let client_for_closure = client.clone();
 		let params = SlotBasedParams {
-			create_inherent_data_providers: CreateInherentDataProvidersForAuraViaRuntime::new(
-				client.clone(),
-			),
+			create_inherent_data_providers: Arc::new(move |parent, _| {
+				let slot_duration = sc_consensus_aura::standalone::slot_duration_at(
+					client_for_closure.as_ref(),
+					parent,
+				);
+				let timestamp = sp_timestamp::InherentDataProvider::from_system_time();
+				let slot = slot_duration.map(|slot_duration| {
+					sp_consensus_aura::inherents::InherentDataProvider::from_timestamp_and_slot_duration(
+						*timestamp,
+						slot_duration,
+					)
+				});
+				async move { Ok((slot?, timestamp)) }
+			})
+				as Arc<
+					dyn CreateInherentDataProviders<
+						Block,
+						(),
+						InherentDataProviders = (
+							sp_consensus_aura::inherents::InherentDataProvider,
+							sp_timestamp::InherentDataProvider,
+						),
+					>,
+				>,
 			block_import,
 			para_client: client.clone(),
 			para_backend: backend.clone(),
@@ -407,9 +446,15 @@ where
 		Block,
 		Arc<ParachainClient<Block, RuntimeApi>>,
 		ParachainClient<Block, RuntimeApi>,
-		sc_consensus_aura::CreateInherentDataProvidersForAuraViaRuntime<
-			ParachainClient<Block, RuntimeApi>,
-			<AuraId::BoundedPair as Pair>::Public,
+		Arc<
+			dyn CreateInherentDataProviders<
+				Block,
+				(),
+				InherentDataProviders = (
+					sp_consensus_aura::inherents::InherentDataProvider,
+					sp_timestamp::InherentDataProvider,
+				),
+			>,
 		>,
 		AuraId::BoundedPair,
 		NumberFor<Block>,
@@ -422,7 +467,18 @@ where
 		Ok(SlotBasedBlockImport::new(
 			client.clone(),
 			client.clone(),
-			CreateInherentDataProvidersForAuraViaRuntime::new(client),
+			Arc::new(move |parent, _| {
+				let slot_duration =
+					sc_consensus_aura::standalone::slot_duration_at(client.as_ref(), parent);
+				let timestamp = sp_timestamp::InherentDataProvider::from_system_time();
+				let slot = slot_duration.map(|slot_duration| {
+					sp_consensus_aura::inherents::InherentDataProvider::from_timestamp_and_slot_duration(
+						*timestamp,
+						slot_duration,
+					)
+				});
+				async move { Ok((slot?, timestamp)) }
+			}),
 			Default::default(),
 			Default::default(),
 		))
@@ -499,12 +555,34 @@ where
 			client.clone(),
 		);
 
+		let client_for_closure = client.clone();
 		let params = aura::ParamsWithExport {
 			export_pov: node_extra_args.export_pov,
 			params: AuraParams {
-				create_inherent_data_providers: CreateInherentDataProvidersForAuraViaRuntime::new(
-					client.clone(),
-				),
+				create_inherent_data_providers: Arc::new(move |parent, _| {
+					let slot_duration = sc_consensus_aura::standalone::slot_duration_at(
+						client_for_closure.as_ref(),
+						parent,
+					);
+					let timestamp = sp_timestamp::InherentDataProvider::from_system_time();
+					let slot = slot_duration.map(|slot_duration| {
+						sp_consensus_aura::inherents::InherentDataProvider::from_timestamp_and_slot_duration(
+							*timestamp,
+							slot_duration,
+						)
+					});
+					async move { Ok((slot?, timestamp)) }
+				})
+					as Arc<
+						dyn CreateInherentDataProviders<
+							Block,
+							(),
+							InherentDataProviders = (
+								sp_consensus_aura::inherents::InherentDataProvider,
+								sp_timestamp::InherentDataProvider,
+							),
+						>,
+					>,
 				block_import,
 				para_client: client.clone(),
 				para_backend: backend,

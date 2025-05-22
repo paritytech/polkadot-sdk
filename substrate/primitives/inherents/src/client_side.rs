@@ -15,6 +15,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::sync::Arc;
+
 use crate::{Error, InherentData, InherentIdentifier};
 use sp_runtime::traits::Block as BlockT;
 
@@ -65,6 +67,22 @@ where
 impl<Block: BlockT, ExtraArgs: Send, IDPS: InherentDataProvider>
 	CreateInherentDataProviders<Block, ExtraArgs>
 	for Box<dyn CreateInherentDataProviders<Block, ExtraArgs, InherentDataProviders = IDPS>>
+{
+	type InherentDataProviders = IDPS;
+
+	async fn create_inherent_data_providers(
+		&self,
+		parent: Block::Hash,
+		extra_args: ExtraArgs,
+	) -> Result<Self::InherentDataProviders, Box<dyn std::error::Error + Send + Sync>> {
+		(**self).create_inherent_data_providers(parent, extra_args).await
+	}
+}
+
+#[async_trait::async_trait]
+impl<Block: BlockT, ExtraArgs: Send, IDPS: InherentDataProvider>
+	CreateInherentDataProviders<Block, ExtraArgs>
+	for Arc<dyn CreateInherentDataProviders<Block, ExtraArgs, InherentDataProviders = IDPS>>
 {
 	type InherentDataProviders = IDPS;
 

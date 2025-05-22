@@ -9,7 +9,7 @@ use parachain_template_runtime::{
 	opaque::{Block, Hash},
 };
 
-use polkadot_sdk::{sc_consensus_aura::CreateInherentDataProvidersForAuraViaRuntime, *};
+use polkadot_sdk::{sp_inherents::CreateInherentDataProviders, *};
 
 // Cumulus Imports
 use cumulus_client_bootnodes::{start_bootnode_tasks, StartBootnodeTasksParams};
@@ -202,10 +202,32 @@ fn start_consensus(
 		client.clone(),
 	);
 
+	let client_for_closure = client.clone();
 	let params = AuraParams {
-		create_inherent_data_providers: CreateInherentDataProvidersForAuraViaRuntime::new(
-			client.clone(),
-		),
+		create_inherent_data_providers: Arc::new(move |parent, _| {
+			let slot_duration = sc_consensus_aura::standalone::slot_duration_at(
+				client_for_closure.as_ref(),
+				parent,
+			);
+			let timestamp = sp_timestamp::InherentDataProvider::from_system_time();
+			let slot = slot_duration.map(|slot_duration| {
+				sp_consensus_aura::inherents::InherentDataProvider::from_timestamp_and_slot_duration(
+					*timestamp,
+					slot_duration,
+				)
+			});
+			async move { Ok((slot?, timestamp)) }
+		})
+			as Arc<
+				dyn CreateInherentDataProviders<
+					Block,
+					(),
+					InherentDataProviders = (
+						sp_consensus_aura::inherents::InherentDataProvider,
+						sp_timestamp::InherentDataProvider,
+					),
+				>,
+			>,
 		block_import,
 		para_client: client.clone(),
 		para_backend: backend,

@@ -22,7 +22,7 @@
 
 use polkadot_sdk::{
 	sc_consensus_beefy as beefy, sc_consensus_grandpa as grandpa,
-	sp_consensus_beefy as beefy_primitives, *,
+	sp_consensus_beefy as beefy_primitives, sp_inherents::CreateInherentDataProviders, *,
 };
 
 use crate::Cli;
@@ -190,7 +190,16 @@ pub fn new_partial(
 					Block,
 					FullClient,
 					FullBeefyBlockImport<FullGrandpaBlockImport>,
-					sc_consensus_babe::CreateInherentDataProvidersForBabe,
+					Arc<
+						dyn CreateInherentDataProviders<
+							Block,
+							(),
+							InherentDataProviders = (
+								sp_consensus_babe::inherents::InherentDataProvider,
+								sp_timestamp::InherentDataProvider,
+							),
+						>,
+					>,
 					FullSelectChain,
 				>,
 				grandpa::LinkHalf<Block, FullClient, FullSelectChain>,
@@ -267,7 +276,25 @@ pub fn new_partial(
 		babe_config,
 		beefy_block_import,
 		client.clone(),
-		sc_consensus_babe::CreateInherentDataProvidersForBabe::new(slot_duration),
+		Arc::new(move |_, _| async move {
+			let timestamp = sp_timestamp::InherentDataProvider::from_system_time();
+			let slot =
+			sp_consensus_babe::inherents::InherentDataProvider::from_timestamp_and_slot_duration(
+				*timestamp,
+				slot_duration,
+			);
+			Ok((slot, timestamp))
+		})
+			as Arc<
+				dyn CreateInherentDataProviders<
+					Block,
+					(),
+					InherentDataProviders = (
+						sp_consensus_babe::inherents::InherentDataProvider,
+						sp_timestamp::InherentDataProvider,
+					),
+				>,
+			>,
 		select_chain.clone(),
 		OffchainTransactionPoolFactory::new(transaction_pool.clone()),
 	)?;
@@ -278,8 +305,24 @@ pub fn new_partial(
 			block_import: block_import.clone(),
 			justification_import: Some(Box::new(justification_import)),
 			client: client.clone(),
-			create_inherent_data_providers:
-				sc_consensus_babe::CreateInherentDataProvidersForBabe::new(slot_duration),
+			create_inherent_data_providers: Arc::new(move |_, _| async move {
+				let timestamp = sp_timestamp::InherentDataProvider::from_system_time();
+				let slot = sp_consensus_babe::inherents::InherentDataProvider::from_timestamp_and_slot_duration(
+					*timestamp,
+					slot_duration,
+				);
+				Ok((slot, timestamp))
+			})
+				as Arc<
+					dyn CreateInherentDataProviders<
+						Block,
+						(),
+						InherentDataProviders = (
+							sp_consensus_babe::inherents::InherentDataProvider,
+							sp_timestamp::InherentDataProvider,
+						),
+					>,
+				>,
 			spawner: &task_manager.spawn_essential_handle(),
 			registry: config.prometheus_registry(),
 			telemetry: telemetry.as_ref().map(|x| x.handle()),
@@ -403,7 +446,16 @@ pub fn new_full_base<N: NetworkBackend<Block, <Block as BlockT>::Hash>>(
 			Block,
 			FullClient,
 			FullBeefyBlockImport<FullGrandpaBlockImport>,
-			sc_consensus_babe::CreateInherentDataProvidersForBabe,
+			Arc<
+				dyn CreateInherentDataProviders<
+					Block,
+					(),
+					InherentDataProviders = (
+						sp_consensus_babe::inherents::InherentDataProvider,
+						sp_timestamp::InherentDataProvider,
+					),
+				>,
+			>,
 			FullSelectChain,
 		>,
 		&sc_consensus_babe::BabeLink<Block>,
