@@ -34,7 +34,7 @@ use trie_db::{Hasher, RecordedForKey, TrieAccess};
 ///
 /// The internal size counting logic should align
 /// with ['sp_trie::recorder::Recorder'].
-pub(crate) struct SizeOnlyRecorder<'a, H: Hasher> {
+pub struct SizeOnlyRecorder<'a, H: Hasher> {
 	seen_nodes: RefMut<'a, BTreeSet<H::Out>>,
 	encoded_size: RefMut<'a, usize>,
 	recorded_keys: RefMut<'a, BTreeMap<Rc<[u8]>, RecordedForKey>>,
@@ -90,7 +90,7 @@ impl<'a, H: trie_db::Hasher> trie_db::TrieRecorder<H::Out> for SizeOnlyRecorder<
 }
 
 #[derive(Clone)]
-pub(crate) struct SizeOnlyRecorderProvider<H: Hasher> {
+pub struct SizeOnlyRecorderProvider<H: Hasher> {
 	seen_nodes: Rc<RefCell<BTreeSet<H::Out>>>,
 	encoded_size: Rc<RefCell<usize>>,
 	recorded_keys: Rc<RefCell<BTreeMap<Rc<[u8]>, RecordedForKey>>>,
