@@ -39,10 +39,10 @@ use crate::shared::{new_rng, HostInfoParams, WeightParams};
 /// The mode in which to run the storage benchmark.
 #[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Serialize, ValueEnum)]
 pub enum StorageBenchmarkMode {
-	/// Run the benchmark on block import.
+	/// Run the benchmark for block import.
 	#[default]
 	ImportBlock,
-	/// Run the benchmark on block validation.
+	/// Run the benchmark for block validation.
 	ValidateBlock,
 }
 
