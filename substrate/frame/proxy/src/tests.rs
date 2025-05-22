@@ -73,6 +73,7 @@ pub enum ProxyType {
 	Any,
 	JustTransfer,
 	JustUtility,
+	AnyWithLimit,
 }
 impl Default for ProxyType {
 	fn default() -> Self {
@@ -90,10 +91,21 @@ impl frame::traits::InstanceFilter<RuntimeCall> for ProxyType {
 				)
 			},
 			ProxyType::JustUtility => matches!(c, RuntimeCall::Utility { .. }),
+			ProxyType::AnyWithLimit => {
+				if let RuntimeCall::Balances(pallet_balances::Call::transfer_allow_death { value, .. }) = c.is_sub_type() {
+					true
+				} else {
+					true
+				}
+			},
 		}
 	}
 	fn is_superset(&self, o: &Self) -> bool {
-		self == &ProxyType::Any || self == o
+		match (self, 0) {
+			(ProxyType::Any, _) => true,
+			(ProxyType::AnyWithLimit, ProxyType::AnyWithLimit) => true, 
+			_ => self == 0,
+		}
 	}
 }
 pub struct BaseFilter;
@@ -835,4 +847,30 @@ fn poke_deposit_fails_for_unsigned_origin() {
 	new_test_ext().execute_with(|| {
 		assert_noop!(Proxy::poke_deposit(RuntimeOrigin::none()), DispatchError::BadOrigin,);
 	});
+}
+
+#[test]
+fn set_transfer_limit_works() {
+    new_test_ext().execute_with(|| {
+        assert_ok!(Proxy::add_proxy(RuntimeOrigin::signed(1), 2, ProxyType::AnyWithLimit, 0));
+        assert_ok!(Proxy::set_transfer_limit(RuntimeOrigin::signed(1), 2, 100, 10));
+        let def = Proxies::<Test>::get(1).0[0].clone();
+        assert_eq!(def.max_amount, Some(100));
+        assert_eq!(def.valid_until, 10);
+    });
+}
+
+#[test]
+fn transfer_with_limit_works() {
+    new_test_ext().execute_with(|| {
+        assert_ok!(Proxy::add_proxy(RuntimeOrigin::signed(1), 2, ProxyType::AnyWithLimit, 0));
+        assert_ok!(Proxy::set_transfer_limit(RuntimeOrigin::signed(1), 2, 100, 10));
+        let call = Box::new(call_transfer(6, 50));
+        assert_ok!(Proxy::proxy(RuntimeOrigin::signed(2), 1, None, call));
+        let call = Box::new(call_transfer(6, 150));
+        assert_noop!(
+            Proxy::proxy(RuntimeOrigin::signed(2), 1, None, call),
+            Error::<Test>::Unproxyable
+        );
+    });
 }
