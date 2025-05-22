@@ -187,6 +187,8 @@ pub mod pallet {
 		FailedToThaw,
 		/// Failed to set a freeze on an account.
 		FailedToSetFreeze,
+		/// Failed to unreserve the full balance.
+		CannotUnreserve,
 	}
 
 	#[pallet::event]
@@ -315,7 +317,7 @@ pub mod pallet {
 
 		/// Force unreserve a named or unnamed reserve.
 		#[pallet::call_index(4)]
-		#[pallet::weight(T::DbWeight::get().reads_writes(15, 15)
+		#[pallet::weight(T::DbWeight::get().reads_writes(10, 10)
 					.saturating_add(Weight::from_parts(0, 50_000)))]
 		pub fn force_unreserve(
 			origin: OriginFor<T>,
@@ -558,7 +560,10 @@ pub mod pallet {
 					reason,
 				});
 			} else {
-				let _remaining = <T as Config>::Currency::unreserve(&account, amount);
+				let remaining = <T as Config>::Currency::unreserve(&account, amount);
+				if remaining > 0 {
+					return Err(Error::<T>::CannotUnreserve);
+				}
 			}
 
 			Ok(())
