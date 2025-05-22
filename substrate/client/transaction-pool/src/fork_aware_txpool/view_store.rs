@@ -343,10 +343,10 @@ where
 	///
 	/// Returns with a maybe pair of a view and a set of enacted blocks when the first view is
 	/// found.
-	pub(super) fn find_view_descendent_upto_number(
+	pub(super) fn find_view_descendent_up_to_number(
 		&self,
 		at: &HashAndNumber<Block>,
-		block_number: <<Block as BlockT>::Header as Header>::Number,
+		up_to: <<Block as BlockT>::Header as Header>::Number,
 	) -> Option<(Arc<View<ChainApi>>, Vec<Block::Hash>)> {
 		let mut enacted_blocks = Vec::new();
 		let mut at_hash = at.hash;
@@ -354,22 +354,21 @@ where
 
 		// Search for a view that can be used to get and return an approximate ready
 		// transaction set.
-		while at_number > block_number {
-			// Found a view, stop searching..
+		while at_number >= up_to {
+			// Found a view, stop searching.
 			if let Some((view, _)) = self.get_view_at(at_hash, true) {
 				return Some((view, enacted_blocks));
 			}
 
 			enacted_blocks.push(at_hash);
 
-			// Move up into the fork. Return with no view and an empty enacted blocks
-			// list if we can't access the header of the current block.
+			// Move up into the fork.
 			let header = self.api.block_header(at_hash).ok().flatten()?;
 			at_hash = *header.parent_hash();
 			at_number = at_number.saturating_sub(One::one());
 		}
 
-		return None;
+		None
 	}
 
 	/// Finds the best existing active view to clone from along the path.

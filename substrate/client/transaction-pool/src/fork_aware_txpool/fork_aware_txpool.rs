@@ -502,7 +502,7 @@ where
 			let at_hn = HashAndNumber { hash: at, number: at_number };
 			finalized_number.and_then(|finalized_number| {
 				self.view_store
-					.find_view_descendent_upto_number(&at_hn, finalized_number)
+					.find_view_descendent_up_to_number(&at_hn, finalized_number)
 					.map(|(view, enacted_blocks)| (view, enacted_blocks, at_hn))
 			})
 		}) {
