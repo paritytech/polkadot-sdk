@@ -5,6 +5,7 @@ use anyhow::anyhow;
 
 use cumulus_zombienet_sdk_helpers::{
 	assert_finality_lag, assert_para_throughput, create_assign_core_call,
+	submit_extrinsic_and_wait_for_finalization_success_with_timeout,
 };
 
 use polkadot_primitives::Id as ParaId;
@@ -46,13 +47,14 @@ async fn elastic_scaling_multiple_blocks_per_slot() -> Result<(), anyhow::Error>
 
 	let assign_cores_call = create_assign_core_call(&[(2, PARA_ID), (3, PARA_ID)]);
 
-	relay_client
-		.tx()
-		.sign_and_submit_then_watch_default(&assign_cores_call, &alice)
-		.await
-		.inspect(|_| log::info!("Tx send, waiting for finalization"))?
-		.wait_for_finalized_success()
-		.await?;
+	let res = submit_extrinsic_and_wait_for_finalization_success_with_timeout(
+		&relay_client,
+		&assign_cores_call,
+		&dev::alice(),
+		60u64,
+	)
+	.await;
+	assert!(res.is_ok(), "Extrinsic failed to finalize: {:?}", res.unwrap_err());
 	log::info!("2 more cores assigned to each parachain");
 
 	assert_para_throughput(

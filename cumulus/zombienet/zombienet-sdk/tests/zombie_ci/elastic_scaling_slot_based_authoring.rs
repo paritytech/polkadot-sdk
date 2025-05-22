@@ -5,7 +5,9 @@ use anyhow::anyhow;
 use std::time::Duration;
 
 use crate::utils::{wait_node_is_up, BEST_BLOCK_METRIC};
-use cumulus_zombienet_sdk_helpers::create_assign_core_call;
+use cumulus_zombienet_sdk_helpers::{
+	create_assign_core_call, submit_extrinsic_and_wait_for_finalization_success_with_timeout,
+};
 
 use serde_json::json;
 use subxt::{OnlineClient, PolkadotConfig};
@@ -46,13 +48,14 @@ async fn elastic_scaling_slot_based_authoring() -> Result<(), anyhow::Error> {
 	let assign_cores_call = create_assign_core_call(&[(0, PARA_ID_1), (1, PARA_ID_1)]);
 
 	let relay_client: OnlineClient<PolkadotConfig> = alice.wait_client().await?;
-	relay_client
-		.tx()
-		.sign_and_submit_then_watch_default(&assign_cores_call, &dev::alice())
-		.await
-		.inspect(|_| log::info!("Tx send, waiting for finalization"))?
-		.wait_for_finalized_success()
-		.await?;
+	let res = submit_extrinsic_and_wait_for_finalization_success_with_timeout(
+		&relay_client,
+		&assign_cores_call,
+		&dev::alice(),
+		60u64,
+	)
+	.await;
+	assert!(res.is_ok(), "Extrinsic failed to finalize: {:?}", res.unwrap_err());
 	log::info!("2 more cores assigned to the parachain");
 
 	log::info!("Checking block production");

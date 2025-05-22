@@ -31,7 +31,7 @@ async fn parachain_extrinsic_gets_finalized() -> Result<(), anyhow::Error> {
 		.await
 		.is_ok());
 
-	log::info!("Ensuring alice and bob are connected to at least 1 peer only");
+	log::info!("Ensuring alice and bob are connected to at least 1 peer");
 	assert!(alice.assert_with("sub_libp2p_peers_count", |p| p >= 1.0).await?);
 	assert!(bob.assert_with("sub_libp2p_peers_count", |p| p >= 1.0).await?);
 
