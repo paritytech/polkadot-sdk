@@ -237,7 +237,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 					target: LOG_TARGET,
 					"Failed to convert the bridge {:?} origin location {:?}",
 					bridge_id,
-					bridge.bridge_origin_relative_location.clone(),
+					bridge.bridge_origin_relative_location,
 				);
 
 				return
