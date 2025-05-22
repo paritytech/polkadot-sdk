@@ -27,7 +27,7 @@ use crate::{
 };
 use futures::{select, FutureExt, StreamExt};
 use jsonrpsee::RpcModule;
-use log::{debug, info};
+use log::{debug, error, info};
 use prometheus_endpoint::Registry;
 use sc_chain_spec::{get_extension, ChainSpec};
 use sc_client_api::{
@@ -265,9 +265,25 @@ where
 			},
 		)?;
 
-		if config.warm_up_trie_cache {
+		if let Some(warm_up_strategy) = config.warm_up_trie_cache {
 			let storage_root = client.usage_info().chain.best_hash;
-			warm_up_trie_cache(backend.clone(), storage_root)?;
+			let backend_clone = backend.clone();
+
+			if warm_up_strategy.is_blocking() {
+				// We use the blocking strategy for testing purposes.
+				// So better to error out if it fails.
+				warm_up_trie_cache(backend_clone, storage_root)?;
+			} else {
+				task_manager.spawn_handle().spawn_blocking(
+					"warm-up-trie-cache",
+					None,
+					async move {
+						if let Err(e) = warm_up_trie_cache(backend_clone, storage_root) {
+							error!("Failed to warm up trie cache: {e}");
+						}
+					},
+				);
+			}
 		}
 
 		client

@@ -23,7 +23,7 @@ use crate::{
 	},
 	params::{DatabaseParams, PruningParams},
 };
-use clap::Args;
+use clap::{Args, ValueEnum};
 use std::path::PathBuf;
 
 /// Parameters for block import.
@@ -82,8 +82,39 @@ pub struct ImportParams {
 	pub trie_cache_size: usize,
 
 	/// Warm up the trie cache.
-	#[arg(long, default_value_t = false)]
-	pub warm_up_trie_cache: bool,
+	///
+	/// Accepts an optional value to specify the warm-up strategy:
+	/// - If flag is not present: No warmup (default)
+	/// - If flag is present without value: Non-blocking warmup
+	/// - If flag is present with 'blocking': Blocking warmup
+	#[arg(long, value_name = "STRATEGY", value_enum, num_args = 0..=1, default_missing_value = "non-blocking")]
+	pub warm_up_trie_cache: Option<TrieCacheWarmUpStrategy>,
+}
+
+/// Warmup strategy for the trie cache.
+#[derive(Debug, Clone, Copy, ValueEnum)]
+pub enum TrieCacheWarmUpStrategy {
+	/// Warm up the cache in a non-blocking way.
+	#[clap(name = "non-blocking")]
+	NonBlocking,
+	/// Warm up the cache in a blocking way.
+	///
+	/// When enabled, the trie cache warm-up will block the node startup until complete.
+	/// This is not recommended for production use as it can significantly delay node startup.
+	/// Only enable this option for testing or debugging purposes.
+	#[clap(name = "blocking")]
+	Blocking,
+}
+
+impl From<TrieCacheWarmUpStrategy> for sc_service::config::TrieCacheWarmUpStrategy {
+	fn from(strategy: TrieCacheWarmUpStrategy) -> Self {
+		match strategy {
+			TrieCacheWarmUpStrategy::NonBlocking =>
+				sc_service::config::TrieCacheWarmUpStrategy::NonBlocking,
+			TrieCacheWarmUpStrategy::Blocking =>
+				sc_service::config::TrieCacheWarmUpStrategy::Blocking,
+		}
+	}
 }
 
 impl ImportParams {
@@ -97,7 +128,7 @@ impl ImportParams {
 	}
 
 	/// Specify if we should warm up the trie cache.
-	pub fn warm_up_trie_cache(&self) -> bool {
+	pub fn warm_up_trie_cache(&self) -> Option<TrieCacheWarmUpStrategy> {
 		self.warm_up_trie_cache
 	}
 
