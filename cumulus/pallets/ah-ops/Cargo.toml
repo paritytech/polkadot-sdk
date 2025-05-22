@@ -10,15 +10,16 @@ repository.workspace = true
 [dependencies]
 codec = { workspace = true, features = ["max-encoded-len"] }
 cumulus-primitives-core = { workspace = true }
+frame-benchmarking = { workspace = true, optional = true }
 frame-support = { workspace = true }
 frame-system = { workspace = true }
 log = { workspace = true }
 pallet-balances = { workspace = true }
+pallet-rc-migrator = { workspace = true }
 pallet-timestamp = { workspace = true }
 scale-info = { workspace = true, features = ["derive"] }
 sp-runtime = { workspace = true }
 sp-std = { workspace = true }
-frame-benchmarking = { workspace = true, optional = true }
 
 [features]
 default = ["std"]
@@ -30,6 +31,7 @@ std = [
 	"frame-system/std",
 	"log/std",
 	"pallet-balances/std",
+	"pallet-rc-migrator/std",
 	"pallet-timestamp/std",
 	"scale-info/std",
 	"sp-runtime/std",
@@ -41,6 +43,7 @@ runtime-benchmarks = [
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
+	"pallet-rc-migrator/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 ]
@@ -48,8 +51,19 @@ try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
 	"pallet-balances/try-runtime",
+	"pallet-rc-migrator/try-runtime",
 	"pallet-timestamp/try-runtime",
 	"sp-runtime/try-runtime",
 ]
-ahm-polkadot = []
-ahm-westend = []
+ahm-polkadot = [
+	"pallet-rc-migrator/ahm-polkadot",
+]
+ahm-westend = [
+	"pallet-rc-migrator/ahm-westend",
+]
+ahm-staking-migration = [
+	"pallet-rc-migrator/ahm-staking-migration",
+]
+stable2503 = [
+	"pallet-rc-migrator/stable2503",
+]

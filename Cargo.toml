@@ -9,10 +9,6 @@ repository = "https://github.com/paritytech/polkadot-sdk.git"
 resolver = "2"
 
 members = [
-	"cumulus/pallets/rc-migrator",
-	"cumulus/pallets/ah-migrator",
-	"cumulus/test/ahm",
-	"cumulus/pallets/ah-ops",
 	"bridges/bin/runtime-common",
 	"bridges/chains/chain-cumulus",
 	"bridges/chains/chain-polkadot-bulletin",
@@ -82,11 +78,14 @@ members = [
 	"cumulus/client/relay-chain-rpc-interface",
 	"cumulus/client/relay-chain-streams",
 	"cumulus/client/service",
+	"cumulus/pallets/ah-migrator",
+	"cumulus/pallets/ah-ops",
 	"cumulus/pallets/aura-ext",
 	"cumulus/pallets/collator-selection",
 	"cumulus/pallets/dmp-queue",
 	"cumulus/pallets/parachain-system",
 	"cumulus/pallets/parachain-system/proc-macro",
+	"cumulus/pallets/rc-migrator",
 	"cumulus/pallets/session-benchmarking",
 	"cumulus/pallets/solo-to-para",
 	"cumulus/pallets/weight-reclaim",
@@ -154,6 +153,7 @@ members = [
 	"cumulus/primitives/storage-weight-reclaim",
 	"cumulus/primitives/timestamp",
 	"cumulus/primitives/utility",
+	"cumulus/test/ahm",
 	"cumulus/test/client",
 	"cumulus/test/relay-sproof-builder",
 	"cumulus/test/runtime",
@@ -576,12 +576,12 @@ members = [
 ]
 
 default-members = [
-	"cumulus/pallets/rc-migrator",
 	"cumulus/pallets/ah-migrator",
-	"cumulus/test/ahm",
 	"cumulus/pallets/ah-ops",
+	"cumulus/pallets/rc-migrator",
 	"cumulus/polkadot-omni-node",
 	"cumulus/polkadot-parachain",
+	"cumulus/test/ahm",
 	"polkadot",
 	"substrate/bin/node/cli",
 ]
@@ -624,9 +624,6 @@ while_immutable_condition = { level = "allow", priority = 2 }        # false pos
 zero-prefixed-literal = { level = "allow", priority = 2 }            # 00_1000_000
 
 [workspace.dependencies]
-pallet-rc-migrator = { path = "cumulus/pallets/rc-migrator", default-features = false }
-pallet-ah-migrator = { path = "cumulus/pallets/ah-migrator", default-features = false }
-pallet-ah-ops = { path = "cumulus/pallets/ah-ops", default-features = false }
 Inflector = { version = "0.11.4" }
 aes-gcm = { version = "0.10" }
 ahash = { version = "0.8.2" }
@@ -667,6 +664,9 @@ backoff = { version = "0.4" }
 backtrace = { version = "0.3.71" }
 binary-merkle-tree = { path = "substrate/utils/binary-merkle-tree", default-features = false }
 bincode = { version = "1.3.3" }
+pallet-ah-migrator = { path = "cumulus/pallets/ah-migrator", default-features = false }
+pallet-ah-ops = { path = "cumulus/pallets/ah-ops", default-features = false }
+pallet-rc-migrator = { path = "cumulus/pallets/rc-migrator", default-features = false }
 # personal fork here as workaround for: https://github.com/rust-bitcoin/rust-bip39/pull/64
 bip39 = { package = "parity-bip39", version = "2.0.1", default-features = false }
 bitflags = { version = "1.3.2" }

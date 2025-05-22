@@ -25,5 +25,10 @@ chain_spec_path = "./ah.json"
 name = "charlie"
 validator = true
 command = "polkadot-omni-node"
-args = ["--force-authoring", "--no-hardware-benchmarks", "--offchain-worker=always", "-lruntime::system=debug,runtime::multiblock-election=debug,runtime::staking=debug,runtime::staking::rc-client=trace"]
+args = [
+	"--force-authoring",
+	"--no-hardware-benchmarks",
+	"--offchain-worker=always",
+	"-lruntime::system=debug,runtime::multiblock-election=debug,runtime::staking=debug,runtime::staking::rc-client=trace",
+]
 rpc_port = 9946

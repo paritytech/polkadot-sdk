@@ -194,7 +194,8 @@ pub trait MinerConfig {
 	/// **Maximum** number of pages that we may compute.
 	///
 	/// Must be the same as configured in the [`crate::Config`].
-	/// TODO: rename to `MaxPages` for more clarity. Won't do now to not break the miner right before WND migration.
+	/// TODO: rename to `MaxPages` for more clarity. Won't do now to not break the miner right
+	/// before WND migration.
 	type Pages: Get<u32>;
 	/// Maximum number of voters per snapshot page.
 	///

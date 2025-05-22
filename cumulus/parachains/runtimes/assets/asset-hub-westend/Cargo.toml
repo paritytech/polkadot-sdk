@@ -27,8 +27,6 @@ frame-support = { workspace = true }
 frame-system = { workspace = true }
 frame-system-benchmarking = { optional = true, workspace = true }
 frame-system-rpc-runtime-api = { workspace = true }
-pallet-staking-async-rc-client = { workspace = true }
-pallet-staking-async = { workspace = true }
 frame-try-runtime = { optional = true, workspace = true }
 pallet-ah-migrator = { workspace = true }
 pallet-ah-ops = { workspace = true }
@@ -57,12 +55,14 @@ pallet-nomination-pools = { workspace = true }
 pallet-nomination-pools-runtime-api = { workspace = true }
 pallet-preimage = { workspace = true }
 pallet-proxy = { workspace = true }
+pallet-rc-migrator = { workspace = true }
 pallet-referenda = { workspace = true }
 pallet-revive = { workspace = true }
 pallet-scheduler = { workspace = true }
-pallet-rc-migrator = { workspace = true }
 pallet-session = { workspace = true }
 pallet-staking = { workspace = true }
+pallet-staking-async = { workspace = true }
+pallet-staking-async-rc-client = { workspace = true }
 pallet-staking-runtime-api = { workspace = true }
 pallet-state-trie-migration = { workspace = true }
 pallet-sudo = { workspace = true }
@@ -136,17 +136,17 @@ snowbridge-runtime-common = { workspace = true }
 
 [dev-dependencies]
 asset-test-utils = { workspace = true, default-features = true }
+hex = { workspace = true, default-features = false }
 parachains-runtimes-test-utils = { workspace = true, default-features = true }
 remote-externalities = { workspace = true, default-features = true }
-tokio = { features = ["macros"], workspace = true, default-features = true }
 sp-tracing = { workspace = true }
-hex = { workspace = true, default-features = false }
+tokio = { features = ["macros"], workspace = true, default-features = true }
 
 [build-dependencies]
 substrate-wasm-builder = { optional = true, workspace = true, default-features = true }
 
 [features]
-default = ["std", "ahm-westend"]
+default = ["ahm-westend", "std"]
 ahm-westend = [
 	"ahm-staking-migration",
 	"pallet-ah-migrator/ahm-westend",
@@ -155,6 +155,7 @@ ahm-westend = [
 ]
 ahm-staking-migration = [
 	"pallet-ah-migrator/ahm-staking-migration",
+	"pallet-ah-ops/ahm-staking-migration",
 	"pallet-rc-migrator/ahm-staking-migration",
 ]
 runtime-benchmarks = [
@@ -195,9 +196,12 @@ runtime-benchmarks = [
 	"pallet-nomination-pools/runtime-benchmarks",
 	"pallet-preimage/runtime-benchmarks",
 	"pallet-proxy/runtime-benchmarks",
+	"pallet-rc-migrator/runtime-benchmarks",
 	"pallet-referenda/runtime-benchmarks",
 	"pallet-revive/runtime-benchmarks",
 	"pallet-scheduler/runtime-benchmarks",
+	"pallet-staking-async-rc-client/runtime-benchmarks",
+	"pallet-staking-async/runtime-benchmarks",
 	"pallet-staking/runtime-benchmarks",
 	"pallet-state-trie-migration/runtime-benchmarks",
 	"pallet-sudo/runtime-benchmarks",
@@ -218,14 +222,11 @@ runtime-benchmarks = [
 	"snowbridge-runtime-common/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"sp-staking/runtime-benchmarks",
+	"westend-runtime-constants/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",
 	"xcm-executor/runtime-benchmarks",
 	"xcm-runtime-apis/runtime-benchmarks",
 	"xcm/runtime-benchmarks",
-	"pallet-rc-migrator/runtime-benchmarks",
-	"pallet-staking-async/runtime-benchmarks",
-	"pallet-staking-async-rc-client/runtime-benchmarks",
-	"westend-runtime-constants/runtime-benchmarks"
 ]
 try-runtime = [
 	"cumulus-pallet-aura-ext/try-runtime",
@@ -265,10 +266,13 @@ try-runtime = [
 	"pallet-nomination-pools/try-runtime",
 	"pallet-preimage/try-runtime",
 	"pallet-proxy/try-runtime",
+	"pallet-rc-migrator/try-runtime",
 	"pallet-referenda/try-runtime",
 	"pallet-revive/try-runtime",
 	"pallet-scheduler/try-runtime",
 	"pallet-session/try-runtime",
+	"pallet-staking-async-rc-client/try-runtime",
+	"pallet-staking-async/try-runtime",
 	"pallet-staking/try-runtime",
 	"pallet-state-trie-migration/try-runtime",
 	"pallet-sudo/try-runtime",
@@ -286,9 +290,6 @@ try-runtime = [
 	"snowbridge-pallet-system-frontend/try-runtime",
 	"snowbridge-runtime-common/try-runtime",
 	"sp-runtime/try-runtime",
-	"pallet-staking-async-rc-client/try-runtime",
-	"pallet-rc-migrator/try-runtime",
-	"pallet-staking-async/try-runtime",
 ]
 std = [
 	"assets-common/std",
@@ -315,6 +316,7 @@ std = [
 	"frame-system-rpc-runtime-api/std",
 	"frame-system/std",
 	"frame-try-runtime?/std",
+	"hex/std",
 	"log/std",
 	"pallet-ah-migrator/std",
 	"pallet-ah-ops/std",
@@ -345,10 +347,13 @@ std = [
 	"pallet-nomination-pools/std",
 	"pallet-preimage/std",
 	"pallet-proxy/std",
+	"pallet-rc-migrator/std",
 	"pallet-referenda/std",
 	"pallet-revive/std",
 	"pallet-scheduler/std",
 	"pallet-session/std",
+	"pallet-staking-async-rc-client/std",
+	"pallet-staking-async/std",
 	"pallet-staking-runtime-api/std",
 	"pallet-staking/std",
 	"pallet-state-trie-migration/std",
@@ -400,9 +405,6 @@ std = [
 	"xcm-executor/std",
 	"xcm-runtime-apis/std",
 	"xcm/std",
-	"pallet-staking-async-rc-client/std",
-	"pallet-rc-migrator/std",
-	"pallet-staking-async/std",
 ]
 
 fast-runtime = []

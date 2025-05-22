@@ -63,6 +63,7 @@ std = [
 	"pallet-xcm/std",
 	"parachain-info/std",
 	"polkadot-primitives/std",
+	"polkadot-runtime-common/std",
 	"scale-info/std",
 	"sp-consensus-aura/std",
 	"sp-core/std",
@@ -70,7 +71,6 @@ std = [
 	"sp-runtime/std",
 	"xcm-executor/std",
 	"xcm/std",
-	"polkadot-runtime-common/std"
 ]
 runtime-benchmarks = [
 	"cumulus-primitives-core/runtime-benchmarks",
@@ -84,8 +84,8 @@ runtime-benchmarks = [
 	"pallet-message-queue/runtime-benchmarks",
 	"pallet-xcm/runtime-benchmarks",
 	"polkadot-primitives/runtime-benchmarks",
+	"polkadot-runtime-common/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"xcm-executor/runtime-benchmarks",
 	"xcm/runtime-benchmarks",
-	"polkadot-runtime-common/runtime-benchmarks"
 ]
