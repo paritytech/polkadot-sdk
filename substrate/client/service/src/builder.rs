@@ -335,8 +335,8 @@ fn warm_up_trie_cache<TBl: BlockT>(
 		}
 	}
 	info!(
-		"Trie cache populated with {keys_count} keys and {child_keys_count} child keys in {} ms",
-		start_time.elapsed().as_millis()
+		"Trie cache populated with {keys_count} keys and {child_keys_count} child keys in {} s",
+		start_time.elapsed().as_secs_f32()
 	);
 
 	Ok(())
