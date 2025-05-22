@@ -618,6 +618,13 @@ impl<T: MinerConfig> Miner<T> {
 		let is_trimmed =
 			TrimmingStatus { weight: weight_trimmed, length: length_trimmed, edges: edges_trimmed };
 
+		log_no_system!(
+			debug,
+			"feasible solution mined: trimmed? {:?}, score: {:?}, encoded size: {:?}",
+			is_trimmed,
+			score,
+			solution.encoded_size()
+		);
 		Ok((solution, score, size, is_trimmed))
 	}
 
@@ -1975,7 +1982,7 @@ mod tests {
 				vec![
 					(
 						10,
-						BoundedSupport { total: 25, voters: bounded_vec![(1, 11), (5, 5), (4, 9)] }
+						BoundedSupport { total: 25, voters: bounded_vec![(1, 11), (4, 9), (5, 5)] }
 					),
 					(20, BoundedSupport { total: 22, voters: bounded_vec![(2, 12), (5, 10)] }),
 					(30, BoundedSupport { total: 18, voters: bounded_vec![(3, 13), (4, 5)] })
