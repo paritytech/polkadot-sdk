@@ -66,7 +66,7 @@ fn set_staking_configs_works() {
 		assert_eq!(MaxStakedRewards::<Test>::get(), Some(Percent::from_percent(0)));
 
 		// noop does nothing
-		assert_storage_noop!(assert_ok!(Staking::set_staking_configs(
+		assert_ok!(Staking::set_staking_configs(
 			RuntimeOrigin::root(),
 			ConfigOp::Noop,
 			ConfigOp::Noop,
@@ -75,7 +75,14 @@ fn set_staking_configs_works() {
 			ConfigOp::Noop,
 			ConfigOp::Noop,
 			ConfigOp::Noop
-		)));
+		));
+		assert_eq!(MinNominatorBond::<Test>::get(), 1_500);
+		assert_eq!(MinValidatorBond::<Test>::get(), 2_000);
+		assert_eq!(MaxNominatorsCount::<Test>::get(), Some(10));
+		assert_eq!(MaxValidatorsCount::<Test>::get(), Some(20));
+		assert_eq!(ChillThreshold::<Test>::get(), Some(Percent::from_percent(75)));
+		assert_eq!(MinCommission::<Test>::get(), Perbill::from_percent(0));
+		assert_eq!(MaxStakedRewards::<Test>::get(), Some(Percent::from_percent(0)));
 
 		// removing works
 		assert_ok!(Staking::set_staking_configs(
@@ -3048,11 +3055,10 @@ fn deferred_slashes_are_deferred() {
 			staking_events_since_last_call().as_slice(),
 			&[
 				Event::SlashReported { validator: 11, slash_era: 1, .. },
+				Event::NewEra { index: 1, start: 45000 },
 				Event::StakersElected,
 				..,
-				Event::Slashed { staker: 11, amount: 100 },
-				Event::Slashed { staker: 101, amount: 12 }
-			]
+				Event::Slashed { staker: 101, amount: 12 }]
 		));
 	})
 }
@@ -3384,6 +3390,7 @@ fn slash_kicks_validators_not_nominators_and_disables_nominator_for_kicked_valid
 			assert_eq!(
 				staking_events_since_last_call(),
 				vec![
+					Event::NewEra { index: 0, start: 30000 },
 					Event::StakersElected,
 					Event::EraPaid { era_index: 0, validator_payout: 11075, remainder: 33225 },
 					Event::SlashReported {
@@ -3456,6 +3463,7 @@ fn non_slashable_offence_disables_validator() {
 			assert_eq!(
 				staking_events_since_last_call(),
 				vec![
+					Event::NewEra { index: 0, start: 30000 },
 					Event::StakersElected,
 					Event::EraPaid { era_index: 0, validator_payout: 11075, remainder: 33225 },
 					Event::SlashReported {
@@ -3518,6 +3526,7 @@ fn slashing_independent_of_disabling_validator() {
 			assert_eq!(
 				staking_events_since_last_call(),
 				vec![
+					Event::NewEra { index: 0, start: 30000 },
 					Event::StakersElected,
 					Event::EraPaid { era_index: 0, validator_payout: 11075, remainder: 33225 },
 					Event::SlashReported {
@@ -3967,8 +3976,8 @@ fn test_multi_page_payout_stakers_by_page() {
 			staking_events_since_last_call().as_slice(),
 			&[
 				..,
-				Event::Rewarded { stash: 1063, dest: RewardDestination::Stash, amount: 111 },
-				Event::Rewarded { stash: 1064, dest: RewardDestination::Stash, amount: 111 },
+				Event::Rewarded { stash: 1063, dest: RewardDestination::Stash, amount: 111, .. },
+				Event::Rewarded { stash: 1064, dest: RewardDestination::Stash, amount: 111, .. },
 			]
 		));
 
@@ -3990,8 +3999,8 @@ fn test_multi_page_payout_stakers_by_page() {
 			events.as_slice(),
 			&[
 				Event::PayoutStarted { era_index: 1, validator_stash: 11 },
-				Event::Rewarded { stash: 1065, dest: RewardDestination::Stash, amount: 111 },
-				Event::Rewarded { stash: 1066, dest: RewardDestination::Stash, amount: 111 },
+				Event::Rewarded { stash: 1065, dest: RewardDestination::Stash, amount: 111, .. },
+				Event::Rewarded { stash: 1066, dest: RewardDestination::Stash, amount: 111, .. },
 				..
 			]
 		));
@@ -5497,7 +5506,8 @@ mod election_data_provider {
 			// election
 			run_to_block(20);
 			assert_eq!(Staking::next_election_prediction(System::block_number()), 45);
-			assert_eq!(staking_events().len(), 1);
+			assert_eq!(staking_events().len(), 2);
+			assert_eq!(*staking_events().first().unwrap(), Event::NewEra { index: 0, start: 30000 });
 			assert_eq!(*staking_events().last().unwrap(), Event::StakersElected);
 
 			for b in 21..45 {
@@ -5508,7 +5518,8 @@ mod election_data_provider {
 			// election
 			run_to_block(45);
 			assert_eq!(Staking::next_election_prediction(System::block_number()), 70);
-			assert_eq!(staking_events().len(), 3);
+			assert_eq!(staking_events().len(), 5);
+			assert_eq!(staking_events()[3], Event::NewEra { index: 1, start: 55000 });
 			assert_eq!(*staking_events().last().unwrap(), Event::StakersElected);
 
 			Staking::force_no_eras(RuntimeOrigin::root()).unwrap();
@@ -5531,7 +5542,7 @@ mod election_data_provider {
 			MinimumValidatorCount::<Test>::put(2);
 			run_to_block(55);
 			assert_eq!(Staking::next_election_prediction(System::block_number()), 55 + 25);
-			assert_eq!(staking_events().len(), 10);
+			assert_eq!(staking_events().len(), 13);
 			assert_eq!(
 				*staking_events().last().unwrap(),
 				Event::ForceEra { mode: Forcing::NotForcing }
@@ -5784,6 +5795,11 @@ fn chill_other_works() {
 			// chill a validator. Limit is reached, chill-able.
 			assert_eq!(Validators::<Test>::count(), 9);
 			assert_ok!(Staking::chill_other(RuntimeOrigin::signed(1337), 2));
+
+			// chill_other works with root
+			assert_eq!(Validators::<Test>::count(), 8);
+			assert_ok!(Staking::chill_other(RuntimeOrigin::root(), 6));
+			assert_eq!(Validators::<Test>::count(), 7);
 		})
 }
 
@@ -8246,6 +8262,212 @@ mod ledger_recovery {
 			// try-state checks are ok now.
 			assert_ok!(Staking::do_try_state(System::block_number()));
 		})
+	}
+
+	#[test]
+	fn add_to_validator_whitelist_works() {
+		ExtBuilder::default().build_and_execute(|| {
+			let stash_account: u64 = 10;
+			assert_ok!(Staking::add_to_validator_whitelist(
+				RuntimeOrigin::root(),
+				stash_account
+			));
+			assert_eq!(Staking::validator_whitelist(stash_account), true);
+			System::assert_last_event(
+				mock::RuntimeEvent::Staking(crate::Event::<Test>::ValidatorWhitelistUpdated {
+					stash: stash_account,
+					whitelisted: true,
+				}),
+			);
+		});
+	}
+
+	#[test]
+	fn add_to_validator_whitelist_fails_for_non_root() {
+		ExtBuilder::default().build_and_execute(|| {
+			let stash_account: u64 = 10;
+			let non_root_account: u64 = 1;
+			assert_noop!(
+				Staking::add_to_validator_whitelist(RuntimeOrigin::signed(non_root_account), stash_account),
+				DispatchError::BadOrigin
+			);
+			assert_eq!(Staking::validator_whitelist(stash_account), false);
+		});
+	}
+
+	#[test]
+	fn remove_from_validator_whitelist_works() {
+		ExtBuilder::default().build_and_execute(|| {
+			let stash_account: u64 = 20;
+			// First, add to whitelist
+			assert_ok!(Staking::add_to_validator_whitelist(
+				RuntimeOrigin::root(),
+				stash_account
+			));
+			assert_eq!(Staking::validator_whitelist(stash_account), true);
+			System::assert_last_event(
+				mock::RuntimeEvent::Staking(crate::Event::<Test>::ValidatorWhitelistUpdated {
+					stash: stash_account,
+					whitelisted: true,
+				}),
+			);
+
+			// Then, remove from whitelist
+			assert_ok!(Staking::remove_from_validator_whitelist(
+				RuntimeOrigin::root(),
+				stash_account
+			));
+			assert_eq!(Staking::validator_whitelist(stash_account), false);
+			System::assert_last_event(
+				mock::RuntimeEvent::Staking(crate::Event::<Test>::ValidatorWhitelistUpdated {
+					stash: stash_account,
+					whitelisted: false,
+				}),
+			);
+		});
+	}
+
+	#[test]
+	fn remove_from_validator_whitelist_fails_for_non_root() {
+		ExtBuilder::default().build_and_execute(|| {
+			let stash_account: u64 = 20;
+			let non_root_account: u64 = 1;
+
+			// First, add to whitelist
+			assert_ok!(Staking::add_to_validator_whitelist(
+				RuntimeOrigin::root(),
+				stash_account
+			));
+			assert_eq!(Staking::validator_whitelist(stash_account), true);
+
+			// Attempt to remove with non-root
+			assert_noop!(
+				Staking::remove_from_validator_whitelist(RuntimeOrigin::signed(non_root_account), stash_account),
+				DispatchError::BadOrigin
+			);
+			assert_eq!(Staking::validator_whitelist(stash_account), true);
+		});
+	}
+
+	#[test]
+	fn set_is_validator_whitelist_enabled_works_true() {
+		ExtBuilder::default().build_and_execute(|| {
+			// Default is false
+			assert_eq!(Staking::is_validator_whitelist_enabled(), false);
+
+			assert_ok!(Staking::set_is_validator_whitelist_enabled(
+				RuntimeOrigin::root(),
+				true
+			));
+			assert_eq!(Staking::is_validator_whitelist_enabled(), true);
+			System::assert_last_event(
+				mock::RuntimeEvent::Staking(crate::Event::<Test>::ValidatorWhitelistToggled {
+					is_enabled: true,
+				}),
+			);
+		});
+	}
+
+	#[test]
+	fn set_is_validator_whitelist_enabled_works_false() {
+		ExtBuilder::default().build_and_execute(|| {
+			// Enable it first
+			assert_ok!(Staking::set_is_validator_whitelist_enabled(
+				RuntimeOrigin::root(),
+				true
+			));
+			assert_eq!(Staking::is_validator_whitelist_enabled(), true);
+			System::assert_last_event(
+				mock::RuntimeEvent::Staking(crate::Event::<Test>::ValidatorWhitelistToggled {
+					is_enabled: true,
+				}),
+			);
+
+			// Then disable it
+			assert_ok!(Staking::set_is_validator_whitelist_enabled(
+				RuntimeOrigin::root(),
+				false
+			));
+			assert_eq!(Staking::is_validator_whitelist_enabled(), false);
+			System::assert_last_event(
+				mock::RuntimeEvent::Staking(crate::Event::<Test>::ValidatorWhitelistToggled {
+					is_enabled: false,
+				}),
+			);
+		});
+	}
+
+	#[test]
+	fn set_is_validator_whitelist_enabled_fails_for_non_root() {
+		ExtBuilder::default().build_and_execute(|| {
+			let non_root_account: u64 = 1;
+			assert_eq!(Staking::is_validator_whitelist_enabled(), false); // Default is false
+
+			assert_noop!(
+				Staking::set_is_validator_whitelist_enabled(RuntimeOrigin::signed(non_root_account), true),
+				DispatchError::BadOrigin
+			);
+			assert_eq!(Staking::is_validator_whitelist_enabled(), false); // Should remain false
+		});
+	}
+
+	#[test]
+	fn whitelisted_can_validate_when_whitelist_enabled() {
+		ExtBuilder::default().build_and_execute(|| {
+			let validator_acc = 1;
+			let bond_value = 100;
+
+			// Setup
+			IsValidatorWhitelistEnabled::<Test>::put(true);
+			ValidatorWhitelist::<Test>::insert(validator_acc, true);
+			assert_ok!(Staking::bond(RuntimeOrigin::signed(validator_acc), bond_value, RewardDestination::Staked));
+
+			// Validate
+			assert_ok!(Staking::validate(RuntimeOrigin::signed(validator_acc), ValidatorPrefs::default()));
+
+			// Assertion: Account is now a validator
+			assert!(Validators::<Test>::contains_key(validator_acc));
+			System::assert_last_event(Event::ValidatorPrefsSet { stash: validator_acc, prefs: ValidatorPrefs::default() }.into());
+		});
+	}
+
+	#[test]
+	fn non_whitelisted_cannot_validate_when_whitelist_enabled() {
+		ExtBuilder::default().build_and_execute(|| {
+			let non_validator_acc = 2;
+			let bond_value = 100;
+
+			// Setup
+			IsValidatorWhitelistEnabled::<Test>::put(true);
+			assert_ok!(Staking::bond(RuntimeOrigin::signed(non_validator_acc), bond_value, RewardDestination::Staked));
+
+			// Assert validate fails
+			assert_noop!(
+                Staking::validate(RuntimeOrigin::signed(non_validator_acc), ValidatorPrefs::default()),
+                Error::<Test>::NotWhitelisted
+            );
+			// Assert account is not a validator
+			assert!(!Validators::<Test>::contains_key(non_validator_acc));
+		});
+	}
+
+	#[test]
+	fn any_account_can_validate_when_whitelist_disabled() {
+		ExtBuilder::default().build_and_execute(|| {
+			let any_acc = 3;
+			let bond_value = 100;
+
+			// Setup
+			IsValidatorWhitelistEnabled::<Test>::put(false);
+			assert_ok!(Staking::bond(RuntimeOrigin::signed(any_acc), bond_value, RewardDestination::Staked));
+
+			// Validate
+			assert_ok!(Staking::validate(RuntimeOrigin::signed(any_acc), ValidatorPrefs::default()));
+
+			// Assertion: Account is now a validator
+			assert!(Validators::<Test>::contains_key(any_acc));
+			System::assert_last_event(Event::ValidatorPrefsSet { stash: any_acc, prefs: ValidatorPrefs::default() }.into());
+		});
 	}
 }
 

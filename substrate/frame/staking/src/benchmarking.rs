@@ -961,6 +961,33 @@ benchmarks! {
 		assert_eq!(Staking::<T>::inspect_bond_state(&stash), Ok(LedgerIntegrityState::Ok));
 	}
 
+	add_to_validator_whitelist {
+    	let stash: T::AccountId = create_funded_user::<T>("whitelist_stash", USER_SEED, 100);
+    	assert!(!ValidatorWhitelist::<T>::contains_key(&stash));
+	}: _(RawOrigin::Root, stash.clone())
+	verify {
+		assert!(ValidatorWhitelist::<T>::contains_key(&stash));
+		assert_eq!(ValidatorWhitelist::<T>::get(&stash), true);
+	}
+	
+	remove_from_validator_whitelist {
+    	let stash: T::AccountId = create_funded_user::<T>("whitelist_stash", USER_SEED, 100);
+    	ValidatorWhitelist::<T>::insert(&stash, true);
+    	assert!(ValidatorWhitelist::<T>::contains_key(&stash));
+	}: _(RawOrigin::Root, stash.clone())
+	verify {
+		assert!(!ValidatorWhitelist::<T>::contains_key(&stash));
+	}
+	
+	set_is_validator_whitelist_enabled {
+		let is_enabled = true;
+		IsValidatorWhitelistEnabled::<T>::put(!is_enabled);
+		assert_eq!(IsValidatorWhitelistEnabled::<T>::get(), !is_enabled);
+	}: _(RawOrigin::Root, is_enabled)
+	verify {
+		assert_eq!(IsValidatorWhitelistEnabled::<T>::get(), is_enabled);
+	}
+
 	impl_benchmark_test_suite!(
 		Staking,
 		crate::mock::ExtBuilder::default().has_stakers(true),
