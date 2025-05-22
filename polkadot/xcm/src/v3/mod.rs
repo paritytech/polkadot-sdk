@@ -1334,8 +1334,17 @@ impl<Call> TryFrom<NewInstruction<Call>> for Instruction<Call> {
 			HrmpChannelAccepted { recipient } => Self::HrmpChannelAccepted { recipient },
 			HrmpChannelClosing { initiator, sender, recipient } =>
 				Self::HrmpChannelClosing { initiator, sender, recipient },
-			Transact { origin_kind, require_weight_at_most, call } =>
-				Self::Transact { origin_kind, require_weight_at_most, call: call.into() },
+			Transact { origin_kind, require_weight_at_most, call } => {
+				if require_weight_at_most.proof_size() > 0 {
+					log::trace!(
+						target: "xcm::conversion",
+						"Converting XCM v4 Transact to v3: dropping proof_size {} from weight. \
+						 This may cause execution issues when converting back to v4.",
+						require_weight_at_most.proof_size()
+					);
+				}
+				Self::Transact { origin_kind, require_weight_at_most, call: call.into() } 
+			},
 			ReportError(response_info) => Self::ReportError(QueryResponseInfo {
 				query_id: response_info.query_id,
 				destination: response_info.destination.try_into().map_err(|_| ())?,
