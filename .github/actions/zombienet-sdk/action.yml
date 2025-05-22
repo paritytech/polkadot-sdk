@@ -68,7 +68,7 @@ runs:
           ls -ltr ./artifacts
           cargo nextest run --archive-file ./artifacts/${PREFIX}-zombienet-tests.tar.zst --no-capture -- ${TEST_NAME}
 
-    - name: prepare_logs
+    - name: process_logs
       shell: bash
       run: |
         BASE_DIR=$(ls -dt /tmp/zombie-* | head -1)
@@ -81,16 +81,25 @@ runs:
         TARGET_DIR="$BASE_DIR/logs"
         mkdir -p "$TARGET_DIR"
 
+        LOKI_URL_TEMPLATE='https://grafana.teleport.parity.io/explore?orgId=1&left=%7B%22datasource%22:%22PCF9DACBDF30E12B3%22,%22queries%22:%5B%7B%22refId%22:%22A%22,%22datasource%22:%7B%22type%22:%22loki%22,%22uid%22:%22PCF9DACBDF30E12B3%22%7D,%22editorMode%22:%22code%22,%22expr%22:%22%7Bnamespace%3D%5C%22{{namespace}}%5C%22,pod%3D%5C%22{{podName}}%5C%22%7D%22,%22queryType%22:%22range%22%7D%5D,%22range%22:%7B%22from%22:%22{{from}}%22,%22to%22:%22{{to}}%22%7D%7D'
+
         # Extract all node name from relay and parachains
         jq -r '[.relay.nodes[].name] + [.parachains[][] .collators[].name] | .[]' "$ZOMBIE_JSON" | while read -r NAME; do
-          echo "Processing logs for $NAME..."
           if [[ "$ZOMBIE_PROVIDER" == "k8s" ]]; then
-            echo "Fetching logs for $NAME in namespace $NS..."
+            # Fetching logs from k8s
             kubectl -n "$NS" logs "$NAME" > "$TARGET_DIR/$NAME.log"
+
+            # Replace placeholders
+            URL=${LOKI_URL_TEMPLATE//\{\{namespace\}\}/$NS}
+            URL=${URL//\{\{podName\}\}/$NAME}
+            URL=${URL//\{\{from\}\}/$FROM}
+            URL=${URL//\{\{to\}\}/$TO}
+
+            echo "$NAME: $URL"
           else
-            echo "Copying existing log file for $NAME..."
             cp "$BASE_DIR/$NAME/$NAME.log" "$TARGET_DIR/$NAME.log"
           fi
+
         done
 
     - name: upload_logs
