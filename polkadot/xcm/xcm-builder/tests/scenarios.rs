@@ -17,13 +17,14 @@
 mod mock;
 
 use mock::{
-	fake_message_hash, kusama_like_with_balances, AccountId, Balance, Balances, BaseXcmWeight,
-	System, XcmConfig, CENTS,
+	kusama_like_with_balances, AccountId, Balance, Balances, BaseXcmWeight, System, XcmConfig,
+	CENTS,
 };
 use polkadot_parachain_primitives::primitives::Id as ParaId;
 use sp_runtime::traits::AccountIdConversion;
 use xcm::latest::{prelude::*, Error::UntrustedTeleportLocation};
 use xcm_executor::XcmExecutor;
+use xcm_simulator::fake_message_hash;
 
 pub const ALICE: AccountId = AccountId::new([0u8; 32]);
 pub const PARA_ID: u32 = 2000;
@@ -177,17 +178,16 @@ fn report_holding_works() {
 		let other_para_acc: AccountId = ParaId::from(other_para_id).into_account_truncating();
 		assert_eq!(Balances::free_balance(other_para_acc), amount);
 		assert_eq!(Balances::free_balance(para_acc), INITIAL_BALANCE - 2 * amount);
-		let expected_msg = Xcm(vec![QueryResponse {
-			query_id: response_info.query_id,
-			response: Response::Assets(vec![].into()),
-			max_weight: response_info.max_weight,
-			querier: Some(Here.into()),
-		}]);
-		let expected_hash = fake_message_hash(&expected_msg);
-		assert_eq!(
-			mock::sent_xcm(),
-			vec![(Parachain(PARA_ID).into(), expected_msg, expected_hash,)]
-		);
+		let expected_msg = Xcm(vec![
+			QueryResponse {
+				query_id: response_info.query_id,
+				response: Response::Assets(vec![].into()),
+				max_weight: response_info.max_weight,
+				querier: Some(Here.into()),
+			},
+			SetTopic(hash.into()),
+		]);
+		assert_eq!(mock::sent_xcm(), vec![(Parachain(PARA_ID).into(), expected_msg, hash,)]);
 	});
 }
 
@@ -261,12 +261,9 @@ fn teleport_to_asset_hub_works() {
 		let expected_msg = Xcm(vec![ReceiveTeleportedAsset((Parent, amount).into()), ClearOrigin]
 			.into_iter()
 			.chain(teleport_effects.clone().into_iter())
+			.chain([SetTopic(hash.into())])
 			.collect());
-		let expected_hash = fake_message_hash(&expected_msg);
-		assert_eq!(
-			mock::sent_xcm(),
-			vec![(Parachain(asset_hub_id).into(), expected_msg, expected_hash,)]
-		);
+		assert_eq!(mock::sent_xcm(), vec![(Parachain(asset_hub_id).into(), expected_msg, hash,)]);
 	});
 }
 
@@ -314,12 +311,9 @@ fn reserve_based_transfer_works() {
 		let expected_msg = Xcm(vec![ReserveAssetDeposited((Parent, amount).into()), ClearOrigin]
 			.into_iter()
 			.chain(transfer_effects.into_iter())
+			.chain([SetTopic(hash.into())])
 			.collect());
-		let expected_hash = fake_message_hash(&expected_msg);
-		assert_eq!(
-			mock::sent_xcm(),
-			vec![(Parachain(other_para_id).into(), expected_msg, expected_hash,)]
-		);
+		assert_eq!(mock::sent_xcm(), vec![(Parachain(other_para_id).into(), expected_msg, hash,)]);
 	});
 }
 
