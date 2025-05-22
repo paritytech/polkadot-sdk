@@ -21,6 +21,7 @@ use crate::mock::*;
 
 use core::num::NonZeroU32;
 use cumulus_primitives_core::{AbridgedHrmpChannel, InboundDownwardMessage, InboundHrmpMessage};
+use cumulus_primitives_parachain_inherent::{v0, INHERENT_IDENTIFIER, LEGACY_INHERENT_IDENTIFIER};
 use frame_support::{assert_ok, parameter_types, weights::Weight};
 use frame_system::RawOrigin;
 use hex_literal::hex;
@@ -29,11 +30,75 @@ use rand::Rng;
 use relay_chain::vstaging::{UMPSignal, UMP_SEPARATOR};
 use relay_chain::HrmpChannelId;
 use sp_core::H256;
+use sp_trie::StorageProof;
 
 #[test]
 #[should_panic]
 fn block_tests_run_on_drop() {
 	BlockTests::new().add(123, || panic!("if this test passes, block tests run properly"));
+}
+
+/// Test that ensures that the parachain-system pallet accepts both the legacy
+/// and versioned inherent format.
+#[test]
+fn test_inherent_compatibility() {
+	sp_tracing::init_for_tests();
+	let mut valid_inherent_data_v1 = sp_inherents::InherentData::new();
+	valid_inherent_data_v1
+		.put_data(
+			INHERENT_IDENTIFIER,
+			&VersionedInherentData::V1(ParachainInherentData {
+				validation_data: Default::default(),
+				relay_chain_state: StorageProof::empty(),
+				downward_messages: Default::default(),
+				horizontal_messages: Default::default(),
+				relay_parent_descendants: Default::default(),
+			}),
+		)
+		.expect("Put validation function params failed");
+
+	let mut unversioned_inherent_data_v1 = sp_inherents::InherentData::new();
+	unversioned_inherent_data_v1
+		.put_data(
+			INHERENT_IDENTIFIER,
+			&ParachainInherentData {
+				validation_data: Default::default(),
+				relay_chain_state: StorageProof::empty(),
+				downward_messages: Default::default(),
+				horizontal_messages: Default::default(),
+				relay_parent_descendants: Default::default(),
+			},
+		)
+		.expect("Put validation function params failed");
+
+	let mut valid_inherent_data_legacy = sp_inherents::InherentData::new();
+	valid_inherent_data_legacy
+		.put_data(
+			LEGACY_INHERENT_IDENTIFIER,
+			&v0::ParachainInherentData {
+				validation_data: Default::default(),
+				relay_chain_state: StorageProof::empty(),
+				downward_messages: Default::default(),
+				horizontal_messages: Default::default(),
+			},
+		)
+		.expect("Put validation function params failed");
+
+	wasm_ext().execute_with(|| {
+		assert!(
+			ParachainSystem::create_inherent(&valid_inherent_data_v1).is_some(),
+			"Versioned inherent was not accepted"
+		);
+		assert!(
+			ParachainSystem::create_inherent(&valid_inherent_data_legacy).is_some(),
+			"Legacy inherent was not accepted"
+		);
+		// Not valid, we need the versioning.
+		assert!(
+			ParachainSystem::create_inherent(&unversioned_inherent_data_v1).is_none(),
+			"Unversioned inherent was wrongly accepted"
+		);
+	})
 }
 
 #[test]

@@ -28,7 +28,6 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 extern crate alloc;
-use alloc::string::String;
 
 use cumulus_primitives_core::{
 	relay_chain::{BlakeTwo256, Hash as RelayHash, HashT as _, Header as RelayHeader},
@@ -40,8 +39,8 @@ use scale_info::TypeInfo;
 use sp_inherents::InherentIdentifier;
 
 /// The identifier for the parachain inherent.
-pub const INHERENT_IDENTIFIER: InherentIdentifier = *b"sysi1337";
-pub const VERSIONED_INHERENT_IDENTIFIER: InherentIdentifier = *b"sysi1338";
+pub const LEGACY_INHERENT_IDENTIFIER: InherentIdentifier = *b"sysi1337";
+pub const INHERENT_IDENTIFIER: InherentIdentifier = *b"sysi1338";
 
 /// Legacy ParachainInherentData that is kept around for backward compatibility.
 /// Can be removed once we can safely assume that parachain nodes provide the
@@ -84,6 +83,8 @@ pub mod v0 {
 	}
 }
 
+/// Wrapper around [`ParachainInherentData`] to have versioning. This allows the runtime to
+/// decode different versions of the inherent data provided by the node.
 #[derive(
 	codec::Encode,
 	codec::Decode,
@@ -131,6 +132,13 @@ pub struct ParachainInherentData {
 	pub relay_parent_descendants: Vec<RelayHeader>,
 }
 
+impl Into<VersionedInherentData> for ParachainInherentData {
+	fn into(self) -> VersionedInherentData {
+		VersionedInherentData::V1(self)
+	}
+}
+
+// Upgrades the legacy ParachainInherentData  to the new format.
 impl Into<ParachainInherentData> for v0::ParachainInherentData {
 	fn into(self) -> ParachainInherentData {
 		ParachainInherentData {
@@ -145,7 +153,7 @@ impl Into<ParachainInherentData> for v0::ParachainInherentData {
 
 #[cfg(feature = "std")]
 #[async_trait::async_trait]
-impl sp_inherents::InherentDataProvider for ParachainInherentData {
+impl sp_inherents::InherentDataProvider for VersionedInherentData {
 	async fn provide_inherent_data(
 		&self,
 		inherent_data: &mut sp_inherents::InherentData,

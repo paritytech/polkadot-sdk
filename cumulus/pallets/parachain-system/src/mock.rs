@@ -429,7 +429,7 @@ impl BlockTests {
 				inherent_data
 					.put_data(
 						cumulus_primitives_parachain_inherent::INHERENT_IDENTIFIER,
-						&system_inherent_data,
+						&VersionedInherentData::V1(system_inherent_data),
 					)
 					.expect("failed to put VFP inherent");
 				inherent_data

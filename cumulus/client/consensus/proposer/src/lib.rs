@@ -22,7 +22,7 @@
 
 use async_trait::async_trait;
 
-use cumulus_primitives_parachain_inherent::ParachainInherentData;
+use cumulus_primitives_parachain_inherent::VersionedInherentData;
 use sp_consensus::{EnableProofRecording, Environment, Proposal, Proposer as SubstrateProposer};
 use sp_inherents::InherentData;
 use sp_runtime::{traits::Block as BlockT, Digest};
@@ -72,7 +72,7 @@ pub trait ProposerInterface<Block: BlockT> {
 	async fn propose(
 		&mut self,
 		parent_header: &Block::Header,
-		paras_inherent_data: &ParachainInherentData,
+		paras_inherent_data: &VersionedInherentData,
 		other_inherent_data: InherentData,
 		inherent_digests: Digest,
 		max_duration: Duration,
@@ -105,7 +105,7 @@ where
 	async fn propose(
 		&mut self,
 		parent_header: &B::Header,
-		paras_inherent_data: &ParachainInherentData,
+		paras_inherent_data: &VersionedInherentData,
 		other_inherent_data: InherentData,
 		inherent_digests: Digest,
 		max_duration: Duration,

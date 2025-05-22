@@ -42,7 +42,9 @@ use cumulus_primitives_core::{
 	OutboundHrmpMessage, ParaId, PersistedValidationData, UpwardMessage, UpwardMessageSender,
 	XcmpMessageHandler, XcmpMessageSource,
 };
-use cumulus_primitives_parachain_inherent::{v0, MessageQueueChain, ParachainInherentData};
+use cumulus_primitives_parachain_inherent::{
+	v0, MessageQueueChain, ParachainInherentData, VersionedInherentData,
+};
 use frame_support::{
 	defensive,
 	dispatch::DispatchResult,
@@ -998,8 +1000,25 @@ pub mod pallet {
 			cumulus_primitives_parachain_inherent::INHERENT_IDENTIFIER;
 
 		fn create_inherent(data: &InherentData) -> Option<Self::Call> {
-			if let Some(mut data: v0::ParachainInherentData) = data.get_data(&Self::INHERENT_IDENTIFIER).ok().flatten() {
-				Some(Call::set_validation_data { data: data.into() })
+			let mut data = match data
+				.get_data::<VersionedInherentData>(&Self::INHERENT_IDENTIFIER)
+				.ok()
+				.flatten()
+			{
+				None => {
+					// Key Self::INHERENT_IDENTIFIER is expected to contain versioned inherent
+					// data. Older nodes are unaware of the new format and might provide the
+					// legacy data format. We try to load it and transform it into the current
+					// version.
+					let data = data
+						.get_data::<v0::ParachainInherentData>(
+							&cumulus_primitives_parachain_inherent::LEGACY_INHERENT_IDENTIFIER,
+						)
+						.ok()
+						.flatten()?;
+					data.into()
+				},
+				Some(VersionedInherentData::V1(data)) => data,
 			};
 
 			Self::drop_processed_messages_from_inherent(&mut data);

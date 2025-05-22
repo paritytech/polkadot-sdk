@@ -92,12 +92,15 @@ pub async fn assert_relay_parent_offset(
 
 	// First parachain header #0 does not contains RSPR digest item.
 	let mut para_block_stream = para_client.blocks().subscribe_all().await?.skip(1);
-	let mut highest_block_seen = 0;
-	let mut num_blocks_seen = 0;
+	let mut highest_relay_block_seen = 0;
+	let mut num_para_blocks_seen = 0;
 	loop {
 		tokio::select! {
 			Some(Ok(relay_block)) = relay_block_stream.next() => {
-				highest_block_seen = max(relay_block.number(), highest_block_seen);
+				highest_relay_block_seen = max(relay_block.number(), highest_relay_block_seen);
+				if highest_relay_block_seen > 15 && num_para_blocks_seen == 0 {
+					return Err(anyhow!("No parachain blocks produced!"))
+				}
 			},
 			Some(Ok(para_block)) = para_block_stream.next() => {
 				let logs = &para_block.header().digest.logs;
@@ -105,11 +108,11 @@ pub async fn assert_relay_parent_offset(
 				let Some((_, relay_parent_number)): Option<(H256, u32)> = logs.iter().find_map(extract_relay_parent_storage_root) else {
 					return Err(anyhow!("No RPSR digest found in header #{}", para_block.number()));
 				};
-				log::debug!("Parachain block #{} was built on relay parent #{relay_parent_number}, highest seen was {highest_block_seen}", para_block.number());
-				assert!(highest_block_seen < offset || relay_parent_number <= highest_block_seen.saturating_sub(offset), "Relay parent is not at the correct offset! relay_parent: #{relay_parent_number} highest_seen_relay_block: #{highest_block_seen}");
-				num_blocks_seen += 1;
-				if num_blocks_seen >= block_limit {
-					log::info!("Successfully verified relay parent offset of {offset} for {num_blocks_seen} parachain blocks.");
+				log::debug!("Parachain block #{} was built on relay parent #{relay_parent_number}, highest seen was {highest_relay_block_seen}", para_block.number());
+				assert!(highest_relay_block_seen < offset || relay_parent_number <= highest_relay_block_seen.saturating_sub(offset), "Relay parent is not at the correct offset! relay_parent: #{relay_parent_number} highest_seen_relay_block: #{highest_relay_block_seen}");
+				num_para_blocks_seen += 1;
+				if num_para_blocks_seen >= block_limit {
+					log::info!("Successfully verified relay parent offset of {offset} for {num_para_blocks_seen} parachain blocks.");
 					break;
 				}
 			}

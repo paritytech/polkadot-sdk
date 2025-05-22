@@ -17,7 +17,9 @@
 use crate::Client;
 use codec::Encode;
 use cumulus_primitives_core::{ParachainBlockData, PersistedValidationData};
-use cumulus_primitives_parachain_inherent::{ParachainInherentData, INHERENT_IDENTIFIER};
+use cumulus_primitives_parachain_inherent::{
+	ParachainInherentData, VersionedInherentData, INHERENT_IDENTIFIER,
+};
 use cumulus_test_relay_sproof_builder::RelayStateSproofBuilder;
 use cumulus_test_runtime::{Block, GetLastTimestamp, Hash, Header};
 use polkadot_primitives::{BlockNumber as PBlockNumber, Hash as PHash};
@@ -117,13 +119,13 @@ fn init_block_builder(
 	inherent_data
 		.put_data(
 			INHERENT_IDENTIFIER,
-			&ParachainInherentData {
+			&VersionedInherentData::V1(ParachainInherentData {
 				validation_data: validation_data.clone(),
 				relay_chain_state,
 				downward_messages: Default::default(),
 				horizontal_messages: Default::default(),
 				relay_parent_descendants: Default::default(),
-			},
+			}),
 		)
 		.expect("Put validation function params failed");
 
