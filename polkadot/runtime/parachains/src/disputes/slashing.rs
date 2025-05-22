@@ -19,8 +19,8 @@
 //! Once a dispute is concluded, we want to slash validators who were on the
 //! wrong side of the dispute.
 //! 
-//! A dispute should always result in a slashing offence. There are 3 possible
-//! slash types:
+//! A dispute should always result in an offence. There are 3 possible
+//! offence types:
 //! - `ForInvalidBacked`: A major offence when a validator backed an
 //! invalid block. Main source of economic security.
 //! - `ForInvalidApproved`: A medium offence when a validator approved (NOT backed) an
@@ -41,8 +41,8 @@
 //! in the context of the current block. The `babe` and `grandpa` equivocation
 //! handlers also have to deal with this problem.
 //!
-//! Our implementation looks like a hybrid of `im-online` and `grandpa
-//! equivocation` handlers. Meaning, we submit an `offence` for the concluded
+//! Our implementation looks simillar to the `grandpa
+//! equivocation` handler. Meaning, we submit an `offence` for the concluded
 //! disputes about the current session candidate directly from the runtime. If,
 //! however, the dispute is about a past session, we record unapplied slashes on
 //! chain, without `FullIdentification` of the offenders. Later on, a block
@@ -64,8 +64,7 @@ use alloc::{
 	vec::Vec,
 };
 use polkadot_primitives::{
-	slashing::{DisputeProof, DisputesTimeSlot, PendingSlashes, DisputeOffenceKind},
-	CandidateHash, SessionIndex, ValidatorId, ValidatorIndex,
+	slashing::{DisputesTimeSlot, DisputeProof as DisputeProofV1}, vstaging::{DisputeOffenceKind, PendingSlashes, DisputeProof as DisputeProofV2}, CandidateHash, SessionIndex, ValidatorId, ValidatorIndex
 };
 use scale_info::TypeInfo;
 use sp_runtime::{
@@ -105,7 +104,7 @@ impl<const M: u32> BenchmarkingConfiguration for BenchConfig<M> {
 /// An offence that is filed against the validators that lost a dispute.
 #[derive(TypeInfo)]
 #[cfg_attr(feature = "std", derive(Clone, PartialEq, Eq))]
-pub struct SlashingDisputeOffence<KeyOwnerIdentification> {
+pub struct SlashingOffence<KeyOwnerIdentification> {
 	/// The size of the validator set in that session.
 	pub validator_set_count: ValidatorSetCount,
 	/// Should be unique per dispute.
@@ -120,7 +119,7 @@ pub struct SlashingDisputeOffence<KeyOwnerIdentification> {
 	pub kind: DisputeOffenceKind,
 }
 
-impl<Offender> Offence<Offender> for SlashingDisputeOffence<Offender>
+impl<Offender> Offence<Offender> for SlashingOffence<Offender>
 where
 	Offender: Clone,
 {
@@ -149,7 +148,7 @@ where
 	}
 }
 
-impl<KeyOwnerIdentification> SlashingDisputeOffence<KeyOwnerIdentification> {
+impl<KeyOwnerIdentification> SlashingOffence<KeyOwnerIdentification> {
 	fn new(
 		session_index: SessionIndex,
 		candidate_hash: CandidateHash,
@@ -231,7 +230,7 @@ where
 		let maybe_offenders = Self::maybe_identify_validators(session_index, losers.iter().cloned());
 		if let Some(offenders) = maybe_offenders {
 			let validator_set_count = session_info.discovery_keys.len() as ValidatorSetCount;
-			let offence = SlashingDisputeOffence::new(
+			let offence = SlashingOffence::new(
 				session_index,
 				candidate_hash,
 				validator_set_count,
@@ -309,7 +308,7 @@ pub trait HandleReports<T: Config> {
 
 	/// Report an offence.
 	fn report_offence(
-		offence: SlashingDisputeOffence<T::KeyOwnerIdentification>,
+		offence: SlashingOffence<T::KeyOwnerIdentification>,
 	) -> Result<(), OffenceError>;
 
 	/// Returns true if the offenders at the given time slot has already been
@@ -322,7 +321,7 @@ pub trait HandleReports<T: Config> {
 	/// Create and dispatch a slashing report extrinsic.
 	/// This should be called offchain.
 	fn submit_unsigned_slashing_report(
-		dispute_proof: DisputeProof,
+		dispute_proof: DisputeProofV1,
 		key_owner_proof: T::KeyOwnerProof,
 	) -> Result<(), sp_runtime::TryRuntimeError>;
 }
@@ -331,7 +330,7 @@ impl<T: Config> HandleReports<T> for () {
 	type ReportLongevity = ();
 
 	fn report_offence(
-		_offence: SlashingDisputeOffence<T::KeyOwnerIdentification>,
+		_offence: SlashingOffence<T::KeyOwnerIdentification>,
 	) -> Result<(), OffenceError> {
 		Ok(())
 	}
@@ -344,7 +343,7 @@ impl<T: Config> HandleReports<T> for () {
 	}
 
 	fn submit_unsigned_slashing_report(
-		_dispute_proof: DisputeProof,
+		_dispute_proof: DisputeProofV1,
 		_key_owner_proof: T::KeyOwnerProof,
 	) -> Result<(), sp_runtime::TryRuntimeError> {
 		Ok(())
@@ -448,10 +447,13 @@ pub mod pallet {
 		pub fn report_dispute_lost_unsigned(
 			origin: OriginFor<T>,
 			// box to decrease the size of the call
-			dispute_proof: Box<DisputeProof>,
+			dispute_proof: Box<DisputeProofV1>,
 			key_owner_proof: T::KeyOwnerProof,
 		) -> DispatchResultWithPostInfo {
 			ensure_none(origin)?;
+
+			// Convert DisputeProofV1 to DisputeProofV2
+			let dispute_proof = DisputeProofV2::from(dispute_proof);
 
 			let validator_set_count = key_owner_proof.validator_count() as ValidatorSetCount;
 			// check the membership proof to extract the offender's id
@@ -491,7 +493,7 @@ pub mod pallet {
 
 			<UnappliedSlashes<T>>::try_mutate_exists(&session_index, &candidate_hash, try_remove)?;
 
-			let offence = SlashingDisputeOffence::new(
+			let offence = SlashingOffence::new(
 				session_index,
 				candidate_hash,
 				validator_set_count,
@@ -549,7 +551,7 @@ impl<T: Config> Pallet<T> {
 	}
 
 	pub(crate) fn submit_unsigned_slashing_report(
-		dispute_proof: DisputeProof,
+		dispute_proof: DisputeProofV1,
 		key_ownership_proof: <T as Config>::KeyOwnerProof,
 	) -> Option<()> {
 		T::HandleReports::submit_unsigned_slashing_report(dispute_proof, key_ownership_proof).ok()
@@ -612,7 +614,7 @@ impl<T: Config> Pallet<T> {
 }
 
 fn is_known_offence<T: Config>(
-	dispute_proof: &DisputeProof,
+	dispute_proof: &DisputeProofV1,
 	key_owner_proof: &T::KeyOwnerProof,
 ) -> Result<(), TransactionValidityError> {
 	// check the membership proof to extract the offender's id
@@ -655,14 +657,14 @@ where
 	R: ReportOffence<
 		T::AccountId,
 		T::KeyOwnerIdentification,
-		SlashingDisputeOffence<T::KeyOwnerIdentification>,
+		SlashingOffence<T::KeyOwnerIdentification>,
 	>,
 	L: Get<u64>,
 {
 	type ReportLongevity = L;
 
 	fn report_offence(
-		offence: SlashingDisputeOffence<T::KeyOwnerIdentification>,
+		offence: SlashingOffence<T::KeyOwnerIdentification>,
 	) -> Result<(), OffenceError> {
 		let reporters = Vec::new();
 		R::report_offence(reporters, offence)
@@ -675,12 +677,12 @@ where
 		<R as ReportOffence<
 			T::AccountId,
 			T::KeyOwnerIdentification,
-			SlashingDisputeOffence<T::KeyOwnerIdentification>,
+			SlashingOffence<T::KeyOwnerIdentification>,
 		>>::is_known_offence(offenders, time_slot)
 	}
 
 	fn submit_unsigned_slashing_report(
-		dispute_proof: DisputeProof,
+		dispute_proof: DisputeProofV1,
 		key_owner_proof: <T as Config>::KeyOwnerProof,
 	) -> Result<(), sp_runtime::TryRuntimeError> {
 		use frame_system::offchain::{CreateInherent, SubmitTransaction};
