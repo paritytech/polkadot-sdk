@@ -36,7 +36,9 @@ if [[ "$ZOMBIE_PROVIDER" == "k8s" ]]; then
   echo "Relay nodes:"
   jq -r '.relay.nodes[].name' "$ZOMBIE_JSON" | while read -r name; do
     # Fetching logs from k8s
-    kubectl logs "$name" -c "$name" -n "$NS" > "$TARGET_DIR/$name.log" || echo "WARNING: failed to fetch logs for $name"
+    if ! kubectl logs "$name" -c "$name" -n "$NS" > "$TARGET_DIR/$name.log" ; then
+      echo "::warning ::WARNING: failed to fetch logs for $name"
+    fi
     echo -e "\t$name: $(make_url "$name")"
   done
   echo ""
@@ -46,7 +48,9 @@ if [[ "$ZOMBIE_PROVIDER" == "k8s" ]]; then
     echo "ParaId: $para_id"
     jq -r --arg pid "$para_id" '.parachains[$pid][] .collators[].name' "$ZOMBIE_JSON" | while read -r name; do
       # Fetching logs from k8s
-      kubectl logs "$name" -c "$name" -n "$NS" > "$TARGET_DIR/$name.log" || echo "WARNING: failed to fetch logs for $name"
+      if ! kubectl logs "$name" -c "$name" -n "$NS" > "$TARGET_DIR/$name.log" ; then
+        echo "::warning ::WARNING: failed to fetch logs for $name"
+      fi
       echo -e "\t$name: $(make_url "$name")"
     done
     echo ""

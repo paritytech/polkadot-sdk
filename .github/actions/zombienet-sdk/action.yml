@@ -73,7 +73,9 @@ runs:
       shell: bash
       run: |
         # do not fail the whole run if this step fails
-        ./.github/scripts/process-logs-zombienet-sdk.sh || true
+        if ! ./.github/scripts/process-logs-zombienet-sdk.sh ; then
+          echo "::warning ::WARNING: Failed to process logs"
+        fi
 
     - name: upload_logs
       uses: actions/upload-artifact@v4
