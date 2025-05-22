@@ -1036,7 +1036,7 @@ mod trimming {
 						(40, Support { total: 40, voters: vec![(40, 40)] })
 					],
 					vec![
-						(30, Support { total: 11, voters: vec![(7, 7), (5, 2), (6, 2)] }),
+						(30, Support { total: 11, voters: vec![(5, 2), (6, 2), (7, 7)] }),
 						(40, Support { total: 7, voters: vec![(5, 3), (6, 4)] })
 					],
 					vec![(40, Support { total: 9, voters: vec![(2, 2), (3, 3), (4, 4)] })]
@@ -1080,7 +1080,7 @@ mod trimming {
 					// page only.
 					vec![(40, Support { total: 40, voters: vec![(40, 40)] })],
 					vec![
-						(30, Support { total: 11, voters: vec![(7, 7), (5, 2), (6, 2)] }),
+						(30, Support { total: 11, voters: vec![(5, 2), (6, 2), (7, 7)] }),
 						(40, Support { total: 7, voters: vec![(5, 3), (6, 4)] })
 					],
 					vec![(40, Support { total: 9, voters: vec![(2, 2), (3, 3), (4, 4)] })]
@@ -1122,7 +1122,7 @@ mod trimming {
 				vec![
 					vec![],
 					vec![
-						(30, Support { total: 11, voters: vec![(7, 7), (5, 2), (6, 2)] }),
+						(30, Support { total: 11, voters: vec![(5, 2), (6, 2), (7, 7)] }),
 						(40, Support { total: 7, voters: vec![(5, 3), (6, 4)] })
 					],
 					vec![(40, Support { total: 9, voters: vec![(2, 2), (3, 3), (4, 4)] })]
@@ -1160,11 +1160,11 @@ mod trimming {
 			assert!(VerifierPallet::queued_score().is_some());
 
 			assert_eq!(
-				dbg!(supports),
+				supports,
 				vec![
 					vec![],
 					vec![
-						(30, Support { total: 9, voters: vec![(7, 7), (6, 2)] }),
+						(30, Support { total: 9, voters: vec![(6, 2), (7, 7)] }),
 						(40, Support { total: 4, voters: vec![(6, 4)] })
 					],
 					vec![(40, Support { total: 9, voters: vec![(2, 2), (3, 3), (4, 4)] })]
@@ -1203,7 +1203,7 @@ mod trimming {
 						(40, Support { total: 40, voters: vec![(40, 40)] })
 					],
 					vec![
-						(30, Support { total: 9, voters: vec![(7, 7), (6, 2)] }),
+						(30, Support { total: 9, voters: vec![(6, 2), (7, 7)] }),
 						(40, Support { total: 9, voters: vec![(5, 5), (6, 4)] }) /* notice how
 						                                                          * 5's stake is
 						                                                          * re-distributed
@@ -1287,7 +1287,7 @@ mod trimming {
 						(40, Support { total: 40, voters: vec![(40, 40)] })
 					],
 					vec![
-						(30, Support { total: 14, voters: vec![(5, 5), (7, 7), (6, 2)] }),
+						(30, Support { total: 14, voters: vec![(5, 5), (6, 2), (7, 7)] }),
 						(40, Support { total: 4, voters: vec![(6, 4)] })
 					],
 					vec![(40, Support { total: 7, voters: vec![(3, 3), (4, 4)] })]
@@ -1412,12 +1412,12 @@ mod base_miner {
 			assert_eq!(
 				supports,
 				vec![vec![
-					(10, Support { total: 30, voters: vec![(1, 10), (8, 10), (4, 5), (5, 5)] }),
+					(10, Support { total: 30, voters: vec![(1, 10), (4, 5), (5, 5), (8, 10)] }),
 					(
 						40,
 						Support {
 							total: 40,
-							voters: vec![(2, 10), (3, 10), (6, 10), (4, 5), (5, 5)]
+							voters: vec![(2, 10), (3, 10), (4, 5), (5, 5), (6, 10)]
 						}
 					)
 				]]
@@ -1472,7 +1472,7 @@ mod base_miner {
 						// voter 6 (index 1) is backing 40 (index 3).
 						// voter 8 (index 3) is backing 10 (index 0)
 						votes1: vec![(1, 3), (3, 0)],
-						// voter 5 (index 0) is backing 40 (index 10) and 10 (index 0)
+						// voter 5 (index 0) is backing 40 (index 3) and 10 (index 0)
 						votes2: vec![(0, [(0, PerU16::from_parts(32768))], 3)],
 						..Default::default()
 					},
@@ -1500,8 +1500,8 @@ mod base_miner {
 				vec![
 					// page0, supports from voters 5, 6, 7, 8
 					vec![
-						(10, Support { total: 15, voters: vec![(8, 10), (5, 5)] }),
-						(40, Support { total: 15, voters: vec![(6, 10), (5, 5)] })
+						(10, Support { total: 15, voters: vec![(5, 5), (8, 10)] }),
+						(40, Support { total: 15, voters: vec![(5, 5), (6, 10)] })
 					],
 					// page1 supports from voters 1, 2, 3, 4
 					vec![
@@ -1591,13 +1591,13 @@ mod base_miner {
 					],
 					// page 1: 5, 6, 7, 8
 					vec![
-						(30, Support { total: 20, voters: vec![(7, 10), (5, 5), (6, 5)] }),
+						(30, Support { total: 20, voters: vec![(5, 5), (6, 5), (7, 10)] }),
 						(40, Support { total: 10, voters: vec![(5, 5), (6, 5)] })
 					],
 					// page 2: 1, 2, 3, 4
 					vec![
 						(30, Support { total: 5, voters: vec![(2, 5)] }),
-						(40, Support { total: 25, voters: vec![(3, 10), (4, 10), (2, 5)] })
+						(40, Support { total: 25, voters: vec![(2, 5), (3, 10), (4, 10)] })
 					]
 				]
 				.try_from_unbounded_paged()
@@ -1761,8 +1761,8 @@ mod base_miner {
 					vec![],
 					// supports from voters 5, 6, 7, 8
 					vec![
-						(10, Support { total: 15, voters: vec![(8, 10), (5, 5)] }),
-						(40, Support { total: 15, voters: vec![(6, 10), (5, 5)] })
+						(10, Support { total: 15, voters: vec![(5, 5), (8, 10)] }),
+						(40, Support { total: 15, voters: vec![(5, 5), (6, 10)] })
 					],
 					// supports from voters 1, 2, 3, 4
 					vec![
