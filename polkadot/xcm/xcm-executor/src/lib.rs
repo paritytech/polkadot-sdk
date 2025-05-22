@@ -247,6 +247,7 @@ impl<Config: config::Config> ExecuteXcm<Config::RuntimeCall> for XcmExecutor<Con
 			target: "xcm::execute",
 			?origin,
 			?message,
+			?id,
 			?weight_credit,
 			"Executing message",
 		);
@@ -435,6 +436,14 @@ impl<Config: config::Config> XcmExecutor<Config> {
 		msg: Xcm<()>,
 		reason: FeeReason,
 	) -> Result<XcmHash, XcmError> {
+		let mut msg = msg;
+		// Only the last `SetTopic` instruction is considered relevant. If the message does not end
+		// with it, a `topic_or_message_id()` from the context is appended to it. This behaviour is
+		// then consistent with `WithUniqueTopic`.
+		if !matches!(msg.last(), Some(SetTopic(_))) {
+			let topic_id = self.context.topic_or_message_id();
+			msg.0.push(SetTopic(topic_id.into()));
+		}
 		tracing::trace!(
 			target: "xcm::send",
 			?msg,
@@ -461,7 +470,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 					self.original_origin.clone(),
 					dest,
 					error.clone(),
-					self.context.message_id,
+					self.context.topic_or_message_id(),
 				);
 				Err(error.into())
 			},
@@ -856,7 +865,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 						Config::XcmEventEmitter::emit_process_failure_event(
 							self.original_origin.clone(),
 							error,
-							self.context.message_id,
+							self.context.topic_or_message_id(),
 						);
 						*r = Err(ExecutorError {
 							index: i as u32,

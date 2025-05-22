@@ -35,6 +35,7 @@ pub trait WeightInfo {
 	fn register_token() -> Weight;
 	fn upgrade() -> Weight;
 	fn set_operating_mode() -> Weight;
+	fn add_tip() -> Weight;
 }
 
 // For backwards compatibility and tests.
@@ -85,5 +86,19 @@ impl WeightInfo for () {
 		Weight::from_parts(31_000_000, 3517)
 			.saturating_add(RocksDbWeight::get().reads(4_u64))
 			.saturating_add(RocksDbWeight::get().writes(3_u64))
+	}
+	/// Storage: `EthereumInboundQueueV2::NonceBitmap` (r:1 w:0)
+	/// Proof: `EthereumInboundQueueV2::NonceBitmap` (`max_values`: None, `max_size`: Some(40), added: 2515, mode: `MaxEncodedLen`)
+	/// Storage: `EthereumInboundQueueV2::Tips` (r:1 w:1)
+	/// Proof: `EthereumInboundQueueV2::Tips` (`max_values`: None, `max_size`: Some(32), added: 2507, mode: `MaxEncodedLen`)
+	fn add_tip() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `3`
+		//  Estimated: `3505`
+		// Minimum execution time: 5_000_000 picoseconds.
+		Weight::from_parts(6_000_000, 0)
+			.saturating_add(Weight::from_parts(0, 3505))
+			.saturating_add(RocksDbWeight::get().reads(2))
+			.saturating_add(RocksDbWeight::get().writes(1))
 	}
 }

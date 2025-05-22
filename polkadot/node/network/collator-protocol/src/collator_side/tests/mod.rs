@@ -559,9 +559,9 @@ fn v1_protocol_rejected() {
 
 				assert_matches!(
 					overseer_recv(virtual_overseer).await,
-					AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::DisconnectPeer(bad_peer, peer_set)) => {
+					AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::DisconnectPeers(bad_peers, peer_set)) => {
 						assert_eq!(peer_set, PeerSet::Collation);
-						assert_eq!(bad_peer, peer);
+						assert_eq!(bad_peers, vec![peer]);
 					}
 				);
 			}
@@ -1187,10 +1187,10 @@ fn collators_reject_declare_messages() {
 
 			assert_matches!(
 				overseer_recv(virtual_overseer).await,
-				AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::DisconnectPeer(
+				AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::DisconnectPeers(
 					p,
 					PeerSet::Collation,
-				)) if p == peer
+				)) if p == vec![peer]
 			);
 			test_harness
 		},

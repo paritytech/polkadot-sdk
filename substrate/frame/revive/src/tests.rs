@@ -4165,16 +4165,16 @@ fn tracing_works_for_transfers() {
 			builder::bare_call(BOB_ADDR).value(10_000_000).build_and_unwrap_result();
 		});
 
-		let traces = tracer.collect_traces();
+		let trace = tracer.collect_trace();
 		assert_eq!(
-			traces,
-			vec![CallTrace {
+			trace,
+			Some(CallTrace {
 				from: ALICE_ADDR,
 				to: BOB_ADDR,
 				value: Some(U256::from(10_000_000)),
 				call_type: CallType::Call,
 				..Default::default()
-			},]
+			})
 		)
 	});
 }
@@ -4208,8 +4208,8 @@ fn tracing_works() {
 		let gas_used = trace(&mut tracer, || {
 			builder::bare_call(addr).data((3u32, addr_callee).encode()).build().gas_consumed
 		});
-		let traces = tracer.collect_traces();
-		assert_eq!(&traces[0].gas_used, &gas_used);
+		let trace = tracer.collect_trace().unwrap();
+		assert_eq!(&trace.gas_used, &gas_used);
 		*/
 
 		// Discarding gas usage, check that traces reported are correct
@@ -4316,8 +4316,8 @@ fn tracing_works() {
 				builder::bare_call(addr).data((3u32, addr_callee).encode()).build()
 			});
 
-			let traces = tracer.collect_traces();
-			let expected_traces = vec![CallTrace {
+			let trace = tracer.collect_trace();
+			let expected_trace = CallTrace {
 					from: ALICE_ADDR,
 					to: addr,
 					input: (3u32, addr_callee).encode().into(),
@@ -4326,11 +4326,11 @@ fn tracing_works() {
 					value: Some(U256::from(0)),
 					calls: calls,
 					..Default::default()
-				},];
+				};
 
 			assert_eq!(
-				traces,
-				expected_traces,
+				trace,
+				expected_trace.into(),
 			);
 		}
 	});
@@ -4564,4 +4564,47 @@ fn precompiles_with_info_creates_contract() {
 			);
 		});
 	}
+}
+
+#[test]
+fn nonce_incremented_dry_run_vs_execute() {
+	let (wasm, _code_hash) = compile_module("dummy").unwrap();
+
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+
+		// Set a known nonce
+		let initial_nonce = 5;
+		frame_system::Account::<Test>::mutate(&ALICE, |account| {
+			account.nonce = initial_nonce;
+		});
+
+		// stimulate a dry run
+		let dry_run_result = builder::bare_instantiate(Code::Upload(wasm.clone()))
+			.nonce_already_incremented(crate::NonceAlreadyIncremented::No)
+			.salt(None)
+			.build();
+
+		let dry_run_addr = dry_run_result.result.unwrap().addr;
+
+		let deployer = <Test as Config>::AddressMapper::to_address(&ALICE);
+		let expected_addr = create1(&deployer, initial_nonce.into());
+
+		assert_eq!(dry_run_addr, expected_addr);
+
+		// reset nonce to initial value
+		frame_system::Account::<Test>::mutate(&ALICE, |account| {
+			account.nonce = initial_nonce;
+		});
+
+		// stimulate an actual execution
+		let exec_result = builder::bare_instantiate(Code::Upload(wasm.clone())).salt(None).build();
+
+		let exec_addr = exec_result.result.unwrap().addr;
+
+		let deployer = <Test as Config>::AddressMapper::to_address(&ALICE);
+		let expected_addr = create1(&deployer, (initial_nonce - 1).into());
+
+		assert_eq!(exec_addr, expected_addr);
+	});
 }
