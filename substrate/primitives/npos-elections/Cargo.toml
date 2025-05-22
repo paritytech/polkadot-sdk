@@ -1,6 +1,6 @@
 [package]
 name = "sp-npos-elections"
-version = "36.1.0"
+version = "36.2.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -24,7 +24,7 @@ sp-core.workspace = true
 sp-runtime.workspace = true
 
 [dev-dependencies]
-substrate-test-utils = { workspace = true }
+substrate-test-utils = { path = "../../test-utils" }
 
 [features]
 default = ["std"]

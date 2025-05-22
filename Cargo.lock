@@ -5745,7 +5745,7 @@ dependencies = [
 
 [[package]]
 name = "emulated-integration-tests-common"
-version = "20.0.1"
+version = "20.1.0"
 dependencies = [
  "asset-test-utils",
  "bp-messages",
@@ -6520,7 +6520,7 @@ dependencies = [
 
 [[package]]
 name = "frame-election-provider-solution-type"
-version = "16.1.0"
+version = "16.1.1"
 dependencies = [
  "frame-election-provider-support",
  "frame-support",
@@ -6536,7 +6536,7 @@ dependencies = [
 
 [[package]]
 name = "frame-election-provider-support"
-version = "40.1.0"
+version = "40.1.1"
 dependencies = [
  "frame-election-provider-solution-type",
  "frame-support",
@@ -11799,7 +11799,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-election-provider-multi-phase"
-version = "39.1.0"
+version = "39.2.0"
 dependencies = [
  "frame-benchmarking",
  "frame-election-provider-support",
@@ -13325,7 +13325,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-xcm"
-version = "19.1.0"
+version = "19.1.1"
 dependencies = [
  "bounded-collections",
  "frame-benchmarking",
@@ -13371,7 +13371,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-xcm-bridge-hub"
-version = "0.16.1"
+version = "0.16.2"
 dependencies = [
  "bp-header-chain",
  "bp-messages",
@@ -22768,7 +22768,7 @@ dependencies = [
 
 [[package]]
 name = "sp-npos-elections"
-version = "36.1.0"
+version = "36.2.0"
 dependencies = [
  "parity-scale-codec",
  "scale-info",
@@ -23823,7 +23823,7 @@ version = "2.0.0"
 
 [[package]]
 name = "staging-xcm"
-version = "16.1.0"
+version = "16.2.0"
 dependencies = [
  "array-bytes",
  "bounded-collections",
@@ -23845,7 +23845,7 @@ dependencies = [
 
 [[package]]
 name = "staging-xcm-builder"
-version = "20.1.0"
+version = "20.1.1"
 dependencies = [
  "environmental",
  "frame-support",
@@ -23877,7 +23877,7 @@ dependencies = [
 
 [[package]]
 name = "staging-xcm-executor"
-version = "19.1.1"
+version = "19.1.2"
 dependencies = [
  "environmental",
  "frame-benchmarking",
@@ -27579,7 +27579,7 @@ dependencies = [
 
 [[package]]
 name = "xcm-emulator"
-version = "0.19.2"
+version = "0.19.3"
 dependencies = [
  "array-bytes",
  "cumulus-pallet-parachain-system",
@@ -27649,7 +27649,7 @@ dependencies = [
 
 [[package]]
 name = "xcm-runtime-apis"
-version = "0.7.0"
+version = "0.7.1"
 dependencies = [
  "frame-executive",
  "frame-support",
@@ -27673,7 +27673,7 @@ dependencies = [
 
 [[package]]
 name = "xcm-simulator"
-version = "20.0.0"
+version = "20.1.0"
 dependencies = [
  "frame-support",
  "frame-system",
@@ -27693,7 +27693,7 @@ dependencies = [
 
 [[package]]
 name = "xcm-simulator-example"
-version = "20.0.0"
+version = "20.0.1"
 dependencies = [
  "frame-support",
  "frame-system",
