@@ -55,11 +55,11 @@ use frame_support::{
 };
 use frame_system::{ensure_none, ensure_root, pallet_prelude::HeaderFor};
 use polkadot_parachain_primitives::primitives::RelayChainBlockNumber;
-use polkadot_runtime_parachains::FeeTracker;
+use polkadot_runtime_parachains::{FeeTracker, GetMinFeeFactor};
 use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{Block as BlockT, BlockNumberProvider, Hash, One},
-	BoundedSlice, FixedU128, RuntimeDebug, Saturating,
+	BoundedSlice, FixedU128, RuntimeDebug,
 };
 use xcm::{latest::XcmHash, VersionedLocation, VersionedXcm, MAX_XCM_DECODE_DEPTH};
 use xcm_builder::InspectMessageQueues;
@@ -181,17 +181,10 @@ impl CheckAssociatedRelayNumber for RelayNumberMonotonicallyIncreases {
 pub type MaxDmpMessageLenOf<T> = <<T as Config>::DmpQueue as HandleMessage>::MaxMessageLen;
 
 pub mod ump_constants {
-	use super::FixedU128;
-
 	/// `host_config.max_upward_queue_size / THRESHOLD_FACTOR` is the threshold after which delivery
 	/// starts getting exponentially more expensive.
 	/// `2` means the price starts to increase when queue is half full.
 	pub const THRESHOLD_FACTOR: u32 = 2;
-	/// The base number the delivery fee factor gets multiplied by every time it is increased.
-	/// Also the number it gets divided by when decreased.
-	pub const EXPONENTIAL_FEE_BASE: FixedU128 = FixedU128::from_rational(105, 100); // 1.05
-	/// The base number message size in KB is multiplied by before increasing the fee factor.
-	pub const MESSAGE_SIZE_FEE_BASE: FixedU128 = FixedU128::from_rational(1, 1000); // 0.001
 }
 
 /// Trait for selecting the next core to build the candidate for.
@@ -960,16 +953,10 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type PendingUpwardMessages<T: Config> = StorageValue<_, Vec<UpwardMessage>, ValueQuery>;
 
-	/// Initialization value for the delivery fee factor for UMP.
-	#[pallet::type_value]
-	pub fn UpwardInitialDeliveryFeeFactor() -> FixedU128 {
-		FixedU128::from_u32(1)
-	}
-
 	/// The factor to multiply the base delivery fee by for UMP.
 	#[pallet::storage]
 	pub type UpwardDeliveryFeeFactor<T: Config> =
-		StorageValue<_, FixedU128, ValueQuery, UpwardInitialDeliveryFeeFactor>;
+		StorageValue<_, FixedU128, ValueQuery, GetMinFeeFactor<Pallet<T>>>;
 
 	/// The number of HRMP messages we observed in `on_initialize` and thus used that number for
 	/// announcing the weight of `on_initialize` and `on_finalize`.
@@ -1064,25 +1051,12 @@ impl<T: Config> Pallet<T> {
 impl<T: Config> FeeTracker for Pallet<T> {
 	type Id = ();
 
-	fn get_fee_factor(_: Self::Id) -> FixedU128 {
+	fn get_fee_factor(_id: Self::Id) -> FixedU128 {
 		UpwardDeliveryFeeFactor::<T>::get()
 	}
 
-	fn increase_fee_factor(_: Self::Id, message_size_factor: FixedU128) -> FixedU128 {
-		<UpwardDeliveryFeeFactor<T>>::mutate(|f| {
-			*f = f.saturating_mul(
-				ump_constants::EXPONENTIAL_FEE_BASE.saturating_add(message_size_factor),
-			);
-			*f
-		})
-	}
-
-	fn decrease_fee_factor(_: Self::Id) -> FixedU128 {
-		<UpwardDeliveryFeeFactor<T>>::mutate(|f| {
-			*f =
-				UpwardInitialDeliveryFeeFactor::get().max(*f / ump_constants::EXPONENTIAL_FEE_BASE);
-			*f
-		})
+	fn set_fee_factor(_id: Self::Id, val: FixedU128) {
+		UpwardDeliveryFeeFactor::<T>::set(val);
 	}
 }
 
@@ -1662,9 +1636,7 @@ impl<T: Config> Pallet<T> {
 			let total_size: usize = pending_messages.iter().map(UpwardMessage::len).sum();
 			if total_size > threshold as usize {
 				// We increase the fee factor by a factor based on the new message's size in KB
-				let message_size_factor = FixedU128::from((message_len / 1024) as u128)
-					.saturating_mul(ump_constants::MESSAGE_SIZE_FEE_BASE);
-				Self::increase_fee_factor((), message_size_factor);
+				Self::increase_fee_factor((), message_len as u128);
 			}
 		} else {
 			// This storage field should carry over from the previous block. So if it's None
@@ -1696,6 +1668,42 @@ impl<T: Config> Pallet<T> {
 impl<T: Config> UpwardMessageSender for Pallet<T> {
 	fn send_upward_message(message: UpwardMessage) -> Result<(u32, XcmHash), MessageSendError> {
 		Self::send_upward_message(message)
+	}
+
+	fn can_send_upward_message(message: &UpwardMessage) -> Result<(), MessageSendError> {
+		let max_upward_message_size = HostConfiguration::<T>::get()
+			.map(|cfg| cfg.max_upward_message_size)
+			.ok_or(MessageSendError::Other)?;
+		if message.len() > max_upward_message_size as usize {
+			Err(MessageSendError::TooBig)
+		} else {
+			Ok(())
+		}
+	}
+
+	#[cfg(any(feature = "std", feature = "runtime-benchmarks", test))]
+	fn ensure_successful_delivery() {
+		const MAX_UPWARD_MESSAGE_SIZE: u32 = 65_531 * 3;
+		const MAX_CODE_SIZE: u32 = 3 * 1024 * 1024;
+		HostConfiguration::<T>::mutate(|cfg| match cfg {
+			Some(cfg) => cfg.max_upward_message_size = MAX_UPWARD_MESSAGE_SIZE,
+			None =>
+				*cfg = Some(AbridgedHostConfiguration {
+					max_code_size: MAX_CODE_SIZE,
+					max_head_data_size: 32 * 1024,
+					max_upward_queue_count: 8,
+					max_upward_queue_size: 1024 * 1024,
+					max_upward_message_size: MAX_UPWARD_MESSAGE_SIZE,
+					max_upward_message_num_per_candidate: 2,
+					hrmp_max_message_num_per_candidate: 2,
+					validation_upgrade_cooldown: 2,
+					validation_upgrade_delay: 2,
+					async_backing_params: relay_chain::AsyncBackingParams {
+						allowed_ancestry_len: 0,
+						max_candidate_depth: 0,
+					},
+				}),
+		})
 	}
 }
 

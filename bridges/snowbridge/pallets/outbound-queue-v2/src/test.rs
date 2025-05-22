@@ -4,7 +4,7 @@ use crate::{mock::*, *};
 use alloy_core::primitives::FixedBytes;
 use codec::Encode;
 use frame_support::{
-	assert_err, assert_ok,
+	assert_err, assert_noop, assert_ok,
 	traits::{Hooks, ProcessMessage, ProcessMessageError, QueueFootprintQuery},
 	weights::WeightMeter,
 	BoundedVec,
@@ -302,4 +302,46 @@ fn encode_register_pna() {
 	let message_abi_encoded = encode_mock_message(message);
 	println!("{}", HexDisplay::from(&message_abi_encoded));
 	assert_eq!(hex!("000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000003e80000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000800000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000000030000000000000000000000000000000000000000000000000000000000124f80000000000000000000000000000000000000000000000000000000000000006000000000000000000000000000000000000000000000000000000000000000e000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000008000000000000000000000000000000000000000000000000000000000000000a0000000000000000000000000000000000000000000000000000000000000000c00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000").to_vec(), message_abi_encoded)
+}
+
+#[test]
+fn test_add_tip_cumulative() {
+	new_tester().execute_with(|| {
+		let nonce = 1;
+		let initial_fee = 1000;
+		let additional_fee = 500;
+		let current_block = System::block_number();
+		let order = PendingOrder { nonce, fee: initial_fee, block_number: current_block };
+		PendingOrders::<Test>::insert(nonce, order);
+		assert_ok!(OutboundQueue::add_tip(nonce, additional_fee));
+		let order_after = PendingOrders::<Test>::get(nonce).unwrap();
+		assert_eq!(order_after.fee, initial_fee + additional_fee);
+	});
+}
+
+#[test]
+fn test_add_tip_fails_no_pending_order() {
+	new_tester().execute_with(|| {
+		let nonce = 42;
+		let amount = 1000;
+		assert_noop!(OutboundQueue::add_tip(nonce, amount), AddTipError::UnknownMessage);
+	});
+}
+
+#[test]
+fn test_add_tip_fails_amount_zero() {
+	new_tester().execute_with(|| {
+		let nonce = 1;
+		let initial_fee = 1000;
+		let zero_amount = 0;
+		let current_block = System::block_number();
+		let order = PendingOrder { nonce, fee: initial_fee, block_number: current_block };
+		PendingOrders::<Test>::insert(nonce, order);
+
+		assert_noop!(OutboundQueue::add_tip(nonce, zero_amount), AddTipError::AmountZero);
+
+		// Verify the original fee is unchanged
+		let order_after = PendingOrders::<Test>::get(nonce).unwrap();
+		assert_eq!(order_after.fee, initial_fee);
+	});
 }
