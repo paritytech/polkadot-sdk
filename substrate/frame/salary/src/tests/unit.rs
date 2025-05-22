@@ -736,7 +736,7 @@ fn task_execution_fails_for_invalid_task() {
 			System::do_task(
 				RuntimeOrigin::signed(1),
 				<Test as frame_system::Config>::RuntimeTask::Salary(
-					crate::SalaryTask::<Test>::BumpOffchain {}
+					crate::Task::<Test>::BumpOffchain {}
 				),
 			),
 			frame_system::Error::<Test>::InvalidTask
