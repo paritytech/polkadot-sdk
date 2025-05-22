@@ -142,7 +142,7 @@ where
 	}
 
 	// If matching on the extra subcommands fails, match on the rest of the node CLI as usual.
-	let mut cli: Cli<CliConfig> =
+	let mut cli =
 		Cli::<CliConfig>::from_arg_matches(&matches).map_err(|e| sc_cli::Error::Cli(e.into()))?;
 	cli.chain_spec_loader = Some(cmd_config.chain_spec_loader);
 
