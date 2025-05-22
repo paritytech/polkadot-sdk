@@ -113,7 +113,18 @@ impl pallet_assets::Config for Test {
 }
 
 #[derive(
-	Decode, Encode, MaxEncodedLen, PartialEq, Eq, Ord, PartialOrd, TypeInfo, Debug, Clone, Copy,
+	Decode,
+	DecodeWithMemTracking,
+	Encode,
+	MaxEncodedLen,
+	PartialEq,
+	Eq,
+	Ord,
+	PartialOrd,
+	TypeInfo,
+	Debug,
+	Clone,
+	Copy,
 )]
 pub enum DummyFreezeReason {
 	Governance,

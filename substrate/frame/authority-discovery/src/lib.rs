@@ -210,12 +210,8 @@ mod tests {
 		type ValidatorId = AuthorityId;
 		type ValidatorIdOf = ConvertInto;
 		type NextSessionRotation = pallet_session::PeriodicSessions<Period, Offset>;
+		type DisablingStrategy = ();
 		type WeightInfo = ();
-	}
-
-	impl pallet_session::historical::Config for Test {
-		type FullIdentification = ();
-		type FullIdentificationOf = ();
 	}
 
 	pub type BlockNumber = u64;

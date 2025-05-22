@@ -62,7 +62,18 @@ pub struct CollectionDetails<AccountId, DepositBalance> {
 }
 
 /// Witness data for the destroy transactions.
-#[derive(Copy, Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(
+	Copy,
+	Clone,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	Eq,
+	PartialEq,
+	RuntimeDebug,
+	TypeInfo,
+	MaxEncodedLen,
+)]
 pub struct DestroyWitness {
 	/// The total number of outstanding items of this collection.
 	#[codec(compact)]
@@ -129,4 +140,26 @@ pub struct ItemMetadata<DepositBalance, StringLimit: Get<u32>> {
 	pub data: BoundedVec<u8, StringLimit>,
 	/// Whether the item metadata may be changed by a non Force origin.
 	pub is_frozen: bool,
+}
+
+pub mod asset_strategies {
+	use super::*;
+	use frame_support::traits::tokens::asset_ops::common_strategies::{
+		Admin, ConfigValue, Owner, PredefinedId, WithConfig,
+	};
+
+	pub struct Attribute<'a>(pub &'a [u8]);
+
+	pub type CollectionManagers<AccountId> =
+		(ConfigValue<Owner<AccountId>>, ConfigValue<Admin<AccountId>>);
+
+	pub type WithCollectionConfig<T, I = ()> = WithConfig<
+		CollectionManagers<<T as frame_system::Config>::AccountId>,
+		PredefinedId<<T as Config<I>>::CollectionId>,
+	>;
+
+	pub type WithItemConfig<T, I = ()> = WithConfig<
+		ConfigValue<Owner<<T as frame_system::Config>::AccountId>>,
+		PredefinedId<(<T as Config<I>>::CollectionId, <T as Config<I>>::ItemId)>,
+	>;
 }

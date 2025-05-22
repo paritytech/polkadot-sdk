@@ -1,0 +1,188 @@
+error[E0277]: the trait bound `Option<u8>: RIType` is not satisfied
+  --> tests/ui/improperly_wrapped_ri_type.rs:23:2
+   |
+23 |     #[runtime_interface]
+   |     ^^^^^^^^^^^^^^^^^^^^ the trait `RIType` is not implemented for `Option<u8>`
+   |
+   = help: the following other types implement trait `RIType`:
+             AllocateAndReturnByCodec<T>
+             AllocateAndReturnFatPointer<T>
+             AllocateAndReturnPointer<T, N>
+             PassAs<T, U>
+             PassFatPointerAndDecode<T>
+             PassFatPointerAndDecodeSlice<T>
+             PassFatPointerAndRead<T>
+             PassFatPointerAndReadWrite<T>
+           and $N others
+   = note: this error originates in the attribute macro `runtime_interface` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0277]: the trait bound `Option<u8>: RIType` is not satisfied
+  --> tests/ui/improperly_wrapped_ri_type.rs:23:2
+   |
+23 |     #[runtime_interface]
+   |     ^^^^^^^^^^^^^^^^^^^^ the trait `RIType` is not implemented for `Option<u8>`
+   |
+   = help: the following other types implement trait `RIType`:
+             AllocateAndReturnByCodec<T>
+             AllocateAndReturnFatPointer<T>
+             AllocateAndReturnPointer<T, N>
+             PassAs<T, U>
+             PassFatPointerAndDecode<T>
+             PassFatPointerAndDecodeSlice<T>
+             PassFatPointerAndRead<T>
+             PassFatPointerAndReadWrite<T>
+           and $N others
+
+error[E0277]: the trait bound `Option<u8>: RIType` is not satisfied
+  --> tests/ui/improperly_wrapped_ri_type.rs:25:9
+   |
+25 |         fn test(&self, a: Option<u8>) -> Option<u8> {}
+   |         ^^ the trait `RIType` is not implemented for `Option<u8>`
+   |
+   = help: the following other types implement trait `RIType`:
+             AllocateAndReturnByCodec<T>
+             AllocateAndReturnFatPointer<T>
+             AllocateAndReturnPointer<T, N>
+             PassAs<T, U>
+             PassFatPointerAndDecode<T>
+             PassFatPointerAndDecodeSlice<T>
+             PassFatPointerAndRead<T>
+             PassFatPointerAndReadWrite<T>
+           and $N others
+
+error[E0277]: the trait bound `Option<u8>: RIType` is not satisfied
+  --> tests/ui/improperly_wrapped_ri_type.rs:25:24
+   |
+25 |         fn test(&self, a: Option<u8>) -> Option<u8> {}
+   |                        ^ the trait `RIType` is not implemented for `Option<u8>`
+   |
+   = help: the following other types implement trait `RIType`:
+             AllocateAndReturnByCodec<T>
+             AllocateAndReturnFatPointer<T>
+             AllocateAndReturnPointer<T, N>
+             PassAs<T, U>
+             PassFatPointerAndDecode<T>
+             PassFatPointerAndDecodeSlice<T>
+             PassFatPointerAndRead<T>
+             PassFatPointerAndReadWrite<T>
+           and $N others
+
+error[E0277]: the trait bound `Option<u8>: RIType` is not satisfied
+  --> tests/ui/improperly_wrapped_ri_type.rs:25:53
+   |
+25 |         fn test(&self, a: Option<u8>) -> Option<u8> {}
+   |                                                     ^^ the trait `RIType` is not implemented for `Option<u8>`
+   |
+   = help: the following other types implement trait `RIType`:
+             AllocateAndReturnByCodec<T>
+             AllocateAndReturnFatPointer<T>
+             AllocateAndReturnPointer<T, N>
+             PassAs<T, U>
+             PassFatPointerAndDecode<T>
+             PassFatPointerAndDecodeSlice<T>
+             PassFatPointerAndRead<T>
+             PassFatPointerAndReadWrite<T>
+           and $N others
+
+error[E0277]: the trait bound `Option<u8>: FromFFIValue<'_>` is not satisfied
+  --> tests/ui/improperly_wrapped_ri_type.rs:25:27
+   |
+25 |         fn test(&self, a: Option<u8>) -> Option<u8> {}
+   |                           ^^^^^^^^^^ the trait `FromFFIValue<'_>` is not implemented for `Option<u8>`
+   |
+   = help: the following other types implement trait `FromFFIValue<'a>`:
+             PassAs<T, U>
+             PassFatPointerAndDecode<T>
+             PassFatPointerAndDecodeSlice<&'a [T]>
+             PassFatPointerAndRead<&'a [u8]>
+             PassFatPointerAndRead<&'a str>
+             PassFatPointerAndRead<Vec<u8>>
+             PassFatPointerAndReadWrite<&'a mut [u8]>
+             PassPointerAndRead<&'a T, N>
+           and $N others
+
+error[E0277]: the trait bound `Option<u8>: IntoFFIValue` is not satisfied
+  --> tests/ui/improperly_wrapped_ri_type.rs:25:42
+   |
+25 |         fn test(&self, a: Option<u8>) -> Option<u8> {}
+   |                                          ^^^^^^^^^^ the trait `IntoFFIValue` is not implemented for `Option<u8>`
+   |
+   = help: the following other types implement trait `IntoFFIValue`:
+             AllocateAndReturnByCodec<T>
+             AllocateAndReturnFatPointer<T>
+             AllocateAndReturnPointer<T, N>
+             ReturnAs<T, U>
+             bool
+             i16
+             i32
+             i64
+           and $N others
+
+error[E0277]: the trait bound `Option<u8>: FromFFIValue<'_>` is not satisfied
+  --> tests/ui/improperly_wrapped_ri_type.rs:25:24
+   |
+25 |         fn test(&self, a: Option<u8>) -> Option<u8> {}
+   |                        ^ the trait `FromFFIValue<'_>` is not implemented for `Option<u8>`
+   |
+   = help: the following other types implement trait `FromFFIValue<'a>`:
+             PassAs<T, U>
+             PassFatPointerAndDecode<T>
+             PassFatPointerAndDecodeSlice<&'a [T]>
+             PassFatPointerAndRead<&'a [u8]>
+             PassFatPointerAndRead<&'a str>
+             PassFatPointerAndRead<Vec<u8>>
+             PassFatPointerAndReadWrite<&'a mut [u8]>
+             PassPointerAndRead<&'a T, N>
+           and $N others
+
+error[E0277]: the trait bound `Option<u8>: FromFFIValue<'_>` is not satisfied
+  --> tests/ui/improperly_wrapped_ri_type.rs:23:2
+   |
+23 |     #[runtime_interface]
+   |     ^^^^^^^^^^^^^^^^^^^^ the trait `FromFFIValue<'_>` is not implemented for `Option<u8>`
+   |
+   = help: the following other types implement trait `FromFFIValue<'a>`:
+             PassAs<T, U>
+             PassFatPointerAndDecode<T>
+             PassFatPointerAndDecodeSlice<&'a [T]>
+             PassFatPointerAndRead<&'a [u8]>
+             PassFatPointerAndRead<&'a str>
+             PassFatPointerAndRead<Vec<u8>>
+             PassFatPointerAndReadWrite<&'a mut [u8]>
+             PassPointerAndRead<&'a T, N>
+           and $N others
+   = note: this error originates in the attribute macro `runtime_interface` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0277]: the trait bound `Option<u8>: RIType` is not satisfied
+  --> tests/ui/improperly_wrapped_ri_type.rs:25:27
+   |
+25 |         fn test(&self, a: Option<u8>) -> Option<u8> {}
+   |                           ^^^^^^^^^^ the trait `RIType` is not implemented for `Option<u8>`
+   |
+   = help: the following other types implement trait `RIType`:
+             AllocateAndReturnByCodec<T>
+             AllocateAndReturnFatPointer<T>
+             AllocateAndReturnPointer<T, N>
+             PassAs<T, U>
+             PassFatPointerAndDecode<T>
+             PassFatPointerAndDecodeSlice<T>
+             PassFatPointerAndRead<T>
+             PassFatPointerAndReadWrite<T>
+           and $N others
+
+error[E0277]: the trait bound `Option<u8>: RIType` is not satisfied
+  --> tests/ui/improperly_wrapped_ri_type.rs:25:42
+   |
+25 |         fn test(&self, a: Option<u8>) -> Option<u8> {}
+   |                                          ^^^^^^^^^^ the trait `RIType` is not implemented for `Option<u8>`
+   |
+   = help: the following other types implement trait `RIType`:
+             AllocateAndReturnByCodec<T>
+             AllocateAndReturnFatPointer<T>
+             AllocateAndReturnPointer<T, N>
+             PassAs<T, U>
+             PassFatPointerAndDecode<T>
+             PassFatPointerAndDecodeSlice<T>
+             PassFatPointerAndRead<T>
+             PassFatPointerAndReadWrite<T>
+           and $N others

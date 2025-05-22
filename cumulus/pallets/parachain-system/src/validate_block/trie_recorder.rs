@@ -96,21 +96,13 @@ pub(crate) struct SizeOnlyRecorderProvider<H: Hasher> {
 	recorded_keys: Rc<RefCell<BTreeMap<Rc<[u8]>, RecordedForKey>>>,
 }
 
-impl<H: Hasher> SizeOnlyRecorderProvider<H> {
-	/// Create a new instance of [`SizeOnlyRecorderProvider`]
-	pub fn new() -> Self {
+impl<H: Hasher> Default for SizeOnlyRecorderProvider<H> {
+	fn default() -> Self {
 		Self {
 			seen_nodes: Default::default(),
 			encoded_size: Default::default(),
 			recorded_keys: Default::default(),
 		}
-	}
-
-	/// Reset the internal state.
-	pub fn reset(&self) {
-		self.seen_nodes.borrow_mut().clear();
-		*self.encoded_size.borrow_mut() = 0;
-		self.recorded_keys.borrow_mut().clear();
 	}
 }
 
@@ -204,13 +196,13 @@ mod tests {
 		for _ in 1..10 {
 			let reference_recorder = Recorder::default();
 			let recorder_for_test: SizeOnlyRecorderProvider<sp_core::Blake2Hasher> =
-				SizeOnlyRecorderProvider::new();
+				SizeOnlyRecorderProvider::default();
 			let reference_cache: SharedTrieCache<sp_core::Blake2Hasher> =
-				SharedTrieCache::new(CacheSize::new(1024 * 5));
+				SharedTrieCache::new(CacheSize::new(1024 * 5), None);
 			let cache_for_test: SharedTrieCache<sp_core::Blake2Hasher> =
-				SharedTrieCache::new(CacheSize::new(1024 * 5));
+				SharedTrieCache::new(CacheSize::new(1024 * 5), None);
 			{
-				let local_cache = cache_for_test.local_cache();
+				let local_cache = cache_for_test.local_cache_untrusted();
 				let mut trie_cache_for_reference = local_cache.as_trie_db_cache(root);
 				let mut reference_trie_recorder = reference_recorder.as_trie_recorder(root);
 				let reference_trie =
@@ -219,7 +211,7 @@ mod tests {
 						.with_cache(&mut trie_cache_for_reference)
 						.build();
 
-				let local_cache_for_test = reference_cache.local_cache();
+				let local_cache_for_test = reference_cache.local_cache_untrusted();
 				let mut trie_cache_for_test = local_cache_for_test.as_trie_db_cache(root);
 				let mut trie_recorder_under_test = recorder_for_test.as_trie_recorder(root);
 				let test_trie =
@@ -259,7 +251,7 @@ mod tests {
 		for _ in 1..10 {
 			let reference_recorder = Recorder::default();
 			let recorder_for_test: SizeOnlyRecorderProvider<sp_core::Blake2Hasher> =
-				SizeOnlyRecorderProvider::new();
+				SizeOnlyRecorderProvider::default();
 			{
 				let mut reference_trie_recorder = reference_recorder.as_trie_recorder(root);
 				let reference_trie =
@@ -292,9 +284,6 @@ mod tests {
 				reference_recorder.estimate_encoded_size(),
 				recorder_for_test.estimate_encoded_size()
 			);
-
-			recorder_for_test.reset();
-			assert_eq!(recorder_for_test.estimate_encoded_size(), 0)
 		}
 	}
 }

@@ -18,9 +18,9 @@
 //! This instantiates another contract and passes some input to its constructor.
 #![no_std]
 #![no_main]
+include!("../panic_handler.rs");
 
-use common::{input, u256_bytes};
-use uapi::{HostFn, HostFnImpl as api, StorageFlags};
+use uapi::{input, u256_bytes, HostFn, HostFnImpl as api, StorageFlags};
 
 static BUFFER: [u8; 16 * 1024 + 1] = [0u8; 16 * 1024 + 1];
 

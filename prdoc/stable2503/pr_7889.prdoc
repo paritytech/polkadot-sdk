@@ -1,0 +1,11 @@
+title: Remove execute_with_origin implementation in the XCM executor
+doc:
+- audience: Runtime Dev
+  description: |
+    The XCM executor will not support the `ExecuteWithOrigin` instruction from the start.
+    It might be added later when more time can be spent on it.
+crates:
+- name: pallet-xcm-benchmarks
+  bump: patch
+- name: staging-xcm-executor
+  bump: patch

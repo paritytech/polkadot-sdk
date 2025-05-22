@@ -34,10 +34,7 @@ use polkadot_node_core_approval_voting::{ApprovalVotingWorkProvider, Config};
 use polkadot_node_network_protocol::{peer_set::ValidationVersion, ObservedRole, PeerId, View};
 use polkadot_node_primitives::approval::{
 	time::SystemClock,
-	v1::{
-		AssignmentCert, AssignmentCertKind, IndirectAssignmentCert, IndirectSignedApprovalVote,
-		RELAY_VRF_MODULO_CONTEXT,
-	},
+	v1::RELAY_VRF_MODULO_CONTEXT,
 	v2::{
 		AssignmentCertKindV2, AssignmentCertV2, CoreBitfield, IndirectAssignmentCertV2,
 		IndirectSignedApprovalVoteV2,
@@ -63,24 +60,6 @@ const SLOT_DURATION_MILLIS: u64 = 6000;
 pub mod test_constants {
 	pub(crate) const DATA_COL: u32 = 0;
 	pub(crate) const NUM_COLUMNS: u32 = 1;
-}
-
-fn fake_assignment_cert(block_hash: Hash, validator: ValidatorIndex) -> IndirectAssignmentCert {
-	let ctx = schnorrkel::signing_context(RELAY_VRF_MODULO_CONTEXT);
-	let msg = b"WhenParachains?";
-	let mut prng = rand_core::OsRng;
-	let keypair = schnorrkel::Keypair::generate_with(&mut prng);
-	let (inout, proof, _) = keypair.vrf_sign(ctx.bytes(msg));
-	let preout = inout.to_preout();
-
-	IndirectAssignmentCert {
-		block_hash,
-		validator,
-		cert: AssignmentCert {
-			kind: AssignmentCertKind::RelayVRFModulo { sample: 1 },
-			vrf: VrfSignature { pre_output: VrfPreOutput(preout), proof: VrfProof(proof) },
-		},
-	}
 }
 
 fn fake_assignment_cert_v2(
@@ -455,7 +434,7 @@ fn test_main_loop_forwards_correctly() {
 					signature: dummy_signature(),
 				},
 			];
-			let expected_msg = polkadot_node_network_protocol::Versioned::V3(
+			let expected_msg = polkadot_node_network_protocol::ValidationProtocols::V3(
 				polkadot_node_network_protocol::v3::ApprovalDistributionMessage::Approvals(
 					approvals.clone(),
 				),
@@ -791,7 +770,7 @@ fn test_peer_view_is_prioritized_when_unread_messages_in_the_queue() {
 					signature: dummy_signature(),
 				},
 			];
-			let expected_msg = polkadot_node_network_protocol::Versioned::V3(
+			let expected_msg = polkadot_node_network_protocol::ValidationProtocols::V3(
 				polkadot_node_network_protocol::v3::ApprovalDistributionMessage::Approvals(
 					approvals.clone(),
 				),
@@ -869,37 +848,13 @@ fn test_peer_view_is_prioritized_when_unread_messages_in_the_queue() {
 // Test validator_index_for_msg with empty messages.
 #[test]
 fn test_validator_index_with_empty_message() {
-	let result = validator_index_for_msg(polkadot_node_network_protocol::Versioned::V1(
-		polkadot_node_network_protocol::v1::ApprovalDistributionMessage::Assignments(vec![]),
-	));
-
-	assert_eq!(result, (None, Some(vec![])));
-
-	let result = validator_index_for_msg(polkadot_node_network_protocol::Versioned::V2(
-		polkadot_node_network_protocol::v2::ApprovalDistributionMessage::Assignments(vec![]),
-	));
-
-	assert_eq!(result, (None, Some(vec![])));
-
-	let result = validator_index_for_msg(polkadot_node_network_protocol::Versioned::V3(
+	let result = validator_index_for_msg(polkadot_node_network_protocol::ValidationProtocols::V3(
 		polkadot_node_network_protocol::v3::ApprovalDistributionMessage::Assignments(vec![]),
 	));
 
 	assert_eq!(result, (None, Some(vec![])));
 
-	let result = validator_index_for_msg(polkadot_node_network_protocol::Versioned::V1(
-		polkadot_node_network_protocol::v1::ApprovalDistributionMessage::Approvals(vec![]),
-	));
-
-	assert_eq!(result, (None, Some(vec![])));
-
-	let result = validator_index_for_msg(polkadot_node_network_protocol::Versioned::V2(
-		polkadot_node_network_protocol::v2::ApprovalDistributionMessage::Approvals(vec![]),
-	));
-
-	assert_eq!(result, (None, Some(vec![])));
-
-	let result = validator_index_for_msg(polkadot_node_network_protocol::Versioned::V3(
+	let result = validator_index_for_msg(polkadot_node_network_protocol::ValidationProtocols::V3(
 		polkadot_node_network_protocol::v3::ApprovalDistributionMessage::Approvals(vec![]),
 	));
 
@@ -910,69 +865,7 @@ fn test_validator_index_with_empty_message() {
 #[test]
 fn test_validator_index_with_all_messages_from_the_same_validator() {
 	let validator_index = ValidatorIndex(3);
-	let v1_assignment = polkadot_node_network_protocol::Versioned::V1(
-		polkadot_node_network_protocol::v1::ApprovalDistributionMessage::Assignments(vec![
-			(fake_assignment_cert(H256::random(), validator_index), 1),
-			(fake_assignment_cert(H256::random(), validator_index), 3),
-		]),
-	);
-	let result = validator_index_for_msg(v1_assignment.clone());
-
-	assert_eq!(result, (Some((validator_index, v1_assignment)), None));
-
-	let v1_approval = polkadot_node_network_protocol::Versioned::V1(
-		polkadot_node_network_protocol::v1::ApprovalDistributionMessage::Approvals(vec![
-			IndirectSignedApprovalVote {
-				block_hash: H256::random(),
-				candidate_index: 1,
-				validator: validator_index,
-				signature: dummy_signature(),
-			},
-			IndirectSignedApprovalVote {
-				block_hash: H256::random(),
-				candidate_index: 1,
-				validator: validator_index,
-				signature: dummy_signature(),
-			},
-		]),
-	);
-	let result = validator_index_for_msg(v1_approval.clone());
-
-	assert_eq!(result, (Some((validator_index, v1_approval)), None));
-
-	let validator_index = ValidatorIndex(3);
-	let v2_assignment = polkadot_node_network_protocol::Versioned::V2(
-		polkadot_node_network_protocol::v2::ApprovalDistributionMessage::Assignments(vec![
-			(fake_assignment_cert(H256::random(), validator_index), 1),
-			(fake_assignment_cert(H256::random(), validator_index), 3),
-		]),
-	);
-	let result = validator_index_for_msg(v2_assignment.clone());
-
-	assert_eq!(result, (Some((validator_index, v2_assignment)), None));
-
-	let v2_approval = polkadot_node_network_protocol::Versioned::V2(
-		polkadot_node_network_protocol::v2::ApprovalDistributionMessage::Approvals(vec![
-			IndirectSignedApprovalVote {
-				block_hash: H256::random(),
-				candidate_index: 1,
-				validator: validator_index,
-				signature: dummy_signature(),
-			},
-			IndirectSignedApprovalVote {
-				block_hash: H256::random(),
-				candidate_index: 1,
-				validator: validator_index,
-				signature: dummy_signature(),
-			},
-		]),
-	);
-	let result = validator_index_for_msg(v2_approval.clone());
-
-	assert_eq!(result, (Some((validator_index, v2_approval)), None));
-
-	let validator_index = ValidatorIndex(3);
-	let v3_assignment = polkadot_node_network_protocol::Versioned::V3(
+	let v3_assignment = polkadot_node_network_protocol::ValidationProtocols::V3(
 		polkadot_node_network_protocol::v3::ApprovalDistributionMessage::Assignments(vec![
 			(
 				fake_assignment_cert_v2(H256::random(), validator_index, CoreIndex(1).into()),
@@ -988,7 +881,7 @@ fn test_validator_index_with_all_messages_from_the_same_validator() {
 
 	assert_eq!(result, (Some((validator_index, v3_assignment)), None));
 
-	let v3_approval = polkadot_node_network_protocol::Versioned::V3(
+	let v3_approval = polkadot_node_network_protocol::ValidationProtocols::V3(
 		polkadot_node_network_protocol::v3::ApprovalDistributionMessage::Approvals(vec![
 			IndirectSignedApprovalVoteV2 {
 				block_hash: H256::random(),
@@ -1017,58 +910,6 @@ fn test_validator_index_with_messages_from_different_validators() {
 	let first_validator_index = ValidatorIndex(3);
 	let second_validator_index = ValidatorIndex(4);
 	let assignments = vec![
-		(fake_assignment_cert(H256::random(), first_validator_index), 1),
-		(fake_assignment_cert(H256::random(), second_validator_index), 3),
-	];
-	let v1_assignment = polkadot_node_network_protocol::Versioned::V1(
-		polkadot_node_network_protocol::v1::ApprovalDistributionMessage::Assignments(
-			assignments.clone(),
-		),
-	);
-	let result = validator_index_for_msg(v1_assignment.clone());
-
-	assert_matches!(result, (None, Some(_)));
-	let messsages_split_by_validator = result.1.unwrap();
-	assert_eq!(messsages_split_by_validator.len(), assignments.len());
-	for (index, (validator_index, message)) in messsages_split_by_validator.into_iter().enumerate()
-	{
-		assert_eq!(validator_index, assignments[index].0.validator);
-		assert_eq!(
-			message,
-			polkadot_node_network_protocol::Versioned::V1(
-				polkadot_node_network_protocol::v1::ApprovalDistributionMessage::Assignments(
-					assignments.get(index).into_iter().cloned().collect(),
-				),
-			)
-		);
-	}
-
-	let v2_assignment = polkadot_node_network_protocol::Versioned::V2(
-		polkadot_node_network_protocol::v2::ApprovalDistributionMessage::Assignments(
-			assignments.clone(),
-		),
-	);
-	let result = validator_index_for_msg(v2_assignment.clone());
-
-	assert_matches!(result, (None, Some(_)));
-	let messsages_split_by_validator = result.1.unwrap();
-	assert_eq!(messsages_split_by_validator.len(), assignments.len());
-	for (index, (validator_index, message)) in messsages_split_by_validator.into_iter().enumerate()
-	{
-		assert_eq!(validator_index, assignments[index].0.validator);
-		assert_eq!(
-			message,
-			polkadot_node_network_protocol::Versioned::V2(
-				polkadot_node_network_protocol::v2::ApprovalDistributionMessage::Assignments(
-					assignments.get(index).into_iter().cloned().collect(),
-				),
-			)
-		);
-	}
-
-	let first_validator_index = ValidatorIndex(3);
-	let second_validator_index = ValidatorIndex(4);
-	let v2_assignments = vec![
 		(
 			fake_assignment_cert_v2(H256::random(), first_validator_index, CoreIndex(1).into()),
 			1.into(),
@@ -1079,61 +920,24 @@ fn test_validator_index_with_messages_from_different_validators() {
 		),
 	];
 
-	let approvals = vec![
-		IndirectSignedApprovalVote {
-			block_hash: H256::random(),
-			candidate_index: 1,
-			validator: first_validator_index,
-			signature: dummy_signature(),
-		},
-		IndirectSignedApprovalVote {
-			block_hash: H256::random(),
-			candidate_index: 2,
-			validator: second_validator_index,
-			signature: dummy_signature(),
-		},
-	];
-	let v2_approvals = polkadot_node_network_protocol::Versioned::V2(
-		polkadot_node_network_protocol::v2::ApprovalDistributionMessage::Approvals(
-			approvals.clone(),
-		),
-	);
-	let result = validator_index_for_msg(v2_approvals.clone());
-
-	assert_matches!(result, (None, Some(_)));
-	let messsages_split_by_validator = result.1.unwrap();
-	assert_eq!(messsages_split_by_validator.len(), approvals.len());
-	for (index, (validator_index, message)) in messsages_split_by_validator.into_iter().enumerate()
-	{
-		assert_eq!(validator_index, approvals[index].validator);
-		assert_eq!(
-			message,
-			polkadot_node_network_protocol::Versioned::V2(
-				polkadot_node_network_protocol::v2::ApprovalDistributionMessage::Approvals(
-					approvals.get(index).into_iter().cloned().collect(),
-				),
-			)
-		);
-	}
-
-	let v3_assignment = polkadot_node_network_protocol::Versioned::V3(
+	let v3_assignment = polkadot_node_network_protocol::ValidationProtocols::V3(
 		polkadot_node_network_protocol::v3::ApprovalDistributionMessage::Assignments(
-			v2_assignments.clone(),
+			assignments.clone(),
 		),
 	);
 	let result = validator_index_for_msg(v3_assignment.clone());
 
 	assert_matches!(result, (None, Some(_)));
 	let messsages_split_by_validator = result.1.unwrap();
-	assert_eq!(messsages_split_by_validator.len(), v2_assignments.len());
+	assert_eq!(messsages_split_by_validator.len(), assignments.len());
 	for (index, (validator_index, message)) in messsages_split_by_validator.into_iter().enumerate()
 	{
-		assert_eq!(validator_index, v2_assignments[index].0.validator);
+		assert_eq!(validator_index, assignments[index].0.validator);
 		assert_eq!(
 			message,
-			polkadot_node_network_protocol::Versioned::V3(
+			polkadot_node_network_protocol::ValidationProtocols::V3(
 				polkadot_node_network_protocol::v3::ApprovalDistributionMessage::Assignments(
-					v2_assignments.get(index).into_iter().cloned().collect(),
+					assignments.get(index).into_iter().cloned().collect(),
 				),
 			)
 		);
@@ -1153,7 +957,7 @@ fn test_validator_index_with_messages_from_different_validators() {
 			signature: dummy_signature(),
 		},
 	];
-	let v3_approvals = polkadot_node_network_protocol::Versioned::V3(
+	let v3_approvals = polkadot_node_network_protocol::ValidationProtocols::V3(
 		polkadot_node_network_protocol::v3::ApprovalDistributionMessage::Approvals(
 			approvals.clone(),
 		),
@@ -1168,7 +972,7 @@ fn test_validator_index_with_messages_from_different_validators() {
 		assert_eq!(validator_index, approvals[index].validator);
 		assert_eq!(
 			message,
-			polkadot_node_network_protocol::Versioned::V3(
+			polkadot_node_network_protocol::ValidationProtocols::V3(
 				polkadot_node_network_protocol::v3::ApprovalDistributionMessage::Approvals(
 					approvals.get(index).into_iter().cloned().collect(),
 				),

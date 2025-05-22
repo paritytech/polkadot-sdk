@@ -14,6 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
+use std::marker::PhantomData;
 use xcm_executor::traits::Properties;
 
 use super::*;
@@ -147,9 +148,10 @@ fn allow_explicit_unpaid_should_work() {
 		TransferAsset { assets: (Parent, 100).into(), beneficiary: Here.into() },
 	]);
 
-	AllowExplicitUnpaidFrom::set(vec![Parent.into()]);
+	AllowExplicitUnpaidFrom::set(vec![Parent.into(), (Parent, Parachain(1000)).into()]);
+	type ExplicitUnpaidBarrier<T> = AllowExplicitUnpaidExecutionFrom<T, mock::Aliasers>;
 
-	let r = AllowExplicitUnpaidExecutionFrom::<IsInVec<AllowExplicitUnpaidFrom>>::should_execute(
+	let r = ExplicitUnpaidBarrier::<IsInVec<AllowExplicitUnpaidFrom>>::should_execute(
 		&Parachain(1).into(),
 		good_message.inner_mut(),
 		Weight::from_parts(20, 20),
@@ -157,7 +159,7 @@ fn allow_explicit_unpaid_should_work() {
 	);
 	assert_eq!(r, Err(ProcessMessageError::Unsupported));
 
-	let r = AllowExplicitUnpaidExecutionFrom::<IsInVec<AllowExplicitUnpaidFrom>>::should_execute(
+	let r = ExplicitUnpaidBarrier::<IsInVec<AllowExplicitUnpaidFrom>>::should_execute(
 		&Parent.into(),
 		bad_message1.inner_mut(),
 		Weight::from_parts(20, 20),
@@ -165,7 +167,7 @@ fn allow_explicit_unpaid_should_work() {
 	);
 	assert_eq!(r, Err(ProcessMessageError::Overweight(Weight::from_parts(20, 20))));
 
-	let r = AllowExplicitUnpaidExecutionFrom::<IsInVec<AllowExplicitUnpaidFrom>>::should_execute(
+	let r = ExplicitUnpaidBarrier::<IsInVec<AllowExplicitUnpaidFrom>>::should_execute(
 		&Parent.into(),
 		bad_message2.inner_mut(),
 		Weight::from_parts(20, 20),
@@ -173,7 +175,7 @@ fn allow_explicit_unpaid_should_work() {
 	);
 	assert_eq!(r, Err(ProcessMessageError::Overweight(Weight::from_parts(20, 20))));
 
-	let r = AllowExplicitUnpaidExecutionFrom::<IsInVec<AllowExplicitUnpaidFrom>>::should_execute(
+	let r = ExplicitUnpaidBarrier::<IsInVec<AllowExplicitUnpaidFrom>>::should_execute(
 		&Parent.into(),
 		good_message.inner_mut(),
 		Weight::from_parts(20, 20),
@@ -189,7 +191,7 @@ fn allow_explicit_unpaid_should_work() {
 		TransferAsset { assets: (Parent, 100).into(), beneficiary: Here.into() },
 	]);
 
-	let r = AllowExplicitUnpaidExecutionFrom::<IsInVec<AllowExplicitUnpaidFrom>>::should_execute(
+	let r = ExplicitUnpaidBarrier::<IsInVec<AllowExplicitUnpaidFrom>>::should_execute(
 		&Parent.into(),
 		message_with_different_weight_parts.inner_mut(),
 		Weight::from_parts(20, 20),
@@ -197,13 +199,372 @@ fn allow_explicit_unpaid_should_work() {
 	);
 	assert_eq!(r, Err(ProcessMessageError::Overweight(Weight::from_parts(20, 20))));
 
-	let r = AllowExplicitUnpaidExecutionFrom::<IsInVec<AllowExplicitUnpaidFrom>>::should_execute(
+	let r = ExplicitUnpaidBarrier::<IsInVec<AllowExplicitUnpaidFrom>>::should_execute(
 		&Parent.into(),
 		message_with_different_weight_parts.inner_mut(),
 		Weight::from_parts(10, 10),
 		&mut props(Weight::zero()),
 	);
 	assert_eq!(r, Ok(()));
+
+	// Invalid since location to alias is not allowed.
+	let mut message = Xcm::<()>::builder_unsafe()
+		.receive_teleported_asset((Here, 100u128))
+		.alias_origin(Parachain(1000))
+		.unpaid_execution(Unlimited, None)
+		.build();
+	let result = ExplicitUnpaidBarrier::<IsInVec<AllowExplicitUnpaidFrom>>::should_execute(
+		&Parent.into(),
+		message.inner_mut(),
+		Weight::from_parts(30, 30),
+		&mut props(Weight::zero()),
+	);
+	assert_eq!(result, Err(ProcessMessageError::Unsupported));
+
+	// Valid because all parachains are children of the relay chain.
+	let mut message = Xcm::<()>::builder_unsafe()
+		.receive_teleported_asset((Here, 100u128))
+		.alias_origin((Parent, Parachain(1000)))
+		.unpaid_execution(Unlimited, None)
+		.build();
+	let result = ExplicitUnpaidBarrier::<IsInVec<AllowExplicitUnpaidFrom>>::should_execute(
+		&Parent.into(),
+		message.inner_mut(),
+		Weight::from_parts(30, 30),
+		&mut props(Weight::zero()),
+	);
+	assert_eq!(result, Ok(()));
+
+	// Valid.
+	let mut message = Xcm::<()>::builder_unsafe()
+		.alias_origin((Parent, Parachain(1000)))
+		.unpaid_execution(Unlimited, None)
+		.build();
+	let result = ExplicitUnpaidBarrier::<IsInVec<AllowExplicitUnpaidFrom>>::should_execute(
+		&Parent.into(),
+		message.inner_mut(),
+		Weight::from_parts(30, 30),
+		&mut props(Weight::zero()),
+	);
+	assert_eq!(result, Ok(()));
+
+	// Invalid because `ClearOrigin` clears origin and `UnpaidExecution`
+	// can't know if there are enough permissions.
+	let mut message = Xcm::<()>::builder_unsafe()
+		.receive_teleported_asset((Here, 100u128))
+		.clear_origin()
+		.unpaid_execution(Unlimited, None)
+		.build();
+	let result = ExplicitUnpaidBarrier::<IsInVec<AllowExplicitUnpaidFrom>>::should_execute(
+		&Parent.into(),
+		message.inner_mut(),
+		Weight::from_parts(30, 30),
+		&mut props(Weight::zero()),
+	);
+	assert_eq!(result, Err(ProcessMessageError::Unsupported));
+
+	// Valid.
+	let mut message = Xcm::<()>::builder_unsafe()
+		.receive_teleported_asset((Here, 100u128))
+		.reserve_asset_deposited((Parent, 100u128))
+		.descend_origin(Parachain(1000))
+		.unpaid_execution(Unlimited, None)
+		.build();
+	let result = ExplicitUnpaidBarrier::<IsInVec<AllowExplicitUnpaidFrom>>::should_execute(
+		&Parent.into(),
+		message.inner_mut(),
+		Weight::from_parts(40, 40),
+		&mut props(Weight::zero()),
+	);
+	assert_eq!(result, Ok(()));
+
+	// Invalid because of `ClearOrigin`.
+	let mut message = Xcm::<()>::builder_unsafe()
+		.receive_teleported_asset((Here, 100u128))
+		.clear_origin()
+		.build();
+	let result = ExplicitUnpaidBarrier::<IsInVec<AllowExplicitUnpaidFrom>>::should_execute(
+		&Parent.into(),
+		message.inner_mut(),
+		Weight::from_parts(30, 30),
+		&mut props(Weight::zero()),
+	);
+	assert_eq!(result, Err(ProcessMessageError::Unsupported));
+
+	// Invalid because there is no `UnpaidExecution`.
+	let mut message = Xcm::<()>::builder_unsafe()
+		.receive_teleported_asset((Here, 100u128))
+		.alias_origin((Parent, Parachain(1000)))
+		.build();
+	let result = ExplicitUnpaidBarrier::<IsInVec<AllowExplicitUnpaidFrom>>::should_execute(
+		&Parent.into(),
+		message.inner_mut(),
+		Weight::from_parts(30, 30),
+		&mut props(Weight::zero()),
+	);
+	assert_eq!(result, Err(ProcessMessageError::BadFormat));
+
+	// Invalid because even though alias is valid, it can't use `UnpaidExecution`.
+	let assets: Vec<Asset> = vec![
+		(Parent, 100u128).into(),
+		((Parent, PalletInstance(10), GeneralIndex(1000)), 100u128).into(),
+	];
+	let mut message = Xcm::<()>::builder_unsafe()
+		.set_hints(vec![AssetClaimer {
+			location: AccountId32 { id: [100u8; 32], network: None }.into(),
+		}])
+		.receive_teleported_asset((Here, 100u128))
+		.reserve_asset_deposited(assets)
+		.withdraw_asset((GeneralIndex(1), 100u128))
+		.alias_origin((Parent, AccountId32 { id: [128u8; 32], network: None }))
+		.unpaid_execution(Unlimited, None)
+		.build();
+	let result = ExplicitUnpaidBarrier::<IsInVec<AllowExplicitUnpaidFrom>>::should_execute(
+		&Parent.into(),
+		message.inner_mut(),
+		Weight::from_parts(60, 60),
+		&mut props(Weight::zero()),
+	);
+	assert_eq!(result, Err(ProcessMessageError::Unsupported));
+
+	// Invalid because `UnpaidExecution` specifies less weight than needed.
+	let assets: Vec<Asset> = vec![
+		(Parent, 100u128).into(),
+		((Parent, PalletInstance(10), GeneralIndex(1000)), 100u128).into(),
+	];
+	let mut message = Xcm::<()>::builder_unsafe()
+		.set_hints(vec![AssetClaimer {
+			location: AccountId32 { id: [100u8; 32], network: None }.into(),
+		}])
+		.receive_teleported_asset((Here, 100u128))
+		.reserve_asset_deposited(assets)
+		.withdraw_asset((GeneralIndex(1), 100u128))
+		.alias_origin((Parent, Parachain(1000)))
+		.unpaid_execution(Limited(Weight::from_parts(50, 50)), None)
+		.build();
+	let result = ExplicitUnpaidBarrier::<IsInVec<AllowExplicitUnpaidFrom>>::should_execute(
+		&Parent.into(),
+		message.inner_mut(),
+		Weight::from_parts(60, 60),
+		&mut props(Weight::zero()),
+	);
+	assert_eq!(result, Err(ProcessMessageError::Overweight(Weight::from_parts(60, 60))));
+
+	// Invalid because of too many instructions before `UnpaidExecution`.
+	let assets: Vec<Asset> = vec![
+		(Parent, 100u128).into(),
+		((Parent, PalletInstance(10), GeneralIndex(1000)), 100u128).into(),
+	];
+	let mut message = Xcm::<()>::builder_unsafe()
+		.set_hints(vec![AssetClaimer {
+			location: AccountId32 { id: [100u8; 32], network: None }.into(),
+		}])
+		.receive_teleported_asset((Here, 100u128))
+		.receive_teleported_asset((Here, 100u128))
+		.reserve_asset_deposited(assets)
+		.withdraw_asset((GeneralIndex(1), 100u128))
+		.alias_origin((Parent, AccountId32 { id: [128u8; 32], network: None }))
+		.unpaid_execution(Limited(Weight::from_parts(50, 50)), None)
+		.build();
+	let result = ExplicitUnpaidBarrier::<IsInVec<AllowExplicitUnpaidFrom>>::should_execute(
+		&Parent.into(),
+		message.inner_mut(),
+		Weight::from_parts(70, 70),
+		&mut props(Weight::zero()),
+	);
+	assert_eq!(result, Err(ProcessMessageError::Overweight(Weight::from_parts(70, 70))));
+
+	// Valid.
+	let assets: Vec<Asset> = vec![
+		(Parent, 100u128).into(),
+		((Parent, PalletInstance(10), GeneralIndex(1000)), 100u128).into(),
+	];
+	let mut message = Xcm::<()>::builder_unsafe()
+		.set_hints(vec![AssetClaimer {
+			location: AccountId32 { id: [100u8; 32], network: None }.into(),
+		}])
+		.receive_teleported_asset((Here, 100u128))
+		.reserve_asset_deposited(assets)
+		.withdraw_asset((GeneralIndex(1), 100u128))
+		.alias_origin((Parent, Parachain(1000)))
+		.unpaid_execution(Unlimited, None)
+		.build();
+	let result = ExplicitUnpaidBarrier::<IsInVec<AllowExplicitUnpaidFrom>>::should_execute(
+		&Parent.into(),
+		message.inner_mut(),
+		Weight::from_parts(60, 60),
+		&mut props(Weight::zero()),
+	);
+	assert_eq!(result, Ok(()));
+
+	// Valid.
+	let assets: Vec<Asset> = vec![
+		(Parent, 100u128).into(),
+		((Parent, PalletInstance(10), GeneralIndex(1000)), 100u128).into(),
+	];
+	let mut message = Xcm::<()>::builder_unsafe()
+		.set_hints(vec![AssetClaimer {
+			location: AccountId32 { id: [100u8; 32], network: None }.into(),
+		}])
+		.receive_teleported_asset((Here, 100u128))
+		.reserve_asset_deposited(assets)
+		.withdraw_asset((GeneralIndex(1), 100u128))
+		.descend_origin(Parachain(1000))
+		.unpaid_execution(Unlimited, None)
+		.build();
+	let result = ExplicitUnpaidBarrier::<IsInVec<AllowExplicitUnpaidFrom>>::should_execute(
+		&Parent.into(),
+		message.inner_mut(),
+		Weight::from_parts(60, 60),
+		&mut props(Weight::zero()),
+	);
+	assert_eq!(result, Ok(()));
+}
+
+#[test]
+fn allow_explicit_unpaid_fails_with_alias_origin_if_no_aliasers() {
+	AllowExplicitUnpaidFrom::set(vec![(Parent, Parachain(1000)).into()]);
+
+	let assets: Vec<Asset> = vec![
+		(Parent, 100u128).into(),
+		((Parent, PalletInstance(10), GeneralIndex(1000)), 100u128).into(),
+	];
+	let mut good_message = Xcm::<()>::builder_unsafe()
+		.set_hints(vec![AssetClaimer {
+			location: AccountId32 { id: [100u8; 32], network: None }.into(),
+		}])
+		.receive_teleported_asset((Here, 100u128))
+		.reserve_asset_deposited(assets)
+		.withdraw_asset((GeneralIndex(1), 100u128))
+		.descend_origin(Parachain(1000))
+		.unpaid_execution(Unlimited, None)
+		.build();
+	let result =
+		AllowExplicitUnpaidExecutionFrom::<IsInVec<AllowExplicitUnpaidFrom>>::should_execute(
+			&Parent.into(),
+			good_message.inner_mut(),
+			Weight::from_parts(100, 100),
+			&mut props(Weight::zero()),
+		);
+	assert_eq!(result, Ok(()));
+
+	let assets: Vec<Asset> = vec![
+		(Parent, 100u128).into(),
+		((Parent, PalletInstance(10), GeneralIndex(1000)), 100u128).into(),
+	];
+	let mut bad_message = Xcm::<()>::builder_unsafe()
+		.set_hints(vec![AssetClaimer {
+			location: AccountId32 { id: [100u8; 32], network: None }.into(),
+		}])
+		.receive_teleported_asset((Here, 100u128))
+		.reserve_asset_deposited(assets)
+		.withdraw_asset((GeneralIndex(1), 100u128))
+		.alias_origin((Parent, Parachain(1000)))
+		.unpaid_execution(Unlimited, None)
+		.build();
+	// Barrier has `Aliasers` set as `Nothing` by default, rejecting message if it
+	// has an `AliasOrigin` instruction.
+	let result =
+		AllowExplicitUnpaidExecutionFrom::<IsInVec<AllowExplicitUnpaidFrom>>::should_execute(
+			&Parent.into(),
+			bad_message.inner_mut(),
+			Weight::from_parts(100, 100),
+			&mut props(Weight::zero()),
+		);
+	assert_eq!(result, Err(ProcessMessageError::Unsupported));
+}
+
+#[test]
+fn allow_explicit_unpaid_with_computed_origin() {
+	AllowExplicitUnpaidFrom::set(vec![
+		(Parent, Parachain(1000)).into(),
+		(Parent, Parent, GlobalConsensus(Polkadot), Parachain(1000)).into(),
+	]);
+	type ExplicitUnpaidBarrier<T> = AllowExplicitUnpaidExecutionFrom<T, mock::Aliasers>;
+
+	// Message that passes without `WithComputedOrigin` should also pass with it.
+	let assets: Vec<Asset> = vec![
+		(Parent, 100u128).into(),
+		((Parent, PalletInstance(10), GeneralIndex(1000)), 100u128).into(),
+	];
+	let mut message = Xcm::<()>::builder_unsafe()
+		.set_hints(vec![AssetClaimer {
+			location: AccountId32 { id: [100u8; 32], network: None }.into(),
+		}])
+		.receive_teleported_asset((Here, 100u128))
+		.reserve_asset_deposited(assets)
+		.withdraw_asset((GeneralIndex(1), 100u128))
+		.alias_origin((Parent, Parachain(1000)))
+		.unpaid_execution(Unlimited, None)
+		.build();
+	let result = WithComputedOrigin::<
+		ExplicitUnpaidBarrier<IsInVec<AllowExplicitUnpaidFrom>>,
+		ExecutorUniversalLocation,
+		ConstU32<2>,
+	>::should_execute(
+		&Parent.into(),
+		message.inner_mut(),
+		Weight::from_parts(100, 100),
+		&mut props(Weight::zero()),
+	);
+	assert_eq!(result, Ok(()));
+
+	// Can manipulate origin before the inner barrier.
+	// For example, to act as another network.
+	let assets: Vec<Asset> = vec![
+		(Parent, 100u128).into(),
+		((Parent, PalletInstance(10), GeneralIndex(1000)), 100u128).into(),
+	];
+	let mut message = Xcm::<()>::builder_unsafe()
+		.universal_origin(Polkadot)
+		.set_hints(vec![AssetClaimer {
+			location: AccountId32 { id: [100u8; 32], network: None }.into(),
+		}])
+		.receive_teleported_asset((Here, 100u128))
+		.reserve_asset_deposited(assets)
+		.withdraw_asset((GeneralIndex(1), 100u128))
+		.alias_origin((Parent, Parent, GlobalConsensus(Polkadot), Parachain(1000)))
+		.unpaid_execution(Unlimited, None)
+		.build();
+	let result = WithComputedOrigin::<
+		ExplicitUnpaidBarrier<IsInVec<AllowExplicitUnpaidFrom>>,
+		ExecutorUniversalLocation,
+		ConstU32<2>,
+	>::should_execute(
+		&Parent.into(),
+		message.inner_mut(),
+		Weight::from_parts(100, 100),
+		&mut props(Weight::zero()),
+	);
+	assert_eq!(result, Ok(()));
+
+	// Any invalid conversions from the new origin fail.
+	let assets: Vec<Asset> = vec![
+		(Parent, 100u128).into(),
+		((Parent, PalletInstance(10), GeneralIndex(1000)), 100u128).into(),
+	];
+	let mut message = Xcm::<()>::builder_unsafe()
+		.universal_origin(Polkadot)
+		.set_hints(vec![AssetClaimer {
+			location: AccountId32 { id: [100u8; 32], network: None }.into(),
+		}])
+		.receive_teleported_asset((Here, 100u128))
+		.reserve_asset_deposited(assets)
+		.withdraw_asset((GeneralIndex(1), 100u128))
+		.alias_origin((Parent, Parachain(1000)))
+		.unpaid_execution(Unlimited, None)
+		.build();
+	let result = WithComputedOrigin::<
+		ExplicitUnpaidBarrier<IsInVec<AllowExplicitUnpaidFrom>>,
+		ExecutorUniversalLocation,
+		ConstU32<2>,
+	>::should_execute(
+		&Parent.into(),
+		message.inner_mut(),
+		Weight::from_parts(100, 100),
+		&mut props(Weight::zero()),
+	);
+	assert_eq!(result, Err(ProcessMessageError::Unsupported));
 }
 
 #[test]
@@ -763,4 +1124,259 @@ fn deny_reserve_transfer_to_relaychain_should_work() {
 	);
 	// others instructions should pass
 	assert_deny_execution(vec![ClearOrigin], Here.into_location(), Ok(()));
+}
+
+// Dummy Barriers
+// Dummy filter to allow all
+struct AllowAll;
+impl ShouldExecute for AllowAll {
+	fn should_execute<RuntimeCall>(
+		_: &Location,
+		_: &mut [Instruction<RuntimeCall>],
+		_: Weight,
+		_: &mut Properties,
+	) -> Result<(), ProcessMessageError> {
+		Ok(())
+	}
+}
+
+// Dummy filter which denies `ClearOrigin`
+struct DenyClearOrigin;
+impl DenyExecution for DenyClearOrigin {
+	fn deny_execution<RuntimeCall>(
+		_: &Location,
+		instructions: &mut [Instruction<RuntimeCall>],
+		_: Weight,
+		_: &mut Properties,
+	) -> Result<(), ProcessMessageError> {
+		instructions.matcher().match_next_inst_while(
+			|_| true,
+			|inst| match inst {
+				ClearOrigin => Err(ProcessMessageError::Unsupported),
+				_ => Ok(ControlFlow::Continue(())),
+			},
+		)?;
+		Ok(())
+	}
+}
+
+// Dummy filter which denies nothing
+struct DenyNothing;
+impl DenyExecution for DenyNothing {
+	fn deny_execution<RuntimeCall>(
+		_origin: &Location,
+		_instructions: &mut [Instruction<RuntimeCall>],
+		_max_weight: Weight,
+		_properties: &mut Properties,
+	) -> Result<(), ProcessMessageError> {
+		Ok(())
+	}
+}
+
+// Test helper: Adapts a `DenyExecution` barrier to the `ShouldExecute` trait
+struct Executable<Barrier: DenyExecution>(PhantomData<Barrier>);
+impl<Barrier: DenyExecution> ShouldExecute for Executable<Barrier> {
+	fn should_execute<RuntimeCall>(
+		origin: &Location,
+		instructions: &mut [Instruction<RuntimeCall>],
+		max_weight: Weight,
+		properties: &mut Properties,
+	) -> Result<(), ProcessMessageError> {
+		Barrier::deny_execution(origin, instructions, max_weight, properties)
+	}
+}
+
+#[test]
+fn deny_recursively_then_try_works() {
+	type Barrier = DenyThenTry<DenyRecursively<DenyReserveTransferToRelayChain>, AllowAll>;
+	let xcm = Xcm::<Instruction<()>>(vec![DepositReserveAsset {
+		assets: Wild(All),
+		dest: Location::parent(),
+		xcm: vec![].into(),
+	}]);
+	let origin = Here.into_location();
+	let max_weight = Weight::from_parts(10, 10);
+	let mut properties = props(Weight::zero());
+
+	// Should deny the original XCM
+	let result =
+		Barrier::should_execute(&origin, xcm.clone().inner_mut(), max_weight, &mut properties);
+	assert!(result.is_err());
+
+	// Should deny with `SetAppendix`
+	let mut message = Xcm::<Instruction<()>>(vec![SetAppendix(xcm.clone())]);
+	let result =
+		Barrier::should_execute(&origin, message.clone().inner_mut(), max_weight, &mut properties);
+	assert!(result.is_err());
+
+	// Should allow with `SetAppendix` for the original `DenyThenTry`
+	type OriginalBarrier = DenyThenTry<DenyReserveTransferToRelayChain, AllowAll>;
+	let result =
+		OriginalBarrier::should_execute(&origin, message.inner_mut(), max_weight, &mut properties);
+	assert!(result.is_ok());
+
+	// Should deny with `SetErrorHandler`
+	let mut message = Xcm::<Instruction<()>>(vec![SetErrorHandler(xcm.clone())]);
+	let result = Barrier::should_execute(&origin, message.inner_mut(), max_weight, &mut properties);
+	assert!(result.is_err());
+
+	// Should deny with `ExecuteWithOrigin`
+	let mut message = Xcm::<Instruction<()>>(vec![ExecuteWithOrigin {
+		xcm: xcm.clone(),
+		descendant_origin: None,
+	}]);
+	let result = Barrier::should_execute(&origin, message.inner_mut(), max_weight, &mut properties);
+	assert!(result.is_err());
+
+	// Should deny with more levels
+	let mut message = Xcm::<Instruction<()>>(vec![ExecuteWithOrigin {
+		xcm: vec![SetErrorHandler(vec![SetAppendix(xcm.clone())].into())].into(),
+		descendant_origin: None,
+	}]);
+	let result = Barrier::should_execute(&origin, message.inner_mut(), max_weight, &mut properties);
+	assert!(result.is_err());
+
+	// Should allow for valid XCM with `SetAppendix`
+	let xcm = Xcm::<Instruction<()>>(vec![DepositReserveAsset {
+		assets: Wild(All),
+		dest: Here.into_location(),
+		xcm: vec![].into(),
+	}]);
+	let mut message = Xcm::<Instruction<()>>(vec![SetAppendix(xcm.clone())]);
+	let result = Barrier::should_execute(&origin, message.inner_mut(), max_weight, &mut properties);
+	assert!(result.is_ok());
+
+	// Should ensure unrelated XCMs are not blocked
+	let mut unrelated_xcm = Xcm::<Instruction<()>>(vec![BuyExecution {
+		fees: (Parent, 100).into(),
+		weight_limit: Unlimited,
+	}]);
+	let result =
+		Barrier::should_execute(&origin, unrelated_xcm.inner_mut(), max_weight, &mut properties);
+	assert!(result.is_ok());
+
+	// Should deny recursively before allow
+	type BarrierDenyClearOrigin = DenyThenTry<DenyRecursively<DenyClearOrigin>, AllowAll>;
+	assert_deny_instructions_recursively::<BarrierDenyClearOrigin>();
+}
+
+#[test]
+fn deny_recursively_works() {
+	type Barrier = Executable<DenyRecursively<DenyClearOrigin>>;
+	assert_deny_instructions_recursively::<Barrier>();
+}
+
+#[test]
+fn compare_deny_filters() {
+	type Denies = (DenyNothing, DenyReserveTransferToRelayChain);
+
+	fn assert_barrier<Barrier: ShouldExecute>(
+		top_level_result: Result<(), ProcessMessageError>,
+		nested_result: Result<(), ProcessMessageError>,
+	) {
+		let origin = Here.into_location();
+		let max_weight = Weight::zero();
+		let mut properties = props(Weight::zero());
+
+		// Validate Top-Level
+		let xcm = Xcm::<Instruction<()>>(
+			vec![DepositReserveAsset {
+				assets: Wild(All),
+				dest: Location::parent(),
+				xcm: Xcm(vec![ClearOrigin]),
+			}]
+			.into(),
+		);
+		let result =
+			Barrier::should_execute(&origin, xcm.clone().inner_mut(), max_weight, &mut properties);
+		assert_eq!(top_level_result, result);
+
+		// Validate Nested
+		let mut nested_xcm = Xcm::<Instruction<()>>(vec![SetErrorHandler(xcm.into())].into());
+		let result =
+			Barrier::should_execute(&origin, nested_xcm.inner_mut(), max_weight, &mut properties);
+		assert_eq!(nested_result, result);
+	}
+
+	// `DenyThenTry`: Top-level=Deny, Nested=Allow, TryAllow=Yes
+	assert_barrier::<DenyThenTry<Denies, AllowAll>>(Err(ProcessMessageError::Unsupported), Ok(()));
+
+	// `DenyThenTry<DenyRecursively<Deny>>`: Top-level=Deny, Nested=Deny, TryAllow=Yes
+	assert_barrier::<DenyThenTry<DenyRecursively<Denies>, AllowAll>>(
+		Err(ProcessMessageError::Unsupported),
+		Err(ProcessMessageError::Unsupported),
+	);
+
+	// `DenyRecursively`: Top-level=Deny, Nested=Deny, TryAllow=No
+	assert_barrier::<Executable<DenyRecursively<Denies>>>(
+		Err(ProcessMessageError::Unsupported),
+		Err(ProcessMessageError::Unsupported),
+	);
+}
+
+fn assert_deny_instructions_recursively<Barrier: ShouldExecute>() {
+	// closure for (xcm, origin) testing with `Barrier` which denies `ClearOrigin`
+	// instruction
+	let test_barrier = |mut xcm: Vec<Instruction<()>>, origin| {
+		Barrier::should_execute(
+			&origin,
+			&mut xcm,
+			Weight::from_parts(10, 10),
+			&mut props(Weight::zero()),
+		)
+	};
+
+	// ok
+	assert_eq!(test_barrier(vec![ClearTransactStatus], Location::parent()), Ok(()));
+	// invalid top-level contains `ClearOrigin`
+	assert_eq!(
+		test_barrier(vec![ClearOrigin], Location::parent()),
+		Err(ProcessMessageError::Unsupported)
+	);
+	// ok - SetAppendix with XCM without ClearOrigin
+	assert_eq!(
+		test_barrier(vec![SetAppendix(Xcm(vec![ClearTransactStatus]))], Location::parent()),
+		Ok(())
+	);
+	// ok - DepositReserveAsset with XCM contains ClearOrigin
+	assert_eq!(
+		test_barrier(
+			vec![DepositReserveAsset {
+				assets: Wild(All),
+				dest: Here.into(),
+				xcm: Xcm(vec![ClearOrigin]),
+			}],
+			Location::parent()
+		),
+		Ok(()),
+	);
+
+	// invalid - empty XCM
+	assert_eq!(test_barrier(vec![], Location::parent()), Err(ProcessMessageError::BadFormat));
+	// invalid - SetAppendix with empty XCM
+	assert_eq!(
+		test_barrier(vec![SetAppendix(Xcm(vec![]))], Location::parent()),
+		Err(ProcessMessageError::BadFormat),
+	);
+	// invalid SetAppendix contains `ClearOrigin`
+	assert_eq!(
+		test_barrier(vec![SetAppendix(Xcm(vec![ClearOrigin]))], Location::parent()),
+		Err(ProcessMessageError::Unsupported),
+	);
+	// invalid nested SetAppendix contains `ClearOrigin`
+	assert_eq!(
+		test_barrier(
+			vec![SetAppendix(Xcm(vec![SetAppendix(Xcm(vec![SetAppendix(Xcm(vec![
+				SetAppendix(Xcm(vec![SetAppendix(Xcm(vec![SetAppendix(Xcm(vec![
+					SetAppendix(Xcm(vec![SetAppendix(Xcm(vec![SetAppendix(Xcm(vec![
+						SetAppendix(Xcm(vec![SetAppendix(Xcm(vec![SetAppendix(Xcm(vec![
+							ClearOrigin
+						]))])),]))
+					]))])),]))
+				]))]))]),)
+			]))]))]))],
+			Location::parent()
+		),
+		Err(ProcessMessageError::StackLimitReached),
+	);
 }
