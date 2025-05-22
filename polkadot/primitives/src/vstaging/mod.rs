@@ -15,7 +15,7 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 //! Staging Primitives.
-use crate::{ValidatorIndex, ValidityAttestation};
+use crate::{ValidatorIndex, ValidityAttestation, ValidatorId, slashing::DisputesTimeSlot};
 
 // Put any primitives used by staging APIs functions here
 use super::{
@@ -1524,7 +1524,7 @@ pub enum DisputeOffenceKind {
 
 /// impl for a conversion from SlashingOffenceKind to DisputeOffenceKind
 /// This creates DisputeOffenceKind that never contains ForInvalidApproved since it was not spported in the past
-impl<H: Copy> From<super::v8::slashing::SlashingOffenceKind> for DisputeOffenceKind {
+impl From<super::v8::slashing::SlashingOffenceKind> for DisputeOffenceKind {
 	fn from(value: super::v8::slashing::SlashingOffenceKind) -> Self {
 		match value {
 			super::v8::slashing::SlashingOffenceKind::ForInvalid => Self::ForInvalidBacked,
@@ -1534,7 +1534,7 @@ impl<H: Copy> From<super::v8::slashing::SlashingOffenceKind> for DisputeOffenceK
 }
 
 /// impl for a tryFrom conversion from DisputeOffenceKind to SlashingOffenceKind
-impl<H: Copy> TryFrom<DisputeOffenceKind> for super::v8::slashing::SlashingOffenceKind {
+impl TryFrom<DisputeOffenceKind> for super::v8::slashing::SlashingOffenceKind {
 	type Error = ();
 
 	fn try_from(value: DisputeOffenceKind) -> Result<Self, Self::Error> {
@@ -1557,7 +1557,7 @@ pub struct PendingSlashes {
 	pub kind: DisputeOffenceKind,
 }
 
-impl<H: Copy> From<super::v8::slashing::PendingSlashes> for PendingSlashes {
+impl From<super::v8::slashing::PendingSlashes> for PendingSlashes {
     fn from(old: super::v8::slashing::PendingSlashes) -> Self {
         let keys = old.keys;
         let kind = old.kind.into();
@@ -1565,7 +1565,7 @@ impl<H: Copy> From<super::v8::slashing::PendingSlashes> for PendingSlashes {
     }
 }
 
-impl<H: Copy> TryFrom<PendingSlashes> for super::v8::slashing::PendingSlashes {
+impl TryFrom<PendingSlashes> for super::v8::slashing::PendingSlashes {
     type Error = ();
 
     fn try_from(value: PendingSlashes) -> Result<Self, Self::Error> {
@@ -1590,7 +1590,7 @@ pub struct DisputeProof {
 	pub validator_id: ValidatorId,
 }
 
-impl<H: Copy> From<super::v8::slashing::DisputeProof> for DisputeProof {
+impl From<super::v8::slashing::DisputeProof> for DisputeProof {
 	fn from(old: super::v8::slashing::DisputeProof) -> Self {
 		let time_slot = old.time_slot;
 		let kind = old.kind.into(); // infallible conversion
@@ -1600,7 +1600,7 @@ impl<H: Copy> From<super::v8::slashing::DisputeProof> for DisputeProof {
 	}
 }
 
-impl<H: Copy> TryFrom<DisputeProof> for super::v8::slashing::DisputeProof {
+impl TryFrom<DisputeProof> for super::v8::slashing::DisputeProof {
 	type Error = ();
 
 	fn try_from(value: DisputeProof) -> Result<Self, Self::Error> {
