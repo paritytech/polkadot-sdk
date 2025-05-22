@@ -5083,7 +5083,6 @@ dependencies = [
  "log",
  "parity-scale-codec",
  "polkadot-primitives",
- "subxt 0.41.0",
  "tokio",
 ]
 
