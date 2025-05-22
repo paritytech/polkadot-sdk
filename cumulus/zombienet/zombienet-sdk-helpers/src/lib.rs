@@ -386,3 +386,45 @@ where
 		Err(anyhow!("Timeout ({secs}), waiting for extrinsic finalization"))
 	}
 }
+
+pub async fn assert_para_is_backed(
+	relay_client: &OnlineClient<PolkadotConfig>,
+	para_id: ParaId,
+	blocks_to_wait: u32,
+) -> Result<(), anyhow::Error> {
+	let mut blocks_sub = relay_client.blocks().subscribe_all().await?;
+
+	let mut blocks_cnt = 0;
+	while let Some(block) = blocks_sub.next().await {
+		let block = block?;
+		log::debug!(
+			"Relay block #{}, waiting for {blocks_cnt} blocks out of {blocks_to_wait} blocks to wait",
+			block.number(),
+		);
+		let events = block.events().await?;
+
+		let receipts = find_event_and_decode_fields::<CandidateReceiptV2<H256>>(
+			&events,
+			"ParaInclusion",
+			"CandidateBacked",
+		)?;
+
+		for receipt in receipts {
+			let id = receipt.descriptor.para_id();
+			log::debug!(
+				"Block backed for para_id {para_id} at relay: #{} ({})",
+				block.number(),
+				block.hash()
+			);
+			if para_id == id {
+				log::debug!("para_id match!");
+				return Ok(());
+			}
+		}
+		if blocks_cnt >= blocks_to_wait {
+			return Err(anyhow!("Parachain {para_id} not backed within {blocks_to_wait} blocks"));
+		}
+		blocks_cnt += 1;
+	}
+	Err(anyhow!("No more blocks to check"))
+}
