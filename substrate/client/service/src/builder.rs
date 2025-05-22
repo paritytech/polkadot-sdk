@@ -305,16 +305,16 @@ fn warm_up_trie_cache<TBl: BlockT>(
 ) -> Result<(), Error> {
 	use sc_client_api::backend::Backend;
 	use sp_state_machine::Backend as StateBackend;
-	let state = || backend.state_at(storage_root, TrieCacheContext::Untrusted);
-	let keys = KeysIter::<_, TBl>::new(state()?, None, None)?.collect::<Vec<_>>();
 
-	let percentages = (1..=10).map(|i| (i * keys.len() / 10, i * 10)).collect::<Vec<_>>();
+	let state = || backend.state_at(storage_root, TrieCacheContext::Untrusted);
+
 	info!("Populating trie cache started",);
+	let start_time = std::time::Instant::now();
 	let mut keys_count = 0;
 	let mut child_keys_count = 0;
-	for (index, key) in keys.into_iter().enumerate() {
-		if let Some((_, percentage)) = percentages.iter().find(|(i, _)| *i == index + 1) {
-			info!("{percentage}% of keys have been read");
+	for key in KeysIter::<_, TBl>::new(state()?, None, None)? {
+		if keys_count % 100_000 == 0 {
+			info!("{} keys and {} child keys have been read", keys_count, child_keys_count);
 		}
 		match child_info(key.0.clone()) {
 			Some(info) => {
@@ -334,7 +334,10 @@ fn warm_up_trie_cache<TBl: BlockT>(
 			},
 		}
 	}
-	info!("Trie cache populated with {keys_count} keys and {child_keys_count} child keys");
+	info!(
+		"Trie cache populated with {keys_count} keys and {child_keys_count} child keys in {} ms",
+		start_time.elapsed().as_millis()
+	);
 
 	Ok(())
 }
