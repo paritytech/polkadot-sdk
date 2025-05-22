@@ -108,16 +108,12 @@ async fn initialize_network() -> Result<Network<LocalFileSystem>, anyhow::Error>
 	// 	 - alice   - validator
 	// 	 - bob     - validator
 	// - parachain A nodes:
-	//   - dave
-	//     validator
-	//     initially produces blocks, after setting custom validation head data to parachain B
-	//     header it stops producing blocks
+	//   - dave    - validator initially produces blocks, after setting custom validation head data
+	//     to parachain B header it stops producing blocks
 	// - parachain B nodes:
-	//   - eve
-	//     validator
-	//     initially does not produce blocks because of the parachain header mismatch,
-	//     after setting custom validation head data to parachain B header it starts producing
-	//     blocks
+	//   - eve     - validator initially does not produce blocks because of the parachain header
+	//     mismatch, after setting custom validation head data to parachain B header it starts
+	//     producing blocks
 	let config = NetworkConfigBuilder::new()
 		.with_relaychain(|r| {
 			r.with_chain("rococo-local")

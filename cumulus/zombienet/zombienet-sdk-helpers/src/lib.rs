@@ -346,9 +346,9 @@ where
 					if status.as_finalized().is_some() { "Finalized" } else { "Best" };
 				log::info!("[{}] In block: {:#?}", block_status, tx_in_block.block_hash());
 			},
-			TxStatus::Error { message }
-			| TxStatus::Invalid { message }
-			| TxStatus::Dropped { message } => {
+			TxStatus::Error { message } |
+			TxStatus::Invalid { message } |
+			TxStatus::Dropped { message } => {
 				return Err(anyhow::format_err!("Error submitting tx: {message}"));
 			},
 			_ => continue,
