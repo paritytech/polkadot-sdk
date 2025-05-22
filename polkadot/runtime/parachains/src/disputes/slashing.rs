@@ -321,7 +321,7 @@ pub trait HandleReports<T: Config> {
 	/// Create and dispatch a slashing report extrinsic.
 	/// This should be called offchain.
 	fn submit_unsigned_slashing_report(
-		dispute_proof: DisputeProofV1,
+		dispute_proof: DisputeProofV2,
 		key_owner_proof: T::KeyOwnerProof,
 	) -> Result<(), sp_runtime::TryRuntimeError>;
 }
@@ -343,7 +343,7 @@ impl<T: Config> HandleReports<T> for () {
 	}
 
 	fn submit_unsigned_slashing_report(
-		_dispute_proof: DisputeProofV1,
+		_dispute_proof: DisputeProofV2,
 		_key_owner_proof: T::KeyOwnerProof,
 	) -> Result<(), sp_runtime::TryRuntimeError> {
 		Ok(())
@@ -447,14 +447,10 @@ pub mod pallet {
 		pub fn report_dispute_lost_unsigned(
 			origin: OriginFor<T>,
 			// box to decrease the size of the call
-			dispute_proof: Box<DisputeProofV1>,
+			dispute_proof: Box<DisputeProofV2>,
 			key_owner_proof: T::KeyOwnerProof,
 		) -> DispatchResultWithPostInfo {
 			ensure_none(origin)?;
-
-			// Convert DisputeProofV1 to DisputeProofV2
-			let dispute_proof = DisputeProofV2::from(dispute_proof);
-
 			let validator_set_count = key_owner_proof.validator_count() as ValidatorSetCount;
 			// check the membership proof to extract the offender's id
 			let key =
@@ -554,6 +550,8 @@ impl<T: Config> Pallet<T> {
 		dispute_proof: DisputeProofV1,
 		key_ownership_proof: <T as Config>::KeyOwnerProof,
 	) -> Option<()> {
+		// convert from DisputeProofV1 to DisputeProofV2
+		let dispute_proof = DisputeProofV2::from(dispute_proof);
 		T::HandleReports::submit_unsigned_slashing_report(dispute_proof, key_ownership_proof).ok()
 	}
 }
@@ -614,7 +612,7 @@ impl<T: Config> Pallet<T> {
 }
 
 fn is_known_offence<T: Config>(
-	dispute_proof: &DisputeProofV1,
+	dispute_proof: &DisputeProofV2,
 	key_owner_proof: &T::KeyOwnerProof,
 ) -> Result<(), TransactionValidityError> {
 	// check the membership proof to extract the offender's id
@@ -682,7 +680,7 @@ where
 	}
 
 	fn submit_unsigned_slashing_report(
-		dispute_proof: DisputeProofV1,
+		dispute_proof: DisputeProofV2,
 		key_owner_proof: <T as Config>::KeyOwnerProof,
 	) -> Result<(), sp_runtime::TryRuntimeError> {
 		use frame_system::offchain::{CreateInherent, SubmitTransaction};
