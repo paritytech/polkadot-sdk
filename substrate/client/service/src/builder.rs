@@ -313,7 +313,7 @@ fn warm_up_trie_cache<TBl: BlockT>(
 	let mut keys_count = 0;
 	let mut child_keys_count = 0;
 	for key in KeysIter::<_, TBl>::new(state()?, None, None)? {
-		if keys_count % 100_000 == 0 {
+		if keys_count != 0 && keys_count % 100_000 == 0 {
 			info!("{} keys and {} child keys have been read", keys_count, child_keys_count);
 		}
 		match child_info(key.0.clone()) {
