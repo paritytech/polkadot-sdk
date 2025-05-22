@@ -47,8 +47,7 @@ async fn migrate_solo_to_para() -> Result<(), anyhow::Error> {
 	log::info!("Ensuring parachain is registered");
 	assert_para_throughput(
 		&alice_client,
-		// 20,
-		5,
+		20,
 		[(ParaId::from(PARA_ID), 2..40)].into_iter().collect(),
 	)
 	.await?;
@@ -108,13 +107,17 @@ async fn initialize_network() -> Result<Network<LocalFileSystem>, anyhow::Error>
 	// - relaychain nodes:
 	// 	 - alice   - validator
 	// 	 - bob     - validator
-	// - parachain nodes
+	// - parachain A nodes:
 	//   - dave
-	//     validator.
-	//     run the solo chain (in our case this is also already a parachain, but as it has a different genesis it will not produce any blocks.)
+	//     validator
+	//     initially produces blocks, after setting custom validation head data to parachain B
+	//     header it stops producing blocks
+	// - parachain B nodes:
 	//   - eve
-	//     validator.
-	//     run the parachain that will be used to return the header of the solo chain.
+	//     validator
+	//     initially does not produce blocks because of the parachain header mismatch,
+	//     after setting custom validation head data to parachain B header it starts producing
+	//     blocks
 	let config = NetworkConfigBuilder::new()
 		.with_relaychain(|r| {
 			r.with_chain("rococo-local")
@@ -125,6 +128,7 @@ async fn initialize_network() -> Result<Network<LocalFileSystem>, anyhow::Error>
 				.with_node(|node| node.with_name("bob"))
 		})
 		.with_parachain(|p| {
+			// parachain A
 			p.with_id(PARA_ID)
 				.with_default_command("test-parachain")
 				.with_default_image(images.cumulus.as_str())
@@ -133,10 +137,12 @@ async fn initialize_network() -> Result<Network<LocalFileSystem>, anyhow::Error>
 				})
 		})
 		.with_parachain(|p| {
+			// parachain B
 			p.with_id(PARA_ID)
 				.with_registration_strategy(RegistrationStrategy::Manual)
 				.with_default_command("test-parachain")
 				.with_default_image(images.cumulus.as_str())
+				// modify genesis to produce different parachain header than for parachain A
 				.with_genesis_overrides(json!({
 					"sudo": {
 						"key": "5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty"
