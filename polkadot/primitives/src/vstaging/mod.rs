@@ -1505,19 +1505,109 @@ mod candidate_receipt_tests {
 }
 
 // Approval Slashes primitives
-/// The kind of the dispute offence.
-#[derive(PartialEq, Eq, Clone, Copy, Encode, Decode, DecodeWithMemTracking, TypeInfo, Debug)]
+/// Supercedes the old 'SlashingOffenceKind' enum.
 pub enum DisputeOffenceKind {
 	/// A severe offence when a validator backed an invalid block
 	/// (backing only)
 	#[codec(index = 0)]
 	ForInvalidBacked,
-	/// A medium offence when a validator approved an invalid block
-	/// (approval checking and dispute vote only)
-	#[codec(index = 1)]
-	ForInvalidApproved,
 	/// A minor offence when a validator disputed a valid block.
 	/// (approval checking and dispute vote only)
-	#[codec(index = 2)]
+	#[codec(index = 1)]
 	AgainstValid,
+	/// A medium offence when a validator approved an invalid block
+	/// (approval checking and dispute vote only)
+	#[codec(index = 2)]
+	ForInvalidApproved,
+}
+
+/// impl for a conversion from SlashingOffenceKind to DisputeOffenceKind
+/// This creates DisputeOffenceKind that never contains ForInvalidApproved since it was not spported in the past
+impl<H: Copy> From<super::v8::slashing::SlashingOffenceKind> for DisputeOffenceKind {
+	fn from(value: super::v8::slashing::SlashingOffenceKind) -> Self {
+		match value {
+			super::v8::slashing::SlashingOffenceKind::ForInvalid => Self::ForInvalidBacked,
+			super::v8::slashing::SlashingOffenceKind::AgainstValid => Self::AgainstValid,
+		}
+	}
+}
+
+/// impl for a tryFrom conversion from DisputeOffenceKind to SlashingOffenceKind
+impl<H: Copy> TryFrom<DisputeOffenceKind> for super::v8::slashing::SlashingOffenceKind {
+	type Error = ();
+
+	fn try_from(value: DisputeOffenceKind) -> Result<Self, Self::Error> {
+		match value {
+			DisputeOffenceKind::ForInvalidBacked => Ok(Self::ForInvalid),
+			DisputeOffenceKind::AgainstValid => Ok(Self::AgainstValid),
+			DisputeOffenceKind::ForInvalidApproved => Err(()),
+		}
+	}
+}
+
+/// Slashes that are waiting to be applied once we have validator key
+/// identification.
+#[derive(Encode, Decode, TypeInfo, Debug, Clone)]
+pub struct PendingSlashes {
+	/// Indices and keys of the validators who lost a dispute and are pending
+	/// slashes.
+	pub keys: BTreeMap<ValidatorIndex, ValidatorId>,
+	/// The dispute outcome.
+	pub kind: DisputeOffenceKind,
+}
+
+impl<H: Copy> From<super::v8::PendingSlashes> for PendingSlashes {
+    fn from(old: super::v8::PendingSlashes) -> Self {
+        let keys = old.keys;
+        let kind = old.kind.into();
+        Self { keys, kind }
+    }
+}
+
+impl<H: Copy> TryFrom<PendingSlashes> for super::v8::PendingSlashes {
+    type Error = ();
+
+    fn try_from(value: PendingSlashes) -> Result<Self, Self::Error> {
+        Ok(Self {
+            keys: value.keys,
+            kind: value.kind.try_into()?,
+        })
+    }
+}
+
+/// We store most of the information about a lost dispute on chain. This struct
+/// is required to identify and verify it.
+#[derive(PartialEq, Eq, Clone, Encode, Decode, DecodeWithMemTracking, TypeInfo, Debug)]
+pub struct DisputeProof {
+	/// Time slot when the dispute occurred.
+	pub time_slot: DisputesTimeSlot,
+	/// The dispute outcome.
+	pub kind: DisputeOffenceKind,
+	/// The index of the validator who lost a dispute.
+	pub validator_index: ValidatorIndex,
+	/// The parachain session key of the validator.
+	pub validator_id: ValidatorId,
+}
+
+impl<H: Copy> From<super::v8::DisputeProof> for DisputeProof {
+	fn from(old: super::v8::DisputeProof) -> Self {
+		let time_slot = old.time_slot;
+		let kind = old.kind.into(); // infallible conversion
+		let validator_index = old.validator_index;
+		let validator_id = old.validator_id;
+		Self { time_slot, kind, validator_index, validator_id }
+	}
+}
+
+impl<H: Copy> TryFrom<DisputeProof> for super::v8::DisputeProof {
+	type Error = ();
+
+	fn try_from(value: DisputeProof) -> Result<Self, Self::Error> {
+		Ok(Self {
+			time_slot: value.time_slot,
+			kind: value.kind.try_into()?,
+			validator_index: value.validator_index,
+			validator_id: value.validator_id,
+		})
+	}
 }
