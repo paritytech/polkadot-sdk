@@ -182,7 +182,7 @@ mod benchmarks {
 
 		#[block]
 		{
-			Task::<T, I>::bump_offchain().unwrap();
+			crate::Task::<T, I>::bump_offchain().unwrap();
 		}
 
 		assert_eq!(Salary::<T, I>::status().unwrap().cycle_index, 1u32.into());
