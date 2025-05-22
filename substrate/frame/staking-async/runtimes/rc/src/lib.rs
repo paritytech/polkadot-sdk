@@ -35,7 +35,6 @@ use frame_support::{
 	derive_impl,
 	dynamic_params::{dynamic_pallet_params, dynamic_params},
 	genesis_builder_helper::{build_state, get_preset},
-	pallet_prelude::PhantomData,
 	parameter_types,
 	traits::{
 		fungible::HoldConsideration, tokens::UnityOrOuterConversion, ConstBool, ConstU32, Contains,
@@ -106,8 +105,8 @@ pub use sp_runtime::BuildStorage;
 use sp_runtime::{
 	generic, impl_opaque_keys,
 	traits::{
-		AccountIdConversion, BlakeTwo256, Block as BlockT, ConvertInto, Get, IdentityLookup,
-		Keccak256, OpaqueKeys, SaturatedConversion, Verify,
+		AccountIdConversion, BlakeTwo256, Block as BlockT, Convert, ConvertInto, Get,
+		IdentityLookup, Keccak256, OpaqueKeys, SaturatedConversion, Verify,
 	},
 	transaction_validity::{TransactionPriority, TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult, FixedU128, KeyTypeId, Percent, Permill,
@@ -577,15 +576,65 @@ impl session_historical::Config for Runtime {
 pub struct AssetHubLocation;
 impl Get<Location> for AssetHubLocation {
 	fn get() -> Location {
-		Location::new(0, [Junction::Parachain(1000)])
+		Location::new(0, [Junction::Parachain(1100)])
 	}
 }
 
-pub struct AssetHubNextLocation;
-impl Get<Location> for AssetHubNextLocation {
-	fn get() -> Location {
-		// TODO: once we are done with AH-next, replace with original AH id.
-		Location::new(0, [Junction::Parachain(1100)])
+pub struct SessionReportToXcm;
+impl Convert<rc_client::SessionReport<AccountId>, Xcm<()>> for SessionReportToXcm {
+	fn convert(a: rc_client::SessionReport<AccountId>) -> Xcm<()> {
+		Xcm(vec![
+			Instruction::UnpaidExecution {
+				weight_limit: WeightLimit::Unlimited,
+				check_origin: None,
+			},
+			Instruction::Transact {
+				origin_kind: OriginKind::Superuser,
+				fallback_max_weight: None,
+				call: AssetHubRuntimePallets::RcClient(RcClientCalls::RelaySessionReport(a))
+					.encode()
+					.into(),
+			},
+		])
+	}
+}
+
+pub struct StakingXcmToAssetHub;
+impl ah_client::SendToAssetHub for StakingXcmToAssetHub {
+	type AccountId = AccountId;
+
+	fn relay_session_report(session_report: rc_client::SessionReport<Self::AccountId>) {
+		rc_client::XCMSender::<
+			xcm_config::XcmRouter,
+			AssetHubLocation,
+			rc_client::SessionReport<AccountId>,
+			SessionReportToXcm,
+		>::split_then_send(session_report, Some(8));
+	}
+
+	fn relay_new_offence(
+		session_index: SessionIndex,
+		offences: Vec<rc_client::Offence<Self::AccountId>>,
+	) {
+		let message = Xcm(vec![
+			Instruction::UnpaidExecution {
+				weight_limit: WeightLimit::Unlimited,
+				check_origin: None,
+			},
+			Instruction::Transact {
+				origin_kind: OriginKind::Superuser,
+				fallback_max_weight: None,
+				call: AssetHubRuntimePallets::RcClient(RcClientCalls::RelayNewOffence(
+					session_index,
+					offences,
+				))
+				.encode()
+				.into(),
+			},
+		]);
+		if let Err(err) = send_xcm::<xcm_config::XcmRouter>(AssetHubLocation::get(), message) {
+			log::error!(target: "runtime::ah-client", "Failed to send relay offence message: {:?}", err);
+		}
 	}
 }
 
@@ -603,150 +652,6 @@ enum RcClientCalls<AccountId> {
 	RelaySessionReport(rc_client::SessionReport<AccountId>),
 	#[codec(index = 1)]
 	RelayNewOffence(SessionIndex, Vec<rc_client::Offence<AccountId>>),
-}
-
-pub struct XcmToAssetHub<T: SendXcm, AssetHubId: Get<u32>>(PhantomData<(T, AssetHubId)>);
-
-impl<T: SendXcm, AssetHubId: Get<u32>> XcmToAssetHub<T, AssetHubId> {
-	/// This is a downward message.
-	/// Westend: `51200` (50K)
-	/// Polkadot: `51200` (50K)
-	/// Kusama: `51200` (50K)
-	fn split_until_validated_session_report(
-		report: rc_client::SessionReport<AccountId>,
-		destination: &Location,
-		maybe_max_steps: Option<u32>,
-	) -> Result<Vec<Xcm<()>>, SendError> {
-		let mut chunk_size = report.validator_points.len();
-		let mut steps = 0;
-
-		loop {
-			let current_reports = report.clone().split(chunk_size);
-
-			// the first report is the heaviest, the last one might be smaller.
-			let first_report = if let Some(r) = current_reports.first() {
-				r
-			} else {
-				log::debug!(target: "runtime::ah-client", "📨 unexpected: no reports to send");
-				return Ok(vec![]);
-			};
-
-			log::debug!(
-				target: "runtime::ah-client",
-				"📨 step: {:?}, chunk_size: {:?}, report_size: {:?}",
-				steps,
-				chunk_size,
-				first_report.encoded_size(),
-			);
-
-			let message = Self::session_message_from_report(first_report.clone());
-			match <T as SendXcm>::validate(&mut Some(destination.clone()), &mut Some(message)) {
-				Ok((_ticket, price)) => {
-					log::debug!(target: "runtime::ah-client", "📨 validated, price: {:?}", price);
-					return Ok(current_reports
-						.into_iter()
-						.map(Self::session_message_from_report)
-						.collect::<Vec<_>>());
-				},
-				Err(SendError::ExceedsMaxMessageSize) => {
-					log::debug!(target: "runtime::ah-client", "📨 ExceedsMaxMessageSize -- reducing chunk_size");
-					chunk_size = chunk_size.saturating_div(2);
-					steps += 1;
-					if maybe_max_steps.map_or(false, |max_steps| steps > max_steps) {
-						log::error!(target: "runtime::ah-client", "📨 Exceeded max steps");
-						return Err(SendError::ExceedsMaxMessageSize);
-					} else {
-						// try again with the new `chunk_size`
-						continue;
-					}
-				},
-				Err(other) => {
-					log::error!(target: "runtime::ah-client", "📨 other error -- cannot send XCM: {:?}", other);
-					return Err(other);
-				},
-			}
-		}
-	}
-
-	fn session_message_from_report(report: rc_client::SessionReport<AccountId>) -> Xcm<()> {
-		Xcm(vec![
-			Instruction::UnpaidExecution {
-				weight_limit: WeightLimit::Unlimited,
-				check_origin: None,
-			},
-			Self::mk_asset_hub_call(RcClientCalls::RelaySessionReport(report)),
-		])
-	}
-
-	fn mk_asset_hub_call(
-		call: RcClientCalls<<Self as ah_client::SendToAssetHub>::AccountId>,
-	) -> Instruction<()> {
-		Instruction::Transact {
-			origin_kind: OriginKind::Superuser,
-			fallback_max_weight: None,
-			call: AssetHubRuntimePallets::RcClient(call).encode().into(),
-		}
-	}
-}
-
-impl<T: SendXcm, AssetHubId: Get<u32>> ah_client::SendToAssetHub for XcmToAssetHub<T, AssetHubId> {
-	type AccountId = AccountId;
-
-	fn relay_session_report(mut session_report: rc_client::SessionReport<Self::AccountId>) {
-		// add some fake data to the session report to make it bigger
-		session_report.validator_points.extend(
-			(0..1000)
-				.into_iter()
-				.map(|i| {
-					let fake_validator = AccountId::decode(
-						&mut sp_runtime::traits::TrailingZeroInput::new(&[i as u8; 32]),
-					)
-					.unwrap();
-					(fake_validator, i)
-				})
-				.collect::<Vec<_>>(),
-		);
-
-		// then split and send
-		let dest = AssetHubNextLocation::get();
-		let messages = if let Ok(r) =
-			Self::split_until_validated_session_report(session_report, &dest, Some(8))
-		{
-			r
-		} else {
-			log::error!(target: "runtime::ah-client", "📨 Failed to split session report");
-			return;
-		};
-
-		for (idx, message) in messages.into_iter().enumerate() {
-			log::debug!(target: "runtime::ah-client", "📨 sending session report part {}, message size: {:?}", idx, message.encoded_size());
-			let result = send_xcm::<T>(dest.clone(), message);
-			match result {
-				Ok(_) => {
-					log::debug!(target: "runtime::ah-client", "📨 Successfully sent session report part {} to relay chain", idx)
-				},
-				Err(e) => {
-					log::error!(target: "runtime::ah-client", "📨 Failed to send session report to relay chain: {:?}", e)
-				},
-			}
-		}
-	}
-
-	fn relay_new_offence(
-		session_index: SessionIndex,
-		offences: Vec<rc_client::Offence<Self::AccountId>>,
-	) {
-		let message = Xcm(vec![
-			Instruction::UnpaidExecution {
-				weight_limit: WeightLimit::Unlimited,
-				check_origin: None,
-			},
-			Self::mk_asset_hub_call(RcClientCalls::RelayNewOffence(session_index, offences)),
-		]);
-		if let Err(err) = send_xcm::<T>(AssetHubNextLocation::get(), message) {
-			log::error!(target: "runtime::ah-client", "Failed to send relay offence message: {:?}", err);
-		}
-	}
 }
 
 pub struct EnsureAssetHub;
@@ -773,8 +678,8 @@ impl pallet_staking_async_ah_client::Config for Runtime {
 		frame_support::traits::EitherOfDiverse<EnsureRoot<AccountId>, EnsureAssetHub>;
 	type AdminOrigin = EnsureRoot<AccountId>;
 	type SessionInterface = Self;
-	type SendToAssetHub = XcmToAssetHub<crate::xcm_config::XcmRouter, AssetHubId>;
-	type MinimumValidatorSetSize = ConstU32<333>;
+	type SendToAssetHub = StakingXcmToAssetHub;
+	type MinimumValidatorSetSize = ConstU32<10>;
 	type UnixTime = Timestamp;
 	type PointsPerBlock = ConstU32<20>;
 	type Fallback = Staking;

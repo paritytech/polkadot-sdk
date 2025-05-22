@@ -116,10 +116,12 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 extern crate alloc;
-use alloc::vec::Vec;
+use alloc::{vec, vec::Vec};
+use core::fmt::Display;
 use frame_support::pallet_prelude::*;
-use sp_runtime::Perbill;
+use sp_runtime::{traits::Convert, Perbill};
 use sp_staking::SessionIndex;
+use xcm::latest::{send_xcm, Location, SendError, SendXcm, Xcm};
 
 /// Export everything needed for the pallet to be used in the runtime.
 pub use pallet::*;
@@ -326,6 +328,130 @@ impl<AccountId> SessionReport<AccountId> {
 			x.leftover = false
 		}
 		parts
+	}
+}
+
+/// A trait to encapsulate messages between RC and AH that can be splitted into smaller chunks.
+///
+/// Implemented for [`SessionReport`] and [`ValidatorSetReport`].
+pub trait SplittableMessage: Sized {
+	/// Split yourself into pieces of `chunk_size` size.
+	fn split_by(self, chunk_size: usize) -> Vec<Self>;
+
+	/// Current length of the message.
+	fn len(&self) -> usize;
+}
+
+impl<AccountId: Clone> SplittableMessage for SessionReport<AccountId> {
+	fn split_by(self, chunk_size: usize) -> Vec<Self> {
+		self.split(chunk_size)
+	}
+	fn len(&self) -> usize {
+		self.validator_points.len()
+	}
+}
+
+impl<AccountId: Clone> SplittableMessage for ValidatorSetReport<AccountId> {
+	fn split_by(self, chunk_size: usize) -> Vec<Self> {
+		self.split(chunk_size)
+	}
+	fn len(&self) -> usize {
+		self.new_validator_set.len()
+	}
+}
+
+/// Common utility to send XCM messages that can use [`SplittableMessage`].
+pub struct XCMSender<Sender, Destination, Message, ToXcm>(
+	core::marker::PhantomData<(Sender, Destination, Message, ToXcm)>,
+);
+
+impl<Sender, Destination, Message, ToXcm> XCMSender<Sender, Destination, Message, ToXcm>
+where
+	Sender: SendXcm,
+	Destination: Get<Location>,
+	Message: SplittableMessage + Display + Clone + Encode,
+	ToXcm: Convert<Message, Xcm<()>>,
+{
+	/// Safe send method to send a `message`, while validating it and using [`SplittableMessage`] to
+	/// split it into smaller pieces if XCM validation fails with `ExceedsMaxMessageSize`. It will
+	/// fail on other errors.
+	///
+	/// It will only emit some logs, and has no return value. This is used in the runtime, so it
+	/// cannot deposit any events at this level.
+	pub fn split_then_send(message: Message, maybe_max_steps: Option<u32>) {
+		let message_type_name = core::any::type_name::<Message>();
+		let dest = Destination::get();
+		let xcms = match Self::prepare(message, maybe_max_steps) {
+			Ok(x) => x,
+			Err(e) => {
+				log::error!(target: "runtime::rc-client", "📨 Failed to split message {}: {:?}", message_type_name, e);
+				return;
+			},
+		};
+
+		for (idx, xcm) in xcms.into_iter().enumerate() {
+			log::debug!(target: "runtime::rc-client", "📨 sending {} message index {}, size: {:?}", message_type_name, idx, xcm.encoded_size());
+			let result = send_xcm::<Sender>(dest.clone(), xcm);
+			match result {
+				Ok(_) => {
+					log::debug!(target: "runtime::rc-client", "📨 Successfully sent {} message part {} to relay chain", message_type_name,  idx)
+				},
+				Err(e) => {
+					log::error!(target: "runtime::rc-client", "📨 Failed to send {} message to relay chain: {:?}", message_type_name, e)
+				},
+			}
+		}
+	}
+
+	fn prepare(message: Message, maybe_max_steps: Option<u32>) -> Result<Vec<Xcm<()>>, SendError> {
+		// initial chink size is the entire thing, so it will be a vector of 1 item.
+		let mut chunk_size = message.len();
+		let mut steps = 0;
+
+		loop {
+			let current_messages = message.clone().split_by(chunk_size);
+
+			// the first message is the heaviest, the last one might be smaller.
+			let first_message = if let Some(r) = current_messages.first() {
+				r
+			} else {
+				log::debug!(target: "runtime::staking-async::xcm", "📨 unexpected: no messages to send");
+				return Ok(vec![]);
+			};
+
+			log::debug!(
+				target: "runtime::staking-async::xcm",
+				"📨 step: {:?}, chunk_size: {:?}, message_size: {:?}",
+				steps,
+				chunk_size,
+				first_message.encoded_size(),
+			);
+
+			let first_xcm = ToXcm::convert(first_message.clone());
+			match <Sender as SendXcm>::validate(&mut Some(Destination::get()), &mut Some(first_xcm))
+			{
+				Ok((_ticket, price)) => {
+					log::debug!(target: "runtime::staking-async::xcm", "📨 validated, price: {:?}", price);
+					return Ok(current_messages.into_iter().map(ToXcm::convert).collect::<Vec<_>>());
+				},
+				Err(SendError::ExceedsMaxMessageSize) => {
+					log::debug!(target: "runtime::staking-async::xcm", "📨 ExceedsMaxMessageSize -- reducing chunk_size");
+					chunk_size = chunk_size.saturating_div(2);
+					steps += 1;
+					if maybe_max_steps.map_or(false, |max_steps| steps > max_steps) {
+						log::error!(target: "runtime::staking-async::xcm", "📨 Exceeded max steps");
+						return Err(SendError::ExceedsMaxMessageSize);
+					} else {
+						// try again with the new `chunk_size`
+						continue;
+					}
+				},
+				Err(other) => {
+					log::error!(target: "runtime::staking-async::xcm", "📨 other error -- cannot send XCM: {:?}", other);
+					return Err(other);
+				},
+			}
+		}
 	}
 }
 
