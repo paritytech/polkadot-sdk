@@ -82,7 +82,7 @@ async fn runtime_upgrade() -> Result<(), anyhow::Error> {
 		"Waiting (up to {timeout_secs}s) for parachain runtime upgrade to version {}",
 		expected_spec_version
 	);
-	let _ = tokio::time::timeout(
+	tokio::time::timeout(
 		Duration::from_secs(timeout_secs),
 		wait_for_upgrade(dave_client, expected_spec_version),
 	)
