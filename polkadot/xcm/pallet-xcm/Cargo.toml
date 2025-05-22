@@ -1,6 +1,6 @@
 [package]
 name = "pallet-xcm"
-version = "19.1.0"
+version = "19.1.1"
 description = "A pallet for handling XCM programs."
 authors.workspace = true
 edition.workspace = true
@@ -34,7 +34,7 @@ pallet-assets = { default-features = true, workspace = true }
 polkadot-parachain-primitives = { default-features = true, workspace = true }
 polkadot-runtime-parachains = { default-features = true, workspace = true }
 sp-tracing = { features = ["test-utils"], default-features = true, workspace = true }
-xcm-simulator = { workspace = true, default-features = true }
+xcm-simulator = { default-features = true, workspace = true }
 
 [features]
 default = ["std"]

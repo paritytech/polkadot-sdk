@@ -24,9 +24,9 @@ to = "13.0.1"
 [[crate]]
 # substrate/frame/election-provider-support/solution-type
 name = "frame-election-provider-solution-type"
-from = "16.0.0"
-to = "16.1.0"
-bump = "minor"
+from = "16.1.0"
+to = "16.1.1"
+bump = "patch"
 reason = "changed"
 
 [[crate]]
@@ -578,8 +578,8 @@ reason = "changed"
 [[crate]]
 # substrate/primitives/npos-elections
 name = "sp-npos-elections"
-from = "36.0.0"
-to = "36.1.0"
+from = "36.1.0"
+to = "36.2.0"
 bump = "minor"
 reason = "changed"
 
@@ -962,8 +962,8 @@ to = "2.0.0"
 [[crate]]
 # polkadot/xcm
 name = "staging-xcm"
-from = "16.0.0"
-to = "16.1.0"
+from = "16.1.0"
+to = "16.2.0"
 bump = "minor"
 reason = "changed"
 
@@ -1048,9 +1048,9 @@ reason = "changed"
 [[crate]]
 # substrate/frame/election-provider-support
 name = "frame-election-provider-support"
-from = "40.0.0"
-to = "40.1.0"
-bump = "minor"
+from = "40.1.0"
+to = "40.1.1"
+bump = "patch"
 reason = "changed"
 
 [[crate]]
@@ -1804,8 +1804,8 @@ reason = "changed"
 [[crate]]
 # polkadot/xcm/xcm-executor
 name = "staging-xcm-executor"
-from = "19.1.0"
-to = "19.1.1"
+from = "19.1.1"
+to = "19.1.2"
 bump = "patch"
 reason = "changed"
 
@@ -1930,8 +1930,8 @@ reason = "changed"
 [[crate]]
 # substrate/frame/election-provider-multi-phase
 name = "pallet-election-provider-multi-phase"
-from = "39.0.0"
-to = "39.1.0"
+from = "39.1.0"
+to = "39.2.0"
 bump = "minor"
 reason = "changed"
 
@@ -2084,17 +2084,17 @@ reason = "changed"
 [[crate]]
 # polkadot/xcm/xcm-builder
 name = "staging-xcm-builder"
-from = "20.0.0"
-to = "20.1.0"
-bump = "minor"
+from = "20.1.0"
+to = "20.1.1"
+bump = "patch"
 reason = "changed"
 
 [[crate]]
 # polkadot/xcm/xcm-runtime-apis
 name = "xcm-runtime-apis"
-from = "0.5.1"
-to = "0.7.0"
-bump = "major"
+from = "0.7.0"
+to = "0.7.1"
+bump = "patch"
 reason = "changed"
 
 [[crate]]
@@ -2378,9 +2378,9 @@ reason = "changed"
 [[crate]]
 # polkadot/xcm/pallet-xcm
 name = "pallet-xcm"
-from = "19.0.0"
-to = "19.1.0"
-bump = "minor"
+from = "19.1.0"
+to = "19.1.1"
+bump = "patch"
 reason = "changed"
 
 [[crate]]
@@ -2628,9 +2628,9 @@ reason = "changed"
 [[crate]]
 # bridges/modules/xcm-bridge-hub
 name = "pallet-xcm-bridge-hub"
-from = "0.16.0"
-to = "0.16.1"
-bump = "minor"
+from = "0.16.1"
+to = "0.16.2"
+bump = "patch"
 reason = "changed"
 
 [[crate]]
@@ -2790,9 +2790,9 @@ reason = "changed"
 [[crate]]
 # polkadot/xcm/xcm-simulator
 name = "xcm-simulator"
-from = "18.0.0"
-to = "20.0.0"
-bump = "major"
+from = "20.0.0"
+to = "20.1.0"
+bump = "minor"
 reason = "changed"
 
 [[crate]]
@@ -2916,9 +2916,9 @@ to = "0.1.0"
 [[crate]]
 # polkadot/xcm/xcm-simulator/example
 name = "xcm-simulator-example"
-from = "18.0.0"
-to = "20.0.0"
-bump = "major"
+from = "20.0.0"
+to = "20.0.1"
+bump = "patch"
 reason = "changed"
 
 [[crate]]
@@ -3312,9 +3312,9 @@ to = "2.0.0"
 [[crate]]
 # cumulus/xcm/xcm-emulator
 name = "xcm-emulator"
-from = "0.19.1"
-to = "0.19.2"
-bump = "patch"
+from = "0.19.2"
+to = "0.19.3"
+bump = "minor"
 reason = "changed"
 
 [[crate]]
@@ -3464,9 +3464,9 @@ reason = "changed"
 [[crate]]
 # cumulus/parachains/integration-tests/emulated/common
 name = "emulated-integration-tests-common"
-from = "20.0.0"
-to = "20.0.1"
-bump = "patch"
+from = "20.0.1"
+to = "20.1.0"
+bump = "minor"
 reason = "changed"
 
 [[crate]]

@@ -4,7 +4,7 @@ description = "Tools & types for building with XCM and its executor."
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
-version = "20.1.0"
+version = "20.1.1"
 homepage.workspace = true
 repository.workspace = true
 
@@ -39,7 +39,7 @@ polkadot-primitives = { default-features = true, workspace = true }
 polkadot-runtime-parachains = { default-features = true, workspace = true }
 polkadot-test-runtime = { workspace = true }
 primitive-types = { features = ["codec", "num-traits", "scale-info"], workspace = true }
-xcm-simulator = { workspace = true, default-features = true }
+xcm-simulator = { default-features = true, workspace = true }
 
 [features]
 default = ["std"]

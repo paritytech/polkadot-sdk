@@ -1,6 +1,6 @@
 [package]
 name = "emulated-integration-tests-common"
-version = "20.0.1"
+version = "20.1.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -38,9 +38,6 @@ pallet-message-queue.default-features = true
 pallet-message-queue.workspace = true
 pallet-xcm-bridge-hub.default-features = true
 pallet-xcm-bridge-hub.workspace = true
-pallet-xcm.default-features = true
-pallet-xcm.features = ["test-utils"]
-pallet-xcm.workspace = true
 parachains-common.default-features = true
 parachains-common.workspace = true
 paste = { workspace = true, default-features = true }
@@ -70,3 +67,8 @@ xcm-simulator.default-features = true
 xcm-simulator.workspace = true
 xcm.default-features = true
 xcm.workspace = true
+
+[dependencies.pallet-xcm]
+default-features = true
+features = ["test-utils"]
+workspace = true
