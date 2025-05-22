@@ -87,7 +87,7 @@ runs:
         jq -r '[.relay.nodes[].name] + [.parachains[][] .collators[].name] | .[]' "$ZOMBIE_JSON" | while read -r NAME; do
           if [[ "$ZOMBIE_PROVIDER" == "k8s" ]]; then
             # Fetching logs from k8s
-            kubectl -n "$NS" logs "$NAME" > "$TARGET_DIR/$NAME.log"
+            kubectl logs "$NAME" -c "$NAME" -n "$NS" > "$TARGET_DIR/$NAME.log"
 
             # Replace placeholders
             URL=${LOKI_URL_TEMPLATE//\{\{namespace\}\}/$NS}
