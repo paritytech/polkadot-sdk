@@ -1506,6 +1506,7 @@ mod candidate_receipt_tests {
 
 // Approval Slashes primitives
 /// Supercedes the old 'SlashingOffenceKind' enum.
+#[derive(PartialEq, Eq, Clone, Copy, Encode, Decode, DecodeWithMemTracking, TypeInfo, Debug)]
 pub enum DisputeOffenceKind {
 	/// A severe offence when a validator backed an invalid block
 	/// (backing only)
@@ -1556,15 +1557,15 @@ pub struct PendingSlashes {
 	pub kind: DisputeOffenceKind,
 }
 
-impl<H: Copy> From<super::v8::PendingSlashes> for PendingSlashes {
-    fn from(old: super::v8::PendingSlashes) -> Self {
+impl<H: Copy> From<super::v8::slashing::PendingSlashes> for PendingSlashes {
+    fn from(old: super::v8::slashing::PendingSlashes) -> Self {
         let keys = old.keys;
         let kind = old.kind.into();
         Self { keys, kind }
     }
 }
 
-impl<H: Copy> TryFrom<PendingSlashes> for super::v8::PendingSlashes {
+impl<H: Copy> TryFrom<PendingSlashes> for super::v8::slashing::PendingSlashes {
     type Error = ();
 
     fn try_from(value: PendingSlashes) -> Result<Self, Self::Error> {
@@ -1589,8 +1590,8 @@ pub struct DisputeProof {
 	pub validator_id: ValidatorId,
 }
 
-impl<H: Copy> From<super::v8::DisputeProof> for DisputeProof {
-	fn from(old: super::v8::DisputeProof) -> Self {
+impl<H: Copy> From<super::v8::slashing::DisputeProof> for DisputeProof {
+	fn from(old: super::v8::slashing::DisputeProof) -> Self {
 		let time_slot = old.time_slot;
 		let kind = old.kind.into(); // infallible conversion
 		let validator_index = old.validator_index;
@@ -1599,7 +1600,7 @@ impl<H: Copy> From<super::v8::DisputeProof> for DisputeProof {
 	}
 }
 
-impl<H: Copy> TryFrom<DisputeProof> for super::v8::DisputeProof {
+impl<H: Copy> TryFrom<DisputeProof> for super::v8::slashing::DisputeProof {
 	type Error = ();
 
 	fn try_from(value: DisputeProof) -> Result<Self, Self::Error> {
