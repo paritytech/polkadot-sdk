@@ -1347,8 +1347,14 @@ async fn handle_our_view_change<Context>(
 	let added: Vec<_> = view.iter().filter(|h| !implicit_view.contains_leaf(h)).collect();
 
 	for leaf in added {
-		let block_number = implicit_view.block_number(leaf);
 		let claim_queue: ClaimQueueSnapshot = fetch_claim_queue(ctx.sender(), *leaf).await?;
+
+		implicit_view
+			.activate_leaf(ctx.sender(), *leaf)
+			.await
+			.map_err(Error::ImplicitViewFetchError)?;
+
+		let block_number = implicit_view.block_number(leaf);
 		state
 			.per_relay_parent
 			.insert(*leaf, PerRelayParent::new(para_id, claim_queue, block_number));
@@ -1362,12 +1368,6 @@ async fn handle_our_view_change<Context>(
 			&state.metrics,
 		)
 		.await;
-
-		implicit_view
-			.activate_leaf(ctx.sender(), *leaf)
-			.await
-			.map_err(Error::ImplicitViewFetchError)?;
-
 		let allowed_ancestry = implicit_view
 			.known_allowed_relay_parents_under(leaf, state.collating_on)
 			.unwrap_or_default();
