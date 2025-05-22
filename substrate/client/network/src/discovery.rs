@@ -1303,19 +1303,14 @@ fn kademlia_protocol_name<Hash: AsRef<[u8]>>(
 
 #[cfg(test)]
 mod tests {
-	use super::{
-		kademlia_protocol_name, legacy_kademlia_protocol_name, DiscoveryConfig,
-	};
+	use super::{kademlia_protocol_name, legacy_kademlia_protocol_name, DiscoveryConfig};
 	use crate::config::ProtocolId;
-	use libp2p::{
-		identity::Keypair, Multiaddr,
-	};
+	use libp2p::{identity::Keypair, Multiaddr};
 	use sp_core::hash::H256;
 
 	#[cfg(ignore_flaky_test)] // https://github.com/paritytech/polkadot-sdk/issues/48
 	#[tokio::test]
 	async fn discovery_working() {
-		use std::{collections::HashSet, task::Poll, time::Duration};
 		use super::DiscoveryOut;
 		use futures::prelude::*;
 		use libp2p::{
@@ -1323,9 +1318,11 @@ mod tests {
 				transport::{MemoryTransport, Transport},
 				upgrade,
 			},
+			noise,
 			swarm::{Swarm, SwarmEvent},
-			noise, yamux,
+			yamux,
 		};
+		use std::{collections::HashSet, task::Poll, time::Duration};
 		let mut first_swarm_peer_id_and_addr = None;
 
 		let genesis_hash = H256::from_low_u64_be(1);
