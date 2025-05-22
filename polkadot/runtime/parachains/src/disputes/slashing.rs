@@ -64,7 +64,7 @@ use alloc::{
 	vec::Vec,
 };
 use polkadot_primitives::{
-	slashing::{DisputesTimeSlot, DisputeProof as DisputeProofV1}, vstaging::{DisputeOffenceKind, PendingSlashes, DisputeProof as DisputeProofV2}, CandidateHash, SessionIndex, ValidatorId, ValidatorIndex
+	slashing::{DisputesTimeSlot, DisputeProof as DisputeProofV1, PendingSlashes as PendingSlashesV1}, vstaging::{DisputeOffenceKind, PendingSlashes as PendingSlashesV2, DisputeProof as DisputeProofV2}, CandidateHash, SessionIndex, ValidatorId, ValidatorIndex
 };
 use scale_info::TypeInfo;
 use sp_runtime::{
@@ -247,11 +247,11 @@ where
 			.into_iter()
 			.filter_map(|i| session_info.validators.get(i).cloned().map(|id| (i, id)))
 			.collect();
-		let unapplied = PendingSlashes { keys, kind };
+		let unapplied = PendingSlashesV2 { keys, kind };
 
-		let append = |old: &mut Option<PendingSlashes>| {
+		let append = |old: &mut Option<PendingSlashesV2>| {
 			let old = old
-				.get_or_insert(PendingSlashes { keys: Default::default(), kind: unapplied.kind });
+				.get_or_insert(PendingSlashesV2 { keys: Default::default(), kind: unapplied.kind });
 			debug_assert_eq!(old.kind, unapplied.kind);
 
 			old.keys.extend(unapplied.keys)
@@ -413,7 +413,7 @@ pub mod pallet {
 		SessionIndex,
 		Blake2_128Concat,
 		CandidateHash,
-		PendingSlashes,
+		PendingSlashesV2,
 	>;
 
 	/// `ValidatorSetCount` per session.
@@ -463,7 +463,7 @@ pub mod pallet {
 			// check that there is a pending slash for the given
 			// validator index and candidate hash
 			let candidate_hash = dispute_proof.time_slot.candidate_hash;
-			let try_remove = |v: &mut Option<PendingSlashes>| -> Result<(), DispatchError> {
+			let try_remove = |v: &mut Option<PendingSlashesV2>| -> Result<(), DispatchError> {
 				let pending = v.as_mut().ok_or(Error::<T>::InvalidCandidateHash)?;
 				if pending.kind != dispute_proof.kind {
 					return Err(Error::<T>::InvalidCandidateHash.into())
@@ -542,8 +542,18 @@ impl<T: Config> Pallet<T> {
 		let _ = <UnappliedSlashes<T>>::clear_prefix(old_session, REMOVE_LIMIT, None);
 	}
 
-	pub(crate) fn unapplied_slashes() -> Vec<(SessionIndex, CandidateHash, PendingSlashes)> {
-		<UnappliedSlashes<T>>::iter().collect()
+	pub(crate) fn unapplied_slashes() -> Vec<(SessionIndex, CandidateHash, PendingSlashesV1)> {
+		// Converting UnappliedSlashes to use the old SlashingOffence enum
+		// instead of the new DisputeOffenceKind enum to maintain the same
+		// behavior for the runtime api.
+		<UnappliedSlashes<T>>::iter()
+			.filter_map(|(session, candidate_hash, slash_v2)| {
+				match PendingSlashesV1::try_from(slash_v2) {
+					Ok(slash_v1) => Some((session, candidate_hash, slash_v1)),
+					Err(_) => None, // Skip if conversion fails (e.g., variant not representable in old format)
+				}
+			})
+			.collect()
 	}
 
 	pub(crate) fn submit_unsigned_slashing_report(
