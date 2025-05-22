@@ -42,6 +42,7 @@ use parachains_common::{
 use polkadot_parachain_primitives::primitives::Sibling;
 use polkadot_runtime_common::xcm_sender::ExponentialPrice;
 use snowbridge_outbound_queue_primitives::v2::exporter::PausableExporter;
+use snowbridge_runtime_common::v2::exporter::SnowbridgeUnpaidRemoteExporter;
 use sp_runtime::traits::{AccountIdConversion, TryConvertInto};
 use westend_runtime_constants::system_parachain::COLLECTIVES_ID;
 use xcm::latest::{prelude::*, ROCOCO_GENESIS_HASH, WESTEND_GENESIS_HASH};
@@ -56,8 +57,8 @@ use xcm_builder::{
 	SiblingParachainAsNative, SiblingParachainConvertsVia, SignedAccountId32AsNative,
 	SignedToAccountId32, SingleAssetExchangeAdapter, SovereignPaidRemoteExporter,
 	SovereignSignedViaLocation, StartsWith, StartsWithExplicitGlobalConsensus, TakeWeightCredit,
-	TrailingSetTopicAsId, UnpaidRemoteExporter, UsingComponents, WeightInfoBounds,
-	WithComputedOrigin, WithLatestLocationConverter, WithUniqueTopic, XcmFeeManagerFromComponents,
+	TrailingSetTopicAsId, UsingComponents, WeightInfoBounds, WithComputedOrigin,
+	WithLatestLocationConverter, WithUniqueTopic, XcmFeeManagerFromComponents,
 };
 use xcm_executor::XcmExecutor;
 
@@ -455,7 +456,7 @@ pub type XcmRouter = WithUniqueTopic<(
 	PausableExporter<
 		crate::SnowbridgeSystemFrontend,
 		(
-			UnpaidRemoteExporter<
+			SnowbridgeUnpaidRemoteExporter<
 				bridging::to_ethereum::EthereumNetworkExportTableV2,
 				XcmpQueue,
 				UniversalLocation,
