@@ -633,7 +633,7 @@ fn task_enumerate_works() {
 		set_rank(1, 1);
 		assert_ok!(Salary::init(RuntimeOrigin::signed(1)));
 		run_to(7);
-		assert_eq!(crate::pallet::Task::<Test>::iter().collect::<Vec<_>>().len(), 1);
+		assert_eq!(crate::Task::<Test>::iter().collect::<Vec<_>>().len(), 1);
 	});
 }
 
@@ -663,7 +663,7 @@ fn runtime_task_enumerate_works() {
 #[test]
 fn task_index_works_at_pallet_level() {
 	new_test_ext().execute_with(|| {
-		assert_eq!(crate::pallet::Task::<Test>::BumpOffchain {}.task_index(), 0);
+		assert_eq!(crate::Task::<Test>::BumpOffchain {}.task_index(), 0);
 	});
 }
 
@@ -672,7 +672,7 @@ fn task_index_works_at_runtime_level() {
 	new_test_ext().execute_with(|| {
 		assert_eq!(
 			<Test as frame_system::Config>::RuntimeTask::Salary(
-				crate::pallet::Task::<Test>::BumpOffchain {}
+				crate::Task::<Test>::BumpOffchain {}
 			)
 			.task_index(),
 			0
@@ -688,7 +688,7 @@ fn task_execution_works() {
 		assert_ok!(Salary::init(RuntimeOrigin::signed(1)));
 
 		let task = <Test as frame_system::Config>::RuntimeTask::Salary(
-			crate::pallet::Task::<Test>::BumpOffchain {},
+			crate::Task::<Test>::BumpOffchain {},
 		);
 		assert_eq!(
 			Salary::status(),
@@ -736,7 +736,7 @@ fn task_execution_fails_for_invalid_task() {
 			System::do_task(
 				RuntimeOrigin::signed(1),
 				<Test as frame_system::Config>::RuntimeTask::Salary(
-					crate::pallet::Task::<Test>::BumpOffchain {}
+					crate::SalaryTask::<Test>::BumpOffchain {}
 				),
 			),
 			frame_system::Error::<Test>::InvalidTask

@@ -25,7 +25,7 @@ use frame_system::offchain::CreateInherent;
 use frame_system::offchain::SubmitTransaction;
 use scale_info::{prelude::vec, TypeInfo};
 use frame::{
-	prelude::*,
+	prelude::{*, Task as FrameTask},
 	traits::tokens::{GetSalary, Pay, PaymentStatus},
 };
 
@@ -39,7 +39,7 @@ mod tests;
 mod benchmarking;
 pub mod weights;
 
-pub use pallet::*;
+pub use pallet::{*, Task};
 pub use weights::WeightInfo;
 
 /// Payroll cycle.
