@@ -228,15 +228,15 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		}
 
 		// else - suspend the bridge
-		let bridge_origin_relative_location = match bridge.bridge_origin_relative_location.try_as()
-		{
+		let result_bridge_origin_relative_location = (*bridge.bridge_origin_relative_location).clone().try_into();
+		let bridge_origin_relative_location = match &result_bridge_origin_relative_location {
 			Ok(bridge_origin_relative_location) => bridge_origin_relative_location,
 			Err(_) => {
 				log::debug!(
 					target: LOG_TARGET,
 					"Failed to convert the bridge {:?} origin location {:?}",
 					bridge_id,
-					bridge.bridge_origin_relative_location,
+					bridge.bridge_origin_relative_location.clone(),
 				);
 
 				return
