@@ -830,7 +830,7 @@ gum = { path = "polkadot/node/gum", default-features = false, package = "tracing
 gum-proc-macro = { path = "polkadot/node/gum/proc-macro", default-features = false, package = "tracing-gum-proc-macro" }
 handlebars = { version = "5.1.0" }
 hashbrown = "0.15.3"
-hash-db = { version = "0.16.0", default-features = false }
+hash-db = { git = "https://github.com/paritytech/trie.git", branch = "alexggh/switch_memory_db_to_hashbrown", default-features = false }
 hash256-std-hasher = { version = "0.15.2", default-features = false }
 hex = { version = "0.4.3", default-features = false }
 hex-literal = { version = "0.4.1", default-features = false }
@@ -887,7 +887,7 @@ log = { version = "0.4.22", default-features = false }
 macro_magic = { version = "0.5.1" }
 maplit = { version = "1.0.2" }
 memmap2 = { version = "0.9.3" }
-memory-db = { version = "0.32.0", default-features = false }
+memory-db = { git = "https://github.com/paritytech/trie.git", branch = "alexggh/switch_memory_db_to_hashbrown", default-features = false }
 merkleized-metadata = { version = "0.5.0" }
 merlin = { version = "3.0", default-features = false }
 messages-relay = { path = "bridges/relays/messages" }
@@ -1414,9 +1414,9 @@ tracing-futures = { version = "0.2.4" }
 tracing-log = { version = "0.2.0" }
 tracing-subscriber = { version = "0.3.18" }
 tracking-allocator = { path = "polkadot/node/tracking-allocator", default-features = false, package = "staging-tracking-allocator" }
-trie-bench = { version = "0.40.0" }
-trie-db = { version = "0.30.0", default-features = false }
-trie-root = { version = "0.18.0", default-features = false }
+trie-bench = { git = "https://github.com/paritytech/trie.git", branch = "alexggh/switch_memory_db_to_hashbrown"}
+trie-db = { git = "https://github.com/paritytech/trie.git", branch = "alexggh/switch_memory_db_to_hashbrown", default-features = false }
+trie-root = { git = "https://github.com/paritytech/trie.git", branch = "alexggh/switch_memory_db_to_hashbrown", default-features = false }
 trie-standardmap = { version = "0.16.0" }
 trybuild = { version = "1.0.103" }
 tt-call = { version = "1.0.8" }
