@@ -11,10 +11,10 @@
 
 use anyhow::anyhow;
 
-#[zombienet_sdk::subxt(runtime_metadata_path = "metadata-files/coretime-rococo-local.scale")]
+#[zombienet_sdk::subxt::subxt(runtime_metadata_path = "metadata-files/coretime-rococo-local.scale")]
 mod coretime_rococo {}
 
-#[zombienet_sdk::subxt(runtime_metadata_path = "metadata-files/rococo-local.scale")]
+#[zombienet_sdk::subxt::subxt(runtime_metadata_path = "metadata-files/rococo-local.scale")]
 mod rococo {}
 
 use rococo::runtime_types::{
