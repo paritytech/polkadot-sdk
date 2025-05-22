@@ -160,20 +160,26 @@ fn weight_bounds_should_respect_instructions_limit() {
 	// 4 instructions are too many.
 	let log_capture = capture_test_logs!({
 		let mut message = Xcm(vec![ClearOrigin; 4]);
-		assert_eq!(<TestConfig as Config>::Weigher::weight(&mut message), Err(XcmError::NoDeal));
+		assert_eq!(
+			<TestConfig as Config>::Weigher::weight(&mut message),
+			Err(XcmError::ExceedsStackLimit)
+		);
 	});
 	assert!(log_capture.contains(
-		"Weight calculation failed for message error=NoDeal instructions_left=3 message_length=4"
+		"Weight calculation failed for message error=ExceedsStackLimit instructions_left=3 message_length=4"
 	));
 
 	let log_capture = capture_test_logs!({
 		let mut message =
 			Xcm(vec![SetErrorHandler(Xcm(vec![ClearOrigin])), SetAppendix(Xcm(vec![ClearOrigin]))]);
 		// 4 instructions are too many, even when hidden within 2.
-		assert_eq!(<TestConfig as Config>::Weigher::weight(&mut message), Err(XcmError::NoDeal));
+		assert_eq!(
+			<TestConfig as Config>::Weigher::weight(&mut message),
+			Err(XcmError::ExceedsStackLimit)
+		);
 	});
 	assert!(log_capture.contains(
-		"Weight calculation failed for message error=NoDeal instructions_left=0 message_length=2"
+		"Weight calculation failed for message error=ExceedsStackLimit instructions_left=0 message_length=2"
 	));
 
 	let log_capture = capture_test_logs!({
@@ -182,10 +188,13 @@ fn weight_bounds_should_respect_instructions_limit() {
 				Xcm(vec![ClearOrigin]),
 			)]))]))]);
 		// 4 instructions are too many, even when it's just one that's 3 levels deep.
-		assert_eq!(<TestConfig as Config>::Weigher::weight(&mut message), Err(XcmError::NoDeal));
+		assert_eq!(
+			<TestConfig as Config>::Weigher::weight(&mut message),
+			Err(XcmError::ExceedsStackLimit)
+		);
 	});
 	assert!(log_capture.contains(
-		"Weight calculation failed for message error=NoDeal instructions_left=0 message_length=1"
+		"Weight calculation failed for message error=ExceedsStackLimit instructions_left=0 message_length=1"
 	));
 
 	let log_capture = capture_test_logs!({

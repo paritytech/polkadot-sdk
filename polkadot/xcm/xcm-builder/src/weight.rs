@@ -70,11 +70,11 @@ impl<T: Get<Weight>, C: Decode + GetDispatchInfo, M> FixedWeightBounds<T, C, M> 
 		let mut r: Weight = Weight::zero();
 		*instrs_limit = instrs_limit
 			.checked_sub(message.0.len() as u32)
-			.ok_or_else(|| XcmError::NoDeal)?;
+			.ok_or_else(|| XcmError::ExceedsStackLimit)?;
 		for instruction in message.0.iter_mut() {
 			r = r
 				.checked_add(&Self::instr_weight_with_limit(instruction, instrs_limit)?)
-				.ok_or_else(|| XcmError::MaxWeightInvalid)?;
+				.ok_or_else(|| XcmError::Overflow)?;
 		}
 		Ok(r)
 	}
@@ -92,7 +92,7 @@ impl<T: Get<Weight>, C: Decode + GetDispatchInfo, M> FixedWeightBounds<T, C, M> 
 				Self::weight_with_limit(xcm, instrs_limit)?,
 			_ => Weight::zero(),
 		};
-		T::get().checked_add(&instr_weight).ok_or_else(|| XcmError::MaxWeightInvalid)
+		T::get().checked_add(&instr_weight).ok_or_else(|| XcmError::Overflow)
 	}
 }
 
@@ -142,11 +142,11 @@ where
 		let mut r: Weight = Weight::zero();
 		*instrs_limit = instrs_limit
 			.checked_sub(message.0.len() as u32)
-			.ok_or_else(|| XcmError::NoDeal)?;
+			.ok_or_else(|| XcmError::ExceedsStackLimit)?;
 		for instruction in message.0.iter_mut() {
 			r = r
 				.checked_add(&Self::instr_weight_with_limit(instruction, instrs_limit)?)
-				.ok_or_else(|| XcmError::MaxWeightInvalid)?;
+				.ok_or_else(|| XcmError::Overflow)?;
 		}
 		Ok(r)
 	}
@@ -166,7 +166,7 @@ where
 		instruction
 			.weight()
 			.checked_add(&instr_weight)
-			.ok_or_else(|| XcmError::MaxWeightInvalid)
+			.ok_or_else(|| XcmError::Overflow)
 	}
 }
 
