@@ -76,7 +76,7 @@ impl StorageCmd {
 		let state = client
 			.state_at(best_hash)
 			.map_err(|_err| Error::Input("State not found".into()))?;
-		// We reassigne the backend and recorder for every batch size.
+		// We reassign the backend and recorder for every batch size.
 		// Using a new recorder for every read vs using the same for the entire batch
 		// produces significant different results. Since in the real use case we use a
 		// single recorder per block, simulate the same behavior by creating a new
