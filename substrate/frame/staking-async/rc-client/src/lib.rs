@@ -361,6 +361,10 @@ impl<AccountId: Clone> SplittableMessage for ValidatorSetReport<AccountId> {
 }
 
 /// Common utility to send XCM messages that can use [`SplittableMessage`].
+///
+/// It can be used both in the RC and AH. `Message` is the splittable message type, and `ToXcm`
+/// should be configured by the user, converting `message` to a valida `Xcm<()>`. It should utilize
+/// the correct call indices, which we only know at the runtime level.
 pub struct XCMSender<Sender, Destination, Message, ToXcm>(
 	core::marker::PhantomData<(Sender, Destination, Message, ToXcm)>,
 );
