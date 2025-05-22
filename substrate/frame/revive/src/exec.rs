@@ -1078,7 +1078,6 @@ where
 	) -> Result<(), ExecError> {
 		let frame = self.top_frame();
 		let entry_point = frame.entry_point;
-
 		if_tracing(|tracer| {
 			tracer.enter_child_span(
 				self.caller().account_id().map(T::AddressMapper::to_address).unwrap_or_default(),
@@ -1133,8 +1132,9 @@ where
 
 				// Needs to be incremented before calling into the code so that it is visible
 				// in case of recursion.
-				<System<T>>::inc_account_nonce(caller.account_id()?);
-
+				if !crate::ethereum_call::is_ethereum_call() {
+					<System<T>>::inc_account_nonce(caller.account_id()?);
+				}
 				// The incremented refcount should be visible to the constructor.
 				<CodeInfo<T>>::increment_refcount(
 					*executable
