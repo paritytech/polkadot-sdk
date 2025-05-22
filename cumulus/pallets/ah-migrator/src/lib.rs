@@ -925,6 +925,31 @@ pub mod pallet {
 				<T as pallet::Config>::Currency::balance_on_hold(&preimage_hold_reason, &account);
 			ensure!(existing_preimage_hold > 0, Error::<T>::NoMisplacedHoldFound);
 
+			// ensure reserve is at least the preimage hold amount.
+			let reserved_balance = <T as pallet::Config>::Currency::reserved_balance(&account);
+			/*log::debug!(
+				target: LOG_TARGET,
+				"Account: {:?} \n\tReserved balance {:?} \n\texisting_preimage_hold {:?}",
+				&account,
+				reserved_balance,
+				existing_preimage_hold,
+			);*/
+
+			if existing_preimage_hold > reserved_balance {
+				log::warn!(
+					target: LOG_TARGET,
+					"Account: {:?} \n\texisting_preimage_hold {:?} is greater than reserved balance \
+					{:?}. Applying unnamed reserve for the mismatch.",
+					&account,
+					existing_preimage_hold,
+					reserved_balance,
+				);
+				<T as pallet::Config>::Currency::reserve(
+					&account,
+					existing_preimage_hold.saturating_sub(reserved_balance),
+				)?;
+			}
+
 			// since we know preimage holds are incorrectly set, first we release preimage.
 			let released_amount = <T as pallet::Config>::Currency::release_all(
 				&preimage_hold_reason,
