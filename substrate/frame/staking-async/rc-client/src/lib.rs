@@ -334,6 +334,7 @@ impl<AccountId> SessionReport<AccountId> {
 /// A trait to encapsulate messages between RC and AH that can be splitted into smaller chunks.
 ///
 /// Implemented for [`SessionReport`] and [`ValidatorSetReport`].
+#[allow(clippy::len_without_is_empty)]
 pub trait SplittableMessage: Sized {
 	/// Split yourself into pieces of `chunk_size` size.
 	fn split_by(self, chunk_size: usize) -> Vec<Self>;
@@ -442,7 +443,7 @@ where
 					log::debug!(target: "runtime::staking-async::xcm", "📨 ExceedsMaxMessageSize -- reducing chunk_size");
 					chunk_size = chunk_size.saturating_div(2);
 					steps += 1;
-					if maybe_max_steps.map_or(false, |max_steps| steps > max_steps) {
+					if maybe_max_steps.is_some_and(|max_steps| steps > max_steps) {
 						log::error!(target: "runtime::staking-async::xcm", "📨 Exceeded max steps");
 						return Err(SendError::ExceedsMaxMessageSize);
 					} else {
