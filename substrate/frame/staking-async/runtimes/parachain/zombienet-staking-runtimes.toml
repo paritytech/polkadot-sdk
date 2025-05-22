@@ -12,7 +12,7 @@ name = "bob"
 validator = true
 rpc_port = 9945
 args = [
-	"-lruntime::system=debug,runtime::session=trace,runtime::staking::ah-client=trace,runtime::ah-client=debug"
+	"-lruntime::system=debug,runtime::session=trace,runtime::staking::ah-client=trace,runtime::ah-client=debug",
 ]
 
 [[parachains]]
