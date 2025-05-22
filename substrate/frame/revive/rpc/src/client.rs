@@ -85,19 +85,6 @@ pub enum SubscriptionType {
 	FinalizedBlocks,
 }
 
-/// Unwrap the original `jsonrpsee::core::client::Error::Call` error.
-fn unwrap_call_err(
-	err: &Box<dyn std::error::Error + Send + Sync + 'static>,
-) -> Option<ErrorObjectOwned> {
-	use subxt::backend::rpc::reconnecting_rpc_client;
-	match err.downcast_ref::<reconnecting_rpc_client::Error>() {
-		Some(reconnecting_rpc_client::Error::RpcError(jsonrpsee::core::client::Error::Call(
-			err,
-		))) => Some(err.clone().into_owned()),
-		_ => None,
-	}
-}
-
 /// The error type for the client.
 #[derive(Error, Debug)]
 pub enum ClientError {
@@ -148,18 +135,10 @@ impl From<ClientError> for ErrorObjectOwned {
 	fn from(err: ClientError) -> Self {
 		match err {
 			ClientError::SubxtError(subxt::Error::Rpc(subxt::error::RpcError::ClientError(
-				subxt::ext::subxt_rpcs::Error::Client(err),
+				subxt::ext::subxt_rpcs::Error::User(err),
 			))) |
-			ClientError::RpcError(subxt::ext::subxt_rpcs::Error::Client(err)) => {
-				if let Some(err) = unwrap_call_err(&err) {
-					return err;
-				}
-				ErrorObjectOwned::owned::<Vec<u8>>(
-					CALL_EXECUTION_FAILED_CODE,
-					err.to_string(),
-					None,
-				)
-			},
+			ClientError::RpcError(subxt::ext::subxt_rpcs::Error::User(err)) =>
+				ErrorObjectOwned::owned::<Vec<u8>>(err.code, err.message, None),
 			ClientError::TransactError(EthTransactError::Data(data)) => {
 				let msg = match decode_revert_reason(&data) {
 					Some(reason) => format!("execution reverted: {reason}"),
