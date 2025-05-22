@@ -16,8 +16,6 @@
 // limitations under the License.
 
 //! The crate's tests.
-use sp_runtime::{testing::TestXt, traits::Identity, BuildStorage, DispatchResult};
-type Block = frame_system::mocking::MockBlock<Test>;
 
 pub type Extrinsic = TestXt<RuntimeCall, ()>;
 
