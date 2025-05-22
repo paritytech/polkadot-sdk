@@ -1,10 +1,8 @@
-title: Add debug logging to `WeightBounds` for XCM weight failures
+title: Make `WeightBounds` return `XcmError` to surface failures
 doc:
 - audience: Runtime Dev
   description: |-
-    Improved traceability for XCM weight calculation failures by surfacing detailed error types such as decoding issues, weight overflows, and instruction limit violations.
-
-    Internal errors are now logged with contextual information, making it easier to diagnose issues during weight estimation. External behaviour remains unchanged, preserving the existing trait interface.
+    Improved XCM weight calculation error handling and traceability. The `WeightBounds` trait now returns detailed `XcmError` types instead of opaque results, allowing downstream consumers to access specific error context for failures like instruction decoding issues, weight overflows, and instruction limit violations. Added structured debug logging with contextual information to aid in diagnosing weight estimation failures during message preparation and execution.
 crates:
 - name: staging-xcm-builder
   bump: patch
