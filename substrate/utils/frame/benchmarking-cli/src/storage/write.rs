@@ -58,17 +58,15 @@ impl StorageCmd {
 		BA: ClientBackend<Block>,
 		C: UsageProvider<Block> + HeaderBackend<Block> + StorageProvider<Block, BA>,
 	{
-		if self.params.is_validate_block_mode() {
-			assert!(
-				!self.params.disable_pov_recorder,
-				"PoV recorder must be activated to provide a storage proof for block validation at runtime."
-			);
-			assert!(
-				self.params.batch_size <= MAX_BATCH_SIZE_FOR_BLOCK_VALIDATION,
-				"Batch size is too large. This may cause problems with runtime memory allocation. Better set batch size to {} or less.",
-				MAX_BATCH_SIZE_FOR_BLOCK_VALIDATION
-			);
+		if self.params.is_validate_block_mode() && self.params.disable_pov_recorder {
+			return Err("PoV recorder must be activated to provide a storage proof for block validation at runtime. Remove `--disable-pov-recorder`.".into())
 		}
+		if self.params.is_validate_block_mode() &&
+			self.params.batch_size > MAX_BATCH_SIZE_FOR_BLOCK_VALIDATION
+		{
+			return Err(format!("Batch size is too large. This may cause problems with runtime memory allocation. Better set `--batch-size {}` or less.", MAX_BATCH_SIZE_FOR_BLOCK_VALIDATION).into())
+		}
+
 		// Store the time that it took to write each value.
 		let mut record = BenchRecord::default();
 
@@ -87,6 +85,10 @@ impl StorageCmd {
 		let mut kvs: Vec<_> = trie.pairs(Default::default())?.collect();
 		let (mut rng, _) = new_rng(None);
 		kvs.shuffle(&mut rng);
+		if kvs.is_empty() {
+			return Err("Can't process benchmarking with empty storage".into())
+		}
+
 		info!("Writing {} keys in batches of {}", kvs.len(), self.params.batch_size);
 		let remainder = kvs.len() % self.params.batch_size;
 		if self.params.is_validate_block_mode() && remainder != 0 {
