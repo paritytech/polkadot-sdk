@@ -83,10 +83,7 @@ pub struct ImportParams {
 
 	/// Warm up the trie cache.
 	///
-	/// Accepts an optional value to specify the warm-up strategy:
-	/// - If flag is not present: No warmup (default)
-	/// - If flag is present without value: Non-blocking warmup
-	/// - If flag is present with 'blocking': Blocking warmup
+	/// No warmup if flag is not present. Using flag without value chooses non-blocking warmup.
 	#[arg(long, value_name = "STRATEGY", value_enum, num_args = 0..=1, default_missing_value = "non-blocking")]
 	pub warm_up_trie_cache: Option<TrieCacheWarmUpStrategy>,
 }
@@ -97,7 +94,7 @@ pub enum TrieCacheWarmUpStrategy {
 	/// Warm up the cache in a non-blocking way.
 	#[clap(name = "non-blocking")]
 	NonBlocking,
-	/// Warm up the cache in a blocking way.
+	/// Warm up the cache in a blocking way (not recommended for production use).
 	///
 	/// When enabled, the trie cache warm-up will block the node startup until complete.
 	/// This is not recommended for production use as it can significantly delay node startup.

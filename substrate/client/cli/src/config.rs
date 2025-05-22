@@ -254,7 +254,7 @@ pub trait CliConfiguration<DCV: DefaultConfigurationValues = ()>: Sized {
 
 	/// Get if we should warm up the trie cache.
 	///
-	/// By default this is retrieved from `ImportParams` if it is available. Otherwise its `false`.
+	/// By default this is retrieved from `ImportParams` if it is available. Otherwise its `None`.
 	fn warm_up_trie_cache(&self) -> Result<Option<sc_service::config::TrieCacheWarmUpStrategy>> {
 		Ok(self
 			.import_params()
