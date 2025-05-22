@@ -20,14 +20,15 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use core::marker::PhantomData;
+#[allow(unused_imports)]
+use frame::{
+	prelude::{Task as FrameTask, *},
+	traits::tokens::{GetSalary, Pay, PaymentStatus},
+};
 use frame_system::offchain::CreateInherent;
 #[cfg(feature = "experimental")]
 use frame_system::offchain::SubmitTransaction;
 use scale_info::{prelude::vec, TypeInfo};
-use frame::{
-	prelude::{*, Task as FrameTask},
-	traits::tokens::{GetSalary, Pay, PaymentStatus},
-};
 
 #[cfg(feature = "experimental")]
 const LOG_TARGET: &str = "pallet-salary-tasks";
@@ -39,7 +40,7 @@ mod tests;
 mod benchmarking;
 pub mod weights;
 
-pub use pallet::{*, Task};
+pub use pallet::{Task, *};
 pub use weights::WeightInfo;
 
 /// Payroll cycle.
