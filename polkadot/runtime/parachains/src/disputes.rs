@@ -799,7 +799,6 @@ impl<BlockNumber: Clone> DisputeStateImporter<BlockNumber> {
 			(false, false) => Vec::new(),
 		};
 
-
 		ImportSummary {
 			state: self.state,
 			backers: self.backers,
