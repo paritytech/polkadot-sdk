@@ -142,7 +142,7 @@ where
 	}
 
 	// If matching on the extra subcommands fails, match on the rest of the node CLI as usual.
-	let mut cli =
+	let mut cli: Cli<CliConfig> =
 		Cli::<CliConfig>::from_arg_matches(&matches).map_err(|e| sc_cli::Error::Cli(e.into()))?;
 	cli.chain_spec_loader = Some(cmd_config.chain_spec_loader);
 
@@ -235,7 +235,8 @@ where
 						.shared_params
 						.chain
 						.as_ref()
-						.and_then(|chain| cli.load_spec(&chain).ok());
+						.map(|chain| cli.load_spec(&chain))
+						.transpose()?;
 					cmd.run_with_spec::<HashingFor<Block<u32>>, ReclaimHostFunctions>(chain)
 				},
 				BenchmarkCmd::Block(cmd) => {
