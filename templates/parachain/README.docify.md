@@ -28,7 +28,7 @@
   - [Takeaways](#takeaways)
 
 - [Runtime development](#runtime-development)
-- [Deploy to Paseo TestNet & See Your First Block](#deploy-to-paseo-testnet--see-your-first-block)
+- [Deploy to Paseo TestNet & See Your First Block](#deploy-to-paseo-testnet-&-see-your-first-block)
 - [Contributing](#contributing)
 - [Getting Help](#getting-help)
 
@@ -241,13 +241,13 @@ npx @acala-network/chopsticks@latest --chain-spec <path/to/chain_spec.json>
 support it at this moment. It can still be used to test a runtime in a full setup where it is started alongside a
 relay chain network (see [Parachain Template node](#parachain-template-node) setup).
 
-### Deploy to Paseo TestNet & See Your First Block
+## Deploy to Paseo TestNet & See Your First Block
 
 After setting up your parachain locally, you can deploy it to the Paseo public testnet to observe it producing blocks in a realistic environment.
 
-## Steps to Deploy
+### Steps to Deploy
 
-Note: The following instructions are also available at the [Zero to Hero Tutorial](https://docs.polkadot.com/tutorials/polkadot-sdk/parachains/zero-to-hero/deploy-to-testnet/) where this is available in a more detailed manned, we recommend you to try that out as well if something here is unclear.
+Note: The following instructions are also available at the [Zero to Hero Tutorial](https://docs.polkadot.com/tutorials/polkadot-sdk/parachains/zero-to-hero/deploy-to-testnet/) where this is available in a more detailed manner, we recommend you to try that out as well if something here is unclear.
 
 ### Reserve & Register a ParaID
 
