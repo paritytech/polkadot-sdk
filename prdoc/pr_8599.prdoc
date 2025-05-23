@@ -6,7 +6,7 @@ doc:
     no need to preconfigure a bridge fee using SovereignPaidRemoteExporter. Additionally, we want to 
     avoid maintaining Asset Hub’s sovereign account on Bridge Hub.
 crates:
-- name: snowbridge-runtime-common
+- name: staging-xcm-builder
   bump: patch
 - name: bridge-hub-westend-runtime
   bump: patch
