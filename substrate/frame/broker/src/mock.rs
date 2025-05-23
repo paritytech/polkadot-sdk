@@ -178,7 +178,7 @@ impl OnUnbalanced<Credit<u64, <Test as Config>::Currency>> for IntoZero {
 ord_parameter_types! {
 	pub const One: u64 = 1;
 	pub const MinimumCreditPurchase: u64 = 50;
-	pub const DefaultMinimumEndPrice: Option<BalanceOf<Test>> = Some(1);
+	pub const DefaultMinimumEndPrice: Option<BalanceOf<Test>> = Some(10);
 }
 type EnsureOneOrRoot = EitherOfDiverse<EnsureRoot<u64>, EnsureSignedBy<One, u64>>;
 

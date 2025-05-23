@@ -303,6 +303,14 @@ mod tests {
 	}
 
 	#[test]
+	fn minimum_price_does_not_affect_valid_target_price() {
+		let performance = SalePerformance::new(Some(12), 10);
+		let prices = MinimumPrice::<u64, TestMinPrice>::adapt_price(performance);
+		assert_eq!(prices.end_price, 10);
+		assert_eq!(prices.target_price, 12);
+	}
+
+	#[test]
 	fn no_minimum_price_works_as_center_target_price() {
 		let performances = [
 			(Some(100), 10),
