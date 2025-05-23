@@ -2020,7 +2020,7 @@ version = "35.0.0"
 path = "../substrate/primitives/api/proc-macro"
 default-features = false
 optional = true
-version = "21.0.1"
+version = "21.0.2"
 
 [dependencies.sp-application-crypto]
 path = "../substrate/primitives/application-crypto"
