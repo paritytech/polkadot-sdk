@@ -12,4 +12,4 @@ doc:
 
 crates:
 - name: polkadot-primitives
-  bump: major
+  bump: minor
