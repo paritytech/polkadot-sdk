@@ -381,18 +381,18 @@ impl DiscoveryBehaviour {
 				return
 			}
 
-			// Accept all peers if using the public IPFS DHT
-			if let Some(proto) = self.kademlia_protocol.as_ref() {
-				if proto.as_ref() != "/ipfs/kad/1.0.0" {
-					if !supported_protocols.iter().any(|p| p == proto) {
-						trace!(
-							target: "sub-libp2p",
-							"Ignoring self-reported address {} from {} as remote node is not part of the \\n                 Kademlia DHT supported by the local node.", addr, peer_id,
-						);
-						return
-					}
-				}
-			}
+			// // Accept all peers if using the public IPFS DHT
+			// if let Some(proto) = self.kademlia_protocol.as_ref() {
+			// 	if proto.as_ref() != "/ipfs/kad/1.0.0" {
+			// 		if !supported_protocols.iter().any(|p| p == proto) {
+			// 			trace!(
+			// 				target: "sub-libp2p",
+			// 				"Ignoring self-reported address {} from {} as remote node is not part of the \\n                 Kademlia DHT supported by the local node.", addr, peer_id,
+			// 			);
+			// 			return
+			// 		}
+			// 	}
+			// }
 
 			trace!(
 				target: "sub-libp2p",
