@@ -29,7 +29,7 @@ use sp_runtime::traits::{Block as BlockT, Header as _, NumberFor};
 use sp_trie::proof_size_extension::ProofSizeExt;
 use std::sync::Arc;
 
-use crate::collators::{validate_block_import, CheckForEquivocation};
+use crate::collators::validate_block_import;
 
 /// Handle for receiving the block and the storage proof from the [`SlotBasedBlockImport`].
 ///
@@ -60,7 +60,7 @@ pub struct SlotBasedBlockImport<Block, BI, Client, CIDP, P, N> {
 	client: Arc<Client>,
 	sender: TracingUnboundedSender<(Block, StorageProof)>,
 	create_inherent_data_providers: CIDP,
-	check_for_equivocation: CheckForEquivocation,
+	check_for_equivocation: bool,
 	compatibility_mode: CompatibilityMode<N>,
 	_phantom: std::marker::PhantomData<P>,
 }
@@ -75,7 +75,7 @@ impl<Block, BI, Client, CIDP, P, N> SlotBasedBlockImport<Block, BI, Client, CIDP
 		inner: BI,
 		client: Arc<Client>,
 		create_inherent_data_providers: CIDP,
-		check_for_equivocation: CheckForEquivocation,
+		check_for_equivocation: bool,
 		compatibility_mode: CompatibilityMode<N>,
 	) -> (Self, SlotBasedBlockImportHandle<Block>) {
 		let (sender, receiver) = tracing_unbounded("SlotBasedBlockImportChannel", 1000);

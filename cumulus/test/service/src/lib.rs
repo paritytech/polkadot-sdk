@@ -262,7 +262,7 @@ pub fn new_partial(
 					),
 				>,
 			>,
-		Default::default(),
+		true,
 		Default::default(),
 	);
 	let block_import = ParachainBlockImport::new(block_import, backend.clone());

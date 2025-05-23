@@ -285,7 +285,7 @@ struct ValidatingBlockImport<BI, Client, CIDP, N, P> {
 	inner: BI,
 	client: Arc<Client>,
 	create_inherent_data_providers: CIDP,
-	check_for_equivocation: CheckForEquivocation,
+	check_for_equivocation: bool,
 	compatibility_mode: CompatibilityMode<N>,
 	_phantom: std::marker::PhantomData<P>,
 }
@@ -295,7 +295,7 @@ impl<BI, Client, CIDP, N, P> ValidatingBlockImport<BI, Client, CIDP, N, P> {
 		inner: BI,
 		client: Arc<Client>,
 		create_inherent_data_providers: CIDP,
-		check_for_equivocation: CheckForEquivocation,
+		check_for_equivocation: bool,
 		compatibility_mode: CompatibilityMode<N>,
 	) -> Self {
 		Self {
@@ -358,7 +358,7 @@ async fn validate_block_import<Block, Client, P, CIDP>(
 	params: &mut sc_consensus::BlockImportParams<Block>,
 	client: &Client,
 	create_inherent_data_providers: &CIDP,
-	check_for_equivocation: CheckForEquivocation,
+	check_for_equivocation: bool,
 	compatibility_mode: &CompatibilityMode<NumberFor<Block>>,
 ) -> Result<(), sp_consensus::Error>
 where
@@ -426,8 +426,7 @@ where
 		.map_err(sp_consensus::Error::Other)?;
 	let slot_now = create_inherent_data_providers.slot();
 	let expected_author = sc_consensus_aura::standalone::slot_author::<P>(slot, &authorities);
-	let should_equiv_check = check_for_equivocation.check_for_equivocation();
-	if let (true, Some(expected)) = (should_equiv_check, expected_author) {
+	if let (true, Some(expected)) = (check_for_equivocation, expected_author) {
 		if let Some(equivocation_proof) = sc_consensus_slots::check_equivocation(
 			client,
 			// we add one to allow for some small drift.
@@ -451,30 +450,6 @@ where
 	}
 
 	Ok(())
-}
-
-/// Should we check for equivocation of a block author?
-#[derive(Debug, Clone, Copy)]
-pub enum CheckForEquivocation {
-	/// Yes, check for equivocation.
-	///
-	/// This is the default setting for this.
-	Yes,
-	/// No, don't check for equivocation.
-	No,
-}
-
-impl CheckForEquivocation {
-	/// Should we check for equivocation?
-	fn check_for_equivocation(self) -> bool {
-		matches!(self, Self::Yes)
-	}
-}
-
-impl Default for CheckForEquivocation {
-	fn default() -> Self {
-		Self::Yes
-	}
 }
 
 #[cfg(test)]

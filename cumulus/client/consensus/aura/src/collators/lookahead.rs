@@ -219,7 +219,7 @@ where
 					params.block_import,
 					params.para_client.clone(),
 					params.create_inherent_data_providers.clone(),
-					Default::default(),
+					true,
 					Default::default(),
 				),
 				relay_client: params.relay_client.clone(),

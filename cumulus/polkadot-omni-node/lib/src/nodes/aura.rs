@@ -479,7 +479,7 @@ where
 				});
 				async move { Ok((slot?, timestamp)) }
 			}),
-			Default::default(),
+			true,
 			Default::default(),
 		))
 	}
