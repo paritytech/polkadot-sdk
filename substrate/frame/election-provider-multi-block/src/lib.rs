@@ -669,30 +669,36 @@ pub mod pallet {
 				_ => T::WeightInfo::on_initialize_nothing(),
 			};
 
-			// in all cases, go to next phase
-			let next_phase = current_phase.next();
+			// Only transition if not in Export phase
+			if !matches!(current_phase, Phase::Export(_)) {
+				let next_phase = current_phase.next();
 
-			let weight2 = match next_phase {
-				Phase::Signed(_) => T::WeightInfo::on_initialize_into_signed(),
-				Phase::SignedValidation(_) => T::WeightInfo::on_initialize_into_signed_validation(),
-				Phase::Unsigned(_) => T::WeightInfo::on_initialize_into_unsigned(),
-				_ => T::WeightInfo::on_initialize_nothing(),
-			};
+				let weight2 = match next_phase {
+					Phase::Signed(_) => T::WeightInfo::on_initialize_into_signed(),
+					Phase::SignedValidation(_) =>
+						T::WeightInfo::on_initialize_into_signed_validation(),
+					Phase::Unsigned(_) => T::WeightInfo::on_initialize_into_unsigned(),
+					_ => T::WeightInfo::on_initialize_nothing(),
+				};
 
-			Self::phase_transition(next_phase);
+				Self::phase_transition(next_phase);
 
-			// bit messy, but for now this works best.
-			#[cfg(test)]
-			{
-				let test_election_start: BlockNumberFor<T> =
-					(crate::mock::ElectionStart::get() as u32).into();
-				if _now == test_election_start {
-					crate::log!(info, "TESTING: Starting election at block {}", _now);
-					crate::mock::MultiBlock::start().unwrap();
+				// bit messy, but for now this works best.
+				#[cfg(test)]
+				{
+					let test_election_start: BlockNumberFor<T> =
+						(crate::mock::ElectionStart::get() as u32).into();
+					if _now == test_election_start {
+						crate::log!(info, "TESTING: Starting election at block {}", _now);
+						crate::mock::MultiBlock::start().unwrap();
+					}
 				}
-			}
 
-			weight1 + weight2
+				weight1 + weight2
+			} else {
+				// If in Export phase, do nothing.
+				weight1
+			}
 		}
 
 		fn integrity_test() {
@@ -1364,7 +1370,7 @@ where
 		loop {
 			Self::roll_next(true, false);
 			if criteria() {
-				break
+				break;
 			}
 		}
 	}
@@ -1386,7 +1392,7 @@ where
 			.unwrap();
 
 			if should_break {
-				break
+				break;
 			}
 		}
 	}
@@ -1495,43 +1501,65 @@ impl<T: Config> ElectionProvider for Pallet<T> {
 			Err(_) => return Err(ElectionError::NotOngoing),
 		}
 
-		let result = T::Verifier::get_queued_solution_page(remaining)
-			.ok_or(ElectionError::SupportPageNotAvailable)
-			.or_else(|err: ElectionError<T>| {
-				log!(
-					warn,
-					"primary election for page {} failed due to: {:?}, trying fallback",
-					remaining,
-					err,
-				);
-				Self::fallback_for_page(remaining)
-			})
-			.map_err(|err| {
-				// if any pages returns an error, we go into the emergency phase and don't do
-				// anything else anymore. This will prevent any new submissions to signed and
-				// unsigned pallet, and thus the verifier will also be almost stuck, except for the
-				// submission of emergency solutions.
-				log!(warn, "primary and fallback ({:?}) failed for page {:?}", err, remaining);
-				err
-			})
-			.map(|supports| {
-				// convert to bounded
-				supports.into()
-			});
+		let current_phase = CurrentPhase::<T>::get();
+		let max_page_index = T::Pages::get() - 1;
+		match current_phase {
+			Phase::Done => {
+				if remaining == max_page_index + 1 {
+					// Start export: Done -> Export(max_page)
+					Self::phase_transition(Phase::Export(max_page_index));
+					Err(ElectionError::Other("Export started, call elect(max_page) next block"))
+				} else {
+					// should never happen
+					Err(ElectionError::Other("Must call elect(max_page+1) to start export"))
+				}
+			},
+			Phase::Export(page) if page == remaining => {
+				let result = T::Verifier::get_queued_solution_page(remaining)
+					.ok_or(ElectionError::SupportPageNotAvailable)
+					.or_else(|err: ElectionError<T>| {
+						log!(
+							warn,
+							"primary election for page {} failed due to: {:?}, trying fallback",
+							remaining,
+							err,
+						);
+						Self::fallback_for_page(remaining)
+					})
+					.map_err(|err| {
+						// if any pages returns an error, we go into the emergency phase and don't
+						// do anything else anymore. This will prevent any new submissions to
+						// signed and unsigned pallet, and thus the verifier will also be
+						// almost stuck, except for the submission of emergency solutions.
+						log!(
+							warn,
+							"primary and fallback ({:?}) failed for page {:?}",
+							err,
+							remaining
+						);
+						err
+					})
+					.map(|supports| {
+						// convert to bounded
+						supports.into()
+					});
 
-		// if fallback has possibly put us into the emergency phase, don't do anything else.
-		if CurrentPhase::<T>::get().is_emergency() && result.is_err() {
-			log!(error, "Emergency phase triggered, halting the election.");
-		} else {
-			if remaining.is_zero() {
-				log!(info, "receiving last call to elect(0), rotating round");
-				Self::rotate_round()
-			} else {
-				Self::phase_transition(Phase::Export(remaining))
-			}
+				// if fallback has possibly put us into the emergency phase, don't do anything else.
+				if CurrentPhase::<T>::get().is_emergency() && result.is_err() {
+					log!(error, "Emergency phase triggered, halting the election.");
+				} else {
+					if remaining.is_zero() {
+						log!(info, "receiving last call to elect(0), rotating round");
+						Self::rotate_round()
+					} else {
+						Self::phase_transition(Phase::Export(remaining))
+					}
+				}
+
+				result
+			},
+			_ => Err(ElectionError::Other("Not in the correct export phase".into())),
 		}
-
-		result
 	}
 
 	fn start() -> Result<(), Self::Error> {
