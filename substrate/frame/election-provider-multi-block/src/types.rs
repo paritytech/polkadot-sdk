@@ -82,14 +82,13 @@ pub type AssignmentOf<T> =
 	CloneNoBound,
 	EqNoBound,
 	PartialEqNoBound,
-	MaxEncodedLen,
 	DefaultNoBound,
 )]
 #[codec(mel_bound(T: crate::Config))]
 #[scale_info(skip_type_params(T))]
 pub struct PagedRawSolution<T: MinerConfig> {
 	/// The individual pages.
-	pub solution_pages: BoundedVec<SolutionOf<T>, <T as MinerConfig>::Pages>,
+	pub solution_pages: Vec<SolutionOf<T>>,
 	/// The final claimed score post feasibility and concatenation of all pages.
 	pub score: ElectionScore,
 	/// The designated round.
@@ -163,6 +162,23 @@ impl<T> Pagify<T> for Vec<T> {
 pub trait PadSolutionPages: Sized {
 	/// Pad the solution to the given number of pages.
 	fn pad_solution_pages(self, desired_pages: PageIndex) -> Self;
+}
+
+impl<T: Default + Clone + Debug> PadSolutionPages for Vec<T> {
+	fn pad_solution_pages(self, desired_pages: PageIndex) -> Self {
+		let desired_pages_usize = desired_pages as usize;
+		debug_assert!(self.len() <= desired_pages_usize);
+		if self.len() == desired_pages_usize {
+			return self
+		}
+
+		// we basically need to prepend the list with this many items.
+		let empty_slots = desired_pages_usize.saturating_sub(self.len());
+		sp_std::iter::repeat(Default::default())
+			.take(empty_slots)
+			.chain(self.into_iter())
+			.collect::<Vec<_>>()
+	}
 }
 
 impl<T: Default + Clone + Debug, Bound: frame_support::traits::Get<u32>> PadSolutionPages
@@ -391,8 +407,6 @@ impl<T: crate::Config> Phase<T> {
 #[cfg(test)]
 mod pagify {
 	use super::{PadSolutionPages, Pagify};
-	use frame_support::{traits::ConstU32, BoundedVec};
-	use sp_core::bounded_vec;
 
 	#[test]
 	fn pagify_works() {
@@ -410,15 +424,11 @@ mod pagify {
 	#[test]
 	fn pad_solution_pages_works() {
 		// noop if the solution is complete, as with pagify.
-		let solution: BoundedVec<_, ConstU32<3>> = bounded_vec![1u32, 2, 3];
-		assert_eq!(solution.pad_solution_pages(3).into_inner(), vec![1, 2, 3]);
+		let solution = vec![1u32, 2, 3];
+		assert_eq!(solution.pad_solution_pages(3), vec![1, 2, 3]);
 
 		// pads the solution with default if partial..
-		let solution: BoundedVec<_, ConstU32<3>> = bounded_vec![2, 3];
-		assert_eq!(solution.pad_solution_pages(3).into_inner(), vec![0, 2, 3]);
-
-		// behaves the same as `pad_solution_pages(3)`.
-		let solution: BoundedVec<_, ConstU32<3>> = bounded_vec![2, 3];
-		assert_eq!(solution.pad_solution_pages(4).into_inner(), vec![0, 2, 3]);
+		let solution = vec![2, 3];
+		assert_eq!(solution.pad_solution_pages(3), vec![0, 2, 3]);
 	}
 }

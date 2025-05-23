@@ -1057,7 +1057,7 @@ impl<T: Config> rc_client::AHStakingInterface for Pallet<T> {
 	/// implies a new validator set has been applied, and we must increment the active era to keep
 	/// the systems in sync.
 	fn on_relay_session_report(report: rc_client::SessionReport<Self::AccountId>) {
-		log!(debug, "session report received\n{:?}", report,);
+		log!(debug, "session report received: {}", report,);
 		let consumed_weight = T::WeightInfo::rc_on_session_report();
 
 		let rc_client::SessionReport {

@@ -25,13 +25,13 @@ use crate::{
 };
 use frame_election_provider_support::PageIndex;
 use frame_support::{
-	assert_ok, dispatch::PostDispatchInfo, parameter_types, traits::EstimateCallFee, BoundedVec,
+	assert_ok, dispatch::PostDispatchInfo, parameter_types, traits::EstimateCallFee,
 };
 use sp_npos_elections::ElectionScore;
 use sp_runtime::{traits::Zero, Perbill};
 
 parameter_types! {
-	pub static MockSignedNextSolution: Option<BoundedVec<SolutionOf<Runtime>, Pages>> = None;
+	pub static MockSignedNextSolution: Option<Vec<SolutionOf<Runtime>>> = None;
 	pub static MockSignedNextScore: Option<ElectionScore> = Default::default();
 	pub static MockSignedResults: Vec<VerificationResult> = Default::default();
 }

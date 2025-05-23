@@ -24,7 +24,7 @@ use substrate_test_utils::assert_eq_uvec;
 use crate::tests::session_mock::ReceivedValidatorSets;
 
 #[test]
-fn planning_era_offset_less_works() {
+fn planning_era_offset_less_0() {
 	// same as `basic_setup_sessions_per_era`, but notice how `PagedElectionProceeded` happens
 	// one session later, and planning era is incremented one session later
 	ExtBuilder::default()
@@ -32,8 +32,62 @@ fn planning_era_offset_less_works() {
 		.planning_era_offset(0)
 		.no_flush_events()
 		.build_and_execute(|| {
-			// this essentially makes the session duration 7, because the mock session will buffer
-			// for one session before activating the era.
+			// this essentially makes the session duration 8. After 6 sessions we realize we have do
+			// start an election (since offset = 0), then it is queued for one session (7), and then
+			// activated (8).
+			assert_eq!(Session::current_index(), 8);
+			assert_eq!(active_era(), 1);
+
+			assert_eq!(
+				staking_events_since_last_call(),
+				vec![
+					Event::SessionRotated { starting_session: 1, active_era: 0, planned_era: 0 },
+					Event::SessionRotated { starting_session: 2, active_era: 0, planned_era: 0 },
+					Event::SessionRotated { starting_session: 3, active_era: 0, planned_era: 0 },
+					Event::SessionRotated { starting_session: 4, active_era: 0, planned_era: 0 },
+					Event::SessionRotated { starting_session: 5, active_era: 0, planned_era: 0 },
+					Event::SessionRotated { starting_session: 6, active_era: 0, planned_era: 1 },
+					Event::PagedElectionProceeded { page: 0, result: Ok(2) },
+					Event::SessionRotated { starting_session: 7, active_era: 0, planned_era: 1 },
+					Event::EraPaid { era_index: 0, validator_payout: 20000, remainder: 20000 },
+					Event::SessionRotated { starting_session: 8, active_era: 1, planned_era: 1 }
+				]
+			);
+
+			Session::roll_until_active_era(2);
+			assert_eq!(Session::current_index(), 16);
+			assert_eq!(active_era(), 2);
+
+			assert_eq!(
+				staking_events_since_last_call(),
+				vec![
+					Event::SessionRotated { starting_session: 9, active_era: 1, planned_era: 1 },
+					Event::SessionRotated { starting_session: 10, active_era: 1, planned_era: 1 },
+					Event::SessionRotated { starting_session: 11, active_era: 1, planned_era: 1 },
+					Event::SessionRotated { starting_session: 12, active_era: 1, planned_era: 1 },
+					Event::SessionRotated { starting_session: 13, active_era: 1, planned_era: 1 },
+					Event::SessionRotated { starting_session: 14, active_era: 1, planned_era: 2 },
+					Event::PagedElectionProceeded { page: 0, result: Ok(2) },
+					Event::SessionRotated { starting_session: 15, active_era: 1, planned_era: 2 },
+					Event::EraPaid { era_index: 1, validator_payout: 20000, remainder: 20000 },
+					Event::SessionRotated { starting_session: 16, active_era: 2, planned_era: 2 }
+				]
+			);
+		});
+}
+
+#[test]
+fn planning_era_offset_works_1() {
+	// same as `basic_setup_sessions_per_era`, but notice how `PagedElectionProceeded` happens
+	// one session later, and planning era is incremented one session later
+	ExtBuilder::default()
+		.session_per_era(6)
+		.planning_era_offset(1)
+		.no_flush_events()
+		.build_and_execute(|| {
+			// this essentially makes the session duration 7. After 5 sessions we realize we have do
+			// start an election (since offset = 1), then it is queued for one session (6), and then
+			// activated (7).
 			assert_eq!(Session::current_index(), 7);
 			assert_eq!(active_era(), 1);
 
@@ -74,14 +128,108 @@ fn planning_era_offset_less_works() {
 }
 
 #[test]
-fn planning_era_offset_more_works() {
+fn planning_era_offset_works_2() {
 	ExtBuilder::default()
 		.session_per_era(6)
 		.planning_era_offset(2)
 		.no_flush_events()
 		.build_and_execute(|| {
-			// This effectively makes the era one session shorter.
-			assert_eq!(Session::current_index(), 5);
+			// start election at 4, and send it over. Buffered at 6, activated at 6. This is the
+			// expected behavior, and the default in `mock.rs`.
+			assert_eq!(Session::current_index(), 6);
+			assert_eq!(active_era(), 1);
+
+			assert_eq!(
+				staking_events_since_last_call(),
+				vec![
+					Event::SessionRotated { starting_session: 1, active_era: 0, planned_era: 0 },
+					Event::SessionRotated { starting_session: 2, active_era: 0, planned_era: 0 },
+					Event::SessionRotated { starting_session: 3, active_era: 0, planned_era: 0 },
+					Event::SessionRotated { starting_session: 4, active_era: 0, planned_era: 1 },
+					Event::PagedElectionProceeded { page: 0, result: Ok(2) },
+					Event::SessionRotated { starting_session: 5, active_era: 0, planned_era: 1 },
+					Event::EraPaid { era_index: 0, validator_payout: 15000, remainder: 15000 },
+					Event::SessionRotated { starting_session: 6, active_era: 1, planned_era: 1 }
+				]
+			);
+
+			Session::roll_until_active_era(2);
+			assert_eq!(Session::current_index(), 12);
+			assert_eq!(active_era(), 2);
+
+			assert_eq!(
+				staking_events_since_last_call(),
+				vec![
+					Event::SessionRotated { starting_session: 7, active_era: 1, planned_era: 1 },
+					Event::SessionRotated { starting_session: 8, active_era: 1, planned_era: 1 },
+					Event::SessionRotated { starting_session: 9, active_era: 1, planned_era: 1 },
+					Event::SessionRotated { starting_session: 10, active_era: 1, planned_era: 2 },
+					Event::PagedElectionProceeded { page: 0, result: Ok(2) },
+					Event::SessionRotated { starting_session: 11, active_era: 1, planned_era: 2 },
+					Event::EraPaid { era_index: 1, validator_payout: 15000, remainder: 15000 },
+					Event::SessionRotated { starting_session: 12, active_era: 2, planned_era: 2 }
+				]
+			);
+		});
+}
+
+#[test]
+fn planning_era_offset_works_smart() {
+	ExtBuilder::default()
+		.session_per_era(6)
+		.smart_era_planner()
+		.no_flush_events()
+		.build_and_execute(|| {
+			// This works exactly the same as offset = 2, which means we send and rotate validators
+			// such that the era duration remains 6 sessions.
+			assert_eq!(Session::current_index(), 6);
+			assert_eq!(active_era(), 1);
+
+			assert_eq!(
+				staking_events_since_last_call(),
+				vec![
+					Event::SessionRotated { starting_session: 1, active_era: 0, planned_era: 0 },
+					Event::SessionRotated { starting_session: 2, active_era: 0, planned_era: 0 },
+					Event::SessionRotated { starting_session: 3, active_era: 0, planned_era: 0 },
+					Event::SessionRotated { starting_session: 4, active_era: 0, planned_era: 1 },
+					Event::PagedElectionProceeded { page: 0, result: Ok(2) },
+					Event::SessionRotated { starting_session: 5, active_era: 0, planned_era: 1 },
+					Event::EraPaid { era_index: 0, validator_payout: 15000, remainder: 15000 },
+					Event::SessionRotated { starting_session: 6, active_era: 1, planned_era: 1 }
+				]
+			);
+
+			Session::roll_until_active_era(2);
+			assert_eq!(Session::current_index(), 12);
+			assert_eq!(active_era(), 2);
+
+			assert_eq!(
+				staking_events_since_last_call(),
+				vec![
+					Event::SessionRotated { starting_session: 7, active_era: 1, planned_era: 1 },
+					Event::SessionRotated { starting_session: 8, active_era: 1, planned_era: 1 },
+					Event::SessionRotated { starting_session: 9, active_era: 1, planned_era: 1 },
+					Event::SessionRotated { starting_session: 10, active_era: 1, planned_era: 2 },
+					Event::PagedElectionProceeded { page: 0, result: Ok(2) },
+					Event::SessionRotated { starting_session: 11, active_era: 1, planned_era: 2 },
+					Event::EraPaid { era_index: 1, validator_payout: 15000, remainder: 15000 },
+					Event::SessionRotated { starting_session: 12, active_era: 2, planned_era: 2 }
+				]
+			);
+		});
+}
+
+#[test]
+fn planning_era_offset_works_smart_with_delay() {
+	ExtBuilder::default()
+		.session_per_era(6)
+		.election_delay(7)
+		.smart_era_planner()
+		.no_flush_events()
+		.build_and_execute(|| {
+			// Same as above, but now election takes more time, more than 1 session to be exact.
+			// Notice how the era duration is kept at 6.
+			assert_eq!(Session::current_index(), 6);
 			assert_eq!(active_era(), 1);
 
 			assert_eq!(
@@ -90,27 +238,29 @@ fn planning_era_offset_more_works() {
 					Event::SessionRotated { starting_session: 1, active_era: 0, planned_era: 0 },
 					Event::SessionRotated { starting_session: 2, active_era: 0, planned_era: 0 },
 					Event::SessionRotated { starting_session: 3, active_era: 0, planned_era: 1 },
-					Event::PagedElectionProceeded { page: 0, result: Ok(2) },
 					Event::SessionRotated { starting_session: 4, active_era: 0, planned_era: 1 },
-					Event::EraPaid { era_index: 0, validator_payout: 12500, remainder: 12500 },
-					Event::SessionRotated { starting_session: 5, active_era: 1, planned_era: 1 }
+					Event::PagedElectionProceeded { page: 0, result: Ok(2) },
+					Event::SessionRotated { starting_session: 5, active_era: 0, planned_era: 1 },
+					Event::EraPaid { era_index: 0, validator_payout: 15000, remainder: 15000 },
+					Event::SessionRotated { starting_session: 6, active_era: 1, planned_era: 1 }
 				]
 			);
 
 			Session::roll_until_active_era(2);
-			assert_eq!(Session::current_index(), 10);
+			assert_eq!(Session::current_index(), 12);
 			assert_eq!(active_era(), 2);
 
 			assert_eq!(
 				staking_events_since_last_call(),
 				vec![
-					Event::SessionRotated { starting_session: 6, active_era: 1, planned_era: 1 },
 					Event::SessionRotated { starting_session: 7, active_era: 1, planned_era: 1 },
-					Event::SessionRotated { starting_session: 8, active_era: 1, planned_era: 2 },
-					Event::PagedElectionProceeded { page: 0, result: Ok(2) },
+					Event::SessionRotated { starting_session: 8, active_era: 1, planned_era: 1 },
 					Event::SessionRotated { starting_session: 9, active_era: 1, planned_era: 2 },
-					Event::EraPaid { era_index: 1, validator_payout: 12500, remainder: 12500 },
-					Event::SessionRotated { starting_session: 10, active_era: 2, planned_era: 2 }
+					Event::SessionRotated { starting_session: 10, active_era: 1, planned_era: 2 },
+					Event::PagedElectionProceeded { page: 0, result: Ok(2) },
+					Event::SessionRotated { starting_session: 11, active_era: 1, planned_era: 2 },
+					Event::EraPaid { era_index: 1, validator_payout: 15000, remainder: 15000 },
+					Event::SessionRotated { starting_session: 12, active_era: 2, planned_era: 2 }
 				]
 			);
 		});
@@ -426,7 +576,7 @@ mod paged_on_initialize_era_election_planner {
 
 				// we will start the next election at the start of block 20
 				assert_eq!(System::block_number(), 15);
-				assert_eq!(PlanningEraOffset::get(), 1);
+				assert_eq!(PlanningEraOffset::get(), 2);
 
 				// genesis validators are now in place.
 				assert_eq!(current_era(), 1);
@@ -541,7 +691,7 @@ mod paged_on_initialize_era_election_planner {
 
 				// we will start the next election at the start of block 20
 				assert_eq!(System::block_number(), 15);
-				assert_eq!(PlanningEraOffset::get(), 1);
+				assert_eq!(PlanningEraOffset::get(), 2);
 
 				// 1. election signal is sent here,
 				Session::roll_until(20);

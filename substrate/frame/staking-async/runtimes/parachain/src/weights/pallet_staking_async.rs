@@ -32,7 +32,7 @@
 // --pallet
 // pallet_staking_async
 // --extrinsic
-// 
+//
 // --output
 // substrate/frame/staking-async/runtimes/parachain/src/weights/pallet_staking_async.rs
 
@@ -481,8 +481,8 @@ impl<T: frame_system::Config> pallet_staking_async::WeightInfo for WeightInfo<T>
 	}
 	/// Storage: `Staking::ErasStakersOverview` (r:1 w:0)
 	/// Proof: `Staking::ErasStakersOverview` (`max_values`: None, `max_size`: Some(92), added: 2567, mode: `MaxEncodedLen`)
-	/// Storage: `Staking::ErasClaimedRewards` (r:1 w:1)
-	/// Proof: `Staking::ErasClaimedRewards` (`max_values`: None, `max_size`: Some(85), added: 2560, mode: `MaxEncodedLen`)
+	/// Storage: `Staking::ClaimedRewards` (r:1 w:1)
+	/// Proof: `Staking::ClaimedRewards` (`max_values`: None, `max_size`: Some(85), added: 2560, mode: `MaxEncodedLen`)
 	/// Storage: `Staking::CurrentEra` (r:1 w:0)
 	/// Proof: `Staking::CurrentEra` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
 	/// Storage: `Staking::ErasValidatorReward` (r:1 w:0)

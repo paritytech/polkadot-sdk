@@ -927,7 +927,7 @@ mod multi_page_sync_verification {
 			assert_eq!(<VerifierPallet as Verifier>::queued_score(), None);
 
 			let _ = <VerifierPallet as Verifier>::verify_synchronous_multi(
-				paged.solution_pages.clone().into_inner(),
+				paged.solution_pages.clone(),
 				MultiBlock::msp_range_for(2),
 				paged.score,
 			)
@@ -955,7 +955,7 @@ mod multi_page_sync_verification {
 			assert_eq!(<VerifierPallet as Verifier>::queued_score(), None);
 
 			let _ = <VerifierPallet as Verifier>::verify_synchronous_multi(
-				paged.solution_pages.clone().into_inner(),
+				paged.solution_pages.clone(),
 				MultiBlock::msp_range_for(3),
 				paged.score,
 			)
@@ -987,7 +987,7 @@ mod multi_page_sync_verification {
 
 			assert_eq!(
 				<VerifierPallet as Verifier>::verify_synchronous_multi(
-					paged.solution_pages.clone().into_inner(),
+					paged.solution_pages.clone(),
 					MultiBlock::msp_range_for(2),
 					paged.score,
 				)
@@ -1021,7 +1021,7 @@ mod multi_page_sync_verification {
 
 			assert_eq!(
 				<VerifierPallet as Verifier>::verify_synchronous_multi(
-					paged.solution_pages.clone().into_inner(),
+					paged.solution_pages.clone(),
 					MultiBlock::msp_range_for(2),
 					paged.score,
 				)
@@ -1055,7 +1055,7 @@ mod multi_page_sync_verification {
 
 			hypothetically!({
 				assert_ok!(<VerifierPallet as Verifier>::verify_synchronous_multi(
-					paged.solution_pages.clone().into_inner(),
+					paged.solution_pages.clone(),
 					MultiBlock::msp_range_for(2),
 					paged.score,
 				));
@@ -1098,7 +1098,7 @@ mod multi_page_sync_verification {
 
 			assert_eq!(
 				<VerifierPallet as Verifier>::verify_synchronous_multi(
-					paged.solution_pages.clone().into_inner(),
+					paged.solution_pages.clone(),
 					MultiBlock::msp_range_for(2),
 					paged.score,
 				)
