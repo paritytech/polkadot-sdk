@@ -7,4 +7,4 @@ doc:
     By switching to hashbrown HashMap/HashSet in validation TrieCache and TrieRecorder  and the memory-db https://github.com/paritytech/trie/pull/221 read costs improve with around ~40% and write with about ~20%
 crates:
 - name: cumulus-pallet-parachain-system
-  bump: patch
+  bump: minor
