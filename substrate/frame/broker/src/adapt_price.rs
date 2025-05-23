@@ -19,6 +19,7 @@
 
 use crate::{CoreIndex, SaleInfoRecord};
 use sp_arithmetic::{traits::One, FixedU64};
+use sp_core::RuntimeDebug;
 use sp_runtime::{FixedPointNumber, FixedPointOperand, Saturating};
 
 /// Performance of a past sale.
@@ -43,7 +44,7 @@ pub struct SalePerformance<Balance> {
 }
 
 /// Result of `AdaptPrice::adapt_price`.
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, RuntimeDebug, Eq, PartialEq)]
 pub struct AdaptedPrices<Balance> {
 	/// New minimum price to use.
 	pub end_price: Balance,
@@ -277,5 +278,45 @@ mod tests {
 		let performance = SalePerformance::new(Some(1000), 100);
 		let prices = CenterTargetPrice::adapt_price(performance);
 		assert_eq!(prices.target_price, 1000);
+	}
+
+	struct TestMinPrice;
+	impl GetMinimumPrice<u64> for TestMinPrice {
+		fn minimum_price() -> Option<u64> {
+			Some(10)
+		}
+	}
+
+	struct TestNoMinPrice;
+	impl GetMinimumPrice<u64> for TestNoMinPrice {
+		fn minimum_price() -> Option<u64> {
+			None
+		}
+	}
+
+	#[test]
+	fn minimum_price_works() {
+		let performance = SalePerformance::new(Some(10), 10);
+		let prices = MinimumPrice::<u64, TestMinPrice>::adapt_price(performance);
+		assert_eq!(prices.end_price, 10);
+		assert_eq!(prices.target_price, 10);
+	}
+
+	#[test]
+	fn no_minimum_price_works_as_center_target_price() {
+		let performances = [
+			(Some(100), 10),
+			(None, 20),
+			(Some(1000), 10),
+			(Some(10), 10),
+			(Some(1), 1),
+			(Some(0), 10),
+		];
+		for (sellout, end) in performances {
+			let performance = SalePerformance::new(sellout, end);
+			let prices_minimum = MinimumPrice::<u64, TestNoMinPrice>::adapt_price(performance);
+			let prices = CenterTargetPrice::adapt_price(performance);
+			assert_eq!(prices, prices_minimum);
+		}
 	}
 }
