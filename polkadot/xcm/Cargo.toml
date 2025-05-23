@@ -30,6 +30,7 @@ xcm-procedural = { workspace = true, default-features = true }
 
 [dev-dependencies]
 sp-io = { workspace = true, default-features = true }
+sp-tracing = { features = ["test-utils"], workspace = true, default-features = true }
 
 [features]
 default = ["std"]
