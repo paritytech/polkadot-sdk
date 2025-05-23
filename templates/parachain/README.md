@@ -28,7 +28,7 @@
   - [Takeaways](#takeaways)
 
 - [Runtime development](#runtime-development)
-- [Deploy to Paseo TestNet & See Your First Block](#deploy-to-paseo-testnet-&-see-your-first-block)
+- [Deploy to Paseo TestNet And See Your First Block](#deploy-to-paseo-testnet-and-see-your-first-block)
 - [Contributing](#contributing)
 - [Getting Help](#getting-help)
 
@@ -243,7 +243,7 @@ npx @acala-network/chopsticks@latest --chain-spec <path/to/chain_spec.json>
 support it at this moment. It can still be used to test a runtime in a full setup where it is started alongside a
 relay chain network (see [Parachain Template node](#parachain-template-node) setup).
 
-## Deploy to Paseo TestNet & See Your First Block
+## Deploy to Paseo TestNet And See Your First Block
 
 After setting up your parachain locally, you can deploy it to the Paseo public testnet to observe it producing blocks in a realistic environment.
 
@@ -255,7 +255,7 @@ Note: The following instructions are also available at the [Zero to Hero Tutoria
 
 1. Open [Polkadot.js Apps](https://polkadot.js.org/apps/#/explorer) and switch the network selector to Paseo.
 
-2. Go to Network → Parachains → Parathreads, click + ParaId, then Submit. You’ll be assigned the next free ID (e.g. 4508).
+2. Go to Network → Parachains → Parathreads, click `+ ParaId`, then Submit. You’ll be assigned the next free ID (e.g. 4508).
 
 3. In Explorer, confirm you see a `registrar.Reserved` event.
 
@@ -265,7 +265,7 @@ Note: The following instructions are also available at the [Zero to Hero Tutoria
 
 2. In Polkadot.js Apps, navigate to Network > Parachains, then to the Parathreads tab.
 
-3. Click on + Register and provide:
+3. Click on `+ Register` and provide:
 1. Your reserved ParaID
 2. The compiled .wasm runtime file
 3. The genesis state file
@@ -303,7 +303,7 @@ docker run -it parity/subkey:latest generate --scheme sr25519
 ### Build the Chain Specification
 Generate the plain chain specification:
 ```
-chain-spec-builder \
+polkadot-omni-node chain-spec-builder \
   --chain-spec-path ./plain_chain_spec.json \
   create \
   --relay-chain paseo \
@@ -315,7 +315,7 @@ Edit plain_chain_spec.json to update fields like name, id, protocolId, para_id, 
 Then, generate the raw chain specification:
 
 ``` 
-chain-spec-builder \
+polkadot-omni-node chain-spec-builder \
   --chain-spec-path ./raw_chain_spec.json \
   build \
   --chain plain_chain_spec.json
