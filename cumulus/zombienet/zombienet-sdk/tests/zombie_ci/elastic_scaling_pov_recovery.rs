@@ -7,7 +7,7 @@ use std::{sync::Arc, time::Duration};
 use crate::utils::{initialize_network, wait_node_is_up, BEST_BLOCK_METRIC};
 
 use cumulus_zombienet_sdk_helpers::{
-	assert_para_throughput, create_assign_core_call,
+	assert_para_is_registered, assert_para_throughput, create_assign_core_call,
 	submit_extrinsic_and_wait_for_finalization_success_with_timeout,
 };
 use polkadot_primitives::Id as ParaId;
@@ -66,11 +66,14 @@ async fn elastic_scaling_pov_recovery() -> Result<(), anyhow::Error> {
 	log::info!("Registering parachain para_id = {PARA_ID}");
 	network.register_parachain(PARA_ID).await?;
 
-	log::info!("Ensuring parachain is registered");
+	log::info!("Ensuring parachain is registered within 10 blocks");
+	assert_para_is_registered(&relay_client, ParaId::from(PARA_ID), 10).await?;
+
+	log::info!("Ensuring parachain making progress");
 	assert_para_throughput(
 		&relay_client,
 		20,
-		[(ParaId::from(PARA_ID), 2..40)].into_iter().collect(),
+		[(ParaId::from(PARA_ID), 40..65)].into_iter().collect(),
 	)
 	.await?;
 

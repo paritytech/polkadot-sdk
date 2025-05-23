@@ -5,7 +5,7 @@ use anyhow::anyhow;
 
 use crate::utils::{initialize_network, BEST_BLOCK_METRIC};
 
-use cumulus_zombienet_sdk_helpers::assert_para_throughput;
+use cumulus_zombienet_sdk_helpers::{assert_para_is_registered, assert_para_throughput};
 use polkadot_primitives::Id as ParaId;
 use serde_json::json;
 use std::{sync::Arc, time::Duration};
@@ -43,11 +43,14 @@ async fn pov_recovery() -> Result<(), anyhow::Error> {
 	let relay_ferdie = network.get_node("ferdie")?;
 	let relay_client: OnlineClient<PolkadotConfig> = relay_ferdie.wait_client().await?;
 
-	log::info!("Ensuring parachain is registered");
+	log::info!("Ensuring parachain is registered within 10 blocks");
+	assert_para_is_registered(&relay_client, ParaId::from(PARA_ID), 10).await?;
+
+	log::info!("Ensuring parachain making progress");
 	assert_para_throughput(
 		&relay_client,
 		20,
-		[(ParaId::from(PARA_ID), 2..40)].into_iter().collect(),
+		[(ParaId::from(PARA_ID), 2..20)].into_iter().collect(),
 	)
 	.await?;
 

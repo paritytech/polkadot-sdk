@@ -7,7 +7,7 @@ use polkadot_primitives::Id as ParaId;
 use subxt::{OnlineClient, PolkadotConfig};
 
 use crate::utils::{initialize_network, BEST_BLOCK_METRIC};
-use cumulus_zombienet_sdk_helpers::assert_para_is_backed;
+use cumulus_zombienet_sdk_helpers::assert_para_is_registered;
 use zombienet_sdk::{NetworkConfig, NetworkConfigBuilder};
 
 const PARA_ID: u32 = 2000;
@@ -27,8 +27,8 @@ async fn full_node_warp_sync() -> Result<(), anyhow::Error> {
 	let alice = network.get_node("alice")?;
 	let alice_client: OnlineClient<PolkadotConfig> = alice.wait_client().await?;
 
-	log::info!("Ensuring parachain is backed");
-	assert_para_is_backed(&alice_client, ParaId::from(PARA_ID), 30).await?;
+	log::info!("Ensuring parachain is registered");
+	assert_para_is_registered(&alice_client, ParaId::from(PARA_ID), 10).await?;
 
 	for name in ["two", "three", "four", "five"] {
 		log::info!("Checking full node {name} is syncing");

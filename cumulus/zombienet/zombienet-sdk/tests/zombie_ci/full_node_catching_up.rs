@@ -29,7 +29,7 @@ async fn full_node_catching_up() -> Result<(), anyhow::Error> {
 	let relay_alice = network.get_node("alice")?;
 	let relay_client: OnlineClient<PolkadotConfig> = relay_alice.wait_client().await?;
 
-	log::info!("Ensuring parachain is registered");
+	log::info!("Ensuring parachain making progress");
 	assert_para_throughput(
 		&relay_client,
 		20,

@@ -44,7 +44,7 @@ async fn migrate_solo_to_para() -> Result<(), anyhow::Error> {
 	let alice = network.get_node("alice")?;
 	let alice_client: OnlineClient<PolkadotConfig> = alice.wait_client().await?;
 
-	log::info!("Ensuring parachain is registered");
+	log::info!("Ensuring parachain making progress");
 	assert_para_throughput(
 		&alice_client,
 		20,

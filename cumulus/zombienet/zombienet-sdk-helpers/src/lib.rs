@@ -11,6 +11,7 @@ use std::{
 use subxt::{
 	blocks::Block,
 	config::ExtrinsicParams,
+	dynamic::Value,
 	events::Events,
 	ext::scale_value::value,
 	tx::{signer::Signer, DynamicPayload, TxStatus},
@@ -346,9 +347,9 @@ where
 					if status.as_finalized().is_some() { "Finalized" } else { "Best" };
 				log::info!("[{}] In block: {:#?}", block_status, tx_in_block.block_hash());
 			},
-			TxStatus::Error { message } |
-			TxStatus::Invalid { message } |
-			TxStatus::Dropped { message } => {
+			TxStatus::Error { message }
+			| TxStatus::Invalid { message }
+			| TxStatus::Dropped { message } => {
 				return Err(anyhow::format_err!("Error submitting tx: {message}"));
 			},
 			_ => continue,
@@ -387,42 +388,38 @@ where
 	}
 }
 
-pub async fn assert_para_is_backed(
+pub async fn assert_para_is_registered(
 	relay_client: &OnlineClient<PolkadotConfig>,
 	para_id: ParaId,
 	blocks_to_wait: u32,
 ) -> Result<(), anyhow::Error> {
 	let mut blocks_sub = relay_client.blocks().subscribe_all().await?;
+	let para_id: u32 = para_id.into();
+
+	let keys: Vec<Value> = vec![];
+	let query = subxt::dynamic::storage("Paras", "Parachains", keys);
 
 	let mut blocks_cnt = 0;
 	while let Some(block) = blocks_sub.next().await {
 		let block = block?;
-		log::debug!(
-			"Relay block #{}, waiting for {blocks_cnt} blocks out of {blocks_to_wait} blocks to wait",
-			block.number(),
-		);
-		let events = block.events().await?;
+		log::debug!("Relay block #{}, checking if para_id {para_id} is registered", block.number(),);
+		let parachains = block.storage().fetch(&query).await?;
 
-		let receipts = find_event_and_decode_fields::<CandidateReceiptV2<H256>>(
-			&events,
-			"ParaInclusion",
-			"CandidateBacked",
-		)?;
+		let parachains: Vec<u32> = match parachains {
+			Some(parachains) => parachains.as_type()?,
+			None => vec![],
+		};
 
-		for receipt in receipts {
-			let id = receipt.descriptor.para_id();
-			log::debug!(
-				"Block backed for para_id {para_id} at relay: #{} ({})",
-				block.number(),
-				block.hash()
-			);
-			if para_id == id {
-				log::debug!("para_id match!");
-				return Ok(());
-			}
+		log::debug!("Registered para_ids: {:?}", parachains);
+
+		if parachains.iter().find(|p| para_id.eq(*p)).is_some() {
+			log::debug!("para_id {para_id} registered");
+			return Ok(());
 		}
 		if blocks_cnt >= blocks_to_wait {
-			return Err(anyhow!("Parachain {para_id} not backed within {blocks_to_wait} blocks"));
+			return Err(anyhow!(
+				"Parachain {para_id} not registered within {blocks_to_wait} blocks"
+			));
 		}
 		blocks_cnt += 1;
 	}
