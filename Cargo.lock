@@ -13077,6 +13077,8 @@ dependencies = [
 name = "pallet-staking-async"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
+ "env_logger 0.11.3",
  "frame-benchmarking",
  "frame-election-provider-support",
  "frame-support",
@@ -13098,6 +13100,10 @@ dependencies = [
  "sp-staking",
  "sp-tracing 16.0.0",
  "substrate-test-utils",
+ "subxt 0.38.1",
+ "subxt-signer 0.38.0",
+ "tokio",
+ "zombienet-sdk",
 ]
 
 [[package]]
@@ -13294,6 +13300,7 @@ dependencies = [
  "pallet-proxy",
  "pallet-recovery",
  "pallet-referenda",
+ "pallet-root-offences",
  "pallet-root-testing",
  "pallet-scheduler",
  "pallet-session",
