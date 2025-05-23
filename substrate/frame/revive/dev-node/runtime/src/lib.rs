@@ -533,6 +533,7 @@ impl_runtime_apis! {
 				code,
 				data,
 				salt,
+				pallet_revive::NonceAlreadyIncremented::No,
 			)
 		}
 
