@@ -252,6 +252,16 @@ pub trait CliConfiguration<DCV: DefaultConfigurationValues = ()>: Sized {
 		Ok(self.import_params().map(|x| x.trie_cache_maximum_size()).unwrap_or_default())
 	}
 
+	/// Get if we should warm up the trie cache.
+	///
+	/// By default this is retrieved from `ImportParams` if it is available. Otherwise its `None`.
+	fn warm_up_trie_cache(&self) -> Result<Option<sc_service::config::TrieCacheWarmUpStrategy>> {
+		Ok(self
+			.import_params()
+			.map(|x| x.warm_up_trie_cache().map(|x| x.into()))
+			.unwrap_or_default())
+	}
+
 	/// Get the state pruning mode.
 	///
 	/// By default this is retrieved from `PruningMode` if it is available. Otherwise its
@@ -528,6 +538,7 @@ pub trait CliConfiguration<DCV: DefaultConfigurationValues = ()>: Sized {
 			database: self.database_config(&config_dir, database_cache_size, database)?,
 			data_path: config_dir,
 			trie_cache_maximum_size: self.trie_cache_maximum_size()?,
+			warm_up_trie_cache: self.warm_up_trie_cache()?,
 			state_pruning: self.state_pruning()?,
 			blocks_pruning: self.blocks_pruning()?,
 			executor: ExecutorConfiguration {

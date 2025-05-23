@@ -42,7 +42,7 @@ mod upgrade;
 mod utils;
 
 use linked_hash_map::LinkedHashMap;
-use log::{debug, trace, warn};
+use log::{debug, info, trace, warn};
 use parking_lot::{Mutex, RwLock};
 use prometheus_endpoint::Registry;
 use std::{
@@ -1239,6 +1239,24 @@ impl<Block: BlockT> Backend<Block> {
 
 		let offchain_storage = offchain::LocalStorage::new(db.clone());
 
+		let shared_trie_cache = config.trie_cache_maximum_size.map(|maximum_size| {
+			let system_memory = sysinfo::System::new_all();
+			let used_memory = system_memory.used_memory();
+			let total_memory = system_memory.total_memory();
+
+			if maximum_size as u64 > total_memory - used_memory {
+				return Err(sp_blockchain::Error::Backend(
+					format!(
+						"Not enough memory to initialize shared trie cache. Cache size: {} bytes. System memory: used {} bytes, total {} bytes",
+						maximum_size, used_memory, total_memory,
+					)
+				));
+			}
+
+			info!("Initializing shared trie cache with size {} bytes, {}% of total memory", maximum_size, (maximum_size as f64 / total_memory as f64 * 100.0));
+			Ok(SharedTrieCache::new(sp_trie::cache::CacheSize::new(maximum_size), config.metrics_registry.as_ref()))
+		}).transpose()?;
+
 		let backend = Backend {
 			storage: Arc::new(storage_db),
 			offchain_storage,
@@ -1250,12 +1268,7 @@ impl<Block: BlockT> Backend<Block> {
 			state_usage: Arc::new(StateUsageStats::new()),
 			blocks_pruning: config.blocks_pruning,
 			genesis_state: RwLock::new(None),
-			shared_trie_cache: config.trie_cache_maximum_size.map(|maximum_size| {
-				SharedTrieCache::new(
-					sp_trie::cache::CacheSize::new(maximum_size),
-					config.metrics_registry.as_ref(),
-				)
-			}),
+			shared_trie_cache,
 		};
 
 		// Older DB versions have no last state key. Check if the state is available and set it.
