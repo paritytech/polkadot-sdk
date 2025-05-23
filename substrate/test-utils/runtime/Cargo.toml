@@ -35,6 +35,7 @@ sp-consensus-babe = { features = ["serde"], workspace = true }
 sp-consensus-grandpa = { features = ["serde"], workspace = true }
 sp-core = { features = ["serde"], workspace = true }
 sp-crypto-hashing = { workspace = true }
+sp-debug-derive = { workspace = true, default-features = false, features = ["force-debug"] }
 sp-externalities = { workspace = true }
 sp-genesis-builder = { workspace = true }
 sp-inherents = { workspace = true }
@@ -98,6 +99,7 @@ std = [
 	"sp-consensus-grandpa/std",
 	"sp-core/std",
 	"sp-crypto-hashing/std",
+	"sp-debug-derive/std",
 	"sp-externalities/std",
 	"sp-genesis-builder/std",
 	"sp-inherents/std",
@@ -118,3 +120,8 @@ std = [
 
 # Special feature to disable logging
 disable-logging = ["sp-api/disable-logging"]
+
+# This feature adds BLS crypto primitives.
+# It should not be used in production since the implementation and interface may still
+# be subject to significant changes.
+bls-experimental = ["sp-application-crypto/bls-experimental"]

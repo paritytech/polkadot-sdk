@@ -29,6 +29,7 @@ pub use sp_core::crypto::{DeriveError, Pair, SecretStringError};
 pub use sp_core::{
 	self,
 	crypto::{ByteArray, CryptoType, Derive, IsWrappedBy, Public, Signature, UncheckedFrom, Wraps},
+	proof_of_possession::{ProofOfPossessionGenerator, ProofOfPossessionVerifier},
 	RuntimeDebug,
 };
 
@@ -174,6 +175,18 @@ macro_rules! app_crypto_pair_common {
 			}
 			fn to_raw_vec(&self) -> $crate::Vec<u8> {
 				self.0.to_raw_vec()
+			}
+		}
+
+		impl $crate::ProofOfPossessionVerifier for Pair {
+			fn verify_proof_of_possession(
+				proof_of_possession: &Self::Signature,
+				allegedly_possessed_pubkey: &Self::Public,
+			) -> bool {
+				<$pair>::verify_proof_of_possession(
+					&proof_of_possession.0,
+					allegedly_possessed_pubkey.as_ref(),
+				)
 			}
 		}
 

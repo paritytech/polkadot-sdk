@@ -22,9 +22,11 @@
 
 #[cfg(feature = "serde")]
 use crate::crypto::Ss58Codec;
-use crate::crypto::{
-	CryptoBytes, DeriveError, DeriveJunction, Pair as TraitPair, SecretStringError,
+use crate::{
+	crypto::{CryptoBytes, DeriveError, DeriveJunction, Pair as TraitPair, SecretStringError},
+	proof_of_possession::NonAggregatable,
 };
+
 use alloc::vec::Vec;
 #[cfg(feature = "full_crypto")]
 use schnorrkel::signing_context;
@@ -295,6 +297,8 @@ impl CryptoType for Signature {
 impl CryptoType for Pair {
 	type Pair = Pair;
 }
+
+impl NonAggregatable for Pair {}
 
 /// Schnorrkel VRF related types and operations.
 pub mod vrf {
@@ -587,6 +591,7 @@ mod tests {
 	use super::{vrf::*, *};
 	use crate::{
 		crypto::{Ss58Codec, VrfPublic, VrfSecret, DEV_ADDRESS, DEV_PHRASE},
+		proof_of_possession::{ProofOfPossessionGenerator, ProofOfPossessionVerifier},
 		ByteArray as _,
 	};
 	use serde_json;
@@ -914,5 +919,14 @@ mod tests {
 
 		assert!(public.vrf_verify(&data, &signature2));
 		assert_eq!(signature.pre_output, signature2.pre_output);
+	}
+
+	#[test]
+	fn good_proof_of_possession_should_work_bad_proof_of_possession_should_fail() {
+		let mut pair = Pair::from_seed(b"12345678901234567890123456789012");
+		let other_pair = Pair::from_seed(b"23456789012345678901234567890123");
+		let proof_of_possession = pair.generate_proof_of_possession();
+		assert!(Pair::verify_proof_of_possession(&proof_of_possession, &pair.public()));
+		assert!(!Pair::verify_proof_of_possession(&proof_of_possession, &other_pair.public()));
 	}
 }

@@ -21,6 +21,7 @@ use crate::{KeyTypeId, RuntimePublic};
 
 use alloc::vec::Vec;
 
+use sp_core::proof_of_possession::NonAggregatable;
 pub use sp_core::sr25519::*;
 
 mod app {
@@ -46,6 +47,16 @@ impl RuntimePublic for Public {
 
 	fn verify<M: AsRef<[u8]>>(&self, msg: &M, signature: &Self::Signature) -> bool {
 		sp_io::crypto::sr25519_verify(signature, msg.as_ref(), self)
+	}
+
+	fn generate_proof_of_possession(&mut self, key_type: KeyTypeId) -> Option<Self::Signature> {
+		let proof_of_possession_statement = Pair::proof_of_possession_statement(self);
+		sp_io::crypto::sr25519_sign(key_type, self, &proof_of_possession_statement)
+	}
+
+	fn verify_proof_of_possession(&self, proof_of_possession: &Self::Signature) -> bool {
+		let proof_of_possession_statement = Pair::proof_of_possession_statement(self);
+		sp_io::crypto::sr25519_verify(&proof_of_possession, &proof_of_possession_statement, &self)
 	}
 
 	fn to_raw_vec(&self) -> Vec<u8> {

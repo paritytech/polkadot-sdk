@@ -100,6 +100,17 @@ pub trait RuntimePublic: Sized {
 	/// Verify that the given signature matches the given message using this public key.
 	fn verify<M: AsRef<[u8]>>(&self, msg: &M, signature: &Self::Signature) -> bool;
 
+	/// Generate proof of possession of the corresponding public key
+	///
+	/// The private key will be requested from the keystore using the given key type.
+	///
+	/// Returns the proof of possession as a signature or `None` if it failed or is not able to do
+	/// so.
+	fn generate_proof_of_possession(&mut self, key_type: KeyTypeId) -> Option<Self::Signature>;
+
+	/// Verify that the given proof of possession is valid for the corresponding public key.
+	fn verify_proof_of_possession(&self, pop: &Self::Signature) -> bool;
+
 	/// Returns `Self` as raw vec.
 	fn to_raw_vec(&self) -> Vec<u8>;
 }
@@ -133,13 +144,24 @@ pub trait RuntimeAppPublic: Sized {
 	/// Verify that the given signature matches the given message using this public key.
 	fn verify<M: AsRef<[u8]>>(&self, msg: &M, signature: &Self::Signature) -> bool;
 
+	/// Generate proof of possession of the corresponding public key
+	///
+	/// The private key will be requested from the keystore using the given key type.
+	///
+	/// Returns the proof of possession as a signature or `None` if it failed or is not able to do
+	/// so.
+	fn generate_proof_of_possession(&mut self) -> Option<Self::Signature>;
+
+	/// Verify that the given proof of possession is valid for the corresponding public key.
+	fn verify_proof_of_possession(&self, pop: &Self::Signature) -> bool;
+
 	/// Returns `Self` as raw vec.
 	fn to_raw_vec(&self) -> Vec<u8>;
 }
 
 impl<T> RuntimeAppPublic for T
 where
-	T: AppPublic + AsRef<<T as AppPublic>::Generic>,
+	T: AppPublic + AsRef<<T as AppPublic>::Generic> + AsMut<<T as AppPublic>::Generic>,
 	<T as AppPublic>::Generic: RuntimePublic,
 	<T as AppCrypto>::Signature: TypeInfo
 		+ Codec
@@ -168,6 +190,21 @@ where
 
 	fn verify<M: AsRef<[u8]>>(&self, msg: &M, signature: &Self::Signature) -> bool {
 		<<T as AppPublic>::Generic as RuntimePublic>::verify(self.as_ref(), msg, signature.as_ref())
+	}
+
+	fn generate_proof_of_possession(&mut self) -> Option<Self::Signature> {
+		<<T as AppPublic>::Generic as RuntimePublic>::generate_proof_of_possession(
+			self.as_mut(),
+			Self::ID,
+		)
+		.map(|s| s.into())
+	}
+
+	fn verify_proof_of_possession(&self, pop: &Self::Signature) -> bool {
+		<<T as AppPublic>::Generic as RuntimePublic>::verify_proof_of_possession(
+			self.as_ref(),
+			pop.as_ref(),
+		)
 	}
 
 	fn to_raw_vec(&self) -> Vec<u8> {
