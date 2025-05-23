@@ -17,6 +17,7 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 use crate::{common::tracing_log_xt::log_xt_trace, LOG_TARGET};
+use async_trait::async_trait;
 use futures::{channel::mpsc::Receiver, Future};
 use indexmap::IndexMap;
 use sc_transaction_pool_api::error;
@@ -61,13 +62,12 @@ pub type ValidatedTransactionFor<A> =
 	ValidatedTransaction<ExtrinsicHash<A>, ExtrinsicFor<A>, <A as ChainApi>::Error>;
 
 /// Concrete extrinsic validation and query logic.
+#[async_trait]
 pub trait ChainApi: Send + Sync {
 	/// Block type.
 	type Block: BlockT;
 	/// Error type.
 	type Error: From<error::Error> + error::IntoPoolError;
-	/// Validate transaction future.
-	type ValidationFuture: Future<Output = Result<TransactionValidity, Self::Error>> + Send + Unpin;
 	/// Body future (since block body might be remote)
 	type BodyFuture: Future<Output = Result<Option<Vec<<Self::Block as traits::Block>::Extrinsic>>, Self::Error>>
 		+ Unpin
@@ -75,12 +75,12 @@ pub trait ChainApi: Send + Sync {
 		+ 'static;
 
 	/// Asynchronously verify extrinsic at given block.
-	fn validate_transaction(
+	async fn validate_transaction(
 		&self,
 		at: <Self::Block as BlockT>::Hash,
 		source: TransactionSource,
 		uxt: ExtrinsicFor<Self>,
-	) -> Self::ValidationFuture;
+	) -> Result<TransactionValidity, Self::Error>;
 
 	/// Synchronously verify given extrinsic at given block.
 	///

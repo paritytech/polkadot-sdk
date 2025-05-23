@@ -166,9 +166,9 @@ where
 	///
 	/// Provides a side-channel allowing to send per-transaction state changes notification.
 	pub(super) listener: Arc<MultiViewListener<ChainApi>>,
-	/// Most recent block processed by tx-pool. Used in the API functions that were not changed to
+	/// Most recent view processed by tx-pool. Used in the API functions that were not changed to
 	/// add `at` parameter.
-	pub(super) most_recent_view: RwLock<Option<Block::Hash>>,
+	pub(super) most_recent_view: RwLock<Option<Arc<View<ChainApi>>>>,
 	/// The controller of multi view dropped stream.
 	pub(super) dropped_stream_controller: MultiViewDroppedWatcherController<ChainApi>,
 	/// The map used to synchronize replacement of transactions between maintain and dropped
@@ -411,12 +411,8 @@ where
 	/// The iterator for future transactions is returned if the most recently notified best block,
 	/// for which maintain process was accomplished, exists.
 	pub(super) fn ready(&self) -> ReadyIteratorFor<ChainApi> {
-		let ready_iterator = self
-			.most_recent_view
-			.read()
-			.map(|at| self.get_view_at(at, true))
-			.flatten()
-			.map(|(v, _)| v.pool.validated_pool().ready());
+		let ready_iterator =
+			self.most_recent_view.read().as_ref().map(|v| v.pool.validated_pool().ready());
 
 		if let Some(ready_iterator) = ready_iterator {
 			return Box::new(ready_iterator)
@@ -434,7 +430,8 @@ where
 	) -> Vec<Transaction<ExtrinsicHash<ChainApi>, ExtrinsicFor<ChainApi>>> {
 		self.most_recent_view
 			.read()
-			.map(|at| self.futures_at(at))
+			.as_ref()
+			.map(|view| self.futures_at(view.at.hash))
 			.flatten()
 			.unwrap_or_default()
 	}
@@ -459,7 +456,7 @@ where
 		finalized_hash: Block::Hash,
 		tree_route: &[Block::Hash],
 	) -> Vec<ExtrinsicHash<ChainApi>> {
-		trace!(
+		debug!(
 			target: LOG_TARGET,
 			?finalized_hash,
 			?tree_route,
@@ -543,7 +540,7 @@ where
 					});
 				});
 			active_views.insert(view.at.hash, view.clone());
-			most_recent_view_lock.replace(view.at.hash);
+			most_recent_view_lock.replace(view.clone());
 		};
 		trace!(
 			target: LOG_TARGET,
@@ -664,7 +661,7 @@ where
 				.collect::<Vec<_>>()
 		};
 		futures::future::join_all(finish_revalidation_futures).await;
-		trace!(
+		debug!(
 			target: LOG_TARGET,
 			duration = ?start.elapsed(),
 			"finish_background_revalidations"
@@ -778,10 +775,15 @@ where
 	///
 	/// After application, all already processed replacements are removed.
 	async fn apply_pending_tx_replacements(&self, view: Arc<View<ChainApi>>) {
+		let start = Instant::now();
 		let mut futures = vec![];
+		let mut replace_count = 0;
+		let mut remove_count = 0;
+
 		for replacement in self.pending_txs_tasks.read().values() {
 			match replacement.action {
 				PreInsertAction::SubmitTx(ref submission) => {
+					replace_count += 1;
 					let xt_hash = self.api.hash_and_length(&submission.xt).0;
 					futures.push(self.replace_transaction_in_view(
 						view.clone(),
@@ -791,12 +793,22 @@ where
 					));
 				},
 				PreInsertAction::RemoveSubtree(ref removal) => {
+					remove_count += 1;
 					view.remove_subtree(&[removal.xt_hash], true, &*removal.listener_action);
 				},
 			}
 		}
-		let _results = futures::future::join_all(futures).await;
-		self.pending_txs_tasks.write().retain(|_, r| r.processed);
+		let _ = futures::future::join_all(futures).await;
+		self.pending_txs_tasks.write().retain(|_, r| !r.processed);
+		debug!(
+			target: LOG_TARGET,
+			at_hash = ?view.at.hash,
+			replace_count,
+			remove_count,
+			duration = ?start.elapsed(),
+			count = ?self.pending_txs_tasks.read().len(),
+			"apply_pending_tx_replacements"
+		);
 	}
 
 	/// Submits `xt` to the given view.

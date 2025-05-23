@@ -146,7 +146,7 @@ impl TestPoolBuilder {
 			.map(|blocks| blocks[0].0.header.hash())
 			.expect("there is block 0. qed");
 
-		let (pool, txpool_task) = if self.use_default_limits {
+		let (pool, [txpool_task, blocking_task]) = if self.use_default_limits {
 			ForkAwareTxPool::new_test(
 				api.clone(),
 				genesis_hash,
@@ -167,6 +167,7 @@ impl TestPoolBuilder {
 
 		let thread_pool = futures::executor::ThreadPool::new().unwrap();
 		thread_pool.spawn_ok(txpool_task);
+		thread_pool.spawn_ok(blocking_task);
 
 		(pool, api, thread_pool)
 	}
