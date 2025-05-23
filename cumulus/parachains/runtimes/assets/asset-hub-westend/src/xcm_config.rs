@@ -635,7 +635,9 @@ pub mod bridging {
 			/// Needs to be more than fee calculated from DefaultFeeConfig FeeConfigRecord in snowbridge:parachain/pallets/outbound-queue/src/lib.rs
 			/// Polkadot uses 10 decimals, Kusama,Rococo,Westend 12 decimals.
 			pub const DefaultBridgeHubEthereumBaseFee: Balance = 3_833_568_200_000;
+			pub const DefaultBridgeHubEthereumBaseFeeV2: Balance = 100_000_000_000;
 			pub storage BridgeHubEthereumBaseFee: Balance = DefaultBridgeHubEthereumBaseFee::get();
+			pub storage BridgeHubEthereumBaseFeeV2: Balance = DefaultBridgeHubEthereumBaseFeeV2::get();
 			pub SiblingBridgeHubWithEthereumInboundQueueV1Instance: Location = Location::new(
 				1,
 				[
@@ -670,7 +672,10 @@ pub mod bridging {
 					EthereumNetwork::get(),
 					Some(sp_std::vec![Junctions::Here]),
 					SiblingBridgeHub::get(),
-					None
+					Some((
+						XcmBridgeHubRouterFeeAssetId::get(),
+						BridgeHubEthereumBaseFeeV2::get(),
+					).into())
 				),
 			];
 
