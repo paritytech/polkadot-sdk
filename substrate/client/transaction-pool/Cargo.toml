@@ -48,6 +48,7 @@ tracing = { workspace = true, default-features = true }
 [dev-dependencies]
 anyhow = { workspace = true }
 assert_matches = { workspace = true }
+chrono = { workspace = true }
 criterion = { workspace = true, default-features = true }
 sc-block-builder = { workspace = true, default-features = true }
 sp-consensus = { workspace = true, default-features = true }

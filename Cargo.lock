@@ -20371,6 +20371,7 @@ dependencies = [
  "anyhow",
  "assert_matches",
  "async-trait",
+ "chrono",
  "criterion",
  "futures",
  "futures-timer",
@@ -25070,6 +25071,30 @@ dependencies = [
  "subxt-core 0.41.0",
  "subxt-lightclient 0.41.0",
  "thiserror 2.0.12",
+ "tokio-util",
+ "tracing",
+ "url",
+]
+
+[[package]]
+name = "subxt-rpcs"
+version = "0.41.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4ba7494d250d65dc3439365ac5e8e0fbb9c3992e6e84b7aa01d69e082249b8b8"
+dependencies = [
+ "derive-where",
+ "frame-metadata 20.0.0",
+ "futures",
+ "hex",
+ "impl-serde 0.5.0",
+ "jsonrpsee",
+ "parity-scale-codec",
+ "primitive-types 0.13.1",
+ "serde",
+ "serde_json",
+ "subxt-core 0.41.0",
+ "subxt-lightclient 0.41.0",
+ "thiserror 2.0.11",
  "tokio-util",
  "tracing",
  "url",
