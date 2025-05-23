@@ -159,21 +159,6 @@ This could mean that you either did not build the node correctly with the \
 not created by a node that was compiled with the flag";
 
 impl PalletCmd {
-	/// Runs the command and benchmarks a pallet.
-	#[deprecated(
-		note = "`run` will be removed after December 2024. Use `run_with_spec` instead or \
-	completely remove the code and use the `frame-benchmarking-cli` instead (see \
-	https://github.com/paritytech/polkadot-sdk/pull/3512)."
-	)]
-	pub fn run<Hasher, ExtraHostFunctions>(&self, config: sc_service::Configuration) -> Result<()>
-	where
-		Hasher: Hash,
-		<Hasher as Hash>::Output: DecodeWithMemTracking,
-		ExtraHostFunctions: HostFunctions,
-	{
-		self.run_with_spec::<Hasher, ExtraHostFunctions>(Some(config.chain_spec))
-	}
-
 	fn state_handler_from_cli<HF: HostFunctions>(
 		&self,
 		chain_spec_from_api: Option<Box<dyn ChainSpec>>,
