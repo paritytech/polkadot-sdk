@@ -1,0 +1,22 @@
+title: 'Broker: Introduce min price + adjust renewals to lower market.'
+doc:
+- audience: Todo
+  description: |-
+    This PR provides:
+
+    1. The means for the runtime to configure a minimum price for sales.
+    2. Prevents renewals to get detached too much from current market, by bumping them at least to the `end_price` of the current sale.
+
+    TODO:
+
+    - [x] Implement
+    - [x] Add tests
+    - [x] Fix runtimes/Make Rococo + Westend use the new price controller.
+    - [ ] prdoc
+crates:
+- name: pallet-broker
+  bump: major
+- name: coretime-rococo-runtime
+  bump: major
+- name: coretime-westend-runtime
+  bump: major
