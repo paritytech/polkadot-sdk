@@ -15,11 +15,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use alloc::{
-	boxed::Box,
-	collections::btree_map::{BTreeMap, Entry},
-};
+use alloc::boxed::Box;
+
 use core::cell::{RefCell, RefMut};
+use hashbrown::{hash_map::Entry, HashMap};
 use sp_state_machine::TrieCacheProvider;
 use sp_trie::NodeCodec;
 use trie_db::{node::NodeOwned, Hasher};
@@ -28,8 +27,8 @@ use trie_db::{node::NodeOwned, Hasher};
 /// of values. To be used in `validate_block` to serve values and nodes that
 /// have already been loaded and decoded from the storage proof.
 pub struct TrieCache<'a, H: Hasher> {
-	node_cache: RefMut<'a, BTreeMap<H::Out, NodeOwned<H::Out>>>,
-	value_cache: Option<RefMut<'a, BTreeMap<Box<[u8]>, trie_db::CachedValue<H::Out>>>>,
+	node_cache: RefMut<'a, HashMap<H::Out, NodeOwned<H::Out>>>,
+	value_cache: Option<RefMut<'a, HashMap<Box<[u8]>, trie_db::CachedValue<H::Out>>>>,
 }
 
 impl<'a, H: Hasher> trie_db::TrieCache<NodeCodec<H>> for TrieCache<'a, H> {
@@ -66,14 +65,14 @@ impl<'a, H: Hasher> trie_db::TrieCache<NodeCodec<H>> for TrieCache<'a, H> {
 
 /// Provider of [`TrieCache`] instances.
 pub struct CacheProvider<H: Hasher> {
-	node_cache: RefCell<BTreeMap<H::Out, NodeOwned<H::Out>>>,
+	node_cache: RefCell<HashMap<H::Out, NodeOwned<H::Out>>>,
 	/// Cache: `storage_root` => `storage_key` => `value`.
 	///
 	/// One `block` can for example use multiple tries (child tries) and we need to distinguish the
 	/// cached (`storage_key`, `value`) between them. For this we are using the `storage_root` to
 	/// distinguish them (even if the storage root is the same for two child tries, it just means
 	/// that both are exactly the same trie and there would happen no collision).
-	value_cache: RefCell<BTreeMap<H::Out, BTreeMap<Box<[u8]>, trie_db::CachedValue<H::Out>>>>,
+	value_cache: RefCell<HashMap<H::Out, HashMap<Box<[u8]>, trie_db::CachedValue<H::Out>>>>,
 }
 
 impl<H: Hasher> CacheProvider<H> {
