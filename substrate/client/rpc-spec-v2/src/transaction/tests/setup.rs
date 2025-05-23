@@ -115,7 +115,8 @@ pub fn setup_api_tx() -> (
 	let (task_executor, executor_recv) = TaskExecutorBroadcast::new();
 
 	let tx_api =
-		RpcTransaction::new(client_mock.clone(), pool.clone(), Arc::new(task_executor)).into_rpc();
+		RpcTransaction::new(client_mock.clone(), pool.clone(), Arc::new(task_executor), None)
+			.into_rpc();
 
 	(api, pool, client_mock, tx_api, executor_recv, pool_state)
 }

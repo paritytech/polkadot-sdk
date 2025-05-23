@@ -43,6 +43,7 @@ sp-version = { workspace = true, default-features = true }
 thiserror = { workspace = true }
 tokio = { features = ["sync"], workspace = true, default-features = true }
 tokio-stream = { features = ["sync"], workspace = true }
+prometheus-endpoint = { workspace = true, default-features = true }
 
 [dev-dependencies]
 assert_matches = { workspace = true }
