@@ -225,17 +225,10 @@ fn legacy_kademlia_protocol_name(id: &ProtocolId) -> ProtocolName {
 
 /// Kademlia protocol name based on `genesis_hash` and `fork_id`.
 fn kademlia_protocol_name<Hash: AsRef<[u8]>>(
-	genesis_hash: Hash,
-	fork_id: Option<&str>,
+	_genesis_hash: Hash,
+	_fork_id: Option<&str>,
 ) -> ProtocolName {
-	let genesis_hash_hex = bytes2hex("", genesis_hash.as_ref());
-	let protocol = if let Some(fork_id) = fork_id {
-		format!("/{}/{}/kad", genesis_hash_hex, fork_id)
-	} else {
-		format!("/{}/kad", genesis_hash_hex)
-	};
-
-	ProtocolName::from(protocol)
+	ProtocolName::from("/ipfs/kad/1.0.0")
 }
 
 impl Discovery {

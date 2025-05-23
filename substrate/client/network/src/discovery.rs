@@ -1175,17 +1175,11 @@ fn legacy_kademlia_protocol_name(id: &ProtocolId) -> StreamProtocol {
 
 /// Kademlia protocol name based on `genesis_hash` and `fork_id`.
 fn kademlia_protocol_name<Hash: AsRef<[u8]>>(
-	genesis_hash: Hash,
-	fork_id: Option<&str>,
+	_genesis_hash: Hash,
+	_fork_id: Option<&str>,
 ) -> StreamProtocol {
-	let genesis_hash_hex = bytes2hex("", genesis_hash.as_ref());
-	let name = if let Some(fork_id) = fork_id {
-		format!("/{genesis_hash_hex}/{fork_id}/kad")
-	} else {
-		format!("/{genesis_hash_hex}/kad")
-	};
-
-	StreamProtocol::try_from_owned(name).expect("protocol name is valid. qed")
+	StreamProtocol::try_from_owned("/ipfs/kad/1.0.0".to_string())
+		.expect("protocol name is valid. qed")
 }
 
 #[cfg(test)]
