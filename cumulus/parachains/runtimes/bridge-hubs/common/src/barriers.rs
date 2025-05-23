@@ -58,7 +58,7 @@ where
 	}
 }
 
-/// Allow Unpaid execution from Location L and exported to N
+/// Allow unpaid execution from location L when exporting to network N
 pub struct AllowExplicitUnpaidExecutionFromAssetHubExportToEthereum<L, N>(PhantomData<(L, N)>);
 impl<L: Contains<Location>, N: Get<NetworkId>> ShouldExecute
 	for AllowExplicitUnpaidExecutionFromAssetHubExportToEthereum<L, N>
