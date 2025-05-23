@@ -716,8 +716,8 @@ pub(crate) fn new_test_ext_with_balances(
 ) -> sp_io::TestExternalities {
 	new_test_ext_with_balances_and_xcm_version(
 		balances,
-		// By default set actual latest XCM version
-		Some(XCM_VERSION),
+		// Set SafeXcmVersion according to the SUPPORTED_VERSIONS_COUNT rule: latest - SUPPORTED_VERSIONS_COUNT
+		Some(XCM_VERSION.saturating_sub(crate::migration::SUPPORTED_VERSIONS_COUNT)),
 	)
 }
 
