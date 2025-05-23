@@ -42,9 +42,7 @@ use cumulus_primitives_core::{
 	OutboundHrmpMessage, ParaId, PersistedValidationData, UpwardMessage, UpwardMessageSender,
 	XcmpMessageHandler, XcmpMessageSource,
 };
-use cumulus_primitives_parachain_inherent::{
-	v0, MessageQueueChain, ParachainInherentData, VersionedInherentData,
-};
+use cumulus_primitives_parachain_inherent::{v0, MessageQueueChain, ParachainInherentData};
 use frame_support::{
 	defensive,
 	dispatch::DispatchResult,
@@ -988,7 +986,7 @@ pub mod pallet {
 
 		fn create_inherent(data: &InherentData) -> Option<Self::Call> {
 			let mut data = match data
-				.get_data::<VersionedInherentData>(&Self::INHERENT_IDENTIFIER)
+				.get_data::<ParachainInherentData>(&Self::INHERENT_IDENTIFIER)
 				.ok()
 				.flatten()
 			{
@@ -999,13 +997,13 @@ pub mod pallet {
 					// version.
 					let data = data
 						.get_data::<v0::ParachainInherentData>(
-							&cumulus_primitives_parachain_inherent::LEGACY_INHERENT_IDENTIFIER,
+							&cumulus_primitives_parachain_inherent::PARACHAIN_INHERENT_IDENTIFIER_V0,
 						)
 						.ok()
 						.flatten()?;
 					data.into()
 				},
-				Some(VersionedInherentData::V1(data)) => data,
+				Some(data) => data,
 			};
 
 			Self::drop_processed_messages_from_inherent(&mut data);

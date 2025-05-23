@@ -39,7 +39,7 @@ use scale_info::TypeInfo;
 use sp_inherents::InherentIdentifier;
 
 /// The identifier for the parachain inherent.
-pub const LEGACY_INHERENT_IDENTIFIER: InherentIdentifier = *b"sysi1337";
+pub const PARACHAIN_INHERENT_IDENTIFIER_V0: InherentIdentifier = *b"sysi1337";
 pub const INHERENT_IDENTIFIER: InherentIdentifier = *b"sysi1338";
 
 /// Legacy ParachainInherentData that is kept around for backward compatibility.
@@ -83,21 +83,6 @@ pub mod v0 {
 	}
 }
 
-/// Wrapper around [`ParachainInherentData`] to have versioning. This allows the runtime to
-/// decode different versions of the inherent data provided by the node.
-#[derive(
-	codec::Encode,
-	codec::Decode,
-	codec::DecodeWithMemTracking,
-	sp_core::RuntimeDebug,
-	Clone,
-	PartialEq,
-	TypeInfo,
-)]
-pub enum VersionedInherentData {
-	V1(ParachainInherentData),
-}
-
 /// The inherent data that is passed by the collator to the parachain runtime.
 #[derive(
 	codec::Encode,
@@ -132,13 +117,7 @@ pub struct ParachainInherentData {
 	pub relay_parent_descendants: Vec<RelayHeader>,
 }
 
-impl Into<VersionedInherentData> for ParachainInherentData {
-	fn into(self) -> VersionedInherentData {
-		VersionedInherentData::V1(self)
-	}
-}
-
-// Upgrades the legacy ParachainInherentData  to the new format.
+// Upgrades the ParachainInherentData v0 to the newest format.
 impl Into<ParachainInherentData> for v0::ParachainInherentData {
 	fn into(self) -> ParachainInherentData {
 		ParachainInherentData {
@@ -151,13 +130,27 @@ impl Into<ParachainInherentData> for v0::ParachainInherentData {
 	}
 }
 
+impl ParachainInherentData {
+	/// Transforms [`ParachainInherentData`] into [`v0::ParachainInherentData`]. Can be used to
+	/// create inherent data compatible with old runtimes.
+	fn as_v0(&self) -> v0::ParachainInherentData {
+		v0::ParachainInherentData {
+			validation_data: self.validation_data.clone(),
+			relay_chain_state: self.relay_chain_state.clone(),
+			downward_messages: self.downward_messages.clone(),
+			horizontal_messages: self.horizontal_messages.clone(),
+		}
+	}
+}
+
 #[cfg(feature = "std")]
 #[async_trait::async_trait]
-impl sp_inherents::InherentDataProvider for VersionedInherentData {
+impl sp_inherents::InherentDataProvider for ParachainInherentData {
 	async fn provide_inherent_data(
 		&self,
 		inherent_data: &mut sp_inherents::InherentData,
 	) -> Result<(), sp_inherents::Error> {
+		inherent_data.put_data(PARACHAIN_INHERENT_IDENTIFIER_V0, &self.as_v0())?;
 		inherent_data.put_data(INHERENT_IDENTIFIER, &self)
 	}
 
