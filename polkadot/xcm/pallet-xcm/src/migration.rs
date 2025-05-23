@@ -553,6 +553,3 @@ impl<T: Config> OnRuntimeUpgrade for MigrateToLatestXcmVersion<T> {
 		Ok(())
 	}
 }
-
-/// NB: By convention, the last three XCM versions are supported (latest - 2).
-/// SafeXcmVersion must always be latest - SUPPORTED_VERSIONS_COUNT.
