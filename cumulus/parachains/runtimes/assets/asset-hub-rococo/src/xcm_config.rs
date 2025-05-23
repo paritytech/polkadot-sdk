@@ -17,8 +17,9 @@ use super::{
 	AccountId, AllPalletsWithSystem, Assets, Authorship, Balance, Balances, BaseDeliveryFee,
 	CollatorSelection, FeeAssetId, ForeignAssets, ForeignAssetsInstance, ParachainInfo,
 	ParachainSystem, PolkadotXcm, PoolAssets, Runtime, RuntimeCall, RuntimeEvent,
-	RuntimeHoldReason, RuntimeOrigin, ToWestendXcmRouter, TransactionByteFee,
-	TrustBackedAssetsInstance, Uniques, WeightToFee, XcmpQueue,
+	RuntimeHoldReason, RuntimeOrigin, ToWestendOverAssetHubWestendXcmRouter, ToWestendXcmRouter,
+	TransactionByteFee, TrustBackedAssetsInstance, Uniques, WeightToFee, XcmOverAssetHubWestend,
+	XcmpQueue,
 };
 use assets_common::{
 	matching::{FromNetwork, FromSiblingParachain, IsForeignConcreteAsset, ParentLocation},
@@ -444,7 +445,10 @@ impl xcm_executor::Config for XcmConfig {
 		WaivedLocations,
 		SendXcmFeeToAccount<Self::AssetTransactor, TreasuryAccount>,
 	>;
-	type MessageExporter = ();
+	type MessageExporter = (
+		// AH's permissionless lanes support exporting to Westend.
+		XcmOverAssetHubWestend,
+	);
 	type UniversalAliases =
 		(bridging::to_westend::UniversalAliases, bridging::to_ethereum::UniversalAliases);
 	type CallDispatcher = RuntimeCall;
@@ -466,7 +470,7 @@ pub type PriceForParentDelivery =
 	ExponentialPrice<FeeAssetId, BaseDeliveryFee, TransactionByteFee, ParachainSystem>;
 
 /// For routing XCM messages which do not cross local consensus boundary.
-type LocalXcmRouter = (
+pub(crate) type LocalXcmRouter = (
 	// Two routers - use UMP to communicate with the relay chain:
 	cumulus_primitives_utility::ParentAsUmp<ParachainSystem, PolkadotXcm, PriceForParentDelivery>,
 	// ..and XCMP to communicate with the sibling chains.
@@ -477,8 +481,15 @@ type LocalXcmRouter = (
 /// queues.
 pub type XcmRouter = WithUniqueTopic<(
 	LocalXcmRouter,
-	// Router which wraps and sends xcm to BridgeHub to be delivered to the Westend
-	// GlobalConsensus
+	// Router that exports messages to be delivered to the Westend GlobalConsensus,
+	// when a permissionless lane is created between the origin and destination.
+	//
+	// Note: `ToWestendOverAssetHubWestendXcmRouter` must come before `ToWestendXcmRouter`
+	// because it checks if the lane is created dynamically, whereas `ToWestendXcmRouter` has a
+	// static configuration.
+	ToWestendOverAssetHubWestendXcmRouter,
+	// Router which wraps (`ExportMessage`) and sends xcm to BridgeHub to be delivered to the
+	// Westend GlobalConsensus
 	ToWestendXcmRouter,
 	// Router which wraps and sends xcm to BridgeHub to be delivered to the Ethereum
 	// GlobalConsensus
@@ -596,6 +607,12 @@ pub mod bridging {
 					PalletInstance(bp_bridge_hub_rococo::WITH_BRIDGE_ROCOCO_TO_WESTEND_MESSAGES_PALLET_INDEX)
 				]
 			);
+			pub LocalBridge: Location = Location::new(
+				0,
+				[
+					PalletInstance(bp_asset_hub_rococo::WITH_BRIDGE_ROCOCO_TO_WESTEND_MESSAGES_PALLET_INDEX)
+				]
+			);
 
 			pub const WestendNetwork: NetworkId = NetworkId::ByGenesis(WESTEND_GENESIS_HASH);
 			pub const EthereumNetwork: NetworkId = NetworkId::Ethereum { chain_id: 11155111 };
@@ -627,7 +644,10 @@ pub mod bridging {
 			/// Universal aliases
 			pub UniversalAliases: BTreeSet<(Location, Junction)> = BTreeSet::from_iter(
 				alloc::vec![
-					(SiblingBridgeHubWithBridgeHubWestendInstance::get(), GlobalConsensus(WestendNetwork::get()))
+					// The bridge over BridgeHubs (legacy).
+					(SiblingBridgeHubWithBridgeHubWestendInstance::get(), GlobalConsensus(WestendNetwork::get())),
+					// The direct bridge over AssetHubs.
+					(LocalBridge::get(), GlobalConsensus(WestendNetwork::get()))
 				]
 			);
 		}
