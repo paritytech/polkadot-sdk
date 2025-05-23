@@ -285,10 +285,6 @@ mod tests {
 	impl FeeTracker for TestFeeTracker {
 		type Id = ParaId;
 
-		fn get_min_fee_factor() -> FixedU128 {
-			unimplemented!()
-		}
-
 		fn get_fee_factor(_: Self::Id) -> FixedU128 {
 			FixedU128::from_rational(101, 100)
 		}

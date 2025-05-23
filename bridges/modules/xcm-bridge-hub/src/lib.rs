@@ -665,15 +665,11 @@ pub mod pallet {
 			);
 
 			// check that `locations` are convertible to the `latest` XCM.
-			let bridge_origin_relative_location_as_latest: &Location =
-				bridge.bridge_origin_relative_location.try_as().map_err(|_| {
-					"`bridge.bridge_origin_relative_location` cannot be converted to the `latest` XCM, needs migration!"
-				})?;
-			let bridge_origin_universal_location_as_latest: &InteriorLocation = bridge.bridge_origin_universal_location
-				.try_as()
+			let bridge_origin_relative_location_as_latest: &Location = &(*bridge.bridge_origin_relative_location).try_into()
+				.map_err(|_| "`bridge.bridge_origin_relative_location` cannot be converted to the `latest` XCM, needs migration!")?;
+			let bridge_origin_universal_location_as_latest: &InteriorLocation = &(*bridge.bridge_origin_universal_location).try_into()
 				.map_err(|_| "`bridge.bridge_origin_universal_location` cannot be converted to the `latest` XCM, needs migration!")?;
-			let bridge_destination_universal_location_as_latest: &InteriorLocation = bridge.bridge_destination_universal_location
-				.try_as()
+			let bridge_destination_universal_location_as_latest: &InteriorLocation = &(*bridge.bridge_destination_universal_location).try_into()
 				.map_err(|_| "`bridge.bridge_destination_universal_location` cannot be converted to the `latest` XCM, needs migration!")?;
 
 			// check `BridgeId` does not change
@@ -1648,6 +1644,38 @@ mod tests {
 				Some(TryRuntimeError::Other("Outbound lane not found!")),
 			);
 			cleanup(bridge_id, vec![lane_id, lane_id_mismatch]);
+
+			// ok state with old XCM version
+			test_bridge_state(
+				bridge_id,
+				Bridge {
+					bridge_origin_relative_location: Box::new(
+						VersionedLocation::from(bridge_origin_relative_location.clone())
+							.into_version(XCM_VERSION - 1)
+							.unwrap(),
+					),
+					bridge_origin_universal_location: Box::new(
+						VersionedInteriorLocation::from(bridge_origin_universal_location.clone())
+							.into_version(XCM_VERSION - 1)
+							.unwrap(),
+					),
+					bridge_destination_universal_location: Box::new(
+						VersionedInteriorLocation::from(
+							bridge_destination_universal_location.clone(),
+						)
+						.into_version(XCM_VERSION - 1)
+						.unwrap(),
+					),
+					state: BridgeState::Opened,
+					bridge_owner_account: bridge_owner_account.clone(),
+					deposit: Zero::zero(),
+					lane_id,
+				},
+				(lane_id, bridge_id),
+				(lane_id, lane_id),
+				None,
+			);
+			cleanup(bridge_id, vec![lane_id]);
 
 			// missing bridge for inbound lane
 			let lanes_manager = LanesManagerOf::<TestRuntime, ()>::new();
