@@ -146,6 +146,9 @@ use sp_runtime::TryRuntimeError;
 #[allow(dead_code)]
 const LOG_TARGET: &str = "runtime::executive";
 
+/// Maximum nesting level for extrinsics.
+pub const MAX_EXTRINSIC_DEPTH: u32 = 256;
+
 pub type CheckedOf<E, C> = <E as Checkable<C>>::Checked;
 pub type CallOf<E, C> = <CheckedOf<E, C> as Applyable>::Call;
 pub type OriginOf<E, C> = <CallOf<E, C> as Dispatchable>::RuntimeOrigin;
@@ -572,7 +575,14 @@ where
 		let encoded = uxt.encode();
 		let encoded_len = encoded.len();
 		sp_tracing::enter_span!(sp_tracing::info_span!("apply_extrinsic",
-				ext=?sp_core::hexdisplay::HexDisplay::from(&encoded)));
+			ext=?sp_core::hexdisplay::HexDisplay::from(&encoded)));
+
+		let uxt = <Block::Extrinsic as codec::DecodeLimit>::decode_all_with_depth_limit(
+			MAX_EXTRINSIC_DEPTH,
+			&mut &encoded[..],
+		)
+		.expect("Decoding the encoded transaction works; qed");
+
 		// Verify that the signature is good.
 		let xt = uxt.check(&Default::default())?;
 
@@ -649,9 +659,15 @@ where
 
 		enter_span! { sp_tracing::Level::TRACE, "validate_transaction" };
 
-		let encoded_len = within_span! { sp_tracing::Level::TRACE, "using_encoded";
-			uxt.using_encoded(|d| d.len())
+		let encoded = within_span! { sp_tracing::Level::TRACE, "using_encoded";
+			uxt.encode()
 		};
+
+		let uxt = <Block::Extrinsic as codec::DecodeLimit>::decode_all_with_depth_limit(
+			MAX_EXTRINSIC_DEPTH,
+			&mut &encoded[..],
+		)
+		.map_err(|_| InvalidTransaction::Call)?;
 
 		let xt = within_span! { sp_tracing::Level::TRACE, "check";
 			uxt.check(&Default::default())
@@ -667,7 +683,7 @@ where
 
 		within_span! {
 			sp_tracing::Level::TRACE, "validate";
-			xt.validate::<UnsignedValidator>(source, &dispatch_info, encoded_len)
+			xt.validate::<UnsignedValidator>(source, &dispatch_info, encoded.len())
 		}
 	}
 
