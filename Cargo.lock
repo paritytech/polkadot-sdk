@@ -16747,7 +16747,7 @@ dependencies = [
  "serde_json",
  "substrate-build-script-utils",
  "subwasmlib",
- "subxt 0.41.0",
+ "subxt 0.38.1",
  "tokio",
  "tokio-util",
  "zombienet-orchestrator",
