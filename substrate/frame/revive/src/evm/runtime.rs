@@ -364,7 +364,10 @@ pub trait EthExtra {
 
 		let mut info = call.get_dispatch_info();
 		let function: CallOf<Self::Config> = call.into();
-		let nonce = nonce.unwrap_or_default().try_into().map_err(|_| InvalidTransaction::Call)?;
+		let nonce = nonce.unwrap_or_default().try_into().map_err(|_| {
+			log::debug!(target: LOG_TARGET, "Failed to convert nonce");
+			InvalidTransaction::Call
+		})?;
 		let gas_price = gas_price.unwrap_or_default();
 
 		let eth_fee = Pallet::<Self::Config>::evm_gas_to_fee(gas, gas_price)

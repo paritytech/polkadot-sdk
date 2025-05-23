@@ -23,7 +23,7 @@ use codec::{Decode, Encode};
 use derive_more::{From, TryInto};
 pub use ethereum_types::*;
 use scale_info::TypeInfo;
-use serde::{Deserialize, Deserializer, Serialize};
+use serde::{de::Error, Deserialize, Deserializer, Serialize};
 
 /// Input of a `GenericTransaction`
 #[derive(
@@ -171,11 +171,11 @@ impl Default for BlockNumberOrTag {
 #[serde(untagged)]
 pub enum BlockNumberOrTagOrHash {
 	/// Block number
-	U256(U256),
+	BlockNumber(U256),
 	/// Block tag
 	BlockTag(BlockTag),
 	/// Block hash
-	H256(H256),
+	BlockHash(H256),
 }
 impl Default for BlockNumberOrTagOrHash {
 	fn default() -> Self {
@@ -193,13 +193,13 @@ impl<'a> serde::Deserialize<'a> for BlockNumberOrTagOrHash {
 		#[serde(untagged)]
 		pub enum BlockNumberOrTagOrHashWithAlias {
 			BlockTag(BlockTag),
-			U256(U256),
-			BlockNumber {
+			BlockNumber(U64),
+			NestedBlockNumber {
 				#[serde(rename = "blockNumber")]
 				block_number: U256,
 			},
-			H256(H256),
-			BlockHash {
+			BlockHash(H256),
+			NestedBlockHash {
 				#[serde(rename = "blockHash")]
 				block_hash: H256,
 			},
@@ -208,12 +208,17 @@ impl<'a> serde::Deserialize<'a> for BlockNumberOrTagOrHash {
 		let r = BlockNumberOrTagOrHashWithAlias::deserialize(de)?;
 		Ok(match r {
 			BlockNumberOrTagOrHashWithAlias::BlockTag(val) => BlockNumberOrTagOrHash::BlockTag(val),
-			BlockNumberOrTagOrHashWithAlias::U256(val) |
-			BlockNumberOrTagOrHashWithAlias::BlockNumber { block_number: val } =>
-				BlockNumberOrTagOrHash::U256(val),
-			BlockNumberOrTagOrHashWithAlias::H256(val) |
-			BlockNumberOrTagOrHashWithAlias::BlockHash { block_hash: val } =>
-				BlockNumberOrTagOrHash::H256(val),
+			BlockNumberOrTagOrHashWithAlias::BlockNumber(val) => {
+				let val: u64 =
+					val.try_into().map_err(|_| D::Error::custom("u64 conversion failed"))?;
+				BlockNumberOrTagOrHash::BlockNumber(val.into())
+			},
+
+			BlockNumberOrTagOrHashWithAlias::NestedBlockNumber { block_number: val } =>
+				BlockNumberOrTagOrHash::BlockNumber(val),
+			BlockNumberOrTagOrHashWithAlias::BlockHash(val) |
+			BlockNumberOrTagOrHashWithAlias::NestedBlockHash { block_hash: val } =>
+				BlockNumberOrTagOrHash::BlockHash(val),
 		})
 	}
 }

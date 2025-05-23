@@ -352,6 +352,13 @@ impl Client {
 				let (signed_txs, receipts): (Vec<_>, Vec<_>) =
 					self.receipt_provider.insert_block_receipts(&block).await?.into_iter().unzip();
 
+				if !receipts.is_empty() {
+					log::debug!(target: LOG_TARGET, "block: {block_number:?} - {subscription_type:?} Adding receipt for transactions: {hashes:?}",
+						block_number = block.number(),
+						hashes = receipts.iter().map(|r| r.transaction_hash).collect::<Vec<_>>()
+					);
+				}
+
 				let evm_block =
 					self.evm_block_from_receipts(&block, &receipts, signed_txs, false).await;
 				self.block_provider.update_latest(block, subscription_type).await;
