@@ -29,8 +29,7 @@ use polkadot_primitives::{Balance, CollatorPair, HeadData, Id as ParaId, Validat
 use polkadot_runtime_common::BlockHashCount;
 use polkadot_runtime_parachains::paras::{ParaGenesisArgs, ParaKind};
 use polkadot_service::{
-	Error, FullClient, IdentifyNetworkBackend, IsParachainNode, NewFull, OverseerGen,
-	PrometheusConfig,
+	Error, FullClient, IsParachainNode, NewFull, OverseerGen, PrometheusConfig,
 };
 use polkadot_test_runtime::{
 	ParasCall, ParasSudoWrapperCall, Runtime, SignedPayload, SudoCall, TxExtension,
@@ -81,11 +80,7 @@ pub fn new_full<OverseerGenerator: OverseerGen>(
 ) -> Result<NewFull, Error> {
 	let workers_path = Some(workers_path.unwrap_or_else(get_relative_workers_path_for_test));
 
-	// If the network backend is unspecified, use the default for the given chain.
-	let default_backend = config.chain_spec.network_backend();
-	let network_backend = config.network.network_backend.unwrap_or(default_backend);
-
-	match network_backend {
+	match config.network.network_backend {
 		sc_network::config::NetworkBackendType::Libp2p =>
 			polkadot_service::new_full::<_, sc_network::NetworkWorker<_, _>>(
 				config,
@@ -155,7 +150,7 @@ pub fn test_prometheus_config(port: u16) -> PrometheusConfig {
 
 /// Create a Polkadot `Configuration`.
 ///
-/// By default an in-memory socket will be used, therefore you need to provide boot
+/// By default a TCP socket will be used, therefore you need to provide boot
 /// nodes if you want the future node to be connected to other nodes.
 ///
 /// The `storage_update_func` function will be executed in an externalities provided environment
@@ -188,12 +183,13 @@ pub fn node_config(
 
 	network_config.allow_non_globals_in_dht = true;
 
-	let addr: multiaddr::Multiaddr = multiaddr::Protocol::Memory(rand::random()).into();
+	let addr: multiaddr::Multiaddr = format!("/ip4/127.0.0.1/tcp/{}", rand::random::<u16>())
+		.parse()
+		.expect("valid address; qed");
 	network_config.listen_addresses.push(addr.clone());
-
 	network_config.public_addresses.push(addr);
-
-	network_config.transport = TransportConfig::MemoryOnly;
+	network_config.transport =
+		TransportConfig::Normal { enable_mdns: false, allow_private_ip: true };
 
 	Configuration {
 		impl_name: "polkadot-test-node".to_string(),

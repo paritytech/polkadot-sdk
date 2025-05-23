@@ -35,7 +35,10 @@ use sc_network_types::PeerId;
 
 use std::{
 	collections::HashSet,
-	sync::{atomic::Ordering, Arc},
+	sync::{
+		atomic::{AtomicUsize, Ordering},
+		Arc,
+	},
 	task::Poll,
 };
 
@@ -1122,4 +1125,175 @@ async fn set_reserved_peers_cannot_move_previously_reserved() {
 	assert_eq!(peerset.num_in(), 0usize);
 	assert_eq!(peerset.num_out(), 0usize);
 	assert_eq!(peerset.reserved_peers().len(), 3usize);
+}
+
+#[tokio::test]
+async fn reserved_only_rejects_non_reserved_peers() {
+	sp_tracing::try_init_simple();
+
+	let peerstore_handle = Arc::new(peerstore_handle_test());
+	let reserved_peers = HashSet::from_iter([PeerId::random(), PeerId::random(), PeerId::random()]);
+
+	let connected_peers = Arc::new(AtomicUsize::new(0));
+	let (mut peerset, to_peerset) = Peerset::new(
+		ProtocolName::from("/notif/1"),
+		3,
+		3,
+		true,
+		reserved_peers.clone(),
+		connected_peers.clone(),
+		peerstore_handle,
+	);
+	assert_eq!(peerset.num_in(), 0usize);
+	assert_eq!(peerset.num_out(), 0usize);
+
+	// Step 1. Connect reserved peers.
+	{
+		match peerset.next().await {
+			Some(PeersetNotificationCommand::OpenSubstream { peers: out_peers }) => {
+				assert_eq!(peerset.num_in(), 0usize);
+				assert_eq!(peerset.num_out(), 0usize);
+
+				for outbound_peer in &out_peers {
+					assert!(reserved_peers.contains(outbound_peer));
+					assert_eq!(
+						peerset.peers().get(&outbound_peer),
+						Some(&PeerState::Opening { direction: Direction::Outbound(Reserved::Yes) })
+					);
+				}
+			},
+			event => panic!("invalid event: {event:?}"),
+		}
+		// Report the reserved peers as connected.
+		for peer in &reserved_peers {
+			assert!(std::matches!(
+				peerset.report_substream_opened(*peer, traits::Direction::Outbound),
+				OpenResult::Accept { .. }
+			));
+			assert_eq!(
+				peerset.peers().get(peer),
+				Some(&PeerState::Connected { direction: Direction::Outbound(Reserved::Yes) })
+			);
+		}
+		assert_eq!(connected_peers.load(Ordering::Relaxed), 3usize);
+	}
+
+	// Step 2. Ensure non-reserved peers are rejected.
+	let normal_peers: Vec<PeerId> = vec![PeerId::random(), PeerId::random(), PeerId::random()];
+	{
+		// Report the peers as inbound for validation purposes.
+		for peer in &normal_peers {
+			// We are running in reserved only mode.
+			let result = peerset.report_inbound_substream(*peer);
+			assert_eq!(result, ValidationResult::Reject);
+
+			// The peer must be kept in the disconnected state.
+			assert_eq!(peerset.peers().get(peer), Some(&PeerState::Disconnected));
+		}
+		// Ensure slots are not used.
+		assert_eq!(peerset.num_in(), 0usize);
+		assert_eq!(peerset.num_out(), 0usize);
+
+		// Report that all substreams were opened.
+		for peer in &normal_peers {
+			// We must reject them because the peers were rejected prior by
+			// `report_inbound_substream` and therefore set into the disconnected state.
+			let result = peerset.report_substream_opened(*peer, traits::Direction::Inbound);
+			assert_eq!(result, OpenResult::Reject);
+
+			// Peer remains disconnected.
+			assert_eq!(peerset.peers().get(&peer), Some(&PeerState::Disconnected));
+		}
+		assert_eq!(connected_peers.load(Ordering::Relaxed), 3usize);
+
+		// Because we have returned `Reject` from `report_substream_opened`
+		// the substreams will later be closed.
+		for peer in &normal_peers {
+			peerset.report_substream_closed(*peer);
+
+			// Peer moves into the backoff state.
+			assert_eq!(peerset.peers().get(peer), Some(&PeerState::Backoff));
+		}
+		// The slots are not used / altered.
+		assert_eq!(connected_peers.load(Ordering::Relaxed), 3usize);
+	}
+
+	// Move peers out of the backoff state (ie simulate 5s elapsed time).
+	for (peer, state) in peerset.peers_mut() {
+		if normal_peers.contains(peer) {
+			match state {
+				PeerState::Backoff => *state = PeerState::Disconnected,
+				state => panic!("invalid state peer={peer:?} state={state:?}"),
+			}
+		} else if reserved_peers.contains(peer) {
+			match state {
+				PeerState::Connected { direction: Direction::Outbound(Reserved::Yes) } => {},
+				state => panic!("invalid state peer={peer:?} state={state:?}"),
+			}
+		} else {
+			panic!("invalid peer={peer:?} not present");
+		}
+	}
+
+	// Step 3. Allow connections from non-reserved peers.
+	{
+		to_peerset
+			.unbounded_send(PeersetCommand::SetReservedOnly { reserved_only: false })
+			.unwrap();
+		// This will activate the non-reserved peers and give us the best outgoing
+		// candidates to connect to.
+		match peerset.next().await {
+			Some(PeersetNotificationCommand::OpenSubstream { peers }) => {
+				// These are the non-reserved peers we informed the peerset above.
+				assert_eq!(peers.len(), 3);
+				for peer in &peers {
+					assert!(!reserved_peers.contains(peer));
+					assert_eq!(
+						peerset.peers().get(peer),
+						Some(&PeerState::Opening { direction: Direction::Outbound(Reserved::No) })
+					);
+					assert!(normal_peers.contains(peer));
+				}
+			},
+			event => panic!("invalid event : {event:?}"),
+		}
+		// Ensure slots are used.
+		assert_eq!(peerset.num_in(), 0usize);
+		assert_eq!(peerset.num_out(), 3usize);
+
+		for peer in &normal_peers {
+			let result = peerset.report_inbound_substream(*peer);
+			assert_eq!(result, ValidationResult::Accept);
+			// Direction is kept from the outbound slot allocation.
+			assert_eq!(
+				peerset.peers().get(peer),
+				Some(&PeerState::Opening { direction: Direction::Outbound(Reserved::No) })
+			);
+		}
+		// Ensure slots are used.
+		assert_eq!(peerset.num_in(), 0usize);
+		assert_eq!(peerset.num_out(), 3usize);
+		// Peers are only reported as connected once the substream is opened.
+		// 3 represents the reserved peers that are already connected.
+		assert_eq!(connected_peers.load(Ordering::Relaxed), 3usize);
+
+		let (success, failure) = normal_peers.split_at(2);
+		for peer in success {
+			assert!(std::matches!(
+				peerset.report_substream_opened(*peer, traits::Direction::Outbound),
+				OpenResult::Accept { .. }
+			));
+			assert_eq!(
+				peerset.peers().get(peer),
+				Some(&PeerState::Connected { direction: Direction::Outbound(Reserved::No) })
+			);
+		}
+		// Simulate one failure.
+		let failure = failure[0];
+		peerset.report_substream_open_failure(failure, NotificationError::ChannelClogged);
+		assert_eq!(peerset.peers().get(&failure), Some(&PeerState::Backoff));
+		assert_eq!(peerset.num_in(), 0usize);
+		assert_eq!(peerset.num_out(), 2usize);
+		assert_eq!(connected_peers.load(Ordering::Relaxed), 5usize);
+	}
 }

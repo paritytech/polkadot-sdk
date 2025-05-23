@@ -20,7 +20,6 @@ mod manual_seal;
 use crate::common::spec::{DynNodeSpec, NodeSpec as NodeSpecT};
 use cumulus_primitives_core::ParaId;
 use manual_seal::ManualSealNode;
-use polkadot_cli::service::IdentifyNetworkBackend;
 use sc_service::{Configuration, TaskManager};
 
 /// The current node version for cumulus official binaries, which takes the basic
@@ -53,11 +52,7 @@ where
 		block_time: u64,
 	) -> sc_service::error::Result<TaskManager> {
 		let node = ManualSealNode::<T>::new();
-
-		// If the network backend is unspecified, use the default for the given chain.
-		let default_backend = config.chain_spec.network_backend();
-		let network_backend = config.network.network_backend.unwrap_or(default_backend);
-		match network_backend {
+		match config.network.network_backend {
 			sc_network::config::NetworkBackendType::Libp2p =>
 				node.start_node::<sc_network::NetworkWorker<_, _>>(config, para_id, block_time),
 			sc_network::config::NetworkBackendType::Litep2p =>

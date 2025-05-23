@@ -32,7 +32,7 @@ use polkadot_node_network_protocol::{
 use polkadot_core_primitives::{Block as RelayBlock, Hash as RelayHash};
 use polkadot_node_subsystem_util::metrics::prometheus::Registry;
 use polkadot_primitives::CollatorPair;
-use polkadot_service::{overseer::OverseerGenArgs, IdentifyNetworkBackend, IsParachainNode};
+use polkadot_service::{overseer::OverseerGenArgs, IsParachainNode};
 
 use sc_authority_discovery::Service as AuthorityDiscoveryService;
 use sc_network::{
@@ -104,12 +104,7 @@ async fn build_interface(
 )> {
 	let collator_pair = CollatorPair::generate().0;
 	let blockchain_rpc_client = Arc::new(BlockChainRpcClient::new(client.clone()));
-
-	// If the network backend is unspecified, use the default for the given chain.
-	let default_backend = polkadot_config.chain_spec.network_backend();
-	let network_backend = polkadot_config.network.network_backend.unwrap_or(default_backend);
-
-	let collator_node = match network_backend {
+	let collator_node = match polkadot_config.network.network_backend {
 		sc_network::config::NetworkBackendType::Libp2p =>
 			new_minimal_relay_chain::<RelayBlock, sc_network::NetworkWorker<RelayBlock, RelayHash>>(
 				polkadot_config,
