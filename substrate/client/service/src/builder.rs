@@ -518,11 +518,11 @@ where
 	// RPC-V2 specific metrics need to be registered before the RPC server is started,
 	// since we might have two instances running (one for the in-memory RPC and one for the network
 	// RPC).
-	let rpc_v2_metrics = if let Some(registry) = config.prometheus_registry() {
-		Some(sc_rpc_spec_v2::transaction::TransactionMetrics::new(registry)?)
-	} else {
-		None
-	};
+	let rpc_v2_metrics = config
+		.prometheus_registry()
+		.map(|registry| sc_rpc_spec_v2::transaction::TransactionMetrics::new(registry))
+		.transpose()?;
+
 	let gen_rpc_module = || {
 		gen_rpc_module(
 			task_manager.spawn_handle(),

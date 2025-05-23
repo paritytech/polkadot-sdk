@@ -131,9 +131,9 @@ where
 						.filter_map(|event| {
 							let event = handle_event(event);
 
-							if let Some(ref event) = event {
+							event.as_ref().inspect(|event| {
 								metrics.register_event(event);
-							}
+							});
 
 							async move { event }
 						})
