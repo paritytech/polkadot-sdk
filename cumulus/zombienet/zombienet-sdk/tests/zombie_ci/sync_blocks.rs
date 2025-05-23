@@ -3,18 +3,23 @@
 
 use anyhow::anyhow;
 
-use crate::utils::BEST_BLOCK_METRIC;
-use cumulus_zombienet_sdk_helpers::assert_para_throughput;
+use crate::utils::{initialize_network, BEST_BLOCK_METRIC};
 
+use cumulus_zombienet_sdk_helpers::assert_para_throughput;
 use polkadot_primitives::Id as ParaId;
 use subxt::{OnlineClient, PolkadotConfig};
-use zombienet_sdk::{LocalFileSystem, Network, NetworkConfigBuilder};
+use zombienet_sdk::{NetworkConfig, NetworkConfigBuilder};
 
 const PARA_ID: u32 = 2000;
 
 #[tokio::test(flavor = "multi_thread")]
 async fn sync_blocks_from_tip_without_connected_collator() -> Result<(), anyhow::Error> {
-	let network = initialize_network().await?;
+	let _ = env_logger::try_init_from_env(
+		env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
+	);
+	log::info!("Spawning network");
+	let config = build_network_config().await?;
+	let network = initialize_network(config).await?;
 
 	let relay_alice = network.get_node("alice")?;
 
@@ -48,12 +53,7 @@ async fn sync_blocks_from_tip_without_connected_collator() -> Result<(), anyhow:
 	Ok(())
 }
 
-async fn initialize_network() -> Result<Network<LocalFileSystem>, anyhow::Error> {
-	let _ = env_logger::try_init_from_env(
-		env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
-	);
-	log::info!("Spawning network");
-
+async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 	let images = zombienet_sdk::environment::get_images_from_env();
 	log::info!("Using images: {images:?}");
 
@@ -109,9 +109,5 @@ async fn initialize_network() -> Result<Network<LocalFileSystem>, anyhow::Error>
 			anyhow!("config errs: {errs}")
 		})?;
 
-	// Spawn network
-	let spawn_fn = zombienet_sdk::environment::get_spawn_fn();
-	let network = spawn_fn(config).await?;
-
-	Ok(network)
+	Ok(config)
 }
