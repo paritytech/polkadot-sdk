@@ -381,23 +381,17 @@ impl DiscoveryBehaviour {
 				return
 			}
 
-			// The supported protocols must include the chain-based Kademlia protocol.
-			//
-			// Extract the chain-based Kademlia protocol from `kademlia.protocol_name()`
-			// when all nodes are upgraded to genesis hash and fork ID-based Kademlia:
-			// https://github.com/paritytech/polkadot-sdk/issues/504.
-			if !supported_protocols.iter().any(|p| {
-				p == self
-					.kademlia_protocol
-					.as_ref()
-					.expect("kademlia protocol was checked above to be enabled; qed")
-			}) {
-				trace!(
-					target: "sub-libp2p",
-					"Ignoring self-reported address {} from {} as remote node is not part of the \
-					 Kademlia DHT supported by the local node.", addr, peer_id,
-				);
-				return
+			// Accept all peers if using the public IPFS DHT
+			if let Some(proto) = self.kademlia_protocol.as_ref() {
+				if proto.as_ref() != "/ipfs/kad/1.0.0" {
+					if !supported_protocols.iter().any(|p| p == proto) {
+						trace!(
+							target: "sub-libp2p",
+							"Ignoring self-reported address {} from {} as remote node is not part of the \\n                 Kademlia DHT supported by the local node.", addr, peer_id,
+						);
+						return
+					}
+				}
 			}
 
 			trace!(
