@@ -8,8 +8,6 @@ doc:
 crates:
 - name: snowbridge-runtime-common
   bump: patch
-- name: bridge-hub-common
-  bump: patch
 - name: bridge-hub-westend-runtime
   bump: patch
 - name: asset-hub-westend-runtime
