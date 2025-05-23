@@ -29,7 +29,10 @@ use super::{
 };
 use crate::{
 	api::FullChainApi,
-	common::tracing_log_xt::{log_xt_debug, log_xt_trace},
+	common::{
+		sliding_stat::DurationSlidingStats,
+		tracing_log_xt::{log_xt_debug, log_xt_trace},
+	},
 	enactment_state::{EnactmentAction, EnactmentState},
 	fork_aware_txpool::{
 		dropped_watcher::{DroppedReason, DroppedTransaction},
@@ -40,7 +43,7 @@ use crate::{
 		base_pool::{TimedTransactionSource, Transaction},
 		BlockHash, ExtrinsicFor, ExtrinsicHash, IsValidator, Options, RawExtrinsicFor,
 	},
-	ReadyIteratorFor, LOG_TARGET,
+	insert_and_log_throttled, ReadyIteratorFor, LOG_TARGET,
 };
 use async_trait::async_trait;
 use futures::{
@@ -68,10 +71,10 @@ use std::{
 	collections::{BTreeMap, HashMap, HashSet},
 	pin::Pin,
 	sync::Arc,
-	time::Instant,
+	time::{Duration, Instant},
 };
 use tokio::select;
-use tracing::{debug, info, trace, warn};
+use tracing::{debug, info, instrument, trace, warn, Level};
 
 /// The maximum block height difference before considering a view or transaction as timed-out
 /// due to a finality stall. When the difference exceeds this threshold, elements are treated
@@ -183,6 +186,12 @@ where
 	/// Intended to be used in the finality stall cleanups and also as a cache for all in-block
 	/// transactions.
 	included_transactions: Mutex<BTreeMap<HashAndNumber<Block>, Vec<ExtrinsicHash<ChainApi>>>>,
+
+	/// Stats for submit call durations
+	submit_stats: DurationSlidingStats,
+
+	/// Stats for submit_and_watch call durations
+	submit_and_watch_stats: DurationSlidingStats,
 }
 
 impl<ChainApi, Block> ForkAwareTxPool<ChainApi, Block>
@@ -279,6 +288,8 @@ where
 				finality_timeout_threshold: finality_timeout_threshold
 					.unwrap_or(FINALITY_TIMEOUT_THRESHOLD),
 				included_transactions: Default::default(),
+				submit_stats: DurationSlidingStats::new(Duration::from_secs(3)),
+				submit_and_watch_stats: DurationSlidingStats::new(Duration::from_secs(3)),
 			},
 			[combined_tasks, mempool_task],
 		)
@@ -418,6 +429,8 @@ where
 			is_validator,
 			finality_timeout_threshold: FINALITY_TIMEOUT_THRESHOLD,
 			included_transactions: Default::default(),
+			submit_stats: DurationSlidingStats::new(Duration::from_secs(3)),
+			submit_and_watch_stats: DurationSlidingStats::new(Duration::from_secs(3)),
 		}
 	}
 
