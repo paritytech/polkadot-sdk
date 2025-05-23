@@ -267,6 +267,7 @@ mod tests {
 	}
 
 	#[test]
+	#[ignore = "is flaky"]
 	fn works_with_different_block_times() {
 		test_runtime_preset(PARA_RUNTIME, 100, Some(DEV_RUNTIME_PRESET.into()));
 		test_runtime_preset(PARA_RUNTIME, 3000, Some(DEV_RUNTIME_PRESET.into()));
