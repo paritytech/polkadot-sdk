@@ -13,11 +13,3 @@ help: add missing generic argument
    |
 29 |     impl<T: Config> Hooks<BlockNumber> for Pallet<T> {}
    |                          +++++++++++++
-
-error[E0277]: the trait bound `pallet::Pallet<T>: Hooks<<<<T as frame_system::Config>::Block as frame_support::sp_runtime::traits::Block>::Header as frame_support::sp_runtime::traits::Header>::Number>` is not satisfied
-  --> tests/pallet_ui/hooks_invalid_item.rs:28:12
-   |
-28 |     #[pallet::hooks]
-   |               ^^^^^ unsatisfied trait bound
-   |
-   = help: the trait `Hooks<<<<T as frame_system::Config>::Block as frame_support::sp_runtime::traits::Block>::Header as frame_support::sp_runtime::traits::Header>::Number>` is not implemented for `pallet::Pallet<T>`
