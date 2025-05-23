@@ -270,8 +270,23 @@ where
 		losers: impl IntoIterator<Item = ValidatorIndex>,
 		backers: impl IntoIterator<Item = ValidatorIndex>,
 	) {
-		Self::do_punish(session_index, candidate_hash, DisputeOffenceKind::ForInvalidBacked, backers);
-		Self::do_punish(session_index, candidate_hash, DisputeOffenceKind::ForInvalidApproved, losers);
+		let losers: Vec<_> = losers.into_iter().collect();
+		let backers: BTreeSet<_> = backers.into_iter().collect();
+
+		if losers.is_empty() || backers.is_empty() {
+			return;
+		}
+	
+		let (loosing_backers, loosing_approvers): (Vec<_>, Vec<_>) = losers
+			.into_iter()
+			.partition(|v| backers.contains(v));
+	
+		if !loosing_backers.is_empty() {
+			Self::do_punish(session_index, candidate_hash, DisputeOffenceKind::ForInvalidBacked, loosing_backers);
+		}
+		if !loosing_approvers.is_empty() {
+			Self::do_punish(session_index, candidate_hash, DisputeOffenceKind::ForInvalidApproved, loosing_approvers);
+		}
 	}
 
 	fn punish_against_valid(
