@@ -640,4 +640,14 @@ impl<T: frame_system::Config> pallet_broker::WeightInfo for WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
+	fn set_minimum_end_price() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `602`
+		//  Estimated: `4681`
+		// Minimum execution time: 21_397_000 picoseconds.
+		Weight::from_parts(21_865_000, 0)
+			.saturating_add(Weight::from_parts(0, 4681))
+			.saturating_add(T::DbWeight::get().reads(1))
+			.saturating_add(T::DbWeight::get().writes(1))
+	}
 }

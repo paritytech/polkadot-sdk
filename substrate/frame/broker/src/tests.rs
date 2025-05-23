@@ -18,7 +18,6 @@
 #![cfg(test)]
 
 use crate::{core_mask::*, mock::*, *};
-use codec::Encode;
 use frame_support::{
 	assert_noop, assert_ok,
 	traits::nonfungible::{Inspect as NftInspect, Mutate, Transfer},
@@ -26,7 +25,6 @@ use frame_support::{
 };
 use frame_system::RawOrigin::Root;
 use pretty_assertions::assert_eq;
-use sp_core::ConstU32;
 use sp_runtime::{
 	traits::{BadOrigin, Get},
 	Perbill, TokenError,
