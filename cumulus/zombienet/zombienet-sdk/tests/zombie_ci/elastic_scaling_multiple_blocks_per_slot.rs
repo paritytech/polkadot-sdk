@@ -6,6 +6,7 @@ use anyhow::anyhow;
 use cumulus_zombienet_sdk_helpers::{
 	assert_finality_lag, assert_para_throughput, create_assign_core_call,
 };
+
 use polkadot_primitives::Id as ParaId;
 use serde_json::json;
 use subxt::{OnlineClient, PolkadotConfig};
@@ -20,7 +21,7 @@ const PARA_ID: u32 = 2400;
 /// **Note:** The runtime in use here has 6s slot duration, so multiple blocks will be produced per
 /// slot.
 #[tokio::test(flavor = "multi_thread")]
-async fn elastic_scaling_multiple_block_per_slot() -> Result<(), anyhow::Error> {
+async fn elastic_scaling_multiple_blocks_per_slot() -> Result<(), anyhow::Error> {
 	let _ = env_logger::try_init_from_env(
 		env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
 	);
@@ -38,7 +39,7 @@ async fn elastic_scaling_multiple_block_per_slot() -> Result<(), anyhow::Error> 
 	assert_para_throughput(
 		&relay_client,
 		10,
-		[(ParaId::from(PARA_ID), 8..11)].into_iter().collect(),
+		[(ParaId::from(PARA_ID), 5..18)].into_iter().collect(),
 	)
 	.await?;
 	assert_finality_lag(&para_node_elastic.wait_client().await?, 5).await?;

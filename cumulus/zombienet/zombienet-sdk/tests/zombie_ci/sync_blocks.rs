@@ -3,13 +3,14 @@
 
 use anyhow::anyhow;
 
+use crate::utils::BEST_BLOCK_METRIC;
 use cumulus_zombienet_sdk_helpers::assert_para_throughput;
+
 use polkadot_primitives::Id as ParaId;
 use subxt::{OnlineClient, PolkadotConfig};
 use zombienet_sdk::{LocalFileSystem, Network, NetworkConfigBuilder};
 
 const PARA_ID: u32 = 2000;
-const BEST_BLOCK_METRIC: &str = "block_height{status=\"best\"}";
 
 #[tokio::test(flavor = "multi_thread")]
 async fn sync_blocks_from_tip_without_connected_collator() -> Result<(), anyhow::Error> {
