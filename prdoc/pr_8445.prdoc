@@ -1,0 +1,12 @@
+title: Fix the clearing of gap sync on known imported blocks
+
+doc:
+  - audience: [Node Dev, Node Operator]
+    description: |
+      This PR ensures that warp sync gaps are properly cleared when known blocks are imported. Previously, gaps were only removed in response to ImportedUnknown events.
+      This limitation caused issues for asset-hub and bridge-hub collators, which remained stuck in the "Block history" state without progressing.
+      The root cause lies in the client.info() reporting a gap during node startup or restart (ie block verification fails). In some cases, a peer may respond with the missing blocks after we’ve already imported them locally, leaving the gap open.
+
+crates:
+  - name: sc-network
+    bump: patch
