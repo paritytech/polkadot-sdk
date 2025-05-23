@@ -19,6 +19,7 @@
 
 use crate::{CoreIndex, SaleInfoRecord};
 use sp_arithmetic::{traits::One, FixedU64};
+use sp_core::Get;
 use sp_runtime::{FixedPointNumber, FixedPointOperand, Saturating};
 
 /// Performance of a past sale.
@@ -133,6 +134,44 @@ impl<Balance: FixedPointOperand> AdaptPrice<Balance> for CenterTargetPrice<Balan
 
 		AdaptedPrices { end_price: price, target_price: sellout_price }
 	}
+}
+
+/// `AdaptPrice` like `CenterTargetPrice`, but with a minimum price.
+///
+/// This price adapter behaves exactly like `CenterTargetPrice`, except that it takes a minimum
+/// price and makes sure that the returned `end_price` is never lower than that.
+///
+/// Target price will also get adusted if necessary (it will never be less than the end_price).
+pub struct MinimumPrice<Balance, MinPrice>(core::marker::PhantomData<(Balance, MinPrice)>);
+
+impl<Balance: FixedPointOperand, MinPrice: GetMinimumPrice<Balance>> AdaptPrice<Balance>
+	for MinimumPrice<Balance, MinPrice>
+{
+	fn leadin_factor_at(when: FixedU64) -> FixedU64 {
+		CenterTargetPrice::<Balance>::leadin_factor_at(when)
+	}
+
+	fn adapt_price(performance: SalePerformance<Balance>) -> AdaptedPrices<Balance> {
+		let mut proposal = CenterTargetPrice::<Balance>::adapt_price(performance);
+		let Some(min_price) = MinPrice::minimum_price() else { return proposal };
+		if proposal.end_price < min_price {
+			proposal.end_price = min_price;
+		}
+		// Fix target price if necessary:
+		if proposal.target_price < proposal.end_price {
+			proposal.target_price = proposal.end_price;
+		}
+		proposal
+	}
+}
+
+/// Provide an optional minimum price for core time sales.
+///
+/// Used in `MinimumPrice` `AdaptPrice` implementation above and a convenience implementation is
+/// provided by the broker pallet itself.
+pub trait GetMinimumPrice<Balance> {
+	/// Get the minimum price for a sale (if any).
+	fn minimum_price() -> Option<Balance>;
 }
 
 #[cfg(test)]
