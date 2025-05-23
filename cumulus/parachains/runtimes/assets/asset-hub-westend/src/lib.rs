@@ -1322,26 +1322,6 @@ impl pallet_sudo::Config for Runtime {
 	type WeightInfo = weights::pallet_sudo::WeightInfo<Runtime>;
 }
 
-/// Set the sudo key migration.
-pub struct SetSudoKey;
-impl frame_support::traits::OnRuntimeUpgrade for SetSudoKey {
-	fn on_runtime_upgrade() -> Weight {
-		use sp_core::crypto::Ss58Codec;
-
-		match AccountId::from_ss58check("5FRzwC892cofttMft53kuwEuBLjbM5kWwGz3Qcy2So238QMY") {
-			Ok(a) => {
-				log::info!("Setting sudo key");
-				pallet_sudo::Key::<Runtime>::put(a);
-			},
-			Err(_) => {
-				log::error!("Failed to set sudo key");
-			},
-		};
-
-		<Runtime as frame_system::Config>::DbWeight::get().reads_writes(0, 1)
-	}
-}
-
 // Create the runtime by composing the FRAME pallets that were previously configured.
 construct_runtime!(
 	pub enum Runtime
@@ -1516,7 +1496,6 @@ pub type Migrations = (
 		Runtime,
 		pallet_session::migrations::v1::InitOffenceSeverity<Runtime>,
 	>,
-	SetSudoKey,
 	// permanent
 	pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
 	cumulus_pallet_aura_ext::migration::MigrateV0ToV1<Runtime>,
