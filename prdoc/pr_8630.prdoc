@@ -1,18 +1,25 @@
 title: 'Broker: Introduce min price + adjust renewals to lower market.'
 doc:
-- audience: Todo
+- audience: Runtime Dev
   description: |-
-    This PR provides:
+	pallet-broker now provides an additional `AdaptPrice` implementation:
+	`MinimumPrice`. This price adapter works exactly the same as the
+	`CenterTargetPrice` adapter, except that it can be configured with a
+	minimum price. If set, it will never drop the returned `end_price` (nor the
+	`target_price`) below that minimum. The pallet-broker provides an
+	implementation for the newly introduced `GetMinimumPrice` trait, which is
+	used to provide that minimum value. If the pallet is used, then the minimum
+	price is configurable via the `set_minimum_end_price` extrinsic of
+	pallet-broker.
 
-    1. The means for the runtime to configure a minimum price for sales.
-    2. Prevents renewals to get detached too much from current market, by bumping them at least to the `end_price` of the current sale.
+	Apart from having an adapter to ensure a minimum price, the behavior of
+	renewals was also adjusted: Renewals are now either bumped by renewal bump
+	or set to the `end_price` of the current sale. This ensures some market
+	coupling of renewal prices, while still maintaining some predictability. 
 
-    TODO:
+	Breaking changes: Introduction of new configuration parameter for setting a
+	default value for the minimum end price: `DefaultMinimumEndPrice`.
 
-    - [x] Implement
-    - [x] Add tests
-    - [x] Fix runtimes/Make Rococo + Westend use the new price controller.
-    - [ ] prdoc
 crates:
 - name: pallet-broker
   bump: major
