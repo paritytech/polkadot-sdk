@@ -4565,3 +4565,46 @@ fn precompiles_with_info_creates_contract() {
 		});
 	}
 }
+
+#[test]
+fn nonce_incremented_dry_run_vs_execute() {
+	let (wasm, _code_hash) = compile_module("dummy").unwrap();
+
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+
+		// Set a known nonce
+		let initial_nonce = 5;
+		frame_system::Account::<Test>::mutate(&ALICE, |account| {
+			account.nonce = initial_nonce;
+		});
+
+		// stimulate a dry run
+		let dry_run_result = builder::bare_instantiate(Code::Upload(wasm.clone()))
+			.nonce_already_incremented(crate::NonceAlreadyIncremented::No)
+			.salt(None)
+			.build();
+
+		let dry_run_addr = dry_run_result.result.unwrap().addr;
+
+		let deployer = <Test as Config>::AddressMapper::to_address(&ALICE);
+		let expected_addr = create1(&deployer, initial_nonce.into());
+
+		assert_eq!(dry_run_addr, expected_addr);
+
+		// reset nonce to initial value
+		frame_system::Account::<Test>::mutate(&ALICE, |account| {
+			account.nonce = initial_nonce;
+		});
+
+		// stimulate an actual execution
+		let exec_result = builder::bare_instantiate(Code::Upload(wasm.clone())).salt(None).build();
+
+		let exec_addr = exec_result.result.unwrap().addr;
+
+		let deployer = <Test as Config>::AddressMapper::to_address(&ALICE);
+		let expected_addr = create1(&deployer, (initial_nonce - 1).into());
+
+		assert_eq!(exec_addr, expected_addr);
+	});
+}
