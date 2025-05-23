@@ -26,16 +26,16 @@ fn teleport_from_and_to_relay() {
 
 	test_relay_is_trusted_teleporter!(
 		Westend,                  // Origin
-		WestendXcmConfig,         // XCM Configuration
 		vec![CollectivesWestend], // Destinations
-		(native_asset, amount)
+		(native_asset, amount),
+		limited_teleport_assets
 	);
 
 	test_parachain_is_trusted_teleporter_for_relay!(
-		CollectivesWestend,          // Origin
-		CollectivesWestendXcmConfig, // XCM Configuration
-		Westend,                     // Destination
-		amount
+		CollectivesWestend, // Origin
+		Westend,            // Destination
+		amount,
+		limited_teleport_assets
 	);
 }
 
@@ -45,10 +45,10 @@ fn teleport_from_collectives_to_asset_hub() {
 	let native_asset: Assets = (Parent, amount).into();
 
 	test_parachain_is_trusted_teleporter!(
-		CollectivesWestend,          // Origin
-		CollectivesWestendXcmConfig, // XCM Configuration
-		vec![AssetHubWestend],       // Destinations
-		(native_asset, amount)
+		CollectivesWestend,    // Origin
+		vec![AssetHubWestend], // Destinations
+		(native_asset, amount),
+		limited_teleport_assets
 	);
 }
 
@@ -59,8 +59,8 @@ fn teleport_from_asset_hub_to_collectives() {
 
 	test_parachain_is_trusted_teleporter!(
 		AssetHubWestend,          // Origin
-		AssetHubWestendXcmConfig, // XCM Configuration
 		vec![CollectivesWestend], // Destinations
-		(native_asset, amount)
+		(native_asset, amount),
+		limited_teleport_assets
 	);
 }

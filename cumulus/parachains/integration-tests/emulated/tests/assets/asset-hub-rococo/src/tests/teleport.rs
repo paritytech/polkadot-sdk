@@ -207,10 +207,10 @@ fn teleport_to_other_system_parachains_works() {
 	let native_asset: Assets = (Parent, amount).into();
 
 	test_parachain_is_trusted_teleporter!(
-		AssetHubRococo,          // Origin
-		AssetHubRococoXcmConfig, // XCM Configuration
-		vec![BridgeHubRococo],   // Destinations
-		(native_asset, amount)
+		AssetHubRococo,        // Origin
+		vec![BridgeHubRococo], // Destinations
+		(native_asset, amount),
+		limited_teleport_assets
 	);
 }
 
@@ -221,16 +221,16 @@ fn teleport_from_and_to_relay() {
 
 	test_relay_is_trusted_teleporter!(
 		Rococo,
-		RococoXcmConfig,
 		vec![AssetHubRococo],
-		(native_asset, amount)
+		(native_asset, amount),
+		limited_teleport_assets
 	);
 
 	test_parachain_is_trusted_teleporter_for_relay!(
 		AssetHubRococo,
-		AssetHubRococoXcmConfig,
 		Rococo,
-		amount
+		amount,
+		limited_teleport_assets
 	);
 }
 

@@ -17,6 +17,14 @@
 mod imports {
 	pub use codec::Encode;
 
+	pub use frame_support::dispatch::{GetDispatchInfo, RawOrigin};
+	pub use xcm_runtime_apis::{
+		dry_run::runtime_decl_for_dry_run_api::DryRunApiV2,
+		fees::runtime_decl_for_xcm_payment_api::XcmPaymentApiV1,
+	};
+
+	pub use frame_support::traits::fungible::Mutate;
+
 	// Substrate
 	pub use frame_support::{
 		assert_err, assert_ok,
@@ -25,6 +33,8 @@ mod imports {
 		traits::fungibles::Inspect,
 		BoundedVec,
 	};
+
+	pub use sp_runtime::traits::Dispatchable;
 
 	// Polkadot
 	pub use xcm::{
@@ -85,10 +95,7 @@ mod imports {
 			genesis::ED as WESTEND_ED,
 			westend_runtime::{
 				governance::pallet_custom_origins::Origin::Treasurer,
-				xcm_config::{
-					UniversalLocation as WestendUniversalLocation, XcmConfig as WestendXcmConfig,
-				},
-				Dmp,
+				xcm_config::UniversalLocation as WestendUniversalLocation, Dmp,
 			},
 			WestendRelayPallet as WestendPallet,
 		},

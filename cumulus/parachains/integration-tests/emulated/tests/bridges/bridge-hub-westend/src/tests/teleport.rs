@@ -21,10 +21,10 @@ fn teleport_to_other_system_parachains_works() {
 	let native_asset: Assets = (Parent, amount).into();
 
 	test_parachain_is_trusted_teleporter!(
-		BridgeHubWestend,          // Origin
-		BridgeHubWestendXcmConfig, // XCM configuration
-		vec![AssetHubWestend],     // Destinations
-		(native_asset, amount)
+		BridgeHubWestend,      // Origin
+		vec![AssetHubWestend], // Destinations
+		(native_asset, amount),
+		limited_teleport_assets
 	);
 }
 
@@ -35,15 +35,15 @@ fn teleport_from_and_to_relay() {
 
 	test_relay_is_trusted_teleporter!(
 		Westend,
-		WestendXcmConfig,
 		vec![BridgeHubWestend],
-		(native_asset, amount)
+		(native_asset, amount),
+		limited_teleport_assets
 	);
 
 	test_parachain_is_trusted_teleporter_for_relay!(
 		BridgeHubWestend,
-		BridgeHubWestendXcmConfig,
 		Westend,
-		amount
+		amount,
+		limited_teleport_assets
 	);
 }

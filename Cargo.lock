@@ -3281,6 +3281,7 @@ dependencies = [
  "staging-xcm-executor",
  "westend-runtime-constants",
  "westend-system-emulated-network",
+ "xcm-runtime-apis",
 ]
 
 [[package]]
@@ -14181,11 +14182,13 @@ dependencies = [
  "emulated-integration-tests-common",
  "frame-support",
  "pallet-balances",
+ "pallet-xcm",
  "parachains-common",
  "rococo-system-emulated-network",
  "sp-runtime 31.0.1",
  "staging-xcm",
  "staging-xcm-executor",
+ "xcm-runtime-apis",
 ]
 
 [[package]]
@@ -14288,6 +14291,7 @@ dependencies = [
  "staging-xcm-executor",
  "westend-runtime",
  "westend-system-emulated-network",
+ "xcm-runtime-apis",
 ]
 
 [[package]]

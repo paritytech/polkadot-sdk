@@ -1,0 +1,13 @@
+title: Enhancements to macros for trusted teleporter scenarios
+doc:
+- audience: Runtime Dev
+  description: |-
+    Improvements have been made to the macros used for testing trusted teleporter functionality between relay chains and parachains. Changes include:
+    - Integration of dry-run support to accurately estimate and verify the fees expected during testing
+    - Parameterization of the macro, allowing users to specify which transfer-related extrinsic to test. This replaces the previous hardcoded use of `limited_teleport_assets` with the option to test alternatives such as `transfer_assets`
+        
+crates:
+- name: emulated-integration-tests-common
+  bump: major
+- name: polkadot-runtime-common
+  bump: patch

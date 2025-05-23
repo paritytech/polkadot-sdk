@@ -17,6 +17,16 @@
 mod imports {
 	pub use codec::Encode;
 
+	pub use frame_support::dispatch::{GetDispatchInfo, RawOrigin};
+	pub use xcm_runtime_apis::{
+		dry_run::runtime_decl_for_dry_run_api::DryRunApiV2,
+		fees::runtime_decl_for_xcm_payment_api::XcmPaymentApiV1,
+	};
+
+	pub use frame_support::traits::fungible::Mutate;
+
+	pub use sp_runtime::traits::Dispatchable;
+
 	// Substrate
 	pub use frame_support::{
 		assert_err, assert_ok,
@@ -77,10 +87,8 @@ mod imports {
 			rococo_runtime::{
 				governance as rococo_governance,
 				governance::pallet_custom_origins::Origin::Treasurer,
-				xcm_config::{
-					UniversalLocation as RococoUniversalLocation, XcmConfig as RococoXcmConfig,
-				},
-				Dmp, OriginCaller as RococoOriginCaller,
+				xcm_config::UniversalLocation as RococoUniversalLocation, Dmp,
+				OriginCaller as RococoOriginCaller,
 			},
 			RococoRelayPallet as RococoPallet,
 		},

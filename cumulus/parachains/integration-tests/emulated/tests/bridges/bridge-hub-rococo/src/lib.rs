@@ -20,6 +20,15 @@ mod imports {
 	pub use frame_support::{assert_err, assert_ok, pallet_prelude::DispatchResult};
 	pub use sp_runtime::DispatchError;
 
+	pub use frame_support::dispatch::{GetDispatchInfo, RawOrigin};
+	pub use xcm_runtime_apis::{
+		dry_run::runtime_decl_for_dry_run_api::DryRunApiV2,
+		fees::runtime_decl_for_xcm_payment_api::XcmPaymentApiV1,
+	};
+
+	pub use frame_support::traits::fungible::Mutate;
+
+	pub use sp_runtime::traits::Dispatchable;
 	// Polkadot
 	pub use xcm::{
 		latest::{ParentThen, ROCOCO_GENESIS_HASH, WESTEND_GENESIS_HASH},
@@ -52,7 +61,7 @@ mod imports {
 		},
 		bridge_hub_rococo_emulated_chain::{
 			genesis::ED as BRIDGE_HUB_ROCOCO_ED, BridgeHubRococoExistentialDeposit,
-			BridgeHubRococoParaPallet as BridgeHubRococoPallet, BridgeHubRococoXcmConfig,
+			BridgeHubRococoParaPallet as BridgeHubRococoPallet,
 		},
 		penpal_emulated_chain::{
 			penpal_runtime::xcm_config::{
@@ -61,10 +70,7 @@ mod imports {
 			},
 			PenpalAParaPallet as PenpalAPallet, PenpalAssetOwner,
 		},
-		rococo_emulated_chain::{
-			genesis::ED as ROCOCO_ED, rococo_runtime::xcm_config::XcmConfig as RococoXcmConfig,
-			RococoRelayPallet as RococoPallet,
-		},
+		rococo_emulated_chain::{genesis::ED as ROCOCO_ED, RococoRelayPallet as RococoPallet},
 		AssetHubRococoPara as AssetHubRococo, AssetHubRococoParaReceiver as AssetHubRococoReceiver,
 		AssetHubRococoParaSender as AssetHubRococoSender, AssetHubWestendPara as AssetHubWestend,
 		AssetHubWestendParaReceiver as AssetHubWestendReceiver,

@@ -25,16 +25,16 @@ fn teleport_from_and_to_relay() {
 
 	test_relay_is_trusted_teleporter!(
 		Rococo,
-		RococoXcmConfig,
 		vec![PeopleRococo],
-		(native_asset, amount)
+		(native_asset, amount),
+		limited_teleport_assets
 	);
 
 	test_parachain_is_trusted_teleporter_for_relay!(
 		PeopleRococo,
-		PeopleRococoXcmConfig,
 		Rococo,
-		amount
+		amount,
+		limited_teleport_assets
 	);
 }
 

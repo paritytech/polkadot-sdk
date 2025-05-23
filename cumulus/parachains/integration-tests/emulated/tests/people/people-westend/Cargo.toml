@@ -25,6 +25,7 @@ sp-runtime = { workspace = true }
 westend-runtime = { workspace = true }
 xcm = { workspace = true }
 xcm-executor = { workspace = true }
+xcm-runtime-apis = { workspace = true }
 
 # Cumulus
 asset-test-utils = { workspace = true, default-features = true }
