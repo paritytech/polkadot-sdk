@@ -21,6 +21,9 @@ use crate::mock::*;
 
 use core::num::NonZeroU32;
 use cumulus_primitives_core::{AbridgedHrmpChannel, InboundDownwardMessage, InboundHrmpMessage};
+use cumulus_primitives_parachain_inherent::{
+	v0, INHERENT_IDENTIFIER, PARACHAIN_INHERENT_IDENTIFIER_V0,
+};
 use frame_support::{assert_ok, parameter_types, weights::Weight};
 use frame_system::RawOrigin;
 use hex_literal::hex;
@@ -29,11 +32,74 @@ use rand::Rng;
 use relay_chain::vstaging::{UMPSignal, UMP_SEPARATOR};
 use relay_chain::HrmpChannelId;
 use sp_core::H256;
+use sp_inherents::InherentDataProvider;
+use sp_trie::StorageProof;
 
 #[test]
 #[should_panic]
 fn block_tests_run_on_drop() {
 	BlockTests::new().add(123, || panic!("if this test passes, block tests run properly"));
+}
+
+/// Test that ensures that the parachain-system pallet accepts both the legacy
+/// and versioned inherent format.
+#[test]
+fn test_inherent_compatibility() {
+	sp_tracing::init_for_tests();
+	let mut valid_inherent_data_v1 = sp_inherents::InherentData::new();
+	valid_inherent_data_v1
+		.put_data(
+			INHERENT_IDENTIFIER,
+			&ParachainInherentData {
+				validation_data: Default::default(),
+				relay_chain_state: StorageProof::empty(),
+				downward_messages: Default::default(),
+				horizontal_messages: Default::default(),
+				relay_parent_descendants: Default::default(),
+			},
+		)
+		.expect("Put validation function params failed");
+
+	let mut valid_inherent_data_legacy = sp_inherents::InherentData::new();
+	valid_inherent_data_legacy
+		.put_data(
+			PARACHAIN_INHERENT_IDENTIFIER_V0,
+			&v0::ParachainInherentData {
+				validation_data: Default::default(),
+				relay_chain_state: StorageProof::empty(),
+				downward_messages: Default::default(),
+				horizontal_messages: Default::default(),
+			},
+		)
+		.expect("Put validation function params failed");
+
+	let mut valid_inherent_data_full_compatibility = sp_inherents::InherentData::new();
+	let data = ParachainInherentData {
+		validation_data: Default::default(),
+		relay_chain_state: StorageProof::empty(),
+		downward_messages: Default::default(),
+		horizontal_messages: Default::default(),
+		relay_parent_descendants: Default::default(),
+	};
+	let _ = futures::executor::block_on(
+		data.provide_inherent_data(&mut valid_inherent_data_full_compatibility),
+	);
+
+	wasm_ext().execute_with(|| {
+		assert!(
+			ParachainSystem::create_inherent(&valid_inherent_data_v1).is_some(),
+			"V1 inherent was not accepted"
+		);
+		assert!(
+			ParachainSystem::create_inherent(&valid_inherent_data_legacy).is_some(),
+			"Legacy inherent was not accepted"
+		);
+
+		assert!(
+			ParachainSystem::create_inherent(&valid_inherent_data_full_compatibility).is_some(),
+			"Inherent on multiple keys was not accepted."
+		);
+	})
 }
 
 #[test]

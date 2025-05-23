@@ -227,7 +227,7 @@ async fn find_parent<Block>(
 	para_id: ParaId,
 	para_backend: &impl sc_client_api::Backend<Block>,
 	relay_client: &impl RelayChainInterface,
-) -> Option<(<Block as BlockT>::Hash, consensus_common::PotentialParent<Block>)>
+) -> Option<(<Block as BlockT>::Header, consensus_common::PotentialParent<Block>)>
 where
 	Block: BlockT,
 {
@@ -263,7 +263,7 @@ where
 		Ok(x) => x,
 	};
 
-	let included_block = potential_parents.iter().find(|x| x.depth == 0)?.hash;
+	let included_block = potential_parents.iter().find(|x| x.depth == 0)?.header.clone();
 	potential_parents
 		.into_iter()
 		.max_by_key(|a| a.depth)

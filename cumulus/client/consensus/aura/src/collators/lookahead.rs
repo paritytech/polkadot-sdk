@@ -303,7 +303,7 @@ where
 					relay_slot,
 					timestamp,
 					block_hash,
-					included_block,
+					included_block.hash(),
 					para_client,
 					&keystore,
 				))

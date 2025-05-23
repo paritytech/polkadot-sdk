@@ -241,6 +241,20 @@ pub mod well_known_keys {
 	pub const ACTIVE_CONFIG: &[u8] =
 		&hex!["06de3d8a54d27e44a9d5ce189618f22db4b49d95320d9021994c850f25b8e385"];
 
+	/// The authorities for the current epoch.
+	///
+	/// The storage entry should be accessed as an `Vec<(AuthorityId, BabeAuthorityWeight)>` encoded
+	/// value.
+	pub const AUTHORITIES: &[u8] =
+		&hex!["1cb6f36e027abb2091cfb5110ab5087f5e0621c4869aa60c02be9adcc98a0d1d"];
+
+	/// The authorities for the next epoch.
+	///
+	/// The storage entry should be accessed as an `Vec<(AuthorityId, BabeAuthorityWeight)>` encoded
+	/// value.
+	pub const NEXT_AUTHORITIES: &[u8] =
+		&hex!["1cb6f36e027abb2091cfb5110ab5087faacf00b9b41fda7a9268821c2a2b3e4c"];
+
 	/// Hash of the committed head data for a given registered para.
 	///
 	/// The storage entry stores wrapped `HeadData(Vec<u8>)`.

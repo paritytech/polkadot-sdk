@@ -93,6 +93,8 @@ std = [
 	"substrate-wasm-builder",
 ]
 increment-spec-version = []
+# A runtime which expects to build behind the relay chain tip.
+relay-parent-offset = []
 # A runtime with elastic-scaling configuration.
 elastic-scaling = []
 # A runtime with low slot duration of 500ms for low-latency testing with 12 cores.

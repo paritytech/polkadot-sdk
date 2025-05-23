@@ -18,13 +18,14 @@
 
 use codec::Decode;
 use cumulus_primitives_core::{
-	relay_chain::{self, Hash as PHash, HrmpChannelId},
+	relay_chain::{self, Block as RelayBlock, Hash as PHash, HrmpChannelId},
 	ParaId, PersistedValidationData,
 };
 use cumulus_relay_chain_interface::RelayChainInterface;
 
 mod mock;
 
+use cumulus_primitives_core::relay_chain::Header as RelayHeader;
 pub use cumulus_primitives_parachain_inherent::{ParachainInherentData, INHERENT_IDENTIFIER};
 pub use mock::{MockValidationDataInherentDataProvider, MockXcmConfig};
 
@@ -36,6 +37,8 @@ async fn collect_relay_storage_proof(
 	relay_chain_interface: &impl RelayChainInterface,
 	para_id: ParaId,
 	relay_parent: PHash,
+	include_authorities: bool,
+	include_next_authorities: bool,
 ) -> Option<sp_state_machine::StorageProof> {
 	use relay_chain::well_known_keys as relay_well_known_keys;
 
@@ -122,6 +125,14 @@ async fn collect_relay_storage_proof(
 		relay_well_known_keys::hrmp_channels(HrmpChannelId { sender: para_id, recipient })
 	}));
 
+	if include_authorities {
+		relevant_keys.push(relay_well_known_keys::AUTHORITIES.to_vec());
+	}
+
+	if include_next_authorities {
+		relevant_keys.push(relay_well_known_keys::NEXT_AUTHORITIES.to_vec());
+	}
+
 	relay_chain_interface
 		.prove_read(relay_parent, &relevant_keys)
 		.await
@@ -147,9 +158,24 @@ impl ParachainInherentDataProvider {
 		relay_chain_interface: &impl RelayChainInterface,
 		validation_data: &PersistedValidationData,
 		para_id: ParaId,
+		relay_parent_descendants: Vec<RelayHeader>,
 	) -> Option<ParachainInherentData> {
-		let relay_chain_state =
-			collect_relay_storage_proof(relay_chain_interface, para_id, relay_parent).await?;
+		// Only include next epoch authorities when the descendants include an epoch digest.
+		// Skip the first entry because this is the relay parent itself.
+		let include_next_authorities = relay_parent_descendants.iter().skip(1).any(|header| {
+			sc_consensus_babe::find_next_epoch_digest::<RelayBlock>(header)
+				.ok()
+				.flatten()
+				.is_some()
+		});
+		let relay_chain_state = collect_relay_storage_proof(
+			relay_chain_interface,
+			para_id,
+			relay_parent,
+			!relay_parent_descendants.is_empty(),
+			include_next_authorities,
+		)
+		.await?;
 
 		let downward_messages = relay_chain_interface
 			.retrieve_dmq_contents(para_id, relay_parent)
@@ -181,6 +207,7 @@ impl ParachainInherentDataProvider {
 			horizontal_messages,
 			validation_data: validation_data.clone(),
 			relay_chain_state,
+			relay_parent_descendants,
 		})
 	}
 }

@@ -38,6 +38,7 @@ use frame_support::{
 	weights::{Weight, WeightMeter},
 };
 use frame_system::{pallet_prelude::BlockNumberFor, RawOrigin};
+use sp_core::ConstU32;
 use sp_runtime::{traits::BlakeTwo256, BuildStorage};
 use sp_version::RuntimeVersion;
 use std::cell::RefCell;
@@ -95,6 +96,7 @@ impl Config for Test {
 	type ConsensusHook = TestConsensusHook;
 	type WeightInfo = ();
 	type SelectCore = DefaultCoreSelector<Test>;
+	type RelayParentOffset = ConstU32<0>;
 }
 
 std::thread_local! {
@@ -419,6 +421,7 @@ impl BlockTests {
 					relay_chain_state,
 					downward_messages: Default::default(),
 					horizontal_messages: Default::default(),
+					relay_parent_descendants: Default::default(),
 				};
 				if let Some(ref hook) = self.inherent_data_hook {
 					hook(self, relay_parent_number, &mut system_inherent_data);
