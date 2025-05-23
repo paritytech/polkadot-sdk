@@ -1337,7 +1337,7 @@ impl<Call> TryFrom<NewInstruction<Call>> for Instruction<Call> {
 			Transact { origin_kind, require_weight_at_most, call } => {
 				if require_weight_at_most.proof_size() > 0 {
 					log::trace!(
-						target: "xcm::conversion",
+						target: "xcm::versions::v4Tov3",
 						"Converting XCM v4 Transact to v3: dropping proof_size {} from weight. \
 						 This may cause execution issues when converting back to v4.",
 						require_weight_at_most.proof_size()
