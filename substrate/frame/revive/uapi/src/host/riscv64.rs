@@ -137,7 +137,6 @@ mod sys {
 			out_ptr: *mut u8,
 			out_len_ptr: *mut u32,
 		) -> ReturnCode;
-		pub fn call_runtime(call_ptr: *const u8, call_len: u32) -> ReturnCode;
 		pub fn sr25519_verify(
 			signature_ptr: *const u8,
 			pub_key_ptr: *const u8,
@@ -147,14 +146,6 @@ mod sys {
 		pub fn set_code_hash(code_hash_ptr: *const u8);
 		pub fn ecdsa_to_eth_address(key_ptr: *const u8, out_ptr: *mut u8) -> ReturnCode;
 		pub fn instantiation_nonce() -> u64;
-		pub fn xcm_execute(msg_ptr: *const u8, msg_len: u32) -> ReturnCode;
-		pub fn xcm_send(
-			dest_ptr: *const u8,
-			dest_len: *const u8,
-			msg_ptr: *const u8,
-			msg_len: u32,
-			out_ptr: *mut u8,
-		) -> ReturnCode;
 		pub fn return_data_size() -> u64;
 		pub fn return_data_copy(out_ptr: *mut u8, out_len_ptr: *mut u32, offset: u32);
 	}
@@ -495,12 +486,6 @@ impl HostFn for HostFnImpl {
 	}
 
 	#[unstable_hostfn]
-	fn call_runtime(call: &[u8]) -> Result {
-		let ret_code = unsafe { sys::call_runtime(call.as_ptr(), call.len() as u32) };
-		ret_code.into()
-	}
-
-	#[unstable_hostfn]
 	fn caller_is_origin() -> bool {
 		let ret_val = unsafe { sys::caller_is_origin() };
 		ret_val.into_bool()
@@ -604,25 +589,5 @@ impl HostFn for HostFnImpl {
 		let mut output_len = output.len() as u32;
 		unsafe { sys::weight_left(output.as_mut_ptr(), &mut output_len) }
 		extract_from_slice(output, output_len as usize)
-	}
-
-	#[unstable_hostfn]
-	fn xcm_execute(msg: &[u8]) -> Result {
-		let ret_code = unsafe { sys::xcm_execute(msg.as_ptr(), msg.len() as _) };
-		ret_code.into()
-	}
-
-	#[unstable_hostfn]
-	fn xcm_send(dest: &[u8], msg: &[u8], output: &mut [u8; 32]) -> Result {
-		let ret_code = unsafe {
-			sys::xcm_send(
-				dest.as_ptr(),
-				dest.len() as _,
-				msg.as_ptr(),
-				msg.len() as _,
-				output.as_mut_ptr(),
-			)
-		};
-		ret_code.into()
 	}
 }

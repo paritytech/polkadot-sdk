@@ -105,16 +105,10 @@ define_error_codes! {
 	TransferFailed = 4,
 	/// The subcall ran out of weight or storage deposit.
 	OutOfResources = 5,
-	/// The call dispatched by `call_runtime` was executed but returned an error.
-	CallRuntimeFailed = 6,
 	/// ECDSA public key recovery failed. Most probably wrong recovery id or signature.
 	EcdsaRecoveryFailed = 7,
 	/// sr25519 signature verification failed.
 	Sr25519VerifyFailed = 8,
-	/// The `xcm_execute` call failed.
-	XcmExecutionFailed = 9,
-	/// The `xcm_send` call failed.
-	XcmSendFailed = 10,
 	/// Contract instantiation failed because the address already exists.
 	/// Occurs when instantiating the same contract with the same salt more than once.
 	DuplicateContractAddress = 11,
