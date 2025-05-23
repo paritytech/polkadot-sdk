@@ -672,79 +672,46 @@ where
 		);
 		(false, pending)
 	}
-}
 
-/// Converts the input view-to-statuses map into the output vector of statuses.
-///
-/// The result of importing a bunch of transactions into a single view is the vector of statuses.
-/// Every item represents a status for single transaction. The input is the map that associates
-/// hash-views with vectors indicating the statuses of transactions imports.
-///
-/// Import to multiple views result in two-dimensional array of statuses, which is provided as
-/// input map.
-///
-/// This function converts the map into the vec of results, according to the following rules:
-/// - for given transaction if at least one status is success, then output vector contains success,
-/// - if given transaction status is error for every view, then output vector contains error.
-///
-/// The results for transactions are in the same order for every view. An output vector preserves
-/// this order.
-///
-/// ```skip
-/// in:
-/// view  |   xt0 status | xt1 status | xt2 status
-/// h1   -> [ Ok(xth0),    Ok(xth1),    Err       ]
-/// h2   -> [ Ok(xth0),    Err,         Err       ]
-/// h3   -> [ Ok(xth0),    Ok(xth1),    Err       ]
-///
-/// out:
-/// [ Ok(xth0), Ok(xth1), Err ]
-/// ```
-fn reduce_multiview_result<H, D, E>(input: HashMap<H, Vec<Result<D, E>>>) -> Vec<Result<D, E>> {
-	let mut values = input.values();
-	let Some(first) = values.next() else {
-		return Default::default();
-	};
-	let length = first.len();
-	debug_assert!(values.all(|x| length == x.len()));
-
-	input
-		.into_values()
-		.reduce(|mut agg_results, results| {
-			agg_results.iter_mut().zip(results.into_iter()).for_each(|(agg_r, r)| {
-				if agg_r.is_err() {
-					*agg_r = r;
-				}
-			});
-			agg_results
-		})
-		.unwrap_or_default()
-}
-
-#[async_trait]
-impl<ChainApi, Block> TransactionPool for ForkAwareTxPool<ChainApi, Block>
-where
-	Block: BlockT,
-	ChainApi: 'static + graph::ChainApi<Block = Block>,
-	<Block as BlockT>::Hash: Unpin,
-{
-	type Block = ChainApi::Block;
-	type Hash = ExtrinsicHash<ChainApi>;
-	type InPoolTransaction = Transaction<ExtrinsicHash<ChainApi>, ExtrinsicFor<ChainApi>>;
-	type Error = ChainApi::Error;
-
-	/// Submits multiple transactions and returns a future resolving to the submission results.
-	///
-	/// Actual transactions submission process is delegated to the `ViewStore` internal instance.
-	///
-	/// The internal limits of the pool are checked. The results of submissions to individual views
-	/// are reduced to single result. Refer to `reduce_multiview_result` for more details.
-	async fn submit_at(
+	/// Refer to [`Self::submit_and_watch`]
+	async fn submit_and_watch_inner(
 		&self,
-		_: <Self::Block as BlockT>::Hash,
+		at: Block::Hash,
+		source: TransactionSource,
+		xt: TransactionFor<Self>,
+	) -> Result<Pin<Box<TransactionStatusStreamFor<Self>>>, ChainApi::Error> {
+		let xt = Arc::from(xt);
+
+		let insertion = match self.mempool.push_watched(source, xt.clone()).await {
+			Ok(result) => result,
+			Err(TxPoolApiError::ImmediatelyDropped) =>
+				self.attempt_transaction_replacement(source, true, xt.clone()).await?,
+			Err(e) => return Err(e.into()),
+		};
+
+		self.metrics.report(|metrics| metrics.submitted_transactions.inc());
+		self.events_metrics_collector.report_submitted(&insertion);
+
+		match self.view_store.submit_and_watch(at, insertion.source, xt).await {
+			Err(e) => {
+				self.mempool.remove_transactions(&[insertion.hash]).await;
+				Err(e.into())
+			},
+			Ok(mut outcome) => {
+				self.mempool
+					.update_transaction_priority(outcome.hash(), outcome.priority())
+					.await;
+				Ok(outcome.expect_watcher())
+			},
+		}
+	}
+
+	/// Refer to [`Self::submit_at`]
+	async fn submit_at_inner(
+		&self,
 		source: TransactionSource,
 		xts: Vec<TransactionFor<Self>>,
-	) -> Result<Vec<Result<TxHash<Self>, Self::Error>>, Self::Error> {
+	) -> Result<Vec<Result<TxHash<Self>, ChainApi::Error>>, ChainApi::Error> {
 		let view_store = self.view_store.clone();
 		trace!(
 			target: LOG_TARGET,
@@ -842,6 +809,99 @@ where
 
 		Ok(final_results)
 	}
+}
+
+/// Converts the input view-to-statuses map into the output vector of statuses.
+///
+/// The result of importing a bunch of transactions into a single view is the vector of statuses.
+/// Every item represents a status for single transaction. The input is the map that associates
+/// hash-views with vectors indicating the statuses of transactions imports.
+///
+/// Import to multiple views result in two-dimensional array of statuses, which is provided as
+/// input map.
+///
+/// This function converts the map into the vec of results, according to the following rules:
+/// - for given transaction if at least one status is success, then output vector contains success,
+/// - if given transaction status is error for every view, then output vector contains error.
+///
+/// The results for transactions are in the same order for every view. An output vector preserves
+/// this order.
+///
+/// ```skip
+/// in:
+/// view  |   xt0 status | xt1 status | xt2 status
+/// h1   -> [ Ok(xth0),    Ok(xth1),    Err       ]
+/// h2   -> [ Ok(xth0),    Err,         Err       ]
+/// h3   -> [ Ok(xth0),    Ok(xth1),    Err       ]
+///
+/// out:
+/// [ Ok(xth0), Ok(xth1), Err ]
+/// ```
+fn reduce_multiview_result<H, D, E>(input: HashMap<H, Vec<Result<D, E>>>) -> Vec<Result<D, E>> {
+	let mut values = input.values();
+	let Some(first) = values.next() else {
+		return Default::default();
+	};
+	let length = first.len();
+	debug_assert!(values.all(|x| length == x.len()));
+
+	input
+		.into_values()
+		.reduce(|mut agg_results, results| {
+			agg_results.iter_mut().zip(results.into_iter()).for_each(|(agg_r, r)| {
+				if agg_r.is_err() {
+					*agg_r = r;
+				}
+			});
+			agg_results
+		})
+		.unwrap_or_default()
+}
+
+#[async_trait]
+impl<ChainApi, Block> TransactionPool for ForkAwareTxPool<ChainApi, Block>
+where
+	Block: BlockT,
+	ChainApi: 'static + graph::ChainApi<Block = Block>,
+	<Block as BlockT>::Hash: Unpin,
+{
+	type Block = ChainApi::Block;
+	type Hash = ExtrinsicHash<ChainApi>;
+	type InPoolTransaction = Transaction<ExtrinsicHash<ChainApi>, ExtrinsicFor<ChainApi>>;
+	type Error = ChainApi::Error;
+
+	/// Submits multiple transactions and returns a future resolving to the submission results.
+	///
+	/// Actual transactions submission process is delegated to the `ViewStore` internal instance.
+	///
+	/// The internal limits of the pool are checked. The results of submissions to individual views
+	/// are reduced to single result. Refer to `reduce_multiview_result` for more details.
+	async fn submit_at(
+		&self,
+		_: <Self::Block as BlockT>::Hash,
+		source: TransactionSource,
+		xts: Vec<TransactionFor<Self>>,
+	) -> Result<Vec<Result<TxHash<Self>, Self::Error>>, Self::Error> {
+		let start = Instant::now();
+		trace!(
+			target: LOG_TARGET,
+			count = xts.len(),
+			active_views_count = self.active_views_count(),
+			"fatp::submit_at"
+		);
+		log_xt_trace!(target: LOG_TARGET, xts.iter().map(|xt| self.tx_hash(xt)), "fatp::submit_at");
+
+		let result = self.submit_at_inner(source, xts).await;
+
+		insert_and_log_throttled!(
+			Level::DEBUG,
+			target:"txpool",
+			prefix:"submit_stats",
+			self.submit_stats,
+			start.elapsed().into()
+		);
+		result
+	}
 
 	/// Submits a single transaction and returns a future resolving to the submission results.
 	///
@@ -875,36 +935,22 @@ where
 		source: TransactionSource,
 		xt: TransactionFor<Self>,
 	) -> Result<Pin<Box<TransactionStatusStreamFor<Self>>>, Self::Error> {
+		let start = Instant::now();
 		trace!(
 			target: LOG_TARGET,
 			tx_hash = ?self.tx_hash(&xt),
 			views = self.active_views_count(),
 			"fatp::submit_and_watch"
 		);
-		let xt = Arc::from(xt);
-
-		let insertion = match self.mempool.push_watched(source, xt.clone()).await {
-			Ok(result) => result,
-			Err(TxPoolApiError::ImmediatelyDropped) =>
-				self.attempt_transaction_replacement(source, true, xt.clone()).await?,
-			Err(e) => return Err(e.into()),
-		};
-
-		self.metrics.report(|metrics| metrics.submitted_transactions.inc());
-		self.events_metrics_collector.report_submitted(&insertion);
-
-		match self.view_store.submit_and_watch(at, insertion.source, xt).await {
-			Err(e) => {
-				self.mempool.remove_transactions(&[insertion.hash]).await;
-				Err(e)
-			},
-			Ok(mut outcome) => {
-				self.mempool
-					.update_transaction_priority(outcome.hash(), outcome.priority())
-					.await;
-				Ok(outcome.expect_watcher())
-			},
-		}
+		let result = self.submit_and_watch_inner(at, source, xt).await;
+		insert_and_log_throttled!(
+			Level::DEBUG,
+			target:"txpool",
+			prefix:"submit_and_watch_stats",
+			self.submit_and_watch_stats,
+			start.elapsed().into()
+		);
+		result
 	}
 
 	/// Reports invalid transactions to the transaction pool.
