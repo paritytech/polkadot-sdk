@@ -22,7 +22,7 @@ use sp_io::hashing::blake2_256;
 use sp_keyring::Sr25519Keyring;
 use sp_runtime::{
 	generic::Era,
-	traits::{Applyable, Checkable, Hash, IdentityLookup},
+	traits::{Applyable, Checkable, Hash, IdentityLookup, LazyExtrinsic},
 	DispatchErrorWithPostInfo, MultiSignature,
 };
 
@@ -74,9 +74,9 @@ fn force_set_balance(account: AccountId) -> Balance {
 	balance
 }
 
-fn apply_extrinsic(uxt: UncheckedExtrinsic) -> DispatchResultWithPostInfo {
-	let uxt_info = uxt.get_dispatch_info();
+fn apply_extrinsic(mut uxt: UncheckedExtrinsic) -> DispatchResultWithPostInfo {
 	let uxt_len = uxt.using_encoded(|e| e.len());
+	let uxt_info = uxt.expect_as_ref().get_dispatch_info();
 	let xt = <UncheckedExtrinsic as Checkable<IdentityLookup<AccountId>>>::check(
 		uxt,
 		&Default::default(),
