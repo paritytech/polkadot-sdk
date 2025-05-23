@@ -144,22 +144,18 @@ fn can_deserialize_input_or_data_field_from_generic_transaction() {
 
 #[test]
 fn test_block_number_or_tag_or_hash_deserialization() {
-	// Example for BlockTag
 	let s = "\"latest\"";
 	let val: BlockNumberOrTagOrHash = serde_json::from_str(s).unwrap();
 	assert!(matches!(val, BlockNumberOrTagOrHash::BlockTag(_)));
 
-	// Example for BlockNumber as bytes
-	let s = "\"0x104\"";
+	let s = "\"0x1a\"";
 	let val: BlockNumberOrTagOrHash = serde_json::from_str(s).unwrap();
 	assert!(matches!(val, BlockNumberOrTagOrHash::BlockNumber(n) if n == 26u64.into()));
 
-	// Nested block number
 	let s = r#"{ "blockNumber": "0x1a" }"#;
 	let val: BlockNumberOrTagOrHash = serde_json::from_str(s).unwrap();
 	assert!(matches!(val, BlockNumberOrTagOrHash::BlockNumber(n) if n == 26u64.into()));
 
-	// Block hash as bytes
 	let s = "\"0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"";
 	let val: BlockNumberOrTagOrHash = serde_json::from_str(s).unwrap();
 	if let BlockNumberOrTagOrHash::BlockHash(h) = val {
@@ -168,7 +164,6 @@ fn test_block_number_or_tag_or_hash_deserialization() {
 		panic!("expected BlockHash");
 	}
 
-	// Nested block hash
 	let s =
 		r#"{ "blockHash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" }"#;
 	let val: BlockNumberOrTagOrHash = serde_json::from_str(s).unwrap();
