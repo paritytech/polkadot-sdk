@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"type":["CandidateDeposit","Founder","MaxIntake","MaxMembers","MaxStrikes","Rules"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["InboundState"],"struct":["InboundChannelDetails"]};

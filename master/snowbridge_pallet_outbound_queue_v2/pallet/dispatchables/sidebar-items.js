@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["submit_delivery_receipt"]};

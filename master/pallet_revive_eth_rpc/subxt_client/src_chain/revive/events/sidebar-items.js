@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["contract_emitted"],"struct":["ContractEmitted"]};

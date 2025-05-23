@@ -1,0 +1,4 @@
+(function() {var implementors = {
+"integration_tests_common":[["impl <a class=\"trait\" href=\"xcm_emulator/trait.Bridge.html\" title=\"trait xcm_emulator::Bridge\">Bridge</a> for <a class=\"struct\" href=\"integration_tests_common/struct.RococoWococoMockBridge.html\" title=\"struct integration_tests_common::RococoWococoMockBridge\">RococoWococoMockBridge</a>"],["impl <a class=\"trait\" href=\"xcm_emulator/trait.Bridge.html\" title=\"trait xcm_emulator::Bridge\">Bridge</a> for <a class=\"struct\" href=\"integration_tests_common/struct.WococoRococoMockBridge.html\" title=\"struct integration_tests_common::WococoRococoMockBridge\">WococoRococoMockBridge</a>"]],
+"xcm_emulator":[]
+};if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"type":["ClassAccount","Param0","Param1"]};

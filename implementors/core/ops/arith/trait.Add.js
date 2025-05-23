@@ -1,0 +1,3 @@
+(function() {var implementors = {
+"frame_support":[["impl <a class=\"trait\" href=\"https://doc.rust-lang.org/1.73.0/core/ops/arith/trait.Add.html\" title=\"trait core::ops::arith::Add\">Add</a>&lt;<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.73.0/std/primitive.u16.html\">u16</a>&gt; for <a class=\"struct\" href=\"frame_support/traits/struct.StorageVersion.html\" title=\"struct frame_support::traits::StorageVersion\">StorageVersion</a>"]]
+};if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

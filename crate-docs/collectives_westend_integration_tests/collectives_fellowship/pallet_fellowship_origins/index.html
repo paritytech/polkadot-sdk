@@ -1,0 +1,173 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="The `pallet` module in each FRAME pallet hosts the most important items needed to construct this pallet."><title>collectives_westend_integration_tests::collectives_fellowship::pallet_fellowship_origins - Rust</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="collectives_westend_integration_tests" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../sidebar-items.js"></script><script defer src="../../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			link.textContent = header.textContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && header.textContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../../collectives_westend_integration_tests/index.html">collectives_westend_integration_tests</a><span class="version">1.0.0</span></h2></div><h2 class="location"><a href="#">Module pallet_fellowship_origins</a></h2><div class="sidebar-elems"><section><ul class="block"><li><a href="#structs">Structs</a></li><li><a href="#enums">Enums</a></li><li><a href="#traits">Traits</a></li><li><a href="#types">Type Aliases</a></li></ul></section><h2><a href="../index.html">In collectives_westend_integration_tests::collectives_fellowship</a></h2></div></nav><div class="sidebar-resizer"></div>
+    <main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../collectives_westend_integration_tests/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1>Module <a href="../../index.html">collectives_westend_integration_tests</a>::<wbr><a href="../index.html">collectives_fellowship</a>::<wbr><a class="mod" href="#">pallet_fellowship_origins</a><button id="copy-path" title="Copy item path to clipboard"><img src="../../../static.files/clipboard-7571035ce49a181d.svg" width="19" height="18" alt="Copy item path"></button></h1><span class="out-of-band"><button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>The <code>pallet</code> module in each FRAME pallet hosts the most important items needed
+to construct this pallet.</p>
+<p>The main components of this pallet are:</p>
+<ul>
+<li><a href="struct.Pallet.html" title="struct collectives_westend_integration_tests::collectives_fellowship::pallet_fellowship_origins::Pallet"><code>Pallet</code></a>, which implements all of the dispatchable extrinsics of the pallet, among
+other public functions.
+<ul>
+<li>The subset of the functions that are dispatchable can be identified either in the
+[<code>dispatchables</code>] module or in the <a href="enum.Call.html" title="enum collectives_westend_integration_tests::collectives_fellowship::pallet_fellowship_origins::Call"><code>Call</code></a> enum.</li>
+</ul>
+</li>
+<li>[<code>storage_types</code>], which contains the list of all types that are representing a
+storage item. Otherwise, all storage items are listed among <a href="#types"><em>Type Definitions</em></a>.</li>
+<li><a href="trait.Config.html" title="trait collectives_westend_integration_tests::collectives_fellowship::pallet_fellowship_origins::Config"><code>Config</code></a>, which contains the configuration trait of this pallet.</li>
+<li>[<code>Event</code>] and [<code>Error</code>], which are listed among the <a href="#enums"><em>Enums</em></a>.</li>
+</ul>
+</div></details><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="struct" href="struct.Architects.html" title="struct collectives_westend_integration_tests::collectives_fellowship::pallet_fellowship_origins::Architects">Architects</a></div></li><li><div class="item-name"><a class="struct" href="struct.EnsureCanPromoteTo.html" title="struct collectives_westend_integration_tests::collectives_fellowship::pallet_fellowship_origins::EnsureCanPromoteTo">EnsureCanPromoteTo</a></div></li><li><div class="item-name"><a class="struct" href="struct.EnsureCanRetainAt.html" title="struct collectives_westend_integration_tests::collectives_fellowship::pallet_fellowship_origins::EnsureCanRetainAt">EnsureCanRetainAt</a></div></li><li><div class="item-name"><a class="struct" href="struct.EnsureFellowship.html" title="struct collectives_westend_integration_tests::collectives_fellowship::pallet_fellowship_origins::EnsureFellowship">EnsureFellowship</a></div></li><li><div class="item-name"><a class="struct" href="struct.Fellows.html" title="struct collectives_westend_integration_tests::collectives_fellowship::pallet_fellowship_origins::Fellows">Fellows</a></div></li><li><div class="item-name"><a class="struct" href="struct.Masters.html" title="struct collectives_westend_integration_tests::collectives_fellowship::pallet_fellowship_origins::Masters">Masters</a></div></li><li><div class="item-name"><a class="struct" href="struct.Members.html" title="struct collectives_westend_integration_tests::collectives_fellowship::pallet_fellowship_origins::Members">Members</a></div></li><li><div class="item-name"><a class="struct" href="struct.Pallet.html" title="struct collectives_westend_integration_tests::collectives_fellowship::pallet_fellowship_origins::Pallet">Pallet</a></div><div class="desc docblock-short">The <code>Pallet</code> struct, the main type that implements traits and standalone
+functions within the pallet.</div></li><li><div class="item-name"><a class="struct" href="struct.ToVoice.html" title="struct collectives_westend_integration_tests::collectives_fellowship::pallet_fellowship_origins::ToVoice">ToVoice</a></div><div class="desc docblock-short">A <code>TryMorph</code> implementation which is designed to convert an aggregate <code>RuntimeOrigin</code>
+value into the Fellowship voice it represents if it is a Fellowship pallet origin an
+appropriate variant. See also <a href="enum.Origin.html#method.as_voice" title="method collectives_westend_integration_tests::collectives_fellowship::pallet_fellowship_origins::Origin::as_voice">Origin::as_voice</a>.</div></li></ul><h2 id="enums" class="section-header">Enums<a href="#enums" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="enum" href="enum.Call.html" title="enum collectives_westend_integration_tests::collectives_fellowship::pallet_fellowship_origins::Call">Call</a></div><div class="desc docblock-short">Contains a variant per dispatchable extrinsic that this pallet has.</div></li><li><div class="item-name"><a class="enum" href="enum.Origin.html" title="enum collectives_westend_integration_tests::collectives_fellowship::pallet_fellowship_origins::Origin">Origin</a></div></li></ul><h2 id="traits" class="section-header">Traits<a href="#traits" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="trait" href="trait.Config.html" title="trait collectives_westend_integration_tests::collectives_fellowship::pallet_fellowship_origins::Config">Config</a></div><div class="desc docblock-short">Configuration trait of this pallet.</div></li></ul><h2 id="types" class="section-header">Type Aliases<a href="#types" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="type" href="type.Module.html" title="type collectives_westend_integration_tests::collectives_fellowship::pallet_fellowship_origins::Module">Module</a><span class="stab deprecated" title="">Deprecated</span></div><div class="desc docblock-short">Type alias to <code>Pallet</code>, to be used by <code>construct_runtime</code>.</div></li></ul></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

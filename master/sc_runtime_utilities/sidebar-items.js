@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["fetch_latest_metadata_from_code_blob"],"mod":["error"],"struct":["RuntimeCaller"]};

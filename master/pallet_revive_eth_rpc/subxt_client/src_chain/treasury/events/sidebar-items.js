@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["asset_spend_approved","asset_spend_voided","awarded","burnt","deposit","paid","payment_failed","rollover","spend_approved","spend_processed","spending","updated_inactive"],"struct":["AssetSpendApproved","AssetSpendVoided","Awarded","Burnt","Deposit","Paid","PaymentFailed","Rollover","SpendApproved","SpendProcessed","Spending","UpdatedInactive"]};

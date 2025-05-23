@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["claim","force_transfer","free","freeze","poke_deposit","transfer"],"struct":["Claim","ForceTransfer","Free","Freeze","PokeDeposit","Transfer"]};

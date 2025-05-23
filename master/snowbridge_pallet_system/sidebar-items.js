@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["PaysFee"],"fn":["agent_id_of"],"mod":["api","migration","pallet","weights"],"trait":["BenchmarkHelper"],"type":["AccountIdOf","BalanceOf","PricingParametersOf"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["OriginCaller","ProxyType","RuntimeCall","RuntimeError","RuntimeEvent","RuntimeFreezeReason","RuntimeHoldReason","RuntimeParameters","RuntimeParametersKey","RuntimeParametersValue"],"mod":["dynamic_params"],"struct":["NposSolution16","Runtime","SessionKeys"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["communify","place_bid","privatize","retract_bid","thaw_communal","thaw_private"],"struct":["Communify","FundDeficit","PlaceBid","Privatize","RetractBid","ThawCommunal","ThawPrivate"]};

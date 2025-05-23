@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["LOG_TARGET"],"fn":["initialize_for_benchmarks"],"mod":["benchmarking","pallet","weights","weights_ext"],"struct":["ParachainHeaders","SubmitParachainHeadsHelper","VerifiedSubmitParachainHeadsInfo"],"trait":["CallSubType"]};

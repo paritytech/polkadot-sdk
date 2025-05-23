@@ -1,0 +1,201 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Environment functions which are available to pre-compiles with `HAS_CONTRACT_INFO = true`."><title>ExtWithInfo in pallet_revive::precompiles - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../static.files/rustdoc-42caa33d.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_revive" data-themes="" data-resource-suffix="" data-rustdoc-version="1.84.1 (e71f9a9a9 2025-01-27)" data-channel="1.84.1" data-search-js="search-92e6798f.js" data-settings-js="settings-0f613d39.js" ><script src="../../static.files/storage-59e33391.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../static.files/main-5f194d8c.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-893ab5e7.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc trait"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../pallet_revive/index.html">pallet_<wbr>revive</a><span class="version">0.1.0</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">ExtWith<wbr>Info</a></h2><h3><a href="#required-methods">Required Methods</a></h3><ul class="block"><li><a href="#tymethod.charge_storage" title="charge_storage">charge_storage</a></li><li><a href="#tymethod.get_storage" title="get_storage">get_storage</a></li><li><a href="#tymethod.get_storage_size" title="get_storage_size">get_storage_size</a></li><li><a href="#tymethod.instantiate" title="instantiate">instantiate</a></li><li><a href="#tymethod.set_storage" title="set_storage">set_storage</a></li></ul><h3><a href="#implementors">Implementors</a></h3></section><div id="rustdoc-modnav"><h2><a href="index.html">In pallet_<wbr>revive::<wbr>precompiles</a></h2></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><span class="rustdoc-breadcrumbs"><a href="../index.html">pallet_revive</a>::<wbr><a href="index.html">precompiles</a></span><h1>Trait <span class="trait">ExtWithInfo</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../src/pallet_revive/exec.rs.html#238-277">Source</a> </span></div><pre class="rust item-decl"><code>pub trait ExtWithInfo: <a class="trait" href="trait.Ext.html" title="trait pallet_revive::precompiles::Ext">PrecompileExt</a> {
+    // Required methods
+    fn <a href="#tymethod.get_storage" class="fn">get_storage</a>(&amp;mut self, key: &amp;Key) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.84.1/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.84.1/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.84.1/std/primitive.u8.html">u8</a>&gt;&gt;;
+<span class="item-spacer"></span>    fn <a href="#tymethod.get_storage_size" class="fn">get_storage_size</a>(&amp;mut self, key: &amp;Key) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.84.1/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.84.1/std/primitive.u32.html">u32</a>&gt;;
+<span class="item-spacer"></span>    fn <a href="#tymethod.set_storage" class="fn">set_storage</a>(
+        &amp;mut self,
+        key: &amp;Key,
+        value: <a class="enum" href="https://doc.rust-lang.org/1.84.1/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.84.1/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.84.1/std/primitive.u8.html">u8</a>&gt;&gt;,
+        take_old: <a class="primitive" href="https://doc.rust-lang.org/1.84.1/std/primitive.bool.html">bool</a>,
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.84.1/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;WriteOutcome, DispatchError&gt;;
+<span class="item-spacer"></span>    fn <a href="#tymethod.charge_storage" class="fn">charge_storage</a>(&amp;mut self, diff: &amp;<a class="struct" href="struct.Diff.html" title="struct pallet_revive::precompiles::Diff">Diff</a>);
+<span class="item-spacer"></span>    fn <a href="#tymethod.instantiate" class="fn">instantiate</a>(
+        &amp;mut self,
+        gas_limit: Weight,
+        deposit_limit: <a class="struct" href="run/struct.U256.html" title="struct pallet_revive::precompiles::run::U256">U256</a>,
+        code: <a class="struct" href="run/struct.H256.html" title="struct pallet_revive::precompiles::run::H256">H256</a>,
+        value: <a class="struct" href="run/struct.U256.html" title="struct pallet_revive::precompiles::run::U256">U256</a>,
+        input_data: <a class="struct" href="https://doc.rust-lang.org/1.84.1/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.84.1/std/primitive.u8.html">u8</a>&gt;,
+        salt: <a class="enum" href="https://doc.rust-lang.org/1.84.1/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;&amp;[<a class="primitive" href="https://doc.rust-lang.org/1.84.1/std/primitive.u8.html">u8</a>; <a class="primitive" href="https://doc.rust-lang.org/1.84.1/std/primitive.array.html">32</a>]&gt;,
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.84.1/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="../evm/struct.H160.html" title="struct pallet_revive::evm::H160">H160</a>, <a class="struct" href="struct.ExecError.html" title="struct pallet_revive::precompiles::ExecError">ExecError</a>&gt;;
+}</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Environment functions which are available to pre-compiles with <code>HAS_CONTRACT_INFO = true</code>.</p>
+</div></details><h2 id="required-methods" class="section-header">Required Methods<a href="#required-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="tymethod.get_storage" class="method"><a class="src rightside" href="../../src/pallet_revive/exec.rs.html#243">Source</a><h4 class="code-header">fn <a href="#tymethod.get_storage" class="fn">get_storage</a>(&amp;mut self, key: &amp;Key) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.84.1/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.84.1/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.84.1/std/primitive.u8.html">u8</a>&gt;&gt;</h4></section></summary><div class="docblock"><p>Returns the storage entry of the executing account by the given <code>key</code>.</p>
+<p>Returns <code>None</code> if the <code>key</code> wasn’t previously set by <code>set_storage</code> or
+was deleted.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.get_storage_size" class="method"><a class="src rightside" href="../../src/pallet_revive/exec.rs.html#249">Source</a><h4 class="code-header">fn <a href="#tymethod.get_storage_size" class="fn">get_storage_size</a>(&amp;mut self, key: &amp;Key) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.84.1/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.84.1/std/primitive.u32.html">u32</a>&gt;</h4></section></summary><div class="docblock"><p>Returns <code>Some(len)</code> (in bytes) if a storage item exists at <code>key</code>.</p>
+<p>Returns <code>None</code> if the <code>key</code> wasn’t previously set by <code>set_storage</code> or
+was deleted.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.set_storage" class="method"><a class="src rightside" href="../../src/pallet_revive/exec.rs.html#253-258">Source</a><h4 class="code-header">fn <a href="#tymethod.set_storage" class="fn">set_storage</a>(
+    &amp;mut self,
+    key: &amp;Key,
+    value: <a class="enum" href="https://doc.rust-lang.org/1.84.1/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.84.1/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.84.1/std/primitive.u8.html">u8</a>&gt;&gt;,
+    take_old: <a class="primitive" href="https://doc.rust-lang.org/1.84.1/std/primitive.bool.html">bool</a>,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.84.1/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;WriteOutcome, DispatchError&gt;</h4></section></summary><div class="docblock"><p>Sets the storage entry by the given key to the specified value. If <code>value</code> is <code>None</code> then
+the storage entry is deleted.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.charge_storage" class="method"><a class="src rightside" href="../../src/pallet_revive/exec.rs.html#261">Source</a><h4 class="code-header">fn <a href="#tymethod.charge_storage" class="fn">charge_storage</a>(&amp;mut self, diff: &amp;<a class="struct" href="struct.Diff.html" title="struct pallet_revive::precompiles::Diff">Diff</a>)</h4></section></summary><div class="docblock"><p>Charges <code>diff</code> from the meter.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.instantiate" class="method"><a class="src rightside" href="../../src/pallet_revive/exec.rs.html#268-276">Source</a><h4 class="code-header">fn <a href="#tymethod.instantiate" class="fn">instantiate</a>(
+    &amp;mut self,
+    gas_limit: Weight,
+    deposit_limit: <a class="struct" href="run/struct.U256.html" title="struct pallet_revive::precompiles::run::U256">U256</a>,
+    code: <a class="struct" href="run/struct.H256.html" title="struct pallet_revive::precompiles::run::H256">H256</a>,
+    value: <a class="struct" href="run/struct.U256.html" title="struct pallet_revive::precompiles::run::U256">U256</a>,
+    input_data: <a class="struct" href="https://doc.rust-lang.org/1.84.1/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.84.1/std/primitive.u8.html">u8</a>&gt;,
+    salt: <a class="enum" href="https://doc.rust-lang.org/1.84.1/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;&amp;[<a class="primitive" href="https://doc.rust-lang.org/1.84.1/std/primitive.u8.html">u8</a>; <a class="primitive" href="https://doc.rust-lang.org/1.84.1/std/primitive.array.html">32</a>]&gt;,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.84.1/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="../evm/struct.H160.html" title="struct pallet_revive::evm::H160">H160</a>, <a class="struct" href="struct.ExecError.html" title="struct pallet_revive::precompiles::ExecError">ExecError</a>&gt;</h4></section></summary><div class="docblock"><p>Instantiate a contract from the given code.</p>
+<p>Returns the original code size of the called contract.
+The newly created account will be associated with <code>code</code>. <code>value</code> specifies the amount of
+value transferred from the caller to the newly created account.</p>
+</div></details></div><h2 id="implementors" class="section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"></div><script src="../../trait.impl/pallet_revive/exec/trait.PrecompileWithInfoExt.js" async></script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

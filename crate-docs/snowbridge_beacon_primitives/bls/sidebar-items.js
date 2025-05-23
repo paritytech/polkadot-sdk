@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["BlsError"],"fn":["fast_aggregate_verify","fast_aggregate_verify_pre_aggregated","prepare_aggregate_pubkey","prepare_aggregate_pubkey_from_absent","prepare_aggregate_signature","prepare_g1_pubkeys","prepare_milagro_pubkey"],"struct":["AggregatePublicKey","AggregateSignature","PublicKeyPrepared","SignaturePrepared"]};

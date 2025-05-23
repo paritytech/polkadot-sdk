@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["Forcing","RewardDestination"],"mod":["pallet","slashing"],"struct":["ActiveEraInfo","EraRewardPoints","Nominations","StakingLedger","UnappliedSlash","UnlockChunk","ValidatorPrefs"]};

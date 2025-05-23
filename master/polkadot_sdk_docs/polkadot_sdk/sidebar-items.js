@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["cumulus","frame_runtime","polkadot","smart_contracts","substrate","templates","xcm"]};

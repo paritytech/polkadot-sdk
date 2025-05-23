@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["bench_approvals","bench_approvals_run","prepare_test"],"struct":["ApprovalTestState","ApprovalsOptions"]};

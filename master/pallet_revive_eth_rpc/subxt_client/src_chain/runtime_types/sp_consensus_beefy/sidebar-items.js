@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["commitment","ecdsa_crypto","mmr","payload"],"struct":["DoubleVotingProof","ForkVotingProof","FutureBlockVotingProof","ValidatorSet","VoteMessage"]};

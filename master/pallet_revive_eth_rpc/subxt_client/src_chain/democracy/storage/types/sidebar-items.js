@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["blacklist","cancellations","deposit_of","last_tabled_was_external","lowest_unbaked","metadata_of","next_external","public_prop_count","public_props","referendum_count","referendum_info_of","voting_of"]};

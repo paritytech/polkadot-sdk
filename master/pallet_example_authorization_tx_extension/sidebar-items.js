@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["extensions","pallet_assets","pallet_coownership"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["prepare_parachain_heads_proof"]};
