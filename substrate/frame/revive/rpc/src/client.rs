@@ -53,7 +53,6 @@ use subxt::{
 	Config, OnlineClient,
 };
 use thiserror::Error;
-use tokio::sync::RwLock;
 
 /// The substrate block type.
 pub type SubstrateBlock = subxt::blocks::Block<SrcChainConfig, OnlineClient<SrcChainConfig>>;
@@ -66,9 +65,6 @@ pub type SubstrateBlockNumber = <SubstrateBlockHeader as Header>::Number;
 
 /// The substrate block hash type.
 pub type SubstrateBlockHash = <SrcChainConfig as Config>::Hash;
-
-/// Type alias for shared data.
-pub type Shared<T> = Arc<RwLock<T>>;
 
 /// The runtime balance type.
 pub type Balance = u128;

@@ -85,7 +85,7 @@ use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 use pallet_nfts::PalletFeatures;
 use pallet_nis::WithMaximumOf;
 use pallet_nomination_pools::PoolId;
-use pallet_revive::{evm::runtime::EthExtra, AddressMapper};
+use pallet_revive::{evm::runtime::EthExtra, AddressMapper, NonceAlreadyIncremented};
 use pallet_session::historical as pallet_session_historical;
 use sp_core::U256;
 use sp_runtime::traits::TransactionExtension;
@@ -3443,6 +3443,7 @@ impl_runtime_apis! {
 				code,
 				data,
 				salt,
+				NonceAlreadyIncremented::No,
 			)
 		}
 

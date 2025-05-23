@@ -153,9 +153,9 @@ pub(crate) fn generate(def: crate::SolutionDef) -> Result<TokenStream2> {
 				voter_at: impl Fn(Self::VoterIndex) -> Option<A>,
 				target_at: impl Fn(Self::TargetIndex) -> Option<A>,
 			) -> Result<_fepsp::Vec<_feps::Assignment<A, #weight_type>>, _feps::Error> {
-				let mut #assignment_name: _fepsp::Vec<_feps::Assignment<A, #weight_type>> = Default::default();
+				let mut #assignment_name: _fepsp::BTreeMap<Self::VoterIndex, _feps::Assignment<A, #weight_type>> = Default::default();
 				#into_impl
-				Ok(#assignment_name)
+				Ok(#assignment_name.into_values().collect())
 			}
 
 			fn voter_count(&self) -> usize {
@@ -426,13 +426,18 @@ pub(crate) fn into_impl(
 	let into_impl_single = {
 		let name = vote_field(1);
 		quote!(
-			for (voter_index, target_index) in self.#name {
-				#assignments.push(_feps::Assignment {
-					who: voter_at(voter_index).or_invalid_index()?,
-					distribution: vec![
-						(target_at(target_index).or_invalid_index()?, #per_thing::one())
-					],
-				})
+			for (voter_index, target_index) in self.#name {;
+				if #assignments.contains_key(&voter_index) {
+					return Err(_feps::Error::DuplicateVoter);
+				} else {
+					#assignments.insert(
+						voter_index,
+						_feps::Assignment {
+							who: voter_at(voter_index).or_invalid_index()?,
+							distribution: vec![(target_at(target_index).or_invalid_index()?, #per_thing::one())],
+						}
+					);
+				}
 			}
 		)
 	};
@@ -442,10 +447,21 @@ pub(crate) fn into_impl(
 			let name = vote_field(c);
 			quote!(
 				for (voter_index, inners, t_last_idx) in self.#name {
+					if #assignments.contains_key(&voter_index) {
+						return Err(_feps::Error::DuplicateVoter);
+					}
+
+					let mut targets_seen = _fepsp::BTreeSet::new();
+
 					let mut sum = #per_thing::zero();
 					let mut inners_parsed = inners
 						.iter()
 						.map(|(ref t_idx, p)| {
+							if targets_seen.contains(t_idx) {
+								return Err(_feps::Error::DuplicateTarget);
+							} else {
+								targets_seen.insert(t_idx);
+							}
 							sum = _fepsp::sp_arithmetic::traits::Saturating::saturating_add(sum, *p);
 							let target = target_at(*t_idx).or_invalid_index()?;
 							Ok((target, *p))
@@ -456,6 +472,13 @@ pub(crate) fn into_impl(
 						return Err(_feps::Error::SolutionWeightOverflow);
 					}
 
+					// check that the last target index is also unique.
+					if targets_seen.contains(&t_last_idx) {
+						return Err(_feps::Error::DuplicateTarget);
+					} else {
+						// no need to insert, we are done.
+					}
+
 					// defensive only. Since Percent doesn't have `Sub`.
 					let p_last = _fepsp::sp_arithmetic::traits::Saturating::saturating_sub(
 						#per_thing::one(),
@@ -464,10 +487,13 @@ pub(crate) fn into_impl(
 
 					inners_parsed.push((target_at(t_last_idx).or_invalid_index()?, p_last));
 
-					#assignments.push(_feps::Assignment {
-						who: voter_at(voter_index).or_invalid_index()?,
-						distribution: inners_parsed,
-					});
+					#assignments.insert(
+						voter_index,
+						_feps::Assignment {
+							who: voter_at(voter_index).or_invalid_index()?,
+							distribution: inners_parsed,
+						}
+					);
 				}
 			)
 		})
