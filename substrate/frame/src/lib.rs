@@ -519,7 +519,7 @@ pub mod runtime {
 	#[cfg(feature = "std")]
 	pub mod testing_prelude {
 		pub use sp_core::storage::Storage;
-		pub use sp_runtime::{BuildStorage, DispatchError};
+		pub use sp_runtime::{testing::TestXt, BuildStorage, DispatchError};
 	}
 }
 
