@@ -26,7 +26,7 @@ use trie_db::{node::NodeOwned, Hasher};
 /// Special purpose trie cache implementation that is able to cache an unlimited number
 /// of values. To be used in `validate_block` to serve values and nodes that
 /// have already been loaded and decoded from the storage proof.
-pub(crate) struct TrieCache<'a, H: Hasher> {
+pub struct TrieCache<'a, H: Hasher> {
 	node_cache: RefMut<'a, HashMap<H::Out, NodeOwned<H::Out>>>,
 	value_cache: Option<RefMut<'a, HashMap<Box<[u8]>, trie_db::CachedValue<H::Out>>>>,
 }
@@ -64,7 +64,7 @@ impl<'a, H: Hasher> trie_db::TrieCache<NodeCodec<H>> for TrieCache<'a, H> {
 }
 
 /// Provider of [`TrieCache`] instances.
-pub(crate) struct CacheProvider<H: Hasher> {
+pub struct CacheProvider<H: Hasher> {
 	node_cache: RefCell<HashMap<H::Out, NodeOwned<H::Out>>>,
 	/// Cache: `storage_root` => `storage_key` => `value`.
 	///
