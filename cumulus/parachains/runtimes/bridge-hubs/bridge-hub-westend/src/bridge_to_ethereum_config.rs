@@ -376,7 +376,6 @@ pub mod benchmark_helpers {
 pub(crate) mod migrations {
 	use frame_support::pallet_prelude::*;
 	use snowbridge_core::TokenId;
-	use xcm::VersionedLocation;
 
 	#[frame_support::storage_alias]
 	pub type OldNativeToForeignId<T: snowbridge_pallet_system::Config> = StorageMap<
