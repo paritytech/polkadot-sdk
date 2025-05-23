@@ -50,6 +50,18 @@ pub enum Error {
 	/// Signing failed.
 	#[error("Failed to sign: {0}")]
 	CannotSign(String),
+	/// Invalid inherent transactions.
+	#[error("Invalid inherent transactions: {0}")]
+	InvalidInherents(sp_inherents::Error),
+	/// Invalid inherent transactions.
+	#[error("Invalid inherent transactions (unhandled): {0:?}")]
+	InvalidInherentsUnhandled(sp_inherents::InherentIdentifier),
+	/// Epoch unavailable.
+	#[error("Epoch unavailable for parent hash: {0}")]
+	EpochUnavailable(String),
+	/// Slot author not found.
+	#[error("Slot author not found")]
+	SlotAuthorNotFound,
 	/// Some other error.
 	#[error(transparent)]
 	Other(#[from] Box<dyn std::error::Error + Sync + Send + 'static>),

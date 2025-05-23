@@ -92,7 +92,6 @@ where
 		create_inherent_data_providers,
 		spawner,
 		registry,
-		check_for_equivocation: sc_consensus_aura::CheckForEquivocation::No,
 		telemetry,
 		compatibility_mode: CompatibilityMode::None,
 	})
@@ -119,7 +118,6 @@ pub fn build_verifier<P, C, CIDP, N>(
 		client,
 		create_inherent_data_providers,
 		telemetry,
-		check_for_equivocation: sc_consensus_aura::CheckForEquivocation::No,
 		compatibility_mode: CompatibilityMode::None,
 	})
 }
