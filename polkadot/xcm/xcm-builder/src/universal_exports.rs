@@ -278,7 +278,6 @@ impl<Bridges: ExporterFor, Router: SendXcm, UniversalLocation: Get<InteriorLocat
 			*msg = Some(xcm);
 			return Err(NotApplicable)
 		};
-		ensure!(maybe_payment.is_none(), Unroutable);
 
 		// `xcm` should already end with `SetTopic` - if it does, then extract and derive into
 		// an onward topic ID.
@@ -301,12 +300,16 @@ impl<Bridges: ExporterFor, Router: SendXcm, UniversalLocation: Get<InteriorLocat
 		if let Some(forward_id) = maybe_forward_id {
 			message.0.push(SetTopic(forward_id));
 		}
-		validate_send::<Router>(bridge, message).inspect_err(|err| {
+		let (v, mut cost) = validate_send::<Router>(bridge, message).inspect_err(|err| {
 			if let NotApplicable = err {
 				// We need to make sure that msg is not consumed in case of `NotApplicable`.
 				*msg = Some(xcm);
 			}
-		})
+		})?;
+		if let Some(bridge_payment) = maybe_payment {
+			cost.push(bridge_payment);
+		}
+		Ok((v, cost))
 	}
 
 	fn deliver(validation: Self::Ticket) -> Result<XcmHash, SendError> {
