@@ -45,7 +45,7 @@ impl Metrics {
 			Histogram::with_opts(
 				HistogramOpts::new(
 					"rpc_transaction_validation_time",
-					"RPC Transaction validation time",
+					"RPC Transaction validation time in seconds",
 				)
 				.buckets(exponential_buckets(0.01, 2.0, 16).expect("Valid buckets; qed")),
 			)?,
@@ -56,7 +56,7 @@ impl Metrics {
 			Histogram::with_opts(
 				HistogramOpts::new(
 					"rpc_transaction_in_block_time",
-					"RPC Transaction in block time",
+					"RPC Transaction in block time in seconds",
 				)
 				.buckets(linear_buckets(0.0, 3.0, 20).expect("Valid buckets; qed")),
 			)?,
@@ -67,7 +67,7 @@ impl Metrics {
 			Histogram::with_opts(
 				HistogramOpts::new(
 					"rpc_transaction_finalized_time",
-					"RPC Transaction finalized time",
+					"RPC Transaction finalized time in seconds",
 				)
 				.buckets(linear_buckets(0.01, 40.0, 20).expect("Valid buckets; qed")),
 			)?,
@@ -76,24 +76,33 @@ impl Metrics {
 
 		let dropped = register(
 			Histogram::with_opts(
-				HistogramOpts::new("rpc_transaction_dropped_time", "RPC Transaction dropped time")
-					.buckets(linear_buckets(0.01, 3.0, 20).expect("Valid buckets; qed")),
+				HistogramOpts::new(
+					"rpc_transaction_dropped_time",
+					"RPC Transaction dropped time in seconds",
+				)
+				.buckets(linear_buckets(0.01, 3.0, 20).expect("Valid buckets; qed")),
 			)?,
 			registry,
 		)?;
 
 		let invalid = register(
 			Histogram::with_opts(
-				HistogramOpts::new("rpc_transaction_invalid_time", "RPC Transaction invalid time")
-					.buckets(linear_buckets(0.01, 3.0, 20).expect("Valid buckets; qed")),
+				HistogramOpts::new(
+					"rpc_transaction_invalid_time",
+					"RPC Transaction invalid time in seconds",
+				)
+				.buckets(linear_buckets(0.01, 3.0, 20).expect("Valid buckets; qed")),
 			)?,
 			registry,
 		)?;
 
 		let error = register(
 			Histogram::with_opts(
-				HistogramOpts::new("rpc_transaction_error_time", "RPC Transaction error time")
-					.buckets(linear_buckets(0.01, 3.0, 20).expect("Valid buckets; qed")),
+				HistogramOpts::new(
+					"rpc_transaction_error_time",
+					"RPC Transaction error time in seconds",
+				)
+				.buckets(linear_buckets(0.01, 3.0, 20).expect("Valid buckets; qed")),
 			)?,
 			registry,
 		)?;
