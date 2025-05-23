@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1747956300167,
+  "lastUpdate": 1748015312856,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -41039,6 +41039,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2578087418,
             "range": "± 34874771",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "49718502+alexggh@users.noreply.github.com",
+            "name": "Alexandru Gheorghe",
+            "username": "alexggh"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "85f5dc72e3825c189f7cd0fdffd1e463ccf946e1",
+          "message": "Use hashbrown hashmap/hashset in validation context (#8606)\n\nDiscovered while profiling\nhttps://github.com/paritytech/polkadot-sdk/issues/6131#issuecomment-2891523233\nwith the benchmark https://github.com/paritytech/polkadot-sdk/pull/8069\nthat when running in validation a big chunk of the time is spent\ninserting and retrieving data from the BTreeMap/BTreeSet.\n\nBy switching to hashbrown HashMap/HashSet in validation TrieCache and\nTrieRecorder and the memory-db\nhttps://github.com/paritytech/trie/pull/221 read costs improve with\naround ~40% and write with about ~20%\n\n---------\n\nSigned-off-by: Alexandru Gheorghe <alexandru.gheorghe@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2025-05-23T14:53:14Z",
+          "tree_id": "ade5b4ef80478c623bc008c8bb3d5ea06199a2ad",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/85f5dc72e3825c189f7cd0fdffd1e463ccf946e1"
+        },
+        "date": 1748015295201,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 18427981,
+            "range": "± 156505",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 18705638,
+            "range": "± 270437",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 20277718,
+            "range": "± 146670",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 24840557,
+            "range": "± 347306",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 56703800,
+            "range": "± 982872",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 320426842,
+            "range": "± 7071792",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2360892888,
+            "range": "± 29222704",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 16273710,
+            "range": "± 160571",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 16630699,
+            "range": "± 150257",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 17367449,
+            "range": "± 246890",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 21616200,
+            "range": "± 296390",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 56784729,
+            "range": "± 848250",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 320075671,
+            "range": "± 7241859",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2508557508,
+            "range": "± 29857337",
             "unit": "ns/iter"
           }
         ]
