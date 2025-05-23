@@ -1,0 +1,41 @@
+[package]
+name = "pallet-dday-detection"
+version = "1.0.0"
+authors.workspace = true
+edition.workspace = true
+license = "Apache-2.0"
+homepage.workspace = true
+repository.workspace = true
+description = "FRAME pallet for DDay detection and stalled head of remote chain tracking"
+
+[lints]
+workspace = true
+
+[dependencies]
+codec = { features = ["derive"], workspace = true }
+frame-benchmarking = { optional = true, workspace = true }
+frame-support = { workspace = true }
+frame-system = { workspace = true }
+polkadot-primitives = { workspace = true }
+scale-info = { features = ["derive"], workspace = true }
+
+[features]
+default = ["std"]
+runtime-benchmarks = [
+	"frame-benchmarking",
+	"frame-benchmarking/runtime-benchmarks",
+	"frame-support/runtime-benchmarks",
+	"frame-system/runtime-benchmarks",
+]
+std = [
+	"codec/std",
+	"frame-benchmarking?/std",
+	"frame-support/std",
+	"frame-system/std",
+	"polkadot-primitives/std",
+	"scale-info/std",
+]
+try-runtime = [
+	"frame-support/try-runtime",
+	"frame-system/try-runtime",
+]

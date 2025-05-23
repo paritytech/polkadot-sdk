@@ -17,6 +17,7 @@ codec = { workspace = true }
 frame-support = { workspace = true }
 pallet-assets = { workspace = true }
 pallet-balances = { workspace = true }
+pallet-dday-detection = { workspace = true }
 pallet-message-queue = { workspace = true }
 pallet-treasury = { workspace = true }
 pallet-utility = { workspace = true }

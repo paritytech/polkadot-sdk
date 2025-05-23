@@ -102,6 +102,7 @@ bp-asset-hub-rococo = { workspace = true }
 bp-asset-hub-westend = { workspace = true }
 bp-bridge-hub-rococo = { workspace = true }
 bp-bridge-hub-westend = { workspace = true }
+pallet-bridge-proof-root-sync = { workspace = true }
 pallet-xcm-bridge-hub-router = { workspace = true }
 snowbridge-outbound-queue-primitives = { workspace = true }
 snowbridge-pallet-system-frontend = { workspace = true }
@@ -135,6 +136,7 @@ runtime-benchmarks = [
 	"pallet-assets-freezer/runtime-benchmarks",
 	"pallet-assets/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
+	"pallet-bridge-proof-root-sync/runtime-benchmarks",
 	"pallet-collator-selection/runtime-benchmarks",
 	"pallet-message-queue/runtime-benchmarks",
 	"pallet-migrations/runtime-benchmarks",
@@ -181,6 +183,7 @@ try-runtime = [
 	"pallet-aura/try-runtime",
 	"pallet-authorship/try-runtime",
 	"pallet-balances/try-runtime",
+	"pallet-bridge-proof-root-sync/try-runtime",
 	"pallet-collator-selection/try-runtime",
 	"pallet-message-queue/try-runtime",
 	"pallet-migrations/try-runtime",
@@ -237,6 +240,7 @@ std = [
 	"pallet-aura/std",
 	"pallet-authorship/std",
 	"pallet-balances/std",
+	"pallet-bridge-proof-root-sync/std",
 	"pallet-collator-selection/std",
 	"pallet-message-queue/std",
 	"pallet-migrations/std",

@@ -16,6 +16,7 @@ members = [
 	"bridges/modules/grandpa",
 	"bridges/modules/messages",
 	"bridges/modules/parachains",
+	"bridges/modules/proof-root-sync",
 	"bridges/modules/relayers",
 	"bridges/modules/xcm-bridge-hub",
 	"bridges/modules/xcm-bridge-hub-router",
@@ -352,6 +353,8 @@ members = [
 	"substrate/frame/contracts/uapi",
 	"substrate/frame/conviction-voting",
 	"substrate/frame/core-fellowship",
+	"substrate/frame/dday/detection",
+	"substrate/frame/dday/voting",
 	"substrate/frame/delegated-staking",
 	"substrate/frame/democracy",
 	"substrate/frame/election-provider-multi-block",
@@ -666,7 +669,7 @@ blake2 = { version = "0.10.4", default-features = false }
 blake2b_simd = { version = "1.0.2", default-features = false }
 blake3 = { version = "1.5" }
 bn = { package = "substrate-bn", version = "0.6", default-features = false }
-bounded-collections = { version = "0.2.3", default-features = false }
+bounded-collections = { version = "0.2.4", default-features = false }
 bounded-vec = { version = "0.7" }
 bp-asset-hub-rococo = { path = "cumulus/parachains/runtimes/assets/asset-hub-rococo/bridge-primitives", default-features = false }
 bp-asset-hub-westend = { path = "cumulus/parachains/runtimes/assets/asset-hub-westend/bridge-primitives", default-features = false }
@@ -946,6 +949,7 @@ pallet-bounties = { path = "substrate/frame/bounties", default-features = false 
 pallet-bridge-grandpa = { path = "bridges/modules/grandpa", default-features = false }
 pallet-bridge-messages = { path = "bridges/modules/messages", default-features = false }
 pallet-bridge-parachains = { path = "bridges/modules/parachains", default-features = false }
+pallet-bridge-proof-root-sync = { path = "bridges/modules/proof-root-sync", default-features = false }
 pallet-bridge-relayers = { path = "bridges/modules/relayers", default-features = false }
 pallet-broker = { path = "substrate/frame/broker", default-features = false }
 pallet-child-bounties = { path = "substrate/frame/child-bounties", default-features = false }
@@ -959,6 +963,8 @@ pallet-contracts-proc-macro = { path = "substrate/frame/contracts/proc-macro", d
 pallet-contracts-uapi = { path = "substrate/frame/contracts/uapi", default-features = false }
 pallet-conviction-voting = { path = "substrate/frame/conviction-voting", default-features = false }
 pallet-core-fellowship = { path = "substrate/frame/core-fellowship", default-features = false }
+pallet-dday-detection = { path = "substrate/frame/dday/detection", default-features = false }
+pallet-dday-voting = { path = "substrate/frame/dday/voting", default-features = false }
 pallet-default-config-example = { path = "substrate/frame/examples/default-config", default-features = false }
 pallet-delegated-staking = { path = "substrate/frame/delegated-staking", default-features = false }
 pallet-democracy = { path = "substrate/frame/democracy", default-features = false }
