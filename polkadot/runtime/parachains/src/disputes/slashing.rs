@@ -422,7 +422,7 @@ pub mod pallet {
 
 	/// Validators pending dispute slashes.
 	#[pallet::storage]
-	pub(super) type UnappliedSlashes<T> = StorageDoubleMap<
+	pub(crate) type UnappliedSlashes<T> = StorageDoubleMap<
 		_,
 		Twox64Concat,
 		SessionIndex,
