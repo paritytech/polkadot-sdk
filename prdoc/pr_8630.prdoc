@@ -1,24 +1,25 @@
-title: 'Broker: Introduce min price + adjust renewals to lower market.'
+title: "Broker: Introduce min price and adjust renewals to lower market"
+
 doc:
 - audience: Runtime Dev
   description: |-
-	pallet-broker now provides an additional `AdaptPrice` implementation:
-	`MinimumPrice`. This price adapter works exactly the same as the
-	`CenterTargetPrice` adapter, except that it can be configured with a
-	minimum price. If set, it will never drop the returned `end_price` (nor the
-	`target_price`) below that minimum. The pallet-broker provides an
-	implementation for the newly introduced `GetMinimumPrice` trait, which is
-	used to provide that minimum value. If the pallet is used, then the minimum
-	price is configurable via the `set_minimum_end_price` extrinsic of
-	pallet-broker.
+    pallet-broker now provides an additional `AdaptPrice` implementation:
+    `MinimumPrice`. This price adapter works exactly the same as the
+    `CenterTargetPrice` adapter, except that it can be configured with a
+    minimum price. If set, it will never drop the returned `end_price` (nor the
+    `target_price`) below that minimum. The pallet-broker provides an
+    implementation for the newly introduced `GetMinimumPrice` trait, which is
+    used to provide that minimum value. If the pallet is used, then the minimum
+    price is configurable via the `set_minimum_end_price` extrinsic of
+    pallet-broker.
 
-	Apart from having an adapter to ensure a minimum price, the behavior of
-	renewals was also adjusted: Renewals are now either bumped by renewal bump
-	or set to the `end_price` of the current sale. This ensures some market
-	coupling of renewal prices, while still maintaining some predictability. 
+    Apart from having an adapter to ensure a minimum price, the behavior of
+    renewals was also adjusted: Renewals are now either bumped by renewal bump
+    or set to the `end_price` of the current sale. This ensures some market
+    coupling of renewal prices, while still maintaining some predictability. 
 
-	Breaking changes: Introduction of new configuration parameter for setting a
-	default value for the minimum end price: `DefaultMinimumEndPrice`.
+    Breaking changes: Introduction of new configuration parameter for setting a
+    default value for the minimum end price: `DefaultMinimumEndPrice`.
 
 crates:
 - name: pallet-broker
