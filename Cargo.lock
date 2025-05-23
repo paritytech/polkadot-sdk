@@ -5739,7 +5739,7 @@ dependencies = [
 
 [[package]]
 name = "frame-executive"
-version = "37.0.1"
+version = "37.0.2"
 dependencies = [
  "aquamarine",
  "array-bytes",
@@ -19600,7 +19600,7 @@ dependencies = [
 
 [[package]]
 name = "sp-api-proc-macro"
-version = "20.0.1"
+version = "20.0.2"
 dependencies = [
  "Inflector",
  "assert_matches",
