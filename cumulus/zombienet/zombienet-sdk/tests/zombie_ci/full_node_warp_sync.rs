@@ -27,7 +27,7 @@ async fn full_node_warp_sync() -> Result<(), anyhow::Error> {
 	let alice_client: OnlineClient<PolkadotConfig> = alice.wait_client().await?;
 
 	log::info!("Ensuring parachain is backed");
-	assert_para_is_backed(&alice_client, ParaId::from(PARA_ID), 10).await?;
+	assert_para_is_backed(&alice_client, ParaId::from(PARA_ID), 30).await?;
 
 	for name in ["two", "three", "four", "five"] {
 		log::info!("Checking full node {name} is syncing");
