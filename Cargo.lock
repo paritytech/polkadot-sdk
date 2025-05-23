@@ -4624,6 +4624,7 @@ dependencies = [
 name = "cumulus-pallet-xcmp-queue"
 version = "0.7.1"
 dependencies = [
+ "approx",
  "bounded-collections",
  "bp-xcm-bridge-hub-router",
  "cumulus-pallet-parachain-system",
@@ -6475,6 +6476,7 @@ dependencies = [
  "cumulus-primitives-proof-size-hostfunction",
  "cumulus-test-runtime",
  "frame-benchmarking",
+ "frame-storage-access-test-runtime",
  "frame-support",
  "frame-system",
  "gethostname",
@@ -6493,6 +6495,8 @@ dependencies = [
  "sc-client-api",
  "sc-client-db",
  "sc-executor 0.32.0",
+ "sc-executor-common 0.29.0",
+ "sc-executor-wasmtime 0.29.0",
  "sc-runtime-utilities",
  "sc-service",
  "sc-sysinfo",
@@ -6553,9 +6557,9 @@ dependencies = [
 
 [[package]]
 name = "frame-decode"
-version = "0.7.0"
+version = "0.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "50c554ce2394e2c04426a070b4cb133c72f6f14c86b665f4e13094addd8e8958"
+checksum = "a7cb8796f93fa038f979a014234d632e9688a120e745f936e2635123c77537f7"
 dependencies = [
  "frame-metadata 20.0.0",
  "parity-scale-codec",
@@ -6742,6 +6746,19 @@ dependencies = [
  "substrate-rpc-client",
  "tokio",
  "tokio-retry",
+]
+
+[[package]]
+name = "frame-storage-access-test-runtime"
+version = "0.1.0"
+dependencies = [
+ "cumulus-pallet-parachain-system",
+ "parity-scale-codec",
+ "sp-core 28.0.0",
+ "sp-runtime 31.0.1",
+ "sp-state-machine 0.35.0",
+ "sp-trie 29.0.0",
+ "substrate-wasm-builder",
 ]
 
 [[package]]
@@ -11866,8 +11883,10 @@ version = "27.0.0"
 dependencies = [
  "frame-benchmarking",
  "frame-election-provider-support",
+ "frame-remote-externalities",
  "frame-support",
  "frame-system",
+ "hex",
  "log",
  "pallet-balances",
  "parity-scale-codec",
@@ -11881,6 +11900,7 @@ dependencies = [
  "sp-runtime 31.0.1",
  "sp-tracing 16.0.0",
  "strum 0.26.3",
+ "tokio",
 ]
 
 [[package]]
@@ -20602,9 +20622,9 @@ dependencies = [
 
 [[package]]
 name = "scale-typegen"
-version = "0.11.0"
+version = "0.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6aebea322734465f39e4ad8100e1f9708c6c6c325d92b8780015d30c44fae791"
+checksum = "05c61b6b706a3eaad63b506ab50a1d2319f817ae01cf753adcc3f055f9f0fcd6"
 dependencies = [
  "proc-macro2 1.0.95",
  "quote 1.0.40",
@@ -24872,7 +24892,7 @@ dependencies = [
  "proc-macro2 1.0.95",
  "quote 1.0.40",
  "scale-info",
- "scale-typegen 0.11.0",
+ "scale-typegen 0.11.1",
  "subxt-metadata 0.41.0",
  "syn 2.0.98",
  "thiserror 2.0.12",
@@ -24916,7 +24936,7 @@ dependencies = [
  "base58",
  "blake2 0.10.6",
  "derive-where",
- "frame-decode 0.7.0",
+ "frame-decode 0.7.1",
  "frame-metadata 20.0.0",
  "hashbrown 0.14.5",
  "hex",
@@ -24997,7 +25017,7 @@ dependencies = [
  "parity-scale-codec",
  "proc-macro-error2",
  "quote 1.0.40",
- "scale-typegen 0.11.0",
+ "scale-typegen 0.11.1",
  "subxt-codegen 0.41.0",
  "subxt-utils-fetchmetadata 0.41.0",
  "syn 2.0.98",
@@ -25023,7 +25043,7 @@ version = "0.41.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fff4591673600c4388e21305788282414d26c791b4dee21b7cb0b19c10076f98"
 dependencies = [
- "frame-decode 0.7.0",
+ "frame-decode 0.7.1",
  "frame-metadata 20.0.0",
  "hashbrown 0.14.5",
  "parity-scale-codec",
