@@ -122,7 +122,7 @@ pub(crate) fn simulate_message_exporter_on_bridged_chain<
 		dummy_xcm(),
 	)
 	.expect("validate_export to pass");
-	log::info!(
+	tracing::info!(
 		target: "simulate_message_exporter_on_bridged_chain",
 		"HaulBlobExporter::validate fee: {:?}",
 		fee
@@ -132,7 +132,7 @@ pub(crate) fn simulate_message_exporter_on_bridged_chain<
 			ticket,
 		)
 		.expect("deliver to pass");
-	log::info!(
+	tracing::info!(
 		target: "simulate_message_exporter_on_bridged_chain",
 		"HaulBlobExporter::deliver xcm_hash: {:?}",
 		xcm_hash

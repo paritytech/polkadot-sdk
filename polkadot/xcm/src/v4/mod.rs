@@ -1310,7 +1310,7 @@ impl<Call: Decode + GetDispatchInfo> TryFrom<NewInstruction<Call>> for Instructi
 					Ok(decoded) => decoded.get_dispatch_info().call_weight,
 					Err(error) => {
 						let fallback_weight = fallback_max_weight.unwrap_or(Weight::MAX);
-						log::debug!(
+						tracing::debug!(
 							target: "xcm::versions::v5Tov4",
 							"Couldn't decode call in Transact: {:?}, using fallback weight: {:?}",
 							error,
@@ -1428,7 +1428,7 @@ impl<Call: Decode + GetDispatchInfo> TryFrom<NewInstruction<Call>> for Instructi
 			PayFees { .. } |
 			SetHints { .. } |
 			ExecuteWithOrigin { .. } => {
-				log::debug!(target: "xcm::versions::v5tov4", "`{new_instruction:?}` not supported by v4");
+				tracing::debug!(target: "xcm::versions::v5tov4", "`{new_instruction:?}` not supported by v4");
 				return Err(());
 			},
 		})

@@ -91,7 +91,7 @@ where
 		let payload = match message.data.payload {
 			Ok(payload) => payload,
 			Err(e) => {
-				log::error!(
+				tracing::error!(
 					target: LOG_TARGET,
 					"dispatch - payload error: {e:?} for lane_id: {:?} and message_nonce: {:?}",
 					message.key.lane_id,
@@ -105,7 +105,7 @@ where
 		};
 		let dispatch_level_result = match T::BlobDispatcher::dispatch_blob(payload) {
 			Ok(_) => {
-				log::debug!(
+				tracing::debug!(
 					target: LOG_TARGET,
 					"dispatch - `DispatchBlob::dispatch_blob` was ok for lane_id: {:?} and message_nonce: {:?}",
 					message.key.lane_id,
@@ -114,7 +114,7 @@ where
 				XcmBlobMessageDispatchResult::Dispatched
 			},
 			Err(e) => {
-				log::error!(
+				tracing::error!(
 					target: LOG_TARGET,
 					"dispatch - `DispatchBlob::dispatch_blob` failed with error: {e:?} for lane_id: {:?} and message_nonce: {:?}",
 					message.key.lane_id,

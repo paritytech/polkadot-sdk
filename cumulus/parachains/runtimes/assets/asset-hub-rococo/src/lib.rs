@@ -1846,12 +1846,12 @@ impl_runtime_apis! {
 						alloc::boxed::Box::new(bridged_asset_hub.clone()),
 						XCM_VERSION,
 					).map_err(|e| {
-						log::error!(
-							"Failed to dispatch `force_xcm_version({:?}, {:?}, {:?})`, error: {:?}",
+						tracing::error!(
+							target: "bridges::benchmark", error=?e,
+							"Failed to dispatch `force_xcm_version({:?}, {:?}, {:?})`",
 							RuntimeOrigin::root(),
 							bridged_asset_hub,
 							XCM_VERSION,
-							e
 						);
 						BenchmarkError::Stop("XcmVersion was not stored!")
 					})?;

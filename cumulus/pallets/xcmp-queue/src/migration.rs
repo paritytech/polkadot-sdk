@@ -117,7 +117,7 @@ pub mod v2 {
 			};
 
 			if v2::QueueConfig::<T>::translate(|pre| pre.map(translate)).is_err() {
-				log::error!(
+				tracing::error!(
 					target: crate::LOG_TARGET,
 					"unexpected error when performing translation of the QueueConfig type \
 					during storage upgrade to v2"
@@ -214,15 +214,15 @@ pub mod v3 {
 
 	pub fn lazy_migrate_inbound_queue<T: Config>() {
 		let Some(mut states) = v3::InboundXcmpStatus::<T>::get() else {
-			log::debug!(target: LOG, "Lazy migration finished: item gone");
+			tracing::debug!(target: LOG, "Lazy migration finished: item gone");
 			return
 		};
 		let Some(ref mut next) = states.first_mut() else {
-			log::debug!(target: LOG, "Lazy migration finished: item empty");
+			tracing::debug!(target: LOG, "Lazy migration finished: item empty");
 			v3::InboundXcmpStatus::<T>::kill();
 			return
 		};
-		log::debug!(
+		tracing::debug!(
 			"Migrating inbound HRMP channel with sibling {:?}, msgs left {}.",
 			next.sender,
 			next.message_metadata.len()
@@ -234,7 +234,7 @@ pub mod v3 {
 			return
 		};
 		if format != XcmpMessageFormat::ConcatenatedVersionedXcm {
-			log::warn!(target: LOG,
+			tracing::warn!(target: LOG,
 				"Dropping message with format {:?} (not ConcatenatedVersionedXcm)",
 				format
 			);
@@ -250,14 +250,14 @@ pub mod v3 {
 		};
 
 		let Ok(msg): Result<BoundedVec<_, _>, _> = msg.try_into() else {
-			log::error!(target: LOG, "Message dropped: too big");
+			tracing::error!(target: LOG, "Message dropped: too big");
 			v3::InboundXcmpStatus::<T>::put(states);
 			return
 		};
 
 		// Finally! We have a proper message.
 		T::XcmpQueue::enqueue_message(msg.as_bounded_slice(), next.sender);
-		log::debug!(target: LOG, "Migrated HRMP message to MQ: {:?}", (next.sender, block_number));
+		tracing::debug!(target: LOG, "Migrated HRMP message to MQ: {:?}", (next.sender, block_number));
 		v3::InboundXcmpStatus::<T>::put(states);
 	}
 }
@@ -291,7 +291,7 @@ pub mod v4 {
 			};
 
 			if QueueConfig::<T>::translate(|pre| pre.map(translate)).is_err() {
-				log::error!(
+				tracing::error!(
 					target: crate::LOG_TARGET,
 					"unexpected error when performing translation of the QueueConfig type \
 					during storage upgrade to v4"
