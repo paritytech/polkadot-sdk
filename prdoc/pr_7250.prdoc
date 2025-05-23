@@ -13,7 +13,7 @@ doc:
         Adjust total issuance automatically when `PositiveImbalance` or `NegativeImbalance` are dropped via the `HandleImbalanceDrop` trait.
 
 crates:
-  - name: frame-balances
-    bump: minor
+  - name: pallet-balances
+    bump: major
   - name: frame-support
     bump: minor
