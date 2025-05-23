@@ -474,7 +474,10 @@ where
 	///
 	/// The method attempts to build a temporary view and create an iterator of ready transactions
 	/// for a specific `at` hash. If a valid view is found, it collects and prunes
-	/// transactions already included in the blocks and returns the valid set.
+	/// transactions already included in the blocks and returns the valid set. Not finding a view
+	/// returns with the ready transaction set found in the most recent view processed by the
+	/// fork-aware txpool. Not being able to query for block number for the provided `at` block hash
+	/// results in returning an empty transaction set.
 	///
 	/// Pruning is just rebuilding the underlying transactions graph, no validations are executed,
 	/// so this process shall be fast.
@@ -487,35 +490,27 @@ where
 			"fatp::ready_at_light"
 		);
 
-		let Ok(block_number) = self.api.resolve_block_number(at) else {
-			return Box::new(std::iter::empty())
-		};
+		let at_number = self.api.resolve_block_number(at).ok();
+		let finalized_number = self
+			.api
+			.resolve_block_number(self.enactment_state.lock().recent_finalized_block())
+			.ok();
 
-		let best_result = {
-			api.tree_route(self.enactment_state.lock().recent_finalized_block(), at).map(
-				|tree_route| {
-					if let Some((index, view)) =
-						tree_route.enacted().iter().enumerate().rev().skip(1).find_map(|(i, b)| {
-							self.view_store.get_view_at(b.hash, true).map(|(view, _)| (i, view))
-						}) {
-						let e = tree_route.enacted()[index..].to_vec();
-						(TreeRoute::new(e, 0).ok(), Some(view))
-					} else {
-						(None, None)
-					}
-				},
-			)
-		};
-
-		if let Ok((Some(best_tree_route), Some(best_view))) = best_result {
-			let (tmp_view, _, _): (View<ChainApi>, _, _) =
-				View::new_from_other(&best_view, &HashAndNumber { hash: at, number: block_number });
-
+		// Prune all txs from the best view found, considering the extrinsics part of the blocks
+		// that are more recent than the view itself.
+		if let Some((view, enacted_blocks, at_hn)) = at_number.and_then(|at_number| {
+			let at_hn = HashAndNumber { hash: at, number: at_number };
+			finalized_number.and_then(|finalized_number| {
+				self.view_store
+					.find_view_descendent_up_to_number(&at_hn, finalized_number)
+					.map(|(view, enacted_blocks)| (view, enacted_blocks, at_hn))
+			})
+		}) {
+			let (tmp_view, _, _): (View<ChainApi>, _, _) = View::new_from_other(&view, &at_hn);
 			let mut all_extrinsics = vec![];
-
-			for h in best_tree_route.enacted() {
+			for h in enacted_blocks {
 				let extrinsics = api
-					.block_body(h.hash)
+					.block_body(h)
 					.await
 					.unwrap_or_else(|error| {
 						warn!(
@@ -546,7 +541,7 @@ where
 			debug!(
 				target: LOG_TARGET,
 				?at,
-				best_view_hash = ?best_view.at.hash,
+				best_view_hash = ?view.at.hash,
 				before_count,
 				to_be_removed = all_extrinsics.len(),
 				after_count,
@@ -554,6 +549,17 @@ where
 				"fatp::ready_at_light"
 			);
 			Box::new(tmp_view.pool.validated_pool().ready())
+		} else if let Some((most_recent_view, _)) = self
+			.view_store
+			.most_recent_view
+			.read()
+			.and_then(|at| self.view_store.get_view_at(at, true))
+		{
+			// Fallback for the case when `at` is not on the already known fork.
+			// Falls back to the most recent view, which may include txs which
+			// are invalid or already included in the blocks but can still yield a
+			// partially valid ready set, which is still better than including nothing.
+			Box::new(most_recent_view.pool.validated_pool().ready())
 		} else {
 			let empty: ReadyIteratorFor<ChainApi> = Box::new(std::iter::empty());
 			debug!(
