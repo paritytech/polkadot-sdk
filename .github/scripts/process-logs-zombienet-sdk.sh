@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 echo "Processing log files"
 
 LOKI_URL_FOR_NODE='https://grafana.teleport.parity.io/explore?orgId=1&left=%7B%22datasource%22:%22PCF9DACBDF30E12B3%22,%22queries%22:%5B%7B%22refId%22:%22A%22,%22datasource%22:%7B%22type%22:%22loki%22,%22uid%22:%22PCF9DACBDF30E12B3%22%7D,%22editorMode%22:%22code%22,%22expr%22:%22%7Bnamespace%3D%5C%22{{namespace}}%5C%22,pod%3D%5C%22{{podName}}%5C%22%7D%22,%22queryType%22:%22range%22%7D%5D,%22range%22:%7B%22from%22:%22{{from}}%22,%22to%22:%22{{to}}%22%7D%7D'
@@ -37,7 +37,7 @@ if [[ "$ZOMBIE_PROVIDER" == "k8s" ]]; then
   jq -r '.relay.nodes[].name' "$ZOMBIE_JSON" | while read -r name; do
     # Fetching logs from k8s
     if ! kubectl logs "$name" -c "$name" -n "$NS" > "$TARGET_DIR/$name.log" ; then
-      echo "::warning ::WARNING: failed to fetch logs for $name"
+      echo "::warning ::Failed to fetch logs for $name"
     fi
     echo -e "\t$name: $(make_url "$name")"
   done
@@ -49,7 +49,7 @@ if [[ "$ZOMBIE_PROVIDER" == "k8s" ]]; then
     jq -r --arg pid "$para_id" '.parachains[$pid][] .collators[].name' "$ZOMBIE_JSON" | while read -r name; do
       # Fetching logs from k8s
       if ! kubectl logs "$name" -c "$name" -n "$NS" > "$TARGET_DIR/$name.log" ; then
-        echo "::warning ::WARNING: failed to fetch logs for $name"
+        echo "::warning ::Failed to fetch logs for $name"
       fi
       echo -e "\t$name: $(make_url "$name")"
     done
