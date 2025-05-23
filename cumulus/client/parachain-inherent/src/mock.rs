@@ -21,7 +21,7 @@ use cumulus_primitives_core::{
 	relay_chain::{Slot, UpgradeGoAhead},
 	InboundDownwardMessage, InboundHrmpMessage, ParaId, PersistedValidationData,
 };
-use cumulus_primitives_parachain_inherent::MessageQueueChain;
+use cumulus_primitives_parachain_inherent::{MessageQueueChain, VersionedInherentData};
 use cumulus_test_relay_sproof_builder::RelayStateSproofBuilder;
 use sc_client_api::{Backend, StorageProvider};
 use sp_crypto_hashing::twox_128;
@@ -233,7 +233,7 @@ impl<R: Send + Sync + GenerateRandomness<u64>> InherentDataProvider
 
 		inherent_data.put_data(
 			INHERENT_IDENTIFIER,
-			&ParachainInherentData {
+			&VersionedInherentData::V1(ParachainInherentData {
 				validation_data: PersistedValidationData {
 					parent_head: Default::default(),
 					relay_parent_storage_root,
@@ -244,7 +244,7 @@ impl<R: Send + Sync + GenerateRandomness<u64>> InherentDataProvider
 				horizontal_messages,
 				relay_chain_state: proof,
 				relay_parent_descendants: Default::default(),
-			},
+			}),
 		)
 	}
 
