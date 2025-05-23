@@ -2,9 +2,7 @@ title: 'Bridges: Fix - Improve try-state for pallet-xcm-bridge-hub'
 doc:
 - audience: Runtime Dev
   description: |-
-    Fixing https://github.com/paritytech/polkadot-sdk/issues/8215 based on https://github.com/paritytech/polkadot-sdk/issues/8185: Improve try-state for pallet-xcm-bridge-hub
-
-    It removes try_as and uses try_into implementation instead.
+    Improve try-state for pallet-xcm-bridge-hub, it removes try_as and uses try_into implementation instead.
 crates:
 - name: pallet-xcm-bridge-hub
   bump: patch
