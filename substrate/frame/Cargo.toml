@@ -47,7 +47,7 @@ sp-consensus-aura = { default-features = false, path = "../primitives/consensus/
 sp-consensus-grandpa = { default-features = false, path = "../primitives/consensus/grandpa", optional = true, version = "18.0.0" }
 sp-inherents = { default-features = false, path = "../primitives/inherents", optional = true, version = "31.0.0" }
 
-frame-executive = { default-features = false, path = "executive", optional = true, version = "33.0.0" }
+frame-executive = { default-features = false, path = "executive", optional = true, version = "33.0.1" }
 frame-system-rpc-runtime-api = { default-features = false, path = "system/rpc/runtime-api", optional = true, version = "31.0.0" }
 
 docify = "0.2.8"

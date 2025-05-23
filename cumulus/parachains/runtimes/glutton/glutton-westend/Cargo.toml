@@ -15,7 +15,7 @@ scale-info = { version = "2.11.1", default-features = false, features = ["derive
 
 # Substrate
 frame-benchmarking = { path = "../../../../../substrate/frame/benchmarking", default-features = false, optional = true, version = "33.0.0" }
-frame-executive = { path = "../../../../../substrate/frame/executive", default-features = false, version = "33.0.0" }
+frame-executive = { path = "../../../../../substrate/frame/executive", default-features = false, version = "33.0.1" }
 frame-support = { path = "../../../../../substrate/frame/support", default-features = false, version = "33.0.0" }
 frame-system = { path = "../../../../../substrate/frame/system", default-features = false, version = "33.0.0" }
 frame-system-rpc-runtime-api = { path = "../../../../../substrate/frame/system/rpc/runtime-api", default-features = false, version = "31.0.0" }

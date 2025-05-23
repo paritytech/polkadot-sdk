@@ -10,3 +10,8 @@ para-chains and their relay-chains to the limits. This is good for testing out t
 The `Glutton` can be set to consume a fraction of the available unused weight of a chain. It accomplishes this by
 utilizing the `on_idle` hook and consuming a specific ration of the remaining weight. The rations can be set via
 `set_compute` and `set_storage`. Initially the `Glutton` needs to be initialized once with `initialize_pallet`.
+
+
+## Release
+
+polkadot v1.11.0

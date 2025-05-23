@@ -55,7 +55,7 @@ sp-version = { path = "../../../primitives/version", default-features = false, f
 sp-io = { path = "../../../primitives/io", default-features = false, version = "35.0.0" }
 
 # frame dependencies
-frame-executive = { path = "../../../frame/executive", default-features = false, version = "33.0.0" }
+frame-executive = { path = "../../../frame/executive", default-features = false, version = "33.0.1" }
 frame-benchmarking = { path = "../../../frame/benchmarking", default-features = false, version = "33.0.0" }
 frame-benchmarking-pallet-pov = { path = "../../../frame/benchmarking/pov", default-features = false, version = "23.0.0" }
 frame-metadata-hash-extension = { path = "../../../frame/metadata-hash-extension", default-features = false, version = "0.2.0" }

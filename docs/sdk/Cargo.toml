@@ -33,7 +33,7 @@ chain-spec-builder = { package = "staging-chain-spec-builder", path = "../../sub
 subkey = { version = "14.0.0", path = "../../substrate/bin/utils/subkey" }
 frame-system = { path = "../../substrate/frame/system", default-features = false, version = "33.0.0" }
 frame-support = { path = "../../substrate/frame/support", default-features = false, version = "33.0.0" }
-frame-executive = { path = "../../substrate/frame/executive", default-features = false, version = "33.0.0" }
+frame-executive = { path = "../../substrate/frame/executive", default-features = false, version = "33.0.1" }
 pallet-example-single-block-migrations = { version = "0.1.0", path = "../../substrate/frame/examples/single-block-migrations" }
 frame-metadata-hash-extension = { version = "0.2.0", path = "../../substrate/frame/metadata-hash-extension" }
 sc-network = { version = "0.39.0", path = "../../substrate/client/network" }

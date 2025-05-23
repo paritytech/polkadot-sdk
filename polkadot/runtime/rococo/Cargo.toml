@@ -60,7 +60,7 @@ pallet-conviction-voting = { path = "../../../substrate/frame/conviction-voting"
 pallet-democracy = { path = "../../../substrate/frame/democracy", default-features = false, version = "33.0.0" }
 pallet-elections-phragmen = { path = "../../../substrate/frame/elections-phragmen", default-features = false, version = "34.0.0" }
 pallet-asset-rate = { path = "../../../substrate/frame/asset-rate", default-features = false, version = "12.0.0" }
-frame-executive = { path = "../../../substrate/frame/executive", default-features = false, version = "33.0.0" }
+frame-executive = { path = "../../../substrate/frame/executive", default-features = false, version = "33.0.1" }
 pallet-grandpa = { path = "../../../substrate/frame/grandpa", default-features = false, version = "33.0.0" }
 pallet-identity = { path = "../../../substrate/frame/identity", default-features = false, version = "33.0.0" }
 pallet-indices = { path = "../../../substrate/frame/indices", default-features = false, version = "33.0.0" }

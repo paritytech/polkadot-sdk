@@ -17,7 +17,7 @@ arbitrary = "1.3.2"
 scale-info = { version = "2.11.1", features = ["derive"] }
 frame-system = { version = "33.0.0", path = "../../../../substrate/frame/system" }
 frame-support = { version = "33.0.0", path = "../../../../substrate/frame/support" }
-frame-executive = { version = "33.0.0", path = "../../../../substrate/frame/executive" }
+frame-executive = { version = "33.0.1", path = "../../../../substrate/frame/executive" }
 frame-try-runtime = { version = "0.39.0", path = "../../../../substrate/frame/try-runtime" }
 pallet-balances = { version = "34.0.0", path = "../../../../substrate/frame/balances" }
 pallet-message-queue = { version = "36.0.0", path = "../../../../substrate/frame/message-queue" }
