@@ -62,12 +62,9 @@ impl SendMessageFeeProvider for MockErrOutboundQueue {
 }
 
 pub struct MockTokenIdConvert;
-impl MaybeEquivalence<TokenId, Location> for MockTokenIdConvert {
-	fn convert(_id: &TokenId) -> Option<Location> {
+impl MaybeConvert<TokenId, Location> for MockTokenIdConvert {
+	fn maybe_convert(_id: TokenId) -> Option<Location> {
 		Some(Location::new(1, [GlobalConsensus(ByGenesis(WESTEND_GENESIS_HASH))]))
-	}
-	fn convert_back(_loc: &Location) -> Option<TokenId> {
-		None
 	}
 }
 
