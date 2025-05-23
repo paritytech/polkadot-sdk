@@ -136,3 +136,16 @@ jobs:
 
             exit 1
           fi
+          
+          # Check if branch name includes 'backport'
+          if [[ "$CI_COMMIT_REF_NAME" == *backport* ]]; then
+            echo "🔍 Backport branch detected, checking for non-patch/none changes..."
+            
+            if grep -E 'bump:' prdoc/pr_$PR.prdoc | grep -Ev 'bump: (patch|none)' > /dev/null; then
+              echo "❌ Backport PR contains disallowed semver change types (must be patch or none only)."
+              echo "Please revise the changes in prdoc/pr_$PR.prdoc."
+              exit 1
+            fi
+            
+            echo "✅ All semver changes in backport are valid (patch or none)."
+          fi
