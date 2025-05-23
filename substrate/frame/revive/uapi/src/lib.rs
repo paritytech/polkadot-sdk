@@ -106,12 +106,12 @@ define_error_codes! {
 	/// The subcall ran out of weight or storage deposit.
 	OutOfResources = 5,
 	/// ECDSA public key recovery failed. Most probably wrong recovery id or signature.
-	EcdsaRecoveryFailed = 6,
+	EcdsaRecoveryFailed = 7,
 	/// sr25519 signature verification failed.
-	Sr25519VerifyFailed = 7,
+	Sr25519VerifyFailed = 8,
 	/// Contract instantiation failed because the address already exists.
 	/// Occurs when instantiating the same contract with the same salt more than once.
-	DuplicateContractAddress = 8,
+	DuplicateContractAddress = 11,
 }
 
 /// The raw return code returned by the host side.
