@@ -443,13 +443,14 @@ pub struct ExtBuilder {
 	validator_count: u32,
 	invulnerables: BoundedVec<AccountId, <Test as Config>::MaxInvulnerables>,
 	has_stakers: bool,
-	pub min_nominator_bond: Balance,
+	min_nominator_bond: Balance,
 	min_validator_bond: Balance,
 	balance_factor: Balance,
 	status: BTreeMap<AccountId, StakerStatus<AccountId>>,
 	stakes: BTreeMap<AccountId, Balance>,
 	stakers: Vec<(AccountId, Balance, StakerStatus<AccountId>)>,
 	flush_events: bool,
+	unbonding_queue_config: Option<UnbondingQueueConfig>,
 }
 
 impl Default for ExtBuilder {
@@ -466,6 +467,7 @@ impl Default for ExtBuilder {
 			stakes: Default::default(),
 			stakers: Default::default(),
 			flush_events: true,
+			unbonding_queue_config: None,
 		}
 	}
 }
@@ -578,6 +580,18 @@ impl ExtBuilder {
 		SkipTryStateCheck::set(!enable);
 		self
 	}
+	pub(crate) fn has_unbonding_queue_config(mut self, has: bool) -> Self {
+		self.unbonding_queue_config = if has {
+			Some(UnbondingQueueConfig {
+				min_slashable_share: Perbill::from_percent(50),
+				lowest_ratio: Perbill::from_percent(34),
+				unbond_period_lower_bound: 1,
+			})
+		} else {
+			None
+		};
+		self
+	}
 	fn build(self) -> sp_io::TestExternalities {
 		sp_tracing::try_init_simple();
 		let mut storage = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
@@ -648,6 +662,7 @@ impl ExtBuilder {
 			slash_reward_fraction: Perbill::from_percent(10),
 			min_nominator_bond: self.min_nominator_bond,
 			min_validator_bond: self.min_validator_bond,
+			unbonding_queue_config: self.unbonding_queue_config,
 			..Default::default()
 		}
 		.assimilate_storage(&mut storage);

@@ -16,11 +16,12 @@
 // limitations under the License.
 
 use crate::ah::mock::*;
-use frame::prelude::Perbill;
+use frame::{arithmetic::SaturatedConversion, prelude::Perbill};
 use frame_support::{assert_noop, assert_ok};
 use pallet_election_provider_multi_block::{Event as ElectionEvent, Phase};
 use pallet_staking_async::{
-	session_rotation::Rotator, ActiveEra, ActiveEraInfo, CurrentEra, Event as StakingEvent,
+	session_rotation::Rotator, ActiveEra, ActiveEraInfo, BackOfUnbondingQueue, CurrentEra,
+	EraLowestRatioTotalStake, Event as StakingEvent, UnbondingQueueParams,
 };
 use pallet_staking_async_rc_client as rc_client;
 use pallet_staking_async_rc_client::ValidatorSetReport;
@@ -101,6 +102,15 @@ fn on_receive_session_report() {
 				}]
 			);
 		}
+
+		// The lowest stake proportion is zero before the election occurs.
+		assert_eq!(EraLowestRatioTotalStake::<T>::get(), vec![]);
+		// Hence, attempting to unbond any amount should yield the maximum delay.
+		assert_eq!(
+			Staking::get_unbonding_delta(1, UnbondingQueueParams::<T>::get().unwrap()),
+			<T as pallet_staking_async::Config>::BondingDuration::get().saturated_into::<u128>() *
+				1_000_000_000_000_u128
+		);
 
 		// Next session we will begin election.
 		assert_ok!(rc_client::Pallet::<T>::relay_session_report(
@@ -195,6 +205,21 @@ fn on_receive_session_report() {
 					leftover: false
 				})
 			)]
+		);
+
+		// After the election, the stake backing the lowest third is composed of only one validator
+		// backed with 100.
+		assert_eq!(EraLowestRatioTotalStake::<T>::get().into_inner(), vec![100]);
+		assert_eq!(Staking::get_min_lowest_stake(), 100);
+		// Now if unbonding a very small amount, the lowest possible delay is applied.
+		assert_eq!(BackOfUnbondingQueue::<T>::get(), 0);
+		let config = UnbondingQueueParams::<T>::get().unwrap();
+		assert_eq!(Staking::get_unbonding_delta(1, config), 60000000000);
+		// If attempting to unbond a big amount, the maximum delay is applied.
+		assert_eq!(
+			Staking::get_unbonding_delta(300, config),
+			<T as pallet_staking_async::Config>::BondingDuration::get().saturated_into::<u128>() *
+				1_000_000_000_000_u128
 		);
 	})
 }
