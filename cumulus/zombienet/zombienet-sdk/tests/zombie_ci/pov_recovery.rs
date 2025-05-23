@@ -3,16 +3,16 @@
 
 use anyhow::anyhow;
 
-use crate::utils::BEST_BLOCK_METRIC;
-use cumulus_zombienet_sdk_helpers::assert_para_throughput;
+use crate::utils::{initialize_network, BEST_BLOCK_METRIC};
 
+use cumulus_zombienet_sdk_helpers::assert_para_throughput;
 use polkadot_primitives::Id as ParaId;
 use serde_json::json;
 use std::{sync::Arc, time::Duration};
 use subxt::{OnlineClient, PolkadotConfig};
 use zombienet_configuration::types::Arg;
 use zombienet_orchestrator::network::node::LogLineCountOptions;
-use zombienet_sdk::{LocalFileSystem, Network, NetworkConfigBuilder, RegistrationStrategy};
+use zombienet_sdk::{NetworkConfig, NetworkConfigBuilder, RegistrationStrategy};
 
 const PARA_ID: u32 = 2000;
 
@@ -25,7 +25,8 @@ async fn pov_recovery() -> Result<(), anyhow::Error> {
 	);
 
 	log::info!("Spawning network with relay chain only");
-	let mut network = initialize_network().await?;
+	let config = build_network_config().await?;
+	let mut network = initialize_network(config).await?;
 
 	let validator_3 = network.get_node("validator-3")?;
 
@@ -93,7 +94,7 @@ async fn pov_recovery() -> Result<(), anyhow::Error> {
 	Ok(())
 }
 
-async fn initialize_network() -> Result<Network<LocalFileSystem>, anyhow::Error> {
+async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 	let images = zombienet_sdk::environment::get_images_from_env();
 	log::info!("Using images: {images:?}");
 
@@ -203,11 +204,7 @@ async fn initialize_network() -> Result<Network<LocalFileSystem>, anyhow::Error>
 			anyhow!("config errs: {errs}")
 		})?;
 
-	// Spawn network
-	let spawn_fn = zombienet_sdk::environment::get_spawn_fn();
-	let network = spawn_fn(config).await?;
-
-	Ok(network)
+	Ok(config)
 }
 
 fn build_collator_args(in_args: Vec<Arg>) -> Vec<Arg> {

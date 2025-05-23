@@ -4,13 +4,13 @@
 use anyhow::anyhow;
 use std::time::Duration;
 
-use crate::utils::{wait_node_is_up, BEST_BLOCK_METRIC};
-use cumulus_zombienet_sdk_helpers::assert_para_throughput;
+use crate::utils::{initialize_network, wait_node_is_up, BEST_BLOCK_METRIC};
 
+use cumulus_zombienet_sdk_helpers::assert_para_throughput;
 use polkadot_primitives::Id as ParaId;
 use subxt::{OnlineClient, PolkadotConfig};
 use zombienet_orchestrator::network::node::LogLineCountOptions;
-use zombienet_sdk::{LocalFileSystem, Network, NetworkConfigBuilder};
+use zombienet_sdk::{NetworkConfig, NetworkConfigBuilder};
 
 const PARA_ID: u32 = 2000;
 
@@ -22,7 +22,8 @@ async fn rpc_collator_builds_blocks() -> Result<(), anyhow::Error> {
 	);
 
 	log::info!("Spawning network");
-	let network = initialize_network().await?;
+	let config = build_network_config().await?;
+	let network = initialize_network(config).await?;
 
 	let alice = network.get_node("alice")?;
 	let alice_client: OnlineClient<PolkadotConfig> = alice.wait_client().await?;
@@ -88,7 +89,7 @@ async fn rpc_collator_builds_blocks() -> Result<(), anyhow::Error> {
 	Ok(())
 }
 
-async fn initialize_network() -> Result<Network<LocalFileSystem>, anyhow::Error> {
+async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 	let images = zombienet_sdk::environment::get_images_from_env();
 	log::info!("Using images: {images:?}");
 
@@ -154,9 +155,5 @@ async fn initialize_network() -> Result<Network<LocalFileSystem>, anyhow::Error>
 			anyhow!("config errs: {errs}")
 		})?;
 
-	// Spawn network
-	let spawn_fn = zombienet_sdk::environment::get_spawn_fn();
-	let network = spawn_fn(config).await?;
-
-	Ok(network)
+	Ok(config)
 }

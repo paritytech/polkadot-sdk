@@ -5,14 +5,14 @@ use anyhow::anyhow;
 use serde_json::json;
 use std::{path::Path, str::FromStr};
 
+use crate::utils::{initialize_network, BEST_BLOCK_METRIC};
+
+use cumulus_zombienet_sdk_helpers::assert_para_throughput;
 use polkadot_primitives::Id as ParaId;
 use sp_core::{hexdisplay::AsBytesRef, Bytes};
 use subxt::{dynamic::Value, tx::DynamicPayload, OnlineClient, PolkadotConfig, SubstrateConfig};
 use subxt_signer::sr25519::dev;
-
-use crate::utils::BEST_BLOCK_METRIC;
-use cumulus_zombienet_sdk_helpers::assert_para_throughput;
-use zombienet_sdk::{LocalFileSystem, Network, NetworkConfigBuilder, RegistrationStrategy};
+use zombienet_sdk::{NetworkConfig, NetworkConfigBuilder, RegistrationStrategy};
 
 const PARA_ID: u32 = 2000;
 
@@ -38,8 +38,8 @@ async fn migrate_solo_to_para() -> Result<(), anyhow::Error> {
 	);
 
 	log::info!("Spawning network");
-	let network = initialize_network().await?;
-	let base_dir = network.base_dir().ok_or(anyhow!("failed to get base dir"))?;
+	let config = build_network_config().await?;
+	let network = initialize_network(config).await?;
 
 	let alice = network.get_node("alice")?;
 	let alice_client: OnlineClient<PolkadotConfig> = alice.wait_client().await?;
@@ -70,6 +70,7 @@ async fn migrate_solo_to_para() -> Result<(), anyhow::Error> {
 		.is_ok());
 
 	log::info!("Migrating solo to para");
+	let base_dir = network.base_dir().ok_or(anyhow!("failed to get base dir"))?;
 	let call = create_migrate_solo_to_para_call(base_dir, "2000-1").await?;
 	let dave_client: OnlineClient<SubstrateConfig> = dave.wait_client().await?;
 
@@ -99,7 +100,7 @@ async fn migrate_solo_to_para() -> Result<(), anyhow::Error> {
 	Ok(())
 }
 
-async fn initialize_network() -> Result<Network<LocalFileSystem>, anyhow::Error> {
+async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 	let images = zombienet_sdk::environment::get_images_from_env();
 	log::info!("Using images: {images:?}");
 
@@ -158,9 +159,5 @@ async fn initialize_network() -> Result<Network<LocalFileSystem>, anyhow::Error>
 			anyhow!("config errs: {errs}")
 		})?;
 
-	// Spawn network
-	let spawn_fn = zombienet_sdk::environment::get_spawn_fn();
-	let network = spawn_fn(config).await?;
-
-	Ok(network)
+	Ok(config)
 }

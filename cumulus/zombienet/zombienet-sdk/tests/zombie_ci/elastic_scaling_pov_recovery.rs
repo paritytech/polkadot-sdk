@@ -4,12 +4,12 @@
 use anyhow::anyhow;
 use std::{sync::Arc, time::Duration};
 
-use crate::utils::{wait_node_is_up, BEST_BLOCK_METRIC};
+use crate::utils::{initialize_network, wait_node_is_up, BEST_BLOCK_METRIC};
+
 use cumulus_zombienet_sdk_helpers::{
 	assert_para_throughput, create_assign_core_call,
 	submit_extrinsic_and_wait_for_finalization_success_with_timeout,
 };
-
 use polkadot_primitives::Id as ParaId;
 use serde_json::json;
 use subxt::{OnlineClient, PolkadotConfig};
@@ -27,11 +27,9 @@ async fn elastic_scaling_pov_recovery() -> Result<(), anyhow::Error> {
 		env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
 	);
 
-	let config = build_network_config().await?;
-
 	log::info!("Spawning network with relay chain only");
-	let spawn_fn = zombienet_sdk::environment::get_spawn_fn();
-	let mut network = spawn_fn(config).await?;
+	let config = build_network_config().await?;
+	let mut network = initialize_network(config).await?;
 
 	let alice = network.get_node("alice")?;
 	let collator_elastic = network.get_node("collator-elastic")?;

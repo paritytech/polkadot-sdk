@@ -6,9 +6,9 @@ use anyhow::anyhow;
 use polkadot_primitives::Id as ParaId;
 use subxt::{OnlineClient, PolkadotConfig};
 
-use crate::utils::BEST_BLOCK_METRIC;
+use crate::utils::{initialize_network, BEST_BLOCK_METRIC};
 use cumulus_zombienet_sdk_helpers::assert_para_is_backed;
-use zombienet_sdk::{LocalFileSystem, Network, NetworkConfigBuilder};
+use zombienet_sdk::{NetworkConfig, NetworkConfigBuilder};
 
 const PARA_ID: u32 = 2000;
 const DB_SNAPSHOT_RELAYCHAIN: &str = "https://storage.googleapis.com/zombienet-db-snaps/cumulus/0007-full_node_warp_sync/relaychain-12523fe793bff9f6d68651816879a09eec2c1462.tgz";
@@ -21,7 +21,8 @@ async fn full_node_warp_sync() -> Result<(), anyhow::Error> {
 	);
 
 	log::info!("Spawning network");
-	let network = initialize_network().await?;
+	let config = build_network_config().await?;
+	let network = initialize_network(config).await?;
 
 	let alice = network.get_node("alice")?;
 	let alice_client: OnlineClient<PolkadotConfig> = alice.wait_client().await?;
@@ -41,7 +42,7 @@ async fn full_node_warp_sync() -> Result<(), anyhow::Error> {
 	Ok(())
 }
 
-async fn initialize_network() -> Result<Network<LocalFileSystem>, anyhow::Error> {
+async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 	let images = zombienet_sdk::environment::get_images_from_env();
 	log::info!("Using images: {images:?}");
 
@@ -138,10 +139,5 @@ async fn initialize_network() -> Result<Network<LocalFileSystem>, anyhow::Error>
 			anyhow!("config errs: {errs}")
 		})?;
 
-	log::info!("parachains config = {:#?}", config.parachains());
-	// Spawn network
-	let spawn_fn = zombienet_sdk::environment::get_spawn_fn();
-	let network = spawn_fn(config).await?;
-
-	Ok(network)
+	Ok(config)
 }

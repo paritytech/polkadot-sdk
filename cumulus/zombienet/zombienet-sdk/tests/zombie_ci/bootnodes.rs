@@ -4,6 +4,8 @@
 use anyhow::anyhow;
 use tokio::time::Duration;
 
+use crate::utils::initialize_network;
+
 use cumulus_zombienet_sdk_helpers::wait_for_nth_session_change;
 use subxt::{OnlineClient, PolkadotConfig};
 use zombienet_orchestrator::network::node::LogLineCountOptions;
@@ -61,9 +63,9 @@ async fn dht_bootnodes_test() -> Result<(), anyhow::Error> {
 		env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
 	);
 
+	log::info!("Spawning network");
 	let config = build_network_config().await?;
-	let spawn_fn = zombienet_sdk::environment::get_spawn_fn();
-	let mut network = spawn_fn(config).await?;
+	let mut network = initialize_network(config).await?;
 
 	let relay_node = network.get_node("validator-0")?;
 	let relay_client: OnlineClient<PolkadotConfig> = relay_node.wait_client().await?;

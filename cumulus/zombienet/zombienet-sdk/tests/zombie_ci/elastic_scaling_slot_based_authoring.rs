@@ -4,11 +4,11 @@
 use anyhow::anyhow;
 use std::time::Duration;
 
-use crate::utils::{wait_node_is_up, BEST_BLOCK_METRIC};
+use crate::utils::{initialize_network, wait_node_is_up, BEST_BLOCK_METRIC};
+
 use cumulus_zombienet_sdk_helpers::{
 	create_assign_core_call, submit_extrinsic_and_wait_for_finalization_success_with_timeout,
 };
-
 use serde_json::json;
 use subxt::{OnlineClient, PolkadotConfig};
 use subxt_signer::sr25519::dev;
@@ -25,11 +25,9 @@ async fn elastic_scaling_slot_based_authoring() -> Result<(), anyhow::Error> {
 		env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
 	);
 
+	log::info!("Spawning network");
 	let config = build_network_config().await?;
-
-	log::info!("Spawning network with relay chain only");
-	let spawn_fn = zombienet_sdk::environment::get_spawn_fn();
-	let network = spawn_fn(config).await?;
+	let network = initialize_network(config).await?;
 
 	let alice = network.get_node("alice")?;
 	let collator_elastic = network.get_node("collator-elastic")?;

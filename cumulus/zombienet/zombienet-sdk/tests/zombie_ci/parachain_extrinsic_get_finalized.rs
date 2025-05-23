@@ -7,16 +7,18 @@ use tokio::time::Duration;
 use subxt::{dynamic::Value, OnlineClient, SubstrateConfig};
 use subxt_signer::sr25519::dev;
 
-use crate::utils::BEST_BLOCK_METRIC;
+use crate::utils::{initialize_network, BEST_BLOCK_METRIC};
 use cumulus_zombienet_sdk_helpers::submit_extrinsic_and_wait_for_finalization_success_with_timeout;
 use zombienet_orchestrator::network::node::LogLineCountOptions;
-use zombienet_sdk::{LocalFileSystem, Network, NetworkConfigBuilder};
+use zombienet_sdk::{NetworkConfig, NetworkConfigBuilder};
 
 const PARA_ID: u32 = 2000;
 
 #[tokio::test(flavor = "multi_thread")]
 async fn parachain_extrinsic_gets_finalized() -> Result<(), anyhow::Error> {
-	let network = initialize_network().await?;
+	log::info!("Spawning network");
+	let config = build_network_config().await?;
+	let network = initialize_network(config).await?;
 
 	let alice = network.get_node("alice")?;
 
@@ -77,7 +79,7 @@ async fn parachain_extrinsic_gets_finalized() -> Result<(), anyhow::Error> {
 	Ok(())
 }
 
-async fn initialize_network() -> Result<Network<LocalFileSystem>, anyhow::Error> {
+async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 	let _ = env_logger::try_init_from_env(
 		env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
 	);
@@ -123,9 +125,5 @@ async fn initialize_network() -> Result<Network<LocalFileSystem>, anyhow::Error>
 			anyhow!("config errs: {errs}")
 		})?;
 
-	// Spawn network
-	let spawn_fn = zombienet_sdk::environment::get_spawn_fn();
-	let network = spawn_fn(config).await?;
-
-	Ok(network)
+	Ok(config)
 }

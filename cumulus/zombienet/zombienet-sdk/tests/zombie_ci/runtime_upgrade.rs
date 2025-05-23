@@ -4,14 +4,15 @@
 use anyhow::anyhow;
 use std::time::Duration;
 
-use cumulus_zombienet_sdk_helpers::assert_para_throughput;
+use crate::utils::initialize_network;
 
+use cumulus_zombienet_sdk_helpers::assert_para_throughput;
 use polkadot_primitives::Id as ParaId;
 use subxt::{OnlineClient, PolkadotConfig};
 use zombienet_configuration::types::AssetLocation;
 use zombienet_sdk::{
 	tx_helper::{ChainUpgrade, RuntimeUpgradeOptions},
-	LocalFileSystem, Network, NetworkConfigBuilder,
+	NetworkConfig, NetworkConfigBuilder,
 };
 
 const PARA_ID: u32 = 2000;
@@ -43,7 +44,8 @@ async fn runtime_upgrade() -> Result<(), anyhow::Error> {
 	);
 
 	log::info!("Spawning network");
-	let network = initialize_network().await?;
+	let config = build_network_config().await?;
+	let network = initialize_network(config).await?;
 
 	let alice = network.get_node("alice")?;
 	let alice_client: OnlineClient<PolkadotConfig> = alice.wait_client().await?;
@@ -96,7 +98,7 @@ async fn runtime_upgrade() -> Result<(), anyhow::Error> {
 	Ok(())
 }
 
-async fn initialize_network() -> Result<Network<LocalFileSystem>, anyhow::Error> {
+async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 	let images = zombienet_sdk::environment::get_images_from_env();
 	log::info!("Using images: {images:?}");
 
@@ -137,9 +139,5 @@ async fn initialize_network() -> Result<Network<LocalFileSystem>, anyhow::Error>
 			anyhow!("config errs: {errs}")
 		})?;
 
-	// Spawn network
-	let spawn_fn = zombienet_sdk::environment::get_spawn_fn();
-	let network = spawn_fn(config).await?;
-
-	Ok(network)
+	Ok(config)
 }
