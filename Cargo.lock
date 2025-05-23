@@ -1168,6 +1168,7 @@ dependencies = [
  "cumulus-pallet-xcmp-queue",
  "emulated-integration-tests-common",
  "frame-support",
+ "frame-system",
  "pallet-asset-conversion",
  "pallet-asset-rewards",
  "pallet-assets",

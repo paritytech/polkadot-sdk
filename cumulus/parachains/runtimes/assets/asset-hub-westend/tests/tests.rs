@@ -1399,7 +1399,7 @@ fn xcm_payment_api_works() {
 
 #[test]
 fn governance_authorize_upgrade_works() {
-	use westend_runtime_constants::system_parachain::{ASSET_HUB_ID, COLLECTIVES_ID};
+	use westend_runtime_constants::system_parachain::COLLECTIVES_ID;
 
 	// no - random para
 	assert_err!(
@@ -1409,13 +1409,12 @@ fn governance_authorize_upgrade_works() {
 		>(GovernanceOrigin::Location(Location::new(1, Parachain(12334)))),
 		Either::Right(XcmError::Barrier)
 	);
-	// no - AssetHub
-	assert_err!(
+	// ok - AssetHub (itself)
+	assert_ok!(
 		parachains_runtimes_test_utils::test_cases::can_governance_authorize_upgrade::<
 			Runtime,
 			RuntimeOrigin,
-		>(GovernanceOrigin::Location(Location::new(1, Parachain(ASSET_HUB_ID)))),
-		Either::Right(XcmError::Barrier)
+		>(GovernanceOrigin::Origin(RuntimeOrigin::root()))
 	);
 	// no - Collectives
 	assert_err!(
@@ -1423,7 +1422,7 @@ fn governance_authorize_upgrade_works() {
 			Runtime,
 			RuntimeOrigin,
 		>(GovernanceOrigin::Location(Location::new(1, Parachain(COLLECTIVES_ID)))),
-		Either::Right(XcmError::Barrier)
+		Either::Right(XcmError::BadOrigin)
 	);
 	// no - Collectives Voice of Fellows plurality
 	assert_err!(
@@ -1442,6 +1441,8 @@ fn governance_authorize_upgrade_works() {
 		Runtime,
 		RuntimeOrigin,
 	>(GovernanceOrigin::Location(Location::parent())));
+
+	// ok - governance location
 	assert_ok!(parachains_runtimes_test_utils::test_cases::can_governance_authorize_upgrade::<
 		Runtime,
 		RuntimeOrigin,

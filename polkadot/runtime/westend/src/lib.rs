@@ -38,9 +38,9 @@ use frame_support::{
 	parameter_types,
 	traits::{
 		fungible::HoldConsideration, tokens::UnityOrOuterConversion, ConstU32, Contains, EitherOf,
-		EitherOfDiverse, EnsureOriginWithArg, FromContains, InstanceFilter, KeyOwnerProofSystem,
-		LinearStoragePrice, Nothing, ProcessMessage, ProcessMessageError, VariantCountOf,
-		WithdrawReasons,
+		EitherOfDiverse, EnsureOriginWithArg, Equals, FromContains, InstanceFilter,
+		KeyOwnerProofSystem, LinearStoragePrice, Nothing, ProcessMessage, ProcessMessageError,
+		VariantCountOf, WithdrawReasons,
 	},
 	weights::{ConstantMultiplier, WeightMeter},
 	PalletId,
@@ -1769,13 +1769,6 @@ parameter_types! {
 	pub AhExistentialDeposit: Balance = EXISTENTIAL_DEPOSIT / 100;
 }
 
-pub struct ContainsAssetHub;
-impl Contains<Location> for ContainsAssetHub {
-	fn contains(loc: &Location) -> bool {
-		*loc == AssetHub::get()
-	}
-}
-
 impl pallet_rc_migrator::Config for Runtime {
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type RuntimeEvent = RuntimeEvent;
@@ -1783,7 +1776,7 @@ impl pallet_rc_migrator::Config for Runtime {
 		EnsureRoot<AccountId>,
 		EitherOfDiverse<
 			EnsureXcm<IsVoiceOfBody<Collectives, FellowsBodyId>>,
-			EnsureXcm<ContainsAssetHub, Location>,
+			EnsureXcm<Equals<AssetHub>, Location>,
 		>,
 	>;
 	type Currency = Balances;
