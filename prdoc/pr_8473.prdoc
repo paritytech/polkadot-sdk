@@ -7,4 +7,20 @@ doc:
     There is no need to verify the asset location.
 crates:
 - name: snowbridge-outbound-queue-primitives
+  bump: minor
+- name: snowbridge-inbound-queue-primitives
+  bump: minor
+- name: snowbridge-test-utils
+  bump: minor
+- name: snowbridge-pallet-inbound-queue
+  bump: patch
+- name: snowbridge-pallet-inbound-queue-v2
+  bump: patch
+- name: snowbridge-pallet-system
+  bump: minor
+- name: snowbridge-pallet-system-v2
+  bump: minor
+- name: bridge-hub-westend-runtime
+  bump: patch
+- name: bridge-hub-westend-integration-tests
   bump: patch
