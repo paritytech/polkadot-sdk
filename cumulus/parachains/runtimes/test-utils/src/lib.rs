@@ -19,7 +19,7 @@ use codec::{Decode, DecodeLimit};
 use cumulus_primitives_core::{
 	relay_chain::Slot, AbridgedHrmpChannel, ParaId, PersistedValidationData,
 };
-use cumulus_primitives_parachain_inherent::ParachainInherentData;
+use cumulus_primitives_parachain_inherent::{ParachainInherentData, VersionedInherentData};
 use cumulus_test_relay_sproof_builder::RelayStateSproofBuilder;
 use frame_support::{
 	dispatch::{DispatchResult, GetDispatchInfo, RawOrigin},
@@ -704,13 +704,13 @@ pub fn mock_open_hrmp_channel<
 	// to storage; they must also be included in the inherent data.
 	let inherent_data = {
 		let mut inherent_data = InherentData::default();
-		let system_inherent_data = ParachainInherentData {
+		let system_inherent_data = VersionedInherentData::V1(ParachainInherentData {
 			validation_data: vfp,
 			relay_chain_state,
 			downward_messages: Default::default(),
 			horizontal_messages: Default::default(),
 			relay_parent_descendants: Default::default(),
-		};
+		});
 		inherent_data
 			.put_data(
 				cumulus_primitives_parachain_inherent::INHERENT_IDENTIFIER,
