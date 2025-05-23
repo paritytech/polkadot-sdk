@@ -1722,7 +1722,7 @@ where
 
 		let insertion_info =
 			self.mempool.try_insert_with_replacement(xt, priority, source, watched).await?;
-		self.attempt_transaction_replacement_inner_inner(xt_hash, insertion_info)
+		self.post_attempt_transaction_replacement(xt_hash, insertion_info)
 	}
 
 	/// Sync version of [`Self::attempt_transaction_replacement`].
@@ -1755,10 +1755,10 @@ where
 			.mempool
 			.clone()
 			.try_insert_with_replacement_sync(xt, priority, source, watched)?;
-		self.attempt_transaction_replacement_inner_inner(xt_hash, insertion_info)
+		self.post_attempt_transaction_replacement(xt_hash, insertion_info)
 	}
 
-	fn attempt_transaction_replacement_inner_inner(
+	fn post_attempt_transaction_replacement(
 		&self,
 		tx_hash: ExtrinsicHash<ChainApi>,
 		insertion_info: InsertionInfo<ExtrinsicHash<ChainApi>>,
