@@ -39,8 +39,7 @@ use cumulus_test_runtime::{Hash, Header, NodeBlock as Block, RuntimeApi};
 use prometheus::Registry;
 use runtime::AccountId;
 use sc_executor::{HeapAllocStrategy, WasmExecutor, DEFAULT_HEAP_ALLOC_STRATEGY};
-use sp_consensus_aura::sr25519::AuthorityPair;
-use sp_inherents::CreateInherentDataProviders;
+use sp_consensus_aura::{inherents::AuraCreateInherentDataProviders, sr25519::AuthorityPair};
 use std::{
 	collections::HashSet,
 	future::Future,
@@ -140,16 +139,7 @@ pub type ParachainBlockImport = TParachainBlockImport<
 		Block,
 		Arc<Client>,
 		Client,
-		Arc<
-			dyn CreateInherentDataProviders<
-				Block,
-				(),
-				InherentDataProviders = (
-					sp_consensus_aura::inherents::InherentDataProvider,
-					sp_timestamp::InherentDataProvider,
-				),
-			>,
-		>,
+		AuraCreateInherentDataProviders<Block>,
 		AuthorityPair,
 		NumberFor<Block>,
 	>,
@@ -251,17 +241,7 @@ pub fn new_partial(
 				slot_duration,
 			);
 			Ok((slot, timestamp))
-		})
-			as Arc<
-				dyn CreateInherentDataProviders<
-					Block,
-					(),
-					InherentDataProviders = (
-						sp_consensus_aura::inherents::InherentDataProvider,
-						sp_timestamp::InherentDataProvider,
-					),
-				>,
-			>,
+		}) as AuraCreateInherentDataProviders<Block>,
 		true,
 		Default::default(),
 	);
@@ -289,17 +269,7 @@ pub fn new_partial(
 					slot_duration,
 				);
 				Ok((slot, timestamp))
-			})
-				as Arc<
-					dyn CreateInherentDataProviders<
-						Block,
-						(),
-						InherentDataProviders = (
-							sp_consensus_aura::inherents::InherentDataProvider,
-							sp_timestamp::InherentDataProvider,
-						),
-					>,
-				>,
+			}) as AuraCreateInherentDataProviders<Block>,
 			spawner: &task_manager.spawn_essential_handle(),
 			registry: None,
 			telemetry: None,
@@ -579,16 +549,7 @@ where
 						});
 						async move { Ok((slot?, timestamp)) }
 					})
-						as Arc<
-							dyn CreateInherentDataProviders<
-								Block,
-								(),
-								InherentDataProviders = (
-									sp_consensus_aura::inherents::InherentDataProvider,
-									sp_timestamp::InherentDataProvider,
-								),
-							>,
-						>,
+						as AuraCreateInherentDataProviders<Block>,
 					block_import,
 					para_client: client.clone(),
 					para_backend: backend.clone(),

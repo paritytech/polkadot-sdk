@@ -26,8 +26,8 @@ use sp_runtime::traits::Block as BlockT;
 /// `ExtraArgs` generic parameter.
 ///
 /// The crate already provides some convince implementations of this trait for
-/// `Box<dyn CreateInherentDataProviders>` and closures. So, it should not be required to implement
-/// this trait manually.
+/// `Box<dyn CreateInherentDataProviders>`, `Arc<dyn CreateInherentDataProviders>` and closures. So,
+/// it should not be required to implement this trait manually.
 #[async_trait::async_trait]
 pub trait CreateInherentDataProviders<Block: BlockT, ExtraArgs>: Send + Sync {
 	/// The inherent data providers that will be created.

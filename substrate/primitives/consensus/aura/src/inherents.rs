@@ -24,6 +24,16 @@ pub const INHERENT_IDENTIFIER: InherentIdentifier = *b"auraslot";
 /// The type of the Aura inherent.
 pub type InherentType = sp_consensus_slots::Slot;
 
+/// Create inherent data providers for Aura.
+#[cfg(feature = "std")]
+pub type AuraCreateInherentDataProviders<Block> = std::sync::Arc<
+	dyn sp_inherents::CreateInherentDataProviders<
+		Block,
+		(),
+		InherentDataProviders = (InherentDataProvider, sp_timestamp::InherentDataProvider),
+	>,
+>;
+
 /// Auxiliary trait to extract Aura inherent data.
 pub trait AuraInherentData {
 	/// Get aura inherent data.

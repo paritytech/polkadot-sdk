@@ -29,8 +29,8 @@ use sc_service::{Configuration, Error as SubstrateServiceError, KeystoreContaine
 use sc_telemetry::{Telemetry, TelemetryWorker, TelemetryWorkerHandle};
 use sc_transaction_pool_api::OffchainTransactionPoolFactory;
 use sp_consensus::SelectChain;
+use sp_consensus_babe::inherents::BabeCreateInherentDataProvidersWithTimestamp;
 use sp_consensus_beefy::ecdsa_crypto;
-use sp_inherents::CreateInherentDataProviders;
 use std::sync::Arc;
 
 type FullSelectChain = relay_chain_selection::SelectRelayChain<FullBackend>;
@@ -65,16 +65,7 @@ pub(crate) type PolkadotPartialComponents<ChainSelection> = sc_service::PartialC
 					FullGrandpaBlockImport<ChainSelection>,
 					ecdsa_crypto::AuthorityId,
 				>,
-				Arc<
-					dyn CreateInherentDataProviders<
-						Block,
-						(),
-						InherentDataProviders = (
-							sp_consensus_babe::inherents::InherentDataProvider,
-							sp_timestamp::InherentDataProvider,
-						),
-					>,
-				>,
+				BabeCreateInherentDataProvidersWithTimestamp<Block>,
 				ChainSelection,
 			>,
 			sc_consensus_grandpa::LinkHalf<Block, FullClient, ChainSelection>,
@@ -208,17 +199,7 @@ where
 				slot_duration,
 			);
 			Ok((slot, timestamp))
-		})
-			as Arc<
-				dyn CreateInherentDataProviders<
-					Block,
-					(),
-					InherentDataProviders = (
-						sp_consensus_babe::inherents::InherentDataProvider,
-						sp_timestamp::InherentDataProvider,
-					),
-				>,
-			>,
+		}) as BabeCreateInherentDataProvidersWithTimestamp<Block>,
 		select_chain.clone(),
 		OffchainTransactionPoolFactory::new(transaction_pool.clone()),
 	)?;
@@ -237,16 +218,7 @@ where
 				);
 				Ok((slot, timestamp))
 			})
-				as Arc<
-					dyn CreateInherentDataProviders<
-						Block,
-						(),
-						InherentDataProviders = (
-							sp_consensus_babe::inherents::InherentDataProvider,
-							sp_timestamp::InherentDataProvider,
-						),
-					>,
-				>,
+				as BabeCreateInherentDataProvidersWithTimestamp<Block>,
 			spawner: &task_manager.spawn_essential_handle(),
 			registry: config.prometheus_registry(),
 			telemetry: telemetry.as_ref().map(|x| x.handle()),

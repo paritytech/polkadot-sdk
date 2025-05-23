@@ -30,8 +30,8 @@ use sc_transaction_pool_api::RejectAllTxPool;
 use sp_application_crypto::key_types::BABE;
 use sp_consensus::{DisableProofRecording, NoNetwork as DummyOracle, Proposal};
 use sp_consensus_babe::{
-	inherents::InherentDataProvider, make_vrf_sign_data, AllowedSlots, AuthorityId, AuthorityPair,
-	Slot,
+	inherents::{BabeCreateInherentDataProviders, InherentDataProvider},
+	make_vrf_sign_data, AllowedSlots, AuthorityId, AuthorityPair, Slot,
 };
 use sp_consensus_slots::SlotDuration;
 use sp_core::crypto::Pair;
@@ -69,13 +69,7 @@ type BabeBlockImport = PanickingBlockImport<
 		TestBlock,
 		TestClient,
 		Arc<TestClient>,
-		Arc<
-			dyn CreateInherentDataProviders<
-				TestBlock,
-				(),
-				InherentDataProviders = (InherentDataProvider,),
-			>,
-		>,
+		BabeCreateInherentDataProviders<TestBlock>,
 		sc_consensus::LongestChain<substrate_test_runtime_client::Backend, Block>,
 	>,
 >;
@@ -249,14 +243,7 @@ impl TestNetFactory for BabeTestNet {
 					SlotDuration::from_millis(SLOT_DURATION_MS),
 				);
 				Ok((slot,))
-			})
-				as Arc<
-					dyn CreateInherentDataProviders<
-						TestBlock,
-						(),
-						InherentDataProviders = (InherentDataProvider,),
-					>,
-				>,
+			}) as BabeCreateInherentDataProviders<TestBlock>,
 			longest_chain,
 			OffchainTransactionPoolFactory::new(RejectAllTxPool::default()),
 		)

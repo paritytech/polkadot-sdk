@@ -64,7 +64,7 @@ use sc_service::{Configuration, Error, TaskManager};
 use sc_telemetry::TelemetryHandle;
 use sc_transaction_pool::TransactionPoolHandle;
 use sp_api::ProvideRuntimeApi;
-use sp_consensus_aura::AuraApi;
+use sp_consensus_aura::{inherents::AuraCreateInherentDataProviders, AuraApi};
 use sp_core::{traits::SpawnNamed, Pair};
 use sp_inherents::CreateInherentDataProviders;
 use sp_keystore::KeystorePtr;
@@ -256,16 +256,7 @@ where
 					Block,
 					Arc<ParachainClient<Block, RuntimeApi>>,
 					ParachainClient<Block, RuntimeApi>,
-					Arc<
-						dyn CreateInherentDataProviders<
-							Block,
-							(),
-							InherentDataProviders = (
-								sp_consensus_aura::inherents::InherentDataProvider,
-								sp_timestamp::InherentDataProvider,
-							),
-						>,
-					>,
+					AuraCreateInherentDataProviders<Block>,
 					AuraId::BoundedPair,
 					NumberFor<Block>,
 				>,
@@ -301,16 +292,7 @@ impl<Block: BlockT<Hash = DbHash>, RuntimeApi, AuraId>
 			Block,
 			Arc<ParachainClient<Block, RuntimeApi>>,
 			ParachainClient<Block, RuntimeApi>,
-			Arc<
-				dyn CreateInherentDataProviders<
-					Block,
-					(),
-					InherentDataProviders = (
-						sp_consensus_aura::inherents::InherentDataProvider,
-						sp_timestamp::InherentDataProvider,
-					),
-				>,
-			>,
+			AuraCreateInherentDataProviders<Block>,
 			AuraId::BoundedPair,
 			NumberFor<Block>,
 		>,
@@ -330,16 +312,7 @@ where
 				Block,
 				Arc<ParachainClient<Block, RuntimeApi>>,
 				ParachainClient<Block, RuntimeApi>,
-				Arc<
-					dyn CreateInherentDataProviders<
-						Block,
-						(),
-						InherentDataProviders = (
-							sp_consensus_aura::inherents::InherentDataProvider,
-							sp_timestamp::InherentDataProvider,
-						),
-					>,
-				>,
+				AuraCreateInherentDataProviders<Block>,
 				AuraId::BoundedPair,
 				NumberFor<Block>,
 			>,
@@ -391,17 +364,7 @@ where
 					)
 				});
 				async move { Ok((slot?, timestamp)) }
-			})
-				as Arc<
-					dyn CreateInherentDataProviders<
-						Block,
-						(),
-						InherentDataProviders = (
-							sp_consensus_aura::inherents::InherentDataProvider,
-							sp_timestamp::InherentDataProvider,
-						),
-					>,
-				>,
+			}) as AuraCreateInherentDataProviders<Block>,
 			block_import,
 			para_client: client.clone(),
 			para_backend: backend.clone(),
@@ -446,16 +409,7 @@ where
 		Block,
 		Arc<ParachainClient<Block, RuntimeApi>>,
 		ParachainClient<Block, RuntimeApi>,
-		Arc<
-			dyn CreateInherentDataProviders<
-				Block,
-				(),
-				InherentDataProviders = (
-					sp_consensus_aura::inherents::InherentDataProvider,
-					sp_timestamp::InherentDataProvider,
-				),
-			>,
-		>,
+		AuraCreateInherentDataProviders<Block>,
 		AuraId::BoundedPair,
 		NumberFor<Block>,
 	>;
@@ -572,17 +526,7 @@ where
 						)
 					});
 					async move { Ok((slot?, timestamp)) }
-				})
-					as Arc<
-						dyn CreateInherentDataProviders<
-							Block,
-							(),
-							InherentDataProviders = (
-								sp_consensus_aura::inherents::InherentDataProvider,
-								sp_timestamp::InherentDataProvider,
-							),
-						>,
-					>,
+				}) as AuraCreateInherentDataProviders<Block>,
 				block_import,
 				para_client: client.clone(),
 				para_backend: backend,
