@@ -412,7 +412,7 @@ pub async fn assert_para_is_registered(
 
 		log::debug!("Registered para_ids: {:?}", parachains);
 
-		if parachains.iter().find(|p| para_id.eq(*p)).is_some() {
+		if parachains.iter().any(|p| para_id.eq(p)) {
 			log::debug!("para_id {para_id} registered");
 			return Ok(());
 		}
