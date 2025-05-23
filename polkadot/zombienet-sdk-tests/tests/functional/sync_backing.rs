@@ -8,8 +8,10 @@ use anyhow::anyhow;
 use cumulus_zombienet_sdk_helpers::{assert_finality_lag, assert_finalized_para_throughput};
 use polkadot_primitives::Id as ParaId;
 use serde_json::json;
-use subxt::{OnlineClient, PolkadotConfig};
-use zombienet_sdk::NetworkConfigBuilder;
+use zombienet_sdk::{
+	subxt::{OnlineClient, PolkadotConfig},
+	NetworkConfigBuilder,
+};
 
 #[tokio::test(flavor = "multi_thread")]
 async fn sync_backing_test() -> Result<(), anyhow::Error> {

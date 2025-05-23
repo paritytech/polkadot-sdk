@@ -117,8 +117,9 @@ impl ExtrinsicBuilder for DynamicRemarkBuilder<SubstrateConfig> {
 		let transaction = self
 			.offline_client
 			.tx()
-			.create_signed_offline(&dynamic_tx, &signer, params)
-			.unwrap();
+			.create_partial_offline(&dynamic_tx, params)
+			.unwrap()
+			.sign(&signer);
 		let mut encoded = transaction.into_encoded();
 
 		OpaqueExtrinsic::from_bytes(&mut encoded).map_err(|_| "Unable to construct OpaqueExtrinsic")
