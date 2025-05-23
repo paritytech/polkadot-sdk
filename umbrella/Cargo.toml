@@ -824,7 +824,7 @@ version = "38.0.0"
 path = "../substrate/frame/executive"
 default-features = false
 optional = true
-version = "38.0.0"
+version = "38.0.1"
 
 [dependencies.frame-metadata-hash-extension]
 path = "../substrate/frame/metadata-hash-extension"
@@ -1670,7 +1670,7 @@ version = "34.0.0"
 path = "../substrate/primitives/api/proc-macro"
 default-features = false
 optional = true
-version = "20.0.0"
+version = "20.0.3"
 
 [dependencies.sp-application-crypto]
 path = "../substrate/primitives/application-crypto"

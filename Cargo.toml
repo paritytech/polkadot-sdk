@@ -757,7 +757,7 @@ frame-benchmarking-cli = { path = "substrate/utils/frame/benchmarking-cli", defa
 frame-benchmarking-pallet-pov = { default-features = false, path = "substrate/frame/benchmarking/pov" }
 frame-election-provider-solution-type = { path = "substrate/frame/election-provider-support/solution-type", default-features = false, version = "14.0.1" }
 frame-election-provider-support = { path = "substrate/frame/election-provider-support", default-features = false, version = "38.0.0" }
-frame-executive = { path = "substrate/frame/executive", default-features = false, version = "38.0.0" }
+frame-executive = { path = "substrate/frame/executive", default-features = false, version = "38.0.1" }
 frame-metadata = { version = "16.0.0", default-features = false }
 frame-metadata-hash-extension = { path = "substrate/frame/metadata-hash-extension", default-features = false, version = "0.6.0" }
 frame-support = { path = "substrate/frame/support", default-features = false, version = "38.2.0" }
@@ -1216,7 +1216,7 @@ snowbridge-system-runtime-api = { path = "bridges/snowbridge/pallets/system/runt
 soketto = { version = "0.7.1" }
 solochain-template-runtime = { path = "templates/solochain/runtime", version = "0.1.0" }
 sp-api = { path = "substrate/primitives/api", default-features = false, version = "34.0.0" }
-sp-api-proc-macro = { path = "substrate/primitives/api/proc-macro", default-features = false, version = "20.0.0" }
+sp-api-proc-macro = { path = "substrate/primitives/api/proc-macro", default-features = false, version = "20.0.3" }
 sp-application-crypto = { path = "substrate/primitives/application-crypto", default-features = false, version = "38.0.0" }
 sp-arithmetic = { path = "substrate/primitives/arithmetic", default-features = false, version = "26.0.0" }
 sp-authority-discovery = { path = "substrate/primitives/authority-discovery", default-features = false, version = "34.0.0" }
