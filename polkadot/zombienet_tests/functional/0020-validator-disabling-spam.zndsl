@@ -16,6 +16,7 @@ honest-validator-1: reports parachain_candidate_disputes_total is at least 1 wit
 
 # Disputes should conclude
 honest-validator: reports polkadot_parachain_candidate_dispute_concluded{validity="valid"} is at least 1 within 200 seconds
+honest-validator: reports polkadot_parachain_candidate_dispute_concluded{validity="invalid"} is 0 within 50 seconds
 
 # Wait for a few blocks for the disabling to take place.
 honest-validator: log line contains "Disabled validators detected" within 180 seconds
