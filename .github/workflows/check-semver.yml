@@ -137,8 +137,8 @@ jobs:
             exit 1
           fi
           
-          # Check if branch name includes 'backport'
-          if [[ "$CI_COMMIT_REF_NAME" == *backport* ]]; then
+          # Only enforce SemVer restrictions for backports targeting stable branches
+          if [[ "${{ github.event.pull_request.base.ref }}" == stable* ]]; then
             echo "🔍 Backport branch detected, checking for non-patch/none changes..."
             
             if grep -E 'bump:' prdoc/pr_$PR.prdoc | grep -Ev 'bump: (patch|none)' > /dev/null; then
