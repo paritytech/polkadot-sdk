@@ -16,12 +16,10 @@
 use core::{marker::PhantomData, ops::ControlFlow};
 use cumulus_primitives_core::Weight;
 use frame_support::traits::{Contains, ProcessMessageError};
-use xcm::prelude::{ExportMessage, Instruction, Location, NetworkId, UnpaidExecution};
+use xcm::prelude::{ExportMessage, Instruction, Location, NetworkId};
 
-use frame_support::ensure;
-use sp_core::Get;
 use xcm_builder::{CreateMatcher, MatchXcm};
-use xcm_executor::traits::{DenyExecution, Properties, ShouldExecute};
+use xcm_executor::traits::{DenyExecution, Properties};
 
 /// Deny execution if the message contains instruction `ExportMessage` with
 /// a. origin is contained in `FromOrigin` (i.e.`FromOrigin::Contains(origin)`)
@@ -54,38 +52,6 @@ where
 				_ => Ok(ControlFlow::Continue(())),
 			},
 		)?;
-		Ok(())
-	}
-}
-
-/// Allow unpaid execution from location L when exporting to network N
-pub struct AllowExplicitUnpaidExecutionFromAssetHubExportToEthereum<L, N>(PhantomData<(L, N)>);
-impl<L: Contains<Location>, N: Get<NetworkId>> ShouldExecute
-	for AllowExplicitUnpaidExecutionFromAssetHubExportToEthereum<L, N>
-{
-	fn should_execute<Call>(
-		origin: &Location,
-		instructions: &mut [Instruction<Call>],
-		max_weight: Weight,
-		properties: &mut Properties,
-	) -> Result<(), ProcessMessageError> {
-		tracing::trace!(
-			target: "xcm::barriers",
-			?origin, ?instructions, ?max_weight, ?properties,
-			"AllowExplicitUnpaidExecutionFromAssetHubExportToEthereum",
-		);
-		ensure!(L::contains(origin), ProcessMessageError::Unsupported);
-		instructions
-			.matcher()
-			.match_next_inst(|inst| match inst {
-				UnpaidExecution { .. } => Ok(()),
-				_ => Err(ProcessMessageError::BadFormat),
-			})?
-			.match_next_inst(|inst| match inst {
-				ExportMessage { network, .. } if network.clone().eq(&N::get()) => Ok(()),
-				_ => Err(ProcessMessageError::BadFormat),
-			})?;
-
 		Ok(())
 	}
 }
