@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1748005618333,
+  "lastUpdate": 1748015710037,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
@@ -70009,6 +70009,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-store",
             "value": 0.15815550580000004,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "49718502+alexggh@users.noreply.github.com",
+            "name": "Alexandru Gheorghe",
+            "username": "alexggh"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "85f5dc72e3825c189f7cd0fdffd1e463ccf946e1",
+          "message": "Use hashbrown hashmap/hashset in validation context (#8606)\n\nDiscovered while profiling\nhttps://github.com/paritytech/polkadot-sdk/issues/6131#issuecomment-2891523233\nwith the benchmark https://github.com/paritytech/polkadot-sdk/pull/8069\nthat when running in validation a big chunk of the time is spent\ninserting and retrieving data from the BTreeMap/BTreeSet.\n\nBy switching to hashbrown HashMap/HashSet in validation TrieCache and\nTrieRecorder and the memory-db\nhttps://github.com/paritytech/trie/pull/221 read costs improve with\naround ~40% and write with about ~20%\n\n---------\n\nSigned-off-by: Alexandru Gheorghe <alexandru.gheorghe@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2025-05-23T14:53:14Z",
+          "tree_id": "ade5b4ef80478c623bc008c8bb3d5ea06199a2ad",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/85f5dc72e3825c189f7cd0fdffd1e463ccf946e1"
+        },
+        "date": 1748015692362,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02251542928666667,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.1584412143666667,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.013022887700000003,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.008486977380000083,
             "unit": "seconds"
           }
         ]
