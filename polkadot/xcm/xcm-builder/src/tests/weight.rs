@@ -153,30 +153,60 @@ fn errors_should_return_unused_weight() {
 
 #[test]
 fn weight_bounds_should_respect_instructions_limit() {
+	use sp_tracing::capture_test_logs;
+
+	sp_tracing::init_for_tests();
 	MaxInstructions::set(3);
-	let mut message = Xcm(vec![ClearOrigin; 4]);
 	// 4 instructions are too many.
-	assert_eq!(<TestConfig as Config>::Weigher::weight(&mut message), Err(()));
+	let log_capture = capture_test_logs!({
+		let mut message = Xcm(vec![ClearOrigin; 4]);
+		assert_eq!(
+			<TestConfig as Config>::Weigher::weight(&mut message),
+			Err(XcmError::ExceedsStackLimit)
+		);
+	});
+	assert!(log_capture.contains(
+		"Weight calculation failed for message error=ExceedsStackLimit instructions_left=3 message_length=4"
+	));
 
-	let mut message =
-		Xcm(vec![SetErrorHandler(Xcm(vec![ClearOrigin])), SetAppendix(Xcm(vec![ClearOrigin]))]);
-	// 4 instructions are too many, even when hidden within 2.
-	assert_eq!(<TestConfig as Config>::Weigher::weight(&mut message), Err(()));
+	let log_capture = capture_test_logs!({
+		let mut message =
+			Xcm(vec![SetErrorHandler(Xcm(vec![ClearOrigin])), SetAppendix(Xcm(vec![ClearOrigin]))]);
+		// 4 instructions are too many, even when hidden within 2.
+		assert_eq!(
+			<TestConfig as Config>::Weigher::weight(&mut message),
+			Err(XcmError::ExceedsStackLimit)
+		);
+	});
+	assert!(log_capture.contains(
+		"Weight calculation failed for message error=ExceedsStackLimit instructions_left=0 message_length=2"
+	));
 
-	let mut message =
-		Xcm(vec![SetErrorHandler(Xcm(vec![SetErrorHandler(Xcm(vec![SetErrorHandler(Xcm(
-			vec![ClearOrigin],
-		))]))]))]);
-	// 4 instructions are too many, even when it's just one that's 3 levels deep.
-	assert_eq!(<TestConfig as Config>::Weigher::weight(&mut message), Err(()));
+	let log_capture = capture_test_logs!({
+		let mut message =
+			Xcm(vec![SetErrorHandler(Xcm(vec![SetErrorHandler(Xcm(vec![SetErrorHandler(
+				Xcm(vec![ClearOrigin]),
+			)]))]))]);
+		// 4 instructions are too many, even when it's just one that's 3 levels deep.
+		assert_eq!(
+			<TestConfig as Config>::Weigher::weight(&mut message),
+			Err(XcmError::ExceedsStackLimit)
+		);
+	});
+	assert!(log_capture.contains(
+		"Weight calculation failed for message error=ExceedsStackLimit instructions_left=0 message_length=1"
+	));
 
-	let mut message =
-		Xcm(vec![SetErrorHandler(Xcm(vec![SetErrorHandler(Xcm(vec![ClearOrigin]))]))]);
-	// 3 instructions are OK.
-	assert_eq!(
-		<TestConfig as Config>::Weigher::weight(&mut message),
-		Ok(Weight::from_parts(30, 30))
-	);
+	let log_capture = capture_test_logs!({
+		let mut message =
+			Xcm(vec![SetErrorHandler(Xcm(vec![SetErrorHandler(Xcm(vec![ClearOrigin]))]))]);
+		// 3 instructions are OK.
+		assert_eq!(
+			<TestConfig as Config>::Weigher::weight(&mut message),
+			Ok(Weight::from_parts(30, 30))
+		);
+	});
+	assert!(!log_capture.contains("Weight calculation failed for message"));
 }
 
 #[test]
