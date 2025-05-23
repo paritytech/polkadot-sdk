@@ -19,6 +19,7 @@
 
 use crate::{CoreIndex, SaleInfoRecord};
 use sp_arithmetic::{traits::One, FixedU64};
+use sp_core::RuntimeDebug;
 use sp_runtime::{FixedPointNumber, FixedPointOperand, Saturating};
 
 /// Performance of a past sale.
@@ -43,7 +44,7 @@ pub struct SalePerformance<Balance> {
 }
 
 /// Result of `AdaptPrice::adapt_price`.
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, RuntimeDebug, Eq, PartialEq)]
 pub struct AdaptedPrices<Balance> {
 	/// New minimum price to use.
 	pub end_price: Balance,
@@ -133,6 +134,44 @@ impl<Balance: FixedPointOperand> AdaptPrice<Balance> for CenterTargetPrice<Balan
 
 		AdaptedPrices { end_price: price, target_price: sellout_price }
 	}
+}
+
+/// `AdaptPrice` like `CenterTargetPrice`, but with a minimum price.
+///
+/// This price adapter behaves exactly like `CenterTargetPrice`, except that it takes a minimum
+/// price and makes sure that the returned `end_price` is never lower than that.
+///
+/// Target price will also get adusted if necessary (it will never be less than the end_price).
+pub struct MinimumPrice<Balance, MinPrice>(core::marker::PhantomData<(Balance, MinPrice)>);
+
+impl<Balance: FixedPointOperand, MinPrice: GetMinimumPrice<Balance>> AdaptPrice<Balance>
+	for MinimumPrice<Balance, MinPrice>
+{
+	fn leadin_factor_at(when: FixedU64) -> FixedU64 {
+		CenterTargetPrice::<Balance>::leadin_factor_at(when)
+	}
+
+	fn adapt_price(performance: SalePerformance<Balance>) -> AdaptedPrices<Balance> {
+		let mut proposal = CenterTargetPrice::<Balance>::adapt_price(performance);
+		let Some(min_price) = MinPrice::minimum_price() else { return proposal };
+		if proposal.end_price < min_price {
+			proposal.end_price = min_price;
+		}
+		// Fix target price if necessary:
+		if proposal.target_price < proposal.end_price {
+			proposal.target_price = proposal.end_price;
+		}
+		proposal
+	}
+}
+
+/// Provide an optional minimum price for core time sales.
+///
+/// Used in `MinimumPrice` `AdaptPrice` implementation above and a convenience implementation is
+/// provided by the broker pallet itself.
+pub trait GetMinimumPrice<Balance> {
+	/// Get the minimum price for a sale (if any).
+	fn minimum_price() -> Option<Balance>;
 }
 
 #[cfg(test)]
@@ -239,5 +278,53 @@ mod tests {
 		let performance = SalePerformance::new(Some(1000), 100);
 		let prices = CenterTargetPrice::adapt_price(performance);
 		assert_eq!(prices.target_price, 1000);
+	}
+
+	struct TestMinPrice;
+	impl GetMinimumPrice<u64> for TestMinPrice {
+		fn minimum_price() -> Option<u64> {
+			Some(10)
+		}
+	}
+
+	struct TestNoMinPrice;
+	impl GetMinimumPrice<u64> for TestNoMinPrice {
+		fn minimum_price() -> Option<u64> {
+			None
+		}
+	}
+
+	#[test]
+	fn minimum_price_works() {
+		let performance = SalePerformance::new(Some(10), 10);
+		let prices = MinimumPrice::<u64, TestMinPrice>::adapt_price(performance);
+		assert_eq!(prices.end_price, 10);
+		assert_eq!(prices.target_price, 10);
+	}
+
+	#[test]
+	fn minimum_price_does_not_affect_valid_target_price() {
+		let performance = SalePerformance::new(Some(12), 10);
+		let prices = MinimumPrice::<u64, TestMinPrice>::adapt_price(performance);
+		assert_eq!(prices.end_price, 10);
+		assert_eq!(prices.target_price, 12);
+	}
+
+	#[test]
+	fn no_minimum_price_works_as_center_target_price() {
+		let performances = [
+			(Some(100), 10),
+			(None, 20),
+			(Some(1000), 10),
+			(Some(10), 10),
+			(Some(1), 1),
+			(Some(0), 10),
+		];
+		for (sellout, end) in performances {
+			let performance = SalePerformance::new(sellout, end);
+			let prices_minimum = MinimumPrice::<u64, TestNoMinPrice>::adapt_price(performance);
+			let prices = CenterTargetPrice::adapt_price(performance);
+			assert_eq!(prices, prices_minimum);
+		}
 	}
 }
