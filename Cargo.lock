@@ -6299,7 +6299,7 @@ dependencies = [
 
 [[package]]
 name = "frame-executive"
-version = "39.1.0"
+version = "39.1.1"
 dependencies = [
  "aquamarine",
  "array-bytes",
@@ -15693,7 +15693,7 @@ dependencies = [
  "snowbridge-runtime-test-common",
  "snowbridge-system-runtime-api",
  "sp-api 35.0.0",
- "sp-api-proc-macro 21.0.0",
+ "sp-api-proc-macro 21.0.1",
  "sp-application-crypto 39.0.0",
  "sp-arithmetic 26.0.0",
  "sp-authority-discovery",
@@ -21616,7 +21616,7 @@ dependencies = [
  "log",
  "parity-scale-codec",
  "scale-info",
- "sp-api-proc-macro 21.0.0",
+ "sp-api-proc-macro 21.0.1",
  "sp-core 35.0.0",
  "sp-externalities 0.30.0",
  "sp-metadata-ir 0.8.0",
@@ -21646,7 +21646,7 @@ dependencies = [
 
 [[package]]
 name = "sp-api-proc-macro"
-version = "21.0.0"
+version = "21.0.1"
 dependencies = [
  "Inflector",
  "assert_matches",
