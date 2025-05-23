@@ -16,11 +16,14 @@
 // limitations under the License.
 
 use crate::evm::Bytes;
-use alloc::{string::String, vec::Vec};
+use alloc::{collections::BTreeMap, string::String, vec::Vec};
 use codec::{Decode, Encode};
 use derive_more::From;
 use scale_info::TypeInfo;
-use serde::{Deserialize, Serialize};
+use serde::{
+	ser::{SerializeMap, Serializer},
+	Deserialize, Serialize,
+};
 use sp_core::{H160, H256, U256};
 
 /// The type of tracer to use.
@@ -30,6 +33,9 @@ use sp_core::{H160, H256, U256};
 pub enum TracerType {
 	/// A tracer that traces calls.
 	CallTracer(Option<CallTracerConfig>),
+
+	/// A tracer that traces the prestate.
+	PrestateTracer(Option<PrestateTracerConfig>),
 }
 
 impl From<CallTracerConfig> for TracerType {
@@ -71,6 +77,26 @@ pub struct CallTracerConfig {
 impl Default for CallTracerConfig {
 	fn default() -> Self {
 		Self { with_logs: true, only_top_call: false }
+	}
+}
+
+/// The configuration for the prestate tracer.
+#[derive(Clone, Debug, Decode, Serialize, Deserialize, Encode, PartialEq, TypeInfo)]
+#[serde(default, rename_all = "camelCase")]
+pub struct PrestateTracerConfig {
+	/// Whether to include the diff mode in the trace.
+	pub diff_mode: bool,
+
+	/// Whether to include storage in the trace.
+	pub disable_storage: bool,
+
+	/// Whether to include code in the trace.
+	pub disable_code: bool,
+}
+
+impl Default for PrestateTracerConfig {
+	fn default() -> Self {
+		Self { diff_mode: false, disable_storage: false, disable_code: false }
 	}
 }
 
@@ -141,6 +167,85 @@ pub enum CallType {
 pub enum Trace {
 	/// A call trace.
 	Call(CallTrace),
+	/// A prestate trace.
+	Prestate(PrestateTrace),
+}
+
+/// A prestate Trace
+#[derive(TypeInfo, Encode, Decode, Serialize, Deserialize, Clone, Debug, Eq, PartialEq)]
+#[serde(untagged)]
+pub enum PrestateTrace {
+	/// The Prestate mode returns the accounts necessary to execute a given transaction
+	Prestate(BTreeMap<H160, PrestateTraceInfo>),
+
+	/// The diff mode returns the differences between the transaction's pre and post-state
+	/// The result only contains the accounts that were modified by the transaction
+	DiffMode {
+		/// The state before the call.
+		///  The accounts in the `pre` field will contain all of their basic fields, even if those
+		/// fields have not been modified. For `storage` however, only non-empty slots that have
+		/// been modified will be included
+		pre: BTreeMap<H160, PrestateTraceInfo>,
+		/// The state after the call.
+		/// It only contains the specific fields that were actually modified during the transaction
+		post: BTreeMap<H160, PrestateTraceInfo>,
+	},
+}
+
+impl PrestateTrace {
+	/// Returns the pre and post trace info.
+	pub fn state_mut(
+		&mut self,
+	) -> (&mut BTreeMap<H160, PrestateTraceInfo>, Option<&mut BTreeMap<H160, PrestateTraceInfo>>) {
+		match self {
+			PrestateTrace::Prestate(pre) => (pre, None),
+			PrestateTrace::DiffMode { pre, post } => (pre, Some(post)),
+		}
+	}
+}
+
+/// The info of a prestate trace.
+#[derive(
+	TypeInfo, Default, Encode, Decode, Serialize, Deserialize, Clone, Debug, Eq, PartialEq,
+)]
+pub struct PrestateTraceInfo {
+	/// The balance of the account.
+	#[serde(skip_serializing_if = "Option::is_none")]
+	pub balance: Option<U256>,
+	/// The nonce of the account.
+	#[serde(skip_serializing_if = "Option::is_none")]
+	pub nonce: Option<u32>,
+	/// The code of the contract account.
+	#[serde(skip_serializing_if = "Option::is_none")]
+	pub code: Option<Bytes>,
+	/// The storage of the contract account.
+	#[serde(
+		skip_serializing_if = "BTreeMap::is_empty",
+		serialize_with = "serialize_map_skip_none"
+	)]
+	pub storage: BTreeMap<Bytes, Option<Bytes>>,
+}
+
+/// Serializes a map of `K -> Option<V>`, omitting any entries whose value is `None`.
+pub fn serialize_map_skip_none<S, K, V>(
+	map: &BTreeMap<K, Option<V>>,
+	serializer: S,
+) -> Result<S::Ok, S::Error>
+where
+	S: Serializer,
+	K: serde::Serialize,
+	V: serde::Serialize,
+{
+	let len = map.values().filter(|v| v.is_some()).count();
+	let mut ser_map = serializer.serialize_map(Some(len))?;
+
+	for (key, opt_val) in map {
+		if let Some(val) = opt_val {
+			ser_map.serialize_entry(key, val)?;
+		}
+	}
+
+	ser_map.end()
 }
 
 /// A smart contract execution call trace.

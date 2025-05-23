@@ -3490,7 +3490,9 @@ impl_runtime_apis! {
 			let (header, extrinsics) = block.deconstruct();
 			Executive::initialize_block(&header);
 			for (index, ext) in extrinsics.into_iter().enumerate() {
-				trace(tracer.as_tracing(), || {
+				let t = tracer.as_tracing();
+				t.watch_address(&Revive::coinbase().unwrap_or_default());
+				trace(t, || {
 					let _ = Executive::apply_extrinsic(ext);
 				});
 
@@ -3514,7 +3516,9 @@ impl_runtime_apis! {
 			Executive::initialize_block(&header);
 			for (index, ext) in extrinsics.into_iter().enumerate() {
 				if index as u32 == tx_index {
-				trace(tracer.as_tracing(), || {
+					let t = tracer.as_tracing();
+					t.watch_address(&Revive::coinbase().unwrap_or_default());
+					trace(t, || {
 						let _ = Executive::apply_extrinsic(ext);
 					});
 					break;
@@ -3534,7 +3538,10 @@ impl_runtime_apis! {
 		{
 			use pallet_revive::tracing::trace;
 			let mut tracer = Revive::evm_tracer(tracer_type);
-			let result = trace(tracer.as_tracing(), || Self::eth_transact(tx));
+			let t = tracer.as_tracing();
+
+			t.watch_address(&Revive::coinbase().unwrap_or_default());
+			let result = trace(t, || Self::eth_transact(tx));
 
 			if let Some(trace) = tracer.collect_trace() {
 				Ok(trace)
@@ -3543,6 +3550,10 @@ impl_runtime_apis! {
 			} else {
 				Ok(tracer.empty_trace())
 			}
+		}
+
+		fn coinbase() -> Option<H160> {
+			Revive::coinbase()
 		}
 	}
 

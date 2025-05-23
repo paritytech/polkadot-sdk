@@ -44,8 +44,8 @@ pub mod weights;
 
 use crate::{
 	evm::{
-		runtime::GAS_PRICE, CallTracer, GasEncoder, GenericTransaction, Trace, Tracer, TracerType,
-		TYPE_EIP1559,
+		runtime::GAS_PRICE, CallTracer, GasEncoder, GenericTransaction, PrestateTracer, Trace,
+		Tracer, TracerType, TYPE_EIP1559,
 	},
 	exec::{AccountIdOf, ExecError, Executable, Key, Stack as ExecStack},
 	gas::GasMeter,
@@ -1366,6 +1366,26 @@ where
 		Self::convert_native_to_evm(T::Currency::reducible_balance(&account, Preserve, Polite))
 	}
 
+	/// Get the nonce for the given `address`.
+	pub fn evm_nonce(address: &H160) -> u32
+	where
+		T::Nonce: Into<u32>,
+	{
+		let account = T::AddressMapper::to_account_id(&address);
+		System::<T>::account_nonce(account).into()
+	}
+
+	/// The address of the validator that produced the current block.
+	pub fn coinbase() -> Option<H160> {
+		use frame_support::traits::FindAuthor;
+
+		let digest = <frame_system::Pallet<T>>::digest();
+		let pre_runtime_digests = digest.logs.iter().filter_map(|d| d.as_pre_runtime());
+
+		let account_id = T::FindAuthor::find_author(pre_runtime_digests)?;
+		Some(T::AddressMapper::to_address(&account_id))
+	}
+
 	/// Convert a substrate fee into a gas value, using the fixed `GAS_PRICE`.
 	/// The gas is calculated as `fee / GAS_PRICE`, rounded up to the nearest integer.
 	pub fn evm_fee_to_gas(fee: BalanceOf<T>) -> U256 {
@@ -1407,13 +1427,15 @@ where
 	}
 
 	/// Build an EVM tracer from the given tracer type.
-	pub fn evm_tracer(tracer_type: TracerType) -> Tracer {
+	pub fn evm_tracer(tracer_type: TracerType) -> Tracer<T> {
 		match tracer_type {
 			TracerType::CallTracer(config) => CallTracer::new(
 				config.unwrap_or_default(),
 				Self::evm_gas_from_weight as fn(Weight) -> U256,
 			)
 			.into(),
+			TracerType::PrestateTracer(config) =>
+				PrestateTracer::new(config.unwrap_or_default()).into(),
 		}
 	}
 
@@ -1633,6 +1655,9 @@ sp_api::decl_runtime_apis! {
 		///
 		/// See eth-rpc `debug_traceCall` for usage.
 		fn trace_call(tx: GenericTransaction, config: TracerType) -> Result<Trace, EthTransactError>;
+
+		/// The address of the validator that produced the current block.
+		fn coinbase() -> Option<H160>;
 
 	}
 }

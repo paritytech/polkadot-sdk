@@ -2465,6 +2465,10 @@ impl_runtime_apis! {
 				Ok(tracer.empty_trace())
 			}
 		}
+
+		fn coinbase() -> Option<H160> {
+			Revive::coinbase()
+		}
 	}
 }
 

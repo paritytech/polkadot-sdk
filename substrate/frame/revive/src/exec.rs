@@ -83,11 +83,6 @@ pub enum Key {
 
 impl Key {
 	/// Reference to the raw unhashed key.
-	///
-	/// # Note
-	///
-	/// Only used by benchmarking in order to generate storage collisions on purpose.
-	#[cfg(feature = "runtime-benchmarks")]
 	pub fn unhashed(&self) -> &[u8] {
 		match self {
 			Key::Fix(v) => v.as_ref(),
@@ -773,7 +768,6 @@ where
 		)? {
 			stack.run(executable, input_data).map(|_| stack.first_frame.last_frame_output)
 		} else {
-			let result = Self::transfer_from_origin(&origin, &origin, &dest, value);
 			if_tracing(|t| {
 				t.enter_child_span(
 					origin.account_id().map(T::AddressMapper::to_address).unwrap_or_default(),
@@ -784,10 +778,13 @@ where
 					&input_data,
 					Weight::zero(),
 				);
-				match result {
-					Ok(ref output) => t.exit_child_span(&output, Weight::zero()),
-					Err(e) => t.exit_child_span_with_error(e.error.into(), Weight::zero()),
-				}
+			});
+
+			let result = Self::transfer_from_origin(&origin, &origin, &dest, value);
+
+			if_tracing(|t| match result {
+				Ok(ref output) => t.exit_child_span(&output, Weight::zero()),
+				Err(e) => t.exit_child_span_with_error(e.error.into(), Weight::zero()),
 			});
 
 			result
@@ -1750,6 +1747,18 @@ where
 			)? {
 				self.run(executable, input_data)
 			} else {
+				if_tracing(|t| {
+					t.enter_child_span(
+						T::AddressMapper::to_address(self.account_id()),
+						T::AddressMapper::to_address(&dest),
+						false,
+						is_read_only,
+						value,
+						&input_data,
+						Weight::zero(),
+					);
+				});
+
 				let result = if is_read_only && value.is_zero() {
 					Ok(Default::default())
 				} else if is_read_only {
@@ -1763,21 +1772,11 @@ where
 					)
 				};
 
-				if_tracing(|t| {
-					t.enter_child_span(
-						T::AddressMapper::to_address(self.account_id()),
-						T::AddressMapper::to_address(&dest),
-						false,
-						is_read_only,
-						value,
-						&input_data,
-						Weight::zero(),
-					);
-					match result {
-						Ok(ref output) => t.exit_child_span(&output, Weight::zero()),
-						Err(e) => t.exit_child_span_with_error(e.error.into(), Weight::zero()),
-					}
+				if_tracing(|t| match result {
+					Ok(ref output) => t.exit_child_span(&output, Weight::zero()),
+					Err(e) => t.exit_child_span_with_error(e.error.into(), Weight::zero()),
 				});
+
 				result.map(|_| ())
 			}
 		};
@@ -1870,7 +1869,12 @@ where
 	}
 
 	fn balance_of(&self, address: &H160) -> U256 {
-		self.account_balance(&<Self::T as Config>::AddressMapper::to_account_id(address))
+		let balance =
+			self.account_balance(&<Self::T as Config>::AddressMapper::to_account_id(address));
+		if_tracing(|tracer| {
+			tracer.balance_read(address, balance);
+		});
+		balance
 	}
 
 	fn value_transferred(&self) -> U256 {

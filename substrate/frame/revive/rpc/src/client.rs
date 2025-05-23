@@ -124,6 +124,9 @@ pub enum ClientError {
 	/// The contract was not found.
 	#[error("Contract not found")]
 	ContractNotFound,
+	/// Failed to get the tracing data.
+	#[error("tracing failed")]
+	TracingFailed(String),
 	#[error("No Ethereum extrinsic found")]
 	EthExtrinsicNotFound,
 	/// The transaction fee could not be found
@@ -345,6 +348,13 @@ impl Client {
 				let (signed_txs, receipts): (Vec<_>, Vec<_>) =
 					self.receipt_provider.insert_block_receipts(&block).await?.into_iter().unzip();
 
+				if !receipts.is_empty() {
+					log::debug!(target: LOG_TARGET, "block: {block_number:?} - {subscription_type:?} Adding receipt for transactions: {hashes:?}",
+						block_number = block.number(),
+						hashes = receipts.iter().map(|r| r.transaction_hash).collect::<Vec<_>>()
+					);
+				}
+
 				let evm_block =
 					self.evm_block_from_receipts(&block, &receipts, signed_txs, false).await;
 				self.block_provider.update_latest(block, subscription_type).await;
@@ -384,8 +394,8 @@ impl Client {
 		at: BlockNumberOrTagOrHash,
 	) -> Result<SubstrateBlockHash, ClientError> {
 		match at {
-			BlockNumberOrTagOrHash::H256(hash) => Ok(hash),
-			BlockNumberOrTagOrHash::U256(block_number) => {
+			BlockNumberOrTagOrHash::BlockHash(hash) => Ok(hash),
+			BlockNumberOrTagOrHash::BlockNumber(block_number) => {
 				let n: SubstrateBlockNumber =
 					(block_number).try_into().map_err(|_| ClientError::ConversionFailed)?;
 				let hash = self.get_block_hash(n).await?.ok_or(ClientError::BlockNotFound)?;
@@ -620,10 +630,10 @@ impl Client {
 	pub async fn trace_call(
 		&self,
 		transaction: GenericTransaction,
-		block: BlockNumberOrTag,
+		block: BlockNumberOrTagOrHash,
 		config: TracerType,
 	) -> Result<Trace, ClientError> {
-		let block_hash = self.block_hash_for_tag(block.into()).await?;
+		let block_hash = self.block_hash_for_tag(block).await?;
 		let runtime_api = self.runtime_api(block_hash);
 		runtime_api.trace_call(transaction, config.clone()).await
 	}
@@ -683,6 +693,7 @@ impl Client {
 
 		Block {
 			hash: block.hash(),
+			miner: runtime_api.coinbase().await.ok().flatten().unwrap_or_default(),
 			parent_hash,
 			state_root,
 			transactions_root: extrinsics_root,
