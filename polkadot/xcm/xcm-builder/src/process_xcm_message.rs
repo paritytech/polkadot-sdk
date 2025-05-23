@@ -97,18 +97,23 @@ impl<
 				);
 				(used, Ok(true))
 			},
-			Outcome::Incomplete { used, error } => {
+			Outcome::Incomplete { used, error, index } => {
 				tracing::trace!(
 					target: LOG_TARGET,
-					"XCM message execution incomplete, used weight: {used}, error: {error:?}",
+					?error,
+					?index,
+					?used,
+					"XCM message execution incomplete, used weight",
 				);
 				(used, Ok(false))
 			},
 			// In the error-case we assume the worst case and consume all possible weight.
-			Outcome::Error { error } => {
+			Outcome::Error { error, index } => {
 				tracing::trace!(
 					target: LOG_TARGET,
-					"XCM message execution error: {error:?}",
+					?error,
+					?index,
+					"XCM message execution error",
 				);
 				let error = match error {
 					xcm::latest::Error::ExceedsStackLimit => ProcessMessageError::StackLimitReached,

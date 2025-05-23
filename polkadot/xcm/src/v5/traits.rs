@@ -246,17 +246,17 @@ pub enum Outcome {
 	Complete { used: Weight },
 	/// Execution started, but did not complete successfully due to the given error; given weight
 	/// was used.
-	Incomplete { used: Weight, error: Error },
+	Incomplete { used: Weight, error: Error, index: u8 },
 	/// Execution did not start due to the given error.
-	Error { error: Error },
+	Error { error: Error, index: u8 },
 }
 
 impl Outcome {
-	pub fn ensure_complete(self) -> Result {
+	pub fn ensure_complete(self) -> result::Result<(), (u8, Error)> {
 		match self {
 			Outcome::Complete { .. } => Ok(()),
-			Outcome::Incomplete { error, .. } => Err(error),
-			Outcome::Error { error, .. } => Err(error),
+			Outcome::Incomplete { error, index, .. } => Err((index, error)),
+			Outcome::Error { error, index, .. } => Err((index, error)),
 		}
 	}
 	pub fn ensure_execution(self) -> result::Result<Weight, Error> {
@@ -278,7 +278,7 @@ impl Outcome {
 
 impl From<Error> for Outcome {
 	fn from(error: Error) -> Self {
-		Self::Error { error }
+		Self::Error { error, index: 0 }
 	}
 }
 
@@ -305,11 +305,11 @@ pub trait ExecuteXcm<Call> {
 	) -> Outcome {
 		let pre = match Self::prepare(message) {
 			Ok(x) => x,
-			Err(_) => return Outcome::Error { error: Error::WeightNotComputable },
+			Err(_) => return Outcome::Error { error: Error::WeightNotComputable, index: 0 },
 		};
 		let xcm_weight = pre.weight_of();
 		if xcm_weight.any_gt(weight_limit) {
-			return Outcome::Error { error: Error::WeightLimitReached(xcm_weight) }
+			return Outcome::Error { error: Error::WeightLimitReached(xcm_weight), index: 0 }
 		}
 		Self::execute(origin, pre, id, weight_credit)
 	}

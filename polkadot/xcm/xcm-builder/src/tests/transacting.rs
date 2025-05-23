@@ -238,7 +238,11 @@ fn expect_successful_transact_status_should_work() {
 	);
 	assert_eq!(
 		r,
-		Outcome::Incomplete { used: Weight::from_parts(70, 70), error: XcmError::ExpectationFalse }
+		Outcome::Incomplete {
+			used: Weight::from_parts(70, 70),
+			error: XcmError::ExpectationFalse,
+			index: 0
+		}
 	);
 }
 
@@ -284,7 +288,11 @@ fn expect_failed_transact_status_should_work() {
 	);
 	assert_eq!(
 		r,
-		Outcome::Incomplete { used: Weight::from_parts(70, 70), error: XcmError::ExpectationFalse }
+		Outcome::Incomplete {
+			used: Weight::from_parts(70, 70),
+			error: XcmError::ExpectationFalse,
+			index: 0
+		}
 	);
 }
 

@@ -78,7 +78,8 @@ fn expect_pallet_should_fail_correctly() {
 		r,
 		Outcome::Incomplete {
 			used: Weight::from_parts(10, 10),
-			error: XcmError::VersionIncompatible
+			error: XcmError::VersionIncompatible,
+			index: 0
 		}
 	);
 
@@ -99,7 +100,11 @@ fn expect_pallet_should_fail_correctly() {
 	);
 	assert_eq!(
 		r,
-		Outcome::Incomplete { used: Weight::from_parts(10, 10), error: XcmError::NameMismatch }
+		Outcome::Incomplete {
+			used: Weight::from_parts(10, 10),
+			error: XcmError::NameMismatch,
+			index: 0
+		}
 	);
 
 	let message = Xcm(vec![ExpectPallet {
@@ -119,7 +124,11 @@ fn expect_pallet_should_fail_correctly() {
 	);
 	assert_eq!(
 		r,
-		Outcome::Incomplete { used: Weight::from_parts(10, 10), error: XcmError::NameMismatch }
+		Outcome::Incomplete {
+			used: Weight::from_parts(10, 10),
+			error: XcmError::NameMismatch,
+			index: 0
+		}
 	);
 
 	let message = Xcm(vec![ExpectPallet {
@@ -139,7 +148,11 @@ fn expect_pallet_should_fail_correctly() {
 	);
 	assert_eq!(
 		r,
-		Outcome::Incomplete { used: Weight::from_parts(10, 10), error: XcmError::NameMismatch }
+		Outcome::Incomplete {
+			used: Weight::from_parts(10, 10),
+			error: XcmError::NameMismatch,
+			index: 0
+		}
 	);
 
 	let message = Xcm(vec![ExpectPallet {
@@ -159,7 +172,11 @@ fn expect_pallet_should_fail_correctly() {
 	);
 	assert_eq!(
 		r,
-		Outcome::Incomplete { used: Weight::from_parts(10, 10), error: XcmError::PalletNotFound }
+		Outcome::Incomplete {
+			used: Weight::from_parts(10, 10),
+			error: XcmError::PalletNotFound,
+			index: 0
+		}
 	);
 
 	let message = Xcm(vec![ExpectPallet {
@@ -181,7 +198,8 @@ fn expect_pallet_should_fail_correctly() {
 		r,
 		Outcome::Incomplete {
 			used: Weight::from_parts(10, 10),
-			error: XcmError::VersionIncompatible
+			error: XcmError::VersionIncompatible,
+			index: 0
 		}
 	);
 
@@ -204,7 +222,8 @@ fn expect_pallet_should_fail_correctly() {
 		r,
 		Outcome::Incomplete {
 			used: Weight::from_parts(10, 10),
-			error: XcmError::VersionIncompatible
+			error: XcmError::VersionIncompatible,
+			index: 0
 		}
 	);
 
@@ -227,7 +246,8 @@ fn expect_pallet_should_fail_correctly() {
 		r,
 		Outcome::Incomplete {
 			used: Weight::from_parts(10, 10),
-			error: XcmError::VersionIncompatible
+			error: XcmError::VersionIncompatible,
+			index: 0
 		}
 	);
 }
