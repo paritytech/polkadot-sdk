@@ -368,7 +368,6 @@ impl Config for Test {
 	type Time = Timestamp;
 	type AddressMapper = AccountId32Mapper<Self>;
 	type Currency = Balances;
-	type CallFilter = TestFilter;
 	type DepositPerByte = DepositPerByte;
 	type DepositPerItem = DepositPerItem;
 	type UnsafeUnstableInterface = UnstableInterface;

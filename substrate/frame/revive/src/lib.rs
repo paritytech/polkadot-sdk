@@ -65,7 +65,7 @@ use frame_support::{
 	traits::{
 		fungible::{Inspect, Mutate, MutateHold},
 		tokens::{Fortitude::Polite, Preservation::Preserve},
-		ConstU32, ConstU64, Contains, EnsureOrigin, Get, IsType, OriginTrait, Time,
+		ConstU32, ConstU64, EnsureOrigin, Get, IsType, OriginTrait, Time,
 	},
 	weights::{Weight, WeightMeter},
 	BoundedVec, RuntimeDebugNoBound,
@@ -154,31 +154,6 @@ pub mod pallet {
 		/// Overarching hold reason.
 		#[pallet::no_default_bounds]
 		type RuntimeHoldReason: From<HoldReason>;
-
-		/// Filter that is applied to calls dispatched by contracts.
-		///
-		/// Use this filter to control which dispatchables are callable by contracts.
-		/// This is applied in **addition** to [`frame_system::Config::BaseCallFilter`].
-		/// It is recommended to treat this as a whitelist.
-		///
-		/// # Stability
-		///
-		/// The runtime **must** make sure that all dispatchables that are callable by
-		/// contracts remain stable. In addition [`Self::RuntimeCall`] itself must remain stable.
-		/// This means that no existing variants are allowed to switch their positions.
-		///
-		/// # Note
-		///
-		/// Note that dispatchables that are called via contracts do not spawn their
-		/// own wasm instance for each call (as opposed to when called via a transaction).
-		/// Therefore please make sure to be restrictive about which dispatchables are allowed
-		/// in order to not introduce a new DoS vector like memory allocation patterns that can
-		/// be exploited to drive the runtime into a panic.
-		///
-		/// This filter does not apply to XCM transact calls. To impose restrictions on XCM transact
-		/// calls, you must configure them separately within the XCM pallet itself.
-		#[pallet::no_default_bounds]
-		type CallFilter: Contains<<Self as frame_system::Config>::RuntimeCall>;
 
 		/// Used to answer contracts' queries regarding the current weight price. This is **not**
 		/// used to calculate the actual fee and is only for informational purposes.
@@ -345,7 +320,6 @@ pub mod pallet {
 
 			#[inject_runtime_type]
 			type RuntimeCall = ();
-			type CallFilter = ();
 			type Precompiles = ();
 			type CodeHashLockupDepositPercent = CodeHashLockupDepositPercent;
 			type DepositPerByte = DepositPerByte;
