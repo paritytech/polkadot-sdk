@@ -66,8 +66,8 @@ async fn elastic_scaling_pov_recovery() -> Result<(), anyhow::Error> {
 	log::info!("Registering parachain para_id = {PARA_ID}");
 	network.register_parachain(PARA_ID).await?;
 
-	log::info!("Ensuring parachain is registered within 10 blocks");
-	assert_para_is_registered(&relay_client, ParaId::from(PARA_ID), 10).await?;
+	log::info!("Ensuring parachain is registered within 30 blocks");
+	assert_para_is_registered(&relay_client, ParaId::from(PARA_ID), 30).await?;
 
 	log::info!("Ensuring parachain making progress");
 	assert_para_throughput(

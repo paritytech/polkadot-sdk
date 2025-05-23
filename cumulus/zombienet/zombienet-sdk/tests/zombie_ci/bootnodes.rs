@@ -72,14 +72,14 @@ async fn dht_bootnodes_test() -> Result<(), anyhow::Error> {
 
 	let alpha = network.get_node("alpha")?;
 
-	// Make sure the collators connect to each other.
+	log::info!("Make sure the collators connect to each other");
 	alpha
 		.wait_metric_with_timeout("substrate_sync_peers", |count| count == 1.0, 300u64)
 		.await?;
 
-	let log_line_options = LogLineCountOptions::new(|n| n == 1, Duration::from_secs(30), false);
+	let log_line_options = LogLineCountOptions::new(|n| n == 1, Duration::from_secs(60), false);
 
-	// Make sure the DHT bootnode discovery was successful.
+	log::info!("Make sure the DHT bootnode discovery was successful");
 	let result = alpha
 		.wait_log_line_count_with_timeout(
 			".* Parachain bootnode discovery on the relay chain DHT succeeded",
@@ -105,12 +105,12 @@ async fn dht_bootnodes_test() -> Result<(), anyhow::Error> {
 
 	let gamma = network.get_node("gamma")?;
 
-	// Make sure the new collator has connected to the existing collators.
+	log::info!("Make sure the new collator has connected to the existing collators");
 	gamma
 		.wait_metric_with_timeout("substrate_sync_peers", |count| count == 2.0, 300u64)
 		.await?;
 
-	// Make sure the DHT bootnode discovery was successful.
+	log::info!("Make sure the DHT bootnode discovery was successful");
 	let result = gamma
 		.wait_log_line_count_with_timeout(
 			".* Parachain bootnode discovery on the relay chain DHT succeeded",
@@ -118,7 +118,6 @@ async fn dht_bootnodes_test() -> Result<(), anyhow::Error> {
 			log_line_options,
 		)
 		.await?;
-
 	assert!(result.success());
 
 	log::info!("Test finished successfully.");

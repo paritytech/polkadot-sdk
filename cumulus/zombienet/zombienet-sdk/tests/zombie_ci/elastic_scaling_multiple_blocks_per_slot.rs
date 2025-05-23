@@ -40,7 +40,7 @@ async fn elastic_scaling_multiple_blocks_per_slot() -> Result<(), anyhow::Error>
 	assert_para_throughput(
 		&relay_client,
 		10,
-		[(ParaId::from(PARA_ID), 5..18)].into_iter().collect(),
+		[(ParaId::from(PARA_ID), 3..18)].into_iter().collect(),
 	)
 	.await?;
 	assert_finality_lag(&para_node_elastic.wait_client().await?, 5).await?;

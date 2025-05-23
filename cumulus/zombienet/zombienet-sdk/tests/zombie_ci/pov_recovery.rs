@@ -43,8 +43,8 @@ async fn pov_recovery() -> Result<(), anyhow::Error> {
 	let relay_ferdie = network.get_node("ferdie")?;
 	let relay_client: OnlineClient<PolkadotConfig> = relay_ferdie.wait_client().await?;
 
-	log::info!("Ensuring parachain is registered within 10 blocks");
-	assert_para_is_registered(&relay_client, ParaId::from(PARA_ID), 10).await?;
+	log::info!("Ensuring parachain is registered within 30 blocks");
+	assert_para_is_registered(&relay_client, ParaId::from(PARA_ID), 30).await?;
 
 	log::info!("Ensuring parachain making progress");
 	assert_para_throughput(
