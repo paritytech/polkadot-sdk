@@ -77,7 +77,7 @@ mod benchmarks {
 	#[benchmark]
 	fn do_process_message() -> Result<(), BenchmarkError> {
 		let (enqueued_message, _) = build_message::<T>();
-		let origin = AggregateMessageOrigin::SnowbridgeV2([1; 32].into());
+		let origin = T::OriginToAggregateMessageOrigin::convert([1; 32].into());
 		let message = enqueued_message.encode();
 
 		#[block]
