@@ -23,10 +23,12 @@ same as the account ID. For staking systems using a stash/controller model, the 
 ID of the controller.
 - **Session key configuration process:** Session keys are set using `set_keys` for use not in the next session, but the
 session after next. They are stored in `NextKeys`, a mapping between the caller's `ValidatorId` and the session keys
-provided. `set_keys` allows users to set their session key prior to being selected as validator. It is a public call
-since it uses `ensure_signed`, which checks that the origin is a signed account. As such, the account ID of the origin
-stored in `NextKeys` may not necessarily be associated with a block author or a validator. The session keys of accounts
-are removed once their account balance is zero.
+provided. `set_keys` allows users to set their session key prior to being selected as validator. When setting keys, a deposit
+is required and reserved from the account. The account must have sufficient funds available for this deposit, or the
+operation will fail. This deposit is returned when the keys are purged. `set_keys` is a public call since it uses
+`ensure_signed`, which checks that the origin is a signed account. As such, the account ID of the origin stored in
+`NextKeys` may not necessarily be associated with a block author or a validator. The session keys of accounts are removed
+once their account balance is zero.
 - **Session length:** This pallet does not assume anything about the length of each session. Rather, it relies on an
 implementation of `ShouldEndSession` to dictate a new session's start. This pallet provides the `PeriodicSessions`
 struct for simple periodic sessions.
@@ -70,7 +72,7 @@ set.
 use pallet_session as session;
 
 fn validators<T: pallet_session::Config>() -> Vec<<T as pallet_session::Config>::ValidatorId> {
-	pallet_session::Validators::<T>::get()
+ pallet_session::Validators::<T>::get()
 }
 ```
 

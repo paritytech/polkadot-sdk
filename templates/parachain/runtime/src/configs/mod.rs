@@ -276,6 +276,9 @@ impl pallet_session::Config for Runtime {
 	type Keys = SessionKeys;
 	type DisablingStrategy = ();
 	type WeightInfo = ();
+	type Currency = Balances;
+	type RuntimeHoldReason = RuntimeHoldReason;
+	type KeyDeposit = ();
 }
 
 #[docify::export(aura_config)]

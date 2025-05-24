@@ -21,8 +21,8 @@ use super::*;
 use crate::mock::{
 	authorities, before_session_end_called, force_new_session, new_test_ext,
 	reset_before_session_end_called, session_changed, set_next_validators, set_session_length,
-	PreUpgradeMockSessionKeys, RuntimeOrigin, Session, SessionChanged, System, Test,
-	TestSessionChanged, TestValidatorIdOf,
+	Balances, KeyDeposit, MockSessionKeys, PreUpgradeMockSessionKeys, RuntimeOrigin, Session,
+	SessionChanged, System, Test, TestSessionChanged, TestValidatorIdOf, ValidatorAccounts,
 };
 
 use codec::Decode;
@@ -30,7 +30,7 @@ use sp_core::crypto::key_types::DUMMY;
 use sp_runtime::{testing::UintAuthorityId, Perbill};
 
 use frame_support::{
-	assert_noop, assert_ok,
+	assert_err, assert_noop, assert_ok,
 	traits::{ConstU64, OnInitialize},
 };
 
@@ -464,6 +464,87 @@ fn test_migration_v1() {
 		crate::migrations::historical::pre_migrate::<Test, Historical>();
 		crate::migrations::historical::migrate::<Test, Historical>();
 		crate::migrations::historical::post_migrate::<Test, Historical>();
+	});
+}
+
+#[test]
+fn set_keys_should_fail_with_insufficient_funds() {
+	new_test_ext().execute_with(|| {
+		// Account 999 is mocked to have KeyDeposit -1
+		let account_id = 999;
+		let keys = MockSessionKeys { dummy: UintAuthorityId(account_id).into() };
+		frame_system::Pallet::<Test>::inc_providers(&account_id);
+		// Make sure we have a validator ID
+		ValidatorAccounts::mutate(|m| {
+			m.insert(account_id, account_id);
+		});
+
+		// Attempt to set keys with an account that has insufficient funds
+		// Should fail with Err(Token(FundsUnavailable)) from `pallet-balances`
+		assert_err!(
+			Session::set_keys(RuntimeOrigin::signed(account_id), keys, vec![]),
+			sp_runtime::TokenError::FundsUnavailable
+		);
+	});
+}
+
+#[test]
+fn set_keys_should_reserve_funds() {
+	new_test_ext().execute_with(|| {
+		// Account 1000 is mocked to have sufficient funds
+		let account_id = 1000;
+		let keys = MockSessionKeys { dummy: UintAuthorityId(account_id).into() };
+		let deposit = KeyDeposit::get();
+
+		// Make sure we have a validator ID
+		ValidatorAccounts::mutate(|m| {
+			m.insert(account_id, account_id);
+		});
+
+		// Set keys and check the operation succeeds
+		let res = Session::set_keys(RuntimeOrigin::signed(account_id), keys, vec![]);
+		assert_ok!(res);
+
+		// Check that the funds were reserved
+		let reserved_balance = Balances::reserved_balance(&account_id);
+		assert_eq!(reserved_balance, deposit);
+	});
+}
+
+#[test]
+fn purge_keys_should_unreserve_funds() {
+	new_test_ext().execute_with(|| {
+		// Account 1000 is mocked to have sufficient funds
+		let account_id = 1000;
+		let keys = MockSessionKeys { dummy: UintAuthorityId(account_id).into() };
+		let deposit = KeyDeposit::get();
+
+		// Make sure we have a validator ID
+		ValidatorAccounts::mutate(|m| {
+			m.insert(account_id, account_id);
+		});
+
+		// Ensure system providers are properly set for the test account
+		frame_system::Pallet::<Test>::inc_providers(&account_id);
+
+		// First set the keys to reserve the deposit
+		let res = Session::set_keys(RuntimeOrigin::signed(account_id), keys, vec![]);
+		assert_ok!(res);
+
+		// Check the reserved balance after setting keys
+		let reserved_balance_before_purge = Balances::reserved_balance(&account_id);
+		assert!(
+			reserved_balance_before_purge >= deposit,
+			"Deposit should be reserved after setting keys"
+		);
+
+		// Now purge the keys
+		let res = Session::purge_keys(RuntimeOrigin::signed(account_id));
+		assert_ok!(res);
+
+		// Check that the funds were unreserved
+		let reserved_balance_after_purge = Balances::reserved_balance(&account_id);
+		assert_eq!(reserved_balance_after_purge, reserved_balance_before_purge - deposit);
 	});
 }
 

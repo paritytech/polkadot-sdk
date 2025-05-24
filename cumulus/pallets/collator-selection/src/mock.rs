@@ -140,6 +140,9 @@ impl pallet_session::Config for Test {
 	type Keys = MockSessionKeys;
 	type DisablingStrategy = ();
 	type WeightInfo = ();
+	type Currency = Balances;
+	type RuntimeHoldReason = RuntimeHoldReason;
+	type KeyDeposit = ();
 }
 
 ord_parameter_types! {

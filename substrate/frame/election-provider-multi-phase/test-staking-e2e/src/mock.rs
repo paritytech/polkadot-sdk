@@ -145,6 +145,9 @@ impl pallet_session::Config for Runtime {
 		SLASHING_DISABLING_FACTOR,
 	>;
 	type WeightInfo = ();
+	type Currency = Balances;
+	type RuntimeHoldReason = RuntimeHoldReason;
+	type KeyDeposit = ();
 }
 impl pallet_session::historical::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;

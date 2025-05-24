@@ -21,6 +21,7 @@ use super::*;
 use crate as pallet_session;
 #[cfg(feature = "historical")]
 use crate::historical as pallet_session_historical;
+use pallet_balances::{self, AccountData};
 
 use std::collections::BTreeMap;
 
@@ -30,6 +31,7 @@ use sp_staking::SessionIndex;
 use sp_state_machine::BasicExternalities;
 
 use frame_support::{derive_impl, parameter_types, traits::ConstU64};
+use sp_runtime::traits::{Convert, OpaqueKeys};
 
 impl_opaque_keys! {
 	pub struct MockSessionKeys {
@@ -76,6 +78,7 @@ frame_support::construct_runtime!(
 	{
 		System: frame_system,
 		Session: pallet_session,
+		Balances: pallet_balances,
 		Historical: pallet_session_historical,
 	}
 );
@@ -86,6 +89,7 @@ frame_support::construct_runtime!(
 	{
 		System: frame_system,
 		Session: pallet_session,
+		Balances: pallet_balances,
 	}
 );
 
@@ -102,6 +106,10 @@ parameter_types! {
 	// Stores if `on_before_session_end` was called
 	pub static BeforeSessionEndCalled: bool = false;
 	pub static ValidatorAccounts: BTreeMap<u64, u64> = BTreeMap::new();
+	pub static CurrencyBalance: u64 = 100;
+	pub const KeyDeposit: u64 = 10;
+	pub static ReservedBalances: BTreeMap<u64, BTreeMap<Vec<u8>, u64>> = BTreeMap::new();
+	pub static ExistentialDeposit: u64 = 1;
 }
 
 pub struct TestShouldEndSession;
@@ -202,19 +210,27 @@ pub fn reset_before_session_end_called() {
 
 pub fn new_test_ext() -> sp_io::TestExternalities {
 	let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
+	pallet_balances::GenesisConfig::<Test> {
+		balances: vec![
+			(1, 100),
+			(2, 100),
+			(3, 100),
+			(4, 100),
+			(69, 100),
+			(999, KeyDeposit::get() - 1),
+			(1000, 100),
+		],
+		dev_accounts: None,
+	}
+	.assimilate_storage(&mut t)
+	.unwrap();
+
 	let keys: Vec<_> = NextValidators::get()
 		.iter()
 		.cloned()
 		.map(|i| (i, i, UintAuthorityId(i).into()))
 		.collect();
-	BasicExternalities::execute_with_storage(&mut t, || {
-		for (ref k, ..) in &keys {
-			frame_system::Pallet::<Test>::inc_providers(k);
-		}
-		frame_system::Pallet::<Test>::inc_providers(&4);
-		// An additional identity that we use.
-		frame_system::Pallet::<Test>::inc_providers(&69);
-	});
+	BasicExternalities::execute_with_storage(&mut t, || {});
 	pallet_session::GenesisConfig::<Test> { keys, ..Default::default() }
 		.assimilate_storage(&mut t)
 		.unwrap();
@@ -227,6 +243,8 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
 	type Block = Block;
+	type AccountData = AccountData<u64>;
+	type RuntimeEvent = RuntimeEvent;
 }
 
 impl pallet_timestamp::Config for Test {
@@ -267,6 +285,9 @@ impl Config for Test {
 	type DisablingStrategy =
 		disabling::UpToLimitWithReEnablingDisablingStrategy<DISABLING_LIMIT_FACTOR>;
 	type WeightInfo = ();
+	type Currency = pallet_balances::Pallet<Test>;
+	type KeyDeposit = KeyDeposit;
+	type RuntimeHoldReason = RuntimeHoldReason;
 }
 
 #[cfg(feature = "historical")]
@@ -274,4 +295,11 @@ impl crate::historical::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type FullIdentification = u64;
 	type FullIdentificationOf = sp_runtime::traits::ConvertInto;
+}
+
+#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig as pallet_balances::DefaultConfig)]
+impl pallet_balances::Config for Test {
+	type AccountStore = System;
+	type RuntimeHoldReason = RuntimeHoldReason;
+	type RuntimeEvent = RuntimeEvent;
 }
