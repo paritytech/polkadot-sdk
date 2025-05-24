@@ -726,14 +726,14 @@ pub mod pallet {
 	}
 
 	impl<T: Config> Pallet<T> {
-		/// Swap exactly `amount_in` of asset `path[0]` for asset `path[1]`.
+		/// Swap exactly `amount_in` of asset `path[0]` for asset `path[last]`.
 		/// If an `amount_out_min` is specified, it will return an error if it is unable to acquire
 		/// the amount desired.
 		///
-		/// Withdraws the `path[0]` asset from `sender`, deposits the `path[1]` asset to `send_to`,
+		/// Withdraws the `path[0]` asset from `sender`, deposits the `path[last]` asset to `send_to`,
 		/// respecting `keep_alive`.
 		///
-		/// If successful, returns the amount of `path[1]` acquired for the `amount_in`.
+		/// If successful, returns the amount of `path[last]` acquired for the `amount_in`.
 		///
 		/// WARNING: This may return an error after a partial storage mutation. It should be used
 		/// only inside a transactional storage context and an Err result must imply a storage
@@ -774,14 +774,14 @@ pub mod pallet {
 			Ok(amount_out)
 		}
 
-		/// Take the `path[0]` asset and swap some amount for `amount_out` of the `path[1]`. If an
+		/// Take the `path[0]` asset and swap some amount for `amount_out` of the `path[last]`. If an
 		/// `amount_in_max` is specified, it will return an error if acquiring `amount_out` would be
 		/// too costly.
 		///
-		/// Withdraws `path[0]` asset from `sender`, deposits the `path[1]` asset to `send_to`,
+		/// Withdraws `path[0]` asset from `sender`, deposits the `path[last]` asset to `send_to`,
 		/// respecting `keep_alive`.
 		///
-		/// If successful returns the amount of the `path[0]` taken to provide `path[1]`.
+		/// If successful returns the amount of the `path[0]` taken to provide `path[last]`.
 		///
 		/// WARNING: This may return an error after a partial storage mutation. It should be used
 		/// only inside a transactional storage context and an Err result must imply a storage
