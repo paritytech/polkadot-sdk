@@ -913,6 +913,7 @@ fn emit_events_with_existential_deposit() {
 			[
 				RuntimeEvent::System(system::Event::KilledAccount { account: 1 }),
 				RuntimeEvent::Balances(crate::Event::DustLost { account: 1, amount: 99 }),
+				RuntimeEvent::Balances(crate::Event::BurnedDebt { amount: 99 }),
 				RuntimeEvent::Balances(crate::Event::Slashed { who: 1, amount: 1 }),
 				RuntimeEvent::Balances(crate::Event::Rescinded { amount: 1 }),
 			]

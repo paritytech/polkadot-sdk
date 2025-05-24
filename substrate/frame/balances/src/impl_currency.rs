@@ -228,6 +228,24 @@ mod imbalances {
 			}
 		}
 	}
+
+	impl<T: Config<I>, I: 'static> fungible::HandleImbalanceDrop<T::Balance>
+		for NegativeImbalance<T, I>
+	{
+		fn handle(amount: T::Balance) {
+			<super::TotalIssuance<T, I>>::mutate(|v| *v = v.saturating_sub(amount));
+			Pallet::<T, I>::deposit_event(Event::<T, I>::BurnedDebt { amount });
+		}
+	}
+
+	impl<T: Config<I>, I: 'static> fungible::HandleImbalanceDrop<T::Balance>
+		for PositiveImbalance<T, I>
+	{
+		fn handle(amount: T::Balance) {
+			<super::TotalIssuance<T, I>>::mutate(|v| *v = v.saturating_add(amount));
+			Pallet::<T, I>::deposit_event(Event::<T, I>::MintedCredit { amount });
+		}
+	}
 }
 
 impl<T: Config<I>, I: 'static> Currency<T::AccountId> for Pallet<T, I>
