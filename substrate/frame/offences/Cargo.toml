@@ -22,7 +22,7 @@ scale-info = { features = ["derive"], workspace = true }
 serde = { optional = true, workspace = true, default-features = true }
 frame-support.workspace = true
 frame-system.workspace = true
-pallet-balances.workspace = true
+pallet-balances = { workspace = true, optional = true, default-features = false }
 sp-runtime.workspace = true
 sp-staking.workspace = true
 
@@ -37,7 +37,7 @@ std = [
 	"frame-support/std",
 	"frame-system/std",
 	"log/std",
-	"pallet-balances/std",
+	"pallet-balances?/std",
 	"scale-info/std",
 	"serde",
 	"sp-runtime/std",
@@ -53,6 +53,6 @@ runtime-benchmarks = [
 try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
-	"pallet-balances/try-runtime",
+	"pallet-balances?/try-runtime",
 	"sp-runtime/try-runtime",
 ]
