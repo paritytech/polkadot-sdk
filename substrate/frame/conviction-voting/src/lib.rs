@@ -256,11 +256,6 @@ pub mod pallet {
 		/// The balance delegated is locked for as long as it's delegated, and thereafter for the
 		/// time appropriate for the conviction's lock period.
 		///
-		/// The dispatch origin of this call must be _Signed_, and the signing account must either:
-		///   - be delegating already; or
-		///   - have no voting activity (if there is, then it will need to be removed through
-		///     `remove_vote`).
-		///
 		/// - `to`: The account whose voting the `target` account's voting power will follow.
 		/// - `class`: The class of polls to delegate. To delegate multiple classes, multiple calls
 		///   to this function are required.
@@ -415,7 +410,11 @@ pub mod pallet {
 }
 
 impl<T: Config<I>, I: 'static> Pallet<T, I> {
-	/// Actually enact a vote, if legit.
+	//Keep in minds
+		// When I vote, if I'm delegating, I need to add my clawback to their state and update the tally
+		// Some weirdness here about whether I already clawed back or not. Since I can't tell from their state
+
+	/// Actually enact a vote, if legitimate.
 	fn try_vote(
 		who: &T::AccountId,
 		poll_index: PollIndexOf<T, I>,
@@ -463,6 +462,9 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			})
 		})
 	}
+
+	// Keep in minds
+		// Need to remove clawback state if I have a delegate and update tally accordingly
 
 	/// Remove the account's vote for the given poll if possible. This is possible when:
 	/// - The poll has not finished.
@@ -551,7 +553,10 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		})
 	}
 
-	/// Return the number of votes for `who`.
+	// Keep in minds
+		// unsure yet if this needs to account for clawbacks or if that'll be handled elsewhere, but probs
+
+	/// Return the number of votes made by `who`.
 	fn increase_upstream_delegation(
 		who: &T::AccountId,
 		class: &ClassOf<T, I>,
@@ -579,7 +584,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		})
 	}
 
-	/// Return the number of votes for `who`.
+	/// Return the number of votes made by `who`.
 	fn reduce_upstream_delegation(
 		who: &T::AccountId,
 		class: &ClassOf<T, I>,
@@ -606,6 +611,9 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			},
 		})
 	}
+
+	// Keep in minds
+		// Will need to account for delegatees current voting state
 
 	/// Attempt to delegate `balance` times `conviction` of voting power from `who` to `target`.
 	///
@@ -652,6 +660,9 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		Self::deposit_event(Event::<T, I>::Delegated(who, target));
 		Ok(votes)
 	}
+
+	// Keep in minds
+		// Will need to account for delegatees current voting state
 
 	/// Attempt to end the current delegation.
 	///

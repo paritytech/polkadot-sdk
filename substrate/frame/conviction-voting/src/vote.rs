@@ -183,14 +183,15 @@ impl<BlockNumber: Ord + Copy + Zero, Balance: Ord + Copy + Zero> PriorLock<Block
 	}
 }
 
+// The voting power clawed back by a delegator for a specific poll. This happens when the delegator votes
+// and therefore retracts their voting power for the poll.
+type RetractedVotes<Balance> = Delegations<Balance>;
+
 /// Information concerning the vote-casting of some voting power.
 #[derive(Encode, Decode, Clone, Eq, PartialEq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 pub struct Voting<Balance, AccountId, BlockNumber> {
-	/// The current votes of the account.
-	pub votes: BoundedVec<(PollIndex, AccountVote<Balance>), MaxVotes>,
-	/// The voting power retracted per poll. This happens when someone delegating to this voting power
-	/// votes themselves.
-	pub retracted_votes: BoundedVec<(PollIndex, Delegations<Balance>), MaxVotes>,
+	/// The current vote data of the account.
+	pub votes: BoundedVec<(PollIndex, Option<AccountVote<Balance>>, RetractedVotes<Balance>), MaxVotes>,
 	/// The amount of balance delegated to some voting power.
 	pub balance: Balance,
 	/// A possible account to which the voting power is delegating.
@@ -212,7 +213,6 @@ where
 	fn default() -> Self {
 		Voting {
 			votes: Default::default(),
-			retracted_votes: Default::default(),
 			balance: Default::default(),
 			delegatee: None,
 			conviction: None,
@@ -248,11 +248,9 @@ where
 
 	/// The amount of this account's balance that must currently be locked due to voting.
 	pub fn locked_balance(&self) -> Balance {
-		match self {
-			let from_voting = self.votes.iter().map(|i| i.1.balance()).fold(self.prior.locked(), |a, i| a.max(i));
-			let from_delegating = *self.balance.max(&self.prior.locked());
-			from_voting.max(from_delegating)
-		}
+		let from_voting = self.votes.iter().map(|i| i.1.balance()).fold(self.prior.locked(), |a, i| a.max(i));
+		let from_delegating = *self.balance.max(&self.prior.locked());
+		from_voting.max(from_delegating)
 	}
 
 	pub fn set_common(
