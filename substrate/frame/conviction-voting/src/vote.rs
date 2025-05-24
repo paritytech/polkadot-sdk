@@ -246,7 +246,7 @@ where
 		AsMut::<PriorLock<BlockNumber, Balance>>::as_mut(self).rejig(now);
 	}
 
-	/// The amount of this account's balance that must currently be locked due to voting.
+	/// The amount of this account's balance that must currently be locked due to voting/delegating.
 	pub fn locked_balance(&self) -> Balance {
 		let from_voting = self.votes.iter()
     	.filter_map(|i| i.1.as_ref().map(|v| v.balance()))

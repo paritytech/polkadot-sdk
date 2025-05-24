@@ -612,6 +612,10 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		})
 	}
 
+	// So when I try to delegate, basically if I'm delegating I cant
+	// if I'm not I need to set my delegation, set the delegate's delegated to me info
+	// gather the delegators current voting data and downstream that as well
+
 	// Keep in minds
 		// Will need to account for delegatees current voting state
 
@@ -703,6 +707,8 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		Ok(votes)
 	}
 
+	// ✓
+
 	fn extend_lock(who: &T::AccountId, class: &ClassOf<T, I>, amount: BalanceOf<T, I>) {
 		ClassLocksFor::<T, I>::mutate(who, |locks| {
 			match locks.iter().position(|x| &x.0 == class) {
@@ -725,6 +731,8 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			WithdrawReasons::except(WithdrawReasons::RESERVE),
 		);
 	}
+
+	// ✓
 
 	/// Rejig the lock on an account. It will never get more stringent (since that would indicate
 	/// a security hole) but may be reduced from what they are currently.
