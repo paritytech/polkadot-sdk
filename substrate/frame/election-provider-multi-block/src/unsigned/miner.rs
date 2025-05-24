@@ -785,7 +785,7 @@ impl<T: Config> OffchainWorkerMiner<T> {
 			"unsigned::ocw-miner",
 			"miner submitting a solution as an unsigned transaction"
 		);
-		let xt = T::create_inherent(call.into());
+		let xt = T::create_bare(call.into());
 		frame_system::offchain::SubmitTransaction::<T, Call<T>>::submit_transaction(xt)
 			.map(|_| {
 				sublog!(
