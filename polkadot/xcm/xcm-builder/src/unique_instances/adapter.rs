@@ -1,0 +1,155 @@
+use core::marker::PhantomData;
+use frame_support::traits::tokens::asset_ops::{
+	common_strategies::{
+		ChangeOwnerFrom, ConfigValue, DeriveAndReportId, IfOwnedBy, Owner, WithConfig,
+		WithConfigValue,
+	},
+	AssetDefinition, Create, Restore, Stash, Update,
+};
+use xcm::latest::prelude::*;
+use xcm_executor::traits::{ConvertLocation, Error as MatchError, MatchesInstance, TransactAsset};
+
+use super::NonFungibleAsset;
+
+const LOG_TARGET: &str = "xcm::unique_instances";
+
+/// The `UniqueInstancesAdapter` implements the [`TransactAsset`] for existing unique instances
+/// (NFT-like entities), for which the `Matcher` can deduce the instance ID from the XCM
+/// [`AssetId`].
+///
+/// The adapter uses the following asset operations:
+/// * [`Restore`] with the strategy to restore the instance to a given owner.
+/// * [`Update`] with the strategy to change the instance's owner from one to another.
+/// * [`Stash`] with the strategy to check the current owner before stashing.
+///
+/// Note on teleports: This adapter doesn't implement teleports since unique instances have
+/// associated data that also should be teleported. Currently, neither XCM can transfer such data
+/// nor does a standard approach exist in the ecosystem for this use case.
+pub struct UniqueInstancesAdapter<AccountId, AccountIdConverter, Matcher, InstanceOps>(
+	PhantomData<(AccountId, AccountIdConverter, Matcher, InstanceOps)>,
+);
+
+impl<AccountId, AccountIdConverter, Matcher, InstanceOps> TransactAsset
+	for UniqueInstancesAdapter<AccountId, AccountIdConverter, Matcher, InstanceOps>
+where
+	AccountId: 'static,
+	AccountIdConverter: ConvertLocation<AccountId>,
+	Matcher: MatchesInstance<InstanceOps::Id>,
+	InstanceOps: AssetDefinition
+		+ Restore<WithConfig<ConfigValue<Owner<AccountId>>>>
+		+ Update<ChangeOwnerFrom<AccountId>>
+		+ Stash<IfOwnedBy<AccountId>>,
+{
+	fn deposit_asset(what: &Asset, who: &Location, context: Option<&XcmContext>) -> XcmResult {
+		tracing::trace!(
+			target: LOG_TARGET,
+			?what,
+			?who,
+			?context,
+			"deposit_asset",
+		);
+
+		let instance_id = Matcher::matches_instance(what)?;
+		let who = AccountIdConverter::convert_location(who)
+			.ok_or(MatchError::AccountIdConversionFailed)?;
+
+		InstanceOps::restore(&instance_id, WithConfig::from(Owner::with_config_value(who)))
+			.map_err(|e| XcmError::FailedToTransactAsset(e.into()))
+	}
+
+	fn withdraw_asset(
+		what: &Asset,
+		who: &Location,
+		maybe_context: Option<&XcmContext>,
+	) -> Result<xcm_executor::AssetsInHolding, XcmError> {
+		tracing::trace!(
+			target: LOG_TARGET,
+			?what,
+			?who,
+			?maybe_context,
+			"withdraw_asset",
+		);
+
+		let instance_id = Matcher::matches_instance(what)?;
+		let who = AccountIdConverter::convert_location(who)
+			.ok_or(MatchError::AccountIdConversionFailed)?;
+
+		InstanceOps::stash(&instance_id, IfOwnedBy::check(who))
+			.map_err(|e| XcmError::FailedToTransactAsset(e.into()))?;
+
+		Ok(what.clone().into())
+	}
+
+	fn internal_transfer_asset(
+		what: &Asset,
+		from: &Location,
+		to: &Location,
+		context: &XcmContext,
+	) -> Result<xcm_executor::AssetsInHolding, XcmError> {
+		tracing::trace!(
+			target: LOG_TARGET,
+			?what,
+			?from,
+			?to,
+			?context,
+			"internal_transfer_asset",
+		);
+
+		let instance_id = Matcher::matches_instance(what)?;
+		let from = AccountIdConverter::convert_location(from)
+			.ok_or(MatchError::AccountIdConversionFailed)?;
+		let to = AccountIdConverter::convert_location(to)
+			.ok_or(MatchError::AccountIdConversionFailed)?;
+
+		InstanceOps::update(&instance_id, ChangeOwnerFrom::check(from), &to)
+			.map_err(|e| XcmError::FailedToTransactAsset(e.into()))?;
+
+		Ok(what.clone().into())
+	}
+}
+
+/// The `UniqueInstancesDepositAdapter` implements the [`TransactAsset`] to create unique instances
+/// (NFT-like entities), for which no `Matcher` deduce the instance ID from the XCM
+/// [`AssetId`]. Instead, this adapter requires the `InstanceCreateOp` to create an instance using
+/// [`NonFungibleAsset`] as derive id parameters.
+pub struct UniqueInstancesDepositAdapter<AccountId, AccountIdConverter, InstanceCreateOp>(
+	PhantomData<(AccountId, AccountIdConverter, InstanceCreateOp)>,
+);
+
+impl<AccountId, AccountIdConverter, InstanceCreateOp> TransactAsset
+	for UniqueInstancesDepositAdapter<AccountId, AccountIdConverter, InstanceCreateOp>
+where
+	AccountIdConverter: ConvertLocation<AccountId>,
+	InstanceCreateOp: AssetDefinition
+		+ Create<
+			WithConfig<
+				ConfigValue<Owner<AccountId>>,
+				DeriveAndReportId<NonFungibleAsset, InstanceCreateOp::Id>,
+			>,
+		>,
+{
+	fn deposit_asset(what: &Asset, who: &Location, context: Option<&XcmContext>) -> XcmResult {
+		tracing::trace!(
+			target: LOG_TARGET,
+			?what,
+			?who,
+			?context,
+			"deposit_asset",
+		);
+
+		let asset = match what.fun {
+			Fungibility::NonFungible(asset_instance) => (what.id.clone(), asset_instance),
+			_ => return Err(MatchError::AssetNotHandled.into()),
+		};
+
+		let who = AccountIdConverter::convert_location(who)
+			.ok_or(MatchError::AccountIdConversionFailed)?;
+
+		InstanceCreateOp::create(WithConfig::new(
+			Owner::with_config_value(who),
+			DeriveAndReportId::from(asset),
+		))
+		.map(|_reported_id| ())
+		.map_err(|e| XcmError::FailedToTransactAsset(e.into()))
+	}
+}
