@@ -183,53 +183,25 @@ impl<BlockNumber: Ord + Copy + Zero, Balance: Ord + Copy + Zero> PriorLock<Block
 	}
 }
 
-/// Information concerning the delegation of some voting power.
+/// Information concerning the vote-casting of some voting power.
 #[derive(Encode, Decode, Clone, Eq, PartialEq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
-pub struct Delegating<Balance, AccountId, BlockNumber> {
-	/// The amount of balance delegated.
-	pub balance: Balance,
-	/// The account to which the voting power is delegated.
-	pub target: AccountId,
-	/// The conviction with which the voting power is delegated. When this gets undelegated, the
-	/// relevant lock begins.
-	pub conviction: Conviction,
-	/// The total amount of delegations that this account has received, post-conviction-weighting.
-	pub delegations: Delegations<Balance>,
-	/// Any pre-existing locks from past voting/delegating activity.
-	pub prior: PriorLock<BlockNumber, Balance>,
-}
-
-/// Information concerning the direct vote-casting of some voting power.
-#[derive(Encode, Decode, Clone, Eq, PartialEq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
-#[scale_info(skip_type_params(MaxVotes))]
-#[codec(mel_bound(Balance: MaxEncodedLen, BlockNumber: MaxEncodedLen, PollIndex: MaxEncodedLen))]
-pub struct Casting<Balance, BlockNumber, PollIndex, MaxVotes>
-where
-	MaxVotes: Get<u32>,
-{
+pub struct Voting<Balance, AccountId, BlockNumber> {
 	/// The current votes of the account.
 	pub votes: BoundedVec<(PollIndex, AccountVote<Balance>), MaxVotes>,
+	/// The voting power retracted per poll. This happens when someone delegating to this voting power
+	/// votes themselves.
+	pub retracted_votes: BoundedVec<(PollIndex, Delegations<Balance>), MaxVotes>,
+	/// The amount of balance delegated to some voting power.
+	pub balance: Balance,
+	/// A possible account to which the voting power is delegating.
+	pub delegatee: Option<AccountId>,
+	/// The possible conviction with which the voting power is delegating. When this gets undelegated, the
+	/// relevant lock begins.
+	pub conviction: Option<Conviction>,
 	/// The total amount of delegations that this account has received, post-conviction-weighting.
 	pub delegations: Delegations<Balance>,
 	/// Any pre-existing locks from past voting/delegating activity.
 	pub prior: PriorLock<BlockNumber, Balance>,
-}
-
-/// An indicator for what an account is doing; it can either be delegating or voting.
-#[derive(Encode, Decode, Clone, Eq, PartialEq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
-#[scale_info(skip_type_params(MaxVotes))]
-#[codec(mel_bound(
-	Balance: MaxEncodedLen, AccountId: MaxEncodedLen, BlockNumber: MaxEncodedLen,
-	PollIndex: MaxEncodedLen,
-))]
-pub enum Voting<Balance, AccountId, BlockNumber, PollIndex, MaxVotes>
-where
-	MaxVotes: Get<u32>,
-{
-	/// The account is voting directly.
-	Casting(Casting<Balance, BlockNumber, PollIndex, MaxVotes>),
-	/// The account is delegating `balance` of its balance to a `target` account with `conviction`.
-	Delegating(Delegating<Balance, AccountId, BlockNumber>),
 }
 
 impl<Balance: Default, AccountId, BlockNumber: Zero, PollIndex, MaxVotes> Default
@@ -238,11 +210,15 @@ where
 	MaxVotes: Get<u32>,
 {
 	fn default() -> Self {
-		Voting::Casting(Casting {
+		Voting {
 			votes: Default::default(),
+			retracted_votes: Default::default(),
+			balance: Default::default(),
+			delegatee: None,
+			conviction: None,
 			delegations: Default::default(),
 			prior: PriorLock(Zero::zero(), Default::default()),
-		})
+		}
 	}
 }
 
@@ -252,10 +228,7 @@ where
 	MaxVotes: Get<u32>,
 {
 	fn as_mut(&mut self) -> &mut PriorLock<BlockNumber, Balance> {
-		match self {
-			Voting::Casting(Casting { prior, .. }) => prior,
-			Voting::Delegating(Delegating { prior, .. }) => prior,
-		}
+		&mut self.prior
 	}
 }
 
@@ -276,9 +249,9 @@ where
 	/// The amount of this account's balance that must currently be locked due to voting.
 	pub fn locked_balance(&self) -> Balance {
 		match self {
-			Voting::Casting(Casting { votes, prior, .. }) =>
-				votes.iter().map(|i| i.1.balance()).fold(prior.locked(), |a, i| a.max(i)),
-			Voting::Delegating(Delegating { balance, prior, .. }) => *balance.max(&prior.locked()),
+			let from_voting = self.votes.iter().map(|i| i.1.balance()).fold(self.prior.locked(), |a, i| a.max(i));
+			let from_delegating = *self.balance.max(&self.prior.locked());
+			from_voting.max(from_delegating)
 		}
 	}
 
@@ -287,13 +260,7 @@ where
 		delegations: Delegations<Balance>,
 		prior: PriorLock<BlockNumber, Balance>,
 	) {
-		let (d, p) = match self {
-			Voting::Casting(Casting { ref mut delegations, ref mut prior, .. }) =>
-				(delegations, prior),
-			Voting::Delegating(Delegating { ref mut delegations, ref mut prior, .. }) =>
-				(delegations, prior),
-		};
-		*d = delegations;
-		*p = prior;
+		self.delegations = delegations;
+		self.prior = prior;
 	}
 }
