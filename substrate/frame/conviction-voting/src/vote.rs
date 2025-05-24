@@ -193,9 +193,9 @@ pub struct Voting<Balance, AccountId, BlockNumber> {
 	/// The current vote data of the account.
 	pub votes: BoundedVec<(PollIndex, Option<AccountVote<Balance>>, RetractedVotes<Balance>), MaxVotes>,
 	/// The amount of balance delegated to some voting power.
-	pub balance: Balance,
+	pub delegated_balance: Balance,
 	/// A possible account to which the voting power is delegating.
-	pub delegatee: Option<AccountId>,
+	pub delegate: Option<AccountId>,
 	/// The possible conviction with which the voting power is delegating. When this gets undelegated, the
 	/// relevant lock begins.
 	pub conviction: Option<Conviction>,
@@ -213,8 +213,8 @@ where
 	fn default() -> Self {
 		Voting {
 			votes: Default::default(),
-			balance: Default::default(),
-			delegatee: None,
+			delegated_balance: Default::default(),
+			delegate: None,
 			conviction: None,
 			delegations: Default::default(),
 			prior: PriorLock(Zero::zero(), Default::default()),
