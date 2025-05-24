@@ -248,7 +248,9 @@ where
 
 	/// The amount of this account's balance that must currently be locked due to voting.
 	pub fn locked_balance(&self) -> Balance {
-		let from_voting = self.votes.iter().map(|i| i.1.balance()).fold(self.prior.locked(), |a, i| a.max(i));
+		let from_voting = self.votes.iter()
+    	.filter_map(|i| i.1.as_ref().map(|v| v.balance()))
+    	.fold(self.prior.locked(), |a, i| a.max(i));
 		let from_delegating = *self.balance.max(&self.prior.locked());
 		from_voting.max(from_delegating)
 	}
