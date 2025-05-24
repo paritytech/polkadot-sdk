@@ -36,6 +36,7 @@ mod wasm;
 #[cfg(test)]
 mod tests;
 
+mod ethereum_call;
 pub mod evm;
 pub mod precompiles;
 pub mod test_utils;

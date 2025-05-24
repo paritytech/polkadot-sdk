@@ -1,0 +1,49 @@
+title: "Prevent double\u2010nonce bump on EVM contract deployment by introducing ethereum_call\
+  \ flag"
+doc:
+- audience: Runtime Dev
+  description: "# Description\n\nWhen deploying an EVM contract through Substrate\u2019\
+    s JSON-RPC, the sender\u2019s Substrate account nonce was being bumped twice:\n\
+    \nPre-dispatch by frame_system::CheckNonce for the unsigned eth_transact extrinsic.\n\
+    \nPost-dispatch inside the EVM pallet\u2019s ExecStack::run_instantiate logic.\n\
+    Fixes https://github.com/paritytech/contract-issues/issues/64\n## Integration\n\
+    \n*JSON-RPC callers still use eth_transact exactly as before.*\n\n## Review Notes\n\
+    \n- **Note**:\n  - Had trouble declaring the second bool.\n    ```\n    error[E0428]:\
+    \ the name `GLOBAL` is defined multiple times\n    --> pallet-revive/src/lib.rs:92:1\n\
+    \      |\n    92 | environmental!(ethereum_call: bool);\n    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\
+    \ `GLOBAL` redefined here\n    ...\n    1509 | environmental!(executing_contract:\
+    \ bool);\n     | ---------------------------------------- previous definition\
+    \ of the value `GLOBAL` here\n    ```\n\n- **Thread-local flag** (`environmental!`):\n\
+    \  - Defined a small `ethereum_call` module in `lib.rs` wrapping an `environmental!(ethereum_flag:\
+    \ bool)` flag.\n  - Exposed two helpers:\n    ```rust\n    pub fn using<R>(val:\
+    \ bool, f: impl FnOnce() -> R) -> R {\n        // clone into a mutable local for\
+    \ the environmental API\n        ethereum_flag::using(&mut val.clone(), f)\n \
+    \   }\n\n    pub fn is_ethereum_call() -> bool {\n        // returns the current\
+    \ value or false if unset\n        ethereum_flag::with(|v| *v).unwrap_or(false)\n\
+    \    }\n    ```\n\n- **Suppress post-deploy bump**:\n  - In `exec.rs`, inside\
+    \ the `Constructor` branch of `ExecStack::run`:\n    ```rust\n    if entry_point\
+    \ == ExportedFunction::Constructor {\n        // \u2026 pre-existing setup \u2026\
+    \n        // Only bump the Substrate nonce when NOT in an Ethereum RPC flow\n\
+    \        if !crate::ethereum_call::is_ethereum_call() {\n            <frame_system::Pallet<T>>::inc_account_nonce(caller.account_id()?);\n\
+    \        }\n        // \u2026 continue instantiation \u2026\n    }\n    ```\n\n\
+    - **Set flag during `eth_transact` conversion**:\n  - In `evm/runtime.rs`, where\
+    \ we convert an unsigned `eth_transact` call into a checked extrinsic:\n    ```rust\n\
+    \    if let Some(crate::Call::eth_transact { payload }) = self.0.function.is_sub_type()\
+    \ {\n        // mark this execution as \u201CEthereum RPC\u201D\n        let checked\
+    \ = crate::ethereum_call::using(true, || {\n            E::try_into_checked_extrinsic(payload.to_vec(),\
+    \ self.encoded_size())\n        })?;\n        return Ok(checked)\n    };\n   \
+    \ ```\n\n- **Tests**:\n  - **`call_eth_transact_sets_flag`** in `runtime.rs` confirms:\n\
+    \    1. `using(true, || \u2026)` sets `is_ethereum_call()` to `true` inside the\
+    \ closure.\n    2. The flag resets to `false` afterward.\n  - **`eth_transact_bump_nonce_once`**\
+    \ in the `evm/runtime.rs` tests module verifies:\n    - When `ethereum_call` is\
+    \ **true**, `bare_instantiate` does **not** bump the nonce.\n\n\n# Checklist\n\
+    \n* [X] My PR includes a detailed description as outlined in the \"Description\"\
+    \ and its two subsections above.\n* [X] My PR follows the [labeling requirements](\n\
+    https://github.com/paritytech/polkadot-sdk/blob/master/docs/contributor/CONTRIBUTING.md#Process\n\
+    ) of this project (at minimum one label for `T` required)\n    * External contributors:\
+    \ ask maintainers to put the right label on your PR.\n* [X] I have made corresponding\
+    \ changes to the documentation (if applicable)\n* [X] I have added tests that\
+    \ prove my fix is effective or that my feature works (if applicable)"
+crates:
+- name: pallet-revive
+  bump: patch
