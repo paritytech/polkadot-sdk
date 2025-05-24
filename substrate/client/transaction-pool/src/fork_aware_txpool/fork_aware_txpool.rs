@@ -323,7 +323,7 @@ where
 						);
 					};
 				},
-				DroppedReason::LimitsEnforced | DroppedReason::Invalid => {
+				DroppedReason::LimitsEnforced | DroppedReason::Invalid(_) => {
 					view_store.remove_transaction_subtree(tx_hash, |_, _| {});
 				},
 			};
@@ -1394,7 +1394,8 @@ where
 		if self.view_store.is_empty() {
 			for result in results {
 				if let Err(tx_hash) = result {
-					self.view_store.listener.transactions_invalidated(&[tx_hash]);
+					let reason: String = format!("{:?}", result);
+					self.view_store.listener.transactions_invalidated(&[tx_hash], reason);
 					self.mempool.remove_transactions(&[tx_hash]);
 				}
 			}

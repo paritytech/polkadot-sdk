@@ -218,7 +218,7 @@ impl EventsHistograms {
 			TransactionStatus::Finalized(..) => &self.finalized,
 			TransactionStatus::Usurped(..) => &self.usurped,
 			TransactionStatus::Dropped => &self.dropped,
-			TransactionStatus::Invalid => &self.invalid,
+			TransactionStatus::Invalid(..) => &self.invalid,
 		};
 		histogram.observe(duration);
 	}

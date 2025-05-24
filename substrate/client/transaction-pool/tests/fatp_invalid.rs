@@ -144,9 +144,9 @@ fn fatp_transactions_purging_invalid_on_finalization_works() {
 
 	assert_eq!(pool.mempool_len(), (0, 0));
 
-	assert_watcher_stream!(watcher1, [TransactionStatus::Ready, TransactionStatus::Invalid]);
-	assert_watcher_stream!(watcher2, [TransactionStatus::Ready, TransactionStatus::Invalid]);
-	assert_watcher_stream!(watcher3, [TransactionStatus::Ready, TransactionStatus::Invalid]);
+	assert_watcher_stream!(watcher1, [TransactionStatus::Ready, TransactionStatus::Invalid("".to_string())]);
+	assert_watcher_stream!(watcher2, [TransactionStatus::Ready, TransactionStatus::Invalid("".to_string())]);
+	assert_watcher_stream!(watcher3, [TransactionStatus::Ready, TransactionStatus::Invalid("".to_string())]);
 }
 
 #[test]
@@ -180,7 +180,7 @@ fn fatp_transactions_purging_invalid_on_finalization_works2() {
 		prev_header = header;
 	}
 
-	assert_watcher_stream!(watcher, [TransactionStatus::Ready, TransactionStatus::Invalid]);
+	assert_watcher_stream!(watcher, [TransactionStatus::Ready, TransactionStatus::Invalid("".to_string())]);
 	assert_eq!(pool.status_all()[&prev_header.hash()].ready, 0);
 }
 
@@ -218,7 +218,7 @@ fn should_not_retain_invalid_hashes_from_retracted() {
 		[
 			TransactionStatus::Ready,
 			TransactionStatus::InBlock((header02a.hash(), 0)),
-			TransactionStatus::Invalid
+			TransactionStatus::Invalid("".to_string())
 		]
 	);
 
@@ -304,8 +304,8 @@ fn fatp_watcher_invalid_many_revalidation() {
 			TransactionStatus::Finalized((header03.hash(), 2))
 		]
 	);
-	assert_watcher_stream!(xt3_watcher, [TransactionStatus::Ready, TransactionStatus::Invalid]);
-	assert_watcher_stream!(xt4_watcher, [TransactionStatus::Ready, TransactionStatus::Invalid]);
+	assert_watcher_stream!(xt3_watcher, [TransactionStatus::Ready, TransactionStatus::Invalid("".to_string())]);
+	assert_watcher_stream!(xt4_watcher, [TransactionStatus::Ready, TransactionStatus::Invalid("".to_string())]);
 }
 
 #[test]
@@ -361,7 +361,7 @@ fn fatp_watcher_invalid_single_revalidation() {
 
 	let xt0_events = futures::executor::block_on_stream(xt0_watcher).collect::<Vec<_>>();
 	debug!(target: LOG_TARGET, ?xt0_events, "xt0_events");
-	assert_eq!(xt0_events, vec![TransactionStatus::Ready, TransactionStatus::Invalid]);
+	assert_eq!(xt0_events, vec![TransactionStatus::Ready, TransactionStatus::Invalid("".to_string())]);
 }
 
 #[test]
@@ -381,7 +381,7 @@ fn fatp_watcher_invalid_single_revalidation2() {
 
 	let xt0_events = futures::executor::block_on_stream(xt0_watcher).collect::<Vec<_>>();
 	debug!(target: LOG_TARGET, ?xt0_events, "xt0_events");
-	assert_eq!(xt0_events, vec![TransactionStatus::Invalid]);
+	assert_eq!(xt0_events, vec![TransactionStatus::Invalid("".to_string())]);
 	assert_eq!(pool.mempool_len(), (0, 0));
 }
 
@@ -410,7 +410,7 @@ fn fatp_watcher_invalid_single_revalidation3() {
 
 	let xt0_events = futures::executor::block_on_stream(xt0_watcher).collect::<Vec<_>>();
 	debug!(target: LOG_TARGET, ?xt0_events, "xt0_events");
-	assert_eq!(xt0_events, vec![TransactionStatus::Invalid]);
+	assert_eq!(xt0_events, vec![TransactionStatus::Invalid("".to_string())]);
 	assert_eq!(pool.mempool_len(), (0, 0));
 }
 
@@ -523,7 +523,7 @@ fn fatp_invalid_report_future_dont_remove_from_pool() {
 	let invalid_txs = [xt0_report, xt1_report, xt4_report].into();
 	let result = pool.report_invalid(Some(header01.hash()), invalid_txs);
 
-	assert_watcher_stream!(xt4_watcher, [TransactionStatus::Ready, TransactionStatus::Invalid]);
+	assert_watcher_stream!(xt4_watcher, [TransactionStatus::Ready, TransactionStatus::Invalid("".to_string())]);
 
 	// future does not cause tx to be removed from the pool
 	assert!(result.len() == 1);
@@ -580,8 +580,8 @@ fn fatp_invalid_tx_is_removed_from_the_pool() {
 	assert_pool_status!(header02.hash(), &pool, 2, 0);
 	assert_ready_iterator!(header02.hash(), pool, [xt2, xt3]);
 
-	assert_watcher_stream!(xt0_watcher, [TransactionStatus::Ready, TransactionStatus::Invalid]);
-	assert_watcher_stream!(xt1_watcher, [TransactionStatus::Ready, TransactionStatus::Invalid]);
+	assert_watcher_stream!(xt0_watcher, [TransactionStatus::Ready, TransactionStatus::Invalid("".to_string())]);
+	assert_watcher_stream!(xt1_watcher, [TransactionStatus::Ready, TransactionStatus::Invalid("".to_string())]);
 	assert_watcher_stream!(xt2_watcher, [TransactionStatus::Ready]);
 	assert_watcher_stream!(xt3_watcher, [TransactionStatus::Ready]);
 }
@@ -623,7 +623,7 @@ fn fatp_invalid_tx_is_removed_from_the_pool_future_subtree_stays() {
 	assert_pool_status!(header02.hash(), &pool, 0, 3);
 	assert_future_iterator!(header02.hash(), pool, [xt1, xt2, xt3]);
 
-	assert_watcher_stream!(xt0_watcher, [TransactionStatus::Ready, TransactionStatus::Invalid]);
+	assert_watcher_stream!(xt0_watcher, [TransactionStatus::Ready, TransactionStatus::Invalid("".to_string())]);
 	assert_watcher_stream!(xt1_watcher, [TransactionStatus::Ready]);
 	assert_watcher_stream!(xt2_watcher, [TransactionStatus::Ready]);
 	assert_watcher_stream!(xt3_watcher, [TransactionStatus::Ready]);
@@ -684,8 +684,8 @@ fn fatp_invalid_tx_is_removed_from_the_pool2() {
 	assert_pool_status!(header03.hash(), &pool, 2, 0);
 	assert_ready_iterator!(header03.hash(), pool, [xt2, xt3]);
 
-	assert_watcher_stream!(xt0_watcher, [TransactionStatus::Ready, TransactionStatus::Invalid]);
-	assert_watcher_stream!(xt1_watcher, [TransactionStatus::Ready, TransactionStatus::Invalid]);
+	assert_watcher_stream!(xt0_watcher, [TransactionStatus::Ready, TransactionStatus::Invalid("".to_string())]);
+	assert_watcher_stream!(xt1_watcher, [TransactionStatus::Ready, TransactionStatus::Invalid("".to_string())]);
 	assert_watcher_stream!(xt2_watcher, [TransactionStatus::Ready]);
 	assert_watcher_stream!(xt3_watcher, [TransactionStatus::Ready]);
 }
