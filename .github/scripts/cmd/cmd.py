@@ -69,9 +69,9 @@ parser_bench.add_argument('--fail-fast', help='Fail fast on first failed benchma
 
 
 """
-FMT
+FMT-TAPLO-ZEPTER
 """
-parser_fmt = subparsers.add_parser('fmt', help='Formats code (cargo +nightly-VERSION fmt) and configs (taplo format)')
+parser_fmt = subparsers.add_parser('fmt', help='Formats code (cargo +nightly-VERSION fmt) and configs (taplo format) and zepter format')
 for arg, config in common_args.items():
     parser_fmt.add_argument(arg, **config)
 
@@ -262,9 +262,10 @@ def main():
         command = f"cargo +nightly fmt"
         print(f'Formatting with `{command}`')
         nightly_status = os.system(f'{command}')
+        os.system("cargo metadata --format-version 1 > /dev/null") # update the lockfile
+        zepter_status = os.system('zepter run --config .config/zepter.yaml')
         taplo_status = os.system('taplo format --config .config/taplo.toml')
-
-        if (nightly_status != 0 or taplo_status != 0):
+        if (nightly_status != 0 or zepter_status != 0 or taplo_status != 0):
             print_and_log('❌ Failed to format code')
             sys.exit(1)
 

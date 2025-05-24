@@ -42,19 +42,15 @@ substrate-wasm-builder = { workspace = true, optional = true }
 default = ["std"]
 std = [
 	"codec/std",
-	"scale-info/std",
-	"serde_json/std",
-
+	"first-pallet/std",
 	"frame/std",
-
 	"pallet-balances/std",
 	"pallet-sudo/std",
 	"pallet-timestamp/std",
 	"pallet-transaction-payment-rpc-runtime-api/std",
 	"pallet-transaction-payment/std",
-
-	"first-pallet/std",
+	"scale-info/std",
+	"serde_json/std",
 	"sp-keyring/std",
-
 	"substrate-wasm-builder",
 ]
