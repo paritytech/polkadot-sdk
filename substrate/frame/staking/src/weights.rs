@@ -83,6 +83,9 @@ pub trait WeightInfo {
 	fn force_apply_min_commission() -> Weight;
 	fn set_min_commission() -> Weight;
 	fn restore_ledger() -> Weight;
+	fn add_to_validator_whitelist() -> Weight;
+	fn remove_from_validator_whitelist() -> Weight;
+	fn set_is_validator_whitelist_enabled() -> Weight;
 }
 
 /// Weights for `pallet_staking` using the Substrate node and recommended hardware.
@@ -834,6 +837,21 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().reads(5_u64))
 			.saturating_add(T::DbWeight::get().writes(4_u64))
 	}
+
+	fn add_to_validator_whitelist() -> Weight {
+		Weight::from_parts(2_802_000, 0)
+			.saturating_add(T::DbWeight::get().writes(1_u64))
+	}
+
+	fn remove_from_validator_whitelist() -> Weight {
+		Weight::from_parts(2_802_000, 0)
+			.saturating_add(T::DbWeight::get().writes(1_u64))
+	}
+
+	fn set_is_validator_whitelist_enabled() -> Weight {
+		Weight::from_parts(2_802_000, 0)
+			.saturating_add(T::DbWeight::get().writes(1_u64))
+	}
 }
 
 // For backwards compatibility and tests.
@@ -1583,5 +1601,20 @@ impl WeightInfo for () {
 		Weight::from_parts(45_611_000, 4764)
 			.saturating_add(RocksDbWeight::get().reads(5_u64))
 			.saturating_add(RocksDbWeight::get().writes(4_u64))
+	}
+
+	fn add_to_validator_whitelist() -> Weight {
+		Weight::from_parts(2_802_000, 0)
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
+	}
+
+	fn remove_from_validator_whitelist() -> Weight {
+		Weight::from_parts(2_802_000, 0)
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
+	}
+
+	fn set_is_validator_whitelist_enabled() -> Weight {
+		Weight::from_parts(2_802_000, 0)
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 }
