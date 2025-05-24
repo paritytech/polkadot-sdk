@@ -84,7 +84,7 @@ enum TransactionStatusUpdate<ChainApi: graph::ChainApi> {
 	/// Marks a transaction as invalidated.
 	///
 	/// If all pre-conditions are met, an external invalid event will be sent out.
-	Invalidated(ExtrinsicHash<ChainApi>),
+	Invalidated(ExtrinsicHash<ChainApi>, String),
 
 	/// Notifies that a transaction was finalized in a specific block hash and transaction index.
 	///
@@ -113,7 +113,7 @@ where
 {
 	fn hash(&self) -> ExtrinsicHash<ChainApi> {
 		match self {
-			Self::Invalidated(hash) |
+			Self::Invalidated(hash, _) |
 			Self::Finalized(hash, _, _) |
 			Self::Broadcasted(hash, _) |
 			Self::Dropped(hash, _) => *hash,
@@ -129,7 +129,7 @@ where
 {
 	fn into(self) -> TransactionStatus<ExtrinsicHash<ChainApi>, BlockHash<ChainApi>> {
 		match self {
-			TransactionStatusUpdate::Invalidated(_) => TransactionStatus::Invalid,
+			TransactionStatusUpdate::Invalidated(_, reason) => TransactionStatus::Invalid(reason.clone()),
 			TransactionStatusUpdate::Finalized(_, hash, index) =>
 				TransactionStatus::Finalized((*hash, *index)),
 			TransactionStatusUpdate::Broadcasted(_, peers) =>
@@ -138,8 +138,8 @@ where
 				TransactionStatus::Usurped(*by),
 			TransactionStatusUpdate::Dropped(_, DroppedReason::LimitsEnforced) =>
 				TransactionStatus::Dropped,
-			TransactionStatusUpdate::Dropped(_, DroppedReason::Invalid) =>
-				TransactionStatus::Invalid,
+			TransactionStatusUpdate::Dropped(_, DroppedReason::Invalid(reason)) =>
+				TransactionStatus::Invalid(reason.to_string()),
 			TransactionStatusUpdate::FinalityTimeout(_, block_hash) =>
 				TransactionStatus::FinalityTimeout(*block_hash),
 		}
@@ -152,7 +152,7 @@ where
 {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
 		match self {
-			Self::Invalidated(h) => {
+			Self::Invalidated(h, _) => {
 				write!(f, "Invalidated({h})")
 			},
 			Self::Finalized(h, b, i) => {
@@ -192,8 +192,8 @@ where
 {
 	/// Creates new instance of a command requesting [`TransactionStatus::Invalid`] transaction
 	/// status.
-	fn new_invalidated(tx_hash: ExtrinsicHash<ChainApi>) -> Self {
-		ControllerCommand::TransactionStatusRequest(TransactionStatusUpdate::Invalidated(tx_hash))
+	fn new_invalidated(tx_hash: ExtrinsicHash<ChainApi>, reason: String) -> Self {
+		ControllerCommand::TransactionStatusRequest(TransactionStatusUpdate::Invalidated(tx_hash, reason))
 	}
 	/// Creates new instance of a command requesting [`TransactionStatus::Broadcast`] transaction
 	/// status.
@@ -395,7 +395,7 @@ where
 			TransactionStatus::Broadcast(_) |
 			TransactionStatus::Usurped(_) |
 			TransactionStatus::Dropped |
-			TransactionStatus::Invalid => None,
+			TransactionStatus::Invalid(_) => None,
 		}
 	}
 
@@ -684,11 +684,11 @@ where
 	///
 	/// The external event will be sent if no view is referencing the transaction as `Ready` or
 	/// `Future`.
-	pub(crate) fn transactions_invalidated(&self, invalid_hashes: &[ExtrinsicHash<ChainApi>]) {
+	pub(crate) fn transactions_invalidated(&self, invalid_hashes: &[ExtrinsicHash<ChainApi>], reason: String) {
 		log_xt_trace!(target: LOG_TARGET, invalid_hashes, "transactions_invalidated");
 		for tx_hash in invalid_hashes {
 			if let Err(error) =
-				self.controller.unbounded_send(ControllerCommand::new_invalidated(*tx_hash))
+				self.controller.unbounded_send(ControllerCommand::new_invalidated(*tx_hash, reason.clone()))
 			{
 				trace!(
 					target: LOG_TARGET,
@@ -930,7 +930,7 @@ mod tests {
 		listener.remove_view(block_hash0);
 		listener.remove_view(block_hash1);
 
-		listener.transactions_invalidated(&[tx_hash]);
+		listener.transactions_invalidated(&[tx_hash], "".to_string());
 
 		let out = handle.await.unwrap();
 		debug!("out: {:#?}", out);
@@ -938,7 +938,7 @@ mod tests {
 			TransactionStatus::Future,
 			TransactionStatus::Ready,
 			TransactionStatus::InBlock((block_hash0, 0)),
-			TransactionStatus::Invalid
+			TransactionStatus::Invalid("".to_string())
 		]
 		.contains(v)));
 		assert_eq!(out.len(), 4);
@@ -991,8 +991,8 @@ mod tests {
 		listener.remove_view(block_hash0);
 		listener.remove_view(block_hash1);
 
-		listener.transactions_invalidated(&[tx0_hash]);
-		listener.transactions_invalidated(&[tx1_hash]);
+		listener.transactions_invalidated(&[tx0_hash], "".to_string());
+		listener.transactions_invalidated(&[tx1_hash], "".to_string());
 
 		let out_tx0 = handle0.await.unwrap();
 		let out_tx1 = handle1.await.unwrap();
@@ -1003,7 +1003,7 @@ mod tests {
 			TransactionStatus::Future,
 			TransactionStatus::Ready,
 			TransactionStatus::InBlock((block_hash1, 0)),
-			TransactionStatus::Invalid
+			TransactionStatus::Invalid("".to_string())
 		]
 		.contains(v)));
 
@@ -1052,7 +1052,7 @@ mod tests {
 		listener.add_view_aggregated_stream(block_hash0, view_stream0.boxed());
 		listener.add_view_aggregated_stream(block_hash1, view_stream1.boxed());
 
-		listener.transactions_invalidated(&[tx_hash]);
+		listener.transactions_invalidated(&[tx_hash], "".to_string());
 
 		let out = handle.await.unwrap();
 		debug!("out: {:#?}", out);
@@ -1075,7 +1075,7 @@ mod tests {
 		let (listener, terminate_listener, listener_task) = create_multi_view_listener();
 
 		let block_hash0 = H256::repeat_byte(0x01);
-		let events0 = vec![TransactionStatus::Invalid];
+		let events0 = vec![TransactionStatus::Invalid("".to_string())];
 
 		let tx_hash = H256::repeat_byte(0x0a);
 		let external_watcher = listener.create_external_watcher_for_tx(tx_hash).unwrap();
@@ -1088,14 +1088,14 @@ mod tests {
 		// Invalid event from View's stream is intentionally ignored .
 		// we need to explicitely remove the view
 		listener.remove_view(block_hash0);
-		listener.transactions_invalidated(&[tx_hash]);
+		listener.transactions_invalidated(&[tx_hash], "".to_string());
 
 		listener.add_view_aggregated_stream(block_hash0, view_stream0.boxed());
 
 		let out = handle.await.unwrap();
 		debug!("out: {:#?}", out);
 
-		assert!(out.iter().all(|v| vec![TransactionStatus::Invalid].contains(v)));
+		assert!(out.iter().all(|v| vec![TransactionStatus::Invalid("".to_string())].contains(v)));
 		assert_eq!(out.len(), 1);
 
 		let _ = terminate_listener.send(());

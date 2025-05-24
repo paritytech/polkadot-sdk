@@ -365,7 +365,7 @@ impl<B: ChainApi, L: EventHandler<B>> ValidatedPool<B, L> {
 					?error,
 					"ValidatedPool::submit_one unknown"
 				);
-				self.event_dispatcher.write().invalid(&tx_hash);
+				self.event_dispatcher.write().invalid(&tx_hash, error.to_string());
 				Err(error)
 			},
 		}
@@ -467,7 +467,7 @@ impl<B: ChainApi, L: EventHandler<B>> ValidatedPool<B, L> {
 		enum Status {
 			Future,
 			Ready,
-			Failed,
+			Failed(&'static str),
 			Dropped,
 		}
 
@@ -533,7 +533,7 @@ impl<B: ChainApi, L: EventHandler<B>> ValidatedPool<B, L> {
 										final_statuses.insert(hash, Status::Ready);
 									}
 									for hash in failed {
-										final_statuses.insert(hash, Status::Failed);
+										final_statuses.insert(hash, Status::Failed(""));
 									}
 									for tx in removed {
 										final_statuses.insert(tx.hash, Status::Dropped);
@@ -554,12 +554,12 @@ impl<B: ChainApi, L: EventHandler<B>> ValidatedPool<B, L> {
 									%error,
 									"Removing invalid transaction from update"
 								);
-								final_statuses.insert(tx_hash, Status::Failed);
+								final_statuses.insert(tx_hash, Status::Failed(""));
 							},
 						},
 						ValidatedTransaction::Invalid(_, _) |
 						ValidatedTransaction::Unknown(_, _) => {
-							final_statuses.insert(tx_hash, Status::Failed);
+							final_statuses.insert(tx_hash, Status::Failed("Unknown transaction validity"));
 						},
 					}
 				}
@@ -585,7 +585,7 @@ impl<B: ChainApi, L: EventHandler<B>> ValidatedPool<B, L> {
 					Status::Future => event_dispatcher.future(&hash),
 					Status::Ready => event_dispatcher.ready(&hash, None),
 					Status::Dropped => event_dispatcher.dropped(&hash),
-					Status::Failed => event_dispatcher.invalid(&hash),
+					Status::Failed(reason) => event_dispatcher.invalid(&hash, reason.to_string()),
 				}
 			}
 		}
@@ -754,7 +754,7 @@ impl<B: ChainApi, L: EventHandler<B>> ValidatedPool<B, L> {
 		}
 
 		let invalid = self.remove_subtree(hashes, true, |listener, removed_tx_hash| {
-			listener.invalid(&removed_tx_hash);
+			listener.invalid(&removed_tx_hash, "".to_string());
 		});
 
 		trace!(
@@ -865,7 +865,7 @@ fn fire_events<B, L, Ex>(
 	match *imported {
 		base::Imported::Ready { ref promoted, ref failed, ref removed, ref hash } => {
 			event_dispatcher.ready(hash, None);
-			failed.iter().for_each(|f| event_dispatcher.invalid(f));
+			failed.iter().for_each(|f| event_dispatcher.invalid(f, "".to_string()));
 			removed.iter().for_each(|r| event_dispatcher.usurped(&r.hash, hash));
 			promoted.iter().for_each(|p| event_dispatcher.ready(p, None));
 		},

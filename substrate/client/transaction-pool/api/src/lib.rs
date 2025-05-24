@@ -154,7 +154,7 @@ pub enum TransactionStatus<Hash, BlockHash> {
 	/// Transaction has been dropped from the pool because of the limit.
 	Dropped,
 	/// Transaction is no longer valid in the current state.
-	Invalid,
+	Invalid(String),
 }
 
 impl<Hash, BlockHash> TransactionStatus<Hash, BlockHash> {
@@ -165,7 +165,7 @@ impl<Hash, BlockHash> TransactionStatus<Hash, BlockHash> {
 			Self::Usurped(_) |
 			Self::Finalized(_) |
 			Self::FinalityTimeout(_) |
-			Self::Invalid |
+			Self::Invalid(_) |
 			Self::Dropped => true,
 			_ => false,
 		}
@@ -180,7 +180,7 @@ impl<Hash, BlockHash> TransactionStatus<Hash, BlockHash> {
 			// The number of finality watchers has been reached.
 			Self::FinalityTimeout(_) |
 			// An invalid transaction might be valid at a later time.
-			Self::Invalid |
+			Self::Invalid(_) |
 			// The transaction was dropped because of the limits of the pool.
 			// It can reenter the pool when other transactions are removed / finalized.
 			Self::Dropped => true,

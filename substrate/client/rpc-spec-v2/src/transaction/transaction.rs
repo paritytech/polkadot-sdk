@@ -155,8 +155,8 @@ pub fn handle_event<Hash: Clone, BlockHash: Clone>(
 		TransactionStatus::Dropped => Some(TransactionEvent::Dropped(TransactionDropped {
 			error: "Extrinsic dropped from the pool due to exceeding limits".into(),
 		})),
-		TransactionStatus::Invalid => Some(TransactionEvent::Invalid(TransactionError {
-			error: "Extrinsic marked as invalid".into(),
+		TransactionStatus::Invalid(reason) => Some(TransactionEvent::Invalid(TransactionError {
+    		error: format!("Extrinsic marked as invalid: {:?}", reason),
 		})),
 		// These are the events that are not supported by the new API.
 		TransactionStatus::Broadcast(_) => None,
