@@ -180,6 +180,7 @@ dependencies = [
  "derive_more 2.0.1",
  "foldhash",
  "hashbrown 0.15.3",
+ "hex-literal",
  "indexmap 2.9.0",
  "itoa",
  "k256",
@@ -4509,6 +4510,7 @@ dependencies = [
  "frame-support",
  "frame-system",
  "futures",
+ "hashbrown 0.15.3",
  "hex-literal",
  "impl-trait-for-tuples",
  "log",
@@ -6528,6 +6530,7 @@ dependencies = [
  "cumulus-primitives-proof-size-hostfunction",
  "cumulus-test-runtime",
  "frame-benchmarking",
+ "frame-storage-access-test-runtime",
  "frame-support",
  "frame-system",
  "gethostname",
@@ -6546,6 +6549,8 @@ dependencies = [
  "sc-client-api",
  "sc-client-db",
  "sc-executor 0.32.0",
+ "sc-executor-common 0.29.0",
+ "sc-executor-wasmtime 0.29.0",
  "sc-runtime-utilities",
  "sc-service",
  "sc-sysinfo",
@@ -6806,6 +6811,19 @@ dependencies = [
  "substrate-rpc-client",
  "tokio",
  "tokio-retry",
+]
+
+[[package]]
+name = "frame-storage-access-test-runtime"
+version = "0.1.0"
+dependencies = [
+ "cumulus-pallet-parachain-system",
+ "parity-scale-codec",
+ "sp-core 28.0.0",
+ "sp-runtime 31.0.1",
+ "sp-state-machine 0.35.0",
+ "sp-trie 29.0.0",
+ "substrate-wasm-builder",
 ]
 
 [[package]]
