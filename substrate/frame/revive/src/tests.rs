@@ -39,8 +39,7 @@ use crate::test_utils::builder::Contract;
 use assert_matches::assert_matches;
 use codec::Encode;
 use frame_support::{
-	assert_err, assert_err_ignore_postinfo, assert_noop, assert_ok,
-	derive_impl,
+	assert_err, assert_err_ignore_postinfo, assert_noop, assert_ok, derive_impl,
 	pallet_prelude::EnsureOrigin,
 	parameter_types,
 	storage::child,
@@ -1882,7 +1881,14 @@ fn gas_estimation_for_subcalls() {
 		// Encodes which contract should be sub called with which input
 		let sub_calls: [(&[u8], Vec<_>, bool); 2] = [
 			(addr_dummy.as_ref(), vec![], false),
-			(precompile_addr.as_ref(), INoInfo::INoInfoCalls::callRuntime(INoInfo::callRuntimeCall { call: runtime_call.into() }).abi_encode(), false),
+			(
+				precompile_addr.as_ref(),
+				INoInfo::INoInfoCalls::callRuntime(INoInfo::callRuntimeCall {
+					call: runtime_call.into(),
+				})
+				.abi_encode(),
+				false,
+			),
 		];
 
 		for weight in weights {
@@ -1971,7 +1977,10 @@ fn call_runtime_reentrancy_guarded() {
 		// Call runtime to re-enter back to contracts engine by
 		// calling dummy contract
 		let result = builder::bare_call(precompile_addr)
-			.data(INoInfo::INoInfoCalls::callRuntime(INoInfo::callRuntimeCall { call: call.into() }).abi_encode())
+			.data(
+				INoInfo::INoInfoCalls::callRuntime(INoInfo::callRuntimeCall { call: call.into() })
+					.abi_encode(),
+			)
 			.build();
 		// Call to runtime should fail because of the re-entrancy guard
 		println!("{:?}", result.result.clone());

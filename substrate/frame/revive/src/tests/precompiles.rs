@@ -94,16 +94,16 @@ impl<T: Config> Precompile for NoInfo<T> {
 				let origin = env.caller();
 				let frame_origin = match origin {
 					Origin::Root => RawOrigin::Root.into(),
-					Origin::Signed(account_id) =>
-						RawOrigin::Signed(account_id.clone()).into(),
+					Origin::Signed(account_id) => RawOrigin::Signed(account_id.clone()).into(),
 				};
 
 				let call = <T as Config>::RuntimeCall::decode(&mut &call[..]).unwrap();
 				match call.dispatch(frame_origin) {
 					Ok(_) => Ok(Vec::new()),
-					Err(_) => Err(Error::Error(DispatchError::Other("dispatched call failed").into())),
+					Err(_) =>
+						Err(Error::Error(DispatchError::Other("dispatched call failed").into())),
 				}
-			}
+			},
 		}
 	}
 }
