@@ -554,13 +554,15 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	}
 
 	// Keep in minds
-		// unsure yet if this needs to account for clawbacks or if that'll be handled elsewhere, but probs
+		// need to first clean delegates voting state
+		// then add add the clawbacks and only increase tallys for ones that weren't clawed back
 
 	/// Return the number of votes made by `who`.
 	fn increase_upstream_delegation(
 		who: &T::AccountId,
 		class: &ClassOf<T, I>,
 		amount: Delegations<BalanceOf<T, I>>,
+		ongoing_votes: Vec<PollIndex>,
 	) -> u32 {
 		VotingFor::<T, I>::mutate(who, class, |voting| match voting {
 			Voting::Delegating(Delegating { delegations, .. }) => {
@@ -615,9 +617,14 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	// So when I try to delegate, basically if I'm delegating I cant
 	// if I'm not I need to set my delegation, set the delegate's delegated to me info
 	// gather the delegators current voting data and downstream that as well
+	// Okay let's keep it to where you can't delegate if you're already doing it,
+	// but we'll remove the necessity of not having votes, as it wouldn't make sense
 
 	// Keep in minds
 		// Will need to account for delegatees current voting state
+
+	// K, need to filter for ongoing polls and just their poll indices better, but let's move on to
+	// upstreaming first
 
 	/// Attempt to delegate `balance` times `conviction` of voting power from `who` to `target`.
 	///
@@ -632,37 +639,30 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		ensure!(who != target, Error::<T, I>::Nonsense);
 		T::Polls::classes().binary_search(&class).map_err(|_| Error::<T, I>::BadClass)?;
 		ensure!(balance <= T::Currency::total_balance(&who), Error::<T, I>::InsufficientFunds);
-		let votes =
+		let delegate_vote_count =
 			VotingFor::<T, I>::try_mutate(&who, &class, |voting| -> Result<u32, DispatchError> {
-				let old = core::mem::replace(
-					voting,
-					Voting::Delegating(Delegating {
-						balance,
-						target: target.clone(),
-						conviction,
-						delegations: Default::default(),
-						prior: Default::default(),
-					}),
-				);
-				match old {
-					Voting::Delegating(Delegating { .. }) =>
-						return Err(Error::<T, I>::AlreadyDelegating.into()),
-					Voting::Casting(Casting { votes, delegations, prior }) => {
-						// here we just ensure that we're currently idling with no votes recorded.
-						ensure!(votes.is_empty(), Error::<T, I>::AlreadyVoting);
-						voting.set_common(delegations, prior);
-					},
+				let old = voting.clone();
+				if let Some(delegate) = old.delegate {
+					return Err(Error::<T, I>::AlreadyDelegating.into());
 				}
-
-				let votes =
-					Self::increase_upstream_delegation(&target, &class, conviction.votes(balance));
+				voting.set_delegate_info(target, balance, conviction);
+				
+				let ongoing_votes = voting.votes.into_iter().filter_map(|poll_data| {
+					T::Polls::access_poll(poll_index, |poll_status| {
+						if let PollStatus::Ongoing(tally, _) = poll_status {
+								return poll_index;
+							}
+					})
+				});
+				let vote_count =
+					Self::increase_upstream_delegation(&target, &class, conviction.votes(balance), ongoing_votes);
 				// Extend the lock to `balance` (rather than setting it) since we don't know what
 				// other votes are in place.
 				Self::extend_lock(&who, &class, balance);
-				Ok(votes)
+				Ok(vote_count)
 			})?;
 		Self::deposit_event(Event::<T, I>::Delegated(who, target));
-		Ok(votes)
+		Ok(delegate_vote_count)
 	}
 
 	// Keep in minds

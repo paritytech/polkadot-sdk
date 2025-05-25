@@ -263,4 +263,16 @@ where
 		self.delegations = delegations;
 		self.prior = prior;
 	}
+
+	/// Set the delegator related info of an account's voting data.
+	pub fn set_delegator_info(
+		&mut self,
+		delegate: AccountId,
+		balance: Balance,
+		conviction: Conviction,
+	) {
+		self.delegate = Some(delegate);
+		self.delegated_balance = balance;
+		self.conviction = Some(conviction);
+	}
 }
