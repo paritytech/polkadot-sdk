@@ -28,16 +28,16 @@ use crate::LOG_TARGET;
 /// Default retry configuration values.
 #[derive(Clone)]
 pub struct RetryConfig {
-	/// Maximum number of retries to attempt.
-	pub max_retries: usize,
+	/// Maximum number of retries to attempt. None means infinite retries.
+	pub max_retries: Option<usize>,
 	/// Initial delay between retries.
 	pub initial_delay: Duration,
 	/// Maximum delay between retries.
 	pub max_delay: Duration,
 }
 impl RetryConfig {
-	/// Default maximum number of retries to attempt.
-	pub const DEFAULT_MAX_RETRIES: usize = 12;
+	/// Default maximum number of retries to attempt (infinite).
+	pub const DEFAULT_MAX_RETRIES: Option<usize> = None;
 	/// Default initial delay between retries.
 	pub const DEFAULT_INITIAL_DELAY: Duration = Duration::from_secs(3);
 	/// Default maximum delay between retries.
@@ -70,8 +70,12 @@ where
 	E: 'static + Send + Debug,
 {
 	let retry_strategy = ExponentialBackoff::from_millis(config.initial_delay.as_millis() as u64)
-		.max_delay(config.max_delay)
-		.take(config.max_retries);
+		.max_delay(config.max_delay);
+	let retry_strategy = if let Some(max_retries) = config.max_retries {
+		retry_strategy.take(max_retries)
+	} else {
+		retry_strategy.take(usize::MAX)
+	};
 
 	Retry::spawn(retry_strategy, || {
 		let fut = op();
@@ -105,7 +109,7 @@ mod tests {
 	async fn test_with_retry_success_first_try() {
 		let result = with_retry(
 			RetryConfig {
-				max_retries: 3,
+				max_retries: Some(3),
 				initial_delay: Duration::from_millis(1),
 				max_delay: Duration::from_millis(10),
 			},
@@ -123,7 +127,7 @@ mod tests {
 		let counter_clone = counter.clone();
 		let res = with_retry(
 			RetryConfig {
-				max_retries: 3,
+				max_retries: Some(3),
 				initial_delay: Duration::from_millis(1),
 				max_delay: Duration::from_millis(10),
 			},
@@ -154,16 +158,16 @@ mod tests {
 		let counter_clone = counter.clone();
 		let res = with_retry(
 			RetryConfig {
-				max_retries: 2,
+				max_retries: Some(2),
 				initial_delay: Duration::from_millis(1),
 				max_delay: Duration::from_millis(10),
 			},
 			move || {
 				let counter = counter_clone.clone();
-				
+
 				async move {
 					let count = counter.fetch_add(1, Ordering::SeqCst);
-					
+
 					if count < 5 {
 						Err(())
 					} else {
@@ -176,7 +180,7 @@ mod tests {
 		.await;
 
 		assert!(res.is_err());
-		// Original + 2 retries = 3 attempts
+		// Original + 2 retries = 3 attempts.
 		assert_eq!(counter.load(Ordering::SeqCst), 3);
 	}
 
@@ -185,13 +189,18 @@ mod tests {
 		let counter = Arc::new(AtomicUsize::new(0));
 		let counter_clone = counter.clone();
 		let res = with_retry(
-			RetryConfig::default(),
+			RetryConfig {
+				max_retries: RetryConfig::DEFAULT_MAX_RETRIES,
+				// Fast delays for testing.
+				initial_delay: Duration::from_millis(1),
+				max_delay: Duration::from_millis(10),
+			},
 			move || {
 				let counter = counter_clone.clone();
-				
+
 				async move {
 					let count = counter.fetch_add(1, Ordering::SeqCst);
-					
+
 					if count < 2 {
 						Err(())
 					} else {
@@ -211,7 +220,7 @@ mod tests {
 		// Test with shorter initial delay.
 		let res1 = with_retry(
 			RetryConfig {
-				max_retries: 1,
+				max_retries: Some(1),
 				initial_delay: Duration::from_millis(1),
 				max_delay: Duration::from_millis(10),
 			},
@@ -222,7 +231,7 @@ mod tests {
 		// Test with longer initial delay.
 		let res2 = with_retry(
 			RetryConfig {
-				max_retries: 1,
+				max_retries: Some(1),
 				initial_delay: Duration::from_millis(5),
 				max_delay: Duration::from_millis(50),
 			},
@@ -233,5 +242,38 @@ mod tests {
 
 		assert_eq!(res1.unwrap(), 1);
 		assert_eq!(res2.unwrap(), 2);
+	}
+
+	#[tokio::test]
+	async fn test_with_infinite_retries() {
+		let counter = Arc::new(AtomicUsize::new(0));
+		let counter_clone = counter.clone();
+		let res = with_retry(
+			RetryConfig {
+				// Infinite retries.
+				max_retries: None,
+				initial_delay: Duration::from_millis(1),
+				max_delay: Duration::from_millis(10),
+			},
+			move || {
+				let counter = counter_clone.clone();
+
+				async move {
+					let count = counter.fetch_add(1, Ordering::SeqCst);
+
+					// Succeed after 5 attempts to avoid infinite loop in test.
+					if count < 5 {
+						Err(())
+					} else {
+						Ok(count)
+					}
+				}
+			},
+			"test_infinite_retries",
+		)
+		.await;
+
+		assert_eq!(res.unwrap(), 5);
+		assert_eq!(counter.load(Ordering::SeqCst), 6);
 	}
 }

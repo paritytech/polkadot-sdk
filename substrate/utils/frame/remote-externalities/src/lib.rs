@@ -201,7 +201,7 @@ impl Transport {
 			};
 			let http_client = retry::with_retry(
 				RetryConfig {
-					max_retries: 5,
+					max_retries: Some(5),
 					initial_delay: Duration::from_secs(1),
 					max_delay: Duration::from_secs(15),
 				},
