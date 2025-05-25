@@ -19,14 +19,17 @@
 
 use crate::{
 	precompiles::{AddressMatcher, Error, Ext, ExtWithInfo, Precompile, Token},
-	Config, DispatchError, Weight,
+	Config, DispatchError, Origin, Weight,
 };
 use alloc::vec::Vec;
 use alloy_core::{
 	sol,
 	sol_types::{PanicKind, SolValue},
 };
+use codec::Decode;
 use core::{marker::PhantomData, num::NonZero};
+use frame_system::RawOrigin;
+use sp_runtime::traits::Dispatchable;
 
 sol! {
 	interface IWithInfo {
@@ -39,6 +42,7 @@ sol! {
 		function panics() external;
 		function errors() external;
 		function consumeMaxGas() external;
+		function callRuntime(bytes memory call) external;
 	}
 }
 
@@ -86,6 +90,20 @@ impl<T: Config> Precompile for NoInfo<T> {
 				env.gas_meter_mut().charge(MaxGasToken)?;
 				Ok(Vec::new())
 			},
+			INoInfoCalls::callRuntime(INoInfo::callRuntimeCall { call }) => {
+				let origin = env.caller();
+				let frame_origin = match origin {
+					Origin::Root => RawOrigin::Root.into(),
+					Origin::Signed(account_id) =>
+						RawOrigin::Signed(account_id.clone()).into(),
+				};
+
+				let call = <T as Config>::RuntimeCall::decode(&mut &call[..]).unwrap();
+				match call.dispatch(frame_origin) {
+					Ok(_) => Ok(Vec::new()),
+					Err(_) => Err(Error::Error(DispatchError::Other("dispatched call failed").into())),
+				}
+			}
 		}
 	}
 }

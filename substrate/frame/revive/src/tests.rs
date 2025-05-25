@@ -37,9 +37,9 @@ use crate::{
 
 use crate::test_utils::builder::Contract;
 use assert_matches::assert_matches;
-use codec::{Decode, Encode};
+use codec::Encode;
 use frame_support::{
-	assert_err, assert_err_ignore_postinfo, assert_err_with_weight, assert_noop, assert_ok,
+	assert_err, assert_err_ignore_postinfo, assert_noop, assert_ok,
 	derive_impl,
 	pallet_prelude::EnsureOrigin,
 	parameter_types,
@@ -47,7 +47,7 @@ use frame_support::{
 	traits::{
 		fungible::{BalancedHold, Inspect, Mutate, MutateHold},
 		tokens::Preservation,
-		ConstU32, ConstU64, Contains, FindAuthor, OnIdle, OnInitialize, StorageVersion,
+		ConstU32, ConstU64, FindAuthor, OnIdle, OnInitialize, StorageVersion,
 	},
 	weights::{constants::WEIGHT_REF_TIME_PER_SECOND, FixedFee, IdentityFee, Weight, WeightMeter},
 };
@@ -290,36 +290,6 @@ parameter_types! {
 impl Convert<Weight, BalanceOf<Self>> for Test {
 	fn convert(w: Weight) -> BalanceOf<Self> {
 		w.ref_time()
-	}
-}
-
-/// A filter whose filter function can be swapped at runtime.
-pub struct TestFilter;
-
-#[derive(Clone)]
-pub struct Filters {
-	filter: fn(&RuntimeCall) -> bool,
-}
-
-impl Default for Filters {
-	fn default() -> Self {
-		Filters { filter: (|_| true) }
-	}
-}
-
-parameter_types! {
-	static CallFilter: Filters = Default::default();
-}
-
-impl TestFilter {
-	pub fn set_filter(filter: fn(&RuntimeCall) -> bool) {
-		CallFilter::mutate(|fltr| fltr.filter = filter);
-	}
-}
-
-impl Contains<RuntimeCall> for TestFilter {
-	fn contains(call: &RuntimeCall) -> bool {
-		(CallFilter::get().filter)(call)
 	}
 }
 
@@ -1866,6 +1836,146 @@ fn refcounter() {
 
 		// refcount is `0` but code should still exists because it needs to be removed manually
 		assert!(crate::PristineCode::<Test>::contains_key(&code_hash));
+	});
+}
+
+#[test]
+fn gas_estimation_for_subcalls() {
+	use crate::precompiles::Precompile;
+	use alloy_core::sol_types::SolInterface;
+	use precompiles::{INoInfo, NoInfo};
+
+	let precompile_addr = H160(NoInfo::<Test>::MATCHER.base_address());
+
+	let (caller_code, _caller_hash) = compile_module("call_with_limit").unwrap();
+	let (dummy_code, _callee_hash) = compile_module("dummy").unwrap();
+	ExtBuilder::default().existential_deposit(50).build().execute_with(|| {
+		let min_balance = Contracts::min_balance();
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 2_000 * min_balance);
+
+		let Contract { addr: addr_caller, .. } =
+			builder::bare_instantiate(Code::Upload(caller_code))
+				.value(min_balance * 100)
+				.build_and_unwrap_contract();
+
+		let Contract { addr: addr_dummy, .. } = builder::bare_instantiate(Code::Upload(dummy_code))
+			.value(min_balance * 100)
+			.build_and_unwrap_contract();
+
+		// Run the test for all of those weight limits for the subcall
+		let weights = [
+			Weight::MAX,
+			GAS_LIMIT,
+			GAS_LIMIT * 2,
+			GAS_LIMIT / 5,
+			Weight::from_parts(u64::MAX, GAS_LIMIT.proof_size()),
+			Weight::from_parts(GAS_LIMIT.ref_time(), u64::MAX),
+		];
+
+		// This call is passed to the sub call in order to create a large `required_weight`
+		let runtime_call = RuntimeCall::Dummy(pallet_dummy::Call::overestimate_pre_charge {
+			pre_charge: Weight::from_parts(10_000_000_000, 512 * 1024),
+			actual_weight: Weight::from_parts(1, 1),
+		})
+		.encode();
+
+		// Encodes which contract should be sub called with which input
+		let sub_calls: [(&[u8], Vec<_>, bool); 2] = [
+			(addr_dummy.as_ref(), vec![], false),
+			(precompile_addr.as_ref(), INoInfo::INoInfoCalls::callRuntime(INoInfo::callRuntimeCall { call: runtime_call.into() }).abi_encode(), false),
+		];
+
+		for weight in weights {
+			for (sub_addr, sub_input, out_of_gas_in_subcall) in &sub_calls {
+				let input: Vec<u8> = sub_addr
+					.iter()
+					.cloned()
+					.chain(weight.ref_time().to_le_bytes())
+					.chain(weight.proof_size().to_le_bytes())
+					.chain(sub_input.clone())
+					.collect();
+
+				// Call in order to determine the gas that is required for this call
+				let result_orig = builder::bare_call(addr_caller).data(input.clone()).build();
+				assert_ok!(&result_orig.result);
+
+				// If the out of gas happens in the subcall the caller contract
+				// will just trap. Otherwise we would need to forward an error
+				// code to signal that the sub contract ran out of gas.
+				let error: DispatchError = if *out_of_gas_in_subcall {
+					assert!(result_orig.gas_required.all_gt(result_orig.gas_consumed));
+					<Error<Test>>::ContractTrapped.into()
+				} else {
+					assert_eq!(result_orig.gas_required, result_orig.gas_consumed);
+					<Error<Test>>::OutOfGas.into()
+				};
+
+				// Make the same call using the estimated gas. Should succeed.
+				let result = builder::bare_call(addr_caller)
+					.gas_limit(result_orig.gas_required)
+					.storage_deposit_limit(result_orig.storage_deposit.charge_or_zero().into())
+					.data(input.clone())
+					.build();
+				assert_ok!(&result.result);
+
+				// Check that it fails with too little ref_time
+				let result = builder::bare_call(addr_caller)
+					.gas_limit(result_orig.gas_required.sub_ref_time(1))
+					.storage_deposit_limit(result_orig.storage_deposit.charge_or_zero().into())
+					.data(input.clone())
+					.build();
+				assert_err!(result.result, error);
+
+				// Check that it fails with too little proof_size
+				let result = builder::bare_call(addr_caller)
+					.gas_limit(result_orig.gas_required.sub_proof_size(1))
+					.storage_deposit_limit(result_orig.storage_deposit.charge_or_zero().into())
+					.data(input.clone())
+					.build();
+				assert_err!(result.result, error);
+			}
+		}
+	});
+}
+
+#[test]
+fn call_runtime_reentrancy_guarded() {
+	use crate::precompiles::Precompile;
+	use alloy_core::sol_types::SolInterface;
+	use precompiles::{INoInfo, NoInfo};
+
+	let precompile_addr = H160(NoInfo::<Test>::MATCHER.base_address());
+
+	let (callee_code, _callee_hash) = compile_module("dummy").unwrap();
+	ExtBuilder::default().existential_deposit(50).build().execute_with(|| {
+		let min_balance = Contracts::min_balance();
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1000 * min_balance);
+		let _ = <Test as Config>::Currency::set_balance(&CHARLIE, 1000 * min_balance);
+
+		let Contract { addr: addr_callee, .. } =
+			builder::bare_instantiate(Code::Upload(callee_code))
+				.value(min_balance * 100)
+				.salt(Some([1; 32]))
+				.build_and_unwrap_contract();
+
+		// Call pallet_revive call() dispatchable
+		let call = RuntimeCall::Contracts(crate::Call::call {
+			dest: addr_callee,
+			value: 0,
+			gas_limit: GAS_LIMIT / 3,
+			storage_deposit_limit: deposit_limit::<Test>(),
+			data: vec![],
+		})
+		.encode();
+
+		// Call runtime to re-enter back to contracts engine by
+		// calling dummy contract
+		let result = builder::bare_call(precompile_addr)
+			.data(INoInfo::INoInfoCalls::callRuntime(INoInfo::callRuntimeCall { call: call.into() }).abi_encode())
+			.build();
+		// Call to runtime should fail because of the re-entrancy guard
+		println!("{:?}", result.result.clone());
+		assert!(result.result.is_err());
 	});
 }
 
