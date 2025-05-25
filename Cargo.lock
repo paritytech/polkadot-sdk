@@ -179,7 +179,7 @@ dependencies = [
  "const-hex",
  "derive_more 1.0.0",
  "foldhash",
- "hashbrown 0.15.2",
+ "hashbrown 0.15.3",
  "hex-literal",
  "indexmap 2.9.0",
  "itoa",
@@ -506,7 +506,7 @@ dependencies = [
  "ark-std 0.5.0",
  "educe",
  "fnv",
- "hashbrown 0.15.2",
+ "hashbrown 0.15.3",
  "itertools 0.13.0",
  "num-bigint",
  "num-integer",
@@ -740,7 +740,7 @@ dependencies = [
  "ark-std 0.5.0",
  "educe",
  "fnv",
- "hashbrown 0.15.2",
+ "hashbrown 0.15.3",
 ]
 
 [[package]]
@@ -4523,6 +4523,7 @@ dependencies = [
  "frame-support",
  "frame-system",
  "futures",
+ "hashbrown 0.15.3",
  "hex-literal",
  "impl-trait-for-tuples",
  "log",
@@ -6475,6 +6476,7 @@ dependencies = [
  "cumulus-primitives-proof-size-hostfunction",
  "cumulus-test-runtime",
  "frame-benchmarking",
+ "frame-storage-access-test-runtime",
  "frame-support",
  "frame-system",
  "gethostname",
@@ -6493,6 +6495,8 @@ dependencies = [
  "sc-client-api",
  "sc-client-db",
  "sc-executor 0.32.0",
+ "sc-executor-common 0.29.0",
+ "sc-executor-wasmtime 0.29.0",
  "sc-runtime-utilities",
  "sc-service",
  "sc-sysinfo",
@@ -6742,6 +6746,19 @@ dependencies = [
  "substrate-rpc-client",
  "tokio",
  "tokio-retry",
+]
+
+[[package]]
+name = "frame-storage-access-test-runtime"
+version = "0.1.0"
+dependencies = [
+ "cumulus-pallet-parachain-system",
+ "parity-scale-codec",
+ "sp-core 28.0.0",
+ "sp-runtime 31.0.1",
+ "sp-state-machine 0.35.0",
+ "sp-trie 29.0.0",
+ "substrate-wasm-builder",
 ]
 
 [[package]]
@@ -7525,11 +7542,12 @@ dependencies = [
 
 [[package]]
 name = "hashbrown"
-version = "0.15.2"
+version = "0.15.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bf151400ff0baff5465007dd2f3e717f3fe502074ca563069ce3a6629d07b289"
+checksum = "84b26c544d002229e640969970a2e74021aadf6e2f96372b9c58eff97de08eb3"
 dependencies = [
  "allocator-api2",
+ "equivalent",
  "foldhash",
  "serde",
 ]
@@ -8271,7 +8289,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cea70ddb795996207ad57735b50c5982d8844f38ba9ee5f1aedcfb708a2aa11e"
 dependencies = [
  "equivalent",
- "hashbrown 0.15.2",
+ "hashbrown 0.15.3",
  "serde",
 ]
 
