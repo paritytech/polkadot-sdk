@@ -513,6 +513,18 @@ pub mod pallet {
 		AddressMapping,
 	}
 
+	#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+	pub enum NonceAlreadyIncremented {
+		/// Indicates that the nonce has not been incremented yet.
+		///
+		/// This happens when the instantiation is triggered by a dry-run or another contract.
+		No,
+		/// Indicates that the nonce has already been incremented.
+		///
+		/// This happens when the instantiation is triggered by a transaction.
+		Yes,
+	}
+
 	/// A mapping from a contract's code hash to its code.
 	#[pallet::storage]
 	pub(crate) type PristineCode<T: Config> = StorageMap<_, Identity, H256, CodeVec>;
@@ -797,6 +809,7 @@ pub mod pallet {
 				Code::Existing(code_hash),
 				data,
 				salt,
+				NonceAlreadyIncremented::Yes,
 			);
 			if let Ok(retval) = &output.result {
 				if retval.result.did_revert() {
@@ -861,6 +874,7 @@ pub mod pallet {
 				Code::Upload(code),
 				data,
 				salt,
+				NonceAlreadyIncremented::Yes,
 			);
 			if let Ok(retval) = &output.result {
 				if retval.result.did_revert() {
@@ -1075,6 +1089,7 @@ where
 		code: Code,
 		data: Vec<u8>,
 		salt: Option<[u8; 32]>,
+		nonce_already_incremented: NonceAlreadyIncremented,
 	) -> ContractResult<InstantiateReturnValue, BalanceOf<T>> {
 		let mut gas_meter = GasMeter::new(gas_limit);
 		let mut storage_deposit = Default::default();
@@ -1117,6 +1132,7 @@ where
 				data,
 				salt.as_ref(),
 				unchecked_deposit_limit,
+				nonce_already_incremented,
 			);
 			storage_deposit = storage_meter
 				.try_into_deposit(&instantiate_origin, unchecked_deposit_limit)?
@@ -1286,6 +1302,7 @@ where
 					Code::Upload(code.to_vec()),
 					data.to_vec(),
 					None,
+					NonceAlreadyIncremented::No,
 				);
 
 				let returned_data = match result.result {
