@@ -22863,6 +22863,7 @@ dependencies = [
 name = "sp-io"
 version = "30.0.0"
 dependencies = [
+ "byte-slice-cast",
  "bytes",
  "docify",
  "ed25519-dalek",
@@ -22880,6 +22881,7 @@ dependencies = [
  "sp-state-machine 0.35.0",
  "sp-tracing 16.0.0",
  "sp-trie 29.0.0",
+ "strum 0.26.3",
  "tracing",
  "tracing-core",
 ]

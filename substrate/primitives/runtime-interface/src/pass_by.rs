@@ -542,6 +542,64 @@ where
 	}
 }
 
+/// Return `T` through the FFI boundary by first converting it to `U` and then to `V` on the
+/// host's side, and then converting it back to `U` and then to `T` in the runtime.
+///
+/// This is useful to pass types when the conversion to/from FFI type cannot be implemented
+/// directly, e.g. because of the orphan rule.
+///
+/// Raw FFI type: same as `V`'s FFI type
+pub struct ConvertAndReturnAs<T, U, V>(PhantomData<(T, U, V)>);
+
+impl<T, U, V> RIType for ConvertAndReturnAs<T, U, V>
+where
+	V: RIType,
+{
+	type FFIType = <V as RIType>::FFIType;
+	type Inner = T;
+}
+
+#[cfg(not(substrate_runtime))]
+impl<T, U, V> IntoFFIValue for ConvertAndReturnAs<T, U, V>
+where
+	V: RIType + IntoFFIValue + Primitive,
+	<V as RIType>::Inner: From<U>,
+	U: From<Self::Inner>,
+{
+	fn into_ffi_value(
+		value: Self::Inner,
+		context: &mut dyn FunctionContext,
+	) -> Result<Self::FFIType> {
+		let value: U = value.into();
+		let value: <V as RIType>::Inner = value.into();
+		<V as IntoFFIValue>::into_ffi_value(value, context)
+	}
+}
+
+#[cfg(substrate_runtime)]
+impl<T, U, V> FromFFIValue for ConvertAndReturnAs<T, U, V>
+where
+	V: RIType + FromFFIValue + Primitive,
+	U: TryFrom<V::Inner>,
+	Self::Inner: From<U>,
+{
+	fn from_ffi_value(arg: Self::FFIType) -> Self::Inner {
+		let value = <V as FromFFIValue>::from_ffi_value(arg);
+		let value = match U::try_from(value) {
+			Ok(value) => value,
+			Err(_) => {
+				panic!(
+					"failed to convert '{}' (passed as '{}') into a intermediate type '{}' when marshalling a hostcall's return value through the FFI boundary",
+					type_name::<V::Inner>(),
+					type_name::<Self::FFIType>(),
+					type_name::<U>()
+				);
+			},
+		};
+		value.into()
+	}
+}
+
 /// (DEPRECATED) Return `T` as a blob of bytes into the runtime.
 ///
 /// Uses `T::AsRef<[u8]>` to cast `T` into a `&[u8]`, allocates runtime memory
