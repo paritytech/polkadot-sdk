@@ -9956,6 +9956,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "memory-db"
+version = "0.33.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c6da20dba965bd218a14c3b335b90d3e07c09ede190c7c19b50deb23d418a322"
+dependencies = [
+ "hash-db",
+ "hashbrown 0.15.3",
+]
+
+[[package]]
 name = "merkleized-metadata"
 version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -23607,7 +23617,7 @@ dependencies = [
  "array-bytes 6.2.2",
  "criterion",
  "hash-db",
- "memory-db",
+ "memory-db 0.33.0",
  "nohash-hasher",
  "parity-scale-codec",
  "parking_lot 0.12.3",
@@ -23635,7 +23645,7 @@ dependencies = [
  "ahash 0.8.11",
  "hash-db",
  "lazy_static",
- "memory-db",
+ "memory-db 0.32.0",
  "nohash-hasher",
  "parity-scale-codec",
  "parking_lot 0.12.3",
@@ -23659,7 +23669,7 @@ dependencies = [
  "ahash 0.8.11",
  "hash-db",
  "lazy_static",
- "memory-db",
+ "memory-db 0.32.0",
  "nohash-hasher",
  "parity-scale-codec",
  "parking_lot 0.12.3",
@@ -26173,14 +26183,14 @@ dependencies = [
 
 [[package]]
 name = "trie-bench"
-version = "0.40.0"
+version = "0.41.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "eaafa99707db4419f193b97e825aca722c6910a9dff31d8f41df304b6091ef17"
+checksum = "0445f19cd0e58d9aef1eef590739fc10c4291611722c98f8995b70ce8529f198"
 dependencies = [
  "criterion",
  "hash-db",
  "keccak-hasher",
- "memory-db",
+ "memory-db 0.33.0",
  "parity-scale-codec",
  "trie-db 0.30.0",
  "trie-root",
