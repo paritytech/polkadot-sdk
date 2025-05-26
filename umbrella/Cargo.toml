@@ -1144,7 +1144,7 @@ path = "../cumulus/primitives/utility"
 [dependencies.ethereum-standards]
 default-features = false
 optional = true
-path = "../cumulus/parachains/runtimes/assets/ethereum_standards"
+path = "../substrate/primitives/ethereum-standards"
 
 [dependencies.frame-benchmarking]
 default-features = false

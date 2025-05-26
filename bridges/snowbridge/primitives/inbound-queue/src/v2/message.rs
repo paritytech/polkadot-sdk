@@ -149,7 +149,7 @@ impl TryFrom<&Log> for Message {
 		let topics: Vec<B256> = log.topics.iter().map(|x| B256::from_slice(x.as_ref())).collect();
 
 		// Decode the Solidity event from raw logs
-		let event = IGatewayV2::OutboundMessageAccepted::decode_raw_log(topics, &log.data, true)
+		let event = IGatewayV2::OutboundMessageAccepted::decode_raw_log_validate(topics, &log.data)
 			.map_err(|_| MessageDecodeError)?;
 
 		let payload = event.payload;
@@ -198,7 +198,7 @@ impl TryFrom<&IGatewayV2::Payload> for XcmPayload {
 		let xcm = match payload.xcm.kind {
 			0 => XcmPayload::Raw(payload.xcm.data.to_vec()),
 			1 => {
-				let create_asset = IGatewayV2::XcmCreateAsset::abi_decode(&payload.xcm.data, true)
+				let create_asset = IGatewayV2::XcmCreateAsset::abi_decode_validate(&payload.xcm.data)
 					.map_err(|_| MessageDecodeError)?;
 				// Convert u8 network to Network enum
 				let network = match create_asset.network {
@@ -219,7 +219,7 @@ impl TryFrom<&IGatewayV2::EthereumAsset> for EthereumAsset {
 	fn try_from(asset: &IGatewayV2::EthereumAsset) -> Result<EthereumAsset, Self::Error> {
 		let asset = match asset.kind {
 			0 => {
-				let native_data = IGatewayV2::AsNativeTokenERC20::abi_decode(&asset.data, true)
+				let native_data = IGatewayV2::AsNativeTokenERC20::abi_decode_validate(&asset.data)
 					.map_err(|_| MessageDecodeError)?;
 				EthereumAsset::NativeTokenERC20 {
 					token_id: H160::from(native_data.token_id.as_ref()),
@@ -227,7 +227,7 @@ impl TryFrom<&IGatewayV2::EthereumAsset> for EthereumAsset {
 				}
 			},
 			1 => {
-				let foreign_data = IGatewayV2::AsForeignTokenERC20::abi_decode(&asset.data, true)
+				let foreign_data = IGatewayV2::AsForeignTokenERC20::abi_decode_validate(&asset.data)
 					.map_err(|_| MessageDecodeError)?;
 				EthereumAsset::ForeignTokenERC20 {
 					token_id: H256::from(foreign_data.token_id.as_ref()),

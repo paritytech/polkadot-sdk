@@ -139,7 +139,7 @@ where
 				tracing::debug!(target: "xcm::transactor::erc20::withdraw", "ERC20 contract reverted");
 				Err(XcmError::FailedToTransactAsset("ERC20 contract reverted"))
 			} else {
-				let is_success = bool::abi_decode(&return_value.data, false).map_err(|error| {
+				let is_success = bool::abi_decode_validate(&return_value.data).map_err(|error| {
 					tracing::debug!(target: "xcm::transactor::erc20::withdraw", ?error, "ERC20 contract result couldn't decode");
 					XcmError::FailedToTransactAsset("ERC20 contract result couldn't decode")
 				})?;
@@ -197,7 +197,7 @@ where
 				tracing::debug!(target: "xcm::transactor::erc20::deposit", "Contract reverted");
 				Err(XcmError::FailedToTransactAsset("ERC20 contract reverted"))
 			} else {
-				let is_success = bool::abi_decode(&return_value.data, false).map_err(|error| {
+				let is_success = bool::abi_decode_validate(&return_value.data).map_err(|error| {
 					tracing::debug!(target: "xcm::transactor::erc20::deposit", ?error, "ERC20 contract result couldn't decode");
 					XcmError::FailedToTransactAsset("ERC20 contract result couldn't decode")
 				})?;

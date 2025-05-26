@@ -75,7 +75,7 @@ where
 			data,
 		);
 		if let Ok(return_value) = result {
-			if let Ok(eu256) = EU256::abi_decode(&return_value.data, false) {
+			if let Ok(eu256) = EU256::abi_decode_validate(&return_value.data) {
 				eu256.to::<u128>()
 			} else {
 				0
@@ -111,7 +111,7 @@ where
 			data,
 		);
 		if let Ok(return_value) = result {
-			if let Ok(eu256) = EU256::abi_decode(&return_value.data, false) {
+			if let Ok(eu256) = EU256::abi_decode_validate(&return_value.data) {
 				eu256.to::<u128>()
 			} else {
 				0
@@ -191,7 +191,7 @@ where
 				Err("Contract reverted".into())
 			} else {
 				let is_success =
-					bool::abi_decode(&return_value.data, false).expect("Failed to ABI decode");
+					bool::abi_decode_validate(&return_value.data).expect("Failed to ABI decode");
 				if is_success {
 					let balance = <Self as fungibles::Inspect<_>>::balance(asset_id, who);
 					Ok(balance)
@@ -227,7 +227,7 @@ where
 				Err("Contract reverted".into())
 			} else {
 				let is_success =
-					bool::abi_decode(&return_value.data, false).expect("Failed to ABI decode");
+					bool::abi_decode_validate(&return_value.data).expect("Failed to ABI decode");
 				if is_success {
 					let balance = <Self as fungibles::Inspect<_>>::balance(asset_id, who);
 					Ok(balance)
@@ -313,7 +313,7 @@ mod tests {
 				.data(IERC20::totalSupplyCall {}.abi_encode())
 				.build_and_unwrap_result();
 			let balance =
-				EU256::abi_decode(&result.data, true).expect("Failed to decode ABI response");
+				EU256::abi_decode_validate(&result.data).expect("Failed to decode ABI response");
 			assert_eq!(balance, EU256::from(amount));
 			// Contract is uploaded.
 			assert_eq!(ContractInfoOf::<Test>::contains_key(&addr), true);

@@ -13,14 +13,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Solidity ERC20 interface.
+//! Ethereum standards.
 
-use alloy_core::sol;
+#![no_std]
 
-sol! {
-	interface IERC20 {
-		function totalSupply() public view virtual returns (uint256);
-		function balanceOf(address account) public view virtual returns (uint256);
-		function transfer(address to, uint256 value) public virtual returns (bool);
-	}
-}
+alloy_core::sol!("src/IERC20.sol");
