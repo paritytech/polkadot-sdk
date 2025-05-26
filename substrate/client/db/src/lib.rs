@@ -1245,12 +1245,10 @@ impl<Block: BlockT> Backend<Block> {
 			let total_memory = system_memory.total_memory();
 
 			if maximum_size as u64 > total_memory - used_memory {
-				return Err(sp_blockchain::Error::Backend(
-					format!(
-						"Not enough memory to initialize shared trie cache. Cache size: {} bytes. System memory: used {} bytes, total {} bytes",
-						maximum_size, used_memory, total_memory,
-					)
-				));
+				warn!(
+					"Not enough memory to initialize shared trie cache. Cache size: {} bytes. System memory: used {} bytes, total {} bytes",
+					maximum_size, used_memory, total_memory,
+				);
 			}
 
 			debug!("Initializing shared trie cache with size {} bytes, {}% of total memory", maximum_size, (maximum_size as f64 / total_memory as f64 * 100.0));
