@@ -1050,8 +1050,9 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	fn calculate_bounty_deposit(
 		description: &BoundedVec<u8, T::MaximumReasonLength>,
 	) -> BalanceOf<T, I> {
-		T::BountyDepositBase::get() +
-			T::DataDepositPerByte::get() * (description.len() as u32).into()
+		T::BountyDepositBase::get().saturating_add(
+			T::DataDepositPerByte::get().saturating_mul((description.len() as u32).into())
+		)
 	}
 
 	/// Helper function to poke the deposit reserved for proposing a bounty.
