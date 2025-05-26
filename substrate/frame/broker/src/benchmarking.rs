@@ -145,8 +145,6 @@ fn get_start_end_price<T: Config>(initial_price: BalanceOf<T>) -> (BalanceOf<T>,
 
 #[benchmarks]
 mod benches {
-	use sp_runtime::{FixedPointNumber, FixedU64};
-
 	use super::*;
 	use crate::Finality::*;
 
