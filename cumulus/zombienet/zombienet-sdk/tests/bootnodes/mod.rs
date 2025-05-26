@@ -5,9 +5,11 @@ use anyhow::anyhow;
 use tokio::time::Duration;
 
 use cumulus_zombienet_sdk_helpers::wait_for_nth_session_change;
-use subxt::{OnlineClient, PolkadotConfig};
 use zombienet_orchestrator::network::node::LogLineCountOptions;
-use zombienet_sdk::{NetworkConfig, NetworkConfigBuilder};
+use zombienet_sdk::{
+	subxt::{OnlineClient, PolkadotConfig},
+	NetworkConfig, NetworkConfigBuilder,
+};
 
 async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 	let images = zombienet_sdk::environment::get_images_from_env();
