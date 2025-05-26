@@ -252,9 +252,9 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		}
 
 		// else - suspend the bridge
-		let result_bridge_origin_relative_location = (*bridge.bridge_origin_relative_location).clone().try_into();
-		let bridge_origin_relative_location = match &result_bridge_origin_relative_location
-		{
+		let result_bridge_origin_relative_location =
+			(*bridge.bridge_origin_relative_location).clone().try_into();
+		let bridge_origin_relative_location = match &result_bridge_origin_relative_location {
 			Ok(bridge_origin_relative_location) => bridge_origin_relative_location,
 			Err(_) => {
 				log::error!(
