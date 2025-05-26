@@ -310,6 +310,7 @@ pub type WaivedLocations = (
 /// - Sibling parachains' assets from where they originate (as `ForeignCreators`).
 pub type TrustedTeleporters = (
 	ConcreteAssetFromSystem<TokenLocation>,
+	// IsForeignConcreteAsset<bridging::to_westend::NonSystemParachain>,
 	IsForeignConcreteAsset<FromSiblingParachain<parachain_info::Pallet<Runtime>>>,
 );
 
@@ -356,6 +357,7 @@ impl xcm_executor::Config for XcmConfig {
 	type IsReserve = (
 		bridging::to_westend::WestendOrEthereumAssetFromAssetHubWestend,
 		bridging::to_ethereum::EthereumAssetFromEthereum,
+		bridging::to_westend::NonSystemParachain,
 	);
 	type IsTeleporter = TrustedTeleporters;
 	type UniversalLocation = UniversalLocation;
@@ -572,6 +574,13 @@ pub mod bridging {
 				Parachain(bp_asset_hub_westend::ASSET_HUB_WESTEND_PARACHAIN_ID)
 			]);
 
+			// reserve-based transfer cases. non-system parachain i.e. id >= 2000
+			pub RandomId: u32 = 3333;
+			pub RandomParaLocation: Location = Location::new(1, [
+					GlobalConsensus(WestendNetwork::get()),
+					Parachain(RandomId::get())
+			]);
+
 			/// Set up exporters configuration.
 			/// `Option<Asset>` represents static "base fee" which is used for total delivery fee calculation.
 			pub BridgeTable: alloc::vec::Vec<NetworkExportTableItem> = alloc::vec![
@@ -609,6 +618,8 @@ pub mod bridging {
 			(StartsWith<WestendEcosystem>, StartsWith<EthereumEcosystem>),
 			AssetHubWestend,
 		>;
+		pub type NonSystemParachain = matching::RemoteAssetFromLocation<
+			StartsWith<WestendEcosystem>, RandomParaLocation>;
 	}
 
 	pub mod to_ethereum {
