@@ -616,8 +616,6 @@ impl Peerset {
 		let should_reject = self.reserved_only && !is_reserved_peer;
 
 		match state {
-			// disconnected peers proceed directly to inbound slot allocation
-			PeerState::Disconnected => {},
 			// disconnected peers that are reserved-only peers are rejected
 			PeerState::Disconnected if should_reject => {
 				log::trace!(
@@ -628,6 +626,8 @@ impl Peerset {
 
 				return ValidationResult::Reject
 			},
+			// disconnected peers proceed directly to inbound slot allocation
+			PeerState::Disconnected => {},
 			// peer is backed off but if it can be accepted (either a reserved peer or inbound slot
 			// available), accept the peer and then just ignore the back-off timer when it expires
 			PeerState::Backoff => {
