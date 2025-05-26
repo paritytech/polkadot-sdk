@@ -1,6 +1,7 @@
 name: Zombienet Cumulus
 
 on:
+  workflow_dispatch:
   push:
     branches:
       - master

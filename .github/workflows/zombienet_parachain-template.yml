@@ -1,6 +1,7 @@
 name: Zombienet Parachain Templates
 
 on:
+  workflow_dispatch:
   push:
     branches:
       - master

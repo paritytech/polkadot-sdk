@@ -1,6 +1,7 @@
 name: Zombienet Substrate
 
 on:
+  workflow_dispatch:
   push:
     branches:
       - master
