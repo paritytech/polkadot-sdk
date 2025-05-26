@@ -111,12 +111,12 @@ pub(crate) fn verify_relay_parent_descendants<H: Header>(
 			})?;
 
 		// Once we have seen a next epoch descriptor, we must always use the authorities of the
-		// next epoch.If the relay parent contains epoch descriptor, we shall not rotate
+		// next epoch. If the relay parent contains epoch descriptor, we shall not rotate
 		// authorities. As in that case the authorities in the state proof reflect the
 		// new authorities already.
 		if let Some(descriptor) = next_epoch_descriptor {
 			// If the relay parent itself contains the epoch change, we must _not_ use the next
-			// authorities, as they have already been rotated in storage.k
+			// authorities, as they have already been rotated in storage.
 			if index != 0 {
 				let Some(next_authorities) = maybe_next_authorities else {
 					return Err(RelayParentVerificationError::MissingNextEpochAuthorities {
