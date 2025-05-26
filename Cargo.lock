@@ -179,7 +179,7 @@ dependencies = [
  "const-hex",
  "derive_more 1.0.0",
  "foldhash",
- "hashbrown 0.15.2",
+ "hashbrown 0.15.3",
  "hex-literal",
  "indexmap 2.9.0",
  "itoa",
@@ -506,7 +506,7 @@ dependencies = [
  "ark-std 0.5.0",
  "educe",
  "fnv",
- "hashbrown 0.15.2",
+ "hashbrown 0.15.3",
  "itertools 0.13.0",
  "num-bigint",
  "num-integer",
@@ -740,7 +740,7 @@ dependencies = [
  "ark-std 0.5.0",
  "educe",
  "fnv",
- "hashbrown 0.15.2",
+ "hashbrown 0.15.3",
 ]
 
 [[package]]
@@ -4538,6 +4538,7 @@ dependencies = [
  "frame-support",
  "frame-system",
  "futures",
+ "hashbrown 0.15.3",
  "hex-literal",
  "impl-trait-for-tuples",
  "log",
@@ -5099,8 +5100,8 @@ dependencies = [
  "log",
  "parity-scale-codec",
  "polkadot-primitives",
- "subxt 0.38.1",
  "tokio",
+ "zombienet-sdk",
 ]
 
 [[package]]
@@ -5114,8 +5115,6 @@ dependencies = [
  "polkadot-primitives",
  "serde",
  "serde_json",
- "subxt 0.38.1",
- "subxt-signer 0.38.0",
  "tokio",
  "zombienet-orchestrator",
  "zombienet-sdk",
@@ -6535,8 +6534,8 @@ dependencies = [
  "sp-version 29.0.0",
  "sp-wasm-interface 20.0.0",
  "substrate-test-runtime",
- "subxt 0.38.1",
- "subxt-signer 0.38.0",
+ "subxt 0.41.0",
+ "subxt-signer 0.41.0",
  "thiserror 1.0.65",
  "thousands",
  "westend-runtime",
@@ -7569,11 +7568,12 @@ dependencies = [
 
 [[package]]
 name = "hashbrown"
-version = "0.15.2"
+version = "0.15.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bf151400ff0baff5465007dd2f3e717f3fe502074ca563069ce3a6629d07b289"
+checksum = "84b26c544d002229e640969970a2e74021aadf6e2f96372b9c58eff97de08eb3"
 dependencies = [
  "allocator-api2",
+ "equivalent",
  "foldhash",
  "serde",
 ]
@@ -8361,7 +8361,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cea70ddb795996207ad57735b50c5982d8844f38ba9ee5f1aedcfb708a2aa11e"
 dependencies = [
  "equivalent",
- "hashbrown 0.15.2",
+ "hashbrown 0.15.3",
  "serde",
 ]
 
@@ -12873,7 +12873,7 @@ dependencies = [
  "staging-xcm",
  "staging-xcm-builder",
  "substrate-bn",
- "subxt-signer 0.38.0",
+ "subxt-signer 0.41.0",
 ]
 
 [[package]]
@@ -12908,8 +12908,8 @@ dependencies = [
  "static_init",
  "substrate-cli-test-utils",
  "substrate-prometheus-endpoint",
- "subxt 0.38.1",
- "subxt-signer 0.38.0",
+ "subxt 0.41.0",
+ "subxt-signer 0.41.0",
  "thiserror 1.0.65",
  "tokio",
 ]
@@ -15643,7 +15643,7 @@ dependencies = [
  "substrate-frame-rpc-system",
  "substrate-prometheus-endpoint",
  "substrate-state-trie-migration-rpc",
- "subxt-metadata 0.38.0",
+ "subxt-metadata 0.41.0",
  "tokio",
  "wait-timeout",
 ]
@@ -16860,7 +16860,6 @@ dependencies = [
  "substrate-build-script-utils",
  "subwasmlib",
  "subxt 0.38.1",
- "subxt-signer 0.38.0",
  "tokio",
  "tokio-util",
  "zombienet-orchestrator",
@@ -20199,6 +20198,7 @@ dependencies = [
  "sp-rpc",
  "sp-runtime 31.0.1",
  "sp-version 29.0.0",
+ "substrate-prometheus-endpoint",
  "substrate-test-runtime",
  "substrate-test-runtime-client",
  "substrate-test-runtime-transaction-pool",
@@ -20233,7 +20233,7 @@ dependencies = [
  "sp-state-machine 0.35.0",
  "sp-version 29.0.0",
  "sp-wasm-interface 20.0.0",
- "subxt 0.38.1",
+ "subxt 0.41.0",
  "thiserror 1.0.65",
 ]
 
@@ -24227,7 +24227,7 @@ dependencies = [
  "sp-keyring",
  "staging-node-inspect",
  "substrate-cli-test-utils",
- "subxt-signer 0.38.0",
+ "subxt-signer 0.41.0",
  "tempfile",
  "tokio",
  "tokio-util",
@@ -24913,7 +24913,6 @@ dependencies = [
  "async-trait",
  "derive-where",
  "either",
- "finito",
  "frame-metadata 17.0.0",
  "futures",
  "hex",
@@ -25174,6 +25173,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4ba7494d250d65dc3439365ac5e8e0fbb9c3992e6e84b7aa01d69e082249b8b8"
 dependencies = [
  "derive-where",
+ "finito",
  "frame-metadata 20.0.0",
  "futures",
  "hex",
@@ -25186,6 +25186,7 @@ dependencies = [
  "subxt-core 0.41.0",
  "subxt-lightclient 0.41.0",
  "thiserror 2.0.12",
+ "tokio",
  "tokio-util",
  "tracing",
  "url",
@@ -25198,13 +25199,11 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1e7a336d6a1f86f126100a4a717be58352de4c8214300c4f7807f974494efdb9"
 dependencies = [
  "base64 0.22.1",
- "bip32",
  "bip39",
  "cfg-if",
  "crypto_secretbox",
  "hex",
  "hmac 0.12.1",
- "keccak-hash",
  "parity-scale-codec",
  "pbkdf2",
  "polkadot-sdk 0.7.0",

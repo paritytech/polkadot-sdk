@@ -494,7 +494,8 @@ impl Peerset {
 
 				return OpenResult::Reject
 			},
-			// The peer was already rejected by the `report_inbound_substream` call.
+			// The peer was already rejected by the `report_inbound_substream` call and this
+			// should never happen. However, this code path is exercised by our fuzzer.
 			PeerState::Disconnected => {
 				log::debug!(
 					target: LOG_TARGET,
@@ -570,6 +571,8 @@ impl Peerset {
 			PeerState::Closing { .. } | PeerState::Connected { .. } => {
 				log::debug!(target: LOG_TARGET, "{}: reserved peer {peer:?} disconnected", self.protocol);
 			},
+			// The peer was already rejected by the `report_inbound_substream` call and this
+			// should never happen. However, this code path is exercised by our fuzzer.
 			PeerState::Disconnected => {
 				log::debug!(
 					target: LOG_TARGET,
@@ -616,17 +619,18 @@ impl Peerset {
 		let should_reject = self.reserved_only && !is_reserved_peer;
 
 		match state {
-			// disconnected peers proceed directly to inbound slot allocation
-			PeerState::Disconnected =>
-				if should_reject {
-					log::trace!(
-						target: LOG_TARGET,
-						"{}: rejecting non-reserved peer {peer:?} in reserved-only mode (prev state: {state:?})",
-						self.protocol,
-					);
+			// disconnected peers that are reserved-only peers are rejected
+			PeerState::Disconnected if should_reject => {
+				log::trace!(
+					target: LOG_TARGET,
+					"{}: rejecting non-reserved peer {peer:?} in reserved-only mode (prev state: {state:?})",
+					self.protocol,
+				);
 
-					return ValidationResult::Reject
-				},
+				return ValidationResult::Reject
+			},
+			// disconnected peers proceed directly to inbound slot allocation
+			PeerState::Disconnected => {},
 			// peer is backed off but if it can be accepted (either a reserved peer or inbound slot
 			// available), accept the peer and then just ignore the back-off timer when it expires
 			PeerState::Backoff => {
@@ -640,7 +644,7 @@ impl Peerset {
 					return ValidationResult::Reject
 				}
 
-				// The peer remains in the `PeerStat::Backoff` state until the current timer
+				// The peer remains in the `PeerState::Backoff` state until the current timer
 				// expires. Then, the peer will be in the disconnected state, subject to further
 				// rejection if the peer is not reserved by then.
 				if should_reject {

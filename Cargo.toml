@@ -834,6 +834,7 @@ gum-proc-macro = { path = "polkadot/node/gum/proc-macro", default-features = fal
 handlebars = { version = "5.1.0" }
 hash-db = { version = "0.16.0", default-features = false }
 hash256-std-hasher = { version = "0.15.2", default-features = false }
+hashbrown = "0.15.3"
 hex = { version = "0.4.3", default-features = false }
 hex-literal = { version = "0.4.1", default-features = false }
 hkdf = { version = "0.12.0" }
@@ -1379,9 +1380,9 @@ substrate-test-runtime-client = { path = "substrate/test-utils/runtime/client" }
 substrate-test-runtime-transaction-pool = { path = "substrate/test-utils/runtime/transaction-pool" }
 substrate-test-utils = { path = "substrate/test-utils" }
 substrate-wasm-builder = { path = "substrate/utils/wasm-builder", default-features = false }
-subxt = { version = "0.38.1", default-features = false }
-subxt-metadata = { version = "0.38.0", default-features = false }
-subxt-signer = { version = "0.38" }
+subxt = { version = "0.41", default-features = false }
+subxt-metadata = { version = "0.41", default-features = false }
+subxt-signer = { version = "0.41" }
 syn = { version = "2.0.87" }
 sysinfo = { version = "0.30" }
 tar = { version = "0.4" }
