@@ -188,6 +188,7 @@ impl<T: Config> ContractInfo<T> {
 
 		if let Some(storage_meter) = storage_meter {
 			let mut diff = meter::Diff::default();
+			let key_len = key.len() as u32;
 			match (old_len, new_value.as_ref().map(|v| v.len() as u32)) {
 				(Some(old_len), Some(new_len)) =>
 					if new_len > old_len {
@@ -196,11 +197,11 @@ impl<T: Config> ContractInfo<T> {
 						diff.bytes_removed = old_len - new_len;
 					},
 				(None, Some(new_len)) => {
-					diff.bytes_added = new_len;
+					diff.bytes_added = new_len.saturating_add(key_len);
 					diff.items_added = 1;
 				},
 				(Some(old_len), None) => {
-					diff.bytes_removed = old_len;
+					diff.bytes_removed = old_len.saturating_add(key_len);
 					diff.items_removed = 1;
 				},
 				(None, None) => (),
