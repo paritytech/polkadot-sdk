@@ -64,7 +64,7 @@ use frame_support::{
 	genesis_builder_helper::{build_state, get_preset},
 	parameter_types,
 	traits::{ConstBool, ConstU32, ConstU64, ConstU8, Get, TransformOrigin},
-	weights::{ConstantMultiplier, Weight, WeightToFee as _},
+	weights::{ConstantMultiplier, Weight},
 	PalletId,
 };
 use frame_system::{
@@ -125,13 +125,16 @@ pub type BlockId = generic::BlockId<Block>;
 pub type TxExtension = cumulus_pallet_weight_reclaim::StorageWeightReclaim<
 	Runtime,
 	(
-		frame_system::CheckNonZeroSender<Runtime>,
-		frame_system::CheckSpecVersion<Runtime>,
-		frame_system::CheckTxVersion<Runtime>,
-		frame_system::CheckGenesis<Runtime>,
-		frame_system::CheckEra<Runtime>,
-		frame_system::CheckNonce<Runtime>,
-		frame_system::CheckWeight<Runtime>,
+		(
+			frame_system::AuthorizeCall<Runtime>,
+			frame_system::CheckNonZeroSender<Runtime>,
+			frame_system::CheckSpecVersion<Runtime>,
+			frame_system::CheckTxVersion<Runtime>,
+			frame_system::CheckGenesis<Runtime>,
+			frame_system::CheckEra<Runtime>,
+			frame_system::CheckNonce<Runtime>,
+			frame_system::CheckWeight<Runtime>,
+		),
 		pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
 		BridgeRejectObsoleteHeadersAndMessages,
 		(bridge_to_westend_config::OnBridgeHubRococoRefundBridgeHubWestendMessages,),
@@ -602,7 +605,7 @@ construct_runtime!(
 		// With-Westend messaging bridge module.
 		BridgeWestendMessages: pallet_bridge_messages::<Instance3> = 51,
 		// With-Westend bridge hub pallet.
-		XcmOverBridgeHubWestend: pallet_xcm_bridge::<Instance1> = 52,
+		XcmOverBridgeHubWestend: pallet_xcm_bridge_hub::<Instance1> = 52,
 
 		// With-Rococo Bulletin GRANDPA bridge module.
 		//
@@ -617,7 +620,7 @@ construct_runtime!(
 		// storage keys, used by this runtime and the relayer process.
 		BridgePolkadotBulletinMessages: pallet_bridge_messages::<Instance4> = 61,
 		// With-Rococo Bulletin bridge hub pallet.
-		XcmOverPolkadotBulletin: pallet_xcm_bridge::<Instance2> = 62,
+		XcmOverPolkadotBulletin: pallet_xcm_bridge_hub::<Instance2> = 62,
 
 		// Bridge relayers pallet, used by several bridges here (another instance).
 		BridgeRelayersForPermissionlessLanes: pallet_bridge_relayers::<Instance2> = 63,
@@ -696,8 +699,6 @@ mod benches {
 		[pallet_bridge_messages, RococoToRococoBulletin]
 		[pallet_bridge_relayers, Legacy]
 		[pallet_bridge_relayers, PermissionlessLanes]
-		[pallet_xcm_bridge, OverWestend]
-		[pallet_xcm_bridge, OverBulletin]
 		// Ethereum Bridge
 		[snowbridge_pallet_inbound_queue, EthereumInboundQueue]
 		[snowbridge_pallet_outbound_queue, EthereumOutboundQueue]
@@ -865,21 +866,11 @@ impl_runtime_apis! {
 		}
 
 		fn query_weight_to_asset_fee(weight: Weight, asset: VersionedAssetId) -> Result<u128, XcmPaymentApiError> {
-			let latest_asset_id: Result<AssetId, ()> = asset.clone().try_into();
-			match latest_asset_id {
-				Ok(asset_id) if asset_id.0 == xcm_config::TokenLocation::get() => {
-					// for native token
-					Ok(WeightToFee::weight_to_fee(&weight))
-				},
-				Ok(asset_id) => {
-					log::trace!(target: "xcm::xcm_runtime_apis", "query_weight_to_asset_fee - unhandled asset_id: {asset_id:?}!");
-					Err(XcmPaymentApiError::AssetNotFound)
-				},
-				Err(_) => {
-					log::trace!(target: "xcm::xcm_runtime_apis", "query_weight_to_asset_fee - failed to convert asset: {asset:?}!");
-					Err(XcmPaymentApiError::VersionedConversionFailed)
-				}
-			}
+			use crate::xcm_config::XcmConfig;
+
+			type Trader = <XcmConfig as xcm_executor::Config>::Trader;
+
+			PolkadotXcm::query_weight_to_asset_fee::<Trader>(weight, asset)
 		}
 
 		fn query_xcm_weight(message: VersionedXcm<()>) -> Result<Weight, XcmPaymentApiError> {
@@ -1079,12 +1070,10 @@ impl_runtime_apis! {
 			// Change weight file names.
 			type WestendFinality = BridgeWestendGrandpa;
 			type WithinWestend = pallet_bridge_parachains::benchmarking::Pallet::<Runtime, bridge_common_config::BridgeParachainWestendInstance>;
-			type RococoToWestend = pallet_bridge_messages::benchmarking::Pallet::<Runtime, bridge_to_westend_config::WithBridgeHubWestendMessagesInstance>;
-			type RococoToRococoBulletin = pallet_bridge_messages::benchmarking::Pallet::<Runtime, bridge_to_bulletin_config::WithRococoBulletinMessagesInstance>;
+			type RococoToWestend = pallet_bridge_messages::benchmarking::Pallet ::<Runtime, bridge_to_westend_config::WithBridgeHubWestendMessagesInstance>;
+			type RococoToRococoBulletin = pallet_bridge_messages::benchmarking::Pallet ::<Runtime, bridge_to_bulletin_config::WithRococoBulletinMessagesInstance>;
 			type Legacy = BridgeRelayersBench::<Runtime, bridge_common_config::RelayersForLegacyLaneIdsMessagesInstance>;
 			type PermissionlessLanes = BridgeRelayersBench::<Runtime, bridge_common_config::RelayersForPermissionlessLanesInstance>;
-			type OverWestend = pallet_xcm_bridge::benchmarking::Pallet::<Runtime, bridge_to_westend_config::XcmOverBridgeHubWestendInstance>;
-			type OverBulletin = pallet_xcm_bridge::benchmarking::Pallet::<Runtime, bridge_to_bulletin_config::XcmOverPolkadotBulletinInstance>;
 
 			let mut list = Vec::<BenchmarkList>::new();
 			list_benchmarks!(list, extra);
@@ -1281,16 +1270,30 @@ impl_runtime_apis! {
 						BenchmarkError::Stop("XcmVersion was not stored!")
 					})?;
 
-					// open bridge
 					let sibling_parachain_location = Location::new(1, [Parachain(5678)]);
+
+					// fund SA
+					use frame_support::traits::fungible::Mutate;
+					use xcm_executor::traits::ConvertLocation;
+					frame_support::assert_ok!(
+						Balances::mint_into(
+							&xcm_config::LocationToAccountId::convert_location(&sibling_parachain_location).expect("valid AccountId"),
+							bridge_to_westend_config::BridgeDeposit::get()
+								.saturating_add(ExistentialDeposit::get())
+								.saturating_add(UNITS * 5)
+						)
+					);
+
+					// open bridge
 					let bridge_destination_universal_location: InteriorLocation = [GlobalConsensus(NetworkId::ByGenesis(WESTEND_GENESIS_HASH)), Parachain(8765)].into();
-					let _ = XcmOverBridgeHubWestend::open_bridge_for_benchmarks(
-						bp_messages::LegacyLaneId([1, 2, 3, 4]),
+					let locations = XcmOverBridgeHubWestend::bridge_locations(
 						sibling_parachain_location.clone(),
 						bridge_destination_universal_location.clone(),
+					)?;
+					XcmOverBridgeHubWestend::do_open_bridge(
+						locations,
+						bp_messages::LegacyLaneId([1, 2, 3, 4]),
 						true,
-						None,
-						|| ExistentialDeposit::get(),
 					).map_err(|e| {
 						log::error!(
 							"Failed to `XcmOverBridgeHubWestend::open_bridge`({:?}, {:?})`, error: {:?}",
@@ -1324,8 +1327,6 @@ impl_runtime_apis! {
 			type RococoToRococoBulletin = pallet_bridge_messages::benchmarking::Pallet ::<Runtime, bridge_to_bulletin_config::WithRococoBulletinMessagesInstance>;
 			type Legacy = BridgeRelayersBench::<Runtime, bridge_common_config::RelayersForLegacyLaneIdsMessagesInstance>;
 			type PermissionlessLanes = BridgeRelayersBench::<Runtime, bridge_common_config::RelayersForPermissionlessLanesInstance>;
-			type OverWestend = pallet_xcm_bridge::benchmarking::Pallet::<Runtime, bridge_to_westend_config::XcmOverBridgeHubWestendInstance>;
-			type OverBulletin = pallet_xcm_bridge::benchmarking::Pallet::<Runtime, bridge_to_bulletin_config::XcmOverPolkadotBulletinInstance>;
 
 			use bridge_runtime_common::messages_benchmarking::{
 				prepare_message_delivery_proof_from_grandpa_chain,
@@ -1339,18 +1340,6 @@ impl_runtime_apis! {
 				MessageDeliveryProofParams,
 				MessageProofParams,
 			};
-
-			impl pallet_xcm_bridge::benchmarking::Config<bridge_to_westend_config::XcmOverBridgeHubWestendInstance> for Runtime {
-				fn open_bridge_origin() -> Option<(RuntimeOrigin, Balance)> {
-					None
-				}
-			}
-
-			impl pallet_xcm_bridge::benchmarking::Config<bridge_to_bulletin_config::XcmOverPolkadotBulletinInstance> for Runtime {
-				fn open_bridge_origin() -> Option<(RuntimeOrigin, Balance)> {
-					None
-				}
-			}
 
 			impl BridgeMessagesConfig<bridge_to_westend_config::WithBridgeHubWestendMessagesInstance> for Runtime {
 				fn is_relayer_rewarded(relayer: &Self::AccountId) -> bool {
@@ -1373,34 +1362,26 @@ impl_runtime_apis! {
 					use cumulus_primitives_core::XcmpMessageSource;
 					assert!(XcmpQueue::take_outbound_messages(usize::MAX).is_empty());
 					ParachainSystem::open_outbound_hrmp_channel_for_benchmarks_or_tests(42.into());
-					let bridge_locations = XcmOverBridgeHubWestend::open_bridge_for_benchmarks(
-						params.lane,
-						Location::new(1, [Parachain(42)]),
-						[GlobalConsensus(bridge_to_westend_config::WestendGlobalConsensusNetwork::get()), Parachain(2075)].into(),
-						// do not create lanes, because they are already created `params.lane`
-						false,
-						None,
-						|| ExistentialDeposit::get(),
-					).expect("valid bridge opened");
+					let universal_source = bridge_to_westend_config::open_bridge_for_benchmarks::<
+						Runtime,
+						bridge_to_westend_config::XcmOverBridgeHubWestendInstance,
+						xcm_config::LocationToAccountId,
+					>(params.lane, 42);
 					prepare_message_proof_from_parachain::<
 						Runtime,
 						bridge_common_config::BridgeGrandpaWestendInstance,
 						bridge_to_westend_config::WithBridgeHubWestendMessagesInstance,
-					>(params, generate_xcm_builder_bridge_message_sample(bridge_locations.bridge_origin_universal_location().clone()))
+					>(params, generate_xcm_builder_bridge_message_sample(universal_source))
 				}
 
 				fn prepare_message_delivery_proof(
 					params: MessageDeliveryProofParams<AccountId, LaneIdOf<Runtime, bridge_to_westend_config::WithBridgeHubWestendMessagesInstance>>,
 				) -> bridge_to_westend_config::ToWestendBridgeHubMessagesDeliveryProof<bridge_to_westend_config::WithBridgeHubWestendMessagesInstance> {
-					let _ = XcmOverBridgeHubWestend::open_bridge_for_benchmarks(
-						params.lane,
-						Location::new(1, [Parachain(42)]),
-						[GlobalConsensus(bridge_to_westend_config::WestendGlobalConsensusNetwork::get()), Parachain(2075)].into(),
-						// do not create lanes, because they are already created `params.lane`
-						false,
-						None,
-						|| ExistentialDeposit::get(),
-					);
+					let _ = bridge_to_westend_config::open_bridge_for_benchmarks::<
+						Runtime,
+						bridge_to_westend_config::XcmOverBridgeHubWestendInstance,
+						xcm_config::LocationToAccountId,
+					>(params.lane, 42);
 					prepare_message_delivery_proof_from_parachain::<
 						Runtime,
 						bridge_common_config::BridgeGrandpaWestendInstance,
@@ -1426,34 +1407,26 @@ impl_runtime_apis! {
 					use cumulus_primitives_core::XcmpMessageSource;
 					assert!(XcmpQueue::take_outbound_messages(usize::MAX).is_empty());
 					ParachainSystem::open_outbound_hrmp_channel_for_benchmarks_or_tests(42.into());
-					let bridge_locations = XcmOverPolkadotBulletin::open_bridge_for_benchmarks(
-						params.lane,
-						Location::new(1, [Parachain(42)]),
-						[GlobalConsensus(bridge_to_bulletin_config::RococoBulletinGlobalConsensusNetwork::get())].into(),
-						// do not create lanes, because they are already created `params.lane`
-						false,
-						None,
-						|| ExistentialDeposit::get(),
-					).expect("valid bridge opened");
+					let universal_source = bridge_to_bulletin_config::open_bridge_for_benchmarks::<
+						Runtime,
+						bridge_to_bulletin_config::XcmOverPolkadotBulletinInstance,
+						xcm_config::LocationToAccountId,
+					>(params.lane, 42);
 					prepare_message_proof_from_grandpa_chain::<
 						Runtime,
 						bridge_common_config::BridgeGrandpaRococoBulletinInstance,
 						bridge_to_bulletin_config::WithRococoBulletinMessagesInstance,
-					>(params, generate_xcm_builder_bridge_message_sample(bridge_locations.bridge_origin_universal_location().clone()))
+					>(params, generate_xcm_builder_bridge_message_sample(universal_source))
 				}
 
 				fn prepare_message_delivery_proof(
 					params: MessageDeliveryProofParams<AccountId, LaneIdOf<Runtime, bridge_to_bulletin_config::WithRococoBulletinMessagesInstance>>,
 				) -> bridge_to_bulletin_config::ToRococoBulletinMessagesDeliveryProof<bridge_to_bulletin_config::WithRococoBulletinMessagesInstance> {
-					let _ = XcmOverPolkadotBulletin::open_bridge_for_benchmarks(
-						params.lane,
-						Location::new(1, [Parachain(42)]),
-						[GlobalConsensus(bridge_to_bulletin_config::RococoBulletinGlobalConsensusNetwork::get())].into(),
-						// do not create lanes, because they are already created `params.lane`
-						false,
-						None,
-						|| ExistentialDeposit::get(),
-					).expect("valid bridge opened");
+					let _ = bridge_to_bulletin_config::open_bridge_for_benchmarks::<
+						Runtime,
+						bridge_to_bulletin_config::XcmOverPolkadotBulletinInstance,
+						xcm_config::LocationToAccountId,
+					>(params.lane, 42);
 					prepare_message_delivery_proof_from_grandpa_chain::<
 						Runtime,
 						bridge_common_config::BridgeGrandpaRococoBulletinInstance,
@@ -1609,13 +1582,16 @@ mod tests {
 		sp_io::TestExternalities::default().execute_with(|| {
 			frame_system::BlockHash::<Runtime>::insert(BlockNumber::zero(), Hash::default());
 			let payload: TxExtension = (
-				frame_system::CheckNonZeroSender::new(),
-				frame_system::CheckSpecVersion::new(),
-				frame_system::CheckTxVersion::new(),
-				frame_system::CheckGenesis::new(),
-				frame_system::CheckEra::from(Era::Immortal),
-				frame_system::CheckNonce::from(10),
-				frame_system::CheckWeight::new(),
+				(
+					frame_system::AuthorizeCall::<Runtime>::new(),
+					frame_system::CheckNonZeroSender::new(),
+					frame_system::CheckSpecVersion::new(),
+					frame_system::CheckTxVersion::new(),
+					frame_system::CheckGenesis::new(),
+					frame_system::CheckEra::from(Era::Immortal),
+					frame_system::CheckNonce::from(10),
+					frame_system::CheckWeight::new(),
+				),
 				pallet_transaction_payment::ChargeTransactionPayment::from(10),
 				BridgeRejectObsoleteHeadersAndMessages,
 				(

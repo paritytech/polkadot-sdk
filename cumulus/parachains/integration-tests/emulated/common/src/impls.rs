@@ -105,6 +105,11 @@ where
 
 		// collect messages from `OutboundMessages` for each active outbound lane in the source
 		for lane in active_outbound_lanes {
+			if OutboundLanes::<S, SI>::get(lane).is_none() {
+				// TODO: FAIL - investigate how was this created
+				continue;
+			}
+
 			let latest_generated_nonce =
 				OutboundLanes::<S, SI>::get(lane).unwrap().latest_generated_nonce;
 			let latest_received_nonce =

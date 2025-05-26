@@ -44,8 +44,6 @@ pub mod pallet_timestamp;
 pub mod pallet_transaction_payment;
 pub mod pallet_utility;
 pub mod pallet_xcm;
-pub mod pallet_xcm_bridge_over_bulletin;
-pub mod pallet_xcm_bridge_over_westend;
 pub mod paritydb_weights;
 pub mod rocksdb_weights;
 pub mod snowbridge_pallet_ethereum_client;

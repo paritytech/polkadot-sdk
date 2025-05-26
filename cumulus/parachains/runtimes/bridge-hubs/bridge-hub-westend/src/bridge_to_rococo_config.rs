@@ -19,15 +19,14 @@
 use crate::{
 	bridge_common_config::BridgeRelayersInstance, weights, xcm_config::UniversalLocation,
 	AccountId, Balance, Balances, BridgeRococoMessages, PolkadotXcm, Runtime, RuntimeEvent,
-	RuntimeHoldReason, XcmOverBridgeHubRococo, XcmRouter,
+	RuntimeHoldReason, XcmOverBridgeHubRococo, XcmRouter, XcmpQueue,
 };
-use alloc::{vec, vec::Vec};
 use bp_messages::{
 	source_chain::FromBridgedChainMessagesDeliveryProof,
 	target_chain::FromBridgedChainMessagesProof, LegacyLaneId,
 };
 use bridge_hub_common::xcm_version::XcmVersionOfDestAndRemoteBridge;
-use pallet_xcm_bridge::XcmAsPlainPayload;
+use pallet_xcm_bridge_hub::{BridgeId, XcmAsPlainPayload};
 
 use frame_support::{
 	parameter_types,
@@ -38,12 +37,8 @@ use pallet_bridge_messages::LaneIdOf;
 use pallet_bridge_relayers::extension::{
 	BridgeRelayersTransactionExtension, WithMessagesExtensionConfig,
 };
-use pallet_xcm_bridge::congestion::{
-	BlobDispatcherWithChannelStatus, UpdateBridgeStatusXcmChannelManager,
-};
 use parachains_common::xcm_config::{AllSiblingSystemParachains, RelayOrOtherSystemParachains};
 use polkadot_parachain_primitives::primitives::Sibling;
-use sp_runtime::traits::Convert;
 use testnet_parachains_constants::westend::currency::UNITS as WND;
 use xcm::{
 	latest::{prelude::*, ROCOCO_GENESIS_HASH},
@@ -90,6 +85,10 @@ pub type FromRococoBridgeHubMessagesProof<MI> =
 pub type ToRococoBridgeHubMessagesDeliveryProof<MI> =
 	FromBridgedChainMessagesDeliveryProof<bp_bridge_hub_rococo::Hash, LaneIdOf<Runtime, MI>>;
 
+/// Dispatches received XCM messages from other bridge
+type FromRococoMessageBlobDispatcher =
+	BridgeBlobDispatcher<XcmRouter, UniversalLocation, BridgeWestendToRococoMessagesPalletInstance>;
+
 /// Transaction extension that refunds relayers that are delivering messages from the Rococo
 /// parachain.
 pub type OnBridgeHubWestendRefundBridgeHubRococoMessages = BridgeRelayersTransactionExtension<
@@ -126,6 +125,7 @@ impl pallet_bridge_parachains::Config<BridgeParachainRococoInstance> for Runtime
 		(bp_bridge_hub_rococo::BridgeHubRococo, bp_asset_hub_rococo::AssetHubRococo);
 	type HeadsToKeep = ParachainHeadsToKeep;
 	type MaxParaHeadDataSize = MaxRococoParaHeadDataSize;
+	type OnNewHead = ();
 }
 
 /// Add XCM messages support for BridgeHubWestend to support Westend->Rococo XCM messages
@@ -158,29 +158,10 @@ impl pallet_bridge_messages::Config<WithBridgeHubRococoMessagesInstance> for Run
 	type OnMessagesDelivered = XcmOverBridgeHubRococo;
 }
 
-/// Converts encoded call to the unpaid XCM `Transact`.
-pub struct UpdateBridgeStatusXcmProvider;
-impl Convert<Vec<u8>, Xcm<()>> for UpdateBridgeStatusXcmProvider {
-	fn convert(encoded_call: Vec<u8>) -> Xcm<()> {
-		Xcm(vec![
-			UnpaidExecution { weight_limit: Unlimited, check_origin: None },
-			Transact {
-				origin_kind: OriginKind::Xcm,
-				fallback_max_weight: Some(
-					bp_asset_hub_westend::XcmBridgeHubRouterTransactCallMaxWeight::get(),
-				),
-				call: encoded_call.into(),
-			},
-			ExpectTransactStatus(MaybeErrorCode::Success),
-		])
-	}
-}
-
 /// Add support for the export and dispatch of XCM programs.
-pub type XcmOverBridgeHubRococoInstance = pallet_xcm_bridge::Instance1;
-impl pallet_xcm_bridge::Config<XcmOverBridgeHubRococoInstance> for Runtime {
+pub type XcmOverBridgeHubRococoInstance = pallet_xcm_bridge_hub::Instance1;
+impl pallet_xcm_bridge_hub::Config<XcmOverBridgeHubRococoInstance> for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type WeightInfo = weights::pallet_xcm_bridge::WeightInfo<Runtime>;
 
 	type UniversalLocation = UniversalLocation;
 	type BridgedNetwork = RococoGlobalConsensusNetworkLocation;
@@ -203,29 +184,93 @@ impl pallet_xcm_bridge::Config<XcmOverBridgeHubRococoInstance> for Runtime {
 	type AllowWithoutBridgeDeposit =
 		RelayOrOtherSystemParachains<AllSiblingSystemParachains, Runtime>;
 
-	// This pallet is deployed on BH, so we expect a remote router with `ExportMessage`. We handle
-	// congestion with XCM using `update_bridge_status` sent to the sending chain. (congestion with
-	// local sending chain)
-	type LocalXcmChannelManager = UpdateBridgeStatusXcmChannelManager<
-		Runtime,
-		XcmOverBridgeHubRococoInstance,
-		UpdateBridgeStatusXcmProvider,
-		XcmRouter,
-	>;
-	// Dispatching inbound messages from the bridge and managing congestion with the local
-	// receiving/destination chain
-	type BlobDispatcher = BlobDispatcherWithChannelStatus<
-		// Dispatches received XCM messages from other bridge
-		BridgeBlobDispatcher<
-			XcmRouter,
-			UniversalLocation,
-			BridgeWestendToRococoMessagesPalletInstance,
-		>,
-		// Provides the status of the XCMP queue's outbound queue, indicating whether messages can
-		// be dispatched to the sibling.
-		cumulus_pallet_xcmp_queue::bridging::OutXcmpChannelStatusProvider<Runtime>,
-	>;
-	type CongestionLimits = ();
+	type LocalXcmChannelManager = CongestionManager;
+	type BlobDispatcher = FromRococoMessageBlobDispatcher;
+}
+
+/// Implementation of `bp_xcm_bridge_hub::LocalXcmChannelManager` for congestion management.
+pub struct CongestionManager;
+impl pallet_xcm_bridge_hub::LocalXcmChannelManager for CongestionManager {
+	type Error = SendError;
+
+	fn is_congested(with: &Location) -> bool {
+		// This is used to check the inbound bridge queue/messages to determine if they can be
+		// dispatched and sent to the sibling parachain. Therefore, checking outbound `XcmpQueue`
+		// is sufficient here.
+		use bp_xcm_bridge_hub_router::XcmChannelStatusProvider;
+		cumulus_pallet_xcmp_queue::bridging::OutXcmpChannelStatusProvider::<Runtime>::is_congested(
+			with,
+		)
+	}
+
+	fn suspend_bridge(local_origin: &Location, bridge: BridgeId) -> Result<(), Self::Error> {
+		// This bridge is intended for AH<>AH communication with a hard-coded/static lane,
+		// so `local_origin` is expected to represent only the local AH.
+		send_xcm::<XcmpQueue>(
+			local_origin.clone(),
+			bp_asset_hub_westend::build_congestion_message(bridge.inner(), true).into(),
+		)
+		.map(|_| ())
+	}
+
+	fn resume_bridge(local_origin: &Location, bridge: BridgeId) -> Result<(), Self::Error> {
+		// This bridge is intended for AH<>AH communication with a hard-coded/static lane,
+		// so `local_origin` is expected to represent only the local AH.
+		send_xcm::<XcmpQueue>(
+			local_origin.clone(),
+			bp_asset_hub_westend::build_congestion_message(bridge.inner(), false).into(),
+		)
+		.map(|_| ())
+	}
+}
+
+#[cfg(feature = "runtime-benchmarks")]
+pub(crate) fn open_bridge_for_benchmarks<R, XBHI, C>(
+	with: pallet_xcm_bridge_hub::LaneIdOf<R, XBHI>,
+	sibling_para_id: u32,
+) -> InteriorLocation
+where
+	R: pallet_xcm_bridge_hub::Config<XBHI>,
+	XBHI: 'static,
+	C: xcm_executor::traits::ConvertLocation<
+		bp_runtime::AccountIdOf<pallet_xcm_bridge_hub::ThisChainOf<R, XBHI>>,
+	>,
+{
+	use pallet_xcm_bridge_hub::{Bridge, BridgeId, BridgeState};
+	use sp_runtime::traits::Zero;
+	use xcm::{latest::WESTEND_GENESIS_HASH, VersionedInteriorLocation};
+
+	// insert bridge metadata
+	let lane_id = with;
+	let sibling_parachain = Location::new(1, [Parachain(sibling_para_id)]);
+	let universal_source =
+		[GlobalConsensus(ByGenesis(WESTEND_GENESIS_HASH)), Parachain(sibling_para_id)].into();
+	let universal_destination =
+		[GlobalConsensus(ByGenesis(ROCOCO_GENESIS_HASH)), Parachain(2075)].into();
+	let bridge_id = BridgeId::new(&universal_source, &universal_destination);
+
+	// insert only bridge metadata, because the benchmarks create lanes
+	pallet_xcm_bridge_hub::Bridges::<R, XBHI>::insert(
+		bridge_id,
+		Bridge {
+			bridge_origin_relative_location: alloc::boxed::Box::new(
+				sibling_parachain.clone().into(),
+			),
+			bridge_origin_universal_location: alloc::boxed::Box::new(
+				VersionedInteriorLocation::from(universal_source.clone()),
+			),
+			bridge_destination_universal_location: alloc::boxed::Box::new(
+				VersionedInteriorLocation::from(universal_destination),
+			),
+			state: BridgeState::Opened,
+			bridge_owner_account: C::convert_location(&sibling_parachain).expect("valid AccountId"),
+			deposit: Zero::zero(),
+			lane_id,
+		},
+	);
+	pallet_xcm_bridge_hub::LaneToBridge::<R, XBHI>::insert(lane_id, bridge_id);
+
+	universal_source
 }
 
 #[cfg(test)]

@@ -26,6 +26,23 @@ use subxt::config::{signed_extensions, Config, PolkadotConfig};
 		path = "primitive_types::U256",
 		with = "::subxt::utils::Static<::sp_core::U256>"
 	),
+
+	substitute_type(
+		path = "sp_runtime::generic::block::Block<A, B, C, D, E>",
+		with = "::subxt::utils::Static<::sp_runtime::generic::Block<
+		::sp_runtime::generic::Header<u32, sp_runtime::traits::BlakeTwo256>,
+		::sp_runtime::OpaqueExtrinsic
+		>>"
+	),
+	substitute_type(
+		path = "pallet_revive::evm::api::debug_rpc_types::Trace",
+		with = "::subxt::utils::Static<::pallet_revive::evm::Trace>"
+	),
+	substitute_type(
+		path = "pallet_revive::evm::api::debug_rpc_types::TracerType",
+		with = "::subxt::utils::Static<::pallet_revive::evm::TracerType>"
+	),
+
 	substitute_type(
 		path = "pallet_revive::evm::api::rpc_types_gen::GenericTransaction",
 		with = "::subxt::utils::Static<::pallet_revive::evm::GenericTransaction>"
