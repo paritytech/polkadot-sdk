@@ -259,7 +259,7 @@ jobs:
         run: |
           gh --version
           export SHA=${{ github.event.pull_request.head.sha }}
-          if [[ ${{ github.event_name }} == "merge_group" || github.event_name == "workflow_dispatch"]]; then export SHA="${GITHUB_SHA::8}"; fi
+          if [[ ${{ github.event_name }} == "merge_group" || github.event_name == "workflow_dispatch" ]]; then export SHA="${GITHUB_SHA::8}"; fi
           DELAYER=10
           while true; do
             # In case of multiple runs take the most recent one (with greatest databaseId)
