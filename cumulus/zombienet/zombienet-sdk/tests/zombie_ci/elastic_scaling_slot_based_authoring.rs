@@ -10,10 +10,12 @@ use cumulus_zombienet_sdk_helpers::{
 	create_assign_core_call, submit_extrinsic_and_wait_for_finalization_success_with_timeout,
 };
 use serde_json::json;
-use subxt::{OnlineClient, PolkadotConfig};
-use subxt_signer::sr25519::dev;
 use zombienet_orchestrator::network::node::LogLineCountOptions;
-use zombienet_sdk::{NetworkConfig, NetworkConfigBuilder};
+use zombienet_sdk::{
+	subxt::{OnlineClient, PolkadotConfig},
+	subxt_signer::sr25519::dev,
+	NetworkConfig, NetworkConfigBuilder,
+};
 
 const PARA_ID_1: u32 = 2100;
 const PARA_ID_2: u32 = 2000;

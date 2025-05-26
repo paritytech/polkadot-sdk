@@ -9,10 +9,12 @@ use cumulus_zombienet_sdk_helpers::{assert_para_is_registered, assert_para_throu
 use polkadot_primitives::Id as ParaId;
 use serde_json::json;
 use std::{sync::Arc, time::Duration};
-use subxt::{OnlineClient, PolkadotConfig};
 use zombienet_configuration::types::Arg;
 use zombienet_orchestrator::network::node::LogLineCountOptions;
-use zombienet_sdk::{NetworkConfig, NetworkConfigBuilder, RegistrationStrategy};
+use zombienet_sdk::{
+	subxt::{OnlineClient, PolkadotConfig},
+	NetworkConfig, NetworkConfigBuilder, RegistrationStrategy,
+};
 
 const PARA_ID: u32 = 2000;
 

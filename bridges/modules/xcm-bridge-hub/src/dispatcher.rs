@@ -68,7 +68,7 @@ where
 
 	fn is_active(lane: Self::LaneId) -> bool {
 		Pallet::<T, I>::bridge_by_lane_id(&lane)
-			.and_then(|(_, bridge)| bridge.bridge_origin_relative_location.try_as().cloned().ok())
+			.and_then(|(_, bridge)| (*bridge.bridge_origin_relative_location).try_into().ok())
 			.map(|recipient: Location| !T::LocalXcmChannelManager::is_congested(&recipient))
 			.unwrap_or(false)
 	}

@@ -10,9 +10,13 @@ use crate::utils::{initialize_network, BEST_BLOCK_METRIC};
 use cumulus_zombienet_sdk_helpers::assert_para_throughput;
 use polkadot_primitives::Id as ParaId;
 use sp_core::{hexdisplay::AsBytesRef, Bytes};
-use subxt::{dynamic::Value, tx::DynamicPayload, OnlineClient, PolkadotConfig, SubstrateConfig};
-use subxt_signer::sr25519::dev;
-use zombienet_sdk::{NetworkConfig, NetworkConfigBuilder, RegistrationStrategy};
+use zombienet_sdk::{
+	subxt::{
+		self, dynamic::Value, tx::DynamicPayload, OnlineClient, PolkadotConfig, SubstrateConfig,
+	},
+	subxt_signer::sr25519::dev,
+	NetworkConfig, NetworkConfigBuilder, RegistrationStrategy,
+};
 
 const PARA_ID: u32 = 2000;
 

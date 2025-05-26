@@ -8,9 +8,9 @@ use crate::utils::initialize_network;
 
 use cumulus_zombienet_sdk_helpers::assert_para_throughput;
 use polkadot_primitives::Id as ParaId;
-use subxt::{OnlineClient, PolkadotConfig};
 use zombienet_configuration::types::AssetLocation;
 use zombienet_sdk::{
+	subxt::{OnlineClient, PolkadotConfig},
 	tx_helper::{ChainUpgrade, RuntimeUpgradeOptions},
 	NetworkConfig, NetworkConfigBuilder,
 };

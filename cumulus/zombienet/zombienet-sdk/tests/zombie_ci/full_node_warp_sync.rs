@@ -4,11 +4,13 @@
 use anyhow::anyhow;
 
 use polkadot_primitives::Id as ParaId;
-use subxt::{OnlineClient, PolkadotConfig};
 
 use crate::utils::{initialize_network, BEST_BLOCK_METRIC};
 use cumulus_zombienet_sdk_helpers::assert_para_is_registered;
-use zombienet_sdk::{NetworkConfig, NetworkConfigBuilder};
+use zombienet_sdk::{
+	subxt::{OnlineClient, PolkadotConfig},
+	NetworkConfig, NetworkConfigBuilder,
+};
 
 const PARA_ID: u32 = 2000;
 const DB_SNAPSHOT_RELAYCHAIN: &str = "https://storage.googleapis.com/zombienet-db-snaps/cumulus/0007-full_node_warp_sync/relaychain-12523fe793bff9f6d68651816879a09eec2c1462.tgz";
