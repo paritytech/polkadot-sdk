@@ -261,8 +261,15 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           gh --version
-          export SHA=${{ github.event.pull_request.head.sha }}
-          if [[ ${{ github.event_name }} == "merge_group" ]]; then export SHA="${GITHUB_SHA::8}"; fi
+
+          SHA=${{ github.event.pull_request.head.sha }}
+          if [[ ${{ github.event_name }} == "merge_group" ]]; then
+            SHA="${GITHUB_SHA::8}";
+          elif [[ ${{ github.event_name }} == "workflow_dispatch" ]]; then
+            SHA="$(git log -1 --format=%H)"
+          fi
+          export SHA
+
           DELAYER=10
           while true; do
             # In case of multiple runs take the most recent one (with greatest databaseId)
