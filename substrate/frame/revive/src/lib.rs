@@ -1669,7 +1669,7 @@ macro_rules! impl_runtime_apis_plus_revive {
 					$crate::Pallet::<Self>::evm_gas_price()
 				}
 
-				fn nonce(address: $crate::H160) -> <Self as $crate::frame_system::Config>::Nonce {
+				fn nonce(address: $crate::H160) -> Nonce {
 					use $crate::AddressMapper;
 					let account = <Self as $crate::Config>::AddressMapper::to_account_id(&address);
 					$crate::frame_system::Pallet::<Self>::account_nonce(account)
@@ -1706,7 +1706,7 @@ macro_rules! impl_runtime_apis_plus_revive {
 				}
 
 				fn call(
-					origin: <Self as $crate::frame_system::Config>::AccountId,
+					origin: AccountId,
 					dest: $crate::H160,
 					value: Balance,
 					gas_limit: Option<$crate::Weight>,
@@ -1730,7 +1730,7 @@ macro_rules! impl_runtime_apis_plus_revive {
 				}
 
 				fn instantiate(
-					origin: <Self as $crate::frame_system::Config>::AccountId,
+					origin: AccountId,
 					value: Balance,
 					gas_limit: Option<$crate::Weight>,
 					storage_deposit_limit: Option<Balance>,
@@ -1757,7 +1757,7 @@ macro_rules! impl_runtime_apis_plus_revive {
 				}
 
 				fn upload_code(
-					origin: <Self as $crate::frame_system::Config>::AccountId,
+					origin: AccountId,
 					code: Vec<u8>,
 					storage_deposit_limit: Option<Balance>,
 				) -> $crate::CodeUploadResult<Balance> {
@@ -1782,7 +1782,7 @@ macro_rules! impl_runtime_apis_plus_revive {
 				}
 
 				fn trace_block(
-					block: <Self as $crate::frame_system::Config>::Block,
+					block: Block,
 					tracer_type: $crate::evm::TracerType,
 				) -> Vec<(u32, $crate::evm::Trace)> {
 					use $crate::{sp_runtime::traits::Block, tracing::trace};
@@ -1805,7 +1805,7 @@ macro_rules! impl_runtime_apis_plus_revive {
 				}
 
 				fn trace_tx(
-					block: <Self as $crate::frame_system::Config>::Block,
+					block: Block,
 					tx_index: u32,
 					tracer_type: $crate::evm::TracerType,
 				) -> Option<$crate::evm::Trace> {
