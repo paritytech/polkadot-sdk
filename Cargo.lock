@@ -20091,6 +20091,7 @@ dependencies = [
  "sp-rpc",
  "sp-runtime 31.0.1",
  "sp-version 29.0.0",
+ "substrate-prometheus-endpoint",
  "substrate-test-runtime",
  "substrate-test-runtime-client",
  "substrate-test-runtime-transaction-pool",
