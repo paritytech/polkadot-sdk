@@ -2143,6 +2143,64 @@ mod phase_rotation {
 				assert_eq!(MultiBlock::current_phase(), Phase::Signed(SignedPhase::get() - 3));
 			});
 	}
+
+	#[test]
+	fn export_phase_blocks_on_initialize_transitions() {
+		ExtBuilder::full()
+			.pages(3)
+			.election_start(13)
+			.fallback_mode(FallbackModes::Onchain)
+			.build_and_execute(|| {
+				roll_to_done();
+
+				assert_eq!(MultiBlock::current_phase(), Phase::Done);
+
+				// Start export by calling elect(max_page)
+				assert_ok!(MultiBlock::elect(2)); // max_page = 2 for 3 pages
+				assert_eq!(MultiBlock::current_phase(), Phase::Export(1));
+
+				let current_block = System::block_number();
+
+				// Test that on_initialize does NOT advance the phase when in Export
+				MultiBlock::on_initialize(current_block + 1);
+				assert_eq!(
+					MultiBlock::current_phase(),
+					Phase::Export(1),
+					"Export phase should not auto-transition"
+				);
+
+				// Test multiple blocks - should stay in Export(1)
+				MultiBlock::on_initialize(current_block + 2);
+				assert_eq!(
+					MultiBlock::current_phase(),
+					Phase::Export(1),
+					"Export phase should remain stable"
+				);
+
+				MultiBlock::on_initialize(current_block + 3);
+				assert_eq!(
+					MultiBlock::current_phase(),
+					Phase::Export(1),
+					"Export phase should remain stable"
+				);
+
+				// Only elect() should advance the Export phase
+				assert_ok!(MultiBlock::elect(1));
+				assert_eq!(MultiBlock::current_phase(), Phase::Export(0));
+
+				// Test Export(0) also blocks on_initialize transitions
+				MultiBlock::on_initialize(current_block + 4);
+				assert_eq!(
+					MultiBlock::current_phase(),
+					Phase::Export(0),
+					"Export(0) should not auto-transition"
+				);
+
+				// Complete the export manually
+				assert_ok!(MultiBlock::elect(0));
+				assert_eq!(MultiBlock::current_phase(), Phase::Off);
+			});
+	}
 }
 
 #[cfg(test)]
