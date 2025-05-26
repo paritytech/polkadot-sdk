@@ -1,8 +1,8 @@
 //! THIS FILE WAS AUTO-GENERATED USING THE SUBSTRATE BENCHMARK CLI VERSION 32.0.0
-//! DATE: 2025-04-28 (Y/M/D)
+//! DATE: 2025-05-25 (Y/M/D)
 //! HOSTNAME: `versi-developer-0`, CPU: `Intel(R) Xeon(R) CPU @ 2.60GHz`
 //!
-//! DATABASE: `ValidationMemoryDb`, RUNTIME: `Polkadot Asset Hub`
+//! DATABASE: `InMemoryDb`, RUNTIME: `Polkadot Asset Hub`
 //! BLOCK-NUM: `BlockId::Number(8404035)`
 //! SKIP-WRITE: `false`, SKIP-READ: `false`, WARMUPS: `1`
 //! STATE-VERSION: `V1`, STATE-CACHE-SIZE: ``
@@ -27,55 +27,56 @@
 //   10737418240
 //   --batch-size
 //   10000
-//   --on-block-validation
+//   --mode
+//   validate-block
+//   --validate-block-rounds
+//   100
 
-/// Storage DB weights for the `Polkadot Asset Hub` runtime and `ValidationMemoryDb`.
+/// Storage DB weights for the `Polkadot Asset Hub` runtime and `InMemoryDb`.
 pub mod constants {
-	use frame_support::{
-		parameter_types,
-		weights::{constants, RuntimeDbWeight},
-	};
+	use frame_support::weights::{constants, RuntimeDbWeight};
+	use sp_core::parameter_types;
 
 	parameter_types! {
-		/// `ValidationMemoryDb` weights are measured in the context of the validation functions.
+		/// `InMemoryDb` weights are measured in the context of the validation functions.
 		/// To avoid submitting overweight blocks to the relay chain this is the configuration
 		/// parachains should use.
-		pub const ValidationMemoryDbWeight: RuntimeDbWeight = RuntimeDbWeight {
-			/// Time to read one storage item.
-			/// Calculated by multiplying the *Average* of all values with `1.0` and adding `0`.
-			///
-			/// Stats nanoseconds:
-			///   Min, Max: 19_022, 21_311
-			///   Average:  19_776
-			///   Median:   19_754
-			///   Std-Dev:  259.72
-			///
-			/// Percentiles nanoseconds:
-			///   99th: 20_617
-			///   95th: 20_219
-			///   75th: 19_924
-			read: 19_776 * constants::WEIGHT_REF_TIME_PER_NANOS,
+		pub const InMemoryDbWeight: RuntimeDbWeight = RuntimeDbWeight {
+			// Time to read one storage item.
+			// Calculated by multiplying the *Average* of all values with `1.0` and adding `0`.
+			//
+			// Stats nanoseconds:
+			//   Min, Max: 12_883, 13_516
+			//   Average:  13_036
+			//   Median:   13_031
+			//   Std-Dev:  69.49
+			//
+			// Percentiles nanoseconds:
+			//   99th: 13_242
+			//   95th: 13_152
+			//   75th: 13_070
+			read: 13_036 * constants::WEIGHT_REF_TIME_PER_NANOS,
 
-			/// Time to write one storage item.
-			/// Calculated by multiplying the *Average* of all values with `1.0` and adding `0`.
-			///
-			/// Stats nanoseconds:
-			///   Min, Max: 37_874, 39_649
-			///   Average:  38_604
-			///   Median:   38_590
-			///   Std-Dev:  270.62
-			///
-			/// Percentiles nanoseconds:
-			///   99th: 39_412
-			///   95th: 39_099
-			///   75th: 38_767
-			write: 38_604 * constants::WEIGHT_REF_TIME_PER_NANOS,
+			// Time to write one storage item.
+			// Calculated by multiplying the *Average* of all values with `1.0` and adding `0`.
+			//
+			// Stats nanoseconds:
+			//   Min, Max: 28_998, 32_249
+			//   Average:  31_215
+			//   Median:   31_667
+			//   Std-Dev:  1047.8
+			//
+			// Percentiles nanoseconds:
+			//   99th: 32_195
+			//   95th: 32_114
+			//   75th: 31_852
+			write: 31_215 * constants::WEIGHT_REF_TIME_PER_NANOS,
 		};
 	}
 
 	#[cfg(test)]
 	mod test_db_weights {
-		use super::constants::ValidationMemoryDbWeight as W;
+		use super::constants::InMemoryDbWeight as W;
 		use sp_weights::constants;
 
 		/// Checks that all weights exist and have sane values.

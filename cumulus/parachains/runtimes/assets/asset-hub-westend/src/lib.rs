@@ -99,7 +99,7 @@ use assets_common::{
 	matching::{FromNetwork, FromSiblingParachain},
 };
 use polkadot_runtime_common::{BlockHashCount, SlowAdjustingFeeUpdate};
-use weights::{BlockExecutionWeight, ExtrinsicBaseWeight, ValidationMemoryDbWeight};
+use weights::{BlockExecutionWeight, ExtrinsicBaseWeight, InMemoryDbWeight};
 use xcm::{
 	latest::prelude::AssetId,
 	prelude::{VersionedAsset, VersionedAssetId, VersionedAssets, VersionedLocation, VersionedXcm},
@@ -182,7 +182,7 @@ impl frame_system::Config for Runtime {
 	type Hash = Hash;
 	type Block = Block;
 	type BlockHashCount = BlockHashCount;
-	type DbWeight = ValidationMemoryDbWeight;
+	type DbWeight = InMemoryDbWeight;
 	type Version = Version;
 	type AccountData = pallet_balances::AccountData<Balance>;
 	type SystemWeightInfo = weights::frame_system::WeightInfo<Runtime>;

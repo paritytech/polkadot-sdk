@@ -20,6 +20,7 @@ pub mod cumulus_pallet_xcmp_queue;
 pub mod extrinsic_weights;
 pub mod frame_system;
 pub mod frame_system_extensions;
+pub mod inmemorydb_weights;
 pub mod pallet_asset_conversion;
 pub mod pallet_asset_conversion_ops;
 pub mod pallet_asset_conversion_tx_payment;
@@ -46,9 +47,8 @@ pub mod paritydb_weights;
 pub mod rocksdb_weights;
 pub mod snowbridge_pallet_system_backend;
 pub mod snowbridge_pallet_system_frontend;
-pub mod validation_memorydb_weights;
 pub mod xcm;
 
 pub use block_weights::constants::BlockExecutionWeight;
 pub use extrinsic_weights::constants::ExtrinsicBaseWeight;
-pub use validation_memorydb_weights::constants::ValidationMemoryDbWeight;
+pub use inmemorydb_weights::constants::InMemoryDbWeight;
