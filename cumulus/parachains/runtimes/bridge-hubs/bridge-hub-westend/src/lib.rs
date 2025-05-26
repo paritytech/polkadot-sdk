@@ -586,7 +586,7 @@ construct_runtime!(
 		BridgeRococoGrandpa: pallet_bridge_grandpa::<Instance1> = 42,
 		BridgeRococoParachains: pallet_bridge_parachains::<Instance1> = 43,
 		BridgeRococoMessages: pallet_bridge_messages::<Instance1> = 44,
-		XcmOverBridgeHubRococo: pallet_xcm_bridge::<Instance1> = 45,
+		XcmOverBridgeHubRococo: pallet_xcm_bridge_hub::<Instance1> = 45,
 
 		EthereumInboundQueue: snowbridge_pallet_inbound_queue = 80,
 		EthereumOutboundQueue: snowbridge_pallet_outbound_queue = 81,
@@ -649,7 +649,6 @@ mod benches {
 		[pallet_bridge_grandpa, RococoFinality]
 		[pallet_bridge_parachains, WithinRococo]
 		[pallet_bridge_messages, WestendToRococo]
-		[pallet_xcm_bridge, OverRococo]
 		// Ethereum Bridge V1
 		[snowbridge_pallet_system, EthereumSystem]
 		[snowbridge_pallet_ethereum_client, EthereumBeaconClient]
@@ -1015,7 +1014,6 @@ impl_runtime_apis! {
 			type RococoFinality = BridgeRococoGrandpa;
 			type WithinRococo = pallet_bridge_parachains::benchmarking::Pallet::<Runtime, bridge_to_rococo_config::BridgeParachainRococoInstance>;
 			type WestendToRococo = pallet_bridge_messages::benchmarking::Pallet ::<Runtime, bridge_to_rococo_config::WithBridgeHubRococoMessagesInstance>;
-			type OverRococo = pallet_xcm_bridge::benchmarking::Pallet::<Runtime, bridge_to_rococo_config::XcmOverBridgeHubRococoInstance>;
 
 			let mut list = Vec::<BenchmarkList>::new();
 			list_benchmarks!(list, extra);
@@ -1215,16 +1213,30 @@ impl_runtime_apis! {
 						BenchmarkError::Stop("XcmVersion was not stored!")
 					})?;
 
-					// open bridge
 					let sibling_parachain_location = Location::new(1, [Parachain(5678)]);
+
+					// fund SA
+					use frame_support::traits::fungible::Mutate;
+					use xcm_executor::traits::ConvertLocation;
+					frame_support::assert_ok!(
+						Balances::mint_into(
+							&xcm_config::LocationToAccountId::convert_location(&sibling_parachain_location).expect("valid AccountId"),
+							bridge_to_rococo_config::BridgeDeposit::get()
+								.saturating_add(ExistentialDeposit::get())
+								.saturating_add(UNITS * 5)
+						)
+					);
+
+					// open bridge
 					let bridge_destination_universal_location: InteriorLocation = [GlobalConsensus(ByGenesis(ROCOCO_GENESIS_HASH)), Parachain(8765)].into();
-					let _ = XcmOverBridgeHubRococo::open_bridge_for_benchmarks(
-						bp_messages::LegacyLaneId([1, 2, 3, 4]),
+					let locations = XcmOverBridgeHubRococo::bridge_locations(
 						sibling_parachain_location.clone(),
 						bridge_destination_universal_location.clone(),
+					)?;
+					XcmOverBridgeHubRococo::do_open_bridge(
+						locations,
+						bp_messages::LegacyLaneId([1, 2, 3, 4]),
 						true,
-						None,
-						|| ExistentialDeposit::get(),
 					).map_err(|e| {
 						tracing::error!(
 							target: "xcm::export_message_origin_and_destination",
@@ -1260,7 +1272,6 @@ impl_runtime_apis! {
 			type RococoFinality = BridgeRococoGrandpa;
 			type WithinRococo = pallet_bridge_parachains::benchmarking::Pallet::<Runtime, bridge_to_rococo_config::BridgeParachainRococoInstance>;
 			type WestendToRococo = pallet_bridge_messages::benchmarking::Pallet ::<Runtime, bridge_to_rococo_config::WithBridgeHubRococoMessagesInstance>;
-			type OverRococo = pallet_xcm_bridge::benchmarking::Pallet::<Runtime, bridge_to_rococo_config::XcmOverBridgeHubRococoInstance>;
 
 			use bridge_runtime_common::messages_benchmarking::{
 				prepare_message_delivery_proof_from_parachain,
@@ -1272,12 +1283,6 @@ impl_runtime_apis! {
 				MessageDeliveryProofParams,
 				MessageProofParams,
 			};
-
-			impl pallet_xcm_bridge::benchmarking::Config<bridge_to_rococo_config::XcmOverBridgeHubRococoInstance> for Runtime {
-				fn open_bridge_origin() -> Option<(RuntimeOrigin, Balance)> {
-					None
-				}
-			}
 
 			impl BridgeMessagesConfig<bridge_to_rococo_config::WithBridgeHubRococoMessagesInstance> for Runtime {
 				fn is_relayer_rewarded(relayer: &Self::AccountId) -> bool {
@@ -1302,34 +1307,26 @@ impl_runtime_apis! {
 					use cumulus_primitives_core::XcmpMessageSource;
 					assert!(XcmpQueue::take_outbound_messages(usize::MAX).is_empty());
 					ParachainSystem::open_outbound_hrmp_channel_for_benchmarks_or_tests(42.into());
-					let bridge_locations = XcmOverBridgeHubRococo::open_bridge_for_benchmarks(
-						params.lane,
-						Location::new(1, [Parachain(42)]),
-						[GlobalConsensus(bridge_to_rococo_config::RococoGlobalConsensusNetwork::get()), Parachain(2075)].into(),
-						// do not create lanes, because they are already created `params.lane`
-						false,
-						None,
-						|| ExistentialDeposit::get(),
-					).expect("valid bridge opened");
+					let universal_source = bridge_to_rococo_config::open_bridge_for_benchmarks::<
+						Runtime,
+						bridge_to_rococo_config::XcmOverBridgeHubRococoInstance,
+						xcm_config::LocationToAccountId,
+					>(params.lane, 42);
 					prepare_message_proof_from_parachain::<
 						Runtime,
 						bridge_to_rococo_config::BridgeGrandpaRococoInstance,
 						bridge_to_rococo_config::WithBridgeHubRococoMessagesInstance,
-					>(params, generate_xcm_builder_bridge_message_sample(bridge_locations.bridge_origin_universal_location().clone()))
+					>(params, generate_xcm_builder_bridge_message_sample(universal_source))
 				}
 
 				fn prepare_message_delivery_proof(
 					params: MessageDeliveryProofParams<AccountId, LaneIdOf<Runtime, bridge_to_rococo_config::WithBridgeHubRococoMessagesInstance>>,
 				) -> bridge_to_rococo_config::ToRococoBridgeHubMessagesDeliveryProof<bridge_to_rococo_config::WithBridgeHubRococoMessagesInstance> {
-					let _ = XcmOverBridgeHubRococo::open_bridge_for_benchmarks(
-						params.lane,
-						Location::new(1, [Parachain(42)]),
-						[GlobalConsensus(bridge_to_rococo_config::RococoGlobalConsensusNetwork::get()), Parachain(2075)].into(),
-						// do not create lanes, because they are already created `params.lane`
-						false,
-						None,
-						|| ExistentialDeposit::get(),
-					);
+					let _ = bridge_to_rococo_config::open_bridge_for_benchmarks::<
+						Runtime,
+						bridge_to_rococo_config::XcmOverBridgeHubRococoInstance,
+						xcm_config::LocationToAccountId,
+					>(params.lane, 42);
 					prepare_message_delivery_proof_from_parachain::<
 						Runtime,
 						bridge_to_rococo_config::BridgeGrandpaRococoInstance,

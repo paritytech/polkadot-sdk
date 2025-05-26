@@ -32,7 +32,7 @@ use westend_emulated_chain::Westend;
 // Cumulus
 use emulated_integration_tests_common::{
 	accounts::{ALICE, BOB},
-	impls::{BridgeMessagesHandler, BridgeMessagesInstance1, BridgeMessagesInstance3},
+	impls::{BridgeHubMessageHandler, BridgeMessagesInstance1, BridgeMessagesInstance3},
 	xcm_emulator::{
 		decl_test_bridges, decl_test_networks, decl_test_sender_receiver_accounts_parameter_types,
 		Chain,
@@ -76,13 +76,13 @@ decl_test_bridges! {
 type BridgeHubRococoRuntime = <BridgeHubRococoPara as Chain>::Runtime;
 type BridgeHubWestendRuntime = <BridgeHubWestendPara as Chain>::Runtime;
 
-pub type RococoWestendMessageHandler = BridgeMessagesHandler<
+pub type RococoWestendMessageHandler = BridgeHubMessageHandler<
 	BridgeHubRococoRuntime,
 	BridgeMessagesInstance3,
 	BridgeHubWestendRuntime,
 	BridgeMessagesInstance1,
 >;
-pub type WestendRococoMessageHandler = BridgeMessagesHandler<
+pub type WestendRococoMessageHandler = BridgeHubMessageHandler<
 	BridgeHubWestendRuntime,
 	BridgeMessagesInstance1,
 	BridgeHubRococoRuntime,
