@@ -1253,7 +1253,7 @@ impl<Block: BlockT> Backend<Block> {
 				));
 			}
 
-			info!("Initializing shared trie cache with size {} bytes, {}% of total memory", maximum_size, (maximum_size as f64 / total_memory as f64 * 100.0));
+			debug!("Initializing shared trie cache with size {} bytes, {}% of total memory", maximum_size, (maximum_size as f64 / total_memory as f64 * 100.0));
 			Ok(SharedTrieCache::new(sp_trie::cache::CacheSize::new(maximum_size), config.metrics_registry.as_ref()))
 		}).transpose()?;
 

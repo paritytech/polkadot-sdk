@@ -308,13 +308,13 @@ fn warm_up_trie_cache<TBl: BlockT>(
 
 	let state = || backend.state_at(storage_root, TrieCacheContext::Untrusted);
 
-	info!("Populating trie cache started",);
+	debug!("Populating trie cache started",);
 	let start_time = std::time::Instant::now();
 	let mut keys_count = 0;
 	let mut child_keys_count = 0;
 	for key in KeysIter::<_, TBl>::new(state()?, None, None)? {
 		if keys_count != 0 && keys_count % 100_000 == 0 {
-			info!("{} keys and {} child keys have been warmed", keys_count, child_keys_count);
+			debug!("{} keys and {} child keys have been warmed", keys_count, child_keys_count);
 		}
 		match child_info(key.0.clone()) {
 			Some(info) => {
@@ -334,7 +334,7 @@ fn warm_up_trie_cache<TBl: BlockT>(
 			},
 		}
 	}
-	info!(
+	debug!(
 		"Trie cache populated with {keys_count} keys and {child_keys_count} child keys in {} s",
 		start_time.elapsed().as_secs_f32()
 	);
