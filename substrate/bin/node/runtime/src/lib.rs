@@ -85,7 +85,7 @@ use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 use pallet_nfts::PalletFeatures;
 use pallet_nis::WithMaximumOf;
 use pallet_nomination_pools::PoolId;
-use pallet_revive::{evm::runtime::EthExtra, AddressMapper};
+use pallet_revive::{evm::runtime::EthExtra, AddressMapper, NonceAlreadyIncremented};
 use pallet_session::historical as pallet_session_historical;
 use sp_core::U256;
 use sp_runtime::traits::TransactionExtension;
@@ -1571,11 +1571,11 @@ where
 	}
 }
 
-impl<LocalCall> frame_system::offchain::CreateInherent<LocalCall> for Runtime
+impl<LocalCall> frame_system::offchain::CreateBare<LocalCall> for Runtime
 where
 	RuntimeCall: From<LocalCall>,
 {
-	fn create_inherent(call: RuntimeCall) -> UncheckedExtrinsic {
+	fn create_bare(call: RuntimeCall) -> UncheckedExtrinsic {
 		generic::UncheckedExtrinsic::new_bare(call).into()
 	}
 }
@@ -3443,6 +3443,7 @@ impl_runtime_apis! {
 				code,
 				data,
 				salt,
+				NonceAlreadyIncremented::No,
 			)
 		}
 
