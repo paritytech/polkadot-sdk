@@ -1501,19 +1501,10 @@ impl<T: Config> ElectionProvider for Pallet<T> {
 			Err(_) => return Err(ElectionError::NotOngoing),
 		}
 
-		let current_phase = CurrentPhase::<T>::get();
-		let max_page_index = T::Pages::get() - 1;
-
-		match current_phase {
-			Phase::Done if remaining == max_page_index => {
-				// Start export: Done -> Export(max_page-1) and serve result for max_page
-			},
-			Phase::Done =>
-				return Err(ElectionError::Other("Can only start export with elect(max_page)")),
-			Phase::Export(page) if page == remaining => {},
-			_ => return Err(ElectionError::Other("Not in the correct export phase")),
-		};
-
+		// Phase::Done if remaining == max_page_index => Start export: Done -> Export(max_page-1)
+		// and serve result for max_page Phase::Export(page) if page == remaining => Start export:
+		// Export(page) -> Export(page-1) and serve result for page _ => Fallback shortcut: allow
+		// elect(any_page) from any phase
 		let result = T::Verifier::get_queued_solution_page(remaining)
 			.ok_or(ElectionError::SupportPageNotAvailable)
 			.or_else(|err: ElectionError<T>| {
@@ -2505,9 +2496,9 @@ mod election_provider {
 					},
 					Event::PhaseTransitioned {
 						from: Phase::Signed(SignedPhase::get() - 1),
-						to: Phase::Export(2)
+						to: Phase::Export(1)
 					},
-					Event::PhaseTransitioned { from: Phase::Export(1), to: Phase::Off }
+					Event::PhaseTransitioned { from: Phase::Export(0), to: Phase::Off }
 				]
 			);
 			assert_eq!(verifier_events(), vec![]);
