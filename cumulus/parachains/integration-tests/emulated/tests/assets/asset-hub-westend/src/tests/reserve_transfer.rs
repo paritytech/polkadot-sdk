@@ -23,7 +23,7 @@ use emulated_integration_tests_common::xcm_helpers::{
 	find_mq_processed_id, find_xcm_sent_message_id,
 };
 use frame_support::traits::{fungible, fungibles};
-use pallet_revive::{Code, DepositLimit, InstantiateReturnValue};
+use pallet_revive::{Code, DepositLimit, InstantiateReturnValue, NonceAlreadyIncremented};
 use pallet_revive_fixtures::compile_module;
 use sp_core::{crypto::get_public_from_string_or_panic, sr25519};
 use westend_system_emulated_network::westend_emulated_chain::westend_runtime::Dmp;
@@ -1515,6 +1515,7 @@ fn withdraw_and_deposit_erc20s() {
 			Code::Upload(code),
 			constructor_data,
 			None,
+			NonceAlreadyIncremented::Yes,
 		);
 		let Ok(InstantiateReturnValue { addr: erc20_address, .. }) = result.result else {
 			unreachable!("contract should initialize")
@@ -1539,7 +1540,7 @@ fn withdraw_and_deposit_erc20s() {
 		assert_ok!(PolkadotXcm::execute(
 			RuntimeOrigin::signed(sender.clone()),
 			Box::new(VersionedXcm::V5(message)),
-			Weight::from_parts(2_500_000_000, 120_000),
+			Weight::from_parts(2_500_000_000, 220_000),
 		));
 
 		// Revive is not taking any fees.
@@ -1642,6 +1643,7 @@ fn smart_contract_not_erc20_will_error() {
 			Code::Upload(code),
 			Vec::new(),
 			None,
+			NonceAlreadyIncremented::Yes,
 		);
 		let Ok(InstantiateReturnValue { addr: non_erc20_address, .. }) = result.result else {
 			unreachable!("contract should initialize")
@@ -1671,7 +1673,7 @@ fn smart_contract_not_erc20_will_error() {
 // Here the contract returns a number but because it can be cast to true
 // it still succeeds.
 #[test]
-fn smart_contract_returns_more_data_but_still_succeeds() {
+fn smart_contract_does_not_return_bool_fails() {
 	let sender = AssetHubWestendSender::get();
 	let beneficiary = AssetHubWestendReceiver::get();
 	let checking_account =
@@ -1710,6 +1712,7 @@ fn smart_contract_returns_more_data_but_still_succeeds() {
 			Code::Upload(code),
 			constructor_data,
 			None,
+			NonceAlreadyIncremented::Yes,
 		);
 		let Ok(InstantiateReturnValue { addr: non_erc20_address, .. }) = result.result else {
 			unreachable!("contract should initialize")
@@ -1727,11 +1730,12 @@ fn smart_contract_returns_more_data_but_still_succeeds() {
 			.deposit_asset(AllCounted(1), beneficiary.clone())
 			.build();
 		// Execution fails but doesn't panic.
-		assert_ok!(PolkadotXcm::execute(
+		assert!(PolkadotXcm::execute(
 			RuntimeOrigin::signed(sender.clone()),
 			Box::new(VersionedXcm::V5(message)),
-			Weight::from_parts(2_500_000_000, 120_000),
-		));
+			Weight::from_parts(2_500_000_000, 220_000),
+		)
+		.is_err());
 	});
 }
 
@@ -1775,6 +1779,7 @@ fn expensive_erc20_runs_out_of_gas() {
 			Code::Upload(code),
 			constructor_data,
 			None,
+			NonceAlreadyIncremented::Yes,
 		);
 		let Ok(InstantiateReturnValue { addr: non_erc20_address, .. }) = result.result else {
 			unreachable!("contract should initialize")
