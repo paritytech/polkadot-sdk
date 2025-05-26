@@ -1651,7 +1651,7 @@ sp_api::decl_runtime_apis! {
 /// - `$($rest:tt)*`: Remaining input to be forwarded to the underlying `impl_runtime_apis!`.
 #[macro_export]
 macro_rules! impl_runtime_apis_plus_revive {
-	($Runtime: ty, $Executive: ty, $EthExtra: ty,  $($rest:tt)* ) => {
+	($Runtime: ty, $Executive: ty, $EthExtra: ty, $($rest:tt)*) => {
 
 		impl_runtime_apis! {
 			$($rest)*
