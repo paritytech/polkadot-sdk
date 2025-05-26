@@ -899,6 +899,7 @@ mod benches {
 				&caller.clone(),
 				T::Currency::minimum_balance()
 					.saturating_add(start_price)
+					.saturating_add(start_price)
 					.saturating_add(start_price),
 			);
 
