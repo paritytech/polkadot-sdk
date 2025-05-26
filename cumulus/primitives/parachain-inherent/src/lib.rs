@@ -130,6 +130,7 @@ impl Into<ParachainInherentData> for v0::ParachainInherentData {
 	}
 }
 
+#[cfg(feature = "std")]
 impl ParachainInherentData {
 	/// Transforms [`ParachainInherentData`] into [`v0::ParachainInherentData`]. Can be used to
 	/// create inherent data compatible with old runtimes.

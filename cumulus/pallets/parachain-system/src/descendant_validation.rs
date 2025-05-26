@@ -35,12 +35,13 @@ use sp_runtime::{traits::Header, RuntimeAppPublic};
 /// - `relay_state_proof`: The proof of the relay chain state, which contains details about the
 ///   authority sets and other chain data.
 /// - `relay_parent_descendants`: A vector of relay chain headers representing the descendants of
-///   the relay parent that need to be validated.
+///   the relay parent that need to be validated. The first item in this vector must be the relay
+///   parent itself.
 /// - `relay_parent_state_root`: The state root hash of the relay parent. This
-///   will be matched with the initial relay parent header from the descendants.
+///   will be matched with the first relay parent header from the descendants.
 ///   **Note:** This parameter can be removed once the hash of the relay parent is available
 ///   to the runtime. https://github.com/paritytech/polkadot-sdk/issues/83
-/// - `expected_number_of_parents`: The expected number of parent headers in the
+/// - `expected_rp_descendants_num`: The expected number of headers in the
 ///   `relay_parent_descendants`. A mismatch will cause the function to panic.
 ///
 /// # Errors
@@ -48,7 +49,7 @@ use sp_runtime::{traits::Header, RuntimeAppPublic};
 /// This function will error under the following scenarios:
 ///
 /// - The number of headers in `relay_parent_descendants` does not match
-///   `expected_number_of_parents`.
+///   `expected_rp_descendants_num`.
 /// - No authorities are provided in the state proof.
 /// - The state root of the provided relay parent does not match the expected value.
 /// - A relay header does not contain a BABE pre-digest.
@@ -58,11 +59,11 @@ pub(crate) fn verify_relay_parent_descendants<H: Header>(
 	relay_state_proof: &RelayChainStateProof,
 	relay_parent_descendants: Vec<H>,
 	relay_parent_state_root: H::Hash,
-	expected_number_of_parents: u32,
+	expected_rp_descendants_num: u32,
 ) -> Result<(), RelayParentVerificationError<H>> {
-	if relay_parent_descendants.len() != (expected_number_of_parents + 1) as usize {
+	if relay_parent_descendants.len() != (expected_rp_descendants_num + 1) as usize {
 		return Err(InvalidNumberOfDescendants {
-			expected: expected_number_of_parents + 1,
+			expected: expected_rp_descendants_num + 1,
 			received: relay_parent_descendants.len(),
 		});
 	}

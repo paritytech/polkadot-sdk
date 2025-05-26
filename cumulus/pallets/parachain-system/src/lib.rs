@@ -649,18 +649,18 @@ pub mod pallet {
 			)
 			.expect("Invalid relay chain state proof");
 
-			let expected_number_of_parents = T::RelayParentOffset::get();
+			let expected_rp_descendants_num = T::RelayParentOffset::get();
 
-			if expected_number_of_parents > 0 {
+			if expected_rp_descendants_num > 0 {
 				if let Err(err) = descendant_validation::verify_relay_parent_descendants(
 					&relay_state_proof,
 					relay_parent_descendants,
 					vfp.relay_parent_storage_root,
-					expected_number_of_parents,
+					expected_rp_descendants_num,
 				) {
 					panic!(
 						"Unable to verify provided relay parent descendants. \
-						expected_number_of_parents: {expected_number_of_parents} \
+						expected_rp_descendants_num: {expected_rp_descendants_num} \
 						error: {err:?}"
 					);
 				};
