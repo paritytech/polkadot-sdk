@@ -48,7 +48,10 @@ impl SystemHealthRpcServer for SystemHealthRpcServerImpl {
 			tokio::try_join!(self.client.sync_state(), self.client.system_health())?;
 
 		let latest = self.client.latest_block().await.number();
-		if sync_state.current_block > latest {
+
+		// Compare against `latest + 1` to avoid a false positive if the health check runs
+		// immediately after a new block is produced but before the cache updates.
+		if sync_state.current_block > latest + 1 {
 			log::warn!(
 				target: LOG_TARGET,
 				"Client is out of sync. Current block: {}, latest cache block: {latest}",
