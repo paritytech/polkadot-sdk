@@ -67,7 +67,8 @@ pub fn transfer_token_to_ethereum_works() {
 	)
 }
 
-// TOOD: FAIL-CI - we should revisit this with Snowbridge about this when going to master.
+// TODO: FAIL-CI - we should revisit this with Snowbridge about this when going to master.
+// TODO: FAIL-CI - it should be fixed also by https://github.com/paritytech/polkadot-sdk/pull/8599
 // #[test]
 // pub fn unpaid_transfer_token_to_ethereum_fails_with_barrier() {
 // 	snowbridge_runtime_test_common::send_unpaid_transfer_token_message::<Runtime, XcmConfig>(
