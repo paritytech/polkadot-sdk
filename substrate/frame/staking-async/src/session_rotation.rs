@@ -810,7 +810,7 @@ impl<T: Config> EraElectionPlanner<T> {
 			);
 
 			let current_page = NextElectionPage::<T>::get()
-				.unwrap_or(Self::election_pages().defensive_saturating_sub(1) + 1);
+				.unwrap_or(Self::election_pages().defensive_saturating_sub(1));
 			let maybe_next_page = current_page.checked_sub(1);
 			crate::log!(debug, "fetching page {:?}, next {:?}", current_page, maybe_next_page);
 

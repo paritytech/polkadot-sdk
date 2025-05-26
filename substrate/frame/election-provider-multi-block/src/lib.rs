@@ -1505,13 +1505,54 @@ impl<T: Config> ElectionProvider for Pallet<T> {
 		let max_page_index = T::Pages::get() - 1;
 		match current_phase {
 			Phase::Done => {
-				if remaining == max_page_index + 1 {
-					// Start export: Done -> Export(max_page)
-					Self::phase_transition(Phase::Export(max_page_index));
-					Err(ElectionError::Other("Export started, call elect(max_page) next block"))
+				if remaining == max_page_index {
+					// Start export: Done -> Export(max_page-1) and serve result for max_page
+					let result = T::Verifier::get_queued_solution_page(remaining)
+						.ok_or(ElectionError::SupportPageNotAvailable)
+						.or_else(|err: ElectionError<T>| {
+							log!(
+								warn,
+								"primary election for page {} failed due to: {:?}, trying fallback",
+								remaining,
+								err,
+							);
+							Self::fallback_for_page(remaining)
+						})
+						.map_err(|err| {
+							// if any pages returns an error, we go into the emergency phase and
+							// don't do anything else anymore. This will prevent any new
+							// submissions to signed and unsigned pallet, and thus the
+							// verifier will also be almost stuck, except for the submission
+							// of emergency solutions.
+							log!(
+								warn,
+								"primary and fallback ({:?}) failed for page {:?}",
+								err,
+								remaining
+							);
+							err
+						})
+						.map(|supports| {
+							// convert to bounded
+							supports.into()
+						});
+
+					// if fallback has possibly put us into the emergency phase, don't do anything
+					// else.
+					if CurrentPhase::<T>::get().is_emergency() && result.is_err() {
+						log!(error, "Emergency phase triggered, halting the election.");
+					} else {
+						if remaining == 0 {
+							log!(info, "receiving last call to elect(0), rotating round");
+							Self::rotate_round()
+						} else {
+							Self::phase_transition(Phase::Export(remaining - 1))
+						}
+					}
+
+					result
 				} else {
-					// should never happen
-					Err(ElectionError::Other("Must call elect(max_page+1) to start export"))
+					Err(ElectionError::Other("Can only start export with elect(max_page)"))
 				}
 			},
 			Phase::Export(page) if page == remaining => {
@@ -1558,7 +1599,8 @@ impl<T: Config> ElectionProvider for Pallet<T> {
 
 				result
 			},
-			_ => Err(ElectionError::Other("Not in the correct export phase".into())),
+			Phase::Emergency => Err(ElectionError::Fallback("Emergency phase started.")),
+			_ => Err(ElectionError::Other("Not in the correct export phase")),
 		}
 	}
 
