@@ -198,8 +198,9 @@ impl TryFrom<&IGatewayV2::Payload> for XcmPayload {
 		let xcm = match payload.xcm.kind {
 			0 => XcmPayload::Raw(payload.xcm.data.to_vec()),
 			1 => {
-				let create_asset = IGatewayV2::XcmCreateAsset::abi_decode_validate(&payload.xcm.data)
-					.map_err(|_| MessageDecodeError)?;
+				let create_asset =
+					IGatewayV2::XcmCreateAsset::abi_decode_validate(&payload.xcm.data)
+						.map_err(|_| MessageDecodeError)?;
 				// Convert u8 network to Network enum
 				let network = match create_asset.network {
 					0 => Network::Polkadot,
@@ -227,8 +228,9 @@ impl TryFrom<&IGatewayV2::EthereumAsset> for EthereumAsset {
 				}
 			},
 			1 => {
-				let foreign_data = IGatewayV2::AsForeignTokenERC20::abi_decode_validate(&asset.data)
-					.map_err(|_| MessageDecodeError)?;
+				let foreign_data =
+					IGatewayV2::AsForeignTokenERC20::abi_decode_validate(&asset.data)
+						.map_err(|_| MessageDecodeError)?;
 				EthereumAsset::ForeignTokenERC20 {
 					token_id: H256::from(foreign_data.token_id.as_ref()),
 					value: foreign_data.value,

@@ -19,12 +19,12 @@ use alloy_core::{
 	primitives::U256,
 	sol_types::{sol_data, SolType},
 };
-use frame_support::traits::{fungible, fungibles};
-use pallet_revive::{Code, DepositLimit, InstantiateReturnValue};
-use pallet_revive_fixtures::compile_module;
 use emulated_integration_tests_common::xcm_helpers::{
 	find_mq_processed_id, find_xcm_sent_message_id,
 };
+use frame_support::traits::{fungible, fungibles};
+use pallet_revive::{Code, DepositLimit, InstantiateReturnValue};
+use pallet_revive_fixtures::compile_module;
 use sp_core::{crypto::get_public_from_string_or_panic, sr25519};
 use westend_system_emulated_network::westend_emulated_chain::westend_runtime::Dmp;
 
