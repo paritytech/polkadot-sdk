@@ -44,3 +44,4 @@ polkadot-primitives = { workspace = true, default-features = true }
 polkadot-runtime-parachains = { workspace = true, default-features = true }
 xcm = { workspace = true, default-features = true }
 xcm-executor = { workspace = true, default-features = true }
+xcm-simulator = { workspace = true, default-features = true }

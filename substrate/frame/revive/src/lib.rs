@@ -44,7 +44,8 @@ pub mod weights;
 
 use crate::{
 	evm::{
-		runtime::GAS_PRICE, CallTrace, GasEncoder, GenericTransaction, TracerConfig, TYPE_EIP1559,
+		runtime::GAS_PRICE, CallTracer, GasEncoder, GenericTransaction, Trace, Tracer, TracerType,
+		TYPE_EIP1559,
 	},
 	exec::{AccountIdOf, ExecError, Executable, Key, Stack as ExecStack},
 	gas::GasMeter,
@@ -367,7 +368,7 @@ pub mod pallet {
 			type Xcm = ();
 			type RuntimeMemory = ConstU32<{ 128 * 1024 * 1024 }>;
 			type PVFMemory = ConstU32<{ 512 * 1024 * 1024 }>;
-			type ChainId = ConstU64<0>;
+			type ChainId = ConstU64<42>;
 			type NativeToEthRatio = ConstU32<1>;
 			type EthGasEncoder = ();
 			type FindAuthor = ();
@@ -512,6 +513,18 @@ pub mod pallet {
 		AddressMapping,
 	}
 
+	#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+	pub enum NonceAlreadyIncremented {
+		/// Indicates that the nonce has not been incremented yet.
+		///
+		/// This happens when the instantiation is triggered by a dry-run or another contract.
+		No,
+		/// Indicates that the nonce has already been incremented.
+		///
+		/// This happens when the instantiation is triggered by a transaction.
+		Yes,
+	}
+
 	/// A mapping from a contract's code hash to its code.
 	#[pallet::storage]
 	pub(crate) type PristineCode<T: Config> = StorageMap<_, Identity, H256, CodeVec>;
@@ -578,6 +591,8 @@ pub mod pallet {
 
 		fn integrity_test() {
 			use limits::code::STATIC_MEMORY_BYTES;
+
+			assert!(T::ChainId::get() > 0, "ChainId must be greater than 0");
 
 			// The memory available in the block building runtime
 			let max_runtime_mem: u32 = T::RuntimeMemory::get();
@@ -794,6 +809,7 @@ pub mod pallet {
 				Code::Existing(code_hash),
 				data,
 				salt,
+				NonceAlreadyIncremented::Yes,
 			);
 			if let Ok(retval) = &output.result {
 				if retval.result.did_revert() {
@@ -858,6 +874,7 @@ pub mod pallet {
 				Code::Upload(code),
 				data,
 				salt,
+				NonceAlreadyIncremented::Yes,
 			);
 			if let Ok(retval) = &output.result {
 				if retval.result.did_revert() {
@@ -1031,7 +1048,8 @@ where
 			let origin = Origin::from_runtime_origin(origin)?;
 			let mut storage_meter = match storage_deposit_limit {
 				DepositLimit::Balance(limit) => StorageMeter::new(&origin, limit, value)?,
-				DepositLimit::Unchecked => StorageMeter::new_unchecked(BalanceOf::<T>::max_value()),
+				DepositLimit::UnsafeOnlyForDryRun =>
+					StorageMeter::new_unchecked(BalanceOf::<T>::max_value()),
 			};
 			let result = ExecStack::<T, WasmBlob<T>>::run_call(
 				origin.clone(),
@@ -1071,13 +1089,14 @@ where
 		code: Code,
 		data: Vec<u8>,
 		salt: Option<[u8; 32]>,
+		nonce_already_incremented: NonceAlreadyIncremented,
 	) -> ContractResult<InstantiateReturnValue, BalanceOf<T>> {
 		let mut gas_meter = GasMeter::new(gas_limit);
 		let mut storage_deposit = Default::default();
 		let unchecked_deposit_limit = storage_deposit_limit.is_unchecked();
 		let mut storage_deposit_limit = match storage_deposit_limit {
 			DepositLimit::Balance(limit) => limit,
-			DepositLimit::Unchecked => BalanceOf::<T>::max_value(),
+			DepositLimit::UnsafeOnlyForDryRun => BalanceOf::<T>::max_value(),
 		};
 
 		let try_instantiate = || {
@@ -1113,6 +1132,7 @@ where
 				data,
 				salt.as_ref(),
 				unchecked_deposit_limit,
+				nonce_already_incremented,
 			);
 			storage_deposit = storage_meter
 				.try_into_deposit(&instantiate_origin, unchecked_deposit_limit)?
@@ -1158,7 +1178,7 @@ where
 		let storage_deposit_limit = if tx.gas.is_some() {
 			DepositLimit::Balance(BalanceOf::<T>::max_value())
 		} else {
-			DepositLimit::Unchecked
+			DepositLimit::UnsafeOnlyForDryRun
 		};
 
 		if tx.nonce.is_none() {
@@ -1282,6 +1302,7 @@ where
 					Code::Upload(code.to_vec()),
 					data.to_vec(),
 					None,
+					NonceAlreadyIncremented::No,
 				);
 
 				let returned_data = match result.result {
@@ -1383,6 +1404,17 @@ where
 	/// Get the gas price.
 	pub fn evm_gas_price() -> U256 {
 		GAS_PRICE.into()
+	}
+
+	/// Build an EVM tracer from the given tracer type.
+	pub fn evm_tracer(tracer_type: TracerType) -> Tracer {
+		match tracer_type {
+			TracerType::CallTracer(config) => CallTracer::new(
+				config.unwrap_or_default(),
+				Self::evm_gas_from_weight as fn(Weight) -> U256,
+			)
+			.into(),
+		}
 	}
 
 	/// A generalized version of [`Self::upload_code`].
@@ -1582,8 +1614,8 @@ sp_api::decl_runtime_apis! {
 		/// See eth-rpc `debug_traceBlockByNumber` for usage.
 		fn trace_block(
 			block: Block,
-			config: TracerConfig
-		) -> Vec<(u32, CallTrace)>;
+			config: TracerType
+		) -> Vec<(u32, Trace)>;
 
 		/// Traces the execution of a specific transaction within a block.
 		///
@@ -1594,13 +1626,13 @@ sp_api::decl_runtime_apis! {
 		fn trace_tx(
 			block: Block,
 			tx_index: u32,
-			config: TracerConfig
-		) -> Option<CallTrace>;
+			config: TracerType
+		) -> Option<Trace>;
 
 		/// Dry run and return the trace of the given call.
 		///
 		/// See eth-rpc `debug_traceCall` for usage.
-		fn trace_call(tx: GenericTransaction, config: TracerConfig) -> Result<CallTrace, EthTransactError>;
+		fn trace_call(tx: GenericTransaction, config: TracerType) -> Result<Trace, EthTransactError>;
 
 	}
 }
