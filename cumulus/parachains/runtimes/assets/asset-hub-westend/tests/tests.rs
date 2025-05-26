@@ -1410,12 +1410,10 @@ fn governance_authorize_upgrade_works() {
 		Either::Right(XcmError::Barrier)
 	);
 	// ok - AssetHub (itself)
-	assert_ok!(
-		parachains_runtimes_test_utils::test_cases::can_governance_authorize_upgrade::<
-			Runtime,
-			RuntimeOrigin,
-		>(GovernanceOrigin::Origin(RuntimeOrigin::root()))
-	);
+	assert_ok!(parachains_runtimes_test_utils::test_cases::can_governance_authorize_upgrade::<
+		Runtime,
+		RuntimeOrigin,
+	>(GovernanceOrigin::Origin(RuntimeOrigin::root())));
 	// no - Collectives
 	assert_err!(
 		parachains_runtimes_test_utils::test_cases::can_governance_authorize_upgrade::<

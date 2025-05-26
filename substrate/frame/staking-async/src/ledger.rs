@@ -35,8 +35,7 @@ use crate::{
 	asset, log, BalanceOf, Bonded, Config, DecodeWithMemTracking, Error, Ledger, Pallet, Payee,
 	RewardDestination, Vec, VirtualStakers,
 };
-use alloc::fmt::Debug;
-use alloc::collections::BTreeMap;
+use alloc::{collections::BTreeMap, fmt::Debug};
 use codec::{Decode, Encode, HasCompact, MaxEncodedLen};
 use frame_support::{
 	defensive, ensure,
@@ -70,7 +69,15 @@ pub struct UnlockChunk<Balance: HasCompact + MaxEncodedLen> {
 /// leaving here to enforce a clean PR diff, given how critical this logic is. Tracking issue
 /// <https://github.com/paritytech/substrate/issues/14749>.
 #[derive(
-	PartialEqNoBound, EqNoBound, CloneNoBound, Encode, Decode, DebugNoBound, TypeInfo, MaxEncodedLen, DecodeWithMemTracking
+	PartialEqNoBound,
+	EqNoBound,
+	CloneNoBound,
+	Encode,
+	Decode,
+	DebugNoBound,
+	TypeInfo,
+	MaxEncodedLen,
+	DecodeWithMemTracking,
 )]
 #[scale_info(skip_type_params(T))]
 pub struct StakingLedger<T: Config> {
@@ -102,7 +109,15 @@ pub struct StakingLedger<T: Config> {
 
 /// Copy of `StakingLedger` without the `T` param and `Config` bound.
 #[derive(
-	PartialEqNoBound, EqNoBound, CloneNoBound, Encode, Decode, DebugNoBound, TypeInfo, MaxEncodedLen, DecodeWithMemTracking
+	PartialEqNoBound,
+	EqNoBound,
+	CloneNoBound,
+	Encode,
+	Decode,
+	DebugNoBound,
+	TypeInfo,
+	MaxEncodedLen,
+	DecodeWithMemTracking,
 )]
 #[scale_info(skip_type_params(MaxUnlockingChunks))]
 pub struct StakingLedger2<AccountId, Balance, MaxUnlockingChunks>
@@ -136,7 +151,11 @@ where
 	#[codec(skip)]
 	pub controller: Option<AccountId>,
 }
-pub type StakingLedger2Of<T> = StakingLedger2<<T as frame_system::Config>::AccountId, BalanceOf<T>, <T as crate::Config>::MaxUnlockingChunks>;
+pub type StakingLedger2Of<T> = StakingLedger2<
+	<T as frame_system::Config>::AccountId,
+	BalanceOf<T>,
+	<T as crate::Config>::MaxUnlockingChunks,
+>;
 
 impl<T: Config> codec::EncodeLike<StakingLedger2Of<T>> for StakingLedger<T> {}
 

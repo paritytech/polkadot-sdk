@@ -60,7 +60,6 @@ pub mod xcm_config;
 
 pub use weights::*;
 
-use sp_runtime::traits::Hash;
 use crate::{
 	accounts::MigratedBalances,
 	types::{MigrationFinishedData, XcmBatch, XcmBatchAndMeter},
@@ -99,7 +98,7 @@ use preimage::{
 use proxy::*;
 use referenda::ReferendaStage;
 use sp_core::{crypto::Ss58Codec, H256};
-use sp_runtime::AccountId32;
+use sp_runtime::{traits::Hash, AccountId32};
 use sp_std::prelude::*;
 use staking::{
 	bags_list::{BagsListMigrator, BagsListStage},
@@ -539,7 +538,8 @@ pub mod pallet {
 
 	#[pallet::storage]
 	#[pallet::unbounded]
-	pub type DmpMessagesFailed<T: Config> = StorageMap<_, Twox64Concat, T::Hash, Xcm<()>, OptionQuery>;
+	pub type DmpMessagesFailed<T: Config> =
+		StorageMap<_, Twox64Concat, T::Hash, Xcm<()>, OptionQuery>;
 
 	/// Alias for `Paras` from `paras_registrar`.
 	///

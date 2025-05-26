@@ -451,9 +451,23 @@ impl<T: Config> PalletMigration for StakingMigrator<T> {
 		translated.batch_weight = messages.batch_weight;
 		translated.tracked_batch_count = messages.tracked_batch_count;
 		translated.accumulated_weight = messages.accumulated_weight;
-		translated.batch.sized_batches = messages.batch.sized_batches.clone().into_iter().map(|(i, batch)| {
-			(i, batch.into_iter().map(|message| crate::staking::message::MessageTranslator::<T>::intoAh(message)).collect())
-		}).collect();
+		translated.batch.sized_batches = messages
+			.batch
+			.sized_batches
+			.clone()
+			.into_iter()
+			.map(|(i, batch)| {
+				(
+					i,
+					batch
+						.into_iter()
+						.map(|message| {
+							crate::staking::message::MessageTranslator::<T>::intoAh(message)
+						})
+						.collect(),
+				)
+			})
+			.collect();
 
 		if !messages.is_empty() {
 			Pallet::<T>::send_chunked_xcm_and_track(

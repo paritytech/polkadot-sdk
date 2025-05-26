@@ -148,7 +148,8 @@ pub type RcStakingMessageOf<T> = RcStakingMessage<
 	pallet_staking::StakingLedger<T>,
 	pallet_staking::Nominations<T>,
 	pallet_staking::EraRewardPoints<<T as frame_system::Config>::AccountId>,
-	pallet_staking::RewardDestination<<T as frame_system::Config>::AccountId>, // encodes the same as AH
+	pallet_staking::RewardDestination<<T as frame_system::Config>::AccountId>, /* encodes the
+	                                                                            * same as AH */
 	pallet_staking::ValidatorPrefs, // encodes the same as AH
 	pallet_staking::UnappliedSlash<
 		<T as frame_system::Config>::AccountId,
@@ -234,8 +235,10 @@ pub type RcStakingValuesOf<T> = StakingValues<<T as pallet_staking::Config>::Cur
 pub type AhStakingValuesOf<T> = StakingValues<<T as pallet_staking_async::Config>::CurrencyBalance>;
 
 impl<Rc: pallet_staking::Config>
-	IntoAh<pallet_staking::UnlockChunk<BalanceOf<Rc>>, pallet_staking_async::UnlockChunk<BalanceOf<Rc>>>
-	for MessageTranslator<Rc>
+	IntoAh<
+		pallet_staking::UnlockChunk<BalanceOf<Rc>>,
+		pallet_staking_async::UnlockChunk<BalanceOf<Rc>>,
+	> for MessageTranslator<Rc>
 {
 	fn intoAh(
 		chunk: pallet_staking::UnlockChunk<BalanceOf<Rc>>,
@@ -244,24 +247,25 @@ impl<Rc: pallet_staking::Config>
 	}
 }
 
-impl<Rc> IntoAh<
-	pallet_staking::StakingLedger<Rc>,
-	pallet_staking_async::ledger::StakingLedger2<
-		AccountIdOf<Rc>,
-		BalanceOf<Rc>,
-		ConstU32<32>, // <T as pallet_staking_async::Config>::MaxUnlockingChunks,
-	>
->
-	for MessageTranslator<Rc>
+impl<Rc>
+	IntoAh<
+		pallet_staking::StakingLedger<Rc>,
+		pallet_staking_async::ledger::StakingLedger2<
+			AccountIdOf<Rc>,
+			BalanceOf<Rc>,
+			ConstU32<32>, // <T as pallet_staking_async::Config>::MaxUnlockingChunks,
+		>,
+	> for MessageTranslator<Rc>
 where
 	Rc: pallet_staking::Config,
 {
-	fn intoAh(ledger: pallet_staking::StakingLedger<Rc>) -> pallet_staking_async::ledger::StakingLedger2<
+	fn intoAh(
+		ledger: pallet_staking::StakingLedger<Rc>,
+	) -> pallet_staking_async::ledger::StakingLedger2<
 		AccountIdOf<Rc>,
 		BalanceOf<Rc>,
 		ConstU32<32>, // <T as pallet_staking_async::Config>::MaxUnlockingChunks,
-	>
-	{
+	> {
 		pallet_staking_async::ledger::StakingLedger2 {
 			stash: ledger.stash,
 			total: ledger.total,
@@ -279,26 +283,25 @@ where
 }
 
 // NominationsQuota is an associated trait - not a type, therefore more mental gymnastics are needed
-impl<Rc: pallet_staking::Config> IntoAh<
-	pallet_staking::Nominations<Rc>,
-	pallet_staking_async::Nominations<
-		AccountIdOf<Rc>,
-		ConstU32<16>, //pallet_staking_async::MaxNominationsOf<T>,
-	>,
->
-	for MessageTranslator<Rc>
+impl<Rc: pallet_staking::Config>
+	IntoAh<
+		pallet_staking::Nominations<Rc>,
+		pallet_staking_async::Nominations<
+			AccountIdOf<Rc>,
+			ConstU32<16>, //pallet_staking_async::MaxNominationsOf<T>,
+		>,
+	> for MessageTranslator<Rc>
 {
 	fn intoAh(
 		nominations: pallet_staking::Nominations<Rc>,
 	) -> pallet_staking_async::Nominations<
 		AccountIdOf<Rc>,
 		ConstU32<16>, //pallet_staking_async::MaxNominationsOf<T>,
-	>
-	{
+	> {
 		let targets = nominations.targets.into_inner().try_into().defensive().unwrap_or_default(); // FIXME
 
 		pallet_staking_async::Nominations {
-			targets: targets,
+			targets,
 			submitted_in: nominations.submitted_in,
 			suppressed: nominations.suppressed,
 		}
@@ -312,21 +315,16 @@ impl<Rc: pallet_staking::Config>
 			<Rc as frame_system::Config>::AccountId,
 			ConstU32<1000>, // <T as pallet_staking_async::Config>::MaxValidatorSet,
 		>,
-	>
-	for MessageTranslator<Rc>
+	> for MessageTranslator<Rc>
 {
 	fn intoAh(
 		points: pallet_staking::EraRewardPoints<AccountIdOf<Rc>>,
 	) -> pallet_staking_async::EraRewardPoints<
 		AccountIdOf<Rc>,
 		ConstU32<1000>, // <T as pallet_staking_async::Config>::MaxValidatorSet,
-	>
-	{
+	> {
 		let individual = points.individual.try_into().defensive().unwrap_or_default(); // FIXME
-		pallet_staking_async::EraRewardPoints {
-			total: points.total,
-			individual: individual,
-		}
+		pallet_staking_async::EraRewardPoints { total: points.total, individual }
 	}
 }
 
@@ -355,10 +353,8 @@ impl<Rc: pallet_staking::Config>
 }
 
 impl<Rc: pallet_staking::Config>
-	IntoAh<
-		pallet_staking::ValidatorPrefs,
-		pallet_staking_async::ValidatorPrefs
-	> for MessageTranslator<Rc>
+	IntoAh<pallet_staking::ValidatorPrefs, pallet_staking_async::ValidatorPrefs>
+	for MessageTranslator<Rc>
 {
 	fn intoAh(prefs: pallet_staking::ValidatorPrefs) -> pallet_staking_async::ValidatorPrefs {
 		pallet_staking_async::ValidatorPrefs {
@@ -368,8 +364,7 @@ impl<Rc: pallet_staking::Config>
 	}
 }
 
-impl IntoAh<pallet_staking::Forcing, pallet_staking_async::Forcing> for MessageTranslator<()>
-{
+impl IntoAh<pallet_staking::Forcing, pallet_staking_async::Forcing> for MessageTranslator<()> {
 	fn intoAh(forcing: pallet_staking::Forcing) -> pallet_staking_async::Forcing {
 		match forcing {
 			pallet_staking::Forcing::NotForcing => pallet_staking_async::Forcing::NotForcing,
@@ -380,15 +375,15 @@ impl IntoAh<pallet_staking::Forcing, pallet_staking_async::Forcing> for MessageT
 	}
 }
 
-impl IntoAh<pallet_staking::ActiveEraInfo, pallet_staking_async::ActiveEraInfo> for MessageTranslator<()>
+impl IntoAh<pallet_staking::ActiveEraInfo, pallet_staking_async::ActiveEraInfo>
+	for MessageTranslator<()>
 {
 	fn intoAh(active_era: pallet_staking::ActiveEraInfo) -> pallet_staking_async::ActiveEraInfo {
 		pallet_staking_async::ActiveEraInfo { index: active_era.index, start: active_era.start }
 	}
 }
 
-impl<Rc> IntoAh<RcStakingMessageOf<Rc>, RcEquivalentStakingMessageOf<Rc>>
-	for MessageTranslator<Rc>
+impl<Rc> IntoAh<RcStakingMessageOf<Rc>, RcEquivalentStakingMessageOf<Rc>> for MessageTranslator<Rc>
 where
 	Rc: pallet_staking::Config,
 {
@@ -415,11 +410,8 @@ where
 				ErasStakersPaged { era, validator, page, exposure },
 			ClaimedRewards { era, validator, rewards } =>
 				ClaimedRewards { era, validator, rewards },
-			ErasValidatorPrefs { era, validator, prefs } => ErasValidatorPrefs {
-				era,
-				validator,
-				prefs: MessageTranslator::<Rc>::intoAh(prefs),
-			},
+			ErasValidatorPrefs { era, validator, prefs } =>
+				ErasValidatorPrefs { era, validator, prefs: MessageTranslator::<Rc>::intoAh(prefs) },
 			ErasValidatorReward { era, reward } => ErasValidatorReward { era, reward },
 			ErasRewardPoints { era, points } =>
 				ErasRewardPoints { era, points: MessageTranslator::<Rc>::intoAh(points) },
@@ -474,8 +466,8 @@ impl<T: pallet_staking::Config> StakingMigrator<T> {
 
 impl<T: pallet_staking_async::Config> StakingMigrator<T> {
 	pub fn put_values(values: AhStakingValuesOf<T>) {
-		use IntoAh;
 		use pallet_staking_async::*;
+		use IntoAh;
 
 		ValidatorCount::<T>::put(&values.validator_count);
 		// MinimumValidatorCount is not migrated

@@ -23,7 +23,7 @@ use codec::Decode;
 use cumulus_primitives_core::{
 	AggregateMessageOrigin as ParachainMessageOrigin, InboundDownwardMessage, ParaId,
 };
-use frame_support::traits::{EnqueueMessage, OnFinalize, OnInitialize};
+use frame_support::traits::{EnqueueMessage, OnFinalize, OnInitialize, QueueFootprintQuery};
 use frame_system::pallet_prelude::BlockNumberFor;
 use pallet_rc_migrator::{
 	DmpDataMessageCounts as RcDmpDataMessageCounts, MigrationStage as RcMigrationStage,
@@ -40,8 +40,7 @@ use runtime_parachains::{
 };
 use sp_runtime::{BoundedVec, Perbill};
 use std::str::FromStr;
-use xcm::prelude::*;
-use frame_support::traits::QueueFootprintQuery; // Only on westend
+use xcm::prelude::*; // Only on westend
 
 pub const AH_PARA_ID: ParaId = ParaId::new(1000);
 const LOG_RC: &str = "runtime::relay";

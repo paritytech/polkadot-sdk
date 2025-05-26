@@ -54,20 +54,20 @@ cumulus-pallet-parachain-system = { workspace = true }
 pallet-xcm = { workspace = true, default-features = true }
 frame-benchmarking = { workspace = true }
 rand = { workspace = true, default-feature = true }
-testnet-parachains-constants = { workspace = true } # Only on westend
+testnet-parachains-constants = { workspace = true }                           # Only on westend
 
 [features]
 default = ["ahm-westend", "std"]
 std = [
+	"asset-hub-westend-runtime/std",
 	"cumulus-pallet-parachain-system/std",
 	"frame-benchmarking/std",
 	"hex/std",
 	"log/std",
-	"westend-runtime/std",
 	"rand/std",
-	"asset-hub-westend-runtime/std",
 	"sp-consensus-grandpa/std",
-	"testnet-parachains-constants/std"
+	"testnet-parachains-constants/std",
+	"westend-runtime/std",
 ]
 runtime-benchmarks = [
 	"asset-hub-westend-runtime/runtime-benchmarks",
@@ -92,19 +92,19 @@ runtime-benchmarks = [
 	"polkadot-primitives/runtime-benchmarks",
 	"polkadot-runtime-common/runtime-benchmarks",
 
-	"westend-runtime/runtime-benchmarks",
 	"polkadot-runtime-parachains/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
+	"westend-runtime-constants/runtime-benchmarks",
+	"westend-runtime/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",
 	"xcm/runtime-benchmarks",
-	"westend-runtime-constants/runtime-benchmarks"
 ]
 
 ahm-westend = [
+	"asset-hub-westend-runtime/ahm-westend",
 	"pallet-ah-migrator/ahm-westend",
 	"pallet-ah-ops/ahm-westend",
 	"pallet-rc-migrator/ahm-westend",
-	"asset-hub-westend-runtime/ahm-westend"
 ]
 ahm-polkadot = [
 	"pallet-ah-migrator/ahm-polkadot",
@@ -115,7 +115,7 @@ ahm-polkadot = [
 # This will be changed by our porting script
 stable2503 = ["pallet-ah-migrator/stable2503", "pallet-rc-migrator/stable2503"]
 ahm-staking-migration = [
+	"asset-hub-westend-runtime/ahm-staking-migration",
 	"pallet-ah-migrator/ahm-staking-migration",
 	"pallet-rc-migrator/ahm-staking-migration",
-	"asset-hub-westend-runtime/ahm-staking-migration"
 ]

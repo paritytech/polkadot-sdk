@@ -206,10 +206,10 @@ runtime-benchmarks = [
 	"rococo-runtime?/runtime-benchmarks",
 	"sc-service/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
+	"westend-runtime-constants?/runtime-benchmarks",
 	"westend-runtime?/runtime-benchmarks",
 	"xcm-runtime-apis/runtime-benchmarks",
 	"xcm/runtime-benchmarks",
-	"westend-runtime-constants?/runtime-benchmarks"
 ]
 try-runtime = [
 	"frame-system/try-runtime",
