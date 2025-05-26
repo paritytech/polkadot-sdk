@@ -20,7 +20,7 @@ use crate::{
 	Config, CurrentPhase, Pallet, Phase, Snapshot,
 };
 use frame_benchmarking::v2::*;
-use frame_election_provider_support::ElectionProvider;
+use frame_election_provider_support::{ElectionDataProvider, ElectionProvider};
 use frame_support::pallet_prelude::*;
 
 const SNAPSHOT_NOT_BIG_ENOUGH: &'static str = "Snapshot page is not full, you should run this \
@@ -201,7 +201,7 @@ mod benchmarks {
 		#[block]
 		{
 			// Start export by calling elect(max_page) in Done phase
-			let max_page = T::Pages::get() - 1;
+			let max_page = <Pallet<T> as ElectionProvider>::msp();
 			let _ = Pallet::<T>::elect(max_page).unwrap();
 		}
 
@@ -237,10 +237,9 @@ mod benchmarks {
 		crate::Pallet::<T>::roll_until_matches(|| CurrentPhase::<T>::get().is_done());
 
 		// Start export and fetch all pages except the last one
-		let max_page = T::Pages::get() - 1;
+		let max_page = <Pallet<T> as ElectionProvider>::msp();
 		let _ = Pallet::<T>::elect(max_page).unwrap(); // Start export
-
-		// Fetch remaining pages (max_page-1 down to 1)
+												 // Fetch remaining pages (max_page-1 down to 1)
 		for i in 1..max_page {
 			let _ = Pallet::<T>::elect(max_page - i).unwrap();
 		}
@@ -249,8 +248,7 @@ mod benchmarks {
 
 		#[block]
 		{
-			// Fetch the final page (page 0)
-			let _ = Pallet::<T>::elect(0).unwrap();
+			T::DataProvider::fetch_page(0);
 		}
 
 		// we should be in the off phase now.

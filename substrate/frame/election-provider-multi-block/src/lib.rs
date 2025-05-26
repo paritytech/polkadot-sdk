@@ -1501,11 +1501,11 @@ impl<T: Config> ElectionProvider for Pallet<T> {
 			Err(_) => return Err(ElectionError::NotOngoing),
 		}
 
-		// - Phase::Done if remaining == max_page_index => Start export: Done -> Export(max_page-1)
-		// and serve result for max_page.
-		// - Phase::Export(page) if page == remaining => Start export: Export(page) ->
-		//   Export(page-1) and serve result for page
-		// - _ => Fallback shortcut: allow elect(any_page) from any phase
+		let current_phase = CurrentPhase::<T>::get();
+		if let Phase::Export(expected) = current_phase {
+			ensure!(expected == remaining, ElectionError::Other("OutOfOrder"));
+		}
+
 		let result = T::Verifier::get_queued_solution_page(remaining)
 			.ok_or(ElectionError::SupportPageNotAvailable)
 			.or_else(|err: ElectionError<T>| {
@@ -2162,26 +2162,11 @@ mod phase_rotation {
 				let current_block = System::block_number();
 
 				// Test that on_initialize does NOT advance the phase when in Export
-				MultiBlock::on_initialize(current_block + 1);
+				roll_next();
 				assert_eq!(
 					MultiBlock::current_phase(),
 					Phase::Export(1),
 					"Export phase should not auto-transition"
-				);
-
-				// Test multiple blocks - should stay in Export(1)
-				MultiBlock::on_initialize(current_block + 2);
-				assert_eq!(
-					MultiBlock::current_phase(),
-					Phase::Export(1),
-					"Export phase should remain stable"
-				);
-
-				MultiBlock::on_initialize(current_block + 3);
-				assert_eq!(
-					MultiBlock::current_phase(),
-					Phase::Export(1),
-					"Export phase should remain stable"
 				);
 
 				// Only elect() should advance the Export phase
@@ -2190,6 +2175,7 @@ mod phase_rotation {
 
 				// Test Export(0) also blocks on_initialize transitions
 				MultiBlock::on_initialize(current_block + 4);
+				roll_next();
 				assert_eq!(
 					MultiBlock::current_phase(),
 					Phase::Export(0),
@@ -2199,6 +2185,33 @@ mod phase_rotation {
 				// Complete the export manually
 				assert_ok!(MultiBlock::elect(0));
 				assert_eq!(MultiBlock::current_phase(), Phase::Off);
+			});
+	}
+
+	#[test]
+	fn export_phase_out_of_order_elect_fails() {
+		ExtBuilder::full()
+			.pages(3)
+			.election_start(13)
+			.fallback_mode(FallbackModes::Onchain)
+			.build_and_execute(|| {
+				roll_to_done();
+
+				assert_eq!(MultiBlock::current_phase(), Phase::Done);
+
+				// Start export by calling elect(max_page)
+				assert_ok!(MultiBlock::elect(2)); // max_page = 2 for 3 pages
+				assert_eq!(MultiBlock::current_phase(), Phase::Export(1));
+
+				// Out of order: try to call elect(2) again, should fail
+				assert_eq!(MultiBlock::elect(2), Err(ElectionError::Other("OutOfOrder")));
+
+				// Out of order: try to call elect(0) before elect(1), should fail
+				assert_eq!(MultiBlock::elect(0), Err(ElectionError::Other("OutOfOrder")));
+
+				// Correct order: elect(1) works
+				assert_ok!(MultiBlock::elect(1));
+				assert_eq!(MultiBlock::current_phase(), Phase::Export(0));
 			});
 	}
 }
