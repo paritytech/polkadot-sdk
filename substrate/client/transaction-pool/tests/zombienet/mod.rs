@@ -33,8 +33,10 @@ use zombienet_sdk::{
 pub mod relaychain_rococo_local_network_spec {
 	pub const HIGH_POOL_LIMIT_FATP: &'static str =
 		"tests/zombienet/network-specs/rococo-local-high-pool-limit-fatp.toml";
+	pub const LOW_POOL_LIMIT_FATP: &'static str =
+		"tests/zombienet/network-specs/rococo-local-low-pool-limit-fatp.toml";
 	pub const HIGH_POOL_LIMIT_FATP_TRACE: &'static str =
-		"tests/zombienet/network-specs/rococo-local-high-pool-limit-fatp-trace.toml";
+		"tests/zombienet/network-specs/rococo-local-gossiping.toml";
 
 	/// Network specs used for fork-aware tx pool testing of parachains.
 	pub mod parachain_asset_hub_network_spec {
