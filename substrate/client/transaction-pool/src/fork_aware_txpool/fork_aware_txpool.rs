@@ -311,11 +311,13 @@ where
 			ExtrinsicHash<ChainApi>,
 		>,
 	) {
+		let dropped_stats = DurationSlidingStats::new(Duration::from_secs(3));
 		loop {
 			let Some(dropped) = dropped_stream.next().await else {
 				debug!(target: LOG_TARGET, "fatp::dropped_monitor_task: terminated...");
 				break;
 			};
+			let start = Instant::now();
 			let tx_hash = dropped.tx_hash;
 			trace!(
 				target: LOG_TARGET,
@@ -343,6 +345,13 @@ where
 			mempool.remove_transactions(&[tx_hash]).await;
 			import_notification_sink.clean_notified_items(&[tx_hash]);
 			view_store.listener.transaction_dropped(dropped);
+			insert_and_log_throttled!(
+				Level::DEBUG,
+				target:"txpool",
+				prefix:"dropped_stats",
+				dropped_stats,
+				start.elapsed().into()
+			);
 		}
 	}
 
