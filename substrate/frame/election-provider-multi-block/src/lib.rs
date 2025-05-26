@@ -1501,10 +1501,11 @@ impl<T: Config> ElectionProvider for Pallet<T> {
 			Err(_) => return Err(ElectionError::NotOngoing),
 		}
 
-		// Phase::Done if remaining == max_page_index => Start export: Done -> Export(max_page-1)
-		// and serve result for max_page Phase::Export(page) if page == remaining => Start export:
-		// Export(page) -> Export(page-1) and serve result for page _ => Fallback shortcut: allow
-		// elect(any_page) from any phase
+		// - Phase::Done if remaining == max_page_index => Start export: Done -> Export(max_page-1)
+		// and serve result for max_page.
+		// - Phase::Export(page) if page == remaining => Start export: Export(page) ->
+		//   Export(page-1) and serve result for page
+		// - _ => Fallback shortcut: allow elect(any_page) from any phase
 		let result = T::Verifier::get_queued_solution_page(remaining)
 			.ok_or(ElectionError::SupportPageNotAvailable)
 			.or_else(|err: ElectionError<T>| {
