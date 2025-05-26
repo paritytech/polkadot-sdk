@@ -1644,7 +1644,7 @@ sp_api::decl_runtime_apis! {
 
 #[macro_export]
 macro_rules! impl_runtime_apis_plus_revive {
-	($Runtime: ty, $Balance: ty, $Executive: ty, $UncheckedExtrinsic: ty, $EthExtra: ty,  $($rest:tt)* ) => {
+	($Runtime: ty, $Executive: ty, $UncheckedExtrinsic: ty, $EthExtra: ty,  $($rest:tt)* ) => {
 
 		impl_runtime_apis! {
 			$($rest)*
@@ -1670,7 +1670,7 @@ macro_rules! impl_runtime_apis_plus_revive {
 
 				fn eth_transact(
 					tx: $crate::evm::GenericTransaction,
-				) -> Result<$crate::EthTransactInfo<$Balance>, $crate::EthTransactError> {
+				) -> Result<$crate::EthTransactInfo<Balance>, $crate::EthTransactError> {
 					use $crate::{
 						codec::Encode, evm::runtime::EthExtra, frame_support::traits::Get,
 						sp_runtime::traits::TransactionExtension,
@@ -1699,11 +1699,11 @@ macro_rules! impl_runtime_apis_plus_revive {
 				fn call(
 					origin: <Self as $crate::frame_system::Config>::AccountId,
 					dest: $crate::H160,
-					value: $Balance,
+					value: Balance,
 					gas_limit: Option<$crate::Weight>,
-					storage_deposit_limit: Option<$Balance>,
+					storage_deposit_limit: Option<Balance>,
 					input_data: Vec<u8>,
-				) -> $crate::ContractResult<$crate::ExecReturnValue, $Balance> {
+				) -> $crate::ContractResult<$crate::ExecReturnValue, Balance> {
 					use $crate::frame_support::traits::Get;
 					let blockweights: $crate::BlockWeights =
 						<Self as $crate::frame_system::Config>::BlockWeights::get();
@@ -1722,13 +1722,13 @@ macro_rules! impl_runtime_apis_plus_revive {
 
 				fn instantiate(
 					origin: <Self as $crate::frame_system::Config>::AccountId,
-					value: $Balance,
+					value: Balance,
 					gas_limit: Option<$crate::Weight>,
-					storage_deposit_limit: Option<$Balance>,
+					storage_deposit_limit: Option<Balance>,
 					code: $crate::Code,
 					data: Vec<u8>,
 					salt: Option<[u8; 32]>,
-				) -> $crate::ContractResult<$crate::InstantiateReturnValue, $Balance> {
+				) -> $crate::ContractResult<$crate::InstantiateReturnValue, Balance> {
 					use $crate::frame_support::traits::Get;
 					let blockweights: $crate::BlockWeights =
 						<Self as $crate::frame_system::Config>::BlockWeights::get();
@@ -1750,8 +1750,8 @@ macro_rules! impl_runtime_apis_plus_revive {
 				fn upload_code(
 					origin: <Self as $crate::frame_system::Config>::AccountId,
 					code: Vec<u8>,
-					storage_deposit_limit: Option<$Balance>,
-				) -> $crate::CodeUploadResult<$Balance> {
+					storage_deposit_limit: Option<Balance>,
+				) -> $crate::CodeUploadResult<Balance> {
 					let origin =
 						<Self as $crate::frame_system::Config>::RuntimeOrigin::signed(origin);
 					$crate::Pallet::<Self>::bare_upload_code(

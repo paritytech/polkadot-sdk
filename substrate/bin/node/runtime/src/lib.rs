@@ -3053,7 +3053,6 @@ mod benches {
 
 pallet_revive::impl_runtime_apis_plus_revive!(
 	Runtime,
-	Balance,
 	Executive,
 	UncheckedExtrinsic,
 	EthExtraImpl,
