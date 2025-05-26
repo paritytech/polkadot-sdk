@@ -19,9 +19,9 @@
 //! versions of the storage APIs.
 #![no_std]
 #![no_main]
+include!("../panic_handler.rs");
 
-use common::unwrap_output;
-use uapi::{HostFn, HostFnImpl as api, StorageFlags};
+use uapi::{unwrap_output, HostFn, HostFnImpl as api, StorageFlags};
 
 #[no_mangle]
 #[polkavm_derive::polkavm_export]

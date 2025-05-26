@@ -151,7 +151,7 @@ fn uxt(transfer: TransferData) -> Extrinsic {
 	ExtrinsicBuilder::new_bench_call(transfer).build()
 }
 
-fn bench_configured(pool: Pool<TestApi>, number: u64, api: Arc<TestApi>) {
+fn bench_configured(pool: Pool<TestApi, ()>, number: u64, api: Arc<TestApi>) {
 	let source = TimedTransactionSource::new_external(false);
 	let mut futures = Vec::new();
 	let mut tags = Vec::new();

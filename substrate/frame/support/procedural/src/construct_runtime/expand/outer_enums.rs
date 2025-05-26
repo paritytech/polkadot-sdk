@@ -159,8 +159,9 @@ pub fn expand_outer_enum(
 			#event_custom_derives
 			#scrate::__private::codec::Encode,
 			#scrate::__private::codec::Decode,
+			#scrate::__private::codec::DecodeWithMemTracking,
 			#scrate::__private::scale_info::TypeInfo,
-			#scrate::__private::RuntimeDebug,
+			#scrate::__private::Debug,
 		)]
 		#[allow(non_camel_case_types)]
 		pub enum #enum_name_ident {
@@ -220,6 +221,7 @@ fn expand_enum_conversion(
 
 	quote! {
 		#attr
+		#[allow(deprecated)]
 		impl From<#pallet_enum> for #enum_name_ident {
 			fn from(x: #pallet_enum) -> Self {
 				#enum_name_ident
@@ -227,6 +229,7 @@ fn expand_enum_conversion(
 			}
 		}
 		#attr
+		#[allow(deprecated)]
 		impl TryInto<#pallet_enum> for #enum_name_ident {
 			type Error = ();
 

@@ -111,6 +111,7 @@ enum CoretimeProviderCalls {
 
 parameter_types! {
 	pub const BrokerPalletId: PalletId = PalletId(*b"py/broke");
+	pub const MinimumCreditPurchase: Balance =  UNITS / 10;
 	pub RevenueAccumulationAccount: AccountId = BrokerPalletId::get().into_sub_account_truncating(b"burnstash");
 }
 
@@ -319,4 +320,5 @@ impl pallet_broker::Config for Runtime {
 	type SovereignAccountOf = SovereignAccountOf;
 	type MaxAutoRenewals = ConstU32<100>;
 	type PriceAdapter = pallet_broker::CenterTargetPrice<Balance>;
+	type MinimumCreditPurchase = MinimumCreditPurchase;
 }

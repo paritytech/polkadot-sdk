@@ -54,12 +54,12 @@
 extern crate alloc;
 
 use alloc::vec::Vec;
-use codec::{Decode, Encode};
+use codec::{Decode, DecodeWithMemTracking, Encode};
 use frame_support::traits::Get;
 use frame_system::{
 	self as system,
 	offchain::{
-		AppCrypto, CreateInherent, CreateSignedTransaction, SendSignedTransaction,
+		AppCrypto, CreateBare, CreateSignedTransaction, SendSignedTransaction,
 		SendUnsignedTransaction, SignedPayload, Signer, SigningTypes, SubmitTransaction,
 	},
 	pallet_prelude::BlockNumberFor,
@@ -131,13 +131,10 @@ pub mod pallet {
 	/// This pallet's configuration trait
 	#[pallet::config]
 	pub trait Config:
-		CreateSignedTransaction<Call<Self>> + CreateInherent<Call<Self>> + frame_system::Config
+		CreateSignedTransaction<Call<Self>> + CreateBare<Call<Self>> + frame_system::Config
 	{
 		/// The identifier type for an offchain worker.
 		type AuthorityId: AppCrypto<Self::Public, Self::Signature>;
-
-		/// The overarching event type.
-		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		// Configuration parameters
 
@@ -355,7 +352,9 @@ pub mod pallet {
 
 /// Payload used by this example crate to hold price
 /// data required to submit a transaction.
-#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, scale_info::TypeInfo)]
+#[derive(
+	Encode, Decode, DecodeWithMemTracking, Clone, PartialEq, Eq, RuntimeDebug, scale_info::TypeInfo,
+)]
 pub struct PricePayload<Public, BlockNumber> {
 	block_number: BlockNumber,
 	price: u32,
@@ -509,7 +508,7 @@ impl<T: Config> Pallet<T> {
 		// implement unsigned validation logic, as any mistakes can lead to opening DoS or spam
 		// attack vectors. See validation logic docs for more details.
 		//
-		let xt = T::create_inherent(call.into());
+		let xt = T::create_bare(call.into());
 		SubmitTransaction::<T, Call<T>>::submit_transaction(xt)
 			.map_err(|()| "Unable to submit unsigned transaction.")?;
 

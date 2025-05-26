@@ -17,6 +17,8 @@
 
 #![cfg(test)]
 
+// We do not declare all features used by `construct_runtime`
+#[allow(unexpected_cfgs)]
 mod mock;
 
 use frame_support::{
@@ -162,14 +164,6 @@ fn pool_lifecycle_e2e() {
 			]
 		);
 
-		// as soon as all members have left, the depositor can try to unbond, but since the
-		// min-nominator intention is set, they must chill first.
-		assert_noop!(
-			Pools::unbond(RuntimeOrigin::signed(10), 10, 50),
-			pallet_staking::Error::<Runtime>::InsufficientBond
-		);
-
-		assert_ok!(Pools::chill(RuntimeOrigin::signed(10), 1));
 		assert_ok!(Pools::unbond(RuntimeOrigin::signed(10), 10, 50));
 
 		assert_eq!(
@@ -181,10 +175,7 @@ fn pool_lifecycle_e2e() {
 		);
 		assert_eq!(
 			pool_events_since_last_call(),
-			vec![
-				PoolsEvent::PoolNominatorChilled { pool_id: 1, caller: 10 },
-				PoolsEvent::Unbonded { member: 10, pool_id: 1, points: 50, balance: 50, era: 6 }
-			]
+			vec![PoolsEvent::Unbonded { member: 10, pool_id: 1, points: 50, balance: 50, era: 6 },]
 		);
 
 		// waiting another bonding duration:

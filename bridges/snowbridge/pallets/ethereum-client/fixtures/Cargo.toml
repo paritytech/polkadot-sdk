@@ -14,10 +14,13 @@ workspace = true
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
+[package.metadata.polkadot-sdk]
+exclude-from-umbrella = true
+
 [dependencies]
 hex-literal = { workspace = true, default-features = true }
 snowbridge-beacon-primitives = { workspace = true }
-snowbridge-core = { workspace = true }
+snowbridge-verification-primitives = { workspace = true }
 sp-core = { workspace = true }
 sp-std = { workspace = true }
 
@@ -25,8 +28,8 @@ sp-std = { workspace = true }
 default = ["std"]
 std = [
 	"snowbridge-beacon-primitives/std",
-	"snowbridge-core/std",
+	"snowbridge-verification-primitives/std",
 	"sp-core/std",
 	"sp-std/std",
 ]
-runtime-benchmarks = ["snowbridge-core/runtime-benchmarks"]
+runtime-benchmarks = []

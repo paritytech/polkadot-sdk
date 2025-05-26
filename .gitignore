@@ -41,3 +41,4 @@ substrate.code-workspace
 target/
 *.scale
 justfile
+rustc-ice-*

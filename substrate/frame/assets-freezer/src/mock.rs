@@ -104,6 +104,7 @@ impl pallet_assets::Config for Test {
 	type RemoveItemsLimit = ConstU32<10>;
 	type CallbackHandle = ();
 	type Currency = Balances;
+	type Holder = ();
 	type Freezer = AssetsFreezer;
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = ();
@@ -112,7 +113,18 @@ impl pallet_assets::Config for Test {
 }
 
 #[derive(
-	Decode, Encode, MaxEncodedLen, PartialEq, Eq, Ord, PartialOrd, TypeInfo, Debug, Clone, Copy,
+	Decode,
+	DecodeWithMemTracking,
+	Encode,
+	MaxEncodedLen,
+	PartialEq,
+	Eq,
+	Ord,
+	PartialOrd,
+	TypeInfo,
+	Debug,
+	Clone,
+	Copy,
 )]
 pub enum DummyFreezeReason {
 	Governance,

@@ -15,6 +15,7 @@ workspace = true
 async-trait = { workspace = true }
 codec = { workspace = true, default-features = true }
 futures = { workspace = true }
+indexmap = { workspace = true }
 log = { workspace = true, default-features = true }
 serde = { features = ["derive"], workspace = true, default-features = true }
 sp-blockchain = { workspace = true, default-features = true }

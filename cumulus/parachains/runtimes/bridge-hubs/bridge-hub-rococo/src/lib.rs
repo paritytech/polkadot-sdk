@@ -64,7 +64,7 @@ use frame_support::{
 	genesis_builder_helper::{build_state, get_preset},
 	parameter_types,
 	traits::{ConstBool, ConstU32, ConstU64, ConstU8, Get, TransformOrigin},
-	weights::{ConstantMultiplier, Weight, WeightToFee as _},
+	weights::{ConstantMultiplier, Weight},
 	PalletId,
 };
 use frame_system::{
@@ -91,11 +91,9 @@ pub use sp_runtime::BuildStorage;
 
 use polkadot_runtime_common::{BlockHashCount, SlowAdjustingFeeUpdate};
 use rococo_runtime_constants::system_parachain::{ASSET_HUB_ID, BRIDGE_HUB_ID};
-use snowbridge_core::{
-	outbound::{Command, Fee},
-	AgentId, PricingParameters,
-};
-use xcm::{latest::prelude::*, prelude::*};
+use snowbridge_core::{AgentId, PricingParameters};
+pub use snowbridge_outbound_queue_primitives::v1::{Command, ConstantGasMeter, Fee};
+use xcm::{latest::prelude::*, prelude::*, Version as XcmVersion};
 use xcm_runtime_apis::{
 	dry_run::{CallDryRunEffects, Error as XcmDryRunApiError, XcmDryRunEffects},
 	fees::Error as XcmPaymentApiError,
@@ -127,13 +125,16 @@ pub type BlockId = generic::BlockId<Block>;
 pub type TxExtension = cumulus_pallet_weight_reclaim::StorageWeightReclaim<
 	Runtime,
 	(
-		frame_system::CheckNonZeroSender<Runtime>,
-		frame_system::CheckSpecVersion<Runtime>,
-		frame_system::CheckTxVersion<Runtime>,
-		frame_system::CheckGenesis<Runtime>,
-		frame_system::CheckEra<Runtime>,
-		frame_system::CheckNonce<Runtime>,
-		frame_system::CheckWeight<Runtime>,
+		(
+			frame_system::AuthorizeCall<Runtime>,
+			frame_system::CheckNonZeroSender<Runtime>,
+			frame_system::CheckSpecVersion<Runtime>,
+			frame_system::CheckTxVersion<Runtime>,
+			frame_system::CheckGenesis<Runtime>,
+			frame_system::CheckEra<Runtime>,
+			frame_system::CheckNonce<Runtime>,
+			frame_system::CheckWeight<Runtime>,
+		),
 		pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
 		BridgeRejectObsoleteHeadersAndMessages,
 		(bridge_to_westend_config::OnBridgeHubRococoRefundBridgeHubWestendMessages,),
@@ -158,6 +159,7 @@ pub type Migrations = (
 		ConstU32<BRIDGE_HUB_ID>,
 		ConstU32<ASSET_HUB_ID>,
 	>,
+	snowbridge_pallet_system::migration::FeePerGasMigrationV0ToV1<Runtime>,
 	pallet_bridge_messages::migration::v1::MigrationToV1<
 		Runtime,
 		bridge_to_westend_config::WithBridgeHubWestendMessagesInstance,
@@ -181,7 +183,15 @@ pub type Migrations = (
 		OutboundLanesCongestedSignalsKey,
 		RocksDbWeight,
 	>,
-	pallet_bridge_relayers::migration::v1::MigrationToV1<Runtime, ()>,
+	pallet_bridge_relayers::migration::v1::MigrationToV1<
+		Runtime,
+		bridge_common_config::RelayersForLegacyLaneIdsMessagesInstance,
+		bp_messages::LegacyLaneId,
+	>,
+	pallet_session::migrations::v1::MigrateV0ToV1<
+		Runtime,
+		pallet_session::migrations::v1::InitOffenceSeverity<Runtime>,
+	>,
 	// permanent
 	pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
 	cumulus_pallet_aura_ext::migration::MigrateV0ToV1<Runtime>,
@@ -243,7 +253,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: alloc::borrow::Cow::Borrowed("bridge-hub-rococo"),
 	impl_name: alloc::borrow::Cow::Borrowed("bridge-hub-rococo"),
 	authoring_version: 1,
-	spec_version: 1_017_001,
+	spec_version: 1_018_001,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 6,
@@ -494,6 +504,7 @@ impl pallet_session::Config for Runtime {
 	// Essentially just Aura, but let's be pedantic.
 	type SessionHandler = <SessionKeys as sp_runtime::traits::OpaqueKeys>::KeyTypeIdProviders;
 	type Keys = SessionKeys;
+	type DisablingStrategy = ();
 	type WeightInfo = weights::pallet_session::WeightInfo<Runtime>;
 }
 
@@ -855,21 +866,11 @@ impl_runtime_apis! {
 		}
 
 		fn query_weight_to_asset_fee(weight: Weight, asset: VersionedAssetId) -> Result<u128, XcmPaymentApiError> {
-			let latest_asset_id: Result<AssetId, ()> = asset.clone().try_into();
-			match latest_asset_id {
-				Ok(asset_id) if asset_id.0 == xcm_config::TokenLocation::get() => {
-					// for native token
-					Ok(WeightToFee::weight_to_fee(&weight))
-				},
-				Ok(asset_id) => {
-					log::trace!(target: "xcm::xcm_runtime_apis", "query_weight_to_asset_fee - unhandled asset_id: {asset_id:?}!");
-					Err(XcmPaymentApiError::AssetNotFound)
-				},
-				Err(_) => {
-					log::trace!(target: "xcm::xcm_runtime_apis", "query_weight_to_asset_fee - failed to convert asset: {asset:?}!");
-					Err(XcmPaymentApiError::VersionedConversionFailed)
-				}
-			}
+			use crate::xcm_config::XcmConfig;
+
+			type Trader = <XcmConfig as xcm_executor::Config>::Trader;
+
+			PolkadotXcm::query_weight_to_asset_fee::<Trader>(weight, asset)
 		}
 
 		fn query_xcm_weight(message: VersionedXcm<()>) -> Result<Weight, XcmPaymentApiError> {
@@ -882,8 +883,8 @@ impl_runtime_apis! {
 	}
 
 	impl xcm_runtime_apis::dry_run::DryRunApi<Block, RuntimeCall, RuntimeEvent, OriginCaller> for Runtime {
-		fn dry_run_call(origin: OriginCaller, call: RuntimeCall) -> Result<CallDryRunEffects<RuntimeEvent>, XcmDryRunApiError> {
-			PolkadotXcm::dry_run_call::<Runtime, xcm_config::XcmRouter, OriginCaller, RuntimeCall>(origin, call)
+		fn dry_run_call(origin: OriginCaller, call: RuntimeCall, result_xcms_version: XcmVersion) -> Result<CallDryRunEffects<RuntimeEvent>, XcmDryRunApiError> {
+			PolkadotXcm::dry_run_call::<Runtime, xcm_config::XcmRouter, OriginCaller, RuntimeCall>(origin, call, result_xcms_version)
 		}
 
 		fn dry_run_xcm(origin_location: VersionedLocation, xcm: VersionedXcm<RuntimeCall>) -> Result<XcmDryRunEffects<RuntimeEvent>, XcmDryRunApiError> {
@@ -1012,7 +1013,7 @@ impl_runtime_apis! {
 	}
 
 	impl snowbridge_outbound_queue_runtime_api::OutboundQueueApi<Block, Balance> for Runtime {
-		fn prove_message(leaf_index: u64) -> Option<snowbridge_pallet_outbound_queue::MerkleProof> {
+		fn prove_message(leaf_index: u64) -> Option<snowbridge_merkle_tree::MerkleProof> {
 			snowbridge_pallet_outbound_queue::api::prove_message::<Runtime>(leaf_index)
 		}
 
@@ -1052,7 +1053,7 @@ impl_runtime_apis! {
 			Vec<frame_benchmarking::BenchmarkList>,
 			Vec<frame_support::traits::StorageInfo>,
 		) {
-			use frame_benchmarking::{Benchmarking, BenchmarkList};
+			use frame_benchmarking::BenchmarkList;
 			use frame_support::traits::StorageInfoTrait;
 			use frame_system_benchmarking::Pallet as SystemBench;
 			use frame_system_benchmarking::extensions::Pallet as SystemExtensionsBench;
@@ -1081,10 +1082,11 @@ impl_runtime_apis! {
 			(list, storage_info)
 		}
 
+		#[allow(non_local_definitions)]
 		fn dispatch_benchmark(
 			config: frame_benchmarking::BenchmarkConfig
 		) -> Result<Vec<frame_benchmarking::BenchmarkBatch>, alloc::string::String> {
-			use frame_benchmarking::{Benchmarking, BenchmarkBatch, BenchmarkError};
+			use frame_benchmarking::{BenchmarkBatch, BenchmarkError};
 			use sp_storage::TrackedStorageKey;
 
 			use frame_system_benchmarking::Pallet as SystemBench;
@@ -1239,11 +1241,11 @@ impl_runtime_apis! {
 					Ok((origin, ticket, assets))
 				}
 
-				fn fee_asset() -> Result<Asset, BenchmarkError> {
-					Ok(Asset {
+				fn worst_case_for_trader() -> Result<(Asset, WeightLimit), BenchmarkError> {
+					Ok((Asset {
 						id: AssetId(TokenLocation::get()),
 						fun: Fungible(1_000_000 * UNITS),
-					})
+					}, WeightLimit::Limited(Weight::from_parts(5000, 5000))))
 				}
 
 				fn unlockable_asset() -> Result<(Location, Location, Asset), BenchmarkError> {
@@ -1344,7 +1346,7 @@ impl_runtime_apis! {
 					let bench_lane_id = <Self as BridgeMessagesConfig<bridge_to_westend_config::WithBridgeHubWestendMessagesInstance>>::bench_lane_id();
 					use bp_runtime::Chain;
 					let bridged_chain_id =<Self as pallet_bridge_messages::Config<bridge_to_westend_config::WithBridgeHubWestendMessagesInstance>>::BridgedChain::ID;
-					pallet_bridge_relayers::Pallet::<Runtime>::relayer_reward(
+					pallet_bridge_relayers::Pallet::<Runtime, bridge_common_config::RelayersForLegacyLaneIdsMessagesInstance>::relayer_reward(
 						relayer,
 						bp_relayers::RewardsAccountParams::new(
 							bench_lane_id,
@@ -1470,16 +1472,27 @@ impl_runtime_apis! {
 			}
 
 			impl BridgeRelayersConfig<bridge_common_config::RelayersForLegacyLaneIdsMessagesInstance> for Runtime {
+				fn bench_reward() -> Self::Reward {
+					bp_relayers::RewardsAccountParams::new(
+						bp_messages::LegacyLaneId::default(),
+						*b"test",
+						bp_relayers::RewardsAccountOwner::ThisChain
+					)
+				}
+
 				fn prepare_rewards_account(
-					account_params: bp_relayers::RewardsAccountParams<<Self as pallet_bridge_relayers::Config<bridge_common_config::RelayersForLegacyLaneIdsMessagesInstance>>::LaneId>,
+					reward_kind: Self::Reward,
 					reward: Balance,
-				) {
+				) -> Option<AccountId> {
 					let rewards_account = bp_relayers::PayRewardFromAccount::<
 						Balances,
 						AccountId,
-						<Self as pallet_bridge_relayers::Config<bridge_common_config::RelayersForLegacyLaneIdsMessagesInstance>>::LaneId,
-					>::rewards_account(account_params);
+						bp_messages::LegacyLaneId,
+						Balance,
+					>::rewards_account(reward_kind);
 					<Runtime as BridgeRelayersConfig<bridge_common_config::RelayersForLegacyLaneIdsMessagesInstance>>::deposit_account(rewards_account, reward);
+
+					None
 				}
 
 				fn deposit_account(account: AccountId, balance: Balance) {
@@ -1489,16 +1502,27 @@ impl_runtime_apis! {
 			}
 
 			impl BridgeRelayersConfig<bridge_common_config::RelayersForPermissionlessLanesInstance> for Runtime {
+				fn bench_reward() -> Self::Reward {
+					bp_relayers::RewardsAccountParams::new(
+						bp_messages::HashedLaneId::default(),
+						*b"test",
+						bp_relayers::RewardsAccountOwner::ThisChain
+					)
+				}
+
 				fn prepare_rewards_account(
-					account_params: bp_relayers::RewardsAccountParams<<Self as pallet_bridge_relayers::Config<bridge_common_config::RelayersForPermissionlessLanesInstance>>::LaneId>,
+					reward_kind: Self::Reward,
 					reward: Balance,
-				) {
+				) -> Option<AccountId> {
 					let rewards_account = bp_relayers::PayRewardFromAccount::<
 						Balances,
 						AccountId,
-						<Self as pallet_bridge_relayers::Config<bridge_common_config::RelayersForPermissionlessLanesInstance>>::LaneId,
-					>::rewards_account(account_params);
+						bp_messages::HashedLaneId,
+						Balance,
+					>::rewards_account(reward_kind);
 					<Runtime as BridgeRelayersConfig<bridge_common_config::RelayersForPermissionlessLanesInstance>>::deposit_account(rewards_account, reward);
+
+					None
 				}
 
 				fn deposit_account(account: AccountId, balance: Balance) {
@@ -1564,13 +1588,16 @@ mod tests {
 		sp_io::TestExternalities::default().execute_with(|| {
 			frame_system::BlockHash::<Runtime>::insert(BlockNumber::zero(), Hash::default());
 			let payload: TxExtension = (
-				frame_system::CheckNonZeroSender::new(),
-				frame_system::CheckSpecVersion::new(),
-				frame_system::CheckTxVersion::new(),
-				frame_system::CheckGenesis::new(),
-				frame_system::CheckEra::from(Era::Immortal),
-				frame_system::CheckNonce::from(10),
-				frame_system::CheckWeight::new(),
+				(
+					frame_system::AuthorizeCall::<Runtime>::new(),
+					frame_system::CheckNonZeroSender::new(),
+					frame_system::CheckSpecVersion::new(),
+					frame_system::CheckTxVersion::new(),
+					frame_system::CheckGenesis::new(),
+					frame_system::CheckEra::from(Era::Immortal),
+					frame_system::CheckNonce::from(10),
+					frame_system::CheckWeight::new(),
+				),
 				pallet_transaction_payment::ChargeTransactionPayment::from(10),
 				BridgeRejectObsoleteHeadersAndMessages,
 				(

@@ -99,6 +99,7 @@ impl TaskEnumDef {
 					#frame_support::PartialEqNoBound,
 					#frame_support::pallet_prelude::Encode,
 					#frame_support::pallet_prelude::Decode,
+					#frame_support::pallet_prelude::DecodeWithMemTracking,
 					#frame_support::pallet_prelude::TypeInfo,
 				)]
 				#[codec(encode_bound())]

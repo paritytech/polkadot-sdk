@@ -127,10 +127,12 @@ impl pallet_session::Config for Runtime {
 	type Keys = UintAuthorityId;
 	type RuntimeEvent = RuntimeEvent;
 	type NextSessionRotation = pallet_session::PeriodicSessions<Period, Offset>;
+	type DisablingStrategy = ();
 	type WeightInfo = ();
 }
 
 impl pallet_session::historical::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
 	type FullIdentification = u64;
 	type FullIdentificationOf = ConvertInto;
 }
@@ -195,11 +197,11 @@ where
 	type Extrinsic = Extrinsic;
 }
 
-impl<LocalCall> frame_system::offchain::CreateInherent<LocalCall> for Runtime
+impl<LocalCall> frame_system::offchain::CreateBare<LocalCall> for Runtime
 where
 	RuntimeCall: From<LocalCall>,
 {
-	fn create_inherent(call: Self::RuntimeCall) -> Self::Extrinsic {
+	fn create_bare(call: Self::RuntimeCall) -> Self::Extrinsic {
 		Extrinsic::new_bare(call)
 	}
 }

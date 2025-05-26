@@ -6,12 +6,8 @@
 
 use anyhow::anyhow;
 
-use crate::helpers::{
-	assert_finalized_block_height, assert_para_throughput, rococo,
-	rococo::runtime_types::{
-		pallet_broker::coretime_interface::CoreAssignment,
-		polkadot_runtime_parachains::assigner_coretime::PartsOf57600,
-	},
+use cumulus_zombienet_sdk_helpers::{
+	assert_finality_lag, assert_para_throughput, create_assign_core_call,
 };
 use polkadot_primitives::Id as ParaId;
 use serde_json::json;
@@ -61,7 +57,7 @@ async fn slot_based_12cores_test() -> Result<(), anyhow::Error> {
 				.with_default_image(images.cumulus.as_str())
 				.with_chain("elastic-scaling-500ms")
 				.with_default_args(vec![
-					("--experimental-use-slot-based").into(),
+					"--authoring=slot-based".into(),
 					("-lparachain=debug,aura=debug").into(),
 				])
 				.with_collator(|n| n.with_name("collator-elastic"))
@@ -82,26 +78,12 @@ async fn slot_based_12cores_test() -> Result<(), anyhow::Error> {
 	let alice = dev::alice();
 
 	// Assign 11 extra cores to the parachain.
+	let cores = (0..11).map(|idx| (idx, 2300)).collect::<Vec<(u32, u32)>>();
 
+	let assign_cores_call = create_assign_core_call(&cores);
 	relay_client
 		.tx()
-		.sign_and_submit_then_watch_default(
-			&rococo::tx()
-				.sudo()
-				.sudo(rococo::runtime_types::rococo_runtime::RuntimeCall::Utility(
-					rococo::runtime_types::pallet_utility::pallet::Call::batch {
-						calls: (0..11).map(|idx| rococo::runtime_types::rococo_runtime::RuntimeCall::Coretime(
-                            rococo::runtime_types::polkadot_runtime_parachains::coretime::pallet::Call::assign_core {
-                                core: idx,
-                                begin: 0,
-                                assignment: vec![(CoreAssignment::Task(2300), PartsOf57600(57600))],
-                                end_hint: None
-                            }
-                        )).collect()
-					},
-				)),
-			&alice,
-		)
+		.sign_and_submit_then_watch_default(&assign_cores_call, &alice)
 		.await?
 		.wait_for_finalized_success()
 		.await?;
@@ -121,7 +103,7 @@ async fn slot_based_12cores_test() -> Result<(), anyhow::Error> {
 
 	// Assert the parachain finalized block height is also on par with the number of backed
 	// candidates.
-	assert_finalized_block_height(&para_node.wait_client().await?, 158..181).await?;
+	assert_finality_lag(&para_node.wait_client().await?, 60).await?;
 
 	log::info!("Test finished successfully");
 

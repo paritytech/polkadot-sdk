@@ -145,17 +145,13 @@ pub fn chain_type_name(chain_type: &ChainType) -> Cow<str> {
 
 /// Sub-module for Rococo setup.
 pub mod rococo {
-	use super::{chain_type_name, CoretimeRuntimeType, ParaId};
-	use crate::chain_spec::SAFE_XCM_VERSION;
-	use parachains_common::{AccountId, AuraId, Balance};
+	use super::{chain_type_name, CoretimeRuntimeType};
 	use polkadot_omni_node_lib::chain_spec::{Extensions, GenericChainSpec};
 	use sc_chain_spec::ChainType;
-	use sp_keyring::Sr25519Keyring;
 
 	pub(crate) const CORETIME_ROCOCO: &str = "coretime-rococo";
 	pub(crate) const CORETIME_ROCOCO_LOCAL: &str = "coretime-rococo-local";
 	pub(crate) const CORETIME_ROCOCO_DEVELOPMENT: &str = "coretime-rococo-dev";
-	const CORETIME_ROCOCO_ED: Balance = coretime_rococo_runtime::ExistentialDeposit::get();
 
 	pub fn local_config(runtime_type: CoretimeRuntimeType, relay_chain: &str) -> GenericChainSpec {
 		// Rococo defaults
@@ -182,72 +178,26 @@ pub mod rococo {
 		)
 		.with_name(&chain_name)
 		.with_id(runtime_type.into())
-		.with_chain_type(chain_type)
-		.with_genesis_config_patch(genesis(
-			// initial collators.
-			vec![(Sr25519Keyring::Alice.to_account_id(), Sr25519Keyring::Alice.public().into())],
-			vec![
-				Sr25519Keyring::Alice.to_account_id(),
-				Sr25519Keyring::Bob.to_account_id(),
-				Sr25519Keyring::AliceStash.to_account_id(),
-				Sr25519Keyring::BobStash.to_account_id(),
-			],
-			para_id,
-		))
+		.with_chain_type(chain_type.clone())
+		.with_genesis_config_preset_name(match chain_type {
+			ChainType::Development => sp_genesis_builder::DEV_RUNTIME_PRESET,
+			ChainType::Local => sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET,
+			_ => panic!("chain_type: {chain_type:?} not supported here!"),
+		})
 		.with_properties(properties)
 		.build()
-	}
-
-	fn genesis(
-		invulnerables: Vec<(AccountId, AuraId)>,
-		endowed_accounts: Vec<AccountId>,
-		id: ParaId,
-	) -> serde_json::Value {
-		serde_json::json!({
-			"balances": {
-				"balances": endowed_accounts.iter().cloned().map(|k| (k, CORETIME_ROCOCO_ED * 4096)).collect::<Vec<_>>(),
-			},
-			"parachainInfo": {
-				"parachainId": id,
-			},
-			"collatorSelection": {
-				"invulnerables": invulnerables.iter().cloned().map(|(acc, _)| acc).collect::<Vec<_>>(),
-				"candidacyBond": CORETIME_ROCOCO_ED * 16,
-			},
-			"session": {
-				"keys": invulnerables
-					.into_iter()
-					.map(|(acc, aura)| {
-						(
-							acc.clone(),                                   // account id
-							acc,                                           // validator id
-							coretime_rococo_runtime::SessionKeys { aura }, // session keys
-						)
-					})
-					.collect::<Vec<_>>(),
-			},
-			"polkadotXcm": {
-				"safeXcmVersion": Some(SAFE_XCM_VERSION),
-			},
-			"sudo": {
-				"key": Some(Sr25519Keyring::Alice.to_account_id()),
-			},
-		})
 	}
 }
 
 /// Sub-module for Westend setup.
 pub mod westend {
-	use super::{chain_type_name, CoretimeRuntimeType, GenericChainSpec, ParaId};
-	use crate::chain_spec::SAFE_XCM_VERSION;
-	use parachains_common::{AccountId, AuraId, Balance};
+	use super::{chain_type_name, CoretimeRuntimeType, GenericChainSpec};
 	use polkadot_omni_node_lib::chain_spec::Extensions;
-	use sp_keyring::Sr25519Keyring;
+	use sc_chain_spec::ChainType;
 
 	pub(crate) const CORETIME_WESTEND: &str = "coretime-westend";
 	pub(crate) const CORETIME_WESTEND_LOCAL: &str = "coretime-westend-local";
 	pub(crate) const CORETIME_WESTEND_DEVELOPMENT: &str = "coretime-westend-dev";
-	const CORETIME_WESTEND_ED: Balance = coretime_westend_runtime::ExistentialDeposit::get();
 
 	pub fn local_config(runtime_type: CoretimeRuntimeType, relay_chain: &str) -> GenericChainSpec {
 		// westend defaults
@@ -267,54 +217,14 @@ pub mod westend {
 		)
 		.with_name(&chain_name)
 		.with_id(runtime_type.into())
-		.with_chain_type(chain_type)
-		.with_genesis_config_patch(genesis(
-			// initial collators.
-			vec![(Sr25519Keyring::Alice.to_account_id(), Sr25519Keyring::Alice.public().into())],
-			vec![
-				Sr25519Keyring::Alice.to_account_id(),
-				Sr25519Keyring::Bob.to_account_id(),
-				Sr25519Keyring::AliceStash.to_account_id(),
-				Sr25519Keyring::BobStash.to_account_id(),
-			],
-			para_id,
-		))
+		.with_chain_type(chain_type.clone())
+		.with_genesis_config_preset_name(match chain_type {
+			ChainType::Development => sp_genesis_builder::DEV_RUNTIME_PRESET,
+			ChainType::Local => sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET,
+			_ => panic!("chain_type: {chain_type:?} not supported here!"),
+		})
 		.with_properties(properties)
 		.build()
-	}
-
-	fn genesis(
-		invulnerables: Vec<(AccountId, AuraId)>,
-		endowed_accounts: Vec<AccountId>,
-		id: ParaId,
-	) -> serde_json::Value {
-		serde_json::json!({
-			"balances": {
-				"balances": endowed_accounts.iter().cloned().map(|k| (k, CORETIME_WESTEND_ED * 4096)).collect::<Vec<_>>(),
-			},
-			"parachainInfo": {
-				"parachainId": id,
-			},
-			"collatorSelection": {
-				"invulnerables": invulnerables.iter().cloned().map(|(acc, _)| acc).collect::<Vec<_>>(),
-				"candidacyBond": CORETIME_WESTEND_ED * 16,
-			},
-			"session": {
-				"keys": invulnerables
-					.into_iter()
-					.map(|(acc, aura)| {
-						(
-							acc.clone(),                                    // account id
-							acc,                                            // validator id
-							coretime_westend_runtime::SessionKeys { aura }, // session keys
-						)
-					})
-					.collect::<Vec<_>>(),
-			},
-			"polkadotXcm": {
-				"safeXcmVersion": Some(SAFE_XCM_VERSION),
-			}
-		})
 	}
 }
 

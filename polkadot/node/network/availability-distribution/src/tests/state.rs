@@ -109,7 +109,7 @@ impl TestState {
 		let session_info = make_session_info();
 
 		let our_chunk_index = availability_chunk_index(
-			Some(&node_features),
+			&node_features,
 			session_info.validators.len(),
 			CoreIndex(1),
 			ValidatorIndex(0),
