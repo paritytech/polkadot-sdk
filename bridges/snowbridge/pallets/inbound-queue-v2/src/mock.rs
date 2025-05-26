@@ -9,10 +9,13 @@ use snowbridge_beacon_primitives::{
 	types::deneb, BeaconHeader, ExecutionProof, VersionedExecutionPayloadHeader,
 };
 use snowbridge_core::TokenId;
-use snowbridge_inbound_queue_primitives::{v2::MessageToXcm, Log, Proof, VerificationError};
+use snowbridge_inbound_queue_primitives::{
+	v2::{MessageProcessorError, MessageToXcm, XcmMessageProcessor},
+	Log, Proof, VerificationError,
+};
 use sp_core::H160;
 use sp_runtime::{
-	traits::{IdentityLookup, MaybeEquivalence},
+	traits::{IdentityLookup, MaybeEquivalence, TryConvert},
 	BuildStorage,
 };
 use sp_std::{convert::From, default::Default, marker::PhantomData};
@@ -106,29 +109,67 @@ parameter_types! {
 	pub const CreateAssetDeposit: u128 = 10_000_000_000u128;
 }
 
+pub struct DummyPrefix;
+
+impl MessageProcessor<AccountId> for DummyPrefix {
+	fn can_process_message(_relayer: &AccountId, _message: &Message) -> bool {
+		false
+	}
+
+	fn process_message(
+		_relayer: AccountId,
+		_message: Message,
+	) -> Result<[u8; 32], MessageProcessorError> {
+		panic!("DummyPrefix::process_message shouldn't be called");
+	}
+}
+
+pub struct DummySuffix;
+
+impl MessageProcessor<AccountId> for DummySuffix {
+	fn can_process_message(_relayer: &AccountId, _message: &Message) -> bool {
+		true
+	}
+
+	fn process_message(
+		_relayer: AccountId,
+		_message: Message,
+	) -> Result<[u8; 32], MessageProcessorError> {
+		panic!("DummySuffix::process_message shouldn't be called");
+	}
+}
+
 impl inbound_queue_v2::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type Verifier = MockVerifier;
-	type XcmSender = MockXcmSender;
-	type XcmExecutor = MockXcmExecutor;
 	type GatewayAddress = GatewayAddress;
-	type AssetHubParaId = ConstU32<1000>;
-	type MessageConverter = MessageToXcm<
-		CreateAssetCall,
-		CreateAssetDeposit,
-		EthereumNetwork,
-		InboundQueueLocation,
-		MockTokenIdConvert,
-		GatewayAddress,
-		UniversalLocation,
-		AssetHubFromEthereum,
-		AssetHubUniversalLocation,
-		AccountId,
-	>;
+	// Passively test that the implementation of MessageProcessor trait works correctly for tuple
+	type MessageProcessor = (
+		DummyPrefix,
+		XcmMessageProcessor<
+			Test,
+			MockXcmSender,
+			MockXcmExecutor,
+			MessageToXcm<
+				CreateAssetCall,
+				CreateAssetDeposit,
+				EthereumNetwork,
+				InboundQueueLocation,
+				MockTokenIdConvert,
+				GatewayAddress,
+				UniversalLocation,
+				AssetHubFromEthereum,
+				AssetHubUniversalLocation,
+				AccountId,
+			>,
+			MockAccountLocationConverter<AccountId>,
+			ConstU32<1000>,
+		>,
+		DummySuffix,
+	);
 	#[cfg(feature = "runtime-benchmarks")]
 	type Helper = Test;
 	type WeightInfo = ();
-	type AccountToLocation = MockAccountLocationConverter<AccountId>;
 	type RewardKind = BridgeReward;
 	type DefaultRewardKind = SnowbridgeReward;
 	type RewardPayment = MockRewardLedger;
