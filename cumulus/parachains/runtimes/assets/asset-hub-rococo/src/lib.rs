@@ -1698,16 +1698,14 @@ impl_runtime_apis! {
 			};
 
 			use xcm_config::{AssetHubId, AssetHubParaLocation};
+			use xcm_config::bridging::to_westend::{RandomParaLocation, RandomId};
 			parameter_types! {
 				pub ExistentialDepositAsset: Option<Asset> = Some((
 					TokenLocation::get(),
 					ExistentialDeposit::get()
 				).into());
 
-				// reserve-based transfer cases. non-system parachain i.e. id >= 2000
-				pub RandomParaId: ParaId = ParaId::new(3333);
-				pub RandomParaLocation: Location = ParentThen(Parachain(
-					RandomParaId::get().into()).into()).into();
+				pub RandomParaId: ParaId = ParaId::new(RandomId::get());
 				pub AssetHubParaId: ParaId = ParaId::new(AssetHubId::get());
 			}
 
@@ -1748,18 +1746,15 @@ impl_runtime_apis! {
 					Some((
 						Asset {
 							fun: Fungible(ExistentialDeposit::get()),
-							id: AssetId(TokenLocation::get())
+							id: AssetId(Parent.into())
 						},
 						// AH can reserve transfer native token to some random parachain.
-						RandomParaLocation::get(),
+						ParentThen(Parachain(RandomParaId::get().into()).into()).into(),
 					))
 				}
 
 				fn set_up_complex_asset_transfer(
 				) -> Option<(XcmAssets, u32, Location, alloc::boxed::Box<dyn FnOnce()>)> {
-					// Transfer to Relay some local AH asset (local-reserve-transfer) while paying
-					// fees using teleported native token.
-					// (We don't care that Relay doesn't accept incoming unknown AH local asset)
 					let dest = AssetHubParaLocation::get();
 
 					let fee_amount = EXISTENTIAL_DEPOSIT;
@@ -1812,7 +1807,7 @@ impl_runtime_apis! {
 						&account,
 						<Balances as Inspect<_>>::minimum_balance(),
 					));
-					let asset_id = 1984;
+					let asset_id = 1441;
 					assert_ok!(Assets::force_create(
 						RuntimeOrigin::root(),
 						asset_id.into(),
@@ -1820,7 +1815,7 @@ impl_runtime_apis! {
 						true,
 						1u128,
 					));
-					let amount = 1_000_000u128;
+					let amount = 100_000_000u128; //
 					let asset_location = Location::new(0, [PalletInstance(50), GeneralIndex(u32::from(asset_id).into())]);
 
 					Asset {
@@ -1873,8 +1868,8 @@ impl_runtime_apis! {
 						ParachainSystem
 					>;
 				fn valid_destination() -> Result<Location, BenchmarkError> {
-					let dest: Location = Some(AssetHubParaLocation::get()).unwrap();
-					Ok(dest)
+					ParachainSystem::open_outbound_hrmp_channel_for_benchmarks_or_tests(AssetHubParaId::get());
+					Ok(AssetHubParaLocation::get())
 				}
 				fn worst_case_holding(depositable_count: u32) -> XcmAssets {
 					// A mix of fungible, non-fungible, and concrete assets.
@@ -1964,15 +1959,20 @@ impl_runtime_apis! {
 				}
 
 				fn transact_origin_and_runtime_call() -> Result<(Location, RuntimeCall), BenchmarkError> {
-					Ok((TokenLocation::get(), frame_system::Call::remark_with_event { remark: vec![] }.into()))
+					ParachainSystem::open_outbound_hrmp_channel_for_benchmarks_or_tests(AssetHubParaId::get());
+					Ok((
+						AssetHubParaLocation::get(),
+						frame_system::Call::remark_with_event {remark: vec![]}.into()
+					))
 				}
 
 				fn subscribe_origin() -> Result<Location, BenchmarkError> {
-					Ok(TokenLocation::get())
+					ParachainSystem::open_outbound_hrmp_channel_for_benchmarks_or_tests(AssetHubParaId::get());
+					Ok(AssetHubParaLocation::get())
 				}
 
 				fn claimable_asset() -> Result<(Location, Location, XcmAssets), BenchmarkError> {
-					let origin = TokenLocation::get();
+					let origin = AssetHubParaLocation::get();
 					let assets: XcmAssets = (TokenLocation::get(), 1_000 * UNITS).into();
 					let ticket = Location { parents: 0, interior: Here };
 					Ok((origin, ticket, assets))
