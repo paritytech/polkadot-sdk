@@ -1644,7 +1644,7 @@ sp_api::decl_runtime_apis! {
 
 #[macro_export]
 macro_rules! impl_runtime_apis_plus_revive {
-	($Runtime: ty, $Executive: ty, $UncheckedExtrinsic: ty, $EthExtra: ty,  $($rest:tt)* ) => {
+	($Runtime: ty, $Executive: ty, $EthExtra: ty,  $($rest:tt)* ) => {
 
 		impl_runtime_apis! {
 			$($rest)*
@@ -1674,6 +1674,7 @@ macro_rules! impl_runtime_apis_plus_revive {
 					use $crate::{
 						codec::Encode, evm::runtime::EthExtra, frame_support::traits::Get,
 						sp_runtime::traits::TransactionExtension,
+						sp_runtime::traits::Block as BlockT
 					};
 
 					let tx_fee = |pallet_call, mut dispatch_info: $crate::DispatchInfo| {
@@ -1681,7 +1682,8 @@ macro_rules! impl_runtime_apis_plus_revive {
 							<Self as $crate::frame_system::Config>::RuntimeCall::from(pallet_call);
 						dispatch_info.extension_weight =
 							<$EthExtra>::get_eth_extension(0, 0u32.into()).weight(&call);
-						let uxt: $UncheckedExtrinsic =
+
+						let uxt: <Block as BlockT>::Extrinsic =
 							$crate::sp_runtime::generic::UncheckedExtrinsic::new_bare(call).into();
 
 						$crate::pallet_transaction_payment::Pallet::<Self>::compute_fee(

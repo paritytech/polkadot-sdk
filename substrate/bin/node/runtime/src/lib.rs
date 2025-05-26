@@ -3054,7 +3054,6 @@ mod benches {
 pallet_revive::impl_runtime_apis_plus_revive!(
 	Runtime,
 	Executive,
-	UncheckedExtrinsic,
 	EthExtraImpl,
 
 	impl sp_api::Core<Block> for Runtime {
