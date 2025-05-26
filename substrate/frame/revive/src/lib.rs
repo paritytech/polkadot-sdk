@@ -1067,6 +1067,11 @@ where
 		}
 	}
 
+	/// Prepare a dry run for the given account.
+	fn prepare_dry_run(account: &T::AccountId) {
+		frame_system::Pallet::<T>::inc_account_nonce(account);
+	}
+
 	/// A generalized version of [`Self::instantiate`] or [`Self::instantiate_with_code`].
 	///
 	/// Identical to [`Self::instantiate`] or [`Self::instantiate_with_code`] but tailored towards
@@ -1139,14 +1144,45 @@ where
 		}
 	}
 
-	/// A version of [`Self::eth_transact`] used to dry-run Ethereum calls.
+	/// dry-run a contract call.
+	pub fn dry_run_call(
+		origin: OriginFor<T>,
+		dest: H160,
+		value: BalanceOf<T>,
+		gas_limit: Weight,
+		storage_deposit_limit: DepositLimit<BalanceOf<T>>,
+		data: Vec<u8>,
+	) -> ContractResult<ExecReturnValue, BalanceOf<T>> {
+		let account_id = ensure_signed(origin.clone())
+			.unwrap_or_else(|_| T::AddressMapper::to_account_id(&H160::default()));
+		Self::prepare_dry_run(&account_id);
+		Self::bare_call(origin, dest, value, gas_limit, storage_deposit_limit, data)
+	}
+
+	/// dry-run instantiate a contract deployment.
+	pub fn dry_run_instantiate(
+		origin: OriginFor<T>,
+		value: BalanceOf<T>,
+		gas_limit: Weight,
+		storage_deposit_limit: DepositLimit<BalanceOf<T>>,
+		code: Code,
+		data: Vec<u8>,
+		salt: Option<[u8; 32]>,
+	) -> ContractResult<InstantiateReturnValue, BalanceOf<T>> {
+		let account_id = ensure_signed(origin.clone())
+			.unwrap_or_else(|_| T::AddressMapper::to_account_id(&H160::default()));
+		Self::prepare_dry_run(&account_id);
+		Self::bare_instantiate(origin, value, gas_limit, storage_deposit_limit, code, data, salt)
+	}
+
+	/// Dry-run Ethereum calls.
 	///
 	/// # Parameters
 	///
 	/// - `tx`: The Ethereum transaction to simulate.
 	/// - `gas_limit`: The gas limit enforced during contract execution.
 	/// - `tx_fee`: A function that returns the fee for the given call and dispatch info.
-	pub fn bare_eth_transact(
+	pub fn dry_run_eth_transact(
 		mut tx: GenericTransaction,
 		gas_limit: Weight,
 		tx_fee: impl Fn(Call<T>, DispatchInfo) -> BalanceOf<T>,
@@ -1159,10 +1195,11 @@ where
 		T::Nonce: Into<U256>,
 		T::Hash: frame_support::traits::IsType<H256>,
 	{
-		log::trace!(target: LOG_TARGET, "bare_eth_transact: tx: {tx:?} gas_limit: {gas_limit:?}");
+		log::trace!(target: LOG_TARGET, "dry_run_eth_transact: {tx:?} gas_limit: {gas_limit:?}");
 
 		let from = tx.from.unwrap_or_default();
 		let origin = T::AddressMapper::to_account_id(&from);
+		Self::prepare_dry_run(&origin);
 
 		let storage_deposit_limit = if tx.gas.is_some() {
 			DepositLimit::Balance(BalanceOf::<T>::max_value())
@@ -1562,7 +1599,7 @@ sp_api::decl_runtime_apis! {
 
 		/// Perform an Ethereum call.
 		///
-		/// See [`crate::Pallet::bare_eth_transact`]
+		/// See [`crate::Pallet::dry_run_eth_transact`]
 		fn eth_transact(tx: GenericTransaction) -> Result<EthTransactInfo<Balance>, EthTransactError>;
 
 		/// Upload new code without instantiating a contract from it.
@@ -1685,7 +1722,7 @@ macro_rules! impl_runtime_apis_plus_revive {
 
 					let blockweights: $crate::BlockWeights =
 						<Self as $crate::frame_system::Config>::BlockWeights::get();
-					$crate::Pallet::<Self>::bare_eth_transact(tx, blockweights.max_block, tx_fee)
+					$crate::Pallet::<Self>::dry_run_eth_transact(tx, blockweights.max_block, tx_fee)
 				}
 
 				fn call(
@@ -1702,7 +1739,7 @@ macro_rules! impl_runtime_apis_plus_revive {
 
 					let origin =
 						<Self as $crate::frame_system::Config>::RuntimeOrigin::signed(origin);
-					$crate::Pallet::<Self>::bare_call(
+					$crate::Pallet::<Self>::dry_run_call(
 						origin,
 						dest,
 						value,
@@ -1727,7 +1764,7 @@ macro_rules! impl_runtime_apis_plus_revive {
 
 					let origin =
 						<Self as $crate::frame_system::Config>::RuntimeOrigin::signed(origin);
-					$crate::Pallet::<Self>::bare_instantiate(
+					$crate::Pallet::<Self>::dry_run_instantiate(
 						origin,
 						value,
 						gas_limit.unwrap_or(blockweights.max_block),

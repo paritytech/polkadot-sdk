@@ -4019,7 +4019,7 @@ fn skip_transfer_works() {
 
 		// fails to instantiate when gas is specified.
 		assert_err!(
-			Pallet::<Test>::bare_eth_transact(
+			Pallet::<Test>::dry_run_eth_transact(
 				GenericTransaction {
 					from: Some(BOB_ADDR),
 					input: code.clone().into(),
@@ -4035,7 +4035,7 @@ fn skip_transfer_works() {
 		);
 
 		// works when no gas is specified.
-		assert_ok!(Pallet::<Test>::bare_eth_transact(
+		assert_ok!(Pallet::<Test>::dry_run_eth_transact(
 			GenericTransaction {
 				from: Some(ALICE_ADDR),
 				input: code.clone().into(),
@@ -4053,7 +4053,7 @@ fn skip_transfer_works() {
 
 		// fails to call when gas is specified.
 		assert_err!(
-			Pallet::<Test>::bare_eth_transact(
+			Pallet::<Test>::dry_run_eth_transact(
 				GenericTransaction {
 					from: Some(BOB_ADDR),
 					to: Some(addr),
@@ -4069,7 +4069,7 @@ fn skip_transfer_works() {
 		);
 
 		// fails when calling from a contract when gas is specified.
-		assert!(Pallet::<Test>::bare_eth_transact(
+		assert!(Pallet::<Test>::dry_run_eth_transact(
 			GenericTransaction {
 				from: Some(BOB_ADDR),
 				to: Some(caller_addr),
@@ -4083,14 +4083,14 @@ fn skip_transfer_works() {
 		.is_err(),);
 
 		// works when no gas is specified.
-		assert_ok!(Pallet::<Test>::bare_eth_transact(
+		assert_ok!(Pallet::<Test>::dry_run_eth_transact(
 			GenericTransaction { from: Some(BOB_ADDR), to: Some(addr), ..Default::default() },
 			Weight::MAX,
 			|_, _| 0u64,
 		));
 
 		// works when calling from a contract when no gas is specified.
-		assert_ok!(Pallet::<Test>::bare_eth_transact(
+		assert_ok!(Pallet::<Test>::dry_run_eth_transact(
 			GenericTransaction {
 				from: Some(BOB_ADDR),
 				to: Some(caller_addr),
