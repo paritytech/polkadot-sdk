@@ -911,7 +911,6 @@ pub mod pallet {
 			account: T::AccountId,
 			delegation_hold: T::Balance,
 			staking_hold: T::Balance,
-			preimage_hold: T::Balance,
 		) -> DispatchResult {
 			<T as Config>::ManagerOrigin::ensure_origin(origin)?;
 			let staking_hold_reason = pallet_staking_async::HoldReason::Staking.into();
@@ -925,6 +924,24 @@ pub mod pallet {
 				<T as pallet::Config>::Currency::balance_on_hold(&preimage_hold_reason, &account);
 			ensure!(existing_preimage_hold > 0, Error::<T>::NoMisplacedHoldFound);
 
+			// ensure reserve is at least the preimage hold amount.
+			let reserved_balance = <T as pallet::Config>::Currency::reserved_balance(&account);
+
+			if existing_preimage_hold > reserved_balance {
+				log::warn!(
+					target: LOG_TARGET,
+					"Account: {:?} \n\texisting_preimage_hold {:?} is greater than reserved balance \
+					{:?}. Applying unnamed reserve for the mismatch.",
+					&account,
+					existing_preimage_hold,
+					reserved_balance,
+				);
+				<T as pallet::Config>::Currency::reserve(
+					&account,
+					existing_preimage_hold.saturating_sub(reserved_balance),
+				)?;
+			}
+
 			// since we know preimage holds are incorrectly set, first we release preimage.
 			let released_amount = <T as pallet::Config>::Currency::release_all(
 				&preimage_hold_reason,
@@ -932,85 +949,61 @@ pub mod pallet {
 				Precision::BestEffort,
 			)?;
 
-			// debug_assert_eq!(released_amount, delegation_hold + staking_hold + preimage_hold);
+			let mut remaining_hold = released_amount;
 
 			// and then update hold with priority: delegation > staking > preimage.
 			// 1. Delegation: These have extra provider, so we can hold everything including ED.
 			if delegation_hold > 0 {
-				let max_hold = <T as pallet::Config>::Currency::reducible_balance(
-					&account,
-					Preservation::Expendable,
-					Fortitude::Force,
-				);
-				if delegation_hold > max_hold {
+				let to_hold = delegation_hold.min(remaining_hold);
+
+				if delegation_hold > remaining_hold {
 					log::warn!(
 						target: LOG_TARGET,
 						"Account: {:?} \n\tCan not hold full delegation amount {:?}. Holding {:?} instead.",
 						&account,
 						delegation_hold,
-						max_hold,
+						to_hold,
 					);
-
-					let delegation_hold = max_hold;
 				}
 
 				<T as pallet::Config>::Currency::set_on_hold(
 					&delegation_hold_reason,
 					&account,
-					delegation_hold,
+					to_hold,
 				)?;
+
+				remaining_hold -= to_hold;
 			}
 
 			// 2. Staking:
 			if staking_hold > 0 {
-				let max_hold = <T as pallet::Config>::Currency::reducible_balance(
-					&account,
-					Preservation::Preserve,
-					Fortitude::Force,
-				);
-				if staking_hold > max_hold {
+				let to_hold = staking_hold.min(remaining_hold);
+
+				if staking_hold > remaining_hold {
 					log::warn!(
 						target: LOG_TARGET,
-						"Account: {:?} \n\tCan not hold full staking amount {:?}. Holding {:?} instead. Delegation hold was: {:?}",
+						"Account: {:?} \n\tCan not hold full staking amount {:?}. Holding {:?} instead.",
 						&account,
 						staking_hold,
-						max_hold,
-						delegation_hold,
+						to_hold,
 					);
-
-					let staking_hold = max_hold;
 				}
 
 				<T as pallet::Config>::Currency::set_on_hold(
 					&staking_hold_reason,
 					&account,
-					staking_hold,
+					to_hold,
 				)?;
+
+				remaining_hold -= to_hold;
 			}
 
-			// 3. Preimage:
-			if preimage_hold > 0 {
-				let max_hold = <T as pallet::Config>::Currency::reducible_balance(
-					&account,
-					Preservation::Preserve,
-					Fortitude::Force,
-				);
-				if preimage_hold > max_hold {
-					log::warn!(
-						target: LOG_TARGET,
-						"Account: {:?} \n\tCan not hold full preimage hold amount {:?}. Holding {:?} instead.",
-						&account,
-						preimage_hold,
-						max_hold,
-					);
-
-					let preimage_hold = max_hold;
-				}
-
+			// 3. Restore Preimage hold to whatever is left after delegation and staking.
+			if remaining_hold > 0 {
 				<T as pallet::Config>::Currency::set_on_hold(
 					&preimage_hold_reason,
 					&account,
-					preimage_hold,
+					remaining_hold,
 				)?;
 			}
 

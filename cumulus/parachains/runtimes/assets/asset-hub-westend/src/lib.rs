@@ -150,7 +150,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: alloc::borrow::Cow::Borrowed("westmint"),
 	impl_name: alloc::borrow::Cow::Borrowed("westmint"),
 	authoring_version: 1,
-	spec_version: 1_018_006,
+	spec_version: 1_018_007,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 16,
@@ -1322,26 +1322,6 @@ impl pallet_sudo::Config for Runtime {
 	type WeightInfo = weights::pallet_sudo::WeightInfo<Runtime>;
 }
 
-/// Set the sudo key migration.
-pub struct SetSudoKey;
-impl frame_support::traits::OnRuntimeUpgrade for SetSudoKey {
-	fn on_runtime_upgrade() -> Weight {
-		use sp_core::crypto::Ss58Codec;
-
-		match AccountId::from_ss58check("5FRzwC892cofttMft53kuwEuBLjbM5kWwGz3Qcy2So238QMY") {
-			Ok(a) => {
-				log::info!("Setting sudo key");
-				pallet_sudo::Key::<Runtime>::put(a);
-			},
-			Err(_) => {
-				log::error!("Failed to set sudo key");
-			},
-		};
-
-		<Runtime as frame_system::Config>::DbWeight::get().reads_writes(0, 1)
-	}
-}
-
 // Create the runtime by composing the FRAME pallets that were previously configured.
 construct_runtime!(
 	pub enum Runtime
@@ -1516,7 +1496,6 @@ pub type Migrations = (
 		Runtime,
 		pallet_session::migrations::v1::InitOffenceSeverity<Runtime>,
 	>,
-	SetSudoKey,
 	// permanent
 	pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
 	cumulus_pallet_aura_ext::migration::MigrateV0ToV1<Runtime>,
@@ -2862,6 +2841,7 @@ mod remote_tests {
 	use sp_core::H256;
 	use std::env::var;
 
+	#[ignore] // to be run manually
 	#[tokio::test]
 	async fn ahm_fix_holds() {
 		sp_tracing::try_init_simple();
@@ -2898,8 +2878,9 @@ mod remote_tests {
 
 			let preimage_hold_reason: RuntimeHoldReason =
 				pallet_preimage::HoldReason::Preimage.into();
-			let mut success = 0;
-			let mut failed = 0;
+			// Account, DelegationHold, StakingHold
+			let mut success_calls: Vec<(AccountId, Balance, Balance)> = vec![];
+			let mut failed_calls: Vec<(AccountId, Balance, Balance)> = vec![];
 			// go through all accounts that have holds.
 			pallet_balances::Holds::<Runtime>::iter()
 				.filter(|(_account, holds)| {
@@ -2940,30 +2921,28 @@ mod remote_tests {
 						return;
 					}
 
-					// in prod, we will also get the correct preimage balance, but for this test we
-					// can just set staking and pool which should be enough.
 					let _ = AhMigrator::fix_misplaced_hold(
 						RuntimeOrigin::root(),
 						account.clone(),
 						delegation_hold,
 						staking_hold,
-						0,
 					)
 					.map(|_| {
-						success += 1;
+						success_calls.push((account.clone(), delegation_hold, staking_hold));
 					})
 					.map_err(|e| {
-						println!(
-							"Account: {:?}, Delegation hold: {:?}, Staking hold: {:?}, Err: {:?}",
-							account, delegation_hold, staking_hold, e
-						);
-						failed += 1;
+						failed_calls.push((account.clone(), delegation_hold, staking_hold));
 					});
 				});
 
 			AllPalletsWithSystem::try_state(System::block_number(), All).unwrap();
 
-			println!("Summary: {:?} success, {:?} failed", success, failed);
+			println!("Summary: {:?} success, {:?} failed", success_calls.len(), failed_calls.len());
+
+			println!("account, delegation_hold, staking_hold");
+			for call in success_calls.iter() {
+				println!("{:?}, {:?}, {:?}", call.0, call.1, call.2);
+			}
 		});
 	}
 }

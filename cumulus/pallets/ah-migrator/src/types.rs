@@ -17,15 +17,6 @@
 
 use super::*;
 
-/// Backward mapping from https://github.com/paritytech/polkadot-sdk/blob/74a5e1a242274ddaadac1feb3990fc95c8612079/substrate/frame/balances/src/types.rs#L38
-pub fn map_lock_reason(reasons: LockReasons) -> LockWithdrawReasons {
-	match reasons {
-		LockReasons::All => LockWithdrawReasons::TRANSACTION_PAYMENT | LockWithdrawReasons::RESERVE,
-		LockReasons::Fee => LockWithdrawReasons::TRANSACTION_PAYMENT,
-		LockReasons::Misc => LockWithdrawReasons::TIP,
-	}
-}
-
 /// Relay Chain pallet list with indexes.
 #[derive(Encode, Decode)]
 pub enum RcPalletConfig {

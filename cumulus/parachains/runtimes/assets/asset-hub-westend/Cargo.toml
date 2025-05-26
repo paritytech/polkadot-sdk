@@ -155,6 +155,7 @@ ahm-westend = [
 ]
 ahm-staking-migration = [
 	"pallet-ah-migrator/ahm-staking-migration",
+	"pallet-ah-ops/ahm-staking-migration",
 	"pallet-rc-migrator/ahm-staking-migration",
 ]
 runtime-benchmarks = [
@@ -315,6 +316,7 @@ std = [
 	"frame-system-rpc-runtime-api/std",
 	"frame-system/std",
 	"frame-try-runtime?/std",
+	"hex/std",
 	"log/std",
 	"pallet-ah-migrator/std",
 	"pallet-ah-ops/std",
