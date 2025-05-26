@@ -136,7 +136,7 @@
 //! * [`RuntimeCall`] is a particularly interesting composite enum as it dictates the encoding of an
 //!   extrinsic. See [`crate::reference_docs::transaction_extensions`] for more information.
 //! * See the documentation of [`construct_runtime`].
-//! * See the corresponding lecture in the [pba-book](https://polkadot-blockchain-academy.github.io/pba-book/frame/outer-enum/page.html).
+//! * See the corresponding lecture in the [PBA Lectures](https://www.youtube.com/watch?v=OCBC1pMYPoc&list=PL-w_i5kwVqbni1Ch2j_RwTIXiB-bwnYqq&index=11).
 //!
 //!
 //! [`construct_runtime`]: frame::runtime::prelude::construct_runtime

@@ -49,12 +49,11 @@
 
 use sc_client_api::{BlockBackend, BlockchainEvents, UsageProvider};
 use sc_consensus::import_queue::{ImportQueueService, IncomingBlock};
-use sp_api::RuntimeApiInfo;
 use sp_consensus::{BlockOrigin, BlockStatus, SyncOracle};
 use sp_runtime::traits::{Block as BlockT, Header as HeaderT, NumberFor};
 
 use polkadot_node_primitives::{PoV, POV_BOMB_LIMIT};
-use polkadot_node_subsystem::messages::{AvailabilityRecoveryMessage, RuntimeApiRequest};
+use polkadot_node_subsystem::messages::AvailabilityRecoveryMessage;
 use polkadot_overseer::Handle as OverseerHandle;
 use polkadot_primitives::{
 	vstaging::{
@@ -65,11 +64,12 @@ use polkadot_primitives::{
 };
 
 use cumulus_primitives_core::ParachainBlockData;
-use cumulus_relay_chain_interface::{RelayChainInterface, RelayChainResult};
+use cumulus_relay_chain_interface::RelayChainInterface;
+use cumulus_relay_chain_streams::pending_candidates;
 
 use codec::{Decode, DecodeAll};
 use futures::{
-	channel::mpsc::Receiver, select, stream::FuturesUnordered, Future, FutureExt, Stream, StreamExt,
+	channel::mpsc::Receiver, select, stream::FuturesUnordered, Future, FutureExt, StreamExt,
 };
 use futures_timer::Delay;
 use rand::{distributions::Uniform, prelude::Distribution, thread_rng};
@@ -605,7 +605,7 @@ where
 		loop {
 			select! {
 				next_pending_candidates = pending_candidates.next() => {
-					if let Some((candidates, session_index)) = next_pending_candidates {
+					if let Some((candidates, session_index, _)) = next_pending_candidates {
 						for candidate in candidates {
 							self.handle_pending_candidate(candidate, session_index);
 						}
@@ -660,93 +660,4 @@ where
 			}
 		}
 	}
-}
-
-/// Returns a stream over pending candidates for the parachain corresponding to `para_id`.
-async fn pending_candidates(
-	relay_chain_client: impl RelayChainInterface + Clone,
-	para_id: ParaId,
-	sync_service: Arc<dyn SyncOracle + Sync + Send>,
-) -> RelayChainResult<impl Stream<Item = (Vec<CommittedCandidateReceipt>, SessionIndex)>> {
-	let import_notification_stream = relay_chain_client.import_notification_stream().await?;
-
-	let filtered_stream = import_notification_stream.filter_map(move |n| {
-		let client_for_closure = relay_chain_client.clone();
-		let sync_oracle = sync_service.clone();
-		async move {
-			let hash = n.hash();
-			if sync_oracle.is_major_syncing() {
-				tracing::debug!(
-					target: LOG_TARGET,
-					relay_hash = ?hash,
-					"Skipping candidate due to sync.",
-				);
-				return None
-			}
-
-			let runtime_api_version = client_for_closure
-				.version(hash)
-				.await
-				.map_err(|e| {
-					tracing::error!(
-						target: LOG_TARGET,
-						error = ?e,
-						"Failed to fetch relay chain runtime version.",
-					)
-				})
-				.ok()?;
-			let parachain_host_runtime_api_version = runtime_api_version
-				.api_version(
-					&<dyn polkadot_primitives::runtime_api::ParachainHost<
-						polkadot_primitives::Block,
-					>>::ID,
-				)
-				.unwrap_or_default();
-
-			// If the relay chain runtime does not support the new runtime API, fallback to the
-			// deprecated one.
-			let pending_availability_result = if parachain_host_runtime_api_version <
-				RuntimeApiRequest::CANDIDATES_PENDING_AVAILABILITY_RUNTIME_REQUIREMENT
-			{
-				#[allow(deprecated)]
-				client_for_closure
-					.candidate_pending_availability(hash, para_id)
-					.await
-					.map_err(|e| {
-						tracing::error!(
-							target: LOG_TARGET,
-							error = ?e,
-							"Failed to fetch pending candidates.",
-						)
-					})
-					.map(|candidate| candidate.into_iter().collect::<Vec<_>>())
-			} else {
-				client_for_closure.candidates_pending_availability(hash, para_id).await.map_err(
-					|e| {
-						tracing::error!(
-							target: LOG_TARGET,
-							error = ?e,
-							"Failed to fetch pending candidates.",
-						)
-					},
-				)
-			};
-
-			let session_index_result =
-				client_for_closure.session_index_for_child(hash).await.map_err(|e| {
-					tracing::error!(
-						target: LOG_TARGET,
-						error = ?e,
-						"Failed to fetch session index.",
-					)
-				});
-
-			if let Ok(candidates) = pending_availability_result {
-				session_index_result.map(|session_index| (candidates, session_index)).ok()
-			} else {
-				None
-			}
-		}
-	});
-	Ok(filtered_stream)
 }

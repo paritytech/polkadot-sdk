@@ -40,6 +40,7 @@ use bridge_to_rococo_config::{
 	DeliveryRewardInBalance, WithBridgeHubRococoMessagesInstance, XcmOverBridgeHubRococoInstance,
 };
 use codec::{Decode, Encode};
+use cumulus_primitives_core::UpwardMessageSender;
 use frame_support::{
 	assert_err, assert_ok,
 	dispatch::GetDispatchInfo,
@@ -94,15 +95,18 @@ fn construct_extrinsic(
 ) -> UncheckedExtrinsic {
 	let account_id = AccountId32::from(sender.public());
 	let tx_ext: TxExtension = (
-		frame_system::CheckNonZeroSender::<Runtime>::new(),
-		frame_system::CheckSpecVersion::<Runtime>::new(),
-		frame_system::CheckTxVersion::<Runtime>::new(),
-		frame_system::CheckGenesis::<Runtime>::new(),
-		frame_system::CheckEra::<Runtime>::from(Era::immortal()),
-		frame_system::CheckNonce::<Runtime>::from(
-			frame_system::Pallet::<Runtime>::account(&account_id).nonce,
+		(
+			frame_system::AuthorizeCall::<Runtime>::new(),
+			frame_system::CheckNonZeroSender::<Runtime>::new(),
+			frame_system::CheckSpecVersion::<Runtime>::new(),
+			frame_system::CheckTxVersion::<Runtime>::new(),
+			frame_system::CheckGenesis::<Runtime>::new(),
+			frame_system::CheckEra::<Runtime>::from(Era::immortal()),
+			frame_system::CheckNonce::<Runtime>::from(
+				frame_system::Pallet::<Runtime>::account(&account_id).nonce,
+			),
+			frame_system::CheckWeight::<Runtime>::new(),
 		),
-		frame_system::CheckWeight::<Runtime>::new(),
 		pallet_transaction_payment::ChargeTransactionPayment::<Runtime>::from(0),
 		BridgeRejectObsoleteHeadersAndMessages::default(),
 		(bridge_to_rococo_config::OnBridgeHubWestendRefundBridgeHubRococoMessages::default(),),
@@ -312,7 +316,7 @@ fn message_dispatch_routing_works() {
 				_ => None,
 			}
 		}),
-		|| (),
+		|| <ParachainSystem as UpwardMessageSender>::ensure_successful_delivery(),
 	)
 }
 
@@ -683,6 +687,7 @@ fn xcm_payment_api_works() {
 		RuntimeCall,
 		RuntimeOrigin,
 		Block,
+		WeightToFee,
 	>();
 }
 
