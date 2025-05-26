@@ -31,6 +31,7 @@ use polkadot_primitives::{
 };
 
 /// The status of a collation as seen from the collator.
+#[derive(Clone, Debug, PartialEq)]
 pub enum CollationStatus {
 	/// The collation was created, but we did not advertise it to any validator.
 	Created,
@@ -53,6 +54,15 @@ impl CollationStatus {
 	/// Advance to the [`Self::Requested`] status.
 	pub fn advance_to_requested(&mut self) {
 		*self = Self::Requested;
+	}
+
+	/// Return label for metrics.
+	pub fn label(&self) -> &'static str {
+		match self {
+			CollationStatus::Created => "created",
+			CollationStatus::Advertised => "advertised",
+			CollationStatus::Requested => "requested",
+		}
 	}
 }
 

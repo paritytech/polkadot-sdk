@@ -15,6 +15,7 @@ workspace = true
 bytes = { workspace = true }
 codec = { features = ["derive"], workspace = true }
 environmental = { workspace = true }
+hashbrown = { workspace = true }
 impl-trait-for-tuples = { workspace = true }
 log = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }

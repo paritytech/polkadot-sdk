@@ -973,6 +973,13 @@ fn update_our_view<Context>(
 		finalized_number,
 	);
 
+	gum::debug!(
+		target: LOG_TARGET,
+		live_head_count = ?live_heads.len(),
+		"Our view updated, current view: {:?}",
+		our_view,
+	);
+
 	dispatch_validation_event_to_all_unbounded(
 		NetworkBridgeEvent::OurViewChange(our_view.clone()),
 		ctx.sender(),

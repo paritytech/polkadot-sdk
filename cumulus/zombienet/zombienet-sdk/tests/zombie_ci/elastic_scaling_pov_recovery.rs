@@ -4,15 +4,20 @@
 use anyhow::anyhow;
 use std::{sync::Arc, time::Duration};
 
-use crate::utils::{wait_node_is_up, BEST_BLOCK_METRIC};
-use cumulus_zombienet_sdk_helpers::{assert_para_throughput, create_assign_core_call};
+use crate::utils::{initialize_network, wait_node_is_up, BEST_BLOCK_METRIC};
 
+use cumulus_zombienet_sdk_helpers::{
+	assert_para_is_registered, assert_para_throughput, create_assign_core_call,
+	submit_extrinsic_and_wait_for_finalization_success_with_timeout,
+};
 use polkadot_primitives::Id as ParaId;
 use serde_json::json;
-use subxt::{OnlineClient, PolkadotConfig};
-use subxt_signer::sr25519::dev;
 use zombienet_orchestrator::network::node::LogLineCountOptions;
-use zombienet_sdk::{NetworkConfig, NetworkConfigBuilder, RegistrationStrategy};
+use zombienet_sdk::{
+	subxt::{OnlineClient, PolkadotConfig},
+	subxt_signer::sr25519::dev,
+	NetworkConfig, NetworkConfigBuilder, RegistrationStrategy,
+};
 
 const PARA_ID: u32 = 2100;
 
@@ -24,11 +29,9 @@ async fn elastic_scaling_pov_recovery() -> Result<(), anyhow::Error> {
 		env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
 	);
 
-	let config = build_network_config().await?;
-
 	log::info!("Spawning network with relay chain only");
-	let spawn_fn = zombienet_sdk::environment::get_spawn_fn();
-	let mut network = spawn_fn(config).await?;
+	let config = build_network_config().await?;
+	let mut network = initialize_network(config).await?;
 
 	let alice = network.get_node("alice")?;
 	let collator_elastic = network.get_node("collator-elastic")?;
@@ -43,13 +46,14 @@ async fn elastic_scaling_pov_recovery() -> Result<(), anyhow::Error> {
 	let assign_cores_call = create_assign_core_call(&[(0, PARA_ID), (1, PARA_ID)]);
 
 	let relay_client: OnlineClient<PolkadotConfig> = alice.wait_client().await?;
-	relay_client
-		.tx()
-		.sign_and_submit_then_watch_default(&assign_cores_call, &dev::alice())
-		.await
-		.inspect(|_| log::info!("Tx send, waiting for finalization"))?
-		.wait_for_finalized_success()
-		.await?;
+	let res = submit_extrinsic_and_wait_for_finalization_success_with_timeout(
+		&relay_client,
+		&assign_cores_call,
+		&dev::alice(),
+		60u64,
+	)
+	.await;
+	assert!(res.is_ok(), "Extrinsic failed to finalize: {:?}", res.unwrap_err());
 	log::info!("2 more cores assigned to the parachain");
 
 	log::info!("Waiting 20 blocks to register parachain");
@@ -64,11 +68,14 @@ async fn elastic_scaling_pov_recovery() -> Result<(), anyhow::Error> {
 	log::info!("Registering parachain para_id = {PARA_ID}");
 	network.register_parachain(PARA_ID).await?;
 
-	log::info!("Ensuring parachain is registered");
+	log::info!("Ensuring parachain is registered within 30 blocks");
+	assert_para_is_registered(&relay_client, ParaId::from(PARA_ID), 30).await?;
+
+	log::info!("Ensuring parachain making progress");
 	assert_para_throughput(
 		&relay_client,
 		20,
-		[(ParaId::from(PARA_ID), 2..40)].into_iter().collect(),
+		[(ParaId::from(PARA_ID), 40..65)].into_iter().collect(),
 	)
 	.await?;
 

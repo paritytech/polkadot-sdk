@@ -826,6 +826,7 @@ async fn sync_to_tip_requires_that_sync_protocol_is_informed_about_best_block() 
 
 /// Ensures that if we as a syncing node sync to the tip while we are connected to another peer
 /// that is currently also doing a major sync.
+#[cfg(ignore_flaky_test)] // https://github.com/paritytech/polkadot-sdk/issues/48
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn sync_to_tip_when_we_sync_together_with_multiple_peers() {
 	sp_tracing::try_init_simple();

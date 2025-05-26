@@ -110,7 +110,7 @@ impl<T, R, P, L>
 	OffenceReportSystem<Option<T::AccountId>, (EquivocationProof<HeaderFor<T>>, T::KeyOwnerProof)>
 	for EquivocationReportSystem<T, R, P, L>
 where
-	T: Config + pallet_authorship::Config + frame_system::offchain::CreateInherent<Call<T>>,
+	T: Config + pallet_authorship::Config + frame_system::offchain::CreateBare<Call<T>>,
 	R: ReportOffence<
 		T::AccountId,
 		P::IdentificationTuple,
@@ -132,7 +132,7 @@ where
 			equivocation_proof: Box::new(equivocation_proof),
 			key_owner_proof,
 		};
-		let xt = T::create_inherent(call.into());
+		let xt = T::create_bare(call.into());
 		let res = SubmitTransaction::<T, Call<T>>::submit_transaction(xt);
 		match res {
 			Ok(_) => info!(target: LOG_TARGET, "Submitted equivocation report"),

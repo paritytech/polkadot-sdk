@@ -78,8 +78,8 @@ jobs:
   preflight:
     runs-on: ubuntu-latest
     outputs:
-      changes_rust: true
-      changes_currentWorkflow: true
+      changes_rust: ${{ steps.set_changes.outputs.rust_any_changed || steps.set_changes.outputs.currentWorkflow_any_changed }}
+      changes_currentWorkflow: ${{ steps.set_changes.outputs.currentWorkflow_any_changed }}
 
       IMAGE: ${{ steps.set_image.outputs.IMAGE }}
 
@@ -112,20 +112,19 @@ jobs:
           echo "currentWorkflowFile=$(echo ${{ github.workflow_ref }} | sed -nE "s/.*(\.github\/workflows\/[a-zA-Z0-9_-]*\.y[a]?ml)@refs.*/\1/p")" >> $GITHUB_OUTPUT
           echo "currentActionDir=$(echo ${{ github.action_path }} | sed -nE "s/.*(\.github\/actions\/[a-zA-Z0-9_-]*)/\1/p")" >> $GITHUB_OUTPUT
 
-      # removed due to https://news.ycombinator.com/item?id=43368870
-      #- name: Set changes
-      #  id: set_changes
-      #  uses: tj-actions/changed-files@v45
-      #  with:
-      #    files_yaml: |
-      #      rust:
-      #        - '**/*'
-      #        - '!.github/**/*'
-      #        - '!prdoc/**/*'
-      #        - '!docs/**/*'
-      #      currentWorkflow:
-      #        - '${{ steps.current_file.outputs.currentWorkflowFile }}'
-      #        - '.github/workflows/reusable-preflight.yml'
+      - name: Set changes
+        id: set_changes
+        uses: tj-actions/changed-files@ed68ef82c095e0d48ec87eccea555d944a631a4c #v46.0.5
+        with:
+          files_yaml: |
+            rust:
+              - '**/*'
+              - '!.github/**/*'
+              - '!prdoc/**/*'
+              - '!docs/**/*'
+            currentWorkflow:
+              - '${{ steps.current_file.outputs.currentWorkflowFile }}'
+              - '.github/workflows/reusable-preflight.yml'
 
       #
       # Set image
@@ -181,6 +180,7 @@ jobs:
         shell: bash
         run: |
           echo "workflow file: ${{ steps.current_file.outputs.currentWorkflowFile }}"
+          echo "Modified: ${{ steps.set_changes.outputs.modified_keys }}"
 
   #
   #

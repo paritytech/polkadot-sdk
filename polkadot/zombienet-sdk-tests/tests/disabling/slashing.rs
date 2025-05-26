@@ -12,11 +12,13 @@ use cumulus_zombienet_sdk_helpers::{
 };
 use polkadot_primitives::{BlockNumber, CandidateHash, DisputeState, Id as ParaId, SessionIndex};
 use serde_json::json;
-use subxt::{OnlineClient, PolkadotConfig};
 use tokio::time::Duration;
 use tokio_util::time::FutureExt;
 use zombienet_orchestrator::network::node::LogLineCountOptions;
-use zombienet_sdk::NetworkConfigBuilder;
+use zombienet_sdk::{
+	subxt::{OnlineClient, PolkadotConfig},
+	NetworkConfigBuilder,
+};
 
 #[tokio::test(flavor = "multi_thread")]
 async fn dispute_past_session_slashing() -> Result<(), anyhow::Error> {

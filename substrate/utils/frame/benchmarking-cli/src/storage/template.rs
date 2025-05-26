@@ -74,7 +74,11 @@ impl TemplateData {
 			.unwrap_or_default();
 
 		Ok(TemplateData {
-			db_name: format!("{}", cfg.database),
+			db_name: if params.is_validate_block_mode() {
+				String::from("InMemoryDb")
+			} else {
+				format!("{}", cfg.database)
+			},
 			runtime_name: cfg.chain_spec.name().into(),
 			version: VERSION.into(),
 			date: chrono::Utc::now().format("%Y-%m-%d (Y/M/D)").to_string(),

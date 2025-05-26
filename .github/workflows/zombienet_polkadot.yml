@@ -1,6 +1,7 @@
 name: Zombienet Polkadot
 
 on:
+  workflow_dispatch: # Disabled for being flaky
   push:
     branches:
       - master

@@ -169,11 +169,11 @@ where
 	type RuntimeCall = RuntimeCall;
 }
 
-impl<T> frame_system::offchain::CreateInherent<T> for Test
+impl<T> frame_system::offchain::CreateBare<T> for Test
 where
 	RuntimeCall: From<T>,
 {
-	fn create_inherent(call: Self::RuntimeCall) -> Self::Extrinsic {
+	fn create_bare(call: Self::RuntimeCall) -> Self::Extrinsic {
 		UncheckedExtrinsic::new_bare(call)
 	}
 }

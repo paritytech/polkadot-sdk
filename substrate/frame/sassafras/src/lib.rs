@@ -61,7 +61,7 @@ use frame_support::{
 	BoundedVec, WeakBoundedVec,
 };
 use frame_system::{
-	offchain::{CreateInherent, SubmitTransaction},
+	offchain::{CreateBare, SubmitTransaction},
 	pallet_prelude::BlockNumberFor,
 };
 use sp_consensus_sassafras::{
@@ -128,7 +128,7 @@ pub mod pallet {
 
 	/// Configuration parameters.
 	#[pallet::config]
-	pub trait Config: frame_system::Config + CreateInherent<Call<Self>> {
+	pub trait Config: frame_system::Config + CreateBare<Call<Self>> {
 		/// Amount of slots that each epoch should last.
 		#[pallet::constant]
 		type EpochLength: Get<u32>;
@@ -1001,7 +1001,7 @@ impl<T: Config> Pallet<T> {
 	pub fn submit_tickets_unsigned_extrinsic(tickets: Vec<TicketEnvelope>) -> bool {
 		let tickets = BoundedVec::truncate_from(tickets);
 		let call = Call::submit_tickets { tickets };
-		let xt = T::create_inherent(call.into());
+		let xt = T::create_bare(call.into());
 		match SubmitTransaction::<T, Call<T>>::submit_transaction(xt) {
 			Ok(_) => true,
 			Err(e) => {
