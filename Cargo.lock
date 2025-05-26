@@ -4534,6 +4534,7 @@ dependencies = [
  "frame-support",
  "frame-system",
  "futures",
+ "hashbrown 0.15.3",
  "hex-literal",
  "impl-trait-for-tuples",
  "log",
