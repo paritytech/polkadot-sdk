@@ -121,6 +121,11 @@ async fn collect_relay_storage_proof(
 	relevant_keys.extend(egress_channels.into_iter().map(|recipient| {
 		relay_well_known_keys::hrmp_channels(HrmpChannelId { sender: para_id, recipient })
 	}));
+	// TODO: maybe here? can we pass somehow `predefined_sibling_para_id`?
+	// TODO: maybe we can collect all hrmp sender/receipient paraId by default withtout need to change configuration?
+	// for sibling_para_id in predefined_sibling_para_id {
+	// 	relevant_keys.extend(relay_well_known_keys::para_head(sibling_para_id));
+	// }
 
 	relay_chain_interface
 		.prove_read(relay_parent, &relevant_keys)

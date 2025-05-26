@@ -635,6 +635,15 @@ pub mod pallet {
 			)
 			.expect("Invalid relay chain state proof");
 
+			/// This reads actual para head for `T::SelfParaId::get()`
+			log::error!("PARA_HEAD: {:?}", relay_state_proof.read_included_para_head());
+			/// TODO: I would like to acheive something like this, 2001 can be replaced with some onchain configuration
+			let sibling_para_head_from_relaychain_state_proof = relay_state_proof.read_sibling_para_head(2001.into());
+			log::error!("SIBLING_PARA_HEAD: {:?}", sibling_para_head_from_relaychain_state_proof);
+			// TODO: add some callback similar as T::OnSystemEvent (or reuse this one)
+			// TODO: custom pallet, can store those in some list/map or whatever
+			T::OnSiblingParaHead(sibling_para_head_from_relaychain_state_proof);
+
 			// Update the desired maximum capacity according to the consensus hook.
 			let (consensus_hook_weight, capacity) =
 				T::ConsensusHook::on_state_proof(&relay_state_proof);

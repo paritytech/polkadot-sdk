@@ -343,7 +343,11 @@ where
 
 		let client_for_aura = client.clone();
 		let params = SlotBasedParams {
-			create_inherent_data_providers: move |_, ()| async move { Ok(()) },
+			create_inherent_data_providers: move |db_hash, ()| {
+				// TODO: add here custom provider, which will read some runtime api/storage for set of paraIds and get their para heads?
+				// TODO: if we chanage this, how can we release this? As a breaking change?
+				async move { Ok(()) }
+			},
 			block_import,
 			para_client: client.clone(),
 			para_backend: backend.clone(),
@@ -468,7 +472,11 @@ where
 		let params = aura::ParamsWithExport {
 			export_pov: node_extra_args.export_pov,
 			params: AuraParams {
-				create_inherent_data_providers: move |_, ()| async move { Ok(()) },
+				create_inherent_data_providers: move |db_hash, ()| {
+					// TODO: add here custom provider, which will read some runtime api/storage for set of paraIds and get their para heads?
+					// TODO: if we chanage this, how can we release this? As a breaking change?
+					async move { Ok(()) }
+				},
 				block_import,
 				para_client: client.clone(),
 				para_backend: backend,
