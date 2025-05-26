@@ -1686,6 +1686,10 @@ macro_rules! impl_runtime_apis_plus_revive {
 					$crate::Pallet::<Self>::evm_balance(&address)
 				}
 
+				fn coinbase() -> Option<$crate::H160> {
+					$crate::Pallet::<Self>::coinbase()
+				}
+
 				fn block_gas_limit() -> $crate::U256 {
 					$crate::Pallet::<Self>::evm_block_gas_limit()
 				}
@@ -1817,6 +1821,7 @@ macro_rules! impl_runtime_apis_plus_revive {
 					<$Executive>::initialize_block(&header);
 					for (index, ext) in extrinsics.into_iter().enumerate() {
 						let t = tracer.as_tracing();
+						t.watch_address(&$crate::Pallet::<Self>::coinbase().unwrap_or_default());
 						trace(t, || {
 							let _ = <$Executive>::apply_extrinsic(ext);
 						});
@@ -1843,6 +1848,7 @@ macro_rules! impl_runtime_apis_plus_revive {
 					for (index, ext) in extrinsics.into_iter().enumerate() {
 						if index as u32 == tx_index {
 							let t = tracer.as_tracing();
+							t.watch_address(&$crate::Pallet::<Self>::coinbase().unwrap_or_default());
 							trace(t, || {
 								let _ = <$Executive>::apply_extrinsic(ext);
 							});
@@ -1863,6 +1869,7 @@ macro_rules! impl_runtime_apis_plus_revive {
 					let mut tracer = $crate::Pallet::<Self>::evm_tracer(tracer_type);
 					let t = tracer.as_tracing();
 
+					t.watch_address(&$crate::Pallet::<Self>::coinbase().unwrap_or_default());
 					let result = trace(t, || Self::eth_transact(tx));
 
 					if let Some(trace) = tracer.collect_trace() {
