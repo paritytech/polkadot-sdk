@@ -20,7 +20,7 @@ use crate::{
 	Config, CurrentPhase, Pallet, Phase, Snapshot,
 };
 use frame_benchmarking::v2::*;
-use frame_election_provider_support::{ElectionDataProvider, ElectionProvider};
+use frame_election_provider_support::ElectionProvider;
 use frame_support::pallet_prelude::*;
 
 const SNAPSHOT_NOT_BIG_ENOUGH: &'static str = "Snapshot page is not full, you should run this \
@@ -195,15 +195,18 @@ mod benchmarks {
 		assert!(T::Verifier::queued_score().is_some());
 		assert_eq!(verifier::QueuedSolution::<T>::valid_iter().count() as u32, T::Pages::get());
 
+		// Roll to Done phase to start export
+		crate::Pallet::<T>::roll_until_matches(|| CurrentPhase::<T>::get().is_done());
+
 		#[block]
 		{
-			// tell the data provider to do its election process for one page, while we are fully
-			// ready.
-			T::DataProvider::fetch_page(T::Pages::get() - 1)
+			// Start export by calling elect(max_page) in Done phase
+			let max_page = T::Pages::get() - 1;
+			let _ = Pallet::<T>::elect(max_page).unwrap();
 		}
 
 		// we should be in the export phase now.
-		assert_eq!(CurrentPhase::<T>::get(), Phase::Export(T::Pages::get() - 1));
+		assert_eq!(CurrentPhase::<T>::get(), Phase::Export(T::Pages::get() - 2));
 
 		Ok(())
 	}
@@ -230,18 +233,24 @@ mod benchmarks {
 			"solution should be full"
 		);
 
-		// fetch all pages, except for the last one.
-		for i in 1..T::Pages::get() {
-			T::DataProvider::fetch_page(T::Pages::get() - i)
+		// Roll to Done phase
+		crate::Pallet::<T>::roll_until_matches(|| CurrentPhase::<T>::get().is_done());
+
+		// Start export and fetch all pages except the last one
+		let max_page = T::Pages::get() - 1;
+		let _ = Pallet::<T>::elect(max_page).unwrap(); // Start export
+
+		// Fetch remaining pages (max_page-1 down to 1)
+		for i in 1..max_page {
+			let _ = Pallet::<T>::elect(max_page - i).unwrap();
 		}
 
-		assert_eq!(CurrentPhase::<T>::get(), Phase::Export(1));
+		assert_eq!(CurrentPhase::<T>::get(), Phase::Export(0));
 
 		#[block]
 		{
-			// tell the data provider to do its election process for one page, while we are fully
-			// ready.
-			T::DataProvider::fetch_page(0)
+			// Fetch the final page (page 0)
+			let _ = Pallet::<T>::elect(0).unwrap();
 		}
 
 		// we should be in the off phase now.
