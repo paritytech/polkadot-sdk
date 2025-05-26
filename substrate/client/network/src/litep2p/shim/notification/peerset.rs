@@ -494,7 +494,8 @@ impl Peerset {
 
 				return OpenResult::Reject
 			},
-			// The peer was already rejected by the `report_inbound_substream` call.
+			// The peer was already rejected by the `report_inbound_substream` call and this
+			// should never happen. However, this code path is exercised by our fuzzer.
 			PeerState::Disconnected => {
 				log::debug!(
 					target: LOG_TARGET,
@@ -570,6 +571,8 @@ impl Peerset {
 			PeerState::Closing { .. } | PeerState::Connected { .. } => {
 				log::debug!(target: LOG_TARGET, "{}: reserved peer {peer:?} disconnected", self.protocol);
 			},
+			// The peer was already rejected by the `report_inbound_substream` call and this
+			// should never happen. However, this code path is exercised by our fuzzer.
 			PeerState::Disconnected => {
 				log::debug!(
 					target: LOG_TARGET,
