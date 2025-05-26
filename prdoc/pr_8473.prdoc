@@ -17,8 +17,10 @@ crates:
   validate: false
 - name: snowbridge-pallet-inbound-queue
   bump: patch
+  validate: false
 - name: snowbridge-pallet-inbound-queue-v2
   bump: patch
+  validate: false
 - name: snowbridge-pallet-system
   bump: patch
   validate: false
@@ -27,5 +29,7 @@ crates:
   validate: false
 - name: bridge-hub-westend-runtime
   bump: patch
+  validate: false
 - name: bridge-hub-westend-integration-tests
   bump: patch
+  validate: false
