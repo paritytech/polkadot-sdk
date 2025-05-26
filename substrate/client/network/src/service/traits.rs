@@ -215,6 +215,9 @@ where
 
 /// Provides access to the networking DHT.
 pub trait NetworkDHTProvider {
+	/// Start finding closest peers to the target.
+	fn find_closest_peers(&self, target: PeerId);
+
 	/// Start getting a value from the DHT.
 	fn get_value(&self, key: &KademliaKey);
 
@@ -250,6 +253,10 @@ where
 	T: ?Sized,
 	T: NetworkDHTProvider,
 {
+	fn find_closest_peers(&self, target: PeerId) {
+		T::find_closest_peers(self, target)
+	}
+
 	fn get_value(&self, key: &KademliaKey) {
 		T::get_value(self, key)
 	}

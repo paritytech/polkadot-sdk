@@ -585,6 +585,21 @@ pub(crate) mod pallet {
 	#[pallet::pallet]
 	pub struct Pallet<T>(PhantomData<T>);
 
+	#[pallet::genesis_config]
+	#[derive(frame_support::DefaultNoBound)]
+	pub struct GenesisConfig<T: Config> {
+		/// Initial value for [`MinimumScore`]
+		pub(crate) minimum_score: ElectionScore,
+		_marker: PhantomData<T>,
+	}
+
+	#[pallet::genesis_build]
+	impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
+		fn build(&self) {
+			MinimumScore::<T>::put(self.minimum_score);
+		}
+	}
+
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {}
 
@@ -883,7 +898,8 @@ pub fn feasibility_check_page_inner_with_snapshot<T: MinerConfig>(
 	let voter_index = helpers::voter_index_fn_usize::<T>(&cache);
 
 	// Then convert solution -> assignment. This will fail if any of the indices are
-	// gibberish.
+	// gibberish. It will also ensure each assignemnt (voter) is unique, and all targets within it
+	// are unique.
 	let assignments = partial_solution
 		.into_assignment(voter_at, target_at)
 		.map_err::<FeasibilityError, _>(Into::into)?;

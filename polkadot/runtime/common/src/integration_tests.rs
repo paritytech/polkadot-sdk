@@ -42,7 +42,7 @@ use polkadot_primitives::{
 use polkadot_runtime_parachains::{
 	configuration, dmp, origin, paras, shared, Origin as ParaOrigin, ParaLifecycle,
 };
-use sp_core::H256;
+use sp_core::{ConstUint, H256};
 use sp_io::TestExternalities;
 use sp_keyring::Sr25519Keyring;
 use sp_keystore::{testing::MemoryKeystore, KeystoreExt};
@@ -214,6 +214,8 @@ impl paras::Config for Test {
 	type NextSessionRotation = crate::mock::TestNextSessionRotation;
 	type OnNewHead = ();
 	type AssignCoretime = ();
+	type Fungible = Balances;
+	type CooldownRemovalMultiplier = ConstUint<1>;
 }
 
 parameter_types! {

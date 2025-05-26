@@ -4160,21 +4160,21 @@ fn unstable_interface_rejected() {
 fn tracing_works_for_transfers() {
 	ExtBuilder::default().build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000);
-		let mut tracer = CallTracer::new(false, |_| U256::zero());
+		let mut tracer = CallTracer::new(Default::default(), |_| U256::zero());
 		trace(&mut tracer, || {
 			builder::bare_call(BOB_ADDR).value(10_000_000).build_and_unwrap_result();
 		});
 
-		let traces = tracer.collect_traces();
+		let trace = tracer.collect_trace();
 		assert_eq!(
-			traces,
-			vec![CallTrace {
+			trace,
+			Some(CallTrace {
 				from: ALICE_ADDR,
 				to: BOB_ADDR,
 				value: Some(U256::from(10_000_000)),
 				call_type: CallType::Call,
 				..Default::default()
-			},]
+			})
 		)
 	});
 }
@@ -4194,10 +4194,27 @@ fn tracing_works() {
 		let Contract { addr, .. } =
 			builder::bare_instantiate(Code::Upload(code)).value(10_000_000).build_and_unwrap_contract();
 
-		let tracer_options = vec![
-			( false , vec![]),
-			(
-				true ,
+
+		let tracer_configs = vec![
+			 CallTracerConfig{ with_logs: false, only_top_call: false},
+			 CallTracerConfig{ with_logs: false, only_top_call: false},
+			 CallTracerConfig{ with_logs: false, only_top_call: true},
+		];
+
+		// Verify that the first trace report the same weight reported by bare_call
+		// TODO: fix tracing ( https://github.com/paritytech/polkadot-sdk/issues/8362 )
+		/*
+		let mut tracer = CallTracer::new(false, |w| w);
+		let gas_used = trace(&mut tracer, || {
+			builder::bare_call(addr).data((3u32, addr_callee).encode()).build().gas_consumed
+		});
+		let trace = tracer.collect_trace().unwrap();
+		assert_eq!(&trace.gas_used, &gas_used);
+		*/
+
+		// Discarding gas usage, check that traces reported are correct
+		for config in tracer_configs {
+			let logs = if config.with_logs {
 				vec![
 					CallLog {
 						address: addr,
@@ -4211,39 +4228,15 @@ fn tracing_works() {
 						data: b"after".to_vec().into(),
 						position: 1,
 					},
-				],
-			),
-		];
+				]
+			} else {
+				vec![]
+			};
 
-		// Verify that the first trace report the same weight reported by bare_call
-		// TODO: fix tracing ( https://github.com/paritytech/polkadot-sdk/issues/8362 )
-		/*
-		let mut tracer = CallTracer::new(false, |w| w);
-		let gas_used = trace(&mut tracer, || {
-			builder::bare_call(addr).data((3u32, addr_callee).encode()).build().gas_consumed
-		});
-		let traces = tracer.collect_traces();
-		assert_eq!(&traces[0].gas_used, &gas_used);
-		*/
-
-		// Discarding gas usage, check that traces reported are correct
-		for (with_logs, logs) in tracer_options {
-			let mut tracer = CallTracer::new(with_logs, |_| U256::zero());
-			trace(&mut tracer, || {
-				builder::bare_call(addr).data((3u32, addr_callee).encode()).build()
-			});
-
-
-			assert_eq!(
-				tracer.collect_traces(),
-				vec![CallTrace {
-					from: ALICE_ADDR,
-					to: addr,
-					input: (3u32, addr_callee).encode().into(),
-					call_type: Call,
-					logs: logs.clone(),
-					value: Some(U256::from(0)),
-					calls: vec![
+			let calls = if config.only_top_call {
+				vec![]
+			} else {
+				vec![
 						CallTrace {
 							from: addr,
 							to: addr_callee,
@@ -4315,9 +4308,29 @@ fn tracing_works() {
 							],
 							..Default::default()
 						},
-					],
+					]
+			};
+
+			let mut tracer = CallTracer::new(config, |_| U256::zero());
+			trace(&mut tracer, || {
+				builder::bare_call(addr).data((3u32, addr_callee).encode()).build()
+			});
+
+			let trace = tracer.collect_trace();
+			let expected_trace = CallTrace {
+					from: ALICE_ADDR,
+					to: addr,
+					input: (3u32, addr_callee).encode().into(),
+					call_type: Call,
+					logs: logs.clone(),
+					value: Some(U256::from(0)),
+					calls: calls,
 					..Default::default()
-				},]
+				};
+
+			assert_eq!(
+				trace,
+				expected_trace.into(),
 			);
 		}
 	});
@@ -4551,4 +4564,47 @@ fn precompiles_with_info_creates_contract() {
 			);
 		});
 	}
+}
+
+#[test]
+fn nonce_incremented_dry_run_vs_execute() {
+	let (wasm, _code_hash) = compile_module("dummy").unwrap();
+
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+
+		// Set a known nonce
+		let initial_nonce = 5;
+		frame_system::Account::<Test>::mutate(&ALICE, |account| {
+			account.nonce = initial_nonce;
+		});
+
+		// stimulate a dry run
+		let dry_run_result = builder::bare_instantiate(Code::Upload(wasm.clone()))
+			.nonce_already_incremented(crate::NonceAlreadyIncremented::No)
+			.salt(None)
+			.build();
+
+		let dry_run_addr = dry_run_result.result.unwrap().addr;
+
+		let deployer = <Test as Config>::AddressMapper::to_address(&ALICE);
+		let expected_addr = create1(&deployer, initial_nonce.into());
+
+		assert_eq!(dry_run_addr, expected_addr);
+
+		// reset nonce to initial value
+		frame_system::Account::<Test>::mutate(&ALICE, |account| {
+			account.nonce = initial_nonce;
+		});
+
+		// stimulate an actual execution
+		let exec_result = builder::bare_instantiate(Code::Upload(wasm.clone())).salt(None).build();
+
+		let exec_addr = exec_result.result.unwrap().addr;
+
+		let deployer = <Test as Config>::AddressMapper::to_address(&ALICE);
+		let expected_addr = create1(&deployer, (initial_nonce - 1).into());
+
+		assert_eq!(exec_addr, expected_addr);
+	});
 }

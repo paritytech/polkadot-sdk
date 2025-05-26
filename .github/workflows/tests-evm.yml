@@ -43,7 +43,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: paritytech/evm-test-suite
-          ref: 7762a35a380023a800d213b8ff98f3fb45500661
+          ref: 6ffa85740a82d9cdb90629f9e3dbca5dc175c5e9
           path: evm-test-suite
 
       - uses: actions/setup-node@v4

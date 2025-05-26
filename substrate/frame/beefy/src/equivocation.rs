@@ -81,6 +81,8 @@ where
 	pub validator_set_count: u32,
 	/// The authority which produced this equivocation.
 	pub offender: Offender,
+	/// Optional slash fraction
+	maybe_slash_fraction: Option<Perbill>,
 }
 
 impl<Offender: Clone, N> Offence<Offender> for EquivocationOffence<Offender, N>
@@ -106,10 +108,14 @@ where
 		self.time_slot
 	}
 
-	// The formula is min((3k / n)^2, 1)
-	// where k = offenders_number and n = validators_number
 	fn slash_fraction(&self, offenders_count: u32) -> Perbill {
-		// Perbill type domain is [0, 1] by definition
+		if let Some(slash_fraction) = self.maybe_slash_fraction {
+			return slash_fraction;
+		}
+
+		// `Perbill` type domain is [0, 1] by definition
+		// The formula is min((3k / n)^2, 1)
+		// where k = offenders_number and n = validators_number
 		Perbill::from_rational(3 * offenders_count, self.validator_set_count).square()
 	}
 }
@@ -263,6 +269,14 @@ impl<T: Config> EquivocationEvidenceFor<T> {
 			},
 		}
 	}
+
+	fn slash_fraction(&self) -> Option<Perbill> {
+		match self {
+			EquivocationEvidenceFor::DoubleVotingProof(_, _) => None,
+			EquivocationEvidenceFor::ForkVotingProof(_, _) |
+			EquivocationEvidenceFor::FutureBlockVotingProof(_, _) => Some(Perbill::from_percent(50)),
+		}
+	}
 }
 
 impl<T, R, P, L> OffenceReportSystem<Option<T::AccountId>, EquivocationEvidenceFor<T>>
@@ -311,6 +325,7 @@ where
 		reporter: Option<T::AccountId>,
 		evidence: EquivocationEvidenceFor<T>,
 	) -> Result<(), DispatchError> {
+		let maybe_slash_fraction = evidence.slash_fraction();
 		let reporter = reporter.or_else(|| pallet_authorship::Pallet::<T>::author());
 
 		// We check the equivocation within the context of its set id (and associated session).
@@ -339,6 +354,7 @@ where
 			session_index,
 			validator_set_count: validator_count,
 			offender,
+			maybe_slash_fraction,
 		};
 		R::report_offence(reporter.into_iter().collect(), offence)
 			.map_err(|_| Error::<T>::DuplicateOffenceReport.into())
