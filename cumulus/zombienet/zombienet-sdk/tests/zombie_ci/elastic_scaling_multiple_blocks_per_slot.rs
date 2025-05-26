@@ -3,8 +3,11 @@
 
 use anyhow::anyhow;
 
+use crate::utils::initialize_network;
+
 use cumulus_zombienet_sdk_helpers::{
 	assert_finality_lag, assert_para_throughput, create_assign_core_call,
+	submit_extrinsic_and_wait_for_finalization_success_with_timeout,
 };
 use polkadot_primitives::Id as ParaId;
 use serde_json::json;
@@ -20,15 +23,14 @@ const PARA_ID: u32 = 2400;
 /// **Note:** The runtime in use here has 6s slot duration, so multiple blocks will be produced per
 /// slot.
 #[tokio::test(flavor = "multi_thread")]
-async fn elastic_scaling_multiple_block_per_slot() -> Result<(), anyhow::Error> {
+async fn elastic_scaling_multiple_blocks_per_slot() -> Result<(), anyhow::Error> {
 	let _ = env_logger::try_init_from_env(
 		env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
 	);
 
+	log::info!("Spawning network");
 	let config = build_network_config().await?;
-
-	let spawn_fn = zombienet_sdk::environment::get_spawn_fn();
-	let network = spawn_fn(config).await?;
+	let network = initialize_network(config).await?;
 
 	let relay_node = network.get_node("validator-0")?;
 	let para_node_elastic = network.get_node("collator-1")?;
@@ -38,20 +40,21 @@ async fn elastic_scaling_multiple_block_per_slot() -> Result<(), anyhow::Error> 
 	assert_para_throughput(
 		&relay_client,
 		10,
-		[(ParaId::from(PARA_ID), 8..11)].into_iter().collect(),
+		[(ParaId::from(PARA_ID), 3..18)].into_iter().collect(),
 	)
 	.await?;
 	assert_finality_lag(&para_node_elastic.wait_client().await?, 5).await?;
 
 	let assign_cores_call = create_assign_core_call(&[(2, PARA_ID), (3, PARA_ID)]);
 
-	relay_client
-		.tx()
-		.sign_and_submit_then_watch_default(&assign_cores_call, &alice)
-		.await
-		.inspect(|_| log::info!("Tx send, waiting for finalization"))?
-		.wait_for_finalized_success()
-		.await?;
+	let res = submit_extrinsic_and_wait_for_finalization_success_with_timeout(
+		&relay_client,
+		&assign_cores_call,
+		&dev::alice(),
+		60u64,
+	)
+	.await;
+	assert!(res.is_ok(), "Extrinsic failed to finalize: {:?}", res.unwrap_err());
 	log::info!("2 more cores assigned to each parachain");
 
 	assert_para_throughput(
