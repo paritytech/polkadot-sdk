@@ -201,7 +201,14 @@ jobs:
         shell: bash
         run: |
           export DOCKER_IMAGES_VERSION=${{ github.event.pull_request.head.sha }}
-          if [[ ${{ github.event_name }} == "merge_group" || ${{ github.event_name }} == "workflow_dispatch" ]]; then export DOCKER_IMAGES_VERSION="${GITHUB_SHA::8}"; fi
+          # if [[ ${{ github.event_name }} == "merge_group" || ${{ github.event_name }} == "workflow_dispatch" ]]; then export DOCKER_IMAGES_VERSION="${GITHUB_SHA::8}"; fi
+          echo "event_name = ${{ github.event_name }}"
+          echo "DOCKER_IMAGES_VERSION = $DOCKER_IMAGES_VERSION"
+          echo "GITHUB_SHA = ${GITHUB_SHA}"
+          if [[ ${{ github.event_name }} == "merge_group" || ${{ github.event_name }} == "workflow_dispatch" ]]; then
+            export DOCKER_IMAGES_VERSION="${GITHUB_SHA::8}";
+            echo "export DOCKER_IMAGES_VERSION = $DOCKER_IMAGES_VERSION"
+          fi
           echo "DOCKER_IMAGES_VERSION=${DOCKER_IMAGES_VERSION}" >> $GITHUB_OUTPUT
 
       - name: log
@@ -260,7 +267,13 @@ jobs:
           gh --version
 
           SHA=${{ github.event.pull_request.head.sha }}
-          if [[ ${{ github.event_name }} == "merge_group" || ${{ github.event_name }} == "workflow_dispatch" ]]; then export SHA="${GITHUB_SHA::8}"; fi
+          echo "event_name = ${{ github.event_name }}"
+          echo "SHA = $SHA"
+          echo "GITHUB_SHA = ${GITHUB_SHA}"
+          if [[ ${{ github.event_name }} == "merge_group" || ${{ github.event_name }} == "workflow_dispatch" ]]; then
+            export SHA="${GITHUB_SHA::8}";
+            echo "export SHA = $SHA"
+          fi
           DELAYER=10
           while true; do
             # In case of multiple runs take the most recent one (with greatest databaseId)
