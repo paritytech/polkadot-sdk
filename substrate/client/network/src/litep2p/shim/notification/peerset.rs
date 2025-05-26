@@ -617,16 +617,17 @@ impl Peerset {
 
 		match state {
 			// disconnected peers proceed directly to inbound slot allocation
-			PeerState::Disconnected =>
-				if should_reject {
-					log::trace!(
-						target: LOG_TARGET,
-						"{}: rejecting non-reserved peer {peer:?} in reserved-only mode (prev state: {state:?})",
-						self.protocol,
-					);
+			PeerState::Disconnected => {},
+			// disconnected peers that are reserved-only peers are rejected
+			PeerState::Disconnected if should_reject => {
+				log::trace!(
+					target: LOG_TARGET,
+					"{}: rejecting non-reserved peer {peer:?} in reserved-only mode (prev state: {state:?})",
+					self.protocol,
+				);
 
-					return ValidationResult::Reject
-				},
+				return ValidationResult::Reject
+			},
 			// peer is backed off but if it can be accepted (either a reserved peer or inbound slot
 			// available), accept the peer and then just ignore the back-off timer when it expires
 			PeerState::Backoff => {
