@@ -789,7 +789,7 @@ error[E0277]: the trait bound `Runtime: Config` is not satisfied
    = help: the trait `Serialize` is implemented for `GenesisConfig<T>`
    = note: required for `GenesisConfig<Runtime>` to implement `Serialize`
 note: required by a bound in `frame_support::sp_runtime::serde::ser::SerializeStruct::serialize_field`
-  --> $CARGO/serde-1.0.217/src/ser/mod.rs
+  --> $CARGO/serde-1.0.219/src/ser/mod.rs
    |
    |     fn serialize_field<T>(&mut self, key: &'static str, value: &T) -> Result<(), Self::Error>
    |        --------------- required by a bound in this associated function
