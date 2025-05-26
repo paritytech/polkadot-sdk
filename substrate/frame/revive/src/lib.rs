@@ -1642,6 +1642,15 @@ sp_api::decl_runtime_apis! {
 	}
 }
 
+/// This macro wraps substrate's `impl_runtime_apis!` and implements `pallet_revive` runtime APIs.
+///
+/// # Parameters
+/// - `$Runtime`: The runtime type to implement the APIs for.
+/// - `$Executive`: The Executive type of the runtime.
+/// - `$EthExtra`: Type for additional Ethereum runtime extension.
+/// - `$($rest:tt)*`: Remaining input to be forwarded to the underlying `impl_runtime_apis!`.
+#[macro_export]
+macro_rules! impl_runtime_apis_plus_revive {
 #[macro_export]
 macro_rules! impl_runtime_apis_plus_revive {
 	($Runtime: ty, $Executive: ty, $EthExtra: ty,  $($rest:tt)* ) => {
