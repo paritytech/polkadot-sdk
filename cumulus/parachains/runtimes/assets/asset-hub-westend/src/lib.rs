@@ -1926,7 +1926,6 @@ impl_runtime_apis! {
 					ExistentialDeposit::get()
 				).into());
 
-				// reserve-based transfer cases. non-system parachain i.e. id >= 2000
 				pub RandomParaId: ParaId = ParaId::new(RandomId::get());
 				pub AssetHubParaId: ParaId = ParaId::new(AssetHubId::get());
 			}
