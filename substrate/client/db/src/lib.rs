@@ -42,7 +42,7 @@ mod upgrade;
 mod utils;
 
 use linked_hash_map::LinkedHashMap;
-use log::{debug, info, trace, warn};
+use log::{debug, trace, warn};
 use parking_lot::{Mutex, RwLock};
 use prometheus_endpoint::Registry;
 use std::{
@@ -1244,6 +1244,7 @@ impl<Block: BlockT> Backend<Block> {
 			let used_memory = system_memory.used_memory();
 			let total_memory = system_memory.total_memory();
 
+			debug!("Initializing shared trie cache with size {} bytes, {}% of total memory", maximum_size, (maximum_size as f64 / total_memory as f64 * 100.0));
 			if maximum_size as u64 > total_memory - used_memory {
 				warn!(
 					"Not enough memory to initialize shared trie cache. Cache size: {} bytes. System memory: used {} bytes, total {} bytes",
@@ -1251,9 +1252,8 @@ impl<Block: BlockT> Backend<Block> {
 				);
 			}
 
-			debug!("Initializing shared trie cache with size {} bytes, {}% of total memory", maximum_size, (maximum_size as f64 / total_memory as f64 * 100.0));
-			Ok(SharedTrieCache::new(sp_trie::cache::CacheSize::new(maximum_size), config.metrics_registry.as_ref()))
-		}).transpose()?;
+			SharedTrieCache::new(sp_trie::cache::CacheSize::new(maximum_size), config.metrics_registry.as_ref())
+		});
 
 		let backend = Backend {
 			storage: Arc::new(storage_db),
