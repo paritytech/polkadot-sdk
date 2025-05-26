@@ -14,7 +14,7 @@
 //! 	- [Dashboard](https://polkadot-fellows.github.io/dashboard/)
 //! - [Polkadot Specs](http://spec.polkadot.network)
 //! - [The Polkadot Parachain Host Implementers' Guide](https://paritytech.github.io/polkadot-sdk/book/)
-//! - [Whitepaper](https://www.polkadot.network/whitepaper/)
+//! - [Polkadot papers](https://polkadot.com/papers/)
 //! - [JAM Graypaper](https://graypaper.com)
 //!
 //! ## Alternative Node Implementations 🌈
@@ -54,7 +54,7 @@
 //!   the validity of the block execution of multiple parachains using the same set of validators as
 //!   the Relay Chain. In practice, this means that the shards (parachains) share the same economic
 //!   security as the Relay Chain.
-//!   Learn about this process called [Approval Checking](https://polkadot.network/blog/polkadot-v1-0-sharding-and-economic-security#approval-checking-and-finality).
+//!   Learn about this process called [Approval Checking](https://polkadot.com/blog/polkadot-v1-0-sharding-and-economic-security#approval-checking-and-finality).
 //! * A framework to build blockchains: In order to materialize the ecosystem of parachains, an easy
 //!   blockchain framework must exist. This is [Substrate](crate::polkadot_sdk::substrate),
 //!   [FRAME](crate::polkadot_sdk::frame_runtime) and [Cumulus](crate::polkadot_sdk::cumulus).
