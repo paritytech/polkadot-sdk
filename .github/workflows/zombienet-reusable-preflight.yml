@@ -201,7 +201,9 @@ jobs:
         shell: bash
         run: |
           export DOCKER_IMAGES_VERSION=${{ github.event.pull_request.head.sha }}
-          if [[ ${{ github.event_name }} == "merge_group" || ${{ github.event_name }} == "workflow_dispatch" ]]; then export DOCKER_IMAGES_VERSION="${GITHUB_SHA::8}"; fi
+          if [[ ${{ github.event_name }} == "merge_group" || ${{ github.event_name }} == "workflow_dispatch" ]]; then
+            export DOCKER_IMAGES_VERSION="${GITHUB_SHA}";
+          fi
           echo "DOCKER_IMAGES_VERSION=${DOCKER_IMAGES_VERSION}" >> $GITHUB_OUTPUT
 
       - name: log
@@ -258,8 +260,12 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           gh --version
+
           export SHA=${{ github.event.pull_request.head.sha }}
-          if [[ ${{ github.event_name }} == "merge_group" || ${{ github.event_name }} == "workflow_dispatch" ]]; then export SHA="${GITHUB_SHA::8}"; fi
+          if [[ ${{ github.event_name }} == "merge_group" || ${{ github.event_name }} == "workflow_dispatch" ]]; then
+            # Full SHA is needed to query GH run status
+            export SHA="${GITHUB_SHA}";
+          fi
           DELAYER=10
           while true; do
             # In case of multiple runs take the most recent one (with greatest databaseId)
