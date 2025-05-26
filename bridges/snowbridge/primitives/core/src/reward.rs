@@ -5,7 +5,8 @@ extern crate alloc;
 
 use crate::reward::RewardPaymentError::{ChargeFeesFailure, XcmSendFailure};
 use bp_relayers::PaymentProcedure;
-use frame_support::dispatch::GetDispatchInfo;
+use codec::DecodeWithMemTracking;
+use frame_support::{dispatch::GetDispatchInfo, PalletError};
 use scale_info::TypeInfo;
 use sp_runtime::{
 	codec::{Decode, Encode},
@@ -17,6 +18,29 @@ use xcm::{
 	opaque::latest::prelude::Xcm,
 	prelude::{ExecuteXcm, Junction::*, Location, SendXcm, *},
 };
+
+/// Describes the message that the tip should be added to (either Inbound or Outbound message) and
+/// the message nonce.
+#[derive(Debug, Clone, PartialEq, Encode, Decode, DecodeWithMemTracking, TypeInfo)]
+pub enum MessageId {
+	/// Message from Ethereum
+	Inbound(u64),
+	/// Message to Ethereum
+	Outbound(u64),
+}
+
+#[derive(Debug, Encode, PartialEq, DecodeWithMemTracking, Decode, TypeInfo, PalletError)]
+pub enum AddTipError {
+	NonceConsumed,
+	UnknownMessage,
+	AmountZero,
+}
+
+/// Trait to add a tip for a nonce.
+pub trait AddTip {
+	/// Add a relayer reward tip to a pallet.
+	fn add_tip(nonce: u64, amount: u128) -> Result<(), AddTipError>;
+}
 
 /// Error related to paying out relayer rewards.
 #[derive(Debug, Encode, Decode)]
