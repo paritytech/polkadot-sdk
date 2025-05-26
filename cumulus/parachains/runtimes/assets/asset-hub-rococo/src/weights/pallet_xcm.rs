@@ -132,10 +132,10 @@ impl<T: frame_system::Config> pallet_xcm::WeightInfo for WeightInfo<T> {
 	/// Proof: `XcmpQueue::OutboundXcmpMessages` (`max_values`: None, `max_size`: Some(105506), added: 107981, mode: `MaxEncodedLen`)
 	fn reserve_transfer_assets() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `329`
+		//  Measured:  `348`
 		//  Estimated: `6196`
-		// Minimum execution time: 134_968_000 picoseconds.
-		Weight::from_parts(139_074_000, 0)
+		// Minimum execution time: 154_931_000 picoseconds.
+		Weight::from_parts(159_230_000, 0)
 			.saturating_add(Weight::from_parts(0, 6196))
 			.saturating_add(T::DbWeight::get().reads(8))
 			.saturating_add(T::DbWeight::get().writes(4))
