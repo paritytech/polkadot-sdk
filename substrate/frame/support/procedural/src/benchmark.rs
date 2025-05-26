@@ -736,6 +736,7 @@ pub fn benchmarks(
 					verify: bool,
 					internal_repeats: u32,
 				) -> Result<#krate::__private::Vec<#krate::BenchmarkResult>, #krate::BenchmarkError> {
+					#krate::benchmarking::wipe_db();
 					let extrinsic = #krate::__private::str::from_utf8(extrinsic).map_err(|_| "`extrinsic` is not a valid utf-8 string!")?;
 					let selected_benchmark = match extrinsic {
 						#(#selected_benchmark_mappings),

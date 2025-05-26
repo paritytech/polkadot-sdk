@@ -346,11 +346,11 @@ async fn assert_candidate_backing_second(
 async fn assert_collator_disconnect(virtual_overseer: &mut VirtualOverseer, expected_peer: PeerId) {
 	assert_matches!(
 		overseer_recv(virtual_overseer).await,
-		AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::DisconnectPeer(
-			peer,
+		AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::DisconnectPeers(
+			peers,
 			peer_set,
 		)) => {
-			assert_eq!(expected_peer, peer);
+			assert_eq!(vec![expected_peer], peers);
 			assert_eq!(PeerSet::Collation, peer_set);
 		}
 	);
@@ -1105,7 +1105,7 @@ fn delay_reputation_change() {
 
 		loop {
 			match overseer_recv(&mut virtual_overseer).await {
-				AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::DisconnectPeer(_, _)) => {
+				AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::DisconnectPeers(_, _)) => {
 					gum::trace!("`Disconnecting inactive peer` message skipped");
 					continue
 				},

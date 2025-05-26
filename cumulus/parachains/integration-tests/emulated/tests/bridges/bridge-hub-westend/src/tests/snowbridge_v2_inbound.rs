@@ -15,8 +15,9 @@
 use crate::{
 	imports::*,
 	tests::snowbridge_common::{
-		erc20_token_location, eth_location, register_foreign_asset, set_up_eth_and_dot_pool,
-		set_up_eth_and_dot_pool_on_penpal, snowbridge_sovereign, weth_location,
+		erc20_token_location, eth_location, fund_on_ah, fund_on_bh, register_assets_on_ah,
+		register_foreign_asset, set_up_eth_and_dot_pool, set_up_eth_and_dot_pool_on_penpal,
+		snowbridge_sovereign, weth_location,
 	},
 };
 use asset_hub_westend_runtime::ForeignAssets;
@@ -32,7 +33,7 @@ use emulated_integration_tests_common::{
 };
 use hex_literal::hex;
 use rococo_westend_system_emulated_network::penpal_emulated_chain::PARA_ID_B;
-use snowbridge_core::{AssetMetadata, TokenIdOf};
+use snowbridge_core::{reward::MessageId, AssetMetadata, TokenIdOf};
 use snowbridge_inbound_queue_primitives::v2::{
 	EthereumAsset::{ForeignTokenERC20, NativeTokenERC20},
 	Message, Network, XcmPayload,
@@ -161,6 +162,7 @@ fn send_token_v2() {
 		NativeTokenERC20 { token_id: token.into(), value: token_transfer_value },
 	];
 
+	set_up_eth_and_dot_pool();
 	let topic_id = BridgeHubWestend::execute_with(|| {
 		type RuntimeEvent = <BridgeHubWestend as Chain>::RuntimeEvent;
 		let instructions = vec![
@@ -280,6 +282,7 @@ fn send_weth_v2() {
 		NativeTokenERC20 { token_id: WETH.into(), value: token_transfer_value },
 	];
 
+	set_up_eth_and_dot_pool();
 	BridgeHubWestend::execute_with(|| {
 		type RuntimeEvent = <BridgeHubWestend as Chain>::RuntimeEvent;
 		let instructions = vec![
@@ -769,6 +772,7 @@ fn send_foreign_erc20_token_back_to_polkadot() {
 	.appended_with(asset_id.clone().interior)
 	.unwrap();
 
+	set_up_eth_and_dot_pool();
 	// Register token
 	BridgeHubWestend::execute_with(|| {
 		type RuntimeOrigin = <BridgeHubWestend as Chain>::RuntimeOrigin;
@@ -963,6 +967,7 @@ fn invalid_claimer_does_not_fail_the_message() {
 
 	let origin = H160::random();
 
+	set_up_eth_and_dot_pool();
 	BridgeHubWestend::execute_with(|| {
 		type RuntimeEvent = <BridgeHubWestend as Chain>::RuntimeEvent;
 		let instructions = vec![
@@ -1049,4 +1054,41 @@ fn create_foreign_asset_deposit_is_equal_to_asset_hub_foreign_asset_pallet_depos
 		asset_hub_deposit,
 		"The BridgeHub asset creation deposit must be equal to or larger than the asset creation deposit configured on BridgeHub"
 	);
+}
+
+#[test]
+pub fn add_tip_from_asset_hub_user_origin() {
+	fund_on_bh();
+	register_assets_on_ah();
+	fund_on_ah();
+	set_up_eth_and_dot_pool();
+	let relayer = AssetHubWestendSender::get();
+
+	// Add the tip to a nonce that has not been processed.
+	let tip_message_id = MessageId::Inbound(2);
+
+	let dot = Location::new(1, Here);
+	AssetHubWestend::execute_with(|| {
+		type RuntimeOrigin = <AssetHubWestend as Chain>::RuntimeOrigin;
+
+		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::SnowbridgeSystemFrontend::add_tip(
+			RuntimeOrigin::signed(relayer.clone()),
+			tip_message_id.clone(),
+			xcm::prelude::Asset::from((dot, 1_000_000_000u128)),
+		));
+	});
+
+	BridgeHubWestend::execute_with(|| {
+		type RuntimeEvent = <BridgeHubWestend as Chain>::RuntimeEvent;
+
+		let events = BridgeHubWestend::events();
+		assert!(
+			events.iter().any(|event| matches!(
+				event,
+				RuntimeEvent::EthereumSystemV2(snowbridge_pallet_system_v2::Event::TipProcessed { sender, message_id, success, ..})
+					if *sender == relayer &&*message_id == tip_message_id.clone() && *success, // expect success
+			)),
+			"tip added event found"
+		);
+	});
 }

@@ -76,6 +76,7 @@ members = [
 	"cumulus/client/relay-chain-interface",
 	"cumulus/client/relay-chain-minimal-node",
 	"cumulus/client/relay-chain-rpc-interface",
+	"cumulus/client/relay-chain-streams",
 	"cumulus/client/service",
 	"cumulus/pallets/aura-ext",
 	"cumulus/pallets/collator-selection",
@@ -553,6 +554,7 @@ members = [
 	"substrate/utils/frame/rpc/state-trie-migration-rpc",
 	"substrate/utils/frame/rpc/support",
 	"substrate/utils/frame/rpc/system",
+	"substrate/utils/frame/storage-access-test-runtime",
 	"substrate/utils/prometheus",
 	"substrate/utils/substrate-bip39",
 	"substrate/utils/wasm-builder",
@@ -585,6 +587,7 @@ unexpected_cfgs = { level = "warn", check-cfg = [
 	'cfg(build_profile, values("debug", "release"))',
 	'cfg(enable_alloc_error_handler)',
 	'cfg(fuzzing)',
+	'cfg(ignore_flaky_test)',
 	'cfg(substrate_runtime)',
 ] }
 
@@ -649,7 +652,7 @@ asset-test-utils = { path = "cumulus/parachains/runtimes/assets/test-utils", def
 assets-common = { path = "cumulus/parachains/runtimes/assets/common", default-features = false }
 async-channel = { version = "1.8.0" }
 async-std = { version = "1.9.0" }
-async-trait = { version = "0.1.79" }
+async-trait = { version = "0.1.88" }
 asynchronous-codec = { version = "0.6" }
 backoff = { version = "0.4" }
 backtrace = { version = "0.3.71" }
@@ -706,7 +709,7 @@ clap = { version = "4.5.13" }
 clap_complete = { version = "4.5.13" }
 cmd_lib = { version = "1.9.5" }
 coarsetime = { version = "0.1.22" }
-codec = { version = "3.7.4", default-features = false, package = "parity-scale-codec" }
+codec = { version = "3.7.5", default-features = false, package = "parity-scale-codec" }
 collectives-westend-emulated-chain = { path = "cumulus/parachains/integration-tests/emulated/chains/parachains/collectives/collectives-westend" }
 collectives-westend-runtime = { path = "cumulus/parachains/runtimes/collectives/collectives-westend" }
 color-eyre = { version = "0.6.3", default-features = false }
@@ -753,6 +756,7 @@ cumulus-relay-chain-inprocess-interface = { path = "cumulus/client/relay-chain-i
 cumulus-relay-chain-interface = { path = "cumulus/client/relay-chain-interface", default-features = false }
 cumulus-relay-chain-minimal-node = { path = "cumulus/client/relay-chain-minimal-node", default-features = false }
 cumulus-relay-chain-rpc-interface = { path = "cumulus/client/relay-chain-rpc-interface", default-features = false }
+cumulus-relay-chain-streams = { path = "cumulus/client/relay-chain-streams", default-features = false }
 cumulus-test-client = { path = "cumulus/test/client" }
 cumulus-test-relay-sproof-builder = { path = "cumulus/test/relay-sproof-builder", default-features = false }
 cumulus-test-runtime = { path = "cumulus/test/runtime" }
@@ -802,8 +806,9 @@ frame-benchmarking-pallet-pov = { default-features = false, path = "substrate/fr
 frame-election-provider-solution-type = { path = "substrate/frame/election-provider-support/solution-type", default-features = false }
 frame-election-provider-support = { path = "substrate/frame/election-provider-support", default-features = false }
 frame-executive = { path = "substrate/frame/executive", default-features = false }
-frame-metadata = { version = "22.0.0", default-features = false }
+frame-metadata = { version = "23.0.0", default-features = false }
 frame-metadata-hash-extension = { path = "substrate/frame/metadata-hash-extension", default-features = false }
+frame-storage-access-test-runtime = { path = "substrate/utils/frame/storage-access-test-runtime", default-features = false }
 frame-support = { path = "substrate/frame/support", default-features = false }
 frame-support-procedural = { path = "substrate/frame/support/procedural", default-features = false }
 frame-support-procedural-tools = { path = "substrate/frame/support/procedural/tools", default-features = false }
@@ -829,6 +834,7 @@ gum-proc-macro = { path = "polkadot/node/gum/proc-macro", default-features = fal
 handlebars = { version = "5.1.0" }
 hash-db = { version = "0.16.0", default-features = false }
 hash256-std-hasher = { version = "0.15.2", default-features = false }
+hashbrown = "0.15.3"
 hex = { version = "0.4.3", default-features = false }
 hex-literal = { version = "0.4.1", default-features = false }
 hkdf = { version = "0.12.0" }
@@ -879,7 +885,7 @@ linked-hash-map = { version = "0.5.4" }
 linked_hash_set = { version = "0.1.4" }
 linregress = { version = "0.5.1" }
 lite-json = { version = "0.2.0", default-features = false }
-litep2p = { version = "0.9.3", features = ["websocket"] }
+litep2p = { version = "0.9.4", features = ["websocket"] }
 log = { version = "0.4.22", default-features = false }
 macro_magic = { version = "0.5.1" }
 maplit = { version = "1.0.2" }
@@ -1374,9 +1380,9 @@ substrate-test-runtime-client = { path = "substrate/test-utils/runtime/client" }
 substrate-test-runtime-transaction-pool = { path = "substrate/test-utils/runtime/transaction-pool" }
 substrate-test-utils = { path = "substrate/test-utils" }
 substrate-wasm-builder = { path = "substrate/utils/wasm-builder", default-features = false }
-subxt = { version = "0.38.1", default-features = false }
-subxt-metadata = { version = "0.38.0", default-features = false }
-subxt-signer = { version = "0.38" }
+subxt = { version = "0.41", default-features = false }
+subxt-metadata = { version = "0.41", default-features = false }
+subxt-signer = { version = "0.41" }
 syn = { version = "2.0.87" }
 sysinfo = { version = "0.30" }
 tar = { version = "0.4" }
@@ -1419,7 +1425,7 @@ trybuild = { version = "1.0.103" }
 tt-call = { version = "1.0.8" }
 tuplex = { version = "0.1", default-features = false }
 twox-hash = { version = "1.6.3", default-features = false }
-txtesttool = { version = "0.4.0", package = "substrate-txtesttool" }
+txtesttool = { version = "0.5.0", package = "substrate-txtesttool" }
 unsigned-varint = { version = "0.7.2" }
 url = { version = "2.5.4" }
 void = { version = "1.0.2" }
@@ -1447,8 +1453,8 @@ xcm-runtime-apis = { path = "polkadot/xcm/xcm-runtime-apis", default-features = 
 xcm-simulator = { path = "polkadot/xcm/xcm-simulator", default-features = false }
 yet-another-parachain-runtime = { path = "cumulus/parachains/runtimes/testing/yet-another-parachain" }
 zeroize = { version = "1.7.0", default-features = false }
-zombienet-configuration = { version = "0.2.30" }
-zombienet-sdk = { version = "0.2.30" }
+zombienet-orchestrator = { version = "0.3.0" }
+zombienet-sdk = { version = "0.3.0" }
 zstd = { version = "0.12.4", default-features = false }
 
 [profile.release]
