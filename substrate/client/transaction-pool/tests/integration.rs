@@ -253,9 +253,9 @@ async fn send_batch(
 ///
 /// The progress of transaction is intentionally not monitored, the util is intended for transaction
 /// pool limits testing, where the accuracy of execution is hard to monitor.
-async fn batch_loop(net: &NetworkSpawner, node_name: &str, from: u32, to: u32, priotiy: F)
+async fn batch_loop<F>(net: &NetworkSpawner, node_name: &str, from: u32, to: u32, priority: F)
 where
-	F: FnOne(u32),
+	F: Fn(u32) -> u32,
 {
 	let mut prio = 0;
 	loop {
@@ -318,7 +318,7 @@ async fn test_limits_increasing_prio_relaychain() {
 /// This test checks the pool's behavior under high load by simulating multiple senders with increasing priorities.
 #[tokio::test(flavor = "multi_thread")]
 #[ignore]
-async fn test_limits_sam_prio_relaychain() {
+async fn test_limits_same_prio_relaychain() {
 	let net = NetworkSpawner::from_toml_with_env_logger(relay::LOW_POOL_LIMIT_FATP)
 		.await
 		.unwrap();
