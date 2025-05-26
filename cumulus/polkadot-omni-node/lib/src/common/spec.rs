@@ -290,6 +290,15 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 				.runtime_api()
 				.parachain_id(best_hash)
 				.expect("Failed to retrieve parachain id from runtime");
+					let parachain_account =
+					AccountIdConversion::<polkadot_primitives::AccountId>::into_account_truncating(
+						&para_id,
+					);
+			let parachain_account =
+					AccountIdConversion::<polkadot_primitives::AccountId>::into_account_truncating(
+						&para_id,
+					);
+			info!("🧾 Parachain Account: {}", parachain_account);
 
 			info!("🪪 Parachain id: {:?}", para_id);
 			let relay_chain_fork_id = polkadot_config.chain_spec.fork_id().map(ToString::to_string);
