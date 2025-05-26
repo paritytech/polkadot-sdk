@@ -56,11 +56,11 @@ where
 	type Extrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 }
 
-impl<C> frame_system::offchain::CreateInherent<C> for Test
+impl<C> frame_system::offchain::CreateBare<C> for Test
 where
 	RuntimeCall: From<C>,
 {
-	fn create_inherent(call: Self::RuntimeCall) -> Self::Extrinsic {
+	fn create_bare(call: Self::RuntimeCall) -> Self::Extrinsic {
 		frame_system::mocking::MockUncheckedExtrinsic::<Test>::new_bare(call)
 	}
 }

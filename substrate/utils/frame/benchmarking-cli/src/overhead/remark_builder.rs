@@ -60,7 +60,9 @@ impl<C: Config<Hash = subxt::utils::H256>> DynamicRemarkBuilder<C> {
 
 			let latest = supported_metadata_versions
 				.into_iter()
-				.filter(|v| *v != u32::MAX)
+				// TODO: Subxt doesn't support V16 metadata until v0.42.0, so don't try
+				// to fetch it here until we update to that version.
+				.filter(|v| *v != u32::MAX && *v < 16)
 				.max()
 				.ok_or("No stable metadata versions supported".to_string())?;
 

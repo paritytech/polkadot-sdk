@@ -51,6 +51,9 @@ pub enum Call {
 	/// `ToRococoXcmRouter` bridge pallet.
 	#[codec(index = 34)]
 	ToRococoXcmRouter(XcmBridgeHubCall<sp_core::H256>),
+	/// Points to the `pallet_xcm_bridge_hub` pallet instance for `AssetHubRococo`.
+	#[codec(index = 62)]
+	XcmOverAssetHubRococo(bp_xcm_bridge::XcmBridgeCall),
 	/// `AssetHubRococoProofRootStore` bridge pallet.
 	#[codec(index = 66)]
 	AssetHubRococoProofRootStore(ProofRootStoreCall<Hash, Hash>),
@@ -169,12 +172,4 @@ frame_support::parameter_types! {
 	/// Transaction fee that is paid at the Westend AssetHub for delivering single outbound message confirmation.
 	/// (initially was calculated by test `AssetHubWestend::can_calculate_fee_for_standalone_message_confirmation_transaction` + `33%`)
 	pub const AssetHubWestendBaseConfirmationFeeInWnds: u128 = 56_782_099;
-}
-
-/// Wrapper over `AssetHubWestend`'s `RuntimeCall` that can be used without a runtime.
-#[derive(Decode, Encode)]
-pub enum RuntimeCall {
-	/// Points to the `pallet_xcm_bridge_hub` pallet instance for `AssetHubRococo`.
-	#[codec(index = 62)] // TODO: FAIL-CI - corect index when AssetHubWestend
-	XcmOverAssetHubRococo(bp_xcm_bridge::XcmBridgeCall),
 }

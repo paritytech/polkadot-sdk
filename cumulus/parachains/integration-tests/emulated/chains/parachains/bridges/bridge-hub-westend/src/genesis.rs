@@ -79,7 +79,6 @@ pub fn genesis() -> Storage {
 						Parachain(1000),
 					]),
 					Some(bp_messages::LegacyLaneId([0, 0, 0, 2])),
-					None,
 				),
 			],
 			..Default::default()
