@@ -3051,7 +3051,13 @@ mod benches {
 	);
 }
 
-impl_runtime_apis! {
+pallet_revive::impl_runtime_apis_plus_revive!(
+	Runtime,
+	Balance,
+	Executive,
+	UncheckedExtrinsic,
+	EthExtraImpl,
+
 	impl sp_api::Core<Block> for Runtime {
 		fn version() -> RuntimeVersion {
 			VERSION
@@ -3366,11 +3372,6 @@ impl_runtime_apis! {
 				key
 			)
 		}
-	}
-
-	impl pallet_revive::ReviveApi<Block, AccountId, Balance, Nonce, BlockNumber> for Runtime
-	{
-		pallet_revive::impl_revive_api!(Balance, Executive, UncheckedExtrinsic, EthExtraImpl);
 	}
 
 	impl pallet_transaction_payment_rpc_runtime_api::TransactionPaymentApi<
@@ -3733,7 +3734,8 @@ impl_runtime_apis! {
 			genesis_config_presets::preset_names()
 		}
 	}
-}
+
+);
 
 #[cfg(test)]
 mod tests {

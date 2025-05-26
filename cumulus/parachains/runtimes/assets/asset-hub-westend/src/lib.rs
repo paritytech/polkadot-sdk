@@ -1480,7 +1480,13 @@ mod benches {
 	);
 }
 
-impl_runtime_apis! {
+pallet_revive::impl_runtime_apis_plus_revive!(
+	Runtime,
+	Balance,
+	Executive,
+	UncheckedExtrinsic,
+	EthExtraImpl,
+
 	impl sp_consensus_aura::AuraApi<Block, AuraId> for Runtime {
 		fn slot_duration() -> sp_consensus_aura::SlotDuration {
 			sp_consensus_aura::SlotDuration::from_millis(SLOT_DURATION)
@@ -2286,12 +2292,7 @@ impl_runtime_apis! {
 			genesis_config_presets::preset_names()
 		}
 	}
-
-	impl pallet_revive::ReviveApi<Block, AccountId, Balance, Nonce, BlockNumber> for Runtime
-	{
-		pallet_revive::impl_revive_api!(Balance, Executive, UncheckedExtrinsic, EthExtraImpl);
-	}
-}
+);
 
 cumulus_pallet_parachain_system::register_validate_block! {
 	Runtime = Runtime,
