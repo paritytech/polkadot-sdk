@@ -43,7 +43,7 @@ use cumulus_client_consensus_aura::{
 		lookahead::{self as aura, Params as AuraParams},
 		slot_based::{SlotBasedBlockImport, SlotBasedBlockImportHandle},
 	},
-	equivocation_import_queue::Verifier as EquivocationVerifier,
+	AuraVerifier,
 };
 use cumulus_client_consensus_proposer::{Proposer, ProposerInterface};
 use cumulus_client_consensus_relay_chain::Verifier as RelayChainVerifier;
@@ -131,7 +131,7 @@ where
 			Box::new(RelayChainVerifier::new(client.clone(), |_, _| async { Ok(()) }));
 
 		let equivocation_aura_verifier =
-			EquivocationVerifier::<<AuraId as AppCrypto>::Pair, _, _, _>::new(
+			AuraVerifier::<<AuraId as AppCrypto>::Pair, _, _, _>::new(
 				client.clone(),
 				inherent_data_providers,
 				telemetry_handle,

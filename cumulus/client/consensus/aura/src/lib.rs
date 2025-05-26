@@ -59,17 +59,17 @@ use std::{
 
 mod import_queue;
 
-pub use import_queue::{build_verifier, import_queue, BuildVerifierParams, ImportQueueParams};
+pub use import_queue::{
+	build_verifier, import_queue, BuildVerifierParams, ImportQueueParams, Verifier as AuraVerifier,
+};
 use polkadot_node_primitives::PoV;
 pub use sc_consensus_aura::{
-	slot_duration, standalone::slot_duration_at, AuraVerifier, BuildAuraWorkerParams,
-	SlotProportion,
+	slot_duration, standalone::slot_duration_at, BuildAuraWorkerParams, SlotProportion,
 };
 pub use sc_consensus_slots::InherentDataProviderExt;
 
 pub mod collator;
 pub mod collators;
-pub mod equivocation_import_queue;
 
 const LOG_TARGET: &str = "aura::cumulus";
 

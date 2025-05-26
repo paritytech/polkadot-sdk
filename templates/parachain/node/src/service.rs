@@ -9,7 +9,7 @@ use parachain_template_runtime::{
 	opaque::{Block, Hash},
 };
 
-use polkadot_sdk::*;
+use polkadot_sdk::{cumulus_client_consensus_aura::ImportQueueParams, *};
 
 // Cumulus Imports
 use cumulus_client_bootnodes::{start_bootnode_tasks, StartBootnodeTasksParams};
@@ -127,7 +127,7 @@ pub fn new_partial(config: &Configuration) -> Result<Service, sc_service::Error>
 		config,
 		telemetry.as_ref().map(|telemetry| telemetry.handle()),
 		&task_manager,
-	);
+	)?;
 
 	Ok(PartialComponents {
 		backend,
@@ -148,24 +148,26 @@ fn build_import_queue(
 	config: &Configuration,
 	telemetry: Option<TelemetryHandle>,
 	task_manager: &TaskManager,
-) -> sc_consensus::DefaultImportQueue<Block> {
-	cumulus_client_consensus_aura::equivocation_import_queue::fully_verifying_import_queue::<
+) -> Result<sc_consensus::BasicQueue<Block>, sc_service::Error> {
+	cumulus_client_consensus_aura::import_queue::<
 		sp_consensus_aura::sr25519::AuthorityPair,
 		_,
 		_,
 		_,
 		_,
-	>(
-		client,
+		_,
+	>(ImportQueueParams {
 		block_import,
-		move |_, _| async move {
+		client,
+		create_inherent_data_providers: move |_, _| async move {
 			let timestamp = sp_timestamp::InherentDataProvider::from_system_time();
 			Ok(timestamp)
 		},
-		&task_manager.spawn_essential_handle(),
-		config.prometheus_registry(),
+		spawner: &task_manager.spawn_essential_handle(),
+		registry: config.prometheus_registry(),
 		telemetry,
-	)
+	})
+	.map_err(Into::into)
 }
 
 #[allow(clippy::too_many_arguments)]
