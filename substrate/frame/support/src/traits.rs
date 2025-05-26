@@ -118,9 +118,9 @@ pub use preimages::{Bounded, BoundedInline, FetchResult, QueryPreimage, StorePre
 
 mod messages;
 pub use messages::{
-	BatchFootprint, EnqueueMessage, EnqueueWithOrigin, ExecuteOverweightError, HandleMessage,
-	NoopServiceQueues, ProcessMessage, ProcessMessageError, QueueFootprint, QueueFootprintQuery,
-	QueuePausedQuery, ServiceQueues, TransformOrigin,
+	BatchFootprint, BatchesFootprints, EnqueueMessage, EnqueueWithOrigin, ExecuteOverweightError,
+	HandleMessage, NoopServiceQueues, ProcessMessage, ProcessMessageError, QueueFootprint,
+	QueueFootprintQuery, QueuePausedQuery, ServiceQueues, TransformOrigin,
 };
 
 mod safe_mode;
