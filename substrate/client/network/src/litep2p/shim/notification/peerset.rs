@@ -640,7 +640,7 @@ impl Peerset {
 					return ValidationResult::Reject
 				}
 
-				// The peer remains in the `PeerStat::Backoff` state until the current timer
+				// The peer remains in the `PeerState::Backoff` state until the current timer
 				// expires. Then, the peer will be in the disconnected state, subject to further
 				// rejection if the peer is not reserved by then.
 				if should_reject {
