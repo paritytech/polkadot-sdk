@@ -143,7 +143,7 @@ async fn send_5m_from_many_accounts_to_parachain() {
 	// Wait for the parachain collator to start block production.
 	net.wait_for_block_production("charlie").await.unwrap();
 
-	// Create future & ready txs executors.
+	// Create txs executor.
 	let ws = net.node_rpc_uri("charlie").unwrap();
 	let executor = default_zn_scenario_builder(&net)
 		.with_rpc_uri(ws)
@@ -173,7 +173,7 @@ async fn send_5m_from_many_accounts_to_relaychain() {
 	// Wait for the parachain collator to start block production.
 	net.wait_for_block_production("alice").await.unwrap();
 
-	// Create future & ready txs executors.
+	// Create txs executor.
 	let ws = net.node_rpc_uri("alice").unwrap();
 	let executor = default_zn_scenario_builder(&net)
 		.with_rpc_uri(ws.clone())
