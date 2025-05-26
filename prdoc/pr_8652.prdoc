@@ -7,4 +7,4 @@ crates:
 - name: asset-hub-westend-runtime
   bump: patch
 - name: pallet-revive
-  bump: patch
+  bump: minor
