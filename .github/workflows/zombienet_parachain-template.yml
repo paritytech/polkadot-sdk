@@ -1,6 +1,7 @@
 name: Zombienet Parachain Templates
 
 on:
+<<<<<<< HEAD
   workflow_dispatch:
   push:
     branches:
@@ -8,6 +9,22 @@ on:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
   merge_group:
+||||||| e44b89fb7c
+  push:
+    branches:
+      - master
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  merge_group:
+=======
+  workflow_dispatch: # Disabled for being flaky
+  #push:
+  #  branches:
+  #    - master
+  #pull_request:
+  #  types: [opened, synchronize, reopened, ready_for_review]
+  #merge_group:
+>>>>>>> master
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true

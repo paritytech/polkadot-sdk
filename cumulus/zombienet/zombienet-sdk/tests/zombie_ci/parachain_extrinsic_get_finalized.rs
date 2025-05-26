@@ -4,13 +4,14 @@
 use anyhow::anyhow;
 use tokio::time::Duration;
 
-use subxt::{dynamic::Value, OnlineClient, SubstrateConfig};
-use subxt_signer::sr25519::dev;
-
 use crate::utils::{initialize_network, BEST_BLOCK_METRIC};
 use cumulus_zombienet_sdk_helpers::submit_extrinsic_and_wait_for_finalization_success_with_timeout;
 use zombienet_orchestrator::network::node::LogLineCountOptions;
-use zombienet_sdk::{NetworkConfig, NetworkConfigBuilder};
+use zombienet_sdk::{
+	subxt::{self, dynamic::Value, OnlineClient, SubstrateConfig},
+	subxt_signer::sr25519::dev,
+	NetworkConfig, NetworkConfigBuilder,
+};
 
 const PARA_ID: u32 = 2000;
 

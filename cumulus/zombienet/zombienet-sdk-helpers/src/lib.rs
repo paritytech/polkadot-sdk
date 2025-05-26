@@ -8,7 +8,12 @@ use std::{
 	collections::{HashMap, HashSet},
 	ops::Range,
 };
-use subxt::{
+use tokio::{
+	join,
+	time::{sleep, Duration},
+};
+use zombienet_sdk::subxt::{
+	self,
 	blocks::Block,
 	config::ExtrinsicParams,
 	dynamic::Value,
@@ -17,10 +22,6 @@ use subxt::{
 	tx::{signer::Signer, DynamicPayload, TxStatus},
 	utils::H256,
 	Config, OnlineClient, PolkadotConfig,
-};
-use tokio::{
-	join,
-	time::{sleep, Duration},
 };
 
 // Maximum number of blocks to wait for a session change.
@@ -36,7 +37,7 @@ pub fn create_assign_core_call(core_and_para: &[(u32, u32)]) -> DynamicPayload {
 		});
 	}
 
-	subxt::tx::dynamic(
+	zombienet_sdk::subxt::tx::dynamic(
 		"Sudo",
 		"sudo",
 		vec![value! {
@@ -244,7 +245,7 @@ pub async fn assert_para_throughput(
 ///
 /// The session change is detected by inspecting the events in the block.
 pub async fn wait_for_first_session_change(
-	blocks_sub: &mut subxt::backend::StreamOfResults<
+	blocks_sub: &mut zombienet_sdk::subxt::backend::StreamOfResults<
 		Block<PolkadotConfig, OnlineClient<PolkadotConfig>>,
 	>,
 ) -> Result<(), anyhow::Error> {
@@ -255,7 +256,7 @@ pub async fn wait_for_first_session_change(
 ///
 /// The session change is detected by inspecting the events in the block.
 pub async fn wait_for_nth_session_change(
-	blocks_sub: &mut subxt::backend::StreamOfResults<
+	blocks_sub: &mut zombienet_sdk::subxt::backend::StreamOfResults<
 		Block<PolkadotConfig, OnlineClient<PolkadotConfig>>,
 	>,
 	mut sessions_to_wait: u32,

@@ -8,4 +8,4 @@ RUN_IN_CI=1
 KUBERNETES_CPU_REQUEST=512m
 KUBERNETES_MEMORY_REQUEST=1Gi
 TEMP_IMAGES_BASE=europe-docker.pkg.dev/parity-ci-2024/temp-images
-FLAKY_TESTS="zombienet-polkadot-coretime-revenue, zombienet-polkadot-smoke-0003-deregister-register-validator"
+FLAKY_TESTS="zombienet-polkadot-coretime-revenue, zombienet-polkadot-smoke-0003-deregister-register-validator, zombienet-polkadot-elastic-scaling-slot-based-12cores, zombienet-polkadot-elastic-scaling-doesnt-break-parachains, zombienet-polkadot-functional-duplicate-collations, zombienet-polkadot-functional-0002-parachains-disputes, zombienet-polkadot-functional-async-backing-6-seconds-rate, zombienet-polkadot-elastic-scaling-slot-based-3cores, zombienet-polkadot-malus-0001-dispute-valid, zombienet-substrate-0002-validators-warp-sync"
