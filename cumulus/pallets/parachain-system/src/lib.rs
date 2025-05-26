@@ -294,7 +294,8 @@ pub mod pallet {
 		/// Select core.
 		type SelectCore: SelectCore;
 
-		/// The offset between the tip of the relay chain and the parent relay block used as parent when authoring a parachain block. 
+		/// The offset between the tip of the relay chain and the parent relay block used as parent
+		/// when authoring a parachain block.
 		///
 		/// This setting directly impacts
 		/// the number of descendant headers that are expected in the `set_validation_data`
@@ -304,7 +305,8 @@ pub mod pallet {
 		/// the relay parent plus `N` descendants. These headers are required to validate that new
 		/// parachain blocks are authored at the correct offset.
 		///
-		/// While this helps to reduce forks on the parachain side, it increases the delay for processing XCM messages. So, the value should be chosen wisely.  
+		/// While this helps to reduce forks on the parachain side, it increases the delay for
+		/// processing XCM messages. So, the value should be chosen wisely.
 		///
 		/// If set to 0, this config has no impact.
 		type RelayParentOffset: Get<u32>;

@@ -198,7 +198,7 @@ where
 			.proposer
 			.propose(
 				&parent_header,
-				&inherent_data.0.into(),
+				&inherent_data.0,
 				inherent_data.1,
 				Digest { logs: digest },
 				proposal_duration,

@@ -184,7 +184,7 @@ where
 
 		loop {
 			// We wait here until the next slot arrives.
-			let Ok(_) = slot_timer.wait_until_next_slot().await else {
+			if slot_timer.wait_until_next_slot().await.is_err() {
 				tracing::error!(target: LOG_TARGET, "Unable to wait for next slot.");
 				return;
 			};
@@ -459,8 +459,11 @@ fn adjust_para_to_relay_parent_slot(
 	Some(para_slot)
 }
 
-/// Traverses the ancestry of the given relay chain header to find the relay parent at the correct
-/// offset.
+/// Traverses the ancestry of the given relay chain header to find the relay parent at the specified
+/// offset. Returns a tuple containing:
+/// - The relay parent header to use as an anchor for the parachain block
+/// - A list of the relay parent and its descendants (ordered from oldest to newest) for the
+///   inherent data
 async fn find_relay_parent_with_offset<RelayClient>(
 	relay_client: &RelayClient,
 	relay_best_block: RelayHash,
