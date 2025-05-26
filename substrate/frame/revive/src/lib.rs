@@ -86,10 +86,13 @@ pub use crate::{
 	exec::{MomentOf, Origin},
 	pallet::*,
 };
-pub use frame_support::{dispatch::DispatchInfo, weights::Weight};
-pub use frame_system;
+pub use codec;
+pub use frame_support::{self, dispatch::DispatchInfo, weights::Weight};
+pub use frame_system::{self, limits::BlockWeights};
+pub use pallet_transaction_payment;
 pub use primitives::*;
 pub use sp_core::{H160, H256, U256};
+pub use sp_runtime;
 pub use weights::WeightInfo;
 
 #[cfg(doc)]
@@ -1639,12 +1642,6 @@ sp_api::decl_runtime_apis! {
 	}
 }
 
-pub use codec;
-pub use frame_support;
-pub use frame_system::limits::BlockWeights;
-pub use pallet_transaction_payment;
-pub use sp_runtime;
-
 #[macro_export]
 macro_rules! impl_revive_api {
 	($Balance: ty, $Executive: ty, $UncheckedExtrinsic: ty, $EthExtra: ty) => {
@@ -1670,7 +1667,8 @@ macro_rules! impl_revive_api {
 			tx: $crate::evm::GenericTransaction,
 		) -> Result<$crate::EthTransactInfo<$Balance>, $crate::EthTransactError> {
 			use $crate::{
-				codec::Encode, evm::runtime::EthExtra, sp_runtime::traits::TransactionExtension,
+				codec::Encode, evm::runtime::EthExtra, frame_support::traits::Get,
+				sp_runtime::traits::TransactionExtension,
 			};
 
 			let tx_fee = |pallet_call, mut dispatch_info: $crate::DispatchInfo| {
@@ -1687,7 +1685,6 @@ macro_rules! impl_revive_api {
 				)
 			};
 
-			use $crate::frame_support::traits::Get;
 			let blockweights: $crate::BlockWeights =
 				<Self as $crate::frame_system::Config>::BlockWeights::get();
 			$crate::Pallet::<Self>::bare_eth_transact(tx, blockweights.max_block, tx_fee)
