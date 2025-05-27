@@ -75,7 +75,7 @@ use std::{
 	time::{Duration, Instant},
 };
 use tokio::select;
-use tracing::{debug, info, trace, warn, Level};
+use tracing::{debug, info, instrument, trace, warn, Level};
 
 /// The maximum block height difference before considering a view or transaction as timed-out
 /// due to a finality stall. When the difference exceeds this threshold, elements are treated
@@ -943,6 +943,7 @@ where
 	/// status updates.
 	///
 	/// Actual transaction submission process is delegated to the `ViewStore` internal instance.
+	#[instrument(level = Level::TRACE, skip_all, target = "txpool", name = "fatp::submit_and_watch")]
 	async fn submit_and_watch(
 		&self,
 		at: <Self::Block as BlockT>::Hash,
@@ -975,6 +976,7 @@ where
 	/// The transaction pool implementation will determine which transactions should be
 	/// removed from the pool. Transactions that depend on invalid transactions will also
 	/// be removed.
+	#[instrument(level = Level::TRACE, skip_all, target = "txpool", name = "fatp::report_invalid")]
 	async fn report_invalid(
 		&self,
 		at: Option<<Self::Block as BlockT>::Hash>,
@@ -1153,6 +1155,7 @@ where
 	/// block.
 	///
 	/// If the view is correctly created, `ready_at` pollers for this block will be triggered.
+	#[instrument(level = Level::TRACE, skip_all, target = "txpool", name = "fatp::handle_new_block")]
 	async fn handle_new_block(&self, tree_route: &TreeRoute<Block>) {
 		let hash_and_number = match tree_route.last() {
 			Some(hash_and_number) => hash_and_number,
@@ -1751,6 +1754,7 @@ where
 	///
 	/// If no lower-priority transaction is found, the function returns an error indicating the
 	/// transaction was dropped immediately.
+	#[instrument(level = Level::TRACE, skip_all, target = "txpool", name = "fatp::attempt_transaction_replacement")]
 	async fn attempt_transaction_replacement(
 		&self,
 		source: TransactionSource,

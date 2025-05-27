@@ -34,7 +34,7 @@ use std::{
 	sync::Arc,
 	time::{Duration, Instant},
 };
-use tracing::{debug, trace};
+use tracing::{debug, instrument, trace, Level};
 
 use super::{
 	base_pool as base,
@@ -218,6 +218,7 @@ impl<B: ChainApi, L: EventHandler<B>> Pool<B, L> {
 	}
 
 	/// Imports a bunch of unverified extrinsics to the pool
+	#[instrument(level = Level::TRACE, skip_all, target="txpool",name = "pool::submit_at")]
 	pub async fn submit_at(
 		&self,
 		at: &HashAndNumber<B::Block>,
@@ -464,6 +465,7 @@ impl<B: ChainApi, L: EventHandler<B>> Pool<B, L> {
 	}
 
 	/// Returns future that validates a bunch of transactions at given block.
+	#[instrument(level = Level::TRACE, skip_all, target = "txpool",name = "pool::verify")]
 	async fn verify(
 		&self,
 		at: &HashAndNumber<B::Block>,
@@ -484,6 +486,7 @@ impl<B: ChainApi, L: EventHandler<B>> Pool<B, L> {
 	}
 
 	/// Returns future that validates single transaction at given block.
+	#[instrument(level = Level::TRACE, skip_all, target = "txpool",name = "pool::verify_one")]
 	pub(crate) async fn verify_one(
 		&self,
 		block_hash: <B::Block as BlockT>::Hash,

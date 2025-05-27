@@ -48,7 +48,7 @@ use std::{
 	sync::Arc,
 	time::Instant,
 };
-use tracing::{trace, warn};
+use tracing::{debug, instrument, trace, warn, Level};
 
 /// Helper struct to maintain the context for pending transaction submission, executed for
 /// newly inserted views.
@@ -285,6 +285,7 @@ where
 	///
 	/// The external stream of aggregated/processed events provided by the `MultiViewListener`
 	/// instance is returned.
+	#[instrument(level = Level::TRACE, skip_all, target = "txpool", name = "view_store::sumbit_and_watch")]
 	pub(super) async fn submit_and_watch(
 		&self,
 		_at: Block::Hash,
@@ -485,6 +486,7 @@ where
 	/// The `most_recent_view` is updated with the reference to the newly inserted view.
 	///
 	/// If there are any pending tx replacments, they are applied to the new view.
+	#[instrument(level = Level::TRACE, skip_all, target = "txpool", name = "view_store::insert_new_view")]
 	pub(super) async fn insert_new_view(
 		&self,
 		view: Arc<View<ChainApi>>,
@@ -741,6 +743,7 @@ where
 	/// Applies pending transaction replacements to the specified view.
 	///
 	/// After application, all already processed replacements are removed.
+	#[instrument(level = Level::TRACE, skip_all, target = "txpool", name = "view_store::apply_pending_tx_replacements")]
 	async fn apply_pending_tx_replacements(&self, view: Arc<View<ChainApi>>) {
 		let start = Instant::now();
 		let mut futures = vec![];

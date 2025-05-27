@@ -43,7 +43,7 @@ use sp_runtime::{
 	SaturatedConversion,
 };
 use std::{sync::Arc, time::Instant};
-use tracing::{debug, trace};
+use tracing::{debug, instrument, trace, Level};
 
 pub(super) struct RevalidationResult<ChainApi: graph::ChainApi> {
 	revalidated: IndexMap<ExtrinsicHash<ChainApi>, ValidatedTransactionFor<ChainApi>>,
@@ -311,6 +311,7 @@ where
 	}
 
 	/// Imports single unvalidated extrinsic into the view.
+	#[instrument(level = Level::TRACE, skip_all, target = "txpool", name = "view::submit_one")]
 	pub(super) async fn submit_one(
 		&self,
 		source: TimedTransactionSource,
@@ -323,6 +324,7 @@ where
 	}
 
 	/// Imports many unvalidated extrinsics into the view.
+	#[instrument(level = Level::TRACE, skip_all, target = "txpool", name = "view::submit_many")]
 	pub(super) async fn submit_many(
 		&self,
 		xts: impl IntoIterator<Item = (TimedTransactionSource, ExtrinsicFor<ChainApi>)>,
