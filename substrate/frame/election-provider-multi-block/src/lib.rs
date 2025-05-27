@@ -1533,7 +1533,13 @@ impl<T: Config> ElectionProvider for Pallet<T> {
 		// if fallback has possibly put us into the emergency phase, don't do anything else.
 		if CurrentPhase::<T>::get().is_emergency() && result.is_err() {
 			log!(error, "Emergency phase triggered, halting the election.");
-		} else if result.is_ok() {
+		} else {
+			// We advance the phase unconditionally (regardless of success/failure) to maintain
+			// compatibility with staking-async. The staking-async pallet maintains its own page
+			// counter and always decrements it after calling elect(), regardless of the result.
+			// If we don't advance our phase when staking-async advances its counter, subsequent
+			// calls will be out-of-order and fail. Since get_queued_solution_page() should never
+			// return an error under normal circumstances, advancing on error is acceptable.
 			if remaining.is_zero() {
 				log!(info, "receiving last call to elect(0), rotating round");
 				Self::rotate_round()
@@ -2435,6 +2441,53 @@ mod election_provider {
 			assert!(MultiBlock::current_phase().is_export());
 			assert_eq!(Round::<Runtime>::get(), 0);
 			assert_full_snapshot();
+		});
+	}
+
+	#[test]
+	fn elect_advances_phase_even_on_error() {
+		// Use Continue fallback to avoid emergency phase when both primary and fallback fail.
+		// If we don't do this, when we simulate below the page lookup to fail, we would go to
+		// `Phase::Emergency` and not to `Phase::Export(_)`.
+		ExtBuilder::full().fallback_mode(FallbackModes::Continue).build_and_execute(|| {
+			roll_to_signed_open();
+
+			// load a solution into the verifier
+			let paged = OffchainWorkerMiner::<Runtime>::mine_solution(Pages::get(), false).unwrap();
+
+			load_signed_for_verification_and_start_and_roll_to_verified(99, paged, 0);
+
+			// move to Done phase
+			roll_to_done();
+
+			// First elect call should succeed
+			let result1 = MultiBlock::elect(2);
+			assert!(result1.is_ok());
+			assert_eq!(MultiBlock::current_phase(), Phase::Export(1));
+
+			// Now we need to simulate a scenario where get_queued_solution_page(1) returns None
+			// even though we have a queued solution. This should never happen under normal
+			// circumstances so it's considered an exceptional case (e.g. partial storage corruption
+			// or simply a bug).
+			// One way to simulate this is to manipulate the round number to create a mismatch
+			// between what's expected and what's stored.
+			// Let's advance the round manually to create a mismatch
+			use crate::Round;
+			let current_round = Round::<Runtime>::get();
+			Round::<Runtime>::set(current_round + 1); // This should cause page lookup to fail
+
+			// Second elect call should now fail because it's looking for pages in the wrong round
+			// but still advance the phase
+			let result2 = MultiBlock::elect(1);
+			assert!(result2.is_err());
+			// This is the key assertion: phase should advance even on error
+			assert_eq!(MultiBlock::current_phase(), Phase::Export(0));
+
+			// Third elect call should also fail but advance to Off
+			let result3 = MultiBlock::elect(0);
+			assert!(result3.is_err());
+			// Phase should advance to complete the election cycle
+			assert!(matches!(MultiBlock::current_phase(), Phase::Off));
 		});
 	}
 
