@@ -192,7 +192,7 @@ pub trait Precompile {
 	///
 	/// Have a look at [`ExtWithInfo`] to learn about the additional APIs that a contract info
 	/// unlocks.
-	const HAS_CONTRACT_INFO: bool = false;
+	const HAS_CONTRACT_INFO;
 
 	/// Entry point for your pre-compile when `HAS_CONTRACT_INFO = false`.
 	#[allow(unused_variables)]

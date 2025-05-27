@@ -91,6 +91,7 @@ where
 	type T = Runtime;
 	type Interface = IERC20::IERC20Calls;
 	const MATCHER: AddressMatcher = PrecompileConfig::MATCHER;
+	const HAS_CONTRACT_INFO: bool = false;
 
 	fn call(
 		address: &[u8; 20],
