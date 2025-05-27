@@ -353,7 +353,7 @@ mod test {
 
 		let mut blocks = Vec::new();
 		for _ in 0..EQUIVOCATION_LIMIT + 1 {
-			blocks.push(seal_block(block.block.clone(), &*client))
+			blocks.push(seal_block(block.block.clone(), &client))
 		}
 
 		// sr25519 should generate a different signature every time you sign something and thus, all
