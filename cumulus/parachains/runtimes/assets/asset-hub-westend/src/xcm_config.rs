@@ -66,7 +66,7 @@ parameter_types! {
 	pub const WestendLocation: Location = Location::parent();
 	pub const GovernanceLocation: Location = Location::parent();
 	pub const RelayNetwork: Option<NetworkId> = Some(NetworkId::ByGenesis(WESTEND_GENESIS_HASH));
-	pub AssetHubId: u32 = 1441;
+	pub AssetHubId: u32 = 1000;
 	pub AssetHubParaLocation: Location = Location::new(
 		1, [Parachain(AssetHubId::get())]);
 	pub RelayChainOrigin: RuntimeOrigin = cumulus_pallet_xcm::Origin::Relay.into();

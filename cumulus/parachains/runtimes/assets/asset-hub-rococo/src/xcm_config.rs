@@ -67,7 +67,7 @@ parameter_types! {
 	pub const RootLocation: Location = Location::here();
 	pub const TokenLocation: Location = Location::parent();
 	pub const RelayNetwork: NetworkId = NetworkId::ByGenesis(ROCOCO_GENESIS_HASH);
-	pub AssetHubId: u32 = 1441;
+	pub AssetHubId: u32 = 1000;
 	pub AssetHubParaLocation: Location = ParentThen(Parachain(
 		AssetHubId::get().into()).into()).into();
 	pub RelayChainOrigin: RuntimeOrigin = cumulus_pallet_xcm::Origin::Relay.into();
