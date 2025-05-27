@@ -300,7 +300,7 @@ impl Client {
 						continue;
 					}
 
-					log::error!(target: LOG_TARGET, "Failed to fetch block: {err:?}");
+					log::error!(target: LOG_TARGET, "Failed to fetch block ({subscription_type:?}): {err:?}");
 					return Err(err.into());
 				},
 			};
