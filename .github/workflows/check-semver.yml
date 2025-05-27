@@ -41,7 +41,6 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR: ${{ github.event.pull_request.number }}
-          BASE_BRANCH: ${{ github.event.pull_request.base.ref }}
         run: |
           echo "This is a backport into stable."
 
@@ -113,6 +112,7 @@ jobs:
         env:
           PRDOC_EXTRA_ARGS: ${{ env.PRDOC_EXTRA_ARGS }}
           PR: ${{ env.PR_NUMBER }}
+          BASE_BRANCH: ${{ github.event.pull_request.base.ref }}
         run: |
           if [ -z "$PR" ]; then
             echo "Skipping master/merge queue"
@@ -219,6 +219,6 @@ jobs:
               fi
           
             else
-              echo "✅ All semver changes in backport are valid (minor, patch or none)."
+              echo "✅ All semver changes in backport are valid (minor, patch, or none)."
             fi
           fi
