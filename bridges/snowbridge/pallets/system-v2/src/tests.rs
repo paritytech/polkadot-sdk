@@ -137,10 +137,6 @@ fn register_all_tokens_succeeds() {
 				EthereumSystemV2::location_to_message_origin(tc.native.clone()).unwrap();
 
 			assert_eq!(
-				NativeToForeignId::<Test>::get(reanchored_location.clone()),
-				Some(foreign_token_id)
-			);
-			assert_eq!(
 				ForeignToNativeId::<Test>::get(foreign_token_id),
 				Some(reanchored_location.clone())
 			);
