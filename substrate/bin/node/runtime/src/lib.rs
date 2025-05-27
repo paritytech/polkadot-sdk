@@ -78,6 +78,7 @@ pub use node_primitives::{AccountId, Signature};
 use node_primitives::{AccountIndex, Balance, BlockNumber, Hash, Moment, Nonce};
 use pallet_asset_conversion::{AccountIdConverter, Ascending, Chain, WithFirstAsset};
 use pallet_asset_conversion_tx_payment::SwapAssetAdapter;
+use pallet_assets::precompiles::{InlineIdConfig, ERC20};
 use pallet_broker::{CoreAssignment, CoreIndex, CoretimeInterface, PartsOf57600};
 use pallet_election_provider_multi_phase::{GeometricDepositBase, SolutionAccuracyOf};
 use pallet_identity::legacy::IdentityInfo;
@@ -1462,8 +1463,6 @@ impl pallet_contracts::Config for Runtime {
 	type ApiVersion = ();
 	type Xcm = ();
 }
-
-use pallet_assets::{precompiles::ERC20, InlineIdConfig};
 
 impl pallet_revive::Config for Runtime {
 	type Time = Timestamp;
