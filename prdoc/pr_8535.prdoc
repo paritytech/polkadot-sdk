@@ -7,6 +7,6 @@ crates:
 - name: pallet-xcm
   bump: patch
 - name: staging-xcm-builder
-  bump: patch
+  bump: major
 - name: staging-xcm-executor
-  bump: patch
+  bump: major
