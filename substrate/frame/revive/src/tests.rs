@@ -1024,16 +1024,17 @@ fn delegate_call_with_deposit_limit() {
 				.build_and_unwrap_contract();
 
 		// Delegate call will write 1 storage and deposit of 2 (1 item) + 32 (bytes) is required.
+		// + 32 + 16 for blake2_128concat
 		// Fails, not enough deposit
 		let ret = builder::bare_call(caller_addr)
 			.value(1337)
-			.data((callee_addr, 33u64).encode())
+			.data((callee_addr, 81u64).encode())
 			.build_and_unwrap_result();
 		assert_return_code!(ret, RuntimeReturnCode::OutOfResources);
 
 		assert_ok!(builder::call(caller_addr)
 			.value(1337)
-			.data((callee_addr, 34u64).encode())
+			.data((callee_addr, 82u64).encode())
 			.build());
 	});
 }
@@ -1123,14 +1124,14 @@ fn cannot_self_destruct_through_storage_refund_after_price_change() {
 			info_deposit + min_balance
 		);
 
-		// Create 100 bytes of storage with a price of per byte and a single storage item of
-		// price 2
+		// Create 100 (16 + 32 bytes for key for blake128 concat) bytes of storage with a
+		// price of per byte and a single storage item of price 2
 		assert_ok!(builder::call(contract.addr).data(100u32.to_le_bytes().to_vec()).build());
-		assert_eq!(get_contract(&contract.addr).total_deposit(), info_deposit + 102);
+		assert_eq!(get_contract(&contract.addr).total_deposit(), info_deposit + 100 + 16 + 32 + 2);
 
 		// Increase the byte price and trigger a refund. This should not have any influence
 		// because the removal is pro rata and exactly those 100 bytes should have been
-		// removed.
+		// removed as we didn't delete the key.
 		DEPOSIT_PER_BYTE.with(|c| *c.borrow_mut() = 500);
 		assert_ok!(builder::call(contract.addr).data(0u32.to_le_bytes().to_vec()).build());
 
@@ -1139,7 +1140,9 @@ fn cannot_self_destruct_through_storage_refund_after_price_change() {
 			<Test as Config>::Currency::total_balance(&contract.account_id),
 			get_contract(&contract.addr).total_deposit() + min_balance,
 		);
-		assert_eq!(get_contract(&contract.addr).extra_deposit(), 2);
+		// + 1 because due to fixed point arithmetic we can sometimes refund
+		// one unit to little
+		assert_eq!(get_contract(&contract.addr).extra_deposit(), 16 + 32 + 2 + 1);
 	});
 }
 
@@ -2118,7 +2121,7 @@ fn failed_deposit_charge_should_roll_back_call() {
 			let transfer_call =
 				Box::new(RuntimeCall::Balances(pallet_balances::Call::transfer_allow_death {
 					dest: CHARLIE,
-					value: pallet_balances::Pallet::<Test>::free_balance(&ALICE) - 2 * ED,
+					value: pallet_balances::Pallet::<Test>::free_balance(&ALICE) - (2 * ED + 48),
 				}));
 
 			// Wrap the transfer call in a proxy call.
@@ -2129,7 +2132,7 @@ fn failed_deposit_charge_should_roll_back_call() {
 			});
 
 			let data = (
-				(ED - DepositPerItem::get()) as u32, // storage length
+				1u32, // storage length
 				addr_callee,
 				transfer_proxy_call,
 			);
@@ -2142,7 +2145,7 @@ fn failed_deposit_charge_should_roll_back_call() {
 	let result = execute().unwrap();
 
 	// Bump the deposit per byte to a high value to trigger a FundsUnavailable error.
-	DEPOSIT_PER_BYTE.with(|c| *c.borrow_mut() = 20);
+	DEPOSIT_PER_BYTE.with(|c| *c.borrow_mut() = 200);
 	assert_err_with_weight!(execute(), TokenError::FundsUnavailable, result.actual_weight);
 }
 
@@ -2422,7 +2425,8 @@ fn storage_deposit_works() {
 		// Create storage
 		assert_ok!(builder::call(addr).value(42).data((50u32, 20u32).encode()).build());
 		// 4 is for creating 2 storage items
-		let charged0 = 4 + 50 + 20;
+		// 48 is for each of the keys
+		let charged0 = 4 + 50 + 20 + 48 + 48;
 		deposit += charged0;
 		assert_eq!(get_contract(&addr).total_deposit(), deposit);
 
@@ -2471,7 +2475,7 @@ fn storage_deposit_callee_works() {
 		assert_ok!(builder::call(addr_caller).data((100u32, &addr_callee).encode()).build());
 
 		let callee = get_contract(&addr_callee);
-		let deposit = DepositPerByte::get() * 100 + DepositPerItem::get() * 1;
+		let deposit = DepositPerByte::get() * 100 + DepositPerItem::get() * 1 + 48;
 
 		assert_eq!(test_utils::get_balance(&account_id), min_balance);
 		assert_eq!(
@@ -2709,20 +2713,18 @@ fn storage_deposit_limit_is_enforced() {
 
 		// Create 1 byte of storage with a price of per byte,
 		// setting insufficient deposit limit, as it requires 3 Balance:
-		// 2 for the item added + 1 for the new storage item.
+		// 2 for the item added + 1 (value) + 48 (key)
 		assert_err_ignore_postinfo!(
 			builder::call(addr)
-				.storage_deposit_limit(2)
+				.storage_deposit_limit(50)
 				.data(1u32.to_le_bytes().to_vec())
 				.build(),
 			<Error<Test>>::StorageDepositLimitExhausted,
 		);
 
-		// Create 1 byte of storage, should cost 3 Balance:
-		// 2 for the item added + 1 for the new storage item.
-		// Should pass as it fallbacks to DefaultDepositLimit.
+		// now with enough limit
 		assert_ok!(builder::call(addr)
-			.storage_deposit_limit(3)
+			.storage_deposit_limit(51)
 			.data(1u32.to_le_bytes().to_vec())
 			.build());
 
@@ -2753,19 +2755,20 @@ fn deposit_limit_in_nested_calls() {
 
 		// Create 100 bytes of storage with a price of per byte
 		// This is 100 Balance + 2 Balance for the item
+		// 48 for the key
 		assert_ok!(builder::call(addr_callee)
-			.storage_deposit_limit(102)
+			.storage_deposit_limit(102 + 48)
 			.data(100u32.to_le_bytes().to_vec())
 			.build());
 
 		// We do not remove any storage but add a storage item of 12 bytes in the caller
-		// contract. This would cost 12 + 2 = 14 Balance.
+		// contract. This would cost 12 + 2 + 72 = 86 Balance.
 		// The nested call doesn't get a special limit, which is set by passing `u64::MAX` to it.
 		// This should fail as the specified parent's limit is less than the cost: 13 <
 		// 14.
 		assert_err_ignore_postinfo!(
 			builder::call(addr_caller)
-				.storage_deposit_limit(13)
+				.storage_deposit_limit(85)
 				.data((100u32, &addr_callee, U256::MAX).encode())
 				.build(),
 			<Error<Test>>::StorageDepositLimitExhausted,
@@ -2773,30 +2776,29 @@ fn deposit_limit_in_nested_calls() {
 
 		// Now we specify the parent's limit high enough to cover the caller's storage
 		// additions. However, we use a single byte more in the callee, hence the storage
-		// deposit should be 15 Balance.
+		// deposit should be 87 Balance.
 		// The nested call doesn't get a special limit, which is set by passing `u64::MAX` to it.
-		// This should fail as the specified parent's limit is less than the cost: 14
-		// < 15.
+		// This should fail as the specified parent's limit is less than the cost: 86 < 87
 		assert_err_ignore_postinfo!(
 			builder::call(addr_caller)
-				.storage_deposit_limit(14)
+				.storage_deposit_limit(86)
 				.data((101u32, &addr_callee, &U256::MAX).encode())
 				.build(),
 			<Error<Test>>::StorageDepositLimitExhausted,
 		);
 
-		// Now we specify the parent's limit high enough to cover both the caller's and callee's
-		// storage additions. However, we set a special deposit limit of 1 Balance for the
+		// The parents storage deposit limit doesn't matter as the sub calls limit
+		// is enforced eagerly. However, we set a special deposit limit of 1 Balance for the
 		// nested call. This should fail as callee adds up 2 bytes to the storage, meaning
 		// that the nested call should have a deposit limit of at least 2 Balance. The
 		// sub-call should be rolled back, which is covered by the next test case.
 		let ret = builder::bare_call(addr_caller)
-			.storage_deposit_limit(DepositLimit::Balance(16))
+			.storage_deposit_limit(DepositLimit::Balance(u64::MAX))
 			.data((102u32, &addr_callee, U256::from(1u64)).encode())
 			.build_and_unwrap_result();
 		assert_return_code!(ret, RuntimeReturnCode::OutOfResources);
 
-		// Refund in the callee contract but not enough to cover the 14 Balance required by the
+		// Refund in the callee contract but not enough to cover the Balance required by the
 		// caller. Note that if previous sub-call wouldn't roll back, this call would pass
 		// making the test case fail. We don't set a special limit for the nested call here.
 		assert_err_ignore_postinfo!(
@@ -2816,12 +2818,12 @@ fn deposit_limit_in_nested_calls() {
 			.build_and_unwrap_result();
 		assert_return_code!(ret, RuntimeReturnCode::OutOfResources);
 
-		// Same as above but allow for the additional deposit of 1 Balance in parent.
+		// Free up enough storage in the callee so that the caller can create a new item
 		// We set the special deposit limit of 1 Balance for the nested call, which isn't
 		// enforced as callee frees up storage. This should pass.
 		assert_ok!(builder::call(addr_caller)
 			.storage_deposit_limit(1)
-			.data((87u32, &addr_callee, U256::from(1u64)).encode())
+			.data((0u32, &addr_callee, U256::from(1u64)).encode())
 			.build());
 	});
 }
@@ -2851,15 +2853,16 @@ fn deposit_limit_in_nested_instantiate() {
 		// - the deposit for depending on a code hash
 		// - ED for deployed contract account
 		// - 2 for the storage item of 0 bytes being created in the callee constructor
+		// - 48 for the key
 		let callee_min_deposit = {
 			let callee_info_len = ContractInfoOf::<Test>::get(&addr).unwrap().encoded_size() as u64;
 			let code_deposit = test_utils::lockup_deposit(&code_hash_callee);
-			callee_info_len + code_deposit + 2 + ED + 2
+			callee_info_len + code_deposit + 2 + ED + 2 + 48
 		};
 
 		// The parent just stores an item of the passed size so at least
 		// we need to pay for the item itself.
-		let caller_min_deposit = callee_min_deposit + 2;
+		let caller_min_deposit = callee_min_deposit + 2 + 48;
 
 		// Fail in callee.
 		//
