@@ -17,7 +17,7 @@
 
 use crate::{weights::WeightInfo, Call, Config, PhantomData, TransferFlags};
 use alloc::vec::Vec;
-pub use pallet_revive::precompiles::{
+use pallet_revive::precompiles::{
 	alloy::{
 		self,
 		primitives::IntoLogData,
@@ -27,7 +27,7 @@ pub use pallet_revive::precompiles::{
 };
 
 alloy::sol!("src/precompiles/IERC20.sol");
-use IERC20::IERC20Events;
+use IERC20::{IERC20Calls, IERC20Events};
 
 /// Mean of extracting the asset id from the precompile address.
 pub trait AssetIdExtractor {
@@ -93,8 +93,6 @@ where
 		input: &Self::Interface,
 		env: &mut impl Ext<T = Self::T>,
 	) -> Result<Vec<u8>, Error> {
-		use IERC20::*;
-
 		let asset_id = PrecompileConfig::AssetIdExtractor::asset_id_from_address(address)?.into();
 
 		match input {
