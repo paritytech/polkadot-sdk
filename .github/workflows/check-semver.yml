@@ -142,8 +142,9 @@ jobs:
             echo "🔍 Backport branch detected, checking for non-patch/none changes..."
             
             if grep -E 'bump:' prdoc/pr_$PR.prdoc | grep -Ev 'bump: (patch|none)' > /dev/null; then
-              echo "❌ Backport PR contains disallowed semver change types (must be patch or none only)."
-              echo "Please revise the changes in prdoc/pr_$PR.prdoc."
+                echo "❌ Backport PR contains disallowed semver change types. Only 'patch' or 'none' are allowed."
+                echo "📘 See: https://github.com/paritytech/polkadot-sdk/blob/master/docs/contributor/prdoc.md#backporting-prs"
+                echo "🔧 Please revise the entries in prdoc/pr_$PR.prdoc."
               exit 1
             fi
             
