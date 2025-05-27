@@ -58,9 +58,9 @@ impl AssetIdExtractor for InlineAssetIdExtractor {
 }
 
 /// A precompile configuration that uses a prefix [`AddressMatcher`].
-pub struct InlineIDConfig<const PREFIX: u16>;
+pub struct InlineIdConfig<const PREFIX: u16>;
 
-impl<const P: u16> AssetPrecompileConfig for InlineIDConfig<P> {
+impl<const P: u16> AssetPrecompileConfig for InlineIdConfig<P> {
 	const MATCHER: AddressMatcher = AddressMatcher::Prefix(core::num::NonZero::new(P).unwrap());
 	type AssetIdExtractor = InlineAssetIdExtractor;
 }
