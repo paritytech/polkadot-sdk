@@ -75,7 +75,7 @@ use std::{
 	time::{Duration, Instant},
 };
 use tokio::select;
-use tracing::{debug, info, instrument, trace, warn, Level};
+use tracing::{debug, info, trace, warn, Level};
 
 /// The maximum block height difference before considering a view or transaction as timed-out
 /// due to a finality stall. When the difference exceeds this threshold, elements are treated
