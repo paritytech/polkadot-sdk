@@ -123,8 +123,11 @@ pub fn call_allowed_status(call: &<Runtime as frame_system::Config>::RuntimeCall
 		/* Exhaustive match. Compiler ensures that we did not miss any. */
 	};
 
-	// Everything enabled after the migration.
-	let after_migration = ON;
+	let after_migration = match call {
+		// Revive disabled for failing PVF
+		Revive(..) => OFF,
+		_ => ON,
+	};
 
 	(during_migration, after_migration)
 }
