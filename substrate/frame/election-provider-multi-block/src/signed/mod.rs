@@ -170,6 +170,7 @@ impl<T: Config> SolutionDataProvider for Pallet<T> {
 						"Tried to report Queued but no leader was present for round {}",
 						current_round
 					);
+					defensive!("should never happen");
 				}
 			},
 			VerificationResult::Rejected => {

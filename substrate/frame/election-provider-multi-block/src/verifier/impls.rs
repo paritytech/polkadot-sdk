@@ -658,7 +658,7 @@ impl<T: Config> Pallet<T> {
 						// assume default score, which will almost certainly fail and cause a proper
 						// cleanup of the pallet, which is what we want anyways.
 						let claimed_score =
-							T::SolutionDataProvider::get_score().unwrap_or_default();
+							T::SolutionDataProvider::get_score().defensive_unwrap_or_default();
 
 						// in both cases of the following match, we are not back to the nothing
 						// state.

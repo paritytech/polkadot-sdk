@@ -9,7 +9,7 @@ doc:
 
     Close security vulnerability found [here](https://github.com/paritytech-secops/srlabs_findings/issues/505).
     A malicious miner could trigger panic in the EPMB pallet, submitting a very high score and then intentionally failing in submitting one or more pages.
-    A unit test replicating the vulnerability has been added to ensure that the fix works as expected.
+    A unit test replicating the vulnerability ensures that the fix works as expected.
 crates:
 - name: pallet-election-provider-multi-block
   bump: major

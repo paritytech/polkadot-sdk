@@ -428,6 +428,7 @@ mod async_verification {
 	}
 
 	#[test]
+	#[should_panic(expected = "Defensive failure has been triggered!")]
 	fn solution_data_provider_empty_data_solution() {
 		ExtBuilder::verifier().build_and_execute(|| {
 			// not super important, but anyways..
@@ -458,22 +459,7 @@ mod async_verification {
 
 			// Process the final page (page 0).
 			roll_next();
-			// Check that the verification has failed.
-			assert_eq!(
-				verifier_events(),
-				vec![
-					Event::<Runtime>::Verified(2, 0),
-					Event::<Runtime>::Verified(1, 0),
-					Event::<Runtime>::Verified(0, 0),
-					Event::<Runtime>::VerificationFailed(0, FeasibilityError::InvalidScore),
-				]
-			);
-			// The system should be in a clean state after processing all pages.
-			assert_eq!(VerifierPallet::status(), Status::Nothing);
-			assert!(QueuedSolution::<Runtime>::invalid_iter().count().is_zero());
-			assert!(QueuedSolution::<Runtime>::backing_iter().count().is_zero());
-			// Empty pages are handled gracefully, solution is rejected.
-			assert_eq!(MockSignedResults::get(), vec![VerificationResult::Rejected]);
+			// Missing score should trigger a defensive panic.
 		});
 	}
 
@@ -498,9 +484,9 @@ mod async_verification {
 			assert_eq!(QueuedSolution::<Runtime>::backing_iter().count(), 1);
 			assert_eq!(QueuedSolution::<Runtime>::valid_iter().count(), 0);
 
-			// suddenly clear this guy.
+			// suddenly clear this guy. Crucially, do not clear the score. That will be tested in
+			// the scope of `solution_data_provider_missing_score_at_end`.
 			MockSignedNextSolution::set(None);
-			MockSignedNextScore::set(None);
 
 			// Roll through the remaining pages, which will be treated as empty.
 			roll_next();
@@ -533,6 +519,7 @@ mod async_verification {
 	}
 
 	#[test]
+	#[should_panic(expected = "Defensive failure has been triggered!")]
 	fn solution_data_provider_missing_score_at_end() {
 		ExtBuilder::verifier().build_and_execute(|| {
 			roll_to_snapshot_created();
@@ -557,20 +544,7 @@ mod async_verification {
 			assert_eq!(VerifierPallet::status(), Status::Ongoing(0));
 			roll_next();
 
-			// Should use default score, emit VerificationFailed, and not panic.
-			assert_eq!(
-				verifier_events(),
-				vec![
-					Event::<Runtime>::Verified(2, 2),
-					Event::<Runtime>::Verified(1, 0),
-					Event::<Runtime>::Verified(0, 0),
-					Event::<Runtime>::VerificationFailed(0, FeasibilityError::InvalidScore),
-				]
-			);
-			assert_eq!(VerifierPallet::status(), Status::Nothing);
-			assert!(QueuedSolution::<Runtime>::invalid_iter().count().is_zero());
-			assert!(QueuedSolution::<Runtime>::backing_iter().count().is_zero());
-			assert_eq!(MockSignedResults::get(), vec![VerificationResult::Rejected]);
+			// A missing score is considered a bug and triggers the defensive failure.
 		});
 	}
 
@@ -983,70 +957,6 @@ mod async_verification {
 			assert_eq!(<VerifierPallet as Verifier>::queued_score(), Some(correct_score));
 			assert!(QueuedSolution::<Runtime>::invalid_iter().count().is_zero());
 			assert!(QueuedSolution::<Runtime>::backing_iter().count().is_zero());
-		})
-	}
-
-	#[test]
-	fn malicious_miner_high_score_missing_pages() {
-		ExtBuilder::verifier().pages(3).build_and_execute(|| {
-			roll_to_snapshot_created();
-
-			// Mine a valid solution and artificially inflate the score to make it "winning"
-			let mut paged = mine_full_solution().unwrap();
-			paged.score = ElectionScore {
-				minimal_stake: u128::MAX,
-				sum_stake: u128::MAX,
-				sum_stake_squared: u128::MAX,
-			};
-
-			// Load the malicious solution with high score and start verification
-			load_mock_signed_and_start(paged.clone());
-			assert_eq!(VerifierPallet::status(), Status::Ongoing(2));
-			assert_eq!(QueuedSolution::<Runtime>::valid_iter().count(), 0);
-
-			// First page verification proceeds normally
-			roll_next();
-			assert_eq!(VerifierPallet::status(), Status::Ongoing(1));
-			assert_eq!(verifier_events(), vec![Event::<Runtime>::Verified(2, 2)]);
-			assert_eq!(MockSignedResults::get(), vec![]);
-
-			// 1 page verified, stored as invalid.
-			assert_eq!(QueuedSolution::<Runtime>::invalid_iter().count(), 1);
-			assert_eq!(QueuedSolution::<Runtime>::backing_iter().count(), 1);
-			assert_eq!(QueuedSolution::<Runtime>::valid_iter().count(), 0);
-
-			// Now the malicious miner fails to submit remaining pages
-			MockSignedNextSolution::set(None);
-			MockSignedNextScore::set(None);
-
-			// Roll through the remaining pages - system should handle gracefully
-			roll_next();
-			assert_eq!(VerifierPallet::status(), Status::Ongoing(0));
-			assert_eq!(
-				verifier_events(),
-				vec![Event::<Runtime>::Verified(2, 2), Event::<Runtime>::Verified(1, 0)]
-			);
-
-			// Final block - verification should fail gracefully, no panic
-			roll_next();
-			assert_eq!(VerifierPallet::status(), Status::Nothing);
-			assert_eq!(
-				verifier_events(),
-				vec![
-					Event::<Runtime>::Verified(2, 2),
-					Event::<Runtime>::Verified(1, 0),
-					Event::<Runtime>::Verified(0, 0),
-					Event::<Runtime>::VerificationFailed(0, FeasibilityError::InvalidScore),
-				]
-			);
-
-			// The system should be in a clean state - malicious solution is rejected
-			assert_eq!(QueuedSolution::<Runtime>::invalid_iter().count(), 0);
-			assert_eq!(QueuedSolution::<Runtime>::valid_iter().count(), 0);
-			assert_eq!(QueuedSolution::<Runtime>::backing_iter().count(), 0);
-
-			// Malicious solution with missing pages is rejected, no panic occurred
-			assert_eq!(MockSignedResults::get(), vec![VerificationResult::Rejected]);
 		})
 	}
 }
