@@ -155,10 +155,15 @@ where
 	}
 
 	/// Deposit an event to the runtime.
-	fn deposit_event(env: &mut impl Ext<T = Runtime>, event: IERC20Events) {
+	fn deposit_event(env: &mut impl Ext<T = Runtime>, event: IERC20Events) -> Result<(), Error> {
 		let (topics, data) = event.into_log_data().split();
 		let topics = topics.into_iter().map(|v| H256(v.0)).collect::<Vec<_>>();
+		env.gas_meter_mut().charge(pallet_revive::RuntimeCosts::DepositEvent {
+			num_topic: topics.len() as u32,
+			len: topics.len() as u32,
+		})?;
 		env.deposit_event(topics, data.to_vec());
+		Ok(())
 	}
 
 	/// Execute the transfer call.
@@ -191,7 +196,7 @@ where
 				to: call.to,
 				value: call.value,
 			}),
-		);
+		)?;
 
 		return Ok(transferCall::abi_encode_returns(&true));
 	}
@@ -266,7 +271,7 @@ where
 				spender: call.spender,
 				value: call.value,
 			}),
-		);
+		)?;
 
 		return Ok(approveCall::abi_encode_returns(&true));
 	}
@@ -302,7 +307,7 @@ where
 				to: call.to,
 				value: call.value,
 			}),
-		);
+		)?;
 
 		return Ok(transferFromCall::abi_encode_returns(&true));
 	}
