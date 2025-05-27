@@ -421,6 +421,9 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type Ledger<T: Config> = StorageMap<_, Blake2_128Concat, T::AccountId, StakingLedger<T>>;
 
+	#[pallet::storage]
+	pub type LedgerV2<T: Config> = StorageMap<_, Blake2_128Concat, T::AccountId, sp_staking::LedgerState<T::AccountId, BalanceOf<T>, T::MaxUnlockingChunks>>;
+
 	/// Where the reward payment should be made. Keyed by stash.
 	///
 	/// TWOX-NOTE: SAFE since `AccountId` is a secure hash.

@@ -193,6 +193,28 @@ impl<T: Config> StakingLedger<T> {
 		Ok(ledger)
 	}
 
+	fn ledger_get(controller: T::AccountID) -> Option<StakingLedger<T>> {
+		// first try from V2.
+		LedgerV2::<T>::get(&controller)
+			.map(|state| {
+				// convert to model
+				StakingLedger {
+					stash: state.stash,
+					total: state.total,
+					active: state.active,
+					unlocking: state.unlocking,
+					controller: Some(controller.clone()),
+				}
+			})
+			.or_else(|| {
+				// if not found, try from V1.
+				Ledger::<T>::get(&controller).map(|mut ledger| {
+					ledger.controller = Some(controller.clone());
+					ledger
+				})
+			});
+	}
+
 	/// Returns the reward destination of a staking ledger, stored in [`Payee`].
 	///
 	/// Note: if the stash is not bonded and/or does not have an entry in [`Payee`], it returns the
