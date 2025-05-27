@@ -124,8 +124,8 @@ By putting `validate: false` for `frame-example`, the version bump is ignored by
 
 ### Backporting PRs
 
-When backporting changes to a stable release branch (e.g. `stable-2503`), stricter versioning rules apply to minimise
-risk for downstream users.
+When [backporting changes](../BACKPORT.md) to a stable release branch (e.g. `stable-2503`), stricter versioning rules
+apply to minimise risk for downstream users.
 
 #### ✅ Allowed Bump Levels
 
