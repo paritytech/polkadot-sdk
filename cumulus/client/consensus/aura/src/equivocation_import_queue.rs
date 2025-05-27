@@ -188,7 +188,7 @@ where
 					// equivocation check. This `origin` is for example used by pov-recovery.
 					if self.defender.lock().insert_and_check(
 						slot,
-						block_params.header.number().clone(),
+						*block_params.header.number(),
 						relay_parent,
 					) && !matches!(block_params.origin, BlockOrigin::ConsensusBroadcast)
 					{
