@@ -7,9 +7,11 @@
 use anyhow::anyhow;
 use cumulus_zombienet_sdk_helpers::{assert_relay_parent_offset, create_assign_core_call};
 use serde_json::json;
-use subxt::{OnlineClient, PolkadotConfig};
-use subxt_signer::sr25519::dev;
-use zombienet_sdk::NetworkConfigBuilder;
+use zombienet_sdk::{
+	subxt::{OnlineClient, PolkadotConfig},
+	subxt_signer::sr25519::dev,
+	NetworkConfigBuilder,
+};
 
 #[tokio::test(flavor = "multi_thread")]
 async fn slot_based_relay_parent_offset_test() -> Result<(), anyhow::Error> {
