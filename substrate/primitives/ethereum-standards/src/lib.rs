@@ -17,6 +17,6 @@
 
 #![no_std]
 
-pub use pallet_revive::precompiles::alloy;
+use pallet_revive::precompiles::alloy;
 
 alloy::sol!("src/IERC20.sol");
