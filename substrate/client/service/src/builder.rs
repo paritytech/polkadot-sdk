@@ -306,28 +306,34 @@ fn warm_up_trie_cache<TBl: BlockT>(
 	use sc_client_api::backend::Backend;
 	use sp_state_machine::Backend as StateBackend;
 
-	let state = || backend.state_at(storage_root, TrieCacheContext::Untrusted);
+	let untrusted_state = || backend.state_at(storage_root, TrieCacheContext::Untrusted);
+	let trusted_state = || backend.state_at(storage_root, TrieCacheContext::Trusted);
 
 	debug!("Populating trie cache started",);
 	let start_time = std::time::Instant::now();
 	let mut keys_count = 0;
 	let mut child_keys_count = 0;
-	for key in KeysIter::<_, TBl>::new(state()?, None, None)? {
+	for key in KeysIter::<_, TBl>::new(untrusted_state()?, None, None)? {
 		if keys_count != 0 && keys_count % 100_000 == 0 {
 			debug!("{} keys and {} child keys have been warmed", keys_count, child_keys_count);
 		}
 		match child_info(key.0.clone()) {
 			Some(info) => {
-				for child_key in KeysIter::<_, TBl>::new_child(state()?, info.clone(), None, None)?
+				for child_key in
+					KeysIter::<_, TBl>::new_child(untrusted_state()?, info.clone(), None, None)?
 				{
-					if state()?.child_storage(&info, &child_key.0).unwrap_or_default().is_none() {
+					if trusted_state()?
+						.child_storage(&info, &child_key.0)
+						.unwrap_or_default()
+						.is_none()
+					{
 						debug!("Child storage value unexpectedly empty: {child_key:?}");
 					}
 					child_keys_count += 1;
 				}
 			},
 			None => {
-				if state()?.storage(&key.0).expect("Checked above to exist").is_none() {
+				if trusted_state()?.storage(&key.0).unwrap_or_default().is_none() {
 					debug!("Storage value unexpectedly empty: {key:?}");
 				}
 				keys_count += 1;
