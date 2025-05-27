@@ -140,16 +140,16 @@ jobs:
           
           # Only enforce SemVer restrictions for backports targeting stable branches
           if [[ "$BASE_BRANCH" == stable* ]]; then
-            echo "🔍 Backport branch detected, checking for non-patch/none changes..."
+            echo "🔍 Backport branch detected, checking for disallowed semver changes..."
           
-            # Check if any crate bump is NOT patch or none
-            if grep -E 'bump:' prdoc/pr_$PR.prdoc | grep -Ev 'bump: (patch|none)' > /dev/null; then
+            # Check if any crate bump is NOT minor, patch, or none
+            if grep -E 'bump:' prdoc/pr_$PR.prdoc | grep -Ev 'bump: (minor|patch|none)' > /dev/null; then
           
-              # Use awk to check if every major/minor bump has validate: false
+              # Use awk to check if every major bump has validate: false
               if awk '
                 BEGIN {
                   in_crates_section = 0;
-                  current_crate_has_major_minor = 0;
+                  current_crate_has_major = 0;
                   current_crate_has_validate_false = 0;
                   failed = 0;
                 }
@@ -164,20 +164,20 @@ jobs:
                 /^[[:space:]]*- name:/ {
                   if (in_crates_section) {
                     # Check previous crate before starting new one
-                    if (current_crate_has_major_minor && !current_crate_has_validate_false) {
+                    if (current_crate_has_major && !current_crate_has_validate_false) {
                       failed = 1;
                     }
                     # Reset for new crate
-                    current_crate_has_major_minor = 0;
+                    current_crate_has_major = 0;
                     current_crate_has_validate_false = 0;
                   }
                   next;
                 }
           
-                # Check for major/minor bump in current crate
-                /^[[:space:]]*bump:[[:space:]]*(major|minor)/ {
+                # Check for major bump in current crate
+                /^[[:space:]]*bump:[[:space:]]*major/ {
                   if (in_crates_section) {
-                    current_crate_has_major_minor = 1;
+                    current_crate_has_major = 1;
                   }
                   next;
                 }
@@ -194,7 +194,7 @@ jobs:
                 /^[a-zA-Z]/ && !/^crates:/ {
                   if (in_crates_section) {
                     # Check the last crate
-                    if (current_crate_has_major_minor && !current_crate_has_validate_false) {
+                    if (current_crate_has_major && !current_crate_has_validate_false) {
                       failed = 1;
                     }
                     in_crates_section = 0;
@@ -203,24 +203,22 @@ jobs:
           
                 END {
                   # Final check for last crate if we ended in crates section
-                  if (in_crates_section && current_crate_has_major_minor && !current_crate_has_validate_false) {
+                  if (in_crates_section && current_crate_has_major && !current_crate_has_validate_false) {
                     failed = 1;
                   }
-                  # Return 0 for success (all major/minor bumps have validate: false)
-                  # Return 1 for failure (at least one major/minor bump lacks validate: false)
                   exit failed;
                 }
               ' prdoc/pr_$PR.prdoc; then
-                echo "⚠️ Backport contains higher bump types, but they are all marked with validate: false."
+                echo "⚠️ Backport contains major bumps, but they are all marked with validate: false."
                 echo "✅ Semver override accepted. Please ensure the justification is documented in the PR description."
               else
-                echo "❌ Backport PR contains disallowed semver change types without 'validate: false'."
+                echo "❌ Backport PR contains disallowed semver major bumps without 'validate: false'."
                 echo "📘 See: https://github.com/paritytech/polkadot-sdk/blob/master/docs/contributor/prdoc.md#backporting-prs"
                 echo "🔧 Please revise the entries in prdoc/pr_$PR.prdoc or add 'validate: false' with justification."
                 exit 1
               fi
           
             else
-              echo "✅ All semver changes in backport are valid (patch or none)."
+              echo "✅ All semver changes in backport are valid (minor, patch or none)."
             fi
           fi
