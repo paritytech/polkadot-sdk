@@ -564,6 +564,7 @@ runtime-full = [
 	"cumulus-primitives-storage-weight-reclaim",
 	"cumulus-primitives-timestamp",
 	"cumulus-primitives-utility",
+	"ethereum-standards",
 	"frame-benchmarking",
 	"frame-benchmarking-pallet-pov",
 	"frame-election-provider-solution-type",
@@ -1139,6 +1140,11 @@ path = "../cumulus/primitives/timestamp"
 default-features = false
 optional = true
 path = "../cumulus/primitives/utility"
+
+[dependencies.ethereum-standards]
+default-features = false
+optional = true
+path = "../substrate/primitives/ethereum-standards"
 
 [dependencies.frame-benchmarking]
 default-features = false
