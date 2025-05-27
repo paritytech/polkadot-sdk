@@ -8,9 +8,11 @@ use cumulus_zombienet_sdk_helpers::{
 };
 use polkadot_primitives::Id as ParaId;
 use serde_json::json;
-use subxt::{OnlineClient, PolkadotConfig};
-use subxt_signer::sr25519::dev;
-use zombienet_sdk::{NetworkConfig, NetworkConfigBuilder};
+use zombienet_sdk::{
+	subxt::{OnlineClient, PolkadotConfig},
+	subxt_signer::sr25519::dev,
+	NetworkConfig, NetworkConfigBuilder,
+};
 
 const PARA_ID: u32 = 2400;
 
