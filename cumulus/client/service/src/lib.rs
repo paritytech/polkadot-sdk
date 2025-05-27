@@ -740,10 +740,13 @@ impl ParachainInformantMetrics {
 		))?;
 		prometheus_registry.register(Box::new(parachain_block_authorship_duration.clone()))?;
 
-		let unincluded_segment_size = Histogram::with_opts(HistogramOpts::new(
-			"parachain_unincluded_segment_size",
-			"Number of blocks between best block and last included block",
-		))?;
+		let unincluded_segment_size = Histogram::with_opts(
+			HistogramOpts::new(
+				"parachain_unincluded_segment_size",
+				"Number of blocks between best block and last included block",
+			)
+			.buckets((0..=24).into_iter().map(|i| i as f64).collect()),
+		)?;
 		prometheus_registry.register(Box::new(unincluded_segment_size.clone()))?;
 
 		Ok(Self {
