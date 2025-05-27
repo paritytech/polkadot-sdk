@@ -1772,7 +1772,6 @@ macro_rules! impl_runtime_apis_plus_revive {
 						code,
 						data,
 						salt,
-						$crate::NonceAlreadyIncremented::No,
 					)
 				}
 
