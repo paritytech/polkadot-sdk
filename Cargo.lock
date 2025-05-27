@@ -6063,7 +6063,7 @@ dependencies = [
 name = "ethereum-standards"
 version = "0.1.0"
 dependencies = [
- "pallet-revive",
+ "alloy-core",
 ]
 
 [[package]]
@@ -11198,6 +11198,7 @@ dependencies = [
 name = "pallet-assets"
 version = "29.1.0"
 dependencies = [
+ "ethereum-standards",
  "frame-benchmarking",
  "frame-support",
  "frame-system",

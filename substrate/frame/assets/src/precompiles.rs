@@ -17,6 +17,10 @@
 
 use crate::{weights::WeightInfo, Call, Config, PhantomData, TransferFlags};
 use alloc::vec::Vec;
+use ethereum_standards::{
+	IERC20,
+	IERC20::{IERC20Calls, IERC20Events},
+};
 use pallet_revive::precompiles::{
 	alloy::{
 		self,
@@ -25,9 +29,6 @@ use pallet_revive::precompiles::{
 	},
 	AddressMapper, AddressMatcher, Error, Ext, Precompile, RuntimeCosts, H160, H256,
 };
-
-alloy::sol!("src/precompiles/IERC20.sol");
-use IERC20::{IERC20Calls, IERC20Events};
 
 /// Mean of extracting the asset id from the precompile address.
 pub trait AssetIdExtractor {
