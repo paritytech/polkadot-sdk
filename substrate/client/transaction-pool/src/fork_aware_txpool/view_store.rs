@@ -458,6 +458,10 @@ where
 			finalized_transactions.extend(extrinsics);
 		}
 
+		debug!(
+			target: LOG_TARGET,
+			"finalize_route: done"
+		);
 		finalized_transactions
 	}
 
@@ -494,6 +498,8 @@ where
 	) {
 		self.apply_pending_tx_replacements(view.clone()).await;
 
+		let start = Instant::now();
+
 		//note: most_recent_view must be synced with changes in in/active_views.
 		{
 			let mut most_recent_view_lock = self.most_recent_view.write();
@@ -511,9 +517,10 @@ where
 			active_views.insert(view.at.hash, view.clone());
 			most_recent_view_lock.replace(view.clone());
 		};
-		trace!(
+		debug!(
 			target: LOG_TARGET,
 			inactive_views = ?self.inactive_views.read().keys(),
+			duration = ?start.elapsed(),
 			"insert_new_view"
 		);
 	}
@@ -588,18 +595,13 @@ where
 				retain
 			});
 
-			trace!(
+			debug!(
 				target: LOG_TARGET,
 				inactive_views = ?inactive_views.keys(),
+				?dropped_views,
 				"handle_finalized"
 			);
 		}
-
-		trace!(
-			target: LOG_TARGET,
-			?dropped_views,
-			"handle_finalized"
-		);
 
 		self.listener.remove_stale_controllers();
 		self.dropped_stream_controller.remove_transactions(finalized_xts.clone());

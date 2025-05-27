@@ -1280,6 +1280,7 @@ where
 		at: &HashAndNumber<Block>,
 		tree_route: &TreeRoute<Block>,
 	) -> Option<Arc<View<ChainApi>>> {
+		let enter = Instant::now();
 		debug!(
 			target: LOG_TARGET,
 			?at,
@@ -1287,6 +1288,7 @@ where
 			?tree_route,
 			"build_new_view"
 		);
+
 		let (mut view, view_dropped_stream, view_aggregated_stream) =
 			if let Some(origin_view) = origin_view {
 				let (mut view, view_dropped_stream, view_aggragated_stream) =
@@ -1309,6 +1311,12 @@ where
 					self.is_validator.clone(),
 				)
 			};
+		debug!(
+			target: LOG_TARGET,
+			?at,
+			duration = ?enter.elapsed(),
+			"build_new_view::clone_view"
+		);
 
 		let start = Instant::now();
 		// 1. Capture all import notification from the very beginning, so first register all
@@ -1357,6 +1365,13 @@ where
 		);
 		let view = Arc::from(view);
 		self.view_store.insert_new_view(view.clone(), tree_route).await;
+
+		debug!(
+			target: LOG_TARGET,
+			duration = ?enter.elapsed(),
+			?at,
+			"build_new_view"
+		);
 		Some(view)
 	}
 

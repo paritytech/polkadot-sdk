@@ -31,11 +31,10 @@ use sp_runtime::{
 	traits::SaturatedConversion,
 	transaction_validity::{TransactionTag as Tag, ValidTransaction},
 };
-use std::time::Instant;
 use std::{
 	collections::{HashMap, HashSet},
 	sync::Arc,
-	time::Duration,
+	time::{Duration, Instant},
 };
 use tracing::{trace, warn, Level};
 
