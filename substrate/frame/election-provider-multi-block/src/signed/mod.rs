@@ -140,10 +140,9 @@ impl<T: Config> SolutionDataProvider for Pallet<T> {
 
 		match result {
 			VerificationResult::Queued => {
-				// defensive: if there is a result to be reported, then we must have had some
-				// leader.
+				// If there is a result to be reported, then we must have had some leader.
 				if let Some((winner, metadata)) =
-					Submissions::<T>::take_leader_with_data(Self::current_round()).defensive()
+					Submissions::<T>::take_leader_with_data(Self::current_round())
 				{
 					// first, let's give them their reward.
 					let reward = metadata.reward.saturating_add(metadata.fee);
@@ -163,13 +162,20 @@ impl<T: Config> SolutionDataProvider for Pallet<T> {
 						Precision::BestEffort,
 					);
 					debug_assert!(_res.is_ok());
+				} else {
+					// No leader to reward; nothing to do.
+					sublog!(
+						warn,
+						"signed",
+						"Tried to report Queued but no leader was present for round {}",
+						current_round
+					);
 				}
 			},
 			VerificationResult::Rejected => {
-				// defensive: if there is a result to be reported, then we must have had some
-				// leader.
+				// If there is a result to be reported, then we must have had some leader.
 				if let Some((loser, metadata)) =
-					Submissions::<T>::take_leader_with_data(Self::current_round()).defensive()
+					Submissions::<T>::take_leader_with_data(Self::current_round())
 				{
 					// first, let's slash their deposit.
 					let slash = metadata.deposit;
@@ -192,11 +198,17 @@ impl<T: Config> SolutionDataProvider for Pallet<T> {
 						// state.
 						let _ = <T::Verifier as AsynchronousVerifier>::start().defensive();
 					}
+				} else {
+					// No leader to slash; nothing to do.
+					sublog!(
+						warn,
+						"signed",
+						"Tried to report Rejected but no leader was present for round {}",
+						current_round
+					);
 				}
 			},
-			VerificationResult::DataUnavailable => {
-				unreachable!("TODO")
-			},
+
 		}
 	}
 }

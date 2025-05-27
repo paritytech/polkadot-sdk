@@ -221,8 +221,6 @@ pub enum VerificationResult {
 	Queued,
 	/// Solution is rejected, for whichever of the multiple reasons that it could be.
 	Rejected,
-	/// The data needed (solution pages or the score) was unavailable. This should rarely happen.
-	DataUnavailable,
 }
 
 /// Something that can provide candidate solutions to the verifier.
@@ -236,6 +234,9 @@ pub trait SolutionDataProvider {
 	/// Return the `page`th page of the current best solution that the data provider has in store.
 	///
 	/// If no candidate solutions are available, then None is returned.
+	///
+	/// Consumers should treat `None` as an empty page (i.e., as if the page exists but contains no
+	/// solutions).
 	fn get_page(page: PageIndex) -> Option<Self::Solution>;
 
 	/// Get the claimed score of the current best solution.

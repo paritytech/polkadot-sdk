@@ -33,7 +33,7 @@ use frame_election_provider_support::{
 use frame_support::{
 	ensure,
 	pallet_prelude::{ValueQuery, *},
-	traits::{defensive_prelude::*, Defensive, Get},
+	traits::{defensive_prelude::*, Get},
 };
 use frame_system::pallet_prelude::*;
 use pallet::*;
@@ -630,29 +630,11 @@ pub(crate) mod pallet {
 impl<T: Config> Pallet<T> {
 	fn do_on_initialize() -> Weight {
 		if let Status::Ongoing(current_page) = Self::status_storage() {
-			let maybe_page_solution =
-				<T::SolutionDataProvider as SolutionDataProvider>::get_page(current_page);
+			let page_solution =
+				<T::SolutionDataProvider as SolutionDataProvider>::get_page(current_page)
+					// Treat missing pages as empty by design.
+					.unwrap_or_default();
 
-			if maybe_page_solution.as_ref().is_none() {
-				// the data provider has zilch, revert to a clean state, waiting for a new `start`.
-				sublog!(
-					error,
-					"verifier",
-					"T::SolutionDataProvider failed to deliver page {}. This is an unexpected error.",
-					current_page,
-				);
-
-				QueuedSolution::<T>::clear_invalid_and_backings();
-				StatusStorage::<T>::put(Status::Nothing);
-				T::SolutionDataProvider::report_result(VerificationResult::DataUnavailable);
-
-				Self::deposit_event(Event::<T>::VerificationDataUnavailable);
-				// weight is a bit overestimate.
-				let wasted_pages = T::Pages::get().saturating_sub(current_page);
-				return VerifierWeightsOf::<T>::on_initialize_invalid_non_terminal(wasted_pages);
-			}
-
-			let page_solution = maybe_page_solution.expect("Option checked to not be None; qed");
 			let maybe_supports = Self::feasibility_check_page_inner(page_solution, current_page);
 
 			sublog!(
@@ -678,7 +660,7 @@ impl<T: Config> Pallet<T> {
 						// assume default score, which will almost certainly fail and cause a proper
 						// cleanup of the pallet, which is what we want anyways.
 						let claimed_score =
-							T::SolutionDataProvider::get_score().defensive_unwrap_or_default();
+							T::SolutionDataProvider::get_score().unwrap_or_default();
 
 						// in both cases of the following match, we are not back to the nothing
 						// state.

@@ -428,7 +428,7 @@ mod async_verification {
 	}
 
 	#[test]
-	fn solution_data_provider_failing_initial() {
+	fn solution_data_provider_empty_data_solution() {
 		ExtBuilder::verifier().build_and_execute(|| {
 			// not super important, but anyways..
 			roll_to_snapshot_created();
@@ -444,19 +444,41 @@ mod async_verification {
 
 			roll_next();
 
-			// we instantly stop.
-			assert_eq!(verifier_events(), vec![Event::<Runtime>::VerificationDataUnavailable]);
+			// After first roll, only page 2 is processed, status is still Ongoing(1).
+			assert_eq!(verifier_events(), vec![Event::<Runtime>::Verified(2, 0)]);
+			assert_eq!(VerifierPallet::status(), Status::Ongoing(1));
+
+			// Process the next page (page 1).
+			roll_next();
+			assert_eq!(
+				verifier_events(),
+				vec![Event::<Runtime>::Verified(2, 0), Event::<Runtime>::Verified(1, 0)]
+			);
+			assert_eq!(VerifierPallet::status(), Status::Ongoing(0));
+
+			// Process the final page (page 0).
+			roll_next();
+			// Check that the verification has failed.
+			assert_eq!(
+				verifier_events(),
+				vec![
+					Event::<Runtime>::Verified(2, 0),
+					Event::<Runtime>::Verified(1, 0),
+					Event::<Runtime>::Verified(0, 0),
+					Event::<Runtime>::VerificationFailed(0, FeasibilityError::InvalidScore),
+				]
+			);
+			// The system should be in a clean state after processing all pages.
 			assert_eq!(VerifierPallet::status(), Status::Nothing);
 			assert!(QueuedSolution::<Runtime>::invalid_iter().count().is_zero());
 			assert!(QueuedSolution::<Runtime>::backing_iter().count().is_zero());
-
-			// and we report invalid back.
-			assert_eq!(MockSignedResults::get(), vec![VerificationResult::DataUnavailable]);
+			// Empty pages are handled gracefully, solution is rejected.
+			assert_eq!(MockSignedResults::get(), vec![VerificationResult::Rejected]);
 		});
 	}
 
 	#[test]
-	fn solution_data_provider_failing_midway() {
+	fn solution_data_provider_empty_data_midway() {
 		ExtBuilder::verifier().build_and_execute(|| {
 			roll_to_snapshot_created();
 
@@ -480,24 +502,76 @@ mod async_verification {
 			MockSignedNextSolution::set(None);
 			MockSignedNextScore::set(None);
 
+			// Roll through the remaining pages, which will be treated as empty.
 			roll_next();
+			assert_eq!(VerifierPallet::status(), Status::Ongoing(0));
+			assert_eq!(
+				verifier_events(),
+				vec![Event::<Runtime>::Verified(2, 2), Event::<Runtime>::Verified(1, 0)]
+			);
 
-			// we instantly stop.
+			roll_next();
+			assert_eq!(VerifierPallet::status(), Status::Nothing);
 			assert_eq!(
 				verifier_events(),
 				vec![
 					Event::<Runtime>::Verified(2, 2),
-					Event::<Runtime>::VerificationDataUnavailable
+					Event::<Runtime>::Verified(1, 0),
+					Event::<Runtime>::Verified(0, 0),
+					Event::<Runtime>::VerificationFailed(0, FeasibilityError::InvalidScore),
 				]
 			);
-			assert_eq!(VerifierPallet::status(), Status::Nothing);
+
+			// The system should be in a clean state after processing all pages.
 			assert_eq!(QueuedSolution::<Runtime>::invalid_iter().count(), 0);
 			assert_eq!(QueuedSolution::<Runtime>::valid_iter().count(), 0);
 			assert_eq!(QueuedSolution::<Runtime>::backing_iter().count(), 0);
 
-			// and we report invalid back.
-			assert_eq!(MockSignedResults::get(), vec![VerificationResult::DataUnavailable]);
+			// Empty pages are handled gracefully, solution is rejected.
+			assert_eq!(MockSignedResults::get(), vec![VerificationResult::Rejected]);
 		})
+	}
+
+	#[test]
+	fn solution_data_provider_missing_score_at_end() {
+		ExtBuilder::verifier().build_and_execute(|| {
+			roll_to_snapshot_created();
+
+			let solution = mine_full_solution().unwrap();
+			load_mock_signed_and_start(solution.clone());
+
+			assert_eq!(VerifierPallet::status(), Status::Ongoing(2));
+
+			// First page is fine.
+			roll_next();
+			assert_eq!(VerifierPallet::status(), Status::Ongoing(1));
+			assert_eq!(verifier_events(), vec![Event::<Runtime>::Verified(2, 2)]);
+			assert_eq!(MockSignedResults::get(), vec![]);
+
+			// Now clear both the solution and the score to simulate missing score at the end.
+			MockSignedNextSolution::set(None);
+			MockSignedNextScore::set(None);
+
+			// Roll through remaining pages.
+			roll_next();
+			assert_eq!(VerifierPallet::status(), Status::Ongoing(0));
+			roll_next();
+
+			// Should use default score, emit VerificationFailed, and not panic.
+			assert_eq!(
+				verifier_events(),
+				vec![
+					Event::<Runtime>::Verified(2, 2),
+					Event::<Runtime>::Verified(1, 0),
+					Event::<Runtime>::Verified(0, 0),
+					Event::<Runtime>::VerificationFailed(0, FeasibilityError::InvalidScore),
+				]
+			);
+			assert_eq!(VerifierPallet::status(), Status::Nothing);
+			assert!(QueuedSolution::<Runtime>::invalid_iter().count().is_zero());
+			assert!(QueuedSolution::<Runtime>::backing_iter().count().is_zero());
+			assert_eq!(MockSignedResults::get(), vec![VerificationResult::Rejected]);
+		});
 	}
 
 	#[test]
