@@ -374,7 +374,6 @@ pub mod benchmark_helpers {
 }
 
 pub(crate) mod migrations {
-	use alloc::vec::Vec;
 	use frame_support::pallet_prelude::*;
 	use snowbridge_core::TokenId;
 
@@ -400,18 +399,6 @@ pub(crate) mod migrations {
 				Some(xcm::v5::Location::try_from(pre).expect("valid location"))
 			};
 			snowbridge_pallet_system::ForeignToNativeId::<T>::translate_values(translate_westend);
-
-			let old_keys = OldNativeToForeignId::<T>::iter_keys().collect::<Vec<_>>();
-			for old_key in old_keys {
-				if let Some(old_val) = OldNativeToForeignId::<T>::get(&old_key) {
-					snowbridge_pallet_system::NativeToForeignId::<T>::insert(
-						&xcm::v5::Location::try_from(old_key.clone()).expect("valid location"),
-						old_val,
-					);
-				}
-				OldNativeToForeignId::<T>::remove(old_key);
-				weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 2));
-			}
 
 			weight
 		}
