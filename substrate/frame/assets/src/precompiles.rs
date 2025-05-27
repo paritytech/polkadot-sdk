@@ -17,14 +17,14 @@
 
 use crate::{weights::WeightInfo, Call, Config, PhantomData, TransferFlags};
 use alloc::vec::Vec;
-use alloy::{
-	primitives::IntoLogData,
-	sol_types::{Revert, SolCall},
-};
 pub use pallet_revive::precompiles::{
-	alloy, AddressMapper, AddressMatcher, Error, Ext, Precompile, RuntimeCosts,
+	alloy::{
+		self,
+		primitives::IntoLogData,
+		sol_types::{Revert, SolCall},
+	},
+	AddressMapper, AddressMatcher, Error, Ext, Precompile, RuntimeCosts, H160, H256,
 };
-use sp_core::{H160, H256};
 
 alloy::sol!("src/precompiles/IERC20.sol");
 use IERC20::{IERC20Events, *};

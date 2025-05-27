@@ -37,6 +37,7 @@ pub use crate::{
 	AddressMapper,
 };
 pub use alloy_core as alloy;
+pub use sp_core::{H160, H256, U256};
 
 use crate::{
 	exec::ExecResult, precompiles::builtin::Builtin, primitives::ExecReturnValue, Config,
