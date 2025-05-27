@@ -208,7 +208,6 @@ impl<T: Config> SolutionDataProvider for Pallet<T> {
 					);
 				}
 			},
-
 		}
 	}
 }
