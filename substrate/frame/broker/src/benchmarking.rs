@@ -907,7 +907,6 @@ mod benches {
 			let region = Broker::<T>::do_purchase(caller.clone(), start_price)
 				.expect("Offer not high enough for configuration.");
 
-
 			Broker::<T>::do_assign(region, None, task, Final)
 				.map_err(|_| BenchmarkError::Weightless)?;
 
