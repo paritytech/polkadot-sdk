@@ -1,0 +1,18 @@
+title: Shared Add ethereum-standards crate
+doc:
+- audience: Runtime Dev
+  description: 'Shared PR that adds ethereum-standards crate used by upcoming #7762  and
+    #8365 '
+crates:
+- name: ethereum-standards
+  bump: patch
+- name: pallet-revive
+  bump: patch
+- name: snowbridge-pallet-inbound-queue
+  bump: patch
+- name: snowbridge-inbound-queue-primitives
+  bump: patch
+- name: snowbridge-outbound-queue-primitives
+  bump: patch
+- name: polkadot-sdk
+  bump: patch
