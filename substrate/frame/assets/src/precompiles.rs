@@ -373,7 +373,7 @@ mod test {
 				H160::from(asset_addr),
 				0u64,
 				Weight::MAX,
-				DepositLimit::Unchecked,
+				DepositLimit::UnsafeOnlyForDryRun,
 				data,
 			);
 
@@ -409,7 +409,7 @@ mod test {
 				H160::from(asset_addr),
 				0u64,
 				Weight::MAX,
-				DepositLimit::Unchecked,
+				DepositLimit::UnsafeOnlyForDryRun,
 				data,
 			)
 			.result
@@ -440,7 +440,7 @@ mod test {
 				H160::from(asset_addr),
 				0u64,
 				Weight::MAX,
-				DepositLimit::Unchecked,
+				DepositLimit::UnsafeOnlyForDryRun,
 				data,
 			)
 			.result
@@ -486,7 +486,7 @@ mod test {
 				H160::from(asset_addr),
 				0u64,
 				Weight::MAX,
-				DepositLimit::Unchecked,
+				DepositLimit::UnsafeOnlyForDryRun,
 				data,
 			);
 
@@ -510,7 +510,7 @@ mod test {
 				H160::from(asset_addr),
 				0u64,
 				Weight::MAX,
-				DepositLimit::Unchecked,
+				DepositLimit::UnsafeOnlyForDryRun,
 				data,
 			)
 			.result
@@ -532,7 +532,7 @@ mod test {
 				H160::from(asset_addr),
 				0u64,
 				Weight::MAX,
-				DepositLimit::Unchecked,
+				DepositLimit::UnsafeOnlyForDryRun,
 				data,
 			);
 			assert_eq!(Assets::balance(asset_id, owner), 90);
