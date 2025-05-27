@@ -267,9 +267,9 @@ where
 	/// Set the delegator related info of an account's voting data.
 	pub fn set_delegator_info(
 		&mut self,
-		delegate: AccountId,
+		delegate: Option<AccountId>,
 		balance: Balance,
-		conviction: Conviction,
+		conviction: Option<Conviction>,
 	) {
 		self.delegate = Some(delegate);
 		self.delegated_balance = balance;
