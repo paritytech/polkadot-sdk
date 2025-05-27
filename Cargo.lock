@@ -1182,7 +1182,7 @@ dependencies = [
 
 [[package]]
 name = "asset-hub-westend-runtime"
-version = "0.30.1"
+version = "0.30.2"
 dependencies = [
  "asset-test-utils",
  "assets-common",
@@ -6388,7 +6388,7 @@ checksum = "6c2141d6d6c8512188a7891b4b01590a45f6dac67afb4f255c4124dbb86d4eaa"
 
 [[package]]
 name = "frame-benchmarking"
-version = "40.1.0"
+version = "40.2.0"
 dependencies = [
  "array-bytes",
  "frame-support",
@@ -6417,7 +6417,7 @@ dependencies = [
 
 [[package]]
 name = "frame-benchmarking-cli"
-version = "47.1.0"
+version = "47.2.0"
 dependencies = [
  "Inflector",
  "array-bytes",
@@ -12645,7 +12645,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-revive"
-version = "0.6.0"
+version = "0.6.1"
 dependencies = [
  "alloy-core",
  "array-bytes",
@@ -12883,7 +12883,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-scheduler"
-version = "41.1.0"
+version = "41.2.0"
 dependencies = [
  "docify",
  "frame-benchmarking",
@@ -13325,7 +13325,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-xcm"
-version = "19.1.1"
+version = "19.1.2"
 dependencies = [
  "bounded-collections",
  "frame-benchmarking",
@@ -13371,7 +13371,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-xcm-bridge-hub"
-version = "0.16.2"
+version = "0.16.3"
 dependencies = [
  "bp-header-chain",
  "bp-messages",
@@ -26949,7 +26949,7 @@ dependencies = [
 
 [[package]]
 name = "westend-runtime"
-version = "22.2.0"
+version = "22.3.0"
 dependencies = [
  "approx",
  "binary-merkle-tree",
