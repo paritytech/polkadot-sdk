@@ -24,7 +24,10 @@ async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 				.with_default_image(images.polkadot.as_str())
 				// Not strictly necessary for the test, but to keep it consistent
 				// with the parachain part we also pass `--no-mdns` to the relaychain.
-				.with_default_args(vec!["-lparachain=debug".into(), "--no-mdns".into()])
+				.with_default_args(vec![
+					"-lparachain=debug,sub-libp2p=trace,libp2p=debug".into(),
+					"--no-mdns".into(),
+				])
 				// Have to set a `with_node` outside of the loop below, so that `r` has the right
 				// type.
 				.with_node(|node| node.with_name("validator-0"));
@@ -39,7 +42,7 @@ async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 				.without_default_bootnodes()
 				// Disable mdns to rely only on DHT bootnode discovery mechanism.
 				.with_default_args(vec![
-					"-lbootnodes=trace".into(),
+					"-lbootnodes=trace,sub-libp2p=trace,libp2p=debug".into(),
 					"--no-mdns".into(),
 					// "--discover-local".into(),
 					"--".into(),
