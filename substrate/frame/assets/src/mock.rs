@@ -60,7 +60,7 @@ impl pallet_balances::Config for Test {
 impl pallet_revive::Config for Test {
 	type AddressMapper = pallet_revive::TestAccountMapper<Self>;
 	type Currency = Balances;
-	type Precompiles = (ERC20<Self, InlineIdConfig<0x0120>,);
+	type Precompiles = (ERC20<Self, InlineIdConfig<0x0120>>,);
 }
 
 pub struct AssetsCallbackHandle;
