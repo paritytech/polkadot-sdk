@@ -6063,7 +6063,7 @@ dependencies = [
 name = "ethereum-standards"
 version = "0.1.0"
 dependencies = [
- "pallet-revive",
+ "alloy-core",
 ]
 
 [[package]]
