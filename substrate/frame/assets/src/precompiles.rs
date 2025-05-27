@@ -27,7 +27,7 @@ pub use pallet_revive::precompiles::{
 };
 
 alloy::sol!("src/precompiles/IERC20.sol");
-use IERC20::{IERC20Events, *};
+use IERC20::IERC20Events;
 
 /// Mean of extracting the asset id from the precompile address.
 pub trait AssetIdExtractor {
@@ -171,7 +171,7 @@ where
 	/// Execute the transfer call.
 	fn transfer(
 		asset_id: <Runtime as Config<Instance>>::AssetId,
-		call: &transferCall,
+		call: &IERC20::transferCall,
 		env: &mut impl Ext<T = Runtime>,
 	) -> Result<Vec<u8>, Error> {
 		env.charge(<Runtime as Config<Instance>>::WeightInfo::transfer())?;
@@ -200,7 +200,7 @@ where
 			}),
 		)?;
 
-		return Ok(transferCall::abi_encode_returns(&true));
+		return Ok(IERC20::transferCall::abi_encode_returns(&true));
 	}
 
 	/// Execute the total supply call.
@@ -212,26 +212,26 @@ where
 		env.charge(<Runtime as Config<Instance>>::WeightInfo::total_issuance())?;
 
 		let value = Self::to_u256(crate::Pallet::<Runtime, Instance>::total_issuance(asset_id))?;
-		return Ok(totalSupplyCall::abi_encode_returns(&value));
+		return Ok(IERC20::totalSupplyCall::abi_encode_returns(&value));
 	}
 
 	/// Execute the balance_of call.
 	fn balance_of(
 		asset_id: <Runtime as Config<Instance>>::AssetId,
-		call: &balanceOfCall,
+		call: &IERC20::balanceOfCall,
 		env: &mut impl Ext<T = Runtime>,
 	) -> Result<Vec<u8>, Error> {
 		env.charge(<Runtime as Config<Instance>>::WeightInfo::balance())?;
 		let account = call.account.into_array().into();
 		let account = <Runtime as pallet_revive::Config>::AddressMapper::to_account_id(&account);
 		let value = Self::to_u256(crate::Pallet::<Runtime, Instance>::balance(asset_id, account))?;
-		return Ok(balanceOfCall::abi_encode_returns(&value));
+		return Ok(IERC20::balanceOfCall::abi_encode_returns(&value));
 	}
 
 	/// Execute the allowance call.
 	fn allowance(
 		asset_id: <Runtime as Config<Instance>>::AssetId,
-		call: &allowanceCall,
+		call: &IERC20::allowanceCall,
 		env: &mut impl Ext<T = Runtime>,
 	) -> Result<Vec<u8>, Error> {
 		env.charge(<Runtime as Config<Instance>>::WeightInfo::allowance())?;
@@ -245,13 +245,13 @@ where
 			asset_id, &owner, &spender,
 		))?;
 
-		return Ok(balanceOfCall::abi_encode_returns(&value));
+		return Ok(IERC20::balanceOfCall::abi_encode_returns(&value));
 	}
 
 	/// Execute the approve call.
 	fn approve(
 		asset_id: <Runtime as Config<Instance>>::AssetId,
-		call: &approveCall,
+		call: &IERC20::approveCall,
 		env: &mut impl Ext<T = Runtime>,
 	) -> Result<Vec<u8>, Error> {
 		env.charge(<Runtime as Config<Instance>>::WeightInfo::approve_transfer())?;
@@ -275,13 +275,13 @@ where
 			}),
 		)?;
 
-		return Ok(approveCall::abi_encode_returns(&true));
+		return Ok(IERC20::approveCall::abi_encode_returns(&true));
 	}
 
 	/// Execute the transfer_from call.
 	fn transfer_from(
 		asset_id: <Runtime as Config<Instance>>::AssetId,
-		call: &transferFromCall,
+		call: &IERC20::transferFromCall,
 		env: &mut impl Ext<T = Runtime>,
 	) -> Result<Vec<u8>, Error> {
 		env.charge(<Runtime as Config<Instance>>::WeightInfo::transfer_approved())?;
@@ -311,7 +311,7 @@ where
 			}),
 		)?;
 
-		return Ok(transferFromCall::abi_encode_returns(&true));
+		return Ok(IERC20::transferFromCall::abi_encode_returns(&true));
 	}
 }
 
