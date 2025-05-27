@@ -103,7 +103,7 @@ impl<
 					?error,
 					?index,
 					?used,
-					"XCM message execution incomplete, used weight",
+					"XCM message execution incomplete",
 				);
 				(used, Ok(false))
 			},
