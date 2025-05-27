@@ -1052,7 +1052,7 @@ where
 		let try_call = || {
 			let origin = Origin::from_runtime_origin(origin)?;
 			let mut storage_meter = match storage_deposit_limit {
-				DepositLimit::Balance(limit) => StorageMeter::new(&origin, limit, value)?,
+				DepositLimit::Balance(limit) => StorageMeter::new(limit),
 				DepositLimit::UnsafeOnlyForDryRun =>
 					StorageMeter::new_unchecked(BalanceOf::<T>::max_value()),
 			};
@@ -1125,7 +1125,7 @@ where
 			let mut storage_meter = if unchecked_deposit_limit {
 				StorageMeter::new_unchecked(storage_deposit_limit)
 			} else {
-				StorageMeter::new(&instantiate_origin, storage_deposit_limit, value)?
+				StorageMeter::new(storage_deposit_limit)
 			};
 
 			let result = ExecStack::<T, WasmBlob<T>>::run_instantiate(
