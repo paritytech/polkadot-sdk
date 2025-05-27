@@ -7,6 +7,6 @@ crates:
 - name: cumulus-client-consensus-aura
   bump: patch
 - name: cumulus-client-pov-recovery
-  bump: patch
+  bump: none
 - name: cumulus-pallet-parachain-system
-  bump: patch
+  bump: none
