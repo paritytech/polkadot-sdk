@@ -102,7 +102,7 @@ fn transact_recursion_limit_works() {
 				let expected_transact_status =
 					sp_runtime::DispatchError::Module(sp_runtime::ModuleError {
 						index: 27,
-						error: [28, 0, 0, 0],
+						error: [28, 0, 40, 0], // ExceedsStackLimit
 						message: Some("LocalExecutionIncompleteWithError"),
 					})
 					.encode()

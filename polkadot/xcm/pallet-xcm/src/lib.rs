@@ -77,7 +77,7 @@ use xcm_runtime_apis::{
 };
 
 mod errors;
-use errors::ExecutionError;
+pub use errors::ExecutionError;
 
 #[cfg(any(feature = "try-runtime", test))]
 use sp_runtime::TryRuntimeError;
@@ -365,12 +365,17 @@ pub mod pallet {
 
 			Self::deposit_event(Event::Attempted { outcome: outcome.clone() });
 			let weight_used = outcome.weight_used();
-			outcome.ensure_complete().map_err(|(index, error)| {
+			outcome.ensure_complete().map_err(|error| {
 				tracing::error!(target: "xcm::pallet_xcm::execute", ?error, "XCM execution failed with error");
-				Error::<T>::LocalExecutionIncompleteWithError { error: error.into(), index }
-					.with_weight(weight_used.saturating_add(
+				Error::<T>::LocalExecutionIncompleteWithError {
+					index: error.index,
+					error: error.error.into(),
+				}
+				.with_weight(
+					weight_used.saturating_add(
 						<Self::WeightInfo as ExecuteControllerWeightInfo>::execute(),
-					))
+					),
+				)
 			})?;
 			Ok(weight_used)
 		}
@@ -685,7 +690,7 @@ pub mod pallet {
 		AliasNotFound,
 		/// Local XCM execution incomplete with error.
 		#[codec(index = 28)]
-		LocalExecutionIncompleteWithError { error: ExecutionError, index: u8 },
+		LocalExecutionIncompleteWithError { index: u8, error: ExecutionError },
 	}
 
 	impl<T: Config> From<SendError> for Error<T> {
@@ -1451,9 +1456,9 @@ pub mod pallet {
 				weight,
 				weight,
 			);
-			outcome.ensure_complete().map_err(|(index, error)| {
+			outcome.ensure_complete().map_err(|error| {
 				tracing::error!(target: "xcm::pallet_xcm::claim_assets", ?error, "XCM execution failed with error");
-				Error::<T>::LocalExecutionIncompleteWithError {index, error: error.into()}
+				Error::<T>::LocalExecutionIncompleteWithError { index: error.index, error: error.error.into()}
 			})?;
 			Ok(())
 		}
@@ -2083,12 +2088,15 @@ impl<T: Config> Pallet<T> {
 			weight,
 		);
 		Self::deposit_event(Event::Attempted { outcome: outcome.clone() });
-		outcome.clone().ensure_complete().map_err(|(index, error)| {
+		outcome.clone().ensure_complete().map_err(|error| {
 			tracing::error!(
 				target: "xcm::pallet_xcm::execute_xcm_transfer",
 				?error, "XCM execution failed with error with outcome: {:?}", outcome
 			);
-			Error::<T>::LocalExecutionIncompleteWithError { error: error.into(), index }
+			Error::<T>::LocalExecutionIncompleteWithError {
+				index: error.index,
+				error: error.error.into(),
+			}
 		})?;
 
 		if let Some(remote_xcm) = remote_xcm {

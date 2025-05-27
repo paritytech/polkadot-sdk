@@ -251,12 +251,18 @@ pub enum Outcome {
 	Error { error: Error, index: u8 },
 }
 
+#[derive(Debug)]
+pub struct OutcomeError {
+	pub index: u8,
+	pub error: Error,
+}
+
 impl Outcome {
-	pub fn ensure_complete(self) -> result::Result<(), (u8, Error)> {
+	pub fn ensure_complete(self) -> result::Result<(), OutcomeError> {
 		match self {
 			Outcome::Complete { .. } => Ok(()),
-			Outcome::Incomplete { error, index, .. } => Err((index, error)),
-			Outcome::Error { error, index, .. } => Err((index, error)),
+			Outcome::Incomplete { error, index, .. } => Err(OutcomeError { index, error }),
+			Outcome::Error { error, index, .. } => Err(OutcomeError { index, error }),
 		}
 	}
 	pub fn ensure_execution(self) -> result::Result<Weight, Error> {
