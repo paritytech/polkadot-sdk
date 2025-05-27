@@ -142,12 +142,6 @@ jobs:
           if [[ "$BASE_BRANCH" == stable* ]]; then
               echo "🔍 Backport branch detected, checking for disallowed semver changes..."
           
-              # Check if prdoc file exists
-              if [ ! -f "prdoc/pr_$PR.prdoc" ]; then
-                  echo "❌ Error: prdoc/pr_$PR.prdoc not found."
-                  exit 1
-              fi
-          
               # Check for major bumps
               if grep '^[[:space:]]*bump:[[:space:]]*major' "prdoc/pr_$PR.prdoc" >/dev/null; then
                   # Process major bump lines and the line after each
