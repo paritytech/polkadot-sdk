@@ -200,9 +200,9 @@ mod benchmarks {
 
 		#[block]
 		{
-			// Start export by calling elect(max_page) in Done phase
-			let max_page = <Pallet<T> as ElectionProvider>::msp();
-			let _ = Pallet::<T>::elect(max_page).unwrap();
+			// tell the data provider to do its election process for one page, while we are fully
+			// ready.
+			T::DataProvider::fetch_page(T::Pages::get() - 1);
 		}
 
 		// we should be in the export phase now.
@@ -237,9 +237,7 @@ mod benchmarks {
 		crate::Pallet::<T>::roll_until_matches(|| CurrentPhase::<T>::get().is_done());
 
 		// Start export and fetch all pages except the last one
-		let max_page = <Pallet<T> as ElectionProvider>::msp();
-		// Start export and fetch all pages from max_page down to 1
-		(1..=max_page).rev().for_each(T::DataProvider::fetch_page);
+		(1..=T::Pages::get() - 1).rev().for_each(T::DataProvider::fetch_page);
 
 		assert_eq!(CurrentPhase::<T>::get(), Phase::Export(0));
 
