@@ -362,8 +362,8 @@ impl Client {
 		at: BlockNumberOrTagOrHash,
 	) -> Result<SubstrateBlockHash, ClientError> {
 		match at {
-			BlockNumberOrTagOrHash::H256(hash) => Ok(hash),
-			BlockNumberOrTagOrHash::U256(block_number) => {
+			BlockNumberOrTagOrHash::BlockHash(hash) => Ok(hash),
+			BlockNumberOrTagOrHash::BlockNumber(block_number) => {
 				let n: SubstrateBlockNumber =
 					(block_number).try_into().map_err(|_| ClientError::ConversionFailed)?;
 				let hash = self.get_block_hash(n).await?.ok_or(ClientError::BlockNotFound)?;
