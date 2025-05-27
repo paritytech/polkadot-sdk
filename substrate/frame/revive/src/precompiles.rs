@@ -34,6 +34,7 @@ pub use crate::{
 	gas::{GasMeter, Token},
 	storage::meter::Diff,
 	wasm::RuntimeCosts,
+	AddressMapper,
 };
 pub use alloy_core as alloy;
 

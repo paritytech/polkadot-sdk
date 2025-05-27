@@ -21,9 +21,8 @@ use alloy::{
 	primitives::IntoLogData,
 	sol_types::{Revert, SolCall},
 };
-pub use pallet_revive::{
-	precompiles::{alloy, AddressMatcher, Error, Ext, Precompile, RuntimeCosts},
-	AddressMapper,
+pub use pallet_revive::precompiles::{
+	alloy, AddressMapper, AddressMatcher, Error, Ext, Precompile, RuntimeCosts,
 };
 use sp_core::{H160, H256};
 
