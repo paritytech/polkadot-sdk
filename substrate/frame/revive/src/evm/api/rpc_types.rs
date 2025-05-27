@@ -144,8 +144,7 @@ fn can_deserialize_input_or_data_field_from_generic_transaction() {
 
 #[test]
 fn test_block_number_or_tag_or_hash_deserialization() {
-	let s = "\"latest\"";
-	let val: BlockNumberOrTagOrHash = serde_json::from_str(s).unwrap();
+	let val: BlockNumberOrTagOrHash = serde_json::from_str("\"latest\"").unwrap();
 	assert_eq!(val, BlockTag::Latest.into());
 
 	for s in ["\"0x1a\"", r#"{ "blockNumber": "0x1a" }"#] {
