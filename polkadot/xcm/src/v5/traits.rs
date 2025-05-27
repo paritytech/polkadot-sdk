@@ -247,7 +247,7 @@ pub enum Outcome {
 	/// Execution started, but did not complete successfully due to`error` which occurred
 	/// on the `index`-th instruction ; overall total `weight` was used.
 	Incomplete { used: Weight, error: Error, index: u8 },
-	/// Execution did not start due to the given error.
+	/// Execution did not start due to the `error` which happened on instruction `index`.
 	Error { error: Error, index: u8 },
 }
 
