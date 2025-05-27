@@ -891,6 +891,8 @@ mod benches {
 		let timeslice_period: u32 = T::TimeslicePeriod::get().try_into().ok().unwrap();
 		let sale = SaleInfo::<T>::get().expect("Sale has started.");
 
+		let now = RCBlockNumberProviderOf::<T::Coretime>::current_block_number();
+		let price = Broker::<T>::sale_price(&sale, now);
 		(0..n_renewable.into()).try_for_each(|indx| -> Result<(), BenchmarkError> {
 			let task = 1000 + indx;
 			let caller: T::AccountId = T::SovereignAccountOf::maybe_convert(task)
@@ -899,12 +901,12 @@ mod benches {
 				&caller.clone(),
 				T::Currency::minimum_balance()
 					.saturating_add(start_price)
-					.saturating_add(start_price)
 					.saturating_add(start_price),
 			);
 
 			let region = Broker::<T>::do_purchase(caller.clone(), start_price)
 				.expect("Offer not high enough for configuration.");
+
 
 			Broker::<T>::do_assign(region, None, task, Final)
 				.map_err(|_| BenchmarkError::Weightless)?;
@@ -966,7 +968,7 @@ mod benches {
 					who,
 					old_core: n_reservations as u16 + n_leases as u16 + indx as u16,
 					core: n_reservations as u16 + n_leases as u16 + indx as u16,
-					price: new_prices.end_price,
+					price,
 					begin: new_sale.region_begin,
 					duration: config.region_length,
 					workload: Schedule::truncate_from(vec![ScheduleItem {
