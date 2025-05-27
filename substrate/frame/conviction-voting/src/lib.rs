@@ -595,6 +595,8 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		)
 	}
 
+	// ✓
+
 	/// Return the number of votes made by `who`.
 	fn reduce_upstream_delegation(
 		who: &T::AccountId,
@@ -602,26 +604,37 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		amount: Delegations<BalanceOf<T, I>>,
 		ongoing_votes: Vec<PollIndex>,
 	) -> u32 {
-		VotingFor::<T, I>::mutate(who, class, |voting| match voting {
-			Voting::Delegating(Delegating { delegations, .. }) => {
-				// We don't support second level delegating, so we don't need to do anything more.
-				*delegations = delegations.saturating_sub(amount);
-				1
-			},
-			Voting::Casting(Casting { votes, delegations, .. }) => {
-				*delegations = delegations.saturating_sub(amount);
-				for &(poll_index, account_vote) in votes.iter() {
-					if let AccountVote::Standard { vote, .. } = account_vote {
-						T::Polls::access_poll(poll_index, |poll_status| {
+		VotingFor::<T, I>::mutate(who, class, |votes|
+			votes.delegations = votes.delegation.saturating_sub(amount);
+			// For all of the delegators ongoing votes, remove the balance clawback
+			for poll_index in ongoing_votes {
+				match votes.binary_search_by_key(&poll_index, |i| i.0) {
+					Ok(i) => {
+						// This vote was voted on by who at the time of undelegation
+						votes[i].2 = votes[i].2.saturating_sub(amount); // remove clawback from vote data
+					},
+					Err(i) => {
+						// This shouldn't be possible as if they're voting while
+						// delegating, the delegate will always need info about that poll
+					},
+				}
+			}
+			// Then reduce the tallies of any votes that the delegator is not currently voting on,
+			// but the delegate is
+			for &(poll_index, account_vote) in votes.iter() {
+				if let AccountVote::Standard { vote, .. } = account_vote {
+					T::Polls::access_poll(poll_index, |poll_status| {
+						if !ongoing_votes.contains(poll_index) {
 							if let PollStatus::Ongoing(tally, _) = poll_status {
 								tally.reduce(vote.aye, amount);
 							}
-						});
-					}
+							updates
+						}
+					});
 				}
-				votes.len() as u32
-			},
-		})
+			}
+			(ongoing_votes.len() + votes.len()) as u32
+		)
 	}
 
 	// ✓
@@ -649,11 +662,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				
 				let ongoing_votes: Vec<_> = voting.votes.iter().filter_map(|poll_data| {
 					let poll_index = poll_data.0;
-					T::Polls::access_poll(poll_index, |poll_status| {
-						if let PollStatus::Ongoing(tally, _) = poll_status {
-								Some(poll_index)
-						}
-					})
+					T::Polls::as_ongoing(poll_index)
 				}).collect();
 
 				let vote_count =
@@ -669,13 +678,6 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
 	// ✓ 
 
-	// Okay, so I'm undelegating. Basically I'll 
-		// change the class state ✓
-		// then go upstream and
-			// reduce their delegation amount
-			// for votes that delegator is voting on -> do nothing to tally, reduce clawback for that vote
-			// for votes that delegator is not -> reduce tally
-
 	/// Attempt to end the current delegation.
 	///
 	/// Return the number of votes of upstream.
@@ -684,12 +686,8 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			VotingFor::<T, I>::try_mutate(&who, &class, |voting| -> Result<u32, DispatchError> {
 				if let (Some(delegate), Some(conviction)) = (voting.delegate, voting.conviction) {
 					let ongoing_votes: Vec<_> = voting.votes.iter().filter_map(|poll_data| {
-					let poll_index = poll_data.0;
-					T::Polls::access_poll(poll_index, |poll_status| {
-						if let PollStatus::Ongoing(tally, _) = poll_status {
-								Some(poll_index)
-						}
-					})
+						let poll_index = poll_data.0;
+						T::Polls::as_ongoing(poll_index)
 					}).collect();
 					let votes = Self::reduce_upstream_delegation(&delegate, &class, conviction.votes(voting.delegated_balance), ongoing_votes);
 					
