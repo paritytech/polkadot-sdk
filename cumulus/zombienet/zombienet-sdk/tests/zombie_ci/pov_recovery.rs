@@ -56,7 +56,6 @@ async fn pov_recovery() -> Result<(), anyhow::Error> {
 	)
 	.await?;
 
-	log::info!("Checking block production");
 	for (name, timeout_secs) in [
 		("bob", 600u64),
 		("alice", 600u64),
@@ -67,14 +66,13 @@ async fn pov_recovery() -> Result<(), anyhow::Error> {
 		// ("three", 800u64),
 		("eve", 800u64),
 	] {
+		log::info!("Checking block production for {name} within {timeout_secs}s");
 		assert!(network
 			.get_node(name)?
 			.wait_metric_with_timeout(BEST_BLOCK_METRIC, |b| b >= 20.0, timeout_secs)
 			.await
 			.is_ok());
 	}
-
-	log::info!("Ensuring blocks are imported using PoV recovery");
 
 	// Wait (up to 10 seconds) until pattern occurs 20 times
 	let options = LogLineCountOptions {
@@ -84,6 +82,7 @@ async fn pov_recovery() -> Result<(), anyhow::Error> {
 	};
 
 	for name in ["one", "two", "three", "eve", "charlie", "alice"] {
+		log::info!("Ensuring blocks are imported using PoV recovery by {name}");
 		let result = network
 			.get_node(name)?
 			.wait_log_line_count_with_timeout(
@@ -93,7 +92,11 @@ async fn pov_recovery() -> Result<(), anyhow::Error> {
 			)
 			.await?;
 
-		assert!(result.success());
+		assert!(
+			result.success(),
+			"Failed importing blocks using PoV recovery by {name}: {:?}",
+			result
+		);
 	}
 
 	Ok(())
