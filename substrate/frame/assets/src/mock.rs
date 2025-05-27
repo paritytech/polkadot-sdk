@@ -56,13 +56,11 @@ impl pallet_balances::Config for Test {
 	type AccountStore = System;
 }
 
-make_precompile_assets_config!(ERC20Config, 0x0120);
-
 #[derive_impl(pallet_revive::config_preludes::TestDefaultConfig)]
 impl pallet_revive::Config for Test {
 	type AddressMapper = pallet_revive::TestAccountMapper<Self>;
 	type Currency = Balances;
-	type Precompiles = (ERC20<Self, ERC20Config>,);
+	type Precompiles = (ERC20<Self, InlineIdConfig<0x0120>,);
 }
 
 pub struct AssetsCallbackHandle;

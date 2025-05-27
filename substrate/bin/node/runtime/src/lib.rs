@@ -1463,9 +1463,7 @@ impl pallet_contracts::Config for Runtime {
 	type Xcm = ();
 }
 
-use pallet_assets::{make_precompile_assets_config, precompiles::ERC20};
-make_precompile_assets_config!(Instance1Assets, 0x1);
-make_precompile_assets_config!(Instance2Assets, 0x2);
+use pallet_assets::{precompiles::ERC20, InlineIdConfig};
 
 impl pallet_revive::Config for Runtime {
 	type Time = Timestamp;
@@ -1478,7 +1476,7 @@ impl pallet_revive::Config for Runtime {
 	type WeightPrice = pallet_transaction_payment::Pallet<Self>;
 	type WeightInfo = pallet_revive::weights::SubstrateWeight<Self>;
 	type Precompiles =
-		(ERC20<Self, Instance1Assets, Instance1>, ERC20<Self, Instance2Assets, Instance2>);
+		(ERC20<Self, InlineIdConfig<0x1>, Instance1>, ERC20<Self, InlineIdConfig<0x2>, Instance2>);
 	type AddressMapper = pallet_revive::AccountId32Mapper<Self>;
 	type RuntimeMemory = ConstU32<{ 128 * 1024 * 1024 }>;
 	type PVFMemory = ConstU32<{ 512 * 1024 * 1024 }>;

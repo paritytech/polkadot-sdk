@@ -45,10 +45,10 @@ pub trait AssetPrecompileConfig {
 	type AssetIdExtractor: AssetIdExtractor;
 }
 
-/// An `AssetIdExtractor` that decode the asset id from the address.
-pub struct AddressAssetIdExtractor;
+/// An `AssetIdExtractor` that stores the asset id directly inside the address.
+pub struct InlineAssetIdExtractor;
 
-impl AssetIdExtractor for AddressAssetIdExtractor {
+impl AssetIdExtractor for InlineAssetIdExtractor {
 	type AssetId = u32;
 	fn asset_id_from_address(addr: &[u8; 20]) -> Result<Self::AssetId, Error> {
 		let bytes: [u8; 4] = addr[0..4].try_into().expect("slice is 4 bytes; qed");
@@ -57,19 +57,12 @@ impl AssetIdExtractor for AddressAssetIdExtractor {
 	}
 }
 
-/// A macro to generate an `AssetPrecompileConfig` implementation for a given name prefix.
-#[macro_export]
-macro_rules! make_precompile_assets_config {
-	($name:ident, $prefix:literal) => {
-		pub struct $name;
-		impl $crate::precompiles::AssetPrecompileConfig for $name {
-			const MATCHER: $crate::precompiles::AddressMatcher =
-				$crate::precompiles::AddressMatcher::Prefix(
-					core::num::NonZero::new($prefix).unwrap(),
-				);
-			type AssetIdExtractor = $crate::precompiles::AddressAssetIdExtractor;
-		}
-	};
+/// A precompile configuration that uses a prefix [`AddressMatcher`].
+pub struct InlineIDConfig<const PREFIX: u16>;
+
+impl<const P: u16> AssetPrecompileConfig for InlineIDConfig<P> {
+	const MATCHER: AddressMatcher = AddressMatcher::Prefix(core::num::NonZero::new(P).unwrap());
+	type AssetIdExtractor = InlineAssetIdExtractor;
 }
 
 /// An ERC20 precompile.
