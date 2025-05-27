@@ -557,7 +557,7 @@ fn aborted_upgrade() {
 }
 
 #[test]
-fn checks_size() {
+fn checks_code_size() {
 	BlockTests::new()
 		.with_relay_sproof_builder(|_, _, builder| {
 			builder.host_config.max_code_size = 8;
@@ -704,6 +704,34 @@ fn send_upward_message_relay_bottleneck() {
 				}
 			},
 		);
+}
+
+#[test]
+fn send_upwards_message_checks_size_on_validate() {
+	BlockTests::new()
+		.with_relay_sproof_builder(|_, _, sproof| {
+			sproof.host_config.max_upward_message_size = 128;
+		})
+		.add(1, || {
+			assert_eq!(
+				ParachainSystem::can_send_upward_message(vec![0u8; 129].as_ref()),
+				Err(MessageSendError::TooBig)
+			);
+		});
+}
+
+#[test]
+fn send_upward_message_check_size() {
+	BlockTests::new()
+		.with_relay_sproof_builder(|_, _, sproof| {
+			sproof.host_config.max_upward_message_size = 128;
+		})
+		.add(1, || {
+			assert_eq!(
+				ParachainSystem::send_upward_message(vec![0u8; 129]),
+				Err(MessageSendError::TooBig)
+			);
+		});
 }
 
 #[test]

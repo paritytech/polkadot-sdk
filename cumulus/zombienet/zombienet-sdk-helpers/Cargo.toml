@@ -12,6 +12,5 @@ anyhow = { workspace = true, default-features = true }
 codec = { workspace = true, features = ["derive"] }
 log = { workspace = true }
 polkadot-primitives = { workspace = true, default-features = true }
-subxt = { workspace = true, features = ["native"] }
 tokio = { workspace = true, features = ["rt-multi-thread", "macros", "time"] }
-
+zombienet-sdk = { workspace = true }

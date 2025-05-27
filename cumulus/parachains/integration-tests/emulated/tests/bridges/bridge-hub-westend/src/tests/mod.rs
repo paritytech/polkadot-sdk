@@ -185,7 +185,7 @@ pub(crate) fn assert_bridge_hub_westend_message_accepted(expected_processed: boo
 				]
 			);
 		}
-	});
+	})
 }
 
 pub(crate) fn assert_bridge_hub_rococo_message_received() {
