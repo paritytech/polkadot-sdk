@@ -159,12 +159,11 @@ where
 
 impl<T> AddressMapper<T> for TestAccountMapper<T>
 where
-	T: Config,
-	crate::AccountIdOf<T>: crate::IsType<u64>,
+	T: Config<AccountId = u64>,
 {
 	fn to_address(account_id: &T::AccountId) -> H160 {
 		let mut bytes = [0u8; 20];
-		bytes[12..].copy_from_slice(&account_id.clone().into().to_be_bytes());
+		bytes[12..].copy_from_slice(&account_id.to_be_bytes());
 		H160::from(bytes)
 	}
 
@@ -173,7 +172,7 @@ where
 	}
 
 	fn to_fallback_account_id(address: &H160) -> T::AccountId {
-		u64::from_be_bytes(address.as_ref()[12..].try_into().unwrap()).into()
+		u64::from_be_bytes(address.as_ref()[12..].try_into().unwrap())
 	}
 
 	fn map(_account_id: &T::AccountId) -> DispatchResult {
