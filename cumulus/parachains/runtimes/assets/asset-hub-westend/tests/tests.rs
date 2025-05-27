@@ -1481,8 +1481,8 @@ fn weight_of_message_increases_when_dealing_with_erc20s() {
 
 #[test]
 fn withdraw_and_deposit_erc20s() {
-	let sender: AccountId = ALICE.clone().into();
-	let beneficiary: AccountId = BOB.clone().into();
+	let sender: AccountId = ALICE.into();
+	let beneficiary: AccountId = BOB.into();
 	let checking_account =
 		asset_hub_westend_runtime::xcm_config::ERC20TransfersCheckingAccount::get();
 	let initial_wnd_amount = 10_000_000_000_000u128;
@@ -1554,8 +1554,8 @@ fn withdraw_and_deposit_erc20s() {
 
 #[test]
 fn non_existent_erc20_will_error() {
-	let sender: AccountId = ALICE.clone().into();
-	let beneficiary: AccountId = BOB.clone().into();
+	let sender: AccountId = ALICE.into();
+	let beneficiary: AccountId = BOB.into();
 	let checking_account =
 		asset_hub_westend_runtime::xcm_config::ERC20TransfersCheckingAccount::get();
 	let initial_wnd_amount = 10_000_000_000_000u128;
@@ -1597,8 +1597,8 @@ fn non_existent_erc20_will_error() {
 
 #[test]
 fn smart_contract_not_erc20_will_error() {
-	let sender: AccountId = ALICE.clone().into();
-	let beneficiary: AccountId = BOB.clone().into();
+	let sender: AccountId = ALICE.into();
+	let beneficiary: AccountId = BOB.into();
 	let checking_account =
 		asset_hub_westend_runtime::xcm_config::ERC20TransfersCheckingAccount::get();
 	let initial_wnd_amount = 10_000_000_000_000u128;
@@ -1656,8 +1656,8 @@ fn smart_contract_not_erc20_will_error() {
 // it still succeeds.
 #[test]
 fn smart_contract_does_not_return_bool_fails() {
-	let sender: AccountId = ALICE.clone().into();
-	let beneficiary: AccountId = BOB.clone().into();
+	let sender: AccountId = ALICE.into();
+	let beneficiary: AccountId = BOB.into();
 	let checking_account =
 		asset_hub_westend_runtime::xcm_config::ERC20TransfersCheckingAccount::get();
 	let initial_wnd_amount = 10_000_000_000_000u128;
@@ -1716,8 +1716,8 @@ fn smart_contract_does_not_return_bool_fails() {
 
 #[test]
 fn expensive_erc20_runs_out_of_gas() {
-	let sender: AccountId = ALICE.clone().into();
-	let beneficiary: AccountId = BOB.clone().into();
+	let sender: AccountId = ALICE.into();
+	let beneficiary: AccountId = BOB.into();
 	let checking_account =
 		asset_hub_westend_runtime::xcm_config::ERC20TransfersCheckingAccount::get();
 	let initial_wnd_amount = 10_000_000_000_000u128;
