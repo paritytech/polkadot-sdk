@@ -100,8 +100,7 @@ impl<T: Config> Precompile for NoInfo<T> {
 				let call = <T as Config>::RuntimeCall::decode(&mut &call[..]).unwrap();
 				match call.dispatch(frame_origin) {
 					Ok(_) => Ok(Vec::new()),
-					Err(_) =>
-						Err(Error::Error(DispatchError::Other("dispatched call failed").into())),
+					Err(_) => Err(Error::Error(crate::Error::<T>::ReenteredPallet.into())),
 				}
 			},
 		}
