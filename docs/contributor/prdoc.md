@@ -131,8 +131,8 @@ risk for downstream users.
 
 Only the following `bump` levels are allowed:
 
--`none`: No observable change. There should be no detectable difference between old and new versions.
--`patch`: Bug fixes or internal changes that do not alter functionality and cannot cause compilation errors.
+- `none`: No observable change. There should be no detectable difference between old and new versions.
+- `patch`: Bug fixes or internal changes that do not alter functionality and cannot cause compilation errors.
 
 Backport PRs with `minor` or `major` bumps will fail CI.
 
@@ -146,4 +146,4 @@ If a `minor` or `major` bump is truly needed, you must:
     - Why it is safe for downstream users.
 3. Notify a release engineer or senior reviewer for approval.
 
-> Use this override sparingly and only if you’re confident it won’t introduce regressions.
+> Use this override sparingly and only if you’re confident it won't introduce regressions.
