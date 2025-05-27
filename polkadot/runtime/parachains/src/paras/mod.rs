@@ -636,7 +636,7 @@ pub mod pallet {
 		frame_system::Config
 		+ configuration::Config
 		+ shared::Config
-		+ frame_system::offchain::CreateInherent<Call<Self>>
+		+ frame_system::offchain::CreateBare<Call<Self>>
 	{
 		#[allow(deprecated)]
 		type RuntimeEvent: From<Event> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
@@ -2279,7 +2279,7 @@ impl<T: Config> Pallet<T> {
 	) {
 		use frame_system::offchain::SubmitTransaction;
 
-		let xt = T::create_inherent(Call::include_pvf_check_statement { stmt, signature }.into());
+		let xt = T::create_bare(Call::include_pvf_check_statement { stmt, signature }.into());
 		if let Err(e) = SubmitTransaction::<T, Call<T>>::submit_transaction(xt) {
 			log::error!(target: LOG_TARGET, "Error submitting pvf check statement: {:?}", e,);
 		}

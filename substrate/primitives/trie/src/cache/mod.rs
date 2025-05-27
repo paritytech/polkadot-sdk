@@ -36,8 +36,9 @@
 
 use crate::{Error, NodeCodec};
 use hash_db::Hasher;
+use metrics::{HitStatsSnapshot, TrieHitStatsSnapshot};
 use nohash_hasher::BuildNoHashHasher;
-use parking_lot::{Mutex, MutexGuard};
+use parking_lot::{Mutex, MutexGuard, RwLockWriteGuard};
 use schnellru::LruMap;
 use shared_cache::{ValueCacheKey, ValueCacheRef};
 use std::{
@@ -50,6 +51,7 @@ use std::{
 };
 use trie_db::{node::NodeOwned, CachedValue};
 
+mod metrics;
 mod shared_cache;
 
 pub use shared_cache::SharedTrieCache;
@@ -115,13 +117,19 @@ impl CacheSize {
 	}
 }
 
-/// A limiter for the local node cache. This makes sure the local cache doesn't grow too big.
-#[derive(Default)]
 pub struct LocalNodeCacheLimiter {
 	/// The current size (in bytes) of data allocated by this cache on the heap.
 	///
 	/// This doesn't include the size of the map itself.
 	current_heap_size: usize,
+	config: LocalNodeCacheConfig,
+}
+
+impl LocalNodeCacheLimiter {
+	/// Creates a new limiter with the given configuration.
+	pub fn new(config: LocalNodeCacheConfig) -> Self {
+		Self { config, current_heap_size: 0 }
+	}
 }
 
 impl<H> schnellru::Limiter<H, NodeCached<H>> for LocalNodeCacheLimiter
@@ -139,7 +147,7 @@ where
 			return false
 		}
 
-		self.current_heap_size > LOCAL_NODE_CACHE_MAX_HEAP_SIZE
+		self.current_heap_size > self.config.local_node_cache_max_heap_size
 	}
 
 	#[inline]
@@ -180,17 +188,25 @@ where
 
 	#[inline]
 	fn on_grow(&mut self, new_memory_usage: usize) -> bool {
-		new_memory_usage <= LOCAL_NODE_CACHE_MAX_INLINE_SIZE
+		new_memory_usage <= self.config.local_node_cache_max_inline_size
 	}
 }
 
 /// A limiter for the local value cache. This makes sure the local cache doesn't grow too big.
-#[derive(Default)]
 pub struct LocalValueCacheLimiter {
 	/// The current size (in bytes) of data allocated by this cache on the heap.
 	///
 	/// This doesn't include the size of the map itself.
 	current_heap_size: usize,
+
+	config: LocalValueCacheConfig,
+}
+
+impl LocalValueCacheLimiter {
+	/// Creates a new limiter with the given configuration.
+	pub fn new(config: LocalValueCacheConfig) -> Self {
+		Self { config, current_heap_size: 0 }
+	}
 }
 
 impl<H> schnellru::Limiter<ValueCacheKey<H>, CachedValue<H>> for LocalValueCacheLimiter
@@ -208,7 +224,7 @@ where
 			return false
 		}
 
-		self.current_heap_size > LOCAL_VALUE_CACHE_MAX_HEAP_SIZE
+		self.current_heap_size > self.config.local_value_cache_max_heap_size
 	}
 
 	#[inline]
@@ -247,7 +263,7 @@ where
 
 	#[inline]
 	fn on_grow(&mut self, new_memory_usage: usize) -> bool {
-		new_memory_usage <= LOCAL_VALUE_CACHE_MAX_INLINE_SIZE
+		new_memory_usage <= self.config.local_value_cache_max_inline_size
 	}
 }
 
@@ -260,28 +276,22 @@ struct HitStats {
 	local_fetch_attempts: AtomicU64,
 }
 
-impl std::fmt::Display for HitStats {
-	fn fmt(&self, fmt: &mut std::fmt::Formatter) -> std::fmt::Result {
-		let shared_hits = self.shared_hits.load(Ordering::Relaxed);
-		let shared_fetch_attempts = self.shared_fetch_attempts.load(Ordering::Relaxed);
-		let local_hits = self.local_hits.load(Ordering::Relaxed);
-		let local_fetch_attempts = self.local_fetch_attempts.load(Ordering::Relaxed);
-		if shared_fetch_attempts == 0 && local_hits == 0 {
-			write!(fmt, "empty")
-		} else {
-			let percent_local = (local_hits as f32 / local_fetch_attempts as f32) * 100.0;
-			let percent_shared = (shared_hits as f32 / shared_fetch_attempts as f32) * 100.0;
-			write!(
-				fmt,
-				"local hit rate = {}% [{}/{}], shared hit rate = {}% [{}/{}]",
-				percent_local as u32,
-				local_hits,
-				local_fetch_attempts,
-				percent_shared as u32,
-				shared_hits,
-				shared_fetch_attempts
-			)
+impl HitStats {
+	/// Returns a snapshot of the hit/miss stats.
+	fn snapshot(&self) -> HitStatsSnapshot {
+		HitStatsSnapshot {
+			shared_hits: self.shared_hits.load(Ordering::Relaxed),
+			shared_fetch_attempts: self.shared_fetch_attempts.load(Ordering::Relaxed),
+			local_hits: self.local_hits.load(Ordering::Relaxed),
+			local_fetch_attempts: self.local_fetch_attempts.load(Ordering::Relaxed),
 		}
+	}
+}
+
+impl std::fmt::Display for HitStats {
+	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+		let snapshot = self.snapshot();
+		write!(f, "{}", snapshot)
 	}
 }
 
@@ -290,6 +300,51 @@ impl std::fmt::Display for HitStats {
 struct TrieHitStats {
 	node_cache: HitStats,
 	value_cache: HitStats,
+}
+
+impl TrieHitStats {
+	/// Returns a snapshot of the hit/miss stats.
+	fn snapshot(&self) -> TrieHitStatsSnapshot {
+		TrieHitStatsSnapshot {
+			node_cache: self.node_cache.snapshot(),
+			value_cache: self.value_cache.snapshot(),
+		}
+	}
+
+	/// Adds the stats from snapshot to this one.
+	fn add_snapshot(&self, other: &TrieHitStatsSnapshot) {
+		self.node_cache
+			.local_fetch_attempts
+			.fetch_add(other.node_cache.local_fetch_attempts, Ordering::Relaxed);
+
+		self.node_cache
+			.shared_fetch_attempts
+			.fetch_add(other.node_cache.shared_fetch_attempts, Ordering::Relaxed);
+
+		self.node_cache
+			.local_hits
+			.fetch_add(other.node_cache.local_hits, Ordering::Relaxed);
+
+		self.node_cache
+			.shared_hits
+			.fetch_add(other.node_cache.shared_hits, Ordering::Relaxed);
+
+		self.value_cache
+			.local_fetch_attempts
+			.fetch_add(other.value_cache.local_fetch_attempts, Ordering::Relaxed);
+
+		self.value_cache
+			.shared_fetch_attempts
+			.fetch_add(other.value_cache.shared_fetch_attempts, Ordering::Relaxed);
+
+		self.value_cache
+			.local_hits
+			.fetch_add(other.value_cache.local_hits, Ordering::Relaxed);
+
+		self.value_cache
+			.shared_hits
+			.fetch_add(other.value_cache.shared_hits, Ordering::Relaxed);
+	}
 }
 
 /// An internal struct to store the cached trie nodes.
@@ -318,6 +373,93 @@ type ValueCacheMap<H> = LruMap<
 
 type ValueAccessSet =
 	LruMap<ValueCacheKeyHash, (), schnellru::ByLength, BuildNoHashHasher<ValueCacheKeyHash>>;
+
+#[derive(Clone, Copy)]
+pub struct LocalValueCacheConfig {
+	// The maximum size of the value cache on the heap.
+	local_value_cache_max_heap_size: usize,
+	// The maximum size of the value cache in the inline storage.
+	local_value_cache_max_inline_size: usize,
+	// The maximum number of keys that can be promoted to the front of the LRU cache.
+	shared_value_cache_max_promoted_keys: u32,
+	// The maximum percentage of the shared cache that can be replaced, before giving up.
+	shared_value_cache_max_replace_percent: usize,
+}
+
+#[derive(Clone, Copy)]
+pub struct LocalNodeCacheConfig {
+	// The maximum size of the node cache on the heap.
+	local_node_cache_max_heap_size: usize,
+	// The maximum size of the node cache in the inline storage.
+	local_node_cache_max_inline_size: usize,
+	// The maximum number of keys that can be promoted to the front of the LRU cache, before giving
+	// up.
+	shared_node_cache_max_promoted_keys: u32,
+	// The maximum percentage of the shared cache that can be replaced, before giving up.
+	shared_node_cache_max_replace_percent: usize,
+}
+
+impl LocalNodeCacheConfig {
+	/// Creates a configuration that can be called from a trusted path and allows the local_cache
+	/// to grow to fit the needs, also everything is promoted to the shared cache.
+	///
+	/// This configuration is safe only for trusted paths because it removes all limits on cache
+	/// growth and promotion, which could lead to excessive memory usage if used in untrusted or
+	/// uncontrolled environments. It is intended for scenarios like block authoring or importing,
+	/// where the operations are bounded already and there are no risks of unbounded memory usage.
+	fn trusted() -> Self {
+		LocalNodeCacheConfig {
+			local_node_cache_max_heap_size: usize::MAX,
+			local_node_cache_max_inline_size: usize::MAX,
+			shared_node_cache_max_promoted_keys: u32::MAX,
+			shared_node_cache_max_replace_percent: 100,
+		}
+	}
+
+	/// Creates a configuration that can be called from an untrusted path.
+	///
+	/// It limits the local size of the cache and the amount of keys that can be promoted to the
+	/// shared cache.
+	fn untrusted() -> Self {
+		LocalNodeCacheConfig {
+			local_node_cache_max_inline_size: LOCAL_NODE_CACHE_MAX_INLINE_SIZE,
+			local_node_cache_max_heap_size: LOCAL_NODE_CACHE_MAX_HEAP_SIZE,
+			shared_node_cache_max_promoted_keys: SHARED_NODE_CACHE_MAX_PROMOTED_KEYS,
+			shared_node_cache_max_replace_percent: SHARED_NODE_CACHE_MAX_REPLACE_PERCENT,
+		}
+	}
+}
+
+impl LocalValueCacheConfig {
+	/// Creates a configuration that can be called from a trusted path and allows the local_cache
+	/// to grow to fit the needs, also everything is promoted to the shared cache.
+	///
+	/// This configuration is safe only for trusted paths because it removes all limits on cache
+	/// growth and promotion, which could lead to excessive memory usage if used in untrusted or
+	/// uncontrolled environments. It is intended for scenarios like block authoring or importing,
+	/// where the operations are bounded already and there are no risks of unbounded memory usage.
+	fn trusted() -> Self {
+		LocalValueCacheConfig {
+			shared_value_cache_max_promoted_keys: u32::MAX,
+			shared_value_cache_max_replace_percent: 100,
+			local_value_cache_max_inline_size: usize::MAX,
+			local_value_cache_max_heap_size: usize::MAX,
+		}
+	}
+
+	/// Creates a configuration that can be called from an untrusted path.
+	///
+	/// It limits the local size of the cache and the amount of keys that can be promoted to the
+	/// shared cache.
+	fn untrusted() -> Self {
+		LocalValueCacheConfig {
+			local_value_cache_max_inline_size: LOCAL_VALUE_CACHE_MAX_INLINE_SIZE,
+			local_value_cache_max_heap_size: LOCAL_VALUE_CACHE_MAX_HEAP_SIZE,
+			shared_value_cache_max_promoted_keys: SHARED_VALUE_CACHE_MAX_PROMOTED_KEYS,
+			shared_value_cache_max_replace_percent: SHARED_VALUE_CACHE_MAX_REPLACE_PERCENT,
+		}
+	}
+}
 
 /// The local trie cache.
 ///
@@ -348,8 +490,14 @@ pub struct LocalTrieCache<H: Hasher> {
 	/// value to the top. The important part is that we always get the correct value from the value
 	/// cache for a given key.
 	shared_value_cache_access: Mutex<ValueAccessSet>,
-
+	/// The configuration for the value cache.
+	value_cache_config: LocalValueCacheConfig,
+	/// The configuration for the node cache.
+	node_cache_config: LocalNodeCacheConfig,
+	/// The stats for the cache.
 	stats: TrieHitStats,
+	/// Specifies if we are in a trusted path like block authoring and importing or not.
+	trusted: bool,
 }
 
 impl<H: Hasher> LocalTrieCache<H> {
@@ -413,13 +561,48 @@ impl<H: Hasher> Drop for LocalTrieCache<H> {
 				return
 			},
 		};
+		let stats_snapshot = self.stats.snapshot();
+		shared_inner.stats_add_snapshot(&stats_snapshot);
+		let metrics = shared_inner.metrics().cloned();
+		metrics.as_ref().map(|metrics| metrics.observe_hits_stats(&stats_snapshot));
+		{
+			let _node_update_duration =
+				metrics.as_ref().map(|metrics| metrics.start_shared_node_update_timer());
+			let node_cache = self.node_cache.get_mut();
 
-		shared_inner.node_cache_mut().update(self.node_cache.get_mut().drain());
+			metrics
+				.as_ref()
+				.map(|metrics| metrics.observe_local_node_cache_length(node_cache.len()));
 
-		shared_inner.value_cache_mut().update(
-			self.value_cache.get_mut().drain(),
-			self.shared_value_cache_access.get_mut().drain().map(|(key, ())| key),
-		);
+			shared_inner.node_cache_mut().update(
+				node_cache.drain(),
+				&self.node_cache_config,
+				&metrics,
+			);
+		}
+
+		// Since the trie cache is not called from a time sensitive context like block authoring or
+		// block import give the option to a more important task to acquire the lock and do its
+		// job.
+		if !self.trusted {
+			RwLockWriteGuard::bump(&mut shared_inner);
+		}
+
+		{
+			let _node_update_duration =
+				metrics.as_ref().map(|metrics| metrics.start_shared_value_update_timer());
+			let value_cache = self.shared_value_cache_access.get_mut();
+			metrics
+				.as_ref()
+				.map(|metrics| metrics.observe_local_value_cache_length(value_cache.len()));
+
+			shared_inner.value_cache_mut().update(
+				self.value_cache.get_mut().drain(),
+				value_cache.drain().map(|(key, ())| key),
+				&self.value_cache_config,
+				&metrics,
+			);
+		}
 	}
 }
 
@@ -534,7 +717,6 @@ impl<'a, H: Hasher> TrieCache<'a, H> {
 		if !cache.is_empty() {
 			let mut value_cache = local.value_cache.lock();
 			let partial_hash = ValueCacheKey::hash_partial_data(&storage_root);
-
 			cache.into_iter().for_each(|(k, v)| {
 				let hash = ValueCacheKeyHash::from_hasher_and_storage_key(partial_hash.clone(), &k);
 				let k = ValueCacheRef { storage_root, storage_key: &k, hash };
@@ -654,6 +836,8 @@ impl<'a, H: Hasher> trie_db::TrieCache<NodeCodec<H>> for TrieCache<'a, H> {
 #[cfg(test)]
 mod tests {
 	use super::*;
+	use rand::{thread_rng, Rng};
+	use sp_core::H256;
 	use trie_db::{Bytes, Trie, TrieDBBuilder, TrieDBMutBuilder, TrieHash, TrieMut};
 
 	type MemoryDB = crate::MemoryDB<sp_core::Blake2Hasher>;
@@ -684,8 +868,8 @@ mod tests {
 	fn basic_cache_works() {
 		let (db, root) = create_trie();
 
-		let shared_cache = Cache::new(CACHE_SIZE);
-		let local_cache = shared_cache.local_cache();
+		let shared_cache = Cache::new(CACHE_SIZE, None);
+		let local_cache = shared_cache.local_cache_untrusted();
 
 		{
 			let mut cache = local_cache.as_trie_db_cache(root);
@@ -712,7 +896,7 @@ mod tests {
 
 		let fake_data = Bytes::from(&b"fake_data"[..]);
 
-		let local_cache = shared_cache.local_cache();
+		let local_cache = shared_cache.local_cache_untrusted();
 		shared_cache.write_lock_inner().unwrap().value_cache_mut().lru.insert(
 			ValueCacheKey::new_value(TEST_DATA[1].0, root),
 			(fake_data.clone(), Default::default()).into(),
@@ -735,11 +919,11 @@ mod tests {
 		// Use some long value to not have it inlined
 		let new_value = vec![23; 64];
 
-		let shared_cache = Cache::new(CACHE_SIZE);
+		let shared_cache = Cache::new(CACHE_SIZE, None);
 		let mut new_root = root;
 
 		{
-			let local_cache = shared_cache.local_cache();
+			let local_cache = shared_cache.local_cache_untrusted();
 
 			let mut cache = local_cache.as_trie_db_mut_cache();
 
@@ -770,7 +954,7 @@ mod tests {
 	fn trie_db_cache_and_recorder_work_together() {
 		let (db, root) = create_trie();
 
-		let shared_cache = Cache::new(CACHE_SIZE);
+		let shared_cache = Cache::new(CACHE_SIZE, None);
 
 		for i in 0..5 {
 			// Clear some of the caches.
@@ -780,7 +964,7 @@ mod tests {
 				shared_cache.reset_value_cache();
 			}
 
-			let local_cache = shared_cache.local_cache();
+			let local_cache = shared_cache.local_cache_untrusted();
 			let recorder = Recorder::default();
 
 			{
@@ -815,7 +999,7 @@ mod tests {
 
 		let (db, root) = create_trie();
 
-		let shared_cache = Cache::new(CACHE_SIZE);
+		let shared_cache = Cache::new(CACHE_SIZE, None);
 
 		// Run this twice so that we use the data cache in the second run.
 		for i in 0..5 {
@@ -827,7 +1011,7 @@ mod tests {
 			}
 
 			let recorder = Recorder::default();
-			let local_cache = shared_cache.local_cache();
+			let local_cache = shared_cache.local_cache_untrusted();
 			let mut new_root = root;
 
 			{
@@ -866,10 +1050,10 @@ mod tests {
 	fn cache_lru_works() {
 		let (db, root) = create_trie();
 
-		let shared_cache = Cache::new(CACHE_SIZE);
+		let shared_cache = Cache::new(CACHE_SIZE, None);
 
 		{
-			let local_cache = shared_cache.local_cache();
+			let local_cache = shared_cache.local_cache_untrusted();
 
 			let mut cache = local_cache.as_trie_db_cache(root);
 			let trie = TrieDBBuilder::<Layout>::new(&db, &root).with_cache(&mut cache).build();
@@ -893,7 +1077,7 @@ mod tests {
 		// The second run is using an empty value cache to ensure that we access the nodes.
 		for _ in 0..2 {
 			{
-				let local_cache = shared_cache.local_cache();
+				let local_cache = shared_cache.local_cache_untrusted();
 
 				let mut cache = local_cache.as_trie_db_cache(root);
 				let trie = TrieDBBuilder::<Layout>::new(&db, &root).with_cache(&mut cache).build();
@@ -927,7 +1111,7 @@ mod tests {
 			.collect::<Vec<_>>();
 
 		{
-			let local_cache = shared_cache.local_cache();
+			let local_cache = shared_cache.local_cache_untrusted();
 
 			let mut cache = local_cache.as_trie_db_cache(root);
 			let trie = TrieDBBuilder::<Layout>::new(&db, &root).with_cache(&mut cache).build();
@@ -954,9 +1138,9 @@ mod tests {
 	fn cache_respects_bounds() {
 		let (mut db, root) = create_trie();
 
-		let shared_cache = Cache::new(CACHE_SIZE);
+		let shared_cache = Cache::new(CACHE_SIZE, None);
 		{
-			let local_cache = shared_cache.local_cache();
+			let local_cache = shared_cache.local_cache_untrusted();
 
 			let mut new_root = root;
 
@@ -980,5 +1164,120 @@ mod tests {
 		}
 
 		assert!(shared_cache.used_memory_size() < CACHE_SIZE_RAW);
+	}
+
+	#[test]
+	fn test_trusted_works() {
+		let (mut db, root) = create_trie();
+		// Configure cache size to make sure it is large enough to hold all the data.
+		let cache_size = CacheSize::new(1024 * 1024 * 1024);
+		let num_test_keys: usize = 40000;
+		let shared_cache = Cache::new(cache_size, None);
+
+		// Create a random array of bytes to use as a value.
+		let mut rng = thread_rng();
+		let random_keys: Vec<Vec<u8>> =
+			(0..num_test_keys).map(|_| (0..100).map(|_| rng.gen()).collect()).collect();
+
+		let value = vec![10u8; 100];
+
+		// Populate the trie cache with, use a local untrusted cache and confirm not everything ends
+		// up in the shared trie cache.
+		let root = {
+			let local_cache = shared_cache.local_cache_untrusted();
+
+			let mut new_root = root;
+
+			{
+				let mut cache = local_cache.as_trie_db_mut_cache();
+				{
+					let mut trie =
+						TrieDBMutBuilder::<Layout>::from_existing(&mut db, &mut new_root)
+							.with_cache(&mut cache)
+							.build();
+
+					// Ensure we add enough data that would overflow the cache.
+					for key in random_keys.iter() {
+						trie.insert(key.as_ref(), &value).unwrap();
+					}
+				}
+
+				cache.merge_into(&local_cache, new_root);
+			}
+			new_root
+		};
+		let shared_value_cache_len = shared_cache.read_lock_inner().value_cache().lru.len();
+		assert!(shared_value_cache_len < num_test_keys / 10);
+
+		// Read keys and check shared cache hits we should have a lot of misses.
+		let stats = read_to_check_cache(&shared_cache, &mut db, root, &random_keys, value.clone());
+		assert_eq!(stats.value_cache.shared_hits, shared_value_cache_len as u64);
+
+		assert_ne!(stats.value_cache.shared_fetch_attempts, stats.value_cache.shared_hits);
+		assert_ne!(stats.node_cache.shared_fetch_attempts, stats.node_cache.shared_hits);
+
+		// Update the keys in the trie and check on subsequent reads all reads hit the shared cache.
+		let shared_value_cache_len = shared_cache.read_lock_inner().value_cache().lru.len();
+		let new_value = vec![9u8; 100];
+		let root = {
+			let local_cache = shared_cache.local_cache_trusted();
+
+			let mut new_root = root;
+
+			{
+				let mut cache = local_cache.as_trie_db_mut_cache();
+				{
+					let mut trie =
+						TrieDBMutBuilder::<Layout>::from_existing(&mut db, &mut new_root)
+							.with_cache(&mut cache)
+							.build();
+
+					// Ensure we add enough data that would overflow the cache.
+					for key in random_keys.iter() {
+						trie.insert(key.as_ref(), &new_value).unwrap();
+					}
+				}
+
+				cache.merge_into(&local_cache, new_root);
+			}
+			new_root
+		};
+
+		// Check on subsequent reads all reads hit the shared cache.
+		let stats =
+			read_to_check_cache(&shared_cache, &mut db, root, &random_keys, new_value.clone());
+
+		assert_eq!(stats.value_cache.shared_fetch_attempts, stats.value_cache.shared_hits);
+		assert_eq!(stats.node_cache.shared_fetch_attempts, stats.node_cache.shared_hits);
+
+		assert_eq!(stats.value_cache.shared_fetch_attempts, stats.value_cache.local_fetch_attempts);
+		assert_eq!(stats.node_cache.shared_fetch_attempts, stats.node_cache.local_fetch_attempts);
+
+		// The length of the shared value cache should contain everything that existed before + all
+		// keys that got updated with a trusted cache.
+		assert_eq!(
+			shared_cache.read_lock_inner().value_cache().lru.len(),
+			shared_value_cache_len + num_test_keys
+		);
+	}
+
+	// Helper function to read from the trie.
+	//
+	// Returns the cache stats.
+	fn read_to_check_cache(
+		shared_cache: &Cache,
+		db: &mut MemoryDB,
+		root: H256,
+		keys: &Vec<Vec<u8>>,
+		expected_value: Vec<u8>,
+	) -> TrieHitStatsSnapshot {
+		let local_cache = shared_cache.local_cache_untrusted();
+		let mut cache = local_cache.as_trie_db_cache(root);
+		let trie = TrieDBBuilder::<Layout>::new(db, &root).with_cache(&mut cache).build();
+
+		for key in keys.iter() {
+			assert_eq!(trie.get(key.as_ref()).unwrap().unwrap(), expected_value);
+		}
+		local_cache.stats.snapshot()
 	}
 }

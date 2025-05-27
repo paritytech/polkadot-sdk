@@ -17,7 +17,7 @@
 //! The generated subxt client.
 //! Generated against a substrate chain configured with [`pallet_revive`] using:
 //! subxt metadata  --url ws://localhost:9944 -o rpc/revive_chain.scale
-use subxt::config::{signed_extensions, Config, PolkadotConfig};
+pub use subxt::config::PolkadotConfig as SrcChainConfig;
 
 #[subxt::subxt(
 	runtime_metadata_path = "revive_chain.metadata",
@@ -26,6 +26,23 @@ use subxt::config::{signed_extensions, Config, PolkadotConfig};
 		path = "primitive_types::U256",
 		with = "::subxt::utils::Static<::sp_core::U256>"
 	),
+
+	substitute_type(
+		path = "sp_runtime::generic::block::Block<A, B, C, D, E>",
+		with = "::subxt::utils::Static<::sp_runtime::generic::Block<
+		::sp_runtime::generic::Header<u32, sp_runtime::traits::BlakeTwo256>,
+		::sp_runtime::OpaqueExtrinsic
+		>>"
+	),
+	substitute_type(
+		path = "pallet_revive::evm::api::debug_rpc_types::Trace",
+		with = "::subxt::utils::Static<::pallet_revive::evm::Trace>"
+	),
+	substitute_type(
+		path = "pallet_revive::evm::api::debug_rpc_types::TracerType",
+		with = "::subxt::utils::Static<::pallet_revive::evm::TracerType>"
+	),
+
 	substitute_type(
 		path = "pallet_revive::evm::api::rpc_types_gen::GenericTransaction",
 		with = "::subxt::utils::Static<::pallet_revive::evm::GenericTransaction>"
@@ -49,40 +66,3 @@ use subxt::config::{signed_extensions, Config, PolkadotConfig};
 )]
 mod src_chain {}
 pub use src_chain::*;
-
-/// The configuration for the source chain.
-pub enum SrcChainConfig {}
-impl Config for SrcChainConfig {
-	type Hash = sp_core::H256;
-	type AccountId = <PolkadotConfig as Config>::AccountId;
-	type Address = <PolkadotConfig as Config>::Address;
-	type Signature = <PolkadotConfig as Config>::Signature;
-	type Hasher = BlakeTwo256;
-	type Header = subxt::config::substrate::SubstrateHeader<u32, BlakeTwo256>;
-	type AssetId = <PolkadotConfig as Config>::AssetId;
-	type ExtrinsicParams = signed_extensions::AnyOf<
-		Self,
-		(
-			signed_extensions::CheckSpecVersion,
-			signed_extensions::CheckTxVersion,
-			signed_extensions::CheckNonce,
-			signed_extensions::CheckGenesis<Self>,
-			signed_extensions::CheckMortality<Self>,
-			signed_extensions::ChargeAssetTxPayment<Self>,
-			signed_extensions::ChargeTransactionPayment,
-			signed_extensions::CheckMetadataHash,
-		),
-	>;
-}
-
-/// A type that can hash values using the blaks2_256 algorithm.
-/// TODO remove once subxt is updated
-#[derive(Debug, Clone, Copy, PartialEq, Eq, codec::Encode)]
-pub struct BlakeTwo256;
-
-impl subxt::config::Hasher for BlakeTwo256 {
-	type Output = sp_core::H256;
-	fn hash(s: &[u8]) -> Self::Output {
-		sp_crypto_hashing::blake2_256(s).into()
-	}
-}
