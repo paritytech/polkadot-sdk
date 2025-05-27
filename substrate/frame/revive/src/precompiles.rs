@@ -33,6 +33,7 @@ pub use crate::{
 	exec::{ExecError, PrecompileExt as Ext, PrecompileWithInfoExt as ExtWithInfo},
 	gas::{GasMeter, Token},
 	storage::meter::Diff,
+	wasm::RuntimeCosts,
 };
 pub use alloy_core as alloy;
 

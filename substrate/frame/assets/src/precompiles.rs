@@ -21,7 +21,10 @@ use alloy::{
 	primitives::IntoLogData,
 	sol_types::{Revert, SolCall},
 };
-pub use pallet_revive::{precompiles::*, AddressMapper};
+pub use pallet_revive::{
+	precompiles::{alloy, AddressMatcher, Error, Ext, Precompile, RuntimeCosts},
+	AddressMapper,
+};
 use sp_core::{H160, H256};
 
 alloy::sol!("src/precompiles/IERC20.sol");
@@ -158,7 +161,7 @@ where
 	fn deposit_event(env: &mut impl Ext<T = Runtime>, event: IERC20Events) -> Result<(), Error> {
 		let (topics, data) = event.into_log_data().split();
 		let topics = topics.into_iter().map(|v| H256(v.0)).collect::<Vec<_>>();
-		env.gas_meter_mut().charge(pallet_revive::RuntimeCosts::DepositEvent {
+		env.gas_meter_mut().charge(RuntimeCosts::DepositEvent {
 			num_topic: topics.len() as u32,
 			len: topics.len() as u32,
 		})?;

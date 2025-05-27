@@ -49,7 +49,7 @@ use crate::{
 	exec::{AccountIdOf, ExecError, Executable, Key, Stack as ExecStack},
 	gas::GasMeter,
 	storage::{meter::Meter as StorageMeter, ContractInfo, DeletionQueueManager},
-	wasm::{CodeInfo, WasmBlob},
+	wasm::{CodeInfo, RuntimeCosts, WasmBlob},
 };
 use alloc::{boxed::Box, format, vec};
 use codec::{Codec, Decode, Encode};
@@ -87,7 +87,6 @@ pub use crate::{
 	},
 	exec::{MomentOf, Origin},
 	pallet::*,
-	wasm::RuntimeCosts,
 };
 pub use primitives::*;
 pub use weights::WeightInfo;
