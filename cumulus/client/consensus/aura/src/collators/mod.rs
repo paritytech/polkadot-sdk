@@ -371,10 +371,15 @@ where
 	CIDP: sp_inherents::CreateInherentDataProviders<Block, ()> + Send,
 	CIDP::InherentDataProviders: InherentDataProviderExt + Send + Sync,
 {
-	// Check inherents.
 	let slot = find_pre_digest::<Block, P::Signature>(&params.header)
 		.map_err(|e| sp_consensus::Error::Other(Box::new(e)))?;
 	let parent_hash = *params.header.parent_hash();
+	let create_inherent_data_providers = create_inherent_data_providers
+		.create_inherent_data_providers(parent_hash, ())
+		.await
+		.map_err(sp_consensus::Error::Other)?;
+
+	// Check inherents.
 	// if the body is passed through, we need to use the runtime
 	// to check that the internally-set timestamp in the inherents
 	// actually matches the slot set in the seal.
@@ -385,10 +390,6 @@ where
 			.has_api_with::<dyn BlockBuilder<Block>, _>(parent_hash, |v| v >= 2)
 			.map_err(|e| sp_consensus::Error::Other(Box::new(e)))?
 		{
-			let create_inherent_data_providers = create_inherent_data_providers
-				.create_inherent_data_providers(parent_hash, ())
-				.await
-				.map_err(sp_consensus::Error::Other)?;
 			let mut inherent_data = create_inherent_data_providers
 				.create_inherent_data()
 				.await
@@ -420,10 +421,6 @@ where
 		compatibility_mode,
 	)
 	.map_err(|e| sp_consensus::Error::Other(Box::new(e)))?;
-	let create_inherent_data_providers = create_inherent_data_providers
-		.create_inherent_data_providers(parent_hash, ())
-		.await
-		.map_err(sp_consensus::Error::Other)?;
 	let slot_now = create_inherent_data_providers.slot();
 	let expected_author = sc_consensus_aura::standalone::slot_author::<P>(slot, &authorities);
 	if let (true, Some(expected)) = (check_for_equivocation, expected_author) {

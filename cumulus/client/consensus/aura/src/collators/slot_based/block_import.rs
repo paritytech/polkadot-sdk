@@ -147,21 +147,21 @@ where
 		&self,
 		mut params: sc_consensus::BlockImportParams<Block>,
 	) -> Result<sc_consensus::ImportResult, Self::Error> {
+		validate_block_import::<_, _, P, _>(
+			&mut params,
+			self.client.as_ref(),
+			&self.create_inherent_data_providers,
+			self.check_for_equivocation,
+			&self.compatibility_mode,
+		)
+		.await?;
+
 		// If the channel exists and it is required to execute the block, we will execute the block
 		// here. This is done to collect the storage proof and to prevent re-execution, we push
 		// downwards the state changes. `StateAction::ApplyChanges` is ignored, because it either
 		// means that the node produced the block itself or the block was imported via state sync.
 		if !self.sender.is_closed() && !matches!(params.state_action, StateAction::ApplyChanges(_))
 		{
-			validate_block_import::<_, _, P, _>(
-				&mut params,
-				self.client.as_ref(),
-				&self.create_inherent_data_providers,
-				self.check_for_equivocation,
-				&self.compatibility_mode,
-			)
-			.await?;
-
 			let mut runtime_api = self.client.runtime_api();
 
 			runtime_api.set_call_context(CallContext::Onchain);
