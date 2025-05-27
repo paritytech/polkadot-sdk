@@ -32,6 +32,7 @@ use crate::{
 	common::{
 		sliding_stat::DurationSlidingStats,
 		tracing_log_xt::{log_xt_debug, log_xt_trace},
+		STAT_SLIDING_WINDOW,
 	},
 	enactment_state::{EnactmentAction, EnactmentState},
 	fork_aware_txpool::{
@@ -288,8 +289,10 @@ where
 				finality_timeout_threshold: finality_timeout_threshold
 					.unwrap_or(FINALITY_TIMEOUT_THRESHOLD),
 				included_transactions: Default::default(),
-				submit_stats: DurationSlidingStats::new(Duration::from_secs(3)),
-				submit_and_watch_stats: DurationSlidingStats::new(Duration::from_secs(3)),
+				submit_stats: DurationSlidingStats::new(Duration::from_secs(STAT_SLIDING_WINDOW)),
+				submit_and_watch_stats: DurationSlidingStats::new(Duration::from_secs(
+					STAT_SLIDING_WINDOW,
+				)),
 			},
 			[combined_tasks, mempool_task],
 		)
@@ -311,7 +314,7 @@ where
 			ExtrinsicHash<ChainApi>,
 		>,
 	) {
-		let dropped_stats = DurationSlidingStats::new(Duration::from_secs(3));
+		let dropped_stats = DurationSlidingStats::new(Duration::from_secs(STAT_SLIDING_WINDOW));
 		loop {
 			let Some(dropped) = dropped_stream.next().await else {
 				debug!(target: LOG_TARGET, "fatp::dropped_monitor_task: terminated...");
@@ -438,8 +441,10 @@ where
 			is_validator,
 			finality_timeout_threshold: FINALITY_TIMEOUT_THRESHOLD,
 			included_transactions: Default::default(),
-			submit_stats: DurationSlidingStats::new(Duration::from_secs(3)),
-			submit_and_watch_stats: DurationSlidingStats::new(Duration::from_secs(3)),
+			submit_stats: DurationSlidingStats::new(Duration::from_secs(STAT_SLIDING_WINDOW)),
+			submit_and_watch_stats: DurationSlidingStats::new(Duration::from_secs(
+				STAT_SLIDING_WINDOW,
+			)),
 		}
 	}
 

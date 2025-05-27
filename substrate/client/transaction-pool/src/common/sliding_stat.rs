@@ -89,11 +89,19 @@ pub struct SlidingStats<T> {
 	inner: Arc<RwLock<Inner<T>>>,
 }
 
+/// Sync version of `SlidingStats`
+pub struct SyncSlidingStats<T> {
+	inner: Arc<parking_lot::RwLock<Inner<T>>>,
+}
+
 /// A type alias for `SlidingStats` specialized for durations with human-readable formatting.
 ///
 /// Wraps `std::time::Duration` values using `StatDuration`, allowing for statistical summaries
 /// (e.g. p50, p95, average) to be displayed in units like nanoseconds, milliseconds, or seconds.
 pub type DurationSlidingStats = SlidingStats<StatDuration>;
+
+/// Sync version of `DurationSlidingStats`
+pub type SyncDurationSlidingStats = SyncSlidingStats<StatDuration>;
 
 /// Internal state of the statistics buffer.
 pub struct Inner<T> {
@@ -208,6 +216,18 @@ where
 	}
 }
 
+impl<T> SyncSlidingStats<T>
+where
+	T: Ord + Copy,
+{
+	/// Creates a new `SlidingStats` with the given retention duration.
+	pub fn new(retention: Duration) -> Self {
+		Self {
+			inner: Arc::new(parking_lot::RwLock::new(Inner { retention, ..Default::default() })),
+		}
+	}
+}
+
 impl<T> SlidingStats<T>
 where
 	T: Ord + Copy + Into<f64> + std::fmt::Display + StatFormatter,
@@ -229,6 +249,21 @@ where
 		now: Instant,
 	) -> Option<String> {
 		let mut inner = self.inner.write().await;
+		inner.insert_with_log(value, log_interval, now)
+	}
+}
+
+impl<T> SyncSlidingStats<T>
+where
+	T: Ord + Copy + Into<f64> + std::fmt::Display + StatFormatter,
+{
+	pub fn insert_with_log(
+		&self,
+		value: T,
+		log_interval: Option<Duration>,
+		now: Instant,
+	) -> Option<String> {
+		let mut inner = self.inner.write();
 		inner.insert_with_log(value, log_interval, now)
 	}
 }
@@ -386,6 +421,12 @@ impl<T> Clone for SlidingStats<T> {
 	}
 }
 
+impl<T> Clone for SyncSlidingStats<T> {
+	fn clone(&self) -> Self {
+		Self { inner: Arc::clone(&self.inner) }
+	}
+}
+
 /// Inserts a value into a `SlidingStats` and conditionally logs the current stats using `tracing`.
 ///
 /// This macro inserts the given `$value` into the `$stats` collector only if tracing is enabled
@@ -428,6 +469,25 @@ macro_rules! insert_and_log_throttled {
         if tracing::enabled!(target: $target, $level) {
             let now = std::time::Instant::now();
             if let Some(msg) = $stats.insert_with_log($value, None, now).await {
+                tracing::event!(target: $target, $level, "{}: {}", $prefix, msg);
+            }
+        }
+    }};
+}
+
+/// Sync version of `insert_and_log_throttled`
+#[macro_export]
+macro_rules! insert_and_log_throttled_sync {
+    (
+        $level:expr,
+        target: $target:literal,
+        prefix: $prefix:expr,
+        $stats:expr,
+        $value:expr
+    ) => {{
+        if tracing::enabled!(target: $target, $level) {
+            let now = std::time::Instant::now();
+            if let Some(msg) = $stats.insert_with_log($value, None, now){
                 tracing::event!(target: $target, $level, "{}: {}", $prefix, msg);
             }
         }

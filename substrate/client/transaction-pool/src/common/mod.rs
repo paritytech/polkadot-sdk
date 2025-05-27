@@ -30,6 +30,9 @@ pub(crate) mod tracing_log_xt;
 use futures::StreamExt;
 use std::sync::Arc;
 
+/// Stat sliding window, in seconds for per-transaction activities.
+pub(crate) const STAT_SLIDING_WINDOW: u64 = 3;
+
 /// Inform the transaction pool about imported and finalized blocks.
 pub async fn notification_future<Client, Pool, Block>(client: Arc<Client>, txpool: Arc<Pool>)
 where
