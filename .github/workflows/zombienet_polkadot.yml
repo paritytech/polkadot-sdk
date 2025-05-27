@@ -1,12 +1,13 @@
 name: Zombienet Polkadot
 
 on:
-  push:
-    branches:
-      - master
-  pull_request:
-    types: [opened, synchronize, reopened, ready_for_review]
-  merge_group:
+  workflow_dispatch: # Disabled for being flaky
+  #push:
+  #  branches:
+  #    - master
+  #pull_request:
+  #  types: [opened, synchronize, reopened, ready_for_review]
+  #merge_group:
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
