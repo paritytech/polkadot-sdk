@@ -6566,7 +6566,7 @@ dependencies = [
 
 [[package]]
 name = "frame-executive"
-version = "40.0.0"
+version = "40.0.1"
 dependencies = [
  "aquamarine",
  "array-bytes",
@@ -15739,7 +15739,7 @@ dependencies = [
  "sc-utils",
  "slot-range-helper",
  "sp-api 36.0.1",
- "sp-api-proc-macro 22.0.0",
+ "sp-api-proc-macro 22.0.1",
  "sp-application-crypto 40.1.0",
  "sp-arithmetic 26.1.0",
  "sp-authority-discovery",
@@ -21902,7 +21902,7 @@ dependencies = [
  "log",
  "parity-scale-codec",
  "scale-info",
- "sp-api-proc-macro 22.0.0",
+ "sp-api-proc-macro 22.0.1",
  "sp-core 36.1.0",
  "sp-externalities 0.30.0",
  "sp-metadata-ir 0.10.0",
@@ -21932,7 +21932,7 @@ dependencies = [
 
 [[package]]
 name = "sp-api-proc-macro"
-version = "22.0.0"
+version = "22.0.1"
 dependencies = [
  "Inflector",
  "assert_matches",
