@@ -22,7 +22,7 @@ use sp_core::{H160, U256};
 impl From<BlockNumberOrTag> for BlockNumberOrTagOrHash {
 	fn from(b: BlockNumberOrTag) -> Self {
 		match b {
-			BlockNumberOrTag::U256(n) => BlockNumberOrTagOrHash::U256(n),
+			BlockNumberOrTag::U256(n) => BlockNumberOrTagOrHash::BlockNumber(n),
 			BlockNumberOrTag::BlockTag(t) => BlockNumberOrTagOrHash::BlockTag(t),
 		}
 	}
@@ -140,6 +140,38 @@ fn can_deserialize_input_or_data_field_from_generic_transaction() {
 		"Both \"data\" and \"input\" are set and not equal. Please use \"input\" to pass transaction call data"
 		)
 	);
+}
+
+#[test]
+fn test_block_number_or_tag_or_hash_deserialization() {
+	let s = "\"latest\"";
+	let val: BlockNumberOrTagOrHash = serde_json::from_str(s).unwrap();
+	assert!(matches!(val, BlockNumberOrTagOrHash::BlockTag(_)));
+
+	let s = "\"0x1a\"";
+	let val: BlockNumberOrTagOrHash = serde_json::from_str(s).unwrap();
+	assert!(matches!(val, BlockNumberOrTagOrHash::BlockNumber(n) if n == 26u64.into()));
+
+	let s = r#"{ "blockNumber": "0x1a" }"#;
+	let val: BlockNumberOrTagOrHash = serde_json::from_str(s).unwrap();
+	assert!(matches!(val, BlockNumberOrTagOrHash::BlockNumber(n) if n == 26u64.into()));
+
+	let s = "\"0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"";
+	let val: BlockNumberOrTagOrHash = serde_json::from_str(s).unwrap();
+	if let BlockNumberOrTagOrHash::BlockHash(h) = val {
+		assert_eq!(h, H256::from_slice(&[0xaau8; 32]));
+	} else {
+		panic!("expected BlockHash");
+	}
+
+	let s =
+		r#"{ "blockHash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" }"#;
+	let val: BlockNumberOrTagOrHash = serde_json::from_str(s).unwrap();
+	if let BlockNumberOrTagOrHash::BlockHash(h) = val {
+		assert_eq!(h, H256::from_slice(&[0xaau8; 32]));
+	} else {
+		panic!("expected BlockHash");
+	}
 }
 
 #[test]
