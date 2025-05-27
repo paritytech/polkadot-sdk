@@ -1365,13 +1365,7 @@ fn call_return_code() {
 		// reasoning is that this error state does not exist on eth where
 		// ed does not exist. We hide this fact from the contract.
 		let result = builder::bare_call(bob.addr)
-			.data(
-				AsRef::<[u8]>::as_ref(&DJANGO_ADDR)
-					.iter()
-					.chain(&u256_bytes(1))
-					.cloned()
-					.collect(),
-			)
+			.data((DJANGO_ADDR, u256_bytes(1)).encode())
 			.origin(RuntimeOrigin::signed(BOB))
 			.build();
 		assert_err!(result.result, <Error<Test>>::StorageDepositNotEnoughFunds);
@@ -1471,7 +1465,7 @@ fn instantiate_return_code() {
 			.build_and_unwrap_contract();
 
 		// bob cannot pay the ED to create the contract as he has no money
-		// this traps the caller rather then returning an error
+		// this traps the caller rather than returning an error
 		let result = builder::bare_call(contract.addr)
 			.data(callee_hash.iter().chain(&0u32.to_le_bytes()).cloned().collect())
 			.origin(RuntimeOrigin::signed(BOB))
