@@ -144,12 +144,16 @@ async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 							}
 						}
 				}))
-				.with_node(|node| node.with_name("ferdie").validator(false));
+				.with_node(|node| {
+					node.with_name("ferdie").validator(false).with_args(vec![
+						("-lparachain::availability=trace,sync=info,parachain=debug,libp2p_mdns=debug,info").into(),
+					])
+				});
 
 			(0..13).fold(r, |acc, i| {
 				acc.with_node(|node| {
 					node.with_name(&format!("validator-{i}")).with_args(vec![
-						("-lparachain::availability=trace,sync=debug,parachain=debug").into(),
+						("-lparachain::availability=trace,sync=debug,parachain=debug,libp2p_mdns=debug").into(),
 						("--reserved-only").into(),
 						("--reserved-nodes", "{{ZOMBIE:ferdie:multiaddr}}").into(),
 					])
@@ -164,7 +168,10 @@ async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 				.with_collator(|c| {
 					c.with_name("bob")
 						.validator(true)
-						.with_args(vec!["--disable-block-announcements".into()])
+						.with_args(vec![
+							("--disable-block-announcements").into(),
+							("-lparachain::availability=trace,sync=debug,parachain=debug,cumulus-pov-recovery=debug,cumulus-consensus=debug,libp2p_mdns=debug,info").into(),
+						])
 				})
 				.with_collator(|c| {
 					c.with_name("alice")
@@ -214,7 +221,7 @@ async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 
 fn build_collator_args(in_args: Vec<Arg>) -> Vec<Arg> {
 	let start_args: Vec<Arg> = vec![
-		("-lparachain::availability=trace,sync=debug,parachain=debug,cumulus-pov-recovery=debug,cumulus-consensus=debug").into(),
+		("-lparachain::availability=trace,sync=debug,parachain=debug,cumulus-pov-recovery=debug,cumulus-consensus=debug,libp2p_mdns=debug,info").into(),
 		("--in-peers=0").into(),
 		("--out-peers=0").into(),
 		("--bootnodes", "{{ZOMBIE:bob:multiaddr}}").into(),
