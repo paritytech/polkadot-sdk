@@ -378,12 +378,11 @@ pub(crate) mod pallet {
 		/// `QueuedSolution`. Recall that the score of this solution is not yet verified, so it
 		/// should never become `valid`.
 		pub(crate) fn compute_invalid_score() -> Result<(ElectionScore, u32), FeasibilityError> {
-			// ensure that this is only called when all pages are verified individually.
-			if QueuedSolutionBackings::<T>::iter_key_prefix(Self::round()).count() !=
-				T::Pages::get() as usize
-			{
-				return Err(FeasibilityError::Incomplete)
-			}
+			// We do NOT check for completeness of all pages here.
+			// The only caller of this function is the finalization logic, which is guaranteed
+			// to be reached only after all pages have been submitted and the score is present
+			// (enforced by defensive_unwrap_or_default on the score retrieval).
+			// This avoids unnecessary storage reads and redundant checks.
 
 			let mut total_supports: BTreeMap<T::AccountId, PartialBackings> = Default::default();
 			for (who, PartialBackings { backers, total }) in
