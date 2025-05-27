@@ -985,6 +985,70 @@ mod async_verification {
 			assert!(QueuedSolution::<Runtime>::backing_iter().count().is_zero());
 		})
 	}
+
+	#[test]
+	fn malicious_miner_high_score_missing_pages() {
+		ExtBuilder::verifier().pages(3).build_and_execute(|| {
+			roll_to_snapshot_created();
+
+			// Mine a valid solution and artificially inflate the score to make it "winning"
+			let mut paged = mine_full_solution().unwrap();
+			paged.score = ElectionScore {
+				minimal_stake: u128::MAX,
+				sum_stake: u128::MAX,
+				sum_stake_squared: u128::MAX,
+			};
+
+			// Load the malicious solution with high score and start verification
+			load_mock_signed_and_start(paged.clone());
+			assert_eq!(VerifierPallet::status(), Status::Ongoing(2));
+			assert_eq!(QueuedSolution::<Runtime>::valid_iter().count(), 0);
+
+			// First page verification proceeds normally
+			roll_next();
+			assert_eq!(VerifierPallet::status(), Status::Ongoing(1));
+			assert_eq!(verifier_events(), vec![Event::<Runtime>::Verified(2, 2)]);
+			assert_eq!(MockSignedResults::get(), vec![]);
+
+			// 1 page verified, stored as invalid.
+			assert_eq!(QueuedSolution::<Runtime>::invalid_iter().count(), 1);
+			assert_eq!(QueuedSolution::<Runtime>::backing_iter().count(), 1);
+			assert_eq!(QueuedSolution::<Runtime>::valid_iter().count(), 0);
+
+			// Now the malicious miner fails to submit remaining pages
+			MockSignedNextSolution::set(None);
+			MockSignedNextScore::set(None);
+
+			// Roll through the remaining pages - system should handle gracefully
+			roll_next();
+			assert_eq!(VerifierPallet::status(), Status::Ongoing(0));
+			assert_eq!(
+				verifier_events(),
+				vec![Event::<Runtime>::Verified(2, 2), Event::<Runtime>::Verified(1, 0)]
+			);
+
+			// Final block - verification should fail gracefully, no panic
+			roll_next();
+			assert_eq!(VerifierPallet::status(), Status::Nothing);
+			assert_eq!(
+				verifier_events(),
+				vec![
+					Event::<Runtime>::Verified(2, 2),
+					Event::<Runtime>::Verified(1, 0),
+					Event::<Runtime>::Verified(0, 0),
+					Event::<Runtime>::VerificationFailed(0, FeasibilityError::InvalidScore),
+				]
+			);
+
+			// The system should be in a clean state - malicious solution is rejected
+			assert_eq!(QueuedSolution::<Runtime>::invalid_iter().count(), 0);
+			assert_eq!(QueuedSolution::<Runtime>::valid_iter().count(), 0);
+			assert_eq!(QueuedSolution::<Runtime>::backing_iter().count(), 0);
+
+			// Malicious solution with missing pages is rejected, no panic occurred
+			assert_eq!(MockSignedResults::get(), vec![VerificationResult::Rejected]);
+		})
+	}
 }
 
 mod multi_page_sync_verification {
