@@ -27,6 +27,7 @@ sp-runtime = { workspace = true }
 sp-std = { workspace = true }
 
 # Polkadot Dependencies
+polkadot-runtime-parachains = { workspace = true }
 xcm = { workspace = true }
 xcm-builder = { workspace = true }
 
@@ -42,6 +43,7 @@ std = [
 	"frame-support/std",
 	"frame-system/std",
 	"log/std",
+	"polkadot-runtime-parachains/std",
 	"scale-info/std",
 	"sp-core/std",
 	"sp-runtime/std",
@@ -53,6 +55,7 @@ runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
+	"polkadot-runtime-parachains/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",
 	"xcm/runtime-benchmarks",
@@ -60,5 +63,6 @@ runtime-benchmarks = [
 try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
+	"polkadot-runtime-parachains/try-runtime",
 	"sp-runtime/try-runtime",
 ]

@@ -60,11 +60,6 @@ use sp_staking::{
 
 mod impls;
 
-// The speculative number of spans are used as an input of the weight annotation of
-// [`Call::unbond`], as the post dispatch weight may depend on the number of slashing span on the
-// account which is not provided as an input. The value set should be conservative but sensible.
-pub(crate) const SPECULATIVE_NUM_SPANS: u32 = 32;
-
 #[frame_support::pallet]
 pub mod pallet {
 	use core::ops::Deref;
@@ -779,23 +774,6 @@ pub mod pallet {
 	pub(crate) type NominatorSlashInEra<T: Config> =
 		StorageDoubleMap<_, Twox64Concat, EraIndex, Twox64Concat, T::AccountId, BalanceOf<T>>;
 
-	/// Slashing spans for stash accounts.
-	#[pallet::storage]
-	#[pallet::unbounded]
-	pub type SlashingSpans<T: Config> =
-		StorageMap<_, Twox64Concat, T::AccountId, slashing::SlashingSpans>;
-
-	/// Records information about the maximum slash of a stash within a slashing span,
-	/// as well as how much reward has been paid out.
-	#[pallet::storage]
-	pub(crate) type SpanSlash<T: Config> = StorageMap<
-		_,
-		Twox64Concat,
-		(T::AccountId, slashing::SpanIndex),
-		slashing::SpanRecord<BalanceOf<T>>,
-		ValueQuery,
-	>;
-
 	/// The threshold for when users can start calling `chill_other` for other validators /
 	/// nominators. The threshold is compared to the actual number of validators / nominators
 	/// (`CountFor*`) in the system compared to the configured max (`Max*Count`).
@@ -1164,8 +1142,6 @@ pub mod pallet {
 		InvalidPage,
 		/// Incorrect previous history depth input provided.
 		IncorrectHistoryDepth,
-		/// Incorrect number of slashing spans provided.
-		IncorrectSlashingSpans,
 		/// Internal state has become somehow corrupted and the operation cannot continue.
 		BadState,
 		/// Too many nomination targets supplied.
@@ -1362,7 +1338,7 @@ pub mod pallet {
 		/// See also [`Call::withdraw_unbonded`].
 		#[pallet::call_index(2)]
 		#[pallet::weight(
-            T::WeightInfo::withdraw_unbonded_kill(SPECULATIVE_NUM_SPANS).saturating_add(T::WeightInfo::unbond()))
+            T::WeightInfo::withdraw_unbonded_kill().saturating_add(T::WeightInfo::unbond()))
         ]
 		pub fn unbond(
 			origin: OriginFor<T>,
@@ -1376,9 +1352,7 @@ pub mod pallet {
 			// `BondingDuration` to proceed with the unbonding.
 			let maybe_withdraw_weight = {
 				if unlocking == T::MaxUnlockingChunks::get() as usize {
-					let real_num_slashing_spans =
-						SlashingSpans::<T>::get(&controller).map_or(0, |s| s.iter().count());
-					Some(Self::do_withdraw_unbonded(&controller, real_num_slashing_spans as u32)?)
+					Some(Self::do_withdraw_unbonded(&controller)?)
 				} else {
 					None
 				}
@@ -1464,21 +1438,17 @@ pub mod pallet {
 		///
 		/// ## Parameters
 		///
-		/// - `num_slashing_spans` indicates the number of metadata slashing spans to clear when
-		/// this call results in a complete removal of all the data related to the stash account.
-		/// In this case, the `num_slashing_spans` must be larger or equal to the number of
-		/// slashing spans associated with the stash account in the [`SlashingSpans`] storage type,
-		/// otherwise the call will fail. The call weight is directly proportional to
-		/// `num_slashing_spans`.
+		/// - `num_slashing_spans`: **Deprecated**. This parameter is retained for backward
+		/// compatibility. It no longer has any effect.
 		#[pallet::call_index(3)]
-		#[pallet::weight(T::WeightInfo::withdraw_unbonded_kill(*num_slashing_spans))]
+		#[pallet::weight(T::WeightInfo::withdraw_unbonded_kill())]
 		pub fn withdraw_unbonded(
 			origin: OriginFor<T>,
-			num_slashing_spans: u32,
+			_num_slashing_spans: u32,
 		) -> DispatchResultWithPostInfo {
 			let controller = ensure_signed(origin)?;
 
-			let actual_weight = Self::do_withdraw_unbonded(&controller, num_slashing_spans)?;
+			let actual_weight = Self::do_withdraw_unbonded(&controller)?;
 			Ok(Some(actual_weight).into())
 		}
 
@@ -1778,22 +1748,22 @@ pub mod pallet {
 		/// Force a current staker to become completely unstaked, immediately.
 		///
 		/// The dispatch origin must be Root.
-		///
 		/// ## Parameters
 		///
-		/// - `num_slashing_spans`: Refer to comments on [`Call::withdraw_unbonded`] for more
-		/// details.
+		/// - `stash`: The stash account to be unstaked.
+		/// - `num_slashing_spans`: **Deprecated**. This parameter is retained for backward
+		/// compatibility. It no longer has any effect.
 		#[pallet::call_index(15)]
-		#[pallet::weight(T::WeightInfo::force_unstake(*num_slashing_spans))]
+		#[pallet::weight(T::WeightInfo::force_unstake())]
 		pub fn force_unstake(
 			origin: OriginFor<T>,
 			stash: T::AccountId,
-			num_slashing_spans: u32,
+			_num_slashing_spans: u32,
 		) -> DispatchResult {
 			ensure_root(origin)?;
 
 			// Remove all staking-related information and lock.
-			Self::kill_stash(&stash, num_slashing_spans)?;
+			Self::kill_stash(&stash)?;
 
 			Ok(())
 		}
@@ -1931,14 +1901,15 @@ pub mod pallet {
 		///
 		/// ## Parameters
 		///
-		/// - `num_slashing_spans`: Refer to comments on [`Call::withdraw_unbonded`] for more
-		/// details.
+		/// - `stash`: The stash account to be reaped.
+		/// - `num_slashing_spans`: **Deprecated**. This parameter is retained for backward
+		/// compatibility. It no longer has any effect.
 		#[pallet::call_index(20)]
-		#[pallet::weight(T::WeightInfo::reap_stash(*num_slashing_spans))]
+		#[pallet::weight(T::WeightInfo::reap_stash())]
 		pub fn reap_stash(
 			origin: OriginFor<T>,
 			stash: T::AccountId,
-			num_slashing_spans: u32,
+			_num_slashing_spans: u32,
 		) -> DispatchResultWithPostInfo {
 			let _ = ensure_signed(origin)?;
 
@@ -1956,7 +1927,7 @@ pub mod pallet {
 			ensure!(reapable, Error::<T>::FundedTarget);
 
 			// Remove all staking-related information and lock.
-			Self::kill_stash(&stash, num_slashing_spans)?;
+			Self::kill_stash(&stash)?;
 
 			Ok(Pays::No.into())
 		}

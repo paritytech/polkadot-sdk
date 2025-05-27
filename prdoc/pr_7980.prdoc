@@ -1,0 +1,7 @@
+title: '`fatxpool`: optimize txs prunning based on inactive views provides tags '
+doc:
+- audience: [Node Operator, Node Dev]
+  description: Optimization of transaction pruning. More datils can be found in the PR description.
+crates:
+- name: sc-transaction-pool
+  bump: major
