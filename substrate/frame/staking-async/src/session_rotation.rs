@@ -740,6 +740,13 @@ impl<T: Config> Rotator<T> {
 	fn cleanup_old_era(starting_era: EraIndex) {
 		EraElectionPlanner::<T>::cleanup();
 
+		let diff = T::BondingDuration::get();
+		if starting_era >= diff {
+			let target_era = starting_era - diff;
+			TotalUnbondInEra::<T>::remove(target_era);
+			EraLowestRatioTotalStake::<T>::remove(target_era);
+		}
+
 		// discard the ancient era info.
 		if let Some(old_era) = starting_era.checked_sub(T::HistoryDepth::get() + 1) {
 			log!(debug, "Removing era information for {:?}", old_era);
@@ -822,9 +829,9 @@ impl<T: Config> EraElectionPlanner<T> {
 			if maybe_next_page.is_none() {
 				use pallet_staking_async_rc_client::RcClientInterface;
 				// Modify the unbonding queue.
-				Pallet::<T>::calculate_lowest_total_stake();
-
 				let id = CurrentEra::<T>::get().defensive_unwrap_or(0);
+				Pallet::<T>::calculate_lowest_total_stake(id);
+
 				let prune_up_to = Self::get_prune_up_to();
 
 				crate::log!(

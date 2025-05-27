@@ -50,7 +50,7 @@ use rand_chacha::{
 };
 use sp_core::{sr25519::Pair as SrPair, Pair};
 use sp_runtime::{
-	traits::{StaticLookup, Zero},
+	traits::{Saturating, StaticLookup, Zero},
 	ArithmeticError, Perbill, Percent,
 };
 use sp_staking::{
@@ -63,11 +63,11 @@ mod impls;
 
 #[frame_support::pallet]
 pub mod pallet {
-	use core::ops::Deref;
-
 	use super::*;
 	use crate::{session_rotation, PagedExposureMetadata, SnapshotStatus, UnbondingQueueConfig};
+	use alloc::collections::BTreeMap;
 	use codec::HasCompact;
+	use core::ops::Deref;
 	use frame_election_provider_support::{ElectionDataProvider, PageIndex};
 	use frame_support::DefaultNoBound;
 
@@ -808,14 +808,18 @@ pub mod pallet {
 	>;
 
 	/// The total amount of stake backed by the lowest proportion of validators for the last
-	/// upper bound eras. This is used to determine the maximum amount of stake that
-	/// can be unbonded for a period potentially lower than upper bound eras.
+	/// upper-bound eras.
+	///
+	/// This is used to determine the maximum amount of stake that can be unbonded for a period
+	/// potentially lower than upper-bound eras.
 	#[pallet::storage]
 	pub type EraLowestRatioTotalStake<T: Config> =
-		StorageValue<_, BoundedVec<BalanceOf<T>, T::BondingDuration>, ValueQuery>;
+		StorageMap<_, Twox64Concat, EraIndex, BalanceOf<T>, OptionQuery>;
 
+	/// The amount of stake that started unbonding in a given era.
 	#[pallet::storage]
-	pub type BackOfUnbondingQueue<T: Config> = StorageValue<_, u128, ValueQuery>;
+	pub type TotalUnbondInEra<T: Config> =
+		StorageMap<_, Twox64Concat, EraIndex, BalanceOf<T>, OptionQuery>;
 
 	/// Parameters for the unbonding queue mechanism.
 	#[pallet::storage]
@@ -1414,20 +1418,29 @@ pub mod pallet {
 
 				// Note: in case there is no current era it is fine to bond one era more.
 				let current_era = CurrentEra::<T>::get().unwrap_or(0);
-				// Calculate unbonding era based on unbonding queue mechanism.
-				let era = Self::process_unbond_queue_request(current_era, value);
+				let previous_unbonded_stake =
+					TotalUnbondInEra::<T>::get(current_era).unwrap_or_default();
 
-				if let Some(chunk) = ledger.unlocking.iter_mut().find(|chunk| chunk.era == era) {
+				// TODO: check this execution path
+				if let Some(chunk) =
+					ledger.unlocking.last_mut().filter(|chunk| chunk.era == current_era)
+				{
 					// To keep the chunk count down, we only keep one chunk per era. Since
 					// `unlocking` is a FiFo queue, if a chunk exists for `era` we know that it will
 					// be the last one.
-					chunk.value = chunk.value.defensive_saturating_add(value)
+					chunk.value = chunk.value.defensive_saturating_add(value);
+					chunk.previous_unbonded_stake = previous_unbonded_stake;
 				} else {
 					ledger
 						.unlocking
-						.try_push(UnlockChunk { value, era })
+						.try_push(UnlockChunk { value, era: current_era, previous_unbonded_stake })
 						.map_err(|_| Error::<T>::NoMoreChunks)?;
 				};
+				TotalUnbondInEra::<T>::set(
+					current_era,
+					Some(previous_unbonded_stake.defensive_saturating_add(value)),
+				);
+
 				// NOTE: ledger must be updated prior to calling `Self::weight_of`.
 				ledger.update()?;
 
@@ -1898,8 +1911,6 @@ pub mod pallet {
 
 			// NOTE: ledger must be updated prior to calling `Self::weight_of`.
 			ledger.update()?;
-			let current_era = CurrentEra::<T>::get().unwrap_or(0);
-			Self::process_rebond_queue_request(current_era, value);
 			if T::VoterList::contains(&stash) {
 				let _ = T::VoterList::on_update(&stash, Self::weight_of(&stash));
 			}
@@ -2477,15 +2488,60 @@ pub mod pallet {
 
 	#[pallet::view_functions]
 	impl<T: Config> Pallet<T> {
-		/// Returns the duration in ras that funds will be locked for unbonding.
+		/// Returns the duration in eras that funds will be locked for unbonding.
 		///
 		/// The duration may vary based on the amount being unbonded and current queue parameters.
 		/// For instance, larger amounts may need to wait longer.
-		pub fn get_unbonding_duration(amount: BalanceOf<T>) -> EraIndex {
+		pub fn get_unbonding_duration(stash: T::AccountId) -> Vec<(EraIndex, BalanceOf<T>)> {
+			let ledger = match Self::ledger(Stash(stash.clone())) {
+				Ok(l) => l,
+				Err(_) => return Vec::new(),
+			};
 			let current_era = CurrentEra::<T>::get().unwrap_or(0);
-			Self::calculate_unbonding_queue_request(current_era, amount)
-				.0
-				.saturating_sub(current_era)
+			let target_era = current_era.saturating_sub(T::BondingDuration::get());
+			let (min_unlock_era, min_slashable_share) = match UnbondingQueueParams::<T>::get() {
+				None => (T::BondingDuration::get(), Zero::zero()),
+				Some(params) => (params.unbond_period_lower_bound, params.min_slashable_share),
+			};
+			let mut result = BTreeMap::new();
+			for chunk in ledger.unlocking.into_iter() {
+				if chunk.era <
+					current_era
+						.defensive_saturating_add(1)
+						.saturating_sub(T::BondingDuration::get())
+				{
+					continue;
+				}
+				let mut final_era = chunk.era.defensive_saturating_add(min_unlock_era);
+				for era in (chunk.era..target_era).rev() {
+					let mut total_unbond = BalanceOf::<T>::zero();
+					let era_total_amount =
+						TotalUnbondInEra::<T>::get(chunk.era).unwrap_or_default();
+					let unbond = if era == chunk.era {
+						era_total_amount.min(
+							chunk.previous_unbonded_stake.defensive_saturating_add(chunk.value),
+						)
+					} else {
+						era_total_amount
+					};
+					total_unbond.saturating_accrue(unbond);
+
+					if total_unbond >=
+						(Perbill::from_percent(100) - min_slashable_share) *
+							EraLowestRatioTotalStake::<T>::get(chunk.era).unwrap_or_default()
+					{
+						final_era =
+							final_era.max(era.defensive_saturating_add(T::BondingDuration::get()));
+						break;
+					}
+				}
+				let partial: BalanceOf<T> = match result.get(&final_era) {
+					Some(e) => *e,
+					None => Zero::zero(),
+				};
+				result.insert(final_era, partial.defensive_saturating_add(chunk.value));
+			}
+			result.into_iter().collect()
 		}
 	}
 }

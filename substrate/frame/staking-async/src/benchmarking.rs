@@ -145,12 +145,9 @@ pub fn prepare_unbonding_scenario<T: Config>() {
 	)
 	.expect("failed to set staking configs");
 
-	let mut min_stakes = BoundedVec::new();
 	for _ in 0..T::BondingDuration::get() {
-		let _ = min_stakes.try_push(1000u32.into()).unwrap();
+		EraLowestRatioTotalStake::<T>::set(0, Some(1000u32.into()));
 	}
-	assert!(min_stakes.is_full());
-	EraLowestRatioTotalStake::<T>::set(min_stakes);
 }
 
 struct ListScenario<T: Config> {
@@ -781,7 +778,11 @@ mod benchmarks {
 		// so the sum of unlocking chunks puts voter into the dest bag.
 		assert!(value * l.into() + origin_weight > origin_weight);
 		assert!(value * l.into() + origin_weight <= dest_weight);
-		let unlock_chunk = UnlockChunk::<BalanceOf<T>> { value, era: EraIndex::zero() };
+		let unlock_chunk = UnlockChunk::<BalanceOf<T>> {
+			value,
+			era: Zero::zero(),
+			previous_unbonded_stake: Zero::zero(),
+		};
 
 		let controller = scenario.origin_controller1;
 		let mut staking_ledger = Ledger::<T>::get(controller.clone()).unwrap();

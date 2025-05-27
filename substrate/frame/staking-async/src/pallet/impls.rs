@@ -26,7 +26,7 @@ use crate::{
 	weights::WeightInfo,
 	BalanceOf, Exposure, Forcing, LedgerIntegrityState, MaxNominationsOf, Nominations,
 	NominationsQuota, PositiveImbalanceOf, RewardDestination, SnapshotStatus, StakingLedger,
-	UnbondingQueueConfig, ValidatorPrefs, STAKING_ID,
+	ValidatorPrefs, STAKING_ID,
 };
 use alloc::{boxed::Box, vec, vec::Vec};
 use frame_election_provider_support::{
@@ -47,7 +47,7 @@ use frame_system::{pallet_prelude::BlockNumberFor, RawOrigin};
 use pallet_staking_async_rc_client::{self as rc_client};
 use sp_runtime::{
 	traits::{CheckedAdd, Saturating, StaticLookup, Zero},
-	ArithmeticError, DispatchResult, Perbill, SaturatedConversion,
+	ArithmeticError, DispatchResult, Perbill,
 };
 use sp_staking::{
 	currency_to_vote::CurrencyToVote,
@@ -70,11 +70,6 @@ use sp_runtime::TryRuntimeError;
 /// invalid (for any reason) the iteration continues. With this constant, we iterate at most 2 * n
 /// times and then give up.
 const NPOS_MAX_ITERATIONS_COEFFICIENT: u32 = 2;
-const PICO_ERA: u128 = 1_000_000_000_000;
-
-pub(crate) fn normalize_era(era: EraIndex) -> u128 {
-	era.saturated_into::<u128>().defensive_saturating_mul(PICO_ERA)
-}
 
 impl<T: Config> Pallet<T> {
 	/// Fetches the ledger associated with a controller or stash account, if any.
@@ -865,7 +860,7 @@ impl<T: Config> Pallet<T> {
 	/// Calculate the total stake of the lowest portion validators and store it for the planned era.
 	///
 	/// Removes the stale entry from [`EraLowestRatioTotalStake`] if it exists.
-	pub(crate) fn calculate_lowest_total_stake() {
+	pub(crate) fn calculate_lowest_total_stake(era: EraIndex) {
 		// Only calculate if unbonding queue params have been set.
 		if let Some(params) = UnbondingQueueParams::<T>::get() {
 			// Determine the total stake from the lowest portion of validators and persist for the
@@ -875,7 +870,7 @@ impl<T: Config> Pallet<T> {
 			let validators_to_check =
 				(params.lowest_ratio * total_stake.len() as u32).max(1) as usize;
 
-			// Sort exposure total stake by the lowest first, and truncate to the lowest portion.
+			// Sort exposure total stake by the lowest first and truncate to the lowest portion.
 			total_stake.sort();
 			total_stake.truncate(validators_to_check);
 
@@ -883,110 +878,7 @@ impl<T: Config> Pallet<T> {
 			let total_stake = total_stake.into_iter().sum();
 
 			// Store the total stake of the lowest portion validators for the planned era.
-			EraLowestRatioTotalStake::<T>::mutate(|lower_ratio| {
-				if lower_ratio.is_full() {
-					lower_ratio.remove(0);
-				}
-				lower_ratio.force_push(total_stake);
-			});
-		}
-	}
-
-	/// Gets the lowest validator stake entries for the last upper-bound eras.
-	pub fn get_min_lowest_stake() -> BalanceOf<T> {
-		EraLowestRatioTotalStake::<T>::get().into_iter().min().unwrap_or(Zero::zero())
-	}
-
-	/// Get the unbonding time, in pico-eras, for quick unbond for an unbond request.
-	///
-	/// We implement the calculation `unbonding_time_delta = new_unbonding_stake / max_unstake *
-	/// upper bound period in pico-eras.
-	pub fn get_unbonding_delta(unbond_stake: BalanceOf<T>, params: UnbondingQueueConfig) -> u128 {
-		let upper_bound = normalize_era(T::BondingDuration::get());
-		let unbond_stake: u128 = unbond_stake.saturated_into();
-
-		// Get the maximum unstake amount for quick unbond time supported at the time of an unbond
-		// request.
-		let max_unstake: u128 =
-			(params.min_slashable_share * Self::get_min_lowest_stake()).saturated_into();
-
-		if max_unstake > unbond_stake {
-			upper_bound
-				.saturating_mul(unbond_stake)
-				.saturating_div(max_unstake)
-				.saturated_into()
-		} else {
-			upper_bound.saturated_into()
-		}
-	}
-
-	/// Calculates the unbonding era and the resulting back of the unbonding queue position for an
-	/// unbonding request.
-	///
-	/// Returns tuple of (calculated_era, back_of_queue_position)
-	pub(crate) fn calculate_unbonding_queue_request(
-		era: EraIndex,
-		value: BalanceOf<T>,
-	) -> (EraIndex, Option<u128>) {
-		if let Some(params) = UnbondingQueueParams::<T>::get() {
-			// Calculate unbonding era based on unbonding queue mechanism.
-			let unbonding_delta = Self::get_unbonding_delta(value, params);
-			let normalized_era = normalize_era(era);
-			let back_of_unbonding_queue = normalized_era
-				.max(BackOfUnbondingQueue::<T>::get())
-				.defensive_saturating_add(unbonding_delta);
-
-			let normalized_calculated_era =
-				back_of_unbonding_queue.defensive_saturating_sub(normalized_era);
-			let calculated_era = normalized_calculated_era
-				// Normalize to eras.
-				.saturating_div(PICO_ERA)
-				.saturated_into::<EraIndex>()
-				// And now round up if needed to be more conservative.
-				.defensive_saturating_add((normalized_calculated_era % PICO_ERA != 0) as EraIndex);
-			// Apply the min and max boundaries to the calculated era.
-			(
-				T::BondingDuration::get()
-					.min(calculated_era.max(params.unbond_period_lower_bound))
-					.defensive_saturating_add(era),
-				Some(back_of_unbonding_queue),
-			)
-		} else {
-			// If unbond queue params are not set, return current era plus maximum bonding duration.
-			(era.defensive_saturating_add(T::BondingDuration::get()), None)
-		}
-	}
-
-	/// Process an unbonding queue request and calculate the appropriate era when the unbonded
-	/// amount can be withdrawn
-	///
-	/// This function implements the unbonding queue mechanism that allows shorter unbonding periods
-	/// based on the value being unbonded relative to the maximum unstakeable amount.
-	///
-	/// The returned era will be between the minimum unbonding period and the maximum bonding
-	/// duration, based on the unbonding queue calculation.
-	pub(crate) fn process_unbond_queue_request(era: EraIndex, value: BalanceOf<T>) -> EraIndex {
-		let (era, maybe_back_of_unbonding_queue) =
-			Self::calculate_unbonding_queue_request(era, value);
-		if let Some(back_of_unbonding_queue) = maybe_back_of_unbonding_queue {
-			BackOfUnbondingQueue::<T>::put(back_of_unbonding_queue);
-		}
-		era
-	}
-
-	/// Process a rebonding queue request by adjusting the `back_of_unbonding_queue` value.
-	///
-	/// This function is called when a staker rebonds their stake, which reduces the effective
-	/// unbonding duration for future unbonding requests.
-	/// It reduces the `back_of_unbonding_queue` value based on the amount being rebonded.
-	pub(crate) fn process_rebond_queue_request(era: EraIndex, value: BalanceOf<T>) {
-		if let Some(params) = UnbondingQueueParams::<T>::get() {
-			let unbonding_delta = Self::get_unbonding_delta(value, params);
-			let normalized_era = normalize_era(era);
-			let back_of_unbonding_queue = BackOfUnbondingQueue::<T>::get()
-				.saturating_sub(unbonding_delta)
-				.max(normalized_era);
-			BackOfUnbondingQueue::<T>::set(back_of_unbonding_queue);
+			EraLowestRatioTotalStake::<T>::set(era, Some(total_stake));
 		}
 	}
 }
