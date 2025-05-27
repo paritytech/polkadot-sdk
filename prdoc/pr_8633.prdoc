@@ -3,7 +3,7 @@ title: 'Staking (EPMB): update the semantics of elect() and Phase::Extract(N)'
 doc:
 - audience: Runtime Dev
   description: |-
-    - Make elect() in EPMB the sole responsible for Phase::Export transitions:
+    - Make elect() in EPMB solely responsible for Phase::Export transitions:
       - before this change, the handling was split between EPMB's on_initialize()/next() and elect() (triggered by staking-async's on_initialize()).
     - Update the semantics of elect(N) and of the inner value of Export(N):
       - calling elect(N) means now that we are expecting to serve result for page N and to transition to Phase::Export(N-1) if N > 0 or to Phase::Off if N == 0.
