@@ -9,6 +9,7 @@ use frame_support::{
 	BoundedVec,
 };
 
+use bridge_hub_common::AggregateMessageOrigin;
 use hex_literal::hex;
 use snowbridge_core::{
 	gwei, meth,
@@ -100,6 +101,13 @@ parameter_types! {
 
 pub const DOT: u128 = 10_000_000_000;
 
+pub struct OriginToAggregateMessageOrigin;
+impl Convert<H256, AggregateMessageOrigin> for OriginToAggregateMessageOrigin {
+	fn convert(origin: H256) -> AggregateMessageOrigin {
+		AggregateMessageOrigin::SnowbridgeV2(origin)
+	}
+}
+
 impl crate::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type Verifier = MockVerifier;
@@ -118,6 +126,8 @@ impl crate::Config for Test {
 	type DefaultRewardKind = DefaultMyRewardKind;
 	#[cfg(feature = "runtime-benchmarks")]
 	type Helper = Test;
+	type AggregateMessageOrigin = AggregateMessageOrigin;
+	type OriginToAggregateMessageOrigin = OriginToAggregateMessageOrigin;
 }
 
 fn setup() {
