@@ -21,7 +21,7 @@ use cumulus_test_client::{
 	runtime::{
 		self as test_runtime, Block, Hash, Header, TestPalletCall, UncheckedExtrinsic, WASM_BINARY,
 	},
-	seal_block, transfer, BlockData, BlockOrigin, BuildParachainBlockData, Client,
+	seal_parachain_block_data, transfer, BlockData, BlockOrigin, BuildParachainBlockData, Client,
 	ClientBlockImportExt, DefaultTestClientBuilderExt, HeadData, InitBlockBuilder,
 	Sr25519Keyring::{Alice, Bob, Charlie},
 	TestClientBuilder, TestClientBuilderExt, ValidationParams,
@@ -114,8 +114,13 @@ fn validate_block_works() {
 	let TestBlockData { block, validation_data, slot } =
 		build_block_with_witness(&client, Vec::new(), parent_head.clone(), Default::default());
 
+<<<<<<< HEAD
 	let block = seal_block(block, slot, &client);
 	let header = block.header().clone();
+=======
+	let block = seal_parachain_block_data(block, &client);
+	let header = block.blocks()[0].header().clone();
+>>>>>>> 9dc1337 (cumulus-aura: Improve equivocation checks (#8669))
 	let res_header =
 		call_validate_block(parent_head, block, validation_data.relay_parent_storage_root)
 			.expect("Calls `validate_block`");
@@ -123,6 +128,29 @@ fn validate_block_works() {
 }
 
 #[test]
+<<<<<<< HEAD
+=======
+#[ignore = "Needs another pr to work"]
+fn validate_multiple_blocks_work() {
+	sp_tracing::try_init_simple();
+
+	let (client, parent_head) = create_elastic_scaling_test_client();
+	let TestBlockData { block, validation_data } =
+		build_multiple_blocks_with_witness(&client, parent_head.clone(), Default::default(), 4);
+
+	let block = seal_parachain_block_data(block, &client);
+	let header = block.blocks().last().unwrap().header().clone();
+	let res_header = call_validate_block_elastic_scaling(
+		parent_head,
+		block,
+		validation_data.relay_parent_storage_root,
+	)
+	.expect("Calls `validate_block`");
+	assert_eq!(header, res_header);
+}
+
+#[test]
+>>>>>>> 9dc1337 (cumulus-aura: Improve equivocation checks (#8669))
 fn validate_block_with_extra_extrinsics() {
 	sp_tracing::try_init_simple();
 
@@ -139,8 +167,13 @@ fn validate_block_with_extra_extrinsics() {
 		parent_head.clone(),
 		Default::default(),
 	);
+<<<<<<< HEAD
 	let block = seal_block(block, slot, &client);
 	let header = block.header().clone();
+=======
+	let block = seal_parachain_block_data(block, &client);
+	let header = block.blocks()[0].header().clone();
+>>>>>>> 9dc1337 (cumulus-aura: Improve equivocation checks (#8669))
 
 	let res_header =
 		call_validate_block(parent_head, block, validation_data.relay_parent_storage_root)
@@ -176,8 +209,14 @@ fn validate_block_returns_custom_head_data() {
 	let header = block.header().clone();
 	assert_ne!(expected_header, header.encode());
 
+<<<<<<< HEAD
 	let block = seal_block(block, slot, &client);
 	let res_header = call_validate_block_encoded_header(
+=======
+	let block = seal_parachain_block_data(block, &client);
+	let res_header = call_validate_block_validation_result(
+		WASM_BINARY.expect("You need to build the WASM binaries to run the tests!"),
+>>>>>>> 9dc1337 (cumulus-aura: Improve equivocation checks (#8669))
 		parent_head,
 		block,
 		validation_data.relay_parent_storage_root,
@@ -332,10 +371,55 @@ fn validate_block_works_with_child_tries() {
 		Default::default(),
 	);
 
+<<<<<<< HEAD
 	let block = seal_block(block, slot, &client);
 	let header = block.header().clone();
+=======
+	let block = seal_parachain_block_data(block, &client);
+	let header = block.blocks()[0].header().clone();
+>>>>>>> 9dc1337 (cumulus-aura: Improve equivocation checks (#8669))
 	let res_header =
 		call_validate_block(parent_head, block, validation_data.relay_parent_storage_root)
 			.expect("Calls `validate_block`");
 	assert_eq!(header, res_header);
 }
+<<<<<<< HEAD
+=======
+
+#[test]
+#[cfg(feature = "experimental-ump-signals")]
+fn validate_block_handles_ump_signal() {
+	sp_tracing::try_init_simple();
+
+	let (client, parent_head) = create_elastic_scaling_test_client();
+	let extra_extrinsics =
+		vec![transfer(&client, Alice, Bob, 69), transfer(&client, Bob, Charlie, 100)];
+
+	let TestBlockData { block, validation_data } = build_block_with_witness(
+		&client,
+		extra_extrinsics,
+		parent_head.clone(),
+		Default::default(),
+	);
+
+	let block = seal_parachain_block_data(block, &client);
+	let upward_messages = call_validate_block_validation_result(
+		test_runtime::elastic_scaling::WASM_BINARY
+			.expect("You need to build the WASM binaries to run the tests!"),
+		parent_head,
+		block,
+		validation_data.relay_parent_storage_root,
+	)
+	.expect("Calls `validate_block`")
+	.upward_messages;
+
+	assert_eq!(
+		upward_messages,
+		vec![
+			UMP_SEPARATOR,
+			UMPSignal::SelectCore(CoreSelector(1), ClaimQueueOffset(DEFAULT_CLAIM_QUEUE_OFFSET))
+				.encode()
+		]
+	);
+}
+>>>>>>> 9dc1337 (cumulus-aura: Improve equivocation checks (#8669))
