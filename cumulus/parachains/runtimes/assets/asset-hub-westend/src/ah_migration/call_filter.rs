@@ -123,13 +123,8 @@ pub fn call_allowed_status(call: &<Runtime as frame_system::Config>::RuntimeCall
 		/* Exhaustive match. Compiler ensures that we did not miss any. */
 	};
 
-	let after_migration = match call {
-		Staking(..) => OFF,
-		NominationPools(..) => OFF,
-		FastUnstake(..) => OFF,
-		VoterList(..) => OFF,
-		_ => ON,
-	};
+	// Everything enabled after the migration.
+	let after_migration = ON;
 
 	(during_migration, after_migration)
 }
