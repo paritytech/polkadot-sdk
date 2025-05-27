@@ -311,9 +311,7 @@ where
 mod test {
 	use super::*;
 	use crate::{
-		mock::{
-			new_test_ext, Assets, Balances, ERC20Config, RuntimeEvent, RuntimeOrigin, System, Test,
-		},
+		mock::{new_test_ext, Assets, Balances, RuntimeEvent, RuntimeOrigin, System, Test},
 		precompiles::alloy::hex,
 	};
 	use alloy::primitives::U256;
@@ -336,9 +334,9 @@ mod test {
 	fn asset_id_extractor_works() {
 		let address: [u8; 20] =
 			hex::const_decode_to_array(b"0000053900000000000000000000000001200000").unwrap();
-		assert!(ERC20Config::MATCHER.matches(&address));
+		assert!(InlineIdConfig::<0x0120>::MATCHER.matches(&address));
 		assert_eq!(
-			<ERC20Config as AssetPrecompileConfig>::AssetIdExtractor::asset_id_from_address(
+			<InlineIdConfig<0x0120> as AssetPrecompileConfig>::AssetIdExtractor::asset_id_from_address(
 				&address
 			)
 			.unwrap(),

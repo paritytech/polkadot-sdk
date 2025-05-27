@@ -20,7 +20,7 @@
 use super::*;
 use crate as pallet_assets;
 
-use crate::precompiles::ERC20;
+use crate::precompiles::{InlineIdConfig, ERC20};
 use codec::Encode;
 use frame_support::{
 	assert_ok, construct_runtime, derive_impl, parameter_types,
