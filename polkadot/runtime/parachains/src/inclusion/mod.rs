@@ -801,8 +801,8 @@ impl<T: Config> Pallet<T> {
 
 		match maybe_amount_validated {
 			Ok(amount_validated) => ensure!(
-				amount_validated
-					>= effective_minimum_backing_votes(group_vals.len(), minimum_backing_votes),
+				amount_validated >=
+					effective_minimum_backing_votes(group_vals.len(), minimum_backing_votes),
 				Error::<T>::InsufficientBacking,
 			),
 			Err(()) => {
@@ -1281,8 +1281,8 @@ impl<T: Config> CandidateCheckContext<T> {
 		);
 
 		ensure!(
-			backed_candidate_receipt.descriptor.para_head()
-				== backed_candidate_receipt.commitments.head_data.hash(),
+			backed_candidate_receipt.descriptor.para_head() ==
+				backed_candidate_receipt.commitments.head_data.hash(),
 			Error::<T>::ParaHeadMismatch,
 		);
 
@@ -1414,11 +1414,10 @@ impl<T: Config> QueueFootprinter for Pallet<T> {
 
 	fn message_count(origin: Self::Origin) -> u64 {
 		match origin {
-			UmpQueueId::Para(para_id) => {
+			UmpQueueId::Para(para_id) =>
 				T::MessageQueue::footprint(T::AggregateMessageOriginConverter::convert(para_id))
 					.storage
-					.count
-			},
+					.count,
 		}
 	}
 }
