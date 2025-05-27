@@ -244,8 +244,8 @@ pub type Result = result::Result<(), Error>;
 pub enum Outcome {
 	/// Execution completed successfully; given weight was used.
 	Complete { used: Weight },
-	/// Execution started, but did not complete successfully due to the given error; given weight
-	/// was used.
+	/// Execution started, but did not complete successfully due to`error` which occurred
+	/// on the `index`-th instruction ; overall total `weight` was used.
 	Incomplete { used: Weight, error: Error, index: u8 },
 	/// Execution did not start due to the given error.
 	Error { error: Error, index: u8 },
