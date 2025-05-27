@@ -130,12 +130,11 @@ where
 		let relay_chain_verifier =
 			Box::new(RelayChainVerifier::new(client.clone(), |_, _| async { Ok(()) }));
 
-		let equivocation_aura_verifier =
-			AuraVerifier::<<AuraId as AppCrypto>::Pair, _, _, _>::new(
-				client.clone(),
-				inherent_data_providers,
-				telemetry_handle,
-			);
+		let equivocation_aura_verifier = AuraVerifier::<<AuraId as AppCrypto>::Pair, _, _, _>::new(
+			client.clone(),
+			inherent_data_providers,
+			telemetry_handle,
+		);
 
 		let verifier = Verifier {
 			client,
