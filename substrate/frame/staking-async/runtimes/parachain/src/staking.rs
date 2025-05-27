@@ -33,8 +33,8 @@ use sp_runtime::{
 use xcm::latest::prelude::*;
 
 parameter_types! {
-	pub storage SignedPhase: u32 = 3 * MINUTES / 2;
-	pub storage UnsignedPhase: u32 = 1 * MINUTES;
+	pub storage SignedPhase: u32 = 2 * MINUTES;
+	pub storage UnsignedPhase: u32 = MINUTES;
 	pub storage SignedValidationPhase: u32 = Pages::get() + 1;
 
 	pub storage MaxElectingVoters: u32 = 1000;
