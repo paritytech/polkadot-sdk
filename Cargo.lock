@@ -4244,7 +4244,12 @@ dependencies = [
  "sp-runtime 41.1.0",
  "sp-state-machine 0.45.0",
  "sp-timestamp",
+<<<<<<< HEAD
  "sp-trie 39.1.0",
+=======
+ "sp-tracing 16.0.0",
+ "sp-trie 29.0.0",
+>>>>>>> 9dc13377 (cumulus-aura: Improve equivocation checks (#8669))
  "substrate-prometheus-endpoint",
  "tokio",
  "tracing",
