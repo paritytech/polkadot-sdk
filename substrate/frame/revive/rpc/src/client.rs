@@ -295,7 +295,7 @@ impl Client {
 					if err.is_disconnected_will_reconnect() {
 						log::warn!(
 							target: LOG_TARGET,
-							"The RPC connection was lost and we may have missed a few blocks: {err:?}"
+							"The RPC connection was lost and we may have missed a few blocks ({subscription_type:?}): {err:?}"
 						);
 						continue;
 					}
