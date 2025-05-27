@@ -238,11 +238,8 @@ mod benchmarks {
 
 		// Start export and fetch all pages except the last one
 		let max_page = <Pallet<T> as ElectionProvider>::msp();
-		let _ = Pallet::<T>::elect(max_page).unwrap(); // Start export
-												 // Fetch remaining pages (max_page-1 down to 1)
-		for i in 1..max_page {
-			let _ = Pallet::<T>::elect(max_page - i).unwrap();
-		}
+		// Start export and fetch all pages from max_page down to 1
+		(1..=max_page).rev().for_each(T::DataProvider::fetch_page);
 
 		assert_eq!(CurrentPhase::<T>::get(), Phase::Export(0));
 
