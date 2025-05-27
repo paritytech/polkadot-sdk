@@ -7,7 +7,7 @@ crates:
 - name: emulated-integration-tests-common
   bump: patch
 - name: pallet-xcm
-  bump: patch
+  bump: major
 - name: pallet-contracts-mock-network
   bump: patch
 - name: pallet-revive-mock-network
@@ -15,7 +15,7 @@ crates:
 - name: parachains-runtimes-test-utils
   bump: patch
 - name: staging-xcm
-  bump: patch
+  bump: major
 - name: staging-xcm-builder
   bump: patch
 - name: staging-xcm-executor
