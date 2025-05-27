@@ -295,12 +295,12 @@ impl Client {
 					if err.is_disconnected_will_reconnect() {
 						log::warn!(
 							target: LOG_TARGET,
-							"The RPC connection was lost and we may have missed a few blocks: {err:?}"
+							"The RPC connection was lost and we may have missed a few blocks ({subscription_type:?}): {err:?}"
 						);
 						continue;
 					}
 
-					log::error!(target: LOG_TARGET, "Failed to fetch block: {err:?}");
+					log::error!(target: LOG_TARGET, "Failed to fetch block ({subscription_type:?}): {err:?}");
 					return Err(err.into());
 				},
 			};
@@ -362,8 +362,8 @@ impl Client {
 		at: BlockNumberOrTagOrHash,
 	) -> Result<SubstrateBlockHash, ClientError> {
 		match at {
-			BlockNumberOrTagOrHash::H256(hash) => Ok(hash),
-			BlockNumberOrTagOrHash::U256(block_number) => {
+			BlockNumberOrTagOrHash::BlockHash(hash) => Ok(hash),
+			BlockNumberOrTagOrHash::BlockNumber(block_number) => {
 				let n: SubstrateBlockNumber =
 					(block_number).try_into().map_err(|_| ClientError::ConversionFailed)?;
 				let hash = self.get_block_hash(n).await?.ok_or(ClientError::BlockNotFound)?;
