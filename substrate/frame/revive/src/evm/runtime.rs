@@ -408,6 +408,61 @@ pub trait EthExtra {
 	}
 }
 
+use crate::tracing::if_tracing;
+use frame_support::DebugNoBound;
+use sp_runtime::{
+	impl_tx_ext_default,
+	traits::{AsSystemOriginSigner, DispatchInfoOf, DispatchOriginOf},
+};
+
+/// TODO document
+#[derive(Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, TypeInfo, DebugNoBound)]
+#[scale_info(skip_type_params(T))]
+pub struct EvmTracingExtension<T: frame_system::Config>(core::marker::PhantomData<T>);
+
+impl<T: frame_system::Config + Send + Sync> TransactionExtension<T::RuntimeCall>
+	for EvmTracingExtension<T>
+where
+	T::RuntimeCall: Dispatchable<Info = DispatchInfo>,
+	<T::RuntimeCall as Dispatchable>::RuntimeOrigin: AsSystemOriginSigner<T::AccountId> + Clone,
+{
+	type Val = ();
+	type Pre = ();
+	type Implicit = ();
+	const IDENTIFIER: &'static str = "EvmTracing";
+
+	impl_tx_ext_default!(T::RuntimeCall; weight validate);
+
+	fn prepare(
+		self,
+		_val: Self::Val,
+		origin: &DispatchOriginOf<T::RuntimeCall>,
+		_call: &T::RuntimeCall,
+		_info: &DispatchInfoOf<T::RuntimeCall>,
+		_len: usize,
+	) -> Result<Self::Pre, TransactionValidityError> {
+		if_tracing(|_t| {
+			let Some(_who) = origin.as_system_origin_signer() else {
+				return;
+			};
+			// do something with who
+		});
+
+		Ok(())
+	}
+
+	// fn post_dispatch_details(
+	// 	_pre: Self::Pre,
+	// 	_info: &DispatchInfoOf<T::RuntimeCall>,
+	// 	_post_info: &PostDispatchInfoOf<T::RuntimeCall>,
+	// 	_len: usize,
+	// 	_result: &DispatchResult,
+	// ) -> Result<Weight, TransactionValidityError> {
+	// 	// do something post dispatch?
+	// 	Ok(Weight::zero())
+	// }
+}
+
 #[cfg(test)]
 mod test {
 	use super::*;

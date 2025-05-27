@@ -1841,10 +1841,7 @@ macro_rules! impl_runtime_apis_plus_revive {
 					<$Executive>::initialize_block(&header);
 					for (index, ext) in extrinsics.into_iter().enumerate() {
 						let t = tracer.as_tracing();
-						t.watch_address(&$crate::Pallet::<Self>::coinbase().unwrap_or_default());
-						trace(t, || {
-							let _ = <$Executive>::apply_extrinsic(ext);
-						});
+						let _ = trace(t, || <$Executive>::apply_extrinsic(ext));
 
 						if let Some(tx_trace) = tracer.collect_trace() {
 							traces.push((index as u32, tx_trace));
@@ -1869,9 +1866,7 @@ macro_rules! impl_runtime_apis_plus_revive {
 						if index as u32 == tx_index {
 							let t = tracer.as_tracing();
 							t.watch_address(&$crate::Pallet::<Self>::coinbase().unwrap_or_default());
-							trace(t, || {
-								let _ = <$Executive>::apply_extrinsic(ext);
-							});
+							let _ = trace(t, || <$Executive>::apply_extrinsic(ext));
 							break;
 						} else {
 							let _ = <$Executive>::apply_extrinsic(ext);
