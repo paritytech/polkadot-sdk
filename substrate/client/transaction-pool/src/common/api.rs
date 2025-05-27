@@ -18,7 +18,10 @@
 
 //! Chain api required for the transaction pool.
 
-use crate::LOG_TARGET;
+use crate::{
+	common::{sliding_stat::DurationSlidingStats, STAT_SLIDING_WINDOW},
+	insert_and_log_throttled, LOG_TARGET,
+};
 use async_trait::async_trait;
 use codec::Encode;
 use futures::future::{ready, Future, FutureExt, Ready};
@@ -33,7 +36,12 @@ use sp_runtime::{
 	transaction_validity::{TransactionSource, TransactionValidity},
 };
 use sp_transaction_pool::runtime_api::TaggedTransactionQueue;
-use std::{marker::PhantomData, pin::Pin, sync::Arc, time::Instant};
+use std::{
+	marker::PhantomData,
+	pin::Pin,
+	sync::Arc,
+	time::{Duration, Instant},
+};
 use tokio::sync::{mpsc, oneshot, Mutex};
 
 use super::{
@@ -49,6 +57,7 @@ pub struct FullChainApi<Client, Block> {
 	_marker: PhantomData<Block>,
 	metrics: Option<Arc<ApiMetrics>>,
 	validation_pool: mpsc::Sender<Pin<Box<dyn Future<Output = ()> + Send>>>,
+	validate_transaction_stats: DurationSlidingStats,
 }
 
 /// Spawn a validation task that will be used by the transaction pool to validate transactions.
@@ -56,17 +65,39 @@ fn spawn_validation_pool_task(
 	name: &'static str,
 	receiver: Arc<Mutex<mpsc::Receiver<Pin<Box<dyn Future<Output = ()> + Send>>>>>,
 	spawner: &impl SpawnEssentialNamed,
+	stats: DurationSlidingStats,
+	blocking_stats: DurationSlidingStats,
 ) {
 	spawner.spawn_essential_blocking(
 		name,
 		Some("transaction-pool"),
 		async move {
 			loop {
+				let start = Instant::now();
 				let task = receiver.lock().await.recv().await;
-				match task {
+				let blocking_duration = match task {
 					None => return,
-					Some(task) => task.await,
-				}
+					Some(task) => {
+						let start = Instant::now();
+						task.await;
+						start.elapsed()
+					},
+				};
+				insert_and_log_throttled!(
+					Level::DEBUG,
+					target:"txpool",
+					prefix:format!("validate_transaction_stats_inner"),
+					stats,
+					start.elapsed().into()
+				);
+				insert_and_log_throttled!(
+					Level::DEBUG,
+					target:"txpool",
+					prefix:format!("validate_transaction_blocking_stats"),
+					blocking_stats,
+					blocking_duration.into()
+				);
+				trace!(target:LOG_TARGET, duration=?start.elapsed(), "spawn_validation_pool_task");
 			}
 		}
 		.boxed(),
@@ -80,6 +111,8 @@ impl<Client, Block> FullChainApi<Client, Block> {
 		prometheus: Option<&PrometheusRegistry>,
 		spawner: &impl SpawnEssentialNamed,
 	) -> Self {
+		let stats = DurationSlidingStats::new(Duration::from_secs(STAT_SLIDING_WINDOW));
+		let blocking_stats = DurationSlidingStats::new(Duration::from_secs(STAT_SLIDING_WINDOW));
 		let metrics = prometheus.map(ApiMetrics::register).and_then(|r| match r {
 			Err(error) => {
 				warn!(
@@ -95,10 +128,30 @@ impl<Client, Block> FullChainApi<Client, Block> {
 		let (sender, receiver) = mpsc::channel(1);
 
 		let receiver = Arc::new(Mutex::new(receiver));
-		spawn_validation_pool_task("transaction-pool-task-0", receiver.clone(), spawner);
-		spawn_validation_pool_task("transaction-pool-task-1", receiver, spawner);
+		spawn_validation_pool_task(
+			"transaction-pool-task-0",
+			receiver.clone(),
+			spawner,
+			stats.clone(),
+			blocking_stats.clone(),
+		);
+		spawn_validation_pool_task(
+			"transaction-pool-task-1",
+			receiver,
+			spawner,
+			stats,
+			blocking_stats,
+		);
 
-		FullChainApi { client, validation_pool: sender, _marker: Default::default(), metrics }
+		FullChainApi {
+			client,
+			validation_pool: sender,
+			_marker: Default::default(),
+			metrics,
+			validate_transaction_stats: DurationSlidingStats::new(Duration::from_secs(
+				STAT_SLIDING_WINDOW,
+			)),
+		}
 	}
 }
 
@@ -129,6 +182,7 @@ where
 		source: TransactionSource,
 		uxt: graph::ExtrinsicFor<Self>,
 	) -> Result<TransactionValidity, Self::Error> {
+		let start = Instant::now();
 		let (tx, rx) = oneshot::channel();
 		let client = self.client.clone();
 		let validation_pool = self.validation_pool.clone();
@@ -150,10 +204,20 @@ where
 				.map_err(|e| Error::RuntimeApi(format!("Validation pool down: {:?}", e)))?;
 		}
 
-		match rx.await {
+		let validity = match rx.await {
 			Ok(r) => r,
 			Err(_) => Err(Error::RuntimeApi("Validation was canceled".into())),
-		}
+		};
+
+		insert_and_log_throttled!(
+			Level::DEBUG,
+			target:"txpool",
+			prefix:format!("validate_transaction_stats"),
+			self.validate_transaction_stats,
+			start.elapsed().into()
+		);
+
+		validity
 	}
 
 	/// Validates a transaction by calling into the runtime.
