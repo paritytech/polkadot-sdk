@@ -95,6 +95,9 @@ pub struct AccountId32Mapper<T>(PhantomData<T>);
 /// It just trivially returns its inputs and doesn't make use of any state.
 pub struct H160Mapper<T>(PhantomData<T>);
 
+/// An account mapper that can be used for testing u64 account ids.
+pub struct TestAccountMapper<T>(PhantomData<T>);
+
 impl<T> AddressMapper<T> for AccountId32Mapper<T>
 where
 	T: Config<AccountId = AccountId32>,
@@ -153,9 +156,6 @@ where
 			<OriginalAccount<T>>::contains_key(Self::to_address(account_id))
 	}
 }
-
-/// An account mapper that can be used for testing u64 account ids.
-pub struct TestAccountMapper<T>(PhantomData<T>);
 
 impl<T> AddressMapper<T> for TestAccountMapper<T>
 where
