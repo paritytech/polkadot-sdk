@@ -12,4 +12,4 @@ repository.workspace = true
 workspace = true
 
 [dependencies]
-pallet-revive = { workspace = true }
+alloy-core = { workspace = true, features = ["sol-types"] }
