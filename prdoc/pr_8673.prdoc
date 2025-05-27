@@ -1,0 +1,43 @@
+title: Fix tracing to take weight charged before the first frame into account
+doc:
+- audience: Runtime Dev
+  description: "# Description\n\nThis PR fixes a small discrepancy in our EVM call\
+    \ tracing logic: the gas charged by the *root* meter before we create the nested\
+    \ gas meter for the first frame was previously not being accounted for in the\
+    \ call tracer\u2019s reported total. We now capture that \u201Cmissing\u201D weight\
+    \ (\u22485.6 M) at frame creation and include it in the tracer output so that\
+    \ `trace().gas_used` matches the actual gas consumed by `bare_call`.\n\nThe goal\
+    \ of the PR is to also uncomment the `tracing_works` test which is around the\
+    \ assumption that \"the gas reported by the tracer is the total gas required for\
+    \ the contract execution.\"\n\nCloses #8362\n\n## Integration\n\nDownstream projects\
+    \ relying on `CallTracer` will see identical behavior in their tracing APIs (no\
+    \ visible API change). When upgrading, ensure your runtime includes the updated\
+    \ `base_gas_cost` field in `Frame` (it defaults to `None` on nested calls). No\
+    \ additional integration steps are required beyond updating to this version.\n\
+    \n## Review Notes\n\nI evaluated four approaches to surface that initial root-meter\
+    \ charge to the tracer:\n\n\nafter implementing approach 3, the tests passed and\
+    \ could be uncommented.\n1. **approach 1**\n   charge the nested gas meter right\
+    \ off the bat when creating the new frame. this worked as expected but on starting\
+    \ a thread internally it made sense to charge the parent meter for the gas involved\
+    \ in creation of the nested meter.\n\n2. **approach 2**\n   dont create a new\
+    \ nested gas meter for the first frame and use the root gas meter itself. The\
+    \ frame needs ownership of the gas meter but incoming root meter is a mut ref\
+    \ and passing a clone along felt like a hack.\n\n3. **\u27A4 approach 3(implemented)**\n\
+    \   Record the root-meter\u2019s `gas_consumed()` at the moment we create the\
+    \ first-frame\u2019s nested meter, store that in `Frame::base_gas_cost`, and add\
+    \ it back when emitting the trace.\n\n4. **approach 4**\n   just acknowledge that\
+    \ we have a mismatch, record the delta and make it a part of the contract result.\
+    \ not a good idea bloating the contract result with irrelevant data.\n\n### Implementation\
+    \ Details\n\n* Added `base_gas_cost: Option<Weight>` to `Frame`, set only when\
+    \ `is_first_frame == Yes` on contract call.\n* In the `run()` method, if `frames.is_empty()`(or\
+    \ the first frame), we add `base_gas_cost.unwrap_or_default()` back into the total\
+    \ before reporting.\n* Uncommented some asserts in `tracing_works` which are now\
+    \ passing.\n\n*Testing*\n`cargo test`\n\n\n*No remaining TODOs.*\n\n# Checklist\n\
+    \n* [X] My PR includes a detailed description as outlined above.\n* [X] My PR\
+    \ follows the [[labeling requirements](https://github.com/paritytech/polkadot-sdk/blob/master/docs/contributor/CONTRIBUTING.md#Process)](https://github.com/paritytech/polkadot-sdk/blob/master/docs/contributor/CONTRIBUTING.md#Process)\
+    \ of this project (at minimum one `T` label).\n* [X] I have made corresponding\
+    \ changes to the documentation (if applicable).\n* [X] I have added or updated\
+    \ tests proving my fix is effective."
+crates:
+- name: pallet-revive
+  bump: patch
