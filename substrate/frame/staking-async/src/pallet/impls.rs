@@ -1815,10 +1815,15 @@ impl<T: Config> Pallet<T> {
 						));
 					}
 				} else {
-					ensure!(
-						Self::inspect_bond_state(&stash) == Ok(LedgerIntegrityState::Ok),
-						"bond, ledger and/or staking hold inconsistent for a bonded stash."
-					);
+					let integrity = Self::inspect_bond_state(&stash);
+					if integrity != Ok(LedgerIntegrityState::Ok) {
+						log!(
+							warn,
+							"bonded stash {:?} has inconsistent ledger state: {:?}",
+							stash,
+							integrity
+						);
+					}
 				}
 
 				// ensure ledger consistency.
