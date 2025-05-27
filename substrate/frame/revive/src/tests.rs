@@ -4019,7 +4019,7 @@ fn skip_transfer_works() {
 
 		// fails to instantiate when gas is specified.
 		assert_err!(
-			Pallet::<Test>::bare_eth_transact(
+			Pallet::<Test>::dry_run_eth_transact(
 				GenericTransaction {
 					from: Some(BOB_ADDR),
 					input: code.clone().into(),
@@ -4035,7 +4035,7 @@ fn skip_transfer_works() {
 		);
 
 		// works when no gas is specified.
-		assert_ok!(Pallet::<Test>::bare_eth_transact(
+		assert_ok!(Pallet::<Test>::dry_run_eth_transact(
 			GenericTransaction {
 				from: Some(ALICE_ADDR),
 				input: code.clone().into(),
@@ -4053,7 +4053,7 @@ fn skip_transfer_works() {
 
 		// fails to call when gas is specified.
 		assert_err!(
-			Pallet::<Test>::bare_eth_transact(
+			Pallet::<Test>::dry_run_eth_transact(
 				GenericTransaction {
 					from: Some(BOB_ADDR),
 					to: Some(addr),
@@ -4069,7 +4069,7 @@ fn skip_transfer_works() {
 		);
 
 		// fails when calling from a contract when gas is specified.
-		assert!(Pallet::<Test>::bare_eth_transact(
+		assert!(Pallet::<Test>::dry_run_eth_transact(
 			GenericTransaction {
 				from: Some(BOB_ADDR),
 				to: Some(caller_addr),
@@ -4083,14 +4083,14 @@ fn skip_transfer_works() {
 		.is_err(),);
 
 		// works when no gas is specified.
-		assert_ok!(Pallet::<Test>::bare_eth_transact(
+		assert_ok!(Pallet::<Test>::dry_run_eth_transact(
 			GenericTransaction { from: Some(BOB_ADDR), to: Some(addr), ..Default::default() },
 			Weight::MAX,
 			|_, _| 0u64,
 		));
 
 		// works when calling from a contract when no gas is specified.
-		assert_ok!(Pallet::<Test>::bare_eth_transact(
+		assert_ok!(Pallet::<Test>::dry_run_eth_transact(
 			GenericTransaction {
 				from: Some(BOB_ADDR),
 				to: Some(caller_addr),
@@ -4564,47 +4564,4 @@ fn precompiles_with_info_creates_contract() {
 			);
 		});
 	}
-}
-
-#[test]
-fn nonce_incremented_dry_run_vs_execute() {
-	let (wasm, _code_hash) = compile_module("dummy").unwrap();
-
-	ExtBuilder::default().build().execute_with(|| {
-		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
-
-		// Set a known nonce
-		let initial_nonce = 5;
-		frame_system::Account::<Test>::mutate(&ALICE, |account| {
-			account.nonce = initial_nonce;
-		});
-
-		// stimulate a dry run
-		let dry_run_result = builder::bare_instantiate(Code::Upload(wasm.clone()))
-			.nonce_already_incremented(crate::NonceAlreadyIncremented::No)
-			.salt(None)
-			.build();
-
-		let dry_run_addr = dry_run_result.result.unwrap().addr;
-
-		let deployer = <Test as Config>::AddressMapper::to_address(&ALICE);
-		let expected_addr = create1(&deployer, initial_nonce.into());
-
-		assert_eq!(dry_run_addr, expected_addr);
-
-		// reset nonce to initial value
-		frame_system::Account::<Test>::mutate(&ALICE, |account| {
-			account.nonce = initial_nonce;
-		});
-
-		// stimulate an actual execution
-		let exec_result = builder::bare_instantiate(Code::Upload(wasm.clone())).salt(None).build();
-
-		let exec_addr = exec_result.result.unwrap().addr;
-
-		let deployer = <Test as Config>::AddressMapper::to_address(&ALICE);
-		let expected_addr = create1(&deployer, (initial_nonce - 1).into());
-
-		assert_eq!(exec_addr, expected_addr);
-	});
 }
