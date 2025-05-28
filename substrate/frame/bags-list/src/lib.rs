@@ -272,7 +272,7 @@ pub mod pallet {
 	pub type ListBags<T: Config<I>, I: 'static = ()> =
 		StorageMap<_, Twox64Concat, T::Score, list::Bag<T, I>>;
 
-	/// Pointer that remembers the last node that was auto-rebagged.
+	/// Pointer that remembers the next node that will be auto-rebagged.
 	/// When `None`, the next scan will start from the list head again.
 	#[pallet::storage]
 	pub type NextNodeAutoRebagging<T: Config<I>, I: 'static = ()> =
@@ -474,7 +474,7 @@ pub mod pallet {
 				}
 			}
 
-			// Save cursor or reset if done.
+			// Save the cursor or reset if done.
 			match cursor {
 				Some(next) => {
 					NextNodeAutoRebagging::<T, I>::put(next.clone());
@@ -495,8 +495,7 @@ pub mod pallet {
 			let weight_used = meter.consumed();
 			log!(
 				debug,
-				"Weight used: {:?}, Remaining weight: {:?}",
-				meter.consumed(),
+				"Remaining weight: {:?}",
 				meter.remaining()
 			);
 			weight_used
