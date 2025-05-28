@@ -113,7 +113,6 @@ parameter_types! {
 	pub const BrokerPalletId: PalletId = PalletId(*b"py/broke");
 	pub const MinimumCreditPurchase: Balance = UNITS / 10;
 	pub RevenueAccumulationAccount: AccountId = BrokerPalletId::get().into_sub_account_truncating(b"burnstash");
-
 	pub const MinimumEndPrice: Balance = UNITS;
 }
 
