@@ -11,16 +11,13 @@ fn predefined_id_collection() {
 	new_test_ext().execute_with(|| {
 		let id = AssetId(Location::new(1, [Parachain(1111), PalletInstance(42), GeneralIndex(1)]));
 
-		// UseEnsuredOrigin must prevent invalid origins
+		// An invalid origin is rejected.
 		assert_err!(
-			PredefinedIdDerivativeCollections::create_derivative(
-				RuntimeOrigin::signed(1),
-				id.clone()
-			),
+			PredefinedIdDerivativeCollections::create_derivative(RuntimeOrigin::none(), id.clone()),
 			DispatchError::BadOrigin,
 		);
 
-		PredefinedIdDerivativeCollections::create_derivative(RuntimeOrigin::root(), id.clone())
+		PredefinedIdDerivativeCollections::create_derivative(RuntimeOrigin::signed(1), id.clone())
 			.unwrap();
 
 		// EnsureDerivativeCreateOrigin yielded a strategy to assign the item's owner to the
@@ -32,14 +29,17 @@ fn predefined_id_collection() {
 
 		// The inner errors are propagated
 		assert_err!(
-			PredefinedIdDerivativeCollections::create_derivative(RuntimeOrigin::root(), id.clone()),
+			PredefinedIdDerivativeCollections::create_derivative(
+				RuntimeOrigin::signed(2),
+				id.clone()
+			),
 			unique_items::Error::<Test, PredefinedIdCollectionsInstance>::AlreadyExists,
 		);
 
-		// UseEnsuredOrigin must prevent invalid origins
+		// An invalid origin is rejected.
 		assert_err!(
 			PredefinedIdDerivativeCollections::destroy_derivative(
-				RuntimeOrigin::signed(2),
+				RuntimeOrigin::signed(1),
 				id.clone()
 			),
 			DispatchError::BadOrigin,
@@ -55,7 +55,7 @@ fn predefined_id_collection() {
 		// cna be registered as derivatives
 		let invalid_id = AssetId(Location::new(0, [PalletInstance(42), GeneralIndex(1)]));
 		assert_err!(
-			PredefinedIdDerivativeCollections::create_derivative(RuntimeOrigin::root(), invalid_id),
+			PredefinedIdDerivativeCollections::create_derivative(RuntimeOrigin::signed(3), invalid_id),
 			pallet_derivatives::Error::<Test, PredefinedIdDerivativeCollectionsInstance>::InvalidAsset,
 		);
 	});
@@ -69,13 +69,13 @@ fn auto_id_collection() {
 		let id_b =
 			AssetId(Location::new(1, [Parachain(3333), PalletInstance(42), GeneralIndex(2)]));
 
-		// UseEnsuredOrigin must prevent invalid origins
+		// An invalid origin is rejected.
 		assert_err!(
-			AutoIdDerivativeCollections::create_derivative(RuntimeOrigin::signed(3), id_a.clone()),
+			AutoIdDerivativeCollections::create_derivative(RuntimeOrigin::none(), id_a.clone()),
 			DispatchError::BadOrigin,
 		);
 
-		AutoIdDerivativeCollections::create_derivative(RuntimeOrigin::root(), id_a.clone())
+		AutoIdDerivativeCollections::create_derivative(RuntimeOrigin::signed(3), id_a.clone())
 			.unwrap();
 
 		let derivative_id_a = AutoIdDerivativeCollections::get_derivative(&id_a).unwrap();
@@ -90,11 +90,11 @@ fn auto_id_collection() {
 
 		// The stored mapping prevents derivative duplication
 		assert_err!(
-			AutoIdDerivativeCollections::create_derivative(RuntimeOrigin::root(), id_a.clone()),
+			AutoIdDerivativeCollections::create_derivative(RuntimeOrigin::signed(4), id_a.clone()),
 			pallet_derivatives::Error::<Test, AutoIdCollectionsInstance>::DerivativeAlreadyExists,
 		);
 
-		AutoIdDerivativeCollections::create_derivative(RuntimeOrigin::root(), id_b.clone())
+		AutoIdDerivativeCollections::create_derivative(RuntimeOrigin::signed(5), id_b.clone())
 			.unwrap();
 
 		let derivative_id_b = AutoIdDerivativeCollections::get_derivative(&id_b).unwrap();
@@ -111,13 +111,13 @@ fn auto_id_collection() {
 
 		// The stored mapping prevents derivative duplication
 		assert_err!(
-			AutoIdDerivativeCollections::create_derivative(RuntimeOrigin::root(), id_b.clone()),
+			AutoIdDerivativeCollections::create_derivative(RuntimeOrigin::signed(6), id_b.clone()),
 			pallet_derivatives::Error::<Test, AutoIdCollectionsInstance>::DerivativeAlreadyExists,
 		);
 
-		// UseEnsuredOrigin must prevent invalid origins
+		// An invalid origin is rejected.
 		assert_err!(
-			AutoIdDerivativeCollections::destroy_derivative(RuntimeOrigin::signed(4), id_a.clone()),
+			AutoIdDerivativeCollections::destroy_derivative(RuntimeOrigin::signed(7), id_a.clone()),
 			DispatchError::BadOrigin,
 		);
 
@@ -135,7 +135,7 @@ fn auto_id_collection() {
 		// cna be registered as derivatives
 		let invalid_id = AssetId(Location::new(0, [PalletInstance(42), GeneralIndex(1)]));
 		assert_err!(
-			AutoIdDerivativeCollections::create_derivative(RuntimeOrigin::root(), invalid_id),
+			AutoIdDerivativeCollections::create_derivative(RuntimeOrigin::signed(8), invalid_id),
 			pallet_derivatives::Error::<Test, AutoIdDerivativeCollectionsInstance>::InvalidAsset,
 		);
 	});
@@ -225,7 +225,7 @@ fn derivative_nfts() {
 		));
 		let foreign_nft_id = Index(112);
 		AutoIdDerivativeCollections::create_derivative(
-			RuntimeOrigin::root(),
+			RuntimeOrigin::signed(1),
 			foreign_collection_id.clone(),
 		)
 		.unwrap();

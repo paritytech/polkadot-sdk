@@ -60,7 +60,7 @@ use frame_support::{
 		ContainsPair, Everything, Nothing, PalletInfoAccess,
 	},
 };
-use frame_system::EnsureRoot;
+use frame_system::{EnsureNever, EnsureRoot, EnsureSigned};
 use sp_runtime::{
 	traits::{AsFallibleConvert, TryConvertInto},
 	BuildStorage,
@@ -252,23 +252,20 @@ impl pallet_derivatives::Config<PredefinedIdDerivativeCollectionsInstance> for T
 
 	type DerivativeExtra = ();
 
+	type CreateOrigin = EnsureSigned<AccountId>;
+
 	// `NoStoredMapping` tells the pallet not to store the mapping between the `Original` and the
 	// `Derivative`
 	type CreateOp = pallet_derivatives::NoStoredMapping<
-		// `UseEnsuredOrigin` checks the provided `RuntimeOrigin` according to the `EnsureOrigin`
-		// parameter (`EnsureRoot` here) and, if successful, executes the provided operation
-		// (`CreateDerivativeOwnedBySovAcc` in this case).
-		UseEnsuredOrigin<
-			EnsureRoot<AccountId>,
-			CreateDerivativeOwnedBySovAcc<
-				PredefinedId<AssetId>,
-				PredefinedIdCollections,
-				pallet_derivatives::InvalidAssetError<PredefinedIdDerivativeCollections>,
-			>,
+		CreateDerivativeOwnedBySovAcc<
+			PredefinedId<AssetId>,
+			PredefinedIdCollections,
+			pallet_derivatives::InvalidAssetError<PredefinedIdDerivativeCollections>,
 		>,
 	>;
 
-	type DestroyOp = UseEnsuredOrigin<EnsureRoot<AccountId>, PredefinedIdCollections>;
+	type DestroyOrigin = EnsureRoot<AccountId>;
+	type DestroyOp = PredefinedIdCollections;
 }
 
 /// The `pallet-derivatives` instance corresponding to the `AutoIdCollections` instance of the
@@ -283,35 +280,30 @@ impl pallet_derivatives::Config<AutoIdDerivativeCollectionsInstance> for Test {
 	// The current in-collection derivative token ID to use when creating a new derivative NFT.
 	type DerivativeExtra = NftLocalId;
 
+	type CreateOrigin = EnsureSigned<AccountId>;
+
 	// `StoreMapping` tells the pallet to store the mapping between the `Original` and the
 	// `Derivative`
 	type CreateOp = pallet_derivatives::StoreMapping<
-		// `UseEnsuredOrigin` checks the provided `RuntimeOrigin` according to the `EnsureOrigin`
-		// parameter (`EnsureRoot` here) and, if successful, executes the provided operation
-		// (`CreateDerivativeOwnedBySovAcc` in this case).
-		UseEnsuredOrigin<
-			EnsureRoot<AccountId>,
-			CreateDerivativeOwnedBySovAcc<
-				AutoId<Self::Derivative>,
-				AutoIdCollections,
-				pallet_derivatives::InvalidAssetError<AutoIdDerivativeCollections>,
-			>,
+		CreateDerivativeOwnedBySovAcc<
+			AutoId<Self::Derivative>,
+			AutoIdCollections,
+			pallet_derivatives::InvalidAssetError<AutoIdDerivativeCollections>,
 		>,
 	>;
 
-	type DestroyOp = UseEnsuredOrigin<
-		EnsureRoot<AccountId>,
-		// The `AutoIdCollections` uses `Derivative` as an ID type.
-		// But the `destroy_derivative` extrinsic takes the ID parameter of type `Original`.
-		//
-		// We use `MapId` here to map the `Original` value to the corresponding `Derivative` one
-		// using the `OriginalToDerivativeConvert`, which uses the stored mapping between them.
-		MapId<
-			Self::Original,
-			Self::Derivative,
-			OriginalToDerivativeConvert<AutoIdDerivativeCollections>,
-			AutoIdCollections,
-		>,
+	type DestroyOrigin = EnsureRoot<AccountId>;
+
+	// The `AutoIdCollections` uses `Derivative` as an ID type.
+	// But the `destroy_derivative` extrinsic takes the ID parameter of type `Original`.
+	//
+	// We use `MapId` here to map the `Original` value to the corresponding `Derivative` one
+	// using the `OriginalToDerivativeConvert`, which uses the stored mapping between them.
+	type DestroyOp = MapId<
+		Self::Original,
+		Self::Derivative,
+		OriginalToDerivativeConvert<AutoIdDerivativeCollections>,
+		AutoIdCollections,
 	>;
 }
 
@@ -327,7 +319,11 @@ impl pallet_derivatives::Config<DerivativeNftsInstance> for Test {
 	type DerivativeExtra = ();
 
 	// The derivative NFTs can't be manually created.
+	type CreateOrigin = EnsureNever<AccountId>;
 	type CreateOp = AlwaysErrOps<Self::Original>;
+
+	// The derivative NFTs can't be manually destroyed.
+	type DestroyOrigin = EnsureNever<AccountId>;
 	type DestroyOp = AlwaysErrOps<Self::Original>;
 }
 

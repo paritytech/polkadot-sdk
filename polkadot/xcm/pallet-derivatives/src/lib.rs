@@ -88,7 +88,7 @@
 use frame_support::{
 	pallet_prelude::*,
 	traits::tokens::asset_ops::{
-		common_strategies::{CheckOrigin, DeriveAndReportId},
+		common_strategies::{DeriveAndReportId, NoParams},
 		AssetDefinition, Create, Destroy,
 	},
 };
@@ -145,6 +145,9 @@ pub mod pallet {
 		/// Optional derivative extra data
 		type DerivativeExtra: Member + Parameter + MaxEncodedLen;
 
+		/// An Origin allowed to create a new derivative.
+		type CreateOrigin: EnsureOrigin<Self::RuntimeOrigin>;
+
 		/// Derivative creation operation.
 		/// Used in the `create_derivative` extrinsic.
 		///
@@ -154,19 +157,18 @@ pub mod pallet {
 		/// If the extrinsic isn't used, this type can be set to
 		/// [AlwaysErrOps](frame_support::traits::tokens::asset_ops::utils::AlwaysErrOps).
 		type CreateOp: Create<
-			CheckOrigin<
-				Self::RuntimeOrigin,
-				DeriveAndReportId<Self::Original, Option<SaveMappingTo<Self::Derivative>>>,
-			>,
+			DeriveAndReportId<Self::Original, Option<SaveMappingTo<Self::Derivative>>>,
 		>;
+
+		/// An Origin allowed to destroy a derivative.
+		type DestroyOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
 		/// Derivative destruction operation.
 		/// Used in the `destroy_derivative` extrinsic.
 		///
 		/// If the extrinsic isn't used, this type can be set to
 		/// [AlwaysErrOps](frame_support::traits::tokens::asset_ops::utils::AlwaysErrOps).
-		type DestroyOp: AssetDefinition<Id = Self::Original>
-			+ Destroy<CheckOrigin<Self::RuntimeOrigin>>;
+		type DestroyOp: AssetDefinition<Id = Self::Original> + Destroy<NoParams>;
 	}
 
 	#[pallet::storage]
@@ -225,10 +227,10 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			original: OriginalOf<T, I>,
 		) -> DispatchResult {
-			let maybe_save_mapping = T::CreateOp::create(CheckOrigin::new(
-				origin,
-				DeriveAndReportId::from(original.clone()),
-			))?;
+			T::CreateOrigin::ensure_origin(origin)?;
+
+			let maybe_save_mapping =
+				T::CreateOp::create(DeriveAndReportId::from(original.clone()))?;
 
 			if let Some(SaveMappingTo(derivative)) = maybe_save_mapping {
 				Self::try_register_derivative(&original, &derivative)?;
@@ -244,7 +246,9 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			original: OriginalOf<T, I>,
 		) -> DispatchResult {
-			T::DestroyOp::destroy(&original, CheckOrigin::check(origin))?;
+			T::DestroyOrigin::ensure_origin(origin)?;
+
+			T::DestroyOp::destroy(&original, NoParams)?;
 
 			if Self::get_derivative(&original).is_ok() {
 				Self::try_deregister_derivative_of(&original)?;
@@ -354,22 +358,16 @@ impl WeightInfo for TestWeightInfo {
 /// return a `Derivative` one) and returns `None`, indicating that the mapping between the original
 /// and the derivative shouldn't be saved.
 pub struct NoStoredMapping<CreateOp>(PhantomData<CreateOp>);
-impl<RuntimeOrigin, CreateOp, Original, Derivative>
-	Create<
-		CheckOrigin<RuntimeOrigin, DeriveAndReportId<Original, Option<SaveMappingTo<Derivative>>>>,
-	> for NoStoredMapping<CreateOp>
+impl<CreateOp, Original, Derivative>
+	Create<DeriveAndReportId<Original, Option<SaveMappingTo<Derivative>>>>
+	for NoStoredMapping<CreateOp>
 where
-	CreateOp: Create<CheckOrigin<RuntimeOrigin, DeriveAndReportId<Original, Derivative>>>,
+	CreateOp: Create<DeriveAndReportId<Original, Derivative>>,
 {
 	fn create(
-		strategy: CheckOrigin<
-			RuntimeOrigin,
-			DeriveAndReportId<Original, Option<SaveMappingTo<Derivative>>>,
-		>,
+		strategy: DeriveAndReportId<Original, Option<SaveMappingTo<Derivative>>>,
 	) -> Result<Option<SaveMappingTo<Derivative>>, DispatchError> {
-		let CheckOrigin(origin, strategy) = strategy;
-
-		CreateOp::create(CheckOrigin::new(origin, DeriveAndReportId::from(strategy.params)))?;
+		CreateOp::create(DeriveAndReportId::from(strategy.params))?;
 
 		Ok(None)
 	}
@@ -380,23 +378,15 @@ where
 /// and returns `Some(SaveMappingTo(DERIVATIVE_VALUE))`, indicating that the mapping should be
 /// saved.
 pub struct StoreMapping<CreateOp>(PhantomData<CreateOp>);
-impl<RuntimeOrigin, CreateOp, Original, Derivative>
-	Create<
-		CheckOrigin<RuntimeOrigin, DeriveAndReportId<Original, Option<SaveMappingTo<Derivative>>>>,
-	> for StoreMapping<CreateOp>
+impl<CreateOp, Original, Derivative>
+	Create<DeriveAndReportId<Original, Option<SaveMappingTo<Derivative>>>> for StoreMapping<CreateOp>
 where
-	CreateOp: Create<CheckOrigin<RuntimeOrigin, DeriveAndReportId<Original, Derivative>>>,
+	CreateOp: Create<DeriveAndReportId<Original, Derivative>>,
 {
 	fn create(
-		strategy: CheckOrigin<
-			RuntimeOrigin,
-			DeriveAndReportId<Original, Option<SaveMappingTo<Derivative>>>,
-		>,
+		strategy: DeriveAndReportId<Original, Option<SaveMappingTo<Derivative>>>,
 	) -> Result<Option<SaveMappingTo<Derivative>>, DispatchError> {
-		let CheckOrigin(origin, strategy) = strategy;
-
-		let derivative =
-			CreateOp::create(CheckOrigin::new(origin, DeriveAndReportId::from(strategy.params)))?;
+		let derivative = CreateOp::create(DeriveAndReportId::from(strategy.params))?;
 
 		Ok(Some(SaveMappingTo(derivative)))
 	}
