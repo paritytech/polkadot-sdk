@@ -70,12 +70,8 @@ impl<N: std::hash::Hash + PartialEq> NaiveEquivocationDefender<N> {
 	}
 }
 
-<<<<<<< HEAD
-struct Verifier<P, Client, Block, CIDP> {
-=======
 /// A parachain block import verifier that checks for equivocation limits within each slot.
 pub struct Verifier<P, Client, Block: BlockT, CIDP> {
->>>>>>> 9dc1337 (cumulus-aura: Improve equivocation checks (#8669))
 	client: Arc<Client>,
 	create_inherent_data_providers: CIDP,
 	defender: Mutex<NaiveEquivocationDefender<NumberFor<Block>>>,
