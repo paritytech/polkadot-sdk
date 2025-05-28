@@ -63,6 +63,7 @@ impl bags_list::Config for Runtime {
 	type BagThresholds = BagThresholds;
 	type ScoreProvider = StakingMock;
 	type Score = VoteWeight;
+	type AutoRebagPerBlock = ();
 }
 
 type Block = frame_system::mocking::MockBlock<Runtime>;
