@@ -2841,7 +2841,7 @@ mod remote_tests {
 	use sp_core::H256;
 	use std::env::var;
 
-	#[ignore] // to be run manually
+	// #[ignore] // to be run manually
 	#[tokio::test]
 	async fn ahm_fix_holds() {
 		sp_tracing::try_init_simple();
@@ -2878,6 +2878,12 @@ mod remote_tests {
 
 			let preimage_hold_reason: RuntimeHoldReason =
 				pallet_preimage::HoldReason::Preimage.into();
+			let delegation_hold_reason: RuntimeHoldReason =
+				pallet_delegated_staking::HoldReason::StakingDelegation.into();
+			let staking_hold_reason: RuntimeHoldReason =
+				pallet_staking_async::HoldReason::Staking.into();
+
+
 			// Account, DelegationHold, StakingHold
 			let mut success_calls: Vec<(AccountId, Balance, Balance)> = vec![];
 			let mut failed_calls: Vec<(AccountId, Balance, Balance)> = vec![];
@@ -2888,20 +2894,38 @@ mod remote_tests {
 					holds.iter().any(|identifier| identifier.id == preimage_hold_reason)
 				})
 				.for_each(|(account, _holds)| {
+					let existing_holds = pallet_balances::Holds::<Runtime>::get(account.clone());
+					let existing_pool_hold = existing_holds.clone().into_iter()
+						.filter(|identifier| identifier.id == delegation_hold_reason)
+						.map(|identifier| identifier.amount)
+						.sum::<Balance>();
+
+					let existing_staking_hold = existing_holds.clone().into_iter()
+						.filter(|identifier| identifier.id == staking_hold_reason)
+						.map(|identifier| identifier.amount)
+						.sum::<Balance>();
+
 					let is_pool_member_unmigrated =
 						pallet_nomination_pools::Pallet::<Runtime>::api_member_needs_delegate_migration(
 							account.clone(),
 						);
 
+					let expected_pool_hold = pallet_nomination_pools::Pallet::<Runtime>::api_member_total_balance(
+						account.clone(),
+					);
+
 					let delegation_hold = if is_pool_member_unmigrated {
 						0
+					} else if expected_pool_hold == existing_pool_hold {
+						0
 					} else {
-						pallet_nomination_pools::Pallet::<Runtime>::api_member_total_balance(
-							account.clone(),
-						)
+						println!("POOL_HOLD: Account {:?}, expected {:?}, existing {:?}", account, expected_pool_hold, existing_pool_hold);
+						expected_pool_hold
 					};
 
-					let staking_hold =
+					// ------
+
+					let expected_staking_hold =
 						pallet_staking_async::Ledger::<Runtime>::get(account.clone())
 							.map(|ledger| {
 								let is_virtual =
@@ -2915,6 +2939,13 @@ mod remote_tests {
 								}
 							})
 							.unwrap_or_else(|| 0);
+
+					let staking_hold = if existing_staking_hold == expected_staking_hold {
+						0
+					} else {
+						println!("STAKING_HOLD: Account {:?}, expected {:?}, existing {:?}", account, expected_staking_hold, existing_staking_hold);
+						expected_staking_hold
+					};
 
 					// if both holds are 0, we can skip this account.
 					if (staking_hold + delegation_hold) == 0 {
@@ -2934,7 +2965,6 @@ mod remote_tests {
 						failed_calls.push((account.clone(), delegation_hold, staking_hold));
 					});
 				});
-
 			AllPalletsWithSystem::try_state(System::block_number(), All).unwrap();
 
 			println!("Summary: {:?} success, {:?} failed", success_calls.len(), failed_calls.len());
