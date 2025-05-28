@@ -90,9 +90,5 @@ tracing = { workspace = true, default-features = true }
 cumulus-test-client = { workspace = true }
 cumulus-test-relay-sproof-builder = { default-features = false, workspace = true }
 rstest = { workspace = true }
-<<<<<<< HEAD
-sp-keyring = { default-features = false, workspace = true }
-=======
 sp-keyring = { workspace = true }
 sp-tracing = { workspace = true }
->>>>>>> 9dc13377 (cumulus-aura: Improve equivocation checks (#8669))
