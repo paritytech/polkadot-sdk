@@ -251,6 +251,10 @@ After setting up your parachain locally, you can deploy it to the Paseo public t
 
 Note: The following instructions are also available at the [Zero to Hero Tutorial](https://docs.polkadot.com/tutorials/polkadot-sdk/parachains/zero-to-hero/deploy-to-testnet/) where this is available in a more detailed manner, we recommend you to try that out as well if something here is unclear.
 
+### Obtain PAS Tokens
+
+Visit the [Polkadot Faucet](https://faucet.polkadot.network/) and request PAS tokens for your account. Ensure you're connected to the Paseo network on [Polkadot.js Apps](https://polkadot.js.org/apps/#/explorer).
+
 ### Reserve & Register a ParaID
 
 Note: We recommend Google Chrome for the following steps. 
@@ -274,9 +278,6 @@ Note: We recommend Google Chrome for the following steps.
 
 4. Submit the transaction to register your parachain.
 
-### Obtain PAS Tokens
-
-Visit the [Polkadot Faucet](https://faucet.polkadot.network/) and request PAS tokens for your account. Ensure you're connected to the Paseo network on [Polkadot.js Apps](https://polkadot.js.org/apps/#/explorer).
 
 ### Acquire Coretime
 
