@@ -699,6 +699,7 @@ impl pallet_bags_list::Config<VoterBagsListInstance> for Runtime {
 	type WeightInfo = weights::pallet_bags_list::WeightInfo<Runtime>;
 	type BagThresholds = BagThresholds;
 	type Score = sp_npos_elections::VoteWeight;
+	type AutoRebagPerBlock = ConstU32<10>;
 }
 
 pub struct EraPayout;

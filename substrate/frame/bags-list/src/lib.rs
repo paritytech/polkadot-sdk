@@ -342,27 +342,9 @@ pub mod pallet {
 			let dislocated = T::Lookup::lookup(dislocated)?;
 			Self::ensure_unlocked().map_err(|_| Error::<T, I>::Locked)?;
 
-			let existed = ListNodes::<T, I>::contains_key(&dislocated);
-			match (existed, T::ScoreProvider::score(&dislocated)) {
-				(true, Some(current_score)) => {
-					// existed and score is updated, maybe rebag.
-					let _ = Pallet::<T, I>::do_rebag(&dislocated, current_score)
-						.map_err::<Error<T, I>, _>(Into::into)?;
-				},
-				(false, Some(current_score)) => {
-					// did not exists, and has a score now, insert!
-					Self::on_insert(dislocated.clone(), current_score)
-						.map_err::<Error<T, I>, _>(Into::into)?;
-				},
-				(true, None) => {
-					// existed, but has no new score now, remove!
-					Self::on_remove(&dislocated).map_err::<Error<T, I>, _>(Into::into)?;
-				},
-				(false, None) => {
-					// did not exists, and has no score now, do nothing.
-					return Err(Error::<T, I>::List(ListError::NodeNotFound).into());
-				},
-			}
+			Self::rebag_internal(&dislocated, T::ScoreProvider::score)
+				.map_err::<DispatchError, _>(Into::into)?;
+
 			Ok(())
 		}
 
@@ -466,18 +448,19 @@ pub mod pallet {
 			let mut processed = 0u32;
 
 			while processed < rebag_budget && meter.try_consume(per_rebag).is_ok() {
-				if let Some(ref current_account) = cursor {
+				if let Some(ref account) = cursor {
 					// Try to rebag. Do not break on error.
-					match Self::try_rebag_node(current_account) {
-						Ok(_) => { /* do nothing */ },
-						Err(e) => {
-							log!(warn, "👜 Rebag error for {:?}: {:?}", current_account, e);
+					match Self::rebag_internal(account, T::ScoreProvider::score) {
+						Err(e) => log!(warn, "Error during rebagging: {:?}", e),
+						Ok(Some((from, to))) => {
+							log!(debug, "Rebagged {:?}: moved from {:?} to {:?}", account, from, to);
 						},
+						Ok(None) => log!(debug, "Rebagging not needed for {:?}", account),
 					}
 					processed += 1;
 
 					// Try to fetch the next node.
-					cursor = Self::iter_from(current_account).ok().and_then(|mut it| it.next());
+					cursor = Self::iter_from(account).ok().and_then(|mut it| it.next());
 
 					log!(debug, "👜 Next rebag target: {:?}", cursor);
 
@@ -559,70 +542,43 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		ListBags::get(score)
 	}
 
-	/// Internal helper to attempt rebagging a node.
-	/// This contains the core logic of the `rebag` dispatchable.
-	fn try_rebag_node(who: &T::AccountId) -> Result<Option<(T::Score, T::Score)>, ListError> {
-		log!(debug, "Trying to rebag AccountID: {:?}", who);
-
+	/// Perform the internal rebagging logic for an account based on its updated score.
+	/// This function does not handle origin checks or higher-level dispatch logic.
+	///
+	/// Returns `Ok(Some((from, to)))` if rebagging occurred, or `Ok(None)` if nothing changed.
+	fn rebag_internal(
+		account: &T::AccountId,
+		score_provider: fn(&T::AccountId) -> Option<T::Score>,
+	) -> Result<Option<(T::Score, T::Score)>, Error<T, I>> {
 		// Ensure the pallet is not locked
-		Self::ensure_unlocked().map_err(|_| ListError::Locked)?;
+		Self::ensure_unlocked().map_err(|_| Error::<T, I>::Locked)?;
 
-		let existed = ListNodes::<T, I>::contains_key(who);
+		// Check if the account exists and retrieve its current score
+		let existed = ListNodes::<T, I>::contains_key(account);
 
-		match (existed, T::ScoreProvider::score(who)) {
+		match (existed, score_provider(account)) {
 			(true, Some(current_score)) => {
-				log!(
-					debug,
-					"Node {:?} existed and has a score {:?}. Attempting rebag.",
-					who,
-					current_score
-				);
-				Pallet::<T, I>::do_rebag(who, current_score).map(|option| {
-					log!(debug, "👜 Rebag ok: {:?} - Moved from/to: {:?}", who, option);
-					option
-				})
+				// The account exists and has a valid score, so try to rebag
+				log!(debug, "Attempting to rebag node {:?}", account);
+				Pallet::<T, I>::do_rebag(account, current_score)
+					.map_err::<Error<T, I>, _>(Into::into)
 			},
 			(false, Some(current_score)) => {
-				log!(
-					debug,
-					"Node {:?} did not exist but has a score {:?}. Attempting to insert.",
-					who,
-					current_score
-				);
-				match Self::on_insert(who.clone(), current_score) {
-					Ok(_) => {
-						// Log success on successful insertion.
-						log!(debug, "👜 Successfully inserted node {:?}", who);
-						Ok(None)
-					},
-					Err(e) => {
-						log!(
-							error,
-							"Failed to insert node {:?} with score {:?}: {:?}",
-							who,
-							current_score,
-							e
-						);
-						Err(e)
-					},
-				}
+				// The account doesn't exist, but it has a valid score - insert it
+				log!(debug, "Inserting node {:?} with score {:?}", account, current_score);
+				List::<T, I>::insert(account.clone(), current_score)
+					.map_err::<Error<T, I>, _>(Into::into)?;
+				Ok(None)
 			},
 			(true, None) => {
-				log!(debug, "Node {:?} existed but now has no score. Removing.", who);
-				match Self::on_remove(who) {
-					Ok(_) => {
-						log!(debug, "👜 Successfully removed node {:?}", who);
-						Ok(None)
-					},
-					Err(e) => {
-						log!(error, "Failed to remove node {:?}: {:?}", who, e);
-						Err(e)
-					},
-				}
+				// The account exists but no longer has a valid score, so remove it
+				log!(debug, "Removing node {:?}", account);
+				List::<T, I>::remove(account).map_err::<Error<T, I>, _>(Into::into)?;
+				Ok(None)
 			},
 			(false, None) => {
-				log!(debug, "Node {:?} does not exist and has no score. Skipping.", who);
-				Err(ListError::NodeNotFound)
+				// The account doesn't exist and has no valid score - do nothing
+				Err(Error::<T, I>::List(ListError::NodeNotFound))
 			},
 		}
 	}

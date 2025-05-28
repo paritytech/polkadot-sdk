@@ -873,6 +873,7 @@ impl pallet_bags_list::Config<VoterBagsListInstance> for Runtime {
 	type WeightInfo = ();
 	type BagThresholds = BagThresholds;
 	type Score = sp_npos_elections::VoteWeight;
+	type AutoRebagPerBlock = ();
 }
 
 parameter_types! {
