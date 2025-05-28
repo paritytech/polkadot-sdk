@@ -1360,6 +1360,16 @@ fn call_return_code() {
 			.value(min_balance * 100)
 			.build_and_unwrap_contract();
 
+		// BOB cannot pay the ed which is needed to pull DJANGO into existence
+		// this does trap the caller instead of returning an error code
+		// reasoning is that this error state does not exist on eth where
+		// ed does not exist. We hide this fact from the contract.
+		let result = builder::bare_call(bob.addr)
+			.data((DJANGO_ADDR, u256_bytes(1)).encode())
+			.origin(RuntimeOrigin::signed(BOB))
+			.build();
+		assert_err!(result.result, <Error<Test>>::StorageDepositNotEnoughFunds);
+
 		// Contract calls into Django which is no valid contract
 		// This will be a balance transfer into a new account
 		// with more than the contract has which will make the transfer fail
@@ -1376,18 +1386,20 @@ fn call_return_code() {
 
 		// Sending below the minimum balance should result in success.
 		// The ED is charged from the call origin.
+		let alice_before = test_utils::get_balance(&ALICE_FALLBACK);
 		assert_eq!(test_utils::get_balance(&DJANGO_FALLBACK), 0);
 		let result = builder::bare_call(bob.addr)
 			.data(
 				AsRef::<[u8]>::as_ref(&DJANGO_ADDR)
 					.iter()
-					.chain(&u256_bytes(55))
+					.chain(&u256_bytes(1))
 					.cloned()
 					.collect(),
 			)
 			.build_and_unwrap_result();
 		assert_return_code!(result, RuntimeReturnCode::Success);
-		assert_eq!(test_utils::get_balance(&DJANGO_FALLBACK), 55 + min_balance);
+		assert_eq!(test_utils::get_balance(&DJANGO_FALLBACK), min_balance + 1);
+		assert_eq!(test_utils::get_balance(&ALICE_FALLBACK), alice_before - min_balance);
 
 		let django = builder::bare_instantiate(Code::Upload(callee_code))
 			.origin(RuntimeOrigin::signed(CHARLIE))
@@ -1451,6 +1463,14 @@ fn instantiate_return_code() {
 		let contract = builder::bare_instantiate(Code::Upload(caller_code))
 			.value(min_balance * 100)
 			.build_and_unwrap_contract();
+
+		// bob cannot pay the ED to create the contract as he has no money
+		// this traps the caller rather than returning an error
+		let result = builder::bare_call(contract.addr)
+			.data(callee_hash.iter().chain(&0u32.to_le_bytes()).cloned().collect())
+			.origin(RuntimeOrigin::signed(BOB))
+			.build();
+		assert_err!(result.result, <Error<Test>>::StorageDepositNotEnoughFunds);
 
 		// Contract has only the minimal balance so any transfer will fail.
 		<Test as Config>::Currency::set_balance(&contract.account_id, min_balance);
@@ -2144,9 +2164,13 @@ fn failed_deposit_charge_should_roll_back_call() {
 	// With a low enough deposit per byte, the call should succeed.
 	let result = execute().unwrap();
 
-	// Bump the deposit per byte to a high value to trigger a FundsUnavailable error.
+	// Bump the deposit per byte to a high value to trigger an error
 	DEPOSIT_PER_BYTE.with(|c| *c.borrow_mut() = 200);
-	assert_err_with_weight!(execute(), TokenError::FundsUnavailable, result.actual_weight);
+	assert_err_with_weight!(
+		execute(),
+		<Error<Test>>::StorageDepositNotEnoughFunds,
+		result.actual_weight
+	);
 }
 
 #[test]
@@ -2976,7 +3000,7 @@ fn deposit_limit_honors_liquidity_restrictions() {
 				.storage_deposit_limit(10_000)
 				.data(100u32.to_le_bytes().to_vec())
 				.build(),
-			<Error<Test>>::StorageDepositLimitExhausted,
+			<Error<Test>>::StorageDepositNotEnoughFunds,
 		);
 		assert_eq!(<Test as Config>::Currency::free_balance(&BOB), min_balance);
 	});
@@ -3010,48 +3034,9 @@ fn deposit_limit_honors_existential_deposit() {
 				.storage_deposit_limit(10_000)
 				.data(100u32.to_le_bytes().to_vec())
 				.build(),
-			<Error<Test>>::StorageDepositLimitExhausted,
+			<Error<Test>>::StorageDepositNotEnoughFunds,
 		);
 		assert_eq!(<Test as Config>::Currency::free_balance(&BOB), 300);
-	});
-}
-
-#[test]
-fn deposit_limit_honors_min_leftover() {
-	let (wasm, _code_hash) = compile_module("store_call").unwrap();
-	ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
-		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
-		let _ = <Test as Config>::Currency::set_balance(&BOB, 1_000);
-		let min_balance = Contracts::min_balance();
-
-		// Instantiate the BOB contract.
-		let Contract { addr, account_id } =
-			builder::bare_instantiate(Code::Upload(wasm)).build_and_unwrap_contract();
-
-		let info_deposit = test_utils::contract_base_deposit(&addr);
-
-		// Check that the contract has been instantiated and has the minimum balance and the
-		// storage deposit
-		assert_eq!(get_contract(&addr).total_deposit(), info_deposit);
-		assert_eq!(
-			<Test as Config>::Currency::total_balance(&account_id),
-			info_deposit + min_balance
-		);
-
-		// check that the minimum leftover (value send) is considered
-		// given the minimum deposit of 200 sending 750 will only leave
-		// 50 for the storage deposit. Which is not enough to store the 50 bytes
-		// as we also need 2 bytes for the item
-		assert_err_ignore_postinfo!(
-			builder::call(addr)
-				.origin(RuntimeOrigin::signed(BOB))
-				.value(750)
-				.storage_deposit_limit(10_000)
-				.data(50u32.to_le_bytes().to_vec())
-				.build(),
-			<Error<Test>>::StorageDepositLimitExhausted,
-		);
-		assert_eq!(<Test as Config>::Currency::free_balance(&BOB), 1_000);
 	});
 }
 
@@ -4014,13 +3999,13 @@ fn recovery_works() {
 #[test]
 fn skip_transfer_works() {
 	let (code_caller, _) = compile_module("call").unwrap();
-	let (code, _) = compile_module("set_empty_storage").unwrap();
+	let (code, _) = compile_module("store_call").unwrap();
 
 	ExtBuilder::default().existential_deposit(100).build().execute_with(|| {
 		<Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
 		<Test as Config>::Currency::set_balance(&BOB, 0);
 
-		// fails to instantiate when gas is specified.
+		// when gas is some (transfers enabled): bob has no money: fail
 		assert_err!(
 			Pallet::<Test>::bare_eth_transact(
 				GenericTransaction {
@@ -4037,10 +4022,10 @@ fn skip_transfer_works() {
 			))
 		);
 
-		// works when no gas is specified.
+		// no gas specified (all transfers are skipped): even without money bob can deploy
 		assert_ok!(Pallet::<Test>::bare_eth_transact(
 			GenericTransaction {
-				from: Some(ALICE_ADDR),
+				from: Some(BOB_ADDR),
 				input: code.clone().into(),
 				..Default::default()
 			},
@@ -4054,12 +4039,13 @@ fn skip_transfer_works() {
 		let Contract { addr: caller_addr, .. } =
 			builder::bare_instantiate(Code::Upload(code_caller)).build_and_unwrap_contract();
 
-		// fails to call when gas is specified.
+		// call directly: fails with enabled transfers
 		assert_err!(
 			Pallet::<Test>::bare_eth_transact(
 				GenericTransaction {
 					from: Some(BOB_ADDR),
 					to: Some(addr),
+					input: 0u32.encode().into(),
 					gas: Some(1u32.into()),
 					..Default::default()
 				},
@@ -4071,12 +4057,15 @@ fn skip_transfer_works() {
 			))
 		);
 
-		// fails when calling from a contract when gas is specified.
+		// fails to call through other contract
+		// we didn't roll back the storage changes done by the previous
+		// call. So the item already exists. We simply increase the size of
+		// the storage item to incur some deposits (which bob can't pay).
 		assert!(Pallet::<Test>::bare_eth_transact(
 			GenericTransaction {
 				from: Some(BOB_ADDR),
 				to: Some(caller_addr),
-				input: (0u32, &addr).encode().into(),
+				input: (1u32, &addr).encode().into(),
 				gas: Some(1u32.into()),
 				..Default::default()
 			},
@@ -4085,24 +4074,57 @@ fn skip_transfer_works() {
 		)
 		.is_err(),);
 
-		// works when no gas is specified.
-		assert_ok!(Pallet::<Test>::bare_eth_transact(
-			GenericTransaction { from: Some(BOB_ADDR), to: Some(addr), ..Default::default() },
-			Weight::MAX,
-			|_, _| 0u64,
-		));
-
-		// works when calling from a contract when no gas is specified.
+		// works when no gas is specified (skip transfer)
 		assert_ok!(Pallet::<Test>::bare_eth_transact(
 			GenericTransaction {
 				from: Some(BOB_ADDR),
-				to: Some(caller_addr),
-				input: (0u32, &addr).encode().into(),
+				to: Some(addr),
+				input: 2u32.encode().into(),
 				..Default::default()
 			},
 			Weight::MAX,
 			|_, _| 0u64,
 		));
+
+		// call through contract works when transfers are skipped
+		assert_ok!(Pallet::<Test>::bare_eth_transact(
+			GenericTransaction {
+				from: Some(BOB_ADDR),
+				to: Some(caller_addr),
+				input: (3u32, &addr).encode().into(),
+				..Default::default()
+			},
+			Weight::MAX,
+			|_, _| 0u64,
+		));
+
+		// works with transfers enabled if we don't incur a storage cost
+		// we shrink the item so its actually a refund
+		assert_ok!(Pallet::<Test>::bare_eth_transact(
+			GenericTransaction {
+				from: Some(BOB_ADDR),
+				to: Some(caller_addr),
+				input: (2u32, &addr).encode().into(),
+				gas: Some(1u32.into()),
+				..Default::default()
+			},
+			Weight::MAX,
+			|_, _| 0u64,
+		));
+
+		// fails when trying to increase the storage item size
+		assert!(Pallet::<Test>::bare_eth_transact(
+			GenericTransaction {
+				from: Some(BOB_ADDR),
+				to: Some(caller_addr),
+				input: (3u32, &addr).encode().into(),
+				gas: Some(1u32.into()),
+				..Default::default()
+			},
+			Weight::MAX,
+			|_, _| 0u64,
+		)
+		.is_err());
 	});
 }
 
