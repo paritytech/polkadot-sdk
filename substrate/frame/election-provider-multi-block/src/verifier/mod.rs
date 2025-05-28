@@ -213,6 +213,26 @@ pub trait Verifier {
 	);
 }
 
+/// Information about what verification data was unavailable.
+#[derive(
+	Clone,
+	Copy,
+	Debug,
+	PartialEq,
+	Eq,
+	codec::Encode,
+	codec::Decode,
+	codec::DecodeWithMemTracking,
+	scale_info::TypeInfo,
+	frame_support::pallet_prelude::MaxEncodedLen,
+)]
+pub enum DataUnavailableInfo {
+	/// A specific page was unavailable.
+	Page(PageIndex),
+	/// The score was unavailable.
+	Score,
+}
+
 /// Simple enum to encapsulate the result of the verification of a candidate solution.
 #[derive(Clone, Copy, Debug)]
 #[cfg_attr(test, derive(PartialEq, Eq))]
@@ -221,6 +241,8 @@ pub enum VerificationResult {
 	Queued,
 	/// Solution is rejected, for whichever of the multiple reasons that it could be.
 	Rejected,
+	/// The verification data was unavailable.
+	VerificationDataUnavailable(DataUnavailableInfo),
 }
 
 /// Something that can provide candidate solutions to the verifier.

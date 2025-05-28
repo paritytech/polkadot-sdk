@@ -16,7 +16,10 @@
 // limitations under the License.
 
 use super::{Event as SignedEvent, *};
-use crate::{mock::*, verifier::FeasibilityError};
+use crate::{
+	mock::*,
+	verifier::{DataUnavailableInfo, FeasibilityError, VerificationResult},
+};
 use sp_core::bounded_vec;
 
 pub type T = Runtime;
@@ -632,5 +635,51 @@ mod e2e {
 			// signed pallet should be in 100% clean state.
 			assert_ok!(Submissions::<Runtime>::ensure_killed(0));
 		})
+	}
+}
+
+mod defensive_tests {
+	use super::*;
+
+	#[test]
+	fn verification_data_unavailable_score_slashes_submitter() {
+		// Reporting VerificationDataUnavailable(Score) slashes the submitter
+		// Missing score means we reject the solution and slash the deposit
+		ExtBuilder::signed().build_and_execute(|| {
+			// Setup a leader first
+			roll_to_signed_open();
+			assert_eq!(balances(99), (100, 0));
+			assert_ok!(SignedPallet::register(RuntimeOrigin::signed(99), Default::default()));
+			assert_eq!(balances(99), (95, 5)); // deposit taken
+
+			// Simulate score unavailable - should slash the submitter
+			<SignedPallet as SolutionDataProvider>::report_result(
+				VerificationResult::VerificationDataUnavailable(DataUnavailableInfo::Score),
+			);
+
+			// Should have slashed the deposit (5 units)
+			assert_eq!(balances(99), (95, 0));
+
+			// Should have emitted a Slashed event
+			assert!(signed_events().iter().any(
+				|e| matches!(e, SignedEvent::Slashed(_, account, amount) if account == &99 && amount == &5)
+			));
+		});
+	}
+
+	#[test]
+	#[cfg(debug_assertions)]
+	#[should_panic(expected = "Defensive failure has been triggered!")]
+	fn defensive_panic_on_verification_data_unavailable_page() {
+		// Reporting VerificationDataUnavailable(Page) triggers defensive panic.
+		// This should never happen in normal operation
+		ExtBuilder::signed().build_and_execute(|| {
+			// Directly call report_result with VerificationDataUnavailable(Page)
+			// This simulates a bug where the verifier reports missing page instead of treating it
+			// as empty
+			<SignedPallet as SolutionDataProvider>::report_result(
+				VerificationResult::VerificationDataUnavailable(DataUnavailableInfo::Page(0)),
+			);
+		});
 	}
 }

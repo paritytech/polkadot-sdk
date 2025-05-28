@@ -4,12 +4,14 @@ doc:
 - audience: Runtime Dev
   description: |-
     - Treat missing or empty solution pages as empty rather than errors.
-      - As a consequence, VerificationDataUnavailable has been removed since it's not needed anymore.
+    - Make DataUnavailableInfo a nested enum to distinguish between missing pages and missing scores during verification:
+      - Missing pages are logged but treated as empty by design.
+      - Missing scores during finalization result in solution rejection and deposit slashing.
     - Update tests to reflect new behavior and remove defensive unwraps.
 
     Close security vulnerability found [here](https://github.com/paritytech-secops/srlabs_findings/issues/505).
     A malicious miner could trigger panic in the EPMB pallet, submitting a very high score and then intentionally failing in submitting one or more pages.
-    A unit test replicating the vulnerability ensures that the fix works as expected.
+    A unit test replicating the vulnerability ensures that the fix works as expected (i.e. no panic, solution is rejected).
 crates:
 - name: pallet-election-provider-multi-block
   bump: major

@@ -59,7 +59,9 @@
 
 use crate::{
 	types::SolutionOf,
-	verifier::{AsynchronousVerifier, SolutionDataProvider, Status, VerificationResult},
+	verifier::{
+		AsynchronousVerifier, DataUnavailableInfo, SolutionDataProvider, Status, VerificationResult,
+	},
 };
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_election_provider_support::PageIndex;
@@ -174,41 +176,79 @@ impl<T: Config> SolutionDataProvider for Pallet<T> {
 				}
 			},
 			VerificationResult::Rejected => {
-				// If there is a result to be reported, then we must have had some leader.
-				if let Some((loser, metadata)) =
-					Submissions::<T>::take_leader_with_data(Self::current_round())
-				{
-					// first, let's slash their deposit.
-					let slash = metadata.deposit;
-					let _res = T::Currency::burn_held(
-						&HoldReason::SignedSubmission.into(),
-						&loser,
-						slash,
-						Precision::BestEffort,
-						Fortitude::Force,
-					);
-					debug_assert_eq!(_res, Ok(slash));
-					Self::deposit_event(Event::<T>::Slashed(current_round, loser.clone(), slash));
+				Self::handle_solution_rejection(current_round, "Rejected");
+			},
+			VerificationResult::VerificationDataUnavailable(info) => {
+				sublog!(
+					trace,
+					"signed",
+					"Verification data unavailable for round {}: {:?}",
+					current_round,
+					info
+				);
 
-					// inform the verifier that they can now try again, if we're still in the signed
-					// validation phase.
-					if crate::Pallet::<T>::current_phase().is_signed_validation() &&
-						Submissions::<T>::has_leader(current_round)
-					{
-						// defensive: verifier just reported back a result, it must be in clear
-						// state.
-						let _ = <T::Verifier as AsynchronousVerifier>::start().defensive();
-					}
-				} else {
-					// No leader to slash; nothing to do.
-					sublog!(
-						warn,
-						"signed",
-						"Tried to report Rejected but no leader was present for round {}",
-						current_round
-					);
+				match info {
+					DataUnavailableInfo::Page(_) => {
+						// This should not normally happen with current logic - missing pages
+						// should be treated as empty and continue normally to Queued/Rejected.
+						sublog!(
+							error,
+							"signed",
+							"Unexpected VerificationDataUnavailable for page - this indicates a bug"
+						);
+						defensive!("VerificationDataUnavailable for page should never happen");
+					},
+					DataUnavailableInfo::Score => {
+						// Score missing at finalization - reject the solution
+						sublog!(
+							trace,
+							"signed",
+							"Score was unavailable during verification finalization for round {}, rejecting solution",
+							current_round
+						);
+						Self::handle_solution_rejection(
+							current_round,
+							"VerificationDataUnavailable for score",
+						);
+					},
 				}
 			},
+		}
+	}
+}
+
+impl<T: Config> Pallet<T> {
+	/// Common logic for handling solution rejection - slash the submitter and try next solution
+	fn handle_solution_rejection(current_round: u32, reason: &'static str) {
+		if let Some((loser, metadata)) = Submissions::<T>::take_leader_with_data(current_round) {
+			// Slash the deposit
+			let slash = metadata.deposit;
+			let _res = T::Currency::burn_held(
+				&HoldReason::SignedSubmission.into(),
+				&loser,
+				slash,
+				Precision::BestEffort,
+				Fortitude::Force,
+			);
+			debug_assert_eq!(_res, Ok(slash));
+			Self::deposit_event(Event::<T>::Slashed(current_round, loser.clone(), slash));
+
+			// Try to start verification again if we still have submissions
+			if crate::Pallet::<T>::current_phase().is_signed_validation() &&
+				Submissions::<T>::has_leader(current_round)
+			{
+				// defensive: verifier just reported back a result, it must be in clear state.
+				let _ = <T::Verifier as AsynchronousVerifier>::start().defensive();
+			}
+		} else {
+			// No leader to slash; nothing to do.
+			sublog!(
+				warn,
+				"signed",
+				"Tried to report {} but no leader was present for round {}",
+				reason,
+				current_round
+			);
 		}
 	}
 }

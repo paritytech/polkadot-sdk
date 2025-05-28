@@ -23,7 +23,7 @@ use crate::{
 	helpers,
 	types::VoterOf,
 	unsigned::miner::{MinerConfig, PageSupportsOfMiner},
-	verifier::Verifier,
+	verifier::{DataUnavailableInfo, Verifier},
 	SolutionOf,
 };
 use codec::{Decode, Encode, MaxEncodedLen};
@@ -161,6 +161,8 @@ pub(crate) mod pallet {
 		Verified(PageIndex, u32),
 		/// A solution with the given score has replaced our current best solution.
 		Queued(ElectionScore, Option<ElectionScore>),
+		/// Verification data was unavailable, either a page or score was missing.
+		VerificationDataUnavailable(DataUnavailableInfo),
 	}
 
 	/// A wrapper interface for the storage items related to the queued solution.
@@ -380,8 +382,7 @@ pub(crate) mod pallet {
 		pub(crate) fn compute_invalid_score() -> Result<(ElectionScore, u32), FeasibilityError> {
 			// We do NOT check for completeness of all pages here.
 			// The only caller of this function is the finalization logic, which is guaranteed
-			// to be reached only after all pages have been submitted and the score is present
-			// (enforced by defensive_unwrap_or_default on the score retrieval).
+			// to be reached only after all pages have been submitted and the score is present.
 			// This avoids unnecessary storage reads and redundant checks.
 
 			let mut total_supports: BTreeMap<T::AccountId, PartialBackings> = Default::default();
@@ -627,10 +628,25 @@ pub(crate) mod pallet {
 impl<T: Config> Pallet<T> {
 	fn do_on_initialize() -> Weight {
 		if let Status::Ongoing(current_page) = Self::status_storage() {
-			let page_solution =
-				<T::SolutionDataProvider as SolutionDataProvider>::get_page(current_page)
-					// Treat missing pages as empty by design.
-					.unwrap_or_default();
+			let page_solution_opt =
+				<T::SolutionDataProvider as SolutionDataProvider>::get_page(current_page);
+
+			let page_solution = match page_solution_opt {
+				Some(solution) => solution,
+				None => {
+					// Treat missing pages as empty by design, but log and emit event
+					sublog!(
+						trace,
+						"verifier",
+						"page {} was unavailable, treating as empty page",
+						current_page
+					);
+					Self::deposit_event(Event::<T>::VerificationDataUnavailable(
+						DataUnavailableInfo::Page(current_page),
+					));
+					Default::default()
+				},
+			};
 
 			let maybe_supports = Self::feasibility_check_page_inner(page_solution, current_page);
 
@@ -652,27 +668,47 @@ impl<T: Config> Pallet<T> {
 						StatusStorage::<T>::put(Status::Ongoing(current_page.saturating_sub(1)));
 						VerifierWeightsOf::<T>::on_initialize_valid_non_terminal()
 					} else {
-						// last page, finalize everything. Solution data provider must always have a
-						// score for us at this point. Not much point in reporting a result, we just
-						// assume default score, which will almost certainly fail and cause a proper
-						// cleanup of the pallet, which is what we want anyways.
-						let claimed_score =
-							T::SolutionDataProvider::get_score().defensive_unwrap_or_default();
+						// last page, finalize everything. Check if score is available.
+						let claimed_score_opt = T::SolutionDataProvider::get_score();
 
-						// in both cases of the following match, we are not back to the nothing
-						// state.
+						// in both cases of the following match, we are back to the nothing state.
 						StatusStorage::<T>::put(Status::Nothing);
 
-						match Self::finalize_async_verification(claimed_score) {
-							Ok(_) => {
-								T::SolutionDataProvider::report_result(VerificationResult::Queued);
-								VerifierWeightsOf::<T>::on_initialize_valid_terminal()
+						match claimed_score_opt {
+							Some(claimed_score) => {
+								match Self::finalize_async_verification(claimed_score) {
+									Ok(_) => {
+										T::SolutionDataProvider::report_result(
+											VerificationResult::Queued,
+										);
+										VerifierWeightsOf::<T>::on_initialize_valid_terminal()
+									},
+									Err(_) => {
+										T::SolutionDataProvider::report_result(
+											VerificationResult::Rejected,
+										);
+										// In case of any of the errors, kill the solution.
+										QueuedSolution::<T>::clear_invalid_and_backings();
+										VerifierWeightsOf::<T>::on_initialize_invalid_terminal()
+									},
+								}
 							},
-							Err(_) => {
-								T::SolutionDataProvider::report_result(
-									VerificationResult::Rejected,
+							None => {
+								// Score is unavailable, treat as data unavailable
+								sublog!(
+									trace,
+									"verifier",
+									"score was unavailable during finalization"
 								);
-								// In case of any of the errors, kill the solution.
+								Self::deposit_event(Event::<T>::VerificationDataUnavailable(
+									DataUnavailableInfo::Score,
+								));
+								T::SolutionDataProvider::report_result(
+									VerificationResult::VerificationDataUnavailable(
+										DataUnavailableInfo::Score,
+									),
+								);
+								// Clean up invalid solution
 								QueuedSolution::<T>::clear_invalid_and_backings();
 								VerifierWeightsOf::<T>::on_initialize_invalid_terminal()
 							},

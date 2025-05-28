@@ -21,7 +21,7 @@ use crate::{
 		verifier_events, ExtBuilder, MaxBackersPerWinner, MaxWinnersPerPage, MultiBlock, Runtime,
 		VerifierPallet, *,
 	},
-	verifier::{impls::Status, Event, FeasibilityError, Verifier, *},
+	verifier::{impls::Status, DataUnavailableInfo, Event, FeasibilityError, Verifier, *},
 	PagedRawSolution, Snapshot, *,
 };
 use frame_election_provider_support::Support;
@@ -335,7 +335,7 @@ mod async_verification {
 			assert_eq!(VerifierPallet::status(), Status::Ongoing(0));
 			assert_eq!(
 				verifier_events(),
-				vec![Event::<Runtime>::Verified(2, 2), Event::<Runtime>::Verified(1, 2),]
+				vec![Event::<Runtime>::Verified(2, 2), Event::<Runtime>::Verified(1, 2)]
 			);
 			// 2 pages verified, stored as invalid.
 			assert_eq!(QueuedSolution::<Runtime>::invalid_iter().count(), 2);
@@ -428,7 +428,6 @@ mod async_verification {
 	}
 
 	#[test]
-	#[should_panic(expected = "Defensive failure has been triggered!")]
 	fn solution_data_provider_empty_data_solution() {
 		ExtBuilder::verifier().build_and_execute(|| {
 			// not super important, but anyways..
@@ -446,20 +445,36 @@ mod async_verification {
 			roll_next();
 
 			// After first roll, only page 2 is processed, status is still Ongoing(1).
-			assert_eq!(verifier_events(), vec![Event::<Runtime>::Verified(2, 0)]);
+			assert_eq!(
+				verifier_events(),
+				vec![
+					Event::<Runtime>::VerificationDataUnavailable(DataUnavailableInfo::Page(2)),
+					Event::<Runtime>::Verified(2, 0)
+				]
+			);
 			assert_eq!(VerifierPallet::status(), Status::Ongoing(1));
 
 			// Process the next page (page 1).
 			roll_next();
 			assert_eq!(
 				verifier_events(),
-				vec![Event::<Runtime>::Verified(2, 0), Event::<Runtime>::Verified(1, 0)]
+				vec![
+					Event::<Runtime>::VerificationDataUnavailable(DataUnavailableInfo::Page(2)),
+					Event::<Runtime>::Verified(2, 0),
+					Event::<Runtime>::VerificationDataUnavailable(DataUnavailableInfo::Page(1)),
+					Event::<Runtime>::Verified(1, 0)
+				]
 			);
 			assert_eq!(VerifierPallet::status(), Status::Ongoing(0));
 
 			// Process the final page (page 0).
 			roll_next();
-			// Missing score should trigger a defensive panic.
+			// Missing score should emit VerificationDataUnavailable event.
+			assert_eq!(VerifierPallet::status(), Status::Nothing);
+			assert_eq!(
+				MockSignedResults::get(),
+				vec![VerificationResult::VerificationDataUnavailable(DataUnavailableInfo::Score)]
+			);
 		});
 	}
 
@@ -493,7 +508,11 @@ mod async_verification {
 			assert_eq!(VerifierPallet::status(), Status::Ongoing(0));
 			assert_eq!(
 				verifier_events(),
-				vec![Event::<Runtime>::Verified(2, 2), Event::<Runtime>::Verified(1, 0)]
+				vec![
+					Event::<Runtime>::Verified(2, 2),
+					Event::<Runtime>::VerificationDataUnavailable(DataUnavailableInfo::Page(1)),
+					Event::<Runtime>::Verified(1, 0)
+				]
 			);
 
 			roll_next();
@@ -502,7 +521,9 @@ mod async_verification {
 				verifier_events(),
 				vec![
 					Event::<Runtime>::Verified(2, 2),
+					Event::<Runtime>::VerificationDataUnavailable(DataUnavailableInfo::Page(1)),
 					Event::<Runtime>::Verified(1, 0),
+					Event::<Runtime>::VerificationDataUnavailable(DataUnavailableInfo::Page(0)),
 					Event::<Runtime>::Verified(0, 0),
 					Event::<Runtime>::VerificationFailed(0, FeasibilityError::InvalidScore),
 				]
@@ -519,7 +540,6 @@ mod async_verification {
 	}
 
 	#[test]
-	#[should_panic(expected = "Defensive failure has been triggered!")]
 	fn solution_data_provider_missing_score_at_end() {
 		ExtBuilder::verifier().build_and_execute(|| {
 			roll_to_snapshot_created();
@@ -542,9 +562,22 @@ mod async_verification {
 			// Roll through remaining pages.
 			roll_next();
 			assert_eq!(VerifierPallet::status(), Status::Ongoing(0));
+			assert_eq!(
+				verifier_events(),
+				vec![
+					Event::<Runtime>::Verified(2, 2),
+					Event::<Runtime>::VerificationDataUnavailable(DataUnavailableInfo::Page(1)),
+					Event::<Runtime>::Verified(1, 0)
+				]
+			);
 			roll_next();
 
-			// A missing score is considered a bug and triggers the defensive failure.
+			// Missing score should emit VerificationDataUnavailable event.
+			assert_eq!(VerifierPallet::status(), Status::Nothing);
+			assert_eq!(
+				MockSignedResults::get(),
+				vec![VerificationResult::VerificationDataUnavailable(DataUnavailableInfo::Score)]
+			);
 		});
 	}
 
