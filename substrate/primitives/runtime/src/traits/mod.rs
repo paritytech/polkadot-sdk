@@ -587,6 +587,21 @@ impl<A, B: Default> Convert<A, B> for () {
 	}
 }
 
+/// Fallible conversion returning either the converted value or the [DispatchError](crate::DispatchError) on failure.
+pub trait FallibleConvert<A, B> {
+	/// Attempt to make conversion.
+	fn fallible_convert(a: A) -> Result<B, crate::DispatchError>;
+}
+
+/// This adapter allows the use of an infallible [Convert] where a [FallibleConvert] is required.
+pub struct AsFallibleConvert<T>(core::marker::PhantomData<T>);
+impl<A, B, T: Convert<A, B>> FallibleConvert<A, B> for AsFallibleConvert<T> {
+	fn fallible_convert(a: A) -> Result<B, crate::DispatchError> {
+		Ok(T::convert(a))
+	}
+}
+
+
 /// Reversing infallible conversion trait. Generic over both source and destination types.
 ///
 /// This specifically reverses the conversion.
