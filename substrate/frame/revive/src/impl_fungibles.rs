@@ -22,6 +22,8 @@
 //! This is only meant for tests since gas limits are not taken into account,
 //! the feature flags make sure of that.
 
+#![cfg(any(feature = "std", feature = "runtime-benchmarks", test))]
+
 use alloy_core::{
 	primitives::{Address, U256 as EU256},
 	sol_types::*,
