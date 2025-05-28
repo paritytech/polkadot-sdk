@@ -84,6 +84,7 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
 #[cfg(doc)]
 #[cfg_attr(doc, aquamarine::aquamarine)]
 ///
@@ -122,11 +123,10 @@
 #[doc = docify::embed!("src/tests.rs", examples_work)]
 pub mod example {}
 
-extern crate alloc;
-
 use alloc::boxed::Box;
 use codec::FullCodec;
 use frame_election_provider_support::{ScoreProvider, SortedListProvider};
+use frame_support::weights::{Weight, WeightMeter};
 use frame_system::ensure_signed;
 use sp_runtime::traits::{AtLeast32BitUnsigned, Bounded, StaticLookup};
 
@@ -234,6 +234,14 @@ pub mod pallet {
 		#[pallet::constant]
 		type BagThresholds: Get<&'static [Self::Score]>;
 
+		/// Maximum number of accounts that may be re-bagged automatically in `on_idle`.
+		///
+		/// A value of `0` (obtained by configuring `type AutoRebagPerBlock = ();`) disables
+		/// the feature completely and keeps the pallet’s behaviour identical to pre-upgrade
+		/// versions.
+		#[pallet::constant]
+		type AutoRebagPerBlock: Get<u32>;
+
 		/// The type used to dictate a node position relative to other nodes.
 		type Score: Clone
 			+ Default
@@ -263,6 +271,12 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type ListBags<T: Config<I>, I: 'static = ()> =
 		StorageMap<_, Twox64Concat, T::Score, list::Bag<T, I>>;
+
+	/// Pointer that remembers the last node that was auto-rebagged.
+	/// When `None`, the next scan will start from the list head again.
+	#[pallet::storage]
+	pub type NextNodeAutoRebagging<T: Config<I>, I: 'static = ()> =
+		StorageValue<_, T::AccountId, OptionQuery>;
 
 	/// Lock all updates to this pallet.
 	///
@@ -399,7 +413,8 @@ pub mod pallet {
 	#[pallet::hooks]
 	impl<T: Config<I>, I: 'static> Hooks<BlockNumberFor<T>> for Pallet<T, I> {
 		fn integrity_test() {
-			// ensure they are strictly increasing, this also implies that duplicates are detected.
+			// to ensure they are strictly increasing, this also implies that duplicates are
+			// detected.
 			assert!(
 				T::BagThresholds::get().windows(2).all(|window| window[1] > window[0]),
 				"thresholds must strictly increase, and have no duplicates",
@@ -409,6 +424,99 @@ pub mod pallet {
 		#[cfg(feature = "try-runtime")]
 		fn try_state(_: BlockNumberFor<T>) -> Result<(), TryRuntimeError> {
 			<Self as SortedListProvider<T::AccountId>>::try_state()
+		}
+
+		/// Called during the idle phase of block execution.
+		/// Automatically performs a limited number of `rebag` operations each block,
+		/// incrementally correcting the position of accounts within the bags-list.
+		///
+		/// Guarantees processing as many nodes as possible without failing on errors.
+		/// It stores a persistent cursor to continue across blocks.
+		fn on_idle(_n: BlockNumberFor<T>, limit: Weight) -> Weight {
+			let rebag_budget = T::AutoRebagPerBlock::get();
+			let total_nodes = ListNodes::<T, I>::count();
+
+			// Fast exit: feature is disabled, or a list is empty.
+			if rebag_budget == 0 || total_nodes == 0 {
+				log!(
+					debug,
+					"👜 Auto-rebag skipped: rebag_budget={}, total_nodes={}",
+					rebag_budget,
+					total_nodes
+				);
+				return Weight::zero();
+			}
+
+			log!(
+				debug,
+				"👜 Starting auto-rebag. Budget: {} accounts/block, total_nodes={}.",
+				rebag_budget,
+				total_nodes
+			);
+
+			let mut meter = WeightMeter::with_limit(limit);
+			let per_rebag =
+				T::WeightInfo::rebag_non_terminal().max(T::WeightInfo::rebag_terminal());
+
+			// Load the cursor to resume from the previous node. If empty, start from the head.
+			let mut cursor = NextNodeAutoRebagging::<T, I>::get().or_else(|| Self::iter().next());
+
+			log!(debug, "👜 Rebag starting from: {:?}", cursor);
+
+			let mut processed = 0u32;
+
+			while processed < rebag_budget && meter.try_consume(per_rebag).is_ok() {
+				if let Some(ref current_account) = cursor {
+					// Try to rebag. Do not break on error.
+					match Self::try_rebag_node(current_account) {
+						Ok(_) => { /* do nothing */ },
+						Err(e) => {
+							log!(warn, "👜 Rebag error for {:?}: {:?}", current_account, e);
+						},
+					}
+					processed += 1;
+
+					// Try to fetch the next node.
+					cursor = Self::iter_from(current_account).ok().and_then(|mut it| it.next());
+
+					log!(debug, "👜 Next rebag target: {:?}", cursor);
+
+					// If we've reached the end, stop.
+					if cursor.is_none() {
+						break;
+					}
+				} else {
+					// Cursor became None unexpectedly.
+					break;
+				}
+			}
+
+			// Save cursor or reset if done.
+			match cursor {
+				Some(next) => {
+					NextNodeAutoRebagging::<T, I>::put(next.clone());
+					log!(debug, "👜 Saved next rebag cursor: {:?}", next);
+				},
+				None => {
+					NextNodeAutoRebagging::<T, I>::kill();
+					log!(debug, "👜 Reached end of list, resetting cursor");
+				},
+			}
+
+			log!(
+				debug,
+				"👜 Auto-rebag finished: processed={}, weight_used={:?}",
+				processed,
+				meter.consumed()
+			);
+			let weight_used = meter.consumed();
+			log!(
+				debug,
+				"Weight used: {:?}, Remaining weight: {:?}",
+				meter.consumed(),
+				meter.remaining()
+			);
+			weight_used
 		}
 	}
 }
@@ -450,15 +558,79 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	pub fn list_bags_get(score: T::Score) -> Option<list::Bag<T, I>> {
 		ListBags::get(score)
 	}
+
+	/// Internal helper to attempt rebagging a node.
+	/// This contains the core logic of the `rebag` dispatchable.
+	fn try_rebag_node(who: &T::AccountId) -> Result<Option<(T::Score, T::Score)>, ListError> {
+		log!(debug, "Trying to rebag AccountID: {:?}", who);
+
+		// Ensure the pallet is not locked
+		Self::ensure_unlocked().map_err(|_| ListError::Locked)?;
+
+		let existed = ListNodes::<T, I>::contains_key(who);
+
+		match (existed, T::ScoreProvider::score(who)) {
+			(true, Some(current_score)) => {
+				log!(
+					debug,
+					"Node {:?} existed and has a score {:?}. Attempting rebag.",
+					who,
+					current_score
+				);
+				Pallet::<T, I>::do_rebag(who, current_score).map(|option| {
+					log!(debug, "👜 Rebag ok: {:?} - Moved from/to: {:?}", who, option);
+					option
+				})
+			},
+			(false, Some(current_score)) => {
+				log!(
+					debug,
+					"Node {:?} did not exist but has a score {:?}. Attempting to insert.",
+					who,
+					current_score
+				);
+				match Self::on_insert(who, current_score) {
+					Ok(_) => {
+						// Log success on successful insertion.
+						log!(debug, "👜 Successfully inserted node {:?}", who);
+						Ok(None)
+					},
+					Err(e) => {
+						log!(
+							error,
+							"Failed to insert node {:?} with score {:?}: {:?}",
+							who,
+							current_score,
+							e
+						);
+						Err(e)
+					},
+				}
+			},
+			(true, None) => {
+				log!(debug, "Node {:?} existed but now has no score. Removing.", who);
+				match Self::on_remove(who) {
+					Ok(_) => {
+						log!(debug, "👜 Successfully removed node {:?}", who);
+						Ok(None)
+					},
+					Err(e) => {
+						log!(error, "Failed to remove node {:?}: {:?}", who, e);
+						Err(e)
+					},
+				}
+			},
+			(false, None) => {
+				log!(debug, "Node {:?} does not exist and has no score. Skipping.", who);
+				Err(ListError::NodeNotFound)
+			},
+		}
+	}
 }
 
 impl<T: Config<I>, I: 'static> SortedListProvider<T::AccountId> for Pallet<T, I> {
 	type Error = ListError;
 	type Score = T::Score;
-
-	fn iter() -> Box<dyn Iterator<Item = T::AccountId>> {
-		Box::new(List::<T, I>::iter().map(|n| n.id().clone()))
-	}
 
 	fn range() -> (Self::Score, Self::Score) {
 		use frame_support::traits::Get;
@@ -466,6 +638,18 @@ impl<T: Config<I>, I: 'static> SortedListProvider<T::AccountId> for Pallet<T, I>
 			T::BagThresholds::get().first().cloned().unwrap_or_default(),
 			T::BagThresholds::get().last().cloned().unwrap_or_default(),
 		)
+	}
+
+	fn iter() -> Box<dyn Iterator<Item = T::AccountId>> {
+		Box::new(List::<T, I>::iter().map(|n| n.id().clone()))
+	}
+
+	fn lock() {
+		Lock::<T, I>::put(())
+	}
+
+	fn unlock() {
+		Lock::<T, I>::kill()
 	}
 
 	fn iter_from(
@@ -477,14 +661,6 @@ impl<T: Config<I>, I: 'static> SortedListProvider<T::AccountId> for Pallet<T, I>
 
 	fn count() -> u32 {
 		ListNodes::<T, I>::count()
-	}
-
-	fn lock() {
-		Lock::<T, I>::put(())
-	}
-
-	fn unlock() {
-		Lock::<T, I>::kill()
 	}
 
 	fn contains(id: &T::AccountId) -> bool {
@@ -520,16 +696,16 @@ impl<T: Config<I>, I: 'static> SortedListProvider<T::AccountId> for Pallet<T, I>
 		List::<T, I>::unsafe_regenerate(all, score_of)
 	}
 
-	#[cfg(feature = "try-runtime")]
-	fn try_state() -> Result<(), TryRuntimeError> {
-		Self::do_try_state()
-	}
-
 	fn unsafe_clear() {
 		// NOTE: This call is unsafe for the same reason as SortedListProvider::unsafe_clear.
 		// I.e. because it can lead to many storage accesses.
 		// So it is ok to call it as caller must ensure the conditions.
 		List::<T, I>::unsafe_clear()
+	}
+
+	#[cfg(feature = "try-runtime")]
+	fn try_state() -> Result<(), TryRuntimeError> {
+		Self::do_try_state()
 	}
 
 	frame_election_provider_support::runtime_benchmarks_enabled! {
