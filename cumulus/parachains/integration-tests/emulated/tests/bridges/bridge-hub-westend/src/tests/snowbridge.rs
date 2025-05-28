@@ -2085,7 +2085,7 @@ fn register_pna_in_v5_while_transfer_in_v4_should_work() {
 
 		let destination = VersionedLocation::V4(Location::new(
 			2,
-			[GlobalConsensus(Ethereum { chain_id: SEPOLIA_ID })],
+			[GlobalConsensus(Ethereum { chain_id: CHAIN_ID })],
 		));
 
 		let beneficiary = VersionedLocation::V4(Location::new(
