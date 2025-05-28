@@ -540,10 +540,12 @@ pub mod bridging {
 	use assets_common::matching;
 
 	parameter_types! {
+		/// (for AH -> <ExportMessage> -> BH -> BH -> AH route)
+		///
 		/// Base price of every byte of the Westend -> Rococo message. Can be adjusted via
 		/// governance `set_storage` call.
 		///
-		/// Default value is our estimation of the:
+		/// The default value is our estimation of the:
 		///
 		/// 1) an approximate cost of XCM execution (`ExportMessage` and surroundings) at Westend bridge hub;
 		///
@@ -555,6 +557,26 @@ pub mod bridging {
 			bp_bridge_hub_westend::BridgeHubWestendBaseXcmFeeInWnds::get()
 				.saturating_add(bp_bridge_hub_rococo::BridgeHubRococoBaseDeliveryFeeInRocs::get())
 				.saturating_add(bp_bridge_hub_westend::BridgeHubWestendBaseConfirmationFeeInWnds::get());
+
+		/// (for direct AH -> AH route)
+		///
+		/// Base price of every byte of the Westend -> Rococo message. Can be adjusted via
+		/// governance `set_storage` call.
+		///
+		/// The default value is our estimation of the:
+		///
+		/// 1) the approximate cost of Westend -> Rococo message delivery transaction on Rococo Asset Hub,
+		///    converted into WNDs using 1:1 conversion rate;
+		///
+		/// 2) the approximate cost of Westend -> Rococo message confirmation transaction on Westend Asset Hub.
+		///
+		/// Note: We do not account for `ExportMessage`, because we are doing direct `ExportXcm`,
+		/// which should be already accounted for benchmarked extrinsic cost.
+		pub storage ToRococoOverAssetHubRococoXcmRouterBaseFee: Balance = DefaultToRococoOverAssetHubRococoXcmRouterBaseFee::get();
+		pub const DefaultToRococoOverAssetHubRococoXcmRouterBaseFee: Balance =
+			bp_asset_hub_rococo::AssetHubRococoBaseDeliveryFeeInRocs::get()
+				.saturating_add(bp_asset_hub_westend::AssetHubWestendBaseConfirmationFeeInWnds::get());
+
 		/// Price of every byte of the Westend -> Rococo message. Can be adjusted via
 		/// governance `set_storage` call.
 		pub storage XcmBridgeHubRouterByteFee: Balance = TransactionByteFee::get();
