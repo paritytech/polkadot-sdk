@@ -24,8 +24,7 @@ mod imports {
 	// Cumulus
 	pub(crate) use asset_test_utils::xcm_helpers;
 	pub(crate) use emulated_integration_tests_common::xcm_emulator::{
-		assert_expected_events, bx, Chain, Parachain as Para, Test, TestArgs,
-		TestContext, TestExt,
+		assert_expected_events, bx, Chain, Parachain as Para, Test, TestArgs, TestContext, TestExt,
 	};
 	pub(crate) use parachains_common::Balance;
 	pub(crate) use westend_system_emulated_network::{
@@ -43,10 +42,11 @@ mod imports {
 			PeopleWestendParaPallet as PeopleWestendPallet,
 		},
 		westend_emulated_chain::{genesis::ED as WESTEND_ED, WestendRelayPallet as WestendPallet},
-		AssetHubWestendPara as AssetHubWestend, BridgeHubWestendPara as BridgeHubWestend,
-		CollectivesWestendPara as CollectivesWestend, CoretimeWestendPara as CoretimeWestend,
-		PenpalBPara as PenpalB, PeopleWestendPara as PeopleWestend,
-		PeopleWestendParaReceiver as PeopleWestendReceiver,
+		AssetHubWestendPara as AssetHubWestend,
+		AssetHubWestendParaReceiver as AssetHubWestendReceiver,
+		BridgeHubWestendPara as BridgeHubWestend, CollectivesWestendPara as CollectivesWestend,
+		CoretimeWestendPara as CoretimeWestend, PenpalBPara as PenpalB,
+		PeopleWestendPara as PeopleWestend, PeopleWestendParaReceiver as PeopleWestendReceiver,
 		PeopleWestendParaSender as PeopleWestendSender, WestendRelay as Westend,
 		WestendRelayReceiver as WestendReceiver, WestendRelaySender as WestendSender,
 	};

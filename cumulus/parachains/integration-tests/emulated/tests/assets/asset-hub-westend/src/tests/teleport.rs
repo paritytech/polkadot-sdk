@@ -191,7 +191,7 @@ fn system_para_to_para_transfer_assets(t: SystemParaToParaTest) -> DispatchResul
 }
 
 #[test]
-fn teleport_to_other_system_parachains_works() {
+fn teleport_via_limited_teleport_assets_to_other_system_parachains_works() {
 	let amount = ASSET_HUB_WESTEND_ED * 100;
 	let native_asset: Assets = (Parent, amount).into();
 
@@ -200,6 +200,19 @@ fn teleport_to_other_system_parachains_works() {
 		vec![BridgeHubWestend], // Destinations
 		(native_asset, amount),
 		limited_teleport_assets
+	);
+}
+
+#[test]
+fn teleport_via_transfer_assets_to_other_system_parachains_works() {
+	let amount = ASSET_HUB_WESTEND_ED * 100;
+	let native_asset: Assets = (Parent, amount).into();
+
+	test_parachain_is_trusted_teleporter!(
+		AssetHubWestend,        // Origin
+		vec![BridgeHubWestend], // Destinations
+		(native_asset, amount),
+		transfer_assets
 	);
 }
 

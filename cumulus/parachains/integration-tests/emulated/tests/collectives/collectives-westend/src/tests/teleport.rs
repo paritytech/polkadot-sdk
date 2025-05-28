@@ -19,7 +19,7 @@ use emulated_integration_tests_common::{
 };
 
 #[test]
-fn teleport_from_and_to_relay() {
+fn teleport_via_limited_teleport_assets_from_and_to_relay() {
 	let amount = WESTEND_ED * 10;
 	let native_asset: Assets = (Here, amount).into();
 
@@ -39,7 +39,27 @@ fn teleport_from_and_to_relay() {
 }
 
 #[test]
-fn teleport_from_collectives_to_asset_hub() {
+fn teleport_via_transfer_assets_from_and_to_relay() {
+	let amount = WESTEND_ED * 10;
+	let native_asset: Assets = (Here, amount).into();
+
+	test_relay_is_trusted_teleporter!(
+		Westend,                  // Origin
+		vec![CollectivesWestend], // Destinations
+		(native_asset, amount),
+		transfer_assets
+	);
+
+	test_parachain_is_trusted_teleporter_for_relay!(
+		CollectivesWestend, // Origin
+		Westend,            // Destination
+		amount,
+		transfer_assets
+	);
+}
+
+#[test]
+fn teleport_via_limited_teleport_assets_from_collectives_to_asset_hub() {
 	let amount = ASSET_HUB_WESTEND_ED * 100;
 	let native_asset: Assets = (Parent, amount).into();
 
@@ -52,7 +72,20 @@ fn teleport_from_collectives_to_asset_hub() {
 }
 
 #[test]
-fn teleport_from_asset_hub_to_collectives() {
+fn teleport_via_transfer_assets_from_collectives_to_asset_hub() {
+	let amount = ASSET_HUB_WESTEND_ED * 100;
+	let native_asset: Assets = (Parent, amount).into();
+
+	test_parachain_is_trusted_teleporter!(
+		CollectivesWestend,    // Origin
+		vec![AssetHubWestend], // Destinations
+		(native_asset, amount),
+		transfer_assets
+	);
+}
+
+#[test]
+fn teleport_via_limited_teleport_assets_from_asset_hub_to_collectives() {
 	let amount = COLLECTIVES_WESTEND_ED * 100;
 	let native_asset: Assets = (Parent, amount).into();
 
@@ -61,5 +94,18 @@ fn teleport_from_asset_hub_to_collectives() {
 		vec![CollectivesWestend], // Destinations
 		(native_asset, amount),
 		limited_teleport_assets
+	);
+}
+
+#[test]
+fn teleport_via_transfer_assets_from_asset_hub_to_collectives() {
+	let amount = COLLECTIVES_WESTEND_ED * 100;
+	let native_asset: Assets = (Parent, amount).into();
+
+	test_parachain_is_trusted_teleporter!(
+		AssetHubWestend,          // Origin
+		vec![CollectivesWestend], // Destinations
+		(native_asset, amount),
+		transfer_assets
 	);
 }

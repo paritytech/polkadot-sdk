@@ -18,7 +18,7 @@ use crate::{
 	imports::*,
 	tests::teleport::do_bidirectional_teleport_foreign_assets_between_para_and_asset_hub_using_xt,
 };
-use rococo_system_emulated_network::rococo_emulated_chain::rococo_runtime::Dmp;
+
 fn para_to_para_assethub_hop_assertions(t: ParaToParaThroughAHTest) {
 	type RuntimeEvent = <AssetHubRococo as Chain>::RuntimeEvent;
 	let sov_penpal_a_on_ah = AssetHubRococo::sovereign_account_id_of(

@@ -2743,15 +2743,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "bridge-minimal-integration-tests"
-version = "1.0.0"
-dependencies = [
- "emulated-integration-tests-common",
- "rococo-westend-system-emulated-network",
- "staging-xcm",
-]
-
-[[package]]
 name = "bridge-runtime-common"
 version = "0.7.0"
 dependencies = [
@@ -14191,7 +14182,6 @@ dependencies = [
  "emulated-integration-tests-common",
  "frame-support",
  "pallet-balances",
- "pallet-xcm",
  "parachains-common",
  "rococo-system-emulated-network",
  "sp-runtime 31.0.1",

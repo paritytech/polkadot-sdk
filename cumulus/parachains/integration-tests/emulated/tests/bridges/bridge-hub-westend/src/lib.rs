@@ -17,7 +17,9 @@
 mod imports {
 	// Substrate
 	pub(crate) use codec::Encode;
-	pub(crate) use frame_support::{assert_err, assert_ok, pallet_prelude::DispatchResult, BoundedVec};
+	pub(crate) use frame_support::{
+		assert_err, assert_ok, pallet_prelude::DispatchResult, BoundedVec,
+	};
 	pub(crate) use sp_core::H160;
 	pub(crate) use sp_runtime::DispatchError;
 

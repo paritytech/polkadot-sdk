@@ -30,12 +30,13 @@ pub use polkadot_runtime_parachains::dmp::Pallet as Dmp;
 pub use xcm::{
 	latest::AssetTransferFilter,
 	prelude::{
-	AliasOrigin, All, AllCounted, Asset, AssetId, Assets, BuyExecution, DepositAsset,
-	ExpectTransactStatus, Fungible, GeneralIndex, Here, InitiateTransfer, Junction, Location,
-	MaybeErrorCode, OriginKind, Outcome, PalletInstance, Parachain, Parent, PayFees, RefundSurplus,
-	Transact, Unlimited, VersionedAssetId, VersionedAssets, VersionedLocation, VersionedXcm,
-	WeightLimit, Wild, WithdrawAsset, Xcm, XcmContext, XCM_VERSION
-}};
+		AliasOrigin, All, AllCounted, Asset, AssetId, Assets, BuyExecution, DepositAsset,
+		ExpectTransactStatus, Fungible, GeneralIndex, Here, InitiateTransfer, Junction, Location,
+		MaybeErrorCode, OriginKind, Outcome, PalletInstance, Parachain, Parent, PayFees,
+		RefundSurplus, Transact, Unlimited, VersionedAssetId, VersionedAssets, VersionedLocation,
+		VersionedXcm, WeightLimit, Wild, WithdrawAsset, Xcm, XcmContext, XCM_VERSION,
+	},
+};
 
 pub use xcm_executor::traits::DropAssets;
 
@@ -43,9 +44,14 @@ pub use xcm_executor::traits::DropAssets;
 pub use asset_test_utils;
 pub use cumulus_pallet_xcmp_queue;
 pub use parachains_common::AccountId;
-pub use xcm_emulator::{assert_expected_events, RelayChain, Chain, Parachain as Para, TestArgs, TestContext, TestExt};
+pub use xcm_emulator::{
+	assert_expected_events, Chain, Parachain as Para, RelayChain, TestArgs, TestContext, TestExt,
+};
 
-pub use frame_support::{BoundedVec, dispatch::{GetDispatchInfo, RawOrigin}};
+pub use frame_support::{
+	dispatch::{GetDispatchInfo, RawOrigin},
+	BoundedVec,
+};
 pub use xcm_runtime_apis::{
 	dry_run::runtime_decl_for_dry_run_api::DryRunApiV2,
 	fees::{runtime_decl_for_xcm_payment_api::XcmPaymentApiV1, Error as XcmPaymentApiError},
@@ -91,7 +97,7 @@ macro_rules! test_parachain_is_trusted_teleporter {
 					});
 
 					// assume up to 90% of max weight
-					let max_weight_with_margin_for_error = ($crate::macros::Weight::MAX.ref_time() / 100) * 90; 
+					let max_weight_with_margin_for_error = ($crate::macros::Weight::MAX.ref_time() / 100) * 90;
 					assert!(<_ as $crate::macros::GetDispatchInfo>::get_dispatch_info(&call)
 						.call_weight.ref_time() < max_weight_with_margin_for_error);
 
@@ -102,7 +108,7 @@ macro_rules! test_parachain_is_trusted_teleporter {
 						type OriginCaller = <$sender_para as $crate::macros::Chain>::OriginCaller;
 
 						let origin = OriginCaller::system($crate::macros::RawOrigin::Signed(sender.clone()));
-						let result = <Runtime as $crate::macros::DryRunApiV2<_,_,_,_>>::dry_run_call(origin, call.clone(), 
+						let result = <Runtime as $crate::macros::DryRunApiV2<_,_,_,_>>::dry_run_call(origin, call.clone(),
 							$crate::macros::XCM_VERSION).unwrap();
 
 
@@ -335,7 +341,7 @@ macro_rules! test_parachain_is_trusted_teleporter_for_relay {
 			let sender = [<$sender_para Sender>]::get();
 			// Mint assets to `$sender_para` to succeed with teleport.
 			<$sender_para as $crate::macros::TestExt>::execute_with(|| {
-				$crate::macros::assert_ok!(<<$sender_para as [<$sender_para Pallet>]>::Balances 
+				$crate::macros::assert_ok!(<<$sender_para as [<$sender_para Pallet>]>::Balances
 					as $crate::macros::Mutate<_>>::mint_into(&sender, $amount + 10_000_000_000));
 
 			});
@@ -352,7 +358,7 @@ macro_rules! test_parachain_is_trusted_teleporter_for_relay {
 			// would be 0.
 			<$receiver_relay as $crate::macros::TestExt>::execute_with(|| {
 				let check_account = <$receiver_relay as [<$receiver_relay Pallet>]>::XcmPallet::check_account();
-				$crate::macros::assert_ok!(<<$receiver_relay as [<$receiver_relay Pallet>]>::Balances 
+				$crate::macros::assert_ok!(<<$receiver_relay as [<$receiver_relay Pallet>]>::Balances
 					as $crate::macros::Mutate<_>>::mint_into(&check_account, $amount));
 			});
 
@@ -387,7 +393,7 @@ macro_rules! test_parachain_is_trusted_teleporter_for_relay {
 				type OriginCaller = <$sender_para as $crate::macros::Chain>::OriginCaller;
 
 				let origin = OriginCaller::system($crate::macros::RawOrigin::Signed(sender.clone()));
-				let result = <Runtime as $crate::macros::DryRunApiV2<_,_,_,_>>::dry_run_call(origin, call.clone(), 
+				let result = <Runtime as $crate::macros::DryRunApiV2<_,_,_,_>>::dry_run_call(origin, call.clone(),
 					$crate::macros::XCM_VERSION).unwrap();
 				// We filter the result to get only the messages we are interested in.
 				let (destination_to_query, messages_to_query) = &result
@@ -400,7 +406,7 @@ macro_rules! test_parachain_is_trusted_teleporter_for_relay {
 				assert_eq!(messages_to_query.len(), 1);
 				remote_message = messages_to_query[0].clone();
 				let delivery_fees =
-					<Runtime as $crate::macros::XcmPaymentApiV1<_>>::query_delivery_fees(destination_to_query.clone(), 
+					<Runtime as $crate::macros::XcmPaymentApiV1<_>>::query_delivery_fees(destination_to_query.clone(),
 					remote_message.clone()).unwrap();
 				let latest_delivery_fees: $crate::macros::Assets = delivery_fees.clone().try_into().unwrap();
 				delivery_fees_amount = if let Some(first_asset) = latest_delivery_fees.inner().first() {
@@ -418,7 +424,7 @@ macro_rules! test_parachain_is_trusted_teleporter_for_relay {
 			<$receiver_relay as $crate::macros::TestExt>::reset_ext();
 			// Mint assets to `$sender_para` to succeed with teleport.
 			<$sender_para as $crate::macros::TestExt>::execute_with(|| {
-				$crate::macros::assert_ok!(<<$sender_para as [<$sender_para Pallet>]>::Balances 
+				$crate::macros::assert_ok!(<<$sender_para as [<$sender_para Pallet>]>::Balances
 					as $crate::macros::Mutate<_>>::mint_into(&sender, $amount + 10_000_000_000));
 			});
 
@@ -514,7 +520,7 @@ macro_rules! test_chain_can_claim_assets {
 					]
 				);
 
-				let balance_before = <<$sender_para as [<$sender_para Pallet>]>::Balances 
+				let balance_before = <<$sender_para as [<$sender_para Pallet>]>::Balances
 					as $crate::macros::Currency<_>>::free_balance(&sender);
 
 				// Different origin or different assets won't work.
@@ -548,7 +554,7 @@ macro_rules! test_chain_can_claim_assets {
 				);
 
 				// After claiming the assets, the balance has increased.
-				let balance_after = <<$sender_para as [<$sender_para Pallet>]>::Balances 
+				let balance_after = <<$sender_para as [<$sender_para Pallet>]>::Balances
 					as $crate::macros::Currency<_>>::free_balance(&sender);
 				assert_eq!(balance_after, balance_before + $amount);
 
@@ -559,7 +565,7 @@ macro_rules! test_chain_can_claim_assets {
 					Box::new(beneficiary.clone().into()),
 				).is_err());
 
-				let balance = <<$sender_para as [<$sender_para Pallet>]>::Balances 
+				let balance = <<$sender_para as [<$sender_para Pallet>]>::Balances
 					as $crate::macros::Currency<_>>::free_balance(&sender);
 				assert_eq!(balance, balance_after);
 
@@ -572,14 +578,14 @@ macro_rules! test_chain_can_claim_assets {
 				let receiver = [<$sender_para Receiver>]::get();
 				let other_beneficiary: $crate::macros::Location =
 					$crate::macros::Junction::AccountId32 { network: Some($network_id), id: receiver.clone().into() }.into();
-				let balance_before = <<$sender_para as [<$sender_para Pallet>]>::Balances 
+				let balance_before = <<$sender_para as [<$sender_para Pallet>]>::Balances
 					as $crate::macros::Currency<_>>::free_balance(&receiver);
 				$crate::macros::assert_ok!(<$sender_para as [<$sender_para Pallet>]>::PolkadotXcm::claim_assets(
 					origin.clone(),
 					Box::new(versioned_assets.clone().into()),
 					Box::new(other_beneficiary.clone().into()),
 				));
-				let balance_after = <<$sender_para as [<$sender_para Pallet>]>::Balances 
+				let balance_after = <<$sender_para as [<$sender_para Pallet>]>::Balances
 					as $crate::macros::Currency<_>>::free_balance(&receiver);
 				assert_eq!(balance_after, balance_before + $amount);
 			});
@@ -679,7 +685,7 @@ macro_rules! test_can_estimate_and_pay_exact_fees {
 					($crate::macros::Parent, 100_000_000_000u128),
 				);
 				let origin = OriginCaller::system($crate::macros::RawOrigin::Signed(sender.clone()));
-				let result = <Runtime as $crate::macros::DryRunApiV2<_,_,_,_>>::dry_run_call(origin, call.clone(), 
+				let result = <Runtime as $crate::macros::DryRunApiV2<_,_,_,_>>::dry_run_call(origin, call.clone(),
 					$crate::macros::XCM_VERSION).unwrap();
 				let local_xcm = result.local_xcm.unwrap().clone();
 				let local_xcm_weight = <Runtime as $crate::macros::XcmPaymentApiV1<_>>::query_xcm_weight(local_xcm).unwrap();
@@ -733,7 +739,7 @@ macro_rules! test_can_estimate_and_pay_exact_fees {
 					.forwarded_xcms
 					.iter()
 					.find(|(destination, _)| {
-						*destination == $crate::macros::VersionedLocation::from($crate::macros::Location::new(1, 
+						*destination == $crate::macros::VersionedLocation::from($crate::macros::Location::new(1,
 							[$crate::macros::Parachain(2001)]))
 					})
 					.unwrap();
@@ -759,7 +765,7 @@ macro_rules! test_can_estimate_and_pay_exact_fees {
 				let weight = <Runtime as $crate::macros::XcmPaymentApiV1<_>>::query_xcm_weight(
 					intermediate_remote_message.clone()).unwrap();
 				final_execution_fees =
-					<Runtime as $crate::macros::XcmPaymentApiV1<_>>::query_weight_to_asset_fee(weight, 
+					<Runtime as $crate::macros::XcmPaymentApiV1<_>>::query_weight_to_asset_fee(weight,
 						$crate::macros::VersionedAssetId::from($crate::macros::AssetId($crate::macros::Location::parent())))
 						.unwrap();
 			});
@@ -857,7 +863,7 @@ macro_rules! test_dry_run_transfer_across_pk_bridge {
 					weight_limit: $crate::macros::Unlimited,
 				});
 				let origin = OriginCaller::system($crate::macros::RawOrigin::Signed(who));
-				let result = <Runtime as $crate::macros::DryRunApiV2<_,_,_,_>>::dry_run_call(origin, call.clone(), 
+				let result = <Runtime as $crate::macros::DryRunApiV2<_,_,_,_>>::dry_run_call(origin, call.clone(),
 					$crate::macros::XCM_VERSION).unwrap();
 
 				// We assert the dry run succeeds and sends only one message to the local bridge hub.

@@ -14,7 +14,6 @@ workspace = true
 # Substrate
 frame-support = { workspace = true }
 pallet-balances = { workspace = true }
-pallet-xcm = { workspace = true }
 sp-runtime = { workspace = true }
 
 # Polkadot

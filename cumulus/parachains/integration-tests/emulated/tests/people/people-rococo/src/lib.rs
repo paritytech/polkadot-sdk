@@ -24,8 +24,7 @@ mod imports {
 	// Cumulus
 	pub(crate) use asset_test_utils::xcm_helpers;
 	pub(crate) use emulated_integration_tests_common::xcm_emulator::{
-		assert_expected_events, bx, Chain, Parachain as Para, Test, TestArgs,
-		TestContext, TestExt,
+		assert_expected_events, bx, Chain, Parachain as Para, Test, TestArgs, TestContext, TestExt,
 	};
 	pub(crate) use parachains_common::Balance;
 	pub(crate) use rococo_system_emulated_network::{
@@ -37,6 +36,7 @@ mod imports {
 			PeopleRococoParaPallet as PeopleRococoPallet,
 		},
 		rococo_emulated_chain::{genesis::ED as ROCOCO_ED, RococoRelayPallet as RococoPallet},
+		AssetHubRococoPara as AssetHubRococo, AssetHubRococoParaReceiver as AssetHubRococoReceiver,
 		PeopleRococoPara as PeopleRococo, PeopleRococoParaReceiver as PeopleRococoReceiver,
 		PeopleRococoParaSender as PeopleRococoSender, RococoRelay as Rococo,
 		RococoRelayReceiver as RococoReceiver, RococoRelaySender as RococoSender,
