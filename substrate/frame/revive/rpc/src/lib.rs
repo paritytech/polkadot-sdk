@@ -322,7 +322,10 @@ impl EthRpcServer for EthRpcServerImpl {
 	) -> RpcResult<Option<TransactionInfo>> {
 		let Some(receipt) = self
 			.client
-			.receipt_by_hash_and_index(&block_hash, transaction_index.as_usize())
+			.receipt_by_hash_and_index(
+				&block_hash,
+				transaction_index.try_into().map_err(|_| EthRpcError::ConversionError)?,
+			)
 			.await
 		else {
 			return Ok(None);

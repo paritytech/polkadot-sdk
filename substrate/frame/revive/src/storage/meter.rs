@@ -54,29 +54,12 @@ pub type GenericMeter<T, S> = RawMeter<T, ReservingExt, S>;
 ///
 /// This mostly exists for testing so that the charging can be mocked.
 pub trait Ext<T: Config> {
-	/// This checks whether `origin` is able to afford the storage deposit limit.
-	///
-	/// It is necessary to do this check beforehand so that the charge won't fail later on.
-	///
-	/// `origin`: The origin of the call stack from which is responsible for putting down a deposit.
-	/// `limit`: The limit with which the meter was constructed.
-	/// `min_leftover`: How much `free_balance` in addition to the existential deposit (ed) should
-	/// be left inside the `origin` account.
-	///
-	/// Returns the limit that should be used by the meter. If origin can't afford the `limit`
-	/// it returns `Err`.
-	fn check_limit(
-		origin: &T::AccountId,
-		limit: BalanceOf<T>,
-		min_leftover: BalanceOf<T>,
-	) -> Result<BalanceOf<T>, DispatchError>;
 	/// This is called to inform the implementer that some balance should be charged due to
 	/// some interaction of the `origin` with a `contract`.
 	///
 	/// The balance transfer can either flow from `origin` to `contract` or the other way
 	/// around depending on whether `amount` constitutes a `Charge` or a `Refund`.
-	/// It should be used in combination with `check_limit` to check that no more balance than this
-	/// limit is ever charged.
+	/// It will fail in case the `origin` has not enough balance to cover all storage deposits.
 	fn charge(
 		origin: &T::AccountId,
 		contract: &T::AccountId,
@@ -342,22 +325,12 @@ where
 	T: Config,
 	E: Ext<T>,
 {
-	/// Create new storage meter for the specified `origin` and `limit`.
+	/// Create new storage limiting storage deposits to the passed `limit`.
 	///
-	/// This tries to [`Ext::check_limit`] on `origin` and fails if this is not possible.
-	pub fn new(
-		origin: &Origin<T>,
-		limit: BalanceOf<T>,
-		min_leftover: BalanceOf<T>,
-	) -> Result<Self, DispatchError> {
-		// Check the limit only if the origin is not root.
-		return match origin {
-			Origin::Root => Ok(Self { limit, ..Default::default() }),
-			Origin::Signed(o) => {
-				let limit = E::check_limit(o, limit, min_leftover)?;
-				Ok(Self { limit, ..Default::default() })
-			},
-		}
+	/// If the limit larger then what the origin can afford we will just fail
+	/// when collecting the deposits in `try_into_deposit`.
+	pub fn new(limit: BalanceOf<T>) -> Self {
+		Self { limit, ..Default::default() }
 	}
 
 	/// Create new storage meter without checking the limit.
@@ -382,12 +355,18 @@ where
 				Origin::Root => return Ok(Deposit::Charge(Zero::zero())),
 				Origin::Signed(o) => o,
 			};
-			for charge in self.charges.iter().filter(|c| matches!(c.amount, Deposit::Refund(_))) {
-				E::charge(origin, &charge.contract, &charge.amount, &charge.state)?;
-			}
-			for charge in self.charges.iter().filter(|c| matches!(c.amount, Deposit::Charge(_))) {
-				E::charge(origin, &charge.contract, &charge.amount, &charge.state)?;
-			}
+			let try_charge = || {
+				for charge in self.charges.iter().filter(|c| matches!(c.amount, Deposit::Refund(_)))
+				{
+					E::charge(origin, &charge.contract, &charge.amount, &charge.state)?;
+				}
+				for charge in self.charges.iter().filter(|c| matches!(c.amount, Deposit::Charge(_)))
+				{
+					E::charge(origin, &charge.contract, &charge.amount, &charge.state)?;
+				}
+				Ok(())
+			};
+			try_charge().map_err(|_: DispatchError| <Error<T>>::StorageDepositNotEnoughFunds)?;
 		}
 
 		Ok(self.total_deposit)
@@ -462,17 +441,6 @@ impl<T: Config, E: Ext<T>> RawMeter<T, E, Nested> {
 }
 
 impl<T: Config> Ext<T> for ReservingExt {
-	fn check_limit(
-		origin: &T::AccountId,
-		limit: BalanceOf<T>,
-		min_leftover: BalanceOf<T>,
-	) -> Result<BalanceOf<T>, DispatchError> {
-		let limit = T::Currency::reducible_balance(origin, Preservation::Preserve, Polite)
-			.saturating_sub(min_leftover)
-			.min(limit);
-		Ok(limit)
-	}
-
 	fn charge(
 		origin: &T::AccountId,
 		contract: &T::AccountId,
@@ -482,8 +450,6 @@ impl<T: Config> Ext<T> for ReservingExt {
 		match amount {
 			Deposit::Charge(amount) | Deposit::Refund(amount) if amount.is_zero() => return Ok(()),
 			Deposit::Charge(amount) => {
-				// This could fail if the `origin` does not have enough liquidity. Ideally, though,
-				// this should have been checked before with `check_limit`.
 				T::Currency::transfer_and_hold(
 					&HoldReason::StorageDepositReserve.into(),
 					origin,
@@ -551,13 +517,6 @@ mod tests {
 	}
 
 	#[derive(Debug, PartialEq, Eq, Clone)]
-	struct LimitCheck {
-		origin: AccountIdOf<Test>,
-		limit: BalanceOf<Test>,
-		min_leftover: BalanceOf<Test>,
-	}
-
-	#[derive(Debug, PartialEq, Eq, Clone)]
 	struct Charge {
 		origin: AccountIdOf<Test>,
 		contract: AccountIdOf<Test>,
@@ -567,30 +526,16 @@ mod tests {
 
 	#[derive(Default, Debug, PartialEq, Eq, Clone)]
 	pub struct TestExt {
-		limit_checks: Vec<LimitCheck>,
 		charges: Vec<Charge>,
 	}
 
 	impl TestExt {
 		fn clear(&mut self) {
-			self.limit_checks.clear();
 			self.charges.clear();
 		}
 	}
 
 	impl Ext<Test> for TestExt {
-		fn check_limit(
-			origin: &AccountIdOf<Test>,
-			limit: BalanceOf<Test>,
-			min_leftover: BalanceOf<Test>,
-		) -> Result<BalanceOf<Test>, DispatchError> {
-			TestExtTestValue::mutate(|ext| {
-				ext.limit_checks
-					.push(LimitCheck { origin: origin.clone(), limit, min_leftover })
-			});
-			Ok(limit)
-		}
-
 		fn charge(
 			origin: &AccountIdOf<Test>,
 			contract: &AccountIdOf<Test>,
@@ -645,15 +590,9 @@ mod tests {
 	fn new_reserves_balance_works() {
 		clear_ext();
 
-		TestMeter::new(&Origin::from_account_id(ALICE), 1_000, 0).unwrap();
+		TestMeter::new(1_000);
 
-		assert_eq!(
-			TestExtTestValue::get(),
-			TestExt {
-				limit_checks: vec![LimitCheck { origin: ALICE, limit: 1_000, min_leftover: 0 }],
-				..Default::default()
-			}
-		)
+		assert_eq!(TestExtTestValue::get(), TestExt { ..Default::default() })
 	}
 
 	/// Previously, passing a limit of 0 meant unlimited storage for a nested call.
@@ -663,7 +602,7 @@ mod tests {
 	fn nested_zero_limit_requested() {
 		clear_ext();
 
-		let meter = TestMeter::new(&Origin::from_account_id(ALICE), 1_000, 0).unwrap();
+		let meter = TestMeter::new(1_000);
 		assert_eq!(meter.available(), 1_000);
 		let nested0 = meter.nested(BalanceOf::<Test>::zero());
 		assert_eq!(nested0.available(), 0);
@@ -673,7 +612,7 @@ mod tests {
 	fn nested_some_limit_requested() {
 		clear_ext();
 
-		let meter = TestMeter::new(&Origin::from_account_id(ALICE), 1_000, 0).unwrap();
+		let meter = TestMeter::new(1_000);
 		assert_eq!(meter.available(), 1_000);
 		let nested0 = meter.nested(500);
 		assert_eq!(nested0.available(), 500);
@@ -683,7 +622,7 @@ mod tests {
 	fn nested_all_limit_requested() {
 		clear_ext();
 
-		let meter = TestMeter::new(&Origin::from_account_id(ALICE), 1_000, 0).unwrap();
+		let meter = TestMeter::new(1_000);
 		assert_eq!(meter.available(), 1_000);
 		let nested0 = meter.nested(1_000);
 		assert_eq!(nested0.available(), 1_000);
@@ -693,7 +632,7 @@ mod tests {
 	fn nested_over_limit_requested() {
 		clear_ext();
 
-		let meter = TestMeter::new(&Origin::from_account_id(ALICE), 1_000, 0).unwrap();
+		let meter = TestMeter::new(1_000);
 		assert_eq!(meter.available(), 1_000);
 		let nested0 = meter.nested(2_000);
 		assert_eq!(nested0.available(), 1_000);
@@ -703,7 +642,7 @@ mod tests {
 	fn empty_charge_works() {
 		clear_ext();
 
-		let mut meter = TestMeter::new(&Origin::from_account_id(ALICE), 1_000, 0).unwrap();
+		let mut meter = TestMeter::new(1_000);
 		assert_eq!(meter.available(), 1_000);
 
 		// an empty charge does not create a `Charge` entry
@@ -711,13 +650,7 @@ mod tests {
 		nested0.charge(&Default::default());
 		meter.absorb(nested0, &BOB, None);
 
-		assert_eq!(
-			TestExtTestValue::get(),
-			TestExt {
-				limit_checks: vec![LimitCheck { origin: ALICE, limit: 1_000, min_leftover: 0 }],
-				..Default::default()
-			}
-		)
+		assert_eq!(TestExtTestValue::get(), TestExt { ..Default::default() })
 	}
 
 	#[test]
@@ -727,7 +660,6 @@ mod tests {
 				origin: Origin::<Test>::from_account_id(ALICE),
 				deposit: Deposit::Refund(28),
 				expected: TestExt {
-					limit_checks: vec![LimitCheck { origin: ALICE, limit: 100, min_leftover: 0 }],
 					charges: vec![
 						Charge {
 							origin: ALICE,
@@ -753,14 +685,14 @@ mod tests {
 			ChargingTestCase {
 				origin: Origin::<Test>::Root,
 				deposit: Deposit::Charge(0),
-				expected: TestExt { limit_checks: vec![], charges: vec![] },
+				expected: TestExt { charges: vec![] },
 			},
 		];
 
 		for test_case in test_cases {
 			clear_ext();
 
-			let mut meter = TestMeter::new(&test_case.origin, 100, 0).unwrap();
+			let mut meter = TestMeter::new(100);
 			assert_eq!(meter.available(), 100);
 
 			let mut nested0_info = new_info(StorageInfo {
@@ -824,7 +756,6 @@ mod tests {
 				origin: Origin::<Test>::from_account_id(ALICE),
 				deposit: Deposit::Refund(108),
 				expected: TestExt {
-					limit_checks: vec![LimitCheck { origin: ALICE, limit: 1_000, min_leftover: 0 }],
 					charges: vec![
 						Charge {
 							origin: ALICE,
@@ -844,14 +775,14 @@ mod tests {
 			ChargingTestCase {
 				origin: Origin::<Test>::Root,
 				deposit: Deposit::Charge(0),
-				expected: TestExt { limit_checks: vec![], charges: vec![] },
+				expected: TestExt { charges: vec![] },
 			},
 		];
 
 		for test_case in test_cases {
 			clear_ext();
 
-			let mut meter = TestMeter::new(&test_case.origin, 1_000, 0).unwrap();
+			let mut meter = TestMeter::new(1_000);
 			assert_eq!(meter.available(), 1_000);
 
 			let mut nested0 = meter.nested(BalanceOf::<Test>::max_value());
