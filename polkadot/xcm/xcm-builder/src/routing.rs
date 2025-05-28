@@ -277,8 +277,8 @@ impl<
 	}
 
 	fn deliver((msg, origin): Self::Ticket) -> Result<XcmHash, SendError> {
-		let unique_id = unique((&msg, &origin));
+		let hash = sp_io::hashing::blake2_256(&msg);
 		Queue::enqueue_message(msg.as_bounded_slice(), origin);
-		Ok(unique_id)
+		Ok(hash)
 	}
 }
