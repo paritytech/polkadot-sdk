@@ -21,7 +21,6 @@ use super::{
 	GeneralAdmin, ParaId, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin, StakingAdmin,
 	TransactionByteFee, Treasury, WeightToFee, XcmPallet,
 };
-use xcm_builder::Case;
 use crate::governance::pallet_custom_origins::Treasurer;
 use frame_support::{
 	parameter_types,
@@ -40,7 +39,7 @@ use westend_runtime_constants::{
 use xcm::latest::{prelude::*, WESTEND_GENESIS_HASH};
 use xcm_builder::{
 	AccountId32Aliases, AliasChildLocation, AllowExplicitUnpaidExecutionFrom,
-	AllowKnownQueryResponses, AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom,
+	AllowKnownQueryResponses, AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom, Case,
 	ChildParachainAsNative, ChildParachainConvertsVia, DescribeAllTerminal, DescribeFamily,
 	FrameTransactionalProcessor, FungibleAdapter, HashedDescription, IsChildSystemParachain,
 	IsConcrete, MintLocation, OriginToPluralityVoice, SendXcmFeeToAccount,

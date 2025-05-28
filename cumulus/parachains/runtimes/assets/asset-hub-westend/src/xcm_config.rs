@@ -46,7 +46,8 @@ use polkadot_runtime_common::xcm_sender::ExponentialPrice;
 use snowbridge_outbound_queue_primitives::v2::exporter::PausableExporter;
 use sp_runtime::traits::{AccountIdConversion, ConvertInto, TryConvertInto};
 use westend_runtime_constants::{
-	system_parachain::COLLECTIVES_ID, xcm::body::FELLOWSHIP_ADMIN_INDEX,
+	system_parachain::{ASSET_HUB_ID, COLLECTIVES_ID},
+	xcm::body::FELLOWSHIP_ADMIN_INDEX,
 };
 use xcm::latest::{prelude::*, ROCOCO_GENESIS_HASH, WESTEND_GENESIS_HASH};
 use xcm_builder::{
@@ -65,7 +66,6 @@ use xcm_builder::{
 	XcmFeeManagerFromComponents,
 };
 use xcm_executor::XcmExecutor;
-use westend_runtime_constants::system_parachain::ASSET_HUB_ID;
 
 parameter_types! {
 	pub const RootLocation: Location = Location::here();
@@ -334,7 +334,6 @@ pub type WaivedLocations = (
 	AmbassadorEntities,
 	LocalPlurality,
 );
-
 
 /// Cases where a remote origin is accepted as trusted Teleporter for a given asset:
 ///
