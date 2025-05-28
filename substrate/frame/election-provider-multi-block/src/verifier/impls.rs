@@ -151,6 +151,8 @@ pub(crate) mod pallet {
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T> {
+		/// Verification data was unavailable, either a page or score was missing.
+		VerificationDataUnavailable(DataUnavailableInfo),
 		/// A verification failed at the given page.
 		///
 		/// NOTE: if the index is 0, then this could mean either the feasibility of the last page
@@ -161,8 +163,6 @@ pub(crate) mod pallet {
 		Verified(PageIndex, u32),
 		/// A solution with the given score has replaced our current best solution.
 		Queued(ElectionScore, Option<ElectionScore>),
-		/// Verification data was unavailable, either a page or score was missing.
-		VerificationDataUnavailable(DataUnavailableInfo),
 	}
 
 	/// A wrapper interface for the storage items related to the queued solution.
@@ -628,10 +628,10 @@ pub(crate) mod pallet {
 impl<T: Config> Pallet<T> {
 	fn do_on_initialize() -> Weight {
 		if let Status::Ongoing(current_page) = Self::status_storage() {
-			let page_solution_opt =
+			let maybe_page_solution =
 				<T::SolutionDataProvider as SolutionDataProvider>::get_page(current_page);
 
-			let page_solution = match page_solution_opt {
+			let page_solution = match maybe_page_solution {
 				Some(solution) => solution,
 				None => {
 					// Treat missing pages as empty by design, but log and emit event
@@ -669,12 +669,12 @@ impl<T: Config> Pallet<T> {
 						VerifierWeightsOf::<T>::on_initialize_valid_non_terminal()
 					} else {
 						// last page, finalize everything. Check if score is available.
-						let claimed_score_opt = T::SolutionDataProvider::get_score();
+						let maybe_claimed_score = T::SolutionDataProvider::get_score();
 
 						// in both cases of the following match, we are back to the nothing state.
 						StatusStorage::<T>::put(Status::Nothing);
 
-						match claimed_score_opt {
+						match maybe_claimed_score {
 							Some(claimed_score) => {
 								match Self::finalize_async_verification(claimed_score) {
 									Ok(_) => {
