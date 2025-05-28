@@ -413,8 +413,14 @@ impl LocalNodeCacheConfig {
 		local_node_cache_max_inline_size: usize,
 	) -> Self {
 		LocalNodeCacheConfig {
-			local_node_cache_max_heap_size,
-			local_node_cache_max_inline_size,
+			local_node_cache_max_heap_size: std::cmp::max(
+				local_node_cache_max_heap_size,
+				LOCAL_NODE_CACHE_MAX_HEAP_SIZE,
+			),
+			local_node_cache_max_inline_size: std::cmp::max(
+				local_node_cache_max_inline_size,
+				LOCAL_NODE_CACHE_MAX_INLINE_SIZE,
+			),
 			shared_node_cache_max_promoted_keys: u32::MAX,
 			shared_node_cache_max_replace_percent: 100,
 		}
@@ -450,8 +456,14 @@ impl LocalValueCacheConfig {
 		LocalValueCacheConfig {
 			shared_value_cache_max_promoted_keys: u32::MAX,
 			shared_value_cache_max_replace_percent: 100,
-			local_value_cache_max_inline_size,
-			local_value_cache_max_heap_size,
+			local_value_cache_max_inline_size: std::cmp::max(
+				local_value_cache_max_inline_size,
+				LOCAL_VALUE_CACHE_MAX_INLINE_SIZE,
+			),
+			local_value_cache_max_heap_size: std::cmp::max(
+				local_value_cache_max_heap_size,
+				LOCAL_VALUE_CACHE_MAX_HEAP_SIZE,
+			),
 		}
 	}
 
