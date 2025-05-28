@@ -75,8 +75,8 @@ async fn rpc_collator_builds_blocks() -> Result<(), anyhow::Error> {
 
 	// We want to make sure that none of the consensus hook checks fail, even if the chain makes
 	// progress. If below log line occurred 1 or more times then test failed.
-	log::info!("Ensuring none of the consensus hook checks fail");
 	for node in [eve, dave] {
+		log::info!("Ensuring none of the consensus hook checks fail at {}", node.name());
 		let result = node
 			.wait_log_line_count_with_timeout(
 				"set_validation_data inherent needs to be present in every block",
@@ -85,7 +85,7 @@ async fn rpc_collator_builds_blocks() -> Result<(), anyhow::Error> {
 			)
 			.await?;
 
-		assert!(result.success());
+		assert!(result.success(), "Consensus hook failed at {}: {:?}", node.name(), result);
 	}
 
 	Ok(())

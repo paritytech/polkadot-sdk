@@ -50,7 +50,7 @@ async fn full_node_catching_up() -> Result<(), anyhow::Error> {
 
 	// We want to make sure that none of the consensus hook checks fail, even if the chain makes
 	// progress. If below log line occurred 1 or more times then test failed.
-	log::info!("Ensuring none of the consensus hook checks fail");
+	log::info!("Ensuring none of the consensus hook checks fail at charlie");
 	let result = network
 		.get_node("charlie")?
 		.wait_log_line_count_with_timeout(
@@ -60,7 +60,7 @@ async fn full_node_catching_up() -> Result<(), anyhow::Error> {
 		)
 		.await?;
 
-	assert!(result.success());
+	assert!(result.success(), "Consensus hook failed at charlie: {:?}", result);
 
 	Ok(())
 }

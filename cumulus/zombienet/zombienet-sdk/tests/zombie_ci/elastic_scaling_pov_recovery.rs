@@ -89,7 +89,7 @@ async fn elastic_scaling_pov_recovery() -> Result<(), anyhow::Error> {
 
 	// We want to make sure that none of the consensus hook checks fail, even if the chain makes
 	// progress. If below log line occurred 1 or more times then test failed.
-	log::info!("Ensuring none of the consensus hook checks fail");
+	log::info!("Ensuring none of the consensus hook checks fail at {}", collator_elastic.name());
 	let result = collator_elastic
 		.wait_log_line_count_with_timeout(
 			"set_validation_data inherent needs to be present in every block",
@@ -98,7 +98,7 @@ async fn elastic_scaling_pov_recovery() -> Result<(), anyhow::Error> {
 		)
 		.await?;
 
-	assert!(result.success());
+	assert!(result.success(), "Consensus hook failed at {}: {:?}", collator_elastic.name(), result);
 
 	// Wait (up to 10 seconds) until pattern occurs more than 35 times
 	let options = LogLineCountOptions {
@@ -107,9 +107,10 @@ async fn elastic_scaling_pov_recovery() -> Result<(), anyhow::Error> {
 		wait_until_timeout_elapses: false,
 	};
 
-	log::info!("Ensuring blocks are imported using PoV recovery");
+	let name = "recovery-target";
+	log::info!("Ensuring blocks are imported using PoV recovery by {name}");
 	let result = network
-		.get_node("recovery-target")?
+		.get_node(name)?
 		.wait_log_line_count_with_timeout(
 			"Importing blocks retrieved using pov_recovery",
 			false,
@@ -117,7 +118,7 @@ async fn elastic_scaling_pov_recovery() -> Result<(), anyhow::Error> {
 		)
 		.await?;
 
-	assert!(result.success());
+	assert!(result.success(), "Failed importing blocks using PoV recovery by {name}: {:?}", result);
 
 	log::info!("Test finished successfully");
 	Ok(())

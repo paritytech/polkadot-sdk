@@ -38,15 +38,18 @@ async fn sync_blocks_from_tip_without_connected_collator() -> Result<(), anyhow:
 	let para_ferdie = network.get_node("ferdie")?;
 	let para_eve = network.get_node("eve")?;
 
-	log::info!("Ensuring ferdie and eve are connected to 1 peer only");
+	log::info!("Ensuring eve is connected to 1 peer only");
 	assert!(para_eve.assert("sub_libp2p_peers_count", 1).await?);
+
+	log::info!("Ensuring ferdie is connected to 1 peer only");
 	assert!(para_ferdie.assert("sub_libp2p_peers_count", 1).await?);
 
-	log::info!("Ensuring ferdie and eve are syncing");
+	log::info!("Ensuring ferdie reports expected block height");
 	assert!(para_ferdie
 		.wait_metric_with_timeout(BEST_BLOCK_METRIC, |b| b > 12.0, 250u64)
 		.await
 		.is_ok());
+	log::info!("Ensuring eve reports expected block height");
 	assert!(para_eve
 		.wait_metric_with_timeout(BEST_BLOCK_METRIC, |b| b > 12.0, 250u64)
 		.await
