@@ -29,16 +29,25 @@ use alloy_core::{
 	sol_types::*,
 };
 use frame_support::{
-	traits::tokens::{
-		fungible, fungibles, DepositConsequence, Fortitude, Precision, Preservation, Provenance,
-		WithdrawConsequence,
+	traits::{
+		tokens::{
+			fungible, fungibles, DepositConsequence, Fortitude, Precision, Preservation,
+			Provenance, WithdrawConsequence,
+		},
+		OriginTrait,
 	},
 	PalletId,
 };
-use sp_core::U256;
-use sp_runtime::traits::AccountIdConversion;
+use sp_core::{H160, H256, U256};
+use sp_runtime::{
+	traits::{AccountIdConversion, Zero},
+	DispatchError,
+};
 
-use super::*;
+use super::{
+	address::AddressMapper, pallet, BalanceOf, Bounded, Config, ContractResult, DepositLimit,
+	MomentOf, Pallet, Weight,
+};
 use ethereum_standards::IERC20;
 
 const GAS_LIMIT: Weight = Weight::from_parts(1_000_000_000, 100_000);
@@ -293,7 +302,7 @@ mod tests {
 	use crate::{
 		test_utils::{builder::*, ALICE},
 		tests::{Contracts, ExtBuilder, RuntimeOrigin, Test},
-		Code,
+		Code, ContractInfoOf,
 	};
 	use frame_support::assert_ok;
 	use pallet_revive_fixtures::compile_module;
@@ -301,7 +310,8 @@ mod tests {
 	#[test]
 	fn call_erc20_contract() {
 		ExtBuilder::default().existential_deposit(1).build().execute_with(|| {
-			let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+			let _ =
+				<<Test as Config>::Currency as fungible::Mutate<_>>::set_balance(&ALICE, 1_000_000);
 			let (code, _) = compile_module("erc20").unwrap();
 			let amount = EU256::from(1000);
 			let constructor_data = sol_data::Uint::<256>::abi_encode(&amount);
@@ -325,7 +335,8 @@ mod tests {
 	#[test]
 	fn total_issuance_works() {
 		ExtBuilder::default().existential_deposit(1).build().execute_with(|| {
-			let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+			let _ =
+				<<Test as Config>::Currency as fungible::Mutate<_>>::set_balance(&ALICE, 1_000_000);
 			let (code, _) = compile_module("erc20").unwrap();
 			let amount = 1000;
 			let constructor_data = sol_data::Uint::<256>::abi_encode(&EU256::from(amount));
@@ -344,7 +355,8 @@ mod tests {
 	#[test]
 	fn get_balance_of_erc20() {
 		ExtBuilder::default().existential_deposit(1).build().execute_with(|| {
-			let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+			let _ =
+				<<Test as Config>::Currency as fungible::Mutate<_>>::set_balance(&ALICE, 1_000_000);
 			let (code, _) = compile_module("erc20").unwrap();
 			let amount = 1000;
 			let constructor_data = sol_data::Uint::<256>::abi_encode(&EU256::from(amount));
@@ -361,7 +373,8 @@ mod tests {
 	#[test]
 	fn burn_from_impl_works() {
 		ExtBuilder::default().existential_deposit(1).build().execute_with(|| {
-			let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+			let _ =
+				<<Test as Config>::Currency as fungible::Mutate<_>>::set_balance(&ALICE, 1_000_000);
 			let (code, _) = compile_module("erc20").unwrap();
 			let amount = 1000;
 			let constructor_data = sol_data::Uint::<256>::abi_encode(&(EU256::from(amount * 2)));
@@ -392,8 +405,12 @@ mod tests {
 	fn mint_into_impl_works() {
 		ExtBuilder::default().existential_deposit(1).build().execute_with(|| {
 			let checking_account = Pallet::<Test>::checking_account();
-			let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
-			let _ = <Test as Config>::Currency::set_balance(&checking_account, 1_000_000);
+			let _ =
+				<<Test as Config>::Currency as fungible::Mutate<_>>::set_balance(&ALICE, 1_000_000);
+			let _ = <<Test as Config>::Currency as fungible::Mutate<_>>::set_balance(
+				&checking_account,
+				1_000_000,
+			);
 			let (code, _) = compile_module("erc20").unwrap();
 			let amount = 1000;
 			let constructor_data = sol_data::Uint::<256>::abi_encode(&EU256::from(amount));
