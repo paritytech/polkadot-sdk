@@ -9,4 +9,4 @@ doc:
     depends on #8652
 crates:
 - name: pallet-revive
-  bump: patch
+  bump: major
