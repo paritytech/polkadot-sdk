@@ -18,8 +18,9 @@ use crate::{
 	bridge_common_config::BridgeReward,
 	xcm_config,
 	xcm_config::{RelayNetwork, RootLocation, TreasuryAccount, UniversalLocation, XcmConfig},
-	Balances, BridgeRelayers, EthereumInboundQueue, EthereumOutboundQueue, EthereumOutboundQueueV2,
-	EthereumSystem, EthereumSystemV2, MessageQueue, Runtime, RuntimeEvent, TransactionByteFee,
+	Balances, BridgeRelayers, EthereumInboundQueue, EthereumInboundQueueV2, EthereumOutboundQueue,
+	EthereumOutboundQueueV2, EthereumSystem, EthereumSystemV2, MessageQueue, Runtime, RuntimeEvent,
+	TransactionByteFee,
 };
 use bp_asset_hub_westend::CreateForeignAssetDeposit;
 use frame_support::{parameter_types, traits::Contains, weights::ConstantMultiplier};
@@ -294,6 +295,7 @@ impl Contains<Location> for AllowFromEthereumFrontend {
 impl snowbridge_pallet_system_v2::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type OutboundQueue = EthereumOutboundQueueV2;
+	type InboundQueue = EthereumInboundQueueV2;
 	type FrontendOrigin = EnsureXcm<AllowFromEthereumFrontend>;
 	type WeightInfo = crate::weights::snowbridge_pallet_system_v2::WeightInfo<Runtime>;
 	type GovernanceOrigin = EnsureRootWithSuccess<crate::AccountId, RootLocation>;
@@ -372,7 +374,6 @@ pub mod benchmark_helpers {
 }
 
 pub(crate) mod migrations {
-	use alloc::vec::Vec;
 	use frame_support::pallet_prelude::*;
 	use snowbridge_core::TokenId;
 
@@ -398,18 +399,6 @@ pub(crate) mod migrations {
 				Some(xcm::v5::Location::try_from(pre).expect("valid location"))
 			};
 			snowbridge_pallet_system::ForeignToNativeId::<T>::translate_values(translate_westend);
-
-			let old_keys = OldNativeToForeignId::<T>::iter_keys().collect::<Vec<_>>();
-			for old_key in old_keys {
-				if let Some(old_val) = OldNativeToForeignId::<T>::get(&old_key) {
-					snowbridge_pallet_system::NativeToForeignId::<T>::insert(
-						&xcm::v5::Location::try_from(old_key.clone()).expect("valid location"),
-						old_val,
-					);
-				}
-				OldNativeToForeignId::<T>::remove(old_key);
-				weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 2));
-			}
 
 			weight
 		}
