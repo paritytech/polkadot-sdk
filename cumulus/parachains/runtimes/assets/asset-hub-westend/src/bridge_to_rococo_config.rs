@@ -78,6 +78,12 @@ parameter_types! {
 	);
 
 	pub storage BridgeDeposit: Balance = 5 * WND;
+
+	// The fee for exporting/delivery.
+	pub MessageExportPrice: Assets = (
+		xcm_config::bridging::XcmBridgeHubRouterFeeAssetId::get(),
+		xcm_config::bridging::ToRococoOverAssetHubRococoXcmRouterBaseFee::get(),
+	).into();
 }
 
 /// Transaction extension that refunds relayers that are delivering messages from the Rococo
@@ -188,8 +194,7 @@ impl pallet_xcm_bridge::Config<XcmOverAssetHubRococoInstance> for Runtime {
 	type BridgedNetwork = RococoGlobalConsensusNetworkLocation;
 	type BridgeMessagesPalletInstance = WithAssetHubRococoMessagesInstance;
 
-	// TODO: FAIL-CI: we need to setup some price or configure per location?
-	type MessageExportPrice = ();
+	type MessageExportPrice = MessageExportPrice;
 	type DestinationVersion = XcmVersionOfDestAndRemoteBridge<PolkadotXcm, AssetHubRococoLocation>;
 
 	type ForceOrigin = EnsureRoot<AccountId>;
@@ -272,7 +277,6 @@ impl pallet_xcm_bridge_router::Config<ToRococoOverAssetHubRococoXcmRouterInstanc
 	// ...).
 	type UpdateBridgeStatusOrigin = EnsureRoot<AccountId>;
 
-	// TODO: FAIL-CI - fix/add new constants
 	// For adding message size fees
 	type ByteFee = xcm_config::bridging::XcmBridgeHubRouterByteFee;
 	// For adding message size fees

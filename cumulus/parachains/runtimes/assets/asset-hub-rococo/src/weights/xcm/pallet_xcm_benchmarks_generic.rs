@@ -358,13 +358,14 @@ impl<T: frame_system::Config> WeightInfo<T> {
 	/// Storage: `BridgeWestendMessages::OutboundMessages` (r:0 w:1)
 	/// Proof: `BridgeWestendMessages::OutboundMessages` (`max_values`: None, `max_size`: Some(65596), added: 68071, mode: `MaxEncodedLen`)
 	/// The range of component `x` is `[1, 1000]`.
-	pub fn export_message(_x: u32, ) -> Weight {
+	pub fn export_message(x: u32, ) -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `692`
-		//  Estimated: `6632`
-		// Minimum execution time: 64_317_000 picoseconds.
-		Weight::from_parts(115_635_000, 0)
-			.saturating_add(Weight::from_parts(0, 6632))
+		//  Measured:  `583`
+		//  Estimated: `6523`
+		// Minimum execution time: 54_537_000 picoseconds.
+		Weight::from_parts(56_626_935, 6523)
+			// Standard Error: 172
+			.saturating_add(Weight::from_parts(54_409, 0).saturating_mul(x.into()))
 			.saturating_add(T::DbWeight::get().reads(6))
 			.saturating_add(T::DbWeight::get().writes(2))
 	}
