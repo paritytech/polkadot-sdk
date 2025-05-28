@@ -381,10 +381,10 @@ pub(crate) mod pallet {
 		/// should never become `valid`.
 		pub(crate) fn compute_invalid_score() -> Result<(ElectionScore, u32), FeasibilityError> {
 			// We do NOT check for completeness of all pages here.
-			// The only caller of this function is the finalization logic, which is guaranteed
-			// to be reached only after all pages have been submitted and the score is present.
+			// This function is called during finalization logic, which can be reached even with
+			// missing/empty pages (treated as Default::default()). Missing pages are handled
+			// gracefully by the verification process before reaching this point.
 			// This avoids unnecessary storage reads and redundant checks.
-
 			let mut total_supports: BTreeMap<T::AccountId, PartialBackings> = Default::default();
 			for (who, PartialBackings { backers, total }) in
 				QueuedSolutionBackings::<T>::iter_prefix(Self::round()).flat_map(|(_, pb)| pb)
