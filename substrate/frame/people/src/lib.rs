@@ -133,9 +133,10 @@ use frame_support::{
 		},
 		Defensive, EnsureOriginWithArg, IsSubType, OriginTrait,
 	},
+	transactional,
 	weights::WeightMeter,
 };
-use frame_system::offchain::{CreateInherent, SubmitTransaction};
+use frame_system::offchain::CreateInherent;
 use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{BadOrigin, Dispatchable},
@@ -515,149 +516,82 @@ pub mod pallet {
 		}
 
 		fn on_idle(_block: BlockNumberFor<T>, limit: Weight) -> Weight {
-			let mut weight_meter = WeightMeter::with_limit(limit);
-			let remove_people_weight =
-				T::WeightInfo::remove_suspended_people(T::MaxRingSize::get());
+			let mut weight_meter = WeightMeter::with_limit(limit.saturating_div(2));
+			let on_idle_weight = T::WeightInfo::on_idle_base();
+			if !weight_meter.can_consume(on_idle_weight) {
+				return weight_meter.consumed();
+			}
+			weight_meter.consume(on_idle_weight);
+
+			let max_ring_size = T::MaxRingSize::get();
+			let remove_people_weight = T::WeightInfo::remove_suspended_people(max_ring_size);
+			let rings_state = RingsState::<T>::get();
 
 			// Check if there are any rings with suspensions and try to clean as many as possible.
-			// First check the state of the rings allow for removals and then that we have enough
-			// weight for at least one iteration.
-			if !RingsState::<T>::get().append_only() ||
-				!weight_meter.can_consume(remove_people_weight)
-			{
+			// First check the state of the rings allow for removals.
+			if !rings_state.append_only() {
+				return weight_meter.consumed();
+			}
+			// Account for the first iteration of the loop.
+			let suspension_step_weight = T::WeightInfo::pending_suspensions_iteration();
+			if !weight_meter.can_consume(suspension_step_weight) {
 				return weight_meter.consumed();
 			}
 			// Always renew the iterator because in each iteration we remove a key, which would make
 			// the old iterator unstable.
 			while let Some(ring_index) = PendingSuspensions::<T>::iter_keys().next() {
+				weight_meter.consume(suspension_step_weight);
+				// Break the loop if we run out of weight.
+				if !weight_meter.can_consume(remove_people_weight) {
+					return weight_meter.consumed();
+				}
 				if Self::should_remove_suspended_keys(ring_index, false) {
 					let actual = Self::remove_suspended_keys(ring_index);
 					weight_meter.consume(actual)
 				}
 				// Break the loop if we run out of weight.
-				if !weight_meter.can_consume(remove_people_weight) {
+				if !weight_meter.can_consume(suspension_step_weight) {
 					return weight_meter.consumed();
 				}
 			}
-			weight_meter.consumed()
-		}
 
-		fn offchain_worker(block_number: BlockNumberFor<T>) {
-			if !RingsState::<T>::get().append_only() {
-				return
+			// Ring state must be append only for both onboarding and ring building, but it is
+			// already checked above.
+
+			let onboard_people_weight = T::WeightInfo::onboard_people();
+			if !weight_meter.can_consume(onboard_people_weight) {
+				return weight_meter.consumed();
 			}
-			// Check the top ring to try to onboard people, then find the first that needs baking
+			let op_res = with_storage_layer::<(), DispatchError, _>(|| Self::onboard_people());
+			weight_meter.consume(onboard_people_weight);
+			if let Err(e) = op_res {
+				log::debug!(target: LOG_TARGET, "failed to onboard people: {:?}", e);
+			}
+
 			let current_ring = CurrentRingIndex::<T>::get();
-			let limit =
-				RingBuildingPeopleLimit::<T>::get().unwrap_or_else(OnboardingSize::<T>::get);
-			let top_ring_status = RingKeysStatus::<T>::get(current_ring);
-			let open_slots = T::MaxRingSize::get().saturating_sub(top_ring_status.total);
-			let onboarding_size = OnboardingSize::<T>::get();
-			let (mut head, tail) = QueuePageIndices::<T>::get();
-			let mut keys_to_include: u32 = OnboardingQueue::<T>::take(head).len().saturated_into();
-			// A `head != tail` condition should mean that there is at least one key in the page
-			// following this one.
-			if keys_to_include < open_slots && head != tail {
-				head = head.checked_add(1).unwrap_or(0);
-				keys_to_include = keys_to_include
-					.saturating_add(OnboardingQueue::<T>::take(head).len().saturated_into());
-			}
-			if Self::should_onboard_people(
-				current_ring,
-				&top_ring_status,
-				open_slots,
-				keys_to_include,
-				onboarding_size,
-			)
-			.is_some()
-			{
-				let res = Self::submit_unsigned_transaction(Call::onboard_people {});
-				Self::log_offchain_worker_tx_submit_result(res, "onboard_people");
-			}
-
-			// Only attempt ring baking every N blocks to reduce contention
-			if (block_number % T::RingBakingInterval::get()).saturated_into::<u32>() != 0 {
-				return;
-			}
-
+			let should_build_ring_weight = T::WeightInfo::should_build_ring(max_ring_size);
+			let build_ring_weight = T::WeightInfo::build_ring(max_ring_size);
 			for ring_index in (0..=current_ring).rev() {
-				let ring_status = RingKeysStatus::<T>::get(ring_index);
-				if Self::should_build_ring(ring_index, &ring_status, limit).is_some() {
-					let res = Self::submit_unsigned_transaction(Call::build_ring {
-						ring_index,
-						limit: Some(limit),
-					});
-					Self::log_offchain_worker_tx_submit_result(res, "build_ring");
+				if !weight_meter.can_consume(should_build_ring_weight) {
+					return weight_meter.consumed();
+				}
+
+				let maybe_to_include = Self::should_build_ring(ring_index, max_ring_size);
+				weight_meter.consume(should_build_ring_weight);
+				let Some(to_include) = maybe_to_include else { continue };
+				if !weight_meter.can_consume(build_ring_weight) {
+					return weight_meter.consumed();
+				}
+				let op_res = with_storage_layer::<(), DispatchError, _>(|| {
+					Self::build_ring(ring_index, to_include)
+				});
+				weight_meter.consume(build_ring_weight);
+				if let Err(e) = op_res {
+					log::error!(target: LOG_TARGET, "failed to build ring: {:?}", e);
 				}
 			}
-		}
-	}
 
-	#[pallet::validate_unsigned]
-	impl<T: Config> ValidateUnsigned for Pallet<T> {
-		type Call = Call<T>;
-
-		fn validate_unsigned(_source: TransactionSource, call: &Self::Call) -> TransactionValidity {
-			match call {
-				Call::build_ring { ring_index, limit } => {
-					let ring_status = RingKeysStatus::<T>::get(ring_index);
-					// Make sure the ring requires baking
-					if Self::should_build_ring(
-						*ring_index,
-						&ring_status,
-						limit.unwrap_or_else(T::MaxRingSize::get),
-					)
-					.is_none()
-					{
-						return InvalidTransaction::Stale.into();
-					}
-
-					let tx_longevity = T::MaxTaskLifespan::get();
-
-					ValidTransaction::with_tag_prefix("PersonhoodRingBaking")
-						.and_provides(ring_index)
-						.longevity(tx_longevity.saturated_into())
-						.propagate(true)
-						.build()
-				},
-				Call::onboard_people {} => {
-					let current_ring = CurrentRingIndex::<T>::get();
-					let top_ring_status = RingKeysStatus::<T>::get(current_ring);
-					let open_slots = T::MaxRingSize::get().saturating_sub(top_ring_status.total);
-					let onboarding_size = OnboardingSize::<T>::get();
-					let (mut head, tail) = QueuePageIndices::<T>::get();
-					let mut keys_to_include: u32 =
-						OnboardingQueue::<T>::get(head).len().saturated_into();
-					// A `head != tail` condition should mean that there is at least one key in the
-					// page following this one.
-					if keys_to_include < open_slots && head != tail {
-						head = head.checked_add(1).unwrap_or(0);
-						keys_to_include = keys_to_include
-							.saturating_add(OnboardingQueue::<T>::get(head).len().saturated_into());
-					}
-					// Make sure the ring requires baking
-					if Self::should_onboard_people(
-						current_ring,
-						&top_ring_status,
-						open_slots,
-						keys_to_include,
-						onboarding_size,
-					)
-					.is_none()
-					{
-						return InvalidTransaction::Stale.into();
-					}
-
-					let tx_longevity = T::MaxTaskLifespan::get();
-
-					ValidTransaction::with_tag_prefix("PersonhoodOnboarding")
-						.and_provides(current_ring)
-						.longevity(tx_longevity.saturated_into())
-						.propagate(true)
-						.build()
-				},
-				_ => Err(TransactionValidityError::Invalid(InvalidTransaction::Call)),
-			}
+			weight_meter.consumed()
 		}
 	}
 
@@ -715,24 +649,26 @@ pub mod pallet {
 	impl<T: Config> Pallet<T> {
 		/// Build a ring root by including registered people.
 		///
-		/// This is a task, origin must be none, it can be called from an unsigned transaction.
-		#[pallet::weight(T::WeightInfo::validate_unsigned_with_build_ring(limit.unwrap_or_else(T::MaxRingSize::get)))]
+		/// This task is performed automatically by the pallet through the `on_idle` hook whenever
+		/// there is leftover weight in a block. This call is meant to be a backup in case of
+		/// extreme congestion and should be submitted by signed origins.
+		#[pallet::weight(
+			T::WeightInfo::should_build_ring(
+				limit.unwrap_or_else(T::MaxRingSize::get)
+			).saturating_add(T::WeightInfo::build_ring(limit.unwrap_or_else(T::MaxRingSize::get))))]
 		#[pallet::call_index(100)]
-		pub fn build_ring(
+		pub fn build_ring_manual(
 			origin: OriginFor<T>,
 			ring_index: RingIndex,
 			limit: Option<u32>,
-		) -> DispatchResult {
-			ensure_none(origin)?;
+		) -> DispatchResultWithPostInfo {
+			ensure_signed(origin)?;
 
 			// Get the keys for this ring, and make sure that the ring is full before we build it.
 			let (keys, mut ring_status) = Self::ring_keys_and_info(ring_index);
-			let to_include = Self::should_build_ring(
-				ring_index,
-				&ring_status,
-				limit.unwrap_or_else(T::MaxRingSize::get),
-			)
-			.ok_or(Error::<T>::StillFresh)?;
+			let to_include =
+				Self::should_build_ring(ring_index, limit.unwrap_or_else(T::MaxRingSize::get))
+					.ok_or(Error::<T>::StillFresh)?;
 
 			// Get the current ring, and check it should be rebuilt.
 			// Return the next revision.
@@ -768,18 +704,20 @@ pub mod pallet {
 			let ring_root = RingRoot { root, revision: next_revision, intermediate };
 			Root::<T>::insert(ring_index, ring_root);
 
-			Ok(())
+			Ok(Pays::No.into())
 		}
 
 		/// Onboard people into a ring by taking their keys from the onboarding queue and
 		/// registering them into the ring. This does not compute the root, that is done using
 		/// `build_ring`.
 		///
-		/// This is a task, origin must be none, it can be called from an unsigned transaction.
-		#[pallet::weight(T::WeightInfo::validate_unsigned_with_onboard_people())]
+		/// This task is performed automatically by the pallet through the `on_idle` hook whenever
+		/// there is leftover weight in a block. This call is meant to be a backup in case of
+		/// extreme congestion and should be submitted by signed origins.
+		#[pallet::weight(T::WeightInfo::onboard_people())]
 		#[pallet::call_index(101)]
-		pub fn onboard_people(origin: OriginFor<T>) -> DispatchResult {
-			ensure_none(origin)?;
+		pub fn onboard_people_manual(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
+			ensure_signed(origin)?;
 
 			// Get the keys for this ring, and make sure that the ring is full before we build it.
 			let (top_ring_index, mut keys) = Self::available_ring();
@@ -867,7 +805,7 @@ pub mod pallet {
 				QueuePageIndices::<T>::put((head, tail));
 			}
 
-			Ok(())
+			Ok(Pays::No.into())
 		}
 
 		/// Task that merges two rings. In order for the rings to be eligible for merging, they must
@@ -1216,11 +1154,7 @@ pub mod pallet {
 	impl<T: Config> Pallet<T> {
 		/// If the conditions to build a ring are met, this function returns the number of people to
 		/// be included in a `build_ring` call. Otherwise, this function returns `None`.
-		fn should_build_ring(
-			ring_index: RingIndex,
-			ring_status: &RingStatus,
-			limit: u32,
-		) -> Option<u32> {
+		pub(crate) fn should_build_ring(ring_index: RingIndex, limit: u32) -> Option<u32> {
 			// Ring root cannot be built while there are people to remove.
 			if !RingsState::<T>::get().append_only() {
 				return None;
@@ -1230,6 +1164,7 @@ pub mod pallet {
 				return None;
 			}
 
+			let ring_status = RingKeysStatus::<T>::get(ring_index);
 			let not_included_count = ring_status.total.saturating_sub(ring_status.included);
 			let to_include = not_included_count.min(limit);
 			// There must be at least one person waiting to be included to build the ring.
@@ -1328,6 +1263,142 @@ pub mod pallet {
 			}
 
 			QueueMergeAction::Merge { initial_head, new_head, first_key_page, second_key_page }
+		}
+
+		/// Build a ring root by adding all people who were assigned to this ring but not yet
+		/// included into the root.
+		pub(crate) fn build_ring(ring_index: RingIndex, to_include: u32) -> DispatchResult {
+			let (keys, mut ring_status) = Self::ring_keys_and_info(ring_index);
+			// Get the current ring, and check it should be rebuilt.
+			// Return the next revision.
+			let (next_revision, mut intermediate) =
+				if let Some(existing_root) = Root::<T>::get(ring_index) {
+					// We should build a new ring. Return the new revision number we should use.
+					(
+						existing_root.revision.checked_add(1).ok_or(ArithmeticError::Overflow)?,
+						existing_root.intermediate,
+					)
+				} else {
+					// No ring has been built at this index, so we start at revision 0.
+					(0, T::Crypto::start_members())
+				};
+
+			// Push the members.
+			T::Crypto::push_members(
+				&mut intermediate,
+				keys.iter()
+					.skip(ring_status.included as usize)
+					.take(to_include as usize)
+					.cloned(),
+				Self::fetch_chunks,
+			)
+			.defensive()
+			.map_err(|_| Error::<T>::CouldNotPush)?;
+
+			// By the end of the loop, we have included the maximum number of keys in the vector.
+			ring_status.included = ring_status.included.saturating_add(to_include);
+			RingKeysStatus::<T>::insert(ring_index, ring_status);
+
+			// We create the root after pushing all members.
+			let root = T::Crypto::finish_members(intermediate.clone());
+			let ring_root = RingRoot { root, revision: next_revision, intermediate };
+			Root::<T>::insert(ring_index, ring_root);
+			Ok(())
+		}
+
+		/// Onboard as many people as possible into the available ring.
+		///
+		/// This function returns an error if there aren't enough people in the onboarding queue to
+		/// complete the operation, or if the number of remaining open slots in the ring would be
+		/// below the minimum onboarding size allowed.
+		#[transactional]
+		pub(crate) fn onboard_people() -> DispatchResult {
+			// Get the keys for this ring, and make sure that the ring is full before we build it.
+			let (top_ring_index, mut keys) = Self::available_ring();
+			let mut ring_status = RingKeysStatus::<T>::get(top_ring_index);
+			defensive_assert!(
+				keys.len() == ring_status.total as usize,
+				"Stored key count doesn't match the actual length"
+			);
+
+			let keys_len = keys.len() as u32;
+			let open_slots = T::MaxRingSize::get().saturating_sub(keys_len);
+
+			let (mut head, tail) = QueuePageIndices::<T>::get();
+			let old_head = head;
+			let mut keys_to_include: Vec<MemberOf<T>> =
+				OnboardingQueue::<T>::take(head).into_inner();
+
+			// A `head != tail` condition should mean that there is at least one key in the page
+			// following this one.
+			if keys_to_include.len() < open_slots as usize && head != tail {
+				head = head.checked_add(1).unwrap_or(0);
+				let second_key_page = OnboardingQueue::<T>::take(head);
+				defensive_assert!(!second_key_page.is_empty());
+				keys_to_include.extend(second_key_page.into_iter());
+			}
+
+			let onboarding_size = OnboardingSize::<T>::get();
+
+			let (to_include, ring_filled) = Self::should_onboard_people(
+				top_ring_index,
+				&ring_status,
+				open_slots,
+				keys_to_include.len().saturated_into(),
+				onboarding_size,
+			)
+			.ok_or(Error::<T>::Incomplete)?;
+
+			let mut remaining_keys = keys_to_include.split_off(to_include as usize);
+			for key in keys_to_include.into_iter() {
+				let personal_id = Keys::<T>::get(&key).defensive().ok_or(Error::<T>::NotPerson)?;
+				let mut record =
+					People::<T>::get(personal_id).defensive().ok_or(Error::<T>::KeyNotFound)?;
+				record.position = RingPosition::Included {
+					ring_index: top_ring_index,
+					ring_position: keys.len().saturated_into(),
+					scheduled_for_removal: false,
+				};
+				People::<T>::insert(personal_id, record);
+				keys.try_push(key).defensive().map_err(|_| Error::<T>::TooManyMembers)?;
+			}
+			RingKeys::<T>::insert(top_ring_index, keys);
+			ActiveMembers::<T>::mutate(|active| *active = active.saturating_add(to_include));
+			ring_status.total = ring_status.total.saturating_add(to_include);
+			RingKeysStatus::<T>::insert(top_ring_index, ring_status);
+
+			// Update the top ring index if this onboarding round filled the current ring.
+			if ring_filled {
+				CurrentRingIndex::<T>::mutate(|i| i.saturating_inc());
+			}
+
+			if remaining_keys.len() > T::OnboardingQueuePageSize::get() as usize {
+				let split_idx =
+					remaining_keys.len().saturating_sub(T::OnboardingQueuePageSize::get() as usize);
+				let second_page_keys: BoundedVec<MemberOf<T>, T::OnboardingQueuePageSize> =
+					remaining_keys
+						.split_off(split_idx)
+						.try_into()
+						.expect("the list shrunk so it must fit; qed");
+				let remaining_keys: BoundedVec<MemberOf<T>, T::OnboardingQueuePageSize> =
+					remaining_keys.try_into().expect("the list shrunk so it must fit; qed");
+				OnboardingQueue::<T>::insert(old_head, remaining_keys);
+				OnboardingQueue::<T>::insert(head, second_page_keys);
+				QueuePageIndices::<T>::put((old_head, tail));
+			} else if !remaining_keys.is_empty() {
+				let remaining_keys: BoundedVec<MemberOf<T>, T::OnboardingQueuePageSize> =
+					remaining_keys.try_into().expect("the list shrunk so it must fit; qed");
+				OnboardingQueue::<T>::insert(head, remaining_keys);
+				QueuePageIndices::<T>::put((head, tail));
+			} else {
+				// We have nothing to put back into the queue, so if this isn't the last page, move
+				// the head to the next page of the queue.
+				if head != tail {
+					head = head.checked_add(1).unwrap_or(0);
+				}
+				QueuePageIndices::<T>::put((head, tail));
+			}
+			Ok(())
 		}
 
 		fn derivative_call(
@@ -1522,20 +1593,6 @@ pub mod pallet {
 				"Stored key count doesn't match the actual length"
 			);
 			(keys, ring_status)
-		}
-
-		fn log_offchain_worker_tx_submit_result(res: Result<(), ()>, operation: &str) {
-			match res {
-				Ok(_) =>
-					log::info!(target: LOG_TARGET, "offchain_worker - {} transaction submitted", operation),
-				Err(e) =>
-					log::error!(target: LOG_TARGET, "offchain_worker - failed to submit {} transaction: {:?}", operation, e),
-			}
-		}
-
-		fn submit_unsigned_transaction(call: Call<T>) -> Result<(), ()> {
-			let xt = T::create_inherent(call.into());
-			SubmitTransaction::<T, Call<T>>::submit_transaction(xt)
 		}
 
 		// Given a range, returns the list of chunks that maps to the keys at those indices.

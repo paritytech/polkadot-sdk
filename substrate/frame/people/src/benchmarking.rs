@@ -26,8 +26,9 @@ use core::marker::{Send, Sync};
 use frame_benchmarking::{account, v2::*, BenchmarkError};
 use frame_support::{
 	assert_ok,
+	dispatch::RawOrigin,
 	pallet_prelude::{Get, Pays},
-	traits::OnPoll,
+	traits::{Len, OnIdle, OnPoll},
 };
 use frame_system::RawOrigin as SystemOrigin;
 use sp_runtime::{
@@ -132,11 +133,6 @@ fn prepare_chunks<T: Config>() {
 )]
 mod benches {
 	use super::*;
-	use frame_support::{
-		dispatch::RawOrigin,
-		traits::{Len, UnfilteredDispatchable},
-	};
-	use sp_runtime::{traits::ValidateUnsigned, transaction_validity::TransactionSource};
 
 	#[benchmark]
 	fn under_alias() -> Result<(), BenchmarkError> {
@@ -145,8 +141,10 @@ mod benches {
 		// Generate people and build a ring
 		let members = generate_members_for_ring::<T>(SEED);
 		recognize_people::<T>(&members);
-		assert_ok!(pallet::Pallet::<T>::onboard_people(SystemOrigin::None.into()));
-		assert_ok!(pallet::Pallet::<T>::build_ring(SystemOrigin::None.into(), RI_ZERO, None));
+		assert_ok!(pallet::Pallet::<T>::onboard_people());
+		let to_include =
+			pallet::Pallet::<T>::should_build_ring(RI_ZERO, T::MaxRingSize::get()).unwrap();
+		assert_ok!(pallet::Pallet::<T>::build_ring(RI_ZERO, to_include));
 
 		// Create account and alias
 		let account: T::AccountId = whitelisted_caller();
@@ -185,8 +183,10 @@ mod benches {
 		// Generate people and build a ring
 		let members = generate_members_for_ring::<T>(SEED);
 		recognize_people::<T>(&members);
-		assert_ok!(pallet::Pallet::<T>::onboard_people(SystemOrigin::None.into()));
-		assert_ok!(pallet::Pallet::<T>::build_ring(SystemOrigin::None.into(), RI_ZERO, None));
+		assert_ok!(pallet::Pallet::<T>::onboard_people());
+		let to_include =
+			pallet::Pallet::<T>::should_build_ring(RI_ZERO, T::MaxRingSize::get()).unwrap();
+		assert_ok!(pallet::Pallet::<T>::build_ring(RI_ZERO, to_include));
 
 		let block_number = frame_system::Pallet::<T>::block_number();
 
@@ -230,8 +230,10 @@ mod benches {
 		// Generate people and build a ring
 		let members = generate_members_for_ring::<T>(SEED);
 		recognize_people::<T>(&members);
-		assert_ok!(pallet::Pallet::<T>::onboard_people(SystemOrigin::None.into()));
-		assert_ok!(pallet::Pallet::<T>::build_ring(SystemOrigin::None.into(), RI_ZERO, None));
+		assert_ok!(pallet::Pallet::<T>::onboard_people());
+		let to_include =
+			pallet::Pallet::<T>::should_build_ring(RI_ZERO, T::MaxRingSize::get()).unwrap();
+		assert_ok!(pallet::Pallet::<T>::build_ring(RI_ZERO, to_include));
 
 		let account: T::AccountId = account("test", 0, SEED);
 		let block_number = frame_system::Pallet::<T>::block_number();
@@ -284,8 +286,10 @@ mod benches {
 		// Generate people and build a ring
 		let members = generate_members_for_ring::<T>(SEED);
 		let people = recognize_people::<T>(&members);
-		assert_ok!(pallet::Pallet::<T>::onboard_people(SystemOrigin::None.into()));
-		assert_ok!(pallet::Pallet::<T>::build_ring(SystemOrigin::None.into(), RI_ZERO, None));
+		assert_ok!(pallet::Pallet::<T>::onboard_people());
+		let to_include =
+			pallet::Pallet::<T>::should_build_ring(RI_ZERO, T::MaxRingSize::get()).unwrap();
+		assert_ok!(pallet::Pallet::<T>::build_ring(RI_ZERO, to_include));
 
 		// Get one of the generated people's information
 		let (personal_id, _, _): &(PersonalId, MemberOf<T>, SecretOf<T>) = &people[0];
@@ -319,8 +323,10 @@ mod benches {
 		// Generate people and build a ring
 		let members = generate_members_for_ring::<T>(SEED);
 		let people = recognize_people::<T>(&members);
-		assert_ok!(pallet::Pallet::<T>::onboard_people(SystemOrigin::None.into()));
-		assert_ok!(pallet::Pallet::<T>::build_ring(SystemOrigin::None.into(), RI_ZERO, None));
+		assert_ok!(pallet::Pallet::<T>::onboard_people());
+		let to_include =
+			pallet::Pallet::<T>::should_build_ring(RI_ZERO, T::MaxRingSize::get()).unwrap();
+		assert_ok!(pallet::Pallet::<T>::build_ring(RI_ZERO, to_include));
 
 		// Get one of the generated people's information
 		let (personal_id, _, _): &(PersonalId, MemberOf<T>, SecretOf<T>) = &people[0];
@@ -366,16 +372,16 @@ mod benches {
 		let members = generate_members::<T>(SEED, 0, ring_size * 2);
 
 		recognize_people::<T>(&members);
-		assert_ok!(pallet::Pallet::<T>::onboard_people(SystemOrigin::None.into()));
+		assert_ok!(pallet::Pallet::<T>::onboard_people());
 		assert_eq!(RingKeysStatus::<T>::get(RI_ZERO).total, ring_size);
 
-		assert_ok!(pallet::Pallet::<T>::onboard_people(SystemOrigin::None.into()));
+		assert_ok!(pallet::Pallet::<T>::onboard_people());
 		assert_eq!(RingKeysStatus::<T>::get(1).total, ring_size);
 
-		assert_ok!(pallet::Pallet::<T>::build_ring(SystemOrigin::None.into(), RI_ZERO, None));
+		assert_ok!(pallet::Pallet::<T>::build_ring(RI_ZERO, T::MaxRingSize::get()));
 		assert_eq!(RingKeysStatus::<T>::get(RI_ZERO).included, ring_size);
 
-		assert_ok!(pallet::Pallet::<T>::build_ring(SystemOrigin::None.into(), 1, None));
+		assert_ok!(pallet::Pallet::<T>::build_ring(1, T::MaxRingSize::get()));
 		assert_eq!(RingKeysStatus::<T>::get(1).included, ring_size);
 
 		// Suspend and remove more than half of the people in both rings
@@ -422,8 +428,10 @@ mod benches {
 		// Generate people and build a ring
 		let members = generate_members_for_ring::<T>(SEED);
 		recognize_people::<T>(&members);
-		assert_ok!(pallet::Pallet::<T>::onboard_people(SystemOrigin::None.into()));
-		assert_ok!(pallet::Pallet::<T>::build_ring(SystemOrigin::None.into(), RI_ZERO, None));
+		assert_ok!(pallet::Pallet::<T>::onboard_people());
+		let to_include =
+			pallet::Pallet::<T>::should_build_ring(RI_ZERO, T::MaxRingSize::get()).unwrap();
+		assert_ok!(pallet::Pallet::<T>::build_ring(RI_ZERO, to_include));
 
 		let temp_key = new_member_from::<T>(u32::MAX, SEED).1;
 		KeyMigrationQueue::<T>::insert(0, temp_key);
@@ -446,8 +454,10 @@ mod benches {
 		// Generate people and build a ring
 		let members = generate_members_for_ring::<T>(SEED);
 		recognize_people::<T>(&members);
-		assert_ok!(pallet::Pallet::<T>::onboard_people(SystemOrigin::None.into()));
-		assert_ok!(pallet::Pallet::<T>::build_ring(SystemOrigin::None.into(), RI_ZERO, None));
+		assert_ok!(pallet::Pallet::<T>::onboard_people());
+		let to_include =
+			pallet::Pallet::<T>::should_build_ring(RI_ZERO, T::MaxRingSize::get()).unwrap();
+		assert_ok!(pallet::Pallet::<T>::build_ring(RI_ZERO, to_include));
 
 		let temp_key = new_member_from::<T>(u32::MAX, SEED).1;
 
@@ -467,9 +477,7 @@ mod benches {
 	}
 
 	#[benchmark]
-	fn validate_unsigned_with_build_ring(
-		n: Linear<1, { T::MaxRingSize::get() }>,
-	) -> Result<(), BenchmarkError> {
+	fn should_build_ring(n: Linear<1, { T::MaxRingSize::get() }>) -> Result<(), BenchmarkError> {
 		prepare_chunks::<T>();
 
 		// One full queue page of people awaiting
@@ -477,7 +485,7 @@ mod benches {
 		let ring_size: u32 = <T as Config>::MaxRingSize::get();
 		let members = generate_members::<T>(SEED, 0, queue_page_size);
 		recognize_people::<T>(&members);
-		assert_ok!(pallet::Pallet::<T>::onboard_people(SystemOrigin::None.into()));
+		assert_ok!(pallet::Pallet::<T>::onboard_people());
 
 		// No ring built but people onboarded successfully
 		assert!(Root::<T>::get(RI_ZERO).is_none());
@@ -486,13 +494,31 @@ mod benches {
 
 		#[block]
 		{
-			let call = Call::build_ring { ring_index: RI_ZERO, limit: Some(n) };
-			<pallet::Pallet<T> as ValidateUnsigned>::validate_unsigned(
-				TransactionSource::Local,
-				&call,
-			)
-			.map_err(|e| -> &'static str { e.into() })?;
-			call.dispatch_bypass_filter(RawOrigin::None.into())?;
+			let _ = Pallet::<T>::should_build_ring(RI_ZERO, T::MaxRingSize::get());
+		}
+
+		Ok(())
+	}
+
+	#[benchmark]
+	fn build_ring(n: Linear<1, { T::MaxRingSize::get() }>) -> Result<(), BenchmarkError> {
+		prepare_chunks::<T>();
+
+		// One full queue page of people awaiting
+		let queue_page_size: u32 = <T as Config>::OnboardingQueuePageSize::get();
+		let ring_size: u32 = <T as Config>::MaxRingSize::get();
+		let members = generate_members::<T>(SEED, 0, queue_page_size);
+		recognize_people::<T>(&members);
+		assert_ok!(pallet::Pallet::<T>::onboard_people());
+
+		// No ring built but people onboarded successfully
+		assert!(Root::<T>::get(RI_ZERO).is_none());
+		assert_eq!(RingKeys::<T>::get(RI_ZERO).len(), ring_size as usize);
+		assert_eq!(RingKeysStatus::<T>::get(RI_ZERO), RingStatus { total: ring_size, included: 0 });
+
+		#[block]
+		{
+			assert_ok!(Pallet::<T>::build_ring(RI_ZERO, n));
 		}
 
 		// The ring becomes built
@@ -504,15 +530,17 @@ mod benches {
 	}
 
 	#[benchmark]
-	fn validate_unsigned_with_onboard_people() -> Result<(), BenchmarkError> {
+	fn onboard_people() -> Result<(), BenchmarkError> {
 		prepare_chunks::<T>();
 
 		// One full ring exists
 		let ring_size: u32 = <T as Config>::MaxRingSize::get();
 		let members = generate_members::<T>(SEED, 0, ring_size);
 		recognize_people::<T>(&members);
-		assert_ok!(pallet::Pallet::<T>::onboard_people(SystemOrigin::None.into()));
-		assert_ok!(pallet::Pallet::<T>::build_ring(SystemOrigin::None.into(), RI_ZERO, None));
+		assert_ok!(pallet::Pallet::<T>::onboard_people());
+		let to_include =
+			pallet::Pallet::<T>::should_build_ring(RI_ZERO, T::MaxRingSize::get()).unwrap();
+		assert_ok!(pallet::Pallet::<T>::build_ring(RI_ZERO, to_include));
 		assert_eq!(RingKeys::<T>::get(RI_ZERO).len(), ring_size as usize);
 		assert_eq!(
 			RingKeysStatus::<T>::get(RI_ZERO),
@@ -547,17 +575,42 @@ mod benches {
 
 		#[block]
 		{
-			let call = Call::onboard_people {};
-			<pallet::Pallet<T> as ValidateUnsigned>::validate_unsigned(
-				TransactionSource::Local,
-				&call,
-			)
-			.map_err(|e| -> &'static str { e.into() })?;
-			call.dispatch_bypass_filter(RawOrigin::None.into())?;
+			assert_ok!(Pallet::<T>::onboard_people());
 		}
 
 		assert_eq!(RingKeys::<T>::get(1).len(), ring_size as usize);
 		assert_eq!(RingKeysStatus::<T>::get(1), RingStatus { total: ring_size, included: 0 });
+
+		Ok(())
+	}
+
+	#[benchmark]
+	fn pending_suspensions_iteration() -> Result<(), BenchmarkError> {
+		prepare_chunks::<T>();
+
+		// Generate people and build a ring
+		let members = generate_members_for_ring::<T>(SEED);
+		let max_ring_size = T::MaxRingSize::get();
+		recognize_people::<T>(&members);
+		assert_ok!(pallet::Pallet::<T>::onboard_people());
+		let to_include = pallet::Pallet::<T>::should_build_ring(RI_ZERO, max_ring_size).unwrap();
+		assert_ok!(pallet::Pallet::<T>::build_ring(RI_ZERO, to_include));
+
+		// Suspend all people in the ring
+		assert_ok!(pallet::Pallet::<T>::start_people_set_mutation_session());
+		let suspensions: Vec<PersonalId> = (0..max_ring_size as PersonalId).collect();
+		assert_ok!(pallet::Pallet::<T>::suspend_personhood(&suspensions));
+		assert_ok!(pallet::Pallet::<T>::end_people_set_mutation_session());
+		let mut meter = WeightMeter::new();
+		pallet::Pallet::<T>::migrate_keys(&mut meter);
+
+		// To make sure they are indeed pending suspension
+		assert_eq!(PendingSuspensions::<T>::get(RI_ZERO).len(), max_ring_size as usize);
+
+		#[block]
+		{
+			assert!(PendingSuspensions::<T>::iter_keys().next().is_some());
+		}
 
 		Ok(())
 	}
@@ -571,8 +624,10 @@ mod benches {
 		// Generate people and build a ring
 		let members = generate_members_for_ring::<T>(SEED);
 		recognize_people::<T>(&members);
-		assert_ok!(pallet::Pallet::<T>::onboard_people(SystemOrigin::None.into()));
-		assert_ok!(pallet::Pallet::<T>::build_ring(SystemOrigin::None.into(), RI_ZERO, None));
+		assert_ok!(pallet::Pallet::<T>::onboard_people());
+		let to_include =
+			pallet::Pallet::<T>::should_build_ring(RI_ZERO, T::MaxRingSize::get()).unwrap();
+		assert_ok!(pallet::Pallet::<T>::build_ring(RI_ZERO, to_include));
 
 		// For later verification
 		let initial_root = Root::<T>::get(RI_ZERO).unwrap();
@@ -616,8 +671,10 @@ mod benches {
 		// Generate people and build a ring
 		let members = generate_members_for_ring::<T>(SEED);
 		recognize_people::<T>(&members);
-		assert_ok!(pallet::Pallet::<T>::onboard_people(SystemOrigin::None.into()));
-		assert_ok!(pallet::Pallet::<T>::build_ring(SystemOrigin::None.into(), RI_ZERO, None));
+		assert_ok!(pallet::Pallet::<T>::onboard_people());
+		let to_include =
+			pallet::Pallet::<T>::should_build_ring(RI_ZERO, T::MaxRingSize::get()).unwrap();
+		assert_ok!(pallet::Pallet::<T>::build_ring(RI_ZERO, to_include));
 
 		// Migrate 'n' number of people in the ring
 		for (personal_id, key) in (0..max_members as PersonalId)
@@ -716,14 +773,49 @@ mod benches {
 	}
 
 	#[benchmark]
+	fn on_idle_base() -> Result<(), BenchmarkError> {
+		prepare_chunks::<T>();
+
+		// Two pages exists: first is full, the second contains one member
+		let queue_page_size: u32 = <T as Config>::OnboardingQueuePageSize::get();
+		let ring_size = T::MaxRingSize::get();
+		let members = generate_members::<T>(SEED, 0, queue_page_size + 1);
+		recognize_people::<T>(&members);
+		assert_ok!(pallet::Pallet::<T>::onboard_people());
+
+		// No ring built but people onboarded successfully
+		assert!(Root::<T>::get(RI_ZERO).is_none());
+		assert_eq!(RingKeys::<T>::get(RI_ZERO).len(), ring_size as usize);
+		assert_eq!(RingKeysStatus::<T>::get(RI_ZERO), RingStatus { total: ring_size, included: 0 });
+		let to_include = Pallet::<T>::should_build_ring(RI_ZERO, ring_size).unwrap();
+		assert_ok!(Pallet::<T>::build_ring(RI_ZERO, to_include));
+		// The ring becomes built
+		assert!(Root::<T>::get(RI_ZERO).is_some());
+		assert_eq!(RingKeys::<T>::get(RI_ZERO).len(), ring_size as usize);
+		assert_eq!(
+			RingKeysStatus::<T>::get(RI_ZERO),
+			RingStatus { total: ring_size, included: ring_size }
+		);
+
+		#[block]
+		{
+			pallet::Pallet::<T>::on_idle(0u32.into(), Weight::MAX);
+		}
+
+		Ok(())
+	}
+
+	#[benchmark]
 	fn as_person_alias_with_account() -> Result<(), BenchmarkError> {
 		prepare_chunks::<T>();
 
 		// Generate people and build a ring
 		let members = generate_members_for_ring::<T>(SEED);
 		recognize_people::<T>(&members);
-		assert_ok!(pallet::Pallet::<T>::onboard_people(SystemOrigin::None.into()));
-		assert_ok!(pallet::Pallet::<T>::build_ring(SystemOrigin::None.into(), RI_ZERO, None));
+		assert_ok!(pallet::Pallet::<T>::onboard_people());
+		let to_include =
+			pallet::Pallet::<T>::should_build_ring(RI_ZERO, T::MaxRingSize::get()).unwrap();
+		assert_ok!(pallet::Pallet::<T>::build_ring(RI_ZERO, to_include));
 
 		// Create account and alias
 		let account: T::AccountId = account("caller", 0, SEED);
@@ -777,8 +869,10 @@ mod benches {
 		// Generate people and build a ring
 		let members = generate_members_for_ring::<T>(SEED);
 		let recognized_people = recognize_people::<T>(&members);
-		assert_ok!(pallet::Pallet::<T>::onboard_people(SystemOrigin::None.into()));
-		assert_ok!(pallet::Pallet::<T>::build_ring(SystemOrigin::None.into(), RI_ZERO, None));
+		assert_ok!(pallet::Pallet::<T>::onboard_people());
+		let to_include =
+			pallet::Pallet::<T>::should_build_ring(RI_ZERO, T::MaxRingSize::get()).unwrap();
+		assert_ok!(pallet::Pallet::<T>::build_ring(RI_ZERO, to_include));
 
 		// Select one of the generated people's information
 		let (personal_id, _, _): &(PersonalId, MemberOf<T>, SecretOf<T>) = &recognized_people[0];
@@ -827,8 +921,10 @@ mod benches {
 		let account: T::AccountId = account("caller", 0, SEED);
 		let members = generate_members_for_ring::<T>(SEED);
 		recognize_people::<T>(&members);
-		assert_ok!(pallet::Pallet::<T>::onboard_people(SystemOrigin::None.into()));
-		assert_ok!(pallet::Pallet::<T>::build_ring(SystemOrigin::None.into(), RI_ZERO, None));
+		assert_ok!(pallet::Pallet::<T>::onboard_people());
+		let to_include =
+			pallet::Pallet::<T>::should_build_ring(RI_ZERO, T::MaxRingSize::get()).unwrap();
+		assert_ok!(pallet::Pallet::<T>::build_ring(RI_ZERO, to_include));
 
 		// The call to set the alias, the only one valid for this extension code path.
 		let block_number = frame_system::Pallet::<T>::block_number();
@@ -879,8 +975,10 @@ mod benches {
 		let account: T::AccountId = account("caller", 0, SEED);
 		let members = generate_members_for_ring::<T>(SEED);
 		let recognized_people = recognize_people::<T>(&members);
-		assert_ok!(pallet::Pallet::<T>::onboard_people(SystemOrigin::None.into()));
-		assert_ok!(pallet::Pallet::<T>::build_ring(SystemOrigin::None.into(), RI_ZERO, None));
+		assert_ok!(pallet::Pallet::<T>::onboard_people());
+		let to_include =
+			pallet::Pallet::<T>::should_build_ring(RI_ZERO, T::MaxRingSize::get()).unwrap();
+		assert_ok!(pallet::Pallet::<T>::build_ring(RI_ZERO, to_include));
 
 		// Select one of the generated people's information
 		let (personal_id, _, secret): &(PersonalId, MemberOf<T>, SecretOf<T>) =

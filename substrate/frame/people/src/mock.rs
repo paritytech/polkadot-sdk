@@ -161,16 +161,24 @@ impl crate::WeightInfo for MockWeights {
 		Weight::from_parts(13, 13)
 	}
 
-	fn validate_unsigned_with_build_ring(n: u32) -> sp_runtime::Weight {
+	fn should_build_ring(n: u32) -> sp_runtime::Weight {
 		Weight::from_parts(n as u64 * 14, n as u64 * 14)
 	}
 
-	fn validate_unsigned_with_onboard_people() -> sp_runtime::Weight {
+	fn build_ring(n: u32) -> sp_runtime::Weight {
+		Weight::from_parts(n as u64 * 14, n as u64 * 14)
+	}
+
+	fn onboard_people() -> sp_runtime::Weight {
 		Weight::from_parts(15, 15)
 	}
 
 	fn remove_suspended_people(n: u32) -> sp_runtime::Weight {
 		Weight::from_parts(n as u64 * 16, n as u64 * 16)
+	}
+
+	fn pending_suspensions_iteration() -> Weight {
+		Weight::from_parts(1, 1)
 	}
 
 	fn migrate_keys_single_included_key() -> sp_runtime::Weight {
@@ -183,6 +191,10 @@ impl crate::WeightInfo for MockWeights {
 
 	fn on_poll_base() -> sp_runtime::Weight {
 		Weight::from_parts(19, 19)
+	}
+
+	fn on_idle_base() -> sp_runtime::Weight {
+		Weight::from_parts(20, 20)
 	}
 
 	fn as_person_alias_with_account() -> Weight {
