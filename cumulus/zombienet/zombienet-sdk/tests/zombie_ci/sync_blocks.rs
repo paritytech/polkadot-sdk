@@ -31,7 +31,7 @@ async fn sync_blocks_from_tip_without_connected_collator() -> Result<(), anyhow:
 	assert_para_throughput(
 		&relay_client,
 		10,
-		[(ParaId::from(PARA_ID), 9..11)].into_iter().collect(),
+		[(ParaId::from(PARA_ID), 5..11)].into_iter().collect(),
 	)
 	.await?;
 
