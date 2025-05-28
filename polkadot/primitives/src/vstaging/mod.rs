@@ -1523,7 +1523,7 @@ pub enum DisputeOffenceKind {
 }
 
 /// impl for a conversion from SlashingOffenceKind to DisputeOffenceKind
-/// This creates DisputeOffenceKind that never contains ForInvalidApproved since it was not spported in the past
+/// This creates DisputeOffenceKind that never contains ForInvalidApproved since it was not supported in the past
 impl From<super::v8::slashing::SlashingOffenceKind> for DisputeOffenceKind {
 	fn from(value: super::v8::slashing::SlashingOffenceKind) -> Self {
 		match value {
