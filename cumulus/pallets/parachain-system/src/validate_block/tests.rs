@@ -22,7 +22,7 @@ use cumulus_test_client::{
 	runtime::{
 		self as test_runtime, Block, Hash, Header, TestPalletCall, UncheckedExtrinsic, WASM_BINARY,
 	},
-	seal_block, transfer, BlockData, BlockOrigin, BuildParachainBlockData, Client,
+	seal_parachain_block_data, transfer, BlockData, BlockOrigin, BuildParachainBlockData, Client,
 	ClientBlockImportExt, DefaultTestClientBuilderExt, HeadData, InitBlockBuilder,
 	Sr25519Keyring::{Alice, Bob, Charlie},
 	TestClientBuilder, TestClientBuilderExt, ValidationParams,
@@ -256,7 +256,7 @@ fn validate_block_works() {
 	let TestBlockData { block, validation_data } =
 		build_block_with_witness(&client, Vec::new(), parent_head.clone(), Default::default());
 
-	let block = seal_block(block, &client);
+	let block = seal_parachain_block_data(block, &client);
 	let header = block.blocks()[0].header().clone();
 	let res_header =
 		call_validate_block(parent_head, block, validation_data.relay_parent_storage_root)
@@ -287,7 +287,7 @@ fn validate_multiple_blocks_work() {
 
 	assert!(block.proof().encoded_size() < 3 * 1024 * 1024);
 
-	let block = seal_block(block, &client);
+	let block = seal_parachain_block_data(block, &client);
 	let header = block.blocks().last().unwrap().header().clone();
 	let res_header = call_validate_block_elastic_scaling(
 		parent_head,
@@ -315,7 +315,7 @@ fn validate_block_with_extra_extrinsics() {
 		parent_head.clone(),
 		Default::default(),
 	);
-	let block = seal_block(block, &client);
+	let block = seal_parachain_block_data(block, &client);
 	let header = block.blocks()[0].header().clone();
 
 	let res_header =
@@ -352,7 +352,7 @@ fn validate_block_returns_custom_head_data() {
 	let header = block.blocks()[0].header().clone();
 	assert_ne!(expected_header, header.encode());
 
-	let block = seal_block(block, &client);
+	let block = seal_parachain_block_data(block, &client);
 	let res_header = call_validate_block_validation_result(
 		WASM_BINARY.expect("You need to build the WASM binaries to run the tests!"),
 		parent_head,
@@ -505,7 +505,7 @@ fn validate_block_works_with_child_tries() {
 		Default::default(),
 	);
 
-	let block = seal_block(block, &client);
+	let block = seal_parachain_block_data(block, &client);
 	let header = block.blocks()[0].header().clone();
 	let res_header =
 		call_validate_block(parent_head, block, validation_data.relay_parent_storage_root)
@@ -558,7 +558,7 @@ fn state_changes_in_multiple_blocks_are_applied_in_exact_order() {
 		);
 
 	// 3. Validate the PoV.
-	let sealed_pov_block = seal_block(pov_block_data, &client);
+	let sealed_pov_block = seal_parachain_block_data(pov_block_data, &client);
 	let final_pov_header = sealed_pov_block.blocks().last().unwrap().header().clone();
 	let res_header = call_validate_block_elastic_scaling(
 		initial_block_header, // The parent is the head of the initial block before the PoV
@@ -585,7 +585,7 @@ fn validate_block_handles_ump_signal() {
 		Default::default(),
 	);
 
-	let block = seal_block(block, &client);
+	let block = seal_parachain_block_data(block, &client);
 	let upward_messages = call_validate_block_validation_result(
 		test_runtime::elastic_scaling::WASM_BINARY
 			.expect("You need to build the WASM binaries to run the tests!"),
