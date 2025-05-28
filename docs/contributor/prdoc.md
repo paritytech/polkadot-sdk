@@ -124,26 +124,28 @@ By putting `validate: false` for `frame-example`, the version bump is ignored by
 
 ### Backporting PRs
 
-When backporting changes to a stable release branch (e.g. `stable-2503`), stricter versioning rules apply to minimise
-risk for downstream users.
+When [backporting changes](../BACKPORT.md) to a stable release branch (e.g. `stable2503`), stricter versioning rules
+apply to minimise risk for downstream users.
 
 #### ✅ Allowed Bump Levels
 
-Only the following `bump` levels are allowed:
+Only the following `bump` levels are allowed by default:
 
-- `none`: No observable change. There should be no detectable difference between old and new versions.
-- `patch`: Bug fixes or internal changes that do not alter functionality and cannot cause compilation errors.
+- `none`: No observable change. No detectable difference between old and new versions.
+- `patch`: Bug fixes or internal changes. Do not affect functionality or cause compilation errors.
+- `minor`: Backward-compatible additions. Safe to adopt; adds features only, no behaviour changes.
 
-Backport PRs with `minor` or `major` bumps will fail CI.
+Backport PRs with `major` bumps will fail CI.
 
 #### 🚨 Overriding the CI Check
 
-If a `minor` or `major` bump is truly needed, you must:
+If a `major` bump is truly needed, you must:
 
-1. Set `validate: false` in the `.prdoc`, see [Overwrite CI Check](#overwrite-ci-check).
-2. Explain the reason in the PR description, including:
+1. Set `validate: false` in the `.prdoc`. See [Overwrite CI Check](#overwrite-ci-check).
+2. Include a justification in the PR description explaining:
     - Why the bump is necessary.
     - Why it is safe for downstream users.
 3. Notify a release engineer or senior reviewer for approval.
 
-> Use this override sparingly and only if you’re confident it won't introduce regressions.
+> Use this override sparingly, and only when you’re confident the change is safe and justified.
+
