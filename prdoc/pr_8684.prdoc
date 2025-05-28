@@ -1,11 +1,12 @@
 title: Add optional auto-rebag within on-idle
 doc:
 - audience: Runtime Dev
-  description: Implemented an `on_idle` hook for automatic rebagging of accounts,
-    enabling incremental correction of account positions within the bags-list during
-    the idle phase of block execution. Introduced new storages and configurable constants
-    to support this functionality, along with improvements in logging and internal
-    helpers.
+  description: Introduced an optional `on_idle` hook for automatic account rebagging,
+    improving the incremental correction of account positions within the bags-list
+    during block execution's idle phase. This feature leverages new storage and
+    configurable constants, alongside enhanced logging and internal helpers.
+    Setting `AutoRebagPerBlock` to `0` (e.g., `type AutoRebagPerBlock = ();`)
+    disables this functionality, preserving pre-upgrade pallet behavior.
 crates:
 - name: pallet-bags-list
   bump: minor
