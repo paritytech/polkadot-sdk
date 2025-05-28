@@ -71,7 +71,6 @@ pub fn call_allowed_status(call: &<Runtime as frame_system::Config>::RuntimeCall
 	const OFF: bool = false;
 
 	let during_migration = match call {
-		AhMigrator(..) => ON,
 		AhOps(..) => OFF,
 		AssetConversion(..) => ON,
 		AssetRate(..) => OFF,

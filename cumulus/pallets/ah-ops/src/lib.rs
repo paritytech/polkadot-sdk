@@ -312,7 +312,8 @@ pub mod pallet {
 		) -> DispatchResult {
 			ensure_root(origin)?;
 
-			Self::do_migrate_parachain_sovereign_acc(&from, &to).map_err(Into::into)
+			//Self::do_migrate_parachain_sovereign_acc(&from, &to).map_err(Into::into)
+			Err(Error::<T>::InternalError.into())
 		}
 
 		/// Force unreserve a named or unnamed reserve.
@@ -419,7 +420,7 @@ pub mod pallet {
 			contrib_iter.next().is_none()
 		}
 
-		pub fn do_migrate_parachain_sovereign_acc(
+		/*pub fn do_migrate_parachain_sovereign_acc(
 			from: &T::AccountId,
 			to: &T::AccountId,
 		) -> Result<(), Error<T>> {
@@ -518,7 +519,7 @@ pub mod pallet {
 
 			// Reapply the locks
 			for lock in &locks {
-				let reasons = pallet_rc_migrator::types::map_lock_reason(lock.reasons);
+				let reasons =  pallet_rc_migrator::types::map_lock_reason(lock.reasons);
 				<T as Config>::Currency::set_lock(lock.id, &to, lock.amount, reasons);
 			}
 			// Reapply the freezes
@@ -544,7 +545,7 @@ pub mod pallet {
 			});
 
 			Ok(())
-		}
+		}*/
 
 		pub fn do_force_unreserve(
 			account: T::AccountId,
