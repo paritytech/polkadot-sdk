@@ -27,7 +27,7 @@ fn para_origin_assertions(t: SystemParaToRelayTest) {
 	type RuntimeEvent = <AssetHubWestend as Chain>::RuntimeEvent;
 
 	AssetHubWestend::assert_xcm_pallet_attempted_complete(Some(Weight::from_parts(
-		730_053_000,
+		302_568_000,
 		4_000,
 	)));
 
