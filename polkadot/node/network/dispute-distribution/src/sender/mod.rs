@@ -266,23 +266,36 @@ impl<M: 'static + Send + Sync> DisputeSender<M> {
 
 		// Iterates in order of insertion:
 		let mut should_rate_limit = true;
+		// The number of disputes we have sent requests for before we hiy the rate limit.
+		let mut sent_after_rate_limit = 0;
 		for (candidate_hash, dispute) in self.disputes.iter_mut() {
 			if have_new_sessions || dispute.has_failed_sends() {
 				if should_rate_limit {
 					self.rate_limit
 						.limit("while going through new sessions/failed sends", *candidate_hash)
 						.await;
+					sent_after_rate_limit = 0;
 				}
 				let sends_happened = dispute
 					.refresh_sends(ctx, runtime, &self.active_sessions, &self.metrics)
 					.await?;
-				// Only rate limit if we actually sent something out _and_ it was not just because
+
+				if sends_happened {
+					sent_after_rate_limit += 1;
+				}
+
+				// Rate limit if we actually sent something out _and_ it was not just because
 				// of errors on previous sends.
 				//
 				// Reasoning: It would not be acceptable to slow down the whole subsystem, just
 				// because of a few bad peers having problems. It is actually better to risk
 				// running into their rate limit in that case and accept a minor reputation change.
-				should_rate_limit = sends_happened && have_new_sessions;
+				//
+				// Additionally, receiver's queue is limited to `PEER_QUEUE_CAPACITY`. If we send
+				// too much DisputeRequests we might fill in that queue quickly and get our requests
+				// rejected.
+				should_rate_limit = sends_happened && have_new_sessions ||
+					sent_after_rate_limit > crate::receiver::PEER_QUEUE_CAPACITY;
 			}
 		}
 		Ok(())
