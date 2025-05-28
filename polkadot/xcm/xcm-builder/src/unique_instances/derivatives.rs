@@ -2,9 +2,13 @@
 
 use core::marker::PhantomData;
 use frame_support::ensure;
-use sp_runtime::DispatchResult;
+use sp_runtime::{traits::FallibleConvert, DispatchResult, DispatchError};
 use xcm::latest::prelude::*;
 use xcm_executor::traits::{Error, MatchesInstance};
+use frame_support::traits::{
+	Incrementable,
+	tokens::asset_ops::{Create, common_strategies::{WithConfig, DeriveAndReportId, ConfigValueMarker}}
+};
 
 use super::NonFungibleAsset;
 
@@ -20,9 +24,67 @@ pub trait DerivativesRegistry<Original, Derivative> {
 
 	fn try_deregister_derivative_of(original: &Original) -> DispatchResult;
 
-	fn get_derivative(original: &Original) -> Option<Derivative>;
+	fn get_derivative(original: &Original) -> Result<Derivative, DispatchError>;
 
-	fn get_original(derivative: &Derivative) -> Option<Original>;
+	fn get_original(derivative: &Derivative) -> Result<Original, DispatchError>;
+}
+
+/// The `OriginalToDerivativeConvert` uses the provided [DerivativesRegistry] to
+/// convert the `Original` value to the `Derivative` one.
+pub struct OriginalToDerivativeConvert<R>(PhantomData<R>);
+impl<Original, Derivative, R: DerivativesRegistry<Original, Derivative>>
+	FallibleConvert<Original, Derivative> for OriginalToDerivativeConvert<R>
+{
+	fn fallible_convert(a: Original) -> Result<Derivative, DispatchError> {
+		R::get_derivative(&a)
+	}
+}
+
+/// The `DerivativeToOriginalConvert` uses the provided [DerivativesRegistry] to
+/// convert the `Derivative` value to the `Original` one.
+pub struct DerivativeToOriginalConvert<R>(PhantomData<R>);
+impl<Original, Derivative, R: DerivativesRegistry<Original, Derivative>>
+	FallibleConvert<Derivative, Original> for DerivativeToOriginalConvert<R>
+{
+	fn fallible_convert(a: Derivative) -> Result<Original, DispatchError> {
+		R::get_original(&a)
+	}
+}
+
+/// The `RegisterDerivative` implements a creation operation with `DeriveAndReportId`,
+/// which takes the `Original` and derives the corresponding `Derivative`.
+///
+/// The mapping between them will be registered via the registry `R`.
+pub struct RegisterDerivative<R, CreateOp>(PhantomData<(R, CreateOp)>);
+impl<Original, Derivative, R, CreateOp> Create<DeriveAndReportId<Original, Derivative>> for RegisterDerivative<R, CreateOp>
+where
+	Original: Clone,
+	R: DerivativesRegistry<Original, Derivative>,
+	CreateOp: Create<DeriveAndReportId<Original, Derivative>>
+{
+	fn create(id_assignment: DeriveAndReportId<Original, Derivative>) -> Result<Derivative, DispatchError> {
+		let original = id_assignment.params;
+		let derivative = CreateOp::create(DeriveAndReportId::from(original.clone()))?;
+		R::try_register_derivative(&original, &derivative)?;
+
+		Ok(derivative)
+	}
+}
+impl<Original, Derivative, R, Config, CreateOp> Create<WithConfig<Config, DeriveAndReportId<Original, Derivative>>> for RegisterDerivative<R, CreateOp>
+where
+	Original: Clone,
+	R: DerivativesRegistry<Original, Derivative>,
+	Config: ConfigValueMarker,
+	CreateOp: Create<WithConfig<Config, DeriveAndReportId<Original, Derivative>>>
+{
+	fn create(strategy: WithConfig<Config, DeriveAndReportId<Original, Derivative>>) -> Result<Derivative, DispatchError> {
+		let WithConfig { config, extra: id_assignment } = strategy;
+		let original = id_assignment.params;
+		let derivative = CreateOp::create(WithConfig::new(config, DeriveAndReportId::from(original.clone())))?;
+		R::try_register_derivative(&original, &derivative)?;
+
+		Ok(derivative)
+	}
 }
 
 /// Iterator utilities for a derivatives registry.
@@ -41,6 +103,54 @@ pub trait DerivativesExtra<Derivative, Extra> {
 	fn set_derivative_extra(derivative: &Derivative, extra: Option<Extra>) -> DispatchResult;
 }
 
+/// The `ConcatIncrementalExtra` implements a creation operation that takes a derivative.
+/// It takes the derivative's extra data and passes the tuple of the derivative and its extra data to the underlying `CreateOp`
+///(i.e., concatenates the derivative and its extra).
+///
+/// The extra data gets incremented using the [Incrementable::increment] function, and the new extra value is set for the given derivative.
+/// The initial extra value is produced using the [Incrementable::initial_value] function.
+pub struct ConcatIncrementalExtra<Derivative, Extra, Registry, CreateOp>(PhantomData<(Derivative, Extra, Registry, CreateOp)>);
+impl<Derivative, Extra, ReportedId, Registry, CreateOp> Create<DeriveAndReportId<Derivative, ReportedId>> for ConcatIncrementalExtra<Derivative, Extra, Registry, CreateOp>
+where
+	Extra: Incrementable,
+	Registry: DerivativesExtra<Derivative, Extra>,
+	CreateOp: Create<DeriveAndReportId<(Derivative, Extra), ReportedId>>,
+{
+	fn create(id_assignment: DeriveAndReportId<Derivative, ReportedId>) -> Result<ReportedId, DispatchError> {
+		let derivative = id_assignment.params;
+
+		let id = Registry::get_derivative_extra(&derivative)
+			.or(Extra::initial_value())
+			.ok_or(DispatchError::Other("ConcatIncrementalExtra: unable to initialize incremental derivative extra"))?;
+		let next_id = id.increment().ok_or(DispatchError::Other("ConcatIncrementalExtra: failed to increment the id"))?;
+
+		Registry::set_derivative_extra(&derivative, Some(next_id))?;
+
+		CreateOp::create(DeriveAndReportId::from((derivative, id)))
+	}
+}
+impl<Config, Derivative, Extra, ReportedId, Registry, CreateOp> Create<WithConfig<Config, DeriveAndReportId<Derivative, ReportedId>>> for ConcatIncrementalExtra<Derivative, Extra, Registry, CreateOp>
+where
+	Config: ConfigValueMarker,
+	Extra: Incrementable,
+	Registry: DerivativesExtra<Derivative, Extra>,
+	CreateOp: Create<WithConfig<Config, DeriveAndReportId<(Derivative, Extra), ReportedId>>>,
+{
+	fn create(strategy: WithConfig<Config, DeriveAndReportId<Derivative, ReportedId>>) -> Result<ReportedId, DispatchError> {
+		let WithConfig { config, extra: id_assignment } = strategy;
+		let derivative = id_assignment.params;
+
+		let id = Registry::get_derivative_extra(&derivative)
+			.or(Extra::initial_value())
+			.ok_or(DispatchError::Other("ConcatIncrementalExtra: no derivative extra is found"))?;
+		let next_id = id.increment().ok_or(DispatchError::Other("ConcatIncrementalExtra: failed to increment the id"))?;
+
+		Registry::set_derivative_extra(&derivative, Some(next_id))?;
+
+		CreateOp::create(WithConfig::new(config, DeriveAndReportId::from((derivative, id))))
+	}
+}
+
 /// The `MatchDerivativeInstances` is an XCM Matcher
 /// that uses a [`DerivativesRegistry`] to match the XCM identification of the original instance
 /// to a derivative instance.
@@ -52,7 +162,7 @@ impl<Registry: DerivativesRegistry<NonFungibleAsset, DerivativeId>, DerivativeId
 		match asset.fun {
 			Fungibility::NonFungible(asset_instance) =>
 				Registry::get_derivative(&(asset.id.clone(), asset_instance))
-					.ok_or(Error::AssetNotHandled),
+					.map_err(|_| Error::AssetNotHandled),
 			Fungibility::Fungible(_) => Err(Error::AssetNotHandled),
 		}
 	}
@@ -87,7 +197,7 @@ impl<
 	fn matches_instance(asset: &Asset) -> Result<DerivativeId, Error> {
 		let instance_id = Matcher::matches_instance(asset)?;
 
-		ensure!(Registry::get_original(&instance_id).is_none(), Error::AssetNotHandled);
+		ensure!(Registry::get_original(&instance_id).is_err(), Error::AssetNotHandled);
 
 		Ok(instance_id)
 	}

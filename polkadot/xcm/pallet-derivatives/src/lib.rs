@@ -15,19 +15,73 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//! The purpose of the `pallet-derivatives` is to cover the following derivative asset support scenarios:
+//! 1. The `pallet-derivatives` can serve as an API for creating and destroying derivatives.
+//! 2. It can store a mapping between the foreign original ID (e.g., XCM `AssetId` or `(AssetId, AssetInstance)`) and the local derivative ID.
+//!
+//! The scenarios can be combined.
+//!
+//! ### Motivation
+//! 
+//! The motivation differs depending on the scenario in question.
+//!
+//! #### The first scenario
+//!
+//! The `pallet-derivatives` can be helpful when another pallet, which hosts the derivative assets,
+//! doesn't provide a good enough way to create new assets in the context of them being derivatives.
+//!
+//! This mainly concerns derivative NFT collections because they should be creatable by an unprivileged user,
+//! in contrast to how fungible derivative assets are usually registered using a privileged origin (root or some collective).
+//!
+//! Fungible derivatives require a privileged origin to be registered since they could be used as fee payment assets.
+//! Conversely, Derivative NFT collections contain unique derivative objects that don't affect the chain's fee system.
+//! They don't represent a payment asset but rather some logical entity that can interact with the given chain's functionality (e.g., NFT fractionalization).
+//! These interactions can be the reason why a user might want to transfer an NFT.
+//!
+//! Requiring a privileged origin in this case is raising an unreasonable barrier for NFT interoperability between chains.
+//!
+//! However, a local NFT-hosting pallet might not provide a way for a regular user to create a derivative collection
+//! without giving that user ownership and collection configuration capabilities
+//! (e.g., `pallet-nfts` creates a collection owned by the transaction signer and always requires the signer to supply the collection's initial configuration).
+//! A regular user should not be able to influence the properties of a derivative collection and, of course, should not be its owner.
+//! The chain itself should manage such a collection in some way (e.g., by providing ownership to the reserve location's sovereign account).
+//!
+//! In this case, an intermediate API is needed to create derivative NFT collections safely. The `pallet-derivatives` provides such an API.
+//! The `create_derivative` and `destroy_derivative` take only the original ID value as a parameter, and the pallet's config completely defines the actual logic.
+//!
+//! NOTE: Currently, only the bare minimum data can be assigned to the derivative collections since the only thing available during the creation is its original ID.
+//! The transaction signer is untrusted, so we can't allow them to provide additional data.
+//! However, in the future, this pallet might be configured to send an XCM program with the `ReportMetadata` instruction (XCM v6)
+//! during the `create_derivative` execution to fetch the metadata from the reserve origin itself.
+//!
+//! #### The second scenario
+//!
+//! Saving the mapping between the original ID and the derivative ID is needed when their types differ
+//! and the derivative ID value can't be deterministically deduced from the original ID.
+//!
+//! This situation can arise in the following cases:
+//! * The original ID type is incompatible with a derivative ID type.
+//! For example, let `pallet-nfts` instance host derivative NFT collections. We can't set the `CollectionId` (the derivative ID type) to XCM `AssetId` (the original ID type)
+//! because `pallet-nfts` requires `CollectionId` to be incrementable.
+//! * It is desired to have a continuous ID space for all objects, both derivative and local.
+//! For instance, one might want to reuse the existing pallet combinations (like `pallet-nfts` instance + `pallet-nfts-fractionalization` instance)
+//! without adding new pallet instances between the one hosting NFTs and many special logic pallets.
+//! In this case, the original ID type would be `(AssetId, AssetInstance)`, and the derivative ID type can be anything.
+
 #![recursion_limit = "256"]
 // Ensure we're `no_std` when compiling for Wasm.
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use frame_support::{
 	pallet_prelude::*,
-	traits::tokens::asset_ops::{
-		common_strategies::JustDo, AssetDefinition, Create, CreateStrategy, Destroy,
-		DestroyStrategy,
+	traits::{
+		tokens::asset_ops::{
+		common_strategies::{CheckOrigin, DeriveAndReportId},
+		AssetDefinition, Create, Destroy,
+		},
 	},
 };
-use frame_system::{pallet_prelude::*, EnsureNever};
-use scale_info::TypeInfo;
+use frame_system::pallet_prelude::*;
 use sp_runtime::DispatchResult;
 use xcm_builder::unique_instances::{
 	derivatives::{DerivativesRegistry, IterDerivativesRegistry},
@@ -39,8 +93,18 @@ pub use pallet::*;
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
 
+#[cfg(test)]
+mod mock;
+
+#[cfg(test)]
+mod tests;
+
 /// The log target of this pallet.
 pub const LOG_TARGET: &'static str = "runtime::xcm::derivatives";
+
+/// A helper type representing the intention to store
+/// the mapping between the original and the given derivative.
+pub struct SaveMappingTo<Derivative>(pub Derivative);
 
 type OriginalOf<T, I> = <T as Config<I>>::Original;
 type DerivativeOf<T, I> = <T as Config<I>>::Derivative;
@@ -58,18 +122,35 @@ pub mod pallet {
 	pub struct Pallet<T, I = ()>(PhantomData<(T, I)>);
 
 	#[pallet::config]
-	/// The module configuration trait.
 	pub trait Config<I: 'static = ()>: frame_system::Config {
-		/// The overarching event type.
-		type RuntimeEvent: From<Event<Self, I>>
-			+ IsType<<Self as frame_system::Config>::RuntimeEvent>;
+		type WeightInfo: WeightInfo;
 
+		/// The type of an original
 		type Original: Member + Parameter + MaxEncodedLen;
+
+		/// The type of a derivative
 		type Derivative: Member + Parameter + MaxEncodedLen;
 
+		/// Optional derivative extra data
 		type DerivativeExtra: Member + Parameter + MaxEncodedLen;
 
-		type ExtrinsicsConfig: ExtrinsicsConfig<Self::RuntimeOrigin, Self::Derivative>;
+		/// Derivative creation operation.
+		/// Used in the `create_derivative` extrinsic.
+		///
+		/// Can be configured to save the mapping between the original and the derivative
+		/// if it returns `Some(SaveMappingTo(DERIVATIVE))`.
+		///
+		/// If the extrinsic isn't used, this type can be set to [AlwaysErrOps](frame_support::traits::tokens::asset_ops::utils::AlwaysErrOps).
+		type CreateOp: Create<CheckOrigin<
+			Self::RuntimeOrigin,
+			DeriveAndReportId<Self::Original, Option<SaveMappingTo<Self::Derivative>>>
+		>>;
+
+		/// Derivative destruction operation.
+		/// Used in the `destroy_derivative` extrinsic.
+		///
+		/// If the extrinsic isn't used, this type can be set to [AlwaysErrOps](frame_support::traits::tokens::asset_ops::utils::AlwaysErrOps).
+		type DestroyOp: AssetDefinition<Id = Self::Original> + Destroy<CheckOrigin<Self::RuntimeOrigin>>;
 	}
 
 	#[pallet::storage]
@@ -90,11 +171,14 @@ pub mod pallet {
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(crate) fn deposit_event)]
 	pub enum Event<T: Config<I>, I: 'static = ()> {
-		/// A derivative is registered.
-		DerivativeRegistered { original: OriginalOf<T, I>, derivative: DerivativeOf<T, I> },
+		/// A derivative is created.
+		DerivativeCreated { original: OriginalOf<T, I> },
 
-		/// A derivative is de-registered.
-		DerivativeDeregistered { original: OriginalOf<T, I>, derivative: DerivativeOf<T, I> },
+		/// A mapping between an original asset ID and a local derivative asset ID is created.
+		DerivativeMappingCreated { original: OriginalOf<T, I>, derivative_id: DerivativeOf<T, I> },
+
+		/// A derivative is destroyed.
+		DerivativeDestroyed { original: OriginalOf<T, I> },
 	}
 
 	#[pallet::error]
@@ -113,21 +197,30 @@ pub mod pallet {
 
 		/// Failed to get an original.
 		OriginalNotFound,
+
+		/// Invalid asset to register as a derivative
+		InvalidAsset,
 	}
 
-	#[pallet::call(weight(WeightInfoOf<T, I>))]
+	#[pallet::call(weight(T::WeightInfo))]
 	impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		#[pallet::call_index(0)]
 		pub fn create_derivative(
 			origin: OriginFor<T>,
 			original: OriginalOf<T, I>,
-			derivative_create_params: DerivativeCreateParamsOf<T, I>,
 		) -> DispatchResult {
-			<CreateOriginOf<T, I>>::ensure_origin(origin)?;
+			let maybe_save_mapping = T::CreateOp::create(CheckOrigin::new(
+				origin,
+				DeriveAndReportId::from(original.clone()),
+			))?;
 
-			let derivative = <DerivativeCreateOpOf<T, I>>::create(derivative_create_params)?;
+			if let Some(SaveMappingTo(derivative)) = maybe_save_mapping {
+				Self::try_register_derivative(&original, &derivative)?;
+			}
 
-			Self::try_register_derivative(&original, &derivative)
+			Self::deposit_event(Event::<T, I>::DerivativeCreated { original });
+
+			Ok(())
 		}
 
 		#[pallet::call_index(1)]
@@ -135,14 +228,13 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			original: OriginalOf<T, I>,
 		) -> DispatchResult {
-			<DestroyOriginOf<T, I>>::ensure_origin(origin)?;
+			T::DestroyOp::destroy(&original, CheckOrigin::check(origin))?;
 
-			let derivative = <OriginalToDerivative<T, I>>::get(&original)
-				.ok_or(Error::<T, I>::NoDerivativeToDeregister)?;
+			if Self::get_derivative(&original).is_ok() {
+				Self::try_deregister_derivative_of(&original)?;
+			}
 
-			<DerivativeDestroyOpOf<T, I>>::destroy(&derivative, JustDo::default())?;
-
-			Self::try_deregister_derivative_of(&original)
+			Ok(())
 		}
 	}
 }
@@ -162,10 +254,7 @@ impl<T: Config<I>, I: 'static> DerivativesRegistry<OriginalOf<T, I>, DerivativeO
 		<OriginalToDerivative<T, I>>::insert(original, derivative);
 		<DerivativeToOriginal<T, I>>::insert(derivative, original);
 
-		Self::deposit_event(Event::<T, I>::DerivativeRegistered {
-			original: original.clone(),
-			derivative: derivative.clone(),
-		});
+		Self::deposit_event(Event::<T, I>::DerivativeCreated { original: original.clone() });
 
 		Ok(())
 	}
@@ -177,20 +266,17 @@ impl<T: Config<I>, I: 'static> DerivativesRegistry<OriginalOf<T, I>, DerivativeO
 		<DerivativeToOriginal<T, I>>::remove(&derivative);
 		<DerivativeExtra<T, I>>::remove(&derivative);
 
-		Self::deposit_event(Event::<T, I>::DerivativeDeregistered {
-			original: original.clone(),
-			derivative: derivative.clone(),
-		});
+		Self::deposit_event(Event::<T, I>::DerivativeDestroyed { original: original.clone() });
 
 		Ok(())
 	}
 
-	fn get_derivative(original: &OriginalOf<T, I>) -> Option<DerivativeOf<T, I>> {
-		<OriginalToDerivative<T, I>>::get(original)
+	fn get_derivative(original: &OriginalOf<T, I>) -> Result<DerivativeOf<T, I>, DispatchError> {
+		<OriginalToDerivative<T, I>>::get(original).ok_or(Error::<T, I>::DerivativeNotFound.into())
 	}
 
-	fn get_original(derivative: &DerivativeOf<T, I>) -> Option<OriginalOf<T, I>> {
-		<DerivativeToOriginal<T, I>>::get(derivative)
+	fn get_original(derivative: &DerivativeOf<T, I>) -> Result<OriginalOf<T, I>, DispatchError> {
+		<DerivativeToOriginal<T, I>>::get(derivative).ok_or(Error::<T, I>::OriginalNotFound.into())
 	}
 }
 
@@ -248,84 +334,62 @@ impl WeightInfo for TestWeightInfo {
 	}
 }
 
-pub struct ProhibitiveWeightInfo;
-impl WeightInfo for ProhibitiveWeightInfo {
-	fn create_derivative() -> Weight {
-		Weight::MAX
-	}
+/// The `NoStoredMapping` adapter calls the `CreateOp` (which should take the `Original` value and return a `Derivative` one)
+/// and returns `None`, indicating that the mapping between the original and the derivative shouldn't be saved.
+pub struct NoStoredMapping<CreateOp>(PhantomData<CreateOp>);
+impl<RuntimeOrigin, CreateOp, Original, Derivative>
+	Create<
+		CheckOrigin<RuntimeOrigin, DeriveAndReportId<Original, Option<SaveMappingTo<Derivative>>>>,
+	> for NoStoredMapping<CreateOp>
+where
+	CreateOp: Create<CheckOrigin<RuntimeOrigin, DeriveAndReportId<Original, Derivative>>>,
+{
+	fn create(
+		strategy: CheckOrigin<
+			RuntimeOrigin,
+			DeriveAndReportId<Original, Option<SaveMappingTo<Derivative>>>,
+		>,
+	) -> Result<Option<SaveMappingTo<Derivative>>, DispatchError> {
+		let CheckOrigin(origin, strategy) = strategy;
 
-	fn destroy_derivative() -> Weight {
-		Weight::MAX
-	}
-}
+		CreateOp::create(CheckOrigin::new(origin, DeriveAndReportId::from(strategy.params)))?;
 
-pub trait ExtrinsicsConfig<RuntimeOrigin, Derivative> {
-	type CreateOrigin: EnsureOrigin<RuntimeOrigin>;
-	type DestroyOrigin: EnsureOrigin<RuntimeOrigin>;
-
-	type DerivativeCreateParams: Parameter + CreateStrategy<Success = Derivative>;
-	type DerivativeCreateOp: Create<Self::DerivativeCreateParams>;
-	type DerivativeDestroyOp: AssetDefinition<Id = Derivative> + Destroy<JustDo>;
-
-	type WeightInfo: WeightInfo;
-}
-
-impl<O, D: Parameter + 'static> ExtrinsicsConfig<O, D> for () {
-	type CreateOrigin = EnsureNever<()>;
-	type DestroyOrigin = EnsureNever<()>;
-
-	type DerivativeCreateParams = DerivativeEmptyParams<D>;
-	type DerivativeCreateOp = DerivativeAlwaysErrOps<D>;
-	type DerivativeDestroyOp = DerivativeAlwaysErrOps<D>;
-
-	type WeightInfo = ProhibitiveWeightInfo;
-}
-
-#[derive(Encode, Decode, TypeInfo, RuntimeDebug, Clone, PartialEq, Eq)]
-pub struct DerivativeEmptyParams<Derivative>(PhantomData<Derivative>);
-impl<Derivative> CreateStrategy for DerivativeEmptyParams<Derivative> {
-	type Success = Derivative;
-}
-
-pub struct DerivativeAlwaysErrOps<Derivative>(PhantomData<Derivative>);
-impl<Derivative> AssetDefinition for DerivativeAlwaysErrOps<Derivative> {
-	type Id = Derivative;
-}
-impl<D, S: CreateStrategy> Create<S> for DerivativeAlwaysErrOps<D> {
-	fn create(_strategy: S) -> Result<S::Success, DispatchError> {
-		Err(DispatchError::BadOrigin)
-	}
-}
-impl<D, S: DestroyStrategy> Destroy<S> for DerivativeAlwaysErrOps<D> {
-	fn destroy(_id: &Self::Id, _strategy: S) -> Result<S::Success, DispatchError> {
-		Err(DispatchError::BadOrigin)
+		Ok(None)
 	}
 }
 
-pub type ExtrinsicsConfigOf<T, I> = <T as Config<I>>::ExtrinsicsConfig;
-type RuntimeOriginOf<T> = <T as frame_system::Config>::RuntimeOrigin;
+/// The `StoreMapping` adapter obtains a `Derivative` value by calling the `CreateOp`
+/// (which should take the `Original` value and return a `Derivative` one),
+/// and returns `Some(SaveMappingTo(DERIVATIVE_VALUE))`, indicating that the mapping should be saved.
+pub struct StoreMapping<CreateOp>(PhantomData<CreateOp>);
+impl<RuntimeOrigin, CreateOp, Original, Derivative>
+	Create<
+		CheckOrigin<RuntimeOrigin, DeriveAndReportId<Original, Option<SaveMappingTo<Derivative>>>>,
+	> for StoreMapping<CreateOp>
+where
+	CreateOp: Create<CheckOrigin<RuntimeOrigin, DeriveAndReportId<Original, Derivative>>>,
+{
+	fn create(
+		strategy: CheckOrigin<
+			RuntimeOrigin,
+			DeriveAndReportId<Original, Option<SaveMappingTo<Derivative>>>,
+		>,
+	) -> Result<Option<SaveMappingTo<Derivative>>, DispatchError> {
+		let CheckOrigin(origin, strategy) = strategy;
 
-pub type CreateOriginOf<T, I> = <ExtrinsicsConfigOf<T, I> as ExtrinsicsConfig<
-	RuntimeOriginOf<T>,
-	DerivativeOf<T, I>,
->>::CreateOrigin;
-pub type DestroyOriginOf<T, I> = <ExtrinsicsConfigOf<T, I> as ExtrinsicsConfig<
-	RuntimeOriginOf<T>,
-	DerivativeOf<T, I>,
->>::DestroyOrigin;
-pub type DerivativeCreateParamsOf<T, I> = <ExtrinsicsConfigOf<T, I> as ExtrinsicsConfig<
-	RuntimeOriginOf<T>,
-	DerivativeOf<T, I>,
->>::DerivativeCreateParams;
-pub type DerivativeCreateOpOf<T, I> = <ExtrinsicsConfigOf<T, I> as ExtrinsicsConfig<
-	RuntimeOriginOf<T>,
-	DerivativeOf<T, I>,
->>::DerivativeCreateOp;
-pub type DerivativeDestroyOpOf<T, I> = <ExtrinsicsConfigOf<T, I> as ExtrinsicsConfig<
-	RuntimeOriginOf<T>,
-	DerivativeOf<T, I>,
->>::DerivativeDestroyOp;
-pub type WeightInfoOf<T, I> = <ExtrinsicsConfigOf<T, I> as ExtrinsicsConfig<
-	RuntimeOriginOf<T>,
-	DerivativeOf<T, I>,
->>::WeightInfo;
+		let derivative =
+			CreateOp::create(CheckOrigin::new(origin, DeriveAndReportId::from(strategy.params)))?;
+
+		Ok(Some(SaveMappingTo(derivative)))
+	}
+}
+
+/// Gets the `InvalidAsset` error from the given `pallet-derivatives` instance.
+pub struct InvalidAssetError<Pallet>(PhantomData<Pallet>);
+impl<T: Config<I>, I: 'static> TypedGet for InvalidAssetError<Pallet<T, I>> {
+	type Type = Error::<T, I>;
+
+	fn get() -> Self::Type {
+		Error::<T, I>::InvalidAsset
+	}
+}

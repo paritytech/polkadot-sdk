@@ -109,24 +109,23 @@ where
 }
 
 /// The `UniqueInstancesDepositAdapter` implements the [`TransactAsset`] to create unique instances
-/// (NFT-like entities), for which no `Matcher` deduce the instance ID from the XCM
+/// (NFT-like entities), for which no `Matcher` can deduce the instance ID from the XCM
 /// [`AssetId`]. Instead, this adapter requires the `InstanceCreateOp` to create an instance using
-/// [`NonFungibleAsset`] as derive id parameters.
-pub struct UniqueInstancesDepositAdapter<AccountId, AccountIdConverter, InstanceCreateOp>(
-	PhantomData<(AccountId, AccountIdConverter, InstanceCreateOp)>,
+/// [`NonFungibleAsset`] as ID derivation parameter.
+pub struct UniqueInstancesDepositAdapter<AccountId, AccountIdConverter, Id, InstanceCreateOp>(
+	PhantomData<(AccountId, AccountIdConverter, Id, InstanceCreateOp)>,
 );
 
-impl<AccountId, AccountIdConverter, InstanceCreateOp> TransactAsset
-	for UniqueInstancesDepositAdapter<AccountId, AccountIdConverter, InstanceCreateOp>
+impl<AccountId, AccountIdConverter, Id, InstanceCreateOp> TransactAsset
+	for UniqueInstancesDepositAdapter<AccountId, AccountIdConverter, Id, InstanceCreateOp>
 where
 	AccountIdConverter: ConvertLocation<AccountId>,
-	InstanceCreateOp: AssetDefinition
-		+ Create<
-			WithConfig<
-				ConfigValue<Owner<AccountId>>,
-				DeriveAndReportId<NonFungibleAsset, InstanceCreateOp::Id>,
-			>,
+	InstanceCreateOp: Create<
+		WithConfig<
+			ConfigValue<Owner<AccountId>>,
+			DeriveAndReportId<NonFungibleAsset, Id>,
 		>,
+	>,
 {
 	fn deposit_asset(what: &Asset, who: &Location, context: Option<&XcmContext>) -> XcmResult {
 		tracing::trace!(
