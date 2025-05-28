@@ -346,15 +346,26 @@ pub struct MultipleBlocksPerPoVCoreSelector;
 
 impl SelectCore for MultipleBlocksPerPoVCoreSelector {
 	fn selected_core() -> (CoreSelector, ClaimQueueOffset) {
-		let core_selector = (System::block_number().saturating_sub(1) / BlocksPerPoV::get())
-			.using_encoded(|b| b[0]);
+		let blocks_per_pov = BlocksPerPoV::get();
+
+		if blocks_per_pov == 0 {
+			return (CoreSelector(0), ClaimQueueOffset(0))
+		}
+
+		let core_selector =
+			(System::block_number().saturating_sub(1) / blocks_per_pov).using_encoded(|b| b[0]);
 
 		(CoreSelector(core_selector), ClaimQueueOffset(0))
 	}
 
 	fn select_next_core() -> (CoreSelector, ClaimQueueOffset) {
-		let core_selector =
-			((System::block_number()) / BlocksPerPoV::get()).using_encoded(|b| b[0]);
+		let blocks_per_pov = BlocksPerPoV::get();
+
+		if blocks_per_pov == 0 {
+			return (CoreSelector(0), ClaimQueueOffset(0))
+		}
+
+		let core_selector = ((System::block_number()) / blocks_per_pov).using_encoded(|b| b[0]);
 
 		(CoreSelector(core_selector), ClaimQueueOffset(0))
 	}

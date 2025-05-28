@@ -77,7 +77,7 @@ fn call_validate_block_elastic_scaling(
 	relay_parent_storage_root: Hash,
 ) -> cumulus_test_client::ExecutorResult<Header> {
 	call_validate_block_validation_result(
-		test_runtime::elastic_scaling::WASM_BINARY
+		test_runtime::elastic_scaling_500ms::WASM_BINARY
 			.expect("You need to build the WASM binaries to run the tests!"),
 		parent_head,
 		block_data,
@@ -209,7 +209,6 @@ fn build_multiple_blocks_with_witness(
 		let built_block = block_builder.build().unwrap();
 
 		futures::executor::block_on({
-			dbg!(i);
 			let parent_hash = *built_block.block.header.parent_hash();
 			let state = client.state_at(parent_hash).unwrap();
 
@@ -519,7 +518,8 @@ fn state_changes_in_multiple_blocks_are_applied_in_exact_order() {
 	sp_tracing::try_init_simple();
 
 	let blocks_per_pov = 12;
-	let (client, genesis_head) = create_elastic_scaling_test_client(blocks_per_pov);
+	// disable the core selection logic
+	let (client, genesis_head) = create_elastic_scaling_test_client(0);
 
 	// 1. Build the initial block that stores values in the map.
 	let TestBlockData { block: initial_block_data, .. } = build_block_with_witness(
