@@ -16,7 +16,7 @@
 // limitations under the License.
 
 use super::{
-	common_strategies::{CheckOrigin, DeriveAndReportId, WithConfig, ConfigValueMarker},
+	common_strategies::{CheckOrigin, ConfigValueMarker, DeriveAndReportId, WithConfig},
 	*,
 };
 use crate::{sp_runtime::traits::FallibleConvert, traits::EnsureOriginWithArg};
@@ -104,28 +104,35 @@ where
 }
 
 /// The `MapId` is an adapter that implements all the asset ops implemented by the `Op`.
-/// The adapter allows `IdA` to be used instead of `IdB` for every `Op` operation that uses `IdB` as instance ID.
-/// The `IdA` value will be converted to `IdB` by the mapper `M` and supplied to the `Op`'s corresponding operation implementation.
+/// The adapter allows `IdA` to be used instead of `IdB` for every `Op` operation that uses `IdB` as
+/// instance ID. The `IdA` value will be converted to `IdB` by the mapper `M` and supplied to the
+/// `Op`'s corresponding operation implementation.
 pub struct MapId<IdA, IdB, M, Op>(PhantomData<(IdA, IdB, M, Op)>);
-impl<IdA, IdB, ReportedId, M, CreateOp> Create<DeriveAndReportId<IdA, ReportedId>> for MapId<IdA, IdB, M, CreateOp>
+impl<IdA, IdB, ReportedId, M, CreateOp> Create<DeriveAndReportId<IdA, ReportedId>>
+	for MapId<IdA, IdB, M, CreateOp>
 where
 	M: FallibleConvert<IdA, IdB>,
-	CreateOp: Create<DeriveAndReportId<IdB, ReportedId>>
+	CreateOp: Create<DeriveAndReportId<IdB, ReportedId>>,
 {
-	fn create(id_assignment: DeriveAndReportId<IdA, ReportedId>) -> Result<ReportedId, DispatchError> {
+	fn create(
+		id_assignment: DeriveAndReportId<IdA, ReportedId>,
+	) -> Result<ReportedId, DispatchError> {
 		let id_a = id_assignment.params;
 		let id_b = M::fallible_convert(id_a)?;
 
 		CreateOp::create(DeriveAndReportId::from(id_b))
 	}
 }
-impl<Config, IdA, IdB, ReportedId, M, CreateOp> Create<WithConfig<Config, DeriveAndReportId<IdA, ReportedId>>> for MapId<IdA, IdB, M, CreateOp>
+impl<Config, IdA, IdB, ReportedId, M, CreateOp>
+	Create<WithConfig<Config, DeriveAndReportId<IdA, ReportedId>>> for MapId<IdA, IdB, M, CreateOp>
 where
 	Config: ConfigValueMarker,
 	M: FallibleConvert<IdA, IdB>,
-	CreateOp: Create<WithConfig<Config, DeriveAndReportId<IdB, ReportedId>>>
+	CreateOp: Create<WithConfig<Config, DeriveAndReportId<IdB, ReportedId>>>,
 {
-	fn create(strategy: WithConfig<Config, DeriveAndReportId<IdA, ReportedId>>) -> Result<ReportedId, DispatchError> {
+	fn create(
+		strategy: WithConfig<Config, DeriveAndReportId<IdA, ReportedId>>,
+	) -> Result<ReportedId, DispatchError> {
 		let WithConfig { config, extra: id_assignment } = strategy;
 		let id_a = id_assignment.params;
 		let id_b = M::fallible_convert(id_a)?;
@@ -181,8 +188,7 @@ where
 		Op::stash(&id, strategy)
 	}
 }
-impl<Id, M, S, Op> Restore<S>
-	for MapId<Id, Op::Id, M, Op>
+impl<Id, M, S, Op> Restore<S> for MapId<Id, Op::Id, M, Op>
 where
 	M: FallibleConvert<Id, Op::Id>,
 	S: RestoreStrategy,
@@ -196,10 +202,13 @@ where
 	}
 }
 
-/// This adapter allows one to derive a [CreateStrategy] value from the ID derivation parameters from the [DeriveAndReportId].
+/// This adapter allows one to derive a [CreateStrategy] value from the ID derivation parameters
+/// from the [DeriveAndReportId].
 ///
 /// The instance will be created using the derived strategy.
-pub struct DeriveStrategyThenCreate<Strategy, DeriveCfg, CreateOp>(PhantomData<(Strategy, DeriveCfg, CreateOp)>);
+pub struct DeriveStrategyThenCreate<Strategy, DeriveCfg, CreateOp>(
+	PhantomData<(Strategy, DeriveCfg, CreateOp)>,
+);
 impl<Params, Strategy, DeriveCfg, CreateOp> Create<DeriveAndReportId<Params, Strategy::Success>>
 	for DeriveStrategyThenCreate<Strategy, DeriveCfg, CreateOp>
 where
@@ -207,7 +216,9 @@ where
 	DeriveCfg: FallibleConvert<Params, Strategy>,
 	CreateOp: Create<Strategy>,
 {
-	fn create(id_assignment: DeriveAndReportId<Params, Strategy::Success>) -> Result<Strategy::Success, DispatchError> {
+	fn create(
+		id_assignment: DeriveAndReportId<Params, Strategy::Success>,
+	) -> Result<Strategy::Success, DispatchError> {
 		let strategy = DeriveCfg::fallible_convert(id_assignment.params)?;
 
 		CreateOp::create(strategy)

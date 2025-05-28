@@ -120,12 +120,8 @@ impl<AccountId, AccountIdConverter, Id, InstanceCreateOp> TransactAsset
 	for UniqueInstancesDepositAdapter<AccountId, AccountIdConverter, Id, InstanceCreateOp>
 where
 	AccountIdConverter: ConvertLocation<AccountId>,
-	InstanceCreateOp: Create<
-		WithConfig<
-			ConfigValue<Owner<AccountId>>,
-			DeriveAndReportId<NonFungibleAsset, Id>,
-		>,
-	>,
+	InstanceCreateOp:
+		Create<WithConfig<ConfigValue<Owner<AccountId>>, DeriveAndReportId<NonFungibleAsset, Id>>>,
 {
 	fn deposit_asset(what: &Asset, who: &Location, context: Option<&XcmContext>) -> XcmResult {
 		tracing::trace!(

@@ -587,7 +587,8 @@ impl<A, B: Default> Convert<A, B> for () {
 	}
 }
 
-/// Fallible conversion returning either the converted value or the [DispatchError](crate::DispatchError) on failure.
+/// Fallible conversion returning either the converted value or the
+/// [DispatchError](crate::DispatchError) on failure.
 pub trait FallibleConvert<A, B> {
 	/// Attempt to make conversion.
 	fn fallible_convert(a: A) -> Result<B, crate::DispatchError>;
@@ -600,7 +601,6 @@ impl<A, B, T: Convert<A, B>> FallibleConvert<A, B> for AsFallibleConvert<T> {
 		Ok(T::convert(a))
 	}
 }
-
 
 /// Reversing infallible conversion trait. Generic over both source and destination types.
 ///

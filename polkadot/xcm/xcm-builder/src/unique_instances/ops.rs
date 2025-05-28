@@ -2,10 +2,16 @@
 
 use core::marker::PhantomData;
 use frame_support::traits::tokens::asset_ops::{
-	common_strategies::{ChangeOwnerFrom, Owner, WithConfig, ConfigValue, CheckState, IfOwnedBy, DeriveAndReportId, AutoId},
+	common_strategies::{
+		AutoId, ChangeOwnerFrom, CheckState, ConfigValue, DeriveAndReportId, IfOwnedBy, Owner,
+		WithConfig,
+	},
 	AssetDefinition, Restore, RestoreStrategy, Stash, StashStrategy, Update, UpdateStrategy,
 };
-use sp_runtime::{traits::{Convert, TypedGet, FallibleConvert, parameter_types}, DispatchError, DispatchResult};
+use sp_runtime::{
+	traits::{parameter_types, Convert, FallibleConvert, TypedGet},
+	DispatchError, DispatchResult,
+};
 
 use super::NonFungibleAsset;
 use xcm::latest::prelude::*;
@@ -71,16 +77,22 @@ where
 	}
 }
 
-/// The `UniqueInstancesWithStashAccount` adds the `Stash` and `Restore` implementations to an NFT engine
-/// capable of transferring a token from one account to another (i.e. implementing `Update<ChangeOwnerFrom<AccountId>>`).
+/// The `UniqueInstancesWithStashAccount` adds the `Stash` and `Restore` implementations to an NFT
+/// engine capable of transferring a token from one account to another (i.e. implementing
+/// `Update<ChangeOwnerFrom<AccountId>>`).
 ///
 /// On stash, it will transfer the token from the current owner to the `StashAccount`.
 /// On restore, it will transfer the token from the `StashAccount` to the given beneficiary.
-pub struct UniqueInstancesWithStashAccount<StashAccount, UpdateOp>(PhantomData<(StashAccount, UpdateOp)>);
-impl<StashAccount, UpdateOp: AssetDefinition> AssetDefinition for UniqueInstancesWithStashAccount<StashAccount, UpdateOp> {
+pub struct UniqueInstancesWithStashAccount<StashAccount, UpdateOp>(
+	PhantomData<(StashAccount, UpdateOp)>,
+);
+impl<StashAccount, UpdateOp: AssetDefinition> AssetDefinition
+	for UniqueInstancesWithStashAccount<StashAccount, UpdateOp>
+{
 	type Id = UpdateOp::Id;
 }
-impl<StashAccount: TypedGet, UpdateOp> Update<ChangeOwnerFrom<StashAccount::Type>> for UniqueInstancesWithStashAccount<StashAccount, UpdateOp>
+impl<StashAccount: TypedGet, UpdateOp> Update<ChangeOwnerFrom<StashAccount::Type>>
+	for UniqueInstancesWithStashAccount<StashAccount, UpdateOp>
 where
 	StashAccount::Type: 'static,
 	UpdateOp: Update<ChangeOwnerFrom<StashAccount::Type>>,
@@ -93,7 +105,8 @@ where
 		UpdateOp::update(id, strategy, update)
 	}
 }
-impl<StashAccount, UpdateOp> Restore<WithConfig<ConfigValue<Owner<StashAccount::Type>>>> for UniqueInstancesWithStashAccount<StashAccount, UpdateOp>
+impl<StashAccount, UpdateOp> Restore<WithConfig<ConfigValue<Owner<StashAccount::Type>>>>
+	for UniqueInstancesWithStashAccount<StashAccount, UpdateOp>
 where
 	StashAccount: TypedGet,
 	StashAccount::Type: 'static,
@@ -108,16 +121,14 @@ where
 		UpdateOp::update(id, ChangeOwnerFrom::check(StashAccount::get()), &beneficiary)
 	}
 }
-impl<StashAccount, UpdateOp> Stash<IfOwnedBy<StashAccount::Type>> for UniqueInstancesWithStashAccount<StashAccount, UpdateOp>
+impl<StashAccount, UpdateOp> Stash<IfOwnedBy<StashAccount::Type>>
+	for UniqueInstancesWithStashAccount<StashAccount, UpdateOp>
 where
 	StashAccount: TypedGet,
 	StashAccount::Type: 'static,
 	UpdateOp: Update<ChangeOwnerFrom<StashAccount::Type>>,
 {
-	fn stash(
-		id: &Self::Id,
-		strategy: IfOwnedBy<StashAccount::Type>,
-	) -> DispatchResult {
+	fn stash(id: &Self::Id, strategy: IfOwnedBy<StashAccount::Type>) -> DispatchResult {
 		let CheckState(check_owner, ..) = strategy;
 
 		UpdateOp::update(id, ChangeOwnerFrom::check(check_owner), &StashAccount::get())
@@ -136,33 +147,45 @@ parameter_types! {
 	pub OwnerConvertedLocationDefaultErr: DispatchError = DispatchError::Other("OwnerConvertedLocation: failed to convert the location");
 }
 
-/// Converts a given `AssetId` to a `WithConfig` strategy with the owner account set to the asset's location converted to an account ID.
-pub struct OwnerConvertedLocation<CL, IdAssignment, Err = OwnerConvertedLocationDefaultErr>(PhantomData<(CL, IdAssignment, Err)>);
-impl<AccountId, CL, Err, ReportedId> FallibleConvert<
-	AssetId,
-	WithConfig<ConfigValue<Owner<AccountId>>, DeriveAndReportId<AssetId, ReportedId>>,
-> for OwnerConvertedLocation<CL, DeriveAndReportId<AssetId, ReportedId>, Err>
+/// Converts a given `AssetId` to a `WithConfig` strategy with the owner account set to the asset's
+/// location converted to an account ID.
+pub struct OwnerConvertedLocation<CL, IdAssignment, Err = OwnerConvertedLocationDefaultErr>(
+	PhantomData<(CL, IdAssignment, Err)>,
+);
+impl<AccountId, CL, Err, ReportedId>
+	FallibleConvert<
+		AssetId,
+		WithConfig<ConfigValue<Owner<AccountId>>, DeriveAndReportId<AssetId, ReportedId>>,
+	> for OwnerConvertedLocation<CL, DeriveAndReportId<AssetId, ReportedId>, Err>
 where
 	CL: ConvertLocation<AccountId>,
 	Err: TypedGet,
 	Err::Type: Into<DispatchError>,
 {
-	fn fallible_convert(AssetId(location): AssetId) -> Result<WithConfig<ConfigValue<Owner<AccountId>>, DeriveAndReportId<AssetId, ReportedId>>, DispatchError> {
+	fn fallible_convert(
+		AssetId(location): AssetId,
+	) -> Result<
+		WithConfig<ConfigValue<Owner<AccountId>>, DeriveAndReportId<AssetId, ReportedId>>,
+		DispatchError,
+	> {
 		CL::convert_location(&location)
-			.map(|account| WithConfig::new(ConfigValue(account), DeriveAndReportId::from(AssetId(location))))
+			.map(|account| {
+				WithConfig::new(ConfigValue(account), DeriveAndReportId::from(AssetId(location)))
+			})
 			.ok_or(Err::get().into())
 	}
 }
-impl<AccountId, CL, Err, ReportedId> FallibleConvert<
-	AssetId,
-	WithConfig<ConfigValue<Owner<AccountId>>, AutoId<ReportedId>>,
-> for OwnerConvertedLocation<CL, AutoId<ReportedId>, Err>
+impl<AccountId, CL, Err, ReportedId>
+	FallibleConvert<AssetId, WithConfig<ConfigValue<Owner<AccountId>>, AutoId<ReportedId>>>
+	for OwnerConvertedLocation<CL, AutoId<ReportedId>, Err>
 where
 	CL: ConvertLocation<AccountId>,
 	Err: TypedGet,
 	Err::Type: Into<DispatchError>,
 {
-	fn fallible_convert(AssetId(location): AssetId) -> Result<WithConfig<ConfigValue<Owner<AccountId>>, AutoId<ReportedId>>, DispatchError> {
+	fn fallible_convert(
+		AssetId(location): AssetId,
+	) -> Result<WithConfig<ConfigValue<Owner<AccountId>>, AutoId<ReportedId>>, DispatchError> {
 		CL::convert_location(&location)
 			.map(|account| WithConfig::new(ConfigValue(account), AutoId::auto()))
 			.ok_or(Err::get().into())

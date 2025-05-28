@@ -15,14 +15,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! The purpose of the `pallet-derivatives` is to cover the following derivative asset support scenarios:
+//! The purpose of the `pallet-derivatives` is to cover the following derivative asset support
+//! scenarios:
 //! 1. The `pallet-derivatives` can serve as an API for creating and destroying derivatives.
-//! 2. It can store a mapping between the foreign original ID (e.g., XCM `AssetId` or `(AssetId, AssetInstance)`) and the local derivative ID.
+//! 2. It can store a mapping between the foreign original ID (e.g., XCM `AssetId` or `(AssetId,
+//!    AssetInstance)`) and the local derivative ID.
 //!
 //! The scenarios can be combined.
 //!
 //! ### Motivation
-//! 
+//!
 //! The motivation differs depending on the scenario in question.
 //!
 //! #### The first scenario
@@ -30,43 +32,54 @@
 //! The `pallet-derivatives` can be helpful when another pallet, which hosts the derivative assets,
 //! doesn't provide a good enough way to create new assets in the context of them being derivatives.
 //!
-//! This mainly concerns derivative NFT collections because they should be creatable by an unprivileged user,
-//! in contrast to how fungible derivative assets are usually registered using a privileged origin (root or some collective).
+//! This mainly concerns derivative NFT collections because they should be creatable by an
+//! unprivileged user, in contrast to how fungible derivative assets are usually registered using a
+//! privileged origin (root or some collective).
 //!
-//! Fungible derivatives require a privileged origin to be registered since they could be used as fee payment assets.
-//! Conversely, Derivative NFT collections contain unique derivative objects that don't affect the chain's fee system.
-//! They don't represent a payment asset but rather some logical entity that can interact with the given chain's functionality (e.g., NFT fractionalization).
-//! These interactions can be the reason why a user might want to transfer an NFT.
+//! Fungible derivatives require a privileged origin to be registered since they could be used as
+//! fee payment assets. Conversely, Derivative NFT collections contain unique derivative objects
+//! that don't affect the chain's fee system. They don't represent a payment asset but rather some
+//! logical entity that can interact with the given chain's functionality (e.g., NFT
+//! fractionalization). These interactions can be the reason why a user might want to transfer an
+//! NFT.
 //!
-//! Requiring a privileged origin in this case is raising an unreasonable barrier for NFT interoperability between chains.
+//! Requiring a privileged origin in this case is raising an unreasonable barrier for NFT
+//! interoperability between chains.
 //!
-//! However, a local NFT-hosting pallet might not provide a way for a regular user to create a derivative collection
-//! without giving that user ownership and collection configuration capabilities
-//! (e.g., `pallet-nfts` creates a collection owned by the transaction signer and always requires the signer to supply the collection's initial configuration).
-//! A regular user should not be able to influence the properties of a derivative collection and, of course, should not be its owner.
-//! The chain itself should manage such a collection in some way (e.g., by providing ownership to the reserve location's sovereign account).
+//! However, a local NFT-hosting pallet might not provide a way for a regular user to create a
+//! derivative collection without giving that user ownership and collection configuration
+//! capabilities (e.g., `pallet-nfts` creates a collection owned by the transaction signer and
+//! always requires the signer to supply the collection's initial configuration). A regular user
+//! should not be able to influence the properties of a derivative collection and, of course, should
+//! not be its owner. The chain itself should manage such a collection in some way (e.g., by
+//! providing ownership to the reserve location's sovereign account).
 //!
-//! In this case, an intermediate API is needed to create derivative NFT collections safely. The `pallet-derivatives` provides such an API.
-//! The `create_derivative` and `destroy_derivative` take only the original ID value as a parameter, and the pallet's config completely defines the actual logic.
+//! In this case, an intermediate API is needed to create derivative NFT collections safely. The
+//! `pallet-derivatives` provides such an API. The `create_derivative` and `destroy_derivative` take
+//! only the original ID value as a parameter, and the pallet's config completely defines the actual
+//! logic.
 //!
-//! NOTE: Currently, only the bare minimum data can be assigned to the derivative collections since the only thing available during the creation is its original ID.
-//! The transaction signer is untrusted, so we can't allow them to provide additional data.
-//! However, in the future, this pallet might be configured to send an XCM program with the `ReportMetadata` instruction (XCM v6)
+//! NOTE: Currently, only the bare minimum data can be assigned to the derivative collections since
+//! the only thing available during the creation is its original ID. The transaction signer is
+//! untrusted, so we can't allow them to provide additional data. However, in the future, this
+//! pallet might be configured to send an XCM program with the `ReportMetadata` instruction (XCM v6)
 //! during the `create_derivative` execution to fetch the metadata from the reserve origin itself.
 //!
 //! #### The second scenario
 //!
-//! Saving the mapping between the original ID and the derivative ID is needed when their types differ
-//! and the derivative ID value can't be deterministically deduced from the original ID.
+//! Saving the mapping between the original ID and the derivative ID is needed when their types
+//! differ and the derivative ID value can't be deterministically deduced from the original ID.
 //!
 //! This situation can arise in the following cases:
 //! * The original ID type is incompatible with a derivative ID type.
-//! For example, let `pallet-nfts` instance host derivative NFT collections. We can't set the `CollectionId` (the derivative ID type) to XCM `AssetId` (the original ID type)
+//! For example, let `pallet-nfts` instance host derivative NFT collections. We can't set the
+//! `CollectionId` (the derivative ID type) to XCM `AssetId` (the original ID type)
 //! because `pallet-nfts` requires `CollectionId` to be incrementable.
 //! * It is desired to have a continuous ID space for all objects, both derivative and local.
-//! For instance, one might want to reuse the existing pallet combinations (like `pallet-nfts` instance + `pallet-nfts-fractionalization` instance)
-//! without adding new pallet instances between the one hosting NFTs and many special logic pallets.
-//! In this case, the original ID type would be `(AssetId, AssetInstance)`, and the derivative ID type can be anything.
+//! For instance, one might want to reuse the existing pallet combinations (like `pallet-nfts`
+//! instance + `pallet-nfts-fractionalization` instance) without adding new pallet instances between
+//! the one hosting NFTs and many special logic pallets. In this case, the original ID type would be
+//! `(AssetId, AssetInstance)`, and the derivative ID type can be anything.
 
 #![recursion_limit = "256"]
 // Ensure we're `no_std` when compiling for Wasm.
@@ -74,11 +87,9 @@
 
 use frame_support::{
 	pallet_prelude::*,
-	traits::{
-		tokens::asset_ops::{
+	traits::tokens::asset_ops::{
 		common_strategies::{CheckOrigin, DeriveAndReportId},
 		AssetDefinition, Create, Destroy,
-		},
 	},
 };
 use frame_system::pallet_prelude::*;
@@ -140,17 +151,22 @@ pub mod pallet {
 		/// Can be configured to save the mapping between the original and the derivative
 		/// if it returns `Some(SaveMappingTo(DERIVATIVE))`.
 		///
-		/// If the extrinsic isn't used, this type can be set to [AlwaysErrOps](frame_support::traits::tokens::asset_ops::utils::AlwaysErrOps).
-		type CreateOp: Create<CheckOrigin<
-			Self::RuntimeOrigin,
-			DeriveAndReportId<Self::Original, Option<SaveMappingTo<Self::Derivative>>>
-		>>;
+		/// If the extrinsic isn't used, this type can be set to
+		/// [AlwaysErrOps](frame_support::traits::tokens::asset_ops::utils::AlwaysErrOps).
+		type CreateOp: Create<
+			CheckOrigin<
+				Self::RuntimeOrigin,
+				DeriveAndReportId<Self::Original, Option<SaveMappingTo<Self::Derivative>>>,
+			>,
+		>;
 
 		/// Derivative destruction operation.
 		/// Used in the `destroy_derivative` extrinsic.
 		///
-		/// If the extrinsic isn't used, this type can be set to [AlwaysErrOps](frame_support::traits::tokens::asset_ops::utils::AlwaysErrOps).
-		type DestroyOp: AssetDefinition<Id = Self::Original> + Destroy<CheckOrigin<Self::RuntimeOrigin>>;
+		/// If the extrinsic isn't used, this type can be set to
+		/// [AlwaysErrOps](frame_support::traits::tokens::asset_ops::utils::AlwaysErrOps).
+		type DestroyOp: AssetDefinition<Id = Self::Original>
+			+ Destroy<CheckOrigin<Self::RuntimeOrigin>>;
 	}
 
 	#[pallet::storage]
@@ -334,8 +350,9 @@ impl WeightInfo for TestWeightInfo {
 	}
 }
 
-/// The `NoStoredMapping` adapter calls the `CreateOp` (which should take the `Original` value and return a `Derivative` one)
-/// and returns `None`, indicating that the mapping between the original and the derivative shouldn't be saved.
+/// The `NoStoredMapping` adapter calls the `CreateOp` (which should take the `Original` value and
+/// return a `Derivative` one) and returns `None`, indicating that the mapping between the original
+/// and the derivative shouldn't be saved.
 pub struct NoStoredMapping<CreateOp>(PhantomData<CreateOp>);
 impl<RuntimeOrigin, CreateOp, Original, Derivative>
 	Create<
@@ -360,7 +377,8 @@ where
 
 /// The `StoreMapping` adapter obtains a `Derivative` value by calling the `CreateOp`
 /// (which should take the `Original` value and return a `Derivative` one),
-/// and returns `Some(SaveMappingTo(DERIVATIVE_VALUE))`, indicating that the mapping should be saved.
+/// and returns `Some(SaveMappingTo(DERIVATIVE_VALUE))`, indicating that the mapping should be
+/// saved.
 pub struct StoreMapping<CreateOp>(PhantomData<CreateOp>);
 impl<RuntimeOrigin, CreateOp, Original, Derivative>
 	Create<
@@ -387,7 +405,7 @@ where
 /// Gets the `InvalidAsset` error from the given `pallet-derivatives` instance.
 pub struct InvalidAssetError<Pallet>(PhantomData<Pallet>);
 impl<T: Config<I>, I: 'static> TypedGet for InvalidAssetError<Pallet<T, I>> {
-	type Type = Error::<T, I>;
+	type Type = Error<T, I>;
 
 	fn get() -> Self::Type {
 		Error::<T, I>::InvalidAsset

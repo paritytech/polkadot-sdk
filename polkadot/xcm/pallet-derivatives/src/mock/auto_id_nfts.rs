@@ -9,9 +9,12 @@ impl unique_items::Config<PredefinedIdNftsInstance> for Test {
 
 // Below are the operations implementations:
 // * NFT creation (with a predefined ID)
-// * NFT transfer from one account to another (checks if the `from` account is the NFT's current owner)
+// * NFT transfer from one account to another (checks if the `from` account is the NFT's current
+//   owner)
 
-impl Create<WithConfig<ConfigValue<Owner<AccountId>>, PredefinedId<NftFullId>>> for PredefinedIdNfts {
+impl Create<WithConfig<ConfigValue<Owner<AccountId>>, PredefinedId<NftFullId>>>
+	for PredefinedIdNfts
+{
 	fn create(
 		strategy: WithConfig<ConfigValue<Owner<AccountId>>, PredefinedId<NftFullId>>,
 	) -> Result<NftFullId, DispatchError> {
@@ -44,15 +47,19 @@ impl Update<ChangeOwnerFrom<AccountId>> for PredefinedIdNfts {
 	) -> DispatchResult {
 		let CheckState(check_owner, _) = strategy;
 
-		unique_items::ItemOwner::<Test, PredefinedIdNftsInstance>::try_mutate(id, |owner| match owner {
-			Some(current_owner) =>
-				if *current_owner == check_owner {
-					*owner = Some(*new_owner);
-					Ok(())
-				} else {
-					Err(unique_items::Error::<Test, PredefinedIdNftsInstance>::NoPermission.into())
-				},
-			None => Err(unique_items::Error::<Test, PredefinedIdNftsInstance>::UnknownItem.into()),
+		unique_items::ItemOwner::<Test, PredefinedIdNftsInstance>::try_mutate(id, |owner| {
+			match owner {
+				Some(current_owner) =>
+					if *current_owner == check_owner {
+						*owner = Some(*new_owner);
+						Ok(())
+					} else {
+						Err(unique_items::Error::<Test, PredefinedIdNftsInstance>::NoPermission
+							.into())
+					},
+				None =>
+					Err(unique_items::Error::<Test, PredefinedIdNftsInstance>::UnknownItem.into()),
+			}
 		})
 	}
 }

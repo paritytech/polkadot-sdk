@@ -1,6 +1,6 @@
-use crate as pallet_derivatives;
 use super::*;
-use frame_support::{traits::tokens::asset_ops::common_strategies::*, assert_err, assert_ok};
+use crate as pallet_derivatives;
+use frame_support::{assert_err, assert_ok, traits::tokens::asset_ops::common_strategies::*};
 use mock::*;
 
 use xcm::prelude::*;
@@ -13,11 +13,15 @@ fn predefined_id_collection() {
 
 		// UseEnsuredOrigin must prevent invalid origins
 		assert_err!(
-			PredefinedIdDerivativeCollections::create_derivative(RuntimeOrigin::signed(1), id.clone()),
+			PredefinedIdDerivativeCollections::create_derivative(
+				RuntimeOrigin::signed(1),
+				id.clone()
+			),
 			DispatchError::BadOrigin,
 		);
 
-		PredefinedIdDerivativeCollections::create_derivative(RuntimeOrigin::root(), id.clone()).unwrap();
+		PredefinedIdDerivativeCollections::create_derivative(RuntimeOrigin::root(), id.clone())
+			.unwrap();
 
 		// EnsureDerivativeCreateOrigin yielded a strategy to assign the item's owner to the
 		// parachain's sovereign account.
@@ -34,11 +38,15 @@ fn predefined_id_collection() {
 
 		// UseEnsuredOrigin must prevent invalid origins
 		assert_err!(
-			PredefinedIdDerivativeCollections::destroy_derivative(RuntimeOrigin::signed(2), id.clone()),
+			PredefinedIdDerivativeCollections::destroy_derivative(
+				RuntimeOrigin::signed(2),
+				id.clone()
+			),
 			DispatchError::BadOrigin,
 		);
 
-		PredefinedIdDerivativeCollections::destroy_derivative(RuntimeOrigin::root(), id.clone()).unwrap();
+		PredefinedIdDerivativeCollections::destroy_derivative(RuntimeOrigin::root(), id.clone())
+			.unwrap();
 		assert!(
 			unique_items::ItemOwner::<Test, PredefinedIdCollectionsInstance>::get(&id).is_none()
 		);
@@ -56,8 +64,10 @@ fn predefined_id_collection() {
 #[test]
 fn auto_id_collection() {
 	new_test_ext().execute_with(|| {
-		let id_a = AssetId(Location::new(1, [Parachain(2222), PalletInstance(42), GeneralIndex(1)]));
-		let id_b = AssetId(Location::new(1, [Parachain(3333), PalletInstance(42), GeneralIndex(2)]));
+		let id_a =
+			AssetId(Location::new(1, [Parachain(2222), PalletInstance(42), GeneralIndex(1)]));
+		let id_b =
+			AssetId(Location::new(1, [Parachain(3333), PalletInstance(42), GeneralIndex(2)]));
 
 		// UseEnsuredOrigin must prevent invalid origins
 		assert_err!(
@@ -65,14 +75,16 @@ fn auto_id_collection() {
 			DispatchError::BadOrigin,
 		);
 
-		AutoIdDerivativeCollections::create_derivative(RuntimeOrigin::root(), id_a.clone()).unwrap();
+		AutoIdDerivativeCollections::create_derivative(RuntimeOrigin::root(), id_a.clone())
+			.unwrap();
 
 		let derivative_id_a = AutoIdDerivativeCollections::get_derivative(&id_a).unwrap();
 
 		// EnsureDerivativeCreateOrigin yielded a strategy to assign the item's owner to the
 		// parachain's sovereign account.
 		let owner_a =
-			unique_items::ItemOwner::<Test, AutoIdCollectionsInstance>::get(&derivative_id_a).unwrap();
+			unique_items::ItemOwner::<Test, AutoIdCollectionsInstance>::get(&derivative_id_a)
+				.unwrap();
 
 		assert_eq!(owner_a, 2222);
 
@@ -82,7 +94,8 @@ fn auto_id_collection() {
 			pallet_derivatives::Error::<Test, AutoIdCollectionsInstance>::DerivativeAlreadyExists,
 		);
 
-		AutoIdDerivativeCollections::create_derivative(RuntimeOrigin::root(), id_b.clone()).unwrap();
+		AutoIdDerivativeCollections::create_derivative(RuntimeOrigin::root(), id_b.clone())
+			.unwrap();
 
 		let derivative_id_b = AutoIdDerivativeCollections::get_derivative(&id_b).unwrap();
 
@@ -91,7 +104,8 @@ fn auto_id_collection() {
 		// EnsureDerivativeCreateOrigin yielded a strategy to assign the item's owner to the
 		// parachain's sovereign account.
 		let owner_b =
-			unique_items::ItemOwner::<Test, AutoIdCollectionsInstance>::get(&derivative_id_b).unwrap();
+			unique_items::ItemOwner::<Test, AutoIdCollectionsInstance>::get(&derivative_id_b)
+				.unwrap();
 
 		assert_eq!(owner_b, 3333);
 
@@ -107,15 +121,15 @@ fn auto_id_collection() {
 			DispatchError::BadOrigin,
 		);
 
-		AutoIdDerivativeCollections::destroy_derivative(RuntimeOrigin::root(), id_a.clone()).unwrap();
-		assert!(
-			unique_items::ItemOwner::<Test, AutoIdCollectionsInstance>::get(&derivative_id_a).is_none()
-		);
+		AutoIdDerivativeCollections::destroy_derivative(RuntimeOrigin::root(), id_a.clone())
+			.unwrap();
+		assert!(unique_items::ItemOwner::<Test, AutoIdCollectionsInstance>::get(&derivative_id_a)
+			.is_none());
 
-		AutoIdDerivativeCollections::destroy_derivative(RuntimeOrigin::root(), id_b.clone()).unwrap();
-		assert!(
-			unique_items::ItemOwner::<Test, AutoIdCollectionsInstance>::get(&derivative_id_b).is_none()
-		);
+		AutoIdDerivativeCollections::destroy_derivative(RuntimeOrigin::root(), id_b.clone())
+			.unwrap();
+		assert!(unique_items::ItemOwner::<Test, AutoIdCollectionsInstance>::get(&derivative_id_b)
+			.is_none());
 
 		// Only the assets that have the reserve location convertible to an account
 		// cna be registered as derivatives
@@ -130,7 +144,6 @@ fn auto_id_collection() {
 #[test]
 fn local_nfts() {
 	new_test_ext().execute_with(|| {
-
 		let collection_owner = 1;
 		let nft_initial_owner = 2;
 		let nft_beneficiary = 3;
@@ -139,23 +152,33 @@ fn local_nfts() {
 		let collection_id = AutoIdCollections::create(WithConfig::new(
 			ConfigValue(collection_owner),
 			AutoId::auto(),
-		)).unwrap();
+		))
+		.unwrap();
 
 		// Mint NFT within the collection
 		let nft_local_id = 112;
 		PredefinedIdNfts::create(WithConfig::new(
 			ConfigValue(nft_initial_owner),
 			PredefinedId::from((collection_id, nft_local_id)),
-		)).unwrap();
+		))
+		.unwrap();
 
 		// The NFT should be deposited to the correct account
 		assert_eq!(
-			unique_items::ItemOwner::<Test, PredefinedIdNftsInstance>::get(&(collection_id, nft_local_id)).unwrap(),
+			unique_items::ItemOwner::<Test, PredefinedIdNftsInstance>::get(&(
+				collection_id,
+				nft_local_id
+			))
+			.unwrap(),
 			nft_initial_owner,
 		);
 
 		let local_nfts_pallet_index = <PredefinedIdNfts as PalletInfoAccess>::index() as u8;
-		let nft_asset: Asset = ((PalletInstance(local_nfts_pallet_index), GeneralIndex(collection_id.into())), Index(nft_local_id.into())).into();
+		let nft_asset: Asset = (
+			(PalletInstance(local_nfts_pallet_index), GeneralIndex(collection_id.into())),
+			Index(nft_local_id.into()),
+		)
+			.into();
 		let nft_beneficiary_location = AccountIndex64 { index: nft_beneficiary, network: None };
 
 		let message = Xcm::builder_unpaid()
@@ -180,7 +203,11 @@ fn local_nfts() {
 
 		// The NFT should be deposited to the correct beneficiary
 		assert_eq!(
-			unique_items::ItemOwner::<Test, PredefinedIdNftsInstance>::get(&(collection_id, nft_local_id)).unwrap(),
+			unique_items::ItemOwner::<Test, PredefinedIdNftsInstance>::get(&(
+				collection_id,
+				nft_local_id
+			))
+			.unwrap(),
 			nft_beneficiary,
 		);
 	});
@@ -192,14 +219,26 @@ fn derivative_nfts() {
 		let foreign_para_id = 2222;
 
 		// Create derivative NFT collection
-		let foreign_collection_id = AssetId(Location::new(1, [Parachain(foreign_para_id), PalletInstance(42), GeneralIndex(1)]));
+		let foreign_collection_id = AssetId(Location::new(
+			1,
+			[Parachain(foreign_para_id), PalletInstance(42), GeneralIndex(1)],
+		));
 		let foreign_nft_id = Index(112);
-		AutoIdDerivativeCollections::create_derivative(RuntimeOrigin::root(), foreign_collection_id.clone()).unwrap();
+		AutoIdDerivativeCollections::create_derivative(
+			RuntimeOrigin::root(),
+			foreign_collection_id.clone(),
+		)
+		.unwrap();
 
-		let derivative_collection_id = AutoIdDerivativeCollections::get_derivative(&foreign_collection_id).unwrap();
+		let derivative_collection_id =
+			AutoIdDerivativeCollections::get_derivative(&foreign_collection_id).unwrap();
 
 		// There is no derivative NFT yet
-		assert!(DerivativeNfts::get_derivative(&(foreign_collection_id.clone(), foreign_nft_id.clone())).is_err());
+		assert!(DerivativeNfts::get_derivative(&(
+			foreign_collection_id.clone(),
+			foreign_nft_id.clone()
+		))
+		.is_err());
 
 		let nft_beneficiary = 1;
 
@@ -227,11 +266,16 @@ fn derivative_nfts() {
 		assert_ok!(outcome.ensure_complete());
 
 		// The derivative NFT should exist now
-		let derivative_full_nft_id = DerivativeNfts::get_derivative(&(foreign_collection_id.clone(), foreign_nft_id.clone())).unwrap();
+		let derivative_full_nft_id = DerivativeNfts::get_derivative(&(
+			foreign_collection_id.clone(),
+			foreign_nft_id.clone(),
+		))
+		.unwrap();
 
 		// The derivative NFT should be deposited to the correct beneficiary
 		assert_eq!(
-			unique_items::ItemOwner::<Test, PredefinedIdNftsInstance>::get(&derivative_full_nft_id).unwrap(),
+			unique_items::ItemOwner::<Test, PredefinedIdNftsInstance>::get(&derivative_full_nft_id)
+				.unwrap(),
 			nft_beneficiary,
 		);
 		// The derivative NFT is deposited within the correct collection
@@ -243,8 +287,16 @@ fn derivative_nfts() {
 		let another_nft_beneficiary = nft_beneficiary + 1;
 
 		let local_nfts_pallet_index = <PredefinedIdNfts as PalletInfoAccess>::index() as u8;
-		let nft_asset_as_local: Asset = ((PalletInstance(local_nfts_pallet_index), GeneralIndex(derivative_collection_id.into())), Index(derivative_local_nft_id.into())).into();
-		let another_nft_beneficiary_location = AccountIndex64 { index: another_nft_beneficiary, network: None };
+		let nft_asset_as_local: Asset = (
+			(
+				PalletInstance(local_nfts_pallet_index),
+				GeneralIndex(derivative_collection_id.into()),
+			),
+			Index(derivative_local_nft_id.into()),
+		)
+			.into();
+		let another_nft_beneficiary_location =
+			AccountIndex64 { index: another_nft_beneficiary, network: None };
 		let message = Xcm::builder_unpaid()
 			.unpaid_execution(Unlimited, None)
 			.withdraw_asset(nft_asset_as_local)
@@ -255,9 +307,11 @@ fn derivative_nfts() {
 		let mut hash = message.using_encoded(sp_io::hashing::blake2_256);
 
 		// Try to transfer the derivative NFT as if it were a local one
-		// (this might lead the chain to act as a reserve location for NFTs which doesn't belong to it).
+		// (this might lead the chain to act as a reserve location for NFTs which doesn't belong to
+		// it).
 		//
-		// The LocalNftsTransactor should prevent this as it checks the NFT for being non-derivative.
+		// The LocalNftsTransactor should prevent this as it checks the NFT for being
+		// non-derivative.
 		let outcome = XcmExecutor::<XcmConfig>::prepare_and_execute(
 			origin,
 			message,
@@ -287,7 +341,8 @@ fn derivative_nfts() {
 
 		// The derivative NFT should be deposited to the correct beneficiary
 		assert_eq!(
-			unique_items::ItemOwner::<Test, PredefinedIdNftsInstance>::get(&derivative_full_nft_id).unwrap(),
+			unique_items::ItemOwner::<Test, PredefinedIdNftsInstance>::get(&derivative_full_nft_id)
+				.unwrap(),
 			another_nft_beneficiary,
 		);
 	});

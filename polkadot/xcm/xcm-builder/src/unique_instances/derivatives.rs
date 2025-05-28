@@ -1,14 +1,19 @@
 //! Utilities for working with unique instances derivatives.
 
 use core::marker::PhantomData;
-use frame_support::ensure;
-use sp_runtime::{traits::FallibleConvert, DispatchResult, DispatchError};
+use frame_support::{
+	ensure,
+	traits::{
+		tokens::asset_ops::{
+			common_strategies::{ConfigValueMarker, DeriveAndReportId, WithConfig},
+			Create,
+		},
+		Incrementable,
+	},
+};
+use sp_runtime::{traits::FallibleConvert, DispatchError, DispatchResult};
 use xcm::latest::prelude::*;
 use xcm_executor::traits::{Error, MatchesInstance};
-use frame_support::traits::{
-	Incrementable,
-	tokens::asset_ops::{Create, common_strategies::{WithConfig, DeriveAndReportId, ConfigValueMarker}}
-};
 
 use super::NonFungibleAsset;
 
@@ -56,13 +61,16 @@ impl<Original, Derivative, R: DerivativesRegistry<Original, Derivative>>
 ///
 /// The mapping between them will be registered via the registry `R`.
 pub struct RegisterDerivative<R, CreateOp>(PhantomData<(R, CreateOp)>);
-impl<Original, Derivative, R, CreateOp> Create<DeriveAndReportId<Original, Derivative>> for RegisterDerivative<R, CreateOp>
+impl<Original, Derivative, R, CreateOp> Create<DeriveAndReportId<Original, Derivative>>
+	for RegisterDerivative<R, CreateOp>
 where
 	Original: Clone,
 	R: DerivativesRegistry<Original, Derivative>,
-	CreateOp: Create<DeriveAndReportId<Original, Derivative>>
+	CreateOp: Create<DeriveAndReportId<Original, Derivative>>,
 {
-	fn create(id_assignment: DeriveAndReportId<Original, Derivative>) -> Result<Derivative, DispatchError> {
+	fn create(
+		id_assignment: DeriveAndReportId<Original, Derivative>,
+	) -> Result<Derivative, DispatchError> {
 		let original = id_assignment.params;
 		let derivative = CreateOp::create(DeriveAndReportId::from(original.clone()))?;
 		R::try_register_derivative(&original, &derivative)?;
@@ -70,17 +78,22 @@ where
 		Ok(derivative)
 	}
 }
-impl<Original, Derivative, R, Config, CreateOp> Create<WithConfig<Config, DeriveAndReportId<Original, Derivative>>> for RegisterDerivative<R, CreateOp>
+impl<Original, Derivative, R, Config, CreateOp>
+	Create<WithConfig<Config, DeriveAndReportId<Original, Derivative>>>
+	for RegisterDerivative<R, CreateOp>
 where
 	Original: Clone,
 	R: DerivativesRegistry<Original, Derivative>,
 	Config: ConfigValueMarker,
-	CreateOp: Create<WithConfig<Config, DeriveAndReportId<Original, Derivative>>>
+	CreateOp: Create<WithConfig<Config, DeriveAndReportId<Original, Derivative>>>,
 {
-	fn create(strategy: WithConfig<Config, DeriveAndReportId<Original, Derivative>>) -> Result<Derivative, DispatchError> {
+	fn create(
+		strategy: WithConfig<Config, DeriveAndReportId<Original, Derivative>>,
+	) -> Result<Derivative, DispatchError> {
 		let WithConfig { config, extra: id_assignment } = strategy;
 		let original = id_assignment.params;
-		let derivative = CreateOp::create(WithConfig::new(config, DeriveAndReportId::from(original.clone())))?;
+		let derivative =
+			CreateOp::create(WithConfig::new(config, DeriveAndReportId::from(original.clone())))?;
 		R::try_register_derivative(&original, &derivative)?;
 
 		Ok(derivative)
@@ -104,46 +117,63 @@ pub trait DerivativesExtra<Derivative, Extra> {
 }
 
 /// The `ConcatIncrementalExtra` implements a creation operation that takes a derivative.
-/// It takes the derivative's extra data and passes the tuple of the derivative and its extra data to the underlying `CreateOp`
-///(i.e., concatenates the derivative and its extra).
+/// It takes the derivative's extra data and passes the tuple of the derivative and its extra data
+/// to the underlying `CreateOp` (i.e., concatenates the derivative and its extra).
 ///
-/// The extra data gets incremented using the [Incrementable::increment] function, and the new extra value is set for the given derivative.
-/// The initial extra value is produced using the [Incrementable::initial_value] function.
-pub struct ConcatIncrementalExtra<Derivative, Extra, Registry, CreateOp>(PhantomData<(Derivative, Extra, Registry, CreateOp)>);
-impl<Derivative, Extra, ReportedId, Registry, CreateOp> Create<DeriveAndReportId<Derivative, ReportedId>> for ConcatIncrementalExtra<Derivative, Extra, Registry, CreateOp>
+/// The extra data gets incremented using the [Incrementable::increment] function, and the new extra
+/// value is set for the given derivative. The initial extra value is produced using the
+/// [Incrementable::initial_value] function.
+pub struct ConcatIncrementalExtra<Derivative, Extra, Registry, CreateOp>(
+	PhantomData<(Derivative, Extra, Registry, CreateOp)>,
+);
+impl<Derivative, Extra, ReportedId, Registry, CreateOp>
+	Create<DeriveAndReportId<Derivative, ReportedId>>
+	for ConcatIncrementalExtra<Derivative, Extra, Registry, CreateOp>
 where
 	Extra: Incrementable,
 	Registry: DerivativesExtra<Derivative, Extra>,
 	CreateOp: Create<DeriveAndReportId<(Derivative, Extra), ReportedId>>,
 {
-	fn create(id_assignment: DeriveAndReportId<Derivative, ReportedId>) -> Result<ReportedId, DispatchError> {
+	fn create(
+		id_assignment: DeriveAndReportId<Derivative, ReportedId>,
+	) -> Result<ReportedId, DispatchError> {
 		let derivative = id_assignment.params;
 
-		let id = Registry::get_derivative_extra(&derivative)
-			.or(Extra::initial_value())
-			.ok_or(DispatchError::Other("ConcatIncrementalExtra: unable to initialize incremental derivative extra"))?;
-		let next_id = id.increment().ok_or(DispatchError::Other("ConcatIncrementalExtra: failed to increment the id"))?;
+		let id = Registry::get_derivative_extra(&derivative).or(Extra::initial_value()).ok_or(
+			DispatchError::Other(
+				"ConcatIncrementalExtra: unable to initialize incremental derivative extra",
+			),
+		)?;
+		let next_id = id
+			.increment()
+			.ok_or(DispatchError::Other("ConcatIncrementalExtra: failed to increment the id"))?;
 
 		Registry::set_derivative_extra(&derivative, Some(next_id))?;
 
 		CreateOp::create(DeriveAndReportId::from((derivative, id)))
 	}
 }
-impl<Config, Derivative, Extra, ReportedId, Registry, CreateOp> Create<WithConfig<Config, DeriveAndReportId<Derivative, ReportedId>>> for ConcatIncrementalExtra<Derivative, Extra, Registry, CreateOp>
+impl<Config, Derivative, Extra, ReportedId, Registry, CreateOp>
+	Create<WithConfig<Config, DeriveAndReportId<Derivative, ReportedId>>>
+	for ConcatIncrementalExtra<Derivative, Extra, Registry, CreateOp>
 where
 	Config: ConfigValueMarker,
 	Extra: Incrementable,
 	Registry: DerivativesExtra<Derivative, Extra>,
 	CreateOp: Create<WithConfig<Config, DeriveAndReportId<(Derivative, Extra), ReportedId>>>,
 {
-	fn create(strategy: WithConfig<Config, DeriveAndReportId<Derivative, ReportedId>>) -> Result<ReportedId, DispatchError> {
+	fn create(
+		strategy: WithConfig<Config, DeriveAndReportId<Derivative, ReportedId>>,
+	) -> Result<ReportedId, DispatchError> {
 		let WithConfig { config, extra: id_assignment } = strategy;
 		let derivative = id_assignment.params;
 
 		let id = Registry::get_derivative_extra(&derivative)
 			.or(Extra::initial_value())
 			.ok_or(DispatchError::Other("ConcatIncrementalExtra: no derivative extra is found"))?;
-		let next_id = id.increment().ok_or(DispatchError::Other("ConcatIncrementalExtra: failed to increment the id"))?;
+		let next_id = id
+			.increment()
+			.ok_or(DispatchError::Other("ConcatIncrementalExtra: failed to increment the id"))?;
 
 		Registry::set_derivative_extra(&derivative, Some(next_id))?;
 

@@ -17,29 +17,38 @@
 
 //! Test environment for `pallet-derivatives`.
 //!
-//! It contains a simple NFT-like `unique_items` pallet that emulate both NFT collections and their tokens (depending on the pallet instance).
-//! This test pallet is instatiated three times in the test environment to cover the usage scenarios of `pallet-derivatives` described in it's crate doc comment.
+//! It contains a simple NFT-like `unique_items` pallet that emulate both NFT collections and their
+//! tokens (depending on the pallet instance). This test pallet is instatiated three times in the
+//! test environment to cover the usage scenarios of `pallet-derivatives` described in it's crate
+//! doc comment.
 //!
-//! * The first instance, called `PredefinedIdCollections`, emulates NFT collections that are created with a predefined ID.
-//! The ID is set to XCM `AssetId`, so a derivative collection can be created directly using the foreign collection's ID.
-//! This pallet instance illustrates and tests the `pallet-derivatives` usage scenario #1
-//! (i.e., when no suitable way of directly creating a derivative collection is provided by the hosting pallet).
-//! The configuration of this instance can be found in the [predefined_id_collections] module.
-//! The corresponding `pallet-derivatives` instance is called `PredefinedIdDerivativeCollections`.
+//! * The first instance, called `PredefinedIdCollections`, emulates NFT collections that are
+//!   created with a predefined ID.
+//! The ID is set to XCM `AssetId`, so a derivative collection can be created directly using the
+//! foreign collection's ID. This pallet instance illustrates and tests the `pallet-derivatives`
+//! usage scenario #1 (i.e., when no suitable way of directly creating a derivative collection is
+//! provided by the hosting pallet). The configuration of this instance can be found in the
+//! [predefined_id_collections] module. The corresponding `pallet-derivatives` instance is called
+//! `PredefinedIdDerivativeCollections`.
 //!
-//! * The second instance, called `AutoIdCollections`, emulates NFT collections that are created with an automatically assigned ID (e.g., an incremental one).
-//! The ID is set to `u64`, so a mapping between the foreign collection's ID and the derivative collection ID is needed.
-//! This pallet instance illustrates and tests the `pallet-derivatives` usage scenario #2 combined with scenario #1 (since we also test manual collection creation and destruction).
-//! The configuration of this instance can be found in the [auto_id_collections] module.
-//! The corresponding `pallet-derivatives` instance is called `AutoIdDerivativeCollections`.
+//! * The second instance, called `AutoIdCollections`, emulates NFT collections that are created
+//!   with an automatically assigned ID (e.g., an incremental one).
+//! The ID is set to `u64`, so a mapping between the foreign collection's ID and the derivative
+//! collection ID is needed. This pallet instance illustrates and tests the `pallet-derivatives`
+//! usage scenario #2 combined with scenario #1 (since we also test manual collection creation and
+//! destruction). The configuration of this instance can be found in the [auto_id_collections]
+//! module. The corresponding `pallet-derivatives` instance is called `AutoIdDerivativeCollections`.
 //!
-//! * The third instance, called `PredefinedIdNfts`, emulates non-fungible tokens within collections from the pallet's second instance.
-//! The full NFT ID is a tuple consisting of the collection ID and a token ID, both of which are of the `u64` type.
-//! Since a foreign NFT is identified by `(AssetId, AssetInstance)`, we need the mapping between it and the derivative NFT ID.
-//! This pallet instance illustrates and tests the `pallet-derivatives` usage scenario #2 without scenario #1 (the manual creation and destruction of derivative NFTs is forbidden).
-//! The configuration of this instance can be found in the [auto_id_nfts] module.
-//! The corresponding `pallet-derivatives` instance is called `DerivativeNfts`.
-//! Additionally, there is an example of asset transactors dealing with derivative NFTs implemented using `pallet-derivatives`, which includes original-to-derivative ID mapping.
+//! * The third instance, called `PredefinedIdNfts`, emulates non-fungible tokens within collections
+//!   from the pallet's second instance.
+//! The full NFT ID is a tuple consisting of the collection ID and a token ID, both of which are of
+//! the `u64` type. Since a foreign NFT is identified by `(AssetId, AssetInstance)`, we need the
+//! mapping between it and the derivative NFT ID. This pallet instance illustrates and tests the
+//! `pallet-derivatives` usage scenario #2 without scenario #1 (the manual creation and destruction
+//! of derivative NFTs is forbidden). The configuration of this instance can be found in the
+//! [auto_id_nfts] module. The corresponding `pallet-derivatives` instance is called
+//! `DerivativeNfts`. Additionally, there is an example of asset transactors dealing with derivative
+//! NFTs implemented using `pallet-derivatives`, which includes original-to-derivative ID mapping.
 
 use super::*;
 use crate as pallet_derivatives;
@@ -47,27 +56,37 @@ use crate as pallet_derivatives;
 use frame_support::{
 	construct_runtime, derive_impl, parameter_types,
 	traits::{
-		tokens::asset_ops::{*, common_strategies::*, utils::*},
-		Nothing, Everything, ContainsPair, PalletInfoAccess,
+		tokens::asset_ops::{common_strategies::*, utils::*, *},
+		ContainsPair, Everything, Nothing, PalletInfoAccess,
 	},
 };
 use frame_system::EnsureRoot;
-use sp_runtime::{traits::{TryConvertInto, AsFallibleConvert}, BuildStorage};
+use sp_runtime::{
+	traits::{AsFallibleConvert, TryConvertInto},
+	BuildStorage,
+};
 use xcm::prelude::*;
 use xcm_builder::{
-	unique_instances::{derivatives::{OriginalToDerivativeConvert, ConcatIncrementalExtra, EnsureNotDerivativeInstance, MatchDerivativeInstances, RegisterDerivative}, ops::{OwnerConvertedLocation, ExtractAssetId, UniqueInstancesWithStashAccount}, NonFungibleAsset, UniqueInstancesAdapter, UniqueInstancesDepositAdapter},
-	AllowUnpaidExecutionFrom, FixedWeightBounds, MatchInClassInstances, MatchedConvertedConcreteId, AsPrefixedGeneralIndex,
-	StartsWith,
+	unique_instances::{
+		derivatives::{
+			ConcatIncrementalExtra, EnsureNotDerivativeInstance, MatchDerivativeInstances,
+			OriginalToDerivativeConvert, RegisterDerivative,
+		},
+		ops::{ExtractAssetId, OwnerConvertedLocation, UniqueInstancesWithStashAccount},
+		NonFungibleAsset, UniqueInstancesAdapter, UniqueInstancesDepositAdapter,
+	},
+	AllowUnpaidExecutionFrom, AsPrefixedGeneralIndex, FixedWeightBounds, MatchInClassInstances,
+	MatchedConvertedConcreteId, StartsWith,
 };
 use xcm_executor::traits::ConvertLocation;
 
-mod predefined_id_collections;
 mod auto_id_collections;
 mod auto_id_nfts;
+mod predefined_id_collections;
 
-pub use predefined_id_collections::*;
 pub use auto_id_collections::*;
 pub use auto_id_nfts::*;
+pub use predefined_id_collections::*;
 
 type AccountId = u64;
 type Block = frame_system::mocking::MockBlock<Test>;
@@ -86,7 +105,7 @@ pub mod unique_items {
 	pub struct Pallet<T, I = ()>(_);
 
 	#[pallet::error]
-	pub enum Error<T, I: = ()> {
+	pub enum Error<T, I = ()> {
 		AlreadyExists,
 		NoPermission,
 		UnknownItem,
@@ -146,15 +165,17 @@ parameter_types! {
 	pub StashAccountId: AccountId = u64::MAX;
 }
 
-/// It is an `IsReserve` that returns true only if the given asset's location begins with a sibling parachain junction
-/// which equals the given origin.
+/// It is an `IsReserve` that returns true only if the given asset's location begins with a sibling
+/// parachain junction which equals the given origin.
 pub struct TrustAssetsFromSiblings;
 impl ContainsPair<Asset, Location> for TrustAssetsFromSiblings {
 	fn contains(asset: &Asset, origin: &Location) -> bool {
 		let AssetId(asset_location) = &asset.id;
 
 		match (asset_location.unpack(), origin.unpack()) {
-			((1, [Parachain(asset_para_id), ..]), (1, [Parachain(origin_para_id)])) if asset_para_id == origin_para_id => true,
+			((1, [Parachain(asset_para_id), ..]), (1, [Parachain(origin_para_id)]))
+				if asset_para_id == origin_para_id =>
+				true,
 			_ => false,
 		}
 	}
@@ -202,27 +223,26 @@ impl ConvertLocation<AccountId> for SiblingAssetToReserveLocationConvert {
 	}
 }
 
-/// Creates a new derivative using the provided `IdAssignment` (can be a predefined ID or a derived one) and `CreateOp`.
-/// The `IdAssignment` must take XCM `AssetId` as a parameter.
+/// Creates a new derivative using the provided `IdAssignment` (can be a predefined ID or a derived
+/// one) and `CreateOp`. The `IdAssignment` must take XCM `AssetId` as a parameter.
 ///
-/// The derivative will be created using the `WithConfig` strategy with the owner account set to the original asset's reserve location.
+/// The derivative will be created using the `WithConfig` strategy with the owner account set to the
+/// original asset's reserve location.
 ///
-/// The `InvalidAssetErr` is the error that must be returned if getting the reserve location's sovereign account fails.
-pub type CreateDerivativeOwnedBySovAcc<IdAssignment, CreateOp, InvalidAssetErr> = DeriveStrategyThenCreate<
-	// Derived strategy: assign the derivative owner.
-	WithConfig<ConfigValue<Owner<AccountId>>, IdAssignment>,
+/// The `InvalidAssetErr` is the error that must be returned if getting the reserve location's
+/// sovereign account fails.
+pub type CreateDerivativeOwnedBySovAcc<IdAssignment, CreateOp, InvalidAssetErr> =
+	DeriveStrategyThenCreate<
+		// Derived strategy: assign the derivative owner.
+		WithConfig<ConfigValue<Owner<AccountId>>, IdAssignment>,
+		// Converts the provided XCM `AssetId` (original ID) to the reserve location's sovereign
+		// account, and returns the specified strategy above.
+		OwnerConvertedLocation<SiblingAssetToReserveLocationConvert, IdAssignment, InvalidAssetErr>,
+		CreateOp,
+	>;
 
-	// Converts the provided XCM `AssetId` (original ID) to the reserve location's sovereign account,
-	// and returns the specified strategy above.
-	OwnerConvertedLocation<
-		SiblingAssetToReserveLocationConvert,
-		IdAssignment,
-		InvalidAssetErr,
-	>,
-	CreateOp,
->;
-
-/// The `pallet-derivatives` instance corresponding to the `PredefinedIdCollections` instance of the `unique_items` mock pallet.
+/// The `pallet-derivatives` instance corresponding to the `PredefinedIdCollections` instance of the
+/// `unique_items` mock pallet.
 pub type PredefinedIdDerivativeCollectionsInstance = pallet_derivatives::Instance1;
 impl pallet_derivatives::Config<PredefinedIdDerivativeCollectionsInstance> for Test {
 	type WeightInfo = pallet_derivatives::TestWeightInfo;
@@ -232,27 +252,27 @@ impl pallet_derivatives::Config<PredefinedIdDerivativeCollectionsInstance> for T
 
 	type DerivativeExtra = ();
 
-	// `NoStoredMapping` tells the pallet not to store the mapping between the `Original` and the `Derivative`
+	// `NoStoredMapping` tells the pallet not to store the mapping between the `Original` and the
+	// `Derivative`
 	type CreateOp = pallet_derivatives::NoStoredMapping<
-		// `UseEnsuredOrigin` checks the provided `RuntimeOrigin` according to the `EnsureOrigin` parameter (`EnsureRoot` here)
-		// and, if successful, executes the provided operation (`CreateDerivativeOwnedBySovAcc` in this case).
+		// `UseEnsuredOrigin` checks the provided `RuntimeOrigin` according to the `EnsureOrigin`
+		// parameter (`EnsureRoot` here) and, if successful, executes the provided operation
+		// (`CreateDerivativeOwnedBySovAcc` in this case).
 		UseEnsuredOrigin<
 			EnsureRoot<AccountId>,
 			CreateDerivativeOwnedBySovAcc<
 				PredefinedId<AssetId>,
 				PredefinedIdCollections,
-				pallet_derivatives::InvalidAssetError<PredefinedIdDerivativeCollections>
+				pallet_derivatives::InvalidAssetError<PredefinedIdDerivativeCollections>,
 			>,
 		>,
 	>;
 
-	type DestroyOp = UseEnsuredOrigin<
-		EnsureRoot<AccountId>,
-		PredefinedIdCollections,
-	>;
+	type DestroyOp = UseEnsuredOrigin<EnsureRoot<AccountId>, PredefinedIdCollections>;
 }
 
-/// The `pallet-derivatives` instance corresponding to the `AutoIdCollections` instance of the `unique_items` mock pallet.
+/// The `pallet-derivatives` instance corresponding to the `AutoIdCollections` instance of the
+/// `unique_items` mock pallet.
 pub type AutoIdDerivativeCollectionsInstance = pallet_derivatives::Instance2;
 impl pallet_derivatives::Config<AutoIdDerivativeCollectionsInstance> for Test {
 	type WeightInfo = pallet_derivatives::TestWeightInfo;
@@ -263,23 +283,24 @@ impl pallet_derivatives::Config<AutoIdDerivativeCollectionsInstance> for Test {
 	// The current in-collection derivative token ID to use when creating a new derivative NFT.
 	type DerivativeExtra = NftLocalId;
 
-	// `StoreMapping` tells the pallet to store the mapping between the `Original` and the `Derivative`
+	// `StoreMapping` tells the pallet to store the mapping between the `Original` and the
+	// `Derivative`
 	type CreateOp = pallet_derivatives::StoreMapping<
-		// `UseEnsuredOrigin` checks the provided `RuntimeOrigin` according to the `EnsureOrigin` parameter (`EnsureRoot` here)
-		// and, if successful, executes the provided operation (`CreateDerivativeOwnedBySovAcc` in this case).
+		// `UseEnsuredOrigin` checks the provided `RuntimeOrigin` according to the `EnsureOrigin`
+		// parameter (`EnsureRoot` here) and, if successful, executes the provided operation
+		// (`CreateDerivativeOwnedBySovAcc` in this case).
 		UseEnsuredOrigin<
 			EnsureRoot<AccountId>,
 			CreateDerivativeOwnedBySovAcc<
 				AutoId<Self::Derivative>,
 				AutoIdCollections,
-				pallet_derivatives::InvalidAssetError<AutoIdDerivativeCollections>
+				pallet_derivatives::InvalidAssetError<AutoIdDerivativeCollections>,
 			>,
-		>
+		>,
 	>;
 
 	type DestroyOp = UseEnsuredOrigin<
 		EnsureRoot<AccountId>,
-
 		// The `AutoIdCollections` uses `Derivative` as an ID type.
 		// But the `destroy_derivative` extrinsic takes the ID parameter of type `Original`.
 		//
@@ -294,7 +315,8 @@ impl pallet_derivatives::Config<AutoIdDerivativeCollectionsInstance> for Test {
 	>;
 }
 
-/// The `pallet-derivatives` instance corresponding to the `PredefinedIdNfts` instance of the `unique_items` mock pallet.
+/// The `pallet-derivatives` instance corresponding to the `PredefinedIdNfts` instance of the
+/// `unique_items` mock pallet.
 pub type DerivativeNftsInstance = pallet_derivatives::Instance3;
 impl pallet_derivatives::Config<DerivativeNftsInstance> for Test {
 	type WeightInfo = pallet_derivatives::TestWeightInfo;
@@ -318,22 +340,22 @@ pub type LocalNftsMatcher = MatchInClassInstances<
 		StartsWith<LocalNftsPalletLocation>,
 		AsPrefixedGeneralIndex<LocalNftsPalletLocation, CollectionAutoId, TryConvertInto>,
 		TryConvertInto,
-	>
+	>,
 >;
 
 /// This asset transactor deals with local NFTs that aren't derivatives.
 ///
-/// The derivative NFTs are excluded to avoid acting like a reserve chain for assets that came from other chains.
+/// The derivative NFTs are excluded to avoid acting like a reserve chain for assets that came from
+/// other chains.
 pub type LocalNftsTransactor = UniqueInstancesAdapter<
 	AccountId,
 	LocationToAccountId,
-
 	// The `EnsureNotDerivativeInstance` uses the `DerivativeNfts` stored mapping
 	// to prevent derivative NFTs from being matched.
 	EnsureNotDerivativeInstance<DerivativeNfts, LocalNftsMatcher>,
-
 	// The `UniqueInstancesWithStashAccount` adds the `Destroy` and `Restore` operations
-	// to the `PredefinedIdNfts` by utilizing the NFT transfer to and from the `StashAccountId` correspondingly.
+	// to the `PredefinedIdNfts` by utilizing the NFT transfer to and from the `StashAccountId`
+	// correspondingly.
 	UniqueInstancesWithStashAccount<StashAccountId, PredefinedIdNfts>,
 >;
 
@@ -341,24 +363,25 @@ pub type LocalNftsTransactor = UniqueInstancesAdapter<
 pub type RegisteredDerivativeNftsTransactor = UniqueInstancesAdapter<
 	AccountId,
 	LocationToAccountId,
-
 	// Matches derivative NFTs using the `DerivativeNfts` stored mapping.
 	MatchDerivativeInstances<DerivativeNfts>,
-
 	// The `UniqueInstancesWithStashAccount` adds the `Destroy` and `Restore` operations
-	// to the `PredefinedIdNfts` utilizing the NFT transfer to and from the `StashAccountId` correspondingly.
+	// to the `PredefinedIdNfts` utilizing the NFT transfer to and from the `StashAccountId`
+	// correspondingly.
 	UniqueInstancesWithStashAccount<StashAccountId, PredefinedIdNfts>,
 >;
 
-/// Takes `(AssetId, AssetInstance)` to create a new NFT while the underlying `CreateOp` accepts only the `AssetId`.
+/// Takes `(AssetId, AssetInstance)` to create a new NFT while the underlying `CreateOp` accepts
+/// only the `AssetId`.
 ///
 /// Extracts `AssetId` from the tuple and passes it to `CreateOp`.
-pub type CreateUsingXcmNft<CreateOp> = MapId<NonFungibleAsset, AssetId, AsFallibleConvert<ExtractAssetId>, CreateOp>;
+pub type CreateUsingXcmNft<CreateOp> =
+	MapId<NonFungibleAsset, AssetId, AsFallibleConvert<ExtractAssetId>, CreateOp>;
 
 /// Takes `AssetId` to create a new NFT while the underlying `CreateOp` accepts `CollectionAutoId`.
 ///
-/// Maps the provided `AssetId` to `CollectionAutoId` using the stored mapping in the `AutoIdDerivativeCollections`.
-/// Passes the mapped ID to `CreateOp`.
+/// Maps the provided `AssetId` to `CollectionAutoId` using the stored mapping in the
+/// `AutoIdDerivativeCollections`. Passes the mapped ID to `CreateOp`.
 pub type CreateUsingXcmAssetId<CreateOp> = MapId<
 	AssetId,
 	CollectionAutoId,
@@ -367,7 +390,8 @@ pub type CreateUsingXcmAssetId<CreateOp> = MapId<
 >;
 
 /// * Takes `CollectionAutoId` (the NFT derivative collection ID)
-/// * Gets the associated extra data (current in-collection token ID) using the `AutoIdDerivativeCollections`,
+/// * Gets the associated extra data (current in-collection token ID) using the
+///   `AutoIdDerivativeCollections`,
 /// * Makes the `FullNftId` using the collection ID and current token ID,
 /// * Creates a derivative NFT using the `FullNftId`
 /// * Increments the token ID and sets it as the derivative collection's extra data.
@@ -386,17 +410,14 @@ pub type DerivativeNftsRegistrar = UniqueInstancesDepositAdapter<
 	AccountId,
 	LocationToAccountId,
 	NftFullId,
-
 	// Creates a new NFT using the `CreateDerivativeNft`,
-	// and stores the mapping between the XCM NFT ID and the derivative ID in the `DerivativeNfts` registry.
+	// and stores the mapping between the XCM NFT ID and the derivative ID in the `DerivativeNfts`
+	// registry.
 	RegisterDerivative<DerivativeNfts, CreateDerivativeNft>,
 >;
 
-pub type AssetTransactors = (
-	LocalNftsTransactor,
-	RegisteredDerivativeNftsTransactor,
-	DerivativeNftsRegistrar,
-);
+pub type AssetTransactors =
+	(LocalNftsTransactor, RegisteredDerivativeNftsTransactor, DerivativeNftsRegistrar);
 
 pub struct XcmConfig;
 impl xcm_executor::Config for XcmConfig {
