@@ -203,7 +203,7 @@ impl<T: Config> Pallet<T> {
 
 		let begin = sale.region_end;
 		let end_price = sale.end_price;
-		// Renwals should never be priced lower than the current `end_price`:
+		// Renewals should never be priced lower than the current `end_price`:
 		let price_cap = cmp::max(record.price + config.renewal_bump * record.price, end_price);
 		let now = RCBlockNumberProviderOf::<T::Coretime>::current_block_number();
 		let price = Self::sale_price(&sale, now).min(price_cap);
