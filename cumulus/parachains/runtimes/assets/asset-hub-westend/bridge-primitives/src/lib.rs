@@ -22,6 +22,7 @@ extern crate alloc;
 
 pub use bp_bridge_hub_cumulus::*;
 use bp_messages::*;
+pub use bp_proof_root_store::ProofRootStoreCall;
 use bp_runtime::{
 	decl_bridge_finality_runtime_apis, decl_bridge_messages_runtime_apis, Chain, ChainId, Parachain,
 };
@@ -53,6 +54,9 @@ pub enum Call {
 	/// Points to the `pallet_xcm_bridge_hub` pallet instance for `AssetHubRococo`.
 	#[codec(index = 62)]
 	XcmOverAssetHubRococo(bp_xcm_bridge::XcmBridgeCall),
+	/// `AssetHubRococoProofRootStore` bridge pallet.
+	#[codec(index = 66)]
+	AssetHubRococoProofRootStore(ProofRootStoreCall<Hash, Hash>),
 }
 
 frame_support::parameter_types! {

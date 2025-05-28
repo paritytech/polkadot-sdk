@@ -27,6 +27,7 @@ sp-std = { workspace = true }
 # Bridge Dependencies
 bp-bridge-hub-cumulus = { workspace = true }
 bp-messages = { workspace = true }
+bp-proof-root-store = { workspace = true }
 bp-runtime = { workspace = true }
 bp-xcm-bridge = { workspace = true }
 bp-xcm-bridge-router = { workspace = true }
@@ -40,6 +41,7 @@ default = ["std"]
 std = [
 	"bp-bridge-hub-cumulus/std",
 	"bp-messages/std",
+	"bp-proof-root-store/std",
 	"bp-runtime/std",
 	"bp-xcm-bridge-router/std",
 	"bp-xcm-bridge/std",
