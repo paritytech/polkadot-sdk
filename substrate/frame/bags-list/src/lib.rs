@@ -453,7 +453,13 @@ pub mod pallet {
 					match Self::rebag_internal(account, T::ScoreProvider::score) {
 						Err(e) => log!(warn, "Error during rebagging: {:?}", e),
 						Ok(Some((from, to))) => {
-							log!(debug, "Rebagged {:?}: moved from {:?} to {:?}", account, from, to);
+							log!(
+								debug,
+								"Rebagged {:?}: moved from {:?} to {:?}",
+								account,
+								from,
+								to
+							);
 						},
 						Ok(None) => log!(debug, "Rebagging not needed for {:?}", account),
 					}
@@ -493,11 +499,7 @@ pub mod pallet {
 				meter.consumed()
 			);
 			let weight_used = meter.consumed();
-			log!(
-				debug,
-				"Remaining weight: {:?}",
-				meter.remaining()
-			);
+			log!(debug, "Remaining weight: {:?}", meter.remaining());
 			weight_used
 		}
 	}
