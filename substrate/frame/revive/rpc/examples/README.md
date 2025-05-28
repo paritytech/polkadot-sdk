@@ -1,11 +1,3 @@
-## Pre-requisites
-
- Build `pallet-revive-fixture`, as we need some compiled contracts to exercise the RPC server.
-
-```bash
-cargo build -p pallet-revive-fixtures
-```
-
 ## Start the node
 
 Start the kitchensink node:

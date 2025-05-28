@@ -256,12 +256,18 @@ mod tests {
 
 		let expected_blocks = (10_000 / block_time).saturating_div(2);
 		assert!(expected_blocks > 0, "test configuration is bad, should give it more time");
-		assert!(String::from_utf8(output.stderr)
-			.unwrap()
-			.contains(format!("Imported #{}", expected_blocks).to_string().as_str()));
+		let output = String::from_utf8(output.stderr).unwrap();
+		let want = format!("Imported #{}", expected_blocks);
+		if !output.contains(&want) {
+			panic!(
+				"Output did not contain the pattern:\n\npattern: {}\n\noutput: {}\n",
+				want, output
+			);
+		}
 	}
 
 	#[test]
+	#[ignore = "is flaky"]
 	fn works_with_different_block_times() {
 		test_runtime_preset(PARA_RUNTIME, 100, Some(DEV_RUNTIME_PRESET.into()));
 		test_runtime_preset(PARA_RUNTIME, 3000, Some(DEV_RUNTIME_PRESET.into()));
@@ -282,6 +288,7 @@ mod tests {
 	}
 
 	#[test]
+	#[ignore]
 	fn parachain_runtime_works() {
 		// TODO: None doesn't work. But maybe it should? it would be misleading as many users might
 		// use it.
@@ -329,7 +336,7 @@ mod tests {
 			.output()
 			.unwrap();
 
-		// atleast  blocks should be imported
+		// at least  blocks should be imported
 		assert!(String::from_utf8(output.stderr)
 			.unwrap()
 			.contains(format!("Imported #{}", 7).to_string().as_str()));

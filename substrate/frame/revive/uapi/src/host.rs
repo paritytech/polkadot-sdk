@@ -368,6 +368,28 @@ pub trait HostFn: private::Sealed {
 	/// Returns the size of the pre-existing value at the specified key if any.
 	fn set_storage(flags: StorageFlags, key: &[u8], value: &[u8]) -> Option<u32>;
 
+	/// Sets the storage entry for a fixed 256‑bit key with a fixed 256‑bit value.
+	///
+	/// If the provided 32‑byte value is all zeros then the key is cleared (i.e. deleted),
+	/// mimicking Ethereum’s SSTORE behavior.
+	///
+	/// # Parameters
+	/// - `key`: The fixed 256‑bit storage key (32 bytes).
+	/// - `value`: The fixed 256‑bit storage value (32 bytes).
+	///
+	/// # Return
+	/// Returns the size (in bytes) of the pre‑existing value at the specified key, if any.
+	fn set_storage_or_clear(flags: StorageFlags, key: &[u8; 32], value: &[u8; 32]) -> Option<u32>;
+
+	/// Retrieves the storage entry for a fixed 256‑bit key.
+	///
+	/// If the key does not exist, the output buffer is filled with 32 zero bytes.
+	///
+	/// # Parameters
+	/// - `key`: The fixed 256‑bit storage key (32 bytes).
+	/// - `output`: A mutable output buffer (32 bytes) where the storage entry is written.
+	fn get_storage_or_zero(flags: StorageFlags, key: &[u8; 32], output: &mut [u8; 32]);
+
 	/// Stores the value transferred along with this call/instantiate into the supplied buffer.
 	///
 	/// # Parameters
@@ -546,20 +568,6 @@ pub trait HostFn: private::Sealed {
 	/// - [EcdsaRecoveryFailed][`crate::ReturnErrorCode::EcdsaRecoveryFailed]
 	#[unstable_hostfn]
 	fn ecdsa_to_eth_address(pubkey: &[u8; 33], output: &mut [u8; 20]) -> Result;
-
-	/// Computes the sha2_256 32-bit hash on the given input buffer.
-	///
-	/// - The `input` and `output` buffer may overlap.
-	/// - The output buffer is expected to hold at least 32 bits.
-	/// - It is the callers responsibility to provide an output buffer that is large enough to hold
-	///   the expected amount of bytes returned by the hash function.
-	///
-	/// # Parameters
-	///
-	/// - `input`: The input data buffer.
-	/// - `output`: The output buffer to write the hash result to.
-	#[unstable_hostfn]
-	fn hash_sha2_256(input: &[u8], output: &mut [u8; 32]);
 
 	/// Computes the blake2_256 32-bit hash on the given input buffer.
 	///

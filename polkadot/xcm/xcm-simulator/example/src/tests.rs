@@ -168,7 +168,7 @@ fn reserve_transfer_with_error() {
 	MockNet::reset();
 
 	// Execute XCM Transfer and Capture Logs
-	let (log_capture, subscriber) = init_log_capture(Level::ERROR);
+	let (log_capture, subscriber) = init_log_capture(Level::ERROR, false);
 	subscriber::with_default(subscriber, || {
 		let invalid_dest = Box::new(Parachain(9999).into());
 		let withdraw_amount = 123;
@@ -527,7 +527,7 @@ fn query_holding() {
 	let query_id_set = 1234;
 
 	// Send a message which fully succeeds on the relay chain
-	ParaA::execute_with(|| {
+	let expected_hash = ParaA::execute_with(|| {
 		let message = Xcm(vec![
 			WithdrawAsset((Here, send_amount).into()),
 			buy_execution((Here, send_amount)),
@@ -543,6 +543,8 @@ fn query_holding() {
 		]);
 		// Send withdraw and deposit with query holding
 		assert_ok!(ParachainPalletXcm::send_xcm(Here, Parent, message.clone(),));
+
+		VersionedXcm::from(message).using_encoded(sp_core::blake2_256)
 	});
 
 	// Check that transfer was executed
@@ -563,12 +565,15 @@ fn query_holding() {
 	ParaA::execute_with(|| {
 		assert_eq!(
 			ReceivedDmp::<parachain::Runtime>::get(),
-			vec![Xcm(vec![QueryResponse {
-				query_id: query_id_set,
-				response: Response::Assets(Assets::new()),
-				max_weight: Weight::from_parts(1_000_000_000, 1024 * 1024),
-				querier: Some(Here.into()),
-			}])],
+			vec![Xcm(vec![
+				QueryResponse {
+					query_id: query_id_set,
+					response: Response::Assets(Assets::new()),
+					max_weight: Weight::from_parts(1_000_000_000, 1024 * 1024),
+					querier: Some(Here.into()),
+				},
+				SetTopic(expected_hash),
+			])],
 		);
 	});
 }

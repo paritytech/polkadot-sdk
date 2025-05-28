@@ -31,10 +31,13 @@ pub use sp_runtime::traits::{
 	ConstBool, ConstI128, ConstI16, ConstI32, ConstI64, ConstI8, ConstInt, ConstU128, ConstU16,
 	ConstU32, ConstU64, ConstU8, ConstUint, Get, GetDefault, TryCollect, TypedGet,
 };
-use sp_runtime::{traits::Block as BlockT, DispatchError};
+use sp_runtime::{
+	traits::{Block as BlockT, ExtrinsicCall},
+	DispatchError,
+};
 
 #[doc(hidden)]
-pub const DEFENSIVE_OP_PUBLIC_ERROR: &str = "a defensive failure has been triggered; please report the block number at https://github.com/paritytech/substrate/issues";
+pub const DEFENSIVE_OP_PUBLIC_ERROR: &str = "a defensive failure has been triggered; please report the block number at https://github.com/paritytech/polkadot-sdk/issues";
 #[doc(hidden)]
 pub const DEFENSIVE_OP_INTERNAL_ERROR: &str = "Defensive failure has been triggered!";
 
@@ -898,47 +901,10 @@ pub trait GetBacking {
 	fn get_backing(&self) -> Option<Backing>;
 }
 
-/// A trait to ensure the inherent are before non-inherent in a block.
-///
-/// This is typically implemented on runtime, through `construct_runtime!`.
-pub trait EnsureInherentsAreFirst<Block: sp_runtime::traits::Block>:
-	IsInherent<<Block as sp_runtime::traits::Block>::Extrinsic>
-{
-	/// Ensure the position of inherent is correct, i.e. they are before non-inherents.
-	///
-	/// On error return the index of the inherent with invalid position (counting from 0). On
-	/// success it returns the index of the last inherent. `0` therefore means that there are no
-	/// inherents.
-	fn ensure_inherents_are_first(block: &Block) -> Result<u32, u32>;
-}
-
 /// A trait to check if an extrinsic is an inherent.
 pub trait IsInherent<Extrinsic> {
 	/// Whether this extrinsic is an inherent.
 	fn is_inherent(ext: &Extrinsic) -> bool;
-}
-
-/// An extrinsic on which we can get access to call.
-pub trait ExtrinsicCall: sp_runtime::traits::ExtrinsicLike {
-	type Call;
-
-	/// Get the call of the extrinsic.
-	fn call(&self) -> &Self::Call;
-}
-
-impl<Address, Call, Signature, Extra> ExtrinsicCall
-	for sp_runtime::generic::UncheckedExtrinsic<Address, Call, Signature, Extra>
-where
-	Address: TypeInfo,
-	Call: TypeInfo,
-	Signature: TypeInfo,
-	Extra: TypeInfo,
-{
-	type Call = Call;
-
-	fn call(&self) -> &Call {
-		&self.function
-	}
 }
 
 /// Interface for types capable of constructing an inherent extrinsic.
@@ -1014,6 +980,13 @@ pub trait EstimateCallFee<Call, Balance> {
 impl<Call, Balance: From<u32>, const T: u32> EstimateCallFee<Call, Balance> for ConstU32<T> {
 	fn estimate_call_fee(_: &Call, _: crate::dispatch::PostDispatchInfo) -> Balance {
 		T.into()
+	}
+}
+
+#[cfg(feature = "std")]
+impl<Call, Balance: From<u32>, const T: u64> EstimateCallFee<Call, Balance> for ConstU64<T> {
+	fn estimate_call_fee(_: &Call, _: crate::dispatch::PostDispatchInfo) -> Balance {
+		(T as u32).into()
 	}
 }
 
@@ -1262,6 +1235,13 @@ pub trait AccountTouch<AssetId, AccountId> {
 
 	/// Create an account for `who` of the `asset` with a deposit taken from the `depositor`.
 	fn touch(asset: AssetId, who: &AccountId, depositor: &AccountId) -> DispatchResult;
+}
+
+/// Trait for reporting additional validator reward points
+pub trait RewardsReporter<ValidatorId> {
+	/// The input is an iterator of tuples of validator account IDs and the amount of points they
+	/// should be rewarded.
+	fn reward_by_ids(validators_points: impl IntoIterator<Item = (ValidatorId, u32)>);
 }
 
 #[cfg(test)]

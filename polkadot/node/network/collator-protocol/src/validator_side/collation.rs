@@ -55,7 +55,8 @@ use polkadot_primitives::{
 };
 use tokio_util::sync::CancellationToken;
 
-use crate::{error::SecondingError, LOG_TARGET};
+use super::error::SecondingError;
+use crate::LOG_TARGET;
 
 /// Candidate supplied with a para head it's built on top of.
 #[derive(Debug, Copy, Clone, Hash, Eq, PartialEq)]

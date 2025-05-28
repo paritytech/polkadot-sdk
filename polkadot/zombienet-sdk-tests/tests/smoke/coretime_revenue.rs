@@ -11,32 +11,31 @@
 
 use anyhow::anyhow;
 
-#[subxt::subxt(runtime_metadata_path = "metadata-files/coretime-rococo-local.scale")]
+#[zombienet_sdk::subxt::subxt(runtime_metadata_path = "metadata-files/coretime-rococo-local.scale")]
 mod coretime_rococo {}
 
-#[subxt::subxt(runtime_metadata_path = "metadata-files/rococo-local.scale")]
+#[zombienet_sdk::subxt::subxt(runtime_metadata_path = "metadata-files/rococo-local.scale")]
 mod rococo {}
 
-use crate::helpers::rococo::{
-	self as rococo_api,
-	runtime_types::{
-		polkadot_parachain_primitives::primitives,
-		staging_xcm::v4::{
-			asset::{Asset, AssetId, Assets, Fungibility},
-			junction::Junction,
-			junctions::Junctions,
-			location::Location,
-		},
-		xcm::{VersionedAssets, VersionedLocation},
+use rococo::runtime_types::{
+	polkadot_parachain_primitives::primitives,
+	staging_xcm::v4::{
+		asset::{Asset, AssetId, Assets, Fungibility},
+		junction::Junction,
+		junctions::Junctions,
+		location::Location,
 	},
+	xcm::{VersionedAssets, VersionedLocation},
 };
 
 use serde_json::json;
 use std::{fmt::Display, sync::Arc};
-use subxt::{events::StaticEvent, utils::AccountId32, OnlineClient, PolkadotConfig};
-use subxt_signer::sr25519::dev;
 use tokio::sync::RwLock;
-use zombienet_sdk::NetworkConfigBuilder;
+use zombienet_sdk::{
+	subxt::{events::StaticEvent, utils::AccountId32, OnlineClient, PolkadotConfig},
+	subxt_signer::sr25519::dev,
+	NetworkConfigBuilder,
+};
 
 use coretime_rococo::{
 	self as coretime_api,
@@ -65,7 +64,7 @@ async fn get_total_issuance(
 			.at_latest()
 			.await
 			.unwrap()
-			.fetch(&rococo_api::storage().balances().total_issuance())
+			.fetch(&rococo::storage().balances().total_issuance())
 			.await
 			.unwrap()
 			.unwrap(),
@@ -91,7 +90,7 @@ async fn assert_total_issuance(
 	assert_eq!(ti, actual_ti);
 }
 
-type EventOf<C> = Arc<RwLock<Vec<(u64, subxt::events::EventDetails<C>)>>>;
+type EventOf<C> = Arc<RwLock<Vec<(u64, zombienet_sdk::subxt::events::EventDetails<C>)>>>;
 
 macro_rules! trace_event {
 	($event:ident : $mod:ident => $($ev:ident),*) => {
@@ -105,9 +104,11 @@ macro_rules! trace_event {
 	};
 }
 
-async fn para_watcher<C: subxt::Config + Clone>(api: OnlineClient<C>, events: EventOf<C>)
-where
-	<C::Header as subxt::config::Header>::Number: Display,
+async fn para_watcher<C: zombienet_sdk::subxt::Config + Clone>(
+	api: OnlineClient<C>,
+	events: EventOf<C>,
+) where
+	<C::Header as zombienet_sdk::subxt::config::Header>::Number: Display,
 {
 	let mut blocks_sub = api.blocks().subscribe_finalized().await.unwrap();
 
@@ -133,9 +134,11 @@ where
 	}
 }
 
-async fn relay_watcher<C: subxt::Config + Clone>(api: OnlineClient<C>, events: EventOf<C>)
-where
-	<C::Header as subxt::config::Header>::Number: Display,
+async fn relay_watcher<C: zombienet_sdk::subxt::Config + Clone>(
+	api: OnlineClient<C>,
+	events: EventOf<C>,
+) where
+	<C::Header as zombienet_sdk::subxt::config::Header>::Number: Display,
 {
 	let mut blocks_sub = api.blocks().subscribe_finalized().await.unwrap();
 
@@ -160,7 +163,11 @@ where
 	}
 }
 
-async fn wait_for_event<C: subxt::Config + Clone, E: StaticEvent, P: Fn(&E) -> bool + Copy>(
+async fn wait_for_event<
+	C: zombienet_sdk::subxt::Config + Clone,
+	E: StaticEvent,
+	P: Fn(&E) -> bool + Copy,
+>(
 	events: EventOf<C>,
 	pallet: &'static str,
 	variant: &'static str,
@@ -182,9 +189,11 @@ async fn wait_for_event<C: subxt::Config + Clone, E: StaticEvent, P: Fn(&E) -> b
 	}
 }
 
-async fn ti_watcher<C: subxt::Config + Clone>(api: OnlineClient<C>, prefix: &'static str)
-where
-	<C::Header as subxt::config::Header>::Number: Display,
+async fn ti_watcher<C: zombienet_sdk::subxt::Config + Clone>(
+	api: OnlineClient<C>,
+	prefix: &'static str,
+) where
+	<C::Header as zombienet_sdk::subxt::config::Header>::Number: Display,
 {
 	let mut blocks_sub = api.blocks().subscribe_finalized().await.unwrap();
 
@@ -197,7 +206,7 @@ where
 		let ti = api
 			.storage()
 			.at(block.reference())
-			.fetch(&rococo_api::storage().balances().total_issuance())
+			.fetch(&rococo::storage().balances().total_issuance())
 			.await
 			.unwrap()
 			.unwrap() as i128;
@@ -293,7 +302,7 @@ async fn coretime_revenue_test() -> Result<(), anyhow::Error> {
 	relay_client
 		.tx()
 		.sign_and_submit_default(
-			&rococo_api::tx().xcm_pallet().teleport_assets(
+			&rococo::tx().xcm_pallet().teleport_assets(
 				VersionedLocation::V4(Location {
 					parents: 0,
 					interior: Junctions::X1([Junction::Parachain(1005)]),
@@ -449,7 +458,7 @@ async fn coretime_revenue_test() -> Result<(), anyhow::Error> {
 	let r = relay_client
 		.tx()
 		.sign_and_submit_then_watch_default(
-			&rococo_api::tx()
+			&rococo::tx()
 				.on_demand_assignment_provider()
 				.place_order_allow_death(100_000_000, primitives::Id(100)),
 			&bob,
@@ -459,7 +468,7 @@ async fn coretime_revenue_test() -> Result<(), anyhow::Error> {
 		.await?;
 
 	let order = r
-		.find_first::<rococo_api::on_demand_assignment_provider::events::OnDemandOrderPlaced>()?
+		.find_first::<rococo::on_demand_assignment_provider::events::OnDemandOrderPlaced>()?
 		.unwrap();
 
 	// As there's no spot traffic, Bob will only pay base fee
@@ -527,7 +536,7 @@ async fn coretime_revenue_test() -> Result<(), anyhow::Error> {
 	let r = relay_client
 		.tx()
 		.sign_and_submit_then_watch_default(
-			&rococo_api::tx()
+			&rococo::tx()
 				.on_demand_assignment_provider()
 				.place_order_with_credits(100_000_000, primitives::Id(100)),
 			&alice,
@@ -537,7 +546,7 @@ async fn coretime_revenue_test() -> Result<(), anyhow::Error> {
 		.await?;
 
 	let order = r
-		.find_first::<rococo_api::on_demand_assignment_provider::events::OnDemandOrderPlaced>()?
+		.find_first::<rococo::on_demand_assignment_provider::events::OnDemandOrderPlaced>()?
 		.unwrap();
 
 	assert_eq!(order.spot_price, ON_DEMAND_BASE_FEE);

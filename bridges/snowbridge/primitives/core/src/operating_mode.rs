@@ -34,3 +34,8 @@ impl BasicOperatingMode {
 		*self == BasicOperatingMode::Halted
 	}
 }
+
+/// Check whether the export message is paused based on the status of the basic operating mode.
+pub trait ExportPausedQuery {
+	fn is_paused() -> bool;
+}

@@ -23,12 +23,58 @@ use codec::{Decode, Encode};
 use derive_more::{From, TryInto};
 pub use ethereum_types::*;
 use scale_info::TypeInfo;
-use serde::{Deserialize, Serialize};
+use serde::{de::Error, Deserialize, Deserializer, Serialize};
 
-/// Block object
+/// Input of a `GenericTransaction`
 #[derive(
 	Debug, Default, Clone, Encode, Decode, TypeInfo, Serialize, Deserialize, Eq, PartialEq,
 )]
+pub struct InputOrData {
+	#[serde(skip_serializing_if = "Option::is_none")]
+	input: Option<Bytes>,
+	#[serde(skip_serializing_if = "Option::is_none")]
+	data: Option<Bytes>,
+}
+
+impl From<Bytes> for InputOrData {
+	fn from(value: Bytes) -> Self {
+		InputOrData { input: Some(value), data: None }
+	}
+}
+
+impl From<Vec<u8>> for InputOrData {
+	fn from(value: Vec<u8>) -> Self {
+		InputOrData { input: Some(Bytes(value)), data: None }
+	}
+}
+
+impl InputOrData {
+	/// Get the input as `Bytes`.
+	pub fn to_bytes(self) -> Bytes {
+		match self {
+			InputOrData { input: Some(input), data: _ } => input,
+			InputOrData { input: None, data: Some(data) } => data,
+			_ => Default::default(),
+		}
+	}
+
+	/// Get the input as `Vec<u8>`.
+	pub fn to_vec(self) -> Vec<u8> {
+		self.to_bytes().0
+	}
+}
+
+fn deserialize_input_or_data<'d, D: Deserializer<'d>>(d: D) -> Result<InputOrData, D::Error> {
+	let value = InputOrData::deserialize(d)?;
+	match &value {
+        InputOrData { input: Some(input), data: Some(data) } if input != data =>
+            Err(serde::de::Error::custom("Both \"data\" and \"input\" are set and not equal. Please use \"input\" to pass transaction call data")),
+        _ => Ok(value),
+    }
+}
+
+/// Block object
+#[derive(Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq)]
 pub struct Block {
 	/// Base fee per gas
 	#[serde(rename = "baseFeePerGas", skip_serializing_if = "Option::is_none")]
@@ -102,9 +148,7 @@ pub struct Block {
 }
 
 /// Block number or tag
-#[derive(
-	Debug, Clone, Encode, Decode, TypeInfo, Serialize, Deserialize, From, TryInto, Eq, PartialEq,
-)]
+#[derive(Debug, Clone, Serialize, Deserialize, From, TryInto, Eq, PartialEq)]
 #[serde(untagged)]
 pub enum BlockNumberOrTag {
 	/// Block number
@@ -119,17 +163,15 @@ impl Default for BlockNumberOrTag {
 }
 
 /// Block number, tag, or block hash
-#[derive(
-	Debug, Clone, Encode, Decode, TypeInfo, Serialize, Deserialize, From, TryInto, Eq, PartialEq,
-)]
+#[derive(Debug, Clone, Serialize, From, TryInto, Eq, PartialEq)]
 #[serde(untagged)]
 pub enum BlockNumberOrTagOrHash {
 	/// Block number
-	U256(U256),
+	BlockNumber(U256),
 	/// Block tag
 	BlockTag(BlockTag),
 	/// Block hash
-	H256(H256),
+	BlockHash(H256),
 }
 impl Default for BlockNumberOrTagOrHash {
 	fn default() -> Self {
@@ -137,19 +179,57 @@ impl Default for BlockNumberOrTagOrHash {
 	}
 }
 
+// Support nested object notation as defined in  https://eips.ethereum.org/EIPS/eip-1898
+impl<'a> serde::Deserialize<'a> for BlockNumberOrTagOrHash {
+	fn deserialize<D>(de: D) -> Result<Self, D::Error>
+	where
+		D: serde::Deserializer<'a>,
+	{
+		#[derive(Deserialize)]
+		#[serde(untagged)]
+		pub enum BlockNumberOrTagOrHashWithAlias {
+			BlockTag(BlockTag),
+			BlockNumber(U64),
+			NestedBlockNumber {
+				#[serde(rename = "blockNumber")]
+				block_number: U256,
+			},
+			BlockHash(H256),
+			NestedBlockHash {
+				#[serde(rename = "blockHash")]
+				block_hash: H256,
+			},
+		}
+
+		let r = BlockNumberOrTagOrHashWithAlias::deserialize(de)?;
+		Ok(match r {
+			BlockNumberOrTagOrHashWithAlias::BlockTag(val) => BlockNumberOrTagOrHash::BlockTag(val),
+			BlockNumberOrTagOrHashWithAlias::BlockNumber(val) => {
+				let val: u64 =
+					val.try_into().map_err(|_| D::Error::custom("u64 conversion failed"))?;
+				BlockNumberOrTagOrHash::BlockNumber(val.into())
+			},
+
+			BlockNumberOrTagOrHashWithAlias::NestedBlockNumber { block_number: val } =>
+				BlockNumberOrTagOrHash::BlockNumber(val),
+			BlockNumberOrTagOrHashWithAlias::BlockHash(val) |
+			BlockNumberOrTagOrHashWithAlias::NestedBlockHash { block_hash: val } =>
+				BlockNumberOrTagOrHash::BlockHash(val),
+		})
+	}
+}
+
 /// filter
-#[derive(
-	Debug, Default, Clone, Encode, Decode, TypeInfo, Serialize, Deserialize, Eq, PartialEq,
-)]
+#[derive(Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq)]
 pub struct Filter {
 	/// Address(es)
 	pub address: Option<AddressOrAddresses>,
 	/// from block
 	#[serde(rename = "fromBlock", skip_serializing_if = "Option::is_none")]
-	pub from_block: Option<U256>,
+	pub from_block: Option<BlockNumberOrTag>,
 	/// to block
 	#[serde(rename = "toBlock", skip_serializing_if = "Option::is_none")]
-	pub to_block: Option<U256>,
+	pub to_block: Option<BlockNumberOrTag>,
 	/// Restricts the logs returned to the single block
 	#[serde(rename = "blockHash", skip_serializing_if = "Option::is_none")]
 	pub block_hash: Option<H256>,
@@ -159,9 +239,7 @@ pub struct Filter {
 }
 
 /// Filter results
-#[derive(
-	Debug, Clone, Encode, Decode, TypeInfo, Serialize, Deserialize, From, TryInto, Eq, PartialEq,
-)]
+#[derive(Debug, Clone, Serialize, Deserialize, From, TryInto, Eq, PartialEq)]
 #[serde(untagged)]
 pub enum FilterResults {
 	/// new block or transaction hashes
@@ -207,8 +285,8 @@ pub struct GenericTransaction {
 	#[serde(rename = "gasPrice", skip_serializing_if = "Option::is_none")]
 	pub gas_price: Option<U256>,
 	/// input data
-	#[serde(alias = "data", skip_serializing_if = "Option::is_none")]
-	pub input: Option<Bytes>,
+	#[serde(flatten, deserialize_with = "deserialize_input_or_data")]
+	pub input: InputOrData,
 	/// max fee per blob gas
 	/// The maximum total fee per gas the sender is willing to pay for blob gas in wei
 	#[serde(rename = "maxFeePerBlobGas", skip_serializing_if = "Option::is_none")]
@@ -236,9 +314,7 @@ pub struct GenericTransaction {
 }
 
 /// Receipt information
-#[derive(
-	Debug, Default, Clone, Encode, Decode, TypeInfo, Serialize, Deserialize, Eq, PartialEq,
-)]
+#[derive(Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq)]
 pub struct ReceiptInfo {
 	/// blob gas price
 	/// The actual value per gas deducted from the sender's account for blob gas. Only specified
@@ -306,9 +382,7 @@ pub struct ReceiptInfo {
 }
 
 /// Syncing status
-#[derive(
-	Debug, Clone, Encode, Decode, TypeInfo, Serialize, Deserialize, From, TryInto, Eq, PartialEq,
-)]
+#[derive(Debug, Clone, Serialize, Deserialize, From, TryInto, Eq, PartialEq)]
 #[serde(untagged)]
 pub enum SyncingStatus {
 	/// Syncing progress
@@ -324,9 +398,7 @@ impl Default for SyncingStatus {
 }
 
 /// Transaction information
-#[derive(
-	Debug, Default, Clone, Encode, Decode, TypeInfo, Serialize, Deserialize, Eq, PartialEq,
-)]
+#[derive(Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq)]
 pub struct TransactionInfo {
 	/// block hash
 	#[serde(rename = "blockHash")]
@@ -345,9 +417,7 @@ pub struct TransactionInfo {
 	pub transaction_signed: TransactionSigned,
 }
 
-#[derive(
-	Debug, Clone, Encode, Decode, TypeInfo, Serialize, Deserialize, From, TryInto, Eq, PartialEq,
-)]
+#[derive(Debug, Clone, Serialize, Deserialize, From, TryInto, Eq, PartialEq)]
 #[serde(untagged)]
 pub enum TransactionUnsigned {
 	Transaction4844Unsigned(Transaction4844Unsigned),
@@ -365,9 +435,7 @@ impl Default for TransactionUnsigned {
 pub type AccessList = Vec<AccessListEntry>;
 
 /// Address(es)
-#[derive(
-	Debug, Clone, Encode, Decode, TypeInfo, Serialize, Deserialize, From, TryInto, Eq, PartialEq,
-)]
+#[derive(Debug, Clone, Serialize, Deserialize, From, TryInto, Eq, PartialEq)]
 #[serde(untagged)]
 pub enum AddressOrAddresses {
 	/// Address
@@ -394,9 +462,7 @@ pub type Addresses = Vec<Address>;
 /// and containing the set of transactions usually taken from local mempool. Before the merge
 /// transition is finalized, any call querying for `finalized` or `safe` block MUST be responded to
 /// with `-39001: Unknown block` error
-#[derive(
-	Debug, Default, Clone, Encode, Decode, TypeInfo, Serialize, Deserialize, Eq, PartialEq,
-)]
+#[derive(Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq)]
 pub enum BlockTag {
 	#[serde(rename = "earliest")]
 	Earliest,
@@ -414,9 +480,7 @@ pub enum BlockTag {
 /// Filter Topics
 pub type FilterTopics = Vec<FilterTopic>;
 
-#[derive(
-	Debug, Clone, Encode, Decode, TypeInfo, Serialize, Deserialize, From, TryInto, Eq, PartialEq,
-)]
+#[derive(Debug, Clone, Serialize, Deserialize, From, TryInto, Eq, PartialEq)]
 #[serde(untagged)]
 pub enum HashesOrTransactionInfos {
 	/// Transaction hashes
@@ -431,9 +495,7 @@ impl Default for HashesOrTransactionInfos {
 }
 
 /// log
-#[derive(
-	Debug, Default, Clone, Encode, Decode, TypeInfo, Serialize, Deserialize, Eq, PartialEq,
-)]
+#[derive(Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq)]
 pub struct Log {
 	/// address
 	pub address: Address,
@@ -464,9 +526,7 @@ pub struct Log {
 }
 
 /// Syncing progress
-#[derive(
-	Debug, Default, Clone, Encode, Decode, TypeInfo, Serialize, Deserialize, Eq, PartialEq,
-)]
+#[derive(Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq)]
 pub struct SyncingProgress {
 	/// Current block
 	#[serde(rename = "currentBlock", skip_serializing_if = "Option::is_none")]
@@ -480,9 +540,7 @@ pub struct SyncingProgress {
 }
 
 /// EIP-1559 transaction.
-#[derive(
-	Debug, Default, Clone, Encode, Decode, TypeInfo, Serialize, Deserialize, Eq, PartialEq,
-)]
+#[derive(Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq)]
 pub struct Transaction1559Unsigned {
 	/// accessList
 	/// EIP-2930 access list
@@ -522,9 +580,7 @@ pub struct Transaction1559Unsigned {
 }
 
 /// EIP-2930 transaction.
-#[derive(
-	Debug, Default, Clone, Encode, Decode, TypeInfo, Serialize, Deserialize, Eq, PartialEq,
-)]
+#[derive(Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq)]
 pub struct Transaction2930Unsigned {
 	/// accessList
 	/// EIP-2930 access list
@@ -553,9 +609,7 @@ pub struct Transaction2930Unsigned {
 }
 
 /// EIP-4844 transaction.
-#[derive(
-	Debug, Default, Clone, Encode, Decode, TypeInfo, Serialize, Deserialize, Eq, PartialEq,
-)]
+#[derive(Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq)]
 pub struct Transaction4844Unsigned {
 	/// accessList
 	/// EIP-2930 access list
@@ -597,9 +651,7 @@ pub struct Transaction4844Unsigned {
 }
 
 /// Legacy transaction.
-#[derive(
-	Debug, Default, Clone, Encode, Decode, TypeInfo, Serialize, Deserialize, Eq, PartialEq,
-)]
+#[derive(Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq)]
 pub struct TransactionLegacyUnsigned {
 	/// chainId
 	/// Chain ID that this transaction is valid on.
@@ -623,9 +675,7 @@ pub struct TransactionLegacyUnsigned {
 	pub value: U256,
 }
 
-#[derive(
-	Debug, Clone, Encode, Decode, TypeInfo, Serialize, Deserialize, From, TryInto, Eq, PartialEq,
-)]
+#[derive(Debug, Clone, Serialize, Deserialize, From, TryInto, Eq, PartialEq)]
 #[serde(untagged)]
 pub enum TransactionSigned {
 	Transaction4844Signed(Transaction4844Signed),
@@ -640,9 +690,7 @@ impl Default for TransactionSigned {
 }
 
 /// Validator withdrawal
-#[derive(
-	Debug, Default, Clone, Encode, Decode, TypeInfo, Serialize, Deserialize, Eq, PartialEq,
-)]
+#[derive(Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq)]
 pub struct Withdrawal {
 	/// recipient address for withdrawal value
 	pub address: Address,
@@ -666,9 +714,7 @@ pub struct AccessListEntry {
 }
 
 /// Filter Topic List Entry
-#[derive(
-	Debug, Clone, Encode, Decode, TypeInfo, Serialize, Deserialize, From, TryInto, Eq, PartialEq,
-)]
+#[derive(Debug, Clone, Serialize, Deserialize, From, TryInto, Eq, PartialEq)]
 #[serde(untagged)]
 pub enum FilterTopic {
 	/// Single Topic Match
@@ -683,9 +729,7 @@ impl Default for FilterTopic {
 }
 
 /// Signed 1559 Transaction
-#[derive(
-	Debug, Default, Clone, Encode, Decode, TypeInfo, Serialize, Deserialize, Eq, PartialEq,
-)]
+#[derive(Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq)]
 pub struct Transaction1559Signed {
 	#[serde(flatten)]
 	pub transaction_1559_unsigned: Transaction1559Unsigned,
@@ -705,9 +749,7 @@ pub struct Transaction1559Signed {
 }
 
 /// Signed 2930 Transaction
-#[derive(
-	Debug, Default, Clone, Encode, Decode, TypeInfo, Serialize, Deserialize, Eq, PartialEq,
-)]
+#[derive(Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq)]
 pub struct Transaction2930Signed {
 	#[serde(flatten)]
 	pub transaction_2930_unsigned: Transaction2930Unsigned,
@@ -727,9 +769,7 @@ pub struct Transaction2930Signed {
 }
 
 /// Signed 4844 Transaction
-#[derive(
-	Debug, Default, Clone, Encode, Decode, TypeInfo, Serialize, Deserialize, Eq, PartialEq,
-)]
+#[derive(Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq)]
 pub struct Transaction4844Signed {
 	#[serde(flatten)]
 	pub transaction_4844_unsigned: Transaction4844Unsigned,
@@ -744,9 +784,7 @@ pub struct Transaction4844Signed {
 }
 
 /// Signed Legacy Transaction
-#[derive(
-	Debug, Default, Clone, Encode, Decode, TypeInfo, Serialize, Deserialize, Eq, PartialEq,
-)]
+#[derive(Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq)]
 pub struct TransactionLegacySigned {
 	#[serde(flatten)]
 	pub transaction_legacy_unsigned: TransactionLegacyUnsigned,
@@ -756,4 +794,30 @@ pub struct TransactionLegacySigned {
 	pub s: U256,
 	/// v
 	pub v: U256,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct FeeHistoryResult {
+	/// Lowest number block of the returned range.
+	pub oldest_block: U256,
+
+	/// An array of block base fees per gas.
+	///
+	/// This includes the next block after the newest of the returned range, because this value can
+	/// be derived from the newest block. Zeroes are returned for pre-EIP-1559 blocks.
+	#[serde(default, skip_serializing_if = "Vec::is_empty")]
+	pub base_fee_per_gas: Vec<U256>,
+
+	/// An array of block gas used ratios.
+	/// These are calculated as the ratio of `gasUsed` and `gasLimit`.
+	pub gas_used_ratio: Vec<f64>,
+
+	/// A two-dimensional array of effective priority fees per gas at the requested block
+	/// percentiles.
+	///
+	/// A given percentile sample of effective priority fees per gas from a single block in
+	/// ascending order, weighted by gas used. Zeroes are returned if the block is empty.
+	#[serde(default, skip_serializing_if = "Vec::is_empty")]
+	pub reward: Vec<Vec<U256>>,
 }

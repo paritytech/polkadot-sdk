@@ -675,7 +675,7 @@ async fn litep2p_disconnects_libp2p_substream() {
 	let mut open_times = 0;
 
 	// Disarm first timer interval.
-	let mut timer = tokio::time::interval(std::time::Duration::from_secs(u64::MAX));
+	let mut timer = tokio::time::interval(std::time::Duration::from_secs(u64::MAX / 4));
 	timer.tick().await;
 
 	loop {

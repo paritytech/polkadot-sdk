@@ -1,0 +1,16 @@
+error: unused import: `frame_support::traits::OriginTrait`
+  --> tests/benchmark_ui/extrinsic_call_wrong_origin.rs:46:6
+   |
+46 |     use frame_support::traits::OriginTrait;
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `-D unused-imports` implied by `-D warnings`
+   = help: to override `-D warnings` add `#[allow(unused_imports)]`
+
+error[E0277]: the trait bound `<T as frame_system::Config>::RuntimeOrigin: From<u8>` is not satisfied
+  --> tests/benchmark_ui/extrinsic_call_wrong_origin.rs:52:5
+   |
+52 |         _(origin);
+   |           ^^^^^^ the trait `From<u8>` is not implemented for `<T as frame_system::Config>::RuntimeOrigin`
+   |
+   = note: required for `u8` to implement `Into<<T as frame_system::Config>::RuntimeOrigin>`

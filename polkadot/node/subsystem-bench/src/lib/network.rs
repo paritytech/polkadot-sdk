@@ -56,7 +56,7 @@ use net_protocol::{
 	request_response::{Recipient, Requests, ResponseSender},
 	ObservedRole, VersionedValidationProtocol, View,
 };
-use polkadot_node_network_protocol::{self as net_protocol, Versioned};
+use polkadot_node_network_protocol::{self as net_protocol, ValidationProtocols};
 use polkadot_node_subsystem::messages::StatementDistributionMessage;
 use polkadot_node_subsystem_types::messages::NetworkBridgeEvent;
 use polkadot_node_subsystem_util::metrics::prometheus::{
@@ -164,14 +164,9 @@ impl NetworkMessage {
 	/// Returns the size of the encoded message or request
 	pub fn size(&self) -> usize {
 		match &self {
-			NetworkMessage::MessageFromPeer(_, Versioned::V2(message)) => message.encoded_size(),
-			NetworkMessage::MessageFromPeer(_, Versioned::V1(message)) => message.encoded_size(),
-			NetworkMessage::MessageFromPeer(_, Versioned::V3(message)) => message.encoded_size(),
-			NetworkMessage::MessageFromNode(_peer_id, Versioned::V2(message)) =>
+			NetworkMessage::MessageFromPeer(_, ValidationProtocols::V3(message)) =>
 				message.encoded_size(),
-			NetworkMessage::MessageFromNode(_peer_id, Versioned::V1(message)) =>
-				message.encoded_size(),
-			NetworkMessage::MessageFromNode(_peer_id, Versioned::V3(message)) =>
+			NetworkMessage::MessageFromNode(_peer_id, ValidationProtocols::V3(message)) =>
 				message.encoded_size(),
 			NetworkMessage::RequestFromNode(_peer_id, incoming) => incoming.size(),
 			NetworkMessage::RequestFromPeer(request) => request.payload.encoded_size(),

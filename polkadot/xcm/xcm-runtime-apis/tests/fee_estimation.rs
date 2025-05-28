@@ -27,10 +27,10 @@ use xcm_runtime_apis::{
 
 mod mock;
 use mock::{
-	fake_message_hash, new_test_ext_with_balances, new_test_ext_with_balances_and_assets,
-	DeliveryFees, ExistentialDeposit, HereLocation, OriginCaller, RuntimeCall, RuntimeEvent,
-	TestClient,
+	new_test_ext_with_balances, new_test_ext_with_balances_and_assets, DeliveryFees,
+	ExistentialDeposit, HereLocation, OriginCaller, RuntimeCall, RuntimeEvent, TestClient,
 };
+use xcm_simulator::fake_message_hash;
 
 // Scenario: User `1` in the local chain (id 2000) wants to transfer assets to account `[0u8; 32]`
 // on "AssetHub". He wants to make sure he has enough for fees, so before he calls the
@@ -377,6 +377,7 @@ fn dry_run_xcm_common(xcm_version: XcmVersion) {
 		.buy_execution((Here, execution_fees), Unlimited)
 		.deposit_reserve_asset(AllCounted(1), (Parent, Parachain(2100)), inner_xcm.clone())
 		.build();
+	let expected_msg_id = fake_message_hash(&xcm);
 	let balances = vec![(
 		who,
 		transfer_amount + execution_fees + DeliveryFees::get() + ExistentialDeposit::get(),
@@ -392,25 +393,23 @@ fn dry_run_xcm_common(xcm_version: XcmVersion) {
 			)
 			.unwrap()
 			.unwrap();
+		let expected_xcms = Xcm::<()>::builder_unsafe()
+			.reserve_asset_deposited((
+				(Parent, Parachain(2000)),
+				transfer_amount + execution_fees - DeliveryFees::get(),
+			))
+			.clear_origin()
+			.buy_execution((Here, 1u128), Unlimited)
+			.deposit_asset(AllCounted(1), [0u8; 32])
+			.set_topic(expected_msg_id)
+			.build();
 		assert_eq!(
 			dry_run_effects.forwarded_xcms,
 			vec![(
 				VersionedLocation::from((Parent, Parachain(2100)))
 					.into_version(xcm_version)
 					.unwrap(),
-				vec![VersionedXcm::from(
-					Xcm::<()>::builder_unsafe()
-						.reserve_asset_deposited((
-							(Parent, Parachain(2000)),
-							transfer_amount + execution_fees - DeliveryFees::get()
-						))
-						.clear_origin()
-						.buy_execution((Here, 1u128), Unlimited)
-						.deposit_asset(AllCounted(1), [0u8; 32])
-						.build()
-				)
-				.into_version(xcm_version)
-				.unwrap()],
+				vec![VersionedXcm::from(expected_xcms).into_version(xcm_version).unwrap()],
 			),]
 		);
 
@@ -424,6 +423,12 @@ fn dry_run_xcm_common(xcm_version: XcmVersion) {
 					free_balance: 520
 				}),
 				RuntimeEvent::Balances(pallet_balances::Event::Minted { who: 2100, amount: 520 }),
+				RuntimeEvent::XcmPallet(pallet_xcm::Event::Sent {
+					origin: (who,).into(),
+					destination: (Parent, Parachain(2100)).into(),
+					message: Xcm::default(),
+					message_id: expected_msg_id,
+				})
 			]
 		);
 	});

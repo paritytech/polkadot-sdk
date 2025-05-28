@@ -18,7 +18,9 @@
 //! Tests for solution-type.
 
 #![cfg(test)]
-use crate::{mock::*, BoundedSupports, IndexAssignment, NposSolution};
+use crate::{
+	mock::*, BoundedSupport, BoundedSupports, IndexAssignment, NposSolution, TryFromOtherBounds,
+};
 use frame_support::traits::ConstU32;
 use rand::SeedableRng;
 use sp_npos_elections::{Support, Supports};
@@ -245,6 +247,65 @@ mod solution_type {
 	}
 
 	#[test]
+	fn prevents_target_duplicate_into_assignment() {
+		let voter_at = |a: u32| -> Option<AccountId> { Some(a as AccountId) };
+		let target_at = |a: u16| -> Option<AccountId> { Some(a as AccountId) };
+
+		// case 1: duplicate target in votes2.
+		let solution = TestSolution { votes2: vec![(0, [(1, p(50))], 1)], ..Default::default() };
+		assert_eq!(
+			solution.into_assignment(&voter_at, &target_at).unwrap_err(),
+			NposError::DuplicateTarget,
+		);
+
+		// case 2: duplicate target in votes3.
+		let solution =
+			TestSolution { votes3: vec![(0, [(1, p(25)), (2, p(50))], 1)], ..Default::default() };
+		assert_eq!(
+			solution.into_assignment(&voter_at, &target_at).unwrap_err(),
+			NposError::DuplicateTarget,
+		);
+	}
+
+	#[test]
+	fn prevents_voter_duplicate_into_assignment() {
+		let voter_at = |a: u32| -> Option<AccountId> { Some(a as AccountId) };
+		let target_at = |a: u16| -> Option<AccountId> { Some(a as AccountId) };
+
+		// case 1: there is a duplicate among two different fields
+		let solution = TestSolution {
+			// voter index 0 is present here
+			votes1: vec![(0, 0), (1, 0)],
+			// voter index 0 is also present here
+			votes2: vec![(0, [(1, p(50))], 2)],
+			..Default::default()
+		};
+
+		assert_eq!(
+			solution.into_assignment(&voter_at, &target_at).unwrap_err(),
+			NposError::DuplicateVoter,
+		);
+
+		// case 2: there is a duplicate in the same field
+		let solution = TestSolution { votes1: vec![(0, 0), (0, 1)], ..Default::default() };
+		assert_eq!(
+			solution.into_assignment(&voter_at, &target_at).unwrap_err(),
+			NposError::DuplicateVoter,
+		);
+
+		// case 2.1: there is a duplicate in the same fieild, a bit more complex
+		let solution = TestSolution {
+			votes1: vec![(0, 0)],
+			votes2: vec![(1, [(1, p(50))], 2), (1, [(3, p(50))], 4)],
+			..Default::default()
+		};
+		assert_eq!(
+			solution.into_assignment(&voter_at, &target_at).unwrap_err(),
+			NposError::DuplicateVoter,
+		);
+	}
+
+	#[test]
 	fn from_and_into_assignment_works() {
 		let voters = vec![2 as AccountId, 4, 1, 5, 3];
 		let targets = vec![
@@ -454,7 +515,78 @@ fn index_assignments_generate_same_solution_as_plain_assignments() {
 }
 
 #[test]
-fn sorted_truncate_from_works() {
+fn try_from_other_bounds_works() {
+	let bounded: BoundedSupports<u32, ConstU32<2>, ConstU32<2>> = vec![
+		(1, Support { total: 100, voters: vec![(1, 50), (2, 50)] }),
+		(2, Support { total: 100, voters: vec![(1, 50), (2, 50)] }),
+	]
+	.try_into()
+	.unwrap();
+
+	// either of the bounds are smaller, won't convert
+	assert!(BoundedSupports::<u32, ConstU32<1>, ConstU32<2>>::try_from_other_bounds(
+		bounded.clone()
+	)
+	.is_err());
+	assert!(BoundedSupports::<u32, ConstU32<2>, ConstU32<1>>::try_from_other_bounds(
+		bounded.clone()
+	)
+	.is_err());
+
+	// bounds are equal, will convert
+	assert!(BoundedSupports::<u32, ConstU32<2>, ConstU32<2>>::try_from_other_bounds(
+		bounded.clone()
+	)
+	.is_ok());
+
+	// bounds are larger, will convert
+	assert!(BoundedSupports::<u32, ConstU32<3>, ConstU32<2>>::try_from_other_bounds(
+		bounded.clone()
+	)
+	.is_ok());
+	assert!(BoundedSupports::<u32, ConstU32<3>, ConstU32<3>>::try_from_other_bounds(
+		bounded.clone()
+	)
+	.is_ok());
+}
+
+#[test]
+fn support_sorted_truncate_from_works() {
+	let support = Support { total: 100, voters: vec![(1, 50), (2, 30), (3, 20)] };
+
+	let (bounded, backers_removed) =
+		BoundedSupport::<u32, ConstU32<1>>::sorted_truncate_from(support.clone());
+	assert_eq!(bounded, Support { total: 50, voters: vec![(1, 50)] }.try_into().unwrap());
+	assert_eq!(backers_removed, 2);
+
+	let (bounded, backers_removed) =
+		BoundedSupport::<u32, ConstU32<2>>::sorted_truncate_from(support.clone());
+	assert_eq!(bounded, Support { total: 80, voters: vec![(1, 50), (2, 30)] }.try_into().unwrap());
+	assert_eq!(backers_removed, 1);
+
+	let (bounded, backers_removed) =
+		BoundedSupport::<u32, ConstU32<3>>::sorted_truncate_from(support.clone());
+	assert_eq!(
+		bounded,
+		Support { total: 100, voters: vec![(1, 50), (2, 30), (3, 20)] }
+			.try_into()
+			.unwrap()
+	);
+	assert_eq!(backers_removed, 0);
+
+	let (bounded, backers_removed) =
+		BoundedSupport::<u32, ConstU32<4>>::sorted_truncate_from(support.clone());
+	assert_eq!(
+		bounded,
+		Support { total: 100, voters: vec![(1, 50), (2, 30), (3, 20)] }
+			.try_into()
+			.unwrap()
+	);
+	assert_eq!(backers_removed, 0);
+}
+
+#[test]
+fn supports_sorted_truncate_from_works() {
 	let supports: Supports<u32> = vec![
 		(1, Support { total: 303, voters: vec![(100, 100), (101, 101), (102, 102)] }),
 		(2, Support { total: 201, voters: vec![(100, 100), (101, 101)] }),

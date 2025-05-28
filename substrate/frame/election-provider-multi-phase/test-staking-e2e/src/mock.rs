@@ -140,15 +140,16 @@ impl pallet_session::Config for Runtime {
 	type SessionHandler = (OtherSessionHandler,);
 	type RuntimeEvent = RuntimeEvent;
 	type ValidatorId = AccountId;
-	type ValidatorIdOf = pallet_staking::StashOf<Runtime>;
+	type ValidatorIdOf = sp_runtime::traits::ConvertInto;
 	type DisablingStrategy = pallet_session::disabling::UpToLimitWithReEnablingDisablingStrategy<
 		SLASHING_DISABLING_FACTOR,
 	>;
 	type WeightInfo = ();
 }
 impl pallet_session::historical::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
 	type FullIdentification = ();
-	type FullIdentificationOf = pallet_staking::NullIdentity;
+	type FullIdentificationOf = pallet_staking::UnitIdentificationOf<Self>;
 }
 
 frame_election_provider_support::generate_solution_type!(
@@ -186,7 +187,7 @@ parameter_types! {
 impl pallet_election_provider_multi_phase::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Currency = Balances;
-	type EstimateCallFee = frame_support::traits::ConstU32<8>;
+	type EstimateCallFee = frame_support::traits::ConstU64<8>;
 	type SignedPhase = SignedPhase;
 	type UnsignedPhase = UnsignedPhase;
 	type BetterSignedThreshold = ();
@@ -349,11 +350,11 @@ where
 	type Extrinsic = Extrinsic;
 }
 
-impl<LocalCall> frame_system::offchain::CreateInherent<LocalCall> for Runtime
+impl<LocalCall> frame_system::offchain::CreateBare<LocalCall> for Runtime
 where
 	RuntimeCall: From<LocalCall>,
 {
-	fn create_inherent(call: Self::RuntimeCall) -> Self::Extrinsic {
+	fn create_bare(call: Self::RuntimeCall) -> Self::Extrinsic {
 		Extrinsic::new_bare(call)
 	}
 }
@@ -899,7 +900,7 @@ pub(crate) fn on_offence_now(
 	slash_fraction: &[Perbill],
 ) {
 	let now = ActiveEra::<Runtime>::get().unwrap().index;
-	let _ = Staking::on_offence(
+	let _ = <Staking as OnOffenceHandler<_, _, _>>::on_offence(
 		offenders,
 		slash_fraction,
 		ErasStartSessionIndex::<Runtime>::get(now).unwrap(),

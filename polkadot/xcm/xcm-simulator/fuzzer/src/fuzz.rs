@@ -103,7 +103,7 @@ impl<'a> Arbitrary<'a> for XcmMessage {
 		let destination: u32 = u.arbitrary()?;
 		let mut encoded_message: &[u8] = u.arbitrary()?;
 		if let Ok(message) =
-			DecodeLimit::decode_with_depth_limit(MAX_XCM_DECODE_DEPTH, &mut encoded_message)
+			DecodeLimit::decode_all_with_depth_limit(MAX_XCM_DECODE_DEPTH, &mut encoded_message)
 		{
 			return Ok(XcmMessage { source, destination, message });
 		}
