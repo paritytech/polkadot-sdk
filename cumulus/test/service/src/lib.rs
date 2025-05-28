@@ -802,6 +802,7 @@ impl TestNodeBuilder {
 					.expect("could not create Cumulus test service"),
 			};
 		let peer_id = network.local_peer_id();
+		let multiaddr = polkadot_test_service::get_listen_address(network.clone()).await;
 		let addr = MultiaddrWithPeerId { multiaddr, peer_id };
 
 		TestNode { task_manager, client, network, addr, rpc_handlers, transaction_pool, backend }
@@ -859,9 +860,7 @@ pub fn node_config(
 
 	network_config.allow_non_globals_in_dht = true;
 
-	let addr: multiaddr::Multiaddr = format!("/ip4/127.0.0.1/tcp/{}", rand::random::<u16>())
-		.parse()
-		.expect("valid address; qed");
+	let addr: multiaddr::Multiaddr = "/ip4/127.0.0.1/tcp/0".parse().expect("valid address; qed");
 	network_config.listen_addresses.push(addr.clone());
 	network_config.transport =
 		TransportConfig::Normal { enable_mdns: false, allow_private_ip: true };
@@ -915,6 +914,34 @@ pub fn node_config(
 		base_path,
 		wasm_runtime_overrides: None,
 	})
+}
+
+/// Extract the multiaddr from the network service.
+async fn extract_multiaddr(network: Arc<dyn NetworkService>) -> Multiaddr {
+	loop {
+		// Litep2p provides instantly the listen address of the TCP protocol and
+		// ditched the `/0` port used by the `node_config` function.
+		//
+		// Libp2p backend needs to be polled in a separate tokio task a few times
+		// before the listen address is available. The address is made available
+		// through the `SwarmEvent::NewListenAddr` event.
+		let listen_addresses = network.listen_addresses();
+		println!("Node is listening on: {:?}", listen_addresses);
+
+		// The network backend must produce a valid TCP port.
+		match listen_addresses.into_iter().find(|addr| {
+			addr.iter().any(|protocol| match protocol {
+				multiaddr::Protocol::Tcp(port) => port > 0,
+				_ => false,
+			})
+		}) {
+			Some(multiaddr) => return multiaddr,
+			None => {
+				tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+				continue;
+			},
+		}
+	}
 }
 
 impl TestNode {
@@ -1049,6 +1076,6 @@ pub fn run_relay_chain_validator_node(
 	workers_path.pop();
 
 	tokio_handle.block_on(async move {
-		polkadot_test_service::run_validator_node(config, Some(workers_path))
+		polkadot_test_service::run_validator_node(config, Some(workers_path)).await
 	})
 }
