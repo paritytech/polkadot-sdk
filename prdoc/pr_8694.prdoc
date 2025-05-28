@@ -1,0 +1,9 @@
+title: Fix pallet_migrations benchmark when FailedMigrationHandler emits events
+doc:
+- audience: Runtime Dev
+  description: When FailedMigrationHandler emits events, the `UpgradeFailed` event
+    is not the last one, so `assert_last_event` fails. Fixed by checking that the
+    `UpgradeFailed` event is emitted, even if it is not the last one.
+crates:
+- name: pallet-migrations
+  bump: patch
