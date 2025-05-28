@@ -19125,6 +19125,7 @@ dependencies = [
  "sp-trie 29.0.0",
  "substrate-prometheus-endpoint",
  "substrate-test-runtime-client",
+ "sysinfo",
  "tempfile",
 ]
 
