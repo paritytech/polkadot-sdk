@@ -61,9 +61,11 @@ runs:
     - name: push to dockerhub
       shell: bash
       if: ${{ inputs.username != '' && inputs.password != '' && github.event_name != 'merge_group' }}
+      env:
+        GITHUB_PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
       run: |
         export DOCKER_IMAGES_VERSION=${{ github.event.pull_request.head.sha }}
-        export DOCKERHUB_TAG=docker.io/paritypr/${{ inputs.image-name }}:${{ github.event.pull_request.number || 'master' }}-${GITHUB_SHA::8}
+        export DOCKERHUB_TAG=docker.io/paritypr/${{ inputs.image-name }}:${{ github.event.pull_request.number || 'master' }}-${GITHUB_PR_HEAD_SHA::8}
         docker tag "europe-docker.pkg.dev/parity-ci-2024/temp-images/${{ inputs.image-name }}:$DOCKER_IMAGES_VERSION" $DOCKERHUB_TAG
         docker push $DOCKERHUB_TAG
 

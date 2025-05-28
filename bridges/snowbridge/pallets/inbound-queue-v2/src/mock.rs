@@ -3,10 +3,8 @@
 use super::*;
 
 use crate::{self as inbound_queue_v2};
-use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use frame_support::{derive_impl, parameter_types, traits::ConstU32};
 use hex_literal::hex;
-use scale_info::TypeInfo;
 use snowbridge_beacon_primitives::{
 	types::deneb, BeaconHeader, ExecutionProof, VersionedExecutionPayloadHeader,
 };
@@ -14,12 +12,13 @@ use snowbridge_core::TokenId;
 use snowbridge_inbound_queue_primitives::{v2::MessageToXcm, Log, Proof, VerificationError};
 use sp_core::H160;
 use sp_runtime::{
-	traits::{IdentityLookup, MaybeEquivalence},
+	traits::{IdentityLookup, MaybeConvert},
 	BuildStorage,
 };
 use sp_std::{convert::From, default::Default, marker::PhantomData};
 use xcm::{opaque::latest::WESTEND_GENESIS_HASH, prelude::*};
 type Block = frame_system::mocking::MockBlock<Test>;
+use snowbridge_test_utils::mock_rewards::{BridgeReward, MockRewardLedger};
 pub use snowbridge_test_utils::mock_xcm::{MockXcmExecutor, MockXcmSender};
 
 frame_support::construct_runtime!(
@@ -76,12 +75,9 @@ impl<T: Config> BenchmarkHelper<T> for Test {
 }
 
 pub struct MockTokenIdConvert;
-impl MaybeEquivalence<TokenId, Location> for MockTokenIdConvert {
-	fn convert(_id: &TokenId) -> Option<Location> {
+impl MaybeConvert<TokenId, Location> for MockTokenIdConvert {
+	fn maybe_convert(_id: TokenId) -> Option<Location> {
 		Some(Location::parent())
-	}
-	fn convert_back(_loc: &Location) -> Option<TokenId> {
-		None
 	}
 }
 
@@ -107,44 +103,11 @@ parameter_types! {
 	pub const CreateAssetDeposit: u128 = 10_000_000_000u128;
 }
 
-/// Showcasing that we can handle multiple different rewards with the same pallet.
-#[derive(
-	Clone,
-	Copy,
-	Debug,
-	Decode,
-	Encode,
-	DecodeWithMemTracking,
-	Eq,
-	MaxEncodedLen,
-	PartialEq,
-	TypeInfo,
-)]
-pub enum BridgeReward {
-	/// Rewards for Snowbridge.
-	Snowbridge,
-}
-
-parameter_types! {
-	pub static RegisteredRewardsCount: u128 = 0;
-}
-
-impl RewardLedger<<mock::Test as frame_system::Config>::AccountId, BridgeReward, u128> for () {
-	fn register_reward(
-		_relayer: &<mock::Test as frame_system::Config>::AccountId,
-		_reward: BridgeReward,
-		_reward_balance: u128,
-	) {
-		RegisteredRewardsCount::set(RegisteredRewardsCount::get().saturating_add(1));
-	}
-}
-
 impl inbound_queue_v2::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type Verifier = MockVerifier;
 	type XcmSender = MockXcmSender;
 	type XcmExecutor = MockXcmExecutor;
-	type RewardPayment = ();
 	type GatewayAddress = GatewayAddress;
 	type AssetHubParaId = ConstU32<1000>;
 	type MessageConverter = MessageToXcm<
@@ -165,6 +128,7 @@ impl inbound_queue_v2::Config for Test {
 	type AccountToLocation = MockAccountLocationConverter<AccountId>;
 	type RewardKind = BridgeReward;
 	type DefaultRewardKind = SnowbridgeReward;
+	type RewardPayment = MockRewardLedger;
 }
 
 pub fn setup() {

@@ -1,5 +1,3 @@
-// This file is part of Substrate.
-
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -15,13 +13,21 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-pub struct FeeHistoryCacheItem {
-	pub base_fee: u64,
-	pub gas_used_ratio: f64,
-	pub rewards: Vec<u64>,
-}
+use xcm::latest::XcmHash;
 
-pub struct FeeHistoryProvider {
-	pub client: Arc<dyn Client>,
-	pub fee_history_cache: RwLock<HashMap<SubstrateBlockNumbe, FeeHistoryCacheItem>>,
+/// Finds the message ID of the first `XcmPallet::Sent` event in the given events.
+pub fn find_xcm_sent_message_id<T>(
+	events: impl IntoIterator<Item = <T as crate::Config>::RuntimeEvent>,
+) -> Option<XcmHash>
+where
+	T: crate::Config,
+	<T as crate::Config>::RuntimeEvent: TryInto<crate::Event<T>>,
+{
+	events.into_iter().find_map(|event| {
+		if let Ok(crate::Event::Sent { message_id, .. }) = event.try_into() {
+			Some(message_id)
+		} else {
+			None
+		}
+	})
 }

@@ -28,7 +28,7 @@ mod state;
 
 use std::collections::VecDeque;
 
-use fatality::Split;
+use common::MAX_STORED_SCORES_PER_PARA;
 use futures::{channel::oneshot, select, FutureExt, StreamExt};
 use polkadot_node_network_protocol::{
 	self as net_protocol, peer_set::CollationVersion, v1 as protocol_v1, v2 as protocol_v2,
@@ -95,7 +95,15 @@ async fn initialize<Context>(
 
 		let scheduled_paras = collation_manager.assignments();
 
-		let peer_manager = match PeerManager::startup(ctx.sender(), scheduled_paras).await {
+		let backend = Db::new(MAX_STORED_SCORES_PER_PARA).await;
+
+		let peer_manager = match PeerManager::startup(
+			backend,
+			ctx.sender(),
+			scheduled_paras.into_iter().collect(),
+		)
+		.await
+		{
 			Ok(peer_manager) => peer_manager,
 			Err(err) => {
 				log_error(Err(err))?;

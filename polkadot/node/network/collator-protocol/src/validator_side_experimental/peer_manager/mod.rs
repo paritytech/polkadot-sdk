@@ -80,14 +80,12 @@ impl<B: Backend> PeerManager<B> {
 	/// Initialize the peer manager (called on subsystem startup, after the node finished syncing to
 	/// the tip of the chain).
 	pub async fn startup<Sender: CollatorProtocolSenderTrait>(
+		backend: B,
 		sender: &mut Sender,
 		scheduled_paras: BTreeSet<ParaId>,
 	) -> Result<Self> {
-		// Open the Db.
-		let db = B::new(MAX_STORED_SCORES_PER_PARA).await;
-
 		let mut instance = Self {
-			db,
+			db: backend,
 			connected: ConnectedPeers::new(
 				scheduled_paras,
 				CONNECTED_PEERS_LIMIT,
