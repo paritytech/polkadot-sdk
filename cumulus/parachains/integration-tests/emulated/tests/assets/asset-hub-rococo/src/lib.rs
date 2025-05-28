@@ -15,20 +15,10 @@
 
 #[cfg(test)]
 mod imports {
-	pub use codec::Encode;
-
-	pub use frame_support::dispatch::{GetDispatchInfo, RawOrigin};
-	pub use xcm_runtime_apis::{
-		dry_run::runtime_decl_for_dry_run_api::DryRunApiV2,
-		fees::runtime_decl_for_xcm_payment_api::XcmPaymentApiV1,
-	};
-
-	pub use frame_support::traits::fungible::Mutate;
-
-	pub use sp_runtime::traits::Dispatchable;
+	pub(crate) use codec::Encode;
 
 	// Substrate
-	pub use frame_support::{
+	pub(crate) use frame_support::{
 		assert_err, assert_ok,
 		pallet_prelude::Weight,
 		sp_runtime::{DispatchError, DispatchResult, ModuleError},
@@ -36,15 +26,15 @@ mod imports {
 	};
 
 	// Polkadot
-	pub use xcm::{
+	pub(crate) use xcm::{
 		latest::{ROCOCO_GENESIS_HASH, WESTEND_GENESIS_HASH},
 		prelude::{AccountId32 as AccountId32Junction, *},
 	};
-	pub use xcm_executor::traits::TransferType;
+	pub(crate) use xcm_executor::traits::TransferType;
 
 	// Cumulus
-	pub use asset_test_utils::xcm_helpers;
-	pub use emulated_integration_tests_common::{
+	pub(crate) use asset_test_utils::xcm_helpers;
+	pub(crate) use emulated_integration_tests_common::{
 		accounts::DUMMY_EMPTY,
 		test_parachain_is_trusted_teleporter, test_parachain_is_trusted_teleporter_for_relay,
 		test_relay_is_trusted_teleporter, test_xcm_fee_querying_apis_work_for_asset_hub,
@@ -57,8 +47,8 @@ mod imports {
 		},
 		PenpalATeleportableAssetLocation, ASSETS_PALLET_ID, RESERVABLE_ASSET_ID, XCM_V3,
 	};
-	pub use parachains_common::Balance;
-	pub use rococo_system_emulated_network::{
+	pub(crate) use parachains_common::Balance;
+	pub(crate) use rococo_system_emulated_network::{
 		asset_hub_rococo_emulated_chain::{
 			asset_hub_rococo_runtime::{
 				self,
@@ -100,17 +90,17 @@ mod imports {
 		RococoRelayReceiver as RococoReceiver, RococoRelaySender as RococoSender,
 	};
 
-	pub const ASSET_ID: u32 = 3;
-	pub const ASSET_MIN_BALANCE: u128 = 1000;
+	pub(crate) const ASSET_ID: u32 = 3;
+	pub(crate) const ASSET_MIN_BALANCE: u128 = 1000;
 
-	pub type RelayToParaTest = Test<Rococo, PenpalA>;
-	pub type ParaToRelayTest = Test<PenpalA, Rococo>;
-	pub type SystemParaToRelayTest = Test<AssetHubRococo, Rococo>;
-	pub type SystemParaToParaTest = Test<AssetHubRococo, PenpalA>;
-	pub type ParaToSystemParaTest = Test<PenpalA, AssetHubRococo>;
-	pub type ParaToParaThroughRelayTest = Test<PenpalA, PenpalB, Rococo>;
-	pub type ParaToParaThroughAHTest = Test<PenpalA, PenpalB, AssetHubRococo>;
-	pub type RelayToParaThroughAHTest = Test<Rococo, PenpalA, AssetHubRococo>;
+	pub(crate) type RelayToParaTest = Test<Rococo, PenpalA>;
+	pub(crate) type ParaToRelayTest = Test<PenpalA, Rococo>;
+	pub(crate) type SystemParaToRelayTest = Test<AssetHubRococo, Rococo>;
+	pub(crate) type SystemParaToParaTest = Test<AssetHubRococo, PenpalA>;
+	pub(crate) type ParaToSystemParaTest = Test<PenpalA, AssetHubRococo>;
+	pub(crate) type ParaToParaThroughRelayTest = Test<PenpalA, PenpalB, Rococo>;
+	pub(crate) type ParaToParaThroughAHTest = Test<PenpalA, PenpalB, AssetHubRococo>;
+	pub(crate) type RelayToParaThroughAHTest = Test<Rococo, PenpalA, AssetHubRococo>;
 }
 
 #[cfg(test)]

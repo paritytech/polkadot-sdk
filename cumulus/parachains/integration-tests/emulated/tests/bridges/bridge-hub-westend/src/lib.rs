@@ -16,31 +16,21 @@
 #[cfg(test)]
 mod imports {
 	// Substrate
-	pub use codec::Encode;
-	pub use frame_support::{assert_err, assert_ok, pallet_prelude::DispatchResult, BoundedVec};
-	pub use sp_core::H160;
-	pub use sp_runtime::DispatchError;
-
-	pub use frame_support::dispatch::{GetDispatchInfo, RawOrigin};
-	pub use xcm_runtime_apis::{
-		dry_run::runtime_decl_for_dry_run_api::DryRunApiV2,
-		fees::runtime_decl_for_xcm_payment_api::XcmPaymentApiV1,
-	};
-
-	pub use frame_support::traits::fungible::Mutate;
-
-	pub use sp_runtime::traits::Dispatchable;
+	pub(crate) use codec::Encode;
+	pub(crate) use frame_support::{assert_err, assert_ok, pallet_prelude::DispatchResult, BoundedVec};
+	pub(crate) use sp_core::H160;
+	pub(crate) use sp_runtime::DispatchError;
 
 	// Polkadot
-	pub use xcm::{
+	pub(crate) use xcm::{
 		latest::{ParentThen, ROCOCO_GENESIS_HASH, WESTEND_GENESIS_HASH},
 		prelude::{AccountId32 as AccountId32Junction, *},
 		v5,
 	};
-	pub use xcm_executor::traits::TransferType;
+	pub(crate) use xcm_executor::traits::TransferType;
 
 	// Cumulus
-	pub use emulated_integration_tests_common::{
+	pub(crate) use emulated_integration_tests_common::{
 		accounts::ALICE,
 		create_pool_with_native_on,
 		impls::Inspect,
@@ -52,8 +42,8 @@ mod imports {
 		xcm_helpers::xcm_transact_paid_execution,
 		ASSETS_PALLET_ID, USDT_ID,
 	};
-	pub use parachains_common::AccountId;
-	pub use rococo_westend_system_emulated_network::{
+	pub(crate) use parachains_common::AccountId;
+	pub(crate) use rococo_westend_system_emulated_network::{
 		asset_hub_rococo_emulated_chain::{
 			asset_hub_rococo_runtime::xcm_config::TreasuryAccount,
 			genesis::ED as ASSET_HUB_ROCOCO_ED, AssetHubRococoParaPallet as AssetHubRococoPallet,
@@ -92,8 +82,8 @@ mod imports {
 		WestendRelayReceiver as WestendReceiver, WestendRelaySender as WestendSender,
 	};
 
-	pub const ASSET_ID: u32 = 1;
-	pub const ASSET_MIN_BALANCE: u128 = 1000;
+	pub(crate) const ASSET_ID: u32 = 1;
+	pub(crate) const ASSET_MIN_BALANCE: u128 = 1000;
 }
 
 #[cfg(test)]

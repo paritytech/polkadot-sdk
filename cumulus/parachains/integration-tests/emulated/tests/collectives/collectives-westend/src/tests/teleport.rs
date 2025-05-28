@@ -13,11 +13,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::*;
+use crate::imports::*;
 use emulated_integration_tests_common::{
 	test_parachain_is_trusted_teleporter_for_relay, test_relay_is_trusted_teleporter,
 };
-use frame_support::assert_ok;
 
 #[test]
 fn teleport_from_and_to_relay() {

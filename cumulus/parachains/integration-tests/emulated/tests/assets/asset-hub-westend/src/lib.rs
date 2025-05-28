@@ -15,18 +15,10 @@
 
 #[cfg(test)]
 mod imports {
-	pub use codec::Encode;
-
-	pub use frame_support::dispatch::{GetDispatchInfo, RawOrigin};
-	pub use xcm_runtime_apis::{
-		dry_run::runtime_decl_for_dry_run_api::DryRunApiV2,
-		fees::runtime_decl_for_xcm_payment_api::XcmPaymentApiV1,
-	};
-
-	pub use frame_support::traits::fungible::Mutate;
+	pub(crate) use codec::Encode;
 
 	// Substrate
-	pub use frame_support::{
+	pub(crate) use frame_support::{
 		assert_err, assert_ok,
 		pallet_prelude::Weight,
 		sp_runtime::{DispatchError, DispatchResult, ModuleError},
@@ -34,18 +26,16 @@ mod imports {
 		BoundedVec,
 	};
 
-	pub use sp_runtime::traits::Dispatchable;
-
 	// Polkadot
-	pub use xcm::{
+	pub(crate) use xcm::{
 		latest::{AssetTransferFilter, ROCOCO_GENESIS_HASH, WESTEND_GENESIS_HASH},
 		prelude::{AccountId32 as AccountId32Junction, *},
 	};
-	pub use xcm_executor::traits::TransferType;
+	pub(crate) use xcm_executor::traits::TransferType;
 
 	// Cumulus
-	pub use asset_test_utils::xcm_helpers;
-	pub use emulated_integration_tests_common::{
+	pub(crate) use asset_test_utils::xcm_helpers;
+	pub(crate) use emulated_integration_tests_common::{
 		accounts::DUMMY_EMPTY,
 		test_parachain_is_trusted_teleporter, test_parachain_is_trusted_teleporter_for_relay,
 		test_relay_is_trusted_teleporter, test_xcm_fee_querying_apis_work_for_asset_hub,
@@ -58,8 +48,8 @@ mod imports {
 		},
 		PenpalATeleportableAssetLocation, ASSETS_PALLET_ID, RESERVABLE_ASSET_ID, USDT_ID, XCM_V3,
 	};
-	pub use parachains_common::{AccountId, Balance};
-	pub use westend_system_emulated_network::{
+	pub(crate) use parachains_common::{AccountId, Balance};
+	pub(crate) use westend_system_emulated_network::{
 		asset_hub_westend_emulated_chain::{
 			asset_hub_westend_runtime::{
 				self,
@@ -112,18 +102,18 @@ mod imports {
 		WestendRelaySender as WestendSender,
 	};
 
-	pub const ASSET_ID: u32 = 3;
-	pub const ASSET_MIN_BALANCE: u128 = 1000;
+	pub(crate) const ASSET_ID: u32 = 3;
+	pub(crate) const ASSET_MIN_BALANCE: u128 = 1000;
 
-	pub type RelayToParaTest = Test<Westend, PenpalA>;
-	pub type ParaToRelayTest = Test<PenpalA, Westend>;
-	pub type SystemParaToRelayTest = Test<AssetHubWestend, Westend>;
-	pub type SystemParaToParaTest = Test<AssetHubWestend, PenpalA>;
-	pub type ParaToSystemParaTest = Test<PenpalA, AssetHubWestend>;
-	pub type ParaToParaThroughRelayTest = Test<PenpalA, PenpalB, Westend>;
-	pub type ParaToParaThroughAHTest = Test<PenpalA, PenpalB, AssetHubWestend>;
-	pub type RelayToParaThroughAHTest = Test<Westend, PenpalA, AssetHubWestend>;
-	pub type PenpalToRelayThroughAHTest = Test<PenpalA, Westend, AssetHubWestend>;
+	pub(crate) type RelayToParaTest = Test<Westend, PenpalA>;
+	pub(crate) type ParaToRelayTest = Test<PenpalA, Westend>;
+	pub(crate) type SystemParaToRelayTest = Test<AssetHubWestend, Westend>;
+	pub(crate) type SystemParaToParaTest = Test<AssetHubWestend, PenpalA>;
+	pub(crate) type ParaToSystemParaTest = Test<PenpalA, AssetHubWestend>;
+	pub(crate) type ParaToParaThroughRelayTest = Test<PenpalA, PenpalB, Westend>;
+	pub(crate) type ParaToParaThroughAHTest = Test<PenpalA, PenpalB, AssetHubWestend>;
+	pub(crate) type RelayToParaThroughAHTest = Test<Westend, PenpalA, AssetHubWestend>;
+	pub(crate) type PenpalToRelayThroughAHTest = Test<PenpalA, Westend, AssetHubWestend>;
 }
 
 #[cfg(test)]
