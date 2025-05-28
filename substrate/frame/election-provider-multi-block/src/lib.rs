@@ -664,7 +664,7 @@ pub mod pallet {
 					T::WeightInfo::on_initialize_into_snapshot_msp()
 				},
 				Phase::Snapshot(x) => {
-					// create voter snapshot.
+					// create voter snapshot
 					Self::create_voters_snapshot_paged(x).defensive_unwrap_or_default();
 					T::WeightInfo::on_initialize_into_snapshot_rest()
 				},

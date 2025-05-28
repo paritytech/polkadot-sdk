@@ -799,9 +799,6 @@ impl<T: Config> Pallet<T> {
 	fn finalize_async_verification(claimed_score: ElectionScore) -> Result<(), FeasibilityError> {
 		let outcome = QueuedSolution::<T>::compute_invalid_score()
 			.and_then(|(final_score, winner_count)| {
-				// Using `Bounded::max_value()` as the fallback ensures the solution will fail
-				// verification and  the solution gets rejected with
-				// `FeasibilityError::WrongWinnerCount`.
 				let desired_targets =
 					crate::Snapshot::<T>::desired_targets().defensive_unwrap_or(u32::MAX);
 				// claimed_score checked prior in seal_unverified_solution
