@@ -1899,7 +1899,7 @@ pallet_revive::impl_runtime_apis_plus_revive!(
 			use frame_system_benchmarking::extensions::Pallet as SystemExtensionsBench;
 			use cumulus_pallet_session_benchmarking::Pallet as SessionBench;
 			use pallet_xcm::benchmarking::Pallet as PalletXcmExtrinsicsBenchmark;
-			use pallet_xcm_bridge_router::benchmarking::Pallet as XcmBridgeHubRouterBench; // TODO: FAIL-CI - rename XcmBridgeHubRouterBench -> XcmBridgeRouterBench
+			use pallet_xcm_bridge_router::benchmarking::Pallet as XcmBridgeRouterBench;
 			use pallet_bridge_relayers::benchmarking::Pallet as BridgeRelayersBench;
 
 			// This is defined once again in dispatch_benchmark, because list_benchmarks!
@@ -1916,8 +1916,8 @@ pallet_revive::impl_runtime_apis_plus_revive!(
 			type Foreign = pallet_assets::Pallet::<Runtime, ForeignAssetsInstance>;
 			type Pool = pallet_assets::Pallet::<Runtime, PoolAssetsInstance>;
 
-			type ToRococoOverBridgeHub = XcmBridgeHubRouterBench<Runtime, ToRococoXcmRouterInstance>;
-			type ToRococoOverAssetHubRococo = XcmBridgeHubRouterBench<Runtime, bridge_to_rococo_config::ToRococoOverAssetHubRococoXcmRouterInstance>;
+			type ToRococoOverBridgeHub = XcmBridgeRouterBench<Runtime, ToRococoXcmRouterInstance>;
+			type ToRococoOverAssetHubRococo = XcmBridgeRouterBench<Runtime, bridge_to_rococo_config::ToRococoOverAssetHubRococoXcmRouterInstance>;
 			type OverRococo = pallet_xcm_bridge::benchmarking::Pallet::<Runtime, bridge_to_rococo_config::XcmOverAssetHubRococoInstance>;
 			type WestendToRococo = pallet_bridge_messages::benchmarking::Pallet::<Runtime, bridge_to_rococo_config::WithAssetHubRococoMessagesInstance>;
 
@@ -2079,11 +2079,11 @@ pallet_revive::impl_runtime_apis_plus_revive!(
 			}
 
 			use pallet_xcm_bridge_router::benchmarking::{
-				Pallet as XcmBridgeHubRouterBench,
-				Config as XcmBridgeHubRouterConfig,
+				Pallet as XcmBridgeRouterBench,
+				Config as XcmBridgeRouterConfig,
 			};
 
-			impl XcmBridgeHubRouterConfig<ToRococoXcmRouterInstance> for Runtime {
+			impl XcmBridgeRouterConfig<ToRococoXcmRouterInstance> for Runtime {
 				fn ensure_bridged_target_destination() -> Result<Location, BenchmarkError> {
 					Ok(xcm_config::bridging::to_rococo::AssetHubRococo::get())
 				}
@@ -2092,7 +2092,7 @@ pallet_revive::impl_runtime_apis_plus_revive!(
 				}
 			}
 
-			impl XcmBridgeHubRouterConfig<bridge_to_rococo_config::ToRococoOverAssetHubRococoXcmRouterInstance> for Runtime {
+			impl XcmBridgeRouterConfig<bridge_to_rococo_config::ToRococoOverAssetHubRococoXcmRouterInstance> for Runtime {
 				fn ensure_bridged_target_destination() -> Result<Location, BenchmarkError> {
 					Ok(xcm_config::bridging::to_rococo::AssetHubRococo::get())
 				}
@@ -2340,8 +2340,8 @@ pallet_revive::impl_runtime_apis_plus_revive!(
 			type Foreign = pallet_assets::Pallet::<Runtime, ForeignAssetsInstance>;
 			type Pool = pallet_assets::Pallet::<Runtime, PoolAssetsInstance>;
 
-			type ToRococoOverBridgeHub = XcmBridgeHubRouterBench<Runtime, ToRococoXcmRouterInstance>;
-			type ToRococoOverAssetHubRococo = XcmBridgeHubRouterBench<Runtime, bridge_to_rococo_config::ToRococoOverAssetHubRococoXcmRouterInstance>;
+			type ToRococoOverBridgeHub = XcmBridgeRouterBench<Runtime, ToRococoXcmRouterInstance>;
+			type ToRococoOverAssetHubRococo = XcmBridgeRouterBench<Runtime, bridge_to_rococo_config::ToRococoOverAssetHubRococoXcmRouterInstance>;
 			type OverRococo = pallet_xcm_bridge::benchmarking::Pallet::<Runtime, bridge_to_rococo_config::XcmOverAssetHubRococoInstance>;
 			type WestendToRococo = pallet_bridge_messages::benchmarking::Pallet::<Runtime, bridge_to_rococo_config::WithAssetHubRococoMessagesInstance>;
 
