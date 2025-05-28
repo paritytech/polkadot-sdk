@@ -823,6 +823,7 @@ pub fn initialize_for_benchmarks<T: Config<I>, I: 'static, PC: Parachain<Hash = 
 		relay_head.id(),
 		updated_head_data,
 		parachain_head.hash(),
+		parachain_head,
 	)
 	.expect("failed to insert parachain head in benchmarks");
 }

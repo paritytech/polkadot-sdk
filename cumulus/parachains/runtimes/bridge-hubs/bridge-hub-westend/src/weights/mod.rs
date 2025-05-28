@@ -42,7 +42,6 @@ pub mod pallet_timestamp;
 pub mod pallet_transaction_payment;
 pub mod pallet_utility;
 pub mod pallet_xcm;
-pub mod pallet_xcm_bridge;
 pub mod paritydb_weights;
 pub mod rocksdb_weights;
 pub mod xcm;

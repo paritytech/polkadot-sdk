@@ -13,7 +13,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use emulated_integration_tests_common::xcm_helpers::{
+	find_mq_processed_id, find_xcm_sent_message_id,
+};
 use rococo_westend_system_emulated_network::westend_emulated_chain::westend_runtime::Dmp;
+use std::collections::HashMap;
 
 use crate::tests::*;
 
@@ -143,4 +147,51 @@ fn send_xcm_through_opened_lane_with_different_xcm_version_on_hops_works() {
 			]
 		);
 	});
+}
+
+#[test]
+fn xcm_persists_set_topic_across_hops() {
+	for test_topic_id in [Some([42; 32]), None] {
+		// Reset tracked topic state before each run
+		let mut tracked_topic_ids = HashMap::new();
+
+		// Prepare test input
+		let sudo_origin = <Westend as Chain>::RuntimeOrigin::root();
+		let destination = Westend::child_location_of(BridgeHubWestend::para_id()).into();
+		let weight_limit = Unlimited;
+		let check_origin = None;
+
+		// Construct XCM with optional SetTopic
+		let mut message = vec![UnpaidExecution { weight_limit, check_origin }, ClearOrigin];
+		if let Some(topic_id) = test_topic_id {
+			message.push(SetTopic(topic_id));
+		}
+		let xcm = VersionedXcm::from(Xcm(message));
+
+		// Send XCM from Westend to BridgeHubWestend
+		Westend::execute_with(|| {
+			Dmp::make_parachain_reachable(BridgeHubWestend::para_id());
+			assert_ok!(<Westend as WestendPallet>::XcmPallet::send(
+				sudo_origin.clone(),
+				bx!(destination),
+				bx!(xcm),
+			));
+
+			let msg_sent_id = find_xcm_sent_message_id::<Westend>().expect("Missing Sent Event");
+			tracked_topic_ids.insert("Westend", msg_sent_id.into());
+		});
+
+		BridgeHubWestend::execute_with(|| {
+			let mq_prc_id =
+				find_mq_processed_id::<BridgeHubWestend>().expect("Missing Processed Event");
+			tracked_topic_ids.insert("BridgeHubWestend", mq_prc_id);
+		});
+
+		// Assert exactly one consistent topic ID across all hops
+		let topic_id = tracked_topic_ids.get("Westend");
+		assert_eq!(tracked_topic_ids.get("BridgeHubWestend"), topic_id);
+		if let Some(expected) = test_topic_id {
+			assert_eq!(topic_id, Some(&expected.into()));
+		}
+	}
 }

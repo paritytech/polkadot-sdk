@@ -76,7 +76,6 @@ pub fn genesis() -> Storage {
 					Location::new(1, [Parachain(1000)]),
 					Junctions::from([ByGenesis(WESTEND_GENESIS_HASH).into(), Parachain(1000)]),
 					Some(bp_messages::LegacyLaneId([0, 0, 0, 2])),
-					None,
 				),
 			],
 			..Default::default()
