@@ -665,14 +665,6 @@ pub mod pallet {
 				},
 				Phase::Snapshot(x) => {
 					// create voter snapshot.
-					// Note that `create_voters_snapshot_paged()` can return an error in two cases:
-					// 1. debug assertion in `election_voters()` if the final result violate bounds.
-					//    Which will never happen since no size bound is provided.
-					// 2. the try_into() conversion fails when converting `Vec<VoterOf<T>>` to
-					//    `BoundedVec<_, T::VoterSnapshotPerBlock>`
-					// - This is a runtime configuration issue!
-					// We go for a graceful degradation in release builds (empty snapshot if we
-					// can't create a voter snapshot).
 					Self::create_voters_snapshot_paged(x).defensive_unwrap_or_default();
 					T::WeightInfo::on_initialize_into_snapshot_rest()
 				},
