@@ -22,4 +22,4 @@ doc:
       - the following next() triggered by EPMB's on_initialize() forced the transition still within block X from Export(N) to Export(N-1)
 crates:
 - name: pallet-election-provider-multi-block
-  bump: minor
+  bump: major
