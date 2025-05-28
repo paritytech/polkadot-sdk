@@ -201,7 +201,6 @@ fn rebonding_after_one_era_and_unbonding_should_place_the_new_unbond_era_in_the_
 		// Start at era 1 with known minimum lowest stake
 		let current_era = Staking::current_era();
 		assert_eq!(current_era, 1);
-		EraLowestRatioTotalStake::<Test>::set(current_era, Some(1000));
 
 		// First unbond
 		assert_eq!(
@@ -255,5 +254,54 @@ fn rebonding_after_one_era_and_unbonding_should_place_the_new_unbond_era_in_the_
 				.into_inner(),
 			vec![UnlockChunk { value: 5, era: 1, previous_unbonded_stake: 0 }]
 		);
+	});
+}
+
+#[test]
+fn test_withdrawing_too_soon_should_not_cause_unbonding_queue_to_be_cleared() {
+	ExtBuilder::default().has_unbonding_queue_config(true).build_and_execute(|| {
+		Session::roll_until_active_era(10);
+		assert_eq!(Staking::current_era(), 10);
+
+		assert_eq!(
+			StakingLedger::<Test>::get(StakingAccount::Stash(11))
+				.unwrap()
+				.unlocking
+				.into_inner(),
+			vec![]
+		);
+		assert_ok!(Staking::unbond(RuntimeOrigin::signed(11), 10));
+		assert_eq!(
+			StakingLedger::<Test>::get(StakingAccount::Stash(11))
+				.unwrap()
+				.unlocking
+				.into_inner(),
+			vec![UnlockChunk { value: 10, era: 10, previous_unbonded_stake: 0 }]
+		);
+
+		// Should be able to withdraw after one era.
+		assert_eq!(Staking::get_unbonding_duration(11), vec![(10 + 1, 10)]);
+
+		// Should not have withdrawn any funds yet.
+		assert_ok!(Staking::withdraw_unbonded(RuntimeOrigin::signed(11), 10));
+		assert_eq!(
+			StakingLedger::<Test>::get(StakingAccount::Stash(11))
+				.unwrap()
+				.unlocking
+				.into_inner(),
+			vec![UnlockChunk { value: 10, era: 10, previous_unbonded_stake: 0 }]
+		);
+
+		// After one era the user should be able to withdraw.
+		Session::roll_until_active_era(11);
+		assert_ok!(Staking::withdraw_unbonded(RuntimeOrigin::signed(11), 10));
+		assert_eq!(
+			StakingLedger::<Test>::get(StakingAccount::Stash(11))
+				.unwrap()
+				.unlocking
+				.into_inner(),
+			vec![]
+		);
+		assert_eq!(Staking::get_unbonding_duration(11), vec![]);
 	});
 }

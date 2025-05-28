@@ -2498,7 +2498,8 @@ pub mod pallet {
 				Err(_) => return Vec::new(),
 			};
 			let current_era = CurrentEra::<T>::get().unwrap_or(0);
-			let target_era = current_era.saturating_sub(T::BondingDuration::get());
+			let target_era =
+				current_era.saturating_add(1).saturating_sub(T::BondingDuration::get());
 			let (min_unlock_era, min_slashable_share) = match UnbondingQueueParams::<T>::get() {
 				None => (T::BondingDuration::get(), Zero::zero()),
 				Some(params) => (params.unbond_period_lower_bound, params.min_slashable_share),

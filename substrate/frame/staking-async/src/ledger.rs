@@ -345,7 +345,7 @@ impl<T: Config> StakingLedger<T> {
 			None => (T::BondingDuration::get(), Zero::zero()),
 			Some(params) => (params.unbond_period_lower_bound, params.min_slashable_share),
 		};
-		let target_era = current_era.saturating_sub(T::BondingDuration::get());
+		let target_era = current_era.saturating_add(1).saturating_sub(T::BondingDuration::get());
 		let mut total = self.total;
 		let unlocking: BoundedVec<_, _> = self
 			.unlocking
