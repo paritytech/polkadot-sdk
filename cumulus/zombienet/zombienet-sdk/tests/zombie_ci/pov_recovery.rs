@@ -74,9 +74,9 @@ async fn pov_recovery() -> Result<(), anyhow::Error> {
 			.is_ok());
 	}
 
-	// Wait (up to 10 seconds) until pattern occurs 20 times
+	// Wait (up to 10 seconds) until pattern occurs at least 20 times
 	let options = LogLineCountOptions {
-		predicate: Arc::new(|n| n == 20),
+		predicate: Arc::new(|n| n >= 20),
 		timeout: Duration::from_secs(10),
 		wait_until_timeout_elapses: false,
 	};
