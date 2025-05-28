@@ -242,7 +242,7 @@ pub enum VerificationResult {
 	/// Solution is rejected, for whichever of the multiple reasons that it could be.
 	Rejected,
 	/// The data needed (solution pages or the score) was unavailable. This should rarely happen.
-	VerificationDataUnavailable(DataUnavailableInfo),
+	DataUnavailable(DataUnavailableInfo),
 }
 
 /// Something that can provide candidate solutions to the verifier.

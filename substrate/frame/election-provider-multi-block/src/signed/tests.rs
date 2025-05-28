@@ -654,7 +654,7 @@ mod defensive_tests {
 
 			// Simulate score unavailable - should slash the submitter
 			<SignedPallet as SolutionDataProvider>::report_result(
-				VerificationResult::VerificationDataUnavailable(DataUnavailableInfo::Score),
+				VerificationResult::DataUnavailable(DataUnavailableInfo::Score),
 			);
 
 			// Should have slashed the deposit (5 units)
@@ -678,7 +678,7 @@ mod defensive_tests {
 			// This simulates a bug where the verifier reports missing page instead of treating it
 			// as empty
 			<SignedPallet as SolutionDataProvider>::report_result(
-				VerificationResult::VerificationDataUnavailable(DataUnavailableInfo::Page(0)),
+				VerificationResult::DataUnavailable(DataUnavailableInfo::Page(0)),
 			);
 		});
 	}

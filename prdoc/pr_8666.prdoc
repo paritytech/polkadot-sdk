@@ -3,8 +3,8 @@ title: 'EPMB: Handle empty solution pages gracefully in verifier'
 doc:
 - audience: Runtime Dev
   description: |-
-    - Treat missing or empty solution pages as empty rather than errors.
-    - Make DataUnavailableInfo a nested enum to distinguish between missing pages and missing scores during verification:
+    - Treat missing solution pages as empty rather than errors.
+    - Make VerificationResult::DataUnavailableInfo a nested enum to distinguish between missing pages and missing scores during verification:
       - Missing pages are logged but treated as empty by design.
       - Missing scores during finalization result in solution rejection and deposit slashing.
     - Update tests to reflect new behavior and remove defensive unwraps.

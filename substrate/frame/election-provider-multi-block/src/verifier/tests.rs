@@ -473,7 +473,7 @@ mod async_verification {
 			assert_eq!(VerifierPallet::status(), Status::Nothing);
 			assert_eq!(
 				MockSignedResults::get(),
-				vec![VerificationResult::VerificationDataUnavailable(DataUnavailableInfo::Score)]
+				vec![VerificationResult::DataUnavailable(DataUnavailableInfo::Score)]
 			);
 		});
 	}
@@ -576,7 +576,7 @@ mod async_verification {
 			assert_eq!(VerifierPallet::status(), Status::Nothing);
 			assert_eq!(
 				MockSignedResults::get(),
-				vec![VerificationResult::VerificationDataUnavailable(DataUnavailableInfo::Score)]
+				vec![VerificationResult::DataUnavailable(DataUnavailableInfo::Score)]
 			);
 		});
 	}

@@ -704,9 +704,7 @@ impl<T: Config> Pallet<T> {
 									DataUnavailableInfo::Score,
 								));
 								T::SolutionDataProvider::report_result(
-									VerificationResult::VerificationDataUnavailable(
-										DataUnavailableInfo::Score,
-									),
+									VerificationResult::DataUnavailable(DataUnavailableInfo::Score),
 								);
 								// Clean up invalid solution
 								QueuedSolution::<T>::clear_invalid_and_backings();

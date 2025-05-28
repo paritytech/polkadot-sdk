@@ -178,7 +178,7 @@ impl<T: Config> SolutionDataProvider for Pallet<T> {
 			VerificationResult::Rejected => {
 				Self::handle_solution_rejection(current_round, "Rejected");
 			},
-			VerificationResult::VerificationDataUnavailable(info) => {
+			VerificationResult::DataUnavailable(info) => {
 				sublog!(
 					trace,
 					"signed",
