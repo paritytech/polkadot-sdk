@@ -27,7 +27,6 @@ use cumulus_test_client::{
 	TestClientBuilder, TestClientBuilderExt, ValidationParams,
 };
 use cumulus_test_relay_sproof_builder::RelayStateSproofBuilder;
-use sp_consensus_slots::Slot;
 use sp_runtime::traits::{Block as BlockT, Header as HeaderT};
 
 use std::{env, process::Command};
@@ -75,7 +74,6 @@ fn create_test_client() -> (Client, Header) {
 struct TestBlockData {
 	block: ParachainBlockData<Block>,
 	validation_data: PersistedValidationData,
-	slot: Slot,
 }
 
 fn build_block_with_witness(
@@ -96,14 +94,14 @@ fn build_block_with_witness(
 	let cumulus_test_client::BlockBuilderAndSupportData {
 		mut block_builder,
 		persisted_validation_data,
-		slot,
+		..
 	} = client.init_block_builder(Some(validation_data), sproof_builder);
 
 	extra_extrinsics.into_iter().for_each(|e| block_builder.push(e).unwrap());
 
 	let block = block_builder.build_parachain_block(*parent_head.state_root());
 
-	TestBlockData { block, validation_data: persisted_validation_data, slot }
+	TestBlockData { block, validation_data: persisted_validation_data }
 }
 
 #[test]
