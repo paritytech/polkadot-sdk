@@ -1743,4 +1743,34 @@ mod tests {
 		assert_eq!(MAX_INSTRUCTIONS_TO_DECODE, 100, "precondition");
 		assert!(Xcm::<()>::decode(&mut &encoded[..]).is_err());
 	}
+
+	#[test]
+	fn transact_roundtrip_works() {
+		use sp_tracing::capture_test_logs;
+
+		sp_tracing::init_for_tests();
+		let log_capture = capture_test_logs!({
+			let xcm = Xcm::<()>(vec![
+				WithdrawAsset((Here, 1u128).into()),
+				Transact {
+					origin_kind: OriginKind::SovereignAccount,
+					require_weight_at_most: Weight::from_parts(1_000_000, 1_024),
+					call: vec![200, 200, 200].into(),
+				},
+			]);
+			let old_xcm = OldXcm::<()>(vec![
+				OldInstruction::WithdrawAsset((OldHere, 1u128).into()),
+				OldInstruction::Transact {
+					origin_kind: OriginKind::SovereignAccount,
+					require_weight_at_most: Weight::from_parts(1_000_000, 1_024),
+					call: vec![200, 200, 200].into(),
+				},
+			]);
+			assert_eq!(old_xcm, OldXcm::<()>::try_from(xcm.clone()).unwrap());
+			let new_xcm: Xcm<()> = old_xcm.try_into().unwrap();
+			assert_eq!(new_xcm, xcm);
+		});
+		assert!(log_capture.contains("Converting XCM v4 Transact to v3: dropping proof_size 1024 from weight. This may cause execution issues when converting back to v4."));
+		assert!(log_capture.contains("Converting XCM v3 Transact to v4: dropping proof_size 1024 from weight. This may cause execution issues when converting back to v3."));
+	}
 }

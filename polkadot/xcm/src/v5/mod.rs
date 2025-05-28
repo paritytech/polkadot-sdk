@@ -1617,7 +1617,6 @@ mod tests {
 
 	#[test]
 	fn transact_roundtrip_works() {
-		sp_tracing::try_init_simple();
 		// We can convert as long as there's a fallback.
 		let xcm = Xcm::<()>(vec![
 			WithdrawAsset((Here, 1u128).into()),
