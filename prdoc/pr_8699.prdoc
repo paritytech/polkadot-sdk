@@ -1,0 +1,10 @@
+title: Log dropped `proof_size` when converting `Xcm::Transact`
+doc:
+- audience: Runtime Dev
+  description: This PR adds logging for dropped `proof_size` when an XCM `Transact`
+    instruction undergoes version conversion. This resolves a critical debugging challenge
+    by providing visibility into silently discarded `proof_size` information, which
+    previously led to misleading weight accounting.
+crates:
+- name: staging-xcm
+  bump: patch
