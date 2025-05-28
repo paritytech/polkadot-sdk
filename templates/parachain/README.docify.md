@@ -251,6 +251,8 @@ Note: The following instructions are also available at the [Zero to Hero Tutoria
 
 ### Reserve & Register a ParaID
 
+Note: We recommend Google Chrome for the following steps.
+
 1. Open [Polkadot.js Apps](https://polkadot.js.org/apps/#/explorer) and switch the network selector to Paseo.
 
 2. Go to Network → Parachains → Parathreads, click `+ ParaId`, then Submit. You’ll be assigned the next free ID (e.g. 4508).
