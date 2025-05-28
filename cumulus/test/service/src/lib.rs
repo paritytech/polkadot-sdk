@@ -765,7 +765,6 @@ impl TestNodeBuilder {
 		relay_chain_config.network.node_name =
 			format!("{} (relay chain)", relay_chain_config.network.node_name);
 
-		let multiaddr = parachain_config.network.listen_addresses[0].clone();
 		let (task_manager, client, network, rpc_handlers, transaction_pool, backend) =
 			match relay_chain_config.network.network_backend {
 				sc_network::config::NetworkBackendType::Libp2p =>
@@ -802,6 +801,7 @@ impl TestNodeBuilder {
 					.expect("could not create Cumulus test service"),
 			};
 		let peer_id = network.local_peer_id();
+		let multiaddr = polkadot_test_service::get_listen_address(network.clone()).await;
 		let addr = MultiaddrWithPeerId { multiaddr, peer_id };
 
 		TestNode { task_manager, client, network, addr, rpc_handlers, transaction_pool, backend }
@@ -859,9 +859,7 @@ pub fn node_config(
 
 	network_config.allow_non_globals_in_dht = true;
 
-	let addr: multiaddr::Multiaddr = format!("/ip4/127.0.0.1/tcp/{}", rand::random::<u16>())
-		.parse()
-		.expect("valid address; qed");
+	let addr: multiaddr::Multiaddr = "/ip4/127.0.0.1/tcp/0".parse().expect("valid address; qed");
 	network_config.listen_addresses.push(addr.clone());
 	network_config.transport =
 		TransportConfig::Normal { enable_mdns: false, allow_private_ip: true };
@@ -1049,6 +1047,6 @@ pub fn run_relay_chain_validator_node(
 	workers_path.pop();
 
 	tokio_handle.block_on(async move {
-		polkadot_test_service::run_validator_node(config, Some(workers_path))
+		polkadot_test_service::run_validator_node(config, Some(workers_path)).await
 	})
 }
