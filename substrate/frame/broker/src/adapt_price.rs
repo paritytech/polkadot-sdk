@@ -141,7 +141,7 @@ impl<Balance: FixedPointOperand> AdaptPrice<Balance> for CenterTargetPrice<Balan
 /// This price adapter behaves exactly like `CenterTargetPrice`, except that it takes a minimum
 /// price and makes sure that the returned `end_price` is never lower than that.
 ///
-/// Target price will also get adusted if necessary (it will never be less than the end_price).
+/// Target price will also get adjusted if necessary (it will never be less than the end_price).
 pub struct MinimumPrice<Balance, MinPrice>(core::marker::PhantomData<(Balance, MinPrice)>);
 
 impl<Balance: FixedPointOperand, MinPrice: Get<Balance>> AdaptPrice<Balance>
