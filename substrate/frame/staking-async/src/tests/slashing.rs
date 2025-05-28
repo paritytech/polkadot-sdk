@@ -842,7 +842,11 @@ fn staker_cannot_bail_deferred_slash() {
 					active: 0,
 					total: 500,
 					stash: 101,
-					unlocking: bounded_vec![UnlockChunk { era: 4u32, value: 500 }],
+					unlocking: bounded_vec![UnlockChunk {
+						era: active_era(),
+						value: 500,
+						previous_unbonded_stake: 0
+					}],
 				}
 			);
 
@@ -1051,7 +1055,7 @@ fn remove_multi_deferred() {
 #[test]
 fn proportional_slash_stop_slashing_if_remaining_zero() {
 	ExtBuilder::default().nominate(true).build_and_execute(|| {
-		let c = |era, value| UnlockChunk::<Balance> { era, value };
+		let c = |era, value| UnlockChunk::<Balance> { era, value, previous_unbonded_stake: 0 };
 
 		// we have some chunks, but they are not affected.
 		let unlocking = bounded_vec![c(1, 10), c(2, 10)];
@@ -1072,7 +1076,7 @@ fn proportional_slash_stop_slashing_if_remaining_zero() {
 #[test]
 fn proportional_ledger_slash_works() {
 	ExtBuilder::default().nominate(true).build_and_execute(|| {
-		let c = |era, value| UnlockChunk::<Balance> { era, value };
+		let c = |era, value| UnlockChunk::<Balance> { era, value, previous_unbonded_stake: 0 };
 		// Given
 		let mut ledger = StakingLedger::<T>::new(123, 10);
 		assert_eq!(BondingDuration::get(), 3);

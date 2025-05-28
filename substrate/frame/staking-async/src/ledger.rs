@@ -352,7 +352,8 @@ impl<T: Config> StakingLedger<T> {
 			.into_iter()
 			.filter(|chunk| {
 				if current_era >= chunk.era.defensive_saturating_add(T::BondingDuration::get()) {
-					true
+					total.saturating_reduce(chunk.value);
+					false
 				} else if current_era >= chunk.era.defensive_saturating_add(min_unlock_era) &&
 					chunk.era >= target_era
 				{
@@ -372,14 +373,13 @@ impl<T: Config> StakingLedger<T> {
 								EraLowestRatioTotalStake::<T>::get(chunk.era)
 									.unwrap_or_default()
 						{
-							total.saturating_reduce(chunk.value);
-							return false;
+							return true;
 						}
 					}
-					true
-				} else {
 					total.saturating_reduce(chunk.value);
 					false
+				} else {
+					true
 				}
 			})
 			.collect::<Vec<_>>()
