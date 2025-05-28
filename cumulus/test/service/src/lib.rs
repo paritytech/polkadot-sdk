@@ -916,34 +916,6 @@ pub fn node_config(
 	})
 }
 
-/// Extract the multiaddr from the network service.
-async fn extract_multiaddr(network: Arc<dyn NetworkService>) -> Multiaddr {
-	loop {
-		// Litep2p provides instantly the listen address of the TCP protocol and
-		// ditched the `/0` port used by the `node_config` function.
-		//
-		// Libp2p backend needs to be polled in a separate tokio task a few times
-		// before the listen address is available. The address is made available
-		// through the `SwarmEvent::NewListenAddr` event.
-		let listen_addresses = network.listen_addresses();
-		println!("Node is listening on: {:?}", listen_addresses);
-
-		// The network backend must produce a valid TCP port.
-		match listen_addresses.into_iter().find(|addr| {
-			addr.iter().any(|protocol| match protocol {
-				multiaddr::Protocol::Tcp(port) => port > 0,
-				_ => false,
-			})
-		}) {
-			Some(multiaddr) => return multiaddr,
-			None => {
-				tokio::time::sleep(std::time::Duration::from_millis(500)).await;
-				continue;
-			},
-		}
-	}
-}
-
 impl TestNode {
 	/// Wait for `count` blocks to be imported in the node and then exit. This function will not
 	/// return if no blocks are ever created, thus you should restrict the maximum amount of time of

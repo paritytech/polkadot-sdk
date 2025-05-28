@@ -255,7 +255,6 @@ pub async fn get_listen_address(network: Arc<dyn NetworkService>) -> sc_network:
 		// before the listen address is available. The address is made available
 		// through the `SwarmEvent::NewListenAddr` event.
 		let listen_addresses = network.listen_addresses();
-		println!("Node is listening on: {:?}", listen_addresses);
 
 		// The network backend must produce a valid TCP port.
 		match listen_addresses.into_iter().find(|addr| {
@@ -289,7 +288,6 @@ pub async fn run_validator_node(
 	let overseer_handle = overseer_handle.expect("test node must have an overseer handle");
 	let peer_id = network.local_peer_id();
 	let multiaddr = get_listen_address(network).await;
-	println!("Node is ready with multiaddrs: {:?}", multiaddr);
 
 	let addr = MultiaddrWithPeerId { multiaddr, peer_id };
 
@@ -328,7 +326,6 @@ pub async fn run_collator_node(
 	let peer_id = network.local_peer_id();
 
 	let multiaddr = get_listen_address(network).await;
-	println!("Node is ready with multiaddrs: {:?}", multiaddr);
 	let addr = MultiaddrWithPeerId { multiaddr, peer_id };
 
 	PolkadotTestNode { task_manager, client, overseer_handle, addr, rpc_handlers }
