@@ -1431,7 +1431,7 @@ txtesttool = { version = "0.5.0", package = "substrate-txtesttool" }
 unsigned-varint = { version = "0.7.2" }
 url = { version = "2.5.4" }
 void = { version = "1.0.2" }
-w3f-bls = { version = "0.1.3", default-features = false }
+w3f-bls = { version = "0.1.9", default-features = false }
 wait-timeout = { version = "0.2" }
 walkdir = { version = "2.5.0" }
 wasm-instrument = { version = "0.4", default-features = false }
