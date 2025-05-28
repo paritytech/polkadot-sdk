@@ -410,9 +410,12 @@ pub mod pallet {
 }
 
 impl<T: Config<I>, I: 'static> Pallet<T, I> {
-	//Keep in minds
-		// When I vote, if I'm delegating, I need to add my clawback to their state and update the tally
-		// Some weirdness here about whether I already clawed back or not. Since I can't tell from their state
+
+	// Add the vote from who
+	// If who delegating
+		// add clawback value from that vote
+		// If delegate had voted on this poll
+			// decrease tally by the delegated amount (conviction.votes(balance))
 
 	/// Actually enact a vote, if legitimate.
 	fn try_vote(
@@ -463,8 +466,17 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		})
 	}
 
-	// Keep in minds
-		// Need to remove clawback state if I have a delegate and update tally accordingly
+	// ✓
+
+	// If vote is not ongoing or is ongoing and vote data has no clawbacks/is 0
+		// Remove the vote from who ✓
+		// Do tally updates ✓
+	// else
+		// Keep vote ✓
+		// Do tally updates ✓
+	// If who delegating
+		// remove clawback value from that vote ✓
+		// increase tally by the delegated amount (conviction.votes(balance)) ✓
 
 	/// Remove the account's vote for the given poll if possible. This is possible when:
 	/// - The poll has not finished.
@@ -482,78 +494,106 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			.or_else(|| Some(T::Polls::as_ongoing(poll_index)?.1))
 			.ok_or(Error::<T, I>::ClassNeeded)?;
 		VotingFor::<T, I>::try_mutate(who, class, |voting| {
-			if let Voting::Casting(Casting { ref mut votes, delegations, ref mut prior }) = voting {
-				let i = votes
-					.binary_search_by_key(&poll_index, |i| i.0)
-					.map_err(|_| Error::<T, I>::NotVoter)?;
-				let v = votes.remove(i);
+			// if let Voting::Casting(Casting { ref mut votes, delegations, ref mut prior }) = voting {
+			let mut votes = voting.votes;
+			let delegations = voting.delegations;
+			let mut prior = voting.prior;
+			let i = votes
+				.binary_search_by_key(&poll_index, |i| i.0)
+				.map_err(|_| Error::<T, I>::NotVoter)?;
 
-				T::Polls::try_access_poll(poll_index, |poll_status| match poll_status {
-					PollStatus::Ongoing(tally, _) => {
-						ensure!(matches!(scope, UnvoteScope::Any), Error::<T, I>::NoPermission);
-						// Shouldn't be possible to fail, but we handle it gracefully.
-						tally.remove(v.1).ok_or(ArithmeticError::Underflow)?;
-						if let Some(approve) = v.1.as_standard() {
-							tally.reduce(approve, *delegations);
-						}
-						Self::deposit_event(Event::VoteRemoved { who: who.clone(), vote: v.1 });
-						T::VotingHooks::on_remove_vote(who, poll_index, Status::Ongoing);
-						Ok(())
-					},
-					PollStatus::Completed(end, approved) => {
-						if let Some((lock_periods, balance)) =
-							v.1.locked_if(vote::LockedIf::Status(approved))
-						{
-							let unlock_at = end.saturating_add(
-								T::VoteLockingPeriod::get().saturating_mul(lock_periods.into()),
-							);
-							let now = T::BlockNumberProvider::current_block_number();
-							if now < unlock_at {
-								ensure!(
-									matches!(scope, UnvoteScope::Any),
-									Error::<T, I>::NoPermissionYet
-								);
-								prior.accumulate(unlock_at, balance)
+			T::Polls::try_access_poll(poll_index, |poll_status| match poll_status {
+				PollStatus::Ongoing(tally, _) => {
+					let v = votes[i];
+					// Remove only if the retracted votes to track
+					if v.2 == Default::default() {
+						votes.remove(i);
+					}
+
+					// Update tally based on who's voting state
+					ensure!(matches!(scope, UnvoteScope::Any), Error::<T, I>::NoPermission);
+					// Shouldn't be possible to fail, but we handle it gracefully.
+					tally.remove(v.1).ok_or(ArithmeticError::Underflow)?;
+					if let Some(approve) = v.1.as_standard() {
+						let final_delgations = delegations.saturating_sub(v.3);
+						tally.reduce(approve, *final_delgations);
+					}
+
+					// Update delegate's voting state if exists
+					if let (Some(delegate), Some(conviction)) = (voting.delegate, voting.conviction) {
+						// Remove clawback from their vote record
+						VotingFor::<T, I>::mutate(delegate, class, |voting| {
+							match delegates_votes.binary_search_by_key(&poll_index, |i| i.0) {
+								Ok(i) => {
+									delegates_votes[i].3.saturating_sub(delegations);
+								},
+								Err(i) => {
+									// Shouldn't be possible
+								},
 							}
-						} else if v.1.as_standard().is_some_and(|vote| vote != approved) {
-							// Unsuccessful vote, use special hook to lock the funds too in case of
-							// conviction.
-							if let Some(to_lock) =
-								T::VotingHooks::lock_balance_on_unsuccessful_vote(who, poll_index)
-							{
-								if let AccountVote::Standard { vote, .. } = v.1 {
-									let unlock_at = end.saturating_add(
-										T::VoteLockingPeriod::get()
-											.saturating_mul(vote.conviction.lock_periods().into()),
+						});
+						// Increase the tally by delegated amount
+						tally.increase(approve, *conviction.votes(voting.delegated_balance));
+					}
+
+					Self::deposit_event(Event::VoteRemoved { who: who.clone(), vote: v.1 });
+					T::VotingHooks::on_remove_vote(who, poll_index, Status::Ongoing);
+					Ok(())
+				},
+				PollStatus::Completed(end, approved) => {
+					let v = votes.remove(i);
+
+					if let Some((lock_periods, balance)) =
+						v.1.locked_if(vote::LockedIf::Status(approved))
+					{
+						let unlock_at = end.saturating_add(
+							T::VoteLockingPeriod::get().saturating_mul(lock_periods.into()),
+						);
+						let now = T::BlockNumberProvider::current_block_number();
+						if now < unlock_at {
+							ensure!(
+								matches!(scope, UnvoteScope::Any),
+								Error::<T, I>::NoPermissionYet
+							);
+							prior.accumulate(unlock_at, balance)
+						}
+					} else if v.1.as_standard().is_some_and(|vote| vote != approved) {
+						// Unsuccessful vote, use special hook to lock the funds too in case of
+						// conviction.
+						if let Some(to_lock) =
+							T::VotingHooks::lock_balance_on_unsuccessful_vote(who, poll_index)
+						{
+							if let AccountVote::Standard { vote, .. } = v.1 {
+								let unlock_at = end.saturating_add(
+									T::VoteLockingPeriod::get()
+										.saturating_mul(vote.conviction.lock_periods().into()),
+								);
+								let now = T::BlockNumberProvider::current_block_number();
+								if now < unlock_at {
+									ensure!(
+										matches!(scope, UnvoteScope::Any),
+										Error::<T, I>::NoPermissionYet
 									);
-									let now = T::BlockNumberProvider::current_block_number();
-									if now < unlock_at {
-										ensure!(
-											matches!(scope, UnvoteScope::Any),
-											Error::<T, I>::NoPermissionYet
-										);
-										prior.accumulate(unlock_at, to_lock)
-									}
+									prior.accumulate(unlock_at, to_lock)
 								}
 							}
 						}
-						// Call on_remove_vote hook
-						T::VotingHooks::on_remove_vote(who, poll_index, Status::Completed);
-						Ok(())
-					},
-					PollStatus::None => {
-						// Poll was cancelled.
-						T::VotingHooks::on_remove_vote(who, poll_index, Status::None);
-						Ok(())
-					},
-				})
-			} else {
-				Ok(())
-			}
+					}
+					// Call on_remove_vote hook
+					T::VotingHooks::on_remove_vote(who, poll_index, Status::Completed);
+					Ok(())
+				},
+				PollStatus::None => {
+					let v = votes.remove(i);
+					// Poll was cancelled.
+					T::VotingHooks::on_remove_vote(who, poll_index, Status::None);
+					Ok(())
+				},
+			})
 		})
 	}
 
-	// TODO: Clean voting record of delegate
+	// ✓
 
 	/// Return the number of vote updates.
 	fn increase_upstream_delegation(
