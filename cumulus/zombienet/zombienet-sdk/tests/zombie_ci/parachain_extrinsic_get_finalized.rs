@@ -22,38 +22,31 @@ async fn parachain_extrinsic_gets_finalized() -> Result<(), anyhow::Error> {
 	let network = initialize_network(config).await?;
 
 	let alice = network.get_node("alice")?;
-
 	let bob = network.get_node("bob")?;
 	let charlie = network.get_node("charlie")?;
 
-	log::info!("Ensuring all nodes report 4 node roles");
-	assert!(alice.wait_metric_with_timeout("node_roles", |p| p == 4.0, 10u64).await.is_ok());
-	assert!(bob.wait_metric_with_timeout("node_roles", |p| p == 4.0, 10u64).await.is_ok());
-	assert!(charlie
-		.wait_metric_with_timeout("node_roles", |p| p == 4.0, 10u64)
-		.await
-		.is_ok());
-
-	log::info!("Ensuring alice and bob are connected to at least 1 peer");
-	assert!(alice.assert_with("sub_libp2p_peers_count", |p| p >= 1.0).await?);
-	assert!(bob.assert_with("sub_libp2p_peers_count", |p| p >= 1.0).await?);
-
-	log::info!("Ensuring all nodes report expected block height");
-	assert!(alice
-		.wait_metric_with_timeout(BEST_BLOCK_METRIC, |b| b > 5.0, 60u64)
-		.await
-		.is_ok());
-	assert!(bob
-		.wait_metric_with_timeout(BEST_BLOCK_METRIC, |b| b > 5.0, 60u64)
-		.await
-		.is_ok());
-	assert!(charlie
-		.wait_metric_with_timeout(BEST_BLOCK_METRIC, |b| b > 2.0, 120u64)
-		.await
-		.is_ok());
-
-	log::info!("Ensuring nodes do not report any error");
 	for node in [alice, bob, charlie] {
+		log::info!("Ensuring {} reports 4 node roles", node.name());
+		assert!(alice.wait_metric_with_timeout("node_roles", |p| p == 4.0, 10u64).await.is_ok());
+	}
+
+	for node in [alice, bob] {
+		log::info!("Ensuring {} is connected to at least 1 peer", node.name());
+		assert!(alice.assert_with("sub_libp2p_peers_count", |p| p >= 1.0).await?);
+	}
+
+	for (node, block_height, timeout) in
+		[(alice, 5.0, 60u64), (bob, 5.0, 60u64), (charlie, 2.0, 120u64)]
+	{
+		log::info!("Ensuring all nodes report expected block height");
+		assert!(node
+			.wait_metric_with_timeout(BEST_BLOCK_METRIC, |b| b > block_height, timeout)
+			.await
+			.is_ok());
+	}
+
+	for node in [alice, bob, charlie] {
+		log::info!("Ensuring {} does not report any error", node.name());
 		let result = node
 			.wait_log_line_count_with_timeout(
 				"error",

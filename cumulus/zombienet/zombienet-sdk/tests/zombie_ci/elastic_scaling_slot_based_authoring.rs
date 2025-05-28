@@ -58,37 +58,27 @@ async fn elastic_scaling_slot_based_authoring() -> Result<(), anyhow::Error> {
 	assert!(res.is_ok(), "Extrinsic failed to finalize: {:?}", res.unwrap_err());
 	log::info!("2 more cores assigned to the parachain");
 
-	log::info!("Checking block production");
-	assert!(collator_single_core
-		.wait_metric_with_timeout(BEST_BLOCK_METRIC, |b| b >= 20.0, 225u64)
-		.await
-		.is_ok());
-
-	assert!(collator_elastic
-		.wait_metric_with_timeout(BEST_BLOCK_METRIC, |b| b >= 40.0, 225u64)
-		.await
-		.is_ok());
+	for (name, block_cnt) in [("collator_single_core", 20.0), ("collator_elastic", 40.0)] {
+		log::info!("Checking block production for {name}");
+		assert!(collator_single_core
+			.wait_metric_with_timeout(BEST_BLOCK_METRIC, |b| b >= block_cnt, 225u64)
+			.await
+			.is_ok());
+	}
 
 	// We want to make sure that none of the consensus hook checks fail, even if the chain makes
 	// progress. If below log line occurred 1 or more times then test failed.
-	log::info!("Ensuring none of the consensus hook checks fail");
-	let result = collator_elastic
-		.wait_log_line_count_with_timeout(
-			"set_validation_data inherent needs to be present in every block",
-			false,
-			LogLineCountOptions::no_occurences_within_timeout(Duration::from_secs(10)),
-		)
-		.await?;
-	assert!(result.success());
-
-	let result = collator_single_core
-		.wait_log_line_count_with_timeout(
-			"set_validation_data inherent needs to be present in every block",
-			false,
-			LogLineCountOptions::no_occurences_within_timeout(Duration::from_secs(10)),
-		)
-		.await?;
-	assert!(result.success());
+	for name in ["collator_elastic", "collator_single_core"] {
+		log::info!("Ensuring none of the consensus hook checks fail at {name}");
+		let result = collator_elastic
+			.wait_log_line_count_with_timeout(
+				"set_validation_data inherent needs to be present in every block",
+				false,
+				LogLineCountOptions::no_occurences_within_timeout(Duration::from_secs(10)),
+			)
+			.await?;
+		assert!(result.success(), "Consensus hook failed at {name}: {:?}", result);
+	}
 
 	log::info!("Test finished successfully");
 	Ok(())
