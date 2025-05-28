@@ -39,14 +39,16 @@ fn pallet_query_should_work() {
 	);
 	assert_eq!(r, Outcome::Complete { used: Weight::from_parts(10, 10) });
 
-	let expected_msg = Xcm::<()>(vec![QueryResponse {
-		query_id: 1,
-		max_weight: Weight::from_parts(50, 50),
-		response: Response::PalletsInfo(Default::default()),
-		querier: Some(Here.into()),
-	}]);
-	let expected_hash = fake_message_hash(&expected_msg);
-	assert_eq!(sent_xcm(), vec![(Parachain(1).into(), expected_msg, expected_hash)]);
+	let expected_msg = Xcm::<()>(vec![
+		QueryResponse {
+			query_id: 1,
+			max_weight: Weight::from_parts(50, 50),
+			response: Response::PalletsInfo(Default::default()),
+			querier: Some(Here.into()),
+		},
+		SetTopic(hash),
+	]);
+	assert_eq!(sent_xcm(), vec![(Parachain(1).into(), expected_msg, hash)]);
 }
 
 #[test]
@@ -72,26 +74,28 @@ fn pallet_query_with_results_should_work() {
 	);
 	assert_eq!(r, Outcome::Complete { used: Weight::from_parts(10, 10) });
 
-	let expected_msg = Xcm::<()>(vec![QueryResponse {
-		query_id: 1,
-		max_weight: Weight::from_parts(50, 50),
-		response: Response::PalletsInfo(
-			vec![PalletInfo::new(
-				1,
-				b"Balances".as_ref().into(),
-				b"pallet_balances".as_ref().into(),
-				1,
-				42,
-				69,
-			)
-			.unwrap()]
-			.try_into()
-			.unwrap(),
-		),
-		querier: Some(Here.into()),
-	}]);
-	let expected_hash = fake_message_hash(&expected_msg);
-	assert_eq!(sent_xcm(), vec![(Parachain(1).into(), expected_msg, expected_hash)]);
+	let expected_msg = Xcm::<()>(vec![
+		QueryResponse {
+			query_id: 1,
+			max_weight: Weight::from_parts(50, 50),
+			response: Response::PalletsInfo(
+				vec![PalletInfo::new(
+					1,
+					b"Balances".as_ref().into(),
+					b"pallet_balances".as_ref().into(),
+					1,
+					42,
+					69,
+				)
+				.unwrap()]
+				.try_into()
+				.unwrap(),
+			),
+			querier: Some(Here.into()),
+		},
+		SetTopic(hash),
+	]);
+	assert_eq!(sent_xcm(), vec![(Parachain(1).into(), expected_msg, hash)]);
 }
 
 #[test]

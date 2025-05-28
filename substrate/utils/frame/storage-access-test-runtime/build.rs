@@ -15,18 +15,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#![no_std]
-#![no_main]
-include!("../panic_handler.rs");
-
-use uapi::{HostFn, HostFnImpl as api, StorageFlags};
-
-#[no_mangle]
-#[polkavm_derive::polkavm_export]
-pub extern "C" fn deploy() {}
-
-#[no_mangle]
-#[polkavm_derive::polkavm_export]
-pub extern "C" fn call() {
-	api::set_storage(StorageFlags::empty(), &[0u8; 32], &[0u8; 4]);
+fn main() {
+	#[cfg(feature = "std")]
+	{
+		substrate_wasm_builder::WasmBuilder::new()
+			.with_current_project()
+			.export_heap_base()
+			.import_memory()
+			.disable_runtime_version_section_check()
+			.build();
+	}
 }
