@@ -51,6 +51,7 @@ use frame_support::{
 };
 use hex_literal::hex;
 use pallet_revive::{Code, DepositLimit, InstantiateReturnValue, NonceAlreadyIncremented};
+use pallet_revive_fixtures::compile_module;
 use parachains_common::{AccountId, AssetIdForTrustBackedAssets, AuraId, Balance};
 use sp_consensus_aura::SlotDuration;
 use sp_core::crypto::Ss58Codec;
@@ -1498,7 +1499,10 @@ fn withdraw_and_deposit_erc20s() {
 		assert_ok!(Revive::map_account(RuntimeOrigin::signed(sender.clone())));
 		assert_ok!(Revive::map_account(RuntimeOrigin::signed(beneficiary.clone())));
 
-		let code = include_bytes!("contracts/erc20.polkavm").to_vec();
+		let code = include_bytes!(
+			"../../../../../../substrate/frame/revive/fixtures/contracts/erc20.polkavm"
+		)
+		.to_vec();
 
 		let initial_amount_u256 = U256::from(1_000_000_000_000u128);
 		let constructor_data = sol_data::Uint::<256>::abi_encode(&initial_amount_u256);
@@ -1614,7 +1618,7 @@ fn smart_contract_not_erc20_will_error() {
 		assert_ok!(Revive::map_account(RuntimeOrigin::signed(sender.clone())));
 		assert_ok!(Revive::map_account(RuntimeOrigin::signed(beneficiary.clone())));
 
-		let code = include_bytes!("contracts/dummy.polkavm").to_vec();
+		let (code, _) = compile_module("dummy").unwrap();
 
 		let result = Revive::bare_instantiate(
 			RuntimeOrigin::signed(sender.clone()),
@@ -1674,7 +1678,10 @@ fn smart_contract_does_not_return_bool_fails() {
 		assert_ok!(Revive::map_account(RuntimeOrigin::signed(beneficiary.clone())));
 
 		// This contract implements the ERC20 interface for `transfer` except it returns a uint256.
-		let code = include_bytes!("contracts/fake_erc20.polkavm").to_vec();
+		let code = include_bytes!(
+			"../../../../../../substrate/frame/revive/fixtures/contracts/fake_erc20.polkavm"
+		)
+		.to_vec();
 
 		let initial_amount_u256 = U256::from(1_000_000_000_000u128);
 		let constructor_data = sol_data::Uint::<256>::abi_encode(&initial_amount_u256);
@@ -1734,7 +1741,10 @@ fn expensive_erc20_runs_out_of_gas() {
 		assert_ok!(Revive::map_account(RuntimeOrigin::signed(beneficiary.clone())));
 
 		// This contract does a lot more storage writes in `transfer`.
-		let code = include_bytes!("contracts/expensive_erc20.polkavm").to_vec();
+		let code = include_bytes!(
+			"../../../../../../substrate/frame/revive/fixtures/contracts/expensive_erc20.polkavm"
+		)
+		.to_vec();
 
 		let initial_amount_u256 = U256::from(1_000_000_000_000u128);
 		let constructor_data = sol_data::Uint::<256>::abi_encode(&initial_amount_u256);

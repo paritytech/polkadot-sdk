@@ -305,14 +305,13 @@ mod tests {
 		Code, ContractInfoOf,
 	};
 	use frame_support::assert_ok;
-	use pallet_revive_fixtures::compile_module;
 
 	#[test]
 	fn call_erc20_contract() {
 		ExtBuilder::default().existential_deposit(1).build().execute_with(|| {
 			let _ =
 				<<Test as Config>::Currency as fungible::Mutate<_>>::set_balance(&ALICE, 1_000_000);
-			let (code, _) = compile_module("erc20").unwrap();
+			let code = include_bytes!("../fixtures/contracts/erc20.polkavm").to_vec();
 			let amount = EU256::from(1000);
 			let constructor_data = sol_data::Uint::<256>::abi_encode(&amount);
 			let Contract { addr, .. } = BareInstantiateBuilder::<Test>::bare_instantiate(
@@ -337,7 +336,7 @@ mod tests {
 		ExtBuilder::default().existential_deposit(1).build().execute_with(|| {
 			let _ =
 				<<Test as Config>::Currency as fungible::Mutate<_>>::set_balance(&ALICE, 1_000_000);
-			let (code, _) = compile_module("erc20").unwrap();
+			let code = include_bytes!("../fixtures/contracts/erc20.polkavm").to_vec();
 			let amount = 1000;
 			let constructor_data = sol_data::Uint::<256>::abi_encode(&EU256::from(amount));
 			let Contract { addr, .. } = BareInstantiateBuilder::<Test>::bare_instantiate(
@@ -357,7 +356,7 @@ mod tests {
 		ExtBuilder::default().existential_deposit(1).build().execute_with(|| {
 			let _ =
 				<<Test as Config>::Currency as fungible::Mutate<_>>::set_balance(&ALICE, 1_000_000);
-			let (code, _) = compile_module("erc20").unwrap();
+			let code = include_bytes!("../fixtures/contracts/erc20.polkavm").to_vec();
 			let amount = 1000;
 			let constructor_data = sol_data::Uint::<256>::abi_encode(&EU256::from(amount));
 			let Contract { addr, .. } = BareInstantiateBuilder::<Test>::bare_instantiate(
@@ -375,7 +374,7 @@ mod tests {
 		ExtBuilder::default().existential_deposit(1).build().execute_with(|| {
 			let _ =
 				<<Test as Config>::Currency as fungible::Mutate<_>>::set_balance(&ALICE, 1_000_000);
-			let (code, _) = compile_module("erc20").unwrap();
+			let code = include_bytes!("../fixtures/contracts/erc20.polkavm").to_vec();
 			let amount = 1000;
 			let constructor_data = sol_data::Uint::<256>::abi_encode(&(EU256::from(amount * 2)));
 			let Contract { addr, .. } = BareInstantiateBuilder::<Test>::bare_instantiate(
@@ -411,7 +410,7 @@ mod tests {
 				&checking_account,
 				1_000_000,
 			);
-			let (code, _) = compile_module("erc20").unwrap();
+			let code = include_bytes!("../fixtures/contracts/erc20.polkavm").to_vec();
 			let amount = 1000;
 			let constructor_data = sol_data::Uint::<256>::abi_encode(&EU256::from(amount));
 			// We're instantiating the contract with the `CheckingAccount` so it has `amount` in it.
