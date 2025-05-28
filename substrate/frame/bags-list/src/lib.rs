@@ -489,7 +489,7 @@ pub mod pallet {
 						Err(e) => {
 							log!(debug, "Failed to get iterator from {:?}: {:?}", account, e);
 							Self::iter().next()
-						}
+						},
 					};
 
 					log!(debug, "👜 Next rebag target: {:?}", cursor);
@@ -503,7 +503,7 @@ pub mod pallet {
 					// Cursor became None unexpectedly.
 					log!(debug, "Cursor is None unexpectedly during auto-rebag");
 					break;
-					}
+				}
 			}
 
 			// Save the cursor or reset if done.
