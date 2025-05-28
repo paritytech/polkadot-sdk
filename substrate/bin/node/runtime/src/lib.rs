@@ -2316,7 +2316,6 @@ impl pallet_migrations::Config for Runtime {
 parameter_types! {
 	pub const BrokerPalletId: PalletId = PalletId(*b"py/broke");
 	pub const MinimumCreditPurchase: Balance =  100 * MILLICENTS;
-	pub const DefaultMinimumEndPrice: Option<Balance> =  Some(DOLLARS);
 }
 
 pub struct IntoAuthor;
@@ -2370,7 +2369,6 @@ impl pallet_broker::Config for Runtime {
 	type MaxAutoRenewals = ConstU32<10>;
 	type PriceAdapter = pallet_broker::CenterTargetPrice<Balance>;
 	type MinimumCreditPurchase = MinimumCreditPurchase;
-	type DefaultMinimumEndPrice = DefaultMinimumEndPrice;
 }
 
 parameter_types! {

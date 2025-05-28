@@ -107,7 +107,6 @@ pub trait WeightInfo {
 	fn disable_auto_renew() -> Weight;
 	fn on_new_timeslice() -> Weight;
 	fn remove_assignment() -> Weight;
-	fn set_minimum_end_price() -> Weight;
 }
 
 /// Weights for `pallet_broker` using the Substrate node and recommended hardware.
@@ -607,12 +606,6 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().reads(1_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
-	fn set_minimum_end_price() -> Weight {
-		// Dummy weight for now:
-		Weight::from_parts(15_782_000, 4681)
-			.saturating_add(T::DbWeight::get().reads(1_u64))
-			.saturating_add(T::DbWeight::get().writes(1_u64))
-	}
 }
 
 // For backwards compatibility and tests.
@@ -1107,12 +1100,6 @@ impl WeightInfo for () {
 		//  Measured:  `408`
 		//  Estimated: `4681`
 		// Minimum execution time: 14_911_000 picoseconds.
-		Weight::from_parts(15_782_000, 4681)
-			.saturating_add(RocksDbWeight::get().reads(1_u64))
-			.saturating_add(RocksDbWeight::get().writes(1_u64))
-	}
-	fn set_minimum_end_price() -> Weight {
-		// Dummy weight for now:
 		Weight::from_parts(15_782_000, 4681)
 			.saturating_add(RocksDbWeight::get().reads(1_u64))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))

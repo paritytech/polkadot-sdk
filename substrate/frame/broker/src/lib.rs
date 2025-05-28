@@ -131,12 +131,6 @@ pub mod pallet {
 		/// Needed to prevent spam attacks.
 		#[pallet::constant]
 		type MinimumCreditPurchase: Get<BalanceOf<Self>>;
-
-		/// Default minimum price to return via the pallet's `GetMinimumPrice` implementation.
-		///
-		/// This value will be used if no value was set yet.
-		#[pallet::constant]
-		type DefaultMinimumEndPrice: Get<Option<BalanceOf<Self>>>;
 	}
 
 	/// The current configuration of this pallet.
@@ -158,12 +152,6 @@ pub mod pallet {
 	/// The details of the current sale, including its properties and status.
 	#[pallet::storage]
 	pub type SaleInfo<T> = StorageValue<_, SaleInfoRecordOf<T>, OptionQuery>;
-
-	/// The current minimum price for sales.
-	///
-	/// Value is not used directly, but rather exposed via an implementation of `GetMinimumPrice`.
-	#[pallet::storage]
-	pub type MinimumEndPrice<T> = StorageValue<_, BalanceOf<T>, OptionQuery>;
 
 	/// Records of potential renewals.
 	///
@@ -604,12 +592,6 @@ pub mod pallet {
 		}
 	}
 
-	impl<T: Config> GetMinimumPrice<BalanceOf<T>> for Pallet<T> {
-		fn minimum_price() -> Option<BalanceOf<T>> {
-			MinimumEndPrice::<T>::get().or(T::DefaultMinimumEndPrice::get())
-		}
-	}
-
 	#[pallet::call(weight(<T as Config>::WeightInfo))]
 	impl<T: Config> Pallet<T> {
 		/// Configure the pallet.
@@ -1030,24 +1012,6 @@ pub mod pallet {
 		pub fn remove_assignment(origin: OriginFor<T>, region_id: RegionId) -> DispatchResult {
 			T::AdminOrigin::ensure_origin_or_root(origin)?;
 			Self::do_remove_assignment(region_id)
-		}
-
-		/// Configure the minimum sale end_price.
-		///
-		/// Note: Whether this value has any effect is up to the implementation of `PriceAdapter`
-		/// this pallet was configured with.
-		///
-		/// - `origin`: Must be Root or pass `AdminOrigin`.
-		/// - `min_price`: The minimum price to use. Set to `None` to fallback to the configured
-		/// `DefaultMinimumEndPrice`.
-		#[pallet::call_index(27)]
-		pub fn set_minimum_end_price(
-			origin: OriginFor<T>,
-			min_price: Option<BalanceOf<T>>,
-		) -> DispatchResultWithPostInfo {
-			T::AdminOrigin::ensure_origin_or_root(origin)?;
-			MinimumEndPrice::<T>::set(min_price);
-			Ok(Pays::No.into())
 		}
 
 		#[pallet::call_index(99)]
