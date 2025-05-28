@@ -1128,7 +1128,8 @@ where
 				if self.skip_transfer {
 					T::Currency::set_balance(account_id, ed);
 				} else {
-					T::Currency::transfer(origin, account_id, ed, Preservation::Preserve)?;
+					T::Currency::transfer(origin, account_id, ed, Preservation::Preserve)
+						.map_err(|_| <Error<T>>::StorageDepositNotEnoughFunds)?;
 				}
 
 				// A consumer is added at account creation and removed it on termination, otherwise
@@ -1380,10 +1381,13 @@ where
 		let ed = <T as Config>::Currency::minimum_balance();
 		with_transaction(|| -> TransactionOutcome<ExecResult> {
 			match T::Currency::transfer(origin, to, ed, Preservation::Preserve)
-				.and_then(|_| T::Currency::transfer(from, to, value, Preservation::Preserve))
-			{
+				.map_err(|_| Error::<T>::StorageDepositNotEnoughFunds.into())
+				.and_then(|_| {
+					T::Currency::transfer(from, to, value, Preservation::Preserve)
+						.map_err(|_| Error::<T>::TransferFailed.into())
+				}) {
 				Ok(_) => TransactionOutcome::Commit(Ok(Default::default())),
-				Err(_) => TransactionOutcome::Rollback(Err(Error::<T>::TransferFailed.into())),
+				Err(err) => TransactionOutcome::Rollback(Err(err)),
 			}
 		})
 	}
