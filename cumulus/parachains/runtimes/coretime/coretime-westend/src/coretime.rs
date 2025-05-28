@@ -113,7 +113,8 @@ parameter_types! {
 	pub const BrokerPalletId: PalletId = PalletId(*b"py/broke");
 	pub const MinimumCreditPurchase: Balance = UNITS / 10;
 	pub RevenueAccumulationAccount: AccountId = BrokerPalletId::get().into_sub_account_truncating(b"burnstash");
-	pub DefaultMinimumEndPrice: Option<Balance> = Some(UNITS);
+
+	pub const MinimumEndPrice: Balance = UNITS;
 }
 
 /// Type that implements the `CoretimeInterface` for the allocation of Coretime. Meant to operate
@@ -333,7 +334,6 @@ impl pallet_broker::Config for Runtime {
 	type AdminOrigin = EnsureRoot<AccountId>;
 	type SovereignAccountOf = SovereignAccountOf;
 	type MaxAutoRenewals = ConstU32<20>;
-	type PriceAdapter = pallet_broker::MinimumPrice<Balance, Broker>;
+	type PriceAdapter = pallet_broker::MinimumPrice<Balance, MinimumEndPrice>;
 	type MinimumCreditPurchase = MinimumCreditPurchase;
-	type DefaultMinimumEndPrice = DefaultMinimumEndPrice;
 }
