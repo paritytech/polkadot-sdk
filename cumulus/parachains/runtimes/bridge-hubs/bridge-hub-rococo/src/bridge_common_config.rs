@@ -21,11 +21,22 @@
 //! For example, the messaging pallet needs to know the sending and receiving chains, but the
 //! GRANDPA tracking pallet only needs to be aware of one chain.
 
-use super::{weights, AccountId, Balance, Balances, BlockNumber, Runtime, RuntimeEvent};
+use super::{
+	weights, AccountId, Balance, Balances, BlockNumber, PolkadotXcm, Runtime, RuntimeEvent,
+};
+use alloc::{vec, vec::Vec};
+use bp_messages::Weight;
+use bp_polkadot_core::parachains::{ParaHead, ParaId};
 use bp_relayers::RewardsAccountParams;
+use bp_runtime::HeaderOf;
+use codec::{Decode, Encode};
 use frame_support::{parameter_types, traits::ConstU32};
+use rococo_runtime_constants::system_parachain::ASSET_HUB_ID;
+use sp_runtime::traits::Header;
+use xcm::latest::prelude::*;
 
 parameter_types! {
+	pub AssetHubLocation: Location = Location::new(1, [Parachain(ASSET_HUB_ID)]);
 	pub const RelayChainHeadersToKeep: u32 = 1024;
 	pub const ParachainHeadsToKeep: u32 = 64;
 
@@ -61,7 +72,80 @@ impl pallet_bridge_parachains::Config<BridgeParachainWestendInstance> for Runtim
 		(bp_bridge_hub_westend::BridgeHubWestend, bp_asset_hub_westend::AssetHubWestend);
 	type HeadsToKeep = ParachainHeadsToKeep;
 	type MaxParaHeadDataSize = MaxWestendParaHeadDataSize;
-	type OnNewHead = ();
+	type OnNewHead = (
+		// Sync AHR headers with state roots.
+		pallet_bridge_proof_root_sync::impls::SyncParaHeadersFor<
+			Runtime,
+			AssetHubWestendStateRootSyncInstance,
+			bp_asset_hub_westend::AssetHubWestend,
+		>,
+	);
+}
+
+/// `OnSend` implementation that sends validated AHR headers to AHW.
+pub struct ToAssetHubRococoProofRootSender;
+impl pallet_bridge_proof_root_sync::OnSend<ParaId, ParaHead> for ToAssetHubRococoProofRootSender {
+	fn on_send(roots: &Vec<(ParaId, ParaHead)>) {
+		// For smaller messages, we just send minimal data.
+		let roots = roots
+			.iter()
+			.filter_map(|(id, head)| {
+				let header: HeaderOf<bp_asset_hub_westend::AssetHubWestend> =
+					match Decode::decode(&mut &head.0[..]) {
+						Ok(header) => header,
+						Err(error) => {
+							log::warn!(
+								target: "runtime::bridge-xcm::on-send",
+								"Failed to decode parachain header - skipping it! head: {:?}, para_id: {:?}, error: {:?}",
+								head,
+								id,
+								error,
+							);
+							return None;
+						},
+					};
+				// We just need block_hash and state_root.
+				Some((header.hash(), *header.state_root()))
+			})
+			.collect::<Vec<_>>();
+
+		// Send dedicated `Transact` to AHW.
+		let xcm = Xcm(vec![
+			UnpaidExecution { weight_limit: Unlimited, check_origin: None },
+			Transact {
+				origin_kind: OriginKind::Xcm,
+				fallback_max_weight: None,
+				call: bp_asset_hub_rococo::Call::AssetHubWestendProofRootStore(
+					bp_asset_hub_rococo::ProofRootStoreCall::note_new_roots {
+						roots: roots.clone(),
+					},
+				)
+				.encode()
+				.into(),
+			},
+			ExpectTransactStatus(MaybeErrorCode::Success),
+		]);
+		if let Err(error) = PolkadotXcm::send_xcm(Here, AssetHubLocation::get(), xcm) {
+			log::warn!(target: "runtime::bridge-xcm::on-send", "Failed to send XCM: {:?}", error);
+		}
+	}
+
+	fn on_send_weight() -> Weight {
+		<<Runtime as pallet_xcm::Config>::WeightInfo as pallet_xcm::WeightInfo>::send()
+	}
+}
+
+/// Simple mechanism that syncs/sends validated Asset Hub Rococo headers to other local chains.
+/// For example,
+///  1. We need AHR headers for direct bridge messaging on AHW (ToAssetHubRococoProofRootSender).
+///  2. We may need AHR headers for D-Day detection on Collectives (ToCollectivesProofRootSender).
+pub type AssetHubWestendStateRootSyncInstance = pallet_bridge_proof_root_sync::Instance1;
+impl pallet_bridge_proof_root_sync::Config<AssetHubWestendStateRootSyncInstance> for Runtime {
+	type Key = ParaId;
+	type Value = ParaHead;
+	type RootsToKeep = ParachainHeadsToKeep;
+	type MaxRootsToSend = ParachainHeadsToKeep;
+	type OnSend = (ToAssetHubRococoProofRootSender,);
 }
 
 /// Allows collect and claim rewards for relayers
