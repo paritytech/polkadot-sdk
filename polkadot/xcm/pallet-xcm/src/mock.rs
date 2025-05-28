@@ -47,8 +47,7 @@ use xcm_executor::{
 };
 use xcm_simulator::helpers::derive_topic_id;
 
-use crate::precompiles::XcmPrecompile;
-use crate::{self as pallet_xcm, TestWeightInfo};
+use crate::{self as pallet_xcm, precompiles::XcmPrecompile, TestWeightInfo};
 
 pub type AccountId = AccountId32;
 pub type Balance = u128;
