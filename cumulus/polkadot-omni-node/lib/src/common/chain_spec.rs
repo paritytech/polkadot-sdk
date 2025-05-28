@@ -45,7 +45,6 @@ pub struct Extensions {
 	/// The id of the Parachain.
 	#[serde(alias = "paraId", alias = "ParaId")]
 	#[deprecated(
-		since = "stable2506",
 		note = "The para_id information is not required anymore and will be removed as part of stable2509. Runtimes must implement a new API called `GetParachainIdentity` to still be compatible with node versions starting with stable2509."
 	)]
 	pub para_id: u32,

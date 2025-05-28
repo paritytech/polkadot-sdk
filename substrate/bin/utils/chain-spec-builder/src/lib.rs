@@ -68,12 +68,11 @@ pub struct CreateCmd {
 	#[arg(value_enum, short = 't', default_value = "live")]
 	chain_type: ChainType,
 	/// The para ID for your chain.
-	/// DEPRECTED: Will be removed starting with stable2509.
+	/// DEPRECATED: Will be removed starting with stable2509.
 	/// Please implement the newly added `GetParachainIdentity` runtime API for keeping
 	/// the runtime compatible with the `polkadot-omni-node` versions released after stable2509.
 	#[arg(long, value_enum, short = 'p', requires = "relay_chain")]
 	#[deprecated(
-		since = "stable2506",
 		note = "This flag will be removed starting with stable2509. Please implement the `GetParachainIdentity` runtime API on runtimes, to still have them compatible with the `polkadot-omni-node` versions past stable2509."
 	)]
 	pub para_id: Option<u32>,
