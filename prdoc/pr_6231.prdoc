@@ -28,7 +28,7 @@ crates:
 - name: bp-asset-hub-westend
   bump: minor
 - name: polkadot-sdk
-  bump: patch
+  bump: minor
 - name: pallet-bridge-messages
   bump: patch
 - name: bp-xcm-bridge
