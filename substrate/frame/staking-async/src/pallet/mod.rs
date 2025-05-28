@@ -2490,12 +2490,12 @@ pub mod pallet {
 	impl<T: Config> Pallet<T> {
 		/// Returns an array of `(era, amount)` that represents:
 		///
-		/// - The era where funds can be withdrawn.
-		///   If the era is the same as the current active one, they can be immediately retrieved.
+		/// - The era where funds can be withdrawn. If the era is the same as the current active
+		///   one, they can be immediately retrieved.
 		/// - The amount of funds that can be withdrawn in a given era.
 		///
-		/// The duration in eras may vary based on the amount being unbonded and current queue parameters.
-		/// For instance, larger amounts may need to wait longer.
+		/// The duration in eras may vary based on the amount being unbonded and current queue
+		/// parameters. For instance, larger amounts may need to wait longer.
 		pub fn get_unbonding_duration(stash: T::AccountId) -> Vec<(EraIndex, BalanceOf<T>)> {
 			let ledger = match Self::ledger(Stash(stash.clone())) {
 				Ok(l) => l,
