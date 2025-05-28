@@ -5,14 +5,16 @@ doc:
     #8365 '
 crates:
 - name: ethereum-standards
-  bump: patch
+  bump: minor
 - name: pallet-revive
-  bump: patch
+  bump: minor
 - name: snowbridge-pallet-inbound-queue
-  bump: patch
+  bump: minor
 - name: snowbridge-inbound-queue-primitives
-  bump: patch
+  bump: minor
 - name: snowbridge-outbound-queue-primitives
-  bump: patch
+  bump: minor
 - name: polkadot-sdk
-  bump: patch
+  bump: minor
+- name: yet-another-parachain-runtime
+  bump: minor
