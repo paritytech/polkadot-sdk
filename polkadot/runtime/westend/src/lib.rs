@@ -121,7 +121,6 @@ use xcm::{
 	VersionedLocation, VersionedXcm,
 };
 use xcm_builder::PayOverXcm;
-use xcm_config::{AssetHub, Collectives, FellowsBodyId};
 use xcm_runtime_apis::{
 	dry_run::{CallDryRunEffects, Error as XcmDryRunApiError, XcmDryRunEffects},
 	fees::Error as XcmPaymentApiError,
@@ -218,7 +217,6 @@ parameter_types! {
 
 #[derive_impl(frame_system::config_preludes::RelayChainDefaultConfig)]
 impl frame_system::Config for Runtime {
-	type BaseCallFilter = RcMigrator;
 	type BlockWeights = BlockWeights;
 	type BlockLength = BlockLength;
 	type Nonce = Nonce;
@@ -248,8 +246,7 @@ impl pallet_scheduler::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type PalletsOrigin = OriginCaller;
 	type RuntimeCall = RuntimeCall;
-	type MaximumWeight =
-		pallet_rc_migrator::types::ZeroWeightOr<RcMigrator, MaximumSchedulerWeight>;
+	type MaximumWeight = MaximumSchedulerWeight;
 	// The goal of having ScheduleOrigin include AuctionAdmin is to allow the auctions track of
 	// OpenGov to schedule periodic auctions.
 	type ScheduleOrigin = EitherOf<EnsureRoot<AccountId>, AuctionAdmin>;
@@ -1760,47 +1757,6 @@ const AH_MAXIMUM_BLOCK_WEIGHT: Weight = Weight::from_parts(
 	polkadot_primitives::MAX_POV_SIZE as u64,
 );
 
-parameter_types! {
-	// Equivalent to `polkadot_asset_hub_runtime::MessageQueueServiceWeight`.
-	pub AhMqServiceWeight: Weight = Perbill::from_percent(50) * AH_MAXIMUM_BLOCK_WEIGHT;
-	// 80 percent of the `AhMqServiceWeight` to leave some space for XCM message base processing.
-	pub AhMigratorMaxWeight: Weight = Perbill::from_percent(80) * AhMqServiceWeight::get();
-	pub RcMigratorMaxWeight: Weight = Perbill::from_percent(50) * BlockWeights::get().max_block;
-	pub AhExistentialDeposit: Balance = EXISTENTIAL_DEPOSIT / 100;
-}
-
-pub struct ContainsAssetHub;
-impl Contains<Location> for ContainsAssetHub {
-	fn contains(loc: &Location) -> bool {
-		*loc == AssetHub::get()
-	}
-}
-
-impl pallet_rc_migrator::Config for Runtime {
-	type RuntimeHoldReason = RuntimeHoldReason;
-	type RuntimeEvent = RuntimeEvent;
-	type ManagerOrigin = EitherOfDiverse<
-		EnsureRoot<AccountId>,
-		EitherOfDiverse<
-			EnsureXcm<IsVoiceOfBody<Collectives, FellowsBodyId>>,
-			EnsureXcm<ContainsAssetHub, Location>,
-		>,
-	>;
-	type Currency = Balances;
-	type CheckingAccount = xcm_config::CheckAccount;
-	type SendXcm = xcm_config::XcmRouter;
-	type MaxRcWeight = RcMigratorMaxWeight;
-	type MaxAhWeight = AhMigratorMaxWeight;
-	type AhExistentialDeposit = AhExistentialDeposit;
-	type RcWeightInfo = weights::pallet_rc_migrator::WeightInfo<Runtime>;
-	type AhWeightInfo = weights::pallet_ah_migrator::WeightInfo<ah_migration::weights::AhDbConfig>;
-	type RcIntraMigrationCalls = ahm_phase1::CallsEnabledDuringMigration;
-	type RcPostMigrationCalls = ahm_phase1::CallsEnabledAfterMigration;
-	type StakingDelegationReason = ahm_phase1::StakingDelegationReason;
-	type OnDemandPalletId = OnDemandPalletId;
-	type UnprocessedMsgBuffer = ConstU32<5>;
-}
-
 pub type MetaTxExtension = (
 	pallet_verify_signature::VerifySignature<Runtime>,
 	pallet_meta_tx::MetaTxMarker<Runtime>,
@@ -2044,10 +2000,6 @@ mod runtime {
 	// Pallet for migrating Identity to a parachain. To be removed post-migration.
 	#[runtime::pallet_index(248)]
 	pub type IdentityMigrator = identity_migrator;
-
-	// Relay Chain Migrator.
-	#[runtime::pallet_index(255)]
-	pub type RcMigrator = pallet_rc_migrator;
 }
 
 /// The address format for describing accounts.

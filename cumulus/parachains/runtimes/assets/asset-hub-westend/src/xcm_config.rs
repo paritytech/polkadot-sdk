@@ -89,7 +89,7 @@ parameter_types! {
 	pub RelayTreasuryLocation: Location = (Parent, PalletInstance(westend_runtime_constants::TREASURY_PALLET_ID)).into();
 	pub const GovernanceLocation: Location = Location::parent();
 	/// The Checking Account along with the indication that the local chain is able to mint tokens.
-	pub TeleportTracking: Option<(AccountId, MintLocation)> = crate::AhMigrator::teleport_tracking();
+	pub TeleportTracking: Option<(AccountId, MintLocation)> = Some((T::CheckingAccount::get(), MintLocation::Local));
 }
 
 /// Type for specifying how a `Location` can be converted into an `AccountId`. This is used

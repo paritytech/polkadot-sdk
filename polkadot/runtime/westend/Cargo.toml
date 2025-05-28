@@ -51,7 +51,6 @@ frame-metadata-hash-extension = { workspace = true }
 frame-support = { features = ["experimental", "tuples-96"], workspace = true }
 frame-system = { workspace = true }
 frame-system-rpc-runtime-api = { workspace = true }
-pallet-ah-migrator = { workspace = true }
 pallet-asset-rate = { workspace = true }
 pallet-authority-discovery = { workspace = true }
 pallet-authorship = { workspace = true }
@@ -78,7 +77,6 @@ pallet-offences = { workspace = true }
 pallet-parameters = { workspace = true }
 pallet-preimage = { workspace = true }
 pallet-proxy = { workspace = true }
-pallet-rc-migrator = { workspace = true }
 pallet-recovery = { workspace = true }
 pallet-referenda = { workspace = true }
 pallet-root-testing = { workspace = true }
@@ -132,17 +130,8 @@ tokio = { features = ["macros"], workspace = true, default-features = true }
 substrate-wasm-builder = { workspace = true, default-features = true }
 
 [features]
-default = ["ahm-westend", "std"]
+default = ["std"]
 no_std = []
-ahm-westend = [
-	"ahm-staking-migration",
-	"pallet-ah-migrator/ahm-westend",
-	"pallet-rc-migrator/ahm-westend",
-]
-ahm-staking-migration = [
-	"pallet-ah-migrator/ahm-staking-migration",
-	"pallet-rc-migrator/ahm-staking-migration",
-]
 std = [
 	"binary-merkle-tree/std",
 	"bitvec/std",
@@ -157,7 +146,6 @@ std = [
 	"frame-system/std",
 	"frame-try-runtime/std",
 	"log/std",
-	"pallet-ah-migrator/std",
 	"pallet-asset-rate/std",
 	"pallet-authority-discovery/std",
 	"pallet-authorship/std",
@@ -187,7 +175,6 @@ std = [
 	"pallet-parameters/std",
 	"pallet-preimage/std",
 	"pallet-proxy/std",
-	"pallet-rc-migrator/std",
 	"pallet-recovery/std",
 	"pallet-referenda/std",
 	"pallet-root-testing/std",
@@ -251,7 +238,6 @@ runtime-benchmarks = [
 	"frame-support/runtime-benchmarks",
 	"frame-system-benchmarking/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
-	"pallet-ah-migrator/runtime-benchmarks",
 	"pallet-asset-rate/runtime-benchmarks",
 	"pallet-babe/runtime-benchmarks",
 	"pallet-bags-list/runtime-benchmarks",
@@ -277,7 +263,6 @@ runtime-benchmarks = [
 	"pallet-parameters/runtime-benchmarks",
 	"pallet-preimage/runtime-benchmarks",
 	"pallet-proxy/runtime-benchmarks",
-	"pallet-rc-migrator/runtime-benchmarks",
 	"pallet-recovery/runtime-benchmarks",
 	"pallet-referenda/runtime-benchmarks",
 	"pallet-scheduler/runtime-benchmarks",
@@ -314,7 +299,6 @@ try-runtime = [
 	"frame-system/try-runtime",
 	"frame-try-runtime",
 	"frame-try-runtime/try-runtime",
-	"pallet-ah-migrator/try-runtime",
 	"pallet-asset-rate/try-runtime",
 	"pallet-authority-discovery/try-runtime",
 	"pallet-authorship/try-runtime",
@@ -340,7 +324,6 @@ try-runtime = [
 	"pallet-parameters/try-runtime",
 	"pallet-preimage/try-runtime",
 	"pallet-proxy/try-runtime",
-	"pallet-rc-migrator/try-runtime",
 	"pallet-recovery/try-runtime",
 	"pallet-referenda/try-runtime",
 	"pallet-root-testing/try-runtime",

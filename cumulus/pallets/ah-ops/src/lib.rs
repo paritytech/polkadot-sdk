@@ -53,7 +53,7 @@ use sp_runtime::{traits::BlockNumberProvider, AccountId32};
 use sp_std::prelude::*;
 
 /// The log target of this pallet.
-pub const LOG_TARGET: &str = "runtime::ah-migrator";
+pub const LOG_TARGET: &str = "runtime::ah-ops";
 
 pub type BalanceOf<T> = <T as pallet_balances::Config>::Balance;
 

@@ -21,6 +21,7 @@ use super::{
 	GeneralAdmin, ParaId, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin, StakingAdmin,
 	TransactionByteFee, Treasury, WeightToFee, XcmPallet,
 };
+use xcm_builder::Case;
 use crate::governance::pallet_custom_origins::Treasurer;
 use frame_support::{
 	parameter_types,
@@ -49,8 +50,6 @@ use xcm_builder::{
 };
 use xcm_executor::{traits::ConvertOrigin, XcmExecutor};
 
-pub use pallet_rc_migrator::xcm_config::*;
-
 parameter_types! {
 	pub const TokenLocation: Location = Here.into_location();
 	pub const RootLocation: Location = Location::here();
@@ -58,7 +57,7 @@ parameter_types! {
 	pub UniversalLocation: InteriorLocation = [GlobalConsensus(ThisNetwork::get())].into();
 	pub CheckAccount: AccountId = XcmPallet::check_account();
 	/// The Checking Account along with the indication that the local chain is able to mint tokens.
-	pub TeleportTracking: Option<(AccountId, MintLocation)> = crate::RcMigrator::teleport_tracking();
+	pub TeleportTracking: Option<(AccountId, MintLocation)> = None;
 	pub TreasuryAccount: AccountId = Treasury::account_id();
 	/// The asset ID for the asset that we use to pay for message delivery fees.
 	pub FeeAssetId: AssetId = AssetId(TokenLocation::get());
@@ -223,7 +222,7 @@ impl xcm_executor::Config for XcmConfig {
 	type AssetTransactor = LocalAssetTransactor;
 	type OriginConverter = LocalOriginConverter;
 	type IsReserve = ();
-	type IsTeleporter = crate::RcMigrator;
+	type IsTeleporter = TrustedTeleporters;
 	type UniversalLocation = UniversalLocation;
 	type Barrier = Barrier;
 	type Weigher = WeightInfoBounds<
