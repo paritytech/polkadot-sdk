@@ -86,17 +86,10 @@ It means that downstream code using `frame-example-pallet` is still guaranteed t
 
 ### Dependencies
 
-<<<<<<< HEAD
 A crate that depends on another crate will automatically inherit its `major` bumps. This means that you do not need to
 bump a crate that had a SemVer breaking change only from re-exporting another crate with a breaking change.  
 `minor` an `patch` bumps do not need to be inherited, since `cargo` will automatically update them to the latest
 compatible version.
-=======
-A crate that depends on another crate will automatically inherit its `major` bumps. This means that
-you do not need to bump a crate that had a SemVer breaking change only from re-exporting another
-crate with a breaking change.  
-`minor` an `patch` bumps do not need to be inherited, since `cargo` will automatically update them
-to the latest compatible version.
 
 ### Overwrite CI Check
 
@@ -142,5 +135,3 @@ If a `major` bump is truly needed, you must:
 3. Notify a release engineer or senior reviewer for approval.
 
 > Use this override sparingly, and only when you’re confident the change is safe and justified.
-
->>>>>>> 38b7581f (CI: Enforce SemVer restrictions on backport PRs with optional override via `validate: false` (#8632))
