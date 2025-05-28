@@ -2506,31 +2506,33 @@ pub mod pallet {
 			};
 			let mut result = BTreeMap::new();
 			for chunk in ledger.unlocking.into_iter() {
-				if chunk.era < target_era {
-					continue;
-				}
 				let mut final_era = chunk.era.defensive_saturating_add(min_unlock_era);
-				for era in (target_era..=chunk.era).rev() {
-					let mut total_unbond = BalanceOf::<T>::zero();
-					let era_total_amount =
-						TotalUnbondInEra::<T>::get(chunk.era).unwrap_or_default();
-					let unbond = if era == chunk.era {
-						era_total_amount.min(
-							chunk.previous_unbonded_stake.defensive_saturating_add(chunk.value),
-						)
-					} else {
-						era_total_amount
-					};
-					total_unbond.saturating_accrue(unbond);
+				if chunk.era < target_era {
+					// We can immediately withdraw these funds.
+					final_era = current_era;
+				} else {
+					for era in (target_era..=chunk.era).rev() {
+						let mut total_unbond = BalanceOf::<T>::zero();
+						let era_total_amount =
+							TotalUnbondInEra::<T>::get(chunk.era).unwrap_or_default();
+						let unbond = if era == chunk.era {
+							era_total_amount.min(
+								chunk.previous_unbonded_stake.defensive_saturating_add(chunk.value),
+							)
+						} else {
+							era_total_amount
+						};
+						total_unbond.saturating_accrue(unbond);
 
-					let lowest_stake =
-						EraLowestRatioTotalStake::<T>::get(chunk.era).unwrap_or_default();
-					let threshold =
-						(Perbill::from_percent(100) - min_slashable_share) * lowest_stake;
-					if total_unbond >= threshold {
-						final_era = final_era
-							.max(chunk.era.defensive_saturating_add(T::BondingDuration::get()));
-						break;
+						let lowest_stake =
+							EraLowestRatioTotalStake::<T>::get(chunk.era).unwrap_or_default();
+						let threshold =
+							(Perbill::from_percent(100) - min_slashable_share) * lowest_stake;
+						if total_unbond >= threshold {
+							final_era = final_era
+								.max(chunk.era.defensive_saturating_add(T::BondingDuration::get()));
+							break;
+						}
 					}
 				}
 				let partial: BalanceOf<T> = match result.get(&final_era) {

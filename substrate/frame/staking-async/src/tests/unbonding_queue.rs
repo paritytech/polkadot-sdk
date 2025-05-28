@@ -341,8 +341,6 @@ fn test_withdrawing_over_global_stake_threshold_should_not_work() {
 				.into_inner(),
 			vec![UnlockChunk { value: 10, era: 10, previous_unbonded_stake: 0 }]
 		);
-
-		// Should be able to withdraw after two eras.
 		assert_eq!(Staking::get_unbonding_duration(11), vec![(10 + 3, 10)]);
 
 		// Should not have withdrawn any funds yet.
@@ -379,5 +377,44 @@ fn test_withdrawing_over_global_stake_threshold_should_not_work() {
 			vec![]
 		);
 		assert_eq!(Staking::get_unbonding_duration(11), vec![]);
+	});
+}
+
+#[test]
+fn old_unbonding_chunks_should_be_withdrawable_in_current_era() {
+	ExtBuilder::default().has_unbonding_queue_config(true).build_and_execute(|| {
+		Session::roll_until_active_era(10);
+		assert_eq!(Staking::current_era(), 10);
+
+		assert_eq!(
+			StakingLedger::<Test>::get(StakingAccount::Stash(11))
+				.unwrap()
+				.unlocking
+				.into_inner(),
+			vec![]
+		);
+		assert_ok!(Staking::unbond(RuntimeOrigin::signed(11), 10));
+		assert_eq!(Staking::get_unbonding_duration(11), vec![(10 + 2, 10)]);
+
+		Session::roll_until_active_era(11);
+		assert_ok!(Staking::unbond(RuntimeOrigin::signed(11), 10));
+		assert_eq!(
+			StakingLedger::<Test>::get(StakingAccount::Stash(11))
+				.unwrap()
+				.unlocking
+				.into_inner(),
+			vec![
+				UnlockChunk { value: 10, era: 10, previous_unbonded_stake: 0 },
+				UnlockChunk { value: 10, era: 11, previous_unbonded_stake: 0 }
+			]
+		);
+		assert_eq!(Staking::get_unbonding_duration(11), vec![(10 + 2, 10), (11 + 2, 10)]);
+
+		Session::roll_until_active_era(12);
+		assert_eq!(Staking::get_unbonding_duration(11), vec![(10 + 2, 10), (11 + 2, 10)]);
+
+		// Now both unbonds get collapsed in a single entry.
+		Session::roll_until_active_era(13);
+		assert_eq!(Staking::get_unbonding_duration(11), vec![(13, 20)]);
 	});
 }
