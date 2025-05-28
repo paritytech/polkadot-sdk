@@ -12,7 +12,6 @@ repository.workspace = true
 workspace = true
 
 [dependencies]
-alloy-core = { workspace = true, features = ["sol-types"] }
 codec = { features = ["derive"], workspace = true }
 impl-trait-for-tuples = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
@@ -43,7 +42,6 @@ parachains-common = { workspace = true }
 [features]
 default = ["std"]
 std = [
-	"alloy-core/std",
 	"codec/std",
 	"cumulus-primitives-core/std",
 	"frame-support/std",

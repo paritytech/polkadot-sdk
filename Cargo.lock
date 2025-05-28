@@ -1314,7 +1314,6 @@ dependencies = [
 name = "assets-common"
 version = "0.7.0"
 dependencies = [
- "alloy-core",
  "cumulus-primitives-core",
  "ethereum-standards",
  "frame-support",

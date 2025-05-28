@@ -16,17 +16,19 @@
 
 //! The ERC20 Asset Transactor.
 
-use alloy_core::{
-	primitives::{Address, U256 as EU256},
-	sol_types::*,
-};
 use core::marker::PhantomData;
 use ethereum_standards::IERC20;
 use frame_support::{
 	pallet_prelude::Zero,
 	traits::{fungible::Inspect, OriginTrait},
 };
-use pallet_revive::{AddressMapper, ContractResult, DepositLimit, MomentOf};
+use pallet_revive::{
+	precompiles::alloy::{
+		primitives::{Address, U256 as EU256},
+		sol_types::SolCall,
+	},
+	AddressMapper, ContractResult, DepositLimit, MomentOf,
+};
 use sp_core::{Get, H160, H256, U256};
 use sp_runtime::Weight;
 use xcm::latest::prelude::*;
@@ -139,7 +141,7 @@ where
 				tracing::debug!(target: "xcm::transactor::erc20::withdraw", "ERC20 contract reverted");
 				Err(XcmError::FailedToTransactAsset("ERC20 contract reverted"))
 			} else {
-				let is_success = bool::abi_decode_validate(&return_value.data).map_err(|error| {
+				let is_success = IERC20::transferCall::abi_decode_returns_validate(&return_value.data).map_err(|error| {
 					tracing::debug!(target: "xcm::transactor::erc20::withdraw", ?error, "ERC20 contract result couldn't decode");
 					XcmError::FailedToTransactAsset("ERC20 contract result couldn't decode")
 				})?;
@@ -197,7 +199,7 @@ where
 				tracing::debug!(target: "xcm::transactor::erc20::deposit", "Contract reverted");
 				Err(XcmError::FailedToTransactAsset("ERC20 contract reverted"))
 			} else {
-				let is_success = bool::abi_decode_validate(&return_value.data).map_err(|error| {
+				let is_success = IERC20::transferCall::abi_decode_returns_validate(&return_value.data).map_err(|error| {
 					tracing::debug!(target: "xcm::transactor::erc20::deposit", ?error, "ERC20 contract result couldn't decode");
 					XcmError::FailedToTransactAsset("ERC20 contract result couldn't decode")
 				})?;
