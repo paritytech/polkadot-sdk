@@ -68,7 +68,14 @@ pub struct CreateCmd {
 	#[arg(value_enum, short = 't', default_value = "live")]
 	chain_type: ChainType,
 	/// The para ID for your chain.
+	/// DEPRECTED: Will be removed starting with stable2509.
+	/// Please implement the newly added `GetParachainIdentity` runtime API for keeping
+	/// the runtime compatible with the `polkadot-omni-node` versions released after stable2509.
 	#[arg(long, value_enum, short = 'p', requires = "relay_chain")]
+	#[deprecated(
+		since = "stable2506",
+		note = "This flag will be removed starting with stable2509. Please implement the `GetParachainIdentity` runtime API on runtimes, to still have them compatible with the `polkadot-omni-node` versions past stable2509."
+	)]
 	pub para_id: Option<u32>,
 	/// The relay chain you wish to connect to.
 	#[arg(long, value_enum, short = 'c', requires = "para_id")]
@@ -444,10 +451,9 @@ pub fn generate_chain_spec_for_runtime(cmd: &CreateCmd) -> Result<String, String
 
 	let chain_spec_json_string = process_action(&cmd, &code[..], builder)?;
 
-	if let (Some(para_id), Some(ref relay_chain)) = (cmd.para_id, &cmd.relay_chain) {
+	if let Some(ref relay_chain) = &cmd.relay_chain {
 		let parachain_properties = serde_json::json!({
 			"relay_chain": relay_chain,
-			"para_id": para_id,
 		});
 		let mut chain_spec_json_blob = serde_json::from_str(chain_spec_json_string.as_str())
 			.map_err(|e| format!("deserialization a json failed {e}"))?;

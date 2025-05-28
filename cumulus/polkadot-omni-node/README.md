@@ -39,12 +39,12 @@ cargo install staging-chain-spec-builder --locked
 
 ### 2. Generate a chain spec
 
-Omni Node expects for the chain spec to contain parachains related fields like `relay_chain` and `para_id`.
-These fields can be introduced by running [`staging-chain-spec-builder`](https://crates.io/crates/staging-chain-spec-builder)
+Omni Node expects for the chain spec to contain parachains related fields like `relay_chain`.
+The field can be introduced by running [`staging-chain-spec-builder`](https://crates.io/crates/staging-chain-spec-builder)
 with additional flags:
 
 ```bash
-chain-spec-builder create --relay-chain <relay_chain_id> --para-id <id> -r <runtime.wasm> named-preset <preset_name>
+chain-spec-builder create --relay-chain <relay_chain_id> -r <runtime.wasm> named-preset <preset_name>
 ```
 
 ### 3. Run Omni Node

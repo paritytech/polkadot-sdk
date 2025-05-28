@@ -1567,7 +1567,7 @@ impl_runtime_apis! {
 
 	impl cumulus_primitives_core::GetParachainIdentity<Block> for Runtime {
 		fn parachain_id() -> ParaId {
-			parachain_info::Pallet::<Runtime>::parachain_id()
+			ParachainInfo::parachain_id()
 		}
 	}
 }

@@ -81,7 +81,7 @@ version of chain spec:
 
 ```rust,ignore
 bash!(
-	chain-spec-builder -c "/dev/stdout" create --relay-chain "dev" --para-id 1000 -r $runtime_path named-preset "staging"
+	chain-spec-builder -c "/dev/stdout" create --relay-chain "dev" -r $runtime_path named-preset "staging"
 )
 ```
 

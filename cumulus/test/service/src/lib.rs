@@ -384,13 +384,11 @@ where
 		client
 			.runtime_api()
 			.parachain_id(best_hash)
-			.ok_or("Failed to retrieve parachain id from runtime")?
+			.map_err(|_| "Failed to retrieve parachain id from runtime")?
 	} else {
-		ParaId::from(
-			Extensions::try_get(&*parachain_config.chain_spec)
-				.map(|e| e.para_id)
-				.ok_or("Could not find parachain extension in chain-spec.")?,
-		)
+		ParaId::from(Extensions::try_get(&*parachain_config.chain_spec).map(|e| e.para_id).ok_or(
+			sc_service::error::Error::Other("Could not find parachain extension in chain-spec."),
+		)?)
 	};
 	tracing::info!("Parachain id: {:?}", parachain_id);
 
@@ -797,7 +795,6 @@ impl TestNodeBuilder {
 						parachain_config,
 						self.collator_key,
 						relay_chain_config,
-						self.para_id,
 						self.wrap_announce_block,
 						false,
 						|_| Ok(jsonrpsee::RpcModule::new(())),
@@ -813,7 +810,6 @@ impl TestNodeBuilder {
 						parachain_config,
 						self.collator_key,
 						relay_chain_config,
-						self.para_id,
 						self.wrap_announce_block,
 						false,
 						|_| Ok(jsonrpsee::RpcModule::new(())),

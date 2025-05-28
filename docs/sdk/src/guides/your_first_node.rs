@@ -59,7 +59,6 @@
 //! chain-spec-builder \
 //! 	-c <path-to-output> \
 //! 	create \
-//! 	--para-id 42 \
 //! 	--relay-chain dontcare \
 //! 	--runtime polkadot_sdk_docs_first_runtime.wasm \
 //! 	named-preset development
@@ -232,7 +231,7 @@ mod tests {
 		Command::new(chain_spec_builder)
 			.args(["-c", chain_spec_file.to_str().unwrap()])
 			.arg("create")
-			.args(["--para-id", "1000", "--relay-chain", "dontcare"])
+			.args(["--relay-chain", "dontcare"])
 			.args(["-r", runtime_path.to_str().unwrap()])
 			.args(match maybe_preset {
 				Some(preset) => vec!["named-preset".to_string(), preset.to_string()],
@@ -274,17 +273,17 @@ mod tests {
 
 		// we need this snippet just for docs
 		#[docify::export_content(csb)]
-		fn build_para_chain_spec_works() {
+		fn build_parachain_spec_works() {
 			let chain_spec_builder = find_release_binary(&CHAIN_SPEC_BUILDER).unwrap();
 			let runtime_path = find_wasm(PARA_RUNTIME).unwrap();
 			let output = "/tmp/demo-chain-spec.json";
 			let runtime_str = runtime_path.to_str().unwrap();
 			run_cmd!(
-				$chain_spec_builder -c $output create --para-id 1000 --relay-chain dontcare -r $runtime_str named-preset development
+				$chain_spec_builder -c $output create --relay-chain dontcare -r $runtime_str named-preset development
 			).expect("Failed to run command");
 			std::fs::remove_file(output).unwrap();
 		}
-		build_para_chain_spec_works();
+		build_parachain_spec_works();
 	}
 
 	#[test]

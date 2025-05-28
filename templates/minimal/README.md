@@ -95,13 +95,13 @@ Please see the installation section at [`crates.io/staging-chain-spec-builder`](
 #### Use chain-spec-builder to generate the chain_spec.json file
 
 ```sh
-chain-spec-builder create --relay-chain "dev" --para-id 1000 --runtime \
+chain-spec-builder create --relay-chain "dev" --runtime \
     target/release/wbuild/minimal-template-runtime/minimal_template_runtime.wasm named-preset development
 ```
 
-**Note**: the `relay-chain` and `para-id` flags are extra bits of information required to
+**Note**: the `relay-chain` flag is extra information required to
 configure the node for the case of representing a parachain that is connected to a relay chain.
-They are not relevant to minimal template business logic, but they are mandatory information for
+It is not relevant to minimal template business logic, but it is mandatory information for
 Omni Node, nonetheless.
 
 #### Run Omni Node

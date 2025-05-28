@@ -18,7 +18,6 @@ RUST_LOG=${LOG} ../../../../../target/release/chain-spec-builder \
     -t development \
     --runtime ../../../../../target/release/wbuild/pallet-staking-async-parachain-runtime/pallet_staking_async_parachain_runtime.compact.compressed.wasm \
     --relay-chain rococo-local \
-    --para-id 1100 \
     named-preset dot_size
     # named-preset ksm_size
     # named-preset development
