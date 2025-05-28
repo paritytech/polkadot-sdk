@@ -17,7 +17,7 @@
 use crate::{
 	cli::{Cli, RelayChainCli, Subcommand},
 	common::{
-		chain_spec::{Extensions, LoadSpec},
+		chain_spec::LoadSpec,
 		runtime::{
 			AuraConsensusId, Consensus, Runtime, RuntimeResolver as RuntimeResolverT,
 			RuntimeResolver,
@@ -33,11 +33,9 @@ use crate::{
 use clap::{CommandFactory, FromArgMatches};
 #[cfg(feature = "runtime-benchmarks")]
 use cumulus_client_service::storage_proof_size::HostFunctions as ReclaimHostFunctions;
-use cumulus_primitives_core::ParaId;
 use frame_benchmarking_cli::{BenchmarkCmd, SUBSTRATE_REFERENCE_HARDWARE};
 use log::info;
 use sc_cli::{CliConfiguration, Result, SubstrateCli};
-use sp_runtime::traits::AccountIdConversion;
 #[cfg(feature = "runtime-benchmarks")]
 use sp_runtime::traits::HashingFor;
 

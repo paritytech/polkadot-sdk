@@ -18,7 +18,6 @@ pub mod aura;
 mod manual_seal;
 
 use crate::common::spec::{DynNodeSpec, NodeSpec as NodeSpecT};
-use cumulus_primitives_core::ParaId;
 use manual_seal::ManualSealNode;
 use polkadot_cli::service::IdentifyNetworkBackend;
 use sc_service::{Configuration, TaskManager};

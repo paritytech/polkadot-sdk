@@ -86,11 +86,6 @@ fn main() -> Result<(), sc_cli::Error> {
 			)
 			.map_err(|err| format!("Relay chain argument error: {}", err))?;
 
-			let parachain_id = chain_spec::Extensions::try_get(&*parachain_config.chain_spec)
-				.map(|e| e.para_id)
-				.ok_or("Could not find parachain extension in chain-spec.")?;
-
-			tracing::info!("Parachain id: {:?}", parachain_id);
 			tracing::info!(
 				"Is collating: {}",
 				if parachain_config.role.is_authority() { "yes" } else { "no" }

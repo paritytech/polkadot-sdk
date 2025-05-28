@@ -59,7 +59,7 @@ use cumulus_client_service::{
 	build_network, prepare_node_config, start_relay_chain_tasks, BuildNetworkParams,
 	CollatorSybilResistance, DARecoveryProfile, StartRelayChainTasksParams,
 };
-use cumulus_primitives_core::{relay_chain::ValidationCode, ParaId};
+use cumulus_primitives_core::{relay_chain::ValidationCode, GetParachainIdentity, ParaId};
 use cumulus_relay_chain_inprocess_interface::RelayChainInProcessInterface;
 use cumulus_relay_chain_interface::{RelayChainError, RelayChainInterface, RelayChainResult};
 use cumulus_relay_chain_minimal_node::{
@@ -72,7 +72,7 @@ use frame_system_rpc_runtime_api::AccountNonceApi;
 use polkadot_node_subsystem::{errors::RecoveryError, messages::AvailabilityRecoveryMessage};
 use polkadot_overseer::Handle as OverseerHandle;
 use polkadot_primitives::{CandidateHash, CollatorPair, Hash as PHash, PersistedValidationData};
-use polkadot_service::{IdentifyNetworkBackend, ProvideRuntimeApi};
+use polkadot_service::{chain_spec::Extensions, IdentifyNetworkBackend, ProvideRuntimeApi};
 use sc_consensus::ImportQueue;
 use sc_network::{
 	config::{FullNetworkConfiguration, TransportConfig},
@@ -89,6 +89,7 @@ use sc_service::{
 	BasePath, ChainSpec as ChainSpecService, Configuration, Error as ServiceError,
 	PartialComponents, Role, RpcHandlers, TFullBackend, TFullClient, TaskManager,
 };
+use sp_api::ApiExt;
 use sp_arithmetic::traits::SaturatedConversion;
 use sp_blockchain::HeaderBackend;
 use sp_core::Pair;
@@ -326,7 +327,6 @@ pub async fn start_node_impl<RB, Net: NetworkBackend<Block, Hash>>(
 	parachain_config: Configuration,
 	collator_key: Option<CollatorPair>,
 	relay_chain_config: Configuration,
-	para_id: ParaId,
 	wrap_announce_block: Option<Box<dyn FnOnce(AnnounceBlockFn) -> AnnounceBlockFn>>,
 	fail_pov_recovery: bool,
 	rpc_ext_builder: RB,
@@ -373,6 +373,26 @@ where
 		&parachain_config.network,
 		prometheus_registry.clone(),
 	);
+
+	let best_hash = client.chain_info().best_hash;
+	let has_para_id = client
+		.runtime_api()
+		.has_api::<dyn GetParachainIdentity<Self::Block>>(best_hash)
+		.ok()
+		.unwrap_or_default();
+	let para_id = if has_para_id {
+		client
+			.runtime_api()
+			.parachain_id(best_hash)
+			.ok_or("Failed to retrieve parachain id from runtime")?
+	} else {
+		ParaId::from(
+			Extensions::try_get(&*parachain_config.chain_spec)
+				.map(|e| e.para_id)
+				.ok_or("Could not find parachain extension in chain-spec.")?,
+		)
+	};
+	tracing::info!("Parachain id: {:?}", parachain_id);
 
 	let (network, system_rpc_tx, tx_handler_controller, sync_service) =
 		build_network(BuildNetworkParams {

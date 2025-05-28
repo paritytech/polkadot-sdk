@@ -14,14 +14,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::common::{
-	command::NodeCommandRunner,
-	rpc::BuildRpcExtensions,
-	types::{
-		ParachainBackend, ParachainBlockImport, ParachainClient, ParachainHostFunctions,
-		ParachainService,
+use crate::{
+	chain_spec::Extensions,
+	common::{
+		command::NodeCommandRunner,
+		rpc::BuildRpcExtensions,
+		types::{
+			ParachainBackend, ParachainBlockImport, ParachainClient, ParachainHostFunctions,
+			ParachainService,
+		},
+		ConstructNodeRuntimeApi, NodeBlock, NodeExtraArgs,
 	},
-	ConstructNodeRuntimeApi, NodeBlock, NodeExtraArgs,
 };
 use cumulus_client_bootnodes::{start_bootnode_tasks, StartBootnodeTasksParams};
 use cumulus_client_cli::CollatorOptions;
@@ -47,7 +50,7 @@ use sc_telemetry::{TelemetryHandle, TelemetryWorker};
 use sc_tracing::tracing::Instrument;
 use sc_transaction_pool::TransactionPoolHandle;
 use sc_transaction_pool_api::OffchainTransactionPoolFactory;
-use sp_api::ProvideRuntimeApi;
+use sp_api::{ApiExt, ProvideRuntimeApi};
 use sp_keystore::KeystorePtr;
 use sp_runtime::traits::AccountIdConversion;
 use std::{future::Future, pin::Pin, sync::Arc, time::Duration};
@@ -281,26 +284,33 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 
 			// Take parachain id from runtime.
 			let best_hash = client.chain_info().best_hash;
-			// TODO: how does this work for runtimes that don't have the API?
-			// Nodes that are upgraded will require their runtimes to expose the API,
-			// meaning a runtime upgrade should precede the node upgrade. This means we'd still need
-			// to support the old way of parsing parachain id from chain specs for a while, until
-			// runtimes are upgraded.
-			let para_id = client
+			let has_para_id = client
 				.runtime_api()
-				.parachain_id(best_hash)
-				.expect("Failed to retrieve parachain id from runtime");
-					let parachain_account =
-					AccountIdConversion::<polkadot_primitives::AccountId>::into_account_truncating(
-						&para_id,
-					);
+				.has_api::<dyn GetParachainIdentity<Self::Block>>(best_hash)
+				.ok()
+				.unwrap_or_default();
+			let para_id = if has_para_id {
+				client
+					.runtime_api()
+					.parachain_id(best_hash)
+					.map_err(|_| "Failed to retrieve parachain id from runtime")?
+			} else {
+				ParaId::from(
+					Extensions::try_get(&*parachain_config.chain_spec).map(|e| e.para_id).ok_or(
+						sc_service::error::Error::Other(
+							"Could not find parachain extension in chain-spec.".to_string(),
+						),
+					)?,
+				)
+			};
 			let parachain_account =
-					AccountIdConversion::<polkadot_primitives::AccountId>::into_account_truncating(
-						&para_id,
-					);
-			info!("🧾 Parachain Account: {}", parachain_account);
+				AccountIdConversion::<polkadot_primitives::AccountId>::into_account_truncating(
+					&para_id,
+				);
 
 			info!("🪪 Parachain id: {:?}", para_id);
+			info!("🧾 Parachain Account: {}", parachain_account);
+
 			let relay_chain_fork_id = polkadot_config.chain_spec.fork_id().map(ToString::to_string);
 			let (relay_chain_interface, collator_key, relay_chain_network, paranode_rx) =
 				build_relay_chain_interface(
