@@ -1,0 +1,41 @@
+title: Bridges - Add improved congestion control mechanism
+doc:
+- audience: Runtime Dev
+  description: |-
+    This release introduces an enhanced bridge congestion mechanism, decoupling bridge queues from XCMP and improving suspension handling with bridge-specific channel control.
+    Using `BridgeId`, `pallet-xcm-bridge-hub` and `pallet-xcm-bridge-hub-router` now support selective suspension and resumption of individual bridges.
+    A new congestion detection feature in `pallet-xcm-bridge-hub` triggers `fn suspend_bridge` and `fn resume_bridge` callbacks:
+    if the router is on a sibling chain, it sends `xcm::Transact(update_bridge_status(bridge_id, is_congested))` using stored callback data, while on local chains, it directly manages state.
+    Additionally, a new `stop_threshold` in `pallet-xcm-bridge-hub` enables or disables `ExportXcm::validate`, acting as a safeguard if the router ignores the `suspend` signal.
+    Finally, `pallet-xcm-bridge-hub-router` now flexibly supports message routing to either sibling chains (`ExportMessage`) or local deployments (`ExportXcm`),
+    enhancing modularity and compatibility across deployment setups.
+
+crates:
+- name: asset-hub-rococo-runtime
+  bump: major
+- name: asset-hub-westend-runtime
+  bump: major
+- name: asset-test-utils
+  bump: minor
+- name: cumulus-pallet-xcmp-queue
+  bump: minor
+- name: bridge-hub-test-utils
+  bump: minor
+- name: emulated-integration-tests-common
+  bump: minor
+- name: bp-asset-hub-rococo
+  bump: minor
+- name: bp-asset-hub-westend
+  bump: minor
+- name: polkadot-sdk
+  bump: minor
+- name: pallet-bridge-messages
+  bump: patch
+- name: bp-xcm-bridge
+  bump: patch
+- name: pallet-xcm-bridge
+  bump: patch
+- name: pallet-xcm-bridge-router
+  bump: patch
+- name: bp-xcm-bridge-router
+  bump: patch

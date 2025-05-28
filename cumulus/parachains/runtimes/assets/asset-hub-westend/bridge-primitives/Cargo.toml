@@ -26,7 +26,7 @@ sp-core = { workspace = true }
 bp-bridge-hub-cumulus = { workspace = true }
 bp-messages = { workspace = true }
 bp-runtime = { workspace = true }
-bp-xcm-bridge-hub-router = { workspace = true }
+bp-xcm-bridge-router = { workspace = true }
 testnet-parachains-constants = { features = ["westend"], workspace = true }
 
 # Polkadot dependencies
@@ -38,7 +38,7 @@ std = [
 	"bp-bridge-hub-cumulus/std",
 	"bp-messages/std",
 	"bp-runtime/std",
-	"bp-xcm-bridge-hub-router/std",
+	"bp-xcm-bridge-router/std",
 	"codec/std",
 	"frame-support/std",
 	"scale-info/std",

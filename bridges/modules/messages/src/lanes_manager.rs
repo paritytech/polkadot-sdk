@@ -156,7 +156,7 @@ impl<T: Config<I>, I: 'static> RuntimeInboundLaneStorage<T, I> {
 			// apart from the explicit closure, the lane may be unable to receive any messages.
 			// Right now we do an additional check here, but it may be done later (e.g. by
 			// explicitly closing the lane and reopening it from
-			// `pallet-xcm-bridge-hub::on-initialize`)
+			// `pallet-xcm-bridge::on-initialize`)
 			//
 			// The fact that we only check it here, means that the `MessageDispatch` may switch
 			// to inactive state during some message dispatch in the middle of message delivery
