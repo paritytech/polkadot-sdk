@@ -1294,20 +1294,20 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Creates the voter snapshot.
+	///
+	/// Returns `Ok(())` if a snapshot page for `remaining` page index is created successfully,
+	/// `Err(otherwise)`.
+	///
+	/// Errors could be:
+	/// * `T::DataProvider` failing to return any data
+	/// * what `T::DataProvider` returns failing to fit in our desired bound.
 	pub(crate) fn create_voters_snapshot_paged(
 		remaining: PageIndex,
 	) -> Result<(), ElectionError<T>> {
 		let count = T::VoterSnapshotPerBlock::get();
 		let bounds = DataProviderBounds { count: Some(count.into()), size: None };
-		// This function is called on the `on-init` path, so we must be careful with error handling.
-		// Note that since no size bound is provided, `electing_voters()`—bug aside— will never fail
-		// due to a bound violation. The current implementation in the staking pallet has a debug
-		// assertion <=> the bound is violated so we should be safe here.
 		let voters: BoundedVec<_, T::VoterSnapshotPerBlock> =
 			T::DataProvider::electing_voters(bounds, remaining)
-				// the try_into() can actually fail unlike `electing_voters()` (e.g. due to runtime
-				// misconfiguration) so this needs to be handled defensively by the caller in
-				// the `on-init` path.
 				.and_then(|v| v.try_into().map_err(|_| "try-into failed"))
 				.map_err(ElectionError::DataProvider)?;
 
