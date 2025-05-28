@@ -1536,12 +1536,6 @@ impl<T: Config> ElectionProvider for Pallet<T> {
 		if CurrentPhase::<T>::get().is_emergency() && result.is_err() {
 			log!(error, "Emergency phase triggered, halting the election.");
 		} else {
-			// We advance the phase unconditionally (regardless of success/failure) to maintain
-			// compatibility with staking-async. The staking-async pallet maintains its own page
-			// counter and always decrements it after calling elect(), regardless of the result.
-			// If we don't advance our phase when staking-async advances its counter, subsequent
-			// calls will be out-of-order and fail. Since get_queued_solution_page() should never
-			// return an error under normal circumstances, advancing on error is acceptable.
 			if remaining.is_zero() {
 				log!(info, "receiving last call to elect(0), rotating round");
 				Self::rotate_round()
