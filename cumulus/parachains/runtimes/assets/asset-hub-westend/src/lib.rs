@@ -90,7 +90,7 @@ use sp_runtime::{
 		TransactionExtension, Verify,
 	},
 	transaction_validity::{TransactionSource, TransactionValidity},
-	ApplyExtrinsicResult, Perbill, Permill, RuntimeDebug, Saturating,
+	ApplyExtrinsicResult, Perbill, Permill, RuntimeDebug,
 };
 #[cfg(feature = "std")]
 use sp_version::NativeVersion;
