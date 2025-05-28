@@ -2506,15 +2506,11 @@ pub mod pallet {
 			};
 			let mut result = BTreeMap::new();
 			for chunk in ledger.unlocking.into_iter() {
-				if chunk.era <
-					current_era
-						.defensive_saturating_add(1)
-						.saturating_sub(T::BondingDuration::get())
-				{
+				if chunk.era < target_era {
 					continue;
 				}
 				let mut final_era = chunk.era.defensive_saturating_add(min_unlock_era);
-				for era in (chunk.era..target_era).rev() {
+				for era in (target_era..=chunk.era).rev() {
 					let mut total_unbond = BalanceOf::<T>::zero();
 					let era_total_amount =
 						TotalUnbondInEra::<T>::get(chunk.era).unwrap_or_default();
@@ -2527,12 +2523,13 @@ pub mod pallet {
 					};
 					total_unbond.saturating_accrue(unbond);
 
-					if total_unbond >=
-						(Perbill::from_percent(100) - min_slashable_share) *
-							EraLowestRatioTotalStake::<T>::get(chunk.era).unwrap_or_default()
-					{
-						final_era =
-							final_era.max(era.defensive_saturating_add(T::BondingDuration::get()));
+					let lowest_stake =
+						EraLowestRatioTotalStake::<T>::get(chunk.era).unwrap_or_default();
+					let threshold =
+						(Perbill::from_percent(100) - min_slashable_share) * lowest_stake;
+					if total_unbond >= threshold {
+						final_era = final_era
+							.max(chunk.era.defensive_saturating_add(T::BondingDuration::get()));
 						break;
 					}
 				}

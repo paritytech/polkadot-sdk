@@ -360,7 +360,7 @@ impl<T: Config> StakingLedger<T> {
 					let era_total_amount =
 						TotalUnbondInEra::<T>::get(chunk.era).unwrap_or_default();
 					let mut total_unbond = BalanceOf::<T>::zero();
-					for era in (chunk.era..target_era).rev() {
+					for era in (target_era..=chunk.era).rev() {
 						if era == chunk.era {
 							total_unbond.saturating_accrue(era_total_amount.min(
 								chunk.previous_unbonded_stake.defensive_saturating_add(chunk.value),
@@ -368,11 +368,12 @@ impl<T: Config> StakingLedger<T> {
 						} else {
 							total_unbond.saturating_accrue(era_total_amount);
 						}
-						if total_unbond >=
-							(Perbill::from_percent(100) - min_slashable_share) *
-								EraLowestRatioTotalStake::<T>::get(chunk.era)
-									.unwrap_or_default()
-						{
+
+						let lowest_stake =
+							EraLowestRatioTotalStake::<T>::get(chunk.era).unwrap_or_default();
+						let threshold =
+							(Perbill::from_percent(100) - min_slashable_share) * lowest_stake;
+						if total_unbond >= threshold {
 							return true;
 						}
 					}
