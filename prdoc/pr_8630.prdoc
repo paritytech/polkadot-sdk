@@ -9,11 +9,11 @@ doc:
     minimum price. If set, it will never drop the returned `end_price` (nor the
     `target_price`) below that minimum. 
 
-	Apart from having an adapter to ensure a minimum price, the behavior of
-	renewals was also adjusted: Renewals are now either bumped by renewal bump
-	or set to the `end_price` of the current sale - whatever number is higher.
-	This ensures some market coupling of renewal prices, while still
-	maintaining some predictability. 
+    Apart from having an adapter to ensure a minimum price, the behavior of
+    renewals was also adjusted: Renewals are now either bumped by renewal bump
+    or set to the `end_price` of the current sale - whatever number is higher.
+    This ensures some market coupling of renewal prices, while still
+    maintaining some predictability. 
 
 crates:
 - name: pallet-broker
