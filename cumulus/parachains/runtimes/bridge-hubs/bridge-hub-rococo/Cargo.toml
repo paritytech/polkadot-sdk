@@ -97,14 +97,14 @@ bp-relayers = { workspace = true }
 bp-rococo = { workspace = true }
 bp-runtime = { workspace = true }
 bp-westend = { workspace = true }
-bp-xcm-bridge-router = { workspace = true }
+bp-xcm-bridge-hub-router = { workspace = true }
 bridge-runtime-common = { workspace = true }
 pallet-bridge-grandpa = { workspace = true }
 pallet-bridge-messages = { workspace = true }
 pallet-bridge-parachains = { workspace = true }
 pallet-bridge-proof-root-sync = { workspace = true }
 pallet-bridge-relayers = { workspace = true }
-pallet-xcm-bridge = { workspace = true }
+pallet-xcm-bridge-hub = { workspace = true }
 
 # Ethereum Bridge (Snowbridge)
 snowbridge-beacon-primitives = { workspace = true }
@@ -145,7 +145,7 @@ std = [
 	"bp-rococo/std",
 	"bp-runtime/std",
 	"bp-westend/std",
-	"bp-xcm-bridge-router/std",
+	"bp-xcm-bridge-hub-router/std",
 	"bridge-hub-common/std",
 	"bridge-runtime-common/std",
 	"codec/std",
@@ -184,7 +184,7 @@ std = [
 	"pallet-transaction-payment/std",
 	"pallet-utility/std",
 	"pallet-xcm-benchmarks?/std",
-	"pallet-xcm-bridge/std",
+	"pallet-xcm-bridge-hub/std",
 	"pallet-xcm/std",
 	"parachain-info/std",
 	"parachains-common/std",
@@ -254,7 +254,7 @@ runtime-benchmarks = [
 	"pallet-transaction-payment/runtime-benchmarks",
 	"pallet-utility/runtime-benchmarks",
 	"pallet-xcm-benchmarks/runtime-benchmarks",
-	"pallet-xcm-bridge/runtime-benchmarks",
+	"pallet-xcm-bridge-hub/runtime-benchmarks",
 	"pallet-xcm/runtime-benchmarks",
 	"parachains-common/runtime-benchmarks",
 	"polkadot-parachain-primitives/runtime-benchmarks",
@@ -298,7 +298,7 @@ try-runtime = [
 	"pallet-timestamp/try-runtime",
 	"pallet-transaction-payment/try-runtime",
 	"pallet-utility/try-runtime",
-	"pallet-xcm-bridge/try-runtime",
+	"pallet-xcm-bridge-hub/try-runtime",
 	"pallet-xcm/try-runtime",
 	"parachain-info/try-runtime",
 	"polkadot-runtime-common/try-runtime",
