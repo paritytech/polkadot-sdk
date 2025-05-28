@@ -662,16 +662,8 @@ pub mod pallet {
 					T::WeightInfo::on_initialize_into_snapshot_msp()
 				},
 				Phase::Snapshot(x) => {
-					// create voter snapshot.
-					// Note that `create_voters_snapshot_paged()` can return an error in two cases:
-					// 1. debug assertion in `election_voters()` if the final result violate bounds.
-					//    Which will never happen since no size bound is provided.
-					// 2. the try_into() conversion fails when converting `Vec<VoterOf<T>>` to
-					//    `BoundedVec<_, T::VoterSnapshotPerBlock>`
-					// - This is a runtime configuration issue!
-					// We go for a graceful degradation in release builds (empty snapshot if we
-					// can't create a voter snapshot).
-					Self::create_voters_snapshot_paged(x).defensive_unwrap_or_default();
+					Self::create_voters_snapshot_paged(x)
+						.defensive("Snaoshot creation should not fail, other than a misconfiguration or a bug");
 					T::WeightInfo::on_initialize_into_snapshot_rest()
 				},
 				_ => T::WeightInfo::on_initialize_nothing(),
@@ -1286,20 +1278,20 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Creates the voter snapshot.
+	///
+	/// Returns `Ok(())` if successful a snapshot page for `remaining` page index is created, `Err(otherwise)`.
+	///
+	/// Erros could be: 
+	/// * `T::DataProvider` failing to return any data
+	/// * what `T::DataProvider` returns failing to fit in our desired bound.
+	/// 
 	pub(crate) fn create_voters_snapshot_paged(
 		remaining: PageIndex,
 	) -> Result<(), ElectionError<T>> {
 		let count = T::VoterSnapshotPerBlock::get();
 		let bounds = DataProviderBounds { count: Some(count.into()), size: None };
-		// This function is called on the `on-init` path, so we must be careful with error handling.
-		// Note that since no size bound is provided, `electing_voters()`—bug aside— will never fail
-		// due to a bound violation. The current implementation in the staking pallet has a debug
-		// assertion <=> the bound is violated so we should be safe here.
 		let voters: BoundedVec<_, T::VoterSnapshotPerBlock> =
 			T::DataProvider::electing_voters(bounds, remaining)
-				// the try_into() can actually fail unlike `electing_voters()` (e.g. due to runtime
-				// misconfiguration) so this needs to be handled defensively by the caller in
-				// the `on-init` path.
 				.and_then(|v| v.try_into().map_err(|_| "try-into failed"))
 				.map_err(ElectionError::DataProvider)?;
 
@@ -2700,5 +2692,16 @@ mod admin_ops {
 				ElectionScore { minimal_stake: 100, ..Default::default() }
 			);
 		});
+	}
+}
+
+#[cfg(test)]
+mod data_provider() {
+	#[test]
+	fn snapshot_page_missing_snapshot_page() {
+		// setup data provider such that it returns `Err(_)` for 1 out of 3 pages.
+		// observe what the behavior is. I think nothign can be verified as with a missing 
+		// snapshot page, `Verifier` will also fail. 
+		// This is a good reason actually go to `Phase::Emergency` :D
 	}
 }
