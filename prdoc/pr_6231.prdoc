@@ -11,35 +11,31 @@ doc:
     enhancing modularity and compatibility across deployment setups.
 
 crates:
-- name: pallet-xcm-bridge-hub-router
-  bump: major
-- name: pallet-xcm-bridge-hub
-  bump: major
-- name: bp-xcm-bridge-hub-router
-  bump: major
 - name: asset-hub-rococo-runtime
   bump: major
 - name: asset-hub-westend-runtime
   bump: major
-- name: bp-xcm-bridge-hub
-  bump: major
-- name: bridge-hub-rococo-runtime
-  bump: patch
-- name: bridge-hub-westend-runtime
-  bump: patch
 - name: asset-test-utils
-  bump: major
+  bump: minor
 - name: cumulus-pallet-xcmp-queue
-  bump: patch
+  bump: minor
 - name: bridge-hub-test-utils
-  bump: major
+  bump: minor
 - name: emulated-integration-tests-common
-  bump: patch
+  bump: minor
 - name: bp-asset-hub-rococo
-  bump: major
+  bump: minor
 - name: bp-asset-hub-westend
-  bump: major
-- name: bp-bridge-hub-rococo
+  bump: minor
+- name: polkadot-sdk
   bump: patch
-- name: bp-bridge-hub-westend
+- name: pallet-bridge-messages
+  bump: patch
+- name: bp-xcm-bridge
+  bump: patch
+- name: pallet-xcm-bridge
+  bump: patch
+- name: pallet-xcm-bridge-router
+  bump: patch
+- name: bp-xcm-bridge-router
   bump: patch
