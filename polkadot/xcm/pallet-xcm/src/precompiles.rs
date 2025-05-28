@@ -108,7 +108,7 @@ where
 						)
 					})
 			},
-			IXcmCalls::weightMessage(IXcm::weightMessageCall { message }) => {
+			IXcmCalls::weighMessage(IXcm::weighMessageCall { message }) => {
 				let converted_message =
 					VersionedXcm::decode_all(&mut &message[..]).map_err(|error| {
 						error!("XCM weightMessage: Invalid message format. Error: {error:?}");
