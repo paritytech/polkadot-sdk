@@ -1,0 +1,10 @@
+title: bound trusted local cache to shared limits sizes
+doc:
+- audience: Node Dev
+  description: |-
+    This https://github.com/paritytech/polkadot-sdk/pull/7556#discussion_r2107732009 made me think that we can have some miss-uses of the trusted cache, so it needs some reasonable bounds for the size.
+
+    Since there is no point in letting it grow past the shared cache limits, because the items will be discarded anyways when we propagate them back to the share cache so  I decided to bound it to those limits.
+crates:
+- name: sp-trie
+  bump: patch
