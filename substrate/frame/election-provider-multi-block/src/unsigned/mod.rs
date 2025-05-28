@@ -89,7 +89,7 @@ mod pallet {
 		CommonError,
 	};
 	use frame_support::pallet_prelude::*;
-	use frame_system::{offchain::CreateInherent, pallet_prelude::*};
+	use frame_system::{offchain::CreateBare, pallet_prelude::*};
 	use sp_runtime::traits::SaturatedConversion;
 	use sp_std::prelude::*;
 
@@ -104,7 +104,7 @@ mod pallet {
 
 	#[pallet::config]
 	#[pallet::disable_frame_system_supertrait_check]
-	pub trait Config: crate::Config + CreateInherent<Call<Self>> {
+	pub trait Config: crate::Config + CreateBare<Call<Self>> {
 		/// The repeat threshold of the offchain worker.
 		///
 		/// For example, if it is 5, that means that at least 5 blocks will elapse between attempts
