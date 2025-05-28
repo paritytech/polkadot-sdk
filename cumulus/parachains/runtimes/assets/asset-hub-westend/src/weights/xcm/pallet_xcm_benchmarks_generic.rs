@@ -381,13 +381,14 @@ impl<T: frame_system::Config> WeightInfo<T> {
 	/// Storage: `BridgeRococoMessages::OutboundMessages` (r:0 w:1)
 	/// Proof: `BridgeRococoMessages::OutboundMessages` (`max_values`: None, `max_size`: Some(65596), added: 68071, mode: `MaxEncodedLen`)
 	/// The range of component `x` is `[1, 1000]`.
-	pub fn export_message(_x: u32, ) -> Weight {
+	pub fn export_message(x: u32, ) -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `692`
-		//  Estimated: `6632`
-		// Minimum execution time: 64_317_000 picoseconds.
-		Weight::from_parts(115_635_000, 0)
-			.saturating_add(Weight::from_parts(0, 6632))
+		//  Measured:  `546`
+		//  Estimated: `6486`
+		// Minimum execution time: 59_944_000 picoseconds.
+		Weight::from_parts(63_325_816, 6486)
+			// Standard Error: 326
+			.saturating_add(Weight::from_parts(58_420, 0).saturating_mul(x.into()))
 			.saturating_add(T::DbWeight::get().reads(6))
 			.saturating_add(T::DbWeight::get().writes(2))
 	}

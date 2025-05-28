@@ -80,6 +80,12 @@ parameter_types! {
 	);
 
 	pub storage BridgeDeposit: Balance = 5 * ROC;
+
+	// The fee for exporting/delivery.
+	pub MessageExportPrice: Assets = (
+		xcm_config::bridging::XcmBridgeHubRouterFeeAssetId::get(),
+		xcm_config::bridging::ToWestendOverAssetHubWestendXcmRouterBaseFee::get(),
+	).into();
 }
 
 /// A converter that accepts only the `Here` location and converts it into `AggregateMessageOrigin`.
@@ -209,8 +215,7 @@ impl pallet_xcm_bridge::Config<XcmOverAssetHubWestendInstance> for Runtime {
 	type BridgedNetwork = WestendGlobalConsensusNetworkLocation;
 	type BridgeMessagesPalletInstance = WithAssetHubWestendMessagesInstance;
 
-	// TODO: FAIL-CI: we need to setup some price or configure per location?
-	type MessageExportPrice = ();
+	type MessageExportPrice = MessageExportPrice;
 	type DestinationVersion = XcmVersionOfDestAndRemoteBridge<PolkadotXcm, AssetHubWestendLocation>;
 
 	type ForceOrigin = EnsureRoot<AccountId>;
@@ -299,7 +304,6 @@ impl pallet_xcm_bridge_router::Config<ToWestendOverAssetHubWestendXcmRouterInsta
 	// ...).
 	type UpdateBridgeStatusOrigin = EnsureRoot<AccountId>;
 
-	// TODO: FAIL-CI - fix/add new constants
 	// For adding message size fees
 	type ByteFee = xcm_config::bridging::XcmBridgeHubRouterByteFee;
 	// For adding message size fees

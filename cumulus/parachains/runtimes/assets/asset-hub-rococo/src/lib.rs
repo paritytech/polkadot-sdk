@@ -1682,7 +1682,7 @@ impl_runtime_apis! {
 			use frame_system_benchmarking::extensions::Pallet as SystemExtensionsBench;
 			use cumulus_pallet_session_benchmarking::Pallet as SessionBench;
 			use pallet_xcm::benchmarking::Pallet as PalletXcmExtrinsicsBenchmark;
-			use pallet_xcm_bridge_router::benchmarking::Pallet as XcmBridgeHubRouterBench; // TODO: FAIL-CI - rename XcmBridgeHubRouterBench -> XcmBridgeRouterBench
+			use pallet_xcm_bridge_router::benchmarking::Pallet as XcmBridgeRouterBench;
 			use pallet_bridge_relayers::benchmarking::Pallet as BridgeRelayersBench;
 
 			// This is defined once again in dispatch_benchmark, because list_benchmarks!
@@ -1699,8 +1699,8 @@ impl_runtime_apis! {
 			type Foreign = pallet_assets::Pallet::<Runtime, ForeignAssetsInstance>;
 			type Pool = pallet_assets::Pallet::<Runtime, PoolAssetsInstance>;
 
-			type ToWestendOverBridgeHub = XcmBridgeHubRouterBench<Runtime, ToWestendXcmRouterInstance>;
-			type ToWestendOverAssetHubWestend = XcmBridgeHubRouterBench<Runtime, bridge_to_westend_config::ToWestendOverAssetHubWestendXcmRouterInstance>;
+			type ToWestendOverBridgeHub = XcmBridgeRouterBench<Runtime, ToWestendXcmRouterInstance>;
+			type ToWestendOverAssetHubWestend = XcmBridgeRouterBench<Runtime, bridge_to_westend_config::ToWestendOverAssetHubWestendXcmRouterInstance>;
 			type OverWestend = pallet_xcm_bridge::benchmarking::Pallet::<Runtime, bridge_to_westend_config::XcmOverAssetHubWestendInstance>;
 			type RococoToWestend = pallet_bridge_messages::benchmarking::Pallet::<Runtime, bridge_to_westend_config::WithAssetHubWestendMessagesInstance>;
 
@@ -1736,8 +1736,8 @@ impl_runtime_apis! {
 			impl cumulus_pallet_session_benchmarking::Config for Runtime {}
 
 			use pallet_xcm_bridge_router::benchmarking::{
-				Pallet as XcmBridgeHubRouterBench,
-				Config as XcmBridgeHubRouterConfig,
+				Pallet as XcmBridgeRouterBench,
+				Config as XcmBridgeRouterConfig,
 			};
 
 			parameter_types! {
@@ -1866,7 +1866,7 @@ impl_runtime_apis! {
 				}
 			}
 
-			impl XcmBridgeHubRouterConfig<ToWestendXcmRouterInstance> for Runtime {
+			impl XcmBridgeRouterConfig<ToWestendXcmRouterInstance> for Runtime {
 				fn ensure_bridged_target_destination() -> Result<Location, BenchmarkError> {
 					Ok(xcm_config::bridging::to_westend::AssetHubWestend::get())
 				}
@@ -1874,7 +1874,7 @@ impl_runtime_apis! {
 					Some(pallet_xcm::Origin::Xcm(xcm_config::bridging::SiblingBridgeHub::get()).into())
 				}
 			}
-			impl XcmBridgeHubRouterConfig<bridge_to_westend_config::ToWestendOverAssetHubWestendXcmRouterInstance> for Runtime {
+			impl XcmBridgeRouterConfig<bridge_to_westend_config::ToWestendOverAssetHubWestendXcmRouterInstance> for Runtime {
 				fn ensure_bridged_target_destination() -> Result<Location, BenchmarkError> {
 					Ok(xcm_config::bridging::to_westend::AssetHubWestend::get())
 				}
@@ -2075,8 +2075,8 @@ impl_runtime_apis! {
 			type Foreign = pallet_assets::Pallet::<Runtime, ForeignAssetsInstance>;
 			type Pool = pallet_assets::Pallet::<Runtime, PoolAssetsInstance>;
 
-			type ToWestendOverBridgeHub = XcmBridgeHubRouterBench<Runtime, ToWestendXcmRouterInstance>;
-			type ToWestendOverAssetHubWestend = XcmBridgeHubRouterBench<Runtime, bridge_to_westend_config::ToWestendOverAssetHubWestendXcmRouterInstance>;
+			type ToWestendOverBridgeHub = XcmBridgeRouterBench<Runtime, ToWestendXcmRouterInstance>;
+			type ToWestendOverAssetHubWestend = XcmBridgeRouterBench<Runtime, bridge_to_westend_config::ToWestendOverAssetHubWestendXcmRouterInstance>;
 			type OverWestend = pallet_xcm_bridge::benchmarking::Pallet::<Runtime, bridge_to_westend_config::XcmOverAssetHubWestendInstance>;
 			type RococoToWestend = pallet_bridge_messages::benchmarking::Pallet::<Runtime, bridge_to_westend_config::WithAssetHubWestendMessagesInstance>;
 
