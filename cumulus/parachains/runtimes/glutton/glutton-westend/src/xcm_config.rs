@@ -31,7 +31,7 @@ use xcm_builder::{
 parameter_types! {
 	pub const WestendLocation: Location = Location::parent();
 	pub const WestendNetwork: NetworkId = NetworkId::ByGenesis(WESTEND_GENESIS_HASH);
-	pub UniversalLocation: InteriorLocation = [GlobalConsensus(WestendNetwork::get()), Parachain(parachain_info::Pallet::<Runtime>::parachain_id().into())].into();
+	pub UniversalLocation: InteriorLocation = [GlobalConsensus(WestendNetwork::get()), Parachain(ParachainInfo::parachain_id().into())].into();
 }
 
 /// This is the type we use to convert an (incoming) XCM origin into a local `Origin` instance,

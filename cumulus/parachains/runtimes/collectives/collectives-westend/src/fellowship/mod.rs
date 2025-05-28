@@ -268,7 +268,7 @@ parameter_types! {
 	// The asset's interior location for the paying account. This is the Fellowship Treasury
 	// pallet instance (which sits at index 65).
 	pub FellowshipTreasuryInteriorLocation: InteriorLocation = PalletInstance(65).into();
-	pub SelfParaId: ParaId = parachain_info::Pallet::<Runtime>::parachain_id();
+	pub SelfParaId: ParaId = ParachainInfo::parachain_id();
 }
 
 /// [`PayOverXcm`] setup to pay the Fellowship Treasury.

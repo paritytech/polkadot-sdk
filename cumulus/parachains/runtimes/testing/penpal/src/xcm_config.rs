@@ -90,7 +90,7 @@ parameter_types! {
 	pub RelayChainOrigin: RuntimeOrigin = cumulus_pallet_xcm::Origin::Relay.into();
 	pub UniversalLocation: InteriorLocation = [
 		GlobalConsensus(RelayNetworkId::get()),
-		Parachain(parachain_info::Pallet::<Runtime>::parachain_id().into())
+		Parachain(ParachainInfo::parachain_id().into())
 	].into();
 	pub TreasuryAccount: AccountId = TREASURY_PALLET_ID.into_account_truncating();
 	pub StakingPot: AccountId = CollatorSelection::account_id();

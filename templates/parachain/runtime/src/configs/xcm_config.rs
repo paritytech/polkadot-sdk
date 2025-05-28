@@ -37,7 +37,7 @@ parameter_types! {
 	pub RelayChainOrigin: RuntimeOrigin = cumulus_pallet_xcm::Origin::Relay.into();
 	// For the real deployment, it is recommended to set `RelayNetwork` according to the relay chain
 	// and prepend `UniversalLocation` with `GlobalConsensus(RelayNetwork::get())`.
-	pub UniversalLocation: InteriorLocation = Parachain(parachain_info::Pallet::<Runtime>::parachain_id().into()).into();
+	pub UniversalLocation: InteriorLocation = Parachain(ParachainInfo::parachain_id().into()).into();
 }
 
 /// Type for specifying how a `Location` can be converted into an `AccountId`. This is used

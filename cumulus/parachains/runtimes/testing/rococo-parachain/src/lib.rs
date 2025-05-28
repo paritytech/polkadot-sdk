@@ -338,7 +338,7 @@ parameter_types! {
 	pub const RocLocation: Location = Location::parent();
 	pub const RococoNetwork: NetworkId = NetworkId::ByGenesis(ROCOCO_GENESIS_HASH);
 	pub RelayChainOrigin: RuntimeOrigin = cumulus_pallet_xcm::Origin::Relay.into();
-	pub UniversalLocation: InteriorLocation = [GlobalConsensus(RococoNetwork::get()), Parachain(parachain_info::Pallet::<Runtime>::parachain_id().into())].into();
+	pub UniversalLocation: InteriorLocation = [GlobalConsensus(RococoNetwork::get()), Parachain(ParachainInfo::parachain_id().into())].into();
 	pub CheckingAccount: AccountId = PolkadotXcm::check_account();
 }
 
