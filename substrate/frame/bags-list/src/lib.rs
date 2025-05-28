@@ -589,7 +589,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 					who,
 					current_score
 				);
-				match Self::on_insert(who, current_score) {
+				match Self::on_insert(who.clone(), current_score) {
 					Ok(_) => {
 						// Log success on successful insertion.
 						log!(debug, "👜 Successfully inserted node {:?}", who);
