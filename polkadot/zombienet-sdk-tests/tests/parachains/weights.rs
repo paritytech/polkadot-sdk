@@ -155,7 +155,7 @@ async fn setup_accounts(
 	nonce: u64,
 ) -> Result<(), anyhow::Error> {
 	let caller_account_id = caller.public_key().to_account_id();
-	let caller_nonce = client.tx().account_nonce(&caller_account_id).await?;
+	let mut caller_nonce = client.tx().account_nonce(&caller_account_id).await?;
 	for chunk in keys.chunks(CHUNK_SIZE) {
 		let transfers = chunk
 			.iter()
@@ -163,7 +163,8 @@ async fn setup_accounts(
 			.map(|(i, key)| {
 				let key = key.public_key().into();
 				let call = &ahw::tx().balances().transfer_keep_alive(key, 1000000000000);
-				let params = tx_params(caller_nonce + i as u64);
+				let params = tx_params(caller_nonce);
+				caller_nonce += 1;
 				client.tx().create_signed_offline(call, caller, params)
 			})
 			.collect::<Result<Vec<_>, _>>()?;
@@ -180,7 +181,7 @@ async fn setup_accounts(
 				None
 			} else {
 				is_caller_mapped = true;
-				Some((caller, caller_nonce + keys.len() as u64))
+				Some((caller, caller_nonce))
 			})
 			.map(|(k, n)| client.tx().create_signed_offline(map_call, k, tx_params(n)))
 			.collect::<Result<Vec<_>, _>>()?;
