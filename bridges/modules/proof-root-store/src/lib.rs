@@ -143,38 +143,22 @@ pub mod pallet {
 		/// Stores root values.
 		pub fn do_note_new_roots(roots: BoundedVec<(T::Key, T::Value), T::RootsToKeep>) {
 			// Update `RootIndex` ring buffer.
-			let (to_add, to_remove) = RootIndex::<T, I>::mutate(|index| {
-				let mut to_add = alloc::vec::Vec::with_capacity(roots.len());
-				let mut to_remove = alloc::vec::Vec::with_capacity(roots.len());
-				let max = T::RootsToKeep::get();
-
+			RootIndex::<T, I>::mutate(|index| {
 				// Add all at the end.
 				for (key, value) in roots {
 					if !index.contains(&key) {
-						to_add.push((key.clone(), value));
+						Roots::<T, I>::insert(key.clone(), value);
 						index.push_back(key);
 					}
 				}
 
 				// Remove from the front up to the `T::RootsToKeep` limit.
-				while index.len() > (max as usize) {
-					if let Some(key_to_remove) = index.pop_front() {
-						to_remove.push(key_to_remove);
+				while index.len() > T::RootsToKeep::get() as usize {
+					if let Some(key) = index.pop_front() {
+						Roots::<T, I>::remove(key);
 					}
 				}
-
-				(to_add, to_remove)
 			});
-
-			// Add new ones to the `Roots` (aligned with `RootIndex`).
-			for (key, value) in to_add {
-				Roots::<T, I>::insert(key, value);
-			}
-
-			// Remove from `Roots` (aligned with `RootIndex`).
-			for key in to_remove {
-				Roots::<T, I>::remove(key);
-			}
 		}
 
 		/// Returns the stored value for the given key.
