@@ -28,7 +28,7 @@ use zombienet_sdk::{
 	LocalFileSystem, Network, NetworkConfigBuilder,
 };
 
-const KEYS_COUNT: usize = 100;
+const KEYS_COUNT: usize = 3000;
 const CHUNK_SIZE: usize = 500;
 const CALL_CHUNK_SIZE: usize = 1000;
 
@@ -63,7 +63,33 @@ async fn weights_test() -> Result<(), anyhow::Error> {
 	let contract_address = instantiate_contract(&para_client, &alice).await?;
 	log::info!("Contract instantiated: {:?}", contract_address);
 
-	call_contract(&para_client, call_clients, contract_address, &alice, &keys, nonce()).await?;
+	let mint_100 = sp_core::hex2array!(
+		"a0712d680000000000000000000000000000000000000000000000000000000000000064"
+	)
+	.to_vec();
+	call_contract(&para_client, call_clients, contract_address, &alice, &keys, nonce(), mint_100)
+		.await?;
+
+	let mut call_clients = vec![];
+	for _ in 0..(KEYS_COUNT / CALL_CHUNK_SIZE + 1) {
+		let call_client: OnlineClient<PolkadotConfig> = collator.wait_client().await?;
+		call_clients.push(call_client);
+	}
+	let transfer_50_to_alice = sp_core::hex2array!(
+		"a9059cbb0000000000000000000000009621dde636de098b43efb0fa9b61facfe328f99d0000000000000000000000000000000000000000000000000000000000000032"
+	)
+	.to_vec();
+	call_contract(
+		&para_client,
+		call_clients,
+		contract_address,
+		&alice,
+		&keys,
+		nonce(),
+		transfer_50_to_alice,
+	)
+	.await?;
+
 	log::info!("Test finished, sleeping for 6000 seconds to allow for manual inspection");
 	tokio::time::sleep(std::time::Duration::from_secs(6000)).await;
 
@@ -131,7 +157,7 @@ async fn setup_accounts(
 	let caller_account_id = caller.public_key().to_account_id();
 	let caller_nonce = client.tx().account_nonce(&caller_account_id).await?;
 	for chunk in keys.chunks(CHUNK_SIZE) {
-		let txs = chunk
+		let transfers = chunk
 			.iter()
 			.enumerate()
 			.map(|(i, key)| {
@@ -141,7 +167,7 @@ async fn setup_accounts(
 				client.tx().create_signed_offline(call, caller, params)
 			})
 			.collect::<Result<Vec<_>, _>>()?;
-		submit_txs(txs).await?;
+		submit_txs(transfers).await?;
 	}
 
 	let map_call = &ahw::tx().revive().map_account();
@@ -175,6 +201,7 @@ async fn instantiate_contract(
 	// We need a nonce before instantiating the contract
 	let account_id = caller.public_key().0.into();
 	let caller_h160 = <AHWRuntime as pallet_revive::Config>::AddressMapper::to_address(&account_id);
+	log::info!("H160 Account: {:?}", caller_h160);
 	let caller_revive_nonce = client
 		.runtime_api()
 		.at_latest()
@@ -237,15 +264,12 @@ async fn call_contract(
 	caller: &Keypair,
 	keys: &[Keypair],
 	nonce: u64,
+	payload: Vec<u8>,
 ) -> Result<(), anyhow::Error> {
-	let mint_100 = sp_core::hex2array!(
-		"a0712d680000000000000000000000000000000000000000000000000000000000000064"
-	)
-	.to_vec();
 	let (ref_time, proof_size, deposit) =
-		call_params(client, contract, mint_100.clone(), caller).await?;
+		call_params(client, contract, payload.clone(), caller).await?;
 	let weight = Weight { ref_time, proof_size };
-	let call = &ahw::tx().revive().call(contract, 0, weight, deposit, mint_100.clone());
+	let call = &ahw::tx().revive().call(contract, 0, weight, deposit, payload.clone());
 
 	let mut txs = vec![];
 	for chunk in keys.chunks(CALL_CHUNK_SIZE) {
