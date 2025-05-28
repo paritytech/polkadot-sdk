@@ -422,6 +422,8 @@ pub enum ElectionError<T: Config> {
 	NotOngoing,
 	/// The election is currently ongoing, and therefore we cannot start again.
 	Ongoing,
+	/// Called elect() with wrong page order or in wrong phase.
+	OutOfOrder,
 	/// Other misc error
 	Other(&'static str),
 }
@@ -1503,7 +1505,7 @@ impl<T: Config> ElectionProvider for Pallet<T> {
 
 		let current_phase = CurrentPhase::<T>::get();
 		if let Phase::Export(expected) = current_phase {
-			ensure!(expected == remaining, ElectionError::Other("OutOfOrder"));
+			ensure!(expected == remaining, ElectionError::OutOfOrder);
 		}
 
 		let result = T::Verifier::get_queued_solution_page(remaining)
@@ -2151,7 +2153,7 @@ mod phase_rotation {
 	}
 
 	#[test]
-	fn export_phase_blocks_on_initialize_transitions() {
+	fn export_phase_only_transitions_on_elect() {
 		ExtBuilder::full()
 			.pages(3)
 			.election_start(13)
@@ -2161,11 +2163,17 @@ mod phase_rotation {
 
 				assert_eq!(MultiBlock::current_phase(), Phase::Done);
 
+				// Test that on_initialize does NOT advance the phase when in Done
+				roll_next();
+				assert_eq!(
+					MultiBlock::current_phase(),
+					Phase::Done,
+					"Done phase should not auto-transition"
+				);
+
 				// Start export by calling elect(max_page)
 				assert_ok!(MultiBlock::elect(2)); // max_page = 2 for 3 pages
 				assert_eq!(MultiBlock::current_phase(), Phase::Export(1));
-
-				let current_block = System::block_number();
 
 				// Test that on_initialize does NOT advance the phase when in Export
 				roll_next();
@@ -2180,7 +2188,6 @@ mod phase_rotation {
 				assert_eq!(MultiBlock::current_phase(), Phase::Export(0));
 
 				// Test Export(0) also blocks on_initialize transitions
-				MultiBlock::on_initialize(current_block + 4);
 				roll_next();
 				assert_eq!(
 					MultiBlock::current_phase(),
@@ -2210,10 +2217,10 @@ mod phase_rotation {
 				assert_eq!(MultiBlock::current_phase(), Phase::Export(1));
 
 				// Out of order: try to call elect(2) again, should fail
-				assert_eq!(MultiBlock::elect(2), Err(ElectionError::Other("OutOfOrder")));
+				assert_eq!(MultiBlock::elect(2), Err(ElectionError::OutOfOrder));
 
 				// Out of order: try to call elect(0) before elect(1), should fail
-				assert_eq!(MultiBlock::elect(0), Err(ElectionError::Other("OutOfOrder")));
+				assert_eq!(MultiBlock::elect(0), Err(ElectionError::OutOfOrder));
 
 				// Correct order: elect(1) works
 				assert_ok!(MultiBlock::elect(1));
@@ -2447,46 +2454,42 @@ mod election_provider {
 	#[test]
 	fn elect_advances_phase_even_on_error() {
 		// Use Continue fallback to avoid emergency phase when both primary and fallback fail.
-		// If we don't do this, when we simulate below the page lookup to fail, we would go to
-		// `Phase::Emergency` and not to `Phase::Export(_)`.
 		ExtBuilder::full().fallback_mode(FallbackModes::Continue).build_and_execute(|| {
-			roll_to_signed_open();
+			// Move to unsigned phase
+			roll_to_unsigned_open();
 
-			// load a solution into the verifier
-			let paged = OffchainWorkerMiner::<Runtime>::mine_solution(Pages::get(), false).unwrap();
+			// Note: our mock runtime is configured with 1 page for the unsigned phase
+			let miner_pages = <Runtime as unsigned::Config>::MinerPages::get();
+			// Mine an unsigned solution
+			let unsigned_solution =
+				OffchainWorkerMiner::<Runtime>::mine_solution(miner_pages, true).unwrap();
 
-			load_signed_for_verification_and_start_and_roll_to_verified(99, paged, 0);
+			// Submit the unsigned solution
+			assert_ok!(UnsignedPallet::submit_unsigned(
+				RuntimeOrigin::none(),
+				Box::new(unsigned_solution)
+			));
 
-			// move to Done phase
+			// Move to Done phase
 			roll_to_done();
 
+			// In the mock runtime Pages::get() = 3 so unsigned solution has 1 page but we go
+			// through Done -> Export(2) -> Export(1) -> Export(0) -> Off via elect().
 			// First elect call should succeed
 			let result1 = MultiBlock::elect(2);
 			assert!(result1.is_ok());
 			assert_eq!(MultiBlock::current_phase(), Phase::Export(1));
 
-			// Now we need to simulate a scenario where get_queued_solution_page(1) returns None
-			// even though we have a queued solution. This should never happen under normal
-			// circumstances so it's considered an exceptional case (e.g. partial storage corruption
-			// or simply a bug).
-			// One way to simulate this is to manipulate the round number to create a mismatch
-			// between what's expected and what's stored.
-			// Let's advance the round manually to create a mismatch
-			use crate::Round;
-			let current_round = Round::<Runtime>::get();
-			Round::<Runtime>::set(current_round + 1); // This should cause page lookup to fail
-
-			// Second elect call should now fail because it's looking for pages in the wrong round
-			// but still advance the phase
+			// Second elect call should now fail because we have mined a solution with MinerPages
+			// equal to 1.
+			// Phase should advance even on error.
 			let result2 = MultiBlock::elect(1);
 			assert!(result2.is_err());
-			// This is the key assertion: phase should advance even on error
 			assert_eq!(MultiBlock::current_phase(), Phase::Export(0));
 
-			// Third elect call should also fail but advance to Off
+			// Third elect call should also fail but still advance to Off
 			let result3 = MultiBlock::elect(0);
 			assert!(result3.is_err());
-			// Phase should advance to complete the election cycle
 			assert!(matches!(MultiBlock::current_phase(), Phase::Off));
 		});
 	}
