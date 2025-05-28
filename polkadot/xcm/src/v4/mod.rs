@@ -1746,10 +1746,10 @@ mod tests {
 
 	#[test]
 	fn transact_roundtrip_works() {
-		use sp_tracing::capture_test_logs;
+		use sp_tracing::{capture_test_logs, tracing::Level};
 
 		sp_tracing::init_for_tests();
-		let log_capture = capture_test_logs!({
+		let log_capture = capture_test_logs!(Level::TRACE, {
 			let xcm = Xcm::<()>(vec![
 				WithdrawAsset((Here, 1u128).into()),
 				Transact {

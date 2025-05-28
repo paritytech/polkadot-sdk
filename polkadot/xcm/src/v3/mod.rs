@@ -1343,7 +1343,7 @@ impl<Call> TryFrom<NewInstruction<Call>> for Instruction<Call> {
 						require_weight_at_most.proof_size()
 					);
 				}
-				Self::Transact { origin_kind, require_weight_at_most, call: call.into() } 
+				Self::Transact { origin_kind, require_weight_at_most, call: call.into() }
 			},
 			ReportError(response_info) => Self::ReportError(QueryResponseInfo {
 				query_id: response_info.query_id,
