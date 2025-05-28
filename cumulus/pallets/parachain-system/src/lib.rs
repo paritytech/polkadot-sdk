@@ -297,9 +297,8 @@ pub mod pallet {
 		/// The offset between the tip of the relay chain and the parent relay block used as parent
 		/// when authoring a parachain block.
 		///
-		/// This setting directly impacts
-		/// the number of descendant headers that are expected in the `set_validation_data`
-		/// inherent.
+		/// This setting directly impacts the number of descendant headers that are expected in the
+		/// `set_validation_data` inherent.
 		///
 		/// For any setting `N` larger than zero, the inherent expects that the inherent includes
 		/// the relay parent plus `N` descendants. These headers are required to validate that new

@@ -42,7 +42,7 @@ use sp_runtime::{traits::Header, RuntimeAppPublic};
 ///   **Note:** This parameter can be removed once the hash of the relay parent is available
 ///   to the runtime. https://github.com/paritytech/polkadot-sdk/issues/83
 /// - `expected_rp_descendants_num`: The expected number of headers in the
-///   `relay_parent_descendants`. A mismatch will cause the function to panic.
+///   `relay_parent_descendants`. A mismatch will cause the function to return an error.
 ///
 /// # Errors
 ///
