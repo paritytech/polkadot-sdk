@@ -351,6 +351,7 @@ fn relayed_incoming_message_works() {
 		},
 		construct_and_apply_extrinsic,
 		true,
+		true,
 	)
 }
 
@@ -385,6 +386,7 @@ fn free_relay_extrinsic_works() {
 			.1
 		},
 		construct_and_apply_extrinsic,
+		true,
 		true,
 	)
 }

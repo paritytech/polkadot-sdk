@@ -38,7 +38,15 @@ pallet-bridge-relayers = { workspace = true }
 
 # Cumulus
 asset-hub-westend-runtime = { workspace = true }
+bp-asset-hub-rococo = { workspace = true }
 bp-asset-hub-westend = { workspace = true }
+bp-bridge-hub-rococo = { workspace = true }
+bp-header-chain = { workspace = true }
+bp-parachains = { workspace = true }
+bp-polkadot-core = { workspace = true }
+bp-rococo = { workspace = true }
+bp-runtime = { workspace = true }
+bp-test-utils = { workspace = true }
 bridge-hub-common = { workspace = true }
 bridge-hub-westend-runtime = { workspace = true }
 cumulus-pallet-parachain-system = { workspace = true }

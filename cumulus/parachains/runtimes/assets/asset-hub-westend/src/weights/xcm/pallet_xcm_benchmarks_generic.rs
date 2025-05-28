@@ -368,6 +368,30 @@ impl<T: frame_system::Config> WeightInfo<T> {
 		Weight::from_parts(5_429_000, 1489)
 			.saturating_add(T::DbWeight::get().reads(1))
 	}
+	/// Storage: `ParachainInfo::ParachainId` (r:1 w:0)
+	/// Proof: `ParachainInfo::ParachainId` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
+	/// Storage: `XcmOverAssetHubRococo::Bridges` (r:1 w:0)
+	/// Proof: `XcmOverAssetHubRococo::Bridges` (`max_values`: None, `max_size`: Some(1922), added: 4397, mode: `MaxEncodedLen`)
+	/// Storage: `PolkadotXcm::SupportedVersion` (r:2 w:0)
+	/// Proof: `PolkadotXcm::SupportedVersion` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `BridgeRococoMessages::PalletOperatingMode` (r:1 w:0)
+	/// Proof: `BridgeRococoMessages::PalletOperatingMode` (`max_values`: Some(1), `max_size`: Some(2), added: 497, mode: `MaxEncodedLen`)
+	/// Storage: `BridgeRococoMessages::OutboundLanes` (r:1 w:1)
+	/// Proof: `BridgeRococoMessages::OutboundLanes` (`max_values`: None, `max_size`: Some(73), added: 2548, mode: `MaxEncodedLen`)
+	/// Storage: `BridgeRococoMessages::OutboundMessages` (r:0 w:1)
+	/// Proof: `BridgeRococoMessages::OutboundMessages` (`max_values`: None, `max_size`: Some(65596), added: 68071, mode: `MaxEncodedLen`)
+	/// The range of component `x` is `[1, 1000]`.
+	pub fn export_message(x: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `546`
+		//  Estimated: `6486`
+		// Minimum execution time: 59_944_000 picoseconds.
+		Weight::from_parts(63_325_816, 6486)
+			// Standard Error: 326
+			.saturating_add(Weight::from_parts(58_420, 0).saturating_mul(x.into()))
+			.saturating_add(T::DbWeight::get().reads(6))
+			.saturating_add(T::DbWeight::get().writes(2))
+	}
 	pub fn set_fees_mode() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
