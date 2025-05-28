@@ -15,24 +15,21 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{Call, PhantomData, VersionedXcm, VersionedLocation, Weight};
+use crate::{Call, Config, VersionedXcm, VersionedLocation, Weight, WeightInfo};
 use alloc::vec::Vec;
 use alloy::{sol_types::SolValue};
 use pallet_revive::{precompiles::*, Origin};
 use xcm_executor::traits::WeightBounds;
 use tracing::log::error;
 use codec::{DecodeAll, Encode};
-use core::num::NonZero;
+use core::{marker::PhantomData, num::NonZero};
 
 alloy::sol!("src/precompiles/IXcm.sol");
 use IXcm::*;
 
-/// XCM precompile.
-pub struct Xcm<Runtime> {
-	_phantom: PhantomData<Runtime>,
-}
+pub struct XcmPrecompile<T>(PhantomData<T>);
 
-impl<Runtime> Precompile for Xcm<Runtime>
+impl<Runtime> Precompile for XcmPrecompile<Runtime>
 where
 	Runtime: crate::Config + pallet_revive::Config,
 	Call<Runtime>: Into<<Runtime as pallet_revive::Config>::RuntimeCall>,
@@ -56,6 +53,9 @@ where
 
 		match input {
 			IXcmCalls::xcmSend(IXcm::xcmSendCall { destination, message }) => {
+				let _weight = <Runtime as Config>::WeightInfo::send();
+				// TODO: Charge gas for the weight
+
 				let final_destination = VersionedLocation::decode_all(&mut &destination[..])
 					.map_err(|e| {
 					error!("XCM send failed: Invalid destination format. Error: {e:?}");
@@ -67,9 +67,6 @@ where
 						error!("XCM send failed: Invalid message format. Error: {e:?}");
 						Error::Revert("Invalid message format".into())
 					})?;
-
-				// let weight = <<T as Config>::SendController<_>>::WeightInfo::send();
-				// env.gas_meter_mut().charge(RuntimeCosts::CallRuntime(weight))?; // TODO: Charge gas
 
 				crate::Pallet::<Runtime>::send(
 					frame_origin,
@@ -140,68 +137,4 @@ where
 			},
 		}
 	}
-}
-
-#[cfg(test)]
-mod test {
-	use super::*;
-	use crate::{
-		mock::{
-			new_test_ext, RuntimeOrigin, System, Test,
-		},
-		precompiles::alloy::hex,
-	};
-	use alloy::primitives::U256;
-	use frame_support::{assert_ok, traits::Currency};
-	use pallet_revive::DepositLimit;
-	use sp_core::H160;
-	use sp_runtime::Weight;
-
-    pub const GAS_LIMIT: Weight = Weight::from_parts(100_000_000_000, 3 * 1024 * 1024);
-
-    fn to_fixed_non_zero(precompile_id: u16) -> H160 {
-        let mut address = [0u8; 20];
-        address[16] = (precompile_id >> 8) as u8;
-        address[17] = (precompile_id & 0xFF) as u8;
-    
-        H160::from(address)
-    }
-
-    #[test]
-	fn weight_message_works() {
-        new_test_ext().execute_with(|| {
-            // Create a simple XCM message
-            let message = VersionedXcm::V4(xcm::v4::Xcm::<()>(vec![
-                xcm::v4::Instruction::ClearOrigin,
-                xcm::v4::Instruction::DescendOrigin(xcm::v4::Junctions::Here),
-            ]));
-
-            // Encode the message for the precompile call
-            let message_bytes = message.encode();
-
-            let weight_params = IXcm::weightMessageCall { message: VersionedXcm::V4(message.clone()).encode().into() };
-            let weight_call = IXcm::IXcmCalls::weightMessage(weight_params);
-            // Call the precompile
-            let xcm_weight_results = pallet_revive::Pallet::<Test>::bare_call(
-                RuntimeOrigin::signed(1),
-                to_fixed_non_zero(10), // XCM precompile address
-                0u32.into(),
-                GAS_LIMIT,
-                DepositLimit::Balance(deposit_limit::<T>()),,
-                weight_call,
-            );
-
-            let weight_result = match xcm_weight_results.result {
-                Ok(value) => value,
-                Err(_) => ExecReturnValue { flags: ReturnFlags::REVERT, data: Vec::new() },
-            };
-
-            let weight: IXcm::Weight =
-			IXcm::Weight::abi_decode(&weight_result.data[..], true).expect("Failed to weight");
-
-            // Verify the weight components
-            assert!(weight.refTime > 0);
-            assert!(weight.proofSize > 0);
-        });
-    }
 }

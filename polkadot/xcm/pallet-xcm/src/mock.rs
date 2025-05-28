@@ -47,7 +47,7 @@ use xcm_executor::{
 };
 use xcm_simulator::helpers::derive_topic_id;
 
-use crate::precompiles::Xcm;
+use crate::precompiles::XcmPrecompile;
 use crate::{self as pallet_xcm, TestWeightInfo};
 
 pub type AccountId = AccountId32;
@@ -326,7 +326,7 @@ impl pallet_assets::Config for Test {
 impl pallet_revive::Config for Test {
 	type AddressMapper = pallet_revive::AccountId32Mapper<Self>;
 	type Currency = Balances;
-	type Precompiles = (Xcm<Self>,);
+	type Precompiles = (XcmPrecompile<Self>,);
 }
 
 // This child parachain is a system parachain trusted to teleport native token.
