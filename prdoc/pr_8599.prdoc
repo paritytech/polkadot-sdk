@@ -2,13 +2,17 @@ title: Snowbridge: Unpaid execution when bridging to Ethereum
 doc:
 - audience: Runtime Dev
   description: |-
-    Since all fees in Snowbridge V2 will be estimated on the fly and injected into the XCM, there is 
-    no need to preconfigure a bridge fee using SovereignPaidRemoteExporter. Additionally, we want to 
-    avoid maintaining Asset Hub’s sovereign account on Bridge Hub.
+    Since in Snowbridge V2 the execution fee on Ethereum will be estimated on the fly 
+    and injected into the XCM, there is no need to preconfigure the bridge fee. 
+    Additionally, we want to avoid maintaining Asset Hub’s sovereign account on Bridge Hub.
 crates:
+- name: snowbridge-runtime-common
+  bump: patch
 - name: staging-xcm-builder
   bump: patch
 - name: bridge-hub-westend-runtime
   bump: patch
 - name: asset-hub-westend-runtime
   bump: patch
+- name: bridge-hub-westend-integration-tests
+  bump: none
