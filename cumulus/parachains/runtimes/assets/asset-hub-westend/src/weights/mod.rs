@@ -56,7 +56,6 @@ pub mod xcm;
 pub use block_weights::constants::BlockExecutionWeight;
 pub use extrinsic_weights::constants::ExtrinsicBaseWeight;
 pub use inmemorydb_weights::constants::InMemoryDbWeight;
-pub use rocksdb_weights::constants::RocksDbWeight;
 
 use ::pallet_bridge_messages::WeightInfoExt as MessagesWeightInfoExt;
 use ::pallet_bridge_relayers::WeightInfoExt as _;
