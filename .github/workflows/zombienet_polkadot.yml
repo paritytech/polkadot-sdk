@@ -2,12 +2,12 @@ name: Zombienet Polkadot
 
 on:
   workflow_dispatch: # Disabled for being flaky
-  # push:
-  #   branches:
-  #     - master
-  # pull_request:
-  #   types: [opened, synchronize, reopened, ready_for_review]
-  # merge_group:
+  #push:
+  #  branches:
+  #    - master
+  pull_request:
+   types: [opened, synchronize, reopened, ready_for_review, labeled]
+  #merge_group:
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
