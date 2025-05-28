@@ -19,7 +19,10 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
 use codec::Codec;
+use alloc::vec::Vec;
 
 sp_api::decl_runtime_apis! {
 	pub trait StakingApi<Balance, AccountId>
@@ -35,5 +38,8 @@ sp_api::decl_runtime_apis! {
 
 		/// Returns true if validator `account` has pages to be claimed for the given era.
 		fn pending_rewards(era: sp_staking::EraIndex, account: AccountId) -> bool;
+
+		/// Returns a list of (era, amount) that indices at which era unbonded funds will be unlocked.
+		fn unbonding_duration(account: AccountId) -> Vec<(sp_staking::EraIndex, Balance)>;
 	}
 }
