@@ -15,16 +15,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Integration tests for application crypto
+//! Ethereum standards.
 
-#[cfg(all(test, feature = "bls-experimental"))]
-mod bls381;
-#[cfg(test)]
-mod ecdsa;
-#[cfg(test)]
-mod ed25519;
-#[cfg(test)]
-mod sr25519;
+#![no_std]
 
-#[cfg(all(test, feature = "bls-experimental"))]
-mod ecdsa_bls381;
+alloy_core::sol!("src/IERC20.sol");
