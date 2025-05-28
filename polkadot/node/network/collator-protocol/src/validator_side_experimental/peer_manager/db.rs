@@ -30,8 +30,17 @@ use std::{
 /// testing purposes.
 pub struct Db {
 	db: BTreeMap<ParaId, HashMap<PeerId, ScoreEntry>>,
-	highest_block: Option<BlockNumber>,
+	last_finalized: Option<BlockNumber>,
 	stored_limit_per_para: u8,
+}
+
+impl Db {
+	/// Create a new instance of the in-memory DB.
+	///
+	/// `stored_limit_per_para` is the maximum number of reputations that can be stored per para.
+	pub async fn new(stored_limit_per_para: u8) -> Self {
+		Self { db: BTreeMap::new(), last_finalized: None, stored_limit_per_para }
+	}
 }
 
 type Timestamp = u128;
@@ -44,12 +53,8 @@ struct ScoreEntry {
 
 #[async_trait]
 impl Backend for Db {
-	async fn new(stored_limit_per_para: u8) -> Self {
-		Self { db: BTreeMap::new(), highest_block: None, stored_limit_per_para }
-	}
-
 	async fn processed_finalized_block_number(&self) -> Option<BlockNumber> {
-		self.highest_block
+		self.last_finalized
 	}
 
 	async fn query(&self, peer_id: &PeerId, para_id: &ParaId) -> Option<Score> {
@@ -85,11 +90,11 @@ impl Backend for Db {
 		bumps: BTreeMap<ParaId, HashMap<PeerId, Score>>,
 		decay_value: Option<Score>,
 	) -> Vec<ReputationUpdate> {
-		if self.highest_block.unwrap_or(0) >= leaf_number {
+		if self.last_finalized.unwrap_or(0) >= leaf_number {
 			return vec![]
 		}
 
-		self.highest_block = Some(leaf_number);
+		self.last_finalized = Some(leaf_number);
 		self.bump_reputations(bumps, decay_value)
 	}
 }

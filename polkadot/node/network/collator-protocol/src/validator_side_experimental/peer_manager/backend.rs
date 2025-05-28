@@ -23,8 +23,6 @@ use std::collections::{BTreeMap, BTreeSet, HashMap};
 /// Trait describing the interface of the reputation database.
 #[async_trait]
 pub trait Backend {
-	/// Instantiate a new backend.
-	async fn new(stored_limit_per_para: u8) -> Self;
 	/// Return the latest finalized block for which the backend processed bumps.
 	async fn processed_finalized_block_number(&self) -> Option<BlockNumber>;
 	/// Get the peer's stored reputation for this paraid, if any.
