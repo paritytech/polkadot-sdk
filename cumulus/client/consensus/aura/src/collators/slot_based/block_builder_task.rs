@@ -38,6 +38,7 @@ use crate::{
 			relay_chain_data_cache::{RelayChainData, RelayChainDataCache},
 			slot_timer::{SlotInfo, SlotTimer},
 		},
+		RelayParentData,
 	},
 	LOG_TARGET,
 };
@@ -203,22 +204,25 @@ where
 				continue;
 			};
 
-			let Ok((relay_parent_header, required_rp_ancestry)) =
-				find_relay_parent_with_offset(&relay_client, relay_best_hash, relay_parent_offset)
-					.await
+			let Ok(rp_data) = offset_relay_parent_find_descendants(
+				&relay_client,
+				relay_best_hash,
+				relay_parent_offset,
+			)
+			.await
 			else {
 				continue
 			};
 
 			let Some(para_slot) = adjust_para_to_relay_parent_slot(
-				&relay_parent_header,
+				rp_data.relay_parent(),
 				relay_chain_slot_duration,
 				para_slot_duration,
 			) else {
 				continue;
 			};
 
-			let relay_parent = relay_parent_header.hash();
+			let relay_parent = rp_data.relay_parent().hash();
 
 			let Some((included_header, parent)) =
 				crate::collators::find_parent(relay_parent, para_id, &*para_backend, &relay_client)
@@ -363,7 +367,7 @@ where
 					&validation_data,
 					parent_hash,
 					slot_claim.timestamp(),
-					required_rp_ancestry.into(),
+					Some(rp_data),
 				)
 				.await
 			{
@@ -459,16 +463,20 @@ fn adjust_para_to_relay_parent_slot(
 	Some(para_slot)
 }
 
-/// Traverses the ancestry of the given relay chain header to find the relay parent at the specified
-/// offset. Returns a tuple containing:
-/// - The relay parent header to use as an anchor for the parachain block
-/// - A list of the relay parent and its descendants (ordered from oldest to newest) for the
-///   inherent data
-async fn find_relay_parent_with_offset<RelayClient>(
+/// Finds a relay chain parent block at a specified offset from the best block, collecting its
+/// descendants.
+///
+/// # Returns
+/// * `Ok(RelayParentData)` - Contains the target relay parent and its ordered list of descendants
+/// * `Err(())` - If any relay chain block header cannot be retrieved
+///
+/// The function traverses backwards from the best block until it finds the block at the specified
+/// offset, collecting all blocks in between to maintain the chain of ancestry.
+async fn offset_relay_parent_find_descendants<RelayClient>(
 	relay_client: &RelayClient,
 	relay_best_block: RelayHash,
 	relay_parent_offset: u32,
-) -> Result<(RelayHeader, VecDeque<RelayHeader>), ()>
+) -> Result<RelayParentData, ()>
 where
 	RelayClient: RelayChainInterface + Clone + 'static,
 {
@@ -479,12 +487,12 @@ where
 	};
 
 	if relay_parent_offset == 0 {
-		return Ok((relay_header, Default::default()));
+		return Ok(RelayParentData::new(relay_header));
 	}
 
 	let mut required_ancestors: VecDeque<RelayHeader> = Default::default();
 	required_ancestors.push_front(relay_header.clone());
-	while required_ancestors.len() < relay_parent_offset as usize + 1 {
+	while required_ancestors.len() < relay_parent_offset as usize {
 		let Ok(Some(next_header)) =
 			relay_client.header(BlockId::Hash(*relay_header.parent_hash())).await
 		else {
@@ -494,6 +502,293 @@ where
 		relay_header = next_header;
 	}
 
-	tracing::debug!(target: LOG_TARGET, num_descendants = required_ancestors.len(), "Relay parent descendants.");
-	Ok((relay_header, required_ancestors))
+	let Ok(Some(relay_parent)) =
+		relay_client.header(BlockId::Hash(*relay_header.parent_hash())).await
+	else {
+		return Err(())
+	};
+	tracing::debug!(
+		target: LOG_TARGET,
+		relay_parent_hash = %relay_parent.hash(),
+		relay_parent_num = relay_parent.number(),
+		num_descendants = required_ancestors.len(),
+		"Relay parent descendants."
+	);
+	Ok(RelayParentData::new_with_descendants(relay_parent, required_ancestors.into()))
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use async_trait::async_trait;
+	use cumulus_relay_chain_interface::*;
+	use futures::Stream;
+	use polkadot_primitives::vstaging::{CandidateEvent, CommittedCandidateReceiptV2};
+	use sp_version::RuntimeVersion;
+	use std::{
+		collections::{BTreeMap, HashMap, VecDeque},
+		pin::Pin,
+	};
+
+	#[tokio::test]
+	async fn offset_test_zero_offset() {
+		sp_tracing::init_for_tests();
+		let (headers, best_hash) = create_header_chain();
+
+		let client = TestRelayClient::new(headers);
+
+		let result = offset_relay_parent_find_descendants(&client, best_hash, 0).await;
+		assert!(result.is_ok());
+		let data = result.unwrap();
+		assert_eq!(data.descendants_len(), 0);
+		assert_eq!(data.relay_parent().hash(), best_hash);
+		assert!(data.into_inherent_descendant_list().is_empty());
+	}
+
+	#[tokio::test]
+	async fn offset_test_two_offset() {
+		sp_tracing::init_for_tests();
+		let (headers, best_hash) = create_header_chain();
+
+		let client = TestRelayClient::new(headers);
+
+		let result = offset_relay_parent_find_descendants(&client, best_hash, 2).await;
+		assert!(result.is_ok());
+		let data = result.unwrap();
+		assert_eq!(data.descendants_len(), 2);
+		assert_eq!(*data.relay_parent().number(), 98);
+		let descendant_list = data.into_inherent_descendant_list();
+		assert_eq!(descendant_list.len(), 3);
+		assert_eq!(*descendant_list.first().unwrap().number(), 98);
+		assert_eq!(*descendant_list.last().unwrap().number(), 100);
+	}
+
+	#[tokio::test]
+	async fn offset_test_five_offset() {
+		sp_tracing::init_for_tests();
+		let (headers, best_hash) = create_header_chain();
+
+		let client = TestRelayClient::new(headers);
+
+		let result = offset_relay_parent_find_descendants(&client, best_hash, 5).await;
+		assert!(result.is_ok());
+		let data = result.unwrap();
+		assert_eq!(data.descendants_len(), 5);
+		assert_eq!(*data.relay_parent().number(), 95);
+		let descendant_list = data.into_inherent_descendant_list();
+		assert_eq!(descendant_list.len(), 6);
+		assert_eq!(*descendant_list.first().unwrap().number(), 95);
+		assert_eq!(*descendant_list.last().unwrap().number(), 100);
+	}
+
+	#[tokio::test]
+	async fn offset_test_too_long() {
+		sp_tracing::init_for_tests();
+		let (headers, best_hash) = create_header_chain();
+
+		let client = TestRelayClient::new(headers);
+
+		let result = offset_relay_parent_find_descendants(&client, best_hash, 200).await;
+		assert!(result.is_err());
+
+		let result = offset_relay_parent_find_descendants(&client, best_hash, 101).await;
+		assert!(result.is_err());
+	}
+
+	#[derive(Clone)]
+	struct TestRelayClient {
+		headers: HashMap<RelayHash, RelayHeader>,
+	}
+
+	impl TestRelayClient {
+		fn new(headers: HashMap<RelayHash, RelayHeader>) -> Self {
+			Self { headers }
+		}
+	}
+
+	#[async_trait]
+	impl RelayChainInterface for TestRelayClient {
+		async fn validators(&self, _: RelayHash) -> RelayChainResult<Vec<ValidatorId>> {
+			unimplemented!("Not needed for test")
+		}
+
+		async fn best_block_hash(&self) -> RelayChainResult<RelayHash> {
+			unimplemented!("Not needed for test")
+		}
+		async fn finalized_block_hash(&self) -> RelayChainResult<RelayHash> {
+			unimplemented!("Not needed for test")
+		}
+
+		async fn retrieve_dmq_contents(
+			&self,
+			_: ParaId,
+			_: RelayHash,
+		) -> RelayChainResult<Vec<InboundDownwardMessage>> {
+			unimplemented!("Not needed for test")
+		}
+
+		async fn retrieve_all_inbound_hrmp_channel_contents(
+			&self,
+			_: ParaId,
+			_: RelayHash,
+		) -> RelayChainResult<BTreeMap<ParaId, Vec<InboundHrmpMessage>>> {
+			unimplemented!("Not needed for test")
+		}
+
+		async fn persisted_validation_data(
+			&self,
+			_: RelayHash,
+			_: ParaId,
+			_: OccupiedCoreAssumption,
+		) -> RelayChainResult<Option<PersistedValidationData>> {
+			unimplemented!("Not needed for test")
+		}
+
+		async fn validation_code_hash(
+			&self,
+			_: RelayHash,
+			_: ParaId,
+			_: OccupiedCoreAssumption,
+		) -> RelayChainResult<Option<ValidationCodeHash>> {
+			unimplemented!("Not needed for test")
+		}
+
+		async fn candidate_pending_availability(
+			&self,
+			_: RelayHash,
+			_: ParaId,
+		) -> RelayChainResult<Option<CommittedCandidateReceiptV2>> {
+			unimplemented!("Not needed for test")
+		}
+
+		async fn candidates_pending_availability(
+			&self,
+			_: RelayHash,
+			_: ParaId,
+		) -> RelayChainResult<Vec<CommittedCandidateReceiptV2>> {
+			unimplemented!("Not needed for test")
+		}
+
+		async fn session_index_for_child(&self, _: RelayHash) -> RelayChainResult<SessionIndex> {
+			unimplemented!("Not needed for test")
+		}
+
+		async fn import_notification_stream(
+			&self,
+		) -> RelayChainResult<Pin<Box<dyn Stream<Item = PHeader> + Send>>> {
+			unimplemented!("Not needed for test")
+		}
+
+		async fn finality_notification_stream(
+			&self,
+		) -> RelayChainResult<Pin<Box<dyn Stream<Item = PHeader> + Send>>> {
+			unimplemented!("Not needed for test")
+		}
+
+		async fn is_major_syncing(&self) -> RelayChainResult<bool> {
+			unimplemented!("Not needed for test")
+		}
+
+		fn overseer_handle(&self) -> RelayChainResult<OverseerHandle> {
+			unimplemented!("Not needed for test")
+		}
+
+		async fn get_storage_by_key(
+			&self,
+			_: RelayHash,
+			_: &[u8],
+		) -> RelayChainResult<Option<StorageValue>> {
+			unimplemented!("Not needed for test")
+		}
+
+		async fn prove_read(
+			&self,
+			_: RelayHash,
+			_: &Vec<Vec<u8>>,
+		) -> RelayChainResult<sc_client_api::StorageProof> {
+			unimplemented!("Not needed for test")
+		}
+
+		async fn wait_for_block(&self, _: RelayHash) -> RelayChainResult<()> {
+			unimplemented!("Not needed for test")
+		}
+
+		async fn new_best_notification_stream(
+			&self,
+		) -> RelayChainResult<Pin<Box<dyn Stream<Item = PHeader> + Send>>> {
+			unimplemented!("Not needed for test")
+		}
+
+		async fn header(&self, block_id: BlockId) -> RelayChainResult<Option<PHeader>> {
+			let hash = match block_id {
+				BlockId::Hash(hash) => hash,
+				BlockId::Number(_) => unimplemented!("Not needed for test"),
+			};
+			let header = self.headers.get(&hash);
+
+			Ok(header.cloned())
+		}
+
+		async fn availability_cores(
+			&self,
+			_relay_parent: RelayHash,
+		) -> RelayChainResult<Vec<CoreState<RelayHash, BlockNumber>>> {
+			unimplemented!("Not needed for test");
+		}
+
+		async fn version(&self, _: RelayHash) -> RelayChainResult<RuntimeVersion> {
+			unimplemented!("Not needed for test");
+		}
+
+		async fn claim_queue(
+			&self,
+			_: RelayHash,
+		) -> RelayChainResult<BTreeMap<CoreIndex, VecDeque<ParaId>>> {
+			unimplemented!("Not needed for test");
+		}
+
+		async fn call_runtime_api(
+			&self,
+			_method_name: &'static str,
+			_hash: RelayHash,
+			_payload: &[u8],
+		) -> RelayChainResult<Vec<u8>> {
+			unimplemented!("Not needed for test")
+		}
+
+		async fn scheduling_lookahead(&self, _: RelayHash) -> RelayChainResult<u32> {
+			unimplemented!("Not needed for test")
+		}
+
+		async fn candidate_events(&self, _: RelayHash) -> RelayChainResult<Vec<CandidateEvent>> {
+			unimplemented!("Not needed for test")
+		}
+	}
+
+	fn create_header_chain() -> (HashMap<RelayHash, RelayHeader>, RelayHash) {
+		let mut headers = HashMap::new();
+		let mut current_parent = None;
+		let mut header_hash = RelayHash::repeat_byte(0x1);
+
+		// Create chain from highest to lowest number
+		for number in 1..=100 {
+			let mut header = RelayHeader {
+				parent_hash: Default::default(),
+				number,
+				state_root: Default::default(),
+				extrinsics_root: Default::default(),
+				digest: Default::default(),
+			};
+			if let Some(hash) = current_parent {
+				header.parent_hash = hash;
+			}
+
+			header_hash = header.hash();
+			// Store header and update parent for next iteration
+			headers.insert(header_hash, header.clone());
+			current_parent = Some(header_hash);
+		}
+
+		(headers, header_hash)
+	}
 }

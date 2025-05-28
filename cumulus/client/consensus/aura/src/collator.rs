@@ -33,14 +33,14 @@ use cumulus_client_consensus_common::{
 use cumulus_client_consensus_proposer::ProposerInterface;
 use cumulus_client_parachain_inherent::{ParachainInherentData, ParachainInherentDataProvider};
 use cumulus_primitives_core::{
-	relay_chain::{Hash as PHash, Header as RelayHeader},
-	DigestItem, ParachainBlockData, PersistedValidationData,
+	relay_chain::Hash as PHash, DigestItem, ParachainBlockData, PersistedValidationData,
 };
 use cumulus_relay_chain_interface::RelayChainInterface;
 
 use polkadot_node_primitives::{Collation, MaybeCompressedPoV};
 use polkadot_primitives::{Header as PHeader, Id as ParaId};
 
+use crate::collators::RelayParentData;
 use futures::prelude::*;
 use sc_consensus::{BlockImport, BlockImportParams, ForkChoiceStrategy, StateAction};
 use sc_consensus_aura::standalone as aura_internal;
@@ -127,14 +127,16 @@ where
 		validation_data: &PersistedValidationData,
 		parent_hash: Block::Hash,
 		timestamp: impl Into<Option<Timestamp>>,
-		relay_parent_descendants: Vec<RelayHeader>,
+		relay_parent_descendants: Option<RelayParentData>,
 	) -> Result<(ParachainInherentData, InherentData), Box<dyn Error + Send + Sync + 'static>> {
 		let paras_inherent_data = ParachainInherentDataProvider::create_at(
 			relay_parent,
 			&self.relay_client,
 			validation_data,
 			self.para_id,
-			relay_parent_descendants,
+			relay_parent_descendants
+				.map(RelayParentData::into_inherent_descendant_list)
+				.unwrap_or_default(),
 		)
 		.await;
 
@@ -176,7 +178,7 @@ where
 			validation_data,
 			parent_hash,
 			timestamp,
-			Default::default(),
+			None,
 		)
 		.await
 	}
