@@ -2433,7 +2433,6 @@ dependencies = [
  "staging-xcm-builder",
  "staging-xcm-executor",
  "testnet-parachains-constants",
- "xcm-runtime-apis",
 ]
 
 [[package]]
@@ -2638,7 +2637,6 @@ dependencies = [
  "staging-xcm-builder",
  "staging-xcm-executor",
  "testnet-parachains-constants",
- "xcm-runtime-apis",
 ]
 
 [[package]]
@@ -5822,6 +5820,7 @@ dependencies = [
  "cumulus-primitives-core",
  "frame-support",
  "hex-literal",
+ "pallet-asset-conversion",
  "pallet-assets",
  "pallet-balances",
  "pallet-bridge-messages",
@@ -5842,7 +5841,9 @@ dependencies = [
  "sp-keyring",
  "sp-runtime 31.0.1",
  "staging-xcm",
+ "staging-xcm-executor",
  "xcm-emulator",
+ "xcm-runtime-apis",
  "xcm-simulator",
 ]
 
