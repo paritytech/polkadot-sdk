@@ -233,7 +233,15 @@ impl<Config: config::Config> ExecuteXcm<Config::RuntimeCall> for XcmExecutor<Con
 	) -> Result<Self::Prepared, Xcm<Config::RuntimeCall>> {
 		match Config::Weigher::weight(&mut message) {
 			Ok(weight) => Ok(WeighedMessage(weight, message)),
-			Err(_) => Err(message),
+			Err(error) => {
+				tracing::debug!(
+					target: "xcm::prepare",
+					?error,
+					?message,
+					"Failed to calculate weight for XCM message; execution aborted"
+				);
+				Err(message)
+			},
 		}
 	}
 	fn execute(
@@ -1443,7 +1451,15 @@ impl<Config: config::Config> XcmExecutor<Config> {
 			RefundSurplus => self.refund_surplus(),
 			SetErrorHandler(mut handler) => {
 				let handler_weight = Config::Weigher::weight(&mut handler)
-					.map_err(|()| XcmError::WeightNotComputable)?;
+					.map_err(|error| {
+						tracing::debug!(
+							target: "xcm::executor::SetErrorHandler",
+							?error,
+							?handler,
+							"Failed to calculate weight"
+						);
+						XcmError::WeightNotComputable
+					})?;
 				self.total_surplus.saturating_accrue(self.error_handler_weight);
 				self.error_handler = handler;
 				self.error_handler_weight = handler_weight;
@@ -1451,7 +1467,15 @@ impl<Config: config::Config> XcmExecutor<Config> {
 			},
 			SetAppendix(mut appendix) => {
 				let appendix_weight = Config::Weigher::weight(&mut appendix)
-					.map_err(|()| XcmError::WeightNotComputable)?;
+					.map_err(|error| {
+						tracing::debug!(
+							target: "xcm::executor::SetErrorHandler",
+							?error,
+							?appendix,
+							"Failed to calculate weight"
+						);
+						XcmError::WeightNotComputable
+					})?;
 				self.total_surplus.saturating_accrue(self.appendix_weight);
 				self.appendix = appendix;
 				self.appendix_weight = appendix_weight;
