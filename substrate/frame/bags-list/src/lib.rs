@@ -462,7 +462,7 @@ pub mod pallet {
 					// Try to rebag. Do not break on error, but track them.
 					match Self::rebag_internal(account) {
 						Err(Error::<T, I>::Locked) => {
-							log!(warn, "Pallet became locked during auto-rebag, stopping");
+							defensive!("Pallet became locked during auto-rebag, stopping");
 							break;
 						},
 						Err(e) => {
