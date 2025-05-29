@@ -37,6 +37,7 @@
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
 pub mod ambassador;
+pub mod dday;
 mod genesis_config_presets;
 pub mod impls;
 mod weights;
@@ -47,6 +48,7 @@ pub mod fellowship;
 extern crate alloc;
 
 pub use ambassador::pallet_ambassador_origins;
+pub use dday::pallet_dday_origins;
 
 use alloc::{vec, vec::Vec};
 use ambassador::AmbassadorCoreInstance;
@@ -730,6 +732,12 @@ construct_runtime!(
 		AmbassadorSalary: pallet_salary::<Instance2> = 74,
 		AmbassadorContent: pallet_collective_content::<Instance1> = 75,
 
+		// DDay feature.
+		DDayReferenda: pallet_referenda::<Instance3> = 81,
+		DDayVoting: pallet_dday_voting::<Instance1> = 82,
+		DDayDetection: pallet_dday_detection::<Instance1> = 83,
+		DDayOrigins: pallet_dday_origins = 84,
+
 		StateTrieMigration: pallet_state_trie_migration = 80,
 	}
 );
@@ -752,8 +760,12 @@ pub type TxExtension = cumulus_pallet_weight_reclaim::StorageWeightReclaim<
 		frame_system::CheckTxVersion<Runtime>,
 		frame_system::CheckGenesis<Runtime>,
 		frame_system::CheckEra<Runtime>,
-		frame_system::CheckNonce<Runtime>,
+		dday::SkipCheckIfValidProofWhenStalledAssetHub<frame_system::CheckNonce<Runtime>>,
 		frame_system::CheckWeight<Runtime>,
+		dday::SkipCheckIfValidProofWhenStalledAssetHub<
+			pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
+		>,
+		frame_metadata_hash_extension::CheckMetadataHash<Runtime>,
 	),
 >;
 
@@ -820,6 +832,7 @@ mod benches {
 		[pallet_collective_content, AmbassadorContent]
 		[pallet_core_fellowship, AmbassadorCore]
 		[pallet_salary, AmbassadorSalary]
+		[pallet_referenda, DDayReferenda]
 		[pallet_treasury, FellowshipTreasury]
 		[pallet_asset_rate, AssetRate]
 		[cumulus_pallet_weight_reclaim, WeightReclaim]
