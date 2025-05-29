@@ -73,6 +73,7 @@ parameter_types! {
 	pub TreasuryAccount: AccountId = TREASURY_PALLET_ID.into_account_truncating();
 	pub RelayTreasuryLocation: Location = (Parent, PalletInstance(rococo_runtime_constants::TREASURY_PALLET_ID)).into();
 	pub SiblingPeople: Location = (Parent, Parachain(rococo_runtime_constants::system_parachain::PEOPLE_ID)).into();
+	pub AssetHubRococoLocation: Location = Location::new(1, [Parachain(bp_asset_hub_rococo::ASSET_HUB_ROCOCO_PARACHAIN_ID)]);
 }
 
 /// Type for specifying how a `Location` can be converted into an `AccountId`. This is used
@@ -155,6 +156,7 @@ pub type Barrier = TrailingSetTopicAsId<
 						ParentOrParentsPlurality,
 						Equals<RelayTreasuryLocation>,
 						Equals<SiblingPeople>,
+						Equals<AssetHubRococoLocation>,
 					)>,
 					// Subscriptions for version tracking are OK.
 					AllowSubscriptionsFrom<ParentRelayOrSiblingParachains>,
