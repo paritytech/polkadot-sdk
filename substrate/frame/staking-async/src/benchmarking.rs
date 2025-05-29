@@ -140,7 +140,7 @@ pub fn prepare_unbonding_scenario<T: Config>() {
 		ConfigOp::Set(UnbondingQueueConfig {
 			min_slashable_share: Perbill::from_percent(50),
 			lowest_ratio: Perbill::from_percent(34),
-			unbond_period_lower_bound: 1,
+			unbond_period_lower_bound: 2,
 		}),
 	)
 	.expect("failed to set staking configs");
@@ -851,7 +851,7 @@ mod benchmarks {
 			ConfigOp::Set(UnbondingQueueConfig {
 				min_slashable_share: Perbill::from_percent(50),
 				lowest_ratio: Perbill::from_percent(34),
-				unbond_period_lower_bound: 1,
+				unbond_period_lower_bound: 2,
 			}),
 		);
 

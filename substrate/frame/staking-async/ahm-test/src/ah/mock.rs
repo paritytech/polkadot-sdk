@@ -495,7 +495,7 @@ impl ExtBuilder {
 			unbonding_queue_config: Some(pallet_staking_async::UnbondingQueueConfig {
 				min_slashable_share: Perbill::from_percent(50),
 				lowest_ratio: Perbill::from_percent(34),
-				unbond_period_lower_bound: 1,
+				unbond_period_lower_bound: 2,
 			}),
 			..Default::default()
 		}
