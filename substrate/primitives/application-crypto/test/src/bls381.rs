@@ -15,15 +15,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Integration tests for ed25519
+//! Integration tests for bls12-381
 
 use sp_api::{ApiExt, ProvideRuntimeApi};
-use sp_application_crypto::{ed25519::AppPair, RuntimePublic};
+use sp_application_crypto::{bls381::AppPair, RuntimePublic};
 use sp_core::{
-	crypto::{ByteArray, Pair},
-	ed25519::Pair as Ed25519Pair,
+	bls381::Pair as Bls381Pair,
+	crypto::ByteArray,
 	proof_of_possession::{ProofOfPossessionGenerator, ProofOfPossessionVerifier},
-	testing::ED25519,
+	testing::BLS381,
+	Pair,
 };
 use sp_keystore::{testing::MemoryKeystore, Keystore, KeystoreExt};
 use std::sync::Arc;
@@ -32,7 +33,7 @@ use substrate_test_runtime_client::{
 };
 
 #[test]
-fn ed25519_works_in_runtime() {
+fn bls381_works_in_runtime() {
 	sp_tracing::try_init_simple();
 	let keystore = Arc::new(MemoryKeystore::new());
 	let test_client = TestClientBuilder::new().build();
@@ -40,19 +41,19 @@ fn ed25519_works_in_runtime() {
 	let mut runtime_api = test_client.runtime_api();
 	runtime_api.register_extension(KeystoreExt::new(keystore.clone()));
 
-	let (signature, public, proof_of_possession) = runtime_api
-		.test_ed25519_crypto(test_client.chain_info().genesis_hash)
-		.expect("Tests `ed25519` crypto.");
+	let (proof_of_possession, public) = runtime_api
+		.test_bls381_crypto(test_client.chain_info().genesis_hash)
+		.expect("Tests `bls381` crypto.");
 
-	let supported_keys = keystore.keys(ED25519).unwrap();
+	let supported_keys = keystore.keys(BLS381).unwrap();
 	assert!(supported_keys.contains(&public.to_raw_vec()));
-	assert!(AppPair::verify(&signature, "ed25519", &public));
+
 	assert!(AppPair::verify_proof_of_possession(&proof_of_possession.into(), &public.into()));
 }
 
 #[test]
-fn ed25519_client_proof_of_possession_verified_by_runtime_public() {
-	let (mut test_pair, _) = Ed25519Pair::generate();
+fn bls381_client_proof_of_possession_verified_by_runtime_public() {
+	let (mut test_pair, _) = Bls381Pair::generate();
 
 	let client_generated_proof_of_possession = test_pair.generate_proof_of_possession();
 	assert!(RuntimePublic::verify_proof_of_possession(
