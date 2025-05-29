@@ -15,11 +15,14 @@ workspace = true
 exclude-from-umbrella = true
 
 [dependencies]
+bp-relayers = { workspace = true, default-features = true }
 codec = { workspace = true, default-features = true }
 frame-benchmarking = { optional = true, workspace = true, default-features = true }
 frame-support = { workspace = true, default-features = true }
 frame-system = { workspace = true, default-features = true }
 log = { workspace = true, default-features = true }
+pallet-asset-conversion = { workspace = true, default-features = true }
+pallet-xcm = { workspace = true, default-features = true }
 scale-info = { features = ["derive"], workspace = true, default-features = true }
 snowbridge-core = { workspace = true, default-features = true }
 snowbridge-outbound-queue-primitives = { workspace = true, default-features = true }
@@ -33,6 +36,8 @@ runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
+	"pallet-asset-conversion/runtime-benchmarks",
+	"pallet-xcm/runtime-benchmarks",
 	"snowbridge-core/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",
 	"xcm-executor/runtime-benchmarks",

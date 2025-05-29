@@ -447,6 +447,7 @@ where
 		relay_chain_slot_duration,
 		recovery_handle,
 		sync_service: sync_service.clone(),
+		prometheus_registry: None,
 	})?;
 
 	if let Some(collator_key) = collator_key {
@@ -875,6 +876,7 @@ pub fn node_config(
 		keystore: KeystoreConfig::InMemory,
 		database: DatabaseSource::RocksDb { path: root.join("db"), cache_size: 128 },
 		trie_cache_maximum_size: Some(64 * 1024 * 1024),
+		warm_up_trie_cache: None,
 		state_pruning: Some(PruningMode::ArchiveAll),
 		blocks_pruning: BlocksPruning::KeepAll,
 		chain_spec: spec,
@@ -978,6 +980,7 @@ pub fn construct_extrinsic(
 		.unwrap_or(2) as u64;
 	let tip = 0;
 	let tx_ext: runtime::TxExtension = (
+		frame_system::AuthorizeCall::<runtime::Runtime>::new(),
 		frame_system::CheckNonZeroSender::<runtime::Runtime>::new(),
 		frame_system::CheckSpecVersion::<runtime::Runtime>::new(),
 		frame_system::CheckGenesis::<runtime::Runtime>::new(),
@@ -993,7 +996,7 @@ pub fn construct_extrinsic(
 	let raw_payload = runtime::SignedPayload::from_raw(
 		function.clone(),
 		tx_ext.clone(),
-		((), runtime::VERSION.spec_version, genesis_block, current_block_hash, (), (), ()),
+		((), (), runtime::VERSION.spec_version, genesis_block, current_block_hash, (), (), ()),
 	);
 	let signature = raw_payload.using_encoded(|e| caller.sign(e));
 	runtime::UncheckedExtrinsic::new_signed(
