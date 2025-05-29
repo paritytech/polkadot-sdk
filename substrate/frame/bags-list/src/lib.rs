@@ -342,8 +342,7 @@ pub mod pallet {
 			let dislocated = T::Lookup::lookup(dislocated)?;
 			Self::ensure_unlocked().map_err(|_| Error::<T, I>::Locked)?;
 
-			Self::rebag_internal(&dislocated)
-				.map_err::<DispatchError, _>(Into::into)?;
+			Self::rebag_internal(&dislocated).map_err::<DispatchError, _>(Into::into)?;
 
 			Ok(())
 		}
@@ -419,15 +418,16 @@ pub mod pallet {
 
 			let rebag_budget = T::AutoRebagPerBlock::get();
 			let total_nodes = ListNodes::<T, I>::count();
+			let is_locked = Self::ensure_unlocked().is_err();
 
-			// Fast exit: feature is disabled, or a list is empty.
-			if rebag_budget == 0 || total_nodes == 0 || Self::ensure_unlocked().is_err() {
+			//Fast exit: feature is disabled, a list is empty or locked.
+			if rebag_budget == 0 || total_nodes == 0 || is_locked {
 				log!(
 					debug,
 					"👜 Auto-rebag skipped: rebag_budget={}, total_nodes={}, locked={}.",
 					rebag_budget,
 					total_nodes,
-					Self::ensure_unlocked().is_err()
+					is_locked
 				);
 				return Weight::zero();
 			}
@@ -442,72 +442,48 @@ pub mod pallet {
 			let per_rebag =
 				T::WeightInfo::rebag_non_terminal().max(T::WeightInfo::rebag_terminal());
 
-			// Load the cursor to resume from the previous node. If empty, start from the head.
-			let mut cursor = NextNodeAutoRebagging::<T, I>::get().or_else(|| Self::iter().next());
+			let cursor = NextNodeAutoRebagging::<T, I>::get();
+			let iter = match cursor {
+				Some(ref last) => Self::iter_from(last).unwrap_or_else(|_| Self::iter()),
+				None => Self::iter(),
+			};
 
-			log!(debug, "👜 Rebag starting from: {:?}", cursor);
-
+			let mut last_account: Option<T::AccountId> = None;
+			log!(debug, "👜 Rebag starting from: {:?}", last_account);
 			let mut processed = 0u32;
 			let mut successful_rebags = 0u32;
 			let mut failed_rebags = 0u32;
 
-			while processed < rebag_budget {
-				// Check if we have enough weight for another iteration
+			for account in iter.take(rebag_budget as usize) {
 				if !meter.try_consume(per_rebag).is_ok() {
 					log!(debug, "Weight limit reached after {} processed accounts", processed);
 					break;
 				}
 
-				if let Some(ref account) = cursor {
-					// Try to rebag. Do not break on error, but track them.
-					match Self::rebag_internal(account) {
-						Err(Error::<T, I>::Locked) => {
-							defensive!("Pallet became locked during auto-rebag, stopping");
-							break;
-						},
-						Err(e) => {
-							log!(warn, "Error during rebagging: {:?}", e);
-							failed_rebags += 1;
-						},
-						Ok(Some((from, to))) => {
-							log!(
-								debug,
-								"Rebagged {:?}: moved from {:?} to {:?}",
-								account,
-								from,
-								to
-							);
-							successful_rebags += 1;
-						},
-						Ok(None) => log!(debug, "Rebagging not needed for {:?}", account),
-					}
-					processed += 1;
-
-					// Try to fetch the next node.
-					cursor = match Self::iter_from(account) {
-						Ok(mut iter) => iter.next(),
-						Err(e) => {
-							log!(debug, "Failed to get iterator from {:?}: {:?}", account, e);
-							Self::iter().next()
-						},
-					};
-
-					log!(debug, "👜 Next rebag target: {:?}", cursor);
-
-					// If we've reached the end, stop.
-					if cursor.is_none() {
-						log!(debug, "Reached end of list during auto-rebag");
+				match Self::rebag_internal(&account) {
+					Err(Error::<T, I>::Locked) => {
+						defensive!("Pallet became locked during auto-rebag, stopping");
+						last_account = Some(account.clone());
 						break;
-					}
-				} else {
-					// Cursor became None unexpectedly.
-					log!(debug, "Cursor is None unexpectedly during auto-rebag");
-					break;
+					},
+					Err(e) => {
+						log!(warn, "Error during rebagging: {:?}", e);
+						failed_rebags += 1;
+					},
+					Ok(Some((from, to))) => {
+						log!(debug, "Rebagged {:?}: moved from {:?} to {:?}", account, from, to);
+						successful_rebags += 1;
+					},
+					Ok(None) => {
+						log!(debug, "Rebagging not needed for {:?}", account);
+					},
 				}
+
+				last_account = Some(account.clone());
+				processed += 1;
 			}
 
-			// Save the cursor or reset if done.
-			match cursor {
+			match last_account {
 				Some(next) => {
 					NextNodeAutoRebagging::<T, I>::put(next.clone());
 					log!(debug, "👜 Saved next rebag cursor: {:?}", next);
