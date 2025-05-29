@@ -840,7 +840,7 @@ pub mod pallet {
 		pub max_nominator_count: Option<u32>,
 		/// Create the given number of validators and nominators.
 		///
-		/// These account need not be in the endowment list of balances, and are auto-topped up
+		/// These accounts need not be in the endowment list of balances, and are auto-topped up
 		/// here.
 		///
 		/// Useful for testing genesis config.

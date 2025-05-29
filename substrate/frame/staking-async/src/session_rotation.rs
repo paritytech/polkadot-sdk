@@ -828,11 +828,9 @@ impl<T: Config> EraElectionPlanner<T> {
 			// we can report it now.
 			if maybe_next_page.is_none() {
 				use pallet_staking_async_rc_client::RcClientInterface;
-				// Modify the unbonding queue.
 				let id = CurrentEra::<T>::get().defensive_unwrap_or(0);
-				Pallet::<T>::calculate_lowest_total_stake(id);
-
 				let prune_up_to = Self::get_prune_up_to();
+				Pallet::<T>::calculate_lowest_total_stake(id);
 
 				crate::log!(
 					info,

@@ -500,6 +500,7 @@ fn unbonding_multi_chunk() {
 				],
 			},
 		);
+		assert_eq!(Staking::unbonding_duration(11), vec![(1 + 3, 500), (2 + 3, 250)]);
 
 		// when
 		Session::roll_until_active_era(4);
@@ -524,6 +525,7 @@ fn unbonding_multi_chunk() {
 				}],
 			},
 		);
+		assert_eq!(Staking::unbonding_duration(11), vec![(2 + 3, 250)]);
 
 		// when
 		Session::roll_until_active_era(5);
@@ -539,6 +541,7 @@ fn unbonding_multi_chunk() {
 			Staking::ledger(11.into()).unwrap(),
 			StakingLedgerInspect { stash: 11, total: 250, active: 250, unlocking: bounded_vec![] },
 		);
+		assert_eq!(Staking::unbonding_duration(11), vec![]);
 	});
 }
 
@@ -610,6 +613,7 @@ fn unbonding_merges_if_era_exists() {
 				}],
 			},
 		);
+		assert_eq!(Staking::unbonding_duration(11), vec![(1 + 3, 500)]);
 
 		// when
 		Staking::unbond(RuntimeOrigin::signed(11), 250).unwrap();
@@ -628,6 +632,7 @@ fn unbonding_merges_if_era_exists() {
 				}],
 			},
 		);
+		assert_eq!(Staking::unbonding_duration(11), vec![(1 + 3, 500 + 250)]);
 	});
 }
 
@@ -668,6 +673,10 @@ fn unbonding_rejects_if_max_chunks() {
 						UnlockChunk { value: 250, era: 3, previous_unbonded_stake: 0 },
 					],
 				},
+			);
+			assert_eq!(
+				Staking::unbonding_duration(11),
+				vec![(1 + 7, 250), (2 + 7, 250), (3 + 7, 250),]
 			);
 
 			// when
@@ -711,6 +720,10 @@ fn unbonding_auto_withdraws_if_any() {
 				],
 			},
 		);
+		assert_eq!(
+			Staking::unbonding_duration(11),
+			vec![(1 + 3, 250), (2 + 3, 250), (3 + 3, 250),]
+		);
 
 		// when
 		Session::roll_until_active_era(4);
@@ -728,6 +741,10 @@ fn unbonding_auto_withdraws_if_any() {
 					UnlockChunk { value: 100, era: 4, previous_unbonded_stake: 0 },
 				],
 			},
+		);
+		assert_eq!(
+			Staking::unbonding_duration(11),
+			vec![(2 + 3, 250), (3 + 3, 250), (4 + 3, 100),]
 		);
 	});
 }
@@ -758,11 +775,12 @@ fn unbonding_caps_to_ledger_active() {
 				active: 0,
 				unlocking: bounded_vec![UnlockChunk {
 					value: 1000,
-					era: active_era(),
+					era: 1,
 					previous_unbonded_stake: 0
 				}],
 			}
 		);
+		assert_eq!(Staking::unbonding_duration(11), vec![(1 + 3, 1000)]);
 	});
 }
 
@@ -795,11 +813,12 @@ fn unbond_avoids_dust() {
 					active: 0,
 					unlocking: bounded_vec![UnlockChunk {
 						value: 1000,
-						era: active_era(),
+						era: 1,
 						previous_unbonded_stake: 0
 					}],
 				}
 			);
+			assert_eq!(Staking::unbonding_duration(11), vec![(1 + 3, 1000)]);
 		});
 }
 
@@ -853,6 +872,7 @@ fn reducing_max_unlocking_chunks_abrupt() {
 				unlocking,
 				..
 			}) if unlocking == expected_unlocking));
+		assert_eq!(Staking::unbonding_duration(3), vec![(10 + 3, 20)]);
 
 		// when staker unbonds at next era
 		Session::roll_until_active_era(11);
@@ -869,6 +889,7 @@ fn reducing_max_unlocking_chunks_abrupt() {
 				unlocking,
 				..
 			}) if unlocking == expected_unlocking));
+		assert_eq!(Staking::unbonding_duration(3), vec![(10 + 3, 20), (11 + 3, 50)]);
 
 		// when staker unbonds further
 		Session::roll_until_active_era(12);
@@ -967,11 +988,12 @@ fn bond_with_no_staked_value() {
 					total: 5,
 					unlocking: bounded_vec![UnlockChunk {
 						value: 5,
-						era: active_era(),
+						era: 1,
 						previous_unbonded_stake: 0
 					}],
 				}
 			);
+			assert_eq!(Staking::unbonding_duration(1), vec![(1 + 3, 5)]);
 
 			Session::roll_until_active_era(2);
 			Session::roll_until_active_era(3);
@@ -987,6 +1009,7 @@ fn bond_with_no_staked_value() {
 			assert_ok!(Staking::withdraw_unbonded(RuntimeOrigin::signed(1), 0));
 			assert!(Staking::ledger(1.into()).is_err());
 			assert_eq!(pallet_balances::Holds::<Test>::get(&1).len(), 0);
+			assert_eq!(Staking::unbonding_duration(1), vec![]);
 		});
 }
 
@@ -1212,11 +1235,12 @@ mod rebond {
 					active: 100,
 					unlocking: bounded_vec![UnlockChunk {
 						value: 900,
-						era: active_era(),
+						era: 1,
 						previous_unbonded_stake: 0
 					}],
 				}
 			);
+			assert_eq!(Staking::unbonding_duration(11), vec![(1 + 3, 900)]);
 
 			// then rebond all the funds unbonded.
 			Staking::rebond(RuntimeOrigin::signed(11), 900).unwrap();
@@ -1229,6 +1253,7 @@ mod rebond {
 					unlocking: Default::default(),
 				}
 			);
+			assert_eq!(Staking::unbonding_duration(11), vec![]);
 
 			// Unbond almost all of the funds in stash.
 			Staking::unbond(RuntimeOrigin::signed(11), 900).unwrap();
@@ -1245,6 +1270,7 @@ mod rebond {
 					}],
 				}
 			);
+			assert_eq!(Staking::unbonding_duration(11), vec![(1 + 3, 900)]);
 
 			// Re-bond part of the funds unbonded.
 			Staking::rebond(RuntimeOrigin::signed(11), 500).unwrap();
@@ -1273,6 +1299,7 @@ mod rebond {
 					unlocking: Default::default(),
 				}
 			);
+			assert_eq!(Staking::unbonding_duration(11), vec![]);
 
 			// Unbond parts of the funds in stash.
 			Staking::unbond(RuntimeOrigin::signed(11), 300).unwrap();
@@ -1291,6 +1318,7 @@ mod rebond {
 					}],
 				}
 			);
+			assert_eq!(Staking::unbonding_duration(11), vec![(1 + 3, 900)]);
 
 			// Re-bond part of the funds unbonded.
 			Staking::rebond(RuntimeOrigin::signed(11), 500).unwrap();
@@ -1307,6 +1335,7 @@ mod rebond {
 					}],
 				}
 			);
+			assert_eq!(Staking::unbonding_duration(11), vec![(1 + 3, 400)]);
 		})
 	}
 
@@ -1339,6 +1368,7 @@ mod rebond {
 					}],
 				}
 			);
+			assert_eq!(Staking::unbonding_duration(11), vec![(1 + 3, 400)]);
 
 			Session::roll_until_active_era(2);
 
@@ -1356,6 +1386,7 @@ mod rebond {
 					],
 				}
 			);
+			assert_eq!(Staking::unbonding_duration(11), vec![(1 + 3, 400), (2 + 3, 300)]);
 
 			Session::roll_until_active_era(3);
 
@@ -1374,6 +1405,10 @@ mod rebond {
 					],
 				}
 			);
+			assert_eq!(
+				Staking::unbonding_duration(11),
+				vec![(1 + 3, 400), (2 + 3, 300), (3 + 3, 200)]
+			);
 
 			// Re-bond half of the unbonding funds.
 			Staking::rebond(RuntimeOrigin::signed(11), 400).unwrap();
@@ -1389,6 +1424,7 @@ mod rebond {
 					],
 				}
 			);
+			assert_eq!(Staking::unbonding_duration(11), vec![(1 + 3, 400), (2 + 3, 100)]);
 		})
 	}
 
@@ -1410,11 +1446,12 @@ mod rebond {
 					active: 100,
 					unlocking: bounded_vec![UnlockChunk {
 						value: 900,
-						era: active_era(),
+						era: 1,
 						previous_unbonded_stake: 0
 					}],
 				}
 			);
+			assert_eq!(Staking::unbonding_duration(11), vec![(1 + 3, 900)]);
 			assert_eq!(
 				staking_events_since_last_call(),
 				vec![Event::Unbonded { stash: 11, amount: 900 }]
@@ -1435,6 +1472,7 @@ mod rebond {
 					}],
 				}
 			);
+			assert_eq!(Staking::unbonding_duration(11), vec![(1 + 3, 800)]);
 			assert_eq!(
 				staking_events_since_last_call(),
 				vec![Event::Bonded { stash: 11, amount: 100 }]
@@ -1451,6 +1489,7 @@ mod rebond {
 					unlocking: Default::default(),
 				}
 			);
+			assert_eq!(Staking::unbonding_duration(11), vec![]);
 			assert_eq!(
 				staking_events_since_last_call(),
 				vec![Event::Bonded { stash: 11, amount: 800 }]
@@ -1487,11 +1526,12 @@ mod rebond {
 						active: 0,
 						unlocking: bounded_vec![UnlockChunk {
 							value: 11 * 1000,
-							era: active_era(),
+							era: 1,
 							previous_unbonded_stake: 0
 						}],
 					}
 				);
+				assert_eq!(Staking::unbonding_duration(21), vec![(1 + 3, 11 * 1000)]);
 
 				// now bond a wee bit more
 				assert_noop!(
