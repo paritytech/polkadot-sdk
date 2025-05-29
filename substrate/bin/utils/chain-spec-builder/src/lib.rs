@@ -436,6 +436,7 @@ fn parse_properties(raw: &String, props: &mut sc_chain_spec::Properties) -> Resu
 }
 
 /// Processes `CreateCmd` and returns string representation of JSON version of `ChainSpec`.
+#[allow(deprecated)]
 pub fn generate_chain_spec_for_runtime(cmd: &CreateCmd) -> Result<String, String> {
 	let code = cmd.get_runtime_code()?;
 
