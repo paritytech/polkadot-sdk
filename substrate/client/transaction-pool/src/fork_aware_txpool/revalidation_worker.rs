@@ -201,7 +201,7 @@ mod tests {
 	use crate::{
 		common::tests::{uxt, TestApi},
 		fork_aware_txpool::view::FinishRevalidationLocalChannels,
-		TimedTransactionSource,
+		TimedTransactionSource, ValidateTransactionPriority,
 	};
 	use futures::executor::block_on;
 	use substrate_test_runtime::{AccountId, Transfer, H256};
@@ -223,10 +223,10 @@ mod tests {
 			nonce: 0,
 		});
 
-		let _ = block_on(view.submit_many(std::iter::once((
-			TimedTransactionSource::new_external(false),
-			uxt.clone().into(),
-		))));
+		let _ = block_on(view.submit_many(
+			std::iter::once((TimedTransactionSource::new_external(false), uxt.clone().into())),
+			ValidateTransactionPriority::Submitted,
+		));
 		assert_eq!(api.validation_requests().len(), 1);
 
 		let (finish_revalidation_request_tx, finish_revalidation_request_rx) =

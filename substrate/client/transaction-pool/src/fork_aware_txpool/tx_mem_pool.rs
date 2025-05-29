@@ -55,7 +55,7 @@ use crate::{
 	common::tracing_log_xt::log_xt_trace,
 	graph,
 	graph::{base_pool::TimedTransactionSource, ExtrinsicFor, ExtrinsicHash},
-	LOG_TARGET,
+	ValidateTransactionPriority, LOG_TARGET,
 };
 
 use super::{
@@ -595,7 +595,12 @@ where
 
 		let validations_futures = input.into_iter().map(|(xt_hash, xt)| {
 			self.api
-				.validate_transaction(finalized_block.hash, xt.source.clone().into(), xt.tx())
+				.validate_transaction(
+					finalized_block.hash,
+					xt.source.clone().into(),
+					xt.tx(),
+					ValidateTransactionPriority::Submitted,
+				)
 				.map(move |validation_result| {
 					xt.validated_at
 						.store(finalized_block.number.into().as_u64(), atomic::Ordering::Relaxed);

@@ -44,7 +44,7 @@ use crate::{
 		base_pool::{TimedTransactionSource, Transaction},
 		BlockHash, ExtrinsicFor, ExtrinsicHash, IsValidator, Options, RawExtrinsicFor,
 	},
-	insert_and_log_throttled, ReadyIteratorFor, LOG_TARGET,
+	insert_and_log_throttled, ReadyIteratorFor, ValidateTransactionPriority, LOG_TARGET,
 };
 use async_trait::async_trait;
 use futures::{
@@ -1478,7 +1478,7 @@ where
 			.unzip();
 
 		let results = view
-			.submit_many(xts_filtered)
+			.submit_many(xts_filtered, ValidateTransactionPriority::Maintained)
 			.await
 			.into_iter()
 			.zip(hashes)
@@ -1698,7 +1698,14 @@ where
 				});
 			}
 
-			let _ = view.pool.resubmit_at(&hash_and_number, resubmit_transactions).await;
+			let _ = view
+				.pool
+				.resubmit_at(
+					&hash_and_number,
+					resubmit_transactions,
+					ValidateTransactionPriority::Maintained,
+				)
+				.await;
 		}
 	}
 
@@ -1792,6 +1799,7 @@ where
 				TimedTransactionSource::from_transaction_source(source, false),
 				xt.clone(),
 				crate::graph::CheckBannedBeforeVerify::Yes,
+				ValidateTransactionPriority::Submitted,
 			)
 			.await;
 

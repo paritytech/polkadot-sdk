@@ -30,7 +30,7 @@ use crate::{
 		BaseSubmitOutcome, BlockHash, ExtrinsicFor, ExtrinsicHash, TransactionFor,
 		ValidatedPoolSubmitOutcome,
 	},
-	ReadyIteratorFor, LOG_TARGET,
+	ReadyIteratorFor, ValidateTransactionPriority, LOG_TARGET,
 };
 use itertools::Itertools;
 use parking_lot::RwLock;
@@ -229,7 +229,7 @@ where
 					async move {
 						(
 							view.at.hash,
-							view.submit_many(xts)
+							view.submit_many(xts, ValidateTransactionPriority::Submitted)
 								.await
 								.into_iter()
 								.map(|r| r.map(Into::into))
@@ -304,7 +304,9 @@ where
 					let view = view.clone();
 					let xt = xt.clone();
 					let source = source.clone();
-					async move { view.submit_one(source, xt).await }
+					async move {
+						view.submit_one(source, xt, ValidateTransactionPriority::Submitted).await
+					}
 				})
 				.collect::<Vec<_>>()
 		};
@@ -793,7 +795,9 @@ where
 		xt: ExtrinsicFor<ChainApi>,
 		tx_hash: ExtrinsicHash<ChainApi>,
 	) {
-		if let Err(error) = view.submit_one(source, xt).await {
+		if let Err(error) =
+			view.submit_one(source, xt, ValidateTransactionPriority::Submitted).await
+		{
 			trace!(
 				target: LOG_TARGET,
 				?tx_hash,

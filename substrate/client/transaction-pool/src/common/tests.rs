@@ -18,7 +18,10 @@
 
 //! Testing related primitives for internal usage in this crate.
 
-use crate::graph::{BlockHash, ChainApi, ExtrinsicFor, NumberFor, RawExtrinsicFor};
+use crate::{
+	graph::{BlockHash, ChainApi, ExtrinsicFor, NumberFor, RawExtrinsicFor},
+	ValidateTransactionPriority,
+};
 use async_trait::async_trait;
 use codec::Encode;
 use parking_lot::Mutex;
@@ -79,6 +82,7 @@ impl ChainApi for TestApi {
 		at: <Self::Block as BlockT>::Hash,
 		_source: TransactionSource,
 		uxt: ExtrinsicFor<Self>,
+		_: ValidateTransactionPriority,
 	) -> Result<TransactionValidity, error::Error> {
 		let uxt = (*uxt).clone();
 		self.validation_requests.lock().push(uxt.clone());

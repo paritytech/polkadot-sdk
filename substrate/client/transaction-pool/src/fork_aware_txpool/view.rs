@@ -28,8 +28,8 @@ use crate::{
 	common::tracing_log_xt::log_xt_trace,
 	graph::{
 		self, base_pool::TimedTransactionSource, BlockHash, ExtrinsicFor, ExtrinsicHash,
-		IsValidator, TransactionFor, ValidatedPoolSubmitOutcome, ValidatedTransaction,
-		ValidatedTransactionFor,
+		IsValidator, TransactionFor, ValidateTransactionPriority, ValidatedPoolSubmitOutcome,
+		ValidatedTransaction, ValidatedTransactionFor,
 	},
 	LOG_TARGET,
 };
@@ -316,8 +316,9 @@ where
 		&self,
 		source: TimedTransactionSource,
 		xt: ExtrinsicFor<ChainApi>,
+		validation_priority: ValidateTransactionPriority,
 	) -> Result<ValidatedPoolSubmitOutcome<ChainApi>, ChainApi::Error> {
-		self.submit_many(std::iter::once((source, xt)))
+		self.submit_many(std::iter::once((source, xt)), validation_priority)
 			.await
 			.pop()
 			.expect("There is exactly one result, qed.")
@@ -328,6 +329,7 @@ where
 	pub(super) async fn submit_many(
 		&self,
 		xts: impl IntoIterator<Item = (TimedTransactionSource, ExtrinsicFor<ChainApi>)>,
+		validation_priority: ValidateTransactionPriority,
 	) -> Vec<Result<ValidatedPoolSubmitOutcome<ChainApi>, ChainApi::Error>> {
 		if tracing::enabled!(target: LOG_TARGET, tracing::Level::TRACE) {
 			let xts = xts.into_iter().collect::<Vec<_>>();
@@ -337,9 +339,9 @@ where
 				"view::submit_many at:{}",
 				self.at.hash
 			);
-			self.pool.submit_at(&self.at, xts).await
+			self.pool.submit_at(&self.at, xts, validation_priority).await
 		} else {
-			self.pool.submit_at(&self.at, xts).await
+			self.pool.submit_at(&self.at, xts, validation_priority).await
 		}
 	}
 
@@ -449,7 +451,13 @@ where
 				}
 				_ = async {
 					if let Some(tx) = batch_iter.next() {
-						let validation_result = (api.validate_transaction(self.at.hash, tx.source.clone().into(), tx.data.clone()).await, tx.hash, tx);
+						let validation_result = (
+							api.validate_transaction(self.at.hash,
+								tx.source.clone().into(), tx.data.clone(),
+								ValidateTransactionPriority::Submitted).await,
+							tx.hash,
+							tx
+						);
 						validation_results.push(validation_result);
 					} else {
 						self.revalidation_worker_channels.lock().as_mut().map(|ch| ch.remove_sender());
