@@ -12,14 +12,8 @@ doc:
     * [x] It silences some logs that were needlessly `INFO`, and makes the printing of some types a bit more CLI friendly.
     * [x] Renames `type SessionDuration` in `staking-async` to `type RelaySessionDuration` for better clarity.
 crates:
-- name: cumulus-pallet-parachain-system
-  bump: minor
-- name: cumulus-primitives-core
-  bump: minor
-- name: cumulus-primitives-utility
-  bump: minor
 - name: pallet-staking-async-ah-client
-  bump: minor
+  bump: patch
 - name: pallet-staking-async-rc-client
   bump: minor
 - name: pallet-staking-async-parachain-runtime
