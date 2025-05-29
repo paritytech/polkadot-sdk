@@ -53,8 +53,8 @@ where
 
 		match input {
 			IXcmCalls::xcmSend(IXcm::xcmSendCall { destination, message }) => {
-				let _weight = <Runtime as Config>::WeightInfo::send();
-				// TODO: Charge gas for the weight
+				let weight = <Runtime as Config>::WeightInfo::send();
+				let _ = env.gas_meter_mut().charge(RuntimeCosts::CallRuntime(weight));
 
 				let final_destination = VersionedLocation::decode_all(&mut &destination[..])
 					.map_err(|e| {
@@ -91,8 +91,7 @@ where
 				})?;
 
 				let weight = Weight::from_parts(weight.refTime, weight.proofSize);
-				// env.gas_meter_mut().charge(RuntimeCosts::CallXcmExecute(weight.clone()))?; //
-				// TODO: Charge gas
+				let _ = env.gas_meter_mut().charge(RuntimeCosts::CallRuntime(weight));
 
 				crate::Pallet::<Runtime>::execute(frame_origin, final_message.into(), weight)
 					.map(|results| results.encode())
