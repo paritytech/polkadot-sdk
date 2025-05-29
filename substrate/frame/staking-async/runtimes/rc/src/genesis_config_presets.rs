@@ -17,8 +17,8 @@
 //! Genesis configs presets for the Westend runtime
 
 use crate::{
-	BabeConfig, BalancesConfig, ConfigurationConfig, RegistrarConfig, RuntimeGenesisConfig,
-	SessionConfig, SessionKeys, AssetHubStakingClientConfig, SudoConfig, BABE_GENESIS_EPOCH_CONFIG,
+	AssetHubStakingClientConfig, BabeConfig, BalancesConfig, ConfigurationConfig, RegistrarConfig,
+	RuntimeGenesisConfig, SessionConfig, SessionKeys, SudoConfig, BABE_GENESIS_EPOCH_CONFIG,
 };
 #[cfg(not(feature = "std"))]
 use alloc::format;
