@@ -49,7 +49,7 @@ use cumulus_client_consensus_proposer::{Proposer, ProposerInterface};
 use cumulus_client_consensus_relay_chain::Verifier as RelayChainVerifier;
 #[allow(deprecated)]
 use cumulus_client_service::CollatorSybilResistance;
-use cumulus_primitives_core::{relay_chain::ValidationCode, ParaId, GetParachainIdentity};
+use cumulus_primitives_core::{relay_chain::ValidationCode, GetParachainIdentity, ParaId};
 use cumulus_relay_chain_interface::{OverseerHandle, RelayChainInterface};
 use futures::prelude::*;
 use polkadot_primitives::CollatorPair;
