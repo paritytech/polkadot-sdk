@@ -52,6 +52,7 @@ decl_test_parachains! {
 			PoolAssets: asset_hub_westend_runtime::PoolAssets,
 			AssetConversion: asset_hub_westend_runtime::AssetConversion,
 			SnowbridgeSystemFrontend: asset_hub_westend_runtime::SnowbridgeSystemFrontend,
+			Revive: asset_hub_westend_runtime::Revive,
 		}
 	},
 }

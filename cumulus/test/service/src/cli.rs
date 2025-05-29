@@ -321,6 +321,9 @@ impl SubstrateCli for TestCollatorCli {
 					2500,
 				)))) as Box<_>
 			},
+			"relay-parent-offset" => Box::new(
+				cumulus_test_service::get_relay_parent_offset_chain_spec(Some(ParaId::from(2600))),
+			) as Box<_>,
 			path => {
 				let chain_spec: sc_chain_spec::GenericChainSpec =
 					sc_chain_spec::GenericChainSpec::from_json_file(path.into())?;
