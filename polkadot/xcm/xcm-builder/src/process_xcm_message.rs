@@ -176,9 +176,7 @@ mod tests {
 		struct MockedExecutor;
 		impl ExecuteXcm<()> for MockedExecutor {
 			type Prepared = xcm_executor::WeighedMessage<()>;
-			fn prepare(
-				message: xcm::latest::Xcm<()>,
-			) -> core::result::Result<Self::Prepared, xcm::latest::Xcm<()>> {
+			fn prepare(message: xcm::latest::Xcm<()>) -> core::result::Result<Self::Prepared, u8> {
 				Ok(xcm_executor::WeighedMessage::new(Weight::zero(), message))
 			}
 			fn execute(

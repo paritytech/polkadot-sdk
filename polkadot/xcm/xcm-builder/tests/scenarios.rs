@@ -149,7 +149,7 @@ fn report_holding_works() {
 			Outcome::Incomplete {
 				used: weight - BaseXcmWeight::get(),
 				error: XcmError::FailedToTransactAsset("AccountIdConversionFailed"),
-				index: 0
+				index: 2
 			}
 		);
 		// there should be no query response sent for the failed deposit
@@ -238,7 +238,7 @@ fn teleport_to_asset_hub_works() {
 		);
 		assert_eq!(
 			r,
-			Outcome::Incomplete { used: weight, error: UntrustedTeleportLocation, index: 0 }
+			Outcome::Incomplete { used: weight, error: UntrustedTeleportLocation, index: 2 }
 		);
 
 		// teleports are allowed from asset hub to kusama.

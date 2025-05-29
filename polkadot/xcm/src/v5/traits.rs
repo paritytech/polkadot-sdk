@@ -295,7 +295,8 @@ pub trait PreparedMessage {
 /// Type of XCM message executor.
 pub trait ExecuteXcm<Call> {
 	type Prepared: PreparedMessage;
-	fn prepare(message: Xcm<Call>) -> result::Result<Self::Prepared, Xcm<Call>>;
+	/// If it fails, returns the index of the problematic instruction.
+	fn prepare(message: Xcm<Call>) -> result::Result<Self::Prepared, u8>;
 	fn execute(
 		origin: impl Into<Location>,
 		pre: Self::Prepared,
@@ -311,7 +312,7 @@ pub trait ExecuteXcm<Call> {
 	) -> Outcome {
 		let pre = match Self::prepare(message) {
 			Ok(x) => x,
-			Err(_) => return Outcome::Error { error: Error::WeightNotComputable, index: 0 },
+			Err(index) => return Outcome::Error { error: Error::WeightNotComputable, index },
 		};
 		let xcm_weight = pre.weight_of();
 		if xcm_weight.any_gt(weight_limit) {
@@ -334,8 +335,8 @@ impl PreparedMessage for Weightless {
 
 impl<C> ExecuteXcm<C> for () {
 	type Prepared = Weightless;
-	fn prepare(message: Xcm<C>) -> result::Result<Self::Prepared, Xcm<C>> {
-		Err(message)
+	fn prepare(_: Xcm<C>) -> result::Result<Self::Prepared, u8> {
+		Err(0)
 	}
 	fn execute(_: impl Into<Location>, _: Self::Prepared, _: &mut XcmHash, _: Weight) -> Outcome {
 		unreachable!()
