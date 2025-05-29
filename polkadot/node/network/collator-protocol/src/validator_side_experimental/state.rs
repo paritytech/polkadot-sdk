@@ -424,8 +424,44 @@ impl<B: Backend> State<B> {
 				"Seconded candidate unblocked {} collations",
 				unblocked_collations.len(),
 			);
-		}
 
+			self.try_second_unblocked_collations(sender, unblocked_collations).await;
+		}
+	}
+
+	pub async fn try_launch_new_fetch_requests<Sender: CollatorProtocolSenderTrait>(
+		&mut self,
+		sender: &mut Sender,
+	) {
+		let peer_manager = &self.peer_manager;
+		let connected_rep_query_fn = move |peer_id: &PeerId, para_id: &ParaId| {
+			peer_manager.connected_peer_score(peer_id, para_id)
+		};
+
+		let requests = self.collation_manager.try_making_new_fetch_requests(connected_rep_query_fn);
+
+		if !requests.is_empty() {
+			gum::debug!(
+				target: LOG_TARGET,
+				?requests,
+				"Sending {} collation fetch requests",
+				requests.len()
+			);
+
+			sender
+				.send_message(NetworkBridgeTxMessage::SendRequests(
+					requests,
+					IfDisconnected::ImmediateError,
+				))
+				.await;
+		}
+	}
+
+	async fn try_second_unblocked_collations<Sender: CollatorProtocolSenderTrait>(
+		&mut self,
+		sender: &mut Sender,
+		unblocked_collations: Vec<CanSecond>,
+	) {
 		for can_second_unblocked in unblocked_collations {
 			match can_second_unblocked {
 				CanSecond::Yes(candidate_receipt, pov, pvd) => {
@@ -490,34 +526,6 @@ impl<B: Backend> State<B> {
 					);
 				},
 			}
-		}
-	}
-
-	pub async fn try_launch_new_fetch_requests<Sender: CollatorProtocolSenderTrait>(
-		&mut self,
-		sender: &mut Sender,
-	) {
-		let peer_manager = &self.peer_manager;
-		let connected_rep_query_fn = move |peer_id: &PeerId, para_id: &ParaId| {
-			peer_manager.connected_peer_score(peer_id, para_id)
-		};
-
-		let requests = self.collation_manager.try_making_new_fetch_requests(connected_rep_query_fn);
-
-		if !requests.is_empty() {
-			gum::debug!(
-				target: LOG_TARGET,
-				?requests,
-				"Sending {} collation fetch requests",
-				requests.len()
-			);
-
-			sender
-				.send_message(NetworkBridgeTxMessage::SendRequests(
-					requests,
-					IfDisconnected::ImmediateError,
-				))
-				.await;
 		}
 	}
 }

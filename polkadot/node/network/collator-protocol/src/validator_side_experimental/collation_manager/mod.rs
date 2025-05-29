@@ -188,8 +188,8 @@ impl CollationManager {
 				"CollationManager: Removing relay parents from implicit view"
 			);
 
-			// Remove the fetching collations and advertisements for the deactivated RPs.
 			for deactivated in deactivated_ancestry.iter() {
+				// Remove the fetching collations and advertisements for the deactivated RPs.
 				if let Some(deactivated_rp) = self.per_relay_parent.remove(deactivated) {
 					for advertisement in deactivated_rp.all_advertisements() {
 						if self.fetching.contains(&advertisement) {
@@ -203,8 +203,8 @@ impl CollationManager {
 				.remove_pruned_ancestors(&deactivated_ancestry.into_iter().collect());
 		}
 
-		// Remove blocked seconding requests that left the view. TODO: need to release any claims?
-		// yes. have a look at: // Remove any collations that were blocked on this parent
+		// Remove blocked seconding requests that left the view. TODO: revisit this
+
 		self.blocked_from_seconding.retain(|_, collations| {
 			collations.retain(|collation| {
 				self.per_relay_parent
@@ -534,35 +534,10 @@ impl CollationManager {
 
 		if let Some(output_head_hash) = maybe_output_head_hash {
 			// Remove any collations that were blocked on this parent.
-			let Some(blocked) = self
-				.blocked_from_seconding
-				.remove(&BlockedCollationId { para_id, parent_head_data_hash: output_head_hash })
-			else {
-				return
-			};
-
-			for collation in blocked {
-				let candidate_hash = collation.candidate_receipt.hash();
-				let relay_parent = collation.candidate_receipt.descriptor.relay_parent();
-				gum::debug!(
-					target: LOG_TARGET,
-					?relay_parent,
-					?candidate_hash,
-					?para_id,
-					?output_head_hash,
-					"Releasing slot for blocked collation because its parent was released",
-				);
-
-				if !self.claim_queue_state.release_claims_for_candidate(&candidate_hash) {
-					gum::debug!(
-						target: LOG_TARGET,
-						?relay_parent,
-						?candidate_hash,
-						?para_id,
-						"Could not release slot for candidate, it wasn't claimed",
-					);
-				}
-			}
+			self.remove_blocked_collations(BlockedCollationId {
+				para_id,
+				parent_head_data_hash: output_head_hash,
+			});
 		}
 	}
 
@@ -766,6 +741,33 @@ impl CollationManager {
 		};
 
 		can_second
+	}
+
+	fn remove_blocked_collations(&mut self, id: BlockedCollationId) {
+		let Some(blocked) = self.blocked_from_seconding.remove(&id) else { return };
+
+		for collation in blocked {
+			let candidate_hash = collation.candidate_receipt.hash();
+			let relay_parent = collation.candidate_receipt.descriptor.relay_parent();
+			gum::debug!(
+				target: LOG_TARGET,
+				?relay_parent,
+				?candidate_hash,
+				para_id = ?id.para_id,
+				parent_head_hash = ?id.parent_head_data_hash,
+				"Releasing slot for blocked collation because its parent was released",
+			);
+
+			if !self.claim_queue_state.release_claims_for_candidate(&candidate_hash) {
+				gum::debug!(
+					target: LOG_TARGET,
+					?relay_parent,
+					?candidate_hash,
+					para_id = ?id.para_id,
+					"Could not release slot for candidate, it wasn't claimed",
+				);
+			}
+		}
 	}
 }
 
