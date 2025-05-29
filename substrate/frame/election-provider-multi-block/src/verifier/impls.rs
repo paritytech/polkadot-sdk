@@ -47,7 +47,7 @@ pub(crate) type SupportsOfVerifier<V> = frame_election_provider_support::Bounded
 	<V as Verifier>::MaxBackersPerWinner,
 >;
 
-pub(crate) type VerifierWeightsOf<T> = <T as Config>::WeightInfo;
+pub(crate) type VerifierWeightsOf<T> = <T as super::Config>::WeightInfo;
 
 /// The status of this pallet.
 #[derive(

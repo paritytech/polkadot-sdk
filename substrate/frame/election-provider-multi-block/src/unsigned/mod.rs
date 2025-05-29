@@ -70,7 +70,7 @@
 //! the signed process is bullet-proof, we can be okay with the status quo.
 
 /// Export weights
-pub use crate::weights::measured::pallet_election_provider_multi_block_unsigned::*;
+pub use crate::weights::traits::pallet_election_provider_multi_block_unsigned::*;
 /// Exports of this pallet
 pub use pallet::*;
 #[cfg(feature = "runtime-benchmarks")]
