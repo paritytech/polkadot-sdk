@@ -27,4 +27,4 @@ crates:
 - name: pallet-staking-async-rc-runtime
   bump: major
 - name: pallet-staking-async
-  bump: minor
+  bump: major
