@@ -400,6 +400,8 @@ pub mod pallet {
 		SessionReportIntegrityFailed,
 		/// We could not merge the chunks, and therefore dropped the validator set.
 		ValidatorSetIntegrityFailed,
+		/// The received session index is more than what we expected.
+		SessionSkipped,
 	}
 
 	#[pallet::error]
@@ -444,6 +446,16 @@ pub mod pallet {
 				},
 				Some(last) if report.end_index == last + 1 => {
 					// incremental -- good
+				},
+				Some(last) if report.end_index > last + 1 => {
+					// deposit a warning event, but proceed
+					Self::deposit_event(Event::Unexpected(UnexpectedKind::SessionSkipped));
+					log!(
+						warn,
+						"Session report end index is more than expected. last_index={:?}, report.index={:?}",
+						last,
+						report.end_index
+					);
 				},
 				Some(incorrect) => {
 					log!(
