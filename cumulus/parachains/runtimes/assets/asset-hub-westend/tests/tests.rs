@@ -17,6 +17,10 @@
 
 //! Tests for the Westmint (Westend Assets Hub) chain.
 
+use alloy_core::{
+	primitives::U256,
+	sol_types::{sol_data, SolType},
+};
 use asset_hub_westend_runtime::{
 	xcm_config,
 	xcm_config::{
@@ -25,7 +29,7 @@ use asset_hub_westend_runtime::{
 	},
 	AllPalletsWithoutSystem, Assets, Balances, Block, ExistentialDeposit, ForeignAssets,
 	ForeignAssetsInstance, MetadataDepositBase, MetadataDepositPerByte, ParachainSystem,
-	PolkadotXcm, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin, SessionKeys,
+	PolkadotXcm, Revive, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin, SessionKeys,
 	ToRococoXcmRouterInstance, TrustBackedAssetsInstance, XcmpQueue,
 };
 pub use asset_hub_westend_runtime::{AssetConversion, AssetDeposit, CollatorSelection, System};
@@ -37,30 +41,36 @@ use codec::{Decode, Encode};
 use frame_support::{
 	assert_err, assert_noop, assert_ok, parameter_types,
 	traits::{
-		fungible::{Inspect, Mutate},
+		fungible::{self, Inspect, Mutate},
 		fungibles::{
-			Create, Inspect as FungiblesInspect, InspectEnumerable, Mutate as FungiblesMutate,
+			self, Create, Inspect as FungiblesInspect, InspectEnumerable, Mutate as FungiblesMutate,
 		},
 		ContainsPair,
 	},
 	weights::{Weight, WeightToFee as WeightToFeeT},
 };
 use hex_literal::hex;
+use pallet_revive::{Code, DepositLimit, InstantiateReturnValue, NonceAlreadyIncremented};
+use pallet_revive_fixtures::compile_module;
 use parachains_common::{AccountId, AssetIdForTrustBackedAssets, AuraId, Balance};
 use sp_consensus_aura::SlotDuration;
 use sp_core::crypto::Ss58Codec;
 use sp_runtime::{traits::MaybeEquivalence, Either};
 use std::convert::Into;
 use testnet_parachains_constants::westend::{consensus::*, currency::UNITS, fee::WeightToFee};
-use xcm::latest::{
-	prelude::{Assets as XcmAssets, *},
-	ROCOCO_GENESIS_HASH,
+use xcm::{
+	latest::{
+		prelude::{Assets as XcmAssets, *},
+		ROCOCO_GENESIS_HASH,
+	},
+	VersionedXcm,
 };
 use xcm_builder::WithLatestLocationConverter;
 use xcm_executor::traits::{ConvertLocation, JustTry, WeightTrader};
 use xcm_runtime_apis::conversions::LocationToAccountHelper;
 
 const ALICE: [u8; 32] = [1u8; 32];
+const BOB: [u8; 32] = [2u8; 32];
 const SOME_ASSET_ADMIN: [u8; 32] = [5u8; 32];
 
 parameter_types! {
@@ -1446,4 +1456,329 @@ fn governance_authorize_upgrade_works() {
 		Runtime,
 		RuntimeOrigin,
 	>(GovernanceOrigin::Location(GovernanceLocation::get())));
+}
+
+#[test]
+fn weight_of_message_increases_when_dealing_with_erc20s() {
+	use xcm::VersionedXcm;
+	use xcm_runtime_apis::fees::runtime_decl_for_xcm_payment_api::XcmPaymentApiV1;
+	let message = Xcm::<()>::builder_unsafe().withdraw_asset((Parent, 100u128)).build();
+	let versioned = VersionedXcm::<()>::V5(message);
+	let regular_asset_weight = Runtime::query_xcm_weight(versioned).unwrap();
+
+	let message = Xcm::<()>::builder_unsafe()
+		.withdraw_asset((AccountKey20 { network: None, key: [1u8; 20] }, 100u128))
+		.build();
+	let versioned = VersionedXcm::<()>::V5(message);
+	let weight = Runtime::query_xcm_weight(versioned).unwrap();
+	assert!(
+		weight.ref_time() > regular_asset_weight.ref_time()
+			// The proof size really blows up.
+			&& weight.proof_size() > 10 * regular_asset_weight.proof_size()
+	);
+	assert_eq!(weight, crate::xcm_config::ERC20TransferGasLimit::get());
+}
+
+#[test]
+fn withdraw_and_deposit_erc20s() {
+	let sender: AccountId = ALICE.into();
+	let beneficiary: AccountId = BOB.into();
+	let checking_account =
+		asset_hub_westend_runtime::xcm_config::ERC20TransfersCheckingAccount::get();
+	let initial_wnd_amount = 10_000_000_000_000u128;
+
+	ExtBuilder::<Runtime>::default().build().execute_with(|| {
+		// We need to give enough funds for every account involved so they
+		// can call `Revive::map_account`.
+		assert_ok!(Balances::mint_into(&sender, initial_wnd_amount));
+		assert_ok!(Balances::mint_into(&beneficiary, initial_wnd_amount));
+		assert_ok!(Balances::mint_into(&checking_account, initial_wnd_amount));
+
+		// We need to map all accounts.
+		assert_ok!(Revive::map_account(RuntimeOrigin::signed(checking_account.clone())));
+		assert_ok!(Revive::map_account(RuntimeOrigin::signed(sender.clone())));
+		assert_ok!(Revive::map_account(RuntimeOrigin::signed(beneficiary.clone())));
+
+		let code = include_bytes!(
+			"../../../../../../substrate/frame/revive/fixtures/contracts/erc20.polkavm"
+		)
+		.to_vec();
+
+		let initial_amount_u256 = U256::from(1_000_000_000_000u128);
+		let constructor_data = sol_data::Uint::<256>::abi_encode(&initial_amount_u256);
+		let result = Revive::bare_instantiate(
+			RuntimeOrigin::signed(sender.clone()),
+			0,
+			Weight::from_parts(2_000_000_000, 200_000),
+			DepositLimit::Balance(Balance::MAX),
+			Code::Upload(code),
+			constructor_data,
+			None,
+			NonceAlreadyIncremented::Yes,
+		);
+		let Ok(InstantiateReturnValue { addr: erc20_address, .. }) = result.result else {
+			unreachable!("contract should initialize")
+		};
+
+		let sender_balance_before = <Balances as fungible::Inspect<_>>::balance(&sender);
+
+		let erc20_transfer_amount = 100u128;
+		let wnd_amount_for_fees = 1_000_000_000_000u128;
+		// Actual XCM to execute locally.
+		let message = Xcm::<RuntimeCall>::builder()
+			.withdraw_asset((Parent, wnd_amount_for_fees))
+			.pay_fees((Parent, wnd_amount_for_fees))
+			.withdraw_asset((
+				AccountKey20 { key: erc20_address.into(), network: None },
+				erc20_transfer_amount,
+			))
+			.deposit_asset(AllCounted(1), beneficiary.clone())
+			.refund_surplus()
+			.deposit_asset(AllCounted(1), sender.clone())
+			.build();
+		assert_ok!(PolkadotXcm::execute(
+			RuntimeOrigin::signed(sender.clone()),
+			Box::new(VersionedXcm::V5(message)),
+			Weight::from_parts(2_500_000_000, 220_000),
+		));
+
+		// Revive is not taking any fees.
+		let sender_balance_after = <Balances as fungible::Inspect<_>>::balance(&sender);
+		// Balance after is larger than the difference between balance before and transferred
+		// amount because of the refund.
+		assert!(sender_balance_after > sender_balance_before - wnd_amount_for_fees);
+
+		// Beneficiary receives the ERC20.
+		let beneficiary_amount =
+			<Revive as fungibles::Inspect<_>>::balance(erc20_address, &beneficiary);
+		assert_eq!(beneficiary_amount, erc20_transfer_amount);
+	});
+}
+
+#[test]
+fn non_existent_erc20_will_error() {
+	let sender: AccountId = ALICE.into();
+	let beneficiary: AccountId = BOB.into();
+	let checking_account =
+		asset_hub_westend_runtime::xcm_config::ERC20TransfersCheckingAccount::get();
+	let initial_wnd_amount = 10_000_000_000_000u128;
+	// We try to withdraw an ERC20 token but the address doesn't exist.
+	let non_existent_contract_address = [1u8; 20];
+
+	ExtBuilder::<Runtime>::default().build().execute_with(|| {
+		// We need to give enough funds for every account involved so they
+		// can call `Revive::map_account`.
+		assert_ok!(Balances::mint_into(&sender, initial_wnd_amount));
+		assert_ok!(Balances::mint_into(&beneficiary, initial_wnd_amount));
+		assert_ok!(Balances::mint_into(&checking_account, initial_wnd_amount));
+
+		// We need to map all accounts.
+		assert_ok!(Revive::map_account(RuntimeOrigin::signed(checking_account.clone())));
+		assert_ok!(Revive::map_account(RuntimeOrigin::signed(sender.clone())));
+		assert_ok!(Revive::map_account(RuntimeOrigin::signed(beneficiary.clone())));
+
+		let wnd_amount_for_fees = 1_000_000_000_000u128;
+		let erc20_transfer_amount = 100u128;
+		let message = Xcm::<RuntimeCall>::builder()
+			.withdraw_asset((Parent, wnd_amount_for_fees))
+			.pay_fees((Parent, wnd_amount_for_fees))
+			.withdraw_asset((
+				AccountKey20 { key: non_existent_contract_address, network: None },
+				erc20_transfer_amount,
+			))
+			.deposit_asset(AllCounted(1), beneficiary.clone())
+			.build();
+		// Execution fails but doesn't panic.
+		assert!(PolkadotXcm::execute(
+			RuntimeOrigin::signed(sender.clone()),
+			Box::new(VersionedXcm::V5(message)),
+			Weight::from_parts(2_500_000_000, 120_000),
+		)
+		.is_err());
+	});
+}
+
+#[test]
+fn smart_contract_not_erc20_will_error() {
+	let sender: AccountId = ALICE.into();
+	let beneficiary: AccountId = BOB.into();
+	let checking_account =
+		asset_hub_westend_runtime::xcm_config::ERC20TransfersCheckingAccount::get();
+	let initial_wnd_amount = 10_000_000_000_000u128;
+
+	ExtBuilder::<Runtime>::default().build().execute_with(|| {
+		// We need to give enough funds for every account involved so they
+		// can call `Revive::map_account`.
+		assert_ok!(Balances::mint_into(&sender, initial_wnd_amount));
+		assert_ok!(Balances::mint_into(&beneficiary, initial_wnd_amount));
+		assert_ok!(Balances::mint_into(&checking_account, initial_wnd_amount));
+
+		// We need to map all accounts.
+		assert_ok!(Revive::map_account(RuntimeOrigin::signed(checking_account.clone())));
+		assert_ok!(Revive::map_account(RuntimeOrigin::signed(sender.clone())));
+		assert_ok!(Revive::map_account(RuntimeOrigin::signed(beneficiary.clone())));
+
+		let (code, _) = compile_module("dummy").unwrap();
+
+		let result = Revive::bare_instantiate(
+			RuntimeOrigin::signed(sender.clone()),
+			0,
+			Weight::from_parts(2_000_000_000, 200_000),
+			DepositLimit::Balance(Balance::MAX),
+			Code::Upload(code),
+			Vec::new(),
+			None,
+			NonceAlreadyIncremented::Yes,
+		);
+		let Ok(InstantiateReturnValue { addr: non_erc20_address, .. }) = result.result else {
+			unreachable!("contract should initialize")
+		};
+
+		let wnd_amount_for_fees = 1_000_000_000_000u128;
+		let erc20_transfer_amount = 100u128;
+		let message = Xcm::<RuntimeCall>::builder()
+			.withdraw_asset((Parent, wnd_amount_for_fees))
+			.pay_fees((Parent, wnd_amount_for_fees))
+			.withdraw_asset((
+				AccountKey20 { key: non_erc20_address.into(), network: None },
+				erc20_transfer_amount,
+			))
+			.deposit_asset(AllCounted(1), beneficiary.clone())
+			.build();
+		// Execution fails but doesn't panic.
+		assert!(PolkadotXcm::execute(
+			RuntimeOrigin::signed(sender.clone()),
+			Box::new(VersionedXcm::V5(message)),
+			Weight::from_parts(2_500_000_000, 120_000),
+		)
+		.is_err());
+	});
+}
+
+// Here the contract returns a number but because it can be cast to true
+// it still succeeds.
+#[test]
+fn smart_contract_does_not_return_bool_fails() {
+	let sender: AccountId = ALICE.into();
+	let beneficiary: AccountId = BOB.into();
+	let checking_account =
+		asset_hub_westend_runtime::xcm_config::ERC20TransfersCheckingAccount::get();
+	let initial_wnd_amount = 10_000_000_000_000u128;
+
+	ExtBuilder::<Runtime>::default().build().execute_with(|| {
+		// We need to give enough funds for every account involved so they
+		// can call `Revive::map_account`.
+		assert_ok!(Balances::mint_into(&sender, initial_wnd_amount));
+		assert_ok!(Balances::mint_into(&beneficiary, initial_wnd_amount));
+		assert_ok!(Balances::mint_into(&checking_account, initial_wnd_amount));
+
+		// We need to map all accounts.
+		assert_ok!(Revive::map_account(RuntimeOrigin::signed(checking_account.clone())));
+		assert_ok!(Revive::map_account(RuntimeOrigin::signed(sender.clone())));
+		assert_ok!(Revive::map_account(RuntimeOrigin::signed(beneficiary.clone())));
+
+		// This contract implements the ERC20 interface for `transfer` except it returns a uint256.
+		let code = include_bytes!(
+			"../../../../../../substrate/frame/revive/fixtures/contracts/fake_erc20.polkavm"
+		)
+		.to_vec();
+
+		let initial_amount_u256 = U256::from(1_000_000_000_000u128);
+		let constructor_data = sol_data::Uint::<256>::abi_encode(&initial_amount_u256);
+		let result = Revive::bare_instantiate(
+			RuntimeOrigin::signed(sender.clone()),
+			0,
+			Weight::from_parts(2_000_000_000, 200_000),
+			DepositLimit::Balance(Balance::MAX),
+			Code::Upload(code),
+			constructor_data,
+			None,
+			NonceAlreadyIncremented::Yes,
+		);
+		let Ok(InstantiateReturnValue { addr: non_erc20_address, .. }) = result.result else {
+			unreachable!("contract should initialize")
+		};
+
+		let wnd_amount_for_fees = 1_000_000_000_000u128;
+		let erc20_transfer_amount = 100u128;
+		let message = Xcm::<RuntimeCall>::builder()
+			.withdraw_asset((Parent, wnd_amount_for_fees))
+			.pay_fees((Parent, wnd_amount_for_fees))
+			.withdraw_asset((
+				AccountKey20 { key: non_erc20_address.into(), network: None },
+				erc20_transfer_amount,
+			))
+			.deposit_asset(AllCounted(1), beneficiary.clone())
+			.build();
+		// Execution fails but doesn't panic.
+		assert!(PolkadotXcm::execute(
+			RuntimeOrigin::signed(sender.clone()),
+			Box::new(VersionedXcm::V5(message)),
+			Weight::from_parts(2_500_000_000, 220_000),
+		)
+		.is_err());
+	});
+}
+
+#[test]
+fn expensive_erc20_runs_out_of_gas() {
+	let sender: AccountId = ALICE.into();
+	let beneficiary: AccountId = BOB.into();
+	let checking_account =
+		asset_hub_westend_runtime::xcm_config::ERC20TransfersCheckingAccount::get();
+	let initial_wnd_amount = 10_000_000_000_000u128;
+
+	ExtBuilder::<Runtime>::default().build().execute_with(|| {
+		// We need to give enough funds for every account involved so they
+		// can call `Revive::map_account`.
+		assert_ok!(Balances::mint_into(&sender, initial_wnd_amount));
+		assert_ok!(Balances::mint_into(&beneficiary, initial_wnd_amount));
+		assert_ok!(Balances::mint_into(&checking_account, initial_wnd_amount));
+
+		// We need to map all accounts.
+		assert_ok!(Revive::map_account(RuntimeOrigin::signed(checking_account.clone())));
+		assert_ok!(Revive::map_account(RuntimeOrigin::signed(sender.clone())));
+		assert_ok!(Revive::map_account(RuntimeOrigin::signed(beneficiary.clone())));
+
+		// This contract does a lot more storage writes in `transfer`.
+		let code = include_bytes!(
+			"../../../../../../substrate/frame/revive/fixtures/contracts/expensive_erc20.polkavm"
+		)
+		.to_vec();
+
+		let initial_amount_u256 = U256::from(1_000_000_000_000u128);
+		let constructor_data = sol_data::Uint::<256>::abi_encode(&initial_amount_u256);
+		let result = Revive::bare_instantiate(
+			RuntimeOrigin::signed(sender.clone()),
+			0,
+			Weight::from_parts(2_000_000_000, 200_000),
+			DepositLimit::Balance(Balance::MAX),
+			Code::Upload(code),
+			constructor_data,
+			None,
+			NonceAlreadyIncremented::Yes,
+		);
+		let Ok(InstantiateReturnValue { addr: non_erc20_address, .. }) = result.result else {
+			unreachable!("contract should initialize")
+		};
+
+		let wnd_amount_for_fees = 1_000_000_000_000u128;
+		let erc20_transfer_amount = 100u128;
+		let message = Xcm::<RuntimeCall>::builder()
+			.withdraw_asset((Parent, wnd_amount_for_fees))
+			.pay_fees((Parent, wnd_amount_for_fees))
+			.withdraw_asset((
+				AccountKey20 { key: non_erc20_address.into(), network: None },
+				erc20_transfer_amount,
+			))
+			.deposit_asset(AllCounted(1), beneficiary.clone())
+			.build();
+		// Execution fails but doesn't panic.
+		assert!(PolkadotXcm::execute(
+			RuntimeOrigin::signed(sender.clone()),
+			Box::new(VersionedXcm::V5(message)),
+			Weight::from_parts(2_500_000_000, 120_000),
+		)
+		.is_err());
+	});
 }
