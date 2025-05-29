@@ -1307,8 +1307,8 @@ pub mod pallet {
 				return Err(Error::<T>::AlreadyPaired.into());
 			}
 
-			// Reject a bond which is considered to be _dust_.
-			if value < asset::existential_deposit::<T>() {
+			// Reject a bond which is lower than the minimum bond.
+			if value < Self::min_bond() {
 				return Err(Error::<T>::InsufficientBond.into());
 			}
 
@@ -1411,6 +1411,8 @@ pub mod pallet {
 				} else if Validators::<T>::contains_key(&stash) {
 					MinValidatorBond::<T>::get()
 				} else {
+					// FAIL-CI
+					// TODO: port full unbond (unbond + chill)
 					Zero::zero()
 				};
 
@@ -1887,9 +1889,9 @@ pub mod pallet {
 
 			let initial_unlocking = ledger.unlocking.len() as u32;
 			let (ledger, rebonded_value) = ledger.rebond(value);
-			// Last check: the new active amount of ledger must be more than ED.
+			// Last check: the new active amount of ledger must be more than min bond.
 			ensure!(
-				ledger.active >= asset::existential_deposit::<T>(),
+				ledger.active >= Self::min_bond(),
 				Error::<T>::InsufficientBond
 			);
 
@@ -1916,8 +1918,8 @@ pub mod pallet {
 		/// Remove all data structures concerning a staker/stash once it is at a state where it can
 		/// be considered `dust` in the staking system. The requirements are:
 		///
-		/// 1. the `total_balance` of the stash is below existential deposit.
-		/// 2. or, the `ledger.total` of the stash is below existential deposit.
+		/// 1. the `total_balance` of the stash is below minimum bond.
+		/// 2. or, the `ledger.total` of the stash is below minimum bond.
 		/// 3. or, existential deposit is zero and either `total_balance` or `ledger.total` is zero.
 		///
 		/// The former can happen in cases like a slash; the latter when a fully unbonded account
@@ -1944,13 +1946,13 @@ pub mod pallet {
 			// virtual stakers should not be allowed to be reaped.
 			ensure!(!Self::is_virtual_staker(&stash), Error::<T>::VirtualStakerNotAllowed);
 
-			let ed = asset::existential_deposit::<T>();
+			let min_bond = Self::min_bond();
 			let origin_balance = asset::total_balance::<T>(&stash);
 			let ledger_total =
 				Self::ledger(Stash(stash.clone())).map(|l| l.total).unwrap_or_default();
-			let reapable = origin_balance < ed ||
+			let reapable = origin_balance < min_bond ||
 				origin_balance.is_zero() ||
-				ledger_total < ed ||
+				ledger_total < min_bond ||
 				ledger_total.is_zero();
 			ensure!(reapable, Error::<T>::FundedTarget);
 

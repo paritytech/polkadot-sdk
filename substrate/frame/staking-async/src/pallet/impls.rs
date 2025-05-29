@@ -72,6 +72,18 @@ use sp_runtime::TryRuntimeError;
 const NPOS_MAX_ITERATIONS_COEFFICIENT: u32 = 2;
 
 impl<T: Config> Pallet<T> {
+	/// Returns the minimum required bond for participation, considering validators, nominators,
+	/// and the chain’s existential deposit.
+	///
+	/// This function computes the smallest allowed bond among `MinValidatorBond` and
+	/// `MinNominatorBond`, but ensures it is not below the existential deposit required to keep an
+	/// account alive.
+	pub(crate) fn min_bond() -> BalanceOf<T> {
+		MinValidatorBond::<T>::get()
+			.min(MinNominatorBond::<T>::get())
+			.max(asset::existential_deposit::<T>())
+	}
+
 	/// Fetches the ledger associated with a controller or stash account, if any.
 	pub fn ledger(account: StakingAccount<T::AccountId>) -> Result<StakingLedger<T>, Error<T>> {
 		StakingLedger::<T>::get(account)
@@ -169,8 +181,8 @@ impl<T: Config> Pallet<T> {
 
 		ledger.total = ledger.total.checked_add(&extra).ok_or(ArithmeticError::Overflow)?;
 		ledger.active = ledger.active.checked_add(&extra).ok_or(ArithmeticError::Overflow)?;
-		// last check: the new active amount of ledger must be more than ED.
-		ensure!(ledger.active >= asset::existential_deposit::<T>(), Error::<T>::InsufficientBond);
+		// last check: the new active amount of ledger must be more than min bond.
+		ensure!(ledger.active >= Self::min_bond(), Error::<T>::InsufficientBond);
 
 		// NOTE: ledger must be updated prior to calling `Self::weight_of`.
 		ledger.update()?;
@@ -193,9 +205,8 @@ impl<T: Config> Pallet<T> {
 		}
 		let new_total = ledger.total;
 
-		let ed = asset::existential_deposit::<T>();
 		let used_weight =
-			if ledger.unlocking.is_empty() && (ledger.active < ed || ledger.active.is_zero()) {
+			if ledger.unlocking.is_empty() && (ledger.active < Self::min_bond() || ledger.active.is_zero()) {
 				// This account must have called `unbond()` with some value that caused the active
 				// portion to fall below existential deposit + will have no more unlocking chunks
 				// left. We can now safely remove all staking-related information.
