@@ -25,7 +25,7 @@ use crate::collator::SlotClaim;
 use codec::Codec;
 use cumulus_client_consensus_common::{self as consensus_common, ParentSearchParams};
 use cumulus_primitives_aura::{AuraUnincludedSegmentApi, Slot};
-use cumulus_primitives_core::{relay_chain::Hash as ParaHash, BlockT, ClaimQueueOffset};
+use cumulus_primitives_core::{relay_chain::Header as RelayHeader, BlockT, ClaimQueueOffset};
 use cumulus_relay_chain_interface::RelayChainInterface;
 use polkadot_node_subsystem::messages::RuntimeApiRequest;
 use polkadot_node_subsystem_util::runtime::ClaimQueueSnapshot;
@@ -223,11 +223,11 @@ where
 /// we can build on. Once a list of potential parents is retrieved, return the last one of the
 /// longest chain.
 async fn find_parent<Block>(
-	relay_parent: ParaHash,
+	relay_parent: RelayHash,
 	para_id: ParaId,
 	para_backend: &impl sc_client_api::Backend<Block>,
 	relay_client: &impl RelayChainInterface,
-) -> Option<(<Block as BlockT>::Hash, consensus_common::PotentialParent<Block>)>
+) -> Option<(<Block as BlockT>::Header, consensus_common::PotentialParent<Block>)>
 where
 	Block: BlockT,
 {
@@ -263,7 +263,7 @@ where
 		Ok(x) => x,
 	};
 
-	let included_block = potential_parents.iter().find(|x| x.depth == 0)?.hash;
+	let included_block = potential_parents.iter().find(|x| x.depth == 0)?.header.clone();
 	potential_parents
 		.into_iter()
 		.max_by_key(|a| a.depth)
@@ -380,5 +380,51 @@ mod tests {
 		)
 		.await;
 		assert!(result.is_some());
+	}
+}
+
+/// Holds a relay parent and its descendants.
+pub struct RelayParentData {
+	/// The relay parent block header
+	relay_parent: RelayHeader,
+	/// Ordered collection of descendant block headers, from oldest to newest
+	descendants: Vec<RelayHeader>,
+}
+
+impl RelayParentData {
+	/// Creates a new instance with the given relay parent and no descendants.
+	pub fn new(relay_parent: RelayHeader) -> Self {
+		Self { relay_parent, descendants: Default::default() }
+	}
+
+	/// Creates a new instance with the given relay parent and descendants.
+	pub fn new_with_descendants(relay_parent: RelayHeader, descendants: Vec<RelayHeader>) -> Self {
+		Self { relay_parent, descendants }
+	}
+
+	/// Returns a reference to the relay parent header.
+	pub fn relay_parent(&self) -> &RelayHeader {
+		&self.relay_parent
+	}
+
+	/// Returns the number of descendants.
+	#[cfg(test)]
+	pub fn descendants_len(&self) -> usize {
+		self.descendants.len()
+	}
+
+	/// Consumes the structure and returns a vector containing the relay parent followed by its
+	/// descendants in chronological order. The resulting list should be provided to the parachain
+	/// inherent data.
+	pub fn into_inherent_descendant_list(self) -> Vec<RelayHeader> {
+		let Self { relay_parent, mut descendants } = self;
+
+		if descendants.is_empty() {
+			return Default::default()
+		}
+
+		let mut result = vec![relay_parent];
+		result.append(&mut descendants);
+		result
 	}
 }
