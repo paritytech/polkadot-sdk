@@ -371,7 +371,10 @@ pub fn send_unpaid_transfer_token_message<Runtime, XcmConfig>(
 				Weight::zero(),
 			);
 			// check error is barrier
-			assert_err!(outcome.ensure_complete(), (0, XcmError::Barrier));
+			assert_err!(
+				outcome.ensure_complete(),
+				OutcomeError { index: 0, error: XcmError::Barrier }
+			);
 		});
 }
 

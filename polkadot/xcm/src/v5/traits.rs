@@ -251,7 +251,7 @@ pub enum Outcome {
 	Error { error: Error, index: u8 },
 }
 
-#[derive(Debug)]
+#[derive(Copy, Clone, Encode, Decode, DecodeWithMemTracking, Eq, PartialEq, Debug, TypeInfo)]
 pub struct OutcomeError {
 	pub index: u8,
 	pub error: Error,
