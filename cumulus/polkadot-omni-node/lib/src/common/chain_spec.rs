@@ -65,6 +65,7 @@ mod tests {
 	use super::*;
 
 	#[test]
+	#[allow(deprecated)]
 	fn can_decode_extension_camel_and_snake_case() {
 		let camel_case = r#"{"relayChain":"relay","paraId":1}"#;
 		let snake_case = r#"{"relay_chain":"relay","para_id":1}"#;

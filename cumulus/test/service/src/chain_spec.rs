@@ -19,7 +19,9 @@
 use cumulus_client_service::ParachainHostFunctions;
 use cumulus_primitives_core::ParaId;
 use cumulus_test_runtime::AccountId;
+use sc_chain_spec::GenesisConfigBuilderRuntimeCaller;
 use sc_service::{ChainType, GenericChainSpec};
+use serde_json::json;
 
 /// Get the chain spec for a specific parachain ID.
 /// The given accounts are initialized with funds in addition
@@ -93,7 +95,7 @@ pub fn get_elastic_scaling_chain_spec(id: Option<ParaId>) -> GenericChainSpec {
 	)
 }
 
-pub fn get_relay_parent_offset_chain_spec(id: Option<ParaId>) -> ChainSpec {
+pub fn get_relay_parent_offset_chain_spec(id: Option<ParaId>) -> GenericChainSpec {
 	get_chain_spec_with_extra_endowed(
 		id,
 		Default::default(),
@@ -103,7 +105,7 @@ pub fn get_relay_parent_offset_chain_spec(id: Option<ParaId>) -> ChainSpec {
 }
 
 /// Get the chain spec for a specific parachain ID.
-pub fn get_elastic_scaling_500ms_chain_spec(id: Option<ParaId>) -> ChainSpec {
+pub fn get_elastic_scaling_500ms_chain_spec(id: Option<ParaId>) -> GenericChainSpec {
 	get_chain_spec_with_extra_endowed(
 		id,
 		Default::default(),
