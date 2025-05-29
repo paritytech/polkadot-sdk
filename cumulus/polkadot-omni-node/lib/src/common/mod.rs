@@ -116,8 +116,8 @@ pub struct NodeExtraArgs {
 	/// If set, each `PoV` build by the node will be exported to this folder.
 	pub export_pov: Option<PathBuf>,
 
-	/// Disable the statement store.
-	pub disable_statement_store: bool,
+	/// Enable the statement store.
+	pub enable_statement_store: bool,
 
 	/// The maximum percentage of the maximum PoV size that the collator can use.
 	/// It will be removed once <https://github.com/paritytech/polkadot-sdk/issues/6020> is fixed.

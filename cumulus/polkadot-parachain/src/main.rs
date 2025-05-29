@@ -21,7 +21,9 @@
 
 mod chain_spec;
 
-use polkadot_omni_node_lib::{run, CliConfig as CliConfigT, RunConfig, NODE_VERSION};
+use polkadot_omni_node_lib::{
+	cli::EnableStatementStoreByDefault, run, CliConfig as CliConfigT, RunConfig, NODE_VERSION,
+};
 
 struct CliConfig;
 
@@ -42,6 +44,8 @@ impl CliConfigT for CliConfig {
 	fn copyright_start_year() -> u16 {
 		2017
 	}
+
+	type StatementStoreDefault = EnableStatementStoreByDefault;
 }
 
 fn main() -> color_eyre::eyre::Result<()> {
