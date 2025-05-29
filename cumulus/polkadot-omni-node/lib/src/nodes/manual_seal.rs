@@ -79,6 +79,7 @@ impl<NodeSpec: NodeSpecT> ManualSealNode<NodeSpec> {
 		Self(Default::default())
 	}
 
+	#[allow(deprecated)]
 	pub fn start_node<Net>(
 		&self,
 		mut config: Configuration,

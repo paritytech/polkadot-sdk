@@ -260,6 +260,7 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 	/// Start a node with the given parachain spec.
 	///
 	/// This is the actual implementation that is abstract over the executor and the runtime api.
+	#[allow(deprecated)]
 	fn start_node<Net>(
 		parachain_config: Configuration,
 		polkadot_config: Configuration,

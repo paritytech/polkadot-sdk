@@ -72,7 +72,7 @@ use frame_system_rpc_runtime_api::AccountNonceApi;
 use polkadot_node_subsystem::{errors::RecoveryError, messages::AvailabilityRecoveryMessage};
 use polkadot_overseer::Handle as OverseerHandle;
 use polkadot_primitives::{CandidateHash, CollatorPair, Hash as PHash, PersistedValidationData};
-use polkadot_service::{chain_spec::Extensions, IdentifyNetworkBackend, ProvideRuntimeApi};
+use polkadot_service::{IdentifyNetworkBackend, ProvideRuntimeApi};
 use sc_consensus::ImportQueue;
 use sc_network::{
 	config::{FullNetworkConfiguration, TransportConfig},
@@ -89,7 +89,6 @@ use sc_service::{
 	BasePath, ChainSpec as ChainSpecService, Configuration, Error as ServiceError,
 	PartialComponents, Role, RpcHandlers, TFullBackend, TFullClient, TaskManager,
 };
-use sp_api::ApiExt;
 use sp_arithmetic::traits::SaturatedConversion;
 use sp_blockchain::HeaderBackend;
 use sp_core::Pair;
@@ -375,22 +374,11 @@ where
 	);
 
 	let best_hash = client.chain_info().best_hash;
-	let has_para_id = client
+	let para_id = client
 		.runtime_api()
-		.has_api::<dyn GetParachainIdentity<Self::Block>>(best_hash)
-		.ok()
-		.unwrap_or_default();
-	let para_id = if has_para_id {
-		client
-			.runtime_api()
-			.parachain_id(best_hash)
-			.map_err(|_| "Failed to retrieve parachain id from runtime")?
-	} else {
-		ParaId::from(Extensions::try_get(&*parachain_config.chain_spec).map(|e| e.para_id).ok_or(
-			sc_service::error::Error::Other("Could not find parachain extension in chain-spec."),
-		)?)
-	};
-	tracing::info!("Parachain id: {:?}", parachain_id);
+		.parachain_id(best_hash)
+		.map_err(|e| sc_service::Error::Application(Box::new(e) as Box<_>))?;
+	tracing::info!("Parachain id: {:?}", para_id);
 
 	let (network, system_rpc_tx, tx_handler_controller, sync_service) =
 		build_network(BuildNetworkParams {

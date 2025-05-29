@@ -19,9 +19,8 @@
 use cumulus_client_service::ParachainHostFunctions;
 use cumulus_primitives_core::ParaId;
 use cumulus_test_runtime::AccountId;
-use sc_chain_spec::{ChainSpecExtension, ChainSpecGroup, GenesisConfigBuilderRuntimeCaller};
+use sc_chain_spec::GenesisConfigBuilderRuntimeCaller;
 use sc_service::{ChainType, GenericChainSpec};
-use serde::{Deserialize, Serialize};
 use serde_json::json;
 
 /// Get the chain spec for a specific parachain ID.

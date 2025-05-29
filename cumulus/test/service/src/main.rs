@@ -20,7 +20,7 @@ use std::sync::Arc;
 
 use cli::{AuthoringPolicy, RelayChainCli, Subcommand, TestCollatorCli};
 use cumulus_primitives_core::relay_chain::CollatorPair;
-use cumulus_test_service::{chain_spec, new_partial, AnnounceBlockFn};
+use cumulus_test_service::{new_partial, AnnounceBlockFn};
 use polkadot_service::IdentifyNetworkBackend;
 use sc_cli::{CliConfiguration, SubstrateCli};
 use sp_core::Pair;
@@ -121,7 +121,6 @@ fn main() -> Result<(), sc_cli::Error> {
 								parachain_config,
 								collator_key,
 								relay_chain_config,
-								parachain_id.into(),
 								cli.disable_block_announcements.then(wrap_announce_block),
 								cli.fail_pov_recovery,
 								|_| Ok(jsonrpsee::RpcModule::new(())),
@@ -139,7 +138,6 @@ fn main() -> Result<(), sc_cli::Error> {
 								parachain_config,
 								collator_key,
 								relay_chain_config,
-								parachain_id.into(),
 								cli.disable_block_announcements.then(wrap_announce_block),
 								cli.fail_pov_recovery,
 								|_| Ok(jsonrpsee::RpcModule::new(())),
