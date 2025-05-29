@@ -181,6 +181,7 @@ fn correct_unbond_era_is_being_calculated_without_config_set() {
 			vec![UnlockChunk { value: 10, era: 1, previous_unbonded_stake: 0 }]
 		);
 		assert_eq!(Staking::unbonding_duration(11), vec![(1 + 3, 10)]);
+		assert_eq!(TotalUnbondInEra::<T>::get(1), Some(10));
 
 		// Second unbond
 		assert_ok!(Staking::unbond(RuntimeOrigin::signed(11), 10));
@@ -192,6 +193,7 @@ fn correct_unbond_era_is_being_calculated_without_config_set() {
 			vec![UnlockChunk { value: 20, era: 1, previous_unbonded_stake: 10 }]
 		);
 		assert_eq!(Staking::unbonding_duration(11), vec![(1 + 3, 20)]);
+		assert_eq!(TotalUnbondInEra::<T>::get(1), Some(20));
 	});
 }
 
@@ -210,6 +212,9 @@ fn rebonding_after_one_era_and_unbonding_should_place_the_new_unbond_era_in_the_
 				.into_inner(),
 			vec![]
 		);
+		assert_eq!(Staking::unbonding_duration(11), vec![]);
+		assert_eq!(TotalUnbondInEra::<T>::get(2), None);
+
 		assert_ok!(Staking::unbond(RuntimeOrigin::signed(11), 10));
 		assert_eq!(
 			StakingLedger::<Test>::get(StakingAccount::Stash(11))
@@ -218,6 +223,8 @@ fn rebonding_after_one_era_and_unbonding_should_place_the_new_unbond_era_in_the_
 				.into_inner(),
 			vec![UnlockChunk { value: 10, era: 1, previous_unbonded_stake: 0 }]
 		);
+		assert_eq!(Staking::unbonding_duration(11), vec![(1 + 2, 10)]);
+		assert_eq!(TotalUnbondInEra::<T>::get(1), Some(10));
 
 		// Second unbond
 		Session::roll_until_active_era(2);
@@ -232,6 +239,9 @@ fn rebonding_after_one_era_and_unbonding_should_place_the_new_unbond_era_in_the_
 				UnlockChunk { value: 500, era: 2, previous_unbonded_stake: 0 }
 			]
 		);
+		assert_eq!(Staking::unbonding_duration(11), vec![(1 + 2, 10), (2 + 2, 500)]);
+		assert_eq!(TotalUnbondInEra::<T>::get(1), Some(10));
+		assert_eq!(TotalUnbondInEra::<T>::get(2), Some(500));
 
 		assert_ok!(Staking::rebond(RuntimeOrigin::signed(11), 490));
 		assert_eq!(
@@ -244,6 +254,9 @@ fn rebonding_after_one_era_and_unbonding_should_place_the_new_unbond_era_in_the_
 				UnlockChunk { value: 10, era: 2, previous_unbonded_stake: 0 }
 			]
 		);
+		assert_eq!(Staking::unbonding_duration(11), vec![(1 + 2, 10), (2 + 2, 10)]);
+		assert_eq!(TotalUnbondInEra::<T>::get(1), Some(10));
+		assert_eq!(TotalUnbondInEra::<T>::get(2), Some(10));
 
 		// Rebond so that the last chunk gets removed and part of the previous one gets subtracted.
 		assert_ok!(Staking::rebond(RuntimeOrigin::signed(11), 15));
@@ -254,6 +267,9 @@ fn rebonding_after_one_era_and_unbonding_should_place_the_new_unbond_era_in_the_
 				.into_inner(),
 			vec![UnlockChunk { value: 5, era: 1, previous_unbonded_stake: 0 }]
 		);
+		assert_eq!(Staking::unbonding_duration(11), vec![(1 + 2, 5)]);
+		assert_eq!(TotalUnbondInEra::<T>::get(1), Some(5));
+		assert_eq!(TotalUnbondInEra::<T>::get(2), None);
 	});
 }
 
@@ -281,6 +297,7 @@ fn test_withdrawing_with_favorable_global_stake_threshold_should_work() {
 
 		// Should be able to withdraw after one era.
 		assert_eq!(Staking::unbonding_duration(11), vec![(10 + 2, 10)]);
+		assert_eq!(TotalUnbondInEra::<T>::get(10), Some(10));
 
 		// Should not have withdrawn any funds yet.
 		assert_ok!(Staking::withdraw_unbonded(RuntimeOrigin::signed(11), 10));
@@ -303,6 +320,7 @@ fn test_withdrawing_with_favorable_global_stake_threshold_should_work() {
 			vec![UnlockChunk { value: 10, era: 10, previous_unbonded_stake: 0 }]
 		);
 		assert_eq!(Staking::unbonding_duration(11), vec![(10 + 2, 10)]);
+		assert_eq!(TotalUnbondInEra::<T>::get(10), Some(10));
 
 		// After two eras the user can withdraw.
 		Session::roll_until_active_era(12);
@@ -315,6 +333,8 @@ fn test_withdrawing_with_favorable_global_stake_threshold_should_work() {
 			vec![]
 		);
 		assert_eq!(Staking::unbonding_duration(11), vec![]);
+		// This must not change. It includes the stake to be withdrawn and one already withdrawn.
+		assert_eq!(TotalUnbondInEra::<T>::get(10), Some(10));
 	});
 }
 
@@ -342,6 +362,7 @@ fn test_withdrawing_over_global_stake_threshold_should_not_work() {
 			vec![UnlockChunk { value: 10, era: 10, previous_unbonded_stake: 0 }]
 		);
 		assert_eq!(Staking::unbonding_duration(11), vec![(10 + 3, 10)]);
+		assert_eq!(TotalUnbondInEra::<T>::get(10), Some(10));
 
 		// Should not have withdrawn any funds yet.
 		Session::roll_until_active_era(11);
@@ -354,6 +375,7 @@ fn test_withdrawing_over_global_stake_threshold_should_not_work() {
 			vec![UnlockChunk { value: 10, era: 10, previous_unbonded_stake: 0 }]
 		);
 		assert_eq!(Staking::unbonding_duration(11), vec![(10 + 3, 10)]);
+		assert_eq!(TotalUnbondInEra::<T>::get(10), Some(10));
 
 		// With the lowest stake set the user should be able to withdraw.
 		Session::roll_until_active_era(12);
@@ -365,6 +387,8 @@ fn test_withdrawing_over_global_stake_threshold_should_not_work() {
 				.into_inner(),
 			vec![UnlockChunk { value: 10, era: 10, previous_unbonded_stake: 0 }]
 		);
+		assert_eq!(Staking::unbonding_duration(11), vec![(10 + 3, 10)]);
+		assert_eq!(TotalUnbondInEra::<T>::get(10), Some(10));
 
 		// After three eras the user is finally able to withdraw.
 		Session::roll_until_active_era(13);
@@ -377,6 +401,7 @@ fn test_withdrawing_over_global_stake_threshold_should_not_work() {
 			vec![]
 		);
 		assert_eq!(Staking::unbonding_duration(11), vec![]);
+		assert_eq!(TotalUnbondInEra::<T>::get(10), None);
 	});
 }
 
@@ -393,8 +418,19 @@ fn old_unbonding_chunks_should_be_withdrawable_in_current_era() {
 				.into_inner(),
 			vec![]
 		);
+		assert_eq!(Staking::unbonding_duration(11), vec![]);
+		assert_eq!(TotalUnbondInEra::<T>::get(10), None);
+
 		assert_ok!(Staking::unbond(RuntimeOrigin::signed(11), 10));
+		assert_eq!(
+			StakingLedger::<Test>::get(StakingAccount::Stash(11))
+				.unwrap()
+				.unlocking
+				.into_inner(),
+			vec![UnlockChunk { value: 10, era: 10, previous_unbonded_stake: 0 }]
+		);
 		assert_eq!(Staking::unbonding_duration(11), vec![(10 + 2, 10)]);
+		assert_eq!(TotalUnbondInEra::<T>::get(10), Some(10));
 
 		Session::roll_until_active_era(11);
 		assert_ok!(Staking::unbond(RuntimeOrigin::signed(11), 10));
@@ -409,12 +445,18 @@ fn old_unbonding_chunks_should_be_withdrawable_in_current_era() {
 			]
 		);
 		assert_eq!(Staking::unbonding_duration(11), vec![(10 + 2, 10), (11 + 2, 10)]);
+		assert_eq!(TotalUnbondInEra::<T>::get(10), Some(10));
+		assert_eq!(TotalUnbondInEra::<T>::get(11), Some(10));
 
 		Session::roll_until_active_era(12);
 		assert_eq!(Staking::unbonding_duration(11), vec![(10 + 2, 10), (11 + 2, 10)]);
+		assert_eq!(TotalUnbondInEra::<T>::get(10), Some(10));
+		assert_eq!(TotalUnbondInEra::<T>::get(11), Some(10));
 
 		// Now both unbonds get collapsed in a single entry.
 		Session::roll_until_active_era(13);
 		assert_eq!(Staking::unbonding_duration(11), vec![(13, 20)]);
+		assert_eq!(TotalUnbondInEra::<T>::get(10), None);
+		assert_eq!(TotalUnbondInEra::<T>::get(11), Some(10));
 	});
 }

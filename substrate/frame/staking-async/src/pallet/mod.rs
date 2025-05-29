@@ -1436,10 +1436,15 @@ pub mod pallet {
 						.try_push(UnlockChunk { value, era: current_era, previous_unbonded_stake })
 						.map_err(|_| Error::<T>::NoMoreChunks)?;
 				};
-				TotalUnbondInEra::<T>::set(
-					current_era,
-					Some(previous_unbonded_stake.defensive_saturating_add(value)),
-				);
+				let new_total_unbond_in_era = {
+					let val = previous_unbonded_stake.defensive_saturating_add(value);
+					if val.is_zero() {
+						None
+					} else {
+						Some(val)
+					}
+				};
+				TotalUnbondInEra::<T>::set(current_era, new_total_unbond_in_era);
 
 				// NOTE: ledger must be updated prior to calling `Self::weight_of`.
 				ledger.update()?;

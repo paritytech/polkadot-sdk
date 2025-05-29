@@ -409,6 +409,9 @@ impl<T: Config> StakingLedger<T> {
 				TotalUnbondInEra::<T>::mutate(last.era, |maybe_unbond| {
 					if let Some(unbond) = maybe_unbond {
 						unbond.saturating_reduce(last.value);
+						if unbond.is_zero() {
+							*maybe_unbond = None;
+						}
 					}
 				});
 				unlocking_balance += last.value;
@@ -423,6 +426,9 @@ impl<T: Config> StakingLedger<T> {
 				TotalUnbondInEra::<T>::mutate(last.era, |maybe_unbond| {
 					if let Some(unbond) = maybe_unbond {
 						unbond.saturating_reduce(diff);
+						if unbond.is_zero() {
+							*maybe_unbond = None;
+						}
 					}
 				});
 			}
