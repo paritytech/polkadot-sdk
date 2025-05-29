@@ -33,7 +33,7 @@ parameter_types! {
 }
 
 pub struct StakingMock;
-impl frame_election_provider_support::ScoreProvider<AccountId> for StakingMock {
+impl ScoreProvider<AccountId> for StakingMock {
 	type Score = VoteWeight;
 
 	fn score(id: &AccountId) -> Option<Self::Score> {

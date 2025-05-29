@@ -342,7 +342,7 @@ pub mod pallet {
 			let dislocated = T::Lookup::lookup(dislocated)?;
 			Self::ensure_unlocked().map_err(|_| Error::<T, I>::Locked)?;
 
-			Self::rebag_internal(&dislocated, T::ScoreProvider::score)
+			Self::rebag_internal(&dislocated)
 				.map_err::<DispatchError, _>(Into::into)?;
 
 			Ok(())
@@ -460,7 +460,7 @@ pub mod pallet {
 
 				if let Some(ref account) = cursor {
 					// Try to rebag. Do not break on error, but track them.
-					match Self::rebag_internal(account, T::ScoreProvider::score) {
+					match Self::rebag_internal(account) {
 						Err(Error::<T, I>::Locked) => {
 							log!(warn, "Pallet became locked during auto-rebag, stopping");
 							break;
@@ -575,17 +575,16 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	/// This function does not handle origin checks or higher-level dispatch logic.
 	///
 	/// Returns `Ok(Some((from, to)))` if rebagging occurred, or `Ok(None)` if nothing changed.
-	fn rebag_internal(
-		account: &T::AccountId,
-		score_provider: fn(&T::AccountId) -> Option<T::Score>,
-	) -> Result<Option<(T::Score, T::Score)>, Error<T, I>> {
+	fn rebag_internal(account: &T::AccountId) -> Result<Option<(T::Score, T::Score)>, Error<T, I>> {
 		// Ensure the pallet is not locked
 		Self::ensure_unlocked().map_err(|_| Error::<T, I>::Locked)?;
 
 		// Check if the account exists and retrieve its current score
 		let existed = ListNodes::<T, I>::contains_key(account);
+		let score_provider: fn(&T::AccountId) -> Option<T::Score> = T::ScoreProvider::score;
+		let maybe_score = score_provider(account);
 
-		match (existed, score_provider(account)) {
+		match (existed, maybe_score) {
 			(true, Some(current_score)) => {
 				// The account exists and has a valid score, so try to rebag
 				log!(debug, "Attempting to rebag node {:?}", account);
