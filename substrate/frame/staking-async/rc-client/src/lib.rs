@@ -409,7 +409,7 @@ where
 	}
 
 	fn prepare(message: Message, maybe_max_steps: Option<u32>) -> Result<Vec<Xcm<()>>, SendError> {
-		// initial chink size is the entire thing, so it will be a vector of 1 item.
+		// initial chunk size is the entire thing, so it will be a vector of 1 item.
 		let mut chunk_size = message.len();
 		let mut steps = 0;
 
@@ -443,8 +443,10 @@ where
 					log::debug!(target: "runtime::staking-async::xcm", "📨 ExceedsMaxMessageSize -- reducing chunk_size");
 					chunk_size = chunk_size.saturating_div(2);
 					steps += 1;
-					if maybe_max_steps.is_some_and(|max_steps| steps > max_steps) {
-						log::error!(target: "runtime::staking-async::xcm", "📨 Exceeded max steps");
+					if maybe_max_steps.is_some_and(|max_steps| steps > max_steps) ||
+						chunk_size.is_zero()
+					{
+						log::error!(target: "runtime::staking-async::xcm", "📨 Exceeded max steps or chunk_size = 0");
 						return Err(SendError::ExceedsMaxMessageSize);
 					} else {
 						// try again with the new `chunk_size`
