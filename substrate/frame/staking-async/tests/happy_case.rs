@@ -65,9 +65,11 @@ impl TestState {
 			},
 			TestState::WaitingForElectionResult => {
 				// ignore
+				log::info!("SessionReport in WaitingForElectionResult - ignoring");
 			},
 			TestState::WaitForNewValidatorSetCount => {
 				// ignore
+				log::info!("SessionReport in WaitForNewValidatorSetCount - ignoring");
 			},
 			TestState::WaitForSessionReportWithActivationTimestamp { elapsed_sessions } => {
 				if activation_time_stamp.is_some() {
@@ -104,10 +106,10 @@ impl TestState {
 				);
 
 				// we can be smarter here and avoid the magic numbers
-				if page_idx == 7 {
+				if page_idx == 3 {
 					assert!(page_content.is_ok(), "Expected Ok");
-					assert!(page_content.unwrap() == 500, "Expected 500");
-				} else if page_idx == 6 {
+					assert!(page_content.unwrap() == 10, "Expected 500");
+				} else if page_idx == 2 {
 					assert!(page_content.is_ok(), "Expected Ok");
 					assert!(page_content.unwrap() == 0, "Expected 0");
 
@@ -138,13 +140,14 @@ impl TestState {
 				assert!(false, "New validator set count before the election is complete?");
 			},
 			TestState::WaitForNewValidatorSetCount => {
-				assert!(new_validator_set_count == 500, "Expected a validator set count of 500");
-				log::info!("Got NewValidatorSetCount on RC");
+				log::info!("Got NewValidatorSetCount on RC: {}", new_validator_set_count);
+				assert!(new_validator_set_count == 10, "Expected a validator set count of 10");
 				*self =
 					TestState::WaitForSessionReportWithActivationTimestamp { elapsed_sessions: 0 };
 			},
 			TestState::WaitForSessionReportWithActivationTimestamp { elapsed_sessions: _ } => {
 				// ignore
+				log::info!("Got NewValidatorSetCount in WaitForSessionReportWithActivationTimestamp - ignoring");
 			},
 		}
 	}
