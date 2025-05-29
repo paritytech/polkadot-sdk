@@ -205,21 +205,22 @@ impl<T: Config> Pallet<T> {
 		}
 		let new_total = ledger.total;
 
-		let used_weight =
-			if ledger.unlocking.is_empty() && (ledger.active < Self::min_bond() || ledger.active.is_zero()) {
-				// This account must have called `unbond()` with some value that caused the active
-				// portion to fall below existential deposit + will have no more unlocking chunks
-				// left. We can now safely remove all staking-related information.
-				Self::kill_stash(&ledger.stash)?;
+		let used_weight = if ledger.unlocking.is_empty() &&
+			(ledger.active < Self::min_bond() || ledger.active.is_zero())
+		{
+			// This account must have called `unbond()` with some value that caused the active
+			// portion to fall below existential deposit + will have no more unlocking chunks
+			// left. We can now safely remove all staking-related information.
+			Self::kill_stash(&ledger.stash)?;
 
-				T::WeightInfo::withdraw_unbonded_kill()
-			} else {
-				// This was the consequence of a partial unbond. just update the ledger and move on.
-				ledger.update()?;
+			T::WeightInfo::withdraw_unbonded_kill()
+		} else {
+			// This was the consequence of a partial unbond. just update the ledger and move on.
+			ledger.update()?;
 
-				// This is only an update, so we use less overall weight.
-				T::WeightInfo::withdraw_unbonded_update()
-			};
+			// This is only an update, so we use less overall weight.
+			T::WeightInfo::withdraw_unbonded_update()
+		};
 
 		// `old_total` should never be less than the new total because
 		// `consolidate_unlocked` strictly subtracts balance.
