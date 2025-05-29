@@ -4,7 +4,7 @@ doc:
   description: 'Implements the unbonding queue for fast unbonding'
 crates:
 - name: pallet-staking-async-parachain-runtime
-  bump: patch
+  bump: minor
 - name: pallet-staking-async
   bump: major
 - name: sp-staking
