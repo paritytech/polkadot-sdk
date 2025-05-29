@@ -29,6 +29,7 @@ xcm = { workspace = true }
 xcm-builder = { workspace = true }
 xcm-executor = { workspace = true }
 xcm-runtime-apis = { workspace = true }
+pallet-timestamp = {  workspace = true }
 
 # marked optional, used in benchmarking
 frame-benchmarking = { optional = true, workspace = true }
