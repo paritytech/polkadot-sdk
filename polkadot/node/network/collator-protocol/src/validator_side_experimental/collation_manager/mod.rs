@@ -636,7 +636,7 @@ impl CollationManager {
 	) -> Result<(CoreIndex, VecDeque<ParaId>)> {
 		let block_number = self
 			.implicit_view
-			.get_block_number(parent)
+			.block_number(parent)
 			.ok_or_else(|| Error::BlockNumberNotFoundInImplicitView(*parent))?;
 		let session_info = self.get_session_info(sender, parent, session_index).await?;
 		let mut rotation_info = session_info.group_rotation_info.clone();
