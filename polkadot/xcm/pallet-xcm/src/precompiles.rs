@@ -1,27 +1,33 @@
-// This file is part of Substrate.
+// This file is part of Polkadot.
 
-// Copyright (C) Parity Technologies (UK) Ltd.
-// SPDX-License-Identifier: Apache-2.0
+// Polkadot is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
 
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-// 	http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+// Polkadot is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
 
-use crate::{Call, Config, VersionedLocation, VersionedXcm, Weight, WeightInfo};
+// You should have received a copy of the GNU General Public License
+// along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
+
+use crate::{Config, VersionedLocation, VersionedXcm, Weight, WeightInfo};
 use alloc::vec::Vec;
-use alloy::sol_types::SolValue;
 use codec::{DecodeAll, Encode};
 use core::{marker::PhantomData, num::NonZero};
-use pallet_revive::{precompiles::*, Origin};
-use tracing::log::error;
+use pallet_revive::{
+	precompiles::{
+		alloy::{
+			self,
+			sol_types::SolValue,
+		},
+		AddressMatcher, Error, Ext, Precompile,
+	}, 
+	Origin
+};
+use tracing::error;
 use xcm_executor::traits::WeightBounds;
 
 alloy::sol!("src/precompiles/IXcm.sol");
@@ -32,7 +38,6 @@ pub struct XcmPrecompile<T>(PhantomData<T>);
 impl<Runtime> Precompile for XcmPrecompile<Runtime>
 where
 	Runtime: crate::Config + pallet_revive::Config,
-	Call<Runtime>: Into<<Runtime as pallet_revive::Config>::RuntimeCall>,
 {
 	type T = Runtime;
 	const MATCHER: AddressMatcher = AddressMatcher::Fixed(NonZero::new(10).unwrap());
@@ -53,8 +58,7 @@ where
 
 		match input {
 			IXcmCalls::xcmSend(IXcm::xcmSendCall { destination, message }) => {
-				let _weight = <Runtime as Config>::WeightInfo::send();
-				// TODO: Charge gas for the weight
+				env.charge(<Runtime as Config>::WeightInfo::send())?;
 
 				let final_destination = VersionedLocation::decode_all(&mut &destination[..])
 					.map_err(|e| {
@@ -85,14 +89,13 @@ where
 				})
 			},
 			IXcmCalls::xcmExecute(IXcm::xcmExecuteCall { message, weight }) => {
+				let weight = Weight::from_parts(weight.refTime, weight.proofSize);
+				env.charge(weight)?;
+				
 				let final_message = VersionedXcm::decode_all(&mut &message[..]).map_err(|e| {
 					error!("XCM execute failed: Invalid message format. Error: {e:?}");
 					Error::Revert("Invalid message format".into())
 				})?;
-
-				let weight = Weight::from_parts(weight.refTime, weight.proofSize);
-				// env.gas_meter_mut().charge(RuntimeCosts::CallXcmExecute(weight.clone()))?; //
-				// TODO: Charge gas
 
 				crate::Pallet::<Runtime>::execute(frame_origin, final_message.into(), weight)
 					.map(|results| results.encode())
@@ -133,3 +136,4 @@ where
 		}
 	}
 }
+
