@@ -312,6 +312,19 @@ pub mod pallet {
 		#[pallet::constant]
 		type MaxDisabledValidators: Get<u32>;
 
+
+		/// Maximum allowed era duration in milliseconds.
+		///
+		/// This provides a defensive upper bound to cap the effective era duration,
+		/// preventing excessively long eras from causing runaway inflation (e.g., due to bugs).
+		///
+		/// If the actual era duration exceeds this value, it will be clamped to this maximum.
+		///
+		/// Example: For an ideal era duration of 24 hours (86,400,000 ms),
+		/// this can be set to 604,800,000 ms (7 days).
+		#[pallet::constant]
+		type MaxEraDuration: Get<u64>;
+
 		/// Interface to talk to the RC-Client pallet, possibly sending election results to the
 		/// relay chain.
 		#[pallet::no_default]
@@ -373,6 +386,7 @@ pub mod pallet {
 			type MaxControllersInDeprecationBatch = ConstU32<100>;
 			type MaxInvulnerables = ConstU32<20>;
 			type MaxDisabledValidators = ConstU32<100>;
+			type MaxEraDuration = ();
 			type EventListeners = ();
 			type Filter = Nothing;
 			type WeightInfo = ();
@@ -1103,6 +1117,20 @@ pub mod pallet {
 			active_era: EraIndex,
 			planned_era: EraIndex,
 		},
+		/// Something occurred that should never happen under normal operation.
+		/// Logged as an event for fail-safe observability.
+		Unexpected(UnexpectedKind),
+	}
+
+	/// Represents unexpected or invariant-breaking conditions encountered during execution.
+	///
+	/// These variants are emitted as [`Event::Unexpected`] and indicate a defensive check has
+	/// failed. While these should never occur under normal operation, they are useful for
+	/// diagnosing issues in production or test environments.
+	#[derive(Clone, Encode, Decode, DecodeWithMemTracking, PartialEq, TypeInfo, RuntimeDebug)]
+	pub enum UnexpectedKind {
+		/// Emitted when calculated era duration exceeds the configured maximum.
+		EraDurationBoundExceeded,
 	}
 
 	#[pallet::error]
