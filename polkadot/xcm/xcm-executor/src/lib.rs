@@ -426,7 +426,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 				Outcome::Incomplete {
 					used: weight_used,
 					error,
-					index: index.try_into().unwrap_or(0),
+					index: index.try_into().unwrap_or(u8::MAX),
 				}
 			},
 		}
