@@ -645,11 +645,17 @@ impl<H: Hasher> SharedTrieCacheInner<H> {
 /// The instance of this object can be shared between multiple threads.
 pub struct SharedTrieCache<H: Hasher> {
 	inner: Arc<RwLock<SharedTrieCacheInner<H>>>,
+	trusted_node_cache_config: LocalNodeCacheConfig,
+	trusted_value_cache_config: LocalValueCacheConfig,
 }
 
 impl<H: Hasher> Clone for SharedTrieCache<H> {
 	fn clone(&self) -> Self {
-		Self { inner: self.inner.clone() }
+		Self {
+			inner: self.inner.clone(),
+			trusted_node_cache_config: self.trusted_node_cache_config,
+			trusted_value_cache_config: self.trusted_value_cache_config,
+		}
 	}
 }
 
@@ -704,6 +710,14 @@ impl<H: Hasher> SharedTrieCache<H> {
 				previous_stats_dump: Instant::now(),
 				metrics: metrics_registry.and_then(|registry| Metrics::register(registry).ok()),
 			})),
+			trusted_node_cache_config: LocalNodeCacheConfig::trusted(
+				node_cache_max_heap_size,
+				node_cache_max_inline_size,
+			),
+			trusted_value_cache_config: LocalValueCacheConfig::trusted(
+				value_cache_max_heap_size,
+				value_cache_max_inline_size,
+			),
 		}
 	}
 
@@ -749,26 +763,23 @@ impl<H: Hasher> SharedTrieCache<H> {
 			target: super::LOG_TARGET,
 			"Configuring a local trusted cache"
 		);
-		let local_value_cache_config = LocalValueCacheConfig::trusted();
-		let local_node_cache_config = LocalNodeCacheConfig::trusted();
-
 		super::LocalTrieCache {
 			shared: self.clone(),
 			node_cache: Mutex::new(LruMap::new(LocalNodeCacheLimiter::new(
-				super::LocalNodeCacheConfig::trusted(),
+				self.trusted_node_cache_config,
 			))),
 			value_cache: Mutex::new(LruMap::with_hasher(
-				LocalValueCacheLimiter::new(super::LocalValueCacheConfig::trusted()),
+				LocalValueCacheLimiter::new(self.trusted_value_cache_config),
 				Default::default(),
 			)),
 			shared_value_cache_access: Mutex::new(super::ValueAccessSet::with_hasher(
 				schnellru::ByLength::new(
-					local_value_cache_config.shared_value_cache_max_promoted_keys,
+					self.trusted_value_cache_config.shared_value_cache_max_promoted_keys,
 				),
 				Default::default(),
 			)),
-			value_cache_config: local_value_cache_config,
-			node_cache_config: local_node_cache_config,
+			value_cache_config: self.trusted_value_cache_config,
+			node_cache_config: self.trusted_node_cache_config,
 			stats: Default::default(),
 			trusted: true,
 		}
