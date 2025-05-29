@@ -789,7 +789,7 @@ fn governance_authorize_upgrade_works() {
 			Runtime,
 			RuntimeOrigin,
 		>(GovernanceOrigin::Location(Location::new(1, Parachain(ASSET_HUB_ID)))),
-		Either::Right(XcmError::Barrier)
+		Either::Right(XcmError::BadOrigin)
 	);
 	// no - Collectives
 	assert_err!(
