@@ -399,7 +399,7 @@ sp_api::decl_runtime_apis! {
 		/// Retrieve the parachain id used for runtime.
 		fn parachain_id() -> ParaId;
   }
-  
+
 	/// API to tell the node side how the relay parent should be chosen.
 	///
 	/// A larger offset indicates that the relay parent should not be the tip of the relay chain,

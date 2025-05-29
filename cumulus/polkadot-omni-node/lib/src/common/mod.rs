@@ -28,7 +28,9 @@ pub mod types;
 
 use crate::cli::AuthoringPolicy;
 
-use cumulus_primitives_core::{CollectCollationInfo, GetCoreSelectorApi, GetParachainIdentity, RelayParentOffsetApi};
+use cumulus_primitives_core::{
+	CollectCollationInfo, GetCoreSelectorApi, GetParachainIdentity, RelayParentOffsetApi,
+};
 use sc_client_db::DbHash;
 use sc_offchain::OffchainWorkerApi;
 use serde::de::DeserializeOwned;
