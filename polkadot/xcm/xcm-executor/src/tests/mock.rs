@@ -89,7 +89,7 @@ impl GetDispatchInfo for TestCall {
 /// Test weigher that just returns a fixed weight for every program.
 pub struct TestWeigher;
 impl<C> WeightBounds<C> for TestWeigher {
-	fn weight(_message: &mut Xcm<C>) -> Result<Weight, XcmError> {
+	fn weight(_message: &mut Xcm<C>) -> Result<Weight, OutcomeError> {
 		Ok(Weight::from_parts(2, 2))
 	}
 

@@ -63,7 +63,7 @@ fn universal_origin_should_work() {
 		Outcome::Incomplete {
 			used: Weight::from_parts(20, 20),
 			error: XcmError::NotWithdrawable,
-			index: 0
+			index: 1
 		}
 	);
 

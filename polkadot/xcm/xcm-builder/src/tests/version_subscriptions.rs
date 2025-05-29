@@ -119,7 +119,7 @@ fn version_subscription_instruction_should_work() {
 		Outcome::Incomplete {
 			used: Weight::from_parts(20, 20),
 			error: XcmError::BadOrigin,
-			index: 0
+			index: 1
 		}
 	);
 
@@ -223,7 +223,7 @@ fn version_unsubscription_instruction_should_work() {
 		Outcome::Incomplete {
 			used: Weight::from_parts(20, 20),
 			error: XcmError::BadOrigin,
-			index: 0
+			index: 1
 		}
 	);
 

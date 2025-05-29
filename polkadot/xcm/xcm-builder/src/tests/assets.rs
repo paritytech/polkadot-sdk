@@ -100,7 +100,7 @@ fn exchange_asset_should_fail_when_no_deal_possible() {
 	);
 	assert_eq!(
 		r,
-		Outcome::Incomplete { used: Weight::from_parts(40, 40), error: XcmError::NoDeal, index: 0 }
+		Outcome::Incomplete { used: Weight::from_parts(40, 40), error: XcmError::NoDeal, index: 2 }
 	);
 	assert_eq!(asset_list(Parent), vec![(Parent, 1000u128).into()]);
 	assert_eq!(exchange_assets(), vec![(Here, 100u128).into()].into());
@@ -463,7 +463,7 @@ fn max_assets_limit_should_work() {
 		Outcome::Incomplete {
 			used: Weight::from_parts(95, 95),
 			error: XcmError::HoldingWouldOverflow,
-			index: 0
+			index: 8
 		}
 	);
 
@@ -521,7 +521,7 @@ fn max_assets_limit_should_work() {
 		Outcome::Incomplete {
 			used: Weight::from_parts(95, 95),
 			error: XcmError::HoldingWouldOverflow,
-			index: 0
+			index: 8
 		}
 	);
 
@@ -552,7 +552,7 @@ fn max_assets_limit_should_work() {
 		Outcome::Incomplete {
 			used: Weight::from_parts(25, 25),
 			error: XcmError::HoldingWouldOverflow,
-			index: 0
+			index: 1
 		}
 	);
 }

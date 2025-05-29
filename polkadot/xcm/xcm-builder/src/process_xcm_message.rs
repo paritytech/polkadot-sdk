@@ -187,7 +187,7 @@ mod tests {
 				_: &mut XcmHash,
 				_: Weight,
 			) -> Outcome {
-				Outcome::Error { error: xcm::latest::Error::ExceedsStackLimit }
+				Outcome::Error { index: 0, error: xcm::latest::Error::ExceedsStackLimit }
 			}
 			fn charge_fees(_location: impl Into<Location>, _fees: Assets) -> xcm::latest::Result {
 				unreachable!()
