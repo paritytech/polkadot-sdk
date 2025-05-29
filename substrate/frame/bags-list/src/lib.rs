@@ -275,7 +275,7 @@ pub mod pallet {
 	/// Pointer that remembers the next node that will be auto-rebagged.
 	/// When `None`, the next scan will start from the list head again.
 	#[pallet::storage]
-	pub type NextNodeAutoRebagging<T: Config<I>, I: 'static = ()> =
+	pub type LastNodeAutoRebagged<T: Config<I>, I: 'static = ()> =
 		StorageValue<_, T::AccountId, OptionQuery>;
 
 	/// Lock all updates to this pallet.
@@ -415,6 +415,14 @@ pub mod pallet {
 		/// It stores a persistent cursor to continue across blocks.
 		fn on_idle(_n: BlockNumberFor<T>, limit: Weight) -> Weight {
 			let mut meter = WeightMeter::with_limit(limit);
+			// Checking if there is some weight available for minimal overhead.
+			let overhead_reads = T::DbWeight::get().reads(4);
+			let overhead_writes = T::DbWeight::get().writes(1);
+			let minimal_overhead = overhead_reads.saturating_add(overhead_writes);
+			if meter.try_consume(minimal_overhead).is_err() {
+				log!(debug, "👜 Not enough Weight for minimal overhead. Skipping rebugging.");
+				return Weight::zero();
+			}
 
 			let rebag_budget = T::AutoRebagPerBlock::get();
 			let total_nodes = ListNodes::<T, I>::count();
@@ -429,7 +437,7 @@ pub mod pallet {
 					total_nodes,
 					is_locked
 				);
-				return Weight::zero();
+				return meter.consumed();
 			}
 
 			log!(
@@ -439,23 +447,31 @@ pub mod pallet {
 				total_nodes
 			);
 
-			let per_rebag =
-				T::WeightInfo::rebag_non_terminal().max(T::WeightInfo::rebag_terminal());
+			let cursor = LastNodeAutoRebagged::<T, I>::get();
+			match cursor {
+				Some(ref last) => {
+					log!(debug, "👜 Last node processed in previous block: {:?}", last);
+				},
+				None => {
+					log!(debug, "👜 No LastNodeAutoRebagged found. Starting from head of the list");
+				},
+			}
 
-			let cursor = NextNodeAutoRebagging::<T, I>::get();
 			let iter = match cursor {
 				Some(ref last) => Self::iter_from(last).unwrap_or_else(|_| Self::iter()),
 				None => Self::iter(),
-			};
+			}
+			.take(rebag_budget as usize);
 
 			let mut last_account: Option<T::AccountId> = None;
-			log!(debug, "👜 Rebag starting from: {:?}", last_account);
 			let mut processed = 0u32;
 			let mut successful_rebags = 0u32;
 			let mut failed_rebags = 0u32;
+			let per_rebag =
+				T::WeightInfo::rebag_non_terminal().max(T::WeightInfo::rebag_terminal());
 
-			for account in iter.take(rebag_budget as usize) {
-				if !meter.try_consume(per_rebag).is_ok() {
+			for account in iter {
+				if meter.try_consume(per_rebag).is_err() {
 					log!(debug, "Weight limit reached after {} processed accounts", processed);
 					break;
 				}
@@ -484,13 +500,31 @@ pub mod pallet {
 			}
 
 			match last_account {
-				Some(next) => {
-					NextNodeAutoRebagging::<T, I>::put(next.clone());
-					log!(debug, "👜 Saved next rebag cursor: {:?}", next);
+				Some(ref last) => {
+					match ListNodes::<T, I>::get(last) {
+						Some(node) => {
+							// If this node has no `next`, we've reached the end of the list
+							if node.next.is_none() {
+								LastNodeAutoRebagged::<T, I>::kill();
+								log!(debug, "👜 Reached end of list, resetting cursor");
+							} else {
+								LastNodeAutoRebagged::<T, I>::put(last.clone());
+								log!(debug, "👜 Saved processed node: {:?}", last);
+							}
+						},
+						None => {
+							// Node isn't found in storage – unexpected, but fail-safe reset
+							LastNodeAutoRebagged::<T, I>::kill();
+							log!(
+								warn,
+								"👜 Last processed node not found in ListNodes. Cursor reset."
+							);
+						},
+					}
 				},
 				None => {
-					NextNodeAutoRebagging::<T, I>::kill();
-					log!(debug, "👜 Reached end of list, resetting cursor");
+					LastNodeAutoRebagged::<T, I>::kill();
+					log!(warn, "👜 No accounts were processed. Cursor reset.");
 				},
 			}
 
