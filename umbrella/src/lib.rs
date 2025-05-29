@@ -72,6 +72,10 @@ pub use bridge_hub_test_utils;
 #[cfg(feature = "bridge-runtime-common")]
 pub use bridge_runtime_common;
 
+/// Parachain bootnodes registration and discovery.
+#[cfg(feature = "cumulus-client-bootnodes")]
+pub use cumulus_client_bootnodes;
+
 /// Parachain node CLI utilities.
 #[cfg(feature = "cumulus-client-cli")]
 pub use cumulus_client_cli;
@@ -198,6 +202,10 @@ pub use cumulus_relay_chain_minimal_node;
 #[cfg(feature = "cumulus-relay-chain-rpc-interface")]
 pub use cumulus_relay_chain_rpc_interface;
 
+/// Cumulus client common relay chain streams.
+#[cfg(feature = "cumulus-relay-chain-streams")]
+pub use cumulus_relay_chain_streams;
+
 /// Mocked relay state proof builder for testing Cumulus.
 #[cfg(feature = "cumulus-test-relay-sproof-builder")]
 pub use cumulus_test_relay_sproof_builder;
@@ -205,6 +213,10 @@ pub use cumulus_test_relay_sproof_builder;
 /// Common resources for integration testing with xcm-emulator.
 #[cfg(feature = "emulated-integration-tests-common")]
 pub use emulated_integration_tests_common;
+
+/// Interfaces for Ethereum standards.
+#[cfg(feature = "ethereum-standards")]
+pub use ethereum_standards;
 
 /// Utility library for managing tree-like ordered data with logic for pruning the tree while
 /// finalizing nodes.
@@ -984,8 +996,7 @@ pub use polkadot_runtime_metrics;
 #[cfg(feature = "polkadot-runtime-parachains")]
 pub use polkadot_runtime_parachains;
 
-/// Experimental: The single package to get you started with building frame pallets and
-/// runtimes.
+/// The single package to get you started with building frame pallets and runtimes.
 #[cfg(feature = "polkadot-sdk-frame")]
 pub use polkadot_sdk_frame;
 

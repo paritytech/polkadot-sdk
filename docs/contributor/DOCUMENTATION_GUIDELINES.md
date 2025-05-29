@@ -194,7 +194,7 @@ Especially for traits and types that you can foresee will be seen and used a lot
 version.
 
 Similarly, make sure your comments are wrapped at 100 characters line-width (as defined by our
-[`rustfmt.toml`](../rustfmt.toml)), no **more and no less**! The more is fixed by `rustfmt` and our CI, but if you (for
+[`rustfmt.toml`](../../.rustfmt.toml)), no **more and no less**! The more is fixed by `rustfmt` and our CI, but if you (for
 some unknown reason) wrap your lines at 59 characters, it will pass the CI, and it will not look good 🫣. Consider using
 a plugin like [rewrap](https://marketplace.visualstudio.com/items?itemName=stkb.rewrap) (for Visual Studio Code) to
 properly do this.
@@ -209,7 +209,7 @@ The guidelines so far have been general in nature, and are applicable to crates 
 pallets.
 
 The following is relevant to how to document parts of a crate that is a pallet. See
-[`pallet-fast-unstake`](../substrate/frame/fast-unstake/src/lib.rs) as one example of adhering these guidelines.
+[`pallet-fast-unstake`](../../substrate/frame/fast-unstake/src/lib.rs) as one example of adhering these guidelines.
 
 ---
 

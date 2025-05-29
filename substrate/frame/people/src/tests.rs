@@ -870,7 +870,7 @@ mod merge_rings {
 		TestExt::new().execute_with(|| {
 			RingsState::<Test>::set(RingMembersState::Mutating(1));
 			assert_noop!(
-				PeoplePallet::merge_rings(RuntimeOrigin::none(), 1, 2),
+				PeoplePallet::merge_rings(RuntimeOrigin::signed(0), 1, 2),
 				Error::<Test>::SuspensionSessionInProgress
 			);
 		});
@@ -880,7 +880,7 @@ mod merge_rings {
 	fn fails_given_rings_with_the_same_id() {
 		TestExt::new().execute_with(|| {
 			assert_noop!(
-				PeoplePallet::merge_rings(RuntimeOrigin::none(), 1, 1),
+				PeoplePallet::merge_rings(RuntimeOrigin::signed(0), 1, 1),
 				Error::<Test>::InvalidRing
 			);
 		});
@@ -891,11 +891,11 @@ mod merge_rings {
 		TestExt::new().execute_with(|| {
 			CurrentRingIndex::<Test>::set(14);
 			assert_noop!(
-				PeoplePallet::merge_rings(RuntimeOrigin::none(), 1, 14),
+				PeoplePallet::merge_rings(RuntimeOrigin::signed(0), 1, 14),
 				Error::<Test>::InvalidRing
 			);
 			assert_noop!(
-				PeoplePallet::merge_rings(RuntimeOrigin::none(), 14, 1),
+				PeoplePallet::merge_rings(RuntimeOrigin::signed(0), 14, 1),
 				Error::<Test>::InvalidRing
 			);
 		});
@@ -915,12 +915,12 @@ mod merge_rings {
 			CurrentRingIndex::<Test>::set(14);
 
 			assert_noop!(
-				PeoplePallet::merge_rings(RuntimeOrigin::none(), 0, 1),
+				PeoplePallet::merge_rings(RuntimeOrigin::signed(0), 0, 1),
 				Error::<Test>::RingAboveMergeThreshold
 			);
 
 			assert_noop!(
-				PeoplePallet::merge_rings(RuntimeOrigin::none(), 1, 0),
+				PeoplePallet::merge_rings(RuntimeOrigin::signed(0), 1, 0),
 				Error::<Test>::RingAboveMergeThreshold
 			);
 		});
@@ -957,7 +957,7 @@ mod merge_rings {
 			CurrentRingIndex::<Test>::set(14);
 
 			assert_noop!(
-				PeoplePallet::merge_rings(RuntimeOrigin::none(), 0, 1),
+				PeoplePallet::merge_rings(RuntimeOrigin::signed(0), 0, 1),
 				Error::<Test>::SuspensionsPending
 			);
 		});
@@ -989,7 +989,7 @@ mod merge_rings {
 			// The current ring has a higher index than the ones being merged
 			CurrentRingIndex::<Test>::set(14);
 
-			assert_ok!(PeoplePallet::merge_rings(RuntimeOrigin::none(), 0, 1));
+			assert_ok!(PeoplePallet::merge_rings(RuntimeOrigin::signed(0), 0, 1));
 
 			assert_eq!(RingKeys::<Test>::get(RI_ZERO).len(), 8);
 			assert_eq!(RingKeysStatus::<Test>::get(RI_ZERO).total, 8);

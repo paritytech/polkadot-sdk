@@ -117,6 +117,7 @@ impl multi_block::Config for Runtime {
 	type Fallback = frame_election_provider_support::onchain::OnChainExecution<OnChainConfig>;
 	type MinerConfig = Self;
 	type Verifier = MultiBlockVerifier;
+	type OnRoundRotation = multi_block::CleanRound<Self>;
 	type WeightInfo = measured::pallet_election_provider_multi_block::SubstrateWeight<Self>;
 }
 
@@ -469,7 +470,7 @@ impl<LocalCall> frame_system::offchain::CreateInherent<LocalCall> for Runtime
 where
 	RuntimeCall: From<LocalCall>,
 {
-	fn create_inherent(call: RuntimeCall) -> UncheckedExtrinsic {
+	fn create_bare(call: RuntimeCall) -> UncheckedExtrinsic {
 		UncheckedExtrinsic::new_bare(call)
 	}
 }

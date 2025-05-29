@@ -410,8 +410,10 @@ mod benches {
 		// The current ring has to have a higher index than the ones being merged
 		CurrentRingIndex::<T>::set(14);
 
+		let account: T::AccountId = account("caller", 0, SEED);
+
 		#[extrinsic_call]
-		_(SystemOrigin::None, RI_ZERO, 1);
+		_(SystemOrigin::Signed(account), RI_ZERO, 1);
 
 		assert_eq!(RingKeys::<T>::get(RI_ZERO).len(), keys_left_len);
 		assert_eq!(RingKeysStatus::<T>::get(RI_ZERO).total, keys_left_len as u32);

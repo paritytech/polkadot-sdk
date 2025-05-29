@@ -93,12 +93,6 @@ impl frame_system::Config for Test {
 
 pub type Extrinsic = sp_runtime::testing::TestXt<RuntimeCall, ()>;
 
-impl CreateInherent<Call<Self>> for Test {
-	fn create_inherent(call: Self::RuntimeCall) -> Self::Extrinsic {
-		Extrinsic::new_bare(call)
-	}
-}
-
 impl CreateTransactionBase<Call<Self>> for Test {
 	type Extrinsic = Extrinsic;
 	type RuntimeCall = RuntimeCall;
