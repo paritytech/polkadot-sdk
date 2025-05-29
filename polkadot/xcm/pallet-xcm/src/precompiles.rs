@@ -19,13 +19,10 @@ use codec::{DecodeAll, Encode};
 use core::{marker::PhantomData, num::NonZero};
 use pallet_revive::{
 	precompiles::{
-		alloy::{
-			self,
-			sol_types::SolValue,
-		},
+		alloy::{self, sol_types::SolValue},
 		AddressMatcher, Error, Ext, Precompile,
-	}, 
-	Origin
+	},
+	Origin,
 };
 use tracing::error;
 use xcm_executor::traits::WeightBounds;
@@ -91,7 +88,7 @@ where
 			IXcmCalls::xcmExecute(IXcm::xcmExecuteCall { message, weight }) => {
 				let weight = Weight::from_parts(weight.refTime, weight.proofSize);
 				env.charge(weight)?;
-				
+
 				let final_message = VersionedXcm::decode_all(&mut &message[..]).map_err(|e| {
 					error!("XCM execute failed: Invalid message format. Error: {e:?}");
 					Error::Revert("Invalid message format".into())
@@ -136,4 +133,3 @@ where
 		}
 	}
 }
-
