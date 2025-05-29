@@ -2496,7 +2496,7 @@ pub mod pallet {
 		///
 		/// The duration in eras may vary based on the amount being unbonded and current queue
 		/// parameters. For instance, larger amounts may need to wait longer.
-		pub fn get_unbonding_duration(stash: T::AccountId) -> Vec<(EraIndex, BalanceOf<T>)> {
+		pub fn unbonding_duration(stash: T::AccountId) -> Vec<(EraIndex, BalanceOf<T>)> {
 			let ledger = match Self::ledger(Stash(stash.clone())) {
 				Ok(l) => l,
 				Err(_) => return Vec::new(),

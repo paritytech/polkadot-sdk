@@ -1795,7 +1795,7 @@ impl_runtime_apis! {
 		}
 
 		fn unbonding_duration(account: AccountId) -> Vec<(sp_staking::EraIndex, Balance)> {
-			Staking::get_unbonding_duration(account)
+			Staking::unbonding_duration(account)
 		}
 	}
 
