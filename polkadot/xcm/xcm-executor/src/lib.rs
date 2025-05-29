@@ -233,7 +233,15 @@ impl<Config: config::Config> ExecuteXcm<Config::RuntimeCall> for XcmExecutor<Con
 	) -> Result<Self::Prepared, Xcm<Config::RuntimeCall>> {
 		match Config::Weigher::weight(&mut message) {
 			Ok(weight) => Ok(WeighedMessage(weight, message)),
-			Err(_) => Err(message),
+			Err(error) => {
+				tracing::debug!(
+					target: "xcm::prepare",
+					?error,
+					?message,
+					"Failed to calculate weight for XCM message; execution aborted"
+				);
+				Err(message)
+			},
 		}
 	}
 	fn execute(
@@ -903,20 +911,25 @@ impl<Config: config::Config> XcmExecutor<Config> {
 			WithdrawAsset(assets) => {
 				let origin = self.origin_ref().ok_or(XcmError::BadOrigin)?;
 				self.ensure_can_subsume_assets(assets.len())?;
+				let mut total_surplus = Weight::zero();
 				Config::TransactionalProcessor::process(|| {
 					// Take `assets` from the origin account (on-chain)...
 					for asset in assets.inner() {
-						Config::AssetTransactor::withdraw_asset(
+						let (_, surplus) = Config::AssetTransactor::withdraw_asset_with_surplus(
 							asset,
 							origin,
 							Some(&self.context),
 						)?;
+						// If we have some surplus, aggregate it.
+						total_surplus.saturating_accrue(surplus);
 					}
 					Ok(())
 				})
 				.and_then(|_| {
 					// ...and place into holding.
 					self.holding.subsume_assets(assets.into());
+					// Credit the total surplus.
+					self.total_surplus.saturating_accrue(total_surplus);
 					Ok(())
 				})
 			},
@@ -938,28 +951,36 @@ impl<Config: config::Config> XcmExecutor<Config> {
 				Config::TransactionalProcessor::process(|| {
 					// Take `assets` from the origin account (on-chain) and place into dest account.
 					let origin = self.origin_ref().ok_or(XcmError::BadOrigin)?;
+					let mut total_surplus = Weight::zero();
 					for asset in assets.inner() {
-						Config::AssetTransactor::transfer_asset(
+						let (_, surplus) = Config::AssetTransactor::transfer_asset_with_surplus(
 							&asset,
 							origin,
 							&beneficiary,
 							&self.context,
 						)?;
+						// If we have some surplus, aggregate it.
+						total_surplus.saturating_accrue(surplus);
 					}
+					// Credit the total surplus.
+					self.total_surplus.saturating_accrue(total_surplus);
 					Ok(())
 				})
 			},
 			TransferReserveAsset { mut assets, dest, xcm } => {
 				Config::TransactionalProcessor::process(|| {
 					let origin = self.origin_ref().ok_or(XcmError::BadOrigin)?;
+					let mut total_surplus = Weight::zero();
 					// Take `assets` from the origin account (on-chain) and place into dest account.
 					for asset in assets.inner() {
-						Config::AssetTransactor::transfer_asset(
+						let (_, surplus) = Config::AssetTransactor::transfer_asset_with_surplus(
 							asset,
 							origin,
 							&dest,
 							&self.context,
 						)?;
+						// If we have some surplus, aggregate it.
+						total_surplus.saturating_accrue(surplus);
 					}
 					let reanchor_context = Config::UniversalLocation::get();
 					assets
@@ -968,6 +989,8 @@ impl<Config: config::Config> XcmExecutor<Config> {
 					let mut message = vec![ReserveAssetDeposited(assets), ClearOrigin];
 					message.extend(xcm.0.into_iter());
 					self.send(dest, Xcm(message), FeeReason::TransferReserveAsset)?;
+					// Credit the total surplus.
+					self.total_surplus.saturating_accrue(total_surplus);
 					Ok(())
 				})
 			},
@@ -1118,7 +1141,9 @@ impl<Config: config::Config> XcmExecutor<Config> {
 				let old_holding = self.holding.clone();
 				let result = Config::TransactionalProcessor::process(|| {
 					let deposited = self.holding.saturating_take(assets);
-					Self::deposit_assets_with_retry(&deposited, &beneficiary, Some(&self.context))
+					let surplus = Self::deposit_assets_with_retry(&deposited, &beneficiary, Some(&self.context))?;
+					self.total_surplus.saturating_accrue(surplus);
+					Ok(())
 				});
 				if Config::TransactionalProcessor::IS_TRANSACTIONAL && result.is_err() {
 					self.holding = old_holding;
@@ -1431,7 +1456,15 @@ impl<Config: config::Config> XcmExecutor<Config> {
 			RefundSurplus => self.refund_surplus(),
 			SetErrorHandler(mut handler) => {
 				let handler_weight = Config::Weigher::weight(&mut handler)
-					.map_err(|()| XcmError::WeightNotComputable)?;
+					.map_err(|error| {
+						tracing::debug!(
+							target: "xcm::executor::SetErrorHandler",
+							?error,
+							?handler,
+							"Failed to calculate weight"
+						);
+						XcmError::WeightNotComputable
+					})?;
 				self.total_surplus.saturating_accrue(self.error_handler_weight);
 				self.error_handler = handler;
 				self.error_handler_weight = handler_weight;
@@ -1439,7 +1472,15 @@ impl<Config: config::Config> XcmExecutor<Config> {
 			},
 			SetAppendix(mut appendix) => {
 				let appendix_weight = Config::Weigher::weight(&mut appendix)
-					.map_err(|()| XcmError::WeightNotComputable)?;
+					.map_err(|error| {
+						tracing::debug!(
+							target: "xcm::executor::SetErrorHandler",
+							?error,
+							?appendix,
+							"Failed to calculate weight"
+						);
+						XcmError::WeightNotComputable
+					})?;
 				self.total_surplus.saturating_accrue(self.appendix_weight);
 				self.appendix = appendix;
 				self.appendix_weight = appendix_weight;
@@ -1768,36 +1809,46 @@ impl<Config: config::Config> XcmExecutor<Config> {
 		to_deposit: &AssetsInHolding,
 		beneficiary: &Location,
 		context: Option<&XcmContext>,
-	) -> Result<(), XcmError> {
+	) -> Result<Weight, XcmError> {
+		let mut total_surplus = Weight::zero();
 		let mut failed_deposits = Vec::with_capacity(to_deposit.len());
-
 		for asset in to_deposit.assets_iter() {
-			// if deposit failed for asset, mark it for retry.
-			if Config::AssetTransactor::deposit_asset(&asset, &beneficiary, context).is_err() {
-				failed_deposits.push(asset);
+			match Config::AssetTransactor::deposit_asset_with_surplus(&asset, &beneficiary, context)
+			{
+				Ok(surplus) => {
+					total_surplus.saturating_accrue(surplus);
+				},
+				Err(_) => {
+					// if deposit failed for asset, mark it for retry.
+					failed_deposits.push(asset);
+				},
 			}
 		}
-
 		tracing::trace!(
 			target: "xcm::deposit_assets_with_retry",
 			?failed_deposits,
 			"First‐pass failures, about to retry"
 		);
-
 		// retry previously failed deposits, this time short-circuiting on any error.
 		for asset in failed_deposits {
-			if let Err(e) = Config::AssetTransactor::deposit_asset(&asset, &beneficiary, context) {
-				// Ignore dust deposit errors.
-				if !matches!(
-					e,
-					XcmError::FailedToTransactAsset(s)
-						if *s == *<&'static str>::from(sp_runtime::TokenError::BelowMinimum)
-				) {
-					return Err(e);
-				}
-			}
+			match Config::AssetTransactor::deposit_asset_with_surplus(&asset, &beneficiary, context)
+			{
+				Ok(surplus) => {
+					total_surplus.saturating_accrue(surplus);
+				},
+				Err(error) => {
+					// Ignore dust deposit errors.
+					if !matches!(
+						error,
+						XcmError::FailedToTransactAsset(string)
+							if *string == *<&'static str>::from(sp_runtime::TokenError::BelowMinimum)
+					) {
+						return Err(error);
+					}
+				},
+			};
 		}
-		Ok(())
+		Ok(total_surplus)
 	}
 
 	/// Take from transferred `assets` the delivery fee required to send an onward transfer message
