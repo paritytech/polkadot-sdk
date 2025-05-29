@@ -315,10 +315,9 @@ pub mod pallet {
 
 		/// Maximum allowed era duration in milliseconds.
 		///
-		/// This provides a defensive upper bound to cap the effective era duration,
-		/// preventing excessively long eras from causing runaway inflation (e.g., due to bugs).
-		///
-		/// If the actual era duration exceeds this value, it will be clamped to this maximum.
+		/// This provides a defensive upper bound to cap the effective era duration, preventing
+		/// excessively long eras from causing runaway inflation (e.g., due to bugs). If the actual
+		/// era duration exceeds this value, it will be clamped to this maximum.
 		///
 		/// Example: For an ideal era duration of 24 hours (86,400,000 ms),
 		/// this can be set to 604,800,000 ms (7 days).
