@@ -16,11 +16,7 @@
 // limitations under the License.
 
 use frame_support::derive_impl;
-use frame_system::{
-	offchain::{CreateInherent, CreateTransactionBase},
-	pallet_prelude::ExtrinsicFor,
-	EnsureRoot,
-};
+use frame_system::{offchain::CreateTransactionBase, pallet_prelude::ExtrinsicFor, EnsureRoot};
 use sp_core::{ConstU16, ConstU32, ConstU64, H256};
 use sp_runtime::{
 	traits::{BlakeTwo256, IdentityLookup},
@@ -90,12 +86,6 @@ impl crate::Config for Test {
 pub fn advance_to(b: u64) {
 	while System::block_number() < b {
 		System::set_block_number(System::block_number() + 1);
-	}
-}
-
-impl CreateInherent<pallet_people::Call<Self>> for Test {
-	fn create_inherent(call: Self::RuntimeCall) -> Self::Extrinsic {
-		Self::Extrinsic::new_bare(call)
 	}
 }
 
