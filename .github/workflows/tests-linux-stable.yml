@@ -36,11 +36,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      - name: Use new wasm toolchain
-        run: rustup target add wasm32v1-none
       - name: script
         id: required
-        run: WASM_BUILD_NO_COLOR=1 forklift cargo test -p staging-node-cli --release --locked -- --ignored
+        run: WASM_BUILD_NO_COLOR=1 cargo test -p staging-node-cli --release --locked -- --ignored
       - name: Stop all workflows if failed
         if: ${{ failure() && steps.required.conclusion == 'failure' && !github.event.pull_request.head.repo.fork }}
         uses: ./.github/actions/workflow-stopper
