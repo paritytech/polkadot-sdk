@@ -647,7 +647,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		})
 	}
 
-	// 
+	// ✓
 
 	/// Return the number of vote updates.
 	fn increase_upstream_delegation(
@@ -655,48 +655,56 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		class: &ClassOf<T, I>,
 		amount: Delegations<BalanceOf<T, I>>,
 		ongoing_votes: Vec<PollIndex>,
-	) -> u32 {
-		VotingFor::<T, I>::mutate(who, class, |voting|
+	) -> Result<u32, DispatchError> {
+		VotingFor::<T, I>::try_mutate(who, class, |voting| {
 			voting.delegations = voting.delegations.saturating_add(amount);
 			let votes = voting.votes;
 			
-			// For each of the delegates votes
+			// For each of the delegate's votes
 			for &(poll_index, account_vote, retracted_votes) in votes.iter() {
 				// If they have a standard vote recorded
 				if let Some(AccountVote::Standard { vote, .. }) = account_vote {
 					T::Polls::access_poll(poll_index, |poll_status| {
-						// And the incoming delegation wasn't clawed back
-						if !ongoing_votes.contains(poll_index) {
-							// And the poll is currently ongoing
-							if let PollStatus::Ongoing(tally, _) = poll_status {
-								// Increase the tally by the delegated amount
-								tally.increase(vote.aye, amount);
-							}
+						// And the poll is currently ongoing
+						if let PollStatus::Ongoing(tally, _) = poll_status {
+							// Increase the tally by the delegated amount
+							tally.increase(vote.aye, amount);
 						}
 					});
 				}
 			}
 			
+			// For each of the delegator's votes
 			for poll_index in ongoing_votes {
 				match votes.binary_search_by_key(&poll_index, |i| i.0) {
+					// That appear in the delegate's voting history
 					Ok(i) => {
-						// This vote was voted on by the delegator at the time of delegation, add clawback
+						// Add the clawback
 						votes[i].2 = votes[i].2.saturating_add(amount);
+						// And reduce the tally by that amount if the delegate has voted standard and the poll is ongoing
+						if let Some(AccountVote::Standard { vote, .. }) = account_vote {
+							T::Polls::access_poll(poll_index, |poll_status| {
+								if let PollStatus::Ongoing(tally, _) = poll_status {
+									tally.reduce(vote.aye, amount);
+								}
+							});
+						}
 					},
+					// That don't appear in the delegate's voting history
 					Err(i) => {
-						// They had no data for this vote by who, create it and add the clawback
+						// Insert the vote data with no vote and the clawback amount
 						votes
 							.try_insert(i, (poll_index, None, amount))
 							.map_err(|_| Error::<T, I>::MaxVotesReached)?;
 					},
 				}
 			}
-
-			(ongoing_votes.len() + votes.len()) as u32
-		)
+			let updates = (ongoing_votes.len() + votes.len()) as u32;
+			Ok(updates)
+		})
 	}
 
-	// ✓
+	//
 
 	/// Return the number of votes made by `who`.
 	fn reduce_upstream_delegation(
@@ -705,7 +713,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		amount: Delegations<BalanceOf<T, I>>,
 		ongoing_votes: Vec<PollIndex>,
 	) -> u32 {
-		VotingFor::<T, I>::mutate(who, class, |votes|
+		VotingFor::<T, I>::try_mutate(who, class, |votes| {
 			votes.delegations = votes.delegation.saturating_sub(amount);
 			// For all of the delegators ongoing votes, remove the balance clawback
 			for poll_index in ongoing_votes {
@@ -734,8 +742,8 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 					});
 				}
 			}
-			(ongoing_votes.len() + votes.len()) as u32
-		)
+			Ok((ongoing_votes.len() + votes.len()) as u32)
+		})
 	}
 
 	// ✓
