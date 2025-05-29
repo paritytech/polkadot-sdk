@@ -216,6 +216,7 @@ impl paras::Config for Test {
 	type AssignCoretime = ();
 	type Fungible = Balances;
 	type CooldownRemovalMultiplier = ConstUint<1>;
+	type AuthorizeCurrentCodeOrigin = EnsureRoot<Self::AccountId>;
 }
 
 parameter_types! {
