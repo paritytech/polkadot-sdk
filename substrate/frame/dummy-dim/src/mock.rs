@@ -73,8 +73,6 @@ impl pallet_people::Config for Test {
 	type AccountContexts = ();
 	type ChunkPageSize = ConstU32<8>;
 	type MaxRingSize = ConstU32<255>;
-	type RingBakingInterval = ConstU64<10>;
-	type MaxTaskLifespan = ConstU64<5>;
 	type OnboardingQueuePageSize = ConstU32<512>;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = ();

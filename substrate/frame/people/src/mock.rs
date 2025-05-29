@@ -222,8 +222,6 @@ impl crate::Config for Test {
 	type ChunkPageSize = ConstU32<5>;
 	type MaxRingSize = MaxRingSize;
 	type OnboardingQueuePageSize = ConstU32<40>;
-	type RingBakingInterval = ConstU64<10>;
-	type MaxTaskLifespan = ConstU64<5>;
 
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = BenchHelper;

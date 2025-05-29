@@ -30,9 +30,9 @@
 //! structure.
 //!
 //! The pallet accepts new persons after they prove their uniqueness elsewhere, stores their
-//! information, and supports removing persons via suspensions. While other systems (e.g.,
-//! wallets) generate the proofs, this pallet handles the storage of all necessary data and verifies
-//! the proofs when used.
+//! information, and supports removing persons via suspensions. While other systems (e.g., wallets)
+//! generate the proofs, this pallet handles the storage of all necessary data and verifies the
+//! proofs when used.
 //!
 //! ## Key Features
 //!
@@ -49,32 +49,48 @@
 //! - `set_alias_account(origin, account)`: Link an account to a contextual alias Once linked, this
 //!   allows the account to dispatch transactions as a person with the alias origin using a regular
 //!   signed transaction with a nonce, providing a simpler alternative to attaching full proofs.
-//! - `unset_alias_account(origin)`: Remove an account-alias link
+//! - `unset_alias_account(origin)`: Remove an account-alias link.
+//! - `merge_rings`: Merge the people in two rings into a single, new ring.
+//! - `force_recognize_personhood`: Recognize a set of people without any additional checks.
+//! - `set_personal_id_account`: Set a personal id account.
+//! - `unset_personal_id_account`: Unset the personal id account.
+//! - `migrate_included_key`: Migrate the key for a person who was onboarded and is currently
+//!   included in a ring.
+//! - `migrate_onboarding_key`: Migrate the key for a person who is currently onboarding. The
+//!   operation is instant, replacing the old key in the onboarding queue.
+//! - `set_onboarding_size`: Force set the onboarding size for new people. This call requires root
+//!   privileges.
+//! - `build_ring_manual`: Manually build a ring root by including registered people. The
+//!   transaction fee is refunded on a successful call.
+//! - `onboard_people_manual`: Manually onboard people into a ring. The transaction fee is refunded
+//!   on a successful call.
 //!
-//! ### Tasks
+//! ### Automated tasks performed by the pallet in hooks
 //!
-//! - `build_ring(origin, ring_index)`: Build or update a ring's cryptographic commitment. This task
-//!   processes queued keys into a ring commitment that enables proof generation and verification.
-//!   Since ring construction, or rather adding keys to the ring, is computationally expensive, it's
-//!   performed periodically in batches rather than processing each key immediately. The batch size
-//!   needs to be reasonably large to enhance privacy by obscuring the exact timing of when
-//!   individuals' keys were added to the ring, making it more difficult to correlate specific
-//!   persons with their keys.
-//! - `onboard_people(origin)`: Onboard people from the onboarding queue into a ring. This task
-//!   takes the unincluded keys of recognized people from the onboarding queue and registers them
-//!   into the ring. People can be onboarded only in batches of at least `OnboardingSize` and when
-//!   the remaining open slots in a ring are at least `OnboardingSize`. This does not compute the
-//!   root, that is done using `build_ring`.
-//!
-//! ### Storage Items
-//!
-//! - `Root`: Maps ring indices to their cryptographic commitments
-//! - `RingKeys`: Maps ring indices to the keys in each ring, tracking both already included keys
-//!   and those waiting to be included. For each ring, it maintains the total set of keys and a
-//!   counter indicating how many of those keys have been processed into the ring commitment.
-//! - `People`: Maps PersonalIds to their record information
-//! - `AliasToAccount`: Maps contextual aliases to accounts
-//! - `AccountToAlias`: Maps accounts to their contextual aliases
+//! - Ring building: Build or update a ring's cryptographic commitment. This task processes queued
+//!   keys into a ring commitment that enables proof generation and verification. Since ring
+//!   construction, or rather adding keys to the ring, is computationally expensive, it's performed
+//!   periodically in batches rather than processing each key immediately. The batch size needs to
+//!   be reasonably large to enhance privacy by obscuring the exact timing of when individuals' keys
+//!   were added to the ring, making it more difficult to correlate specific persons with their
+//!   keys.
+//! - People onboarding: Onboard people from the onboarding queue into a ring. This task takes the
+//!   unincluded keys of recognized people from the onboarding queue and registers them into the
+//!   ring. People can be onboarded only in batches of at least `OnboardingSize` and when the
+//!   remaining open slots in a ring are at least `OnboardingSize`. This does not compute the root,
+//!   that is done using `build_ring`.
+//! - Cleaning of suspended people: Remove people's keys marked as suspended or inactive from rings.
+//!   The keys are stored in the `PendingSuspensions` map and they are removed from rings and their
+//!   roots are reset. The ring roots will subsequently be build in the ring building phase from
+//!   scratch. sequentially.
+//! - Key migration: Migrate the keys for people who were onboarded and are currently included in
+//!   rings. The migration is not instant as the key replacement and subsequent inclusion in a new
+//!   ring root will happen only after the next mutation session.
+//! - Onboarding queue page merging: Merge the two pages at the front of the onboarding queue. After
+//!   a round of suspensions, it is possible for the second page of the onboarding queue to be left
+//!   with few members such that, if the first page also has few members, the total count is below
+//!   the required onboarding size, thus stalling the queue. This function fixes this by moving the
+//!   people from the first page to the front of the second page, defragmenting the queue.
 //!
 //! ### Transaction Extension
 //!
@@ -136,7 +152,6 @@ use frame_support::{
 	transactional,
 	weights::WeightMeter,
 };
-use frame_system::offchain::CreateInherent;
 use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{BadOrigin, Dispatchable},
@@ -160,26 +175,25 @@ pub mod pallet {
 
 	#[pallet::config]
 	pub trait Config:
-		CreateInherent<Call<Self>>
-		+ frame_system::Config<
-			RuntimeOrigin: From<Origin>
-			                   + From<<Self::RuntimeOrigin as OriginTrait>::PalletsOrigin>
-			                   + OriginTrait<
-				PalletsOrigin: From<Origin>
-				                   + TryInto<
-					Origin,
-					Error = <Self::RuntimeOrigin as OriginTrait>::PalletsOrigin,
-				>,
+		frame_system::Config<
+		RuntimeOrigin: From<Origin>
+		                   + From<<Self::RuntimeOrigin as OriginTrait>::PalletsOrigin>
+		                   + OriginTrait<
+			PalletsOrigin: From<Origin>
+			                   + TryInto<
+				Origin,
+				Error = <Self::RuntimeOrigin as OriginTrait>::PalletsOrigin,
 			>,
-			RuntimeCall: Parameter
-			                 + GetDispatchInfo
-			                 + IsSubType<Call<Self>>
-			                 + Dispatchable<
-				RuntimeOrigin = Self::RuntimeOrigin,
-				Info = DispatchInfo,
-				PostInfo = PostDispatchInfo,
-			>,
-		>
+		>,
+		RuntimeCall: Parameter
+		                 + GetDispatchInfo
+		                 + IsSubType<Call<Self>>
+		                 + Dispatchable<
+			RuntimeOrigin = Self::RuntimeOrigin,
+			Info = DispatchInfo,
+			PostInfo = PostDispatchInfo,
+		>,
+	>
 	{
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
@@ -211,16 +225,6 @@ pub mod pallet {
 		/// created.
 		#[pallet::constant]
 		type OnboardingQueuePageSize: Get<u32>;
-
-		/// Interval at which offchain worker will look if `build_ring` should be called, and submit
-		/// the call if it should. e.g., if interval = 10, and `build_ring` should be called 3
-		/// times, then offchain worker will call `build_ring` at block 0, 10 and 20.
-		#[pallet::constant]
-		type RingBakingInterval: Get<BlockNumberFor<Self>>;
-
-		/// Maximum time in blocks that a task transaction to drive ring changes may stay alive.
-		#[pallet::constant]
-		type MaxTaskLifespan: Get<BlockNumberFor<Self>>;
 
 		/// Helper for benchmarks.
 		#[cfg(feature = "runtime-benchmarks")]
@@ -808,15 +812,17 @@ pub mod pallet {
 			Ok(Pays::No.into())
 		}
 
-		/// Task that merges two rings. In order for the rings to be eligible for merging, they must
-		/// be below 1/2 of max capacity, have no pending suspensions and not be the top ring used
-		/// for onboarding.
+		/// Merge the people in two rings into a single, new ring. In order for the rings to be
+		/// eligible for merging, they must be below 1/2 of max capacity, have no pending
+		/// suspensions and not be the top ring used for onboarding.
 		#[pallet::call_index(102)]
 		pub fn merge_rings(
-			_origin: OriginFor<T>,
+			origin: OriginFor<T>,
 			base_ring_index: RingIndex,
 			target_ring_index: RingIndex,
-		) -> DispatchResult {
+		) -> DispatchResultWithPostInfo {
+			let _ = ensure_signed(origin)?;
+
 			ensure!(RingsState::<T>::get().append_only(), Error::<T>::SuspensionSessionInProgress);
 			// Top ring that onboards new candidates cannot be merged. Identical rings cannot be
 			// merged.
@@ -876,7 +882,7 @@ pub mod pallet {
 			RingKeys::<T>::remove(target_ring_index);
 			RingKeysStatus::<T>::remove(target_ring_index);
 
-			Ok(())
+			Ok(Pays::No.into())
 		}
 
 		/// Dispatch a call under an alias using the `account <-> alias` mapping.
@@ -1513,7 +1519,7 @@ pub mod pallet {
 							// It is expensive to shift the whole vec in the worst case to remove a
 							// suspended person from onboarding, but the pages will be small and
 							// suspension of people who are not yet onboarded is supposed to be
-							// extremely rare if not impossible as the offchain worker should have
+							// extremely rare if not impossible as the pallet hooks should have
 							// plenty of time to include someone recognized before the beginning of
 							// the next suspension round. The only legitimate case when this could
 							// happen is if someone is sitting in the onboarding queue for a long
@@ -1738,8 +1744,8 @@ pub mod pallet {
 				}
 			});
 
-			// Make sure to remove the entry from the map so that the offchain worker doesn't
-			// iterate over it.
+			// Make sure to remove the entry from the map so that the pallet hooks don't iterate
+			// over it.
 			PendingSuspensions::<T>::remove(ring_index);
 			T::WeightInfo::remove_suspended_people(keys_len.try_into().unwrap_or(u32::MAX))
 		}
