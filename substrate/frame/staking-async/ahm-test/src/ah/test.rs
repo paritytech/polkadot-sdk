@@ -308,12 +308,12 @@ fn receives_old_session_report() {
 			}]
 		);
 
-		// reward points are added
+		// reward points are not added
 		assert_eq!(staking_async::ErasRewardPoints::<T>::get(&0).total, 50);
 
-		// this is ok, but no new session report is received in staking.
+		// then send it again, this is dropped, with no storage change.
 		assert_noop!(
-			rc_client::Pallet::<T>::relay_session_report(RuntimeOrigin::root(), session_report,),
+			rc_client::Pallet::<T>::relay_session_report(RuntimeOrigin::root(), session_report),
 			rc_client::Error::<T>::SessionIndexNotValid
 		);
 	})
@@ -372,7 +372,10 @@ fn receives_session_report_in_future() {
 				activation_timestamp: None,
 				leftover: false,
 			},
-		),);
+		));
+
+		// our tracker of last session is updated (and has skipped `1`)
+		assert_eq!(rc_client::LastSessionReportEndingIndex::<T>::get(), Some(2));
 
 		assert_eq!(
 			rc_client_events_since_last_call(),
