@@ -1596,23 +1596,17 @@ mod staking_bounds_chill_other {
 			.min_validator_bond(1_500)
 			.build_and_execute(|| {
 				// 500 is not enough for any role
-				assert_ok!(Staking::bond(RuntimeOrigin::signed(3), 500, RewardDestination::Stash));
 				assert_noop!(
-					Staking::nominate(RuntimeOrigin::signed(3), vec![1]),
+					Staking::bond(RuntimeOrigin::signed(3), 500, RewardDestination::Stash),
 					Error::<Test>::InsufficientBond
 				);
+				// 1000 is enough for nominator but not for validator.
+				assert_ok!(Staking::bond(RuntimeOrigin::signed(3), 1000, RewardDestination::Stash));
 				assert_noop!(
 					Staking::validate(RuntimeOrigin::signed(3), ValidatorPrefs::default()),
 					Error::<Test>::InsufficientBond,
 				);
-
-				// 1000 is enough for nominator
-				assert_ok!(Staking::bond_extra(RuntimeOrigin::signed(3), 500));
 				assert_ok!(Staking::nominate(RuntimeOrigin::signed(3), vec![1]));
-				assert_noop!(
-					Staking::validate(RuntimeOrigin::signed(3), ValidatorPrefs::default()),
-					Error::<Test>::InsufficientBond,
-				);
 
 				// 1500 is enough for validator
 				assert_ok!(Staking::bond_extra(RuntimeOrigin::signed(3), 500));
