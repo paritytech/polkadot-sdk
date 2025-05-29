@@ -1,21 +1,15 @@
 title: '[WIP] polkadot-omni-node: add `GetParachainIdentity` runtime api '
 doc:
-- audience: Todo
-  description: |-
-    # Description
+- audience: [ Node Dev, Node Operator, Runtime Dev ]
+  description: |
+    This PR deprecates the `para_id` field required by parachain chain specifications that are started based on `polkadot-omni-node`,
+    `parachain-polkadot` and `parachain-template-node`.
 
-    Closes #7384
-    Closes #75
+    Starting with `stable2506` the `para_id` field of chain specification is not required anymore, and runtime developers will be able
+    to specify it to nodes by implementing the runtime API `cumulus_primitives_core::GetParachainIdentity`.
 
-    ## Integration
-
-    TODO
-
-    ## Review Notes
-
-    This PR is based on prior work here:  #7546. This PR continues with some more testing and polishing for making it ready for review.
-
-    TODO: testing according to: https://github.com/paritytech/polkadot-sdk/pull/7546#issuecomment-2850415461
+    Starting with `stable2509` the `para_id` field of chain specification will not considered anymore by node versions, so it is mandatory
+    for runtimes to implement the `GetParachainIdentity` trait to still be compatible with the nodes.
 crates:
 - name: asset-hub-rococo-runtime
   bump: major
