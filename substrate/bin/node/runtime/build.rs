@@ -17,16 +17,13 @@
 
 #[cfg(all(feature = "std", not(feature = "metadata-hash")))]
 fn main() {
-	substrate_wasm_builder::WasmBuilder::init_with_defaults()
-		.append_to_rust_flags("-C link-args='-z stack-size=524288'")
-		.build()
+	substrate_wasm_builder::WasmBuilder::build_using_defaults()
 }
 
 #[cfg(all(feature = "std", feature = "metadata-hash"))]
 fn main() {
 	substrate_wasm_builder::WasmBuilder::init_with_defaults()
 		.enable_metadata_hash("Test", 14)
-		.append_to_rust_flags("-C link-args='-z stack-size=524288'")
 		.build()
 }
 
