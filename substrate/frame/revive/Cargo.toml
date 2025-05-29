@@ -21,6 +21,7 @@ alloy-core = { workspace = true, features = ["sol-types"] }
 codec = { features = ["derive", "max-encoded-len"], workspace = true }
 derive_more = { workspace = true }
 environmental = { workspace = true }
+ethereum-standards = { workspace = true }
 ethereum-types = { workspace = true, features = ["codec", "rlp", "serialize"] }
 hex-literal = { workspace = true }
 humantime-serde = { optional = true, workspace = true }
