@@ -22,24 +22,22 @@ use crate::{
 	validator_side_experimental::{
 		common::{
 			Advertisement, CanSecond, CollationFetchError, CollationFetchResponse,
-			ProspectiveCandidate, Score, SecondingRejection, FAILED_FETCH_SLASH,
+			ProspectiveCandidate, Score, SecondingRejectionInfo, FAILED_FETCH_SLASH,
 			INSTANT_FETCH_REP_THRESHOLD, UNDER_THRESHOLD_FETCH_DELAY,
 		},
 		error::{Error, FatalResult, Result},
-		peer_manager::PeerManager,
 	},
 	LOG_TARGET,
 };
-use fatality::{Nested, Split};
+use fatality::Split;
 use futures::{channel::oneshot, stream::FusedStream};
 use polkadot_node_network_protocol::{
-	peer_set::CollationVersion,
 	request_response::{outgoing::RequestError, v2 as request_v2, Requests},
-	OurView, PeerId, View,
+	OurView, PeerId,
 };
 use polkadot_node_primitives::PoV;
 use polkadot_node_subsystem::{
-	messages::{CanSecondRequest, CandidateBackingMessage, IfDisconnected, NetworkBridgeTxMessage},
+	messages::{CanSecondRequest, CandidateBackingMessage},
 	ActivatedLeaf, CollatorProtocolSenderTrait,
 };
 use polkadot_node_subsystem_util::{
@@ -60,8 +58,8 @@ use requests::PendingRequests;
 use schnellru::{ByLength, LruMap};
 use sp_keystore::KeystorePtr;
 use std::{
-	collections::{hash_map::Entry, BTreeSet, HashMap, HashSet, VecDeque},
-	time::{SystemTime, UNIX_EPOCH},
+	collections::{BTreeSet, HashMap, HashSet, VecDeque},
+	time::Instant,
 };
 
 mod requests;
@@ -88,30 +86,37 @@ struct FetchedCollation {
 	pub candidate_receipt: CandidateReceipt,
 	/// Proof of validity.
 	pub pov: PoV,
-	/// Optional parachain parent head data.
+	/// Optional parachain parent head data. This is needed for elastic scaling to work.
 	pub maybe_parent_head_data: Option<HeadData>,
-	/// TODO
+	/// Optional parent head data hash. This is needed for async backing to work (sent by v2
+	/// protocol).
 	pub maybe_parent_head_data_hash: Option<Hash>,
-	/// TODO
+	/// The peer that sent this collation.
 	pub peer_id: PeerId,
 }
 
 pub struct CollationManager {
+	// The backing implicit view, which is used to track the active leaves and their implicit
+	// ancestors.
 	implicit_view: ImplicitView,
-	// One per active leaf
+
+	// Claim queue state for each active leaf. This is used to track and limit the current
+	// collations for which work (seconding or fetching) is ongoing.
 	claim_queue_state: PerLeafClaimQueueState,
 
-	/// Collations which we haven't been able to second due to their parent not being known by
-	/// prospective-parachains. Mapped from the paraid and parent_head_hash to the fetched
-	/// collation data. Only needed for async backing. For elastic scaling, the fetched collation
-	/// must contain the full parent head data.
+	// Collations which we haven't been able to second due to their parent not being known by
+	// prospective-parachains. Mapped from the paraid and parent_head_hash to the fetched
+	// collation data. Only needed for async backing. For elastic scaling, the fetched collation
+	// must contain the full parent head data.
 	blocked_from_seconding: HashMap<BlockedCollationId, Vec<FetchedCollation>>,
 
-	// One per relay parent
+	// Information kept per relay parent.
 	per_relay_parent: HashMap<Hash, PerRelayParent>,
 
+	// Session info cache.
 	per_session: LruMap<SessionIndex, PerSessionInfo>,
 
+	// Collection of active collation fetch requests.
 	fetching: PendingRequests,
 }
 
@@ -199,6 +204,7 @@ impl CollationManager {
 		}
 
 		// Remove blocked seconding requests that left the view. TODO: need to release any claims?
+		// yes. have a look at: // Remove any collations that were blocked on this parent
 		self.blocked_from_seconding.retain(|_, collations| {
 			collations.retain(|collation| {
 				self.per_relay_parent
@@ -275,14 +281,7 @@ impl CollationManager {
 			return Err(AdvertisementError::OutOfOurView)
 		};
 
-		let now = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_millis();
-
-		let mut peer_advertisements = per_rp
-			.peer_advertisements
-			.entry(advertisement.peer_id)
-			.or_insert_with(|| Default::default());
-
-		peer_advertisements.total += 1;
+		let now = Instant::now();
 
 		let max_assignments = self
 			.claim_queue_state
@@ -292,13 +291,7 @@ impl CollationManager {
 			return Err(AdvertisementError::InvalidAssignment)
 		}
 
-		if peer_advertisements.total > max_assignments {
-			return Err(AdvertisementError::PeerLimitReached)
-		}
-
-		if peer_advertisements.advertisements.contains(&advertisement) {
-			return Err(AdvertisementError::Duplicate)
-		}
+		per_rp.can_keep_advertisement(advertisement, max_assignments)?;
 
 		if let Some(ProspectiveCandidate { candidate_hash, .. }) =
 			advertisement.prospective_candidate
@@ -318,8 +311,7 @@ impl CollationManager {
 			return Err(AdvertisementError::BlockedByBacking)
 		}
 
-		per_rp.advertisement_timestamps.insert(advertisement, now);
-		peer_advertisements.advertisements.insert(advertisement);
+		per_rp.add_advertisement(advertisement, now);
 
 		Ok(())
 	}
@@ -328,7 +320,7 @@ impl CollationManager {
 		&mut self,
 		connected_rep_query_fn: RepQueryFn,
 	) -> Vec<Requests> {
-		let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis();
+		let now = Instant::now();
 
 		// Advertisements and collations are up to date.
 		// Claim queue states for leaves are also up to date.
@@ -345,12 +337,13 @@ impl CollationManager {
 
 			for para_id in free_slots {
 				// TODO: look up in the db.
-				let highest_rep_of_para = Score::default();
+				let highest_rep_of_para = Score::new(10).unwrap();
 
 				// Try picking an advertisement.
 				let Some((advertisement, peer_rep)) = self
 					.per_relay_parent
-					.values()
+					.iter()
+					.filter_map(|(rp, per_rp)| parents.contains(rp).then_some(per_rp))
 					.flat_map(|per_rp| per_rp.eligible_advertisements(&para_id))
 					.filter_map(|adv| {
 						(!self.fetching.contains(&adv)).then(|| {
@@ -361,7 +354,7 @@ impl CollationManager {
 							)
 						})
 					})
-					.max_by_key(|(adv, score)| *score)
+					.max_by_key(|(_, score)| *score)
 				else {
 					continue
 				};
@@ -377,7 +370,7 @@ impl CollationManager {
 				};
 
 				let doesnt_have_better_peers = peer_rep >= highest_rep_of_para;
-				let time_since_advertisement = now.saturating_sub(*advertisement_timestamp);
+				let time_since_advertisement = now.duration_since(*advertisement_timestamp);
 				if peer_rep >= INSTANT_FETCH_REP_THRESHOLD ||
 					time_since_advertisement >= UNDER_THRESHOLD_FETCH_DELAY ||
 					doesnt_have_better_peers
@@ -389,7 +382,6 @@ impl CollationManager {
 						&para_id,
 					) {
 						let req = self.fetching.launch(&advertisement);
-						// TODO: log details of request and peer.
 						requests.push(req);
 						continue
 					}
@@ -411,24 +403,17 @@ impl CollationManager {
 			return
 		}
 
-		let mut cancelled_fetches = vec![];
+		// Cancel ongoing fetches for advertisements from these peers.
 		for peer in peers_to_remove {
 			for per_rp in self.per_relay_parent.values_mut() {
-				if let Some(removed_advertisements) = per_rp.peer_advertisements.remove(&peer) {
-					for advertisement in removed_advertisements.advertisements {
-						per_rp.advertisement_timestamps.remove(&advertisement);
-
-						if self.fetching.contains(&advertisement) {
-							self.fetching.cancel(&advertisement);
-							cancelled_fetches.push(advertisement);
-						}
-					}
+				for advertisement in per_rp.remove_peer_advertisements(&peer) {
+					// If it's not fetching, this will be a no-op.
+					self.fetching.cancel(&advertisement);
+					// No need to reset now the statuses of claims that were pending fetch for these
+					// candidates, as the futures will soon conclude with Cancelled reason.
 				}
 			}
 		}
-
-		// No need to reset now the statuses of claims that were pending fetch for these candidates,
-		// as the futures will soon conclude with Cancelled reason.
 	}
 
 	pub async fn completed_fetch<Sender: CollatorProtocolSenderTrait>(
@@ -439,7 +424,7 @@ impl CollationManager {
 		let advertisement = res.0;
 		self.fetching.completed(&advertisement);
 
-		let mut reject_info = SecondingRejection {
+		let mut reject_info = SecondingRejectionInfo {
 			relay_parent: advertisement.relay_parent,
 			peer_id: advertisement.peer_id,
 			para_id: advertisement.para_id,
@@ -458,11 +443,7 @@ impl CollationManager {
 			return CanSecond::No(None, reject_info)
 		};
 
-		if let Some(advertisements) = per_rp.peer_advertisements.get_mut(&advertisement.peer_id) {
-			advertisements.advertisements.remove(&advertisement);
-		}
-
-		per_rp.advertisement_timestamps.remove(&advertisement);
+		per_rp.remove_advertisement(&advertisement);
 
 		let Some(session_info) = self.per_session.get(&per_rp.session_index) else {
 			gum::debug!(
@@ -536,6 +517,7 @@ impl CollationManager {
 					target: LOG_TARGET,
 					?relay_parent,
 					?candidate_hash,
+					?para_id,
 					"Could not release slot for candidate, it wasn't claimed",
 				);
 			}
@@ -544,13 +526,14 @@ impl CollationManager {
 				gum::debug!(
 					target: LOG_TARGET,
 					?relay_parent,
+					?para_id,
 					"Could not release slot for candidate, it wasn't claimed",
 				);
 			}
 		}
 
 		if let Some(output_head_hash) = maybe_output_head_hash {
-			// Remove any collations that were blocked on this parent. TODO: add a log
+			// Remove any collations that were blocked on this parent.
 			let Some(blocked) = self
 				.blocked_from_seconding
 				.remove(&BlockedCollationId { para_id, parent_head_data_hash: output_head_hash })
@@ -560,11 +543,22 @@ impl CollationManager {
 
 			for collation in blocked {
 				let candidate_hash = collation.candidate_receipt.hash();
+				let relay_parent = collation.candidate_receipt.descriptor.relay_parent();
+				gum::debug!(
+					target: LOG_TARGET,
+					?relay_parent,
+					?candidate_hash,
+					?para_id,
+					?output_head_hash,
+					"Releasing slot for blocked collation because its parent was released",
+				);
+
 				if !self.claim_queue_state.release_claims_for_candidate(&candidate_hash) {
 					gum::debug!(
 						target: LOG_TARGET,
-						relay_parent = ?collation.candidate_receipt.descriptor.relay_parent(),
+						?relay_parent,
 						?candidate_hash,
+						?para_id,
 						"Could not release slot for candidate, it wasn't claimed",
 					);
 				}
@@ -600,15 +594,15 @@ impl CollationManager {
 		self.claim_queue_state
 			.claim_seconded_slot(candidate_hash, relay_parent, para_id);
 
-		let mut unblocked_can_second = vec![];
-
 		// See if we've unblocked other collations here too.
-		if let Some(unblocked) = self.blocked_from_seconding.remove(&BlockedCollationId {
-			para_id: *para_id,
-			parent_head_data_hash: output_head_hash,
-		}) {
+		let unblocked_can_second = if let Some(unblocked) =
+			self.blocked_from_seconding.remove(&BlockedCollationId {
+				para_id: *para_id,
+				parent_head_data_hash: output_head_hash,
+			}) {
+			let mut unblocked_can_second = Vec::with_capacity(unblocked.len());
 			for fetched_collation in unblocked {
-				let reject_info = SecondingRejection {
+				let reject_info = SecondingRejectionInfo {
 					relay_parent: fetched_collation.candidate_receipt.descriptor.relay_parent(),
 					peer_id: fetched_collation.peer_id,
 					para_id: fetched_collation.candidate_receipt.descriptor.para_id(),
@@ -619,10 +613,12 @@ impl CollationManager {
 				};
 				let can_second =
 					self.can_begin_seconding(sender, fetched_collation, false, reject_info).await;
-
 				unblocked_can_second.push(can_second)
 			}
-		}
+			unblocked_can_second
+		} else {
+			vec![]
+		};
 
 		(peer_id, unblocked_can_second)
 	}
@@ -641,6 +637,8 @@ impl CollationManager {
 		let session_info = self.get_session_info(sender, parent, session_index).await?;
 		let mut rotation_info = session_info.group_rotation_info.clone();
 
+		// The `validator_groups` runtime API adds 1 to the block number, so we need to do the same
+		// here.
 		rotation_info.now = block_number + 1;
 
 		let core_now = if let Some(group) =
@@ -688,11 +686,10 @@ impl CollationManager {
 		sender: &mut Sender,
 		fetched_collation: FetchedCollation,
 		queue_blocked_collations: bool,
-		reject_info: SecondingRejection,
+		reject_info: SecondingRejectionInfo,
 	) -> CanSecond {
 		let relay_parent = fetched_collation.candidate_receipt.descriptor.relay_parent();
 		let candidate_hash = fetched_collation.candidate_receipt.hash();
-		let output_head_hash = fetched_collation.candidate_receipt.descriptor.para_head();
 		let para_id = fetched_collation.candidate_receipt.descriptor.para_id();
 
 		let can_second = match fetch_pvd(
@@ -741,7 +738,7 @@ impl CollationManager {
 						"Failed persisted validation data checks: {}",
 						error
 					);
-					return CanSecond::No(Some(FAILED_FETCH_SLASH), reject_info)
+					CanSecond::No(Some(FAILED_FETCH_SLASH), reject_info)
 				},
 				err => {
 					gum::warn!(
@@ -752,7 +749,7 @@ impl CollationManager {
 						"Failed persisted validation data checks: {}",
 						err
 					);
-					return CanSecond::No(None, reject_info)
+					CanSecond::No(None, reject_info)
 				},
 			},
 			Ok(pvd) => {
@@ -774,8 +771,7 @@ impl CollationManager {
 
 struct PerRelayParent {
 	peer_advertisements: HashMap<PeerId, PeerAdvertisements>,
-	advertisement_timestamps: HashMap<Advertisement, u128>,
-	// advertisement_timestamps: HashMap<Advertisement, u128>,
+	advertisement_timestamps: HashMap<Advertisement, Instant>,
 	// Only kept to make sure that we don't re-request the same collations and so that we know who
 	// to punish for supplying an invalid collation.
 	fetched_collations: HashMap<CandidateHash, PeerId>,
@@ -806,11 +802,61 @@ impl PerRelayParent {
 			.values()
 			.flat_map(|list| list.advertisements.iter())
 			.filter(move |adv| {
-				// We could instead directly look at only the declared peerids.
+				// TODO: We could instead directly look at only the declared peerids.
 				(&adv.para_id == para_id) &&
 				// We can be pretty sure that this is true
 				!adv.prospective_candidate.map(|p| self.fetched_collations.contains_key(&p.candidate_hash)).unwrap_or(false)
 			})
+	}
+
+	fn can_keep_advertisement(
+		&mut self,
+		advertisement: Advertisement,
+		max_assignments: usize,
+	) -> std::result::Result<(), AdvertisementError> {
+		let peer_advertisements =
+			self.peer_advertisements.entry(advertisement.peer_id).or_default();
+
+		peer_advertisements.total += 1;
+
+		if peer_advertisements.total > max_assignments {
+			return Err(AdvertisementError::PeerLimitReached)
+		}
+
+		if peer_advertisements.advertisements.contains(&advertisement) {
+			return Err(AdvertisementError::Duplicate)
+		}
+
+		Ok(())
+	}
+
+	fn add_advertisement(&mut self, advertisement: Advertisement, now: Instant) {
+		self.advertisement_timestamps.insert(advertisement, now);
+		self.peer_advertisements
+			.entry(advertisement.peer_id)
+			.or_default()
+			.advertisements
+			.insert(advertisement);
+	}
+
+	fn remove_advertisement(&mut self, advertisement: &Advertisement) {
+		if let Some(advertisements) = self.peer_advertisements.get_mut(&advertisement.peer_id) {
+			advertisements.advertisements.remove(&advertisement);
+		}
+
+		self.advertisement_timestamps.remove(&advertisement);
+	}
+
+	fn remove_peer_advertisements(&mut self, peer_id: &PeerId) -> Vec<Advertisement> {
+		let Some(removed) = self.peer_advertisements.remove(peer_id) else { return vec![] };
+
+		removed
+			.advertisements
+			.into_iter()
+			.inspect(|advertisement| {
+				self.advertisement_timestamps.remove(advertisement);
+			})
+			.collect()
 	}
 }
 
@@ -831,7 +877,7 @@ struct PerSessionInfo {
 	v2_receipts: bool,
 }
 
-// Requests backing to sanity check the advertisement.
+// Requests backing subsystem to sanity check the advertisement.
 async fn backing_allows_seconding<Sender>(
 	sender: &mut Sender,
 	advertisement: &Advertisement,

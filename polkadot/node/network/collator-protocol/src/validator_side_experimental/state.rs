@@ -29,7 +29,7 @@ use crate::{
 	LOG_TARGET,
 };
 use fatality::Split;
-use futures::{channel::oneshot, stream::FusedStream};
+use futures::stream::FusedStream;
 use polkadot_node_network_protocol::{peer_set::CollationVersion, OurView, PeerId};
 use polkadot_node_primitives::{SignedFullStatement, Statement};
 use polkadot_node_subsystem::{
@@ -46,7 +46,7 @@ pub struct State<B> {
 	peer_manager: PeerManager<B>,
 	collation_manager: CollationManager,
 	keystore: KeystorePtr,
-	metrics: Metrics,
+	_metrics: Metrics,
 }
 
 impl<B: Backend> State<B> {
@@ -57,7 +57,7 @@ impl<B: Backend> State<B> {
 		keystore: KeystorePtr,
 		metrics: Metrics,
 	) -> Self {
-		Self { peer_manager, collation_manager, keystore, metrics }
+		Self { peer_manager, collation_manager, keystore, _metrics: metrics }
 	}
 
 	/// Handle a new peer connection.
@@ -135,7 +135,7 @@ impl<B: Backend> State<B> {
 		);
 		let old_assignments = self.collation_manager.assignments();
 
-		self.collation_manager.view_update(sender, &self.keystore, new_view).await;
+		self.collation_manager.view_update(sender, &self.keystore, new_view).await?;
 
 		let new_assignments = self.collation_manager.assignments();
 		gum::trace!(
@@ -315,11 +315,9 @@ impl<B: Backend> State<B> {
 			},
 			CanSecond::No(maybe_slash, reject_info) => {
 				if let Some(slash) = maybe_slash {
-					self.peer_manager.slash_reputation(
-						&reject_info.peer_id,
-						&reject_info.para_id,
-						slash,
-					);
+					self.peer_manager
+						.slash_reputation(&reject_info.peer_id, &reject_info.para_id, slash)
+						.await;
 				}
 
 				self.collation_manager.release_slot(
@@ -366,11 +364,9 @@ impl<B: Backend> State<B> {
 			return
 		};
 
-		self.peer_manager.slash_reputation(
-			&peer_id,
-			&receipt.descriptor.para_id(),
-			INVALID_COLLATION_SLASH,
-		);
+		self.peer_manager
+			.slash_reputation(&peer_id, &receipt.descriptor.para_id(), INVALID_COLLATION_SLASH)
+			.await;
 	}
 
 	pub async fn handle_collation_seconded<Sender: CollatorProtocolSenderTrait>(
@@ -424,6 +420,7 @@ impl<B: Backend> State<B> {
 				target: LOG_TARGET,
 				?relay_parent,
 				?candidate_hash,
+				?para_id,
 				"Seconded candidate unblocked {} collations",
 				unblocked_collations.len(),
 			);
@@ -434,6 +431,7 @@ impl<B: Backend> State<B> {
 				CanSecond::Yes(candidate_receipt, pov, pvd) => {
 					let relay_parent = candidate_receipt.descriptor.relay_parent();
 					let candidate_hash = candidate_receipt.hash();
+					let para_id = candidate_receipt.descriptor.para_id();
 
 					sender
 						.send_message(CandidateBackingMessage::Second(
@@ -448,6 +446,7 @@ impl<B: Backend> State<B> {
 						target: LOG_TARGET,
 						?relay_parent,
 						?candidate_hash,
+						?para_id,
 						"Started seconding unblocked collation"
 					);
 				},
@@ -456,15 +455,14 @@ impl<B: Backend> State<B> {
 						target: LOG_TARGET,
 						relay_parent = ?reject_info.relay_parent,
 						maybe_candidate_hash = ?reject_info.maybe_candidate_hash,
+						para_id = ?reject_info.para_id,
 						"Cannot second unblocked collation"
 					);
 
 					if let Some(slash) = maybe_slash {
-						self.peer_manager.slash_reputation(
-							&reject_info.peer_id,
-							&reject_info.para_id,
-							slash,
-						);
+						self.peer_manager
+							.slash_reputation(&reject_info.peer_id, &reject_info.para_id, slash)
+							.await;
 					}
 
 					self.collation_manager.release_slot(
@@ -474,11 +472,13 @@ impl<B: Backend> State<B> {
 						reject_info.maybe_output_head_hash,
 					);
 				},
-				CanSecond::BlockedOnParent(_, reject_info) => {
+				CanSecond::BlockedOnParent(parent, reject_info) => {
 					gum::warn!(
 						target: LOG_TARGET,
 						relay_parent = ?reject_info.relay_parent,
 						maybe_candidate_hash = ?reject_info.maybe_candidate_hash,
+						?parent,
+						para_id = ?reject_info.para_id,
 						"Cannot second unblocked collation even though its parent was just seconded"
 					);
 

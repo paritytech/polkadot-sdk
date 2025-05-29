@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use std::{collections::HashSet, num::NonZeroU16};
+use std::{collections::HashSet, num::NonZeroU16, time::Duration};
 
 use polkadot_node_network_protocol::{
 	peer_set::CollationVersion,
@@ -23,11 +23,11 @@ use polkadot_node_network_protocol::{
 };
 use polkadot_node_primitives::PoV;
 use polkadot_primitives::{
-	vstaging::CandidateReceiptV2 as CandidateReceipt, CandidateHash, Hash, HeadData, Id as ParaId,
+	vstaging::CandidateReceiptV2 as CandidateReceipt, CandidateHash, Hash, Id as ParaId,
 	PersistedValidationData,
 };
 
-/// Maximum reputation score.
+/// Maximum reputation score. Scores higher than this will be saturated to this value.
 pub const MAX_SCORE: u16 = 5000;
 
 /// Limit for the total number connected peers.
@@ -44,7 +44,7 @@ pub const CONNECTED_PEERS_PARA_LIMIT: NonZeroU16 = const {
 /// notifications.
 pub const MAX_STARTUP_ANCESTRY_LOOKBACK: u32 = 20;
 
-/// Reputation bump for getting a valid candidate included.
+/// Reputation bump for getting a valid candidate included in a finalized block.
 pub const VALID_INCLUDED_CANDIDATE_BUMP: u16 = 50;
 
 /// Reputation slash for peer inactivity (for each included candidate of the para that was not
@@ -64,8 +64,11 @@ pub const INVALID_COLLATION_SLASH: Score = Score::new(1000).expect("1000 is less
 /// Minimum reputation threshold that warrants an instant fetch.
 pub const INSTANT_FETCH_REP_THRESHOLD: Score = Score::new(1000).expect("20 is less than MAX_SCORE");
 
-// In millis
-pub const UNDER_THRESHOLD_FETCH_DELAY: u128 = 2000;
+/// Delay for fetching collations when the reputation score is below the threshold
+/// defined by `INSTANT_FETCH_REP_THRESHOLD`.
+/// This gives us a chance to fetch collations from other peers with higher reputation
+/// before we try to fetch from this peer.
+pub const UNDER_THRESHOLD_FETCH_DELAY: Duration = Duration::from_millis(2000);
 
 /// Reputation score type.
 #[derive(PartialEq, Eq, PartialOrd, Ord, Debug, Clone, Copy, Default)]
@@ -121,6 +124,7 @@ pub enum PeerState {
 }
 
 #[derive(Debug, PartialEq)]
+/// Outcome of triaging a new connection.
 pub enum TryAcceptOutcome {
 	/// Connection was accepted.
 	Added,
@@ -136,7 +140,8 @@ pub enum TryAcceptOutcome {
 }
 
 impl TryAcceptOutcome {
-	/// TODO
+	/// Combine two outcomes into one. If at least one of them allows the connection,
+	/// the connection is allowed.
 	pub fn combine(self, other: Self) -> Self {
 		use TryAcceptOutcome::*;
 		match (self, other) {
@@ -175,12 +180,13 @@ pub struct Advertisement {
 	pub prospective_candidate: Option<ProspectiveCandidate>,
 }
 
+/// Output of a `CollationFetchRequest`, which includes the advertisement identifier.
 pub type CollationFetchResponse = (
 	Advertisement,
 	std::result::Result<request_v2::CollationFetchingResponse, CollationFetchError>,
 );
 
-// Any error that can occur when awaiting a collation fetch response.
+/// Any error that can occur when awaiting a collation fetch response.
 #[derive(Debug, thiserror::Error)]
 pub enum CollationFetchError {
 	#[error("Future was cancelled.")]
@@ -189,13 +195,20 @@ pub enum CollationFetchError {
 	Request(#[from] RequestError),
 }
 
+/// Whether we can start seconding a fetched candidate or not.
 pub enum CanSecond {
-	No(Option<Score>, SecondingRejection),
+	/// Seconding is not possible. Returns an optional reputation slash, together with the rejected
+	/// collation info.
+	No(Option<Score>, SecondingRejectionInfo),
+	/// Seconding can begin. Returns all the needed data for seconding.
 	Yes(CandidateReceipt, PoV, PersistedValidationData),
-	BlockedOnParent(Hash, SecondingRejection),
+	/// Seconding is blocked because we are waiting for the parent to be seconded.
+	/// Returns the hash of the parent candidate header, together with the rejected collation info.
+	BlockedOnParent(Hash, SecondingRejectionInfo),
 }
 
-pub struct SecondingRejection {
+/// Information that identifies a collation that was rejected from seconding.
+pub struct SecondingRejectionInfo {
 	pub relay_parent: Hash,
 	pub peer_id: PeerId,
 	pub para_id: ParaId,

@@ -14,8 +14,6 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-#![allow(unused)]
-
 // See reasoning in Cargo.toml why this temporary useless import is needed.
 use tokio as _;
 
@@ -26,24 +24,15 @@ mod metrics;
 mod peer_manager;
 mod state;
 
-use std::collections::VecDeque;
-
 use common::MAX_STORED_SCORES_PER_PARA;
-use fatality::Split;
-use futures::{channel::oneshot, select, FutureExt, StreamExt};
+use futures::{select, FutureExt, StreamExt};
 use polkadot_node_network_protocol::{
-	self as net_protocol, peer_set::CollationVersion, v1 as protocol_v1, v2 as protocol_v2,
-	CollationProtocols, OurView, PeerId, VersionedCollationProtocol,
+	self as net_protocol, v1 as protocol_v1, v2 as protocol_v2, CollationProtocols, PeerId,
 };
 use polkadot_node_subsystem::{
 	messages::{CollatorProtocolMessage, NetworkBridgeEvent},
-	overseer, ActivatedLeaf, CollatorProtocolSenderTrait, FromOrchestra, OverseerSignal,
+	overseer, ActivatedLeaf, FromOrchestra, OverseerSignal,
 };
-use polkadot_node_subsystem_util::{
-	find_validator_group, request_claim_queue, request_validator_groups, request_validators,
-	runtime::recv_runtime, signing_key_and_index,
-};
-use polkadot_primitives::{Hash, Id as ParaId};
 use sp_keystore::KeystorePtr;
 
 use collation_manager::CollationManager;
@@ -66,7 +55,7 @@ pub(crate) async fn run<Context>(
 	metrics: Metrics,
 ) -> FatalResult<()> {
 	if let Some(state) = initialize(&mut ctx, keystore, metrics).await? {
-		run_inner(ctx, state).await;
+		run_inner(ctx, state).await?;
 	}
 
 	Ok(())

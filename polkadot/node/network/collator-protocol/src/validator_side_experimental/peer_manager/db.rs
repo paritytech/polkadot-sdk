@@ -20,7 +20,7 @@ use crate::validator_side_experimental::{
 };
 use async_trait::async_trait;
 use polkadot_node_network_protocol::PeerId;
-use polkadot_primitives::{BlockNumber, Hash, Id as ParaId};
+use polkadot_primitives::{BlockNumber, Id as ParaId};
 use std::{
 	collections::{btree_map, hash_map, BTreeMap, BTreeSet, HashMap},
 	time::{SystemTime, UNIX_EPOCH},

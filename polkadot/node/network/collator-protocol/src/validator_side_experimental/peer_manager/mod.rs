@@ -23,9 +23,8 @@ use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use crate::{
 	validator_side_experimental::{
 		common::{
-			PeerInfo, PeerState, Score, TryAcceptOutcome, CONNECTED_PEERS_LIMIT,
-			CONNECTED_PEERS_PARA_LIMIT, INACTIVITY_DECAY, MAX_STARTUP_ANCESTRY_LOOKBACK,
-			MAX_STORED_SCORES_PER_PARA, VALID_INCLUDED_CANDIDATE_BUMP,
+			PeerInfo, Score, TryAcceptOutcome, CONNECTED_PEERS_LIMIT, CONNECTED_PEERS_PARA_LIMIT,
+			INACTIVITY_DECAY, MAX_STARTUP_ANCESTRY_LOOKBACK, VALID_INCLUDED_CANDIDATE_BUMP,
 		},
 		error::{Error, Result},
 	},
@@ -34,13 +33,10 @@ use crate::{
 pub use backend::Backend;
 use connected::ConnectedPeers;
 pub use db::Db;
-use polkadot_node_network_protocol::{
-	peer_set::{CollationVersion, PeerSet},
-	PeerId,
-};
+use polkadot_node_network_protocol::{peer_set::PeerSet, PeerId};
 use polkadot_node_subsystem::{
 	messages::{ChainApiMessage, NetworkBridgeTxMessage},
-	ActivatedLeaf, CollatorProtocolSenderTrait,
+	CollatorProtocolSenderTrait,
 };
 use polkadot_node_subsystem_util::{
 	request_candidate_events, request_candidates_pending_availability, runtime::recv_runtime,
@@ -154,6 +150,7 @@ impl<B: Backend> PeerManager<B> {
 	/// Process the registered paras and cleanup all data pertaining to any unregistered paras, if
 	/// any. Should be called every N finalized block notifications, since it's expected that para
 	/// deregistrations are rare.
+	#[allow(unused)]
 	pub async fn registered_paras_update(&mut self, registered_paras: BTreeSet<ParaId>) {
 		// Tell the DB to cleanup paras that are no longer registered. No need to clean up the
 		// connected peers state, since it will get automatically cleaned up as the claim queue
@@ -168,8 +165,7 @@ impl<B: Backend> PeerManager<B> {
 		sender: &mut Sender,
 		scheduled_paras: BTreeSet<ParaId>,
 	) -> HashSet<PeerId> {
-		let mut prev_scheduled_paras: BTreeSet<_> =
-			self.connected.scheduled_paras().copied().collect();
+		let prev_scheduled_paras: BTreeSet<_> = self.connected.scheduled_paras().copied().collect();
 
 		if prev_scheduled_paras == scheduled_paras {
 			// Nothing to do if the scheduled paras didn't change.
@@ -218,7 +214,7 @@ impl<B: Backend> PeerManager<B> {
 		}
 
 		// Disconnect peers that couldn't be kept.
-		self.disconnect_peers(sender, peers_to_disconnect.clone()).await;
+		self.disconnect_peers(sender, peers_to_disconnect.clone().into_iter()).await;
 
 		peers_to_disconnect
 	}
@@ -230,7 +226,9 @@ impl<B: Backend> PeerManager<B> {
 		peer_id: PeerId,
 		para_id: ParaId,
 	) -> bool {
-		let Some(peer_info) = self.connected.peer_info(&peer_id).cloned() else { return false };
+		if self.connected.peer_info(&peer_id).is_none() {
+			return false
+		}
 		let outcome = self.connected.declared(peer_id, para_id);
 
 		match outcome {
@@ -261,7 +259,7 @@ impl<B: Backend> PeerManager<B> {
 					"Peer declared but rejected. Going to disconnect.",
 				);
 
-				self.disconnect_peers(sender, [peer_id].into_iter().collect()).await;
+				self.disconnect_peers(sender, [peer_id].into_iter()).await;
 				false
 			},
 		}
@@ -309,11 +307,11 @@ impl<B: Backend> PeerManager<B> {
 		match outcome {
 			TryAcceptOutcome::Added => TryAcceptOutcome::Added,
 			TryAcceptOutcome::Replaced(other_peers) => {
-				self.disconnect_peers(sender, other_peers.clone()).await;
+				self.disconnect_peers(sender, other_peers.clone().into_iter()).await;
 				TryAcceptOutcome::Replaced(other_peers)
 			},
 			TryAcceptOutcome::Rejected => {
-				self.disconnect_peers(sender, [peer_id].into_iter().collect()).await;
+				self.disconnect_peers(sender, [peer_id].into_iter()).await;
 				TryAcceptOutcome::Rejected
 			},
 		}
@@ -332,9 +330,9 @@ impl<B: Backend> PeerManager<B> {
 	async fn disconnect_peers<Sender: CollatorProtocolSenderTrait>(
 		&self,
 		sender: &mut Sender,
-		// TODO: switch this to some IntoIterator
-		peers: HashSet<PeerId>,
+		peers: impl Iterator<Item = PeerId>,
 	) {
+		let peers = peers.collect();
 		gum::trace!(
 			target: LOG_TARGET,
 			?peers,
@@ -342,10 +340,7 @@ impl<B: Backend> PeerManager<B> {
 		);
 
 		sender
-			.send_message(NetworkBridgeTxMessage::DisconnectPeers(
-				peers.into_iter().collect(),
-				PeerSet::Collation,
-			))
+			.send_message(NetworkBridgeTxMessage::DisconnectPeers(peers, PeerSet::Collation))
 			.await;
 	}
 }

@@ -27,7 +27,6 @@ use polkadot_node_network_protocol::request_response::{
 	outgoing::Recipient, v1 as request_v1, v2 as request_v2, OutgoingRequest, OutgoingResult,
 	Requests,
 };
-use polkadot_primitives::CandidateHash;
 use std::{collections::HashMap, future::Future, pin::Pin};
 use tokio_util::sync::CancellationToken;
 
