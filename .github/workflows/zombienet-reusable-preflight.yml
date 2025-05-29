@@ -117,7 +117,7 @@ jobs:
   preflight:
     runs-on: ubuntu-latest
     # TODO remove this condition once zombienet tests are stabilized
-    if: contains(github.event.pull_request.labels.*.name, 'T18-zombienet_tests')
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'T18-zombienet_tests')
 
     outputs:
       changes_substrate: ${{ steps.set_changes.outputs.substrate_any_changed || steps.set_changes.outputs.currentWorkflow_any_changed }}
