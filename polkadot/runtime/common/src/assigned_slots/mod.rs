@@ -734,6 +734,7 @@ mod tests {
 		type AssignCoretime = ();
 		type Fungible = Balances;
 		type CooldownRemovalMultiplier = ConstUint<1>;
+		type AuthorizeCurrentCodeOrigin = EnsureRoot<Self::AccountId>;
 	}
 
 	impl parachains_shared::Config for Test {
