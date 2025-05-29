@@ -1,0 +1,53 @@
+title: '[WIP] polkadot-omni-node: add `GetParachainIdentity` runtime api '
+doc:
+- audience: Todo
+  description: |-
+    # Description
+
+    Closes #7384
+    Closes #75
+
+    ## Integration
+
+    TODO
+
+    ## Review Notes
+
+    This PR is based on prior work here:  #7546. This PR continues with some more testing and polishing for making it ready for review.
+
+    TODO: testing according to: https://github.com/paritytech/polkadot-sdk/pull/7546#issuecomment-2850415461
+crates:
+- name: asset-hub-rococo-runtime
+  bump: major
+- name: cumulus-primitives-core
+  bump: major
+- name: asset-hub-westend-runtime
+  bump: major
+- name: bridge-hub-rococo-runtime
+  bump: major
+- name: bridge-hub-westend-runtime
+  bump: major
+- name: collectives-westend-runtime
+  bump: major
+- name: coretime-rococo-runtime
+  bump: major
+- name: coretime-westend-runtime
+  bump: major
+- name: glutton-westend-runtime
+  bump: major
+- name: people-rococo-runtime
+  bump: major
+- name: people-westend-runtime
+  bump: major
+- name: penpal-runtime
+  bump: major
+- name: rococo-parachain-runtime
+  bump: major
+- name: polkadot-omni-node-lib
+  bump: major
+- name: polkadot-omni-node
+  bump: major
+- name: staging-chain-spec-builder
+  bump: major
+- name: pallet-staking-async-parachain-runtime
+  bump: major
