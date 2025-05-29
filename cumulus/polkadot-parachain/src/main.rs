@@ -48,18 +48,6 @@ impl CliConfigT for CliConfig {
 	type StatementStoreDefault = EnableStatementStoreByDefault;
 }
 
-/// Extra command line arguments for the node.
-#[derive(clap::Parser)]
-pub struct ExtraCliArgs {
-	/// Disable the statement store.
-	///
-	/// The statement store is an off-chain data-store for signed statements accessible via RPC
-	/// and OCW.
-	/// It uses the runtime api to get the allowance associated to an account.
-	#[arg(long)]
-	disable_statement_store: bool,
-}
-
 fn main() -> color_eyre::eyre::Result<()> {
 	color_eyre::install()?;
 
