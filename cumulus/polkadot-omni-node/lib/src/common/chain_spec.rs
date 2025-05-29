@@ -45,9 +45,9 @@ pub struct Extensions {
 	/// The id of the Parachain.
 	#[serde(alias = "paraId", alias = "ParaId")]
 	#[deprecated(
-		note = "The para_id information is not required anymore and will be removed as part of stable2509. Runtimes must implement a new API called `GetParachainIdentity` to still be compatible with node versions starting with stable2509."
+		note = "The para_id information is not required anymore and will be removed starting with `stable2509`. Runtimes must implement a new API called `cumulus_primitives_core::GetParachainIdentity` to still be compatible with node versions starting with `stable2509`."
 	)]
-	pub para_id: u32,
+	pub para_id: Option<u32>,
 }
 
 impl Extensions {
@@ -69,12 +69,15 @@ mod tests {
 		let camel_case = r#"{"relayChain":"relay","paraId":1}"#;
 		let snake_case = r#"{"relay_chain":"relay","para_id":1}"#;
 		let pascal_case = r#"{"RelayChain":"relay","ParaId":1}"#;
+		let para_id_missing = r#"{"RelayChain":"westend"}"#;
 
 		let camel_case_extension: Extensions = serde_json::from_str(camel_case).unwrap();
 		let snake_case_extension: Extensions = serde_json::from_str(snake_case).unwrap();
 		let pascal_case_extension: Extensions = serde_json::from_str(pascal_case).unwrap();
-
+		let missing_paraid_extension: Extensions = serde_json::from_str(para_id_missing).unwrap();
 		assert_eq!(camel_case_extension, snake_case_extension);
 		assert_eq!(snake_case_extension, pascal_case_extension);
+		assert_eq!(missing_paraid_extension.relay_chain, "westend".to_string());
+		assert!(missing_paraid_extension.para_id.is_none());
 	}
 }

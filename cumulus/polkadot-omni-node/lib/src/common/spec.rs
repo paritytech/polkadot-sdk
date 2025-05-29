@@ -297,11 +297,11 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 					.map_err(|_| "Failed to retrieve parachain id from runtime")?
 			} else {
 				ParaId::from(
-					Extensions::try_get(&*parachain_config.chain_spec).map(|e| e.para_id).ok_or(
-						sc_service::error::Error::Other(
+					Extensions::try_get(&*parachain_config.chain_spec)
+						.and_then(|ext| ext.para_id)
+						.ok_or(sc_service::error::Error::Other(
 							"Could not find parachain extension in chain-spec.".to_string(),
-						),
-					)?,
+						))?,
 				)
 			};
 			let parachain_account =

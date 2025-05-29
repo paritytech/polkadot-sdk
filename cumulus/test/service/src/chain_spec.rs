@@ -19,9 +19,7 @@
 use cumulus_client_service::ParachainHostFunctions;
 use cumulus_primitives_core::ParaId;
 use cumulus_test_runtime::AccountId;
-use sc_chain_spec::GenesisConfigBuilderRuntimeCaller;
 use sc_service::{ChainType, GenericChainSpec};
-use serde_json::json;
 
 /// Get the chain spec for a specific parachain ID.
 /// The given accounts are initialized with funds in addition

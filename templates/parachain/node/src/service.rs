@@ -27,7 +27,7 @@ use cumulus_client_service::{
 #[docify::export(cumulus_primitives)]
 use cumulus_primitives_core::{
 	relay_chain::{CollatorPair, ValidationCode},
-	ParaId,
+	GetParachainIdentity, ParaId,
 };
 use cumulus_relay_chain_interface::{OverseerHandle, RelayChainInterface};
 
@@ -41,7 +41,10 @@ use sc_network::NetworkBlock;
 use sc_service::{Configuration, PartialComponents, TFullBackend, TFullClient, TaskManager};
 use sc_telemetry::{Telemetry, TelemetryHandle, TelemetryWorker, TelemetryWorkerHandle};
 use sc_transaction_pool_api::OffchainTransactionPoolFactory;
+use sp_api::{ApiExt, ProvideRuntimeApi};
 use sp_keystore::KeystorePtr;
+
+use crate::chain_spec::Extensions;
 
 #[docify::export(wasm_executor)]
 type ParachainExecutor = WasmExecutor<ParachainHostFunctions>;
@@ -232,11 +235,11 @@ fn start_consensus(
 
 /// Start a node with the given parachain `Configuration` and relay chain `Configuration`.
 #[sc_tracing::logging::prefix_logs_with("Parachain")]
+#[allow(deprecated)]
 pub async fn start_parachain_node(
 	parachain_config: Configuration,
 	polkadot_config: Configuration,
 	collator_options: CollatorOptions,
-	para_id: ParaId,
 	hwbench: Option<sc_sysinfo::HwBench>,
 ) -> sc_service::error::Result<(TaskManager, Arc<ParachainClient>)> {
 	let parachain_config = prepare_node_config(parachain_config);
@@ -275,6 +278,28 @@ pub async fn start_parachain_node(
 	let validator = parachain_config.role.is_authority();
 	let transaction_pool = params.transaction_pool.clone();
 	let import_queue_service = params.import_queue.service();
+
+	// Take parachain id from runtime.
+	let best_hash = client.chain_info().best_hash;
+	let has_para_id = client
+		.runtime_api()
+		.has_api::<dyn GetParachainIdentity<Block>>(best_hash)
+		.ok()
+		.unwrap_or_default();
+	let para_id = if has_para_id {
+		client
+			.runtime_api()
+			.parachain_id(best_hash)
+			.map_err(|_| "Failed to retrieve parachain id from runtime")?
+	} else {
+		ParaId::from(
+			Extensions::try_get(&*parachain_config.chain_spec)
+				.and_then(|ext| ext.para_id)
+				.ok_or(sc_service::error::Error::Other(
+					"Could not find parachain extension in chain-spec.".to_string(),
+				))?,
+		)
+	};
 
 	// NOTE: because we use Aura here explicitly, we can use `CollatorSybilResistance::Resistant`
 	// when starting the network.

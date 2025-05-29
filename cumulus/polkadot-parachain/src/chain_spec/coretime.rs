@@ -97,8 +97,6 @@ impl From<CoretimeRuntimeType> for ChainType {
 	}
 }
 
-pub const CORETIME_PARA_ID: ParaId = ParaId::new(1005);
-
 impl CoretimeRuntimeType {
 	pub const ID_PREFIX: &'static str = "coretime";
 
@@ -162,7 +160,6 @@ pub mod rococo {
 
 		let chain_type = runtime_type.into();
 		let chain_name = format!("Coretime Rococo {}", chain_type_name(&chain_type));
-		let para_id = super::CORETIME_PARA_ID;
 
 		let wasm_binary = if matches!(chain_type, ChainType::Local | ChainType::Development) {
 			coretime_rococo_runtime::fast_runtime_binary::WASM_BINARY
@@ -174,7 +171,7 @@ pub mod rococo {
 
 		GenericChainSpec::builder(
 			wasm_binary,
-			Extensions { relay_chain: relay_chain.to_string(), para_id: para_id.into() },
+			Extensions { relay_chain: relay_chain.to_string(), para_id: None },
 		)
 		.with_name(&chain_name)
 		.with_id(runtime_type.into())
@@ -208,12 +205,11 @@ pub mod westend {
 
 		let chain_type = runtime_type.into();
 		let chain_name = format!("Coretime Westend {}", chain_type_name(&chain_type));
-		let para_id = super::CORETIME_PARA_ID;
 
 		GenericChainSpec::builder(
 			coretime_westend_runtime::WASM_BINARY
 				.expect("WASM binary was not built, please build it!"),
-			Extensions { relay_chain: relay_chain.to_string(), para_id: para_id.into() },
+			Extensions { relay_chain: relay_chain.to_string(), para_id: None },
 		)
 		.with_name(&chain_name)
 		.with_id(runtime_type.into())

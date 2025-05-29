@@ -19,9 +19,9 @@ pub struct Extensions {
 	/// The id of the Parachain.
 	#[serde(alias = "paraId", alias = "ParaId")]
 	#[deprecated(
-		note = "The para_id information is not required anymore and will be removed as part of stable2509. Runtimes must implement a new API called `GetParachainIdentity` to still be compatible with node versions starting with stable2509."
+		note = "The para_id information is not required anymore and will be removed starting with `stable2509`. Runtimes must implement a new API called `cumulus_primitives_core::GetParachainIdentity` to still be compatible with node versions starting with `stable2509`."
 	)]
-	pub para_id: u32,
+	pub para_id: Option<u32>,
 }
 
 impl Extensions {
@@ -31,6 +31,7 @@ impl Extensions {
 	}
 }
 
+#[allow(deprecated)]
 pub fn development_chain_spec() -> ChainSpec {
 	// Give your base currency a unit name and decimal places
 	let mut properties = sc_chain_spec::Properties::new();
@@ -40,7 +41,7 @@ pub fn development_chain_spec() -> ChainSpec {
 
 	ChainSpec::builder(
 		runtime::WASM_BINARY.expect("WASM binary was not built, please build it!"),
-		Extensions { relay_chain: RELAY_CHAIN.into(), para_id: runtime::PARACHAIN_ID },
+		Extensions { relay_chain: RELAY_CHAIN.into(), para_id: None },
 	)
 	.with_name("Development")
 	.with_id("dev")
@@ -60,7 +61,7 @@ pub fn local_chain_spec() -> ChainSpec {
 	#[allow(deprecated)]
 	ChainSpec::builder(
 		runtime::WASM_BINARY.expect("WASM binary was not built, please build it!"),
-		Extensions { relay_chain: RELAY_CHAIN.into(), para_id: runtime::PARACHAIN_ID },
+		Extensions { relay_chain: RELAY_CHAIN.into(), para_id: None },
 	)
 	.with_name("Local Testnet")
 	.with_id("local_testnet")

@@ -133,6 +133,7 @@ pub mod rococo {
 	pub(crate) const BRIDGE_HUB_ROCOCO_LOCAL: &str = "bridge-hub-rococo-local";
 	pub(crate) const BRIDGE_HUB_ROCOCO_DEVELOPMENT: &str = "bridge-hub-rococo-dev";
 
+	#[allow(deprecated)]
 	pub fn local_config<ModifyProperties: Fn(&mut sc_chain_spec::Properties)>(
 		id: &str,
 		chain_name: &str,
@@ -151,7 +152,7 @@ pub mod rococo {
 		GenericChainSpec::builder(
 			bridge_hub_rococo_runtime::WASM_BINARY
 				.expect("WASM binary was not built, please build it!"),
-			Extensions { relay_chain: relay_chain.to_string(), para_id: para_id.into() },
+			Extensions { relay_chain: relay_chain.to_string(), para_id: None },
 		)
 		.with_name(chain_name)
 		.with_id(super::ensure_id(id).expect("invalid id"))

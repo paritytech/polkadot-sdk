@@ -67,13 +67,14 @@ pub struct CreateCmd {
 	/// The chain type.
 	#[arg(value_enum, short = 't', default_value = "live")]
 	chain_type: ChainType,
-	/// The para ID for your chain.
-	/// DEPRECATED: Will be removed starting with stable2509.
-	/// Please implement the newly added `GetParachainIdentity` runtime API for keeping
-	/// the runtime compatible with the `polkadot-omni-node` versions released after stable2509.
+	/// DEPRECATED: The para ID for your chain.
+	///
+	/// This flag will be removed starting with `stable2509`. Please implement the
+	/// `cumulus_primitives_core::GetParachainIdentity` runtime API for your runtime to still have
+	/// it compatible with the `polkadot-omni-node` versions past `stable2509`.
 	#[arg(long, value_enum, short = 'p', requires = "relay_chain")]
 	#[deprecated(
-		note = "This flag will be removed starting with stable2509. Please implement the `GetParachainIdentity` runtime API on runtimes, to still have them compatible with the `polkadot-omni-node` versions past stable2509."
+		note = "This flag will be removed starting with stable2509. Please implement the `cumulus_primitives_core::GetParachainIdentity` runtime API for your runtime to still have it compatible with the `polkadot-omni-node` versions past stable2509."
 	)]
 	pub para_id: Option<u32>,
 	/// The relay chain you wish to connect to.

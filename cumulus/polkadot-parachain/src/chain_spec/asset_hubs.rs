@@ -17,6 +17,7 @@
 use polkadot_omni_node_lib::chain_spec::{Extensions, GenericChainSpec};
 use sc_service::ChainType;
 
+#[allow(deprecated)]
 pub fn asset_hub_westend_development_config() -> GenericChainSpec {
 	let mut properties = sc_chain_spec::Properties::new();
 	properties.insert("tokenSymbol".into(), "WND".into());
@@ -25,7 +26,7 @@ pub fn asset_hub_westend_development_config() -> GenericChainSpec {
 	GenericChainSpec::builder(
 		asset_hub_westend_runtime::WASM_BINARY
 			.expect("WASM binary was not built, please build it!"),
-		Extensions { relay_chain: "westend".into(), para_id: 1000 },
+		Extensions { relay_chain: "westend".into(), para_id: None },
 	)
 	.with_name("Westend Asset Hub Development")
 	.with_id("asset-hub-westend-dev")
@@ -35,6 +36,7 @@ pub fn asset_hub_westend_development_config() -> GenericChainSpec {
 	.build()
 }
 
+#[allow(deprecated)]
 pub fn asset_hub_westend_local_config() -> GenericChainSpec {
 	let mut properties = sc_chain_spec::Properties::new();
 	properties.insert("tokenSymbol".into(), "WND".into());
@@ -43,7 +45,7 @@ pub fn asset_hub_westend_local_config() -> GenericChainSpec {
 	GenericChainSpec::builder(
 		asset_hub_westend_runtime::WASM_BINARY
 			.expect("WASM binary was not built, please build it!"),
-		Extensions { relay_chain: "westend-local".into(), para_id: 1000 },
+		Extensions { relay_chain: "westend-local".into(), para_id: None },
 	)
 	.with_name("Westend Asset Hub Local")
 	.with_id("asset-hub-westend-local")
@@ -53,6 +55,7 @@ pub fn asset_hub_westend_local_config() -> GenericChainSpec {
 	.build()
 }
 
+#[allow(deprecated)]
 pub fn asset_hub_westend_config() -> GenericChainSpec {
 	let mut properties = sc_chain_spec::Properties::new();
 	properties.insert("tokenSymbol".into(), "WND".into());
@@ -61,7 +64,7 @@ pub fn asset_hub_westend_config() -> GenericChainSpec {
 	GenericChainSpec::builder(
 		asset_hub_westend_runtime::WASM_BINARY
 			.expect("WASM binary was not built, please build it!"),
-		Extensions { relay_chain: "westend".into(), para_id: 1000 },
+		Extensions { relay_chain: "westend".into(), para_id: None },
 	)
 	.with_name("Westend Asset Hub")
 	.with_id("asset-hub-westend")
@@ -84,15 +87,15 @@ pub fn asset_hub_rococo_development_config() -> GenericChainSpec {
 	)
 }
 
+#[allow(deprecated)]
 fn asset_hub_rococo_like_development_config(
 	properties: sc_chain_spec::Properties,
 	name: &str,
 	chain_id: &str,
-	para_id: u32,
 ) -> GenericChainSpec {
 	GenericChainSpec::builder(
 		asset_hub_rococo_runtime::WASM_BINARY.expect("WASM binary was not built, please build it!"),
-		Extensions { relay_chain: "rococo-dev".into(), para_id },
+		Extensions { relay_chain: "rococo-dev".into(), para_id: None },
 	)
 	.with_name(name)
 	.with_id(chain_id)
@@ -120,6 +123,7 @@ pub fn asset_hub_rococo_local_config() -> GenericChainSpec {
 	)
 }
 
+#[allow(deprecated)]
 fn asset_hub_rococo_like_local_config(
 	properties: sc_chain_spec::Properties,
 	name: &str,
@@ -128,7 +132,7 @@ fn asset_hub_rococo_like_local_config(
 ) -> GenericChainSpec {
 	GenericChainSpec::builder(
 		asset_hub_rococo_runtime::WASM_BINARY.expect("WASM binary was not built, please build it!"),
-		Extensions { relay_chain: "rococo-local".into(), para_id },
+		Extensions { relay_chain: "rococo-local".into(), para_id: None },
 	)
 	.with_name(name)
 	.with_id(chain_id)
@@ -143,6 +147,7 @@ fn asset_hub_rococo_like_local_config(
 	.build()
 }
 
+#[allow(deprecated)]
 pub fn asset_hub_rococo_genesis_config() -> GenericChainSpec {
 	let mut properties = sc_chain_spec::Properties::new();
 	properties.insert("tokenSymbol".into(), "ROC".into());
@@ -150,7 +155,7 @@ pub fn asset_hub_rococo_genesis_config() -> GenericChainSpec {
 	let para_id = 1000;
 	GenericChainSpec::builder(
 		asset_hub_rococo_runtime::WASM_BINARY.expect("WASM binary was not built, please build it!"),
-		Extensions { relay_chain: "rococo".into(), para_id },
+		Extensions { relay_chain: "rococo".into(), para_id: None },
 	)
 	.with_name("Rococo Asset Hub")
 	.with_id("asset-hub-rococo")
