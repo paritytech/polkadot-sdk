@@ -1437,8 +1437,10 @@ pub mod pallet {
 				ClaimAsset { assets, ticket },
 				DepositAsset { assets: AllCounted(number_of_assets).into(), beneficiary },
 			]);
-			let weight =
-				T::Weigher::weight(&mut message).map_err(|()| Error::<T>::UnweighableMessage)?;
+			let weight = T::Weigher::weight(&mut message).map_err(|error| {
+				tracing::debug!(target: "xcm::pallet_xcm::claim_assets", ?error, "Failed to calculate weight");
+				Error::<T>::UnweighableMessage
+			})?;
 			let mut hash = message.using_encoded(sp_io::hashing::blake2_256);
 			let outcome = T::XcmExecutor::prepare_and_execute(
 				origin_location,
@@ -2069,7 +2071,10 @@ impl<T: Config> Pallet<T> {
 		);
 
 		let weight =
-			T::Weigher::weight(&mut local_xcm).map_err(|()| Error::<T>::UnweighableMessage)?;
+			T::Weigher::weight(&mut local_xcm).map_err(|error| {
+				tracing::debug!(target: "xcm::pallet_xcm::execute_xcm_transfer", ?error, "Failed to calculate weight");
+				Error::<T>::UnweighableMessage
+			})?;
 		let mut hash = local_xcm.using_encoded(sp_io::hashing::blake2_256);
 		let outcome = T::XcmExecutor::prepare_and_execute(
 			origin.clone(),
@@ -2947,12 +2952,12 @@ impl<T: Config> Pallet<T> {
 	pub fn query_xcm_weight(message: VersionedXcm<()>) -> Result<Weight, XcmPaymentApiError> {
 		let message = Xcm::<()>::try_from(message.clone())
 			.map_err(|e| {
-				tracing::error!(target: "xcm::pallet_xcm::query_xcm_weight", ?e, ?message, "Failed to convert versioned message");
+				tracing::debug!(target: "xcm::pallet_xcm::query_xcm_weight", ?e, ?message, "Failed to convert versioned message");
 				XcmPaymentApiError::VersionedConversionFailed
 			})?;
 
-		T::Weigher::weight(&mut message.clone().into()).map_err(|()| {
-			tracing::error!(target: "xcm::pallet_xcm::query_xcm_weight", ?message, "Error when querying XCM weight");
+		T::Weigher::weight(&mut message.clone().into()).map_err(|error| {
+			tracing::debug!(target: "xcm::pallet_xcm::query_xcm_weight", ?error, ?message, "Error when querying XCM weight");
 			XcmPaymentApiError::WeightNotComputable
 		})
 	}
