@@ -1190,6 +1190,7 @@ dependencies = [
 name = "asset-hub-westend-runtime"
 version = "0.15.0"
 dependencies = [
+ "alloy-core",
  "asset-test-utils",
  "assets-common",
  "bp-asset-hub-rococo",
@@ -1233,6 +1234,7 @@ dependencies = [
  "pallet-nfts-runtime-api",
  "pallet-proxy",
  "pallet-revive",
+ "pallet-revive-fixtures",
  "pallet-session",
  "pallet-state-trie-migration",
  "pallet-timestamp",
@@ -1313,15 +1315,20 @@ name = "assets-common"
 version = "0.7.0"
 dependencies = [
  "cumulus-primitives-core",
+ "ethereum-standards",
  "frame-support",
+ "frame-system",
  "impl-trait-for-tuples",
  "pallet-asset-conversion",
  "pallet-assets",
+ "pallet-revive",
+ "pallet-revive-uapi",
  "pallet-xcm",
  "parachains-common",
  "parity-scale-codec",
  "scale-info",
  "sp-api 26.0.0",
+ "sp-core 28.0.0",
  "sp-runtime 31.0.1",
  "staging-xcm",
  "staging-xcm-builder",
@@ -12771,6 +12778,7 @@ dependencies = [
  "assert_matches",
  "derive_more 0.99.17",
  "environmental",
+ "ethereum-standards",
  "ethereum-types",
  "frame-benchmarking",
  "frame-support",
