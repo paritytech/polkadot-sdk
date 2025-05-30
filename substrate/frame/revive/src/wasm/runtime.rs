@@ -430,9 +430,7 @@ macro_rules! cost_args {
 
 impl<T: Config> Token<T> for RuntimeCosts {
 	fn influence_lowest_gas_limit(&self) -> bool {
-		match self {
-			_ => true,
-		}
+		true
 	}
 
 	fn weight(&self) -> Weight {
