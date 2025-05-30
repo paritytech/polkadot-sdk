@@ -26,6 +26,7 @@ use sc_chain_spec::ChainType;
 use sp_core::crypto::UncheckedInto;
 use sp_keyring::Sr25519Keyring;
 
+#[allow(deprecated)]
 pub fn rococo_parachain_local_config() -> GenericChainSpec {
 	GenericChainSpec::builder(
 		rococo_parachain_runtime::WASM_BINARY.expect("WASM binary was not built, please build it!"),
