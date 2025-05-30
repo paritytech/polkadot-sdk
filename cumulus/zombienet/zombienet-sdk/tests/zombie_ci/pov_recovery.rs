@@ -12,6 +12,7 @@ use std::{sync::Arc, time::Duration};
 use zombienet_configuration::types::Arg;
 use zombienet_orchestrator::network::node::LogLineCountOptions;
 use zombienet_sdk::{
+	environment::Provider,
 	subxt::{OnlineClient, PolkadotConfig},
 	NetworkConfig, NetworkConfigBuilder, RegistrationStrategy,
 };
@@ -106,11 +107,19 @@ async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 	let images = zombienet_sdk::environment::get_images_from_env();
 	log::info!("Using images: {images:?}");
 
+	// If all nodes running on one machine and there are too much of them,
+	// then they don't get enough CPU time and others might fail trying to connect to them.
+	// eg. 'one' and 'two' trying to connect to 'ferdie' rpc but it is still initializing.
+	let validator_cnt = match zombienet_sdk::environment::get_provider_from_env() {
+		Provider::K8s => 13,
+		_ => 5,
+	};
+
 	// Network setup:
 	// - relaychain nodes:
 	// 	 - ferdie
 	// 	   - full node
-	// 	 - validator[0-13]
+	// 	 - validator[0-validator_cnt]
 	// 	   - validator
 	// 	   - synchronize only with ferdie
 	// - parachain nodes
@@ -153,7 +162,7 @@ async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 					])
 				});
 
-			(0..13).fold(r, |acc, i| {
+			(0..validator_cnt).fold(r, |acc, i| {
 				acc.with_node(|node| {
 					node.with_name(&format!("validator-{i}")).with_args(vec![
 						("-lparachain::availability=trace,sync=debug,parachain=debug,libp2p_mdns=debug").into(),
