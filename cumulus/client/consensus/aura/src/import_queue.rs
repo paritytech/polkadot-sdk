@@ -36,64 +36,33 @@ use sp_runtime::traits::Block as BlockT;
 use std::{fmt::Debug, sync::Arc};
 
 /// Parameters for [`import_queue`].
-pub struct ImportQueueParams<'a, I, C, CIDP, S> {
+pub struct ImportQueueParams<'a, I, S> {
 	/// The block import to use.
 	pub block_import: I,
-	/// The client to interact with the chain.
-	pub client: Arc<C>,
-	/// The inherent data providers, to create the inherent data.
-	pub create_inherent_data_providers: CIDP,
 	/// The spawner to spawn background tasks.
 	pub spawner: &'a S,
 	/// The prometheus registry.
 	pub registry: Option<&'a Registry>,
-	/// The telemetry handle.
-	pub telemetry: Option<TelemetryHandle>,
 }
 
 /// Start an import queue for the Aura consensus algorithm.
-pub fn import_queue<P, Block, I, C, S, CIDP>(
-	ImportQueueParams {
-		block_import,
-		client,
-		create_inherent_data_providers,
-		spawner,
-		registry,
-		telemetry,
-	}: ImportQueueParams<'_, I, C, CIDP, S>,
+pub fn import_queue<Block, I, S>(
+	ImportQueueParams { block_import, spawner, registry }: ImportQueueParams<'_, I, S>,
 ) -> Result<DefaultImportQueue<Block>, sp_consensus::Error>
 where
 	Block: BlockT,
-	C::Api: BlockBuilderApi<Block> + AuraApi<Block, P::Public> + ApiExt<Block>,
-	C: 'static
-		+ ProvideRuntimeApi<Block>
-		+ BlockOf
-		+ Send
-		+ Sync
-		+ AuxStore
-		+ UsageProvider<Block>
-		+ HeaderBackend<Block>,
 	I: BlockImport<Block, Error = ConsensusError>
 		+ ParachainBlockImportMarker
 		+ Send
 		+ Sync
 		+ 'static,
-	P: Pair + 'static,
-	P::Public: Debug + Codec,
-	P::Signature: Codec,
 	S: sp_core::traits::SpawnEssentialNamed,
-	CIDP: CreateInherentDataProviders<Block, ()> + Sync + Send + 'static,
-	CIDP::InherentDataProviders: InherentDataProviderExt + Send + Sync,
 {
-	sc_consensus_aura::import_queue::<P, _, _, _, _, _>(sc_consensus_aura::ImportQueueParams {
+	sc_consensus_aura::import_queue(sc_consensus_aura::ImportQueueParams {
 		block_import,
 		justification_import: None,
-		client,
-		create_inherent_data_providers,
 		spawner,
 		registry,
-		telemetry,
-		compatibility_mode: CompatibilityMode::None,
 	})
 }
 

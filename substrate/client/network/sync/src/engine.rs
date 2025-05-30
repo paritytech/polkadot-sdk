@@ -43,7 +43,7 @@ use schnellru::{ByLength, LruMap};
 use tokio::time::{Interval, MissedTickBehavior};
 
 use sc_client_api::{BlockBackend, HeaderBackend, ProofProvider};
-use sc_consensus::{import_queue::ImportQueueService, BlockImportParams, IncomingBlock};
+use sc_consensus::{import_queue::ImportQueueService, BlockImportParams, IncomingBlock, Verifier};
 use sc_network::{
 	config::{FullNetworkConfiguration, NotificationHandshake, ProtocolId, SetConfig},
 	peer_store::PeerStoreProvider,
@@ -77,6 +77,7 @@ use std::{
 		atomic::{AtomicBool, AtomicUsize, Ordering},
 		Arc,
 	},
+	time::Instant,
 };
 
 /// Interval at which we perform time based maintenance
@@ -104,6 +105,9 @@ mod rep {
 	pub const IO: Rep = Rep::new(-(1 << 10), "IO error during request");
 }
 
+// TODO I have to update these metrics to include
+// 	pub block_verification_time: HistogramVec,
+// from substrate client consensus common metrics
 struct Metrics {
 	peers: Gauge<U64>,
 	import_queue_blocks_submitted: Counter<U64>,
@@ -177,7 +181,7 @@ pub struct Peer<B: BlockT> {
 	inbound: bool,
 }
 
-pub struct SyncingEngine<B: BlockT, Client> {
+pub struct SyncingEngine<B: BlockT, Client, Verifier> {
 	/// Syncing strategy.
 	strategy: Box<dyn SyncingStrategy<B>>,
 
@@ -260,9 +264,12 @@ pub struct SyncingEngine<B: BlockT, Client> {
 
 	/// Handle to import queue.
 	import_queue: Box<dyn ImportQueueService<B>>,
+
+	/// Block verifier.
+	verifier: Verifier,
 }
 
-impl<B: BlockT, Client> SyncingEngine<B, Client>
+impl<B: BlockT, Client, V> SyncingEngine<B, Client, V>
 where
 	B: BlockT,
 	Client: HeaderBackend<B>
@@ -272,6 +279,7 @@ where
 		+ Send
 		+ Sync
 		+ 'static,
+	V: Verifier<B> + 'static,
 {
 	pub fn new<N>(
 		roles: Roles,
@@ -286,6 +294,7 @@ where
 		network_service: service::network::NetworkServiceHandle,
 		import_queue: Box<dyn ImportQueueService<B>>,
 		peer_store_handle: Arc<dyn PeerStoreProvider>,
+		verifier: V,
 	) -> Result<(Self, SyncingService<B>, N::NotificationProtocolConfig), ClientError>
 	where
 		N: NetworkBackend<B, <B as BlockT>::Hash>,
@@ -406,6 +415,7 @@ where
 				},
 				pending_responses: PendingResponses::new(),
 				import_queue,
+				verifier,
 			},
 			SyncingService::new(tx, num_connected, is_major_syncing),
 			block_announce_config,
@@ -566,7 +576,7 @@ where
 			self.is_major_syncing.store(self.strategy.is_major_syncing(), Ordering::Relaxed);
 
 			// Process actions requested by a syncing strategy.
-			if let Err(e) = self.process_strategy_actions() {
+			if let Err(e) = self.process_strategy_actions().await {
 				error!(
 					target: LOG_TARGET,
 					"Terminating `SyncingEngine` due to fatal error: {e:?}.",
@@ -576,7 +586,7 @@ where
 		}
 	}
 
-	fn process_strategy_actions(&mut self) -> Result<(), ClientError> {
+	async fn process_strategy_actions(&mut self) -> Result<(), ClientError> {
 		for action in self.strategy.actions(&self.network_service)? {
 			match action {
 				SyncingAction::StartRequest { peer_id, key, request, remove_obsolete } => {
@@ -629,37 +639,65 @@ where
 					// TODO The verification can probably be moved right here. It will need to have
 					// the correct deps as well but that should not be a problem.
 
-					let blocks = blocks
-						.into_iter()
-						.filter_map(|block| {
-							let peer = block.origin;
-							let Some(header) = block.header else {
-								if let Some(ref peer) = peer {
-									debug!(target: LOG_TARGET, "Header {} was not provided by {peer} ", block.hash);
-								} else {
-									debug!(target: LOG_TARGET, "Header {} was not provided ", block.hash);
+					let mut verified_blocks = Vec::new();
+					for block in blocks {
+						let peer = block.origin;
+						let Some(header) = block.header else {
+							if let Some(ref peer) = peer {
+								debug!(target: LOG_TARGET, "Header {} was not provided by {peer} ", block.hash);
+							} else {
+								debug!(target: LOG_TARGET, "Header {} was not provided ", block.hash);
+							}
+							continue;
+						};
+						let block = BlockImportParams::new_with_common_fields(
+							origin,
+							header,
+							peer,
+							block.body,
+							block.justifications,
+							block.hash,
+							block.import_existing,
+							block.indexed_body,
+							block.state,
+							block.skip_execution,
+							block.allow_missing_state,
+						);
+						let number = *block.header.number();
+						let hash = block.header.hash();
+						let started = Instant::now();
+						match self.verifier.verify(block).await {
+							Ok(mut block) => {
+								let verification_time = started.elapsed();
+								block.verification_time = Some(verification_time);
+								if let Some(metrics) = &self.metrics {
+									// TODO
+									// metrics.report_verification(true, verification_time);
 								}
-								return None;
-							};
-							// TODO Do the verification here instead of in there and we're good to
-							// go
-							Some(BlockImportParams::new_with_common_fields(
-								origin,
-								header,
-								peer,
-								block.body,
-								block.justifications,
-								block.hash,
-								block.import_existing,
-								block.indexed_body,
-								block.state,
-								block.skip_execution,
-								block.allow_missing_state,
-							))
-						})
-						.collect();
+								verified_blocks.push(block);
+							},
+							Err(e) => {
+								if let Some(ref peer) = peer {
+									trace!(
+										target: LOG_TARGET,
+										"Verifying {}({}) from {} failed: {}",
+										number,
+										hash,
+										peer,
+										e
+									);
+								} else {
+									trace!(target: LOG_TARGET, "Verifying {}({}) failed: {}", number, hash, e);
+								}
+								if let Some(metrics) = &self.metrics {
+									// TODO
+									// metrics.report_verification(false, started.elapsed());
+								}
+							},
+						}
+					}
 
-					self.import_blocks(blocks);
+					self.import_blocks(verified_blocks);
 
 					trace!(
 						target: LOG_TARGET,

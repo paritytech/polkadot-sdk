@@ -1873,6 +1873,8 @@ where
 {
 	const HANDLE_BUFFER_SIZE: usize = 1024;
 
+	// TODO This needs to be moved elsewhere
+	/*
 	let verifier = BabeVerifier {
 		create_inherent_data_providers,
 		config: babe_link.config.clone(),
@@ -1880,6 +1882,7 @@ where
 		telemetry,
 		client: client.clone(),
 	};
+	*/
 
 	let (worker_tx, worker_rx) = channel(HANDLE_BUFFER_SIZE);
 
@@ -1889,7 +1892,7 @@ where
 	spawner.spawn_essential("babe-worker", Some("babe"), answer_requests.boxed());
 
 	Ok((
-		BasicQueue::new(verifier, Box::new(block_import), justification_import, spawner, registry),
+		BasicQueue::new(Box::new(block_import), justification_import, spawner, registry),
 		BabeWorkerHandle(worker_tx),
 	))
 }

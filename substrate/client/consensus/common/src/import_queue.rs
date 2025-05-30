@@ -27,13 +27,13 @@
 //! instantiated. The `BasicQueue` and `BasicVerifier` traits allow serial
 //! queues to be instantiated simply.
 
-use log::{debug, trace};
+use log::{debug, error, trace};
 use std::{
 	fmt,
 	time::{Duration, Instant},
 };
 
-use sp_consensus::{error::Error as ConsensusError, BlockOrigin};
+use sp_consensus::error::Error as ConsensusError;
 use sp_runtime::{
 	traits::{Block as BlockT, Header as _, NumberFor},
 	Justifications,
@@ -42,7 +42,7 @@ use sp_runtime::{
 use crate::{
 	block_import::{
 		BlockCheckParams, BlockImport, BlockImportParams, ImportResult, ImportedAux, ImportedState,
-		JustificationImport, StateAction,
+		JustificationImport,
 	},
 	metrics::Metrics,
 };
@@ -195,6 +195,7 @@ pub enum BlockImportError {
 	#[error("block is missing a header (origin = {0:?})")]
 	IncompleteHeader(Option<RuntimeOrigin>),
 
+	// TODO I might be able to remove this now as it's checked beforehand
 	/// Block verification failed, can't be imported
 	#[error("block verification failed (origin = {0:?}): {1}")]
 	VerificationFailed(Option<RuntimeOrigin>, String),
@@ -225,12 +226,11 @@ type BlockImportResult<B> = Result<BlockImportStatus<NumberFor<B>>, BlockImportE
 // TODO Amusingly, this is only used in tests. But also it is `pub`. So most likely externally
 // visible from the crate. This fn might need to be removed. Or just leave it probably actually.
 /// Single block import function.
-pub async fn import_single_block<B: BlockT, V: Verifier<B>>(
+pub async fn import_single_block<B: BlockT>(
 	import_handle: &mut impl BlockImport<B, Error = ConsensusError>,
 	block: BlockImportParams<B>,
-	verifier: &V,
 ) -> BlockImportResult<B> {
-	match verify_single_block_metered(import_handle, block, verifier, None).await? {
+	match verify_single_block_metered(import_handle, block).await? {
 		SingleBlockVerificationOutcome::Imported(import_status) => Ok(import_status),
 		SingleBlockVerificationOutcome::Verified(import_parameters) =>
 			import_single_block_metered(import_handle, import_parameters, None).await,
@@ -290,15 +290,13 @@ pub(crate) struct SingleBlockImportParameters<Block: BlockT> {
 	import_block: BlockImportParams<Block>,
 	hash: Block::Hash,
 	block_origin: Option<RuntimeOrigin>,
-	verification_time: Duration,
 }
 
+// TODO Rename to check_single_block. This is no longer "metered"
 /// Single block import function with metering.
-pub(crate) async fn verify_single_block_metered<B: BlockT, V: Verifier<B>>(
+pub(crate) async fn verify_single_block_metered<B: BlockT>(
 	import_handle: &impl BlockImport<B, Error = ConsensusError>,
 	block: BlockImportParams<B>,
-	verifier: &V,
-	metrics: Option<&Metrics>,
 ) -> Result<SingleBlockVerificationOutcome<B>, BlockImportError> {
 	trace!(target: LOG_TARGET, "Header {} has {:?} logs", block.post_hash(), block.header.digest().logs().len());
 
@@ -330,51 +328,10 @@ pub(crate) async fn verify_single_block_metered<B: BlockT, V: Verifier<B>>(
 		},
 	}
 
-	let started = Instant::now();
-
-	// TODO Here's the plan for how to clean this up. I will create a new constructor for the
-	// BlockImportParams called `new_with_common_fields` which will do the same thing as this
-	// paragraph of code. Additionally, I will create a new field called peer and set that field in
-	// the constructor as well (since this code needs it). Verify will still return
-	// BlockImportParams, and the verify impls will be updated to first call this new constructor.
-	// Then, all of this import code will be refactored to accept the BlockImportParams instead of
-	// IncomingBlocks. That should handle everything.
-	//
-	// TODO In fact I don't even need to do that. I can just leave the verify signature exactly the
-	// same and pass in the BlockImportParams::new_with_common_fields, which will return a result,
-	// and then forward that result to the block import queue
-
-	// TODO This is currently where the verify call is. This needs to be hoisted out of the
-	// import_queue and into the sync code somehow.
-	let import_block = verifier.verify(block).await.map_err(|msg| {
-		if let Some(ref peer) = peer {
-			trace!(
-				target: LOG_TARGET,
-				"Verifying {}({}) from {} failed: {}",
-				number,
-				hash,
-				peer,
-				msg
-			);
-		} else {
-			trace!(target: LOG_TARGET, "Verifying {}({}) failed: {}", number, hash, msg);
-		}
-		if let Some(metrics) = metrics {
-			metrics.report_verification(false, started.elapsed());
-		}
-		BlockImportError::VerificationFailed(peer, msg)
-	})?;
-
-	let verification_time = started.elapsed();
-	if let Some(metrics) = metrics {
-		metrics.report_verification(true, verification_time);
-	}
-
 	Ok(SingleBlockVerificationOutcome::Verified(SingleBlockImportParameters {
-		import_block,
+		import_block: block,
 		hash,
 		block_origin: peer,
-		verification_time,
 	}))
 }
 
@@ -385,11 +342,14 @@ pub(crate) async fn import_single_block_metered<Block: BlockT>(
 ) -> BlockImportResult<Block> {
 	let started = Instant::now();
 
-	let SingleBlockImportParameters { import_block, hash, block_origin, verification_time } =
-		import_parameters;
+	let SingleBlockImportParameters { import_block, hash, block_origin } = import_parameters;
 
 	let number = *import_block.header.number();
 	let parent_hash = *import_block.header.parent_hash();
+	let verification_time = import_block.verification_time.unwrap_or_else(|| {
+		error!(target: LOG_TARGET, "Block verification time is missing, using 0");
+		Duration::from_secs(0)
+	});
 
 	let imported = import_handle.import_block(import_block).await;
 	if let Some(metrics) = metrics {

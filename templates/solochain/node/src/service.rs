@@ -29,6 +29,7 @@ pub type Service = sc_service::PartialComponents<
 	FullSelectChain,
 	sc_consensus::DefaultImportQueue<Block>,
 	sc_transaction_pool::TransactionPoolHandle<Block, FullClient>,
+	AuraVerifier<FullClient, AuraPair, CIDP, N>,
 	(
 		sc_consensus_grandpa::GrandpaBlockImport<FullBackend, Block, FullClient, FullSelectChain>,
 		sc_consensus_grandpa::LinkHalf<Block, FullClient, FullSelectChain>,
@@ -84,34 +85,36 @@ pub fn new_partial(config: &Configuration) -> Result<Service, ServiceError> {
 	)?;
 
 	let cidp_client = client.clone();
-	let import_queue =
-		sc_consensus_aura::import_queue::<AuraPair, _, _, _, _, _>(ImportQueueParams {
-			block_import: grandpa_block_import.clone(),
-			justification_import: Some(Box::new(grandpa_block_import.clone())),
-			client: client.clone(),
-			create_inherent_data_providers: move |parent_hash, _| {
-				let cidp_client = cidp_client.clone();
-				async move {
-					let slot_duration = sc_consensus_aura::standalone::slot_duration_at(
-						&*cidp_client,
-						parent_hash,
-					)?;
-					let timestamp = sp_timestamp::InherentDataProvider::from_system_time();
+	let create_inherent_data_providers = move |parent_hash, _| {
+		let cidp_client = cidp_client.clone();
+		async move {
+			let slot_duration =
+				sc_consensus_aura::standalone::slot_duration_at(&*cidp_client, parent_hash)?;
+			let timestamp = sp_timestamp::InherentDataProvider::from_system_time();
 
-					let slot =
-						sp_consensus_aura::inherents::InherentDataProvider::from_timestamp_and_slot_duration(
-							*timestamp,
-							slot_duration,
-						);
+			let slot = sp_consensus_aura::inherents::InherentDataProvider::from_timestamp_and_slot_duration(
+				*timestamp,
+				slot_duration,
+			);
 
-					Ok((slot, timestamp))
-				}
-			},
-			spawner: &task_manager.spawn_essential_handle(),
-			registry: config.prometheus_registry(),
+			Ok((slot, timestamp))
+		}
+	};
+	let verifier = sc_consensus_aura::build_verifier::<AuraPair, _, _, _>(
+		sc_consensus_aura::BuildVerifierParams {
+			client,
+			create_inherent_data_providers,
 			telemetry: telemetry.as_ref().map(|x| x.handle()),
 			compatibility_mode: Default::default(),
-		})?;
+		},
+	);
+
+	let import_queue = sc_consensus_aura::import_queue(ImportQueueParams {
+		block_import: grandpa_block_import.clone(),
+		justification_import: Some(Box::new(grandpa_block_import.clone())),
+		spawner: &task_manager.spawn_essential_handle(),
+		registry: config.prometheus_registry(),
+	})?;
 
 	Ok(sc_service::PartialComponents {
 		client,
@@ -121,6 +124,7 @@ pub fn new_partial(config: &Configuration) -> Result<Service, ServiceError> {
 		keystore_container,
 		select_chain,
 		transaction_pool,
+		verifier,
 		other: (grandpa_block_import, grandpa_link, telemetry),
 	})
 }
@@ -139,6 +143,7 @@ pub fn new_full<
 		keystore_container,
 		select_chain,
 		transaction_pool,
+		verifier,
 		other: (block_import, grandpa_link, mut telemetry),
 	} = new_partial(&config)?;
 
@@ -180,6 +185,7 @@ pub fn new_full<
 			warp_sync_config: Some(WarpSyncConfig::WithProvider(warp_sync)),
 			block_relay: None,
 			metrics,
+			verifier,
 		})?;
 
 	if config.offchain_worker.enabled {

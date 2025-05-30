@@ -24,11 +24,9 @@ use sp_runtime::{
 	traits::{Block as BlockT, HashingFor, Header as HeaderT, NumberFor},
 	DigestItem, Justification, Justifications,
 };
-use std::{any::Any, borrow::Cow, collections::HashMap, sync::Arc};
+use std::{any::Any, borrow::Cow, collections::HashMap, sync::Arc, time::Duration};
 
 use sp_consensus::{BlockOrigin, Error};
-
-use crate::IncomingBlock;
 
 /// Block import result.
 #[derive(Debug, PartialEq, Eq)]
@@ -230,6 +228,8 @@ pub struct BlockImportParams<Block: BlockT> {
 	pub allow_missing_state: bool,
 	/// Do not compute new state, but rather set it to the given set.
 	pub state: Option<ImportedState<Block>>,
+	/// The time it took to verify the block.
+	pub verification_time: Option<Duration>,
 }
 
 impl<Block: BlockT> BlockImportParams<Block> {
@@ -253,6 +253,7 @@ impl<Block: BlockT> BlockImportParams<Block> {
 			peer: None,
 			allow_missing_state: false,
 			state: None,
+			verification_time: None,
 		}
 	}
 

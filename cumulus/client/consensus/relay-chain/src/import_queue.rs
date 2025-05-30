@@ -127,7 +127,8 @@ where
 	<Client as ProvideRuntimeApi<Block>>::Api: BlockBuilderApi<Block>,
 	CIDP: CreateInherentDataProviders<Block, ()> + 'static,
 {
-	let verifier = Verifier::new(client, create_inherent_data_providers);
+	// TODO This needs to move elsewhere
+	// let verifier = Verifier::new(client, create_inherent_data_providers);
 
-	Ok(BasicQueue::new(verifier, Box::new(block_import), None, spawner, registry))
+	Ok(BasicQueue::new(Box::new(block_import), None, spawner, registry))
 }

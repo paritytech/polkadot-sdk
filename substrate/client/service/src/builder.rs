@@ -35,7 +35,10 @@ use sc_client_api::{
 	BlockBackend, BlockchainEvents, ExecutorProvider, ForkBlocks, StorageProvider, UsageProvider,
 };
 use sc_client_db::{Backend, BlocksPruning, DatabaseSettings, PruningMode};
-use sc_consensus::import_queue::{ImportQueue, ImportQueueService};
+use sc_consensus::{
+	import_queue::{ImportQueue, ImportQueueService},
+	Verifier,
+};
 use sc_executor::{
 	sp_wasm_interface::HostFunctions, HeapAllocStrategy, NativeExecutionDispatch, RuntimeVersionOf,
 	WasmExecutor, DEFAULT_HEAP_ALLOC_STRATEGY,
@@ -818,7 +821,7 @@ where
 }
 
 /// Parameters to pass into [`build_network`].
-pub struct BuildNetworkParams<'a, Block, Net, TxPool, IQ, Client>
+pub struct BuildNetworkParams<'a, Block, Net, TxPool, IQ, Client, V>
 where
 	Block: BlockT,
 	Net: NetworkBackend<Block, <Block as BlockT>::Hash>,
@@ -835,6 +838,8 @@ where
 	pub spawn_handle: SpawnTaskHandle,
 	/// An import queue.
 	pub import_queue: IQ,
+	/// Block verifier.
+	pub verifier: V,
 	/// A block announce validator builder.
 	pub block_announce_validator_builder: Option<
 		Box<dyn FnOnce(Arc<Client>) -> Box<dyn BlockAnnounceValidator<Block> + Send> + Send>,
@@ -849,8 +854,8 @@ where
 }
 
 /// Build the network service, the network status sinks and an RPC sender.
-pub fn build_network<Block, Net, TxPool, IQ, Client>(
-	params: BuildNetworkParams<Block, Net, TxPool, IQ, Client>,
+pub fn build_network<Block, Net, TxPool, IQ, Client, V>(
+	params: BuildNetworkParams<Block, Net, TxPool, IQ, Client, V>,
 ) -> Result<
 	(
 		Arc<dyn sc_network::service::traits::NetworkService>,
@@ -874,6 +879,7 @@ where
 	TxPool: TransactionPool<Block = Block, Hash = <Block as BlockT>::Hash> + 'static,
 	IQ: ImportQueue<Block> + 'static,
 	Net: NetworkBackend<Block, <Block as BlockT>::Hash>,
+	V: Verifier<Block> + 'static,
 {
 	let BuildNetworkParams {
 		config,
@@ -886,6 +892,7 @@ where
 		warp_sync_config,
 		block_relay,
 		metrics,
+		verifier,
 	} = params;
 
 	let block_announce_validator = if let Some(f) = block_announce_validator_builder {
@@ -947,6 +954,7 @@ where
 		network_service_provider.handle(),
 		import_queue.service(),
 		net_config.peer_store_handle(),
+		verifier,
 	)?;
 
 	spawn_handle.spawn_blocking("syncing", None, syncing_engine.run());
@@ -1170,7 +1178,7 @@ where
 }
 
 /// Configuration for [`build_default_syncing_engine`].
-pub struct DefaultSyncingEngineConfig<'a, Block, Client, Net>
+pub struct DefaultSyncingEngineConfig<'a, Block, Client, Net, V>
 where
 	Block: BlockT,
 	Net: NetworkBackend<Block, <Block as BlockT>::Hash>,
@@ -1201,12 +1209,14 @@ where
 	pub metrics_registry: Option<&'a Registry>,
 	/// Metrics.
 	pub metrics: NotificationMetrics,
+	/// Block verifier.
+	pub verifier: V,
 }
 
 /// Build default syncing engine using [`build_default_block_downloader`] and
 /// [`build_polkadot_syncing_strategy`] internally.
-pub fn build_default_syncing_engine<Block, Client, Net>(
-	config: DefaultSyncingEngineConfig<Block, Client, Net>,
+pub fn build_default_syncing_engine<Block, Client, Net, V>(
+	config: DefaultSyncingEngineConfig<Block, Client, Net, V>,
 ) -> Result<(SyncingService<Block>, Net::NotificationProtocolConfig), Error>
 where
 	Block: BlockT,
@@ -1218,6 +1228,7 @@ where
 		+ Sync
 		+ 'static,
 	Net: NetworkBackend<Block, <Block as BlockT>::Hash>,
+	V: Verifier<Block> + 'static,
 {
 	let DefaultSyncingEngineConfig {
 		role,
@@ -1233,6 +1244,7 @@ where
 		spawn_handle,
 		metrics_registry,
 		metrics,
+		verifier,
 	} = config;
 
 	let block_downloader = build_default_block_downloader(
@@ -1268,6 +1280,7 @@ where
 		network_service_handle,
 		import_queue_service,
 		net_config.peer_store_handle(),
+		verifier,
 	)?;
 
 	spawn_handle.spawn_blocking("syncing", None, syncing_engine.run());

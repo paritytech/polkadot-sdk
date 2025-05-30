@@ -73,5 +73,7 @@ where
 		+ Sync
 		+ 'static,
 {
-	BasicQueue::new(VerifyNothing, Box::new(block_import), None, spawner, registry)
+	// TODO This needs to move elsewhere
+	// let verifier = VerifyNothing;
+	BasicQueue::new(Box::new(block_import), None, spawner, registry)
 }

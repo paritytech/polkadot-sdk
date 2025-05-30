@@ -83,7 +83,9 @@ pub fn import_queue<Block>(
 where
 	Block: BlockT,
 {
-	BasicQueue::new(ManualSealVerifier, block_import, None, spawner, registry)
+	// TODO This needs to be moved elsewhere
+	// let verifier = ManualSealVerifier
+	BasicQueue::new(block_import, None, spawner, registry)
 }
 
 /// Params required to start the manual sealing authorship task.

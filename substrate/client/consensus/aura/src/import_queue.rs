@@ -188,67 +188,41 @@ where
 }
 
 /// Parameters of [`import_queue`].
-pub struct ImportQueueParams<'a, Block: BlockT, I, C, S, CIDP> {
+pub struct ImportQueueParams<'a, Block: BlockT, I, S> {
 	/// The block import to use.
 	pub block_import: I,
 	/// The justification import.
 	pub justification_import: Option<BoxJustificationImport<Block>>,
-	/// The client to interact with the chain.
-	pub client: Arc<C>,
-	/// Something that can create the inherent data providers.
-	pub create_inherent_data_providers: CIDP,
 	/// The spawner to spawn background tasks.
 	pub spawner: &'a S,
 	/// The prometheus registry.
 	pub registry: Option<&'a Registry>,
-	/// Telemetry instance used to report telemetry metrics.
-	pub telemetry: Option<TelemetryHandle>,
-	/// Compatibility mode that should be used.
-	///
-	/// If in doubt, use `Default::default()`.
-	pub compatibility_mode: CompatibilityMode<NumberFor<Block>>,
 }
 
 /// Start an import queue for the Aura consensus algorithm.
-pub fn import_queue<P, Block, I, C, S, CIDP>(
-	ImportQueueParams {
-		block_import,
-		justification_import,
-		client,
-		create_inherent_data_providers,
-		spawner,
-		registry,
-		telemetry,
-		compatibility_mode,
-	}: ImportQueueParams<Block, I, C, S, CIDP>,
+pub fn import_queue<Block, I, S>(
+	ImportQueueParams { block_import, justification_import, spawner, registry }: ImportQueueParams<
+		Block,
+		I,
+		S,
+	>,
 ) -> Result<DefaultImportQueue<Block>, sp_consensus::Error>
 where
 	Block: BlockT,
-	C::Api: BlockBuilderApi<Block> + AuraApi<Block, AuthorityId<P>> + ApiExt<Block>,
-	C: 'static
-		+ ProvideRuntimeApi<Block>
-		+ BlockOf
-		+ Send
-		+ Sync
-		+ AuxStore
-		+ UsageProvider<Block>
-		+ HeaderBackend<Block>,
 	I: BlockImport<Block, Error = ConsensusError> + Send + Sync + 'static,
-	P: Pair + 'static,
-	P::Public: Codec + Debug,
-	P::Signature: Codec,
 	S: sp_core::traits::SpawnEssentialNamed,
-	CIDP: CreateInherentDataProviders<Block, ()> + Sync + Send + 'static,
-	CIDP::InherentDataProviders: InherentDataProviderExt + Send + Sync,
 {
+	// TODO This needs to move elsewhere
+	// TODO This was moved to new_partial
+	/*
 	let verifier = build_verifier::<P, _, _, _>(BuildVerifierParams {
 		client,
 		create_inherent_data_providers,
 		telemetry,
 		compatibility_mode,
 	});
-
-	Ok(BasicQueue::new(verifier, Box::new(block_import), justification_import, spawner, registry))
+	*/
+	Ok(BasicQueue::new(Box::new(block_import), justification_import, spawner, registry))
 }
 
 /// Parameters of [`build_verifier`].

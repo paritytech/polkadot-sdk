@@ -470,9 +470,10 @@ where
 	Algorithm: PowAlgorithm<B> + Clone + Send + Sync + 'static,
 	Algorithm::Difficulty: Send,
 {
-	let verifier = PowVerifier::new(algorithm);
+	// TODO This needs to be moved elsewhere
+	// let verifier = PowVerifier::new(algorithm);
 
-	Ok(BasicQueue::new(verifier, block_import, justification_import, spawner, registry))
+	Ok(BasicQueue::new(block_import, justification_import, spawner, registry))
 }
 
 /// Start the mining worker for PoW. This function provides the necessary helper functions that can

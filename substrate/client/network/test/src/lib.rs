@@ -785,7 +785,6 @@ pub trait TestNetFactory: Default + Sized + Send {
 		let verifier = VerifierAdapter::new(verifier);
 
 		let import_queue = Box::new(BasicQueue::new(
-			verifier.clone(),
 			Box::new(block_import.clone()),
 			justification_import,
 			&sp_core::testing::TaskExecutor::new(),
@@ -944,6 +943,7 @@ pub trait TestNetFactory: Default + Sized + Send {
 				chain_sync_network_handle,
 				import_queue.service(),
 				peer_store_handle.clone(),
+				verifier.clone(),
 			)
 			.unwrap();
 		let sync_service = Arc::new(sync_service.clone());
