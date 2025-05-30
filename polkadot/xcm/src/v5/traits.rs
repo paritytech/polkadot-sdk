@@ -302,7 +302,10 @@ pub type InstructionIndex = u8;
 pub trait ExecuteXcm<Call> {
 	type Prepared: PreparedMessage;
 	/// If it fails, returns the index of the problematic instruction.
-	fn prepare(message: Xcm<Call>) -> result::Result<Self::Prepared, InstructionError>;
+	fn prepare(
+		message: Xcm<Call>,
+		weight_limit: Weight,
+	) -> result::Result<Self::Prepared, InstructionError>;
 	fn execute(
 		origin: impl Into<Location>,
 		pre: Self::Prepared,
@@ -316,7 +319,7 @@ pub trait ExecuteXcm<Call> {
 		weight_limit: Weight,
 		weight_credit: Weight,
 	) -> Outcome {
-		let pre = match Self::prepare(message) {
+		let pre = match Self::prepare(message, weight_limit) {
 			Ok(x) => x,
 			Err(instruction_error) =>
 				return Outcome::Error {
@@ -348,7 +351,7 @@ impl PreparedMessage for Weightless {
 
 impl<C> ExecuteXcm<C> for () {
 	type Prepared = Weightless;
-	fn prepare(_: Xcm<C>) -> result::Result<Self::Prepared, InstructionError> {
+	fn prepare(_: Xcm<C>, _: Weight) -> result::Result<Self::Prepared, InstructionError> {
 		Err(InstructionError { index: 0, error: Error::Unimplemented })
 	}
 	fn execute(_: impl Into<Location>, _: Self::Prepared, _: &mut XcmHash, _: Weight) -> Outcome {

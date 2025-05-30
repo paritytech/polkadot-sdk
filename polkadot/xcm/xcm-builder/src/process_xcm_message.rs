@@ -68,7 +68,7 @@ impl<
 
 			ProcessMessageError::Unsupported
 		})?;
-		let pre = XcmExecutor::prepare(message).map_err(|_| {
+		let pre = XcmExecutor::prepare(message, Weight::MAX).map_err(|_| {
 			tracing::trace!(
 				target: LOG_TARGET,
 				"Failed to prepare message.",
@@ -178,6 +178,7 @@ mod tests {
 			type Prepared = xcm_executor::WeighedMessage<()>;
 			fn prepare(
 				message: xcm::latest::Xcm<()>,
+				_: Weight,
 			) -> core::result::Result<Self::Prepared, InstructionError> {
 				Ok(xcm_executor::WeighedMessage::new(Weight::zero(), message))
 			}

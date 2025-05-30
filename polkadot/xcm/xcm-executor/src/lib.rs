@@ -228,8 +228,11 @@ impl<C> WeighedMessage<C> {
 
 impl<Config: config::Config> ExecuteXcm<Config::RuntimeCall> for XcmExecutor<Config> {
 	type Prepared = WeighedMessage<Config::RuntimeCall>;
-	fn prepare(mut message: Xcm<Config::RuntimeCall>) -> Result<Self::Prepared, InstructionError> {
-		match Config::Weigher::weight(&mut message) {
+	fn prepare(
+		mut message: Xcm<Config::RuntimeCall>,
+		weight_limit: Weight,
+	) -> Result<Self::Prepared, InstructionError> {
+		match Config::Weigher::weight(&mut message, weight_limit) {
 			Ok(weight) => Ok(WeighedMessage(weight, message)),
 			Err(error) => {
 				tracing::debug!(
@@ -1453,7 +1456,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 			},
 			RefundSurplus => self.refund_surplus(),
 			SetErrorHandler(mut handler) => {
-				let handler_weight = Config::Weigher::weight(&mut handler)
+				let handler_weight = Config::Weigher::weight(&mut handler, Weight::MAX)
 					.map_err(|error| {
 						tracing::debug!(
 							target: "xcm::executor::SetErrorHandler",
@@ -1469,7 +1472,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 				Ok(())
 			},
 			SetAppendix(mut appendix) => {
-				let appendix_weight = Config::Weigher::weight(&mut appendix)
+				let appendix_weight = Config::Weigher::weight(&mut appendix, Weight::MAX)
 					.map_err(|error| {
 						tracing::debug!(
 							target: "xcm::executor::SetErrorHandler",

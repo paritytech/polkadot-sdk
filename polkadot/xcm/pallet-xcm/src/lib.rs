@@ -1449,7 +1449,7 @@ pub mod pallet {
 				ClaimAsset { assets, ticket },
 				DepositAsset { assets: AllCounted(number_of_assets).into(), beneficiary },
 			]);
-			let weight = T::Weigher::weight(&mut message).map_err(|error| {
+			let weight = T::Weigher::weight(&mut message, Weight::MAX).map_err(|error| {
 				tracing::debug!(target: "xcm::pallet_xcm::claim_assets", ?error, "Failed to calculate weight");
 				Error::<T>::UnweighableMessage
 			})?;
@@ -2083,7 +2083,7 @@ impl<T: Config> Pallet<T> {
 		);
 
 		let weight =
-			T::Weigher::weight(&mut local_xcm).map_err(|error| {
+			T::Weigher::weight(&mut local_xcm, Weight::MAX).map_err(|error| {
 				tracing::debug!(target: "xcm::pallet_xcm::execute_xcm_transfer", ?error, "Failed to calculate weight");
 				Error::<T>::UnweighableMessage
 			})?;
@@ -2971,7 +2971,7 @@ impl<T: Config> Pallet<T> {
 				XcmPaymentApiError::VersionedConversionFailed
 			})?;
 
-		T::Weigher::weight(&mut message.clone().into()).map_err(|error| {
+		T::Weigher::weight(&mut message.clone().into(), Weight::MAX).map_err(|error| {
 			tracing::debug!(target: "xcm::pallet_xcm::query_xcm_weight", ?error, ?message, "Error when querying XCM weight");
 			XcmPaymentApiError::WeightNotComputable
 		})
