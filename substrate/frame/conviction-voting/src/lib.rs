@@ -674,7 +674,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				}
 			}
 			
-			// For each of the delegator's votes
+			// For each of the delegator's ongoing votes
 			for poll_index in ongoing_votes {
 				match votes.binary_search_by_key(&poll_index, |i| i.0) {
 					// That appear in the delegate's voting history
@@ -758,22 +758,27 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		conviction: Conviction,
 		balance: BalanceOf<T, I>,
 	) -> Result<u32, DispatchError> {
+		// Sanity checks
 		ensure!(who != target, Error::<T, I>::Nonsense);
 		T::Polls::classes().binary_search(&class).map_err(|_| Error::<T, I>::BadClass)?;
 		ensure!(balance <= T::Currency::total_balance(&who), Error::<T, I>::InsufficientFunds);
 		let delegate_vote_count =
 			VotingFor::<T, I>::try_mutate(&who, &class, |voting| -> Result<u32, DispatchError> {
 				let old = voting.clone();
+				// Ensure not already delegating
 				if let Some(delegate) = old.delegate {
 					return Err(Error::<T, I>::AlreadyDelegating.into());
 				}
+				// Set delegation related info
 				voting.set_delegate_info(Some(target), balance, Some(conviction));
 				
+				// Grab all of the delegator votes that are for ongoing polls
 				let ongoing_votes: Vec<_> = voting.votes.iter().filter_map(|poll_data| {
 					let poll_index = poll_data.0;
 					T::Polls::as_ongoing(poll_index)
 				}).collect();
-
+				
+				// Update voting data of chosen delegate
 				let vote_count =
 					Self::increase_upstream_delegation(&target, &class, conviction.votes(balance), ongoing_votes);
 				// Extend the lock to `balance` (rather than setting it) since we don't know what
@@ -791,15 +796,19 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	///
 	/// Return the number of votes of upstream.
 	fn try_undelegate(who: T::AccountId, class: ClassOf<T, I>) -> Result<u32, DispatchError> {
-		let votes =
+		let delegate_vote_count =
 			VotingFor::<T, I>::try_mutate(&who, &class, |voting| -> Result<u32, DispatchError> {
+				// If they're currently delegating
 				if let (Some(delegate), Some(conviction)) = (voting.delegate, voting.conviction) {
+					// Grab all the delegators voting data for ongoing polls
 					let ongoing_votes: Vec<_> = voting.votes.iter().filter_map(|poll_data| {
 						let poll_index = poll_data.0;
 						T::Polls::as_ongoing(poll_index)
 					}).collect();
+					// Update the delegate's voting data
 					let votes = Self::reduce_upstream_delegation(&delegate, &class, conviction.votes(voting.delegated_balance), ongoing_votes);
 					
+					// Accumulate the locks
 					let now = T::BlockNumberProvider::current_block_number();
 					let lock_periods = conviction.lock_periods().into();
 					voting.prior.accumulate(
@@ -808,6 +817,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 						),
 						voting.delegated_balance,
 					);
+					// Set the delegator's delegate info
 					voting.set_delegate_info(None, Default::default(), None);
 					Ok(votes);
 				} else {
@@ -815,7 +825,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				}
 			})?;
 		Self::deposit_event(Event::<T, I>::Undelegated(who));
-		Ok(votes)
+		Ok(delegate_vote_count)
 	}
 
 	// ✓
