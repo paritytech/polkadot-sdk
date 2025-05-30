@@ -332,10 +332,5 @@ impl pallet_broker::Config for Runtime {
 	type AdminOrigin = EnsureRoot<AccountId>;
 	type SovereignAccountOf = SovereignAccountOf;
 	type MaxAutoRenewals = ConstU32<20>;
-<<<<<<< HEAD
-	type PriceAdapter = pallet_broker::CenterTargetPrice<Balance>;
-=======
 	type PriceAdapter = pallet_broker::MinimumPrice<Balance, MinimumEndPrice>;
-	type MinimumCreditPurchase = MinimumCreditPurchase;
->>>>>>> 1a8313fb (Broker: Introduce min price + adjust renewals to lower market. (#8630))
 }
