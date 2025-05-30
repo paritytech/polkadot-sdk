@@ -240,8 +240,7 @@ fn expect_successful_transact_status_should_work() {
 		r,
 		Outcome::Incomplete {
 			used: Weight::from_parts(70, 70),
-			error: XcmError::ExpectationFalse,
-			index: 1
+			error: InstructionError { index: 1, error: XcmError::ExpectationFalse },
 		}
 	);
 }
@@ -290,8 +289,7 @@ fn expect_failed_transact_status_should_work() {
 		r,
 		Outcome::Incomplete {
 			used: Weight::from_parts(70, 70),
-			error: XcmError::ExpectationFalse,
-			index: 1
+			error: InstructionError { index: 1, error: XcmError::ExpectationFalse },
 		}
 	);
 }

@@ -78,8 +78,7 @@ fn alias_origin_should_work() {
 		r,
 		Outcome::Incomplete {
 			used: Weight::from_parts(10, 10),
-			error: XcmError::NoPermission,
-			index: 0
+			error: InstructionError { index: 0, error: XcmError::NoPermission },
 		}
 	);
 

@@ -123,8 +123,7 @@ fn lock_should_fail_correctly() {
 		r,
 		Outcome::Incomplete {
 			used: Weight::from_parts(10, 10),
-			error: XcmError::LockError,
-			index: 0
+			error: InstructionError { index: 0, error: XcmError::LockError },
 		}
 	);
 	assert_eq!(sent_xcm(), vec![]);
@@ -153,8 +152,7 @@ fn lock_should_fail_correctly() {
 		r,
 		Outcome::Incomplete {
 			used: Weight::from_parts(10, 10),
-			error: XcmError::NotHoldingFees,
-			index: 0
+			error: InstructionError { index: 0, error: XcmError::NotHoldingFees },
 		}
 	);
 	assert_eq!(sent_xcm(), vec![]);
@@ -254,8 +252,7 @@ fn remote_unlock_should_fail_correctly() {
 		r,
 		Outcome::Incomplete {
 			used: Weight::from_parts(10, 10),
-			error: XcmError::LockError,
-			index: 0
+			error: InstructionError { index: 0, error: XcmError::LockError },
 		}
 	);
 	assert_eq!(sent_xcm(), vec![]);
@@ -294,8 +291,7 @@ fn remote_unlock_should_fail_correctly() {
 		r,
 		Outcome::Incomplete {
 			used: Weight::from_parts(10, 10),
-			error: XcmError::NotHoldingFees,
-			index: 0
+			error: InstructionError { index: 0, error: XcmError::NotHoldingFees },
 		}
 	);
 

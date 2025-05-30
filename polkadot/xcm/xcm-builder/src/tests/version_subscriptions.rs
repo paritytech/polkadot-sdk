@@ -39,8 +39,7 @@ fn simple_version_subscriptions_should_work() {
 		),
 		Outcome::Incomplete {
 			used: Weight::from_parts(20, 20),
-			error: XcmError::Barrier,
-			index: 0
+			error: InstructionError { index: 0, error: XcmError::Barrier },
 		}
 	);
 
@@ -56,8 +55,7 @@ fn simple_version_subscriptions_should_work() {
 		),
 		Outcome::Incomplete {
 			used: Weight::from_parts(20, 20),
-			error: XcmError::Barrier,
-			index: 0
+			error: InstructionError { index: 0, error: XcmError::Barrier },
 		}
 	);
 
@@ -78,8 +76,7 @@ fn simple_version_subscriptions_should_work() {
 		r,
 		Outcome::Incomplete {
 			used: Weight::from_parts(10, 10),
-			error: XcmError::Barrier,
-			index: 0
+			error: InstructionError { index: 0, error: XcmError::Barrier },
 		}
 	);
 
@@ -118,8 +115,7 @@ fn version_subscription_instruction_should_work() {
 		r,
 		Outcome::Incomplete {
 			used: Weight::from_parts(20, 20),
-			error: XcmError::BadOrigin,
-			index: 1
+			error: InstructionError { index: 1, error: XcmError::BadOrigin },
 		}
 	);
 
@@ -162,8 +158,7 @@ fn simple_version_unsubscriptions_should_work() {
 		r,
 		Outcome::Incomplete {
 			used: Weight::from_parts(20, 20),
-			error: XcmError::Barrier,
-			index: 0
+			error: InstructionError { index: 0, error: XcmError::Barrier },
 		}
 	);
 
@@ -182,8 +177,7 @@ fn simple_version_unsubscriptions_should_work() {
 		r,
 		Outcome::Incomplete {
 			used: Weight::from_parts(10, 10),
-			error: XcmError::Barrier,
-			index: 0
+			error: InstructionError { index: 0, error: XcmError::Barrier },
 		}
 	);
 
@@ -222,8 +216,7 @@ fn version_unsubscription_instruction_should_work() {
 		r,
 		Outcome::Incomplete {
 			used: Weight::from_parts(20, 20),
-			error: XcmError::BadOrigin,
-			index: 1
+			error: InstructionError { index: 1, error: XcmError::BadOrigin },
 		}
 	);
 

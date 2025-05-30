@@ -148,8 +148,10 @@ fn report_holding_works() {
 			r,
 			Outcome::Incomplete {
 				used: weight - BaseXcmWeight::get(),
-				error: XcmError::FailedToTransactAsset("AccountIdConversionFailed"),
-				index: 2
+				error: InstructionError {
+					index: 2,
+					error: XcmError::FailedToTransactAsset("AccountIdConversionFailed")
+				},
 			}
 		);
 		// there should be no query response sent for the failed deposit
@@ -238,7 +240,10 @@ fn teleport_to_asset_hub_works() {
 		);
 		assert_eq!(
 			r,
-			Outcome::Incomplete { used: weight, error: UntrustedTeleportLocation, index: 2 }
+			Outcome::Incomplete {
+				used: weight,
+				error: InstructionError { index: 2, error: UntrustedTeleportLocation },
+			}
 		);
 
 		// teleports are allowed from asset hub to kusama.
@@ -420,8 +425,7 @@ fn recursive_xcm_execution_fail() {
 			outcome,
 			Outcome::Incomplete {
 				used: Weight::from_parts(3000000000, 3072),
-				error: XcmError::Barrier,
-				index: 0
+				error: InstructionError { index: 0, error: XcmError::Barrier },
 			}
 		);
 	});

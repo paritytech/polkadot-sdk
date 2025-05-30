@@ -100,7 +100,10 @@ fn exchange_asset_should_fail_when_no_deal_possible() {
 	);
 	assert_eq!(
 		r,
-		Outcome::Incomplete { used: Weight::from_parts(40, 40), error: XcmError::NoDeal, index: 2 }
+		Outcome::Incomplete {
+			used: Weight::from_parts(40, 40),
+			error: InstructionError { index: 2, error: XcmError::NoDeal },
+		}
 	);
 	assert_eq!(asset_list(Parent), vec![(Parent, 1000u128).into()]);
 	assert_eq!(exchange_assets(), vec![(Here, 100u128).into()].into());
@@ -288,8 +291,7 @@ fn basic_asset_trap_should_work() {
 		r,
 		Outcome::Incomplete {
 			used: Weight::from_parts(10, 10),
-			error: XcmError::UnknownClaim,
-			index: 0
+			error: InstructionError { index: 0, error: XcmError::UnknownClaim },
 		}
 	);
 	assert_eq!(asset_list(Parachain(1)), vec![(Here, 900u128).into()]);
@@ -317,8 +319,7 @@ fn basic_asset_trap_should_work() {
 		r,
 		Outcome::Incomplete {
 			used: Weight::from_parts(10, 10),
-			error: XcmError::UnknownClaim,
-			index: 0
+			error: InstructionError { index: 0, error: XcmError::UnknownClaim },
 		}
 	);
 	assert_eq!(asset_list(Parachain(1)), vec![(Here, 900u128).into()]);
@@ -346,8 +347,7 @@ fn basic_asset_trap_should_work() {
 		r,
 		Outcome::Incomplete {
 			used: Weight::from_parts(10, 10),
-			error: XcmError::UnknownClaim,
-			index: 0
+			error: InstructionError { index: 0, error: XcmError::UnknownClaim },
 		}
 	);
 	assert_eq!(asset_list(Parachain(1)), vec![(Here, 900u128).into()]);
@@ -396,8 +396,7 @@ fn basic_asset_trap_should_work() {
 		r,
 		Outcome::Incomplete {
 			used: Weight::from_parts(10, 10),
-			error: XcmError::UnknownClaim,
-			index: 0
+			error: InstructionError { index: 0, error: XcmError::UnknownClaim },
 		}
 	);
 }
@@ -462,8 +461,7 @@ fn max_assets_limit_should_work() {
 		r,
 		Outcome::Incomplete {
 			used: Weight::from_parts(95, 95),
-			error: XcmError::HoldingWouldOverflow,
-			index: 8
+			error: InstructionError { index: 8, error: XcmError::HoldingWouldOverflow },
 		}
 	);
 
@@ -520,8 +518,7 @@ fn max_assets_limit_should_work() {
 		r,
 		Outcome::Incomplete {
 			used: Weight::from_parts(95, 95),
-			error: XcmError::HoldingWouldOverflow,
-			index: 8
+			error: InstructionError { index: 8, error: XcmError::HoldingWouldOverflow },
 		}
 	);
 
@@ -551,8 +548,7 @@ fn max_assets_limit_should_work() {
 		r,
 		Outcome::Incomplete {
 			used: Weight::from_parts(25, 25),
-			error: XcmError::HoldingWouldOverflow,
-			index: 1
+			error: InstructionError { index: 1, error: XcmError::HoldingWouldOverflow },
 		}
 	);
 }

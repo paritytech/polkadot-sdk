@@ -116,8 +116,7 @@ fn errors_should_return_unused_weight() {
 		r,
 		Outcome::Incomplete {
 			used: Weight::from_parts(30, 30),
-			error: XcmError::NotWithdrawable,
-			index: 2
+			error: InstructionError { index: 2, error: XcmError::NotWithdrawable },
 		}
 	);
 	assert_eq!(asset_list(AccountIndex64 { index: 3, network: None }), vec![(Here, 10u128).into()]);
@@ -135,8 +134,7 @@ fn errors_should_return_unused_weight() {
 		r,
 		Outcome::Incomplete {
 			used: Weight::from_parts(20, 20),
-			error: XcmError::NotWithdrawable,
-			index: 1
+			error: InstructionError { index: 1, error: XcmError::NotWithdrawable },
 		}
 	);
 	assert_eq!(asset_list(AccountIndex64 { index: 3, network: None }), vec![(Here, 11u128).into()]);
@@ -154,8 +152,7 @@ fn errors_should_return_unused_weight() {
 		r,
 		Outcome::Incomplete {
 			used: Weight::from_parts(10, 10),
-			error: XcmError::NotWithdrawable,
-			index: 0
+			error: InstructionError { index: 0, error: XcmError::NotWithdrawable },
 		}
 	);
 	assert_eq!(asset_list(AccountIndex64 { index: 3, network: None }), vec![(Here, 11u128).into()]);
@@ -233,7 +230,23 @@ fn weigher_returns_correct_instruction_index_on_error() {
 		<TestConfig as Config>::Weigher::weight(&mut message, max_weight),
 		Err(InstructionError {
 			index: 3,
-			error: XcmError::WeightLimitReached(UnitWeightCost::get())
+			error: XcmError::WeightLimitReached(UnitWeightCost::get() * 4)
+		})
+	);
+}
+
+#[test]
+fn weigher_weight_limit_correctly_accounts_for_nested_instructions() {
+	// We have enough space for instructions.
+	MaxInstructions::set(10);
+	// But only enough weight for 3 instructions.
+	let max_weight = UnitWeightCost::get() * 3;
+	let mut message = Xcm(vec![SetAppendix(Xcm(vec![ClearOrigin; 7]))]);
+	assert_eq!(
+		<TestConfig as Config>::Weigher::weight(&mut message, max_weight),
+		Err(InstructionError {
+			index: 0,
+			error: XcmError::WeightLimitReached(UnitWeightCost::get() * 4)
 		})
 	);
 }

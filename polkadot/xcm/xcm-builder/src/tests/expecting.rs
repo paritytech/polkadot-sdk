@@ -78,8 +78,7 @@ fn expect_pallet_should_fail_correctly() {
 		r,
 		Outcome::Incomplete {
 			used: Weight::from_parts(10, 10),
-			error: XcmError::VersionIncompatible,
-			index: 0
+			error: InstructionError { index: 0, error: XcmError::VersionIncompatible },
 		}
 	);
 
@@ -102,8 +101,7 @@ fn expect_pallet_should_fail_correctly() {
 		r,
 		Outcome::Incomplete {
 			used: Weight::from_parts(10, 10),
-			error: XcmError::NameMismatch,
-			index: 0
+			error: InstructionError { index: 0, error: XcmError::NameMismatch },
 		}
 	);
 
@@ -126,8 +124,7 @@ fn expect_pallet_should_fail_correctly() {
 		r,
 		Outcome::Incomplete {
 			used: Weight::from_parts(10, 10),
-			error: XcmError::NameMismatch,
-			index: 0
+			error: InstructionError { index: 0, error: XcmError::NameMismatch },
 		}
 	);
 
@@ -150,8 +147,7 @@ fn expect_pallet_should_fail_correctly() {
 		r,
 		Outcome::Incomplete {
 			used: Weight::from_parts(10, 10),
-			error: XcmError::NameMismatch,
-			index: 0
+			error: InstructionError { index: 0, error: XcmError::NameMismatch },
 		}
 	);
 
@@ -174,8 +170,7 @@ fn expect_pallet_should_fail_correctly() {
 		r,
 		Outcome::Incomplete {
 			used: Weight::from_parts(10, 10),
-			error: XcmError::PalletNotFound,
-			index: 0
+			error: InstructionError { index: 0, error: XcmError::PalletNotFound },
 		}
 	);
 
@@ -198,8 +193,7 @@ fn expect_pallet_should_fail_correctly() {
 		r,
 		Outcome::Incomplete {
 			used: Weight::from_parts(10, 10),
-			error: XcmError::VersionIncompatible,
-			index: 0
+			error: InstructionError { index: 0, error: XcmError::VersionIncompatible },
 		}
 	);
 
@@ -222,8 +216,7 @@ fn expect_pallet_should_fail_correctly() {
 		r,
 		Outcome::Incomplete {
 			used: Weight::from_parts(10, 10),
-			error: XcmError::VersionIncompatible,
-			index: 0
+			error: InstructionError { index: 0, error: XcmError::VersionIncompatible },
 		}
 	);
 
@@ -246,8 +239,7 @@ fn expect_pallet_should_fail_correctly() {
 		r,
 		Outcome::Incomplete {
 			used: Weight::from_parts(10, 10),
-			error: XcmError::VersionIncompatible,
-			index: 0
+			error: InstructionError { index: 0, error: XcmError::VersionIncompatible },
 		}
 	);
 }

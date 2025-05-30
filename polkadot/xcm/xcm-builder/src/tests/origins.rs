@@ -41,8 +41,7 @@ fn universal_origin_should_work() {
 		r,
 		Outcome::Incomplete {
 			used: Weight::from_parts(10, 10),
-			error: XcmError::InvalidLocation,
-			index: 0
+			error: InstructionError { index: 0, error: XcmError::InvalidLocation },
 		}
 	);
 
@@ -62,8 +61,7 @@ fn universal_origin_should_work() {
 		r,
 		Outcome::Incomplete {
 			used: Weight::from_parts(20, 20),
-			error: XcmError::NotWithdrawable,
-			index: 1
+			error: InstructionError { index: 1, error: XcmError::NotWithdrawable },
 		}
 	);
 
@@ -140,8 +138,7 @@ fn unpaid_execution_should_work() {
 		r,
 		Outcome::Incomplete {
 			used: Weight::from_parts(10, 10),
-			error: XcmError::BadOrigin,
-			index: 0
+			error: InstructionError { index: 0, error: XcmError::BadOrigin },
 		}
 	);
 	let r = XcmExecutor::<TestConfig>::prepare_and_execute(
@@ -155,8 +152,7 @@ fn unpaid_execution_should_work() {
 		r,
 		Outcome::Incomplete {
 			used: Weight::from_parts(10, 10),
-			error: XcmError::Barrier,
-			index: 0
+			error: InstructionError { index: 0, error: XcmError::Barrier },
 		}
 	);
 
