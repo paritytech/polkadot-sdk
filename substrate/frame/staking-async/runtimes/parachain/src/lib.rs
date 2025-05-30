@@ -126,12 +126,8 @@ impl_opaque_keys! {
 
 #[sp_version::runtime_version]
 pub const VERSION: RuntimeVersion = RuntimeVersion {
-	// Note: "westmint" is the legacy name for this chain. It has been renamed to
-	// "asset-hub-next-westend". Many wallets/tools depend on the `spec_name`, so it remains
-	// "westmint" for the time being. Wallets/tools should update to treat "asset-hub-next-westend"
-	// equally.
-	spec_name: alloc::borrow::Cow::Borrowed("asset-hub-next"),
-	impl_name: alloc::borrow::Cow::Borrowed("asset-hub-next"),
+	spec_name: alloc::borrow::Cow::Borrowed("staking-async-parachain"),
+	impl_name: alloc::borrow::Cow::Borrowed("staking-async-parachain"),
 	authoring_version: 1,
 	spec_version: 1_000_000,
 	impl_version: 0,

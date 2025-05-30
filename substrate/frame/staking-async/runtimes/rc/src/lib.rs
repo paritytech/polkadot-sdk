@@ -165,8 +165,8 @@ pub mod fast_runtime_binary {
 /// Runtime version (Westend).
 #[sp_version::runtime_version]
 pub const VERSION: RuntimeVersion = RuntimeVersion {
-	spec_name: alloc::borrow::Cow::Borrowed("westend-next"),
-	impl_name: alloc::borrow::Cow::Borrowed("parity-westend"),
+	spec_name: alloc::borrow::Cow::Borrowed("staking-async-rc"),
+	impl_name: alloc::borrow::Cow::Borrowed("staking-async-rc"),
 	authoring_version: 2,
 	spec_version: 1_017_001,
 	impl_version: 0,
