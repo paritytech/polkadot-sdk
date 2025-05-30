@@ -970,7 +970,7 @@ impl<T: Config> EraElectionPlanner<T> {
 			} else {
 				// This case should ideally not happen for an elected winner,
 				// but handle defensively.
-				crate::log!(warn, "Elected validator {:?} has no prefs set.", stash);
+				defensive!(warn, "Elected validator {:?} has no prefs set.", stash);
 			}
 		}
 
