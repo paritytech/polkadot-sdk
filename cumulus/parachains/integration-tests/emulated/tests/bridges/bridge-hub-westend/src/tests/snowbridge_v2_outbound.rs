@@ -1009,8 +1009,8 @@ fn export_message_from_asset_hub_to_ethereum_is_banned_when_set_operating_mode()
 				Weight::from(EXECUTION_WEIGHT),
 			),
 			pallet_xcm::Error::<Runtime>::LocalExecutionIncompleteWithError {
-				error: XcmError::NoDeal.into(),
-				index: 0
+				error: XcmError::Unroutable.into(),
+				index: 2
 			}
 		);
 	});

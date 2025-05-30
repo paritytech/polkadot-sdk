@@ -228,7 +228,7 @@ impl<C> WeighedMessage<C> {
 
 impl<Config: config::Config> ExecuteXcm<Config::RuntimeCall> for XcmExecutor<Config> {
 	type Prepared = WeighedMessage<Config::RuntimeCall>;
-	fn prepare(mut message: Xcm<Config::RuntimeCall>) -> Result<Self::Prepared, u8> {
+	fn prepare(mut message: Xcm<Config::RuntimeCall>) -> Result<Self::Prepared, InstructionIndex> {
 		match Config::Weigher::weight(&mut message) {
 			Ok(weight) => Ok(WeighedMessage(weight, message)),
 			Err(error) => {

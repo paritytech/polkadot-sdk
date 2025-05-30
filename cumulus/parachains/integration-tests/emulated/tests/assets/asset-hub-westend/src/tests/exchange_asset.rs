@@ -127,12 +127,12 @@ fn test_exchange_asset(
 		let foreign_balance_after = ForeignAssets::balance(asset_location, &alice);
 		let wnd_balance_after = Balances::total_balance(&alice);
 
-		if let Some(error) = expected_error {
+		if let Some(OutcomeError { index, error }) = expected_error {
 			assert_err_ignore_postinfo!(
 				result,
 				pallet_xcm::Error::<Runtime>::LocalExecutionIncompleteWithError {
-					index: error.index,
-					error: error.error.into()
+					index,
+					error: error.into()
 				}
 			);
 			assert_eq!(

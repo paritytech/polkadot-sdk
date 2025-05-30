@@ -245,15 +245,19 @@ pub enum Outcome {
 	/// Execution completed successfully; given weight was used.
 	Complete { used: Weight },
 	/// Execution started, but did not complete successfully due to`error` which occurred
-	/// on the `index`-th instruction ; overall total `weight` was used.
+	/// on the `index`-th (top-level) instruction. Overall, total `weight` was used.
 	Incomplete { used: Weight, error: Error, index: u8 },
 	/// Execution did not start due to the `error` which happened on instruction `index`.
 	Error { error: Error, index: u8 },
 }
 
+/// Error from an XCM outcome, it records both the XCM error and the index of the
+/// instruction that caused it.
 #[derive(Copy, Clone, Encode, Decode, DecodeWithMemTracking, Eq, PartialEq, Debug, TypeInfo)]
 pub struct OutcomeError {
-	pub index: u8,
+	/// The index of the intruction that caused the error.
+	pub index: InstructionIndex,
+	/// The XCM error itself.
 	pub error: Error,
 }
 
@@ -292,11 +296,14 @@ pub trait PreparedMessage {
 	fn weight_of(&self) -> Weight;
 }
 
+/// The index of an instruction in an XCM.
+pub type InstructionIndex = u8;
+
 /// Type of XCM message executor.
 pub trait ExecuteXcm<Call> {
 	type Prepared: PreparedMessage;
 	/// If it fails, returns the index of the problematic instruction.
-	fn prepare(message: Xcm<Call>) -> result::Result<Self::Prepared, u8>;
+	fn prepare(message: Xcm<Call>) -> result::Result<Self::Prepared, InstructionIndex>;
 	fn execute(
 		origin: impl Into<Location>,
 		pre: Self::Prepared,
@@ -335,7 +342,7 @@ impl PreparedMessage for Weightless {
 
 impl<C> ExecuteXcm<C> for () {
 	type Prepared = Weightless;
-	fn prepare(_: Xcm<C>) -> result::Result<Self::Prepared, u8> {
+	fn prepare(_: Xcm<C>) -> result::Result<Self::Prepared, InstructionIndex> {
 		Err(0)
 	}
 	fn execute(_: impl Into<Location>, _: Self::Prepared, _: &mut XcmHash, _: Weight) -> Outcome {

@@ -678,7 +678,7 @@ pub mod pallet {
 		#[codec(index = 23)]
 		TooManyReserves,
 		/// Local XCM execution incomplete.
-		/// @deprecated Use `LocalExecutionIncompleteWithError` for more detailed error information
+		#[deprecated(since = "20.0.0", note = "Use `LocalExecutionIncompleteWithError` instead")]
 		#[codec(index = 24)]
 		LocalExecutionIncomplete,
 		/// Too many locations authorized to alias origin.
@@ -690,7 +690,8 @@ pub mod pallet {
 		/// The alias to remove authorization for was not found.
 		#[codec(index = 27)]
 		AliasNotFound,
-		/// Local XCM execution incomplete with error.
+		/// Local XCM execution incomplete with the actual XCM error and the index of the
+		/// instruction that caused the error.
 		#[codec(index = 28)]
 		LocalExecutionIncompleteWithError { index: u8, error: ExecutionError },
 	}
