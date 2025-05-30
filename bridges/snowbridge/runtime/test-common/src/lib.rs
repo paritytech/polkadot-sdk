@@ -306,6 +306,7 @@ pub fn send_unpaid_transfer_token_message<Runtime, XcmConfig>(
 		+ pallet_collator_selection::Config
 		+ cumulus_pallet_parachain_system::Config
 		+ snowbridge_pallet_outbound_queue::Config
+		+ snowbridge_pallet_system::Config
 		+ pallet_timestamp::Config,
 	XcmConfig: xcm_executor::Config,
 	ValidatorIdOf<Runtime>: From<AccountIdOf<Runtime>>,
@@ -319,12 +320,9 @@ pub fn send_unpaid_transfer_token_message<Runtime, XcmConfig>(
 		.with_tracing()
 		.build()
 		.execute_with(|| {
-			let asset_hub_sovereign_account =
-				snowbridge_core::sibling_sovereign_account::<Runtime>(assethub_parachain_id.into());
-
-			<pallet_balances::Pallet<Runtime>>::mint_into(
-				&asset_hub_sovereign_account,
-				4000000000u32.into(),
+			<snowbridge_pallet_system::Pallet<Runtime>>::initialize(
+				runtime_para_id.into(),
+				assethub_parachain_id.into(),
 			)
 			.unwrap();
 
@@ -370,8 +368,7 @@ pub fn send_unpaid_transfer_token_message<Runtime, XcmConfig>(
 				RuntimeHelper::<Runtime>::xcm_max_weight(XcmReceivedFrom::Sibling),
 				Weight::zero(),
 			);
-			// check error is barrier
-			assert_err!(outcome.ensure_complete(), XcmError::Barrier);
+			assert_ok!(outcome.ensure_complete());
 		});
 }
 
