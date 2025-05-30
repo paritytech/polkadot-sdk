@@ -1877,7 +1877,6 @@ mod phase_rotation {
 				roll_to(15);
 				assert_ok!(Snapshot::<Runtime>::ensure_snapshot(true, Pages::get()));
 				assert_eq!(MultiBlock::current_phase(), Phase::Signed(4));
-
 				assert_eq!(
 					multi_block_events_since_last_call(),
 					vec![
@@ -1888,6 +1887,7 @@ mod phase_rotation {
 						}
 					]
 				);
+				assert_eq!(MultiBlock::round(), 0);
 
 				roll_to(19);
 				assert_eq!(MultiBlock::current_phase(), Phase::Signed(0));
