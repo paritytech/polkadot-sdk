@@ -122,6 +122,7 @@ pub struct BlockCheckParams<Block: BlockT> {
 }
 
 /// Precomputed storage.
+#[derive(Debug)]
 pub enum StorageChanges<Block: BlockT> {
 	/// Changes coming from block execution.
 	Changes(sp_state_machine::StorageChanges<HashingFor<Block>>),
@@ -145,6 +146,7 @@ impl<B: BlockT> std::fmt::Debug for ImportedState<B> {
 }
 
 /// Defines how a new state is computed for a given imported block.
+#[derive(Debug)]
 pub enum StateAction<Block: BlockT> {
 	/// Apply precomputed changes coming from block execution or state sync.
 	ApplyChanges(StorageChanges<Block>),
@@ -170,6 +172,7 @@ impl<Block: BlockT> StateAction<Block> {
 
 /// Data required to import a Block.
 #[non_exhaustive]
+#[derive(Debug)]
 pub struct BlockImportParams<Block: BlockT> {
 	/// Origin of the Block
 	pub origin: BlockOrigin,
@@ -223,6 +226,10 @@ pub struct BlockImportParams<Block: BlockT> {
 	pub post_hash: Option<Block::Hash>,
 	/// The peer that sent this block, if any.
 	pub peer: Option<PeerId>,
+	/// Allow importing the block skipping state verification if parent state is missing.
+	pub allow_missing_state: bool,
+	/// Do not compute new state, but rather set it to the given set.
+	pub state: Option<ImportedState<Block>>,
 }
 
 impl<Block: BlockT> BlockImportParams<Block> {
@@ -244,9 +251,12 @@ impl<Block: BlockT> BlockImportParams<Block> {
 			create_gap: true,
 			post_hash: None,
 			peer: None,
+			allow_missing_state: false,
+			state: None,
 		}
 	}
 
+	// TODO Rename to new_full? from_parts? Or something like that?
 	/// Create a new block import params.
 	pub fn new_with_common_fields(
 		origin: BlockOrigin,
@@ -267,6 +277,7 @@ impl<Block: BlockT> BlockImportParams<Block> {
 		import_block.post_hash = Some(post_hash);
 		import_block.import_existing = import_existing;
 		import_block.indexed_body = indexed_body;
+		import_block.state = state.clone();
 		if let Some(state) = state {
 			let changes = StorageChanges::Import(state);
 			import_block.state_action = StateAction::ApplyChanges(changes);
@@ -276,6 +287,8 @@ impl<Block: BlockT> BlockImportParams<Block> {
 			import_block.state_action = StateAction::ExecuteIfPossible;
 		}
 		import_block.peer = peer;
+		import_block.allow_missing_state = allow_missing_state;
+		import_block.import_existing = import_existing;
 		import_block
 	}
 

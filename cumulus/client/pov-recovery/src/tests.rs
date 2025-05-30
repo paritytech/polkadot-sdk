@@ -232,11 +232,11 @@ impl<Block: BlockT> UsageProvider<Block> for ParachainClient<Block> {
 }
 
 struct ParachainImportQueue<Block: BlockT> {
-	import_requests_tx: TracingUnboundedSender<Vec<IncomingBlock<Block>>>,
+	import_requests_tx: TracingUnboundedSender<Vec<BlockImportParams<Block>>>,
 }
 
 impl<Block: BlockT> ParachainImportQueue<Block> {
-	fn new() -> (Self, TracingUnboundedReceiver<Vec<IncomingBlock<Block>>>) {
+	fn new() -> (Self, TracingUnboundedReceiver<Vec<BlockImportParams<Block>>>) {
 		let (import_requests_tx, import_requests_rx) =
 			sc_utils::mpsc::tracing_unbounded("test_import_req_forwarding", 10);
 		(Self { import_requests_tx }, import_requests_rx)
@@ -244,8 +244,10 @@ impl<Block: BlockT> ParachainImportQueue<Block> {
 }
 
 impl<Block: BlockT> ImportQueueService<Block> for ParachainImportQueue<Block> {
-	fn import_blocks(&mut self, origin: BlockOrigin, blocks: Vec<IncomingBlock<Block>>) {
-		assert_matches!(origin, BlockOrigin::ConsensusBroadcast);
+	fn import_blocks(&mut self, blocks: Vec<BlockImportParams<Block>>) {
+		for block in &blocks {
+			assert_matches!(block.origin, BlockOrigin::ConsensusBroadcast);
+		}
 		self.import_requests_tx.unbounded_send(blocks).unwrap();
 	}
 
@@ -729,7 +731,7 @@ async fn single_pending_candidate_recovery_success(
 	// Received import request for the recovered candidate
 	assert_matches!(import_requests_rx.next().await, Some(incoming_blocks) => {
 		assert_eq!(incoming_blocks.len(), 1);
-		assert_eq!(incoming_blocks[0].header, Some(header));
+		assert_eq!(incoming_blocks[0].header, header);
 	});
 
 	// No import request received
@@ -831,7 +833,7 @@ async fn single_pending_candidate_recovery_retry_succeeds() {
 	// Received import request for the recovered candidate
 	assert_matches!(import_requests_rx.next().await, Some(incoming_blocks) => {
 		assert_eq!(incoming_blocks.len(), 1);
-		assert_eq!(incoming_blocks[0].header, Some(header));
+		assert_eq!(incoming_blocks[0].header, header);
 	});
 
 	// No import request received
@@ -1134,7 +1136,7 @@ async fn candidate_is_imported_while_awaiting_recovery() {
 	// reimport.
 	assert_matches!(import_requests_rx.next().await, Some(incoming_blocks) => {
 		assert_eq!(incoming_blocks.len(), 1);
-		assert_eq!(incoming_blocks[0].header, Some(header));
+		assert_eq!(incoming_blocks[0].header, header);
 	});
 
 	// No more recovery messages received.
@@ -1233,7 +1235,7 @@ async fn candidate_is_finalized_while_awaiting_recovery() {
 	// candidate is imported
 	assert_matches!(import_requests_rx.next().await, Some(incoming_blocks) => {
 		assert_eq!(incoming_blocks.len(), 1);
-		assert_eq!(incoming_blocks[0].header, Some(header));
+		assert_eq!(incoming_blocks[0].header, header);
 	});
 
 	// No more import requests received
@@ -1317,7 +1319,7 @@ async fn chained_recovery_success() {
 
 		assert_matches!(import_requests_rx.next().await, Some(incoming_blocks) => {
 			assert_eq!(incoming_blocks.len(), 1);
-			assert_eq!(incoming_blocks[0].header, Some(header.clone()));
+			assert_eq!(incoming_blocks[0].header, header.clone());
 		});
 
 		known_blocks
@@ -1433,8 +1435,8 @@ async fn chained_recovery_child_succeeds_before_parent() {
 	assert_matches!(import_requests_rx.next().await, Some(incoming_blocks) => {
 		// The two import requests will be batched.
 		assert_eq!(incoming_blocks.len(), 2);
-		assert_eq!(incoming_blocks[0].header, Some(headers[0].clone()));
-		assert_eq!(incoming_blocks[1].header, Some(headers[1].clone()));
+		assert_eq!(incoming_blocks[0].header, headers[0].clone());
+		assert_eq!(incoming_blocks[1].header, headers[1].clone());
 	});
 
 	// No more recovery messages received.
@@ -1521,7 +1523,7 @@ async fn recovery_multiple_blocks_per_candidate() {
 
 	assert_matches!(import_requests_rx.next().await, Some(incoming_blocks) => {
 		assert_eq!(incoming_blocks.len(), 3);
-		assert_eq!(incoming_blocks.iter().map(|b| b.header.clone().unwrap()).collect::<Vec<_>>(), headers);
+		assert_eq!(incoming_blocks.iter().map(|b| b.header.clone()).collect::<Vec<_>>(), headers);
 	});
 
 	known_blocks

@@ -23,8 +23,9 @@ use futures_timer::Delay;
 use log::{info, warn};
 use sc_chain_spec::ChainSpec;
 use sc_client_api::HeaderBackend;
-use sc_consensus::import_queue::{
-	BlockImportError, BlockImportStatus, ImportQueue, IncomingBlock, Link,
+use sc_consensus::{
+	import_queue::{BlockImportError, BlockImportStatus, ImportQueue, IncomingBlock, Link},
+	BlockImportParams,
 };
 use serde_json::{de::IoRead as JsonIoRead, Deserializer, StreamDeserializer};
 use sp_consensus::BlockOrigin;
@@ -159,21 +160,21 @@ fn import_block_to_queue<TBl, TImpQu>(
 	let (header, extrinsics) = signed_block.block.deconstruct();
 	let hash = header.hash();
 	// import queue handles verification and importing it into the client.
-	queue.service_ref().import_blocks(
-		BlockOrigin::File,
-		vec![IncomingBlock::<TBl> {
+	queue
+		.service_ref()
+		.import_blocks(vec![BlockImportParams::new_with_common_fields(
+			BlockOrigin::File,
+			header,
+			None,
+			Some(extrinsics),
+			signed_block.justifications,
 			hash,
-			header: Some(header),
-			body: Some(extrinsics),
-			indexed_body: None,
-			justifications: signed_block.justifications,
-			origin: None,
-			allow_missing_state: false,
-			import_existing: force,
-			state: None,
-			skip_execution: false,
-		}],
-	);
+			force,
+			None,
+			None,
+			false,
+			false,
+		)]);
 }
 
 /// Returns true if we have imported every block we were supposed to import, else returns false.

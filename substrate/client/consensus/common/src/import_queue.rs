@@ -110,7 +110,7 @@ pub trait ImportQueueService<B: BlockT>: Send {
 	// TODO This is the trait fn through which importing (and currently verification) happen
 	/// Import a bunch of blocks, every next block must be an ancestor of the previous block in the
 	/// list.
-	fn import_blocks(&mut self, origin: BlockOrigin, blocks: Vec<IncomingBlock<B>>);
+	fn import_blocks(&mut self, blocks: Vec<BlockImportParams<B>>);
 
 	/// Import block justifications.
 	fn import_justifications(
@@ -190,6 +190,7 @@ impl<BlockNumber: fmt::Debug + PartialEq> BlockImportStatus<BlockNumber> {
 /// Block import error.
 #[derive(Debug, thiserror::Error)]
 pub enum BlockImportError {
+	// TODO I might be able to remove this now as it's checked beforehand
 	/// Block missed header, can't be imported
 	#[error("block is missing a header (origin = {0:?})")]
 	IncompleteHeader(Option<RuntimeOrigin>),
@@ -222,15 +223,14 @@ pub enum BlockImportError {
 type BlockImportResult<B> = Result<BlockImportStatus<NumberFor<B>>, BlockImportError>;
 
 // TODO Amusingly, this is only used in tests. But also it is `pub`. So most likely externally
-// visible from the crate. This fn might need to be removed.
+// visible from the crate. This fn might need to be removed. Or just leave it probably actually.
 /// Single block import function.
 pub async fn import_single_block<B: BlockT, V: Verifier<B>>(
 	import_handle: &mut impl BlockImport<B, Error = ConsensusError>,
-	block_origin: BlockOrigin,
-	block: IncomingBlock<B>,
+	block: BlockImportParams<B>,
 	verifier: &V,
 ) -> BlockImportResult<B> {
-	match verify_single_block_metered(import_handle, block_origin, block, verifier, None).await? {
+	match verify_single_block_metered(import_handle, block, verifier, None).await? {
 		SingleBlockVerificationOutcome::Imported(import_status) => Ok(import_status),
 		SingleBlockVerificationOutcome::Verified(import_parameters) =>
 			import_single_block_metered(import_handle, import_parameters, None).await,
@@ -296,28 +296,16 @@ pub(crate) struct SingleBlockImportParameters<Block: BlockT> {
 /// Single block import function with metering.
 pub(crate) async fn verify_single_block_metered<B: BlockT, V: Verifier<B>>(
 	import_handle: &impl BlockImport<B, Error = ConsensusError>,
-	block_origin: BlockOrigin,
-	block: IncomingBlock<B>,
+	block: BlockImportParams<B>,
 	verifier: &V,
 	metrics: Option<&Metrics>,
 ) -> Result<SingleBlockVerificationOutcome<B>, BlockImportError> {
-	let peer = block.origin;
-	let justifications = block.justifications;
+	trace!(target: LOG_TARGET, "Header {} has {:?} logs", block.post_hash(), block.header.digest().logs().len());
 
-	let Some(header) = block.header else {
-		if let Some(ref peer) = peer {
-			debug!(target: LOG_TARGET, "Header {} was not provided by {peer} ", block.hash);
-		} else {
-			debug!(target: LOG_TARGET, "Header {} was not provided ", block.hash);
-		}
-		return Err(BlockImportError::IncompleteHeader(peer))
-	};
-
-	trace!(target: LOG_TARGET, "Header {} has {:?} logs", block.hash, header.digest().logs().len());
-
-	let number = *header.number();
-	let hash = block.hash;
-	let parent_hash = *header.parent_hash();
+	let number = *block.header.number();
+	let hash = block.post_hash();
+	let parent_hash = *block.header.parent_hash();
+	let peer = block.peer;
 
 	match import_handler::<B>(
 		number,
@@ -355,23 +343,10 @@ pub(crate) async fn verify_single_block_metered<B: BlockT, V: Verifier<B>>(
 	// TODO In fact I don't even need to do that. I can just leave the verify signature exactly the
 	// same and pass in the BlockImportParams::new_with_common_fields, which will return a result,
 	// and then forward that result to the block import queue
-	let mut import_block = BlockImportParams::new_with_common_fields(
-		block_origin,
-		header,
-		peer,
-		block.body,
-		justifications,
-		hash,
-		block.import_existing,
-		block.indexed_body,
-		block.state,
-		block.skip_execution,
-		block.allow_missing_state,
-	);
 
 	// TODO This is currently where the verify call is. This needs to be hoisted out of the
 	// import_queue and into the sync code somehow.
-	let import_block = verifier.verify(import_block).await.map_err(|msg| {
+	let import_block = verifier.verify(block).await.map_err(|msg| {
 		if let Some(ref peer) = peer {
 			trace!(
 				target: LOG_TARGET,

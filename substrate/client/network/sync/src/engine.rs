@@ -43,7 +43,7 @@ use schnellru::{ByLength, LruMap};
 use tokio::time::{Interval, MissedTickBehavior};
 
 use sc_client_api::{BlockBackend, HeaderBackend, ProofProvider};
-use sc_consensus::{import_queue::ImportQueueService, IncomingBlock};
+use sc_consensus::{import_queue::ImportQueueService, BlockImportParams, IncomingBlock};
 use sc_network::{
 	config::{FullNetworkConfiguration, NotificationHandshake, ProtocolId, SetConfig},
 	peer_store::PeerStoreProvider,
@@ -628,7 +628,38 @@ where
 					// TODO This is ultimately where the import is called from the sync code
 					// TODO The verification can probably be moved right here. It will need to have
 					// the correct deps as well but that should not be a problem.
-					self.import_blocks(origin, blocks);
+
+					let blocks = blocks
+						.into_iter()
+						.filter_map(|block| {
+							let peer = block.origin;
+							let Some(header) = block.header else {
+								if let Some(ref peer) = peer {
+									debug!(target: LOG_TARGET, "Header {} was not provided by {peer} ", block.hash);
+								} else {
+									debug!(target: LOG_TARGET, "Header {} was not provided ", block.hash);
+								}
+								return None;
+							};
+							// TODO Do the verification here instead of in there and we're good to
+							// go
+							Some(BlockImportParams::new_with_common_fields(
+								origin,
+								header,
+								peer,
+								block.body,
+								block.justifications,
+								block.hash,
+								block.import_existing,
+								block.indexed_body,
+								block.state,
+								block.skip_execution,
+								block.allow_missing_state,
+							))
+						})
+						.collect();
+
+					self.import_blocks(blocks);
 
 					trace!(
 						target: LOG_TARGET,
@@ -1098,13 +1129,13 @@ where
 	}
 
 	/// Import blocks.
-	fn import_blocks(&mut self, origin: BlockOrigin, blocks: Vec<IncomingBlock<B>>) {
+	fn import_blocks(&mut self, blocks: Vec<BlockImportParams<B>>) {
 		if let Some(metrics) = &self.metrics {
 			metrics.import_queue_blocks_submitted.inc();
 		}
 
 		// TODO This is ultimately where the import is called from the sync code
-		self.import_queue.import_blocks(origin, blocks);
+		self.import_queue.import_blocks(blocks);
 	}
 
 	/// Import justifications.

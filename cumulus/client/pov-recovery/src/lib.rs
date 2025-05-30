@@ -48,7 +48,10 @@
 //! make sure that the blocks are imported in the correct order.
 
 use sc_client_api::{BlockBackend, BlockchainEvents, UsageProvider};
-use sc_consensus::import_queue::{ImportQueueService, IncomingBlock};
+use sc_consensus::{
+	import_queue::{ImportQueueService, IncomingBlock},
+	BlockImportParams,
+};
 use sp_consensus::{BlockOrigin, BlockStatus, SyncOracle};
 use sp_runtime::traits::{Block as BlockT, Header as HeaderT, NumberFor};
 
@@ -505,32 +508,31 @@ where
 			"Importing blocks retrieved using pov_recovery",
 		);
 
-		let mut incoming_blocks = Vec::new();
+		let mut block_import_params = Vec::new();
 
 		while let Some(block) = blocks.pop_front() {
 			let block_hash = block.hash();
 			let (header, body) = block.deconstruct();
-
-			incoming_blocks.push(IncomingBlock {
-				hash: block_hash,
-				header: Some(header),
-				body: Some(body),
-				import_existing: false,
-				allow_missing_state: false,
-				justifications: None,
-				origin: None,
-				skip_execution: false,
-				state: None,
-				indexed_body: None,
-			});
+			block_import_params.push(BlockImportParams::new_with_common_fields(
+				BlockOrigin::ConsensusBroadcast,
+				header,
+				None,
+				Some(body),
+				None,
+				block_hash,
+				false,
+				None,
+				None,
+				false,
+				false,
+			));
 
 			if let Some(waiting) = self.waiting_for_parent.remove(&block_hash) {
 				blocks.extend(waiting);
 			}
 		}
 
-		self.parachain_import_queue
-			.import_blocks(BlockOrigin::ConsensusBroadcast, incoming_blocks);
+		self.parachain_import_queue.import_blocks(block_import_params);
 	}
 
 	/// Attempts an explicit recovery of one or more blocks.

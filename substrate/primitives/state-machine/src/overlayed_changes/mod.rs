@@ -198,6 +198,21 @@ pub struct StorageChanges<H: Hasher> {
 	pub transaction_index_changes: Vec<IndexOperation>,
 }
 
+impl<H: Hasher> core::fmt::Debug for StorageChanges<H> {
+	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+		let mut debug = f.debug_struct("StorageChanges");
+
+		debug.field("main_storage_changes", &self.main_storage_changes);
+		debug.field("child_storage_changes", &self.child_storage_changes);
+		debug.field("offchain_storage_changes", &self.offchain_storage_changes);
+
+		#[cfg(feature = "std")]
+		debug.field("transaction_index_changes", &self.transaction_index_changes);
+
+		debug.finish()
+	}
+}
+
 #[cfg(feature = "std")]
 impl<H: Hasher> StorageChanges<H> {
 	/// Deconstruct into the inner values

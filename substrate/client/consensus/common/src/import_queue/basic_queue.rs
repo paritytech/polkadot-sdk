@@ -37,6 +37,7 @@ use crate::{
 		IncomingBlock, Link, RuntimeOrigin, SingleBlockVerificationOutcome, Verifier, LOG_TARGET,
 	},
 	metrics::Metrics,
+	BlockImportParams,
 };
 
 /// Interface to a basic block import queue that is importing blocks sequentially in a separate
@@ -124,15 +125,13 @@ impl<B: BlockT> BasicQueueHandle<B> {
 }
 
 impl<B: BlockT> ImportQueueService<B> for BasicQueueHandle<B> {
-	fn import_blocks(&mut self, origin: BlockOrigin, blocks: Vec<IncomingBlock<B>>) {
+	fn import_blocks(&mut self, blocks: Vec<BlockImportParams<B>>) {
 		if blocks.is_empty() {
 			return
 		}
 
 		trace!(target: LOG_TARGET, "Scheduling {} blocks for import", blocks.len());
-		let res = self
-			.block_import_sender
-			.unbounded_send(worker_messages::ImportBlocks(origin, blocks));
+		let res = self.block_import_sender.unbounded_send(worker_messages::ImportBlocks(blocks));
 
 		if res.is_err() {
 			log::error!(
@@ -204,7 +203,7 @@ impl<B: BlockT> ImportQueue<B> for BasicQueue<B> {
 mod worker_messages {
 	use super::*;
 
-	pub struct ImportBlocks<B: BlockT>(pub BlockOrigin, pub Vec<IncomingBlock<B>>);
+	pub struct ImportBlocks<B: BlockT>(pub Vec<BlockImportParams<B>>);
 	pub struct ImportJustification<B: BlockT>(
 		pub RuntimeOrigin,
 		pub B::Hash,
@@ -227,11 +226,10 @@ async fn block_import_process<B: BlockT>(
 	mut block_import_receiver: TracingUnboundedReceiver<worker_messages::ImportBlocks<B>>,
 	metrics: Option<Metrics>,
 ) {
-	// TODO This is the loop that calls verfication. It operates on a channel, so I need to figure
+	// TODO This is the loop that calls verification. It operates on a channel, so I need to figure
 	// out where messages are being sent from, and add verification there and remove it from here.
 	loop {
-		let worker_messages::ImportBlocks(origin, blocks) = match block_import_receiver.next().await
-		{
+		let worker_messages::ImportBlocks(blocks) = match block_import_receiver.next().await {
 			Some(blocks) => blocks,
 			None => {
 				log::debug!(
@@ -242,8 +240,7 @@ async fn block_import_process<B: BlockT>(
 			},
 		};
 
-		let res =
-			import_many_blocks(&mut block_import, origin, blocks, &verifier, metrics.clone()).await;
+		let res = import_many_blocks(&mut block_import, blocks, &verifier, metrics.clone()).await;
 
 		result_sender.blocks_processed(res.imported, res.block_count, res.results);
 	}
@@ -387,23 +384,21 @@ struct ImportManyBlocksResult<B: BlockT> {
 /// be called as well.
 async fn import_many_blocks<B: BlockT, V: Verifier<B>>(
 	import_handle: &mut BoxBlockImport<B>,
-	blocks_origin: BlockOrigin,
-	blocks: Vec<IncomingBlock<B>>,
+	blocks: Vec<BlockImportParams<B>>,
 	verifier: &V,
 	metrics: Option<Metrics>,
 ) -> ImportManyBlocksResult<B> {
 	let count = blocks.len();
 
-	let blocks_range = match (
-		blocks.first().and_then(|b| b.header.as_ref().map(|h| h.number())),
-		blocks.last().and_then(|b| b.header.as_ref().map(|h| h.number())),
-	) {
-		(Some(first), Some(last)) if first != last => format!(" ({}..{})", first, last),
-		(Some(first), Some(_)) => format!(" ({})", first),
-		_ => Default::default(),
-	};
+	let blocks_range =
+		match (blocks.first().map(|b| b.header.number()), blocks.last().map(|b| b.header.number()))
+		{
+			(Some(first), Some(last)) if first != last => format!(" ({}..{})", first, last),
+			(Some(first), Some(_)) => format!(" ({})", first),
+			_ => Default::default(),
+		};
 
-	trace!(target: LOG_TARGET, "Starting import of {} blocks {}", count, blocks_range);
+	trace!(target: LOG_TARGET, "Starting import of {} blocks ({})", count, blocks_range);
 
 	let mut imported = 0;
 	let mut results = vec![];
@@ -421,19 +416,14 @@ async fn import_many_blocks<B: BlockT, V: Verifier<B>>(
 			},
 		};
 
-		let block_number = block.header.as_ref().map(|h| *h.number());
-		let block_hash = block.hash;
+		let block_number = *block.header.number();
+		let block_hash = block.post_hash();
 		let import_result = if has_error {
 			Err(BlockImportError::Cancelled)
 		} else {
 			// TODO This needs to be moved up to where this fn is being called.
-			let verification_fut = verify_single_block_metered(
-				import_handle,
-				blocks_origin,
-				block,
-				verifier,
-				metrics.as_ref(),
-			);
+			let verification_fut =
+				verify_single_block_metered(import_handle, block, verifier, metrics.as_ref());
 			match verification_fut.await {
 				Ok(SingleBlockVerificationOutcome::Imported(import_status)) => Ok(import_status),
 				Ok(SingleBlockVerificationOutcome::Verified(import_parameters)) => {
@@ -608,21 +598,10 @@ mod tests {
 			let hash = header.hash();
 
 			block_import_sender
-				.unbounded_send(worker_messages::ImportBlocks(
+				.unbounded_send(worker_messages::ImportBlocks(vec![BlockImportParams::new(
 					BlockOrigin::Own,
-					vec![IncomingBlock {
-						hash,
-						header: Some(header),
-						body: None,
-						indexed_body: None,
-						justifications: None,
-						origin: None,
-						allow_missing_state: false,
-						import_existing: false,
-						state: None,
-						skip_execution: false,
-					}],
-				))
+					header,
+				)]))
 				.unwrap();
 
 			hash

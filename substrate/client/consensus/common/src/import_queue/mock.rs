@@ -22,7 +22,7 @@ mockall::mock! {
 	pub ImportQueueHandle<B: BlockT> {}
 
 	impl<B: BlockT> ImportQueueService<B> for ImportQueueHandle<B> {
-		fn import_blocks(&mut self, origin: BlockOrigin, blocks: Vec<IncomingBlock<B>>);
+		fn import_blocks(&mut self, blocks: Vec<BlockImportParams<B>>);
 		fn import_justifications(
 			&mut self,
 			who: RuntimeOrigin,

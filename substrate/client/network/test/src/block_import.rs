@@ -31,7 +31,7 @@ use substrate_test_runtime_client::{
 	runtime::{Block, Hash},
 };
 
-fn prepare_good_block() -> (TestClient, Hash, u64, PeerId, IncomingBlock<Block>) {
+fn prepare_good_block() -> (TestClient, Hash, u64, PeerId, BlockImportParams<Block>) {
 	let client = substrate_test_runtime_client::new();
 	let block = BlockBuilderBuilder::new(&client)
 		.on_parent_block(client.chain_info().best_hash)
@@ -44,7 +44,7 @@ fn prepare_good_block() -> (TestClient, Hash, u64, PeerId, IncomingBlock<Block>)
 	block_on(client.import(BlockOrigin::File, block)).unwrap();
 
 	let (hash, number) = (client.block_hash(1).unwrap().unwrap(), 1);
-	let header = client.header(hash).unwrap();
+	let header = client.header(hash).unwrap().unwrap();
 	let justifications = client.justifications(hash).unwrap();
 	let peer_id = PeerId::random();
 	(
@@ -52,18 +52,19 @@ fn prepare_good_block() -> (TestClient, Hash, u64, PeerId, IncomingBlock<Block>)
 		hash,
 		number,
 		peer_id,
-		IncomingBlock {
-			hash,
+		BlockImportParams::new_with_common_fields(
+			BlockOrigin::File,
 			header,
-			body: Some(Vec::new()),
-			indexed_body: None,
+			Some(peer_id.into()),
+			Some(Vec::new()),
 			justifications,
-			origin: Some(peer_id.into()),
-			allow_missing_state: false,
-			import_existing: false,
-			state: None,
-			skip_execution: false,
-		},
+			hash,
+			false,
+			None,
+			None,
+			false,
+			false,
+		),
 	)
 }
 
@@ -76,7 +77,6 @@ fn import_single_good_block_works() {
 
 	match block_on(import_single_block(
 		&mut substrate_test_runtime_client::new(),
-		BlockOrigin::File,
 		block,
 		&PassThroughVerifier::new(true),
 	)) {
@@ -89,28 +89,8 @@ fn import_single_good_block_works() {
 #[test]
 fn import_single_good_known_block_is_ignored() {
 	let (mut client, _hash, number, _, block) = prepare_good_block();
-	match block_on(import_single_block(
-		&mut client,
-		BlockOrigin::File,
-		block,
-		&PassThroughVerifier::new(true),
-	)) {
+	match block_on(import_single_block(&mut client, block, &PassThroughVerifier::new(true))) {
 		Ok(BlockImportStatus::ImportedKnown(ref n, _)) if *n == number => {},
-		_ => panic!(),
-	}
-}
-
-#[test]
-fn import_single_good_block_without_header_fails() {
-	let (_, _, _, peer_id, mut block) = prepare_good_block();
-	block.header = None;
-	match block_on(import_single_block(
-		&mut substrate_test_runtime_client::new(),
-		BlockOrigin::File,
-		block,
-		&PassThroughVerifier::new(true),
-	)) {
-		Err(BlockImportError::IncompleteHeader(ref org)) if *org == Some(peer_id.into()) => {},
 		_ => panic!(),
 	}
 }

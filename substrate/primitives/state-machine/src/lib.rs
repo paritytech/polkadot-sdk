@@ -456,11 +456,11 @@ mod execution {
 
 	/// Multiple key value state.
 	/// States are ordered by root storage key.
-	#[derive(PartialEq, Eq, Clone)]
+	#[derive(Debug, PartialEq, Eq, Clone)]
 	pub struct KeyValueStates(pub Vec<KeyValueStorageLevel>);
 
 	/// A key value state at any storage level.
-	#[derive(PartialEq, Eq, Clone)]
+	#[derive(Debug, PartialEq, Eq, Clone)]
 	pub struct KeyValueStorageLevel {
 		/// State root of the level, for
 		/// top trie it is as an empty byte array.
