@@ -169,20 +169,7 @@ mod tests {
 				.success();
 		}
 
-		if find_wasm(&FIRST_RUNTIME).is_none() {
-			println!("Building polkadot-sdk-docs-first-runtime...");
-			#[docify::export_content]
-			fn build_runtime() {
-				run_cmd!(
-					cargo build --release -p $FIRST_RUNTIME
-				)
-				.expect("Failed to run command");
-			}
-			build_runtime()
-		}
-
 		assert!(find_wasm(PARA_RUNTIME).is_some());
-		assert!(find_wasm(FIRST_RUNTIME).is_some());
 	}
 
 	fn maybe_build_chain_spec_builder() {
