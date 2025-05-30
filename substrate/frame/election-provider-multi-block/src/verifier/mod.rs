@@ -224,7 +224,6 @@ pub trait Verifier {
 	codec::Decode,
 	codec::DecodeWithMemTracking,
 	scale_info::TypeInfo,
-	frame_support::pallet_prelude::MaxEncodedLen,
 )]
 pub enum DataUnavailableInfo {
 	/// A specific page was unavailable.

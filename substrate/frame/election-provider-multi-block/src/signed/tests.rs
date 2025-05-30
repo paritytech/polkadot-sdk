@@ -20,6 +20,7 @@ use crate::{
 	mock::*,
 	verifier::{DataUnavailableInfo, FeasibilityError, VerificationResult},
 };
+use frame_support::storage::unhashed;
 use sp_core::bounded_vec;
 
 pub type T = Runtime;
@@ -636,6 +637,96 @@ mod e2e {
 			assert_ok!(Submissions::<Runtime>::ensure_killed(0));
 		})
 	}
+
+	#[test]
+	fn missing_pages_treated_as_empty() {
+		// Test the scenario where a solution has N pages but only some are submitted.
+		// The key behavior being tested: missing pages should be treated as empty/default
+		// rather than causing DataUnavailable errors or verification failures.
+		//
+		// This ensures that:
+		// 1. SolutionDataProvider::get_page() returns Some(default_solution) for missing pages
+		// 2. The verifier processes missing pages as empty (0 winners)
+		// 3. No VerificationDataUnavailable events are emitted for missing pages
+		ExtBuilder::signed().build_and_execute(|| {
+			roll_to_signed_open();
+			assert_full_snapshot();
+
+			// Register with a score for a minimal solution
+			let minimal_score =
+				ElectionScore { minimal_stake: 1, sum_stake: 1, sum_stake_squared: 1 };
+			assert_ok!(SignedPallet::register(RuntimeOrigin::signed(99), minimal_score));
+			assert_eq!(balances(99), (95, 5)); // deposit taken
+
+			// Submit only page 0 with a default/empty solution, deliberately skip pages 1 and 2
+			// This simulates a scenario where a submitter doesn't submit all pages
+			assert_ok!(SignedPallet::submit_page(
+				RuntimeOrigin::signed(99),
+				0,
+				Some(Box::new(Default::default()))
+			));
+
+			// Pages 1 and 2 are deliberately not submitted - they should be treated as
+			// empty/default
+
+			// Verify the metadata shows correct page submission status
+			let metadata = Submissions::<Runtime>::metadata_of(0, 99).unwrap();
+			assert_eq!(metadata.pages.into_inner(), vec![true, false, false]); // only page 0 submitted
+
+			// Verify that the solution data provider can access all pages without errors
+			assert!(SignedPallet::get_page(0).is_some(), "Submitted page 0 should return Some");
+			assert!(
+				SignedPallet::get_page(1).is_some(),
+				"Missing page 1 should return Some with default solution"
+			);
+			assert!(
+				SignedPallet::get_page(2).is_some(),
+				"Missing page 2 should return Some with default solution"
+			);
+
+			// Start verification
+			roll_to_signed_validation_open();
+
+			// The verification should proceed and treat the missing pages as empty
+			roll_next(); // Process page 2 (empty)
+			roll_next(); // Process page 1 (empty)
+			roll_next(); // Process page 0
+
+			// Check that verification handled the missing pages gracefully
+			let verifier_events = verifier_events();
+
+			// Should see verification events for all pages, with missing pages being treated as
+			// empty
+			assert!(
+				verifier_events.iter().any(|e| matches!(
+					e,
+					crate::verifier::Event::Verified(1, 0) // Page 1 with 0 winners (empty)
+				)),
+				"Page 1 should be verified as empty (0 winners)"
+			);
+
+			assert!(
+				verifier_events.iter().any(|e| matches!(
+					e,
+					crate::verifier::Event::Verified(2, 0) // Page 2 with 0 winners (empty)
+				)),
+				"Page 2 should be verified as empty (0 winners)"
+			);
+
+			// Page 0 should have some winners from the submitted data
+			assert!(
+				verifier_events.iter().any(|e| matches!(
+					e,
+					crate::verifier::Event::Verified(0, _) // Page 0 with some winners
+				)),
+				"Page 0 should be verified"
+			);
+
+			assert!(!verifier_events.iter().any(|e| matches!(e,
+				crate::verifier::Event::VerificationDataUnavailable(_)
+			)), "Missing pages should not cause DataUnavailable errors - they should be treated as empty");
+		});
+	}
 }
 
 mod defensive_tests {
@@ -643,19 +734,39 @@ mod defensive_tests {
 
 	#[test]
 	fn verification_data_unavailable_score_slashes_submitter() {
-		// Reporting VerificationDataUnavailable(Score) slashes the submitter
-		// Missing score means we reject the solution and slash the deposit
+		// Call Verifier::start and mutate storage to delete the score of the leader.
+		// This creates the scenario where score becomes unavailable during verification
 		ExtBuilder::signed().build_and_execute(|| {
 			// Setup a leader first
 			roll_to_signed_open();
 			assert_eq!(balances(99), (100, 0));
-			assert_ok!(SignedPallet::register(RuntimeOrigin::signed(99), Default::default()));
+			let score = ElectionScore { minimal_stake: 100, ..Default::default() };
+			assert_ok!(SignedPallet::register(RuntimeOrigin::signed(99), score));
 			assert_eq!(balances(99), (95, 5)); // deposit taken
 
-			// Simulate score unavailable - should slash the submitter
-			<SignedPallet as SolutionDataProvider>::report_result(
-				VerificationResult::DataUnavailable(DataUnavailableInfo::Score),
+			// Submit a solution page to have something to verify
+			assert_ok!(SignedPallet::submit_page(RuntimeOrigin::signed(99), 0, Default::default()));
+
+			assert_ok!(<VerifierPallet as AsynchronousVerifier>::start());
+
+			roll_next(); // Process page 2
+			roll_next(); // Process page 1
+
+			// Now mutate storage to delete the score of the leader.
+			let current_round = SignedPallet::current_round();
+
+			// Generate the storage key for SortedScores<T> at current_round
+			let key = frame_support::storage::storage_prefix(
+				b"ElectionProviderMultiBlock",
+				b"SortedScores",
 			);
+			let full_key = [&key[..], &current_round.encode()[..]].concat();
+
+			// Delete the score storage.
+			unhashed::kill(&full_key);
+
+			// Complete verification - this should trigger score unavailable detection
+			roll_next();
 
 			// Should have slashed the deposit (5 units)
 			assert_eq!(balances(99), (95, 0));

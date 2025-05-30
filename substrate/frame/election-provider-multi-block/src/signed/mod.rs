@@ -217,42 +217,6 @@ impl<T: Config> SolutionDataProvider for Pallet<T> {
 	}
 }
 
-impl<T: Config> Pallet<T> {
-	/// Common logic for handling solution rejection - slash the submitter and try next solution
-	fn handle_solution_rejection(current_round: u32, reason: &'static str) {
-		if let Some((loser, metadata)) = Submissions::<T>::take_leader_with_data(current_round) {
-			// Slash the deposit
-			let slash = metadata.deposit;
-			let _res = T::Currency::burn_held(
-				&HoldReason::SignedSubmission.into(),
-				&loser,
-				slash,
-				Precision::BestEffort,
-				Fortitude::Force,
-			);
-			debug_assert_eq!(_res, Ok(slash));
-			Self::deposit_event(Event::<T>::Slashed(current_round, loser.clone(), slash));
-
-			// Try to start verification again if we still have submissions
-			if crate::Pallet::<T>::current_phase().is_signed_validation() &&
-				Submissions::<T>::has_leader(current_round)
-			{
-				// defensive: verifier just reported back a result, it must be in clear state.
-				let _ = <T::Verifier as AsynchronousVerifier>::start().defensive();
-			}
-		} else {
-			// No leader to slash; nothing to do.
-			sublog!(
-				warn,
-				"signed",
-				"Tried to report {} but no leader was present for round {}",
-				reason,
-				current_round
-			);
-		}
-	}
-}
-
 /// Something that can compute the base deposit that is collected upon `register`.
 ///
 /// A blanket impl allows for any `Get` to be used as-is, which will always return the said balance
@@ -1021,5 +985,39 @@ impl<T: Config> Pallet<T> {
 		)
 		.defensive();
 		debug_assert_eq!(_res, Ok(to_slash));
+	}
+
+	/// Common logic for handling solution rejection - slash the submitter and try next solution
+	fn handle_solution_rejection(current_round: u32, reason: &'static str) {
+		if let Some((loser, metadata)) = Submissions::<T>::take_leader_with_data(current_round) {
+			// Slash the deposit
+			let slash = metadata.deposit;
+			let _res = T::Currency::burn_held(
+				&HoldReason::SignedSubmission.into(),
+				&loser,
+				slash,
+				Precision::BestEffort,
+				Fortitude::Force,
+			);
+			debug_assert_eq!(_res, Ok(slash));
+			Self::deposit_event(Event::<T>::Slashed(current_round, loser.clone(), slash));
+
+			// Try to start verification again if we still have submissions
+			if crate::Pallet::<T>::current_phase().is_signed_validation() &&
+				Submissions::<T>::has_leader(current_round)
+			{
+				// defensive: verifier just reported back a result, it must be in clear state.
+				let _ = <T::Verifier as AsynchronousVerifier>::start().defensive();
+			}
+		} else {
+			// No leader to slash; nothing to do.
+			sublog!(
+				warn,
+				"signed",
+				"Tried to report {} but no leader was present for round {}",
+				reason,
+				current_round
+			);
+		}
 	}
 }

@@ -372,19 +372,18 @@ pub(crate) mod pallet {
 
 		/// Return the `score` and `winner_count` of verifying solution.
 		///
-		/// Assumes that all the corresponding pages of `QueuedSolutionBackings` exist, then it
-		/// computes the final score of the solution that is currently at the end of its
+		/// Computes the final score of the solution that is currently at the end of its
 		/// verification process.
+		/// Does NOT check for completeness of all the corresponding pages of
+		/// `QueuedSolutionBackings`. This function is called during finalization logic, which can
+		/// be reached even with missing/empty pages (treated as Default::default()). Missing
+		/// pages are handled gracefully by the verification process before reaching this point.
+		/// This avoids unnecessary storage reads and redundant checks.
 		///
 		/// This solution corresponds to whatever is stored in the INVALID variant of
 		/// `QueuedSolution`. Recall that the score of this solution is not yet verified, so it
 		/// should never become `valid`.
 		pub(crate) fn compute_invalid_score() -> Result<(ElectionScore, u32), FeasibilityError> {
-			// We do NOT check for completeness of all pages here.
-			// This function is called during finalization logic, which can be reached even with
-			// missing/empty pages (treated as Default::default()). Missing pages are handled
-			// gracefully by the verification process before reaching this point.
-			// This avoids unnecessary storage reads and redundant checks.
 			let mut total_supports: BTreeMap<T::AccountId, PartialBackings> = Default::default();
 			for (who, PartialBackings { backers, total }) in
 				QueuedSolutionBackings::<T>::iter_prefix(Self::round()).flat_map(|(_, pb)| pb)
