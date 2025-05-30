@@ -78,6 +78,7 @@ runtime-benchmarks = [
 	"xcm-executor/runtime-benchmarks",
 	"xcm-runtime-apis/runtime-benchmarks",
 	"xcm/runtime-benchmarks",
+	"pallet-timestamp/runtime-benchmarks"
 ]
 test-utils = ["std"]
 try-runtime = [
