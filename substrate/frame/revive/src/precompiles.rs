@@ -33,8 +33,11 @@ pub use crate::{
 	exec::{ExecError, PrecompileExt as Ext, PrecompileWithInfoExt as ExtWithInfo},
 	gas::{GasMeter, Token},
 	storage::meter::Diff,
+	wasm::RuntimeCosts,
+	AddressMapper,
 };
 pub use alloy_core as alloy;
+pub use sp_core::{H160, H256, U256};
 
 use crate::{
 	exec::ExecResult, precompiles::builtin::Builtin, primitives::ExecReturnValue, Config,
@@ -353,7 +356,7 @@ impl<P: BuiltinPrecompile> PrimitivePrecompile for P {
 		input: Vec<u8>,
 		env: &mut impl Ext<T = Self::T>,
 	) -> Result<Vec<u8>, Error> {
-		let call = <Self as BuiltinPrecompile>::Interface::abi_decode(&input, true)
+		let call = <Self as BuiltinPrecompile>::Interface::abi_decode_validate(&input)
 			.map_err(|_| Error::Panic(PanicKind::ResourceError))?;
 		<Self as BuiltinPrecompile>::call(address, &call, env)
 	}
@@ -363,7 +366,7 @@ impl<P: BuiltinPrecompile> PrimitivePrecompile for P {
 		input: Vec<u8>,
 		env: &mut impl ExtWithInfo<T = Self::T>,
 	) -> Result<Vec<u8>, Error> {
-		let call = <Self as BuiltinPrecompile>::Interface::abi_decode(&input, true)
+		let call = <Self as BuiltinPrecompile>::Interface::abi_decode_validate(&input)
 			.map_err(|_| Error::Panic(PanicKind::ResourceError))?;
 		<Self as BuiltinPrecompile>::call_with_info(address, &call, env)
 	}

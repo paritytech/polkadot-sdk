@@ -422,6 +422,8 @@ pub enum ElectionError<T: Config> {
 	NotOngoing,
 	/// The election is currently ongoing, and therefore we cannot start again.
 	Ongoing,
+	/// Called elect() with wrong page order or in wrong phase.
+	OutOfOrder,
 	/// Other misc error
 	Other(&'static str),
 }
@@ -669,30 +671,36 @@ pub mod pallet {
 				_ => T::WeightInfo::on_initialize_nothing(),
 			};
 
-			// in all cases, go to next phase
-			let next_phase = current_phase.next();
+			// Only transition if not in Export phase
+			if !matches!(current_phase, Phase::Export(_)) {
+				let next_phase = current_phase.next();
 
-			let weight2 = match next_phase {
-				Phase::Signed(_) => T::WeightInfo::on_initialize_into_signed(),
-				Phase::SignedValidation(_) => T::WeightInfo::on_initialize_into_signed_validation(),
-				Phase::Unsigned(_) => T::WeightInfo::on_initialize_into_unsigned(),
-				_ => T::WeightInfo::on_initialize_nothing(),
-			};
+				let weight2 = match next_phase {
+					Phase::Signed(_) => T::WeightInfo::on_initialize_into_signed(),
+					Phase::SignedValidation(_) =>
+						T::WeightInfo::on_initialize_into_signed_validation(),
+					Phase::Unsigned(_) => T::WeightInfo::on_initialize_into_unsigned(),
+					_ => T::WeightInfo::on_initialize_nothing(),
+				};
 
-			Self::phase_transition(next_phase);
+				Self::phase_transition(next_phase);
 
-			// bit messy, but for now this works best.
-			#[cfg(test)]
-			{
-				let test_election_start: BlockNumberFor<T> =
-					(crate::mock::ElectionStart::get() as u32).into();
-				if _now == test_election_start {
-					crate::log!(info, "TESTING: Starting election at block {}", _now);
-					crate::mock::MultiBlock::start().unwrap();
+				// bit messy, but for now this works best.
+				#[cfg(test)]
+				{
+					let test_election_start: BlockNumberFor<T> =
+						(crate::mock::ElectionStart::get() as u32).into();
+					if _now == test_election_start {
+						crate::log!(info, "TESTING: Starting election at block {}", _now);
+						crate::mock::MultiBlock::start().unwrap();
+					}
 				}
-			}
 
-			weight1 + weight2
+				weight1 + weight2
+			} else {
+				// If in Export phase, do nothing.
+				weight1
+			}
 		}
 
 		fn integrity_test() {
@@ -1364,7 +1372,7 @@ where
 		loop {
 			Self::roll_next(true, false);
 			if criteria() {
-				break
+				break;
 			}
 		}
 	}
@@ -1386,7 +1394,7 @@ where
 			.unwrap();
 
 			if should_break {
-				break
+				break;
 			}
 		}
 	}
@@ -1495,6 +1503,11 @@ impl<T: Config> ElectionProvider for Pallet<T> {
 			Err(_) => return Err(ElectionError::NotOngoing),
 		}
 
+		let current_phase = CurrentPhase::<T>::get();
+		if let Phase::Export(expected) = current_phase {
+			ensure!(expected == remaining, ElectionError::OutOfOrder);
+		}
+
 		let result = T::Verifier::get_queued_solution_page(remaining)
 			.ok_or(ElectionError::SupportPageNotAvailable)
 			.or_else(|err: ElectionError<T>| {
@@ -1527,7 +1540,7 @@ impl<T: Config> ElectionProvider for Pallet<T> {
 				log!(info, "receiving last call to elect(0), rotating round");
 				Self::rotate_round()
 			} else {
-				Self::phase_transition(Phase::Export(remaining))
+				Self::phase_transition(Phase::Export(remaining - 1))
 			}
 		}
 
@@ -2132,6 +2145,82 @@ mod phase_rotation {
 				assert_eq!(MultiBlock::current_phase(), Phase::Signed(SignedPhase::get() - 3));
 			});
 	}
+
+	#[test]
+	fn export_phase_only_transitions_on_elect() {
+		ExtBuilder::full()
+			.pages(3)
+			.election_start(13)
+			.fallback_mode(FallbackModes::Onchain)
+			.build_and_execute(|| {
+				roll_to_done();
+
+				assert_eq!(MultiBlock::current_phase(), Phase::Done);
+
+				// Test that on_initialize does NOT advance the phase when in Done
+				roll_next();
+				assert_eq!(
+					MultiBlock::current_phase(),
+					Phase::Done,
+					"Done phase should not auto-transition"
+				);
+
+				// Start export by calling elect(max_page)
+				assert_ok!(MultiBlock::elect(2)); // max_page = 2 for 3 pages
+				assert_eq!(MultiBlock::current_phase(), Phase::Export(1));
+
+				// Test that on_initialize does NOT advance the phase when in Export
+				roll_next();
+				assert_eq!(
+					MultiBlock::current_phase(),
+					Phase::Export(1),
+					"Export phase should not auto-transition"
+				);
+
+				// Only elect() should advance the Export phase
+				assert_ok!(MultiBlock::elect(1));
+				assert_eq!(MultiBlock::current_phase(), Phase::Export(0));
+
+				// Test Export(0) also blocks on_initialize transitions
+				roll_next();
+				assert_eq!(
+					MultiBlock::current_phase(),
+					Phase::Export(0),
+					"Export(0) should not auto-transition"
+				);
+
+				// Complete the export manually
+				assert_ok!(MultiBlock::elect(0));
+				assert_eq!(MultiBlock::current_phase(), Phase::Off);
+			});
+	}
+
+	#[test]
+	fn export_phase_out_of_order_elect_fails() {
+		ExtBuilder::full()
+			.pages(3)
+			.election_start(13)
+			.fallback_mode(FallbackModes::Onchain)
+			.build_and_execute(|| {
+				roll_to_done();
+
+				assert_eq!(MultiBlock::current_phase(), Phase::Done);
+
+				// Start export by calling elect(max_page)
+				assert_ok!(MultiBlock::elect(2)); // max_page = 2 for 3 pages
+				assert_eq!(MultiBlock::current_phase(), Phase::Export(1));
+
+				// Out of order: try to call elect(2) again, should fail
+				assert_eq!(MultiBlock::elect(2), Err(ElectionError::OutOfOrder));
+
+				// Out of order: try to call elect(0) before elect(1), should fail
+				assert_eq!(MultiBlock::elect(0), Err(ElectionError::OutOfOrder));
+
+				// Correct order: elect(1) works
+				assert_ok!(MultiBlock::elect(1));
+				assert_eq!(MultiBlock::current_phase(), Phase::Export(0));
+			});
+	}
 }
 
 #[cfg(test)]
@@ -2357,6 +2446,49 @@ mod election_provider {
 	}
 
 	#[test]
+	fn elect_advances_phase_even_on_error() {
+		// Use Continue fallback to avoid emergency phase when both primary and fallback fail.
+		ExtBuilder::full().fallback_mode(FallbackModes::Continue).build_and_execute(|| {
+			// Move to unsigned phase
+			roll_to_unsigned_open();
+
+			// Note: our mock runtime is configured with 1 page for the unsigned phase
+			let miner_pages = <Runtime as unsigned::Config>::MinerPages::get();
+			// Mine an unsigned solution
+			let unsigned_solution =
+				OffchainWorkerMiner::<Runtime>::mine_solution(miner_pages, true).unwrap();
+
+			// Submit the unsigned solution
+			assert_ok!(UnsignedPallet::submit_unsigned(
+				RuntimeOrigin::none(),
+				Box::new(unsigned_solution)
+			));
+
+			// Move to Done phase
+			roll_to_done();
+
+			// In the mock runtime Pages::get() = 3 so unsigned solution has 1 page but we go
+			// through Done -> Export(2) -> Export(1) -> Export(0) -> Off via elect().
+			// First elect call should succeed
+			let result1 = MultiBlock::elect(2);
+			assert!(result1.is_ok());
+			assert_eq!(MultiBlock::current_phase(), Phase::Export(1));
+
+			// Second elect call should now fail because we have mined a solution with MinerPages
+			// equal to 1.
+			// Phase should advance even on error.
+			let result2 = MultiBlock::elect(1);
+			assert!(result2.is_err());
+			assert_eq!(MultiBlock::current_phase(), Phase::Export(0));
+
+			// Third elect call should also fail but still advance to Off
+			let result3 = MultiBlock::elect(0);
+			assert!(result3.is_err());
+			assert!(matches!(MultiBlock::current_phase(), Phase::Off));
+		});
+	}
+
+	#[test]
 	fn skip_unsigned_phase() {
 		ExtBuilder::full().build_and_execute(|| {
 			roll_to_signed_open();
@@ -2486,9 +2618,9 @@ mod election_provider {
 					},
 					Event::PhaseTransitioned {
 						from: Phase::Signed(SignedPhase::get() - 1),
-						to: Phase::Export(2)
+						to: Phase::Export(1)
 					},
-					Event::PhaseTransitioned { from: Phase::Export(1), to: Phase::Off }
+					Event::PhaseTransitioned { from: Phase::Export(0), to: Phase::Off }
 				]
 			);
 			assert_eq!(verifier_events(), vec![]);

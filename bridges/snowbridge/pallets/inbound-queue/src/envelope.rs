@@ -36,7 +36,7 @@ impl TryFrom<&Log> for Envelope {
 	fn try_from(log: &Log) -> Result<Self, Self::Error> {
 		let topics: Vec<B256> = log.topics.iter().map(|x| B256::from_slice(x.as_ref())).collect();
 
-		let event = OutboundMessageAccepted::decode_raw_log(topics, &log.data, true)
+		let event = OutboundMessageAccepted::decode_raw_log_validate(topics, &log.data)
 			.map_err(|_| EnvelopeDecodeError)?;
 
 		Ok(Self {
