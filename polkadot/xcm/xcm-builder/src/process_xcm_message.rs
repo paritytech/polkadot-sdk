@@ -178,7 +178,7 @@ mod tests {
 			type Prepared = xcm_executor::WeighedMessage<()>;
 			fn prepare(
 				message: xcm::latest::Xcm<()>,
-			) -> core::result::Result<Self::Prepared, InstructionIndex> {
+			) -> core::result::Result<Self::Prepared, InstructionError> {
 				Ok(xcm_executor::WeighedMessage::new(Weight::zero(), message))
 			}
 			fn execute(

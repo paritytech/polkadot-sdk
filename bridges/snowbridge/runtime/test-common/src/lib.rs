@@ -422,7 +422,7 @@ pub fn send_transfer_token_message_failure<Runtime, XcmConfig>(
 			);
 			assert_err!(
 				outcome.ensure_complete(),
-				OutcomeError { index: 0, error: expected_error }
+				InstructionError { index: 0, error: expected_error }
 			);
 		});
 }

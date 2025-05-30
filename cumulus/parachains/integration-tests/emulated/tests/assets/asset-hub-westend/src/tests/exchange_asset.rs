@@ -47,7 +47,7 @@ fn exchange_asset_insufficient_liquidity() {
 			true,
 			1_000 * UNITS,
 			2_000 * UNITS,
-			Some(OutcomeError { index: 1, error: XcmError::NoDeal }),
+			Some(InstructionError { index: 1, error: XcmError::NoDeal }),
 		);
 	});
 	assert!(log_capture.contains("NoDeal"));
@@ -60,7 +60,7 @@ fn exchange_asset_insufficient_balance() {
 			true,
 			5_000 * UNITS,
 			1_665 * UNITS,
-			Some(OutcomeError { index: 0, error: XcmError::FailedToTransactAsset("") }),
+			Some(InstructionError { index: 0, error: XcmError::FailedToTransactAsset("") }),
 		);
 	});
 	assert!(log_capture.contains("Funds are unavailable"));
@@ -72,7 +72,7 @@ fn exchange_asset_pool_not_created() {
 		false,
 		500 * UNITS,
 		665 * UNITS,
-		Some(OutcomeError { index: 1, error: XcmError::NoDeal }),
+		Some(InstructionError { index: 1, error: XcmError::NoDeal }),
 	);
 }
 
@@ -80,7 +80,7 @@ fn test_exchange_asset(
 	create_pool: bool,
 	give_amount: Balance,
 	want_amount: Balance,
-	expected_error: Option<OutcomeError>,
+	expected_error: Option<InstructionError>,
 ) {
 	let alice: AccountId = Westend::account_id_of(ALICE);
 	let native_asset_location = WestendLocation::get();
@@ -127,7 +127,7 @@ fn test_exchange_asset(
 		let foreign_balance_after = ForeignAssets::balance(asset_location, &alice);
 		let wnd_balance_after = Balances::total_balance(&alice);
 
-		if let Some(OutcomeError { index, error }) = expected_error {
+		if let Some(InstructionError { index, error }) = expected_error {
 			assert_err_ignore_postinfo!(
 				result,
 				pallet_xcm::Error::<Runtime>::LocalExecutionIncompleteWithError {

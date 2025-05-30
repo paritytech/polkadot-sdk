@@ -693,7 +693,7 @@ pub mod pallet {
 		/// Local XCM execution incomplete with the actual XCM error and the index of the
 		/// instruction that caused the error.
 		#[codec(index = 28)]
-		LocalExecutionIncompleteWithError { index: u8, error: ExecutionError },
+		LocalExecutionIncompleteWithError { index: InstructionIndex, error: ExecutionError },
 	}
 
 	impl<T: Config> From<SendError> for Error<T> {

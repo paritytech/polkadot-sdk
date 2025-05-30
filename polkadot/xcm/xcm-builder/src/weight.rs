@@ -38,7 +38,7 @@ pub struct FixedWeightBounds<T, C, M>(PhantomData<(T, C, M)>);
 impl<T: Get<Weight>, C: Decode + GetDispatchInfo, M: Get<u32>> WeightBounds<C>
 	for FixedWeightBounds<T, C, M>
 {
-	fn weight(message: &mut Xcm<C>) -> Result<Weight, OutcomeError> {
+	fn weight(message: &mut Xcm<C>) -> Result<Weight, InstructionError> {
 		tracing::trace!(target: "xcm::weight", ?message, "FixedWeightBounds");
 		let mut instructions_left = M::get();
 		Self::weight_with_limit(message, &mut instructions_left).inspect_err(|&error| {
@@ -69,19 +69,19 @@ impl<T: Get<Weight>, C: Decode + GetDispatchInfo, M> FixedWeightBounds<T, C, M> 
 	fn weight_with_limit(
 		message: &mut Xcm<C>,
 		instrs_limit: &mut u32,
-	) -> Result<Weight, OutcomeError> {
+	) -> Result<Weight, InstructionError> {
 		let mut r: Weight = Weight::zero();
 		*instrs_limit = instrs_limit
 			.checked_sub(message.0.len() as u32)
-			.ok_or_else(|| OutcomeError { index: 0, error: XcmError::ExceedsStackLimit })?;
+			.ok_or_else(|| InstructionError { index: 0, error: XcmError::ExceedsStackLimit })?;
 		for (index, instruction) in message.0.iter_mut().enumerate() {
 			let index = index.try_into().unwrap_or(255);
 			r = r
 				.checked_add(
 					&Self::instr_weight_with_limit(instruction, instrs_limit)
-						.map_err(|error| OutcomeError { index, error })?,
+						.map_err(|error| InstructionError { index, error })?,
 				)
-				.ok_or_else(|| OutcomeError { index, error: XcmError::Overflow })?;
+				.ok_or_else(|| InstructionError { index, error: XcmError::Overflow })?;
 		}
 		Ok(r)
 	}
@@ -112,7 +112,7 @@ where
 	M: Get<u32>,
 	Instruction<C>: xcm::latest::GetWeight<W>,
 {
-	fn weight(message: &mut Xcm<C>) -> Result<Weight, OutcomeError> {
+	fn weight(message: &mut Xcm<C>) -> Result<Weight, InstructionError> {
 		tracing::trace!(target: "xcm::weight", ?message, "WeightInfoBounds");
 		let mut instructions_left = M::get();
 		Self::weight_with_limit(message, &mut instructions_left).inspect_err(|&error| {
@@ -149,19 +149,19 @@ where
 	fn weight_with_limit(
 		message: &mut Xcm<C>,
 		instrs_limit: &mut u32,
-	) -> Result<Weight, OutcomeError> {
+	) -> Result<Weight, InstructionError> {
 		let mut r: Weight = Weight::zero();
 		*instrs_limit = instrs_limit
 			.checked_sub(message.0.len() as u32)
-			.ok_or_else(|| OutcomeError { index: 0, error: XcmError::ExceedsStackLimit })?;
+			.ok_or_else(|| InstructionError { index: 0, error: XcmError::ExceedsStackLimit })?;
 		for (index, instruction) in message.0.iter_mut().enumerate() {
 			let index = index.try_into().unwrap_or(u8::MAX);
 			r = r
 				.checked_add(
 					&Self::instr_weight_with_limit(instruction, instrs_limit)
-						.map_err(|error| OutcomeError { index, error })?,
+						.map_err(|error| InstructionError { index, error })?,
 				)
-				.ok_or_else(|| OutcomeError { index, error: XcmError::Overflow })?;
+				.ok_or_else(|| InstructionError { index, error: XcmError::Overflow })?;
 		}
 		Ok(r)
 	}

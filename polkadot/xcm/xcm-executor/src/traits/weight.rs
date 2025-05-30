@@ -22,7 +22,7 @@ use xcm::latest::{prelude::*, Weight};
 pub trait WeightBounds<RuntimeCall> {
 	/// Return the maximum amount of weight that an attempted execution of this message could
 	/// consume.
-	fn weight(message: &mut Xcm<RuntimeCall>) -> Result<Weight, OutcomeError>;
+	fn weight(message: &mut Xcm<RuntimeCall>) -> Result<Weight, InstructionError>;
 
 	/// Return the maximum amount of weight that an attempted execution of this instruction could
 	/// consume.

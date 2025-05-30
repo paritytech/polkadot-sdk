@@ -251,10 +251,9 @@ pub enum Outcome {
 	Error { error: Error, index: u8 },
 }
 
-/// Error from an XCM outcome, it records both the XCM error and the index of the
-/// instruction that caused it.
+/// XCM error and the index of the instruction that caused it.
 #[derive(Copy, Clone, Encode, Decode, DecodeWithMemTracking, Eq, PartialEq, Debug, TypeInfo)]
-pub struct OutcomeError {
+pub struct InstructionError {
 	/// The index of the intruction that caused the error.
 	pub index: InstructionIndex,
 	/// The XCM error itself.
@@ -262,11 +261,11 @@ pub struct OutcomeError {
 }
 
 impl Outcome {
-	pub fn ensure_complete(self) -> result::Result<(), OutcomeError> {
+	pub fn ensure_complete(self) -> result::Result<(), InstructionError> {
 		match self {
 			Outcome::Complete { .. } => Ok(()),
-			Outcome::Incomplete { error, index, .. } => Err(OutcomeError { index, error }),
-			Outcome::Error { error, index, .. } => Err(OutcomeError { index, error }),
+			Outcome::Incomplete { error, index, .. } => Err(InstructionError { index, error }),
+			Outcome::Error { error, index, .. } => Err(InstructionError { index, error }),
 		}
 	}
 	pub fn ensure_execution(self) -> result::Result<Weight, Error> {
@@ -303,7 +302,7 @@ pub type InstructionIndex = u8;
 pub trait ExecuteXcm<Call> {
 	type Prepared: PreparedMessage;
 	/// If it fails, returns the index of the problematic instruction.
-	fn prepare(message: Xcm<Call>) -> result::Result<Self::Prepared, InstructionIndex>;
+	fn prepare(message: Xcm<Call>) -> result::Result<Self::Prepared, InstructionError>;
 	fn execute(
 		origin: impl Into<Location>,
 		pre: Self::Prepared,
@@ -319,10 +318,17 @@ pub trait ExecuteXcm<Call> {
 	) -> Outcome {
 		let pre = match Self::prepare(message) {
 			Ok(x) => x,
-			Err(index) => return Outcome::Error { error: Error::WeightNotComputable, index },
+			Err(instruction_error) =>
+				return Outcome::Error {
+					error: Error::WeightNotComputable,
+					index: instruction_error.index,
+				},
 		};
 		let xcm_weight = pre.weight_of();
 		if xcm_weight.any_gt(weight_limit) {
+			// TODO: We shouldn't return 0 here, we should return the index of the actual
+			// instruction that caused the weight to go over the limit.
+			// For that we'd need to change the signature of prepare.
 			return Outcome::Error { error: Error::WeightLimitReached(xcm_weight), index: 0 }
 		}
 		Self::execute(origin, pre, id, weight_credit)
@@ -342,8 +348,8 @@ impl PreparedMessage for Weightless {
 
 impl<C> ExecuteXcm<C> for () {
 	type Prepared = Weightless;
-	fn prepare(_: Xcm<C>) -> result::Result<Self::Prepared, InstructionIndex> {
-		Err(0)
+	fn prepare(_: Xcm<C>) -> result::Result<Self::Prepared, InstructionError> {
+		Err(InstructionError { index: 0, error: Error::Unimplemented })
 	}
 	fn execute(_: impl Into<Location>, _: Self::Prepared, _: &mut XcmHash, _: Weight) -> Outcome {
 		unreachable!()
