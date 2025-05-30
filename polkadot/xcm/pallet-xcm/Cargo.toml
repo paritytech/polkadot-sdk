@@ -88,4 +88,5 @@ try-runtime = [
 	"pallet-revive/try-runtime",
 	"polkadot-runtime-parachains/try-runtime",
 	"sp-runtime/try-runtime",
+	"pallet-timestamp/try-runtime",
 ]
