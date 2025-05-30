@@ -223,6 +223,22 @@ fn weight_bounds_should_respect_instructions_limit() {
 }
 
 #[test]
+fn weigher_returns_correct_instruction_index_on_error() {
+	// We have enough space for instructions.
+	MaxInstructions::set(10);
+	// But only enough weight for 3 instructions.
+	let max_weight = UnitWeightCost::get() * 3;
+	let mut message = Xcm(vec![ClearOrigin; 4]);
+	assert_eq!(
+		<TestConfig as Config>::Weigher::weight(&mut message, max_weight),
+		Err(InstructionError {
+			index: 3,
+			error: XcmError::WeightLimitReached(UnitWeightCost::get())
+		})
+	);
+}
+
+#[test]
 fn weight_trader_tuple_should_work() {
 	let para_1: Location = Parachain(1).into();
 	let para_2: Location = Parachain(2).into();

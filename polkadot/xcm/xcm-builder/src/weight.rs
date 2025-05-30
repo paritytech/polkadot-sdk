@@ -108,10 +108,11 @@ impl<T: Get<Weight>, C: Decode + GetDispatchInfo, M> FixedWeightBounds<T, C, M> 
 					.map_err(|outcome_error| outcome_error.error)?,
 			_ => Weight::zero(),
 		};
+		let total_weight = T::get().checked_add(&instruction_weight).ok_or(XcmError::Overflow)?;
 		*weight_left = weight_left
-			.checked_sub(&instruction_weight)
-			.ok_or(XcmError::WeightLimitReached(*weight_left))?;
-		T::get().checked_add(&instruction_weight).ok_or_else(|| XcmError::Overflow)
+			.checked_sub(&total_weight)
+			.ok_or(XcmError::WeightLimitReached(total_weight))?;
+		Ok(total_weight)
 	}
 }
 
@@ -200,13 +201,14 @@ where
 					.map_err(|outcome_error| outcome_error.error)?,
 			_ => Weight::zero(),
 		};
-		*weight_left = weight_left
-			.checked_sub(&instruction_weight)
-			.ok_or(XcmError::WeightLimitReached(*weight_left))?;
-		instruction
+		let total_weight = instruction
 			.weight()
 			.checked_add(&instruction_weight)
-			.ok_or_else(|| XcmError::Overflow)
+			.ok_or(XcmError::Overflow)?;
+		*weight_left = weight_left
+			.checked_sub(&total_weight)
+			.ok_or(XcmError::WeightLimitReached(total_weight))?;
+		Ok(total_weight)
 	}
 }
 
