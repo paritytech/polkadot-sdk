@@ -29,9 +29,9 @@ sp-wasm-interface = { features = ["wasmtime"], workspace = true, default-feature
 wasmtime = { features = [
 	"cache",
 	"cranelift",
-	"jitdump",
 	"parallel-compilation",
 	"pooling-allocator",
+	"threads",
 ], workspace = true }
 
 # Here we include the rustix crate in the exactly same semver-compatible version as used by
