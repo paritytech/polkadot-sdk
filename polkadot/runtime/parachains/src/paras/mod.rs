@@ -117,7 +117,12 @@ use alloc::{collections::btree_set::BTreeSet, vec::Vec};
 use bitvec::{order::Lsb0 as BitOrderLsb0, vec::BitVec};
 use codec::{Decode, Encode};
 use core::{cmp, mem};
-use frame_support::{pallet_prelude::*, traits::EstimateNextSessionRotation, DefaultNoBound};
+use frame_support::{
+	dispatch::PostDispatchInfo,
+	pallet_prelude::*,
+	traits::{EnsureOriginWithArg, EstimateNextSessionRotation},
+	DefaultNoBound,
+};
 use frame_system::pallet_prelude::*;
 use polkadot_primitives::{
 	ConsensusLog, HeadData, Id as ParaId, PvfCheckStatement, SessionIndex, UpgradeGoAhead,
@@ -547,6 +552,19 @@ impl AssignCoretime for () {
 	}
 }
 
+/// Holds an authorized validation code hash along with its expiry timestamp.
+#[derive(Debug, Encode, Decode, DecodeWithMemTracking, TypeInfo)]
+#[cfg_attr(test, derive(PartialEq))]
+pub struct AuthorizedCodeHashAndExpiry<T> {
+	code_hash: ValidationCodeHash,
+	expire_at: T,
+}
+impl<T> From<(ValidationCodeHash, T)> for AuthorizedCodeHashAndExpiry<T> {
+	fn from(value: (ValidationCodeHash, T)) -> Self {
+		AuthorizedCodeHashAndExpiry { code_hash: value.0, expire_at: value.1 }
+	}
+}
+
 pub trait WeightInfo {
 	fn force_set_current_code(c: u32) -> Weight;
 	fn force_set_current_head(s: u32) -> Weight;
@@ -563,6 +581,8 @@ pub trait WeightInfo {
 	fn include_pvf_check_statement_finalize_onboarding_accept() -> Weight;
 	fn include_pvf_check_statement_finalize_onboarding_reject() -> Weight;
 	fn include_pvf_check_statement() -> Weight;
+	fn authorize_force_set_current_code_hash() -> Weight;
+	fn apply_authorized_force_set_current_code(c: u32) -> Weight;
 }
 
 pub struct TestWeightInfo;
@@ -611,6 +631,12 @@ impl WeightInfo for TestWeightInfo {
 	fn remove_upgrade_cooldown() -> Weight {
 		Weight::MAX
 	}
+	fn authorize_force_set_current_code_hash() -> Weight {
+		Weight::MAX
+	}
+	fn apply_authorized_force_set_current_code(_c: u32) -> Weight {
+		Weight::MAX
+	}
 }
 
 #[frame_support::pallet]
@@ -639,7 +665,7 @@ pub mod pallet {
 		+ frame_system::offchain::CreateBare<Call<Self>>
 	{
 		#[allow(deprecated)]
-		type RuntimeEvent: From<Event> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
+		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		#[pallet::constant]
 		type UnsignedPriority: Get<TransactionPriority>;
@@ -678,11 +704,14 @@ pub mod pallet {
 		/// multiplier to determine the cost for removing the upgrade cooldown. Time left for the
 		/// cooldown multiplied with this multiplier determines the cost.
 		type CooldownRemovalMultiplier: Get<BalanceOf<Self>>;
+
+		/// The origin that can authorize `force_set_current_code_hash`.
+		type AuthorizeCurrentCodeOrigin: EnsureOriginWithArg<Self::RuntimeOrigin, ParaId>;
 	}
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
-	pub enum Event {
+	pub enum Event<T: Config> {
 		/// Current code has been updated for a Para. `para_id`
 		CurrentCodeUpdated(ParaId),
 		/// Current head has been updated for a Para. `para_id`
@@ -706,6 +735,15 @@ pub mod pallet {
 		UpgradeCooldownRemoved {
 			/// The parachain for which the cooldown got removed.
 			para_id: ParaId,
+		},
+		/// A new code hash has been authorized for a Para.
+		CodeAuthorized {
+			/// Para
+			para_id: ParaId,
+			/// Authorized code hash.
+			code_hash: ValidationCodeHash,
+			/// Block at which authorization expires and will be removed.
+			expire_at: BlockNumberFor<T>,
 		},
 	}
 
@@ -737,6 +775,12 @@ pub mod pallet {
 		CannotUpgradeCode,
 		/// Invalid validation code size.
 		InvalidCode,
+		/// No upgrade authorized.
+		NothingAuthorized,
+		/// The submitted code is not authorized.
+		Unauthorized,
+		/// Invalid block number.
+		InvalidBlockNumber,
 	}
 
 	/// All currently active PVF pre-checking votes.
@@ -831,6 +875,11 @@ pub mod pallet {
 	/// Corresponding code can be retrieved with [`CodeByHash`].
 	#[pallet::storage]
 	pub type FutureCodeHash<T: Config> = StorageMap<_, Twox64Concat, ParaId, ValidationCodeHash>;
+
+	/// The code hash authorizations for a para which will expire `expire_at` `BlockNumberFor<T>`.
+	#[pallet::storage]
+	pub type AuthorizedCodeHash<T: Config> =
+		StorageMap<_, Twox64Concat, ParaId, AuthorizedCodeHashAndExpiry<BlockNumberFor<T>>>;
 
 	/// This is used by the relay-chain to communicate to a parachain a go-ahead with in the upgrade
 	/// procedure.
@@ -936,10 +985,7 @@ pub mod pallet {
 			new_code: ValidationCode,
 		) -> DispatchResult {
 			ensure_root(origin)?;
-			let new_code_hash = new_code.hash();
-			Self::increase_code_ref(&new_code_hash, &new_code);
-			Self::set_current_code(para, new_code_hash, frame_system::Pallet::<T>::block_number());
-			Self::deposit_event(Event::CurrentCodeUpdated(para));
+			Self::do_force_set_current_code_update(para, new_code);
 			Ok(())
 		}
 
@@ -1228,6 +1274,72 @@ pub mod pallet {
 
 			Ok(())
 		}
+
+		/// Sets the storage for the authorized current code hash of the parachain.
+		/// If not applied, it will be removed at the `System::block_number() + valid_period` block.
+		///
+		/// This can be useful, when triggering `Paras::force_set_current_code(para, code)`
+		/// from a different chain than the one where the `Paras` pallet is deployed.
+		///
+		/// The main purpose is to avoid transferring the entire `code` Wasm blob between chains.
+		/// Instead, we authorize `code_hash` with `root`, which can later be applied by
+		/// `Paras::apply_authorized_force_set_current_code(para, code)` by anyone.
+		///
+		/// Authorizations are stored in an **overwriting manner**.
+		#[pallet::call_index(10)]
+		#[pallet::weight(<T as Config>::WeightInfo::authorize_force_set_current_code_hash())]
+		pub fn authorize_force_set_current_code_hash(
+			origin: OriginFor<T>,
+			para: ParaId,
+			new_code_hash: ValidationCodeHash,
+			valid_period: BlockNumberFor<T>,
+		) -> DispatchResult {
+			T::AuthorizeCurrentCodeOrigin::ensure_origin(origin, &para)?;
+
+			let now = frame_system::Pallet::<T>::block_number();
+			let expire_at = now.saturating_add(valid_period);
+
+			// insert authorized code hash and make sure to overwrite existing one for a para.
+			AuthorizedCodeHash::<T>::insert(
+				&para,
+				AuthorizedCodeHashAndExpiry::from((new_code_hash, expire_at)),
+			);
+			Self::deposit_event(Event::CodeAuthorized {
+				para_id: para,
+				code_hash: new_code_hash,
+				expire_at,
+			});
+
+			Ok(())
+		}
+
+		/// Applies the already authorized current code for the parachain,
+		/// triggering the same functionality as `force_set_current_code`.
+		#[pallet::call_index(11)]
+		#[pallet::weight(<T as Config>::WeightInfo::apply_authorized_force_set_current_code(new_code.0.len() as u32))]
+		pub fn apply_authorized_force_set_current_code(
+			_origin: OriginFor<T>,
+			para: ParaId,
+			new_code: ValidationCode,
+		) -> DispatchResultWithPostInfo {
+			// no need to ensure, anybody can do this
+
+			// Ensure `new_code` is authorized
+			let _ = Self::validate_code_is_authorized(&new_code, &para)?;
+			// Remove authorization
+			AuthorizedCodeHash::<T>::remove(para);
+
+			// apply/dispatch
+			Self::do_force_set_current_code_update(para, new_code);
+
+			// if ok, then allows "for free"
+			Ok(PostDispatchInfo {
+				// consume the rest of the block to prevent further transactions
+				actual_weight: Some(T::BlockWeights::get().max_block),
+				// no fee for valid upgrade
+				pays_fee: Pays::No,
+			})
+		}
 	}
 
 	impl<T: Config> Pallet<T> {
@@ -1258,52 +1370,71 @@ pub mod pallet {
 		type Call = Call<T>;
 
 		fn validate_unsigned(_source: TransactionSource, call: &Self::Call) -> TransactionValidity {
-			let (stmt, signature) = match call {
-				Call::include_pvf_check_statement { stmt, signature } => (stmt, signature),
-				_ => return InvalidTransaction::Call.into(),
-			};
+			match call {
+				Call::include_pvf_check_statement { stmt, signature } => {
+					let current_session = shared::CurrentSessionIndex::<T>::get();
+					if stmt.session_index < current_session {
+						return InvalidTransaction::Stale.into()
+					} else if stmt.session_index > current_session {
+						return InvalidTransaction::Future.into()
+					}
 
-			let current_session = shared::CurrentSessionIndex::<T>::get();
-			if stmt.session_index < current_session {
-				return InvalidTransaction::Stale.into()
-			} else if stmt.session_index > current_session {
-				return InvalidTransaction::Future.into()
+					let validator_index = stmt.validator_index.0 as usize;
+					let validators = shared::ActiveValidatorKeys::<T>::get();
+					let validator_public = match validators.get(validator_index) {
+						Some(pk) => pk,
+						None =>
+							return InvalidTransaction::Custom(INVALID_TX_BAD_VALIDATOR_IDX).into(),
+					};
+
+					let signing_payload = stmt.signing_payload();
+					if !signature.verify(&signing_payload[..], &validator_public) {
+						return InvalidTransaction::BadProof.into();
+					}
+
+					let active_vote = match PvfActiveVoteMap::<T>::get(&stmt.subject) {
+						Some(v) => v,
+						None => return InvalidTransaction::Custom(INVALID_TX_BAD_SUBJECT).into(),
+					};
+
+					match active_vote.has_vote(validator_index) {
+						Some(false) => (),
+						Some(true) =>
+							return InvalidTransaction::Custom(INVALID_TX_DOUBLE_VOTE).into(),
+						None =>
+							return InvalidTransaction::Custom(INVALID_TX_BAD_VALIDATOR_IDX).into(),
+					}
+
+					ValidTransaction::with_tag_prefix("PvfPreCheckingVote")
+						.priority(T::UnsignedPriority::get())
+						.longevity(
+							TryInto::<u64>::try_into(
+								T::NextSessionRotation::average_session_length() / 2u32.into(),
+							)
+							.unwrap_or(64_u64),
+						)
+						.and_provides((stmt.session_index, stmt.validator_index, stmt.subject))
+						.propagate(true)
+						.build()
+				},
+				Call::apply_authorized_force_set_current_code { para, new_code } =>
+					match Self::validate_code_is_authorized(new_code, para) {
+						Ok(authorized_code) => {
+							let now = frame_system::Pallet::<T>::block_number();
+							let longevity = authorized_code.expire_at.saturating_sub(now);
+
+							ValidTransaction::with_tag_prefix("ApplyAuthorizedForceSetCurrentCode")
+								.priority(T::UnsignedPriority::get())
+								.longevity(TryInto::<u64>::try_into(longevity).unwrap_or(64_u64))
+								.and_provides((para, authorized_code.code_hash))
+								.propagate(true)
+								.build()
+						},
+						Err(_) =>
+							return InvalidTransaction::Custom(INVALID_TX_UNAUTHORIZED_CODE).into(),
+					},
+				_ => InvalidTransaction::Call.into(),
 			}
-
-			let validator_index = stmt.validator_index.0 as usize;
-			let validators = shared::ActiveValidatorKeys::<T>::get();
-			let validator_public = match validators.get(validator_index) {
-				Some(pk) => pk,
-				None => return InvalidTransaction::Custom(INVALID_TX_BAD_VALIDATOR_IDX).into(),
-			};
-
-			let signing_payload = stmt.signing_payload();
-			if !signature.verify(&signing_payload[..], &validator_public) {
-				return InvalidTransaction::BadProof.into()
-			}
-
-			let active_vote = match PvfActiveVoteMap::<T>::get(&stmt.subject) {
-				Some(v) => v,
-				None => return InvalidTransaction::Custom(INVALID_TX_BAD_SUBJECT).into(),
-			};
-
-			match active_vote.has_vote(validator_index) {
-				Some(false) => (),
-				Some(true) => return InvalidTransaction::Custom(INVALID_TX_DOUBLE_VOTE).into(),
-				None => return InvalidTransaction::Custom(INVALID_TX_BAD_VALIDATOR_IDX).into(),
-			}
-
-			ValidTransaction::with_tag_prefix("PvfPreCheckingVote")
-				.priority(T::UnsignedPriority::get())
-				.longevity(
-					TryInto::<u64>::try_into(
-						T::NextSessionRotation::average_session_length() / 2u32.into(),
-					)
-					.unwrap_or(64_u64),
-				)
-				.and_provides((stmt.session_index, stmt.validator_index, stmt.subject))
-				.propagate(true)
-				.build()
 		}
 
 		fn pre_dispatch(_call: &Self::Call) -> Result<(), TransactionValidityError> {
@@ -1323,6 +1454,7 @@ pub mod pallet {
 const INVALID_TX_BAD_VALIDATOR_IDX: u8 = 1;
 const INVALID_TX_BAD_SUBJECT: u8 = 2;
 const INVALID_TX_DOUBLE_VOTE: u8 = 3;
+const INVALID_TX_UNAUTHORIZED_CODE: u8 = 4;
 
 /// This is intermediate "fix" for this issue:
 /// <https://github.com/paritytech/polkadot-sdk/issues/4737>
@@ -1368,7 +1500,8 @@ impl<T: Config> Pallet<T> {
 	pub(crate) fn initializer_initialize(now: BlockNumberFor<T>) -> Weight {
 		Self::prune_old_code(now) +
 			Self::process_scheduled_upgrade_changes(now) +
-			Self::process_future_code_upgrades_at(now)
+			Self::process_future_code_upgrades_at(now) +
+			Self::prune_expired_authorizations(now)
 	}
 
 	/// Called by the initializer to finalize the paras pallet.
@@ -1580,6 +1713,27 @@ impl<T: Config> Pallet<T> {
 		// 1 read for the meta for each pruning task, 1 read for the config
 		// 2 writes: updating the meta and pruning the code
 		T::DbWeight::get().reads_writes(1 + pruning_tasks_done, 2 * pruning_tasks_done)
+	}
+
+	/// This function removes authorizations that have expired,
+	/// meaning their `expire_at` block is less than or equal to the current block (`now`).
+	fn prune_expired_authorizations(now: BlockNumberFor<T>) -> Weight {
+		let mut weight = T::DbWeight::get().reads(1);
+		let to_remove = AuthorizedCodeHash::<T>::iter().filter_map(
+			|(para, AuthorizedCodeHashAndExpiry { expire_at, .. })| {
+				if expire_at <= now {
+					Some(para)
+				} else {
+					None
+				}
+			},
+		);
+		for para in to_remove {
+			AuthorizedCodeHash::<T>::remove(&para);
+			weight.saturating_accrue(T::DbWeight::get().writes(1));
+		}
+
+		weight
 	}
 
 	/// Process the future code upgrades that should be applied directly.
@@ -2261,6 +2415,14 @@ impl<T: Config> Pallet<T> {
 		weight + T::DbWeight::get().writes(1)
 	}
 
+	/// Force set the current code for the given parachain.
+	fn do_force_set_current_code_update(para: ParaId, new_code: ValidationCode) {
+		let new_code_hash = new_code.hash();
+		Self::increase_code_ref(&new_code_hash, &new_code);
+		Self::set_current_code(para, new_code_hash, frame_system::Pallet::<T>::block_number());
+		Self::deposit_event(Event::CurrentCodeUpdated(para));
+	}
+
 	/// Returns the list of PVFs (aka validation code) that require casting a vote by a validator in
 	/// the active validator set.
 	pub(crate) fn pvfs_require_precheck() -> Vec<ValidationCodeHash> {
@@ -2427,6 +2589,21 @@ impl<T: Config> Pallet<T> {
 		code_hash: &ValidationCodeHash,
 	) -> Option<PvfCheckActiveVoteState<BlockNumberFor<T>>> {
 		PvfActiveVoteMap::<T>::get(code_hash)
+	}
+
+	/// This function checks whether the given `code.hash()` exists in the `AuthorizedCodeHash` map
+	/// of authorized code hashes for a para. If found, it verifies that the associated code
+	/// matches the provided `code`. If the validation is successful, it returns tuple as the
+	/// authorized `ValidationCodeHash` with `expire_at`.
+	pub(crate) fn validate_code_is_authorized(
+		code: &ValidationCode,
+		para: &ParaId,
+	) -> Result<AuthorizedCodeHashAndExpiry<BlockNumberFor<T>>, Error<T>> {
+		let authorized = AuthorizedCodeHash::<T>::get(para).ok_or(Error::<T>::NothingAuthorized)?;
+		let now = frame_system::Pallet::<T>::block_number();
+		ensure!(authorized.expire_at > now, Error::<T>::InvalidBlockNumber);
+		ensure!(authorized.code_hash == code.hash(), Error::<T>::Unauthorized);
+		Ok(authorized)
 	}
 }
 
