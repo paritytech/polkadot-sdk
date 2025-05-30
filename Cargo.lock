@@ -180,7 +180,6 @@ dependencies = [
  "derive_more 2.0.1",
  "foldhash",
  "hashbrown 0.15.3",
- "hex-literal",
  "indexmap 2.9.0",
  "itoa",
  "k256",
@@ -6575,7 +6574,7 @@ dependencies = [
  "substrate-test-runtime",
  "subxt 0.41.0",
  "subxt-signer 0.41.0",
- "thiserror 1.0.65",
+ "thiserror 1.0.69",
  "thousands",
  "westend-runtime",
 ]
@@ -12912,7 +12911,7 @@ dependencies = [
  "substrate-prometheus-endpoint",
  "subxt 0.41.0",
  "subxt-signer 0.41.0",
- "thiserror 1.0.65",
+ "thiserror 1.0.69",
  "tokio",
 ]
 
@@ -20296,7 +20295,7 @@ dependencies = [
  "sp-version 29.0.0",
  "sp-wasm-interface 20.0.0",
  "subxt 0.41.0",
- "thiserror 1.0.65",
+ "thiserror 1.0.69",
 ]
 
 [[package]]

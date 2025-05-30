@@ -236,7 +236,54 @@ pub trait ConvictionVotingTrait<AccountId> {
 	) -> DispatchResult;
 }
 
-/// Implement VotingHooks for pallet_conviction_voting
+// Implement Polling
+/*impl<T: Config> Polling<Tally> for Pallet<T>
+{
+	type Index = ReferendumIndex;
+	type Votes = Votes<T>;
+	type Moment = <T::BlockNumberProvider as BlockNumberProvider>::BlockNumber;
+	type Class = pallet_conviction_voting::ClassOf<T>;
+
+	fn classes() -> Vec<Self::Class> {
+		vec![]
+	}
+
+	fn as_ongoing(
+		index: Self::Index,
+	) -> Option<(Self::Votes, Self::Class)> {
+		let ref_info = T::Governance::get_referendum_info(index.into())?;
+		let ref_status = T::Governance::handle_referendum_info(ref_info.clone())?;
+		if let ReferendumStates::Ongoing = ref_status {
+			let votes = Votes::<T>::get(&index);
+			let class = pallet_conviction_voting::ClassOf::<T>::default();
+			return Some((votes, class));
+		}
+		None
+	}
+
+	fn access_poll<R>(
+		index: Self::Index,
+		f: impl FnOnce(PollStatus<&mut Self::Votes, Self::Moment, Self::Class>) -> R,
+	) -> R {
+		let votes = Votes::<T>::get(&index);
+		let status = PollStatus::Ongoing(votes);
+		f(status)
+	}
+
+	fn try_access_poll<R>(
+		index: Self::Index,
+		f: impl FnOnce(PollStatus<&mut Self::Votes, Self::Moment, Self::Class>) -> Result<R, DispatchError>,
+	) -> Result<R, DispatchError> {
+		let votes = Votes::<T>::get(&index);
+		let status = PollStatus::Ongoing(votes);
+		f(status)
+	}
+
+		
+
+
+}*/
+/// Implement VotingHooks
 impl<T: Config> VotingHooks<AccountIdOf<T>, ReferendumIndex, BalanceOf<T>> for Pallet<T> {
 	fn on_before_vote(
 		who: &AccountIdOf<T>,

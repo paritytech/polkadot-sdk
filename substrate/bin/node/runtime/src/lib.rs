@@ -1689,6 +1689,7 @@ impl pallet_opf::Config for Runtime {
 	/// This is used to manage the voting of the referenda.
 	type Conviction = ConvictionVoting;
 
+	type Tally = pallet_conviction_voting::TallyOf<Runtime>;
 	type WeightInfo = pallet_opf::weights::SubstrateWeight<Runtime>;
 }
 
