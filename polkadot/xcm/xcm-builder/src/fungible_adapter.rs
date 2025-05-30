@@ -61,7 +61,14 @@ impl<
 		let dest = AccountIdConverter::convert_location(to)
 			.ok_or(MatchError::AccountIdConversionFailed)?;
 		Fungible::transfer(&source, &dest, amount, Expendable)
-			.map_err(|error| XcmError::FailedToTransactAsset(error.into()))?;
+			.map_err(|error| {
+				tracing::debug!(
+					target: "xcm::fungible_adapter",
+					?error,
+					"Failed to transfer assets",
+				);
+				XcmError::FailedToTransactAsset(error.into())
+			})?;
 		Ok(what.clone().into())
 	}
 }
@@ -84,13 +91,27 @@ impl<
 	fn can_accrue_checked(checking_account: AccountId, amount: Fungible::Balance) -> XcmResult {
 		Fungible::can_deposit(&checking_account, amount, Minted)
 			.into_result()
-			.map_err(|_| XcmError::NotDepositable)
+			.map_err(|error| {
+				tracing::debug!(
+					target: "xcm::fungible_adapter",
+					?error,
+					"Failed to deposit funds into account",
+				);
+				XcmError::NotDepositable
+			})
 	}
 
 	fn can_reduce_checked(checking_account: AccountId, amount: Fungible::Balance) -> XcmResult {
 		Fungible::can_withdraw(&checking_account, amount)
 			.into_result(false)
-			.map_err(|_| XcmError::NotWithdrawable)
+			.map_err(|error| {
+				tracing::debug!(
+					target: "xcm::fungible_adapter",
+					?error,
+					"Failed to withdraw funds from account",
+				);
+				XcmError::NotWithdrawable
+			})
 			.map(|_| ())
 	}
 
@@ -193,7 +214,14 @@ impl<
 		let who = AccountIdConverter::convert_location(who)
 			.ok_or(MatchError::AccountIdConversionFailed)?;
 		Fungible::mint_into(&who, amount)
-			.map_err(|error| XcmError::FailedToTransactAsset(error.into()))?;
+			.map_err(|error| {
+				tracing::debug!(
+					target: "xcm::fungible_adapter",
+					?error,
+					"Failed to deposit assets",
+				);
+				XcmError::FailedToTransactAsset(error.into())
+			})?;
 		Ok(())
 	}
 
@@ -211,7 +239,14 @@ impl<
 		let who = AccountIdConverter::convert_location(who)
 			.ok_or(MatchError::AccountIdConversionFailed)?;
 		Fungible::burn_from(&who, amount, Expendable, Exact, Polite)
-			.map_err(|error| XcmError::FailedToTransactAsset(error.into()))?;
+			.map_err(|error| {
+				tracing::debug!(
+					target: "xcm::fungible_adapter",
+					?error,
+					"Failed to withdraw assets",
+				);
+				XcmError::FailedToTransactAsset(error.into())
+			})?;
 		Ok(what.clone().into())
 	}
 }
