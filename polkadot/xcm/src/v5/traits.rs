@@ -319,21 +319,7 @@ pub trait ExecuteXcm<Call> {
 		weight_limit: Weight,
 		weight_credit: Weight,
 	) -> Outcome {
-		let pre = match Self::prepare(message, weight_limit) {
-			Ok(x) => x,
-			Err(instruction_error) =>
-				return Outcome::Error {
-					error: Error::WeightNotComputable,
-					index: instruction_error.index,
-				},
-		};
-		let xcm_weight = pre.weight_of();
-		if xcm_weight.any_gt(weight_limit) {
-			// TODO: We shouldn't return 0 here, we should return the index of the actual
-			// instruction that caused the weight to go over the limit.
-			// For that we'd need to change the signature of prepare.
-			return Outcome::Error { error: Error::WeightLimitReached(xcm_weight), index: 0 }
-		}
+		Self::prepare(message, weight_limit)?;
 		Self::execute(origin, pre, id, weight_credit)
 	}
 
