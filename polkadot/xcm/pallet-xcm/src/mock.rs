@@ -340,6 +340,8 @@ impl pallet_revive::Config for Test {
 	type Currency = Balances;
 	type Precompiles = (XcmPrecompile<Self>,);
 	type Time = Timestamp;
+	type UploadOrigin = frame_system::EnsureSigned<AccountId>;
+	type InstantiateOrigin = frame_system::EnsureSigned<AccountId>;
 }
 
 // This child parachain is a system parachain trusted to teleport native token.

@@ -58,17 +58,15 @@ where
 				let weight = <Runtime as Config>::WeightInfo::send();
 				let _ = env.gas_meter_mut().charge(RuntimeCosts::Precompile(weight))?;
 				let final_destination = VersionedLocation::decode_all(&mut &destination[..])
-					.map_err(|e| {
-						error!("XCM send failed: Invalid destination format, Error: {e:?}");
-						Error::Revert("XCM send failed: Invalid destination format, Error:".into())
+					.map_err(|error| {
+						error!(target: "Xcm", "XCM send failed: Invalid destination format {error:?}");
+						Error::Revert("XCM send failed: Invalid destination format".into())
 					})?;
 
 				let final_message =
-					VersionedXcm::<()>::decode_all(&mut &message[..]).map_err(|e| {
-						error!("XCM send failed: Invalid message format. Error: {e:?}");
-						Error::Revert(
-							"XCM send failed: Invalid message format. Error: {e:?}".into(),
-						)
+					VersionedXcm::<()>::decode_all(&mut &message[..]).map_err(|error| {
+						error!(target: "Xcm", "XCM send failed: Invalid message format {error:?}");
+						Error::Revert("XCM send failed: Invalid message format".into())
 					})?;
 
 				crate::Pallet::<Runtime>::send(
@@ -77,15 +75,14 @@ where
 					final_message.into(),
 				)
 				.map(|message_id| message_id.encode())
-				.map_err(|e| {
+				.map_err(|error| {
 					error!(
-						"XCM send failed: destination or message format may be incompatible, \
-						Error: {e:?}"
+						target: "Xcm",
+						"XCM send failed: destination or message format may be incompatible {error:?}"
+
 					);
 					Error::Revert(
-						"XCM send failed: destination or message format may be incompatible, \
-						Error: {e:?}"
-							.into(),
+						"XCM send failed: destination or message format may be incompatible".into(),
 					)
 				})
 			},
@@ -93,21 +90,21 @@ where
 				let weight = Weight::from_parts(weight.refTime, weight.proofSize);
 				let _ = env.gas_meter_mut().charge(RuntimeCosts::Precompile(weight))?;
 
-				let final_message = VersionedXcm::decode_all(&mut &message[..]).map_err(|e| {
-					error!("XCM execute failed: Invalid message format. Error: {e:?}");
-					Error::Revert("Invalid message format".into())
-				})?;
+				let final_message =
+					VersionedXcm::decode_all(&mut &message[..]).map_err(|error| {
+						error!(target: "xcm", "XCM execute failed: Invalid message format {error:?}");
+						Error::Revert("Invalid message format".into())
+					})?;
 
 				crate::Pallet::<Runtime>::execute(frame_origin, final_message.into(), weight)
 					.map(|results| results.encode())
-					.map_err(|e| {
+					.map_err(|error| {
 						error!(
-							"XCM execute failed: message may be invalid or execution \
-						constraints not satisfied. Error: {e:?}"
+							target: "Xcm",
+							"XCM execute failed: message may be invalid or execution constraints not satisfied {error:?}"
 						);
 						Error::Revert(
-							"XCM execute failed: message may be invalid or execution \
-						constraints not satisfied"
+							"XCM execute failed: message may be invalid or execution constraints not satisfied"
 								.into(),
 						)
 					})
@@ -115,17 +112,17 @@ where
 			IXcmCalls::weighMessage(IXcm::weighMessageCall { message }) => {
 				let converted_message =
 					VersionedXcm::decode_all(&mut &message[..]).map_err(|error| {
-						error!("XCM weightMessage: Invalid message format. Error: {error:?}");
+						error!(target: "Xcm", "XCM weightMessage: Invalid message format {error:?}");
 						Error::Revert("XCM weightMessage: Invalid message format".into())
 					})?;
 
-				let mut final_message = converted_message.try_into().map_err(|e| {
-					error!("XCM weightMessage: Conversion to Xcm failed with Error: {e:?}");
+				let mut final_message = converted_message.try_into().map_err(|error| {
+					error!(target: "Xcm", "XCM weightMessage: Conversion to Xcm failed {error:?}");
 					Error::Revert("XCM weightMessage: Conversion to Xcm failed".into())
 				})?;
 
-				let weight = <<Runtime>::Weigher>::weight(&mut final_message).map_err(|e| {
-					error!("XCM weightMessage: Failed to calculate weight. Error: {e:?}");
+				let weight = <<Runtime>::Weigher>::weight(&mut final_message).map_err(|error| {
+					error!(target: "Xcm", "XCM weightMessage: Failed to calculate weight {error:?}");
 					Error::Revert("XCM weightMessage: Failed to calculate weight".into())
 				})?;
 

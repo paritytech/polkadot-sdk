@@ -45,6 +45,7 @@ xcm-simulator = { workspace = true, default-features = true }
 [features]
 default = ["std"]
 std = [
+	"pallet-timestamp/std",
 	"bounded-collections/std",
 	"codec/std",
 	"frame-benchmarking?/std",
