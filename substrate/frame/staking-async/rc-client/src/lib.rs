@@ -152,6 +152,7 @@ pub trait SendToRelayChain {
 	fn validator_set(report: ValidatorSetReport<Self::AccountId>);
 }
 
+// ANCHOR: val_report
 #[derive(Encode, Decode, DecodeWithMemTracking, Debug, Clone, PartialEq, TypeInfo)]
 /// A report about a new validator set. This is sent from AH -> RC.
 pub struct ValidatorSetReport<AccountId> {
@@ -173,6 +174,7 @@ pub struct ValidatorSetReport<AccountId> {
 	/// Same semantics as [`SessionReport::leftover`].
 	pub leftover: bool,
 }
+// ANCHOR_END: val_report
 
 impl<AccountId> ValidatorSetReport<AccountId> {
 	/// A new instance of self that is terminal. This is useful when we want to send everything in
@@ -213,6 +215,7 @@ impl<AccountId> ValidatorSetReport<AccountId> {
 	}
 }
 
+// ANCHOR: session_report
 #[derive(
 	Encode, Decode, DecodeWithMemTracking, Debug, Clone, PartialEq, TypeInfo, MaxEncodedLen,
 )]
@@ -245,6 +248,7 @@ pub struct SessionReport<AccountId> {
 	/// Upon processing, this should always be true, and it should be ignored.
 	pub leftover: bool,
 }
+// ANCHOR_END: session_report
 
 impl<AccountId> SessionReport<AccountId> {
 	/// A new instance of self that is terminal. This is useful when we want to send everything in
@@ -315,6 +319,7 @@ pub trait RcClientInterface {
 	fn validator_set(new_validator_set: Vec<Self::AccountId>, id: u32, prune_up_tp: Option<u32>);
 }
 
+// ANCHOR: offence
 /// An offence on the relay chain. Based on [`sp_staking::offence::OffenceDetails`].
 #[derive(Encode, Decode, DecodeWithMemTracking, Debug, Clone, PartialEq, TypeInfo)]
 pub struct Offence<AccountId> {
@@ -325,6 +330,7 @@ pub struct Offence<AccountId> {
 	/// The amount that they should be slashed.
 	pub slash_fraction: Perbill,
 }
+// ANCHOR_END: offence
 
 #[frame_support::pallet]
 pub mod pallet {
