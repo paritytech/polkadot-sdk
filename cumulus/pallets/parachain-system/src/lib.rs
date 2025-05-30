@@ -42,7 +42,7 @@ use cumulus_primitives_core::{
 	OutboundHrmpMessage, ParaId, PersistedValidationData, UpwardMessage, UpwardMessageSender,
 	XcmpMessageHandler, XcmpMessageSource,
 };
-use cumulus_primitives_parachain_inherent::{MessageQueueChain, ParachainInherentData};
+use cumulus_primitives_parachain_inherent::{v0, MessageQueueChain, ParachainInherentData};
 use frame_support::{
 	defensive,
 	dispatch::DispatchResult,
@@ -77,6 +77,7 @@ pub mod consensus_hook;
 pub mod relay_state_snapshot;
 #[macro_use]
 pub mod validate_block;
+mod descendant_validation;
 
 use unincluded_segment::{
 	HrmpChannelUpdate, HrmpWatermarkUpdate, OutboundBandwidthLimits, SegmentTracker,
@@ -111,6 +112,7 @@ pub use unincluded_segment::{Ancestor, UsedBandwidth};
 
 pub use pallet::*;
 
+const LOG_TARGET: &str = "parachain-system";
 /// Something that can check the associated relay block number.
 ///
 /// Each Parachain block is built in the context of a relay chain block, this trait allows us
@@ -291,6 +293,22 @@ pub mod pallet {
 
 		/// Select core.
 		type SelectCore: SelectCore;
+
+		/// The offset between the tip of the relay chain and the parent relay block used as parent
+		/// when authoring a parachain block.
+		///
+		/// This setting directly impacts the number of descendant headers that are expected in the
+		/// `set_validation_data` inherent.
+		///
+		/// For any setting `N` larger than zero, the inherent expects that the inherent includes
+		/// the relay parent plus `N` descendants. These headers are required to validate that new
+		/// parachain blocks are authored at the correct offset.
+		///
+		/// While this helps to reduce forks on the parachain side, it increases the delay for
+		/// processing XCM messages. So, the value should be chosen wisely.
+		///
+		/// If set to 0, this config has no impact.
+		type RelayParentOffset: Get<u32>;
 	}
 
 	#[pallet::hooks]
@@ -620,6 +638,7 @@ pub mod pallet {
 				relay_chain_state,
 				downward_messages,
 				horizontal_messages,
+				relay_parent_descendants,
 			} = data;
 
 			// Check that the associated relay chain block number is as expected.
@@ -634,6 +653,23 @@ pub mod pallet {
 				relay_chain_state.clone(),
 			)
 			.expect("Invalid relay chain state proof");
+
+			let expected_rp_descendants_num = T::RelayParentOffset::get();
+
+			if expected_rp_descendants_num > 0 {
+				if let Err(err) = descendant_validation::verify_relay_parent_descendants(
+					&relay_state_proof,
+					relay_parent_descendants,
+					vfp.relay_parent_storage_root,
+					expected_rp_descendants_num,
+				) {
+					panic!(
+						"Unable to verify provided relay parent descendants. \
+						expected_rp_descendants_num: {expected_rp_descendants_num} \
+						error: {err:?}"
+					);
+				};
+			}
 
 			// Update the desired maximum capacity according to the consensus hook.
 			let (consensus_hook_weight, capacity) =
@@ -954,10 +990,26 @@ pub mod pallet {
 			cumulus_primitives_parachain_inherent::INHERENT_IDENTIFIER;
 
 		fn create_inherent(data: &InherentData) -> Option<Self::Call> {
-			let mut data: ParachainInherentData =
-				data.get_data(&Self::INHERENT_IDENTIFIER).ok().flatten().expect(
-					"validation function params are always injected into inherent data; qed",
-				);
+			let mut data = match data
+				.get_data::<ParachainInherentData>(&Self::INHERENT_IDENTIFIER)
+				.ok()
+				.flatten()
+			{
+				None => {
+					// Key Self::INHERENT_IDENTIFIER is expected to contain versioned inherent
+					// data. Older nodes are unaware of the new format and might provide the
+					// legacy data format. We try to load it and transform it into the current
+					// version.
+					let data = data
+						.get_data::<v0::ParachainInherentData>(
+							&cumulus_primitives_parachain_inherent::PARACHAIN_INHERENT_IDENTIFIER_V0,
+						)
+						.ok()
+						.flatten()?;
+					data.into()
+				},
+				Some(data) => data,
+			};
 
 			Self::drop_processed_messages_from_inherent(&mut data);
 
@@ -1576,7 +1628,7 @@ impl<T: Config> Pallet<T> {
 		// However, changing this setting is expected to be rare.
 		if let Some(cfg) = HostConfiguration::<T>::get() {
 			if message_len > cfg.max_upward_message_size as usize {
-				return Err(MessageSendError::TooBig)
+				return Err(MessageSendError::TooBig);
 			}
 			let threshold =
 				cfg.max_upward_queue_size.saturating_div(ump_constants::THRESHOLD_FACTOR);
