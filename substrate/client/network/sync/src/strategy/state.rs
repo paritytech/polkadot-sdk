@@ -280,15 +280,13 @@ impl<B: BlockT> StateStrategy<B> {
 						// Ignore inherents errors.
 						trace!(
 							target: LOG_TARGET,
-							"Failed to import target block due to invalid inherent transactions."
-							?error,
+							"Failed to import target block due to invalid inherent transactions: {error:?}."
 						);
 					},
 					_ => {
 						error!(
 							target: LOG_TARGET,
-							"Failed to import target block with state."
-							?error,
+							"Failed to import target block with state: {error:?}."
 						);
 					},
 				}
