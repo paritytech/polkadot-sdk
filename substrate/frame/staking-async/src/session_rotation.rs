@@ -970,7 +970,7 @@ impl<T: Config> EraElectionPlanner<T> {
 			} else {
 				// This case should ideally not happen for an elected winner,
 				// but handle defensively.
-				defensive!(warn, "Elected validator {:?} has no prefs set.", stash);
+				defensive!(format!("Elected validator {:?} has no prefs set.", stash));
 			}
 		}
 
