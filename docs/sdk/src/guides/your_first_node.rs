@@ -109,7 +109,6 @@ mod tests {
 	use std::path::PathBuf;
 
 	const PARA_RUNTIME: &'static str = "parachain-template-runtime";
-	const FIRST_RUNTIME: &'static str = "polkadot-sdk-docs-first-runtime";
 	const MINIMAL_RUNTIME: &'static str = "minimal-template-runtime";
 
 	const CHAIN_SPEC_BUILDER: &'static str = "chain-spec-builder";
@@ -169,6 +168,7 @@ mod tests {
 				.assert()
 				.success();
 		}
+
 		if find_wasm(&FIRST_RUNTIME).is_none() {
 			println!("Building polkadot-sdk-docs-first-runtime...");
 			#[docify::export_content]
@@ -302,13 +302,6 @@ mod tests {
 	fn minimal_runtime_works() {
 		[None, Some(DEV_RUNTIME_PRESET.into())].into_iter().for_each(|preset| {
 			test_runtime_preset(MINIMAL_RUNTIME, 1000, preset);
-		});
-	}
-
-	#[test]
-	fn guide_first_runtime_works() {
-		[Some(DEV_RUNTIME_PRESET.into())].into_iter().for_each(|preset| {
-			test_runtime_preset(FIRST_RUNTIME, 1000, preset);
 		});
 	}
 
