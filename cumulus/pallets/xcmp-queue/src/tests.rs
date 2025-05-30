@@ -22,7 +22,8 @@ use XcmpMessageFormat::*;
 use codec::Input;
 use cumulus_primitives_core::{ParaId, XcmpMessageHandler};
 use frame_support::{
-	assert_err, assert_noop, assert_ok, assert_storage_noop, hypothetically, traits::Hooks,
+	assert_err, assert_noop, assert_ok, assert_storage_noop, hypothetically,
+	traits::{BatchFootprint, Hooks},
 	StorageNoopGuard,
 };
 use mock::{new_test_ext, ParachainSystem, RuntimeOrigin as Origin, Test, XcmpQueue};
@@ -210,9 +211,12 @@ fn xcm_enqueueing_starts_dropping_on_out_of_weight() {
 
 			total_size += xcm.len();
 			let required_weight = <<Test as Config>::WeightInfo>::enqueue_xcmp_messages(
-				idx as u32 + 1,
-				idx + 1,
-				total_size,
+				0,
+				&BatchFootprint {
+					msgs_count: idx + 1,
+					size_in_bytes: total_size,
+					new_pages_count: idx as u32 + 1,
+				},
 			);
 
 			let mut weight_meter = WeightMeter::with_limit(required_weight);

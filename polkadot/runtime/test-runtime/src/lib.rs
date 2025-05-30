@@ -179,11 +179,11 @@ where
 	type Extrinsic = UncheckedExtrinsic;
 }
 
-impl<C> frame_system::offchain::CreateInherent<C> for Runtime
+impl<C> frame_system::offchain::CreateBare<C> for Runtime
 where
 	RuntimeCall: From<C>,
 {
-	fn create_inherent(call: Self::RuntimeCall) -> Self::Extrinsic {
+	fn create_bare(call: Self::RuntimeCall) -> Self::Extrinsic {
 		UncheckedExtrinsic::new_bare(call)
 	}
 }
@@ -613,6 +613,7 @@ impl parachains_paras::Config for Runtime {
 	type AssignCoretime = CoretimeAssignmentProvider;
 	type Fungible = Balances;
 	type CooldownRemovalMultiplier = ConstUint<1>;
+	type AuthorizeCurrentCodeOrigin = frame_system::EnsureRoot<AccountId>;
 }
 
 parameter_types! {
