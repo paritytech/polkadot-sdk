@@ -1355,6 +1355,7 @@ impl parachains_paras::Config for Runtime {
 	type AssignCoretime = CoretimeAssignmentProvider;
 	type Fungible = Balances;
 	type CooldownRemovalMultiplier = ConstUint<1>;
+	type AuthorizeCurrentCodeOrigin = EnsureRoot<AccountId>;
 }
 
 parameter_types! {
