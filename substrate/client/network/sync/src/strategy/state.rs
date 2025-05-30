@@ -271,8 +271,8 @@ impl<B: BlockT> StateStrategy<B> {
 
 		if !results.is_empty() {
 			// We processed the target block
-			results.iter().filter_map(|result| result.as_ref().err()).for_each(|e| {
-				match e {
+			results.iter().filter_map(|result| result.as_ref().err()).for_each(|error| {
+				match error {
 					BlockImportError::Other(
 						ConsensusError::InvalidInherents(_) |
 						ConsensusError::InvalidInherentsUnhandled(_),
@@ -280,13 +280,15 @@ impl<B: BlockT> StateStrategy<B> {
 						// Ignore inherents errors.
 						trace!(
 							target: LOG_TARGET,
-							"Failed to import target block due to invalid inherent transactions: {e:?}."
+							"Failed to import target block due to invalid inherent transactions."
+							?error,
 						);
 					},
 					_ => {
 						error!(
 							target: LOG_TARGET,
-							"Failed to import target block with state: {e:?}."
+							"Failed to import target block with state."
+							?error,
 						);
 					},
 				}
