@@ -45,7 +45,6 @@ xcm-simulator = { workspace = true, default-features = true }
 [features]
 default = ["std"]
 std = [
-	"pallet-timestamp/std",
 	"bounded-collections/std",
 	"codec/std",
 	"frame-benchmarking?/std",
@@ -53,6 +52,7 @@ std = [
 	"frame-system/std",
 	"pallet-balances/std",
 	"pallet-revive/std",
+	"pallet-timestamp/std",
 	"scale-info/std",
 	"serde",
 	"sp-core/std",
@@ -71,6 +71,7 @@ runtime-benchmarks = [
 	"pallet-assets/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
 	"pallet-revive/runtime-benchmarks",
+	"pallet-timestamp/runtime-benchmarks",
 	"polkadot-parachain-primitives/runtime-benchmarks",
 	"polkadot-runtime-parachains/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
@@ -78,7 +79,6 @@ runtime-benchmarks = [
 	"xcm-executor/runtime-benchmarks",
 	"xcm-runtime-apis/runtime-benchmarks",
 	"xcm/runtime-benchmarks",
-	"pallet-timestamp/runtime-benchmarks"
 ]
 test-utils = ["std"]
 try-runtime = [
@@ -87,7 +87,7 @@ try-runtime = [
 	"pallet-assets/try-runtime",
 	"pallet-balances/try-runtime",
 	"pallet-revive/try-runtime",
+	"pallet-timestamp/try-runtime",
 	"polkadot-runtime-parachains/try-runtime",
 	"sp-runtime/try-runtime",
-	"pallet-timestamp/try-runtime",
 ]
