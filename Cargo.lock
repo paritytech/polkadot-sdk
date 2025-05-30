@@ -4244,6 +4244,7 @@ dependencies = [
  "sp-runtime 41.1.0",
  "sp-state-machine 0.45.0",
  "sp-timestamp",
+ "sp-tracing 17.1.0",
  "sp-trie 39.1.0",
  "substrate-prometheus-endpoint",
  "tokio",
