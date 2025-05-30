@@ -50,6 +50,7 @@ fn derive_accounts(n: usize, seed: String) -> Vec<SrPair> {
 	threads.into_iter().flat_map(|h| h.join().unwrap()).collect()
 }
 
+#[allow(deprecated)]
 pub fn yet_another_parachain_config(
 	relay: impl Into<String>,
 	chain_type: ChainType,

@@ -19,6 +19,7 @@ use polkadot_omni_node_lib::chain_spec::{Extensions, GenericChainSpec};
 use sc_service::ChainType;
 
 /// Generic Glutton Westend Config for all currently used setups.
+#[allow(deprecated)]
 pub fn glutton_westend_config(
 	para_id: ParaId,
 	chain_type: ChainType,

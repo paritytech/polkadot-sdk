@@ -92,6 +92,7 @@ fn asset_hub_rococo_like_development_config(
 	properties: sc_chain_spec::Properties,
 	name: &str,
 	chain_id: &str,
+	para_id: u32,
 ) -> GenericChainSpec {
 	GenericChainSpec::builder(
 		asset_hub_rococo_runtime::WASM_BINARY.expect("WASM binary was not built, please build it!"),
@@ -152,7 +153,6 @@ pub fn asset_hub_rococo_genesis_config() -> GenericChainSpec {
 	let mut properties = sc_chain_spec::Properties::new();
 	properties.insert("tokenSymbol".into(), "ROC".into());
 	properties.insert("tokenDecimals".into(), 12.into());
-	let para_id = 1000;
 	GenericChainSpec::builder(
 		asset_hub_rococo_runtime::WASM_BINARY.expect("WASM binary was not built, please build it!"),
 		Extensions { relay_chain: "rococo".into(), para_id: None },

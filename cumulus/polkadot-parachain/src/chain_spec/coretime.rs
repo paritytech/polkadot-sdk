@@ -14,7 +14,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use cumulus_primitives_core::ParaId;
 use polkadot_omni_node_lib::chain_spec::GenericChainSpec;
 use sc_chain_spec::{ChainSpec, ChainType};
 use std::{borrow::Cow, str::FromStr};
@@ -151,6 +150,7 @@ pub mod rococo {
 	pub(crate) const CORETIME_ROCOCO_LOCAL: &str = "coretime-rococo-local";
 	pub(crate) const CORETIME_ROCOCO_DEVELOPMENT: &str = "coretime-rococo-dev";
 
+	#[allow(deprecated)]
 	pub fn local_config(runtime_type: CoretimeRuntimeType, relay_chain: &str) -> GenericChainSpec {
 		// Rococo defaults
 		let mut properties = sc_chain_spec::Properties::new();
@@ -196,6 +196,7 @@ pub mod westend {
 	pub(crate) const CORETIME_WESTEND_LOCAL: &str = "coretime-westend-local";
 	pub(crate) const CORETIME_WESTEND_DEVELOPMENT: &str = "coretime-westend-dev";
 
+	#[allow(deprecated)]
 	pub fn local_config(runtime_type: CoretimeRuntimeType, relay_chain: &str) -> GenericChainSpec {
 		// westend defaults
 		let mut properties = sc_chain_spec::Properties::new();

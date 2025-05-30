@@ -129,7 +129,7 @@ pub mod rococo {
 	pub(crate) const PEOPLE_ROCOCO: &str = "people-rococo";
 	pub(crate) const PEOPLE_ROCOCO_LOCAL: &str = "people-rococo-local";
 	pub(crate) const PEOPLE_ROCOCO_DEVELOPMENT: &str = "people-rococo-dev";
-
+	#[allow(deprecated)]
 	pub fn local_config(
 		id: &str,
 		chain_name: &str,
@@ -175,6 +175,7 @@ pub mod westend {
 	pub(crate) const PEOPLE_WESTEND_LOCAL: &str = "people-westend-local";
 	pub(crate) const PEOPLE_WESTEND_DEVELOPMENT: &str = "people-westend-dev";
 
+	#[allow(deprecated)]
 	pub fn local_config(
 		id: &str,
 		chain_name: &str,

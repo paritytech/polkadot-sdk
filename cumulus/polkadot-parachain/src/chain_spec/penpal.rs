@@ -21,6 +21,7 @@ use polkadot_omni_node_lib::chain_spec::{Extensions, GenericChainSpec};
 use sc_service::ChainType;
 use sp_keyring::Sr25519Keyring;
 
+#[allow(deprecated)]
 pub fn get_penpal_chain_spec(id: ParaId, relay_chain: &str) -> GenericChainSpec {
 	// Give your base currency a unit name and decimal places
 	let mut properties = sc_chain_spec::Properties::new();

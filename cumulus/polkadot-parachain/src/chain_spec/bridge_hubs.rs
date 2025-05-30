@@ -187,6 +187,7 @@ pub mod westend {
 	pub(crate) const BRIDGE_HUB_WESTEND_LOCAL: &str = "bridge-hub-westend-local";
 	pub(crate) const BRIDGE_HUB_WESTEND_DEVELOPMENT: &str = "bridge-hub-westend-dev";
 
+	#[allow(deprecated)]
 	pub fn local_config(
 		id: &str,
 		chain_name: &str,
@@ -201,7 +202,7 @@ pub mod westend {
 		GenericChainSpec::builder(
 			bridge_hub_westend_runtime::WASM_BINARY
 				.expect("WASM binary was not build, please build it!"),
-			Extensions { relay_chain: relay_chain.to_string(), para_id: para_id.into() },
+			Extensions { relay_chain: relay_chain.to_string(), para_id: None },
 		)
 		.with_name(chain_name)
 		.with_id(super::ensure_id(id).expect("invalid id"))
