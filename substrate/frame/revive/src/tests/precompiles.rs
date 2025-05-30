@@ -18,9 +18,9 @@
 //! Precompiles added to the test runtime.
 
 use crate::{
+	exec::{ErrorOrigin, ExecError},
 	precompiles::{AddressMatcher, Error, Ext, ExtWithInfo, Precompile, Token},
 	Config, DispatchError, Origin, Weight,
-	exec::{ExecError, ErrorOrigin},
 };
 use alloc::vec::Vec;
 use alloy_core::{
@@ -101,7 +101,8 @@ impl<T: Config> Precompile for NoInfo<T> {
 				let call = <T as Config>::RuntimeCall::decode(&mut &call[..]).unwrap();
 				match call.dispatch(frame_origin) {
 					Ok(_) => Ok(Vec::new()),
-					Err(e) => Err(Error::Error(ExecError { error: e.error, origin: ErrorOrigin::Caller })),
+					Err(e) =>
+						Err(Error::Error(ExecError { error: e.error, origin: ErrorOrigin::Caller })),
 				}
 			},
 		}
