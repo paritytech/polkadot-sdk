@@ -16,6 +16,6 @@ crates:
   - name: parachains-runtimes-test-utils
     bump: patch
   - name: cumulus-primitives-parachain-inherent
-    bump: patch
+    bump: major
   - name: xcm-emulator
     bump: patch
