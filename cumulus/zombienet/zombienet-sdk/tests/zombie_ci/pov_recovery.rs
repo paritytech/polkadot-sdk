@@ -3,7 +3,7 @@
 
 use anyhow::anyhow;
 
-use crate::utils::{initialize_network, BEST_BLOCK_METRIC};
+use crate::utils::{initialize_network, wait_network_is_up, BEST_BLOCK_METRIC};
 
 use cumulus_zombienet_sdk_helpers::{assert_para_is_registered, assert_para_throughput};
 use polkadot_primitives::Id as ParaId;
@@ -30,6 +30,10 @@ async fn pov_recovery() -> Result<(), anyhow::Error> {
 	log::info!("Spawning network with relay chain only");
 	let config = build_network_config().await?;
 	let mut network = initialize_network(config).await?;
+
+	log::info!("Checking if network nodes are up");
+	let result = wait_network_is_up(&network.nodes(), 200u64).await;
+	assert!(result.is_ok(), "Network is not up: {:?}", result.unwrap_err());
 
 	let validator_3 = network.get_node("validator-3")?;
 
