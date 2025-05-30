@@ -214,6 +214,10 @@ pub use cumulus_test_relay_sproof_builder;
 #[cfg(feature = "emulated-integration-tests-common")]
 pub use emulated_integration_tests_common;
 
+/// Interfaces for Ethereum standards.
+#[cfg(feature = "ethereum-standards")]
+pub use ethereum_standards;
+
 /// Utility library for managing tree-like ordered data with logic for pruning the tree while
 /// finalizing nodes.
 #[cfg(feature = "fork-tree")]
