@@ -26,6 +26,20 @@ _Note:_ `chain-spec-builder` binary is published on [crates.io](https://crates.i
 Please note that below usage is backed by integration tests. The commands' examples are wrapped
 around by the `bash!(...)` macro calls.
 
+### Deprecation notice for `CreateCmd`'s `para-id` flag
+
+`para-id` flag for the is deprecated. Runtimes relying on generating the chain
+specification with this tool should implement `cumulus_primitives_core::GetParachainIdentity`
+trait, a new runtime API designed to provide the parachain ID from the `parachain-info`
+pallet. The `para-id` flag will be removed and nodes support for extracting the
+parachain id from the chain specification will stop from `stable2509`.
+
+For reference, generating a chain specification with a `para_id` field can still
+be done like:
+```bash
+chain-spec-builder -c "/dev/stdout" create --relay-chain "dev" --para-id 1000 -r $runtime_path named-preset "staging"
+```
+
 ### Generate chains-spec using default config from runtime
 
 Query the default genesis config from the provided runtime WASM blob and use it in the chain spec.
