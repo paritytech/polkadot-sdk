@@ -2131,7 +2131,8 @@ pub mod pallet {
 		) -> DispatchResult {
 			ensure_signed(origin)?;
 			let min_commission = MinCommission::<T>::get();
-			let mut validator_prefs = Validators::<T>::get(&validator_stash).ok_or(Error::<T>::NotStash)?;
+			let mut validator_prefs =
+				Validators::<T>::get(&validator_stash).ok_or(Error::<T>::NotStash)?;
 			if validator_prefs.commission < min_commission {
 				validator_prefs.commission = min_commission;
 			}
