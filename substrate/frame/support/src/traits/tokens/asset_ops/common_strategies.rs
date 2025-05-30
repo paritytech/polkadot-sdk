@@ -371,6 +371,9 @@ impl<Params, ReportedId> DeriveAndReportId<Params, ReportedId> {
 impl<Params, ReportedId> IdAssignment for DeriveAndReportId<Params, ReportedId> {
 	type ReportedId = ReportedId;
 }
+impl<Params, ReportedId> CreateStrategy for DeriveAndReportId<Params, ReportedId> {
+	type Success = ReportedId;
+}
 
 /// Represents the value of an [InspectStrategy] to be used as a configuration value in the
 /// [WithConfig] strategy.
