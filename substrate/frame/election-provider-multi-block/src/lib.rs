@@ -660,20 +660,12 @@ pub mod pallet {
 			let weight1 = match current_phase {
 				Phase::Snapshot(x) if x == T::Pages::get() => {
 					// create the target snapshot
-					let result = Self::create_targets_snapshot();
-					if result.is_err() {
-						Self::deposit_event(Event::UnexpectedTargetSnapshotFailed);
-					}
-					result.defensive_unwrap_or_default();
+					Self::create_targets_snapshot();
 					T::WeightInfo::on_initialize_into_snapshot_msp()
 				},
 				Phase::Snapshot(x) => {
 					// create voter snapshot
-					let result = Self::create_voters_snapshot_paged(x);
-					if result.is_err() {
-						Self::deposit_event(Event::UnexpectedVoterSnapshotFailed);
-					}
-					result.defensive_unwrap_or_default();
+					Self::create_voters_snapshot_paged(x);
 					T::WeightInfo::on_initialize_into_snapshot_rest()
 				},
 				_ => T::WeightInfo::on_initialize_nothing(),
@@ -1277,49 +1269,62 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Creates the target snapshot.
-	pub(crate) fn create_targets_snapshot() -> Result<(), ElectionError<T>> {
+	///
+	/// If snapshot creation fails, emits `UnexpectedTargetSnapshotFailed` event
+	/// and triggers defensive panic.
+	pub(crate) fn create_targets_snapshot() {
 		// if requested, get the targets as well.
-		Snapshot::<T>::set_desired_targets(
-			T::DataProvider::desired_targets().map_err(ElectionError::DataProvider)?,
-		);
+		let desired_targets = match T::DataProvider::desired_targets() {
+			Ok(targets) => targets,
+			Err(e) => {
+				Self::deposit_event(Event::UnexpectedTargetSnapshotFailed);
+				defensive!("Failed to get desired targets: {:?}", e);
+				return;
+			},
+		};
+		Snapshot::<T>::set_desired_targets(desired_targets);
 
 		let count = T::TargetSnapshotPerBlock::get();
 		let bounds = DataProviderBounds { count: Some(count.into()), size: None };
 		let targets: BoundedVec<_, T::TargetSnapshotPerBlock> =
-			T::DataProvider::electable_targets(bounds, 0)
+			match T::DataProvider::electable_targets(bounds, 0)
 				.and_then(|v| v.try_into().map_err(|_| "try-into failed"))
-				.map_err(ElectionError::DataProvider)?;
+			{
+				Ok(targets) => targets,
+				Err(e) => {
+					Self::deposit_event(Event::UnexpectedTargetSnapshotFailed);
+					defensive!("Failed to create target snapshot: {:?}", e);
+					return;
+				},
+			};
 
 		let count = targets.len() as u32;
 		log!(debug, "created target snapshot with {} targets.", count);
 		Snapshot::<T>::set_targets(targets);
-
-		Ok(())
 	}
 
 	/// Creates the voter snapshot.
 	///
-	/// Returns `Ok(())` if a snapshot page for `remaining` page index is created successfully,
-	/// `Err(otherwise)`.
-	///
-	/// Errors could be:
-	/// * `T::DataProvider` failing to return any data
-	/// * what `T::DataProvider` returns failing to fit in our desired bound.
-	pub(crate) fn create_voters_snapshot_paged(
-		remaining: PageIndex,
-	) -> Result<(), ElectionError<T>> {
+	/// If snapshot creation fails, emits `UnexpectedVoterSnapshotFailed` event
+	/// and triggers defensive panic.
+	pub(crate) fn create_voters_snapshot_paged(remaining: PageIndex) {
 		let count = T::VoterSnapshotPerBlock::get();
 		let bounds = DataProviderBounds { count: Some(count.into()), size: None };
 		let voters: BoundedVec<_, T::VoterSnapshotPerBlock> =
-			T::DataProvider::electing_voters(bounds, remaining)
+			match T::DataProvider::electing_voters(bounds, remaining)
 				.and_then(|v| v.try_into().map_err(|_| "try-into failed"))
-				.map_err(ElectionError::DataProvider)?;
+			{
+				Ok(voters) => voters,
+				Err(e) => {
+					Self::deposit_event(Event::UnexpectedVoterSnapshotFailed);
+					defensive!("Failed to create voter snapshot: {:?}", e);
+					return;
+				},
+			};
 
 		let count = voters.len() as u32;
 		Snapshot::<T>::set_voters(remaining, voters);
 		log!(debug, "created voter snapshot with {} voters, {} remaining.", count, remaining);
-
-		Ok(())
 	}
 
 	/// Perform the tasks to be done after a new `elect` has been triggered:
@@ -1600,9 +1605,9 @@ impl<T: Config> ElectionProvider for Pallet<T> {
 	#[cfg(feature = "runtime-benchmarks")]
 	fn asap() {
 		// prepare our snapshot so we can "hopefully" run a fallback.
-		Self::create_targets_snapshot().unwrap();
+		Self::create_targets_snapshot();
 		for p in (Self::lsp()..=Self::msp()).rev() {
-			Self::create_voters_snapshot_paged(p).unwrap()
+			Self::create_voters_snapshot_paged(p)
 		}
 	}
 }
@@ -2263,11 +2268,11 @@ mod phase_rotation {
 					// This triggers target snapshot creation, which should fail due to too many targets
 					roll_to(14);
 
-					// Verify that TargetSnapshotFailed event was emitted
+					// Verify that UnexpectedTargetSnapshotFailed event was emitted
 					let events = multi_block_events_since_last_call();
 					assert!(
 						events.contains(&Event::UnexpectedTargetSnapshotFailed),
-						"TargetSnapshotFailed event should have been emitted when target snapshot creation fails. Events: {:?}",
+						"UnexpectedTargetSnapshotFailed event should have been emitted when target snapshot creation fails. Events: {:?}",
 						events
 					);
 
