@@ -445,7 +445,7 @@ where
 		val
 	}
 
-	/// Refer to [`InnerStorage::try_insert_with_replacement`]
+	/// Refer to [`IndexedStorage::try_insert_with_replacement`]
 	pub fn try_insert_with_replacement(
 		&mut self,
 		max_total_bytes: usize,
