@@ -360,8 +360,7 @@ pub mod pallet {
 
 			#[inject_runtime_type]
 			type RuntimeCall = ();
-
-			type CallFilter = Everything;
+			type CallFilter = ();
 			type Precompiles = ();
 			type CodeHashLockupDepositPercent = CodeHashLockupDepositPercent;
 			type DepositPerByte = DepositPerByte;
