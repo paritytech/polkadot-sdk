@@ -136,7 +136,15 @@ where
 		let hash = sp_io::hashing::blake2_256(&blob[..]);
 		dmp::Pallet::<T>::queue_downward_message(&config, para, blob)
 			.map(|()| hash)
-			.map_err(|_| SendError::Transport(&"Error placing into DMP queue"))
+			.map_err(|error| {
+				log::debug!(
+					target: "xcm::DownwardMessageQueues::deliver",
+					"Failed to place into DMP queue: error: {:?}, id: {:?}",
+					error,
+					hash,
+				);
+				SendError::Transport(&"Error placing into DMP queue")
+			})
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
