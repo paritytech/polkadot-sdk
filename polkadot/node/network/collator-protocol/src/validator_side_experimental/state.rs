@@ -437,8 +437,12 @@ impl<B: Backend> State<B> {
 		let connected_rep_query_fn = move |peer_id: &PeerId, para_id: &ParaId| {
 			peer_manager.connected_peer_score(peer_id, para_id)
 		};
+		let all_free_slots = self.collation_manager.all_free_slots();
+		let max_reps = self.peer_manager.max_scores_for_paras(all_free_slots).await;
 
-		let requests = self.collation_manager.try_making_new_fetch_requests(connected_rep_query_fn);
+		let requests = self
+			.collation_manager
+			.try_making_new_fetch_requests(connected_rep_query_fn, max_reps);
 
 		if !requests.is_empty() {
 			gum::debug!(

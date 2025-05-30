@@ -272,6 +272,10 @@ impl CollationManager {
 		self.claim_queue_state.all_assignments()
 	}
 
+	pub fn all_free_slots(&self) -> BTreeSet<ParaId> {
+		self.claim_queue_state.all_free_slots()
+	}
+
 	pub async fn try_accept_advertisement<Sender: CollatorProtocolSenderTrait>(
 		&mut self,
 		sender: &mut Sender,
@@ -319,6 +323,7 @@ impl CollationManager {
 	pub fn try_making_new_fetch_requests<RepQueryFn: Fn(&PeerId, &ParaId) -> Option<Score>>(
 		&mut self,
 		connected_rep_query_fn: RepQueryFn,
+		max_scores: HashMap<ParaId, Score>,
 	) -> Vec<Requests> {
 		let now = Instant::now();
 
@@ -336,8 +341,7 @@ impl CollationManager {
 			};
 
 			for para_id in free_slots {
-				// TODO: look up in the db.
-				let highest_rep_of_para = Score::new(10).unwrap();
+				let highest_rep_of_para = max_scores.get(&para_id).copied().unwrap_or_default();
 
 				// Try picking an advertisement.
 				let Some((advertisement, peer_rep)) = self
@@ -389,6 +393,7 @@ impl CollationManager {
 					gum::debug!(
 						target: LOG_TARGET,
 						?time_since_advertisement,
+						?highest_rep_of_para,
 						"Skipping advertisement, as the peer doesn't have a high enough reputation to warrant a fetch now"
 					);
 				}

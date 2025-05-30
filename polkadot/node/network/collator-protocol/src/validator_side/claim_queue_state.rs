@@ -811,6 +811,14 @@ impl PerLeafClaimQueueState {
 		self.leaves.get(leaf).map(|state| state.free_slots()).unwrap_or_default()
 	}
 
+	/// TODO
+	pub fn all_free_slots(&self) -> BTreeSet<ParaId> {
+		self.leaves
+			.values()
+			.flat_map(|claim_queue_state| claim_queue_state.free_slots())
+			.collect()
+	}
+
 	/// Returns `true` if there is a free claim within `relay_parent`'s view of the claim queue for
 	/// `leaf` or if there already is a claimed slot for the candidate.
 	#[cfg(test)]
