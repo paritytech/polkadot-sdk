@@ -22,3 +22,5 @@ crates:
   bump: major
 - name: pallet-staking-async
   bump: major
+- name: pallet-election-provider-multi-block
+  bump: major
