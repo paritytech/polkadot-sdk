@@ -30,13 +30,13 @@ pub(crate) const PROPAGATE_TIMEOUT: time::Duration = time::Duration::from_millis
 /// Maximum number of known transaction hashes to keep for a peer.
 ///
 /// This should be approx. 2 blocks full of transactions for the network to function properly.
-pub(crate) const MAX_KNOWN_TRANSACTIONS: usize = 8 * 10240; // ~300kb per peer + overhead.
+pub(crate) const MAX_KNOWN_TRANSACTIONS: usize = 10240; // ~300kb per peer + overhead.
 
 /// Maximum allowed size for a transactions notification.
 pub(crate) const MAX_TRANSACTIONS_SIZE: u64 = MAX_RESPONSE_SIZE;
 
 /// Maximum number of transaction validation request we keep at any moment.
-pub(crate) const MAX_PENDING_TRANSACTIONS: usize = 8 * 8192;
+pub(crate) const MAX_PENDING_TRANSACTIONS: usize = 8192;
 
 /// Result of the transaction import.
 #[derive(Clone, Copy, Debug)]

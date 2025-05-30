@@ -108,7 +108,6 @@ impl NotificationProtocolConfig {
 			.with_handshake(handshake.map_or(vec![1], |handshake| (*handshake).to_vec()))
 			.with_max_size(max_notification_size as usize)
 			.with_auto_accept_inbound(true)
-			.with_sync_channel_size(20 * 2048)
 			.with_fallback_names(fallback_names.into_iter().map(From::from).collect())
 			.build();
 
