@@ -21,9 +21,9 @@
 //! (THIS IS A SPECIAL TEMPLATE FOR `election-provider-multi-block` PALLET)
 //!
 //! THIS FILE WAS AUTO-GENERATED USING THE SUBSTRATE BENCHMARK CLI VERSION 32.0.0
-//! DATE: 2025-05-29, STEPS: `2`, REPEAT: `2`, LOW RANGE: `[]`, HIGH RANGE: `[]`
+//! DATE: 2025-05-30, STEPS: `10`, REPEAT: `20`, LOW RANGE: `[]`, HIGH RANGE: `[]`
 //! WORST CASE MAP SIZE: `1000000`
-//! HOSTNAME: `Kians-MacBook-Pro-2.local`, CPU: `<UNKNOWN>`
+//! HOSTNAME: `ggwpez-ref-hw`, CPU: `AMD EPYC 7232P 8-Core Processor`
 //! WASM-EXECUTION: `Compiled`, CHAIN: `None`, DB CACHE: `1024`
 
 // Executed Command:
@@ -38,9 +38,9 @@
 // --runtime
 // ../../../../../target/release/wbuild/pallet-staking-async-parachain-runtime/pallet_staking_async_parachain_runtime.compact.wasm
 // --steps
-// 2
+// 10
 // --repeat
-// 2
+// 20
 // --genesis-builder-preset
 // ksm_size
 // --template
@@ -59,7 +59,7 @@
 use frame_support::{traits::Get, weights::{Weight, constants::RocksDbWeight}};
 use core::marker::PhantomData;
 
-/// WeightInfo for `pallet_election_provider_multi_block_unsigned`.
+/// Weights for `pallet_election_provider_multi_block_unsigned`.
 pub struct WeightInfo<T>(PhantomData<T>);
 impl<T: frame_system::Config> crate::weights::traits::pallet_election_provider_multi_block_unsigned::WeightInfo for WeightInfo<T> {
 	/// Storage: `MultiBlock::CurrentPhase` (r:1 w:0)
@@ -80,8 +80,8 @@ impl<T: frame_system::Config> crate::weights::traits::pallet_election_provider_m
 		// Proof Size summary in bytes:
 		//  Measured:  `365`
 		//  Estimated: `3830`
-		// Minimum execution time: 698_000_000 picoseconds.
-		Weight::from_parts(733_000_000, 3830)
+		// Minimum execution time: 3_958_575_000 picoseconds.
+		Weight::from_parts(3_984_285_000, 3830)
 			.saturating_add(T::DbWeight::get().reads(7_u64))
 	}
 	/// Storage: UNKNOWN KEY `0xa143099d7a337c5fd879b91b2b157c2d` (r:1 w:0)
@@ -108,8 +108,8 @@ impl<T: frame_system::Config> crate::weights::traits::pallet_election_provider_m
 		// Proof Size summary in bytes:
 		//  Measured:  `1395131`
 		//  Estimated: `1406021`
-		// Minimum execution time: 17_153_000_000 picoseconds.
-		Weight::from_parts(17_193_000_000, 1406021)
+		// Minimum execution time: 32_324_705_000 picoseconds.
+		Weight::from_parts(32_944_719_000, 1406021)
 			.saturating_add(T::DbWeight::get().reads(12_u64))
 			.saturating_add(T::DbWeight::get().writes(5_u64))
 	}

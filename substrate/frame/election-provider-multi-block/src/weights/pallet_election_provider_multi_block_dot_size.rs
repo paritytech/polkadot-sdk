@@ -21,9 +21,9 @@
 //! (THIS IS A SPECIAL TEMPLATE FOR `election-provider-multi-block` PALLET)
 //!
 //! THIS FILE WAS AUTO-GENERATED USING THE SUBSTRATE BENCHMARK CLI VERSION 32.0.0
-//! DATE: 2025-05-29, STEPS: `2`, REPEAT: `2`, LOW RANGE: `[]`, HIGH RANGE: `[]`
+//! DATE: 2025-05-30, STEPS: `10`, REPEAT: `20`, LOW RANGE: `[]`, HIGH RANGE: `[]`
 //! WORST CASE MAP SIZE: `1000000`
-//! HOSTNAME: `Kians-MacBook-Pro-2.local`, CPU: `<UNKNOWN>`
+//! HOSTNAME: `ggwpez-ref-hw`, CPU: `AMD EPYC 7232P 8-Core Processor`
 //! WASM-EXECUTION: `Compiled`, CHAIN: `None`, DB CACHE: `1024`
 
 // Executed Command:
@@ -38,9 +38,9 @@
 // --runtime
 // ../../../../../target/release/wbuild/pallet-staking-async-parachain-runtime/pallet_staking_async_parachain_runtime.compact.wasm
 // --steps
-// 2
+// 10
 // --repeat
-// 2
+// 20
 // --genesis-builder-preset
 // dot_size
 // --template
@@ -59,7 +59,7 @@
 use frame_support::{traits::Get, weights::{Weight, constants::RocksDbWeight}};
 use core::marker::PhantomData;
 
-/// WeightInfo for `pallet_election_provider_multi_block`.
+/// Weights for `pallet_election_provider_multi_block`.
 pub struct WeightInfo<T>(PhantomData<T>);
 impl<T: frame_system::Config> crate::weights::traits::pallet_election_provider_multi_block::WeightInfo for WeightInfo<T> {
 	/// Storage: `MultiBlock::CurrentPhase` (r:1 w:1)
@@ -76,8 +76,8 @@ impl<T: frame_system::Config> crate::weights::traits::pallet_election_provider_m
 		// Proof Size summary in bytes:
 		//  Measured:  `184`
 		//  Estimated: `3649`
-		// Minimum execution time: 13_000_000 picoseconds.
-		Weight::from_parts(14_000_000, 3649)
+		// Minimum execution time: 25_691_000 picoseconds.
+		Weight::from_parts(26_460_000, 3649)
 			.saturating_add(T::DbWeight::get().reads(5_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
@@ -109,8 +109,8 @@ impl<T: frame_system::Config> crate::weights::traits::pallet_election_provider_m
 		// Proof Size summary in bytes:
 		//  Measured:  `48351`
 		//  Estimated: `2526816`
-		// Minimum execution time: 4_780_000_000 picoseconds.
-		Weight::from_parts(4_818_000_000, 2526816)
+		// Minimum execution time: 9_409_183_000 picoseconds.
+		Weight::from_parts(9_466_093_000, 2526816)
 			.saturating_add(T::DbWeight::get().reads(1009_u64))
 			.saturating_add(T::DbWeight::get().writes(4_u64))
 	}
@@ -156,8 +156,8 @@ impl<T: frame_system::Config> crate::weights::traits::pallet_election_provider_m
 		// Proof Size summary in bytes:
 		//  Measured:  `1465538`
 		//  Estimated: `3211403`
-		// Minimum execution time: 25_390_000_000 picoseconds.
-		Weight::from_parts(26_122_000_000, 3211403)
+		// Minimum execution time: 50_730_245_000 picoseconds.
+		Weight::from_parts(51_152_260_000, 3211403)
 			.saturating_add(T::DbWeight::get().reads(3040_u64))
 			.saturating_add(T::DbWeight::get().writes(6_u64))
 	}
@@ -205,8 +205,8 @@ impl<T: frame_system::Config> crate::weights::traits::pallet_election_provider_m
 		// Proof Size summary in bytes:
 		//  Measured:  `1528197`
 		//  Estimated: `3274062`
-		// Minimum execution time: 24_515_000_000 picoseconds.
-		Weight::from_parts(25_139_000_000, 3274062)
+		// Minimum execution time: 50_330_669_000 picoseconds.
+		Weight::from_parts(51_965_923_000, 3274062)
 			.saturating_add(T::DbWeight::get().reads(2865_u64))
 			.saturating_add(T::DbWeight::get().writes(6_u64))
 	}
@@ -228,8 +228,8 @@ impl<T: frame_system::Config> crate::weights::traits::pallet_election_provider_m
 		// Proof Size summary in bytes:
 		//  Measured:  `382`
 		//  Estimated: `3847`
-		// Minimum execution time: 77_000_000 picoseconds.
-		Weight::from_parts(79_000_000, 3847)
+		// Minimum execution time: 3_789_149_000 picoseconds.
+		Weight::from_parts(3_886_500_000, 3847)
 			.saturating_add(T::DbWeight::get().reads(7_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
@@ -251,8 +251,8 @@ impl<T: frame_system::Config> crate::weights::traits::pallet_election_provider_m
 		// Proof Size summary in bytes:
 		//  Measured:  `378`
 		//  Estimated: `3843`
-		// Minimum execution time: 82_000_000 picoseconds.
-		Weight::from_parts(94_000_000, 3843)
+		// Minimum execution time: 3_851_726_000 picoseconds.
+		Weight::from_parts(3_912_487_000, 3843)
 			.saturating_add(T::DbWeight::get().reads(7_u64))
 			.saturating_add(T::DbWeight::get().writes(2_u64))
 	}
@@ -286,8 +286,8 @@ impl<T: frame_system::Config> crate::weights::traits::pallet_election_provider_m
 		// Proof Size summary in bytes:
 		//  Measured:  `169940`
 		//  Estimated: `1386155`
-		// Minimum execution time: 7_506_000_000 picoseconds.
-		Weight::from_parts(51_440_000_000, 1386155)
+		// Minimum execution time: 13_245_264_000 picoseconds.
+		Weight::from_parts(13_291_774_000, 1386155)
 			.saturating_add(T::DbWeight::get().reads(991_u64))
 			.saturating_add(T::DbWeight::get().writes(1475_u64))
 	}
@@ -335,8 +335,8 @@ impl<T: frame_system::Config> crate::weights::traits::pallet_election_provider_m
 		// Proof Size summary in bytes:
 		//  Measured:  `1130014`
 		//  Estimated: `2363554`
-		// Minimum execution time: 14_898_000_000 picoseconds.
-		Weight::from_parts(16_853_000_000, 2363554)
+		// Minimum execution time: 27_990_573_000 picoseconds.
+		Weight::from_parts(33_969_464_000, 2363554)
 			.saturating_add(T::DbWeight::get().reads(1600_u64))
 			.saturating_add(T::DbWeight::get().writes(1613_u64))
 	}
@@ -344,7 +344,7 @@ impl<T: frame_system::Config> crate::weights::traits::pallet_election_provider_m
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
-		// Minimum execution time: 0_000 picoseconds.
-		Weight::from_parts(0, 0)
+		// Minimum execution time: 280_000 picoseconds.
+		Weight::from_parts(300_000, 0)
 	}
 }

@@ -21,9 +21,9 @@
 //! (THIS IS A SPECIAL TEMPLATE FOR `election-provider-multi-block` PALLET)
 //!
 //! THIS FILE WAS AUTO-GENERATED USING THE SUBSTRATE BENCHMARK CLI VERSION 32.0.0
-//! DATE: 2025-05-29, STEPS: `2`, REPEAT: `2`, LOW RANGE: `[]`, HIGH RANGE: `[]`
+//! DATE: 2025-05-30, STEPS: `10`, REPEAT: `20`, LOW RANGE: `[]`, HIGH RANGE: `[]`
 //! WORST CASE MAP SIZE: `1000000`
-//! HOSTNAME: `Kians-MacBook-Pro-2.local`, CPU: `<UNKNOWN>`
+//! HOSTNAME: `ggwpez-ref-hw`, CPU: `AMD EPYC 7232P 8-Core Processor`
 //! WASM-EXECUTION: `Compiled`, CHAIN: `None`, DB CACHE: `1024`
 
 // Executed Command:
@@ -38,9 +38,9 @@
 // --runtime
 // ../../../../../target/release/wbuild/pallet-staking-async-parachain-runtime/pallet_staking_async_parachain_runtime.compact.wasm
 // --steps
-// 2
+// 10
 // --repeat
-// 2
+// 20
 // --genesis-builder-preset
 // ksm_size
 // --template
@@ -59,7 +59,7 @@
 use frame_support::{traits::Get, weights::{Weight, constants::RocksDbWeight}};
 use core::marker::PhantomData;
 
-/// WeightInfo for `pallet_election_provider_multi_block_verifier`.
+/// Weights for `pallet_election_provider_multi_block_verifier`.
 pub struct WeightInfo<T>(PhantomData<T>);
 impl<T: frame_system::Config> crate::weights::traits::pallet_election_provider_multi_block_verifier::WeightInfo for WeightInfo<T> {
 	/// Storage: `MultiBlock::CurrentPhase` (r:1 w:1)
@@ -96,8 +96,8 @@ impl<T: frame_system::Config> crate::weights::traits::pallet_election_provider_m
 		// Proof Size summary in bytes:
 		//  Measured:  `283256`
 		//  Estimated: `286721`
-		// Minimum execution time: 3_127_000_000 picoseconds.
-		Weight::from_parts(3_184_000_000, 286721)
+		// Minimum execution time: 7_641_515_000 picoseconds.
+		Weight::from_parts(9_430_295_000, 286721)
 			.saturating_add(T::DbWeight::get().reads(13_u64))
 			.saturating_add(T::DbWeight::get().writes(4_u64))
 	}
@@ -141,8 +141,8 @@ impl<T: frame_system::Config> crate::weights::traits::pallet_election_provider_m
 		// Proof Size summary in bytes:
 		//  Measured:  `1196889`
 		//  Estimated: `1239954`
-		// Minimum execution time: 22_286_000_000 picoseconds.
-		Weight::from_parts(22_917_000_000, 1239954)
+		// Minimum execution time: 31_903_473_000 picoseconds.
+		Weight::from_parts(32_118_905_000, 1239954)
 			.saturating_add(T::DbWeight::get().reads(48_u64))
 			.saturating_add(T::DbWeight::get().writes(40_u64))
 	}
@@ -184,8 +184,8 @@ impl<T: frame_system::Config> crate::weights::traits::pallet_election_provider_m
 		// Proof Size summary in bytes:
 		//  Measured:  `1197238`
 		//  Estimated: `1240303`
-		// Minimum execution time: 19_454_000_000 picoseconds.
-		Weight::from_parts(20_385_000_000, 1240303)
+		// Minimum execution time: 31_537_693_000 picoseconds.
+		Weight::from_parts(31_987_188_000, 1240303)
 			.saturating_add(T::DbWeight::get().reads(62_u64))
 			.saturating_add(T::DbWeight::get().writes(53_u64))
 	}
@@ -226,16 +226,14 @@ impl<T: frame_system::Config> crate::weights::traits::pallet_election_provider_m
 	/// The range of component `v` is `[0, 15]`.
 	fn on_initialize_invalid_non_terminal(v: u32, ) -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `286881 + v * (13183 ±0)`
-		//  Estimated: `522745 + v * (13183 ±0)`
-		// Minimum execution time: 701_000_000 picoseconds.
-		Weight::from_parts(731_000_000, 522745)
-			// Standard Error: 13_350_655
-			.saturating_add(Weight::from_parts(25_066_666, 0).saturating_mul(v.into()))
+		//  Measured:  `372628 + v * (6011 ±0)`
+		//  Estimated: `385475 + v * (7288 ±1_424)`
+		// Minimum execution time: 1_318_647_000 picoseconds.
+		Weight::from_parts(4_794_918_600, 385475)
 			.saturating_add(T::DbWeight::get().reads(30_u64))
 			.saturating_add(T::DbWeight::get().reads((2_u64).saturating_mul(v.into())))
 			.saturating_add(T::DbWeight::get().writes(21_u64))
 			.saturating_add(T::DbWeight::get().writes((2_u64).saturating_mul(v.into())))
-			.saturating_add(Weight::from_parts(0, 13183).saturating_mul(v.into()))
+			.saturating_add(Weight::from_parts(0, 7288).saturating_mul(v.into()))
 	}
 }
