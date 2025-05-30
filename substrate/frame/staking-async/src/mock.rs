@@ -91,7 +91,7 @@ parameter_types! {
 	pub static AbsoluteMaxNominations: u32 = 16;
 	pub static PlanningEraModeVal: PlanningEraMode = PlanningEraMode::Fixed(2);
 	// Session configs
-	pub static RelaySessionsPerEra: SessionIndex = 3;
+	pub static SessionsPerEra: SessionIndex = 3;
 	pub static Period: BlockNumber = 5;
 	pub static Offset: BlockNumber = 0;
 }
@@ -406,7 +406,7 @@ impl crate::pallet::pallet::Config for Test {
 	type Currency = Balances;
 	type RewardRemainder = RewardRemainderMock;
 	type Reward = MockReward;
-	type RelaySessionsPerEra = RelaySessionsPerEra;
+	type SessionsPerEra = SessionsPerEra;
 	type SlashDeferDuration = SlashDeferDuration;
 	type AdminOrigin = EitherOfDiverse<EnsureRoot<AccountId>, EnsureSignedBy<One, AccountId>>;
 	type EraPayout = OneTokenPerMillisecond;
@@ -536,7 +536,7 @@ impl ExtBuilder {
 		self
 	}
 	pub(crate) fn session_per_era(self, length: SessionIndex) -> Self {
-		RelaySessionsPerEra::set(length);
+		SessionsPerEra::set(length);
 		self
 	}
 	pub(crate) fn period(self, length: BlockNumber) -> Self {
@@ -765,7 +765,7 @@ pub(crate) fn time_per_session() -> u64 {
 
 /// Time it takes to finish an era.
 pub(crate) fn time_per_era() -> u64 {
-	time_per_session() * RelaySessionsPerEra::get() as u64
+	time_per_session() * SessionsPerEra::get() as u64
 }
 
 pub(crate) fn reward_all_elected() {

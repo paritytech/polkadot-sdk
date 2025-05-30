@@ -180,9 +180,9 @@ pub mod pallet {
 		#[pallet::no_default_bounds]
 		type Reward: OnUnbalanced<PositiveImbalanceOf<Self>>;
 
-		/// Number of sessions per era, as per the preferences of the relay chain.
+		/// Number of sessions per era, as per the preferences of the **relay chain**.
 		#[pallet::constant]
-		type RelaySessionsPerEra: Get<SessionIndex>;
+		type SessionsPerEra: Get<SessionIndex>;
 
 		/// Number of sessions before the end of an era when the election for the next era will
 		/// start.
@@ -190,11 +190,11 @@ pub mod pallet {
 		/// - This determines how many sessions **before** the last session of the era the staking
 		///   election process should begin.
 		/// - The value is bounded between **1** (election starts at the beginning of the last
-		///   session) and `RelaySessionsPerEra` (election starts at the beginning of the first
+		///   session) and `SessionsPerEra` (election starts at the beginning of the first
 		///   session of the era).
 		///
 		/// ### Example:
-		/// - If `RelaySessionsPerEra = 6` and `PlanningEraOffset = 1`, the election starts at the
+		/// - If `SessionsPerEra = 6` and `PlanningEraOffset = 1`, the election starts at the
 		///   beginning of session `6 - 1 = 5`.
 		/// - If `PlanningEraOffset = 6`, the election starts at the beginning of session `6 - 6 =
 		///   0`, meaning it starts at the very beginning of the era.
@@ -348,7 +348,7 @@ pub mod pallet {
 		impl frame_system::DefaultConfig for TestDefaultConfig {}
 
 		parameter_types! {
-			pub const RelaySessionsPerEra: SessionIndex = 3;
+			pub const SessionsPerEra: SessionIndex = 3;
 			pub const BondingDuration: EraIndex = 3;
 		}
 
@@ -363,7 +363,7 @@ pub mod pallet {
 			type RewardRemainder = ();
 			type Slash = ();
 			type Reward = ();
-			type RelaySessionsPerEra = RelaySessionsPerEra;
+			type SessionsPerEra = SessionsPerEra;
 			type BondingDuration = BondingDuration;
 			type PlanningEraOffset = ConstU32<1>;
 			type SlashDeferDuration = ();

@@ -185,7 +185,7 @@ mod tests {
 			rc::roll_until_matches(
 				|| {
 					pallet_session::CurrentIndex::<rc::Runtime>::get() ==
-						current_session + ah::RelaySessionsPerEra::get() + 1
+						current_session + ah::SessionsPerEra::get() + 1
 				},
 				true,
 			);

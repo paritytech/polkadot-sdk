@@ -316,7 +316,7 @@ impl multi_block::signed::Config for Runtime {
 parameter_types! {
 	pub static BondingDuration: u32 = 3;
 	pub static SlashDeferredDuration: u32 = 2;
-	pub static RelaySessionsPerEra: u32 = 6;
+	pub static SessionsPerEra: u32 = 6;
 	pub static PlanningEraOffset: u32 = 2;
 }
 
@@ -326,7 +326,7 @@ impl pallet_staking_async::Config for Runtime {
 
 	type AdminOrigin = EnsureRoot<AccountId>;
 	type BondingDuration = BondingDuration;
-	type RelaySessionsPerEra = RelaySessionsPerEra;
+	type SessionsPerEra = SessionsPerEra;
 	type PlanningEraOffset = PlanningEraOffset;
 
 	type Currency = Balances;

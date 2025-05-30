@@ -260,7 +260,7 @@ impl pallet_staking_async::Config for Runtime {
 	type RewardRemainder = ();
 	type Slash = ();
 	type Reward = ();
-	type RelaySessionsPerEra = SessionsPerEra;
+	type SessionsPerEra = SessionsPerEra;
 	type BondingDuration = BondingDuration;
 	type SlashDeferDuration = SlashDeferDuration;
 	type AdminOrigin = EitherOf<EnsureRoot<AccountId>, StakingAdmin>;

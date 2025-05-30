@@ -719,10 +719,10 @@ impl<T: Config> Rotator<T> {
 
 	/// Returns whether we are at the session where we should plan the new era.
 	fn is_plan_era_deadline(start_session: SessionIndex) -> bool {
-		let planning_era_offset = T::PlanningEraOffset::get().min(T::RelaySessionsPerEra::get());
+		let planning_era_offset = T::PlanningEraOffset::get().min(T::SessionsPerEra::get());
 		// session at which we should plan the new era.
 		let target_plan_era_session =
-			T::RelaySessionsPerEra::get().saturating_sub(planning_era_offset);
+			T::SessionsPerEra::get().saturating_sub(planning_era_offset);
 		let era_start_session = Self::active_era_start_session_index();
 
 		// progress of the active era in sessions.
