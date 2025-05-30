@@ -88,7 +88,11 @@ sp-transaction-pool = { workspace = true }
 sp-version = { workspace = true }
 
 # num-traits feature needed for dex integer sq root:
-primitive-types = { features = ["codec", "num-traits", "scale-info"], workspace = true }
+primitive-types = { features = [
+	"codec",
+	"num-traits",
+	"scale-info",
+], workspace = true }
 
 # Polkadot
 pallet-xcm = { workspace = true }
