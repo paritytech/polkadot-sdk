@@ -662,7 +662,7 @@ pub mod pallet {
 					// create the target snapshot
 					let result = Self::create_targets_snapshot();
 					if result.is_err() {
-						Self::deposit_event(Event::TargetSnapshotFailed);
+						Self::deposit_event(Event::UnexpectedTargetSnapshotFailed);
 					}
 					result.defensive_unwrap_or_default();
 					T::WeightInfo::on_initialize_into_snapshot_msp()
@@ -671,7 +671,7 @@ pub mod pallet {
 					// create voter snapshot
 					let result = Self::create_voters_snapshot_paged(x);
 					if result.is_err() {
-						Self::deposit_event(Event::VoterSnapshotFailed);
+						Self::deposit_event(Event::UnexpectedVoterSnapshotFailed);
 					}
 					result.defensive_unwrap_or_default();
 					T::WeightInfo::on_initialize_into_snapshot_rest()
@@ -787,9 +787,9 @@ pub mod pallet {
 			to: Phase<T>,
 		},
 		/// Target snapshot creation failed
-		TargetSnapshotFailed,
+		UnexpectedTargetSnapshotFailed,
 		/// Voter snapshot creation failed
-		VoterSnapshotFailed,
+		UnexpectedVoterSnapshotFailed,
 	}
 
 	/// Error of the pallet that can be returned in response to dispatches.
@@ -1647,9 +1647,8 @@ mod phase_rotation {
 				assert_ok!(Snapshot::<Runtime>::ensure_snapshot(true, 1));
 				assert_eq!(MultiBlock::round(), 0);
 
-				let events = multi_block_events_since_last_call();
 				assert_eq!(
-					events,
+					multi_block_events_since_last_call(),
 					vec![
 						Event::PhaseTransitioned { from: Phase::Off, to: Phase::Snapshot(1) },
 						Event::PhaseTransitioned {
@@ -1658,9 +1657,6 @@ mod phase_rotation {
 						}
 					]
 				);
-				// Verify no snapshot failure events during successful operation
-				assert!(!events.contains(&Event::TargetSnapshotFailed));
-				assert!(!events.contains(&Event::VoterSnapshotFailed));
 
 				roll_to(19);
 				assert_eq!(MultiBlock::current_phase(), Phase::Signed(0));
@@ -1765,9 +1761,8 @@ mod phase_rotation {
 				assert_eq!(MultiBlock::round(), 0);
 				assert_eq!(MultiBlock::current_phase(), Phase::Signed(SignedPhase::get() - 1));
 
-				let events = multi_block_events_since_last_call();
 				assert_eq!(
-					events,
+					multi_block_events_since_last_call(),
 					vec![
 						Event::PhaseTransitioned { from: Phase::Off, to: Phase::Snapshot(2) },
 						Event::PhaseTransitioned {
@@ -1776,9 +1771,6 @@ mod phase_rotation {
 						}
 					]
 				);
-				// Verify no snapshot failure events during successful operation
-				assert!(!events.contains(&Event::TargetSnapshotFailed));
-				assert!(!events.contains(&Event::VoterSnapshotFailed));
 
 				roll_to(19);
 				assert_eq!(MultiBlock::current_phase(), Phase::Signed(0));
@@ -1880,9 +1872,9 @@ mod phase_rotation {
 				roll_to(15);
 				assert_ok!(Snapshot::<Runtime>::ensure_snapshot(true, Pages::get()));
 				assert_eq!(MultiBlock::current_phase(), Phase::Signed(4));
-				let events = multi_block_events_since_last_call();
+
 				assert_eq!(
-					events,
+					multi_block_events_since_last_call(),
 					vec![
 						Event::PhaseTransitioned { from: Phase::Off, to: Phase::Snapshot(3) },
 						Event::PhaseTransitioned {
@@ -1891,10 +1883,6 @@ mod phase_rotation {
 						}
 					]
 				);
-				// Verify no snapshot failure events during successful operation
-				assert!(!events.contains(&Event::TargetSnapshotFailed));
-				assert!(!events.contains(&Event::VoterSnapshotFailed));
-				assert_eq!(MultiBlock::round(), 0);
 
 				roll_to(19);
 				assert_eq!(MultiBlock::current_phase(), Phase::Signed(0));
@@ -2278,7 +2266,7 @@ mod phase_rotation {
 					// Verify that TargetSnapshotFailed event was emitted
 					let events = multi_block_events_since_last_call();
 					assert!(
-						events.contains(&Event::TargetSnapshotFailed),
+						events.contains(&Event::UnexpectedTargetSnapshotFailed),
 						"TargetSnapshotFailed event should have been emitted when target snapshot creation fails. Events: {:?}",
 						events
 					);
