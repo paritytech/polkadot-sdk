@@ -467,15 +467,14 @@ fn increasing_unbond_amount_should_delay_expected_withdrawal() {
 		.has_stakers(false)
 		.has_unbonding_queue_config(true)
 		.build_and_execute(|| {
-			Session::roll_until_active_era(10);
-			assert_eq!(Staking::current_era(), 10);
-			EraLowestRatioTotalStake::<Test>::insert(10, 10_000);
 			let ed = Balances::minimum_balance();
 
-			// Validator 1
 			assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), 11, 10_000 + ed));
 			assert_ok!(Staking::bond(RuntimeOrigin::signed(11), 10_000, RewardDestination::Stash));
 			assert_ok!(Staking::validate(RuntimeOrigin::signed(11), ValidatorPrefs::default()));
+
+			Session::roll_until_active_era(10);
+			assert_eq!(Staking::current_era(), 10);
 
 			assert_eq!(
 				StakingLedger::<Test>::get(StakingAccount::Stash(11))
