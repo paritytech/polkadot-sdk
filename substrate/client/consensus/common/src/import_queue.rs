@@ -344,21 +344,25 @@ pub(crate) async fn verify_single_block_metered<B: BlockT, V: Verifier<B>>(
 
 	let started = Instant::now();
 
-	let mut import_block = BlockImportParams::new(block_origin, header);
-	import_block.body = block.body;
-	import_block.justifications = justifications;
-	import_block.post_hash = Some(hash);
-	import_block.import_existing = block.import_existing;
-	import_block.indexed_body = block.indexed_body;
-
-	if let Some(state) = block.state {
-		let changes = crate::block_import::StorageChanges::Import(state);
-		import_block.state_action = StateAction::ApplyChanges(changes);
-	} else if block.skip_execution {
-		import_block.state_action = StateAction::Skip;
-	} else if block.allow_missing_state {
-		import_block.state_action = StateAction::ExecuteIfPossible;
-	}
+	// TODO Here's the plan for how to clean this up. I will create a new constructor for the
+	// BlockImportParams called `new_with_common_fields` which will do the same thing as this
+	// paragraph of code. Additionally, I will create a new field called peer and set that field in
+	// the constructor as well (since this code needs it). Verify will still return
+	// BlockImportParams, and the verify impls will be updated to first call this new constructor.
+	// Then, all of this import code will be refactored to accept the BlockImportParams instead of
+	// IncomingBlocks. That should handle everything.
+	let mut import_block = BlockImportParams::new_with_common_fields(
+		block_origin,
+		header,
+		block.body,
+		justifications,
+		hash,
+		block.import_existing,
+		block.indexed_body,
+		block.state,
+		block.skip_execution,
+		block.allow_missing_state,
+	);
 
 	// TODO This is currently where the verify call is. This needs to be hoisted out of the
 	// import_queue and into the sync code somehow.

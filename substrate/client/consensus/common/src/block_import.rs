@@ -27,6 +27,8 @@ use std::{any::Any, borrow::Cow, collections::HashMap, sync::Arc};
 
 use sp_consensus::{BlockOrigin, Error};
 
+use crate::IncomingBlock;
+
 /// Block import result.
 #[derive(Debug, PartialEq, Eq)]
 pub enum ImportResult {
@@ -239,6 +241,36 @@ impl<Block: BlockT> BlockImportParams<Block> {
 			create_gap: true,
 			post_hash: None,
 		}
+	}
+
+	/// Create a new block import params.
+	pub fn new_with_common_fields(
+		origin: BlockOrigin,
+		header: Block::Header,
+		body: Option<Vec<Block::Extrinsic>>,
+		justifications: Option<Justifications>,
+		post_hash: Block::Hash,
+		import_existing: bool,
+		indexed_body: Option<Vec<Vec<u8>>>,
+		state: Option<ImportedState<Block>>,
+		skip_execution: bool,
+		allow_missing_state: bool,
+	) -> Self {
+		let mut import_block = BlockImportParams::new(origin, header);
+		import_block.body = body;
+		import_block.justifications = justifications;
+		import_block.post_hash = Some(post_hash);
+		import_block.import_existing = import_existing;
+		import_block.indexed_body = indexed_body;
+		if let Some(state) = state {
+			let changes = StorageChanges::Import(state);
+			import_block.state_action = StateAction::ApplyChanges(changes);
+		} else if skip_execution {
+			import_block.state_action = StateAction::Skip;
+		} else if allow_missing_state {
+			import_block.state_action = StateAction::ExecuteIfPossible;
+		}
+		import_block
 	}
 
 	/// Get the full header hash (with post-digests applied).
