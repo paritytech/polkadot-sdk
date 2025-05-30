@@ -347,6 +347,7 @@ where
 				downward_messages: Default::default(),
 				horizontal_messages: Default::default(),
 				relay_parent_descendants: Default::default(),
+				collator_peer_id: None,
 			};
 
 			let _ = cumulus_pallet_parachain_system::Pallet::<Runtime>::set_validation_data(
@@ -710,6 +711,7 @@ pub fn mock_open_hrmp_channel<
 			downward_messages: Default::default(),
 			horizontal_messages: Default::default(),
 			relay_parent_descendants: Default::default(),
+			collator_peer_id: None,
 		};
 		inherent_data
 			.put_data(
