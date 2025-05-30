@@ -65,7 +65,7 @@ use frame_support::{
 	traits::{
 		fungible::{Inspect, Mutate, MutateHold},
 		tokens::{Fortitude::Polite, Preservation::Preserve},
-		ConstU32, ConstU64, Contains, EnsureOrigin, Everything, Get, IsType, OriginTrait, Time,
+		ConstU32, ConstU64, Contains, EnsureOrigin, Get, IsType, OriginTrait, Time,
 	},
 	weights::WeightMeter,
 	BoundedVec, RuntimeDebugNoBound,
