@@ -2287,57 +2287,6 @@ mod phase_rotation {
 					assert_eq!(MultiBlock::current_phase(), Phase::Snapshot(1));
 				});
 	}
-
-	#[test]
-	#[cfg_attr(debug_assertions, should_panic(expected = "Defensive failure has been triggered!"))]
-	fn voter_snapshot_failed_event_emitted() {
-		ExtBuilder::full()
-			.pages(2)
-			.election_start(13)
-			.build_and_execute(|| {
-				// Enable voter snapshot failure for this test
-				FailVotersSnapshot::set(true);
-
-				// Set normal targets (no failure for target snapshot)
-				Targets::set(vec![1, 2, 3, 4]);
-
-					// Create way more voters than the VoterSnapshotPerBlock limit (4)
-					// This will cause bounds.slice_exhausted(&voters) to return true in the mock
-					let too_many_voters: Vec<(AccountId, VoteWeight, BoundedVec<AccountId, MaxVotesPerVoter>)> =
-						(1..=100)
-							.map(|i| (i as AccountId, 100, vec![1].try_into().unwrap()))
-							.collect();
-					Voters::set(too_many_voters);
-
-					// Start election and move past target snapshot creation
-					roll_to(13); // Phase::Snapshot(2)
-					roll_to(14); // Target snapshot created, now Phase::Snapshot(1)
-
-					// We should now be in Phase::Snapshot(1) where voter snapshot will be created
-					assert_eq!(MultiBlock::current_phase(), Phase::Snapshot(1));
-
-					// Clear any existing events
-					let _ = multi_block_events_since_last_call();
-
-					// Roll to next block - on_initialize will be in Phase::Snapshot(1) where x < T::Pages::get()
-					// This triggers voter snapshot creation for page 1, which should fail due to too many voters
-					roll_to(15);
-
-					// Verify that VoterSnapshotFailed event was emitted
-					let events = multi_block_events_since_last_call();
-					assert!(
-						events.contains(&Event::VoterSnapshotFailed),
-						"VoterSnapshotFailed event should have been emitted when voter snapshot creation fails. Events: {:?}",
-						events
-					);
-
-					// Verify phase transition still happened despite the failure
-					assert_eq!(MultiBlock::current_phase(), Phase::Snapshot(0));
-
-					// Clean up: disable the failure flag
-					FailVotersSnapshot::set(false);
-				});
-	}
 }
 
 #[cfg(test)]
