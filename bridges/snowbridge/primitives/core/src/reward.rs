@@ -194,8 +194,8 @@ mod tests {
 	pub struct MockXcmExecutor;
 	impl<C> ExecuteXcm<C> for MockXcmExecutor {
 		type Prepared = Weightless;
-		fn prepare(message: Xcm<C>) -> Result<Self::Prepared, Xcm<C>> {
-			Err(message)
+		fn prepare(message: Xcm<C>) -> Result<Self::Prepared, u8> {
+			Err(0)
 		}
 		fn execute(
 			_: impl Into<Location>,
@@ -313,8 +313,8 @@ mod tests {
 		struct FailingXcmExecutor;
 		impl<C> ExecuteXcm<C> for FailingXcmExecutor {
 			type Prepared = Weightless;
-			fn prepare(message: Xcm<C>) -> Result<Self::Prepared, Xcm<C>> {
-				Err(message)
+			fn prepare(message: Xcm<C>) -> Result<Self::Prepared, u8> {
+				Err(0)
 			}
 			fn execute(
 				_: impl Into<Location>,
