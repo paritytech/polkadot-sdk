@@ -42,7 +42,7 @@
 //! cargo build --release -p path-to-runtime
 //! ```
 //! Equivalent code in tests:
-#![doc = docify::embed!("./src/guides/your_first_node.rs", build_runtime)]
+#![doc = docify::embed!("./src/guides/your_first_runtime.rs", build_runtime)]
 //!
 //! This creates the wasm file under `./target/{release}/wbuild/release` directory.
 //!
@@ -109,8 +109,6 @@ mod tests {
 	use std::path::PathBuf;
 
 	const PARA_RUNTIME: &'static str = "parachain-template-runtime";
-	const MINIMAL_RUNTIME: &'static str = "minimal-template-runtime";
-
 	const CHAIN_SPEC_BUILDER: &'static str = "chain-spec-builder";
 	const OMNI_NODE: &'static str = "polkadot-omni-node";
 
@@ -283,13 +281,6 @@ mod tests {
 			.for_each(|preset| {
 				test_runtime_preset(PARA_RUNTIME, 1000, preset);
 			});
-	}
-
-	#[test]
-	fn minimal_runtime_works() {
-		[None, Some(DEV_RUNTIME_PRESET.into())].into_iter().for_each(|preset| {
-			test_runtime_preset(MINIMAL_RUNTIME, 1000, preset);
-		});
 	}
 
 	#[test]
