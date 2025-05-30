@@ -23,7 +23,7 @@ use super::{
 	import_notification_sink::MultiViewImportNotificationSink,
 	metrics::{EventsMetricsCollector, MetricsLink as PrometheusMetrics},
 	multi_view_listener::MultiViewListener,
-	tx_mem_pool::{InsertionInfo, TxMemPool, TXMEMPOOL_TRANSACTION_LIMIT_MULTIPLIER},
+	tx_mem_pool::{InsertionInfo, TxMemPool},
 	view::View,
 	view_store::ViewStore,
 };
@@ -389,7 +389,7 @@ where
 			pool_api.clone(),
 			listener.clone(),
 			metrics.clone(),
-			TXMEMPOOL_TRANSACTION_LIMIT_MULTIPLIER * options.total_count(),
+			options.total_count(),
 			options.ready.total_bytes + options.future.total_bytes,
 		);
 		let mempool = Arc::from(mempool);
