@@ -351,9 +351,14 @@ pub(crate) async fn verify_single_block_metered<B: BlockT, V: Verifier<B>>(
 	// BlockImportParams, and the verify impls will be updated to first call this new constructor.
 	// Then, all of this import code will be refactored to accept the BlockImportParams instead of
 	// IncomingBlocks. That should handle everything.
+	//
+	// TODO In fact I don't even need to do that. I can just leave the verify signature exactly the
+	// same and pass in the BlockImportParams::new_with_common_fields, which will return a result,
+	// and then forward that result to the block import queue
 	let mut import_block = BlockImportParams::new_with_common_fields(
 		block_origin,
 		header,
+		peer,
 		block.body,
 		justifications,
 		hash,

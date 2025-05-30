@@ -18,6 +18,7 @@
 
 //! Block import helpers.
 
+use sc_network_types::PeerId;
 use serde::{Deserialize, Serialize};
 use sp_runtime::{
 	traits::{Block as BlockT, HashingFor, Header as HeaderT, NumberFor},
@@ -220,6 +221,8 @@ pub struct BlockImportParams<Block: BlockT> {
 	pub create_gap: bool,
 	/// Cached full header hash (with post-digests applied).
 	pub post_hash: Option<Block::Hash>,
+	/// The peer that sent this block, if any.
+	pub peer: Option<PeerId>,
 }
 
 impl<Block: BlockT> BlockImportParams<Block> {
@@ -240,6 +243,7 @@ impl<Block: BlockT> BlockImportParams<Block> {
 			import_existing: false,
 			create_gap: true,
 			post_hash: None,
+			peer: None,
 		}
 	}
 
@@ -247,6 +251,7 @@ impl<Block: BlockT> BlockImportParams<Block> {
 	pub fn new_with_common_fields(
 		origin: BlockOrigin,
 		header: Block::Header,
+		peer: Option<PeerId>,
 		body: Option<Vec<Block::Extrinsic>>,
 		justifications: Option<Justifications>,
 		post_hash: Block::Hash,
@@ -270,6 +275,7 @@ impl<Block: BlockT> BlockImportParams<Block> {
 		} else if allow_missing_state {
 			import_block.state_action = StateAction::ExecuteIfPossible;
 		}
+		import_block.peer = peer;
 		import_block
 	}
 
