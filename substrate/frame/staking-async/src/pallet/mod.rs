@@ -2131,17 +2131,11 @@ pub mod pallet {
 		) -> DispatchResult {
 			ensure_signed(origin)?;
 			let min_commission = MinCommission::<T>::get();
-			Validators::<T>::try_mutate_exists(&validator_stash, |maybe_prefs| {
-				if let Some(prefs) = maybe_prefs {
-					if prefs.commission < min_commission {
-						prefs.commission = min_commission;
-					}
-					// Explicitly state the error type for the Ok variant.
-					Ok::<(), sp_runtime::DispatchError>(())
-				} else {
-					Err(Error::<T>::NotStash.into())
-				}
-			})?;
+			let mut validator_prefs = Validators::<T>::get(&validator_stash).ok_or(Error::<T>::NotStash)?;
+			if validator_prefs.commission < min_commission {
+				validator_prefs.commission = min_commission;
+			}
+			Validators::<T>::insert(&validator_stash, validator_prefs);
 			Ok(())
 		}
 
