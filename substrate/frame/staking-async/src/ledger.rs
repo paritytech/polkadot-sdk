@@ -406,7 +406,7 @@ impl<T: Config> StakingLedger<T> {
 
 		while let Some(last) = self.unlocking.last_mut() {
 			if unlocking_balance.defensive_saturating_add(last.value) <= value {
-				TotalUnbondInEra::<T>::mutate(last.era, |maybe_unbond| {
+				TotalUnbondInEra::<T>::mutate_exists(last.era, |maybe_unbond| {
 					if let Some(unbond) = maybe_unbond {
 						unbond.saturating_reduce(last.value);
 						if unbond.is_zero() {
@@ -423,7 +423,7 @@ impl<T: Config> StakingLedger<T> {
 				unlocking_balance += diff;
 				self.active += diff;
 				last.value -= diff;
-				TotalUnbondInEra::<T>::mutate(last.era, |maybe_unbond| {
+				TotalUnbondInEra::<T>::mutate_exists(last.era, |maybe_unbond| {
 					if let Some(unbond) = maybe_unbond {
 						unbond.saturating_reduce(diff);
 						if unbond.is_zero() {

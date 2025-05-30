@@ -460,3 +460,56 @@ fn old_unbonding_chunks_should_be_withdrawable_in_current_era() {
 		assert_eq!(TotalUnbondInEra::<T>::get(11), Some(10));
 	});
 }
+
+#[test]
+fn increasing_unbond_amount_should_delay_expected_withdrawal() {
+	ExtBuilder::default()
+		.has_stakers(false)
+		.has_unbonding_queue_config(true)
+		.build_and_execute(|| {
+			Session::roll_until_active_era(10);
+			assert_eq!(Staking::current_era(), 10);
+			EraLowestRatioTotalStake::<Test>::insert(10, 10_000);
+			let ed = Balances::minimum_balance();
+
+			// Validator 1
+			assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), 11, 10_000 + ed));
+			assert_ok!(Staking::bond(RuntimeOrigin::signed(11), 10_000, RewardDestination::Stash));
+			assert_ok!(Staking::validate(RuntimeOrigin::signed(11), ValidatorPrefs::default()));
+
+			assert_eq!(
+				StakingLedger::<Test>::get(StakingAccount::Stash(11))
+					.unwrap()
+					.unlocking
+					.into_inner(),
+				vec![]
+			);
+			assert_eq!(Staking::unbonding_duration(11), vec![]);
+			assert_eq!(TotalUnbondInEra::<T>::get(10), None);
+
+			assert_ok!(Staking::unbond(RuntimeOrigin::signed(11), 10));
+			assert_eq!(
+				StakingLedger::<Test>::get(StakingAccount::Stash(11))
+					.unwrap()
+					.unlocking
+					.into_inner(),
+				vec![UnlockChunk { value: 10, era: 10, previous_unbonded_stake: 0 }]
+			);
+			assert_eq!(Staking::unbonding_duration(11), vec![(10 + 2, 10)]);
+			assert_eq!(TotalUnbondInEra::<T>::get(10), Some(10));
+
+			// Unbond a huge amount of stake.
+			assert_ok!(Staking::unbond(RuntimeOrigin::signed(11), 8000 - 10));
+			assert_eq!(
+				StakingLedger::<Test>::get(StakingAccount::Stash(11))
+					.unwrap()
+					.unlocking
+					.into_inner(),
+				vec![UnlockChunk { value: 8000, era: 10, previous_unbonded_stake: 10 }]
+			);
+
+			// The expected release has been increased.
+			assert_eq!(Staking::unbonding_duration(11), vec![(10 + 3, 8000)]);
+			assert_eq!(TotalUnbondInEra::<T>::get(10), Some(8000));
+		});
+}
