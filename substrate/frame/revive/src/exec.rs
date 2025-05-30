@@ -280,6 +280,11 @@ pub trait PrecompileWithInfoExt: PrecompileExt {
 pub trait PrecompileExt: sealing::Sealed {
 	type T: Config;
 
+	/// Charges the gas meter with the given weight.
+	fn charge(&mut self, weight: Weight) -> Result<crate::gas::ChargedAmount, DispatchError> {
+		self.gas_meter_mut().charge(crate::RuntimeCosts::Precompile(weight))
+	}
+
 	/// Call (possibly transferring some amount of funds) into the specified account.
 	///
 	/// Returns the code size of the called contract.

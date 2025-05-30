@@ -11219,12 +11219,14 @@ dependencies = [
 name = "pallet-assets"
 version = "29.1.0"
 dependencies = [
+ "ethereum-standards",
  "frame-benchmarking",
  "frame-support",
  "frame-system",
  "impl-trait-for-tuples",
  "log",
  "pallet-balances",
+ "pallet-revive",
  "parity-scale-codec",
  "scale-info",
  "sp-core 28.0.0",
