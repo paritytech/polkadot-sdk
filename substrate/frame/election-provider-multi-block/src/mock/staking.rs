@@ -49,6 +49,7 @@ frame_support::parameter_types! {
 	pub static EpochLength: u64 = 30;
 
 	pub static LastIteratedVoterIndex: Option<usize> = None;
+	pub static FailVotersSnapshot: bool = false;
 }
 
 pub struct MockStaking;
@@ -83,6 +84,11 @@ impl ElectionDataProvider for MockStaking {
 		Vec<(AccountId, VoteWeight, BoundedVec<AccountId, Self::MaxVotesPerVoter>)>,
 	> {
 		let mut voters = Voters::get();
+
+		// Add conditional bounds check for testing voter snapshot failures
+		if FailVotersSnapshot::get() && bounds.slice_exhausted(&voters) {
+			return Err("Voters too big")
+		}
 
 		// jump to the first non-iterated, if this is a follow up.
 		if let Some(index) = LastIteratedVoterIndex::get() {

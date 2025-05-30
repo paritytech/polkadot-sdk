@@ -3,12 +3,12 @@ title: 'Staking (EPMB): Add defensive error handling to voter snapshot creation 
 doc:
 - audience: Runtime Dev
   description: |-
-    Replace unwrap() with defensive_unwrap_or_default() in the on_initialize path of the
+    - Replace unwrap() with defensive_unwrap_or_default() in the on_initialize path of the
     election-provider-multiblock pallet to gracefully handle runtime misconfigurations where voter
     snapshot conversion fails, preventing potential panics during block initialization.
-
-    Replace unwrap() with defensive_unwrap_or(u32::MAX) to ensure solution fails verification
+    - Replace unwrap() with defensive_unwrap_or(u32::MAX) to ensure solution fails verification
     gracefully when desired_targets is unavailable rather than panicking.
+    - Add error events for failed target and voter snapshots
 crates:
 - name: pallet-election-provider-multi-block
-  bump: minor
+  bump: major

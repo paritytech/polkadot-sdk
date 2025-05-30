@@ -660,12 +660,20 @@ pub mod pallet {
 			let weight1 = match current_phase {
 				Phase::Snapshot(x) if x == T::Pages::get() => {
 					// create the target snapshot
-					Self::create_targets_snapshot().defensive_unwrap_or_default();
+					let result = Self::create_targets_snapshot();
+					if result.is_err() {
+						Self::deposit_event(Event::TargetSnapshotFailed);
+					}
+					result.defensive_unwrap_or_default();
 					T::WeightInfo::on_initialize_into_snapshot_msp()
 				},
 				Phase::Snapshot(x) => {
 					// create voter snapshot
-					Self::create_voters_snapshot_paged(x).defensive_unwrap_or_default();
+					let result = Self::create_voters_snapshot_paged(x);
+					if result.is_err() {
+						Self::deposit_event(Event::VoterSnapshotFailed);
+					}
+					result.defensive_unwrap_or_default();
 					T::WeightInfo::on_initialize_into_snapshot_rest()
 				},
 				_ => T::WeightInfo::on_initialize_nothing(),
@@ -778,6 +786,10 @@ pub mod pallet {
 			/// The target phase
 			to: Phase<T>,
 		},
+		/// Target snapshot creation failed
+		TargetSnapshotFailed,
+		/// Voter snapshot creation failed
+		VoterSnapshotFailed,
 	}
 
 	/// Error of the pallet that can be returned in response to dispatches.
@@ -1635,8 +1647,9 @@ mod phase_rotation {
 				assert_ok!(Snapshot::<Runtime>::ensure_snapshot(true, 1));
 				assert_eq!(MultiBlock::round(), 0);
 
+				let events = multi_block_events_since_last_call();
 				assert_eq!(
-					multi_block_events_since_last_call(),
+					events,
 					vec![
 						Event::PhaseTransitioned { from: Phase::Off, to: Phase::Snapshot(1) },
 						Event::PhaseTransitioned {
@@ -1645,6 +1658,9 @@ mod phase_rotation {
 						}
 					]
 				);
+				// Verify no snapshot failure events during successful operation
+				assert!(!events.contains(&Event::TargetSnapshotFailed));
+				assert!(!events.contains(&Event::VoterSnapshotFailed));
 
 				roll_to(19);
 				assert_eq!(MultiBlock::current_phase(), Phase::Signed(0));
@@ -1749,8 +1765,9 @@ mod phase_rotation {
 				assert_eq!(MultiBlock::round(), 0);
 				assert_eq!(MultiBlock::current_phase(), Phase::Signed(SignedPhase::get() - 1));
 
+				let events = multi_block_events_since_last_call();
 				assert_eq!(
-					multi_block_events_since_last_call(),
+					events,
 					vec![
 						Event::PhaseTransitioned { from: Phase::Off, to: Phase::Snapshot(2) },
 						Event::PhaseTransitioned {
@@ -1759,6 +1776,9 @@ mod phase_rotation {
 						}
 					]
 				);
+				// Verify no snapshot failure events during successful operation
+				assert!(!events.contains(&Event::TargetSnapshotFailed));
+				assert!(!events.contains(&Event::VoterSnapshotFailed));
 
 				roll_to(19);
 				assert_eq!(MultiBlock::current_phase(), Phase::Signed(0));
@@ -1860,8 +1880,9 @@ mod phase_rotation {
 				roll_to(15);
 				assert_ok!(Snapshot::<Runtime>::ensure_snapshot(true, Pages::get()));
 				assert_eq!(MultiBlock::current_phase(), Phase::Signed(4));
+				let events = multi_block_events_since_last_call();
 				assert_eq!(
-					multi_block_events_since_last_call(),
+					events,
 					vec![
 						Event::PhaseTransitioned { from: Phase::Off, to: Phase::Snapshot(3) },
 						Event::PhaseTransitioned {
@@ -1870,6 +1891,9 @@ mod phase_rotation {
 						}
 					]
 				);
+				// Verify no snapshot failure events during successful operation
+				assert!(!events.contains(&Event::TargetSnapshotFailed));
+				assert!(!events.contains(&Event::VoterSnapshotFailed));
 				assert_eq!(MultiBlock::round(), 0);
 
 				roll_to(19);
@@ -2227,6 +2251,92 @@ mod phase_rotation {
 				assert_ok!(MultiBlock::elect(1));
 				assert_eq!(MultiBlock::current_phase(), Phase::Export(0));
 			});
+	}
+
+	#[test]
+	#[cfg_attr(debug_assertions, should_panic(expected = "Defensive failure has been triggered!"))]
+	fn target_snapshot_failed_event_emitted() {
+		ExtBuilder::full()
+				.pages(2)
+				.election_start(13)
+				.build_and_execute(|| {
+					// Create way more targets than the TargetSnapshotPerBlock limit (4)
+					// This will cause bounds.slice_exhausted(&targets) to return true
+					let too_many_targets: Vec<AccountId> = (1..=100).collect();
+					Targets::set(too_many_targets);
+
+					roll_to(13);
+					assert_eq!(MultiBlock::current_phase(), Phase::Snapshot(2));
+
+					// Clear any existing events
+					let _ = multi_block_events_since_last_call();
+
+					// Roll to next block - on_initialize will be in Phase::Snapshot(2) where x == T::Pages::get()
+					// This triggers target snapshot creation, which should fail due to too many targets
+					roll_to(14);
+
+					// Verify that TargetSnapshotFailed event was emitted
+					let events = multi_block_events_since_last_call();
+					assert!(
+						events.contains(&Event::TargetSnapshotFailed),
+						"TargetSnapshotFailed event should have been emitted when target snapshot creation fails. Events: {:?}",
+						events
+					);
+
+					// Verify phase transition still happened despite the failure
+					assert_eq!(MultiBlock::current_phase(), Phase::Snapshot(1));
+				});
+	}
+
+	#[test]
+	#[cfg_attr(debug_assertions, should_panic(expected = "Defensive failure has been triggered!"))]
+	fn voter_snapshot_failed_event_emitted() {
+		ExtBuilder::full()
+			.pages(2)
+			.election_start(13)
+			.build_and_execute(|| {
+				// Enable voter snapshot failure for this test
+				FailVotersSnapshot::set(true);
+
+				// Set normal targets (no failure for target snapshot)
+				Targets::set(vec![1, 2, 3, 4]);
+
+					// Create way more voters than the VoterSnapshotPerBlock limit (4)
+					// This will cause bounds.slice_exhausted(&voters) to return true in the mock
+					let too_many_voters: Vec<(AccountId, VoteWeight, BoundedVec<AccountId, MaxVotesPerVoter>)> =
+						(1..=100)
+							.map(|i| (i as AccountId, 100, vec![1].try_into().unwrap()))
+							.collect();
+					Voters::set(too_many_voters);
+
+					// Start election and move past target snapshot creation
+					roll_to(13); // Phase::Snapshot(2)
+					roll_to(14); // Target snapshot created, now Phase::Snapshot(1)
+
+					// We should now be in Phase::Snapshot(1) where voter snapshot will be created
+					assert_eq!(MultiBlock::current_phase(), Phase::Snapshot(1));
+
+					// Clear any existing events
+					let _ = multi_block_events_since_last_call();
+
+					// Roll to next block - on_initialize will be in Phase::Snapshot(1) where x < T::Pages::get()
+					// This triggers voter snapshot creation for page 1, which should fail due to too many voters
+					roll_to(15);
+
+					// Verify that VoterSnapshotFailed event was emitted
+					let events = multi_block_events_since_last_call();
+					assert!(
+						events.contains(&Event::VoterSnapshotFailed),
+						"VoterSnapshotFailed event should have been emitted when voter snapshot creation fails. Events: {:?}",
+						events
+					);
+
+					// Verify phase transition still happened despite the failure
+					assert_eq!(MultiBlock::current_phase(), Phase::Snapshot(0));
+
+					// Clean up: disable the failure flag
+					FailVotersSnapshot::set(false);
+				});
 	}
 }
 
