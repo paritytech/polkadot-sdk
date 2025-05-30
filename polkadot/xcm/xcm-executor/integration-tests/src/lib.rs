@@ -118,7 +118,8 @@ fn transact_recursion_limit_works() {
 			},
 			_ => unreachable!(),
 		}
-		let max_weight = <XcmConfig as xcm_executor::Config>::Weigher::weight(&mut msg).unwrap();
+		let max_weight =
+			<XcmConfig as xcm_executor::Config>::Weigher::weight(&mut msg, Weight::MAX).unwrap();
 		call = Some(polkadot_test_runtime::RuntimeCall::Xcm(pallet_xcm::Call::execute {
 			message: Box::new(VersionedXcm::from(msg.clone())),
 			max_weight,
