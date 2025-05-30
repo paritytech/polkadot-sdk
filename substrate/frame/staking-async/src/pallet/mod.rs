@@ -190,8 +190,8 @@ pub mod pallet {
 		/// - This determines how many sessions **before** the last session of the era the staking
 		///   election process should begin.
 		/// - The value is bounded between **1** (election starts at the beginning of the last
-		///   session) and `SessionsPerEra` (election starts at the beginning of the first
-		///   session of the era).
+		///   session) and `SessionsPerEra` (election starts at the beginning of the first session
+		///   of the era).
 		///
 		/// ### Example:
 		/// - If `SessionsPerEra = 6` and `PlanningEraOffset = 1`, the election starts at the
