@@ -52,7 +52,7 @@ use polkadot_primitives::{
 use schnellru::{LruMap, UnlimitedCompact};
 
 use crate::{
-	db,
+	db::{self, v1::RecentDisputes},
 	error::{log_error, FatalError, FatalResult, JfyiError, JfyiResult, Result},
 	import::{CandidateEnvironment, CandidateVoteState},
 	is_potential_spam,
@@ -132,6 +132,7 @@ impl Initialized {
 		scraper: ChainScraper,
 		highest_session_seen: SessionIndex,
 		gaps_in_cache: bool,
+		offchain_disabled_validators: OffchainDisabledValidators,
 	) -> Self {
 		let DisputeCoordinatorSubsystem {
 			config: _,
@@ -143,7 +144,6 @@ impl Initialized {
 
 		let (participation_sender, participation_receiver) = mpsc::channel(1);
 		let participation = Participation::new(participation_sender, metrics.clone());
-		let offchain_disabled_validators = OffchainDisabledValidators::default();
 
 		Self {
 			keystore,
@@ -1373,10 +1373,11 @@ impl Initialized {
 				}
 			}
 			for validator_index in new_state.votes().invalid.keys() {
-				gum::debug!(
+				gum::info!(
 					target: LOG_TARGET,
 					?candidate_hash,
 					?validator_index,
+					?session,
 					"Disabled offchain for voting invalid against a valid candidate",
 				);
 				self.offchain_disabled_validators
@@ -1403,10 +1404,11 @@ impl Initialized {
 			}
 			for (validator_index, (kind, _sig)) in new_state.votes().valid.raw() {
 				let is_backer = kind.is_backing();
-				gum::debug!(
+				gum::info!(
 					target: LOG_TARGET,
 					?candidate_hash,
 					?validator_index,
+					?session,
 					?is_backer,
 					"Disabled offchain for voting valid for an invalid candidate",
 				);
@@ -1653,13 +1655,13 @@ fn determine_undisputed_chain(
 	Ok(last)
 }
 
+/// Ideally, we want to use the top `byzantine_threshold` offenders here based on the amount of
+/// stake slashed. However, given that slashing might be applied with a delay, we want to have
+/// some list of offenders as soon as disputes conclude offchain. This list only approximates
+/// the top offenders and only accounts for lost disputes. But that should be good enough to
+/// prevent spam attacks.
 #[derive(Default)]
-struct OffchainDisabledValidators {
-	// Ideally, we want to use the top `byzantine_threshold` offenders here based on the amount of
-	// stake slashed. However, given that slashing might be applied with a delay, we want to have
-	// some list of offenders as soon as disputes conclude offchain. This list only approximates
-	// the top offenders and only accounts for lost disputes. But that should be good enough to
-	// prevent spam attacks.
+pub struct OffchainDisabledValidators {
 	per_session: BTreeMap<SessionIndex, LostSessionDisputes>,
 }
 
@@ -1685,13 +1687,59 @@ impl Default for LostSessionDisputes {
 }
 
 impl OffchainDisabledValidators {
-	fn prune_old(&mut self, up_to_excluding: SessionIndex) {
+	/// Creates a new instance populated from concluded disputes
+	pub fn new_from_state(
+		disputes: &RecentDisputes,
+		load_candidate_votes: impl Fn(SessionIndex, &CandidateHash) -> Option<CandidateVotes>,
+		earliest_session: SessionIndex,
+	) -> Self {
+		let mut disabled_validators = Self::default();
+
+		// Process concluded disputes to identify validators that should be disabled
+		for ((session, candidate_hash), dispute_status) in disputes {
+			let session = *session;
+			// Only process concluded disputes
+			if dispute_status.concluded_at().is_none() {
+				continue
+			}
+			if session < earliest_session {
+				continue
+			}
+
+			// Get votes for this dispute
+			let votes = match load_candidate_votes(session, candidate_hash) {
+				Some(votes) => votes,
+				None => continue,
+			};
+
+			// Process votes based on dispute outcome
+			if dispute_status.has_concluded_for() {
+				// Dispute concluded with candidate being valid - track validators that voted
+				// against
+				for (validator_index, _) in votes.invalid.iter() {
+					disabled_validators.insert_against_valid(session, *validator_index);
+				}
+			} else if dispute_status.has_concluded_against() {
+				// Dispute concluded with candidate being invalid - track validators that voted for
+				for (validator_index, (kind, _)) in votes.valid.raw().iter() {
+					let is_backer = kind.is_backing();
+					disabled_validators.insert_for_invalid(session, *validator_index, is_backer);
+				}
+			}
+		}
+
+		disabled_validators
+	}
+
+	/// Prune state for ancient disputes.
+	pub fn prune_old(&mut self, up_to_excluding: SessionIndex) {
 		// split_off returns everything after the given key, including the key.
 		let mut relevant = self.per_session.split_off(&up_to_excluding);
 		std::mem::swap(&mut relevant, &mut self.per_session);
 	}
 
-	fn insert_for_invalid(
+	/// Disable a validator who voted for an invalid candidate.
+	pub fn insert_for_invalid(
 		&mut self,
 		session_index: SessionIndex,
 		validator_index: ValidatorIndex,
@@ -1705,7 +1753,8 @@ impl OffchainDisabledValidators {
 		}
 	}
 
-	fn insert_against_valid(
+	/// Disable a validator who voted against a valid candidate.
+	pub fn insert_against_valid(
 		&mut self,
 		session_index: SessionIndex,
 		validator_index: ValidatorIndex,
@@ -1721,7 +1770,7 @@ impl OffchainDisabledValidators {
 	/// The order of iteration prioritizes `for_invalid` offenders (and backers among those) over
 	/// `against_valid` offenders. And most recently lost disputes over older ones.
 	/// NOTE: the iterator might contain duplicates.
-	fn iter(&self, session_index: SessionIndex) -> impl Iterator<Item = ValidatorIndex> + '_ {
+	pub fn iter(&self, session_index: SessionIndex) -> impl Iterator<Item = ValidatorIndex> + '_ {
 		self.per_session.get(&session_index).into_iter().flat_map(|e| {
 			e.backers_for_invalid
 				.iter()

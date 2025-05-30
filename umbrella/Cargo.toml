@@ -357,6 +357,7 @@ runtime-benchmarks = [
 	"xcm-runtime-apis?/runtime-benchmarks",
 ]
 try-runtime = [
+	"assets-common?/try-runtime",
 	"cumulus-pallet-aura-ext?/try-runtime",
 	"cumulus-pallet-dmp-queue?/try-runtime",
 	"cumulus-pallet-parachain-system?/try-runtime",
@@ -563,6 +564,7 @@ runtime-full = [
 	"cumulus-primitives-storage-weight-reclaim",
 	"cumulus-primitives-timestamp",
 	"cumulus-primitives-utility",
+	"ethereum-standards",
 	"frame-benchmarking",
 	"frame-benchmarking-pallet-pov",
 	"frame-election-provider-solution-type",
@@ -839,6 +841,7 @@ node = [
 	"cumulus-relay-chain-interface",
 	"cumulus-relay-chain-minimal-node",
 	"cumulus-relay-chain-rpc-interface",
+	"cumulus-relay-chain-streams",
 	"cumulus-test-relay-sproof-builder",
 	"emulated-integration-tests-common",
 	"fork-tree",
@@ -1137,6 +1140,11 @@ path = "../cumulus/primitives/timestamp"
 default-features = false
 optional = true
 path = "../cumulus/primitives/utility"
+
+[dependencies.ethereum-standards]
+default-features = false
+optional = true
+path = "../substrate/primitives/ethereum-standards"
 
 [dependencies.frame-benchmarking]
 default-features = false
@@ -2192,6 +2200,11 @@ path = "../cumulus/client/relay-chain-minimal-node"
 default-features = false
 optional = true
 path = "../cumulus/client/relay-chain-rpc-interface"
+
+[dependencies.cumulus-relay-chain-streams]
+default-features = false
+optional = true
+path = "../cumulus/client/relay-chain-streams"
 
 [dependencies.cumulus-test-relay-sproof-builder]
 default-features = false

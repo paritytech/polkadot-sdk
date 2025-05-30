@@ -179,7 +179,7 @@ pub mod pallet {
 	pub struct Pallet<T>(_);
 
 	#[pallet::config]
-	pub trait Config: frame_system::Config + CreateInherent<Call<Self>> {
+	pub trait Config: frame_system::Config + CreateBare<Call<Self>> {
 		/// The maximum number of authorities per session.
 		#[pallet::constant]
 		type MaxAuthorities: Get<AuthorityIndex>;
@@ -532,7 +532,7 @@ impl<T: Config> Pallet<T> {
 			return false;
 		};
 		let call = Call::register { registration, signature };
-		let xt = T::create_inherent(call.into());
+		let xt = T::create_bare(call.into());
 		match SubmitTransaction::<T, Call<T>>::submit_transaction(xt) {
 			Ok(()) => true,
 			Err(()) => {

@@ -1,0 +1,10 @@
+title: '[pallet-revive] Fix rpc-types'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Update rpc-types
+    - Remove unnecessary derive traits
+    - Fix json decoding for `BlockNumberOrTagOrHash`
+crates:
+- name: pallet-revive
+  bump: patch

@@ -222,6 +222,8 @@ impl<
 		dest: &Location,
 		fee_reason: xcm_executor::traits::FeeReason,
 	) -> (Option<xcm_executor::FeesMode>, Option<Assets>) {
+		use alloc::vec;
+		use xcm::{latest::MAX_ITEMS_IN_ASSETS, MAX_INSTRUCTIONS_TO_DECODE};
 		use xcm_executor::{
 			traits::{FeeManager, TransactAsset},
 			FeesMode,
@@ -249,7 +251,12 @@ impl<
 			}
 
 			// overestimate delivery fee
-			let overestimated_xcm = alloc::vec![ClearOrigin; 128].into();
+			let mut max_assets: Vec<Asset> = Vec::new();
+			for i in 0..MAX_ITEMS_IN_ASSETS {
+				max_assets.push((GeneralIndex(i as u128), 100u128).into());
+			}
+			let overestimated_xcm =
+				vec![WithdrawAsset(max_assets.into()); MAX_INSTRUCTIONS_TO_DECODE as usize].into();
 			let overestimated_fees =
 				PriceForDelivery::price_for_delivery(Parachain::get(), &overestimated_xcm);
 
@@ -284,10 +291,6 @@ mod tests {
 	struct TestFeeTracker;
 	impl FeeTracker for TestFeeTracker {
 		type Id = ParaId;
-
-		fn get_min_fee_factor() -> FixedU128 {
-			unimplemented!()
-		}
 
 		fn get_fee_factor(_: Self::Id) -> FixedU128 {
 			FixedU128::from_rational(101, 100)

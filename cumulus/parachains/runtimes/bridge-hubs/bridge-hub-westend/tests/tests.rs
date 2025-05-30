@@ -40,6 +40,7 @@ use bridge_to_rococo_config::{
 	DeliveryRewardInBalance, WithBridgeHubRococoMessagesInstance, XcmOverBridgeHubRococoInstance,
 };
 use codec::{Decode, Encode};
+use cumulus_primitives_core::UpwardMessageSender;
 use frame_support::{
 	assert_err, assert_ok,
 	dispatch::GetDispatchInfo,
@@ -315,7 +316,7 @@ fn message_dispatch_routing_works() {
 				_ => None,
 			}
 		}),
-		|| (),
+		|| <ParachainSystem as UpwardMessageSender>::ensure_successful_delivery(),
 	)
 }
 
@@ -788,7 +789,7 @@ fn governance_authorize_upgrade_works() {
 			Runtime,
 			RuntimeOrigin,
 		>(GovernanceOrigin::Location(Location::new(1, Parachain(ASSET_HUB_ID)))),
-		Either::Right(XcmError::Barrier)
+		Either::Right(XcmError::BadOrigin)
 	);
 	// no - Collectives
 	assert_err!(
