@@ -14,20 +14,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{
-	chain_spec::Extensions,
-	common::{
-		rpc::BuildRpcExtensions as BuildRpcExtensionsT,
-		spec::{BaseNodeSpec, BuildImportQueue, ClientBlockImport, NodeSpec as NodeSpecT},
-		types::{Hash, ParachainBlockImport, ParachainClient},
-	},
+use crate::common::{
+	rpc::BuildRpcExtensions as BuildRpcExtensionsT,
+	spec::{BaseNodeSpec, BuildImportQueue, ClientBlockImport, NodeSpec as NodeSpecT},
+	types::{Hash, ParachainBlockImport, ParachainClient},
 };
 use codec::Encode;
 use cumulus_client_parachain_inherent::{MockValidationDataInherentDataProvider, MockXcmConfig};
 use cumulus_primitives_aura::AuraUnincludedSegmentApi;
-use cumulus_primitives_core::{CollectCollationInfo, GetParachainIdentity, ParaId};
+use cumulus_primitives_core::CollectCollationInfo;
 use futures::FutureExt;
-use log::info;
 use polkadot_primitives::UpgradeGoAhead;
 use sc_client_api::Backend;
 use sc_consensus::{DefaultImportQueue, LongestChain};
@@ -37,7 +33,7 @@ use sc_service::{Configuration, PartialComponents, TaskManager};
 use sc_telemetry::TelemetryHandle;
 use sc_transaction_pool_api::OffchainTransactionPoolFactory;
 use sp_api::{ApiExt, ProvideRuntimeApi};
-use sp_runtime::traits::{AccountIdConversion, Header};
+use sp_runtime::traits::Header;
 use std::{marker::PhantomData, sync::Arc};
 
 pub struct ManualSealNode<NodeSpec>(PhantomData<NodeSpec>);
@@ -79,7 +75,6 @@ impl<NodeSpec: NodeSpecT> ManualSealNode<NodeSpec> {
 		Self(Default::default())
 	}
 
-	#[allow(deprecated)]
 	pub fn start_node<Net>(
 		&self,
 		mut config: Configuration,
@@ -100,32 +95,8 @@ impl<NodeSpec: NodeSpecT> ManualSealNode<NodeSpec> {
 		} = Self::new_partial(&config)?;
 		let select_chain = LongestChain::new(backend.clone());
 
-		let best_hash = client.chain_info().best_hash;
-		let has_para_id = client
-			.runtime_api()
-			.has_api::<dyn GetParachainIdentity<NodeSpec::Block>>(best_hash)
-			.ok()
-			.unwrap_or_default();
-		let para_id = if has_para_id {
-			client
-				.runtime_api()
-				.parachain_id(best_hash)
-				.map_err(|_| "Failed to retrieve parachain id from runtime")?
-		} else {
-			ParaId::from(
-				Extensions::try_get(&*config.chain_spec).and_then(|ext| ext.para_id).ok_or(
-					sc_service::error::Error::Other(
-						"Could not find parachain extension in chain-spec.".to_string(),
-					),
-				)?,
-			)
-		};
-		let parachain_account =
-			AccountIdConversion::<polkadot_primitives::AccountId>::into_account_truncating(
-				&para_id,
-			);
-		info!("🪪 Parachain id: {:?}", para_id);
-		info!("🧾 Parachain Account: {}", parachain_account);
+		let para_id =
+			Self::parachain_id(&client, &config).ok_or("Failed to retrieve the parachain id")?;
 
 		// Since this is a dev node, prevent it from connecting to peers.
 		config.network.default_peers_set.in_peers = 0;

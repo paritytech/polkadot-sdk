@@ -13,12 +13,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::ParachainInfo;
-
 use super::{
 	AccountId, AllPalletsWithSystem, Balance, Balances, BaseDeliveryFee, FeeAssetId, Fellows,
-	ParachainSystem, PolkadotXcm, Runtime, RuntimeCall, RuntimeEvent, RuntimeHoldReason,
-	RuntimeOrigin, TransactionByteFee, WeightToFee, WestendTreasuryAccount, XcmpQueue,
+	ParachainInfo, ParachainSystem, PolkadotXcm, Runtime, RuntimeCall, RuntimeEvent,
+	RuntimeHoldReason, RuntimeOrigin, TransactionByteFee, WeightToFee, WestendTreasuryAccount,
+	XcmpQueue,
 };
 use frame_support::{
 	parameter_types,

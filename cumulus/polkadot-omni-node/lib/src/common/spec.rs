@@ -50,7 +50,7 @@ use sc_telemetry::{TelemetryHandle, TelemetryWorker};
 use sc_tracing::tracing::Instrument;
 use sc_transaction_pool::TransactionPoolHandle;
 use sc_transaction_pool_api::OffchainTransactionPoolFactory;
-use sp_api::{ApiExt, ProvideRuntimeApi};
+use sp_api::ProvideRuntimeApi;
 use sp_keystore::KeystorePtr;
 use sp_runtime::traits::AccountIdConversion;
 use std::{future::Future, pin::Pin, sync::Arc, time::Duration};
@@ -149,6 +149,32 @@ pub(crate) trait BaseNodeSpec {
 	>;
 
 	type InitBlockImport: self::InitBlockImport<Self::Block, Self::RuntimeApi>;
+
+	/// Retrieves parachain id.
+	#[allow(deprecated)]
+	fn parachain_id(
+		client: &ParachainClient<Self::Block, Self::RuntimeApi>,
+		parachain_config: &Configuration,
+	) -> Option<ParaId> {
+		let best_hash = client.chain_info().best_hash;
+		let para_id = if let Ok(para_id) = client.runtime_api().parachain_id(best_hash) {
+			para_id
+		} else {
+			ParaId::from(
+				Extensions::try_get(&*parachain_config.chain_spec).and_then(|ext| ext.para_id)?,
+			)
+		};
+
+		let parachain_account =
+			AccountIdConversion::<polkadot_primitives::AccountId>::into_account_truncating(
+				&para_id,
+			);
+
+		info!("🪪 Parachain id: {:?}", para_id);
+		info!("🧾 Parachain Account: {}", parachain_account);
+
+		Some(para_id)
+	}
 
 	/// Starts a `ServiceBuilder` for a full service.
 	///
@@ -260,7 +286,6 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 	/// Start a node with the given parachain spec.
 	///
 	/// This is the actual implementation that is abstract over the executor and the runtime api.
-	#[allow(deprecated)]
 	fn start_node<Net>(
 		parachain_config: Configuration,
 		polkadot_config: Configuration,
@@ -283,35 +308,9 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 			let backend = params.backend.clone();
 			let mut task_manager = params.task_manager;
 
-			// Take parachain id from runtime.
-			let best_hash = client.chain_info().best_hash;
-			let has_para_id = client
-				.runtime_api()
-				.has_api::<dyn GetParachainIdentity<Self::Block>>(best_hash)
-				.ok()
-				.unwrap_or_default();
-			let para_id = if has_para_id {
-				client
-					.runtime_api()
-					.parachain_id(best_hash)
-					.map_err(|_| "Failed to retrieve parachain id from runtime")?
-			} else {
-				ParaId::from(
-					Extensions::try_get(&*parachain_config.chain_spec)
-						.and_then(|ext| ext.para_id)
-						.ok_or(sc_service::error::Error::Other(
-							"Could not find parachain extension in chain-spec.".to_string(),
-						))?,
-				)
-			};
-			let parachain_account =
-				AccountIdConversion::<polkadot_primitives::AccountId>::into_account_truncating(
-					&para_id,
-				);
-
-			info!("🪪 Parachain id: {:?}", para_id);
-			info!("🧾 Parachain Account: {}", parachain_account);
-
+			// Resolve parachain id based on runtime, or based on chain spec.
+			let para_id = Self::parachain_id(&client, &parachain_config)
+				.ok_or("Failed to retrieve the parachain id")?;
 			let relay_chain_fork_id = polkadot_config.chain_spec.fork_id().map(ToString::to_string);
 			let (relay_chain_interface, collator_key, relay_chain_network, paranode_rx) =
 				build_relay_chain_interface(

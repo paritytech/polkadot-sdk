@@ -28,7 +28,7 @@ around by the `bash!(...)` macro calls.
 
 ### Deprecation notice for `CreateCmd`'s `para-id` flag
 
-`para-id` flag for the is deprecated. Runtimes relying on generating the chain
+`para-id` flag is deprecated. Runtimes relying on generating the chain
 specification with this tool should implement `cumulus_primitives_core::GetParachainIdentity`
 trait, a new runtime API designed to provide the parachain ID from the `parachain-info`
 pallet. The `para-id` flag will be removed and nodes support for extracting the

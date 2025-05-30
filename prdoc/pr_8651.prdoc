@@ -1,4 +1,4 @@
-title: '[WIP] polkadot-omni-node: add `GetParachainIdentity` runtime api '
+title: 'polkadot-omni-node: add `GetParachainIdentity` runtime api '
 doc:
 - audience: [ Node Dev, Node Operator, Runtime Dev ]
   description: |

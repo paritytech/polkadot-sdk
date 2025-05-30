@@ -454,26 +454,30 @@ pub fn generate_chain_spec_for_runtime(cmd: &CreateCmd) -> Result<String, String
 		.with_chain_type(chain_type.clone());
 
 	let chain_spec_json_string = process_action(&cmd, &code[..], builder)?;
+	let parachain_properties = cmd.relay_chain.as_ref().map(|rc| {
+		cmd.para_id
+			.map(|para_id| {
+				serde_json::json!({
+					"relay_chain": rc,
+					"para_id": para_id,
+				})
+			})
+			.unwrap_or(serde_json::json!({
+				"relay_chain": rc,
+			}))
+	});
 
-	if let Some(ref relay_chain) = &cmd.relay_chain {
-		let parachain_properties = if let Some(para_id) = &cmd.para_id {
-			serde_json::json!({
-				"relay_chain": relay_chain,
-				"para_id": para_id,
+	let chain_spec = parachain_properties
+		.map(|props| {
+			let chain_spec_json_blob = serde_json::from_str(chain_spec_json_string.as_str())
+				.map_err(|e| format!("deserialization a json failed {e}"));
+			chain_spec_json_blob.and_then(|mut cs| {
+				json_patch::merge(&mut cs, props);
+				serde_json::to_string_pretty(&cs).map_err(|e| format!("to pretty failed: {e}"))
 			})
-		} else {
-			serde_json::json!({
-				"relay_chain": relay_chain,
-			})
-		};
-		let mut chain_spec_json_blob = serde_json::from_str(chain_spec_json_string.as_str())
-			.map_err(|e| format!("deserialization a json failed {e}"))?;
-		json_patch::merge(&mut chain_spec_json_blob, parachain_properties);
-		Ok(serde_json::to_string_pretty(&chain_spec_json_blob)
-			.map_err(|e| format!("to pretty failed: {e}"))?)
-	} else {
-		Ok(chain_spec_json_string)
-	}
+		})
+		.unwrap_or(Ok(chain_spec_json_string));
+	chain_spec
 }
 
 /// Extract any chain spec and convert it to JSON
