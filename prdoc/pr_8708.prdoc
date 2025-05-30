@@ -3,8 +3,8 @@ title: "feat: add collator peer ID to ParachainInherentData"
 doc:
   - audience: Runtime Dev
     description: |
-      Adds an optional collator_peer_id field to the new version of ParachainInherentData
-      introduced in PR #8299. The field is currently unused and defaults to None, but is
+      Adds an optional `collator_peer_id` field to the new version of `ParachainInherentData`
+      introduced in PR #8299. The field is currently unused and defaults to `None`, but is
       included proactively to avoid creating another inherent data version in the future.
       This sets the stage for sending collator peer IDs via UMP signals in upcoming work.
 
