@@ -771,6 +771,64 @@ mod sorted_list_provider {
 	}
 }
 
+pub mod on_idle {
+	use frame_support::pallet_prelude::Hooks;
+	use super::*;
+	use frame_support::traits::OnIdle;
+	use frame_system::pallet_prelude::BlockNumberFor;
+
+	fn run_to_block(n: u64) {
+		System::run_to_block_with::<AllPalletsWithSystem>(
+			n,
+			frame_system::RunToBlockHooks::default().after_initialize(|bn| {
+				AllPalletsWithSystem::on_idle(bn, Weight::MAX);
+			}),
+		);
+	}
+
+	#[test]
+	fn on_idle_does_nothing_when_feature_is_disabled() {
+		ExtBuilder::default().build_and_execute(|| {
+			// given
+			assert_eq!(List::<Runtime>::get_bags(), vec![(10, vec![1]), (1_000, vec![2, 3, 4])]);
+
+			// Change the score of node 3 to make it need rebagging
+			StakingMock::set_score_of(&3, 10);
+
+			// Call on_idle
+			run_to_block(1);
+
+			// The bags should remain unchanged
+			assert_eq!(List::<Runtime>::get_bags(), vec![(10, vec![1]), (1_000, vec![2, 3, 4])]);
+
+			// LastNodeAutoRebagged should not be set
+			assert_eq!(LastNodeAutoRebagged::<Runtime>::get(), None);
+		});
+	}
+
+	#[test]
+	fn on_idle_rebags_nodes_when_feature_is_enabled() {
+		ExtBuilder::default().build_and_execute(|| {
+			// Set auto-rebag limit to 2 nodes per block
+			<Runtime as Config>::AutoRebagPerBlock::set(2);
+
+			// Change score of node 3 to move it into the 10 bag
+			StakingMock::set_score_of(&3, 10); // <-- ВНУТРИ build_and_execute!
+
+			// Given initial bags
+			assert_eq!(List::<Runtime>::get_bags(), vec![(10, vec![1]), (1_000, vec![2, 3, 4])]);
+
+			// Trigger on_idle
+			let weight_limit = Weight::from_parts(1_000_000_000, 0);
+			<BagsList as Hooks<BlockNumberFor<Runtime>>>::on_idle(0, weight_limit);
+
+			// Assert rebagging occurred
+			assert_eq!(List::<Runtime>::get_bags(), vec![(10, vec![1, 3]), (1_000, vec![2, 4])]);
+			assert_eq!(LastNodeAutoRebagged::<Runtime>::get(), Some(3));
+		});
+	}
+}
+
 pub mod lock {
 	use super::*;
 
