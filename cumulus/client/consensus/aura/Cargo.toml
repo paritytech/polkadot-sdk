@@ -90,4 +90,5 @@ tracing = { workspace = true, default-features = true }
 cumulus-test-client = { workspace = true }
 cumulus-test-relay-sproof-builder = { default-features = false, workspace = true }
 rstest = { workspace = true }
-sp-keyring = { default-features = false, workspace = true }
+sp-keyring = { workspace = true }
+sp-tracing = { workspace = true }
