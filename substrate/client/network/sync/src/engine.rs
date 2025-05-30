@@ -625,6 +625,9 @@ where
 				},
 				SyncingAction::ImportBlocks { origin, blocks } => {
 					let count = blocks.len();
+					// TODO This is ultimately where the import is called from the sync code
+					// TODO The verification can probably be moved right here. It will need to have
+					// the correct deps as well but that should not be a problem.
 					self.import_blocks(origin, blocks);
 
 					trace!(
@@ -1100,6 +1103,7 @@ where
 			metrics.import_queue_blocks_submitted.inc();
 		}
 
+		// TODO This is ultimately where the import is called from the sync code
 		self.import_queue.import_blocks(origin, blocks);
 	}
 

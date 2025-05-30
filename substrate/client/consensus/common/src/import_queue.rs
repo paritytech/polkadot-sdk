@@ -107,6 +107,7 @@ pub trait Verifier<B: BlockT>: Send + Sync {
 ///
 /// The `import_*` methods can be called in order to send elements for the import queue to verify.
 pub trait ImportQueueService<B: BlockT>: Send {
+	// TODO This is the trait fn through which importing (and currently verification) happen
 	/// Import a bunch of blocks, every next block must be an ancestor of the previous block in the
 	/// list.
 	fn import_blocks(&mut self, origin: BlockOrigin, blocks: Vec<IncomingBlock<B>>);
@@ -220,6 +221,8 @@ pub enum BlockImportError {
 
 type BlockImportResult<B> = Result<BlockImportStatus<NumberFor<B>>, BlockImportError>;
 
+// TODO Amusingly, this is only used in tests. But also it is `pub`. So most likely externally
+// visible from the crate. This fn might need to be removed.
 /// Single block import function.
 pub async fn import_single_block<B: BlockT, V: Verifier<B>>(
 	import_handle: &mut impl BlockImport<B, Error = ConsensusError>,
@@ -357,6 +360,8 @@ pub(crate) async fn verify_single_block_metered<B: BlockT, V: Verifier<B>>(
 		import_block.state_action = StateAction::ExecuteIfPossible;
 	}
 
+	// TODO This is currently where the verify call is. This needs to be hoisted out of the
+	// import_queue and into the sync code somehow.
 	let import_block = verifier.verify(import_block).await.map_err(|msg| {
 		if let Some(ref peer) = peer {
 			trace!(

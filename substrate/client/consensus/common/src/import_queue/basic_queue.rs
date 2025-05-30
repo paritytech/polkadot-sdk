@@ -227,6 +227,8 @@ async fn block_import_process<B: BlockT>(
 	mut block_import_receiver: TracingUnboundedReceiver<worker_messages::ImportBlocks<B>>,
 	metrics: Option<Metrics>,
 ) {
+	// TODO This is the loop that calls verfication. It operates on a channel, so I need to figure
+	// out where messages are being sent from, and add verification there and remove it from here.
 	loop {
 		let worker_messages::ImportBlocks(origin, blocks) = match block_import_receiver.next().await
 		{
@@ -424,6 +426,7 @@ async fn import_many_blocks<B: BlockT, V: Verifier<B>>(
 		let import_result = if has_error {
 			Err(BlockImportError::Cancelled)
 		} else {
+			// TODO This needs to be moved up to where this fn is being called.
 			let verification_fut = verify_single_block_metered(
 				import_handle,
 				blocks_origin,
