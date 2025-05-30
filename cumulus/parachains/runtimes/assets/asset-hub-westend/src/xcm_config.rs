@@ -55,9 +55,9 @@ use xcm_builder::{
 	LocalMint, MatchedConvertedConcreteId, NetworkExportTableItem, NoChecking, NonFungiblesAdapter,
 	ParentAsSuperuser, ParentIsPreset, RelayChainAsNative, SendXcmFeeToAccount,
 	SiblingParachainAsNative, SiblingParachainConvertsVia, SignedAccountId32AsNative,
-	SignedToAccountId32, SingleAssetExchangeAdapter, SovereignPaidRemoteExporter,
-	SovereignSignedViaLocation, StartsWith, StartsWithExplicitGlobalConsensus, TakeWeightCredit,
-	TrailingSetTopicAsId, UsingComponents, WeightInfoBounds, WithComputedOrigin,
+	SignedToAccountId32, SingleAssetExchangeAdapter, SovereignSignedViaLocation, StartsWith,
+	StartsWithExplicitGlobalConsensus, TakeWeightCredit, TrailingSetTopicAsId,
+	UnpaidRemoteExporter, UsingComponents, WeightInfoBounds, WithComputedOrigin,
 	WithLatestLocationConverter, WithUniqueTopic, XcmFeeManagerFromComponents,
 };
 use xcm_executor::XcmExecutor;
@@ -481,14 +481,18 @@ pub type XcmRouter = WithUniqueTopic<(
 	// GlobalConsensus with a pausable flag, if the flag is set true then the Router is paused
 	PausableExporter<
 		crate::SnowbridgeSystemFrontend,
-		SovereignPaidRemoteExporter<
-			(
+		(
+			UnpaidRemoteExporter<
 				bridging::to_ethereum::EthereumNetworkExportTableV2,
+				XcmpQueue,
+				UniversalLocation,
+			>,
+			UnpaidRemoteExporter<
 				bridging::to_ethereum::EthereumNetworkExportTable,
-			),
-			XcmpQueue,
-			UniversalLocation,
-		>,
+				XcmpQueue,
+				UniversalLocation,
+			>,
+		),
 	>,
 )>;
 

@@ -26,7 +26,7 @@ use sc_service::{Configuration, TaskManager};
 /// The current node version for cumulus official binaries, which takes the basic
 /// SemVer form `<major>.<minor>.<patch>`. It should correspond to the latest
 /// `polkadot` version of a stable release.
-pub const NODE_VERSION: &'static str = "1.18.2";
+pub const NODE_VERSION: &'static str = "1.18.5";
 
 /// Trait that extends the `DynNodeSpec` trait with manual seal related logic.
 ///
