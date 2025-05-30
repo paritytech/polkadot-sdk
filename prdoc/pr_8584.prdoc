@@ -7,12 +7,12 @@ doc:
     the XCM precompile in `pallet-xcm` to avoid cyclic dependencies.
 crates:
 - name: asset-hub-westend-runtime
-  bump: major
+  bump: minor
 - name: penpal-runtime
-  bump: major
+  bump: minor
 - name: pallet-revive
-  bump: major
+  bump: minor
 - name: pallet-revive-uapi
-  bump: major
+  bump: minor
 - name: polkadot-sdk
-  bump: major
+  bump: minor
