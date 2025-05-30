@@ -246,9 +246,10 @@ pub enum Outcome {
 	Complete { used: Weight },
 	/// Execution started, but did not complete successfully due to`error` which occurred
 	/// on the `index`-th (top-level) instruction. Overall, total `weight` was used.
-	Incomplete { used: Weight, error: Error, index: u8 },
-	/// Execution did not start due to the `error` which happened on instruction `index`.
-	Error { error: Error, index: u8 },
+	Incomplete { used: Weight, error: InstructionError },
+	/// Execution did not start due to an error. We use `InstructionError` since it's always
+	/// possible to isolate the problematic instruction that caused the error.
+	Error(InstructionError),
 }
 
 /// XCM error and the index of the instruction that caused it.
@@ -264,15 +265,15 @@ impl Outcome {
 	pub fn ensure_complete(self) -> result::Result<(), InstructionError> {
 		match self {
 			Outcome::Complete { .. } => Ok(()),
-			Outcome::Incomplete { error, index, .. } => Err(InstructionError { index, error }),
-			Outcome::Error { error, index, .. } => Err(InstructionError { index, error }),
+			Outcome::Incomplete { error, .. } => Err(error),
+			Outcome::Error(error) => Err(error),
 		}
 	}
-	pub fn ensure_execution(self) -> result::Result<Weight, Error> {
+	pub fn ensure_execution(self) -> result::Result<Weight, InstructionError> {
 		match self {
 			Outcome::Complete { used, .. } => Ok(used),
 			Outcome::Incomplete { used, .. } => Ok(used),
-			Outcome::Error { error, .. } => Err(error),
+			Outcome::Error(error) => Err(error),
 		}
 	}
 	/// How much weight was used by the XCM execution attempt.
@@ -280,14 +281,14 @@ impl Outcome {
 		match self {
 			Outcome::Complete { used, .. } => *used,
 			Outcome::Incomplete { used, .. } => *used,
-			Outcome::Error { .. } => Weight::zero(),
+			Outcome::Error(_) => Weight::zero(),
 		}
 	}
 }
 
 impl From<Error> for Outcome {
 	fn from(error: Error) -> Self {
-		Self::Error { error, index: 0 }
+		Self::Error(InstructionError { error, index: 0 })
 	}
 }
 
@@ -319,7 +320,10 @@ pub trait ExecuteXcm<Call> {
 		weight_limit: Weight,
 		weight_credit: Weight,
 	) -> Outcome {
-		Self::prepare(message, weight_limit)?;
+		let pre = match Self::prepare(message, weight_limit) {
+			Ok(x) => x,
+			Err(error) => return Outcome::Error(error),
+		};
 		Self::execute(origin, pre, id, weight_credit)
 	}
 

@@ -284,9 +284,8 @@ impl<Config: config::Config> ExecuteXcm<Config::RuntimeCall> for XcmExecutor<Con
 			);
 
 			return Outcome::Incomplete {
-				used: xcm_weight,         // Weight consumed before the error
-				error: XcmError::Barrier, // The error that occurred
-				index: 0,
+				used: xcm_weight, // Weight consumed before the error
+				error: InstructionError { index: 0, error: XcmError::Barrier }, // The error that occurred
 			};
 		}
 
@@ -428,8 +427,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 				);
 				Outcome::Incomplete {
 					used: weight_used,
-					error,
-					index: index.try_into().unwrap_or(u8::MAX),
+					error: InstructionError { index: index.try_into().unwrap_or(u8::MAX), error },
 				}
 			},
 		}

@@ -41,8 +41,7 @@ impl<T: Get<Weight>, C: Decode + GetDispatchInfo, M: Get<u32>> WeightBounds<C>
 	fn weight(message: &mut Xcm<C>, weight_limit: Weight) -> Result<Weight, InstructionError> {
 		tracing::trace!(target: "xcm::weight", ?message, "FixedWeightBounds");
 		let mut instructions_left = M::get();
-		let mut weight_left = weight_limit;
-		Self::weight_with_limit(message, &mut instructions_left, &mut weight_left).inspect_err(
+		Self::weight_with_limit(message, &mut instructions_left, weight_limit).inspect_err(
 			|&error| {
 				tracing::debug!(
 					target: "xcm::weight",
@@ -56,8 +55,7 @@ impl<T: Get<Weight>, C: Decode + GetDispatchInfo, M: Get<u32>> WeightBounds<C>
 	}
 	fn instr_weight(instruction: &mut Instruction<C>) -> Result<Weight, XcmError> {
 		let mut max_value = u32::MAX;
-		let mut max_weight = Weight::MAX;
-		Self::instr_weight_with_limit(instruction, &mut max_value, &mut max_weight).inspect_err(
+		Self::instr_weight_with_limit(instruction, &mut max_value, Weight::MAX).inspect_err(
 			|&error| {
 				tracing::debug!(
 					target: "xcm::weight",
@@ -75,7 +73,7 @@ impl<T: Get<Weight>, C: Decode + GetDispatchInfo, M> FixedWeightBounds<T, C, M> 
 	fn weight_with_limit(
 		message: &mut Xcm<C>,
 		instructions_left: &mut u32,
-		weight_left: &mut Weight,
+		weight_limit: Weight,
 	) -> Result<Weight, InstructionError> {
 		let mut total_weight: Weight = Weight::zero();
 		for (index, instruction) in message.0.iter_mut().enumerate() {
@@ -83,19 +81,26 @@ impl<T: Get<Weight>, C: Decode + GetDispatchInfo, M> FixedWeightBounds<T, C, M> 
 			*instructions_left = instructions_left
 				.checked_sub(1)
 				.ok_or_else(|| InstructionError { index, error: XcmError::ExceedsStackLimit })?;
+			let instruction_weight =
+				&Self::instr_weight_with_limit(instruction, instructions_left, weight_limit)
+					.map_err(|error| InstructionError { index, error })?;
 			total_weight = total_weight
-				.checked_add(
-					&Self::instr_weight_with_limit(instruction, instructions_left, weight_left)
-						.map_err(|error| InstructionError { index, error })?,
-				)
-				.ok_or_else(|| InstructionError { index, error: XcmError::Overflow })?;
+				.checked_add(instruction_weight)
+				.ok_or(InstructionError { index, error: XcmError::Overflow })?;
+			if total_weight.any_gt(weight_limit) {
+				return Err(InstructionError {
+					index,
+					error: XcmError::WeightLimitReached(total_weight),
+				});
+			}
 		}
 		Ok(total_weight)
 	}
+
 	fn instr_weight_with_limit(
 		instruction: &mut Instruction<C>,
 		instructions_left: &mut u32,
-		weight_left: &mut Weight,
+		weight_limit: Weight,
 	) -> Result<Weight, XcmError> {
 		let instruction_weight = match instruction {
 			Transact { ref mut call, .. } =>
@@ -104,14 +109,11 @@ impl<T: Get<Weight>, C: Decode + GetDispatchInfo, M> FixedWeightBounds<T, C, M> 
 					.get_dispatch_info()
 					.call_weight,
 			SetErrorHandler(xcm) | SetAppendix(xcm) | ExecuteWithOrigin { xcm, .. } =>
-				Self::weight_with_limit(xcm, instructions_left, weight_left)
+				Self::weight_with_limit(xcm, instructions_left, weight_limit)
 					.map_err(|outcome_error| outcome_error.error)?,
 			_ => Weight::zero(),
 		};
 		let total_weight = T::get().checked_add(&instruction_weight).ok_or(XcmError::Overflow)?;
-		*weight_left = weight_left
-			.checked_sub(&total_weight)
-			.ok_or(XcmError::WeightLimitReached(total_weight))?;
 		Ok(total_weight)
 	}
 }
@@ -127,8 +129,7 @@ where
 	fn weight(message: &mut Xcm<C>, weight_limit: Weight) -> Result<Weight, InstructionError> {
 		tracing::trace!(target: "xcm::weight", ?message, "WeightInfoBounds");
 		let mut instructions_left = M::get();
-		let mut weight_left = weight_limit;
-		Self::weight_with_limit(message, &mut instructions_left, &mut weight_left).inspect_err(
+		Self::weight_with_limit(message, &mut instructions_left, weight_limit).inspect_err(
 			|&error| {
 				tracing::debug!(
 					target: "xcm::weight",
@@ -142,8 +143,7 @@ where
 	}
 	fn instr_weight(instruction: &mut Instruction<C>) -> Result<Weight, XcmError> {
 		let mut max_value = u32::MAX;
-		let mut max_weight = Weight::MAX;
-		Self::instr_weight_with_limit(instruction, &mut max_value, &mut max_weight).inspect_err(
+		Self::instr_weight_with_limit(instruction, &mut max_value, Weight::MAX).inspect_err(
 			|&error| {
 				tracing::debug!(
 					target: "xcm::weight",
@@ -167,7 +167,7 @@ where
 	fn weight_with_limit(
 		message: &mut Xcm<C>,
 		instructions_left: &mut u32,
-		weight_left: &mut Weight,
+		weight_limit: Weight,
 	) -> Result<Weight, InstructionError> {
 		let mut total_weight: Weight = Weight::zero();
 		for (index, instruction) in message.0.iter_mut().enumerate() {
@@ -175,12 +175,18 @@ where
 			*instructions_left = instructions_left
 				.checked_sub(1)
 				.ok_or_else(|| InstructionError { index, error: XcmError::ExceedsStackLimit })?;
+			let instruction_weight =
+				&Self::instr_weight_with_limit(instruction, instructions_left, weight_limit)
+					.map_err(|error| InstructionError { index, error })?;
 			total_weight = total_weight
-				.checked_add(
-					&Self::instr_weight_with_limit(instruction, instructions_left, weight_left)
-						.map_err(|error| InstructionError { index, error })?,
-				)
-				.ok_or_else(|| InstructionError { index, error: XcmError::Overflow })?;
+				.checked_add(instruction_weight)
+				.ok_or(InstructionError { index, error: XcmError::Overflow })?;
+			if total_weight.any_gt(weight_limit) {
+				return Err(InstructionError {
+					index,
+					error: XcmError::WeightLimitReached(total_weight),
+				});
+			}
 		}
 		Ok(total_weight)
 	}
@@ -188,7 +194,7 @@ where
 	fn instr_weight_with_limit(
 		instruction: &mut Instruction<C>,
 		instructions_left: &mut u32,
-		weight_left: &mut Weight,
+		weight_limit: Weight,
 	) -> Result<Weight, XcmError> {
 		let instruction_weight = match instruction {
 			Transact { ref mut call, .. } =>
@@ -197,7 +203,7 @@ where
 					.get_dispatch_info()
 					.call_weight,
 			SetErrorHandler(xcm) | SetAppendix(xcm) =>
-				Self::weight_with_limit(xcm, instructions_left, weight_left)
+				Self::weight_with_limit(xcm, instructions_left, weight_limit)
 					.map_err(|outcome_error| outcome_error.error)?,
 			_ => Weight::zero(),
 		};
@@ -205,9 +211,6 @@ where
 			.weight()
 			.checked_add(&instruction_weight)
 			.ok_or(XcmError::Overflow)?;
-		*weight_left = weight_left
-			.checked_sub(&total_weight)
-			.ok_or(XcmError::WeightLimitReached(total_weight))?;
 		Ok(total_weight)
 	}
 }

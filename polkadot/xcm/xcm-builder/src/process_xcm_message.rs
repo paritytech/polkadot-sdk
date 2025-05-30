@@ -97,7 +97,7 @@ impl<
 				);
 				(used, Ok(true))
 			},
-			Outcome::Incomplete { used, error, index } => {
+			Outcome::Incomplete { used, error: InstructionError { index, error } } => {
 				tracing::trace!(
 					target: LOG_TARGET,
 					?error,
@@ -108,7 +108,7 @@ impl<
 				(used, Ok(false))
 			},
 			// In the error-case we assume the worst case and consume all possible weight.
-			Outcome::Error { error, index } => {
+			Outcome::Error(InstructionError { error, index }) => {
 				tracing::trace!(
 					target: LOG_TARGET,
 					?error,
@@ -188,7 +188,10 @@ mod tests {
 				_: &mut XcmHash,
 				_: Weight,
 			) -> Outcome {
-				Outcome::Error { index: 0, error: xcm::latest::Error::ExceedsStackLimit }
+				Outcome::Error(InstructionError {
+					index: 0,
+					error: xcm::latest::Error::ExceedsStackLimit,
+				})
 			}
 			fn charge_fees(_location: impl Into<Location>, _fees: Assets) -> xcm::latest::Result {
 				unreachable!()
