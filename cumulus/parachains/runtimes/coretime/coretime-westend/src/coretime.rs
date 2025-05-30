@@ -112,6 +112,7 @@ enum CoretimeProviderCalls {
 parameter_types! {
 	pub const BrokerPalletId: PalletId = PalletId(*b"py/broke");
 	pub RevenueAccumulationAccount: AccountId = BrokerPalletId::get().into_sub_account_truncating(b"burnstash");
+	pub const MinimumEndPrice: Balance = UNITS;
 }
 
 /// Type that implements the `CoretimeInterface` for the allocation of Coretime. Meant to operate
@@ -331,5 +332,10 @@ impl pallet_broker::Config for Runtime {
 	type AdminOrigin = EnsureRoot<AccountId>;
 	type SovereignAccountOf = SovereignAccountOf;
 	type MaxAutoRenewals = ConstU32<20>;
+<<<<<<< HEAD
 	type PriceAdapter = pallet_broker::CenterTargetPrice<Balance>;
+=======
+	type PriceAdapter = pallet_broker::MinimumPrice<Balance, MinimumEndPrice>;
+	type MinimumCreditPurchase = MinimumCreditPurchase;
+>>>>>>> 1a8313fb (Broker: Introduce min price + adjust renewals to lower market. (#8630))
 }
