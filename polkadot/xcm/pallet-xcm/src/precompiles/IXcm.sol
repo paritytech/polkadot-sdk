@@ -2,7 +2,6 @@
 pragma solidity ^0.8.20;
 
 /// @title Defines all functions that can be used to interact with XCM
-/// @author Tiago Bandeira
 /// @dev Parameters MUST use SCALE codec serialisation
 interface IXcm {
     /// Weight v2
