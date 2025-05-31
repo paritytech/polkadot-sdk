@@ -47,46 +47,10 @@ use sc_telemetry::{TelemetryHandle, TelemetryWorker};
 use sc_tracing::tracing::Instrument;
 use sc_transaction_pool::TransactionPoolHandle;
 use sc_transaction_pool_api::OffchainTransactionPoolFactory;
+use sp_api::{ApiExt, ProvideRuntimeApi};
 use sp_keystore::KeystorePtr;
+use sp_statement_store::runtime_api::ValidateStatement;
 use std::{future::Future, pin::Pin, sync::Arc, time::Duration};
-use sp_statement_store::runtime_api::StatementStoreExt;
-use sp_api::ProvideRuntimeApi;
-use sp_api::ApiExt;
-
-pub struct ZeroSizeStatementStore;
-impl sp_statement_store::StatementStore for ZeroSizeStatementStore {
-	fn posted(&self, _match_all_topics: &[sp_statement_store::Topic], _dest: [u8; 32]) -> sp_statement_store::Result<Vec<Vec<u8>>> {
-		Ok(Vec::new())
-	}
-	fn submit(&self, _statement: sp_statement_store::Statement, _source: sp_statement_store::StatementSource) -> sp_statement_store::SubmitResult {
-		sp_statement_store::SubmitResult::Ignored
-	}
-	fn remove(&self, _hash: &sp_statement_store::Hash) -> sp_statement_store::Result<()> {
-		Ok(())
-	}
-	fn statement(&self, _hash: &sp_statement_store::Hash) -> sp_statement_store::Result<Option<sp_statement_store::Statement>> {
-		Ok(None)
-	}
-	fn statements(&self) -> sp_statement_store::Result<Vec<(sp_statement_store::Hash, sp_statement_store::Statement)>> {
-		Ok(Vec::new())
-	}
-	fn broadcasts(&self, _match_all_topics: &[sp_statement_store::Topic]) -> sp_statement_store::Result<Vec<Vec<u8>>> {
-		Ok(Vec::new())
-	}
-	fn posted_stmt(&self, _match_all_topics: &[sp_statement_store::Topic], _dest: [u8; 32]) -> sp_statement_store::Result<Vec<Vec<u8>>> {
-		Ok(Vec::new())
-	}
-	fn posted_clear(&self, _match_all_topics: &[sp_statement_store::Topic], _dest: [u8; 32]) -> sp_statement_store::Result<Vec<Vec<u8>>> {
-		Ok(Vec::new())
-	}
-	fn broadcasts_stmt(&self, _match_all_topics: &[sp_statement_store::Topic]) -> sp_statement_store::Result<Vec<Vec<u8>>> {
-		Ok(Vec::new())
-	}
-	fn posted_clear_stmt(&self, _match_all_topics: &[sp_statement_store::Topic], _dest: [u8; 32])
-			-> sp_statement_store::Result<Vec<Vec<u8>>> {
-		Ok(Vec::new())
-	}
-}
 
 pub(crate) trait BuildImportQueue<
 	Block: BlockT,
@@ -338,12 +302,10 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 				prometheus_registry.clone(),
 			);
 
-			let best_hash = client
-				.chain_info()
-				.best_hash;
+			let best_hash = client.chain_info().best_hash;
 			let has_validate_statement_api_at_best_hash = client
 				.runtime_api()
-				.has_api::<dyn sp_statement_store::runtime_api::ValidateStatement<Self::Block>>(best_hash)
+				.has_api::<dyn ValidateStatement<Self::Block>>(best_hash)
 				.map_err(|e| sc_service::Error::Application(Box::new(e)))?;
 
 			let statement_store_vars = if has_validate_statement_api_at_best_hash {
@@ -360,7 +322,8 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 					sc_network_statement::StatementHandlerPrototype::new::<_, _, Net>(
 						client.chain_info().genesis_hash,
 						parachain_config.chain_spec.fork_id(),
-						sc_network::NotificationMetrics::new(None), // TODO TODO: maybe some metrics
+						sc_network::NotificationMetrics::new(None), /* TODO TODO: maybe some
+						                                             * metrics */
 						Arc::clone(&net_config.peer_store_handle()),
 					);
 				net_config.add_notification_protocol(statement_config);
@@ -383,7 +346,9 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 				})
 				.await?;
 
-			let statement_store = if let Some((statement_store, statement_handler_proto)) = statement_store_vars {
+			let statement_store = if let Some((statement_store, statement_handler_proto)) =
+				statement_store_vars
+			{
 				// Spawn statement protocol worker
 				let statement_protocol_executor = {
 					let spawn_handle = task_manager.spawn_handle();
@@ -424,9 +389,10 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 						enable_http_requests: true,
 						custom_extensions: move |_| {
 							if let Some(statement_store) = &statement_store {
-								vec![Box::new(statement_store.clone().as_statement_store_ext()) as Box<_>]
+								vec![Box::new(statement_store.clone().as_statement_store_ext())
+									as Box<_>]
 							} else {
-								vec![Box::new(StatementStoreExt(Arc::new(ZeroSizeStatementStore))) as Box<_>]
+								vec![]
 							}
 						},
 					})?;
