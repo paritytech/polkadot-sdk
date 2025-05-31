@@ -89,7 +89,7 @@ docker build . -t polkadot-sdk-minimal-template
 
 The `minimal-template-node` has dependency on the `minimal-template-runtime`. It will use
 the `minimal_template_runtime::WASM_BINARY` constant (which holds the WASM blob as a byte
-array) for chain spec building, while starting. 
+array) for chain spec building, while starting.
 
 ```sh
 <target/release/path/to/minimal-template-node> --tmp --consensus manual-seal-3000
