@@ -5,7 +5,7 @@ doc:
     To address the issue of vague `LocalExecutionIncomplete` errors in `pallet-xcm`, the PR introduces `LocalExecutionIncompleteWithError(ExecutionError)`, which nests a compact `ExecutionError` enum—aligned with `XcmError` and excluding strings like in `FailedToTransactAsset`: to provide detailed error information within FRAME's 4-byte limit. This enhances error reporting by specifying causes like insufficient balance or asset transaction failures, with strings logged for debugging.
 crates:
 - name: emulated-integration-tests-common
-  bump: patch
+  bump: minor
 - name: pallet-xcm
   bump: major
 - name: pallet-contracts-mock-network
@@ -15,7 +15,7 @@ crates:
 - name: parachains-runtimes-test-utils
   bump: patch
 - name: staging-xcm
-  bump: major
+  bump: minor
 - name: staging-xcm-builder
   bump: patch
 - name: staging-xcm-executor
@@ -28,3 +28,21 @@ crates:
   bump: none
 - name: bridge-hub-westend-integration-tests
   bump: none
+- name: snowbridge-core
+  bump: major
+- name: bridge-hub-test-utils
+  bump: major
+- name: snowbridge-test-utils
+  bump: major
+- name: snowbridge-runtime-test-common
+  bump: minor
+- name: asset-hub-westend-runtime
+  bump: minor
+- name: bridge-hub-westend-runtime
+  bump: minor
+- name: collectives-westend-runtime
+  bump: minor
+- name: coretime-westend-runtime
+  bump: minor
+- name: people-westend-runtime
+  bump: minor
