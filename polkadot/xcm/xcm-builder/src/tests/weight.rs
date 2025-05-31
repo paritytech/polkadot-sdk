@@ -88,7 +88,7 @@ fn errors_should_return_unused_weight() {
 		},
 	]);
 	// Weight limit of 70 is needed.
-	let limit = <TestConfig as Config>::Weigher::weight(&mut message).unwrap();
+	let limit = <TestConfig as Config>::Weigher::weight(&mut message, Weight::MAX).unwrap();
 	assert_eq!(limit, Weight::from_parts(30, 30));
 
 	let mut hash = fake_message_hash(&message);
@@ -114,7 +114,10 @@ fn errors_should_return_unused_weight() {
 	);
 	assert_eq!(
 		r,
-		Outcome::Incomplete { used: Weight::from_parts(30, 30), error: XcmError::NotWithdrawable }
+		Outcome::Incomplete {
+			used: Weight::from_parts(30, 30),
+			error: InstructionError { index: 2, error: XcmError::NotWithdrawable },
+		}
 	);
 	assert_eq!(asset_list(AccountIndex64 { index: 3, network: None }), vec![(Here, 10u128).into()]);
 	assert_eq!(asset_list(Here), vec![(Here, 1u128).into()]);
@@ -129,7 +132,10 @@ fn errors_should_return_unused_weight() {
 	);
 	assert_eq!(
 		r,
-		Outcome::Incomplete { used: Weight::from_parts(20, 20), error: XcmError::NotWithdrawable }
+		Outcome::Incomplete {
+			used: Weight::from_parts(20, 20),
+			error: InstructionError { index: 1, error: XcmError::NotWithdrawable },
+		}
 	);
 	assert_eq!(asset_list(AccountIndex64 { index: 3, network: None }), vec![(Here, 11u128).into()]);
 	assert_eq!(asset_list(Here), vec![]);
@@ -144,7 +150,10 @@ fn errors_should_return_unused_weight() {
 	);
 	assert_eq!(
 		r,
-		Outcome::Incomplete { used: Weight::from_parts(10, 10), error: XcmError::NotWithdrawable }
+		Outcome::Incomplete {
+			used: Weight::from_parts(10, 10),
+			error: InstructionError { index: 0, error: XcmError::NotWithdrawable },
+		}
 	);
 	assert_eq!(asset_list(AccountIndex64 { index: 3, network: None }), vec![(Here, 11u128).into()]);
 	assert_eq!(asset_list(Here), vec![]);
@@ -161,12 +170,12 @@ fn weight_bounds_should_respect_instructions_limit() {
 	let log_capture = capture_test_logs!({
 		let mut message = Xcm(vec![ClearOrigin; 4]);
 		assert_eq!(
-			<TestConfig as Config>::Weigher::weight(&mut message),
-			Err(XcmError::ExceedsStackLimit)
+			<TestConfig as Config>::Weigher::weight(&mut message, Weight::MAX),
+			Err(InstructionError { index: 3, error: XcmError::ExceedsStackLimit })
 		);
 	});
 	assert!(log_capture.contains(
-		"Weight calculation failed for message error=ExceedsStackLimit instructions_left=3 message_length=4"
+		"Weight calculation failed for message error=InstructionError { index: 3, error: ExceedsStackLimit } instructions_left=0 message_length=4"
 	));
 
 	let log_capture = capture_test_logs!({
@@ -174,12 +183,13 @@ fn weight_bounds_should_respect_instructions_limit() {
 			Xcm(vec![SetErrorHandler(Xcm(vec![ClearOrigin])), SetAppendix(Xcm(vec![ClearOrigin]))]);
 		// 4 instructions are too many, even when hidden within 2.
 		assert_eq!(
-			<TestConfig as Config>::Weigher::weight(&mut message),
-			Err(XcmError::ExceedsStackLimit)
+			<TestConfig as Config>::Weigher::weight(&mut message, Weight::MAX),
+			// We only include the index of the non-nested instruction.
+			Err(InstructionError { index: 1, error: XcmError::ExceedsStackLimit })
 		);
 	});
 	assert!(log_capture.contains(
-		"Weight calculation failed for message error=ExceedsStackLimit instructions_left=0 message_length=2"
+		"Weight calculation failed for message error=InstructionError { index: 1, error: ExceedsStackLimit } instructions_left=0 message_length=2"
 	));
 
 	let log_capture = capture_test_logs!({
@@ -189,12 +199,12 @@ fn weight_bounds_should_respect_instructions_limit() {
 			)]))]))]);
 		// 4 instructions are too many, even when it's just one that's 3 levels deep.
 		assert_eq!(
-			<TestConfig as Config>::Weigher::weight(&mut message),
-			Err(XcmError::ExceedsStackLimit)
+			<TestConfig as Config>::Weigher::weight(&mut message, Weight::MAX),
+			Err(InstructionError { index: 0, error: XcmError::ExceedsStackLimit })
 		);
 	});
 	assert!(log_capture.contains(
-		"Weight calculation failed for message error=ExceedsStackLimit instructions_left=0 message_length=1"
+		"Weight calculation failed for message error=InstructionError { index: 0, error: ExceedsStackLimit } instructions_left=0 message_length=1"
 	));
 
 	let log_capture = capture_test_logs!({
@@ -202,11 +212,43 @@ fn weight_bounds_should_respect_instructions_limit() {
 			Xcm(vec![SetErrorHandler(Xcm(vec![SetErrorHandler(Xcm(vec![ClearOrigin]))]))]);
 		// 3 instructions are OK.
 		assert_eq!(
-			<TestConfig as Config>::Weigher::weight(&mut message),
+			<TestConfig as Config>::Weigher::weight(&mut message, Weight::MAX),
 			Ok(Weight::from_parts(30, 30))
 		);
 	});
 	assert!(!log_capture.contains("Weight calculation failed for message"));
+}
+
+#[test]
+fn weigher_returns_correct_instruction_index_on_error() {
+	// We have enough space for instructions.
+	MaxInstructions::set(10);
+	// But only enough weight for 3 instructions.
+	let max_weight = UnitWeightCost::get() * 3;
+	let mut message = Xcm(vec![ClearOrigin; 4]);
+	assert_eq!(
+		<TestConfig as Config>::Weigher::weight(&mut message, max_weight),
+		Err(InstructionError {
+			index: 3,
+			error: XcmError::WeightLimitReached(UnitWeightCost::get() * 4)
+		})
+	);
+}
+
+#[test]
+fn weigher_weight_limit_correctly_accounts_for_nested_instructions() {
+	// We have enough space for instructions.
+	MaxInstructions::set(10);
+	// But only enough weight for 3 instructions.
+	let max_weight = UnitWeightCost::get() * 3;
+	let mut message = Xcm(vec![SetAppendix(Xcm(vec![ClearOrigin; 7]))]);
+	assert_eq!(
+		<TestConfig as Config>::Weigher::weight(&mut message, max_weight),
+		Err(InstructionError {
+			index: 0,
+			error: XcmError::WeightLimitReached(UnitWeightCost::get() * 4)
+		})
+	);
 }
 
 #[test]
