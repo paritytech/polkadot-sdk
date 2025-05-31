@@ -32,6 +32,10 @@ wasmtime = { features = [
 	"parallel-compilation",
 	"pooling-allocator",
 	"threads",
+	"addr2line",
+	"demangle",
+	"gc",
+	"gc-null"
 ], workspace = true }
 
 # Here we include the rustix crate in the exactly same semver-compatible version as used by

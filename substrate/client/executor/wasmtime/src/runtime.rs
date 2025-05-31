@@ -251,7 +251,7 @@ fn common_config(semantics: &Semantics) -> std::result::Result<wasmtime::Config,
 
 	// Be clear and specific about the extensions we support. If an update brings new features
 	// they should be introduced here as well.
-	// config.wasm_reference_types(semantics.wasm_reference_types);
+	config.wasm_reference_types(semantics.wasm_reference_types);
 	config.wasm_simd(semantics.wasm_simd);
 	config.wasm_relaxed_simd(semantics.wasm_simd);
 	config.wasm_bulk_memory(semantics.wasm_bulk_memory);

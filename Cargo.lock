@@ -27428,6 +27428,7 @@ dependencies = [
  "bumpalo",
  "cc",
  "cfg-if",
+ "gimli 0.31.1",
  "hashbrown 0.15.3",
  "indexmap 2.9.0",
  "libc",
@@ -27607,6 +27608,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "357542664493b1359727f235b615ae74f63bd46aa4d0c587b09e3b060eb0b8ef"
 dependencies = [
  "anyhow",
+ "cpp_demangle 0.4.3",
  "cranelift-bitset",
  "cranelift-entity 0.120.0",
  "gimli 0.31.1",
@@ -27614,6 +27616,7 @@ dependencies = [
  "log",
  "object 0.36.7",
  "postcard",
+ "rustc-demangle",
  "serde",
  "serde_derive",
  "smallvec",
