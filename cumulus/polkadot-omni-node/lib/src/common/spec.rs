@@ -291,7 +291,16 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 				.await
 				.map_err(|e| sc_service::Error::Application(Box::new(e)))?;
 
-			let statement_store = if !node_extra_args.disable_statement_store {
+			let validator = parachain_config.role.is_authority();
+			let prometheus_registry = parachain_config.prometheus_registry().cloned();
+			let transaction_pool = params.transaction_pool.clone();
+			let import_queue_service = params.import_queue.service();
+			let mut net_config = FullNetworkConfiguration::<_, _, Net>::new(
+				&parachain_config.network,
+				prometheus_registry.clone(),
+			);
+
+			let statement_store_vars = if !node_extra_args.disable_statement_store {
 				let statement_store = sc_statement_store::Store::new_shared(
 					&parachain_config.data_path,
 					Default::default(),
@@ -301,20 +310,18 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 					&task_manager.spawn_handle(),
 				)
 				.map_err(|e| sc_service::Error::Application(Box::new(e) as Box<_>))?;
-
-				Some(statement_store)
+				let (statement_handler_proto, statement_config) =
+					sc_network_statement::StatementHandlerPrototype::new::<_, _, Net>(
+						client.chain_info().genesis_hash,
+						parachain_config.chain_spec.fork_id(),
+						sc_network::NotificationMetrics::new(None), // TODO TODO: maybe some metrics
+						Arc::clone(&net_config.peer_store_handle()),
+					);
+				net_config.add_notification_protocol(statement_config);
+				Some((statement_store, statement_handler_proto))
 			} else {
 				None
 			};
-
-			let validator = parachain_config.role.is_authority();
-			let prometheus_registry = parachain_config.prometheus_registry().cloned();
-			let transaction_pool = params.transaction_pool.clone();
-			let import_queue_service = params.import_queue.service();
-			let net_config = FullNetworkConfiguration::<_, _, Net>::new(
-				&parachain_config.network,
-				prometheus_registry.clone(),
-			);
 
 			let (network, system_rpc_tx, tx_handler_controller, sync_service) =
 				build_network(BuildNetworkParams {
@@ -330,7 +337,34 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 				})
 				.await?;
 
+			let statement_store = if let Some((statement_store, statement_handler_proto)) = statement_store_vars {
+				// Spawn statement protocol worker
+				let statement_protocol_executor = {
+					let spawn_handle = task_manager.spawn_handle();
+					Box::new(move |fut| {
+						spawn_handle.spawn("network-statement-validator", Some("networking"), fut);
+					})
+				};
+				let statement_handler = statement_handler_proto.build(
+					network.clone(),
+					sync_service.clone(),
+					statement_store.clone(),
+					prometheus_registry.as_ref(),
+					statement_protocol_executor,
+				)?;
+				task_manager.spawn_handle().spawn(
+					"network-statement-handler",
+					Some("networking"),
+					statement_handler.run(),
+				);
+
+				Some(statement_store)
+			} else {
+				None
+			};
+
 			if parachain_config.offchain_worker.enabled {
+				let statement_store = statement_store.clone();
 				let offchain_workers =
 					sc_offchain::OffchainWorkers::new(sc_offchain::OffchainWorkerOptions {
 						runtime_api_provider: client.clone(),
@@ -342,7 +376,13 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 						network_provider: Arc::new(network.clone()),
 						is_validator: parachain_config.role.is_authority(),
 						enable_http_requests: true,
-						custom_extensions: move |_| vec![],
+						custom_extensions: move |_| {
+							if let Some(statement_store) = &statement_store {
+								vec![Box::new(statement_store.clone().as_statement_store_ext()) as Box<_>]
+							} else {
+								vec![]
+							}
+						},
 					})?;
 				task_manager.spawn_handle().spawn(
 					"offchain-workers-runner",
