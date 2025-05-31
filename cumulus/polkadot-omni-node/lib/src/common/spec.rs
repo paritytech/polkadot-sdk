@@ -49,6 +49,42 @@ use sc_transaction_pool::TransactionPoolHandle;
 use sc_transaction_pool_api::OffchainTransactionPoolFactory;
 use sp_keystore::KeystorePtr;
 use std::{future::Future, pin::Pin, sync::Arc, time::Duration};
+use sp_statement_store::runtime_api::StatementStoreExt;
+
+pub struct ZeroSizeStatementStore;
+impl sp_statement_store::StatementStore for ZeroSizeStatementStore {
+	fn posted(&self, _match_all_topics: &[sp_statement_store::Topic], _dest: [u8; 32]) -> sp_statement_store::Result<Vec<Vec<u8>>> {
+		Ok(Vec::new())
+	}
+	fn submit(&self, _statement: sp_statement_store::Statement, _source: sp_statement_store::StatementSource) -> sp_statement_store::SubmitResult {
+		sp_statement_store::SubmitResult::Ignored
+	}
+	fn remove(&self, _hash: &sp_statement_store::Hash) -> sp_statement_store::Result<()> {
+		Ok(())
+	}
+	fn statement(&self, _hash: &sp_statement_store::Hash) -> sp_statement_store::Result<Option<sp_statement_store::Statement>> {
+		Ok(None)
+	}
+	fn statements(&self) -> sp_statement_store::Result<Vec<(sp_statement_store::Hash, sp_statement_store::Statement)>> {
+		Ok(Vec::new())
+	}
+	fn broadcasts(&self, _match_all_topics: &[sp_statement_store::Topic]) -> sp_statement_store::Result<Vec<Vec<u8>>> {
+		Ok(Vec::new())
+	}
+	fn posted_stmt(&self, _match_all_topics: &[sp_statement_store::Topic], _dest: [u8; 32]) -> sp_statement_store::Result<Vec<Vec<u8>>> {
+		Ok(Vec::new())
+	}
+	fn posted_clear(&self, _match_all_topics: &[sp_statement_store::Topic], _dest: [u8; 32]) -> sp_statement_store::Result<Vec<Vec<u8>>> {
+		Ok(Vec::new())
+	}
+	fn broadcasts_stmt(&self, _match_all_topics: &[sp_statement_store::Topic]) -> sp_statement_store::Result<Vec<Vec<u8>>> {
+		Ok(Vec::new())
+	}
+	fn posted_clear_stmt(&self, _match_all_topics: &[sp_statement_store::Topic], _dest: [u8; 32])
+			-> sp_statement_store::Result<Vec<Vec<u8>>> {
+		Ok(Vec::new())
+	}
+}
 
 pub(crate) trait BuildImportQueue<
 	Block: BlockT,
@@ -380,7 +416,7 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 							if let Some(statement_store) = &statement_store {
 								vec![Box::new(statement_store.clone().as_statement_store_ext()) as Box<_>]
 							} else {
-								vec![]
+								vec![Box::new(StatementStoreExt(Arc::new(ZeroSizeStatementStore))) as Box<_>]
 							}
 						},
 					})?;

@@ -9,6 +9,8 @@ doc:
     It uses the runtime api to get the allowance associated to an account.
 
     If the runtime doesn't implement the API `ValidateStatement` then all statement submission will safely fail with the error `Error calling into the runtime`.
+
+    TODO TODO: update doc
 crates:
 - name: polkadot-omni-node-lib
   bump: major
