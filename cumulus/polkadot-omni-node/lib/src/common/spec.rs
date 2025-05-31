@@ -50,6 +50,8 @@ use sc_transaction_pool_api::OffchainTransactionPoolFactory;
 use sp_keystore::KeystorePtr;
 use std::{future::Future, pin::Pin, sync::Arc, time::Duration};
 use sp_statement_store::runtime_api::StatementStoreExt;
+use sp_api::ProvideRuntimeApi;
+use sp_api::ApiExt;
 
 pub struct ZeroSizeStatementStore;
 impl sp_statement_store::StatementStore for ZeroSizeStatementStore {
@@ -336,7 +338,15 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 				prometheus_registry.clone(),
 			);
 
-			let statement_store_vars = if !node_extra_args.disable_statement_store {
+			let best_hash = client
+				.chain_info()
+				.best_hash;
+			let has_validate_statement_api_at_best_hash = client
+				.runtime_api()
+				.has_api::<dyn sp_statement_store::runtime_api::ValidateStatement<Self::Block>>(best_hash)
+				.map_err(|e| sc_service::Error::Application(Box::new(e)))?;
+
+			let statement_store_vars = if has_validate_statement_api_at_best_hash {
 				let statement_store = sc_statement_store::Store::new_shared(
 					&parachain_config.data_path,
 					Default::default(),
