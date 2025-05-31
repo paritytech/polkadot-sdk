@@ -38,7 +38,9 @@ extern crate alloc;
 
 use alloc::{vec, vec::Vec};
 use assets_common::{
+	foreign_creators::ForeignCreators,
 	local_and_foreign_assets::{LocalFromLeft, TargetFromLeft},
+	matching::{FromNetwork, FromSiblingParachain},
 	AssetIdForPoolAssets, AssetIdForPoolAssetsConvert, AssetIdForTrustBackedAssetsConvert,
 };
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
@@ -74,8 +76,11 @@ use parachains_common::{
 	BlockNumber, CollectionId, Hash, Header, ItemId, Nonce, Signature, AVERAGE_ON_INITIALIZE_RATIO,
 	NORMAL_DISPATCH_RATIO,
 };
+use polkadot_runtime_common::{BlockHashCount, SlowAdjustingFeeUpdate};
 use sp_api::impl_runtime_apis;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
+#[cfg(any(feature = "std", test))]
+pub use sp_runtime::BuildStorage;
 use sp_runtime::{
 	generic, impl_opaque_keys,
 	traits::{AccountIdConversion, BlakeTwo256, Block as BlockT, ConvertInto, Verify},
@@ -88,24 +93,15 @@ use sp_version::RuntimeVersion;
 use testnet_parachains_constants::westend::{
 	consensus::*, currency::*, fee::WeightToFee, snowbridge::EthereumNetwork, time::*,
 };
-use xcm_config::{
-	ForeignAssetsConvertedConcreteId, LocationToAccountId, PoolAssetsConvertedConcreteId,
-	PoolAssetsPalletLocation, TrustBackedAssetsConvertedConcreteId,
-	TrustBackedAssetsPalletLocation, WestendLocation, XcmOriginToTransactDispatchOrigin,
-};
-
-#[cfg(any(feature = "std", test))]
-pub use sp_runtime::BuildStorage;
-
-use assets_common::{
-	foreign_creators::ForeignCreators,
-	matching::{FromNetwork, FromSiblingParachain},
-};
-use polkadot_runtime_common::{BlockHashCount, SlowAdjustingFeeUpdate};
 use weights::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight};
 use xcm::{
 	latest::prelude::AssetId,
 	prelude::{VersionedAsset, VersionedAssetId, VersionedAssets, VersionedLocation, VersionedXcm},
+};
+use xcm_config::{
+	ForeignAssetsConvertedConcreteId, LocationToAccountId, PoolAssetsConvertedConcreteId,
+	PoolAssetsPalletLocation, TrustBackedAssetsConvertedConcreteId,
+	TrustBackedAssetsPalletLocation, WestendLocation, XcmOriginToTransactDispatchOrigin,
 };
 
 #[cfg(feature = "runtime-benchmarks")]
@@ -130,14 +126,10 @@ impl_opaque_keys! {
 
 #[sp_version::runtime_version]
 pub const VERSION: RuntimeVersion = RuntimeVersion {
-	// Note: "westmint" is the legacy name for this chain. It has been renamed to
-	// "asset-hub-next-westend". Many wallets/tools depend on the `spec_name`, so it remains
-	// "westmint" for the time being. Wallets/tools should update to treat "asset-hub-next-westend"
-	// equally.
-	spec_name: alloc::borrow::Cow::Borrowed("asset-hub-next"),
-	impl_name: alloc::borrow::Cow::Borrowed("asset-hub-next"),
+	spec_name: alloc::borrow::Cow::Borrowed("staking-async-parachain"),
+	impl_name: alloc::borrow::Cow::Borrowed("staking-async-parachain"),
 	authoring_version: 1,
-	spec_version: 1_017_007,
+	spec_version: 1_000_000,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 16,
