@@ -392,6 +392,10 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 								vec![Box::new(statement_store.clone().as_statement_store_ext())
 									as Box<_>]
 							} else {
+								// TODO TODO: maybe log a warning if the hash given here is for a
+								// runtime that contains ValidateStatement runtime API.
+								// The log would warn that node operator should restart the node
+								// to enable the statement store.
 								vec![]
 							}
 						},
