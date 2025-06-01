@@ -33,13 +33,11 @@ pub mod xcm_config;
 mod bag_thresholds;
 pub mod governance;
 mod staking;
-use governance::{
-	pallet_custom_origins, FellowsBodyId, FellowshipAdmin, GeneralAdmin, StakingAdmin, Treasurer,
-};
+use governance::{pallet_custom_origins, FellowshipAdmin, GeneralAdmin, StakingAdmin, Treasurer};
 
 extern crate alloc;
 
-use alloc::{boxed::Box, vec, vec::Vec};
+use alloc::{vec, vec::Vec};
 use assets_common::{
 	local_and_foreign_assets::{LocalFromLeft, TargetFromLeft},
 	AssetIdForPoolAssets, AssetIdForPoolAssetsConvert, AssetIdForTrustBackedAssetsConvert,
@@ -74,8 +72,8 @@ use pallet_asset_conversion_tx_payment::SwapAssetAdapter;
 use pallet_assets::precompiles::{InlineIdConfig, ERC20};
 use pallet_nfts::{DestroyWitness, PalletFeatures};
 use pallet_nomination_pools::PoolId;
-use pallet_revive::{evm::runtime::EthExtra, AddressMapper};
-use pallet_xcm::{EnsureXcm, IsVoiceOfBody};
+use pallet_revive::evm::runtime::EthExtra;
+use pallet_xcm::EnsureXcm;
 use parachains_common::{
 	impls::DealWithFees, message_queue::*, AccountId, AssetIdForTrustBackedAssets, AuraId, Balance,
 	BlockNumber, CollectionId, Hash, Header, ItemId, Nonce, Signature, AVERAGE_ON_INITIALIZE_RATIO,
@@ -85,10 +83,7 @@ use sp_api::impl_runtime_apis;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
 use sp_runtime::{
 	generic, impl_opaque_keys,
-	traits::{
-		AccountIdConversion, BlakeTwo256, Block as BlockT, ConvertInto, Saturating,
-		TransactionExtension, Verify,
-	},
+	traits::{AccountIdConversion, BlakeTwo256, Block as BlockT, ConvertInto, Saturating, Verify},
 	transaction_validity::{TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult, Perbill, Permill, RuntimeDebug,
 };
@@ -100,8 +95,8 @@ use testnet_parachains_constants::westend::{
 };
 use westend_runtime_constants::time::DAYS as RC_DAYS;
 use xcm_config::{
-	Collectives, ForeignAssetsConvertedConcreteId, LocationToAccountId,
-	PoolAssetsConvertedConcreteId, PoolAssetsPalletLocation, TrustBackedAssetsConvertedConcreteId,
+	ForeignAssetsConvertedConcreteId, LocationToAccountId, PoolAssetsConvertedConcreteId,
+	PoolAssetsPalletLocation, TrustBackedAssetsConvertedConcreteId,
 	TrustBackedAssetsPalletLocation, WestendLocation, XcmOriginToTransactDispatchOrigin,
 };
 
@@ -1273,7 +1268,6 @@ impl pallet_indices::Config for Runtime {
 }
 
 impl pallet_ah_ops::Config for Runtime {
-	type RuntimeEvent = RuntimeEvent;
 	type Currency = Balances;
 	type RcBlockNumberProvider = RelaychainDataProvider<Runtime>;
 	type WeightInfo = weights::pallet_ah_ops::WeightInfo<Runtime>;

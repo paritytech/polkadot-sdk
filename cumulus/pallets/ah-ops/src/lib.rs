@@ -42,13 +42,13 @@ use cumulus_primitives_core::ParaId;
 use frame_support::{
 	pallet_prelude::*,
 	traits::{
-		fungible::{Inspect, InspectFreeze, Mutate, MutateFreeze, MutateHold, Unbalanced},
-		tokens::{Fortitude, IdAmount, Precision, Preservation},
+		fungible::{InspectFreeze, Mutate, MutateFreeze, MutateHold, Unbalanced},
+		tokens::{Precision, Preservation},
 		Defensive, LockableCurrency, ReservableCurrency,
 	},
 };
 use frame_system::pallet_prelude::*;
-use pallet_balances::{AccountData, BalanceLock};
+use pallet_balances::AccountData;
 use sp_runtime::{traits::BlockNumberProvider, AccountId32};
 use sp_std::prelude::*;
 
@@ -67,9 +67,6 @@ pub mod pallet {
 		+ pallet_balances::Config<Balance = u128>
 		+ pallet_timestamp::Config<Moment = u64> // Needed for testing
 	{
-		/// The overarching event type.
-		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
-
 		/// Native asset type.
 		type Currency: Mutate<Self::AccountId, Balance = u128>
 			+ MutateHold<Self::AccountId, Reason = Self::RuntimeHoldReason>
@@ -307,12 +304,12 @@ pub mod pallet {
 					.saturating_add(Weight::from_parts(0, 50_000)))]
 		pub fn migrate_parachain_sovereign_acc(
 			origin: OriginFor<T>,
-			from: T::AccountId,
+			fixme: T::AccountId,
 			to: T::AccountId,
 		) -> DispatchResult {
 			ensure_root(origin)?;
 
-			//Self::do_migrate_parachain_sovereign_acc(&from, &to).map_err(Into::into)
+			//Self::do_migrate_parachain_sovereign_acc(&from, &to).map_err(Into::into) FAIL-CI
 			Err(Error::<T>::InternalError.into())
 		}
 

@@ -26,11 +26,10 @@ use pallet_election_provider_multi_block::{
 	self as multi_block, weights::measured, SolutionAccuracyOf,
 };
 use pallet_staking_async::UseValidatorsMap;
-use polkadot_runtime_common::{prod_or_fast, BalanceToU256, CurrencyToVote, U256ToBalance};
+use polkadot_runtime_common::{prod_or_fast, BalanceToU256, U256ToBalance};
 use sp_runtime::{
 	transaction_validity::TransactionPriority, FixedPointNumber, FixedU128, SaturatedConversion,
 };
-use westend_runtime_constants::time::EPOCH_DURATION_IN_SLOTS;
 
 parameter_types! {
 	/// Number of election pages that we operate upon. 32 * 6s block = 192s 3.2min stanpshot
@@ -88,25 +87,6 @@ frame_election_provider_support::generate_solution_type!(
 		MaxVoters = VoterSnapshotPerBlock,
 	>(16)
 );
-
-parameter_types! {
-	/// Onchain election only happens in genesis, and iff configured as fallback. It should use a small number of stakers.
-	pub OnchainElectionBounds: ElectionBounds =
-		ElectionBoundsBuilder::default().voters_count(1000.into()).targets_count(1000.into()).build();
-}
-
-/// The onchain election backup. Used only in genesis, and possible as a fallback.
-pub struct OnChainSeqPhragmen;
-impl onchain::Config for OnChainSeqPhragmen {
-	type Sort = ConstBool<true>;
-	type System = Runtime;
-	type Solver = SequentialPhragmen<AccountId, SolutionAccuracyOf<Runtime>>;
-	type DataProvider = Staking;
-	type WeightInfo = frame_election_provider_support::weights::SubstrateWeight<Runtime>;
-	type Bounds = OnchainElectionBounds;
-	type MaxBackersPerWinner = MaxBackersPerWinner;
-	type MaxWinnersPerPage = MaxWinnersPerPage;
-}
 
 ord_parameter_types! {
 	// https://westend.subscan.io/account/5GBoBNFP9TA7nAk82i6SUZJimerbdhxaRgyC2PVcdYQMdb8e
