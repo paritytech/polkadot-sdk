@@ -463,18 +463,7 @@ impl<
 }
 
 /// A snapshot of the stake backing a single validator in the system.
-#[derive(
-	PartialEq,
-	Eq,
-	PartialOrd,
-	Ord,
-	Clone,
-	Encode,
-	Decode,
-	DecodeWithMemTracking,
-	RuntimeDebug,
-	TypeInfo,
-)]
+#[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
 pub struct ExposurePage<AccountId, Balance: HasCompact> {
 	/// The total balance of this chunk/page.
 	#[codec(compact)]
@@ -515,7 +504,6 @@ impl<A, B: HasCompact + Default + AddAssign + SubAssign + Clone> From<Vec<Indivi
 	Clone,
 	Encode,
 	Decode,
-	DecodeWithMemTracking,
 	RuntimeDebug,
 	TypeInfo,
 	Default,
