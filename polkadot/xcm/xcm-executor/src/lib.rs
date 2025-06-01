@@ -230,10 +230,19 @@ impl<Config: config::Config> ExecuteXcm<Config::RuntimeCall> for XcmExecutor<Con
 	type Prepared = WeighedMessage<Config::RuntimeCall>;
 	fn prepare(
 		mut message: Xcm<Config::RuntimeCall>,
-	) -> Result<Self::Prepared, Xcm<Config::RuntimeCall>> {
-		match Config::Weigher::weight(&mut message) {
+		weight_limit: Weight,
+	) -> Result<Self::Prepared, InstructionError> {
+		match Config::Weigher::weight(&mut message, weight_limit) {
 			Ok(weight) => Ok(WeighedMessage(weight, message)),
-			Err(_) => Err(message),
+			Err(error) => {
+				tracing::debug!(
+					target: "xcm::prepare",
+					?error,
+					?message,
+					"Failed to calculate weight for XCM message; execution aborted"
+				);
+				Err(error)
+			},
 		}
 	}
 	fn execute(
@@ -275,8 +284,8 @@ impl<Config: config::Config> ExecuteXcm<Config::RuntimeCall> for XcmExecutor<Con
 			);
 
 			return Outcome::Incomplete {
-				used: xcm_weight,         // Weight consumed before the error
-				error: XcmError::Barrier, // The error that occurred
+				used: xcm_weight, // Weight consumed before the error
+				error: InstructionError { index: 0, error: XcmError::Barrier }, // The error that occurred
 			};
 		}
 
@@ -408,15 +417,18 @@ impl<Config: config::Config> XcmExecutor<Config> {
 			None => Outcome::Complete { used: weight_used },
 			// TODO: #2841 #REALWEIGHT We should deduct the cost of any instructions following
 			// the error which didn't end up being executed.
-			Some((_i, e)) => {
+			Some((index, error)) => {
 				tracing::trace!(
 					target: "xcm::post_process",
-					instruction = ?_i,
-					error = ?e,
+					instruction = ?index,
+					?error,
 					original_origin = ?self.original_origin,
 					"Execution failed",
 				);
-				Outcome::Incomplete { used: weight_used, error: e }
+				Outcome::Incomplete {
+					used: weight_used,
+					error: InstructionError { index: index.try_into().unwrap_or(u8::MAX), error },
+				}
 			},
 		}
 	}
@@ -1442,16 +1454,32 @@ impl<Config: config::Config> XcmExecutor<Config> {
 			},
 			RefundSurplus => self.refund_surplus(),
 			SetErrorHandler(mut handler) => {
-				let handler_weight = Config::Weigher::weight(&mut handler)
-					.map_err(|()| XcmError::WeightNotComputable)?;
+				let handler_weight = Config::Weigher::weight(&mut handler, Weight::MAX)
+					.map_err(|error| {
+						tracing::debug!(
+							target: "xcm::executor::SetErrorHandler",
+							?error,
+							?handler,
+							"Failed to calculate weight"
+						);
+						XcmError::WeightNotComputable
+					})?;
 				self.total_surplus.saturating_accrue(self.error_handler_weight);
 				self.error_handler = handler;
 				self.error_handler_weight = handler_weight;
 				Ok(())
 			},
 			SetAppendix(mut appendix) => {
-				let appendix_weight = Config::Weigher::weight(&mut appendix)
-					.map_err(|()| XcmError::WeightNotComputable)?;
+				let appendix_weight = Config::Weigher::weight(&mut appendix, Weight::MAX)
+					.map_err(|error| {
+						tracing::debug!(
+							target: "xcm::executor::SetErrorHandler",
+							?error,
+							?appendix,
+							"Failed to calculate weight"
+						);
+						XcmError::WeightNotComputable
+					})?;
 				self.total_surplus.saturating_accrue(self.appendix_weight);
 				self.appendix = appendix;
 				self.appendix_weight = appendix_weight;

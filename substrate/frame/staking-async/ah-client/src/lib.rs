@@ -430,7 +430,7 @@ pub mod pallet {
 			report: rc_client::ValidatorSetReport<T::AccountId>,
 		) -> DispatchResult {
 			// Ensure the origin is one of Root or whatever is representing AssetHub.
-			log!(info, "Received new validator set report {:?}", report);
+			log!(debug, "Received new validator set report {}", report);
 			T::AssetHubOrigin::ensure_origin_or_root(origin)?;
 
 			// Check the operating mode.
