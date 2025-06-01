@@ -36,7 +36,6 @@ mod staking;
 use governance::{
 	pallet_custom_origins, FellowsBodyId, FellowshipAdmin, GeneralAdmin, StakingAdmin, Treasurer,
 };
-pub mod ah_migration;
 
 extern crate alloc;
 
