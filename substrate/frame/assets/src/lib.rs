@@ -155,6 +155,7 @@ pub mod benchmarking;
 pub mod migration;
 #[cfg(test)]
 pub mod mock;
+pub mod precompiles;
 #[cfg(test)]
 mod tests;
 pub mod weights;

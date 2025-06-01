@@ -93,7 +93,7 @@ use sp_staking::{
 /// All of the following storage items must be controlled by this type:
 ///
 /// [`ErasValidatorPrefs`]
-/// [`ErasClaimedRewards`]
+/// [`ClaimedRewards`]
 /// [`ErasStakersPaged`]
 /// [`ErasStakersOverview`]
 /// [`ErasValidatorReward`]
@@ -110,7 +110,7 @@ impl<T: Config> Eras<T> {
 		crate::log!(debug, "Pruning era {:?}", era);
 		let mut cursor = <ErasValidatorPrefs<T>>::clear_prefix(era, u32::MAX, None);
 		debug_assert!(cursor.maybe_cursor.is_none());
-		cursor = <ErasClaimedRewards<T>>::clear_prefix(era, u32::MAX, None);
+		cursor = <ClaimedRewards<T>>::clear_prefix(era, u32::MAX, None);
 		debug_assert!(cursor.maybe_cursor.is_none());
 		cursor = <ErasStakersPaged<T>>::clear_prefix((era,), u32::MAX, None);
 		debug_assert!(cursor.maybe_cursor.is_none());
@@ -140,7 +140,7 @@ impl<T: Config> Eras<T> {
 	pub(crate) fn pending_rewards(era: EraIndex, validator: &T::AccountId) -> bool {
 		<ErasStakersOverview<T>>::get(&era, validator)
 			.map(|overview| {
-				ErasClaimedRewards::<T>::get(era, validator).len() < overview.page_count as usize
+				ClaimedRewards::<T>::get(era, validator).len() < overview.page_count as usize
 			})
 			.unwrap_or(false)
 	}
@@ -212,7 +212,7 @@ impl<T: Config> Eras<T> {
 		// Find next claimable page of paged exposure.
 		let page_count = Self::exposure_page_count(era, validator);
 		let all_claimable_pages: Vec<Page> = (0..page_count).collect();
-		let claimed_pages = ErasClaimedRewards::<T>::get(era, validator);
+		let claimed_pages = ClaimedRewards::<T>::get(era, validator);
 
 		all_claimable_pages.into_iter().find(|p| !claimed_pages.contains(p))
 	}
@@ -220,7 +220,7 @@ impl<T: Config> Eras<T> {
 	/// Creates an entry to track validator reward has been claimed for a given era and page.
 	/// Noop if already claimed.
 	pub(crate) fn set_rewards_as_claimed(era: EraIndex, validator: &T::AccountId, page: Page) {
-		let mut claimed_pages = ErasClaimedRewards::<T>::get(era, validator).into_inner();
+		let mut claimed_pages = ClaimedRewards::<T>::get(era, validator).into_inner();
 
 		// this should never be called if the reward has already been claimed
 		if claimed_pages.contains(&page) {
@@ -231,7 +231,7 @@ impl<T: Config> Eras<T> {
 
 		// add page to claimed entries
 		claimed_pages.push(page);
-		ErasClaimedRewards::<T>::insert(
+		ClaimedRewards::<T>::insert(
 			era,
 			validator,
 			WeakBoundedVec::<_, _>::force_from(claimed_pages, Some("set_rewards_as_claimed")),
@@ -342,7 +342,7 @@ impl<T: Config> Eras<T> {
 
 	/// Check if the rewards for the given era and page index have been claimed.
 	pub(crate) fn is_rewards_claimed(era: EraIndex, validator: &T::AccountId, page: Page) -> bool {
-		ErasClaimedRewards::<T>::get(era, validator).contains(&page)
+		ClaimedRewards::<T>::get(era, validator).contains(&page)
 	}
 
 	/// Add reward points to validators using their stash account ID.
@@ -420,7 +420,7 @@ impl<T: Config> Eras<T> {
 		let e4 = ErasTotalStake::<T>::contains_key(era);
 
 		// these two are only populated conditionally, so we only check them for lack of existence
-		let e6 = ErasClaimedRewards::<T>::iter_prefix_values(era).count() != 0;
+		let e6 = ClaimedRewards::<T>::iter_prefix_values(era).count() != 0;
 		let e7 = ErasRewardPoints::<T>::contains_key(era);
 
 		assert!(
@@ -725,8 +725,7 @@ impl<T: Config> Rotator<T> {
 		let era_start_session = Self::active_era_start_session_index();
 
 		// progress of the active era in sessions.
-		let session_progress =
-			start_session.saturating_add(1).defensive_saturating_sub(era_start_session);
+		let session_progress = start_session.defensive_saturating_sub(era_start_session);
 
 		log!(
 			debug,
