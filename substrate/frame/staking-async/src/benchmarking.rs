@@ -347,7 +347,7 @@ mod benchmarks {
 	#[benchmark]
 	fn validate() -> Result<(), BenchmarkError> {
 		let (stash, controller) = create_stash_controller::<T>(
-			MaxNominations::<T>::get() - 1,
+			MaxNominationsOf::<T>::get() - 1,
 			100,
 			RewardDestination::Staked,
 		)?;
@@ -377,11 +377,11 @@ mod benchmarks {
 		// these are the other validators; there are `T::MaxNominations::get() - 1` of them, so
 		// there are a total of `T::MaxNominations::get()` validators in the system.
 		let rest_of_validators =
-			create_validators_with_seed::<T>(MaxNominations::<T>::get() - 1, 100, 415)?;
+			create_validators_with_seed::<T>(MaxNominationsOf::<T>::get() - 1, 100, 415)?;
 
 		// this is the validator that will be kicking.
 		let (stash, controller) = create_stash_controller::<T>(
-			MaxNominations::<T>::get() - 1,
+			MaxNominationsOf::<T>::get() - 1,
 			100,
 			RewardDestination::Staked,
 		)?;
@@ -396,7 +396,7 @@ mod benchmarks {
 		for i in 0..k {
 			// create a nominator stash.
 			let (n_stash, n_controller) = create_stash_controller::<T>(
-				MaxNominations::<T>::get() + i,
+				MaxNominationsOf::<T>::get() + i,
 				100,
 				RewardDestination::Staked,
 			)?;
@@ -438,7 +438,7 @@ mod benchmarks {
 
 	#[benchmark]
 	// Worst case scenario, T::MaxNominations::get()
-	fn nominate(n: Linear<1, { MaxNominations::<T>::get() }>) -> Result<(), BenchmarkError> {
+	fn nominate(n: Linear<1, { MaxNominationsOf::<T>::get() }>) -> Result<(), BenchmarkError> {
 		// clean up any existing state.
 		clear_validators_and_nominators::<T>();
 
@@ -448,7 +448,7 @@ mod benchmarks {
 		// because we are just doing an insert into the origin position.
 		ListScenario::<T>::new(origin_weight, true)?;
 		let (stash, controller) = create_stash_controller_with_balance::<T>(
-			SEED + MaxNominations::<T>::get() + 1, /* make sure the account does not conflict
+			SEED + MaxNominationsOf::<T>::get() + 1, /* make sure the account does not conflict
 			                                          * with others */
 			origin_weight,
 			RewardDestination::Staked,
@@ -1195,7 +1195,7 @@ mod tests {
 			create_validators_with_nominators_for_era::<Test>(
 				v,
 				n,
-				MaxNominations::<Test>::get() as usize,
+				MaxNominationsOf::<Test>::get() as usize,
 				false,
 				None,
 			)

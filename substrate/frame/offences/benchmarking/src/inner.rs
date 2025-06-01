@@ -33,7 +33,7 @@ use pallet_session::{
 	Config as SessionConfig, Pallet as Session,
 };
 use pallet_staking::{
-	Config as StakingConfig, Exposure, IndividualExposure, MaxNominations, Pallet as Staking,
+	Config as StakingConfig, Exposure, IndividualExposure, MaxNominationsOf, Pallet as Staking,
 	RewardDestination, ValidatorPrefs,
 };
 use sp_runtime::{
@@ -217,7 +217,7 @@ mod benchmarks {
 
 	#[benchmark]
 	pub fn report_offence_grandpa(
-		n: Linear<0, { MAX_NOMINATORS.min(MaxNominations::<T>::get()) }>,
+		n: Linear<0, { MAX_NOMINATORS.min(MaxNominationsOf::<T>::get()) }>,
 	) -> Result<(), BenchmarkError> {
 		// for grandpa equivocation reports the number of reporters
 		// and offenders is always 1
@@ -252,7 +252,7 @@ mod benchmarks {
 
 	#[benchmark]
 	fn report_offence_babe(
-		n: Linear<0, { MAX_NOMINATORS.min(MaxNominations::<T>::get()) }>,
+		n: Linear<0, { MAX_NOMINATORS.min(MaxNominationsOf::<T>::get()) }>,
 	) -> Result<(), BenchmarkError> {
 		// for babe equivocation reports the number of reporters
 		// and offenders is always 1
