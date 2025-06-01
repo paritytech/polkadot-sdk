@@ -22,7 +22,6 @@
 
 extern crate alloc;
 
-use ah_migration::phase1 as ahm_phase1;
 use alloc::{
 	collections::{btree_map::BTreeMap, vec_deque::VecDeque},
 	vec,
@@ -102,17 +101,18 @@ use sp_consensus_beefy::{
 	mmr::{BeefyDataProvider, MmrLeafVersion},
 };
 use sp_core::{ConstBool, ConstU8, ConstUint, OpaqueMetadata, RuntimeDebug, H256};
+#[cfg(any(feature = "std", test))]
+pub use sp_runtime::BuildStorage;
 use sp_runtime::{
 	generic, impl_opaque_keys,
 	traits::{
-		AccountIdConversion, BlakeTwo256, Block as BlockT, ConvertInto, IdentityLookup, Keccak256,
-		OpaqueKeys, SaturatedConversion, Verify,
+		AccountIdConversion, BlakeTwo256, Block as BlockT, ConvertInto, Get, IdentityLookup,
+		Keccak256, OpaqueKeys, SaturatedConversion, Verify,
 	},
 	transaction_validity::{TransactionPriority, TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult, FixedU128, KeyTypeId, MultiSignature, MultiSigner, Percent, Permill,
 };
 use sp_staking::{EraIndex, SessionIndex};
-
 #[cfg(any(feature = "std", test))]
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
@@ -130,10 +130,6 @@ pub use frame_system::Call as SystemCall;
 pub use pallet_balances::Call as BalancesCall;
 pub use pallet_election_provider_multi_phase::{Call as EPMCall, GeometricDepositBase};
 pub use pallet_timestamp::Call as TimestampCall;
-use pallet_xcm::{EnsureXcm, IsVoiceOfBody};
-use sp_runtime::traits::Get;
-#[cfg(any(feature = "std", test))]
-pub use sp_runtime::BuildStorage;
 
 /// Constant values used within the runtime.
 use westend_runtime_constants::{
@@ -152,7 +148,6 @@ pub mod xcm_config;
 mod impls;
 use impls::ToParachainIdentityReaper;
 
-pub mod ah_migration;
 // Governance and configurations.
 pub mod governance;
 use governance::{
@@ -868,9 +863,6 @@ impl frame_support::traits::EnsureOrigin<RuntimeOrigin> for EnsureAssetHub {
 	}
 }
 
-// Note - AHM: this pallet is currently in place, but does nothing. Upon AHM, it should become
-// activated. Note that it is used as `SessionManager`, but since its mode is `Passive`, it will
-// delegate all of its tasks to `Fallback`, which is again `Staking`.
 impl ah_client::Config for Runtime {
 	type CurrencyBalance = Balance;
 	type AssetHubOrigin =
@@ -1758,12 +1750,6 @@ impl OnSwap for SwapLeases {
 		coretime::Pallet::<Runtime>::on_legacy_lease_swap(one, other);
 	}
 }
-
-// Derived from `polkadot_asset_hub_runtime::RuntimeBlockWeights`.
-const AH_MAXIMUM_BLOCK_WEIGHT: Weight = Weight::from_parts(
-	frame_support::weights::constants::WEIGHT_REF_TIME_PER_SECOND.saturating_mul(2),
-	polkadot_primitives::MAX_POV_SIZE as u64,
-);
 
 pub type MetaTxExtension = (
 	pallet_verify_signature::VerifySignature<Runtime>,

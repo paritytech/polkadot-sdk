@@ -91,7 +91,7 @@ parameter_types! {
 	pub TreasuryAccount: AccountId = TREASURY_PALLET_ID.into_account_truncating();
 	pub RelayTreasuryLocation: Location = (Parent, PalletInstance(westend_runtime_constants::TREASURY_PALLET_ID)).into();
 	pub const GovernanceLocation: Location = Location::parent();
-	/// The Checking Account along with the indication that the local chain is able to mint tokens.
+	/// Asset Hub has mint authority since the Asset Hub migration.
 	pub TeleportTracking: Option<(AccountId, MintLocation)> = Some((CheckingAccount::get(), MintLocation::Local));
 }
 
@@ -121,7 +121,7 @@ pub type FungibleTransactor = FungibleAdapter<
 	LocationToAccountId,
 	// Our chain's account ID type (we can't get away without mentioning it explicitly):
 	AccountId,
-	// Teleports tracking is managed by `AhMigrator`: no tracking before, track after.
+	// Teleports tracking
 	TeleportTracking,
 >;
 

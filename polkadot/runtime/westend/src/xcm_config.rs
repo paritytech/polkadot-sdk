@@ -55,7 +55,7 @@ parameter_types! {
 	pub const ThisNetwork: NetworkId = ByGenesis(WESTEND_GENESIS_HASH);
 	pub UniversalLocation: InteriorLocation = [GlobalConsensus(ThisNetwork::get())].into();
 	pub CheckAccount: AccountId = XcmPallet::check_account();
-	/// The Checking Account along with the indication that the local chain is able to mint tokens.
+	/// Westend does not have mint authority anymore after the Asset Hub migration.
 	pub TeleportTracking: Option<(AccountId, MintLocation)> = None;
 	pub TreasuryAccount: AccountId = Treasury::account_id();
 	/// The asset ID for the asset that we use to pay for message delivery fees.
@@ -84,7 +84,6 @@ pub type LocalAssetTransactor = FungibleAdapter<
 	LocationConverter,
 	// Our chain's account ID type (we can't get away without mentioning it explicitly):
 	AccountId,
-	// Teleports tracking is managed by `RcMigrator`: track before, no tracking after.
 	TeleportTracking,
 >;
 

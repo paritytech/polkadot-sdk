@@ -130,7 +130,6 @@ impl multi_block::Config for Runtime {
 	// Revert back to signed phase if nothing is submitted and queued, so we prolong the election.
 	type AreWeDone = multi_block::RevertToSignedIfNotQueuedOf<Self>;
 	type OnRoundRotation = multi_block::CleanRound<Self>;
-	// TODO: double check they are right.
 	type WeightInfo = measured::pallet_election_provider_multi_block::SubstrateWeight<Self>;
 }
 
@@ -140,7 +139,6 @@ impl multi_block::verifier::Config for Runtime {
 	type MaxBackersPerWinnerFinal = MaxBackersPerWinnerFinal;
 	type SolutionDataProvider = MultiBlockSigned;
 	type SolutionImprovementThreshold = SolutionImprovementThreshold;
-	// TODO: double check they are right.
 	type WeightInfo =
 		measured::pallet_election_provider_multi_block_verifier::SubstrateWeight<Self>;
 }
@@ -164,7 +162,6 @@ impl multi_block::signed::Config for Runtime {
 	type RewardBase = RewardBase;
 	type MaxSubmissions = MaxSubmissions;
 	type EstimateCallFee = TransactionPayment;
-	// TODO: double check they are right.
 	type WeightInfo = measured::pallet_election_provider_multi_block_signed::SubstrateWeight<Self>;
 }
 
@@ -181,7 +178,6 @@ impl multi_block::unsigned::Config for Runtime {
 	type OffchainSolver = SequentialPhragmen<AccountId, SolutionAccuracyOf<Runtime>>;
 	type MinerTxPriority = MinerTxPriority;
 	type OffchainRepeat = OffchainRepeat;
-	// TODO: double check they are right.
 	type WeightInfo =
 		measured::pallet_election_provider_multi_block_unsigned::SubstrateWeight<Self>;
 }
@@ -319,7 +315,7 @@ pub enum AhClientCalls {
 use pallet_staking_async_rc_client as rc_client;
 use xcm::latest::{prelude::*, SendXcm};
 
-// CI-FAIL: @kianenigma port over the new xcm configs from https://github.com/paritytech/polkadot-sdk/pull/8422
+// FAIL-CI: @kianenigma port over the new xcm configs from https://github.com/paritytech/polkadot-sdk/pull/8422
 pub struct XcmToRelayChain<T: SendXcm>(PhantomData<T>);
 impl<T: SendXcm> rc_client::SendToRelayChain for XcmToRelayChain<T> {
 	type AccountId = AccountId;
