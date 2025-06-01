@@ -35,7 +35,7 @@ pallet. The `para-id` flag will be removed and nodes support for extracting the
 parachain id from the chain specification will stop from `stable2509`.
 
 For reference, generating a chain specification with a `para_id` field can still
-be done like:
+be done until `stable2509` like below:
 ```bash
 chain-spec-builder -c "/dev/stdout" create --relay-chain "dev" --para-id 1000 -r $runtime_path named-preset "staging"
 ```
