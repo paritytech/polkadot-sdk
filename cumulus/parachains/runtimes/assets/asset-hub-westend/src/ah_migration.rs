@@ -16,7 +16,6 @@
 use super::*;
 use codec::DecodeAll;
 use frame_support::pallet_prelude::TypeInfo;
-// use parachains_common::pay::VersionedLocatableAccount;
 use polkadot_runtime_common::impls::{LocatableAssetConverter, VersionedLocatableAsset};
 use sp_runtime::traits::{Convert, TryConvert};
 use xcm::latest::prelude::*;
@@ -46,12 +45,6 @@ pub enum RcHoldReason {
 	Staking(pallet_staking::HoldReason),
 }
 
-impl Default for RcHoldReason {
-	fn default() -> Self {
-		RcHoldReason::Preimage(pallet_preimage::HoldReason::Preimage)
-	}
-}
-
 /// Relay Chain Freeze Reason
 #[derive(
 	Encode,
@@ -67,12 +60,6 @@ impl Default for RcHoldReason {
 pub enum RcFreezeReason {
 	#[codec(index = 29u8)]
 	NominationPools(pallet_nomination_pools::FreezeReason),
-}
-
-impl Default for RcFreezeReason {
-	fn default() -> Self {
-		RcFreezeReason::NominationPools(pallet_nomination_pools::FreezeReason::PoolMinBalance)
-	}
 }
 
 #[derive(DecodeWithMemTracking, Decode)]
@@ -142,12 +129,12 @@ impl TryConvert<RcProxyType, ProxyType> for RcToProxyType {
 			NonTransfer => Ok(ProxyType::NonTransfer),
 			Governance => Ok(ProxyType::Governance),
 			Staking => Ok(ProxyType::Staking),
-			SudoBalances => Ok(ProxyType::OldSudoBalances), // Does not exist on AH
-			IdentityJudgement => Ok(ProxyType::OldIdentityJudgement), // Does not exist on AH
+			SudoBalances => Ok(ProxyType::OldSudoBalances), // Mock variant
+			IdentityJudgement => Ok(ProxyType::OldIdentityJudgement), // Mock variant
 			CancelProxy => Ok(ProxyType::CancelProxy),
-			Auction => Ok(ProxyType::OldAuction), // Does not exist on AH
+			Auction => Ok(ProxyType::OldAuction), // Mock variant
 			NominationPools => Ok(ProxyType::NominationPools),
-			ParaRegistration => Ok(ProxyType::OldParaRegistration), // Does not exist on AH
+			ParaRegistration => Ok(ProxyType::OldParaRegistration), // Mock variant
 		}
 	}
 }
@@ -162,12 +149,6 @@ pub enum RcPalletsOrigin {
 	system(frame_system::Origin<Runtime>),
 	#[codec(index = 35u8)]
 	Origins(pallet_custom_origins::Origin),
-}
-
-impl Default for RcPalletsOrigin {
-	fn default() -> Self {
-		RcPalletsOrigin::system(frame_system::Origin::<Runtime>::Root)
-	}
 }
 
 /// Convert a Relay Chain origin to an Asset Hub one.
