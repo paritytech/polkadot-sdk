@@ -15,7 +15,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus. If not, see <https://www.gnu.org/licenses/>.
 
-//! The Cumulus [`Proposer`] is a wrapper around a Substrate [`sp_consensus::Environment`]
+//! The Cumulus [`ProposerInterface`] is an extension of the Substrate [`ProposerFactory`]
 //! for creating new parachain blocks.
 //!
 //! This utility is designed to be composed within any collator consensus algorithm.
@@ -53,7 +53,7 @@ impl Error {
 }
 
 /// A type alias for easily referring to the type of a proposal produced by a specific
-/// [`Proposer`].
+/// [`ProposerInterface`].
 pub type ProposalOf<B> = Proposal<B, StorageProof>;
 
 /// An interface for proposers.
