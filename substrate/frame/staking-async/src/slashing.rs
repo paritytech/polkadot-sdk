@@ -43,8 +43,8 @@
 use crate::{
 	asset, log, session_rotation::Eras, BalanceOf, Config, NegativeImbalanceOf,
 	NominatorSlashInEra, OffenceQueue, OffenceQueueEras, PagedExposure, Pallet, Perbill,
-	ProcessingOffence, SlashRewardFraction, UnappliedSlash, UnappliedSlashes,
-	ValidatorSlashInEra, WeightInfo,
+	ProcessingOffence, SlashRewardFraction, UnappliedSlash, UnappliedSlashes, ValidatorSlashInEra,
+	WeightInfo,
 };
 use alloc::vec::Vec;
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
