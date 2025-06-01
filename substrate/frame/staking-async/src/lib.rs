@@ -127,7 +127,7 @@ pub type MaxWinnersOf<T> = <T as Config>::MaxValidatorSet;
 pub type MaxWinnersPerPageOf<P> = <P as ElectionProvider>::MaxWinnersPerPage;
 
 /// Maximum number of nominations per nominator.
-pub type MaxNominations<T> =
+pub type MaxNominationsOf<T> =
 	<<T as Config>::NominationsQuota as NominationsQuota<BalanceOf<T>>>::MaxNominations;
 
 /// Counter for the number of "reward" points earned by a given validator.
