@@ -199,7 +199,7 @@ fn it_works() {
 		static TestData: Vec<usize> = vec![0];
 	}
 
-	let value = Default::default();
+	let value = 0;
 	let mut gas_meter = GasMeter::<Test>::new(GAS_LIMIT);
 	let exec_ch = MockLoader::insert(Call, |_ctx, _executable| {
 		TestData::mutate(|data| data.push(1));
@@ -208,8 +208,7 @@ fn it_works() {
 
 	ExtBuilder::default().build().execute_with(|| {
 		place_contract(&BOB, exec_ch);
-		let mut storage_meter =
-			storage::meter::Meter::new(&Origin::from_account_id(ALICE), 0, value).unwrap();
+		let mut storage_meter = storage::meter::Meter::new(0);
 
 		assert_matches!(
 			MockStack::run_call(
@@ -273,7 +272,7 @@ fn transfer_to_nonexistent_account_works() {
 		set_balance(&BOB, ed + value);
 		assert_err!(
 			MockStack::transfer(&Origin::from_account_id(ALICE), &BOB, &DJANGO, value.into()),
-			<Error<Test>>::TransferFailed
+			<Error<Test>>::StorageDepositNotEnoughFunds,
 		);
 
 		// Do not reap the sender account
@@ -302,7 +301,7 @@ fn correct_transfer_on_call() {
 		set_balance(&ALICE, 100);
 		let balance = get_balance(&BOB_FALLBACK);
 		let origin = Origin::from_account_id(ALICE);
-		let mut storage_meter = storage::meter::Meter::new(&origin, 0, value).unwrap();
+		let mut storage_meter = storage::meter::Meter::new(0);
 
 		let _ = MockStack::run_call(
 			origin.clone(),
@@ -341,7 +340,7 @@ fn correct_transfer_on_delegate_call() {
 		set_balance(&ALICE, 100);
 		let balance = get_balance(&BOB_FALLBACK);
 		let origin = Origin::from_account_id(ALICE);
-		let mut storage_meter = storage::meter::Meter::new(&origin, 0, 55).unwrap();
+		let mut storage_meter = storage::meter::Meter::new(0);
 
 		assert_ok!(MockStack::run_call(
 			origin,
@@ -374,7 +373,7 @@ fn delegate_call_missing_contract() {
 		set_balance(&ALICE, 100);
 
 		let origin = Origin::from_account_id(ALICE);
-		let mut storage_meter = storage::meter::Meter::new(&origin, 0, 55).unwrap();
+		let mut storage_meter = storage::meter::Meter::new(0);
 
 		// contract code missing should still succeed to mimic EVM behavior.
 		assert_ok!(MockStack::run_call(
@@ -415,7 +414,7 @@ fn changes_are_reverted_on_failing_call() {
 		set_balance(&ALICE, 100);
 		let balance = get_balance(&BOB);
 		let origin = Origin::from_account_id(ALICE);
-		let mut storage_meter = storage::meter::Meter::new(&origin, 0, 55).unwrap();
+		let mut storage_meter = storage::meter::Meter::new(0);
 
 		let output = MockStack::run_call(
 			origin,
@@ -438,17 +437,20 @@ fn changes_are_reverted_on_failing_call() {
 fn balance_too_low() {
 	// This test verifies that a contract can't send value if it's
 	// balance is too low.
-	let from = ALICE;
-	let origin = Origin::from_account_id(ALICE);
-	let dest = BOB;
+	let from = BOB;
+	let dest = CHARLIE;
 
 	ExtBuilder::default().build().execute_with(|| {
-		set_balance(&from, 0);
+		let ed = <Test as Config>::Currency::minimum_balance();
+		set_balance(&ALICE, ed * 2);
+		set_balance(&from, ed + 99);
 
-		let result = MockStack::transfer(&origin, &from, &dest, 100u64.into());
+		let result =
+			MockStack::transfer(&Origin::from_account_id(ALICE), &from, &dest, 100u64.into());
 
 		assert_eq!(result, Err(Error::<Test>::TransferFailed.into()));
-		assert_eq!(get_balance(&from), 0);
+		assert_eq!(get_balance(&ALICE), ed * 2);
+		assert_eq!(get_balance(&from), ed + 99);
 		assert_eq!(get_balance(&dest), 0);
 	});
 }
@@ -463,7 +465,7 @@ fn output_is_returned_on_success() {
 
 	ExtBuilder::default().build().execute_with(|| {
 		let origin = Origin::from_account_id(ALICE);
-		let mut storage_meter = storage::meter::Meter::new(&origin, 0, 0).unwrap();
+		let mut storage_meter = storage::meter::Meter::new(0);
 		place_contract(&BOB, return_ch);
 
 		let result = MockStack::run_call(
@@ -493,7 +495,7 @@ fn output_is_returned_on_failure() {
 	ExtBuilder::default().build().execute_with(|| {
 		place_contract(&BOB, return_ch);
 		let origin = Origin::from_account_id(ALICE);
-		let mut storage_meter = storage::meter::Meter::new(&origin, 0, 0).unwrap();
+		let mut storage_meter = storage::meter::Meter::new(0);
 
 		let result = MockStack::run_call(
 			origin,
@@ -522,7 +524,7 @@ fn input_data_to_call() {
 	ExtBuilder::default().build().execute_with(|| {
 		place_contract(&BOB, input_data_ch);
 		let origin = Origin::from_account_id(ALICE);
-		let mut storage_meter = storage::meter::Meter::new(&origin, 0, 0).unwrap();
+		let mut storage_meter = storage::meter::Meter::new(0);
 
 		let result = MockStack::run_call(
 			origin,
@@ -553,9 +555,7 @@ fn input_data_to_instantiate() {
 			let mut gas_meter = GasMeter::<Test>::new(GAS_LIMIT);
 			let executable = MockExecutable::from_storage(input_data_ch, &mut gas_meter).unwrap();
 			set_balance(&ALICE, min_balance * 10_000);
-			let origin = Origin::from_account_id(ALICE);
-			let mut storage_meter =
-				storage::meter::Meter::new(&origin, deposit_limit::<Test>(), min_balance).unwrap();
+			let mut storage_meter = storage::meter::Meter::new(deposit_limit::<Test>());
 
 			let result = MockStack::run_instantiate(
 				ALICE,
@@ -579,7 +579,7 @@ fn max_depth() {
 	parameter_types! {
 		static ReachedBottom: bool = false;
 	}
-	let value = Default::default();
+	let value = 0;
 	let recurse_ch = MockLoader::insert(Call, |ctx, _| {
 		// Try to call into yourself.
 		let r = ctx.ext.call(
@@ -611,7 +611,7 @@ fn max_depth() {
 		set_balance(&BOB, 1);
 		place_contract(&BOB, recurse_ch);
 		let origin = Origin::from_account_id(ALICE);
-		let mut storage_meter = storage::meter::Meter::new(&origin, 0, value).unwrap();
+		let mut storage_meter = storage::meter::Meter::new(0);
 
 		let result = MockStack::run_call(
 			origin,
@@ -673,7 +673,7 @@ fn caller_returns_proper_values() {
 		place_contract(&BOB, bob_ch);
 		place_contract(&CHARLIE, charlie_ch);
 		let origin = Origin::from_account_id(ALICE);
-		let mut storage_meter = storage::meter::Meter::new(&origin, 0, 0).unwrap();
+		let mut storage_meter = storage::meter::Meter::new(0);
 
 		let result = MockStack::run_call(
 			origin,
@@ -736,7 +736,7 @@ fn origin_returns_proper_values() {
 		place_contract(&BOB, bob_ch);
 		place_contract(&CHARLIE, charlie_ch);
 		let origin = Origin::from_account_id(ALICE);
-		let mut storage_meter = storage::meter::Meter::new(&origin, 0, 0).unwrap();
+		let mut storage_meter = storage::meter::Meter::new(0);
 
 		let result = MockStack::run_call(
 			origin,
@@ -769,7 +769,7 @@ fn is_contract_returns_proper_values() {
 		place_contract(&BOB, bob_ch);
 
 		let origin = Origin::from_account_id(ALICE);
-		let mut storage_meter = storage::meter::Meter::new(&origin, 0, 0).unwrap();
+		let mut storage_meter = storage::meter::Meter::new(0);
 		let result = MockStack::run_call(
 			origin,
 			BOB_ADDR,
@@ -803,7 +803,7 @@ fn to_account_id_returns_proper_values() {
 	ExtBuilder::default().build().execute_with(|| {
 		place_contract(&BOB, bob_code_hash);
 		let origin = Origin::from_account_id(ALICE);
-		let mut storage_meter = storage::meter::Meter::new(&origin, 0, 0).unwrap();
+		let mut storage_meter = storage::meter::Meter::new(0);
 		let result = MockStack::run_call(
 			origin,
 			BOB_ADDR,
@@ -839,7 +839,7 @@ fn code_hash_returns_proper_values() {
 		);
 		place_contract(&BOB, bob_code_hash);
 		let origin = Origin::from_account_id(ALICE);
-		let mut storage_meter = storage::meter::Meter::new(&origin, 0, 0).unwrap();
+		let mut storage_meter = storage::meter::Meter::new(0);
 		// ALICE (not contract) -> BOB (contract)
 		let result = MockStack::run_call(
 			origin,
@@ -865,7 +865,7 @@ fn own_code_hash_returns_proper_values() {
 	ExtBuilder::default().build().execute_with(|| {
 		place_contract(&BOB, bob_ch);
 		let origin = Origin::from_account_id(ALICE);
-		let mut storage_meter = storage::meter::Meter::new(&origin, 0, 0).unwrap();
+		let mut storage_meter = storage::meter::Meter::new(0);
 		// ALICE (not contract) -> BOB (contract)
 		let result = MockStack::run_call(
 			origin,
@@ -901,7 +901,7 @@ fn caller_is_origin_returns_proper_values() {
 		place_contract(&BOB, code_bob);
 		place_contract(&CHARLIE, code_charlie);
 		let origin = Origin::from_account_id(ALICE);
-		let mut storage_meter = storage::meter::Meter::new(&origin, 0, 0).unwrap();
+		let mut storage_meter = storage::meter::Meter::new(0);
 		// ALICE -> BOB (caller is origin) -> CHARLIE (caller is not origin)
 		let result = MockStack::run_call(
 			origin,
@@ -927,7 +927,7 @@ fn root_caller_succeeds() {
 	ExtBuilder::default().build().execute_with(|| {
 		place_contract(&BOB, code_bob);
 		let origin = Origin::Root;
-		let mut storage_meter = storage::meter::Meter::new(&origin, 0, 0).unwrap();
+		let mut storage_meter = storage::meter::Meter::new(0);
 		// root -> BOB (caller is root)
 		let result = MockStack::run_call(
 			origin,
@@ -953,7 +953,7 @@ fn root_caller_does_not_succeed_when_value_not_zero() {
 	ExtBuilder::default().build().execute_with(|| {
 		place_contract(&BOB, code_bob);
 		let origin = Origin::Root;
-		let mut storage_meter = storage::meter::Meter::new(&origin, 0, 0).unwrap();
+		let mut storage_meter = storage::meter::Meter::new(0);
 		// root -> BOB (caller is root)
 		let result = MockStack::run_call(
 			origin,
@@ -989,7 +989,7 @@ fn root_caller_succeeds_with_consecutive_calls() {
 		place_contract(&BOB, code_bob);
 		place_contract(&CHARLIE, code_charlie);
 		let origin = Origin::Root;
-		let mut storage_meter = storage::meter::Meter::new(&origin, 0, 0).unwrap();
+		let mut storage_meter = storage::meter::Meter::new(0);
 		// root -> BOB (caller is root) -> CHARLIE (caller is not root)
 		let result = MockStack::run_call(
 			origin,
@@ -1034,7 +1034,7 @@ fn address_returns_proper_values() {
 		place_contract(&BOB, bob_ch);
 		place_contract(&CHARLIE, charlie_ch);
 		let origin = Origin::from_account_id(ALICE);
-		let mut storage_meter = storage::meter::Meter::new(&origin, 0, 0).unwrap();
+		let mut storage_meter = storage::meter::Meter::new(0);
 
 		let result = MockStack::run_call(
 			origin,
@@ -1057,8 +1057,7 @@ fn refuse_instantiate_with_value_below_existential_deposit() {
 	ExtBuilder::default().existential_deposit(15).build().execute_with(|| {
 		let mut gas_meter = GasMeter::<Test>::new(GAS_LIMIT);
 		let executable = MockExecutable::from_storage(dummy_ch, &mut gas_meter).unwrap();
-		let origin = Origin::from_account_id(ALICE);
-		let mut storage_meter = storage::meter::Meter::new(&origin, 0, 0).unwrap();
+		let mut storage_meter = storage::meter::Meter::new(0);
 
 		assert_matches!(
 			MockStack::run_instantiate(
@@ -1092,9 +1091,7 @@ fn instantiation_work_with_success_output() {
 			let mut gas_meter = GasMeter::<Test>::new(GAS_LIMIT);
 			let executable = MockExecutable::from_storage(dummy_ch, &mut gas_meter).unwrap();
 			set_balance(&ALICE, min_balance * 1000);
-			let origin = Origin::from_account_id(ALICE);
-			let mut storage_meter =
-				storage::meter::Meter::new(&origin, min_balance * 100, min_balance).unwrap();
+			let mut storage_meter = storage::meter::Meter::new(min_balance * 100);
 
 			let instantiated_contract_address = assert_matches!(
 				MockStack::run_instantiate(
@@ -1139,9 +1136,7 @@ fn instantiation_fails_with_failing_output() {
 			let mut gas_meter = GasMeter::<Test>::new(GAS_LIMIT);
 			let executable = MockExecutable::from_storage(dummy_ch, &mut gas_meter).unwrap();
 			set_balance(&ALICE, min_balance * 1000);
-			let origin = Origin::from_account_id(ALICE);
-			let mut storage_meter =
-				storage::meter::Meter::new(&origin, min_balance * 100, min_balance).unwrap();
+			let mut storage_meter = storage::meter::Meter::new(min_balance * 100);
 
 			let instantiated_contract_address = assert_matches!(
 				MockStack::run_instantiate(
@@ -1204,8 +1199,7 @@ fn instantiation_from_contract() {
 			set_balance(&ALICE, min_balance * 100);
 			place_contract(&BOB, instantiator_ch);
 			let origin = Origin::from_account_id(ALICE);
-			let mut storage_meter =
-				storage::meter::Meter::new(&origin, min_balance * 10, min_balance * 10).unwrap();
+			let mut storage_meter = storage::meter::Meter::new(min_balance * 10);
 
 			assert_matches!(
 				MockStack::run_call(
@@ -1271,7 +1265,7 @@ fn instantiation_traps() {
 			set_balance(&BOB_FALLBACK, 100);
 			place_contract(&BOB, instantiator_ch);
 			let origin = Origin::from_account_id(ALICE);
-			let mut storage_meter = storage::meter::Meter::new(&origin, 200, 0).unwrap();
+			let mut storage_meter = storage::meter::Meter::new(200);
 
 			assert_matches!(
 				MockStack::run_call(
@@ -1303,9 +1297,7 @@ fn termination_from_instantiate_fails() {
 			let mut gas_meter = GasMeter::<Test>::new(GAS_LIMIT);
 			let executable = MockExecutable::from_storage(terminate_ch, &mut gas_meter).unwrap();
 			set_balance(&ALICE, 10_000);
-			let origin = Origin::from_account_id(ALICE);
-			let mut storage_meter =
-				storage::meter::Meter::new(&origin, deposit_limit::<Test>(), 100).unwrap();
+			let mut storage_meter = storage::meter::Meter::new(deposit_limit::<Test>());
 
 			assert_eq!(
 				MockStack::run_instantiate(
@@ -1375,7 +1367,7 @@ fn in_memory_changes_not_discarded() {
 		place_contract(&BOB, code_bob);
 		place_contract(&CHARLIE, code_charlie);
 		let origin = Origin::from_account_id(ALICE);
-		let mut storage_meter = storage::meter::Meter::new(&origin, 0, 0).unwrap();
+		let mut storage_meter = storage::meter::Meter::new(0);
 
 		let result = MockStack::run_call(
 			origin,
@@ -1433,9 +1425,7 @@ fn recursive_call_during_constructor_is_balance_transfer() {
 			let mut gas_meter = GasMeter::<Test>::new(GAS_LIMIT);
 			let executable = MockExecutable::from_storage(code, &mut gas_meter).unwrap();
 			set_balance(&ALICE, min_balance * 10_000);
-			let origin = Origin::from_account_id(ALICE);
-			let mut storage_meter =
-				storage::meter::Meter::new(&origin, deposit_limit::<Test>(), min_balance).unwrap();
+			let mut storage_meter = storage::meter::Meter::new(deposit_limit::<Test>());
 
 			let result = MockStack::run_instantiate(
 				ALICE,
@@ -1484,7 +1474,7 @@ fn cannot_send_more_balance_than_available_to_self() {
 			set_balance(&ALICE, min_balance * 10);
 			place_contract(&BOB, code_hash);
 			let origin = Origin::from_account_id(ALICE);
-			let mut storage_meter = storage::meter::Meter::new(&origin, 0, 0).unwrap();
+			let mut storage_meter = storage::meter::Meter::new(0);
 			MockStack::run_call(
 				origin,
 				BOB_ADDR,
@@ -1514,7 +1504,7 @@ fn call_reentry_direct_recursion() {
 		place_contract(&BOB, code_bob);
 		place_contract(&CHARLIE, code_charlie);
 		let origin = Origin::from_account_id(ALICE);
-		let mut storage_meter = storage::meter::Meter::new(&origin, 0, 0).unwrap();
+		let mut storage_meter = storage::meter::Meter::new(0);
 
 		// Calling another contract should succeed
 		assert_ok!(MockStack::run_call(
@@ -1575,7 +1565,7 @@ fn call_deny_reentry() {
 		place_contract(&BOB, code_bob);
 		place_contract(&CHARLIE, code_charlie);
 		let origin = Origin::from_account_id(ALICE);
-		let mut storage_meter = storage::meter::Meter::new(&origin, 0, 0).unwrap();
+		let mut storage_meter = storage::meter::Meter::new(0);
 
 		// BOB -> CHARLIE -> BOB fails as BOB denies reentry.
 		assert_err!(
@@ -1611,7 +1601,7 @@ fn call_runtime_works() {
 		set_balance(&ALICE, min_balance * 10);
 		place_contract(&BOB, code_hash);
 		let origin = Origin::from_account_id(ALICE);
-		let mut storage_meter = storage::meter::Meter::new(&origin, 0, 0).unwrap();
+		let mut storage_meter = storage::meter::Meter::new(0);
 		System::reset_events();
 		MockStack::run_call(
 			origin,
@@ -1683,7 +1673,7 @@ fn call_runtime_filter() {
 		set_balance(&ALICE, min_balance * 10);
 		place_contract(&BOB, code_hash);
 		let origin = Origin::from_account_id(ALICE);
-		let mut storage_meter = storage::meter::Meter::new(&origin, 0, 0).unwrap();
+		let mut storage_meter = storage::meter::Meter::new(0);
 		System::reset_events();
 		MockStack::run_call(
 			origin,
@@ -1793,10 +1783,7 @@ fn nonce() {
 				MockExecutable::from_storage(succ_succ_code, &mut gas_meter).unwrap();
 			set_balance(&ALICE, min_balance * 10_000);
 			set_balance(&BOB, min_balance * 10_000);
-			let origin = Origin::from_account_id(BOB);
-			let mut storage_meter =
-				storage::meter::Meter::new(&origin, deposit_limit::<Test>(), min_balance * 100)
-					.unwrap();
+			let mut storage_meter = storage::meter::Meter::new(deposit_limit::<Test>());
 
 			// fail should not increment
 			MockStack::run_instantiate(
@@ -1907,8 +1894,7 @@ fn set_storage_works() {
 		set_balance(&ALICE, min_balance * 1000);
 		place_contract(&BOB, code_hash);
 		let origin = Origin::from_account_id(ALICE);
-		let mut storage_meter =
-			storage::meter::Meter::new(&origin, deposit_limit::<Test>(), 0).unwrap();
+		let mut storage_meter = storage::meter::Meter::new(deposit_limit::<Test>());
 		assert_ok!(MockStack::run_call(
 			origin,
 			BOB_ADDR,
@@ -2006,8 +1992,7 @@ fn set_storage_varsized_key_works() {
 		set_balance(&ALICE, min_balance * 1000);
 		place_contract(&BOB, code_hash);
 		let origin = Origin::from_account_id(ALICE);
-		let mut storage_meter =
-			storage::meter::Meter::new(&origin, deposit_limit::<Test>(), 0).unwrap();
+		let mut storage_meter = storage::meter::Meter::new(deposit_limit::<Test>());
 		assert_ok!(MockStack::run_call(
 			origin,
 			BOB_ADDR,
@@ -2045,8 +2030,7 @@ fn get_storage_works() {
 		set_balance(&ALICE, min_balance * 1000);
 		place_contract(&BOB, code_hash);
 		let origin = Origin::from_account_id(ALICE);
-		let mut storage_meter =
-			storage::meter::Meter::new(&origin, deposit_limit::<Test>(), 0).unwrap();
+		let mut storage_meter = storage::meter::Meter::new(deposit_limit::<Test>());
 		assert_ok!(MockStack::run_call(
 			origin,
 			BOB_ADDR,
@@ -2084,8 +2068,7 @@ fn get_storage_size_works() {
 		set_balance(&ALICE, min_balance * 1000);
 		place_contract(&BOB, code_hash);
 		let origin = Origin::from_account_id(ALICE);
-		let mut storage_meter =
-			storage::meter::Meter::new(&origin, deposit_limit::<Test>(), 0).unwrap();
+		let mut storage_meter = storage::meter::Meter::new(deposit_limit::<Test>());
 		assert_ok!(MockStack::run_call(
 			origin,
 			BOB_ADDR,
@@ -2134,8 +2117,7 @@ fn get_storage_varsized_key_works() {
 		set_balance(&ALICE, min_balance * 1000);
 		place_contract(&BOB, code_hash);
 		let origin = Origin::from_account_id(ALICE);
-		let mut storage_meter =
-			storage::meter::Meter::new(&origin, deposit_limit::<Test>(), 0).unwrap();
+		let mut storage_meter = storage::meter::Meter::new(deposit_limit::<Test>());
 		assert_ok!(MockStack::run_call(
 			origin,
 			BOB_ADDR,
@@ -2184,8 +2166,7 @@ fn get_storage_size_varsized_key_works() {
 		set_balance(&ALICE, min_balance * 1000);
 		place_contract(&BOB, code_hash);
 		let origin = Origin::from_account_id(ALICE);
-		let mut storage_meter =
-			storage::meter::Meter::new(&origin, deposit_limit::<Test>(), 0).unwrap();
+		let mut storage_meter = storage::meter::Meter::new(deposit_limit::<Test>());
 		assert_ok!(MockStack::run_call(
 			origin,
 			BOB_ADDR,
@@ -2259,8 +2240,7 @@ fn set_transient_storage_works() {
 	ExtBuilder::default().build().execute_with(|| {
 		place_contract(&BOB, code_hash);
 		let origin = Origin::from_account_id(ALICE);
-		let mut storage_meter =
-			storage::meter::Meter::new(&origin, deposit_limit::<Test>(), 0).unwrap();
+		let mut storage_meter = storage::meter::Meter::new(deposit_limit::<Test>());
 		assert_ok!(MockStack::run_call(
 			origin,
 			BOB_ADDR,
@@ -2329,7 +2309,7 @@ fn get_transient_storage_works() {
 		place_contract(&BOB, code_bob);
 		place_contract(&CHARLIE, code_charlie);
 		let origin = Origin::from_account_id(ALICE);
-		let mut storage_meter = storage::meter::Meter::new(&origin, 0, 0).unwrap();
+		let mut storage_meter = storage::meter::Meter::new(0);
 
 		let result = MockStack::run_call(
 			origin,
@@ -2368,7 +2348,7 @@ fn get_transient_storage_size_works() {
 	ExtBuilder::default().build().execute_with(|| {
 		place_contract(&BOB, code_hash);
 		let origin = Origin::from_account_id(ALICE);
-		let mut storage_meter = storage::meter::Meter::new(&origin, 0, 0).unwrap();
+		let mut storage_meter = storage::meter::Meter::new(0);
 		assert_ok!(MockStack::run_call(
 			origin,
 			BOB_ADDR,
@@ -2429,7 +2409,7 @@ fn rollback_transient_storage_works() {
 		place_contract(&BOB, code_bob);
 		place_contract(&CHARLIE, code_charlie);
 		let origin = Origin::from_account_id(ALICE);
-		let mut storage_meter = storage::meter::Meter::new(&origin, 0, 0).unwrap();
+		let mut storage_meter = storage::meter::Meter::new(0);
 
 		let result = MockStack::run_call(
 			origin,
@@ -2461,7 +2441,7 @@ fn ecdsa_to_eth_address_returns_proper_value() {
 		place_contract(&BOB, bob_ch);
 
 		let origin = Origin::from_account_id(ALICE);
-		let mut storage_meter = storage::meter::Meter::new(&origin, 0, 0).unwrap();
+		let mut storage_meter = storage::meter::Meter::new(0);
 		let result = MockStack::run_call(
 			origin,
 			BOB_ADDR,
@@ -2533,7 +2513,7 @@ fn last_frame_output_works_on_instantiate() {
 			set_balance(&BOB, 100);
 			place_contract(&BOB, instantiator_ch);
 			let origin = Origin::from_account_id(ALICE);
-			let mut storage_meter = storage::meter::Meter::new(&origin, 200, 0).unwrap();
+			let mut storage_meter = storage::meter::Meter::new(200);
 
 			MockStack::run_call(
 				origin,
@@ -2601,7 +2581,7 @@ fn last_frame_output_works_on_nested_call() {
 		place_contract(&BOB, code_bob);
 		place_contract(&CHARLIE, code_charlie);
 		let origin = Origin::from_account_id(ALICE);
-		let mut storage_meter = storage::meter::Meter::new(&origin, 0, 0).unwrap();
+		let mut storage_meter = storage::meter::Meter::new(0);
 
 		let result = MockStack::run_call(
 			origin,
@@ -2669,7 +2649,7 @@ fn last_frame_output_is_always_reset() {
 	ExtBuilder::default().build().execute_with(|| {
 		place_contract(&BOB, code_bob);
 		let origin = Origin::from_account_id(ALICE);
-		let mut storage_meter = storage::meter::Meter::new(&origin, 0, 0).unwrap();
+		let mut storage_meter = storage::meter::Meter::new(0);
 
 		let result = MockStack::run_call(
 			origin,
@@ -2717,7 +2697,7 @@ fn immutable_data_access_checks_work() {
 			set_balance(&BOB, 100);
 			place_contract(&BOB, instantiator_ch);
 			let origin = Origin::from_account_id(ALICE);
-			let mut storage_meter = storage::meter::Meter::new(&origin, 200, 0).unwrap();
+			let mut storage_meter = storage::meter::Meter::new(200);
 
 			MockStack::run_call(
 				origin,
@@ -2776,7 +2756,7 @@ fn correct_immutable_data_in_delegate_call() {
 			place_contract(&CHARLIE, charlie_ch);
 
 			let origin = Origin::from_account_id(ALICE);
-			let mut storage_meter = storage::meter::Meter::new(&origin, 200, 0).unwrap();
+			let mut storage_meter = storage::meter::Meter::new(200);
 
 			// Place unique immutable data for each contract
 			<ImmutableDataOf<Test>>::insert::<_, ImmutableData>(
@@ -2823,7 +2803,7 @@ fn immutable_data_set_overrides() {
 		.execute_with(|| {
 			set_balance(&ALICE, 1000);
 			let origin = Origin::from_account_id(ALICE);
-			let mut storage_meter = storage::meter::Meter::new(&origin, 200, 0).unwrap();
+			let mut storage_meter = storage::meter::Meter::new(200);
 			let mut gas_meter = GasMeter::<Test>::new(GAS_LIMIT);
 
 			let addr = MockStack::run_instantiate(
@@ -2882,7 +2862,7 @@ fn immutable_data_set_errors_with_empty_data() {
 			set_balance(&BOB, 100);
 			place_contract(&BOB, instantiator_ch);
 			let origin = Origin::from_account_id(ALICE);
-			let mut storage_meter = storage::meter::Meter::new(&origin, 200, 0).unwrap();
+			let mut storage_meter = storage::meter::Meter::new(200);
 
 			MockStack::run_call(
 				origin,
@@ -2937,7 +2917,7 @@ fn block_hash_returns_proper_values() {
 		place_contract(&BOB, bob_code_hash);
 
 		let origin = Origin::from_account_id(ALICE);
-		let mut storage_meter = storage::meter::Meter::new(&origin, 0, 0).unwrap();
+		let mut storage_meter = storage::meter::Meter::new(0);
 		assert_matches!(
 			MockStack::run_call(
 				origin,
