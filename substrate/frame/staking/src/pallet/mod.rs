@@ -51,7 +51,7 @@ pub use impls::*;
 
 use crate::{
 	asset, slashing, weights::WeightInfo, AccountIdLookupOf, ActiveEraInfo, BalanceOf, EraPayout,
-	EraRewardPoints, Exposure, ExposurePage, Forcing, LedgerIntegrityState, MaxNominationsOf,
+	EraRewardPoints, Exposure, ExposurePage, Forcing, LedgerIntegrityState, MaxNominations,
 	NegativeImbalanceOf, Nominations, NominationsQuota, PositiveImbalanceOf, RewardDestination,
 	SessionInterface, StakingLedger, UnappliedSlash, UnlockChunk, ValidatorPrefs,
 };
@@ -388,11 +388,11 @@ pub mod pallet {
 	}
 
 	/// The ideal number of active validators.
-	#[pallet::storage] // Done
+	#[pallet::storage]
 	pub type ValidatorCount<T> = StorageValue<_, u32, ValueQuery>;
 
 	/// Minimum number of staking participants before emergency conditions are imposed.
-	#[pallet::storage] // Done
+	#[pallet::storage]
 	pub type MinimumValidatorCount<T> = StorageValue<_, u32, ValueQuery>;
 
 	/// Any validators that may never be slashed or forcibly kicked. It's a Vec since they're
@@ -405,52 +405,52 @@ pub mod pallet {
 	/// Map from all locked "stash" accounts to the controller account.
 	///
 	/// TWOX-NOTE: SAFE since `AccountId` is a secure hash.
-	#[pallet::storage] // Done
+	#[pallet::storage]
 	pub type Bonded<T: Config> = StorageMap<_, Twox64Concat, T::AccountId, T::AccountId>;
 
 	/// The minimum active bond to become and maintain the role of a nominator.
-	#[pallet::storage] // Done
+	#[pallet::storage]
 	pub type MinNominatorBond<T: Config> = StorageValue<_, BalanceOf<T>, ValueQuery>;
 
 	/// The minimum active bond to become and maintain the role of a validator.
-	#[pallet::storage] // Done
+	#[pallet::storage]
 	pub type MinValidatorBond<T: Config> = StorageValue<_, BalanceOf<T>, ValueQuery>;
 
 	/// The minimum active nominator stake of the last successful election.
-	#[pallet::storage] // Done
+	#[pallet::storage]
 	pub type MinimumActiveStake<T> = StorageValue<_, BalanceOf<T>, ValueQuery>;
 
 	/// The minimum amount of commission that validators can set.
 	///
 	/// If set to `0`, no limit exists.
-	#[pallet::storage] // Done
+	#[pallet::storage]
 	pub type MinCommission<T: Config> = StorageValue<_, Perbill, ValueQuery>;
 
 	/// Map from all (unlocked) "controller" accounts to the info regarding the staking.
 	///
 	/// Note: All the reads and mutations to this storage *MUST* be done through the methods exposed
 	/// by [`StakingLedger`] to ensure data and lock consistency.
-	#[pallet::storage] // Done
+	#[pallet::storage]
 	pub type Ledger<T: Config> = StorageMap<_, Blake2_128Concat, T::AccountId, StakingLedger<T>>;
 
 	/// Where the reward payment should be made. Keyed by stash.
 	///
 	/// TWOX-NOTE: SAFE since `AccountId` is a secure hash.
-	#[pallet::storage] // Done
+	#[pallet::storage]
 	pub type Payee<T: Config> =
 		StorageMap<_, Twox64Concat, T::AccountId, RewardDestination<T::AccountId>, OptionQuery>;
 
 	/// The map from (wannabe) validator stash key to the preferences of that validator.
 	///
 	/// TWOX-NOTE: SAFE since `AccountId` is a secure hash.
-	#[pallet::storage] // Done
+	#[pallet::storage]
 	pub type Validators<T: Config> =
 		CountedStorageMap<_, Twox64Concat, T::AccountId, ValidatorPrefs, ValueQuery>;
 
 	/// The maximum validator count before we stop allowing new validators to join.
 	///
 	/// When this value is not set, no limits are enforced.
-	#[pallet::storage] // Done
+	#[pallet::storage]
 	pub type MaxValidatorsCount<T> = StorageValue<_, u32, OptionQuery>;
 
 	/// The map from nominator stash key to their nomination preferences, namely the validators that
@@ -472,7 +472,7 @@ pub mod pallet {
 	/// [`Call::chill_other`] dispatchable by anyone.
 	///
 	/// TWOX-NOTE: SAFE since `AccountId` is a secure hash.
-	#[pallet::storage] // Done
+	#[pallet::storage]
 	pub type Nominators<T: Config> =
 		CountedStorageMap<_, Twox64Concat, T::AccountId, Nominations<T>>;
 
@@ -482,34 +482,34 @@ pub mod pallet {
 	/// are expected to be keyless accounts and hence should not be allowed to mutate their ledger
 	/// directly via this pallet. Instead, these accounts are managed by other pallets and accessed
 	/// via low level apis. We keep track of them to do minimal integrity checks.
-	#[pallet::storage] // Done
+	#[pallet::storage]
 	pub type VirtualStakers<T: Config> = CountedStorageMap<_, Twox64Concat, T::AccountId, ()>;
 
 	/// The maximum nominator count before we stop allowing new validators to join.
 	///
 	/// When this value is not set, no limits are enforced.
-	#[pallet::storage] // Done
+	#[pallet::storage]
 	pub type MaxNominatorsCount<T> = StorageValue<_, u32, OptionQuery>;
 
 	/// The current era index.
 	///
 	/// This is the latest planned era, depending on how the Session pallet queues the validator
 	/// set, it might be active or not.
-	#[pallet::storage] // Done
+	#[pallet::storage]
 	pub type CurrentEra<T> = StorageValue<_, EraIndex>;
 
 	/// The active era information, it holds index and start.
 	///
 	/// The active era is the era being currently rewarded. Validator set of this era must be
 	/// equal to [`SessionInterface::validators`].
-	#[pallet::storage] // Done
+	#[pallet::storage]
 	pub type ActiveEra<T> = StorageValue<_, ActiveEraInfo>;
 
 	/// The session index at which the era start for the last [`Config::HistoryDepth`] eras.
 	///
 	/// Note: This tracks the starting session (i.e. session index when era start being active)
 	/// for the eras in `[CurrentEra - HISTORY_DEPTH, CurrentEra]`.
-	#[pallet::storage] // Done
+	#[pallet::storage]
 	pub type ErasStartSessionIndex<T> = StorageMap<_, Twox64Concat, EraIndex, SessionIndex>;
 
 	/// Exposure of validator at era.
@@ -544,7 +544,7 @@ pub mod pallet {
 	///
 	/// Is it removed after [`Config::HistoryDepth`] eras.
 	/// If stakers hasn't been set or has been removed then empty overview is returned.
-	#[pallet::storage] // Done
+	#[pallet::storage]
 	pub type ErasStakersOverview<T: Config> = StorageDoubleMap<
 		_,
 		Twox64Concat,
@@ -589,7 +589,7 @@ pub mod pallet {
 	/// the page. Should only be accessed through `EraInfo`.
 	///
 	/// This is cleared after [`Config::HistoryDepth`] eras.
-	#[pallet::storage] // Done
+	#[pallet::storage]
 	#[pallet::unbounded]
 	pub type ErasStakersPaged<T: Config> = StorageNMap<
 		_,
@@ -608,7 +608,7 @@ pub mod pallet {
 	/// been claimed.
 	///
 	/// It is removed after [`Config::HistoryDepth`] eras.
-	#[pallet::storage] // Done
+	#[pallet::storage]
 	#[pallet::unbounded]
 	pub type ClaimedRewards<T: Config> = StorageDoubleMap<
 		_,
@@ -626,7 +626,7 @@ pub mod pallet {
 	///
 	/// Is it removed after [`Config::HistoryDepth`] eras.
 	// If prefs hasn't been set or has been removed then 0 commission is returned.
-	#[pallet::storage] // Done
+	#[pallet::storage]
 	pub type ErasValidatorPrefs<T: Config> = StorageDoubleMap<
 		_,
 		Twox64Concat,
@@ -640,41 +640,41 @@ pub mod pallet {
 	/// The total validator era payout for the last [`Config::HistoryDepth`] eras.
 	///
 	/// Eras that haven't finished yet or has been removed doesn't have reward.
-	#[pallet::storage] // Done
+	#[pallet::storage]
 	pub type ErasValidatorReward<T: Config> = StorageMap<_, Twox64Concat, EraIndex, BalanceOf<T>>;
 
 	/// Rewards for the last [`Config::HistoryDepth`] eras.
 	/// If reward hasn't been set or has been removed then 0 reward is returned.
-	#[pallet::storage] // Done
+	#[pallet::storage]
 	#[pallet::unbounded]
 	pub type ErasRewardPoints<T: Config> =
 		StorageMap<_, Twox64Concat, EraIndex, EraRewardPoints<T::AccountId>, ValueQuery>;
 
 	/// The total amount staked for the last [`Config::HistoryDepth`] eras.
 	/// If total hasn't been set or has been removed then 0 stake is returned.
-	#[pallet::storage] // Done
+	#[pallet::storage]
 	pub type ErasTotalStake<T: Config> =
 		StorageMap<_, Twox64Concat, EraIndex, BalanceOf<T>, ValueQuery>;
 
 	/// Mode of era forcing.
-	#[pallet::storage] // Done
+	#[pallet::storage]
 	pub type ForceEra<T> = StorageValue<_, Forcing, ValueQuery>;
 
 	/// Maximum staked rewards, i.e. the percentage of the era inflation that
 	/// is used for stake rewards.
 	/// See [Era payout](./index.html#era-payout).
-	#[pallet::storage] // Done
+	#[pallet::storage]
 	pub type MaxStakedRewards<T> = StorageValue<_, Percent, OptionQuery>;
 
 	/// The percentage of the slash that is distributed to reporters.
 	///
 	/// The rest of the slashed value is handled by the `Slash`.
-	#[pallet::storage] // Done
+	#[pallet::storage]
 	pub type SlashRewardFraction<T> = StorageValue<_, Perbill, ValueQuery>;
 
 	/// The amount of currency given to reporters of a slash event which was
 	/// canceled by extraordinary circumstances (e.g. governance).
-	#[pallet::storage] // Done
+	#[pallet::storage]
 	pub type CanceledSlashPayout<T: Config> = StorageValue<_, BalanceOf<T>, ValueQuery>;
 
 	/// All unapplied slashes that are queued for later.
@@ -692,13 +692,13 @@ pub mod pallet {
 	///
 	/// Must contains information for eras for the range:
 	/// `[active_era - bounding_duration; active_era]`
-	#[pallet::storage] // Done
+	#[pallet::storage]
 	#[pallet::unbounded]
 	pub type BondedEras<T: Config> = StorageValue<_, Vec<(EraIndex, SessionIndex)>, ValueQuery>;
 
 	/// All slashing events on validators, mapped by era to the highest slash proportion
 	/// and slash value of the era.
-	#[pallet::storage] // Done
+	#[pallet::storage]
 	pub type ValidatorSlashInEra<T: Config> = StorageDoubleMap<
 		_,
 		Twox64Concat,
@@ -709,19 +709,19 @@ pub mod pallet {
 	>;
 
 	/// All slashing events on nominators, mapped by era to the highest slash value of the era.
-	#[pallet::storage] // Done
+	#[pallet::storage]
 	pub type NominatorSlashInEra<T: Config> =
 		StorageDoubleMap<_, Twox64Concat, EraIndex, Twox64Concat, T::AccountId, BalanceOf<T>>;
 
 	/// Slashing spans for stash accounts.
-	#[pallet::storage] // Done
+	#[pallet::storage]
 	#[pallet::unbounded]
 	pub type SlashingSpans<T: Config> =
 		StorageMap<_, Twox64Concat, T::AccountId, slashing::SlashingSpans>;
 
 	/// Records information about the maximum slash of a stash within a slashing span,
 	/// as well as how much reward has been paid out.
-	#[pallet::storage] // Done
+	#[pallet::storage]
 	pub type SpanSlash<T: Config> = StorageMap<
 		_,
 		Twox64Concat,
@@ -733,13 +733,13 @@ pub mod pallet {
 	/// The last planned session scheduled by the session pallet.
 	///
 	/// This is basically in sync with the call to [`pallet_session::SessionManager::new_session`].
-	#[pallet::storage] // Done
+	#[pallet::storage]
 	pub type CurrentPlannedSession<T> = StorageValue<_, SessionIndex, ValueQuery>;
 
 	/// The threshold for when users can start calling `chill_other` for other validators /
 	/// nominators. The threshold is compared to the actual number of validators / nominators
 	/// (`CountFor*`) in the system compared to the configured max (`Max*Count`).
-	#[pallet::storage] // Done
+	#[pallet::storage]
 	pub type ChillThreshold<T: Config> = StorageValue<_, Percent, OptionQuery>;
 
 	#[pallet::genesis_config]
@@ -983,11 +983,11 @@ pub mod pallet {
 		fn integrity_test() {
 			// ensure that we funnel the correct value to the `DataProvider::MaxVotesPerVoter`;
 			assert_eq!(
-				MaxNominationsOf::<T>::get(),
+				MaxNominations::<T>::get(),
 				<Self as ElectionDataProvider>::MaxVotesPerVoter::get()
 			);
 			// and that MaxNominations is always greater than 1, since we count on this.
-			assert!(!MaxNominationsOf::<T>::get().is_zero());
+			assert!(!MaxNominations::<T>::get().is_zero());
 
 			// ensure election results are always bounded with the same value
 			assert!(

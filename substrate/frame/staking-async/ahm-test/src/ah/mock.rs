@@ -204,7 +204,7 @@ where
 	}
 }
 
-type MaxVotesPerVoter = pallet_staking_async::MaxNominationsOf<Runtime>;
+type MaxVotesPerVoter = pallet_staking_async::MaxNominations<Runtime>;
 parameter_types! {
 	pub static MaxValidators: u32 = 32;
 	pub static MaxBackersPerWinner: u32 = 16;

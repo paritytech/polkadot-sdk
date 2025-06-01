@@ -107,58 +107,6 @@ pub struct StakingLedger<T: Config> {
 	pub controller: Option<T::AccountId>,
 }
 
-/// Copy of `StakingLedger` without the `T` param and `Config` bound.
-#[derive(
-	PartialEqNoBound,
-	EqNoBound,
-	CloneNoBound,
-	Encode,
-	Decode,
-	DebugNoBound,
-	TypeInfo,
-	MaxEncodedLen,
-	DecodeWithMemTracking,
-)]
-#[scale_info(skip_type_params(MaxUnlockingChunks))]
-pub struct StakingLedger2<AccountId, Balance, MaxUnlockingChunks>
-where
-	AccountId: MaxEncodedLen + Clone + PartialEq + Eq + Debug,
-	Balance: HasCompact + MaxEncodedLen + Clone + PartialEq + Eq + Debug,
-	MaxUnlockingChunks: Get<u32>,
-{
-	/// The stash account whose balance is actually locked and at stake.
-	pub stash: AccountId,
-
-	/// The total amount of the stash's balance that we are currently accounting for.
-	/// It's just `active` plus all the `unlocking` balances.
-	#[codec(compact)]
-	pub total: Balance,
-
-	/// The total amount of the stash's balance that will be at stake in any forthcoming
-	/// rounds.
-	#[codec(compact)]
-	pub active: Balance,
-
-	/// Any balance that is becoming free, which may eventually be transferred out of the stash
-	/// (assuming it doesn't get slashed first). It is assumed that this will be treated as a first
-	/// in, first out queue where the new (higher value) eras get pushed on the back.
-	pub unlocking: BoundedVec<UnlockChunk<Balance>, MaxUnlockingChunks>,
-
-	/// The controller associated with this ledger's stash.
-	///
-	/// This is not stored on-chain, and is only bundled when the ledger is read from storage.
-	/// Use [`controller`] function to get the controller associated with the ledger.
-	#[codec(skip)]
-	pub controller: Option<AccountId>,
-}
-pub type StakingLedger2Of<T> = StakingLedger2<
-	<T as frame_system::Config>::AccountId,
-	BalanceOf<T>,
-	<T as crate::Config>::MaxUnlockingChunks,
->;
-
-impl<T: Config> codec::EncodeLike<StakingLedger2Of<T>> for StakingLedger<T> {}
-
 impl<T: Config> StakingLedger<T> {
 	#[cfg(any(feature = "runtime-benchmarks", test))]
 	pub fn default_from(stash: T::AccountId) -> Self {

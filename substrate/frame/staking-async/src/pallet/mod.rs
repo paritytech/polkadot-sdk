@@ -19,9 +19,9 @@
 
 use crate::{
 	asset, slashing, weights::WeightInfo, AccountIdLookupOf, ActiveEraInfo, BalanceOf, EraPayout,
-	EraRewardPoints, EraRewardPointsOf, ExposurePage, Forcing, LedgerIntegrityState,
-	MaxNominationsOf, NegativeImbalanceOf, Nominations, NominationsOf, NominationsQuota,
-	PositiveImbalanceOf, RewardDestination, StakingLedger, UnappliedSlash, UnappliedSlashOf,
+	EraRewardPoints, ExposurePage, Forcing, LedgerIntegrityState,
+	MaxNominations, NegativeImbalanceOf, Nominations, NominationsQuota,
+	PositiveImbalanceOf, RewardDestination, StakingLedger, UnappliedSlash,
 	UnlockChunk, ValidatorPrefs,
 };
 use alloc::{format, vec::Vec};
@@ -463,7 +463,7 @@ pub mod pallet {
 	/// TWOX-NOTE: SAFE since `AccountId` is a secure hash.
 	#[pallet::storage]
 	pub type Nominators<T: Config> =
-		CountedStorageMap<_, Twox64Concat, T::AccountId, NominationsOf<T>>;
+		CountedStorageMap<_, Twox64Concat, T::AccountId, Nominations<T>>;
 
 	/// Stakers whose funds are managed by other pallets.
 	///
@@ -667,7 +667,7 @@ pub mod pallet {
 	/// If reward hasn't been set or has been removed then 0 reward is returned.
 	#[pallet::storage]
 	pub type ErasRewardPoints<T: Config> =
-		StorageMap<_, Twox64Concat, EraIndex, EraRewardPointsOf<T>, ValueQuery>;
+		StorageMap<_, Twox64Concat, EraIndex, EraRewardPoints<T>, ValueQuery>;
 
 	/// The total amount staked for the last [`Config::HistoryDepth`] eras.
 	/// If total hasn't been set or has been removed then 0 stake is returned.
@@ -755,7 +755,7 @@ pub mod pallet {
 		Twox64Concat,
 		// Unique key for unapplied slashes: (validator, slash fraction, page index).
 		(T::AccountId, Perbill, u32),
-		UnappliedSlashOf<T>,
+		UnappliedSlash<T>,
 		OptionQuery,
 	>;
 
@@ -944,7 +944,7 @@ pub mod pallet {
 					let who = Self::generate_endowed_bonded_account(&derivation, &mut rng);
 
 					let random_nominations = all_validators
-						.choose_multiple(&mut rng, MaxNominationsOf::<T>::get() as usize)
+						.choose_multiple(&mut rng, MaxNominations::<T>::get() as usize)
 						.map(|v| v.clone())
 						.collect::<Vec<_>>();
 
@@ -1225,11 +1225,11 @@ pub mod pallet {
 		fn integrity_test() {
 			// ensure that we funnel the correct value to the `DataProvider::MaxVotesPerVoter`;
 			assert_eq!(
-				MaxNominationsOf::<T>::get(),
+				MaxNominations::<T>::get(),
 				<Self as ElectionDataProvider>::MaxVotesPerVoter::get()
 			);
 			// and that MaxNominations is always greater than 1, since we count on this.
-			assert!(!MaxNominationsOf::<T>::get().is_zero());
+			assert!(!MaxNominations::<T>::get().is_zero());
 
 			assert!(
 				T::SlashDeferDuration::get() < T::BondingDuration::get() || T::BondingDuration::get() == 0,
