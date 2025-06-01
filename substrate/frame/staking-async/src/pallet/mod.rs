@@ -20,7 +20,7 @@
 use crate::{
 	asset, slashing, weights::WeightInfo, AccountIdLookupOf, ActiveEraInfo, BalanceOf, EraPayout,
 	EraRewardPoints, ExposurePage, Forcing, LedgerIntegrityState,
-	MaxNominations, NegativeImbalanceOf, Nominations, NominationsQuota,
+	MaxNominationsOf, NegativeImbalanceOf, Nominations, NominationsQuota,
 	PositiveImbalanceOf, RewardDestination, StakingLedger, UnappliedSlash,
 	UnlockChunk, ValidatorPrefs,
 };
@@ -944,7 +944,7 @@ pub mod pallet {
 					let who = Self::generate_endowed_bonded_account(&derivation, &mut rng);
 
 					let random_nominations = all_validators
-						.choose_multiple(&mut rng, MaxNominations::<T>::get() as usize)
+						.choose_multiple(&mut rng, MaxNominationsOf::<T>::get() as usize)
 						.map(|v| v.clone())
 						.collect::<Vec<_>>();
 
@@ -1225,11 +1225,11 @@ pub mod pallet {
 		fn integrity_test() {
 			// ensure that we funnel the correct value to the `DataProvider::MaxVotesPerVoter`;
 			assert_eq!(
-				MaxNominations::<T>::get(),
+				MaxNominationsOf::<T>::get(),
 				<Self as ElectionDataProvider>::MaxVotesPerVoter::get()
 			);
 			// and that MaxNominations is always greater than 1, since we count on this.
-			assert!(!MaxNominations::<T>::get().is_zero());
+			assert!(!MaxNominationsOf::<T>::get().is_zero());
 
 			assert!(
 				T::SlashDeferDuration::get() < T::BondingDuration::get() || T::BondingDuration::get() == 0,

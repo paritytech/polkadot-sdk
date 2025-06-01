@@ -127,7 +127,7 @@ pub type MaxWinnersOf<T> = <T as Config>::MaxValidatorSet;
 pub type MaxWinnersPerPageOf<P> = <P as ElectionProvider>::MaxWinnersPerPage;
 
 /// Maximum number of nominations per nominator.
-pub type MaxNominations<T> =
+pub type MaxNominationsOf<T> =
 	<<T as Config>::NominationsQuota as NominationsQuota<BalanceOf<T>>>::MaxNominations;
 
 /// Counter for the number of "reward" points earned by a given validator.
@@ -241,7 +241,7 @@ pub enum SnapshotStatus<AccountId> {
 #[scale_info(skip_type_params(T))]
 pub struct Nominations<T: Config> {
 	/// The targets of nomination.
-	pub targets: BoundedVec<T::AccountId, MaxNominations<T>>,
+	pub targets: BoundedVec<T::AccountId, MaxNominationsOf<T>>,
 	/// The era the nominations were submitted.
 	///
 	/// Except for initial nominations which are considered submitted at era 0.

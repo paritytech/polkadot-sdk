@@ -37,7 +37,7 @@ use frame_support::{
 	parameter_types,
 	traits::{
 		fungible::HoldConsideration, tokens::UnityOrOuterConversion, AsEnsureOriginWithArg,
-		ConstU32, Contains, EitherOf, EitherOfDiverse, EnsureOriginWithArg, EverythingBut,
+		ConstU32, Contains, EitherOf, EitherOfDiverse, EnsureOriginWithArg,
 		FromContains, InstanceFilter, KeyOwnerProofSystem, LinearStoragePrice, Nothing,
 		ProcessMessage, ProcessMessageError, VariantCountOf, WithdrawReasons,
 	},

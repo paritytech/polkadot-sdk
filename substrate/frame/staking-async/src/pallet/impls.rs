@@ -24,7 +24,7 @@ use crate::{
 	session_rotation::{self, Eras, Rotator},
 	slashing::OffenceRecord,
 	weights::WeightInfo,
-	BalanceOf, Exposure, Forcing, LedgerIntegrityState, MaxNominations, Nominations,
+	BalanceOf, Exposure, Forcing, LedgerIntegrityState, MaxNominationsOf, Nominations,
 	NominationsQuota, PositiveImbalanceOf, RewardDestination, SnapshotStatus,
 	StakingLedger, ValidatorPrefs, STAKING_ID,
 };
@@ -861,7 +861,7 @@ impl<T: Config> Pallet<T> {
 impl<T: Config> ElectionDataProvider for Pallet<T> {
 	type AccountId = T::AccountId;
 	type BlockNumber = BlockNumberFor<T>;
-	type MaxVotesPerVoter = MaxNominations<T>;
+	type MaxVotesPerVoter = MaxNominationsOf<T>;
 
 	fn desired_targets() -> data_provider::Result<u32> {
 		Self::register_weight(T::DbWeight::get().reads(1));
