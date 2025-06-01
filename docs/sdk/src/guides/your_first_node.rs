@@ -101,12 +101,17 @@
 
 #[cfg(test)]
 mod tests {
-	use assert_cmd::Command;
+	use assert_cmd::assert::OutputAssertExt;
 	use cmd_lib::*;
 	use rand::Rng;
 	use sc_chain_spec::{DEV_RUNTIME_PRESET, LOCAL_TESTNET_RUNTIME_PRESET};
 	use sp_genesis_builder::PresetId;
-	use std::path::PathBuf;
+	use std::{
+		io::{BufRead, BufReader},
+		path::PathBuf,
+		process::{ChildStderr, Command, Stdio},
+		time::Duration,
+	};
 
 	const PARA_RUNTIME: &'static str = "parachain-template-runtime";
 	const CHAIN_SPEC_BUILDER: &'static str = "chain-spec-builder";
@@ -197,7 +202,28 @@ mod tests {
 		}
 	}
 
-	fn test_runtime_preset(runtime: &'static str, block_time: u64, maybe_preset: Option<PresetId>) {
+	async fn imported_block_found(stderr: ChildStderr, block: u64, timeout: u64) -> bool {
+		tokio::time::timeout(Duration::from_secs(timeout), async {
+			let want = format!("Imported #{}", block);
+			let reader = BufReader::new(stderr);
+			let mut found_block = false;
+			for line in reader.lines() {
+				if line.unwrap().contains(&want) {
+					found_block = true;
+					break;
+				}
+			}
+			found_block
+		})
+		.await
+		.unwrap()
+	}
+
+	async fn test_runtime_preset(
+		runtime: &'static str,
+		block_time: u64,
+		maybe_preset: Option<PresetId>,
+	) {
 		sp_tracing::try_init_simple();
 		maybe_build_runtimes();
 		maybe_build_chain_spec_builder();
@@ -225,36 +251,27 @@ mod tests {
 			.assert()
 			.success();
 
-		let output = Command::new(omni_node)
+		let mut child = Command::new(omni_node)
 			.arg("--tmp")
 			.args(["--chain", chain_spec_file.to_str().unwrap()])
 			.args(["--dev-block-time", block_time.to_string().as_str()])
-			.timeout(std::time::Duration::from_secs(10))
-			.output()
+			.stderr(Stdio::piped())
+			.spawn()
 			.unwrap();
 
-		std::fs::remove_file(chain_spec_file).unwrap();
-
-		// uncomment for debugging.
-		// println!("output: {:?}", output);
-
+		// Take stderr and parse it with timeout.
+		let stderr = child.stderr.take().unwrap();
 		let expected_blocks = (10_000 / block_time).saturating_div(2);
 		assert!(expected_blocks > 0, "test configuration is bad, should give it more time");
-		let output = String::from_utf8(output.stderr).unwrap();
-		let want = format!("Imported #{}", expected_blocks);
-		if !output.contains(&want) {
-			panic!(
-				"Output did not contain the pattern:\n\npattern: {}\n\noutput: {}\n",
-				want, output
-			);
-		}
+		assert_eq!(imported_block_found(stderr, expected_blocks, 100).await, true);
+		std::fs::remove_file(chain_spec_file).unwrap();
+		child.kill().unwrap();
 	}
 
-	#[test]
-	#[ignore = "is flaky"]
-	fn works_with_different_block_times() {
-		test_runtime_preset(PARA_RUNTIME, 100, Some(DEV_RUNTIME_PRESET.into()));
-		test_runtime_preset(PARA_RUNTIME, 3000, Some(DEV_RUNTIME_PRESET.into()));
+	#[tokio::test]
+	async fn works_with_different_block_times() {
+		test_runtime_preset(PARA_RUNTIME, 100, Some(DEV_RUNTIME_PRESET.into())).await;
+		test_runtime_preset(PARA_RUNTIME, 3000, Some(DEV_RUNTIME_PRESET.into())).await;
 
 		// we need this snippet just for docs
 		#[docify::export_content(csb)]
@@ -271,20 +288,17 @@ mod tests {
 		build_parachain_spec_works();
 	}
 
-	#[test]
-	#[ignore]
-	fn parachain_runtime_works() {
+	#[tokio::test]
+	async fn parachain_runtime_works() {
 		// TODO: None doesn't work. But maybe it should? it would be misleading as many users might
 		// use it.
-		[Some(DEV_RUNTIME_PRESET.into()), Some(LOCAL_TESTNET_RUNTIME_PRESET.into())]
-			.into_iter()
-			.for_each(|preset| {
-				test_runtime_preset(PARA_RUNTIME, 1000, preset);
-			});
+		for preset in [Some(DEV_RUNTIME_PRESET.into()), Some(LOCAL_TESTNET_RUNTIME_PRESET.into())] {
+			test_runtime_preset(PARA_RUNTIME, 1000, preset).await;
+		}
 	}
 
-	#[test]
-	fn omni_node_dev_mode_works() {
+	#[tokio::test]
+	async fn omni_node_dev_mode_works() {
 		//Omni Node in dev mode works with parachain's template `dev_chain_spec`
 		let dev_chain_spec = std::env::current_dir()
 			.unwrap()
@@ -299,16 +313,15 @@ mod tests {
 		maybe_build_omni_node();
 		let omni_node = find_release_binary(OMNI_NODE).unwrap();
 
-		let output = Command::new(omni_node)
+		let mut child = Command::new(omni_node)
 			.arg("--dev")
 			.args(["--chain", dev_chain_spec.to_str().unwrap()])
-			.timeout(std::time::Duration::from_secs(70))
-			.output()
+			.stdout(Stdio::piped())
+			.spawn()
 			.unwrap();
 
-		// at least  blocks should be imported
-		assert!(String::from_utf8(output.stderr)
-			.unwrap()
-			.contains(format!("Imported #{}", 7).to_string().as_str()));
+		let stderr = child.stderr.take().unwrap();
+		assert_eq!(imported_block_found(stderr, 7, 100).await, true);
+		child.kill().unwrap();
 	}
 }
