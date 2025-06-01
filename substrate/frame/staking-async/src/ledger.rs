@@ -35,7 +35,7 @@ use crate::{
 	asset, log, BalanceOf, Bonded, Config, DecodeWithMemTracking, Error, Ledger, Pallet, Payee,
 	RewardDestination, Vec, VirtualStakers,
 };
-use alloc::collections::BTreeMap;
+use alloc::{collections::BTreeMap, fmt::Debug};
 use codec::{Decode, Encode, HasCompact, MaxEncodedLen};
 use frame_support::{
 	defensive, ensure,
@@ -53,10 +53,10 @@ use sp_staking::{EraIndex, OnStakingUpdate, StakingAccount, StakingInterface};
 pub struct UnlockChunk<Balance: HasCompact + MaxEncodedLen> {
 	/// Amount of funds to be unlocked.
 	#[codec(compact)]
-	pub(crate) value: Balance,
+	pub value: Balance,
 	/// Era number at which point it'll be unlocked.
 	#[codec(compact)]
-	pub(crate) era: EraIndex,
+	pub era: EraIndex,
 }
 
 /// The ledger of a (bonded) stash.
@@ -69,7 +69,15 @@ pub struct UnlockChunk<Balance: HasCompact + MaxEncodedLen> {
 /// leaving here to enforce a clean PR diff, given how critical this logic is. Tracking issue
 /// <https://github.com/paritytech/substrate/issues/14749>.
 #[derive(
-	PartialEqNoBound, EqNoBound, CloneNoBound, Encode, Decode, DebugNoBound, TypeInfo, MaxEncodedLen,
+	PartialEqNoBound,
+	EqNoBound,
+	CloneNoBound,
+	Encode,
+	Decode,
+	DebugNoBound,
+	TypeInfo,
+	MaxEncodedLen,
+	DecodeWithMemTracking,
 )]
 #[scale_info(skip_type_params(T))]
 pub struct StakingLedger<T: Config> {
@@ -96,7 +104,7 @@ pub struct StakingLedger<T: Config> {
 	/// This is not stored on-chain, and is only bundled when the ledger is read from storage.
 	/// Use [`controller`] function to get the controller associated with the ledger.
 	#[codec(skip)]
-	pub(crate) controller: Option<T::AccountId>,
+	pub controller: Option<T::AccountId>,
 }
 
 impl<T: Config> StakingLedger<T> {

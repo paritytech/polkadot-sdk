@@ -192,7 +192,6 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use crate::types::*;
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_election_provider_support::{
 	onchain, BoundedSupportsOf, DataProviderBounds, ElectionDataProvider, ElectionProvider,
@@ -1138,10 +1137,10 @@ pub mod pallet {
 
 	/// Desired number of targets to elect for this round.
 	#[pallet::storage]
-	type DesiredTargets<T> = StorageMap<_, Twox64Concat, u32, u32>;
+	pub type DesiredTargets<T> = StorageMap<_, Twox64Concat, u32, u32>;
 	/// Paginated voter snapshot. At most [`T::Pages`] keys will exist.
 	#[pallet::storage]
-	type PagedVoterSnapshot<T: Config> = StorageDoubleMap<
+	pub type PagedVoterSnapshot<T: Config> = StorageDoubleMap<
 		_,
 		Twox64Concat,
 		u32,
@@ -1153,13 +1152,13 @@ pub mod pallet {
 	///
 	/// The hash is generated using [`frame_system::Config::Hashing`].
 	#[pallet::storage]
-	type PagedVoterSnapshotHash<T: Config> =
+	pub type PagedVoterSnapshotHash<T: Config> =
 		StorageDoubleMap<_, Twox64Concat, u32, Twox64Concat, PageIndex, T::Hash>;
 	/// Paginated target snapshot.
 	///
 	/// For the time being, since we assume one pages of targets, at most ONE key will exist.
 	#[pallet::storage]
-	type PagedTargetSnapshot<T: Config> = StorageDoubleMap<
+	pub type PagedTargetSnapshot<T: Config> = StorageDoubleMap<
 		_,
 		Twox64Concat,
 		u32,
@@ -1171,7 +1170,7 @@ pub mod pallet {
 	///
 	/// The hash is generated using [`frame_system::Config::Hashing`].
 	#[pallet::storage]
-	type PagedTargetSnapshotHash<T: Config> =
+	pub type PagedTargetSnapshotHash<T: Config> =
 		StorageDoubleMap<_, Twox64Concat, u32, Twox64Concat, PageIndex, T::Hash>;
 
 	#[pallet::pallet]
