@@ -173,12 +173,12 @@ mod tests {
 	use super::*;
 	use crate::{
 		mock::{AccountId, Staking, Test},
-		BoundedVec, MaxNominations,
+		BoundedVec, MaxNominationsOf,
 	};
 	use frame_election_provider_support::bounds::ElectionBoundsBuilder;
 	use sp_core::bounded_vec;
 
-	type Voters = BoundedVec<AccountId, MaxNominations<Test>>;
+	type Voters = BoundedVec<AccountId, MaxNominationsOf<Test>>;
 
 	#[test]
 	pub fn election_size_tracker_works() {

@@ -51,7 +51,7 @@ pub use impls::*;
 
 use crate::{
 	asset, slashing, weights::WeightInfo, AccountIdLookupOf, ActiveEraInfo, BalanceOf, EraPayout,
-	EraRewardPoints, Exposure, ExposurePage, Forcing, LedgerIntegrityState, MaxNominations,
+	EraRewardPoints, Exposure, ExposurePage, Forcing, LedgerIntegrityState, MaxNominationsOf,
 	NegativeImbalanceOf, Nominations, NominationsQuota, PositiveImbalanceOf, RewardDestination,
 	SessionInterface, StakingLedger, UnappliedSlash, UnlockChunk, ValidatorPrefs,
 };
@@ -983,11 +983,11 @@ pub mod pallet {
 		fn integrity_test() {
 			// ensure that we funnel the correct value to the `DataProvider::MaxVotesPerVoter`;
 			assert_eq!(
-				MaxNominations::<T>::get(),
+				MaxNominationsOf::<T>::get(),
 				<Self as ElectionDataProvider>::MaxVotesPerVoter::get()
 			);
 			// and that MaxNominations is always greater than 1, since we count on this.
-			assert!(!MaxNominations::<T>::get().is_zero());
+			assert!(!MaxNominationsOf::<T>::get().is_zero());
 
 			// ensure election results are always bounded with the same value
 			assert!(

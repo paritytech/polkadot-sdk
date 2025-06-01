@@ -5819,7 +5819,7 @@ fn nomination_quota_max_changes_decoding() {
 		.balance_factor(11)
 		.build_and_execute(|| {
 			// pre-condition.
-			assert_eq!(MaxNominations::<Test>::get(), 16);
+			assert_eq!(MaxNominationsOf::<Test>::get(), 16);
 
 			let unbonded_election = DataProviderBounds::default();
 
@@ -5840,8 +5840,8 @@ fn nomination_quota_max_changes_decoding() {
 #[test]
 fn api_nominations_quota_works() {
 	ExtBuilder::default().build_and_execute(|| {
-		assert_eq!(Staking::api_nominations_quota(10), MaxNominations::<Test>::get());
-		assert_eq!(Staking::api_nominations_quota(333), MaxNominations::<Test>::get());
+		assert_eq!(Staking::api_nominations_quota(10), MaxNominationsOf::<Test>::get());
+		assert_eq!(Staking::api_nominations_quota(333), MaxNominationsOf::<Test>::get());
 		assert_eq!(Staking::api_nominations_quota(222), 2);
 		assert_eq!(Staking::api_nominations_quota(111), 1);
 	})
