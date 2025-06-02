@@ -371,7 +371,7 @@ impl<T: MinerConfig> BaseMiner<T> {
 		}
 
 		// convert each page to a compact struct -- no more change allowed.
-		let solution_pages: BoundedVec<SolutionOf<T>, T::Pages> = paged_assignments
+		let mut solution_pages: Vec<SolutionOf<T>> = paged_assignments
 			.into_iter()
 			.enumerate()
 			.map(|(page_index, assignment_page)| {
@@ -382,12 +382,11 @@ impl<T: MinerConfig> BaseMiner<T> {
 					.ok_or(MinerError::SnapshotUnAvailable(SnapshotType::Voters(page)))?;
 
 				// one last trimming -- `MaxBackersPerWinner`, the per-page variant.
-				let trimmed_assignment_page =
-					Self::trim_supports_max_backers_per_winner_per_page(
-						assignment_page,
-						voter_snapshot_page,
-						page_index as u32,
-					)?;
+				let trimmed_assignment_page = Self::trim_supports_max_backers_per_winner_per_page(
+					assignment_page,
+					voter_snapshot_page,
+					page_index as u32,
+				)?;
 
 				let voter_index_fn = {
 					let cache = helpers::generate_voter_cache::<T, _>(&voter_snapshot_page);
@@ -401,17 +400,11 @@ impl<T: MinerConfig> BaseMiner<T> {
 				)
 				.map_err::<MinerError<T>, _>(Into::into)
 			})
-			.collect::<Result<Vec<_>, _>>()?
-			.try_into()
-			.expect("`paged_assignments` is bound by `T::Pages`; length cannot change in iter chain; qed");
+			.collect::<Result<Vec<_>, _>>()?;
 
 		// now do the length trim.
-		let mut solution_pages_unbounded = solution_pages.into_inner();
 		let _trim_length_weight =
-			Self::maybe_trim_weight_and_len(&mut solution_pages_unbounded, &voter_pages)?;
-		let solution_pages = solution_pages_unbounded
-			.try_into()
-			.expect("maybe_trim_weight_and_len cannot increase the length of its input; qed.");
+			Self::maybe_trim_weight_and_len(&mut solution_pages, &voter_pages)?;
 		miner_log!(debug, "trimmed {} voters due to length restriction.", _trim_length_weight);
 
 		// finally, wrap everything up. Assign a fake score here, since we might need to re-compute
