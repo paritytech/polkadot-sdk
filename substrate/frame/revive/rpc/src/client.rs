@@ -634,6 +634,7 @@ impl Client {
 
 		let header = block.header();
 		let timestamp = extract_block_timestamp(block).await.unwrap_or_default();
+		let coinbase = runtime_api.coinbase().await.ok().flatten().unwrap_or_default();
 
 		// TODO: remove once subxt is updated
 		let parent_hash = header.parent_hash.0.into();
@@ -660,6 +661,7 @@ impl Client {
 			hash: block.hash(),
 			parent_hash,
 			state_root,
+			miner: coinbase,
 			transactions_root: extrinsics_root,
 			number: header.number.into(),
 			timestamp: timestamp.into(),

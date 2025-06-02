@@ -42,7 +42,13 @@ pub struct PrestateTracer<T> {
 	_phantom: core::marker::PhantomData<T>,
 }
 
-impl<T> PrestateTracer<T> {
+impl<T: Config> PrestateTracer<T>
+where
+	BalanceOf<T>: Into<U256> + TryFrom<U256> + Bounded,
+	MomentOf<T>: Into<U256>,
+	T::Hash: frame_support::traits::IsType<H256>,
+	T::Nonce: Into<u32>,
+{
 	/// Create a new [`PrestateTracer`] instance.
 	pub fn new(config: PrestateTracerConfig) -> Self {
 		Self { config, ..Default::default() }
@@ -60,11 +66,34 @@ impl<T> PrestateTracer<T> {
 	/// Collect the traces and return them.
 	pub fn collect_trace(&mut self) -> PrestateTrace {
 		let trace = core::mem::take(&mut self.trace);
-		let (mut pre, post) = trace;
-
-		// without any write
+		let addrs = core::mem::take(&mut self.addrs);
+		let (mut pre, mut post) = trace;
 
 		if self.config.diff_mode {
+			for addr in addrs {
+				let post_entry = post.entry(addr).or_default();
+				let pre_entry = pre.entry(addr).or_default();
+
+				let balance = Some(Pallet::<T>::evm_balance(&addr));
+				if balance != pre_entry.balance {
+					post_entry.balance = balance;
+				} else {
+					post_entry.balance = None;
+				}
+
+				let nonce = Some(Pallet::<T>::evm_nonce(&addr));
+				if nonce != pre_entry.nonce {
+					post_entry.nonce = nonce;
+				} else {
+					post_entry.nonce = None;
+				}
+
+				if post_entry.balance.is_none() && post_entry.nonce.is_none() {
+					pre.remove(&addr);
+					post.remove(&addr);
+				}
+			}
+
 			// clean up the storage that are in pre but not in post these are just read
 			pre.iter_mut().for_each(|(addr, info)| {
 				if let Some(post_info) = post.get(addr) {

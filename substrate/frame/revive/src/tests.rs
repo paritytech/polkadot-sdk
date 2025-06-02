@@ -22,17 +22,20 @@ use self::test_utils::{ensure_stored, expected_deposit};
 use crate::{
 	self as pallet_revive,
 	address::{create1, create2, AddressMapper},
-	evm::{runtime::GAS_PRICE, CallTrace, CallTracer, CallType, GenericTransaction},
+	evm::{
+		runtime::GAS_PRICE, CallTrace, CallTracer, CallType, GenericTransaction,
+		PrestateTracerConfig,
+	},
 	exec::Key,
 	limits,
 	storage::DeletionQueueManager,
 	test_utils::*,
 	tests::test_utils::{get_contract, get_contract_checked},
-	tracing::trace,
+	tracing::{trace, Tracing},
 	weights::WeightInfo,
 	AccountId32Mapper, BalanceOf, Code, CodeInfoOf, Config, ContractInfo, ContractInfoOf,
 	DeletionQueueCounter, DepositLimit, Error, EthTransactError, HoldReason, Origin, Pallet,
-	PristineCode, H160,
+	PrestateTracer, PristineCode, H160,
 };
 
 use crate::test_utils::builder::Contract;
@@ -4597,4 +4600,41 @@ fn precompiles_with_info_creates_contract() {
 			);
 		});
 	}
+}
+
+#[test]
+fn tracing_playground() {
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000);
+		let mut tracer = PrestateTracer::<Test>::new(PrestateTracerConfig {
+			disable_code: true,
+			diff_mode: true,
+			..Default::default()
+		});
+		let code =
+			include_bytes!("/home/pg/github/evm-test-suite/eth-rpc/pvm/PretraceFixture.polkavm")
+				.to_vec();
+
+		ExtBuilder::default().existential_deposit(1).build().execute_with(|| {
+			let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+			let Contract { addr, .. } =
+				builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+
+			tracer.watch_address(&ALICE_ADDR);
+			tracer.watch_address(&BOB_ADDR);
+			trace(&mut tracer, || {
+				let data = hex_literal::hex!(
+					"41720c3e0000000000000000000000000000000000000000000000000000000000000002"
+				)
+				.to_vec();
+
+				Pallet::<Test>::prepare_dry_run(&ALICE);
+				builder::bare_call(addr).data(data).build_and_unwrap_result();
+			});
+
+			let trace = tracer.collect_trace();
+			let json = serde_json::to_string_pretty(&trace).unwrap();
+			println!("Trace:\n{json}");
+		});
+	})
 }

@@ -1428,7 +1428,10 @@ where
 	}
 
 	/// Build an EVM tracer from the given tracer type.
-	pub fn evm_tracer(tracer_type: TracerType) -> Tracer<T> {
+	pub fn evm_tracer(tracer_type: TracerType) -> Tracer<T>
+	where
+		T::Nonce: Into<u32>,
+	{
 		match tracer_type {
 			TracerType::CallTracer(config) => CallTracer::new(
 				config.unwrap_or_default(),
@@ -1838,7 +1841,7 @@ macro_rules! impl_runtime_apis_plus_revive {
 					for (index, ext) in extrinsics.into_iter().enumerate() {
 						if index as u32 == tx_index {
 							let t = tracer.as_tracing();
-							t.watch_address(&$crate::Pallet::<Self>::coinbase().unwrap_or_default());
+							// t.watch_address(&$crate::Pallet::<Self>::coinbase().unwrap_or_default());
 							let _ = trace(t, || <$Executive>::apply_extrinsic(ext));
 							break;
 						} else {
@@ -1857,6 +1860,7 @@ macro_rules! impl_runtime_apis_plus_revive {
 					let mut tracer = $crate::Pallet::<Self>::evm_tracer(tracer_type);
 					let t = tracer.as_tracing();
 
+					t.watch_address(&tx.from.unwrap_or_default());
 					t.watch_address(&$crate::Pallet::<Self>::coinbase().unwrap_or_default());
 					let result = trace(t, || Self::eth_transact(tx));
 
