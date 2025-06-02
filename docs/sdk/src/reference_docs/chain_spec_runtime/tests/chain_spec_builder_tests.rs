@@ -137,9 +137,13 @@ fn generate_chain_spec() {
 
 #[docify::export_content]
 fn cmd_generate_para_chain_spec(runtime_path: &str) -> String {
-	bash!(
+	let chain_spec = bash!(
 		chain-spec-builder -c /dev/stdout create -c polkadot -p 1000 -r $runtime_path named-preset preset_2
-	)
+	);
+	// We need to skip the first line, corresponding now to the deprecation notice. People still
+	// relying on the `para_id` will get some annoyance from it until we remove the flag, which is
+	// fine :)
+	chain_spec.lines().skip(1).collect::<Vec<_>>().join("\n")
 }
 
 #[test]
