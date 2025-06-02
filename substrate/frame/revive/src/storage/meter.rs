@@ -304,6 +304,14 @@ where
 		}
 	}
 
+	/// Record a charge that has taken place externally.
+	///
+	/// This will not perform a charge. It just records it to reflect it in the
+	/// total amount of storage required for a transaction.
+	pub fn record_charge(&mut self, amount: &DepositOf<T>) {
+		self.total_deposit = self.total_deposit.saturating_add(&amount);
+	}
+
 	/// The amount of balance that is still available from the original `limit`.
 	fn available(&self) -> BalanceOf<T> {
 		self.total_deposit.available(&self.limit)
@@ -395,14 +403,6 @@ impl<T: Config, E: Ext<T>> RawMeter<T, E, Nested> {
 	pub fn charge_deposit(&mut self, contract: T::AccountId, amount: DepositOf<T>) {
 		self.record_charge(&amount);
 		self.charges.push(Charge { contract, amount, state: ContractState::Alive });
-	}
-
-	/// Record a charge that has taken place externally.
-	///
-	/// This will not perform a charge. It just records it to reflect it in the
-	/// total amount of storage required for a transaction.
-	pub fn record_charge(&mut self, amount: &DepositOf<T>) {
-		self.total_deposit = self.total_deposit.saturating_add(&amount);
 	}
 
 	/// Call to tell the meter that the currently executing contract was terminated.

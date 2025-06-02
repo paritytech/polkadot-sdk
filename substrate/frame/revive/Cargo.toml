@@ -19,7 +19,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 [dependencies]
 alloy-core = { workspace = true, features = ["sol-types"] }
 codec = { features = ["derive", "max-encoded-len"], workspace = true }
-derive_more = { workspace = true }
+derive_more = { workspace = true, features = ["from", "try_into"] }
 environmental = { workspace = true }
 ethereum-standards = { workspace = true }
 ethereum-types = { workspace = true, features = ["codec", "rlp", "serialize"] }
@@ -58,8 +58,6 @@ sp-core = { workspace = true }
 sp-io = { workspace = true }
 sp-runtime = { workspace = true }
 subxt-signer = { workspace = true, optional = true, features = ["unstable-eth"] }
-xcm = { workspace = true }
-xcm-builder = { workspace = true }
 
 [dev-dependencies]
 array-bytes = { workspace = true, default-features = true }
@@ -77,7 +75,6 @@ pallet-timestamp = { workspace = true, default-features = true }
 pallet-utility = { workspace = true, default-features = true }
 sp-keystore = { workspace = true, default-features = true }
 sp-tracing = { workspace = true, default-features = true }
-xcm-builder = { workspace = true, default-features = true }
 
 [features]
 default = ["std"]
@@ -118,8 +115,6 @@ std = [
 	"sp-keystore/std",
 	"sp-runtime/std",
 	"subxt-signer",
-	"xcm-builder/std",
-	"xcm/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
@@ -138,8 +133,6 @@ runtime-benchmarks = [
 	"sp-consensus-babe",
 	"sp-consensus-slots",
 	"sp-runtime/runtime-benchmarks",
-	"xcm-builder/runtime-benchmarks",
-	"xcm/runtime-benchmarks",
 ]
 try-runtime = [
 	"frame-support/try-runtime",
