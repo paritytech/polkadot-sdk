@@ -4015,7 +4015,7 @@ fn skip_transfer_works() {
 
 		// when gas is some (transfers enabled): bob has no money: fail
 		assert_err!(
-			Pallet::<Test>::bare_eth_transact(
+			Pallet::<Test>::dry_run_eth_transact(
 				GenericTransaction {
 					from: Some(BOB_ADDR),
 					input: code.clone().into(),
@@ -4031,7 +4031,7 @@ fn skip_transfer_works() {
 		);
 
 		// no gas specified (all transfers are skipped): even without money bob can deploy
-		assert_ok!(Pallet::<Test>::bare_eth_transact(
+		assert_ok!(Pallet::<Test>::dry_run_eth_transact(
 			GenericTransaction {
 				from: Some(BOB_ADDR),
 				input: code.clone().into(),
@@ -4049,7 +4049,7 @@ fn skip_transfer_works() {
 
 		// call directly: fails with enabled transfers
 		assert_err!(
-			Pallet::<Test>::bare_eth_transact(
+			Pallet::<Test>::dry_run_eth_transact(
 				GenericTransaction {
 					from: Some(BOB_ADDR),
 					to: Some(addr),
@@ -4069,7 +4069,7 @@ fn skip_transfer_works() {
 		// we didn't roll back the storage changes done by the previous
 		// call. So the item already exists. We simply increase the size of
 		// the storage item to incur some deposits (which bob can't pay).
-		assert!(Pallet::<Test>::bare_eth_transact(
+		assert!(Pallet::<Test>::dry_run_eth_transact(
 			GenericTransaction {
 				from: Some(BOB_ADDR),
 				to: Some(caller_addr),
@@ -4083,7 +4083,7 @@ fn skip_transfer_works() {
 		.is_err(),);
 
 		// works when no gas is specified (skip transfer)
-		assert_ok!(Pallet::<Test>::bare_eth_transact(
+		assert_ok!(Pallet::<Test>::dry_run_eth_transact(
 			GenericTransaction {
 				from: Some(BOB_ADDR),
 				to: Some(addr),
@@ -4095,7 +4095,7 @@ fn skip_transfer_works() {
 		));
 
 		// call through contract works when transfers are skipped
-		assert_ok!(Pallet::<Test>::bare_eth_transact(
+		assert_ok!(Pallet::<Test>::dry_run_eth_transact(
 			GenericTransaction {
 				from: Some(BOB_ADDR),
 				to: Some(caller_addr),
@@ -4108,7 +4108,7 @@ fn skip_transfer_works() {
 
 		// works with transfers enabled if we don't incur a storage cost
 		// we shrink the item so its actually a refund
-		assert_ok!(Pallet::<Test>::bare_eth_transact(
+		assert_ok!(Pallet::<Test>::dry_run_eth_transact(
 			GenericTransaction {
 				from: Some(BOB_ADDR),
 				to: Some(caller_addr),
@@ -4121,7 +4121,7 @@ fn skip_transfer_works() {
 		));
 
 		// fails when trying to increase the storage item size
-		assert!(Pallet::<Test>::bare_eth_transact(
+		assert!(Pallet::<Test>::dry_run_eth_transact(
 			GenericTransaction {
 				from: Some(BOB_ADDR),
 				to: Some(caller_addr),

@@ -1145,37 +1145,6 @@ where
 		}
 	}
 
-	/// dry-run a contract call.
-	pub fn dry_run_call(
-		origin: OriginFor<T>,
-		dest: H160,
-		value: BalanceOf<T>,
-		gas_limit: Weight,
-		storage_deposit_limit: DepositLimit<BalanceOf<T>>,
-		data: Vec<u8>,
-	) -> ContractResult<ExecReturnValue, BalanceOf<T>> {
-		let account_id = ensure_signed(origin.clone())
-			.unwrap_or_else(|_| T::AddressMapper::to_account_id(&H160::default()));
-		Self::prepare_dry_run(&account_id);
-		Self::bare_call(origin, dest, value, gas_limit, storage_deposit_limit, data)
-	}
-
-	/// dry-run instantiate a contract deployment.
-	pub fn dry_run_instantiate(
-		origin: OriginFor<T>,
-		value: BalanceOf<T>,
-		gas_limit: Weight,
-		storage_deposit_limit: DepositLimit<BalanceOf<T>>,
-		code: Code,
-		data: Vec<u8>,
-		salt: Option<[u8; 32]>,
-	) -> ContractResult<InstantiateReturnValue, BalanceOf<T>> {
-		let account_id = ensure_signed(origin.clone())
-			.unwrap_or_else(|_| T::AddressMapper::to_account_id(&H160::default()));
-		Self::prepare_dry_run(&account_id);
-		Self::bare_instantiate(origin, value, gas_limit, storage_deposit_limit, code, data, salt)
-	}
-
 	/// Dry-run Ethereum calls.
 	///
 	/// # Parameters
@@ -1738,10 +1707,9 @@ macro_rules! impl_runtime_apis_plus_revive {
 					let blockweights: $crate::BlockWeights =
 						<Self as $crate::frame_system::Config>::BlockWeights::get();
 
-					let origin =
-						<Self as $crate::frame_system::Config>::RuntimeOrigin::signed(origin);
-					$crate::Pallet::<Self>::dry_run_call(
-						origin,
+					$crate::Pallet::<Self>::::prepare_dry_run(&origin);
+					$crate::Pallet::<Self>::bare_call(
+						<Self as $crate::frame_system::Config>::RuntimeOrigin::signed(origin),
 						dest,
 						value,
 						gas_limit.unwrap_or(blockweights.max_block),
@@ -1763,10 +1731,9 @@ macro_rules! impl_runtime_apis_plus_revive {
 					let blockweights: $crate::BlockWeights =
 						<Self as $crate::frame_system::Config>::BlockWeights::get();
 
-					let origin =
-						<Self as $crate::frame_system::Config>::RuntimeOrigin::signed(origin);
-					$crate::Pallet::<Self>::dry_run_instantiate(
-						origin,
+					$crate::Pallet::<Self>::::prepare_dry_run(&origin);
+					$crate::Pallet::<Self>::bare_instantiate(
+						<Self as $crate::frame_system::Config>::RuntimeOrigin::signed(origin),
 						value,
 						gas_limit.unwrap_or(blockweights.max_block),
 						$crate::DepositLimit::Balance(storage_deposit_limit.unwrap_or(u128::MAX)),
