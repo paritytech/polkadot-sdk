@@ -203,16 +203,33 @@ impl CollationManager {
 				.remove_pruned_ancestors(&deactivated_ancestry.into_iter().collect());
 		}
 
-		// Remove blocked seconding requests that left the view. TODO: revisit this
-
+		// Remove blocked seconding requests that left the view.
+		let mut removed_blocked = vec![];
 		self.blocked_from_seconding.retain(|_, collations| {
 			collations.retain(|collation| {
-				self.per_relay_parent
-					.contains_key(&collation.candidate_receipt.descriptor.relay_parent())
+				let remove = self
+					.per_relay_parent
+					.contains_key(&collation.candidate_receipt.descriptor.relay_parent());
+
+				if remove {
+					removed_blocked.push(collation.candidate_receipt.hash());
+				}
+
+				!remove
 			});
 
 			!collations.is_empty()
 		});
+
+		for candidate_hash in removed_blocked {
+			gum::trace!(
+				target: LOG_TARGET,
+				?candidate_hash,
+				"Removing blocked collation that left the view"
+			);
+
+			self.claim_queue_state.release_claims_for_candidate(&candidate_hash);
+		}
 
 		for leaf in added.iter() {
 			let Some(allowed_ancestry) = self
