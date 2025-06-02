@@ -86,7 +86,7 @@ jobs:
           id: generate_write_token
           uses: actions/create-github-app-token@v1
           with: #todo: change when tested!
-              app-id: ${{ vars.RELEASE_BACKPORT_AUTOMATION_APP_ID }}
+              app-id: ${{ secrets.RELEASE_BACKPORT_AUTOMATION_APP_ID }}
               private-key: ${{ secrets.RELEASE_BACKPORT_AUTOMATION_APP_PRIVATE_KEY }}
               owner: paritytech
 
@@ -165,7 +165,7 @@ jobs:
         id: generate_write_token
         uses: actions/create-github-app-token@v1
         with: #todo: change when tested!
-            app-id: ${{ vars.RELEASE_BACKPORT_AUTOMATION_APP_ID }}
+            app-id: ${{ secrets.RELEASE_BACKPORT_AUTOMATION_APP_ID }}
             private-key: ${{ secrets.RELEASE_BACKPORT_AUTOMATION_APP_PRIVATE_KEY }}
             owner: paritytech
 
