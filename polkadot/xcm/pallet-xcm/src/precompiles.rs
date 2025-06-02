@@ -16,7 +16,6 @@
 use crate::{Config, VersionedLocation, VersionedXcm, Weight, WeightInfo};
 use alloc::vec::Vec;
 use codec::{DecodeAll, DecodeLimit, Encode};
-use xcm::MAX_XCM_DECODE_DEPTH;
 use core::{marker::PhantomData, num::NonZero};
 use pallet_revive::{
 	precompiles::{
@@ -26,6 +25,7 @@ use pallet_revive::{
 	Origin,
 };
 use tracing::error;
+use xcm::MAX_XCM_DECODE_DEPTH;
 use xcm_executor::traits::WeightBounds;
 
 alloy::sol!("src/precompiles/IXcm.sol");
@@ -64,11 +64,14 @@ where
 						Error::Revert("XCM send failed: Invalid destination format".into())
 					})?;
 
-				let final_message =
-					VersionedXcm::<()>::decode_all_with_depth_limit(MAX_XCM_DECODE_DEPTH, &mut &message[..]).map_err(|error| {
-						error!(target: "xcm::precompiles", ?error, "XCM send failed: Invalid message format");
-						Error::Revert("XCM send failed: Invalid message format".into())
-					})?;
+				let final_message = VersionedXcm::<()>::decode_all_with_depth_limit(
+					MAX_XCM_DECODE_DEPTH,
+					&mut &message[..],
+				)
+				.map_err(|error| {
+					error!(target: "xcm::precompiles", ?error, "XCM send failed: Invalid message format");
+					Error::Revert("XCM send failed: Invalid message format".into())
+				})?;
 
 				crate::Pallet::<Runtime>::send(
 					frame_origin,
@@ -92,11 +95,14 @@ where
 				let weight = Weight::from_parts(weight.refTime, weight.proofSize);
 				let _ = env.charge(weight)?;
 
-				let final_message =
-					VersionedXcm::decode_all_with_depth_limit(MAX_XCM_DECODE_DEPTH, &mut &message[..]).map_err(|error| {
-						error!(target: "xcm::precompiles", ?error, "XCM execute failed: Invalid message format");
-						Error::Revert("Invalid message format".into())
-					})?;
+				let final_message = VersionedXcm::decode_all_with_depth_limit(
+					MAX_XCM_DECODE_DEPTH,
+					&mut &message[..],
+				)
+				.map_err(|error| {
+					error!(target: "xcm::precompiles", ?error, "XCM execute failed: Invalid message format");
+					Error::Revert("Invalid message format".into())
+				})?;
 
 				crate::Pallet::<Runtime>::execute(frame_origin, final_message.into(), weight)
 					.map(|results| results.encode())
@@ -113,21 +119,25 @@ where
 					})
 			},
 			IXcmCalls::weighMessage(IXcm::weighMessageCall { message }) => {
-				let converted_message =
-					VersionedXcm::decode_all_with_depth_limit(MAX_XCM_DECODE_DEPTH, &mut &message[..]).map_err(|error| {
-						error!(target: "xcm::precompiles", ?error, "XCM weightMessage: Invalid message format");
-						Error::Revert("XCM weightMessage: Invalid message format".into())
-					})?;
+				let converted_message = VersionedXcm::decode_all_with_depth_limit(
+					MAX_XCM_DECODE_DEPTH,
+					&mut &message[..],
+				)
+				.map_err(|error| {
+					error!(target: "xcm::precompiles", ?error, "XCM weightMessage: Invalid message format");
+					Error::Revert("XCM weightMessage: Invalid message format".into())
+				})?;
 
 				let mut final_message = converted_message.try_into().map_err(|error| {
 					error!(target: "xcm::precompiles", ?error, "XCM weightMessage: Conversion to Xcm failed");
 					Error::Revert("XCM weightMessage: Conversion to Xcm failed".into())
 				})?;
 
-				let weight = <<Runtime>::Weigher>::weight(&mut final_message, Weight::MAX).map_err(|error| {
-					error!(target: "xcm::precompiles", ?error, "XCM weightMessage: Failed to calculate weight");
-					Error::Revert("XCM weightMessage: Failed to calculate weight".into())
-				})?;
+				let weight = <<Runtime>::Weigher>::weight(&mut final_message, Weight::MAX)
+					.map_err(|error| {
+						error!(target: "xcm::precompiles", ?error, "XCM weightMessage: Failed to calculate weight");
+						Error::Revert("XCM weightMessage: Failed to calculate weight".into())
+					})?;
 
 				let final_weight =
 					IXcm::Weight { proofSize: weight.proof_size(), refTime: weight.ref_time() };
