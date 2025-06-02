@@ -457,6 +457,7 @@ pub fn generate_chain_spec_for_runtime(cmd: &CreateCmd) -> Result<String, String
 	let parachain_properties = cmd.relay_chain.as_ref().map(|rc| {
 		cmd.para_id
 			.map(|para_id| {
+				println!("Note: usage of deprecated `para_id` flag is not recommended. Please consider implementing the `cumulus_primitives_core::GetParachainIdentity` runtime API for your runtime. Example here: https://github.com/paritytech/polkadot-sdk-parachain-template/blob/master/runtime/src/apis.rs.");
 				serde_json::json!({
 					"relay_chain": rc,
 					"para_id": para_id,
