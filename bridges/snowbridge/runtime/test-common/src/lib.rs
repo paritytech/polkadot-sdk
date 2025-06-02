@@ -420,7 +420,10 @@ pub fn send_transfer_token_message_failure<Runtime, XcmConfig>(
 				destination_address,
 				fee_amount,
 			);
-			assert_err!(outcome.ensure_complete(), expected_error);
+			assert_err!(
+				outcome.ensure_complete(),
+				InstructionError { index: 0, error: expected_error }
+			);
 		});
 }
 
