@@ -229,6 +229,7 @@ where
 		Some(Subcommand::Benchmark(cmd)) => {
 			// Switch on the concrete benchmark sub-command-
 			match cmd {
+				#[cfg(feature = "runtime-benchmarks")]
 				BenchmarkCmd::Pallet(cmd) => {
 					let chain = cmd
 						.shared_params
@@ -252,6 +253,7 @@ where
 						node.run_benchmark_block_cmd(config, cmd)
 					})
 				},
+				#[cfg(feature = "runtime-benchmarks")]
 				BenchmarkCmd::Storage(cmd) => {
 					// The command needs the full node configuration because it uses the node
 					// client and the database API, storage and shared_trie_cache. It requires
