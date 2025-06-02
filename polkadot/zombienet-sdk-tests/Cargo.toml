@@ -12,6 +12,7 @@ anyhow = { workspace = true }
 codec = { workspace = true, features = ["derive"] }
 cumulus-zombienet-sdk-helpers = { workspace = true }
 env_logger = { workspace = true }
+ethabi ={ workspace = true }
 log = { workspace = true }
 polkadot-primitives = { workspace = true, default-features = true }
 serde = { workspace = true }

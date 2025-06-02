@@ -16754,6 +16754,7 @@ dependencies = [
  "asset-hub-westend-runtime",
  "cumulus-zombienet-sdk-helpers",
  "env_logger 0.11.3",
+ "ethabi-decode",
  "futures",
  "log",
  "pallet-revive",
