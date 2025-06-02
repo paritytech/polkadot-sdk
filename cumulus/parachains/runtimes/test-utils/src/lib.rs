@@ -476,7 +476,7 @@ impl<
 	pub fn execute_as_governance_call<Call: Dispatchable + Encode>(
 		call: Call,
 		governance_origin: GovernanceOrigin<Call::RuntimeOrigin>,
-	) -> Result<(), Either<DispatchError, XcmError>> {
+	) -> Result<(), Either<DispatchError, InstructionError>> {
 		// execute xcm as governance would send
 		let execute_xcm = |call: Call, governance_location, descend_origin| {
 			// prepare xcm
