@@ -55,7 +55,7 @@ pub struct UnlockChunk<Balance: HasCompact + MaxEncodedLen> {
 	/// Amount of funds to be unlocked.
 	#[codec(compact)]
 	pub(crate) value: Balance,
-	/// Era number at which point it'll be unlocked.
+	/// Era number when the chunk was created.
 	#[codec(compact)]
 	pub(crate) era: EraIndex,
 	/// Total accumulated stake to be unbonded when this chunk was created.

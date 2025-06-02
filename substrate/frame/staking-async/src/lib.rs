@@ -63,12 +63,15 @@ mod tests;
 pub mod asset;
 pub mod election_size_tracker;
 pub mod ledger;
+pub mod migrations;
 mod pallet;
 pub mod session_rotation;
 pub mod slashing;
 pub mod weights;
 
 extern crate alloc;
+extern crate core;
+
 use alloc::{vec, vec::Vec};
 use codec::{Decode, DecodeWithMemTracking, Encode, HasCompact, MaxEncodedLen};
 use frame_election_provider_support::ElectionProvider;

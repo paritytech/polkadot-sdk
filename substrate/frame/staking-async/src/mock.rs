@@ -32,12 +32,14 @@ use frame_support::{
 	traits::{EitherOfDiverse, Get, Imbalance, OnUnbalanced},
 	weights::constants::RocksDbWeight,
 };
-use frame_system::{pallet_prelude::BlockNumberFor, EnsureRoot, EnsureSignedBy};
+use frame_system::{
+	limits::BlockWeights, pallet_prelude::BlockNumberFor, EnsureRoot, EnsureSignedBy,
+};
 use pallet_staking_async_rc_client as rc_client;
 use sp_core::{ConstBool, ConstU64};
 use sp_io;
 use sp_npos_elections::BalancingConfig;
-use sp_runtime::{traits::Zero, BuildStorage};
+use sp_runtime::{traits::Zero, BuildStorage, Weight};
 use sp_staking::{
 	currency_to_vote::SaturatingCurrencyToVote, OnStakingUpdate, SessionIndex, StakingAccount,
 };
@@ -52,6 +54,7 @@ frame_support::construct_runtime!(
 		Balances: pallet_balances,
 		Staking: pallet_staking_async,
 		VoterBagsList: pallet_bags_list::<Instance1>,
+		Migrator: pallet_migrations,
 	}
 );
 
@@ -101,6 +104,7 @@ impl frame_system::Config for Test {
 	type DbWeight = RocksDbWeight;
 	type Block = frame_system::mocking::MockBlock<Test>;
 	type AccountData = pallet_balances::AccountData<Balance>;
+	type MultiBlockMigrator = Migrator;
 }
 #[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for Test {
@@ -241,6 +245,7 @@ impl Contains<AccountId> for MockedRestrictList {
 /// A representation of the session pallet that lives on the relay chain.
 pub mod session_mock {
 	use super::*;
+	use frame_support::migrations::MultiStepMigrator;
 	use pallet_staking_async_rc_client::ValidatorSetReport;
 
 	pub struct Session;
@@ -267,7 +272,12 @@ pub mod session_mock {
 		pub fn roll_next() {
 			let now = System::block_number();
 			Timestamp::mutate(|ts| *ts += BLOCK_TIME);
-			System::run_to_block::<AllPalletsWithSystem>(now + 1);
+			System::run_to_block_with::<AllPalletsWithSystem>(
+				now + 1,
+				frame_system::RunToBlockHooks::default().after_initialize(|_| {
+					<Test as frame_system::Config>::MultiBlockMigrator::step();
+				}),
+			);
 			Self::maybe_rotate_session_now();
 		}
 
@@ -430,6 +440,20 @@ impl crate::pallet::pallet::Config for Test {
 	type CurrencyToVote = SaturatingCurrencyToVote;
 	type Slash = ();
 	type WeightInfo = ();
+}
+
+parameter_types! {
+	// Set the block maximum capacity low enough so that many migration steps are required.
+	pub MaxServiceWeight: Weight = <<pallet_migrations::config_preludes::TestDefaultConfig as frame_system::DefaultConfig>::BlockWeights as Get<BlockWeights>>::get().max_block.div(100);
+}
+
+#[derive_impl(pallet_migrations::config_preludes::TestDefaultConfig)]
+impl pallet_migrations::Config for Test {
+	type MaxServiceWeight = MaxServiceWeight;
+	#[cfg(not(feature = "runtime-benchmarks"))]
+	type Migrations = (crate::migrations::v18::LazyMigrationV17ToV18<Test>,);
+	#[cfg(feature = "runtime-benchmarks")]
+	type Migrations = pallet_migrations::mock_helpers::MockedMigrations;
 }
 
 pub struct WeightedNominationsQuota<const MAX: u32>;

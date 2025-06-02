@@ -89,6 +89,7 @@ pub trait WeightInfo {
 	fn process_offence_queue() -> Weight;
 	fn rc_on_offence(v: u32, ) -> Weight;
 	fn rc_on_session_report() -> Weight;
+	fn migration_from_v17_to_v18_migrate_staking_ledger_step(c: u32,) -> Weight;
 }
 
 /// Weights for `pallet_staking_async` using the Substrate node and recommended hardware.
@@ -860,6 +861,10 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().reads(7_u64))
 			.saturating_add(T::DbWeight::get().writes(7_u64))
 	}
+
+	fn migration_from_v17_to_v18_migrate_staking_ledger_step(_c: u32,) -> Weight {
+		Weight::zero()
+	}
 }
 
 // For backwards compatibility and tests.
@@ -1629,5 +1634,9 @@ impl WeightInfo for () {
 		Weight::from_parts(245_000_000, 39483)
 			.saturating_add(RocksDbWeight::get().reads(7_u64))
 			.saturating_add(RocksDbWeight::get().writes(7_u64))
+	}
+
+	fn migration_from_v17_to_v18_migrate_staking_ledger_step(_c: u32,) -> Weight {
+		Weight::zero()
 	}
 }

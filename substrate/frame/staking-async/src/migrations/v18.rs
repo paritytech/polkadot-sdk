@@ -1,0 +1,312 @@
+// This file is part of Substrate.
+
+// Copyright (C) Parity Technologies (UK) Ltd.
+// SPDX-License-Identifier: Apache-2.0
+
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// 	http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+//! Staking Async Pallet migration from v17 to v18.
+
+use crate::{
+	migrations::PALLET_MIGRATIONS_ID, pallet::pallet::ElectableStashes, weights::WeightInfo,
+	BalanceOf, Config, Ledger, Pallet, StakingLedger, UnlockChunk,
+};
+use codec::{Decode, Encode};
+use core::fmt::Debug;
+use frame_support::{
+	migrations::{MigrationId, SteppedMigration, SteppedMigrationError},
+	pallet_prelude::*,
+	weights::WeightMeter,
+};
+use std::collections::BTreeMap;
+
+pub(crate) mod v17 {
+	use crate::{BalanceOf, Config, Pallet};
+	use codec::{HasCompact, MaxEncodedLen};
+	use frame_support::{pallet_prelude::*, storage_alias};
+	use sp_staking::EraIndex;
+
+	#[derive(
+		PartialEq, Eq, Clone, Encode, Decode, DecodeWithMemTracking, Debug, TypeInfo, MaxEncodedLen,
+	)]
+	pub struct UnlockChunk<Balance: HasCompact + MaxEncodedLen> {
+		/// Amount of funds to be unlocked.
+		#[codec(compact)]
+		pub(crate) value: Balance,
+		/// Era number at which point it'll be unlocked.
+		#[codec(compact)]
+		pub(crate) era: EraIndex,
+	}
+
+	#[derive(
+		PartialEqNoBound,
+		EqNoBound,
+		CloneNoBound,
+		Encode,
+		Decode,
+		DebugNoBound,
+		TypeInfo,
+		MaxEncodedLen,
+	)]
+	#[scale_info(skip_type_params(T))]
+	pub struct StakingLedger<T: Config> {
+		pub stash: T::AccountId,
+		#[codec(compact)]
+		pub total: BalanceOf<T>,
+		#[codec(compact)]
+		pub active: BalanceOf<T>,
+		pub unlocking: BoundedVec<UnlockChunk<BalanceOf<T>>, T::MaxUnlockingChunks>,
+		#[codec(skip)]
+		pub(crate) controller: Option<T::AccountId>,
+	}
+
+	#[storage_alias]
+	pub type Ledger<T: Config> = StorageMap<
+		Pallet<T>,
+		Blake2_128Concat,
+		<T as frame_system::Config>::AccountId,
+		StakingLedger<T>,
+	>;
+
+	#[storage_alias]
+	pub type ElectableStashes<T: Config> = StorageValue<
+		Pallet<T>,
+		BoundedBTreeSet<<T as frame_system::Config>::AccountId, <T as Config>::MaxValidatorSet>,
+		ValueQuery,
+	>;
+}
+
+/// Operations to be performed during this migration.
+#[derive(
+	PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, scale_info::TypeInfo, MaxEncodedLen,
+)]
+pub enum MigrationSteps<T: Config> {
+	/// Migrate staking ledger storage. The cursor indicates the last processed account.
+	/// If None, start from the beginning.
+	MigrateStakingLedger { cursor: Option<T::AccountId> },
+	/// Migrate electable stashes storage.
+	MigrateElectableStashes,
+	/// Changes the storage version to 18.
+	ChangeStorageVersion,
+	/// No more operations to be performed.
+	Noop,
+}
+
+pub struct LazyMigrationV17ToV18<T: Config>(PhantomData<T>);
+
+impl<T: Config + Debug> LazyMigrationV17ToV18<T> {
+	fn do_migrate_staking_ledger(meter: &mut WeightMeter, cursor: &mut Option<T::AccountId>) {
+		// A single operation reads and removes one element from the old map and inserts it in the
+		// new one.
+		let max_chunks = <T as Config>::MaxUnlockingChunks::get();
+		let required =
+			<T as Config>::WeightInfo::migration_from_v17_to_v18_migrate_staking_ledger_step(
+				max_chunks,
+			);
+
+		let mut iter = if let Some(acc) = cursor.clone() {
+			v17::Ledger::<T>::iter_from(v17::Ledger::<T>::hashed_key_for(acc))
+		} else {
+			v17::Ledger::<T>::iter()
+		};
+
+		let max_bonding_duration = <T as Config>::BondingDuration::get();
+		while meter.try_consume(required).is_ok() {
+			if let Some((acc, old_ledger)) = iter.next() {
+				let new_unlocking = old_ledger
+					.unlocking
+					.iter()
+					.map(|c| UnlockChunk {
+						value: c.value,
+						era: c.era.saturating_sub(max_bonding_duration),
+						previous_unbonded_stake: u32::MAX.into(),
+					})
+					.collect::<Vec<_>>();
+				Ledger::<T>::insert(
+					acc.clone(),
+					StakingLedger {
+						stash: old_ledger.stash,
+						total: old_ledger.total,
+						active: old_ledger.active,
+						unlocking: new_unlocking
+							.try_into()
+							.expect("Array lengths should be the same; qed"),
+						controller: None,
+					},
+				);
+				*cursor = Some(acc)
+			} else {
+				*cursor = None;
+				break;
+			}
+		}
+	}
+
+	fn change_storage_version(meter: &mut WeightMeter) -> MigrationSteps<T> {
+		let required = T::DbWeight::get().reads_writes(0, 1);
+		if meter.try_consume(required).is_ok() {
+			StorageVersion::new(Self::id().version_to as u16).put::<Pallet<T>>();
+			MigrationSteps::Noop
+		} else {
+			MigrationSteps::ChangeStorageVersion
+		}
+	}
+
+	fn migrate_electable_stashes(meter: &mut WeightMeter) -> MigrationSteps<T> {
+		let required = T::DbWeight::get().reads_writes(1, 1);
+		if meter.try_consume(required).is_ok() {
+			let new_electable_stashes = v17::ElectableStashes::<T>::take()
+				.iter()
+				.map(|acc| (acc.clone(), BalanceOf::<T>::zero()))
+				.collect::<BTreeMap<<T as frame_system::Config>::AccountId, BalanceOf<T>>>();
+			ElectableStashes::<T>::set(
+				new_electable_stashes
+					.try_into()
+					.expect("The number of elements should be the same; qed"),
+			);
+			MigrationSteps::ChangeStorageVersion
+		} else {
+			MigrationSteps::MigrateElectableStashes
+		}
+	}
+
+	fn migrate_staking_ledger(
+		meter: &mut WeightMeter,
+		mut cursor: Option<T::AccountId>,
+	) -> MigrationSteps<T> {
+		Self::do_migrate_staking_ledger(meter, &mut cursor);
+		match cursor {
+			None => Self::migrate_electable_stashes(meter),
+			Some(checkpoint) => MigrationSteps::MigrateStakingLedger { cursor: Some(checkpoint) },
+		}
+	}
+}
+
+impl<T: Config + Debug> SteppedMigration for LazyMigrationV17ToV18<T> {
+	type Cursor = MigrationSteps<T>;
+	type Identifier = MigrationId<20>;
+
+	fn id() -> Self::Identifier {
+		MigrationId { pallet_id: *PALLET_MIGRATIONS_ID, version_from: 17, version_to: 18 }
+	}
+
+	fn step(
+		maybe_cursor: Option<Self::Cursor>,
+		meter: &mut WeightMeter,
+	) -> Result<Option<Self::Cursor>, SteppedMigrationError> {
+		if Pallet::<T>::on_chain_storage_version() != Self::id().version_from as u16 {
+			return Ok(None);
+		}
+
+		let cursor = maybe_cursor.unwrap_or(MigrationSteps::MigrateStakingLedger { cursor: None });
+		log::info!("Running migration at step: {:?}", cursor);
+
+		let new_cursor = match cursor {
+			MigrationSteps::MigrateStakingLedger { cursor: checkpoint } =>
+				Self::migrate_staking_ledger(meter, checkpoint),
+			MigrationSteps::MigrateElectableStashes => Self::migrate_electable_stashes(meter),
+			MigrationSteps::ChangeStorageVersion => Self::change_storage_version(meter),
+			MigrationSteps::Noop => MigrationSteps::Noop,
+		};
+
+		match new_cursor {
+			MigrationSteps::Noop => {
+				log::info!("Migration from v17 to v18 fully complete!");
+				Ok(None)
+			},
+			_ => {
+				log::info!("Migration from v17 to v18 not completed yet: {:?}", new_cursor);
+				Ok(Some(new_cursor))
+			},
+		}
+	}
+}
+
+#[cfg(all(test, not(feature = "runtime-benchmarks")))]
+mod tests {
+	use super::*;
+	use crate::mock::*;
+	use frame_support::{migrations::MultiStepMigrator, traits::OnRuntimeUpgrade};
+	use std::collections::BTreeSet;
+
+	#[test]
+	fn migration_of_many_elements_should_work() {
+		ExtBuilder::default().try_state(false).has_stakers(false).build_and_execute(|| {
+			let users = 1000;
+			assert_eq!(<T as Config>::BondingDuration::get(), 3);
+
+			StorageVersion::new(17).put::<Pallet<Test>>();
+			assert_eq!(Pallet::<Test>::on_chain_storage_version(), 17);
+			Session::roll_until_active_era(10);
+			let max_chunks = <Test as Config>::MaxUnlockingChunks::get();
+
+			for i in 1..=users {
+				let mut chunks = vec![];
+				for _ in 0..max_chunks {
+					chunks.push(v17::UnlockChunk { value: 1000, era: 10 });
+				}
+				v17::Ledger::<Test>::insert(
+					i,
+					v17::StakingLedger {
+						stash: i,
+						total: (max_chunks as u128) * 1000 + 300,
+						active: 300,
+						unlocking: chunks.try_into().unwrap(),
+						controller: None,
+					},
+				);
+			}
+
+			let total_electable_stashes = <Test as Config>::MaxValidatorSet::get();
+			let mut electable_stashes = BTreeSet::new();
+			for i in 1..=total_electable_stashes {
+				electable_stashes.insert(i as u64);
+			}
+			v17::ElectableStashes::<Test>::set(electable_stashes.clone().try_into().unwrap());
+
+			// Perform the migration.
+			let initial_block = System::block_number();
+			AllPalletsWithSystem::on_runtime_upgrade();
+			while <Migrator as MultiStepMigrator>::ongoing() {
+				let block = System::block_number();
+				assert!(
+					block - initial_block <= 200,
+					"Migration should not take more than 200 blocks"
+				);
+				Session::roll_next();
+			}
+			assert!(System::block_number() > initial_block + 1, "Migration did not last more than one block");
+
+			// Check the results after the migration.
+			assert_eq!(Pallet::<Test>::on_chain_storage_version(), StorageVersion::new(18));
+
+			let expected_stashes = electable_stashes
+				.into_iter()
+				.map(|acc| (acc.clone(), 0u128))
+				.collect::<BTreeMap<_, _>>();
+			assert_eq!(ElectableStashes::<Test>::get().into_inner(), expected_stashes);
+
+			Ledger::<Test>::iter().for_each(|(acc, ledger)| {
+				assert_eq!(ledger.stash, acc);
+				assert_eq!(ledger.controller, None);
+				assert_eq!(ledger.total, (max_chunks * 1000 + 300).into());
+				assert_eq!(ledger.active, 300);
+				for unlocking in ledger.unlocking.into_iter() {
+					assert_eq!(unlocking.value, 1000);
+					assert_eq!(unlocking.previous_unbonded_stake, u32::MAX.into());
+					assert_eq!(unlocking.era, 10 - 3);
+				}
+			})
+		});
+	}
+}
