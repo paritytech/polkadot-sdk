@@ -18,7 +18,8 @@
 use super::{Event as SignedEvent, *};
 use crate::{
 	mock::*,
-	verifier::{DataUnavailableInfo, FeasibilityError, VerificationResult},
+	verifier::{DataUnavailableInfo, FeasibilityError, VerificationResult, Verifier},
+	Phase,
 };
 use frame_support::storage::unhashed;
 use sp_core::bounded_vec;
@@ -792,5 +793,95 @@ mod defensive_tests {
 				VerificationResult::DataUnavailable(DataUnavailableInfo::Page(0)),
 			);
 		});
+	}
+
+	#[test]
+	fn partial_verification_interrupted_then_revert_to_signed_no_new_submission() {
+		// Test scenario where:
+		// 1. A complete solution is submitted and verification starts
+		// 2. SignedValidation phase ends before the solution is fully verified
+		// 3. System reverts back to signed phase (using BackToSigned mode)
+		// 4. No new submissions are made in the second signed phase
+		// 5. Verification completes asynchronously during the second phase
+
+		ExtBuilder::signed()
+			.pages(3) // Multi-page solution to allow for partial verification
+			.signed_validation_phase(2) // Short validation phase to force interruption
+			.are_we_done(crate::mock::AreWeDoneModes::BackToSigned) // Revert to signed if no solution
+			.build_and_execute(|| {
+				// Start first signed phase and submit a complete solution
+				roll_to_signed_open();
+
+				let submitter = 99;
+				let round = SignedPallet::current_round();
+				assert_eq!(balances(submitter), (100, 0));
+
+				// Mine and submit a complete valid solution
+				let paged = mine_full_solution().unwrap();
+				let score = paged.score;
+
+				// Register and submit all pages (complete solution)
+				assert_ok!(SignedPallet::register(RuntimeOrigin::signed(submitter), score));
+				for (page_index, solution_page) in paged.solution_pages.iter().enumerate() {
+					assert_ok!(SignedPallet::submit_page(
+						RuntimeOrigin::signed(submitter),
+						page_index as u32,
+						Some(Box::new(solution_page.clone()))
+					));
+				}
+
+				// Verify we have a complete solution
+				assert!(Submissions::<Runtime>::has_leader(round));
+				assert_eq!(
+					Submissions::<Runtime>::metadata_of(round, submitter)
+						.unwrap()
+						.pages
+						.into_inner(),
+					vec![true, true, true] // All pages submitted
+				);
+
+				// Move to SignedValidation phase where verification starts
+				roll_to_signed_validation_open();
+				assert!(matches!(MultiBlock::current_phase(), Phase::SignedValidation(_)));
+
+				// Verification should start but phase will end before completion
+				while matches!(MultiBlock::current_phase(), Phase::SignedValidation(_)) {
+					roll_next();
+				}
+
+				// After SignedValidation phase ends, should revert to signed phase
+				let phase_after_validation = MultiBlock::current_phase();
+				assert!(matches!(phase_after_validation, Phase::Signed(_)));
+
+				// Initially no solution queued (verification was interrupted)
+				assert!(VerifierPallet::queued_score().is_none());
+
+				// Verify we're still in the same round (no election occurred yet)
+				assert_eq!(MultiBlock::round(), 0);
+
+				// Roll through the entire second signed phase without any new submissions
+				roll_to_signed_validation_open();
+
+				// Should reach SignedValidation phase again
+				assert!(matches!(MultiBlock::current_phase(), Phase::SignedValidation(_)));
+
+				assert!(
+					VerifierPallet::queued_score().is_some(),
+					"Solution should be queued after async verification"
+				);
+
+				// No new leader should exist for this second cycle (no new submissions)
+				assert!(!Submissions::<Runtime>::has_leader(round));
+
+				roll_to_done();
+
+				assert!(
+					matches!(MultiBlock::current_phase(), Phase::Done),
+					"Should reach Done phase with queued solution"
+				);
+
+				// Solution should still be queued
+				assert!(VerifierPallet::queued_score().is_some());
+			});
 	}
 }
