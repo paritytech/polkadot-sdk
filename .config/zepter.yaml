@@ -19,6 +19,8 @@ workflows:
         '--left-side-outside-workspace=ignore',
         # Some features imply that they activate a specific dependency as non-optional. Otherwise the default behaviour with a `?` is used.
         '--feature-enables-dep=try-runtime:frame-try-runtime,runtime-benchmarks:frame-benchmarking',
+        # Do not propagate std feature from sp-wasm-interface down to wasmtime dependency.
+        '--ignore-missing-propagate=sp-wasm-interface/std:wasmtime/std',
         # Auxillary flags:
         '--offline',
         '--locked',
