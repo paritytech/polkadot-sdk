@@ -26,7 +26,7 @@ use crate::{
 	tracing::if_tracing,
 	transient_storage::TransientStorage,
 	BalanceOf, CodeInfo, CodeInfoOf, Config, ContractInfo, ContractInfoOf, ConversionPrecision,
-	Error, Event, ImmutableData, ImmutableDataOf, NonceAlreadyIncremented, Pallet as Contracts,
+	Error, Event, ImmutableData, ImmutableDataOf, Pallet as Contracts,
 };
 use alloc::vec::Vec;
 use core::{fmt::Debug, marker::PhantomData, mem};
@@ -619,7 +619,6 @@ enum FrameArgs<'a, T: Config, E> {
 		salt: Option<&'a [u8; 32]>,
 		/// The input data is used in the contract address derivation of the new contract.
 		input_data: &'a [u8],
-		nonce_already_incremented: NonceAlreadyIncremented,
 	},
 }
 
@@ -813,7 +812,6 @@ where
 		input_data: Vec<u8>,
 		salt: Option<&[u8; 32]>,
 		skip_transfer: bool,
-		nonce_already_incremented: NonceAlreadyIncremented,
 	) -> Result<(H160, ExecReturnValue), ExecError> {
 		let (mut stack, executable) = Self::new(
 			FrameArgs::Instantiate {
@@ -821,7 +819,6 @@ where
 				executable,
 				salt,
 				input_data: input_data.as_ref(),
-				nonce_already_incremented,
 			},
 			Origin::from_account_id(origin),
 			gas_meter,
@@ -882,6 +879,7 @@ where
 			storage_meter,
 			BalanceOf::<T>::max_value(),
 			false,
+			true,
 		)?
 		else {
 			return Ok(None);
@@ -915,6 +913,7 @@ where
 		storage_meter: &mut storage::meter::GenericMeter<T, S>,
 		deposit_limit: BalanceOf<T>,
 		read_only: bool,
+		origin_is_caller: bool,
 	) -> Result<Option<(Frame<T>, ExecutableOrPrecompile<T, E, Self>)>, ExecError> {
 		let (account_id, contract_info, executable, delegate, entry_point) = match frame_args {
 			FrameArgs::Call { dest, cached_info, delegated_call } => {
@@ -978,13 +977,7 @@ where
 
 				(dest, contract, executable, delegated_call, ExportedFunction::Call)
 			},
-			FrameArgs::Instantiate {
-				sender,
-				executable,
-				salt,
-				input_data,
-				nonce_already_incremented,
-			} => {
+			FrameArgs::Instantiate { sender, executable, salt, input_data } => {
 				let deployer = T::AddressMapper::to_address(&sender);
 				let account_nonce = <System<T>>::account_nonce(&sender);
 				let address = if let Some(salt) = salt {
@@ -995,7 +988,7 @@ where
 						&deployer,
 						// the Nonce from the origin has been incremented pre-dispatch, so we
 						// need to subtract 1 to get the nonce at the time of the call.
-						if matches!(nonce_already_incremented, NonceAlreadyIncremented::Yes) {
+						if origin_is_caller {
 							account_nonce.saturating_sub(1u32.into()).saturated_into()
 						} else {
 							account_nonce.saturated_into()
@@ -1071,6 +1064,7 @@ where
 			nested_storage,
 			deposit_limit,
 			read_only,
+			false,
 		)? {
 			self.frames.try_push(frame).map_err(|_| Error::<T>::MaxCallDepthReached)?;
 			Ok(Some(executable))
@@ -1680,7 +1674,6 @@ where
 				executable,
 				salt,
 				input_data: input_data.as_ref(),
-				nonce_already_incremented: NonceAlreadyIncremented::No,
 			},
 			value.try_into().map_err(|_| Error::<T>::BalanceConversionFailed)?,
 			gas_limit,

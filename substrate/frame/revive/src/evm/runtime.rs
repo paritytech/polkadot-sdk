@@ -470,7 +470,7 @@ mod test {
 		}
 
 		fn estimate_gas(&mut self) {
-			let dry_run = crate::Pallet::<Test>::bare_eth_transact(
+			let dry_run = crate::Pallet::<Test>::dry_run_eth_transact(
 				self.tx.clone(),
 				Weight::MAX,
 				|call, mut info| {

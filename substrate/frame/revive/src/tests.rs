@@ -4015,7 +4015,7 @@ fn skip_transfer_works() {
 
 		// when gas is some (transfers enabled): bob has no money: fail
 		assert_err!(
-			Pallet::<Test>::bare_eth_transact(
+			Pallet::<Test>::dry_run_eth_transact(
 				GenericTransaction {
 					from: Some(BOB_ADDR),
 					input: code.clone().into(),
@@ -4031,7 +4031,7 @@ fn skip_transfer_works() {
 		);
 
 		// no gas specified (all transfers are skipped): even without money bob can deploy
-		assert_ok!(Pallet::<Test>::bare_eth_transact(
+		assert_ok!(Pallet::<Test>::dry_run_eth_transact(
 			GenericTransaction {
 				from: Some(BOB_ADDR),
 				input: code.clone().into(),
@@ -4049,7 +4049,7 @@ fn skip_transfer_works() {
 
 		// call directly: fails with enabled transfers
 		assert_err!(
-			Pallet::<Test>::bare_eth_transact(
+			Pallet::<Test>::dry_run_eth_transact(
 				GenericTransaction {
 					from: Some(BOB_ADDR),
 					to: Some(addr),
@@ -4069,7 +4069,7 @@ fn skip_transfer_works() {
 		// we didn't roll back the storage changes done by the previous
 		// call. So the item already exists. We simply increase the size of
 		// the storage item to incur some deposits (which bob can't pay).
-		assert!(Pallet::<Test>::bare_eth_transact(
+		assert!(Pallet::<Test>::dry_run_eth_transact(
 			GenericTransaction {
 				from: Some(BOB_ADDR),
 				to: Some(caller_addr),
@@ -4083,7 +4083,7 @@ fn skip_transfer_works() {
 		.is_err(),);
 
 		// works when no gas is specified (skip transfer)
-		assert_ok!(Pallet::<Test>::bare_eth_transact(
+		assert_ok!(Pallet::<Test>::dry_run_eth_transact(
 			GenericTransaction {
 				from: Some(BOB_ADDR),
 				to: Some(addr),
@@ -4095,7 +4095,7 @@ fn skip_transfer_works() {
 		));
 
 		// call through contract works when transfers are skipped
-		assert_ok!(Pallet::<Test>::bare_eth_transact(
+		assert_ok!(Pallet::<Test>::dry_run_eth_transact(
 			GenericTransaction {
 				from: Some(BOB_ADDR),
 				to: Some(caller_addr),
@@ -4108,7 +4108,7 @@ fn skip_transfer_works() {
 
 		// works with transfers enabled if we don't incur a storage cost
 		// we shrink the item so its actually a refund
-		assert_ok!(Pallet::<Test>::bare_eth_transact(
+		assert_ok!(Pallet::<Test>::dry_run_eth_transact(
 			GenericTransaction {
 				from: Some(BOB_ADDR),
 				to: Some(caller_addr),
@@ -4121,7 +4121,7 @@ fn skip_transfer_works() {
 		));
 
 		// fails when trying to increase the storage item size
-		assert!(Pallet::<Test>::bare_eth_transact(
+		assert!(Pallet::<Test>::dry_run_eth_transact(
 			GenericTransaction {
 				from: Some(BOB_ADDR),
 				to: Some(caller_addr),
@@ -4597,47 +4597,4 @@ fn precompiles_with_info_creates_contract() {
 			);
 		});
 	}
-}
-
-#[test]
-fn nonce_incremented_dry_run_vs_execute() {
-	let (wasm, _code_hash) = compile_module("dummy").unwrap();
-
-	ExtBuilder::default().build().execute_with(|| {
-		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
-
-		// Set a known nonce
-		let initial_nonce = 5;
-		frame_system::Account::<Test>::mutate(&ALICE, |account| {
-			account.nonce = initial_nonce;
-		});
-
-		// stimulate a dry run
-		let dry_run_result = builder::bare_instantiate(Code::Upload(wasm.clone()))
-			.nonce_already_incremented(crate::NonceAlreadyIncremented::No)
-			.salt(None)
-			.build();
-
-		let dry_run_addr = dry_run_result.result.unwrap().addr;
-
-		let deployer = <Test as Config>::AddressMapper::to_address(&ALICE);
-		let expected_addr = create1(&deployer, initial_nonce.into());
-
-		assert_eq!(dry_run_addr, expected_addr);
-
-		// reset nonce to initial value
-		frame_system::Account::<Test>::mutate(&ALICE, |account| {
-			account.nonce = initial_nonce;
-		});
-
-		// stimulate an actual execution
-		let exec_result = builder::bare_instantiate(Code::Upload(wasm.clone())).salt(None).build();
-
-		let exec_addr = exec_result.result.unwrap().addr;
-
-		let deployer = <Test as Config>::AddressMapper::to_address(&ALICE);
-		let expected_addr = create1(&deployer, (initial_nonce - 1).into());
-
-		assert_eq!(exec_addr, expected_addr);
-	});
 }
