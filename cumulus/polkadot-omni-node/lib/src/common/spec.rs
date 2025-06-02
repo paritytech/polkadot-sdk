@@ -36,7 +36,7 @@ use parachains_common::Hash;
 use polkadot_cli::service::IdentifyNetworkBackend;
 use polkadot_primitives::CollatorPair;
 use prometheus_endpoint::Registry;
-use sc_client_api::Backend;
+use sc_client_api::{Backend, HeaderBackend};
 use sc_consensus::DefaultImportQueue;
 use sc_executor::{HeapAllocStrategy, DEFAULT_HEAP_ALLOC_STRATEGY};
 use sc_network::{config::FullNetworkConfiguration, NetworkBackend, NetworkBlock};
@@ -379,7 +379,58 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 			};
 
 			if parachain_config.offchain_worker.enabled {
-				let statement_store = statement_store.clone();
+				let custom_extensions = {
+					let statement_store = statement_store.clone();
+					let client = client.clone();
+					move |hash| {
+						if let Some(statement_store) = &statement_store {
+							vec![Box::new(statement_store.clone().as_statement_store_ext())
+								as Box<_>]
+						} else {
+							// Every N blocks, check if the runtime supports the
+							// `ValidateStatement` API and warn node operators if statement store is
+							// not enabled.
+							match client.number(hash) {
+								Ok(Some(bn)) =>
+									if bn % 600u32.into() == 0u32.into() {
+										match client
+											.runtime_api()
+											.has_api::<dyn ValidateStatement<Self::Block>>(hash)
+										{
+											Ok(true) => log::warn!(
+												"The runtime at the block hash used by the offchain \
+												worker provides `ValidateStatement` API, but the \
+												statement store is not enabled in the node. To \
+												enable the statement store, restart the node, the \
+												statement store will be automatically enabled when \
+												the tip of the chain provides the \
+												`ValidateStatement` runtime API."
+											),
+											Ok(false) => (),
+											Err(e) => log::warn!(
+												"Failed to check if the runtime supports when \
+												`ValidateStatement` API, when fetching the custom \
+												extensions for the offchain worker, error: {}",
+												e
+											),
+										}
+									},
+								Ok(None) => log::warn!(
+									"Failed to get the block number for the block hash used by the \
+									offchain worker, header is not in the chain."
+								),
+								Err(e) => log::warn!(
+									"Failed to get the block number for the block hash used by the \
+									offchain worker, error: {}",
+									e
+								),
+							}
+
+							vec![]
+						}
+					}
+				};
+
 				let offchain_workers =
 					sc_offchain::OffchainWorkers::new(sc_offchain::OffchainWorkerOptions {
 						runtime_api_provider: client.clone(),
@@ -391,18 +442,7 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 						network_provider: Arc::new(network.clone()),
 						is_validator: parachain_config.role.is_authority(),
 						enable_http_requests: true,
-						custom_extensions: move |_| {
-							if let Some(statement_store) = &statement_store {
-								vec![Box::new(statement_store.clone().as_statement_store_ext())
-									as Box<_>]
-							} else {
-								// TODO TODO: maybe log a warning if the hash given here is for a
-								// runtime that contains ValidateStatement runtime API.
-								// The log would warn that node operator should restart the node
-								// to enable the statement store.
-								vec![]
-							}
-						},
+						custom_extensions,
 					})?;
 				task_manager.spawn_handle().spawn(
 					"offchain-workers-runner",
