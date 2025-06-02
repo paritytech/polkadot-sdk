@@ -15,7 +15,8 @@
 
 use crate::{Config, VersionedLocation, VersionedXcm, Weight, WeightInfo};
 use alloc::vec::Vec;
-use codec::{DecodeAll, Encode};
+use codec::{DecodeAll, DecodeLimit, Encode};
+use xcm::MAX_XCM_DECODE_DEPTH;
 use core::{marker::PhantomData, num::NonZero};
 use pallet_revive::{
 	precompiles::{
@@ -64,7 +65,7 @@ where
 					})?;
 
 				let final_message =
-					VersionedXcm::<()>::decode_all(&mut &message[..]).map_err(|error| {
+					VersionedXcm::<()>::decode_all_with_depth_limit(MAX_XCM_DECODE_DEPTH, &mut &message[..]).map_err(|error| {
 						error!(target: "xcm::precompiles", ?error, "XCM send failed: Invalid message format");
 						Error::Revert("XCM send failed: Invalid message format".into())
 					})?;
@@ -92,7 +93,7 @@ where
 				let _ = env.charge(weight)?;
 
 				let final_message =
-					VersionedXcm::decode_all(&mut &message[..]).map_err(|error| {
+					VersionedXcm::decode_all_with_depth_limit(MAX_XCM_DECODE_DEPTH, &mut &message[..]).map_err(|error| {
 						error!(target: "xcm::precompiles", ?error, "XCM execute failed: Invalid message format");
 						Error::Revert("Invalid message format".into())
 					})?;
@@ -113,7 +114,7 @@ where
 			},
 			IXcmCalls::weighMessage(IXcm::weighMessageCall { message }) => {
 				let converted_message =
-					VersionedXcm::decode_all(&mut &message[..]).map_err(|error| {
+					VersionedXcm::decode_all_with_depth_limit(MAX_XCM_DECODE_DEPTH, &mut &message[..]).map_err(|error| {
 						error!(target: "xcm::precompiles", ?error, "XCM weightMessage: Invalid message format");
 						Error::Revert("XCM weightMessage: Invalid message format".into())
 					})?;
