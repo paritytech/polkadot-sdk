@@ -1,0 +1,14 @@
+title: 'Changed Validators storage from ValueQuery to OptionQuery to improve code clarity'
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      This PR introduces one improvement to the staking-async pallet as per issue #8433 :
+
+      - Storage Type Change:
+        - Changed Validators storage from ValueQuery to OptionQuery to improve code clarity
+        - This makes the code less confusing by properly representing optional values
+
+crates:
+  - name: pallet-staking-async
+    bump: major
