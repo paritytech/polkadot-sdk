@@ -1,0 +1,44 @@
+title: Implement detailed logging for XCM failures
+doc:
+- audience: Runtime Dev
+  description: |-
+    This PR enhances diagnostics across XCM-related components by implementing more detailed logging, especially for failures. The primary aim is to improve visibility into XCM errors (e.g., within `map_err` blocks), enabling faster troubleshooting for developers and node operators.
+
+    Key enhancements include:
+    * Logging specific error conditions (e.g., `BadVersion`, `BadLocation`, execution errors).
+    * Including essential context in error logs (e.g., message hashes, origin, destination, relevant parameters).
+    * Standardising log targets for easier analysis (e.g., `xcm::module::function_name`).
+    * Clarifying log messages.
+
+    This work continues #7003 and partially addresses #6119.
+
+    ## Integration
+
+    Downstream projects using XCM functionalities should see improved diagnostic logs without needing direct integration changes, as this primarily enhances internal logging. Node operators will find new, more detailed XCM error logs, aiding in monitoring and troubleshooting. Log parsing scripts might need updates for new log formats.
+
+    ## Review Notes
+
+    This PR enhances logging throughout XCM-related code paths, particularly in error handling (e.g., `map_err` blocks), to improve failure visibility.
+
+    Reviewers are encouraged to assess:
+    * **Clarity & Actionability:** Are logs clear, concise, and actionable for failures?
+    * **Context:** Do error logs capture essential context (message hash, origin, destination, error specifics, parameters) appropriately for their level?
+    * **Log Levels:** Is the chosen log level (e.g., `error`, `warn`, `debug`, `trace`) suitable? Are any level adjustments appropriate?
+    * **Targets:** Are `target:` fields (e.g., `xcm::module::function`) consistent and specific?
+    * **Error Accuracy:** Do logs accurately reflect the handled error condition?
+    * **Impact:** Logging should minimally affect core logic and performance; favour simple logging of existing/easily derived data.
+crates:
+- name: cumulus-pallet-xcmp-queue
+  bump: patch
+- name: parachains-common
+  bump: patch
+- name: polkadot-runtime-common
+  bump: patch
+- name: polkadot-runtime-parachains
+  bump: patch
+- name: staging-xcm-executor
+  bump: patch
+- name: staging-xcm-builder
+  bump: patch
+- name: pallet-xcm
+  bump: patch
