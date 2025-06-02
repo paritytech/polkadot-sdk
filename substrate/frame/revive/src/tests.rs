@@ -1910,6 +1910,7 @@ fn gas_estimation_for_subcalls() {
 			// Call in order to determine the gas that is required for this call
 			let result_orig = builder::bare_call(addr_caller).data(input.clone()).build();
 			assert_ok!(&result_orig.result);
+			assert_eq!(result_orig.gas_required, result_orig.gas_consumed);
 
 			// Make the same call using the estimated gas. Should succeed.
 			let result = builder::bare_call(addr_caller)
