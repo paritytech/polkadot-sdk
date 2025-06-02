@@ -356,6 +356,9 @@ parameter_types! {
 	pub storage BlocksPerPoV: u32 = 1;
 }
 
+/// Super ultra hacky core selector.
+///
+/// TODO: Replace with something useful.
 pub struct MultipleBlocksPerPoVCoreSelector;
 
 impl SelectCore for MultipleBlocksPerPoVCoreSelector {
@@ -366,8 +369,11 @@ impl SelectCore for MultipleBlocksPerPoVCoreSelector {
 			return (CoreSelector(0), ClaimQueueOffset(0))
 		}
 
-		let core_selector =
-			(System::block_number().saturating_sub(1) / blocks_per_pov).using_encoded(|b| b[0]);
+		let correct_block_number = if blocks_per_pov == 1 { 0 } else { 1 };
+
+		let core_selector = (System::block_number().saturating_sub(correct_block_number) /
+			blocks_per_pov)
+			.using_encoded(|b| b[0]);
 
 		(CoreSelector(core_selector), ClaimQueueOffset(0))
 	}
@@ -379,7 +385,7 @@ impl SelectCore for MultipleBlocksPerPoVCoreSelector {
 			return (CoreSelector(0), ClaimQueueOffset(0))
 		}
 
-		let core_selector = ((System::block_number()) / blocks_per_pov).using_encoded(|b| b[0]);
+		let core_selector = (System::block_number() / blocks_per_pov).using_encoded(|b| b[0]);
 
 		(CoreSelector(core_selector), ClaimQueueOffset(0))
 	}
