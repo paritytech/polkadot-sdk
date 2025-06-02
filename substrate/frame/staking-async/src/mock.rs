@@ -34,7 +34,7 @@ use frame_support::{
 };
 use frame_system::{pallet_prelude::BlockNumberFor, EnsureRoot, EnsureSignedBy};
 use pallet_staking_async_rc_client as rc_client;
-use sp_core::ConstBool;
+use sp_core::{ConstBool, ConstU64};
 use sp_io;
 use sp_npos_elections::BalancingConfig;
 use sp_runtime::{traits::Zero, BuildStorage};
@@ -61,6 +61,22 @@ pub(crate) type AccountId = <Runtime as frame_system::Config>::AccountId;
 pub(crate) type BlockNumber = BlockNumberFor<Runtime>;
 pub(crate) type Balance = <Runtime as pallet_balances::Config>::Balance;
 
+#[derive(Clone, Copy)]
+pub enum PlanningEraMode {
+	Fixed(SessionIndex),
+	Smart,
+}
+
+pub struct PlanningEraOffset;
+impl Get<SessionIndex> for PlanningEraOffset {
+	fn get() -> SessionIndex {
+		match PlanningEraModeVal::get() {
+			PlanningEraMode::Fixed(value) => value,
+			PlanningEraMode::Smart => crate::PlanningEraOffsetOf::<T, Period, ConstU64<0>>::get(),
+		}
+	}
+}
+
 parameter_types! {
 	pub static ExistentialDeposit: Balance = 1;
 	pub static SlashDeferDuration: EraIndex = 0;
@@ -73,7 +89,7 @@ parameter_types! {
 	pub static MaxValidatorSet: u32 = 100;
 	pub static ElectionsBounds: ElectionBounds = ElectionBoundsBuilder::default().build();
 	pub static AbsoluteMaxNominations: u32 = 16;
-	pub static PlanningEraOffset: u32 = 1;
+	pub static PlanningEraModeVal: PlanningEraMode = PlanningEraMode::Fixed(2);
 	// Session configs
 	pub static SessionsPerEra: SessionIndex = 3;
 	pub static Period: BlockNumber = 5;
@@ -129,7 +145,8 @@ parameter_types! {
 	pub static Pages: PageIndex = 1;
 	pub static MaxBackersPerWinner: u32 = 256;
 	pub static MaxWinnersPerPage: u32 = MaxValidatorSet::get();
-	pub static StartReceived: bool = false;
+	pub static StartReceived: Option<BlockNumber> = None;
+	pub static ElectionDelay: BlockNumber = 0;
 }
 
 pub type InnerElection = onchain::OnChainExecution<OnChainSeqPhragmen>;
@@ -164,22 +181,23 @@ impl ElectionProvider for TestElectionProvider {
 
 	fn elect(page: PageIndex) -> Result<BoundedSupportsOf<Self>, Self::Error> {
 		if page == 0 {
-			StartReceived::set(false);
+			StartReceived::set(None);
 		}
 		InnerElection::elect(page)
 	}
 	fn start() -> Result<(), Self::Error> {
-		StartReceived::set(true);
+		StartReceived::set(Some(System::block_number()));
 		Ok(())
 	}
 	fn duration() -> Self::BlockNumber {
-		InnerElection::duration()
+		InnerElection::duration() + ElectionDelay::get()
 	}
 	fn status() -> Result<bool, ()> {
-		if StartReceived::get() {
-			Ok(true)
-		} else {
-			Err(())
+		let now = System::block_number();
+		match StartReceived::get() {
+			Some(at) if now - at >= ElectionDelay::get() => Ok(true),
+			Some(_) => Ok(false),
+			None => Err(()),
 		}
 	}
 }
@@ -336,7 +354,7 @@ pub mod session_mock {
 			id: u32,
 			prune_up_to: Option<u32>,
 		) {
-			log::debug!(target: "runtime::session_mock", "Received validator set: {:?}", new_validator_set);
+			log::debug!(target: "runtime::staking-async::session_mock", "Received validator set: {:?}", new_validator_set);
 			let now = System::block_number();
 			// store the report for further inspection.
 			ReceivedValidatorSets::mutate(|reports| {
@@ -485,7 +503,15 @@ impl ExtBuilder {
 		self
 	}
 	pub(crate) fn planning_era_offset(self, offset: SessionIndex) -> Self {
-		PlanningEraOffset::set(offset);
+		PlanningEraModeVal::set(PlanningEraMode::Fixed(offset));
+		self
+	}
+	pub fn smart_era_planner(self) -> Self {
+		PlanningEraModeVal::set(PlanningEraMode::Smart);
+		self
+	}
+	pub fn election_delay(self, delay: BlockNumber) -> Self {
+		ElectionDelay::set(delay);
 		self
 	}
 	pub(crate) fn nominate(mut self, nominate: bool) -> Self {
