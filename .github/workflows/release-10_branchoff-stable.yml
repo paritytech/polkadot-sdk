@@ -88,7 +88,7 @@ jobs:
           with: #todo: change when tested!
               app-id: ${{ secrets.RELEASE_BACKPORT_AUTOMATION_APP_ID }}
               private-key: ${{ secrets.RELEASE_BACKPORT_AUTOMATION_APP_PRIVATE_KEY }}
-              owner: paritytech
+              owner: EgorPopelyaev
 
         - name: Checkout sources
           uses: actions/checkout@6d193bf28034eafb982f37bd894289fe649468fc # v4.1.7
@@ -167,7 +167,7 @@ jobs:
         with: #todo: change when tested!
             app-id: ${{ secrets.RELEASE_BACKPORT_AUTOMATION_APP_ID }}
             private-key: ${{ secrets.RELEASE_BACKPORT_AUTOMATION_APP_PRIVATE_KEY }}
-            owner: paritytech
+            owner: EgorPopelyaev
 
       - name: Checkout sources
         uses: actions/checkout@6d193bf28034eafb982f37bd894289fe649468fc # v4.1.7
