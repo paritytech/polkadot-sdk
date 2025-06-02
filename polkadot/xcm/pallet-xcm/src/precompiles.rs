@@ -124,7 +124,7 @@ where
 					Error::Revert("XCM weightMessage: Conversion to Xcm failed".into())
 				})?;
 
-				let weight = <<Runtime>::Weigher>::weight(&mut final_message).map_err(|error| {
+				let weight = <<Runtime>::Weigher>::weight(&mut final_message, Weight::MAX).map_err(|error| {
 					error!(target: "xcm::precompiles", ?error, "XCM weightMessage: Failed to calculate weight");
 					Error::Revert("XCM weightMessage: Failed to calculate weight".into())
 				})?;
