@@ -59,13 +59,13 @@ where
 
 				let final_destination = VersionedLocation::decode_all(&mut &destination[..])
 					.map_err(|error| {
-						error!(target: "Xcm", "XCM send failed: Invalid destination format {error:?}");
+						error!(target: "xcm::precompiles", ?error, "XCM send failed: Invalid destination format");
 						Error::Revert("XCM send failed: Invalid destination format".into())
 					})?;
 
 				let final_message =
 					VersionedXcm::<()>::decode_all(&mut &message[..]).map_err(|error| {
-						error!(target: "Xcm", "XCM send failed: Invalid message format {error:?}");
+						error!(target: "xcm::precompiles", ?error, "XCM send failed: Invalid message format");
 						Error::Revert("XCM send failed: Invalid message format".into())
 					})?;
 
@@ -77,8 +77,9 @@ where
 				.map(|message_id| message_id.encode())
 				.map_err(|error| {
 					error!(
-						target: "Xcm",
-						"XCM send failed: destination or message format may be incompatible {error:?}"
+						target: "xcm::precompiles",
+						?error,
+						"XCM send failed: destination or message format may be incompatible"
 
 					);
 					Error::Revert(
@@ -92,7 +93,7 @@ where
 
 				let final_message =
 					VersionedXcm::decode_all(&mut &message[..]).map_err(|error| {
-						error!(target: "xcm", "XCM execute failed: Invalid message format {error:?}");
+						error!(target: "xcm::precompiles", ?error, "XCM execute failed: Invalid message format");
 						Error::Revert("Invalid message format".into())
 					})?;
 
@@ -100,8 +101,9 @@ where
 					.map(|results| results.encode())
 					.map_err(|error| {
 						error!(
-							target: "Xcm",
-							"XCM execute failed: message may be invalid or execution constraints not satisfied {error:?}"
+							target: "xcm::precompiles",
+							?error,
+							"XCM execute failed: message may be invalid or execution constraints not satisfied"
 						);
 						Error::Revert(
 							"XCM execute failed: message may be invalid or execution constraints not satisfied"
@@ -112,17 +114,17 @@ where
 			IXcmCalls::weighMessage(IXcm::weighMessageCall { message }) => {
 				let converted_message =
 					VersionedXcm::decode_all(&mut &message[..]).map_err(|error| {
-						error!(target: "Xcm", "XCM weightMessage: Invalid message format {error:?}");
+						error!(target: "xcm::precompiles", ?error, "XCM weightMessage: Invalid message format");
 						Error::Revert("XCM weightMessage: Invalid message format".into())
 					})?;
 
 				let mut final_message = converted_message.try_into().map_err(|error| {
-					error!(target: "Xcm", "XCM weightMessage: Conversion to Xcm failed {error:?}");
+					error!(target: "xcm::precompiles", ?error, "XCM weightMessage: Conversion to Xcm failed");
 					Error::Revert("XCM weightMessage: Conversion to Xcm failed".into())
 				})?;
 
 				let weight = <<Runtime>::Weigher>::weight(&mut final_message).map_err(|error| {
-					error!(target: "Xcm", "XCM weightMessage: Failed to calculate weight {error:?}");
+					error!(target: "xcm::precompiles", ?error, "XCM weightMessage: Failed to calculate weight");
 					Error::Revert("XCM weightMessage: Failed to calculate weight".into())
 				})?;
 
