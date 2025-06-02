@@ -20,7 +20,7 @@ use core::{marker::PhantomData, num::NonZero};
 use pallet_revive::{
 	precompiles::{
 		alloy::{self, sol_types::SolValue},
-		AddressMatcher, Error, Ext, Precompile, RuntimeCosts,
+		AddressMatcher, Error, Ext, Precompile,
 	},
 	Origin,
 };
@@ -55,8 +55,8 @@ where
 
 		match input {
 			IXcmCalls::xcmSend(IXcm::xcmSendCall { destination, message }) => {
-				let weight = <Runtime as Config>::WeightInfo::send();
-				let _ = env.gas_meter_mut().charge(RuntimeCosts::Precompile(weight))?;
+				let _ = env.charge(<Runtime as Config>::WeightInfo::send())?;
+
 				let final_destination = VersionedLocation::decode_all(&mut &destination[..])
 					.map_err(|error| {
 						error!(target: "Xcm", "XCM send failed: Invalid destination format {error:?}");
@@ -88,7 +88,7 @@ where
 			},
 			IXcmCalls::xcmExecute(IXcm::xcmExecuteCall { message, weight }) => {
 				let weight = Weight::from_parts(weight.refTime, weight.proofSize);
-				let _ = env.gas_meter_mut().charge(RuntimeCosts::Precompile(weight))?;
+				let _ = env.charge(weight)?;
 
 				let final_message =
 					VersionedXcm::decode_all(&mut &message[..]).map_err(|error| {
