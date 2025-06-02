@@ -18,18 +18,19 @@
 use codec::Codec;
 use futures::{stream::FusedStream, StreamExt};
 use sc_consensus::{BlockImport, StateAction};
-use sc_consensus_aura::CompatibilityMode;
+use sc_consensus_aura::{find_pre_digest, CompatibilityMode};
 use sc_consensus_slots::InherentDataProviderExt;
 use sc_utils::mpsc::{tracing_unbounded, TracingUnboundedReceiver, TracingUnboundedSender};
 use sp_api::{ApiExt, CallApiAt, CallContext, Core, ProvideRuntimeApi, StorageProof};
-use sp_block_builder::BlockBuilder as BlockBuilderApi;
-use sp_consensus_aura::AuraApi;
+use sp_block_builder::{BlockBuilder as BlockBuilderApi, BlockBuilder};
+use sp_consensus_aura::{inherents::AuraInherentData, AuraApi};
 use sp_core::Pair;
+use sp_inherents::InherentDataProvider;
 use sp_runtime::traits::{Block as BlockT, Header as _, NumberFor};
 use sp_trie::proof_size_extension::ProofSizeExt;
 use std::sync::Arc;
 
-use crate::collators::validate_block_import;
+use crate::LOG_TARGET;
 
 /// Handle for receiving the block and the storage proof from the [`SlotBasedBlockImport`].
 ///
@@ -147,14 +148,84 @@ where
 		&self,
 		mut params: sc_consensus::BlockImportParams<Block>,
 	) -> Result<sc_consensus::ImportResult, Self::Error> {
-		validate_block_import::<_, _, P, _>(
-			&mut params,
+		let slot = find_pre_digest::<Block, P::Signature>(&params.header)
+			.map_err(|e| sp_consensus::Error::Other(Box::new(e)))?;
+		let parent_hash = *params.header.parent_hash();
+		let create_inherent_data_providers = self
+			.create_inherent_data_providers
+			.create_inherent_data_providers(parent_hash, ())
+			.await
+			.map_err(sp_consensus::Error::Other)?;
+
+		// Check inherents.
+		// if the body is passed through, we need to use the runtime
+		// to check that the internally-set timestamp in the inherents
+		// actually matches the slot set in the seal.
+		if let Some(inner_body) = params.body.take() {
+			let new_block = Block::new(params.header.clone(), inner_body);
+			if self
+				.client
+				.runtime_api()
+				.has_api_with::<dyn BlockBuilder<Block>, _>(parent_hash, |v| v >= 2)
+				.map_err(|e| sp_consensus::Error::Other(Box::new(e)))?
+			{
+				let mut inherent_data = create_inherent_data_providers
+					.create_inherent_data()
+					.await
+					.map_err(|e| sp_consensus::Error::Other(Box::new(e)))?;
+				inherent_data.aura_replace_inherent_data(slot);
+				let inherent_res = self
+					.client
+					.runtime_api()
+					.check_inherents(parent_hash, new_block.clone(), inherent_data)
+					.map_err(|e| sp_consensus::Error::Other(Box::new(e)))?;
+
+				if !inherent_res.ok() {
+					for (i, e) in inherent_res.into_errors() {
+						match create_inherent_data_providers.try_handle_error(&i, &e).await {
+							Some(res) =>
+								res.map_err(|e| sp_consensus::Error::InvalidInherents(e))?,
+							None => return Err(sp_consensus::Error::InvalidInherentsUnhandled(i)),
+						}
+					}
+				}
+			}
+			let (_, inner_body) = new_block.deconstruct();
+			params.body = Some(inner_body);
+		}
+
+		// Check for equivocation.
+		let authorities = sc_consensus_aura::authorities::<<P as Pair>::Public, _, _>(
 			self.client.as_ref(),
-			&self.create_inherent_data_providers,
-			self.check_for_equivocation,
+			parent_hash,
+			*params.header.number(),
 			&self.compatibility_mode,
 		)
-		.await?;
+		.map_err(|e| sp_consensus::Error::Other(Box::new(e)))?;
+		let slot_now = create_inherent_data_providers.slot();
+		let expected_author = sc_consensus_aura::standalone::slot_author::<P>(slot, &authorities);
+		if let (true, Some(expected)) = (self.check_for_equivocation, expected_author) {
+			if let Some(equivocation_proof) = sc_consensus_slots::check_equivocation(
+				self.client.as_ref(),
+				// we add one to allow for some small drift.
+				// FIXME #1019 in the future, alter this queue to allow deferring of
+				// headers
+				slot_now + 1,
+				slot,
+				&params.header,
+				expected,
+			)
+			.map_err(|e| sp_consensus::Error::Other(Box::new(e)))?
+			{
+				tracing::info!(
+					target: LOG_TARGET,
+					"Slot author is equivocating at slot {} with headers {:?} and {:?}",
+					slot,
+					equivocation_proof.first_header.hash(),
+					equivocation_proof.second_header.hash(),
+				);
+			}
+		}
 
 		// If the channel exists and it is required to execute the block, we will execute the block
 		// here. This is done to collect the storage proof and to prevent re-execution, we push

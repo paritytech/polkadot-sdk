@@ -23,7 +23,6 @@
 //!
 //! For more information about AuRa, the Substrate crate should be checked.
 
-use super::ValidatingBlockImport;
 use codec::{Codec, Decode};
 use cumulus_client_collator::{
 	relay_chain_driven::CollationRequest, service::ServiceInterface as CollatorServiceInterface,
@@ -131,13 +130,7 @@ where
 		let mut collator = {
 			let params = collator_util::Params {
 				create_inherent_data_providers: params.create_inherent_data_providers.clone(),
-				block_import: ValidatingBlockImport::<_, _, _, _, P>::new(
-					params.block_import,
-					params.para_client.clone(),
-					params.create_inherent_data_providers.clone(),
-					true,
-					Default::default(),
-				),
+				block_import: params.block_import,
 				relay_client: params.relay_client.clone(),
 				keystore: params.keystore.clone(),
 				para_id: params.para_id,

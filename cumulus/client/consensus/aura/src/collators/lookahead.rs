@@ -32,7 +32,6 @@
 //! The main limitation is block propagation time - i.e. the new blocks created by an author
 //! must be propagated to the next author before their turn.
 
-use super::ValidatingBlockImport;
 use codec::{Codec, Encode};
 use cumulus_client_collator::service::ServiceInterface as CollatorServiceInterface;
 use cumulus_client_consensus_common::{self as consensus_common, ParachainBlockImportMarker};
@@ -215,13 +214,7 @@ where
 		let mut collator = {
 			let params = collator_util::Params {
 				create_inherent_data_providers: params.create_inherent_data_providers.clone(),
-				block_import: ValidatingBlockImport::<_, _, _, _, P>::new(
-					params.block_import,
-					params.para_client.clone(),
-					params.create_inherent_data_providers.clone(),
-					true,
-					Default::default(),
-				),
+				block_import: params.block_import,
 				relay_client: params.relay_client.clone(),
 				keystore: params.keystore.clone(),
 				para_id: params.para_id,

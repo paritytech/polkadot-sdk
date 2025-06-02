@@ -21,14 +21,9 @@
 //! included parachain block, as well as the [`lookahead`] collator, which prospectively
 //! builds on parachain blocks which have not yet been included in the relay chain.
 
-use std::sync::Arc;
-
-use crate::{collator::SlotClaim, LOG_TARGET};
-use async_trait::async_trait;
+use crate::collator::SlotClaim;
 use codec::Codec;
-use cumulus_client_consensus_common::{
-	self as consensus_common, ParachainBlockImportMarker, ParentSearchParams,
-};
+use cumulus_client_consensus_common::{self as consensus_common, ParentSearchParams};
 use cumulus_primitives_aura::{AuraUnincludedSegmentApi, Slot};
 use cumulus_primitives_core::{relay_chain::Header as RelayHeader, BlockT, ClaimQueueOffset};
 use cumulus_relay_chain_interface::RelayChainInterface;
@@ -38,16 +33,10 @@ use polkadot_primitives::{
 	CoreIndex, Hash as RelayHash, Id as ParaId, OccupiedCoreAssumption, ValidationCodeHash,
 	DEFAULT_SCHEDULING_LOOKAHEAD,
 };
-use sc_consensus::{BlockCheckParams, BlockImport, BlockImportParams, ImportResult};
-use sc_consensus_aura::{find_pre_digest, standalone as aura_internal, AuraApi, CompatibilityMode};
-use sc_consensus_slots::InherentDataProviderExt;
-use sp_api::{ApiExt, Core, ProvideRuntimeApi, RuntimeApiInfo};
-use sp_block_builder::BlockBuilder;
-use sp_consensus_aura::inherents::AuraInherentData;
+use sc_consensus_aura::{standalone as aura_internal, AuraApi};
+use sp_api::{ApiExt, ProvideRuntimeApi, RuntimeApiInfo};
 use sp_core::Pair;
-use sp_inherents::InherentDataProvider;
 use sp_keystore::KeystorePtr;
-use sp_runtime::traits::{Header, NumberFor};
 use sp_timestamp::Timestamp;
 
 pub mod basic;
@@ -279,174 +268,6 @@ where
 		.into_iter()
 		.max_by_key(|a| a.depth)
 		.map(|parent| (included_block, parent))
-}
-
-struct ValidatingBlockImport<BI, Client, CIDP, N, P> {
-	inner: BI,
-	client: Arc<Client>,
-	create_inherent_data_providers: CIDP,
-	check_for_equivocation: bool,
-	compatibility_mode: CompatibilityMode<N>,
-	_phantom: std::marker::PhantomData<P>,
-}
-
-impl<BI, Client, CIDP, N, P> ValidatingBlockImport<BI, Client, CIDP, N, P> {
-	pub fn new(
-		inner: BI,
-		client: Arc<Client>,
-		create_inherent_data_providers: CIDP,
-		check_for_equivocation: bool,
-		compatibility_mode: CompatibilityMode<N>,
-	) -> Self {
-		Self {
-			inner,
-			client,
-			create_inherent_data_providers,
-			check_for_equivocation,
-			compatibility_mode,
-			_phantom: Default::default(),
-		}
-	}
-}
-
-#[async_trait]
-impl<Block, BI, Client, CIDP, P> BlockImport<Block>
-	for ValidatingBlockImport<BI, Client, CIDP, NumberFor<Block>, P>
-where
-	Block: BlockT,
-	BI: BlockImport<Block> + Sync,
-	BI::Error: Into<sp_consensus::Error>,
-	Client: ProvideRuntimeApi<Block> + sc_client_api::backend::AuxStore + Send + Sync,
-	Client::Api: Core<Block> + BlockBuilder<Block> + AuraApi<Block, <P as Pair>::Public>,
-	P: Pair + Sync,
-	P::Public: Codec + std::fmt::Debug,
-	P::Signature: Codec,
-	CIDP: sp_inherents::CreateInherentDataProviders<Block, ()> + Send,
-	CIDP::InherentDataProviders: InherentDataProviderExt + Send + Sync,
-{
-	type Error = sp_consensus::Error;
-
-	async fn check_block(
-		&self,
-		block: BlockCheckParams<Block>,
-	) -> Result<ImportResult, Self::Error> {
-		self.inner.check_block(block).await.map_err(Into::into)
-	}
-
-	async fn import_block(
-		&self,
-		mut block: BlockImportParams<Block>,
-	) -> Result<ImportResult, Self::Error> {
-		validate_block_import::<_, _, P, _>(
-			&mut block,
-			self.client.as_ref(),
-			&self.create_inherent_data_providers,
-			self.check_for_equivocation,
-			&self.compatibility_mode,
-		)
-		.await?;
-		self.inner.import_block(block).await.map_err(Into::into)
-	}
-}
-
-impl<BI, Client, CIDP, N, P> ParachainBlockImportMarker
-	for ValidatingBlockImport<BI, Client, CIDP, N, P>
-{
-}
-
-async fn validate_block_import<Block, Client, P, CIDP>(
-	params: &mut sc_consensus::BlockImportParams<Block>,
-	client: &Client,
-	create_inherent_data_providers: &CIDP,
-	check_for_equivocation: bool,
-	compatibility_mode: &CompatibilityMode<NumberFor<Block>>,
-) -> Result<(), sp_consensus::Error>
-where
-	Block: BlockT,
-	Client: ProvideRuntimeApi<Block> + sc_client_api::backend::AuxStore + Send + Sync,
-	Client::Api: Core<Block> + BlockBuilder<Block> + AuraApi<Block, <P as Pair>::Public>,
-	P: Pair + Sync,
-	P::Public: Codec + std::fmt::Debug,
-	P::Signature: Codec,
-	CIDP: sp_inherents::CreateInherentDataProviders<Block, ()> + Send,
-	CIDP::InherentDataProviders: InherentDataProviderExt + Send + Sync,
-{
-	let slot = find_pre_digest::<Block, P::Signature>(&params.header)
-		.map_err(|e| sp_consensus::Error::Other(Box::new(e)))?;
-	let parent_hash = *params.header.parent_hash();
-	let create_inherent_data_providers = create_inherent_data_providers
-		.create_inherent_data_providers(parent_hash, ())
-		.await
-		.map_err(sp_consensus::Error::Other)?;
-
-	// Check inherents.
-	// if the body is passed through, we need to use the runtime
-	// to check that the internally-set timestamp in the inherents
-	// actually matches the slot set in the seal.
-	if let Some(inner_body) = params.body.take() {
-		let new_block = Block::new(params.header.clone(), inner_body);
-		if client
-			.runtime_api()
-			.has_api_with::<dyn BlockBuilder<Block>, _>(parent_hash, |v| v >= 2)
-			.map_err(|e| sp_consensus::Error::Other(Box::new(e)))?
-		{
-			let mut inherent_data = create_inherent_data_providers
-				.create_inherent_data()
-				.await
-				.map_err(|e| sp_consensus::Error::Other(Box::new(e)))?;
-			inherent_data.aura_replace_inherent_data(slot);
-			let inherent_res = client
-				.runtime_api()
-				.check_inherents(parent_hash, new_block.clone(), inherent_data)
-				.map_err(|e| sp_consensus::Error::Other(Box::new(e)))?;
-
-			if !inherent_res.ok() {
-				for (i, e) in inherent_res.into_errors() {
-					match create_inherent_data_providers.try_handle_error(&i, &e).await {
-						Some(res) => res.map_err(|e| sp_consensus::Error::InvalidInherents(e))?,
-						None => return Err(sp_consensus::Error::InvalidInherentsUnhandled(i)),
-					}
-				}
-			}
-		}
-		let (_, inner_body) = new_block.deconstruct();
-		params.body = Some(inner_body);
-	}
-
-	// Check for equivocation.
-	let authorities = sc_consensus_aura::authorities::<<P as Pair>::Public, _, _>(
-		client,
-		parent_hash,
-		*params.header.number(),
-		compatibility_mode,
-	)
-	.map_err(|e| sp_consensus::Error::Other(Box::new(e)))?;
-	let slot_now = create_inherent_data_providers.slot();
-	let expected_author = sc_consensus_aura::standalone::slot_author::<P>(slot, &authorities);
-	if let (true, Some(expected)) = (check_for_equivocation, expected_author) {
-		if let Some(equivocation_proof) = sc_consensus_slots::check_equivocation(
-			client,
-			// we add one to allow for some small drift.
-			// FIXME #1019 in the future, alter this queue to allow deferring of
-			// headers
-			slot_now + 1,
-			slot,
-			&params.header,
-			expected,
-		)
-		.map_err(|e| sp_consensus::Error::Other(Box::new(e)))?
-		{
-			tracing::info!(
-				target: LOG_TARGET,
-				"Slot author is equivocating at slot {} with headers {:?} and {:?}",
-				slot,
-				equivocation_proof.first_header.hash(),
-				equivocation_proof.second_header.hash(),
-			);
-		}
-	}
-
-	Ok(())
 }
 
 #[cfg(test)]
