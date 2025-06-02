@@ -49,20 +49,6 @@ jobs:
           # Install pgpkms that is used to sign commits
           pip install git+https://github.com/paritytech-release/pgpkms.git@e7f806f99e9be5c52f0b4a536b7d4ef9c3e695ed
 
-      - name: Import gpg keys
-        run: |
-          . ./.github/scripts/common/lib.sh
-
-          import_gpg_keys
-
-      - name: Config git
-        run: |
-          git config --global commit.gpgsign true
-          git config --global gpg.program /home/runner/.local/bin/pgpkms-git
-          git config --global user.name "ParityReleases"
-          git config --global user.email "release-team@parity.io"
-          git config --global user.signingKey "D8018FBB3F534D866A45998293C5FB5F6A367B51"
-
   create-stable-branch:
       if: ${{ inputs.is_new_stable }}
       needs: [ prepare-tooling ]
@@ -96,19 +82,19 @@ jobs:
             ref: master
             token: ${{ steps.generate_write_token.outputs.token }}
 
-        # - name: Import gpg keys
-        #   run: |
-        #     . ./.github/scripts/common/lib.sh
+        - name: Import gpg keys
+          run: |
+            . ./.github/scripts/common/lib.sh
 
-        #     import_gpg_keys
+            import_gpg_keys
 
-        # - name: Config git
-        #   run: |
-        #     git config --global commit.gpgsign true
-        #     git config --global gpg.program /home/runner/.local/bin/pgpkms-git
-        #     git config --global user.name "ParityReleases"
-        #     git config --global user.email "release-team@parity.io"
-        #     git config --global user.signingKey "D8018FBB3F534D866A45998293C5FB5F6A367B51"
+        - name: Config git
+          run: |
+            git config --global commit.gpgsign true
+            git config --global gpg.program /home/runner/.local/bin/pgpkms-git
+            git config --global user.name "ParityReleases"
+            git config --global user.email "release-team@parity.io"
+            git config --global user.signingKey "D8018FBB3F534D866A45998293C5FB5F6A367B51"
 
         - name: Create stable branch
           run: |
@@ -175,19 +161,19 @@ jobs:
           fetch-depth: 0
           token: ${{ steps.generate_write_token.outputs.token }}
 
-      # - name: Import gpg keys
-      #   run: |
-      #     . ./.github/scripts/common/lib.sh
+      - name: Import gpg keys
+        run: |
+          . ./.github/scripts/common/lib.sh
 
-      #     import_gpg_keys
+          import_gpg_keys
 
-      # - name: Config git
-      #   run: |
-      #     git config --global commit.gpgsign true
-      #     git config --global gpg.program /home/runner/.local/bin/pgpkms-git
-      #     git config --global user.name "ParityReleases"
-      #     git config --global user.email "release-team@parity.io"
-      #     git config --global user.signingKey "D8018FBB3F534D866A45998293C5FB5F6A367B51"
+      - name: Config git
+        run: |
+          git config --global commit.gpgsign true
+          git config --global gpg.program /home/runner/.local/bin/pgpkms-git
+          git config --global user.name "ParityReleases"
+          git config --global user.email "release-team@parity.io"
+          git config --global user.signingKey "D8018FBB3F534D866A45998293C5FB5F6A367B51"
 
       - name: Compute next rc tag
         # if: ${{ steps.get_rel_product.outputs.product == 'polkadot' }}
