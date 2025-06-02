@@ -1707,7 +1707,7 @@ macro_rules! impl_runtime_apis_plus_revive {
 					let blockweights: $crate::BlockWeights =
 						<Self as $crate::frame_system::Config>::BlockWeights::get();
 
-					$crate::Pallet::<Self>::::prepare_dry_run(&origin);
+					$crate::Pallet::<Self>::prepare_dry_run(&origin);
 					$crate::Pallet::<Self>::bare_call(
 						<Self as $crate::frame_system::Config>::RuntimeOrigin::signed(origin),
 						dest,
@@ -1731,7 +1731,7 @@ macro_rules! impl_runtime_apis_plus_revive {
 					let blockweights: $crate::BlockWeights =
 						<Self as $crate::frame_system::Config>::BlockWeights::get();
 
-					$crate::Pallet::<Self>::::prepare_dry_run(&origin);
+					$crate::Pallet::<Self>::prepare_dry_run(&origin);
 					$crate::Pallet::<Self>::bare_instantiate(
 						<Self as $crate::frame_system::Config>::RuntimeOrigin::signed(origin),
 						value,
