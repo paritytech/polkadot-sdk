@@ -316,7 +316,7 @@ mod tests {
 		let mut child = Command::new(omni_node)
 			.arg("--dev")
 			.args(["--chain", dev_chain_spec.to_str().unwrap()])
-			.stdout(Stdio::piped())
+			.stderr(Stdio::piped())
 			.spawn()
 			.unwrap();
 
