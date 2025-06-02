@@ -1,6 +1,6 @@
 title: '[AHM] Repot the weights of epmb pallet to expose kusama and polkadot weights'
 doc:
-- audience: Todo
+- audience: Runtime Dev
   description: |-
     - [ ] Use them in WAH once @ggwpez merges the current deployed code on WAH to master
     - [x] Run on ref hardware
