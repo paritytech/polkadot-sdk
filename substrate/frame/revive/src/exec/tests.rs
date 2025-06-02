@@ -235,12 +235,19 @@ fn transfer_works() {
 		set_balance(&ALICE, 100);
 		set_balance(&BOB, 0);
 
+		let value = 55;
 		let origin = Origin::from_account_id(ALICE);
-		MockStack::transfer(&origin, &ALICE, &BOB, 55u64.into()).unwrap();
+		let mut storage_meter = storage::meter::Meter::new(u64::MAX);
+		MockStack::transfer(&origin, &ALICE, &BOB, value.into(), &mut storage_meter).unwrap();
 
 		let min_balance = <Test as Config>::Currency::minimum_balance();
-		assert_eq!(get_balance(&ALICE), 45 - min_balance);
-		assert_eq!(get_balance(&BOB), 55 + min_balance);
+		assert!(min_balance > 0);
+		assert_eq!(get_balance(&ALICE), 100 - value - min_balance);
+		assert_eq!(get_balance(&BOB), min_balance + value);
+		assert_eq!(
+			storage_meter.try_into_deposit(&Origin::from_account_id(ALICE), false).unwrap(),
+			StorageDeposit::Charge(min_balance)
+		);
 	});
 }
 
@@ -252,6 +259,7 @@ fn transfer_to_nonexistent_account_works() {
 	ExtBuilder::default().build().execute_with(|| {
 		let ed = <Test as Config>::Currency::minimum_balance();
 		let value = 1024;
+		let mut storage_meter = storage::meter::Meter::new(u64::MAX);
 
 		// Transfers to nonexistant accounts should work
 		set_balance(&ALICE, ed * 2);
@@ -261,7 +269,8 @@ fn transfer_to_nonexistent_account_works() {
 			&Origin::from_account_id(ALICE),
 			&BOB,
 			&CHARLIE,
-			value.into()
+			value.into(),
+			&mut storage_meter,
 		));
 		assert_eq!(get_balance(&ALICE), ed);
 		assert_eq!(get_balance(&BOB), ed);
@@ -271,7 +280,13 @@ fn transfer_to_nonexistent_account_works() {
 		set_balance(&ALICE, ed);
 		set_balance(&BOB, ed + value);
 		assert_err!(
-			MockStack::transfer(&Origin::from_account_id(ALICE), &BOB, &DJANGO, value.into()),
+			MockStack::transfer(
+				&Origin::from_account_id(ALICE),
+				&BOB,
+				&DJANGO,
+				value.into(),
+				&mut storage_meter
+			),
 			<Error<Test>>::StorageDepositNotEnoughFunds,
 		);
 
@@ -279,7 +294,13 @@ fn transfer_to_nonexistent_account_works() {
 		set_balance(&ALICE, ed * 2);
 		set_balance(&BOB, value);
 		assert_err!(
-			MockStack::transfer(&Origin::from_account_id(ALICE), &BOB, &EVE, value.into()),
+			MockStack::transfer(
+				&Origin::from_account_id(ALICE),
+				&BOB,
+				&EVE,
+				value.into(),
+				&mut storage_meter
+			),
 			<Error<Test>>::TransferFailed
 		);
 		// The ED transfer would work. But it should only be executed with the actual transfer
@@ -444,9 +465,15 @@ fn balance_too_low() {
 		let ed = <Test as Config>::Currency::minimum_balance();
 		set_balance(&ALICE, ed * 2);
 		set_balance(&from, ed + 99);
+		let mut storage_meter = storage::meter::Meter::new(u64::MAX);
 
-		let result =
-			MockStack::transfer(&Origin::from_account_id(ALICE), &from, &dest, 100u64.into());
+		let result = MockStack::transfer(
+			&Origin::from_account_id(ALICE),
+			&from,
+			&dest,
+			100u64.into(),
+			&mut storage_meter,
+		);
 
 		assert_eq!(result, Err(Error::<Test>::TransferFailed.into()));
 		assert_eq!(get_balance(&ALICE), ed * 2);

@@ -760,14 +760,14 @@ where
 	pub fn run_call(
 		origin: Origin<T>,
 		dest: H160,
-		gas_meter: &'a mut GasMeter<T>,
-		storage_meter: &'a mut storage::meter::Meter<T>,
+		gas_meter: &mut GasMeter<T>,
+		storage_meter: &mut storage::meter::Meter<T>,
 		value: U256,
 		input_data: Vec<u8>,
 		skip_transfer: bool,
 	) -> ExecResult {
 		let dest = T::AddressMapper::to_account_id(&dest);
-		if let Some((mut stack, executable)) = Self::new(
+		if let Some((mut stack, executable)) = Stack::<'_, T, E>::new(
 			FrameArgs::Call { dest: dest.clone(), cached_info: None, delegated_call: None },
 			origin.clone(),
 			gas_meter,
@@ -777,7 +777,7 @@ where
 		)? {
 			stack.run(executable, input_data).map(|_| stack.first_frame.last_frame_output)
 		} else {
-			let result = Self::transfer_from_origin(&origin, &origin, &dest, value);
+			let result = Self::transfer_from_origin(&origin, &origin, &dest, value, storage_meter);
 			if_tracing(|t| {
 				t.enter_child_span(
 					origin.account_id().map(T::AddressMapper::to_address).unwrap_or_default(),
@@ -806,14 +806,14 @@ where
 	pub fn run_instantiate(
 		origin: T::AccountId,
 		executable: E,
-		gas_meter: &'a mut GasMeter<T>,
-		storage_meter: &'a mut storage::meter::Meter<T>,
+		gas_meter: &mut GasMeter<T>,
+		storage_meter: &mut storage::meter::Meter<T>,
 		value: U256,
 		input_data: Vec<u8>,
 		salt: Option<&[u8; 32]>,
 		skip_transfer: bool,
 	) -> Result<(H160, ExecReturnValue), ExecError> {
-		let (mut stack, executable) = Self::new(
+		let (mut stack, executable) = Stack::<'_, T, E>::new(
 			FrameArgs::Instantiate {
 				sender: origin.clone(),
 				executable,
@@ -1159,6 +1159,7 @@ where
 					&caller,
 					account_id,
 					frame.value_transferred,
+					&mut frame.nested_storage,
 				)?;
 			}
 
@@ -1359,11 +1360,12 @@ where
 	/// not exist, the transfer does fail and nothing will be sent to `to` if either `origin` can
 	/// not provide the ED or transferring `value` from `from` to `to` fails.
 	/// Note: This will also fail if `origin` is root.
-	fn transfer(
+	fn transfer<S: storage::meter::State + Default + Debug>(
 		origin: &Origin<T>,
 		from: &T::AccountId,
 		to: &T::AccountId,
 		value: U256,
+		storage_meter: &mut storage::meter::GenericMeter<T, S>,
 	) -> ExecResult {
 		let value = crate::Pallet::<T>::convert_evm_to_native(value, ConversionPrecision::Exact)?;
 		if value.is_zero() {
@@ -1385,18 +1387,24 @@ where
 					T::Currency::transfer(from, to, value, Preservation::Preserve)
 						.map_err(|_| Error::<T>::TransferFailed.into())
 				}) {
-				Ok(_) => TransactionOutcome::Commit(Ok(Default::default())),
+				Ok(_) => {
+					// ed is taken from the transaction signer so it should be
+					// limited by the storage deposit
+					storage_meter.record_charge(&StorageDeposit::Charge(ed));
+					TransactionOutcome::Commit(Ok(Default::default()))
+				},
 				Err(err) => TransactionOutcome::Rollback(Err(err)),
 			}
 		})
 	}
 
 	/// Same as `transfer` but `from` is an `Origin`.
-	fn transfer_from_origin(
+	fn transfer_from_origin<S: storage::meter::State + Default + Debug>(
 		origin: &Origin<T>,
 		from: &Origin<T>,
 		to: &T::AccountId,
 		value: U256,
+		storage_meter: &mut storage::meter::GenericMeter<T, S>,
 	) -> ExecResult {
 		// If the from address is root there is no account to transfer from, and therefore we can't
 		// take any `value` other than 0.
@@ -1405,7 +1413,7 @@ where
 			Origin::Root if value.is_zero() => return Ok(Default::default()),
 			Origin::Root => return Err(DispatchError::RootNotAllowed.into()),
 		};
-		Self::transfer(origin, from, to, value)
+		Self::transfer(origin, from, to, value, storage_meter)
 	}
 
 	/// Reference to the current (top) frame.
@@ -1757,11 +1765,14 @@ where
 				} else if is_read_only {
 					Err(Error::<T>::StateChangeDenied.into())
 				} else {
+					let account_id = self.account_id().clone();
+					let frame = top_frame_mut!(self);
 					Self::transfer_from_origin(
 						&self.origin,
-						&Origin::from_account_id(self.account_id().clone()),
+						&Origin::from_account_id(account_id),
 						&dest,
 						value,
+						&mut frame.nested_storage,
 					)
 				};
 
