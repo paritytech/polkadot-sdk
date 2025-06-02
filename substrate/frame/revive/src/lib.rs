@@ -1069,7 +1069,7 @@ where
 	}
 
 	/// Prepare a dry run for the given account.
-	fn prepare_dry_run(account: &T::AccountId) {
+	pub fn prepare_dry_run(account: &T::AccountId) {
 		frame_system::Pallet::<T>::inc_account_nonce(account);
 	}
 
