@@ -2,7 +2,7 @@ ZOMBIENET_IMAGE=docker.io/paritytech/zombienet:v1.3.126
 ZOMBIENET_RUNNER=zombienet-arc-runner
 PUSHGATEWAY_URL=http://prometheus-pushgateway.monitoring.svc.cluster.local:9091/metrics/job/zombie-metrics
 DEBUG=zombie,zombie::network-node,zombie::kube::client::logs
-ZOMBIE_PROVIDER=native
+ZOMBIE_PROVIDER=k8s
 RUST_LOG=info,zombienet_orchestrator=trace,cumulus_zombienet_sdk_helpers=debug
 RUN_IN_CI=1
 KUBERNETES_CPU_REQUEST=512m
