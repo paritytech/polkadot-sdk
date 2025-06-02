@@ -75,7 +75,7 @@ pub mod data {
 	}
 
 	/// Implementation of `NeedsMigration` for `Queries` data.
-	impl<BlockNumber> NeedsMigration for QueryStatus<BlockNumber> {
+	impl<BlockNumber, RuntimeCall> NeedsMigration for QueryStatus<BlockNumber, RuntimeCall> {
 		type MigratedData = Self;
 
 		fn needs_migration(&self, minimal_allowed_xcm_version: XcmVersion) -> bool {

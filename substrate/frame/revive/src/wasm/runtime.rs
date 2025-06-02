@@ -2251,6 +2251,60 @@ pub mod env {
 		}
 	}
 
+	/// Create a new query
+	/// See [`pallet_revive_uapi::HostFn::new_query`].
+	#[mutating]
+	fn new_query(
+		&mut self,
+		memory: &mut M,
+		responder_ptr: u32,
+		responder_len: u32,
+		maybe_notify_ptr: u32,
+		maybe_notify_len: u32,
+		timeout_ptr: u32,
+		output_ptr: u32,
+	) -> Result<(), TrapReason> {
+		use xcm::v5::{Junction, Location};
+		use xcm_builder::{QueryHandler, QueryController, QueryControllerWeightInfo};
+
+		self.charge_gas(RuntimeCosts::CopyFromContract(responder_len))?;
+		let responder: Location = memory.read_as_unbounded(responder_ptr, responder_len)?;
+
+		let maybe_notify: Option<<<E::T as Config>::Xcm as QueryHandler>::RuntimeCall> = if maybe_notify_len > 0 {
+			self.charge_gas(RuntimeCosts::CopyFromContract(maybe_notify_len))?;
+			let notify = memory.read_as_unbounded(maybe_notify_ptr, maybe_notify_len)?;
+			Some(notify)
+		} else {
+			None
+		};
+
+		let timeout_u256 = memory.read_u256(timeout_ptr)?;
+		let timeout = <<E::T as Config>::Xcm as QueryHandler>::BlockNumber::try_from(timeout_u256)
+			.map_err(|_err| Error::<E::T>::DecodingFailed)?;
+
+		let account_bytes: [u8; 32] = self
+			.ext
+			.account_id()
+			.using_encoded(|b| b.try_into().expect("AccountId must be 32 bytes; qed"));
+
+		// TODO: Convert AccountId to a Location (Q: [pallet_instance: pallet_revive_id, AccountId20: h160_address)] ?)
+		let querier =
+			Location::new(0, [Junction::AccountId32 { network: None, id: account_bytes }]);
+
+		let weight = <<E::T as Config>::Xcm as QueryController<_, _>>::WeightInfo::query();
+		self.charge_gas(RuntimeCosts::CallRuntime(weight))?;
+		let query_id =
+			<<E::T as Config>::Xcm>::new_query(responder, maybe_notify, timeout, querier);
+
+		Ok(self.write_fixed_sandbox_output(
+			memory,
+			output_ptr,
+			&query_id.encode(),
+			false,
+			already_charged,
+		)?)
+	}
+
 	/// Retrieves the account id for a specified contract address.
 	///
 	/// See [`pallet_revive_uapi::HostFn::to_account_id`].

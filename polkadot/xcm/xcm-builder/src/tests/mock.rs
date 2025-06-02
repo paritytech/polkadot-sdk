@@ -418,15 +418,17 @@ pub fn response(query_id: u64) -> Option<Response> {
 /// Mock implementation of the [`QueryHandler`] trait for creating XCM success queries and expecting
 /// responses.
 pub struct TestQueryHandler<T, BlockNumber>(core::marker::PhantomData<(T, BlockNumber)>);
-impl<T: Config, BlockNumber: sp_runtime::traits::Zero + Encode> QueryHandler
+impl<T: Config, BlockNumber: sp_runtime::traits::Zero + Encode + TryFrom<sp_core::U256>> QueryHandler
 	for TestQueryHandler<T, BlockNumber>
 {
 	type BlockNumber = BlockNumber;
 	type Error = XcmError;
 	type UniversalLocation = T::UniversalLocation;
+	type RuntimeCall = <T as Config>::RuntimeCall;
 
 	fn new_query(
 		responder: impl Into<Location>,
+		_maybe_notify: Option<Self::RuntimeCall>,
 		_timeout: Self::BlockNumber,
 		_match_querier: impl Into<Location>,
 	) -> QueryId {
@@ -444,7 +446,7 @@ impl<T: Config, BlockNumber: sp_runtime::traits::Zero + Encode> QueryHandler
 		let destination = Self::UniversalLocation::get()
 			.invert_target(&responder)
 			.map_err(|()| XcmError::LocationNotInvertible)?;
-		let query_id = Self::new_query(responder, timeout, Here);
+		let query_id = Self::new_query(responder, None, timeout, Here);
 		let response_info = QueryResponseInfo { destination, query_id, max_weight: Weight::zero() };
 		let report_error = Xcm(vec![ReportError(response_info)]);
 		message.0.insert(0, SetAppendix(report_error));

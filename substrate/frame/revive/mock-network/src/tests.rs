@@ -16,7 +16,7 @@
 // limitations under the License.
 
 use crate::{
-	parachain, parachain_account_sovereign_account_id, primitives::CENTS, relay_chain, MockNet,
+	parachain::{self, RuntimeCall}, parachain_account_sovereign_account_id, primitives::CENTS, relay_chain, MockNet,
 	ParaA, ParachainBalances, Relay, ALICE, BOB, INITIAL_BALANCE,
 };
 use codec::{Decode, Encode};
