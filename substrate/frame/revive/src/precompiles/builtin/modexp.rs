@@ -24,7 +24,7 @@ use alloc::{vec, vec::Vec};
 use core::{cmp::max, marker::PhantomData, num::NonZero};
 use num_bigint::BigUint;
 use num_integer::Integer;
-use num_traits::{One, Zero, ToPrimitive};
+use num_traits::{One, ToPrimitive, Zero};
 use sp_runtime::DispatchError;
 
 /// See EIP-2565

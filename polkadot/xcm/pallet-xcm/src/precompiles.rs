@@ -20,8 +20,7 @@ use core::{marker::PhantomData, num::NonZero};
 use pallet_revive::{
 	precompiles::{
 		alloy::{self, sol_types::SolValue},
-		AddressMatcher, Error, Ext, Precompile,
-		RuntimeCosts,
+		AddressMatcher, Error, Ext, Precompile, RuntimeCosts,
 	},
 	Origin,
 };
@@ -109,7 +108,10 @@ where
 					.map(|post_dispatch_info| {
 						// Adjust charged amount to account for the actual weight consumed.
 						if let Some(actual_weight) = post_dispatch_info.actual_weight {
-							env.gas_meter_mut().adjust_gas(charged_amount.clone(), RuntimeCosts::Precompile(actual_weight));
+							env.gas_meter_mut().adjust_gas(
+								charged_amount.clone(),
+								RuntimeCosts::Precompile(actual_weight),
+							);
 						}
 						post_dispatch_info.encode()
 					})
@@ -121,7 +123,10 @@ where
 						);
 						// Adjust charged amount to account for the actual weight consumed.
 						if let Some(actual_weight) = error.post_info.actual_weight {
-							env.gas_meter_mut().adjust_gas(charged_amount, RuntimeCosts::Precompile(actual_weight));
+							env.gas_meter_mut().adjust_gas(
+								charged_amount,
+								RuntimeCosts::Precompile(actual_weight),
+							);
 						}
 						Error::Revert(
 							"XCM execute failed: message may be invalid or execution constraints not satisfied"
