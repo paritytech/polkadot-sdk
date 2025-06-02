@@ -295,7 +295,7 @@ fn common_config(semantics: &Semantics) -> std::result::Result<wasmtime::Config,
 			//   size: 32384
 			//   table_elements: 1249
 			//   memory_pages: 2070
-			.max_core_instance_size(128 * 1024)
+			.max_core_instance_size(512 * 1024)
 			.table_elements(8192)
 			.max_memory_size(memory_pages as usize * WASM_PAGE_SIZE as usize)
 			// We can only have a single of those.
