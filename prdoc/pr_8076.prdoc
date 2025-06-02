@@ -8,6 +8,15 @@ doc:
     It uses the runtime api to get the allowance associated to an account.
 
     This takes effect in `polkadot-omni-node` and `polkadot-parachain` and any node depending on `polkadot-omni-node-lib`.
+
+    In `cumulus-client-service` the `BuildNetworkParams` now takes the metrics configuration explicitly, you can use the same configuration as before using the network backend used when calling `build_network`:
+    ```rust
+    let metrics = NetworkBackend::register_notification_metrics(
+        parachain_config.prometheus_config.as_ref().map(|config| &config.registry),
+    );
+    ```
 crates:
 - name: polkadot-omni-node-lib
+  bump: major
+- name: cumulus-client-service
   bump: major

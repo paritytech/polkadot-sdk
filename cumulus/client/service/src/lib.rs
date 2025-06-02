@@ -435,6 +435,8 @@ pub struct BuildNetworkParams<
 	pub spawn_handle: SpawnTaskHandle,
 	pub import_queue: IQ,
 	pub sybil_resistance_level: CollatorSybilResistance,
+	/// Metrics.
+	pub metrics: sc_network::NotificationMetrics,
 }
 
 /// Build the network service, the network status sinks and an RPC sender.
@@ -449,6 +451,7 @@ pub async fn build_network<'a, Block, Client, RCInterface, IQ, Network>(
 		relay_chain_interface,
 		import_queue,
 		sybil_resistance_level,
+		metrics,
 	}: BuildNetworkParams<'a, Block, Client, Network, RCInterface, IQ>,
 ) -> sc_service::error::Result<(
 	Arc<dyn NetworkService>,
@@ -507,9 +510,6 @@ where
 			Box::new(block_announce_validator) as Box<_>
 		},
 	};
-	let metrics = Network::register_notification_metrics(
-		parachain_config.prometheus_config.as_ref().map(|config| &config.registry),
-	);
 
 	sc_service::build_network(sc_service::BuildNetworkParams {
 		config: parachain_config,

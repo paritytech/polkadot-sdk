@@ -308,6 +308,10 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 				.has_api::<dyn ValidateStatement<Self::Block>>(best_hash)
 				.map_err(|e| sc_service::Error::Application(Box::new(e)))?;
 
+			let metrics = Net::register_notification_metrics(
+				parachain_config.prometheus_config.as_ref().map(|config| &config.registry),
+			);
+
 			let statement_store_vars = if has_validate_statement_api_at_best_hash {
 				let statement_store = sc_statement_store::Store::new_shared(
 					&parachain_config.data_path,
@@ -322,8 +326,7 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 					sc_network_statement::StatementHandlerPrototype::new::<_, _, Net>(
 						client.chain_info().genesis_hash,
 						parachain_config.chain_spec.fork_id(),
-						sc_network::NotificationMetrics::new(None), /* TODO TODO: maybe some
-						                                             * metrics */
+						metrics.clone(),
 						Arc::clone(&net_config.peer_store_handle()),
 					);
 				net_config.add_notification_protocol(statement_config);
@@ -343,6 +346,7 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 					relay_chain_interface: relay_chain_interface.clone(),
 					import_queue: params.import_queue,
 					sybil_resistance_level: Self::SYBIL_RESISTANCE,
+					metrics,
 				})
 				.await?;
 
