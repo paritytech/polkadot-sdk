@@ -44,11 +44,6 @@ jobs:
           stable_version=$(validate_stable_tag ${{ inputs.stable_version }})
           echo "stable_version=${stable_version}" >> $GITHUB_OUTPUT
 
-      - name: Install pgpkms
-        run: |
-          # Install pgpkms that is used to sign commits
-          pip install git+https://github.com/paritytech-release/pgpkms.git@e7f806f99e9be5c52f0b4a536b7d4ef9c3e695ed
-
   create-stable-branch:
       if: ${{ inputs.is_new_stable }}
       needs: [ prepare-tooling ]
@@ -63,10 +58,10 @@ jobs:
         STABLE_BRANCH_NAME: ${{ needs.prepare-tooling.outputs.stable_version }}
 
       steps:
-        # - name: Install pgpkkms
-        #   run: |
-        #     # Install pgpkms that is used to sign commits
-        #     pip install git+https://github.com/paritytech-release/pgpkms.git@e7f806f99e9be5c52f0b4a536b7d4ef9c3e695ed
+        - name: Install pgpkkms
+          run: |
+            # Install pgpkms that is used to sign commits
+            pip install git+https://github.com/paritytech-release/pgpkms.git@e7f806f99e9be5c52f0b4a536b7d4ef9c3e695ed
 
         - name: Generate content write token for the release automation
           id: generate_write_token
@@ -142,10 +137,10 @@ jobs:
       AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
 
     steps:
-      # - name: Install pgpkkms
-      #   run: |
-      #     # Install pgpkms that is used to sign commits
-      #     pip install git+https://github.com/paritytech-release/pgpkms.git@e7f806f99e9be5c52f0b4a536b7d4ef9c3e695ed
+      - name: Install pgpkkms
+        run: |
+          # Install pgpkms that is used to sign commits
+          pip install git+https://github.com/paritytech-release/pgpkms.git@e7f806f99e9be5c52f0b4a536b7d4ef9c3e695ed
 
       - name: Generate content write token for the release automation
         id: generate_write_token
