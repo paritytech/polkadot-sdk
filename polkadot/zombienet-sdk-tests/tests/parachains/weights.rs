@@ -12,9 +12,10 @@ use ahw::runtime_types::{
 };
 use anyhow::anyhow;
 use asset_hub_westend_runtime::Runtime as AHWRuntime;
+use ethabi::Token;
 use futures::{stream::FuturesUnordered, StreamExt};
 use pallet_revive::AddressMapper;
-use sp_core::{H160, H256};
+use sp_core::{bytes::to_hex, H160, H256};
 use std::str::FromStr;
 use zombienet_sdk::{
 	subxt::{
@@ -28,8 +29,8 @@ use zombienet_sdk::{
 	LocalFileSystem, Network, NetworkConfigBuilder,
 };
 
-const KEYS_COUNT: usize = 3000;
-const CHUNK_SIZE: usize = 500;
+const KEYS_COUNT: usize = 300;
+const CHUNK_SIZE: usize = 200;
 const CALL_CHUNK_SIZE: usize = 1000;
 
 #[tokio::test(flavor = "multi_thread")]
@@ -63,22 +64,12 @@ async fn weights_test() -> Result<(), anyhow::Error> {
 	let contract_address = instantiate_contract(&para_client, &alice).await?;
 	log::info!("Contract instantiated: {:?}", contract_address);
 
+	log::info!("Minting...");
 	let mint_100 = sp_core::hex2array!(
 		"a0712d680000000000000000000000000000000000000000000000000000000000000064"
 	)
 	.to_vec();
-	call_contract(&para_client, call_clients, contract_address, &alice, &keys, nonce(), mint_100)
-		.await?;
-
-	let mut call_clients = vec![];
-	for _ in 0..(KEYS_COUNT / CALL_CHUNK_SIZE + 1) {
-		let call_client: OnlineClient<PolkadotConfig> = collator.wait_client().await?;
-		call_clients.push(call_client);
-	}
-	let transfer_50_to_alice = sp_core::hex2array!(
-		"a9059cbb0000000000000000000000009621dde636de098b43efb0fa9b61facfe328f99d0000000000000000000000000000000000000000000000000000000000000032"
-	)
-	.to_vec();
+	let mint_100_payload = vec![mint_100; KEYS_COUNT];
 	call_contract(
 		&para_client,
 		call_clients,
@@ -86,7 +77,39 @@ async fn weights_test() -> Result<(), anyhow::Error> {
 		&alice,
 		&keys,
 		nonce(),
-		transfer_50_to_alice,
+		mint_100_payload,
+	)
+	.await?;
+
+	log::info!("Transfering...");
+	let mut call_clients = vec![];
+	for _ in 0..(KEYS_COUNT / CALL_CHUNK_SIZE + 1) {
+		let call_client: OnlineClient<PolkadotConfig> = collator.wait_client().await?;
+		call_clients.push(call_client);
+	}
+	let mut transfer_50_payload = keys
+		.iter()
+		.map(|key| {
+			let transfer_selector = sp_core::hex2array!("a9059cbb");
+			let mut data = transfer_selector.to_vec();
+			let account_id = key.public_key().0.into();
+			let h160 =
+				<AHWRuntime as pallet_revive::Config>::AddressMapper::to_address(&account_id);
+			data.extend(ethabi::encode(&[Token::Address(h160), Token::Uint(50.into())]));
+
+			data
+		})
+		.collect::<Vec<_>>();
+	transfer_50_payload.rotate_left(1);
+
+	call_contract(
+		&para_client,
+		call_clients,
+		contract_address,
+		&alice,
+		&keys,
+		nonce(),
+		transfer_50_payload,
 	)
 	.await?;
 
@@ -159,8 +182,7 @@ async fn setup_accounts(
 	for chunk in keys.chunks(CHUNK_SIZE) {
 		let transfers = chunk
 			.iter()
-			.enumerate()
-			.map(|(i, key)| {
+			.map(|key| {
 				let key = key.public_key().into();
 				let call = &ahw::tx().balances().transfer_keep_alive(key, 1000000000000);
 				let params = tx_params(caller_nonce);
@@ -265,19 +287,24 @@ async fn call_contract(
 	caller: &Keypair,
 	keys: &[Keypair],
 	nonce: u64,
-	payload: Vec<u8>,
+	payload: Vec<Vec<u8>>,
 ) -> Result<(), anyhow::Error> {
+	let payload_sample = payload.first().cloned().expect("Payload is not empty");
 	let (ref_time, proof_size, deposit) =
-		call_params(client, contract, payload.clone(), caller).await?;
-	let weight = Weight { ref_time, proof_size };
-	let call = &ahw::tx().revive().call(contract, 0, weight, deposit, payload.clone());
+		call_params(client, contract, payload_sample, caller).await?;
 
 	let mut txs = vec![];
-	for chunk in keys.chunks(CALL_CHUNK_SIZE) {
+	for (i_chunk, chunk) in keys.chunks(CALL_CHUNK_SIZE).enumerate() {
 		let para_client = call_clients.pop().unwrap();
 		let txs_chunk = chunk
 			.iter()
-			.map(|key| para_client.tx().create_signed_offline(call, key, tx_params(nonce)))
+			.enumerate()
+			.map(|(i, key)| {
+				let weight = Weight { ref_time, proof_size };
+				let payload = payload[i_chunk * CALL_CHUNK_SIZE + i].clone();
+				let call = &ahw::tx().revive().call(contract, 0, weight, deposit, payload);
+				para_client.tx().create_signed_offline(call, key, tx_params(nonce))
+			})
 			.collect::<Result<Vec<_>, _>>()?;
 		txs.extend(txs_chunk);
 	}
