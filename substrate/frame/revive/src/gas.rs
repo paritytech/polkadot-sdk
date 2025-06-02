@@ -27,7 +27,7 @@ use sp_runtime::DispatchError;
 #[cfg(test)]
 use std::{any::Any, fmt::Debug};
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct ChargedAmount(Weight);
 
 impl ChargedAmount {
