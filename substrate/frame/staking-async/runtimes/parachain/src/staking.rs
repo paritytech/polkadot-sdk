@@ -15,8 +15,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use core::marker::PhantomData;
-
 ///! Staking, and election related pallet configurations.
 use super::*;
 use cumulus_primitives_core::relay_chain::SessionIndex;
@@ -26,18 +24,20 @@ use pallet_election_provider_multi_block::{
 	self as multi_block, weights::measured, SolutionAccuracyOf,
 };
 use pallet_staking_async::UseValidatorsMap;
+use pallet_staking_async_rc_client as rc_client;
 use polkadot_runtime_common::{prod_or_fast, BalanceToU256, U256ToBalance};
 use sp_runtime::{
-	transaction_validity::TransactionPriority, FixedPointNumber, FixedU128, SaturatedConversion,
+	traits::Convert, transaction_validity::TransactionPriority, FixedPointNumber, FixedU128,
+	SaturatedConversion,
 };
+use xcm::latest::prelude::*;
 
 parameter_types! {
-	pub storage SignedPhase: u32 = 3 * MINUTES;
-	pub storage UnsignedPhase: u32 = 1 * MINUTES;
+	pub storage SignedPhase: u32 = 2 * MINUTES;
+	pub storage UnsignedPhase: u32 = MINUTES;
 	pub storage SignedValidationPhase: u32 = Pages::get() + 1;
 
-	/// Compatible with Polkadot, we allow up to 22_500 nominators to be considered for election
-	pub storage MaxElectingVoters: u32 = 2000;
+	pub storage MaxElectingVoters: u32 = 1000;
 
 	/// Maximum number of validators that we may want to elect. 1000 is the end target.
 	pub const MaxValidatorSet: u32 = 1000;
@@ -58,7 +58,7 @@ parameter_types! {
 	pub MaxBackersPerWinner: u32 = VoterSnapshotPerBlock::get();
 
 	/// Total number of backers per winner across all pages. This is not used in the code yet.
-	pub MaxBackersPerWinnerFinal: u32 = MaxBackersPerWinner::get();
+	pub MaxBackersPerWinnerFinal: u32 = MaxElectingVoters::get();
 
 	/// Size of the exposures. This should be small enough to make the reward payouts feasible.
 	pub const MaxExposurePageSize: u32 = 64;
@@ -237,6 +237,8 @@ impl pallet_staking_async::EraPayout<Balance> for EraPayout {
 parameter_types! {
 	// Six sessions in an era (6 hours).
 	pub const SessionsPerEra: SessionIndex = prod_or_fast!(6, 1);
+	/// Duration of a relay session in our blocks. Needs to be hardcoded per-runtime.
+	pub const RelaySessionDuration: BlockNumber = 10;
 	// 2 eras for unbonding (12 hours).
 	pub const BondingDuration: sp_staking::EraIndex = 2;
 	// 1 era in which slashes can be cancelled (6 hours).
@@ -276,14 +278,19 @@ impl pallet_staking_async::Config for Runtime {
 	type WeightInfo = weights::pallet_staking_async::WeightInfo<Runtime>;
 	type MaxInvulnerables = frame_support::traits::ConstU32<20>;
 	type MaxDisabledValidators = ConstU32<100>;
-	type PlanningEraOffset = ConstU32<2>;
+	type PlanningEraOffset =
+		pallet_staking_async::PlanningEraOffsetOf<Self, RelaySessionDuration, ConstU32<10>>;
 	type RcClientInterface = StakingNextRcClient;
 }
 
 impl pallet_staking_async_rc_client::Config for Runtime {
 	type RelayChainOrigin = EnsureRoot<AccountId>;
 	type AHStakingInterface = Staking;
-	type SendToRelayChain = XcmToRelayChain<xcm_config::XcmRouter>;
+	type SendToRelayChain = StakingXcmToRelayChain;
+}
+
+parameter_types! {
+	pub StakingXcmDestination: Location = Location::parent();
 }
 
 #[derive(Encode, Decode)]
@@ -299,16 +306,10 @@ pub enum AhClientCalls {
 	ValidatorSet(rc_client::ValidatorSetReport<AccountId>),
 }
 
-use pallet_staking_async_rc_client as rc_client;
-use xcm::latest::{prelude::*, SendXcm};
-
-pub struct XcmToRelayChain<T: SendXcm>(PhantomData<T>);
-impl<T: SendXcm> rc_client::SendToRelayChain for XcmToRelayChain<T> {
-	type AccountId = AccountId;
-
-	/// Send a new validator set report to relay chain.
-	fn validator_set(report: rc_client::ValidatorSetReport<Self::AccountId>) {
-		let message = Xcm(vec![
+pub struct ValidatorSetToXcm;
+impl Convert<rc_client::ValidatorSetReport<AccountId>, Xcm<()>> for ValidatorSetToXcm {
+	fn convert(report: rc_client::ValidatorSetReport<AccountId>) -> Xcm<()> {
+		Xcm(vec![
 			Instruction::UnpaidExecution {
 				weight_limit: WeightLimit::Unlimited,
 				check_origin: None,
@@ -320,18 +321,21 @@ impl<T: SendXcm> rc_client::SendToRelayChain for XcmToRelayChain<T> {
 					.encode()
 					.into(),
 			},
-		]);
-		let dest = Location::parent();
-		let result = send_xcm::<T>(dest, message);
+		])
+	}
+}
 
-		match result {
-			Ok(_) => {
-				log::info!(target: "runtime", "Successfully sent validator set report to relay chain")
-			},
-			Err(e) => {
-				log::error!(target: "runtime", "Failed to send validator set report to relay chain: {:?}", e)
-			},
-		}
+pub struct StakingXcmToRelayChain;
+
+impl rc_client::SendToRelayChain for StakingXcmToRelayChain {
+	type AccountId = AccountId;
+	fn validator_set(report: rc_client::ValidatorSetReport<Self::AccountId>) {
+		rc_client::XCMSender::<
+			xcm_config::XcmRouter,
+			StakingXcmDestination,
+			rc_client::ValidatorSetReport<Self::AccountId>,
+			ValidatorSetToXcm,
+		>::split_then_send(report, Some(8));
 	}
 }
 
