@@ -799,7 +799,8 @@ impl<T: Config> Pallet<T> {
 	fn finalize_async_verification(claimed_score: ElectionScore) -> Result<(), FeasibilityError> {
 		let outcome = QueuedSolution::<T>::compute_invalid_score()
 			.and_then(|(final_score, winner_count)| {
-				let desired_targets = crate::Snapshot::<T>::desired_targets().unwrap();
+				let desired_targets =
+					crate::Snapshot::<T>::desired_targets().defensive_unwrap_or(u32::MAX);
 				// claimed_score checked prior in seal_unverified_solution
 				match (final_score == claimed_score, winner_count == desired_targets) {
 					(true, true) => {
@@ -898,7 +899,8 @@ pub fn feasibility_check_page_inner_with_snapshot<T: MinerConfig>(
 	let voter_index = helpers::voter_index_fn_usize::<T>(&cache);
 
 	// Then convert solution -> assignment. This will fail if any of the indices are
-	// gibberish.
+	// gibberish. It will also ensure each assignemnt (voter) is unique, and all targets within it
+	// are unique.
 	let assignments = partial_solution
 		.into_assignment(voter_at, target_at)
 		.map_err::<FeasibilityError, _>(Into::into)?;

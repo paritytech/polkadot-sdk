@@ -28,7 +28,7 @@ use frame_election_provider_support::Support;
 use frame_support::{assert_noop, assert_ok};
 use sp_core::bounded_vec;
 use sp_npos_elections::ElectionScore;
-use sp_runtime::{traits::Bounded, Perbill};
+use sp_runtime::{traits::Bounded, PerU16, Perbill};
 
 mod feasibility_check {
 	use super::*;
@@ -187,6 +187,52 @@ mod feasibility_check {
 					FeasibilityError::InvalidVote,
 				);
 			})
+	}
+
+	#[test]
+	fn prevents_duplicate_voter_index() {
+		ExtBuilder::verifier().pages(1).build_and_execute(|| {
+			roll_to_snapshot_created();
+
+			// let's build a manual, bogus solution with duplicate voters, on top of page 0 of
+			// snapshot (see `mock/staking.rs`).
+			let faulty_page = TestNposSolution {
+				// voter index 0 is giving 100% of stake to target index 0
+				votes1: vec![(0, 0)],
+				// and again 50% to target index 0 and target index 1. Both votes are "valid",
+				// as in they are in the snapshot.
+				votes2: vec![(0, [(0, PerU16::from_percent(50))], 1)],
+				..Default::default()
+			};
+
+			assert_noop!(
+				VerifierPallet::feasibility_check_page_inner(faulty_page, 0),
+				FeasibilityError::NposElection(
+					frame_election_provider_support::Error::DuplicateVoter
+				),
+			);
+		});
+	}
+
+	#[test]
+	fn prevents_duplicate_target_index() {
+		ExtBuilder::verifier().pages(1).build_and_execute(|| {
+			roll_to_snapshot_created();
+
+			// A bad solution with duplicate targets for a single voter in votes2.
+			let faulty_page = TestNposSolution {
+				// 50% to 0, and then the rest to 0 again, not valid.
+				votes2: vec![(0, [(0, PerU16::from_percent(50))], 0)],
+				..Default::default()
+			};
+
+			assert_noop!(
+				VerifierPallet::feasibility_check_page_inner(faulty_page, 0),
+				FeasibilityError::NposElection(
+					frame_election_provider_support::Error::DuplicateTarget
+				),
+			);
+		});
 	}
 
 	#[test]
@@ -881,7 +927,7 @@ mod multi_page_sync_verification {
 			assert_eq!(<VerifierPallet as Verifier>::queued_score(), None);
 
 			let _ = <VerifierPallet as Verifier>::verify_synchronous_multi(
-				paged.solution_pages.clone().into_inner(),
+				paged.solution_pages.clone(),
 				MultiBlock::msp_range_for(2),
 				paged.score,
 			)
@@ -909,7 +955,7 @@ mod multi_page_sync_verification {
 			assert_eq!(<VerifierPallet as Verifier>::queued_score(), None);
 
 			let _ = <VerifierPallet as Verifier>::verify_synchronous_multi(
-				paged.solution_pages.clone().into_inner(),
+				paged.solution_pages.clone(),
 				MultiBlock::msp_range_for(3),
 				paged.score,
 			)
@@ -941,7 +987,7 @@ mod multi_page_sync_verification {
 
 			assert_eq!(
 				<VerifierPallet as Verifier>::verify_synchronous_multi(
-					paged.solution_pages.clone().into_inner(),
+					paged.solution_pages.clone(),
 					MultiBlock::msp_range_for(2),
 					paged.score,
 				)
@@ -975,7 +1021,7 @@ mod multi_page_sync_verification {
 
 			assert_eq!(
 				<VerifierPallet as Verifier>::verify_synchronous_multi(
-					paged.solution_pages.clone().into_inner(),
+					paged.solution_pages.clone(),
 					MultiBlock::msp_range_for(2),
 					paged.score,
 				)
@@ -1009,7 +1055,7 @@ mod multi_page_sync_verification {
 
 			hypothetically!({
 				assert_ok!(<VerifierPallet as Verifier>::verify_synchronous_multi(
-					paged.solution_pages.clone().into_inner(),
+					paged.solution_pages.clone(),
 					MultiBlock::msp_range_for(2),
 					paged.score,
 				));
@@ -1052,7 +1098,7 @@ mod multi_page_sync_verification {
 
 			assert_eq!(
 				<VerifierPallet as Verifier>::verify_synchronous_multi(
-					paged.solution_pages.clone().into_inner(),
+					paged.solution_pages.clone(),
 					MultiBlock::msp_range_for(2),
 					paged.score,
 				)

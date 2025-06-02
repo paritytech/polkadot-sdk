@@ -82,7 +82,15 @@ impl Display for AuthoringPolicy {
 #[derive(Debug, clap::Subcommand)]
 pub enum Subcommand {
 	/// Build a chain specification.
+	/// DEPRECATED: `build-spec` command will be removed after 1/04/2026. Use `export-chain-spec`
+	/// command instead.
+	#[deprecated(
+		note = "build-spec command will be removed after 1/04/2026. Use export-chain-spec command instead"
+	)]
 	BuildSpec(sc_cli::BuildSpecCmd),
+
+	/// Export the chain specification.
+	ExportChainSpec(sc_cli::ExportChainSpecCmd),
 
 	/// Export the genesis state of the parachain.
 	#[command(alias = "export-genesis-state")]
@@ -313,6 +321,9 @@ impl SubstrateCli for TestCollatorCli {
 					2500,
 				)))) as Box<_>
 			},
+			"relay-parent-offset" => Box::new(
+				cumulus_test_service::get_relay_parent_offset_chain_spec(Some(ParaId::from(2600))),
+			) as Box<_>,
 			path => {
 				let chain_spec = cumulus_test_service::ChainSpec::from_json_file(path.into())?;
 				Box::new(chain_spec)
