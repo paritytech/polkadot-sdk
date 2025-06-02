@@ -583,12 +583,7 @@ where
 				"fatp::ready_at_light"
 			);
 			Box::new(tmp_view.pool.validated_pool().ready())
-		} else if let Some((most_recent_view, _)) = self
-			.view_store
-			.most_recent_view
-			.read()
-			.and_then(|at| self.view_store.get_view_at(at, true))
-		{
+		} else if let Some(most_recent_view) = self.view_store.most_recent_view.read().clone() {
 			// Fallback for the case when `at` is not on the already known fork.
 			// Falls back to the most recent view, which may include txs which
 			// are invalid or already included in the blocks but can still yield a
