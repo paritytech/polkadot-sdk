@@ -33,7 +33,6 @@ use frame_support::{
 	derive_impl,
 	dynamic_params::{dynamic_pallet_params, dynamic_params},
 	genesis_builder_helper::{build_state, get_preset},
-	pallet_prelude::PhantomData,
 	parameter_types,
 	traits::{
 		fungible::HoldConsideration, tokens::UnityOrOuterConversion, AsEnsureOriginWithArg,
@@ -772,7 +771,6 @@ impl pallet_staking::Config for Runtime {
 	type BenchmarkingConfig = polkadot_runtime_common::StakingBenchmarkingConfig;
 	type EventListeners = (NominationPools, DelegatedStaking);
 	type WeightInfo = weights::pallet_staking::WeightInfo<Runtime>;
-	// TODO: Set this to everything once AHM migration starts.
 	type Filter = Nothing;
 }
 
@@ -791,57 +789,10 @@ enum RcClientCalls<AccountId> {
 	RelayNewOffence(SessionIndex, Vec<rc_client::Offence<AccountId>>),
 }
 
-// CI-FAIL: @kianenigma port over the new xcm configs from https://github.com/paritytech/polkadot-sdk/pull/8422
 pub struct AssetHubLocation;
 impl Get<Location> for AssetHubLocation {
 	fn get() -> Location {
 		Location::new(0, [Junction::Parachain(ASSET_HUB_ID)])
-	}
-}
-
-pub struct XcmToAssetHub<T: SendXcm>(PhantomData<T>);
-impl<T: SendXcm> ah_client::SendToAssetHub for XcmToAssetHub<T> {
-	type AccountId = AccountId;
-
-	fn relay_session_report(session_report: rc_client::SessionReport<Self::AccountId>) {
-		let message = Xcm(vec![
-			Instruction::UnpaidExecution {
-				weight_limit: WeightLimit::Unlimited,
-				check_origin: None,
-			},
-			Self::mk_asset_hub_call(RcClientCalls::RelaySessionReport(session_report)),
-		]);
-		if let Err(err) = send_xcm::<T>(AssetHubLocation::get(), message) {
-			log::error!(target: "runtime", "Failed to send relay session report message: {:?}", err);
-		}
-	}
-
-	fn relay_new_offence(
-		session_index: SessionIndex,
-		offences: Vec<rc_client::Offence<Self::AccountId>>,
-	) {
-		let message = Xcm(vec![
-			Instruction::UnpaidExecution {
-				weight_limit: WeightLimit::Unlimited,
-				check_origin: None,
-			},
-			Self::mk_asset_hub_call(RcClientCalls::RelayNewOffence(session_index, offences)),
-		]);
-		if let Err(err) = send_xcm::<T>(AssetHubLocation::get(), message) {
-			log::error!(target: "runtime", "Failed to send relay offence message: {:?}", err);
-		}
-	}
-}
-
-impl<T: SendXcm> XcmToAssetHub<T> {
-	fn mk_asset_hub_call(
-		call: RcClientCalls<<Self as ah_client::SendToAssetHub>::AccountId>,
-	) -> Instruction<()> {
-		Instruction::Transact {
-			origin_kind: OriginKind::Superuser,
-			fallback_max_weight: None,
-			call: AssetHubRuntimePallets::RcClient(call).encode().into(),
-		}
 	}
 }
 
@@ -863,13 +814,71 @@ impl frame_support::traits::EnsureOrigin<RuntimeOrigin> for EnsureAssetHub {
 	}
 }
 
+pub struct SessionReportToXcm;
+impl sp_runtime::traits::Convert<rc_client::SessionReport<AccountId>, Xcm<()>> for SessionReportToXcm {
+	fn convert(a: rc_client::SessionReport<AccountId>) -> Xcm<()> {
+		Xcm(vec![
+			Instruction::UnpaidExecution {
+				weight_limit: WeightLimit::Unlimited,
+				check_origin: None,
+			},
+			Instruction::Transact {
+				origin_kind: OriginKind::Superuser,
+				fallback_max_weight: None,
+				call: AssetHubRuntimePallets::RcClient(RcClientCalls::RelaySessionReport(a))
+					.encode()
+					.into(),
+			},
+		])
+	}
+}
+
+pub struct StakingXcmToAssetHub;
+impl ah_client::SendToAssetHub for StakingXcmToAssetHub {
+	type AccountId = AccountId;
+
+	fn relay_session_report(session_report: rc_client::SessionReport<Self::AccountId>) {
+		rc_client::XCMSender::<
+			xcm_config::XcmRouter,
+			AssetHubLocation,
+			rc_client::SessionReport<AccountId>,
+			SessionReportToXcm,
+		>::split_then_send(session_report, Some(8));
+	}
+
+	fn relay_new_offence(
+		session_index: SessionIndex,
+		offences: Vec<rc_client::Offence<Self::AccountId>>,
+	) {
+		let message = Xcm(vec![
+			Instruction::UnpaidExecution {
+				weight_limit: WeightLimit::Unlimited,
+				check_origin: None,
+			},
+			Instruction::Transact {
+				origin_kind: OriginKind::Superuser,
+				fallback_max_weight: None,
+				call: AssetHubRuntimePallets::RcClient(RcClientCalls::RelayNewOffence(
+					session_index,
+					offences,
+				))
+				.encode()
+				.into(),
+			},
+		]);
+		if let Err(err) = send_xcm::<xcm_config::XcmRouter>(AssetHubLocation::get(), message) {
+			log::error!(target: "runtime::ah-client", "Failed to send relay offence message: {:?}", err);
+		}
+	}
+}
+
 impl ah_client::Config for Runtime {
 	type CurrencyBalance = Balance;
 	type AssetHubOrigin =
 		frame_support::traits::EitherOfDiverse<EnsureRoot<AccountId>, EnsureAssetHub>;
 	type AdminOrigin = EnsureRoot<AccountId>;
 	type SessionInterface = Self;
-	type SendToAssetHub = XcmToAssetHub<crate::xcm_config::XcmRouter>;
+	type SendToAssetHub = StakingXcmToAssetHub;
 	type MinimumValidatorSetSize = ConstU32<1>;
 	type UnixTime = Timestamp;
 	type PointsPerBlock = ConstU32<20>;

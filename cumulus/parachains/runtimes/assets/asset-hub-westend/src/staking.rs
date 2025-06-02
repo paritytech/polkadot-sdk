@@ -15,21 +15,19 @@
 
 ///! Staking, and election related pallet configurations.
 use super::*;
-use core::marker::PhantomData;
 use cumulus_primitives_core::relay_chain::SessionIndex;
-use frame_election_provider_support::{
-	bounds::{ElectionBounds, ElectionBoundsBuilder},
-	onchain, ElectionDataProvider, SequentialPhragmen,
-};
+use frame_election_provider_support::{ElectionDataProvider, SequentialPhragmen};
 use frame_support::traits::{ConstU128, EitherOf};
 use pallet_election_provider_multi_block::{
 	self as multi_block, weights::measured, SolutionAccuracyOf,
 };
 use pallet_staking_async::UseValidatorsMap;
+use pallet_staking_async_rc_client as rc_client;
 use polkadot_runtime_common::{prod_or_fast, BalanceToU256, U256ToBalance};
 use sp_runtime::{
 	transaction_validity::TransactionPriority, FixedPointNumber, FixedU128, SaturatedConversion,
 };
+use xcm::latest::prelude::*;
 
 parameter_types! {
 	/// Number of election pages that we operate upon. 32 * 6s block = 192s 3.2min stanpshot
@@ -274,7 +272,7 @@ impl pallet_staking_async::Config for Runtime {
 impl pallet_staking_async_rc_client::Config for Runtime {
 	type RelayChainOrigin = EnsureRoot<AccountId>;
 	type AHStakingInterface = Staking;
-	type SendToRelayChain = XcmToRelayChain<xcm_config::XcmRouter>;
+	type SendToRelayChain = StakingXcmToRelayChain;
 }
 
 #[derive(Encode, Decode)]
@@ -292,17 +290,12 @@ pub enum AhClientCalls {
 	ValidatorSet(rc_client::ValidatorSetReport<AccountId>),
 }
 
-use pallet_staking_async_rc_client as rc_client;
-use xcm::latest::{prelude::*, SendXcm};
-
-// FAIL-CI: @kianenigma port over the new xcm configs from https://github.com/paritytech/polkadot-sdk/pull/8422
-pub struct XcmToRelayChain<T: SendXcm>(PhantomData<T>);
-impl<T: SendXcm> rc_client::SendToRelayChain for XcmToRelayChain<T> {
-	type AccountId = AccountId;
-
-	/// Send a new validator set report to relay chain.
-	fn validator_set(report: rc_client::ValidatorSetReport<Self::AccountId>) {
-		let message = Xcm(vec![
+pub struct ValidatorSetToXcm;
+impl sp_runtime::traits::Convert<rc_client::ValidatorSetReport<AccountId>, Xcm<()>>
+	for ValidatorSetToXcm
+{
+	fn convert(report: rc_client::ValidatorSetReport<AccountId>) -> Xcm<()> {
+		Xcm(vec![
 			Instruction::UnpaidExecution {
 				weight_limit: WeightLimit::Unlimited,
 				check_origin: None,
@@ -314,18 +307,25 @@ impl<T: SendXcm> rc_client::SendToRelayChain for XcmToRelayChain<T> {
 					.encode()
 					.into(),
 			},
-		]);
-		let dest = Location::parent();
-		let result = send_xcm::<T>(dest, message);
+		])
+	}
+}
 
-		match result {
-			Ok(_) => {
-				log::info!(target: "runtime", "Successfully sent validator set report to relay chain")
-			},
-			Err(e) => {
-				log::error!(target: "runtime", "Failed to send validator set report to relay chain: {:?}", e)
-			},
-		}
+parameter_types! {
+	pub RelayLocation: Location = Location::parent();
+}
+
+pub struct StakingXcmToRelayChain;
+
+impl rc_client::SendToRelayChain for StakingXcmToRelayChain {
+	type AccountId = AccountId;
+	fn validator_set(report: rc_client::ValidatorSetReport<Self::AccountId>) {
+		rc_client::XCMSender::<
+			xcm_config::XcmRouter,
+			RelayLocation,
+			rc_client::ValidatorSetReport<Self::AccountId>,
+			ValidatorSetToXcm,
+		>::split_then_send(report, Some(8));
 	}
 }
 
