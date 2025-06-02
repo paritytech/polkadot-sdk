@@ -473,6 +473,9 @@ pub enum AdminOperation<T: Config> {
 	/// This is useful in preventing any serious issue where due to a bug we accept a very bad
 	/// solution.
 	SetMinUntrustedScore(ElectionScore),
+	/// WAH ONLY: simulate the creation of a snapshot. It will write the snapshot to a fake storage
+	/// item.
+	ForceCreateSnapshot(PageIndex),
 }
 
 /// Trait to notify other sub-systems that a round has ended.
@@ -644,6 +647,47 @@ pub mod pallet {
 				},
 				AdminOperation::SetMinUntrustedScore(score) => {
 					T::Verifier::set_minimum_score(score);
+					Ok(().into())
+				},
+				AdminOperation::ForceCreateSnapshot(page) => {
+					if page == T::Pages::get() {
+						let count = T::TargetSnapshotPerBlock::get();
+						let bounds = DataProviderBounds { count: Some(count.into()), size: None };
+						let targets: BoundedVec<_, T::TargetSnapshotPerBlock> =
+							T::DataProvider::electable_targets(bounds, 0)
+								.and_then(|v| v.try_into().map_err(|_| "bounds"))
+								.map_err(|e| {
+									log!(error, "Failed to create target snapshot: {:?}", e);
+									"targets"
+								})?;
+
+						let count = targets.len() as u32;
+						log!(debug, "FAKE: created target snapshot with {} targets.", count);
+						FakeSnapshot::<T>::set_targets(targets);
+					} else if page < T::Pages::get() {
+						let count = T::VoterSnapshotPerBlock::get();
+						let bounds = DataProviderBounds { count: Some(count.into()), size: None };
+						let voters: BoundedVec<_, T::VoterSnapshotPerBlock> =
+							T::DataProvider::electing_voters(bounds, page)
+								.and_then(|v| v.try_into().map_err(|_| "bounds"))
+								.map_err(|e| {
+									log!(error, "Failed to create voter snapshot: {:?}", e);
+									"targets"
+								})?;
+
+						let count = voters.len() as u32;
+						FakeSnapshot::<T>::set_voters(page, voters);
+						log!(
+							debug,
+							"FAKE: created voter snapshot with {} voters, {} remaining.",
+							count,
+							page
+						);
+					} else {
+						FakeSnapshot::<T>::kill();
+						log!(debug, "FAKE: removed all snapshot.");
+					};
+
 					Ok(().into())
 				},
 			}
@@ -1160,6 +1204,80 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type PagedTargetSnapshotHash<T: Config> =
 		StorageDoubleMap<_, Twox64Concat, u32, Twox64Concat, PageIndex, T::Hash>;
+
+	#[pallet::storage]
+	pub type FakePagedTargetSnapshot<T: Config> = StorageDoubleMap<
+		_,
+		Twox64Concat,
+		u32,
+		Twox64Concat,
+		PageIndex,
+		BoundedVec<T::AccountId, T::TargetSnapshotPerBlock>,
+	>;
+	#[pallet::storage]
+	pub type FakePagedTargetSnapshotHash<T: Config> =
+		StorageDoubleMap<_, Twox64Concat, u32, Twox64Concat, PageIndex, T::Hash>;
+	#[pallet::storage]
+	pub type FakePagedVoterSnapshot<T: Config> = StorageDoubleMap<
+		_,
+		Twox64Concat,
+		u32,
+		Twox64Concat,
+		PageIndex,
+		VoterPageOf<T::MinerConfig>,
+	>;
+	#[pallet::storage]
+	pub type FakePagedVoterSnapshotHash<T: Config> =
+		StorageDoubleMap<_, Twox64Concat, u32, Twox64Concat, PageIndex, T::Hash>;
+
+	pub(crate) struct FakeSnapshot<T>(sp_std::marker::PhantomData<T>);
+	impl<T: Config> FakeSnapshot<T> {
+		pub(crate) fn set_targets(targets: BoundedVec<T::AccountId, T::TargetSnapshotPerBlock>) {
+			let hash = Self::write_storage_with_pre_allocate(
+				&FakePagedTargetSnapshot::<T>::hashed_key_for(Self::round(), Pallet::<T>::msp()),
+				targets,
+			);
+			FakePagedTargetSnapshotHash::<T>::insert(Self::round(), Pallet::<T>::msp(), hash);
+		}
+
+		pub(crate) fn set_voters(page: PageIndex, voters: VoterPageOf<T::MinerConfig>) {
+			let hash = Self::write_storage_with_pre_allocate(
+				&FakePagedVoterSnapshot::<T>::hashed_key_for(Self::round(), page),
+				voters,
+			);
+			FakePagedVoterSnapshotHash::<T>::insert(Self::round(), page, hash);
+		}
+
+		/// Destroy the entire snapshot.
+		///
+		/// Should be called only once we transition to [`Phase::Off`].
+		pub(crate) fn kill() {
+			clear_round_based_map!(FakePagedVoterSnapshot::<T>, Self::round());
+			clear_round_based_map!(FakePagedVoterSnapshotHash::<T>, Self::round());
+			clear_round_based_map!(FakePagedTargetSnapshot::<T>, Self::round());
+			clear_round_based_map!(FakePagedTargetSnapshotHash::<T>, Self::round());
+		}
+
+		fn write_storage_with_pre_allocate<E: Encode>(key: &[u8], data: E) -> T::Hash {
+			let size = data.encoded_size();
+			let mut buffer = Vec::with_capacity(size);
+			data.encode_to(&mut buffer);
+
+			let hash = T::Hashing::hash(&buffer);
+
+			// do some checks.
+			debug_assert_eq!(buffer, data.encode());
+			// buffer should have not re-allocated since.
+			debug_assert!(buffer.len() == size && size == buffer.capacity());
+			sp_io::storage::set(key, &buffer);
+
+			hash
+		}
+
+		fn round() -> u32 {
+			Pallet::<T>::round()
+		}
+	}
 
 	#[pallet::pallet]
 	pub struct Pallet<T>(PhantomData<T>);
