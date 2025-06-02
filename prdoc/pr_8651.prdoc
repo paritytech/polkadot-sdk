@@ -12,36 +12,38 @@ doc:
     for runtimes to implement the `GetParachainIdentity` trait to still be compatible with the nodes.
 crates:
 - name: asset-hub-rococo-runtime
-  bump: major
+  bump: minor 
 - name: cumulus-primitives-core
-  bump: major
-- name: asset-hub-westend-runtime
-  bump: major
+  bump: minor 
 - name: bridge-hub-rococo-runtime
-  bump: major
+  bump: minor 
 - name: bridge-hub-westend-runtime
-  bump: major
+  bump: minor 
 - name: collectives-westend-runtime
-  bump: major
+  bump: minor 
 - name: coretime-rococo-runtime
   bump: major
 - name: coretime-westend-runtime
-  bump: major
+  bump: minor 
 - name: glutton-westend-runtime
-  bump: major
+  bump: minor 
 - name: people-rococo-runtime
-  bump: major
+  bump: minor 
 - name: people-westend-runtime
-  bump: major
+  bump: minor 
 - name: penpal-runtime
-  bump: major
+  bump: minor 
 - name: rococo-parachain-runtime
-  bump: major
+  bump: minor 
 - name: polkadot-omni-node-lib
-  bump: major
+  bump: patch 
 - name: polkadot-omni-node
   bump: major
 - name: staging-chain-spec-builder
-  bump: major
+  bump: patch 
 - name: pallet-staking-async-parachain-runtime
-  bump: major
+  bump: minor
+- name: polkadot-parachain-bin
+  bump: patch  
+  
+
