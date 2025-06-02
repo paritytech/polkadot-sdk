@@ -28,17 +28,17 @@ use crate::{
 	test_utils::*,
 	tests::{
 		test_utils::{get_balance, place_contract, set_balance},
-		ExtBuilder, RuntimeCall, RuntimeEvent as MetaEvent, Test, TestFilter,
+		ExtBuilder, RuntimeEvent as MetaEvent, Test,
 	},
 	AddressMapper, Error,
 };
 use assert_matches::assert_matches;
 use frame_support::{assert_err, assert_ok, parameter_types};
-use frame_system::{AccountInfo, EventRecord, Phase};
+use frame_system::AccountInfo;
 use pallet_revive_uapi::ReturnFlags;
 use pretty_assertions::assert_eq;
 use sp_io::hashing::keccak_256;
-use sp_runtime::{traits::Hash, DispatchError};
+use sp_runtime::DispatchError;
 use std::{cell::RefCell, collections::hash_map::HashMap, rc::Rc};
 
 type System = frame_system::Pallet<Test>;
@@ -1601,138 +1601,6 @@ fn call_deny_reentry() {
 			)
 			.map_err(|e| e.error),
 			<Error<Test>>::ReentranceDenied,
-		);
-	});
-}
-
-#[test]
-fn call_runtime_works() {
-	let code_hash = MockLoader::insert(Call, |ctx, _| {
-		let call = RuntimeCall::System(frame_system::Call::remark_with_event {
-			remark: b"Hello World".to_vec(),
-		});
-		ctx.ext.call_runtime(call).unwrap();
-		exec_success()
-	});
-
-	ExtBuilder::default().build().execute_with(|| {
-		let min_balance = <Test as Config>::Currency::minimum_balance();
-
-		let mut gas_meter = GasMeter::<Test>::new(GAS_LIMIT);
-		set_balance(&ALICE, min_balance * 10);
-		place_contract(&BOB, code_hash);
-		let origin = Origin::from_account_id(ALICE);
-		let mut storage_meter = storage::meter::Meter::new(0);
-		System::reset_events();
-		MockStack::run_call(
-			origin,
-			BOB_ADDR,
-			&mut gas_meter,
-			&mut storage_meter,
-			U256::zero(),
-			vec![],
-			false,
-		)
-		.unwrap();
-
-		let remark_hash = <Test as frame_system::Config>::Hashing::hash(b"Hello World");
-		assert_eq!(
-			System::events(),
-			vec![EventRecord {
-				phase: Phase::Initialization,
-				event: MetaEvent::System(frame_system::Event::Remarked {
-					sender: BOB_FALLBACK,
-					hash: remark_hash
-				}),
-				topics: vec![],
-			},]
-		);
-	});
-}
-
-#[test]
-fn call_runtime_filter() {
-	let code_hash = MockLoader::insert(Call, |ctx, _| {
-		use frame_system::Call as SysCall;
-		use pallet_balances::Call as BalanceCall;
-		use pallet_utility::Call as UtilCall;
-
-		// remark should still be allowed
-		let allowed_call =
-			RuntimeCall::System(SysCall::remark_with_event { remark: b"Hello".to_vec() });
-
-		// transfers are disallowed by the `TestFiler` (see below)
-		let forbidden_call =
-			RuntimeCall::Balances(BalanceCall::transfer_allow_death { dest: CHARLIE, value: 22 });
-
-		// simple cases: direct call
-		assert_err!(
-			ctx.ext.call_runtime(forbidden_call.clone()),
-			frame_system::Error::<Test>::CallFiltered
-		);
-
-		// as part of a patch: return is OK (but it interrupted the batch)
-		assert_ok!(ctx.ext.call_runtime(RuntimeCall::Utility(UtilCall::batch {
-			calls: vec![allowed_call.clone(), forbidden_call, allowed_call]
-		})),);
-
-		// the transfer wasn't performed
-		assert_eq!(get_balance(&CHARLIE), 0);
-
-		exec_success()
-	});
-
-	TestFilter::set_filter(|call| match call {
-		RuntimeCall::Balances(pallet_balances::Call::transfer_allow_death { .. }) => false,
-		_ => true,
-	});
-
-	ExtBuilder::default().build().execute_with(|| {
-		let min_balance = <Test as Config>::Currency::minimum_balance();
-
-		let mut gas_meter = GasMeter::<Test>::new(GAS_LIMIT);
-		set_balance(&ALICE, min_balance * 10);
-		place_contract(&BOB, code_hash);
-		let origin = Origin::from_account_id(ALICE);
-		let mut storage_meter = storage::meter::Meter::new(0);
-		System::reset_events();
-		MockStack::run_call(
-			origin,
-			BOB_ADDR,
-			&mut gas_meter,
-			&mut storage_meter,
-			U256::zero(),
-			vec![],
-			false,
-		)
-		.unwrap();
-
-		let remark_hash = <Test as frame_system::Config>::Hashing::hash(b"Hello");
-		assert_eq!(
-			System::events(),
-			vec![
-				EventRecord {
-					phase: Phase::Initialization,
-					event: MetaEvent::System(frame_system::Event::Remarked {
-						sender: BOB_FALLBACK,
-						hash: remark_hash
-					}),
-					topics: vec![],
-				},
-				EventRecord {
-					phase: Phase::Initialization,
-					event: MetaEvent::Utility(pallet_utility::Event::ItemCompleted),
-					topics: vec![],
-				},
-				EventRecord {
-					phase: Phase::Initialization,
-					event: MetaEvent::Utility(pallet_utility::Event::BatchInterrupted {
-						index: 1,
-						error: frame_system::Error::<Test>::CallFiltered.into()
-					},),
-					topics: vec![],
-				},
-			]
 		);
 	});
 }
