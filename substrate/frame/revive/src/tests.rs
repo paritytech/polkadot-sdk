@@ -1896,8 +1896,7 @@ fn gas_estimation_for_subcalls() {
 			Weight::from_parts(GAS_LIMIT.ref_time(), u64::MAX),
 		];
 
-		// Encodes which contract should be sub called with which input
-		let (sub_addr, sub_input, out_of_gas_in_subcall) = (addr_dummy.as_ref(), vec![], false);
+		let (sub_addr, sub_input) = (addr_dummy.as_ref(), vec![]);
 
 		for weight in weights {
 			let input: Vec<u8> = sub_addr
@@ -1911,17 +1910,6 @@ fn gas_estimation_for_subcalls() {
 			// Call in order to determine the gas that is required for this call
 			let result_orig = builder::bare_call(addr_caller).data(input.clone()).build();
 			assert_ok!(&result_orig.result);
-
-			// If the out of gas happens in the subcall the caller contract
-			// will just trap. Otherwise we would need to forward an error
-			// code to signal that the sub contract ran out of gas.
-			let error: DispatchError = if out_of_gas_in_subcall {
-				assert!(result_orig.gas_required.all_gt(result_orig.gas_consumed));
-				<Error<Test>>::ContractTrapped.into()
-			} else {
-				assert_eq!(result_orig.gas_required, result_orig.gas_consumed);
-				<Error<Test>>::OutOfGas.into()
-			};
 
 			// Make the same call using the estimated gas. Should succeed.
 			let result = builder::bare_call(addr_caller)
@@ -1937,7 +1925,7 @@ fn gas_estimation_for_subcalls() {
 				.storage_deposit_limit(result_orig.storage_deposit.charge_or_zero().into())
 				.data(input.clone())
 				.build();
-			assert_err!(result.result, error);
+			assert_err!(result.result, <Error<Test>>::OutOfGas);
 
 			// Check that it fails with too little proof_size
 			let result = builder::bare_call(addr_caller)
@@ -1945,7 +1933,7 @@ fn gas_estimation_for_subcalls() {
 				.storage_deposit_limit(result_orig.storage_deposit.charge_or_zero().into())
 				.data(input.clone())
 				.build();
-			assert_err!(result.result, error);
+			assert_err!(result.result, <Error<Test>>::OutOfGas);
 		}
 	});
 }
