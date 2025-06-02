@@ -3144,7 +3144,7 @@ impl<T: Config> Pallet<T> {
 			.map_err(|()| {
 				tracing::debug!(
 					target: "xcm::pallet_xcm::convert_forwarded_xcms",
-					"Failed to convert forwarded xcms to the requested version",
+					"Failed to convert VersionedLocation to requested version",
 				);
 				XcmDryRunApiError::VersionedConversionFailed
 			})
