@@ -138,7 +138,7 @@ where
 			.map(|()| hash)
 			.map_err(|error| {
 				log::debug!(
-					target: "xcm::DownwardMessageQueues::deliver",
+					target: "xcm::xcm_sender::deliver",
 					"Failed to place into DMP queue: error: {:?}, id: {:?}",
 					error,
 					hash,

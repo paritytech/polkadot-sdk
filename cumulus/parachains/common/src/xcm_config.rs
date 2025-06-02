@@ -60,7 +60,7 @@ where
 		// This is to avoid burning assets and decreasing the supply
 		let asset_amount = BalanceConverter::to_asset_balance(amount, asset_id)
 			.map_err(|_| {
-				log::trace!(target: "xcm::charge_weight_in_fungibles", "AssetFeeAsExistentialDepositMultiplier Cannot convert to valid balance (possibly below ED)");
+				log::debug!(target: "xcm::charge_weight_in_fungibles", "AssetFeeAsExistentialDepositMultiplier Cannot convert to valid balance (possibly below ED)");
 				XcmError::TooExpensive
 			})?;
 		Ok(asset_amount)

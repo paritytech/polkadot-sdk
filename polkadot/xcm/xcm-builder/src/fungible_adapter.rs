@@ -64,7 +64,7 @@ impl<
 			tracing::debug!(
 				target: "xcm::fungible_adapter",
 				?error,
-				"Failed to transfer assets",
+				"Failed to transfer asset",
 			);
 			XcmError::FailedToTransactAsset(error.into())
 		})?;
