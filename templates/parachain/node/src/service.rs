@@ -280,9 +280,9 @@ pub async fn start_parachain_node(
 	// Take parachain id from runtime.
 	let best_hash = client.chain_info().best_hash;
 	let para_id = client
-        .runtime_api()
-        .parachain_id(best_hash)
-        .map_err(|_| "Failed to retrieve parachain id from runtime. Make sure you implement `cumulus_primitives_core::GetParachaiNidentity` runtime API.")?;
+		.runtime_api()
+		.parachain_id(best_hash)
+		.map_err(|_| "Failed to retrieve parachain id from runtime. Make sure you implement `cumulus_primitives_core::GetParachaiNidentity` runtime API.")?;
 
 	// NOTE: because we use Aura here explicitly, we can use `CollatorSybilResistance::Resistant`
 	// when starting the network.
