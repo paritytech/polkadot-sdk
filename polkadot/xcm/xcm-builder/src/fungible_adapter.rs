@@ -60,15 +60,14 @@ impl<
 			.ok_or(MatchError::AccountIdConversionFailed)?;
 		let dest = AccountIdConverter::convert_location(to)
 			.ok_or(MatchError::AccountIdConversionFailed)?;
-		Fungible::transfer(&source, &dest, amount, Expendable)
-			.map_err(|error| {
-				tracing::debug!(
-					target: "xcm::fungible_adapter",
-					?error,
-					"Failed to transfer assets",
-				);
-				XcmError::FailedToTransactAsset(error.into())
-			})?;
+		Fungible::transfer(&source, &dest, amount, Expendable).map_err(|error| {
+			tracing::debug!(
+				target: "xcm::fungible_adapter",
+				?error,
+				"Failed to transfer assets",
+			);
+			XcmError::FailedToTransactAsset(error.into())
+		})?;
 		Ok(what.clone().into())
 	}
 }
@@ -213,15 +212,14 @@ impl<
 		let amount = Matcher::matches_fungible(what).ok_or(MatchError::AssetNotHandled)?;
 		let who = AccountIdConverter::convert_location(who)
 			.ok_or(MatchError::AccountIdConversionFailed)?;
-		Fungible::mint_into(&who, amount)
-			.map_err(|error| {
-				tracing::debug!(
-					target: "xcm::fungible_adapter",
-					?error,
-					"Failed to deposit assets",
-				);
-				XcmError::FailedToTransactAsset(error.into())
-			})?;
+		Fungible::mint_into(&who, amount).map_err(|error| {
+			tracing::debug!(
+				target: "xcm::fungible_adapter",
+				?error,
+				"Failed to deposit assets",
+			);
+			XcmError::FailedToTransactAsset(error.into())
+		})?;
 		Ok(())
 	}
 
@@ -238,15 +236,14 @@ impl<
 		let amount = Matcher::matches_fungible(what).ok_or(MatchError::AssetNotHandled)?;
 		let who = AccountIdConverter::convert_location(who)
 			.ok_or(MatchError::AccountIdConversionFailed)?;
-		Fungible::burn_from(&who, amount, Expendable, Exact, Polite)
-			.map_err(|error| {
-				tracing::debug!(
-					target: "xcm::fungible_adapter",
-					?error,
-					"Failed to withdraw assets",
-				);
-				XcmError::FailedToTransactAsset(error.into())
-			})?;
+		Fungible::burn_from(&who, amount, Expendable, Exact, Polite).map_err(|error| {
+			tracing::debug!(
+				target: "xcm::fungible_adapter",
+				?error,
+				"Failed to withdraw assets",
+			);
+			XcmError::FailedToTransactAsset(error.into())
+		})?;
 		Ok(what.clone().into())
 	}
 }

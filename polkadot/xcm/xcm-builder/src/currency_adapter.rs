@@ -113,7 +113,10 @@ impl<
 			WithdrawReasons::TRANSFER,
 			new_balance,
 		)
-		.map_err(|_| XcmError::NotWithdrawable)
+		.map_err(|error| {
+			tracing::trace!(target: "xcm::currency_adapter", ?error, "Failed to ensure can withdraw");
+			XcmError::NotWithdrawable
+		})
 	}
 	fn accrue_checked(checked_account: AccountId, amount: Currency::Balance) {
 		let _ = Currency::deposit_creating(&checked_account, amount);
@@ -214,8 +217,12 @@ impl<
 		let amount = Matcher::matches_fungible(what).ok_or(Error::AssetNotHandled)?;
 		let who =
 			AccountIdConverter::convert_location(who).ok_or(Error::AccountIdConversionFailed)?;
-		let _ = Currency::withdraw(&who, amount, WithdrawReasons::TRANSFER, AllowDeath)
-			.map_err(|e| XcmError::FailedToTransactAsset(e.into()))?;
+		let _ = Currency::withdraw(&who, amount, WithdrawReasons::TRANSFER, AllowDeath).map_err(
+			|error| {
+				tracing::trace!(target: "xcm::currency_adapter", ?error, "Failed to withdraw asset");
+				XcmError::FailedToTransactAsset(error.into())
+			},
+		)?;
 		Ok(what.clone().into())
 	}
 
@@ -231,8 +238,10 @@ impl<
 			AccountIdConverter::convert_location(from).ok_or(Error::AccountIdConversionFailed)?;
 		let to =
 			AccountIdConverter::convert_location(to).ok_or(Error::AccountIdConversionFailed)?;
-		Currency::transfer(&from, &to, amount, AllowDeath)
-			.map_err(|e| XcmError::FailedToTransactAsset(e.into()))?;
+		Currency::transfer(&from, &to, amount, AllowDeath).map_err(|error| {
+			tracing::trace!(target: "xcm::currency_adapter", ?error, "Failed to transfer asset");
+			XcmError::FailedToTransactAsset(error.into())
+		})?;
 		Ok(asset.clone().into())
 	}
 }

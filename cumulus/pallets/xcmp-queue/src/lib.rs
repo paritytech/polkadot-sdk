@@ -707,11 +707,12 @@ impl<T: Config> Pallet<T> {
 			return Err(())
 		}
 
-		let xcm = VersionedXcm::<()>::decode_with_depth_limit(MAX_XCM_DECODE_DEPTH, data)
-			.map_err(|error| {
+		let xcm = VersionedXcm::<()>::decode_with_depth_limit(MAX_XCM_DECODE_DEPTH, data).map_err(
+			|error| {
 				log::error!(target: LOG_TARGET, "Failed to decode XCM with depth limit: {error:?}");
 				()
-			})?;
+			},
+		)?;
 		Ok(Some(xcm.encode().try_into().map_err(|error| {
 			log::error!(target: LOG_TARGET, "Failed to encode XCM: {error:?}");
 			()
@@ -1059,17 +1060,14 @@ impl<T: Config> SendXcm for Pallet<T> {
 				let xcm = msg.take().ok_or(SendError::MissingArgument)?;
 				let id = ParaId::from(*id);
 				let price = T::PriceForSiblingDelivery::price_for_delivery(id, &xcm);
-				let versioned_xcm = T::VersionWrapper::wrap_version(&d, xcm)
-					.map_err(|()| {
-						log::error!(target: LOG_TARGET, "Failed to wrap XCM version");
-						SendError::DestinationUnsupported
-					})?;
-				versioned_xcm
-					.check_is_decodable()
-					.map_err(|()| {
-						log::error!(target: LOG_TARGET, "Failed to check XCM decodability");
-						SendError::ExceedsMaxMessageSize
-					})?;
+				let versioned_xcm = T::VersionWrapper::wrap_version(&d, xcm).map_err(|()| {
+					log::error!(target: LOG_TARGET, "Failed to wrap XCM version");
+					SendError::DestinationUnsupported
+				})?;
+				versioned_xcm.check_is_decodable().map_err(|()| {
+					log::error!(target: LOG_TARGET, "Failed to check XCM decodability");
+					SendError::ExceedsMaxMessageSize
+				})?;
 
 				Ok(((id, versioned_xcm), price))
 			},

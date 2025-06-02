@@ -164,13 +164,19 @@ impl<
 		let checking_account = CheckingAccount::get();
 		Assets::can_deposit(asset_id, &checking_account, amount, Minted)
 			.into_result()
-			.map_err(|_| XcmError::NotDepositable)
+			.map_err(|error| {
+				tracing::debug!(target: "xcm::fungibles_adapter", ?error, "Failed to check if asset can be accrued");
+				XcmError::NotDepositable
+			})
 	}
 	fn can_reduce_checked(asset_id: Assets::AssetId, amount: Assets::Balance) -> XcmResult {
 		let checking_account = CheckingAccount::get();
 		Assets::can_withdraw(asset_id, &checking_account, amount)
 			.into_result(false)
-			.map_err(|_| XcmError::NotWithdrawable)
+			.map_err(|error| {
+				tracing::debug!(target: "xcm::fungibles_adapter", ?error, "Failed to check if asset can be reduced");
+				XcmError::NotWithdrawable
+			})
 			.map(|_| ())
 	}
 	fn accrue_checked(asset_id: Assets::AssetId, amount: Assets::Balance) {
@@ -281,8 +287,10 @@ impl<
 		let (asset_id, amount) = Matcher::matches_fungibles(what)?;
 		let who = AccountIdConverter::convert_location(who)
 			.ok_or(MatchError::AccountIdConversionFailed)?;
-		Assets::mint_into(asset_id, &who, amount)
-			.map_err(|e| XcmError::FailedToTransactAsset(e.into()))?;
+		Assets::mint_into(asset_id, &who, amount).map_err(|error| {
+			tracing::debug!(target: "xcm::fungibles_adapter", ?error, "Failed to deposit asset");
+			XcmError::FailedToTransactAsset(error.into())
+		})?;
 		Ok(())
 	}
 
@@ -300,8 +308,10 @@ impl<
 		let (asset_id, amount) = Matcher::matches_fungibles(what)?;
 		let who = AccountIdConverter::convert_location(who)
 			.ok_or(MatchError::AccountIdConversionFailed)?;
-		Assets::burn_from(asset_id, &who, amount, Expendable, Exact, Polite)
-			.map_err(|e| XcmError::FailedToTransactAsset(e.into()))?;
+		Assets::burn_from(asset_id, &who, amount, Expendable, Exact, Polite).map_err(|error| {
+			tracing::debug!(target: "xcm::fungibles_adapter", ?error, "Failed to withdraw asset");
+			XcmError::FailedToTransactAsset(error.into())
+		})?;
 		Ok(what.clone().into())
 	}
 }
