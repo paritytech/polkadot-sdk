@@ -61,6 +61,7 @@ use frame_system::{
 	EnsureRoot, EnsureSigned, EnsureSignedBy,
 };
 use pallet_asset_conversion_tx_payment::SwapAssetAdapter;
+use pallet_assets::precompiles::{InlineIdConfig, ERC20};
 use pallet_nfts::{DestroyWitness, PalletFeatures};
 use pallet_revive::evm::runtime::EthExtra;
 use pallet_xcm::EnsureXcm;
@@ -97,7 +98,7 @@ use assets_common::{
 	matching::{FromNetwork, FromSiblingParachain},
 };
 use polkadot_runtime_common::{BlockHashCount, SlowAdjustingFeeUpdate};
-use weights::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight};
+use weights::{BlockExecutionWeight, ExtrinsicBaseWeight, InMemoryDbWeight};
 use xcm::{
 	latest::prelude::AssetId,
 	prelude::{VersionedAsset, VersionedAssetId, VersionedAssets, VersionedLocation, VersionedXcm},
@@ -180,7 +181,7 @@ impl frame_system::Config for Runtime {
 	type Hash = Hash;
 	type Block = Block;
 	type BlockHashCount = BlockHashCount;
-	type DbWeight = RocksDbWeight;
+	type DbWeight = InMemoryDbWeight;
 	type Version = Version;
 	type AccountData = pallet_balances::AccountData<Balance>;
 	type SystemWeightInfo = weights::frame_system::WeightInfo<Runtime>;
@@ -790,6 +791,7 @@ impl cumulus_pallet_parachain_system::Config for Runtime {
 	type CheckAssociatedRelayNumber = RelayNumberMonotonicallyIncreases;
 	type ConsensusHook = ConsensusHook;
 	type SelectCore = cumulus_pallet_parachain_system::DefaultCoreSelector<Runtime>;
+	type RelayParentOffset = ConstU32<0>;
 }
 
 type ConsensusHook = cumulus_pallet_aura_ext::FixedVelocityConsensusHook<
@@ -1076,7 +1078,10 @@ impl pallet_revive::Config for Runtime {
 	type DepositPerByte = DepositPerByte;
 	type WeightPrice = pallet_transaction_payment::Pallet<Self>;
 	type WeightInfo = pallet_revive::weights::SubstrateWeight<Self>;
-	type Precompiles = ();
+	type Precompiles = (
+		ERC20<Self, InlineIdConfig<0x120>, TrustBackedAssetsInstance>,
+		ERC20<Self, InlineIdConfig<0x320>, PoolAssetsInstance>,
+	);
 	type AddressMapper = pallet_revive::AccountId32Mapper<Self>;
 	type RuntimeMemory = ConstU32<{ 128 * 1024 * 1024 }>;
 	type PVFMemory = ConstU32<{ 512 * 1024 * 1024 }>;
@@ -1492,6 +1497,12 @@ pallet_revive::impl_runtime_apis_plus_revive!(
 
 		fn authorities() -> Vec<AuraId> {
 			pallet_aura::Authorities::<Runtime>::get().into_inner()
+		}
+	}
+
+	impl cumulus_primitives_core::RelayParentOffsetApi<Block> for Runtime {
+		fn relay_parent_offset() -> u32 {
+			0
 		}
 	}
 

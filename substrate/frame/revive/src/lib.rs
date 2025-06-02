@@ -27,14 +27,14 @@ mod benchmarking;
 mod call_builder;
 mod exec;
 mod gas;
+mod impl_fungibles;
 mod limits;
 mod primitives;
 mod storage;
-mod transient_storage;
-mod wasm;
-
 #[cfg(test)]
 mod tests;
+mod transient_storage;
+mod wasm;
 
 pub mod evm;
 pub mod precompiles;
@@ -82,7 +82,9 @@ use sp_runtime::{
 };
 
 pub use crate::{
-	address::{create1, create2, is_eth_derived, AccountId32Mapper, AddressMapper},
+	address::{
+		create1, create2, is_eth_derived, AccountId32Mapper, AddressMapper, TestAccountMapper,
+	},
 	exec::{MomentOf, Origin},
 	pallet::*,
 };
@@ -315,7 +317,6 @@ pub mod pallet {
 		use frame_system::EnsureSigned;
 		use sp_core::parameter_types;
 
-		type AccountId = sp_runtime::AccountId32;
 		type Balance = u64;
 		const UNITS: Balance = 10_000_000_000;
 		const CENTS: Balance = UNITS / 100;
@@ -336,7 +337,7 @@ pub mod pallet {
 		impl Time for TestDefaultConfig {
 			type Moment = u64;
 			fn now() -> Self::Moment {
-				unimplemented!("No default `now` implementation in `TestDefaultConfig` provide a custom `T::Time` type.")
+				0u64
 			}
 		}
 
@@ -366,8 +367,8 @@ pub mod pallet {
 			type DepositPerItem = DepositPerItem;
 			type Time = Self;
 			type UnsafeUnstableInterface = ConstBool<true>;
-			type UploadOrigin = EnsureSigned<AccountId>;
-			type InstantiateOrigin = EnsureSigned<AccountId>;
+			type UploadOrigin = EnsureSigned<Self::AccountId>;
+			type InstantiateOrigin = EnsureSigned<Self::AccountId>;
 			type WeightInfo = ();
 			type WeightPrice = Self;
 			type Xcm = ();
@@ -1038,7 +1039,7 @@ where
 		let try_call = || {
 			let origin = Origin::from_runtime_origin(origin)?;
 			let mut storage_meter = match storage_deposit_limit {
-				DepositLimit::Balance(limit) => StorageMeter::new(&origin, limit, value)?,
+				DepositLimit::Balance(limit) => StorageMeter::new(limit),
 				DepositLimit::UnsafeOnlyForDryRun =>
 					StorageMeter::new_unchecked(BalanceOf::<T>::max_value()),
 			};
@@ -1115,7 +1116,7 @@ where
 			let mut storage_meter = if unchecked_deposit_limit {
 				StorageMeter::new_unchecked(storage_deposit_limit)
 			} else {
-				StorageMeter::new(&instantiate_origin, storage_deposit_limit, value)?
+				StorageMeter::new(storage_deposit_limit)
 			};
 
 			let result = ExecStack::<T, WasmBlob<T>>::run_instantiate(
