@@ -317,7 +317,7 @@ parameter_types! {
 	pub static BondingDuration: u32 = 3;
 	pub static SlashDeferredDuration: u32 = 2;
 	pub static SessionsPerEra: u32 = 6;
-	pub static PlanningEraOffset: u32 = 1;
+	pub static PlanningEraOffset: u32 = 2;
 }
 
 impl pallet_staking_async::Config for Runtime {
