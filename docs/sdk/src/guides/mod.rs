@@ -45,3 +45,6 @@ pub mod enable_metadata_hash;
 
 /// How to enable elastic scaling MVP on a parachain.
 pub mod enable_elastic_scaling_mvp;
+
+/// How to parameterize parachain forking in relation to relay chain forking.
+pub mod handling_parachain_forks;

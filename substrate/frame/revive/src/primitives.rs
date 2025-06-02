@@ -31,7 +31,7 @@ use sp_runtime::{
 #[derive(Clone, Eq, PartialEq, Encode, Decode, RuntimeDebug, TypeInfo)]
 pub enum DepositLimit<Balance> {
 	/// Allows bypassing all balance transfer checks.
-	Unchecked,
+	UnsafeOnlyForDryRun,
 
 	/// Specifies a maximum allowable balance for a deposit.
 	Balance(Balance),
@@ -40,7 +40,7 @@ pub enum DepositLimit<Balance> {
 impl<T> DepositLimit<T> {
 	pub fn is_unchecked(&self) -> bool {
 		match self {
-			Self::Unchecked => true,
+			Self::UnsafeOnlyForDryRun => true,
 			_ => false,
 		}
 	}
