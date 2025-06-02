@@ -27,14 +27,14 @@ mod benchmarking;
 mod call_builder;
 mod exec;
 mod gas;
+mod impl_fungibles;
 mod limits;
 mod primitives;
 mod storage;
-mod transient_storage;
-mod wasm;
-
 #[cfg(test)]
 mod tests;
+mod transient_storage;
+mod wasm;
 
 pub mod evm;
 pub mod precompiles;
@@ -82,7 +82,9 @@ use sp_runtime::{
 };
 
 pub use crate::{
-	address::{create1, create2, is_eth_derived, AccountId32Mapper, AddressMapper},
+	address::{
+		create1, create2, is_eth_derived, AccountId32Mapper, AddressMapper, TestAccountMapper,
+	},
 	exec::{MomentOf, Origin},
 	pallet::*,
 };
@@ -315,7 +317,6 @@ pub mod pallet {
 		use frame_system::EnsureSigned;
 		use sp_core::parameter_types;
 
-		type AccountId = sp_runtime::AccountId32;
 		type Balance = u64;
 		const UNITS: Balance = 10_000_000_000;
 		const CENTS: Balance = UNITS / 100;
@@ -336,7 +337,7 @@ pub mod pallet {
 		impl Time for TestDefaultConfig {
 			type Moment = u64;
 			fn now() -> Self::Moment {
-				unimplemented!("No default `now` implementation in `TestDefaultConfig` provide a custom `T::Time` type.")
+				0u64
 			}
 		}
 
@@ -366,8 +367,8 @@ pub mod pallet {
 			type DepositPerItem = DepositPerItem;
 			type Time = Self;
 			type UnsafeUnstableInterface = ConstBool<true>;
-			type UploadOrigin = EnsureSigned<AccountId>;
-			type InstantiateOrigin = EnsureSigned<AccountId>;
+			type UploadOrigin = EnsureSigned<Self::AccountId>;
+			type InstantiateOrigin = EnsureSigned<Self::AccountId>;
 			type WeightInfo = ();
 			type WeightPrice = Self;
 			type Xcm = ();
@@ -1038,7 +1039,7 @@ where
 		let try_call = || {
 			let origin = Origin::from_runtime_origin(origin)?;
 			let mut storage_meter = match storage_deposit_limit {
-				DepositLimit::Balance(limit) => StorageMeter::new(&origin, limit, value)?,
+				DepositLimit::Balance(limit) => StorageMeter::new(limit),
 				DepositLimit::UnsafeOnlyForDryRun =>
 					StorageMeter::new_unchecked(BalanceOf::<T>::max_value()),
 			};
@@ -1068,7 +1069,13 @@ where
 	}
 
 	/// Prepare a dry run for the given account.
-	fn prepare_dry_run(account: &T::AccountId) {
+	///
+	///
+	/// This function is public because it is called by the runtime API implementation
+	/// (see `impl_runtime_apis_plus_revive`).
+	pub fn prepare_dry_run(account: &T::AccountId) {
+		// Bump the  nonce to simulate what would happen
+		// `pre-dispatch` if the transaction was executed.
 		frame_system::Pallet::<T>::inc_account_nonce(account);
 	}
 
@@ -1115,7 +1122,7 @@ where
 			let mut storage_meter = if unchecked_deposit_limit {
 				StorageMeter::new_unchecked(storage_deposit_limit)
 			} else {
-				StorageMeter::new(&instantiate_origin, storage_deposit_limit, value)?
+				StorageMeter::new(storage_deposit_limit)
 			};
 
 			let result = ExecStack::<T, WasmBlob<T>>::run_instantiate(
@@ -1142,37 +1149,6 @@ where
 			gas_required: gas_meter.gas_required(),
 			storage_deposit,
 		}
-	}
-
-	/// dry-run a contract call.
-	pub fn dry_run_call(
-		origin: OriginFor<T>,
-		dest: H160,
-		value: BalanceOf<T>,
-		gas_limit: Weight,
-		storage_deposit_limit: DepositLimit<BalanceOf<T>>,
-		data: Vec<u8>,
-	) -> ContractResult<ExecReturnValue, BalanceOf<T>> {
-		let account_id = ensure_signed(origin.clone())
-			.unwrap_or_else(|_| T::AddressMapper::to_account_id(&H160::default()));
-		Self::prepare_dry_run(&account_id);
-		Self::bare_call(origin, dest, value, gas_limit, storage_deposit_limit, data)
-	}
-
-	/// dry-run instantiate a contract deployment.
-	pub fn dry_run_instantiate(
-		origin: OriginFor<T>,
-		value: BalanceOf<T>,
-		gas_limit: Weight,
-		storage_deposit_limit: DepositLimit<BalanceOf<T>>,
-		code: Code,
-		data: Vec<u8>,
-		salt: Option<[u8; 32]>,
-	) -> ContractResult<InstantiateReturnValue, BalanceOf<T>> {
-		let account_id = ensure_signed(origin.clone())
-			.unwrap_or_else(|_| T::AddressMapper::to_account_id(&H160::default()));
-		Self::prepare_dry_run(&account_id);
-		Self::bare_instantiate(origin, value, gas_limit, storage_deposit_limit, code, data, salt)
 	}
 
 	/// Dry-run Ethereum calls.
@@ -1766,10 +1742,9 @@ macro_rules! impl_runtime_apis_plus_revive {
 					let blockweights: $crate::BlockWeights =
 						<Self as $crate::frame_system::Config>::BlockWeights::get();
 
-					let origin =
-						<Self as $crate::frame_system::Config>::RuntimeOrigin::signed(origin);
-					$crate::Pallet::<Self>::dry_run_call(
-						origin,
+					$crate::Pallet::<Self>::prepare_dry_run(&origin);
+					$crate::Pallet::<Self>::bare_call(
+						<Self as $crate::frame_system::Config>::RuntimeOrigin::signed(origin),
 						dest,
 						value,
 						gas_limit.unwrap_or(blockweights.max_block),
@@ -1791,17 +1766,15 @@ macro_rules! impl_runtime_apis_plus_revive {
 					let blockweights: $crate::BlockWeights =
 						<Self as $crate::frame_system::Config>::BlockWeights::get();
 
-					let origin =
-						<Self as $crate::frame_system::Config>::RuntimeOrigin::signed(origin);
-					$crate::Pallet::<Self>::dry_run_instantiate(
-						origin,
+					$crate::Pallet::<Self>::prepare_dry_run(&origin);
+					$crate::Pallet::<Self>::bare_instantiate(
+						<Self as $crate::frame_system::Config>::RuntimeOrigin::signed(origin),
 						value,
 						gas_limit.unwrap_or(blockweights.max_block),
 						$crate::DepositLimit::Balance(storage_deposit_limit.unwrap_or(u128::MAX)),
 						code,
 						data,
 						salt,
-						$crate::NonceAlreadyIncremented::No,
 					)
 				}
 

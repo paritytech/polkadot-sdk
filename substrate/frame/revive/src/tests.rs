@@ -352,6 +352,7 @@ where
 }
 parameter_types! {
 	pub static UnstableInterface: bool = true;
+	pub CheckingAccount: AccountId32 = BOB.clone();
 }
 
 impl FindAuthor<<Test as frame_system::Config>::AccountId> for Test {
@@ -423,9 +424,13 @@ impl ExtBuilder {
 		sp_tracing::try_init_simple();
 		self.set_associated_consts();
 		let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
-		pallet_balances::GenesisConfig::<Test> { balances: vec![], ..Default::default() }
-			.assimilate_storage(&mut t)
-			.unwrap();
+		let checking_account = Pallet::<Test>::checking_account();
+		pallet_balances::GenesisConfig::<Test> {
+			balances: vec![(checking_account.clone(), 1_000_000_000_000)],
+			..Default::default()
+		}
+		.assimilate_storage(&mut t)
+		.unwrap();
 		let mut ext = sp_io::TestExternalities::new(t);
 		ext.register_extension(KeystoreExt::new(MemoryKeystore::new()));
 		ext.execute_with(|| {
@@ -441,6 +446,9 @@ impl ExtBuilder {
 			for code_hash in self.code_hashes {
 				CodeInfoOf::<Test>::insert(code_hash, crate::CodeInfo::new(ALICE));
 			}
+		});
+		ext.execute_with(|| {
+			assert_ok!(Pallet::<Test>::map_account(RuntimeOrigin::signed(checking_account)));
 		});
 		ext
 	}
@@ -1024,16 +1032,17 @@ fn delegate_call_with_deposit_limit() {
 				.build_and_unwrap_contract();
 
 		// Delegate call will write 1 storage and deposit of 2 (1 item) + 32 (bytes) is required.
+		// + 32 + 16 for blake2_128concat
 		// Fails, not enough deposit
 		let ret = builder::bare_call(caller_addr)
 			.value(1337)
-			.data((callee_addr, 33u64).encode())
+			.data((callee_addr, 81u64).encode())
 			.build_and_unwrap_result();
 		assert_return_code!(ret, RuntimeReturnCode::OutOfResources);
 
 		assert_ok!(builder::call(caller_addr)
 			.value(1337)
-			.data((callee_addr, 34u64).encode())
+			.data((callee_addr, 82u64).encode())
 			.build());
 	});
 }
@@ -1123,14 +1132,14 @@ fn cannot_self_destruct_through_storage_refund_after_price_change() {
 			info_deposit + min_balance
 		);
 
-		// Create 100 bytes of storage with a price of per byte and a single storage item of
-		// price 2
+		// Create 100 (16 + 32 bytes for key for blake128 concat) bytes of storage with a
+		// price of per byte and a single storage item of price 2
 		assert_ok!(builder::call(contract.addr).data(100u32.to_le_bytes().to_vec()).build());
-		assert_eq!(get_contract(&contract.addr).total_deposit(), info_deposit + 102);
+		assert_eq!(get_contract(&contract.addr).total_deposit(), info_deposit + 100 + 16 + 32 + 2);
 
 		// Increase the byte price and trigger a refund. This should not have any influence
 		// because the removal is pro rata and exactly those 100 bytes should have been
-		// removed.
+		// removed as we didn't delete the key.
 		DEPOSIT_PER_BYTE.with(|c| *c.borrow_mut() = 500);
 		assert_ok!(builder::call(contract.addr).data(0u32.to_le_bytes().to_vec()).build());
 
@@ -1139,7 +1148,9 @@ fn cannot_self_destruct_through_storage_refund_after_price_change() {
 			<Test as Config>::Currency::total_balance(&contract.account_id),
 			get_contract(&contract.addr).total_deposit() + min_balance,
 		);
-		assert_eq!(get_contract(&contract.addr).extra_deposit(), 2);
+		// + 1 because due to fixed point arithmetic we can sometimes refund
+		// one unit to little
+		assert_eq!(get_contract(&contract.addr).extra_deposit(), 16 + 32 + 2 + 1);
 	});
 }
 
@@ -1357,6 +1368,16 @@ fn call_return_code() {
 			.value(min_balance * 100)
 			.build_and_unwrap_contract();
 
+		// BOB cannot pay the ed which is needed to pull DJANGO into existence
+		// this does trap the caller instead of returning an error code
+		// reasoning is that this error state does not exist on eth where
+		// ed does not exist. We hide this fact from the contract.
+		let result = builder::bare_call(bob.addr)
+			.data((DJANGO_ADDR, u256_bytes(1)).encode())
+			.origin(RuntimeOrigin::signed(BOB))
+			.build();
+		assert_err!(result.result, <Error<Test>>::StorageDepositNotEnoughFunds);
+
 		// Contract calls into Django which is no valid contract
 		// This will be a balance transfer into a new account
 		// with more than the contract has which will make the transfer fail
@@ -1373,18 +1394,20 @@ fn call_return_code() {
 
 		// Sending below the minimum balance should result in success.
 		// The ED is charged from the call origin.
+		let alice_before = test_utils::get_balance(&ALICE_FALLBACK);
 		assert_eq!(test_utils::get_balance(&DJANGO_FALLBACK), 0);
 		let result = builder::bare_call(bob.addr)
 			.data(
 				AsRef::<[u8]>::as_ref(&DJANGO_ADDR)
 					.iter()
-					.chain(&u256_bytes(55))
+					.chain(&u256_bytes(1))
 					.cloned()
 					.collect(),
 			)
 			.build_and_unwrap_result();
 		assert_return_code!(result, RuntimeReturnCode::Success);
-		assert_eq!(test_utils::get_balance(&DJANGO_FALLBACK), 55 + min_balance);
+		assert_eq!(test_utils::get_balance(&DJANGO_FALLBACK), min_balance + 1);
+		assert_eq!(test_utils::get_balance(&ALICE_FALLBACK), alice_before - min_balance);
 
 		let django = builder::bare_instantiate(Code::Upload(callee_code))
 			.origin(RuntimeOrigin::signed(CHARLIE))
@@ -1448,6 +1471,14 @@ fn instantiate_return_code() {
 		let contract = builder::bare_instantiate(Code::Upload(caller_code))
 			.value(min_balance * 100)
 			.build_and_unwrap_contract();
+
+		// bob cannot pay the ED to create the contract as he has no money
+		// this traps the caller rather than returning an error
+		let result = builder::bare_call(contract.addr)
+			.data(callee_hash.iter().chain(&0u32.to_le_bytes()).cloned().collect())
+			.origin(RuntimeOrigin::signed(BOB))
+			.build();
+		assert_err!(result.result, <Error<Test>>::StorageDepositNotEnoughFunds);
 
 		// Contract has only the minimal balance so any transfer will fail.
 		<Test as Config>::Currency::set_balance(&contract.account_id, min_balance);
@@ -2118,7 +2149,7 @@ fn failed_deposit_charge_should_roll_back_call() {
 			let transfer_call =
 				Box::new(RuntimeCall::Balances(pallet_balances::Call::transfer_allow_death {
 					dest: CHARLIE,
-					value: pallet_balances::Pallet::<Test>::free_balance(&ALICE) - 2 * ED,
+					value: pallet_balances::Pallet::<Test>::free_balance(&ALICE) - (2 * ED + 48),
 				}));
 
 			// Wrap the transfer call in a proxy call.
@@ -2129,7 +2160,7 @@ fn failed_deposit_charge_should_roll_back_call() {
 			});
 
 			let data = (
-				(ED - DepositPerItem::get()) as u32, // storage length
+				1u32, // storage length
 				addr_callee,
 				transfer_proxy_call,
 			);
@@ -2141,9 +2172,13 @@ fn failed_deposit_charge_should_roll_back_call() {
 	// With a low enough deposit per byte, the call should succeed.
 	let result = execute().unwrap();
 
-	// Bump the deposit per byte to a high value to trigger a FundsUnavailable error.
-	DEPOSIT_PER_BYTE.with(|c| *c.borrow_mut() = 20);
-	assert_err_with_weight!(execute(), TokenError::FundsUnavailable, result.actual_weight);
+	// Bump the deposit per byte to a high value to trigger an error
+	DEPOSIT_PER_BYTE.with(|c| *c.borrow_mut() = 200);
+	assert_err_with_weight!(
+		execute(),
+		<Error<Test>>::StorageDepositNotEnoughFunds,
+		result.actual_weight
+	);
 }
 
 #[test]
@@ -2422,7 +2457,8 @@ fn storage_deposit_works() {
 		// Create storage
 		assert_ok!(builder::call(addr).value(42).data((50u32, 20u32).encode()).build());
 		// 4 is for creating 2 storage items
-		let charged0 = 4 + 50 + 20;
+		// 48 is for each of the keys
+		let charged0 = 4 + 50 + 20 + 48 + 48;
 		deposit += charged0;
 		assert_eq!(get_contract(&addr).total_deposit(), deposit);
 
@@ -2471,7 +2507,7 @@ fn storage_deposit_callee_works() {
 		assert_ok!(builder::call(addr_caller).data((100u32, &addr_callee).encode()).build());
 
 		let callee = get_contract(&addr_callee);
-		let deposit = DepositPerByte::get() * 100 + DepositPerItem::get() * 1;
+		let deposit = DepositPerByte::get() * 100 + DepositPerItem::get() * 1 + 48;
 
 		assert_eq!(test_utils::get_balance(&account_id), min_balance);
 		assert_eq!(
@@ -2709,20 +2745,18 @@ fn storage_deposit_limit_is_enforced() {
 
 		// Create 1 byte of storage with a price of per byte,
 		// setting insufficient deposit limit, as it requires 3 Balance:
-		// 2 for the item added + 1 for the new storage item.
+		// 2 for the item added + 1 (value) + 48 (key)
 		assert_err_ignore_postinfo!(
 			builder::call(addr)
-				.storage_deposit_limit(2)
+				.storage_deposit_limit(50)
 				.data(1u32.to_le_bytes().to_vec())
 				.build(),
 			<Error<Test>>::StorageDepositLimitExhausted,
 		);
 
-		// Create 1 byte of storage, should cost 3 Balance:
-		// 2 for the item added + 1 for the new storage item.
-		// Should pass as it fallbacks to DefaultDepositLimit.
+		// now with enough limit
 		assert_ok!(builder::call(addr)
-			.storage_deposit_limit(3)
+			.storage_deposit_limit(51)
 			.data(1u32.to_le_bytes().to_vec())
 			.build());
 
@@ -2753,19 +2787,20 @@ fn deposit_limit_in_nested_calls() {
 
 		// Create 100 bytes of storage with a price of per byte
 		// This is 100 Balance + 2 Balance for the item
+		// 48 for the key
 		assert_ok!(builder::call(addr_callee)
-			.storage_deposit_limit(102)
+			.storage_deposit_limit(102 + 48)
 			.data(100u32.to_le_bytes().to_vec())
 			.build());
 
 		// We do not remove any storage but add a storage item of 12 bytes in the caller
-		// contract. This would cost 12 + 2 = 14 Balance.
+		// contract. This would cost 12 + 2 + 72 = 86 Balance.
 		// The nested call doesn't get a special limit, which is set by passing `u64::MAX` to it.
 		// This should fail as the specified parent's limit is less than the cost: 13 <
 		// 14.
 		assert_err_ignore_postinfo!(
 			builder::call(addr_caller)
-				.storage_deposit_limit(13)
+				.storage_deposit_limit(85)
 				.data((100u32, &addr_callee, U256::MAX).encode())
 				.build(),
 			<Error<Test>>::StorageDepositLimitExhausted,
@@ -2773,30 +2808,29 @@ fn deposit_limit_in_nested_calls() {
 
 		// Now we specify the parent's limit high enough to cover the caller's storage
 		// additions. However, we use a single byte more in the callee, hence the storage
-		// deposit should be 15 Balance.
+		// deposit should be 87 Balance.
 		// The nested call doesn't get a special limit, which is set by passing `u64::MAX` to it.
-		// This should fail as the specified parent's limit is less than the cost: 14
-		// < 15.
+		// This should fail as the specified parent's limit is less than the cost: 86 < 87
 		assert_err_ignore_postinfo!(
 			builder::call(addr_caller)
-				.storage_deposit_limit(14)
+				.storage_deposit_limit(86)
 				.data((101u32, &addr_callee, &U256::MAX).encode())
 				.build(),
 			<Error<Test>>::StorageDepositLimitExhausted,
 		);
 
-		// Now we specify the parent's limit high enough to cover both the caller's and callee's
-		// storage additions. However, we set a special deposit limit of 1 Balance for the
+		// The parents storage deposit limit doesn't matter as the sub calls limit
+		// is enforced eagerly. However, we set a special deposit limit of 1 Balance for the
 		// nested call. This should fail as callee adds up 2 bytes to the storage, meaning
 		// that the nested call should have a deposit limit of at least 2 Balance. The
 		// sub-call should be rolled back, which is covered by the next test case.
 		let ret = builder::bare_call(addr_caller)
-			.storage_deposit_limit(DepositLimit::Balance(16))
+			.storage_deposit_limit(DepositLimit::Balance(u64::MAX))
 			.data((102u32, &addr_callee, U256::from(1u64)).encode())
 			.build_and_unwrap_result();
 		assert_return_code!(ret, RuntimeReturnCode::OutOfResources);
 
-		// Refund in the callee contract but not enough to cover the 14 Balance required by the
+		// Refund in the callee contract but not enough to cover the Balance required by the
 		// caller. Note that if previous sub-call wouldn't roll back, this call would pass
 		// making the test case fail. We don't set a special limit for the nested call here.
 		assert_err_ignore_postinfo!(
@@ -2816,12 +2850,12 @@ fn deposit_limit_in_nested_calls() {
 			.build_and_unwrap_result();
 		assert_return_code!(ret, RuntimeReturnCode::OutOfResources);
 
-		// Same as above but allow for the additional deposit of 1 Balance in parent.
+		// Free up enough storage in the callee so that the caller can create a new item
 		// We set the special deposit limit of 1 Balance for the nested call, which isn't
 		// enforced as callee frees up storage. This should pass.
 		assert_ok!(builder::call(addr_caller)
 			.storage_deposit_limit(1)
-			.data((87u32, &addr_callee, U256::from(1u64)).encode())
+			.data((0u32, &addr_callee, U256::from(1u64)).encode())
 			.build());
 	});
 }
@@ -2851,15 +2885,16 @@ fn deposit_limit_in_nested_instantiate() {
 		// - the deposit for depending on a code hash
 		// - ED for deployed contract account
 		// - 2 for the storage item of 0 bytes being created in the callee constructor
+		// - 48 for the key
 		let callee_min_deposit = {
 			let callee_info_len = ContractInfoOf::<Test>::get(&addr).unwrap().encoded_size() as u64;
 			let code_deposit = test_utils::lockup_deposit(&code_hash_callee);
-			callee_info_len + code_deposit + 2 + ED + 2
+			callee_info_len + code_deposit + 2 + ED + 2 + 48
 		};
 
 		// The parent just stores an item of the passed size so at least
 		// we need to pay for the item itself.
-		let caller_min_deposit = callee_min_deposit + 2;
+		let caller_min_deposit = callee_min_deposit + 2 + 48;
 
 		// Fail in callee.
 		//
@@ -2973,7 +3008,7 @@ fn deposit_limit_honors_liquidity_restrictions() {
 				.storage_deposit_limit(10_000)
 				.data(100u32.to_le_bytes().to_vec())
 				.build(),
-			<Error<Test>>::StorageDepositLimitExhausted,
+			<Error<Test>>::StorageDepositNotEnoughFunds,
 		);
 		assert_eq!(<Test as Config>::Currency::free_balance(&BOB), min_balance);
 	});
@@ -3007,48 +3042,9 @@ fn deposit_limit_honors_existential_deposit() {
 				.storage_deposit_limit(10_000)
 				.data(100u32.to_le_bytes().to_vec())
 				.build(),
-			<Error<Test>>::StorageDepositLimitExhausted,
+			<Error<Test>>::StorageDepositNotEnoughFunds,
 		);
 		assert_eq!(<Test as Config>::Currency::free_balance(&BOB), 300);
-	});
-}
-
-#[test]
-fn deposit_limit_honors_min_leftover() {
-	let (wasm, _code_hash) = compile_module("store_call").unwrap();
-	ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
-		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
-		let _ = <Test as Config>::Currency::set_balance(&BOB, 1_000);
-		let min_balance = Contracts::min_balance();
-
-		// Instantiate the BOB contract.
-		let Contract { addr, account_id } =
-			builder::bare_instantiate(Code::Upload(wasm)).build_and_unwrap_contract();
-
-		let info_deposit = test_utils::contract_base_deposit(&addr);
-
-		// Check that the contract has been instantiated and has the minimum balance and the
-		// storage deposit
-		assert_eq!(get_contract(&addr).total_deposit(), info_deposit);
-		assert_eq!(
-			<Test as Config>::Currency::total_balance(&account_id),
-			info_deposit + min_balance
-		);
-
-		// check that the minimum leftover (value send) is considered
-		// given the minimum deposit of 200 sending 750 will only leave
-		// 50 for the storage deposit. Which is not enough to store the 50 bytes
-		// as we also need 2 bytes for the item
-		assert_err_ignore_postinfo!(
-			builder::call(addr)
-				.origin(RuntimeOrigin::signed(BOB))
-				.value(750)
-				.storage_deposit_limit(10_000)
-				.data(50u32.to_le_bytes().to_vec())
-				.build(),
-			<Error<Test>>::StorageDepositLimitExhausted,
-		);
-		assert_eq!(<Test as Config>::Currency::free_balance(&BOB), 1_000);
 	});
 }
 
@@ -4011,13 +4007,13 @@ fn recovery_works() {
 #[test]
 fn skip_transfer_works() {
 	let (code_caller, _) = compile_module("call").unwrap();
-	let (code, _) = compile_module("set_empty_storage").unwrap();
+	let (code, _) = compile_module("store_call").unwrap();
 
 	ExtBuilder::default().existential_deposit(100).build().execute_with(|| {
 		<Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
 		<Test as Config>::Currency::set_balance(&BOB, 0);
 
-		// fails to instantiate when gas is specified.
+		// when gas is some (transfers enabled): bob has no money: fail
 		assert_err!(
 			Pallet::<Test>::dry_run_eth_transact(
 				GenericTransaction {
@@ -4034,10 +4030,10 @@ fn skip_transfer_works() {
 			))
 		);
 
-		// works when no gas is specified.
+		// no gas specified (all transfers are skipped): even without money bob can deploy
 		assert_ok!(Pallet::<Test>::dry_run_eth_transact(
 			GenericTransaction {
-				from: Some(ALICE_ADDR),
+				from: Some(BOB_ADDR),
 				input: code.clone().into(),
 				..Default::default()
 			},
@@ -4051,12 +4047,13 @@ fn skip_transfer_works() {
 		let Contract { addr: caller_addr, .. } =
 			builder::bare_instantiate(Code::Upload(code_caller)).build_and_unwrap_contract();
 
-		// fails to call when gas is specified.
+		// call directly: fails with enabled transfers
 		assert_err!(
 			Pallet::<Test>::dry_run_eth_transact(
 				GenericTransaction {
 					from: Some(BOB_ADDR),
 					to: Some(addr),
+					input: 0u32.encode().into(),
 					gas: Some(1u32.into()),
 					..Default::default()
 				},
@@ -4068,12 +4065,15 @@ fn skip_transfer_works() {
 			))
 		);
 
-		// fails when calling from a contract when gas is specified.
+		// fails to call through other contract
+		// we didn't roll back the storage changes done by the previous
+		// call. So the item already exists. We simply increase the size of
+		// the storage item to incur some deposits (which bob can't pay).
 		assert!(Pallet::<Test>::dry_run_eth_transact(
 			GenericTransaction {
 				from: Some(BOB_ADDR),
 				to: Some(caller_addr),
-				input: (0u32, &addr).encode().into(),
+				input: (1u32, &addr).encode().into(),
 				gas: Some(1u32.into()),
 				..Default::default()
 			},
@@ -4082,24 +4082,57 @@ fn skip_transfer_works() {
 		)
 		.is_err(),);
 
-		// works when no gas is specified.
-		assert_ok!(Pallet::<Test>::dry_run_eth_transact(
-			GenericTransaction { from: Some(BOB_ADDR), to: Some(addr), ..Default::default() },
-			Weight::MAX,
-			|_, _| 0u64,
-		));
-
-		// works when calling from a contract when no gas is specified.
+		// works when no gas is specified (skip transfer)
 		assert_ok!(Pallet::<Test>::dry_run_eth_transact(
 			GenericTransaction {
 				from: Some(BOB_ADDR),
-				to: Some(caller_addr),
-				input: (0u32, &addr).encode().into(),
+				to: Some(addr),
+				input: 2u32.encode().into(),
 				..Default::default()
 			},
 			Weight::MAX,
 			|_, _| 0u64,
 		));
+
+		// call through contract works when transfers are skipped
+		assert_ok!(Pallet::<Test>::dry_run_eth_transact(
+			GenericTransaction {
+				from: Some(BOB_ADDR),
+				to: Some(caller_addr),
+				input: (3u32, &addr).encode().into(),
+				..Default::default()
+			},
+			Weight::MAX,
+			|_, _| 0u64,
+		));
+
+		// works with transfers enabled if we don't incur a storage cost
+		// we shrink the item so its actually a refund
+		assert_ok!(Pallet::<Test>::dry_run_eth_transact(
+			GenericTransaction {
+				from: Some(BOB_ADDR),
+				to: Some(caller_addr),
+				input: (2u32, &addr).encode().into(),
+				gas: Some(1u32.into()),
+				..Default::default()
+			},
+			Weight::MAX,
+			|_, _| 0u64,
+		));
+
+		// fails when trying to increase the storage item size
+		assert!(Pallet::<Test>::dry_run_eth_transact(
+			GenericTransaction {
+				from: Some(BOB_ADDR),
+				to: Some(caller_addr),
+				input: (3u32, &addr).encode().into(),
+				gas: Some(1u32.into()),
+				..Default::default()
+			},
+			Weight::MAX,
+			|_, _| 0u64,
+		)
+		.is_err());
 	});
 }
 

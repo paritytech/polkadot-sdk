@@ -357,6 +357,7 @@ runtime-benchmarks = [
 	"xcm-runtime-apis?/runtime-benchmarks",
 ]
 try-runtime = [
+	"assets-common?/try-runtime",
 	"cumulus-pallet-aura-ext?/try-runtime",
 	"cumulus-pallet-dmp-queue?/try-runtime",
 	"cumulus-pallet-parachain-system?/try-runtime",
@@ -470,6 +471,7 @@ try-runtime = [
 	"pallet-xcm-bridge-hub-router?/try-runtime",
 	"pallet-xcm-bridge-hub?/try-runtime",
 	"pallet-xcm?/try-runtime",
+	"parachains-common?/try-runtime",
 	"polkadot-cli?/try-runtime",
 	"polkadot-omni-node-lib?/try-runtime",
 	"polkadot-runtime-common?/try-runtime",
@@ -563,6 +565,7 @@ runtime-full = [
 	"cumulus-primitives-storage-weight-reclaim",
 	"cumulus-primitives-timestamp",
 	"cumulus-primitives-utility",
+	"ethereum-standards",
 	"frame-benchmarking",
 	"frame-benchmarking-pallet-pov",
 	"frame-election-provider-solution-type",
@@ -1138,6 +1141,11 @@ path = "../cumulus/primitives/timestamp"
 default-features = false
 optional = true
 path = "../cumulus/primitives/utility"
+
+[dependencies.ethereum-standards]
+default-features = false
+optional = true
+path = "../substrate/primitives/ethereum-standards"
 
 [dependencies.frame-benchmarking]
 default-features = false

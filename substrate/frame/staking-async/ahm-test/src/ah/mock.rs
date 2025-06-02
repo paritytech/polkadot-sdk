@@ -195,11 +195,11 @@ where
 	type Extrinsic = Extrinsic;
 }
 
-impl<LocalCall> frame_system::offchain::CreateInherent<LocalCall> for Runtime
+impl<LocalCall> frame_system::offchain::CreateBare<LocalCall> for Runtime
 where
 	RuntimeCall: From<LocalCall>,
 {
-	fn create_inherent(call: Self::RuntimeCall) -> Self::Extrinsic {
+	fn create_bare(call: Self::RuntimeCall) -> Self::Extrinsic {
 		Extrinsic::new_bare(call)
 	}
 }
@@ -317,7 +317,7 @@ parameter_types! {
 	pub static BondingDuration: u32 = 3;
 	pub static SlashDeferredDuration: u32 = 2;
 	pub static SessionsPerEra: u32 = 6;
-	pub static PlanningEraOffset: u32 = 1;
+	pub static PlanningEraOffset: u32 = 2;
 }
 
 impl pallet_staking_async::Config for Runtime {
