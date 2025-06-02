@@ -4,7 +4,6 @@ doc:
   description: |-
     - Revert #8504
     - Add a `prepare_dry_run` that run before dry_run
-    - Add `dry_run_*` wrapper fn for bare_call / bare_instantiate
 
 crates:
 - name: pallet-revive
