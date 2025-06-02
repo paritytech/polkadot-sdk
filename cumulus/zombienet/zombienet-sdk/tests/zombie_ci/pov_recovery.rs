@@ -238,12 +238,14 @@ async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 fn build_collator_args(in_args: Vec<Arg>) -> Vec<Arg> {
 	let start_args: Vec<Arg> = vec![
 		("-lparachain::availability=trace,sync=debug,parachain=debug,cumulus-pov-recovery=debug,cumulus-consensus=debug,libp2p_mdns=debug,info").into(),
+		("--disable-block-announcements").into(),
 		("--in-peers=0").into(),
 		("--out-peers=0").into(),
 		("--bootnodes", "{{ZOMBIE:bob:multiaddr}}").into(),
 	];
 
 	let remaining_args: Vec<Arg> = vec![
+		("--").into(),
 		("--reserved-only").into(),
 		("--reserved-nodes", "{{ZOMBIE:ferdie:multiaddr}}").into(),
 	];
