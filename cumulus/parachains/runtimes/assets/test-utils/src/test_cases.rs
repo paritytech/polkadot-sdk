@@ -99,14 +99,14 @@ pub fn teleports_for_native_asset_works<
 	let native_asset_amount_unit = existential_deposit;
 	let native_asset_amount_received =
 		native_asset_amount_unit * 10.into() + buy_execution_fee_amount_eta.into();
-	
+
 	let checking_account = if let Some(checking_account) = CheckingAccount::get() {
 		Some((checking_account, native_asset_amount_received))
 	} else {
 		None
 	};
 
-	let mut builder = 	ExtBuilder::<Runtime>::default()
+	let mut builder = ExtBuilder::<Runtime>::default()
 		.with_collators(collator_session_keys.collators())
 		.with_session_keys(collator_session_keys.session_keys())
 		.with_safe_xcm_version(XCM_VERSION)
@@ -114,9 +114,8 @@ pub fn teleports_for_native_asset_works<
 		.with_tracing();
 
 	if let Some((checking_account, initial_checking_account)) = checking_account.as_ref() {
-		builder = builder.with_balances(vec![
-			(checking_account.clone(), *initial_checking_account),
-		]);
+		builder =
+			builder.with_balances(vec![(checking_account.clone(), *initial_checking_account)]);
 	};
 
 	builder
