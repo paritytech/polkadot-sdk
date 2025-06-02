@@ -154,14 +154,14 @@ mod benchmarks {
 	) -> Result<(), BenchmarkError> {
 		let now = BLOCK_NUMBER.into();
 		fill_schedule::<T>(now, s)?;
-		let mut executed = 0;
+		let mut is_first = true;
 
 		#[block]
 		{
-			Pallet::<T>::service_agenda(&mut WeightMeter::new(), &mut executed, now, now, 0);
+			Pallet::<T>::service_agenda(&mut WeightMeter::new(), &mut is_first, now, now, 0);
 		}
 
-		assert_eq!(executed, 0);
+		assert_eq!(is_first, true);
 
 		Ok(())
 	}
