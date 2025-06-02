@@ -26,18 +26,18 @@ use crate::{
 	tracing::if_tracing,
 	transient_storage::TransientStorage,
 	BalanceOf, CodeInfo, CodeInfoOf, Config, ContractInfo, ContractInfoOf, ConversionPrecision,
-	Error, Event, ImmutableData, ImmutableDataOf, NonceAlreadyIncremented, Pallet as Contracts,
+	Error, Event, ImmutableData, ImmutableDataOf, Pallet as Contracts,
 };
 use alloc::vec::Vec;
 use core::{fmt::Debug, marker::PhantomData, mem};
 use frame_support::{
 	crypto::ecdsa::ECDSAExt,
-	dispatch::{DispatchResult, DispatchResultWithPostInfo},
+	dispatch::DispatchResult,
 	storage::{with_transaction, TransactionOutcome},
 	traits::{
 		fungible::{Inspect, Mutate},
 		tokens::{Fortitude, Preservation},
-		Contains, FindAuthor, OriginTrait, Time,
+		FindAuthor, Time,
 	},
 	weights::Weight,
 	Blake2_128Concat, BoundedVec, StorageHasher,
@@ -53,7 +53,7 @@ use sp_core::{
 };
 use sp_io::{crypto::secp256k1_ecdsa_recover_compressed, hashing::blake2_256};
 use sp_runtime::{
-	traits::{BadOrigin, Bounded, Convert, Dispatchable, Saturating, Zero},
+	traits::{BadOrigin, Bounded, Convert, Saturating, Zero},
 	DispatchError, SaturatedConversion,
 };
 
@@ -229,9 +229,6 @@ pub trait Ext: PrecompileWithInfoExt {
 	///
 	/// Note: Requires &mut self to access the contract info.
 	fn set_immutable_data(&mut self, data: ImmutableData) -> Result<(), DispatchError>;
-
-	/// Call some dispatchable and return the result.
-	fn call_runtime(&self, call: <Self::T as Config>::RuntimeCall) -> DispatchResultWithPostInfo;
 }
 
 /// Environment functions which are available to pre-compiles with `HAS_CONTRACT_INFO = true`.
@@ -279,6 +276,11 @@ pub trait PrecompileWithInfoExt: PrecompileExt {
 /// Environment functions which are available to all pre-compiles.
 pub trait PrecompileExt: sealing::Sealed {
 	type T: Config;
+
+	/// Charges the gas meter with the given weight.
+	fn charge(&mut self, weight: Weight) -> Result<crate::gas::ChargedAmount, DispatchError> {
+		self.gas_meter_mut().charge(crate::RuntimeCosts::Precompile(weight))
+	}
 
 	/// Call (possibly transferring some amount of funds) into the specified account.
 	///
@@ -614,7 +616,6 @@ enum FrameArgs<'a, T: Config, E> {
 		salt: Option<&'a [u8; 32]>,
 		/// The input data is used in the contract address derivation of the new contract.
 		input_data: &'a [u8],
-		nonce_already_incremented: NonceAlreadyIncremented,
 	},
 }
 
@@ -756,14 +757,14 @@ where
 	pub fn run_call(
 		origin: Origin<T>,
 		dest: H160,
-		gas_meter: &'a mut GasMeter<T>,
-		storage_meter: &'a mut storage::meter::Meter<T>,
+		gas_meter: &mut GasMeter<T>,
+		storage_meter: &mut storage::meter::Meter<T>,
 		value: U256,
 		input_data: Vec<u8>,
 		skip_transfer: bool,
 	) -> ExecResult {
 		let dest = T::AddressMapper::to_account_id(&dest);
-		if let Some((mut stack, executable)) = Self::new(
+		if let Some((mut stack, executable)) = Stack::<'_, T, E>::new(
 			FrameArgs::Call { dest: dest.clone(), cached_info: None, delegated_call: None },
 			origin.clone(),
 			gas_meter,
@@ -773,7 +774,7 @@ where
 		)? {
 			stack.run(executable, input_data).map(|_| stack.first_frame.last_frame_output)
 		} else {
-			let result = Self::transfer_from_origin(&origin, &origin, &dest, value);
+			let result = Self::transfer_from_origin(&origin, &origin, &dest, value, storage_meter);
 			if_tracing(|t| {
 				t.enter_child_span(
 					origin.account_id().map(T::AddressMapper::to_address).unwrap_or_default(),
@@ -802,21 +803,19 @@ where
 	pub fn run_instantiate(
 		origin: T::AccountId,
 		executable: E,
-		gas_meter: &'a mut GasMeter<T>,
-		storage_meter: &'a mut storage::meter::Meter<T>,
+		gas_meter: &mut GasMeter<T>,
+		storage_meter: &mut storage::meter::Meter<T>,
 		value: U256,
 		input_data: Vec<u8>,
 		salt: Option<&[u8; 32]>,
 		skip_transfer: bool,
-		nonce_already_incremented: NonceAlreadyIncremented,
 	) -> Result<(H160, ExecReturnValue), ExecError> {
-		let (mut stack, executable) = Self::new(
+		let (mut stack, executable) = Stack::<'_, T, E>::new(
 			FrameArgs::Instantiate {
 				sender: origin.clone(),
 				executable,
 				salt,
 				input_data: input_data.as_ref(),
-				nonce_already_incremented,
 			},
 			Origin::from_account_id(origin),
 			gas_meter,
@@ -877,6 +876,7 @@ where
 			storage_meter,
 			BalanceOf::<T>::max_value(),
 			false,
+			true,
 		)?
 		else {
 			return Ok(None);
@@ -910,6 +910,7 @@ where
 		storage_meter: &mut storage::meter::GenericMeter<T, S>,
 		deposit_limit: BalanceOf<T>,
 		read_only: bool,
+		origin_is_caller: bool,
 	) -> Result<Option<(Frame<T>, ExecutableOrPrecompile<T, E, Self>)>, ExecError> {
 		let (account_id, contract_info, executable, delegate, entry_point) = match frame_args {
 			FrameArgs::Call { dest, cached_info, delegated_call } => {
@@ -973,13 +974,7 @@ where
 
 				(dest, contract, executable, delegated_call, ExportedFunction::Call)
 			},
-			FrameArgs::Instantiate {
-				sender,
-				executable,
-				salt,
-				input_data,
-				nonce_already_incremented,
-			} => {
+			FrameArgs::Instantiate { sender, executable, salt, input_data } => {
 				let deployer = T::AddressMapper::to_address(&sender);
 				let account_nonce = <System<T>>::account_nonce(&sender);
 				let address = if let Some(salt) = salt {
@@ -990,7 +985,7 @@ where
 						&deployer,
 						// the Nonce from the origin has been incremented pre-dispatch, so we
 						// need to subtract 1 to get the nonce at the time of the call.
-						if matches!(nonce_already_incremented, NonceAlreadyIncremented::Yes) {
+						if origin_is_caller {
 							account_nonce.saturating_sub(1u32.into()).saturated_into()
 						} else {
 							account_nonce.saturated_into()
@@ -1066,6 +1061,7 @@ where
 			nested_storage,
 			deposit_limit,
 			read_only,
+			false,
 		)? {
 			self.frames.try_push(frame).map_err(|_| Error::<T>::MaxCallDepthReached)?;
 			Ok(Some(executable))
@@ -1128,7 +1124,8 @@ where
 				if self.skip_transfer {
 					T::Currency::set_balance(account_id, ed);
 				} else {
-					T::Currency::transfer(origin, account_id, ed, Preservation::Preserve)?;
+					T::Currency::transfer(origin, account_id, ed, Preservation::Preserve)
+						.map_err(|_| <Error<T>>::StorageDepositNotEnoughFunds)?;
 				}
 
 				// A consumer is added at account creation and removed it on termination, otherwise
@@ -1159,6 +1156,7 @@ where
 					&caller,
 					account_id,
 					frame.value_transferred,
+					&mut frame.nested_storage,
 				)?;
 			}
 
@@ -1359,11 +1357,12 @@ where
 	/// not exist, the transfer does fail and nothing will be sent to `to` if either `origin` can
 	/// not provide the ED or transferring `value` from `from` to `to` fails.
 	/// Note: This will also fail if `origin` is root.
-	fn transfer(
+	fn transfer<S: storage::meter::State + Default + Debug>(
 		origin: &Origin<T>,
 		from: &T::AccountId,
 		to: &T::AccountId,
 		value: U256,
+		storage_meter: &mut storage::meter::GenericMeter<T, S>,
 	) -> ExecResult {
 		let value = crate::Pallet::<T>::convert_evm_to_native(value, ConversionPrecision::Exact)?;
 		if value.is_zero() {
@@ -1380,20 +1379,29 @@ where
 		let ed = <T as Config>::Currency::minimum_balance();
 		with_transaction(|| -> TransactionOutcome<ExecResult> {
 			match T::Currency::transfer(origin, to, ed, Preservation::Preserve)
-				.and_then(|_| T::Currency::transfer(from, to, value, Preservation::Preserve))
-			{
-				Ok(_) => TransactionOutcome::Commit(Ok(Default::default())),
-				Err(_) => TransactionOutcome::Rollback(Err(Error::<T>::TransferFailed.into())),
+				.map_err(|_| Error::<T>::StorageDepositNotEnoughFunds.into())
+				.and_then(|_| {
+					T::Currency::transfer(from, to, value, Preservation::Preserve)
+						.map_err(|_| Error::<T>::TransferFailed.into())
+				}) {
+				Ok(_) => {
+					// ed is taken from the transaction signer so it should be
+					// limited by the storage deposit
+					storage_meter.record_charge(&StorageDeposit::Charge(ed));
+					TransactionOutcome::Commit(Ok(Default::default()))
+				},
+				Err(err) => TransactionOutcome::Rollback(Err(err)),
 			}
 		})
 	}
 
 	/// Same as `transfer` but `from` is an `Origin`.
-	fn transfer_from_origin(
+	fn transfer_from_origin<S: storage::meter::State + Default + Debug>(
 		origin: &Origin<T>,
 		from: &Origin<T>,
 		to: &T::AccountId,
 		value: U256,
+		storage_meter: &mut storage::meter::GenericMeter<T, S>,
 	) -> ExecResult {
 		// If the from address is root there is no account to transfer from, and therefore we can't
 		// take any `value` other than 0.
@@ -1402,7 +1410,7 @@ where
 			Origin::Root if value.is_zero() => return Ok(Default::default()),
 			Origin::Root => return Err(DispatchError::RootNotAllowed.into()),
 		};
-		Self::transfer(origin, from, to, value)
+		Self::transfer(origin, from, to, value, storage_meter)
 	}
 
 	/// Reference to the current (top) frame.
@@ -1579,12 +1587,6 @@ where
 		Ok(())
 	}
 
-	fn call_runtime(&self, call: <Self::T as Config>::RuntimeCall) -> DispatchResultWithPostInfo {
-		let mut origin: T::RuntimeOrigin = RawOrigin::Signed(self.account_id().clone()).into();
-		origin.add_filter(T::CallFilter::contains);
-		call.dispatch(origin)
-	}
-
 	fn immutable_data_len(&mut self) -> u32 {
 		self.top_frame_mut().contract_info().immutable_data_len()
 	}
@@ -1671,7 +1673,6 @@ where
 				executable,
 				salt,
 				input_data: input_data.as_ref(),
-				nonce_already_incremented: NonceAlreadyIncremented::No,
 			},
 			value.try_into().map_err(|_| Error::<T>::BalanceConversionFailed)?,
 			gas_limit,
@@ -1755,11 +1756,14 @@ where
 				} else if is_read_only {
 					Err(Error::<T>::StateChangeDenied.into())
 				} else {
+					let account_id = self.account_id().clone();
+					let frame = top_frame_mut!(self);
 					Self::transfer_from_origin(
 						&self.origin,
-						&Origin::from_account_id(self.account_id().clone()),
+						&Origin::from_account_id(account_id),
 						&dest,
 						value,
+						&mut frame.nested_storage,
 					)
 				};
 
