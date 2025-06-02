@@ -370,7 +370,7 @@ pub mod pallet {
 			})()
 			.map_err(|e: DispatchError| {
 				tracing::debug!(
-					target: "xcm::pallet_xcm::execute", ?e, "XCM pre-execution validation or filter failed",
+					target: "xcm::pallet_xcm::execute", ?e, "Failed XCM pre-execution validation or filter",
 				);
 				e.with_weight(<Self::WeightInfo as ExecuteControllerWeightInfo>::execute())
 			})?;
