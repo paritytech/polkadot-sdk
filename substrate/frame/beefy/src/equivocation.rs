@@ -282,7 +282,7 @@ impl<T: Config> EquivocationEvidenceFor<T> {
 impl<T, R, P, L> OffenceReportSystem<Option<T::AccountId>, EquivocationEvidenceFor<T>>
 	for EquivocationReportSystem<T, R, P, L>
 where
-	T: Config + pallet_authorship::Config + frame_system::offchain::CreateInherent<Call<T>>,
+	T: Config + pallet_authorship::Config + frame_system::offchain::CreateBare<Call<T>>,
 	R: ReportOffence<
 		T::AccountId,
 		P::IdentificationTuple,
@@ -298,7 +298,7 @@ where
 		use frame_system::offchain::SubmitTransaction;
 
 		let call: Call<T> = evidence.into();
-		let xt = T::create_inherent(call.into());
+		let xt = T::create_bare(call.into());
 		let res = SubmitTransaction::<T, Call<T>>::submit_transaction(xt);
 		match res {
 			Ok(_) => info!(target: LOG_TARGET, "Submitted equivocation report."),
