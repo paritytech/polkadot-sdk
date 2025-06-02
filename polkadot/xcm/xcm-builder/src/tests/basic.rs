@@ -43,7 +43,7 @@ fn weigher_should_work() {
 		DepositAsset { assets: AllCounted(1).into(), beneficiary: Here.into() },
 	]);
 	assert_eq!(
-		<TestConfig as Config>::Weigher::weight(&mut message),
+		<TestConfig as Config>::Weigher::weight(&mut message, Weight::MAX),
 		Ok(Weight::from_parts(30, 30))
 	);
 }
@@ -81,7 +81,7 @@ fn code_registers_should_work() {
 		},
 	]);
 	// Weight limit of 70 is needed.
-	let limit = <TestConfig as Config>::Weigher::weight(&mut message).unwrap();
+	let limit = <TestConfig as Config>::Weigher::weight(&mut message, Weight::MAX).unwrap();
 	assert_eq!(limit, Weight::from_parts(70, 70));
 
 	let mut hash = fake_message_hash(&message);

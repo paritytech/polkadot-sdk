@@ -498,6 +498,7 @@ members = [
 	"substrate/primitives/crypto/hashing/proc-macro",
 	"substrate/primitives/database",
 	"substrate/primitives/debug-derive",
+	"substrate/primitives/ethereum-standards",
 	"substrate/primitives/externalities",
 	"substrate/primitives/genesis-builder",
 	"substrate/primitives/inherents",
@@ -554,6 +555,7 @@ members = [
 	"substrate/utils/frame/rpc/state-trie-migration-rpc",
 	"substrate/utils/frame/rpc/support",
 	"substrate/utils/frame/rpc/system",
+	"substrate/utils/frame/storage-access-test-runtime",
 	"substrate/utils/prometheus",
 	"substrate/utils/substrate-bip39",
 	"substrate/utils/wasm-builder",
@@ -586,6 +588,7 @@ unexpected_cfgs = { level = "warn", check-cfg = [
 	'cfg(build_profile, values("debug", "release"))',
 	'cfg(enable_alloc_error_handler)',
 	'cfg(fuzzing)',
+	'cfg(ignore_flaky_test)',
 	'cfg(substrate_runtime)',
 ] }
 
@@ -619,7 +622,7 @@ zero-prefixed-literal = { level = "allow", priority = 2 }            # 00_1000_0
 Inflector = { version = "0.11.4" }
 aes-gcm = { version = "0.10" }
 ahash = { version = "0.8.2" }
-alloy-core = { version = "0.8.15", default-features = false }
+alloy-core = { version = "1.1.0", default-features = false }
 always-assert = { version = "0.1" }
 anyhow = { version = "1.0.81", default-features = false }
 approx = { version = "0.5.1" }
@@ -656,6 +659,7 @@ backoff = { version = "0.4" }
 backtrace = { version = "0.3.71" }
 binary-merkle-tree = { path = "substrate/utils/binary-merkle-tree", default-features = false }
 bincode = { version = "1.3.3" }
+ethereum-standards = { path = "substrate/primitives/ethereum-standards" }
 # personal fork here as workaround for: https://github.com/rust-bitcoin/rust-bip39/pull/64
 bip39 = { package = "parity-bip39", version = "2.0.1", default-features = false }
 bitflags = { version = "1.3.2" }
@@ -707,7 +711,7 @@ clap = { version = "4.5.13" }
 clap_complete = { version = "4.5.13" }
 cmd_lib = { version = "1.9.5" }
 coarsetime = { version = "0.1.22" }
-codec = { version = "3.7.4", default-features = false, package = "parity-scale-codec" }
+codec = { version = "3.7.5", default-features = false, package = "parity-scale-codec" }
 collectives-westend-emulated-chain = { path = "cumulus/parachains/integration-tests/emulated/chains/parachains/collectives/collectives-westend" }
 collectives-westend-runtime = { path = "cumulus/parachains/runtimes/collectives/collectives-westend" }
 color-eyre = { version = "0.6.3", default-features = false }
@@ -806,6 +810,7 @@ frame-election-provider-support = { path = "substrate/frame/election-provider-su
 frame-executive = { path = "substrate/frame/executive", default-features = false }
 frame-metadata = { version = "23.0.0", default-features = false }
 frame-metadata-hash-extension = { path = "substrate/frame/metadata-hash-extension", default-features = false }
+frame-storage-access-test-runtime = { path = "substrate/utils/frame/storage-access-test-runtime", default-features = false }
 frame-support = { path = "substrate/frame/support", default-features = false }
 frame-support-procedural = { path = "substrate/frame/support/procedural", default-features = false }
 frame-support-procedural-tools = { path = "substrate/frame/support/procedural/tools", default-features = false }
@@ -831,6 +836,7 @@ gum-proc-macro = { path = "polkadot/node/gum/proc-macro", default-features = fal
 handlebars = { version = "5.1.0" }
 hash-db = { version = "0.16.0", default-features = false }
 hash256-std-hasher = { version = "0.15.2", default-features = false }
+hashbrown = "0.15.3"
 hex = { version = "0.4.3", default-features = false }
 hex-literal = { version = "0.4.1", default-features = false }
 hkdf = { version = "0.12.0" }
@@ -886,7 +892,7 @@ log = { version = "0.4.22", default-features = false }
 macro_magic = { version = "0.5.1" }
 maplit = { version = "1.0.2" }
 memmap2 = { version = "0.9.3" }
-memory-db = { version = "0.32.0", default-features = false }
+memory-db = { version = "0.33.0", default-features = false }
 merkleized-metadata = { version = "0.5.0" }
 merlin = { version = "3.0", default-features = false }
 messages-relay = { path = "bridges/relays/messages" }
@@ -1136,9 +1142,9 @@ polkadot-subsystem-bench = { path = "polkadot/node/subsystem-bench" }
 polkadot-test-client = { path = "polkadot/node/test/client" }
 polkadot-test-runtime = { path = "polkadot/runtime/test-runtime" }
 polkadot-test-service = { path = "polkadot/node/test/service" }
-polkavm = { version = "0.18.0", default-features = false }
-polkavm-derive = "0.18.0"
-polkavm-linker = "0.18.0"
+polkavm = { version = "0.24.0", default-features = false }
+polkavm-derive = "0.24.0"
+polkavm-linker = "0.24.0"
 portpicker = { version = "0.1.1" }
 pretty_assertions = { version = "1.3.0" }
 primitive-types = { version = "0.13.1", default-features = false, features = ["num-traits"] }
@@ -1376,10 +1382,10 @@ substrate-test-runtime-client = { path = "substrate/test-utils/runtime/client" }
 substrate-test-runtime-transaction-pool = { path = "substrate/test-utils/runtime/transaction-pool" }
 substrate-test-utils = { path = "substrate/test-utils" }
 substrate-wasm-builder = { path = "substrate/utils/wasm-builder", default-features = false }
-subxt = { version = "0.38.1", default-features = false }
-subxt-macro = { version = "0.38.1", default-features = false }
-subxt-metadata = { version = "0.38.0", default-features = false }
-subxt-signer = { version = "0.38" }
+subxt = { version = "0.41", default-features = false }
+subxt-macro = { version = "0.41", default-features = false }
+subxt-metadata = { version = "0.41", default-features = false }
+subxt-signer = { version = "0.41" }
 syn = { version = "2.0.87" }
 sysinfo = { version = "0.30" }
 tar = { version = "0.4" }
@@ -1414,7 +1420,7 @@ tracing-futures = { version = "0.2.4" }
 tracing-log = { version = "0.2.0" }
 tracing-subscriber = { version = "0.3.18" }
 tracking-allocator = { path = "polkadot/node/tracking-allocator", default-features = false, package = "staging-tracking-allocator" }
-trie-bench = { version = "0.40.0" }
+trie-bench = { version = "0.41.0" }
 trie-db = { version = "0.30.0", default-features = false }
 trie-root = { version = "0.18.0", default-features = false }
 trie-standardmap = { version = "0.16.0" }
@@ -1426,7 +1432,7 @@ txtesttool = { version = "0.5.0", package = "substrate-txtesttool" }
 unsigned-varint = { version = "0.7.2" }
 url = { version = "2.5.4" }
 void = { version = "1.0.2" }
-w3f-bls = { version = "0.1.3", default-features = false }
+w3f-bls = { version = "0.1.9", default-features = false }
 wait-timeout = { version = "0.2" }
 walkdir = { version = "2.5.0" }
 wasm-instrument = { version = "0.4", default-features = false }
