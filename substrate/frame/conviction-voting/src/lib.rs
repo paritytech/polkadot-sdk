@@ -713,33 +713,36 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		amount: Delegations<BalanceOf<T, I>>,
 		ongoing_votes: Vec<PollIndex>,
 	) -> u32 {
+		// Grab the delegate's voting data
 		VotingFor::<T, I>::try_mutate(who, class, |votes| {
+			// Reduce amount delegated to this delegate
 			votes.delegations = votes.delegation.saturating_sub(amount);
-			// For all of the delegators ongoing votes, remove the balance clawback
+			
+			// Reduce tallies for all of the delegate's votes that are standard and for ongoing polls
+			for &(poll_index, account_vote) in votes.iter() {
+				if let AccountVote::Standard { vote, .. } = account_vote {
+					T::Polls::access_poll(poll_index, |poll_status| {
+						if let PollStatus::Ongoing(tally, _) = poll_status {
+							tally.reduce(vote.aye, amount);
+						}
+					});
+				}
+			}
+
+			// For all the delegator's votes in ongoing polls
 			for poll_index in ongoing_votes {
+				// That the delegate has data for (which should be all)
 				match votes.binary_search_by_key(&poll_index, |i| i.0) {
 					Ok(i) => {
-						// This vote was voted on by who at the time of undelegation
-						votes[i].2 = votes[i].2.saturating_sub(amount); // remove clawback from vote data
+						// That are of type standard
+						if let AccountVote::Standard { vote, .. } = account_vote { // Need to figure all this out
+							votes[i].2 = votes[i].2.saturating_sub(amount);
+						}
 					},
 					Err(i) => {
 						// This shouldn't be possible as if they're voting while
 						// delegating, the delegate will always need info about that poll
 					},
-				}
-			}
-			// Then reduce the tallies of any votes that the delegator is not currently voting on,
-			// but the delegate is
-			for &(poll_index, account_vote) in votes.iter() {
-				if let AccountVote::Standard { vote, .. } = account_vote {
-					T::Polls::access_poll(poll_index, |poll_status| {
-						if !ongoing_votes.contains(poll_index) {
-							if let PollStatus::Ongoing(tally, _) = poll_status {
-								tally.reduce(vote.aye, amount);
-							}
-							updates
-						}
-					});
 				}
 			}
 			Ok((ongoing_votes.len() + votes.len()) as u32)
