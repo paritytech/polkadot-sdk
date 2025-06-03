@@ -316,6 +316,8 @@ pub mod pallet {
 					tracing::debug!(target: LOG_TARGET, ?e, "error swapping asset");
 				})?
 			} else {
+				burn_for_teleport::<T::AssetTransactor>(&who.clone().into(), &asset)
+					.map_err(|_| Error::<T>::BurnError)?;
 				tip_amount
 			};
 
