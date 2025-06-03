@@ -247,8 +247,8 @@ pub mod pallet {
 		#[pallet::constant]
 		type MaxUsernameLength: Get<u32>;
 
-		#[cfg(feature = "runtime-benchmarks")]
 		/// A set of helper functions for benchmarking.
+		#[cfg(feature = "runtime-benchmarks")]
 		type BenchmarkHelper: BenchmarkHelper<Self::SigningPublicKey, Self::OffchainSignature>;
 
 		/// Weight information for extrinsics in this pallet.

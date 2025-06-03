@@ -18,7 +18,7 @@ doc:
 
 crates:
     - name: pallet-identity
-      bump: patch
+      bump: major
     - name: polkadot-runtime-common
       bump: patch
     - name: westend-runtime
