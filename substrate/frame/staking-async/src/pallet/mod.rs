@@ -1541,7 +1541,7 @@ pub mod pallet {
 				.into_iter()
 				.map(|n| {
 					if old.contains(&n) ||
-						!Validators::<T>::get(&n).is_some_and(|prefs| prefs.blocked)
+						Validators::<T>::get(&n).is_some_and(|prefs| !prefs.blocked)
 					{
 						Ok(n)
 					} else {
