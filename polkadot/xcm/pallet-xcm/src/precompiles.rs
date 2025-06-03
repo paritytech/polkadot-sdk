@@ -21,8 +21,7 @@ use pallet_revive::{
 	precompiles::{
 		alloy::{self, sol_types::SolValue},
 		AddressMatcher, Error, Ext, Precompile, RuntimeCosts,
-	},
-	Origin,
+	}, DispatchInfo, Origin
 };
 use tracing::error;
 use xcm::MAX_XCM_DECODE_DEPTH;
@@ -104,30 +103,29 @@ where
 					Error::Revert("Invalid message format".into())
 				})?;
 
-				crate::Pallet::<Runtime>::execute(frame_origin, final_message.into(), weight)
-					.map(|post_dispatch_info| {
-						// Adjust charged amount to account for the actual weight consumed.
-						if let Some(actual_weight) = post_dispatch_info.actual_weight {
-							env.gas_meter_mut().adjust_gas(
-								charged_amount.clone(),
-								RuntimeCosts::Precompile(actual_weight),
-							);
-						}
-						post_dispatch_info.encode()
-					})
+				let result = crate::Pallet::<Runtime>::execute(frame_origin, final_message.into(), weight);
+
+				let pre = DispatchInfo {
+					call_weight: weight.clone(),
+					extension_weight: Weight::zero(),
+					..Default::default()
+				};
+
+				// Adjust gas using actual weight or fallback to initially charged weight
+				let actual_weight = frame_support::dispatch::extract_actual_weight(
+					&result,
+					&pre,
+				);
+				env.adjust_gas(charged_amount, RuntimeCosts::Precompile(actual_weight));
+
+				result
+					.map(|post_dispatch_info| post_dispatch_info.encode())
 					.map_err(|error| {
 						error!(
 							target: "xcm::precompiles",
 							?error,
 							"XCM execute failed: message may be invalid or execution constraints not satisfied"
 						);
-						// Adjust charged amount to account for the actual weight consumed.
-						if let Some(actual_weight) = error.post_info.actual_weight {
-							env.gas_meter_mut().adjust_gas(
-								charged_amount,
-								RuntimeCosts::Precompile(actual_weight),
-							);
-						}
 						Error::Revert(
 							"XCM execute failed: message may be invalid or execution constraints not satisfied"
 								.into(),
