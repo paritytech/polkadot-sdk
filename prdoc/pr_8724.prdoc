@@ -11,7 +11,7 @@ crates:
 - name: polkadot-runtime-common
   bump: patch
 - name: polkadot-runtime-parachains
-  bump: patch
+  bump: minor
 - name: staging-xcm-executor
   bump: patch
 - name: staging-xcm-builder
