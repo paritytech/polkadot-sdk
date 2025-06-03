@@ -1,18 +1,14 @@
 name: Release - RC automation
 on:
-  # TODO: Activate it and delete old branches patterns, when the release process from stable is settled
-  #push:
-    # branches:
-    #   # Catches release-polkadot-v1.2.3, release-v1.2.3-rc1, etc
-    #   - release-v[0-9]+.[0-9]+.[0-9]+*
-    #   - release-cumulus-v[0-9]+*
-    #   - release-polkadot-v[0-9]+*
-    #   - stable
-
   workflow_dispatch:
     inputs:
       version:
         description: Current release/rc version in format polkadot-stableYYMM
+  workflow_call:
+    inputs:
+      version:
+        description: Current release/rc version in format polkadot-stableYYMM
+        type: string
 
 jobs:
   tag_rc:
