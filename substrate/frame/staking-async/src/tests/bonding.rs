@@ -1446,8 +1446,8 @@ mod reap {
 					Error::<Test>::FundedTarget
 				);
 
-				// Note: Even though the stash is a validator, the threshold to reap is min of nominator
-				// and validator bond
+				// Note: Even though the stash is a validator, the threshold to reap is min of
+				// nominator and validator bond
 				// no easy way to cause an account to go below ED, we tweak their staking ledger
 				// instead.
 
