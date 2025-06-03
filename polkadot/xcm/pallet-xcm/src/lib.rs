@@ -352,7 +352,7 @@ pub mod pallet {
 				let message = (*message).try_into().map_err(|()| {
 					tracing::debug!(
 						target: "xcm::pallet_xcm::execute", id=?hash,
-						 "Failed to convert VersionedXcm to Xcm",
+						"Failed to convert VersionedXcm to Xcm",
 					);
 					Error::<T>::BadVersion
 				})?;
@@ -1254,8 +1254,8 @@ pub mod pallet {
 			T::AdminOrigin::ensure_origin(origin)?;
 			let location: Location = (*location).try_into().map_err(|()| {
 				tracing::debug!(
-				   target: "xcm::pallet_xcm::force_subscribe_version_notify",
-				   "Failed to convert VersionedLocation for subscription target"
+					target: "xcm::pallet_xcm::force_subscribe_version_notify",
+					"Failed to convert VersionedLocation for subscription target"
 				);
 				Error::<T>::BadLocation
 			})?;
@@ -3480,7 +3480,7 @@ impl<T: Config> Pallet<T> {
 		T::XcmExecutor::charge_fees(location.clone(), assets.clone()).map_err(|error| {
 			tracing::debug!(
 				target: "xcm::pallet_xcm::charge_fees", ?error,
-				 "Failed to charge fees for location with assets",
+				"Failed to charge fees for location with assets",
 			);
 			Error::<T>::FeesNotMet
 		})?;
@@ -3591,7 +3591,7 @@ impl<T: Config> xcm_executor::traits::Enact for LockTicket<T> {
 					|(balance, location)| {
 						tracing::debug!(
 							target: "xcm::pallet_xcm::enact", ?balance, ?location,
-							 "Failed to lock fungibles",
+							"Failed to lock fungibles",
 						);
 						UnexpectedState
 					},
