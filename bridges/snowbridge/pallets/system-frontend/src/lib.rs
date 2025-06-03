@@ -234,31 +234,7 @@ pub mod pallet {
 			let who = T::AccountIdConverter::convert_location(&origin_location)
 				.ok_or(Error::<T>::LocationConversionFailed)?;
 
-			let ether_location = T::EthereumLocation::get();
-			let (fee_asset_location, fee_amount) = match fee_asset {
-				Asset { id: AssetId(ref loc), fun: Fungible(amount) } => (loc, amount),
-				_ => {
-					tracing::debug!(target: LOG_TARGET, ?fee_asset, "error matching fee asset");
-					return Err(Error::<T>::UnsupportedAsset.into())
-				},
-			};
-			ensure!(fee_amount > 0, Error::<T>::TipAmountZero);
-
-			let ether_gained = if *fee_asset_location != ether_location {
-				Self::swap_and_burn(
-					who.clone(),
-					fee_asset_location.clone(),
-					ether_location,
-					fee_amount,
-				)
-				.inspect_err(|&e| {
-					tracing::debug!(target: LOG_TARGET, ?e, "error swapping asset");
-				})?
-			} else {
-				burn_for_teleport::<T::AssetTransactor>(&origin_location, &fee_asset)
-					.map_err(|_| Error::<T>::BurnError)?;
-				fee_amount
-			};
+			let ether_gained = Self::swap_fee_asset_and_burn(who, fee_asset)?;
 
 			let dest = T::BridgeHubLocation::get();
 			let call = Self::build_register_token_call(
@@ -294,32 +270,7 @@ pub mod pallet {
 		{
 			let who = ensure_signed(origin)?;
 
-			let ether_location = T::EthereumLocation::get();
-			let (tip_asset_location, tip_amount) = match asset {
-				Asset { id: AssetId(ref loc), fun: Fungibility::Fungible(amount) } => (loc, amount),
-				_ => {
-					tracing::debug!(target: LOG_TARGET, ?asset, "error matching tip asset");
-					return Err(Error::<T>::UnsupportedAsset.into())
-				},
-			};
-
-			ensure!(tip_amount > 0, Error::<T>::TipAmountZero);
-
-			let ether_gained = if *tip_asset_location != ether_location {
-				Self::swap_and_burn(
-					who.clone(),
-					tip_asset_location.clone(),
-					ether_location,
-					tip_amount,
-				)
-				.inspect_err(|&e| {
-					tracing::debug!(target: LOG_TARGET, ?e, "error swapping asset");
-				})?
-			} else {
-				burn_for_teleport::<T::AssetTransactor>(&who.clone().into(), &asset)
-					.map_err(|_| Error::<T>::BurnError)?;
-				tip_amount
-			};
+			let ether_gained = Self::swap_fee_asset_and_burn(who.clone(), asset)?;
 
 			// Send the tip details to BH to be allocated to the reward in the Inbound/Outbound
 			// pallet
@@ -438,6 +389,41 @@ pub mod pallet {
 			location
 				.reanchored(&T::BridgeHubLocation::get(), &T::UniversalLocation::get())
 				.map_err(|_| Error::<T>::LocationConversionFailed)
+		}
+
+		fn swap_fee_asset_and_burn(
+			who: AccountIdOf<T>,
+			fee_asset: Asset,
+		) -> Result<u128, DispatchError>
+		where
+			<T as frame_system::Config>::AccountId: Into<Location>,
+		{
+			let ether_location = T::EthereumLocation::get();
+			let (fee_asset_location, fee_amount) = match fee_asset {
+				Asset { id: AssetId(ref loc), fun: Fungible(amount) } => (loc, amount),
+				_ => {
+					tracing::debug!(target: LOG_TARGET, ?fee_asset, "error matching fee asset");
+					return Err(Error::<T>::UnsupportedAsset.into())
+				},
+			};
+			ensure!(fee_amount > 0, Error::<T>::TipAmountZero);
+
+			let ether_gained = if *fee_asset_location != ether_location {
+				Self::swap_and_burn(
+					who.clone(),
+					fee_asset_location.clone(),
+					ether_location,
+					fee_amount,
+				)
+				.inspect_err(|&e| {
+					tracing::debug!(target: LOG_TARGET, ?e, "error swapping asset");
+				})?
+			} else {
+				burn_for_teleport::<T::AssetTransactor>(&who.clone().into(), &fee_asset)
+					.map_err(|_| Error::<T>::BurnError)?;
+				fee_amount
+			};
+			Ok(ether_gained)
 		}
 	}
 
