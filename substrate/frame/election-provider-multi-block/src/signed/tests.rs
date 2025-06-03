@@ -19,7 +19,7 @@ use super::{Event as SignedEvent, *};
 use crate::{
 	mock::*,
 	types::Pagify,
-	verifier::{DataUnavailableInfo, FeasibilityError, VerificationResult, Verifier},
+	verifier::{FeasibilityError, Verifier},
 	Phase,
 };
 use frame_support::storage::unhashed;
@@ -684,15 +684,15 @@ mod e2e {
 			assert_eq!(pages_status[2], false, "Page 2 should not be submitted");
 
 			// Verify that the solution data provider can access all pages without errors
-			assert!(SignedPallet::get_page(0).is_some(), "Submitted page 0 should return Some");
-			assert!(
-				SignedPallet::get_page(1).is_some(),
-				"Missing page 1 should return Some with default solution"
-			);
-			assert!(
-				SignedPallet::get_page(2).is_some(),
-				"Missing page 2 should return Some with default solution"
-			);
+
+			let page_0 = SignedPallet::get_page(0);
+			let page_1 = SignedPallet::get_page(1);
+			let page_2 = SignedPallet::get_page(2);
+
+			// Page 0 should have actual data, pages 1 and 2 should be empty (default)
+			assert_ne!(page_0, Default::default(), "Submitted page 0 should have data");
+			assert_eq!(page_1, Default::default(), "Missing page 1 should return empty solution");
+			assert_eq!(page_2, Default::default(), "Missing page 2 should return empty solution");
 
 			// Start verification process
 			roll_to_signed_validation_open();
@@ -781,22 +781,6 @@ mod defensive_tests {
 					SignedEvent::Stored(0, 99, 0),
 					SignedEvent::Slashed(0, 99, 5)
 				]
-			);
-		});
-	}
-
-	#[test]
-	#[cfg(debug_assertions)]
-	#[should_panic(expected = "Defensive failure has been triggered!")]
-	fn defensive_panic_on_verification_data_unavailable_page() {
-		// Reporting VerificationDataUnavailable(Page) triggers defensive panic.
-		// This should never happen in normal operation
-		ExtBuilder::signed().build_and_execute(|| {
-			// Directly call report_result with VerificationDataUnavailable(Page)
-			// This simulates a bug where the verifier reports missing page instead of treating it
-			// as empty
-			<SignedPallet as SolutionDataProvider>::report_result(
-				VerificationResult::DataUnavailable(DataUnavailableInfo::Page(0)),
 			);
 		});
 	}

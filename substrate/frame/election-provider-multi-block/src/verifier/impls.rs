@@ -628,25 +628,8 @@ pub(crate) mod pallet {
 impl<T: Config> Pallet<T> {
 	fn do_on_initialize() -> Weight {
 		if let Status::Ongoing(current_page) = Self::status_storage() {
-			let maybe_page_solution =
+			let page_solution =
 				<T::SolutionDataProvider as SolutionDataProvider>::get_page(current_page);
-
-			let page_solution = match maybe_page_solution {
-				Some(solution) => solution,
-				None => {
-					// Treat missing pages as empty by design, but log and emit event
-					sublog!(
-						trace,
-						"verifier",
-						"page {} was unavailable, treating as empty page",
-						current_page
-					);
-					Self::deposit_event(Event::<T>::VerificationDataUnavailable(
-						DataUnavailableInfo::Page(current_page),
-					));
-					Default::default()
-				},
-			};
 
 			let maybe_supports = Self::feasibility_check_page_inner(page_solution, current_page);
 

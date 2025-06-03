@@ -226,8 +226,6 @@ pub trait Verifier {
 	scale_info::TypeInfo,
 )]
 pub enum DataUnavailableInfo {
-	/// A specific page was unavailable.
-	Page(PageIndex),
 	/// The score was unavailable.
 	Score,
 }
@@ -254,11 +252,9 @@ pub trait SolutionDataProvider {
 
 	/// Return the `page`th page of the current best solution that the data provider has in store.
 	///
-	/// If no candidate solutions are available, then None is returned.
-	///
-	/// Consumers should treat `None` as an empty page (i.e., as if the page exists but contains no
-	/// solutions).
-	fn get_page(page: PageIndex) -> Option<Self::Solution>;
+	/// If no candidate solutions are available, an empty page is returned (i.e., a page that
+	/// contains no solutions and contributes zero to the final score).
+	fn get_page(page: PageIndex) -> Self::Solution;
 
 	/// Get the claimed score of the current best solution.
 	fn get_score() -> Option<ElectionScore>;

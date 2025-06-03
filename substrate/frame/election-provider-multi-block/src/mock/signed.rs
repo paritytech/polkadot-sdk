@@ -43,8 +43,10 @@ parameter_types! {
 pub struct MockSignedPhase;
 impl SolutionDataProvider for MockSignedPhase {
 	type Solution = <Runtime as MinerConfig>::Solution;
-	fn get_page(page: PageIndex) -> Option<Self::Solution> {
-		MockSignedNextSolution::get().map(|i| i.get(page as usize).cloned().unwrap_or_default())
+	fn get_page(page: PageIndex) -> Self::Solution {
+		MockSignedNextSolution::get()
+			.and_then(|i| i.get(page as usize).cloned())
+			.unwrap_or_default()
 	}
 
 	fn get_score() -> Option<ElectionScore> {
@@ -96,10 +98,11 @@ pub enum SignedSwitch {
 pub struct DualSignedPhase;
 impl SolutionDataProvider for DualSignedPhase {
 	type Solution = <Runtime as MinerConfig>::Solution;
-	fn get_page(page: PageIndex) -> Option<Self::Solution> {
+	fn get_page(page: PageIndex) -> Self::Solution {
 		match SignedPhaseSwitch::get() {
 			SignedSwitch::Mock => MockSignedNextSolution::get()
-				.map(|i| i.get(page as usize).cloned().unwrap_or_default()),
+				.and_then(|i| i.get(page as usize).cloned())
+				.unwrap_or_default(),
 			SignedSwitch::Real => SignedPallet::get_page(page),
 		}
 	}

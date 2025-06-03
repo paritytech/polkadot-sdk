@@ -444,26 +444,16 @@ mod async_verification {
 
 			roll_next();
 
-			// After first roll, only page 2 is processed, status is still Ongoing(1).
-			assert_eq!(
-				verifier_events(),
-				vec![
-					Event::<Runtime>::VerificationDataUnavailable(DataUnavailableInfo::Page(2)),
-					Event::<Runtime>::Verified(2, 0)
-				]
-			);
+			// After first roll, only page 2 is processed (as empty page), status is still
+			// Ongoing(1).
+			assert_eq!(verifier_events(), vec![Event::<Runtime>::Verified(2, 0)]);
 			assert_eq!(VerifierPallet::status(), Status::Ongoing(1));
 
 			// Process the next page (page 1).
 			roll_next();
 			assert_eq!(
 				verifier_events(),
-				vec![
-					Event::<Runtime>::VerificationDataUnavailable(DataUnavailableInfo::Page(2)),
-					Event::<Runtime>::Verified(2, 0),
-					Event::<Runtime>::VerificationDataUnavailable(DataUnavailableInfo::Page(1)),
-					Event::<Runtime>::Verified(1, 0)
-				]
+				vec![Event::<Runtime>::Verified(2, 0), Event::<Runtime>::Verified(1, 0)]
 			);
 			assert_eq!(VerifierPallet::status(), Status::Ongoing(0));
 
@@ -508,11 +498,7 @@ mod async_verification {
 			assert_eq!(VerifierPallet::status(), Status::Ongoing(0));
 			assert_eq!(
 				verifier_events(),
-				vec![
-					Event::<Runtime>::Verified(2, 2),
-					Event::<Runtime>::VerificationDataUnavailable(DataUnavailableInfo::Page(1)),
-					Event::<Runtime>::Verified(1, 0)
-				]
+				vec![Event::<Runtime>::Verified(2, 2), Event::<Runtime>::Verified(1, 0)]
 			);
 
 			roll_next();
@@ -521,9 +507,7 @@ mod async_verification {
 				verifier_events(),
 				vec![
 					Event::<Runtime>::Verified(2, 2),
-					Event::<Runtime>::VerificationDataUnavailable(DataUnavailableInfo::Page(1)),
 					Event::<Runtime>::Verified(1, 0),
-					Event::<Runtime>::VerificationDataUnavailable(DataUnavailableInfo::Page(0)),
 					Event::<Runtime>::Verified(0, 0),
 					Event::<Runtime>::VerificationFailed(0, FeasibilityError::InvalidScore),
 				]
@@ -564,11 +548,7 @@ mod async_verification {
 			assert_eq!(VerifierPallet::status(), Status::Ongoing(0));
 			assert_eq!(
 				verifier_events(),
-				vec![
-					Event::<Runtime>::Verified(2, 2),
-					Event::<Runtime>::VerificationDataUnavailable(DataUnavailableInfo::Page(1)),
-					Event::<Runtime>::Verified(1, 0)
-				]
+				vec![Event::<Runtime>::Verified(2, 2), Event::<Runtime>::Verified(1, 0)]
 			);
 			roll_next();
 

@@ -59,7 +59,9 @@
 
 use crate::{
 	types::SolutionOf,
-	verifier::{AsynchronousVerifier, SolutionDataProvider, Status, VerificationResult},
+	verifier::{
+		AsynchronousVerifier, DataUnavailableInfo, SolutionDataProvider, Status, VerificationResult,
+	},
 };
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_election_provider_support::PageIndex;
@@ -119,14 +121,15 @@ pub struct SubmissionMetadata<T: Config> {
 impl<T: Config> SolutionDataProvider for Pallet<T> {
 	type Solution = SolutionOf<T::MinerConfig>;
 
-	fn get_page(page: PageIndex) -> Option<Self::Solution> {
-		// note: a non-existing page will still be treated as merely an empty page. This could be
-		// re-considered.
+	fn get_page(page: PageIndex) -> Self::Solution {
 		let current_round = Self::current_round();
-		Submissions::<T>::leader(current_round).map(|(who, _score)| {
+		if let Some((who, _score)) = Submissions::<T>::leader(current_round) {
 			sublog!(info, "signed", "returning page {} of {:?}'s submission as leader.", page, who);
 			Submissions::<T>::get_page_of(current_round, &who, page).unwrap_or_default()
-		})
+		} else {
+			// No leader available, return empty page
+			Default::default()
+		}
 	}
 
 	fn get_score() -> Option<ElectionScore> {
@@ -176,14 +179,13 @@ impl<T: Config> SolutionDataProvider for Pallet<T> {
 			VerificationResult::Rejected => {
 				Self::handle_solution_rejection(current_round, "Rejected");
 			},
-			VerificationResult::DataUnavailable(info) => {
-				// Both Page and Score unavailability should never happen under normal operation
+			VerificationResult::DataUnavailable(DataUnavailableInfo::Score) => {
+				// Score unavailability should never happen under normal operation
 				sublog!(
 					error,
 					"signed",
-					"Verification data unavailable for round {}: {:?} - it should never happen",
-					current_round,
-					info
+					"Verification data unavailable for round {}: Score - it should never happen",
+					current_round
 				);
 				defensive!("VerificationDataUnavailable should never happen");
 			},
