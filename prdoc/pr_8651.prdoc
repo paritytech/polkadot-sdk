@@ -45,5 +45,3 @@ crates:
   bump: minor
 - name: polkadot-parachain-bin
   bump: patch  
-  
-
