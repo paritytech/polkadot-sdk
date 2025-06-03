@@ -21,6 +21,7 @@ use frame_system::RawOrigin;
 use xcm::latest::prelude::*;
 use xcm_builder::EnsureDelivery;
 use xcm_executor::traits::FeeReason;
+use xcm::MAX_INSTRUCTIONS_TO_DECODE;
 
 type RuntimeOrigin<T> = <T as frame_system::Config>::RuntimeOrigin;
 
@@ -676,6 +677,19 @@ mod benchmarks {
 
 		#[extrinsic_call]
 		_(origin, Box::new(aliaser_to_remove));
+
+		Ok(())
+	}
+
+	#[benchmark]
+	fn weigh_message() -> Result<(), BenchmarkError> {
+		let msg = Xcm(vec![ClearOrigin; MAX_INSTRUCTIONS_TO_DECODE.into()]);
+		let versioned_msg = VersionedXcm::from(msg);
+
+		#[block]
+		{
+			crate::Pallet::<T>::query_xcm_weight(versioned_msg);
+		}
 
 		Ok(())
 	}

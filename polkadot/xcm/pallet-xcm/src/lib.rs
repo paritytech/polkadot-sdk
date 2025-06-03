@@ -108,6 +108,8 @@ pub trait WeightInfo {
 	fn claim_assets() -> Weight;
 	fn add_authorized_alias() -> Weight;
 	fn remove_authorized_alias() -> Weight;
+
+	fn weigh_message() -> Weight;
 }
 
 /// fallback implementation
@@ -198,6 +200,10 @@ impl WeightInfo for TestWeightInfo {
 	}
 
 	fn remove_authorized_alias() -> Weight {
+		Weight::from_parts(100_000, 0)
+	}
+
+	fn weigh_message() -> Weight {
 		Weight::from_parts(100_000, 0)
 	}
 }

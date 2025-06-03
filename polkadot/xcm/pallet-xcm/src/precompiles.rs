@@ -130,6 +130,8 @@ where
 				})
 			},
 			IXcmCalls::weighMessage(IXcm::weighMessageCall { message }) => {
+				let _ = env.charge(<Runtime as Config>::WeightInfo::weigh_message())?;
+				
 				let converted_message = VersionedXcm::decode_all_with_depth_limit(
 					MAX_XCM_DECODE_DEPTH,
 					&mut &message[..],
