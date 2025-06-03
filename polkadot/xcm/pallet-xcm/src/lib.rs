@@ -370,7 +370,7 @@ pub mod pallet {
 			})()
 			.map_err(|e: DispatchError| {
 				tracing::debug!(
-					target: "xcm::pallet_xcm::execute", ?e, "Failed XCM pre-execution validation or filter",
+					target: "xcm::pallet_xcm::execute", error=?e, "Failed XCM pre-execution validation or filter",
 				);
 				e.with_weight(<Self::WeightInfo as ExecuteControllerWeightInfo>::execute())
 			})?;
@@ -1294,7 +1294,7 @@ pub mod pallet {
 			})?;
 			Self::unrequest_version_notify(location).map_err(|e| {
 				tracing::debug!(
-					target: "xcm::pallet_xcm::force_unsubscribe_version_notify",
+					target: "xcm::pallet_xcm::force_unsubscribe_version_notify", error=?e,
 					"Failed to unsubscribe from version notifications for location"
 				);
 				match e {
@@ -1529,7 +1529,7 @@ pub mod pallet {
 				DepositAsset { assets: AllCounted(number_of_assets).into(), beneficiary },
 			]);
 			let weight = T::Weigher::weight(&mut message, Weight::MAX).map_err(|error| {
-				tracing::debug!(target: "xcm::pallet_xcm::claim_assets", ?error, "Failed to calculate XCM weight");
+				tracing::debug!(target: "xcm::pallet_xcm::claim_assets", ?error, "Failed to calculate weight");
 				Error::<T>::UnweighableMessage
 			})?;
 			let mut hash = message.using_encoded(sp_io::hashing::blake2_256);
@@ -3431,7 +3431,7 @@ impl<T: Config> Pallet<T> {
 		let destination = T::UniversalLocation::get().invert_target(&responder).map_err(|()| {
 			tracing::debug!(
 				target: "xcm::pallet_xcm::report_outcome_notify",
-			"Failed to invert responder location to universal location",
+				"Failed to invert responder location to universal location",
 			);
 			XcmError::LocationNotInvertible
 		})?;
@@ -3595,9 +3595,7 @@ impl<T: Config> xcm_executor::traits::Enact for LockTicket<T> {
 				locks.try_push((self.amount, self.unlocker.into())).map_err(
 					|(balance, location)| {
 						tracing::debug!(
-							target: "xcm::pallet_xcm::enact",
-											?balance,
-											?location,
+							target: "xcm::pallet_xcm::enact", ?balance, ?location,
 							 "Failed to lock fungibles",
 						);
 						UnexpectedState

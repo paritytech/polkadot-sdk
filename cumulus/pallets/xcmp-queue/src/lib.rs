@@ -1060,14 +1060,11 @@ impl<T: Config> SendXcm for Pallet<T> {
 				let xcm = msg.take().ok_or(SendError::MissingArgument)?;
 				let id = ParaId::from(*id);
 				let price = T::PriceForSiblingDelivery::price_for_delivery(id, &xcm);
-				let versioned_xcm = T::VersionWrapper::wrap_version(&d, xcm).map_err(|()| {
-					log::debug!(target: LOG_TARGET, "Failed to wrap XCM with version for destination: {d:?}");
-					SendError::DestinationUnsupported
-				})?;
-				versioned_xcm.check_is_decodable().map_err(|()| {
-					log::debug!(target: LOG_TARGET, "Failed to check XCM decodability: message too large or malformed");
-					SendError::ExceedsMaxMessageSize
-				})?;
+				let versioned_xcm = T::VersionWrapper::wrap_version(&d, xcm)
+					.map_err(|()| SendError::DestinationUnsupported)?;
+				versioned_xcm
+					.check_is_decodable()
+					.map_err(|()| SendError::ExceedsMaxMessageSize)?;
 
 				Ok(((id, versioned_xcm), price))
 			},
