@@ -52,7 +52,7 @@ pub enum Error {
 }
 
 /// Results concerning an operation to remove many keys.
-#[derive(codec::Encode, codec::Decode)]
+#[derive(codec::Encode, codec::Decode, Default)]
 #[must_use]
 pub struct MultiRemovalResults {
 	/// A continuation cursor which, if `Some` must be provided to the subsequent removal call.

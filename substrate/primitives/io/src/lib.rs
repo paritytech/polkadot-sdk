@@ -119,8 +119,9 @@ use sp_trie::{LayoutV0, LayoutV1, TrieConfiguration};
 use sp_runtime_interface::{
 	pass_by::{
 		AllocateAndReturnByCodec, AllocateAndReturnFatPointer, AllocateAndReturnPointer,
-		ConvertAndReturnAs, PassAs, PassFatPointerAndDecode, PassFatPointerAndDecodeSlice,
-		PassFatPointerAndRead, PassFatPointerAndReadWrite, PassPointerAndRead,
+		ConvertAndPassAs, ConvertAndReturnAs, PassAs, PassBufferAndWriteEncoded,
+		PassFatPointerAndDecode, PassFatPointerAndDecodeSlice, PassFatPointerAndRead,
+		PassFatPointerAndReadWrite, PassMaybeFatPointerAndRead, PassPointerAndRead,
 		PassPointerAndReadCopy, PassPointerAndWrite, ReturnAs,
 	},
 	runtime_interface, Pointer,
@@ -306,6 +307,12 @@ impl AsRef<[u8]> for NetworkPeerId {
 	}
 }
 
+impl AsMut<[u8]> for NetworkPeerId {
+	fn as_mut(&mut self) -> &mut [u8] {
+		&mut self.0
+	}
+}
+
 trait LessThan64BitPositiveInteger: Into<i64> {
 	const MAX: i64;
 }
@@ -324,6 +331,7 @@ impl LessThan64BitPositiveInteger for u32 {
 ///
 /// Used to return less-than-64-bit passed as `i64` through the FFI boundary. `-1_i64` is used to
 /// represent `None`.
+#[derive(Copy, Clone)]
 pub struct RIIntOption<T>(Option<T>);
 
 impl<T: LessThan64BitPositiveInteger> From<RIIntOption<T>> for Option<T> {
@@ -366,8 +374,10 @@ impl<T: TryFrom<i64> + LessThan64BitPositiveInteger> TryFrom<i64> for RIIntOptio
 
 /// Used to return less-than-64-bit value passed as `i64` through the FFI boundary.
 /// Negative values are used to represent error variants.
-enum RIIntResult<R, E> {
+pub enum RIIntResult<R, E> {
+	/// Successful result
 	Ok(R),
+	/// Error result
 	Err(E),
 }
 
@@ -397,7 +407,8 @@ where
 	}
 }
 
-struct VoidResult;
+/// Represents a void successful result (always 0 in FFI)
+pub struct VoidResult;
 
 impl LessThan64BitPositiveInteger for VoidResult {
 	const MAX: i64 = 0;
@@ -433,7 +444,20 @@ impl From<VoidResult> for i64 {
 	}
 }
 
-struct VoidError;
+impl TryFrom<i64> for VoidResult {
+	type Error = ();
+
+	fn try_from(value: i64) -> Result<Self, Self::Error> {
+		if value == 0 {
+			Ok(VoidResult)
+		} else {
+			Err(())
+		}
+	}
+}
+
+/// Represents a void error (always -1 in FFI)
+pub struct VoidError;
 
 impl strum::EnumCount for VoidError {
 	const COUNT: usize = 1;
@@ -454,6 +478,18 @@ impl From<VoidError> for () {
 impl From<()> for VoidError {
 	fn from(_: ()) -> Self {
 		VoidError
+	}
+}
+
+impl TryFrom<i64> for VoidError {
+	type Error = ();
+
+	fn try_from(value: i64) -> Result<Self, Self::Error> {
+		if value == -1 {
+			Ok(VoidError)
+		} else {
+			Err(())
+		}
 	}
 }
 
@@ -597,7 +633,6 @@ pub trait Storage {
 		Externalities::clear_prefix(*self, prefix, limit, None).into()
 	}
 
-	// TODO
 	/// Partially clear the storage of each key-value pair where the key starts with the given
 	/// prefix.
 	///
@@ -618,8 +653,9 @@ pub trait Storage {
 	/// operating on the same prefix should always pass `Some`, and this should be equal to the
 	/// previous call result's `maybe_cursor` field.
 	///
-	/// Returns [`MultiRemovalResults`](sp_io::MultiRemovalResults) to inform about the result. Once
-	/// the resultant `maybe_cursor` field is `None`, then no further items remain to be deleted.
+	/// Stores [`MultiRemovalResults`](sp_io::MultiRemovalResults) in the provided output buffer
+	/// to inform about the result. Once the resultant `maybe_cursor` field is `None`, then no
+	/// further items remain to be deleted.
 	///
 	/// NOTE: After the initial call for any given prefix, it is important that no keys further
 	/// keys under the same prefix are inserted. If so, then they may or may not be deleted by
@@ -633,17 +669,16 @@ pub trait Storage {
 	fn clear_prefix(
 		&mut self,
 		maybe_prefix: PassFatPointerAndRead<&[u8]>,
-		maybe_limit: PassFatPointerAndDecode<Option<u32>>,
-		maybe_cursor: PassFatPointerAndDecode<Option<Vec<u8>>>, /* TODO Make work or just
-		                                                         * Option<Vec<u8>>? */
-	) -> AllocateAndReturnByCodec<MultiRemovalResults> {
-		Externalities::clear_prefix(
+		maybe_limit: ConvertAndPassAs<Option<u32>, RIIntOption<u32>, i64>,
+		maybe_cursor_in: PassMaybeFatPointerAndRead<Option<&[u8]>>,
+		removal_results_out: PassBufferAndWriteEncoded<&mut MultiRemovalResults, 4096>,
+	) {
+		*removal_results_out = Externalities::clear_prefix(
 			*self,
 			maybe_prefix,
 			maybe_limit,
-			maybe_cursor.as_ref().map(|x| &x[..]),
-		)
-		.into()
+			maybe_cursor_in.as_ref().map(|x| &x[..]),
+		);
 	}
 
 	/// Append the encoded `value` to the storage item at `key`.
