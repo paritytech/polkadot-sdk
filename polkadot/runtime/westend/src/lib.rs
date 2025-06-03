@@ -2965,12 +2965,13 @@ sp_api::impl_runtime_apis! {
 					Asset { fun: Fungible(1 * UNITS), id: AssetId(TokenLocation::get()) },
 				));
 				pub const TrustedReserve: Option<(Location, Asset)> = None;
+				pub const CheckedAccount: Option<(AccountId, xcm_builder::MintLocation)> = None;
 			}
 
 			impl pallet_xcm_benchmarks::fungible::Config for Runtime {
 				type TransactAsset = Balances;
 
-				type CheckedAccount = xcm_config::LocalCheckAccount;
+				type CheckedAccount = CheckedAccount;
 				type TrustedTeleporter = TrustedTeleporter;
 				type TrustedReserve = TrustedReserve;
 
