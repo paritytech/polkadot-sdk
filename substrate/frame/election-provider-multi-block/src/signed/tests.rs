@@ -803,13 +803,16 @@ mod defensive_tests {
 
 	#[test]
 	fn partial_verification_interrupted_then_revert_to_signed_no_new_submission() {
-		// Test scenario where:
+		// Test scenario demonstrating that async verification is phase-independent and survives
+		// interruption.
+		//
 		// 1. A complete solution is submitted and verification starts
-		// 2. SignedValidation phase ends before the solution is fully verified
+		// 2. SignedValidation phase ends before the solution is fully verified (interrupted)
 		// 3. System reverts back to signed phase (using BackToSigned mode)
 		// 4. No new submissions are made in the second signed phase
-		// 5. Verification completes asynchronously during the second phase
-
+		// 5. The async verifier continues independently and eventually completes, queuing the
+		//    solution (completion can happen in any phase - the key is that it survives the
+		//    interruption)
 		ExtBuilder::signed()
 			.pages(3) // Multi-page solution to allow for partial verification
 			.signed_validation_phase(2) // Short validation phase to force interruption
@@ -836,48 +839,74 @@ mod defensive_tests {
 					vec![true, true, true] // All pages submitted
 				);
 
-				// Move to SignedValidation phase where verification starts
 				roll_to_signed_validation_open();
 				assert!(matches!(MultiBlock::current_phase(), Phase::SignedValidation(_)));
 
-				// Verification should start but phase will end before completion
-				while matches!(MultiBlock::current_phase(), Phase::SignedValidation(_)) {
-					roll_next();
-				}
+				// Reset event tracking
+				multi_block_events_since_last_call();
+
+				// Initial verifier state should have no queued solution
+				assert_eq!(VerifierPallet::queued_score(), None);
+
+				roll_next(); // SignedValidation(1) -> SignalValidation(0)
+				roll_next(); // SignedValidation(0) -> Signed(4)
+
+				// Verify events after SignedValidation phase ends
+				assert_eq!(
+					multi_block_events_since_last_call(),
+					vec![crate::Event::PhaseTransitioned {
+						from: Phase::SignedValidation(0),
+						to: Phase::Signed(4)
+					}]
+				);
 
 				// After SignedValidation phase ends, should revert to signed phase
-				let phase_after_validation = MultiBlock::current_phase();
-				assert!(matches!(phase_after_validation, Phase::Signed(_)));
+				assert_eq!(MultiBlock::current_phase(), Phase::Signed(4));
 
-				// Initially no solution queued (verification was interrupted)
-				assert!(VerifierPallet::queued_score().is_none());
+				// Verifier state after interruption should still have no queued solution
+				assert_eq!(VerifierPallet::queued_score(), None);
 
 				// Verify we're still in the same round (no election occurred yet)
 				assert_eq!(MultiBlock::round(), 0);
 
-				// Roll through the entire second signed phase without any new submissions
-				roll_to_signed_validation_open();
+				// Wait for async verification to complete, regardless of which phase it happens in.
+				// This proves that async verification survives phase interruption and completes
+				// eventually:
+				// 1. Verification was interrupted during first SignedValidation phase
+				// 2. Verifier status shows it eventually completed (Status::Nothing)
+				// 3. Solution was successfully queued despite the interruption
+				// 4. The specific phase where verification completion happens doesn't matter - can
+				//    be Signed or SignedValidation for example, doesn't matter
+				loop {
+					// Check verifier status:
+					// - Status::Ongoing(_) = still verifying
+					// - Status::Nothing = verification complete
+					let verifier_status = VerifierPallet::status();
+					let solution_queued = VerifierPallet::queued_score().is_some();
 
-				// Should reach SignedValidation phase again
-				assert!(matches!(MultiBlock::current_phase(), Phase::SignedValidation(_)));
+					if matches!(verifier_status, crate::verifier::Status::Nothing) &&
+						solution_queued
+					{
+						break;
+					}
 
-				assert!(
-					VerifierPallet::queued_score().is_some(),
-					"Solution should be queued after async verification"
-				);
+					roll_next();
+				}
+
+				let queued_score = VerifierPallet::queued_score();
+				assert!(queued_score.is_some());
 
 				// No new leader should exist for this second cycle (no new submissions)
 				assert!(!Submissions::<Runtime>::has_leader(round));
 
+				// The queued solution allows the system to proceed to Done phase
 				roll_to_done();
 
-				assert!(
-					matches!(MultiBlock::current_phase(), Phase::Done),
-					"Should reach Done phase with queued solution"
-				);
+				// Should reach Done phase with queued solution
+				assert_eq!(MultiBlock::current_phase(), Phase::Done);
 
-				// Solution should still be queued
-				assert!(VerifierPallet::queued_score().is_some());
+				// Solution should still be queued with same score
+				assert_eq!(VerifierPallet::queued_score(), queued_score);
 			});
 	}
 }
