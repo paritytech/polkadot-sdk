@@ -57,20 +57,70 @@ runs:
 
     - uses: ./.github/actions/download-artifact-extract
       with:
+        artifact-name: build-linux-stable-${{ inputs.ref-slug }}
+        gh-token: ${{ inputs.gh-token }}
+        run-id: ${{ inputs.build-id }}
+        extract-path: ./tmp
+        files-to-copy:
+        - artifacts/polkadot
+        - artifacts/polkadot-execute-worker
+        - artifacts/polkadot-prepare-worker
+        destination-path: ./bin
+        cleanup: "true"
+
+
+    - uses: ./.github/actions/download-artifact-extract
+      with:
+        artifact-name: build-linux-stable-cumulus-${{ inputs.ref-slug }}
+        gh-token: ${{ inputs.gh-token }}
+        run-id: ${{ inputs.build-id }}
+        extract-path: ./tmp
+        files-to-copy:
+        - artifacts/polkadot-parachain
+        destination-path: ./bin
+        cleanup: "true"
+
+    - uses: ./.github/actions/download-artifact-extract
+      with:
+        artifact-name: build-test-parachain-${{ inputs.ref-slug }}
+        gh-token: ${{ inputs.gh-token }}
+        run-id: ${{ inputs.build-id }}
+        extract-path: ./tmp
+        files-to-copy:
+        - artifacts/test-parachain
+        destination-path: ./bin
+        cleanup: "true"
+
+    - uses: ./.github/actions/download-artifact-extract
+      with:
+        artifact-name: build-test-collators-${{ inputs.ref-slug }}
+        gh-token: ${{ inputs.gh-token }}
+        run-id: ${{ inputs.build-id }}
+        extract-path: ./tmp
+        files-to-copy:
+        - artifacts/adder-collator
+        - artifacts/undying-collator
+        destination-path: ./bin
+        cleanup: "true"
+
+    - uses: ./.github/actions/download-artifact-extract
+      with:
+        artifact-name: build-malus-${{ inputs.ref-slug }}
+        gh-token: ${{ inputs.gh-token }}
+        run-id: ${{ inputs.build-id }}
+        extract-path: ./tmp
+        files-to-copy:
+        # TODO: should copy polkadot-execute-worker and polkadot-prepare-worker?
+        # if yes then it overlaps with build-linux-stable - address this
+        - artifacts/malus
+        destination-path: ./bin
+        cleanup: "true"
+
+    - uses: ./.github/actions/download-artifact-extract
+      with:
         artifact-name: prepare-${{ inputs.prefix }}-zombienet-artifacts-${{ inputs.ref-slug }}
         gh-token: ${{ inputs.gh-token }}
         run-id: ${{ inputs.build-id }}
-        
-    # Download parachain artifact if specified
-    - uses: ./.github/actions/download-artifact-extract
-      if: inputs.parachain-artifact != ''
-      with:
-        artifact-name: ${{ inputs.parachain-artifact }}-${{ inputs.ref-slug }}
-        gh-token: ${{ inputs.gh-token }}
-        run-id: ${{ inputs.build-id }}
-        extract-path: ./parachain-tmp
-        files-to-copy: ${{ inputs.parachain-files }}
-        destination-path: ${{ inputs.parachain-destination }}
 
     - name: zombie_test
       shell: bash
@@ -80,6 +130,7 @@ runs:
         TEST_NAME: ${{ inputs.test }}
         PREFIX: ${{ inputs.prefix }}
       run: |
+          export PATH=./bin:$PATH
           ls -ltr ./artifacts
           cargo nextest run --archive-file ./artifacts/${PREFIX}-zombienet-tests.tar.zst --no-capture -- ${TEST_NAME}
 
