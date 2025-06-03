@@ -15,10 +15,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::session_rotation::Eras;
-use crate::tests::session_mock::Timestamp;
-use crate::tests::session_mock::CurrentIndex;
-use crate::session_rotation::Rotator;
+use crate::{
+	session_rotation::{Eras, Rotator},
+	tests::session_mock::{CurrentIndex, Timestamp},
+};
 
 use super::*;
 
@@ -183,9 +183,7 @@ fn forcing_force_new() {
 #[test]
 fn activation_timestamp_when_no_planned_era() {
 	// maybe not needed, as we have the id check
-	ExtBuilder::default()
-		.session_per_era(6)
-		.build_and_execute(|| {
+	ExtBuilder::default().session_per_era(6).build_and_execute(|| {
 		Session::roll_until_active_era(2);
 		let current_index = CurrentIndex::get();
 
@@ -212,7 +210,11 @@ fn activation_timestamp_when_no_planned_era() {
 			staking_events_since_last_call(),
 			vec![
 				Event::Unexpected(UnexpectedKind::UnknownValidatorActivation),
-				Event::SessionRotated { starting_session: current_index + 1, active_era: 2, planned_era: 2 }
+				Event::SessionRotated {
+					starting_session: current_index + 1,
+					active_era: 2,
+					planned_era: 2
+				}
 			]
 		);
 	});
@@ -252,7 +254,11 @@ fn max_era_duration_safety_guard() {
 				Event::SessionRotated { starting_session: 4, active_era: 1, planned_era: 2 },
 				Event::PagedElectionProceeded { page: 0, result: Ok(2) },
 				Event::SessionRotated { starting_session: 5, active_era: 1, planned_era: 2 },
-				Event::EraPaid { era_index: 1, validator_payout: ideal_validator_payout, remainder: ideal_treasury_payout },
+				Event::EraPaid {
+					era_index: 1,
+					validator_payout: ideal_validator_payout,
+					remainder: ideal_treasury_payout
+				},
 				Event::SessionRotated { starting_session: 6, active_era: 2, planned_era: 2 }
 			]
 		);
@@ -273,7 +279,11 @@ fn max_era_duration_safety_guard() {
 				// duration exceeded the `MaxEraDuration` limit.
 				Event::Unexpected(UnexpectedKind::EraDurationBoundExceeded),
 				// the payouts are capped to the max values.
-				Event::EraPaid { era_index: 2, validator_payout: max_validator_payout, remainder: max_treasury_payout },
+				Event::EraPaid {
+					era_index: 2,
+					validator_payout: max_validator_payout,
+					remainder: max_treasury_payout
+				},
 				Event::SessionRotated { starting_session: 9, active_era: 3, planned_era: 3 }
 			]
 		);

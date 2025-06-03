@@ -1129,8 +1129,8 @@ pub mod pallet {
 	pub enum UnexpectedKind {
 		/// Emitted when calculated era duration exceeds the configured maximum.
 		EraDurationBoundExceeded,
-        /// Received a validator activation event that is not recognized.
-        UnknownValidatorActivation,
+		/// Received a validator activation event that is not recognized.
+		UnknownValidatorActivation,
 	}
 
 	#[pallet::error]

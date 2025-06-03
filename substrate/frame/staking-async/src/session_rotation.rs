@@ -572,7 +572,9 @@ impl<T: Config> Rotator<T> {
 					id,
 					current_planned_era
 				);
-				Pallet::<T>::deposit_event(Event::Unexpected(UnexpectedKind::UnknownValidatorActivation));
+				Pallet::<T>::deposit_event(Event::Unexpected(
+					UnexpectedKind::UnknownValidatorActivation,
+				));
 			},
 			None => (),
 		}
