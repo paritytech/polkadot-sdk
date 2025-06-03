@@ -21,7 +21,7 @@ use crate::{
 		verifier_events, ExtBuilder, MaxBackersPerWinner, MaxWinnersPerPage, MultiBlock, Runtime,
 		VerifierPallet, *,
 	},
-	verifier::{impls::Status, DataUnavailableInfo, Event, FeasibilityError, Verifier, *},
+	verifier::{impls::Status, Event, FeasibilityError, Verifier, *},
 	PagedRawSolution, Snapshot, *,
 };
 use frame_election_provider_support::Support;
@@ -461,10 +461,7 @@ mod async_verification {
 			roll_next();
 			// Missing score should emit VerificationDataUnavailable event.
 			assert_eq!(VerifierPallet::status(), Status::Nothing);
-			assert_eq!(
-				MockSignedResults::get(),
-				vec![VerificationResult::DataUnavailable(DataUnavailableInfo::Score)]
-			);
+			assert_eq!(MockSignedResults::get(), vec![VerificationResult::DataUnavailable]);
 		});
 	}
 
@@ -554,10 +551,7 @@ mod async_verification {
 
 			// Missing score should emit VerificationDataUnavailable event.
 			assert_eq!(VerifierPallet::status(), Status::Nothing);
-			assert_eq!(
-				MockSignedResults::get(),
-				vec![VerificationResult::DataUnavailable(DataUnavailableInfo::Score)]
-			);
+			assert_eq!(MockSignedResults::get(), vec![VerificationResult::DataUnavailable]);
 		});
 	}
 

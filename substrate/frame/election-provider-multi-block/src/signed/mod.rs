@@ -59,9 +59,7 @@
 
 use crate::{
 	types::SolutionOf,
-	verifier::{
-		AsynchronousVerifier, DataUnavailableInfo, SolutionDataProvider, Status, VerificationResult,
-	},
+	verifier::{AsynchronousVerifier, SolutionDataProvider, Status, VerificationResult},
 };
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_election_provider_support::PageIndex;
@@ -185,12 +183,12 @@ impl<T: Config> SolutionDataProvider for Pallet<T> {
 			VerificationResult::Rejected => {
 				Self::handle_solution_rejection(current_round, "Rejected");
 			},
-			VerificationResult::DataUnavailable(DataUnavailableInfo::Score) => {
+			VerificationResult::DataUnavailable => {
 				// Score unavailability should never happen under normal operation
 				sublog!(
 					error,
 					"signed",
-					"Verification data unavailable for round {}: Score - it should never happen",
+					"Verification data unavailable for round {} - it should never happen",
 					current_round
 				);
 				defensive!("VerificationDataUnavailable should never happen");

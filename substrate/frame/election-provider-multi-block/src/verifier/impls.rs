@@ -23,7 +23,7 @@ use crate::{
 	helpers,
 	types::VoterOf,
 	unsigned::miner::{MinerConfig, PageSupportsOfMiner},
-	verifier::{DataUnavailableInfo, Verifier},
+	verifier::Verifier,
 	SolutionOf,
 };
 use codec::{Decode, Encode, MaxEncodedLen};
@@ -151,8 +151,8 @@ pub(crate) mod pallet {
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T> {
-		/// Verification data was unavailable, either a page or score was missing.
-		VerificationDataUnavailable(DataUnavailableInfo),
+		/// The verification data was unavailable and it could not continue.
+		VerificationDataUnavailable,
 		/// A verification failed at the given page.
 		///
 		/// NOTE: if the index is 0, then this could mean either the feasibility of the last page
@@ -683,11 +683,9 @@ impl<T: Config> Pallet<T> {
 									"verifier",
 									"score was unavailable during finalization"
 								);
-								Self::deposit_event(Event::<T>::VerificationDataUnavailable(
-									DataUnavailableInfo::Score,
-								));
+								Self::deposit_event(Event::<T>::VerificationDataUnavailable);
 								T::SolutionDataProvider::report_result(
-									VerificationResult::DataUnavailable(DataUnavailableInfo::Score),
+									VerificationResult::DataUnavailable,
 								);
 								// Clean up invalid solution
 								QueuedSolution::<T>::clear_invalid_and_backings();
