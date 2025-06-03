@@ -32,7 +32,7 @@ use codec::{Decode, Encode, HasCompact};
 use core::cmp::Ordering;
 use frame_election_provider_support::NposSolution;
 use frame_support::traits::{
-	defensive_prelude::*, Currency, Get, OnUnbalanced, ReservableCurrency,
+	defensive_prelude::*, Currency, Get, OnUnbalanced, ReservableCurrency, GetTreasury
 };
 use frame_system::pallet_prelude::BlockNumberFor;
 use sp_arithmetic::traits::SaturatedConversion;
@@ -505,10 +505,22 @@ impl<T: Config> Pallet<T> {
 		let _remaining = T::Currency::unreserve(who, deposit);
 		debug_assert!(_remaining.is_zero());
 
+		// Calculate total reward + call fee
+		let mut total_reward = reward.saturating_add(call_fee);
+
+		// only issue rewards if they are available in the treasury
+		let treasury = T::Currency::get_treasury();
+		let treasury_balance = T::Currency::free_balance(&treasury);
+		if treasury_balance < total_reward {
+			total_reward = treasury_balance;
+		}
+
 		// Reward and refund the call fee.
-		let positive_imbalance =
-			T::Currency::deposit_creating(who, reward.saturating_add(call_fee));
-		T::RewardHandler::on_unbalanced(positive_imbalance);
+		if !total_reward.is_zero() {
+			let positive_imbalance =
+				T::Currency::deposit_creating(who, total_reward);
+			T::RewardHandler::on_unbalanced(positive_imbalance);
+		}
 	}
 
 	/// Helper function for the case where a solution is accepted in the rejected phase.

@@ -572,6 +572,7 @@ pub mod pallet {
 	use super::*;
 	use frame_election_provider_support::{InstantElectionProvider, NposSolver};
 	use frame_support::{pallet_prelude::*, traits::EstimateCallFee};
+	use frame_support::traits::GetTreasury;
 	use frame_system::pallet_prelude::*;
 	use sp_runtime::traits::Convert;
 
@@ -582,7 +583,9 @@ pub mod pallet {
 			+ TryInto<Event<Self>>;
 
 		/// Currency type.
-		type Currency: ReservableCurrency<Self::AccountId> + Currency<Self::AccountId>;
+		type Currency: ReservableCurrency<Self::AccountId>
+			+ Currency<Self::AccountId>
+			+ GetTreasury<Self::AccountId>;
 
 		/// Something that can predict the fee of a call. Used to sensibly distribute rewards.
 		type EstimateCallFee: EstimateCallFee<Call<Self>, BalanceOf<Self>>;
