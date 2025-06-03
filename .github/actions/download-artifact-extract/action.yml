@@ -63,8 +63,12 @@ runs:
         mkdir -p "${{ inputs.destination-path }}"
 
         echo "${{ inputs.files-to-copy }}" | tr ',' '\n' | while read -r file; do
-          echo "Copying $file to ${{ inputs.destination-path }}"
-          cp -r "${{ inputs.extract-path }}/$file" "${{ inputs.destination-path }}/"
+          # trim leading and trailing whitespaces
+          file="$(echo "$file" | xargs)"
+          if [[ -n "$file" ]]; then
+            echo "Copying $file to ${{ inputs.destination-path }}"
+            cp -r "${{ inputs.extract-path }}/$file" "${{ inputs.destination-path }}/"
+          fi
         done
 
         # Cleanup if requested
