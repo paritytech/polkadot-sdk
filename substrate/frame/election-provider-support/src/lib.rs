@@ -652,6 +652,13 @@ pub trait SortedListProvider<AccountId> {
 	/// May return an error if `start` is invalid.
 	fn iter_from(start: &AccountId) -> Result<Box<dyn Iterator<Item = AccountId>>, Self::Error>;
 
+	/// Returns an iterator over the list, starting from the given voter.
+	///
+	/// May return an error if `start` is invalid.
+	fn iter_from_inclusive(
+		start: &AccountId,
+	) -> Result<Box<dyn Iterator<Item = AccountId>>, Self::Error>;
+
 	/// The current count of ids in the list.
 	fn count() -> u32;
 

@@ -275,7 +275,7 @@ pub mod pallet {
 	/// Pointer that remembers the next node that will be auto-rebagged.
 	/// When `None`, the next scan will start from the list head again.
 	#[pallet::storage]
-	pub type LastNodeAutoRebagged<T: Config<I>, I: 'static = ()> =
+	pub type NextNodeAutoRebagged<T: Config<I>, I: 'static = ()> =
 		StorageValue<_, T::AccountId, OptionQuery>;
 
 	/// Lock all updates to this pallet.
@@ -447,30 +447,25 @@ pub mod pallet {
 				total_nodes
 			);
 
-			let cursor = LastNodeAutoRebagged::<T, I>::get();
-			match cursor {
+			let cursor = NextNodeAutoRebagged::<T, I>::get();
+			let mut iter = match cursor {
 				Some(ref last) => {
 					log!(debug, "👜 Last node processed in previous block: {:?}", last);
+					Self::iter_from_inclusive(last).unwrap_or_else(|_| Self::iter())
 				},
 				None => {
-					log!(debug, "👜 No LastNodeAutoRebagged found. Starting from head of the list");
+					log!(debug, "👜 No NextNodeAutoRebagged found. Starting from head of the list");
+					Self::iter()
 				},
-			}
+			};
 
-			let iter = match cursor {
-				Some(ref last) => Self::iter_from(last).unwrap_or_else(|_| Self::iter()),
-				None => Self::iter(),
-			}
-			.take(rebag_budget as usize);
-
-			let mut last_account: Option<T::AccountId> = None;
 			let mut processed = 0u32;
 			let mut successful_rebags = 0u32;
 			let mut failed_rebags = 0u32;
 			let per_rebag =
 				T::WeightInfo::rebag_non_terminal().max(T::WeightInfo::rebag_terminal());
 
-			for account in iter {
+			while let Some(account) = iter.next() {
 				if meter.try_consume(per_rebag).is_err() {
 					log!(debug, "Weight limit reached after {} processed accounts", processed);
 					break;
@@ -479,7 +474,6 @@ pub mod pallet {
 				match Self::rebag_internal(&account) {
 					Err(Error::<T, I>::Locked) => {
 						defensive!("Pallet became locked during auto-rebag, stopping");
-						last_account = Some(account.clone());
 						break;
 					},
 					Err(e) => {
@@ -495,37 +489,19 @@ pub mod pallet {
 					},
 				}
 
-				last_account = Some(account.clone());
 				processed += 1;
+				if processed == rebag_budget {
+					break;
+				}
 			}
 
-			match last_account {
-				Some(ref last) => {
-					match ListNodes::<T, I>::get(last) {
-						Some(node) => {
-							// If this node has no `next`, we've reached the end of the list
-							if node.next.is_none() {
-								LastNodeAutoRebagged::<T, I>::kill();
-								log!(debug, "👜 Reached end of list, resetting cursor");
-							} else {
-								LastNodeAutoRebagged::<T, I>::put(last.clone());
-								log!(debug, "👜 Saved processed node: {:?}", last);
-							}
-						},
-						None => {
-							// Node isn't found in storage – unexpected, but fail-safe reset
-							LastNodeAutoRebagged::<T, I>::kill();
-							log!(
-								warn,
-								"👜 Last processed node not found in ListNodes. Cursor reset."
-							);
-						},
-					}
-				},
-				None => {
-					LastNodeAutoRebagged::<T, I>::kill();
-					log!(warn, "👜 No accounts were processed. Cursor reset.");
-				},
+			let next = iter.next();
+			log!(debug, "Next is: {:?}", next);
+			if next.is_none() {
+				NextNodeAutoRebagged::<T, I>::kill();
+			} else if let Some(node) = next {
+				NextNodeAutoRebagged::<T, I>::put(&node);
+				log!(debug, "👜 Saved next node to be processed in rebag cursor: {}", node)
 			}
 
 			let weight_used = meter.consumed();
@@ -650,6 +626,13 @@ impl<T: Config<I>, I: 'static> SortedListProvider<T::AccountId> for Pallet<T, I>
 		start: &T::AccountId,
 	) -> Result<Box<dyn Iterator<Item = T::AccountId>>, Self::Error> {
 		let iter = List::<T, I>::iter_from(start)?;
+		Ok(Box::new(iter.map(|n| n.id().clone())))
+	}
+
+	fn iter_from_inclusive(
+		start: &T::AccountId,
+	) -> Result<Box<dyn Iterator<Item = T::AccountId>>, Self::Error> {
+		let iter = List::<T, I>::iter_from_inclusive(start)?;
 		Ok(Box::new(iter.map(|n| n.id().clone())))
 	}
 
