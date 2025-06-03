@@ -1,0 +1,4 @@
+RUST_LOG=info,zombienet_orchestrator=trace,cumulus_zombienet_sdk_helpers=debug
+ZOMBIE_PROVIDER=native
+ZOMBIENET_SDK_IMAGE=docker.io/paritytech/ci-unified:bullseye-1.84.1-2025-01-28-v202502131220
+ZOMBIENET_SDK_RUNNER=parity-large
