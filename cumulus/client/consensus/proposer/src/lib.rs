@@ -22,12 +22,12 @@
 
 use async_trait::async_trait;
 
-use cumulus_primitives_parachain_inherent::ParachainInherentData;
 use sp_consensus::{EnableProofRecording, Environment, Proposal, Proposer as SubstrateProposer};
-use sp_inherents::InherentData;
+use sp_inherents::{InherentData, InherentDataProvider};
 use sp_runtime::{traits::Block as BlockT, Digest};
 use sp_state_machine::StorageProof;
 
+use cumulus_primitives_parachain_inherent::ParachainInherentData;
 use std::{fmt::Debug, time::Duration};
 
 /// Errors that can occur when proposing a parachain block.
@@ -118,11 +118,9 @@ where
 			.map_err(|e| Error::proposer_creation(anyhow::Error::new(e)))?;
 
 		let mut inherent_data = other_inherent_data;
-		inherent_data
-			.put_data(
-				cumulus_primitives_parachain_inherent::INHERENT_IDENTIFIER,
-				&paras_inherent_data,
-			)
+		paras_inherent_data
+			.provide_inherent_data(&mut inherent_data)
+			.await
 			.map_err(|e| Error::proposing(anyhow::Error::new(e)))?;
 
 		proposer

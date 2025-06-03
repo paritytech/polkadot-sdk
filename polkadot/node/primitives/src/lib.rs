@@ -62,7 +62,7 @@ pub use disputes::{
 /// relatively rare.
 ///
 /// The associated worker binaries should use the same version as the node that spawns them.
-pub const NODE_VERSION: &'static str = "1.18.0";
+pub const NODE_VERSION: &'static str = "1.18.5";
 
 // For a 16-ary Merkle Prefix Trie, we can expect at most 16 32-byte hashes per node
 // plus some overhead:
@@ -73,7 +73,7 @@ const MERKLE_PROOF_MAX_DEPTH: usize = 8;
 
 /// The bomb limit for decompressing code blobs.
 #[deprecated(
-	note = "`VALIDATION_CODE_BOMB_LIMIT` will be removed. Use `validation_code_bomb_limit` 
+	note = "`VALIDATION_CODE_BOMB_LIMIT` will be removed. Use `validation_code_bomb_limit`
 	runtime API to retrieve the value from the runtime"
 )]
 pub const VALIDATION_CODE_BOMB_LIMIT: usize = (MAX_CODE_SIZE * 4u32) as usize;

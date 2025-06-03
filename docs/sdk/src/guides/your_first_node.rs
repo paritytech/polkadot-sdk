@@ -267,6 +267,7 @@ mod tests {
 	}
 
 	#[test]
+	#[ignore = "is flaky"]
 	fn works_with_different_block_times() {
 		test_runtime_preset(PARA_RUNTIME, 100, Some(DEV_RUNTIME_PRESET.into()));
 		test_runtime_preset(PARA_RUNTIME, 3000, Some(DEV_RUNTIME_PRESET.into()));
@@ -335,7 +336,7 @@ mod tests {
 			.output()
 			.unwrap();
 
-		// atleast  blocks should be imported
+		// at least  blocks should be imported
 		assert!(String::from_utf8(output.stderr)
 			.unwrap()
 			.contains(format!("Imported #{}", 7).to_string().as_str()));

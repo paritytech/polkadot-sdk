@@ -26,6 +26,8 @@ mod mock;
 mod tests;
 
 pub mod migration;
+#[cfg(any(test, feature = "test-utils"))]
+pub mod xcm_helpers;
 
 extern crate alloc;
 
@@ -54,6 +56,7 @@ use sp_runtime::{
 	},
 	Either, RuntimeDebug, SaturatedConversion,
 };
+use storage::{with_transaction, TransactionOutcome};
 use xcm::{latest::QueryResponseInfo, prelude::*};
 use xcm_builder::{
 	ExecuteController, ExecuteControllerWeightInfo, InspectMessageQueues, QueryController,
@@ -74,6 +77,9 @@ use xcm_runtime_apis::{
 	fees::Error as XcmPaymentApiError,
 	trusted_query::Error as TrustedQueryApiError,
 };
+
+mod errors;
+pub use errors::ExecutionError;
 
 #[cfg(any(feature = "try-runtime", test))]
 use sp_runtime::TryRuntimeError;
@@ -241,6 +247,7 @@ pub mod pallet {
 	/// The module configuration trait.
 	pub trait Config: frame_system::Config {
 		/// The overarching event type.
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		/// A lockable currency.
@@ -362,7 +369,11 @@ pub mod pallet {
 			let weight_used = outcome.weight_used();
 			outcome.ensure_complete().map_err(|error| {
 				tracing::error!(target: "xcm::pallet_xcm::execute", ?error, "XCM execution failed with error");
-				Error::<T>::LocalExecutionIncomplete.with_weight(
+				Error::<T>::LocalExecutionIncompleteWithError {
+					index: error.index,
+					error: error.error.into(),
+				}
+				.with_weight(
 					weight_used.saturating_add(
 						<Self::WeightInfo as ExecuteControllerWeightInfo>::execute(),
 					),
@@ -667,6 +678,7 @@ pub mod pallet {
 		#[codec(index = 23)]
 		TooManyReserves,
 		/// Local XCM execution incomplete.
+		#[deprecated(since = "20.0.0", note = "Use `LocalExecutionIncompleteWithError` instead")]
 		#[codec(index = 24)]
 		LocalExecutionIncomplete,
 		/// Too many locations authorized to alias origin.
@@ -678,6 +690,10 @@ pub mod pallet {
 		/// The alias to remove authorization for was not found.
 		#[codec(index = 27)]
 		AliasNotFound,
+		/// Local XCM execution incomplete with the actual XCM error and the index of the
+		/// instruction that caused the error.
+		#[codec(index = 28)]
+		LocalExecutionIncompleteWithError { index: InstructionIndex, error: ExecutionError },
 	}
 
 	impl<T: Config> From<SendError> for Error<T> {
@@ -1433,8 +1449,10 @@ pub mod pallet {
 				ClaimAsset { assets, ticket },
 				DepositAsset { assets: AllCounted(number_of_assets).into(), beneficiary },
 			]);
-			let weight =
-				T::Weigher::weight(&mut message).map_err(|()| Error::<T>::UnweighableMessage)?;
+			let weight = T::Weigher::weight(&mut message, Weight::MAX).map_err(|error| {
+				tracing::debug!(target: "xcm::pallet_xcm::claim_assets", ?error, "Failed to calculate weight");
+				Error::<T>::UnweighableMessage
+			})?;
 			let mut hash = message.using_encoded(sp_io::hashing::blake2_256);
 			let outcome = T::XcmExecutor::prepare_and_execute(
 				origin_location,
@@ -1445,7 +1463,7 @@ pub mod pallet {
 			);
 			outcome.ensure_complete().map_err(|error| {
 				tracing::error!(target: "xcm::pallet_xcm::claim_assets", ?error, "XCM execution failed with error");
-				Error::<T>::LocalExecutionIncomplete
+				Error::<T>::LocalExecutionIncompleteWithError { index: error.index, error: error.error.into()}
 			})?;
 			Ok(())
 		}
@@ -2065,7 +2083,10 @@ impl<T: Config> Pallet<T> {
 		);
 
 		let weight =
-			T::Weigher::weight(&mut local_xcm).map_err(|()| Error::<T>::UnweighableMessage)?;
+			T::Weigher::weight(&mut local_xcm, Weight::MAX).map_err(|error| {
+				tracing::debug!(target: "xcm::pallet_xcm::execute_xcm_transfer", ?error, "Failed to calculate weight");
+				Error::<T>::UnweighableMessage
+			})?;
 		let mut hash = local_xcm.using_encoded(sp_io::hashing::blake2_256);
 		let outcome = T::XcmExecutor::prepare_and_execute(
 			origin.clone(),
@@ -2080,7 +2101,10 @@ impl<T: Config> Pallet<T> {
 				target: "xcm::pallet_xcm::execute_xcm_transfer",
 				?error, "XCM execution failed with error with outcome: {:?}", outcome
 			);
-			Error::<T>::LocalExecutionIncomplete
+			Error::<T>::LocalExecutionIncompleteWithError {
+				index: error.index,
+				error: error.error.into(),
+			}
 		})?;
 
 		if let Some(remote_xcm) = remote_xcm {
@@ -2943,14 +2967,68 @@ impl<T: Config> Pallet<T> {
 	pub fn query_xcm_weight(message: VersionedXcm<()>) -> Result<Weight, XcmPaymentApiError> {
 		let message = Xcm::<()>::try_from(message.clone())
 			.map_err(|e| {
-				tracing::error!(target: "xcm::pallet_xcm::query_xcm_weight", ?e, ?message, "Failed to convert versioned message");
+				tracing::debug!(target: "xcm::pallet_xcm::query_xcm_weight", ?e, ?message, "Failed to convert versioned message");
 				XcmPaymentApiError::VersionedConversionFailed
 			})?;
 
-		T::Weigher::weight(&mut message.clone().into()).map_err(|()| {
-			tracing::error!(target: "xcm::pallet_xcm::query_xcm_weight", ?message, "Error when querying XCM weight");
+		T::Weigher::weight(&mut message.clone().into(), Weight::MAX).map_err(|error| {
+			tracing::debug!(target: "xcm::pallet_xcm::query_xcm_weight", ?error, ?message, "Error when querying XCM weight");
 			XcmPaymentApiError::WeightNotComputable
 		})
+	}
+
+	/// Computes the weight cost using the provided `WeightTrader`.
+	/// This function is supposed to be used ONLY in `XcmPaymentApi::query_weight_to_asset_fee`.
+	///
+	/// The provided `WeightTrader` must be the same as the one used in the XcmExecutor to ensure
+	/// uniformity in the weight cost calculation.
+	///
+	/// NOTE: Currently this function uses a workaround that should be good enough for all practical
+	/// uses: passes `u128::MAX / 2 == 2^127` of the specified asset to the `WeightTrader` as
+	/// payment and computes the weight cost as the difference between this and the unspent amount.
+	///
+	/// Some weight traders could add the provided payment to some account's balance. However,
+	/// it should practically never result in overflow because even currencies with a lot of decimal
+	/// digits (say 18) usually have the total issuance of billions (`x * 10^9`) or trillions (`x *
+	/// 10^12`) at max, much less than `2^127 / 10^18 =~ 1.7 * 10^20` (170 billion billion). Thus,
+	/// any account's balance most likely holds less than `2^127`, so adding `2^127` won't result in
+	/// `u128` overflow.
+	pub fn query_weight_to_asset_fee<Trader: xcm_executor::traits::WeightTrader>(
+		weight: Weight,
+		asset: VersionedAssetId,
+	) -> Result<u128, XcmPaymentApiError> {
+		let asset: AssetId = asset.clone().try_into()
+			.map_err(|e| {
+				tracing::debug!(target: "xcm::pallet::query_weight_to_asset_fee", ?e, ?asset, "Failed to convert versioned asset");
+				XcmPaymentApiError::VersionedConversionFailed
+			})?;
+
+		let max_amount = u128::MAX / 2;
+		let max_payment: Asset = (asset.clone(), max_amount).into();
+		let context = XcmContext::with_message_id(XcmHash::default());
+
+		// We return the unspent amount without affecting the state
+		// as we used a big amount of the asset without any check.
+		let unspent = with_transaction(|| {
+			let mut trader = Trader::new();
+			let result = trader.buy_weight(weight, max_payment.into(), &context)
+				.map_err(|e| {
+					tracing::error!(target: "xcm::pallet::query_weight_to_asset_fee", ?e, ?asset, "Failed to buy weight");
+
+					// Return something convertible to `DispatchError` as required by the `with_transaction` fn.
+					DispatchError::Other("Failed to buy weight")
+				});
+
+			TransactionOutcome::Rollback(result)
+		}).map_err(|_| XcmPaymentApiError::AssetNotFound)?;
+
+		let Some(unspent) = unspent.fungible.get(&asset) else {
+			tracing::error!(target: "xcm::pallet::query_weight_to_asset_fee", ?asset, "The trader didn't return the needed fungible asset");
+			return Err(XcmPaymentApiError::AssetNotFound);
+		};
+
+		let paid = max_amount - unspent;
+		Ok(paid)
 	}
 
 	/// Given a `destination` and XCM `message`, return assets to be charged as XCM delivery fees.
