@@ -337,7 +337,7 @@ mod paged_exposures {
 		assert_eq!(exposure_metadata.nominator_count, 19);
 	}
 
-	[test]
+	#[test]
 	fn store_stakers_info_elect_works() {
 		ExtBuilder::default().exposures_page_size(2).build_and_execute(|| {
 			assert_eq!(MaxExposurePageSize::get(), 2);
