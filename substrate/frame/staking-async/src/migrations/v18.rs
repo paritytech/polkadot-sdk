@@ -340,7 +340,7 @@ mod tests {
 
 			StorageVersion::new(17).put::<Pallet<Test>>();
 			assert_eq!(Pallet::<Test>::on_chain_storage_version(), 17);
-			Session::roll_until_active_era(3);
+			Session::roll_until_active_era(10);
 			let max_chunks = <Test as Config>::MaxUnlockingChunks::get();
 
 			for i in 1..=users {
