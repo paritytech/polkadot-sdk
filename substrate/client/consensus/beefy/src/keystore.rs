@@ -111,7 +111,15 @@ impl<AuthorityId: AuthorityIdBound> BeefyKeystore<AuthorityId> {
 				sig_ref.to_vec()
 			},
 
-			_ => Err(error::Error::Keystore("key type is not supported by BEEFY Keystore".into()))?,
+			_ => store
+				.sign_with(
+					<AuthorityId as AppCrypto>::ID,
+					<AuthorityId as AppCrypto>::CRYPTO_ID,
+					public.as_slice(),
+					&message,
+				)
+				.map_err(|e| error::Error::Keystore(e.to_string()))?
+				.ok_or_else(|| error::Error::Signature("signature failed".to_string()))?,
 		};
 
 		//check that `sig` has the expected result type
@@ -133,34 +141,14 @@ impl<AuthorityId: AuthorityIdBound> BeefyKeystore<AuthorityId> {
 	pub fn public_keys(&self) -> Result<Vec<AuthorityId>, error::Error> {
 		let store = self.0.clone().ok_or_else(|| error::Error::Keystore("no Keystore".into()))?;
 
-		let pk = match <AuthorityId as AppCrypto>::CRYPTO_ID {
-			ecdsa::CRYPTO_ID => store
-				.ecdsa_public_keys(BEEFY_KEY_TYPE)
-				.drain(..)
-				.map(|pk| AuthorityId::try_from(pk.as_ref()))
-				.collect::<Result<Vec<_>, _>>()
-				.or_else(|_| {
-					Err(error::Error::Keystore(
-						"unable to convert public key into authority id".into(),
-					))
-				}),
+		let pk = store
+			.keys(BEEFY_KEY_TYPE)
+			.map_err(|e| error::Error::Keystore(e.to_string()))?
+			.into_iter()
+			.filter_map(|pk| AuthorityId::try_from(pk.as_ref()).ok())
+			.collect::<Vec<_>>();
 
-			#[cfg(feature = "bls-experimental")]
-			ecdsa_bls381::CRYPTO_ID => store
-				.ecdsa_bls381_public_keys(BEEFY_KEY_TYPE)
-				.drain(..)
-				.map(|pk| AuthorityId::try_from(pk.as_ref()))
-				.collect::<Result<Vec<_>, _>>()
-				.or_else(|_| {
-					Err(error::Error::Keystore(
-						"unable to convert public key into authority id".into(),
-					))
-				}),
-
-			_ => Err(error::Error::Keystore("key type is not supported by BEEFY Keystore".into())),
-		};
-
-		pk
+		Ok(pk)
 	}
 
 	/// Use the `public` key to verify that `sig` is a valid signature for `message`.
