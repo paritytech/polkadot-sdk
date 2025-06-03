@@ -16,6 +16,7 @@
 // limitations under the License.
 
 use crate::session_rotation::Eras;
+use crate::tests::session_mock::Timestamp;
 
 use super::*;
 
@@ -192,9 +193,29 @@ fn activation_timestamp_when_era_planning_not_complete() {
 }
 
 #[test]
-#[should_panic]
 fn max_era_duration_safety_guard() {
-	todo!("a safety guard that ensures that there is an upper bound on how long an era duration can be. Should prevent us from parabolic inflation in case of some crazy bug.");
+	ExtBuilder::default().build_and_execute(|| {
+
+		// GIVEN we are at end of an era (2).
+		Session::roll_until_active_era(2);
+		System::reset_events();
+
+		// WHEN subsequent era takes more than MaxEraDuration.
+		Timestamp::set(Timestamp::get() + MaxEraDuration::get());
+
+		Session::roll_until_active_era(3);
+
+		assert_eq!(
+			staking_events_since_last_call(),
+			vec![
+				Event::SessionRotated { starting_session: 4, active_era: 1, planned_era: 2 },
+				Event::PagedElectionProceeded { page: 0, result: Ok(2) },
+				Event::SessionRotated { starting_session: 5, active_era: 1, planned_era: 2 },
+				Event::EraPaid { era_index: 1, validator_payout: 7500, remainder: 7500 },
+				Event::SessionRotated { starting_session: 6, active_era: 2, planned_era: 2 }
+			]
+		);
+	});
 }
 
 #[test]
