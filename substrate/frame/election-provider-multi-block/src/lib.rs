@@ -247,7 +247,7 @@ pub mod weights;
 
 pub use pallet::*;
 pub use types::*;
-pub use weights::measured::pallet_election_provider_multi_block::WeightInfo;
+pub use weights::traits::pallet_election_provider_multi_block::WeightInfo;
 
 /// A fallback implementation that transitions the pallet to the emergency phase.
 pub struct InitiateEmergencyPhase<T>(sp_std::marker::PhantomData<T>);
