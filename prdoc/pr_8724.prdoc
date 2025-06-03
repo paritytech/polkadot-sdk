@@ -7,7 +7,7 @@ crates:
 - name: cumulus-pallet-xcmp-queue
   bump: patch
 - name: parachains-common
-  bump: patch
+  bump: minor
 - name: polkadot-runtime-common
   bump: patch
 - name: polkadot-runtime-parachains
