@@ -99,10 +99,17 @@ fn main() -> Result<(), sc_cli::Error> {
 					cumulus_test_service::Consensus::Null
 				})
 				.unwrap_or(cumulus_test_service::Consensus::Aura);
+<<<<<<< HEAD
 
 			let (mut task_manager, _, _, _, _, _) = tokio_runtime
 				.block_on(async move {
 					match polkadot_config.network.network_backend {
+=======
+			let use_slot_based_collator = cli.authoring == AuthoringPolicy::SlotBased;
+			let (mut task_manager, _, _, _, _, _) = tokio_runtime
+				.block_on(async move {
+					match relay_chain_config.network.network_backend {
+>>>>>>> f6d18b73 (client/net: Use litep2p as the default network backend (#8461))
 						sc_network::config::NetworkBackendType::Libp2p =>
 							cumulus_test_service::start_node_impl::<
 								_,

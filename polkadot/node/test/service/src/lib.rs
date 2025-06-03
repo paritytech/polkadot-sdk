@@ -40,7 +40,9 @@ use sc_chain_spec::ChainSpec;
 use sc_client_api::BlockchainEvents;
 use sc_network::{
 	config::{NetworkConfiguration, TransportConfig},
-	multiaddr, NetworkStateInfo,
+	multiaddr,
+	service::traits::NetworkService,
+	NetworkStateInfo,
 };
 use sc_service::{
 	config::{
@@ -148,7 +150,7 @@ pub fn test_prometheus_config(port: u16) -> PrometheusConfig {
 
 /// Create a Polkadot `Configuration`.
 ///
-/// By default an in-memory socket will be used, therefore you need to provide boot
+/// By default a TCP socket will be used, therefore you need to provide boot
 /// nodes if you want the future node to be connected to other nodes.
 ///
 /// The `storage_update_func` function will be executed in an externalities provided environment
@@ -181,12 +183,13 @@ pub fn node_config(
 
 	network_config.allow_non_globals_in_dht = true;
 
-	let addr: multiaddr::Multiaddr = multiaddr::Protocol::Memory(rand::random()).into();
+	// Libp2p needs to know the local address on which it should listen for incoming connections,
+	// while Litep2p will use `/ip4/127.0.0.1/tcp/0` by default.
+	let addr: multiaddr::Multiaddr = "/ip4/127.0.0.1/tcp/0".parse().expect("valid address; qed");
 	network_config.listen_addresses.push(addr.clone());
-
 	network_config.public_addresses.push(addr);
-
-	network_config.transport = TransportConfig::MemoryOnly;
+	network_config.transport =
+		TransportConfig::Normal { enable_mdns: false, allow_private_ip: true };
 
 	Configuration {
 		impl_name: "polkadot-test-node".to_string(),
@@ -238,12 +241,40 @@ pub fn node_config(
 	}
 }
 
+/// Get the listen multiaddr from the network service.
+///
+/// The address is used to connect to the node.
+pub async fn get_listen_address(network: Arc<dyn NetworkService>) -> sc_network::Multiaddr {
+	loop {
+		// Litep2p provides instantly the listen address of the TCP protocol and
+		// ditched the `/0` port used by the `node_config` function.
+		//
+		// Libp2p backend needs to be polled in a separate tokio task a few times
+		// before the listen address is available. The address is made available
+		// through the `SwarmEvent::NewListenAddr` event.
+		let listen_addresses = network.listen_addresses();
+
+		// The network backend must produce a valid TCP port.
+		match listen_addresses.into_iter().find(|addr| {
+			addr.iter().any(|protocol| match protocol {
+				multiaddr::Protocol::Tcp(port) => port > 0,
+				_ => false,
+			})
+		}) {
+			Some(multiaddr) => return multiaddr,
+			None => {
+				tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+				continue;
+			},
+		}
+	}
+}
+
 /// Run a test validator node that uses the test runtime and specified `config`.
-pub fn run_validator_node(
+pub async fn run_validator_node(
 	config: Configuration,
 	worker_program_path: Option<PathBuf>,
 ) -> PolkadotTestNode {
-	let multiaddr = config.network.listen_addresses[0].clone();
 	let NewFull { task_manager, client, network, rpc_handlers, overseer_handle, .. } = new_full(
 		config,
 		IsParachainNode::No,
@@ -254,6 +285,8 @@ pub fn run_validator_node(
 
 	let overseer_handle = overseer_handle.expect("test node must have an overseer handle");
 	let peer_id = network.local_peer_id();
+	let multiaddr = get_listen_address(network).await;
+
 	let addr = MultiaddrWithPeerId { multiaddr, peer_id };
 
 	PolkadotTestNode { task_manager, client, overseer_handle, addr, rpc_handlers }
@@ -271,7 +304,7 @@ pub fn run_validator_node(
 ///
 /// The collator functionality still needs to be registered at the node! This can be done using
 /// [`PolkadotTestNode::register_collator`].
-pub fn run_collator_node(
+pub async fn run_collator_node(
 	tokio_handle: tokio::runtime::Handle,
 	key: Sr25519Keyring,
 	storage_update_func: impl Fn(),
@@ -279,7 +312,6 @@ pub fn run_collator_node(
 	collator_pair: CollatorPair,
 ) -> PolkadotTestNode {
 	let config = node_config(storage_update_func, tokio_handle, key, boot_nodes, false);
-	let multiaddr = config.network.listen_addresses[0].clone();
 	let NewFull { task_manager, client, network, rpc_handlers, overseer_handle, .. } = new_full(
 		config,
 		IsParachainNode::Collator(collator_pair),
@@ -290,6 +322,8 @@ pub fn run_collator_node(
 
 	let overseer_handle = overseer_handle.expect("test node must have an overseer handle");
 	let peer_id = network.local_peer_id();
+
+	let multiaddr = get_listen_address(network).await;
 	let addr = MultiaddrWithPeerId { multiaddr, peer_id };
 
 	PolkadotTestNode { task_manager, client, overseer_handle, addr, rpc_handlers }
