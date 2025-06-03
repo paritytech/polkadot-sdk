@@ -16,18 +16,6 @@ inputs:
   gh-token:
     description: "GITHUB_TOKEN to use for downloading artifacts"
     required: true
-  parachain-artifact:
-    description: "Name of the parachain artifact to download (optional)"
-    required: false
-    default: ""
-  parachain-files:
-    description: "Comma-separated list of files to copy from the parachain artifact (optional)"
-    required: false
-    default: ""
-  parachain-destination:
-    description: "Destination path for parachain files (optional)"
-    required: false
-    default: "./artifacts"
 
 
 
