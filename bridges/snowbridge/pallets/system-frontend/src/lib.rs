@@ -236,25 +236,14 @@ pub mod pallet {
 
 			let ether_gained = Self::swap_fee_asset_and_burn(who, fee_asset)?;
 
-			let dest = T::BridgeHubLocation::get();
 			let call = Self::build_register_token_call(
 				origin_location.clone(),
 				asset_location,
 				metadata,
 				ether_gained,
 			)?;
-			let remote_xcm = Self::build_remote_xcm(&call);
-			let message_id = Self::send_xcm(origin_location, dest.clone(), remote_xcm.clone())
-				.map_err(|error| Error::<T>::from(error))?;
 
-			Self::deposit_event(Event::<T>::MessageSent {
-				origin: T::PalletLocation::get().into(),
-				destination: dest,
-				message: remote_xcm,
-				message_id,
-			});
-
-			Ok(())
+			Self::send_transact_call(origin_location, call)
 		}
 
 		/// Add an additional relayer tip for a committed message identified by `message_id`.
@@ -274,22 +263,8 @@ pub mod pallet {
 
 			// Send the tip details to BH to be allocated to the reward in the Inbound/Outbound
 			// pallet
-			let dest = T::BridgeHubLocation::get();
 			let call = Self::build_add_tip_call(who.clone(), message_id.clone(), ether_gained);
-			let remote_xcm = Self::build_remote_xcm(&call);
-			let who_location: Location = who.into();
-
-			let xcm_message_id = Self::send_xcm(who_location, dest.clone(), remote_xcm.clone())
-				.map_err(|error| Error::<T>::from(error))?;
-
-			Self::deposit_event(Event::<T>::MessageSent {
-				origin: T::PalletLocation::get().into(),
-				destination: dest,
-				message: remote_xcm,
-				message_id: xcm_message_id,
-			});
-
-			Ok(())
+			Self::send_transact_call(who.into(), call)
 		}
 	}
 
@@ -424,6 +399,25 @@ pub mod pallet {
 				fee_amount
 			};
 			Ok(ether_gained)
+		}
+
+		fn send_transact_call(
+			origin_location: Location,
+			call: BridgeHubRuntime<T>,
+		) -> DispatchResult {
+			let dest = T::BridgeHubLocation::get();
+			let remote_xcm = Self::build_remote_xcm(&call);
+			let message_id = Self::send_xcm(origin_location, dest.clone(), remote_xcm.clone())
+				.map_err(|error| Error::<T>::from(error))?;
+
+			Self::deposit_event(Event::<T>::MessageSent {
+				origin: T::PalletLocation::get().into(),
+				destination: dest,
+				message: remote_xcm,
+				message_id,
+			});
+
+			Ok(())
 		}
 	}
 
