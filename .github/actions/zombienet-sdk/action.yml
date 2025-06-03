@@ -110,13 +110,17 @@ runs:
     - name: zombie_test
       shell: bash
       env:
-        # zombienet-sdk expects RUN_IN_CI to be set when running in CI only for k8s provider
-        RUN_IN_CI: 0
         # don't retry sdk tests
         NEXTEST_RETRIES: 0
         TEST_NAME: ${{ inputs.test }}
         PREFIX: ${{ inputs.prefix }}
       run: |
+          # zombienet-sdk expects RUN_IN_CI=0 when running in CI only for native provider
+          if [[ "$ZOMBIE_PROVIDER" == "native" ]]; then
+            export RUN_IN_CI=0
+          else
+            export RUN_IN_CI=1
+          fi
           export PATH=$(pwd)/bin:$PATH
           chmod +x $(pwd)/bin/*
 
