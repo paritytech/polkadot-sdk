@@ -140,7 +140,11 @@ pub fn signed_events() -> Vec<crate::signed::Event<Runtime>> {
 }
 
 /// Load a signed solution into its pallet.
-pub fn load_signed_for_verification(who: AccountId, paged: PagedRawSolution<Runtime>) {
+pub fn load_signed_for_verification(
+	who: AccountId,
+	paged: PagedRawSolution<Runtime>,
+	maybe_force_pages: Option<PageIndex>,
+) {
 	let initial_balance = Balances::free_balance(&who);
 	assert_eq!(balances(who), (initial_balance, 0));
 
@@ -151,6 +155,7 @@ pub fn load_signed_for_verification(who: AccountId, paged: PagedRawSolution<Runt
 		(initial_balance - SignedDepositBase::get(), SignedDepositBase::get())
 	);
 
+	let pages = maybe_force_pages.unwrap_or(Pages::get());
 	for (page_index, solution_page) in paged.solution_pages.pagify(Pages::get()) {
 		assert_ok!(SignedPallet::submit_page(
 			RuntimeOrigin::signed(who),
@@ -160,14 +165,13 @@ pub fn load_signed_for_verification(who: AccountId, paged: PagedRawSolution<Runt
 	}
 
 	let mut events = signed_events();
-	for _ in 0..Pages::get() {
+	for _ in 0..pages {
 		let event = events.pop().unwrap();
 		assert!(matches!(event, SignedEvent::Stored(_, x, _) if x == who))
 	}
 	assert!(matches!(events.pop().unwrap(), SignedEvent::Registered(_, x, _) if x == who));
 
-	let full_deposit =
-		SignedDepositBase::get() + (Pages::get() as Balance) * SignedDepositPerPage::get();
+	let full_deposit = SignedPallet::deposit_for(pages);
 	assert_eq!(balances(who), (initial_balance - full_deposit, full_deposit));
 }
 
@@ -178,7 +182,7 @@ pub fn load_signed_for_verification_and_start(
 	paged: PagedRawSolution<Runtime>,
 	_round: u32,
 ) {
-	load_signed_for_verification(who, paged);
+	load_signed_for_verification(who, paged, None);
 
 	// now the solution should start being verified.
 	roll_to_signed_validation_open();
@@ -208,7 +212,7 @@ pub fn load_signed_for_verification_and_start_and_roll_to_verified(
 	paged: PagedRawSolution<Runtime>,
 	_round: u32,
 ) {
-	load_signed_for_verification(who, paged.clone());
+	load_signed_for_verification(who, paged.clone(), None);
 
 	// now the solution should start being verified.
 	roll_to_signed_validation_open();

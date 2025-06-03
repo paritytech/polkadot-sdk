@@ -686,6 +686,7 @@ pub mod pallet {
 				Self::phase_transition(next_phase);
 
 				// bit messy, but for now this works best.
+				// TODO: we can move this to the mock?
 				#[cfg(test)]
 				{
 					let test_election_start: BlockNumberFor<T> =
@@ -2305,7 +2306,7 @@ mod election_provider {
 			let score = paged.score;
 
 			// now let's submit this one by one, into the signed phase.
-			load_signed_for_verification(99, paged);
+			load_signed_for_verification(99, paged, None);
 
 			// now the solution should start being verified.
 			roll_to_signed_validation_open();
