@@ -313,20 +313,24 @@ pub mod session_mock {
 					// buffer time has passed
 					Active::set(q);
 					<Staking as rc_client::AHStakingInterface>::on_relay_session_report(
-						rc_client::SessionReport::new_terminal(ending, vec![], Some((Timestamp::get(), id)))
+						rc_client::SessionReport::new_terminal(
+							ending,
+							vec![],
+							Some((Timestamp::get(), id)),
+						),
 					);
 					Queued::reset();
 					QueuedId::reset();
 				} else {
 					QueuedBufferSessions::mutate(|s| *s -= 1);
 					<Staking as rc_client::AHStakingInterface>::on_relay_session_report(
-						rc_client::SessionReport::new_terminal(ending, vec![], None)
+						rc_client::SessionReport::new_terminal(ending, vec![], None),
 					);
 				}
 			} else {
 				// just end the session.
 				<Staking as rc_client::AHStakingInterface>::on_relay_session_report(
-					rc_client::SessionReport::new_terminal(ending, vec![], None)
+					rc_client::SessionReport::new_terminal(ending, vec![], None),
 				);
 			}
 			CurrentIndex::set(ending + 1);
