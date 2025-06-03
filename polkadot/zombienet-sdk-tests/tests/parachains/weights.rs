@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #[zombienet_sdk::subxt::subxt(
-	runtime_metadata_path = "metadata-files/asset-hub-westend-local.scale"
+	runtime_metadata_path = "/home/alexggh/ssd2/repos/polkadot-sdk/metadata-files/asset-hub-westend-local.scale"
 )]
 mod ahw {}
 
@@ -140,11 +140,19 @@ async fn setup_network() -> Result<Network<LocalFileSystem>, anyhow::Error> {
 				)
 				.with_chain("asset-hub-westend-local")
 				.with_collator(|n| {
-					n.with_name("collator")
-						.validator(true)
-						.with_args(vec![("--warm-up-trie-cache").into(), ("-linfo").into()])
+					n.with_name("collator").validator(true).with_args(vec![
+						("-linfo").into(),
+						("--pool-type=fork-aware").into(),
+						("--trie-cache-size=0").into(),
+						("--rpc-max-subscriptions-per-connection=327680").into(),
+						("--rpc-max-connections=102400".into()),
+						("--pool-limit=819200").into(),
+						("--pool-kbytes=2048000").into(),
+						("--db-cache=256").into(),
+					])
 				})
 		})
+		.with_global_settings(|g| g.with_base_dir("/home/alexggh/db_smart_contracts5"))
 		.build()
 		.map_err(|e| {
 			let errs = e.into_iter().map(|e| e.to_string()).collect::<Vec<_>>().join(" ");
