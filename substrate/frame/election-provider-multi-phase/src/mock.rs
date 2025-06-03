@@ -590,6 +590,8 @@ impl ExtBuilder {
 				(105, 100),
 				(999, 100),
 				(9999, 100),
+				// treasury
+				(0, 100)
 			],
 		}
 		.assimilate_storage(&mut storage);
