@@ -698,7 +698,7 @@ mod benchmarks {
 		<ErasValidatorPrefs<T>>::insert(
 			current_era,
 			validator.clone(),
-			Validators::<T>::get(&validator).unwrap_or_default(),
+			Validators::<T>::get(&validator).expect("validator must exist after setup"),
 		);
 
 		let caller = whitelisted_caller();
