@@ -1024,14 +1024,14 @@ mod benchmarks {
 		let _new_validators = Rotator::<T>::legacy_insta_plan_era();
 		// activate the previous one
 		Rotator::<T>::start_era(
-			crate::ActiveEraInfo { index: Rotator::<T>::planning_era() - 1, start: Some(1) },
+			crate::ActiveEraInfo { index: Rotator::<T>::planned_era() - 1, start: Some(1) },
 			42, // start session index doesn't really matter,
 			2,  // timestamp doesn't really matter
 		);
 
 		// ensure our offender has at least a full exposure page
 		let offender_exposure =
-			Eras::<T>::get_full_exposure(Rotator::<T>::planning_era(), &offender);
+			Eras::<T>::get_full_exposure(Rotator::<T>::planned_era(), &offender);
 		ensure!(
 			offender_exposure.others.len() as u32 == 2 * T::MaxExposurePageSize::get(),
 			"exposure not created"
@@ -1073,7 +1073,7 @@ mod benchmarks {
 	fn rc_on_offence(
 		v: Linear<2, { T::MaxValidatorSet::get() / 2 }>,
 	) -> Result<(), BenchmarkError> {
-		let initial_era = Rotator::<T>::planning_era();
+		let initial_era = Rotator::<T>::planned_era();
 		let _ = crate::testing_utils::create_validators_with_nominators_for_era::<T>(
 			2 * v,
 			// number of nominators is irrelevant here, so we hardcode these
@@ -1085,7 +1085,7 @@ mod benchmarks {
 
 		// plan new era
 		let new_validators = Rotator::<T>::legacy_insta_plan_era();
-		ensure!(Rotator::<T>::planning_era() == initial_era + 1, "era should be incremented");
+		ensure!(Rotator::<T>::planned_era() == initial_era + 1, "era should be incremented");
 		// activate the previous one
 		Rotator::<T>::start_era(
 			crate::ActiveEraInfo { index: initial_era, start: Some(1) },
@@ -1135,7 +1135,7 @@ mod benchmarks {
 
 	#[benchmark]
 	fn rc_on_session_report() -> Result<(), BenchmarkError> {
-		let initial_planned_era = Rotator::<T>::planning_era();
+		let initial_planned_era = Rotator::<T>::planned_era();
 		let initial_active_era = Rotator::<T>::active_era();
 
 		// create a small, arbitrary number of stakers. This is just for sanity of the era planning,

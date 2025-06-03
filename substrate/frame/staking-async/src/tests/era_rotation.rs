@@ -17,6 +17,8 @@
 
 use crate::session_rotation::Eras;
 use crate::tests::session_mock::Timestamp;
+use crate::tests::session_mock::CurrentIndex;
+use crate::session_rotation::Rotator;
 
 use super::*;
 
@@ -179,10 +181,41 @@ fn forcing_force_new() {
 }
 
 #[test]
-#[should_panic]
 fn activation_timestamp_when_no_planned_era() {
 	// maybe not needed, as we have the id check
-	todo!("what if we receive an activation timestamp when there is no planned era?");
+	ExtBuilder::default()
+		.session_per_era(6)
+		.build_and_execute(|| {
+		Session::roll_until_active_era(2);
+		let current_index = CurrentIndex::get();
+
+		// reset events until now.
+		let _ = staking_events_since_last_call();
+
+		// GIVEN: no new planned era
+		assert_eq!(Rotator::<T>::active_era(), 2);
+		assert_eq!(Rotator::<T>::planned_era(), 2);
+
+		// WHEN: send a new activation timestamp (manually).
+		<Staking as pallet_staking_async_rc_client::AHStakingInterface>::on_relay_session_report(
+			pallet_staking_async_rc_client::SessionReport::new_terminal(
+				current_index,
+				vec![],
+				// sending a timestamp that is in the future with identifier of the next era that
+				// is not planned.
+				Some((Timestamp::get() + time_per_session(), 3)),
+			),
+		);
+
+		// THEN: No era rotation should happen, but an error event should be emitted.
+		assert_eq!(
+			staking_events_since_last_call(),
+			vec![
+				Event::Unexpected(UnexpectedKind::UnknownValidatorActivation),
+				Event::SessionRotated { starting_session: current_index + 1, active_era: 2, planned_era: 2 }
+			]
+		);
+	});
 }
 
 #[test]
@@ -211,7 +244,7 @@ fn max_era_duration_safety_guard() {
 		assert_eq!(max_treasury_payout, 52500);
 		assert_eq!(max_validator_payout, 52500);
 
-		// GIVEN we are at end of an era (2).
+		// GIVEN: we are at end of an era (2).
 		Session::roll_until_active_era(2);
 		assert_eq!(
 			staking_events_since_last_call(),
@@ -224,12 +257,12 @@ fn max_era_duration_safety_guard() {
 			]
 		);
 
-		// WHEN subsequent era takes longer than MaxEraDuration.
+		// WHEN: subsequent era takes longer than MaxEraDuration.
 		// (this can happen either because of a bug or because a long stall in the chain).
 		Timestamp::set(Timestamp::get() + 2 * MaxEraDuration::get());
-
 		Session::roll_until_active_era(3);
 
+		// THEN: we should see the payouts capped to the max values.
 		assert_eq!(
 			staking_events_since_last_call(),
 			vec![

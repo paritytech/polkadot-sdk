@@ -315,6 +315,9 @@ pub mod session_mock {
 					<Staking as rc_client::AHStakingInterface>::on_relay_session_report(
 						rc_client::SessionReport::new_terminal(
 							ending,
+							// TODO: currently we use `Eras::reward_active_era()` to set validator
+							// points in our tests. We should improve this and find a good way to
+							// set this value instead.
 							vec![],
 							Some((Timestamp::get(), id)),
 						),
