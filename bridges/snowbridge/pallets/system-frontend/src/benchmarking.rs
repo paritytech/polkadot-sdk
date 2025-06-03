@@ -26,8 +26,13 @@ mod benchmarks {
 			decimals: 12,
 		};
 
+		let asset = Asset::from((
+			Location::new(2, [GlobalConsensus(Ethereum { chain_id: 11155111 })]),
+			1000,
+		));
+
 		#[extrinsic_call]
-		_(origin as T::RuntimeOrigin, asset_id, asset_metadata);
+		_(origin as T::RuntimeOrigin, asset_id, asset_metadata, asset);
 
 		Ok(())
 	}

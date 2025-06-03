@@ -62,6 +62,7 @@ pub enum EthereumSystemCall<T: frame_system::Config> {
 		sender: Box<VersionedLocation>,
 		asset_id: Box<VersionedLocation>,
 		metadata: AssetMetadata,
+		amount: u128,
 	},
 	#[codec(index = 3)]
 	AddTip { sender: AccountIdOf<T>, message_id: MessageId, amount: u128 },
@@ -80,6 +81,7 @@ where
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
+	use xcm_executor::traits::ConvertLocation;
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
 
@@ -117,6 +119,8 @@ pub mod pallet {
 
 		/// InteriorLocation of this pallet.
 		type PalletLocation: Get<InteriorLocation>;
+
+		type AccountIdConverter: ConvertLocation<Self::AccountId>;
 
 		/// Weights for dispatching XCM to backend implementation of `register_token`
 		type BackendWeightInfo: BackendWeightInfo;
@@ -220,16 +224,49 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			asset_id: Box<VersionedLocation>,
 			metadata: AssetMetadata,
+			fee_asset: Asset,
 		) -> DispatchResult {
 			ensure!(!Self::export_operating_mode().is_halted(), Error::<T>::Halted);
 
 			let asset_location: Location =
 				(*asset_id).try_into().map_err(|_| Error::<T>::UnsupportedLocationVersion)?;
 			let origin_location = T::RegisterTokenOrigin::ensure_origin(origin, &asset_location)?;
+			let who = T::AccountIdConverter::convert_location(&origin_location)
+				.ok_or(Error::<T>::LocationConversionFailed)?;
+
+			let ether_location = T::EthereumLocation::get();
+			let (fee_asset_location, fee_amount) = match fee_asset {
+				Asset { id: AssetId(ref loc), fun: Fungible(amount) } => (loc, amount),
+				_ => {
+					tracing::debug!(target: LOG_TARGET, ?fee_asset, "error matching fee asset");
+					return Err(Error::<T>::UnsupportedAsset.into())
+				},
+			};
+			ensure!(fee_amount > 0, Error::<T>::TipAmountZero);
+
+			let ether_gained = if *fee_asset_location != ether_location {
+				Self::swap_and_burn(
+					who.clone(),
+					fee_asset_location.clone(),
+					ether_location,
+					fee_amount,
+				)
+				.inspect_err(|&e| {
+					tracing::debug!(target: LOG_TARGET, ?e, "error swapping asset");
+				})?
+			} else {
+				burn_for_teleport::<T::AssetTransactor>(&origin_location, &fee_asset)
+					.map_err(|_| Error::<T>::BurnError)?;
+				fee_amount
+			};
 
 			let dest = T::BridgeHubLocation::get();
-			let call =
-				Self::build_register_token_call(origin_location.clone(), asset_location, metadata)?;
+			let call = Self::build_register_token_call(
+				origin_location.clone(),
+				asset_location,
+				metadata,
+				ether_gained,
+			)?;
 			let remote_xcm = Self::build_remote_xcm(&call);
 			let message_id = Self::send_xcm(origin_location, dest.clone(), remote_xcm.clone())
 				.map_err(|error| Error::<T>::from(error))?;
@@ -353,6 +390,7 @@ pub mod pallet {
 			sender: Location,
 			asset: Location,
 			metadata: AssetMetadata,
+			amount: u128,
 		) -> Result<BridgeHubRuntime<T>, Error<T>> {
 			// reanchor locations relative to BH
 			let sender = Self::reanchored(sender)?;
@@ -362,6 +400,7 @@ pub mod pallet {
 				sender: Box::new(VersionedLocation::from(sender)),
 				asset_id: Box::new(VersionedLocation::from(asset)),
 				metadata,
+				amount,
 			});
 
 			Ok(call)
