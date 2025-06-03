@@ -35,10 +35,10 @@ jobs:
       - name: Generate content write token for the release automation
         id: generate_write_token
         uses: actions/create-github-app-token@v1
-        with:
-            app-id: ${{ vars.RELEASE_AUTOMATION_APP_ID }}
-            private-key: ${{ secrets.RELEASE_AUTOMATION_APP_PRIVATE_KEY }}
-            owner: paritytech
+        with: #todo: change when tested!
+            app-id: ${{ secrets.RELEASE_BACKPORT_AUTOMATION_APP_ID }}
+            private-key: ${{ secrets.RELEASE_BACKPORT_AUTOMATION_APP_PRIVATE_KEY }}
+            owner: EgorPopelyaev
 
       - name: Checkout sources
         uses: actions/checkout@6d193bf28034eafb982f37bd894289fe649468fc # v4.1.7

@@ -128,7 +128,7 @@ jobs:
           gh workflow run release-11_rc-automation.yml --repo ${{ github.repository }} --field version=${stable_tag_base}
 
   tag-rc-without-branchoff:
-    if: ! ${{ inputs.is_new_stable }} && ${{ inputs.tag_rc }}
+    if: ${{ !inputs.is_new_stable && inputs.tag_rc }}
     needs: [ validate-inputs ]
     uses: ./.github/workflows/release-11_rc-automation.yml
     with:
