@@ -20,6 +20,8 @@
 
 pub mod zombienet;
 
+use std::time::Duration;
+
 use crate::zombienet::{
 	default_zn_scenario_builder, relaychain_rococo_local_network_spec as relay,
 	relaychain_rococo_local_network_spec::parachain_asset_hub_network_spec as para, NetworkSpawner,
@@ -242,27 +244,40 @@ async fn send_batch(
 		.with_tip(prio.into())
 		.with_executor_id(format!("txs-executor_{}_{}_{}", from, to, prio))
 		.with_send_threshold(usize::MAX)
+		.with_legacy_backend(true)
 		.build()
 		.await
 }
 
-/// Repeatedly sends batches of transactions to the specified node with increasing priority.
+/// Repeatedly sends batches of transactions to the specified node with priority provided by
+/// closure.
 ///
-/// This function loops indefinitely, incrementing the priority of the transaction batch each time.
-/// Each batch is executed by an executor that times out after 15 seconds if not completed.
+/// This function loops indefinitely, adjusting the priority of the transaction batch each time
+/// based on the provided function. Each batch is executed by an executor that times out after
+/// period duration if not completed.
 ///
-/// The progress of transaction is intentionally not monitored, the util is intended for transaction
-/// pool limits testing, where the accuracy of execution is hard to monitor.
-async fn batch_loop<F>(net: &NetworkSpawner, node_name: &str, from: u32, to: u32, priority: F)
-where
+/// The progress of transactions is intentionally not monitored; the utility is intended for
+/// transaction pool limits testing, where the accuracy of execution is challenging to monitor.
+async fn batch_loop<F>(
+	net: &NetworkSpawner,
+	node_name: &str,
+	from: u32,
+	to: u32,
+	priority: F,
+	period: std::time::Duration,
+) where
 	F: Fn(u32) -> u32,
 {
 	let mut prio = 0;
 	loop {
 		prio = priority(prio);
 		let executor = send_batch(&net, node_name, from, to, prio).await;
-		let _results =
-			tokio::time::timeout(std::time::Duration::from_secs(15), executor.execute()).await;
+		let start = std::time::Instant::now();
+		let _results = tokio::time::timeout(period, executor.execute()).await;
+		let elapsed = start.elapsed();
+		if elapsed < period {
+			tokio::time::sleep(period - elapsed).await;
+		}
 	}
 }
 
@@ -279,13 +294,20 @@ async fn test_limits_increasing_prio_parachain() {
 	net.wait_for_block_production("charlie").await.unwrap();
 
 	let mut executors = vec![];
-	let senders_count = 50;
+	let senders_count = 25;
 	let sender_batch = 2000;
 
 	for i in 0..senders_count {
 		let from = 0 + i * sender_batch;
 		let to = from + sender_batch - 1;
-		executors.push(batch_loop(&net, "charlie", from, to, |prio| prio + 1));
+		executors.push(batch_loop(
+			&net,
+			"charlie",
+			from,
+			to,
+			|prio| prio + 1,
+			Duration::from_secs(60),
+		));
 	}
 
 	let _results = join_all(executors).await;
@@ -310,7 +332,14 @@ async fn test_limits_increasing_prio_relaychain() {
 	for i in 0..senders_count {
 		let from = 0 + i * sender_batch;
 		let to = from + sender_batch - 1;
-		executors.push(batch_loop(&net, "alice", from, to, |prio| prio + 1));
+		executors.push(batch_loop(
+			&net,
+			"alice",
+			from,
+			to,
+			|prio| prio + 1,
+			Duration::from_secs(30),
+		));
 	}
 
 	let _results = join_all(executors).await;
@@ -335,7 +364,7 @@ async fn test_limits_same_prio_relaychain() {
 	for i in 0..senders_count {
 		let from = 0 + i * sender_batch;
 		let to = from + sender_batch - 1;
-		executors.push(batch_loop(&net, "alice", from, to, |prio| prio));
+		executors.push(batch_loop(&net, "alice", from, to, |prio| prio, Duration::from_secs(15)));
 	}
 
 	let _results = join_all(executors).await;
