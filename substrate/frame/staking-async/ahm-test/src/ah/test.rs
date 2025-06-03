@@ -177,7 +177,7 @@ fn on_receive_session_report() {
 		assert_eq!(
 			election_events_since_last_call(),
 			vec![
-				ElectionEvent::PhaseTransitioned { from: Phase::Done, to: Phase::Export(2) },
+				ElectionEvent::PhaseTransitioned { from: Phase::Done, to: Phase::Export(1) },
 				ElectionEvent::PhaseTransitioned { from: Phase::Export(0), to: Phase::Off }
 			]
 		);

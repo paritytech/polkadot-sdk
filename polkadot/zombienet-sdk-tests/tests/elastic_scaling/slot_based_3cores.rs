@@ -43,6 +43,9 @@ async fn slot_based_3cores_test() -> Result<(), anyhow::Error> {
 						}
 					}
 				}))
+				.with_default_resources(|resources| {
+					resources.with_request_cpu(4).with_request_memory("4G")
+				})
 				// Have to set a `with_node` outside of the loop below, so that `r` has the right
 				// type.
 				.with_node(|node| node.with_name("validator-0"));
