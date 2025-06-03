@@ -523,7 +523,7 @@ mod electable_stashes {
 		})
 	}
 
-	[test]
+	#[test]
 	fn overflow_electable_stashes_no_exposures_work() {
 		// ensures exposures are stored only for the electable stashes that fit within the
 		// electable stashes bounds in case of overflow.
