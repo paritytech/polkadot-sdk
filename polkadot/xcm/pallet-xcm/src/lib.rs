@@ -3482,9 +3482,9 @@ impl<T: Config> Pallet<T> {
 	/// - the `assets` are not known on this chain;
 	/// - the `assets` cannot be withdrawn with that location as the Origin.
 	fn charge_fees(location: Location, assets: Assets) -> DispatchResult {
-		T::XcmExecutor::charge_fees(location.clone(), assets.clone()).map_err(|_| {
+		T::XcmExecutor::charge_fees(location.clone(), assets.clone()).map_err(|error| {
 			tracing::debug!(
-				target: "xcm::pallet_xcm::charge_fees",
+				target: "xcm::pallet_xcm::charge_fees", ?error,
 				 "Failed to charge fees for location with assets",
 			);
 			Error::<T>::FeesNotMet
