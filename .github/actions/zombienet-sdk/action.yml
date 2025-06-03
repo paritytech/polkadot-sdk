@@ -15,6 +15,18 @@ inputs:
   gh-token:
     description: "GITHUB_TOKEN to use for downloading artifacts"
     required: true
+  parachain-artifact:
+    description: "Name of the parachain artifact to download (optional)"
+    required: false
+    default: ""
+  parachain-files:
+    description: "Comma-separated list of files to copy from the parachain artifact (optional)"
+    required: false
+    default: ""
+  parachain-destination:
+    description: "Destination path for parachain files (optional)"
+    required: false
+    default: "./artifacts"
 
 
 
@@ -43,15 +55,22 @@ runs:
         echo "test: $TEST_NAME"
         echo "prefix: $PREFIX"
 
-    - uses: actions/download-artifact@v4.1.8
+    - uses: ./.github/actions/download-artifact-extract
       with:
-        name: prepare-${{ inputs.prefix }}-zombienet-artifacts-${{ inputs.ref-slug }}
-        github-token: ${{ inputs.gh-token }}
+        artifact-name: prepare-${{ inputs.prefix }}-zombienet-artifacts-${{ inputs.ref-slug }}
+        gh-token: ${{ inputs.gh-token }}
         run-id: ${{ inputs.build-id }}
-
-    - name: tar
-      shell: bash
-      run: tar -xvf artifacts.tar
+        
+    # Download parachain artifact if specified
+    - uses: ./.github/actions/download-artifact-extract
+      if: inputs.parachain-artifact != ''
+      with:
+        artifact-name: ${{ inputs.parachain-artifact }}-${{ inputs.ref-slug }}
+        gh-token: ${{ inputs.gh-token }}
+        run-id: ${{ inputs.build-id }}
+        extract-path: ./parachain-tmp
+        files-to-copy: ${{ inputs.parachain-files }}
+        destination-path: ${{ inputs.parachain-destination }}
 
     - name: zombie_test
       shell: bash
