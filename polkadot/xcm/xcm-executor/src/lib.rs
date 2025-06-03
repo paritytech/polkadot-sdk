@@ -985,7 +985,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 					assets
 						.reanchor(&dest, &reanchor_context)
 						.map_err(|()| {
-							tracing::trace!(
+							tracing::debug!(
 								target: "xcm::process_instruction::transfer_reserve_asset",
 								?assets,
 								?dest,
@@ -1275,7 +1275,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 									.holding
 									.try_take(fees_filter)
 									.map_err(|error| {
-										tracing::trace!(
+										tracing::debug!(
 											target: "xcm::process_instruction::initiate_transfer",
 											?error,
 											"Failed to take specified teleport fees from holding"
@@ -1294,7 +1294,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 									.holding
 									.try_take(fees_filter)
 									.map_err(|error| {
-										tracing::trace!(
+										tracing::debug!(
 											target: "xcm::process_instruction::initiate_transfer",
 											?error,
 											"Failed to take specified reserve deposit fees from holding"
@@ -1313,7 +1313,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 									.holding
 									.try_take(fees_filter)
 									.map_err(|error| {
-										tracing::trace!(
+										tracing::debug!(
 											target: "xcm::process_instruction::initiate_transfer",
 											?error,
 											"Failed to take specified reserve withdraw fees from holding"
@@ -1468,7 +1468,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 				let result = Config::TransactionalProcessor::process(|| {
 					let max_fee =
 						self.holding.try_take(asset.into()).map_err(|error| {
-							tracing::trace!(
+							tracing::debug!(
 								target: "xcm::process_instruction::pay_fees", ?error,
 								"Failed to take fees from holding"
 							);
@@ -1600,7 +1600,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 				let QueryResponseInfo { destination, query_id, max_weight } = response_info;
 				let response =
 					Response::PalletsInfo(pallets.try_into().map_err(|error| {
-						tracing::trace!(
+						tracing::debug!(
 							target: "xcm::process_instruction::query_pallet",
 							?error,
 							"Failed to convert pallets to response info"
@@ -1665,7 +1665,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 				let universal_source = Config::UniversalLocation::get()
 					.within_global(origin)
 					.map_err(|()| {
-						tracing::trace!(
+						tracing::debug!(
 							target: "xcm::process_instruction::export_message",
 							"Failed to reanchor origin to universal location",
 						);
