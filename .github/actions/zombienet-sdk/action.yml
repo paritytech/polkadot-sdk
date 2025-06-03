@@ -135,7 +135,9 @@ runs:
         TEST_NAME: ${{ inputs.test }}
         PREFIX: ${{ inputs.prefix }}
       run: |
-          export PATH=./bin:$PATH
+          export PATH=$(pwd)/bin:$PATH
+          chmod +x $(pwd)/bin/*
+
           ls -ltr ./artifacts
           cargo nextest run --archive-file ./artifacts/${PREFIX}-zombienet-tests.tar.zst --no-capture -- ${TEST_NAME}
 
