@@ -32,10 +32,6 @@ pub struct PrestateTracer<T> {
 	/// The current address of the contract's which storage is being accessed.
 	current_addr: H160,
 
-	/// A list of addresses that will be touched during the execution (e.g origin, coinbase,
-	/// treasury).
-	addrs: Vec<H160>,
-
 	// pre / post state
 	trace: (BTreeMap<H160, PrestateTraceInfo>, BTreeMap<H160, PrestateTraceInfo>),
 
@@ -66,34 +62,9 @@ where
 	/// Collect the traces and return them.
 	pub fn collect_trace(&mut self) -> PrestateTrace {
 		let trace = core::mem::take(&mut self.trace);
-		let addrs = core::mem::take(&mut self.addrs);
 		let (mut pre, mut post) = trace;
-
+		let disable_code = self.config.disable_code;
 		if self.config.diff_mode {
-			for addr in addrs {
-				let post_entry = post.entry(addr).or_default();
-				let pre_entry = pre.entry(addr).or_default();
-
-				let balance = Some(Pallet::<T>::evm_balance(&addr));
-				if balance != pre_entry.balance {
-					post_entry.balance = balance;
-				} else {
-					post_entry.balance = None;
-				}
-
-				let nonce = Some(Pallet::<T>::evm_nonce(&addr));
-				if nonce != pre_entry.nonce {
-					post_entry.nonce = nonce;
-				} else {
-					post_entry.nonce = None;
-				}
-
-				if post_entry.balance.is_none() && post_entry.nonce.is_none() {
-					pre.remove(&addr);
-					post.remove(&addr);
-				}
-			}
-
 			// clean up the storage that are in pre but not in post these are just read
 			pre.iter_mut().for_each(|(addr, info)| {
 				if let Some(post_info) = post.get(addr) {
@@ -101,6 +72,31 @@ where
 				} else {
 					info.storage.clear();
 				}
+			});
+
+			pre.retain(|addr, pre_info| {
+				let post_info = post.entry(*addr).or_insert_with_key(|addr| {
+					Self::prestate_info(addr, Pallet::<T>::evm_balance(addr), disable_code)
+				});
+
+				if post_info == pre_info {
+					post.remove(addr);
+					return false
+				}
+
+				if post_info.balance == pre_info.balance {
+					post_info.balance = None;
+				}
+
+				if post_info.nonce == pre_info.nonce {
+					post_info.nonce = None;
+				}
+
+				if post_info == &Default::default() {
+					post.remove(addr);
+				}
+
+				true
 			});
 
 			PrestateTrace::DiffMode { pre, post }
@@ -124,11 +120,19 @@ where
 		return Some(code.into())
 	}
 
+	fn update_prestate_info(entry: &mut PrestateTraceInfo, addr: &H160, disable_code: bool) {
+		let info = Self::prestate_info(addr, Pallet::<T>::evm_balance(addr), disable_code);
+		entry.balance = info.balance;
+		entry.nonce = info.nonce;
+		entry.code = info.code;
+	}
+
 	/// Set the PrestateTraceInfo for the given address.
 	fn prestate_info(addr: &H160, balance: U256, disable_code: bool) -> PrestateTraceInfo {
 		let mut info = PrestateTraceInfo::default();
 		info.balance = Some(balance);
-		info.nonce = Some(Pallet::<T>::evm_nonce(addr));
+		let nonce = Pallet::<T>::evm_nonce(addr);
+		info.nonce = if nonce > 0 { Some(nonce) } else { None };
 		if !disable_code {
 			info.code = Self::bytecode(addr);
 		}
@@ -144,8 +148,10 @@ where
 	T::Nonce: Into<u32>,
 {
 	fn watch_address(&mut self, addr: &H160) {
-		self.balance_read(addr, Pallet::<T>::evm_balance(addr));
-		self.addrs.push(*addr);
+		let disable_code = self.config.disable_code;
+		self.trace.0.entry(*addr).or_insert_with_key(|addr| {
+			Self::prestate_info(addr, Pallet::<T>::evm_balance(addr), disable_code)
+		});
 	}
 
 	fn enter_child_span(
@@ -165,7 +171,7 @@ where
 
 		if to != H160::zero() {
 			self.trace.0.entry(to).or_insert_with_key(|addr| {
-				Self::prestate_info(addr, Pallet::<T>::evm_balance(&addr), disable_code)
+				Self::prestate_info(addr, Pallet::<T>::evm_balance(addr), disable_code)
 			});
 		}
 
@@ -179,20 +185,11 @@ where
 			return
 		}
 
-		let pre_info = self.trace.0.entry(self.current_addr).or_default();
-		let post_info = self.trace.1.entry(self.current_addr).or_default();
-		let addr = &self.current_addr;
-
-		let balance = Some(Pallet::<T>::evm_balance(addr));
-		post_info.balance = if balance != pre_info.balance { balance } else { None };
-
-		let nonce = Some(Pallet::<T>::evm_nonce(addr));
-		post_info.nonce = if nonce != pre_info.nonce { nonce } else { None };
-
-		if !self.config.disable_code {
-			let code = Self::bytecode(addr);
-			post_info.code = if code != pre_info.code { code } else { None };
-		}
+		Self::update_prestate_info(
+			self.trace.1.entry(self.current_addr).or_default(),
+			&self.current_addr,
+			self.config.disable_code,
+		);
 	}
 
 	fn storage_write(&mut self, key: &Key, old_value: Option<Vec<u8>>, new_value: Option<&[u8]>) {
@@ -229,7 +226,7 @@ where
 	fn balance_read(&mut self, addr: &H160, value: U256) {
 		self.trace
 			.0
-			.entry(addr.clone())
+			.entry(*addr)
 			.or_insert_with_key(|addr| Self::prestate_info(addr, value, self.config.disable_code));
 	}
 }
