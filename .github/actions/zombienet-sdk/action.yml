@@ -62,10 +62,10 @@ runs:
         gh-token: ${{ inputs.gh-token }}
         run-id: ${{ inputs.build-id }}
         extract-path: ./tmp
-        files-to-copy:
-          - artifacts/polkadot
-          - artifacts/polkadot-execute-worker
-          - artifacts/polkadot-prepare-worker
+        files-to-copy: |
+          artifacts/polkadot
+          artifacts/polkadot-execute-worker
+          artifacts/polkadot-prepare-worker
         destination-path: ./bin
         cleanup: "true"
 
@@ -76,8 +76,8 @@ runs:
         gh-token: ${{ inputs.gh-token }}
         run-id: ${{ inputs.build-id }}
         extract-path: ./tmp
-        files-to-copy:
-          - artifacts/polkadot-parachain
+        files-to-copy: |
+          artifacts/polkadot-parachain
         destination-path: ./bin
         cleanup: "true"
 
@@ -87,8 +87,8 @@ runs:
         gh-token: ${{ inputs.gh-token }}
         run-id: ${{ inputs.build-id }}
         extract-path: ./tmp
-        files-to-copy:
-          - artifacts/test-parachain
+        files-to-copy: |
+          artifacts/test-parachain
         destination-path: ./bin
         cleanup: "true"
 
@@ -98,9 +98,9 @@ runs:
         gh-token: ${{ inputs.gh-token }}
         run-id: ${{ inputs.build-id }}
         extract-path: ./tmp
-        files-to-copy:
-          - artifacts/adder-collator
-          - artifacts/undying-collator
+        files-to-copy: |
+          artifacts/adder-collator
+          artifacts/undying-collator
         destination-path: ./bin
         cleanup: "true"
 
@@ -110,10 +110,10 @@ runs:
         gh-token: ${{ inputs.gh-token }}
         run-id: ${{ inputs.build-id }}
         extract-path: ./tmp
-        files-to-copy:
         # TODO: should copy polkadot-execute-worker and polkadot-prepare-worker?
         # if yes then it overlaps with build-linux-stable - address this
-          - artifacts/malus
+        files-to-copy: |
+          artifacts/malus
         destination-path: ./bin
         cleanup: "true"
 

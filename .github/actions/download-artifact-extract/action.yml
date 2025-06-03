@@ -16,7 +16,7 @@ inputs:
     default: "."
     required: false
   files-to-copy:
-    description: "Comma-separated list of files to copy from the extracted artifact, or a YAML array"
+    description: "Comma-separated (or newline-separated, remember about |) list of files to copy from the extracted artifact"
     required: false
   destination-path:
     description: "Destination path for copied files"
@@ -61,34 +61,12 @@ runs:
       run: |
         # Create destination directory
         mkdir -p "${{ inputs.destination-path }}"
-        
-        # Handle both comma-separated list and YAML array formats
-        # First, try to process as comma-separated list
-        if [[ "${{ inputs.files-to-copy }}" == *","* ]]; then
-          IFS=',' read -ra FILES <<< "${{ inputs.files-to-copy }}"
-          for file in "${FILES[@]}"; do
-            # Trim whitespace
-            file=$(echo "$file" | xargs)
-            echo "Copying $file to ${{ inputs.destination-path }}"
-            cp -r "${{ inputs.extract-path }}/$file" "${{ inputs.destination-path }}/"
-          done
-        # If it's a YAML array (one file per line with leading dash)
-        elif [[ "${{ inputs.files-to-copy }}" == *$'\n'* ]]; then
-          echo "${{ inputs.files-to-copy }}" | while read -r line; do
-            # Skip empty lines and extract filename (remove leading dash and whitespace)
-            if [[ "$line" =~ ^[[:space:]]*-[[:space:]]*(.*) ]]; then
-              file="${BASH_REMATCH[1]}"
-              echo "Copying $file to ${{ inputs.destination-path }}"
-              cp -r "${{ inputs.extract-path }}/$file" "${{ inputs.destination-path }}/"
-            fi
-          done
-        # Single file case
-        else
-          file="${{ inputs.files-to-copy }}"
+
+        echo "${{ inputs.files-to-copy }}" | tr ',' '\n' | while read -r file; do
           echo "Copying $file to ${{ inputs.destination-path }}"
           cp -r "${{ inputs.extract-path }}/$file" "${{ inputs.destination-path }}/"
-        fi
-        
+        done
+
         # Cleanup if requested
         if [[ "${{ inputs.cleanup }}" == "true" ]]; then
           echo "Cleaning up downloaded artifacts in ${{ inputs.extract-path }}"
