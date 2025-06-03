@@ -984,7 +984,7 @@ node = [
 ]
 tuples-96 = [
 	"frame-support-procedural?/tuples-96",
-	"frame-support?/tuples-96"
+	"frame-support?/tuples-96",
 ]
 
 [package.edition]

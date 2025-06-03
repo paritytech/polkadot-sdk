@@ -35,10 +35,10 @@ scale-info = { workspace = true }
 subxt-metadata = { workspace = true, default-features = true }
 
 # Substrate
-frame-benchmarking-cli = { workspace = true, default-features = true, features = [
+frame-benchmarking = { workspace = true, default-features = true, features = [
 	"runtime-benchmarks",
 ] }
-frame-benchmarking = { workspace = true, default-features = true, features = [
+frame-benchmarking-cli = { workspace = true, default-features = true, features = [
 	"runtime-benchmarks",
 ] }
 frame-support = { workspace = true, default-features = true, features = [
@@ -95,8 +95,8 @@ substrate-state-trie-migration-rpc = { workspace = true, default-features = true
 
 # Polkadot
 polkadot-cli = { workspace = true, default-features = true, features = [
-	"service",
 	"runtime-benchmarks",
+	"service",
 ] }
 polkadot-primitives = { workspace = true, default-features = true, features = [
 	"runtime-benchmarks",
