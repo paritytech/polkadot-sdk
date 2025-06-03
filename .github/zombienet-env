@@ -2,16 +2,8 @@ ZOMBIENET_IMAGE=docker.io/paritytech/zombienet:v1.3.126
 ZOMBIENET_RUNNER=zombienet-arc-runner
 PUSHGATEWAY_URL=http://prometheus-pushgateway.monitoring.svc.cluster.local:9091/metrics/job/zombie-metrics
 DEBUG=zombie,zombie::network-node,zombie::kube::client::logs
-RUST_LOG=info,zombienet_orchestrator=trace,cumulus_zombienet_sdk_helpers=debug
 RUN_IN_CI=1
 KUBERNETES_CPU_REQUEST=512m
 KUBERNETES_MEMORY_REQUEST=1Gi
 TEMP_IMAGES_BASE=europe-docker.pkg.dev/parity-ci-2024/temp-images
 FLAKY_TESTS="zombienet-polkadot-coretime-revenue, zombienet-polkadot-smoke-0003-deregister-register-validator"
-
-# needed by zombienet-sdk
-ZOMBIE_PROVIDER=native
-ZOMBIENET_SDK_IMAGE=docker.io/paritytech/ci-unified:bullseye-1.84.1-2025-01-28-v202502131220
-ZOMBIENET_SDK_RUNNER=parity-large
-# zombienet-sdk action configures that internally
-#RUN_IN_CI=0

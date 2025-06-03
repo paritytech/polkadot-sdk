@@ -179,6 +179,7 @@ jobs:
               - '${{ steps.current_file.outputs.currentWorkflowFile }}'
               - '.github/workflows/zombienet-reusable-preflight.yml'
               - '.github/zombienet-env'
+              - '.github/zombienet-sdk-env'
 
       #
       # Set environment vars (including runner/image)
@@ -192,7 +193,10 @@ jobs:
           #
           cat .github/zombienet-env >> $GITHUB_OUTPUT
           cat .github/zombienet-env
-          # global imga from ci
+          # additional envs required by zombienet-sdk
+          cat .github/zombienet-sdk-env >> $GITHUB_OUTPUT
+          cat .github/zombienet-sdk-env
+          # global img from ci
           cat .github/env >> $GITHUB_OUTPUT
           cat .github/env
 
