@@ -75,14 +75,17 @@ async fn statement_store() -> Result<(), anyhow::Error> {
 		RpcClient::from_insecure_url(&dave.ws_uri()).await?
 	};
 
+	// Create the statement "1,2,3" signed by dave.
 	let mut statement = sp_statement_store::Statement::new();
 	statement.set_plain_data(vec![1, 2, 3]);
 	let dave = sp_keyring::Sr25519Keyring::Dave;
 	statement.sign_sr25519_private(&dave.pair());
 	let statement: Bytes = statement.encode().into();
 
+	// Submit the statement to charlie.
 	let _: () = charlie_rpc.request("statement_submit", rpc_params![statement.clone()]).await?;
 
+	// Ensure that charlie stored the statement.
 	let charlie_dump: Vec<Bytes> = charlie_rpc.request("statement_dump", rpc_params![]).await?;
 	if charlie_dump != vec![statement.clone()] {
 		return Err(anyhow!("Charlie did not store the statement"));
@@ -91,6 +94,7 @@ async fn statement_store() -> Result<(), anyhow::Error> {
 	// Wait for the statement to be propagated to dave.
 	tokio::time::sleep(core::time::Duration::from_secs(10)).await;
 
+	// Ensure that dave received and stored the statement.
 	let dave_dump: Vec<Bytes> = dave_rpc.request("statement_dump", rpc_params![]).await?;
 	if dave_dump.is_empty() {
 		return Err(anyhow!("Dave did not receive the statement"));
