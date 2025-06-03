@@ -1411,8 +1411,7 @@ pub mod pallet {
 				} else if Validators::<T>::contains_key(&stash) {
 					MinValidatorBond::<T>::get()
 				} else {
-					// FAIL-CI
-					// TODO: port full unbond (unbond + chill)
+					// staker is chilled, no min bond.
 					Zero::zero()
 				};
 
