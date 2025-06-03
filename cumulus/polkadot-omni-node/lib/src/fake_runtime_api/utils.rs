@@ -203,7 +203,6 @@ macro_rules! impl_node_runtime_apis {
 				}
 			}
 
-			#[cfg(feature = "runtime-benchmarks")]
 			impl frame_benchmarking::Benchmark<$block> for $runtime {
 				fn benchmark_metadata(_: bool) -> (
 					Vec<frame_benchmarking::BenchmarkList>,

@@ -31,15 +31,12 @@ use crate::{
 	runtime::BlockNumber,
 };
 use clap::{CommandFactory, FromArgMatches};
-#[cfg(feature = "runtime-benchmarks")]
 use cumulus_client_service::storage_proof_size::HostFunctions as ReclaimHostFunctions;
 use cumulus_primitives_core::ParaId;
 use frame_benchmarking_cli::{BenchmarkCmd, SUBSTRATE_REFERENCE_HARDWARE};
 use log::info;
 use sc_cli::{CliConfiguration, Result, SubstrateCli};
-use sp_runtime::traits::AccountIdConversion;
-#[cfg(feature = "runtime-benchmarks")]
-use sp_runtime::traits::HashingFor;
+use sp_runtime::traits::{AccountIdConversion, HashingFor};
 
 const DEFAULT_DEV_BLOCK_TIME_MS: u64 = 3000;
 
@@ -229,7 +226,6 @@ where
 		Some(Subcommand::Benchmark(cmd)) => {
 			// Switch on the concrete benchmark sub-command-
 			match cmd {
-				#[cfg(feature = "runtime-benchmarks")]
 				BenchmarkCmd::Pallet(cmd) => {
 					let chain = cmd
 						.shared_params
@@ -253,7 +249,6 @@ where
 						node.run_benchmark_block_cmd(config, cmd)
 					})
 				},
-				#[cfg(feature = "runtime-benchmarks")]
 				BenchmarkCmd::Storage(cmd) => {
 					// The command needs the full node configuration because it uses the node
 					// client and the database API, storage and shared_trie_cache. It requires

@@ -28,17 +28,27 @@ serde_json = { workspace = true, default-features = true }
 
 # Local
 jsonrpsee = { features = ["server"], workspace = true }
-parachains-common = { workspace = true, default-features = true }
+parachains-common = { workspace = true, default-features = true, features = [
+	"runtime-benchmarks",
+] }
 scale-info = { workspace = true }
 subxt-metadata = { workspace = true, default-features = true }
 
 # Substrate
-frame-benchmarking = { optional = true, workspace = true, default-features = true }
-frame-benchmarking-cli = { workspace = true, default-features = true }
-frame-support = { optional = true, workspace = true, default-features = true }
+frame-benchmarking-cli = { workspace = true, default-features = true, features = [
+	"runtime-benchmarks",
+] }
+frame-benchmarking = { workspace = true, default-features = true, features = [
+	"runtime-benchmarks",
+] }
+frame-support = { workspace = true, default-features = true, features = [
+	"runtime-benchmarks",
+] }
 frame-system-rpc-runtime-api = { workspace = true, default-features = true }
 frame-try-runtime = { optional = true, workspace = true, default-features = true }
-pallet-transaction-payment = { workspace = true, default-features = true }
+pallet-transaction-payment = { workspace = true, default-features = true, features = [
+	"runtime-benchmarks",
+] }
 pallet-transaction-payment-rpc = { workspace = true, default-features = true }
 pallet-transaction-payment-rpc-runtime-api = { workspace = true, default-features = true }
 prometheus-endpoint = { workspace = true, default-features = true }
@@ -46,7 +56,9 @@ sc-basic-authorship = { workspace = true, default-features = true }
 sc-chain-spec = { workspace = true, default-features = true }
 sc-cli = { workspace = true, default-features = false }
 sc-client-api = { workspace = true, default-features = true }
-sc-client-db = { workspace = true, default-features = true }
+sc-client-db = { workspace = true, default-features = true, features = [
+	"runtime-benchmarks",
+] }
 sc-consensus = { workspace = true, default-features = true }
 sc-consensus-manual-seal = { workspace = true, default-features = true }
 sc-executor = { workspace = true, default-features = true }
@@ -54,7 +66,9 @@ sc-network = { workspace = true, default-features = true }
 sc-offchain = { workspace = true, default-features = true }
 sc-rpc = { workspace = true, default-features = true }
 sc-runtime-utilities = { workspace = true, default-features = true }
-sc-service = { workspace = true, default-features = false }
+sc-service = { workspace = true, default-features = false, features = [
+	"runtime-benchmarks",
+] }
 sc-sysinfo = { workspace = true, default-features = true }
 sc-telemetry = { workspace = true, default-features = true }
 sc-tracing = { workspace = true, default-features = true }
@@ -69,7 +83,7 @@ sp-genesis-builder = { workspace = true }
 sp-inherents = { workspace = true, default-features = true }
 sp-keystore = { workspace = true, default-features = true }
 sp-offchain = { workspace = true, default-features = true }
-sp-runtime = { workspace = true }
+sp-runtime = { workspace = true, features = ["runtime-benchmarks"] }
 sp-session = { workspace = true, default-features = true }
 sp-storage = { workspace = true, default-features = true }
 sp-timestamp = { workspace = true, default-features = true }
@@ -82,8 +96,11 @@ substrate-state-trie-migration-rpc = { workspace = true, default-features = true
 # Polkadot
 polkadot-cli = { workspace = true, default-features = true, features = [
 	"service",
+	"runtime-benchmarks",
 ] }
-polkadot-primitives = { workspace = true, default-features = true }
+polkadot-primitives = { workspace = true, default-features = true, features = [
+	"runtime-benchmarks",
+] }
 
 # Cumulus
 cumulus-client-bootnodes = { workspace = true, default-features = true }
@@ -96,7 +113,9 @@ cumulus-client-consensus-relay-chain = { workspace = true, default-features = tr
 cumulus-client-parachain-inherent = { workspace = true, default-features = true }
 cumulus-client-service = { workspace = true, default-features = true }
 cumulus-primitives-aura = { workspace = true, default-features = true }
-cumulus-primitives-core = { workspace = true, default-features = true }
+cumulus-primitives-core = { workspace = true, default-features = true, features = [
+	"runtime-benchmarks",
+] }
 cumulus-relay-chain-interface = { workspace = true, default-features = true }
 futures-timer = { workspace = true }
 
@@ -111,19 +130,6 @@ wait-timeout = { workspace = true }
 default = []
 rococo-native = ["polkadot-cli/rococo-native"]
 westend-native = ["polkadot-cli/westend-native"]
-runtime-benchmarks = [
-	"cumulus-primitives-core/runtime-benchmarks",
-	"frame-benchmarking-cli/runtime-benchmarks",
-	"frame-benchmarking/runtime-benchmarks",
-	"frame-support/runtime-benchmarks",
-	"pallet-transaction-payment/runtime-benchmarks",
-	"parachains-common/runtime-benchmarks",
-	"polkadot-cli/runtime-benchmarks",
-	"polkadot-primitives/runtime-benchmarks",
-	"sc-client-db/runtime-benchmarks",
-	"sc-service/runtime-benchmarks",
-	"sp-runtime/runtime-benchmarks",
-]
 try-runtime = [
 	"frame-support/try-runtime",
 	"frame-try-runtime/try-runtime",

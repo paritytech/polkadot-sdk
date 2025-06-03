@@ -337,7 +337,6 @@ runtime-benchmarks = [
 	"parachains-common?/runtime-benchmarks",
 	"polkadot-cli?/runtime-benchmarks",
 	"polkadot-node-metrics?/runtime-benchmarks",
-	"polkadot-omni-node-lib?/runtime-benchmarks",
 	"polkadot-parachain-primitives?/runtime-benchmarks",
 	"polkadot-primitives?/runtime-benchmarks",
 	"polkadot-runtime-common?/runtime-benchmarks",
@@ -971,10 +970,7 @@ node = [
 	"xcm-emulator",
 	"xcm-simulator",
 ]
-tuples-96 = [
-	"frame-support-procedural?/tuples-96",
-	"frame-support?/tuples-96",
-]
+tuples-96 = ["frame-support-procedural?/tuples-96", "frame-support?/tuples-96"]
 
 [package.edition]
 workspace = true
