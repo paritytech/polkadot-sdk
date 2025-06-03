@@ -612,10 +612,6 @@ pub use pallet_revive;
 #[cfg(feature = "pallet-revive-eth-rpc")]
 pub use pallet_revive_eth_rpc;
 
-/// A mock network for testing pallet-revive.
-#[cfg(feature = "pallet-revive-mock-network")]
-pub use pallet_revive_mock_network;
-
 /// Procedural macros used in pallet_revive.
 #[cfg(feature = "pallet-revive-proc-macro")]
 pub use pallet_revive_proc_macro;

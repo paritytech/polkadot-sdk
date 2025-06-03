@@ -201,6 +201,7 @@ try-runtime = [
 	"pallet-xcm-bridge-hub-router/try-runtime",
 	"pallet-xcm/try-runtime",
 	"parachain-info/try-runtime",
+	"parachains-common/try-runtime",
 	"polkadot-runtime-common/try-runtime",
 	"snowbridge-pallet-system-frontend/try-runtime",
 	"snowbridge-runtime-common/try-runtime",
