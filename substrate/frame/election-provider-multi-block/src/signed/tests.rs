@@ -803,16 +803,25 @@ mod defensive_tests {
 
 	#[test]
 	fn partial_verification_interrupted_then_revert_to_signed_no_new_submission() {
-		// Test scenario demonstrating that async verification is phase-independent and survives
+		// Test scenario demonstrating that verification is phase-independent and survives
 		// interruption.
 		//
 		// 1. A complete solution is submitted and verification starts
 		// 2. SignedValidation phase ends before the solution is fully verified (interrupted)
 		// 3. System reverts back to signed phase (using BackToSigned mode)
 		// 4. No new submissions are made in the second signed phase
-		// 5. The async verifier continues independently and eventually completes, queuing the
-		//    solution (completion can happen in any phase - the key is that it survives the
-		//    interruption)
+		// 5. The verifier continues independently and eventually completes, queuing the solution
+		//    (completion can happen in any phase - the key is that it survives the interruption)
+		//
+		// E.g.
+		// Block N: SignedValidation(1)   | Verifier starts: Status::Ongoing(2)
+		// Block N+1: SignedValidation(0) | Verifier continues: Status::Ongoing(1)
+		// Block N+2: Signed(4)           | Verifier continues: Status::Ongoing(0)
+		// Block N+3: Signed(3)           | Verifier completes: Status::Nothing + solution queued
+		//
+		// In this example, the "interruption" is only from the signed pallet's perspective (phase
+		// changed). The verifier never stopped - it kept running through `on_initialize` and
+		// completed verification during the `Signed` phase.
 		ExtBuilder::signed()
 			.pages(3) // Multi-page solution to allow for partial verification
 			.signed_validation_phase(2) // Short validation phase to force interruption
