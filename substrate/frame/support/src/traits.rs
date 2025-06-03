@@ -28,7 +28,7 @@ pub use tokens::{
 	fungible, fungibles,
 	imbalance::{Imbalance, OnUnbalanced, SignedImbalance},
 	nonfungible, nonfungible_v2, nonfungibles, nonfungibles_v2, BalanceStatus,
-	ExistenceRequirement, Locker, WithdrawReasons,
+	ExistenceRequirement, Locker, WithdrawReasons, GetTreasury,
 };
 
 mod members;

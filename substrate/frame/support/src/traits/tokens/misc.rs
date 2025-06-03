@@ -366,3 +366,9 @@ pub struct IdAmount<Id, Balance> {
 	/// Some amount for this item.
 	pub amount: Balance,
 }
+
+/// Retrieve the treasury account
+pub trait GetTreasury<AccountId> {
+	/// Retrieve the treasury account
+	fn get_treasury() -> AccountId;
+}
