@@ -21,6 +21,10 @@ inputs:
   destination-path:
     description: "Destination path for copied files"
     required: false
+  cleanup:
+    description: "Whether to remove downloaded artifacts after copying (true/false)"
+    required: false
+    default: "false"
 
 runs:
   using: "composite"
@@ -83,4 +87,10 @@ runs:
           file="${{ inputs.files-to-copy }}"
           echo "Copying $file to ${{ inputs.destination-path }}"
           cp -r "${{ inputs.extract-path }}/$file" "${{ inputs.destination-path }}/"
+        fi
+        
+        # Cleanup if requested
+        if [[ "${{ inputs.cleanup }}" == "true" ]]; then
+          echo "Cleaning up downloaded artifacts in ${{ inputs.extract-path }}"
+          rm -rf "${{ inputs.extract-path }}"
         fi
