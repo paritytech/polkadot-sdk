@@ -4603,9 +4603,23 @@ fn precompiles_with_info_creates_contract() {
 }
 
 #[test]
+fn contracts_nonce_start_at_one() {
+	ExtBuilder::default().build().execute_with(|| {
+		ExtBuilder::default().existential_deposit(1).build().execute_with(|| {
+			let (code, _) = compile_module("dummy").unwrap();
+			let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+			let Contract { account_id, .. } =
+				builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+
+			// check contract's nonce
+			assert_eq!(System::account_nonce(&account_id), 1);
+		});
+	})
+}
+
+#[test]
 fn tracing_playground() {
 	ExtBuilder::default().build().execute_with(|| {
-		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000);
 		let mut tracer = PrestateTracer::<Test>::new(PrestateTracerConfig {
 			disable_code: true,
 			diff_mode: true,
@@ -4617,12 +4631,18 @@ fn tracing_playground() {
 
 		ExtBuilder::default().existential_deposit(1).build().execute_with(|| {
 			let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
-			let Contract { addr, .. } =
+			let Contract { addr, account_id } =
 				builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+
+			// check contract's nonce
+			dbg!(System::account_nonce(&account_id), 0);
 
 			tracer.watch_address(&ALICE_ADDR);
 			tracer.watch_address(&BOB_ADDR);
 			trace(&mut tracer, || {
+				// read_storage
+				// let data = hex_literal::hex!("31fadddf").to_vec();
+				// write_storage
 				let data = hex_literal::hex!(
 					"41720c3e0000000000000000000000000000000000000000000000000000000000000002"
 				)
