@@ -87,6 +87,7 @@ std = [
 	"pallet-delegated-staking?/std",
 	"pallet-democracy?/std",
 	"pallet-dev-mode?/std",
+	"pallet-dummy-dim?/std",
 	"pallet-election-provider-multi-block?/std",
 	"pallet-election-provider-multi-phase?/std",
 	"pallet-election-provider-support-benchmarking?/std",
@@ -116,8 +117,10 @@ std = [
 	"pallet-nomination-pools?/std",
 	"pallet-offences-benchmarking?/std",
 	"pallet-offences?/std",
+	"pallet-origin-restriction?/std",
 	"pallet-paged-list?/std",
 	"pallet-parameters?/std",
+	"pallet-people?/std",
 	"pallet-preimage?/std",
 	"pallet-proxy?/std",
 	"pallet-ranked-collective?/std",
@@ -273,6 +276,7 @@ runtime-benchmarks = [
 	"pallet-core-fellowship?/runtime-benchmarks",
 	"pallet-delegated-staking?/runtime-benchmarks",
 	"pallet-democracy?/runtime-benchmarks",
+	"pallet-dummy-dim?/runtime-benchmarks",
 	"pallet-election-provider-multi-block?/runtime-benchmarks",
 	"pallet-election-provider-multi-phase?/runtime-benchmarks",
 	"pallet-election-provider-support-benchmarking?/runtime-benchmarks",
@@ -297,8 +301,10 @@ runtime-benchmarks = [
 	"pallet-nomination-pools?/runtime-benchmarks",
 	"pallet-offences-benchmarking?/runtime-benchmarks",
 	"pallet-offences?/runtime-benchmarks",
+	"pallet-origin-restriction?/runtime-benchmarks",
 	"pallet-paged-list?/runtime-benchmarks",
 	"pallet-parameters?/runtime-benchmarks",
+	"pallet-people?/runtime-benchmarks",
 	"pallet-preimage?/runtime-benchmarks",
 	"pallet-proxy?/runtime-benchmarks",
 	"pallet-ranked-collective?/runtime-benchmarks",
@@ -405,6 +411,7 @@ try-runtime = [
 	"pallet-delegated-staking?/try-runtime",
 	"pallet-democracy?/try-runtime",
 	"pallet-dev-mode?/try-runtime",
+	"pallet-dummy-dim?/try-runtime",
 	"pallet-election-provider-multi-block?/try-runtime",
 	"pallet-election-provider-multi-phase?/try-runtime",
 	"pallet-elections-phragmen?/try-runtime",
@@ -429,8 +436,10 @@ try-runtime = [
 	"pallet-node-authorization?/try-runtime",
 	"pallet-nomination-pools?/try-runtime",
 	"pallet-offences?/try-runtime",
+	"pallet-origin-restriction?/try-runtime",
 	"pallet-paged-list?/try-runtime",
 	"pallet-parameters?/try-runtime",
+	"pallet-people?/try-runtime",
 	"pallet-preimage?/try-runtime",
 	"pallet-proxy?/try-runtime",
 	"pallet-ranked-collective?/try-runtime",
@@ -613,6 +622,7 @@ runtime-full = [
 	"pallet-delegated-staking",
 	"pallet-democracy",
 	"pallet-dev-mode",
+	"pallet-dummy-dim",
 	"pallet-election-provider-multi-block",
 	"pallet-election-provider-multi-phase",
 	"pallet-election-provider-support-benchmarking",
@@ -642,8 +652,10 @@ runtime-full = [
 	"pallet-nomination-pools-runtime-api",
 	"pallet-offences",
 	"pallet-offences-benchmarking",
+	"pallet-origin-restriction",
 	"pallet-paged-list",
 	"pallet-parameters",
+	"pallet-people",
 	"pallet-preimage",
 	"pallet-proxy",
 	"pallet-ranked-collective",
@@ -1393,6 +1405,11 @@ default-features = false
 optional = true
 path = "../substrate/frame/examples/dev-mode"
 
+[dependencies.pallet-dummy-dim]
+default-features = false
+optional = true
+path = "../substrate/frame/dummy-dim"
+
 [dependencies.pallet-election-provider-multi-block]
 default-features = false
 optional = true
@@ -1538,6 +1555,11 @@ default-features = false
 optional = true
 path = "../substrate/frame/offences/benchmarking"
 
+[dependencies.pallet-origin-restriction]
+default-features = false
+optional = true
+path = "../substrate/frame/origin-restriction"
+
 [dependencies.pallet-paged-list]
 default-features = false
 optional = true
@@ -1547,6 +1569,11 @@ path = "../substrate/frame/paged-list"
 default-features = false
 optional = true
 path = "../substrate/frame/parameters"
+
+[dependencies.pallet-people]
+default-features = false
+optional = true
+path = "../substrate/frame/people"
 
 [dependencies.pallet-preimage]
 default-features = false
