@@ -123,13 +123,18 @@ impl<T: Config> SolutionDataProvider for Pallet<T> {
 
 	fn get_page(page: PageIndex) -> Self::Solution {
 		let current_round = Self::current_round();
-		if let Some((who, _score)) = Submissions::<T>::leader(current_round) {
-			sublog!(info, "signed", "returning page {} of {:?}'s submission as leader.", page, who);
-			Submissions::<T>::get_page_of(current_round, &who, page).unwrap_or_default()
-		} else {
-			// No leader available, return empty page
-			Default::default()
-		}
+		Submissions::<T>::leader(current_round)
+			.map(|(who, _score)| {
+				sublog!(
+					info,
+					"signed",
+					"returning page {} of {:?}'s submission as leader.",
+					page,
+					who
+				);
+				Submissions::<T>::get_page_of(current_round, &who, page).unwrap_or_default()
+			})
+			.unwrap_or_default()
 	}
 
 	fn get_score() -> Option<ElectionScore> {
@@ -143,7 +148,8 @@ impl<T: Config> SolutionDataProvider for Pallet<T> {
 
 		match result {
 			VerificationResult::Queued => {
-				// If there is a result to be reported, then we must have had some leader.
+				// defensive: if there is a result to be reported, then we must have had some
+				// leader.
 				if let Some((winner, metadata)) =
 					Submissions::<T>::take_leader_with_data(Self::current_round()).defensive()
 				{
