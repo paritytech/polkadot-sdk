@@ -509,6 +509,7 @@ dependencies = [
  "num-bigint",
  "num-integer",
  "num-traits",
+ "rayon",
  "zeroize",
 ]
 
@@ -629,6 +630,7 @@ dependencies = [
  "num-bigint",
  "num-traits",
  "paste",
+ "rayon",
  "zeroize",
 ]
 
@@ -739,6 +741,7 @@ dependencies = [
  "educe",
  "fnv",
  "hashbrown 0.15.3",
+ "rayon",
 ]
 
 [[package]]
@@ -751,6 +754,18 @@ dependencies = [
  "ark-ff 0.4.2",
  "ark-serialize 0.4.2",
  "ark-std 0.4.0",
+ "parity-scale-codec",
+ "scale-info",
+]
+
+[[package]]
+name = "ark-scale"
+version = "0.0.13"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "985c81a9c7b23a72f62b7b20686d5326d2a9956806f37de9ee35cb1238faf0c0"
+dependencies = [
+ "ark-serialize 0.5.0",
+ "ark-std 0.5.0",
  "parity-scale-codec",
  "scale-info",
 ]
@@ -788,6 +803,7 @@ dependencies = [
  "arrayvec 0.7.4",
  "digest 0.10.7",
  "num-bigint",
+ "rayon",
 ]
 
 [[package]]
@@ -841,6 +857,7 @@ checksum = "246a225cc6131e9ee4f24619af0f19d67761fff15d7ccc22e42b80846e69449a"
 dependencies = [
  "num-traits",
  "rand 0.8.5",
+ "rayon",
 ]
 
 [[package]]
@@ -871,6 +888,7 @@ dependencies = [
  "ark-std 0.5.0",
  "digest 0.10.7",
  "rand_chacha 0.3.1",
+ "rayon",
  "sha2 0.10.8",
  "w3f-ring-proof",
  "zeroize",
@@ -2050,6 +2068,18 @@ dependencies = [
  "fastrand 1.9.0",
  "futures-lite 1.13.0",
  "log",
+]
+
+[[package]]
+name = "bounded-collections"
+version = "0.1.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ca548b6163b872067dc5eb82fd130c56881435e30367d2073594a3d9744120dd"
+dependencies = [
+ "log",
+ "parity-scale-codec",
+ "scale-info",
+ "serde",
 ]
 
 [[package]]
@@ -4643,7 +4673,7 @@ name = "cumulus-pallet-xcmp-queue"
 version = "0.7.1"
 dependencies = [
  "approx",
- "bounded-collections",
+ "bounded-collections 0.2.3",
  "bp-xcm-bridge-hub-router",
  "cumulus-pallet-parachain-system",
  "cumulus-primitives-core",
@@ -12008,6 +12038,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-dummy-dim"
+version = "1.0.0"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "log",
+ "pallet-people",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-api 26.0.0",
+ "sp-arithmetic 23.0.0",
+ "sp-core 28.0.0",
+ "sp-io 30.0.0",
+ "sp-runtime 31.0.1",
+ "verifiable",
+]
+
+[[package]]
 name = "pallet-election-provider-e2e-test"
 version = "1.0.0"
 dependencies = [
@@ -12752,6 +12801,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-origin-restriction"
+version = "1.0.0"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "log",
+ "pallet-transaction-payment",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-arithmetic 23.0.0",
+ "sp-core 28.0.0",
+ "sp-io 30.0.0",
+ "sp-runtime 31.0.1",
+]
+
+[[package]]
 name = "pallet-paged-list"
 version = "0.6.0"
 dependencies = [
@@ -12798,6 +12864,23 @@ dependencies = [
  "sp-core 28.0.0",
  "sp-io 30.0.0",
  "sp-runtime 31.0.1",
+]
+
+[[package]]
+name = "pallet-people"
+version = "1.0.0"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "log",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-arithmetic 23.0.0",
+ "sp-core 28.0.0",
+ "sp-io 30.0.0",
+ "sp-runtime 31.0.1",
+ "verifiable",
 ]
 
 [[package]]
@@ -13844,7 +13927,7 @@ dependencies = [
 name = "pallet-xcm"
 version = "7.0.0"
 dependencies = [
- "bounded-collections",
+ "bounded-collections 0.2.3",
  "frame-benchmarking",
  "frame-support",
  "frame-system",
@@ -15755,7 +15838,7 @@ dependencies = [
 name = "polkadot-parachain-primitives"
 version = "6.0.0"
 dependencies = [
- "bounded-collections",
+ "bounded-collections 0.2.3",
  "derive_more 0.99.17",
  "parity-scale-codec",
  "polkadot-core-primitives",
@@ -15771,7 +15854,7 @@ name = "polkadot-primitives"
 version = "7.0.0"
 dependencies = [
  "bitvec",
- "bounded-collections",
+ "bounded-collections 0.2.3",
  "hex-literal",
  "log",
  "parity-scale-codec",
@@ -16074,6 +16157,7 @@ dependencies = [
  "pallet-delegated-staking",
  "pallet-democracy",
  "pallet-dev-mode",
+ "pallet-dummy-dim",
  "pallet-election-provider-multi-block",
  "pallet-election-provider-multi-phase",
  "pallet-election-provider-support-benchmarking",
@@ -16103,8 +16187,10 @@ dependencies = [
  "pallet-nomination-pools-runtime-api",
  "pallet-offences",
  "pallet-offences-benchmarking",
+ "pallet-origin-restriction",
  "pallet-paged-list",
  "pallet-parameters",
+ "pallet-people",
  "pallet-preimage",
  "pallet-proxy",
  "pallet-ranked-collective",
@@ -20883,6 +20969,7 @@ dependencies = [
  "curve25519-dalek-ng",
  "merlin",
  "rand_core 0.6.4",
+ "serde_bytes",
  "sha2 0.9.9",
  "subtle-ng",
  "zeroize",
@@ -22717,7 +22804,7 @@ dependencies = [
  "array-bytes 6.2.2",
  "bitflags 1.3.2",
  "blake2 0.10.6",
- "bounded-collections",
+ "bounded-collections 0.2.3",
  "bs58",
  "criterion",
  "dyn-clonable",
@@ -22769,7 +22856,7 @@ dependencies = [
  "array-bytes 6.2.2",
  "bitflags 1.3.2",
  "blake2 0.10.6",
- "bounded-collections",
+ "bounded-collections 0.2.3",
  "bs58",
  "dyn-clonable",
  "ed25519-zebra 3.1.0",
@@ -22816,7 +22903,7 @@ dependencies = [
  "array-bytes 6.2.2",
  "bitflags 1.3.2",
  "blake2 0.10.6",
- "bounded-collections",
+ "bounded-collections 0.2.3",
  "bs58",
  "dyn-clonable",
  "ed25519-zebra 4.0.3",
@@ -22863,7 +22950,7 @@ dependencies = [
  "array-bytes 6.2.2",
  "bitflags 1.3.2",
  "blake2 0.10.6",
- "bounded-collections",
+ "bounded-collections 0.2.3",
  "bs58",
  "dyn-clonable",
  "ed25519-zebra 4.0.3",
@@ -22939,7 +23026,7 @@ dependencies = [
  "ark-ed-on-bls12-377-ext",
  "ark-ed-on-bls12-381-bandersnatch 0.4.0",
  "ark-ed-on-bls12-381-bandersnatch-ext",
- "ark-scale",
+ "ark-scale 0.0.12",
  "sp-runtime-interface 24.0.0",
 ]
 
@@ -23923,7 +24010,7 @@ dependencies = [
 name = "sp-weights"
 version = "27.0.0"
 dependencies = [
- "bounded-collections",
+ "bounded-collections 0.2.3",
  "parity-scale-codec",
  "scale-info",
  "schemars",
@@ -23939,7 +24026,7 @@ version = "31.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "93cdaf72a1dad537bbb130ba4d47307ebe5170405280ed1aa31fa712718a400e"
 dependencies = [
- "bounded-collections",
+ "bounded-collections 0.2.3",
  "parity-scale-codec",
  "scale-info",
  "serde",
@@ -24321,7 +24408,7 @@ name = "staging-xcm"
 version = "7.0.1"
 dependencies = [
  "array-bytes 6.2.2",
- "bounded-collections",
+ "bounded-collections 0.2.3",
  "derive-where",
  "environmental",
  "frame-support",
@@ -26786,6 +26873,23 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "accd4ea62f7bb7a82fe23066fb0957d48ef677f6eeb8215f372f52e48bb32426"
 
 [[package]]
+name = "verifiable"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "225eaa083192400abfe78838e3089c539a361e0dd9b6884f61b5c6237676ec01"
+dependencies = [
+ "ark-scale 0.0.13",
+ "ark-serialize 0.5.0",
+ "ark-vrf",
+ "bounded-collections 0.1.9",
+ "derive-where",
+ "parity-scale-codec",
+ "scale-info",
+ "schnorrkel 0.10.2",
+ "spin 0.9.8",
+]
+
+[[package]]
 name = "version_check"
 version = "0.9.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -26831,6 +26935,7 @@ dependencies = [
  "ark-serialize 0.5.0",
  "ark-std 0.5.0",
  "merlin",
+ "rayon",
 ]
 
 [[package]]
@@ -26846,6 +26951,7 @@ dependencies = [
  "ark-std 0.5.0",
  "getrandom_or_panic",
  "rand_core 0.6.4",
+ "rayon",
  "w3f-pcs",
 ]
 
@@ -26861,6 +26967,7 @@ dependencies = [
  "ark-serialize 0.5.0",
  "ark-std 0.5.0",
  "ark-transcript",
+ "rayon",
  "w3f-pcs",
  "w3f-plonk-common",
 ]
