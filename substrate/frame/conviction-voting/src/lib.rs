@@ -682,7 +682,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 						// Add the clawback
 						votes[i].2 = votes[i].2.saturating_add(amount);
 						// And reduce the tally by that amount if the delegate has voted standard and the poll is ongoing
-						if let Some(AccountVote::Standard { vote, .. }) = account_vote {
+						if let Some(AccountVote::Standard { vote, .. }) = votes[i].1 {
 							T::Polls::access_poll(poll_index, |poll_status| {
 								if let PollStatus::Ongoing(tally, _) = poll_status {
 									tally.reduce(vote.aye, amount);
@@ -704,7 +704,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		})
 	}
 
-	//
+	// ✓
 
 	/// Return the number of votes made by `who`.
 	fn reduce_upstream_delegation(
@@ -718,11 +718,14 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			// Reduce amount delegated to this delegate
 			votes.delegations = votes.delegation.saturating_sub(amount);
 			
-			// Reduce tallies for all of the delegate's votes that are standard and for ongoing polls
+			// For each of the delegate's votes
 			for &(poll_index, account_vote) in votes.iter() {
+				// That are standard aye or nay
 				if let AccountVote::Standard { vote, .. } = account_vote {
 					T::Polls::access_poll(poll_index, |poll_status| {
+						// And for an ongoing poll
 						if let PollStatus::Ongoing(tally, _) = poll_status {
+							// Reduce the tally by the delegated amount
 							tally.reduce(vote.aye, amount);
 						}
 					});
@@ -734,14 +737,20 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				// That the delegate has data for (which should be all)
 				match votes.binary_search_by_key(&poll_index, |i| i.0) {
 					Ok(i) => {
-						// That are of type standard
-						if let AccountVote::Standard { vote, .. } = account_vote { // Need to figure all this out
-							votes[i].2 = votes[i].2.saturating_sub(amount);
+						// Remove the clawback
+						votes[i].2 = votes[i].2.saturating_sub(amount);
+						// And increase the tally by that amount if the delegate has voted standard and the poll is ongoing
+						if let Some(AccountVote::Standard { vote, .. }) = votes[i].1 {
+							T::Polls::access_poll(poll_index, |poll_status| {
+								if let PollStatus::Ongoing(tally, _) = poll_status {
+									tally.increase(vote.aye, amount);
+								}
+							});
 						}
 					},
 					Err(i) => {
-						// This shouldn't be possible as if they're voting while
-						// delegating, the delegate will always need info about that poll
+						// This shouldn't be possible as if the delegator is voting for an ongoing poll
+						// while delegating, the delegate will always need info about that poll
 					},
 				}
 			}
