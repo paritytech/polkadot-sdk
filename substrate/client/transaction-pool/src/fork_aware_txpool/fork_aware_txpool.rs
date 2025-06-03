@@ -580,7 +580,7 @@ where
 				to_be_removed = all_extrinsics.len(),
 				after_count,
 				duration = ?start.elapsed(),
-				"fatp::ready_at_light"
+				"fatp::ready_at_light -> light"
 			);
 			Box::new(tmp_view.pool.validated_pool().ready())
 		} else if let Some(most_recent_view) = self.view_store.most_recent_view.read().clone() {
@@ -588,6 +588,12 @@ where
 			// Falls back to the most recent view, which may include txs which
 			// are invalid or already included in the blocks but can still yield a
 			// partially valid ready set, which is still better than including nothing.
+			debug!(
+				target: LOG_TARGET,
+				?at,
+				duration = ?start.elapsed(),
+				"fatp::ready_at_light -> most_recent_view"
+			);
 			Box::new(most_recent_view.pool.validated_pool().ready())
 		} else {
 			let empty: ReadyIteratorFor<ChainApi> = Box::new(std::iter::empty());
