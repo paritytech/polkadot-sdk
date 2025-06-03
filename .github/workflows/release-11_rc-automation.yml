@@ -20,7 +20,7 @@ jobs:
             room: '!cqAmzdIcbOFwrdrubV:parity.io'
     environment: release
     env:
-      PGP_KMS_KEY: ${{ secrets.PGP_KMS_SIGN_COMMITS_KEY }}
+      PGP_KMS_KEY: ${{ secrets.PGP_KMS_KEY }}
       PGP_KMS_HASH: ${{ secrets.PGP_KMS_HASH }}
       AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
