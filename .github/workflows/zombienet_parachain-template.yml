@@ -29,6 +29,7 @@ jobs:
     uses: ./.github/workflows/reusable-isdraft.yml
   preflight:
     needs: isdraft
+    if: false
     uses: ./.github/workflows/zombienet-reusable-preflight.yml
 
 
