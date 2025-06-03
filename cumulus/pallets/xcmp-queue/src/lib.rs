@@ -559,7 +559,7 @@ impl<T: Config> Pallet<T> {
 			let number_of_pages = (channel_details.last_index - channel_details.first_index) as u32;
 			let bounded_page =
 				BoundedVec::<u8, T::MaxPageSize>::try_from(new_page).map_err(|error| {
-					log::error!(target: LOG_TARGET, "Failed to create bounded message page: {error:?}");
+					log::debug!(target: LOG_TARGET, "Failed to create bounded message page: {error:?}");
 					MessageSendError::TooBig
 				})?;
 			let bounded_page = WeakBoundedVec::force_from(bounded_page.into_inner(), None);
@@ -589,7 +589,7 @@ impl<T: Config> Pallet<T> {
 			details.signals_exist = true;
 		} else {
 			s.try_push(OutboundChannelDetails::new(dest).with_signals()).map_err(|error| {
-				log::error!(target: LOG_TARGET, "Failed to activate XCMP channel: {error:?}");
+				log::debug!(target: LOG_TARGET, "Failed to activate XCMP channel: {error:?}");
 				Error::<T>::TooManyActiveOutboundChannels
 			})?;
 		}
@@ -598,7 +598,7 @@ impl<T: Config> Pallet<T> {
 			(XcmpMessageFormat::Signals, signal).encode(),
 		)
 		.map_err(|error| {
-			log::error!(target: LOG_TARGET, "Failed to encode signal message: {error:?}");
+			log::debug!(target: LOG_TARGET, "Failed to encode signal message: {error:?}");
 			Error::<T>::TooBig
 		})?;
 		let page = WeakBoundedVec::force_from(page.into_inner(), None);
@@ -709,12 +709,12 @@ impl<T: Config> Pallet<T> {
 
 		let xcm = VersionedXcm::<()>::decode_with_depth_limit(MAX_XCM_DECODE_DEPTH, data).map_err(
 			|error| {
-				log::error!(target: LOG_TARGET, "Failed to decode XCM with depth limit: {error:?}");
+				log::debug!(target: LOG_TARGET, "Failed to decode XCM with depth limit: {error:?}");
 				()
 			},
 		)?;
 		Ok(Some(xcm.encode().try_into().map_err(|error| {
-			log::error!(target: LOG_TARGET, "Failed to encode XCM after decoding: {error:?}");
+			log::debug!(target: LOG_TARGET, "Failed to encode XCM after decoding: {error:?}");
 			()
 		})?))
 	}
@@ -1061,11 +1061,11 @@ impl<T: Config> SendXcm for Pallet<T> {
 				let id = ParaId::from(*id);
 				let price = T::PriceForSiblingDelivery::price_for_delivery(id, &xcm);
 				let versioned_xcm = T::VersionWrapper::wrap_version(&d, xcm).map_err(|()| {
-					log::error!(target: LOG_TARGET, "Failed to wrap XCM with version for destination: {d:?}");
+					log::debug!(target: LOG_TARGET, "Failed to wrap XCM with version for destination: {d:?}");
 					SendError::DestinationUnsupported
 				})?;
 				versioned_xcm.check_is_decodable().map_err(|()| {
-					log::error!(target: LOG_TARGET, "Failed to check XCM decodability: message too large or malformed");
+					log::debug!(target: LOG_TARGET, "Failed to check XCM decodability: message too large or malformed");
 					SendError::ExceedsMaxMessageSize
 				})?;
 
@@ -1074,7 +1074,7 @@ impl<T: Config> SendXcm for Pallet<T> {
 			_ => {
 				// Anything else is unhandled. This includes a message that is not meant for us.
 				// We need to make sure that dest/msg is not consumed here.
-				log::error!(target: LOG_TARGET, "Failed to validate XCM destination: unexpected location {d:?}");
+				log::debug!(target: LOG_TARGET, "Failed to validate XCM destination: unexpected location {d:?}");
 				*dest = Some(d);
 				Err(SendError::NotApplicable)
 			},

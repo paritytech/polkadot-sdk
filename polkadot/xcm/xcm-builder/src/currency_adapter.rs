@@ -114,7 +114,7 @@ impl<
 			new_balance,
 		)
 		.map_err(|error| {
-			tracing::trace!(target: "xcm::currency_adapter", ?error, "Failed to ensure can withdraw");
+			tracing::debug!(target: "xcm::currency_adapter", ?error, "Failed to ensure can withdraw");
 			XcmError::NotWithdrawable
 		})
 	}
@@ -219,7 +219,7 @@ impl<
 			AccountIdConverter::convert_location(who).ok_or(Error::AccountIdConversionFailed)?;
 		let _ = Currency::withdraw(&who, amount, WithdrawReasons::TRANSFER, AllowDeath).map_err(
 			|error| {
-				tracing::trace!(target: "xcm::currency_adapter", ?error, "Failed to withdraw asset");
+				tracing::debug!(target: "xcm::currency_adapter", ?error, "Failed to withdraw asset");
 				XcmError::FailedToTransactAsset(error.into())
 			},
 		)?;
@@ -239,7 +239,7 @@ impl<
 		let to =
 			AccountIdConverter::convert_location(to).ok_or(Error::AccountIdConversionFailed)?;
 		Currency::transfer(&from, &to, amount, AllowDeath).map_err(|error| {
-			tracing::trace!(target: "xcm::currency_adapter", ?error, "Failed to transfer asset");
+			tracing::debug!(target: "xcm::currency_adapter", ?error, "Failed to transfer asset");
 			XcmError::FailedToTransactAsset(error.into())
 		})?;
 		Ok(asset.clone().into())
