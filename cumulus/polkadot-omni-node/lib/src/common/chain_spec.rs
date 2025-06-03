@@ -65,7 +65,6 @@ mod tests {
 	use super::*;
 
 	#[test]
-	#[allow(deprecated)]
 	fn can_decode_extension_camel_and_snake_case() {
 		let camel_case = r#"{"relayChain":"relay","paraId":1}"#;
 		let snake_case = r#"{"relay_chain":"relay","para_id":1}"#;
@@ -79,6 +78,9 @@ mod tests {
 		assert_eq!(camel_case_extension, snake_case_extension);
 		assert_eq!(snake_case_extension, pascal_case_extension);
 		assert_eq!(missing_paraid_extension.relay_chain, "westend".to_string());
-		assert!(missing_paraid_extension.para_id.is_none());
+		// TODO: remove it once `para_id` is removed
+		#[allow(deprecated)]
+		let test = missing_paraid_extension.para_id.is_none();
+		assert!(test);
 	}
 }

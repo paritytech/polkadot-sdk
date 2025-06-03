@@ -150,7 +150,6 @@ pub(crate) trait BaseNodeSpec {
 	type InitBlockImport: self::InitBlockImport<Self::Block, Self::RuntimeApi>;
 
 	/// Retrieves parachain id.
-	#[allow(deprecated)]
 	fn parachain_id(
 		client: &ParachainClient<Self::Block, Self::RuntimeApi>,
 		parachain_config: &Configuration,
@@ -159,6 +158,8 @@ pub(crate) trait BaseNodeSpec {
 		let para_id = if let Ok(para_id) = client.runtime_api().parachain_id(best_hash) {
 			para_id
 		} else {
+			// TODO: remove this once `para_id` extension is removed
+			#[allow(deprecated)]
 			ParaId::from(
 				Extensions::try_get(&*parachain_config.chain_spec).and_then(|ext| ext.para_id)?,
 			)

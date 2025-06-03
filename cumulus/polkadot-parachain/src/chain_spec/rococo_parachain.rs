@@ -26,10 +26,11 @@ use sc_chain_spec::ChainType;
 use sp_core::crypto::UncheckedInto;
 use sp_keyring::Sr25519Keyring;
 
-#[allow(deprecated)]
 pub fn rococo_parachain_local_config() -> GenericChainSpec {
 	GenericChainSpec::builder(
 		rococo_parachain_runtime::WASM_BINARY.expect("WASM binary was not built, please build it!"),
+		// TODO: remove when removing the `para_id` extension
+		#[allow(deprecated)]
 		Extensions { relay_chain: "rococo-local".into(), para_id: None },
 	)
 	.with_name("Rococo Parachain Local")
@@ -48,9 +49,10 @@ pub fn rococo_parachain_local_config() -> GenericChainSpec {
 }
 
 pub fn staging_rococo_parachain_local_config() -> GenericChainSpec {
-	#[allow(deprecated)]
 	GenericChainSpec::builder(
 		rococo_parachain_runtime::WASM_BINARY.expect("WASM binary was not built, please build it!"),
+		// TODO: remove when removing the `para_id` extension
+		#[allow(deprecated)]
 		Extensions { relay_chain: "rococo-local".into(), para_id: None },
 	)
 	.with_name("Staging Rococo Parachain Local")

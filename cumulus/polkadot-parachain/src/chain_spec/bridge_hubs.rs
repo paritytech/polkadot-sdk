@@ -133,7 +133,6 @@ pub mod rococo {
 	pub(crate) const BRIDGE_HUB_ROCOCO_LOCAL: &str = "bridge-hub-rococo-local";
 	pub(crate) const BRIDGE_HUB_ROCOCO_DEVELOPMENT: &str = "bridge-hub-rococo-dev";
 
-	#[allow(deprecated)]
 	pub fn local_config<ModifyProperties: Fn(&mut sc_chain_spec::Properties)>(
 		id: &str,
 		chain_name: &str,
@@ -152,6 +151,8 @@ pub mod rococo {
 		GenericChainSpec::builder(
 			bridge_hub_rococo_runtime::WASM_BINARY
 				.expect("WASM binary was not built, please build it!"),
+			// TODO: remove when removing the `para_id` extension
+			#[allow(deprecated)]
 			Extensions { relay_chain: relay_chain.to_string(), para_id: None },
 		)
 		.with_name(chain_name)
@@ -187,7 +188,6 @@ pub mod westend {
 	pub(crate) const BRIDGE_HUB_WESTEND_LOCAL: &str = "bridge-hub-westend-local";
 	pub(crate) const BRIDGE_HUB_WESTEND_DEVELOPMENT: &str = "bridge-hub-westend-dev";
 
-	#[allow(deprecated)]
 	pub fn local_config(
 		id: &str,
 		chain_name: &str,
@@ -202,6 +202,8 @@ pub mod westend {
 		GenericChainSpec::builder(
 			bridge_hub_westend_runtime::WASM_BINARY
 				.expect("WASM binary was not build, please build it!"),
+			// TODO: remove when removing the `para_id` extension
+			#[allow(deprecated)]
 			Extensions { relay_chain: relay_chain.to_string(), para_id: None },
 		)
 		.with_name(chain_name)

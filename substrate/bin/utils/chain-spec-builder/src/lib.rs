@@ -436,7 +436,6 @@ fn parse_properties(raw: &String, props: &mut sc_chain_spec::Properties) -> Resu
 }
 
 /// Processes `CreateCmd` and returns string representation of JSON version of `ChainSpec`.
-#[allow(deprecated)]
 pub fn generate_chain_spec_for_runtime(cmd: &CreateCmd) -> Result<String, String> {
 	let code = cmd.get_runtime_code()?;
 
@@ -455,6 +454,8 @@ pub fn generate_chain_spec_for_runtime(cmd: &CreateCmd) -> Result<String, String
 
 	let chain_spec_json_string = process_action(&cmd, &code[..], builder)?;
 	let parachain_properties = cmd.relay_chain.as_ref().map(|rc| {
+		// TODO: remove when removing the `para_id` extension
+		#[allow(deprecated)]
 		cmd.para_id
 			.map(|para_id| {
 				println!("Note: usage of deprecated `para_id` flag is not recommended. Please consider implementing the `cumulus_primitives_core::GetParachainIdentity` runtime API for your runtime. Example here: https://github.com/paritytech/polkadot-sdk-parachain-template/blob/master/runtime/src/apis.rs.");

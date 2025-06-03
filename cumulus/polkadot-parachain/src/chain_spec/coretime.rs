@@ -150,7 +150,6 @@ pub mod rococo {
 	pub(crate) const CORETIME_ROCOCO_LOCAL: &str = "coretime-rococo-local";
 	pub(crate) const CORETIME_ROCOCO_DEVELOPMENT: &str = "coretime-rococo-dev";
 
-	#[allow(deprecated)]
 	pub fn local_config(runtime_type: CoretimeRuntimeType, relay_chain: &str) -> GenericChainSpec {
 		// Rococo defaults
 		let mut properties = sc_chain_spec::Properties::new();
@@ -171,6 +170,8 @@ pub mod rococo {
 
 		GenericChainSpec::builder(
 			wasm_binary,
+			// TODO: remove when removing the `para_id` extension
+			#[allow(deprecated)]
 			Extensions { relay_chain: relay_chain.to_string(), para_id: None },
 		)
 		.with_name(&chain_name)
@@ -196,7 +197,6 @@ pub mod westend {
 	pub(crate) const CORETIME_WESTEND_LOCAL: &str = "coretime-westend-local";
 	pub(crate) const CORETIME_WESTEND_DEVELOPMENT: &str = "coretime-westend-dev";
 
-	#[allow(deprecated)]
 	pub fn local_config(runtime_type: CoretimeRuntimeType, relay_chain: &str) -> GenericChainSpec {
 		// westend defaults
 		let mut properties = sc_chain_spec::Properties::new();
@@ -210,6 +210,8 @@ pub mod westend {
 		GenericChainSpec::builder(
 			coretime_westend_runtime::WASM_BINARY
 				.expect("WASM binary was not built, please build it!"),
+			// TODO: remove when removing the `para_id` extension
+			#[allow(deprecated)]
 			Extensions { relay_chain: relay_chain.to_string(), para_id: None },
 		)
 		.with_name(&chain_name)

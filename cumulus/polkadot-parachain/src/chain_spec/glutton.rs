@@ -19,7 +19,6 @@ use polkadot_omni_node_lib::chain_spec::{Extensions, GenericChainSpec};
 use sc_service::ChainType;
 
 /// Generic Glutton Westend Config for all currently used setups.
-#[allow(deprecated)]
 pub fn glutton_westend_config(
 	para_id: ParaId,
 	chain_type: ChainType,
@@ -30,6 +29,8 @@ pub fn glutton_westend_config(
 
 	GenericChainSpec::builder(
 		glutton_westend_runtime::WASM_BINARY.expect("WASM binary was not built, please build it!"),
+		// TODO: remove when removing the `para_id` extension
+		#[allow(deprecated)]
 		Extensions { relay_chain: relay_chain.into(), para_id: None },
 	)
 	.with_name(&chain_type_name(para_id, &chain_type))

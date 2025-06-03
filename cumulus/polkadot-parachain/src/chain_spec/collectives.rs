@@ -18,7 +18,6 @@ use polkadot_omni_node_lib::chain_spec::{Extensions, GenericChainSpec};
 use sc_service::ChainType;
 
 /// Collectives Westend Development Config.
-#[allow(deprecated)]
 pub fn collectives_westend_development_config() -> GenericChainSpec {
 	let mut properties = sc_chain_spec::Properties::new();
 	properties.insert("ss58Format".into(), 42.into());
@@ -28,6 +27,8 @@ pub fn collectives_westend_development_config() -> GenericChainSpec {
 	GenericChainSpec::builder(
 		collectives_westend_runtime::WASM_BINARY
 			.expect("WASM binary was not built, please build it!"),
+		// TODO: remove when removing the `para_id` extension
+		#[allow(deprecated)]
 		Extensions { relay_chain: "westend-dev".into(), para_id: None },
 	)
 	.with_name("Westend Collectives Development")
@@ -40,7 +41,6 @@ pub fn collectives_westend_development_config() -> GenericChainSpec {
 }
 
 /// Collectives Westend Local Config.
-#[allow(deprecated)]
 pub fn collectives_westend_local_config() -> GenericChainSpec {
 	let mut properties = sc_chain_spec::Properties::new();
 	properties.insert("ss58Format".into(), 42.into());
@@ -50,6 +50,8 @@ pub fn collectives_westend_local_config() -> GenericChainSpec {
 	GenericChainSpec::builder(
 		collectives_westend_runtime::WASM_BINARY
 			.expect("WASM binary was not built, please build it!"),
+		// TODO: remove when removing the `para_id` extension
+		#[allow(deprecated)]
 		Extensions { relay_chain: "westend-local".into(), para_id: None },
 	)
 	.with_name("Westend Collectives Local")

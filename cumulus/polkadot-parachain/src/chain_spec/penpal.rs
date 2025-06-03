@@ -21,7 +21,6 @@ use polkadot_omni_node_lib::chain_spec::{Extensions, GenericChainSpec};
 use sc_service::ChainType;
 use sp_keyring::Sr25519Keyring;
 
-#[allow(deprecated)]
 pub fn get_penpal_chain_spec(id: ParaId, relay_chain: &str) -> GenericChainSpec {
 	// Give your base currency a unit name and decimal places
 	let mut properties = sc_chain_spec::Properties::new();
@@ -31,6 +30,8 @@ pub fn get_penpal_chain_spec(id: ParaId, relay_chain: &str) -> GenericChainSpec 
 
 	GenericChainSpec::builder(
 		penpal_runtime::WASM_BINARY.expect("WASM binary was not built, please build it!"),
+		// TODO: remove when removing the `para_id` extension
+		#[allow(deprecated)]
 		Extensions {
 			relay_chain: relay_chain.into(), // You MUST set this to the correct network!
 			para_id: None,
