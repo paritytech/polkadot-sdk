@@ -11,6 +11,6 @@ doc:
     3. x and below is still dropped. This can only happen due to: unforeseen bug in RC, or XCM failing to send messages in order.
 crates:
 - name: pallet-staking-async-rc-client
-  bump: patch
+  bump: major
 - name: pallet-staking-async
-  bump: patch
+  bump: major
