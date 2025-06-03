@@ -69,12 +69,12 @@ pub struct CreateCmd {
 	chain_type: ChainType,
 	/// DEPRECATED: The para ID for your chain.
 	///
-	/// This flag will be removed starting with `stable2509`. Runtimes must implement a new API
+	/// This flag will be removed starting with `stable2512`. Runtimes must implement a new API
 	/// called `cumulus_primitives_core::GetParachainIdentity` to still be compatible with node
-	/// versions starting with `stable2509`. See an example here: `https://github.com/paritytech/polkadot-sdk-parachain-template/blob/master/runtime/src/apis.rs`.
+	/// versions starting with `stable2512`. See an example here: `https://github.com/paritytech/polkadot-sdk-parachain-template/blob/master/runtime/src/apis.rs`.
 	#[arg(long, value_enum, short = 'p', requires = "relay_chain")]
 	#[deprecated(
-		note = "The para_id information is not required anymore and will be removed starting with `stable2509`. Runtimes must implement a new API called `cumulus_primitives_core::GetParachainIdentity` to still be compatible with node versions starting with `stable2509`. Check the parachain-template-runtime: `https://github.com/paritytech/polkadot-sdk-parachain-template/blob/master/runtime/src/apis.rs` for an example of how to do it."
+		note = "The para_id information is not required anymore and will be removed starting with `stable2512`. Runtimes must implement a new API called `cumulus_primitives_core::GetParachainIdentity` to still be compatible with node versions starting with `stable2512`. Check the parachain-template-runtime: `https://github.com/paritytech/polkadot-sdk-parachain-template/blob/master/runtime/src/apis.rs` for an example of how to do it."
 	)]
 	pub para_id: Option<u32>,
 	/// The relay chain you wish to connect to.
@@ -225,7 +225,7 @@ pub struct ParachainExtension {
 	pub relay_chain: String,
 	/// The id of the Parachain.
 	#[deprecated(
-		note = "The para_id information is not required anymore and will be removed starting with `stable2509`. Runtimes must implement a new API called `cumulus_primitives_core::GetParachainIdentity` to still be compatible with node versions starting with `stable2509`."
+		note = "The para_id information is not required anymore and will be removed starting with `stable2512`. Runtimes must implement a new API called `cumulus_primitives_core::GetParachainIdentity` to still be compatible with node versions starting with `stable2512`."
 	)]
 	pub para_id: Option<u32>,
 }

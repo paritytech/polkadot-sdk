@@ -5,10 +5,10 @@ doc:
     This PR deprecates the `para_id` field required by parachain chain specifications that are started based on `polkadot-omni-node`,
     `parachain-polkadot` and `parachain-template-node`.
 
-    Starting with `stable2506` the `para_id` field of chain specification is not required anymore, and runtime developers will be able
+    Starting with `stable2509` the `para_id` field of chain specification is not required anymore, and runtime developers will be able
     to specify it to nodes by implementing the runtime API `cumulus_primitives_core::GetParachainIdentity`.
 
-    Starting with `stable2509` the `para_id` field of chain specification will not considered anymore by node versions, so it is mandatory
+    Starting with `stable2512` the `para_id` field of chain specification will not considered anymore by node versions, so it is mandatory
     for runtimes to implement the `GetParachainIdentity` trait to still be compatible with the nodes.
 crates:
 - name: asset-hub-rococo-runtime

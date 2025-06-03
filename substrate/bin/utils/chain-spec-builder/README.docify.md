@@ -32,10 +32,10 @@ around by the `bash!(...)` macro calls.
 specification with this tool should implement `cumulus_primitives_core::GetParachainIdentity`
 trait, a new runtime API designed to provide the parachain ID from the `parachain-info`
 pallet. The `para-id` flag will be removed and nodes support for extracting the
-parachain id from the chain specification will stop from `stable2509`.
+parachain id from the chain specification will stop from `stable2512`.
 
 For reference, generating a chain specification with a `para_id` field can still
-be done until `stable2509` like below:
+be done until `stable2512` like below:
 ```bash
 chain-spec-builder -c "/dev/stdout" create --relay-chain "dev" --para-id 1000 -r $runtime_path named-preset "staging"
 ```
