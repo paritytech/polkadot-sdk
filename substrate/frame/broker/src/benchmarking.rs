@@ -868,7 +868,7 @@ mod benches {
 		let timeslice_period: u32 = T::TimeslicePeriod::get().try_into().ok().unwrap();
 		let sale = SaleInfo::<T>::get().expect("Sale has started.");
 
-		let now = RCBlockNumberProviderOf::<T::Coretime>::current_block_number();
+		let now = System::<T>::block_number();
 		let price = Broker::<T>::sale_price(&sale, now);
 		(0..n_renewable.into()).try_for_each(|indx| -> Result<(), BenchmarkError> {
 			let task = 1000 + indx;
