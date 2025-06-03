@@ -124,6 +124,7 @@ extern crate alloc;
 pub mod example {}
 
 use alloc::boxed::Box;
+use alloc::vec::Vec;
 use codec::FullCodec;
 use frame_election_provider_support::{ScoreProvider, SortedListProvider};
 use frame_support::weights::{Weight, WeightMeter};
@@ -420,7 +421,7 @@ pub mod pallet {
 			let overhead_writes = T::DbWeight::get().writes(1);
 			let minimal_overhead = overhead_reads.saturating_add(overhead_writes);
 			if meter.try_consume(minimal_overhead).is_err() {
-				log!(debug, "👜 Not enough Weight for minimal overhead. Skipping rebugging.");
+				log!(debug, "Not enough Weight for minimal overhead. Skipping rebugging.");
 				return Weight::zero();
 			}
 
@@ -432,7 +433,7 @@ pub mod pallet {
 			if rebag_budget == 0 || total_nodes == 0 || is_locked {
 				log!(
 					debug,
-					"👜 Auto-rebag skipped: rebag_budget={}, total_nodes={}, locked={}.",
+					"Auto-rebag skipped: rebag_budget={}, total_nodes={}, locked={}.",
 					rebag_budget,
 					total_nodes,
 					is_locked
@@ -442,21 +443,34 @@ pub mod pallet {
 
 			log!(
 				debug,
-				"👜 Starting auto-rebag. Budget: {} accounts/block, total_nodes={}.",
+				"Starting auto-rebag. Budget: {} accounts/block, total_nodes={}.",
 				rebag_budget,
 				total_nodes
 			);
 
 			let cursor = NextNodeAutoRebagged::<T, I>::get();
-			let mut iter = match cursor {
+			let iter = match cursor {
 				Some(ref last) => {
-					log!(debug, "👜 Last node processed in previous block: {:?}", last);
-					Self::iter_from_inclusive(last).unwrap_or_else(|_| Self::iter())
+					log!(debug, "Next node from previous block: {:?}", last);
+
+					// Build an iterator that yields `last` first, then everything *after* it.
+					let tail = Self::iter_from(last).unwrap_or_else(|_| Self::iter());
+					let head_and_tail = core::iter::once(last.clone()).chain(tail);
+					Box::new(head_and_tail) as Box<dyn Iterator<Item = T::AccountId>>
 				},
 				None => {
-					log!(debug, "👜 No NextNodeAutoRebagged found. Starting from head of the list");
+					log!(debug, "No NextNodeAutoRebagged found. Starting from head of the list");
 					Self::iter()
 				},
+			};
+
+			let accounts: Vec<_> = iter.take((rebag_budget + 1) as usize).collect();
+
+			// Safe split: if we reached (or passed) the tail of the list, we don’t want to panic.
+			let (to_process, next_cursor) = if accounts.len() <= rebag_budget as usize {
+				(accounts.as_slice(), &[][..])
+			} else {
+				accounts.split_at(rebag_budget as usize)
 			};
 
 			let mut processed = 0u32;
@@ -465,7 +479,7 @@ pub mod pallet {
 			let per_rebag =
 				T::WeightInfo::rebag_non_terminal().max(T::WeightInfo::rebag_terminal());
 
-			while let Some(account) = iter.next() {
+			for account in to_process {
 				if meter.try_consume(per_rebag).is_err() {
 					log!(debug, "Weight limit reached after {} processed accounts", processed);
 					break;
@@ -495,13 +509,22 @@ pub mod pallet {
 				}
 			}
 
-			let next = iter.next();
-			log!(debug, "Next is: {:?}", next);
-			if next.is_none() {
-				NextNodeAutoRebagged::<T, I>::kill();
-			} else if let Some(node) = next {
-				NextNodeAutoRebagged::<T, I>::put(&node);
-				log!(debug, "👜 Saved next node to be processed in rebag cursor: {}", node)
+			match next_cursor.first() {
+				// Candidate was already processed in this block — avoid looping.
+				Some(next) if to_process.contains(next) => {
+					NextNodeAutoRebagged::<T, I>::kill();
+					log!(debug, "Loop detected: {:?} already processed — cursor killed", next);
+				},
+				// Normal case: save the next node as a cursor for the following block.
+				Some(next) => {
+					NextNodeAutoRebagged::<T, I>::put(next);
+					log!(debug, "Saved next node to be processed in rebag cursor: {:?}", next);
+				},
+				// End of a list: no cursor needed.
+				None => {
+					NextNodeAutoRebagged::<T, I>::kill();
+					log!(debug, "End of list — cursor killed");
+				},
 			}
 
 			let weight_used = meter.consumed();
@@ -626,13 +649,6 @@ impl<T: Config<I>, I: 'static> SortedListProvider<T::AccountId> for Pallet<T, I>
 		start: &T::AccountId,
 	) -> Result<Box<dyn Iterator<Item = T::AccountId>>, Self::Error> {
 		let iter = List::<T, I>::iter_from(start)?;
-		Ok(Box::new(iter.map(|n| n.id().clone())))
-	}
-
-	fn iter_from_inclusive(
-		start: &T::AccountId,
-	) -> Result<Box<dyn Iterator<Item = T::AccountId>>, Self::Error> {
-		let iter = List::<T, I>::iter_from_inclusive(start)?;
 		Ok(Box::new(iter.map(|n| n.id().clone())))
 	}
 

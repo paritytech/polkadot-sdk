@@ -314,42 +314,6 @@ impl<T: Config<I>, I: 'static> List<T, I> {
 		Ok(start_bag.chain(leftover_bags))
 	}
 
-	/// Same as `iter_from`, but we start from a specific node inclusively.
-	///
-	/// All items after this node are returned, including `start` itself.
-	pub(crate) fn iter_from_inclusive(
-		start: &T::AccountId,
-	) -> Result<impl Iterator<Item = Node<T, I>>, ListError> {
-		// Get the node associated with the provided account ID.
-		let start_node = Node::<T, I>::get(start).ok_or(ListError::NodeNotFound)?;
-		let start_node_upper = start_node.bag_upper;
-
-		// Begin with the given node, followed by the rest of its bag.
-		let current_bag = std::iter::successors(Some(start_node), |prev| prev.next());
-
-		// Then proceed to all remaining bags with lower thresholds.
-		let thresholds = T::BagThresholds::get();
-		let idx = thresholds.partition_point(|&threshold| start_node_upper > threshold);
-		let leftover_bags = thresholds
-			.into_iter()
-			.take(idx)
-			.copied()
-			.rev()
-			.filter_map(Bag::get)
-			.flat_map(|bag| bag.iter());
-
-		// Log and return the iterator
-		crate::log!(
-		debug,
-		"starting to iterate from {:?} inclusively, who's bag is {:?}, and there are {:?} leftover bags",
-		&start,
-		start_node_upper,
-		idx
-	);
-
-		Ok(current_bag.chain(leftover_bags))
-	}
-
 	/// Insert several ids into the appropriate bags in the list. Continues with insertions
 	/// if duplicates are detected.
 	///
