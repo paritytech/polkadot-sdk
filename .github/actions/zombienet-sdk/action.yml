@@ -122,8 +122,8 @@ runs:
     - name: zombie_test
       shell: bash
       env:
-        # zombienet-sdk expects RUN_IN_CI to be set when running in CI
-        RUN_IN_CI: 1
+        # zombienet-sdk expects RUN_IN_CI to be set when running in CI only for k8s provider
+        RUN_IN_CI: 0
         # don't retry sdk tests
         NEXTEST_RETRIES: 0
         TEST_NAME: ${{ inputs.test }}
