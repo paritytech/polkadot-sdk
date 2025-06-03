@@ -125,7 +125,10 @@ jobs:
           GH_TOKEN: ${{ steps.generate_write_token.outputs.token }} # or use a PAT with workflow scope
         run: |
           stable_tag_base=polkadot-${{ needs.validate-inputs.outputs.stable_version }}
-          gh workflow run release-11_rc-automation.yml --repo ${{ github.repository }} --field version=${stable_tag_base}
+          gh workflow run release-11_rc-automation.yml \
+            --repo ${{ github.repository }} \
+            --ref ${{ needs.validate-inputs.outputs.stable_version }} \
+            --field version=${stable_tag_base}
 
   tag-rc-without-branchoff:
     if: ${{ !inputs.is_new_stable && inputs.tag_rc }}
