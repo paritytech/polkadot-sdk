@@ -349,11 +349,13 @@ where
 				continue
 			};
 
+			let block_time = block_rate.block_time.as_regular();
+
 			// TODO: Do not use relay chain slot duration, should also be `block_time`.
-			let blocks_per_core = if dbg!(block_rate.block_time) < dbg!(relay_chain_slot_duration) {
-				relay_chain_slot_duration.as_millis() / block_rate.block_time.as_millis()
-			} else {
-				1
+			let blocks_per_core = match block_time {
+				Some(bt) if bt < relay_chain_slot_duration =>
+					relay_chain_slot_duration.as_millis() / bt.as_millis(),
+				_ => 1,
 			};
 
 			let mut blocks = Vec::new();
@@ -364,7 +366,7 @@ where
 			let mut parent_header = pov_parent_header.clone();
 
 			for _ in 0..blocks_per_core {
-				let expected_block_end = Instant::now() + block_rate.block_time;
+				let expected_block_end = Instant::now() + block_time.unwrap_or_default();
 
 				let (parachain_inherent_data, other_inherent_data) = match collator
 					.create_inherent_data(

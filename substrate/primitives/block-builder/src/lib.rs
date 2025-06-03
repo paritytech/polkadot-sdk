@@ -29,9 +29,29 @@ use sp_runtime::{traits::Block as BlockT, ApplyExtrinsicResult};
 #[derive(Encode, Decode, scale_info::TypeInfo)]
 pub struct BlockRate {
 	/// Time between individual blocks.
-	pub block_time: Duration,
+	pub block_time: BlockTime,
 	/// Maximum time to spend building per block.
 	pub block_building_time: Duration,
+}
+
+#[derive(Encode, Decode, scale_info::TypeInfo)]
+pub enum BlockTime {
+	/// Blocks are expected every X.
+	Regularly {
+		/// Time between blocks.
+		every: Duration,
+	},
+	/// Blocks are coming at unexpected times.
+	Irregular,
+}
+
+impl BlockTime {
+	pub fn as_regular(&self) -> Option<Duration> {
+		match self {
+			Self::Regularly { every } => Some(*every),
+			Self::Irregular => None,
+		}
+	}
 }
 
 sp_api::decl_runtime_apis! {
