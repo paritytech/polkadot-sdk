@@ -444,7 +444,7 @@ impl crate::pallet::pallet::Config for Test {
 
 parameter_types! {
 	// Set the block maximum capacity low enough so that many migration steps are required.
-	pub MaxServiceWeight: Weight = <<pallet_migrations::config_preludes::TestDefaultConfig as frame_system::DefaultConfig>::BlockWeights as Get<BlockWeights>>::get().max_block.div(15);
+	pub MaxServiceWeight: Weight = <<pallet_migrations::config_preludes::TestDefaultConfig as frame_system::DefaultConfig>::BlockWeights as Get<BlockWeights>>::get().max_block.div(10);
 }
 
 #[derive_impl(pallet_migrations::config_preludes::TestDefaultConfig)]

@@ -21,6 +21,7 @@ frame-support = { workspace = true }
 frame-system = { workspace = true }
 log = { workspace = true }
 pallet-staking-async-rc-client = { workspace = true }
+pallet-migrations = { workspace = true, default-features = true }
 rand = { features = ["alloc"], workspace = true }
 rand_chacha = { workspace = true }
 scale-info = { features = ["derive", "serde"], workspace = true }
@@ -39,7 +40,6 @@ frame-benchmarking = { workspace = true, default-features = true }
 frame-support = { features = ["experimental"], workspace = true, default-features = true }
 pallet-bags-list = { workspace = true, default-features = true }
 pallet-balances = { workspace = true, default-features = true }
-pallet-migrations = { workspace = true, default-features = true }
 rand_chacha = { workspace = true, default-features = true }
 sp-npos-elections = { workspace = true, default-features = true }
 sp-tracing = { workspace = true, default-features = true }
@@ -56,6 +56,7 @@ std = [
 	"log/std",
 	"pallet-bags-list/std",
 	"pallet-balances/std",
+	"pallet-migrations/std",
 	"pallet-staking-async-rc-client/std",
 	"rand/std",
 	"rand_chacha/std",
@@ -77,6 +78,7 @@ runtime-benchmarks = [
 	"frame-system/runtime-benchmarks",
 	"pallet-bags-list/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
+	"pallet-migrations/runtime-benchmarks",
 	"pallet-staking-async-rc-client/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"sp-staking/runtime-benchmarks",
@@ -87,6 +89,7 @@ try-runtime = [
 	"frame-system/try-runtime",
 	"pallet-bags-list/try-runtime",
 	"pallet-balances/try-runtime",
+	"pallet-migrations/try-runtime",
 	"pallet-staking-async-rc-client/try-runtime",
 	"sp-runtime/try-runtime",
 ]

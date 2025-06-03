@@ -233,6 +233,96 @@ impl<T: Config + Debug> SteppedMigration for LazyMigrationV17ToV18<T> {
 			},
 		}
 	}
+
+	#[cfg(feature = "try-runtime")]
+	fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::TryRuntimeError> {
+		let prev_electable_stashes = v17::ElectableStashes::<T>::get().into_inner();
+		let prev_ledgers = v17::Ledger::<T>::iter().collect::<BTreeMap<_, _>>();
+		Ok((prev_electable_stashes, prev_ledgers).encode())
+	}
+
+	#[cfg(feature = "try-runtime")]
+	fn post_upgrade(prev: Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
+		use codec::Decode;
+
+		ensure!(
+			Pallet::<T>::on_chain_storage_version() ==
+				StorageVersion::new(Self::id().version_to as u16),
+			"Migration post-upgrade failed: the storage version is not the expected one"
+		);
+
+		let (prev_electable_stashes, prev_ledgers) = <(
+			alloc::collections::BTreeSet<T::AccountId>,
+			BTreeMap<T::AccountId, v17::StakingLedger<T>>,
+		)>::decode(&mut &prev[..])
+		.expect("Failed to decode the previous storage state");
+
+		let new_electable_stashes = ElectableStashes::<T>::get();
+		ensure!(
+			new_electable_stashes.len() == prev_electable_stashes.len(),
+			"Migration failed: the number of electable stashes is not the same"
+		);
+		for (acc, amount) in new_electable_stashes.into_inner() {
+			ensure!(
+				amount.is_zero(),
+				"Migration failed: the stake for the stash account is not zero after the migration"
+			);
+			ensure!(
+				prev_electable_stashes.get(&acc).is_some(),
+				"Migration failed: the electable stash is missing in the previous storage state"
+			);
+		}
+
+		let new_ledgers = Ledger::<T>::iter().collect::<BTreeMap<_, _>>();
+		ensure!(
+			new_ledgers.len() == prev_ledgers.len(),
+			"Migration failed: the number of staking ledgers is not the same"
+		);
+		for (acc, ledger) in new_ledgers.into_iter() {
+			if let Some(prev_ledger) = prev_ledgers.get(&acc) {
+				ensure!(
+					ledger.total == prev_ledger.total,
+					"Migration failed: the ledger's total stake is not the same"
+				);
+				ensure!(
+					ledger.stash == prev_ledger.stash,
+					"Migration failed: the ledger's stash is not the same"
+				);
+				ensure!(
+					ledger.controller == prev_ledger.controller,
+					"Migration failed: the ledger's controller is not the same"
+				);
+				ensure!(
+					ledger.active == prev_ledger.active,
+					"Migration failed: the ledger's active stake is not the same"
+				);
+				ensure!(
+					ledger.unlocking.len() == prev_ledger.unlocking.len(),
+					"Migration failed: different number of unlocking chunks"
+				);
+				for (i, chunk) in ledger.unlocking.iter().enumerate() {
+					let old_chunk = &prev_ledger.unlocking[i];
+					ensure!(
+						chunk.era ==
+							old_chunk.era.saturating_sub(<T as Config>::BondingDuration::get()),
+						"Migration failed: mismatch in chunk's era"
+					);
+					ensure!(
+						chunk.value == old_chunk.value,
+						"Migration failed: mismatch in chunk's value"
+					);
+					ensure!(
+						chunk.previous_unbonded_stake == u32::MAX.into(),
+						"Migration failed: previous unbonded stake in chunk is not zero"
+					);
+				}
+			} else {
+				panic!("Ledger not found in the previous storage state: {:?}", acc);
+			}
+		}
+
+		Ok(())
+	}
 }
 
 #[cfg(all(test, not(feature = "runtime-benchmarks")))]
@@ -270,11 +360,11 @@ mod tests {
 				);
 			}
 
-			let total_electable_stashes = <Test as Config>::MaxValidatorSet::get();
+			let total_electable_stashes = <Test as Config>::MaxValidatorSet::get() as u64;
 			let mut electable_stashes = BTreeSet::new();
-			for i in 1..=total_electable_stashes {
-				electable_stashes.insert(i as u64);
-			}
+			(1..=total_electable_stashes).for_each(|i| {
+				electable_stashes.insert(i);
+			});
 			v17::ElectableStashes::<Test>::set(electable_stashes.clone().try_into().unwrap());
 
 			// Perform the migration.
