@@ -592,7 +592,9 @@ impl<T: Config> Rotator<T> {
 			Forcing::ForceNone => false,
 		};
 
-		let has_pending_era = current_planned_era.is_some();
+		// Note: we call `planning_era` again, as a new era might have started since we checked
+		// it last.
+		let has_pending_era = Self::planning_era().is_some();
 		match (should_plan_era, has_pending_era) {
 			(false, _) => {
 				// nothing to consider
