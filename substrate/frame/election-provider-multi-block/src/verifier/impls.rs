@@ -374,6 +374,7 @@ pub(crate) mod pallet {
 		///
 		/// Computes the final score of the solution that is currently at the end of its
 		/// verification process.
+		///
 		/// Does NOT check for completeness of all the corresponding pages of
 		/// `QueuedSolutionBackings`. This function is called during finalization logic, which can
 		/// be reached even with missing/empty pages (treated as Default::default()). Missing

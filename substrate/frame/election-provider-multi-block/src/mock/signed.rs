@@ -123,7 +123,7 @@ parameter_types! {
 	static SignedEventsIndex: u32 = 0;
 }
 
-pub fn singed_events_since_last_call() -> Vec<crate::signed::Event<Runtime>> {
+pub fn signed_events_since_last_call() -> Vec<crate::signed::Event<Runtime>> {
 	let events = signed_events();
 	let already_seen = SignedEventsIndex::get();
 	SignedEventsIndex::set(events.len() as u32);

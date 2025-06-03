@@ -59,9 +59,7 @@
 
 use crate::{
 	types::SolutionOf,
-	verifier::{
-		AsynchronousVerifier, DataUnavailableInfo, SolutionDataProvider, Status, VerificationResult,
-	},
+	verifier::{AsynchronousVerifier, SolutionDataProvider, Status, VerificationResult},
 };
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_election_provider_support::PageIndex;
@@ -144,7 +142,7 @@ impl<T: Config> SolutionDataProvider for Pallet<T> {
 			VerificationResult::Queued => {
 				// If there is a result to be reported, then we must have had some leader.
 				if let Some((winner, metadata)) =
-					Submissions::<T>::take_leader_with_data(Self::current_round())
+					Submissions::<T>::take_leader_with_data(Self::current_round()).defensive()
 				{
 					// first, let's give them their reward.
 					let reward = metadata.reward.saturating_add(metadata.fee);
@@ -179,39 +177,15 @@ impl<T: Config> SolutionDataProvider for Pallet<T> {
 				Self::handle_solution_rejection(current_round, "Rejected");
 			},
 			VerificationResult::DataUnavailable(info) => {
+				// Both Page and Score unavailability should never happen under normal operation
 				sublog!(
-					trace,
+					error,
 					"signed",
-					"Verification data unavailable for round {}: {:?}",
+					"Verification data unavailable for round {}: {:?} - it should never happen",
 					current_round,
 					info
 				);
-
-				match info {
-					DataUnavailableInfo::Page(_) => {
-						// This should not normally happen with current logic - missing pages
-						// should be treated as empty and continue normally to Queued/Rejected.
-						sublog!(
-							error,
-							"signed",
-							"Unexpected VerificationDataUnavailable for page - this indicates a bug"
-						);
-						defensive!("VerificationDataUnavailable for page should never happen");
-					},
-					DataUnavailableInfo::Score => {
-						// Score missing at finalization - reject the solution
-						sublog!(
-							trace,
-							"signed",
-							"Score was unavailable during verification finalization for round {}, rejecting solution",
-							current_round
-						);
-						Self::handle_solution_rejection(
-							current_round,
-							"VerificationDataUnavailable for score",
-						);
-					},
-				}
+				defensive!("VerificationDataUnavailable should never happen");
 			},
 		}
 	}
@@ -340,7 +314,7 @@ pub mod pallet {
 	pub(crate) struct Submissions<T: Config>(sp_std::marker::PhantomData<T>);
 
 	#[pallet::storage]
-	type SortedScores<T: Config> = StorageMap<
+	pub type SortedScores<T: Config> = StorageMap<
 		_,
 		Twox64Concat,
 		u32,
