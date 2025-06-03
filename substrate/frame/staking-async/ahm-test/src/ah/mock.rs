@@ -341,6 +341,7 @@ impl pallet_staking_async::Config for Runtime {
 	type RewardRemainder = ();
 	type Slash = ();
 	type SlashDeferDuration = SlashDeferredDuration;
+	type MaxEraDuration = ();
 
 	type HistoryDepth = ConstU32<7>;
 	type MaxControllersInDeprecationBatch = ();
