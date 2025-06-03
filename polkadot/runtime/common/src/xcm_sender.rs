@@ -139,9 +139,7 @@ where
 			.map_err(|error| {
 				log::debug!(
 					target: "xcm::xcm_sender::deliver",
-					"Failed to place into DMP queue: error: {:?}, id: {:?}",
-					error,
-					hash,
+					"Failed to place into DMP queue: error: {error:?}, id: {hash:?}",
 				);
 				SendError::Transport(&"Error placing into DMP queue")
 			})

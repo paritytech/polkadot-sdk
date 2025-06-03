@@ -351,8 +351,7 @@ pub mod pallet {
 				let mut hash = message.using_encoded(sp_io::hashing::blake2_256);
 				let message = (*message).try_into().map_err(|()| {
 					tracing::debug!(
-						target: "xcm::pallet_xcm::execute",
-						id=?hash,
+						target: "xcm::pallet_xcm::execute", id=?hash,
 						 "Failed to convert VersionedXcm to Xcm",
 					);
 					Error::<T>::BadVersion
@@ -370,7 +369,8 @@ pub mod pallet {
 			})()
 			.map_err(|e: DispatchError| {
 				tracing::debug!(
-					target: "xcm::pallet_xcm::execute", error=?e, "Failed XCM pre-execution validation or filter",
+					target: "xcm::pallet_xcm::execute", error=?e,
+					"Failed XCM pre-execution validation or filter",
 				);
 				e.with_weight(<Self::WeightInfo as ExecuteControllerWeightInfo>::execute())
 			})?;
@@ -1261,8 +1261,7 @@ pub mod pallet {
 			})?;
 			Self::request_version_notify(location).map_err(|e| {
 				tracing::debug!(
-					target: "xcm::pallet_xcm::force_subscribe_version_notify",
-					error=?e,
+					target: "xcm::pallet_xcm::force_subscribe_version_notify", error=?e,
 					"Failed to subscribe for version notifications for location"
 				);
 				match e {
@@ -1734,8 +1733,7 @@ pub mod pallet {
 				let mut aliasers = BoundedVec::<OriginAliaser, MaxAuthorizedAliases>::new();
 				aliasers.try_push(aliaser).map_err(|error| {
 					tracing::debug!(
-						target: "xcm::pallet_xcm::add_authorized_alias",
-						?error,
+						target: "xcm::pallet_xcm::add_authorized_alias", ?error,
 						"Failed to add first aliaser to new entry",
 					);
 					Error::<T>::TooManyAuthorizedAliases
@@ -1917,8 +1915,7 @@ impl<T: Config> QueryHandler for Pallet<T> {
 				},
 				Err(_) => {
 					tracing::debug!(
-						target: "xcm::pallet_xcm::take_response",
-						?query_id,
+						target: "xcm::pallet_xcm::take_response", ?query_id,
 						"Failed to convert VersionedResponse to Response for query",
 					);
 					QueryResponseStatus::UnexpectedVersion
@@ -1927,16 +1924,14 @@ impl<T: Config> QueryHandler for Pallet<T> {
 			Some(QueryStatus::Pending { timeout, .. }) => QueryResponseStatus::Pending { timeout },
 			Some(_) => {
 				tracing::debug!(
-					target: "xcm::pallet_xcm::take_response",
-					?query_id,
+					target: "xcm::pallet_xcm::take_response", ?query_id,
 					"Unexpected QueryStatus variant for query",
 				);
 				QueryResponseStatus::UnexpectedVersion
 			},
 			None => {
 				tracing::debug!(
-					target: "xcm::pallet_xcm::take_response",
-					?query_id,
+					target: "xcm::pallet_xcm::take_response", ?query_id,
 					"Query ID not found`",
 				);
 				QueryResponseStatus::NotFound

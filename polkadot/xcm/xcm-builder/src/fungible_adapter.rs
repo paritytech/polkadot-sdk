@@ -62,8 +62,7 @@ impl<
 			.ok_or(MatchError::AccountIdConversionFailed)?;
 		Fungible::transfer(&source, &dest, amount, Expendable).map_err(|error| {
 			tracing::debug!(
-				target: "xcm::fungible_adapter",
-				?error,
+				target: "xcm::fungible_adapter", ?error,
 				"Failed to transfer asset",
 			);
 			XcmError::FailedToTransactAsset(error.into())
@@ -92,8 +91,7 @@ impl<
 			.into_result()
 			.map_err(|error| {
 				tracing::debug!(
-					target: "xcm::fungible_adapter",
-					?error,
+					target: "xcm::fungible_adapter", ?error,
 					"Failed to deposit funds into account",
 				);
 				XcmError::NotDepositable
@@ -105,8 +103,7 @@ impl<
 			.into_result(false)
 			.map_err(|error| {
 				tracing::debug!(
-					target: "xcm::fungible_adapter",
-					?error,
+					target: "xcm::fungible_adapter", ?error,
 					"Failed to withdraw funds from account",
 				);
 				XcmError::NotWithdrawable
@@ -214,8 +211,7 @@ impl<
 			.ok_or(MatchError::AccountIdConversionFailed)?;
 		Fungible::mint_into(&who, amount).map_err(|error| {
 			tracing::debug!(
-				target: "xcm::fungible_adapter",
-				?error,
+				target: "xcm::fungible_adapter", ?error,
 				"Failed to deposit assets",
 			);
 			XcmError::FailedToTransactAsset(error.into())
@@ -238,8 +234,7 @@ impl<
 			.ok_or(MatchError::AccountIdConversionFailed)?;
 		Fungible::burn_from(&who, amount, Expendable, Exact, Polite).map_err(|error| {
 			tracing::debug!(
-				target: "xcm::fungible_adapter",
-				?error,
+				target: "xcm::fungible_adapter", ?error,
 				"Failed to withdraw assets",
 			);
 			XcmError::FailedToTransactAsset(error.into())

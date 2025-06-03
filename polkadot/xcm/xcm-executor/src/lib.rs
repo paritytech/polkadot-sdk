@@ -1276,8 +1276,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 									.try_take(fees_filter)
 									.map_err(|error| {
 										tracing::debug!(
-											target: "xcm::process_instruction::initiate_transfer",
-											?error,
+											target: "xcm::process_instruction::initiate_transfer", ?error,
 											"Failed to take specified teleport fees from holding"
 										);
 										XcmError::NotHoldingFees
@@ -1295,8 +1294,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 									.try_take(fees_filter)
 									.map_err(|error| {
 										tracing::debug!(
-											target: "xcm::process_instruction::initiate_transfer",
-											?error,
+											target: "xcm::process_instruction::initiate_transfer", ?error,
 											"Failed to take specified reserve deposit fees from holding"
 										);
 										XcmError::NotHoldingFees
@@ -1314,8 +1312,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 									.try_take(fees_filter)
 									.map_err(|error| {
 										tracing::debug!(
-											target: "xcm::process_instruction::initiate_transfer",
-											?error,
+											target: "xcm::process_instruction::initiate_transfer", ?error,
 											"Failed to take specified reserve withdraw fees from holding"
 										);
 										XcmError::NotHoldingFees
@@ -1601,8 +1598,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 				let response =
 					Response::PalletsInfo(pallets.try_into().map_err(|error| {
 						tracing::debug!(
-							target: "xcm::process_instruction::query_pallet",
-							?error,
+							target: "xcm::process_instruction::query_pallet", ?error,
 							"Failed to convert pallets to response info"
 						);
 						XcmError::Overflow
