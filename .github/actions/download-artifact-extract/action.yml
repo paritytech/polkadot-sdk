@@ -1,0 +1,86 @@
+name: "Download and extract artifact"
+description: "Downloads an artifact, extracts it, and optionally copies files to a destination"
+
+inputs:
+  artifact-name:
+    description: "Name of the artifact to download"
+    required: true
+  gh-token:
+    description: "GITHUB_TOKEN to use for downloading artifacts"
+    required: true
+  run-id:
+    description: "Run ID from which to download the artifact"
+    required: true
+  extract-path:
+    description: "Path where to extract the artifact"
+    default: "."
+    required: false
+  files-to-copy:
+    description: "Comma-separated list of files to copy from the extracted artifact, or a YAML array"
+    required: false
+  destination-path:
+    description: "Destination path for copied files"
+    required: false
+
+runs:
+  using: "composite"
+  steps:
+    - uses: actions/download-artifact@v4.1.8
+      with:
+        name: ${{ inputs.artifact-name }}
+        github-token: ${{ inputs.gh-token }}
+        run-id: ${{ inputs.run-id }}
+        path: ${{ inputs.extract-path }}
+
+    - name: Extract artifact
+      shell: bash
+      working-directory: ${{ inputs.extract-path }}
+      run: |
+        if [[ -f artifacts.tar ]]; then
+          tar -xvf artifacts.tar
+        elif [[ -f *.tar ]]; then
+          tar -xvf *.tar
+        elif [[ -f *.tar.gz ]]; then
+          tar -xzvf *.tar.gz
+        elif [[ -f *.tgz ]]; then
+          tar -xzvf *.tgz
+        elif [[ -f *.zip ]]; then
+          unzip *.zip
+        else
+          echo "No archive file found to extract"
+          ls -la
+        fi
+
+    - name: Copy files if specified
+      if: inputs.files-to-copy != ''
+      shell: bash
+      run: |
+        # Create destination directory
+        mkdir -p "${{ inputs.destination-path }}"
+        
+        # Handle both comma-separated list and YAML array formats
+        # First, try to process as comma-separated list
+        if [[ "${{ inputs.files-to-copy }}" == *","* ]]; then
+          IFS=',' read -ra FILES <<< "${{ inputs.files-to-copy }}"
+          for file in "${FILES[@]}"; do
+            # Trim whitespace
+            file=$(echo "$file" | xargs)
+            echo "Copying $file to ${{ inputs.destination-path }}"
+            cp -r "${{ inputs.extract-path }}/$file" "${{ inputs.destination-path }}/"
+          done
+        # If it's a YAML array (one file per line with leading dash)
+        elif [[ "${{ inputs.files-to-copy }}" == *$'\n'* ]]; then
+          echo "${{ inputs.files-to-copy }}" | while read -r line; do
+            # Skip empty lines and extract filename (remove leading dash and whitespace)
+            if [[ "$line" =~ ^[[:space:]]*-[[:space:]]*(.*) ]]; then
+              file="${BASH_REMATCH[1]}"
+              echo "Copying $file to ${{ inputs.destination-path }}"
+              cp -r "${{ inputs.extract-path }}/$file" "${{ inputs.destination-path }}/"
+            fi
+          done
+        # Single file case
+        else
+          file="${{ inputs.files-to-copy }}"
+          echo "Copying $file to ${{ inputs.destination-path }}"
+          cp -r "${{ inputs.extract-path }}/$file" "${{ inputs.destination-path }}/"
+        fi
