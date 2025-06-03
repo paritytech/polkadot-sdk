@@ -21,7 +21,8 @@ use pallet_revive::{
 	precompiles::{
 		alloy::{self, sol_types::SolValue},
 		AddressMatcher, Error, Ext, Precompile, RuntimeCosts,
-	}, DispatchInfo, Origin
+	},
+	DispatchInfo, Origin,
 };
 use tracing::error;
 use xcm::MAX_XCM_DECODE_DEPTH;
@@ -103,7 +104,8 @@ where
 					Error::Revert("Invalid message format".into())
 				})?;
 
-				let result = crate::Pallet::<Runtime>::execute(frame_origin, final_message.into(), weight);
+				let result =
+					crate::Pallet::<Runtime>::execute(frame_origin, final_message.into(), weight);
 
 				let pre = DispatchInfo {
 					call_weight: weight.clone(),
@@ -112,25 +114,20 @@ where
 				};
 
 				// Adjust gas using actual weight or fallback to initially charged weight
-				let actual_weight = frame_support::dispatch::extract_actual_weight(
-					&result,
-					&pre,
-				);
+				let actual_weight = frame_support::dispatch::extract_actual_weight(&result, &pre);
 				env.adjust_gas(charged_amount, RuntimeCosts::Precompile(actual_weight));
 
-				result
-					.map(|post_dispatch_info| post_dispatch_info.encode())
-					.map_err(|error| {
-						error!(
-							target: "xcm::precompiles",
-							?error,
-							"XCM execute failed: message may be invalid or execution constraints not satisfied"
-						);
-						Error::Revert(
+				result.map(|post_dispatch_info| post_dispatch_info.encode()).map_err(|error| {
+					error!(
+						target: "xcm::precompiles",
+						?error,
+						"XCM execute failed: message may be invalid or execution constraints not satisfied"
+					);
+					Error::Revert(
 							"XCM execute failed: message may be invalid or execution constraints not satisfied"
 								.into(),
 						)
-					})
+				})
 			},
 			IXcmCalls::weighMessage(IXcm::weighMessageCall { message }) => {
 				let converted_message = VersionedXcm::decode_all_with_depth_limit(

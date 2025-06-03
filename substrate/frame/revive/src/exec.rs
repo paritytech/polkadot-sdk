@@ -282,7 +282,11 @@ pub trait PrecompileExt: sealing::Sealed {
 		self.gas_meter_mut().charge(crate::RuntimeCosts::Precompile(weight))
 	}
 
-	fn adjust_gas(&mut self, charged: crate::gas::ChargedAmount, actual_costs: crate::RuntimeCosts) {
+	fn adjust_gas(
+		&mut self,
+		charged: crate::gas::ChargedAmount,
+		actual_costs: crate::RuntimeCosts,
+	) {
 		self.gas_meter_mut().adjust_gas(charged, actual_costs);
 	}
 
