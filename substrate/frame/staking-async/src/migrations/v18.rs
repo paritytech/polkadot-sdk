@@ -21,6 +21,7 @@ use crate::{
 	migrations::PALLET_MIGRATIONS_ID, pallet::pallet::ElectableStashes, weights::WeightInfo,
 	BalanceOf, Config, Ledger, Pallet, StakingLedger, UnlockChunk,
 };
+use alloc::{collections::BTreeMap, vec::Vec};
 use codec::{Decode, Encode};
 use core::fmt::Debug;
 use frame_support::{
@@ -28,7 +29,6 @@ use frame_support::{
 	pallet_prelude::*,
 	weights::WeightMeter,
 };
-use std::collections::BTreeMap;
 
 pub(crate) mod v17 {
 	use crate::{BalanceOf, Config, Pallet};
@@ -105,9 +105,10 @@ pub enum MigrationSteps<T: Config> {
 pub struct LazyMigrationV17ToV18<T: Config>(PhantomData<T>);
 
 impl<T: Config + Debug> LazyMigrationV17ToV18<T> {
-	fn do_migrate_staking_ledger(meter: &mut WeightMeter, cursor: &mut Option<T::AccountId>) {
-		// A single operation reads and removes one element from the old map and inserts it in the
-		// new one.
+	pub(crate) fn do_migrate_staking_ledger(
+		meter: &mut WeightMeter,
+		cursor: &mut Option<T::AccountId>,
+	) {
 		let max_chunks = <T as Config>::MaxUnlockingChunks::get();
 		let required =
 			<T as Config>::WeightInfo::migration_from_v17_to_v18_migrate_staking_ledger_step(
@@ -121,8 +122,9 @@ impl<T: Config + Debug> LazyMigrationV17ToV18<T> {
 		};
 
 		let max_bonding_duration = <T as Config>::BondingDuration::get();
-		while meter.try_consume(required).is_ok() {
+		while meter.can_consume(required) {
 			if let Some((acc, old_ledger)) = iter.next() {
+				meter.consume(<T as Config>::WeightInfo::migration_from_v17_to_v18_migrate_staking_ledger_step(old_ledger.unlocking.len() as u32));
 				let new_unlocking = old_ledger
 					.unlocking
 					.iter()
@@ -152,7 +154,7 @@ impl<T: Config + Debug> LazyMigrationV17ToV18<T> {
 		}
 	}
 
-	fn change_storage_version(meter: &mut WeightMeter) -> MigrationSteps<T> {
+	pub(crate) fn change_storage_version(meter: &mut WeightMeter) -> MigrationSteps<T> {
 		let required = T::DbWeight::get().reads_writes(0, 1);
 		if meter.try_consume(required).is_ok() {
 			StorageVersion::new(Self::id().version_to as u16).put::<Pallet<T>>();
@@ -162,10 +164,11 @@ impl<T: Config + Debug> LazyMigrationV17ToV18<T> {
 		}
 	}
 
-	fn migrate_electable_stashes(meter: &mut WeightMeter) -> MigrationSteps<T> {
-		let required = T::DbWeight::get().reads_writes(1, 1);
+	pub(crate) fn migrate_electable_stashes(meter: &mut WeightMeter) -> MigrationSteps<T> {
+		let required = T::DbWeight::get().reads_writes(1, 2);
 		if meter.try_consume(required).is_ok() {
-			let new_electable_stashes = v17::ElectableStashes::<T>::take()
+			let orig = v17::ElectableStashes::<T>::take();
+			let new_electable_stashes = orig
 				.iter()
 				.map(|acc| (acc.clone(), BalanceOf::<T>::zero()))
 				.collect::<BTreeMap<<T as frame_system::Config>::AccountId, BalanceOf<T>>>();
@@ -180,7 +183,7 @@ impl<T: Config + Debug> LazyMigrationV17ToV18<T> {
 		}
 	}
 
-	fn migrate_staking_ledger(
+	pub(crate) fn migrate_staking_ledger(
 		meter: &mut WeightMeter,
 		mut cursor: Option<T::AccountId>,
 	) -> MigrationSteps<T> {
@@ -247,7 +250,7 @@ mod tests {
 
 			StorageVersion::new(17).put::<Pallet<Test>>();
 			assert_eq!(Pallet::<Test>::on_chain_storage_version(), 17);
-			Session::roll_until_active_era(10);
+			Session::roll_until_active_era(3);
 			let max_chunks = <Test as Config>::MaxUnlockingChunks::get();
 
 			for i in 1..=users {
@@ -280,12 +283,15 @@ mod tests {
 			while <Migrator as MultiStepMigrator>::ongoing() {
 				let block = System::block_number();
 				assert!(
-					block - initial_block <= 200,
-					"Migration should not take more than 200 blocks"
+					block - initial_block <= 100,
+					"Migration should not take more than 100 blocks"
 				);
 				Session::roll_next();
 			}
-			assert!(System::block_number() > initial_block + 1, "Migration did not last more than one block");
+			assert!(
+				System::block_number() >= initial_block + 2,
+				"Migration did not last more than two blocks"
+			);
 
 			// Check the results after the migration.
 			assert_eq!(Pallet::<Test>::on_chain_storage_version(), StorageVersion::new(18));

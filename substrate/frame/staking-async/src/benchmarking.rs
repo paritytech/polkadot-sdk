@@ -229,7 +229,7 @@ impl<T: Config> ListScenario<T> {
 
 const USER_SEED: u32 = 999666;
 
-#[benchmarks]
+#[benchmarks(where T: core::fmt::Debug)]
 mod benchmarks {
 	use super::*;
 
@@ -1206,6 +1206,60 @@ mod benchmarks {
 		}
 
 		ensure!(Rotator::<T>::active_era() == initial_active_era + 1, "active era not bumped");
+		Ok(())
+	}
+
+	#[benchmark]
+	fn migration_from_v17_to_v18_migrate_staking_ledger_step(
+		c: Linear<1, { T::MaxUnlockingChunks::get() }>,
+	) -> Result<(), BenchmarkError> {
+		clear_validators_and_nominators::<T>();
+		let _ = crate::migrations::v18::v17::Ledger::<T>::clear(u32::MAX, None);
+		let mut meter = frame_support::weights::WeightMeter::new();
+		let stash = create_funded_user::<T>("stash", USER_SEED, 100);
+
+		let mut unlocking = vec![];
+		for _ in 0..c {
+			unlocking
+				.push(crate::migrations::v18::v17::UnlockChunk { value: 100_u32.into(), era: 10 });
+		}
+		crate::migrations::v18::v17::Ledger::<T>::insert(
+			stash.clone(),
+			crate::migrations::v18::v17::StakingLedger {
+				stash: stash.clone(),
+				total: 600_u32.into(),
+				active: 500_u32.into(),
+				controller: None,
+				unlocking: unlocking.clone().try_into().unwrap(),
+			},
+		);
+
+		#[block]
+		{
+			crate::migrations::v18::LazyMigrationV17ToV18::<T>::do_migrate_staking_ledger(
+				&mut meter, &mut None,
+			);
+		}
+
+		assert_eq!(
+			Ledger::<T>::get(&stash),
+			Some(StakingLedger {
+				stash,
+				total: 600_u32.into(),
+				active: 500_u32.into(),
+				controller: None,
+				unlocking: unlocking
+					.into_iter()
+					.map(|u| UnlockChunk {
+						value: u.value,
+						era: u.era.saturating_sub(T::BondingDuration::get()),
+						previous_unbonded_stake: u32::MAX.into()
+					})
+					.collect::<Vec<_>>()
+					.try_into()
+					.unwrap(),
+			})
+		);
 		Ok(())
 	}
 
