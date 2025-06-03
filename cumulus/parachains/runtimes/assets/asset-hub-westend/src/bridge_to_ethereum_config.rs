@@ -185,4 +185,5 @@ impl snowbridge_pallet_system_frontend::Config for Runtime {
 	type PalletLocation = SystemFrontendPalletLocation;
 	type Swap = AssetConversion;
 	type BackendWeightInfo = weights::snowbridge_pallet_system_backend::WeightInfo<Runtime>;
+	type AccountIdConverter = xcm_config::LocationToAccountId;
 }
