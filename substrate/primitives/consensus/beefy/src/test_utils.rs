@@ -16,6 +16,8 @@
 // limitations under the License.
 
 #[cfg(feature = "bls-experimental")]
+use crate::bls_crypto;
+#[cfg(feature = "bls-experimental")]
 use crate::ecdsa_bls_crypto;
 use crate::{
 	ecdsa_crypto, AuthorityIdBound, BeefySignatureHasher, Commitment, DoubleVotingProof,
@@ -60,6 +62,17 @@ where
 	fn sign_with_hasher(&self, message: &[u8]) -> <Self as AppCrypto>::Signature {
 		let hashed_message = <MsgHash as Hash>::hash(message).into();
 		self.as_inner_ref().sign_prehashed(&hashed_message).into()
+	}
+}
+
+#[cfg(feature = "bls-experimental")]
+impl<MsgHash> BeefySignerAuthority<MsgHash> for <bls_crypto::AuthorityId as AppCrypto>::Pair
+where
+	MsgHash: Hash,
+	<MsgHash as Hash>::Output: Into<[u8; 32]>,
+{
+	fn sign_with_hasher(&self, message: &[u8]) -> <Self as AppCrypto>::Signature {
+		self.as_inner_ref().sign(&message).into()
 	}
 }
 
