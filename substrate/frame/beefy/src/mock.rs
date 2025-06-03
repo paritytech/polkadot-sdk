@@ -165,7 +165,6 @@ impl pallet_beefy::Config for Test {
 	type MaxSetIdSessionEntries = MaxSetIdSessionEntries;
 	type OnNewValidatorSet = ();
 	type AncestryHelper = MockAncestryHelper;
-	type Hasher = Keccak256;
 	type WeightInfo = ();
 	type KeyOwnerProof = <Historical as KeyOwnerProofSystem<(KeyTypeId, BeefyId)>>::Proof;
 	type EquivocationReportSystem =
