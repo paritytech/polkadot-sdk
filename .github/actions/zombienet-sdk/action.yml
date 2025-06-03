@@ -1,10 +1,11 @@
 name: "Zombienet-sdk test"
+description: "Runs zombienet-sdk tests with archived artifacts"
 inputs:
   build-id:
     description: ""
     required: true
   ref-slug:
-    description:
+    description: "Ref slug (e.g branch-name-short)"
     required: true
   test:
     description: "test filter to pass to nextest (e.g: functional::spam_statement_distribution_requests::spam_statement_distribution_requests_test)"
