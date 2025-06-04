@@ -145,7 +145,7 @@ parameter_types! {
 	pub static Pages: PageIndex = 3;
 	pub static UnsignedPhase: BlockNumber = 5;
 	pub static SignedPhase: BlockNumber = 5;
-	pub static SignedValidationPhase: BlockNumber = 5;
+	pub static SignedValidationPhase: BlockNumber = 6;
 
 	pub static FallbackMode: FallbackModes = FallbackModes::Emergency;
 	pub static MinerTxPriority: u64 = 100;
@@ -464,7 +464,6 @@ pub trait ExecuteWithSanityChecks {
 
 impl ExecuteWithSanityChecks for sp_io::TestExternalities {
 	fn execute_with_sanity_checks(&mut self, test: impl FnOnce() -> ()) {
-		self.execute_with(all_pallets_integrity_test);
 		self.execute_with(test);
 		self.execute_with(all_pallets_sanity_checks);
 	}

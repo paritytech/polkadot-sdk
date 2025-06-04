@@ -122,8 +122,8 @@ impl<T: Config> SolutionDataProvider for Pallet<T> {
 	fn get_page(page: PageIndex) -> Self::Solution {
 		let current_round = Self::current_round();
 		Submissions::<T>::leader(current_round)
-			// leader is checked to exists, before any time we call `Verifier::start`, we don't ever
-			// change it otherwise.
+			// Leader is verified to exist before we call `Verifier::start`. We do not change it
+			// otherwise.
 			.defensive()
 			.and_then(|(who, _score)| {
 				sublog!(

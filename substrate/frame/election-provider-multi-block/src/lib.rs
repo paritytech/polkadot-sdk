@@ -753,8 +753,9 @@ pub mod pallet {
 				"Signed phase not set correct -- both should be set or unset"
 			);
 			assert!(
-				signed_validation.is_zero() || signed_validation % T::Pages::get().into() == Zero::zero(),
-				"signed validation phase should be at a multiple of the number of pages."
+				signed_validation.is_zero() ||
+					signed_validation % T::Pages::get().into() == Zero::zero(),
+				"signed validation phase should be a multiple of the number of pages."
 			);
 
 			assert!(has_signed || has_unsigned, "either signed or unsigned phase must be set");
@@ -1682,12 +1683,12 @@ mod phase_rotation {
 					}],
 				);
 
-				roll_to(24);
+				roll_to(25);
 				assert_eq!(MultiBlock::current_phase(), Phase::SignedValidation(0));
 				assert_ok!(Snapshot::<Runtime>::ensure_snapshot(true, 1));
 				assert_eq!(MultiBlock::round(), 0);
 
-				roll_to(25);
+				roll_to(26);
 				assert_eq!(MultiBlock::current_phase(), Phase::Unsigned(UnsignedPhase::get() - 1));
 				assert_eq!(
 					multi_block_events_since_last_call(),
@@ -1697,19 +1698,19 @@ mod phase_rotation {
 					}],
 				);
 
-				roll_to(29);
-				assert_eq!(MultiBlock::current_phase(), Phase::Unsigned(0));
-
-				// We stay in done otherwise
 				roll_to(30);
-				assert!(MultiBlock::current_phase().is_done());
+				assert_eq!(MultiBlock::current_phase(), Phase::Unsigned(0));
 
 				// We stay in done otherwise
 				roll_to(31);
 				assert!(MultiBlock::current_phase().is_done());
 
-				// We close when upstream tells us to elect.
+				// We stay in done otherwise
 				roll_to(32);
+				assert!(MultiBlock::current_phase().is_done());
+
+				// We close when upstream tells us to elect.
+				roll_to(33);
 				assert_eq!(MultiBlock::current_phase(), Phase::Done);
 				assert_ok!(Snapshot::<Runtime>::ensure_snapshot(true, 1));
 
@@ -1797,12 +1798,12 @@ mod phase_rotation {
 					}],
 				);
 
-				roll_to(24);
+				roll_to(25);
 				assert_eq!(MultiBlock::current_phase(), Phase::SignedValidation(0));
 				assert_ok!(Snapshot::<Runtime>::ensure_snapshot(true, 2));
 				assert_eq!(MultiBlock::round(), 0);
 
-				roll_to(25);
+				roll_to(26);
 				assert_eq!(MultiBlock::current_phase(), Phase::Unsigned(UnsignedPhase::get() - 1));
 				assert_ok!(Snapshot::<Runtime>::ensure_snapshot(true, 2));
 				assert_eq!(MultiBlock::round(), 0);
@@ -1815,11 +1816,11 @@ mod phase_rotation {
 					}],
 				);
 
-				roll_to(29);
+				roll_to(30);
 				assert_eq!(MultiBlock::current_phase(), Phase::Unsigned(0));
 				assert_ok!(Snapshot::<Runtime>::ensure_snapshot(true, 2));
 
-				roll_to(30);
+				roll_to(31);
 				assert_eq!(MultiBlock::current_phase(), Phase::Done);
 				assert_ok!(Snapshot::<Runtime>::ensure_snapshot(true, 2));
 
@@ -1905,11 +1906,11 @@ mod phase_rotation {
 					}]
 				);
 
-				roll_to(24);
+				roll_to(25);
 				assert_eq!(MultiBlock::current_phase(), Phase::SignedValidation(0));
 				assert_eq!(MultiBlock::round(), 0);
 
-				roll_to(25);
+				roll_to(26);
 				assert_eq!(MultiBlock::current_phase(), Phase::Unsigned(UnsignedPhase::get() - 1));
 				assert_eq!(
 					multi_block_events_since_last_call(),
@@ -1919,10 +1920,10 @@ mod phase_rotation {
 					}]
 				);
 
-				roll_to(29);
+				roll_to(30);
 				assert_eq!(MultiBlock::current_phase(), Phase::Unsigned(0));
 
-				roll_to(30);
+				roll_to(31);
 				assert_eq!(MultiBlock::current_phase(), Phase::Done);
 
 				// We close when upstream tells us to elect.
@@ -1999,14 +2000,14 @@ mod phase_rotation {
 				);
 
 				// last block of signed validation
-				roll_to(29);
+				roll_to(30);
 				assert_eq!(MultiBlock::current_phase(), Phase::SignedValidation(0));
 
 				// we are done now
-				roll_to(30);
+				roll_to(31);
 				assert_eq!(MultiBlock::current_phase(), Phase::Done);
 
-				roll_to(31);
+				roll_to(32);
 				assert_eq!(MultiBlock::current_phase(), Phase::Done);
 
 				MultiBlock::elect(0).unwrap();
@@ -2119,7 +2120,7 @@ mod phase_rotation {
 
 	#[test]
 	#[should_panic(
-		expected = "signed validation phase should be at least as long as the number of pages"
+		expected = "signed validation phase should be a multiple of the number of pages."
 	)]
 	fn incorrect_signed_validation_phase() {
 		ExtBuilder::full()
@@ -2145,7 +2146,7 @@ mod phase_rotation {
 						Event::PhaseTransitioned { from: Phase::Snapshot(0), to: Phase::Signed(4) },
 						Event::PhaseTransitioned {
 							from: Phase::Signed(0),
-							to: Phase::SignedValidation(4)
+							to: Phase::SignedValidation(5)
 						},
 						Event::PhaseTransitioned {
 							from: Phase::SignedValidation(0),

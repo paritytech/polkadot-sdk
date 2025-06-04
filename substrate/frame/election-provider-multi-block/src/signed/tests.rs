@@ -805,7 +805,8 @@ mod defensive_tests {
 	fn signed_verification_incomplete_to_unsigned() {
 		// verifier pallet should be nuked.
 		// I think this will work
-		// this is equal to `partial_verification_interrupted_then_revert_to_signed_no_new_submission`
+		// this is equal to
+		// `partial_verification_interrupted_then_revert_to_signed_no_new_submission`
 	}
 
 	#[test]
