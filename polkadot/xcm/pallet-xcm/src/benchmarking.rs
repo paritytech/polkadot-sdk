@@ -18,10 +18,9 @@ use super::*;
 use frame_benchmarking::v2::*;
 use frame_support::{assert_ok, weights::Weight};
 use frame_system::RawOrigin;
-use xcm::latest::prelude::*;
+use xcm::{latest::prelude::*, MAX_INSTRUCTIONS_TO_DECODE};
 use xcm_builder::EnsureDelivery;
 use xcm_executor::traits::FeeReason;
-use xcm::MAX_INSTRUCTIONS_TO_DECODE;
 
 type RuntimeOrigin<T> = <T as frame_system::Config>::RuntimeOrigin;
 
