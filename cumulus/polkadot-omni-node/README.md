@@ -39,7 +39,7 @@ cargo install staging-chain-spec-builder --locked
 
 ### 2. Generate a chain spec
 
-Omni Node expects for the chain spec to contain a JSON key called `relay_chain`. This is usually set
+Omni Node requires the chain spec to include a JSON key named  `relay_chain`. This is usually set
 to a chain id, mapped out by the [load_spec](https://github.com/paritytech/polkadot-sdk/blob/master/polkadot/cli/src/command.rs#L77)
 to a chain spec object corresponding to the picked relaychain.
 The field can be introduced by running [`staging-chain-spec-builder`](https://crates.io/crates/staging-chain-spec-builder)
