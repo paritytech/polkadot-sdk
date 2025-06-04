@@ -201,7 +201,10 @@ pub struct PollVote<Balance> {
 
 /// Information concerning the vote-casting of some voting power.
 #[derive(Encode, Decode, Clone, Eq, PartialEq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
-pub struct Voting<Balance, AccountId, BlockNumber> {
+pub struct Voting<Balance, AccountId, BlockNumber, MaxVotes> 
+where
+	MaxVotes: Get<u32>,
+{
 	/// The current vote data of the account.
 	pub votes: BoundedVec<PollVote<Balance>, MaxVotes>,
 	/// The amount of balance delegated to some voting power.
