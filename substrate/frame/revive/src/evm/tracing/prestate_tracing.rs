@@ -84,6 +84,10 @@ where
 					return false
 				}
 
+				if post_info.code == pre_info.code {
+					post_info.code = None;
+				}
+
 				if post_info.balance == pre_info.balance {
 					post_info.balance = None;
 				}
