@@ -29,7 +29,7 @@ use xcm::MAX_XCM_DECODE_DEPTH;
 use xcm_executor::traits::WeightBounds;
 
 alloy::sol!("src/precompiles/IXcm.sol");
-use IXcm::*;
+use IXcm::IXcmCalls;
 
 const LOG_TARGET: &str = "xcm::precompiles";
 
