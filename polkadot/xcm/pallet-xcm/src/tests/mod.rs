@@ -27,9 +27,8 @@ use crate::{
 	AssetTraps, AuthorizedAliasers, Config, CurrentMigration, Error, ExecuteControllerWeightInfo,
 	LatestVersionedLocation, MaxAuthorizedAliases, Pallet, Queries, QueryStatus, RecordedXcm,
 	RemoteLockedFungibleRecord, ShouldRecordXcm, VersionDiscoveryQueue, VersionMigrationStage,
-	VersionNotifiers, VersionNotifyTargets, VersionedLocation, WeightInfo,
+	VersionNotifiers, VersionNotifyTargets, WeightInfo,
 };
-use alloc::vec::Vec;
 use bounded_collections::BoundedVec;
 use frame_support::{
 	assert_err_ignore_postinfo, assert_noop, assert_ok, assert_storage_noop,
@@ -1746,8 +1745,10 @@ fn deliver_failure_with_expect_error() {
 				BaseXcmWeight::get() * 3,
 			);
 
+			// Expect an error from the send operation
 			assert!(result.is_err());
 
+			// Check logs for send attempt and failure
 			assert!(log_capture.contains("xcm::send: Sending msg msg=Xcm([WithdrawAsset(Assets([])), ClearOrigin, ExpectError(Some((1, Unimplemented))), SetTopic("));
 			assert!(log_capture.contains("xcm::send: XCM failed to deliver with error error=Transport(\"Intentional deliver failure used in tests\")"));
 		})
