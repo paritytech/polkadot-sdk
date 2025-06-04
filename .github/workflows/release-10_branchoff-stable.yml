@@ -11,6 +11,7 @@ on:
       node_version:
         description: Version of the polkadot node in the format X.XX.X (e.g. 1.15.0). ℹ️ Node version is needed only for the branch-off
         type: string
+        required: false
 
       is_new_stable:
         description: Check this box if this is a new stable release and the stable branch needs to be created
