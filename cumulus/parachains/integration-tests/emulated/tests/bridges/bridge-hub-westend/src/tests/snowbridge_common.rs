@@ -267,7 +267,6 @@ pub fn fund_on_ah() {
 		],
 	))
 	.unwrap();
-	let root_sovereign = LocationToAccountId::convert_location(&Location::here()).unwrap();
 
 	AssetHubWestend::execute_with(|| {
 		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::ForeignAssets::mint_into(
@@ -311,17 +310,11 @@ pub fn fund_on_ah() {
 			&AssetHubWestendSender::get(),
 			INITIAL_FUND,
 		));
-		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::ForeignAssets::mint_into(
-			ethereum().try_into().unwrap(),
-			&root_sovereign,
-			INITIAL_FUND,
-		));
 	});
 
 	AssetHubWestend::fund_accounts(vec![(snowbridge_sovereign(), INITIAL_FUND)]);
 	AssetHubWestend::fund_accounts(vec![(penpal_sovereign.clone(), INITIAL_FUND)]);
 	AssetHubWestend::fund_accounts(vec![(penpal_user_sovereign.clone(), INITIAL_FUND)]);
-	AssetHubWestend::fund_accounts(vec![(root_sovereign.clone(), INITIAL_FUND)]);
 }
 
 pub fn create_pools_on_ah() {

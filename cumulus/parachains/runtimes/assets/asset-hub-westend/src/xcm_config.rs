@@ -50,15 +50,15 @@ use xcm_builder::{
 	AccountId32Aliases, AliasChildLocation, AllowExplicitUnpaidExecutionFrom,
 	AllowHrmpNotificationsFromRelayChain, AllowKnownQueryResponses, AllowSubscriptionsFrom,
 	AllowTopLevelPaidExecutionFrom, DenyRecursively, DenyReserveTransferToRelayChain, DenyThenTry,
-	DescribeAllTerminal, DescribeFamily, DescribeTerminus, EnsureXcmOrigin,
-	ExternalConsensusLocationsConverterFor, FrameTransactionalProcessor, FungibleAdapter,
-	FungiblesAdapter, HashedDescription, IsConcrete, LocalMint, MatchedConvertedConcreteId,
-	NetworkExportTableItem, NoChecking, NonFungiblesAdapter, ParentAsSuperuser, ParentIsPreset,
-	RelayChainAsNative, SendXcmFeeToAccount, SiblingParachainAsNative, SiblingParachainConvertsVia,
-	SignedAccountId32AsNative, SignedToAccountId32, SingleAssetExchangeAdapter,
-	SovereignSignedViaLocation, StartsWith, StartsWithExplicitGlobalConsensus, TakeWeightCredit,
-	TrailingSetTopicAsId, UnpaidRemoteExporter, UsingComponents, WeightInfoBounds,
-	WithComputedOrigin, WithLatestLocationConverter, WithUniqueTopic, XcmFeeManagerFromComponents,
+	DescribeAllTerminal, DescribeFamily, EnsureXcmOrigin, ExternalConsensusLocationsConverterFor,
+	FrameTransactionalProcessor, FungibleAdapter, FungiblesAdapter, HashedDescription, IsConcrete,
+	LocalMint, MatchedConvertedConcreteId, NetworkExportTableItem, NoChecking, NonFungiblesAdapter,
+	ParentAsSuperuser, ParentIsPreset, RelayChainAsNative, SendXcmFeeToAccount,
+	SiblingParachainAsNative, SiblingParachainConvertsVia, SignedAccountId32AsNative,
+	SignedToAccountId32, SingleAssetExchangeAdapter, SovereignSignedViaLocation, StartsWith,
+	StartsWithExplicitGlobalConsensus, TakeWeightCredit, TrailingSetTopicAsId,
+	UnpaidRemoteExporter, UsingComponents, WeightInfoBounds, WithComputedOrigin,
+	WithLatestLocationConverter, WithUniqueTopic, XcmFeeManagerFromComponents,
 };
 use xcm_executor::XcmExecutor;
 
@@ -97,7 +97,7 @@ pub type LocationToAccountId = (
 	// Straight up local `AccountId32` origins just alias directly to `AccountId`.
 	AccountId32Aliases<RelayNetwork, AccountId>,
 	// Foreign locations alias into accounts according to a hash of their standard description.
-	HashedDescription<AccountId, (DescribeTerminus, DescribeFamily<DescribeAllTerminal>)>,
+	HashedDescription<AccountId, DescribeFamily<DescribeAllTerminal>>,
 	// Different global consensus locations sovereign accounts.
 	ExternalConsensusLocationsConverterFor<UniversalLocation, AccountId>,
 );
