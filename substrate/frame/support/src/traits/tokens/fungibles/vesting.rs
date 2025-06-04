@@ -21,22 +21,22 @@
 
 use crate::{dispatch::DispatchResult, traits::tokens::misc::AssetId};
 
-/// A vesting schedule over a fungible asset class. This allows a particular currency to have
-/// vesting limits applied to it.
-pub trait VestingSchedule<AccountId> {
+pub trait Inspect<AccountId> {
 	/// The quantity used to denote time; usually just a `BlockNumber`.
 	type Moment;
-
 	/// Means of identifying one asset class from another.
 	type AssetId: AssetId;
-
 	/// The balance type that this schedule applies to.
 	type Balance;
 
 	/// Get the amount that is currently being vested and cannot be transferred out of this asset
 	/// account. Returns `None` if the asset account has no vesting schedule.
 	fn vesting_balance(asset: Self::AssetId, who: &AccountId) -> Option<Self::Balance>;
+}
 
+/// A vesting schedule over a fungible asset class. This allows a particular currency to have
+/// vesting limits applied to it.
+pub trait Mutate<AccountId>: Inspect<AccountId> {
 	/// Adds a vesting schedule to a given asset account.
 	///
 	/// If the account has `MaxVestingSchedules`, an Error is returned and nothing
@@ -73,7 +73,7 @@ pub trait VestingSchedule<AccountId> {
 }
 
 /// A vested transfer over an asset. This allows a transferred amount to vest over time.
-pub trait VestedTransfer<AccountId> {
+pub trait Transfer<AccountId> {
 	/// The quantity used to denote time; usually just a `BlockNumber`.
 	type Moment;
 
@@ -113,7 +113,7 @@ pub trait VestedTransfer<AccountId> {
 // not want to implement this functionality
 pub struct NoVestedTransfers<A, B>(core::marker::PhantomData<(A, B)>);
 
-impl<AccountId, Id: AssetId, Balance> VestedTransfer<AccountId> for NoVestedTransfers<Id, Balance> {
+impl<AccountId, Id: AssetId, Balance> Transfer<AccountId> for NoVestedTransfers<Id, Balance> {
 	type Moment = ();
 	type AssetId = Id;
 	type Balance = Balance;

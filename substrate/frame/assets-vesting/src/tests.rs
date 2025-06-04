@@ -18,7 +18,7 @@
 use super::{mock::*, AccountIdOf, AssetIdOf, Error, Vesting as VestingStorage, VestingInfo};
 use crate::mock::frame_system::RawOrigin;
 use codec::EncodeLike;
-use frame::traits::fungibles::VestingSchedule;
+use frame::traits::fungibles::VestedInspect;
 
 const ASSET_ID: AssetId = 1;
 const MINIMUM_BALANCE: Balance = 256;
@@ -1335,7 +1335,7 @@ mod genesis_config {
 	}
 
 	#[test]
-	#[should_panic(expected = "Too many vesting schedules at genesis.: ()")]
+	#[should_panic(expected = "Too many vesting schedules at genesis.")]
 	fn multiple_schedules_from_genesis_config_errors() {
 		// MaxVestingSchedules is 3, but this config has 4 for account 12 so we panic when building
 		// from genesis.

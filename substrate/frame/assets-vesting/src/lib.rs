@@ -34,7 +34,7 @@
 //!
 //! ## Interface
 //!
-//! This pallet implements the `VestingSchedule` trait.
+//! This pallet implements the [`VestedInspect`], [`VestedMutate`] and [`VestedTransfer`] traits.
 //!
 //! ### Dispatchable Functions
 //!
@@ -56,10 +56,10 @@ mod types;
 mod weights;
 
 use frame::{
-	deps::codec::Decode,
+	deps::{codec::Decode, sp_runtime::ModuleError},
 	prelude::*,
 	traits::{
-		fungibles::{Inspect, Mutate, MutateFreeze, VestedTransfer, VestingSchedule},
+		fungibles::{Inspect, Mutate, MutateFreeze, VestedInspect, VestedMutate, VestedTransfer},
 		tokens::Preservation,
 	},
 };
@@ -133,11 +133,13 @@ pub mod pallet {
 	#[pallet::pallet]
 	pub struct Pallet<T, I = ()>(_);
 
+	pub type GenesisVestingSchedule<T, I> =
+		(Vec<u8>, AccountIdOf<T>, BlockNumberFor<T>, BlockNumberFor<T>, BalanceOf<T, I>);
+
 	#[pallet::genesis_config]
 	#[derive(DefaultNoBound)]
 	pub struct GenesisConfig<T: Config<I>, I: 'static = ()> {
-		pub vesting:
-			Vec<(Vec<u8>, T::AccountId, BlockNumberFor<T>, BlockNumberFor<T>, BalanceOf<T, I>)>,
+		pub vesting: Vec<GenesisVestingSchedule<T, I>>,
 	}
 
 	#[pallet::genesis_build]
@@ -160,16 +162,20 @@ pub mod pallet {
 				let length_as_balance = T::BlockNumberToBalance::convert(length);
 				let per_block = (frozen / length_as_balance.max(One::one())).max(One::one());
 
-				let vesting_info = VestingInfo::new(frozen, per_block, begin);
-				if !vesting_info.is_valid() {
-					panic!("Invalid VestingInfo params at genesis")
-				};
+				Pallet::<T, I>::add_vesting_schedule(
+					asset, who, frozen, per_block, begin
+				).map_err(|err| {
+					let DispatchError::Module(ModuleError { message: Some(message), .. }) = err.into() else {
+						panic!("Failure to add vesting at genesis");
+					};
+					let msg = match message {
+						"InvalidScheduleParams" => "Invalid VestingInfo params at genesis.",
+						"AtMaxVestingSchedules" => "Too many vesting schedules at genesis.",
+						msg => &format!("Failure to add vesting at genesis: {msg}"),
+					};
 
-				Vesting::<T, I>::try_append(asset.clone(), who, vesting_info)
-					.expect("Too many vesting schedules at genesis.");
-
-				T::Freezer::set_freeze(asset, &FreezeReason::<I>::Vesting.into(), who, frozen)
-					.expect("Too many freezes at genesis");
+					panic!("{msg}");
+				}).unwrap();
 			}
 		}
 	}
@@ -340,6 +346,9 @@ pub mod pallet {
 		/// NOTE: This will unlock all schedules through the current block prior to merging.
 		/// NOTE: If both schedules have ended by the current block, no new schedule will be created
 		/// and both will be removed.
+		/// NOTE: The outcome of this call is disadvantageous to the caller, since it ends up
+		/// extending the vesting period of the merged schedules. Ideally, this should be only used
+		/// when the caller has too many vesting schedules and cannot add one more.
 		///
 		/// Merged schedule attributes:
 		/// - `starting_block`: `MAX(schedule1.starting_block, scheduled2.starting_block,
@@ -656,7 +665,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	}
 }
 
-impl<T: Config<I>, I: 'static> VestingSchedule<T::AccountId> for Pallet<T, I>
+impl<T: Config<I>, I: 'static> VestedInspect<T::AccountId> for Pallet<T, I>
 where
 	BalanceOf<T, I>: MaybeSerializeDeserialize + Debug,
 {
@@ -673,7 +682,9 @@ where
 			total_locked_now
 		})
 	}
+}
 
+impl<T: Config<I>, I: 'static> VestedMutate<T::AccountId> for Pallet<T, I> {
 	fn add_vesting_schedule(
 		asset: AssetIdOf<T, I>,
 		who: &T::AccountId,

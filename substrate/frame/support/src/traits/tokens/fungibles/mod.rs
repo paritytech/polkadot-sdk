@@ -50,4 +50,4 @@ pub use regular::{
 	Balanced, DecreaseIssuance, Dust, IncreaseIssuance, Inspect, Mutate, Unbalanced,
 };
 pub use union_of::UnionOf;
-pub use vesting::{VestedTransfer, VestingSchedule};
+pub use vesting::{Inspect as VestedInspect, Mutate as VestedMutate, Transfer as VestedTransfer};
