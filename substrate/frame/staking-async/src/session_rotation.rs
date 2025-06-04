@@ -963,14 +963,7 @@ impl<T: Config> EraElectionPlanner<T> {
 		// collect or update the pref of all winners.
 		for stash in &elected_stashes {
 			let pref = Validators::<T>::get(stash);
-			// Only set prefs if they exist (i.e., the stash is actually a validator).
-			if let Some(pref_value) = pref {
-				Eras::<T>::set_validator_prefs(new_planned_era, stash, pref_value);
-			} else {
-				// This case should ideally not happen for an elected winner,
-				// but handle defensively.
-				defensive!(format!("Elected validator {:?} has no prefs set.", stash));
-			}
+			Eras::<T>::set_validator_prefs(new_planned_era, stash, pref);
 		}
 
 		log!(

@@ -698,7 +698,7 @@ mod benchmarks {
 		<ErasValidatorPrefs<T>>::insert(
 			current_era,
 			validator.clone(),
-			Validators::<T>::get(&validator).expect("validator must exist after setup"),
+			Validators::<T>::get(&validator),
 		);
 
 		let caller = whitelisted_caller();
@@ -901,7 +901,7 @@ mod benchmarks {
 		// Sanity check
 		assert_eq!(
 			Validators::<T>::get(&stash),
-			Some(ValidatorPrefs { commission: Perbill::from_percent(50), ..Default::default() })
+			ValidatorPrefs { commission: Perbill::from_percent(50), ..Default::default() }
 		);
 
 		// Set the min commission to 75%
@@ -914,7 +914,7 @@ mod benchmarks {
 		// The validators commission has been bumped to 75%
 		assert_eq!(
 			Validators::<T>::get(&stash),
-			Some(ValidatorPrefs { commission: Perbill::from_percent(75), ..Default::default() })
+			ValidatorPrefs { commission: Perbill::from_percent(75), ..Default::default() }
 		);
 
 		Ok(())
