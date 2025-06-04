@@ -20,8 +20,10 @@ on:
         required: true
       AWS_DEFAULT_REGION:
         required: true
-permissions:
-  id-token: write
+      RELEASE_BACKPORT_AUTOMATION_APP_ID:
+        required: true
+      RELEASE_BACKPORT_AUTOMATION_APP_PRIVATE_KEY:
+        required: true
 
 jobs:
   tag_rc:
@@ -47,7 +49,7 @@ jobs:
 
       - name: Generate content write token for the release automation
         id: generate_write_token
-        uses: actions/create-github-app-token@v1
+        uses: actions/create-github-app-token@v2
         with: #todo: change when tested!
             app-id: ${{ secrets.RELEASE_BACKPORT_AUTOMATION_APP_ID }}
             private-key: ${{ secrets.RELEASE_BACKPORT_AUTOMATION_APP_PRIVATE_KEY }}

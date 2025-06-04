@@ -65,7 +65,7 @@ jobs:
 
       - name: Generate content write token for the release automation
         id: generate_write_token
-        uses: actions/create-github-app-token@v1
+        uses: actions/create-github-app-token@v2
         with: #todo: change when tested!
             app-id: ${{ secrets.RELEASE_BACKPORT_AUTOMATION_APP_ID }}
             private-key: ${{ secrets.RELEASE_BACKPORT_AUTOMATION_APP_PRIVATE_KEY }}
@@ -142,5 +142,5 @@ jobs:
       AWS_ACCESS_KEY_ID:  ${{ secrets.AWS_ACCESS_KEY_ID }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
       AWS_DEFAULT_REGION:  ${{ secrets.AWS_DEFAULT_REGION }}
-    permissions:
-      id-token: write
+      RELEASE_BACKPORT_AUTOMATION_APP_ID: ${{ secrets.RELEASE_BACKPORT_AUTOMATION_APP_ID }}
+      RELEASE_BACKPORT_AUTOMATION_APP_PRIVATE_KEY: ${{ secrets.RELEASE_BACKPORT_AUTOMATION_APP_PRIVATE_KEY }}
