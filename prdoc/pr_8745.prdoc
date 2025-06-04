@@ -1,8 +1,7 @@
-title: Actually use RP offset in YAP parachain
+title: Use correct relay parent offset in YAP parachain
 doc:
 - audience: Runtime Dev
-  description: 'When I merged #8299 I missed this part here, the offset should be
-    set to `RELAY_PARENT_OFFSET`.'
+  description: 'The relay parent offset in the yap parachain is now properly set to `RELAY_PARENT_OFFSET`.'
 crates:
 - name: yet-another-parachain-runtime
   bump: patch
