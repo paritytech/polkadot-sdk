@@ -24,8 +24,6 @@ use crate::{
 	AccountId, AssetConversion, Assets, ForeignAssets, Runtime, RuntimeEvent,
 };
 use assets_common::{matching::FromSiblingParachain, AssetIdForTrustBackedAssetsConvert};
-#[cfg(feature = "runtime-benchmarks")]
-use benchmark_helpers::DoNothingRouter;
 use frame_support::{parameter_types, traits::EitherOf};
 use frame_system::EnsureRootWithSuccess;
 use parachains_common::AssetIdForTrustBackedAssets;
@@ -42,6 +40,9 @@ pub mod benchmark_helpers {
 	};
 	use alloc::boxed::Box;
 	use codec::Encode;
+	use frame_support::traits::fungibles::Mutate;
+	use testnet_parachains_constants::westend::snowbridge::EthereumLocation;
+	use westend_runtime_constants::currency::UNITS;
 	use xcm::prelude::*;
 	use xcm_executor::traits::ConvertLocation;
 
@@ -66,16 +67,30 @@ pub mod benchmark_helpers {
 			RuntimeOrigin::from(pallet_xcm::Origin::Xcm(location))
 		}
 
-		fn initialize_storage(asset_location: Location, asset_owner: Location) {
-			let asset_owner = LocationToAccountId::convert_location(&asset_owner).unwrap();
+		fn initialize_storage(asset_location: Location, asset_owner_location: Location) {
+			let asset_owner = LocationToAccountId::convert_location(&asset_owner_location).unwrap();
 			ForeignAssets::force_create(
 				RuntimeOrigin::root(),
 				asset_location,
-				asset_owner.into(),
+				asset_owner.clone().into(),
 				true,
 				1,
 			)
-			.unwrap()
+			.unwrap();
+			ForeignAssets::force_create(
+				RuntimeOrigin::root(),
+				EthereumLocation::get(),
+				asset_owner.clone().into(),
+				true,
+				1,
+			)
+			.unwrap();
+			ForeignAssets::mint_into(
+				EthereumLocation::get().into(),
+				&asset_owner,
+				5_000_000 * UNITS,
+			)
+			.unwrap();
 		}
 
 		fn setup_pools(caller: AccountId, asset: Location) {
@@ -176,7 +191,7 @@ impl snowbridge_pallet_system_frontend::Config for Runtime {
 	#[cfg(not(feature = "runtime-benchmarks"))]
 	type XcmSender = XcmRouter;
 	#[cfg(feature = "runtime-benchmarks")]
-	type XcmSender = DoNothingRouter;
+	type XcmSender = benchmark_helpers::DoNothingRouter;
 	type AssetTransactor = AssetTransactors;
 	type EthereumLocation = FeeAsset;
 	type XcmExecutor = XcmExecutor<XcmConfig>;
