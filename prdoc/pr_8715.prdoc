@@ -9,7 +9,7 @@ doc:
     - Make storage items public
 crates:
 - name: pallet-staking
-  bump: minor
+  bump: major
 - name: pallet-sudo
   bump: minor
 - name: frame-support
@@ -29,4 +29,4 @@ crates:
 - name: pallet-scheduler
   bump: minor
 - name: pallet-staking-async
-  bump: minor
+  bump: major
