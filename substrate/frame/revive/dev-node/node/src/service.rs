@@ -84,14 +84,13 @@ pub fn new_partial(config: &Configuration) -> Result<Service, ServiceError> {
 			config.role.is_authority().into(),
 		)
 		.with_options(config.transaction_pool.clone())
-		.with_prometheus(config.prometheus_registry())
 		.build(),
 	);
 
 	let import_queue = sc_consensus_manual_seal::import_queue(
 		Box::new(client.clone()),
 		&task_manager.spawn_essential_handle(),
-		config.prometheus_registry(),
+		None,
 	);
 
 	Ok(sc_service::PartialComponents {
@@ -126,13 +125,8 @@ pub fn new_full<Network: sc_network::NetworkBackend<Block, <Block as BlockT>::Ha
 		Block,
 		<Block as BlockT>::Hash,
 		Network,
-	>::new(
-		&config.network,
-		config.prometheus_config.as_ref().map(|cfg| cfg.registry.clone()),
-	);
-	let metrics = Network::register_notification_metrics(
-		config.prometheus_config.as_ref().map(|cfg| &cfg.registry),
-	);
+	>::new(&config.network, None);
+	let metrics = Network::register_notification_metrics(None);
 
 	let (network, system_rpc_tx, tx_handler_controller, sync_service) =
 		sc_service::build_network(sc_service::BuildNetworkParams {
@@ -179,8 +173,6 @@ pub fn new_full<Network: sc_network::NetworkBackend<Block, <Block as BlockT>::Ha
 		})
 	};
 
-	let prometheus_registry = config.prometheus_registry().cloned();
-
 	let _rpc_handlers = sc_service::spawn_tasks(sc_service::SpawnTasksParams {
 		network,
 		client: client.clone(),
@@ -200,7 +192,7 @@ pub fn new_full<Network: sc_network::NetworkBackend<Block, <Block as BlockT>::Ha
 		task_manager.spawn_handle(),
 		client.clone(),
 		transaction_pool.clone(),
-		prometheus_registry.as_ref(),
+		None,
 		telemetry.as_ref().map(|x| x.handle()),
 	);
 
