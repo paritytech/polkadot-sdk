@@ -577,7 +577,8 @@ pub mod pallet {
 		ValidatorSetIntegrityFailed,
 		/// The received session index is more than what we expected.
 		SessionSkipped,
-		/// A session in the past was received. This will not raise any errors, just emit an event and stop processing the report.
+		/// A session in the past was received. This will not raise any errors, just emit an event
+		/// and stop processing the report.
 		SessionAlreadyProcessed,
 	}
 
