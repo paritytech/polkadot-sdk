@@ -661,6 +661,13 @@ pub fn roll_to_signed_open() {
 	}
 }
 
+/// proceed block number to whenever the signed phase is about to close (`Phase::Signed(_)`).
+pub fn roll_to_last_signed() {
+	while !matches!(MultiBlock::current_phase(), Phase::Signed(0)) {
+		roll_next()
+	}
+}
+
 /// proceed block number to whenever the signed validation phase is open
 /// (`Phase::SignedValidation(_)`).
 pub fn roll_to_signed_validation_open() {

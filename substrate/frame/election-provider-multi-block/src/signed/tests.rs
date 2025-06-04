@@ -716,7 +716,7 @@ mod e2e {
 				]
 			);
 
-			// Check verifier status - should have restarted for remaining good solution
+			// Check verifier status - should still be ongoing.
 			assert!(matches!(VerifierPallet::status(), crate::verifier::Status::Ongoing(_)));
 
 			roll_next(); // Block 4: processes page 2 of good solution
@@ -733,7 +733,7 @@ mod e2e {
 	}
 
 	#[test]
-	fn after_rejecting_does_not_call_verifier_start_again_if_no_leader_exists() {
+	fn after_rejecting_does_not_call_verifier_start_if_no_leader_exists() {
 		ExtBuilder::signed().build_and_execute(|| {
 			roll_to_signed_open();
 			assert_full_snapshot();
@@ -1007,134 +1007,244 @@ mod defensive_tests {
 	}
 
 	#[test]
-	fn signed_verification_incomplete_to_unsigned() {
-		// verifier pallet should be nuked.
-		// I think this will work
-		// this is equal to
-		// `partial_verification_interrupted_then_revert_to_signed_no_new_submission`
-	}
-
-	#[test]
-	fn signed_verification_incomplete_to_signed() {
-		// verifier pallet should be nuked.
-		// I think this will not work.
-	}
-
-	#[test]
-	fn partial_verification_interrupted_then_revert_to_signed_no_new_submission() {
-		// Test scenario demonstrating that verification is phase-independent and survives
-		// interruption.
-		//
-		// 1. A complete solution is submitted and verification starts
-		// 2. SignedValidation phase ends before the solution is fully verified (interrupted)
-		// 3. System reverts back to signed phase (using BackToSigned mode)
-		// 4. No new submissions are made in the second signed phase
-		// 5. The verifier continues independently and eventually completes, queuing the solution
-		//    (completion can happen in any phase - the key is that it survives the interruption)
-		//
-		// E.g.
-		// Block N: SignedValidation(1)   | Verifier starts: Status::Ongoing(2)
-		// Block N+1: SignedValidation(0) | Verifier continues: Status::Ongoing(1)
-		// Block N+2: Signed(4)           | Verifier continues: Status::Ongoing(0)
-		// Block N+3: Signed(3)           | Verifier completes: Status::Nothing + solution queued
-		//
-		// In this example, the "interruption" is only from the signed pallet's perspective (phase
-		// changed). The verifier never stopped - it kept running through `on_initialize` and
-		// completed verification during the `Signed` phase.
+	fn not_all_solutions_verified_signed_verification_to_unsigned() {
+		// Test that in case of multiple verifications when not all of them are verified within the
+		// signed validation phase, the verifier should stop and go back to
+		// idle when transitioning from signed validation to unsigned phase, while keeping not yet
+		// verified solutions.
+		// NOTE: the signed validation phase must be a multiple of the number of pages, which
+		// ensures that solutions cannot be halfway verified
 		ExtBuilder::signed()
-			.pages(3) // Multi-page solution to allow for partial verification
-			.signed_validation_phase(2) // Short validation phase to force interruption
-			.are_we_done(crate::mock::AreWeDoneModes::BackToSigned) // Revert to signed if no solution
+			.pages(3)
+			.signed_validation_phase(3) // so that we can validate only one solution per validation phase
+			.unsigned_phase(1)
 			.build_and_execute(|| {
-				// Start first signed phase and submit a complete solution
 				roll_to_signed_open();
 
-				let submitter = 99;
-				let round = SignedPallet::current_round();
-				assert_eq!(balances(submitter), (100, 0));
+				// Submit invalid solution with high score but no pages (will be slashed)
+				{
+					let mut strong_score = mine_full_solution().unwrap().score;
+					strong_score.minimal_stake *= 2;
+					assert_ok!(SignedPallet::register(RuntimeOrigin::signed(99), strong_score));
+					// Don't submit any pages - this will cause it to be slashed
+				}
 
-				let paged = mine_full_solution().unwrap();
+				// Submit good solution with all pages
+				{
+					let strong_solution = mine_full_solution().unwrap();
+					load_signed_for_verification(999, strong_solution.clone());
+				}
 
-				load_signed_for_verification(submitter, paged.clone());
-
-				// Verify we have a complete solution
-				assert!(Submissions::<Runtime>::has_leader(round));
-				assert_eq!(
-					Submissions::<Runtime>::metadata_of(round, submitter)
-						.unwrap()
-						.pages
-						.into_inner(),
-					vec![true, true, true] // All pages submitted
-				);
+				let current_round = SignedPallet::current_round();
+				assert_eq!(Submissions::<Runtime>::submitters_count(current_round), 2);
 
 				roll_to_signed_validation_open();
 				assert!(matches!(MultiBlock::current_phase(), Phase::SignedValidation(_)));
-
-				// Reset event tracking
-				multi_block_events_since_last_call();
+				assert!(matches!(VerifierPallet::status(), crate::verifier::Status::Ongoing(_)));
 
 				// Initial verifier state should have no queued solution
 				assert_eq!(VerifierPallet::queued_score(), None);
 
-				roll_next(); // SignedValidation(1) -> SignalValidation(0)
-				roll_next(); // SignedValidation(0) -> Signed(4)
+				// Bad solution is the current leader
+				let mut remaining_leader = Submissions::<Runtime>::leader(current_round).unwrap();
+				assert_eq!(remaining_leader.0, 99);
 
-				// Verify events after SignedValidation phase ends
+				// Bad solution starts verification
+				roll_next(); // SignedValidation(2) -> SignedValidation(1)
+				assert!(matches!(VerifierPallet::status(), crate::verifier::Status::Ongoing(_)));
+
+				roll_next(); // SignedValidation(1) -> SignedValidation(0)
+				assert!(matches!(VerifierPallet::status(), crate::verifier::Status::Ongoing(_)));
+
+				roll_next(); // SignedValidation(0) -> Unsigned(4) (verification of bad solution complete,
+				 // verification of the 2nd solution hasn't started yet)
+
+				// Verify phase transition to unsigned
+				assert!(matches!(MultiBlock::current_phase(), Phase::Unsigned(_)));
+
+				// Check that invalid solution is slashed but good solution remains
+				assert_eq!(Submissions::<Runtime>::submitters_count(current_round), 1);
+				assert!(Submissions::<Runtime>::has_leader(current_round));
+				remaining_leader = Submissions::<Runtime>::leader(current_round).unwrap();
+				assert_eq!(remaining_leader.0, 999); // Good solution remains
+
+				// Check that expected events were emitted for the rejection
 				assert_eq!(
-					multi_block_events_since_last_call(),
-					vec![crate::Event::PhaseTransitioned {
-						from: Phase::SignedValidation(0),
-						to: Phase::Signed(4)
-					}]
+					signed_events(),
+					vec![
+						Event::Registered(
+							0,
+							99,
+							ElectionScore {
+								minimal_stake: 110,
+								sum_stake: 130,
+								sum_stake_squared: 8650
+							}
+						),
+						Event::Registered(
+							0,
+							999,
+							ElectionScore {
+								minimal_stake: 55,
+								sum_stake: 130,
+								sum_stake_squared: 8650
+							}
+						),
+						Event::Stored(0, 999, 0),
+						Event::Stored(0, 999, 1),
+						Event::Stored(0, 999, 2),
+						Event::Slashed(0, 99, 5),
+					]
+				);
+				assert_eq!(
+					verifier_events(),
+					vec![
+						crate::verifier::Event::Verified(2, 0),
+						crate::verifier::Event::Verified(1, 0),
+						crate::verifier::Event::Verified(0, 0),
+						crate::verifier::Event::VerificationFailed(
+							0,
+							FeasibilityError::InvalidScore
+						),
+					]
 				);
 
-				// After SignedValidation phase ends, should revert to signed phase
-				assert_eq!(MultiBlock::current_phase(), Phase::Signed(4));
+				// Verifier should be STOPPED when transitioning to unsigned
+				assert_eq!(VerifierPallet::status(), crate::verifier::Status::Nothing);
 
-				// Verifier state after interruption should still have no queued solution
+				// Verify no solution was queued (verification was stopped, not completed)
 				assert_eq!(VerifierPallet::queued_score(), None);
+			});
+	}
 
-				// Verify we're still in the same round (no election occurred yet)
-				assert_eq!(MultiBlock::round(), 0);
+	#[test]
+	fn not_all_solutions_verified_signed_verification_incomplete_to_signed() {
+		// Test that in case of multiple verifications when not all of them are verified within the
+		// signed validation phase, the verifier should stop and go back to
+		// idle when transitioning from signed validation to signed phase, while keeping not yet
+		// verified solutions.
+		// NOTE: the signed validation phase must be a multiple of the number of pages, which
+		// ensures that solutions cannot be halfway verified
+		ExtBuilder::signed()
+			.pages(3)
+			.signed_validation_phase(3) // so that we can validate only one solution per validation phase
+			.are_we_done(crate::mock::AreWeDoneModes::BackToSigned) // Revert to signed if no solution
+			.build_and_execute(|| {
+				roll_to_signed_open();
 
-				// Wait for async verification to complete, regardless of which phase it happens in.
-				// This proves that async verification survives phase interruption and completes
-				// eventually:
-				// 1. Verification was interrupted during first SignedValidation phase
-				// 2. Verifier status shows it eventually completed (Status::Nothing)
-				// 3. Solution was successfully queued despite the interruption
-				// 4. The specific phase where verification completion happens doesn't matter - can
-				//    be Signed or SignedValidation for example, doesn't matter
-				loop {
-					// Check verifier status:
-					// - Status::Ongoing(_) = still verifying
-					// - Status::Nothing = verification complete
-					let verifier_status = VerifierPallet::status();
-					let solution_queued = VerifierPallet::queued_score().is_some();
-
-					if matches!(verifier_status, crate::verifier::Status::Nothing) &&
-						solution_queued
-					{
-						break;
-					}
-
-					roll_next();
+				// Submit invalid solution with high score but no pages (will be slashed)
+				{
+					let mut strong_score = mine_full_solution().unwrap().score;
+					strong_score.minimal_stake *= 2;
+					assert_ok!(SignedPallet::register(RuntimeOrigin::signed(99), strong_score));
+					// Don't submit any pages - this will cause it to be slashed
 				}
 
-				let queued_score = VerifierPallet::queued_score();
-				assert!(queued_score.is_some());
+				// Submit good solution with all pages
+				{
+					let strong_solution = mine_full_solution().unwrap();
+					load_signed_for_verification(999, strong_solution.clone());
+				}
 
-				// No new leader should exist for this second cycle (no new submissions)
-				assert!(!Submissions::<Runtime>::has_leader(round));
+				let current_round = SignedPallet::current_round();
+				assert_eq!(Submissions::<Runtime>::submitters_count(current_round), 2);
 
-				// The queued solution allows the system to proceed to Done phase
-				roll_to_done();
+				roll_to_signed_validation_open();
+				assert!(matches!(MultiBlock::current_phase(), Phase::SignedValidation(_)));
+				assert!(matches!(VerifierPallet::status(), crate::verifier::Status::Ongoing(_)));
 
-				// Should reach Done phase with queued solution
-				assert_eq!(MultiBlock::current_phase(), Phase::Done);
+				// Initial verifier state should have no queued solution
+				assert_eq!(VerifierPallet::queued_score(), None);
 
-				// Solution should still be queued with same score
-				assert_eq!(VerifierPallet::queued_score(), queued_score);
+				// Bad solution is the current leader
+				let mut remaining_leader = Submissions::<Runtime>::leader(current_round).unwrap();
+				assert_eq!(remaining_leader.0, 99);
+
+				// Bad solution starts verification
+				roll_next(); // SignedValidation(2) -> SignedValidation(1)
+				assert!(matches!(VerifierPallet::status(), crate::verifier::Status::Ongoing(_)));
+
+				roll_next(); // SignedValidation(1) -> SignedValidation(0)
+				assert!(matches!(VerifierPallet::status(), crate::verifier::Status::Ongoing(_)));
+
+				roll_next(); // SignedValidation(0) -> Unsigned(4) (verification of bad solution complete,
+				 // verification of the 2nd solution hasn't started yet)
+
+				// Verify phase transition back to signed
+				assert!(matches!(MultiBlock::current_phase(), Phase::Signed(_)));
+
+				// Check that invalid solution is slashed but good solution remains
+				assert_eq!(Submissions::<Runtime>::submitters_count(current_round), 1);
+				assert!(Submissions::<Runtime>::has_leader(current_round));
+				remaining_leader = Submissions::<Runtime>::leader(current_round).unwrap();
+				assert_eq!(remaining_leader.0, 999); // Good solution remains
+
+				// Check that expected events were emitted for the rejection
+				assert_eq!(
+					signed_events(),
+					vec![
+						Event::Registered(
+							0,
+							99,
+							ElectionScore {
+								minimal_stake: 110,
+								sum_stake: 130,
+								sum_stake_squared: 8650
+							}
+						),
+						Event::Registered(
+							0,
+							999,
+							ElectionScore {
+								minimal_stake: 55,
+								sum_stake: 130,
+								sum_stake_squared: 8650
+							}
+						),
+						Event::Stored(0, 999, 0),
+						Event::Stored(0, 999, 1),
+						Event::Stored(0, 999, 2),
+						Event::Slashed(0, 99, 5),
+					]
+				);
+				assert_eq!(
+					verifier_events(),
+					vec![
+						crate::verifier::Event::Verified(2, 0),
+						crate::verifier::Event::Verified(1, 0),
+						crate::verifier::Event::Verified(0, 0),
+						crate::verifier::Event::VerificationFailed(
+							0,
+							FeasibilityError::InvalidScore
+						),
+					]
+				);
+
+				roll_to_last_signed();
+
+				// at the end of the signed phase, the verifier remains idle
+				assert_eq!(VerifierPallet::status(), crate::verifier::Status::Nothing);
+				assert_eq!(VerifierPallet::queued_score(), None);
+
+				roll_to_signed_validation_open();
+
+				// now the verification of the good solution starts
+				assert!(matches!(VerifierPallet::status(), crate::verifier::Status::Ongoing(_)));
+				assert_eq!(VerifierPallet::queued_score(), None);
+				assert_eq!(Submissions::<Runtime>::submitters_count(current_round), 1);
+				remaining_leader = Submissions::<Runtime>::leader(current_round).unwrap();
+				assert_eq!(remaining_leader.0, 999); // Good solution remains
+
+				roll_next(); // processes page 2 of good solution
+				roll_next(); // processes page 1 of good solution
+				roll_next(); // processes page 0 of good solution
+
+				// Check verifier status - should be Nothing after completion
+				assert_eq!(VerifierPallet::status(), crate::verifier::Status::Nothing);
+
+				// Check good solution is fully verified and removed from queue
+				assert_eq!(Submissions::<Runtime>::submitters_count(current_round), 0);
+				assert!(!Submissions::<Runtime>::has_leader(current_round));
 			});
 	}
 }
