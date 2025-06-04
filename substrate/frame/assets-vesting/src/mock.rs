@@ -90,7 +90,6 @@ parameter_types! {
 }
 
 impl pallet_assets_vesting::Config for Test {
-	type RuntimeEvent = RuntimeEvent;
 	type ForceOrigin = EnsureRoot<AccountId>;
 	type Assets = Assets;
 	type Freezer = AssetsFreezer;

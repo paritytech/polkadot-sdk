@@ -77,11 +77,9 @@ pub mod pallet {
 	use super::*;
 
 	#[pallet::config]
-	pub trait Config<I: 'static = ()>: frame_system::Config {
-		/// The overarching event type.
-		type RuntimeEvent: From<Event<Self, I>>
-			+ IsType<<Self as frame_system::Config>::RuntimeEvent>;
-
+	pub trait Config<I: 'static = ()>:
+		frame_system::Config<RuntimeEvent: From<Event<Self, I>>>
+	{
 		/// An Origin that can control the `force` calls.
 		type ForceOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
