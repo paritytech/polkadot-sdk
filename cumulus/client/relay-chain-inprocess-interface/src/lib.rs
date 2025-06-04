@@ -389,20 +389,7 @@ fn build_polkadot_full_node(
 		},
 	)?;
 
-<<<<<<< HEAD
 	Ok((relay_chain_full_node, maybe_collator_key))
-=======
-	let (relay_chain_full_node, paranode_req_receiver) = match config.network.network_backend {
-		NetworkBackendType::Libp2p => build_polkadot_with_paranode_protocol::<
-			sc_network::NetworkWorker<_, _>,
-		>(config, new_full_params)?,
-		NetworkBackendType::Litep2p => build_polkadot_with_paranode_protocol::<
-			sc_network::Litep2pNetworkBackend,
-		>(config, new_full_params)?,
-	};
-
-	Ok((relay_chain_full_node, maybe_collator_key, paranode_req_receiver))
->>>>>>> f6d18b73 (client/net: Use litep2p as the default network backend (#8461))
 }
 
 /// Builds a relay chain interface by constructing a full relay chain node
