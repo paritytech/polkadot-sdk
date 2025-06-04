@@ -50,8 +50,11 @@ anyhow = { workspace = true }
 assert_matches = { workspace = true }
 chrono = { workspace = true }
 criterion = { workspace = true, default-features = true }
+cumulus-zombienet-sdk-helpers = { workspace = true }
 env_logger = { workspace = true }
 sc-block-builder = { workspace = true, default-features = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
 sp-consensus = { workspace = true, default-features = true }
 substrate-test-runtime = { workspace = true }
 substrate-test-runtime-client = { workspace = true }
@@ -60,12 +63,5 @@ thiserror = { workspace = true }
 tokio = { workspace = true, features = ["rt-multi-thread"] }
 tracing-subscriber = { workspace = true }
 txtesttool = { workspace = true }
-# zombienet-sdk = { workspace = true }
-# zombienet-configuration = { workspace = true }
-zombienet-sdk = { path = "/home/miszka/parity/14-txpool-forks/zombienet-sdk/crates/sdk" }
-zombienet-configuration = { path = "/home/miszka/parity/14-txpool-forks/zombienet-sdk/crates/configuration" }
-# txtesttool = { version = "0.6.0", package = "substrate-txtesttool", path="/home/miszka/parity/14-txpool-forks/sender/excercises/tx-test-tool" }
-cumulus-zombienet-sdk-helpers = { workspace = true }
-polkadot-primitives = { workspace = true, default-features = true }
-serde = { workspace = true }
-serde_json = { workspace = true }
+zombienet-sdk = { workspace = true }
+zombienet-configuration = { workspace = true }
