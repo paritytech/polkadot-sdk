@@ -14,10 +14,32 @@ doc:
 
 crates:
 - name: pallet-xcm
-  bump: minor
+  bump: major
 - name: pallet-revive
   bump: minor
 - name: asset-hub-westend-runtime
+  bump: patch
+- name: westend-runtime
   bump: minor
-- name: polkadot-sdk
+- name: rococo-runtime
+  bump: minor
+- name: asset-hub-rococo-runtime
+  bump: minor
+- name: bridge-hub-rococo-runtime
+  bump: minor
+- name: bridge-hub-westend-runtime
+  bump: minor
+- name: collectives-westend-runtime
+  bump: minor
+- name: coretime-rococo-runtime
+  bump: minor
+- name: coretime-westend-runtime
+  bump: minor
+- name: people-rococo-runtime
+  bump: minor
+- name: people-westend-runtime
+  bump: minor
+- name: pallet-staking-async-parachain-runtime
+  bump: minor
+- name: pallet-staking-async-rc-runtime
   bump: minor
