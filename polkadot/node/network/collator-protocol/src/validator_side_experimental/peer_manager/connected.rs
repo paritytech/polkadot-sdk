@@ -239,9 +239,12 @@ impl PerPara {
 	fn try_accept(&mut self, peer_id: PeerId, score: Score) -> TryAcceptOutcome {
 		// If we've got enough room, add it. Otherwise, see if it has a higher reputation than any
 		// other connected peer.
+
+		println!("len: {}", self.sorted_scores.len());
 		if self.sorted_scores.len() < (u16::from(self.limit) as usize) {
 			self.sorted_scores.insert(PeerScoreEntry { peer_id, score });
 			self.per_peer_score.insert(peer_id, score);
+
 			TryAcceptOutcome::Added
 		} else {
 			let Some(min_score) = self.sorted_scores.first() else {
@@ -303,7 +306,10 @@ struct PeerScoreEntry {
 
 impl Ord for PeerScoreEntry {
 	fn cmp(&self, other: &Self) -> Ordering {
-		self.score.cmp(&other.score)
+		match self.score.cmp(&other.score) {
+			Ordering::Equal => self.peer_id.cmp(&other.peer_id),
+			order => order,
+		}
 	}
 }
 

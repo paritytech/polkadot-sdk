@@ -307,7 +307,9 @@ impl<B: Backend> PeerManager<B> {
 		match outcome {
 			TryAcceptOutcome::Added => TryAcceptOutcome::Added,
 			TryAcceptOutcome::Replaced(other_peers) => {
-				self.disconnect_peers(sender, other_peers.clone().into_iter()).await;
+				if !other_peers.is_empty() {
+					self.disconnect_peers(sender, other_peers.clone().into_iter()).await;
+				}
 				TryAcceptOutcome::Replaced(other_peers)
 			},
 			TryAcceptOutcome::Rejected => {
@@ -410,8 +412,8 @@ async fn extract_reputation_bumps_on_new_finalized_block<Sender: CollatorProtoco
 
 	let mut ancestors =
 		get_ancestors(sender, ancestry_len as usize, latest_finalized_block_hash).await?;
-	ancestors.push(latest_finalized_block_hash);
 	ancestors.reverse();
+	ancestors.push(latest_finalized_block_hash);
 
 	gum::trace!(
 		target: LOG_TARGET,

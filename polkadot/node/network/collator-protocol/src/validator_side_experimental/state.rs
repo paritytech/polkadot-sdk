@@ -39,13 +39,11 @@ use polkadot_node_subsystem::{
 use polkadot_primitives::{
 	vstaging::CandidateReceiptV2 as CandidateReceipt, BlockNumber, Hash, Id as ParaId,
 };
-use sp_keystore::KeystorePtr;
 
 /// All state relevant for the validator side of the protocol lives here.
 pub struct State<B> {
 	peer_manager: PeerManager<B>,
 	collation_manager: CollationManager,
-	keystore: KeystorePtr,
 	_metrics: Metrics,
 }
 
@@ -54,10 +52,9 @@ impl<B: Backend> State<B> {
 	pub fn new(
 		peer_manager: PeerManager<B>,
 		collation_manager: CollationManager,
-		keystore: KeystorePtr,
 		metrics: Metrics,
 	) -> Self {
-		Self { peer_manager, collation_manager, keystore, _metrics: metrics }
+		Self { peer_manager, collation_manager, _metrics: metrics }
 	}
 
 	/// Handle a new peer connection.
@@ -135,7 +132,7 @@ impl<B: Backend> State<B> {
 		);
 		let old_assignments = self.collation_manager.assignments();
 
-		self.collation_manager.view_update(sender, &self.keystore, new_view).await?;
+		self.collation_manager.view_update(sender, new_view).await?;
 
 		let new_assignments = self.collation_manager.assignments();
 		gum::trace!(

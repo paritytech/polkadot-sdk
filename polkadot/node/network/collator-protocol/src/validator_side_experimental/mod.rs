@@ -14,7 +14,8 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-// See reasoning in Cargo.toml why this temporary useless import is needed.
+// See reasoning in Cargo.toml why these temporary useless imports are needed.
+use sc_network_types as _;
 use tokio as _;
 
 mod collation_manager;
@@ -23,6 +24,8 @@ mod error;
 mod metrics;
 mod peer_manager;
 mod state;
+#[cfg(test)]
+mod tests;
 
 use common::MAX_STORED_SCORES_PER_PARA;
 use futures::{select, FutureExt, StreamExt};
@@ -81,7 +84,8 @@ async fn initialize<Context>(
 			None => return Ok(None),
 		};
 
-		let collation_manager = CollationManager::new(ctx.sender(), &keystore, first_leaf).await?;
+		let collation_manager =
+			CollationManager::new(ctx.sender(), keystore.clone(), first_leaf).await?;
 
 		let scheduled_paras = collation_manager.assignments();
 
@@ -91,7 +95,7 @@ async fn initialize<Context>(
 			.await
 		{
 			Ok(peer_manager) =>
-				return Ok(Some(State::new(peer_manager, collation_manager, keystore, metrics))),
+				return Ok(Some(State::new(peer_manager, collation_manager, metrics))),
 			Err(err) => {
 				log_error(Err(err))?;
 				continue

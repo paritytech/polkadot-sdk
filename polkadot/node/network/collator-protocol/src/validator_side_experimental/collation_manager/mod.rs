@@ -118,12 +118,15 @@ pub struct CollationManager {
 
 	// Collection of active collation fetch requests.
 	fetching: PendingRequests,
+
+	// Key store.
+	keystore: KeystorePtr,
 }
 
 impl CollationManager {
 	pub async fn new<Sender: CollatorProtocolSenderTrait>(
 		sender: &mut Sender,
-		keystore: &KeystorePtr,
+		keystore: KeystorePtr,
 		active_leaf: ActivatedLeaf,
 	) -> FatalResult<Self> {
 		let mut instance = Self {
@@ -133,11 +136,10 @@ impl CollationManager {
 			blocked_from_seconding: HashMap::new(),
 			per_session: LruMap::new(ByLength::new(2)),
 			fetching: PendingRequests::default(),
+			keystore,
 		};
 
-		instance
-			.view_update(sender, keystore, OurView::new([active_leaf.hash], 0))
-			.await?;
+		instance.view_update(sender, OurView::new([active_leaf.hash], 0)).await?;
 
 		Ok(instance)
 	}
@@ -145,7 +147,6 @@ impl CollationManager {
 	pub async fn view_update<Sender: CollatorProtocolSenderTrait>(
 		&mut self,
 		sender: &mut Sender,
-		keystore: &KeystorePtr,
 		new_view: OurView,
 	) -> FatalResult<()> {
 		let removed = self
@@ -259,7 +260,7 @@ impl CollationManager {
 					};
 
 				let (core, assignments) =
-					match self.get_our_core_schedule(sender, keystore, leaf, session_index).await {
+					match self.get_our_core_schedule(sender, leaf, session_index).await {
 						Ok(assignments) => assignments,
 						Err(err) => {
 							err.split()?.log();
@@ -623,7 +624,6 @@ impl CollationManager {
 	async fn get_our_core_schedule<Sender: CollatorProtocolSenderTrait>(
 		&mut self,
 		sender: &mut Sender,
-		keystore: &KeystorePtr,
 		parent: &Hash,
 		session_index: SessionIndex,
 	) -> Result<(CoreIndex, VecDeque<ParaId>)> {
@@ -631,6 +631,7 @@ impl CollationManager {
 			.implicit_view
 			.block_number(parent)
 			.ok_or_else(|| Error::BlockNumberNotFoundInImplicitView(*parent))?;
+		let keystore = self.keystore.clone();
 		let session_info = self.get_session_info(sender, parent, session_index).await?;
 		let mut rotation_info = session_info.group_rotation_info.clone();
 
@@ -639,7 +640,7 @@ impl CollationManager {
 		rotation_info.now = block_number + 1;
 
 		let core_now = if let Some(group) =
-			polkadot_node_subsystem_util::signing_key_and_index(&session_info.validators, keystore)
+			polkadot_node_subsystem_util::signing_key_and_index(&session_info.validators, &keystore)
 				.and_then(|(_, index)| {
 					polkadot_node_subsystem_util::find_validator_group(&session_info.groups, index)
 				}) {
