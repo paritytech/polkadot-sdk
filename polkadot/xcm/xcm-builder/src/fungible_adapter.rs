@@ -82,7 +82,7 @@ impl<
 		Fungible: fungible::Mutate<AccountId>,
 		Matcher: MatchesFungible<Fungible::Balance>,
 		AccountIdConverter: ConvertLocation<AccountId>,
-		AccountId: Eq + Clone,
+		AccountId: Eq + Clone + Debug,
 		CheckingAccount: Get<Option<(AccountId, MintLocation)>>,
 	> FungibleMutateAdapter<Fungible, Matcher, AccountIdConverter, AccountId, CheckingAccount>
 {
@@ -91,7 +91,7 @@ impl<
 			.into_result()
 			.map_err(|error| {
 				tracing::debug!(
-					target: "xcm::fungible_adapter", ?error,
+					target: "xcm::fungible_adapter", ?error, ?checking_account, ?amount,
 					"Failed to deposit funds into account",
 				);
 				XcmError::NotDepositable
@@ -103,7 +103,7 @@ impl<
 			.into_result(false)
 			.map_err(|error| {
 				tracing::debug!(
-					target: "xcm::fungible_adapter", ?error,
+					target: "xcm::fungible_adapter", ?error, ?checking_account, ?amount,
 					"Failed to withdraw funds from account",
 				);
 				XcmError::NotWithdrawable
@@ -126,7 +126,7 @@ impl<
 		Fungible: fungible::Mutate<AccountId>,
 		Matcher: MatchesFungible<Fungible::Balance>,
 		AccountIdConverter: ConvertLocation<AccountId>,
-		AccountId: Eq + Clone,
+		AccountId: Eq + Clone + Debug,
 		CheckingAccount: Get<Option<(AccountId, MintLocation)>>,
 	> TransactAsset
 	for FungibleMutateAdapter<Fungible, Matcher, AccountIdConverter, AccountId, CheckingAccount>
@@ -211,7 +211,7 @@ impl<
 			.ok_or(MatchError::AccountIdConversionFailed)?;
 		Fungible::mint_into(&who, amount).map_err(|error| {
 			tracing::debug!(
-				target: "xcm::fungible_adapter", ?error,
+				target: "xcm::fungible_adapter", ?error, ?who, ?amount,
 				"Failed to deposit assets",
 			);
 			XcmError::FailedToTransactAsset(error.into())
@@ -234,7 +234,7 @@ impl<
 			.ok_or(MatchError::AccountIdConversionFailed)?;
 		Fungible::burn_from(&who, amount, Expendable, Exact, Polite).map_err(|error| {
 			tracing::debug!(
-				target: "xcm::fungible_adapter", ?error,
+				target: "xcm::fungible_adapter", ?error, ?who, ?amount,
 				"Failed to withdraw assets",
 			);
 			XcmError::FailedToTransactAsset(error.into())

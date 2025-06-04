@@ -154,7 +154,8 @@ impl<
 		Assets: fungibles::Mutate<AccountId>,
 		Matcher: MatchesFungibles<Assets::AssetId, Assets::Balance>,
 		AccountIdConverter: ConvertLocation<AccountId>,
-		AccountId: Eq + Clone, /* can't get away without it since Currency is generic over it. */
+		AccountId: Eq + Clone + Debug, /* can't get away without it since Currency is generic
+		                                * over it. */
 		CheckAsset: AssetChecking<Assets::AssetId>,
 		CheckingAccount: Get<AccountId>,
 	>
@@ -165,7 +166,10 @@ impl<
 		Assets::can_deposit(asset_id, &checking_account, amount, Minted)
 			.into_result()
 			.map_err(|error| {
-				tracing::debug!(target: "xcm::fungibles_adapter", ?error, "Failed to check if asset can be accrued");
+				tracing::debug!(
+					target: "xcm::fungibles_adapter", ?error, ?checking_account, ?amount,
+					"Failed to check if asset can be accrued"
+				);
 				XcmError::NotDepositable
 			})
 	}
@@ -174,7 +178,10 @@ impl<
 		Assets::can_withdraw(asset_id, &checking_account, amount)
 			.into_result(false)
 			.map_err(|error| {
-				tracing::debug!(target: "xcm::fungibles_adapter", ?error, "Failed to check if asset can be reduced");
+				tracing::debug!(
+					target: "xcm::fungibles_adapter", ?error, ?checking_account, ?amount,
+					"Failed to check if asset can be reduced"
+				);
 				XcmError::NotWithdrawable
 			})
 			.map(|_| ())
@@ -196,7 +203,8 @@ impl<
 		Assets: fungibles::Mutate<AccountId>,
 		Matcher: MatchesFungibles<Assets::AssetId, Assets::Balance>,
 		AccountIdConverter: ConvertLocation<AccountId>,
-		AccountId: Eq + Clone, /* can't get away without it since Currency is generic over it. */
+		AccountId: Eq + Clone + Debug, /* can't get away without it since Currency is generic
+		                                * over it. */
 		CheckAsset: AssetChecking<Assets::AssetId>,
 		CheckingAccount: Get<AccountId>,
 	> TransactAsset
@@ -288,7 +296,7 @@ impl<
 		let who = AccountIdConverter::convert_location(who)
 			.ok_or(MatchError::AccountIdConversionFailed)?;
 		Assets::mint_into(asset_id, &who, amount).map_err(|error| {
-			tracing::debug!(target: "xcm::fungibles_adapter", ?error, "Failed to deposit asset");
+			tracing::debug!(target: "xcm::fungibles_adapter", ?error, ?who, ?amount, "Failed to deposit asset");
 			XcmError::FailedToTransactAsset(error.into())
 		})?;
 		Ok(())
@@ -309,7 +317,7 @@ impl<
 		let who = AccountIdConverter::convert_location(who)
 			.ok_or(MatchError::AccountIdConversionFailed)?;
 		Assets::burn_from(asset_id, &who, amount, Expendable, Exact, Polite).map_err(|error| {
-			tracing::debug!(target: "xcm::fungibles_adapter", ?error, "Failed to withdraw asset");
+			tracing::debug!(target: "xcm::fungibles_adapter", ?error, ?who, ?amount, "Failed to withdraw asset");
 			XcmError::FailedToTransactAsset(error.into())
 		})?;
 		Ok(what.clone().into())
