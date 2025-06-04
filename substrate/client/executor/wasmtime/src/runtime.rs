@@ -298,9 +298,8 @@ fn common_config(semantics: &Semantics) -> std::result::Result<wasmtime::Config,
 			.max_core_instance_size(512 * 1024)
 			.table_elements(8192)
 			.max_memory_size(memory_pages as usize * WASM_PAGE_SIZE as usize)
-			// We can only have a single of those.
-			.total_tables(1)
-			.total_memories(1)
+			.total_tables(MAX_INSTANCE_COUNT)
+			.total_memories(MAX_INSTANCE_COUNT)
 			// This determines how many instances of the module can be
 			// instantiated in parallel from the same `Module`.
 			.total_core_instances(MAX_INSTANCE_COUNT);
