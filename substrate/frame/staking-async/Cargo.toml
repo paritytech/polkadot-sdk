@@ -21,7 +21,7 @@ frame-support = { workspace = true }
 frame-system = { workspace = true }
 log = { workspace = true }
 pallet-staking-async-rc-client = { workspace = true }
-pallet-migrations = { workspace = true, default-features = true }
+pallet-migrations = { workspace = true, default-features = false }
 rand = { features = ["alloc"], workspace = true }
 rand_chacha = { workspace = true }
 scale-info = { features = ["derive", "serde"], workspace = true }
