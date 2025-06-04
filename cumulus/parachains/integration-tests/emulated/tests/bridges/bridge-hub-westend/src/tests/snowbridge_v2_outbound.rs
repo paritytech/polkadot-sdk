@@ -132,8 +132,7 @@ pub fn register_relay_token_from_asset_hub_with_sudo() {
 	AssetHubWestend::execute_with(|| {
 		type RuntimeOrigin = <AssetHubWestend as Chain>::RuntimeOrigin;
 
-		let fees_asset =
-			Asset { id: AssetId(ethereum()), fun: Fungible(REMOTE_FEE_AMOUNT_IN_ETHER) };
+		let fees_asset = Asset { id: AssetId(ethereum()), fun: Fungible(0) };
 
 		assert_ok!(
 			<AssetHubWestend as AssetHubWestendPallet>::SnowbridgeSystemFrontend::register_token(
@@ -146,6 +145,14 @@ pub fn register_relay_token_from_asset_hub_with_sudo() {
 				},
 				fees_asset
 			)
+		);
+	});
+
+	BridgeHubWestend::execute_with(|| {
+		type RuntimeEvent = <BridgeHubWestend as Chain>::RuntimeEvent;
+		assert_expected_events!(
+			BridgeHubWestend,
+			vec![RuntimeEvent::EthereumOutboundQueueV2(snowbridge_pallet_outbound_queue_v2::Event::MessageQueued{ .. }) => {},]
 		);
 	});
 }

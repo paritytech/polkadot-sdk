@@ -374,7 +374,9 @@ pub mod pallet {
 					return Err(Error::<T>::UnsupportedAsset.into())
 				},
 			};
-			ensure!(fee_amount > 0, Error::<T>::TipAmountZero);
+			if fee_amount == 0 {
+				return Ok(fee_amount)
+			}
 
 			let ether_gained = if *fee_asset_location != ether_location {
 				Self::swap_and_burn(
