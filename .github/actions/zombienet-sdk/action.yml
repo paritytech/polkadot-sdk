@@ -30,8 +30,10 @@ runs:
       run: |
         echo "Vars"
         echo "ZOMBIENET_INTEGRATION_TEST_IMAGE: $ZOMBIENET_INTEGRATION_TEST_IMAGE"
-        echo "COL_IMAGE: $COL_IMAGE"
+        echo "ZOMBIE_PROVIDER": $ZOMBIE_PROVIDER
         echo "POLKADOT_IMAGE: $POLKADOT_IMAGE"
+        echo "CUMULUS_IMAGE: $CUMULUS_IMAGE"
+        echo "COL_IMAGE: $COL_IMAGE"
         echo "MALUS_IMAGE: $MALUS_IMAGE"
         echo "RUN_IN_CI: $RUN_IN_CI"
         echo "Inputs"
