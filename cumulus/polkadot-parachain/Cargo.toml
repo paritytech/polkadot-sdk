@@ -24,67 +24,39 @@ serde = { features = ["derive"], workspace = true, default-features = true }
 serde_json = { workspace = true, default-features = true }
 
 # Local
-asset-hub-rococo-runtime = { workspace = true, default-features = true, features = [
-	"runtime-benchmarks",
-] }
-asset-hub-westend-runtime = { workspace = true, features = [
-	"runtime-benchmarks",
-] }
-bridge-hub-rococo-runtime = { workspace = true, default-features = true, features = [
-	"runtime-benchmarks",
-] }
-bridge-hub-westend-runtime = { workspace = true, default-features = true, features = [
-	"runtime-benchmarks",
-] }
-collectives-westend-runtime = { workspace = true, features = [
-	"runtime-benchmarks",
-] }
-coretime-rococo-runtime = { workspace = true, features = [
-	"runtime-benchmarks",
-] }
-coretime-westend-runtime = { workspace = true, features = [
-	"runtime-benchmarks",
-] }
-glutton-westend-runtime = { workspace = true, features = [
-	"runtime-benchmarks",
-] }
-parachains-common = { workspace = true, default-features = true, features = [
-	"runtime-benchmarks",
-] }
-penpal-runtime = { workspace = true, features = ["runtime-benchmarks"] }
-people-rococo-runtime = { workspace = true, features = ["runtime-benchmarks"] }
-people-westend-runtime = { workspace = true, features = ["runtime-benchmarks"] }
+asset-hub-rococo-runtime = { workspace = true, default-features = true }
+asset-hub-westend-runtime = { workspace = true }
+bridge-hub-rococo-runtime = { workspace = true, default-features = true }
+bridge-hub-westend-runtime = { workspace = true, default-features = true }
+collectives-westend-runtime = { workspace = true }
+coretime-rococo-runtime = { workspace = true }
+coretime-westend-runtime = { workspace = true }
+glutton-westend-runtime = { workspace = true }
+parachains-common = { workspace = true, default-features = true }
+penpal-runtime = { workspace = true }
+people-rococo-runtime = { workspace = true }
+people-westend-runtime = { workspace = true }
 polkadot-omni-node-lib = { features = [
 	"rococo-native",
 	"westend-native",
 ], workspace = true }
-rococo-parachain-runtime = { workspace = true, features = [
-	"runtime-benchmarks",
-] }
+rococo-parachain-runtime = { workspace = true }
 
 # Substrate
 sc-chain-spec = { workspace = true, default-features = true }
 sc-cli = { workspace = true, default-features = true }
-sc-service = { workspace = true, default-features = true, features = [
-	"runtime-benchmarks",
-] }
+sc-service = { workspace = true, default-features = true }
 sp-core = { workspace = true, default-features = true }
 sp-genesis-builder = { workspace = true, default-features = true }
 sp-keyring = { workspace = true, default-features = true }
 
 # Polkadot
-xcm = { workspace = true, default-features = true, features = [
-	"runtime-benchmarks",
-] }
+xcm = { workspace = true, default-features = true }
 
 # Cumulus
 cumulus-client-consensus-aura = { workspace = true }
-cumulus-primitives-core = { workspace = true, default-features = true, features = [
-	"runtime-benchmarks",
-] }
-yet-another-parachain-runtime = { workspace = true, features = [
-	"runtime-benchmarks",
-] }
+cumulus-primitives-core = { workspace = true, default-features = true }
+yet-another-parachain-runtime = { workspace = true }
 
 [dev-dependencies]
 assert_cmd = { workspace = true }
@@ -94,6 +66,27 @@ substrate-build-script-utils = { workspace = true, default-features = true }
 
 [features]
 default = []
+runtime-benchmarks = [
+	"cumulus-primitives-core/runtime-benchmarks",
+	"parachains-common/runtime-benchmarks",
+	"polkadot-omni-node-lib/runtime-benchmarks",
+	"sc-service/runtime-benchmarks",
+
+	"asset-hub-rococo-runtime/runtime-benchmarks",
+	"asset-hub-westend-runtime/runtime-benchmarks",
+	"bridge-hub-rococo-runtime/runtime-benchmarks",
+	"bridge-hub-westend-runtime/runtime-benchmarks",
+	"collectives-westend-runtime/runtime-benchmarks",
+	"coretime-rococo-runtime/runtime-benchmarks",
+	"coretime-westend-runtime/runtime-benchmarks",
+	"glutton-westend-runtime/runtime-benchmarks",
+	"penpal-runtime/runtime-benchmarks",
+	"people-rococo-runtime/runtime-benchmarks",
+	"people-westend-runtime/runtime-benchmarks",
+	"rococo-parachain-runtime/runtime-benchmarks",
+	"xcm/runtime-benchmarks",
+	"yet-another-parachain-runtime/runtime-benchmarks",
+]
 try-runtime = [
 	"polkadot-omni-node-lib/try-runtime",
 

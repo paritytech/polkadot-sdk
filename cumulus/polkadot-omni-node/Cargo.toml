@@ -26,4 +26,9 @@ substrate-build-script-utils = { workspace = true, default-features = true }
 
 [features]
 default = []
-try-runtime = ["polkadot-omni-node-lib/try-runtime"]
+runtime-benchmarks = [
+	"polkadot-omni-node-lib/runtime-benchmarks",
+]
+try-runtime = [
+	"polkadot-omni-node-lib/try-runtime",
+]

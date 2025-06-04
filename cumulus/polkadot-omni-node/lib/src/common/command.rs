@@ -16,7 +16,9 @@
 
 use crate::common::spec::BaseNodeSpec;
 use cumulus_client_cli::ExportGenesisHeadCommand;
-use frame_benchmarking_cli::{BlockCmd, StorageCmd};
+use frame_benchmarking_cli::BlockCmd;
+#[cfg(any(feature = "runtime-benchmarks"))]
+use frame_benchmarking_cli::StorageCmd;
 use sc_cli::{CheckBlockCmd, ExportBlocksCmd, ExportStateCmd, ImportBlocksCmd, RevertCmd};
 use sc_service::{Configuration, TaskManager};
 use std::{future::Future, pin::Pin};
@@ -69,6 +71,7 @@ pub trait NodeCommandRunner {
 		cmd: &BlockCmd,
 	) -> SyncCmdResult;
 
+	#[cfg(any(feature = "runtime-benchmarks"))]
 	fn run_benchmark_storage_cmd(
 		self: Box<Self>,
 		config: Configuration,
@@ -143,6 +146,7 @@ where
 		cmd.run(partial.client)
 	}
 
+	#[cfg(any(feature = "runtime-benchmarks"))]
 	fn run_benchmark_storage_cmd(
 		self: Box<Self>,
 		config: Configuration,
