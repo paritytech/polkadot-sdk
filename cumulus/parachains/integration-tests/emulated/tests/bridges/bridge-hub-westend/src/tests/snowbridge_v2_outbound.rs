@@ -132,7 +132,7 @@ pub fn register_relay_token_from_asset_hub_with_sudo() {
 	AssetHubWestend::execute_with(|| {
 		type RuntimeOrigin = <AssetHubWestend as Chain>::RuntimeOrigin;
 
-		let fees_asset = Asset { id: AssetId(ethereum()), fun: Fungible(0) };
+		let fees_asset = Asset { id: AssetId(ethereum()), fun: Fungible(1) };
 
 		assert_ok!(
 			<AssetHubWestend as AssetHubWestendPallet>::SnowbridgeSystemFrontend::register_token(

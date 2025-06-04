@@ -374,8 +374,9 @@ pub mod pallet {
 					return Err(Error::<T>::UnsupportedAsset.into())
 				},
 			};
-			if fee_amount == 0 {
-				return Ok(fee_amount)
+			// Skip fee for root location
+			if fee_amount == 0 || origin.clone().is_here() {
+				return Ok(0)
 			}
 
 			let ether_gained = if *fee_asset_location != ether_location {
