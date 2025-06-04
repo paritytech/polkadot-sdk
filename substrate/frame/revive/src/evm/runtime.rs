@@ -397,6 +397,7 @@ pub trait EthExtra {
 				.min(actual_fee);
 
 		crate::tracing::if_tracing(|tracer| {
+			tracer.watch_address(&Pallet::<Self::Config>::coinbase().unwrap_or_default());
 			tracer.watch_address(&signer_addr);
 		});
 
