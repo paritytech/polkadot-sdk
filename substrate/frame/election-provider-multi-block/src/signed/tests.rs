@@ -641,6 +641,22 @@ mod e2e {
 	}
 
 	#[test]
+	fn after_rejecting_calls_verifier_start_again_if_leader_exists() {
+		todo!()
+	}
+
+	#[test]
+	fn after_rejecting_does_not_call_verifier_start_again_if_no_leader_exists() {
+		todo!()
+	}
+
+	#[test]
+	fn after_accepting_one_solution_verifier_is_idle_if_no_leader_exists() {
+		// and eventually nukes itself at the last block
+		todo!()
+	}
+
+	#[test]
 	fn missing_pages_treated_as_empty() {
 		// Test the scenario where a valid multi-page solution is mined but only some pages
 		// are submitted.
@@ -783,6 +799,19 @@ mod defensive_tests {
 				]
 			);
 		});
+	}
+
+	#[test]
+	fn signed_verification_incomplete_to_unsigned() {
+		// verifier pallet should be nuked.
+		// I think this will work
+		// this is equal to `partial_verification_interrupted_then_revert_to_signed_no_new_submission`
+	}
+
+	#[test]
+	fn signed_verification_incomplete_to_signed() {
+		// verifier pallet should be nuked.
+		// I think this will not work.
 	}
 
 	#[test]

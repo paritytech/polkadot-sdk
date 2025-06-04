@@ -464,9 +464,18 @@ pub trait ExecuteWithSanityChecks {
 
 impl ExecuteWithSanityChecks for sp_io::TestExternalities {
 	fn execute_with_sanity_checks(&mut self, test: impl FnOnce() -> ()) {
+		self.execute_with(all_pallets_integrity_test);
 		self.execute_with(test);
-		self.execute_with(all_pallets_sanity_checks)
+		self.execute_with(all_pallets_sanity_checks);
 	}
+}
+
+fn all_pallets_integrity_test() {
+	// ensure that all pallets are sane.
+	VerifierPallet::integrity_test();
+	UnsignedPallet::integrity_test();
+	MultiBlock::integrity_test();
+	SignedPallet::integrity_test();
 }
 
 fn all_pallets_sanity_checks() {

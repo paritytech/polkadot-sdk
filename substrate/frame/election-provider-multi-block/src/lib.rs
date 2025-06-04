@@ -753,8 +753,8 @@ pub mod pallet {
 				"Signed phase not set correct -- both should be set or unset"
 			);
 			assert!(
-				signed_validation.is_zero() || signed_validation >= T::Pages::get().into(),
-				"signed validation phase should be at least as long as the number of pages."
+				signed_validation.is_zero() || signed_validation % T::Pages::get().into() == Zero::zero(),
+				"signed validation phase should be at a multiple of the number of pages."
 			);
 
 			assert!(has_signed || has_unsigned, "either signed or unsigned phase must be set");

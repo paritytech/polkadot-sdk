@@ -122,7 +122,10 @@ impl<T: Config> SolutionDataProvider for Pallet<T> {
 	fn get_page(page: PageIndex) -> Self::Solution {
 		let current_round = Self::current_round();
 		Submissions::<T>::leader(current_round)
-			.map(|(who, _score)| {
+			// leader is checked to exists, before any time we call `Verifier::start`, we don't ever
+			// change it otherwise.
+			.defensive()
+			.and_then(|(who, _score)| {
 				sublog!(
 					info,
 					"signed",
@@ -130,11 +133,12 @@ impl<T: Config> SolutionDataProvider for Pallet<T> {
 					page,
 					who
 				);
-				Submissions::<T>::get_page_of(current_round, &who, page).unwrap_or_default()
+				Submissions::<T>::get_page_of(current_round, &who, page)
 			})
 			.unwrap_or_default()
 	}
 
+	// TODO: should also return `ElectionScore`
 	fn get_score() -> Option<ElectionScore> {
 		Submissions::<T>::leader(Self::current_round()).map(|(_who, score)| score)
 	}
@@ -169,15 +173,6 @@ impl<T: Config> SolutionDataProvider for Pallet<T> {
 						Precision::BestEffort,
 					);
 					debug_assert!(_res.is_ok());
-				} else {
-					// No leader to reward; nothing to do.
-					sublog!(
-						warn,
-						"signed",
-						"Tried to report Queued but no leader was present for round {}",
-						current_round
-					);
-					defensive!("should never happen");
 				}
 			},
 			VerificationResult::Rejected => {
@@ -191,7 +186,7 @@ impl<T: Config> SolutionDataProvider for Pallet<T> {
 					"Verification data unavailable for round {} - it should never happen",
 					current_round
 				);
-				defensive!("VerificationDataUnavailable should never happen");
+				debug_assert!(false, "VerificationDataUnavailable should never happen");
 			},
 		}
 	}
@@ -917,6 +912,11 @@ pub mod pallet {
 				}
 			}
 
+			// TODO: This is not accurate, it will not capture the case where unsigned phase is 0
+			// what happens here is that we go Phase::AreWeDone -> Phase::Signed
+			// what we could do is to remove this
+			// move it to the signed verifier pallet itself, let it nuke itself.
+			// Option B: let the parent pallet decide this
 			if crate::Pallet::<T>::current_phase().is_unsigned_opened_now() {
 				// signed validation phase just ended, make sure you stop any ongoing operation.
 				sublog!(info, "signed", "signed validation ended, sending validation stop signal",);
