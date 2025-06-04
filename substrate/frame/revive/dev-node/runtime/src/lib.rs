@@ -285,7 +285,7 @@ impl frame_system::Config for Runtime {
 }
 
 parameter_types! {
-	pub const ExistentialDeposit: Balance = 1 * DOLLARS;
+	pub const ExistentialDeposit: Balance = DOLLARS;
 }
 
 // Implements the types required for the balances pallet.
