@@ -15,6 +15,7 @@ default_args = [
 	"--state-pruning=1024",
 	"-lsync=info",
 	"-ltxpool=debug",
+	"-ltxpoolstat=debug",
 ]
 [relaychain.genesis.runtimeGenesis.patch.balances]
 devAccounts = [
