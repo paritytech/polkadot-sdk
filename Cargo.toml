@@ -417,6 +417,8 @@ members = [
 	"substrate/frame/referenda",
 	"substrate/frame/remark",
 	"substrate/frame/revive",
+	"substrate/frame/revive/dev-node/node",
+	"substrate/frame/revive/dev-node/runtime",
 	"substrate/frame/revive/fixtures",
 	"substrate/frame/revive/proc-macro",
 	"substrate/frame/revive/rpc",
@@ -902,6 +904,8 @@ metered = { version = "0.6.1", default-features = false, package = "prioritized-
 milagro-bls = { version = "1.5.4", default-features = false, package = "snowbridge-milagro-bls" }
 minimal-template-node = { path = "templates/minimal/node" }
 minimal-template-runtime = { path = "templates/minimal/runtime" }
+revive-dev-node = { path = "substrate/frame/revive/dev-node/node" }
+revive-dev-runtime = { path = "substrate/frame/revive/dev-node/runtime" }
 mixnet = { version = "0.7.0" }
 mmr-gadget = { path = "substrate/client/merkle-mountain-range", default-features = false }
 mmr-lib = { version = "0.8.1", package = "polkadot-ckb-merkle-mountain-range", default-features = false }
