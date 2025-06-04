@@ -316,7 +316,7 @@ macro_rules! include_teleports_for_native_asset_works(
 		$runtime:path,
 		$all_pallets_without_system:path,
 		$xcm_config:path,
-		$checking_account:tt,
+		$checking_account:ty,
 		$weight_to_fee:path,
 		$hrmp_channel_opener:path,
 		$collator_session_key:expr,

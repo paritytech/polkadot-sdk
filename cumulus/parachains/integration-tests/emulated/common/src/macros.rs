@@ -140,11 +140,6 @@ macro_rules! test_parachain_is_trusted_teleporter {
 						delivery_fees_amount = inner_delivery_fees_amount;
 					});
 
-					// TODO: The test fails without the line below, seems like no horizontal message passing is being done
-					//       when also using dry_run_call above (it works if there is no dry_run_call)
-					//       So this is just workaround, must be investigated
-					<$sender_para as $crate::macros::TestExt>::execute_with(|| { });
-
 					// Send XCM message from Origin Parachain
 					<$sender_para as $crate::macros::TestExt>::execute_with(|| {
 						let origin = <$sender_para as $crate::macros::Chain>::RuntimeOrigin::signed(sender.clone());
@@ -345,12 +340,7 @@ macro_rules! test_parachain_is_trusted_teleporter_for_relay {
 		$crate::macros::paste::paste! {
 			// init Origin variables
 			let sender = [<$sender_para Sender>]::get();
-			// Mint assets to `$sender_para` to succeed with teleport.
-			// <$sender_para as $crate::macros::TestExt>::execute_with(|| {
-			// 	$crate::macros::assert_ok!(<<$sender_para as [<$sender_para Pallet>]>::Balances
-			// 		as $crate::macros::Mutate<_>>::mint_into(&sender, $amount + 10_000_000_000));
 
-			// });
 			let mut para_sender_balance_before =
 				<$sender_para as $crate::macros::Chain>::account_data_of(sender.clone()).free;
 			let origin = <$sender_para as $crate::macros::Chain>::RuntimeOrigin::signed(sender.clone());
