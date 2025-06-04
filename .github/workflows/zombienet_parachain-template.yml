@@ -18,10 +18,6 @@ env:
   GHA_CLUSTER_SERVER_ADDR: "https://kubernetes.default:443"
   # use spot by default
   X_INFRA_INSTANCE: "spot"
-  # don't retry sdk tests
-  NEXTEST_RETRIES: 0
-  ZOMBIE_PROVIDER: "native"
-  RUST_LOG: "info,zombienet_orchestrator=debug"
 
 # only run if we have changes in [subtrate, polkadot] directories or this workflow.
 jobs:
@@ -29,23 +25,23 @@ jobs:
     uses: ./.github/workflows/reusable-isdraft.yml
   preflight:
     needs: isdraft
-    if: false
     uses: ./.github/workflows/zombienet-reusable-preflight.yml
 
 
   zombienet-parachain-template-smoke:
     needs: [preflight]
     if: ${{ (needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_polkadot) &&  ! contains(needs.preflight.outputs.FLAKY_TESTS, 'zombienet-parachain-template-smoke') }}
-    runs-on: parity-default
+    runs-on: ${{ needs.preflight.outputs.ZOMBIENET_SDK_RUNNER }}
     timeout-minutes: 30
     container:
-      image: ${{ needs.preflight.outputs.CI_IMAGE }}
+      image: ${{ needs.preflight.outputs.ZOMBIENET_SDK_IMAGE }}
     env:
-      ZOMBIE_PROVIDER: "native"
-      RUST_LOG: "info,zombienet_orchestrator=debug"
+      # sdk tests are looking for POLKADOT_IMAGE
+      POLKADOT_IMAGE: "${{ needs.preflight.outputs.TEMP_IMAGES_BASE }}/polkadot-debug:${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"
+      CUMULUS_IMAGE: "${{ needs.preflight.outputs.TEMP_IMAGES_BASE }}/test-parachain:${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"
+      ZOMBIE_PROVIDER: ${{ needs.preflight.outputs.ZOMBIE_PROVIDER }}
+      RUST_LOG: ${{ needs.preflight.outputs.RUST_LOG }}
       FF_DISABLE_UMASK_FOR_DOCKER_EXECUTOR: 1
-      RUN_IN_CONTAINER: "1"
-      IMAGE: ${{ needs.preflight.outputs.CI_IMAGE }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
