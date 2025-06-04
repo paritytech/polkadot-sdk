@@ -566,7 +566,6 @@ fn input_data_to_instantiate() {
 				vec![1, 2, 3, 4],
 				Some(&[0; 32]),
 				false,
-				NonceAlreadyIncremented::Yes,
 			);
 			assert_matches!(result, Ok(_));
 		});
@@ -1069,7 +1068,6 @@ fn refuse_instantiate_with_value_below_existential_deposit() {
 				vec![],
 				Some(&[0; 32]),
 				false,
-				NonceAlreadyIncremented::Yes,
 			),
 			Err(_)
 		);
@@ -1103,7 +1101,6 @@ fn instantiation_work_with_success_output() {
 					vec![],
 					Some(&[0 ;32]),
 					false,
-					NonceAlreadyIncremented::Yes,
 				),
 				Ok((address, ref output)) if output.data == vec![80, 65, 83, 83] => address
 			);
@@ -1148,7 +1145,6 @@ fn instantiation_fails_with_failing_output() {
 					vec![],
 					Some(&[0; 32]),
 					false,
-					NonceAlreadyIncremented::Yes,
 				),
 				Ok((address, ref output)) if output.data == vec![70, 65, 73, 76] => address
 			);
@@ -1309,7 +1305,6 @@ fn termination_from_instantiate_fails() {
 					vec![],
 					Some(&[0; 32]),
 					false,
-					NonceAlreadyIncremented::Yes,
 				),
 				Err(ExecError {
 					error: Error::<Test>::TerminatedInConstructor.into(),
@@ -1436,7 +1431,6 @@ fn recursive_call_during_constructor_is_balance_transfer() {
 				vec![],
 				Some(&[0; 32]),
 				false,
-				NonceAlreadyIncremented::Yes,
 			);
 			assert_matches!(result, Ok(_));
 		});
@@ -1735,7 +1729,7 @@ fn nonce() {
 	});
 	let succ_succ_code = MockLoader::insert(Constructor, move |ctx, _| {
 		let alice_nonce = System::account_nonce(&ALICE);
-		assert_eq!(System::account_nonce(ctx.ext.account_id()), 0);
+		assert_eq!(System::account_nonce(ctx.ext.account_id()), 1);
 		assert_eq!(ctx.ext.caller().account_id().unwrap(), &ALICE);
 		let addr = ctx
 			.ext
@@ -1753,8 +1747,8 @@ fn nonce() {
 			<<Test as Config>::AddressMapper as AddressMapper<Test>>::to_fallback_account_id(&addr);
 
 		assert_eq!(System::account_nonce(&ALICE), alice_nonce);
-		assert_eq!(System::account_nonce(ctx.ext.account_id()), 1);
-		assert_eq!(System::account_nonce(&account_id), 0);
+		assert_eq!(System::account_nonce(ctx.ext.account_id()), 2);
+		assert_eq!(System::account_nonce(&account_id), 1);
 
 		// a plain call should not influence the account counter
 		ctx.ext
@@ -1762,8 +1756,8 @@ fn nonce() {
 			.unwrap();
 
 		assert_eq!(System::account_nonce(ALICE), alice_nonce);
-		assert_eq!(System::account_nonce(ctx.ext.account_id()), 1);
-		assert_eq!(System::account_nonce(&account_id), 0);
+		assert_eq!(System::account_nonce(ctx.ext.account_id()), 2);
+		assert_eq!(System::account_nonce(&account_id), 1);
 
 		exec_success()
 	});
@@ -1795,7 +1789,6 @@ fn nonce() {
 				vec![],
 				Some(&[0; 32]),
 				false,
-				NonceAlreadyIncremented::Yes,
 			)
 			.ok();
 			assert_eq!(System::account_nonce(&ALICE), 0);
@@ -1809,7 +1802,6 @@ fn nonce() {
 				vec![],
 				Some(&[0; 32]),
 				false,
-				NonceAlreadyIncremented::Yes,
 			));
 			assert_eq!(System::account_nonce(&ALICE), 1);
 
@@ -1822,7 +1814,6 @@ fn nonce() {
 				vec![],
 				Some(&[0; 32]),
 				false,
-				NonceAlreadyIncremented::Yes,
 			));
 			assert_eq!(System::account_nonce(&ALICE), 2);
 
@@ -1835,7 +1826,6 @@ fn nonce() {
 				vec![],
 				Some(&[0; 32]),
 				false,
-				NonceAlreadyIncremented::Yes,
 			));
 			assert_eq!(System::account_nonce(&ALICE), 3);
 		});
@@ -2815,7 +2805,6 @@ fn immutable_data_set_overrides() {
 				vec![],
 				None,
 				false,
-				NonceAlreadyIncremented::Yes,
 			)
 			.unwrap()
 			.0;

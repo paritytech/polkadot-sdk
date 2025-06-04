@@ -26,7 +26,7 @@ use crate::{
 	tracing::if_tracing,
 	transient_storage::TransientStorage,
 	BalanceOf, CodeInfo, CodeInfoOf, Config, ContractInfo, ContractInfoOf, ConversionPrecision,
-	Error, Event, ImmutableData, ImmutableDataOf, NonceAlreadyIncremented, Pallet as Contracts,
+	Error, Event, ImmutableData, ImmutableDataOf, Pallet as Contracts,
 };
 use alloc::vec::Vec;
 use core::{fmt::Debug, marker::PhantomData, mem};
@@ -83,11 +83,6 @@ pub enum Key {
 
 impl Key {
 	/// Reference to the raw unhashed key.
-	///
-	/// # Note
-	///
-	/// Only used by benchmarking in order to generate storage collisions on purpose.
-	#[cfg(feature = "runtime-benchmarks")]
 	pub fn unhashed(&self) -> &[u8] {
 		match self {
 			Key::Fix(v) => v.as_ref(),
@@ -619,7 +614,6 @@ enum FrameArgs<'a, T: Config, E> {
 		salt: Option<&'a [u8; 32]>,
 		/// The input data is used in the contract address derivation of the new contract.
 		input_data: &'a [u8],
-		nonce_already_incremented: NonceAlreadyIncremented,
 	},
 }
 
@@ -778,7 +772,6 @@ where
 		)? {
 			stack.run(executable, input_data).map(|_| stack.first_frame.last_frame_output)
 		} else {
-			let result = Self::transfer_from_origin(&origin, &origin, &dest, value);
 			if_tracing(|t| {
 				t.enter_child_span(
 					origin.account_id().map(T::AddressMapper::to_address).unwrap_or_default(),
@@ -789,10 +782,13 @@ where
 					&input_data,
 					Weight::zero(),
 				);
-				match result {
-					Ok(ref output) => t.exit_child_span(&output, Weight::zero()),
-					Err(e) => t.exit_child_span_with_error(e.error.into(), Weight::zero()),
-				}
+			});
+
+			let result = Self::transfer_from_origin(&origin, &origin, &dest, value);
+
+			if_tracing(|t| match result {
+				Ok(ref output) => t.exit_child_span(&output, Weight::zero()),
+				Err(e) => t.exit_child_span_with_error(e.error.into(), Weight::zero()),
 			});
 
 			result
@@ -813,7 +809,6 @@ where
 		input_data: Vec<u8>,
 		salt: Option<&[u8; 32]>,
 		skip_transfer: bool,
-		nonce_already_incremented: NonceAlreadyIncremented,
 	) -> Result<(H160, ExecReturnValue), ExecError> {
 		let (mut stack, executable) = Self::new(
 			FrameArgs::Instantiate {
@@ -821,7 +816,6 @@ where
 				executable,
 				salt,
 				input_data: input_data.as_ref(),
-				nonce_already_incremented,
 			},
 			Origin::from_account_id(origin),
 			gas_meter,
@@ -882,6 +876,7 @@ where
 			storage_meter,
 			BalanceOf::<T>::max_value(),
 			false,
+			true,
 		)?
 		else {
 			return Ok(None);
@@ -915,6 +910,7 @@ where
 		storage_meter: &mut storage::meter::GenericMeter<T, S>,
 		deposit_limit: BalanceOf<T>,
 		read_only: bool,
+		origin_is_caller: bool,
 	) -> Result<Option<(Frame<T>, ExecutableOrPrecompile<T, E, Self>)>, ExecError> {
 		let (account_id, contract_info, executable, delegate, entry_point) = match frame_args {
 			FrameArgs::Call { dest, cached_info, delegated_call } => {
@@ -978,13 +974,7 @@ where
 
 				(dest, contract, executable, delegated_call, ExportedFunction::Call)
 			},
-			FrameArgs::Instantiate {
-				sender,
-				executable,
-				salt,
-				input_data,
-				nonce_already_incremented,
-			} => {
+			FrameArgs::Instantiate { sender, executable, salt, input_data } => {
 				let deployer = T::AddressMapper::to_address(&sender);
 				let account_nonce = <System<T>>::account_nonce(&sender);
 				let address = if let Some(salt) = salt {
@@ -995,7 +985,7 @@ where
 						&deployer,
 						// the Nonce from the origin has been incremented pre-dispatch, so we
 						// need to subtract 1 to get the nonce at the time of the call.
-						if matches!(nonce_already_incremented, NonceAlreadyIncremented::Yes) {
+						if origin_is_caller {
 							account_nonce.saturating_sub(1u32.into()).saturated_into()
 						} else {
 							account_nonce.saturated_into()
@@ -1071,6 +1061,7 @@ where
 			nested_storage,
 			deposit_limit,
 			read_only,
+			false,
 		)? {
 			self.frames.try_push(frame).map_err(|_| Error::<T>::MaxCallDepthReached)?;
 			Ok(Some(executable))
@@ -1142,6 +1133,9 @@ where
 				// account must exist. With the consumer, a correct runtime cannot remove the
 				// account.
 				<System<T>>::inc_consumers(account_id)?;
+
+				// Contracts nonce starts at 1
+				<System<T>>::inc_account_nonce(account_id);
 
 				// Needs to be incremented before calling into the code so that it is visible
 				// in case of recursion.
@@ -1680,7 +1674,6 @@ where
 				executable,
 				salt,
 				input_data: input_data.as_ref(),
-				nonce_already_incremented: NonceAlreadyIncremented::No,
 			},
 			value.try_into().map_err(|_| Error::<T>::BalanceConversionFailed)?,
 			gas_limit,
@@ -1759,6 +1752,18 @@ where
 			)? {
 				self.run(executable, input_data)
 			} else {
+				if_tracing(|t| {
+					t.enter_child_span(
+						T::AddressMapper::to_address(self.account_id()),
+						T::AddressMapper::to_address(&dest),
+						false,
+						is_read_only,
+						value,
+						&input_data,
+						Weight::zero(),
+					);
+				});
+
 				let result = if is_read_only && value.is_zero() {
 					Ok(Default::default())
 				} else if is_read_only {
@@ -1772,21 +1777,11 @@ where
 					)
 				};
 
-				if_tracing(|t| {
-					t.enter_child_span(
-						T::AddressMapper::to_address(self.account_id()),
-						T::AddressMapper::to_address(&dest),
-						false,
-						is_read_only,
-						value,
-						&input_data,
-						Weight::zero(),
-					);
-					match result {
-						Ok(ref output) => t.exit_child_span(&output, Weight::zero()),
-						Err(e) => t.exit_child_span_with_error(e.error.into(), Weight::zero()),
-					}
+				if_tracing(|t| match result {
+					Ok(ref output) => t.exit_child_span(&output, Weight::zero()),
+					Err(e) => t.exit_child_span_with_error(e.error.into(), Weight::zero()),
 				});
+
 				result.map(|_| ())
 			}
 		};
@@ -1879,7 +1874,12 @@ where
 	}
 
 	fn balance_of(&self, address: &H160) -> U256 {
-		self.account_balance(&<Self::T as Config>::AddressMapper::to_account_id(address))
+		let balance =
+			self.account_balance(&<Self::T as Config>::AddressMapper::to_account_id(address));
+		if_tracing(|tracer| {
+			tracer.balance_read(address, balance);
+		});
+		balance
 	}
 
 	fn value_transferred(&self) -> U256 {

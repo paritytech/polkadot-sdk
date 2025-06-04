@@ -296,12 +296,12 @@ pub trait EthExtra {
 			InvalidTransaction::Call
 		})?;
 
-		let signer = tx.recover_eth_address().map_err(|err| {
+		let signer_addr = tx.recover_eth_address().map_err(|err| {
 			log::debug!(target: LOG_TARGET, "Failed to recover signer: {err:?}");
 			InvalidTransaction::BadProof
 		})?;
 
-		let signer = <Self::Config as Config>::AddressMapper::to_fallback_account_id(&signer);
+		let signer = <Self::Config as Config>::AddressMapper::to_fallback_account_id(&signer_addr);
 		let GenericTransaction { nonce, chain_id, to, value, input, gas, gas_price, .. } =
 			GenericTransaction::from_signed(tx, crate::GAS_PRICE.into(), None);
 
@@ -364,7 +364,10 @@ pub trait EthExtra {
 
 		let mut info = call.get_dispatch_info();
 		let function: CallOf<Self::Config> = call.into();
-		let nonce = nonce.unwrap_or_default().try_into().map_err(|_| InvalidTransaction::Call)?;
+		let nonce = nonce.unwrap_or_default().try_into().map_err(|_| {
+			log::debug!(target: LOG_TARGET, "Failed to convert nonce");
+			InvalidTransaction::Call
+		})?;
 		let gas_price = gas_price.unwrap_or_default();
 
 		let eth_fee = Pallet::<Self::Config>::evm_gas_to_fee(gas, gas_price)
@@ -393,12 +396,72 @@ pub trait EthExtra {
 				.unwrap_or_default()
 				.min(actual_fee);
 
+		crate::tracing::if_tracing(|tracer| {
+			tracer.watch_address(&Pallet::<Self::Config>::coinbase().unwrap_or_default());
+			tracer.watch_address(&signer_addr);
+		});
+
 		log::debug!(target: LOG_TARGET, "Created checked Ethereum transaction with nonce: {nonce:?} and tip: {tip:?}");
 		Ok(CheckedExtrinsic {
 			format: ExtrinsicFormat::Signed(signer.into(), Self::get_eth_extension(nonce, tip)),
 			function,
 		})
 	}
+}
+
+use crate::tracing::if_tracing;
+use frame_support::DebugNoBound;
+use sp_runtime::{
+	impl_tx_ext_default,
+	traits::{AsSystemOriginSigner, DispatchInfoOf, DispatchOriginOf},
+};
+
+/// TODO document
+#[derive(Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, TypeInfo, DebugNoBound)]
+#[scale_info(skip_type_params(T))]
+pub struct EvmTracingExtension<T: frame_system::Config>(core::marker::PhantomData<T>);
+
+impl<T: frame_system::Config + Send + Sync> TransactionExtension<T::RuntimeCall>
+	for EvmTracingExtension<T>
+where
+	T::RuntimeCall: Dispatchable<Info = DispatchInfo>,
+	<T::RuntimeCall as Dispatchable>::RuntimeOrigin: AsSystemOriginSigner<T::AccountId> + Clone,
+{
+	type Val = ();
+	type Pre = ();
+	type Implicit = ();
+	const IDENTIFIER: &'static str = "EvmTracing";
+
+	impl_tx_ext_default!(T::RuntimeCall; weight validate);
+
+	fn prepare(
+		self,
+		_val: Self::Val,
+		origin: &DispatchOriginOf<T::RuntimeCall>,
+		_call: &T::RuntimeCall,
+		_info: &DispatchInfoOf<T::RuntimeCall>,
+		_len: usize,
+	) -> Result<Self::Pre, TransactionValidityError> {
+		if_tracing(|_t| {
+			let Some(_who) = origin.as_system_origin_signer() else {
+				return;
+			};
+			// do something with who
+		});
+
+		Ok(())
+	}
+
+	// fn post_dispatch_details(
+	// 	_pre: Self::Pre,
+	// 	_info: &DispatchInfoOf<T::RuntimeCall>,
+	// 	_post_info: &PostDispatchInfoOf<T::RuntimeCall>,
+	// 	_len: usize,
+	// 	_result: &DispatchResult,
+	// ) -> Result<Weight, TransactionValidityError> {
+	// 	// do something post dispatch?
+	// 	Ok(Weight::zero())
+	// }
 }
 
 #[cfg(test)]
@@ -468,7 +531,7 @@ mod test {
 		}
 
 		fn estimate_gas(&mut self) {
-			let dry_run = crate::Pallet::<Test>::bare_eth_transact(
+			let dry_run = crate::Pallet::<Test>::dry_run_eth_transact(
 				self.tx.clone(),
 				Weight::MAX,
 				|call, mut info| {

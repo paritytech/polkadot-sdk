@@ -44,8 +44,8 @@ pub mod weights;
 
 use crate::{
 	evm::{
-		runtime::GAS_PRICE, CallTracer, GasEncoder, GenericTransaction, Trace, Tracer, TracerType,
-		TYPE_EIP1559,
+		runtime::GAS_PRICE, CallTracer, GasEncoder, GenericTransaction, PrestateTracer, Trace,
+		Tracer, TracerType, TYPE_EIP1559,
 	},
 	exec::{AccountIdOf, ExecError, Executable, Key, Stack as ExecStack},
 	gas::GasMeter,
@@ -519,18 +519,6 @@ pub mod pallet {
 		AddressMapping,
 	}
 
-	#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-	pub enum NonceAlreadyIncremented {
-		/// Indicates that the nonce has not been incremented yet.
-		///
-		/// This happens when the instantiation is triggered by a dry-run or another contract.
-		No,
-		/// Indicates that the nonce has already been incremented.
-		///
-		/// This happens when the instantiation is triggered by a transaction.
-		Yes,
-	}
-
 	/// A mapping from a contract's code hash to its code.
 	#[pallet::storage]
 	pub(crate) type PristineCode<T: Config> = StorageMap<_, Identity, H256, CodeVec>;
@@ -815,7 +803,6 @@ pub mod pallet {
 				Code::Existing(code_hash),
 				data,
 				salt,
-				NonceAlreadyIncremented::Yes,
 			);
 			if let Ok(retval) = &output.result {
 				if retval.result.did_revert() {
@@ -880,7 +867,6 @@ pub mod pallet {
 				Code::Upload(code),
 				data,
 				salt,
-				NonceAlreadyIncremented::Yes,
 			);
 			if let Ok(retval) = &output.result {
 				if retval.result.did_revert() {
@@ -1082,6 +1068,17 @@ where
 		}
 	}
 
+	/// Prepare a dry run for the given account.
+	///
+	///
+	/// This function is public because it is called by the runtime API implementation
+	/// (see `impl_runtime_apis_plus_revive`).
+	pub fn prepare_dry_run(account: &T::AccountId) {
+		// Bump the  nonce to simulate what would happen
+		// `pre-dispatch` if the transaction was executed.
+		frame_system::Pallet::<T>::inc_account_nonce(account);
+	}
+
 	/// A generalized version of [`Self::instantiate`] or [`Self::instantiate_with_code`].
 	///
 	/// Identical to [`Self::instantiate`] or [`Self::instantiate_with_code`] but tailored towards
@@ -1095,7 +1092,6 @@ where
 		code: Code,
 		data: Vec<u8>,
 		salt: Option<[u8; 32]>,
-		nonce_already_incremented: NonceAlreadyIncremented,
 	) -> ContractResult<InstantiateReturnValue, BalanceOf<T>> {
 		let mut gas_meter = GasMeter::new(gas_limit);
 		let mut storage_deposit = Default::default();
@@ -1138,7 +1134,6 @@ where
 				data,
 				salt.as_ref(),
 				unchecked_deposit_limit,
-				nonce_already_incremented,
 			);
 			storage_deposit = storage_meter
 				.try_into_deposit(&instantiate_origin, unchecked_deposit_limit)?
@@ -1156,14 +1151,14 @@ where
 		}
 	}
 
-	/// A version of [`Self::eth_transact`] used to dry-run Ethereum calls.
+	/// Dry-run Ethereum calls.
 	///
 	/// # Parameters
 	///
 	/// - `tx`: The Ethereum transaction to simulate.
 	/// - `gas_limit`: The gas limit enforced during contract execution.
 	/// - `tx_fee`: A function that returns the fee for the given call and dispatch info.
-	pub fn bare_eth_transact(
+	pub fn dry_run_eth_transact(
 		mut tx: GenericTransaction,
 		gas_limit: Weight,
 		tx_fee: impl Fn(Call<T>, DispatchInfo) -> BalanceOf<T>,
@@ -1176,10 +1171,11 @@ where
 		T::Nonce: Into<U256>,
 		T::Hash: frame_support::traits::IsType<H256>,
 	{
-		log::trace!(target: LOG_TARGET, "bare_eth_transact: tx: {tx:?} gas_limit: {gas_limit:?}");
+		log::trace!(target: LOG_TARGET, "dry_run_eth_transact: {tx:?} gas_limit: {gas_limit:?}");
 
 		let from = tx.from.unwrap_or_default();
 		let origin = T::AddressMapper::to_account_id(&from);
+		Self::prepare_dry_run(&origin);
 
 		let storage_deposit_limit = if tx.gas.is_some() {
 			DepositLimit::Balance(BalanceOf::<T>::max_value())
@@ -1308,7 +1304,6 @@ where
 					Code::Upload(code.to_vec()),
 					data.to_vec(),
 					None,
-					NonceAlreadyIncremented::No,
 				);
 
 				let returned_data = match result.result {
@@ -1372,6 +1367,26 @@ where
 		Self::convert_native_to_evm(T::Currency::reducible_balance(&account, Preserve, Polite))
 	}
 
+	/// Get the nonce for the given `address`.
+	pub fn evm_nonce(address: &H160) -> u32
+	where
+		T::Nonce: Into<u32>,
+	{
+		let account = T::AddressMapper::to_account_id(&address);
+		System::<T>::account_nonce(account).into()
+	}
+
+	/// The address of the validator that produced the current block.
+	pub fn coinbase() -> Option<H160> {
+		use frame_support::traits::FindAuthor;
+
+		let digest = <frame_system::Pallet<T>>::digest();
+		let pre_runtime_digests = digest.logs.iter().filter_map(|d| d.as_pre_runtime());
+
+		let account_id = T::FindAuthor::find_author(pre_runtime_digests)?;
+		Some(T::AddressMapper::to_address(&account_id))
+	}
+
 	/// Convert a substrate fee into a gas value, using the fixed `GAS_PRICE`.
 	/// The gas is calculated as `fee / GAS_PRICE`, rounded up to the nearest integer.
 	pub fn evm_fee_to_gas(fee: BalanceOf<T>) -> U256 {
@@ -1413,13 +1428,18 @@ where
 	}
 
 	/// Build an EVM tracer from the given tracer type.
-	pub fn evm_tracer(tracer_type: TracerType) -> Tracer {
+	pub fn evm_tracer(tracer_type: TracerType) -> Tracer<T>
+	where
+		T::Nonce: Into<u32>,
+	{
 		match tracer_type {
 			TracerType::CallTracer(config) => CallTracer::new(
 				config.unwrap_or_default(),
 				Self::evm_gas_from_weight as fn(Weight) -> U256,
 			)
 			.into(),
+			TracerType::PrestateTracer(config) =>
+				PrestateTracer::new(config.unwrap_or_default()).into(),
 		}
 	}
 
@@ -1580,7 +1600,7 @@ sp_api::decl_runtime_apis! {
 
 		/// Perform an Ethereum call.
 		///
-		/// See [`crate::Pallet::bare_eth_transact`]
+		/// See [`crate::Pallet::dry_run_eth_transact`]
 		fn eth_transact(tx: GenericTransaction) -> Result<EthTransactInfo<Balance>, EthTransactError>;
 
 		/// Upload new code without instantiating a contract from it.
@@ -1640,6 +1660,9 @@ sp_api::decl_runtime_apis! {
 		/// See eth-rpc `debug_traceCall` for usage.
 		fn trace_call(tx: GenericTransaction, config: TracerType) -> Result<Trace, EthTransactError>;
 
+		/// The address of the validator that produced the current block.
+		fn coinbase() -> Option<H160>;
+
 	}
 }
 
@@ -1660,6 +1683,10 @@ macro_rules! impl_runtime_apis_plus_revive {
 			impl pallet_revive::ReviveApi<Block, AccountId, Balance, Nonce, BlockNumber> for $Runtime {
 				fn balance(address: $crate::H160) -> $crate::U256 {
 					$crate::Pallet::<Self>::evm_balance(&address)
+				}
+
+				fn coinbase() -> Option<$crate::H160> {
+					$crate::Pallet::<Self>::coinbase()
 				}
 
 				fn block_gas_limit() -> $crate::U256 {
@@ -1703,7 +1730,7 @@ macro_rules! impl_runtime_apis_plus_revive {
 
 					let blockweights: $crate::BlockWeights =
 						<Self as $crate::frame_system::Config>::BlockWeights::get();
-					$crate::Pallet::<Self>::bare_eth_transact(tx, blockweights.max_block, tx_fee)
+					$crate::Pallet::<Self>::dry_run_eth_transact(tx, blockweights.max_block, tx_fee)
 				}
 
 				fn call(
@@ -1718,10 +1745,9 @@ macro_rules! impl_runtime_apis_plus_revive {
 					let blockweights: $crate::BlockWeights =
 						<Self as $crate::frame_system::Config>::BlockWeights::get();
 
-					let origin =
-						<Self as $crate::frame_system::Config>::RuntimeOrigin::signed(origin);
+					$crate::Pallet::<Self>::prepare_dry_run(&origin);
 					$crate::Pallet::<Self>::bare_call(
-						origin,
+						<Self as $crate::frame_system::Config>::RuntimeOrigin::signed(origin),
 						dest,
 						value,
 						gas_limit.unwrap_or(blockweights.max_block),
@@ -1743,17 +1769,15 @@ macro_rules! impl_runtime_apis_plus_revive {
 					let blockweights: $crate::BlockWeights =
 						<Self as $crate::frame_system::Config>::BlockWeights::get();
 
-					let origin =
-						<Self as $crate::frame_system::Config>::RuntimeOrigin::signed(origin);
+					$crate::Pallet::<Self>::prepare_dry_run(&origin);
 					$crate::Pallet::<Self>::bare_instantiate(
-						origin,
+						<Self as $crate::frame_system::Config>::RuntimeOrigin::signed(origin),
 						value,
 						gas_limit.unwrap_or(blockweights.max_block),
 						$crate::DepositLimit::Balance(storage_deposit_limit.unwrap_or(u128::MAX)),
 						code,
 						data,
 						salt,
-						$crate::NonceAlreadyIncremented::No,
 					)
 				}
 
@@ -1793,9 +1817,7 @@ macro_rules! impl_runtime_apis_plus_revive {
 					<$Executive>::initialize_block(&header);
 					for (index, ext) in extrinsics.into_iter().enumerate() {
 						let t = tracer.as_tracing();
-						trace(t, || {
-							let _ = <$Executive>::apply_extrinsic(ext);
-						});
+						let _ = trace(t, || <$Executive>::apply_extrinsic(ext));
 
 						if let Some(tx_trace) = tracer.collect_trace() {
 							traces.push((index as u32, tx_trace));
@@ -1819,9 +1841,7 @@ macro_rules! impl_runtime_apis_plus_revive {
 					for (index, ext) in extrinsics.into_iter().enumerate() {
 						if index as u32 == tx_index {
 							let t = tracer.as_tracing();
-							trace(t, || {
-								let _ = <$Executive>::apply_extrinsic(ext);
-							});
+							let _ = trace(t, || <$Executive>::apply_extrinsic(ext));
 							break;
 						} else {
 							let _ = <$Executive>::apply_extrinsic(ext);
@@ -1839,6 +1859,8 @@ macro_rules! impl_runtime_apis_plus_revive {
 					let mut tracer = $crate::Pallet::<Self>::evm_tracer(tracer_type);
 					let t = tracer.as_tracing();
 
+					t.watch_address(&tx.from.unwrap_or_default());
+					t.watch_address(&$crate::Pallet::<Self>::coinbase().unwrap_or_default());
 					let result = trace(t, || Self::eth_transact(tx));
 
 					if let Some(trace) = tracer.collect_trace() {

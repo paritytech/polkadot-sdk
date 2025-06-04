@@ -22,17 +22,20 @@ use self::test_utils::{ensure_stored, expected_deposit};
 use crate::{
 	self as pallet_revive,
 	address::{create1, create2, AddressMapper},
-	evm::{runtime::GAS_PRICE, CallTrace, CallTracer, CallType, GenericTransaction},
+	evm::{
+		runtime::GAS_PRICE, CallTrace, CallTracer, CallType, GenericTransaction,
+		PrestateTracerConfig,
+	},
 	exec::Key,
 	limits,
 	storage::DeletionQueueManager,
 	test_utils::*,
 	tests::test_utils::{get_contract, get_contract_checked},
-	tracing::trace,
+	tracing::{trace, Tracing},
 	weights::WeightInfo,
 	AccountId32Mapper, BalanceOf, Code, CodeInfoOf, Config, ContractInfo, ContractInfoOf,
 	DeletionQueueCounter, DepositLimit, Error, EthTransactError, HoldReason, Origin, Pallet,
-	PristineCode, H160,
+	PrestateTracer, PristineCode, H160,
 };
 
 use crate::test_utils::builder::Contract;
@@ -3492,7 +3495,7 @@ fn create1_with_value_works() {
 		assert_ok!(builder::call(addr).value(value).data(code_hash.encode()).build());
 
 		// We should see the expected balance at the expected account
-		let address = crate::address::create1(&addr, 0);
+		let address = crate::address::create1(&addr, 1);
 		let account_id = <Test as Config>::AddressMapper::to_account_id(&address);
 		let usable_balance = <Test as Config>::Currency::usable_balance(&account_id);
 		assert_eq!(usable_balance, value);
@@ -4015,7 +4018,7 @@ fn skip_transfer_works() {
 
 		// when gas is some (transfers enabled): bob has no money: fail
 		assert_err!(
-			Pallet::<Test>::bare_eth_transact(
+			Pallet::<Test>::dry_run_eth_transact(
 				GenericTransaction {
 					from: Some(BOB_ADDR),
 					input: code.clone().into(),
@@ -4031,7 +4034,7 @@ fn skip_transfer_works() {
 		);
 
 		// no gas specified (all transfers are skipped): even without money bob can deploy
-		assert_ok!(Pallet::<Test>::bare_eth_transact(
+		assert_ok!(Pallet::<Test>::dry_run_eth_transact(
 			GenericTransaction {
 				from: Some(BOB_ADDR),
 				input: code.clone().into(),
@@ -4049,7 +4052,7 @@ fn skip_transfer_works() {
 
 		// call directly: fails with enabled transfers
 		assert_err!(
-			Pallet::<Test>::bare_eth_transact(
+			Pallet::<Test>::dry_run_eth_transact(
 				GenericTransaction {
 					from: Some(BOB_ADDR),
 					to: Some(addr),
@@ -4069,7 +4072,7 @@ fn skip_transfer_works() {
 		// we didn't roll back the storage changes done by the previous
 		// call. So the item already exists. We simply increase the size of
 		// the storage item to incur some deposits (which bob can't pay).
-		assert!(Pallet::<Test>::bare_eth_transact(
+		assert!(Pallet::<Test>::dry_run_eth_transact(
 			GenericTransaction {
 				from: Some(BOB_ADDR),
 				to: Some(caller_addr),
@@ -4083,7 +4086,7 @@ fn skip_transfer_works() {
 		.is_err(),);
 
 		// works when no gas is specified (skip transfer)
-		assert_ok!(Pallet::<Test>::bare_eth_transact(
+		assert_ok!(Pallet::<Test>::dry_run_eth_transact(
 			GenericTransaction {
 				from: Some(BOB_ADDR),
 				to: Some(addr),
@@ -4095,7 +4098,7 @@ fn skip_transfer_works() {
 		));
 
 		// call through contract works when transfers are skipped
-		assert_ok!(Pallet::<Test>::bare_eth_transact(
+		assert_ok!(Pallet::<Test>::dry_run_eth_transact(
 			GenericTransaction {
 				from: Some(BOB_ADDR),
 				to: Some(caller_addr),
@@ -4108,7 +4111,7 @@ fn skip_transfer_works() {
 
 		// works with transfers enabled if we don't incur a storage cost
 		// we shrink the item so its actually a refund
-		assert_ok!(Pallet::<Test>::bare_eth_transact(
+		assert_ok!(Pallet::<Test>::dry_run_eth_transact(
 			GenericTransaction {
 				from: Some(BOB_ADDR),
 				to: Some(caller_addr),
@@ -4121,7 +4124,7 @@ fn skip_transfer_works() {
 		));
 
 		// fails when trying to increase the storage item size
-		assert!(Pallet::<Test>::bare_eth_transact(
+		assert!(Pallet::<Test>::dry_run_eth_transact(
 			GenericTransaction {
 				from: Some(BOB_ADDR),
 				to: Some(caller_addr),
@@ -4600,44 +4603,57 @@ fn precompiles_with_info_creates_contract() {
 }
 
 #[test]
-fn nonce_incremented_dry_run_vs_execute() {
-	let (wasm, _code_hash) = compile_module("dummy").unwrap();
-
+fn contracts_nonce_start_at_one() {
 	ExtBuilder::default().build().execute_with(|| {
-		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+		ExtBuilder::default().existential_deposit(1).build().execute_with(|| {
+			let (code, _) = compile_module("dummy").unwrap();
+			let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+			let Contract { account_id, .. } =
+				builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
 
-		// Set a known nonce
-		let initial_nonce = 5;
-		frame_system::Account::<Test>::mutate(&ALICE, |account| {
-			account.nonce = initial_nonce;
+			// check contract's nonce
+			dbg!(System::account_nonce(&account_id));
 		});
+	})
+}
 
-		// stimulate a dry run
-		let dry_run_result = builder::bare_instantiate(Code::Upload(wasm.clone()))
-			.nonce_already_incremented(crate::NonceAlreadyIncremented::No)
-			.salt(None)
-			.build();
-
-		let dry_run_addr = dry_run_result.result.unwrap().addr;
-
-		let deployer = <Test as Config>::AddressMapper::to_address(&ALICE);
-		let expected_addr = create1(&deployer, initial_nonce.into());
-
-		assert_eq!(dry_run_addr, expected_addr);
-
-		// reset nonce to initial value
-		frame_system::Account::<Test>::mutate(&ALICE, |account| {
-			account.nonce = initial_nonce;
+#[test]
+fn tracing_playground() {
+	ExtBuilder::default().build().execute_with(|| {
+		let mut tracer = PrestateTracer::<Test>::new(PrestateTracerConfig {
+			disable_code: true,
+			diff_mode: false,
+			..Default::default()
 		});
+		let code =
+			include_bytes!("/home/pg/github/evm-test-suite/eth-rpc/pvm/PretraceFixture.polkavm")
+				.to_vec();
 
-		// stimulate an actual execution
-		let exec_result = builder::bare_instantiate(Code::Upload(wasm.clone())).salt(None).build();
+		ExtBuilder::default().existential_deposit(1).build().execute_with(|| {
+			let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+			let Contract { addr, .. } =
+				builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
 
-		let exec_addr = exec_result.result.unwrap().addr;
+			System::inc_account_nonce(&BOB);
+			tracer.watch_address(&ALICE_ADDR);
+			tracer.watch_address(&BOB_ADDR);
+			trace(&mut tracer, || {
+				// read_storage
+				// let data = hex_literal::hex!("31fadddf").to_vec();
+				// write_storage
+				// let data = hex_literal::hex!(
+				// 	"41720c3e0000000000000000000000000000000000000000000000000000000000000002"
+				// )
+				// deposit
+				let data = hex_literal::hex!("d0e30db0").to_vec();
 
-		let deployer = <Test as Config>::AddressMapper::to_address(&ALICE);
-		let expected_addr = create1(&deployer, (initial_nonce - 1).into());
+				Pallet::<Test>::prepare_dry_run(&ALICE);
+				builder::bare_call(addr).data(data).build_and_unwrap_result();
+			});
 
-		assert_eq!(exec_addr, expected_addr);
-	});
+			let trace = tracer.collect_trace();
+			let json = serde_json::to_string_pretty(&trace).unwrap();
+			println!("Trace:\n{json}");
+		});
+	})
 }
