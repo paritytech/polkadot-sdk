@@ -7,6 +7,8 @@ doc:
     - Updated `get_page` method now returns a default Solution instead of an
     Option when no candidate solutions are available. This simplifies the API
     and improves code clarity by removing the need to handle None cases.
+    - Move verifier stop logic to internal pallet method, removing the trait-level stop function
+    in favor of handling cleanup during verification failure.
     - Update tests to reflect new behavior and remove defensive unwraps.
 
     Close security vulnerability found [here](https://github.com/paritytech-secops/srlabs_findings/issues/505).

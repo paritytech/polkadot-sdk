@@ -626,6 +626,23 @@ pub(crate) mod pallet {
 }
 
 impl<T: Config> Pallet<T> {
+	/// Internal method to handle verifier cleanup
+	fn stop() {
+		sublog!(warn, "verifier", "stop signal received. clearing everything.");
+
+		// Clear any ongoing solution that has not been verified, regardless of the current state.
+		// This cleanup should only be necessary if there was an active verification process.
+		QueuedSolution::<T>::clear_invalid_and_backings_unchecked();
+
+		// we also mutate the status back to doing nothing.
+		let was_ongoing = matches!(StatusStorage::<T>::get(), Status::Ongoing(_));
+		StatusStorage::<T>::put(Status::Nothing);
+
+		if was_ongoing {
+			T::SolutionDataProvider::report_result(VerificationResult::Rejected);
+		}
+	}
+
 	fn do_on_initialize() -> Weight {
 		if let Status::Ongoing(current_page) = Self::status_storage() {
 			let page_solution =
@@ -657,7 +674,7 @@ impl<T: Config> Pallet<T> {
 						// in both cases of the following match, we are back to the nothing state.
 						StatusStorage::<T>::put(Status::Nothing);
 
-						match maybe_claimed_score {
+						let weight = match maybe_claimed_score {
 							Some(claimed_score) => {
 								match Self::finalize_async_verification(claimed_score) {
 									Ok(_) => {
@@ -691,15 +708,15 @@ impl<T: Config> Pallet<T> {
 								QueuedSolution::<T>::clear_invalid_and_backings();
 								VerifierWeightsOf::<T>::on_initialize_invalid_terminal()
 							},
-						}
+						};
+
+						weight
 					}
 				},
 				Err(err) => {
 					// the page solution was invalid.
 					Self::deposit_event(Event::<T>::VerificationFailed(current_page, err));
-					StatusStorage::<T>::put(Status::Nothing);
-					QueuedSolution::<T>::clear_invalid_and_backings();
-					T::SolutionDataProvider::report_result(VerificationResult::Rejected);
+					Self::stop();
 					let wasted_pages = T::Pages::get().saturating_sub(current_page);
 					VerifierWeightsOf::<T>::on_initialize_invalid_non_terminal(wasted_pages)
 				},
@@ -1034,27 +1051,5 @@ impl<T: Config> AsynchronousVerifier for Pallet<T> {
 			sublog!(warn, "verifier", "start signal received while busy. This will be ignored.");
 			Err("verification ongoing")
 		}
-	}
-
-	fn stop() {
-		sublog!(warn, "verifier", "stop signal received. clearing everything.");
-
-		// we clear any ongoing solution's no been verified in any case, although this should only
-		// exist if we were doing something.
-		#[cfg(debug_assertions)]
-		assert!(
-			!matches!(StatusStorage::<T>::get(), Status::Ongoing(_)) ||
-				(matches!(StatusStorage::<T>::get(), Status::Ongoing(_)) &&
-					QueuedSolution::<T>::invalid_iter().count() > 0)
-		);
-		QueuedSolution::<T>::clear_invalid_and_backings_unchecked();
-
-		// we also mutate the status back to doing nothing.
-		StatusStorage::<T>::mutate(|old| {
-			if matches!(old, Status::Ongoing(_)) {
-				T::SolutionDataProvider::report_result(VerificationResult::Rejected)
-			}
-			*old = Status::Nothing;
-		});
 	}
 }

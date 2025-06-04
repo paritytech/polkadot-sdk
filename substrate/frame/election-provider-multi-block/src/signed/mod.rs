@@ -912,17 +912,6 @@ pub mod pallet {
 				}
 			}
 
-			// TODO: This is not accurate, it will not capture the case where unsigned phase is 0
-			// what happens here is that we go Phase::AreWeDone -> Phase::Signed
-			// what we could do is to remove this
-			// move it to the signed verifier pallet itself, let it nuke itself.
-			// Option B: let the parent pallet decide this
-			if crate::Pallet::<T>::current_phase().is_unsigned_opened_now() {
-				// signed validation phase just ended, make sure you stop any ongoing operation.
-				sublog!(info, "signed", "signed validation ended, sending validation stop signal",);
-				<T::Verifier as AsynchronousVerifier>::stop();
-			}
-
 			weight_taken_into_account
 		}
 

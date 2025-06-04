@@ -286,13 +286,4 @@ pub trait AsynchronousVerifier: Verifier {
 	/// [`SolutionDataProvider`] must adjust its internal state such that it returns a new candidate
 	/// solution after each failure.
 	fn start() -> Result<(), &'static str>;
-
-	/// Stop the verification.
-	///
-	/// This is a force-stop operation, and should only be used in extreme cases where the
-	/// [`SolutionDataProvider`] wants to suddenly bail-out.
-	///
-	/// An implementation should make sure that no loose ends remain state-wise, and everything is
-	/// cleaned.
-	fn stop();
 }

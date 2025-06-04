@@ -580,11 +580,13 @@ mod async_verification {
 	}
 
 	#[test]
-	fn stop_clears_everything() {
+	fn verification_failure_clears_everything() {
 		ExtBuilder::verifier().build_and_execute(|| {
 			roll_to_snapshot_created();
 
-			let solution = mine_full_solution().unwrap();
+			let mut solution = mine_full_solution().unwrap();
+			// Make the solution invalid by corrupting the first page
+			solution.solution_pages[0].votes1[0] = (0, 1000); // Invalid vote weight
 			load_mock_signed_and_start(solution.clone());
 
 			assert_eq!(VerifierPallet::status(), Status::Ongoing(2));
@@ -600,16 +602,16 @@ mod async_verification {
 				vec![Event::<Runtime>::Verified(2, 2), Event::<Runtime>::Verified(1, 2)]
 			);
 
-			// now suddenly, we stop
-			<VerifierPallet as AsynchronousVerifier>::stop();
+			// Verification fails on the last page due to invalid solution
+			roll_next();
 			assert_eq!(VerifierPallet::status(), Status::Nothing);
 
-			// everything is cleared.
+			// everything is cleared when verification fails.
 			assert_eq!(QueuedSolution::<Runtime>::invalid_iter().count(), 0);
 			assert_eq!(QueuedSolution::<Runtime>::valid_iter().count(), 0);
 			assert_eq!(QueuedSolution::<Runtime>::backing_iter().count(), 0);
 
-			// and we report invalid back that something was rejected.
+			// and we report that something was rejected.
 			assert_eq!(MockSignedResults::get(), vec![VerificationResult::Rejected]);
 		})
 	}

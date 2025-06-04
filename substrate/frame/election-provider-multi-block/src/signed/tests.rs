@@ -937,74 +937,6 @@ mod e2e {
 			);
 		});
 	}
-}
-
-mod defensive_tests {
-	use super::*;
-
-	#[test]
-	#[cfg(debug_assertions)]
-	#[should_panic(expected = "Defensive failure has been triggered!")]
-	fn verification_data_unavailable_score_slashes_submitter() {
-		// Call Verifier::start and mutate storage to delete the score of the leader.
-		// This creates the scenario where score becomes unavailable during verification
-		ExtBuilder::signed().build_and_execute(|| {
-			// Setup a leader first
-			roll_to_signed_open();
-			assert_eq!(balances(99), (100, 0));
-			let score = ElectionScore { minimal_stake: 100, ..Default::default() };
-			assert_ok!(SignedPallet::register(RuntimeOrigin::signed(99), score));
-			assert_eq!(balances(99), (95, 5)); // deposit taken
-
-			// Submit a solution page to have something to verify
-			assert_ok!(SignedPallet::submit_page(RuntimeOrigin::signed(99), 0, Default::default()));
-
-			assert_ok!(<VerifierPallet as AsynchronousVerifier>::start());
-
-			roll_next(); // Process page 2
-			roll_next(); // Process page 1
-
-			assert_eq!(
-				signed_events_since_last_call(),
-				vec![
-					Event::Registered(
-						0,
-						99,
-						ElectionScore { minimal_stake: 100, sum_stake: 0, sum_stake_squared: 0 }
-					),
-					Event::Stored(0, 99, 0)
-				]
-			);
-
-			// Now mutate storage to delete the score of the leader.
-			let current_round = SignedPallet::current_round();
-
-			// Delete the score storage
-			let full_key =
-				crate::signed::pallet::SortedScores::<Runtime>::hashed_key_for(current_round);
-			unhashed::kill(&full_key);
-
-			// Complete verification - this should trigger score unavailable detection
-			roll_next();
-
-			// Should have slashed the deposit (5 units)
-			assert_eq!(balances(99), (95, 0));
-
-			// Should have emitted the expected sequence of events
-			assert_eq!(
-				signed_events(),
-				vec![
-					SignedEvent::Registered(
-						0,
-						99,
-						ElectionScore { minimal_stake: 100, sum_stake: 0, sum_stake_squared: 0 }
-					),
-					SignedEvent::Stored(0, 99, 0),
-					SignedEvent::Slashed(0, 99, 5)
-				]
-			);
-		});
-	}
 
 	#[test]
 	fn not_all_solutions_verified_signed_verification_to_unsigned() {
@@ -1246,5 +1178,73 @@ mod defensive_tests {
 				assert_eq!(Submissions::<Runtime>::submitters_count(current_round), 0);
 				assert!(!Submissions::<Runtime>::has_leader(current_round));
 			});
+	}
+}
+
+mod defensive_tests {
+	use super::*;
+
+	#[test]
+	#[cfg(debug_assertions)]
+	#[should_panic(expected = "Defensive failure has been triggered!")]
+	fn verification_data_unavailable_score_slashes_submitter() {
+		// Call Verifier::start and mutate storage to delete the score of the leader.
+		// This creates the scenario where score becomes unavailable during verification
+		ExtBuilder::signed().build_and_execute(|| {
+			// Setup a leader first
+			roll_to_signed_open();
+			assert_eq!(balances(99), (100, 0));
+			let score = ElectionScore { minimal_stake: 100, ..Default::default() };
+			assert_ok!(SignedPallet::register(RuntimeOrigin::signed(99), score));
+			assert_eq!(balances(99), (95, 5)); // deposit taken
+
+			// Submit a solution page to have something to verify
+			assert_ok!(SignedPallet::submit_page(RuntimeOrigin::signed(99), 0, Default::default()));
+
+			assert_ok!(<VerifierPallet as AsynchronousVerifier>::start());
+
+			roll_next(); // Process page 2
+			roll_next(); // Process page 1
+
+			assert_eq!(
+				signed_events_since_last_call(),
+				vec![
+					Event::Registered(
+						0,
+						99,
+						ElectionScore { minimal_stake: 100, sum_stake: 0, sum_stake_squared: 0 }
+					),
+					Event::Stored(0, 99, 0)
+				]
+			);
+
+			// Now mutate storage to delete the score of the leader.
+			let current_round = SignedPallet::current_round();
+
+			// Delete the score storage
+			let full_key =
+				crate::signed::pallet::SortedScores::<Runtime>::hashed_key_for(current_round);
+			unhashed::kill(&full_key);
+
+			// Complete verification - this should trigger score unavailable detection
+			roll_next();
+
+			// Should have slashed the deposit (5 units)
+			assert_eq!(balances(99), (95, 0));
+
+			// Should have emitted the expected sequence of events
+			assert_eq!(
+				signed_events(),
+				vec![
+					SignedEvent::Registered(
+						0,
+						99,
+						ElectionScore { minimal_stake: 100, sum_stake: 0, sum_stake_squared: 0 }
+					),
+					SignedEvent::Stored(0, 99, 0),
+					SignedEvent::Slashed(0, 99, 5)
+				]
+			);
+		});
 	}
 }
