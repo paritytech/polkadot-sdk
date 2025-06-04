@@ -40,9 +40,6 @@ pub mod benchmark_helpers {
 	};
 	use alloc::boxed::Box;
 	use codec::Encode;
-	use frame_support::traits::fungibles::Mutate;
-	use testnet_parachains_constants::westend::snowbridge::EthereumLocation;
-	use westend_runtime_constants::currency::UNITS;
 	use xcm::prelude::*;
 	use xcm_executor::traits::ConvertLocation;
 
@@ -77,28 +74,18 @@ pub mod benchmark_helpers {
 				1,
 			)
 			.unwrap();
-			ForeignAssets::force_create(
-				RuntimeOrigin::root(),
-				EthereumLocation::get(),
-				asset_owner.clone().into(),
-				true,
-				1,
-			)
-			.unwrap();
-			ForeignAssets::mint_into(
-				EthereumLocation::get().into(),
-				&asset_owner,
-				5_000_000 * UNITS,
-			)
-			.unwrap();
 		}
 
 		fn setup_pools(caller: AccountId, asset: Location) {
 			// Prefund the caller's account with DOT
-			Balances::force_set_balance(RuntimeOrigin::root(), caller.into(), 10_000_000_000_000)
-				.unwrap();
+			Balances::force_set_balance(
+				RuntimeOrigin::root(),
+				caller.clone().into(),
+				10_000_000_000_000,
+			)
+			.unwrap();
 
-			let asset_owner = LocationToAccountId::convert_location(&asset).unwrap();
+			let asset_owner = caller.clone();
 			ForeignAssets::force_create(
 				RuntimeOrigin::root(),
 				asset.clone(),
