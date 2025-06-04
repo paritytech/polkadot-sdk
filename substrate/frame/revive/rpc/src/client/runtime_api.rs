@@ -96,6 +96,7 @@ impl RuntimeApi {
 		Ok(*gas_limit)
 	}
 
+	/// Get the miner address
 	pub async fn coinbase(&self) -> Result<Option<H160>, ClientError> {
 		let payload = subxt_client::apis().revive_api().coinbase();
 		let coinbase = self.0.call(payload).await?;

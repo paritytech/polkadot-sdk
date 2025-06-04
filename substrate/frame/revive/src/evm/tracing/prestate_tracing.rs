@@ -120,6 +120,7 @@ where
 		return Some(code.into())
 	}
 
+	/// Update the prestate info for the given address.
 	fn update_prestate_info(entry: &mut PrestateTraceInfo, addr: &H160, disable_code: bool) {
 		let info = Self::prestate_info(addr, Pallet::<T>::evm_balance(addr), disable_code);
 		entry.balance = info.balance;

@@ -375,10 +375,6 @@ impl WriteOutcome {
 			Self::Taken(value) => value.len() as u32,
 		}
 	}
-
-	pub fn is_new(&self) -> bool {
-		matches!(self, Self::New)
-	}
 }
 
 /// Manage the removal of contracts storage that are marked for deletion.
