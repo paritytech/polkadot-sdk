@@ -1334,11 +1334,7 @@ tikv-jemalloc-ctl = { version = "0.5.0" }
 tikv-jemallocator = { version = "0.5.0" }
 time = { version = "0.3" }
 tiny-keccak = { version = "2.0.2" }
-<<<<<<< HEAD
-tokio = { version = "1.40.0", default-features = false }
-=======
 tokio = { version = "1.45.0", default-features = false }
->>>>>>> f6d18b73 (client/net: Use litep2p as the default network backend (#8461))
 tokio-retry = { version = "0.3.0" }
 tokio-stream = { version = "0.1.14" }
 tokio-test = { version = "0.4.4" }
