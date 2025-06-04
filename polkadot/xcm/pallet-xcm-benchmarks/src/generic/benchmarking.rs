@@ -299,7 +299,9 @@ mod benchmarks {
 		let xcm = Xcm(vec![instruction]);
 		#[block]
 		{
-			executor.bench_process(xcm)?;
+			executor
+				.bench_process(xcm)
+				.map_err(|_| BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)))?;
 		}
 		assert_eq!(executor.origin(), &Some(Location { parents: 0, interior: Here }),);
 
@@ -706,7 +708,7 @@ mod benchmarks {
 		{
 			executor.bench_process(xcm)?;
 		}
-		assert_eq!(executor.holding(), &want.into());
+		assert!(executor.holding().contains(&want.into()));
 		Ok(())
 	}
 

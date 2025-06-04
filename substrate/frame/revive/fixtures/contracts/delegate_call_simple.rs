@@ -17,9 +17,9 @@
 
 #![no_std]
 #![no_main]
+include!("../panic_handler.rs");
 
-use common::input;
-use uapi::{HostFn, HostFnImpl as api};
+use uapi::{input, HostFn, HostFnImpl as api};
 
 #[no_mangle]
 #[polkavm_derive::polkavm_export]
@@ -39,6 +39,7 @@ pub extern "C" fn call() {
 		u64::MAX,
 		&[u8::MAX; 32],
 		&input,
-		None
-	).unwrap();
+		None,
+	)
+	.unwrap();
 }

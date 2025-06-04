@@ -325,7 +325,7 @@ pub trait HostFn: private::Sealed {
 		salt: Option<&[u8; 32]>,
 	) -> Result;
 
-	/// Load the latest block timestamp into the supplied buffer
+	/// Load the latest block timestamp in seconds into the supplied buffer
 	///
 	/// # Parameters
 	///
@@ -533,27 +533,6 @@ pub trait HostFn: private::Sealed {
 	#[unstable_hostfn]
 	fn contains_storage(flags: StorageFlags, key: &[u8]) -> Option<u32>;
 
-	/// Recovers the ECDSA public key from the given message hash and signature.
-	///
-	/// Writes the public key into the given output buffer.
-	/// Assumes the secp256k1 curve.
-	///
-	/// # Parameters
-	///
-	/// - `signature`: The signature bytes.
-	/// - `message_hash`: The message hash bytes.
-	/// - `output`: A reference to the output data buffer to write the public key.
-	///
-	/// # Errors
-	///
-	/// - [EcdsaRecoveryFailed][`crate::ReturnErrorCode::EcdsaRecoveryFailed]
-	#[unstable_hostfn]
-	fn ecdsa_recover(
-		signature: &[u8; 65],
-		message_hash: &[u8; 32],
-		output: &mut [u8; 33],
-	) -> Result;
-
 	/// Calculates Ethereum address from the ECDSA compressed public key and stores
 	/// it into the supplied buffer.
 	///
@@ -567,20 +546,6 @@ pub trait HostFn: private::Sealed {
 	/// - [EcdsaRecoveryFailed][`crate::ReturnErrorCode::EcdsaRecoveryFailed]
 	#[unstable_hostfn]
 	fn ecdsa_to_eth_address(pubkey: &[u8; 33], output: &mut [u8; 20]) -> Result;
-
-	/// Computes the sha2_256 32-bit hash on the given input buffer.
-	///
-	/// - The `input` and `output` buffer may overlap.
-	/// - The output buffer is expected to hold at least 32 bits.
-	/// - It is the callers responsibility to provide an output buffer that is large enough to hold
-	///   the expected amount of bytes returned by the hash function.
-	///
-	/// # Parameters
-	///
-	/// - `input`: The input data buffer.
-	/// - `output`: The output buffer to write the hash result to.
-	#[unstable_hostfn]
-	fn hash_sha2_256(input: &[u8], output: &mut [u8; 32]);
 
 	/// Computes the blake2_256 32-bit hash on the given input buffer.
 	///

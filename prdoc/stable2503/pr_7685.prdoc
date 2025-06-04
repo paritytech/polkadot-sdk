@@ -1,0 +1,20 @@
+title: 'Introduce filters to restrict accounts from staking'
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Introduce filters to restrict accounts from staking.
+      This is useful for restricting certain accounts from staking, for example, accounts staking via pools, and vice
+      versa.
+
+crates:
+  - name: pallet-staking
+    bump: minor
+  - name: pallet-nomination-pools
+    bump: minor
+  - name: westend-runtime
+    bump: patch
+  - name: pallet-delegated-staking
+    bump: patch
+  - name: pallet-nomination-pools-benchmarking
+    bump: patch

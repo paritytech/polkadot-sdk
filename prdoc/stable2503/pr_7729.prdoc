@@ -1,0 +1,24 @@
+title: '[pallet-revive] allow delegate calls to non-contract accounts'
+doc:
+- audience: Runtime Dev
+  description: |-
+    This PR changes the behavior of delegate calls when the callee is not a contract account: Instead of returning a `CodeNotFound` error, this is allowed and the caller observes a successful call with empty output.
+
+    The change makes for example the following contract behave the same as on EVM:
+
+    ```Solidity
+    contract DelegateCall {
+        function delegateToLibrary() external returns (bool) {
+            address testAddress = 0x0000000000000000000000000000000000000000;
+            (bool success, ) = testAddress.delegatecall(
+                abi.encodeWithSignature("test()")
+            );
+            return success;
+        }
+    }
+    ```
+
+    Closes https://github.com/paritytech/revive/issues/235
+crates:
+- name: pallet-revive
+  bump: major

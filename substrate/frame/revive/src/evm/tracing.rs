@@ -70,7 +70,7 @@ impl<Gas: Default, GasMapper: Fn(Weight) -> Gas> Tracer for CallTracer<Gas, GasM
 		self.traces.push(CallTrace {
 			from,
 			to,
-			value,
+			value: if is_read_only { None } else { Some(value) },
 			call_type,
 			input: input.to_vec().into(),
 			gas: (self.gas_mapper)(gas_left),

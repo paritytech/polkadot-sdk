@@ -181,7 +181,8 @@ pub struct CallTrace<Gas = U256> {
 	#[serde(skip_serializing_if = "Vec::is_empty")]
 	pub logs: Vec<CallLog>,
 	/// Amount of value transferred.
-	pub value: U256,
+	#[serde(skip_serializing_if = "Option::is_none")]
+	pub value: Option<U256>,
 	/// Type of call.
 	#[serde(rename = "type")]
 	pub call_type: CallType,

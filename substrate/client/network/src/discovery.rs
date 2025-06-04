@@ -84,6 +84,9 @@ use std::{
 	time::{Duration, Instant},
 };
 
+/// Logging target for the file.
+const LOG_TARGET: &str = "sub-libp2p::discovery";
+
 /// Maximum number of known external addresses that we will cache.
 /// This only affects whether we will log whenever we (re-)discover
 /// a given address.
@@ -262,7 +265,7 @@ impl DiscoveryConfig {
 				match TokioMdns::new(mdns::Config::default(), local_peer_id) {
 					Ok(mdns) => Toggle::from(Some(mdns)),
 					Err(err) => {
-						warn!(target: "sub-libp2p", "Failed to initialize mDNS: {:?}", err);
+						warn!(target: LOG_TARGET, "Failed to initialize mDNS: {:?}", err);
 						Toggle::from(None)
 					},
 				}
@@ -375,7 +378,7 @@ impl DiscoveryBehaviour {
 		if let Some(kademlia) = self.kademlia.as_mut() {
 			if !self.allow_non_globals_in_dht && !Self::can_add_to_dht(&addr) {
 				trace!(
-					target: "sub-libp2p",
+					target: LOG_TARGET,
 					"Ignoring self-reported non-global address {} from {}.", addr, peer_id
 				);
 				return
@@ -393,7 +396,7 @@ impl DiscoveryBehaviour {
 					.expect("kademlia protocol was checked above to be enabled; qed")
 			}) {
 				trace!(
-					target: "sub-libp2p",
+					target: LOG_TARGET,
 					"Ignoring self-reported address {} from {} as remote node is not part of the \
 					 Kademlia DHT supported by the local node.", addr, peer_id,
 				);
@@ -401,7 +404,7 @@ impl DiscoveryBehaviour {
 			}
 
 			trace!(
-				target: "sub-libp2p",
+				target: LOG_TARGET,
 				"Adding self-reported address {} from {} to Kademlia DHT.",
 				addr, peer_id
 			);
@@ -425,7 +428,7 @@ impl DiscoveryBehaviour {
 	pub fn put_value(&mut self, key: RecordKey, value: Vec<u8>) {
 		if let Some(k) = self.kademlia.as_mut() {
 			if let Err(e) = k.put_record(Record::new(key.clone(), value.clone()), Quorum::All) {
-				warn!(target: "sub-libp2p", "Libp2p => Failed to put record: {:?}", e);
+				warn!(target: LOG_TARGET, "Libp2p => Failed to put record: {:?}", e);
 				self.pending_events
 					.push_back(DiscoveryOut::ValuePutFailed(key.clone(), Duration::from_secs(0)));
 			}
@@ -444,7 +447,7 @@ impl DiscoveryBehaviour {
 		if let Some(kad) = self.kademlia.as_mut() {
 			if update_local_storage {
 				if let Err(_e) = kad.store_mut().put(record.clone()) {
-					warn!(target: "sub-libp2p", "Failed to update local starage");
+					warn!(target: LOG_TARGET, "Failed to update local starage");
 				}
 			}
 
@@ -462,7 +465,7 @@ impl DiscoveryBehaviour {
 	pub fn start_providing(&mut self, key: RecordKey) {
 		if let Some(kad) = self.kademlia.as_mut() {
 			if let Err(e) = kad.start_providing(key.clone()) {
-				warn!(target: "sub-libp2p", "Libp2p => Failed to start providing {key:?}: {e}.");
+				warn!(target: LOG_TARGET, "Libp2p => Failed to start providing {key:?}: {e}.");
 				self.pending_events.push_back(DiscoveryOut::StartProvidingFailed(key));
 			}
 		}
@@ -498,7 +501,7 @@ impl DiscoveryBehaviour {
 				expires,
 			}) {
 				debug!(
-					target: "sub-libp2p",
+					target: LOG_TARGET,
 					"Failed to store record with key: {:?}",
 					err
 				);
@@ -712,7 +715,7 @@ impl NetworkBehaviour for DiscoveryBehaviour {
 			});
 		}
 
-		trace!(target: "sub-libp2p", "Addresses of {:?}: {:?}", peer_id, list);
+		trace!(target: LOG_TARGET, "Addresses of {:?}: {:?}", peer_id, list);
 
 		Ok(list.into_iter().collect())
 	}
@@ -781,7 +784,7 @@ impl NetworkBehaviour for DiscoveryBehaviour {
 				if let Some(Protocol::P2p(peer_id)) = addr.iter().last() {
 					if peer_id != self.local_peer_id {
 						warn!(
-							target: "sub-libp2p",
+							target: LOG_TARGET,
 							"🔍 Discovered external address for a peer that is not us: {addr}",
 						);
 						// Ensure this address is not propagated to kademlia.
@@ -796,7 +799,7 @@ impl NetworkBehaviour for DiscoveryBehaviour {
 					// in which case we just want to refrain from logging.
 					if self.known_external_addresses.insert(address.clone()) {
 						info!(
-						  target: "sub-libp2p",
+						  target: LOG_TARGET,
 						  "🔍 Discovered new external address for our node: {address}",
 						);
 					}
@@ -805,7 +808,7 @@ impl NetworkBehaviour for DiscoveryBehaviour {
 				self.kademlia.on_swarm_event(FromSwarm::ExternalAddrConfirmed(e));
 			},
 			event => {
-				debug!(target: "sub-libp2p", "New unknown `FromSwarm` libp2p event: {event:?}");
+				debug!(target: LOG_TARGET, "New unknown `FromSwarm` libp2p event: {event:?}");
 				self.kademlia.on_swarm_event(event);
 			},
 		}
@@ -834,7 +837,7 @@ impl NetworkBehaviour for DiscoveryBehaviour {
 						if self.num_connections < self.discovery_only_if_under_num {
 							let random_peer_id = PeerId::random();
 							debug!(
-								target: "sub-libp2p",
+								target: LOG_TARGET,
 								"Libp2p <= Starting random Kademlia request for {:?}",
 								random_peer_id,
 							);
@@ -842,7 +845,7 @@ impl NetworkBehaviour for DiscoveryBehaviour {
 							true
 						} else {
 							debug!(
-								target: "sub-libp2p",
+								target: LOG_TARGET,
 								"Kademlia paused due to high number of connections ({})",
 								self.num_connections
 							);
@@ -899,20 +902,20 @@ impl NetworkBehaviour for DiscoveryBehaviour {
 					} => match res {
 						Err(GetClosestPeersError::Timeout { key, peers }) => {
 							debug!(
-								target: "sub-libp2p",
+								target: LOG_TARGET,
 								"Libp2p => Query for {:?} timed out with {} results",
 								HexDisplay::from(&key), peers.len(),
 							);
 						},
 						Ok(ok) => {
 							trace!(
-								target: "sub-libp2p",
+								target: LOG_TARGET,
 								"Libp2p => Query for {:?} yielded {:?} results",
 								HexDisplay::from(&ok.key), ok.peers.len(),
 							);
 							if ok.peers.is_empty() && self.num_connections != 0 {
 								debug!(
-									target: "sub-libp2p",
+									target: LOG_TARGET,
 									"Libp2p => Random Kademlia query has yielded empty results",
 								);
 							}
@@ -927,7 +930,7 @@ impl NetworkBehaviour for DiscoveryBehaviour {
 						let ev = match res {
 							Ok(GetRecordOk::FoundRecord(r)) => {
 								debug!(
-									target: "sub-libp2p",
+									target: LOG_TARGET,
 									"Libp2p => Found record ({:?}) with value: {:?} id {:?} stats {:?}",
 									r.record.key,
 									r.record.value,
@@ -959,7 +962,7 @@ impl NetworkBehaviour for DiscoveryBehaviour {
 								cache_candidates,
 							}) => {
 								debug!(
-									target: "sub-libp2p",
+									target: LOG_TARGET,
 									"Libp2p => Finished with no-additional-record {:?} stats {:?} took {:?} ms",
 									id,
 									stats,
@@ -986,7 +989,7 @@ impl NetworkBehaviour for DiscoveryBehaviour {
 							},
 							Err(e @ libp2p::kad::GetRecordError::NotFound { .. }) => {
 								trace!(
-									target: "sub-libp2p",
+									target: LOG_TARGET,
 									"Libp2p => Failed to get record: {:?}",
 									e,
 								);
@@ -997,7 +1000,7 @@ impl NetworkBehaviour for DiscoveryBehaviour {
 							},
 							Err(e) => {
 								debug!(
-									target: "sub-libp2p",
+									target: LOG_TARGET,
 									"Libp2p => Failed to get record: {:?}",
 									e,
 								);
@@ -1018,7 +1021,7 @@ impl NetworkBehaviour for DiscoveryBehaviour {
 						let ev = match res {
 							Ok(GetProvidersOk::FoundProviders { key, providers }) => {
 								debug!(
-									target: "sub-libp2p",
+									target: LOG_TARGET,
 									"Libp2p => Found providers {:?} for key {:?}, id {:?}, stats {:?}",
 									providers,
 									key,
@@ -1036,7 +1039,7 @@ impl NetworkBehaviour for DiscoveryBehaviour {
 								closest_peers: _,
 							}) => {
 								debug!(
-									target: "sub-libp2p",
+									target: LOG_TARGET,
 									"Libp2p => Finished with no additional providers {:?}, stats {:?}, took {:?} ms",
 									id,
 									stats,
@@ -1047,7 +1050,7 @@ impl NetworkBehaviour for DiscoveryBehaviour {
 							},
 							Err(GetProvidersError::Timeout { key, closest_peers: _ }) => {
 								debug!(
-									target: "sub-libp2p",
+									target: LOG_TARGET,
 									"Libp2p => Failed to get providers for {key:?} due to timeout.",
 								);
 
@@ -1069,7 +1072,7 @@ impl NetworkBehaviour for DiscoveryBehaviour {
 								DiscoveryOut::ValuePut(ok.key, stats.duration().unwrap_or_default()),
 							Err(e) => {
 								debug!(
-									target: "sub-libp2p",
+									target: LOG_TARGET,
 									"Libp2p => Failed to put record: {:?}",
 									e,
 								);
@@ -1086,12 +1089,12 @@ impl NetworkBehaviour for DiscoveryBehaviour {
 						..
 					} => match res {
 						Ok(ok) => debug!(
-							target: "sub-libp2p",
+							target: LOG_TARGET,
 							"Libp2p => Record republished: {:?}",
 							ok.key,
 						),
 						Err(e) => debug!(
-							target: "sub-libp2p",
+							target: LOG_TARGET,
 							"Libp2p => Republishing of record {:?} failed with: {:?}",
 							e.key(), e,
 						),
@@ -1101,20 +1104,20 @@ impl NetworkBehaviour for DiscoveryBehaviour {
 						..
 					} => match res {
 						Ok(ok) => debug!(
-							target: "sub-libp2p",
+							target: LOG_TARGET,
 							"Libp2p => DHT bootstrap progressed: {ok:?}",
 						),
 						Err(e) => warn!(
-							target: "sub-libp2p",
+							target: LOG_TARGET,
 							"Libp2p => DHT bootstrap error: {e:?}",
 						),
 					},
 					// We never start any other type of query.
 					KademliaEvent::OutboundQueryProgressed { result: e, .. } => {
-						warn!(target: "sub-libp2p", "Libp2p => Unhandled Kademlia event: {:?}", e)
+						warn!(target: LOG_TARGET, "Libp2p => Unhandled Kademlia event: {:?}", e)
 					},
 					Event::ModeChanged { new_mode } => {
-						debug!(target: "sub-libp2p", "Libp2p => Kademlia mode changed: {new_mode}")
+						debug!(target: LOG_TARGET, "Libp2p => Kademlia mode changed: {new_mode}")
 					},
 				},
 				ToSwarm::Dial { opts } => return Poll::Ready(ToSwarm::Dial { opts }),

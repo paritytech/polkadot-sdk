@@ -1,7 +1,7 @@
 # this image is built on top of existing Zombienet image
 ARG ZOMBIENET_IMAGE
 # this image uses substrate-relay image built elsewhere
-ARG SUBSTRATE_RELAY_IMAGE=docker.io/paritytech/substrate-relay:v1.7.0
+ARG SUBSTRATE_RELAY_IMAGE=docker.io/paritytech/substrate-relay:v1.8.0
 
 # metadata
 ARG VCS_REF

@@ -15,7 +15,7 @@
 
 use super::*;
 use crate as xcmp_queue;
-use core::marker::PhantomData;
+use core::{cmp::max, marker::PhantomData};
 use cumulus_pallet_parachain_system::AnyRelayNumber;
 use cumulus_primitives_core::{ChannelInfo, IsSystem, ParaId};
 use frame_support::{
@@ -144,7 +144,7 @@ parameter_types! {
 pub struct EnqueueToLocalStorage<T>(PhantomData<T>);
 
 impl<T: OnQueueChanged<ParaId>> EnqueueMessage<ParaId> for EnqueueToLocalStorage<T> {
-	type MaxMessageLen = sp_core::ConstU32<65_536>;
+	type MaxMessageLen = sp_core::ConstU32<256>;
 
 	fn enqueue_message(message: BoundedSlice<u8, Self::MaxMessageLen>, origin: ParaId) {
 		let mut msgs = EnqueuedMessages::get();
@@ -179,7 +179,11 @@ impl<T: OnQueueChanged<ParaId>> EnqueueMessage<ParaId> for EnqueueToLocalStorage
 				footprint.storage.size += m.len() as u64;
 			}
 		}
-		footprint.pages = footprint.storage.size as u32 / 16; // Number does not matter
+		footprint.pages =
+			(footprint.storage.size as u32).div_ceil(<Self::MaxMessageLen as Get<u32>>::get());
+		if footprint.storage.count > 0 {
+			footprint.pages = max(footprint.pages, 1);
+		}
 		footprint.ready_pages = footprint.pages;
 		footprint
 	}
@@ -228,7 +232,7 @@ pub struct MockedChannelInfo;
 impl GetChannelInfo for MockedChannelInfo {
 	fn get_channel_status(id: ParaId) -> ChannelStatus {
 		if id == HRMP_PARA_ID.into() {
-			return ChannelStatus::Ready(usize::MAX, usize::MAX)
+			return ChannelStatus::Ready(usize::MAX, usize::MAX);
 		}
 
 		ParachainSystem::get_channel_status(id)
@@ -242,7 +246,7 @@ impl GetChannelInfo for MockedChannelInfo {
 				max_message_size: u32::MAX,
 				msg_count: 0,
 				total_size: 0,
-			})
+			});
 		}
 
 		ParachainSystem::get_channel_info(id)

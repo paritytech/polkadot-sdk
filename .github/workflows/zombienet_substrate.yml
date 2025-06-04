@@ -24,7 +24,10 @@ env:
   DB_BLOCK_HEIGHT: 56687
 
 jobs:
+  isdraft:
+    uses: ./.github/workflows/reusable-isdraft.yml
   preflight:
+    needs: isdraft
     uses: ./.github/workflows/zombienet-reusable-preflight.yml
 
   zombienet-substrate-0000-block-building:

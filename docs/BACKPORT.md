@@ -6,7 +6,11 @@ Backports should only be used to fix bugs or security issues - never to introduc
 ## Steps
 
 1. Fix a bug through a PR that targets `master`.
-2. Add label `A4-needs-backport` to the PR.
+2. Add label related to the branch to wich to backport changes to the PR.
+    - `A4-backport-stable2407`
+    - `A4-backport-stable2409`
+    - `A4-backport-stable2412`
+    - `A4-backport-stable2503`
 3. Merge the PR into `master`.
 4. Wait for the bot to open the backport PR.
 5. Ensure the change is audited or does not need audit.

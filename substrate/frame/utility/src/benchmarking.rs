@@ -93,6 +93,18 @@ mod benchmark {
 	}
 
 	#[benchmark]
+	fn dispatch_as_fallible() {
+		let caller = account("caller", SEED, SEED);
+		let call = Box::new(frame_system::Call::remark { remark: vec![] }.into());
+		let origin: T::RuntimeOrigin = RawOrigin::Signed(caller).into();
+		let pallets_origin = origin.caller().clone();
+		let pallets_origin = T::PalletsOrigin::from(pallets_origin);
+
+		#[extrinsic_call]
+		_(RawOrigin::Root, Box::new(pallets_origin), call);
+	}
+
+	#[benchmark]
 	fn if_else() {
 		// Failing main call.
 		let main_call = Box::new(frame_system::Call::set_code { code: vec![1] }.into());

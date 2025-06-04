@@ -62,8 +62,9 @@ pub use misc::{
 	DefensiveSaturating, DefensiveTruncateFrom, EnsureInherentsAreFirst, EqualPrivilegeOnly,
 	EstimateCallFee, ExecuteBlock, ExtrinsicCall, Get, GetBacking, GetDefault, HandleLifetime,
 	InherentBuilder, IsInherent, IsSubType, IsType, Len, OffchainWorker, OnKilledAccount,
-	OnNewAccount, PrivilegeCmp, SameOrOther, SignedTransactionBuilder, Time, TryCollect, TryDrop,
-	TypedGet, UnixTime, VariantCount, VariantCountOf, WrapperKeepOpaque, WrapperOpaque,
+	OnNewAccount, PrivilegeCmp, RewardsReporter, SameOrOther, SignedTransactionBuilder, Time,
+	TryCollect, TryDrop, TypedGet, UnixTime, VariantCount, VariantCountOf, WrapperKeepOpaque,
+	WrapperOpaque,
 };
 #[allow(deprecated)]
 pub use misc::{PreimageProvider, PreimageRecipient};
@@ -96,9 +97,9 @@ mod storage;
 #[cfg(feature = "experimental")]
 pub use storage::MaybeConsideration;
 pub use storage::{
-	Consideration, ConstantStoragePrice, Footprint, Incrementable, Instance, LinearStoragePrice,
-	PartialStorageInfoTrait, StorageInfo, StorageInfoTrait, StorageInstance, TrackedStorageKey,
-	WhitelistedStorageKeys,
+	Consideration, ConstantStoragePrice, Disabled, Footprint, Incrementable, Instance,
+	LinearStoragePrice, PartialStorageInfoTrait, StorageInfo, StorageInfoTrait, StorageInstance,
+	TrackedStorageKey, WhitelistedStorageKeys,
 };
 
 mod dispatch;

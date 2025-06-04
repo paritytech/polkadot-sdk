@@ -1,0 +1,68 @@
+[package]
+name = "pallet-ahm-test"
+version = "1.0.0"
+authors.workspace = true
+edition.workspace = true
+license = "Apache-2.0"
+homepage.workspace = true
+repository.workspace = true
+description = "e2e unit tests for staking in AHM"
+publish = false
+
+[lints]
+workspace = true
+
+[package.metadata.docs.rs]
+targets = ["x86_64-unknown-linux-gnu"]
+
+[dev-dependencies]
+codec = { features = ["derive"], workspace = true, default-features = true }
+frame = { package = "polkadot-sdk-frame", workspace = true, default-features = true }
+frame-support = { workspace = true, default-features = true }
+log = { workspace = true }
+scale-info = { features = ["derive"], workspace = true, default-features = true }
+sp-core = { workspace = true, default-features = true }
+sp-session = { workspace = true, default-features = true }
+sp-staking = { workspace = true, default-features = true }
+sp-tracing = { workspace = true, default-features = true }
+
+# pallets we need in both
+pallet-balances = { workspace = true, default-features = true }
+
+# pallets that we need in AH
+frame-election-provider-support = { workspace = true, default-features = true }
+pallet-election-provider-multi-block = { workspace = true, default-features = true }
+pallet-staking-async = { workspace = true, default-features = true }
+pallet-staking-async-rc-client = { workspace = true, default-features = true }
+
+# pallets we need in the RC
+pallet-authorship = { workspace = true, default-features = true }
+pallet-session = { workspace = true, default-features = true }
+pallet-staking-async-ah-client = { workspace = true, default-features = true }
+pallet-timestamp = { workspace = true, default-features = true }
+# staking classic which will be replaced by ah-client
+pallet-root-offences = { workspace = true, default-features = true }
+pallet-staking = { workspace = true, default-features = true }
+
+[features]
+std = [
+	"log/std",
+]
+try-runtime = [
+	"pallet-balances/try-runtime",
+
+	"pallet-staking/try-runtime",
+
+	"pallet-staking-async-rc-client/try-runtime",
+	"pallet-staking-async/try-runtime",
+
+	"frame-election-provider-support/try-runtime",
+	"frame-support/try-runtime",
+	"frame/try-runtime",
+	"pallet-authorship/try-runtime",
+	"pallet-election-provider-multi-block/try-runtime",
+	"pallet-root-offences/try-runtime",
+	"pallet-session/try-runtime",
+	"pallet-staking-async-ah-client/try-runtime",
+	"pallet-timestamp/try-runtime",
+]

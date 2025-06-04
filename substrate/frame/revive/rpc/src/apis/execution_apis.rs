@@ -166,4 +166,8 @@ pub trait EthRpc {
 	/// The string value of current network id
 	#[method(name = "net_version")]
 	async fn net_version(&self) -> RpcResult<String>;
+
+	/// The string value of the current client version
+	#[method(name = "web3_clientVersion")]
+	async fn web3_client_version(&self) -> RpcResult<String>;
 }

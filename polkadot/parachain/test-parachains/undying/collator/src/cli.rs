@@ -94,6 +94,10 @@ pub struct RunCmd {
 	/// Specifies the malicious behavior of the collator.
 	#[arg(long, value_enum, default_value_t = MalusType::None)]
 	pub malus_type: MalusType,
+
+	/// Whether or not the collator should send the experimental ApprovedPeer UMP signal.
+	#[arg(long)]
+	pub experimental_send_approved_peer: bool,
 }
 
 #[allow(missing_docs)]

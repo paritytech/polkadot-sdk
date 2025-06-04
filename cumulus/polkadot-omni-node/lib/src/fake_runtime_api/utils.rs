@@ -206,6 +206,7 @@ macro_rules! impl_node_runtime_apis {
 					unimplemented!()
 				}
 
+				#[allow(non_local_definitions)]
 				fn dispatch_benchmark(
 					_: frame_benchmarking::BenchmarkConfig
 				) -> Result<Vec<frame_benchmarking::BenchmarkBatch>, String> {

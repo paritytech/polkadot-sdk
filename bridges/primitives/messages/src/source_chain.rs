@@ -19,7 +19,7 @@
 use crate::{MessageNonce, UnrewardedRelayer};
 
 use bp_runtime::{raw_storage_proof_size, RawStorageProof, Size};
-use codec::{Decode, Encode};
+use codec::{Decode, DecodeWithMemTracking, Encode};
 use scale_info::TypeInfo;
 use sp_core::RuntimeDebug;
 use sp_std::{
@@ -38,7 +38,7 @@ use sp_std::{
 /// - storage proof of the inbound lane state;
 ///
 /// - lane id.
-#[derive(Clone, Decode, Encode, Eq, PartialEq, RuntimeDebug, TypeInfo)]
+#[derive(Clone, Decode, DecodeWithMemTracking, Encode, Eq, PartialEq, RuntimeDebug, TypeInfo)]
 pub struct FromBridgedChainMessagesDeliveryProof<BridgedHeaderHash, LaneId> {
 	/// Hash of the bridge header the proof is for.
 	pub bridged_header_hash: BridgedHeaderHash,

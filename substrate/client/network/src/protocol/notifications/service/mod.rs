@@ -49,7 +49,7 @@ pub(crate) mod metrics;
 mod tests;
 
 /// Logging target for the file.
-const LOG_TARGET: &str = "sub-libp2p";
+const LOG_TARGET: &str = "sub-libp2p::notification::service";
 
 /// Default command queue size.
 const COMMAND_QUEUE_SIZE: usize = 64;

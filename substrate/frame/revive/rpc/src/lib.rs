@@ -219,7 +219,6 @@ impl EthRpcServer for EthRpcServerImpl {
 
 	async fn get_balance(&self, address: H160, block: BlockNumberOrTagOrHash) -> RpcResult<U256> {
 		let balance = self.client.balance(address, &block).await?;
-		log::debug!(target: LOG_TARGET, "balance({address}): {balance:?}");
 		Ok(balance)
 	}
 
@@ -265,7 +264,7 @@ impl EthRpcServer for EthRpcServerImpl {
 		let block_hash = if let Some(block_hash) = block_hash {
 			block_hash
 		} else {
-			self.client.latest_block().await.ok_or(ClientError::BlockNotFound)?.hash()
+			self.client.latest_block().await.hash()
 		};
 		Ok(self.client.receipts_count_per_block(&block_hash).await.map(U256::from))
 	}
@@ -351,5 +350,12 @@ impl EthRpcServer for EthRpcServerImpl {
 	) -> RpcResult<U256> {
 		let nonce = self.client.nonce(address, block).await?;
 		Ok(nonce)
+	}
+
+	async fn web3_client_version(&self) -> RpcResult<String> {
+		let git_revision = env!("GIT_REVISION");
+		let rustc_version = env!("RUSTC_VERSION");
+		let target = env!("TARGET");
+		Ok(format!("eth-rpc/{git_revision}/{target}/{rustc_version}"))
 	}
 }

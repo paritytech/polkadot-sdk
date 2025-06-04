@@ -51,7 +51,9 @@ sp-keyring = { workspace = true, default-features = true }
 xcm = { workspace = true, default-features = true }
 
 # Cumulus
+cumulus-client-consensus-aura = { workspace = true }
 cumulus-primitives-core = { workspace = true, default-features = true }
+yet-another-parachain-runtime = { workspace = true }
 
 [build-dependencies]
 substrate-build-script-utils = { workspace = true, default-features = true }
@@ -77,6 +79,7 @@ runtime-benchmarks = [
 	"people-westend-runtime/runtime-benchmarks",
 	"rococo-parachain-runtime/runtime-benchmarks",
 	"xcm/runtime-benchmarks",
+	"yet-another-parachain-runtime/runtime-benchmarks",
 ]
 try-runtime = [
 	"polkadot-omni-node-lib/try-runtime",

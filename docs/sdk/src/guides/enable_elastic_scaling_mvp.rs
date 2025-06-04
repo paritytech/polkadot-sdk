@@ -72,7 +72,7 @@
 //!
 //! <div class="warning">Phase 1 is NOT needed if using the <code>polkadot-parachain</code> or
 //! <code>polkadot-omni-node</code> binary, or <code>polkadot-omni-node-lib</code> built from the
-//! latest polkadot-sdk release! Simply pass the <code>--experimental-use-slot-based</code>
+//! latest polkadot-sdk release! Simply pass the <code>--authoring slot-based</code>
 //! ([`polkadot_omni_node_lib::cli::Cli::experimental_use_slot_based`]) parameter to the command
 //! line and jump to Phase 2.</div>
 //!
@@ -92,7 +92,7 @@
 //!     - Remove the `overseer_handle` param (also remove the
 //!     `OverseerHandle` type import if it’s not used elsewhere).
 //!     - Rename `AuraParams` to `SlotBasedParams`, remove the `overseer_handle` field and add a
-//!     `slot_drift` field with a   value of `Duration::from_secs(1)`.
+//!     `slot_offset` field with a   value of `Duration::from_secs(1)`.
 //!     - Replace the single future returned by `aura::run` with the two futures returned by it and
 //!     spawn them as separate tasks:
 #![doc = docify::embed!("../../cumulus/polkadot-omni-node/lib/src/nodes/aura.rs", launch_slot_based_collator)]

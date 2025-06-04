@@ -27,7 +27,7 @@ use crate::{
 	},
 };
 use clap::{error::ErrorKind, CommandFactory};
-use codec::{Decode, Encode};
+use codec::{Decode, DecodeWithMemTracking, Encode};
 use frame_benchmarking::{
 	Analysis, BenchmarkBatch, BenchmarkBatchSplitResults, BenchmarkList, BenchmarkParameter,
 	BenchmarkResult, BenchmarkSelector,
@@ -168,6 +168,7 @@ impl PalletCmd {
 	pub fn run<Hasher, ExtraHostFunctions>(&self, config: sc_service::Configuration) -> Result<()>
 	where
 		Hasher: Hash,
+		<Hasher as Hash>::Output: DecodeWithMemTracking,
 		ExtraHostFunctions: HostFunctions,
 	{
 		self.run_with_spec::<Hasher, ExtraHostFunctions>(Some(config.chain_spec))
@@ -235,6 +236,7 @@ impl PalletCmd {
 	) -> Result<()>
 	where
 		Hasher: Hash,
+		<Hasher as Hash>::Output: DecodeWithMemTracking,
 		ExtraHostFunctions: HostFunctions,
 	{
 		if let Err((error_kind, msg)) = self.check_args(&chain_spec) {
