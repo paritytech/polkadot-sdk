@@ -25,7 +25,7 @@ use tracing_subscriber::EnvFilter;
 use txtesttool::scenario::{ChainType, ScenarioBuilder};
 use zombienet_sdk::{
 	subxt::SubstrateConfig, GlobalSettingsBuilder, LocalFileSystem, Network, NetworkConfig,
-	NetworkConfigExt,
+	NetworkConfigBuilder, NetworkConfigExt, WithRelaychain,
 };
 
 /// Gathers TOML files paths for relaychains and for parachains' (that use rococo-local based
@@ -47,6 +47,8 @@ pub mod relaychain_rococo_local_network_spec {
 	}
 }
 
+mod yap_test;
+
 /// Default time that we expect to need for a full run of current tests that send future and ready
 /// txs to parachain or relaychain networks.
 pub const DEFAULT_SEND_FUTURE_AND_READY_TXS_TESTS_TIMEOUT_IN_SECS: u64 = 1500;
@@ -66,12 +68,57 @@ pub enum Error {
 /// Result of work related to network spawning.
 pub type Result<T> = std::result::Result<T, Error>;
 
+/// Environment variable defining the location of zombienet network base dir.
+const TXPOOL_TEST_DIR_ENV: &str = "TXPOOL_TEST_DIR";
+
 /// Provides logic to spawn a network based on a Zombienet toml file.
 pub struct NetworkSpawner {
 	network: Network<LocalFileSystem>,
 }
 
 impl NetworkSpawner {
+	/// Initialize the network spawner using given `builder` closure.
+	pub async fn with_closure<F>(builder: F) -> Result<NetworkSpawner>
+	where
+		F: FnOnce() -> NetworkConfigBuilder<WithRelaychain>,
+	{
+		let _ = env_logger::try_init_from_env(
+			env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
+		);
+
+		let config_builder = builder();
+
+		let net_config = config_builder
+			.with_global_settings(|global_settings| match NetworkSpawner::base_dir_from_env() {
+				Some(val) => global_settings.with_base_dir(val),
+				_ => global_settings,
+			})
+			.build()
+			.map_err(|errs| {
+				let msg = errs.into_iter().map(|e| e.to_string()).collect::<Vec<_>>().join(", ");
+				Error::NetworkInit(anyhow!(msg))
+			})?;
+
+		Ok(NetworkSpawner {
+			network: net_config
+				.spawn_native()
+				.await
+				.map_err(|err| Error::NetworkInit(anyhow!(err.to_string())))?,
+		})
+	}
+
+	/// Generates a directory path from an environment variable and the current timestamp.
+	/// The format is "<TENV>/test_YMD_HMS"
+	pub fn base_dir_from_env() -> Option<String> {
+		std::env::var(TXPOOL_TEST_DIR_ENV)
+			.map(|pool_test_dir| {
+				let datetime: chrono::DateTime<chrono::Local> = SystemTime::now().into();
+				let formatted_date = datetime.format("%Y%m%d_%H%M%S");
+				format!("{}/test_{}", pool_test_dir, formatted_date)
+			})
+			.ok()
+	}
+
 	/// Initialize the network spawner based on a Zombienet toml file
 	pub async fn from_toml_with_env_logger(toml_path: &'static str) -> Result<NetworkSpawner> {
 		// Initialize the subscriber with a default log level of INFO if RUST_LOG is not set
@@ -82,11 +129,7 @@ impl NetworkSpawner {
 			.with_env_filter(env_filter) // Use the env filter
 			.init();
 
-		const TXPOOL_TEST_DIR_ENV: &str = "TXPOOL_TEST_DIR";
-		let net_config = if let Ok(pool_test_dir) = std::env::var(TXPOOL_TEST_DIR_ENV) {
-			let datetime: chrono::DateTime<chrono::Local> = SystemTime::now().into();
-			let formatted_date = datetime.format("%Y%m%d_%H%M%S");
-			let base_dir = format!("{}/test_{}", pool_test_dir, formatted_date);
+		let net_config = if let Some(base_dir) = Self::base_dir_from_env() {
 			let settings = GlobalSettingsBuilder::new().with_base_dir(base_dir).build().unwrap();
 			NetworkConfig::load_from_toml_with_settings(toml_path, &settings)
 				.map_err(Error::NetworkInit)?

@@ -1457,6 +1457,7 @@ yet-another-parachain-runtime = { path = "cumulus/parachains/runtimes/testing/ye
 zeroize = { version = "1.7.0", default-features = false }
 zombienet-orchestrator = { version = "0.3.0" }
 zombienet-sdk = { version = "0.3.0" }
+zombienet-configuration = { version = "0.3.0" }
 zstd = { version = "0.12.4", default-features = false }
 
 [profile.release]
