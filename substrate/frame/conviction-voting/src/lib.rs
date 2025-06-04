@@ -226,6 +226,8 @@ pub mod pallet {
 		ClassNeeded,
 		/// The class ID supplied is invalid.
 		BadClass,
+		/// The voter's delegate has reached the maximum number of votes.
+		DelegateMaxVotesReached,
 	}
 
 	#[pallet::call]
@@ -501,7 +503,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 								let poll_vote = PollVote {poll_index: poll_index, maybe_vote: None, retracted_votes: amount_delegated};
 								votes
 									.try_insert(i, poll_vote)
-									.map_err(|_| Error::<T, I>::MaxVotesReached)?;
+									.map_err(|_| Error::<T, I>::DelegateMaxVotesReached)?;
 							},
 						}
 					});
@@ -692,7 +694,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 						let poll_vote = PollVote {poll_index: poll_index, maybe_vote: None, retracted_votes: amount};
 						votes
 							.try_insert(i, poll_vote)
-							.map_err(|_| Error::<T, I>::MaxVotesReached)?;
+							.map_err(|_| Error::<T, I>::DelegateMaxVotesReached)?;
 					},
 				}
 			}
