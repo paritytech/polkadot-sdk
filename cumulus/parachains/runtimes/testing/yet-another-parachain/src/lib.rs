@@ -132,7 +132,7 @@ const MAXIMUM_BLOCK_WEIGHT: Weight = Weight::from_parts(
 
 /// Maximum number of blocks simultaneously accepted by the Runtime, not yet included
 /// into the relay chain.
-const UNINCLUDED_SEGMENT_CAPACITY: u32 = 7;
+const UNINCLUDED_SEGMENT_CAPACITY: u32 = 10;
 
 /// Build with an offset of 1 behind the relay chain.
 const RELAY_PARENT_OFFSET: u32 = 1;
