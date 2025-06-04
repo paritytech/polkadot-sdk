@@ -98,6 +98,7 @@ fn register_token_from_ethereum_to_asset_hub() {
 	// Fund AssetHub sovereign account so that it can pay execution fees.
 	BridgeHubWestend::fund_para_sovereign(AssetHubWestend::para_id().into(), INITIAL_FUND);
 	// Fund Snowbridge Sovereign to satisfy ED.
+	// prefund Asset Hub checking account so we accept teleport from Bridge Hub
 	AssetHubWestend::fund_accounts(vec![(snowbridge_sovereign(), INITIAL_FUND)]);
 
 	let token = H160::random();
@@ -582,6 +583,7 @@ fn send_token_from_ethereum_to_asset_hub() {
 		1,
 		[Parachain(AssetHubWestend::para_id().into())],
 	));
+
 	// Fund AssetHub sovereign account so it can pay execution fees for the asset transfer
 	BridgeHubWestend::fund_accounts(vec![(asset_hub_sovereign.clone(), INITIAL_FUND)]);
 

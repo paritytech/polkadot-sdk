@@ -208,12 +208,6 @@ fn teleport_via_limited_teleport_assets_from_and_to_relay() {
 	let amount = WESTEND_ED * 100;
 	let native_asset: Assets = (Here, amount).into();
 
-	// prefund Asset Hub checking account so we accept teleport from Relay
-	let check_account = AssetHubWestend::execute_with(|| {
-		<AssetHubWestend as AssetHubWestendPallet>::PolkadotXcm::check_account()
-	});
-	AssetHubWestend::fund_accounts(vec![(check_account, amount)]);
-
 	test_relay_is_trusted_teleporter!(
 		Westend,
 		vec![AssetHubWestend],
@@ -234,12 +228,6 @@ fn teleport_via_transfer_assets_from_and_to_relay() {
 	let amount = WESTEND_ED * 100;
 	let native_asset: Assets = (Here, amount).into();
 
-	// prefund Asset Hub checking account so we accept teleport from Relay
-	let check_account = AssetHubWestend::execute_with(|| {
-		<AssetHubWestend as AssetHubWestendPallet>::PolkadotXcm::check_account()
-	});
-	AssetHubWestend::fund_accounts(vec![(check_account, amount)]);
-
 	test_relay_is_trusted_teleporter!(
 		Westend,
 		vec![AssetHubWestend],
@@ -259,16 +247,26 @@ fn teleport_via_transfer_assets_from_and_to_relay() {
 /// shouldn't work when there is not enough balance in Asset Hub's `CheckAccount`
 #[test]
 fn limited_teleport_native_assets_from_relay_to_asset_hub_checking_acc_fails() {
-	// Init values for Relay Chain
-	let amount_to_send: Balance = ASSET_HUB_WESTEND_ED * 1000;
+	let check_account = AssetHubWestend::execute_with(|| {
+		<AssetHubWestend as AssetHubWestendPallet>::PolkadotXcm::check_account()
+	});
+	let amount_to_send_larger_than_checking_acc: Balance =
+		AssetHubWestend::account_data_of(check_account).free + 1;
 	let destination = Westend::child_location_of(AssetHubWestend::para_id());
 	let beneficiary_id = AssetHubWestendReceiver::get().into();
-	let assets = (Here, amount_to_send).into();
+	let assets = (Here, amount_to_send_larger_than_checking_acc).into();
 
 	let test_args = TestContext {
 		sender: WestendSender::get(),
 		receiver: AssetHubWestendReceiver::get(),
-		args: TestArgs::new_para(destination, beneficiary_id, amount_to_send, assets, None, 0),
+		args: TestArgs::new_para(
+			destination,
+			beneficiary_id,
+			amount_to_send_larger_than_checking_acc,
+			assets,
+			None,
+			0,
+		),
 	};
 
 	let mut test = RelayToSystemParaTest::new(test_args);
@@ -305,7 +303,10 @@ fn limited_teleport_native_assets_from_relay_to_asset_hub_checking_acc_fails() {
 	});
 
 	// Sender's balance is reduced
-	assert_eq!(sender_balance_before - amount_to_send - delivery_fees, sender_balance_after);
+	assert_eq!(
+		sender_balance_before - amount_to_send_larger_than_checking_acc - delivery_fees,
+		sender_balance_after
+	);
 	// Receiver's balance does not change
 	assert_eq!(receiver_balance_after, receiver_balance_before);
 }
@@ -329,12 +330,6 @@ fn limited_teleport_native_assets_from_relay_to_asset_hub_checking_acc_burn_work
 
 	let sender_balance_before = test.sender.balance;
 	let receiver_balance_before = test.receiver.balance;
-
-	// prefund Asset Hub checking account so we accept teleport "back" from Relay
-	let check_account = AssetHubWestend::execute_with(|| {
-		<AssetHubWestend as AssetHubWestendPallet>::PolkadotXcm::check_account()
-	});
-	AssetHubWestend::fund_accounts(vec![(check_account, amount_to_send)]);
 
 	fn para_dest_assertions_works(t: RelayToSystemParaTest) {
 		type RuntimeEvent = <AssetHubWestend as Chain>::RuntimeEvent;

@@ -689,7 +689,7 @@ fn transfer_native_asset_from_relay_to_penpal_through_asset_hub() {
 	// Init values for Relay
 	let destination = Westend::child_location_of(PenpalA::para_id());
 	let sender = WestendSender::get();
-	let amount_to_send: Balance = WESTEND_ED * 1000;
+	let amount_to_send: Balance = WESTEND_ED * 100;
 
 	// Init values for Parachain
 	let relay_native_asset_location = RelayLocation::get();
@@ -715,12 +715,6 @@ fn transfer_native_asset_from_relay_to_penpal_through_asset_hub() {
 		type ForeignAssets = <PenpalA as PenpalAPallet>::ForeignAssets;
 		<ForeignAssets as Inspect<_>>::balance(relay_native_asset_location.clone(), &receiver)
 	});
-
-	// prefund Asset Hub checking account so we accept teleport "back" from Relay
-	let check_account = AssetHubWestend::execute_with(|| {
-		<AssetHubWestend as AssetHubWestendPallet>::PolkadotXcm::check_account()
-	});
-	AssetHubWestend::fund_accounts(vec![(check_account, amount_to_send)]);
 
 	fn relay_assertions(t: RelayToParaThroughAHTest) {
 		type RuntimeEvent = <Westend as Chain>::RuntimeEvent;

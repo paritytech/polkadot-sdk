@@ -24,13 +24,14 @@ mod imports {
 	pub(crate) use sp_runtime::DispatchError;
 
 	// Polkadot
+	pub(crate) use asset_test_utils::xcm_helpers;
+	pub(crate) use parachains_common::Balance;
 	pub(crate) use xcm::{
 		latest::{ParentThen, ROCOCO_GENESIS_HASH, WESTEND_GENESIS_HASH},
 		prelude::{AccountId32 as AccountId32Junction, *},
 		v5,
 	};
 	pub(crate) use xcm_executor::traits::TransferType;
-
 	// Cumulus
 	pub(crate) use emulated_integration_tests_common::{
 		accounts::ALICE,
@@ -39,7 +40,8 @@ mod imports {
 		test_dry_run_transfer_across_pk_bridge, test_parachain_is_trusted_teleporter,
 		test_parachain_is_trusted_teleporter_for_relay, test_relay_is_trusted_teleporter,
 		xcm_emulator::{
-			assert_expected_events, bx, Chain, Parachain as Para, RelayChain as Relay, TestExt,
+			assert_expected_events, bx, Chain, Parachain as Para, RelayChain as Relay, Test,
+			TestArgs, TestContext, TestExt,
 		},
 		xcm_helpers::xcm_transact_paid_execution,
 		ASSETS_PALLET_ID, USDT_ID,
@@ -55,8 +57,9 @@ mod imports {
 			AssetHubWestendParaPallet as AssetHubWestendPallet,
 		},
 		bridge_hub_westend_emulated_chain::{
-			bridge_hub_westend_runtime, genesis::ED as BRIDGE_HUB_WESTEND_ED,
-			BridgeHubWestendExistentialDeposit,
+			bridge_hub_westend_runtime,
+			bridge_hub_westend_runtime::xcm_config::XcmConfig as BridgeHubWestendXcmConfig,
+			genesis::ED as BRIDGE_HUB_WESTEND_ED, BridgeHubWestendExistentialDeposit,
 			BridgeHubWestendParaPallet as BridgeHubWestendPallet, BridgeHubWestendRuntimeOrigin,
 		},
 		penpal_emulated_chain::{
@@ -86,6 +89,8 @@ mod imports {
 
 	pub(crate) const ASSET_ID: u32 = 1;
 	pub(crate) const ASSET_MIN_BALANCE: u128 = 1000;
+
+	pub(crate) type SystemParaToSystemParaTest = Test<BridgeHubWestend, AssetHubWestend>;
 }
 
 #[cfg(test)]

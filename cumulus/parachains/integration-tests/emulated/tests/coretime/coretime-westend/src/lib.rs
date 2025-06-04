@@ -17,33 +17,47 @@
 mod imports {
 
 	// Substrate
-	pub(crate) use frame_support::assert_ok;
+	pub(crate) use frame_support::{assert_ok, sp_runtime::DispatchResult};
 
 	// Polkadot
 	pub(crate) use xcm::{latest::WESTEND_GENESIS_HASH, prelude::*};
 
 	// Cumulus
+	pub(crate) use asset_test_utils::xcm_helpers;
 	pub(crate) use emulated_integration_tests_common::xcm_emulator::{
-		assert_expected_events, Chain, Parachain, TestExt,
+		assert_expected_events, bx, Chain, Parachain, Test, TestArgs, TestContext, TestExt,
 	};
+	pub(crate) use parachains_common::Balance;
 	pub(crate) use westend_system_emulated_network::{
-		asset_hub_westend_emulated_chain::AssetHubWestendParaPallet as AssetHubWestendPallet,
+		asset_hub_westend_emulated_chain::{
+			genesis::ED as ASSET_HUB_WESTEND_ED, AssetHubWestendParaPallet as AssetHubWestendPallet,
+		},
 		bridge_hub_westend_emulated_chain::BridgeHubWestendParaPallet as BridgeHubWestendPallet,
 		collectives_westend_emulated_chain::CollectivesWestendParaPallet as CollectivesWestendPallet,
 		coretime_westend_emulated_chain::{
 			self,
-			coretime_westend_runtime::ExistentialDeposit as CoretimeWestendExistentialDeposit,
+			coretime_westend_runtime::{
+				xcm_config::XcmConfig as CoretimeWestendXcmConfig,
+				ExistentialDeposit as CoretimeWestendExistentialDeposit,
+			},
+			genesis::ED as CORETIME_WESTEND_ED,
 			CoretimeWestendParaPallet as CoretimeWestendPallet,
 		},
 		penpal_emulated_chain::{PenpalAssetOwner, PenpalBParaPallet as PenpalBPallet},
 		people_westend_emulated_chain::PeopleWestendParaPallet as PeopleWestendPallet,
 		westend_emulated_chain::genesis::ED as WESTEND_ED,
-		AssetHubWestendPara as AssetHubWestend, BridgeHubWestendPara as BridgeHubWestend,
-		CollectivesWestendPara as CollectivesWestend, CoretimeWestendPara as CoretimeWestend,
+		AssetHubWestendPara as AssetHubWestend,
+		AssetHubWestendParaReceiver as AssetHubWestendReceiver,
+		AssetHubWestendParaSender as AssetHubWestendSender,
+		BridgeHubWestendPara as BridgeHubWestend, CollectivesWestendPara as CollectivesWestend,
+		CoretimeWestendPara as CoretimeWestend,
 		CoretimeWestendParaReceiver as CoretimeWestendReceiver,
 		CoretimeWestendParaSender as CoretimeWestendSender, PenpalBPara as PenpalB,
 		PeopleWestendPara as PeopleWestend, WestendRelay as Westend,
+		WestendRelayReceiver as WestendReceiver, WestendRelaySender as WestendSender,
 	};
+
+	pub(crate) type SystemParaToSystemParaTest = Test<CoretimeWestend, AssetHubWestend>;
 }
 
 #[cfg(test)]
