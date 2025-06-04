@@ -411,8 +411,6 @@ pub mod pallet {
 
 impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
-	// ✓
-
 	/// Actually enact a vote, if legitimate.
 	fn try_vote(
 		who: &T::AccountId,
@@ -517,8 +515,6 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			})
 		})
 	}
-
-	// ✓
 
 	/// Remove the account's vote for the given poll if possible. This is possible when:
 	/// - The poll has not finished.
@@ -649,9 +645,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		})
 	}
 
-	// ✓
-
-	/// Return the number of vote updates.
+	/// Return the number of votes accessed.
 	fn increase_upstream_delegation(
 		who: &T::AccountId,
 		class: &ClassOf<T, I>,
@@ -707,9 +701,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		})
 	}
 
-	// ✓
-
-	/// Return the number of votes made by `who`.
+	/// Return the number of votes accessed.
 	fn reduce_upstream_delegation(
 		who: &T::AccountId,
 		class: &ClassOf<T, I>,
@@ -761,11 +753,9 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		})
 	}
 
-	// ✓
-
 	/// Attempt to delegate `balance` times `conviction` of voting power from `who` to `target`.
 	///
-	/// Return the upstream number of votes.
+	/// Return the number of upstream vote accesses.
 	fn try_delegate(
 		who: T::AccountId,
 		class: ClassOf<T, I>,
@@ -787,7 +777,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				// Set delegation related info
 				voting.set_delegate_info(Some(target), balance, Some(conviction));
 				
-				// Grab all of the delegator votes that are for ongoing polls
+				// Collect all of the delegator's votes that are for ongoing polls
 				let ongoing_votes: Vec<_> = voting.votes.iter().filter_map(|poll_vote| 
 					T::Polls::as_ongoing(poll_vote.poll_index)
 				).collect();
@@ -804,17 +794,15 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		Ok(delegate_vote_count)
 	}
 
-	// ✓ 
-
 	/// Attempt to end the current delegation.
 	///
-	/// Return the number of votes of upstream.
+	/// Return the number of vote accesses upstream.
 	fn try_undelegate(who: T::AccountId, class: ClassOf<T, I>) -> Result<u32, DispatchError> {
 		let delegate_vote_count =
 			VotingFor::<T, I>::try_mutate(&who, &class, |voting| -> Result<u32, DispatchError> {
 				// If they're currently delegating
 				if let (Some(delegate), Some(conviction)) = (voting.delegate, voting.conviction) {
-					// Grab all the delegators voting data for ongoing polls
+					// Collect all of the delegator's votes that are for ongoing polls
 					let ongoing_votes: Vec<_> = voting.votes.iter().filter_map(|poll_vote|
 						T::Polls::as_ongoing(poll_vote.poll_index)
 					).collect();
@@ -841,8 +829,6 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		Ok(delegate_vote_count)
 	}
 
-	// ✓
-
 	fn extend_lock(who: &T::AccountId, class: &ClassOf<T, I>, amount: BalanceOf<T, I>) {
 		ClassLocksFor::<T, I>::mutate(who, |locks| {
 			match locks.iter().position(|x| &x.0 == class) {
@@ -865,8 +851,6 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			WithdrawReasons::except(WithdrawReasons::RESERVE),
 		);
 	}
-
-	// ✓
 
 	/// Rejig the lock on an account. It will never get more stringent (since that would indicate
 	/// a security hole) but may be reduced from what they are currently.

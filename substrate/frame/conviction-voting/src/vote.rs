@@ -190,8 +190,12 @@ type RetractedVotes<Balance> = Delegations<Balance>;
 /// Pertinent information of a vote in regards to a specific poll
 #[derive(Encode, Decode, Clone, Eq, PartialEq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 pub struct PollVote<Balance> {
+	/// The poll index this information concerns
 	pub poll_index: PollIndex,
+	/// The vote this account has cast. Can be none if only retracted_votes info is needed
 	pub maybe_vote: Option<AccountVote<Balance>>,
+	/// The amount of votes retracted from this user for this poll. Can't be more than is
+	/// delegated to them. Votes are retracted when a delegator votes in stead of their delegate.
 	pub retracted_votes: RetractedVotes<Balance>,
 }
 
