@@ -1624,7 +1624,7 @@ fn nonce() {
 	});
 	let succ_succ_code = MockLoader::insert(Constructor, move |ctx, _| {
 		let alice_nonce = System::account_nonce(&ALICE);
-		assert_eq!(System::account_nonce(ctx.ext.account_id()), 0);
+		assert_eq!(System::account_nonce(ctx.ext.account_id()), 1);
 		assert_eq!(ctx.ext.caller().account_id().unwrap(), &ALICE);
 		let addr = ctx
 			.ext
@@ -1642,8 +1642,8 @@ fn nonce() {
 			<<Test as Config>::AddressMapper as AddressMapper<Test>>::to_fallback_account_id(&addr);
 
 		assert_eq!(System::account_nonce(&ALICE), alice_nonce);
-		assert_eq!(System::account_nonce(ctx.ext.account_id()), 1);
-		assert_eq!(System::account_nonce(&account_id), 0);
+		assert_eq!(System::account_nonce(ctx.ext.account_id()), 2);
+		assert_eq!(System::account_nonce(&account_id), 1);
 
 		// a plain call should not influence the account counter
 		ctx.ext
@@ -1651,8 +1651,8 @@ fn nonce() {
 			.unwrap();
 
 		assert_eq!(System::account_nonce(ALICE), alice_nonce);
-		assert_eq!(System::account_nonce(ctx.ext.account_id()), 1);
-		assert_eq!(System::account_nonce(&account_id), 0);
+		assert_eq!(System::account_nonce(ctx.ext.account_id()), 2);
+		assert_eq!(System::account_nonce(&account_id), 1);
 
 		exec_success()
 	});
