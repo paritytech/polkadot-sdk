@@ -162,20 +162,22 @@ pub mod pallet {
 				let length_as_balance = T::BlockNumberToBalance::convert(length);
 				let per_block = (frozen / length_as_balance.max(One::one())).max(One::one());
 
-				Pallet::<T, I>::add_vesting_schedule(
-					asset, who, frozen, per_block, begin
-				).map_err(|err| {
-					let DispatchError::Module(ModuleError { message: Some(message), .. }) = err.into() else {
-						panic!("Failure to add vesting at genesis");
-					};
-					let msg = match message {
-						"InvalidScheduleParams" => "Invalid VestingInfo params at genesis.",
-						"AtMaxVestingSchedules" => "Too many vesting schedules at genesis.",
-						msg => &format!("Failure to add vesting at genesis: {msg}"),
-					};
+				Pallet::<T, I>::add_vesting_schedule(asset, who, frozen, per_block, begin)
+					.map_err(|err| {
+						let DispatchError::Module(ModuleError { message: Some(message), .. }) =
+							err.into()
+						else {
+							panic!("Failure to add vesting at genesis");
+						};
+						let msg = match message {
+							"InvalidScheduleParams" => "Invalid VestingInfo params at genesis.",
+							"AtMaxVestingSchedules" => "Too many vesting schedules at genesis.",
+							msg => panic!("Failure to add vesting at genesis: {msg}"),
+						};
 
-					panic!("{msg}");
-				}).unwrap();
+						panic!("{msg}");
+					})
+					.unwrap();
 			}
 		}
 	}
