@@ -20,6 +20,8 @@ on:
         required: true
       AWS_DEFAULT_REGION:
         required: true
+permissions:
+  id-token: write
 
 jobs:
   tag_rc:
