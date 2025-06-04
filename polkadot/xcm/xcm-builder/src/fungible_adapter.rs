@@ -17,7 +17,7 @@
 //! Adapters to work with [`frame_support::traits::fungible`] through XCM.
 
 use super::MintLocation;
-use core::{marker::PhantomData, result};
+use core::{fmt::Debug, marker::PhantomData, result};
 use frame_support::traits::{
 	tokens::{
 		fungible, Fortitude::Polite, Precision::Exact, Preservation::Expendable, Provenance::Minted,
@@ -40,7 +40,7 @@ impl<
 		Fungible: fungible::Mutate<AccountId>,
 		Matcher: MatchesFungible<Fungible::Balance>,
 		AccountIdConverter: ConvertLocation<AccountId>,
-		AccountId: Eq + Clone,
+		AccountId: Eq + Clone + Debug,
 	> TransactAsset for FungibleTransferAdapter<Fungible, Matcher, AccountIdConverter, AccountId>
 {
 	fn internal_transfer_asset(
@@ -62,7 +62,7 @@ impl<
 			.ok_or(MatchError::AccountIdConversionFailed)?;
 		Fungible::transfer(&source, &dest, amount, Expendable).map_err(|error| {
 			tracing::debug!(
-				target: "xcm::fungible_adapter", ?error,
+				target: "xcm::fungible_adapter", ?error, ?source, ?dest, ?amount,
 				"Failed to transfer asset",
 			);
 			XcmError::FailedToTransactAsset(error.into())
@@ -253,7 +253,7 @@ impl<
 		Fungible: fungible::Mutate<AccountId>,
 		Matcher: MatchesFungible<Fungible::Balance>,
 		AccountIdConverter: ConvertLocation<AccountId>,
-		AccountId: Eq + Clone,
+		AccountId: Eq + Clone + Debug,
 		CheckingAccount: Get<Option<(AccountId, MintLocation)>>,
 	> TransactAsset
 	for FungibleAdapter<Fungible, Matcher, AccountIdConverter, AccountId, CheckingAccount>

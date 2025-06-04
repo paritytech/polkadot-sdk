@@ -1071,7 +1071,6 @@ impl<T: Config> SendXcm for Pallet<T> {
 			_ => {
 				// Anything else is unhandled. This includes a message that is not meant for us.
 				// We need to make sure that dest/msg is not consumed here.
-				log::debug!(target: LOG_TARGET, "Failed to validate XCM destination: unexpected location {d:?}");
 				*dest = Some(d);
 				Err(SendError::NotApplicable)
 			},
