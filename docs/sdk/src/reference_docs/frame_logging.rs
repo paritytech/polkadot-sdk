@@ -123,11 +123,11 @@
 //! Note that within FRAME, reading storage values __only for the purpose of logging__ is dangerous,
 //! and can lead to consensus issues. This is because with the introduction of
 //! [`crate::guides::enable_pov_reclaim`], the node side code will track the storage changes, and
-//! tries to update the onchain record of the weight used (stored in [`frame_system::BlockWeight`])
-//! after the block is over.
+//! tries to update the onchain record of the `proof_size` weight used (stored in
+//! [`frame_system::BlockWeight`]) after the block is executed.
 //!
 //! If one node has a different log level enabled than the rest of the network, and the extra logs
-//! impose additional storage reads, and the amount of `proof_size` weight reclaimed into
+//! impose additional storage reads, then the amount of `proof_size` weight reclaimed into
 //! [`frame_system::BlockWeight`] will be different, causing a state root mismatch, which is
 //! typically a fatal error emitted from [`frame_executive`].
 //!
@@ -139,5 +139,17 @@
 //! `info` which is typically enabled by all parties) that are already read from storage, and will
 //! be part of the storage proof of execution in any case**.
 //!
+//! A typical faulty code would look like this:
+//!
+//! ```ignore
+//! /// This function will have a different storage footprint depending on the log level
+//! fn faulty_logging() {
+//! 	log::debug!(
+//! 		"what I am about to print is only read when `RUST_LOG=debug` {:?}",
+//! 		StorageValue::<T>::get()
+//!  	);
+//! }
+//! ```
+//!
 //! Please read [this issue](https://github.com/paritytech/polkadot-sdk/issues/8735) for one
-//! instance of the consensus issues arised by this mistake.
+//! instance of the consensus issues caused by this mistake.
