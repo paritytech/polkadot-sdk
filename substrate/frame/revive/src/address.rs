@@ -42,7 +42,7 @@ use sp_runtime::{AccountId32, DispatchResult, Saturating};
 /// different sizes one direction of the mapping is necessarily lossy. This requires the mapping to
 /// make use of the [`OriginalAccount`] storage item to reverse the mapping.
 pub trait AddressMapper<T: Config>: private::Sealed {
-	/// Convert an account id to an ethereum adress.
+	/// Convert an account id to an ethereum address.
 	fn to_address(account_id: &T::AccountId) -> H160;
 
 	/// Convert an ethereum address to a native account id.
@@ -68,7 +68,7 @@ pub trait AddressMapper<T: Config>: private::Sealed {
 	/// for reclaiming the deposit.
 	fn unmap(account_id: &T::AccountId) -> DispatchResult;
 
-	/// Returns true if the `account_id` is useable as an origin.
+	/// Returns true if the `account_id` is usable as an origin.
 	///
 	/// This means either the `account_id` doesn't require a stateful mapping
 	/// or a stateful mapping exists.
@@ -79,6 +79,7 @@ mod private {
 	pub trait Sealed {}
 	impl<T> Sealed for super::AccountId32Mapper<T> {}
 	impl<T> Sealed for super::H160Mapper<T> {}
+	impl<T> Sealed for super::TestAccountMapper<T> {}
 }
 
 /// The mapper to be used if the account id is `AccountId32`.
@@ -93,6 +94,9 @@ pub struct AccountId32Mapper<T>(PhantomData<T>);
 ///
 /// It just trivially returns its inputs and doesn't make use of any state.
 pub struct H160Mapper<T>(PhantomData<T>);
+
+/// An account mapper that can be used for testing u64 account ids.
+pub struct TestAccountMapper<T>(PhantomData<T>);
 
 impl<T> AddressMapper<T> for AccountId32Mapper<T>
 where
@@ -150,6 +154,37 @@ where
 	fn is_mapped(account_id: &T::AccountId) -> bool {
 		is_eth_derived(account_id) ||
 			<OriginalAccount<T>>::contains_key(Self::to_address(account_id))
+	}
+}
+
+impl<T> AddressMapper<T> for TestAccountMapper<T>
+where
+	T: Config<AccountId = u64>,
+{
+	fn to_address(account_id: &T::AccountId) -> H160 {
+		let mut bytes = [0u8; 20];
+		bytes[12..].copy_from_slice(&account_id.to_be_bytes());
+		H160::from(bytes)
+	}
+
+	fn to_account_id(address: &H160) -> T::AccountId {
+		Self::to_fallback_account_id(address)
+	}
+
+	fn to_fallback_account_id(address: &H160) -> T::AccountId {
+		u64::from_be_bytes(address.as_ref()[12..].try_into().unwrap())
+	}
+
+	fn map(_account_id: &T::AccountId) -> DispatchResult {
+		Ok(())
+	}
+
+	fn unmap(_account_id: &T::AccountId) -> DispatchResult {
+		Ok(())
+	}
+
+	fn is_mapped(_account_id: &T::AccountId) -> bool {
+		true
 	}
 }
 

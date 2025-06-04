@@ -81,5 +81,6 @@ try-runtime = [
 	"pallet-assets/try-runtime",
 	"pallet-revive/try-runtime",
 	"pallet-xcm/try-runtime",
+	"parachains-common/try-runtime",
 	"sp-runtime/try-runtime",
 ]
