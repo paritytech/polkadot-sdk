@@ -199,7 +199,7 @@ version = "0.3.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cc0fac0fc16baf1f63f78b47c3d24718f3619b0714076f6a02957d808d52cbef"
 dependencies = [
- "arrayvec 0.7.4",
+ "arrayvec 0.7.6",
  "bytes",
  "smol_str",
 ]
@@ -622,7 +622,7 @@ dependencies = [
  "ark-ff-macros 0.5.0",
  "ark-serialize 0.5.0",
  "ark-std 0.5.0",
- "arrayvec 0.7.4",
+ "arrayvec 0.7.6",
  "digest 0.10.7",
  "educe",
  "itertools 0.13.0",
@@ -785,7 +785,7 @@ checksum = "3f4d068aaf107ebcd7dfb52bc748f8030e0fc930ac8e360146ca54c1203088f7"
 dependencies = [
  "ark-serialize-derive 0.5.0",
  "ark-std 0.5.0",
- "arrayvec 0.7.4",
+ "arrayvec 0.7.6",
  "digest 0.10.7",
  "num-bigint",
 ]
@@ -914,9 +914,9 @@ checksum = "23b62fc65de8e4e7f52534fb52b0f3ed04746ae267519eef2a83941e8085068b"
 
 [[package]]
 name = "arrayvec"
-version = "0.7.4"
+version = "0.7.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "96d30a06541fbafbc7f82ed10c06164cfbd2c401138f6addd8404629c4b16711"
+checksum = "7c02d123df017efcdfbd739ef81735b36c5ba83ec3c59c80a9d7ecc718f92e50"
 
 [[package]]
 name = "asn1-rs"
@@ -1973,7 +1973,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "23285ad32269793932e830392f2fe2f83e26488fd3ec778883a93c8323735780"
 dependencies = [
  "arrayref",
- "arrayvec 0.7.4",
+ "arrayvec 0.7.6",
  "constant_time_eq 0.3.0",
 ]
 
@@ -1995,7 +1995,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6637f448b9e61dfadbdcbae9a885fadee1f3eaffb1f8d3c1965d3ade8bdfd44f"
 dependencies = [
  "arrayref",
- "arrayvec 0.7.4",
+ "arrayvec 0.7.6",
  "constant_time_eq 0.2.6",
 ]
 
@@ -2006,7 +2006,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d82033247fd8e890df8f740e407ad4d038debb9eb1f40533fffb32e7d17dc6f7"
 dependencies = [
  "arrayref",
- "arrayvec 0.7.4",
+ "arrayvec 0.7.6",
  "cc",
  "cfg-if",
  "constant_time_eq 0.3.0",
@@ -6198,7 +6198,7 @@ version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "139834ddba373bbdd213dffe02c8d110508dcf1726c2be27e8d1f7d7e1856418"
 dependencies = [
- "arrayvec 0.7.4",
+ "arrayvec 0.7.6",
  "auto_impl",
  "bytes",
 ]
@@ -6209,7 +6209,7 @@ version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ce8dba4714ef14b8274c371879b175aa55b16b30f269663f19d576f380018dc4"
 dependencies = [
- "arrayvec 0.7.4",
+ "arrayvec 0.7.6",
  "auto_impl",
  "bytes",
 ]
@@ -6607,7 +6607,7 @@ version = "0.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a7cb8796f93fa038f979a014234d632e9688a120e745f936e2635123c77537f7"
 dependencies = [
- "frame-metadata 20.0.0",
+ "frame-metadata 21.0.0",
  "parity-scale-codec",
  "scale-decode 0.16.0",
  "scale-info",
@@ -6718,6 +6718,17 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "serde",
+]
+
+[[package]]
+name = "frame-metadata"
+version = "21.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "20dfd1d7eae1d94e32e869e2fb272d81f52dd8db57820a373adb83ea24d7d862"
+dependencies = [
+ "cfg-if",
+ "parity-scale-codec",
+ "scale-info",
 ]
 
 [[package]]
@@ -7655,7 +7666,7 @@ version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5313b072ce3c597065a808dbf612c4c8e8590bdbf8b579508bf7a762c5eae6cd"
 dependencies = [
- "arrayvec 0.7.4",
+ "arrayvec 0.7.6",
 ]
 
 [[package]]
@@ -9270,7 +9281,7 @@ version = "0.46.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ced237d0bd84bbebb7c2cad4c073160dacb4fe40534963c32ed6d4c6bb7702a3"
 dependencies = [
- "arrayvec 0.7.4",
+ "arrayvec 0.7.6",
  "asynchronous-codec 0.7.0",
  "bytes",
  "either",
@@ -10130,7 +10141,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "daa3eb39495d8e2e2947a1d862852c90cc6a4a8845f8b41c8829cb9fcc047f4a"
 dependencies = [
  "arrayref",
- "arrayvec 0.7.4",
+ "arrayvec 0.7.6",
  "bitflags 1.3.2",
  "blake2 0.10.6",
  "c2-chacha",
@@ -10801,7 +10812,7 @@ version = "0.4.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a652d9771a63711fd3c3deb670acfbe5c30a4072e664d7a3bf5a9e1056ac72c3"
 dependencies = [
- "arrayvec 0.7.4",
+ "arrayvec 0.7.6",
  "itoa",
 ]
 
@@ -14010,7 +14021,7 @@ version = "3.7.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "799781ae679d79a948e13d4824a40970bfa500058d245760dd857301059810fa"
 dependencies = [
- "arrayvec 0.7.4",
+ "arrayvec 0.7.6",
  "bitvec",
  "byte-slice-cast",
  "bytes",
@@ -19740,7 +19751,7 @@ name = "sc-mixnet"
 version = "0.4.0"
 dependencies = [
  "array-bytes 6.2.2",
- "arrayvec 0.7.4",
+ "arrayvec 0.7.6",
  "blake2 0.10.6",
  "bytes",
  "futures",
@@ -20802,7 +20813,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "844b7645371e6ecdf61ff246ba1958c29e802881a749ae3fb1993675d210d28d"
 dependencies = [
  "arrayref",
- "arrayvec 0.7.4",
+ "arrayvec 0.7.6",
  "curve25519-dalek-ng",
  "merlin",
  "rand_core 0.6.4",
@@ -20819,7 +20830,7 @@ checksum = "8de18f6d8ba0aad7045f5feae07ec29899c1112584a38509a84ad7b04451eaa0"
 dependencies = [
  "aead",
  "arrayref",
- "arrayvec 0.7.4",
+ "arrayvec 0.7.6",
  "curve25519-dalek 4.1.3",
  "getrandom_or_panic",
  "merlin",
@@ -21418,7 +21429,7 @@ version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c0bb30cf57b7b5f6109ce17c3164445e2d6f270af2cb48f6e4d31c2967c9a9f5"
 dependencies = [
- "arrayvec 0.7.4",
+ "arrayvec 0.7.6",
  "async-lock 2.8.0",
  "atomic-take",
  "base64 0.21.7",
@@ -21472,7 +21483,7 @@ version = "0.18.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "966e72d77a3b2171bb7461d0cb91f43670c63558c62d7cf42809cae6c8b6b818"
 dependencies = [
- "arrayvec 0.7.4",
+ "arrayvec 0.7.6",
  "async-lock 3.4.0",
  "atomic-take",
  "base64 0.22.1",
@@ -24767,9 +24778,9 @@ version = "4.0.0-dev"
 
 [[package]]
 name = "substrate-txtesttool"
-version = "0.5.0"
+version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b4116d4d42f14bc24166fd5b3d1d7b90e000e563fa648a87cb9cf27055c53625"
+checksum = "c8e742db3b239740f3ec7d4cfa5cdbc06a9820ed2dd48b073aa3b5de99bb7aed"
 dependencies = [
  "async-trait",
  "average",
@@ -27034,7 +27045,7 @@ version = "0.32.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "50386c99b9c32bd2ed71a55b6dd4040af2580530fae8bdb9a6576571a80d0cca"
 dependencies = [
- "arrayvec 0.7.4",
+ "arrayvec 0.7.6",
  "multi-stash",
  "num-derive",
  "num-traits",
