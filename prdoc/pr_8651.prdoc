@@ -2,7 +2,7 @@ title: 'polkadot-omni-node: add `GetParachainIdentity` runtime api'
 doc:
 - audience: [ Node Dev, Node Operator, Runtime Dev ]
   description: |
-    This PR deprecates the `para_id` field required by parachain chain specifications that are started based on `polkadot-omni-node`,
+    This PR deprecates the `para_id` field of parachain chain specifications currently required by  `polkadot-omni-node`,
     `parachain-polkadot` and `parachain-template-node`.
 
     Starting with `stable2509` the `para_id` field of chain specification is not required anymore, and runtime developers will be able
