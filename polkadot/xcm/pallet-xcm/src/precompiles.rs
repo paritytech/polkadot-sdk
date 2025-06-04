@@ -108,7 +108,7 @@ where
 					crate::Pallet::<Runtime>::execute(frame_origin, final_message.into(), weight);
 
 				let pre = DispatchInfo {
-					call_weight: weight.clone(),
+					call_weight: weight,
 					extension_weight: Weight::zero(),
 					..Default::default()
 				};
