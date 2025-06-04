@@ -16144,6 +16144,7 @@ dependencies = [
  "pallet-assets",
  "pallet-assets-freezer",
  "pallet-assets-holder",
+ "pallet-assets-vesting",
  "pallet-atomic-swap",
  "pallet-aura",
  "pallet-authority-discovery",

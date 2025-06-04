@@ -300,7 +300,6 @@ parameter_types! {
 pub type TrustBackedAssetsVestingInstance = pallet_assets_vesting::Instance1;
 
 impl pallet_assets_vesting::Config<TrustBackedAssetsVestingInstance> for Runtime {
-	type RuntimeEvent = RuntimeEvent;
 	type ForceOrigin = EnsureRoot<AccountId>;
 	type Assets = Assets;
 	type Freezer = AssetsFreezer;
@@ -541,7 +540,6 @@ parameter_types! {
 pub type ForeignAssetsVestingInstance = pallet_assets_vesting::Instance2;
 
 impl pallet_assets_vesting::Config<ForeignAssetsVestingInstance> for Runtime {
-	type RuntimeEvent = RuntimeEvent;
 	type ForceOrigin = EnsureRoot<AccountId>;
 	type Assets = ForeignAssets;
 	type Freezer = ForeignAssetsFreezer;
