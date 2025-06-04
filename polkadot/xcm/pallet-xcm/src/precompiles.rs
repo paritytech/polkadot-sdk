@@ -20,7 +20,7 @@ use core::{marker::PhantomData, num::NonZero};
 use pallet_revive::{
 	precompiles::{
 		alloy::{self, sol_types::SolValue},
-		AddressMatcher, Error, Ext, Precompile, RuntimeCosts,
+		AddressMatcher, Error, Ext, Precompile,
 	},
 	DispatchInfo, Origin,
 };
@@ -116,7 +116,7 @@ where
 
 				// Adjust gas using actual weight or fallback to initially charged weight
 				let actual_weight = frame_support::dispatch::extract_actual_weight(&result, &pre);
-				env.adjust_gas(charged_amount, RuntimeCosts::Precompile(actual_weight));
+				env.adjust_gas(charged_amount, actual_weight);
 
 				result.map(|post_dispatch_info| post_dispatch_info.encode()).map_err(|error| {
 					error!(
