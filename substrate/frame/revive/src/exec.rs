@@ -1134,6 +1134,9 @@ where
 				// account.
 				<System<T>>::inc_consumers(account_id)?;
 
+				// Contracts nonce starts at 1
+				<System<T>>::inc_account_nonce(account_id);
+
 				// Needs to be incremented before calling into the code so that it is visible
 				// in case of recursion.
 				<System<T>>::inc_account_nonce(caller.account_id()?);
