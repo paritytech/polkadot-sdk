@@ -13,3 +13,5 @@ doc:
 crates:
 - name: polkadot-primitives
   bump: minor
+- name: polkadot-runtime-parachains
+  bump: major
