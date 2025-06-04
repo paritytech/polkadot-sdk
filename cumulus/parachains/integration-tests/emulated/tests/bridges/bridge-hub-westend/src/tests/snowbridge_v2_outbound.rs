@@ -162,11 +162,13 @@ pub fn register_usdt_from_owner_on_asset_hub() {
 	fund_on_bh();
 	register_assets_on_ah();
 	fund_on_ah();
+	set_up_eth_and_dot_pool();
 	AssetHubWestend::execute_with(|| {
 		type RuntimeOrigin = <AssetHubWestend as Chain>::RuntimeOrigin;
+		type RuntimeEvent = <AssetHubWestend as Chain>::RuntimeEvent;
 
 		let fees_asset =
-			Asset { id: AssetId(ethereum()), fun: Fungible(REMOTE_FEE_AMOUNT_IN_ETHER) };
+			Asset { id: AssetId(Location::parent()), fun: Fungible(1_000_000_000u128) };
 
 		assert_ok!(
 			<AssetHubWestend as AssetHubWestendPallet>::SnowbridgeSystemFrontend::register_token(
@@ -179,6 +181,10 @@ pub fn register_usdt_from_owner_on_asset_hub() {
 				},
 				fees_asset
 			)
+		);
+		assert_expected_events!(
+			AssetHubWestend,
+			vec![RuntimeEvent::AssetConversion(pallet_asset_conversion::Event::SwapExecuted { .. }) => {},]
 		);
 	});
 

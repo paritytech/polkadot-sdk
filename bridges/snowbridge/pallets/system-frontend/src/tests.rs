@@ -265,3 +265,28 @@ fn tip_fails_due_to_swap_error() {
 		);
 	});
 }
+
+#[test]
+fn register_token_with_non_ether_fee_asset_succeeds() {
+	new_test_ext().execute_with(|| {
+		let origin_location = Location::new(1, [Parachain(2000)]);
+		let origin = make_xcm_origin(origin_location.clone());
+		let asset_location: Location = Location::new(1, [Parachain(2000), GeneralIndex(1)]);
+		let asset_id = Box::new(VersionedLocation::from(asset_location));
+		let asset_metadata = AssetMetadata {
+			name: "pal".as_bytes().to_vec().try_into().unwrap(),
+			symbol: "pal".as_bytes().to_vec().try_into().unwrap(),
+			decimals: 12,
+		};
+
+		let fee_amount = 1000;
+		let fee_asset = Asset::from((Location::parent(), fee_amount));
+
+		assert_ok!(EthereumSystemFrontend::register_token(
+			origin.clone(),
+			asset_id.clone(),
+			asset_metadata.clone(),
+			fee_asset.clone(),
+		));
+	});
+}
