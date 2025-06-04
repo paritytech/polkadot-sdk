@@ -124,7 +124,6 @@ std = [
 	"pallet-recovery?/std",
 	"pallet-referenda?/std",
 	"pallet-remark?/std",
-	"pallet-revive-mock-network?/std",
 	"pallet-revive?/std",
 	"pallet-root-offences?/std",
 	"pallet-root-testing?/std",
@@ -306,7 +305,6 @@ runtime-benchmarks = [
 	"pallet-recovery?/runtime-benchmarks",
 	"pallet-referenda?/runtime-benchmarks",
 	"pallet-remark?/runtime-benchmarks",
-	"pallet-revive-mock-network?/runtime-benchmarks",
 	"pallet-revive?/runtime-benchmarks",
 	"pallet-root-offences?/runtime-benchmarks",
 	"pallet-safe-mode?/runtime-benchmarks",
@@ -439,7 +437,6 @@ try-runtime = [
 	"pallet-recovery?/try-runtime",
 	"pallet-referenda?/try-runtime",
 	"pallet-remark?/try-runtime",
-	"pallet-revive-mock-network?/try-runtime",
 	"pallet-revive?/try-runtime",
 	"pallet-root-offences?/try-runtime",
 	"pallet-root-testing?/try-runtime",
@@ -854,7 +851,6 @@ node = [
 	"mmr-rpc",
 	"pallet-contracts-mock-network",
 	"pallet-revive-eth-rpc",
-	"pallet-revive-mock-network",
 	"pallet-transaction-payment-rpc",
 	"parachains-runtimes-test-utils",
 	"polkadot-approval-distribution",
@@ -2261,11 +2257,6 @@ path = "../substrate/frame/contracts/mock-network"
 default-features = false
 optional = true
 path = "../substrate/frame/revive/rpc"
-
-[dependencies.pallet-revive-mock-network]
-default-features = false
-optional = true
-path = "../substrate/frame/revive/mock-network"
 
 [dependencies.pallet-transaction-payment-rpc]
 default-features = false

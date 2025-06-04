@@ -19,7 +19,7 @@ use cumulus_primitives_core::relay_chain::SessionIndex;
 use frame_election_provider_support::{ElectionDataProvider, SequentialPhragmen};
 use frame_support::traits::{ConstU128, EitherOf};
 use pallet_election_provider_multi_block::{
-	self as multi_block, weights::measured, SolutionAccuracyOf,
+	self as multi_block, SolutionAccuracyOf,
 };
 use pallet_staking_async::UseValidatorsMap;
 use pallet_staking_async_rc_client as rc_client;
@@ -108,7 +108,7 @@ impl multi_block::Config for Runtime {
 	// Revert back to signed phase if nothing is submitted and queued, so we prolong the election.
 	type AreWeDone = multi_block::RevertToSignedIfNotQueuedOf<Self>;
 	type OnRoundRotation = multi_block::CleanRound<Self>;
-	type WeightInfo = measured::pallet_election_provider_multi_block::SubstrateWeight<Self>;
+	type WeightInfo = multi_block::weights::westend::MultiBlockWeightInfo<Self>;
 }
 
 impl multi_block::verifier::Config for Runtime {
@@ -117,8 +117,7 @@ impl multi_block::verifier::Config for Runtime {
 	type MaxBackersPerWinnerFinal = MaxBackersPerWinnerFinal;
 	type SolutionDataProvider = MultiBlockSigned;
 	type SolutionImprovementThreshold = SolutionImprovementThreshold;
-	type WeightInfo =
-		measured::pallet_election_provider_multi_block_verifier::SubstrateWeight<Self>;
+	type WeightInfo = multi_block::weights::westend::MultiBlockVerifierWeightInfo<Self>;
 }
 
 parameter_types! {
@@ -140,7 +139,7 @@ impl multi_block::signed::Config for Runtime {
 	type RewardBase = RewardBase;
 	type MaxSubmissions = MaxSubmissions;
 	type EstimateCallFee = TransactionPayment;
-	type WeightInfo = measured::pallet_election_provider_multi_block_signed::SubstrateWeight<Self>;
+	type WeightInfo = multi_block::weights::westend::MultiBlockSignedWeightInfo<Self>;
 }
 
 parameter_types! {
@@ -156,8 +155,7 @@ impl multi_block::unsigned::Config for Runtime {
 	type OffchainSolver = SequentialPhragmen<AccountId, SolutionAccuracyOf<Runtime>>;
 	type MinerTxPriority = MinerTxPriority;
 	type OffchainRepeat = OffchainRepeat;
-	type WeightInfo =
-		measured::pallet_election_provider_multi_block_unsigned::SubstrateWeight<Self>;
+	type WeightInfo = multi_block::weights::westend::MultiBlockUnsignedWeightInfo<Self>;
 }
 
 parameter_types! {
