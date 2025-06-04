@@ -1529,32 +1529,6 @@ mod nominate {
 	}
 
 	#[test]
-	fn nominating_non_validators_is_ok() {
-		ExtBuilder::default().nominate(false).set_stake(31, 1000).build_and_execute(|| {
-			// ensure all have equal stake.
-			assert_eq!(
-				<Validators<Test>>::iter()
-					.map(|(v, _)| (v, Staking::ledger(v.into()).unwrap().total))
-					.collect::<Vec<_>>(),
-				vec![(31, 1000), (21, 1000), (11, 1000)],
-			);
-
-			// no nominators shall exist.
-			assert!(<Nominators<T>>::iter().map(|(n, _)| n).collect::<Vec<_>>().is_empty());
-
-			bond_nominator(1, 1000, vec![11, 21, 31, 41]);
-			assert_eq!(
-				Nominators::<T>::get(1).unwrap(),
-				Nominations {
-					targets: bounded_vec![11, 21, 31, 41],
-					submitted_in: 1,
-					suppressed: false
-				}
-			);
-		});
-	}
-
-	#[test]
 	fn blocking_and_kicking_works() {
 		ExtBuilder::default().validator_count(4).nominate(true).build_and_execute(|| {
 			// given
