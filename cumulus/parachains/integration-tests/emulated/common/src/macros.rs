@@ -34,11 +34,13 @@ pub use xcm::{
 		ExpectTransactStatus, Fungible, GeneralIndex, Here, InitiateTransfer, Junction, Location,
 		MaybeErrorCode, OriginKind, Outcome, PalletInstance, Parachain, Parent, PayFees,
 		RefundSurplus, Transact, Unlimited, VersionedAssetId, VersionedAssets, VersionedLocation,
-		VersionedXcm, WeightLimit, Wild, WithdrawAsset, Xcm, XcmContext, XCM_VERSION,
+		VersionedXcm, WeightLimit, Wild, WithdrawAsset, Xcm, XcmContext, XcmError, XCM_VERSION,
 	},
 };
 
-pub use xcm_executor::traits::DropAssets;
+pub use xcm_executor::traits::{DropAssets, ProcessTransaction};
+
+pub use xcm_builder::FrameTransactionalProcessor;
 
 // Cumulus
 pub use asset_test_utils;
@@ -108,8 +110,13 @@ macro_rules! test_parachain_is_trusted_teleporter {
 						type OriginCaller = <$sender_para as $crate::macros::Chain>::OriginCaller;
 
 						let origin = OriginCaller::system($crate::macros::RawOrigin::Signed(sender.clone()));
-						let result = <Runtime as $crate::macros::DryRunApiV2<_,_,_,_>>::dry_run_call(origin, call.clone(),
-							$crate::macros::XCM_VERSION).unwrap();
+						let mut dry_run_result = None;
+						let _ = <$crate::macros::FrameTransactionalProcessor as $crate::macros::ProcessTransaction>::process(|| {
+							dry_run_result = <Runtime as $crate::macros::DryRunApiV2<_,_,_,_>>::dry_run_call(origin, call.clone(),
+								$crate::macros::XCM_VERSION).ok();
+							Err($crate::macros::XcmError::Unimplemented) // trigger rollback of this transactional layer
+						});
+						let result = dry_run_result.unwrap();
 
 
 						// We filter the result to get only the messages we are interested in.
@@ -132,10 +139,6 @@ macro_rules! test_parachain_is_trusted_teleporter {
 						};
 						delivery_fees_amount = inner_delivery_fees_amount;
 					});
-
-					// Reset to send actual message.
-					<$sender_para as $crate::macros::TestExt>::reset_ext();
-					<$receiver_para as $crate::macros::TestExt>::reset_ext();
 
 					// TODO: The test fails without the line below, seems like no horizontal message passing is being done
 					//       when also using dry_run_call above (it works if there is no dry_run_call)
@@ -225,12 +228,13 @@ macro_rules! test_relay_is_trusted_teleporter {
 					// Dry-run first.
 					let call = <$sender_relay as $crate::macros::Chain>::RuntimeCall::XcmPallet(
 						$crate::macros::pallet_xcm::Call::$xcm_call {
-						dest: Box::new(para_destination.clone().into()),
-						beneficiary: Box::new(beneficiary.clone().into()),
-						assets: Box::new($assets.clone().into()),
-						fee_asset_item: fee_asset_item,
-						weight_limit: weight_limit.clone(),
-					});
+							dest: Box::new(para_destination.clone().into()),
+							beneficiary: Box::new(beneficiary.clone().into()),
+							assets: Box::new($assets.clone().into()),
+							fee_asset_item: fee_asset_item,
+							weight_limit: weight_limit.clone(),
+						}
+					);
 
 					// verify sane weight for a call
 					// assume up to 90% of max weight
@@ -247,8 +251,14 @@ macro_rules! test_relay_is_trusted_teleporter {
 						type OriginCaller = <$sender_relay as $crate::macros::Chain>::OriginCaller;
 
 						let origin = OriginCaller::system($crate::macros::RawOrigin::Signed(sender.clone()));
-						let result = <Runtime as $crate::macros::DryRunApiV2<_,_,_,_>>::dry_run_call(origin, call.clone(),
-							$crate::macros::XCM_VERSION).unwrap();
+
+						let mut dry_run_result = None;
+						let _ = <$crate::macros::FrameTransactionalProcessor as $crate::macros::ProcessTransaction>::process(|| {
+							dry_run_result = <Runtime as $crate::macros::DryRunApiV2<_,_,_,_>>::dry_run_call(origin, call.clone(),
+								$crate::macros::XCM_VERSION).ok();
+							Err($crate::macros::XcmError::Unimplemented) // trigger rollback of this transactional layer
+						});
+						let result = dry_run_result.unwrap();
 						// We filter the result to get only the messages we are interested in.
 						let (destination_to_query, messages_to_query) = &result
 							.forwarded_xcms
@@ -269,10 +279,6 @@ macro_rules! test_relay_is_trusted_teleporter {
 						};
 						delivery_fees_amount = inner_delivery_fees_amount;
 					});
-
-					// Reset to send actual message.
-					<$sender_relay as $crate::macros::TestExt>::reset_ext();
-					<$receiver_para as $crate::macros::TestExt>::reset_ext();
 
 					// Send XCM message from Relay.
 					<$sender_relay as $crate::macros::TestExt>::execute_with(|| {
@@ -340,11 +346,11 @@ macro_rules! test_parachain_is_trusted_teleporter_for_relay {
 			// init Origin variables
 			let sender = [<$sender_para Sender>]::get();
 			// Mint assets to `$sender_para` to succeed with teleport.
-			<$sender_para as $crate::macros::TestExt>::execute_with(|| {
-				$crate::macros::assert_ok!(<<$sender_para as [<$sender_para Pallet>]>::Balances
-					as $crate::macros::Mutate<_>>::mint_into(&sender, $amount + 10_000_000_000));
+			// <$sender_para as $crate::macros::TestExt>::execute_with(|| {
+			// 	$crate::macros::assert_ok!(<<$sender_para as [<$sender_para Pallet>]>::Balances
+			// 		as $crate::macros::Mutate<_>>::mint_into(&sender, $amount + 10_000_000_000));
 
-			});
+			// });
 			let mut para_sender_balance_before =
 				<$sender_para as $crate::macros::Chain>::account_data_of(sender.clone()).free;
 			let origin = <$sender_para as $crate::macros::Chain>::RuntimeOrigin::signed(sender.clone());
@@ -352,15 +358,6 @@ macro_rules! test_parachain_is_trusted_teleporter_for_relay {
 			let fee_asset_item = 0;
 			let weight_limit = $crate::macros::WeightLimit::Unlimited;
 
-			// We need to mint funds into the checking account of `$receiver_relay`
-			// for it to accept a teleport from `$sender_para`.
-			// Else we'd get a `NotWithdrawable` error since it tries to reduce the check account balance, which
-			// would be 0.
-			<$receiver_relay as $crate::macros::TestExt>::execute_with(|| {
-				let check_account = <$receiver_relay as [<$receiver_relay Pallet>]>::XcmPallet::check_account();
-				$crate::macros::assert_ok!(<<$receiver_relay as [<$receiver_relay Pallet>]>::Balances
-					as $crate::macros::Mutate<_>>::mint_into(&check_account, $amount));
-			});
 
 			// Init destination variables.
 			let receiver = [<$receiver_relay Receiver>]::get();
@@ -393,8 +390,13 @@ macro_rules! test_parachain_is_trusted_teleporter_for_relay {
 				type OriginCaller = <$sender_para as $crate::macros::Chain>::OriginCaller;
 
 				let origin = OriginCaller::system($crate::macros::RawOrigin::Signed(sender.clone()));
-				let result = <Runtime as $crate::macros::DryRunApiV2<_,_,_,_>>::dry_run_call(origin, call.clone(),
-					$crate::macros::XCM_VERSION).unwrap();
+				let mut dry_run_result = None;
+				let _ = <$crate::macros::FrameTransactionalProcessor as $crate::macros::ProcessTransaction>::process(|| {
+					dry_run_result = <Runtime as $crate::macros::DryRunApiV2<_,_,_,_>>::dry_run_call(origin, call.clone(),
+						$crate::macros::XCM_VERSION).ok();
+					Err($crate::macros::XcmError::Unimplemented) // trigger rollback of this transactional layer
+				});
+				let result = dry_run_result.unwrap();
 				// We filter the result to get only the messages we are interested in.
 				let (destination_to_query, messages_to_query) = &result
 					.forwarded_xcms
@@ -417,22 +419,6 @@ macro_rules! test_parachain_is_trusted_teleporter_for_relay {
 				} else {
 					0
 				}
-			});
-
-			// Reset to send actual message.
-			<$sender_para as $crate::macros::TestExt>::reset_ext();
-			<$receiver_relay as $crate::macros::TestExt>::reset_ext();
-			// Mint assets to `$sender_para` to succeed with teleport.
-			<$sender_para as $crate::macros::TestExt>::execute_with(|| {
-				$crate::macros::assert_ok!(<<$sender_para as [<$sender_para Pallet>]>::Balances
-					as $crate::macros::Mutate<_>>::mint_into(&sender, $amount + 10_000_000_000));
-			});
-
-			// Since we reset everything, we need to mint funds into the checking account again.
-			<$receiver_relay as $crate::macros::TestExt>::execute_with(|| {
-				let check_account = <$receiver_relay as [<$receiver_relay Pallet>]>::XcmPallet::check_account();
-				$crate::macros::assert_ok!(<<$receiver_relay as [<$receiver_relay Pallet>]>::Balances
-					as $crate::macros::Mutate<_>>::mint_into(&check_account, $amount));
 			});
 
 			// Send XCM message from Parachain.
@@ -685,8 +671,13 @@ macro_rules! test_can_estimate_and_pay_exact_fees {
 					($crate::macros::Parent, 100_000_000_000u128),
 				);
 				let origin = OriginCaller::system($crate::macros::RawOrigin::Signed(sender.clone()));
-				let result = <Runtime as $crate::macros::DryRunApiV2<_,_,_,_>>::dry_run_call(origin, call.clone(),
-					$crate::macros::XCM_VERSION).unwrap();
+				let mut dry_run_result = None;
+				let _ = <$crate::macros::FrameTransactionalProcessor as $crate::macros::ProcessTransaction>::process(|| {
+					dry_run_result = <Runtime as $crate::macros::DryRunApiV2<_,_,_,_>>::dry_run_call(origin, call.clone(),
+						$crate::macros::XCM_VERSION).ok();
+					Err($crate::macros::XcmError::Unimplemented) // trigger rollback of this transactional layer
+				});
+				let result = dry_run_result.unwrap();
 				let local_xcm = result.local_xcm.unwrap().clone();
 				let local_xcm_weight = <Runtime as $crate::macros::XcmPaymentApiV1<_>>::query_xcm_weight(local_xcm).unwrap();
 				local_execution_fees = <Runtime as $crate::macros::XcmPaymentApiV1<_>>::query_weight_to_asset_fee(
@@ -770,20 +761,6 @@ macro_rules! test_can_estimate_and_pay_exact_fees {
 						.unwrap();
 			});
 
-			// Dry-running is done.
-			<$sender_para as $crate::macros::TestExt>::reset_ext();
-			<$asset_hub as $crate::macros::TestExt>::reset_ext();
-			<$receiver_para as $crate::macros::TestExt>::reset_ext();
-
-			// Fund accounts again.
-			$sender_para::mint_foreign_asset(
-				<$sender_para as $crate::macros::Chain>::RuntimeOrigin::signed(asset_owner),
-				$asset_id.clone().into(),
-				sender.clone(),
-				$amount * 2,
-			);
-			$asset_hub::fund_accounts(vec![(sov_of_sender_on_ah, $amount * 2)]);
-
 			// Actually run the extrinsic.
 			let sender_assets_before = <$sender_para as $crate::macros::TestExt>::execute_with(|| {
 				type ForeignAssets = <$sender_para as [<$sender_para Pallet>]>::ForeignAssets;
@@ -863,8 +840,13 @@ macro_rules! test_dry_run_transfer_across_pk_bridge {
 					weight_limit: $crate::macros::Unlimited,
 				});
 				let origin = OriginCaller::system($crate::macros::RawOrigin::Signed(who));
-				let result = <Runtime as $crate::macros::DryRunApiV2<_,_,_,_>>::dry_run_call(origin, call.clone(),
-					$crate::macros::XCM_VERSION).unwrap();
+				let mut dry_run_result = None;
+				let _ = <$crate::macros::FrameTransactionalProcessor as $crate::macros::ProcessTransaction>::process(|| {
+					dry_run_result = <Runtime as $crate::macros::DryRunApiV2<_,_,_,_>>::dry_run_call(origin, call.clone(),
+						$crate::macros::XCM_VERSION).ok();
+					Err($crate::macros::XcmError::Unimplemented) // trigger rollback of this transactional layer
+				});
+				let result = dry_run_result.unwrap();
 
 				// We assert the dry run succeeds and sends only one message to the local bridge hub.
 				assert!(result.execution_result.is_ok());

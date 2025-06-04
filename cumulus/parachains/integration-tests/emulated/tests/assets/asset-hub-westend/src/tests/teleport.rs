@@ -208,6 +208,12 @@ fn teleport_via_limited_teleport_assets_from_and_to_relay() {
 	let amount = WESTEND_ED * 100;
 	let native_asset: Assets = (Here, amount).into();
 
+	// prefund Asset Hub checking account so we accept teleport from Relay
+	let check_account = AssetHubWestend::execute_with(|| {
+		<AssetHubWestend as AssetHubWestendPallet>::PolkadotXcm::check_account()
+	});
+	AssetHubWestend::fund_accounts(vec![(check_account, amount)]);
+
 	test_relay_is_trusted_teleporter!(
 		Westend,
 		vec![AssetHubWestend],
