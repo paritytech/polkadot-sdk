@@ -31,6 +31,8 @@ use xcm_executor::traits::WeightBounds;
 alloy::sol!("src/precompiles/IXcm.sol");
 use IXcm::*;
 
+const LOG_TARGET: &str = "xcm::precompiles";
+
 pub struct XcmPrecompile<T>(PhantomData<T>);
 
 impl<Runtime> Precompile for XcmPrecompile<Runtime>
@@ -60,7 +62,7 @@ where
 
 				let final_destination = VersionedLocation::decode_all(&mut &destination[..])
 					.map_err(|error| {
-						error!(target: "xcm::precompiles", ?error, "XCM send failed: Invalid destination format");
+						error!(target: LOG_TARGET, ?error, "XCM send failed: Invalid destination format");
 						Error::Revert("XCM send failed: Invalid destination format".into())
 					})?;
 
@@ -69,7 +71,7 @@ where
 					&mut &message[..],
 				)
 				.map_err(|error| {
-					error!(target: "xcm::precompiles", ?error, "XCM send failed: Invalid message format");
+					error!(target: LOG_TARGET, ?error, "XCM send failed: Invalid message format");
 					Error::Revert("XCM send failed: Invalid message format".into())
 				})?;
 
@@ -81,7 +83,7 @@ where
 				.map(|message_id| message_id.encode())
 				.map_err(|error| {
 					error!(
-						target: "xcm::precompiles",
+						target: LOG_TARGET,
 						?error,
 						"XCM send failed: destination or message format may be incompatible"
 
@@ -101,7 +103,7 @@ where
 					&mut &message[..],
 				)
 				.map_err(|error| {
-					error!(target: "xcm::precompiles", ?error, "XCM execute failed: Invalid message format");
+					error!(target: LOG_TARGET, ?error, "XCM execute failed: Invalid message format");
 					Error::Revert("Invalid message format".into())
 				})?;
 
@@ -120,7 +122,7 @@ where
 
 				result.map(|post_dispatch_info| post_dispatch_info.encode()).map_err(|error| {
 					error!(
-						target: "xcm::precompiles",
+						target: LOG_TARGET,
 						?error,
 						"XCM execute failed: message may be invalid or execution constraints not satisfied"
 					);
@@ -138,18 +140,18 @@ where
 					&mut &message[..],
 				)
 				.map_err(|error| {
-					error!(target: "xcm::precompiles", ?error, "XCM weightMessage: Invalid message format");
+					error!(target: LOG_TARGET, ?error, "XCM weightMessage: Invalid message format");
 					Error::Revert("XCM weightMessage: Invalid message format".into())
 				})?;
 
 				let mut final_message = converted_message.try_into().map_err(|error| {
-					error!(target: "xcm::precompiles", ?error, "XCM weightMessage: Conversion to Xcm failed");
+					error!(target: LOG_TARGET, ?error, "XCM weightMessage: Conversion to Xcm failed");
 					Error::Revert("XCM weightMessage: Conversion to Xcm failed".into())
 				})?;
 
 				let weight = <<Runtime>::Weigher>::weight(&mut final_message, Weight::MAX)
 					.map_err(|error| {
-						error!(target: "xcm::precompiles", ?error, "XCM weightMessage: Failed to calculate weight");
+						error!(target: LOG_TARGET, ?error, "XCM weightMessage: Failed to calculate weight");
 						Error::Revert("XCM weightMessage: Failed to calculate weight".into())
 					})?;
 
