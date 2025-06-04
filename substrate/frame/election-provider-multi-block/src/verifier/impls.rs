@@ -151,8 +151,6 @@ pub(crate) mod pallet {
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T> {
-		/// The verification data was unavailable and it could not continue.
-		VerificationDataUnavailable,
 		/// A verification failed at the given page.
 		///
 		/// NOTE: if the index is 0, then this could mean either the feasibility of the last page
@@ -668,43 +666,22 @@ impl<T: Config> Pallet<T> {
 						StatusStorage::<T>::put(Status::Ongoing(current_page.saturating_sub(1)));
 						VerifierWeightsOf::<T>::on_initialize_valid_non_terminal()
 					} else {
-						// last page, finalize everything. Check if score is available.
-						let maybe_claimed_score = T::SolutionDataProvider::get_score();
+						// last page, finalize everything. Get the claimed score.
+						let claimed_score = T::SolutionDataProvider::get_score();
 
 						// in both cases of the following match, we are back to the nothing state.
 						StatusStorage::<T>::put(Status::Nothing);
 
-						let weight = match maybe_claimed_score {
-							Some(claimed_score) => {
-								match Self::finalize_async_verification(claimed_score) {
-									Ok(_) => {
-										T::SolutionDataProvider::report_result(
-											VerificationResult::Queued,
-										);
-										VerifierWeightsOf::<T>::on_initialize_valid_terminal()
-									},
-									Err(_) => {
-										T::SolutionDataProvider::report_result(
-											VerificationResult::Rejected,
-										);
-										// In case of any of the errors, kill the solution.
-										QueuedSolution::<T>::clear_invalid_and_backings();
-										VerifierWeightsOf::<T>::on_initialize_invalid_terminal()
-									},
-								}
+						let weight = match Self::finalize_async_verification(claimed_score) {
+							Ok(_) => {
+								T::SolutionDataProvider::report_result(VerificationResult::Queued);
+								VerifierWeightsOf::<T>::on_initialize_valid_terminal()
 							},
-							None => {
-								// Score is unavailable, treat as data unavailable
-								sublog!(
-									trace,
-									"verifier",
-									"score was unavailable during finalization"
-								);
-								Self::deposit_event(Event::<T>::VerificationDataUnavailable);
+							Err(_) => {
 								T::SolutionDataProvider::report_result(
-									VerificationResult::DataUnavailable,
+									VerificationResult::Rejected,
 								);
-								// Clean up invalid solution
+								// In case of any of the errors, kill the solution.
 								QueuedSolution::<T>::clear_invalid_and_backings();
 								VerifierWeightsOf::<T>::on_initialize_invalid_terminal()
 							},
@@ -1032,7 +1009,7 @@ impl<T: Config> AsynchronousVerifier for Pallet<T> {
 	fn start() -> Result<(), &'static str> {
 		sublog!(info, "verifier", "start signal received.");
 		if let Status::Nothing = Self::status() {
-			let claimed_score = Self::SolutionDataProvider::get_score().unwrap_or_default();
+			let claimed_score = Self::SolutionDataProvider::get_score();
 			if Self::ensure_score_quality(claimed_score).is_err() {
 				// don't do anything, report back that this solution was garbage.
 				Self::deposit_event(Event::<T>::VerificationFailed(

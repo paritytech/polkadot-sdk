@@ -138,9 +138,23 @@ impl<T: Config> SolutionDataProvider for Pallet<T> {
 			.unwrap_or_default()
 	}
 
-	// TODO: should also return `ElectionScore`
-	fn get_score() -> Option<ElectionScore> {
-		Submissions::<T>::leader(Self::current_round()).map(|(_who, score)| score)
+	fn get_score() -> ElectionScore {
+		let current_round = Self::current_round();
+		Submissions::<T>::leader(current_round)
+			// Leader is verified to exist before we call `Verifier::start`. We do not change it
+			// otherwise.
+			.defensive()
+			.and_then(|(_who, score)| {
+				sublog!(
+					debug,
+					"signed",
+					"returning score {:?} of current leader for round {}.",
+					score,
+					current_round
+				);
+				Some(score)
+			})
+			.unwrap_or_default()
 	}
 
 	fn report_result(result: crate::verifier::VerificationResult) {
@@ -177,16 +191,6 @@ impl<T: Config> SolutionDataProvider for Pallet<T> {
 			},
 			VerificationResult::Rejected => {
 				Self::handle_solution_rejection(current_round, "Rejected");
-			},
-			VerificationResult::DataUnavailable => {
-				// Score unavailability should never happen under normal operation
-				sublog!(
-					error,
-					"signed",
-					"Verification data unavailable for round {} - it should never happen",
-					current_round
-				);
-				debug_assert!(false, "VerificationDataUnavailable should never happen");
 			},
 		}
 	}

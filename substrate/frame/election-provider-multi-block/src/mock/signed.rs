@@ -49,8 +49,8 @@ impl SolutionDataProvider for MockSignedPhase {
 			.unwrap_or_default()
 	}
 
-	fn get_score() -> Option<ElectionScore> {
-		MockSignedNextScore::get()
+	fn get_score() -> ElectionScore {
+		MockSignedNextScore::get().unwrap_or_default()
 	}
 
 	fn report_result(result: verifier::VerificationResult) {
@@ -107,9 +107,9 @@ impl SolutionDataProvider for DualSignedPhase {
 		}
 	}
 
-	fn get_score() -> Option<ElectionScore> {
+	fn get_score() -> ElectionScore {
 		match SignedPhaseSwitch::get() {
-			SignedSwitch::Mock => MockSignedNextScore::get(),
+			SignedSwitch::Mock => MockSignedNextScore::get().unwrap_or_default(),
 			SignedSwitch::Real => SignedPallet::get_score(),
 		}
 	}

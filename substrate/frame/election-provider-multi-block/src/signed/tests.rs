@@ -867,7 +867,7 @@ mod e2e {
 		// are submitted.
 		//
 		// The key behavior being tested: missing pages should be treated as empty/default
-		// rather than causing DataUnavailable errors or verification failures.
+		// rather than causing verification failures.
 		ExtBuilder::signed().build_and_execute(|| {
 			roll_to_signed_open();
 			assert_full_snapshot();
@@ -924,7 +924,7 @@ mod e2e {
 			roll_next(); // Process page 0 (submitted with real data)
 
 			// Check that verification handled the missing pages gracefully.
-			// Note that even with missing pages, crate::verifier::Event::VerificationDataUnavailable(_) should not be emitted
+			// Missing pages should be treated as empty pages without errors.
 			assert_eq!(
 				verifier_events(),
 				vec![
@@ -1245,6 +1245,22 @@ mod defensive_tests {
 					SignedEvent::Slashed(0, 99, 5)
 				]
 			);
+		});
+	}
+
+	#[test]
+	#[should_panic(expected = "Defensive failure has been triggered!")]
+	fn get_score_defensive_when_no_leader() {
+		// Test that get_score() triggers defensive failure when no leader exists
+		ExtBuilder::signed().build_and_execute(|| {
+			// Ensure we're in signed phase but no submissions exist
+			roll_to_signed_open();
+
+			// Verify no leader exists
+			assert_eq!(Submissions::<Runtime>::leader(SignedPallet::current_round()), None);
+
+			// get_score should trigger defensive failure when no leader exists
+			let _score = SignedPallet::get_score();
 		});
 	}
 }

@@ -459,9 +459,10 @@ mod async_verification {
 
 			// Process the final page (page 0).
 			roll_next();
-			// Missing score should emit VerificationDataUnavailable event.
+			// Missing score data returns default score which fails quality checks and gets
+			// rejected.
 			assert_eq!(VerifierPallet::status(), Status::Nothing);
-			assert_eq!(MockSignedResults::get(), vec![VerificationResult::DataUnavailable]);
+			assert_eq!(MockSignedResults::get(), vec![VerificationResult::Rejected]);
 		});
 	}
 
@@ -549,9 +550,10 @@ mod async_verification {
 			);
 			roll_next();
 
-			// Missing score should emit VerificationDataUnavailable event.
+			// Missing score data returns default score which fails quality checks and gets
+			// rejected.
 			assert_eq!(VerifierPallet::status(), Status::Nothing);
-			assert_eq!(MockSignedResults::get(), vec![VerificationResult::DataUnavailable]);
+			assert_eq!(MockSignedResults::get(), vec![VerificationResult::Rejected]);
 		});
 	}
 
