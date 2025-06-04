@@ -203,7 +203,7 @@ impl ReceiptExtractor {
 		stream::iter(extrinsics)
 			.map(|(ext, call)| async move {
 				self.extract_from_extrinsic(block, ext, call).await.inspect_err(|err| {
-					log::warn!(target: LOG_TARGET, "Error extracting extrinsic : {err:?}");
+					log::warn!(target: LOG_TARGET, "Error extracting extrinsic: {err:?}");
 				})
 			})
 			.buffer_unordered(10)
