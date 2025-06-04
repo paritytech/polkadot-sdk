@@ -36,6 +36,9 @@ extern crate self as frame_support;
 #[doc(hidden)]
 extern crate alloc;
 
+/// Maximum nesting level for extrinsics.
+pub const MAX_EXTRINSIC_DEPTH: u32 = 256;
+
 /// Private exports that are being used by macros.
 ///
 /// The exports are not stable and should not be relied on.

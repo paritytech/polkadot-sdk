@@ -1576,9 +1576,11 @@ fn max_transaction_depth_is_respected() {
 	let client = TestClientBuilder::default().build();
 
 	let mut call = RuntimeCall::System(frame_system::Call::remark { remark: vec![1, 2, 3] });
-	for _ in 0..256 {
+	for _ in 0..MAX_EXTRINSIC_DEPTH {
 		call = RuntimeCall::Utility(UtilityCall::batch { calls: vec![call] });
 	}
+
+	let call_one_more = RuntimeCall::Utility(UtilityCall::batch { calls: vec![call.clone()] });
 
 	let ext = ExtrinsicBuilder::new(call).build();
 
@@ -1590,7 +1592,11 @@ fn max_transaction_depth_is_respected() {
 
 	block_builder.push(ext).unwrap();
 
+	// With one more the transaction is rejected
+	block_builder.push(ExtrinsicBuilder::new(call_one_more).build()).unwrap_err();
+
 	let block = block_builder.build().unwrap().block;
 
+	// Import works
 	block_on(client.import(BlockOrigin::Own, block)).unwrap();
 }
