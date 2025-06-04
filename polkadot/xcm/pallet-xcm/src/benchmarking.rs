@@ -687,7 +687,8 @@ mod benchmarks {
 
 		#[block]
 		{
-			crate::Pallet::<T>::query_xcm_weight(versioned_msg);
+			crate::Pallet::<T>::query_xcm_weight(versioned_msg)
+				.map_err(|_| BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)))?;
 		}
 
 		Ok(())
