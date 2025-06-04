@@ -37,8 +37,10 @@ jobs:
         run: |
           . ./.github/scripts/common/lib.sh
 
-          node_version=$(filter_version_from_input "${{ inputs.node_version }}")
-          echo "node_version=${node_version}" >> $GITHUB_OUTPUT
+          if [ -n "${{ inputs.node_version }}" ]; then
+            node_version=$(filter_version_from_input "${{ inputs.node_version }}")
+            echo "node_version=${node_version}" >> $GITHUB_OUTPUT
+          fi
 
           stable_version=$(validate_stable_tag ${{ inputs.stable_version }})
           echo "stable_version=${stable_version}" >> $GITHUB_OUTPUT
