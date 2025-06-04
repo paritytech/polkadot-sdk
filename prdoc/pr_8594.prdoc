@@ -3,8 +3,6 @@ doc:
 - audience: Node Dev 
   description: |
     `polkadot-omni-node benchmark pallet` can use one of `--runtime` or `--chain` now, like `frame-omni-bencher` does.
-     We also enabled the `runtime-benchmarks` feature by default with `polkadot-omni-node-lib`, `polkadot-omni-node` &
-     `polkadot-parachain`.
 
 crates:
 - name: polkadot-omni-node-lib

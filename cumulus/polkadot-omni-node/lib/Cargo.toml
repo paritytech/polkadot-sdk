@@ -32,7 +32,7 @@ parachains-common = { workspace = true, default-features = true }
 scale-info = { workspace = true }
 subxt-metadata = { workspace = true, default-features = true }
 
-
+# Substrate
 frame-benchmarking = { optional = true, workspace = true, default-features = true }
 frame-benchmarking-cli = { workspace = true, default-features = true }
 frame-support = { optional = true, workspace = true, default-features = true }
