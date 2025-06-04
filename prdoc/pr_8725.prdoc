@@ -5,8 +5,10 @@ doc:
 crates:
 - name: snowbridge-pallet-system-frontend
   bump: patch
+  validate: false
 - name: snowbridge-pallet-system-v2
   bump: patch
+  validate: false
 - name: asset-hub-westend-runtime
   bump: patch
 - name: bridge-hub-westend-integration-tests
