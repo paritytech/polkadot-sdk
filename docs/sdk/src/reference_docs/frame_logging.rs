@@ -135,4 +135,5 @@
 //! chain and the parachain, when execution the Parachain Validation Function (PVF) on the relay
 //! chain.
 //!
-//! Please read [this issue](https://github.com/paritytech/polkadot-sdk/issues/8735#issuecomment-2940654438) for once instance of the consensus issues arised by this mistake.
+//! Please read [this issue](https://github.com/paritytech/polkadot-sdk/issues/8735) for once
+//! instance of the consensus issues arised by this mistake.
