@@ -3,7 +3,7 @@
 ℹ️ A node -  in Polkadot - is a binary executable, whose primary purpose is to execute the [runtime](../runtime/README.md).
 
 🔗 It communicates with other nodes in the network, and aims for
-[consensus](https://wiki.polkadot.network/docs/learn-consensus) among them.
+[consensus](https://docs.polkadot.com/polkadot-protocol/architecture/polkadot-chain/pos-consensus/) among them.
 
 ⚙️ It acts as a remote procedure call (RPC) server, allowing interaction with the blockchain.
 

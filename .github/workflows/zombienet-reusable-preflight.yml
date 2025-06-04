@@ -47,6 +47,11 @@ on:
         value: ${{ jobs.preflight.outputs.ZOMBIENET_IMAGE }}
         description: "ZOMBIENET CI image"
 
+      CI_IMAGE:
+        value: ${{ jobs.preflight.outputs.CI_IMAGE }}
+        description: "CI image"
+
+
       ZOMBIENET_RUNNER:
         value: ${{ jobs.preflight.outputs.ZOMBIENET_RUNNER }}
         description: |
@@ -111,12 +116,17 @@ jobs:
   #
   preflight:
     runs-on: ubuntu-latest
+    # TODO remove this condition once zombienet tests are stabilized
+    if: contains(github.event.pull_request.labels.*.name, 'T18-zombienet_tests')
+
     outputs:
-      changes_substrate: true
-      changes_cumulus: true
-      changes_polkadot: true
-      changes_bridges: true
-      changes_templates: true
+      changes_substrate: ${{ steps.set_changes.outputs.substrate_any_changed || steps.set_changes.outputs.currentWorkflow_any_changed }}
+      changes_cumulus: ${{ steps.set_changes.outputs.cumulus_any_changed || steps.set_changes.outputs.currentWorkflow_any_changed }}
+      changes_polkadot: ${{ steps.set_changes.outputs.polkadot_any_changed || steps.set_changes.outputs.currentWorkflow_any_changed }}
+      changes_bridges: ${{ steps.set_changes.outputs.bridges_any_changed || steps.set_changes.outputs.currentWorkflow_any_changed }}
+      changes_templates: ${{ steps.set_changes.outputs.templates_any_changed || steps.set_changes.outputs.currentWorkflow_any_changed }}
+
+      CI_IMAGE: ${{ steps.set_vars.outputs.IMAGE }}
 
       ZOMBIENET_IMAGE: ${{ steps.set_vars.outputs.ZOMBIENET_IMAGE }}
       ZOMBIENET_RUNNER: ${{ steps.set_vars.outputs.ZOMBIENET_RUNNER }}
@@ -150,26 +160,25 @@ jobs:
           echo "currentWorkflowFile=$(echo ${{ github.workflow_ref }} | sed -nE "s/.*(\.github\/workflows\/[a-zA-Z0-9_-]*\.y[a]?ml)@refs.*/\1/p")" >> $GITHUB_OUTPUT
           echo "currentActionDir=$(echo ${{ github.action_path }} | sed -nE "s/.*(\.github\/actions\/[a-zA-Z0-9_-]*)/\1/p")" >> $GITHUB_OUTPUT
 
-      # removed due to https://news.ycombinator.com/item?id=43368870
-      #- name: Set changes
-      #  id: set_changes
-      #  uses: tj-actions/changed-files@v45
-      #  with:
-      #    files_yaml: |
-      #      substrate:
-      #        - 'substrate/**/*'
-      #      cumulus:
-      #        - 'cumulus/**/*'
-      #      polkadot:
-      #        - 'polkadot/**/*'
-      #      bridges:
-      #        - 'bridges/**/*'
-      #      templates:
-      #        - 'templates/**/*'
-      #      currentWorkflow:
-      #        - '${{ steps.current_file.outputs.currentWorkflowFile }}'
-      #        - '.github/workflows/zombienet-reusable-preflight.yml'
-      #        - '.github/zombienet-env'
+      - name: Set changes
+        id: set_changes
+        uses: tj-actions/changed-files@ed68ef82c095e0d48ec87eccea555d944a631a4c #v46.0.5
+        with:
+          files_yaml: |
+            substrate:
+              - 'substrate/**/*'
+            cumulus:
+              - 'cumulus/**/*'
+            polkadot:
+              - 'polkadot/**/*'
+            bridges:
+              - 'bridges/**/*'
+            templates:
+              - 'templates/**/*'
+            currentWorkflow:
+              - '${{ steps.current_file.outputs.currentWorkflowFile }}'
+              - '.github/workflows/zombienet-reusable-preflight.yml'
+              - '.github/zombienet-env'
 
       #
       # Set environment vars (including runner/image)
@@ -183,6 +192,9 @@ jobs:
           #
           cat .github/zombienet-env >> $GITHUB_OUTPUT
           cat .github/zombienet-env
+          # global imga from ci
+          cat .github/env >> $GITHUB_OUTPUT
+          cat .github/env
 
       #
       #
@@ -199,7 +211,9 @@ jobs:
         shell: bash
         run: |
           echo "workflow file: ${{ steps.current_file.outputs.currentWorkflowFile }}"
+          echo "Modified: ${{ steps.set_changes.outputs.modified_keys }}"
           echo "ZOMBIENET_IMAGE: ${{ steps.set_vars.outputs.ZOMBIENET_IMAGE }}"
+          echo "CI_IMAGE: ${{ steps.set_vars.outputs.IMAGE }}"
 
   #
   #
@@ -210,7 +224,9 @@ jobs:
     steps:
       - name: Info vars
         run: |
+          echo "CI_IMAGE: ${{ needs.preflight.outputs.CI_IMAGE }}"
           echo "ZOMBIENET_IMAGE: ${{ needs.preflight.outputs.ZOMBIENET_IMAGE }}"
+          echo "CI_IMAGE: ${{ needs.preflight.outputs.CI_IMAGE }}"
           echo "ZOMBIENET_RUNNER: ${{ needs.preflight.outputs.ZOMBIENET_RUNNER }}"
           echo "DOCKER_IMAGES_VERSION: ${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"
           echo "SOURCE_REF_SLUG: ${{ needs.preflight.outputs.SOURCE_REF_SLUG }}"
@@ -249,7 +265,8 @@ jobs:
           if [[ ${{ github.event_name }} == "merge_group" ]]; then export SHA="${GITHUB_SHA::8}"; fi
           DELAYER=10
           while true; do
-            STATUS=$(gh run ls -c $SHA -w "Build and push images" --json name,status --jq '.[] | select(.name == "Build and push images") | .status')
+            # In case of multiple runs take the most recent one (with greatest databaseId)
+            STATUS=$(gh run ls -c $SHA -w "Build and push images" --json status,databaseId --jq 'max_by(.databaseId) | .status')
             echo "CI workflow status: $STATUS"
             if [[ $STATUS == "completed" ]]; then
               echo "CI workflow is done."
@@ -264,7 +281,7 @@ jobs:
           done
 
           #check if the build succeeded
-          RUN_INFO=($(gh run ls -c $SHA -w "Build and push images" --json name,conclusion,databaseId --jq '.[] | select(.name == "Build and push images") | .conclusion, .databaseId'))
+          RUN_INFO=($(gh run ls -c $SHA -w "Build and push images" --json conclusion,databaseId --jq 'max_by(.databaseId) | .conclusion, .databaseId'))
           CONCLUSION=${RUN_INFO[@]:0:1}
           BUILD_RUN_ID=${RUN_INFO[@]:1:1}
           if [[ $CONCLUSION == "success" ]]; then

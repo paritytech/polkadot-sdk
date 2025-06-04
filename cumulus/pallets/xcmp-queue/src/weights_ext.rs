@@ -17,27 +17,76 @@
 
 use crate::weights::WeightInfo;
 
-use frame_support::weights::Weight;
+use frame_support::{traits::BatchFootprint, weights::Weight};
 use sp_runtime::SaturatedConversion;
+
+pub(crate) fn get_average_page_pos(max_message_len: u32) -> u32 {
+	max_message_len / 2
+}
 
 /// Extended weight info.
 pub trait WeightInfoExt: WeightInfo {
-	fn enqueue_xcmp_message(size_in_bytes: usize, new_page: bool) -> Weight {
-		let size_in_bytes = size_in_bytes.saturated_into();
-		// The first message for a certain origin consumes some extra reads and writes.
-		// Also, the first message on a page consumes 1 extra write.
-		// For simplicity let's just consider that the first message on a page is also
-		// the first message for that origin.
-		match new_page {
-			true => Self::enqueue_n_bytes_xcmp_message(size_in_bytes),
-			false => {
-				let size_overhead = Self::enqueue_n_bytes_xcmp_message(size_in_bytes) -
-					Self::enqueue_n_bytes_xcmp_message(0);
-				Self::enqueue_2_empty_xcmp_messages()
-					.saturating_sub(Self::enqueue_n_bytes_xcmp_message(0))
-					.saturating_add(size_overhead)
-			},
-		}
+	fn uncached_enqueue_xcmp_messages() -> Weight {
+		Self::enqueue_n_full_pages(0)
+	}
+
+	fn enqueue_xcmp_messages(first_page_pos: u32, batch_footprint: &BatchFootprint) -> Weight {
+		let message_count = batch_footprint.msgs_count.saturated_into();
+		let size_in_bytes = batch_footprint.size_in_bytes.saturated_into();
+
+		// The cost of adding `n` empty pages on the message queue.
+		let pages_overhead = {
+			let full_message_overhead = Self::enqueue_n_full_pages(1)
+				.saturating_sub(Self::enqueue_n_empty_xcmp_messages(1));
+			let n_full_messages_overhead =
+				full_message_overhead.saturating_mul(batch_footprint.new_pages_count as u64);
+
+			Self::enqueue_n_full_pages(batch_footprint.new_pages_count)
+				.saturating_sub(Self::enqueue_n_full_pages(0))
+				.saturating_sub(n_full_messages_overhead)
+		};
+
+		// The overhead of enqueueing `n` empty messages on the message queue.
+		let messages_overhead = {
+			Self::enqueue_n_empty_xcmp_messages(message_count)
+				.saturating_sub(Self::enqueue_n_empty_xcmp_messages(0))
+		};
+
+		// The overhead of enqueueing `n` bytes on the message queue.
+		let bytes_overhead = {
+			Self::enqueue_n_bytes_xcmp_message(size_in_bytes)
+				.saturating_sub(Self::enqueue_n_bytes_xcmp_message(0))
+		};
+
+		// If the messages are not added to the beginning of the first page, the page will be
+		// decoded and re-encoded once. Let's account for this.
+		let pos_overhead = {
+			Self::enqueue_empty_xcmp_message_at(first_page_pos)
+				.saturating_sub(Self::enqueue_empty_xcmp_message_at(0))
+		};
+
+		pages_overhead
+			.saturating_add(messages_overhead)
+			.saturating_add(bytes_overhead)
+			.saturating_add(pos_overhead)
+	}
+
+	fn check_accuracy<MaxMessageLen: bounded_collections::Get<u32>>(err_margin: f64) {
+		assert!(err_margin < 1f64);
+
+		let estimated_weight =
+			Self::uncached_enqueue_xcmp_messages().saturating_add(Self::enqueue_xcmp_messages(
+				get_average_page_pos(MaxMessageLen::get()),
+				&BatchFootprint { msgs_count: 1000, size_in_bytes: 3000, new_pages_count: 0 },
+			));
+		let actual_weight = Self::enqueue_1000_small_xcmp_messages();
+
+		// Check that the ref_time diff is less than err_margin
+		approx::assert_relative_eq!(
+			estimated_weight.ref_time() as f64,
+			actual_weight.ref_time() as f64,
+			max_relative = err_margin
+		);
 	}
 }
 

@@ -69,7 +69,7 @@ pub mod slashing;
 pub mod weights;
 
 extern crate alloc;
-use alloc::{collections::btree_map::BTreeMap, vec, vec::Vec};
+use alloc::{vec, vec::Vec};
 use codec::{Decode, DecodeWithMemTracking, Encode, HasCompact, MaxEncodedLen};
 use frame_election_provider_support::ElectionProvider;
 use frame_support::{
@@ -77,15 +77,17 @@ use frame_support::{
 		tokens::fungible::{Credit, Debt},
 		ConstU32, Contains, Get, LockIdentifier,
 	},
-	BoundedVec, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound, WeakBoundedVec,
+	BoundedVec, DebugNoBound, DefaultNoBound, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound,
+	WeakBoundedVec,
 };
+use frame_system::pallet_prelude::BlockNumberFor;
 use ledger::LedgerIntegrityState;
 use scale_info::TypeInfo;
 use sp_runtime::{
-	traits::{AtLeast32BitUnsigned, StaticLookup},
-	Perbill, RuntimeDebug,
+	traits::{AtLeast32BitUnsigned, One, StaticLookup, UniqueSaturatedInto},
+	BoundedBTreeMap, Perbill, RuntimeDebug, Saturating,
 };
-use sp_staking::{EraIndex, ExposurePage, PagedExposureMetadata};
+use sp_staking::{EraIndex, ExposurePage, PagedExposureMetadata, SessionIndex};
 pub use sp_staking::{Exposure, IndividualExposure, StakerStatus};
 pub use weights::WeightInfo;
 
@@ -155,18 +157,16 @@ pub struct ActiveEraInfo {
 /// Reward points of an era. Used to split era total payout between validators.
 ///
 /// This points will be used to reward validators and their respective nominators.
-#[derive(PartialEq, Encode, Decode, RuntimeDebug, TypeInfo)]
-pub struct EraRewardPoints<AccountId: Ord> {
+#[derive(
+	PartialEqNoBound, Encode, Decode, DebugNoBound, TypeInfo, MaxEncodedLen, DefaultNoBound,
+)]
+#[codec(mel_bound())]
+#[scale_info(skip_type_params(T))]
+pub struct EraRewardPoints<T: Config> {
 	/// Total number of points. Equals the sum of reward points for each validator.
 	pub total: RewardPoint,
 	/// The reward points earned by a given validator.
-	pub individual: BTreeMap<AccountId, RewardPoint>,
-}
-
-impl<AccountId: Ord> Default for EraRewardPoints<AccountId> {
-	fn default() -> Self {
-		EraRewardPoints { total: Default::default(), individual: BTreeMap::new() }
-	}
+	pub individual: BoundedBTreeMap<T::AccountId, RewardPoint, T::MaxValidatorSet>,
 }
 
 /// A destination account for payment.
@@ -421,5 +421,29 @@ impl<T: Config> Contains<T::AccountId> for AllStakers<T> {
 	/// - `false` otherwise.
 	fn contains(account: &T::AccountId) -> bool {
 		Ledger::<T>::contains_key(account)
+	}
+}
+
+/// A smart type to determine the [`Config::PlanningEraOffset`], given:
+///
+/// * Expected relay session duration, `RS`
+/// * Time taking into consideration for XCM sending, `S`
+///
+/// It will use the estimated election duration, the relay session duration, and add one as it knows
+/// the relay chain will want to buffer validators for one session. This is needed because we use
+/// this in our calculation based on the "active era".
+pub struct PlanningEraOffsetOf<T, RS, S>(core::marker::PhantomData<(T, RS, S)>);
+impl<T: Config, RS: Get<BlockNumberFor<T>>, S: Get<BlockNumberFor<T>>> Get<SessionIndex>
+	for PlanningEraOffsetOf<T, RS, S>
+{
+	fn get() -> SessionIndex {
+		let election_duration = <T::ElectionProvider as ElectionProvider>::duration_with_export();
+		let sessions_needed = (election_duration + S::get()) / RS::get();
+		// add one, because we know the RC session pallet wants to buffer for one session, and
+		// another one cause we will receive activation report one session after that.
+		sessions_needed
+			.saturating_add(One::one())
+			.saturating_add(One::one())
+			.unique_saturated_into()
 	}
 }

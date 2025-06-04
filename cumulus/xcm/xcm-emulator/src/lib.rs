@@ -27,7 +27,7 @@ pub use std::{
 	fmt,
 	marker::PhantomData,
 	ops::Deref,
-	sync::{LazyLock, Mutex},
+	sync::{Arc, LazyLock, Mutex},
 };
 
 // Substrate
@@ -79,12 +79,13 @@ pub use polkadot_runtime_parachains::inclusion::{AggregateMessageOrigin, UmpQueu
 
 // Polkadot
 pub use polkadot_parachain_primitives::primitives::RelayChainBlockNumber;
-use sp_core::crypto::AccountId32;
+use sp_core::{crypto::AccountId32, H256};
 pub use xcm::latest::prelude::{
 	AccountId32 as AccountId32Junction, Ancestor, Assets, Here, Location,
 	Parachain as ParachainJunction, Parent, WeightLimit, XcmHash,
 };
 pub use xcm_executor::traits::ConvertLocation;
+use xcm_simulator::helpers::TopicIdTracker;
 
 pub type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
 
@@ -1198,6 +1199,8 @@ macro_rules! decl_test_networks {
 						relay_chain_state: proof,
 						downward_messages: Default::default(),
 						horizontal_messages: Default::default(),
+						relay_parent_descendants: Default::default(),
+						collator_peer_id: None,
 					}
 				}
 			}
@@ -1301,12 +1304,14 @@ macro_rules! assert_expected_events {
 		$(
 			// We'll store a string representation of the first partially matching event.
 			let mut failure_message: Option<String> = None;
+			let mut event_received = false;
 			for index in 0..events.len() {
 				let event = &events[index];
 				match event {
 					$event_pat => {
 						let mut event_meets_conditions = true;
 						let mut conditions_message: Vec<String> = Vec::new();
+						event_received = true;
 
 						$(
 							if !$condition {
@@ -1346,7 +1351,7 @@ macro_rules! assert_expected_events {
 				}
 			}
 
-			if failure_message.is_some() {
+			if !event_received || failure_message.is_some() {
 				// No event matching the pattern was found.
 				messages.push(
 					format!(
@@ -1581,10 +1586,29 @@ where
 	pub hops_dispatchable: HashMap<String, fn(Self) -> DispatchResult>,
 	pub hops_calls: HashMap<String, Origin::RuntimeCall>,
 	pub args: Args,
+	pub topic_id_tracker: Arc<Mutex<TopicIdTracker>>,
 	_marker: PhantomData<(Destination, Hops)>,
 }
 
 /// `Test` implementation.
+impl<Origin, Destination, Hops, Args> Test<Origin, Destination, Hops, Args>
+where
+	Args: Clone,
+	Origin: Chain + Clone,
+	Destination: Chain + Clone,
+	Origin::RuntimeOrigin: OriginTrait<AccountId = AccountIdOf<Origin::Runtime>> + Clone,
+	Destination::RuntimeOrigin: OriginTrait<AccountId = AccountIdOf<Destination::Runtime>> + Clone,
+	Hops: Clone,
+{
+	/// Asserts that a single unique topic ID exists across all chains.
+	pub fn assert_unique_topic_id(&self) {
+		self.topic_id_tracker.lock().unwrap().assert_unique();
+	}
+	/// Inserts a topic ID for a specific chain and asserts it remains globally unique.
+	pub fn insert_unique_topic_id(&mut self, chain: &str, id: H256) {
+		self.topic_id_tracker.lock().unwrap().insert_and_assert_unique(chain, id);
+	}
+}
 impl<Origin, Destination, Hops, Args> Test<Origin, Destination, Hops, Args>
 where
 	Args: Clone,
@@ -1611,6 +1635,7 @@ where
 			hops_dispatchable: Default::default(),
 			hops_calls: Default::default(),
 			args: test_args.args,
+			topic_id_tracker: Arc::new(Mutex::new(TopicIdTracker::new())),
 			_marker: Default::default(),
 		}
 	}

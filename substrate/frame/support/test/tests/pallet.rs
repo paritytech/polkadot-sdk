@@ -49,12 +49,6 @@ parameter_types! {
 	storage UpdateStorageVersion: bool = false;
 }
 
-/// Latest stable metadata version used for testing.
-const LATEST_METADATA_VERSION: u32 = 15;
-
-/// Unstable metadata version.
-const UNSTABLE_METADATA_VERSION: u32 = u32::MAX;
-
 pub struct SomeType1;
 impl From<SomeType1> for u64 {
 	fn from(_t: SomeType1) -> Self {
@@ -990,7 +984,7 @@ fn instance_expand() {
 
 #[test]
 fn inherent_expand() {
-	use frame_support::{inherent::InherentData, traits::EnsureInherentsAreFirst};
+	use frame_support::inherent::InherentData;
 	use sp_core::Hasher;
 	use sp_runtime::{
 		traits::{BlakeTwo256, Block as _, Header},
@@ -1077,74 +1071,6 @@ fn inherent_expand() {
 	let mut inherent = InherentData::new();
 	inherent.put_data(*b"required", &true).unwrap();
 	assert!(inherent.check_extrinsics(&block).fatal_error());
-
-	let block = Block::new(
-		Header::new(
-			1,
-			BlakeTwo256::hash(b"test"),
-			BlakeTwo256::hash(b"test"),
-			BlakeTwo256::hash(b"test"),
-			Digest::default(),
-		),
-		vec![
-			UncheckedExtrinsic::new_bare(RuntimeCall::Example(pallet::Call::foo {
-				foo: 1,
-				bar: 1,
-			})),
-			UncheckedExtrinsic::new_bare(RuntimeCall::Example(pallet::Call::foo_storage_layer {
-				foo: 0,
-			})),
-		],
-	);
-
-	assert!(Runtime::ensure_inherents_are_first(&block).is_ok());
-
-	let block = Block::new(
-		Header::new(
-			1,
-			BlakeTwo256::hash(b"test"),
-			BlakeTwo256::hash(b"test"),
-			BlakeTwo256::hash(b"test"),
-			Digest::default(),
-		),
-		vec![
-			UncheckedExtrinsic::new_bare(RuntimeCall::Example(pallet::Call::foo {
-				foo: 1,
-				bar: 1,
-			})),
-			UncheckedExtrinsic::new_bare(RuntimeCall::Example(pallet::Call::foo_storage_layer {
-				foo: 0,
-			})),
-			UncheckedExtrinsic::new_bare(RuntimeCall::Example(pallet::Call::foo_no_post_info {})),
-		],
-	);
-
-	assert_eq!(Runtime::ensure_inherents_are_first(&block).err().unwrap(), 2);
-
-	let block = Block::new(
-		Header::new(
-			1,
-			BlakeTwo256::hash(b"test"),
-			BlakeTwo256::hash(b"test"),
-			BlakeTwo256::hash(b"test"),
-			Digest::default(),
-		),
-		vec![
-			UncheckedExtrinsic::new_bare(RuntimeCall::Example(pallet::Call::foo {
-				foo: 1,
-				bar: 1,
-			})),
-			UncheckedExtrinsic::new_signed(
-				RuntimeCall::Example(pallet::Call::foo { foo: 1, bar: 0 }),
-				1,
-				1.into(),
-				Default::default(),
-			),
-			UncheckedExtrinsic::new_bare(RuntimeCall::Example(pallet::Call::foo_no_post_info {})),
-		],
-	);
-
-	assert_eq!(Runtime::ensure_inherents_are_first(&block).err().unwrap(), 2);
 }
 
 #[test]
@@ -1500,7 +1426,7 @@ fn pallet_item_docs_in_metadata() {
 
 #[test]
 #[allow(deprecated)]
-fn metadata() {
+fn metadata_v15() {
 	use codec::Decode;
 	use frame_metadata::{v15::*, *};
 
@@ -1975,8 +1901,7 @@ fn metadata() {
 		_ => panic!("metadata has been bumped, test needs to be updated"),
 	};
 
-	let bytes = &Runtime::metadata_at_version(LATEST_METADATA_VERSION)
-		.expect("Metadata must be present; qed");
+	let bytes = &Runtime::metadata_at_version(15).expect("Metadata must be present; qed");
 
 	let actual_metadata: RuntimeMetadataPrefixed =
 		Decode::decode(&mut &bytes[..]).expect("Metadata encoded properly; qed");
@@ -2010,10 +1935,7 @@ fn metadata_at_version() {
 
 #[test]
 fn metadata_versions() {
-	assert_eq!(
-		vec![14, LATEST_METADATA_VERSION, UNSTABLE_METADATA_VERSION],
-		Runtime::metadata_versions()
-	);
+	assert_eq!(vec![14, 15, 16], Runtime::metadata_versions());
 }
 
 #[test]
@@ -2603,7 +2525,7 @@ fn test_error_feature_parsing() {
 
 #[test]
 fn pallet_metadata() {
-	use sp_metadata_ir::{DeprecationInfoIR, DeprecationStatusIR};
+	use sp_metadata_ir::{EnumDeprecationInfoIR, ItemDeprecationInfoIR, VariantDeprecationInfoIR};
 	let pallets = Runtime::metadata_ir().pallets;
 	let example = pallets[0].clone();
 	let example2 = pallets[1].clone();
@@ -2611,9 +2533,9 @@ fn pallet_metadata() {
 		// Example pallet calls is fully and partially deprecated
 		let meta = &example.calls.unwrap();
 		assert_eq!(
-			DeprecationInfoIR::VariantsDeprecated(BTreeMap::from([(
-				codec::Compact(0),
-				DeprecationStatusIR::Deprecated { note: "test", since: None }
+			EnumDeprecationInfoIR(BTreeMap::from([(
+				0,
+				VariantDeprecationInfoIR::Deprecated { note: "test", since: None }
 			)])),
 			meta.deprecation_info
 		)
@@ -2622,7 +2544,7 @@ fn pallet_metadata() {
 		// Example pallet constant is deprecated
 		let meta = &example.constants[0];
 		assert_eq!(
-			DeprecationStatusIR::Deprecated { note: "test 2", since: None },
+			ItemDeprecationInfoIR::Deprecated { note: "test 2", since: None },
 			meta.deprecation_info
 		)
 	}
@@ -2630,9 +2552,9 @@ fn pallet_metadata() {
 		// Example pallet errors are partially and fully deprecated
 		let meta = &example.error.unwrap();
 		assert_eq!(
-			DeprecationInfoIR::VariantsDeprecated(BTreeMap::from([(
-				codec::Compact(2),
-				DeprecationStatusIR::Deprecated { note: "test", since: None }
+			EnumDeprecationInfoIR(BTreeMap::from([(
+				2,
+				VariantDeprecationInfoIR::Deprecated { note: "test", since: None }
 			)])),
 			meta.deprecation_info
 		)
@@ -2641,9 +2563,9 @@ fn pallet_metadata() {
 		// Example pallet events are partially and fully deprecated
 		let meta = example.event.unwrap();
 		assert_eq!(
-			DeprecationInfoIR::VariantsDeprecated(BTreeMap::from([(
-				codec::Compact(1),
-				DeprecationStatusIR::Deprecated { note: "test", since: None }
+			EnumDeprecationInfoIR(BTreeMap::from([(
+				1,
+				VariantDeprecationInfoIR::Deprecated { note: "test", since: None }
 			)])),
 			meta.deprecation_info
 		);
@@ -2651,6 +2573,6 @@ fn pallet_metadata() {
 	{
 		// Example2 pallet events are not deprecated
 		let meta = example2.event.unwrap();
-		assert_eq!(DeprecationInfoIR::NotDeprecated, meta.deprecation_info);
+		assert!(!meta.deprecation_info.has_deprecated_variants());
 	}
 }

@@ -23,6 +23,7 @@ use crate::{
 	migration::data::NeedsMigration,
 	mock::*,
 	pallet::{LockedFungibles, RemoteLockedFungibles, SupportedVersion},
+	xcm_helpers::find_xcm_sent_message_id,
 	AssetTraps, AuthorizedAliasers, Config, CurrentMigration, Error, ExecuteControllerWeightInfo,
 	LatestVersionedLocation, MaxAuthorizedAliases, Pallet, Queries, QueryStatus, RecordedXcm,
 	RemoteLockedFungibleRecord, ShouldRecordXcm, VersionDiscoveryQueue, VersionMigrationStage,
@@ -30,7 +31,7 @@ use crate::{
 };
 use bounded_collections::BoundedVec;
 use frame_support::{
-	assert_err_ignore_postinfo, assert_noop, assert_ok,
+	assert_err_ignore_postinfo, assert_noop, assert_ok, assert_storage_noop,
 	traits::{ContainsPair, Currency, Hooks},
 	weights::Weight,
 };
@@ -45,6 +46,7 @@ use xcm_executor::{
 	traits::{Properties, QueryHandler, QueryResponseStatus, ShouldExecute},
 	XcmExecutor,
 };
+use xcm_simulator::fake_message_hash;
 
 const ALICE: AccountId = AccountId::new([0u8; 32]);
 const BOB: AccountId = AccountId::new([1u8; 32]);
@@ -656,7 +658,10 @@ fn trapped_assets_can_be_claimed() {
 				]))),
 				weight
 			),
-			Error::<Test>::LocalExecutionIncomplete
+			Error::<Test>::LocalExecutionIncompleteWithError {
+				index: 0,
+				error: XcmError::UnknownClaim.into()
+			}
 		);
 	});
 }
@@ -752,7 +757,12 @@ fn incomplete_execute_reverts_side_effects() {
 					),
 					pays_fee: frame_support::dispatch::Pays::Yes,
 				},
-				error: sp_runtime::DispatchError::from(Error::<Test>::LocalExecutionIncomplete)
+				error: sp_runtime::DispatchError::from(
+					Error::<Test>::LocalExecutionIncompleteWithError {
+						index: 3,
+						error: XcmError::FailedToTransactAsset("").into()
+					}
+				)
 			})
 		);
 	});
@@ -1679,17 +1689,18 @@ fn execute_initiate_transfer_and_check_sent_event() {
 			);
 			assert_ok!(result);
 
+			let sent_msg_id = find_xcm_sent_message_id::<Test>(all_events()).unwrap();
 			let sent_message: Xcm<()> = Xcm(vec![
 				WithdrawAsset(Assets::new()),
 				ClearOrigin,
 				BuyExecution { fees: fee_asset.clone(), weight_limit: Unlimited },
 				DepositAsset { assets: All.into(), beneficiary: beneficiary.clone() },
+				SetTopic(sent_msg_id),
 			]);
 			assert!(log_capture
 				.contains(format!("xcm::send: Sending msg msg={:?}", sent_message).as_str()));
 
 			let origin: Location = AccountId32 { network: None, id: ALICE.into() }.into();
-			let sent_msg_id = fake_message_hash(&sent_message);
 			assert_eq!(
 				last_events(2),
 				vec![
@@ -1738,8 +1749,22 @@ fn deliver_failure_with_expect_error() {
 			assert!(result.is_err());
 
 			// Check logs for send attempt and failure
-			assert!(log_capture.contains("xcm::send: Sending msg msg=Xcm([WithdrawAsset(Assets([])), ClearOrigin, ExpectError(Some((1, Unimplemented)))])"));
+			assert!(log_capture.contains("xcm::send: Sending msg msg=Xcm([WithdrawAsset(Assets([])), ClearOrigin, ExpectError(Some((1, Unimplemented))), SetTopic("));
 			assert!(log_capture.contains("xcm::send: XCM failed to deliver with error error=Transport(\"Intentional deliver failure used in tests\")"));
 		})
 	});
+}
+
+#[test]
+fn query_weight_to_asset_fee_noop() {
+	new_test_ext_with_balances(vec![]).execute_with(|| {
+		let weight = Weight::from_parts(4_000_000_000, 3800);
+		let asset_id = AssetId(Location::here());
+
+		assert_storage_noop!(XcmPallet::query_weight_to_asset_fee::<Trader>(
+			weight,
+			asset_id.into()
+		)
+		.unwrap());
+	})
 }

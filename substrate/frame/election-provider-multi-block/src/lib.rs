@@ -224,12 +224,12 @@ pub mod helpers;
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
 
-/// The common logginv prefix of all pallets in this crate.
+/// The common logging prefix of all pallets in this crate.
 pub const LOG_PREFIX: &'static str = "runtime::multiblock-election";
 
-macro_rules! clear_paged_map {
-	($map: ty) => {{
-		let __r = <$map>::clear(u32::MAX, None);
+macro_rules! clear_round_based_map {
+	($map: ty, $round: expr) => {{
+		let __r = <$map>::clear_prefix($round, u32::MAX, None);
 		debug_assert!(__r.unique <= T::Pages::get(), "clearing map caused too many removals")
 	}};
 }
@@ -247,7 +247,7 @@ pub mod weights;
 
 pub use pallet::*;
 pub use types::*;
-pub use weights::measured::pallet_election_provider_multi_block::WeightInfo;
+pub use weights::traits::pallet_election_provider_multi_block::WeightInfo;
 
 /// A fallback implementation that transitions the pallet to the emergency phase.
 pub struct InitiateEmergencyPhase<T>(sp_std::marker::PhantomData<T>);
@@ -422,6 +422,8 @@ pub enum ElectionError<T: Config> {
 	NotOngoing,
 	/// The election is currently ongoing, and therefore we cannot start again.
 	Ongoing,
+	/// Called elect() with wrong page order or in wrong phase.
+	OutOfOrder,
 	/// Other misc error
 	Other(&'static str),
 }
@@ -476,9 +478,38 @@ pub enum AdminOperation<T: Config> {
 	SetMinUntrustedScore(ElectionScore),
 }
 
+/// Trait to notify other sub-systems that a round has ended.
+pub trait OnRoundRotation {
+	/// `ending` round has ended. Implies we are now at round `ending + 1`
+	fn on_round_rotation(ending: u32);
+}
+
+impl OnRoundRotation for () {
+	fn on_round_rotation(_: u32) {}
+}
+
+/// An implementation of [`OnRoundRotation`] that immediately deletes all the data in all the
+/// pallets, once the round is over.
+///
+/// This is intended to be phased out once we move to fully lazy deletion system to spare more PoV.
+/// In that case, simply use `()` on [`pallet::Config::OnRoundRotation`].
+pub struct CleanRound<T>(core::marker::PhantomData<T>);
+impl<T: Config> OnRoundRotation for CleanRound<T> {
+	fn on_round_rotation(_ending: u32) {
+		// Kill everything in the verifier.
+		T::Verifier::kill();
+
+		// Kill the snapshot.
+		pallet::Snapshot::<T>::kill();
+
+		// Nothing to do in the signed pallet -- it is already in lazy-deletion mode.
+	}
+}
+
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
+
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
 		/// Duration of the unsigned phase.
@@ -558,6 +589,10 @@ pub mod pallet {
 
 		/// The weight of the pallet.
 		type WeightInfo: WeightInfo;
+
+		/// Single type that implement [`super::OnRoundRotation`] to do something when the round
+		/// ends.
+		type OnRoundRotation: super::OnRoundRotation;
 	}
 
 	#[pallet::call]
@@ -625,41 +660,47 @@ pub mod pallet {
 			let weight1 = match current_phase {
 				Phase::Snapshot(x) if x == T::Pages::get() => {
 					// create the target snapshot
-					Self::create_targets_snapshot().defensive_unwrap_or_default();
+					Self::create_targets_snapshot();
 					T::WeightInfo::on_initialize_into_snapshot_msp()
 				},
 				Phase::Snapshot(x) => {
 					// create voter snapshot
-					Self::create_voters_snapshot_paged(x).unwrap();
+					Self::create_voters_snapshot_paged(x);
 					T::WeightInfo::on_initialize_into_snapshot_rest()
 				},
 				_ => T::WeightInfo::on_initialize_nothing(),
 			};
 
-			// in all cases, go to next phase
-			let next_phase = current_phase.next();
+			// Only transition if not in Export phase
+			if !matches!(current_phase, Phase::Export(_)) {
+				let next_phase = current_phase.next();
 
-			let weight2 = match next_phase {
-				Phase::Signed(_) => T::WeightInfo::on_initialize_into_signed(),
-				Phase::SignedValidation(_) => T::WeightInfo::on_initialize_into_signed_validation(),
-				Phase::Unsigned(_) => T::WeightInfo::on_initialize_into_unsigned(),
-				_ => T::WeightInfo::on_initialize_nothing(),
-			};
+				let weight2 = match next_phase {
+					Phase::Signed(_) => T::WeightInfo::on_initialize_into_signed(),
+					Phase::SignedValidation(_) =>
+						T::WeightInfo::on_initialize_into_signed_validation(),
+					Phase::Unsigned(_) => T::WeightInfo::on_initialize_into_unsigned(),
+					_ => T::WeightInfo::on_initialize_nothing(),
+				};
 
-			Self::phase_transition(next_phase);
+				Self::phase_transition(next_phase);
 
-			// bit messy, but for now this works best.
-			#[cfg(test)]
-			{
-				let test_election_start: BlockNumberFor<T> =
-					(crate::mock::ElectionStart::get() as u32).into();
-				if _now == test_election_start {
-					crate::log!(info, "TESTING: Starting election at block {}", _now);
-					crate::mock::MultiBlock::start().unwrap();
+				// bit messy, but for now this works best.
+				#[cfg(test)]
+				{
+					let test_election_start: BlockNumberFor<T> =
+						(crate::mock::ElectionStart::get() as u32).into();
+					if _now == test_election_start {
+						crate::log!(info, "TESTING: Starting election at block {}", _now);
+						crate::mock::MultiBlock::start().unwrap();
+					}
 				}
-			}
 
-			weight1 + weight2
+				weight1 + weight2
+			} else {
+				// If in Export phase, do nothing.
+				weight1
+			}
 		}
 
 		fn integrity_test() {
@@ -737,6 +778,10 @@ pub mod pallet {
 			/// The target phase
 			to: Phase<T>,
 		},
+		/// Target snapshot creation failed
+		UnexpectedTargetSnapshotFailed,
+		/// Voter snapshot creation failed
+		UnexpectedVoterSnapshotFailed,
 	}
 
 	/// Error of the pallet that can be returned in response to dispatches.
@@ -794,6 +839,14 @@ pub mod pallet {
 	/// - `PagedTargetSnapshot`: Paginated map of targets.
 	/// - `PagedTargetSnapshotHash`: Hash of the aforementioned.
 	///
+	/// ### Round
+	///
+	/// All inner storage items are keyed by the round number. Yet, none of the interface in this
+	/// type expose this. This is because a snapshot is really only ever meaningful in the current
+	/// round. Moreover, doing this will allow us to possibly lazy-delete the old round data, such
+	/// as the sizeable snapshot, in a lazy manner. If any of these storage items, key-ed by a round
+	/// index, are in a round that has passed, now they can be lazy deleted.
+	///
 	/// ### Invariants
 	///
 	/// The following invariants must be met at **all times** for this storage item to be "correct".
@@ -816,48 +869,48 @@ pub mod pallet {
 	impl<T: Config> Snapshot<T> {
 		// ----------- mutable methods
 		pub(crate) fn set_desired_targets(d: u32) {
-			DesiredTargets::<T>::put(d);
+			DesiredTargets::<T>::insert(Self::round(), d);
 		}
 
 		pub(crate) fn set_targets(targets: BoundedVec<T::AccountId, T::TargetSnapshotPerBlock>) {
 			let hash = Self::write_storage_with_pre_allocate(
-				&PagedTargetSnapshot::<T>::hashed_key_for(Pallet::<T>::msp()),
+				&PagedTargetSnapshot::<T>::hashed_key_for(Self::round(), Pallet::<T>::msp()),
 				targets,
 			);
-			PagedTargetSnapshotHash::<T>::insert(Pallet::<T>::msp(), hash);
+			PagedTargetSnapshotHash::<T>::insert(Self::round(), Pallet::<T>::msp(), hash);
 		}
 
 		pub(crate) fn set_voters(page: PageIndex, voters: VoterPageOf<T::MinerConfig>) {
 			let hash = Self::write_storage_with_pre_allocate(
-				&PagedVoterSnapshot::<T>::hashed_key_for(page),
+				&PagedVoterSnapshot::<T>::hashed_key_for(Self::round(), page),
 				voters,
 			);
-			PagedVoterSnapshotHash::<T>::insert(page, hash);
+			PagedVoterSnapshotHash::<T>::insert(Self::round(), page, hash);
 		}
 
 		/// Destroy the entire snapshot.
 		///
 		/// Should be called only once we transition to [`Phase::Off`].
 		pub(crate) fn kill() {
-			DesiredTargets::<T>::kill();
-			clear_paged_map!(PagedVoterSnapshot::<T>);
-			clear_paged_map!(PagedVoterSnapshotHash::<T>);
-			clear_paged_map!(PagedTargetSnapshot::<T>);
-			clear_paged_map!(PagedTargetSnapshotHash::<T>);
+			DesiredTargets::<T>::remove(Self::round());
+			clear_round_based_map!(PagedVoterSnapshot::<T>, Self::round());
+			clear_round_based_map!(PagedVoterSnapshotHash::<T>, Self::round());
+			clear_round_based_map!(PagedTargetSnapshot::<T>, Self::round());
+			clear_round_based_map!(PagedTargetSnapshotHash::<T>, Self::round());
 		}
 
 		// ----------- non-mutables
 		pub(crate) fn desired_targets() -> Option<u32> {
-			DesiredTargets::<T>::get()
+			DesiredTargets::<T>::get(Self::round())
 		}
 
 		pub(crate) fn voters(page: PageIndex) -> Option<VoterPageOf<T::MinerConfig>> {
-			PagedVoterSnapshot::<T>::get(page)
+			PagedVoterSnapshot::<T>::get(Self::round(), page)
 		}
 
 		pub(crate) fn targets() -> Option<BoundedVec<T::AccountId, T::TargetSnapshotPerBlock>> {
 			// NOTE: targets always have one index, which is 0, aka lsp.
-			PagedTargetSnapshot::<T>::get(Pallet::<T>::msp())
+			PagedTargetSnapshot::<T>::get(Self::round(), Pallet::<T>::msp())
 		}
 
 		/// Get a fingerprint of the snapshot, from all the hashes that are stored for each page of
@@ -870,7 +923,7 @@ pub mod pallet {
 			let mut hashed_target_and_voters =
 				Self::targets_hash().unwrap_or_default().as_ref().to_vec();
 			let hashed_voters = (Pallet::<T>::msp()..=Pallet::<T>::lsp())
-				.map(|i| PagedVoterSnapshotHash::<T>::get(i).unwrap_or_default())
+				.map(|i| PagedVoterSnapshotHash::<T>::get(Self::round(), i).unwrap_or_default())
 				.flat_map(|hash| <T::Hash as AsRef<[u8]>>::as_ref(&hash).to_owned())
 				.collect::<Vec<u8>>();
 			hashed_target_and_voters.extend(hashed_voters);
@@ -894,7 +947,11 @@ pub mod pallet {
 		}
 
 		pub(crate) fn targets_hash() -> Option<T::Hash> {
-			PagedTargetSnapshotHash::<T>::get(Pallet::<T>::msp())
+			PagedTargetSnapshotHash::<T>::get(Self::round(), Pallet::<T>::msp())
+		}
+
+		fn round() -> u32 {
+			Pallet::<T>::round()
 		}
 	}
 
@@ -985,15 +1042,15 @@ pub mod pallet {
 		}
 
 		pub(crate) fn voters_decode_len(page: PageIndex) -> Option<usize> {
-			PagedVoterSnapshot::<T>::decode_len(page)
+			PagedVoterSnapshot::<T>::decode_len(Self::round(), page)
 		}
 
 		pub(crate) fn targets_decode_len() -> Option<usize> {
-			PagedTargetSnapshot::<T>::decode_len(Pallet::<T>::msp())
+			PagedTargetSnapshot::<T>::decode_len(Self::round(), Pallet::<T>::msp())
 		}
 
 		pub(crate) fn voters_hash(page: PageIndex) -> Option<T::Hash> {
-			PagedVoterSnapshotHash::<T>::get(page)
+			PagedVoterSnapshotHash::<T>::get(Self::round(), page)
 		}
 
 		pub(crate) fn sanity_check() -> Result<(), &'static str> {
@@ -1043,60 +1100,79 @@ pub mod pallet {
 				(crate::Pallet::<T>::lsp()..=crate::Pallet::<T>::msp()).collect::<Vec<_>>();
 			key_range
 				.into_iter()
-				.flat_map(|k| PagedVoterSnapshot::<T>::get(k).unwrap_or_default())
+				.flat_map(|k| PagedVoterSnapshot::<T>::get(Self::round(), k).unwrap_or_default())
 		}
 
 		pub(crate) fn remove_voter_page(page: PageIndex) {
-			PagedVoterSnapshot::<T>::remove(page);
+			PagedVoterSnapshot::<T>::remove(Self::round(), page);
 		}
 
 		pub(crate) fn kill_desired_targets() {
-			DesiredTargets::<T>::kill();
+			DesiredTargets::<T>::remove(Self::round());
 		}
 
 		pub(crate) fn remove_target_page() {
-			PagedTargetSnapshot::<T>::remove(Pallet::<T>::msp());
+			PagedTargetSnapshot::<T>::remove(Self::round(), Pallet::<T>::msp());
 		}
 
 		pub(crate) fn remove_target(at: usize) {
-			PagedTargetSnapshot::<T>::mutate(crate::Pallet::<T>::msp(), |maybe_targets| {
-				if let Some(targets) = maybe_targets {
-					targets.remove(at);
-					// and update the hash.
-					PagedTargetSnapshotHash::<T>::insert(
-						crate::Pallet::<T>::msp(),
-						T::Hashing::hash(&targets.encode()),
-					)
-				} else {
-					unreachable!();
-				}
-			})
+			PagedTargetSnapshot::<T>::mutate(
+				Self::round(),
+				crate::Pallet::<T>::msp(),
+				|maybe_targets| {
+					if let Some(targets) = maybe_targets {
+						targets.remove(at);
+						// and update the hash.
+						PagedTargetSnapshotHash::<T>::insert(
+							Self::round(),
+							crate::Pallet::<T>::msp(),
+							T::Hashing::hash(&targets.encode()),
+						)
+					} else {
+						unreachable!();
+					}
+				},
+			)
 		}
 	}
 
 	/// Desired number of targets to elect for this round.
 	#[pallet::storage]
-	type DesiredTargets<T> = StorageValue<_, u32>;
+	type DesiredTargets<T> = StorageMap<_, Twox64Concat, u32, u32>;
 	/// Paginated voter snapshot. At most [`T::Pages`] keys will exist.
 	#[pallet::storage]
-	type PagedVoterSnapshot<T: Config> =
-		StorageMap<_, Twox64Concat, PageIndex, VoterPageOf<T::MinerConfig>>;
+	type PagedVoterSnapshot<T: Config> = StorageDoubleMap<
+		_,
+		Twox64Concat,
+		u32,
+		Twox64Concat,
+		PageIndex,
+		VoterPageOf<T::MinerConfig>,
+	>;
 	/// Same as [`PagedVoterSnapshot`], but it will store the hash of the snapshot.
 	///
 	/// The hash is generated using [`frame_system::Config::Hashing`].
 	#[pallet::storage]
-	type PagedVoterSnapshotHash<T: Config> = StorageMap<_, Twox64Concat, PageIndex, T::Hash>;
+	type PagedVoterSnapshotHash<T: Config> =
+		StorageDoubleMap<_, Twox64Concat, u32, Twox64Concat, PageIndex, T::Hash>;
 	/// Paginated target snapshot.
 	///
 	/// For the time being, since we assume one pages of targets, at most ONE key will exist.
 	#[pallet::storage]
-	type PagedTargetSnapshot<T: Config> =
-		StorageMap<_, Twox64Concat, PageIndex, BoundedVec<T::AccountId, T::TargetSnapshotPerBlock>>;
+	type PagedTargetSnapshot<T: Config> = StorageDoubleMap<
+		_,
+		Twox64Concat,
+		u32,
+		Twox64Concat,
+		PageIndex,
+		BoundedVec<T::AccountId, T::TargetSnapshotPerBlock>,
+	>;
 	/// Same as [`PagedTargetSnapshot`], but it will store the hash of the snapshot.
 	///
 	/// The hash is generated using [`frame_system::Config::Hashing`].
 	#[pallet::storage]
-	type PagedTargetSnapshotHash<T: Config> = StorageMap<_, Twox64Concat, PageIndex, T::Hash>;
+	type PagedTargetSnapshotHash<T: Config> =
+		StorageDoubleMap<_, Twox64Concat, u32, Twox64Concat, PageIndex, T::Hash>;
 
 	#[pallet::pallet]
 	pub struct Pallet<T>(PhantomData<T>);
@@ -1193,42 +1269,62 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Creates the target snapshot.
-	pub(crate) fn create_targets_snapshot() -> Result<(), ElectionError<T>> {
+	///
+	/// If snapshot creation fails, emits `UnexpectedTargetSnapshotFailed` event
+	/// and triggers defensive panic.
+	pub(crate) fn create_targets_snapshot() {
 		// if requested, get the targets as well.
-		Snapshot::<T>::set_desired_targets(
-			T::DataProvider::desired_targets().map_err(ElectionError::DataProvider)?,
-		);
+		let desired_targets = match T::DataProvider::desired_targets() {
+			Ok(targets) => targets,
+			Err(e) => {
+				Self::deposit_event(Event::UnexpectedTargetSnapshotFailed);
+				defensive!("Failed to get desired targets: {:?}", e);
+				return;
+			},
+		};
+		Snapshot::<T>::set_desired_targets(desired_targets);
 
 		let count = T::TargetSnapshotPerBlock::get();
 		let bounds = DataProviderBounds { count: Some(count.into()), size: None };
 		let targets: BoundedVec<_, T::TargetSnapshotPerBlock> =
-			T::DataProvider::electable_targets(bounds, 0)
+			match T::DataProvider::electable_targets(bounds, 0)
 				.and_then(|v| v.try_into().map_err(|_| "try-into failed"))
-				.map_err(ElectionError::DataProvider)?;
+			{
+				Ok(targets) => targets,
+				Err(e) => {
+					Self::deposit_event(Event::UnexpectedTargetSnapshotFailed);
+					defensive!("Failed to create target snapshot: {:?}", e);
+					return;
+				},
+			};
 
 		let count = targets.len() as u32;
 		log!(debug, "created target snapshot with {} targets.", count);
 		Snapshot::<T>::set_targets(targets);
-
-		Ok(())
 	}
 
 	/// Creates the voter snapshot.
-	pub(crate) fn create_voters_snapshot_paged(
-		remaining: PageIndex,
-	) -> Result<(), ElectionError<T>> {
+	///
+	/// If snapshot creation fails, emits `UnexpectedVoterSnapshotFailed` event
+	/// and triggers defensive panic.
+	pub(crate) fn create_voters_snapshot_paged(remaining: PageIndex) {
 		let count = T::VoterSnapshotPerBlock::get();
 		let bounds = DataProviderBounds { count: Some(count.into()), size: None };
 		let voters: BoundedVec<_, T::VoterSnapshotPerBlock> =
-			T::DataProvider::electing_voters(bounds, remaining)
+			match T::DataProvider::electing_voters(bounds, remaining)
 				.and_then(|v| v.try_into().map_err(|_| "try-into failed"))
-				.map_err(ElectionError::DataProvider)?;
+			{
+				Ok(voters) => voters,
+				Err(e) => {
+					Self::deposit_event(Event::UnexpectedVoterSnapshotFailed);
+					defensive!("Failed to create voter snapshot: {:?}", e);
+					return;
+				},
+			};
 
 		let count = voters.len() as u32;
 		Snapshot::<T>::set_voters(remaining, voters);
 		log!(debug, "created voter snapshot with {} voters, {} remaining.", count, remaining);
-
-		Ok(())
 	}
 
 	/// Perform the tasks to be done after a new `elect` has been triggered:
@@ -1238,16 +1334,14 @@ impl<T: Config> Pallet<T> {
 	/// 3. Clear all snapshot data.
 	pub(crate) fn rotate_round() {
 		// Inc round.
-		<Round<T>>::mutate(|r| *r += 1);
+		<Round<T>>::mutate(|r| {
+			// Notify the rest of the world
+			T::OnRoundRotation::on_round_rotation(*r);
+			*r += 1
+		});
 
 		// Phase is off now.
 		Self::phase_transition(Phase::Off);
-
-		// Kill everything in the verifier.
-		T::Verifier::kill();
-
-		// Kill the snapshot.
-		Snapshot::<T>::kill();
 	}
 
 	/// Call fallback for the given page.
@@ -1302,7 +1396,7 @@ where
 		loop {
 			Self::roll_next(true, false);
 			if criteria() {
-				break
+				break;
 			}
 		}
 	}
@@ -1324,7 +1418,7 @@ where
 			.unwrap();
 
 			if should_break {
-				break
+				break;
 			}
 		}
 	}
@@ -1433,6 +1527,11 @@ impl<T: Config> ElectionProvider for Pallet<T> {
 			Err(_) => return Err(ElectionError::NotOngoing),
 		}
 
+		let current_phase = CurrentPhase::<T>::get();
+		if let Phase::Export(expected) = current_phase {
+			ensure!(expected == remaining, ElectionError::OutOfOrder);
+		}
+
 		let result = T::Verifier::get_queued_solution_page(remaining)
 			.ok_or(ElectionError::SupportPageNotAvailable)
 			.or_else(|err: ElectionError<T>| {
@@ -1465,7 +1564,7 @@ impl<T: Config> ElectionProvider for Pallet<T> {
 				log!(info, "receiving last call to elect(0), rotating round");
 				Self::rotate_round()
 			} else {
-				Self::phase_transition(Phase::Export(remaining))
+				Self::phase_transition(Phase::Export(remaining - 1))
 			}
 		}
 
@@ -1506,9 +1605,9 @@ impl<T: Config> ElectionProvider for Pallet<T> {
 	#[cfg(feature = "runtime-benchmarks")]
 	fn asap() {
 		// prepare our snapshot so we can "hopefully" run a fallback.
-		Self::create_targets_snapshot().unwrap();
+		Self::create_targets_snapshot();
 		for p in (Self::lsp()..=Self::msp()).rev() {
-			Self::create_voters_snapshot_paged(p).unwrap()
+			Self::create_voters_snapshot_paged(p)
 		}
 	}
 }
@@ -2070,6 +2169,117 @@ mod phase_rotation {
 				assert_eq!(MultiBlock::current_phase(), Phase::Signed(SignedPhase::get() - 3));
 			});
 	}
+
+	#[test]
+	fn export_phase_only_transitions_on_elect() {
+		ExtBuilder::full()
+			.pages(3)
+			.election_start(13)
+			.fallback_mode(FallbackModes::Onchain)
+			.build_and_execute(|| {
+				roll_to_done();
+
+				assert_eq!(MultiBlock::current_phase(), Phase::Done);
+
+				// Test that on_initialize does NOT advance the phase when in Done
+				roll_next();
+				assert_eq!(
+					MultiBlock::current_phase(),
+					Phase::Done,
+					"Done phase should not auto-transition"
+				);
+
+				// Start export by calling elect(max_page)
+				assert_ok!(MultiBlock::elect(2)); // max_page = 2 for 3 pages
+				assert_eq!(MultiBlock::current_phase(), Phase::Export(1));
+
+				// Test that on_initialize does NOT advance the phase when in Export
+				roll_next();
+				assert_eq!(
+					MultiBlock::current_phase(),
+					Phase::Export(1),
+					"Export phase should not auto-transition"
+				);
+
+				// Only elect() should advance the Export phase
+				assert_ok!(MultiBlock::elect(1));
+				assert_eq!(MultiBlock::current_phase(), Phase::Export(0));
+
+				// Test Export(0) also blocks on_initialize transitions
+				roll_next();
+				assert_eq!(
+					MultiBlock::current_phase(),
+					Phase::Export(0),
+					"Export(0) should not auto-transition"
+				);
+
+				// Complete the export manually
+				assert_ok!(MultiBlock::elect(0));
+				assert_eq!(MultiBlock::current_phase(), Phase::Off);
+			});
+	}
+
+	#[test]
+	fn export_phase_out_of_order_elect_fails() {
+		ExtBuilder::full()
+			.pages(3)
+			.election_start(13)
+			.fallback_mode(FallbackModes::Onchain)
+			.build_and_execute(|| {
+				roll_to_done();
+
+				assert_eq!(MultiBlock::current_phase(), Phase::Done);
+
+				// Start export by calling elect(max_page)
+				assert_ok!(MultiBlock::elect(2)); // max_page = 2 for 3 pages
+				assert_eq!(MultiBlock::current_phase(), Phase::Export(1));
+
+				// Out of order: try to call elect(2) again, should fail
+				assert_eq!(MultiBlock::elect(2), Err(ElectionError::OutOfOrder));
+
+				// Out of order: try to call elect(0) before elect(1), should fail
+				assert_eq!(MultiBlock::elect(0), Err(ElectionError::OutOfOrder));
+
+				// Correct order: elect(1) works
+				assert_ok!(MultiBlock::elect(1));
+				assert_eq!(MultiBlock::current_phase(), Phase::Export(0));
+			});
+	}
+
+	#[test]
+	#[cfg_attr(debug_assertions, should_panic(expected = "Defensive failure has been triggered!"))]
+	fn target_snapshot_failed_event_emitted() {
+		ExtBuilder::full()
+				.pages(2)
+				.election_start(13)
+				.build_and_execute(|| {
+					// Create way more targets than the TargetSnapshotPerBlock limit (4)
+					// This will cause bounds.slice_exhausted(&targets) to return true
+					let too_many_targets: Vec<AccountId> = (1..=100).collect();
+					Targets::set(too_many_targets);
+
+					roll_to(13);
+					assert_eq!(MultiBlock::current_phase(), Phase::Snapshot(2));
+
+					// Clear any existing events
+					let _ = multi_block_events_since_last_call();
+
+					// Roll to next block - on_initialize will be in Phase::Snapshot(2) where x == T::Pages::get()
+					// This triggers target snapshot creation, which should fail due to too many targets
+					roll_to(14);
+
+					// Verify that UnexpectedTargetSnapshotFailed event was emitted
+					let events = multi_block_events_since_last_call();
+					assert!(
+						events.contains(&Event::UnexpectedTargetSnapshotFailed),
+						"UnexpectedTargetSnapshotFailed event should have been emitted when target snapshot creation fails. Events: {:?}",
+						events
+					);
+
+					// Verify phase transition still happened despite the failure
+					assert_eq!(MultiBlock::current_phase(), Phase::Snapshot(1));
+				});
+	}
 }
 
 #[cfg(test)]
@@ -2295,6 +2505,49 @@ mod election_provider {
 	}
 
 	#[test]
+	fn elect_advances_phase_even_on_error() {
+		// Use Continue fallback to avoid emergency phase when both primary and fallback fail.
+		ExtBuilder::full().fallback_mode(FallbackModes::Continue).build_and_execute(|| {
+			// Move to unsigned phase
+			roll_to_unsigned_open();
+
+			// Note: our mock runtime is configured with 1 page for the unsigned phase
+			let miner_pages = <Runtime as unsigned::Config>::MinerPages::get();
+			// Mine an unsigned solution
+			let unsigned_solution =
+				OffchainWorkerMiner::<Runtime>::mine_solution(miner_pages, true).unwrap();
+
+			// Submit the unsigned solution
+			assert_ok!(UnsignedPallet::submit_unsigned(
+				RuntimeOrigin::none(),
+				Box::new(unsigned_solution)
+			));
+
+			// Move to Done phase
+			roll_to_done();
+
+			// In the mock runtime Pages::get() = 3 so unsigned solution has 1 page but we go
+			// through Done -> Export(2) -> Export(1) -> Export(0) -> Off via elect().
+			// First elect call should succeed
+			let result1 = MultiBlock::elect(2);
+			assert!(result1.is_ok());
+			assert_eq!(MultiBlock::current_phase(), Phase::Export(1));
+
+			// Second elect call should now fail because we have mined a solution with MinerPages
+			// equal to 1.
+			// Phase should advance even on error.
+			let result2 = MultiBlock::elect(1);
+			assert!(result2.is_err());
+			assert_eq!(MultiBlock::current_phase(), Phase::Export(0));
+
+			// Third elect call should also fail but still advance to Off
+			let result3 = MultiBlock::elect(0);
+			assert!(result3.is_err());
+			assert!(matches!(MultiBlock::current_phase(), Phase::Off));
+		});
+	}
+
+	#[test]
 	fn skip_unsigned_phase() {
 		ExtBuilder::full().build_and_execute(|| {
 			roll_to_signed_open();
@@ -2424,9 +2677,9 @@ mod election_provider {
 					},
 					Event::PhaseTransitioned {
 						from: Phase::Signed(SignedPhase::get() - 1),
-						to: Phase::Export(2)
+						to: Phase::Export(1)
 					},
-					Event::PhaseTransitioned { from: Phase::Export(1), to: Phase::Off }
+					Event::PhaseTransitioned { from: Phase::Export(0), to: Phase::Off }
 				]
 			);
 			assert_eq!(verifier_events(), vec![]);

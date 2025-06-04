@@ -60,17 +60,15 @@ use sp_staking::{
 
 mod impls;
 
-// The speculative number of spans are used as an input of the weight annotation of
-// [`Call::unbond`], as the post dispatch weight may depend on the number of slashing span on the
-// account which is not provided as an input. The value set should be conservative but sensible.
-pub(crate) const SPECULATIVE_NUM_SPANS: u32 = 32;
-
 #[frame_support::pallet]
 pub mod pallet {
+	use core::ops::Deref;
+
 	use super::*;
 	use crate::{session_rotation, PagedExposureMetadata, SnapshotStatus};
 	use codec::HasCompact;
 	use frame_election_provider_support::{ElectionDataProvider, PageIndex};
+	use frame_support::DefaultNoBound;
 
 	/// The in-code storage version.
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(17);
@@ -155,7 +153,7 @@ pub mod pallet {
 		///
 		/// Following information is kept for eras in `[current_era -
 		/// HistoryDepth, current_era]`: `ErasValidatorPrefs`, `ErasValidatorReward`,
-		/// `ErasRewardPoints`, `ErasTotalStake`, `ErasStartSessionIndex`, `ErasClaimedRewards`,
+		/// `ErasRewardPoints`, `ErasTotalStake`, `ClaimedRewards`,
 		/// `ErasStakersPaged`, `ErasStakersOverview`.
 		///
 		/// Must be more than the number of eras delayed by session.
@@ -182,7 +180,7 @@ pub mod pallet {
 		#[pallet::no_default_bounds]
 		type Reward: OnUnbalanced<PositiveImbalanceOf<Self>>;
 
-		/// Number of sessions per era.
+		/// Number of sessions per era, as per the preferences of the **relay chain**.
 		#[pallet::constant]
 		type SessionsPerEra: Get<SessionIndex>;
 
@@ -234,7 +232,7 @@ pub mod pallet {
 		/// `MaxExposurePageSize` nominators. This is to limit the i/o cost for the
 		/// nominator payout.
 		///
-		/// Note: `MaxExposurePageSize` is used to bound `ErasClaimedRewards` and is unsafe to
+		/// Note: `MaxExposurePageSize` is used to bound `ClaimedRewards` and is unsafe to
 		/// reduce without handling it in a migration.
 		#[pallet::constant]
 		type MaxExposurePageSize: Get<u32>;
@@ -497,23 +495,23 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type ActiveEra<T> = StorageValue<_, ActiveEraInfo>;
 
+	/// Custom bound for [`BondedEras`] which is equal to [`Config::BondingDuration`] + 1.
+	pub struct BondedErasBound<T>(core::marker::PhantomData<T>);
+	impl<T: Config> Get<u32> for BondedErasBound<T> {
+		fn get() -> u32 {
+			T::BondingDuration::get().saturating_add(1)
+		}
+	}
+
 	/// A mapping from still-bonded eras to the first session index of that era.
 	///
 	/// Must contains information for eras for the range:
 	/// `[active_era - bounding_duration; active_era]`
 	#[pallet::storage]
-	#[pallet::unbounded]
-	pub(crate) type BondedEras<T: Config> =
-		StorageValue<_, Vec<(EraIndex, SessionIndex)>, ValueQuery>;
+	pub type BondedEras<T: Config> =
+		StorageValue<_, BoundedVec<(EraIndex, SessionIndex), BondedErasBound<T>>, ValueQuery>;
 
 	// --- AUDIT Note: end of storage items controlled by `Rotator`.
-
-	/// The session index at which the era start for the last [`Config::HistoryDepth`] eras.
-	///
-	/// Note: This tracks the STARTING session (i.e. session index when era start being ACTIVE)
-	/// for the eras in `[CurrentEra - HISTORY_DEPTH, CurrentEra]`.
-	#[pallet::storage]
-	pub type ErasStartSessionIndex<T> = StorageMap<_, Twox64Concat, EraIndex, SessionIndex>;
 
 	/// Summary of validator exposure at a given era.
 	///
@@ -538,6 +536,61 @@ pub mod pallet {
 		OptionQuery,
 	>;
 
+	/// A bounded wrapper for [`sp_staking::ExposurePage`].
+	///
+	/// It has `Deref` and `DerefMut` impls that map it back [`sp_staking::ExposurePage`] for all
+	/// purposes. This is done in such a way because we prefer to keep the types in [`sp_staking`]
+	/// pure, and not polluted by pallet-specific bounding logic.
+	///
+	/// It encoded and decodes exactly the same as [`sp_staking::ExposurePage`], and provides a
+	/// manual `MaxEncodedLen` implementation, to be used in benchmarking
+	#[derive(PartialEqNoBound, Encode, Decode, DebugNoBound, TypeInfo, DefaultNoBound)]
+	#[scale_info(skip_type_params(T))]
+	pub struct BoundedExposurePage<T: Config>(pub ExposurePage<T::AccountId, BalanceOf<T>>);
+	impl<T: Config> Deref for BoundedExposurePage<T> {
+		type Target = ExposurePage<T::AccountId, BalanceOf<T>>;
+
+		fn deref(&self) -> &Self::Target {
+			&self.0
+		}
+	}
+
+	impl<T: Config> core::ops::DerefMut for BoundedExposurePage<T> {
+		fn deref_mut(&mut self) -> &mut Self::Target {
+			&mut self.0
+		}
+	}
+
+	impl<T: Config> codec::MaxEncodedLen for BoundedExposurePage<T> {
+		fn max_encoded_len() -> usize {
+			let max_exposure_page_size = T::MaxExposurePageSize::get() as usize;
+			let individual_size =
+				T::AccountId::max_encoded_len() + BalanceOf::<T>::max_encoded_len();
+
+			// 1 balance for `total`
+			BalanceOf::<T>::max_encoded_len() +
+			// individual_size multiplied by page size
+				max_exposure_page_size.saturating_mul(individual_size)
+		}
+	}
+
+	impl<T: Config> From<ExposurePage<T::AccountId, BalanceOf<T>>> for BoundedExposurePage<T> {
+		fn from(value: ExposurePage<T::AccountId, BalanceOf<T>>) -> Self {
+			Self(value)
+		}
+	}
+
+	impl<T: Config> From<BoundedExposurePage<T>> for ExposurePage<T::AccountId, BalanceOf<T>> {
+		fn from(value: BoundedExposurePage<T>) -> Self {
+			value.0
+		}
+	}
+
+	impl<T: Config> codec::EncodeLike<BoundedExposurePage<T>>
+		for ExposurePage<T::AccountId, BalanceOf<T>>
+	{
+	}
+
 	/// Paginated exposure of a validator at given era.
 	///
 	/// This is keyed first by the era index to allow bulk deletion, then stash account and finally
@@ -545,7 +598,6 @@ pub mod pallet {
 	///
 	/// This is cleared after [`Config::HistoryDepth`] eras.
 	#[pallet::storage]
-	#[pallet::unbounded]
 	pub type ErasStakersPaged<T: Config> = StorageNMap<
 		_,
 		(
@@ -553,9 +605,21 @@ pub mod pallet {
 			NMapKey<Twox64Concat, T::AccountId>,
 			NMapKey<Twox64Concat, Page>,
 		),
-		ExposurePage<T::AccountId, BalanceOf<T>>,
+		BoundedExposurePage<T>,
 		OptionQuery,
 	>;
+
+	pub struct ClaimedRewardsBound<T>(core::marker::PhantomData<T>);
+	impl<T: Config> Get<u32> for ClaimedRewardsBound<T> {
+		fn get() -> u32 {
+			let max_total_nominators_per_validator =
+				<T::ElectionProvider as ElectionProvider>::MaxBackersPerWinner::get();
+			let exposure_page_size = T::MaxExposurePageSize::get();
+			max_total_nominators_per_validator
+				.saturating_div(exposure_page_size)
+				.saturating_add(1)
+		}
+	}
 
 	/// History of claimed paged rewards by era and validator.
 	///
@@ -564,14 +628,13 @@ pub mod pallet {
 	///
 	/// It is removed after [`Config::HistoryDepth`] eras.
 	#[pallet::storage]
-	#[pallet::unbounded]
-	pub type ErasClaimedRewards<T: Config> = StorageDoubleMap<
+	pub type ClaimedRewards<T: Config> = StorageDoubleMap<
 		_,
 		Twox64Concat,
 		EraIndex,
 		Twox64Concat,
 		T::AccountId,
-		Vec<Page>,
+		WeakBoundedVec<Page, ClaimedRewardsBound<T>>,
 		ValueQuery,
 	>;
 
@@ -601,9 +664,8 @@ pub mod pallet {
 	/// Rewards for the last [`Config::HistoryDepth`] eras.
 	/// If reward hasn't been set or has been removed then 0 reward is returned.
 	#[pallet::storage]
-	#[pallet::unbounded]
 	pub type ErasRewardPoints<T: Config> =
-		StorageMap<_, Twox64Concat, EraIndex, EraRewardPoints<T::AccountId>, ValueQuery>;
+		StorageMap<_, Twox64Concat, EraIndex, EraRewardPoints<T>, ValueQuery>;
 
 	/// The total amount staked for the last [`Config::HistoryDepth`] eras.
 	/// If total hasn't been set or has been removed then 0 stake is returned.
@@ -711,23 +773,6 @@ pub mod pallet {
 	#[pallet::storage]
 	pub(crate) type NominatorSlashInEra<T: Config> =
 		StorageDoubleMap<_, Twox64Concat, EraIndex, Twox64Concat, T::AccountId, BalanceOf<T>>;
-
-	/// Slashing spans for stash accounts.
-	#[pallet::storage]
-	#[pallet::unbounded]
-	pub type SlashingSpans<T: Config> =
-		StorageMap<_, Twox64Concat, T::AccountId, slashing::SlashingSpans>;
-
-	/// Records information about the maximum slash of a stash within a slashing span,
-	/// as well as how much reward has been paid out.
-	#[pallet::storage]
-	pub(crate) type SpanSlash<T: Config> = StorageMap<
-		_,
-		Twox64Concat,
-		(T::AccountId, slashing::SpanIndex),
-		slashing::SpanRecord<BalanceOf<T>>,
-		ValueQuery,
-	>;
 
 	/// The threshold for when users can start calling `chill_other` for other validators /
 	/// nominators. The threshold is compared to the actual number of validators / nominators
@@ -914,7 +959,13 @@ pub mod pallet {
 			ActiveEra::<T>::put(ActiveEraInfo { index: active_era, start: Some(timestamp) });
 			// at genesis, we do not have any new planned era.
 			CurrentEra::<T>::put(active_era);
-			ErasStartSessionIndex::<T>::insert(active_era, session_index);
+			// set the bonded genesis era
+			BondedEras::<T>::put(
+				BoundedVec::<_, BondedErasBound<T>>::try_from(
+					alloc::vec![(active_era, session_index)]
+				)
+				.expect("bound for BondedEras is BondingDuration + 1; can contain at least one element; qed")
+			);
 		}
 	}
 
@@ -1091,8 +1142,6 @@ pub mod pallet {
 		InvalidPage,
 		/// Incorrect previous history depth input provided.
 		IncorrectHistoryDepth,
-		/// Incorrect number of slashing spans provided.
-		IncorrectSlashingSpans,
 		/// Internal state has become somehow corrupted and the operation cannot continue.
 		BadState,
 		/// Too many nomination targets supplied.
@@ -1289,7 +1338,7 @@ pub mod pallet {
 		/// See also [`Call::withdraw_unbonded`].
 		#[pallet::call_index(2)]
 		#[pallet::weight(
-            T::WeightInfo::withdraw_unbonded_kill(SPECULATIVE_NUM_SPANS).saturating_add(T::WeightInfo::unbond()))
+            T::WeightInfo::withdraw_unbonded_kill().saturating_add(T::WeightInfo::unbond()))
         ]
 		pub fn unbond(
 			origin: OriginFor<T>,
@@ -1303,9 +1352,7 @@ pub mod pallet {
 			// `BondingDuration` to proceed with the unbonding.
 			let maybe_withdraw_weight = {
 				if unlocking == T::MaxUnlockingChunks::get() as usize {
-					let real_num_slashing_spans =
-						SlashingSpans::<T>::get(&controller).map_or(0, |s| s.iter().count());
-					Some(Self::do_withdraw_unbonded(&controller, real_num_slashing_spans as u32)?)
+					Some(Self::do_withdraw_unbonded(&controller)?)
 				} else {
 					None
 				}
@@ -1391,21 +1438,17 @@ pub mod pallet {
 		///
 		/// ## Parameters
 		///
-		/// - `num_slashing_spans` indicates the number of metadata slashing spans to clear when
-		/// this call results in a complete removal of all the data related to the stash account.
-		/// In this case, the `num_slashing_spans` must be larger or equal to the number of
-		/// slashing spans associated with the stash account in the [`SlashingSpans`] storage type,
-		/// otherwise the call will fail. The call weight is directly proportional to
-		/// `num_slashing_spans`.
+		/// - `num_slashing_spans`: **Deprecated**. This parameter is retained for backward
+		/// compatibility. It no longer has any effect.
 		#[pallet::call_index(3)]
-		#[pallet::weight(T::WeightInfo::withdraw_unbonded_kill(*num_slashing_spans))]
+		#[pallet::weight(T::WeightInfo::withdraw_unbonded_kill())]
 		pub fn withdraw_unbonded(
 			origin: OriginFor<T>,
-			num_slashing_spans: u32,
+			_num_slashing_spans: u32,
 		) -> DispatchResultWithPostInfo {
 			let controller = ensure_signed(origin)?;
 
-			let actual_weight = Self::do_withdraw_unbonded(&controller, num_slashing_spans)?;
+			let actual_weight = Self::do_withdraw_unbonded(&controller)?;
 			Ok(Some(actual_weight).into())
 		}
 
@@ -1705,22 +1748,22 @@ pub mod pallet {
 		/// Force a current staker to become completely unstaked, immediately.
 		///
 		/// The dispatch origin must be Root.
-		///
 		/// ## Parameters
 		///
-		/// - `num_slashing_spans`: Refer to comments on [`Call::withdraw_unbonded`] for more
-		/// details.
+		/// - `stash`: The stash account to be unstaked.
+		/// - `num_slashing_spans`: **Deprecated**. This parameter is retained for backward
+		/// compatibility. It no longer has any effect.
 		#[pallet::call_index(15)]
-		#[pallet::weight(T::WeightInfo::force_unstake(*num_slashing_spans))]
+		#[pallet::weight(T::WeightInfo::force_unstake())]
 		pub fn force_unstake(
 			origin: OriginFor<T>,
 			stash: T::AccountId,
-			num_slashing_spans: u32,
+			_num_slashing_spans: u32,
 		) -> DispatchResult {
 			ensure_root(origin)?;
 
 			// Remove all staking-related information and lock.
-			Self::kill_stash(&stash, num_slashing_spans)?;
+			Self::kill_stash(&stash)?;
 
 			Ok(())
 		}
@@ -1858,14 +1901,15 @@ pub mod pallet {
 		///
 		/// ## Parameters
 		///
-		/// - `num_slashing_spans`: Refer to comments on [`Call::withdraw_unbonded`] for more
-		/// details.
+		/// - `stash`: The stash account to be reaped.
+		/// - `num_slashing_spans`: **Deprecated**. This parameter is retained for backward
+		/// compatibility. It no longer has any effect.
 		#[pallet::call_index(20)]
-		#[pallet::weight(T::WeightInfo::reap_stash(*num_slashing_spans))]
+		#[pallet::weight(T::WeightInfo::reap_stash())]
 		pub fn reap_stash(
 			origin: OriginFor<T>,
 			stash: T::AccountId,
-			num_slashing_spans: u32,
+			_num_slashing_spans: u32,
 		) -> DispatchResultWithPostInfo {
 			let _ = ensure_signed(origin)?;
 
@@ -1883,7 +1927,7 @@ pub mod pallet {
 			ensure!(reapable, Error::<T>::FundedTarget);
 
 			// Remove all staking-related information and lock.
-			Self::kill_stash(&stash, num_slashing_spans)?;
+			Self::kill_stash(&stash)?;
 
 			Ok(Pays::No.into())
 		}

@@ -104,7 +104,7 @@ use sp_core::{
 	},
 	sr25519,
 	storage::StateVersion,
-	LogLevel, LogLevelFilter, OpaquePeerId, H256,
+	LogLevelFilter, OpaquePeerId, RuntimeInterfaceLogLevel, H256,
 };
 
 #[cfg(feature = "bls-experimental")]
@@ -1364,8 +1364,25 @@ pub trait Crypto {
 			.expect("`bls381_generate` failed")
 	}
 
-	/// Generate an `(ecdsa,bls12-381)` key for the given key type using an optional `seed` and
-	/// store it in the keystore.
+	/// Generate a 'bls12-381' Proof Of Possession for the corresponding public key.
+	///
+	/// Returns the Proof Of Possession as an option of the ['bls381::Signature'] type
+	/// or 'None' if an error occurs.
+	#[cfg(feature = "bls-experimental")]
+	fn bls381_generate_proof_of_possession(
+		&mut self,
+		id: PassPointerAndReadCopy<KeyTypeId, 4>,
+		pub_key: PassPointerAndRead<&bls381::Public, 144>,
+	) -> AllocateAndReturnByCodec<Option<bls381::Signature>> {
+		self.extension::<KeystoreExt>()
+			.expect("No `keystore` associated for the current context!")
+			.bls381_generate_proof_of_possession(id, pub_key)
+			.ok()
+			.flatten()
+	}
+
+	/// Generate combination `ecdsa & bls12-381` key for the given key type using an optional `seed`
+	/// and store it in the keystore.
 	///
 	/// The `seed` needs to be a valid utf8.
 	///
@@ -1400,6 +1417,24 @@ pub trait Crypto {
 			.expect("No `keystore` associated for the current context!")
 			.bandersnatch_generate_new(id, seed)
 			.expect("`bandernatch_generate` failed")
+	}
+
+	/// Sign the given `msg` with the `bandersnatch` key that corresponds to the given public key
+	/// and key type in the keystore.
+	///
+	/// Returns the signature or `None` if an error occurred.
+	#[cfg(feature = "bandersnatch-experimental")]
+	fn bandersnatch_sign(
+		&mut self,
+		id: PassPointerAndReadCopy<KeyTypeId, 4>,
+		pub_key: PassPointerAndRead<&bandersnatch::Public, 32>,
+		msg: PassFatPointerAndRead<&[u8]>,
+	) -> AllocateAndReturnByCodec<Option<bandersnatch::Signature>> {
+		self.extension::<KeystoreExt>()
+			.expect("No `keystore` associated for the current context!")
+			.bandersnatch_sign(id, pub_key, msg)
+			.ok()
+			.flatten()
 	}
 }
 
@@ -1767,7 +1802,7 @@ pub trait Logging {
 	///
 	/// Instead of using directly, prefer setting up `RuntimeLogger` and using `log` macros.
 	fn log(
-		level: PassAs<LogLevel, u8>,
+		level: PassAs<RuntimeInterfaceLogLevel, u8>,
 		target: PassFatPointerAndRead<&str>,
 		message: PassFatPointerAndRead<&[u8]>,
 	) {
@@ -1933,7 +1968,7 @@ pub fn panic(info: &core::panic::PanicInfo) -> ! {
 	}
 	#[cfg(not(feature = "improved_panic_error_reporting"))]
 	{
-		logging::log(LogLevel::Error, "runtime", message.as_bytes());
+		logging::log(RuntimeInterfaceLogLevel::Error, "runtime", message.as_bytes());
 		unreachable();
 	}
 }
@@ -1948,7 +1983,11 @@ pub fn oom(_: core::alloc::Layout) -> ! {
 	}
 	#[cfg(not(feature = "improved_panic_error_reporting"))]
 	{
-		logging::log(LogLevel::Error, "runtime", b"Runtime memory exhausted. Aborting");
+		logging::log(
+			RuntimeInterfaceLogLevel::Error,
+			"runtime",
+			b"Runtime memory exhausted. Aborting",
+		);
 		unreachable();
 	}
 }
