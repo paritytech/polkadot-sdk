@@ -65,8 +65,11 @@ runs:
         TEST_NAME: ${{ inputs.test }}
         PREFIX: ${{ inputs.prefix }}
       run: |
-          ls -ltr ./artifacts
-          cargo nextest run --archive-file ./artifacts/${PREFIX}-zombienet-tests.tar.zst --no-capture -- ${TEST_NAME}
+        if [[ $ZOMBIENET_RUNNER == "parity-zombienet" ]];
+          export ZOMBIE_K8S_CI_NAMESPACE=$(cat /data/namespace)
+        fi;
+        ls -ltr ./artifacts
+        cargo nextest run --archive-file ./artifacts/${PREFIX}-zombienet-tests.tar.zst --no-capture -- ${TEST_NAME}
 
     - name: process_logs
       if: ${{ ! cancelled() }}
