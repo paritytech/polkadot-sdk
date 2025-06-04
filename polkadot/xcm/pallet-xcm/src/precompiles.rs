@@ -71,13 +71,17 @@ where
 				let _ = env.charge(<Runtime as Config>::WeightInfo::send())?;
 
 				let final_destination = VersionedLocation::decode_all(&mut &destination[..])
-					.map_err(|error| revert!(LOG_TARGET, error, "XCM send failed: Invalid destination format"))?;
+					.map_err(|error| {
+						revert!(LOG_TARGET, error, "XCM send failed: Invalid destination format")
+					})?;
 
 				let final_message = VersionedXcm::<()>::decode_all_with_depth_limit(
 					MAX_XCM_DECODE_DEPTH,
 					&mut &message[..],
 				)
-				.map_err(|error| revert!(LOG_TARGET, error, "XCM send failed: Invalid message format"))?;
+				.map_err(|error| {
+					revert!(LOG_TARGET, error, "XCM send failed: Invalid message format")
+				})?;
 
 				crate::Pallet::<Runtime>::send(
 					frame_origin,
@@ -85,7 +89,13 @@ where
 					final_message.into(),
 				)
 				.map(|message_id| message_id.encode())
-				.map_err(|error| revert!(LOG_TARGET, error, "XCM send failed: destination or message format may be incompatible"))
+				.map_err(|error| {
+					revert!(
+						LOG_TARGET,
+						error,
+						"XCM send failed: destination or message format may be incompatible"
+					)
+				})
 			},
 			IXcmCalls::xcmExecute(IXcm::xcmExecuteCall { message, weight }) => {
 				let weight = Weight::from_parts(weight.refTime, weight.proofSize)
@@ -96,7 +106,9 @@ where
 					MAX_XCM_DECODE_DEPTH,
 					&mut &message[..],
 				)
-				.map_err(|error| revert!(LOG_TARGET, error, "XCM execute failed: Invalid message format"))?;
+				.map_err(|error| {
+					revert!(LOG_TARGET, error, "XCM execute failed: Invalid message format")
+				})?;
 
 				let result =
 					crate::Pallet::<Runtime>::execute(frame_origin, final_message.into(), weight);
@@ -111,15 +123,13 @@ where
 				let actual_weight = frame_support::dispatch::extract_actual_weight(&result, &pre);
 				env.adjust_gas(charged_amount, actual_weight);
 
-				result
-    				.map(|post_dispatch_info| post_dispatch_info.encode())
-    				.map_err(|error| {
-						revert!(
+				result.map(|post_dispatch_info| post_dispatch_info.encode()).map_err(|error| {
+					revert!(
 							LOG_TARGET,
 							error,
 							"XCM execute failed: message may be invalid or execution constraints not satisfied"
 						)
-    				})
+				})
 			},
 			IXcmCalls::weighMessage(IXcm::weighMessageCall { message }) => {
 				let _ = env.charge(<Runtime as Config>::WeightInfo::weigh_message())?;
@@ -128,14 +138,18 @@ where
 					MAX_XCM_DECODE_DEPTH,
 					&mut &message[..],
 				)
-				.map_err(|error| revert!(LOG_TARGET, error, "XCM weightMessage: Invalid message format"))?;
+				.map_err(|error| {
+					revert!(LOG_TARGET, error, "XCM weightMessage: Invalid message format")
+				})?;
 
 				let mut final_message = converted_message.try_into().map_err(|error| {
 					revert!(LOG_TARGET, error, "XCM weightMessage: Conversion to Xcm failed")
 				})?;
 
 				let weight = <<Runtime>::Weigher>::weight(&mut final_message, Weight::MAX)
-					.map_err(|error| revert!(LOG_TARGET, error, "XCM weightMessage: Failed to calculate weight"))?;
+					.map_err(|error| {
+						revert!(LOG_TARGET, error, "XCM weightMessage: Failed to calculate weight")
+					})?;
 
 				let final_weight =
 					IXcm::Weight { proofSize: weight.proof_size(), refTime: weight.ref_time() };
