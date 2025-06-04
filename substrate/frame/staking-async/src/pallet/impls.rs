@@ -921,12 +921,7 @@ impl<T: Config> ElectionDataProvider for Pallet<T> {
 		bounds: DataProviderBounds,
 	) -> data_provider::Result<Vec<VoterOf<Self>>> {
 		let voters = Self::get_npos_voters(bounds, &SnapshotStatus::Waiting);
-		log!(
-			debug,
-			"[stateless, bounds {:?}] generated {} npos voters",
-			bounds,
-			voters.len(),
-		);
+		log!(debug, "[stateless, bounds {:?}] generated {} npos voters", bounds, voters.len(),);
 		Ok(voters)
 	}
 
