@@ -3338,7 +3338,7 @@ fn create1_with_value_works() {
 		assert_ok!(builder::call(addr).value(value).data(code_hash.encode()).build());
 
 		// We should see the expected balance at the expected account
-		let address = crate::address::create1(&addr, 0);
+		let address = crate::address::create1(&addr, 1);
 		let account_id = <Test as Config>::AddressMapper::to_account_id(&address);
 		let usable_balance = <Test as Config>::Currency::usable_balance(&account_id);
 		assert_eq!(usable_balance, value);
