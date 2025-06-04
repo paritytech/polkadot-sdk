@@ -65,7 +65,7 @@ runs:
         TEST_NAME: ${{ inputs.test }}
         PREFIX: ${{ inputs.prefix }}
       run: |
-        if [[ $ZOMBIENET_RUNNER == "parity-zombienet" ]];
+        if [[ $ZOMBIENET_RUNNER == "parity-zombienet" ]]; then
           export ZOMBIE_K8S_CI_NAMESPACE=$(cat /data/namespace)
         fi;
         ls -ltr ./artifacts

@@ -42,7 +42,7 @@ runs:
         LOCAL_PATH: ${{ inputs.local-dir }}
         CONCURRENCY: ${{ inputs.concurrency }}
       run: |
-        if [[ $ZOMBIENET_RUNNER == "parity-zombienet" ]];
+        if [[ $ZOMBIENET_RUNNER == "parity-zombienet" ]]; then
           export ZOMBIE_NAMESPACE=$(cat /data/namespace)
         fi;
         /home/nonroot/zombie-net/scripts/ci/run-test-local-env-manager.sh \
