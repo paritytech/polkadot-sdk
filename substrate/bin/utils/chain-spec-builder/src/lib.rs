@@ -71,11 +71,12 @@ pub struct CreateCmd {
 	///
 	/// This flag will be removed starting with `stable2512`. Runtimes must implement a new API
 	/// called `cumulus_primitives_core::GetParachainIdentity` to still be compatible with node
-	/// versions starting with `stable2512`. See an example here: `https://github.com/paritytech/polkadot-sdk-parachain-template/blob/master/runtime/src/apis.rs`.
+	/// versions starting with `stable2512`.
 	#[arg(long, value_enum, short = 'p', requires = "relay_chain")]
 	#[deprecated(
 		note = "The para_id information is not required anymore and will be removed starting with `stable2512`. Runtimes must implement a new API called `cumulus_primitives_core::GetParachainIdentity` to still be compatible with node versions starting with `stable2512`. Check the parachain-template-runtime: `https://github.com/paritytech/polkadot-sdk-parachain-template/blob/master/runtime/src/apis.rs` for an example of how to do it."
 	)]
+	// TODO: https://github.com/paritytech/polkadot-sdk/issues/8740
 	pub para_id: Option<u32>,
 	/// The relay chain you wish to connect to.
 	#[arg(long, value_enum, short = 'c')]
@@ -458,7 +459,7 @@ pub fn generate_chain_spec_for_runtime(cmd: &CreateCmd) -> Result<String, String
 		#[allow(deprecated)]
 		cmd.para_id
 			.map(|para_id| {
-				eprintln!("Note: usage of deprecated `para_id` flag is not recommended. Please consider implementing the `cumulus_primitives_core::GetParachainIdentity` runtime API for your runtime. Example here: https://github.com/paritytech/polkadot-sdk-parachain-template/blob/master/runtime/src/apis.rs.");
+				eprintln!("Note: usage of deprecated `para-id` flag is not recommended. Please consider implementing the `cumulus_primitives_core::GetParachainIdentity` runtime API for your runtime. The `para-id` flag will be removed starting with `stable2512`.");
 				serde_json::json!({
 					"relay_chain": rc,
 					"para_id": para_id,
