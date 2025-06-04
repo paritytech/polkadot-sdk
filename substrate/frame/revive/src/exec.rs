@@ -781,7 +781,7 @@ where
 				);
 			});
 
-			let result = Self::transfer_from_origin(&origin, &origin, &dest, value);
+			let result = Self::transfer_from_origin(&origin, &origin, &dest, value, storage_meter);
 
 			if_tracing(|t| match result {
 				Ok(ref output) => t.exit_child_span(&output, Weight::zero()),
