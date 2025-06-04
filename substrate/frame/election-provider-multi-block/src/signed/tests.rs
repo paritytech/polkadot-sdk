@@ -794,8 +794,71 @@ mod e2e {
 
 	#[test]
 	fn after_accepting_one_solution_verifier_is_idle_if_no_leader_exists() {
-		// and eventually nukes itself at the last block
-		todo!()
+		ExtBuilder::signed().build_and_execute(|| {
+			roll_to_signed_open();
+			assert_full_snapshot();
+
+			// Submit only one good solution that will be accepted
+			let good_solution = mine_full_solution().unwrap();
+			load_signed_for_verification(99, good_solution.clone());
+
+			// Verify we have exactly one submission
+			let current_round = SignedPallet::current_round();
+			assert_eq!(Submissions::<Runtime>::submitters_count(current_round), 1);
+			assert!(Submissions::<Runtime>::has_leader(current_round));
+
+			// Move to verification phase
+			roll_to_signed_validation_open();
+			assert!(matches!(VerifierPallet::status(), crate::verifier::Status::Ongoing(_)));
+
+			// The good solution will be processed and accepted over 3 blocks
+			roll_next(); // Block 1: processes page 2
+			roll_next(); // Block 2: processes page 1
+			roll_next(); // Block 3: processes page 0 and solution gets queued/rewarded
+
+			// After acceptance, verify no-restart conditions are met
+			assert!(crate::Pallet::<Runtime>::current_phase().is_signed_validation());
+			assert!(!Submissions::<Runtime>::has_leader(current_round));
+			assert_eq!(Submissions::<Runtime>::submitters_count(current_round), 0);
+			assert_eq!(VerifierPallet::status(), crate::verifier::Status::Nothing);
+
+			// Verify verifier stays idle until we reach Done phase (no restart)
+			while !MultiBlock::current_phase().is_done() {
+				roll_next();
+				assert_eq!(
+					VerifierPallet::status(),
+					crate::verifier::Status::Nothing,
+					"Verifier should remain idle until Done phase"
+				);
+				assert!(!Submissions::<Runtime>::has_leader(current_round));
+				assert_eq!(Submissions::<Runtime>::submitters_count(current_round), 0);
+			}
+
+			// Verify we reached Done phase with verifier still idle
+			assert_eq!(MultiBlock::current_phase(), Phase::Done);
+			assert_eq!(VerifierPallet::status(), crate::verifier::Status::Nothing);
+
+			// Check that expected events were emitted for the acceptance
+			assert_eq!(
+				signed_events(),
+				vec![
+					Event::Registered(0, 99, good_solution.score),
+					Event::Stored(0, 99, 0),
+					Event::Stored(0, 99, 1),
+					Event::Stored(0, 99, 2),
+					Event::Rewarded(0, 99, 7),
+				]
+			);
+			assert_eq!(
+				verifier_events(),
+				vec![
+					crate::verifier::Event::Verified(2, 2),
+					crate::verifier::Event::Verified(1, 2),
+					crate::verifier::Event::Verified(0, 2),
+					crate::verifier::Event::Queued(good_solution.score, None),
+				]
+			);
+		});
 	}
 
 	#[test]
