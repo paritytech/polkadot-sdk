@@ -164,8 +164,11 @@ where
 #[cfg(test)]
 mod test {
 	use crate::{
-		mock::*, precompiles::IXcm::{self, weighMessageCall}, VersionedLocation, VersionedXcm
+		mock::*,
+		precompiles::IXcm::{self, weighMessageCall},
+		VersionedLocation, VersionedXcm,
 	};
+	use frame_support::traits::Currency;
 	use pallet_revive::{
 		precompiles::{
 			alloy::{
@@ -176,10 +179,9 @@ mod test {
 		},
 		DepositLimit,
 	};
-	use xcm::prelude::*;
 	use polkadot_parachain_primitives::primitives::Id as ParaId;
 	use sp_runtime::traits::AccountIdConversion;
-	use frame_support::traits::Currency;
+	use xcm::prelude::*;
 
 	const ALICE: AccountId = AccountId::new([0u8; 32]);
 	const BOB: AccountId = AccountId::new([1u8; 32]);
@@ -371,13 +373,15 @@ mod test {
 
 			let weight_result = match xcm_weight_results.result {
 				Ok(value) => value,
-				Err(err) => panic!("XcmExecutePrecompile Failed to decode weight with error {err:?}"),
+				Err(err) =>
+					panic!("XcmExecutePrecompile Failed to decode weight with error {err:?}"),
 			};
 
 			let weight: IXcm::Weight = IXcm::Weight::abi_decode(&weight_result.data[..])
 				.expect("XcmExecutePrecompile Failed to decode weight");
 
-			let xcm_execute_params = IXcm::xcmExecuteCall { message: message.encode().into(), weight };
+			let xcm_execute_params =
+				IXcm::xcmExecuteCall { message: message.encode().into(), weight };
 			let call = IXcm::IXcmCalls::xcmExecute(xcm_execute_params);
 			let encoded_call = call.abi_encode();
 
@@ -432,13 +436,15 @@ mod test {
 
 			let weight_result = match xcm_weight_results.result {
 				Ok(value) => value,
-				Err(err) => panic!("XcmExecutePrecompile Failed to decode weight with error: {err:?}"),
+				Err(err) =>
+					panic!("XcmExecutePrecompile Failed to decode weight with error: {err:?}"),
 			};
 
 			let weight: IXcm::Weight = IXcm::Weight::abi_decode(&weight_result.data[..])
 				.expect("XcmExecutePrecompile Failed to decode weight");
 
-			let xcm_execute_params = IXcm::xcmExecuteCall { message: message.encode().into(), weight };
+			let xcm_execute_params =
+				IXcm::xcmExecuteCall { message: message.encode().into(), weight };
 			let call = IXcm::IXcmCalls::xcmExecute(xcm_execute_params);
 			let encoded_call = call.abi_encode();
 
@@ -501,13 +507,15 @@ mod test {
 
 			let weight_result = match xcm_weight_results.result {
 				Ok(value) => value,
-				Err(err) => panic!("XcmExecutePrecompile Failed to decode weight with error: {err:?}"),
+				Err(err) =>
+					panic!("XcmExecutePrecompile Failed to decode weight with error: {err:?}"),
 			};
 
 			let weight: IXcm::Weight = IXcm::Weight::abi_decode(&weight_result.data[..])
 				.expect("XcmExecutePrecompile Failed to decode weight");
 
-			let xcm_execute_params = IXcm::xcmExecuteCall { message: message.encode().into(), weight };
+			let xcm_execute_params =
+				IXcm::xcmExecuteCall { message: message.encode().into(), weight };
 			let call = IXcm::IXcmCalls::xcmExecute(xcm_execute_params);
 			let encoded_call = call.abi_encode();
 
