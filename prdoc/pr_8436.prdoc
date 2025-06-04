@@ -1,13 +1,10 @@
-title: 'Changed Validators storage from ValueQuery to OptionQuery to improve code clarity'
+title: 'Fix calling nominate on a validator that doesn’t exist silently succeeds'
 
 doc:
   - audience: Runtime Dev
     description: |
-      This PR introduces one improvement to the staking-async pallet as per issue #8433 :
-
-      - Storage Type Change:
-        - Changed Validators storage from ValueQuery to OptionQuery to improve code clarity
-        - This makes the code less confusing by properly representing optional values
+      This PR fixes a bug where calling nominate on a validator that doesn’t exist silently succeeds.
+      It also updates all the tests that had an incorrect setup - they were simulating elections with unregistered validators.
 
 crates:
   - name: pallet-staking-async
