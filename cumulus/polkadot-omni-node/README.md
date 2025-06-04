@@ -39,14 +39,17 @@ cargo install staging-chain-spec-builder --locked
 
 ### 2. Generate a chain spec
 
-Omni Node requires the chain spec to include a JSON key named  `relay_chain`. This is usually set
-to a chain id, mapped out by the [load_spec](https://github.com/paritytech/polkadot-sdk/blob/master/polkadot/cli/src/command.rs#L77)
-to a chain spec object corresponding to the picked relaychain.
-The field can be introduced by running [`staging-chain-spec-builder`](https://crates.io/crates/staging-chain-spec-builder)
-with a flag:
+Omni Node requires the chain spec to include a JSON key named `relay_chain`. It is set to a chain id
+(representing the chain name, e.g. `westend`, `paseo`, `rococo`, `polkadot`, or `kusama`). Additionaly,
+although deprecated, the `--para-id` flag can still be used to set the JSON key named `para_id`. The
+removal of the flag will happen starting with `stable2512`. The alternative of not using it is to
+implement the `cumulus_primitives_core::GetParachainIdentity` runtime API for the runtime, and
+upgrade it on-chain as well, to be compatible with nodes released starting with `stable2512`.
+
+Example command bellow:
 
 ```bash
-chain-spec-builder create --relay-chain <relay_chain_id> -r <runtime.wasm> named-preset <preset_name>
+chain-spec-builder create --relay-chain <relay_chain_id> --para-id <id> -r <runtime.wasm> named-preset <preset_name>
 ```
 
 ### 3. Run Omni Node
