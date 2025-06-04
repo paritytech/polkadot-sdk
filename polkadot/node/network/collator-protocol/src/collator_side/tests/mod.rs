@@ -1460,6 +1460,7 @@ fn connect_to_buffered_groups() {
 				1,
 			)
 			.await;
+
 			test_state.group_rotation_info = test_state.group_rotation_info.bump_rotation();
 
 			let head_b = test_state.relay_parent;
