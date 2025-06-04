@@ -139,5 +139,5 @@
 //! `info` which is typically enabled by all parties) that are already read from storage, and will
 //! be part of the storage proof of execution in any case**.
 //!
-//! Please read [this issue](https://github.com/paritytech/polkadot-sdk/issues/8735) for once
+//! Please read [this issue](https://github.com/paritytech/polkadot-sdk/issues/8735) for one
 //! instance of the consensus issues arised by this mistake.
