@@ -249,7 +249,9 @@ pub mod pallet {
 	}
 
 	/// The remote proxy proof to prove the existence of a proxy account.
-	#[derive(core::fmt::Debug, Clone, Decode, Encode, TypeInfo, PartialEq, Eq)]
+	#[derive(
+		core::fmt::Debug, Clone, Decode, DecodeWithMemTracking, Encode, TypeInfo, PartialEq, Eq,
+	)]
 	pub enum RemoteProxyProof<RemoteBlockNumber> {
 		/// Assumes the default proxy storage layout.
 		RelayChain { proof: Vec<Vec<u8>>, block: RemoteBlockNumber },

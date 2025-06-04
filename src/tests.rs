@@ -18,7 +18,7 @@
 
 use super::*;
 use crate as remote_proxy;
-use codec::Decode;
+use codec::{Decode, DecodeWithMemTracking};
 use cumulus_pallet_parachain_system::OnSystemEvent;
 use frame_support::{
 	assert_err, assert_ok, construct_runtime, derive_impl,
@@ -76,6 +76,7 @@ impl pallet_utility::Config for Test {
 	PartialOrd,
 	Encode,
 	Decode,
+	DecodeWithMemTracking,
 	Debug,
 	MaxEncodedLen,
 	scale_info::TypeInfo,
@@ -131,6 +132,7 @@ impl pallet_proxy::Config for Test {
 	type MaxPending = ConstU32<2>;
 	type AnnouncementDepositBase = ConstU64<1>;
 	type AnnouncementDepositFactor = ConstU64<1>;
+	type BlockNumberProvider = System;
 }
 
 pub struct RemoteProxyImpl;
@@ -204,6 +206,7 @@ pub fn new_test_ext() -> TestExternalities {
 	let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 	pallet_balances::GenesisConfig::<Test> {
 		balances: vec![(1, 10), (2, 10), (3, 10), (4, 10), (5, 3)],
+		dev_accounts: None,
 	}
 	.assimilate_storage(&mut t)
 	.unwrap();
