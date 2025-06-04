@@ -1,0 +1,7 @@
+title: Add support of additional crypto types for BeefyKeeystore
+doc:
+- audience: Node Dev
+  description: Extend BeefyKeystore to support custom crypto types by adding logic that delegates execution to the underlying keystore.
+crates:
+- name: sc-consensus-beefy
+  bump: patch
