@@ -838,9 +838,14 @@ impl NetworkBehaviour for DiscoveryBehaviour {
 
 				self.kademlia.on_swarm_event(FromSwarm::ExternalAddrConfirmed(e));
 			},
+			FromSwarm::NewExternalAddrOfPeer(e) => {
+				self.kademlia.on_swarm_event(FromSwarm::NewExternalAddrOfPeer(e));
+				self.mdns.on_swarm_event(FromSwarm::NewExternalAddrOfPeer(e));
+			},
 			event => {
 				debug!(target: LOG_TARGET, "New unknown `FromSwarm` libp2p event: {event:?}");
 				self.kademlia.on_swarm_event(event);
+				self.mdns.on_swarm_event(event);
 			},
 		}
 	}

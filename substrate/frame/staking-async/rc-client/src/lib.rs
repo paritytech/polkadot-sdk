@@ -116,10 +116,12 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 extern crate alloc;
-use alloc::vec::Vec;
+use alloc::{vec, vec::Vec};
+use core::fmt::Display;
 use frame_support::pallet_prelude::*;
-use sp_runtime::Perbill;
+use sp_runtime::{traits::Convert, Perbill};
 use sp_staking::SessionIndex;
+use xcm::latest::{send_xcm, Location, SendError, SendXcm, Xcm};
 
 /// Export everything needed for the pallet to be used in the runtime.
 pub use pallet::*;
@@ -152,7 +154,7 @@ pub trait SendToRelayChain {
 	fn validator_set(report: ValidatorSetReport<Self::AccountId>);
 }
 
-#[derive(Encode, Decode, DecodeWithMemTracking, Debug, Clone, PartialEq, TypeInfo)]
+#[derive(Encode, Decode, DecodeWithMemTracking, Clone, PartialEq, TypeInfo)]
 /// A report about a new validator set. This is sent from AH -> RC.
 pub struct ValidatorSetReport<AccountId> {
 	/// The new validator set.
@@ -172,6 +174,28 @@ pub struct ValidatorSetReport<AccountId> {
 	pub prune_up_to: Option<SessionIndex>,
 	/// Same semantics as [`SessionReport::leftover`].
 	pub leftover: bool,
+}
+
+impl<AccountId: core::fmt::Debug> core::fmt::Debug for ValidatorSetReport<AccountId> {
+	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+		f.debug_struct("ValidatorSetReport")
+			.field("new_validator_set", &self.new_validator_set)
+			.field("id", &self.id)
+			.field("prune_up_to", &self.prune_up_to)
+			.field("leftover", &self.leftover)
+			.finish()
+	}
+}
+
+impl<AccountId> core::fmt::Display for ValidatorSetReport<AccountId> {
+	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+		f.debug_struct("ValidatorSetReport")
+			.field("new_validator_set", &self.new_validator_set.len())
+			.field("id", &self.id)
+			.field("prune_up_to", &self.prune_up_to)
+			.field("leftover", &self.leftover)
+			.finish()
+	}
 }
 
 impl<AccountId> ValidatorSetReport<AccountId> {
@@ -196,7 +220,7 @@ impl<AccountId> ValidatorSetReport<AccountId> {
 		Ok(self)
 	}
 
-	/// Split self into `count` number of pieces.
+	/// Split self into chunks of `chunk_size` element.
 	pub fn split(self, chunk_size: usize) -> Vec<Self>
 	where
 		AccountId: Clone,
@@ -213,9 +237,7 @@ impl<AccountId> ValidatorSetReport<AccountId> {
 	}
 }
 
-#[derive(
-	Encode, Decode, DecodeWithMemTracking, Debug, Clone, PartialEq, TypeInfo, MaxEncodedLen,
-)]
+#[derive(Encode, Decode, DecodeWithMemTracking, Clone, PartialEq, TypeInfo, MaxEncodedLen)]
 /// The information that is sent from RC -> AH on session end.
 pub struct SessionReport<AccountId> {
 	/// The session that is ending.
@@ -244,6 +266,28 @@ pub struct SessionReport<AccountId> {
 	///
 	/// Upon processing, this should always be true, and it should be ignored.
 	pub leftover: bool,
+}
+
+impl<AccountId: core::fmt::Debug> core::fmt::Debug for SessionReport<AccountId> {
+	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+		f.debug_struct("SessionReport")
+			.field("end_index", &self.end_index)
+			.field("validator_points", &self.validator_points)
+			.field("activation_timestamp", &self.activation_timestamp)
+			.field("leftover", &self.leftover)
+			.finish()
+	}
+}
+
+impl<AccountId> core::fmt::Display for SessionReport<AccountId> {
+	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+		f.debug_struct("SessionReport")
+			.field("end_index", &self.end_index)
+			.field("validator_points", &self.validator_points.len())
+			.field("activation_timestamp", &self.activation_timestamp)
+			.field("leftover", &self.leftover)
+			.finish()
+	}
 }
 
 impl<AccountId> SessionReport<AccountId> {
@@ -284,6 +328,137 @@ impl<AccountId> SessionReport<AccountId> {
 			x.leftover = false
 		}
 		parts
+	}
+}
+
+/// A trait to encapsulate messages between RC and AH that can be splitted into smaller chunks.
+///
+/// Implemented for [`SessionReport`] and [`ValidatorSetReport`].
+#[allow(clippy::len_without_is_empty)]
+pub trait SplittableMessage: Sized {
+	/// Split yourself into pieces of `chunk_size` size.
+	fn split_by(self, chunk_size: usize) -> Vec<Self>;
+
+	/// Current length of the message.
+	fn len(&self) -> usize;
+}
+
+impl<AccountId: Clone> SplittableMessage for SessionReport<AccountId> {
+	fn split_by(self, chunk_size: usize) -> Vec<Self> {
+		self.split(chunk_size)
+	}
+	fn len(&self) -> usize {
+		self.validator_points.len()
+	}
+}
+
+impl<AccountId: Clone> SplittableMessage for ValidatorSetReport<AccountId> {
+	fn split_by(self, chunk_size: usize) -> Vec<Self> {
+		self.split(chunk_size)
+	}
+	fn len(&self) -> usize {
+		self.new_validator_set.len()
+	}
+}
+
+/// Common utility to send XCM messages that can use [`SplittableMessage`].
+///
+/// It can be used both in the RC and AH. `Message` is the splittable message type, and `ToXcm`
+/// should be configured by the user, converting `message` to a valida `Xcm<()>`. It should utilize
+/// the correct call indices, which we only know at the runtime level.
+pub struct XCMSender<Sender, Destination, Message, ToXcm>(
+	core::marker::PhantomData<(Sender, Destination, Message, ToXcm)>,
+);
+
+impl<Sender, Destination, Message, ToXcm> XCMSender<Sender, Destination, Message, ToXcm>
+where
+	Sender: SendXcm,
+	Destination: Get<Location>,
+	Message: SplittableMessage + Display + Clone + Encode,
+	ToXcm: Convert<Message, Xcm<()>>,
+{
+	/// Safe send method to send a `message`, while validating it and using [`SplittableMessage`] to
+	/// split it into smaller pieces if XCM validation fails with `ExceedsMaxMessageSize`. It will
+	/// fail on other errors.
+	///
+	/// It will only emit some logs, and has no return value. This is used in the runtime, so it
+	/// cannot deposit any events at this level.
+	pub fn split_then_send(message: Message, maybe_max_steps: Option<u32>) {
+		let message_type_name = core::any::type_name::<Message>();
+		let dest = Destination::get();
+		let xcms = match Self::prepare(message, maybe_max_steps) {
+			Ok(x) => x,
+			Err(e) => {
+				log::error!(target: "runtime::rc-client", "📨 Failed to split message {}: {:?}", message_type_name, e);
+				return;
+			},
+		};
+
+		for (idx, xcm) in xcms.into_iter().enumerate() {
+			log::debug!(target: "runtime::rc-client", "📨 sending {} message index {}, size: {:?}", message_type_name, idx, xcm.encoded_size());
+			let result = send_xcm::<Sender>(dest.clone(), xcm);
+			match result {
+				Ok(_) => {
+					log::debug!(target: "runtime::rc-client", "📨 Successfully sent {} message part {} to relay chain", message_type_name,  idx)
+				},
+				Err(e) => {
+					log::error!(target: "runtime::rc-client", "📨 Failed to send {} message to relay chain: {:?}", message_type_name, e)
+				},
+			}
+		}
+	}
+
+	fn prepare(message: Message, maybe_max_steps: Option<u32>) -> Result<Vec<Xcm<()>>, SendError> {
+		// initial chunk size is the entire thing, so it will be a vector of 1 item.
+		let mut chunk_size = message.len();
+		let mut steps = 0;
+
+		loop {
+			let current_messages = message.clone().split_by(chunk_size);
+
+			// the first message is the heaviest, the last one might be smaller.
+			let first_message = if let Some(r) = current_messages.first() {
+				r
+			} else {
+				log::debug!(target: "runtime::staking-async::xcm", "📨 unexpected: no messages to send");
+				return Ok(vec![]);
+			};
+
+			log::debug!(
+				target: "runtime::staking-async::xcm",
+				"📨 step: {:?}, chunk_size: {:?}, message_size: {:?}",
+				steps,
+				chunk_size,
+				first_message.encoded_size(),
+			);
+
+			let first_xcm = ToXcm::convert(first_message.clone());
+			match <Sender as SendXcm>::validate(&mut Some(Destination::get()), &mut Some(first_xcm))
+			{
+				Ok((_ticket, price)) => {
+					log::debug!(target: "runtime::staking-async::xcm", "📨 validated, price: {:?}", price);
+					return Ok(current_messages.into_iter().map(ToXcm::convert).collect::<Vec<_>>());
+				},
+				Err(SendError::ExceedsMaxMessageSize) => {
+					log::debug!(target: "runtime::staking-async::xcm", "📨 ExceedsMaxMessageSize -- reducing chunk_size");
+					chunk_size = chunk_size.saturating_div(2);
+					steps += 1;
+					if maybe_max_steps.is_some_and(|max_steps| steps > max_steps) ||
+						chunk_size.is_zero()
+					{
+						log::error!(target: "runtime::staking-async::xcm", "📨 Exceeded max steps or chunk_size = 0");
+						return Err(SendError::ExceedsMaxMessageSize);
+					} else {
+						// try again with the new `chunk_size`
+						continue;
+					}
+				},
+				Err(other) => {
+					log::error!(target: "runtime::staking-async::xcm", "📨 other error -- cannot send XCM: {:?}", other);
+					return Err(other);
+				},
+			}
+		}
 	}
 }
 
@@ -435,7 +610,7 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			report: SessionReport<T::AccountId>,
 		) -> DispatchResult {
-			log!(info, "Received session report: {:?}", report);
+			log!(debug, "Received session report: {}", report);
 			T::RelayChainOrigin::ensure_origin_or_root(origin)?;
 
 			match LastSessionReportEndingIndex::<T>::get() {
