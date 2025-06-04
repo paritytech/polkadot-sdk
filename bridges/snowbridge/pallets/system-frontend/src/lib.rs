@@ -231,10 +231,8 @@ pub mod pallet {
 			let asset_location: Location =
 				(*asset_id).try_into().map_err(|_| Error::<T>::UnsupportedLocationVersion)?;
 			let origin_location = T::RegisterTokenOrigin::ensure_origin(origin, &asset_location)?;
-			let who = T::AccountIdConverter::convert_location(&origin_location)
-				.ok_or(Error::<T>::LocationConversionFailed)?;
 
-			let ether_gained = Self::swap_fee_asset_and_burn(who, fee_asset)?;
+			let ether_gained = Self::swap_fee_asset_and_burn(origin_location.clone(), fee_asset)?;
 
 			let call = Self::build_register_token_call(
 				origin_location.clone(),
@@ -259,7 +257,7 @@ pub mod pallet {
 		{
 			let who = ensure_signed(origin)?;
 
-			let ether_gained = Self::swap_fee_asset_and_burn(who.clone(), asset)?;
+			let ether_gained = Self::swap_fee_asset_and_burn(who.clone().into(), asset)?;
 
 			// Send the tip details to BH to be allocated to the reward in the Inbound/Outbound
 			// pallet
@@ -283,17 +281,15 @@ pub mod pallet {
 		/// teleportation. Returns the amount of Ether gained if successful, or a DispatchError if
 		/// any step fails.
 		fn swap_and_burn(
-			who: AccountIdOf<T>,
+			origin: Location,
 			tip_asset_location: Location,
 			ether_location: Location,
 			tip_amount: u128,
-		) -> Result<u128, DispatchError>
-		where
-			<T as frame_system::Config>::AccountId: Into<Location>,
-		{
+		) -> Result<u128, DispatchError> {
 			// Swap tip asset to ether
 			let swap_path = vec![tip_asset_location.clone(), ether_location.clone()];
-			let who_location: Location = who.clone().into();
+			let who = T::AccountIdConverter::convert_location(&origin)
+				.ok_or(Error::<T>::LocationConversionFailed)?;
 
 			let ether_gained = T::Swap::swap_exact_tokens_for_tokens(
 				who.clone(),
@@ -307,7 +303,7 @@ pub mod pallet {
 			// Burn the ether
 			let ether_asset = Asset::from((ether_location.clone(), ether_gained));
 
-			burn_for_teleport::<T::AssetTransactor>(&who_location, &ether_asset)
+			burn_for_teleport::<T::AssetTransactor>(&origin, &ether_asset)
 				.map_err(|_| Error::<T>::BurnError)?;
 
 			Ok(ether_gained)
@@ -367,12 +363,9 @@ pub mod pallet {
 		}
 
 		fn swap_fee_asset_and_burn(
-			who: AccountIdOf<T>,
+			origin: Location,
 			fee_asset: Asset,
-		) -> Result<u128, DispatchError>
-		where
-			<T as frame_system::Config>::AccountId: Into<Location>,
-		{
+		) -> Result<u128, DispatchError> {
 			let ether_location = T::EthereumLocation::get();
 			let (fee_asset_location, fee_amount) = match fee_asset {
 				Asset { id: AssetId(ref loc), fun: Fungible(amount) } => (loc, amount),
@@ -385,7 +378,7 @@ pub mod pallet {
 
 			let ether_gained = if *fee_asset_location != ether_location {
 				Self::swap_and_burn(
-					who.clone(),
+					origin.clone(),
 					fee_asset_location.clone(),
 					ether_location,
 					fee_amount,
@@ -394,7 +387,7 @@ pub mod pallet {
 					tracing::debug!(target: LOG_TARGET, ?e, "error swapping asset");
 				})?
 			} else {
-				burn_for_teleport::<T::AssetTransactor>(&who.clone().into(), &fee_asset)
+				burn_for_teleport::<T::AssetTransactor>(&origin, &fee_asset)
 					.map_err(|_| Error::<T>::BurnError)?;
 				fee_amount
 			};
