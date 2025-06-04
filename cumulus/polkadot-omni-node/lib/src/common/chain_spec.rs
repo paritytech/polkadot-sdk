@@ -78,7 +78,7 @@ mod tests {
 		assert_eq!(camel_case_extension, snake_case_extension);
 		assert_eq!(snake_case_extension, pascal_case_extension);
 		assert_eq!(missing_paraid_extension.relay_chain, "westend".to_string());
-		// TODO: remove it once `para_id` is removed
+		// TODO: remove it once `para_id` is removed: https://github.com/paritytech/polkadot-sdk/issues/8740
 		#[allow(deprecated)]
 		let test = missing_paraid_extension.para_id.is_none();
 		assert!(test);

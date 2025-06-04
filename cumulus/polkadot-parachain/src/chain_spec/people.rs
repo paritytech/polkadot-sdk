@@ -145,7 +145,7 @@ pub mod rococo {
 		GenericChainSpec::builder(
 			people_rococo_runtime::WASM_BINARY
 				.expect("WASM binary was not built, please build it!"),
-			// TODO: remove when removing the `para_id` extension
+			// TODO: remove when removing the `para_id` extension: https://github.com/paritytech/polkadot-sdk/issues/8740
 			#[allow(deprecated)]
 			Extensions { relay_chain: relay_chain.to_string(), para_id: None },
 		)
@@ -192,7 +192,7 @@ pub mod westend {
 		GenericChainSpec::builder(
 			people_westend_runtime::WASM_BINARY
 				.expect("WASM binary was not built, please build it!"),
-			// TODO: remove when removing the `para_id` extension
+			// TODO: remove when removing the `para_id` extension: https://github.com/paritytech/polkadot-sdk/issues/8740
 			#[allow(deprecated)]
 			Extensions { relay_chain: relay_chain.to_string(), para_id: None },
 		)

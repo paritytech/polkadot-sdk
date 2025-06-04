@@ -30,7 +30,7 @@ pub fn get_penpal_chain_spec(id: ParaId, relay_chain: &str) -> GenericChainSpec 
 
 	GenericChainSpec::builder(
 		penpal_runtime::WASM_BINARY.expect("WASM binary was not built, please build it!"),
-		// TODO: remove when removing the `para_id` extension
+		// TODO: remove when removing the `para_id` extension: https://github.com/paritytech/polkadot-sdk/issues/8740
 		#[allow(deprecated)]
 		Extensions {
 			relay_chain: relay_chain.into(), // You MUST set this to the correct network!

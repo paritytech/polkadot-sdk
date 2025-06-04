@@ -158,7 +158,7 @@ pub(crate) trait BaseNodeSpec {
 		let para_id = if let Ok(para_id) = client.runtime_api().parachain_id(best_hash) {
 			para_id
 		} else {
-			// TODO: remove this once `para_id` extension is removed
+			// TODO: remove this once `para_id` extension is removed: https://github.com/paritytech/polkadot-sdk/issues/8740
 			#[allow(deprecated)]
 			ParaId::from(
 				Extensions::try_get(&*parachain_config.chain_spec).and_then(|ext| ext.para_id)?,

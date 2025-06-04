@@ -87,7 +87,7 @@ pub fn yet_another_parachain_config(
 	GenericChainSpec::builder(
 		yet_another_parachain_runtime::WASM_BINARY
 			.expect("WASM binary was not built, please build it!"),
-		// TODO: remove when removing the `para_id` extension
+		// TODO: remove when removing the `para_id` extension: https://github.com/paritytech/polkadot-sdk/issues/8740
 		#[allow(deprecated)]
 		Extensions { relay_chain: relay.into(), para_id: None },
 	)
