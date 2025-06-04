@@ -58,7 +58,15 @@ impl SubstrateCli for Cli {
 
 /// Parse and run command line arguments
 pub fn run() -> sc_cli::Result<()> {
-	let cli = Cli::from_args();
+	let mut args = std::env::args_os().collect::<Vec<_>>();
+	if args.len() == 1 {
+		args.push("--dev".into());
+		if std::env::var("RUST_LOG").is_err() {
+			args.push("--log=error,sc_rpc_server=info,runtime::revive=debug".into());
+		}
+	}
+
+	let cli = Cli::from_iter(&mut args.into_iter());
 
 	match &cli.subcommand {
 		Some(Subcommand::Key(cmd)) => cmd.run(&cli),
