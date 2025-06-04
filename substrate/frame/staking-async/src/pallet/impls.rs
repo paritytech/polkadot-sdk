@@ -918,6 +918,9 @@ impl<T: Config> ElectionDataProvider for Pallet<T> {
 
 		VoterSnapshotStatus::<T>::put(status);
 
+		//ASK: cant we more gracefully handle this?
+		//there is a test case to test this and idk how to handle it properly
+		//see [tests::election_data_provider::nominations_quota_limits_size_work]
 		debug_assert!(!bounds.slice_exhausted(&voters));
 
 		Ok(voters)
