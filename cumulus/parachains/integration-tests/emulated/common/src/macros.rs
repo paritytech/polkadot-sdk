@@ -105,19 +105,13 @@ macro_rules! test_parachain_is_trusted_teleporter {
 
 					let mut delivery_fees_amount = 0;
 					let mut remote_message = $crate::macros::VersionedXcm::from($crate::macros::Xcm(Vec::new()));
-					<$sender_para as $crate::macros::TestExt>::execute_with(|| {
+					<$sender_para as $crate::macros::TestExt>::dry_execute_with(|| {
 						type Runtime = <$sender_para as $crate::macros::Chain>::Runtime;
 						type OriginCaller = <$sender_para as $crate::macros::Chain>::OriginCaller;
 
 						let origin = OriginCaller::system($crate::macros::RawOrigin::Signed(sender.clone()));
-						let mut dry_run_result = None;
-						let _ = <$crate::macros::FrameTransactionalProcessor as $crate::macros::ProcessTransaction>::process(|| {
-							dry_run_result = <Runtime as $crate::macros::DryRunApiV2<_,_,_,_>>::dry_run_call(origin, call.clone(),
-								$crate::macros::XCM_VERSION).ok();
-							Err($crate::macros::XcmError::Unimplemented) // trigger rollback of this transactional layer
-						});
-						let result = dry_run_result.unwrap();
-
+						let result = <Runtime as $crate::macros::DryRunApiV2<_,_,_,_>>::dry_run_call(origin, call.clone(),
+								$crate::macros::XCM_VERSION).unwrap();
 
 						// We filter the result to get only the messages we are interested in.
 						let (destination_to_query, messages_to_query) = &result
@@ -239,21 +233,15 @@ macro_rules! test_relay_is_trusted_teleporter {
 
 					let mut delivery_fees_amount = 0;
 					let mut remote_message = $crate::macros::VersionedXcm::from($crate::macros::Xcm(Vec::new()));
-					<$sender_relay as $crate::macros::TestExt>::execute_with(|| {
+					<$sender_relay as $crate::macros::TestExt>::dry_execute_with(|| {
 						$crate::macros::Dmp::<<$sender_relay as $crate::macros::Chain>::Runtime>::make_parachain_reachable(
 							<$receiver_para as $crate::macros::Para>::para_id());
 						type Runtime = <$sender_relay as $crate::macros::Chain>::Runtime;
 						type OriginCaller = <$sender_relay as $crate::macros::Chain>::OriginCaller;
 
 						let origin = OriginCaller::system($crate::macros::RawOrigin::Signed(sender.clone()));
-
-						let mut dry_run_result = None;
-						let _ = <$crate::macros::FrameTransactionalProcessor as $crate::macros::ProcessTransaction>::process(|| {
-							dry_run_result = <Runtime as $crate::macros::DryRunApiV2<_,_,_,_>>::dry_run_call(origin, call.clone(),
-								$crate::macros::XCM_VERSION).ok();
-							Err($crate::macros::XcmError::Unimplemented) // trigger rollback of this transactional layer
-						});
-						let result = dry_run_result.unwrap();
+						let result = <Runtime as $crate::macros::DryRunApiV2<_,_,_,_>>::dry_run_call(origin, call.clone(),
+								$crate::macros::XCM_VERSION).unwrap();
 						// We filter the result to get only the messages we are interested in.
 						let (destination_to_query, messages_to_query) = &result
 							.forwarded_xcms
@@ -375,18 +363,14 @@ macro_rules! test_parachain_is_trusted_teleporter_for_relay {
 			// These will be filled in the closure.
 			let mut delivery_fees_amount = 0;
 			let mut remote_message = $crate::macros::VersionedXcm::from($crate::macros::Xcm(Vec::new()));
-			<$sender_para as $crate::macros::TestExt>::execute_with(|| {
+			<$sender_para as $crate::macros::TestExt>::dry_execute_with(|| {
 				type Runtime = <$sender_para as $crate::macros::Chain>::Runtime;
 				type OriginCaller = <$sender_para as $crate::macros::Chain>::OriginCaller;
 
 				let origin = OriginCaller::system($crate::macros::RawOrigin::Signed(sender.clone()));
-				let mut dry_run_result = None;
-				let _ = <$crate::macros::FrameTransactionalProcessor as $crate::macros::ProcessTransaction>::process(|| {
-					dry_run_result = <Runtime as $crate::macros::DryRunApiV2<_,_,_,_>>::dry_run_call(origin, call.clone(),
-						$crate::macros::XCM_VERSION).ok();
-					Err($crate::macros::XcmError::Unimplemented) // trigger rollback of this transactional layer
-				});
-				let result = dry_run_result.unwrap();
+				let result = <Runtime as $crate::macros::DryRunApiV2<_,_,_,_>>::dry_run_call(origin, call.clone(),
+						$crate::macros::XCM_VERSION).unwrap();
+
 				// We filter the result to get only the messages we are interested in.
 				let (destination_to_query, messages_to_query) = &result
 					.forwarded_xcms
@@ -651,7 +635,7 @@ macro_rules! test_can_estimate_and_pay_exact_fees {
 			let mut local_execution_fees = 0;
 			let mut local_delivery_fees = 0;
 			let mut remote_message = $crate::macros::VersionedXcm::from($crate::macros::Xcm::<()>(Vec::new()));
-			<$sender_para as $crate::macros::TestExt>::execute_with(|| {
+			<$sender_para as $crate::macros::TestExt>::dry_execute_with(|| {
 				type Runtime = <$sender_para as $crate::macros::Chain>::Runtime;
 				type OriginCaller = <$sender_para as $crate::macros::Chain>::OriginCaller;
 
@@ -661,13 +645,9 @@ macro_rules! test_can_estimate_and_pay_exact_fees {
 					($crate::macros::Parent, 100_000_000_000u128),
 				);
 				let origin = OriginCaller::system($crate::macros::RawOrigin::Signed(sender.clone()));
-				let mut dry_run_result = None;
-				let _ = <$crate::macros::FrameTransactionalProcessor as $crate::macros::ProcessTransaction>::process(|| {
-					dry_run_result = <Runtime as $crate::macros::DryRunApiV2<_,_,_,_>>::dry_run_call(origin, call.clone(),
-						$crate::macros::XCM_VERSION).ok();
-					Err($crate::macros::XcmError::Unimplemented) // trigger rollback of this transactional layer
-				});
-				let result = dry_run_result.unwrap();
+				let result = <Runtime as $crate::macros::DryRunApiV2<_,_,_,_>>::dry_run_call(origin, call.clone(),
+						$crate::macros::XCM_VERSION).unwrap();
+
 				let local_xcm = result.local_xcm.unwrap().clone();
 				let local_xcm_weight = <Runtime as $crate::macros::XcmPaymentApiV1<_>>::query_xcm_weight(local_xcm).unwrap();
 				local_execution_fees = <Runtime as $crate::macros::XcmPaymentApiV1<_>>::query_weight_to_asset_fee(
@@ -808,7 +788,7 @@ macro_rules! test_dry_run_transfer_across_pk_bridge {
 			// AssetHub setup.
 			$sender_asset_hub::force_xcm_version($destination, $crate::macros::XCM_VERSION);
 
-			<$sender_asset_hub as $crate::macros::TestExt>::execute_with(|| {
+			<$sender_asset_hub as $crate::macros::TestExt>::dry_execute_with(|| {
 				type Runtime = <$sender_asset_hub as $crate::macros::Chain>::Runtime;
 				type RuntimeCall = <$sender_asset_hub as $crate::macros::Chain>::RuntimeCall;
 				type OriginCaller = <$sender_asset_hub as $crate::macros::Chain>::OriginCaller;
@@ -830,13 +810,8 @@ macro_rules! test_dry_run_transfer_across_pk_bridge {
 					weight_limit: $crate::macros::Unlimited,
 				});
 				let origin = OriginCaller::system($crate::macros::RawOrigin::Signed(who));
-				let mut dry_run_result = None;
-				let _ = <$crate::macros::FrameTransactionalProcessor as $crate::macros::ProcessTransaction>::process(|| {
-					dry_run_result = <Runtime as $crate::macros::DryRunApiV2<_,_,_,_>>::dry_run_call(origin, call.clone(),
-						$crate::macros::XCM_VERSION).ok();
-					Err($crate::macros::XcmError::Unimplemented) // trigger rollback of this transactional layer
-				});
-				let result = dry_run_result.unwrap();
+				let result = <Runtime as $crate::macros::DryRunApiV2<_,_,_,_>>::dry_run_call(origin, call.clone(),
+						$crate::macros::XCM_VERSION).unwrap();
 
 				// We assert the dry run succeeds and sends only one message to the local bridge hub.
 				assert!(result.execution_result.is_ok());
