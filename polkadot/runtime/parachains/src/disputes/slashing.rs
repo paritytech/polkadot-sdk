@@ -18,7 +18,7 @@
 //!
 //! Once a dispute is concluded, we want to slash validators who were on the
 //! wrong side of the dispute.
-//! 
+//!
 //! A dispute should always result in an offence. There are 3 possible
 //! offence types:
 //! - `ForInvalidBacked`: A major offence when a validator backed an
@@ -27,9 +27,9 @@
 //! invalid block. Protects from lazy validators.
 //! - `AgainstValid`: A minor offence when a validator disputed a valid block.
 //! Protects from spam attacks.
-//! 
+//!
 //! Past session slashing edgecase:
-//! 
+//!
 //! The `offences` pallet from Substrate provides us with a way to do both.
 //! Currently, the interface expects us to provide staking information including
 //! nominator exposure in order to submit an offence.
@@ -64,7 +64,13 @@ use alloc::{
 	vec::Vec,
 };
 use polkadot_primitives::{
-	slashing::{DisputesTimeSlot, DisputeProof as DisputeProofV1, PendingSlashes as PendingSlashesV1}, vstaging::{DisputeOffenceKind, PendingSlashes as PendingSlashesV2, DisputeProof as DisputeProofV2}, CandidateHash, SessionIndex, ValidatorId, ValidatorIndex
+	slashing::{
+		DisputeProof as DisputeProofV1, DisputesTimeSlot, PendingSlashes as PendingSlashesV1,
+	},
+	vstaging::{
+		DisputeOffenceKind, DisputeProof as DisputeProofV2, PendingSlashes as PendingSlashesV2,
+	},
+	CandidateHash, SessionIndex, ValidatorId, ValidatorIndex,
 };
 use scale_info::TypeInfo;
 use sp_runtime::{
@@ -227,7 +233,8 @@ where
 			None => return,
 		};
 
-		let maybe_offenders = Self::maybe_identify_validators(session_index, losers.iter().cloned());
+		let maybe_offenders =
+			Self::maybe_identify_validators(session_index, losers.iter().cloned());
 		if let Some(offenders) = maybe_offenders {
 			let validator_set_count = session_info.discovery_keys.len() as ValidatorSetCount;
 			let offence = SlashingOffence::new(
@@ -276,16 +283,25 @@ where
 		if losers.is_empty() || backers.is_empty() {
 			return;
 		}
-	
-		let (loosing_backers, loosing_approvers): (Vec<_>, Vec<_>) = losers
-			.into_iter()
-			.partition(|v| backers.contains(v));
-	
+
+		let (loosing_backers, loosing_approvers): (Vec<_>, Vec<_>) =
+			losers.into_iter().partition(|v| backers.contains(v));
+
 		if !loosing_backers.is_empty() {
-			Self::do_punish(session_index, candidate_hash, DisputeOffenceKind::ForInvalidBacked, loosing_backers);
+			Self::do_punish(
+				session_index,
+				candidate_hash,
+				DisputeOffenceKind::ForInvalidBacked,
+				loosing_backers,
+			);
 		}
 		if !loosing_approvers.is_empty() {
-			Self::do_punish(session_index, candidate_hash, DisputeOffenceKind::ForInvalidApproved, loosing_approvers);
+			Self::do_punish(
+				session_index,
+				candidate_hash,
+				DisputeOffenceKind::ForInvalidApproved,
+				loosing_approvers,
+			);
 		}
 	}
 
@@ -565,7 +581,16 @@ impl<T: Config> Pallet<T> {
 			.filter_map(|(session, candidate_hash, slash_v2)| {
 				match PendingSlashesV1::try_from(slash_v2) {
 					Ok(slash_v1) => Some((session, candidate_hash, slash_v1)),
-					Err(_) => None, // Skip if conversion fails (e.g., variant not representable in old format)
+					Err(_) => {
+						log::info!(
+							target: LOG_TARGET,
+							"Ignoring unapplied slash (undecodable) for: session({}), candidate_hash({})",
+							session,
+							candidate_hash,
+						);
+						// Skip if conversion fails (e.g., variant not representable in old format)
+						None
+					},
 				}
 			})
 			.collect()

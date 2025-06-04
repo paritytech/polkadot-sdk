@@ -15,7 +15,7 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 //! Staging Primitives.
-use crate::{ValidatorIndex, ValidityAttestation, ValidatorId, slashing::DisputesTimeSlot};
+use crate::{slashing::DisputesTimeSlot, ValidatorId, ValidatorIndex, ValidityAttestation};
 
 // Put any primitives used by staging APIs functions here
 use super::{
@@ -1523,7 +1523,8 @@ pub enum DisputeOffenceKind {
 }
 
 /// impl for a conversion from SlashingOffenceKind to DisputeOffenceKind
-/// This creates DisputeOffenceKind that never contains ForInvalidApproved since it was not supported in the past
+/// This creates DisputeOffenceKind that never contains ForInvalidApproved since it was not
+/// supported in the past
 impl From<super::v8::slashing::SlashingOffenceKind> for DisputeOffenceKind {
 	fn from(value: super::v8::slashing::SlashingOffenceKind) -> Self {
 		match value {
@@ -1558,22 +1559,19 @@ pub struct PendingSlashes {
 }
 
 impl From<super::v8::slashing::PendingSlashes> for PendingSlashes {
-    fn from(old: super::v8::slashing::PendingSlashes) -> Self {
-        let keys = old.keys;
-        let kind = old.kind.into();
-        Self { keys, kind }
-    }
+	fn from(old: super::v8::slashing::PendingSlashes) -> Self {
+		let keys = old.keys;
+		let kind = old.kind.into();
+		Self { keys, kind }
+	}
 }
 
 impl TryFrom<PendingSlashes> for super::v8::slashing::PendingSlashes {
-    type Error = ();
+	type Error = ();
 
-    fn try_from(value: PendingSlashes) -> Result<Self, Self::Error> {
-        Ok(Self {
-            keys: value.keys,
-            kind: value.kind.try_into()?,
-        })
-    }
+	fn try_from(value: PendingSlashes) -> Result<Self, Self::Error> {
+		Ok(Self { keys: value.keys, kind: value.kind.try_into()? })
+	}
 }
 
 /// We store most of the information about a lost dispute on chain. This struct

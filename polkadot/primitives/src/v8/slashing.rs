@@ -22,7 +22,7 @@ use codec::{Decode, DecodeWithMemTracking, Encode};
 use scale_info::TypeInfo;
 
 /// The kind of the slashing offence (those come from disputes).
-/// 
+///
 /// Notes:
 /// Will soon be fully eclipsed by the expanded `DisputeOffenceKind` enum.
 /// Only kept for backwards compatibility through old runtime apis.
@@ -58,7 +58,7 @@ impl DisputesTimeSlot {
 
 /// We store most of the information about a lost dispute on chain. This struct
 /// is required to identify and verify it.
-/// 
+///
 /// Notes:
 /// Will soon be fully eclipsed by the expanded vstaging `DisputeProof` struct
 /// that uses the newer `DisputeOffenceKind` enum instead.
@@ -77,7 +77,7 @@ pub struct DisputeProof {
 
 /// Slashes that are waiting to be applied once we have validator key
 /// identification.
-/// 
+///
 /// Notes:
 /// Will soon be fully eclipsed by the expanded vstaging `PendingSlashes` struct
 /// that uses the newer `DisputeOffenceKind` enum instead.
