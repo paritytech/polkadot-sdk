@@ -120,20 +120,24 @@
 //!
 //! ## Using Logging in Production
 //!
-//! Note that within FRAME, reading storage values only for the purpose of logging is dangerous, and
-//! can lead to consensus issues. This is because with the introduction of
+//! Note that within FRAME, reading storage values __only for the purpose of logging__ is dangerous,
+//! and can lead to consensus issues. This is because with the introduction of
 //! [`crate::guides::enable_pov_reclaim`], the node side code will track the storage changes, and
 //! tries to update the onchain record of the weight used (stored in [`frame_system::BlockWeight`])
 //! after the block is over.
 //!
 //! If one node has a different log level enabled than the rest of the network, and the extra logs
-//! impose additional reads, the amount of weight reclaimed into [`frame_system::BlockWeight`] will
-//! be different, causing a state root mismatch, which is typically a fatal error emitted from
-//! [`frame_executive`].
+//! impose additional storage reads, and the amount of `proof_size` weight reclaimed into
+//! [`frame_system::BlockWeight`] will be different, causing a state root mismatch, which is
+//! typically a fatal error emitted from [`frame_executive`].
 //!
 //! This also can also happen in a parachain context, and cause discrepancies between the relay
 //! chain and the parachain, when execution the Parachain Validation Function (PVF) on the relay
 //! chain.
+//!
+//! **In summary, you should only used storage values in logging (especially for levels lower than
+//! `info` which is typically enabled by all parties) that are already read from storage, and will
+//! be part of the storage proof of execution in any case**.
 //!
 //! Please read [this issue](https://github.com/paritytech/polkadot-sdk/issues/8735) for once
 //! instance of the consensus issues arised by this mistake.
