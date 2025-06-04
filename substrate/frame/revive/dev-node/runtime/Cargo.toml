@@ -10,6 +10,7 @@ edition.workspace = true
 publish = false
 
 [dependencies]
+array-bytes = { workspace = true }
 codec = { workspace = true }
 polkadot-sdk = { workspace = true, features = [
 	"pallet-balances",
@@ -21,10 +22,9 @@ polkadot-sdk = { workspace = true, features = [
 	"parachains-common",
 	"runtime",
 	"with-tracing",
-]}
+] }
 scale-info = { workspace = true }
 serde_json = { workspace = true, default-features = false, features = ["alloc"] }
-array-bytes = { workspace = true }
 
 [build-dependencies]
 polkadot-sdk = { optional = true, workspace = true, features = ["substrate-wasm-builder"] }

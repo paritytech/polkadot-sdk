@@ -904,8 +904,6 @@ metered = { version = "0.6.1", default-features = false, package = "prioritized-
 milagro-bls = { version = "1.5.4", default-features = false, package = "snowbridge-milagro-bls" }
 minimal-template-node = { path = "templates/minimal/node" }
 minimal-template-runtime = { path = "templates/minimal/runtime" }
-revive-dev-node = { path = "substrate/frame/revive/dev-node/node" }
-revive-dev-runtime = { path = "substrate/frame/revive/dev-node/runtime" }
 mixnet = { version = "0.7.0" }
 mmr-gadget = { path = "substrate/client/merkle-mountain-range", default-features = false }
 mmr-lib = { version = "0.8.1", package = "polkadot-ckb-merkle-mountain-range", default-features = false }
@@ -1044,6 +1042,8 @@ pallet-staking = { path = "substrate/frame/staking", default-features = false }
 pallet-staking-reward-curve = { path = "substrate/frame/staking/reward-curve", default-features = false }
 pallet-staking-reward-fn = { path = "substrate/frame/staking/reward-fn", default-features = false }
 pallet-staking-runtime-api = { path = "substrate/frame/staking/runtime-api", default-features = false }
+revive-dev-node = { path = "substrate/frame/revive/dev-node/node" }
+revive-dev-runtime = { path = "substrate/frame/revive/dev-node/runtime" }
 # TODO: remove the reward stuff as they are not needed here
 pallet-staking-async = { path = "substrate/frame/staking-async", default-features = false }
 pallet-staking-async-ah-client = { path = "substrate/frame/staking-async/ah-client", default-features = false }
