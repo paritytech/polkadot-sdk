@@ -897,7 +897,7 @@ impl<T: Config> ElectionDataProvider for Pallet<T> {
 			(_, SnapshotStatus::Consumed) => (),
 		}
 
-		log!(
+		/*log!(
 			debug,
 			"[page {}, status {:?} (stake?: {:?}), bounds {:?}] generated {} npos voters",
 			page,
@@ -909,7 +909,7 @@ impl<T: Config> ElectionDataProvider for Pallet<T> {
 			},
 			bounds,
 			voters.len(),
-		);
+		);*/
 
 		match status {
 			SnapshotStatus::Ongoing(_) => T::VoterList::lock(),
@@ -927,13 +927,13 @@ impl<T: Config> ElectionDataProvider for Pallet<T> {
 		bounds: DataProviderBounds,
 	) -> data_provider::Result<Vec<VoterOf<Self>>> {
 		let voters = Self::get_npos_voters(bounds, &SnapshotStatus::Waiting);
-		log!(
+		/*log!(
 			debug,
 			"[stateless, status {:?}, bounds {:?}] generated {} npos voters",
 			VoterSnapshotStatus::<T>::get(),
 			bounds,
 			voters.len(),
-		);
+		);*/
 		Ok(voters)
 	}
 
