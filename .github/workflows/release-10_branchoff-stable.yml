@@ -1,24 +1,24 @@
-name: Release - Branch off stable branch and tag rc
+name: Release - Branch off stable branch and/or tag rc
 
 on:
   workflow_dispatch:
     inputs:
       stable_version:
-        description: New stable version in the format stableYYMM
+        description: Stable version in the format stableYYMM that will be used as branch name and rc tag base
         required: true
         type: string
 
       node_version:
-        description: Version of the polkadot node in the format X.XX.X (e.g. 1.15.0)
-        required: true
+        description: Version of the polkadot node in the format X.XX.X (e.g. 1.15.0). ℹ️ Node version is needed only for the branch-off
+        required: false
 
       is_new_stable:
-        description: Define if this is a new stable release and the stable branch needs to be created
+        description: Check this box if this is a new stable release and the stable branch needs to be created
         required: true
         type: boolean
 
       tag_rc:
-        description: Define if the rc tag needs to be created
+        description: Check this box if the rc tag needs to be created
         required: true
         type: boolean
 
