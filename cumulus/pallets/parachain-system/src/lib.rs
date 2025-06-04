@@ -42,7 +42,7 @@ use cumulus_primitives_core::{
 	OutboundHrmpMessage, ParaId, PersistedValidationData, UpwardMessage, UpwardMessageSender,
 	XcmpMessageHandler, XcmpMessageSource,
 };
-use cumulus_primitives_parachain_inherent::{MessageQueueChain, ParachainInherentData};
+use cumulus_primitives_parachain_inherent::{v0, MessageQueueChain, ParachainInherentData};
 use frame_support::{
 	defensive,
 	dispatch::DispatchResult,
@@ -53,7 +53,7 @@ use frame_support::{
 };
 use frame_system::{ensure_none, ensure_root, pallet_prelude::HeaderFor};
 use polkadot_parachain_primitives::primitives::RelayChainBlockNumber;
-use polkadot_runtime_parachains::FeeTracker;
+use polkadot_runtime_parachains::{FeeTracker, GetMinFeeFactor};
 use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{Block as BlockT, BlockNumberProvider, Hash, One},
@@ -77,6 +77,7 @@ pub mod consensus_hook;
 pub mod relay_state_snapshot;
 #[macro_use]
 pub mod validate_block;
+mod descendant_validation;
 
 use unincluded_segment::{
 	HrmpChannelUpdate, HrmpWatermarkUpdate, OutboundBandwidthLimits, SegmentTracker,
@@ -111,6 +112,7 @@ pub use unincluded_segment::{Ancestor, UsedBandwidth};
 
 pub use pallet::*;
 
+const LOG_TARGET: &str = "parachain-system";
 /// Something that can check the associated relay block number.
 ///
 /// Each Parachain block is built in the context of a relay chain block, this trait allows us
@@ -291,6 +293,22 @@ pub mod pallet {
 
 		/// Select core.
 		type SelectCore: SelectCore;
+
+		/// The offset between the tip of the relay chain and the parent relay block used as parent
+		/// when authoring a parachain block.
+		///
+		/// This setting directly impacts the number of descendant headers that are expected in the
+		/// `set_validation_data` inherent.
+		///
+		/// For any setting `N` larger than zero, the inherent expects that the inherent includes
+		/// the relay parent plus `N` descendants. These headers are required to validate that new
+		/// parachain blocks are authored at the correct offset.
+		///
+		/// While this helps to reduce forks on the parachain side, it increases the delay for
+		/// processing XCM messages. So, the value should be chosen wisely.
+		///
+		/// If set to 0, this config has no impact.
+		type RelayParentOffset: Get<u32>;
 	}
 
 	#[pallet::hooks]
@@ -620,6 +638,8 @@ pub mod pallet {
 				relay_chain_state,
 				downward_messages,
 				horizontal_messages,
+				relay_parent_descendants,
+				collator_peer_id: _,
 			} = data;
 
 			// Check that the associated relay chain block number is as expected.
@@ -634,6 +654,23 @@ pub mod pallet {
 				relay_chain_state.clone(),
 			)
 			.expect("Invalid relay chain state proof");
+
+			let expected_rp_descendants_num = T::RelayParentOffset::get();
+
+			if expected_rp_descendants_num > 0 {
+				if let Err(err) = descendant_validation::verify_relay_parent_descendants(
+					&relay_state_proof,
+					relay_parent_descendants,
+					vfp.relay_parent_storage_root,
+					expected_rp_descendants_num,
+				) {
+					panic!(
+						"Unable to verify provided relay parent descendants. \
+						expected_rp_descendants_num: {expected_rp_descendants_num} \
+						error: {err:?}"
+					);
+				};
+			}
 
 			// Update the desired maximum capacity according to the consensus hook.
 			let (consensus_hook_weight, capacity) =
@@ -920,16 +957,10 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type PendingUpwardMessages<T: Config> = StorageValue<_, Vec<UpwardMessage>, ValueQuery>;
 
-	/// Initialization value for the delivery fee factor for UMP.
-	#[pallet::type_value]
-	pub fn UpwardInitialDeliveryFeeFactor() -> FixedU128 {
-		FixedU128::from_u32(1)
-	}
-
 	/// The factor to multiply the base delivery fee by for UMP.
 	#[pallet::storage]
 	pub type UpwardDeliveryFeeFactor<T: Config> =
-		StorageValue<_, FixedU128, ValueQuery, UpwardInitialDeliveryFeeFactor>;
+		StorageValue<_, FixedU128, ValueQuery, GetMinFeeFactor<Pallet<T>>>;
 
 	/// The number of HRMP messages we observed in `on_initialize` and thus used that number for
 	/// announcing the weight of `on_initialize` and `on_finalize`.
@@ -960,10 +991,26 @@ pub mod pallet {
 			cumulus_primitives_parachain_inherent::INHERENT_IDENTIFIER;
 
 		fn create_inherent(data: &InherentData) -> Option<Self::Call> {
-			let mut data: ParachainInherentData =
-				data.get_data(&Self::INHERENT_IDENTIFIER).ok().flatten().expect(
-					"validation function params are always injected into inherent data; qed",
-				);
+			let mut data = match data
+				.get_data::<ParachainInherentData>(&Self::INHERENT_IDENTIFIER)
+				.ok()
+				.flatten()
+			{
+				None => {
+					// Key Self::INHERENT_IDENTIFIER is expected to contain versioned inherent
+					// data. Older nodes are unaware of the new format and might provide the
+					// legacy data format. We try to load it and transform it into the current
+					// version.
+					let data = data
+						.get_data::<v0::ParachainInherentData>(
+							&cumulus_primitives_parachain_inherent::PARACHAIN_INHERENT_IDENTIFIER_V0,
+						)
+						.ok()
+						.flatten()?;
+					data.into()
+				},
+				Some(data) => data,
+			};
 
 			Self::drop_processed_messages_from_inherent(&mut data);
 
@@ -1007,10 +1054,6 @@ impl<T: Config> Pallet<T> {
 
 impl<T: Config> FeeTracker for Pallet<T> {
 	type Id = ();
-
-	fn get_min_fee_factor() -> FixedU128 {
-		UpwardInitialDeliveryFeeFactor::get()
-	}
 
 	fn get_fee_factor(_id: Self::Id) -> FixedU128 {
 		UpwardDeliveryFeeFactor::<T>::get()
@@ -1586,7 +1629,7 @@ impl<T: Config> Pallet<T> {
 		// However, changing this setting is expected to be rare.
 		if let Some(cfg) = HostConfiguration::<T>::get() {
 			if message_len > cfg.max_upward_message_size as usize {
-				return Err(MessageSendError::TooBig)
+				return Err(MessageSendError::TooBig);
 			}
 			let threshold =
 				cfg.max_upward_queue_size.saturating_div(ump_constants::THRESHOLD_FACTOR);
@@ -1629,6 +1672,42 @@ impl<T: Config> Pallet<T> {
 impl<T: Config> UpwardMessageSender for Pallet<T> {
 	fn send_upward_message(message: UpwardMessage) -> Result<(u32, XcmHash), MessageSendError> {
 		Self::send_upward_message(message)
+	}
+
+	fn can_send_upward_message(message: &UpwardMessage) -> Result<(), MessageSendError> {
+		let max_upward_message_size = HostConfiguration::<T>::get()
+			.map(|cfg| cfg.max_upward_message_size)
+			.ok_or(MessageSendError::Other)?;
+		if message.len() > max_upward_message_size as usize {
+			Err(MessageSendError::TooBig)
+		} else {
+			Ok(())
+		}
+	}
+
+	#[cfg(any(feature = "std", feature = "runtime-benchmarks", test))]
+	fn ensure_successful_delivery() {
+		const MAX_UPWARD_MESSAGE_SIZE: u32 = 65_531 * 3;
+		const MAX_CODE_SIZE: u32 = 3 * 1024 * 1024;
+		HostConfiguration::<T>::mutate(|cfg| match cfg {
+			Some(cfg) => cfg.max_upward_message_size = MAX_UPWARD_MESSAGE_SIZE,
+			None =>
+				*cfg = Some(AbridgedHostConfiguration {
+					max_code_size: MAX_CODE_SIZE,
+					max_head_data_size: 32 * 1024,
+					max_upward_queue_count: 8,
+					max_upward_queue_size: 1024 * 1024,
+					max_upward_message_size: MAX_UPWARD_MESSAGE_SIZE,
+					max_upward_message_num_per_candidate: 2,
+					hrmp_max_message_num_per_candidate: 2,
+					validation_upgrade_cooldown: 2,
+					validation_upgrade_delay: 2,
+					async_backing_params: relay_chain::AsyncBackingParams {
+						allowed_ancestry_len: 0,
+						max_candidate_depth: 0,
+					},
+				}),
+		})
 	}
 }
 

@@ -154,11 +154,23 @@ pub trait UpwardMessageSender {
 	/// Send the given UMP message; return the expected number of blocks before the message will
 	/// be dispatched or an error if the message cannot be sent.
 	/// return the hash of the message sent
-	fn send_upward_message(msg: UpwardMessage) -> Result<(u32, XcmHash), MessageSendError>;
+	fn send_upward_message(message: UpwardMessage) -> Result<(u32, XcmHash), MessageSendError>;
+
+	/// Pre-check the given UMP message.
+	fn can_send_upward_message(message: &UpwardMessage) -> Result<(), MessageSendError>;
+
+	/// Ensure `[Self::send_upward_message]` is successful when called in benchmarks/tests.
+	#[cfg(any(feature = "std", feature = "runtime-benchmarks", test))]
+	fn ensure_successful_delivery() {}
 }
+
 impl UpwardMessageSender for () {
-	fn send_upward_message(_msg: UpwardMessage) -> Result<(u32, XcmHash), MessageSendError> {
+	fn send_upward_message(_message: UpwardMessage) -> Result<(u32, XcmHash), MessageSendError> {
 		Err(MessageSendError::NoChannel)
+	}
+
+	fn can_send_upward_message(_message: &UpwardMessage) -> Result<(), MessageSendError> {
+		Err(MessageSendError::Other)
 	}
 }
 
@@ -380,5 +392,13 @@ sp_api::decl_runtime_apis! {
 	pub trait GetCoreSelectorApi {
 		/// Retrieve core selector and claim queue offset for the next block.
 		fn core_selector() -> (CoreSelector, ClaimQueueOffset);
+	}
+	/// API to tell the node side how the relay parent should be chosen.
+	///
+	/// A larger offset indicates that the relay parent should not be the tip of the relay chain,
+	/// but `N` blocks behind the tip. This offset is then enforced by the runtime.
+	pub trait RelayParentOffsetApi {
+		/// Fetch the slot offset that is expected from the relay chain.
+		fn relay_parent_offset() -> u32;
 	}
 }

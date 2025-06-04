@@ -371,7 +371,7 @@ impl<T: MinerConfig> BaseMiner<T> {
 		}
 
 		// convert each page to a compact struct -- no more change allowed.
-		let solution_pages: BoundedVec<SolutionOf<T>, T::Pages> = paged_assignments
+		let mut solution_pages: Vec<SolutionOf<T>> = paged_assignments
 			.into_iter()
 			.enumerate()
 			.map(|(page_index, assignment_page)| {
@@ -382,12 +382,11 @@ impl<T: MinerConfig> BaseMiner<T> {
 					.ok_or(MinerError::SnapshotUnAvailable(SnapshotType::Voters(page)))?;
 
 				// one last trimming -- `MaxBackersPerWinner`, the per-page variant.
-				let trimmed_assignment_page =
-					Self::trim_supports_max_backers_per_winner_per_page(
-						assignment_page,
-						voter_snapshot_page,
-						page_index as u32,
-					)?;
+				let trimmed_assignment_page = Self::trim_supports_max_backers_per_winner_per_page(
+					assignment_page,
+					voter_snapshot_page,
+					page_index as u32,
+				)?;
 
 				let voter_index_fn = {
 					let cache = helpers::generate_voter_cache::<T, _>(&voter_snapshot_page);
@@ -401,17 +400,11 @@ impl<T: MinerConfig> BaseMiner<T> {
 				)
 				.map_err::<MinerError<T>, _>(Into::into)
 			})
-			.collect::<Result<Vec<_>, _>>()?
-			.try_into()
-			.expect("`paged_assignments` is bound by `T::Pages`; length cannot change in iter chain; qed");
+			.collect::<Result<Vec<_>, _>>()?;
 
 		// now do the length trim.
-		let mut solution_pages_unbounded = solution_pages.into_inner();
 		let _trim_length_weight =
-			Self::maybe_trim_weight_and_len(&mut solution_pages_unbounded, &voter_pages)?;
-		let solution_pages = solution_pages_unbounded
-			.try_into()
-			.expect("maybe_trim_weight_and_len cannot increase the length of its input; qed.");
+			Self::maybe_trim_weight_and_len(&mut solution_pages, &voter_pages)?;
 		miner_log!(debug, "trimmed {} voters due to length restriction.", _trim_length_weight);
 
 		// finally, wrap everything up. Assign a fake score here, since we might need to re-compute
@@ -785,7 +778,7 @@ impl<T: Config> OffchainWorkerMiner<T> {
 			"unsigned::ocw-miner",
 			"miner submitting a solution as an unsigned transaction"
 		);
-		let xt = T::create_inherent(call.into());
+		let xt = T::create_bare(call.into());
 		frame_system::offchain::SubmitTransaction::<T, Call<T>>::submit_transaction(xt)
 			.map(|_| {
 				sublog!(
@@ -1036,7 +1029,7 @@ mod trimming {
 						(40, Support { total: 40, voters: vec![(40, 40)] })
 					],
 					vec![
-						(30, Support { total: 11, voters: vec![(7, 7), (5, 2), (6, 2)] }),
+						(30, Support { total: 11, voters: vec![(5, 2), (6, 2), (7, 7)] }),
 						(40, Support { total: 7, voters: vec![(5, 3), (6, 4)] })
 					],
 					vec![(40, Support { total: 9, voters: vec![(2, 2), (3, 3), (4, 4)] })]
@@ -1080,7 +1073,7 @@ mod trimming {
 					// page only.
 					vec![(40, Support { total: 40, voters: vec![(40, 40)] })],
 					vec![
-						(30, Support { total: 11, voters: vec![(7, 7), (5, 2), (6, 2)] }),
+						(30, Support { total: 11, voters: vec![(5, 2), (6, 2), (7, 7)] }),
 						(40, Support { total: 7, voters: vec![(5, 3), (6, 4)] })
 					],
 					vec![(40, Support { total: 9, voters: vec![(2, 2), (3, 3), (4, 4)] })]
@@ -1122,7 +1115,7 @@ mod trimming {
 				vec![
 					vec![],
 					vec![
-						(30, Support { total: 11, voters: vec![(7, 7), (5, 2), (6, 2)] }),
+						(30, Support { total: 11, voters: vec![(5, 2), (6, 2), (7, 7)] }),
 						(40, Support { total: 7, voters: vec![(5, 3), (6, 4)] })
 					],
 					vec![(40, Support { total: 9, voters: vec![(2, 2), (3, 3), (4, 4)] })]
@@ -1160,11 +1153,11 @@ mod trimming {
 			assert!(VerifierPallet::queued_score().is_some());
 
 			assert_eq!(
-				dbg!(supports),
+				supports,
 				vec![
 					vec![],
 					vec![
-						(30, Support { total: 9, voters: vec![(7, 7), (6, 2)] }),
+						(30, Support { total: 9, voters: vec![(6, 2), (7, 7)] }),
 						(40, Support { total: 4, voters: vec![(6, 4)] })
 					],
 					vec![(40, Support { total: 9, voters: vec![(2, 2), (3, 3), (4, 4)] })]
@@ -1203,7 +1196,7 @@ mod trimming {
 						(40, Support { total: 40, voters: vec![(40, 40)] })
 					],
 					vec![
-						(30, Support { total: 9, voters: vec![(7, 7), (6, 2)] }),
+						(30, Support { total: 9, voters: vec![(6, 2), (7, 7)] }),
 						(40, Support { total: 9, voters: vec![(5, 5), (6, 4)] }) /* notice how
 						                                                          * 5's stake is
 						                                                          * re-distributed
@@ -1287,7 +1280,7 @@ mod trimming {
 						(40, Support { total: 40, voters: vec![(40, 40)] })
 					],
 					vec![
-						(30, Support { total: 14, voters: vec![(5, 5), (7, 7), (6, 2)] }),
+						(30, Support { total: 14, voters: vec![(5, 5), (6, 2), (7, 7)] }),
 						(40, Support { total: 4, voters: vec![(6, 4)] })
 					],
 					vec![(40, Support { total: 7, voters: vec![(3, 3), (4, 4)] })]
@@ -1412,12 +1405,12 @@ mod base_miner {
 			assert_eq!(
 				supports,
 				vec![vec![
-					(10, Support { total: 30, voters: vec![(1, 10), (8, 10), (4, 5), (5, 5)] }),
+					(10, Support { total: 30, voters: vec![(1, 10), (4, 5), (5, 5), (8, 10)] }),
 					(
 						40,
 						Support {
 							total: 40,
-							voters: vec![(2, 10), (3, 10), (6, 10), (4, 5), (5, 5)]
+							voters: vec![(2, 10), (3, 10), (4, 5), (5, 5), (6, 10)]
 						}
 					)
 				]]
@@ -1472,7 +1465,7 @@ mod base_miner {
 						// voter 6 (index 1) is backing 40 (index 3).
 						// voter 8 (index 3) is backing 10 (index 0)
 						votes1: vec![(1, 3), (3, 0)],
-						// voter 5 (index 0) is backing 40 (index 10) and 10 (index 0)
+						// voter 5 (index 0) is backing 40 (index 3) and 10 (index 0)
 						votes2: vec![(0, [(0, PerU16::from_parts(32768))], 3)],
 						..Default::default()
 					},
@@ -1500,8 +1493,8 @@ mod base_miner {
 				vec![
 					// page0, supports from voters 5, 6, 7, 8
 					vec![
-						(10, Support { total: 15, voters: vec![(8, 10), (5, 5)] }),
-						(40, Support { total: 15, voters: vec![(6, 10), (5, 5)] })
+						(10, Support { total: 15, voters: vec![(5, 5), (8, 10)] }),
+						(40, Support { total: 15, voters: vec![(5, 5), (6, 10)] })
 					],
 					// page1 supports from voters 1, 2, 3, 4
 					vec![
@@ -1591,13 +1584,13 @@ mod base_miner {
 					],
 					// page 1: 5, 6, 7, 8
 					vec![
-						(30, Support { total: 20, voters: vec![(7, 10), (5, 5), (6, 5)] }),
+						(30, Support { total: 20, voters: vec![(5, 5), (6, 5), (7, 10)] }),
 						(40, Support { total: 10, voters: vec![(5, 5), (6, 5)] })
 					],
 					// page 2: 1, 2, 3, 4
 					vec![
 						(30, Support { total: 5, voters: vec![(2, 5)] }),
-						(40, Support { total: 25, voters: vec![(3, 10), (4, 10), (2, 5)] })
+						(40, Support { total: 25, voters: vec![(2, 5), (3, 10), (4, 10)] })
 					]
 				]
 				.try_from_unbounded_paged()
@@ -1761,8 +1754,8 @@ mod base_miner {
 					vec![],
 					// supports from voters 5, 6, 7, 8
 					vec![
-						(10, Support { total: 15, voters: vec![(8, 10), (5, 5)] }),
-						(40, Support { total: 15, voters: vec![(6, 10), (5, 5)] })
+						(10, Support { total: 15, voters: vec![(5, 5), (8, 10)] }),
+						(40, Support { total: 15, voters: vec![(5, 5), (6, 10)] })
 					],
 					// supports from voters 1, 2, 3, 4
 					vec![
