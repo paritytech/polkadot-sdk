@@ -332,17 +332,6 @@ impl pallet_revive::Config for Runtime {
 	type Time = Timestamp;
 }
 
-impl TryFrom<RuntimeCall> for pallet_revive::Call<Runtime> {
-	type Error = ();
-
-	fn try_from(value: RuntimeCall) -> Result<Self, Self::Error> {
-		match value {
-			RuntimeCall::Revive(call) => Ok(call),
-			_ => Err(()),
-		}
-	}
-}
-
 pallet_revive::impl_runtime_apis_plus_revive!(
 	Runtime,
 	Executive,
