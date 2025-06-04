@@ -187,11 +187,19 @@ impl<BlockNumber: Ord + Copy + Zero, Balance: Ord + Copy + Zero> PriorLock<Block
 // and therefore retracts their voting power for the poll.
 type RetractedVotes<Balance> = Delegations<Balance>;
 
+/// Pertinent information of a vote in regards to a specific poll
+#[derive(Encode, Decode, Clone, Eq, PartialEq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+pub struct PollVote<Balance> {
+	pub poll_index: PollIndex,
+	pub maybe_vote: Option<AccountVote<Balance>>,
+	pub retracted_votes: RetractedVotes<Balance>,
+}
+
 /// Information concerning the vote-casting of some voting power.
 #[derive(Encode, Decode, Clone, Eq, PartialEq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 pub struct Voting<Balance, AccountId, BlockNumber> {
 	/// The current vote data of the account.
-	pub votes: BoundedVec<(PollIndex, Option<AccountVote<Balance>>, RetractedVotes<Balance>), MaxVotes>,
+	pub votes: BoundedVec<PollVote<Balance>, MaxVotes>,
 	/// The amount of balance delegated to some voting power.
 	pub delegated_balance: Balance,
 	/// A possible account to which the voting power is delegating.
@@ -264,8 +272,8 @@ where
 		self.prior = prior;
 	}
 
-	/// Set the delegator related info of an account's voting data.
-	pub fn set_delegator_info(
+	/// Set the delegate related info of an account's voting data.
+	pub fn set_delegate_info(
 		&mut self,
 		delegate: Option<AccountId>,
 		balance: Balance,

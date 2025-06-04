@@ -432,17 +432,17 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				let mut votes = voting.votes;
 				let delegations = voting.delegations;
 				let mut vote_introduced = false;
-				let index = match votes.binary_search_by_key(&poll_index, |i| i.0) {
+				let index = match votes.binary_search_by_key(&poll_index, |i| i.poll_index) {
 					// Found the vote for who
 					Ok(i) => {
 						// Check that they have currently have a vote for this poll
-						if let Some(account_vote) = votes[i].1 {
+						if let Some(account_vote) = votes[i].maybe_vote {
 							// Reduce tally by vote, shouldn't be possible to fail, but we handle it gracefully.
 							tally.remove(account_vote).ok_or(ArithmeticError::Underflow)?;
 							// Remove delegations from tally only if vote existed and was standard
 							if let Some(approve) = account_vote.as_standard() {
 								// Adjust by the current clawback amount
-								let final_delegations = delegations.saturating_sub(votes[i].2);
+								let final_delegations = delegations.saturating_sub(votes[i].retracted_votes);
 								tally.reduce(approve, *final_delegations);
 							}
 						} else {
@@ -450,14 +450,15 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 							vote_introduced = true;
 						}
 						// Update who's vote data with incoming vote
-						votes[i].1 = Some(vote);
+						votes[i].maybe_vote = Some(vote);
 						i
 					},
 					// Voting from who didn't exist
 					Err(i) => {
 						// Add vote data, unless max vote reached
+						let poll_vote = PollVote {poll_index: poll_index, maybe_vote: Some(vote), retracted_votes: Default::default()};
 						votes
-							.try_insert(i, (poll_index, Some(vote), Default::default()))
+							.try_insert(i, poll_vote)
 							.map_err(|_| Error::<T, I>::MaxVotesReached)?;
 						vote_introduced = true;
 						i
@@ -469,28 +470,28 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				// Add delegations to tally if vote is standard
 				if let Some(approve) = vote.as_standard() {
 					// But first adjust by current clawbacks
-					let final_delegations = delegations.saturating_sub(votes[index].2);
+					let final_delegations = delegations.saturating_sub(votes[index].retracted_votes);
 					tally.increase(approve, *final_delegations);
 				}
 
-				// Update delegate's info if delegate exists
+				// Update delegate's info if delegating
 				if let (Some(delegate), Some(conviction)) = (voting.delegate, voting.conviction) {
 					// Calculate amount delegated to delegate
 					let amount_delegated = conviction.votes(voting.delegated_balance);
 					VotingFor::<T, I>::mutate(delegate, class, |delegate_voting| {
 						let delegates_votes = delegate_voting.votes;
 						// Search for data about poll in delegates voting info
-						match delegates_votes.binary_search_by_key(&poll_index, |i| i.0) {
+						match delegates_votes.binary_search_by_key(&poll_index, |i| i.poll_index) {
 							// Found
 							Ok(i) => {
 								// Only if delegators vote is went from None to Some
 								if vote_introduced {
 									// Update delegates clawback amount for this poll
-									delegates_votes[i].2.saturating_add(amount_delegated);
+									delegates_votes[i].retracted_votes.saturating_add(amount_delegated);
 
-									if let Some(account_vote) = delegates_votes[i].1 {
+									if let Some(delegates_vote) = delegates_votes[i].maybe_vote {
 										// And it was a standard vote
-										if let Some(approve) = account_vote.as_standard() {
+										if let Some(approve) = delegates_vote.as_standard() {
 											// Decrease tally by delegated amount
 											tally.decrease(approve, *amount_delegated);
 										}
@@ -499,8 +500,9 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 							},
 							// Not found, add empty vote and clawback amount
 							Err(i) => {
+								let poll_vote = PollVote {poll_index: poll_index, maybe_vote: None, retracted_votes: amount_delegated};
 								votes
-									.try_insert(i, (poll_index, None, amount_delegated))
+									.try_insert(i, poll_vote)
 									.map_err(|_| Error::<T, I>::MaxVotesReached)?;
 							},
 						}
@@ -538,40 +540,40 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			let delegations = voting.delegations;
 			let mut prior = voting.prior;
 			let i = votes
-				.binary_search_by_key(&poll_index, |i| i.0)
+				.binary_search_by_key(&poll_index, |i| i.poll_index)
 				.map_err(|_| Error::<T, I>::NotVoter)?;
-			let v = votes[i];
+			let poll_vote = votes[i];
 		
 			T::Polls::try_access_poll(poll_index, |poll_status| match poll_status {
 				PollStatus::Ongoing(tally, _) => {
 					// Fully remove only if there are no retracted votes to track
-					if v.2 == Default::default() {
+					if poll_vote.retracted_votes == Default::default() {
 						votes.remove(i);
 					}
 
-					if let Some(account_vote) = v.1 {
+					if let Some(account_vote) = poll_vote.maybe_vote {
 						ensure!(matches!(scope, UnvoteScope::Any), Error::<T, I>::NoPermission);
 						// Remove vote from tally, shouldn't be possible to fail, but we handle it gracefully.
-						tally.remove(account_vote.1).ok_or(ArithmeticError::Underflow)?;
-						// Remove delegated votes only if vote was standard aye nay
-						if let Some(approve) = account_vote.1.as_standard() {
-							let final_delgations = delegations.saturating_sub(account_vote.2);
+						tally.remove(account_vote).ok_or(ArithmeticError::Underflow)?;
+						// Remove delegated votes (minus those votes retracted) only if vote was standard aye nay
+						if let Some(approve) = account_vote.as_standard() {
+							let final_delgations = delegations.saturating_sub(poll_vote.retracted_votes);
 							tally.reduce(approve, final_delgations);
 						}
 						
-						// Update delegate's voting state if exists
+						// Update delegate's voting state if delegating
 						if let (Some(delegate), Some(conviction)) = (voting.delegate, voting.conviction) {
 							VotingFor::<T, I>::mutate(delegate, class, |delegate_voting| {
 								let delegates_votes = delegate_voting.votes;
 								// Check vote data exists, shouldn't be possible for it not to if delegator has voted
-								match delegates_votes.binary_search_by_key(&poll_index, |i| i.0) {
+								match delegates_votes.binary_search_by_key(&poll_index, |i| i.poll_index) {
 									Ok(i) => {
 										// Remove clawback from delegates vote record
-										delegates_votes[i].2.saturating_sub(delegations);
+										delegates_votes[i].retracted_votes.saturating_sub(delegations);
 										// If delegate had voted
-										if let Some(account_vote) = delegates_votes[i].1 {
+										if let Some(delegates_vote) = delegates_votes[i].maybe_vote {
 											// And it was a standard vote
-											if let Some(approve) = account_vote.1.as_standard() {
+											if let Some(approve) = delegates_vote.as_standard() {
 												// Increase tally by delegated amount
 												tally.increase(approve, *conviction.votes(voting.delegated_balance));
 											}
@@ -592,9 +594,9 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				PollStatus::Completed(end, approved) => {
 					votes.remove(i);
 					// If vote was cast, ensure locks
-					if let Some(account_vote) = v.1 {
+					if let Some(account_vote) = poll_vote.maybe_vote {
 						if let Some((lock_periods, balance)) =
-							account_vote.1.locked_if(vote::LockedIf::Status(approved))
+							account_vote.locked_if(vote::LockedIf::Status(approved))
 						{
 							let unlock_at = end.saturating_add(
 								T::VoteLockingPeriod::get().saturating_mul(lock_periods.into()),
@@ -607,13 +609,13 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 								);
 								prior.accumulate(unlock_at, balance)
 							}
-						} else if account_vote.1.as_standard().is_some_and(|vote| vote != approved) {
+						} else if account_vote.as_standard().is_some_and(|vote| vote != approved) {
 							// Unsuccessful vote, use special hook to lock the funds too in case of
 							// conviction.
 							if let Some(to_lock) =
 								T::VotingHooks::lock_balance_on_unsuccessful_vote(who, poll_index)
 							{
-								if let AccountVote::Standard { vote, .. } = account_vote.1 {
+								if let AccountVote::Standard { vote, .. } = account_vote {
 									let unlock_at = end.saturating_add(
 										T::VoteLockingPeriod::get()
 											.saturating_mul(vote.conviction.lock_periods().into()),
@@ -637,7 +639,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				PollStatus::None => {
 					votes.remove(i);
 					// Check vote had been cast
-					if let Some(_) = v.1 {
+					if let Some(_) = poll_vote.maybe_vote {
 						// Poll was cancelled.
 						T::VotingHooks::on_remove_vote(who, poll_index, Status::None);
 					}
@@ -661,7 +663,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			let votes = voting.votes;
 			
 			// For each of the delegate's votes
-			for &(poll_index, account_vote, retracted_votes) in votes.iter() {
+			for &(poll_index, account_vote, _) in votes.iter() {
 				// If they have a standard vote recorded
 				if let Some(AccountVote::Standard { vote, .. }) = account_vote {
 					T::Polls::access_poll(poll_index, |poll_status| {
@@ -676,13 +678,13 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			
 			// For each of the delegator's ongoing votes
 			for poll_index in ongoing_votes {
-				match votes.binary_search_by_key(&poll_index, |i| i.0) {
+				match votes.binary_search_by_key(&poll_index, |i| i.poll_index) {
 					// That appear in the delegate's voting history
 					Ok(i) => {
 						// Add the clawback
-						votes[i].2 = votes[i].2.saturating_add(amount);
+						votes[i].retracted_votes = votes[i].retracted_votes.saturating_add(amount);
 						// And reduce the tally by that amount if the delegate has voted standard and the poll is ongoing
-						if let Some(AccountVote::Standard { vote, .. }) = votes[i].1 {
+						if let Some(AccountVote::Standard { vote, .. }) = votes[i].maybe_vote {
 							T::Polls::access_poll(poll_index, |poll_status| {
 								if let PollStatus::Ongoing(tally, _) = poll_status {
 									tally.reduce(vote.aye, amount);
@@ -693,8 +695,9 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 					// That don't appear in the delegate's voting history
 					Err(i) => {
 						// Insert the vote data with no vote and the clawback amount
+						let poll_vote = PollVote {poll_index: poll_index, maybe_vote: None, retracted_votes: amount};
 						votes
-							.try_insert(i, (poll_index, None, amount))
+							.try_insert(i, poll_vote)
 							.map_err(|_| Error::<T, I>::MaxVotesReached)?;
 					},
 				}
@@ -719,9 +722,9 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			votes.delegations = votes.delegation.saturating_sub(amount);
 			
 			// For each of the delegate's votes
-			for &(poll_index, account_vote) in votes.iter() {
+			for &(poll_index, maybe_vote, _) in votes.iter() {
 				// That are standard aye or nay
-				if let AccountVote::Standard { vote, .. } = account_vote {
+				if let Some(AccountVote::Standard { vote, .. }) = maybe_vote {
 					T::Polls::access_poll(poll_index, |poll_status| {
 						// And for an ongoing poll
 						if let PollStatus::Ongoing(tally, _) = poll_status {
@@ -735,12 +738,12 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			// For all the delegator's votes in ongoing polls
 			for poll_index in ongoing_votes {
 				// That the delegate has data for (which should be all)
-				match votes.binary_search_by_key(&poll_index, |i| i.0) {
+				match votes.binary_search_by_key(&poll_index, |i| i.poll_index) {
 					Ok(i) => {
 						// Remove the clawback
-						votes[i].2 = votes[i].2.saturating_sub(amount);
+						votes[i].retracted_votes = votes[i].retracted_votes.saturating_sub(amount);
 						// And increase the tally by that amount if the delegate has voted standard and the poll is ongoing
-						if let Some(AccountVote::Standard { vote, .. }) = votes[i].1 {
+						if let Some(AccountVote::Standard { vote, .. }) = votes[i].maybe_vote {
 							T::Polls::access_poll(poll_index, |poll_status| {
 								if let PollStatus::Ongoing(tally, _) = poll_status {
 									tally.increase(vote.aye, amount);
@@ -785,10 +788,9 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				voting.set_delegate_info(Some(target), balance, Some(conviction));
 				
 				// Grab all of the delegator votes that are for ongoing polls
-				let ongoing_votes: Vec<_> = voting.votes.iter().filter_map(|poll_data| {
-					let poll_index = poll_data.0;
-					T::Polls::as_ongoing(poll_index)
-				}).collect();
+				let ongoing_votes: Vec<_> = voting.votes.iter().filter_map(|poll_vote| 
+					T::Polls::as_ongoing(poll_vote.poll_index)
+				).collect();
 				
 				// Update voting data of chosen delegate
 				let vote_count =
@@ -813,10 +815,9 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				// If they're currently delegating
 				if let (Some(delegate), Some(conviction)) = (voting.delegate, voting.conviction) {
 					// Grab all the delegators voting data for ongoing polls
-					let ongoing_votes: Vec<_> = voting.votes.iter().filter_map(|poll_data| {
-						let poll_index = poll_data.0;
-						T::Polls::as_ongoing(poll_index)
-					}).collect();
+					let ongoing_votes: Vec<_> = voting.votes.iter().filter_map(|poll_vote|
+						T::Polls::as_ongoing(poll_vote.poll_index)
+					).collect();
 					// Update the delegate's voting data
 					let votes = Self::reduce_upstream_delegation(&delegate, &class, conviction.votes(voting.delegated_balance), ongoing_votes);
 					
