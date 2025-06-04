@@ -17,7 +17,7 @@
 
 use crate::ah::mock::*;
 use frame::prelude::Perbill;
-use frame_support::{assert_noop, assert_ok};
+use frame_support::assert_ok;
 use pallet_election_provider_multi_block::{Event as ElectionEvent, Phase};
 use pallet_staking_async::{
 	self as staking_async, session_rotation::Rotator, ActiveEra, ActiveEraInfo, CurrentEra,
@@ -289,7 +289,6 @@ fn receives_old_session_report() {
 		));
 
 		// then
-		assert_eq!(rc_client::LastSessionReportEndingIndex::<T>::get(), Some(0));
 		assert_eq!(
 			rc_client_events_since_last_call(),
 			vec![rc_client::Event::SessionReportReceived {
@@ -310,12 +309,17 @@ fn receives_old_session_report() {
 
 		// reward points are not added
 		assert_eq!(staking_async::ErasRewardPoints::<T>::get(&0).total, 50);
+		assert_eq!(rc_client::LastSessionReportEndingIndex::<T>::get(), Some(0));
 
-		// then send it again, this is dropped, with no storage change.
-		assert_noop!(
-			rc_client::Pallet::<T>::relay_session_report(RuntimeOrigin::root(), session_report),
-			rc_client::Error::<T>::SessionIndexNotValid
-		);
+		// then send it again, this is basically dropped, although it returns `Ok()`
+		assert_ok!(rc_client::Pallet::<T>::relay_session_report(
+			RuntimeOrigin::root(),
+			session_report
+		));
+
+		// no storage is changed
+		assert_eq!(staking_async::ErasRewardPoints::<T>::get(&0).total, 50);
+		assert_eq!(rc_client::LastSessionReportEndingIndex::<T>::get(), Some(0));
 	})
 }
 
