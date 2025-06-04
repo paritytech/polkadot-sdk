@@ -92,7 +92,8 @@ where
 				})
 			},
 			IXcmCalls::xcmExecute(IXcm::xcmExecuteCall { message, weight }) => {
-				let weight = Weight::from_parts(weight.refTime, weight.proofSize);
+				let weight = Weight::from_parts(weight.refTime, weight.proofSize)
+					.saturating_add(<Runtime as Config>::WeightInfo::execute());
 				let charged_amount = env.charge(weight)?;
 
 				let final_message = VersionedXcm::decode_all_with_depth_limit(
