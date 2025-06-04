@@ -24,6 +24,7 @@ use crate::{
 };
 use frame_support::storage::unhashed;
 use sp_core::bounded_vec;
+use sp_npos_elections::ElectionScore;
 
 pub type T = Runtime;
 
@@ -642,12 +643,153 @@ mod e2e {
 
 	#[test]
 	fn after_rejecting_calls_verifier_start_again_if_leader_exists() {
-		todo!()
+		ExtBuilder::signed().build_and_execute(|| {
+			roll_to_signed_open();
+			assert_full_snapshot();
+
+			// Submit invalid solution with high score but no pages (will be slashed)
+			{
+				let mut strong_score = mine_full_solution().unwrap().score;
+				strong_score.minimal_stake *= 2;
+				assert_ok!(SignedPallet::register(RuntimeOrigin::signed(99), strong_score));
+				// Don't submit any pages - this will cause it to be slashed
+			}
+
+			// Submit good solution with all pages
+			{
+				let strong_solution = mine_full_solution().unwrap();
+				load_signed_for_verification(999, strong_solution.clone());
+			}
+
+			let current_round = SignedPallet::current_round();
+			assert_eq!(Submissions::<Runtime>::submitters_count(current_round), 2);
+
+			// Go to signed validation phase
+			roll_to_signed_validation_open();
+			assert!(matches!(VerifierPallet::status(), crate::verifier::Status::Ongoing(_)));
+
+			roll_next(); // Block 1
+			roll_next(); // Block 2
+			roll_next(); // Block 3: invalid solution (99) gets slashed for having no pages
+
+			// Check that invalid solution is slashed but good solution remains
+			assert_eq!(Submissions::<Runtime>::submitters_count(current_round), 1);
+			assert!(Submissions::<Runtime>::has_leader(current_round));
+			let remaining_leader = Submissions::<Runtime>::leader(current_round).unwrap();
+			assert_eq!(remaining_leader.0, 999); // Good solution remains
+
+			// Check that expected events were emitted for the rejection
+			assert_eq!(
+				signed_events(),
+				vec![
+					Event::Registered(
+						0,
+						99,
+						ElectionScore {
+							minimal_stake: 110,
+							sum_stake: 130,
+							sum_stake_squared: 8650
+						}
+					),
+					Event::Registered(
+						0,
+						999,
+						ElectionScore {
+							minimal_stake: 55,
+							sum_stake: 130,
+							sum_stake_squared: 8650
+						}
+					),
+					Event::Stored(0, 999, 0),
+					Event::Stored(0, 999, 1),
+					Event::Stored(0, 999, 2),
+					Event::Slashed(0, 99, 5),
+				]
+			);
+			assert_eq!(
+				verifier_events(),
+				vec![
+					crate::verifier::Event::Verified(2, 0),
+					crate::verifier::Event::Verified(1, 0),
+					crate::verifier::Event::Verified(0, 0),
+					crate::verifier::Event::VerificationFailed(0, FeasibilityError::InvalidScore),
+				]
+			);
+
+			// Check verifier status - should have restarted for remaining good solution
+			assert!(matches!(VerifierPallet::status(), crate::verifier::Status::Ongoing(_)));
+
+			roll_next(); // Block 4: processes page 2 of good solution
+			roll_next(); // Block 5: processes page 1 of good solution
+			roll_next(); // Block 6: processes page 0 of good solution
+
+			// Check verifier status - should be Nothing after completion
+			assert_eq!(VerifierPallet::status(), crate::verifier::Status::Nothing);
+
+			// Check good solution is fully verified and removed from queue
+			assert_eq!(Submissions::<Runtime>::submitters_count(current_round), 0);
+			assert!(!Submissions::<Runtime>::has_leader(current_round));
+		});
 	}
 
 	#[test]
 	fn after_rejecting_does_not_call_verifier_start_again_if_no_leader_exists() {
-		todo!()
+		ExtBuilder::signed().build_and_execute(|| {
+			roll_to_signed_open();
+			assert_full_snapshot();
+
+			// Submit only an invalid solution
+			let score = ElectionScore { minimal_stake: 10, sum_stake: 10, sum_stake_squared: 100 };
+			assert_ok!(SignedPallet::register(RuntimeOrigin::signed(99), score));
+			assert_ok!(SignedPallet::submit_page(
+				RuntimeOrigin::signed(99),
+				0,
+				Some(Default::default())
+			));
+
+			// Verify we have exactly one submission
+			let current_round = SignedPallet::current_round();
+			assert_eq!(Submissions::<Runtime>::submitters_count(current_round), 1);
+			assert!(Submissions::<Runtime>::has_leader(current_round));
+
+			roll_to_signed_validation_open();
+
+			assert!(matches!(VerifierPallet::status(), crate::verifier::Status::Ongoing(_)));
+
+			roll_next(); // Block 1: processes page 2 (empty)
+			roll_next(); // Block 2: processes page 1  (empty)
+			roll_next(); // Block 3: processes page 0 (the only submitted page)
+
+			// After 3 blocks, the invalid solution should be processed and discarded
+			// Verify no-restart conditions are met
+			assert!(crate::Pallet::<Runtime>::current_phase().is_signed_validation());
+			assert!(!Submissions::<Runtime>::has_leader(current_round));
+			assert_eq!(Submissions::<Runtime>::submitters_count(current_round), 0);
+			assert_eq!(VerifierPallet::status(), crate::verifier::Status::Nothing);
+
+			// Check that expected events were emitted for the rejection
+			assert_eq!(
+				signed_events(),
+				vec![
+					Event::Registered(
+						0,
+						99,
+						ElectionScore { minimal_stake: 10, sum_stake: 10, sum_stake_squared: 100 }
+					),
+					Event::Stored(0, 99, 0),
+					Event::Slashed(0, 99, 6),
+				]
+			);
+			assert_eq!(
+				verifier_events(),
+				vec![
+					crate::verifier::Event::Verified(2, 0),
+					crate::verifier::Event::Verified(1, 0),
+					crate::verifier::Event::Verified(0, 0),
+					crate::verifier::Event::VerificationFailed(0, FeasibilityError::InvalidScore),
+				]
+			);
+		});
 	}
 
 	#[test]
