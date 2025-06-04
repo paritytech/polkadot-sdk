@@ -757,11 +757,17 @@ pub(crate) fn new_test_ext_with_balances_and_xcm_version(
 ) -> sp_io::TestExternalities {
 	let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 
+	let alice = balances.first().expect("balances should not be empty").0.clone();
+
 	pallet_balances::GenesisConfig::<Test> { balances, ..Default::default() }
 		.assimilate_storage(&mut t)
 		.unwrap();
 
 	pallet_xcm::GenesisConfig::<Test> { safe_xcm_version, ..Default::default() }
+		.assimilate_storage(&mut t)
+		.unwrap();
+
+	pallet_revive::GenesisConfig::<Test> { mapped_accounts: vec![alice] }
 		.assimilate_storage(&mut t)
 		.unwrap();
 

@@ -205,7 +205,6 @@ mod test {
 			let call = IXcm::IXcmCalls::xcmSend(xcm_send_params);
 			let encoded_call = call.abi_encode();
 
-			let _ = pallet_revive::Pallet::<Test>::map_account(RuntimeOrigin::signed(ALICE));
 			let result = pallet_revive::Pallet::<Test>::bare_call(
 				RuntimeOrigin::signed(ALICE),
 				xcm_precompile_addr,
@@ -254,7 +253,6 @@ mod test {
 			let call = IXcm::IXcmCalls::xcmSend(xcm_send_params);
 			let encoded_call = call.abi_encode();
 
-			let _ = pallet_revive::Pallet::<Test>::map_account(RuntimeOrigin::signed(ALICE));
 			let result = pallet_revive::Pallet::<Test>::bare_call(
 				RuntimeOrigin::signed(ALICE),
 				xcm_precompile_addr,
@@ -303,7 +301,6 @@ mod test {
 			let call = IXcm::IXcmCalls::xcmSend(xcm_send_params);
 			let encoded_call = call.abi_encode();
 
-			let _ = pallet_revive::Pallet::<Test>::map_account(RuntimeOrigin::signed(ALICE));
 			let result = pallet_revive::Pallet::<Test>::bare_call(
 				RuntimeOrigin::signed(ALICE),
 				xcm_precompile_addr,
@@ -346,7 +343,6 @@ mod test {
 			let weight_call = IXcm::IXcmCalls::weighMessage(weight_params);
 			let encoded_weight_call = weight_call.abi_encode();
 
-			let _ = pallet_revive::Pallet::<Test>::map_account(RuntimeOrigin::signed(ALICE));
 			let xcm_weight_results = pallet_revive::Pallet::<Test>::bare_call(
 				RuntimeOrigin::signed(ALICE),
 				xcm_precompile_addr,
@@ -370,7 +366,6 @@ mod test {
 			let call = IXcm::IXcmCalls::xcmExecute(xcm_execute_params);
 			let encoded_call = call.abi_encode();
 
-			let _ = pallet_revive::Pallet::<Test>::map_account(RuntimeOrigin::signed(ALICE));
 			let result = pallet_revive::Pallet::<Test>::bare_call(
 				RuntimeOrigin::signed(ALICE),
 				xcm_precompile_addr,
@@ -409,7 +404,6 @@ mod test {
 			let weight_call = IXcm::IXcmCalls::weighMessage(weight_params);
 			let encoded_weight_call = weight_call.abi_encode();
 
-			let _ = pallet_revive::Pallet::<Test>::map_account(RuntimeOrigin::signed(ALICE));
 			let xcm_weight_results = pallet_revive::Pallet::<Test>::bare_call(
 				RuntimeOrigin::signed(ALICE),
 				xcm_precompile_addr,
@@ -433,7 +427,6 @@ mod test {
 			let call = IXcm::IXcmCalls::xcmExecute(xcm_execute_params);
 			let encoded_call = call.abi_encode();
 
-			let _ = pallet_revive::Pallet::<Test>::map_account(RuntimeOrigin::signed(ALICE));
 			let result = pallet_revive::Pallet::<Test>::bare_call(
 				RuntimeOrigin::signed(ALICE),
 				xcm_precompile_addr,
@@ -480,7 +473,6 @@ mod test {
 			let weight_call = IXcm::IXcmCalls::weighMessage(weight_params);
 			let encoded_weight_call = weight_call.abi_encode();
 
-			let _ = pallet_revive::Pallet::<Test>::map_account(RuntimeOrigin::signed(ALICE));
 			let xcm_weight_results = pallet_revive::Pallet::<Test>::bare_call(
 				RuntimeOrigin::signed(ALICE),
 				xcm_precompile_addr,
@@ -504,7 +496,6 @@ mod test {
 			let call = IXcm::IXcmCalls::xcmExecute(xcm_execute_params);
 			let encoded_call = call.abi_encode();
 
-			let _ = pallet_revive::Pallet::<Test>::map_account(RuntimeOrigin::signed(ALICE));
 			let result = pallet_revive::Pallet::<Test>::bare_call(
 				RuntimeOrigin::signed(ALICE),
 				xcm_precompile_addr,
