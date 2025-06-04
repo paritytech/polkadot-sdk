@@ -388,7 +388,7 @@ mod tests {
 
 			let expected_stashes = electable_stashes
 				.into_iter()
-				.map(|acc| (acc.clone(), 0u128))
+				.map(|acc| (acc, 0u128))
 				.collect::<BTreeMap<_, _>>();
 			assert_eq!(ElectableStashes::<Test>::get().into_inner(), expected_stashes);
 
