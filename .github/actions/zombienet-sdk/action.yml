@@ -115,18 +115,20 @@ runs:
         TEST_NAME: ${{ inputs.test }}
         PREFIX: ${{ inputs.prefix }}
       run: |
-          # zombienet-sdk expects RUN_IN_CI=0 when running in CI only for native provider
-          if [[ "$ZOMBIE_PROVIDER" == "native" ]]; then
-            export RUN_IN_CI=0
-          else
-            export RUN_IN_CI=1
-          fi
-          export PATH=$(pwd)/bin:$PATH
-          chmod +x $(pwd)/bin/*
+        # zombienet-sdk expects RUN_IN_CI=0 when running in CI only for native provider
+        if [[ "$ZOMBIE_PROVIDER" == "native" ]]; then
+          export RUN_IN_CI=0
+        else
+          export RUN_IN_CI=1
+        fi
+        export PATH=$(pwd)/bin:$PATH
+        chmod +x $(pwd)/bin/*
+        if [[ $ZOMBIENET_RUNNER == "parity-zombienet" ]];
+          export ZOMBIE_K8S_CI_NAMESPACE=$(cat /data/namespace)
+        fi;
 
-          ls -ltr ./artifacts
-          cargo nextest run --archive-file ./artifacts/${PREFIX}-zombienet-tests.tar.zst --no-capture -- ${TEST_NAME}
-
+        ls -ltr ./artifacts
+        cargo nextest run --archive-file ./artifacts/${PREFIX}-zombienet-tests.tar.zst --no-capture -- ${TEST_NAME}
     - name: process_logs
       if: ${{ ! cancelled() }}
       shell: bash
