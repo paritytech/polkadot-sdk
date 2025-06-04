@@ -248,6 +248,7 @@ pub mod pallet {
 		type MaxUsernameLength: Get<u32>;
 
 		/// A set of helper functions for benchmarking.
+		/// The default configuration `()` uses the `SR25519` signature schema.
 		#[cfg(feature = "runtime-benchmarks")]
 		type BenchmarkHelper: BenchmarkHelper<Self::SigningPublicKey, Self::OffchainSignature>;
 
