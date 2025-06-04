@@ -81,6 +81,7 @@ use sp_version::RuntimeVersion;
 pub use sp_consensus_babe::{AllowedSlots, BabeEpochConfiguration, Slot};
 
 pub use pallet_balances::Call as BalancesCall;
+pub use pallet_utility::Call as UtilityCall;
 
 pub type AuraId = sp_consensus_aura::sr25519::AuthorityId;
 #[cfg(feature = "std")]
@@ -348,6 +349,7 @@ construct_runtime!(
 		System: frame_system,
 		Babe: pallet_babe,
 		SubstrateTest: substrate_test_pallet::pallet,
+		Utility: pallet_utility,
 		Balances: pallet_balances,
 	}
 );
@@ -429,6 +431,13 @@ impl pallet_balances::Config for Runtime {
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type RuntimeFreezeReason = RuntimeFreezeReason;
 	type DoneSlashHandler = ();
+}
+
+impl pallet_utility::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type PalletsOrigin = OriginCaller;
+	type RuntimeCall = RuntimeCall;
+	type WeightInfo = ();
 }
 
 impl substrate_test_pallet::Config for Runtime {}

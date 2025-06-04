@@ -6727,6 +6727,7 @@ dependencies = [
  "sp-runtime 31.0.1",
  "sp-tracing 16.0.0",
  "sp-version 29.0.0",
+ "substrate-test-runtime-client",
 ]
 
 [[package]]
@@ -24860,6 +24861,7 @@ dependencies = [
  "pallet-babe",
  "pallet-balances",
  "pallet-timestamp",
+ "pallet-utility",
  "parity-scale-codec",
  "sc-block-builder",
  "sc-chain-spec",
