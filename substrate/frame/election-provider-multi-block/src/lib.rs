@@ -2088,6 +2088,7 @@ mod phase_rotation {
 	}
 
 	#[test]
+	#[should_panic(expected = "either signed or unsigned phase must be set")]
 	fn no_signed_and_unsigned_phase() {
 		ExtBuilder::full()
 			.pages(3)
@@ -2096,25 +2097,7 @@ mod phase_rotation {
 			.election_start(10)
 			.fallback_mode(FallbackModes::Onchain)
 			.build_and_execute(|| {
-				assert_eq!(System::block_number(), 0);
-				assert_eq!(MultiBlock::current_phase(), Phase::Off);
-				assert_none_snapshot();
-				assert_eq!(MultiBlock::round(), 0);
-
-				roll_to(10);
-				assert_eq!(MultiBlock::current_phase(), Phase::Snapshot(3));
-				assert_eq!(MultiBlock::round(), 0);
-
-				roll_to(11);
-				assert_eq!(MultiBlock::current_phase(), Phase::Snapshot(2));
-				roll_to(12);
-				assert_eq!(MultiBlock::current_phase(), Phase::Snapshot(1));
-				roll_to(13);
-				assert_eq!(MultiBlock::current_phase(), Phase::Snapshot(0));
-
-				// And we are done already
-				roll_to(14);
-				assert_eq!(MultiBlock::current_phase(), Phase::Done);
+				// This should panic during integrity test
 			});
 	}
 

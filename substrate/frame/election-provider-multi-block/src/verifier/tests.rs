@@ -863,6 +863,7 @@ mod async_verification {
 	fn invalid_solution_bad_bounds_final() {
 		ExtBuilder::verifier()
 			.desired_targets(1)
+			.max_backers_per_winner(2)
 			.max_backers_per_winner_final(2)
 			.build_and_execute(|| {
 				roll_to_snapshot_created();
