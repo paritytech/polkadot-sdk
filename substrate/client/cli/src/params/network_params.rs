@@ -172,16 +172,21 @@ pub struct NetworkParams {
 
 	/// Network backend used for P2P networking.
 	///
-	/// litep2p network backend is considered experimental and isn't as stable as the libp2p
-	/// network backend.
+	/// Litep2p is a lightweight alternative to libp2p, that is designed to be more
+	/// efficient and easier to use. At the same time, litep2p brings performance
+	/// improvements and reduces the CPU usage significantly.
+	///
+	/// Libp2p is the old network backend, that may still be used for compatibility
+	/// reasons until the whole ecosystem is migrated to litep2p.
 	#[arg(
 		long,
 		value_enum,
 		value_name = "NETWORK_BACKEND",
+		default_value_t = NetworkBackendType::Litep2p,
 		ignore_case = true,
 		verbatim_doc_comment
 	)]
-	pub network_backend: Option<NetworkBackendType>,
+	pub network_backend: NetworkBackendType,
 }
 
 impl NetworkParams {
@@ -277,7 +282,7 @@ impl NetworkParams {
 			kademlia_replication_factor: self.kademlia_replication_factor,
 			ipfs_server: self.ipfs_server,
 			sync_mode: self.sync.into(),
-			network_backend: self.network_backend.map(Into::into),
+			network_backend: self.network_backend.into(),
 		}
 	}
 }
