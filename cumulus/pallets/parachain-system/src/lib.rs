@@ -639,6 +639,7 @@ pub mod pallet {
 				downward_messages,
 				horizontal_messages,
 				relay_parent_descendants,
+				collator_peer_id: _,
 			} = data;
 
 			// Check that the associated relay chain block number is as expected.

@@ -22,35 +22,31 @@ use self::test_utils::{ensure_stored, expected_deposit};
 use crate::{
 	self as pallet_revive,
 	address::{create1, create2, AddressMapper},
-	evm::{
-		runtime::GAS_PRICE, CallTrace, CallTracer, CallType, GenericTransaction,
-		PrestateTracerConfig,
-	},
+	evm::{runtime::GAS_PRICE, CallTrace, CallTracer, CallType, GenericTransaction},
 	exec::Key,
 	limits,
 	storage::DeletionQueueManager,
 	test_utils::*,
 	tests::test_utils::{get_contract, get_contract_checked},
-	tracing::{trace, Tracing},
+	tracing::trace,
 	weights::WeightInfo,
 	AccountId32Mapper, BalanceOf, Code, CodeInfoOf, Config, ContractInfo, ContractInfoOf,
 	DeletionQueueCounter, DepositLimit, Error, EthTransactError, HoldReason, Origin, Pallet,
-	PrestateTracer, PristineCode, H160,
+	PristineCode, H160,
 };
 
 use crate::test_utils::builder::Contract;
 use assert_matches::assert_matches;
-use codec::{Decode, Encode};
+use codec::Encode;
 use frame_support::{
-	assert_err, assert_err_ignore_postinfo, assert_err_with_weight, assert_noop, assert_ok,
-	derive_impl,
+	assert_err, assert_err_ignore_postinfo, assert_noop, assert_ok, derive_impl,
 	pallet_prelude::EnsureOrigin,
 	parameter_types,
 	storage::child,
 	traits::{
 		fungible::{BalancedHold, Inspect, Mutate, MutateHold},
 		tokens::Preservation,
-		ConstU32, ConstU64, Contains, FindAuthor, OnIdle, OnInitialize, StorageVersion,
+		ConstU32, ConstU64, FindAuthor, OnIdle, OnInitialize, StorageVersion,
 	},
 	weights::{constants::WEIGHT_REF_TIME_PER_SECOND, FixedFee, IdentityFee, Weight, WeightMeter},
 };
@@ -296,36 +292,6 @@ impl Convert<Weight, BalanceOf<Self>> for Test {
 	}
 }
 
-/// A filter whose filter function can be swapped at runtime.
-pub struct TestFilter;
-
-#[derive(Clone)]
-pub struct Filters {
-	filter: fn(&RuntimeCall) -> bool,
-}
-
-impl Default for Filters {
-	fn default() -> Self {
-		Filters { filter: (|_| true) }
-	}
-}
-
-parameter_types! {
-	static CallFilter: Filters = Default::default();
-}
-
-impl TestFilter {
-	pub fn set_filter(filter: fn(&RuntimeCall) -> bool) {
-		CallFilter::mutate(|fltr| fltr.filter = filter);
-	}
-}
-
-impl Contains<RuntimeCall> for TestFilter {
-	fn contains(call: &RuntimeCall) -> bool {
-		(CallFilter::get().filter)(call)
-	}
-}
-
 parameter_types! {
 	pub static UploadAccount: Option<<Test as frame_system::Config>::AccountId> = None;
 	pub static InstantiateAccount: Option<<Test as frame_system::Config>::AccountId> = None;
@@ -372,7 +338,6 @@ impl Config for Test {
 	type Time = Timestamp;
 	type AddressMapper = AccountId32Mapper<Self>;
 	type Currency = Balances;
-	type CallFilter = TestFilter;
 	type DepositPerByte = DepositPerByte;
 	type DepositPerItem = DepositPerItem;
 	type UnsafeUnstableInterface = UnstableInterface;
@@ -1907,7 +1872,6 @@ fn refcounter() {
 #[test]
 fn gas_estimation_for_subcalls() {
 	let (caller_code, _caller_hash) = compile_module("call_with_limit").unwrap();
-	let (call_runtime_code, _caller_hash) = compile_module("call_runtime").unwrap();
 	let (dummy_code, _callee_hash) = compile_module("dummy").unwrap();
 	ExtBuilder::default().existential_deposit(50).build().execute_with(|| {
 		let min_balance = Contracts::min_balance();
@@ -1922,11 +1886,6 @@ fn gas_estimation_for_subcalls() {
 			.value(min_balance * 100)
 			.build_and_unwrap_contract();
 
-		let Contract { addr: addr_call_runtime, .. } =
-			builder::bare_instantiate(Code::Upload(call_runtime_code))
-				.value(min_balance * 100)
-				.build_and_unwrap_contract();
-
 		// Run the test for all of those weight limits for the subcall
 		let weights = [
 			Weight::MAX,
@@ -1937,123 +1896,62 @@ fn gas_estimation_for_subcalls() {
 			Weight::from_parts(GAS_LIMIT.ref_time(), u64::MAX),
 		];
 
-		// This call is passed to the sub call in order to create a large `required_weight`
-		let runtime_call = RuntimeCall::Dummy(pallet_dummy::Call::overestimate_pre_charge {
-			pre_charge: Weight::from_parts(10_000_000_000, 512 * 1024),
-			actual_weight: Weight::from_parts(1, 1),
-		})
-		.encode();
-
-		// Encodes which contract should be sub called with which input
-		let sub_calls: [(&[u8], Vec<_>, bool); 2] = [
-			(addr_dummy.as_ref(), vec![], false),
-			(addr_call_runtime.as_ref(), runtime_call, true),
-		];
+		let (sub_addr, sub_input) = (addr_dummy.as_ref(), vec![]);
 
 		for weight in weights {
-			for (sub_addr, sub_input, out_of_gas_in_subcall) in &sub_calls {
-				let input: Vec<u8> = sub_addr
-					.iter()
-					.cloned()
-					.chain(weight.ref_time().to_le_bytes())
-					.chain(weight.proof_size().to_le_bytes())
-					.chain(sub_input.clone())
-					.collect();
+			let input: Vec<u8> = sub_addr
+				.iter()
+				.cloned()
+				.chain(weight.ref_time().to_le_bytes())
+				.chain(weight.proof_size().to_le_bytes())
+				.chain(sub_input.clone())
+				.collect();
 
-				// Call in order to determine the gas that is required for this call
-				let result_orig = builder::bare_call(addr_caller).data(input.clone()).build();
-				assert_ok!(&result_orig.result);
+			// Call in order to determine the gas that is required for this call
+			let result_orig = builder::bare_call(addr_caller).data(input.clone()).build();
+			assert_ok!(&result_orig.result);
+			assert_eq!(result_orig.gas_required, result_orig.gas_consumed);
 
-				// If the out of gas happens in the subcall the caller contract
-				// will just trap. Otherwise we would need to forward an error
-				// code to signal that the sub contract ran out of gas.
-				let error: DispatchError = if *out_of_gas_in_subcall {
-					assert!(result_orig.gas_required.all_gt(result_orig.gas_consumed));
-					<Error<Test>>::ContractTrapped.into()
-				} else {
-					assert_eq!(result_orig.gas_required, result_orig.gas_consumed);
-					<Error<Test>>::OutOfGas.into()
-				};
+			// Make the same call using the estimated gas. Should succeed.
+			let result = builder::bare_call(addr_caller)
+				.gas_limit(result_orig.gas_required)
+				.storage_deposit_limit(result_orig.storage_deposit.charge_or_zero().into())
+				.data(input.clone())
+				.build();
+			assert_ok!(&result.result);
 
-				// Make the same call using the estimated gas. Should succeed.
-				let result = builder::bare_call(addr_caller)
-					.gas_limit(result_orig.gas_required)
-					.storage_deposit_limit(result_orig.storage_deposit.charge_or_zero().into())
-					.data(input.clone())
-					.build();
-				assert_ok!(&result.result);
+			// Check that it fails with too little ref_time
+			let result = builder::bare_call(addr_caller)
+				.gas_limit(result_orig.gas_required.sub_ref_time(1))
+				.storage_deposit_limit(result_orig.storage_deposit.charge_or_zero().into())
+				.data(input.clone())
+				.build();
+			assert_err!(result.result, <Error<Test>>::OutOfGas);
 
-				// Check that it fails with too little ref_time
-				let result = builder::bare_call(addr_caller)
-					.gas_limit(result_orig.gas_required.sub_ref_time(1))
-					.storage_deposit_limit(result_orig.storage_deposit.charge_or_zero().into())
-					.data(input.clone())
-					.build();
-				assert_err!(result.result, error);
-
-				// Check that it fails with too little proof_size
-				let result = builder::bare_call(addr_caller)
-					.gas_limit(result_orig.gas_required.sub_proof_size(1))
-					.storage_deposit_limit(result_orig.storage_deposit.charge_or_zero().into())
-					.data(input.clone())
-					.build();
-				assert_err!(result.result, error);
-			}
+			// Check that it fails with too little proof_size
+			let result = builder::bare_call(addr_caller)
+				.gas_limit(result_orig.gas_required.sub_proof_size(1))
+				.storage_deposit_limit(result_orig.storage_deposit.charge_or_zero().into())
+				.data(input.clone())
+				.build();
+			assert_err!(result.result, <Error<Test>>::OutOfGas);
 		}
 	});
 }
 
 #[test]
-fn gas_estimation_call_runtime() {
-	let (caller_code, _caller_hash) = compile_module("call_runtime").unwrap();
-	ExtBuilder::default().existential_deposit(50).build().execute_with(|| {
-		let min_balance = Contracts::min_balance();
-		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1000 * min_balance);
-		let _ = <Test as Config>::Currency::set_balance(&CHARLIE, 1000 * min_balance);
-
-		let Contract { addr: addr_caller, .. } =
-			builder::bare_instantiate(Code::Upload(caller_code))
-				.value(min_balance * 100)
-				.salt(Some([0; 32]))
-				.build_and_unwrap_contract();
-
-		// Call something trivial with a huge gas limit so that we can observe the effects
-		// of pre-charging. This should create a difference between consumed and required.
-		let call = RuntimeCall::Dummy(pallet_dummy::Call::overestimate_pre_charge {
-			pre_charge: Weight::from_parts(10_000_000, 1_000),
-			actual_weight: Weight::from_parts(100, 100),
-		});
-		let result = builder::bare_call(addr_caller).data(call.encode()).build();
-		// contract encodes the result of the dispatch runtime
-		let outcome = u32::decode(&mut result.result.unwrap().data.as_ref()).unwrap();
-		assert_eq!(outcome, 0);
-		assert!(result.gas_required.all_gt(result.gas_consumed));
-
-		// Make the same call using the required gas. Should succeed.
-		assert_ok!(
-			builder::bare_call(addr_caller)
-				.gas_limit(result.gas_required)
-				.data(call.encode())
-				.build()
-				.result
-		);
-	});
-}
-
-#[test]
 fn call_runtime_reentrancy_guarded() {
-	let (caller_code, _caller_hash) = compile_module("call_runtime").unwrap();
+	use crate::precompiles::Precompile;
+	use alloy_core::sol_types::SolInterface;
+	use precompiles::{INoInfo, NoInfo};
+
+	let precompile_addr = H160(NoInfo::<Test>::MATCHER.base_address());
+
 	let (callee_code, _callee_hash) = compile_module("dummy").unwrap();
 	ExtBuilder::default().existential_deposit(50).build().execute_with(|| {
 		let min_balance = Contracts::min_balance();
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1000 * min_balance);
 		let _ = <Test as Config>::Currency::set_balance(&CHARLIE, 1000 * min_balance);
-
-		let Contract { addr: addr_caller, .. } =
-			builder::bare_instantiate(Code::Upload(caller_code))
-				.value(min_balance * 100)
-				.salt(Some([0; 32]))
-				.build_and_unwrap_contract();
 
 		let Contract { addr: addr_callee, .. } =
 			builder::bare_instantiate(Code::Upload(callee_code))
@@ -2068,13 +1966,19 @@ fn call_runtime_reentrancy_guarded() {
 			gas_limit: GAS_LIMIT / 3,
 			storage_deposit_limit: deposit_limit::<Test>(),
 			data: vec![],
-		});
+		})
+		.encode();
 
 		// Call runtime to re-enter back to contracts engine by
 		// calling dummy contract
-		let result = builder::bare_call(addr_caller).data(call.encode()).build_and_unwrap_result();
+		let result = builder::bare_call(precompile_addr)
+			.data(
+				INoInfo::INoInfoCalls::callRuntime(INoInfo::callRuntimeCall { call: call.into() })
+					.abi_encode(),
+			)
+			.build();
 		// Call to runtime should fail because of the re-entrancy guard
-		assert_return_code!(result, RuntimeReturnCode::CallRuntimeFailed);
+		assert_err!(result.result, <Error<Test>>::ReenteredPallet);
 	});
 }
 
@@ -2121,67 +2025,6 @@ fn sr25519_verify() {
 		// verification should fail for other messages
 		assert_return_code!(call_with(&b"hello worlD"), RuntimeReturnCode::Sr25519VerifyFailed);
 	});
-}
-
-#[test]
-fn failed_deposit_charge_should_roll_back_call() {
-	let (wasm_caller, _) = compile_module("call_runtime_and_call").unwrap();
-	let (wasm_callee, _) = compile_module("store_call").unwrap();
-	const ED: u64 = 200;
-
-	let execute = || {
-		ExtBuilder::default().existential_deposit(ED).build().execute_with(|| {
-			let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
-
-			// Instantiate both contracts.
-			let caller = builder::bare_instantiate(Code::Upload(wasm_caller.clone()))
-				.build_and_unwrap_contract();
-			let Contract { addr: addr_callee, .. } =
-				builder::bare_instantiate(Code::Upload(wasm_callee.clone()))
-					.build_and_unwrap_contract();
-
-			// Give caller proxy access to Alice.
-			assert_ok!(Proxy::add_proxy(
-				RuntimeOrigin::signed(ALICE),
-				caller.account_id.clone(),
-				(),
-				0
-			));
-
-			// Create a Proxy call that will attempt to transfer away Alice's balance.
-			let transfer_call =
-				Box::new(RuntimeCall::Balances(pallet_balances::Call::transfer_allow_death {
-					dest: CHARLIE,
-					value: pallet_balances::Pallet::<Test>::free_balance(&ALICE) - (2 * ED + 48),
-				}));
-
-			// Wrap the transfer call in a proxy call.
-			let transfer_proxy_call = RuntimeCall::Proxy(pallet_proxy::Call::proxy {
-				real: ALICE,
-				force_proxy_type: Some(()),
-				call: transfer_call,
-			});
-
-			let data = (
-				1u32, // storage length
-				addr_callee,
-				transfer_proxy_call,
-			);
-
-			builder::call(caller.addr).data(data.encode()).build()
-		})
-	};
-
-	// With a low enough deposit per byte, the call should succeed.
-	let result = execute().unwrap();
-
-	// Bump the deposit per byte to a high value to trigger an error
-	DEPOSIT_PER_BYTE.with(|c| *c.borrow_mut() = 200);
-	assert_err_with_weight!(
-		execute(),
-		<Error<Test>>::StorageDepositNotEnoughFunds,
-		result.actual_weight
-	);
 }
 
 #[test]
@@ -3495,7 +3338,7 @@ fn create1_with_value_works() {
 		assert_ok!(builder::call(addr).value(value).data(code_hash.encode()).build());
 
 		// We should see the expected balance at the expected account
-		let address = crate::address::create1(&addr, 1);
+		let address = crate::address::create1(&addr, 0);
 		let account_id = <Test as Config>::AddressMapper::to_account_id(&address);
 		let usable_balance = <Test as Config>::Currency::usable_balance(&account_id);
 		assert_eq!(usable_balance, value);
@@ -4600,60 +4443,4 @@ fn precompiles_with_info_creates_contract() {
 			);
 		});
 	}
-}
-
-#[test]
-fn contracts_nonce_start_at_one() {
-	ExtBuilder::default().build().execute_with(|| {
-		ExtBuilder::default().existential_deposit(1).build().execute_with(|| {
-			let (code, _) = compile_module("dummy").unwrap();
-			let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
-			let Contract { account_id, .. } =
-				builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
-
-			// check contract's nonce
-			dbg!(System::account_nonce(&account_id));
-		});
-	})
-}
-
-#[test]
-fn tracing_playground() {
-	ExtBuilder::default().build().execute_with(|| {
-		let mut tracer = PrestateTracer::<Test>::new(PrestateTracerConfig {
-			disable_code: true,
-			diff_mode: false,
-			..Default::default()
-		});
-		let code =
-			include_bytes!("/home/pg/github/evm-test-suite/eth-rpc/pvm/PretraceFixture.polkavm")
-				.to_vec();
-
-		ExtBuilder::default().existential_deposit(1).build().execute_with(|| {
-			let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
-			let Contract { addr, .. } =
-				builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
-
-			System::inc_account_nonce(&BOB);
-			tracer.watch_address(&ALICE_ADDR);
-			tracer.watch_address(&BOB_ADDR);
-			trace(&mut tracer, || {
-				// read_storage
-				// let data = hex_literal::hex!("31fadddf").to_vec();
-				// write_storage
-				// let data = hex_literal::hex!(
-				// 	"41720c3e0000000000000000000000000000000000000000000000000000000000000002"
-				// )
-				// deposit
-				let data = hex_literal::hex!("d0e30db0").to_vec();
-
-				Pallet::<Test>::prepare_dry_run(&ALICE);
-				builder::bare_call(addr).data(data).build_and_unwrap_result();
-			});
-
-			let trace = tracer.collect_trace();
-			let json = serde_json::to_string_pretty(&trace).unwrap();
-			println!("Trace:\n{json}");
-		});
-	})
 }

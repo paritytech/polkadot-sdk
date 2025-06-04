@@ -30,7 +30,9 @@
 extern crate alloc;
 
 use cumulus_primitives_core::{
-	relay_chain::{BlakeTwo256, Hash as RelayHash, HashT as _, Header as RelayHeader},
+	relay_chain::{
+		vstaging::ApprovedPeerId, BlakeTwo256, Hash as RelayHash, HashT as _, Header as RelayHeader,
+	},
 	InboundDownwardMessage, InboundHrmpMessage, ParaId, PersistedValidationData,
 };
 
@@ -44,7 +46,7 @@ pub const INHERENT_IDENTIFIER: InherentIdentifier = *b"sysi1338";
 
 /// Legacy ParachainInherentData that is kept around for backward compatibility.
 /// Can be removed once we can safely assume that parachain nodes provide the
-/// `relay_parent_descendants` field.
+/// `relay_parent_descendants` and `collator_peer_id` fields.
 pub mod v0 {
 	use alloc::{collections::BTreeMap, vec::Vec};
 	use cumulus_primitives_core::{
@@ -115,6 +117,9 @@ pub struct ParachainInherentData {
 	/// This information is used to ensure that a parachain node builds blocks
 	/// at a specified offset from the chain tip rather than directly at the tip.
 	pub relay_parent_descendants: Vec<RelayHeader>,
+	/// Contains the collator peer ID, which is later sent by the parachain to the
+	/// relay chain via a UMP signal to promote the reputation of the given peer ID.
+	pub collator_peer_id: Option<ApprovedPeerId>,
 }
 
 // Upgrades the ParachainInherentData v0 to the newest format.
@@ -126,6 +131,7 @@ impl Into<ParachainInherentData> for v0::ParachainInherentData {
 			downward_messages: self.downward_messages,
 			horizontal_messages: self.horizontal_messages,
 			relay_parent_descendants: Vec::new(),
+			collator_peer_id: None,
 		}
 	}
 }
