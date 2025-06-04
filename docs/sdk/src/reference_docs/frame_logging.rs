@@ -3,6 +3,9 @@
 //! This reference docs briefly explores how to do logging and printing runtimes, mainly
 //! FRAME-based.
 //!
+//! > Please make sure to read [the section below](#using-logging-in-production) on using logging in
+//! > production.
+//!
 //! ## Using `println!`
 //!
 //! To recap, as with standard Rust, you can use `println!` _in your tests_, but it will only print
@@ -114,3 +117,22 @@
 //! [`crate::reference_docs::wasm_meta_protocol`]). The runtime uses a set of host functions under
 //! [`sp_io::logging`] and [`sp_io::misc`] to emit all logs and prints. You typically do not need to
 //! use these APIs directly.
+//!
+//! ## Using Logging in Production
+//!
+//! Note that within FRAME, reading storage values only for the purpose of logging is dangerous, and
+//! can lead to consensus issues. This is because with the introduction of
+//! [`crate::guides::enable_pov_reclaim`], the node side code will track the storage changes, and
+//! tries to update the onchain record of the weight used (stored in [`frame_system::BlockWeight`])
+//! after the block is over.
+//!
+//! If one node has a different log level enabled than the rest of the network, and the extra logs
+//! impose additional reads, the amount of weight reclaimed into [`frame_system::BlockWeight`] will
+//! be different, causing a state root mismatch, which is typically a fatal error emitted from
+//! [`frame_executive`].
+//!
+//! This also can also happen in a parachain context, and cause discrepancies between the relay
+//! chain and the parachain, when execution the Parachain Validation Function (PVF) on the relay
+//! chain.
+//!
+//! Please read [this issue](https://github.com/paritytech/polkadot-sdk/issues/8735#issuecomment-2940654438) for once instance of the consensus issues arised by this mistake.
