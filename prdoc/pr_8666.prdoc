@@ -8,13 +8,14 @@ doc:
     Option when no candidate solutions are available. This simplifies the API
     and improves code clarity by removing the need to handle None cases.
     - Similarly, updated `get_score` method now returns a default (0) score if no leader is available.
-    - Removed unused VerificationDataUnavailable
+    - Removed VerificationDataUnavailable now that `get_page` and `get_score` don't return an Option anymore
+    - Signed validation phase must now be a multiple of the number of pages
     - Moved verifier stop logic to internal pallet method, removing the trait-level stop function
     in favor of handling cleanup during verification failure.
     - Updated tests to reflect new behavior and remove defensive unwraps.
 
     Close security vulnerability found [here](https://github.com/paritytech-secops/srlabs_findings/issues/505).
-    A malicious miner could trigger panic in the EPMB pallet, submitting a very high score and then intentionally 
+    A malicious miner could trigger panic in the EPMB pallet, submitting a very high score and then intentionally
     failing in submitting one or more pages.
     A unit test replicating the vulnerability ensures that the fix works as expected (i.e. no panic, solution is rejected).
 crates:
