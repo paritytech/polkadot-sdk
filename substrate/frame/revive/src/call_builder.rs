@@ -33,8 +33,7 @@ use crate::{
 	transient_storage::MeterEntry,
 	wasm::{PreparedCall, Runtime},
 	BalanceOf, Code, CodeInfoOf, Config, ContractInfo, ContractInfoOf, DepositLimit, Error,
-	GasMeter, MomentOf, NonceAlreadyIncremented, Origin, Pallet as Contracts, PristineCode,
-	WasmBlob, Weight,
+	GasMeter, MomentOf, Origin, Pallet as Contracts, PristineCode, WasmBlob, Weight,
 };
 use alloc::{vec, vec::Vec};
 use frame_support::{storage::child, traits::fungible::Mutate};
@@ -83,7 +82,7 @@ where
 		let dest = contract.account_id.clone();
 		let origin = Origin::from_account_id(contract.caller.clone());
 
-		let storage_meter = Meter::new(&origin, default_deposit_limit::<T>(), 0u32.into()).unwrap();
+		let storage_meter = Meter::new(default_deposit_limit::<T>());
 
 		#[cfg(feature = "runtime-benchmarks")]
 		{
@@ -116,7 +115,7 @@ where
 
 	/// Set the meter's storage deposit limit.
 	pub fn set_storage_deposit_limit(&mut self, balance: BalanceOf<T>) {
-		self.storage_meter = Meter::new(&self.origin, balance, 0u32.into()).unwrap();
+		self.storage_meter = Meter::new(balance);
 	}
 
 	/// Set the call's origin.
@@ -271,7 +270,6 @@ where
 			Code::Upload(module.code),
 			data,
 			salt,
-			NonceAlreadyIncremented::No,
 		);
 
 		let address = outcome.result?.addr;

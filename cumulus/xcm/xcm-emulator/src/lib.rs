@@ -1201,6 +1201,8 @@ macro_rules! decl_test_networks {
 						relay_chain_state: proof,
 						downward_messages: Default::default(),
 						horizontal_messages: Default::default(),
+						relay_parent_descendants: Default::default(),
+						collator_peer_id: None,
 					}
 				}
 			}

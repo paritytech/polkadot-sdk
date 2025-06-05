@@ -475,6 +475,17 @@ where
 	}
 }
 
+/// Defensively truncate a value and convert it into its bounded form.
+pub trait DefensiveTruncateInto<T> {
+	/// Defensively truncate a value and convert it into its bounded form.
+	fn defensive_truncate_into(self) -> T;
+}
+
+impl<T, U: DefensiveTruncateFrom<T>> DefensiveTruncateInto<U> for T {
+	fn defensive_truncate_into(self) -> U {
+		U::defensive_truncate_from(self)
+	}
+}
 /// Defensively calculates the minimum of two values.
 ///
 /// Can be used in contexts where we assume the receiver value to be (strictly) smaller.
