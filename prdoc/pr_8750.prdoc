@@ -12,12 +12,16 @@ doc:
     ```
 crates:
 - name: frame-executive
-  bump: minor
+  bump: patch
 - name: frame-support
   bump: minor
 - name: sp-api-proc-macro
-  bump: major
+  bump: patch
 - name: sp-api
   bump: major
 - name: pallet-whitelist
-  bump: minor
+  bump: patch
+- name: sc-chain-spec
+  bump: none
+- name: staging-chain-spec-builder
+  bump: none
