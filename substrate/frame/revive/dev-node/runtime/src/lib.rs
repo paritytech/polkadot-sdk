@@ -182,7 +182,6 @@ impl EthExtra for EthExtraImpl {
 			pallet_transaction_payment::ChargeTransactionPayment::<Runtime>::from(tip),
 			frame_system::WeightReclaim::<Runtime>::new(),
 		)
-			.into()
 	}
 }
 
