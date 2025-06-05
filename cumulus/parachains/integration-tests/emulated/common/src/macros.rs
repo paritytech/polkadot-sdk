@@ -34,7 +34,7 @@ pub use xcm::{
 		ExpectTransactStatus, Fungible, GeneralIndex, Here, InitiateTransfer, Junction, Location,
 		MaybeErrorCode, OriginKind, Outcome, PalletInstance, Parachain, Parent, PayFees,
 		RefundSurplus, Transact, Unlimited, VersionedAssetId, VersionedAssets, VersionedLocation,
-		VersionedXcm, WeightLimit, Wild, WithdrawAsset, Xcm, XcmContext, XcmError, XCM_VERSION,
+		VersionedXcm, WeightLimit, Wild, WithdrawAsset, Xcm, XcmContext, XCM_VERSION,
 	},
 };
 

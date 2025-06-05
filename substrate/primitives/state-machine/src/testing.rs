@@ -205,7 +205,6 @@ where
 		(raw_key_values, *self.backend.root())
 	}
 
-
 	/// Return cloned underlying raw storage key/values and the root hash.
 	///
 	/// Useful for backing up the storage in a format that can be quickly re-loaded.
@@ -474,7 +473,6 @@ mod tests {
 		assert!(recovered_ext.backend.backend_storage().keys().values().all(|r| *r == 2));
 	}
 
-
 	#[test]
 	fn raw_storage_clone_and_restore() {
 		// Create a TestExternalities with some data in it.
@@ -528,8 +526,6 @@ mod tests {
 		// Ensure all have the correct ref count after importing
 		assert!(recovered_ext.backend.backend_storage().keys().values().all(|r| *r == 2));
 	}
-
-
 
 	#[test]
 	fn set_and_retrieve_code() {
