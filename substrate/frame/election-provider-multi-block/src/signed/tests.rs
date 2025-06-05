@@ -1187,7 +1187,7 @@ mod defensive_tests {
 	#[test]
 	#[cfg(debug_assertions)]
 	#[should_panic(expected = "Defensive failure has been triggered!")]
-	fn verification_data_unavailable_score_slashes_submitter() {
+	fn missing_leader_storage_triggers_defensive() {
 		// Call Verifier::start and mutate storage to delete the score of the leader.
 		// This creates the scenario where score becomes unavailable during verification
 		ExtBuilder::signed().build_and_execute(|| {
@@ -1228,23 +1228,6 @@ mod defensive_tests {
 
 			// Complete verification - this should trigger score unavailable detection
 			roll_next();
-
-			// Should have slashed the deposit (5 units)
-			assert_eq!(balances(99), (95, 0));
-
-			// Should have emitted the expected sequence of events
-			assert_eq!(
-				signed_events(),
-				vec![
-					SignedEvent::Registered(
-						0,
-						99,
-						ElectionScore { minimal_stake: 100, sum_stake: 0, sum_stake_squared: 0 }
-					),
-					SignedEvent::Stored(0, 99, 0),
-					SignedEvent::Slashed(0, 99, 5)
-				]
-			);
 		});
 	}
 
@@ -1261,6 +1244,22 @@ mod defensive_tests {
 
 			// get_score should trigger defensive failure when no leader exists
 			let _score = SignedPallet::get_score();
+		});
+	}
+
+	#[test]
+	#[should_panic(expected = "Defensive failure has been triggered!")]
+	fn get_page_defensive_when_no_leader() {
+		// Test that get_page() triggers defensive failure when no leader exists
+		ExtBuilder::signed().build_and_execute(|| {
+			// Ensure we're in signed phase but no submissions exist
+			roll_to_signed_open();
+
+			// Verify no leader exists
+			assert_eq!(Submissions::<Runtime>::leader(SignedPallet::current_round()), None);
+
+			// get_page should trigger defensive failure when no leader exists
+			let _page = SignedPallet::get_page(0);
 		});
 	}
 }
