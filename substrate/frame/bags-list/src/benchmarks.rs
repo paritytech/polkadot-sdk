@@ -26,7 +26,7 @@ use frame_benchmarking::v1::{
 use frame_election_provider_support::ScoreProvider;
 use frame_support::{assert_ok, traits::Get};
 use frame_system::RawOrigin as SystemOrigin;
-use sp_runtime::traits::{One, Zero};
+use sp_runtime::traits::{One};
 
 benchmarks_instance_pallet! {
 	// iteration of any number of items should only touch that many nodes and bags.
@@ -349,36 +349,30 @@ benchmarks_instance_pallet! {
 	}
 
 	on_idle {
-		// This benchmark simulates the worst-case scenario for the `on_idle` hook.
+		// This benchmark generates weights for `on_idle` based on runtime configuration.
 		//
-		// Scenario:
-		// - 50,000 nodes are created
-		// - half of them have different bag thresholds (rebags will happen)
-		// - 10 rebags budget
+		// The main input is the runtime's AutoRebagPerBlock type, which defines how many
+		// nodes can be rebagged per block. This benchmark simulates the worst-case rebag
+		// scenario while ensuring we only rebag exactly `AutoRebagPerBlock` nodes.
 
-		let rebag_budget = 10;
-		assert_eq!(
-			<T as Config<I>>::AutoRebagPerBlock::get(),
-			rebag_budget,
-			"AutoRebagPerBlock must be 10 for benchmark accuracy"
-		);
-
+		// given: a list of nodes longer than rebag budget, all in the same bag
 		List::<T, _>::unsafe_clear();
 
 		let bag_thresh_1 = T::BagThresholds::get()[0];
 		let bag_thresh_2 = T::BagThresholds::get()[1];
 
-		let n = 50_000;
+		let rebag_budget = <T as Config<I>>::AutoRebagPerBlock::get();
+		let n = rebag_budget + 1;
 		for i in 0..n {
 			let node: T::AccountId = account("node", i, 0);
 			assert_ok!(List::<T, _>::insert(node.clone(), bag_thresh_1 - One::one()));
 		}
 
-		for i in 0..n/2 {
+		for i in 0..n {
 			let node: T::AccountId = account("node", i, 0);
 			T::ScoreProvider::set_score_of(&node, bag_thresh_2);
 		}
-
+		// all inserted nodes ended up in a bag with threshold bag_thresh_1
 		assert_eq!(
 			List::<T, _>::get_bags()
 				.into_iter()
@@ -386,26 +380,22 @@ benchmarks_instance_pallet! {
 				.collect::<Vec<_>>(),
 			vec![(bag_thresh_1, n as usize)]
 		);
-		}: {
-			use frame_support::traits::Hooks;
-			let weight_used = <Pallet<T, I> as Hooks<_>>::on_idle(0u32.into(), Weight::MAX);
-	assert!(
-		!weight_used.is_zero(),
-		"Weight used should be greater than zero"
-	);}
-
+	}
+	: {
+		use frame_support::traits::Hooks;
+		<Pallet<T, I> as Hooks<_>>::on_idle(0u32.into(), Weight::MAX);
+	}
 	verify {
-		let moved_nodes = List::<T, _>::get_bags()
+		let moved = List::<T, _>::get_bags()
 			.into_iter()
 			.find(|(bag, _)| *bag == bag_thresh_2)
-			.map(|(_, nodes)| nodes.len())
+			.map(|(_, v)| v.len())
 			.unwrap_or(0);
 
-		assert!(
-			moved_nodes > 0 && moved_nodes <= rebag_budget as usize,
-			"Expected 1 to {} nodes moved to second bag, got {}",
-			rebag_budget,
-			moved_nodes
+		assert_eq!(
+			moved,
+			rebag_budget as usize,
+			"Expected exactly rebag_budget nodes to be rebagged"
 		);
 	}
 

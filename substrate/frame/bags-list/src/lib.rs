@@ -237,7 +237,7 @@ pub mod pallet {
 		/// Maximum number of accounts that may be re-bagged automatically in `on_idle`.
 		///
 		/// A value of `0` (obtained by configuring `type AutoRebagPerBlock = ();`) disables
-		/// the feature. 
+		/// the feature.
 		/// versions.
 		#[pallet::constant]
 		type AutoRebagPerBlock: Get<u32>;
@@ -505,17 +505,12 @@ pub mod pallet {
 			}
 
 			match next_cursor.first() {
-				// Candidate was already processed in this block — avoid looping.
-				//
-				// This check prevents re-processing the same node multiple times within a single block,
-				// which can happen if `on_idle()` is invoked more than once in the same block
-				// (e.g. via test harnesses or incorrect runtime integration).
-				//
-				// Not strictly necessary in production — `on_idle()` is guaranteed to run only once per block,
-				// but we keep it as a guard against misuse or bugs in tests.
+				// Defensive check: prevents re-processing the same node multiple times within a single block.
+				// This situation should not occur during normal execution, but can happen in test environments
+				// or if `on_idle()` is invoked more than once per block (e.g. via custom test harnesses or manual calls).
 				Some(next) if to_process.contains(next) => {
 					NextNodeAutoRebagged::<T, I>::kill();
-					log!(debug, "Loop detected: {:?} already processed — cursor killed", next);
+					defensive!("Loop detected: {:?} already processed — cursor killed", next);
 				},
 				// Normal case: save the next node as a cursor for the following block.
 				Some(next) => {
