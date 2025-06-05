@@ -169,7 +169,6 @@ mod test {
 	use sp_runtime::traits::AccountIdConversion;
 	use xcm::prelude::*;
 
-	const ALICE: AccountId = AccountId::new([0u8; 32]);
 	const BOB: AccountId = AccountId::new([1u8; 32]);
 	const CHARLIE: AccountId = AccountId::new([2u8; 32]);
 	const SEND_AMOUNT: u128 = 10;

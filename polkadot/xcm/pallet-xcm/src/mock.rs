@@ -741,6 +741,8 @@ pub(crate) fn buy_limited_execution<C>(
 	BuyExecution { fees: fees.into(), weight_limit }
 }
 
+pub const ALICE: AccountId32 = AccountId::new([0u8; 32]);
+
 pub(crate) fn new_test_ext_with_balances(
 	balances: Vec<(AccountId, Balance)>,
 ) -> sp_io::TestExternalities {
@@ -757,8 +759,6 @@ pub(crate) fn new_test_ext_with_balances_and_xcm_version(
 ) -> sp_io::TestExternalities {
 	let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 
-	let alice = balances.first().expect("balances should not be empty").0.clone();
-
 	pallet_balances::GenesisConfig::<Test> { balances, ..Default::default() }
 		.assimilate_storage(&mut t)
 		.unwrap();
@@ -767,7 +767,7 @@ pub(crate) fn new_test_ext_with_balances_and_xcm_version(
 		.assimilate_storage(&mut t)
 		.unwrap();
 
-	pallet_revive::GenesisConfig::<Test> { mapped_accounts: vec![alice] }
+	pallet_revive::GenesisConfig::<Test> { mapped_accounts: vec![ALICE] }
 		.assimilate_storage(&mut t)
 		.unwrap();
 
