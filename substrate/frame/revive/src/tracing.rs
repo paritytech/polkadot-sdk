@@ -58,8 +58,9 @@ pub trait Tracing {
 	) {
 	}
 
-	/// Register the contract's code being instantiated.
+	/// Record the next code and salt to be instantiated.
 	fn instantiate_code(&mut self, _code: &Code, _salt: Option<&[u8; 32]>) {}
+
 	/// Called when a balance is read
 	fn balance_read(&mut self, _addr: &H160, _value: U256) {}
 

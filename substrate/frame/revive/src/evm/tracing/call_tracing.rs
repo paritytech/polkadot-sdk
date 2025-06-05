@@ -32,7 +32,7 @@ pub struct CallTracer<Gas, GasMapper> {
 	traces: Vec<CallTrace<Gas>>,
 	/// Stack of indices to the current active traces.
 	current_stack: Vec<usize>,
-	/// The code about to be instantiated.
+	/// The code and salt used to instantiate the next contract.
 	code_with_salt: Option<(Code, bool)>,
 	/// The tracer configuration.
 	config: CallTracerConfig,
