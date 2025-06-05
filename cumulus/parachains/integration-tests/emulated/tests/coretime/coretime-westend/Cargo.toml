@@ -13,6 +13,7 @@ workspace = true
 [dependencies]
 # Substrate
 frame-support = { workspace = true }
+pallet-balances = { workspace = true }
 pallet-broker = { workspace = true, default-features = true }
 pallet-message-queue = { workspace = true }
 pallet-xcm = { workspace = true }
@@ -25,6 +26,8 @@ xcm = { workspace = true }
 xcm-executor = { workspace = true }
 
 # Cumulus
+asset-test-utils = { workspace = true, default-features = true }
 cumulus-pallet-parachain-system = { workspace = true, default-features = true }
 emulated-integration-tests-common = { workspace = true }
+parachains-common = { workspace = true, default-features = true }
 westend-system-emulated-network = { workspace = true }
