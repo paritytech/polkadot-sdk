@@ -899,14 +899,9 @@ impl<T: Config> ElectionDataProvider for Pallet<T> {
 
 		log!(
 			debug,
-			"[page {}, status {:?} (stake?: {:?}), bounds {:?}] generated {} npos voters",
+			"[page {}, (next) status {:?}, bounds {:?}] generated {} npos voters",
 			page,
-			VoterSnapshotStatus::<T>::get(),
-			if let SnapshotStatus::Ongoing(x) = VoterSnapshotStatus::<T>::get() {
-				Self::weight_of(&x)
-			} else {
-				Zero::zero()
-			},
+			status,
 			bounds,
 			voters.len(),
 		);
@@ -917,7 +912,6 @@ impl<T: Config> ElectionDataProvider for Pallet<T> {
 		}
 
 		VoterSnapshotStatus::<T>::put(status);
-
 		debug_assert!(!bounds.slice_exhausted(&voters));
 
 		Ok(voters)
@@ -927,13 +921,7 @@ impl<T: Config> ElectionDataProvider for Pallet<T> {
 		bounds: DataProviderBounds,
 	) -> data_provider::Result<Vec<VoterOf<Self>>> {
 		let voters = Self::get_npos_voters(bounds, &SnapshotStatus::Waiting);
-		log!(
-			debug,
-			"[stateless, status {:?}, bounds {:?}] generated {} npos voters",
-			VoterSnapshotStatus::<T>::get(),
-			bounds,
-			voters.len(),
-		);
+		log!(debug, "[stateless, bounds {:?}] generated {} npos voters", bounds, voters.len(),);
 		Ok(voters)
 	}
 
