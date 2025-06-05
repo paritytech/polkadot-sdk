@@ -43,6 +43,9 @@ pub const VALID_INCLUDED_CANDIDATE_BUMP: u16 = 50;
 /// authored by the peer)
 pub const INACTIVITY_DECAY: u16 = 1;
 
+/// Maximum number of stored peer scores for a paraid. Should be greater than
+/// `CONNECTED_PEERS_PARA_LIMIT`.
+pub const MAX_STORED_SCORES_PER_PARA: u8 = 150;
 /// Reputation score type.
 #[derive(PartialEq, Eq, PartialOrd, Ord, Debug, Clone, Copy, Default)]
 pub struct Score(u16);

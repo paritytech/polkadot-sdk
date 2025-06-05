@@ -26,7 +26,7 @@ use sp_runtime::traits::{Block as BlockT, HashingFor};
 use sp_state_machine::Storage;
 use sp_storage::{ChildInfo, ChildType, PrefixedStorageKey, StateVersion};
 
-use clap::{Args, Parser};
+use clap::{Args, Parser, ValueEnum};
 use log::info;
 use rand::prelude::*;
 use serde::Serialize;
@@ -35,6 +35,16 @@ use std::{fmt::Debug, path::PathBuf, sync::Arc};
 
 use super::template::TemplateData;
 use crate::shared::{new_rng, HostInfoParams, WeightParams};
+
+/// The mode in which to run the storage benchmark.
+#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Serialize, ValueEnum)]
+pub enum StorageBenchmarkMode {
+	/// Run the benchmark for block import.
+	#[default]
+	ImportBlock,
+	/// Run the benchmark for block validation.
+	ValidateBlock,
+}
 
 /// Benchmark the storage speed of a chain snapshot.
 #[derive(Debug, Parser)]
@@ -129,13 +139,36 @@ pub struct StorageParams {
 	#[arg(long, default_value = "false")]
 	pub disable_pov_recorder: bool,
 
-	/// The batch size for the write benchmark.
+	/// The batch size for the read/write benchmark.
 	///
 	/// Since the write size needs to also include the cost of computing the storage root, which is
 	/// done once at the end of the block, the batch size is used to simulate multiple writes in a
 	/// block.
 	#[arg(long, default_value_t = 100_000)]
 	pub batch_size: usize,
+
+	/// The mode in which to run the storage benchmark.
+	///
+	/// PoV recorder must be activated to provide a storage proof for block validation at runtime.
+	#[arg(long, value_enum, default_value_t = StorageBenchmarkMode::ImportBlock)]
+	pub mode: StorageBenchmarkMode,
+
+	/// Number of rounds to execute block validation during the benchmark.
+	///
+	/// We need to run the benchmark several times to avoid fluctuations during runtime setup.
+	/// This is only used when `mode` is `validate-block`.
+	#[arg(long, default_value_t = 20)]
+	pub validate_block_rounds: u32,
+}
+
+impl StorageParams {
+	pub fn is_import_block_mode(&self) -> bool {
+		matches!(self.mode, StorageBenchmarkMode::ImportBlock)
+	}
+
+	pub fn is_validate_block_mode(&self) -> bool {
+		matches!(self.mode, StorageBenchmarkMode::ValidateBlock)
+	}
 }
 
 impl StorageCmd {

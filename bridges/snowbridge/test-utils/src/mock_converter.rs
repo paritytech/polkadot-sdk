@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: 2023 Snowfork <hello@snowfork.com>
 
 use codec::Encode;
-use frame_support::sp_runtime::traits::MaybeEquivalence;
+use frame_support::sp_runtime::traits::MaybeConvert;
 use snowbridge_core::TokenIdOf;
 use sp_core::H256;
 use std::{cell::RefCell, collections::HashMap};
@@ -35,12 +35,8 @@ pub fn reanchor_to_ethereum(
 }
 
 pub struct LocationIdConvert;
-impl MaybeEquivalence<H256, Location> for LocationIdConvert {
-	fn convert(id: &H256) -> Option<Location> {
-		IDENTIFIER_TO_LOCATION.with(|b| b.borrow().get(id).and_then(|l| Option::from(l.clone())))
-	}
-	fn convert_back(lol: &Location) -> Option<H256> {
-		LOCATION_TO_IDENTIFIER
-			.with(|b| b.borrow().get(&lol.encode()).and_then(|id| Option::from(*id)))
+impl MaybeConvert<H256, Location> for LocationIdConvert {
+	fn maybe_convert(id: H256) -> Option<Location> {
+		IDENTIFIER_TO_LOCATION.with(|b| b.borrow().get(&id).and_then(|l| Option::from(l.clone())))
 	}
 }

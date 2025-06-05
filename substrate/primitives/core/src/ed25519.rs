@@ -17,9 +17,12 @@
 
 //! Simple Ed25519 API.
 
-use crate::crypto::{
-	ByteArray, CryptoType, CryptoTypeId, DeriveError, DeriveJunction, Pair as TraitPair,
-	PublicBytes, SecretStringError, SignatureBytes,
+use crate::{
+	crypto::{
+		ByteArray, CryptoType, CryptoTypeId, DeriveError, DeriveJunction, Pair as TraitPair,
+		PublicBytes, SecretStringError, SignatureBytes,
+	},
+	proof_of_possession::NonAggregatable,
 };
 
 use ed25519_zebra::{SigningKey, VerificationKey};
@@ -153,12 +156,17 @@ impl CryptoType for Pair {
 	type Pair = Pair;
 }
 
+impl NonAggregatable for Pair {}
+
 #[cfg(test)]
 mod tests {
 	use super::*;
 	#[cfg(feature = "serde")]
 	use crate::crypto::Ss58Codec;
-	use crate::crypto::DEV_PHRASE;
+	use crate::{
+		crypto::DEV_PHRASE,
+		proof_of_possession::{ProofOfPossessionGenerator, ProofOfPossessionVerifier},
+	};
 	use serde_json;
 
 	#[test]
@@ -327,5 +335,17 @@ mod tests {
 		assert!(deserialize_signature("\"Not an actual signature.\"").is_err());
 		// Poorly-sized
 		assert!(deserialize_signature("\"abc123\"").is_err());
+	}
+
+	#[test]
+	fn good_proof_of_possession_should_work_bad_proof_of_possession_should_fail() {
+		let mut pair = Pair::from_seed(b"12345678901234567890123456789012");
+		let other_pair = Pair::from_seed(b"23456789012345678901234567890123");
+		let proof_of_possession = pair.generate_proof_of_possession();
+		assert!(Pair::verify_proof_of_possession(&proof_of_possession, &pair.public()));
+		assert_eq!(
+			Pair::verify_proof_of_possession(&proof_of_possession, &other_pair.public()),
+			false
+		);
 	}
 }
