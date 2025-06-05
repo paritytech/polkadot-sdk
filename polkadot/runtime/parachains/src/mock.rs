@@ -470,12 +470,33 @@ impl crate::inclusion::WeightInfo for InclusionWeightInfo {
 	}
 }
 
+pub struct AggregateMessageOriginConverter;
+
+impl sp_runtime::traits::Convert<ParaId, AggregateMessageOrigin>
+	for AggregateMessageOriginConverter
+{
+	fn convert(para: ParaId) -> AggregateMessageOrigin {
+		AggregateMessageOrigin::Ump(UmpQueueId::Para(para))
+	}
+}
+impl sp_runtime::traits::ConvertBack<ParaId, AggregateMessageOrigin>
+	for AggregateMessageOriginConverter
+{
+	fn convert_back(origin: AggregateMessageOrigin) -> ParaId {
+		match origin {
+			AggregateMessageOrigin::Ump(UmpQueueId::Para(para_id)) => para_id,
+		}
+	}
+}
+
 impl crate::inclusion::Config for Test {
 	type WeightInfo = InclusionWeightInfo;
 	type RuntimeEvent = RuntimeEvent;
 	type DisputesHandler = Disputes;
 	type RewardValidators = TestRewardValidators;
 	type MessageQueue = MessageQueue;
+	type AggregateMessageOrigin = AggregateMessageOrigin;
+	type AggregateMessageOriginConverter = AggregateMessageOriginConverter;
 }
 
 impl crate::paras_inherent::Config for Test {
@@ -651,7 +672,7 @@ impl ProcessMessage for TestProcessMessage {
 			Err(_) => return Err(ProcessMessageError::Corrupt), // same as the real `ProcessMessage`
 		};
 		if meter.try_consume(required).is_err() {
-			return Err(ProcessMessageError::Overweight(required))
+			return Err(ProcessMessageError::Overweight(required));
 		}
 
 		let mut processed = Processed::get();
