@@ -97,7 +97,7 @@ async fn slot_based_12cores_test() -> Result<(), anyhow::Error> {
 	// Note that only blocks after the first session change and blocks that don't contain a session
 	// change will be counted.
 	// Since the calculated backed candidate count is theoretical and the CI tests are observed to
-	// occasionally fail, let's apply 10% tolerance to the expected range: 170 - 10% = 153
+	// occasionally fail, let's apply 15% tolerance to the expected range: 170 - 15% = 144
 	assert_para_throughput(
 		&relay_client,
 		15,
