@@ -670,6 +670,39 @@ where
 		}
 	}
 
+	/// Actually execute all transitions for `block` without final checks.
+	/// Should be used only for tracing purposes.
+	pub fn execute_block_without_final_checks(block: Block) {
+		sp_io::init_tracing();
+		sp_tracing::within_span! {
+			sp_tracing::info_span!("execute_block", ?block);
+			// Execute `on_runtime_upgrade` and `on_initialize`.
+			let mode = Self::initialize_block(block.header());
+			let num_inherents = Self::initial_checks(&block) as usize;
+			let (header, extrinsics) = block.deconstruct();
+			let num_extrinsics = extrinsics.len();
+
+			if mode == ExtrinsicInclusionMode::OnlyInherents && num_extrinsics > num_inherents {
+				// Invalid block
+				panic!("Only inherents are allowed in this block")
+			}
+
+			Self::apply_extrinsics(extrinsics.into_iter());
+
+			// In this case there were no transactions to trigger this state transition:
+			if !<frame_system::Pallet<System>>::inherents_applied() {
+				defensive_assert!(num_inherents == num_extrinsics);
+				Self::inherents_applied();
+			}
+
+			<frame_system::Pallet<System>>::note_finished_extrinsics();
+			<System as frame_system::Config>::PostTransactions::post_transactions();
+
+			Self::on_idle_hook(*header.number());
+			Self::on_finalize_hook(*header.number());
+		}
+	}
+
 	/// Logic that runs directly after inherent application.
 	///
 	/// It advances the Multi-Block-Migrations or runs the `on_poll` hook.

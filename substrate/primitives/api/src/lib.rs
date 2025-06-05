@@ -818,6 +818,8 @@ decl_runtime_apis! {
 		fn version() -> RuntimeVersion;
 		/// Execute the given block.
 		fn execute_block(block: Block);
+		/// Execute the given block without final checks.
+		fn execute_block_without_final_checks(block: Block);
 		/// Initialize a block with the given header.
 		#[changed_in(5)]
 		#[renamed("initialise_block", 2)]

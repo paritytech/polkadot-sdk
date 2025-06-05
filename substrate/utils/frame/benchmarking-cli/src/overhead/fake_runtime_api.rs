@@ -47,6 +47,10 @@ sp_api::impl_runtime_apis! {
 			unimplemented!()
 		}
 
+		fn execute_block_without_final_checks(_: Block) {
+			unimplemented!()
+		}
+
 		fn initialize_block(_: &<Block as BlockT>::Header) -> sp_runtime::ExtrinsicInclusionMode {
 			unimplemented!()
 		}

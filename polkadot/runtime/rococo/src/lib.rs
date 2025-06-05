@@ -1859,6 +1859,10 @@ sp_api::impl_runtime_apis! {
 			Executive::execute_block(block);
 		}
 
+		fn execute_block_without_final_checks(block: Block) {
+			Executive::execute_block_without_final_checks(block)
+		}
+
 		fn initialize_block(header: &<Block as BlockT>::Header) -> sp_runtime::ExtrinsicInclusionMode {
 			Executive::initialize_block(header)
 		}
