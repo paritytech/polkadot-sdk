@@ -19225,6 +19225,7 @@ dependencies = [
  "docify",
  "memmap2 0.9.3",
  "parity-scale-codec",
+ "pretty_assertions",
  "regex",
  "sc-chain-spec-derive",
  "sc-client-api",
