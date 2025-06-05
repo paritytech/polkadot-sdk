@@ -1,0 +1,7 @@
+title: '[pallet-revive] contract''s nonce starts at 1'
+doc:
+- audience: Runtime Dev
+  description: nonce starting value should be 1 see https://github.com/ethereum/EIPs/blob/master/EIPS/eip-161.md
+crates:
+- name: pallet-revive
+  bump: minor

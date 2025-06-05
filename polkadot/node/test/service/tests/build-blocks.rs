@@ -30,7 +30,7 @@ async fn ensure_test_service_build_blocks() {
 		Vec::new(),
 		true,
 	);
-	let mut alice = run_validator_node(alice_config, None);
+	let mut alice = run_validator_node(alice_config, None).await;
 
 	let bob_config = node_config(
 		|| {},
@@ -39,7 +39,7 @@ async fn ensure_test_service_build_blocks() {
 		vec![alice.addr.clone()],
 		true,
 	);
-	let mut bob = run_validator_node(bob_config, None);
+	let mut bob = run_validator_node(bob_config, None).await;
 
 	{
 		let t1 = future::join(alice.wait_for_blocks(3), bob.wait_for_blocks(3)).fuse();
