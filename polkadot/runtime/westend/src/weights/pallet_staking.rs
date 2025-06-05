@@ -826,4 +826,16 @@ impl<T: frame_system::Config> pallet_staking::WeightInfo for WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().reads(5))
 			.saturating_add(T::DbWeight::get().writes(4))
 	}
+
+	fn add_to_validator_whitelist() -> Weight {
+		Weight::zero()
+	}
+
+	fn remove_from_validator_whitelist() -> Weight {
+		Weight::zero()
+	}
+
+	fn set_is_validator_whitelist_enabled() -> Weight {
+		Weight::zero()
+	}
 }

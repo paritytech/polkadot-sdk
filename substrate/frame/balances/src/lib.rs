@@ -149,6 +149,7 @@ pub mod migration;
 mod tests;
 mod types;
 pub mod weights;
+mod impl_treasury;
 
 extern crate alloc;
 
