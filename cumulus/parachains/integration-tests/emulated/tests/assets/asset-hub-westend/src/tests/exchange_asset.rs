@@ -31,19 +31,24 @@ use frame_support::{
 use parachains_common::{AccountId, Balance};
 use sp_tracing::capture_test_logs;
 use std::convert::Into;
-use xcm::latest::{Assets, Location, Xcm};
+use xcm::latest::{Assets, Error as XcmError, Location, Xcm};
 
 const UNITS: Balance = 1_000_000_000;
 
 #[test]
 fn exchange_asset_success() {
-	test_exchange_asset(true, 500 * UNITS, 665 * UNITS, true);
+	test_exchange_asset(true, 500 * UNITS, 665 * UNITS, None);
 }
 
 #[test]
 fn exchange_asset_insufficient_liquidity() {
 	let log_capture = capture_test_logs!({
-		test_exchange_asset(true, 1_000 * UNITS, 2_000 * UNITS, false);
+		test_exchange_asset(
+			true,
+			1_000 * UNITS,
+			2_000 * UNITS,
+			Some(InstructionError { index: 1, error: XcmError::NoDeal }),
+		);
 	});
 	assert!(log_capture.contains("NoDeal"));
 }
@@ -51,21 +56,31 @@ fn exchange_asset_insufficient_liquidity() {
 #[test]
 fn exchange_asset_insufficient_balance() {
 	let log_capture = capture_test_logs!({
-		test_exchange_asset(true, 5_000 * UNITS, 1_665 * UNITS, false);
+		test_exchange_asset(
+			true,
+			5_000 * UNITS,
+			1_665 * UNITS,
+			Some(InstructionError { index: 0, error: XcmError::FailedToTransactAsset("") }),
+		);
 	});
 	assert!(log_capture.contains("Funds are unavailable"));
 }
 
 #[test]
 fn exchange_asset_pool_not_created() {
-	test_exchange_asset(false, 500 * UNITS, 665 * UNITS, false);
+	test_exchange_asset(
+		false,
+		500 * UNITS,
+		665 * UNITS,
+		Some(InstructionError { index: 1, error: XcmError::NoDeal }),
+	);
 }
 
 fn test_exchange_asset(
 	create_pool: bool,
 	give_amount: Balance,
 	want_amount: Balance,
-	should_succeed: bool,
+	expected_error: Option<InstructionError>,
 ) {
 	let alice: AccountId = Westend::account_id_of(ALICE);
 	let native_asset_location = WestendLocation::get();
@@ -112,20 +127,13 @@ fn test_exchange_asset(
 		let foreign_balance_after = ForeignAssets::balance(asset_location, &alice);
 		let wnd_balance_after = Balances::total_balance(&alice);
 
-		if should_succeed {
-			assert_ok!(result);
-			assert!(
-				foreign_balance_after >= foreign_balance_before + want_amount,
-				"Expected foreign balance to increase by at least {want_amount} units, got {foreign_balance_after} from {foreign_balance_before}"
-			);
-			assert_eq!(
-				wnd_balance_after, wnd_balance_before - give_amount,
-				"Expected WND balance to decrease by {give_amount} units, got {wnd_balance_after} from {wnd_balance_before}"
-			);
-		} else {
+		if let Some(InstructionError { index, error }) = expected_error {
 			assert_err_ignore_postinfo!(
 				result,
-				pallet_xcm::Error::<Runtime>::LocalExecutionIncomplete
+				pallet_xcm::Error::<Runtime>::LocalExecutionIncompleteWithError {
+					index,
+					error: error.into()
+				}
 			);
 			assert_eq!(
 				foreign_balance_after, foreign_balance_before,
@@ -134,6 +142,16 @@ fn test_exchange_asset(
 			assert_eq!(
 				wnd_balance_after, wnd_balance_before,
 				"WND balance changed unexpectedly: got {wnd_balance_after}, expected {wnd_balance_before}"
+			);
+		} else {
+			assert_ok!(result);
+			assert!(
+				foreign_balance_after >= foreign_balance_before + want_amount,
+				"Expected foreign balance to increase by at least {want_amount} units, got {foreign_balance_after} from {foreign_balance_before}"
+			);
+			assert_eq!(
+				wnd_balance_after, wnd_balance_before - give_amount,
+				"Expected WND balance to decrease by {give_amount} units, got {wnd_balance_after} from {wnd_balance_before}"
 			);
 		}
 	});

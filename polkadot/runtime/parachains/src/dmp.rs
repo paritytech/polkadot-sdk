@@ -44,7 +44,7 @@
 
 use crate::{
 	configuration::{self, HostConfiguration},
-	initializer, paras, FeeTracker,
+	initializer, paras, FeeTracker, GetMinFeeFactor,
 };
 use alloc::vec::Vec;
 use core::fmt;
@@ -54,7 +54,7 @@ use polkadot_primitives::{DownwardMessage, Hash, Id as ParaId, InboundDownwardMe
 use sp_core::MAX_POSSIBLE_ALLOCATION;
 use sp_runtime::{
 	traits::{BlakeTwo256, Hash as HashT, SaturatedConversion},
-	FixedU128, Saturating,
+	FixedU128,
 };
 use xcm::latest::SendError;
 
@@ -64,11 +64,9 @@ pub use pallet::*;
 mod tests;
 
 const THRESHOLD_FACTOR: u32 = 2;
-const EXPONENTIAL_FEE_BASE: FixedU128 = FixedU128::from_rational(105, 100); // 1.05
-const MESSAGE_SIZE_FEE_BASE: FixedU128 = FixedU128::from_rational(1, 1000); // 0.001
 
 /// An error sending a downward message.
-#[cfg_attr(test, derive(Debug))]
+#[derive(Debug)]
 pub enum QueueDownwardMessageError {
 	/// The message being sent exceeds the configured max message size.
 	ExceedsMaxMessageSize,
@@ -142,16 +140,10 @@ pub mod pallet {
 	pub(crate) type DownwardMessageQueueHeads<T: Config> =
 		StorageMap<_, Twox64Concat, ParaId, Hash, ValueQuery>;
 
-	/// Initialization value for the DeliveryFee factor.
-	#[pallet::type_value]
-	pub fn InitialFactor() -> FixedU128 {
-		FixedU128::from_u32(1)
-	}
-
 	/// The factor to multiply the base delivery fee by.
 	#[pallet::storage]
 	pub(crate) type DeliveryFeeFactor<T: Config> =
-		StorageMap<_, Twox64Concat, ParaId, FixedU128, ValueQuery, InitialFactor>;
+		StorageMap<_, Twox64Concat, ParaId, FixedU128, ValueQuery, GetMinFeeFactor<Pallet<T>>>;
 }
 /// Routines and getters related to downward message passing.
 impl<T: Config> Pallet<T> {
@@ -224,7 +216,7 @@ impl<T: Config> Pallet<T> {
 		para: ParaId,
 		msg: DownwardMessage,
 	) -> Result<(), QueueDownwardMessageError> {
-		let serialized_len = msg.len() as u32;
+		let serialized_len = msg.len();
 		Self::can_queue_downward_message(config, &para, &msg)?;
 
 		let inbound =
@@ -245,9 +237,7 @@ impl<T: Config> Pallet<T> {
 		let threshold =
 			Self::dmq_max_length(config.max_downward_message_size).saturating_div(THRESHOLD_FACTOR);
 		if q_len > (threshold as usize) {
-			let message_size_factor = FixedU128::from((serialized_len / 1024) as u128)
-				.saturating_mul(MESSAGE_SIZE_FEE_BASE);
-			Self::increase_fee_factor(para, message_size_factor);
+			Self::increase_fee_factor(para, serialized_len as u128);
 		}
 
 		Ok(())
@@ -355,18 +345,8 @@ impl<T: Config> FeeTracker for Pallet<T> {
 		DeliveryFeeFactor::<T>::get(id)
 	}
 
-	fn increase_fee_factor(id: Self::Id, message_size_factor: FixedU128) -> FixedU128 {
-		DeliveryFeeFactor::<T>::mutate(id, |f| {
-			*f = f.saturating_mul(EXPONENTIAL_FEE_BASE.saturating_add(message_size_factor));
-			*f
-		})
-	}
-
-	fn decrease_fee_factor(id: Self::Id) -> FixedU128 {
-		DeliveryFeeFactor::<T>::mutate(id, |f| {
-			*f = InitialFactor::get().max(*f / EXPONENTIAL_FEE_BASE);
-			*f
-		})
+	fn set_fee_factor(id: Self::Id, val: FixedU128) {
+		<DeliveryFeeFactor<T>>::set(id, val);
 	}
 }
 

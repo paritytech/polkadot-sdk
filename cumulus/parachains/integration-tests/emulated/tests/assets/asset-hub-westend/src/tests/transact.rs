@@ -113,7 +113,14 @@ fn transact_from_para_to_para_through_asset_hub() {
 
 	// We create a pool between WND and USDT in AssetHub.
 	let usdt = Location::new(0, [PalletInstance(ASSETS_PALLET_ID), GeneralIndex(USDT_ID.into())]);
-	create_pool_with_wnd_on!(AssetHubWestend, usdt, false, AssetHubWestendSender::get());
+	create_pool_with_wnd_on!(
+		AssetHubWestend,
+		usdt,
+		false,
+		AssetHubWestendSender::get(),
+		1_000_000_000_000,
+		20_000_000_000
+	);
 	// We also need a pool between WND and USDT on PenpalA.
 	create_pool_with_wnd_on!(PenpalA, PenpalUsdtFromAssetHub::get(), true, PenpalAssetOwner::get());
 	// We also need a pool between WND and USDT on PenpalB.

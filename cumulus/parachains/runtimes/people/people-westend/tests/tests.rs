@@ -25,6 +25,7 @@ use people_westend_runtime::{
 };
 use sp_core::crypto::Ss58Codec;
 use sp_runtime::Either;
+use testnet_parachains_constants::westend::fee::WeightToFee;
 use xcm::latest::prelude::*;
 use xcm_runtime_apis::conversions::LocationToAccountHelper;
 
@@ -146,6 +147,7 @@ fn xcm_payment_api_works() {
 		RuntimeCall,
 		RuntimeOrigin,
 		Block,
+		WeightToFee,
 	>();
 }
 
@@ -159,7 +161,7 @@ fn governance_authorize_upgrade_works() {
 			Runtime,
 			RuntimeOrigin,
 		>(GovernanceOrigin::Location(Location::new(1, Parachain(12334)))),
-		Either::Right(XcmError::Barrier)
+		Either::Right(InstructionError { index: 0, error: XcmError::Barrier })
 	);
 	// no - AssetHub
 	assert_err!(
@@ -167,7 +169,7 @@ fn governance_authorize_upgrade_works() {
 			Runtime,
 			RuntimeOrigin,
 		>(GovernanceOrigin::Location(Location::new(1, Parachain(ASSET_HUB_ID)))),
-		Either::Right(XcmError::Barrier)
+		Either::Right(InstructionError { index: 0, error: XcmError::Barrier })
 	);
 	// no - Collectives
 	assert_err!(
@@ -175,7 +177,7 @@ fn governance_authorize_upgrade_works() {
 			Runtime,
 			RuntimeOrigin,
 		>(GovernanceOrigin::Location(Location::new(1, Parachain(COLLECTIVES_ID)))),
-		Either::Right(XcmError::Barrier)
+		Either::Right(InstructionError { index: 0, error: XcmError::Barrier })
 	);
 	// no - Collectives Voice of Fellows plurality
 	assert_err!(
@@ -186,7 +188,7 @@ fn governance_authorize_upgrade_works() {
 			Location::new(1, Parachain(COLLECTIVES_ID)),
 			Plurality { id: BodyId::Technical, part: BodyPart::Voice }.into()
 		)),
-		Either::Right(XcmError::BadOrigin)
+		Either::Right(InstructionError { index: 2, error: XcmError::BadOrigin })
 	);
 
 	// ok - relaychain

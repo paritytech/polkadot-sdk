@@ -62,6 +62,7 @@ pub fn run() -> sc_cli::Result<()> {
 
 	match &cli.subcommand {
 		Some(Subcommand::Key(cmd)) => cmd.run(&cli),
+		#[allow(deprecated)]
 		Some(Subcommand::BuildSpec(cmd)) => {
 			let runner = cli.create_runner(cmd)?;
 			runner.sync_run(|config| cmd.run(config.chain_spec, config.network))
@@ -73,6 +74,10 @@ pub fn run() -> sc_cli::Result<()> {
 					service::new_partial(&config)?;
 				Ok((cmd.run(client, import_queue), task_manager))
 			})
+		},
+		Some(Subcommand::ExportChainSpec(cmd)) => {
+			let chain_spec = cli.load_spec(&cmd.chain)?;
+			cmd.run(chain_spec)
 		},
 		Some(Subcommand::ExportBlocks(cmd)) => {
 			let runner = cli.create_runner(cmd)?;
@@ -117,7 +122,7 @@ pub fn run() -> sc_cli::Result<()> {
 		None => {
 			let runner = cli.create_runner(&cli.run)?;
 			runner.run_node_until_exit(|config| async move {
-				match config.network.network_backend.unwrap_or_default() {
+				match config.network.network_backend {
 					sc_network::config::NetworkBackendType::Libp2p =>
 						service::new_full::<sc_network::NetworkWorker<_, _>>(config, cli.consensus)
 							.map_err(sc_cli::Error::Service),

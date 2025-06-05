@@ -83,7 +83,7 @@ use sp_runtime::{traits::Saturating, Perbill};
 use sp_std::prelude::*;
 
 /// Explore all weights
-pub use crate::weights::measured::pallet_election_provider_multi_block_signed::*;
+pub use crate::weights::traits::pallet_election_provider_multi_block_signed::*;
 /// Exports of this pallet
 pub use pallet::*;
 
@@ -232,7 +232,7 @@ impl<Balance: From<u32> + Saturating, G: Get<Balance>> CalculatePageDeposit<Bala
 
 #[frame_support::pallet]
 pub mod pallet {
-	use super::{WeightInfo, *};
+	use super::*;
 
 	#[pallet::config]
 	#[pallet::disable_frame_system_supertrait_check]
@@ -883,6 +883,17 @@ pub mod pallet {
 
 			// IFF all good, this is free of charge.
 			Ok(None.into())
+		}
+	}
+
+	#[pallet::view_functions]
+	impl<T: Config> Pallet<T> {
+		/// Get the deposit amount that will be held for a solution of `pages`.
+		///
+		/// This allows an offchain application to know what [`Config::DepositPerPage`] and
+		/// [`Config::DepositBase`] are doing under the hood.
+		pub fn deposit_for(pages: u32) -> BalanceOf<T> {
+			Submissions::<T>::deposit_for(pages as usize)
 		}
 	}
 

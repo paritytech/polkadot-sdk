@@ -137,7 +137,7 @@ fn do_not_die_when_active_is_ed() {
 			assert_ok!(Staking::unbond(RuntimeOrigin::signed(21), 999 * ed));
 
 			Session::roll_until_active_era(4);
-			assert_ok!(Staking::withdraw_unbonded(RuntimeOrigin::signed(21), 100));
+			assert_ok!(Staking::withdraw_unbonded(RuntimeOrigin::signed(21), 0));
 
 			// then
 			assert_eq!(

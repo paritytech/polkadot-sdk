@@ -25,10 +25,12 @@ use crate::{
 		types::Block,
 		NodeBlock, NodeExtraArgs,
 	},
+	extra_subcommand::DefaultExtraSubcommands,
 	fake_runtime_api,
 	nodes::DynNodeSpecExt,
 	runtime::BlockNumber,
 };
+use clap::{CommandFactory, FromArgMatches};
 #[cfg(feature = "runtime-benchmarks")]
 use cumulus_client_service::storage_proof_size::HostFunctions as ReclaimHostFunctions;
 use cumulus_primitives_core::ParaId;
@@ -51,12 +53,12 @@ pub struct RunConfig {
 }
 
 impl RunConfig {
-	/// Create a new `RunConfig`
+	/// Creates a new `RunConfig` instance.
 	pub fn new(
 		runtime_resolver: Box<dyn RuntimeResolver>,
 		chain_spec_loader: Box<dyn LoadSpec>,
 	) -> Self {
-		RunConfig { chain_spec_loader, runtime_resolver }
+		RunConfig { runtime_resolver, chain_spec_loader }
 	}
 }
 
@@ -100,7 +102,48 @@ fn new_node_spec(
 
 /// Parse command line arguments into service configuration.
 pub fn run<CliConfig: crate::cli::CliConfig>(cmd_config: RunConfig) -> Result<()> {
-	let mut cli = Cli::<CliConfig>::from_args();
+	run_with_custom_cli::<CliConfig, DefaultExtraSubcommands>(cmd_config)
+}
+
+/// Parse command‑line arguments into service configuration and inject an
+/// optional extra sub‑command.
+///
+/// `run_with_custom_cli` builds the base CLI for the node binary, then asks the
+/// `Extra` type for an optional extra sub‑command.
+///
+/// When the user actually invokes that extra sub‑command,
+/// `Extra::from_arg_matches` returns a parsed value which is immediately passed
+/// to `extra.handle(&cfg)` and the process exits.  Otherwise control falls
+/// through to the normal node‑startup / utility sub‑command match.
+///
+/// # Type Parameters
+/// * `CliConfig` – customization trait supplying user‑facing info (name, description, version) for
+///   the binary.
+/// * `Extra` – an implementation of `ExtraSubcommand`. Use *`NoExtraSubcommand`* if the binary
+///   should not expose any extra subcommands.
+pub fn run_with_custom_cli<CliConfig, ExtraSubcommand>(cmd_config: RunConfig) -> Result<()>
+where
+	CliConfig: crate::cli::CliConfig,
+	ExtraSubcommand: crate::extra_subcommand::ExtraSubcommand,
+{
+	let cli_command = Cli::<CliConfig>::command();
+	let cli_command = ExtraSubcommand::augment_subcommands(cli_command);
+	let cli_command = Cli::<CliConfig>::setup_command(cli_command);
+
+	// Get matches for all CLI, including extra args.
+	let matches = cli_command.get_matches();
+
+	// Parse only the part corresponding to the extra args.
+	if let Ok(extra) = ExtraSubcommand::from_arg_matches(&matches) {
+		// Handle the extra, and return - subcommands are self contained,
+		// no need to handle the rest of the CLI or node running.
+		extra.handle(&cmd_config)?;
+		return Ok(())
+	}
+
+	// If matching on the extra subcommands fails, match on the rest of the node CLI as usual.
+	let mut cli =
+		Cli::<CliConfig>::from_arg_matches(&matches).map_err(|e| sc_cli::Error::Cli(e.into()))?;
 	cli.chain_spec_loader = Some(cmd_config.chain_spec_loader);
 
 	#[allow(deprecated)]
@@ -184,38 +227,61 @@ pub fn run<CliConfig: crate::cli::CliConfig>(cmd_config: RunConfig) -> Result<()
 			})
 		},
 		Some(Subcommand::Benchmark(cmd)) => {
-			let runner = cli.create_runner(cmd)?;
-
 			// Switch on the concrete benchmark sub-command-
 			match cmd {
 				#[cfg(feature = "runtime-benchmarks")]
-				BenchmarkCmd::Pallet(cmd) => runner.sync_run(|config| {
-					cmd.run_with_spec::<HashingFor<Block<u32>>, ReclaimHostFunctions>(Some(
-						config.chain_spec,
-					))
-				}),
-				BenchmarkCmd::Block(cmd) => runner.sync_run(|config| {
-					let node = new_node_spec(
-						&config,
-						&cmd_config.runtime_resolver,
-						&cli.node_extra_args(),
-					)?;
-					node.run_benchmark_block_cmd(config, cmd)
-				}),
+				BenchmarkCmd::Pallet(cmd) => {
+					let chain = cmd
+						.shared_params
+						.chain
+						.as_ref()
+						.map(|chain| cli.load_spec(&chain))
+						.transpose()?;
+					cmd.run_with_spec::<HashingFor<Block<u32>>, ReclaimHostFunctions>(chain)
+				},
+				BenchmarkCmd::Block(cmd) => {
+					// The command needs the full node configuration because it uses the node
+					// client and the database source, which in its turn has a dependency on the
+					// chain spec, given via the `--chain` flag.
+					let runner = cli.create_runner(cmd)?;
+					runner.sync_run(|config| {
+						let node = new_node_spec(
+							&config,
+							&cmd_config.runtime_resolver,
+							&cli.node_extra_args(),
+						)?;
+						node.run_benchmark_block_cmd(config, cmd)
+					})
+				},
 				#[cfg(feature = "runtime-benchmarks")]
-				BenchmarkCmd::Storage(cmd) => runner.sync_run(|config| {
-					let node = new_node_spec(
-						&config,
-						&cmd_config.runtime_resolver,
-						&cli.node_extra_args(),
-					)?;
-					node.run_benchmark_storage_cmd(config, cmd)
-				}),
-				BenchmarkCmd::Machine(cmd) =>
-					runner.sync_run(|config| cmd.run(&config, SUBSTRATE_REFERENCE_HARDWARE.clone())),
+				BenchmarkCmd::Storage(cmd) => {
+					// The command needs the full node configuration because it uses the node
+					// client and the database API, storage and shared_trie_cache. It requires
+					// the `--chain` flag to be passed.
+					let runner = cli.create_runner(cmd)?;
+					runner.sync_run(|config| {
+						let node = new_node_spec(
+							&config,
+							&cmd_config.runtime_resolver,
+							&cli.node_extra_args(),
+						)?;
+						node.run_benchmark_storage_cmd(config, cmd)
+					})
+				},
+				BenchmarkCmd::Machine(cmd) => {
+					// The command needs the full node configuration, and implicitly a chain
+					// spec to be passed, even if it doesn't use it directly. The `--chain` flag is
+					// relevant in determining the database path, which is used for the disk
+					// benchmark.
+					//
+					// TODO: change `machine` subcommand to take instead a disk path we want to
+					// benchmark?.
+					let runner = cli.create_runner(cmd)?;
+					runner.sync_run(|config| cmd.run(&config, SUBSTRATE_REFERENCE_HARDWARE.clone()))
+				},
 				#[allow(unreachable_patterns)]
 				_ => Err("Benchmarking sub-command unsupported or compilation feature missing. \
-					Make sure to compile with --features=runtime-benchmarks \
+					Make sure to compile omni-node with --features=runtime-benchmarks \
 					to enable all supported benchmarks."
 					.into()),
 			}

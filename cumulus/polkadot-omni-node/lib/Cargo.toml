@@ -80,10 +80,13 @@ substrate-frame-rpc-system = { workspace = true, default-features = true }
 substrate-state-trie-migration-rpc = { workspace = true, default-features = true }
 
 # Polkadot
-polkadot-cli = { workspace = true, default-features = true, features = ["service"] }
+polkadot-cli = { workspace = true, default-features = true, features = [
+	"service",
+] }
 polkadot-primitives = { workspace = true, default-features = true }
 
 # Cumulus
+cumulus-client-bootnodes = { workspace = true, default-features = true }
 cumulus-client-cli = { workspace = true, default-features = true }
 cumulus-client-collator = { workspace = true, default-features = true }
 cumulus-client-consensus-aura = { workspace = true, default-features = true }
@@ -125,6 +128,7 @@ try-runtime = [
 	"frame-support/try-runtime",
 	"frame-try-runtime/try-runtime",
 	"pallet-transaction-payment/try-runtime",
+	"parachains-common/try-runtime",
 	"polkadot-cli/try-runtime",
 	"sp-runtime/try-runtime",
 ]
