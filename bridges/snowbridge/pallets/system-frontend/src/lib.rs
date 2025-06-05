@@ -235,7 +235,12 @@ pub mod pallet {
 				(*asset_id).try_into().map_err(|_| Error::<T>::UnsupportedLocationVersion)?;
 			let origin_location = T::RegisterTokenOrigin::ensure_origin(origin, &asset_location)?;
 
-			let ether_gained = Self::swap_fee_asset_and_burn(origin_location.clone(), fee_asset)?;
+			let ether_gained = if origin_location.is_here() {
+				// Root origin/location does not pay any fees/tip.
+				0
+			} else {
+				Self::swap_fee_asset_and_burn(origin_location.clone(), fee_asset)?
+			};
 
 			let call = Self::build_register_token_call(
 				origin_location.clone(),
@@ -377,8 +382,7 @@ pub mod pallet {
 					return Err(Error::<T>::UnsupportedAsset.into())
 				},
 			};
-			// Skip fee for root location
-			if fee_amount == 0 || origin.clone().is_here() {
+			if fee_amount == 0 {
 				return Ok(0)
 			}
 
