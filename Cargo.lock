@@ -1225,41 +1225,65 @@ dependencies = [
  "cumulus-primitives-core",
  "cumulus-primitives-utility",
  "frame-benchmarking",
+ "frame-election-provider-support",
  "frame-executive",
  "frame-metadata-hash-extension",
+ "frame-remote-externalities",
  "frame-support",
  "frame-system",
  "frame-system-benchmarking",
  "frame-system-rpc-runtime-api",
  "frame-try-runtime",
+ "hex",
  "hex-literal",
  "log",
+ "pallet-ah-ops",
  "pallet-asset-conversion",
  "pallet-asset-conversion-ops",
  "pallet-asset-conversion-tx-payment",
+ "pallet-asset-rate",
  "pallet-asset-rewards",
  "pallet-assets",
  "pallet-assets-freezer",
  "pallet-aura",
  "pallet-authorship",
+ "pallet-bags-list",
  "pallet-balances",
  "pallet-collator-selection",
+ "pallet-conviction-voting",
+ "pallet-delegated-staking",
+ "pallet-election-provider-multi-block",
+ "pallet-fast-unstake",
+ "pallet-indices",
  "pallet-message-queue",
  "pallet-migrations",
  "pallet-multisig",
  "pallet-nft-fractionalization",
  "pallet-nfts",
  "pallet-nfts-runtime-api",
+ "pallet-nomination-pools",
+ "pallet-nomination-pools-runtime-api",
+ "pallet-preimage",
  "pallet-proxy",
+ "pallet-referenda",
  "pallet-revive",
  "pallet-revive-fixtures",
+ "pallet-scheduler",
  "pallet-session",
+ "pallet-staking",
+ "pallet-staking-async",
+ "pallet-staking-async-rc-client",
+ "pallet-staking-runtime-api",
  "pallet-state-trie-migration",
+ "pallet-sudo",
  "pallet-timestamp",
  "pallet-transaction-payment",
  "pallet-transaction-payment-rpc-runtime-api",
+ "pallet-treasury",
  "pallet-uniques",
  "pallet-utility",
+ "pallet-vesting",
+ "pallet-whitelist",
  "pallet-xcm",
  "pallet-xcm-benchmarks",
  "pallet-xcm-bridge-hub-router",
@@ -1275,6 +1299,7 @@ dependencies = [
  "snowbridge-pallet-system-frontend",
  "snowbridge-runtime-common",
  "sp-api 26.0.0",
+ "sp-arithmetic 23.0.0",
  "sp-block-builder",
  "sp-consensus-aura",
  "sp-core 28.0.0",
@@ -1282,11 +1307,14 @@ dependencies = [
  "sp-inherents",
  "sp-io 30.0.0",
  "sp-keyring",
+ "sp-npos-elections",
  "sp-offchain",
  "sp-runtime 31.0.1",
  "sp-session",
+ "sp-staking",
  "sp-std 14.0.0",
  "sp-storage 19.0.0",
+ "sp-tracing 16.0.0",
  "sp-transaction-pool",
  "sp-version 29.0.0",
  "staging-parachain-info",
@@ -1295,6 +1323,7 @@ dependencies = [
  "staging-xcm-executor",
  "substrate-wasm-builder",
  "testnet-parachains-constants",
+ "tokio",
  "westend-runtime-constants",
  "xcm-runtime-apis",
 ]
@@ -2084,9 +2113,9 @@ dependencies = [
 
 [[package]]
 name = "bounded-collections"
-version = "0.2.3"
+version = "0.2.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "32ed0a820ed50891d36358e997d27741a6142e382242df40ff01c89bcdcc7a2b"
+checksum = "64ad8a0bed7827f0b07a5d23cec2e58cc02038a99e4ca81616cb2bb2025f804d"
 dependencies = [
  "log",
  "parity-scale-codec",
@@ -4673,7 +4702,7 @@ name = "cumulus-pallet-xcmp-queue"
 version = "0.7.1"
 dependencies = [
  "approx",
- "bounded-collections 0.2.3",
+ "bounded-collections 0.2.4",
  "bp-xcm-bridge-hub-router",
  "cumulus-pallet-parachain-system",
  "cumulus-primitives-core",
@@ -11199,6 +11228,23 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c1b04fb49957986fdce4d6ee7a65027d55d4b6d2265e5848bbb507b58ccfdb6f"
 
 [[package]]
+name = "pallet-ah-ops"
+version = "0.1.0"
+dependencies = [
+ "cumulus-primitives-core",
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "log",
+ "pallet-balances",
+ "pallet-timestamp",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-runtime 31.0.1",
+ "sp-std 14.0.0",
+]
+
+[[package]]
 name = "pallet-ahm-test"
 version = "1.0.0"
 dependencies = [
@@ -13927,7 +13973,7 @@ dependencies = [
 name = "pallet-xcm"
 version = "7.0.0"
 dependencies = [
- "bounded-collections 0.2.3",
+ "bounded-collections 0.2.4",
  "frame-benchmarking",
  "frame-support",
  "frame-system",
@@ -14073,6 +14119,7 @@ dependencies = [
  "pallet-xcm",
  "parity-scale-codec",
  "polkadot-primitives",
+ "polkadot-runtime-common",
  "scale-info",
  "sp-consensus-aura",
  "sp-core 28.0.0",
@@ -15838,7 +15885,7 @@ dependencies = [
 name = "polkadot-parachain-primitives"
 version = "6.0.0"
 dependencies = [
- "bounded-collections 0.2.3",
+ "bounded-collections 0.2.4",
  "derive_more 0.99.17",
  "parity-scale-codec",
  "polkadot-core-primitives",
@@ -15854,7 +15901,7 @@ name = "polkadot-primitives"
 version = "7.0.0"
 dependencies = [
  "bitvec",
- "bounded-collections 0.2.3",
+ "bounded-collections 0.2.4",
  "hex-literal",
  "log",
  "parity-scale-codec",
@@ -22804,7 +22851,7 @@ dependencies = [
  "array-bytes 6.2.2",
  "bitflags 1.3.2",
  "blake2 0.10.6",
- "bounded-collections 0.2.3",
+ "bounded-collections 0.2.4",
  "bs58",
  "criterion",
  "dyn-clonable",
@@ -22856,7 +22903,7 @@ dependencies = [
  "array-bytes 6.2.2",
  "bitflags 1.3.2",
  "blake2 0.10.6",
- "bounded-collections 0.2.3",
+ "bounded-collections 0.2.4",
  "bs58",
  "dyn-clonable",
  "ed25519-zebra 3.1.0",
@@ -22903,7 +22950,7 @@ dependencies = [
  "array-bytes 6.2.2",
  "bitflags 1.3.2",
  "blake2 0.10.6",
- "bounded-collections 0.2.3",
+ "bounded-collections 0.2.4",
  "bs58",
  "dyn-clonable",
  "ed25519-zebra 4.0.3",
@@ -22950,7 +22997,7 @@ dependencies = [
  "array-bytes 6.2.2",
  "bitflags 1.3.2",
  "blake2 0.10.6",
- "bounded-collections 0.2.3",
+ "bounded-collections 0.2.4",
  "bs58",
  "dyn-clonable",
  "ed25519-zebra 4.0.3",
@@ -24010,7 +24057,7 @@ dependencies = [
 name = "sp-weights"
 version = "27.0.0"
 dependencies = [
- "bounded-collections 0.2.3",
+ "bounded-collections 0.2.4",
  "parity-scale-codec",
  "scale-info",
  "schemars",
@@ -24026,7 +24073,7 @@ version = "31.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "93cdaf72a1dad537bbb130ba4d47307ebe5170405280ed1aa31fa712718a400e"
 dependencies = [
- "bounded-collections 0.2.3",
+ "bounded-collections 0.2.4",
  "parity-scale-codec",
  "scale-info",
  "serde",
@@ -24408,7 +24455,7 @@ name = "staging-xcm"
 version = "7.0.1"
 dependencies = [
  "array-bytes 6.2.2",
- "bounded-collections 0.2.3",
+ "bounded-collections 0.2.4",
  "derive-where",
  "environmental",
  "frame-support",
