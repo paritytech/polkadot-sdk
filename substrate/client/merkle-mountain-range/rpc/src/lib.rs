@@ -36,7 +36,7 @@ use sp_core::{
 	offchain::{storage::OffchainDb, OffchainDbExt, OffchainStorage},
 	Bytes,
 };
-use sp_mmr_primitives::{Error as MmrError, LeafProof};
+use sp_mmr_primitives::{AncestryProof as MmrAncestryProof, Error as MmrError, LeafProof};
 use sp_runtime::traits::{Block as BlockT, NumberFor};
 
 pub use sp_mmr_primitives::MmrApi as MmrRuntimeApi;
@@ -105,6 +105,15 @@ pub trait MmrApi<BlockHash, BlockNumber, MmrHash> {
 		best_known_block_number: Option<BlockNumber>,
 		at: Option<BlockHash>,
 	) -> RpcResult<LeavesProof<BlockHash>>;
+
+	#[method(name = "mmr_generateAncestryProof")]
+	fn generate_ancestry_proof(
+		&self,
+		prev_block_number: BlockNumber,
+		best_known_block_number: Option<BlockNumber>,
+		// TODO: remove because this is irrelevant to the proof
+		at: Option<BlockHash>,
+	) -> RpcResult<MmrAncestryProof<MmrHash>>;
 
 	/// Verify an MMR `proof`.
 	///
@@ -184,6 +193,27 @@ where
 			.map_err(mmr_error_into_rpc_error)?;
 
 		Ok(LeavesProof::new(block_hash, leaves, proof))
+	}
+
+	fn generate_ancestry_proof(
+		&self,
+		prev_block_number: NumberFor<Block>,
+		best_known_block_number: Option<NumberFor<Block>>,
+		at: Option<<Block as BlockT>::Hash>,
+	) -> RpcResult<MmrAncestryProof<MmrHash>> {
+		let mut api = self.client.runtime_api();
+		let block_hash = at.unwrap_or_else(||
+			// If the block hash is not supplied assume the best block.
+			self.client.info().best_hash);
+
+		api.register_extension(OffchainDbExt::new(self.offchain_db.clone()));
+
+		let proof = api
+			.generate_ancestry_proof(block_hash, prev_block_number, best_known_block_number)
+			.map_err(runtime_error_into_rpc_error)?
+			.map_err(mmr_error_into_rpc_error)?;
+
+		Ok(proof)
 	}
 
 	fn verify_proof(&self, proof: LeavesProof<<Block as BlockT>::Hash>) -> RpcResult<bool> {

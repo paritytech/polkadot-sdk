@@ -308,6 +308,13 @@ sp_api::impl_runtime_apis! {
 			unimplemented!()
 		}
 
+		fn generate_ancestry_proof(
+			_: BlockNumber,
+			_: Option<BlockNumber>,
+		) -> Result<sp_mmr_primitives::AncestryProof<Hash>, sp_mmr_primitives::Error> {
+			unimplemented!()
+		}
+
 		fn verify_proof(_: Vec<sp_mmr_primitives::EncodableOpaqueLeaf>, _: sp_mmr_primitives::LeafProof<Hash>)
 			-> Result<(), sp_mmr_primitives::Error>
 		{
