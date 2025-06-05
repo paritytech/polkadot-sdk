@@ -16760,6 +16760,7 @@ dependencies = [
  "pallet-revive",
  "parity-scale-codec",
  "polkadot-primitives",
+ "rand 0.8.5",
  "serde",
  "serde_json",
  "sp-core 28.0.0",

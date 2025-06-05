@@ -26,6 +26,7 @@ zombienet-sdk = { workspace = true }
 pallet-revive = { workspace = true, features = ["std"] }
 asset-hub-westend-runtime = { workspace = true }
 sp-core = { workspace = true }
+rand = {workspace = true}
 
 [features]
 zombie-metadata = []

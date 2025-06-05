@@ -15,6 +15,7 @@ use asset_hub_westend_runtime::Runtime as AHWRuntime;
 use ethabi::Token;
 use futures::{stream::FuturesUnordered, StreamExt};
 use pallet_revive::AddressMapper;
+use rand::Rng;
 use sp_core::{bytes::to_hex, H160, H256};
 use std::str::FromStr;
 use zombienet_sdk::{
@@ -29,9 +30,9 @@ use zombienet_sdk::{
 	LocalFileSystem, Network, NetworkConfigBuilder,
 };
 
-const KEYS_COUNT: usize = 300;
-const CHUNK_SIZE: usize = 200;
-const CALL_CHUNK_SIZE: usize = 1000;
+const KEYS_COUNT: usize = 6000;
+const CHUNK_SIZE: usize = 3000;
+const CALL_CHUNK_SIZE: usize = 3000;
 
 #[tokio::test(flavor = "multi_thread")]
 async fn weights_test() -> Result<(), anyhow::Error> {
@@ -48,7 +49,7 @@ async fn weights_test() -> Result<(), anyhow::Error> {
 		call_clients.push(call_client);
 	}
 	log::info!("Network is ready");
-
+	std::thread::sleep(std::time::Duration::from_secs(200));
 	let alice = dev::alice();
 	let keys = create_keys(KEYS_COUNT);
 	let mut nonce = 0;
@@ -102,6 +103,19 @@ async fn weights_test() -> Result<(), anyhow::Error> {
 		.collect::<Vec<_>>();
 	transfer_50_payload.rotate_left(1);
 
+	collator.restart(None).await?;
+	tokio::time::sleep(std::time::Duration::from_secs(3)).await;
+	let para_client: OnlineClient<PolkadotConfig> = collator.wait_client().await?;
+	log::info!("Collator restarted waiting");
+	tokio::time::sleep(std::time::Duration::from_secs(200)).await;
+	log::info!("Collator restarted sending the transfers");
+
+	let mut call_clients = vec![];
+	for _ in 0..(KEYS_COUNT / CALL_CHUNK_SIZE + 1) {
+		let call_client: OnlineClient<PolkadotConfig> = collator.wait_client().await?;
+		call_clients.push(call_client);
+	}
+
 	call_contract(
 		&para_client,
 		call_clients,
@@ -142,13 +156,14 @@ async fn setup_network() -> Result<Network<LocalFileSystem>, anyhow::Error> {
 				.with_collator(|n| {
 					n.with_name("collator").validator(true).with_args(vec![
 						("-linfo").into(),
+						("--warm-up-trie-cache").into(),
 						("--pool-type=fork-aware").into(),
-						("--trie-cache-size=0").into(),
+						("--trie-cache-size=34359738368").into(),
 						("--rpc-max-subscriptions-per-connection=327680").into(),
 						("--rpc-max-connections=102400".into()),
 						("--pool-limit=819200").into(),
 						("--pool-kbytes=2048000").into(),
-						("--db-cache=256").into(),
+						("--db-cache=1024").into(),
 					])
 				})
 		})
@@ -165,9 +180,11 @@ async fn setup_network() -> Result<Network<LocalFileSystem>, anyhow::Error> {
 }
 
 fn create_keys(n: usize) -> Vec<Keypair> {
+	let mut rng = rand::thread_rng();
+	let seed: u32 = rng.gen();
 	(0..n)
 		.map(|i| {
-			let uri = SecretUri::from_str(&format!("//key{}", i)).unwrap();
+			let uri = SecretUri::from_str(&format!("//vvkhhhxxey{} == {}", i, seed)).unwrap();
 			Keypair::from_uri(&uri).unwrap()
 		})
 		.collect()
@@ -285,7 +302,7 @@ async fn call_params(
 		StorageDeposit::Refund(_) => 0,
 	};
 
-	Ok((dry_run.gas_required.ref_time, dry_run.gas_required.proof_size, deposit))
+	Ok((dry_run.gas_required.ref_time * 4, dry_run.gas_required.proof_size * 4, deposit * 4))
 }
 
 async fn call_contract(
