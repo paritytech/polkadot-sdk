@@ -152,7 +152,7 @@ From the main Polkadot-sdk repository in the paritytech org:
 
 ℹ️ These first two steps can be done all in one if there are no extra actions (like crates release) are needed
 to be done in between.
-In case of a crates release: when it is done, the changes done by the parity-publish needs to be revereted and
+In case of a crates release: when it is done, the changes done by the Parity-Publish needs to be revereted and
 merged back to the stable branch via a PR as the direct pushes are restricted. When this is done,
 the new RC tag can be created using the flow from above.
 
