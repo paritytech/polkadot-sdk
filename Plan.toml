@@ -98,8 +98,8 @@ to = "12.0.0"
 [[crate]]
 # substrate/client/network/types
 name = "sc-network-types"
-from = "0.15.2"
-to = "0.15.3"
+from = "0.15.3"
+to = "0.15.4"
 bump = "minor"
 reason = "changed"
 
@@ -1212,8 +1212,8 @@ reason = "changed"
 [[crate]]
 # substrate/client/network
 name = "sc-network"
-from = "0.49.0"
-to = "0.49.1"
+from = "0.49.1"
+to = "0.49.2"
 bump = "minor"
 reason = "changed"
 
@@ -1400,8 +1400,8 @@ reason = "changed"
 [[crate]]
 # substrate/frame/broker
 name = "pallet-broker"
-from = "0.19.0"
-to = "0.19.1"
+from = "0.19.1"
+to = "0.19.2"
 bump = "minor"
 reason = "changed"
 
@@ -1788,9 +1788,9 @@ reason = "changed"
 [[crate]]
 # substrate/client/offchain
 name = "sc-offchain"
-from = "43.0.0"
-to = "44.0.0"
-bump = "major"
+from = "44.0.0"
+to = "44.0.1"
+bump = "patch"
 reason = "changed"
 
 [[crate]]
@@ -2874,9 +2874,9 @@ reason = "changed"
 [[crate]]
 # substrate/client/cli
 name = "sc-cli"
-from = "0.50.1"
-to = "0.51.0"
-bump = "major"
+from = "0.51.0"
+to = "0.51.1"
+bump = "patch"
 reason = "changed"
 
 [[crate]]
@@ -2992,16 +2992,16 @@ reason = "changed"
 [[crate]]
 # bridges/snowbridge/primitives/inbound-queue
 name = "snowbridge-inbound-queue-primitives"
-from = "0.2.0"
-to = "0.2.1"
+from = "0.2.1"
+to = "0.2.2"
 bump = "patch"
 reason = "changed"
 
 [[crate]]
 # bridges/snowbridge/primitives/outbound-queue
 name = "snowbridge-outbound-queue-primitives"
-from = "0.2.0"
-to = "0.2.1"
+from = "0.2.1"
+to = "0.2.2"
 bump = "patch"
 reason = "changed"
 
@@ -3110,16 +3110,16 @@ reason = "changed"
 [[crate]]
 # cumulus/parachains/runtimes/coretime/coretime-rococo
 name = "coretime-rococo-runtime"
-from = "0.15.0"
-to = "0.15.1"
+from = "0.15.1"
+to = "0.15.2"
 bump = "minor"
 reason = "changed"
 
 [[crate]]
 # cumulus/parachains/runtimes/coretime/coretime-westend
 name = "coretime-westend-runtime"
-from = "0.15.0"
-to = "0.15.1"
+from = "0.15.1"
+to = "0.15.2"
 bump = "minor"
 reason = "changed"
 
@@ -3264,8 +3264,8 @@ reason = "changed"
 [[crate]]
 # bridges/snowbridge/pallets/system
 name = "snowbridge-pallet-system"
-from = "0.13.1"
-to = "0.13.2"
+from = "0.13.2"
+to = "0.13.3"
 bump = "patch"
 reason = "changed"
 
@@ -3280,9 +3280,9 @@ reason = "changed"
 [[crate]]
 # bridges/snowbridge/test-utils
 name = "snowbridge-test-utils"
-from = "0.1.0"
-to = "0.2.0"
-bump = "major"
+from = "0.2.0"
+to = "0.2.1"
+bump = "patch"
 reason = "changed"
 
 [[crate]]
@@ -3376,24 +3376,24 @@ reason = "changed"
 [[crate]]
 # bridges/snowbridge/pallets/inbound-queue
 name = "snowbridge-pallet-inbound-queue"
-from = "0.13.0"
-to = "0.13.1"
-bump = "minor"
+from = "0.13.1"
+to = "0.13.2"
+bump = "patch"
 reason = "changed"
 
 [[crate]]
 # bridges/snowbridge/pallets/inbound-queue-v2
 name = "snowbridge-pallet-inbound-queue-v2"
-from = "0.2.0"
-to = "0.2.1"
+from = "0.2.1"
+to = "0.2.2"
 bump = "patch"
 reason = "changed"
 
 [[crate]]
 # bridges/snowbridge/pallets/system-v2
 name = "snowbridge-pallet-system-v2"
-from = "0.2.0"
-to = "0.2.1"
+from = "0.2.1"
+to = "0.2.2"
 bump = "patch"
 reason = "changed"
 
@@ -3424,8 +3424,8 @@ reason = "changed"
 [[crate]]
 # cumulus/parachains/runtimes/bridge-hubs/bridge-hub-westend
 name = "bridge-hub-westend-runtime"
-from = "0.16.0"
-to = "0.16.1"
+from = "0.16.1"
+to = "0.16.2"
 bump = "patch"
 reason = "changed"
 
@@ -3804,17 +3804,17 @@ to = "0.1.0"
 [[crate]]
 # cumulus/client/consensus/aura
 name = "cumulus-client-consensus-aura"
-from = "0.21.0"
-to = "0.22.0"
-bump = "major"
+from = "0.22.0"
+to = "0.22.1"
+bump = "patch"
 reason = "changed"
 
 [[crate]]
 # polkadot/node/service
 name = "polkadot-service"
-from = "22.1.0"
-to = "23.0.0"
-bump = "major"
+from = "23.0.0"
+to = "23.1.0"
+bump = "minor"
 reason = "changed"
 
 [[crate]]
@@ -3886,9 +3886,9 @@ to = "0.1.0"
 [[crate]]
 # cumulus/client/relay-chain-minimal-node
 name = "cumulus-relay-chain-minimal-node"
-from = "0.23.0"
-to = "0.23.1"
-bump = "minor"
+from = "0.23.1"
+to = "0.23.2"
+bump = "patch"
 reason = "changed"
 
 [[crate]]
@@ -3920,9 +3920,9 @@ to = "1.0.0"
 [[crate]]
 # cumulus/client/relay-chain-inprocess-interface
 name = "cumulus-relay-chain-inprocess-interface"
-from = "0.22.0"
-to = "0.23.0"
-bump = "major"
+from = "0.23.0"
+to = "0.23.1"
+bump = "patch"
 reason = "changed"
 
 [[crate]]
@@ -3980,9 +3980,9 @@ to = "0.1.0"
 [[crate]]
 # cumulus/polkadot-omni-node/lib
 name = "polkadot-omni-node-lib"
-from = "0.4.2"
-to = "0.5.0"
-bump = "major"
+from = "0.5.0"
+to = "0.5.1"
+bump = "patch"
 reason = "changed"
 
 [[crate]]
