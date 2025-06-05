@@ -103,6 +103,19 @@ runs:
 
     - uses: ./.github/actions/download-artifact-extract
       with:
+        artifact-name: build-templates-node-${{ inputs.ref-slug }}
+        gh-token: ${{ inputs.gh-token }}
+        run-id: ${{ inputs.build-id }}
+        extract-path: ./tmp
+        files-to-copy: |
+          artifacts/minimal-template-node
+          artifacts/parachain-template-node
+          artifacts/solochain-template-node
+        destination-path: ./bin
+        cleanup: "true"
+
+    - uses: ./.github/actions/download-artifact-extract
+      with:
         artifact-name: prepare-${{ inputs.prefix }}-zombienet-artifacts-${{ inputs.ref-slug }}
         gh-token: ${{ inputs.gh-token }}
         run-id: ${{ inputs.build-id }}
@@ -128,7 +141,8 @@ runs:
             export ZOMBIE_K8S_CI_NAMESPACE=$(cat /data/namespace)
           fi;
           ls -ltr ./artifacts
-          cargo nextest run --archive-file ./artifacts/${PREFIX}-zombienet-tests.tar.zst --no-capture -- ${TEST_NAME}
+          # Make sure tests are executed sequentially: test-threads 1
+          cargo nextest run --archive-file ./artifacts/${PREFIX}-zombienet-tests.tar.zst --test-threads 1 --no-capture -- ${TEST_NAME}
 
     - name: process_logs
       if: ${{ ! cancelled() }}

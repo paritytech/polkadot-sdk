@@ -46,50 +46,15 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - uses: actions/download-artifact@v4.1.8
+      - name: zombienet_test
+        uses: ./.github/actions/zombienet-sdk
         with:
-          path: build-artifacts-linux-stable
-          name: build-linux-stable-${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          run-id: ${{ needs.preflight.outputs.BUILD_RUN_ID }}
-
-      - uses: actions/download-artifact@v4.1.8
-        with:
-          path: build-artifacts-templates-node
-          name: build-templates-node-${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          run-id: ${{ needs.preflight.outputs.BUILD_RUN_ID }}
-
-      - run: ls -R build-artifacts*
-
-      - name: tar
-        shell: bash
-        run: |
-          echo "uncompressing build-artifacts-linux-stable"
-          cd build-artifacts-linux-stable && tar -xvf artifacts.tar
-          rm artifacts.tar
-          cd ../
-          echo "uncompressing build-artifacts-templates-node"
-          cd build-artifacts-templates-node && tar -xvf artifacts.tar
-
-      - run: ls -R build-artifacts*
-
-      - name: zombienet
-        id: zombienet_tests
-        shell: bash
-        run: |
-          # add `artifacts` to the PATH
-          export PATH=$(pwd)/build-artifacts-templates-node/artifacts:$(pwd)/build-artifacts-linux-stable/artifacts:$PATH
-          echo $PATH
-          cargo test -p template-zombienet-tests  --features zombienet --tests  minimal_template_block_production_test
-          cargo test -p template-zombienet-tests  --features zombienet --tests  parachain_template_block_production_test
-          cargo test -p template-zombienet-tests  --features zombienet --tests  solochain_template_block_production_test
-      #
-      # upload 'native' logs
-      - name: upload_logs
-        uses: actions/upload-artifact@v4
-        if: ${{ ! cancelled() }}
-        with:
-          name: zombienet-logs-${{ github.job }}-${{ github.sha }}
-          path: |
-            /tmp/zombie*/*/*.log
+          gh-token: ${{ secrets.GITHUB_TOKEN }}
+          build-id: ${{ needs.preflight.outputs.BUILD_RUN_ID }}
+          ref-slug: ${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
+          # This pattern shall cover:
+          # - minimal_template_block_production_test
+          # - parachain_template_block_production_test
+          # - solochain_template_block_production_test
+          test: "template"
+          prefix: "parachain-templates"
