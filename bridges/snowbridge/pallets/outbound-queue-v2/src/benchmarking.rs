@@ -3,7 +3,6 @@
 use super::*;
 
 use crate::fixture::make_submit_delivery_receipt_message;
-use bridge_hub_common::AggregateMessageOrigin;
 use codec::Encode;
 use frame_benchmarking::v2::*;
 use frame_support::{traits::Hooks, BoundedVec};
@@ -143,7 +142,7 @@ mod benchmarks {
 		{
 			OutboundQueue::<T>::on_initialize(1_u32.into());
 			for _ in 0..T::MaxMessagesPerBlock::get() {
-				OutboundQueue::<T>::do_process_message(origin, &message).unwrap();
+				OutboundQueue::<T>::do_process_message(origin.clone(), &message).unwrap();
 			}
 			OutboundQueue::<T>::commit();
 		}
