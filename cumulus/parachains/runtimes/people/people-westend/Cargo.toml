@@ -36,6 +36,7 @@ pallet-migrations = { workspace = true }
 pallet-multisig = { workspace = true }
 pallet-proxy = { workspace = true }
 pallet-session = { workspace = true }
+pallet-skip-feeless-payment = { workspace = true }
 pallet-timestamp = { workspace = true }
 pallet-transaction-payment = { workspace = true }
 pallet-transaction-payment-rpc-runtime-api = { workspace = true }
@@ -46,6 +47,7 @@ sp-consensus-aura = { workspace = true }
 sp-core = { workspace = true }
 sp-genesis-builder = { workspace = true }
 sp-inherents = { workspace = true }
+sp-io = { workspace = true }
 sp-keyring = { workspace = true }
 sp-offchain = { workspace = true }
 sp-runtime = { workspace = true }
@@ -80,6 +82,13 @@ parachain-info = { workspace = true }
 parachains-common = { workspace = true }
 testnet-parachains-constants = { features = ["westend"], workspace = true }
 
+# Individuality
+verifiable = { workspace = true }
+pallet-people = { workspace = true }
+pallet-origin-restriction = { workspace = true }
+pallet-dummy-dim = { workspace = true }
+pallet-verify-signature = { workspace = true }
+
 [dev-dependencies]
 parachains-runtimes-test-utils = { workspace = true, default-features = true }
 
@@ -112,16 +121,21 @@ std = [
 	"pallet-authorship/std",
 	"pallet-balances/std",
 	"pallet-collator-selection/std",
+	"pallet-dummy-dim/std",
 	"pallet-identity/std",
 	"pallet-message-queue/std",
 	"pallet-migrations/std",
 	"pallet-multisig/std",
+	"pallet-origin-restriction/std",
+	"pallet-people/std",
 	"pallet-proxy/std",
 	"pallet-session/std",
+	"pallet-skip-feeless-payment/std",
 	"pallet-timestamp/std",
 	"pallet-transaction-payment-rpc-runtime-api/std",
 	"pallet-transaction-payment/std",
 	"pallet-utility/std",
+	"pallet-verify-signature/std",
 	"pallet-xcm-benchmarks?/std",
 	"pallet-xcm/std",
 	"parachain-info/std",
@@ -137,6 +151,7 @@ std = [
 	"sp-core/std",
 	"sp-genesis-builder/std",
 	"sp-inherents/std",
+	"sp-io/std",
 	"sp-keyring/std",
 	"sp-offchain/std",
 	"sp-runtime/std",
@@ -146,6 +161,7 @@ std = [
 	"sp-version/std",
 	"substrate-wasm-builder",
 	"testnet-parachains-constants/std",
+	"verifiable/std",
 	"westend-runtime-constants/std",
 	"xcm-builder/std",
 	"xcm-executor/std",
@@ -165,14 +181,19 @@ runtime-benchmarks = [
 	"frame-system/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
 	"pallet-collator-selection/runtime-benchmarks",
+	"pallet-dummy-dim/runtime-benchmarks",
 	"pallet-identity/runtime-benchmarks",
 	"pallet-message-queue/runtime-benchmarks",
 	"pallet-migrations/runtime-benchmarks",
 	"pallet-multisig/runtime-benchmarks",
+	"pallet-origin-restriction/runtime-benchmarks",
+	"pallet-people/runtime-benchmarks",
 	"pallet-proxy/runtime-benchmarks",
+	"pallet-skip-feeless-payment/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
 	"pallet-transaction-payment/runtime-benchmarks",
 	"pallet-utility/runtime-benchmarks",
+	"pallet-verify-signature/runtime-benchmarks",
 	"pallet-xcm-benchmarks/runtime-benchmarks",
 	"pallet-xcm/runtime-benchmarks",
 	"parachains-common/runtime-benchmarks",
@@ -198,15 +219,20 @@ try-runtime = [
 	"pallet-authorship/try-runtime",
 	"pallet-balances/try-runtime",
 	"pallet-collator-selection/try-runtime",
+	"pallet-dummy-dim/try-runtime",
 	"pallet-identity/try-runtime",
 	"pallet-message-queue/try-runtime",
 	"pallet-migrations/try-runtime",
 	"pallet-multisig/try-runtime",
+	"pallet-origin-restriction/try-runtime",
+	"pallet-people/try-runtime",
 	"pallet-proxy/try-runtime",
 	"pallet-session/try-runtime",
+	"pallet-skip-feeless-payment/try-runtime",
 	"pallet-timestamp/try-runtime",
 	"pallet-transaction-payment/try-runtime",
 	"pallet-utility/try-runtime",
+	"pallet-verify-signature/try-runtime",
 	"pallet-xcm/try-runtime",
 	"parachain-info/try-runtime",
 	"parachains-common/try-runtime",

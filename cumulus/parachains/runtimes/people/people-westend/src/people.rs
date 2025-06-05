@@ -18,8 +18,9 @@ use crate::xcm_config::LocationToAccountId;
 use codec::{Decode, Encode, MaxEncodedLen};
 use enumflags2::{bitflags, BitFlags};
 use frame_support::{
-	parameter_types, traits::ConstU32, CloneNoBound, EqNoBound, PartialEqNoBound,
-	RuntimeDebugNoBound,
+	parameter_types,
+	traits::{reality::Context, ConstU32},
+	CloneNoBound, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound,
 };
 use pallet_identity::{Data, IdentityInformationProvider};
 use parachains_common::{impls::ToParentTreasury, DAYS};
@@ -230,4 +231,64 @@ impl Default for IdentityInfo {
 			discord: Data::None,
 		}
 	}
+}
+
+use verifiable::ring_vrf_impl::BandersnatchVrfVerifiable;
+
+parameter_types! {
+	pub const RingBakingInterval: BlockNumber = MINUTES;
+	pub const QueuePageMergingInterval: BlockNumber = 5 * MINUTES;
+	pub const MaxTaskLifespan: BlockNumber = 5 * MINUTES;
+}
+
+#[cfg(feature = "runtime-benchmarks")]
+pub struct BenchHelper {}
+
+#[cfg(feature = "runtime-benchmarks")]
+use verifiable::ring_vrf_impl::StaticChunk;
+
+#[cfg(feature = "runtime-benchmarks")]
+impl
+	pallet_people::BenchmarkHelper<
+		<BandersnatchVrfVerifiable as verifiable::GenerateVerifiable>::StaticChunk,
+	> for BenchHelper
+{
+	fn valid_account_context() -> Context {
+		[0u8; 32]
+	}
+	fn initialize_chunks(
+	) -> Vec<<BandersnatchVrfVerifiable as verifiable::GenerateVerifiable>::StaticChunk> {
+		let params = verifiable::ring_vrf_impl::ring_verifier_builder_params();
+		let chunks: Vec<StaticChunk> = params.0.iter().map(|c| StaticChunk(*c)).collect();
+		chunks
+	}
+}
+
+pub struct AccountContexts;
+impl frame_support::traits::Contains<Context> for AccountContexts {
+	fn contains(_l: &Context) -> bool {
+		// all contexts valid
+		true
+	}
+}
+
+impl pallet_people::Config for Runtime {
+	type WeightInfo = ();
+	type RuntimeEvent = RuntimeEvent;
+	type Crypto = BandersnatchVrfVerifiable;
+	type AccountContexts = AccountContexts;
+	type ChunkPageSize = ConstU32<128>;
+	type MaxRingSize = ConstU32<255>;
+	type OnboardingQueuePageSize = ConstU32<512>;
+
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkHelper = BenchHelper;
+}
+
+impl pallet_dummy_dim::Config for Runtime {
+	type WeightInfo = ();
+	type RuntimeEvent = RuntimeEvent;
+	type UpdateOrigin = EnsureRoot<AccountId>;
+	type MaxPersonBatchSize = ConstU32<1000>;
+	type People = People;
 }

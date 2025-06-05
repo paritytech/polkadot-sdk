@@ -35,16 +35,19 @@ use frame_support::{
 	genesis_builder_helper::{build_state, get_preset},
 	parameter_types,
 	traits::{
-		ConstBool, ConstU32, ConstU64, ConstU8, EitherOfDiverse, Everything, InstanceFilter,
-		TransformOrigin,
+		reality::{Alias, PersonalId},
+		ConstBool, ConstU32, ConstU64, ConstU8, ContainsPair, EitherOfDiverse, Everything,
+		InstanceFilter, TransformOrigin,
 	},
 	weights::{ConstantMultiplier, Weight},
 	PalletId,
 };
 use frame_system::{
 	limits::{BlockLength, BlockWeights},
+	offchain::{CreateInherent, CreateTransactionBase},
 	EnsureRoot,
 };
+use pallet_origin_restriction::Allowance;
 use pallet_xcm::{EnsureXcm, IsVoiceOfBody};
 use parachains_common::{
 	impls::DealWithFees,
@@ -62,7 +65,7 @@ use sp_runtime::{
 	generic, impl_opaque_keys,
 	traits::{BlakeTwo256, Block as BlockT},
 	transaction_validity::{TransactionSource, TransactionValidity},
-	ApplyExtrinsicResult,
+	ApplyExtrinsicResult, MultiSignature, MultiSigner,
 };
 pub use sp_runtime::{MultiAddress, Perbill, Permill, RuntimeDebug};
 #[cfg(feature = "std")]
@@ -93,9 +96,16 @@ pub type SignedBlock = generic::SignedBlock<Block>;
 pub type BlockId = generic::BlockId<Block>;
 
 /// The transactionExtension to the basic transaction logic.
-pub type TxExtension = cumulus_pallet_weight_reclaim::StorageWeightReclaim<
+pub type TransactionExtension = cumulus_pallet_weight_reclaim::StorageWeightReclaim<
 	Runtime,
 	(
+		// Origin modifiers
+		(
+			pallet_verify_signature::VerifySignature<Runtime>,
+			pallet_people::extension::AsPerson<Runtime>,
+		),
+		// General checks and operations
+		pallet_origin_restriction::RestrictOrigin<Runtime>,
 		frame_system::AuthorizeCall<Runtime>,
 		frame_system::CheckNonZeroSender<Runtime>,
 		frame_system::CheckSpecVersion<Runtime>,
@@ -104,13 +114,16 @@ pub type TxExtension = cumulus_pallet_weight_reclaim::StorageWeightReclaim<
 		frame_system::CheckEra<Runtime>,
 		frame_system::CheckNonce<Runtime>,
 		frame_system::CheckWeight<Runtime>,
-		pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
+		pallet_skip_feeless_payment::SkipCheckIfFeeless<
+			Runtime,
+			pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
+		>,
 	),
 >;
 
 /// Unchecked extrinsic type as expected by this runtime.
 pub type UncheckedExtrinsic =
-	generic::UncheckedExtrinsic<Address, RuntimeCall, Signature, TxExtension>;
+	generic::UncheckedExtrinsic<Address, RuntimeCall, Signature, TransactionExtension>;
 
 /// Migrations to apply on runtime upgrade.
 pub type Migrations = (
@@ -573,6 +586,119 @@ impl pallet_migrations::Config for Runtime {
 	type WeightInfo = weights::pallet_migrations::WeightInfo<Runtime>;
 }
 
+impl pallet_skip_feeless_payment::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+}
+
+#[cfg(feature = "runtime-benchmarks")]
+pub struct VerifySignatureBenchmarkHelper;
+#[cfg(feature = "runtime-benchmarks")]
+impl pallet_verify_signature::BenchmarkHelper<MultiSignature, AccountId>
+	for VerifySignatureBenchmarkHelper
+{
+	fn create_signature(_entropy: &[u8], msg: &[u8]) -> (MultiSignature, AccountId) {
+		use sp_io::crypto::{sr25519_generate, sr25519_sign};
+		use sp_runtime::traits::IdentifyAccount;
+		let public = sr25519_generate(0.into(), None);
+		let who_account: AccountId = MultiSigner::Sr25519(public).into_account();
+		let signature = MultiSignature::Sr25519(sr25519_sign(0.into(), &public, msg).unwrap());
+		(signature, who_account)
+	}
+}
+
+impl pallet_verify_signature::Config for Runtime {
+	type Signature = MultiSignature;
+	type AccountIdentifier = MultiSigner;
+	type WeightInfo = ();
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkHelper = VerifySignatureBenchmarkHelper;
+}
+
+const PEOPLE_IDENTITY_AND_ALIAS_ALLOWANCE_MAX: Balance = UNITS;
+const PEOPLE_IDENTITY_AND_ALIAS_ALLOWANCE_RECOVERY: Balance = CENTS;
+
+#[derive(
+	Clone,
+	Encode,
+	Decode,
+	Debug,
+	MaxEncodedLen,
+	scale_info::TypeInfo,
+	Eq,
+	PartialEq,
+	DecodeWithMemTracking,
+)]
+pub enum RestrictedEntity {
+	PersonalAlias(Alias),
+	PersonalIdentity(PersonalId),
+}
+
+impl pallet_origin_restriction::RestrictedEntity<OriginCaller, Balance> for RestrictedEntity {
+	fn allowance(&self) -> pallet_origin_restriction::Allowance<Balance> {
+		match self {
+			RestrictedEntity::PersonalAlias(_) | RestrictedEntity::PersonalIdentity(_) =>
+				Allowance {
+					max: PEOPLE_IDENTITY_AND_ALIAS_ALLOWANCE_MAX,
+					recovery_per_block: PEOPLE_IDENTITY_AND_ALIAS_ALLOWANCE_RECOVERY,
+				},
+		}
+	}
+
+	fn restricted_entity(origin_caller: &OriginCaller) -> Option<Self> {
+		use pallet_people::Origin::*;
+		use OriginCaller::*;
+		match origin_caller {
+			People(PersonalIdentity(id)) => Some(RestrictedEntity::PersonalIdentity(*id)),
+			People(PersonalAlias(rev_ca)) => Some(RestrictedEntity::PersonalAlias(rev_ca.ca.alias)),
+			_ => None,
+		}
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn benchmarked_restricted_origin() -> OriginCaller {
+		OriginCaller::People(pallet_people::Origin::PersonalIdentity(0))
+	}
+}
+
+pub struct OperationAllowedOneTimeExcess;
+impl ContainsPair<RestrictedEntity, RuntimeCall> for OperationAllowedOneTimeExcess {
+	fn contains(entity: &RestrictedEntity, _call: &RuntimeCall) -> bool {
+		match entity {
+			RestrictedEntity::PersonalAlias(_) | RestrictedEntity::PersonalIdentity(_) => false,
+			// other entities will come in the future
+		}
+	}
+}
+
+impl pallet_origin_restriction::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type WeightInfo = weights::pallet_origin_restriction::WeightInfo<Runtime>;
+	type RestrictedEntity = RestrictedEntity;
+	type OperationAllowedOneTimeExcess = OperationAllowedOneTimeExcess;
+}
+
+impl<LocalCall> CreateInherent<LocalCall> for Runtime
+where
+	RuntimeCall: From<LocalCall>,
+{
+	fn create_inherent(call: Self::RuntimeCall) -> Self::Extrinsic {
+		UncheckedExtrinsic::new_bare(call)
+	}
+	fn create_bare(
+		_: <Self as CreateTransactionBase<LocalCall>>::RuntimeCall,
+	) -> <Self as CreateTransactionBase<LocalCall>>::Extrinsic {
+		todo!()
+	}
+}
+
+impl<LocalCall> CreateTransactionBase<LocalCall> for Runtime
+where
+	RuntimeCall: From<LocalCall>,
+{
+	type Extrinsic = UncheckedExtrinsic;
+	type RuntimeCall = RuntimeCall;
+}
+
 // Create the runtime by composing the FRAME pallets that were previously configured.
 construct_runtime!(
 	pub enum Runtime
@@ -587,6 +713,8 @@ construct_runtime!(
 		// Monetary stuff.
 		Balances: pallet_balances = 10,
 		TransactionPayment: pallet_transaction_payment = 11,
+		SkipFeelessPayment: pallet_skip_feeless_payment = 12,
+		OriginRestriction: pallet_origin_restriction = 13,
 
 		// Collator support. The order of these 5 are important and shall not change.
 		Authorship: pallet_authorship = 20,
@@ -605,9 +733,12 @@ construct_runtime!(
 		Utility: pallet_utility = 40,
 		Multisig: pallet_multisig = 41,
 		Proxy: pallet_proxy = 42,
+		VerifySignature: pallet_verify_signature = 43,
 
 		// The main stage.
 		Identity: pallet_identity = 50,
+		People: pallet_people = 51,
+		DummyDim: pallet_dummy_dim = 52,
 
 		// Migrations pallet
 		MultiBlockMigrations: pallet_migrations = 98,
@@ -642,6 +773,10 @@ mod benches {
 		[pallet_xcm_benchmarks::fungible, XcmBalances]
 		[pallet_xcm_benchmarks::generic, XcmGeneric]
 		[cumulus_pallet_weight_reclaim, WeightReclaim]
+		// Individuality
+		[pallet_origin_restriction, OriginRestriction]
+		[pallet_people, People]
+		[pallet_dummy_dim, DummyDim]
 	);
 }
 
