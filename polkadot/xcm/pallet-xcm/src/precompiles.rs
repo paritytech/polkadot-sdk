@@ -34,8 +34,8 @@ use IXcm::IXcmCalls;
 const LOG_TARGET: &str = "xcm::precompiles";
 
 fn revert(error: &impl std::fmt::Debug, message: &str) -> Error {
-    error!(target: LOG_TARGET, ?error, "{}", message);
-    Error::Revert(message.into())
+	error!(target: LOG_TARGET, ?error, "{}", message);
+	Error::Revert(message.into())
 }
 
 pub struct XcmPrecompile<T>(PhantomData<T>);
@@ -74,9 +74,7 @@ where
 					MAX_XCM_DECODE_DEPTH,
 					&mut &message[..],
 				)
-				.map_err(|error| {
-					revert(&error, "XCM send failed: Invalid message format")
-				})?;
+				.map_err(|error| revert(&error, "XCM send failed: Invalid message format"))?;
 
 				crate::Pallet::<Runtime>::send(
 					frame_origin,
@@ -87,7 +85,7 @@ where
 				.map_err(|error| {
 					revert(
 						&error,
-						"XCM send failed: destination or message format may be incompatible"
+						"XCM send failed: destination or message format may be incompatible",
 					)
 				})
 			},
@@ -100,9 +98,7 @@ where
 					MAX_XCM_DECODE_DEPTH,
 					&mut &message[..],
 				)
-				.map_err(|error| {
-					revert(&error, "XCM execute failed: Invalid message format")
-				})?;
+				.map_err(|error| revert(&error, "XCM execute failed: Invalid message format"))?;
 
 				let result =
 					crate::Pallet::<Runtime>::execute(frame_origin, final_message.into(), weight);
@@ -131,9 +127,7 @@ where
 					MAX_XCM_DECODE_DEPTH,
 					&mut &message[..],
 				)
-				.map_err(|error| {
-					revert(&error, "XCM weightMessage: Invalid message format")
-				})?;
+				.map_err(|error| revert(&error, "XCM weightMessage: Invalid message format"))?;
 
 				let mut final_message = converted_message.try_into().map_err(|error| {
 					revert(&error, "XCM weightMessage: Conversion to Xcm failed")
