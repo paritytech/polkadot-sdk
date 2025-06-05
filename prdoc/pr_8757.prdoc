@@ -1,0 +1,23 @@
+title: Allow sending transactions from an Ethereum address derived account id
+doc:
+- audience: Runtime Dev
+  description: |-
+    We always allowed signing transactions using an Bitcoin/Eth style SECP256k1 key. The account in this case is simply the blake2 hash of the public key.
+
+    This address derivation is problematic: It requires the public key in order to derive the account id. On Ethereum you simply can't know the public key of an address. This is why the mapping in pallet_revive is defined as `address <-> account_id`.
+
+    This PR adds a new signature variant that allows signing a transaction with an account id as origin that matches this mapping.
+
+    ## Why is this important?
+
+    ### Example1
+    A wallet contains an SECP256k1 key and wants to interact with native Polkadot APIs. It can sign the transaction using this key. However, without this change the origin of that transaction will be different than the one it would appear under if it had signed an Ethereum transaction.
+
+    ### Example2
+    A chain using an Ethereum style address (like Mythical) wants to send some tokens to one of their users account on AssetHub. How would they know what is the address of that user on AssetHub? With this change they can just pad the address with `0xEE` and rely on the fact that the user can interact with AssetHub using their existing key.
+
+    ## Why a new variant?
+    We can't modify the existing variant. Otherwise the same signature would suddenly map to a different account making people lose access to their funds. Instead, we add a new variant that adds control over an additional account for the same signature.
+crates:
+- name: sp-runtime
+  bump: major
