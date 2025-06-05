@@ -11240,6 +11240,7 @@ dependencies = [
  "pallet-timestamp",
  "parity-scale-codec",
  "scale-info",
+ "sp-application-crypto 30.0.0",
  "sp-runtime 31.0.1",
  "sp-std 14.0.0",
 ]
