@@ -584,7 +584,7 @@ impl<T: Config> Pallet<T> {
 					Err(_) => {
 						log::info!(
 							target: LOG_TARGET,
-							"Ignoring unapplied slash (undecodable) for: session({}), candidate_hash({})",
+							"Ignoring unapplied slash (undecodable) for: session({}), candidate_hash({:?})",
 							session,
 							candidate_hash,
 						);
