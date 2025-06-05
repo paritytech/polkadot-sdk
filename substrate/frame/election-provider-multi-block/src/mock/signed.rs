@@ -32,7 +32,7 @@ use sp_runtime::{traits::Zero, Perbill};
 
 parameter_types! {
 	pub static MockSignedNextSolution: Option<Vec<SolutionOf<Runtime>>> = None;
-	pub static MockSignedNextScore: Option<ElectionScore> = Default::default();
+	pub static MockSignedNextScore: ElectionScore = Default::default();
 	pub static MockSignedResults: Vec<VerificationResult> = Default::default();
 }
 
@@ -50,7 +50,7 @@ impl SolutionDataProvider for MockSignedPhase {
 	}
 
 	fn get_score() -> ElectionScore {
-		MockSignedNextScore::get().unwrap_or_default()
+		MockSignedNextScore::get()
 	}
 
 	fn report_result(result: verifier::VerificationResult) {
@@ -109,7 +109,7 @@ impl SolutionDataProvider for DualSignedPhase {
 
 	fn get_score() -> ElectionScore {
 		match SignedPhaseSwitch::get() {
-			SignedSwitch::Mock => MockSignedNextScore::get().unwrap_or_default(),
+			SignedSwitch::Mock => MockSignedNextScore::get(),
 			SignedSwitch::Real => SignedPallet::get_score(),
 		}
 	}
@@ -265,7 +265,7 @@ pub fn load_mock_signed_and_start(raw_paged: PagedRawSolution<Runtime>) {
 		"you should not use this if mock phase is not being mocked"
 	);
 	MockSignedNextSolution::set(Some(raw_paged.solution_pages.pad_solution_pages(Pages::get())));
-	MockSignedNextScore::set(Some(raw_paged.score));
+	MockSignedNextScore::set(raw_paged.score);
 
 	// Let's gooooo!
 	assert_ok!(<VerifierPallet as AsynchronousVerifier>::start());

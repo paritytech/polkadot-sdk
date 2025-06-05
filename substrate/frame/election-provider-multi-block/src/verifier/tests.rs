@@ -539,7 +539,7 @@ mod async_verification {
 
 			// Now clear both the solution and the score to simulate missing score at the end.
 			MockSignedNextSolution::set(None);
-			MockSignedNextScore::set(None);
+			MockSignedNextScore::set(Default::default());
 
 			// Roll through remaining pages.
 			roll_next();
