@@ -1,3 +1,6 @@
+# This workflow has combined functionality of branching-off a new stable release branch and tagging an RC.
+# The options to branch-off and/or tag an RC can be chosen independently by ticking the appropriate checkbox in the launching form,
+# as the branch-off happens only ones per quarter and a tagging activity done more frequently for each new RC during the release process.
 name: Release - Branch off stable branch and/or tag rc
 
 on:
@@ -51,7 +54,7 @@ jobs:
     runs-on: ubuntu-latest
     environment: release
     env:
-      PGP_KMS_KEY: ${{ secrets.PGP_KMS_KEY }}
+      PGP_KMS_KEY: ${{ secrets.PGP_KMS_SIGN_COMMITS_KEY }}
       PGP_KMS_HASH: ${{ secrets.PGP_KMS_HASH }}
       AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -67,10 +70,10 @@ jobs:
       - name: Generate content write token for the release automation
         id: generate_write_token
         uses: actions/create-github-app-token@v2
-        with: #todo: change when tested!
-            app-id: ${{ secrets.RELEASE_BACKPORT_AUTOMATION_APP_ID }}
-            private-key: ${{ secrets.RELEASE_BACKPORT_AUTOMATION_APP_PRIVATE_KEY }}
-            owner: EgorPopelyaev
+        with:
+            app-id: ${{ vars.RELEASE_AUTOMATION_APP_ID }}
+            private-key: ${{ secrets.RELEASE_AUTOMATION_APP_PRIVATE_KEY }}
+            owner: paritytech
 
       - name: Checkout sources
         uses: actions/checkout@6d193bf28034eafb982f37bd894289fe649468fc # v4.1.7
@@ -138,10 +141,10 @@ jobs:
     with:
       version: polkadot-${{ needs.validate-inputs.outputs.stable_version }}
     secrets:
-      PGP_KMS_KEY:  ${{ secrets.PGP_KMS_KEY }}
+      PGP_KMS_SIGN_COMMITS_KEY:  ${{ secrets.PGP_KMS_SIGN_COMMITS_KEY }}
       PGP_KMS_HASH:  ${{ secrets.PGP_KMS_HASH }}
       AWS_ACCESS_KEY_ID:  ${{ secrets.AWS_ACCESS_KEY_ID }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
       AWS_DEFAULT_REGION:  ${{ secrets.AWS_DEFAULT_REGION }}
-      RELEASE_BACKPORT_AUTOMATION_APP_ID: ${{ secrets.RELEASE_BACKPORT_AUTOMATION_APP_ID }}
-      RELEASE_BACKPORT_AUTOMATION_APP_PRIVATE_KEY: ${{ secrets.RELEASE_BACKPORT_AUTOMATION_APP_PRIVATE_KEY }}
+      RELEASE_AUTOMATION_APP_PRIVATE_KEY: ${{ secrets.RELEASE_AUTOMATION_APP_PRIVATE_KEY }}
+      RELEASENOTES_MATRIX_V2_ACCESS_TOKEN: ${{ secrets.RELEASENOTES_MATRIX_V2_ACCESS_TOKEN }}

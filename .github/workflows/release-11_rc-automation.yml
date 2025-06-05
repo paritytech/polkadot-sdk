@@ -1,4 +1,4 @@
-name: Release - RC automation
+name: Release - RC tagging automation
 on:
   workflow_dispatch:
     inputs:
@@ -10,7 +10,7 @@ on:
         description: Current release/rc version in format polkadot-stableYYMM
         type: string
     secrets:
-      PGP_KMS_KEY:
+      PGP_KMS_SIGN_COMMITS_KEY:
         required: true
       PGP_KMS_HASH:
         required: true
@@ -20,9 +20,9 @@ on:
         required: true
       AWS_DEFAULT_REGION:
         required: true
-      RELEASE_BACKPORT_AUTOMATION_APP_ID:
+      RELEASE_AUTOMATION_APP_PRIVATE_KEY:
         required: true
-      RELEASE_BACKPORT_AUTOMATION_APP_PRIVATE_KEY:
+      RELEASENOTES_MATRIX_V2_ACCESS_TOKEN:
         required: true
 
 jobs:
@@ -35,7 +35,7 @@ jobs:
             room: '!cqAmzdIcbOFwrdrubV:parity.io'
     environment: release
     env:
-      PGP_KMS_KEY: ${{ secrets.PGP_KMS_KEY }}
+      PGP_KMS_KEY: ${{ secrets.PGP_KMS_SIGN_COMMITS_KEY }}
       PGP_KMS_HASH: ${{ secrets.PGP_KMS_HASH }}
       AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -50,10 +50,10 @@ jobs:
       - name: Generate content write token for the release automation
         id: generate_write_token
         uses: actions/create-github-app-token@v2
-        with: #todo: change when tested!
-            app-id: ${{ secrets.RELEASE_BACKPORT_AUTOMATION_APP_ID }}
-            private-key: ${{ secrets.RELEASE_BACKPORT_AUTOMATION_APP_PRIVATE_KEY }}
-            owner: EgorPopelyaev
+        with:
+            app-id: ${{ vars.RELEASE_AUTOMATION_APP_ID }}
+            private-key: ${{ secrets.RELEASE_AUTOMATION_APP_PRIVATE_KEY }}
+            owner: paritytech
 
       - name: Checkout sources
         uses: actions/checkout@6d193bf28034eafb982f37bd894289fe649468fc # v4.1.7
