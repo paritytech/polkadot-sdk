@@ -370,7 +370,7 @@ pub enum MultiSigner {
 	/// pubkey.
 	///
 	/// This is important so that the address matches the address to address mapping in
-	/// `pallet_revive`. This means is that the same public key controls two accounts. But
+	/// `pallet_revive`. This means that the same public key controls two accounts. But
 	/// this is already the case due to `pallet_revive`'s address mapping.
 	Eth(ecdsa::Public),
 }
