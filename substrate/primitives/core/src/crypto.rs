@@ -642,12 +642,6 @@ impl FromEntropy for AccountId32 {
 	}
 }
 
-impl Default for AccountId32 {
-	fn default() -> Self {
-		Self::new([0; 32])
-	}
-}
-
 #[cfg(feature = "std")]
 pub use self::dummy::*;
 

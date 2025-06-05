@@ -32,7 +32,7 @@ use codec::{Decode, Encode, HasCompact};
 use core::cmp::Ordering;
 use frame_election_provider_support::NposSolution;
 use frame_support::traits::{
-	defensive_prelude::*, Currency, Get, OnUnbalanced, ReservableCurrency, GetTreasury
+	defensive_prelude::*, Currency, Get, OnUnbalanced, ReservableCurrency,
 };
 use frame_system::pallet_prelude::BlockNumberFor;
 use sp_arithmetic::traits::SaturatedConversion;
@@ -404,10 +404,6 @@ impl<T: Config> Pallet<T> {
 		let mut found_solution = false;
 		let mut weight = T::DbWeight::get().reads(1);
 
-		let treasury = T::Currency::get_treasury();
-		let mut treasury_balance = T::Currency::free_balance(&treasury);
-		weight = weight.saturating_add(T::DbWeight::get().reads_writes(2, 0));
-
 		let SolutionOrSnapshotSize { voters, targets } =
 			Self::snapshot_metadata().unwrap_or_default();
 
@@ -430,14 +426,12 @@ impl<T: Config> Pallet<T> {
 			weight = weight.saturating_add(feasibility_weight);
 			match Self::feasibility_check(raw_solution, ElectionCompute::Signed) {
 				Ok(ready_solution) => {
-					let minted = Self::finalize_signed_phase_accept_solution(
+					Self::finalize_signed_phase_accept_solution(
 						ready_solution,
 						&who,
 						deposit,
 						call_fee,
-						treasury_balance,
 					);
-					treasury_balance = treasury_balance.saturating_sub(minted);
 					found_solution = true;
 					log!(debug, "finalized_signed: found a valid solution");
 
@@ -463,12 +457,11 @@ impl<T: Config> Pallet<T> {
 		for SignedSubmission { who, deposit, call_fee, .. } in
 			all_submissions.drain_submitted_order()
 		{
-			if refund_count < max_refunds && treasury_balance >= call_fee {
+			if refund_count < max_refunds {
 				// Refund fee
 				let positive_imbalance = T::Currency::deposit_creating(&who, call_fee);
 				T::RewardHandler::on_unbalanced(positive_imbalance);
 				refund_count += 1;
-				treasury_balance = treasury_balance.saturating_sub(call_fee);
 			}
 
 			// Unreserve deposit
@@ -495,46 +488,27 @@ impl<T: Config> Pallet<T> {
 	/// Extracted to facilitate with weight calculation.
 	///
 	/// Infallible
-	///
-	/// Returns total amount minted (call fee + reward)
 	pub fn finalize_signed_phase_accept_solution(
 		ready_solution: ReadySolution<T::AccountId, T::MaxWinners>,
 		who: &T::AccountId,
 		deposit: BalanceOf<T>,
 		call_fee: BalanceOf<T>,
-		treasury_balance: BalanceOf<T>,
-	) -> BalanceOf<T> {
+	) {
 		// write this ready solution.
 		<QueuedSolution<T>>::put(ready_solution);
+
+		let reward = T::SignedRewardBase::get();
+		// emit reward event
+		Self::deposit_event(crate::Event::Rewarded { account: who.clone(), value: reward });
 
 		// Unreserve deposit.
 		let _remaining = T::Currency::unreserve(who, deposit);
 		debug_assert!(_remaining.is_zero());
 
-		let mut reward = T::SignedRewardBase::get();
-		let mut total_mint= reward.saturating_add(call_fee);
-
-		// only issue rewards if they are available in the treasury
-		if treasury_balance < total_mint {
-			total_mint = treasury_balance;
-			if treasury_balance <= call_fee {
-				reward = BalanceOf::<T>::zero();
-			} else {
-				reward = treasury_balance.saturating_sub(call_fee);
-			}
-		}
-
-		// emit reward event
-		Self::deposit_event(crate::Event::Rewarded { account: who.clone(), value: reward });
-
 		// Reward and refund the call fee.
-		if !total_mint.is_zero() {
-			let positive_imbalance =
-				T::Currency::deposit_creating(who, total_mint);
-			T::RewardHandler::on_unbalanced(positive_imbalance);
-		}
-
-		total_mint
+		let positive_imbalance =
+			T::Currency::deposit_creating(who, reward.saturating_add(call_fee));
+		T::RewardHandler::on_unbalanced(positive_imbalance);
 	}
 
 	/// Helper function for the case where a solution is accepted in the rejected phase.
@@ -754,70 +728,6 @@ mod tests {
 						prev_ejected: false
 					},
 					Event::Rewarded { account: 99, value: 7 }
-				]
-			);
-		})
-	}
-
-	#[test]
-	fn good_solution_is_partially_rewarded_if_treasury_almost_empty() {
-		ExtBuilder::default().build_and_execute(|| {
-			assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), 0, 10));
-
-			roll_to_signed();
-			assert!(MultiPhase::current_phase().is_signed());
-
-			let solution = raw_solution();
-			assert_eq!(balances(&99), (100, 0));
-
-			assert_ok!(MultiPhase::submit(RuntimeOrigin::signed(99), Box::new(solution)));
-			assert_eq!(balances(&99), (95, 5));
-
-			assert!(MultiPhase::finalize_signed_phase());
-			assert_eq!(balances(&99), (100 + 2 + 8, 0));
-
-			assert_eq!(
-				multi_phase_events(),
-				vec![
-					Event::PhaseTransitioned { from: Phase::Off, to: Phase::Signed, round: 1 },
-					Event::SolutionStored {
-						compute: ElectionCompute::Signed,
-						origin: Some(99),
-						prev_ejected: false
-					},
-					Event::Rewarded { account: 99, value: 2 }
-				]
-			);
-		})
-	}
-
-	#[test]
-	fn good_solution_is_not_rewarded_if_treasury_empty() {
-		ExtBuilder::default().build_and_execute(|| {
-			assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), 0, 0));
-
-			roll_to_signed();
-			assert!(MultiPhase::current_phase().is_signed());
-
-			let solution = raw_solution();
-			assert_eq!(balances(&99), (100, 0));
-
-			assert_ok!(MultiPhase::submit(RuntimeOrigin::signed(99), Box::new(solution)));
-			assert_eq!(balances(&99), (95, 5));
-
-			assert!(MultiPhase::finalize_signed_phase());
-			assert_eq!(balances(&99), (100, 0));
-
-			assert_eq!(
-				multi_phase_events(),
-				vec![
-					Event::PhaseTransitioned { from: Phase::Off, to: Phase::Signed, round: 1 },
-					Event::SolutionStored {
-						compute: ElectionCompute::Signed,
-						origin: Some(99),
-						prev_ejected: false
-					},
-					Event::Rewarded { account: 99, value: 0 }
 				]
 			);
 		})

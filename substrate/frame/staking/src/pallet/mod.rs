@@ -26,7 +26,7 @@ use frame_support::{
 	pallet_prelude::*,
 	traits::{
 		Currency, Defensive, DefensiveSaturating, EnsureOrigin, EstimateNextNewSession, Get,
-		InspectLockableCurrency, LockableCurrency, OnUnbalanced, UnixTime, WithdrawReasons, GetTreasury
+		InspectLockableCurrency, LockableCurrency, OnUnbalanced, UnixTime, WithdrawReasons,
 	},
 	weights::Weight,
 	BoundedVec,
@@ -93,7 +93,7 @@ pub mod pallet {
 				Self::AccountId,
 				Moment = BlockNumberFor<Self>,
 				Balance = Self::CurrencyBalance,
-			> + InspectLockableCurrency<Self::AccountId> + GetTreasury<Self::AccountId>;
+			> + InspectLockableCurrency<Self::AccountId>;
 		/// Just the `Currency::Balance` type; we have this item to allow us to constrain it to
 		/// `From<u64>`.
 		type CurrencyBalance: sp_runtime::traits::AtLeast32BitUnsigned

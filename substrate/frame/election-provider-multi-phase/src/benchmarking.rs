@@ -191,8 +191,6 @@ fn set_up_data_provider<T: Config>(v: u32, t: u32) {
 }
 
 frame_benchmarking::benchmarks! {
-	where_clause { where <T as frame_system::Config>::AccountId: Default }
-	
 	on_initialize_nothing {
 		assert!(<MultiPhase<T>>::current_phase().is_off());
 	}: {
@@ -224,8 +222,7 @@ frame_benchmarking::benchmarks! {
 
 	finalize_signed_phase_accept_solution {
 		let receiver = account("receiver", 0, SEED);
-		let ed = T::Currency::minimum_balance();
-		let initial_balance = ed + 10u32.into();
+		let initial_balance = T::Currency::minimum_balance() + 10u32.into();
 		T::Currency::make_free_balance_be(&receiver, initial_balance);
 		let ready = Default::default();
 		let deposit: BalanceOf<T> = 10u32.into();
@@ -233,20 +230,14 @@ frame_benchmarking::benchmarks! {
 		let reward: BalanceOf<T> = T::SignedRewardBase::get();
 		let call_fee: BalanceOf<T> = 30u32.into();
 
-		let treasury_account = T::AccountId::default();
-		let treasury_balance = ed + call_fee + reward;
-		T::Currency::make_free_balance_be(&treasury_account, treasury_balance);
-
 		assert_ok!(T::Currency::reserve(&receiver, deposit));
-		assert_eq!(T::Currency::free_balance(&receiver), ed);
-		assert_eq!(T::Currency::free_balance(&treasury_account), treasury_balance);
+		assert_eq!(T::Currency::free_balance(&receiver), T::Currency::minimum_balance());
 	}: {
 		<MultiPhase<T>>::finalize_signed_phase_accept_solution(
 			ready,
 			&receiver,
 			deposit,
-			call_fee,
-			treasury_balance
+			call_fee
 		)
 	} verify {
 		assert_eq!(

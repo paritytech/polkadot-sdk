@@ -149,10 +149,8 @@ pub mod migration;
 mod tests;
 mod types;
 pub mod weights;
-mod impl_treasury;
 
 extern crate alloc;
-extern crate core;
 
 use alloc::vec::Vec;
 use codec::{Codec, MaxEncodedLen};

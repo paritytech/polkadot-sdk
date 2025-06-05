@@ -461,8 +461,8 @@ impl ExtBuilder {
 				(71, self.balance_factor * 2000),
 				(80, self.balance_factor),
 				(81, self.balance_factor * 2000),
-				// Funds treasury and allows us to have a total_payout different from 0.
-				(0, 1_000_000_000_000),
+				// This allows us to have a total_payout different from 0.
+				(999, 1_000_000_000_000),
 			],
 		}
 		.assimilate_storage(&mut storage);

@@ -29,7 +29,6 @@ use frame_support::{
 	traits::{
 		Currency, Defensive, DefensiveSaturating, EstimateNextNewSession, Get, Imbalance,
 		InspectLockableCurrency, Len, LockableCurrency, OnUnbalanced, TryCollect, UnixTime,
-		GetTreasury
 	},
 	weights::Weight,
 };
@@ -591,17 +590,8 @@ impl<T: Config> Pallet<T> {
 				MaxStakedRewards::<T>::get().unwrap_or(Percent::from_percent(100));
 
 			// apply cap to validators payout and add difference to remainder.
-			let mut validator_payout = validator_payout.min(max_staked_rewards * total_payout);
-			let mut remainder = total_payout.saturating_sub(validator_payout);
-
-			// only issue rewards if they are available in the treasury
-			let treasury = T::Currency::get_treasury();
-			let treasury_balance = T::Currency::free_balance(&treasury);
-			if treasury_balance < validator_payout {
-				let difference = validator_payout.saturating_sub(treasury_balance);
-				remainder = remainder.saturating_add(difference);
-				validator_payout = treasury_balance;
-			}
+			let validator_payout = validator_payout.min(max_staked_rewards * total_payout);
+			let remainder = total_payout.saturating_sub(validator_payout);
 
 			Self::deposit_event(Event::<T>::EraPaid {
 				era_index: active_era.index,
@@ -610,9 +600,7 @@ impl<T: Config> Pallet<T> {
 			});
 
 			// Set ending era reward.
-			if !validator_payout.is_zero() {
-				<ErasValidatorReward<T>>::insert(&active_era.index, validator_payout);
-			}
+			<ErasValidatorReward<T>>::insert(&active_era.index, validator_payout);
 			T::RewardRemainder::on_unbalanced(T::Currency::issue(remainder));
 
 			// Clear disabled validators.
