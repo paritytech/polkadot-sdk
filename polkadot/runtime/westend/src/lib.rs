@@ -352,7 +352,7 @@ impl pallet_preimage::Config for Runtime {
 parameter_types! {
 	pub const EpochDuration: u64 = prod_or_fast!(
 		EPOCH_DURATION_IN_SLOTS as u64,
-		2 * MINUTES as u64
+		10 * MINUTES as u64
 	);
 	pub const ExpectedBlockTime: Moment = MILLISECS_PER_BLOCK;
 	pub const ReportLongevity: u64 =
@@ -563,11 +563,11 @@ parameter_types! {
 	// phase durations. 1/4 of the last session for each.
 	pub SignedPhase: u32 = prod_or_fast!(
 		EPOCH_DURATION_IN_SLOTS / 4,
-		(1 * MINUTES).min(EpochDuration::get().saturated_into::<u32>() / 2)
+		(10 * MINUTES).min(EpochDuration::get().saturated_into::<u32>() / 2)
 	);
 	pub UnsignedPhase: u32 = prod_or_fast!(
 		EPOCH_DURATION_IN_SLOTS / 4,
-		(1 * MINUTES).min(EpochDuration::get().saturated_into::<u32>() / 2)
+		(10 * MINUTES).min(EpochDuration::get().saturated_into::<u32>() / 2)
 	);
 
 	// signed config
