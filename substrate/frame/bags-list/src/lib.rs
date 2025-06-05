@@ -238,7 +238,7 @@ pub mod pallet {
 		/// Maximum number of accounts that may be re-bagged automatically in `on_idle`.
 		///
 		/// A value of `0` (obtained by configuring `type AutoRebagPerBlock = ();`) disables
-		/// the feature completely and keeps the pallet’s behaviour identical to pre-upgrade
+		/// the feature. 
 		/// versions.
 		#[pallet::constant]
 		type AutoRebagPerBlock: Get<u32>;
