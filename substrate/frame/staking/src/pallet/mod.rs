@@ -759,6 +759,7 @@ pub mod pallet {
 		pub min_validator_bond: BalanceOf<T>,
 		pub max_validator_count: Option<u32>,
 		pub max_nominator_count: Option<u32>,
+		pub enable_validator_whitelist: bool,
 	}
 
 	#[pallet::genesis_build]
@@ -772,6 +773,7 @@ pub mod pallet {
 			SlashRewardFraction::<T>::put(self.slash_reward_fraction);
 			MinNominatorBond::<T>::put(self.min_nominator_bond);
 			MinValidatorBond::<T>::put(self.min_validator_bond);
+			IsValidatorWhitelistEnabled::<T>::put(self.enable_validator_whitelist);
 			if let Some(x) = self.max_validator_count {
 				MaxValidatorsCount::<T>::put(x);
 			}
