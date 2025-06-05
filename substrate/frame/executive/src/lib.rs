@@ -799,7 +799,7 @@ where
 			MAX_EXTRINSIC_DEPTH,
 			&mut &encoded[..],
 		)
-		.expect("Decoding the encoded transaction works; qed");
+		.map_err(|_| InvalidTransaction::Call)?;
 
 		// Verify that the signature is good.
 		let xt = check(uxt, &Context::default())?;
