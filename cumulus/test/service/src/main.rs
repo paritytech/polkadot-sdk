@@ -102,15 +102,7 @@ fn main() -> Result<(), sc_cli::Error> {
 					cumulus_test_service::Consensus::Null
 				})
 				.unwrap_or(cumulus_test_service::Consensus::Aura);
-<<<<<<< HEAD
 
-			// If the network backend is unspecified, use the default for the given chain.
-			let default_backend = relay_chain_config.chain_spec.network_backend();
-			let network_backend =
-				relay_chain_config.network.network_backend.unwrap_or(default_backend);
-=======
-			let use_slot_based_collator = cli.authoring == AuthoringPolicy::SlotBased;
->>>>>>> f6d18b73 (client/net: Use litep2p as the default network backend (#8461))
 			let (mut task_manager, _, _, _, _, _) = tokio_runtime
 				.block_on(async move {
 					match relay_chain_config.network.network_backend {
