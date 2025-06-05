@@ -123,8 +123,7 @@ extern crate alloc;
 #[doc = docify::embed!("src/tests.rs", examples_work)]
 pub mod example {}
 
-use alloc::boxed::Box;
-use alloc::vec::Vec;
+use alloc::{boxed::Box, vec::Vec};
 use codec::FullCodec;
 use frame_election_provider_support::{ScoreProvider, SortedListProvider};
 use frame_support::weights::{Weight, WeightMeter};
@@ -416,12 +415,8 @@ pub mod pallet {
 		/// It stores a persistent cursor to continue across blocks.
 		fn on_idle(_n: BlockNumberFor<T>, limit: Weight) -> Weight {
 			let mut meter = WeightMeter::with_limit(limit);
-			// Checking if there is some weight available for minimal overhead.
-			let overhead_reads = T::DbWeight::get().reads(4);
-			let overhead_writes = T::DbWeight::get().writes(1);
-			let minimal_overhead = overhead_reads.saturating_add(overhead_writes);
-			if meter.try_consume(minimal_overhead).is_err() {
-				log!(debug, "Not enough Weight for minimal overhead. Skipping rebugging.");
+			if meter.try_consume(T::WeightInfo::on_idle()).is_err() {
+				log!(debug, "Not enough Weight for on_idle. Skipping rebugging.");
 				return Weight::zero();
 			}
 
@@ -511,6 +506,13 @@ pub mod pallet {
 
 			match next_cursor.first() {
 				// Candidate was already processed in this block — avoid looping.
+				//
+				// This check prevents re-processing the same node multiple times within a single block,
+				// which can happen if `on_idle()` is invoked more than once in the same block
+				// (e.g. via test harnesses or incorrect runtime integration).
+				//
+				// Not strictly necessary in production — `on_idle()` is guaranteed to run only once per block,
+				// but we keep it as a guard against misuse or bugs in tests.
 				Some(next) if to_process.contains(next) => {
 					NextNodeAutoRebagged::<T, I>::kill();
 					log!(debug, "Loop detected: {:?} already processed — cursor killed", next);

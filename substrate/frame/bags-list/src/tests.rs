@@ -775,19 +775,28 @@ pub mod on_idle {
 	use super::*;
 	use frame_support::traits::OnIdle;
 
-	fn run_to_block(n: u64, on_idle_weight: Weight) {
+	fn run_to_block(n: u64, on_idle_weight: Weight) -> Weight {
+		let mut total_weight = Weight::zero();
+
 		System::run_to_block_with::<AllPalletsWithSystem>(
 			n,
 			frame_system::RunToBlockHooks::default().after_initialize(|bn| {
-				AllPalletsWithSystem::on_idle(bn, on_idle_weight);
+				let w = AllPalletsWithSystem::on_idle(bn, on_idle_weight);
+				total_weight = total_weight.saturating_add(w);
 			}),
 		);
+
+		total_weight
 	}
 
 	#[test]
 	fn does_nothing_when_feature_is_disabled() {
 		ExtBuilder::default().build_and_execute(|| {
 			// given
+			// Set auto-rebag limit to 2 nodes per block
+			<Runtime as Config>::AutoRebagPerBlock::set(0);
+			assert_eq!(<Runtime as Config>::AutoRebagPerBlock::get(), 0);
+
 			assert_eq!(List::<Runtime>::get_bags(), vec![(10, vec![1]), (1_000, vec![2, 3, 4])]);
 
 			// Change the score of node 3 to make it need rebagging
@@ -900,10 +909,7 @@ pub mod on_idle {
 			<Runtime as Config>::AutoRebagPerBlock::set(4);
 
 			// given
-			assert_eq!(
-				List::<Runtime>::get_bags(),
-				vec![(10, vec![1]), (1_000, vec![2, 3, 4])]
-			);
+			assert_eq!(List::<Runtime>::get_bags(), vec![(10, vec![1]), (1_000, vec![2, 3, 4])]);
 			assert_eq!(NextNodeAutoRebagged::<Runtime>::get(), None);
 
 			// Change scores to make rebag across bags
@@ -918,10 +924,7 @@ pub mod on_idle {
 			run_to_block(2, Weight::MAX);
 
 			// then — assert nodes are rebagged across bags
-			assert_eq!(
-				List::<Runtime>::get_bags(),
-				vec![(10, vec![2, 3, 4]), (2_000, vec![1])]
-			);
+			assert_eq!(List::<Runtime>::get_bags(), vec![(10, vec![2, 3, 4]), (2_000, vec![1])]);
 
 			// and the cursor is cleared (end of a list)
 			assert_eq!(NextNodeAutoRebagged::<Runtime>::get(), None);
@@ -935,10 +938,7 @@ pub mod on_idle {
 			<Runtime as Config>::AutoRebagPerBlock::set(2);
 
 			// given
-			assert_eq!(
-				List::<Runtime>::get_bags(),
-				vec![(10, vec![1]), (1_000, vec![2, 3, 4])]
-			);
+			assert_eq!(List::<Runtime>::get_bags(), vec![(10, vec![1]), (1_000, vec![2, 3, 4])]);
 			assert_eq!(NextNodeAutoRebagged::<Runtime>::get(), None);
 
 			// Change scores to make rebag across bags
@@ -953,12 +953,39 @@ pub mod on_idle {
 			run_to_block(4, Weight::MAX);
 
 			// then — assert nodes are rebagged across bags
-			assert_eq!(
-				List::<Runtime>::get_bags(),
-				vec![(10, vec![2, 3, 4]), (2_000, vec![1])]
-			);
+			assert_eq!(List::<Runtime>::get_bags(), vec![(10, vec![2, 3, 4]), (2_000, vec![1])]);
 
 			// and the cursor is cleared (end of a list)
+			assert_eq!(NextNodeAutoRebagged::<Runtime>::get(), None);
+		});
+	}
+
+	#[test]
+	fn does_nothing_when_no_weight_left() {
+		ExtBuilder::default().build_and_execute(|| {
+			// given
+			// Set AutoRebagPerBlock to a non-zero value to allow rebagging in theory
+			<Runtime as Config>::AutoRebagPerBlock::set(2);
+
+			assert_eq!(List::<Runtime>::get_bags(), vec![(10, vec![1]), (1_000, vec![2, 3, 4])]);
+			assert_eq!(NextNodeAutoRebagged::<Runtime>::get(), None);
+
+			// Modify scores to trigger rebagging logic.
+			StakingMock::set_score_of(&1, 2_000);
+			StakingMock::set_score_of(&2, 10);
+			StakingMock::set_score_of(&3, 10);
+			StakingMock::set_score_of(&4, 10);
+
+			// Trigger on_idle with zero available weight
+			let weight_used = run_to_block(4, Weight::zero());
+
+			// Confirm no weight was consumed
+			assert_eq!(weight_used, Weight::zero());
+
+			// Nothing should change due to lack of available weight
+			assert_eq!(List::<Runtime>::get_bags(), vec![(10, vec![1]), (1_000, vec![2, 3, 4])]);
+
+			// Cursor should not have advanced
 			assert_eq!(NextNodeAutoRebagged::<Runtime>::get(), None);
 		});
 	}
