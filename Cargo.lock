@@ -24863,6 +24863,7 @@ dependencies = [
  "pallet-timestamp",
  "pallet-utility",
  "parity-scale-codec",
+ "pretty_assertions",
  "sc-block-builder",
  "sc-chain-spec",
  "sc-executor 0.32.0",

@@ -1007,6 +1007,7 @@ pub mod storage_key_generator {
 			vec![b"System", b"ParentHash"],
 			vec![b"System", b"UpgradedToTripleRefCount"],
 			vec![b"System", b"UpgradedToU32RefCount"],
+			vec![b"Utility", b":__STORAGE_VERSION__:"],
 		];
 
 		let mut expected_keys = keys.iter().map(concat_hashes).collect::<Vec<String>>();
@@ -1127,6 +1128,8 @@ pub mod storage_key_generator {
 			"c2261276cc9d1f8598ea4b6a74b15c2f4e7b9012096b41c4eb3aaf947f6ea429",
 			// Balances|TotalIssuance
 			"c2261276cc9d1f8598ea4b6a74b15c2f57c875e4cff74148e4628f264b974c80",
+			//Utility|:__STORAGE_VERSION__:
+			"d5e1a2fa16732ce6906189438c0a82c64e7b9012096b41c4eb3aaf947f6ea429",
 		];
 
 		if custom_heap_pages {
@@ -1136,14 +1139,6 @@ pub mod storage_key_generator {
 
 		res
 	}
-
-	#[test]
-	fn expected_keys_vec_are_matching() {
-		assert_eq!(
-			storage_key_generator::get_expected_storage_hashed_keys(false),
-			storage_key_generator::generate_expected_storage_hashed_keys(false),
-		);
-	}
 }
 
 #[cfg(test)]
@@ -1151,6 +1146,7 @@ mod tests {
 	use super::*;
 	use codec::Encode;
 	use frame_support::dispatch::DispatchInfo;
+	use pretty_assertions::assert_eq;
 	use sc_block_builder::BlockBuilderBuilder;
 	use sp_api::{ApiExt, ProvideRuntimeApi};
 	use sp_consensus::BlockOrigin;
@@ -1162,6 +1158,14 @@ mod tests {
 	use substrate_test_runtime_client::{
 		prelude::*, runtime::TestAPI, DefaultTestClientBuilderExt, TestClientBuilder,
 	};
+
+	#[test]
+	fn expected_keys_vec_are_matching() {
+		assert_eq!(
+			storage_key_generator::get_expected_storage_hashed_keys(false),
+			storage_key_generator::generate_expected_storage_hashed_keys(false),
+		);
+	}
 
 	#[test]
 	fn heap_pages_is_respected() {
@@ -1345,6 +1349,7 @@ mod tests {
 	mod genesis_builder_tests {
 		use super::*;
 		use crate::genesismap::GenesisStorageBuilder;
+		use pretty_assertions::assert_eq;
 		use sc_executor::{error::Result, WasmExecutor};
 		use sc_executor_common::runtime_blob::RuntimeBlob;
 		use serde_json::json;
@@ -1414,10 +1419,12 @@ mod tests {
 				"1cb6f36e027abb2091cfb5110ab5087f4e7b9012096b41c4eb3aaf947f6ea429",
 				//SubstrateTest|:__STORAGE_VERSION__:
 				"00771836bebdd29870ff246d305c578c4e7b9012096b41c4eb3aaf947f6ea429",
+				//Utility|:__STORAGE_VERSION__:
+				"d5e1a2fa16732ce6906189438c0a82c64e7b9012096b41c4eb3aaf947f6ea429",
 				].into_iter().map(String::from).collect::<Vec<_>>();
 			expected.sort();
 
-			assert_eq!(keys, expected);
+			assert_eq!(expected, keys);
 		}
 
 		#[test]
