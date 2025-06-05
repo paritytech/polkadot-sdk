@@ -535,7 +535,7 @@ pub struct StakingLedger<T: Config> {
 	/// The controller associated with this ledger's stash.
 	///
 	/// This is not stored on-chain, and is only bundled when the ledger is read from storage.
-	/// Use [`controller`] function to get the controller associated with the ledger.
+	/// Use [`Self::controller()`] function to get the controller associated with the ledger.
 	#[codec(skip)]
 	pub controller: Option<T::AccountId>,
 }
