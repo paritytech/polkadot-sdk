@@ -17,13 +17,13 @@
 
 use crate::ah::mock::*;
 use frame::prelude::Perbill;
-use frame_support::{assert_noop, assert_ok};
+use frame_support::assert_ok;
 use pallet_election_provider_multi_block::{Event as ElectionEvent, Phase};
 use pallet_staking_async::{
-	session_rotation::Rotator, ActiveEra, ActiveEraInfo, CurrentEra, Event as StakingEvent,
+	self as staking_async, session_rotation::Rotator, ActiveEra, ActiveEraInfo, CurrentEra,
+	Event as StakingEvent,
 };
-use pallet_staking_async_rc_client as rc_client;
-use pallet_staking_async_rc_client::ValidatorSetReport;
+use pallet_staking_async_rc_client::{self as rc_client, UnexpectedKind, ValidatorSetReport};
 
 // Tests that are specific to Asset Hub.
 #[test]
@@ -49,7 +49,7 @@ fn on_receive_session_report() {
 		));
 
 		// THEN end 0, start 1, plan 2
-		let era_points = pallet_staking_async::ErasRewardPoints::<T>::get(&0);
+		let era_points = staking_async::ErasRewardPoints::<T>::get(&0);
 		assert_eq!(era_points.total, 360);
 		assert_eq!(era_points.individual.get(&1), Some(&10));
 		assert_eq!(era_points.individual.get(&4), Some(&40));
@@ -88,7 +88,7 @@ fn on_receive_session_report() {
 				}
 			));
 
-			let era_points = pallet_staking_async::ErasRewardPoints::<T>::get(&0);
+			let era_points = staking_async::ErasRewardPoints::<T>::get(&0);
 			assert_eq!(era_points.total, 360 + i * 10);
 			assert_eq!(era_points.individual.get(&1), Some(&(10 + i * 10)));
 
@@ -275,7 +275,7 @@ fn receives_old_session_report() {
 		assert_eq!(ActiveEra::<T>::get(), Some(ActiveEraInfo { index: 0, start: Some(0) }));
 		assert_eq!(rc_client::LastSessionReportEndingIndex::<T>::get(), None);
 
-		// Receive report for end of 1, start of 1 and plan 2.
+		// Receive report for end of 0, start of 1 and plan 2.
 		let session_report = rc_client::SessionReport {
 			end_index: 0,
 			validator_points: vec![(5, 50)],
@@ -289,7 +289,6 @@ fn receives_old_session_report() {
 		));
 
 		// then
-		assert_eq!(rc_client::LastSessionReportEndingIndex::<T>::get(), Some(0));
 		assert_eq!(
 			rc_client_events_since_last_call(),
 			vec![rc_client::Event::SessionReportReceived {
@@ -301,24 +300,26 @@ fn receives_old_session_report() {
 		);
 		assert_eq!(
 			staking_events_since_last_call(),
-			vec![pallet_staking_async::Event::SessionRotated {
+			vec![staking_async::Event::SessionRotated {
 				starting_session: 1,
 				active_era: 0,
 				planned_era: 0
 			}]
 		);
 
-		// reward points are added
-		assert_eq!(pallet_staking_async::ErasRewardPoints::<T>::get(&0).total, 50);
+		// reward points are not added
+		assert_eq!(staking_async::ErasRewardPoints::<T>::get(&0).total, 50);
+		assert_eq!(rc_client::LastSessionReportEndingIndex::<T>::get(), Some(0));
 
-		// this is ok, but no new session report is received in staking.
-		assert_noop!(
-			rc_client::Pallet::<T>::relay_session_report(
-				RuntimeOrigin::root(),
-				session_report.clone(),
-			),
-			rc_client::Error::<T>::SessionIndexNotValid
-		);
+		// then send it again, this is basically dropped, although it returns `Ok()`
+		assert_ok!(rc_client::Pallet::<T>::relay_session_report(
+			RuntimeOrigin::root(),
+			session_report
+		));
+
+		// no storage is changed
+		assert_eq!(staking_async::ErasRewardPoints::<T>::get(&0).total, 50);
+		assert_eq!(rc_client::LastSessionReportEndingIndex::<T>::get(), Some(0));
 	})
 }
 
@@ -356,7 +357,7 @@ fn receives_session_report_in_future() {
 		);
 		assert_eq!(
 			staking_events_since_last_call(),
-			vec![pallet_staking_async::Event::SessionRotated {
+			vec![staking_async::Event::SessionRotated {
 				starting_session: 1,
 				active_era: 0,
 				planned_era: 0
@@ -364,21 +365,103 @@ fn receives_session_report_in_future() {
 		);
 
 		// reward points are added
-		assert_eq!(pallet_staking_async::ErasRewardPoints::<T>::get(&0).total, 50);
+		assert_eq!(staking_async::ErasRewardPoints::<T>::get(&0).total, 50);
 
-		// skip end_index 1
-		assert_noop!(
-			rc_client::Pallet::<T>::relay_session_report(
+		// skip end_index 1, send 2
+		assert_ok!(rc_client::Pallet::<T>::relay_session_report(
+			RuntimeOrigin::root(),
+			rc_client::SessionReport {
+				end_index: 2,
+				validator_points: vec![(5, 50)],
+				activation_timestamp: None,
+				leftover: false,
+			},
+		));
+
+		// our tracker of last session is updated (and has skipped `1`)
+		assert_eq!(rc_client::LastSessionReportEndingIndex::<T>::get(), Some(2));
+
+		assert_eq!(
+			rc_client_events_since_last_call(),
+			vec![
+				rc_client::Event::Unexpected(UnexpectedKind::SessionSkipped),
+				rc_client::Event::SessionReportReceived {
+					end_index: 2,
+					activation_timestamp: None,
+					validator_points_counts: 1,
+					leftover: false
+				}
+			]
+		);
+		assert_eq!(
+			staking_events_since_last_call(),
+			vec![staking_async::Event::SessionRotated {
+				starting_session: 3,
+				active_era: 0,
+				planned_era: 0
+			}]
+		);
+
+		// reward points are accumulated
+		assert_eq!(staking_async::ErasRewardPoints::<T>::get(&0).total, 100);
+	})
+}
+
+#[test]
+fn session_report_burst() {
+	// note: there is also an e2e `session_report_burst` test
+	ExtBuilder::default().local_queue().build().execute_with(|| {
+		// Initial state
+		assert_eq!(CurrentEra::<T>::get(), Some(0));
+		assert_eq!(Rotator::<Runtime>::active_era_start_session_index(), 0);
+		assert_eq!(ActiveEra::<T>::get(), Some(ActiveEraInfo { index: 0, start: Some(0) }));
+		assert_eq!(rc_client::LastSessionReportEndingIndex::<T>::get(), None);
+
+		// then send 20 sessions all at once. This is enough to schedule multiple elections, but we
+		// only schedule one.
+		for s in 1..=20 {
+			assert_ok!(rc_client::Pallet::<T>::relay_session_report(
 				RuntimeOrigin::root(),
 				rc_client::SessionReport {
-					end_index: 2,
+					end_index: s,
 					validator_points: vec![(5, 50)],
 					activation_timestamp: None,
 					leftover: false,
 				},
-			),
-			rc_client::Error::<T>::SessionIndexNotValid
-		);
+			));
+			// all are processed fine, in one go
+			assert_eq!(
+				rc_client_events_since_last_call(),
+				vec![rc_client::Event::SessionReportReceived {
+					end_index: s,
+					activation_timestamp: None,
+					validator_points_counts: 1,
+					leftover: false
+				}]
+			);
+			// and we have collected reward points.
+			assert_eq!(staking_async::ErasRewardPoints::<T>::get(&0).total, 50 * s);
+		}
+
+		// crucially, election has started, but we have not done anything else.
+		Rotator::<T>::assert_election_ongoing();
+
+		assert!(matches!(
+			&staking_events_since_last_call()[..],
+			&[
+				staking_async::Event::SessionRotated {
+					starting_session: 2,
+					active_era: 0,
+					planned_era: 0
+				},
+				..,
+				staking_async::Event::SessionRotated {
+					starting_session: 21,
+					active_era: 0,
+					planned_era: 1
+				}
+			]
+		));
 	})
 }
 
@@ -412,12 +495,12 @@ fn on_offence_current_era() {
 		assert_eq!(
 			staking_events_since_last_call(),
 			vec![
-				pallet_staking_async::Event::OffenceReported {
+				staking_async::Event::OffenceReported {
 					offence_era: 1,
 					validator: 5,
 					fraction: Perbill::from_percent(50)
 				},
-				pallet_staking_async::Event::OffenceReported {
+				staking_async::Event::OffenceReported {
 					offence_era: 1,
 					validator: 3,
 					fraction: Perbill::from_percent(50)
@@ -429,7 +512,7 @@ fn on_offence_current_era() {
 		roll_next();
 		assert_eq!(
 			staking_events_since_last_call(),
-			vec![pallet_staking_async::Event::SlashComputed {
+			vec![staking_async::Event::SlashComputed {
 				offence_era: 1,
 				slash_era: 3,
 				offender: 5,
@@ -439,7 +522,7 @@ fn on_offence_current_era() {
 		roll_next();
 		assert_eq!(
 			staking_events_since_last_call(),
-			vec![pallet_staking_async::Event::SlashComputed {
+			vec![staking_async::Event::SlashComputed {
 				offence_era: 1,
 				slash_era: 3,
 				offender: 3,
@@ -457,14 +540,14 @@ fn on_offence_current_era() {
 		roll_next();
 		assert_eq!(
 			staking_events_since_last_call(),
-			vec![pallet_staking_async::Event::Slashed { staker: 3, amount: 50 },]
+			vec![staking_async::Event::Slashed { staker: 3, amount: 50 },]
 		);
 		roll_next();
 		assert_eq!(
 			staking_events_since_last_call(),
 			vec![
-				pallet_staking_async::Event::Slashed { staker: 5, amount: 50 },
-				pallet_staking_async::Event::Slashed { staker: 110, amount: 50 }
+				staking_async::Event::Slashed { staker: 5, amount: 50 },
+				staking_async::Event::Slashed { staker: 110, amount: 50 }
 			]
 		);
 	});
@@ -504,12 +587,12 @@ fn on_offence_current_era_instant_apply() {
 			assert_eq!(
 				staking_events_since_last_call(),
 				vec![
-					pallet_staking_async::Event::OffenceReported {
+					staking_async::Event::OffenceReported {
 						offence_era: 1,
 						validator: 5,
 						fraction: Perbill::from_percent(50)
 					},
-					pallet_staking_async::Event::OffenceReported {
+					staking_async::Event::OffenceReported {
 						offence_era: 1,
 						validator: 3,
 						fraction: Perbill::from_percent(50)
@@ -522,27 +605,27 @@ fn on_offence_current_era_instant_apply() {
 			assert_eq!(
 				staking_events_since_last_call(),
 				vec![
-					pallet_staking_async::Event::SlashComputed {
+					staking_async::Event::SlashComputed {
 						offence_era: 1,
 						slash_era: 1,
 						offender: 5,
 						page: 0
 					},
-					pallet_staking_async::Event::Slashed { staker: 5, amount: 50 },
-					pallet_staking_async::Event::Slashed { staker: 110, amount: 50 }
+					staking_async::Event::Slashed { staker: 5, amount: 50 },
+					staking_async::Event::Slashed { staker: 110, amount: 50 }
 				]
 			);
 			roll_next();
 			assert_eq!(
 				staking_events_since_last_call(),
 				vec![
-					pallet_staking_async::Event::SlashComputed {
+					staking_async::Event::SlashComputed {
 						offence_era: 1,
 						slash_era: 1,
 						offender: 3,
 						page: 0
 					},
-					pallet_staking_async::Event::Slashed { staker: 3, amount: 50 }
+					staking_async::Event::Slashed { staker: 3, amount: 50 }
 				]
 			);
 		});
@@ -608,7 +691,7 @@ fn on_offence_previous_era() {
 		// reported
 		assert_eq!(
 			staking_events_since_last_call(),
-			vec![pallet_staking_async::Event::OffenceReported {
+			vec![staking_async::Event::OffenceReported {
 				offence_era: 1,
 				validator: 3,
 				fraction: Perbill::from_percent(50)
@@ -620,13 +703,13 @@ fn on_offence_previous_era() {
 		assert_eq!(
 			staking_events_since_last_call(),
 			vec![
-				pallet_staking_async::Event::SlashComputed {
+				staking_async::Event::SlashComputed {
 					offence_era: 1,
 					slash_era: 3,
 					offender: 3,
 					page: 0
 				},
-				pallet_staking_async::Event::Slashed { staker: 3, amount: 50 }
+				staking_async::Event::Slashed { staker: 3, amount: 50 }
 			]
 		);
 
@@ -670,7 +753,7 @@ fn on_offence_previous_era_instant_apply() {
 			// reported
 			assert_eq!(
 				staking_events_since_last_call(),
-				vec![pallet_staking_async::Event::OffenceReported {
+				vec![staking_async::Event::OffenceReported {
 					offence_era: 1,
 					validator: 3,
 					fraction: Perbill::from_percent(50)
@@ -682,13 +765,13 @@ fn on_offence_previous_era_instant_apply() {
 			assert_eq!(
 				staking_events_since_last_call(),
 				vec![
-					pallet_staking_async::Event::SlashComputed {
+					staking_async::Event::SlashComputed {
 						offence_era: 1,
 						slash_era: 1,
 						offender: 3,
 						page: 0
 					},
-					pallet_staking_async::Event::Slashed { staker: 3, amount: 50 }
+					staking_async::Event::Slashed { staker: 3, amount: 50 }
 				]
 			);
 

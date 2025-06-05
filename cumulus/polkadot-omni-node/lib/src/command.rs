@@ -227,38 +227,61 @@ where
 			})
 		},
 		Some(Subcommand::Benchmark(cmd)) => {
-			let runner = cli.create_runner(cmd)?;
-
 			// Switch on the concrete benchmark sub-command-
 			match cmd {
 				#[cfg(feature = "runtime-benchmarks")]
-				BenchmarkCmd::Pallet(cmd) => runner.sync_run(|config| {
-					cmd.run_with_spec::<HashingFor<Block<u32>>, ReclaimHostFunctions>(Some(
-						config.chain_spec,
-					))
-				}),
-				BenchmarkCmd::Block(cmd) => runner.sync_run(|config| {
-					let node = new_node_spec(
-						&config,
-						&cmd_config.runtime_resolver,
-						&cli.node_extra_args(),
-					)?;
-					node.run_benchmark_block_cmd(config, cmd)
-				}),
+				BenchmarkCmd::Pallet(cmd) => {
+					let chain = cmd
+						.shared_params
+						.chain
+						.as_ref()
+						.map(|chain| cli.load_spec(&chain))
+						.transpose()?;
+					cmd.run_with_spec::<HashingFor<Block<u32>>, ReclaimHostFunctions>(chain)
+				},
+				BenchmarkCmd::Block(cmd) => {
+					// The command needs the full node configuration because it uses the node
+					// client and the database source, which in its turn has a dependency on the
+					// chain spec, given via the `--chain` flag.
+					let runner = cli.create_runner(cmd)?;
+					runner.sync_run(|config| {
+						let node = new_node_spec(
+							&config,
+							&cmd_config.runtime_resolver,
+							&cli.node_extra_args(),
+						)?;
+						node.run_benchmark_block_cmd(config, cmd)
+					})
+				},
 				#[cfg(feature = "runtime-benchmarks")]
-				BenchmarkCmd::Storage(cmd) => runner.sync_run(|config| {
-					let node = new_node_spec(
-						&config,
-						&cmd_config.runtime_resolver,
-						&cli.node_extra_args(),
-					)?;
-					node.run_benchmark_storage_cmd(config, cmd)
-				}),
-				BenchmarkCmd::Machine(cmd) =>
-					runner.sync_run(|config| cmd.run(&config, SUBSTRATE_REFERENCE_HARDWARE.clone())),
+				BenchmarkCmd::Storage(cmd) => {
+					// The command needs the full node configuration because it uses the node
+					// client and the database API, storage and shared_trie_cache. It requires
+					// the `--chain` flag to be passed.
+					let runner = cli.create_runner(cmd)?;
+					runner.sync_run(|config| {
+						let node = new_node_spec(
+							&config,
+							&cmd_config.runtime_resolver,
+							&cli.node_extra_args(),
+						)?;
+						node.run_benchmark_storage_cmd(config, cmd)
+					})
+				},
+				BenchmarkCmd::Machine(cmd) => {
+					// The command needs the full node configuration, and implicitly a chain
+					// spec to be passed, even if it doesn't use it directly. The `--chain` flag is
+					// relevant in determining the database path, which is used for the disk
+					// benchmark.
+					//
+					// TODO: change `machine` subcommand to take instead a disk path we want to
+					// benchmark?.
+					let runner = cli.create_runner(cmd)?;
+					runner.sync_run(|config| cmd.run(&config, SUBSTRATE_REFERENCE_HARDWARE.clone()))
+				},
 				#[allow(unreachable_patterns)]
 				_ => Err("Benchmarking sub-command unsupported or compilation feature missing. \
-					Make sure to compile with --features=runtime-benchmarks \
+					Make sure to compile omni-node with --features=runtime-benchmarks \
 					to enable all supported benchmarks."
 					.into()),
 			}
