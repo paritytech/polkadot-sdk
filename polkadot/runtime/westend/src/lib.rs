@@ -815,7 +815,9 @@ impl frame_support::traits::EnsureOrigin<RuntimeOrigin> for EnsureAssetHub {
 }
 
 pub struct SessionReportToXcm;
-impl sp_runtime::traits::Convert<rc_client::SessionReport<AccountId>, Xcm<()>> for SessionReportToXcm {
+impl sp_runtime::traits::Convert<rc_client::SessionReport<AccountId>, Xcm<()>>
+	for SessionReportToXcm
+{
 	fn convert(a: rc_client::SessionReport<AccountId>) -> Xcm<()> {
 		Xcm(vec![
 			Instruction::UnpaidExecution {
