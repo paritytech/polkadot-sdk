@@ -13,4 +13,4 @@ doc:
 
 crates:
 - name: pallet-broker
-  bump: patch
+  bump: major
