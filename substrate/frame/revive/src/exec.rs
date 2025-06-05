@@ -1665,6 +1665,10 @@ where
 		// This is for example the case when creating the frame fails.
 		*self.last_frame_output_mut() = Default::default();
 
+		if_tracing(|t| {
+			t.instantiate_code(&crate::Code::Existing(code_hash), salt);
+		});
+
 		let executable = E::from_storage(code_hash, self.gas_meter_mut())?;
 		let sender = &self.top_frame().account_id;
 		let executable = self.push_frame(
