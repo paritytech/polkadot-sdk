@@ -16,7 +16,7 @@
 use crate::{Config, VersionedLocation, VersionedXcm, Weight, WeightInfo};
 use alloc::vec::Vec;
 use codec::{DecodeAll, DecodeLimit, Encode};
-use core::{marker::PhantomData, num::NonZero};
+use core::{fmt, marker::PhantomData, num::NonZero};
 use pallet_revive::{
 	precompiles::{
 		alloy::{self, sol_types::SolValue},
@@ -33,7 +33,7 @@ use IXcm::IXcmCalls;
 
 const LOG_TARGET: &str = "xcm::precompiles";
 
-fn revert(error: &impl std::fmt::Debug, message: &str) -> Error {
+fn revert(error: &impl fmt::Debug, message: &str) -> Error {
 	error!(target: LOG_TARGET, ?error, "{}", message);
 	Error::Revert(message.into())
 }
