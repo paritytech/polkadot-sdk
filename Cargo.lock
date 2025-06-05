@@ -11238,6 +11238,7 @@ dependencies = [
  "log",
  "pallet-balances",
  "pallet-timestamp",
+ "pallet-utility",
  "parity-scale-codec",
  "scale-info",
  "sp-application-crypto 30.0.0",

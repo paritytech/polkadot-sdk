@@ -16,6 +16,7 @@ frame-system = { workspace = true }
 log = { workspace = true }
 pallet-balances = { workspace = true }
 pallet-timestamp = { workspace = true }
+pallet-utility = { workspace = true }
 sp-application-crypto = { workspace = true }
 scale-info = { workspace = true, features = ["derive"] }
 sp-runtime = { workspace = true }
