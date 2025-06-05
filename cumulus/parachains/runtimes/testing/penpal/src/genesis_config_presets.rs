@@ -13,7 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Rococo Parachain Runtime genesis config presets
+//! Penpal Parachain Runtime genesis config presets
 
 use crate::*;
 use alloc::{vec, vec::Vec};
